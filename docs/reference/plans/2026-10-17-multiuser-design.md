@@ -904,6 +904,63 @@ Q2 and Q5 change nothing before slice 8 and can be deferred until then without l
 
 ---
 
+## 14.1 Decisions taken on 2026-10-26 (scope A — identity only)
+
+The four open questions were answered, and the scope was narrowed to **A**:
+
+| # | Question | Decision |
+|---|---|---|
+| Q7 | Auth mechanism | **Keep the browser Basic prompt, but verify against the `users` table** instead of `.env`. No login page, no cookie, no CSRF surface. |
+| — | Roles | **`admin` + `member`** only. |
+| — | Existing accounts | **Bootstrap from `.env` on first boot**, then `.env` stops being read (same rule provider API keys already follow). |
+| — | Password policy | **Minimum 8 characters.** |
+
+**Scope A means: identities, not isolation.** Every person gets a login, an audit
+trail and individual revocation — and keeps seeing and editing every agent,
+workflow, chat and knowledge base in the tenant. Private files (Slice 2) and
+per-user provider keys (Slice 3) are explicitly out of scope.
+
+### Three constraints this scope creates
+
+1. **`.env` stops being a user list.** Editing `LANGCONFIG_LAN_USERS` after the
+   first boot has no effect; users are managed in the app. This must be documented
+   or a team will believe they added someone.
+2. **Data stays shared.** "Has an account" ≠ "data is isolated". Say it twice in
+   training.
+3. **The first credential must satisfy the policy.** The bootstrap imports the
+   `.env` account as the first admin; if its password is shorter than 8 characters
+   it must be changed at first login.
+
+### Slice 1 execution checklist
+
+| Step | Files | Acceptance |
+|---|---|---|
+| 1 | `models/user.py` (new) — username/password_hash/role/is_active | `users` table, scrypt hash, unique username |
+| 2 | `core/security/passwords.py` (new) — `hashlib.scrypt`, no new dependency | hash/verify round-trip; malformed hash = wrong password, never an exception |
+| 3 | `services/user_service.py` (new) — CRUD, `authenticate`, `bootstrap_from_env` | `admin` imported as the first admin; idempotent on re-run |
+| 4 | `core/context/current_user.py` (new) — ContextVar + `require_user` / `require_admin` | available inside route handlers and threadpool work |
+| 5 | `middleware/lan_guard.py` — verify against the DB; loopback → first admin; no users → 503 | existing gate behaviour preserved (401/503/websocket/bypass) |
+| 6 | `api/users/routes.py` (new) — `/me`, password change, admin list/create/disable/role/reset | a member cannot read another profile; admin can |
+| 7 | `api/chat/messages.py`, `services/audit_service.py` — write `user_id` | new sessions and audit rows carry the caller |
+| 8 | `services/chat_session_manager.py`, `models/custom_schema.py` — cache key includes the user | two users on one agent never share a cached instance or schema |
+| 9 | Frontend — user menu, Profile, Admin → Users | change own name/password; admin creates and disables |
+| 10 | Tests | two users sign in; disabled user is refused; audit names the caller; loopback stays password-free |
+
+Steps 1–8 are backend and were started on 2026-10-26; step 9 is UI; step 10 runs
+alongside.
+
+### Already done before Slice 1
+
+- **Slice 0, the urgent part:** built-in tools and skills are now read-only
+  through the API (`3e70b58`). `PUT`/`DELETE /api/custom-tools/{id}` and
+  `PUT /api/skills/{id}` return 403, because `is_builtin` selects the *trusted*
+  exec namespace — rewriting a built-in and calling `POST /{id}/test` was
+  unauthenticated code execution.
+- The two remaining Slice 0 items need a notion of "who is asking", so they moved
+  into Slice 1: the agent-instance cache key and `OutputSchemaRegistry`.
+
+---
+
 ## 15. Appendix — files a first implementation touches
 
 | Concern | Files |
