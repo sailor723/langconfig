@@ -310,3 +310,63 @@ def test_an_absolute_workspace_path_is_re_anchored_to_the_caller(tmp_path):
         assert str(manager.resolve_agent_workspace(_Agent())) == "/tmp/somewhere-else-entirely"
     finally:
         reset_current_user(token)
+
+
+# ── conversations are private too (Slice 3 step 1) ─────────────────────────
+
+def test_conversation_queries_filter_on_user_id(db_session):
+    """`owned(..., column="user_id")` — the conversation tables carry `user_id`,
+    not `owner_id`, and a filter that silently targeted the wrong column would
+    either error or match nothing."""
+    from models.deep_agent import ChatSession
+    from services import workspace_scope
+
+    token = set_current_user(UserContext(id=7, username="g", role="member", via="session"))
+    try:
+        sql = str(
+            workspace_scope.owned(
+                db_session.query(ChatSession), ChatSession, db_session, column="user_id"
+            ).statement.compile(compile_kwargs={"literal_binds": True})
+        )
+        assert "chat_sessions.user_id = 7" in sql
+    finally:
+        reset_current_user(token)
+
+
+def test_someone_elses_session_is_not_mine(db_session):
+    from services import workspace_scope
+
+    class _Session:
+        user_id = 1
+
+    token = set_current_user(UserContext(id=284, username="h", role="member", via="session"))
+    try:
+        assert workspace_scope.same_owner(_Session(), db_session, column="user_id") is False
+    finally:
+        reset_current_user(token)
+
+    token = set_current_user(UserContext(id=1, username="i", role="member", via="session"))
+    try:
+        assert workspace_scope.same_owner(_Session(), db_session, column="user_id") is True
+    finally:
+        reset_current_user(token)
+
+
+def test_every_conversation_has_an_author(db_session):
+    """Migration 035 backfilled the history to the first admin; nothing is ownerless."""
+    from sqlalchemy import text as _text
+
+    admin = db_session.execute(
+        _text("SELECT id FROM users WHERE role='admin' ORDER BY id LIMIT 1")
+    ).scalar()
+    if admin is None:
+        pytest.skip("no admin account")
+
+    for table in ("chat_sessions", "conversation_archives"):
+        total = db_session.execute(_text(f"SELECT count(*) FROM {table}")).scalar()
+        if not total:
+            continue
+        unowned = db_session.execute(
+            _text(f"SELECT count(*) FROM {table} WHERE user_id IS NULL")
+        ).scalar()
+        assert unowned == 0, f"{unowned} of {total} rows in {table} have no author"

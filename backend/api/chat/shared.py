@@ -55,3 +55,25 @@ def cache_agent(session_id: str, agent_instance: Any, agent_id: Optional[int] = 
     else:
         legacy_key = session_id
     active_agents[legacy_key] = agent_instance
+
+def load_session_for_caller(db, session_id: str):
+    """The conversation, or 404.
+
+    Answering 404 rather than 403 for someone else's conversation is deliberate: 403
+    would confirm that the id exists, and these ids are handed around (URLs, copied
+    chat links, logs). A miss and a denial must look the same.
+
+    Used by every route that resolves a session from the URL. Centralised because a
+    per-endpoint check is exactly the thing that gets forgotten in the next endpoint
+    someone adds.
+    """
+    from fastapi import HTTPException
+    from models.deep_agent import ChatSession
+    from services import workspace_scope
+
+    session = (
+        db.query(ChatSession).filter(ChatSession.session_id == session_id).first()
+    )
+    if session is None or not workspace_scope.same_owner(session, db, column="user_id"):
+        raise HTTPException(status_code=404, detail="Session not found")
+    return session

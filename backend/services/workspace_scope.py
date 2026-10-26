@@ -35,27 +35,33 @@ def owner_id(db: Optional[Session] = None) -> Optional[int]:
     return user_roots.subject_user_id(db)
 
 
-def owned(query, model, db: Optional[Session] = None):
-    """Restrict ``query`` to rows belonging to whoever is asking."""
+def owned(query, model, db: Optional[Session] = None, column: str = "owner_id"):
+    """Restrict ``query`` to rows belonging to whoever is asking.
+
+    ``column`` is "owner_id" for file records and "user_id" for the conversation
+    tables, which grew their column before this module existed.
+    """
     uid = owner_id(db)
+    field = getattr(model, column)
     if uid is None:
-        return query.filter(model.owner_id.is_(None))
-    return query.filter(model.owner_id == uid)
+        return query.filter(field.is_(None))
+    return query.filter(field == uid)
 
 
-def same_owner(record, db: Optional[Session] = None) -> bool:
+def same_owner(record, db: Optional[Session] = None, column: str = "owner_id") -> bool:
     """Does this already-fetched row belong to the caller?
 
     For the "by id" routes, which fetch first and must then answer 404 (not 403):
     telling someone "that exists but is not yours" is still telling them it exists.
     """
     uid = owner_id(db)
+    value = getattr(record, column, None)
     if uid is None:
-        return getattr(record, "owner_id", None) is None
-    return getattr(record, "owner_id", None) == uid
+        return value is None
+    return value == uid
 
 
-def stamp(record, db: Optional[Session] = None):
-    """Set ``owner_id`` on a row about to be inserted. Returns the record."""
-    record.owner_id = owner_id(db)
+def stamp(record, db: Optional[Session] = None, column: str = "owner_id"):
+    """Set the owning column on a row about to be inserted. Returns the record."""
+    setattr(record, column, owner_id(db))
     return record

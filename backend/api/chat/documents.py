@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from db.database import get_db
+from .shared import load_session_for_caller
 from models.core import DocumentType, IndexingStatus
 from models.deep_agent import ChatSession, DeepAgentTemplate, SessionDocument
 from services.document_type import resolve_document_type
@@ -380,9 +381,7 @@ async def _process_single_chat_upload(
     """Process a single file upload for chat: save, extract, inject as context message."""
     from services.file_storage import file_storage
 
-    session = db.query(ChatSession).filter(ChatSession.session_id == session_id).first()
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = load_session_for_caller(db, session_id)
 
     content = await file.read()
     file_size = len(content)
@@ -532,9 +531,7 @@ async def list_session_documents(
 ):
     """Get all documents uploaded to this chat session."""
     # Verify session exists
-    session = db.query(ChatSession).filter(ChatSession.session_id == session_id).first()
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = load_session_for_caller(db, session_id)
 
     docs = db.query(SessionDocument).filter(
         SessionDocument.session_id == session_id
@@ -573,11 +570,7 @@ async def list_session_generated_files(
     from datetime import datetime
     from pathlib import Path
 
-    session = db.query(ChatSession).filter(
-        ChatSession.session_id == session_id
-    ).first()
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = load_session_for_caller(db, session_id)
 
     from services.workspace_manager import get_workspace_manager
 

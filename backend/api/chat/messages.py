@@ -51,7 +51,7 @@ from .schemas import (
     SendMessageRequest,
 )
 from .session import resume_chat
-from .shared import cache_agent, get_cached_agent
+from .shared import cache_agent, get_cached_agent, load_session_for_caller
 
 logger = logging.getLogger(__name__)
 # No prefix here: this router is included into routes.router, which already
@@ -1459,12 +1459,7 @@ async def get_chat_history(
 
     Loads from PostgreSQL session.messages (not from checkpointer).
     """
-    session = db.query(ChatSession).filter(
-        ChatSession.session_id == session_id
-    ).first()
-
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = load_session_for_caller(db, session_id)
 
     return ChatHistoryResponse(
         session_id=session.session_id,
@@ -1479,12 +1474,7 @@ async def get_session_metrics(
     db: Session = Depends(get_db)
 ):
     """Get detailed metrics for a chat session with cost calculations."""
-    session = db.query(ChatSession).filter(
-        ChatSession.session_id == session_id
-    ).first()
-
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = load_session_for_caller(db, session_id)
 
     total_tokens = session.metrics.get("total_tokens", 0)
     rag_tokens = session.metrics.get("rag_context_tokens", 0)
@@ -1616,12 +1606,7 @@ async def bank_message(
     Banked messages are prioritized for inclusion when loading conversation
     context into workflows, even if they're old.
     """
-    session = db.query(ChatSession).filter(
-        ChatSession.session_id == session_id
-    ).first()
-
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = load_session_for_caller(db, session_id)
 
     if not session.messages or message_index >= len(session.messages):
         raise HTTPException(status_code=404, detail="Message not found")
@@ -1649,12 +1634,7 @@ async def unbank_message(
     db: Session = Depends(get_db)
 ):
     """Unmark a banked message."""
-    session = db.query(ChatSession).filter(
-        ChatSession.session_id == session_id
-    ).first()
-
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = load_session_for_caller(db, session_id)
 
     if not session.messages or message_index >= len(session.messages):
         raise HTTPException(status_code=404, detail="Message not found")

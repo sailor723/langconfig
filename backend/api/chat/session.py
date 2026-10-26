@@ -21,11 +21,12 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from core.context.current_user import current_user_id
 from db.database import get_db
+from services import workspace_scope
 from models.deep_agent import ChatSession, DeepAgentTemplate
 from services.chat_session_manager import get_session_manager
 
 from .schemas import ChatSessionResponse, StartChatRequest
-from .shared import active_agents, get_cached_agent
+from .shared import active_agents, get_cached_agent, load_session_for_caller
 
 logger = logging.getLogger(__name__)
 # No prefix here: this router is included into routes.router, which already
@@ -66,7 +67,7 @@ async def start_chat_session(
             # The caller, not a client-supplied field: the identity is verified by
             # the LAN gate, the request body is not. `request.user_id` survives only
             # as the fallback for loopback work that predates accounts.
-            user_id=current_user_id() or request.user_id,
+            user_id=workspace_scope.owner_id(db) or request.user_id,
             project_id=request.project_id,  # vault scope for the agent workspace
             messages=[],
             metrics={
@@ -108,12 +109,7 @@ async def end_chat_session(
     db: Session = Depends(get_db)
 ):
     """End a chat session and cleanup resources."""
-    session = db.query(ChatSession).filter(
-        ChatSession.session_id == session_id
-    ).first()
-
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = load_session_for_caller(db, session_id)
 
     # Mark as inactive
     session.is_active = False
@@ -163,8 +159,14 @@ async def list_chat_sessions(
     limit: int = 50,  # Default to 50 most recent conversations
     db: Session = Depends(get_db)
 ):
-    """List all chat sessions, ordered by most recently updated first."""
-    query = db.query(ChatSession).join(
+    """List the caller's chat sessions, most recently updated first.
+
+    Filtered by author: conversations are private, and this list is the whole chat
+    history sidebar. Without the filter every account saw every conversation.
+    """
+    query = workspace_scope.owned(
+        db.query(ChatSession), ChatSession, db, column="user_id"
+    ).join(
         DeepAgentTemplate,
         ChatSession.agent_id == DeepAgentTemplate.id
     )
@@ -243,9 +245,7 @@ async def set_session_title(
     (the first user message) rather than storing an empty string. Length is
     capped at the column width so an over-long name can never break the write.
     """
-    session = db.query(ChatSession).filter(ChatSession.session_id == session_id).first()
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = load_session_for_caller(db, session_id)
 
     title = (request.title or "").strip()[:120]
     session.title = title or None
@@ -277,9 +277,7 @@ async def set_session_favorite(
     is stamped so the pinned list can order by when it was pinned instead of
     re-sorting whenever the conversation receives a message.
     """
-    session = db.query(ChatSession).filter(ChatSession.session_id == session_id).first()
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = load_session_for_caller(db, session_id)
 
     session.is_favorite = bool(request.favorite)
     session.favorited_at = datetime.utcnow() if request.favorite else None
@@ -309,9 +307,9 @@ async def get_chat_health(db: Session = Depends(get_db)):
     stats = manager.get_stats()
 
     # Validate message consistency
-    active_sessions = db.query(ChatSession).filter(
-        ChatSession.is_active == True
-    ).all()
+    active_sessions = workspace_scope.owned(
+        db.query(ChatSession), ChatSession, db, column="user_id"
+    ).filter(ChatSession.is_active == True).all()
 
     inconsistencies = []
     for session in active_sessions:
@@ -351,13 +349,8 @@ async def recover_messages_from_checkpoint(
     LangGraph checkpoint storage, this endpoint can retrieve and restore them.
     """
     try:
-        # Check if session exists
-        session = db.query(ChatSession).filter(
-            ChatSession.session_id == session_id
-        ).first()
-
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
+        # Check the session exists *and belongs to the caller*
+        session = load_session_for_caller(db, session_id)
 
         # Query checkpoint table for this thread_id
         from sqlalchemy import text
@@ -444,13 +437,8 @@ async def restore_messages_from_checkpoint(
         if not recovery_data.get("recovered"):
             raise HTTPException(status_code=404, detail=recovery_data.get("message", "No checkpoint data found"))
 
-        # Get session
-        session = db.query(ChatSession).filter(
-            ChatSession.session_id == session_id
-        ).first()
-
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
+        # Get session (ownership checked — a deleted/foreign id is a 404)
+        session = load_session_for_caller(db, session_id)
 
         # Restore messages
         from sqlalchemy.orm.attributes import flag_modified
@@ -485,12 +473,7 @@ async def resume_chat(
     The agent was paused waiting for human input. This endpoint resumes it
     using LangGraph's Command(resume=...) mechanism.
     """
-    session = db.query(ChatSession).filter(
-        ChatSession.session_id == session_id
-    ).first()
-
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+    session = load_session_for_caller(db, session_id)
 
     # Check agent exists before entering try block. Use the same composite
     # cache key as the streaming path so resumed sessions find their agent.

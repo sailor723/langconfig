@@ -779,6 +779,32 @@ Keep the rewriter dry-run + rollback (§9.3).
 
 **Done when:** A uploads a file; B cannot see it, list it, download it, or reach it from the terminal.
 
+### 14.4 Conversations are private too (landed 2026-10-26)
+
+The last table with a per-user column that was not being used. `chat_sessions.user_id`
+had existed since the first schema and carried a value on **1 of 292** rows; the
+archives and profiles copied it from the session, so they were empty in the same way.
+Files were private and conversations were not — which is the version of "isolated" that
+fails the moment someone opens the history sidebar.
+
+- `035_conversation_ownership` backfills 291 sessions + 463 archive turns to the first
+  admin (the same rule as the file records), and adds the indexes the new filters need
+  — including `updated_at`, which the session list has been sorting on unindexed.
+- `api/chat/shared.py:load_session_for_caller()` is the single place that answers "is
+  this conversation mine?". Every route that resolves a session from the URL goes
+  through it, and answers **404** rather than 403: a 403 would confirm the id exists,
+  and these ids travel in URLs and logs.
+- The list, health, metrics, history, title, favourite, end, recover, restore and
+  resume paths are all scoped; the message and attachment routes inherit it through
+  the same helper.
+- New sessions are attributed from the request identity, with the install-owner
+  fallback the filesystem already uses (so a scheduled run's conversation belongs to
+  the owner instead of nobody).
+
+Live, two accounts: admin lists 291 conversations, user1 lists **1** (one she started
+herself after the migration); opening, renaming, reading history of, or ending one of
+admin's returns **404** for user1 and 200 for admin. 292/292 rows now carry an author.
+
 ### 14.3 Slice 2 in progress — decisions taken 2026-10-26
 
 Three questions were settled before any code, because each one changes the whole
