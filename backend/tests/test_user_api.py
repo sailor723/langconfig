@@ -583,3 +583,24 @@ def test_signing_in_again_clears_the_marker(db_session, accounts):
     set_cookie = response.headers.get("set-cookie", "")
     assert "langconfig_signed_out=" in set_cookie
     _cleanup_sessions(me.id)
+
+
+def test_me_reports_how_the_caller_is_signed_in(db_session, accounts):
+    """`via` tells a person (and a support call) how access was obtained."""
+    me = accounts("viafield")
+    client = _build_client(db_session, _identity(me, role="member"))
+
+    body = client.get("/api/users/me").json()
+    assert body["username"] == me.username
+    assert body["via"] == "lan", "the identity used by this test arrives as a LAN credential"
+
+
+def test_account_list_does_not_carry_via(db_session, accounts):
+    """`via` is about the caller, so it must not leak into other accounts' rows."""
+    me = accounts("vialist", role=UserRole.ADMIN)
+    other = accounts("vialisted")
+    client = _build_client(db_session, _identity(me))
+
+    rows = client.get("/api/users").json()
+    assert {row["username"] for row in rows} >= {me.username, other.username}
+    assert all("via" not in row for row in rows)

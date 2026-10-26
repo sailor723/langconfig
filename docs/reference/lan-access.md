@@ -204,6 +204,40 @@ resolves to the install's owner:
 curl -i http://127.0.0.1:8765/api/users/me       # 200, no credentials, "via":"loopback"
 ```
 
+### One command per host (after a deploy, or when something feels wrong)
+
+```bash
+cd backend
+./scripts/verify_auth.sh 192.168.3.23:8765 -u admin      # prompts for the password
+# or: LANGCONFIG_VERIFY_USER=admin LANGCONFIG_VERIFY_PASSWORD=… ./scripts/verify_auth.sh <host>
+```
+
+19 checks in about a second: unauthenticated refusal (401, no Basic challenge), the
+browser redirect to `/signin`, the page renders a form and is *not* the SPA, wrong
+password, sign-in and its HttpOnly cookie, the cookie against `/api/users/me`,
+`/api/auth/session` and the app document, the session list, sign-out revoking the
+cookie, and Basic still working for scripts. Exit codes: `0` all good, `1` something
+failed (with the failing check named), `2` cannot run.
+Run it **on the host** and it adapts: loopback is the owner there, so it expects 200
+instead of 401 where that is the correct answer.
+
+### Browser end-to-end (the failure that only a browser could see)
+
+The reload loop a user hit lived in the *interaction* of the sign-in page, the 401
+handler and the browser's navigation — every unit test was green. That flow is now
+pinned by a Playwright test, opt-in because it needs a live instance and a browser:
+
+```bash
+cd backend
+LANGCONFIG_E2E_BASE=http://192.168.3.23:8765 \
+LANGCONFIG_E2E_USER=admin LANGCONFIG_E2E_PASSWORD='…' \
+  .venv/bin/python -m pytest tests/test_signin_e2e.py -m e2e -q
+```
+
+It skips (not fails) without those variables or without a browser: install one with
+`.venv/bin/python -m pip install playwright && .venv/bin/python -m playwright install chromium`.
+It counts navigations, so a page that keeps reloading fails instead of hanging.
+
 Tests for the whole chain — gate contract, verification, roles, attribution:
 
 ```bash

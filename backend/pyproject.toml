@@ -112,3 +112,9 @@ norecursedirs = [
 # Auto mode: async test functions run regardless of whether they carry
 # @pytest.mark.asyncio (matches the repo's mixed test styles)
 asyncio_mode = "auto"
+# Markers. `e2e` needs a live instance and a real browser, so it is opt-in
+# (`-m e2e`) and skipped by default rather than silently absent from the suite.
+markers = [
+    "e2e: needs a running instance (LANGCONFIG_E2E_BASE) and a Playwright browser; skipped otherwise",
+    "slow: takes more than a few seconds",
+]

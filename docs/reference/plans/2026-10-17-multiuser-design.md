@@ -953,6 +953,13 @@ restarting mid-work would have refused every LAN user with `503`.
 Ops tool: `backend/scripts/create_user.py` (first admin, resets, `--enable`, `--list`) — the
 recovery path that does not require the app to be usable.
 
+Verification tools added after the first real multi-user session (2026-10-26):
+`backend/scripts/verify_auth.sh` (19 curl checks against any host, loopback-aware) and
+`backend/tests/test_signin_e2e.py` (Playwright, `-m e2e`, counts navigations so a reload loop
+fails instead of hanging). The sign-out button was the first bug in this slice that no unit test
+could have caught — it lived in the interaction of the sign-in page, the 401 handler and the
+browser, which is exactly the gap these two close.
+
 ### 14.2 The two Slice 0 leftovers, decided
 
 - **Agent-instance cache key — done.** `services/chat_session_manager.py` keys entries as

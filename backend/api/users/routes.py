@@ -49,6 +49,17 @@ class UserOut(BaseModel):
     last_login_at: Optional[str] = None
 
 
+class MeOut(UserOut):
+    """Your own profile — plus *how* you are signed in.
+
+    ``via`` is "session" (the sign-in page), "loopback" (this machine's owner) or
+    "lan" (a Basic credential from a script). It is only ever about the caller, so
+    it belongs on /me and not on the account list.
+    """
+
+    via: str
+
+
 class UpdateMeRequest(BaseModel):
     display_name: Optional[str] = Field(None, max_length=128)
 
@@ -90,13 +101,13 @@ def _require_target(db: Session, user_id: int):
 
 # ── self-service ─────────────────────────────────────────────────────────────
 
-@router.get("/me", response_model=UserOut)
+@router.get("/me", response_model=MeOut)
 def get_me(db: Session = Depends(get_db), me=Depends(require_user)):
-    """The caller's own profile."""
+    """The caller's own profile, and how they got in."""
     user = user_service.get_user(db, me.id)
     if user is None:  # deleted between auth and this call
         raise HTTPException(status_code=401, detail="Account no longer exists")
-    return _out(user)
+    return MeOut(**user.to_public(), via=getattr(me, "via", "unknown"))
 
 
 @router.patch("/me", response_model=UserOut)
