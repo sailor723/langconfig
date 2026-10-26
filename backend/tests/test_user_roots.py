@@ -370,3 +370,31 @@ def test_every_conversation_has_an_author(db_session):
             _text(f"SELECT count(*) FROM {table} WHERE user_id IS NULL")
         ).scalar()
         assert unowned == 0, f"{unowned} of {total} rows in {table} have no author"
+
+
+def test_the_agent_shell_and_file_tools_are_scoped_to_the_caller():
+    """The first sandbox root is the caller's tree — where relative paths land and
+    where `bash` starts.
+
+    With the install root in that slot, `pwd` in an agent's shell answered with the
+    shared `outputs/`, and every account's `users/<id>/…` was an allowed path: one
+    person's agent could read another's files by absolute path.
+    """
+    import tools.native_impl as ni
+
+    token = set_current_user(UserContext(id=284, username="u", role="member", via="session"))
+    try:
+        roots = ni._sandbox_roots()
+        assert roots[0] == (user_roots.install_root() / "users" / "284").resolve()
+        # The install root itself must NOT be a root: everything else lives inside it.
+        assert (user_roots.install_root()).resolve() not in roots
+
+        other = user_roots.install_root() / "users" / "1" / "secret.txt"
+        resolved, error = ni._resolve_sandbox_path(str(other))
+        assert resolved is None and "outside the allowed workspace" in error
+
+        own = user_roots.install_root() / "users" / "284" / "mine.txt"
+        resolved, error = ni._resolve_sandbox_path(str(own))
+        assert error is None and resolved == own.resolve()
+    finally:
+        reset_current_user(token)

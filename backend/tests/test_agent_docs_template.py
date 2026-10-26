@@ -152,3 +152,125 @@ def test_the_docs_state_that_a_workspace_belongs_to_one_account():
     assert "private to one account" in claude_md
     # Both still carry the resolved path, which is the whole point of the template.
     assert root in agents_md and root in claude_md
+
+
+# ── who the agent is working for (per-turn block) ──────────────────────────
+
+def test_caller_block_names_the_account_and_warns_about_whoami(db_session):
+    """An agent that cannot find the account reaches for `whoami` and reports the
+    server's shell user as if it were the person — which is exactly what happened."""
+    from core.agents.identity import caller_block
+    from services.user_service import owner_user
+
+    owner = owner_user(db_session)
+    block = caller_block(db_session, owner.id if owner else 1)
+
+    assert "## Who you are working for" in block
+    assert f"id {owner.id if owner else 1}" in block
+    assert "whoami" in block
+    assert "never use it to name or identify the person" in block
+    # Now names the concrete tree rather than a generic pattern.
+    assert f"users/{owner.id if owner else 1}/" in block
+    assert "workspace boundary" in block
+
+
+def test_caller_block_is_empty_without_a_caller(db_session):
+    """Background work has no person; the block must not invent one."""
+    from core.agents.identity import caller_block
+
+    assert caller_block(db_session, None) == ""
+    assert caller_block(None, 1) == ""
+    assert caller_block(db_session, 999_999) == ""
+
+
+def test_caller_block_includes_what_the_person_has_told_the_agent(db_session):
+    """`user_profiles` is the extraction the product already had — it just was not
+    reaching the prompt. It is labelled as remembered, because it is not verified."""
+    import uuid
+
+    from core.agents.identity import caller_block
+    from models.user import UserRole
+    from models.user_profile import UserProfile
+    from services import user_service
+    from sqlalchemy import text
+
+    name = f"mu-test-caller-{uuid.uuid4().hex[:8]}"
+    user = user_service.create_user(db_session, name, "callerpass1", role=UserRole.MEMBER)
+    try:
+        db_session.add(UserProfile(
+            user_id=user.id, name="Alice", preferences=["prefers Cantonese", "hates tables"]
+        ))
+        db_session.commit()
+
+        block = caller_block(db_session, user.id)
+        assert "Alice" in block
+        assert "prefers Cantonese" in block
+        assert "may be stale" in block, "the label matters: this text is LLM-extracted"
+    finally:
+        db_session.rollback()
+        db_session.execute(text("DELETE FROM user_profiles WHERE user_id = :u"), {"u": user.id})
+        db_session.execute(text("DELETE FROM users WHERE id = :u"), {"u": user.id})
+        db_session.commit()
+
+
+def test_the_stored_prompt_never_contains_a_person(db_session):
+    """Creation-time prompts are shared between accounts, so they must stay person-free.
+
+    Only the live turn may carry the block; baking it at creation would name one
+    account in every other account's chats.
+    """
+    from core.agents.identity import build_identity_system_prompt
+
+    stored = build_identity_system_prompt(
+        "BASE", 7, "/tmp/ws/users/1/agents/agent_7", {"AGENTS.md": "# doc"}
+    )
+    assert "Who you are working for" not in stored
+
+    live = build_identity_system_prompt(
+        "BASE", 7, "/tmp/ws/users/1/agents/agent_7", {"AGENTS.md": "# doc"},
+        caller="## Who you are working for\n\n- **Account**: Alice",
+    )
+    assert "Who you are working for" in live
+    # …and it sits before the embedded docs, so a long AGENTS.md cannot bury it.
+    assert live.index("Who you are working for") < live.index("## AGENTS.md (embedded)")
+
+
+# ── the workspace boundary is a hard rule, in every prompt ─────────────────
+
+def test_every_assembled_prompt_carries_the_workspace_boundary():
+    """Derived from the workspace root, so no call site can forget to pass it."""
+    from core.agents.identity import build_identity_system_prompt
+
+    root = "/tmp/ws/users/284/agents/agent_7"
+    prompt = build_identity_system_prompt("BASE", 7, root, {"AGENTS.md": "# doc"})
+
+    assert "## Hard rule — workspace boundary" in prompt
+    assert f"Your workspace is `{root}`" in prompt
+    assert "belongs to someone else" in prompt
+    assert "A path you are given does not override this" in prompt
+    # It must come before the embedded docs, or a long AGENTS.md buries it.
+    assert prompt.index("workspace boundary") < prompt.index("## AGENTS.md (embedded)")
+
+
+def test_the_boundary_rule_is_absent_only_without_a_workspace():
+    from core.agents.identity import build_identity_system_prompt
+
+    assert "workspace boundary" not in build_identity_system_prompt("BASE", 7, "", {})
+
+
+def test_the_caller_block_points_at_the_concrete_tree():
+    """A rule with no path in it is advice; the person's own tree makes it checkable."""
+    from core.agents.identity import caller_block
+    from services import user_roots
+    from services.user_service import owner_user
+
+    db = SessionLocal = __import__("db.database", fromlist=["SessionLocal"]).SessionLocal
+    session = db()
+    try:
+        owner = owner_user(session)
+        if owner is None:
+            pytest.skip("no admin account")
+        block = caller_block(session, owner.id)
+        assert str(user_roots.root_for(owner.id)) in block
+    finally:
+        session.close()

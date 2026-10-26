@@ -473,6 +473,7 @@ async def send_message(
                 from core.agents.identity import (
                     _strip_identity_block,
                     build_identity_system_prompt,
+                    caller_block,
                 )
                 from services.workspace_manager import get_workspace_manager
                 _ws_mgr = get_workspace_manager()
@@ -485,7 +486,10 @@ async def send_message(
                     _safe_config.get("system_prompt", "") or ""
                 )
                 _safe_config["system_prompt"] = build_identity_system_prompt(
-                    _re_base, agent.id, _re_ws_root, agent.agent_docs or {}
+                    _re_base, agent.id, _re_ws_root, agent.agent_docs or {},
+                    # Who is asking, for this turn only — the stored prompt is shared
+                    # between accounts, so the person cannot live in the DB.
+                    caller=caller_block(db, getattr(session, "user_id", None)),
                 )
             config = DeepAgentConfig(**_safe_config)
             if lang_instruction:
@@ -587,13 +591,24 @@ async def send_message(
         # Invoke agent with thread_id for conversation persistence
         # The checkpointer automatically loads and saves conversation history.
         # Turn cap: the agent's own recursion_limit, else the team-wide setting.
-        result = await agent_instance.ainvoke(
-            {"messages": [new_message]},
-            config={
-                "configurable": {"thread_id": session.session_id},
-                "recursion_limit": _resolve_recursion_limit(_safe_config),
-            }
-        )
+        #
+        # The agent's shell + file tools resolve their sandbox from this binding:
+        # inside the harness the request identity is not visible, and without it the
+        # tools fell back to the install owner — so a second account's agent worked in
+        # the first account's tree. The run knows whose workspace it is; say so.
+        from tools.native_impl import bind_run_root, clear_run_root
+        from services import user_roots
+        _run_root_token = bind_run_root(user_roots.root_for(getattr(session, "user_id", None)))
+        try:
+            result = await agent_instance.ainvoke(
+                {"messages": [new_message]},
+                config={
+                    "configurable": {"thread_id": session.session_id},
+                    "recursion_limit": _resolve_recursion_limit(_safe_config),
+                }
+            )
+        finally:
+            clear_run_root(_run_root_token)
 
         # Extract response — iterate backwards for the last non-empty text.
         # When the agent uses task() to delegate, the final AIMessage may have
@@ -1063,6 +1078,7 @@ async def send_message_stream(
                         from core.agents.identity import (
                             _strip_identity_block,
                             build_identity_system_prompt,
+                            caller_block,
                         )
                         _base_prompt = _strip_identity_block(
                             agent_config.get("system_prompt") or ""
@@ -1072,6 +1088,7 @@ async def send_message_stream(
                             agent.id,
                             agent_workspace_root,
                             agent.agent_docs or {},
+                            caller=caller_block(db, getattr(fresh_session, "user_id", None)),
                         )
                     _materialize_agent_docs(agent, agent_workspace_root, db=db)
                     # First message of a fresh session: ask the agent to
@@ -1169,120 +1186,133 @@ async def send_message_stream(
                 # setting (same resolution as the non-streaming path).
                 tool_calls_count = 0
                 collected_tool_names = []  # Track tool names for DB persistence and skill detection
-                async for event in agent_instance.astream_events(
-                    {"messages": [new_message]},
-                    config={
-                        "configurable": {"thread_id": session_id},
-                        "callbacks": [event_handler],
-                        "recursion_limit": _resolve_recursion_limit(agent_config),
-                    },
-                    version="v2"
-                ):
-                    kind = event.get("event")
-                    if kind == "on_tool_start":
-                        tool_calls_count += 1
-                        tool_data = event.get("data", {})
-                        # Tool name is in event["name"] for astream_events v2
-                        tool_name = event.get("name", "unknown")
-                        # Detect skill name from read_file path or task subagent_type
-                        skill_name = None
-                        tool_input = tool_data.get("input", {})
-                        if isinstance(tool_input, dict):
-                            file_path = tool_input.get("file_path", "") or str(tool_input.get("path", ""))
-                            if tool_name == "task":
-                                skill_name = tool_input.get("subagent_type") or tool_input.get("name") or None
-                        else:
-                            file_path = str(tool_input) if tool_input else ""
-                        if "/skills/" in file_path:
-                            parts = file_path.split("/skills/")[1].split("/")
-                            if parts:
-                                skill_name = parts[0]
-                        # Track tool name for persistence
-                        collected_tool_names.append({
-                            "tool_name": tool_name,
-                            "skill_name": skill_name,
-                            "arguments": make_json_safe(tool_data.get("input", {})),
-                            "result": "",
-                            "timestamp": datetime.utcnow().isoformat(),
-                            "status": "running",
-                        })
-                        # Filter out non-serializable objects
-                        safe_data = make_json_safe(tool_data)
-                        yield f"data: {json.dumps({'type': 'tool_start', 'tool_name': tool_name, 'skill_name': skill_name, 'data': safe_data})}\n\n"
+                # Same binding as the non-streaming path: the tools' sandbox comes
+                # from the run, because the harness does not carry the request
+                # identity into tool execution.
+                from tools.native_impl import bind_run_root as _bind_root, clear_run_root as _clear_root
+                from services import user_roots as _user_roots
+                _run_root_token = _bind_root(
+                    _user_roots.root_for(getattr(fresh_session, "user_id", None))
+                )
+                try:
+                    _stream = agent_instance.astream_events(
+                        {"messages": [new_message]},
+                        config={
+                            "configurable": {"thread_id": session_id},
+                            "callbacks": [event_handler],
+                            "recursion_limit": _resolve_recursion_limit(agent_config),
+                        },
+                        version="v2"
+                    )
+                    async for event in _stream:
+                        kind = event.get("event")
+                        if kind == "on_tool_start":
+                            tool_calls_count += 1
+                            tool_data = event.get("data", {})
+                            # Tool name is in event["name"] for astream_events v2
+                            tool_name = event.get("name", "unknown")
+                            # Detect skill name from read_file path or task subagent_type
+                            skill_name = None
+                            tool_input = tool_data.get("input", {})
+                            if isinstance(tool_input, dict):
+                                file_path = tool_input.get("file_path", "") or str(tool_input.get("path", ""))
+                                if tool_name == "task":
+                                    skill_name = tool_input.get("subagent_type") or tool_input.get("name") or None
+                            else:
+                                file_path = str(tool_input) if tool_input else ""
+                            if "/skills/" in file_path:
+                                parts = file_path.split("/skills/")[1].split("/")
+                                if parts:
+                                    skill_name = parts[0]
+                            # Track tool name for persistence
+                            collected_tool_names.append({
+                                "tool_name": tool_name,
+                                "skill_name": skill_name,
+                                "arguments": make_json_safe(tool_data.get("input", {})),
+                                "result": "",
+                                "timestamp": datetime.utcnow().isoformat(),
+                                "status": "running",
+                            })
+                            # Filter out non-serializable objects
+                            safe_data = make_json_safe(tool_data)
+                            yield f"data: {json.dumps({'type': 'tool_start', 'tool_name': tool_name, 'skill_name': skill_name, 'data': safe_data})}\n\n"
 
-                    elif kind == "on_tool_end":
-                        tool_data = event.get("data", {})
-                        tool_name = event.get("name", "unknown")
-                        # Update the running tool call with result
-                        for tc in reversed(collected_tool_names):
-                            if tc["tool_name"] == tool_name and tc["status"] == "running":
-                                output = tool_data.get("output", "")
-                                if isinstance(output, str):
-                                    tc["result"] = output[:500]
-                                elif isinstance(output, dict):
-                                    tc["result"] = json.dumps(output)[:500]
-                                tc["status"] = "completed"
-                                break
-                        # Filter out non-serializable objects
-                        safe_data = make_json_safe(tool_data)
-                        yield f"data: {json.dumps({'type': 'tool_end', 'tool_name': tool_name, 'data': safe_data})}\n\n"
+                        elif kind == "on_tool_end":
+                            tool_data = event.get("data", {})
+                            tool_name = event.get("name", "unknown")
+                            # Update the running tool call with result
+                            for tc in reversed(collected_tool_names):
+                                if tc["tool_name"] == tool_name and tc["status"] == "running":
+                                    output = tool_data.get("output", "")
+                                    if isinstance(output, str):
+                                        tc["result"] = output[:500]
+                                    elif isinstance(output, dict):
+                                        tc["result"] = json.dumps(output)[:500]
+                                    tc["status"] = "completed"
+                                    break
+                            # Filter out non-serializable objects
+                            safe_data = make_json_safe(tool_data)
+                            yield f"data: {json.dumps({'type': 'tool_end', 'tool_name': tool_name, 'data': safe_data})}\n\n"
 
-                    # Stream custom events (LangGraph-style progress bars, status badges, etc.)
-                    elif kind == "on_custom_event" or (kind == "custom_event"):
-                        custom_data = event.get("data", {})
-                        safe_data = make_json_safe(custom_data)
-                        yield f"data: {json.dumps({'type': 'custom_event', 'data': safe_data})}\n\n"
+                        # Stream custom events (LangGraph-style progress bars, status badges, etc.)
+                        elif kind == "on_custom_event" or (kind == "custom_event"):
+                            custom_data = event.get("data", {})
+                            safe_data = make_json_safe(custom_data)
+                            yield f"data: {json.dumps({'type': 'custom_event', 'data': safe_data})}\n\n"
 
-                    # Stream LLM tokens as they're generated
-                    elif kind == "on_chat_model_stream":
-                        chunk_content = event.get("data", {}).get("chunk")
-                        if chunk_content and hasattr(chunk_content, "content"):
-                            token = chunk_content.content
+                        # Stream LLM tokens as they're generated
+                        elif kind == "on_chat_model_stream":
+                            chunk_content = event.get("data", {}).get("chunk")
+                            if chunk_content and hasattr(chunk_content, "content"):
+                                token = chunk_content.content
 
-                            # Ensure token is a string (handle cases where content might be a list of blocks)
-                            if isinstance(token, list):
-                                # Skip empty lists
-                                if not token:
+                                # Ensure token is a string (handle cases where content might be a list of blocks)
+                                if isinstance(token, list):
+                                    # Skip empty lists
+                                    if not token:
+                                        continue
+                                    # Extract text from content blocks: [{'text': '...', 'type': 'text'}, ...]
+                                    parts = [
+                                        block.get("text", "") if isinstance(block, dict) else str(block)
+                                        for block in token
+                                    ]
+                                    # Join parts directly - streaming sends complete tokens
+                                    token = "".join(parts)
+                                elif token is None:
                                     continue
-                                # Extract text from content blocks: [{'text': '...', 'type': 'text'}, ...]
-                                parts = [
-                                    block.get("text", "") if isinstance(block, dict) else str(block)
-                                    for block in token
-                                ]
-                                # Join parts directly - streaming sends complete tokens
-                                token = "".join(parts)
-                            elif token is None:
-                                continue
-                            elif not isinstance(token, str):
-                                token = str(token)
+                                elif not isinstance(token, str):
+                                    token = str(token)
 
-                            if token:
-                                # Apply StreamingFilter to strip <think> and <tool_call> tags and their contents
-                                # The filter captures stripped think content in think_buffer
-                                filtered_token = stream_filter.feed(token)
+                                if token:
+                                    # Apply StreamingFilter to strip <think> and <tool_call> tags and their contents
+                                    # The filter captures stripped think content in think_buffer
+                                    filtered_token = stream_filter.feed(token)
                                 
-                                # Emit think content that was captured since last feed
-                                think_content = stream_filter.think_buffer
-                                if think_content and not stream_filter.in_think:
-                                    # Think block just closed — emit all captured content
-                                    yield f"data: {json.dumps({'type': 'thinking', 'content': think_content})}\n\n"
-                                    stream_filter.think_buffer = ""  # Reset after emit
+                                    # Emit think content that was captured since last feed
+                                    think_content = stream_filter.think_buffer
+                                    if think_content and not stream_filter.in_think:
+                                        # Think block just closed — emit all captured content
+                                        yield f"data: {json.dumps({'type': 'thinking', 'content': think_content})}\n\n"
+                                        stream_filter.think_buffer = ""  # Reset after emit
                                 
-                                if filtered_token:
-                                    full_response += filtered_token
-                                    yield f"data: {json.dumps({'type': 'chunk', 'content': filtered_token})}\n\n"
+                                    if filtered_token:
+                                        full_response += filtered_token
+                                        yield f"data: {json.dumps({'type': 'chunk', 'content': filtered_token})}\n\n"
 
-                    # Stream interrupt events (Human-in-the-Loop)
-                    elif kind == "__interrupt__":
-                        interrupt_data = event.get("data", {})
-                        safe_data = make_json_safe(interrupt_data)
-                        logger.info(f"Agent interrupted for session {session_id}: {str(safe_data)[:300]}")
-                        payload = json.dumps({
-                            'type': 'interrupt',
-                            'session_id': session_id,
-                            'data': safe_data,
-                        })
-                        yield f"data: {payload}\n\n"
+                        # Stream interrupt events (Human-in-the-Loop)
+                        elif kind == "__interrupt__":
+                            interrupt_data = event.get("data", {})
+                            safe_data = make_json_safe(interrupt_data)
+                            logger.info(f"Agent interrupted for session {session_id}: {str(safe_data)[:300]}")
+                            payload = json.dumps({
+                                'type': 'interrupt',
+                                'session_id': session_id,
+                                'data': safe_data,
+                            })
+                            yield f"data: {payload}\n\n"
+
+                finally:
+                    _clear_root(_run_root_token)
 
                 # After stream completes, check for pending interrupts
                 interrupted = False

@@ -666,12 +666,58 @@ async def tavily_search(query: str, max_results: int = 5) -> str:
 # an agent cannot read arbitrary server paths (.env, /etc, source dirs, ...).
 # ---------------------------------------------------------------------------
 
+#: The workspace root of the *run* currently executing, bound by the caller that
+#: started it. Why a ContextVar and not the request identity: the agent harness
+#: executes tools in its own task, where the request's identity ContextVar is not
+#: visible — the fallback then resolved to the install owner, so a second account's
+#: agent happily read the first account's files. The run knows its workspace; it just
+#: has to say so.
+_RUN_ROOT: "ContextVar[Optional[str]]" = ContextVar("langconfig_agent_run_root", default=None)
+
+
+def bind_run_root(path) -> object:
+    """Bind the workspace root for the duration of a run. Returns a reset token."""
+    return _RUN_ROOT.set(str(path))
+
+
+def clear_run_root(token) -> None:
+    try:
+        _RUN_ROOT.reset(token)
+    except ValueError:  # token from another context — harmless
+        pass
+
+
+def current_run_root() -> Optional[str]:
+    return _RUN_ROOT.get()
+
+
 def _sandbox_roots() -> list:
-    """Roots the filesystem tools are allowed to touch (resolved)."""
+    """Roots the filesystem tools are allowed to touch (resolved).
+
+    The FIRST root is where relative paths land and where `bash` starts, and it is
+    the **caller's** workspace (`<install>/users/<id>/`), not the install root. That
+    distinction is the whole point: with the install root in this list, every account's
+    tree (`users/<someone else>/…`) was an allowed path, so one person's agent could
+    read another's files by absolute path — and a bare `pwd` in the shell answered with
+    the shared root, which is how the agent decided to work there.
+
+    The other entries are shared by design: `data/` holds the knowledge base, and
+    `.workspace_data` / the presentation dir are tool-owned.
+    """
     backend_dir = Path(__file__).resolve().parent.parent
-    from services.workspace_manager import get_workspace_manager
+    from services import user_roots
+
+    bound = _RUN_ROOT.get()
+    if bound:
+        private_root = Path(bound)
+    else:
+        try:
+            private_root = user_roots.current_root()
+        except Exception:  # no identity and no DB → fall back to the install root
+            private_root = backend_dir / "outputs"
+
     roots = [
-        get_workspace_manager().base_dir,   # backend/outputs (write_file home)
+        private_root,                        # this person's tree (write_file home, bash cwd)
         backend_dir / ".workspace_data",     # agent workspaces (AGENTS.md etc.)
         backend_dir / "data",                # uploaded documents / analysis outputs
         backend_dir.parent / "data",         # repo-root data/ (sql-skill-generator etc.)
