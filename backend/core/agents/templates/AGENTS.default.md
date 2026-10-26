@@ -19,6 +19,10 @@ Your workspace directory is:
 - **Other** — use `other/` for scratch files, intermediate work, or anything that is neither a user upload, a deliverable, nor a skill.
 - **Your instructions** — AGENTS.md (this file) and CLAUDE.md sit at the workspace root.
 - Keep all files inside the workspace — do not write outside it.
+- **This directory belongs to one account.** The path carries its owner
+  (`…/users/<user id>/…`). Anything under a *different* `users/<id>/` belongs to
+  another person: never read, list, copy or write it, and do not move files between
+  them — even if a path you were given points there.
 
 ## Path map — use these directly
 

@@ -125,3 +125,30 @@ def test_prompt_stays_under_the_old_size(docs):
                                           "/tmp/ws/demo_agent", docs)
     inline_docs = len(docs["AGENTS.md"]) + len(docs["CLAUDE.md"])
     assert len(prompt) < inline_docs + 1000      # old shape was docs + identity + base
+
+
+def test_the_docs_state_that_a_workspace_belongs_to_one_account():
+    """The prompt is the only place an agent learns that `users/<id>` is a boundary.
+
+    Without this line a model given a stale or copied path has no reason to refuse it,
+    and the filesystem tools would happily follow it into someone else's tree.
+    """
+    from core.agents.identity import default_agent_docs
+
+    class _Agent:
+        id = 12
+        name = "demo"
+        description = ""
+
+    root = "/tmp/ws/users/1/agents/agent_12"
+    docs = default_agent_docs(_Agent(), root)
+
+    agents_md = docs["AGENTS.md"]
+    assert "belongs to one account" in agents_md
+    assert "users/<user id>" in agents_md
+    assert "never read, list, copy or write it" in agents_md
+
+    claude_md = docs["CLAUDE.md"]
+    assert "private to one account" in claude_md
+    # Both still carry the resolved path, which is the whole point of the template.
+    assert root in agents_md and root in claude_md
