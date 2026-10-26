@@ -603,7 +603,22 @@ async def update_skill(skill_id: str, request: SkillUpdateRequest):
         finally:
             db.close()
 
-    # Registry skill (builtin)
+    # Registry skill (builtin) — read-only through the API.
+    # The DB row's source_path for a builtin points at backend/skills/builtin/<id>/,
+    # and the update path write-throughs to that git-tracked SKILL.md, so editing
+    # one here rewrites a file every install shares. Customising a builtin skill
+    # means copying it (the Skills UI create flow), not mutating the original.
+    if getattr(skill, "source_type", None) in ("builtin", "SkillSourceType.BUILTIN") or str(
+        getattr(skill, "source_type", "")
+    ).lower().endswith("builtin"):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"'{skill_id}' is a built-in skill and is read-only. "
+                "Copy it into a personal skill to customise it."
+            ),
+        )
+
     if request.name is not None:
         skill.name = request.name
     if request.description is not None:

@@ -314,6 +314,20 @@ async def update_custom_tool(
         if not tool:
             raise HTTPException(status_code=404, detail=f"Custom tool '{tool_id}' not found")
 
+        # Built-in tools are seeded from code and execute in a TRUSTED namespace
+        # (core/tools/factory/builders.py: is_builtin => full __builtins__ + os/io),
+        # so letting a caller rewrite one is privilege escalation: edit the row,
+        # then POST /{tool_id}/test to run it. Built-ins are read-only through the
+        # API; customising one means duplicating it (POST /{tool_id}/duplicate).
+        if getattr(tool, "is_builtin", False):
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f"'{tool_id}' is a built-in tool and is read-only. "
+                    "Duplicate it to make an editable copy."
+                ),
+            )
+
         # Update fields
         if tool_data.name is not None:
             tool.name = tool_data.name
@@ -387,6 +401,15 @@ async def delete_custom_tool(
 
         if not tool:
             raise HTTPException(status_code=404, detail=f"Custom tool '{tool_id}' not found")
+
+        if getattr(tool, "is_builtin", False):
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f"'{tool_id}' is a built-in tool and cannot be deleted. "
+                    "It ships with the platform and is restored by the seed."
+                ),
+            )
 
         tool_name = tool.name
         db.delete(tool)
