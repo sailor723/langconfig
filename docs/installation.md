@@ -601,6 +601,120 @@ identity baked into agents points at the same folders the runtime uses.
 
 ---
 
+### If other people (or the internet) will reach this machine
+
+Two shapes to get right, and one of them can silently remove *all* authentication.
+
+**Shape 1 — a few people on your LAN.** Set `LANGCONFIG_LAN_ACCESS=on`, run
+`npm run build` (LAN users load the built bundle from `:8765`, not the Vite dev
+server), create accounts, and hand out `http://<this-ip>:8765`. Nothing else is
+needed; the sign-in page and the gate are documented in
+[`reference/lan-access.md`](reference/lan-access.md).
+
+**Shape 2 — one server, e.g. a single Aliyun ECS with a domain and HTTPS.** The
+trap: the LAN gate treats a request **from 127.0.0.1 as this machine's owner and
+skips authentication entirely** (that is what keeps local development
+password-free). So this deployment defeats the gate completely:
+
+```text
+internet ──► nginx (apt install, host network) ──► http://127.0.0.1:8765
+                                                    backend sees 127.0.0.1
+                                                    → owner, no login, everyone is admin
+```
+
+You can see the difference on any machine:
+
+```bash
+curl -s http://127.0.0.1:8765/api/users/me   | head -c 80   # 200, "via":"loopback" — no credentials
+curl -s http://<this-ip>:8765/api/users/me   | head -c 80   # 401 — a real front door
+```
+
+**The rule: the TLS terminator must not reach the backend over loopback on the same
+host.** Put nginx in the compose network instead of installing it on the host, and
+publish nothing but nginx. The backend then sees the container-network address (a
+normal, non-loopback client) and the gate does its job.
+
+```yaml
+# docker-compose.yml (illustrative; postgres/redis as they are today)
+services:
+  backend:
+    build: .                       # your image, or image: + volume for the repo
+    env_file: .env
+    environment:
+      LANGCONFIG_LAN_ACCESS: "on"
+      LANGCONFIG_COOKIE_SECURE: "on"     # HTTPS only; a Secure cookie is dropped over HTTP
+    expose: ["8765"]                     # NOT `ports:` — never reachable from the host/publicly
+    depends_on: [postgres]
+    networks: [langconfig-network]
+
+  nginx:
+    image: nginx:alpine
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/00-upgrade.conf:/etc/nginx/conf.d/00-upgrade.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on: [backend]
+    networks: [langconfig-network]
+```
+
+```nginx
+# deploy/00-upgrade.conf — `map` is only valid at the http{} level, which is why it
+# lives in its own file under conf.d rather than inside the server block. Without
+# it nginx refuses to start with "unknown variable $connection_upgrade".
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+```
+
+```nginx
+# deploy/nginx.conf — one upstream, no auth here (the app has its own)
+server {
+    listen 443 ssl;
+    server_name langconfig.example.com;
+    ssl_certificate     /etc/letsencrypt/live/langconfig.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/langconfig.example.com/privkey.pem;
+
+    # SSE (/api/chat/stream, workflow execution) and the terminal WebSocket both
+    # need these, or the UI hangs with no error.
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_buffering off;              # SSE must not be buffered
+    proxy_read_timeout 3600s;
+
+    location / {
+        proxy_pass http://backend:8765;   # service name, NOT 127.0.0.1
+    }
+}
+```
+
+Checklist for that shape:
+
+| Item | Why |
+|---|---|
+| nginx is a compose service, `proxy_pass http://backend:8765` | keeps requests non-loopback, so authentication still happens |
+| `backend` uses `expose:`, never `ports:` | `:8765` on the host would be reachable directly, bypassing TLS *and* looking like loopback to anything on the box |
+| `LANGCONFIG_COOKIE_SECURE=on` | the session cookie should be `Secure` once TLS exists; set it *only* then |
+| certificates mounted read-only | nginx in a container cannot read the host's `/etc/letsencrypt` otherwise |
+| `proxy_buffering off` + long `proxy_read_timeout` | chat/workflow streams are SSE; buffering makes them arrive all at once or never |
+| `X-Forwarded-For` is not trusted by the gate | it keys on the source address, so a forged header changes nothing — do not add one expecting it to |
+
+After it is up, verify from the ECS itself and from outside:
+
+```bash
+cd backend
+./scripts/verify_auth.sh -s langconfig.example.com -u admin     # -s = HTTPS; 19 checks
+./scripts/verify_auth.sh -s langconfig.example.com -u alice     # then once per real account
+```
+
+The checks that matter most on a public host are the first two: an unauthenticated
+`/` must redirect to `/signin`, and `/api/users/me` must answer **401**. If either
+answers 200 without credentials, the proxy is reaching the backend over loopback —
+fix that before anything else.
+
 ---
 
 ## 3. Seed the database — install and update alike

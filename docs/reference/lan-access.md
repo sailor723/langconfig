@@ -301,7 +301,6 @@ APIs; the app hit this and has one fix in place:
 | Sign-in page loads, but the app is blank afterwards | cookie not stored (Secure cookie on plain HTTP, or cookies blocked) | leave `LANGCONFIG_COOKIE_SECURE` unset on plain HTTP, allow cookies for the host |
 | Signed in, then thrown back to the page every few minutes | cookie is being dropped as third-party (embedded/inlined) or cleared by a privacy extension | open `http://<ip>:8765` directly, not inside another site's frame |
 | The page keeps reloading in a loop | a stale `langconfig_signed_out` cookie (cookies ignore ports, so a sign-out on `:8765` also marks `:1421`), plus `/signin` not reaching the backend on the dev server | fixed in `vite.config.ts` (proxy) and in the 401 handler, which never bounces a page that is already at `/signin`; signing in once clears the marker |
-| Browser shows a login box for `192.168…` | working as intended | enter your own name and password |
 | A person suddenly gets `401` | their account was disabled (in **Users**), or the password was reset | re-enable, or give them the new password |
 | An account added to `.env` never appears | `.env` is bootstrap-only and was already imported once | add the account in **Users** |
 | `403` "Administrator role required." | that account is a member | promote it in **Users** as an admin |
@@ -312,8 +311,7 @@ APIs; the app hit this and has one fix in place:
 | Local dev suddenly asks for a password | you opened `:8765` from another interface, not loopback | use `localhost`/`127.0.0.1`, or send credentials |
 | A webhook receiver now returns 401 | external endpoint hitting a gated path | add its prefix to `LANGCONFIG_LAN_BYPASS_PATHS` — **only** if it verifies its own signatures |
 | Everyone is locked out | the last admin's password was lost or the account was disabled | `create_user.py --reset-password` or `--enable` on the server |
-| "Signed out" page reappears after signing in | the sign-in link was opened with the marker still set | use the **Sign in** button on that page (it clears the cookie); a bookmark to `/` will stay signed out until you do |
-| Signed out, but clicking Sign in returns to the same person | expected — the browser replays its saved credential | close the browser or use a private window to be a different person |
+| Signed out, but signing in returns to the same person | expected for a browser that signed in through the old Basic prompt: it replays its saved credential | close the browser or use a private window to be a different person |
 
 ## 8. If you need this beyond a trusted LAN
 
@@ -323,13 +321,22 @@ Traefik) with HTTPS and its own auth, or reach the machine over WireGuard/Tailsc
 off the public internet entirely. `LANGCONFIG_LAN_BYPASS_PATHS` and the loopback exemption are
 both things you would want to re-examine under that setup.
 
-**A specific trap worth knowing.** If the reverse proxy runs on *this same machine*, every request
-reaches the backend from `127.0.0.1`, so the loopback exemption applies to all of them and LAN
-mode protects nothing — the backend sees only "local" traffic, which resolves to the install's
-owner. In that topology the proxy *is* the gate; treat `LANGCONFIG_LAN_ACCESS` as off and make
-sure the proxy is the thing doing authentication. If you need per-person attribution *through* a
-proxy, the proxy must pass the credential through (an `Authorization` header it does not consume)
-rather than authenticate on the backend's behalf.
+**A specific trap worth knowing.** If the reverse proxy runs on *this same machine* and forwards to
+`127.0.0.1:8765`, every request reaches the backend from loopback, so the exemption applies to all
+of them and LAN mode protects **nothing** — the backend sees only "local" traffic, which resolves
+to the install's owner. Everyone who can reach the domain is an admin, and the sign-in page never
+appears.
+
+The fix is not code, it is topology: the TLS terminator must reach the backend over a non-loopback
+address. Put nginx in the compose network (`proxy_pass http://backend:8765`) and publish nothing
+but nginx. A worked Aliyun single-ECS configuration — compose services, nginx config, the SSE and
+WebSocket settings that setups usually miss, and the checks that prove authentication is still
+active — is in [`../installation.md`](../installation.md) §2, "If other people (or the internet)
+will reach this machine".
+
+If you cannot change the topology, the proxy *is* the gate: treat `LANGCONFIG_LAN_ACCESS` as off
+and make the proxy do authentication, accepting that the app then cannot attribute anything to a
+person.
 
 ## 9. When this is not enough — separate data per person
 
