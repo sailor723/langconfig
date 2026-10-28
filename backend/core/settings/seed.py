@@ -45,8 +45,11 @@ def ensure_settings_seeded(db: Optional[Session] = None) -> int:
         store.ensure_table(db)
         written = 0
         for ns, doc in get_defaults().items():
-            if not store.row_exists(db, ns):
-                store.put_document(db, ns, doc)
+            # Seed the SHARED (owner) layer explicitly: this runs at boot, but it
+            # is also called from scripts, and an implicit identity would write
+            # whoever happens to be logged in instead of the site-wide default.
+            if not store.row_exists(db, ns, store.OWNER_USER_ID):
+                store.put_document(db, ns, doc, user_id=store.OWNER_USER_ID)
                 written += 1
         if written:
             logger.info("settings seed: wrote %d default document(s)", written)

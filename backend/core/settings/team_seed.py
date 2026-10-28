@@ -144,7 +144,12 @@ def apply_team_seed(path: Optional[Path] = None, db: Optional[Session] = None) -
             ours = _strip_secrets(ns, ours, blocked)
             base = base_all.get(ns, {})
             try:
-                theirs = store.get_document(db, ns) if store.row_exists(db, ns) else {}
+                # The team seed is the site-wide baseline → the owner/shared
+                # layer, never the importing admin's personal section.
+                theirs = (
+                    store.get_document(db, ns, store.OWNER_USER_ID)
+                    if store.row_exists(db, ns, store.OWNER_USER_ID) else {}
+                )
             except Exception as exc:              # noqa: BLE001 — one field must not stop a seed
                 # Reading a namespace decrypts its secrets, so a single value written under a
                 # different API_KEY_ENCRYPTION_KEY used to abort the whole run here — after nine
@@ -161,7 +166,7 @@ def apply_team_seed(path: Optional[Path] = None, db: Optional[Session] = None) -
             before = json.dumps(theirs, sort_keys=True)
             merged = _merge(base, ours, theirs, ns, applied, kept)
             if json.dumps(merged, sort_keys=True) != before:
-                store.put_document(db, ns, merged)
+                store.put_document(db, ns, merged, user_id=store.OWNER_USER_ID)
                 written += 1
         if written:
             db.commit()

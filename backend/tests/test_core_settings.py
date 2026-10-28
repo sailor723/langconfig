@@ -297,7 +297,7 @@ def test_secret_encrypted_at_rest(db_session_factory):
         # consumer-facing document is decrypted
         assert doc["api_keys"]["openai_api_key"] == "sk-test-secret"
         # the raw DB row holds ciphertext
-        row = db.get(cs.SettingsDocument, "models")
+        row = db.get(cs.SettingsDocument, (cs.store.OWNER_USER_ID, "models"))
         stored = row.document["api_keys"]["openai_api_key"]
         assert stored.startswith("gAAAA")  # Fernet prefix
         assert stored != "sk-test-secret"

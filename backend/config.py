@@ -321,6 +321,12 @@ def _db_api_key_only(key_name: str) -> Optional[str]:
 
     Phase 5: reads the ``models`` settings document (core/settings) — the
     legacy single-row ``settings.api_keys`` column is no longer written.
+
+    Migration 037 made settings per-account, so this reads the **calling
+    account's** credentials and falls back to the shared/owner layer field by
+    field: a user who has configured their own provider keys never spends the
+    owner's, and a user who has not gets the owner's instead of nothing.
+
     Read-only: never creates the table; a missing table (pre-migration DB)
     resolves to None so the caller falls back to .env.
     """
@@ -329,8 +335,12 @@ def _db_api_key_only(key_name: str) -> Optional[str]:
         from db.database import SessionLocal
         db = SessionLocal()
         try:
-            doc = store.get_document(db, "models")
-            return (doc.get("api_keys") or {}).get(key_name) or None
+            own, effective = store.get_effective_document(db, "models")
+            own_keys = own.get("api_keys") or {}
+            # Own value first even if it is falsy-but-set ("" means "cleared").
+            if own_keys.get(key_name):
+                return own_keys[key_name]
+            return (effective.get("api_keys") or {}).get(key_name) or None
         finally:
             db.close()
     except Exception:

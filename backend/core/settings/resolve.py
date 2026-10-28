@@ -4,13 +4,18 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Settings resolution — merge schema defaults with the user document.
+Settings resolution — merge schema defaults with the account's document.
 
-DSH resolution order is ``schema defaults → base layer → user section``; with
-the base layer folded into the seeded document (see docs/settings-refactor.md),
-LangConfig resolves ``schema defaults → DB user document``. ``value`` is the
-merged, decrypted section for internal consumers; ``wire()`` is the redacted
-view the API returns (secrets stripped + enumerated).
+Resolution order is ``schema defaults → shared (owner) section → own section``.
+The shared layer exists because migration 037 made settings per-account without
+breaking the installs that already had one: the owner's row doubles as the
+site-wide default, and an account that sets only a single credential still
+inherits the rest.
+
+``value`` is the merged, decrypted section for internal consumers; ``user`` is
+the account's **own** section (nothing inherited), which is what the Settings UI
+must edit — otherwise "save" would copy the inherited values into the account's
+own document. ``wire()`` adds the redacted view the API returns.
 """
 
 from __future__ import annotations
@@ -31,10 +36,13 @@ class ResolvedNamespace:
 
     ns: str
     schema: type[BaseModel]
-    value: dict  # merged defaults + user section, decrypted (internal)
-    user: dict  # raw user section, decrypted
+    value: dict  # merged defaults + shared + own, decrypted (internal)
+    user: dict  # own section only, decrypted (what this account set)
     revision: int
     writable: bool = True
+    #: True when some effective value came from the shared/owner layer, i.e. the
+    #: account is inheriting rather than running entirely on its own settings.
+    inherits: bool = False
 
     def wire(self) -> dict:
         """Wire-safe view: secrets stripped from value/user and enumerated."""
@@ -47,36 +55,45 @@ class ResolvedNamespace:
             "user": redacted_user,
             "revision": self.revision,
             "writable": self.writable,
+            "inherit": self.inherits,
             "secrets": secrets,
         }
 
 
-def resolve(db: Optional[Session], ns: str) -> ResolvedNamespace:
-    """Resolve one namespace: schema defaults overlaid with the user document.
+def resolve(
+    db: Optional[Session], ns: str, user_id: Optional[int] = None
+) -> ResolvedNamespace:
+    """Resolve one namespace for an account (default: the caller).
 
     ``db=None`` yields the pure schema-defaults view (user={}, revision=0) —
     useful for defaults-only consumers and tests.
     """
     spec = registry.get(ns)
-    user = store.get_document(db, ns) if db is not None else {}
+    if db is None:
+        own, effective = {}, {}
+    else:
+        own, effective = store.get_effective_document(db, ns, user_id)
     defaults = spec.schema().model_dump()
-    merged = {**defaults, **user}
+    merged = {**defaults, **effective}
     value = spec.schema.model_validate(merged).model_dump()
-    revision = store.get_revision(db, ns) if db is not None else 0
+    revision = store.get_revision(db, ns, user_id) if db is not None else 0
     return ResolvedNamespace(
         ns=ns,
         schema=spec.schema,
         value=value,
-        user=user,
+        user=own,
         revision=revision,
+        inherits=bool(effective) and effective != own,
     )
 
 
-def resolve_all(db: Optional[Session]) -> list[ResolvedNamespace]:
+def resolve_all(db: Optional[Session], user_id: Optional[int] = None) -> list[ResolvedNamespace]:
     """Resolve every registered namespace, in registration order."""
-    return [resolve(db, ns) for ns in registry.namespaces()]
+    return [resolve(db, ns, user_id) for ns in registry.namespaces()]
 
 
-def resolve_value(db: Optional[Session], ns: str) -> dict:
+def resolve_value(
+    db: Optional[Session], ns: str, user_id: Optional[int] = None
+) -> dict:
     """Convenience: just the merged value dict."""
-    return resolve(db, ns).value
+    return resolve(db, ns, user_id).value

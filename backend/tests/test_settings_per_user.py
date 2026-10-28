@@ -1,0 +1,263 @@
+# Copyright (c) 2025 Cade Russell (Ghost Peony)
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+"""Per-account settings and credentials (migration 037).
+
+Why this exists: ``settings_documents`` used to hold one row per namespace, so
+every account on an instance spent the same provider keys — including the web
+search keys, which are billed per query. 037 keys the row by ``(user_id, ns)``,
+and the owner's row doubles as the shared layer, so:
+
+  own value  →  shared (owner) value  →  schema default
+
+The tests below pin the three properties that make that safe:
+
+1. isolation — an account that sets a key never sees another account's;
+2. inheritance — a field the account did not set still resolves;
+3. no leakage on write — saving settings for one account must not copy the
+   inherited values into its row (which would freeze the inherited key).
+
+Requires PostgreSQL (TEST_DATABASE_URL), like the rest of the DB-backed suite.
+"""
+
+import os
+
+import pytest
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+
+from core import settings as cs
+from core.settings import store
+
+TEST_DATABASE_URL = os.getenv(
+    "TEST_DATABASE_URL",
+    "postgresql+asyncpg://langconfig:langconfig_dev@localhost:5432/langconfig_test",
+)
+SYNC_URL = TEST_DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
+
+OWNER = store.OWNER_USER_ID
+ALICE = 284
+BOB = 1070
+
+
+@pytest.fixture(scope="module")
+def db_session_factory():
+    engine = create_engine(SYNC_URL, pool_pre_ping=True)
+    Session = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    yield Session
+    engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def clean_documents(db_session_factory):
+    cs._reset_table_ensure()  # noqa: SLF001 — test hook
+    db = db_session_factory()
+    try:
+        cs.ensure_table(db)
+        cs.reset_documents(db)
+    finally:
+        db.close()
+    yield
+    db = db_session_factory()
+    try:
+        cs.reset_documents(db)
+    finally:
+        db.close()
+
+
+def _set_key(db, user_id, key_name, value):
+    return store.mutate(
+        db,
+        "models",
+        [{"op": "set", "path": ["api_keys", key_name], "value": value}],
+        user_id=user_id,
+    )
+
+
+def _key(db, user_id, key_name):
+    _own, effective = store.get_effective_document(db, "models", user_id)
+    return (effective.get("api_keys") or {}).get(key_name)
+
+
+# ── isolation ────────────────────────────────────────────────────────────────
+
+def test_an_account_key_is_not_visible_to_another(db_session_factory):
+    db = db_session_factory()
+    try:
+        _set_key(db, ALICE, "deepseek_api_key", "sk-alice")
+        _set_key(db, BOB, "deepseek_api_key", "sk-bob")
+
+        assert _key(db, ALICE, "deepseek_api_key") == "sk-alice"
+        assert _key(db, BOB, "deepseek_api_key") == "sk-bob"
+        assert _key(db, OWNER, "deepseek_api_key") is None
+    finally:
+        db.close()
+
+
+def test_the_rows_really_are_separate(db_session_factory):
+    """Two accounts writing the same namespace produce two rows, not one."""
+    db = db_session_factory()
+    try:
+        _set_key(db, ALICE, "deepseek_api_key", "sk-alice")
+        _set_key(db, BOB, "deepseek_api_key", "sk-bob")
+        rows = db.execute(
+            text("SELECT user_id FROM settings_documents WHERE ns = 'models' ORDER BY user_id")
+        ).fetchall()
+        assert [r[0] for r in rows] == sorted([ALICE, BOB])
+    finally:
+        db.close()
+
+
+# ── inheritance from the shared (owner) layer ────────────────────────────────
+
+def test_an_unset_field_inherits_the_shared_value(db_session_factory):
+    db = db_session_factory()
+    try:
+        _set_key(db, OWNER, "openai_api_key", "sk-shared-openai")
+        _set_key(db, ALICE, "deepseek_api_key", "sk-alice")
+
+        # Alice set one key; the other still resolves from the shared layer.
+        assert _key(db, ALICE, "deepseek_api_key") == "sk-alice"
+        assert _key(db, ALICE, "openai_api_key") == "sk-shared-openai"
+    finally:
+        db.close()
+
+
+def test_an_account_with_no_row_resolves_entirely_from_the_shared_layer(db_session_factory):
+    db = db_session_factory()
+    try:
+        _set_key(db, OWNER, "deepseek_api_key", "sk-shared")
+        assert _key(db, BOB, "deepseek_api_key") == "sk-shared"
+        assert store.get_document(db, "models", BOB) == {}
+    finally:
+        db.close()
+
+
+def test_own_section_stays_own(db_session_factory):
+    """``user`` is what the account set — the UI edits this, so inherited values
+    must not appear there, or saving would copy them in."""
+    db = db_session_factory()
+    try:
+        _set_key(db, OWNER, "openai_api_key", "sk-shared-openai")
+        _set_key(db, ALICE, "deepseek_api_key", "sk-alice")
+
+        resolved = cs.resolve(db, "models", user_id=ALICE)
+        own_keys = (resolved.user.get("api_keys") or {})
+        assert own_keys.get("deepseek_api_key") == "sk-alice"
+        assert "openai_api_key" not in own_keys
+        # …while the effective value is complete.
+        assert resolved.value["api_keys"]["openai_api_key"] == "sk-shared-openai"
+        assert resolved.inherits is True
+    finally:
+        db.close()
+
+
+def test_the_owner_does_not_inherit_from_itself(db_session_factory):
+    db = db_session_factory()
+    try:
+        _set_key(db, OWNER, "deepseek_api_key", "sk-shared")
+        resolved = cs.resolve(db, "models", user_id=OWNER)
+        assert resolved.inherits is False
+        assert (resolved.user.get("api_keys") or {}).get("deepseek_api_key") == "sk-shared"
+    finally:
+        db.close()
+
+
+# ── non-secret settings are per account too ──────────────────────────────────
+
+def test_model_defaults_are_per_account(db_session_factory):
+    db = db_session_factory()
+    try:
+        cs.mutate(db, "models", [{"op": "set", "path": ["default_model"], "value": "deepseek-chat"}],
+                  user_id=ALICE)
+        cs.mutate(db, "models", [{"op": "set", "path": ["default_model"], "value": "gpt-4o"}],
+                  user_id=BOB)
+        assert cs.resolve(db, "models", user_id=ALICE).value["default_model"] == "deepseek-chat"
+        assert cs.resolve(db, "models", user_id=BOB).value["default_model"] == "gpt-4o"
+    finally:
+        db.close()
+
+
+# ── revisions are per account ────────────────────────────────────────────────
+
+def test_revisions_do_not_collide_between_accounts(db_session_factory):
+    db = db_session_factory()
+    try:
+        _set_key(db, ALICE, "deepseek_api_key", "a")     # alice rev 1
+        _set_key(db, BOB, "deepseek_api_key", "b")       # bob rev 1
+        assert store.get_revision(db, "models", ALICE) == 1
+        assert store.get_revision(db, "models", BOB) == 1
+        # A stale-revision write is evaluated per account, not globally.
+        _set_key(db, ALICE, "deepseek_api_key", "a2")
+        assert store.get_revision(db, "models", ALICE) == 2
+        assert store.get_revision(db, "models", BOB) == 1
+    finally:
+        db.close()
+
+
+# ── the credential resolver follows the caller ──────────────────────────────
+
+def test_get_api_key_from_db_follows_the_current_identity(db_session_factory, monkeypatch):
+    """The runtime path every model client uses must resolve per account.
+
+    ``config`` opens its own session, so the test factory has to stand in for
+    ``SessionLocal`` — otherwise this would read the real install's credentials.
+    """
+    from core.context.current_user import UserContext, reset_current_user, set_current_user
+
+    monkeypatch.setattr("db.database.SessionLocal", db_session_factory)
+
+    db = db_session_factory()
+    try:
+        _set_key(db, OWNER, "deepseek_api_key", "sk-shared")
+        _set_key(db, ALICE, "deepseek_api_key", "sk-alice")
+    finally:
+        db.close()
+
+    import config
+
+    token = set_current_user(UserContext(id=ALICE, username="alice", role="member"))
+    try:
+        assert config.get_api_key_from_db("deepseek_api_key") == "sk-alice"
+    finally:
+        reset_current_user(token)
+
+    token = set_current_user(UserContext(id=BOB, username="bob", role="member"))
+    try:
+        assert config.get_api_key_from_db("deepseek_api_key") == "sk-shared"
+    finally:
+        reset_current_user(token)
+
+
+def test_no_identity_resolves_the_shared_layer(db_session_factory, monkeypatch):
+    """Background jobs and scripts have no caller — they must not fall into an
+    arbitrary account's credentials."""
+    monkeypatch.setattr("db.database.SessionLocal", db_session_factory)
+
+    db = db_session_factory()
+    try:
+        _set_key(db, OWNER, "deepseek_api_key", "sk-shared")
+        _set_key(db, ALICE, "deepseek_api_key", "sk-alice")
+    finally:
+        db.close()
+
+    import config
+
+    assert config.get_api_key_from_db("deepseek_api_key") == "sk-shared"
+
+
+# ── delete / cleanup stay per account ───────────────────────────────────────
+
+def test_deleting_one_accounts_document_leaves_the_other(db_session_factory):
+    db = db_session_factory()
+    try:
+        _set_key(db, ALICE, "deepseek_api_key", "sk-alice")
+        _set_key(db, BOB, "deepseek_api_key", "sk-bob")
+        assert store.delete_document(db, "models", user_id=ALICE) is True
+        assert store.get_document(db, "models", ALICE) == {}
+        assert (store.get_document(db, "models", BOB).get("api_keys") or {}).get(
+            "deepseek_api_key") == "sk-bob"
+    finally:
+        db.close()

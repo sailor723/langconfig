@@ -54,11 +54,20 @@ _TABLE_ENSURE_DONE = False
 
 
 class SettingsDocument(Base):
-    """One settings namespace's user-layer document (created by alembic 028
-    or lazily via ``ensure_table``)."""
+    """One settings namespace's user-layer document, **per account**.
+
+    Migration 037 made this per-account: the key is ``(user_id, ns)`` instead of
+    ``ns``. Every account therefore carries its own provider credentials and
+    model defaults, which is what "each user has their own keys" needs.
+
+    ``user_id`` defaults to the owner (1) so a call site that does not pass one
+    keeps the pre-037 behaviour, and so the owner's row doubles as the **shared**
+    layer that other accounts inherit when they set nothing.
+    """
 
     __tablename__ = "settings_documents"
 
+    user_id = Column(Integer, primary_key=True, default=1)
     ns = Column(String(64), primary_key=True)
     document = Column(JSON, nullable=False)
     revision = Column(Integer, nullable=False, default=0)
@@ -78,21 +87,56 @@ class SettingsConflict(Exception):
         )
 
 
+#: The account whose row is also the **shared** layer. Accounts that have not
+#: set a field inherit it from here, so an existing single-account install keeps
+#: working after 037 and a new account is usable on day one.
+OWNER_USER_ID = 1
+
 TABLE_DDL = (
     "CREATE TABLE IF NOT EXISTS settings_documents ("
-    " ns VARCHAR(64) PRIMARY KEY,"
+    " user_id INTEGER NOT NULL DEFAULT 1,"
+    " ns VARCHAR(64) NOT NULL,"
     " document JSON NOT NULL,"
     " revision INTEGER NOT NULL,"
-    " updated_at TIMESTAMPTZ NOT NULL)"
+    " updated_at TIMESTAMPTZ NOT NULL,"
+    " PRIMARY KEY (user_id, ns))"
 )
 
 
 def ensure_table(db: Session) -> None:
-    """Create ``settings_documents`` if missing (idempotent, once per process)."""
+    """Create ``settings_documents`` if missing, and upgrade a pre-037 shape.
+
+    Idempotent, once per process. The upgrade path matters for databases that
+    were booted via ``create_all`` / ``alembic stamp head`` (the test database is
+    one): they never replay migration 037, so the table can still be keyed by
+    ``ns`` alone. Adding ``user_id`` with a default of 1 turns those rows into
+    the owner's — exactly what 037's backfill does.
+    """
     global _TABLE_ENSURE_DONE
     if _TABLE_ENSURE_DONE:
         return
     db.execute(text(TABLE_DDL))
+    # Dialect-neutral introspection: this store also runs on SQLite (tests,
+    # single-file installs), where ``information_schema`` does not exist.
+    try:
+        from sqlalchemy import inspect
+
+        cols = {c["name"] for c in inspect(db.connection()).get_columns("settings_documents")}
+    except Exception:  # noqa: BLE001 — introspection failure must not block a read
+        cols = {"user_id", "ns"}
+    if "user_id" not in cols:
+        logger.info("settings_documents: upgrading to per-account key (user_id, ns)")
+        db.execute(
+            text(
+                "ALTER TABLE settings_documents "
+                "ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1"
+            )
+        )
+        db.execute(
+            text("ALTER TABLE settings_documents DROP CONSTRAINT IF EXISTS settings_documents_pkey")
+        )
+        db.execute(text("ALTER TABLE settings_documents ADD PRIMARY KEY (user_id, ns)"))
+        db.execute(text("ALTER TABLE settings_documents ALTER COLUMN user_id DROP DEFAULT"))
     db.commit()
     _TABLE_ENSURE_DONE = True
 
@@ -103,28 +147,84 @@ def _reset_table_ensure() -> None:
     _TABLE_ENSURE_DONE = False
 
 
+def _resolve_user_id(user_id: Optional[int]) -> int:
+    """The account a read/write applies to.
+
+    Explicit ``user_id`` wins; otherwise the identity of the current turn (the
+    LAN gate / session cookie put it in a ContextVar); otherwise the owner. The
+    last step is what keeps background jobs, seeds and tests working — they run
+    with no caller and must act on the shared layer.
+    """
+    if user_id is not None:
+        return int(user_id)
+    try:
+        from core.context.current_user import current_user_id
+
+        uid = current_user_id()
+    except Exception:  # noqa: BLE001 — identity is optional for settings I/O
+        uid = None
+    return int(uid) if uid else OWNER_USER_ID
+
+
+
 # ── reads ────────────────────────────────────────────────────────────────────
 
-def _row(db: Session, ns: str) -> Optional[SettingsDocument]:
-    return db.get(SettingsDocument, ns)
+def _row(db: Session, ns: str, user_id: Optional[int] = None) -> Optional[SettingsDocument]:
+    return db.get(SettingsDocument, (_resolve_user_id(user_id), ns))
 
 
-def row_exists(db: Session, ns: str) -> bool:
+def row_exists(db: Session, ns: str, user_id: Optional[int] = None) -> bool:
     """Whether a document row exists for the namespace (no secret handling)."""
-    return _row(db, ns) is not None
+    return _row(db, ns, user_id) is not None
 
 
-def get_document(db: Session, ns: str) -> dict:
-    """Decrypted user-layer section for a namespace ({} when absent)."""
+def get_document(db: Session, ns: str, user_id: Optional[int] = None) -> dict:
+    """Decrypted user-layer section for a namespace ({} when absent).
+
+    This is the account's **own** section — what it set, nothing inherited. Use
+    :func:`get_effective_document` when you want the values the account actually
+    runs with.
+    """
     spec = registry.get(ns)
-    row = _row(db, ns)
+    row = _row(db, ns, user_id)
     if row is None or not row.document:
         return {}
     return decrypt_document_secrets(dict(row.document), spec.schema)
 
 
-def get_revision(db: Session, ns: str) -> int:
-    row = _row(db, ns)
+def _deep_merge(base: dict, override: dict) -> dict:
+    """Merge ``override`` over ``base``, recursing into nested dicts.
+
+    Per-field inheritance, not per-document: an account that sets only
+    ``deepseek_api_key`` keeps inheriting the owner's ``openai_api_key``.
+    """
+    out = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(out.get(key), dict):
+            out[key] = _deep_merge(out[key], value)
+        else:
+            out[key] = value
+    return out
+
+
+def get_effective_document(
+    db: Session, ns: str, user_id: Optional[int] = None
+) -> tuple[dict, dict]:
+    """``(own_section, effective_section)`` for an account.
+
+    ``effective`` = the owner's section with the account's own section merged
+    over it, field by field. When the account **is** the owner the two are equal.
+    """
+    uid = _resolve_user_id(user_id)
+    own = get_document(db, ns, uid)
+    if uid == OWNER_USER_ID:
+        return own, own
+    shared = get_document(db, ns, OWNER_USER_ID)
+    return own, _deep_merge(shared, own)
+
+
+def get_revision(db: Session, ns: str, user_id: Optional[int] = None) -> int:
+    row = _row(db, ns, user_id)
     return row.revision if row is not None else 0
 
 
@@ -177,11 +277,18 @@ def _apply_op(doc: dict, op: dict) -> None:
         raise ValueError(f"unknown mutate op {op_name!r}")
 
 
-def _upsert(db: Session, ns: str, stored_doc: dict, revision: int) -> None:
+def _upsert(
+    db: Session, ns: str, stored_doc: dict, revision: int, user_id: Optional[int] = None
+) -> None:
     now = datetime.datetime.now(datetime.timezone.utc)
-    row = _row(db, ns)
+    uid = _resolve_user_id(user_id)
+    row = _row(db, ns, uid)
     if row is None:
-        db.add(SettingsDocument(ns=ns, document=stored_doc, revision=revision, updated_at=now))
+        db.add(
+            SettingsDocument(
+                user_id=uid, ns=ns, document=stored_doc, revision=revision, updated_at=now
+            )
+        )
     else:
         row.document = stored_doc
         row.revision = revision
@@ -194,16 +301,19 @@ def mutate(
     ns: str,
     ops: list[dict],
     expected_revision: Optional[int] = None,
+    user_id: Optional[int] = None,
 ) -> tuple[dict, int]:
     """Apply path ops to a namespace's user section and persist.
 
-    Returns ``(normalized_decrypted_doc, new_revision)``. Raises
-    ``SettingsConflict`` when ``expected_revision`` is stale, ``ValueError`` on
-    malformed ops, and pydantic ``ValidationError`` on a schema-invalid result.
+    The write targets one account's row — by default the caller's (identity from
+    the current request), else the owner. Returns
+    ``(normalized_decrypted_doc, new_revision)``. Raises ``SettingsConflict``
+    when ``expected_revision`` is stale, ``ValueError`` on malformed ops, and
+    pydantic ``ValidationError`` on a schema-invalid result.
     """
     spec = registry.get(ns)
     ensure_table(db)
-    row = _row(db, ns)
+    row = _row(db, ns, user_id)
     current = dict(row.document) if row is not None and row.document else {}
     revision = row.revision if row is not None else 0
 
@@ -217,7 +327,7 @@ def mutate(
     normalized = _validate_document(spec, new_doc)
     stored = encrypt_document_secrets(normalized, spec.schema)
     new_revision = revision + 1
-    _upsert(db, ns, stored, new_revision)
+    _upsert(db, ns, stored, new_revision, user_id)
     logger.debug("settings %s mutate -> revision %d", ns, new_revision)
     return normalized, new_revision
 
@@ -227,15 +337,18 @@ def put_document(
     ns: str,
     document: dict,
     expected_revision: Optional[int] = None,
+    user_id: Optional[int] = None,
 ) -> tuple[dict, int]:
     """Replace a namespace's user section wholesale (seed/migration path).
 
     Same validation/encryption/revision semantics as ``mutate`` with a single
-    implicit replace.
+    implicit replace. Targets the caller's row by default; seeds and imports pass
+    ``user_id=OWNER_USER_ID`` explicitly so a background job can never overwrite
+    a member's personal settings.
     """
     spec = registry.get(ns)
     ensure_table(db)
-    row = _row(db, ns)
+    row = _row(db, ns, user_id)
     revision = row.revision if row is not None else 0
     if expected_revision is not None and revision != expected_revision:
         raise SettingsConflict(ns, revision, expected_revision)
@@ -243,13 +356,13 @@ def put_document(
     normalized = _validate_document(spec, dict(document or {}))
     stored = encrypt_document_secrets(normalized, spec.schema)
     new_revision = revision + 1
-    _upsert(db, ns, stored, new_revision)
+    _upsert(db, ns, stored, new_revision, user_id)
     return normalized, new_revision
 
 
-def delete_document(db: Session, ns: str) -> bool:
-    """Remove a namespace's document row (used by tests/cleanup)."""
-    row = _row(db, ns)
+def delete_document(db: Session, ns: str, user_id: Optional[int] = None) -> bool:
+    """Remove a namespace's document row for one account (tests/cleanup)."""
+    row = _row(db, ns, user_id)
     if row is None:
         return False
     db.delete(row)

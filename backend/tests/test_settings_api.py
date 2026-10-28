@@ -46,7 +46,27 @@ def _override_get_db():
 
 @pytest.fixture(scope="module")
 def client():
+    """Minimal app + the identity seam the LAN gate provides in production.
+
+    ``settings_documents`` is per account now (migration 037), so the router must
+    see a caller. This middleware stands in for ``middleware/lan_guard.py``: it
+    parks the requesting account in the identity ContextVar for the duration of
+    the request. The header lets a test act as a specific account; without one
+    every request is the owner's, which is what the pre-037 tests assume.
+    """
+    from core.context.current_user import UserContext, reset_current_user, set_current_user
+
     app = FastAPI()
+
+    @app.middleware("http")
+    async def _identity(request, call_next):
+        uid = int(request.headers.get("x-test-uid", cs.store.OWNER_USER_ID))
+        token = set_current_user(UserContext(id=uid, username=f"u{uid}", role="member"))
+        try:
+            return await call_next(request)
+        finally:
+            reset_current_user(token)
+
     app.include_router(settings_documents_router)
     app.dependency_overrides[get_db] = _override_get_db
     return TestClient(app)
@@ -240,7 +260,9 @@ def test_mutate_secret_redacted_in_response(client):
     db = Session()
     try:
         assert cs.get_document(db, "models")["api_keys"]["openai_api_key"] == "sk-wire-secret"
-        raw = db.get(cs.SettingsDocument, "models").document["api_keys"]["openai_api_key"]
+        raw = db.get(cs.SettingsDocument, (cs.store.OWNER_USER_ID, "models")).document[
+            "api_keys"
+        ]["openai_api_key"]
         assert raw.startswith("gAAAA")
     finally:
         db.close()
@@ -302,3 +324,65 @@ def test_mutate_workspace_does_not_write_legacy_settings_row(client):
         assert cs.resolve_value(db, "workspace")["workspace_path"] == "/tmp/nows-legacy"
     finally:
         db.close()
+
+
+# ── per account (migration 037) ─────────────────────────────────────────────
+
+def _set_key(client, uid, key_name, value):
+    res = client.post(
+        "/api/settings/mutate",
+        json={
+            "ns": "models",
+            "ops": [{"op": "set", "path": ["api_keys", key_name], "value": value}],
+        },
+        headers={"x-test-uid": str(uid)},
+    )
+    assert res.status_code == 200, res.text
+    return res.json()
+
+
+def test_each_account_writes_its_own_credentials(client):
+    _set_key(client, 284, "serper_api_key", "serper-alice")
+    _set_key(client, 1070, "serper_api_key", "serper-bob")
+
+    db = Session()
+    try:
+        rows = db.execute(
+            text("SELECT user_id FROM settings_documents WHERE ns = 'models' ORDER BY user_id")
+        ).fetchall()
+        assert [r[0] for r in rows] == [284, 1070]
+    finally:
+        db.close()
+
+    alice = client.get("/api/settings/describe", headers={"x-test-uid": "284"}).json()
+    bob = client.get("/api/settings/describe", headers={"x-test-uid": "1070"}).json()
+    a_models = next(n for n in alice["namespaces"] if n["ns"] == "models")
+    b_models = next(n for n in bob["namespaces"] if n["ns"] == "models")
+    # Secrets never cross the wire: the position is enumerated as "set", the
+    # value is absent. A separate row per account is what makes them distinct.
+    def _secret_set(ns_body):
+        return {
+            tuple(s["path"]): s["set"] for s in ns_body["secrets"]
+        }
+
+    alice_secrets = _secret_set(a_models)
+    bob_secrets = _secret_set(b_models)
+    assert alice_secrets[("api_keys", "serper_api_key")] is True
+    assert bob_secrets[("api_keys", "serper_api_key")] is True
+    # No credential value is on the wire for either account.
+    assert "serper-alice" not in str(alice) and "serper-alice" not in str(bob)
+
+
+def test_describe_reports_inheritance_for_an_account_that_set_nothing(client):
+    """The owner's section is the shared layer; a fresh account reports that it
+    is inheriting rather than pretending the values are its own."""
+    client.post(
+        "/api/settings/mutate",
+        json={"ns": "models", "ops": [{"op": "set", "path": ["default_model"], "value": "gpt-4o"}]},
+        headers={"x-test-uid": str(cs.store.OWNER_USER_ID)},
+    )
+    body = client.get("/api/settings/describe", headers={"x-test-uid": "9999"}).json()
+    models = next(n for n in body["namespaces"] if n["ns"] == "models")
+    assert models["value"]["default_model"] == "gpt-4o"     # inherited
+    assert models["user"] == {}                              # …but not its own
+    assert models["inherit"] is True
