@@ -127,16 +127,97 @@ def users_dir(root: Optional[Path] = None) -> Path:
     return Path(root or install_root()) / USERS_DIRNAME
 
 
+#: ``user_id -> workspace_path override (or None)``. One entry per account, filled on
+#: first use of that account's tree. Why a cache at all: every file tool call, upload
+#: and files-panel read resolves a root, and a DB round-trip there is pure overhead.
+#: Why it is safe: an override only changes when an admin edits the account, and that
+#: path calls :func:`invalidate_root_override` in the same request.
+_ROOT_OVERRIDES: "dict[int, Optional[str]]" = {}
+
+
+def invalidate_root_override(user_id: Optional[int] = None) -> None:
+    """Forget the cached override for one account (or for all of them)."""
+    if user_id is None:
+        _ROOT_OVERRIDES.clear()
+    else:
+        _ROOT_OVERRIDES.pop(int(user_id), None)
+
+
+def _root_override(user_id: int) -> Optional[Path]:
+    """The account's configured workspace root, or None for the default convention.
+
+    Read through the user row rather than the settings documents: where a person's
+    data lives has to be answerable before settings resolution exists (boot, seeds,
+    background jobs). Failures resolve to None — a broken read must not silently
+    relocate someone's files.
+    """
+    uid = int(user_id)
+    if uid in _ROOT_OVERRIDES:
+        cached = _ROOT_OVERRIDES[uid]
+        return Path(cached) if cached else None
+
+    value: Optional[str] = None
+    close = False
+    db = None
+    try:
+        from db.database import SessionLocal
+
+        db = SessionLocal()
+        close = True
+        from models.user import User
+
+        row = db.query(User.workspace_path).filter(User.id == uid).first()
+        value = row[0] if row else None
+    except Exception:  # noqa: BLE001 — no DB (tests, first boot) → default layout
+        logger.debug("Could not read workspace_path for user %s", uid, exc_info=True)
+        value = None
+    finally:
+        if close and db is not None:
+            try:
+                db.close()
+            except Exception:
+                pass
+
+    _ROOT_OVERRIDES[uid] = value
+    if not value:
+        return None
+    try:
+        path = Path(value).expanduser()
+    except Exception:  # noqa: BLE001 — malformed value behaves like "unset"
+        logger.warning("Ignoring unreadable workspace_path %r for user %s", value, uid)
+        _ROOT_OVERRIDES[uid] = None
+        return None
+    if not path.is_absolute():
+        logger.warning(
+            "Ignoring relative workspace_path %r for user %s (must be absolute)", value, uid
+        )
+        _ROOT_OVERRIDES[uid] = None
+        return None
+    return path
+
+
+def default_root_for(user_id: int, root: Optional[Path] = None) -> Path:
+    """The conventional tree: ``<install root>/users/<id>`` (ignores any override)."""
+    base = Path(root or install_root())
+    return base / USERS_DIRNAME / str(user_id)
+
+
 def root_for(user_id: Optional[int], root: Optional[Path] = None) -> Path:
     """The private tree for one account, or the install root when there is none.
+
+    An account with ``users.workspace_path`` set gets that directory instead of the
+    convention; everything downstream (vaults, agent workspaces, uploads) hangs off
+    it unchanged, so an override moves a person's whole tree and nothing else.
 
     Not created here: a path resolver that makes directories turns read paths into
     writes (and a typo into a new empty tree). Callers that write create their own.
     """
-    base = Path(root or install_root())
     if user_id is None:
-        return base
-    return base / USERS_DIRNAME / str(user_id)
+        return Path(root or install_root())
+    override = _root_override(int(user_id))
+    if override is not None:
+        return override
+    return default_root_for(int(user_id), root)
 
 
 def bind_run_root(path) -> object:
@@ -176,3 +257,63 @@ def describe(user_id: Optional[int], root: Optional[Path] = None) -> dict:
         "exists": path.is_dir(),
         "scoped": user_id is not None,
     }
+
+
+# ── per-account override: validation ─────────────────────────────────────────
+
+def validate_workspace_path(db, user_id: int, value: Optional[str]) -> Optional[str]:
+    """Normalise and check a proposed ``users.workspace_path``.
+
+    Returns the value to store (``None`` to clear the override) or raises
+    ``ValueError`` with a message meant for the API caller. Three rules, each of
+    which prevents a real failure rather than a theoretical one:
+
+    * **absolute** — a relative path would be resolved against the server
+      process's CWD, so the same row would point at different trees depending on
+      how the app was started;
+    * **not another account's tree** — an override inside (or containing) someone
+      else's root would make "whose file is this?" unanswerable and hand one
+      person read/write access to another's files through the normal file tools;
+    * **not shared between accounts** — two accounts resolving to the same
+      directory would write into each other's vaults.
+    """
+    if value is None:
+        return None
+    raw = str(value).strip()
+    if not raw:
+        return None
+
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        raise ValueError("workspace_path must be absolute (e.g. /data/workspaces/user1)")
+    path = path.resolve(strict=False)
+
+    # A root this shallow would scatter vaults over the whole disk (`/vault/...`)
+    # or collide with the install's own shared tree, where every account's
+    # default directory lives.
+    if path == Path(path.anchor):
+        raise ValueError("workspace_path cannot be the filesystem root")
+    if path == install_root().resolve():
+        raise ValueError("workspace_path cannot be the install workspace root")
+
+    from models.user import User
+
+    others = db.query(User.id, User.workspace_path).filter(User.id != int(user_id)).all()
+    others_dir = users_dir().resolve()
+    for other_id, other_path in others:
+        other_root = (
+            Path(other_path).expanduser().resolve(strict=False)
+            if other_path
+            else (others_dir / str(other_id))
+        )
+        if path == other_root:
+            raise ValueError(f"workspace_path is already user {other_id}'s workspace")
+        if other_root in path.parents:
+            raise ValueError(
+                f"workspace_path is inside user {other_id}'s workspace ({other_root})"
+            )
+        if path in other_root.parents:
+            raise ValueError(
+                f"workspace_path would contain user {other_id}'s workspace ({other_root})"
+            )
+    return str(path)

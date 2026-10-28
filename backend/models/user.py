@@ -74,6 +74,16 @@ class User(Base):
     # it owns keep their owner.
     is_active = Column(Boolean, nullable=False, default=True)
 
+    # Optional per-account workspace root. NULL — the normal case — means "use the
+    # convention": ``<install root>/users/<id>`` (services/user_roots.py). Set it to
+    # put one person's files on another disk (a bigger volume, an encrypted mount, a
+    # machine-local scratch dir) without moving anyone else's.
+    #
+    # Stored as an absolute path exactly as the admin typed it; resolution expands
+    # ``~`` and refuses anything relative, so a typo cannot silently become a
+    # directory next to the process's CWD.
+    workspace_path = Column(String(1024), nullable=True)
+
     created_at = Column(DateTime(timezone=True), nullable=False, default=_utc_now)
     updated_at = Column(
         DateTime(timezone=True), nullable=False, default=_utc_now, onupdate=_utc_now
@@ -93,6 +103,9 @@ class User(Base):
             "is_active": bool(self.is_active),
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "last_login_at": self.last_login_at.isoformat() if self.last_login_at else None,
+            # NULL means "the default convention" — the UI shows the resolved path
+            # separately rather than inventing one here.
+            "workspace_path": self.workspace_path,
         }
 
     def is_admin(self) -> bool:

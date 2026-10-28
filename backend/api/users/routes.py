@@ -47,6 +47,9 @@ class UserOut(BaseModel):
     is_active: bool
     created_at: Optional[str] = None
     last_login_at: Optional[str] = None
+    #: Configured workspace root, or None when the account uses the default
+    #: convention (``<install root>/users/<id>``).
+    workspace_path: Optional[str] = None
 
 
 class MeOut(UserOut):
@@ -62,6 +65,9 @@ class MeOut(UserOut):
 
 class UpdateMeRequest(BaseModel):
     display_name: Optional[str] = Field(None, max_length=128)
+    #: Absolute path for this account's files. Omit to leave it alone, send ""
+    #: (or null) to fall back to ``<install root>/users/<id>``.
+    workspace_path: Optional[str] = Field(None, max_length=1024)
 
 
 class ChangePasswordRequest(BaseModel):
@@ -80,6 +86,7 @@ class UpdateUserRequest(BaseModel):
     display_name: Optional[str] = None
     role: Optional[str] = None
     is_active: Optional[bool] = None
+    workspace_path: Optional[str] = Field(None, max_length=1024)
 
 
 class AdminSetPasswordRequest(BaseModel):
@@ -90,6 +97,29 @@ class AdminSetPasswordRequest(BaseModel):
 
 def _out(user) -> UserOut:
     return UserOut(**user.to_public())
+
+
+def _apply_workspace_path(db: Session, user, value: Optional[str]):
+    """Validate and store a workspace-root override, then drop the cached root.
+
+    One place for both call paths (self and admin) so the checks cannot drift:
+    the value must be absolute, must not sit inside another account's tree, and
+    two accounts must not resolve to the same directory.
+    """
+    from services import user_roots
+
+    try:
+        normalized = user_roots.validate_workspace_path(db, user.id, value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if (user.workspace_path or None) != normalized:
+        user.workspace_path = normalized
+        db.commit()
+        db.refresh(user)
+        # The resolver caches one entry per account; a stale entry would keep
+        # serving the old tree until the process restarted.
+        user_roots.invalidate_root_override(user.id)
+        logger.info("User %s workspace_path -> %s", user.username, normalized or "(default)")
 
 
 def _require_target(db: Session, user_id: int):
@@ -116,12 +146,19 @@ def update_me(
     db: Session = Depends(get_db),
     me=Depends(require_user),
 ):
-    """Rename yourself. Role and active state are admin-only fields."""
+    """Rename yourself and choose where your own files live.
+
+    Role and active state are admin-only fields. ``workspace_path`` is allowed
+    here because it only ever moves **your own** tree — the validation still
+    rejects another account's directory.
+    """
     user = _require_target(db, me.id)
     try:
         user_service.update_user(db, user, display_name=request.display_name)
     except UserError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if "workspace_path" in getattr(request, "model_fields_set", set()):
+        _apply_workspace_path(db, user, request.workspace_path)
     return _out(user)
 
 
@@ -200,6 +237,8 @@ def update_user(
         )
     except UserError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if "workspace_path" in getattr(request, "model_fields_set", set()):
+        _apply_workspace_path(db, user, request.workspace_path)
     logger.info(
         "Admin %s updated user %s (role=%s active=%s)",
         admin.username,
