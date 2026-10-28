@@ -46,6 +46,13 @@ interface ToolsPickerProps {
   selectedCustomTools: string[];
   onToggleNative: (id: string) => void;
   onToggleCustom: (id: string) => void;
+  /**
+   * Whether an empty `native_tools` means "the default tool set" (the backend's
+   * `enable_default_tools`). Off = an empty selection is really empty, which an
+   * agent being taught "you have no tools" needs.
+   */
+  useDefaultTools?: boolean;
+  onUseDefaultToolsChange?: (v: boolean) => void;
   showAllTools: boolean;
   onShowAllChange: (v: boolean) => void;
   toolsLoading: boolean;
@@ -66,6 +73,8 @@ export default function ToolsPicker({
   selectedCustomTools,
   onToggleNative,
   onToggleCustom,
+  useDefaultTools = true,
+  onUseDefaultToolsChange,
   showAllTools,
   onShowAllChange,
   toolsLoading,
@@ -209,6 +218,30 @@ export default function ToolsPicker({
           {toggleBtn('All', showAllTools, () => onShowAllChange(true))}
           {toggleBtn('Selected', !showAllTools, () => onShowAllChange(false))}
         </div>
+        {onUseDefaultToolsChange && (
+          <label
+            style={{
+              display: 'flex', alignItems: 'flex-start', gap: 6, margin: '2px 0 8px',
+              fontSize: 11, color: t.textMuted, cursor: 'pointer', lineHeight: 1.4,
+            }}
+            title="Empty selection normally means the default tool set. Turn this off to give the agent no native tools at all."
+          >
+            <input
+              type="checkbox"
+              checked={useDefaultTools}
+              onChange={(e) => onUseDefaultToolsChange(e.target.checked)}
+              style={{ marginTop: 1, flexShrink: 0 }}
+            />
+            <span>
+              Use the default tool set when nothing is checked
+              {!useDefaultTools && (
+                <strong style={{ color: t.textPrimary }}>
+                  {' '}— off: this agent gets exactly the tools ticked above ({nativeCount})
+                </strong>
+              )}
+            </span>
+          </label>
+        )}
         {toolsLoading ? (
           <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>Loading tools...</div>
         ) : allNativeLoaded.length === 0 ? (
