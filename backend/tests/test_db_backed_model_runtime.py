@@ -51,7 +51,6 @@ def test_create_llm_uses_provider_api_key(monkeypatch):
         provider="openai",
         source="cloud",
         base_url=None,
-        api_model_name=None,
     )
     captured_kwargs = {}
 
@@ -89,7 +88,6 @@ def test_create_llm_raises_without_api_key(monkeypatch):
         provider="openai",
         source="cloud",
         base_url=None,
-        api_model_name=None,
     )
 
     monkeypatch.setattr(routes, "_get_settings_row", lambda db: fake_settings)

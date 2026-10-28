@@ -49,11 +49,11 @@ class Model(Base):
     base_url = Column(String, nullable=True)
     # "http://localhost:11434/v1"
 
-    api_model_name = Column(String, nullable=True)
-    # Provider's internal model name (e.g. "llama3.2:latest")
-
-    api_key = Column(String, nullable=True)
-    # Optional, encrypted at application layer
+    # NOTE: this table used to carry an ``api_model_name`` and an ``api_key``.
+    # Both were always NULL and nothing read them (migration 039 dropped them).
+    # A catalogue row's credential is resolved per ACCOUNT from
+    # ``settings_documents`` (``config.get_api_key_from_db``), never from here —
+    # which is why re-adding a column here would silently undo per-user keys.
 
     is_validated = Column(Boolean, default=False, nullable=False)
     # True if connection test passed (local models only)
@@ -88,7 +88,6 @@ class Model(Base):
             "capabilities": self.capabilities,
             "is_active": self.is_active,
             "base_url": self.base_url,
-            "api_model_name": self.api_model_name,
             "is_validated": self.is_validated,
             "last_validated_at": self.last_validated_at.isoformat() if self.last_validated_at else None,
             "validation_error": self.validation_error,
