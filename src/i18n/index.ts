@@ -77,6 +77,7 @@ const en = {
   "settings_local_model_name": "Model name",
   "settings_local_api_key_optional": "API key (optional)",
   "settings_api_key": "API key",
+  "settings_key_shared": "team key",
 
   "settings_add_local_model": "Add local model",
   "settings_local_workspace": "Local Workspace",
@@ -798,6 +799,7 @@ const zh = {
   "settings_local_model_name": "模型名称",
   "settings_local_api_key_optional": "API 密钥（可选）",
   "settings_api_key": "API 密钥",
+  "settings_key_shared": "团队共享",
 
   "settings_add_local_model": "添加本地模型",
   "settings_local_workspace": "本地工作区",

@@ -96,7 +96,12 @@ interface SettingsNs {
   user: Record<string, any>
   revision: number
   writable: boolean
-  secrets: { path: string[]; set: boolean }[]
+  /**
+   * `source` says who set each secret: `own` (this account), `shared` (inherited
+   * from the team layer) or `unset`. Without it a key the whole install spends
+   * renders identically to one this account configured.
+   */
+  secrets: { path: string[]; set: boolean; source?: 'own' | 'shared' | 'unset' }[]
 }
 
 type MutateOp = { op: 'set' | 'unset'; path: string[]; value?: any }
@@ -375,7 +380,9 @@ interface ModelInfo { model_id: string; display_name?: string; provider: string;
 
 function ModelsSection() {
   const { t } = useTranslation('chat')
-  const [keys, setKeys] = useState<{ provider: string; is_set: boolean }[]>([])
+  const [keys, setKeys] = useState<{ provider: string; is_set: boolean; source?: 'own' | 'shared' | 'unset' }[]>([])
+  // api_key_field -> source, shared with the Web API section below.
+  const [secretSources, setSecretSources] = useState<Record<string, 'own' | 'shared' | 'unset'>>({})
   const [models, setModels] = useState<{ cloud: ModelInfo[]; local: ModelInfo[] }>({ cloud: [], local: [] })
   const [defaults, setDefaults] = useState<any>({ default_model: '', fallback_models: [], temperature: 0, max_tokens: 0 })
   const [editing, setEditing] = useState<string | null>(null)
@@ -410,9 +417,10 @@ function ModelsSection() {
       // models.api_keys.* fields, no values ever cross the wire. Providers the
       // seeded search_providers table marks as needing a key are excluded here —
       // they live in the dedicated "Web API" settings section.
-      const providers = (ns?.secrets || [])
-        .filter(s => s.path[0] === 'api_keys')
-        .map(s => ({ provider: s.path[1].replace(/_api_key$/, ''), is_set: s.set }))
+      const allSecrets = (ns?.secrets || []).filter(s => s.path[0] === 'api_keys')
+      setSecretSources(Object.fromEntries(allSecrets.map(s => [s.path[1], s.source || (s.set ? 'own' : 'unset')])))
+      const providers = allSecrets
+        .map(s => ({ provider: s.path[1].replace(/_api_key$/, ''), is_set: s.set, source: s.source }))
         .filter(p => !webApi.has(p.provider))
       setKeys(providers)
       setDefaults({
@@ -561,6 +569,18 @@ function ModelsSection() {
                   testMsg[k.provider]?.ok === false ? 'invalid'
                     : k.is_set ? 'configured' : 'missing'
                 } />
+                {k.is_set && k.source === 'shared' && (
+                  <span
+                    title="This key comes from the team (shared) settings. Saving your own key here overrides it for your account only."
+                    style={{
+                      fontSize: 11, lineHeight: '16px', padding: '1px 7px', borderRadius: 9,
+                      border: `1px solid ${tok.borderL2}`, color: tok.labelTertiary,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {t('settings_key_shared')}
+                  </span>
+                )}
               </span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 'auto' }}>
                 <Btn dense onClick={() => handleTest(k.provider)} disabled={testingProvider === k.provider}>
@@ -669,9 +689,20 @@ function SearchSection() {
   const [keyInput, setKeyInput] = useState('')
   const [testingId, setTestingId] = useState<string | null>(null)
   const [testMsg, setTestMsg] = useState<{ id: string | null; ok: boolean; text: string } | null>(null)
+  // api_key_field -> own/shared/unset, so an inherited search key is labelled
+  // instead of looking like one this account configured.
+  const [secretSources, setSecretSources] = useState<Record<string, 'own' | 'shared' | 'unset'>>({})
 
   const load = useCallback(async () => {
     try { const res = await apiClient.listSearchProviders(); setProviders(res.data?.providers || []) } catch { /* noop */ }
+    try {
+      const ns = await describeNs('models')
+      const map: Record<string, 'own' | 'shared' | 'unset'> = {}
+      for (const sec of ns?.secrets || []) {
+        if (sec.path[0] === 'api_keys') map[sec.path[1]] = sec.source || (sec.set ? 'own' : 'unset')
+      }
+      setSecretSources(map)
+    } catch { /* labelling is best-effort */ }
   }, [])
   useEffect(() => { load() }, [load])
 
@@ -702,6 +733,18 @@ function SearchSection() {
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
               <span style={{ fontSize: 14, lineHeight: '22px', fontWeight: 500, color: tok.labelPrimary }}>{p.name || p.id}</span>
               <Dot state={p.has_key ? 'configured' : 'missing'} />
+              {p.has_key && p.api_key_field && secretSources[p.api_key_field] === 'shared' && (
+                <span
+                  title="This key comes from the team (shared) settings. Saving your own key here overrides it for your account only."
+                  style={{
+                    fontSize: 11, lineHeight: '16px', padding: '1px 7px', borderRadius: 9,
+                    border: `1px solid ${tok.borderL2}`, color: tok.labelTertiary,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {t('settings_key_shared')}
+                </span>
+              )}
             </span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
               {editingId === p.id ? (

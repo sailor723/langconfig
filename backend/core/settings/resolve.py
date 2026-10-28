@@ -45,8 +45,16 @@ class ResolvedNamespace:
     inherits: bool = False
 
     def wire(self) -> dict:
-        """Wire-safe view: secrets stripped from value/user and enumerated."""
-        redacted_value, secrets = redact(self.value, self.schema)
+        """Wire-safe view: secrets stripped from value/user and enumerated.
+
+        Each secret position carries ``source`` — ``own`` (this account set it),
+        ``shared`` (it is inherited from the shared/owner layer) or ``unset``.
+        Without it the Settings UI cannot tell a credential the user configured
+        from one the whole install is spending, and both render as "set".
+        """
+        from .secrets import secret_sources
+
+        redacted_value, _ = redact(self.value, self.schema)
         redacted_user, _ = redact(self.user, self.schema)
         return {
             "ns": self.ns,
@@ -56,7 +64,7 @@ class ResolvedNamespace:
             "revision": self.revision,
             "writable": self.writable,
             "inherit": self.inherits,
-            "secrets": secrets,
+            "secrets": secret_sources(self.user, self.value, self.schema),
         }
 
 

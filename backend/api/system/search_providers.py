@@ -48,15 +48,36 @@ def _get_decrypted_key(api_key_field: str, db: Session) -> Optional[str]:
     This is the one canonical location for every API key (LLM + search).
     The legacy ``settings.api_keys`` JSONB column is no longer read or
     written (migrated to the models document); see docs/settings-refactor.md.
+
+    Reads the **effective** document (own → shared), not just the caller's own
+    section: since migration 037 a provider key may live in the shared layer, and
+    reading the own section alone made a working key report as missing for every
+    account that inherits it.
     """
     if not api_key_field:
         return None
     try:
-        from core.settings import get_document
-        doc = get_document(db, "models")
-        return (doc.get("api_keys") or {}).get(api_key_field)
+        from core.settings import store
+        _own, effective = store.get_effective_document(db, "models")
+        return (effective.get("api_keys") or {}).get(api_key_field)
     except Exception:
         return None
+
+
+def _key_source(api_key_field: str, db: Session) -> str:
+    """Who set the key: ``own`` / ``shared`` / ``unset`` (mirrors the settings wire)."""
+    if not api_key_field:
+        return "unset"
+    try:
+        from core.settings import store
+        own, effective = store.get_effective_document(db, "models")
+        if (own.get("api_keys") or {}).get(api_key_field):
+            return "own"
+        if (effective.get("api_keys") or {}).get(api_key_field):
+            return "shared"
+    except Exception:
+        pass
+    return "unset"
 
 
 def _serialize(provider: SearchProvider, db: Session) -> Dict[str, Any]:
@@ -85,6 +106,9 @@ def _serialize(provider: SearchProvider, db: Session) -> Dict[str, Any]:
         "sort_order": provider.sort_order,
         "has_key": has_key,
         "masked_key": masked_key,
+        # "own" (this account set it) / "shared" (inherited) / "unset" — the UI
+        # shows an inherited key differently so nobody thinks they configured it.
+        "key_source": _key_source(provider.api_key_field, db),
     }
 
 

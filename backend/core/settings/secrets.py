@@ -179,3 +179,32 @@ def redact(doc: dict, schema: type[BaseModel]) -> tuple[dict, list[dict]]:
         secrets.append({"path": path, "set": value is not _MISSING and value is not None})
         delete_at_path(redacted, path)
     return redacted, secrets
+
+
+def _has_value(doc: dict, path: list[str]) -> bool:
+    value = get_at_path(doc, path)
+    return value is not _MISSING and value is not None and value != ""
+
+
+def secret_sources(own: dict, effective: dict, schema: type[BaseModel]) -> list[dict]:
+    """Every secret position with **who set it**: own / shared / unset.
+
+    ``set`` alone cannot answer the question someone asks when they open Settings
+    on an account that inherits: "is this credential mine, or am I spending
+    somebody else's?" On the wire both look identical, because the value never
+    crosses it — only the position does.
+
+    ``own`` is the account's own section, ``effective`` the merged one, both
+    decrypted and taken BEFORE redaction. A field the account set is ``own`` even
+    when the shared layer has one too: the account's value is the one in use.
+    """
+    out: list[dict] = []
+    for path in secret_paths(schema):
+        if _has_value(own, path):
+            source = "own"
+        elif _has_value(effective, path):
+            source = "shared"
+        else:
+            source = "unset"
+        out.append({"path": path, "set": source != "unset", "source": source})
+    return out

@@ -261,3 +261,78 @@ def test_deleting_one_accounts_document_leaves_the_other(db_session_factory):
             "deepseek_api_key") == "sk-bob"
     finally:
         db.close()
+
+
+# ── who set the credential (what the Settings UI labels) ─────────────────────
+
+def test_secret_positions_report_who_set_them(db_session_factory):
+    """``set`` alone cannot distinguish "mine" from "the team's".
+
+    The value never crosses the wire, so both look identical — which is exactly
+    why an account could believe it had configured a key the whole install was
+    paying for. ``source`` answers it, and this is the only place that can: it
+    needs the own section AND the effective one, before redaction.
+    """
+    db = db_session_factory()
+    try:
+        _set_key(db, OWNER, "openai_api_key", "sk-shared-openai")
+        _set_key(db, ALICE, "deepseek_api_key", "sk-alice")
+
+        sources = {
+            tuple(s["path"]): s["source"]
+            for s in cs.resolve(db, "models", user_id=ALICE).wire()["secrets"]
+        }
+        assert sources[("api_keys", "deepseek_api_key")] == "own"      # alice's
+        assert sources[("api_keys", "openai_api_key")] == "shared"     # inherited
+        assert sources[("api_keys", "qwen_api_key")] == "unset"
+
+        # The owner set its own values, so nothing is "shared" for it.
+        owner_sources = {
+            tuple(s["path"]): s["source"]
+            for s in cs.resolve(db, "models", user_id=OWNER).wire()["secrets"]
+        }
+        assert owner_sources[("api_keys", "openai_api_key")] == "own"
+    finally:
+        db.close()
+
+
+def test_an_account_value_wins_over_the_shared_one_in_the_label(db_session_factory):
+    """Same key set in both layers → it is the account's (that is the one used)."""
+    db = db_session_factory()
+    try:
+        _set_key(db, OWNER, "deepseek_api_key", "sk-shared")
+        _set_key(db, ALICE, "deepseek_api_key", "sk-alice")
+        sources = {
+            tuple(s["path"]): s["source"]
+            for s in cs.resolve(db, "models", user_id=ALICE).wire()["secrets"]
+        }
+        assert sources[("api_keys", "deepseek_api_key")] == "own"
+    finally:
+        db.close()
+
+
+def test_the_search_provider_key_status_follows_the_caller(db_session_factory):
+    """The search-providers endpoint used to read the own section only, so an
+    inherited key reported as missing while it worked at runtime.
+    """
+    from api.system.search_providers import _get_decrypted_key, _key_source
+    from core.context.current_user import UserContext, reset_current_user, set_current_user
+
+    db = db_session_factory()
+    try:
+        _set_key(db, OWNER, "tavily_api_key", "tvly-shared")
+
+        token = set_current_user(UserContext(id=ALICE, username="alice", role="member"))
+        try:
+            assert _get_decrypted_key("tavily_api_key", db) == "tvly-shared"
+            assert _key_source("tavily_api_key", db) == "shared"
+        finally:
+            reset_current_user(token)
+
+        token = set_current_user(UserContext(id=OWNER, username="owner", role="admin"))
+        try:
+            assert _key_source("tavily_api_key", db) == "own"
+        finally:
+            reset_current_user(token)
+    finally:
+        db.close()
