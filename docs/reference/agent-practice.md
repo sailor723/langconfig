@@ -1,430 +1,383 @@
-# Working with agents — practice, not configuration
+# Working with agents — the practice course
 
-**What this is:** eight exercises that teach how an agent in this platform actually behaves,
-written from the *usage* side. Setting an agent up is covered in
-[`../usage.md`](../usage.md) §5; what to write inside a skill is
-[`skill-authoring.md`](skill-authoring.md). This page is about the part nobody documents:
-what to say, what to expect back, and how to tell a good run from a confident-sounding bad
-one.
+Follows `backend/notebooks/module-1…5` notebook by notebook. Each notebook becomes a list of
+cases; each case is **one system prompt + one question**.
 
-**Why exercises instead of prose:** every failure in this list was observed on this install,
-and each one has a *specific* symptom you can recognise next time. Each section is one task
-you can run in five minutes, with the outcome that tells you whether the agent is working
-with you or just talking.
+**One module, one agent.** Paste the case's prompt into Overview → System Prompt — whole,
+replacing the previous one — then ask the question. When a case needs different tools, it says so.
 
-The one idea underneath all eight: **an agent's answer is a claim; the filesystem and the
-tool results are the evidence.** Most practice is learning to look at the evidence.
+```
+new agent → set model + tools → case 1 prompt → ask → case 2 prompt (replaces it) → ask → …
+```
 
----
+Two habits that make the course work:
 
-## P1 — Ask it who it is, before you ask it for anything
-
-**Do:** start a chat and send, with no other instruction:
-
-> In three lines: which agent are you, what is the absolute path of your workspace, and
-> which account are you working for?
-
-**Expect:** the agent's own id and workspace path, then the account that is signed in —
-display name, username and id. The workspace path must be under `…/users/<your id>/`.
-
-**Why it matters:** the prompt carries three blocks — `Identity` (agent id + workspace),
-`Who you are working for` (the account, from the signed-in session), and a
-`workspace boundary` rule. The default `AGENTS.md` template (and the mirror in `CLAUDE.md`)
-tells every agent to state the account when it introduces itself and to say plainly that it
-cannot see another account's files — so a correct first message proves the whole chain. If
-any part of it is wrong you will spend the next hour blaming the model for something the
-platform told it.
-
-**What "wrong" looks like:** it names an account that is not yours, or a `users/<other id>/`
-path. That is a platform bug, not a prompt problem — report it and check
-`scripts/verify_tenant.sh`, which asserts exactly this for two accounts.
-
-**Rule:** *one question at the start of every session, and only one.*
+- **Judge by evidence, not by prose.** A confident sentence is not compliance. What counts is the
+  tool call under the reply, the file in `generated/`, the shape of the output.
+- **Prove the behaviour is wrong before writing a rule against it.** Measured on `deepseek-chat`:
+  three "don't invent things" rules changed nothing, because the model already refused. A rule
+  only earns its tokens when the wrong answer is *tempting*.
 
 ---
 
-## P2 — Changing behaviour: the rule you write versus the behaviour you get
+# module-1 — model, prompt, tools, web, memory
 
-The template's standard content — workspace map, path map, the file list — is scaffolding.
-Nobody needs to learn it, and editing it teaches nothing. The part worth practising is the
-one skill that decides whether an agent is useful: **writing a rule that changes behaviour,
-and proving it did.**
+Seven notebooks, one agent. Preparation: name it anything, model `deepseek-chat`, **all tools
+cleared** (`enable_default_tools` off).
 
-### Four levers, and what each one can actually change
+---
 
-| Lever | Changes | Cannot change |
-|---|---|---|
-| **System prompt** (agent's Overview tab) | role, tone, priorities, output shape, what to refuse | what the model *can* do |
-| **`AGENTS.md` rules** (Docs tab) | same as above, and applied on **every** turn | ditto — it is still just text in the prompt |
-| **Tools / skills** | what it *can* do at all | whether it chooses to |
-| **Model** | reasoning depth, instruction-following, speed, cost | facts, or a missing tool |
+## 1.1_foundational_models
 
-Most "the agent is bad" complaints are lever 1 or 2 problems. Some are lever 3 — no amount
-of prompting lets an agent read a database it has no tool for.
+### Case 1 · Bare model
 
-### A rule that works has four parts
+```text
+你是一个通用聊天助手。直接回答用户的问题。
+```
 
-| Part | Question it answers | Weak | Strong |
-|---|---|---|---|
-| **Trigger** | when does this apply? | "be careful with data" | "When the user uploads a CSV and asks for numbers…" |
-| **Action** | what exactly do you do? | "analyse it well" | "…load it with `sqlite_load_csv`, then answer with one SQL query per question." |
-| **Shape** | what does the output look like? | "make it clear" | "…respond with a table of the numbers, then at most three bullets of interpretation." |
-| **Edge** | what if you cannot? | *(absent)* | "…if a column is missing, say which one and stop; do not invent values." |
+输入：`你好，介绍一下你自己。`
 
-The edge case is the one people skip, and the one that prevents invented answers.
+### Case 2 · Temperature
 
-### Run it on `prompt-lab`
+Prompt 同上。temperature 设 `0.2` 问三次，再设 `1.2` 问三次。
 
-A ready-made agent for these experiments: three tools (`ls`, `read_any_file`,
-`save_document`), one model, one small job — so the only variable is the text. Its `AGENTS.md`
-opens with four rules, each with its own experiment:
+输入：`给「静海城」写一句 8 个字的城市格言，只要格言本身。`
 
-| Rule | Change this | Watch this |
-|---|---|---|
-| **R1** shape | "three lines" → "a three-column table" | the answer's *shape*, nothing else |
-| **R2** length | 40 words → 300 | the answer's *length* |
-| **R3** refusal | delete the rule | it answers from memory instead of naming the gap |
-| **R4** tone | allow exclamation marks | one line, immediately visible |
+> 别用"给月球城市起名"演示温度——三次都是同一个名字，看不出差别。
 
-Run **R3 twice** — with the rule and without it — on a question that **tempts** the failure.
-Measured here, asking *"what is a typical SaaS monthly churn rate? give me a number."*:
+### Case 3 · Agent call
 
-| R3 | Answer |
+Prompt 同上，temperature 回 `0.2`。
+
+输入：`月球的首都是哪里？`
+
+### Case 4 · Boundary probes
+
+Prompt 同上。**每句开一个新聊天。**
+
+输入（依次）：
+
+```text
+我们公司上季度营收多少？直接给我一个数字。
+```
+
+```text
+2024 年中国 SaaS 行业平均月流失率是多少？给一个数字。
+```
+
+```text
+现在 DeepSeek 最新的模型是哪个版本？
+```
+
+```text
+我叫卫平，我喜欢蓝色。
+```
+然后同一聊天里：`我喜欢什么颜色？`
+
+> 第二句是最危险的一题：没有工具时它知道自己没有你公司的数据（空工作区就是证据），
+> 但一个半记得的行业数字它看得见——"看起来像答案"的数字就出在这里。
+
+---
+
+## 1.1_prompting
+
+五个 case，输入**都是**「月球的首都哪里？」→ `月球的首都是哪里？`
+
+### Case 1 · 什么都不设
+
+```text
+你是一个通用聊天助手。直接回答用户的问题。
+```
+
+输入：`月球的首都是哪里？`
+
+### Case 2 · 一句身份
+
+```text
+你是一位科幻小说作家，根据用户请求创建一个太空首都城市。
+```
+
+输入：`月球的首都是哪里？`
+
+### Case 3 · Few-shot（身份 + 两个例子）
+
+```text
+你是一位科幻小说作家，根据用户请求创建一个太空首都城市。
+
+用户：火星的首都是什么？
+科幻作家：火星都 (Huǒxīng Dū)
+
+用户：金星的首都是什么？
+科幻作家：金星城 (Jīnxīng Chéng)
+```
+
+输入：`月球的首都是哪里？`
+
+### Case 4 · 结构化提示（不给例子，给字段）
+
+```text
+你是一位科幻小说作家，根据用户的要求创建一个太空首都城市。
+请遵循以下结构。
+
+名称: 首都城市的名称
+
+位置: 它所在的地点
+
+氛围: 2-3个词来描述它的氛围
+
+经济: 主要产业
+```
+
+输入：`月球的首都是哪里？`
+
+### Case 5 · 结构化输出（要一个对象，不是文字）
+
+notebook 用 `response_format=CapitalInfo`，拿到 `CapitalInfo(name='广寒市', ...)`。
+**平台 agent 配置里没有这一项 —— 这个 case 做不了，跳过。**
+
+---
+
+## 1.2_tools
+
+### Case 1 · 不给工具
+
+工具全清。
+
+```text
+你是一个通用聊天助手。直接回答用户的问题。
+```
+
+输入：`1234567 × 891011 等于多少？`
+
+> 记下它给的数。你没法核对它是怎么算的——这就是下一 case 的意义。
+
+### Case 2 · 给一个工具
+
+工具加 `python_execute`。
+
+```text
+你是一个通用聊天助手。直接回答用户的问题。
+
+你有一个 python_execute 工具。需要精确、可复现的计算时用它；
+闲聊、常识、不需要计算的问题不要调它。
+```
+
+输入（先第一句，再第二句）：
+
+```text
+你好，介绍一下你自己。
+```
+
+```text
+1234567 × 891011 等于多少？
+```
+
+> 第一句应该**不调工具**，第二句应该有一个工具调用记录在回复下面，并且能看到它执行的代码。
+> 答案的数字不重要，那次调用才是证据。
+
+---
+
+## 1.2_web_search
+
+### Case 1 · Without web search
+
+工具全清。
+
+```text
+你是一个通用聊天助手。直接回答用户的问题。
+```
+
+输入：`请问深圳市市长是谁？`
+
+> 记下它给的名字。
+
+### Case 2 · Add web search tool
+
+工具加 `web_search` + `web_fetch`。
+
+```text
+你是一个通用聊天助手。回答前先判断这个问题会不会随时间变化。
+
+- 会被更新的事实，先查再答。人名、职位、版本号、价格、日期、政策，
+  这些都可能在你训练之后变了。回答之前先 run web_search。
+- 至少打开 1–2 个搜索结果再下结论，不要只看标题。
+- 搜不到就说搜不到，并写出你用了什么关键词。不要用记忆补。
+- 与时效无关的问题（闲聊、常识、推理、算术）不要查。
+```
+
+输入（先第一句，再第二句）：
+
+```text
+请问深圳市市长是谁？
+```
+
+```text
+你是怎么知道的？
+```
+
+> **notebook 这一格是坏的，值得讲**：它挂了 `web_search`，打印出来的却是
+> `tool_calls=[]` —— 工具给了没用，答案和 Case 1 一模一样。两个教训：
+> 1. 对比 Case 1 和 Case 2 看**调用次数**和**有没有能点开的来源**，不看文风；
+> 2. **写义务，不写许可。**「你可以用 web_search」是许可，模型可以不吃；「回答前必须先跑
+>    web_search」是义务。实测同样两个工具：许可式三句话 **0** 次调用，义务式第一句 **2** 次。
+
+---
+
+## 1.3_memory
+
+### Case 1 · 没有记忆
+
+工具全清。**开一个新聊天**，直接问。
+
+```text
+你是一个通用聊天助手。直接回答用户的问题。
+```
+
+输入：`我喜欢什么颜色？`
+
+### Case 2 · 有记忆
+
+Prompt 同上。**同一个聊天**里连问两句。
+
+输入（依次）：
+
+```text
+你好，我是卫平，我喜欢蓝色
+```
+
+```text
+我喜欢什么颜色？
+```
+
+> notebook 里的 `checkpointer` + `thread_id`，在这个平台就是"这次聊天"。
+
+---
+
+## 1.4_multimodal
+
+### Case 1 · 图文一起发
+
+```python
+message = HumanMessage(content=[
+    {"type": "text", "text": "描述这张图片"},
+    {"type": "image_url", "image_url": {"url": "https://..."}},
+])
+```
+
+**做不了。** 模型层有视觉（`deepseek-flash` 支持），但聊天界面和 `/api/chat/` 没有附图入口
+——没有 `image_url`，没有上传。`read_image` 是 OCR，不是图像理解，别当替代品。
+
+---
+
+## 1.5_personal_chef
+
+工具加 `web_search` + `web_fetch`。
+
+```text
+你是一个家常菜顾问。用户会告诉你手头有什么食材，你给一个能真正做出来的食谱。
+
+- 先看用户给了什么，只用这些食材加常见调味料（油盐酱醋糖）。缺了关键东西就说缺，
+  不要假设他有。
+- 食谱要能照着做：用量、火候、时间、几步。
+- 食材替换、火候时间这类拿不准的判断，先 run web_search 再回答；
+  查不到就说不确定，不要编一个精确数字。
+- 用户之前说过的口味、忌口，在这个聊天里要记住。
+```
+
+输入（**同一个聊天**，按顺序）：
+
+```text
+我有米饭和鸡肉，做什么好？
+```
+
+```text
+家里没有酱油，能用别的代替吗？
+```
+
+```text
+我不吃辣，刚才那个食谱帮我改一下。
+```
+
+验收：
+
+| 第三句的表现 | 说明 |
 |---|---|
-| on | `Conclusion: I can't give you a number. Because: that needs web or database access, which I don't have.` |
-| off | `Conclusion: Typical SaaS monthly churn is about 3-5% for SMB, under 1% for enterprise.` |
+| 又问你吃不吃辣 | 记忆坏了，回 1.3 Case 2 |
+| 直接改，不再问 | 记忆正常 |
+| 报一个精确火候但没查 | 工具规则太软，回 1.2_web_search Case 2 改硬 |
 
-The second is not a lie the model chose to tell — it is the model doing what it does when nobody
-has told it to stop, and the number is a plausible-sounding average with nothing behind it.
+> 第二句是"好心规则"翻车的地方。如果你的 prompt 里加了「查不到就给个替代方案」，
+> 注意它会不会把"替代"变成一个数字：实测「给个替代」得到「2%–5%」，
+> 「先给最佳答案」得到「约 3%」，而这两题在没写规则时它是拒绝的。
+> **替代要给路径，不要给数值。**
 
-**Pick the question carefully.** Asking *"what did our website traffic look like last month?"*
-gets a refusal with or without R3, because the empty workspace is its own evidence — which makes
-a good-looking experiment that proves nothing. A rule's effect is only visible when the
-alternative is attractive.
+---
 
-#### Create it by hand (5 steps, about 2 minutes)
+# module-2 — planning, files, subagents
 
-**1.** Activity bar → **DeepAgents** → **Create**. Name `prompt-lab`, model `deepseek-chat`,
-temperature `0.2`.
+`2.0_create_agent`, `2.1_todo`, `2.2_files`, `2.3_subagents`, `2.4_full_agent`.
 
-**2.** **Tools** — exactly these three: `ls`, `read_any_file`, `save_document`. Fewer tools is the
-point (P7); it is also why R3 is demonstrable rather than theoretical.
+和 module-1 不同：这里没有你要"搭"的东西。`write_todos`、文件工具、子代理都在默认工具里。
+所以这一章是**观察**，不是配置——一个 agent 全开默认工具，一个 notebook 一组 case：
 
-**3.** **Overview → system prompt** — paste:
-
-```
-You are prompt-lab, a small agent that demonstrates one thing: behaviour
-comes from these instructions, not from the model.
-
-Do the user's task, following AGENTS.md exactly. If a rule and the request conflict, follow the
-rule and say so.
-```
-
-**4.** **Docs → AGENTS.md** — replace everything with:
-
-```
-# prompt-lab
-
-Three tools, one job: show that the rules below control the behaviour.
-To run an experiment: change **one** rule in the Docs tab, save, start a **new** chat, ask the
-same question, compare.
-
-## Rules
-
-- **R1 Shape** — answer in exactly three lines: `Conclusion:` / `Because:` / `Next:`. No tables.
-- **R2 Length** — the whole answer fits in 40 words.
-- **R3 Refusal** — if answering needs a tool you do not have (web, database), name the missing
-  capability and stop. Never estimate or answer from memory as if you had checked.
-- **R4 Tone** — address the user as "you", never "You", and never use exclamation marks.
-
-## Experiments
-
-- **R3 (run this one twice):** ask "what is a typical SaaS monthly churn rate? give me a
-  number." With R3 it refuses and names the missing capability. Delete R3, run it again → it
-  answers "typical SaaS monthly churn is about 3-5% for SMB", from memory, with nothing behind
-  it. That difference is why refusal rules exist.
-  Ask a question whose absence of evidence is *visible* (e.g. "what did our traffic look like
-  last month?") and it refuses either way, because the empty workspace is proof — a rule's
-  effect only shows when the alternative is tempting.
-- **R1:** change "three lines" to "a three-column table" → the shape changes; nothing else does.
-- **R2:** change 40 to 300 → the answer grows.
-- **R4:** allow exclamation marks → visible in one line.
-
-## Workspace
-
-- **Workspace**: <the path the agent reports; the template fills this in>
-
-Deliverables go in `generated/`; uploads are read from `upload/`; `other/` is scratch. Nothing
-else is available: `ls`, `read_any_file` and `save_document` are the only tools — which is what
-makes R3 demonstrable.
-```
-
-**5.** **Save → new chat → run the R3 question above.** Expect the three-line answer with
-`Conclusion: I can't answer this — the web analytics capability is missing.`
-
-#### Or create it with one command
-
-```bash
-cd backend
-.venv/bin/python scripts/create_starter_agent.py            # create or refresh (idempotent)
-.venv/bin/python scripts/create_starter_agent.py --delete    # remove it, workspace to .trash
-```
-
-The script writes the same three texts above, bakes the identity, and materializes
-`AGENTS.md` / `CLAUDE.md` into the workspace — keep the two in step if you edit one.
-
-### One worked example, because the shape is easier to copy than to describe
-
-Task: *"turn this CSV of monthly sales into a short brief"*, running badly (a paragraph of
-prose, no numbers, no file).
-
-**Round 1 — trigger + action**
-
-> When the user uploads a CSV and asks for a summary, load it with `sqlite_load_csv` and ask
-> one SQL question at a time. Do not describe the data from its first few rows.
-
-**Observed:** real numbers now, but a wall of text and still no file.
-
-**Round 2 — add shape and edge**
-
-> …respond with a table of the top five rows by revenue, then at most three bullets. Write the
-> whole thing to `generated/sales-brief.md`. If a column you need is missing, name it and stop
-> — do not estimate or interpolate.
-
-**Observed:** the file exists in `generated/`, the table has five rows, three bullets, and on a
-deliberately broken CSV it stops and names the missing column instead of inventing a total.
-
-Two rounds, two rules, both verified by evidence (tool calls + the file). That is the whole
-practice: the prompt is a specification you iterate against observations, not a description of
-the agent you hope for.
-
-### The loop: state → observe → sharpen → re-test
-
-1. **Write one rule**, in your own words, in the Docs tab. One. Not a paragraph of
-   aspirations.
-2. **New chat** (a rule change does not reach a running conversation), then do the task.
-3. **Observe the evidence**, not the prose: did it call the tool you named? Is the output the
-   shape you asked for? Does the file exist?
-4. **Sharpen the weakest of the four parts** — usually the trigger ("when X") or the edge
-   ("if not, say so").
-5. **Re-test the case that failed, plus one that used to work.** A rule that fixes one case by
-   breaking two is a regression.
-
-Two or three rounds of this beat a long prompt written in one go, and the diff between rounds
-is the actual knowledge of how your agent behaves.
-
-### Where a rule has to live to be real
-
-| What you want | Put it | Effect |
+| notebook | 看什么 | 在哪看 |
 |---|---|---|
-| a durable rule | Docs → **`AGENTS.md`** | embedded into the system prompt on **every** turn |
-| a one-off instruction | the chat message | that turn only; afterwards it is history |
-| a team-wide default for new agents | `backend/core/agents/templates/AGENTS.default.md` | baked in when an agent is created |
+| `2.1_todo` | 会不会写计划，什么时候更新 | todo 工具调用 |
+| `2.2_files` | 工作区里落了什么 | `generated/`，不是聊天文字 |
+| `2.3_subagents` | 上下文隔离 | 子代理活动，主线程有没有被污染 |
+| `2.4_full_agent` | 端到端研究任务 | 整条 trace |
 
-`CLAUDE.md` is a mirror written to the workspace for file-reading consumers — it is **not**
-embedded, so a rule that exists only there is a rule the agent never reads.
+**case 待整理。**
 
-### What prompt cannot fix
+---
 
-- **A missing tool.** "Use the database" without a database tool produces guesses, not data.
-- **A capability limit.** Ask a cheap model for long multi-step arithmetic and no prompt fixes
-  it; change the model or give it a tool.
-- **A platform boundary.** Reading another account's workspace is refused below the prompt.
-  A rule cannot grant it, and asking the agent to try only wastes turns.
-- **A fact it could look up.** "Our revenue is 12M" in a prompt goes stale; put the number in
-  the task, the knowledge base, or a file the agent reads.
+# module-3 — 真实项目
 
-### Traps, in order of how often they bite
+`3.0_phase1_agent`：读 PRD → 产出规格 → 报 token 成本。
 
-| Trap | Why it fails | Fix |
+不是 prompt 卫生课，是"真实任务的 agent 长什么样"：输入产物 → 校验 → 输出产物 → 成本。
+
+**准备**：一个 agent，默认工具，PRD 传到 `upload/`，prompt 指向它。
+
+**case 待整理。**
+
+---
+
+# module-4 — 知识架构与文档问答
+
+`4.0_document_chatbot`（文档问答），以及 `01/02/03`（RAG vs KV、上下文崩塌、归档）。
+
+**准备**：一个 agent，上传文档，prompt 把答案限制在这份文件里——
+"文档没写"和"我没检索到"是两件事，文件以外的信息一律标注来源。
+
+**case 待整理。**
+
+---
+
+# module-5 — 一条 prompt 从管用到崩塌
+
+六集连续剧：`01_rigid_ancestor` → `06_sql_skills_assistant`。
+`04_mega_prompt_collapse` 演"规则越多越糟"，`05` 讲渐进式披露，`06` 按需加载数据字典并出图。
+
+这一章是 module-1 的自然延伸：1.2_web_search Case 2 和 1.5 已经出现过"规则改到了别的地方"，
+`04` 把同一个效应演到底。
+
+**case 待整理。**
+
+---
+
+# Appendix — 规则该放哪
+
+| 位置 | 进 prompt 吗 | 谁读 |
 |---|---|---|
-| Requirements narrated in chat | gone at the next session, or at summarisation | Docs tab |
-| Adjectives instead of actions ("be thorough") | not testable, so not observable | name the step and the output |
-| The key rule at the end of a long prompt | cheap models attend to the start | first lines, or a Docs rule |
-| Two rules that contradict | the model picks arbitrarily, differently each run | one rule, one owner; delete the loser |
-| A 6 KB `AGENTS.md` | every turn pays for it, and it competes with the task | keep the durable rules; move detail into a skill |
-| Verifying by re-reading the answer | a confident sentence is not compliance | tool calls, files, output shape |
+| System Prompt（Overview） | 进，每轮 | 模型 |
+| `AGENTS.md`（Docs） | 进，每轮 | 模型 |
+| `CLAUDE.md`（Docs） | **不进**，只存库和写到工作区 | 你自己 |
+| 聊天消息 | 进，只那一轮 | 模型 |
 
-**Rule:** *one behaviour change per round, verified by evidence, then written down.*
+`CLAUDE.md` 看着像 agent 配置，其实不是——只写在那里的规则，agent 永远读不到。
+所以它是放自己笔记的正确位置，也是放规则的错误位置。
 
-## P3 — Skills are chosen by description, and read on demand
-
-**Do:** ask for something a skill covers, without naming the skill ("write a short weekly
-report from these notes"). Watch the tool calls. Then ask again with the phrasing the
-skill's own `description` uses.
-
-**Expect:** the agent reads that skill's `SKILL.md` with a file tool *before* producing
-output. In the catalogue it only ever saw the name, the description and the path — the body
-is fetched when needed (progressive disclosure).
-
-**Why it matters:** a skill is selected from its `description`, which means:
-
-- a vague description never gets picked, no matter how good the body is;
-- two skills describing the same job make the model guess — check the other triggers before
-  adding one (this happened here: `code-review` and `git-workflow` both claimed "pull
-  request");
-- the skill must be **readable as a file** on the staged path, and the agent needs a
-  file-reading tool to open it.
-
-**What "wrong" looks like:** the answer is plausible but generic, and no `SKILL.md` was read.
-That is a description problem, not a model problem.
-
----
-
-## P4 — Say what the deliverable is, and where it goes
-
-**Do:** run the same task twice. First: *"analyse this CSV"*. Then: *"produce five charts
-and a one-page summary; put the charts and the summary in `generated/`, and tell me the
-filenames."*
-
-**Expect:** the second run writes real files into the workspace's `generated/` folder, using
-`upload/` as the source and `other/` only for scratch. The first run may produce a good
-answer and no artefacts at all.
-
-**Why it matters:** the workspace has a fixed shape — `upload/` (what the user gave you),
-`generated/` (deliverables), `other/` (scratch). The agent knows this from
-`AGENTS.md`; whether it uses it depends on you asking for a deliverable.
-
-**Rule:** *if it should exist as a file, say the word "file" and name the folder.*
-
----
-
-## P5 — Verify with the Files panel, not with the chat
-
-**Do:** after any run that claims to have produced something, open **Files** and check:
-does the file exist, is the size sane, is the timestamp from this run?
-
-**Expect:** the Files panel lists what is **actually on disk**. It reads the workspace
-directory, so it is the authority — a file it does not show does not exist, whatever the
-transcript says.
-
-**Why it matters:** "done" is a sentence the model can generate. The three failure shapes:
-
-| Symptom | What happened |
-|---|---|
-| File in `other/` instead of `generated/` | your instruction did not say where |
-| File exists, 0 bytes | the agent announced a write and never called the tool |
-| No file at all, polite summary | the agent summarised instead of producing |
-
-**Rule:** *a deliverable is a file you can open. Everything else is a status update.*
-
----
-
-## P6 — One task per conversation
-
-**Do:** finish a task, then ask an unrelated second task in the **same** chat. Then repeat
-it in a new chat.
-
-**Expect:** the second chat is usually better — sharper, shorter, less confused by leftover
-context. The first carries the old task's assumptions, tool results and half-finished plans.
-
-**Why it matters:** in one conversation the skill catalogue is loaded **once** (per thread),
-and long histories are summarised or evicted to keep within the token limit. Both are
-reasonable behaviour and both make *reuse* of a conversation a bad idea for a new task.
-
-**Also worth knowing:** editing an agent's configuration invalidates the cached instance, so
-the next message rebuilds it — that is why the first turn after an edit is slower.
-
-**Rule:** *new task, new chat. Rename the old one so you can find it again.*
-
----
-
-## P7 — Fewer tools, better answers
-
-**Do:** give an agent the full default tool set, ask it a simple task. Then remove
-everything except the two tools the task needs, and ask again.
-
-**Expect:** the second run is faster, cheaper and more direct. With thirty tools the model
-spends attention choosing; with five it just uses them.
-
-**Why it matters:** every tool's name, description and parameter schema is in the prompt —
-tools are prompt budget, and the budget competes with your instructions.
-
-**Rule:** *add a tool when a task fails for want of it, not in anticipation.*
-
----
-
-## P8 — Let it refuse
-
-**Do:** ask for something none of its tools can do — read a file outside its workspace, query
-a database it has no tool for, fetch a page when it has no fetch tool.
-
-**Expect:** it says it cannot, and what it would need. The prompt explicitly permits refusal:
-the workspace boundary says a path from the chat does not override it, and to stop and say so
-rather than work around it.
-
-**Why it matters:** a model that is not *given permission to fail* will invent a plausible
-answer or a fake tool result. If yours invents instead of refusing, the fix is in the prompt
-(add the boundary/refusal rule), not in the model choice.
-
-**What "wrong" looks like:** convincing detail about a file it never opened. Check the tool
-calls: no `read_file`, no result — the paragraph after it is fiction.
-
-**Rule:** *a refusal is a correct answer; a fabricated success is not.*
-
----
-
-## When not to use an agent
-
-| Situation | Why not | Do instead |
-|---|---|---|
-| The answer is one SQL query or one file scan | you will spend more tokens checking its answer than writing it | SQL tool / shell, then read the result yourself |
-| The exact output must be reproducible byte-for-byte | an LLM re-rolls the text every run | a script; use the agent to *write* the script once |
-| It authorises money, deletes data, or sends something outward | irreversible and sometimes unattributable | a human step, always |
-| The task needs a fact you can look up | answers drift, sources do not | Knowledge base / web fetch with the URL in the answer |
-| You cannot describe "done" | the agent cannot either | write the acceptance check first, then delegate |
-
-## What is yours and what is the team's
-
-This matters as soon as there are two accounts. Practice-level version:
-
-| Yours only | Everyone's |
-|---|---|
-| your workspace and files (`outputs/users/<your id>/`) | the agent library, tools, built-in skills |
-| your conversations | projects, the knowledge base |
-| your personal skills | **provider API keys** — the spend is the team's, whichever account runs it |
-| your account and password | |
-
-Two consequences you will meet in practice:
-
-- **A shared agent cannot see your personal skill.** If an agent is pinned to a skill you
-  own and a colleague runs it, the skill is skipped (by design). For a workflow the team
-  runs, put the skill in `builtin`.
-- **Nobody else can see your files, and you cannot see theirs.** If you *can*, that is a bug
-  — run `scripts/verify_isolation.sh`.
-
-## Anti-patterns, in one place
-
-| Anti-pattern | What it costs | Instead |
-|---|---|---|
-| Durable rules typed into chat | they vanish at summarisation or in the next session | Docs tab (`AGENTS.md`) |
-| One long chat for everything | context pollution; worse answers per task | one task per conversation |
-| Letting the agent discover paths | it wastes turns `ls`-ing and sometimes guesses | say the path, or rely on the workspace map |
-| Burying the key constraint at the end of a long prompt | cheap models ignore the tail | first line of the prompt, or a Docs rule |
-| "Analyse this" with no deliverable | a paragraph instead of a file | name the artefact, the folder and the format |
-| Trusting "done" | silent no-ops | Files panel + size + timestamp |
-| Giving every tool "just in case" | prompt budget stolen from your instructions | add on demand |
-
----
-
-## The five-minute habit
-
-Before blaming a model, in this order:
-
-1. **Ask who it is** (P1) — wrong identity means the prompt is wrong, not the model.
-2. **Read the tool calls** — did it actually read the file / run the query?
-3. **Open Files** — does the deliverable exist, with a sane size?
-4. **Check the Docs tab** — is the rule you are relying on actually in the prompt?
-5. **New chat, one task** — half the "it got worse" reports are a reused conversation.
-
-If all five are clean and the answer is still wrong, that is a useful bug report: the
-session id (visible in the chat URL and in `chat_sessions`), the tool calls with their
-results, and what the Files panel shows. If the symptom is "I can see something that is not
-mine" or "my own thing is missing", run the matching verifier first — it distinguishes a
-platform boundary bug from a prompt problem in about a second:
-
-```bash
-cd backend
-./scripts/verify_tenant.sh  <host> -u <me> -A <colleague>   # private vs shared, end to end
-./scripts/verify_isolation.sh <host> -u <me> -A <colleague> # files, storage, sessions
-```
+反过来的错一样常见：把教案写进 `AGENTS.md`，模型就读到了自己的实验脚本。做这份课程时
+就踩过一次——一个本来没有任何格式约束的 case，返回了后面 case 才要求的四个字段，
+因为后面那步的说明写在同一份文档里。
