@@ -264,14 +264,21 @@ def _test_search_connection(provider: str, api_key: str) -> dict:
 
 # ── Engine-backed key resolution (models.api_keys document, then .env) ───────
 def _document_api_keys(db: Session) -> dict:
-    """UI-set provider keys from the DSH-style models document (decrypted).
+    """Provider keys **as an agent sees them** for the calling account.
+
+    Own section first, then the shared/owner layer (migration 037). This has to
+    be the effective view: the "Test" button must answer the same question the
+    runtime does. Reading only the own section made an inherited key report
+    "No API key stored" while every agent turn used it successfully — the exact
+    disagreement this endpoint exists to prevent.
 
     Returns {} when the engine table is unavailable — callers fall back to .env.
     Read-only: never creates the table.
     """
     try:
         from core.settings import store
-        return store.get_document(db, "models").get("api_keys") or {}
+        _own, effective = store.get_effective_document(db, "models")
+        return effective.get("api_keys") or {}
     except Exception:
         return {}
 
@@ -335,11 +342,17 @@ def _storage_mode_label(mode: str) -> str:
 
 
 def _persisted_storage_mode(db: Session) -> Optional[str]:
-    """The storage.mode value the user explicitly set (document), else None."""
+    """The effective storage.mode (own → shared), else None.
+
+    Storage mode is an install-level operational choice, not a personal
+    preference: an account that never set one must see the mode the install is
+    actually running, not "unset".
+    """
     try:
         from core.settings import store
         store.ensure_table(db)
-        return store.get_document(db, "storage").get("mode")
+        _own, effective = store.get_effective_document(db, "storage")
+        return effective.get("mode")
     except Exception:
         return None
 

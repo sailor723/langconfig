@@ -336,3 +336,49 @@ def test_the_search_provider_key_status_follows_the_caller(db_session_factory):
             reset_current_user(token)
     finally:
         db.close()
+
+
+def test_the_key_test_endpoint_answers_what_the_runtime_does(db_session_factory):
+    """`POST /api-keys/test` must see inherited keys.
+
+    It resolved keys from the own section only, so on an account that inherits,
+    "Test" answered "No API key stored for 'minimax'" while every agent turn was
+    using that very key. A test that contradicts the runtime is worse than none —
+    the endpoint's whole purpose is to answer "will this work?".
+    """
+    from api.system import settings as settings_api
+    from core.context.current_user import UserContext, reset_current_user, set_current_user
+
+    db = db_session_factory()
+    try:
+        _set_key(db, OWNER, "minimax_api_key", "sk-minimax-shared")
+
+        token = set_current_user(UserContext(id=ALICE, username="alice", role="member"))
+        try:
+            assert settings_api._resolve_api_key(db, "minimax") == "sk-minimax-shared"
+            # base_url shares the same map, so it is inherited too
+            assert "minimax_api_key" in settings_api._document_api_keys(db)
+        finally:
+            reset_current_user(token)
+    finally:
+        db.close()
+
+
+def test_storage_mode_is_inherited_rather_than_reported_unset(db_session_factory):
+    """Storage mode is an install-level choice: an account that never set one
+    must see the mode the install runs, not "unset"."""
+    from api.system import settings as settings_api
+    from core.context.current_user import UserContext, reset_current_user, set_current_user
+
+    db = db_session_factory()
+    try:
+        cs.mutate(db, "storage", [{"op": "set", "path": ["mode"], "value": "db"}],
+                  user_id=OWNER)
+
+        token = set_current_user(UserContext(id=ALICE, username="alice", role="member"))
+        try:
+            assert settings_api._persisted_storage_mode(db) == "db"
+        finally:
+            reset_current_user(token)
+    finally:
+        db.close()
