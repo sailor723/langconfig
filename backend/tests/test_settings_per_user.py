@@ -44,6 +44,23 @@ BOB = 1070
 
 @pytest.fixture(scope="module")
 def db_session_factory():
+    # Refuse to run against the application database.
+    #
+    # Not paranoia: an earlier version of one test in this file opened
+    # `db.database.SessionLocal` instead of the test factory and wrote
+    # `tavily_api_key = "tvly-shared"` into the real install's owner row. The test
+    # passed, the suite stayed green, and the only visible symptom was a green
+    # "configured" dot on a search provider nobody had configured. A guard at the
+    # one place that builds the engine is cheaper than remembering not to.
+    from db.database import DATABASE_URL as APP_DATABASE_URL
+
+    assert SYNC_URL != APP_DATABASE_URL.replace(
+        "postgresql+asyncpg://", "postgresql://"
+    ), (
+        "TEST_DATABASE_URL points at the application database; refusing to run "
+        "these tests against live settings"
+    )
+
     engine = create_engine(SYNC_URL, pool_pre_ping=True)
     Session = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     yield Session
