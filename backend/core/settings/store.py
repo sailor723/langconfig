@@ -207,19 +207,59 @@ def _deep_merge(base: dict, override: dict) -> dict:
     return out
 
 
+def _apply_sharing_policy(shared: dict, ns: str) -> dict:
+    """Drop the credentials the owner has chosen not to share.
+
+    The owner decides, per group, whether its row is the team's default:
+
+      * ``share_model_keys_with_team`` — LLM/provider keys (everything in
+        ``api_keys`` except the search fields);
+      * ``share_web_keys_with_team`` — the Web API group
+        (``WEB_SEARCH_KEY_FIELDS``).
+
+    Only the *shared* copy is masked; the owner's own resolution is untouched, and
+    an account that set its own value keeps it (the merge happens afterwards).
+    Non-credential fields (default model, limits, storage mode …) keep inheriting
+    either way: they are operational settings, not a bill.
+
+    A switch that is absent means "on" — the pre-toggle behaviour — so an install
+    that never opens this setting keeps working exactly as before.
+    """
+    if ns != "models" or not isinstance(shared, dict) or not shared:
+        return shared
+    keys = shared.get("api_keys")
+    if not isinstance(keys, dict) or not keys:
+        return shared
+
+    from .schemas import WEB_SEARCH_KEY_FIELDS
+
+    drop: set[str] = set()
+    if shared.get("share_model_keys_with_team", True) is False:
+        drop |= {k for k in keys if k not in WEB_SEARCH_KEY_FIELDS}
+    if shared.get("share_web_keys_with_team", True) is False:
+        drop |= {k for k in keys if k in WEB_SEARCH_KEY_FIELDS}
+    if not drop:
+        return shared
+
+    out = dict(shared)
+    out["api_keys"] = {k: v for k, v in keys.items() if k not in drop}
+    return out
+
+
 def get_effective_document(
     db: Session, ns: str, user_id: Optional[int] = None
 ) -> tuple[dict, dict]:
     """``(own_section, effective_section)`` for an account.
 
-    ``effective`` = the owner's section with the account's own section merged
-    over it, field by field. When the account **is** the owner the two are equal.
+    ``effective`` = the owner's section (minus whatever the owner chose not to
+    share) with the account's own section merged over it, field by field. When the
+    account **is** the owner the two are equal.
     """
     uid = _resolve_user_id(user_id)
     own = get_document(db, ns, uid)
     if uid == OWNER_USER_ID:
         return own, own
-    shared = get_document(db, ns, OWNER_USER_ID)
+    shared = _apply_sharing_policy(get_document(db, ns, OWNER_USER_ID), ns)
     return own, _deep_merge(shared, own)
 
 

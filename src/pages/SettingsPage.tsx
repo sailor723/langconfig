@@ -106,6 +106,21 @@ interface SettingsNs {
 
 type MutateOp = { op: 'set' | 'unset'; path: string[]; value?: any }
 
+/** The Admin-only "team sharing" switches live on the owner's row.
+ *
+ * Only the owner's flags have an effect (everyone else inherits *from* the owner),
+ * so rendering them for a member would offer a control that silently does
+ * nothing. The role comes from /api/users/me rather than being inferred.
+ */
+async function currentUserIsAdmin(): Promise<boolean> {
+  try {
+    const res = await apiClient.getMe()
+    return (res?.data?.role || '') === 'admin'
+  } catch {
+    return false
+  }
+}
+
 async function describeNs(ns: string): Promise<SettingsNs | undefined> {
   try {
     const res = await apiClient.describeSettings()
@@ -394,6 +409,21 @@ function ModelsSection() {
   // Keyed by provider: one shared message meant a result could appear under a
   // different row than the one you tested.
   const [testMsg, setTestMsg] = useState<Record<string, { ok: boolean; msg: string } | undefined>>({})
+  // Team sharing (owner only): whether this account's model/web keys are the
+  // install-wide default for accounts that have none of their own.
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [shareModel, setShareModel] = useState(true)
+  const [shareWeb, setShareWeb] = useState(true)
+
+  const setSharing = useCallback(async (field: 'share_model_keys_with_team' | 'share_web_keys_with_team', value: boolean) => {
+    if (field === 'share_model_keys_with_team') setShareModel(value); else setShareWeb(value)
+    const ok = await mutateNs('models', [{ op: 'set', path: [field], value }])
+    if (!ok) { // server refused → re-read the truth instead of lying in the UI
+      const ns = await describeNs('models')
+      setShareModel(ns?.value?.share_model_keys_with_team !== false)
+      setShareWeb(ns?.value?.share_web_keys_with_team !== false)
+    }
+  }, [])
 
   const load = useCallback(async () => {
     try {
@@ -423,6 +453,8 @@ function ModelsSection() {
         .map(s => ({ provider: s.path[1].replace(/_api_key$/, ''), is_set: s.set, source: s.source }))
         .filter(p => !webApi.has(p.provider))
       setKeys(providers)
+      setShareModel(value.share_model_keys_with_team !== false)
+      setShareWeb(value.share_web_keys_with_team !== false)
       setDefaults({
         default_model: value.default_model || '',
         fallback_models: value.fallback_models || [],
@@ -432,7 +464,7 @@ function ModelsSection() {
       setModels({ cloud: modelsRes.data?.cloud_models || [], local: modelsRes.data?.local_models || [] })
     } catch (err) { console.error('Failed to load models settings:', err) }
   }, [])
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load(); currentUserIsAdmin().then(setIsAdmin) }, [load])
 
   const allModels: { value: string; label: string; key: string }[] = [
     ...models.cloud.map(m => ({ value: m.model_id, label: `${label(m.provider)} — ${m.display_name || m.model_id}`, key: `cloud-${m.provider}-${m.model_id}` })),
@@ -554,6 +586,19 @@ function ModelsSection() {
       </div>
 
       <SectionTitle title={t('settings_api_keys_heading')} desc={t('settings_models_keys_desc')} />
+
+      {/* Team sharing — the owner's row is the team's default. Admin-only: the flag
+          only has an effect on that row, so offering it to a member would be a
+          control that silently does nothing. */}
+      {isAdmin && (
+        <div style={{ border: `1px solid ${tok.borderL2}`, borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, lineHeight: '22px', fontWeight: 500, color: tok.labelPrimary }}>{t('settings_team_share_models')}</div>
+            <div style={{ fontSize: 12, lineHeight: '18px', color: tok.labelTertiary }}>{t('settings_team_share_models_desc')}</div>
+          </div>
+          <Toggle checked={shareModel} onChange={v => setSharing('share_model_keys_with_team', v)} />
+        </div>
+      )}
 
       {/* Provider rows (outlined cards + credential dot) */}
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -692,6 +737,19 @@ function SearchSection() {
   // api_key_field -> own/shared/unset, so an inherited search key is labelled
   // instead of looking like one this account configured.
   const [secretSources, setSecretSources] = useState<Record<string, 'own' | 'shared' | 'unset'>>({})
+  // Same team-sharing switch as the Models section, but scoped to this group:
+  // search keys are billed per query and are often a personal free tier.
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [shareWeb, setShareWeb] = useState(true)
+
+  const setSharing = async (value: boolean) => {
+    setShareWeb(value)
+    const ok = await mutateNs('models', [{ op: 'set', path: ['share_web_keys_with_team'], value }])
+    if (!ok) {
+      const ns = await describeNs('models')
+      setShareWeb(ns?.value?.share_web_keys_with_team !== false)
+    }
+  }
 
   const load = useCallback(async () => {
     try { const res = await apiClient.listSearchProviders(); setProviders(res.data?.providers || []) } catch { /* noop */ }
@@ -702,9 +760,10 @@ function SearchSection() {
         if (sec.path[0] === 'api_keys') map[sec.path[1]] = sec.source || (sec.set ? 'own' : 'unset')
       }
       setSecretSources(map)
+      setShareWeb(ns?.value?.share_web_keys_with_team !== false)
     } catch { /* labelling is best-effort */ }
   }, [])
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load(); currentUserIsAdmin().then(setIsAdmin) }, [load])
 
   const save = async (id: string) => {
     try {
@@ -727,6 +786,17 @@ function SearchSection() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
       <SectionTitle title={t('settings_search_providers')} desc={t('settings_search_providers_desc')} />
+
+      {isAdmin && (
+        <div style={{ border: `1px solid ${tok.borderL2}`, borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, lineHeight: '22px', fontWeight: 500, color: tok.labelPrimary }}>{t('settings_team_share_web')}</div>
+            <div style={{ fontSize: 12, lineHeight: '18px', color: tok.labelTertiary }}>{t('settings_team_share_web_desc')}</div>
+          </div>
+          <Toggle checked={shareWeb} onChange={v => setSharing(v)} />
+        </div>
+      )}
+
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {providers.map(p => (
           <li key={p.id} style={{ border: `1px solid ${tok.borderL2}`, borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>

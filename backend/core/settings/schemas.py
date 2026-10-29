@@ -94,6 +94,15 @@ class ApiKeys(BaseModel):
     discord_webhook_url: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
 
 
+#: ``api_keys`` fields that belong to the **Web API** group (search providers).
+#: Everything else in ``ApiKeys`` is an LLM/provider credential. Kept here because
+#: two layers need the same list: the sharing policy in ``store`` (which keys the
+#: web toggle covers) and the Settings UI (which section renders them).
+WEB_SEARCH_KEY_FIELDS: frozenset[str] = frozenset(
+    {"tavily_api_key", "serper_api_key", "exa_api_key", "brave_api_key"}
+)
+
+
 class ModelsSettings(BaseModel):
     """LLM defaults + provider credentials + local-model config.
 
@@ -128,6 +137,20 @@ class ModelsSettings(BaseModel):
     local_base_url: str = ""
     local_model_name: str = "llama3.2:latest"
     local_api_key: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
+
+    # ── team sharing (owner's row only) ──────────────────────────────────
+    # Whether the credentials on this account are the team's default. On: an
+    # account that has not set its own key inherits these (migration 037's
+    # behaviour, and the default, so nothing changes until it is turned off).
+    # Off: those accounts get nothing from here and must set their own — which is
+    # what an owner wants when the bill is theirs but the usage is everybody's.
+    #
+    # Two switches rather than one because the two groups carry different costs
+    # and different risks: a model key is the whole cost of an agent turn, a
+    # search key is billed per query and is often a free tier someone signed up
+    # for personally.
+    share_model_keys_with_team: bool = True
+    share_web_keys_with_team: bool = True
 
     @model_validator(mode="after")
     def _fill_local_defaults(self):

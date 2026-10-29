@@ -78,6 +78,10 @@ const en = {
   "settings_local_api_key_optional": "API key (optional)",
   "settings_api_key": "API key",
   "settings_key_shared": "team key",
+  "settings_team_share_models": "Share these model keys with the team",
+  "settings_team_share_models_desc": "On: accounts that have not set their own key use the keys on this page. Off: each account must set its own. Model defaults and limits are shared either way.",
+  "settings_team_share_web": "Share these web API keys with the team",
+  "settings_team_share_web_desc": "On: accounts without their own search key use the ones here, billed to this key. Off: each account must set its own before searching.",
 
   "settings_add_local_model": "Add local model",
   "settings_local_workspace": "Local Workspace",
@@ -800,6 +804,10 @@ const zh = {
   "settings_local_api_key_optional": "API 密钥（可选）",
   "settings_api_key": "API 密钥",
   "settings_key_shared": "团队共享",
+  "settings_team_share_models": "把这些模型密钥共享给团队",
+  "settings_team_share_models_desc": "开：没有自己配密钥的账户使用本页的密钥。关：每个账户必须自己配。模型默认值和限额两种情况都共享。",
+  "settings_team_share_web": "把这些联网密钥共享给团队",
+  "settings_team_share_web_desc": "开：没有自己搜索密钥的账户使用这里的密钥，并计入本密钥的用量。关：每个账户必须自己配才能联网。",
 
   "settings_add_local_model": "添加本地模型",
   "settings_local_workspace": "本地工作区",

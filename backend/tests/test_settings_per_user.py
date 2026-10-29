@@ -382,3 +382,101 @@ def test_storage_mode_is_inherited_rather_than_reported_unset(db_session_factory
             reset_current_user(token)
     finally:
         db.close()
+
+
+# ── the owner's sharing switches ────────────────────────────────────────────
+
+def _keys_visible_to(db, user_id):
+    _own, eff = store.get_effective_document(db, "models", user_id)
+    k = eff.get("api_keys") or {}
+    return {
+        "llm": bool(k.get("deepseek_api_key")),
+        "web": bool(k.get("tavily_api_key")),
+    }
+
+
+def test_the_owner_can_stop_sharing_model_keys(db_session_factory):
+    """The owner's row is the team's default — until the owner says otherwise.
+
+    Turning it off must leave the other group alone: model keys are the whole cost
+    of a turn, search keys are billed per query and are often someone's personal
+    free tier. One switch for both would force all-or-nothing.
+    """
+    db = db_session_factory()
+    try:
+        _set_key(db, OWNER, "deepseek_api_key", "sk-model")
+        _set_key(db, OWNER, "tavily_api_key", "tvly-web")
+        assert _keys_visible_to(db, ALICE) == {"llm": True, "web": True}
+
+        store.mutate(db, "models",
+                     [{"op": "set", "path": ["share_model_keys_with_team"], "value": False}],
+                     user_id=OWNER)
+
+        assert _keys_visible_to(db, ALICE) == {"llm": False, "web": True}
+        # The owner keeps its own keys either way.
+        assert _keys_visible_to(db, OWNER) == {"llm": True, "web": True}
+    finally:
+        db.close()
+
+
+def test_the_owner_can_stop_sharing_web_keys(db_session_factory):
+    db = db_session_factory()
+    try:
+        _set_key(db, OWNER, "deepseek_api_key", "sk-model")
+        _set_key(db, OWNER, "tavily_api_key", "tvly-web")
+
+        store.mutate(db, "models",
+                     [{"op": "set", "path": ["share_web_keys_with_team"], "value": False}],
+                     user_id=OWNER)
+
+        assert _keys_visible_to(db, ALICE) == {"llm": True, "web": False}
+        assert _keys_visible_to(db, OWNER) == {"llm": True, "web": True}
+    finally:
+        db.close()
+
+
+def test_sharing_off_does_not_take_an_accounts_own_key(db_session_factory):
+    """The policy masks the SHARED copy. A key the account set itself survives —
+    otherwise turning sharing off would break the very accounts that complied."""
+    db = db_session_factory()
+    try:
+        _set_key(db, OWNER, "deepseek_api_key", "sk-shared")
+        _set_key(db, ALICE, "deepseek_api_key", "sk-alice")
+        store.mutate(db, "models",
+                     [{"op": "set", "path": ["share_model_keys_with_team"], "value": False}],
+                     user_id=OWNER)
+
+        own, eff = store.get_effective_document(db, "models", ALICE)
+        assert (eff.get("api_keys") or {}).get("deepseek_api_key") == "sk-alice"
+        assert (own.get("api_keys") or {}).get("deepseek_api_key") == "sk-alice"
+    finally:
+        db.close()
+
+
+def test_sharing_off_still_shares_operational_settings(db_session_factory):
+    """Defaults and limits are not a bill: they keep inheriting, so an account
+    without a personal default_model is not left with nothing."""
+    db = db_session_factory()
+    try:
+        cs.mutate(db, "models",
+                  [{"op": "set", "path": ["default_model"], "value": "deepseek-chat"}],
+                  user_id=OWNER)
+        store.mutate(db, "models",
+                     [{"op": "set", "path": ["share_model_keys_with_team"], "value": False}],
+                     user_id=OWNER)
+
+        assert cs.resolve(db, "models", user_id=ALICE).value["default_model"] == "deepseek-chat"
+    finally:
+        db.close()
+
+
+def test_sharing_defaults_to_on_for_an_install_that_never_touched_it(db_session_factory):
+    """An absent switch means "on" — the pre-toggle behaviour — so an existing
+    database keeps working without anyone opening Settings."""
+    db = db_session_factory()
+    try:
+        _set_key(db, OWNER, "deepseek_api_key", "sk-model")
+        assert "share_model_keys_with_team" not in store.get_document(db, "models", OWNER)
+        assert _keys_visible_to(db, ALICE) == {"llm": True, "web": False}
+    finally:
+        db.close()
