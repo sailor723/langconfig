@@ -1,35 +1,36 @@
-# Working with agents — the practice course
+# 与 agent 一起工作 —— 实践课
 
-Follows `backend/notebooks/module-1…5` notebook by notebook. Each notebook becomes a list of
-cases; each case is **one system prompt + one question**.
+配套 `backend/notebooks/module-1…5`，按 notebook 一节一节走。每个 notebook 拆成一组**用例**，
+每个用例 = **一段 system prompt + 一个问题**。
 
-**One module, one agent.** Paste the case's prompt into Overview → System Prompt — whole,
-replacing the previous one — then ask the question. When a case needs different tools, it says so.
+**一个 module 用一个 agent。** 把用例的 prompt 整段粘进 Overview → System Prompt（覆盖上一段），
+然后提问。哪一步要改工具，用例里会写。
 
 ```
-new agent → set model + tools → case 1 prompt → ask → case 2 prompt (replaces it) → ask → …
+新建 agent → 设模型和工具 → 粘用例 1 → 提问 → 粘用例 2（覆盖）→ 提问 → …
 ```
 
-Two habits that make the course work:
+两条让这套课真正起作用的习惯：
 
-- **Judge by evidence, not by prose.** A confident sentence is not compliance. What counts is the
-  tool call under the reply, the file in `generated/`, the shape of the output.
-- **Prove the behaviour is wrong before writing a rule against it.** Measured on `deepseek-chat`:
-  three "don't invent things" rules changed nothing, because the model already refused. A rule
-  only earns its tokens when the wrong answer is *tempting*.
+- **看证据，不看文风。** 一句自信的话不代表它照做了。算数的是：回复下面有没有工具调用、
+  `generated/` 里有没有文件、输出是不是你要的形状。
+- **先证明行为是错的，再写规则去管它。** 在 `deepseek-chat` 上实测：三条"不许编造"的规则
+  什么都没改变，因为模型本来就会拒绝。**只有当错误答案"有吸引力"时，规则才挣得回它的 token。**
+
+> 本文所有实测数据：2026-10-26，`deepseek-chat`，temperature 0.2。
 
 ---
 
-# module-1 — model, prompt, tools, web, memory
+# module-1 —— 模型、提示词、工具、联网、记忆
 
-Seven notebooks, one agent. Preparation: name it anything, model `deepseek-chat`, **all tools
-cleared** (`enable_default_tools` off).
+七个 notebook，一个 agent。准备：名字随意，模型 `deepseek-chat`，**工具全部清空**
+（Tools 面板里把「Use the default tool set when nothing is checked」关掉，面板应显示 `0/N`）。
 
 ---
 
 ## 1.1_foundational_models
 
-### Case 1 · Bare model
+### 用例 1 · 裸模型
 
 ```text
 你是一个通用聊天助手。直接回答用户的问题。
@@ -37,7 +38,7 @@ cleared** (`enable_default_tools` off).
 
 输入：`你好，介绍一下你自己。`
 
-### Case 2 · Temperature
+### 用例 2 · 温度
 
 Prompt 同上。temperature 设 `0.2` 问三次，再设 `1.2` 问三次。
 
@@ -45,13 +46,13 @@ Prompt 同上。temperature 设 `0.2` 问三次，再设 `1.2` 问三次。
 
 > 别用"给月球城市起名"演示温度——三次都是同一个名字，看不出差别。
 
-### Case 3 · Agent call
+### 用例 3 · 调用 agent
 
 Prompt 同上，temperature 回 `0.2`。
 
 输入：`月球的首都是哪里？`
 
-### Case 4 · Boundary probes
+### 用例 4 · 边界探针
 
 Prompt 同上。**每句开一个新聊天。**
 
@@ -81,9 +82,9 @@ Prompt 同上。**每句开一个新聊天。**
 
 ## 1.1_prompting
 
-五个 case，输入**都是**「月球的首都哪里？」→ `月球的首都是哪里？`
+五个用例，输入**都是**「月球的首都哪里？」→ `月球的首都是哪里？`
 
-### Case 1 · 什么都不设
+### 用例 1 · 什么都不设
 
 ```text
 你是一个通用聊天助手。直接回答用户的问题。
@@ -91,7 +92,7 @@ Prompt 同上。**每句开一个新聊天。**
 
 输入：`月球的首都是哪里？`
 
-### Case 2 · 一句身份
+### 用例 2 · 一句身份
 
 ```text
 你是一位科幻小说作家，根据用户请求创建一个太空首都城市。
@@ -99,7 +100,7 @@ Prompt 同上。**每句开一个新聊天。**
 
 输入：`月球的首都是哪里？`
 
-### Case 3 · Few-shot（身份 + 两个例子）
+### 用例 3 · Few-shot（身份 + 两个例子）
 
 ```text
 你是一位科幻小说作家，根据用户请求创建一个太空首都城市。
@@ -113,7 +114,7 @@ Prompt 同上。**每句开一个新聊天。**
 
 输入：`月球的首都是哪里？`
 
-### Case 4 · 结构化提示（不给例子，给字段）
+### 用例 4 · 结构化提示（不给例子，给字段）
 
 ```text
 你是一位科幻小说作家，根据用户的要求创建一个太空首都城市。
@@ -130,16 +131,16 @@ Prompt 同上。**每句开一个新聊天。**
 
 输入：`月球的首都是哪里？`
 
-### Case 5 · 结构化输出（要一个对象，不是文字）
+### 用例 5 · 结构化输出（要一个对象，不是文字）
 
 notebook 用 `response_format=CapitalInfo`，拿到 `CapitalInfo(name='广寒市', ...)`。
-**平台 agent 配置里没有这一项 —— 这个 case 做不了，跳过。**
+**平台 agent 配置里没有这一项 —— 这个用例做不了，跳过。**
 
 ---
 
 ## 1.2_tools
 
-### Case 1 · 不给工具
+### 用例 1 · 不给工具
 
 工具全清。
 
@@ -149,9 +150,9 @@ notebook 用 `response_format=CapitalInfo`，拿到 `CapitalInfo(name='广寒市
 
 输入：`1234567 × 891011 等于多少？`
 
-> 记下它给的数。你没法核对它是怎么算的——这就是下一 case 的意义。
+> 记下它给的数。你没法核对它是怎么算的——这就是下一个用例的意义。
 
-### Case 2 · 给一个工具
+### 用例 2 · 给一个工具
 
 工具加 `python_execute`。
 
@@ -179,7 +180,7 @@ notebook 用 `response_format=CapitalInfo`，拿到 `CapitalInfo(name='广寒市
 
 ## 1.2_web_search
 
-### Case 1 · Without web search
+### 用例 1 · 没有联网
 
 工具全清。
 
@@ -189,9 +190,10 @@ notebook 用 `response_format=CapitalInfo`，拿到 `CapitalInfo(name='广寒市
 
 输入：`请问深圳市市长是谁？`
 
-> 记下它给的名字。
+> 记下它给的名字。它很可能还会声明"我没有联网工具、无法提供来源"——很诚实，
+> 但你手上留下的仍然是一个**无法核对的名字**。
 
-### Case 2 · Add web search tool
+### 用例 2 · 加上搜索工具
 
 工具加 `web_search` + `web_fetch`。
 
@@ -199,8 +201,7 @@ notebook 用 `response_format=CapitalInfo`，拿到 `CapitalInfo(name='广寒市
 你是一个通用聊天助手。回答前先判断这个问题会不会随时间变化。
 
 - 会被更新的事实，先查再答。人名、职位、版本号、价格、日期、政策，
-  这些都可能在你训练之后变了。回答之前先 run web_search。
-- 至少打开 1–2 个搜索结果再下结论，不要只看标题。
+  这些都可能在你训练之后变了。回答之前先调用 web_search。
 - 搜不到就说搜不到，并写出你用了什么关键词。不要用记忆补。
 - 与时效无关的问题（闲聊、常识、推理、算术）不要查。
 ```
@@ -216,16 +217,25 @@ notebook 用 `response_format=CapitalInfo`，拿到 `CapitalInfo(name='广寒市
 ```
 
 > **notebook 这一格是坏的，值得讲**：它挂了 `web_search`，打印出来的却是
-> `tool_calls=[]` —— 工具给了没用，答案和 Case 1 一模一样。两个教训：
-> 1. 对比 Case 1 和 Case 2 看**调用次数**和**有没有能点开的来源**，不看文风；
-> 2. **写义务，不写许可。**「你可以用 web_search」是许可，模型可以不吃；「回答前必须先跑
->    web_search」是义务。实测同样两个工具：许可式三句话 **0** 次调用，义务式第一句 **2** 次。
+> `tool_calls=[]` —— 工具给了没用，答案和用例 1 一模一样。两个教训：
+>
+> 1. 对比用例 1 和用例 2，看**调用次数**和**有没有能点开的来源**，不看文风；
+> 2. **写义务，不写许可。**「你可以用 web_search」是许可，模型可以不吃；「回答前必须先调用
+>    web_search」是义务。实测同样两个工具：许可式三句话 **0** 次调用，义务式第一句 **2** 次
+>    （一次 search、一次 fetch）。
+>
+> 补充：`web_search` 现在走 DeepSeek Search，`need_content` 会把**正文**一起带回来，
+> 所以通常一次 search 就够，`web_fetch` 留给搜索没覆盖的 URL。调用次数因此和后台有关——
+> 判断标准始终是"有没有来源"，不是"调了几次"。
+>
+> 做之前先看一眼 Settings → Web API：**DeepSeek Search 要有绿点**。没有可用密钥时会退回
+> 免费的 DuckDuckGo 抓取，那一步容易被验证码挡住，返回空——那是后台问题，不是 prompt 问题。
 
 ---
 
 ## 1.3_memory
 
-### Case 1 · 没有记忆
+### 用例 1 · 没有记忆
 
 工具全清。**开一个新聊天**，直接问。
 
@@ -235,7 +245,7 @@ notebook 用 `response_format=CapitalInfo`，拿到 `CapitalInfo(name='广寒市
 
 输入：`我喜欢什么颜色？`
 
-### Case 2 · 有记忆
+### 用例 2 · 有记忆
 
 Prompt 同上。**同一个聊天**里连问两句。
 
@@ -255,7 +265,7 @@ Prompt 同上。**同一个聊天**里连问两句。
 
 ## 1.4_multimodal
 
-### Case 1 · 图文一起发
+### 用例 1 · 图文一起发
 
 ```python
 message = HumanMessage(content=[
@@ -279,7 +289,7 @@ message = HumanMessage(content=[
 - 先看用户给了什么，只用这些食材加常见调味料（油盐酱醋糖）。缺了关键东西就说缺，
   不要假设他有。
 - 食谱要能照着做：用量、火候、时间、几步。
-- 食材替换、火候时间这类拿不准的判断，先 run web_search 再回答；
+- 食材替换、火候时间这类拿不准的判断，先调用 web_search 再回答；
   查不到就说不确定，不要编一个精确数字。
 - 用户之前说过的口味、忌口，在这个聊天里要记住。
 ```
@@ -302,9 +312,9 @@ message = HumanMessage(content=[
 
 | 第三句的表现 | 说明 |
 |---|---|
-| 又问你吃不吃辣 | 记忆坏了，回 1.3 Case 2 |
+| 又问你吃不吃辣 | 记忆坏了，回 1.3 用例 2 |
 | 直接改，不再问 | 记忆正常 |
-| 报一个精确火候但没查 | 工具规则太软，回 1.2_web_search Case 2 改硬 |
+| 报一个精确火候但没查 | 工具规则太软，回 1.2_web_search 用例 2 改硬 |
 
 > 第二句是"好心规则"翻车的地方。如果你的 prompt 里加了「查不到就给个替代方案」，
 > 注意它会不会把"替代"变成一个数字：实测「给个替代」得到「2%–5%」，
@@ -313,12 +323,12 @@ message = HumanMessage(content=[
 
 ---
 
-# module-2 — planning, files, subagents
+# module-2 —— 规划、文件、子代理
 
-`2.0_create_agent`, `2.1_todo`, `2.2_files`, `2.3_subagents`, `2.4_full_agent`.
+`2.0_create_agent`、`2.1_todo`、`2.2_files`、`2.3_subagents`、`2.4_full_agent`。
 
 和 module-1 不同：这里没有你要"搭"的东西。`write_todos`、文件工具、子代理都在默认工具里。
-所以这一章是**观察**，不是配置——一个 agent 全开默认工具，一个 notebook 一组 case：
+所以这一章是**观察**，不是配置——一个 agent 全开默认工具，一个 notebook 一组用例：
 
 | notebook | 看什么 | 在哪看 |
 |---|---|---|
@@ -327,11 +337,11 @@ message = HumanMessage(content=[
 | `2.3_subagents` | 上下文隔离 | 子代理活动，主线程有没有被污染 |
 | `2.4_full_agent` | 端到端研究任务 | 整条 trace |
 
-**case 待整理。**
+**用例待整理。**
 
 ---
 
-# module-3 — 真实项目
+# module-3 —— 真实项目
 
 `3.0_phase1_agent`：读 PRD → 产出规格 → 报 token 成本。
 
@@ -339,34 +349,34 @@ message = HumanMessage(content=[
 
 **准备**：一个 agent，默认工具，PRD 传到 `upload/`，prompt 指向它。
 
-**case 待整理。**
+**用例待整理。**
 
 ---
 
-# module-4 — 知识架构与文档问答
+# module-4 —— 知识架构与文档问答
 
 `4.0_document_chatbot`（文档问答），以及 `01/02/03`（RAG vs KV、上下文崩塌、归档）。
 
 **准备**：一个 agent，上传文档，prompt 把答案限制在这份文件里——
 "文档没写"和"我没检索到"是两件事，文件以外的信息一律标注来源。
 
-**case 待整理。**
+**用例待整理。**
 
 ---
 
-# module-5 — 一条 prompt 从管用到崩塌
+# module-5 —— 一条 prompt 从管用到崩塌
 
 六集连续剧：`01_rigid_ancestor` → `06_sql_skills_assistant`。
 `04_mega_prompt_collapse` 演"规则越多越糟"，`05` 讲渐进式披露，`06` 按需加载数据字典并出图。
 
-这一章是 module-1 的自然延伸：1.2_web_search Case 2 和 1.5 已经出现过"规则改到了别的地方"，
+这一章是 module-1 的自然延伸：1.2_web_search 用例 2 和 1.5 已经出现过"规则改到了别的地方"，
 `04` 把同一个效应演到底。
 
-**case 待整理。**
+**用例待整理。**
 
 ---
 
-# Appendix — 规则该放哪
+# 附录 —— 规则该放哪
 
 | 位置 | 进 prompt 吗 | 谁读 |
 |---|---|---|
@@ -379,5 +389,5 @@ message = HumanMessage(content=[
 所以它是放自己笔记的正确位置，也是放规则的错误位置。
 
 反过来的错一样常见：把教案写进 `AGENTS.md`，模型就读到了自己的实验脚本。做这份课程时
-就踩过一次——一个本来没有任何格式约束的 case，返回了后面 case 才要求的四个字段，
+就踩过一次——一个本来没有任何格式约束的用例，返回了后面用例才要求的四个字段，
 因为后面那步的说明写在同一份文档里。

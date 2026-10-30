@@ -433,14 +433,26 @@ function ModelsSection() {
         apiClient.listSearchProviders().catch(() => null),
       ])
       const webApi = new Set<string>(WEB_API_PROVIDERS_FALLBACK)
+      // Fields that belong to the Web API section. Tracked by FIELD, not by provider
+      // id: one credential can serve both sections. `deepseek_api_key` runs the LLM
+      // *and* the DeepSeek Search API, so excluding by id removed DeepSeek from this
+      // list entirely — the provider disappeared from Models the moment a
+      // search_providers row for it was seeded.
+      const webApiFields = new Set<string>()
       const spRows = (spRes as any)?.data?.providers
       if (Array.isArray(spRows)) {
         webApi.clear()
         for (const row of spRows) {
           const field: string | undefined = row?.api_key_field
-          if (field) webApi.add(String(row.id))          // tavily -> tavily_api_key
+          if (field) {
+            webApi.add(String(row.id))                   // tavily -> tavily_api_key
+            webApiFields.add(String(field))
+          }
         }
       }
+      // An LLM provider keeps its row here even when a search provider names the
+      // same key: it is shown in both sections, pointing at one stored credential.
+      const llmFields = new Set(Object.values(PROVIDER_FIELD))
       const ns: SettingsNs | undefined = (descRes.data?.namespaces || []).find((n: any) => n.ns === 'models')
       const value = ns?.value || {}
       // Provider rows derive from the redacted secret positions (DSH dots):
@@ -451,7 +463,10 @@ function ModelsSection() {
       setSecretSources(Object.fromEntries(allSecrets.map(s => [s.path[1], s.source || (s.set ? 'own' : 'unset')])))
       const providers = allSecrets
         .map(s => ({ provider: s.path[1].replace(/_api_key$/, ''), is_set: s.set, source: s.source }))
-        .filter(p => !webApi.has(p.provider))
+        .filter(p => {
+          const field = `${p.provider}_api_key`
+          return !webApiFields.has(field) || llmFields.has(field)
+        })
       setKeys(providers)
       setShareModel(value.share_model_keys_with_team !== false)
       setShareWeb(value.share_web_keys_with_team !== false)

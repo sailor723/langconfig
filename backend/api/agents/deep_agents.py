@@ -467,6 +467,26 @@ def _resolve_model(config: DeepAgentConfig, db: Session) -> Optional[str]:
     return resolve_value(db, "models").get("default_model")
 
 
+def _materialize_default_tools(config_dict: dict) -> None:
+    """Resolve "empty native_tools" into the default set, in place.
+
+    The default is the universal base materialised into Postgres
+    (docs/tools-audit.md), matching what the runtime would resolve anyway. The
+    exception is an agent that opted out: ``enable_default_tools: false`` means
+    "empty is empty" — the agent gets exactly the tools listed, including none.
+
+    Both create and update go through here so the two paths cannot drift; they did
+    before, and a tool-less agent came back from the editor with all 28 tools.
+    """
+    if config_dict.get("native_tools"):
+        return
+    if not config_dict.get("enable_default_tools", True):
+        return
+    from core.tools.defaults import DEFAULT_NATIVE_TOOLS
+
+    config_dict["native_tools"] = list(DEFAULT_NATIVE_TOOLS)
+
+
 @router.post("/", response_model=DeepAgentResponse)
 async def create_deepagent(
     request: CreateDeepAgentRequest,
@@ -476,11 +496,8 @@ async def create_deepagent(
     try:
         config_dict = request.config.dict()
         config_dict["model"] = config_dict.get("model") or _resolve_model(request.config, db)
-        # Default tool set: agents with no configured tools get the universal
-        # base materialized into their Postgres config (docs/tools-audit.md).
-        if not config_dict.get("native_tools"):
-            from core.tools.defaults import DEFAULT_NATIVE_TOOLS
-            config_dict["native_tools"] = list(DEFAULT_NATIVE_TOOLS)
+        # Empty native_tools → the default base, unless the agent opted out.
+        _materialize_default_tools(config_dict)
 
         agent = DeepAgentTemplate(
             name=request.name,
@@ -717,11 +734,8 @@ async def update_deepagent(
         # Merge: start from existing config, apply only the provided fields
         merged_config = dict(old_config)
         merged_config.update(new_config)
-        # Default tool set: an agent saved without tools gets the universal base
-        # materialized into Postgres (docs/tools-audit.md), matching the runtime.
-        if not merged_config.get("native_tools"):
-            from core.tools.defaults import DEFAULT_NATIVE_TOOLS
-            merged_config["native_tools"] = list(DEFAULT_NATIVE_TOOLS)
+        # Same rule on update — a re-save must not re-add what the agent opted out of.
+        _materialize_default_tools(merged_config)
         agent.config = merged_config
 
         # Merge back prompt assembly fields
