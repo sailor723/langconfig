@@ -148,36 +148,23 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   const [availableCustomTools, setAvailableCustomTools] = useState<
     { id: number; tool_id: string; name: string; description: string }[]
   >([]);
-  // `native_tools: []` is ambiguous: the backend reads it as "use the default
-  // set" unless `enable_default_tools` is false. The picker used to resolve that
-  // ambiguity by showing the defaults checked, which made an agent that truly
-  // has no tools look like it has all 34 — and saving then wrote them in. The
-  // flag is now mirrored in the UI, so an empty selection can mean empty.
-  const [useDefaultTools, setUseDefaultTools] = useState<boolean>(
-    config.enable_default_tools !== false);
-  const [selectedNativeTools, setSelectedNativeTools] = useState<string[]>(() => {
-    const configured = toToolIdList(config.native_tools);
-    if (configured.length) return configured;
-    return config.enable_default_tools === false ? [] : defaultToolIds;
-  });
-  // Apply the default tool set once loaded (async hook) when the agent has no
-  // configured tools yet — new agents start with the universal base pre-checked,
-  // unless the default set is switched off.
+  // The selection IS the tool set. `native_tools: []` means no tools — the backend
+  // stores exactly this list, so the panel and the row can no longer disagree.
+  //
+  // A new agent pre-ticks the universal base: that is a convenience of the editor
+  // (untick anything you do not want), not a rule the server applies afterwards.
+  const [selectedNativeTools, setSelectedNativeTools] = useState<string[]>(
+    () => toToolIdList(config.native_tools));
   useEffect(() => {
-    if (useDefaultTools && defaultToolIds.length && selectedNativeTools.length === 0) {
+    if (defaultToolIds.length && selectedNativeTools.length === 0 && !toToolIdList(config.native_tools).length) {
+      // New agent with nothing stored yet → offer the base pre-ticked. Editing an
+      // existing agent with an empty list must stay empty.
       setSelectedNativeTools(defaultToolIds);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultToolIds, useDefaultTools]);
+  }, [defaultToolIds]);
   const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>(toToolIdList(config.custom_tools));
   const [showAllTools, setShowAllTools] = useState(true);
-
-  // Switching the default set off must clear the selection, and switching it on
-  // must restore it — otherwise the panel and the runtime disagree again.
-  const handleUseDefaultToolsChange = useCallback((next: boolean) => {
-    setUseDefaultTools(next);
-    setSelectedNativeTools(next ? defaultToolIds : []);
-  }, [defaultToolIds]);
 
   // Reset all editable state when tab changes to a different agent
   // (React reuses the component instance, so useState init values are stale)
@@ -195,11 +182,9 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     );
     setJsonEdit(JSON.stringify(agent, null, 2));
     setLocalAgentId(typeof agent.id === 'number' ? agent.id : null);
-    setSelectedNativeTools(
-      toToolIdList(config.native_tools).length
-        ? toToolIdList(config.native_tools)
-        : (config.enable_default_tools === false ? [] : defaultToolIds));
-    setUseDefaultTools(config.enable_default_tools !== false);
+    // Stored list only — an existing agent with [] stays []. (The default base is
+    // offered only for a brand-new agent, in the effect above.)
+    setSelectedNativeTools(toToolIdList(config.native_tools));
     setSelectedCustomTools(toToolIdList(config.custom_tools));
     setSelectedSkills(config.skills || []);
     setActiveSection('overview');
@@ -430,9 +415,6 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         ...jsonConfig,
         // Tool picker always wins over JSON tab for tool selection
         native_tools: selectedNativeTools,
-        // …and so does the "use default tool set" switch: an empty native_tools
-        // means the default set only while this is true.
-        enable_default_tools: useDefaultTools,
         custom_tools: selectedCustomTools,
         // Skill picker always wins over JSON tab for skill selection
         skills: selectedSkills,
@@ -728,8 +710,6 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         selectedCustomTools={selectedCustomTools}
         onToggleNative={toggleNativeTool}
         onToggleCustom={toggleCustomTool}
-        useDefaultTools={useDefaultTools}
-        onUseDefaultToolsChange={handleUseDefaultToolsChange}
         showAllTools={showAllTools}
         onShowAllChange={setShowAllTools}
         toolsLoading={toolsLoading}

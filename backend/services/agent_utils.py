@@ -602,9 +602,10 @@ async def load_agent_tools(
     from core.agents.tool_loader import ToolLoader
     from core.tools.defaults import resolve_native_tools
 
-    # Empty native_tools -> the default tool set (universal base for every
-    # agent; specialists opt out via enable_default_tools=False).
-    native_tool_names = resolve_native_tools(native_tool_names, enable_default_tools=True)
+    # The configured list IS the tool set; an empty list means no tools. This used
+    # to pass enable_default_tools=True unconditionally, so the deep-agent path
+    # handed tool-less agents the whole default base.
+    native_tool_names = resolve_native_tools(native_tool_names)
     tools: List[BaseTool] = []
 
     # Separate memory tools from regular native tools

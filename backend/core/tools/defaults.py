@@ -25,9 +25,9 @@ and user custom tools.
 
 ``resolve_native_tools()`` is applied at every tool-loading choke point
 (AgentFactory.create_agent, ToolLoader.load_all, load_agent_tools for the
-deep-agent path) and materialized into agent configs at create/update:
-an explicitly-configured list always wins; empty/None falls back to the
-defaults; ``enable_default_tools: False`` forces empty.
+deep-agent path) and returns the configured list unchanged: the stored row IS
+the tool set. ``DEFAULT_NATIVE_TOOLS`` is now only the editor's pre-ticked
+starting point for a new agent (``GET /api/tools/registry/defaults``).
 """
 
 from __future__ import annotations
@@ -83,17 +83,18 @@ DEFAULT_NATIVE_TOOLS: List[str] = [
 ]
 
 
-def resolve_native_tools(
-    configured: Optional[List[str]],
-    enable_default_tools: bool = True,
-) -> List[str]:
-    """Configured list wins; empty/None → the default tool set.
+def resolve_native_tools(configured: Optional[List[str]]) -> List[str]:
+    """The agent's native tools, exactly as configured.
 
-    ``enable_default_tools=False`` forces empty (specialists that must not
-    receive the defaults can opt out).
+    No fallback, deliberately. The set an agent runs with is what was stored —
+    `[]` means no tools, not "give it the defaults". Every previous version of this
+    function read an empty list as "unspecified" and filled in the universal base,
+    which meant the database did not record what the user chose: an agent configured
+    with nothing ran with 28 tools, and nothing anywhere said so.
+
+    "Start a new agent with a sensible base" is a property of the EDITOR, not of the
+    resolver: the picker pre-ticks ``DEFAULT_NATIVE_TOOLS`` for a new agent, so a
+    user who wants the base keeps it and one who wants none unticks it — and the row
+    stores whichever of those they did.
     """
-    if not enable_default_tools:
-        return list(configured or [])
-    if configured:
-        return list(configured)
-    return list(DEFAULT_NATIVE_TOOLS)
+    return list(configured or [])

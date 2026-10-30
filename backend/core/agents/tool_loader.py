@@ -105,10 +105,8 @@ class ToolLoader:
 
         # 1. Native tools by name
         from core.tools.defaults import resolve_native_tools
-        native_tool_names = resolve_native_tools(
-            agent_config.get("native_tools"),
-            enable_default_tools=agent_config.get("enable_default_tools", True),
-        )
+        # The stored list IS the tool set (empty = no tools); see core/tools/defaults.
+        native_tool_names = resolve_native_tools(agent_config.get("native_tools"))
         if native_tool_names:
             agent_context = agent_config.get("agent_context")  # optional
             tools.extend(await ToolLoader.load_native(

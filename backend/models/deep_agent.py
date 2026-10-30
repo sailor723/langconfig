@@ -270,17 +270,11 @@ class DeepAgentConfig(BaseModel):
 
     # Tools
     tools: List[str] = Field(default_factory=list, description="Tool names")
-    native_tools: List[str] = Field(default_factory=list, description="Native Python tool categories")
-    # An empty ``native_tools`` means the default set — not "no tools". This flag is
-    # how an agent asks for the other meaning: `false` → exactly the tools listed,
-    # even when that list is empty. It has to be part of this schema or the request
-    # silently drops it (Pydantic ignores unknown fields), the create/update path
-    # materialises DEFAULT_NATIVE_TOOLS over the empty list, and the agent the user
-    # configured as tool-less comes back with all 28.
-    enable_default_tools: bool = Field(
-        default=True,
-        description="Empty native_tools resolves to the default tool set (true) or to nothing (false)",
-    )
+    # The tool set the agent runs with, exactly: [] is "no native tools", not
+    # "give it the defaults". The editor pre-ticks DEFAULT_NATIVE_TOOLS for a new
+    # agent, so a sensible base still starts checked — but what is stored is what
+    # the panel showed.
+    native_tools: List[str] = Field(default_factory=list, description="Native tools; [] means none")
     cli_tools: List[str] = Field(default_factory=list, description="CLI tool categories")
     custom_tools: List[str] = Field(default_factory=list, description="User-created custom tools")
     tool_params: Optional[Dict[str, Dict[str, Any]]] = Field(

@@ -41,14 +41,25 @@ def test_resolve_configured_wins():
     assert resolve_native_tools(configured) == configured
 
 
-def test_resolve_empty_uses_defaults():
-    assert resolve_native_tools(None) == DEFAULT_NATIVE_TOOLS
-    assert resolve_native_tools([]) == DEFAULT_NATIVE_TOOLS
+def test_resolve_empty_means_no_tools():
+    """Empty is a decision, not a missing value.
+
+    This used to return the whole default set. That made the stored row disagree
+    with the editor the user had just used: they unticked everything, the panel said
+    `0/N`, and the agent ran with 28 tools while reporting, for example, web search
+    and SQL it did not have. One meaning, one owner: `[]` = none.
+    """
+    assert resolve_native_tools([]) == []
+    assert resolve_native_tools(None) == []
 
 
-def test_resolve_disabled_forces_empty():
-    assert resolve_native_tools(None, enable_default_tools=False) == []
-    assert resolve_native_tools(["web_search"], enable_default_tools=False) == ["web_search"]
+def test_resolve_returns_a_copy():
+    """Callers mutate the result (memory tools are split out of it); they must not
+    be able to edit the config they were handed."""
+    configured = ["web_search"]
+    out = resolve_native_tools(configured)
+    out.append("bash")
+    assert configured == ["web_search"]
 
 
 def test_default_set_has_no_duplicates():

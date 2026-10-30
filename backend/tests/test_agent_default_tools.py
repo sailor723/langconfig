@@ -3,25 +3,28 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""`enable_default_tools=false` must survive the round trip.
+"""The stored tool list IS the tool set.
 
-The bug this pins, seen twice in the UI before it was found: the tool picker
-offers "Use the default tool set when nothing is checked", the user turns it off,
-the panel shows `0/34`, and the saved agent comes back with all 28 tools.
+The rule, in one line: **what the editor showed is what the row says.** None, a few,
+or many — three states, no fourth "unspecified" one hiding behind an empty list.
 
-Two independent causes, both fixed here:
+Why this needs a test file of its own: the rule was broken in four places at once and
+each break looked plausible on its own.
 
-1. `enable_default_tools` was not a field of `DeepAgentConfig`, and Pydantic ignores
-   unknown fields — so the flag the editor sent was dropped on arrival and never
-   reached the stored config.
-2. Create and update both materialised `DEFAULT_NATIVE_TOOLS` over an empty
-   `native_tools` without consulting the flag, so even a config that *did* carry
-   `enable_default_tools: false` (written directly, or by a seed script) was
-   rewritten to the full set on its next save.
+  * the resolver read `[]` as "unspecified" and filled in ``DEFAULT_NATIVE_TOOLS``;
+  * create/update materialised that same default set into the stored config, so the
+    row disagreed with the panel before the agent ever ran;
+  * `load_agent_tools` (the deep-agent path) passed ``enable_default_tools=True``
+    unconditionally, ignoring the config entirely;
+  * the editor showed the defaults as ticked for an empty list.
 
-Why it matters beyond the checkbox: a lesson that measures a tool-less model is
-measuring the full tool set instead, and nothing in the UI says so. The name, the
-description and the agent's own answer all lie in the same direction.
+Together they produced the report that found this: an agent named "baremodel", built
+with nothing selected, announcing web search, SQL and file tools — because it had all
+28 of them and the database agreed with the panel only in appearance.
+
+The observation that makes it a teaching point rather than a bug report: a wrong tool
+set is silent. The reply is fluent, the tools that were not supposed to exist behave
+normally, and only an experiment whose whole premise is "no tools" notices.
 """
 
 from core.tools.defaults import DEFAULT_NATIVE_TOOLS, resolve_native_tools
@@ -32,63 +35,85 @@ def _config(**kwargs) -> DeepAgentConfig:
     return DeepAgentConfig(system_prompt="test", **kwargs)
 
 
-# ── 1. the flag is part of the request model ────────────────────────────────
+# ── the three states, end to end ────────────────────────────────────────────
 
-def test_the_flag_is_part_of_the_schema_and_survives_serialisation():
-    """It has to be a declared field: Pydantic drops unknown keys silently, which
-    is how a `false` from the editor became an absent key in the database."""
-    cfg = _config(enable_default_tools=False)
-    assert cfg.enable_default_tools is False
-    assert cfg.model_dump()["enable_default_tools"] is False
-
-
-def test_the_flag_defaults_to_on_for_every_existing_agent():
-    """Absent means "empty resolves to the default set" — the behaviour every
-    stored config already had, so no migration and no surprise for old agents."""
-    assert _config().enable_default_tools is True
+def test_none_a_few_or_many_are_all_stored_verbatim():
+    for selected in ([], ["python_execute"], list(DEFAULT_NATIVE_TOOLS)):
+        cfg = _config(native_tools=selected)
+        assert cfg.model_dump()["native_tools"] == selected
+        assert resolve_native_tools(cfg.native_tools) == selected
 
 
-# ── 2. the materialisation rule honours it ──────────────────────────────────
-
-def test_empty_tools_still_gets_the_default_set():
-    from api.agents.deep_agents import _materialize_default_tools
-
-    cfg = {"native_tools": []}
-    _materialize_default_tools(cfg)
-    assert cfg["native_tools"] == list(DEFAULT_NATIVE_TOOLS)
+def test_none_means_none():
+    """The reported case: nothing selected → an agent with no tools at all."""
+    cfg = _config(native_tools=[])
+    assert resolve_native_tools(cfg.native_tools) == []
 
 
-def test_an_opted_out_agent_is_left_empty():
-    from api.agents.deep_agents import _materialize_default_tools
-
-    cfg = {"native_tools": [], "enable_default_tools": False}
-    _materialize_default_tools(cfg)
-    assert cfg["native_tools"] == []
-    # …and the runtime agrees: no tools at all.
-    assert resolve_native_tools(cfg["native_tools"], False) == []
+def test_the_default_set_is_not_applied_to_an_empty_list():
+    assert resolve_native_tools([]) != list(DEFAULT_NATIVE_TOOLS)
 
 
-def test_an_explicit_tool_list_is_never_overwritten():
-    from api.agents.deep_agents import _materialize_default_tools
+# ── the removed escape hatch must not come back ─────────────────────────────
 
-    cfg = {"native_tools": ["python_execute"], "enable_default_tools": True}
-    _materialize_default_tools(cfg)
-    assert cfg["native_tools"] == ["python_execute"]
+def test_the_schema_has_no_enable_default_tools_flag():
+    """There is nothing left to interpret.
 
-
-def test_a_missing_flag_is_treated_as_on():
-    from api.agents.deep_agents import _materialize_default_tools
-
-    cfg = {"native_tools": []}
-    _materialize_default_tools(cfg)
-    assert cfg["native_tools"] == list(DEFAULT_NATIVE_TOOLS)
+    The flag existed because `[]` was ambiguous. Now that `[]` means "no tools", a
+    flag that re-aliases it to the default set is a second owner of the same
+    decision — exactly what produced the disagreement. Pydantic ignores unknown
+    fields, so an editor that still sends it cannot corrupt anything either.
+    """
+    assert "enable_default_tools" not in DeepAgentConfig.model_fields
 
 
-# ── 3. what the runtime does with each combination ──────────────────────────
+def test_the_create_path_has_no_fill_in_helper():
+    """`_materialize_default_tools` is gone; create/update store what arrived."""
+    import api.agents.deep_agents as agents_api
 
-def test_runtime_resolution_matches_the_editor_promise():
-    """The four combinations the editor and the API can produce."""
-    assert resolve_native_tools([], True) == list(DEFAULT_NATIVE_TOOLS)
-    assert resolve_native_tools([], False) == []
-    assert resolve_native_tools(["web_search"], True) == ["web_search"]
-    assert resolve_native_tools(["web_search"], False) == ["web_search"]
+    assert not hasattr(agents_api, "_materialize_default_tools")
+
+
+# ── the deep-agent path resolves the same way ───────────────────────────────
+
+def test_load_agent_tools_does_not_inject_defaults(monkeypatch):
+    """`services/agent_utils.load_agent_tools` is what DeepAgentFactory calls. It
+    hardcoded `enable_default_tools=True`, so a DeepAgent configured with no tools
+    received the whole base regardless of its config."""
+    import asyncio
+
+    from core.agents.tool_loader import ToolLoader
+    from services import agent_utils
+
+    seen = {}
+
+    async def fake_load_native(names, workspace_context=None, agent_context=None):
+        seen["names"] = list(names)
+        return []
+
+    monkeypatch.setattr(ToolLoader, "load_native", staticmethod(fake_load_native))
+
+    asyncio.run(
+        agent_utils.load_agent_tools(
+            native_tool_names=[],
+            cli_tool_names=[],
+            custom_tool_ids=[],
+            workspace_context=None,
+            project_id=0,
+            task_id=0,
+        )
+    )
+    assert seen.get("names") == [] or "names" not in seen
+
+
+# ── what the editor pre-ticks is a separate concern ─────────────────────────
+
+def test_the_default_set_is_still_served_for_the_editor():
+    """"Start a new agent with a sensible base" is a property of the EDITOR. It
+    keeps working because the registry exposes the default ids for pre-ticking —
+    the difference is that the user's ticks, not this list, end up in the row."""
+    import asyncio
+
+    from api.tools.registry import get_registry_defaults
+
+    assert asyncio.run(get_registry_defaults())["tool_ids"] == list(DEFAULT_NATIVE_TOOLS)

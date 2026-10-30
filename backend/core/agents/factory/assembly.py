@@ -69,10 +69,8 @@ class _AgentAssemblyMixin:
 
         base_system_prompt = agent_config.get("system_prompt", "You are a helpful AI assistant.")
         from core.tools.defaults import resolve_native_tools
-        native_tool_names = resolve_native_tools(
-            agent_config.get("native_tools"),
-            enable_default_tools=agent_config.get("enable_default_tools", True),
-        )
+        # Stored list IS the tool set — no default fallback (see tools/defaults.py).
+        native_tool_names = resolve_native_tools(agent_config.get("native_tools"))
         # Merge mcp_tools into native_tools (they're the same thing, mcp_tools is legacy name)
         # This ensures tools from both lists are loaded
         mcp_tool_names = agent_config.get("mcp_tools", [])
