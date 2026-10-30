@@ -28,6 +28,23 @@ from models.search_provider import SearchProvider
 # Canonical list — single source of truth for search providers in the app
 SEARCH_PROVIDERS = [
     {
+        # First on purpose: this is the one provider that needs no new credential —
+        # it bills the DeepSeek key the install already holds, per account since
+        # migration 037 — and it returns page content with each hit.
+        "id": "deepseek",
+        "display_name": "DeepSeek Search",
+        "description": "DeepSeek's in-house search engine. Results include extracted page content, so one call replaces search+fetch. Bills the DeepSeek API key per successful request.",
+        "category": "web",
+        "requires_api_key": True,
+        "api_key_field": "deepseek_api_key",
+        "key_url": "https://platform.deepseek.com/api_keys",
+        "capabilities": ["web", "content_extraction", "query_operators", "language_filter", "date_filter"],
+        "pricing": {"paid": "$0.75 / 1,000 successful requests (≈¥5)", "free": "Failed and empty-result requests are not billed", "rate_limit": "100 QPS search, account-wide"},
+        "docs_url": "https://api-docs.deepseek.com/guides/search/",
+        "icon_color": "#4d6bfe",
+        "sort_order": 5,
+    },
+    {
         "id": "tavily",
         "display_name": "Tavily AI Search",
         "description": "AI-optimized search with relevance scoring, content extraction, and answer generation. Best for RAG + research agents.",

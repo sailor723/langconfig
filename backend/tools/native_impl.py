@@ -80,6 +80,94 @@ except ImportError:
 
 _ddg_search = None
 
+def _deepseek_result_count(max_results) -> int:
+    """How many results to ask for: 1–10, with nonsense meaning the default 5."""
+    try:
+        n = int(max_results)
+    except (TypeError, ValueError):
+        return 5
+    if n <= 0:
+        return 5
+    return min(n, 10)
+
+
+async def _deepseek_search(query: str, max_results: int, api_key: str):
+    """DeepSeek's own Search API — one request, results **with** page content.
+
+    ``POST https://api.deepseek.com/v1/tools/search`` with
+    ``{"query", "count", "need_content"}``. Three properties matter here:
+
+    * ``need_content: true`` returns extracted page text with each hit, so
+      "search then fetch" collapses into one call — the notebook failure this
+      backend was chosen for is an agent that stops after a headline;
+    * billing is **per successful request** ($0.75 / 1,000), not per result or
+      per token, so the request count is the cost and ``count`` is free;
+    * the query is forwarded with its operators intact (``site:``, ``after:``,
+      ``lang:``), which is how a freshness constraint becomes a query parameter
+      instead of a prompt hope.
+
+    Returns the same "N. title / url / snippet" block the other backends return,
+    or None so the caller can fall through to the next provider. Never raises:
+    a search failure must degrade to DuckDuckGo, not fail the turn.
+    """
+    import httpx as _httpx
+
+    base = ""
+    try:
+        # A custom OpenAI-compatible endpoint is configured in the same
+        # api_keys blob; the tools API lives beside it.
+        from config import get_api_key_from_db as _get
+
+        base = (_get("deepseek_api_base") or "").strip()
+    except Exception:
+        base = ""
+    url = (base.rstrip("/") if base else "https://api.deepseek.com") + "/v1/tools/search"
+
+    try:
+        async with _httpx.AsyncClient(timeout=20) as client:
+            r = await client.post(
+                url,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "query": query,
+                    # The API caps the useful range at 10 and `count` does not
+                    # change the price, so clamp instead of refusing. A nonsense
+                    # value (0, negative, non-numeric) means "unspecified" → 5.
+                    "count": _deepseek_result_count(max_results),
+                    "need_content": True,
+                },
+            )
+            if r.status_code == 429:
+                # Account-level QPS (100 search / 25 fetch). Not our error to
+                # report to the model as "no results" — fall through instead.
+                logger.warning("DeepSeek search rate-limited (429); falling back")
+                return None
+            if r.status_code != 200:
+                logger.warning(
+                    "DeepSeek search HTTP %s: %s", r.status_code, (r.text or "")[:200]
+                )
+                return None
+            results = (r.json() or {}).get("results") or []
+    except Exception as exc:  # noqa: BLE001 — a provider failure is not a turn failure
+        logger.warning("DeepSeek search failed: %s", exc)
+        return None
+
+    if not results:
+        return None  # an empty result set is not billed, and is not an answer
+    lines = []
+    for i, res in enumerate(results[:max_results]):
+        content = (res.get("content") or "").strip()
+        if len(content) > 800:
+            content = content[:800] + "…"
+        lines.append(
+            f"{i + 1}. {res.get('title', '')}\n   {res.get('url', '')}\n   {content}"
+        )
+    return "\n\n".join(lines)
+
+
 async def _try_configured_search_provider(query: str, max_results: int):
     """Pluggable search backends (tools-audit §4): use a configured provider
     key when present; returns formatted results or None to fall back to DDG.
@@ -87,14 +175,25 @@ async def _try_configured_search_provider(query: str, max_results: int):
     Keys are read LIVE from the single api-key table (models.api_keys) via
     the same get_api_key_from_db the LLM + tavily_search tools use — a user's
     adhoc Settings save is picked up on the next call, no seeding involved.
+
+    Order is deliberate: DeepSeek first. It needs no new credential (the LLM key
+    already held per account), bills $0.75/1k successful requests, and returns
+    page content with the hits — see ``_deepseek_search``. Tavily and SerpAPI stay
+    as the opt-in alternates that a supplied key turns on.
     """
     try:
         from config import get_api_key_from_db
+        deepseek_key = (get_api_key_from_db("deepseek_api_key") or "").strip()
         tavily_key = (get_api_key_from_db("tavily_api_key") or "").strip()
         serper_key = (get_api_key_from_db("serper_api_key") or "").strip()
     except Exception:
         return None
     import httpx as _httpx
+
+    if deepseek_key:
+        deepseek_results = await _deepseek_search(query, max_results, deepseek_key)
+        if deepseek_results:
+            return deepseek_results
 
     if tavily_key:
         try:
