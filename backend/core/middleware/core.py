@@ -850,8 +850,13 @@ class HandoffMiddleware(AgentMiddleware):
     # silently skipped (the base class says so if you call it). So both are
     # implemented, sharing one decision helper.
     def _handoff_update(self, request, result):
+        from core.agents.handoff_tools import transfer_target
+
         tool_call = getattr(request, "tool_call", None) or {}
-        target = (tool_call.get("args") or {}).get("to")
+        # The target lives in the tool name (`transfer_to_support`), the way the
+        # docs define it — so the model cannot hand off to a step that does not
+        # exist, and `reason` is the only argument it supplies.
+        target = transfer_target(str(tool_call.get("name") or ""))
         if not target:
             return None
 
@@ -875,15 +880,17 @@ class HandoffMiddleware(AgentMiddleware):
         the update:
           "Expected to have a matching ToolMessage in Command.update".
         """
-        tool_call = getattr(request, "tool_call", None) or {}
-        if tool_call.get("name") != "handoff":
+        from core.agents.handoff_tools import transfer_target
+
+        if transfer_target(str((getattr(request, "tool_call", None) or {}).get("name") or "")) is None:
             return handler(request)
         update = self._handoff_update(request, handler(request))
         return update or handler(request)
 
     async def awrap_tool_call(self, request, handler):
-        tool_call = getattr(request, "tool_call", None) or {}
-        if tool_call.get("name") != "handoff":
+        from core.agents.handoff_tools import transfer_target
+
+        if transfer_target(str((getattr(request, "tool_call", None) or {}).get("name") or "")) is None:
             return await handler(request)
         result = await handler(request)
         return self._handoff_update(request, result) or result
@@ -897,8 +904,11 @@ class HandoffMiddleware(AgentMiddleware):
             from langchain_core.messages import SystemMessage
 
             overrides["system_message"] = SystemMessage(content=step["system_prompt"])
-        if step.get("tools"):
-            wanted = set(step["tools"])
+        from core.agents.handoff_tools import tools_for_step
+
+        wanted_names = tools_for_step(step)
+        if wanted_names:
+            wanted = set(wanted_names)
             available = {getattr(t, "name", ""): t for t in (request.tools or [])}
             missing = wanted - set(available)
             if missing:

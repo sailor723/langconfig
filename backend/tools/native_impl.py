@@ -2174,27 +2174,6 @@ Never use save_document INSTEAD of write_file.""",
 
 
 @tool
-def handoff(to: str, reason: str = "") -> str:
-    """
-    用我：把对话交给另一个步骤/专家处理（LangChain 的 handoff 模式）。
-
-    转交由 handoff 中间件执行：它把 `handoff_to` 写进状态，并切换到该步骤的
-    提示词与工具。你调用之后继续处理用户的问题即可，不要重复转交给同一步骤。
-
-    别用我：需要“派个人去查再回来”时用 task（subagent）；handoff 是把**对话本身**
-    交给另一个角色。
-
-    Args:
-        to: 目标步骤名（以工具描述里列出的为准）。
-        reason: 转交原因，会记入对话历史。
-
-    Returns:
-        str: 转交确认（中间件据此更新状态）。
-    """
-    return f"已转交给 {to}" + (f"（原因：{reason}）" if reason else "")
-
-
-@tool
 def ls(directory_path: str = ".") -> str:
     """
     List directory contents with metadata.

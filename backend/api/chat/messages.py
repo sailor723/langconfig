@@ -1279,8 +1279,12 @@ async def send_message_stream(
                             # comes from another step, and the transcript has to say
                             # so — otherwise one reply reads as if a single agent
                             # both offered to transfer and answered as the expert.
-                            if tool_name == "handoff" and isinstance(tool_input, dict):
-                                yield f"data: {json.dumps({'type': 'handoff', 'to': tool_input.get('to'), 'reason': tool_input.get('reason') or ''})}\n\n"
+                            from core.agents.handoff_tools import transfer_target as _tt
+
+                            _target = _tt(str(tool_name))
+                            if _target:
+                                _reason = (tool_input or {}).get("reason") if isinstance(tool_input, dict) else ""
+                                yield f"data: {json.dumps({'type': 'handoff', 'to': _target, 'reason': _reason or ''})}\n\n"
 
                         elif kind == "on_tool_end":
                             tool_data = event.get("data", {})

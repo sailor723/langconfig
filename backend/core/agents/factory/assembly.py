@@ -604,10 +604,9 @@ class _AgentAssemblyMixin:
             else:
                 logger.debug("No middleware configured for this agent")
 
-            # Handoff: the model can only hand off to a step it can name, so the
-            # tool description carries the step list (same trick as `task` for
-            # subagents). Without it the model invents a name and the handoff
-            # silently does nothing but add a message.
+            # Handoff: generate one transfer tool per configured edge, the way
+            # the docs define a handoff tool (`transfer_to_sales`), instead of a
+            # single `handoff(to=...)` whose target the model has to invent.
             for _m in (agent_config.get("middleware") or []):
                 if not (isinstance(_m, dict)
                         and _m.get("type") in ("handoff", "handoffs")
@@ -616,20 +615,12 @@ class _AgentAssemblyMixin:
                 _steps = (_m.get("config") or {}).get("steps") or {}
                 if not _steps:
                     break
-                _tool = next((t for t in tools if getattr(t, "name", "") == "handoff"), None)
-                if _tool is None:
-                    logger.warning("handoff middleware configured but no `handoff` tool is selected")
-                    break
-                listing = "\n".join(
-                    f"- {name}: {cfg.get('description') or cfg.get('system_prompt', '')[:80]}"
-                    for name, cfg in _steps.items()
-                )
-                _tool.description = (
-                    "用我：把对话本身交给另一个步骤/专家，之后由那个角色继续回答。\n"
-                    f"可转交的步骤：\n{listing}\n"
-                    "别用我：只是想让人去查一件事再回来，那用 task（subagent）。"
-                )
-                logger.info("handoff tool description lists %d step(s): %s", len(_steps), list(_steps))
+                from core.agents.handoff_tools import build_transfer_tools
+
+                _existing = {getattr(t, "name", "") for t in tools}
+                _generated = [t for t in build_transfer_tools(_steps) if t.name not in _existing]
+                tools.extend(_generated)
+                logger.info("handoff: %d transfer tool(s) available", len(_generated))
                 break
 
             # Custom state fields (LangChain handoffs need one: the tool writes
