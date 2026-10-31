@@ -12,7 +12,7 @@ the "/api/chat" prefix.
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -462,6 +462,55 @@ async def restore_messages_from_checkpoint(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _decisions_from_resume(resume_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Build the ``decisions`` list LangChain's HITL middleware expects.
+
+    The documented shape is passed straight through:
+
+        {"decisions": [{"type": "approve"}]}
+        {"decisions": [{"type": "edit", "edited_action": {"name": ..., "args": {...}}}]}
+        {"decisions": [{"type": "reject", "message": "..."}]}
+        {"decisions": [{"type": "respond", "message": "..."}]}
+
+    The older ``{"action": "reject", "value": "..."}`` shape the chat UI used is
+    translated, because it could not express an edit at all: an edit with no
+    ``edited_action`` used to resume as a plain "continue".
+    """
+    raw = resume_data or {}
+
+    if isinstance(raw.get("decisions"), list) and raw["decisions"]:
+        return raw["decisions"]
+
+    action = raw.get("action", "approve")
+    actions = action if isinstance(action, list) else [action]
+    text = raw.get("message") or raw.get("value")
+    edited = raw.get("edited_action") or {}
+
+    decisions: List[Dict[str, Any]] = []
+    for a in actions:
+        if isinstance(a, dict):
+            decisions.append(a)
+            continue
+        decision: Dict[str, Any] = {"type": a}
+        if a == "edit":
+            if not edited.get("name"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "edit requires edited_action={name, args} — the tool call "
+                        "to run instead of the proposed one"
+                    ),
+                )
+            decision["edited_action"] = {
+                "name": edited["name"],
+                "args": edited.get("args") or {},
+            }
+        elif a in ("reject", "respond") and text:
+            decision["message"] = text
+        decisions.append(decision)
+    return decisions
+
+
 @router.post("/{session_id}/resume")
 async def resume_chat(
     session_id: str,
@@ -497,26 +546,26 @@ async def resume_chat(
     try:
         from langgraph.types import Command
 
-        # Use DeepAgentFactory's HumanInTheLoopMiddleware pattern (always).
-        # DeepAgent handles resume via {"decisions": [...]} format.
-        action = resume_data.get("action", "approve")
-        if isinstance(action, str):
-            decisions = [{"type": action}]
-        elif isinstance(action, list):
-            decisions = action
-        else:
-            decisions = [{"type": "approve"}]
+        decisions = _decisions_from_resume(resume_data)
         resume_value = {"decisions": decisions}
+        logger.info(f"Resuming {session_id} with decisions={decisions}")
         result = await agent_instance.ainvoke(
             Command(resume=resume_value),
-            config={"configurable": {"thread_id": session_id}}
+            config={"configurable": {"thread_id": session_id}},
+            version="v2",
         )
 
         response_text = ""
         if result and "messages" in result:
-            # Find the last non-empty AIMessage content
+            # Only prose from the model counts as the answer: the last message
+            # in an interrupted run is often a ToolMessage or the injected
+            # "Current time: ..." line, which used to leak into the reply.
             for msg in reversed(result["messages"]):
-                if hasattr(msg, "content") and msg.content:
+                if getattr(msg, "type", "") != "ai":
+                    continue
+                if getattr(msg, "tool_calls", None):
+                    continue
+                if msg.content:
                     response_text = msg.content
                     break
 
@@ -540,11 +589,22 @@ async def resume_chat(
                 logger.warning(f"Failed to save resume response: {db_err}")
                 db.rollback()
 
-        return {
+        # A resumed run can stop again: the model may call another gated tool.
+        payload = {
             "status": "resumed",
             "session_id": session_id,
             "content": response_text,
         }
+        interrupts = getattr(result, "interrupts", ()) or ()
+        if interrupts:
+            # Imported here: api.chat.messages imports this module, so a
+            # module-level import would be circular.
+            from api.chat.messages import make_json_safe
+
+            first = interrupts[0]
+            payload["status"] = "interrupted"
+            payload["interrupt"] = make_json_safe(getattr(first, "value", first))
+        return payload
 
     except Exception as e:
         logger.error(f"Failed to resume session {session_id}: {e}", exc_info=True)

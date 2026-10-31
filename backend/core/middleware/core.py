@@ -785,71 +785,22 @@ class SummarizationMiddleware(AgentMiddleware):
         return {"messages": updated_messages}
 
 
-class HumanInTheLoopMiddleware(AgentMiddleware):
-    """
-    Implements human approval gates for sensitive tool calls.
-
-    Built-in v1.0 middleware that pauses execution for human review before:
-    - Executing dangerous operations
-    - Making irreversible changes
-    - Spending money or resources
-
-    Example:
-        >>> middleware = [
-        ...     HumanInTheLoopMiddleware(
-        ...         interrupt_on={
-        ...             "send_email": True,
-        ...             "delete_file": True,
-        ...             "deploy_code": True
-        ...         },
-        ...         description="Please review before executing"
-        ...     )
-        ... ]
-
-    Note: Requires checkpointing to be enabled for interrupts to work.
-    """
-
-    def __init__(
-        self,
-        interrupt_on: Dict[str, bool],
-        description: str = "Human approval required"
-    ):
-        super().__init__()
-        self.interrupt_on = interrupt_on
-        self.description = description
-
-    def after_model(self, state: Dict[str, Any], runtime: Any) -> Optional[Dict[str, Any]]:
-        """Check if tool calls require approval."""
-
-        messages = state.get("messages", [])
-        if not messages:
-            return None
-
-        last_msg = messages[-1]
-
-        # Check if last message has tool calls
-        if not isinstance(last_msg, AIMessage) or not hasattr(last_msg, 'tool_calls'):
-            return None
-
-        tool_calls = last_msg.tool_calls or []
-
-        # Check if any tool requires approval
-        requires_approval = False
-        for tool_call in tool_calls:
-            tool_name = tool_call.get('name', '')
-            if self.interrupt_on.get(tool_name, False):
-                requires_approval = True
-                logger.warning(f"🚨 Tool '{tool_name}' requires human approval")
-
-        if requires_approval:
-            # Set interrupt flag (will be handled by LangGraph)
-            return {
-                "interrupt_requested": True,
-                "interrupt_reason": self.description,
-                "pending_tool_calls": tool_calls
-            }
-
-        return None
+# LangChain's own Human-in-the-loop middleware, re-exported under the name this
+# package has always used.
+#
+# There used to be a local class here that only *flagged* state
+# (interrupt_requested / pending_tool_calls) and relied on a static
+# `interrupt_before=["tools"]` to actually stop. That gave a pause with no
+# decision semantics: the resume value had nowhere to go, so approve, edit,
+# reject and respond all behaved identically ("carry on"). The real middleware
+# implements the documented contract —
+# interrupt_on={tool: True | {"allowed_decisions": [...]}} and
+# Command(resume={"decisions": [{"type": "approve" | "edit" | "reject" |
+# "respond", ...}]}) — so use it.
+try:  # langchain >= 1.0
+    from langchain.agents.middleware import HumanInTheLoopMiddleware  # noqa: F401
+except ImportError:  # pragma: no cover — older langchain, keep the name bound
+    HumanInTheLoopMiddleware = None  # type: ignore[assignment]
 
 
 # =============================================================================
@@ -1209,9 +1160,14 @@ def create_middleware_from_config(middleware_config: Dict[str, Any]) -> AgentMid
         )
 
     elif middleware_type == "hitl" or middleware_type == "human_in_the_loop":
+        # LangChain's signature is (interrupt_on, *, description_prefix=...);
+        # passing `description=` raised TypeError, which middleware setup
+        # swallowed — so a configured HITL gate silently did nothing.
         return HumanInTheLoopMiddleware(
-            interrupt_on=middleware_config.get("interrupt_on", {}),
-            description=middleware_config.get("description", "Human approval required")
+            interrupt_on=middleware_config.get("interrupt_on") or {},
+            description_prefix=middleware_config.get(
+                "description_prefix", "Tool execution pending approval"
+            ),
         )
 
     elif middleware_type == "tool_retry":

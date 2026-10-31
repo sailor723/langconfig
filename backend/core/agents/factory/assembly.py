@@ -23,6 +23,19 @@ from services.agent_utils import DEFAULT_MAX_TOKENS, DEFAULT_MODEL, DEFAULT_TEMP
 
 from .shared import logger
 
+#: Tools that change something outside the conversation. The HITL toggle in the
+#: chat UI (and a bare `middleware: [{type: "hitl"}]`) gates exactly these; an
+#: explicit `interrupt_on` / `guardrails.interrupts` overrides the list.
+DEFAULT_HITL_POLICY = {
+    "write_file": True,
+    "edit_file": True,
+    "delete": True,
+    "bash": True,
+    "python_execute": True,
+    "sqlite_execute": True,
+    "pg_execute": True,
+}
+
 
 class _AgentAssemblyMixin:
 
@@ -134,23 +147,38 @@ class _AgentAssemblyMixin:
         # Parallel tool calling configuration
         enable_parallel_tools = agent_config.get("enable_parallel_tools", True)
 
-        # HITL (Human-in-the-Loop) configuration
+        # HITL (Human-in-the-Loop) configuration.
+        #
+        # Review is LangChain's HumanInTheLoopMiddleware, addressed by policy:
+        # interrupt_on = {tool_name: True | {"allowed_decisions": [...]}}. A
+        # static `interrupt_before=["tools"]` used to stand in for it, which
+        # paused before every tool call and gave the resume value nowhere to go
+        # — approve/edit/reject/respond all silently became "carry on".
+        #
+        # Two config shapes feed the policy, in this order:
+        #   1. guardrails.interrupts  — {tool: True | {allowed_decisions, description}}
+        #   2. middleware [{type: "hitl", interrupt_on: {...}}]
+        # A bare `[{type: "hitl"}]` (what the UI toggle sends) means "gate the
+        # tools that change something"; DEFAULT_HITL_POLICY spells that out.
         interrupt_before = agent_config.get("interrupt_before", False)
         interrupt_after = agent_config.get("interrupt_after", False)
 
-        # Auto-map middleware config → HITL params
-        # The frontend UI sends middleware: [{type: 'hitl', enabled: true, ...}]
-        # This must be mapped to interrupt_before for AgentFactory.
-        if not interrupt_before and not interrupt_after:
-            middleware_list = agent_config.get("middleware", [])
-            if middleware_list and isinstance(middleware_list, list):
-                has_hitl = any(
-                    isinstance(m, dict) and m.get("type") == "hitl" and m.get("enabled", True)
-                    for m in middleware_list
-                )
-                if has_hitl:
-                    interrupt_before = ["tools"]
-                    logger.info("HITL middleware enabled: mapped to interrupt_before=['tools']")
+        _hitl_policy = (agent_config.get("guardrails") or {}).get("interrupts") or {}
+        if not _hitl_policy:
+            for _m in (agent_config.get("middleware") or []):
+                if (isinstance(_m, dict)
+                        and _m.get("type") in ("hitl", "human_in_the_loop")
+                        and _m.get("enabled", True)):
+                    _hitl_policy = _m.get("interrupt_on") or DEFAULT_HITL_POLICY
+                    break
+        if _hitl_policy:
+            _mw = [m for m in (agent_config.get("middleware") or [])
+                   if not (isinstance(m, dict)
+                           and m.get("type") in ("hitl", "human_in_the_loop"))]
+            _mw.append({"type": "hitl", "interrupt_on": _hitl_policy})
+            agent_config["middleware"] = _mw
+            middleware_list = _mw
+            logger.info(f"HITL policy active for {len(_hitl_policy)} tool(s): {sorted(_hitl_policy)}")
 
         # Multimodal input configuration
         enable_multimodal_input = agent_config.get("enable_multimodal_input", False)
