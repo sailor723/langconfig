@@ -919,17 +919,104 @@ into a coherent response.*
 3. 每个 sheet 块当一份 CSV：`|` 换逗号 → `sqlite_load_csv(..., db_path="generated/<stem>.db")`，**所有 sheet 同一个库**；
 4. 表名规则：**只能 ASCII**（`9月`→`m9`、`汇总`→`summary`），否则 `sqlite_load_csv` 直接报错重试。
 
-## 实测（3 sheet 工作簿：汇总 / 9月 / 10月）
+## 示例：一个 3-sheet 工作簿的完整对话
+
+比纯文本 agent 复杂的地方只有一处：**上传件不是文本，要先把"sheet"变成"表"**。
+下面是一次真实运行，可以照着一字不差地复现。
+
+**准备**（任何 3 sheet 的 xlsx 都行，这里用仓库里的样本）：
 
 ```
-一次建好：summary(3行) / m9(3行) / m10(3行)  →  generated/multi_sheet.db (16 KB)
+区域表：汇总 / 9月 / 10月
+     汇总  = region, revenue, orders          （两月合计）
+     9月   = region, month, revenue          （month = 2026-09）
+     10月  = region, month, revenue          （month = 2026-10）
 ```
 
-| 问 | 结果 |
+**第 1 问：摸清结构**
+
+> 这个 Excel 有几个 sheet？分别建成了哪些表？
+
+它做的事（工具轨迹）：
+
+```
+glob(upload/**) → read_any_file(upload/xxx.xlsx) → sqlite_load_csv ×3 → sqlite_execute ×2
+```
+
+回答（它会自己列出对照表）：
+
+| Sheet | 表名 | 列 | 行数 |
+|---|---|---|---|
+| 汇总 | `summary` | region, revenue, orders | 3 |
+| 9月 | `m9` | region, month, revenue | 3 |
+| 10月 | `m10` | region, month, revenue | 3 |
+
+**第 2 问：跨 sheet 汇总**
+
+> 9月和10月的总收入各是多少？说明用的哪张表。
+
+```sql
+-- 它实际执行的查询（原文）
+SELECT month, SUM(CAST(revenue AS REAL)) FROM m9 GROUP BY month
+UNION ALL
+SELECT month, SUM(CAST(revenue AS REAL)) FROM m10 GROUP BY month;
+```
+
+| 月份 | 总收入 |
+|---|---:|
+| 2026-09（`m9`） | 2,780,000 |
+| 2026-10（`m10`） | 3,042,000 |
+| 环比 | **+262,000（+9.42%）** |
+
+**第 3 问：分组对比**
+
+> 9月到10月按 region 看，谁增长最快？
+
+| region | 9月 | 10月 | 环比 |
+|---|---:|---:|---:|
+| 华北 | 540,000 | 612,000 | **+13.33%** |
+| 华东 | 1,280,000 | 1,410,000 | +10.16% |
+| 华南 | 960,000 | 1,020,000 | +6.25% |
+
+**第 4 问：交叉核对**
+
+> 汇总表和两张月表对得上吗？
+
+结论：汇总表 `summary` 的总收入 = 5,822,000，正是 `m9` + `m10` 之和 —— **两张月表与汇总表一致**。
+
+## 它的完整配置（照抄即可复建）
+
+```json
+{
+  "system_prompt": "（见上文『多 sheet Excel』的四步流程 + 自检清单 + 硬规则）",
+  "model": "deepseek-flash",
+  "temperature": 0.0,
+  "use_deepagents": false,
+  "native_tools": ["glob", "read_any_file", "read_file", "sqlite_load_csv", "sqlite_execute", "python_execute"],
+  "skills": [],
+  "subagents": [],
+  "middleware": []
+}
+```
+
+六个工具的分工，一个都不能少：
+
+| 工具 | 只干一件事 |
 |---|---|
-| 几个 sheet、哪些表 | 3 个 → `summary` / `m9` / `m10`，各 3 行 |
-| 9 月 / 10 月总收入 | 2,780,000 / 3,042,000，环比 **+262,000（+9.42%）** |
-| 增长最快 region | **华北 +13.33%**（华东 +10.16%、华南 +6.25%） |
+| `glob` | 找 `upload/` 里有什么文件 |
+| `read_any_file` | 把 CSV 读成文本；把 Excel 读成**按 sheet 分块的文本** |
+| `read_file` | 读 CSV 原文（纯文本场景，比 read_any_file 轻） |
+| `sqlite_load_csv` | 一块 CSV → 一张表（表名必须 ASCII，`db_path` 必须显式给） |
+| `sqlite_execute` | 只读 SELECT；报错就把错误串回给模型 |
+| `python_execute` | 只在要画图时用（matplotlib → base64） |
+
+## 落盘产物（实测）
+
+```
+generated/<文件名stem>.db      16 KB
+  ├─ summary(3行) / m9(3行) / m10(3行)     ← 一次建好，同名的重跑覆盖
+└─ 全部列 TEXT（sqlite_load_csv 的行为），求和前必须 CAST
+```
 
 ## 三个要讲的判断
 

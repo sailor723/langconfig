@@ -1684,31 +1684,175 @@ into a coherent response.</em></p>
 <li>每个 sheet 块当一份 CSV：<code>|</code> 换逗号 → <code>sqlite_load_csv(..., db_path=&quot;generated/&lt;stem&gt;.db&quot;)</code>，<strong>所有 sheet 同一个库</strong>；</li>
 <li>表名规则：<strong>只能 ASCII</strong>（<code>9月</code>→<code>m9</code>、<code>汇总</code>→<code>summary</code>），否则 <code>sqlite_load_csv</code> 直接报错重试。</li>
 </ol>
-<h2 id="实测-3-sheet-工作簿-汇总-9月-10月">实测（3 sheet 工作簿：汇总 / 9月 / 10月）</h2>
-<pre><code>一次建好：summary(3行) / m9(3行) / m10(3行)  →  generated/multi_sheet.db (16 KB)
+<h2 id="示例-一个-3-sheet-工作簿的完整对话">示例：一个 3-sheet 工作簿的完整对话</h2>
+<p>比纯文本 agent 复杂的地方只有一处：<strong>上传件不是文本，要先把&quot;sheet&quot;变成&quot;表&quot;</strong>。
+下面是一次真实运行，可以照着一字不差地复现。</p>
+<p><strong>准备</strong>（任何 3 sheet 的 xlsx 都行，这里用仓库里的样本）：</p>
+<pre><code>区域表：汇总 / 9月 / 10月
+     汇总  = region, revenue, orders          （两月合计）
+     9月   = region, month, revenue          （month = 2026-09）
+     10月  = region, month, revenue          （month = 2026-10）
 </code></pre>
+<p><strong>第 1 问：摸清结构</strong></p>
+<blockquote>
+<p>这个 Excel 有几个 sheet？分别建成了哪些表？</p>
+</blockquote>
+<p>它做的事（工具轨迹）：</p>
+<pre><code>glob(upload/**) → read_any_file(upload/xxx.xlsx) → sqlite_load_csv ×3 → sqlite_execute ×2
+</code></pre>
+<p>回答（它会自己列出对照表）：</p>
 <table>
 <thead>
 <tr>
-<th>问</th>
-<th>结果</th>
+<th>Sheet</th>
+<th>表名</th>
+<th>列</th>
+<th>行数</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>几个 sheet、哪些表</td>
-<td>3 个 → <code>summary</code> / <code>m9</code> / <code>m10</code>，各 3 行</td>
+<td>汇总</td>
+<td><code>summary</code></td>
+<td>region, revenue, orders</td>
+<td>3</td>
 </tr>
 <tr>
-<td>9 月 / 10 月总收入</td>
-<td>2,780,000 / 3,042,000，环比 <strong>+262,000（+9.42%）</strong></td>
+<td>9月</td>
+<td><code>m9</code></td>
+<td>region, month, revenue</td>
+<td>3</td>
 </tr>
 <tr>
-<td>增长最快 region</td>
-<td><strong>华北 +13.33%</strong>（华东 +10.16%、华南 +6.25%）</td>
+<td>10月</td>
+<td><code>m10</code></td>
+<td>region, month, revenue</td>
+<td>3</td>
 </tr>
 </tbody>
 </table>
+<p><strong>第 2 问：跨 sheet 汇总</strong></p>
+<blockquote>
+<p>9月和10月的总收入各是多少？说明用的哪张表。</p>
+</blockquote>
+<pre><code class="language-sql">-- 它实际执行的查询（原文）
+SELECT month, SUM(CAST(revenue AS REAL)) FROM m9 GROUP BY month
+UNION ALL
+SELECT month, SUM(CAST(revenue AS REAL)) FROM m10 GROUP BY month;
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>月份</th>
+<th style="text-align:right">总收入</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2026-09（<code>m9</code>）</td>
+<td style="text-align:right">2,780,000</td>
+</tr>
+<tr>
+<td>2026-10（<code>m10</code>）</td>
+<td style="text-align:right">3,042,000</td>
+</tr>
+<tr>
+<td>环比</td>
+<td style="text-align:right"><strong>+262,000（+9.42%）</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>第 3 问：分组对比</strong></p>
+<blockquote>
+<p>9月到10月按 region 看，谁增长最快？</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>region</th>
+<th style="text-align:right">9月</th>
+<th style="text-align:right">10月</th>
+<th style="text-align:right">环比</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>华北</td>
+<td style="text-align:right">540,000</td>
+<td style="text-align:right">612,000</td>
+<td style="text-align:right"><strong>+13.33%</strong></td>
+</tr>
+<tr>
+<td>华东</td>
+<td style="text-align:right">1,280,000</td>
+<td style="text-align:right">1,410,000</td>
+<td style="text-align:right">+10.16%</td>
+</tr>
+<tr>
+<td>华南</td>
+<td style="text-align:right">960,000</td>
+<td style="text-align:right">1,020,000</td>
+<td style="text-align:right">+6.25%</td>
+</tr>
+</tbody>
+</table>
+<p><strong>第 4 问：交叉核对</strong></p>
+<blockquote>
+<p>汇总表和两张月表对得上吗？</p>
+</blockquote>
+<p>结论：汇总表 <code>summary</code> 的总收入 = 5,822,000，正是 <code>m9</code> + <code>m10</code> 之和 —— <strong>两张月表与汇总表一致</strong>。</p>
+<h2 id="它的完整配置-照抄即可复建">它的完整配置（照抄即可复建）</h2>
+<pre><code class="language-json">{
+  &quot;system_prompt&quot;: &quot;（见上文『多 sheet Excel』的四步流程 + 自检清单 + 硬规则）&quot;,
+  &quot;model&quot;: &quot;deepseek-flash&quot;,
+  &quot;temperature&quot;: 0.0,
+  &quot;use_deepagents&quot;: false,
+  &quot;native_tools&quot;: [&quot;glob&quot;, &quot;read_any_file&quot;, &quot;read_file&quot;, &quot;sqlite_load_csv&quot;, &quot;sqlite_execute&quot;, &quot;python_execute&quot;],
+  &quot;skills&quot;: [],
+  &quot;subagents&quot;: [],
+  &quot;middleware&quot;: []
+}
+</code></pre>
+<p>六个工具的分工，一个都不能少：</p>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>只干一件事</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>glob</code></td>
+<td>找 <code>upload/</code> 里有什么文件</td>
+</tr>
+<tr>
+<td><code>read_any_file</code></td>
+<td>把 CSV 读成文本；把 Excel 读成<strong>按 sheet 分块的文本</strong></td>
+</tr>
+<tr>
+<td><code>read_file</code></td>
+<td>读 CSV 原文（纯文本场景，比 read_any_file 轻）</td>
+</tr>
+<tr>
+<td><code>sqlite_load_csv</code></td>
+<td>一块 CSV → 一张表（表名必须 ASCII，<code>db_path</code> 必须显式给）</td>
+</tr>
+<tr>
+<td><code>sqlite_execute</code></td>
+<td>只读 SELECT；报错就把错误串回给模型</td>
+</tr>
+<tr>
+<td><code>python_execute</code></td>
+<td>只在要画图时用（matplotlib → base64）</td>
+</tr>
+</tbody>
+</table>
+<h2 id="落盘产物-实测">落盘产物（实测）</h2>
+<pre><code>generated/&lt;文件名stem&gt;.db      16 KB
+  ├─ summary(3行) / m9(3行) / m10(3行)     ← 一次建好，同名的重跑覆盖
+└─ 全部列 TEXT（sqlite_load_csv 的行为），求和前必须 CAST
+</code></pre>
 <h2 id="三个要讲的判断-3">三个要讲的判断</h2>
 <ol>
 <li><strong>先看库再写 SQL</strong>：<code>sqlite_master</code> 拿到表和结构、<code>LIMIT 3</code> 看样例，再写业务查询 —— 跳过这步必错。</li>
@@ -1821,6 +1965,6 @@ into a coherent response.</em></p>
 在本平台的完整对应物。</p>
 </blockquote>
 </article>
-<nav><div class="title">Steps</div><a class="" href="#目录">目录</a><a class="" href="#0-两个概念-agent-与-deep-agent">0 · 两个概念：agent 与 deep agent</a><a class="h3" href="#0-1-agent-model-harness">0.1 agent = model + harness</a><a class="h3" href="#0-2-deep-agent-同一个循环-四类内置能力">0.2 deep agent = 同一个循环 + 四类内置能力</a><a class="h3" href="#0-3-两者的差别-一张表">0.3 两者的差别（一张表）</a><a class="h3" href="#0-4-平台上的对应物">0.4 平台上的对应物</a><a class="" href="#工作区约定-上传件与产物都归-agent">工作区约定：上传件与产物都归 agent</a><a class="" href="#开场-页面原文">开场（页面原文）</a><a class="" href="#create-agent-就是一个可配置的-harness">create_agent 就是一个可配置的 harness</a><a class="" href="#核心组件-core-components">核心组件（Core components）</a><a class="" href="#在平台上-模型-系统提示词-工具">在平台上：模型 + 系统提示词 + 工具</a><a class="" href="#实测-四个例子">实测：四个例子</a><a class="" href="#两条要讲的判断">两条要讲的判断</a><a class="" href="#实测">实测</a><a class="" href="#两条要讲的判断-1">两条要讲的判断</a><a class="" href="#三条规则-抄自-doc-chat-py-的-rules">三条规则（抄自 doc_chat.py 的 RULES）</a><a class="" href="#实测-上传真文件-不是演示数据">实测（上传真文件，不是演示数据）</a><a class="" href="#两条要讲的判断-2">两条要讲的判断</a><a class="" href="#overview-页面原文-中文译文">Overview（页面原文 · 中文译文）</a><a class="" href="#why-use-a-supervisor-页面原文-中文译文">Why use a supervisor?（页面原文 · 中文译文）</a><a class="" href="#结构-一共-3-个-agent-1-2">结构：一共 3 个 agent（1 + 2）</a><a class="" href="#教程的步骤">教程的步骤</a><a class="" href="#平台上怎么还原">平台上怎么还原</a><a class="" href="#实测-case-4-assistant-id-323">实测（case-4-assistant，id 323）</a><a class="" href="#和教程的差异-要如实讲">和教程的差异（要如实讲）</a><a class="" href="#四个要讲的判断">四个要讲的判断</a><a class="" href="#overview-页面原文-中文译文-1">Overview（页面原文 · 中文译文）</a><a class="" href="#流程-页面那张图的文字版">流程（页面那张图的文字版）</a><a class="" href="#结构-1-个-agent-3-步配置">结构：1 个 agent + 3 步配置</a><a class="" href="#教程的步骤-9-节压成-5-行">教程的步骤（9 节压成 5 行）</a><a class="" href="#平台上怎么还原-1-个-agent-1-段-middleware">平台上怎么还原（1 个 agent + 1 段 middleware）</a><a class="" href="#实测-case-5-support-id-325">实测（case-5-support，id 325）</a><a class="" href="#和教程的差异-要如实讲-1">和教程的差异（要如实讲）</a><a class="" href="#三个要讲的判断">三个要讲的判断</a><a class="" href="#复建自检-5-条">复建自检（5 条）</a><a class="" href="#实测-deep-agent-bash-设成-bash-may-mutate">实测（deep agent，bash 设成 bash_may_mutate）</a><a class="" href="#两个必须讲的判断">两个必须讲的判断</a><a class="" href="#实测-case-6-subagents-deepseek-flash-temperature-0">实测（case-6-subagents，deepseek-flash，temperature 0）</a><a class="" href="#三个必须讲的判断">三个必须讲的判断</a><a class="" href="#对照实验-改描述-委派会变吗">对照实验：改描述，委派会变吗？</a><a class="" href="#实测-case-7-handoff-三个角色-cli-验收">实测（case-7-handoff，三个角色，CLI 验收）</a><a class="" href="#四个要讲的判断-1">四个要讲的判断</a><a class="" href="#实测-case-8-skills-只有-skill-python-execute-两个工具">实测（case-8-skills，只有 skill + python_execute 两个工具）</a><a class="" href="#三个要讲的判断-1">三个要讲的判断</a><a class="" href="#实测-case-9-router">实测（case-9-router）</a><a class="" href="#三个要讲的判断-2">三个要讲的判断</a><a class="" href="#实测-同一个问题-三轮改造">实测（同一个问题，三轮改造）</a><a class="" href="#三条要讲的判断">三条要讲的判断</a><a class="" href="#实测-教程原句-write-a-blog-post-about-how-ai-agents-are-transforming-software-development">实测（教程原句：Write a blog post about how AI agents are transforming software development）</a><a class="" href="#判断">判断</a><a class="" href="#多-sheet-excel-用户要求的-quot-和-csv-一样-quot">多 sheet Excel（用户要求的&amp;quot;和 CSV 一样&amp;quot;）</a><a class="" href="#实测-3-sheet-工作簿-汇总-9月-10月">实测（3 sheet 工作簿：汇总 / 9月 / 10月）</a><a class="" href="#三个要讲的判断-3">三个要讲的判断</a><a class="" href="#a-建-agent">A. 建 agent</a><a class="" href="#b-工具">B. 工具</a><a class="" href="#c-两个专家">C. 两个专家</a><a class="" href="#d-开新聊天-这一步最容易漏">D. 开新聊天（这一步最容易漏）</a><a class="" href="#e-例-1-单域">E. 例 1 · 单域</a><a class="" href="#f-例-2-跨域-审批">F. 例 2 · 跨域 + 审批</a><a class="" href="#g-看日程-右侧-calendar">G. 看日程（右侧 Calendar）</a><a class="" href="#h-反证-可选-但很值得做">H. 反证（可选，但很值得做）</a><a class="" href="#i-常见失败对照">I. 常见失败对照</a></nav>
+<nav><div class="title">Steps</div><a class="" href="#目录">目录</a><a class="" href="#0-两个概念-agent-与-deep-agent">0 · 两个概念：agent 与 deep agent</a><a class="h3" href="#0-1-agent-model-harness">0.1 agent = model + harness</a><a class="h3" href="#0-2-deep-agent-同一个循环-四类内置能力">0.2 deep agent = 同一个循环 + 四类内置能力</a><a class="h3" href="#0-3-两者的差别-一张表">0.3 两者的差别（一张表）</a><a class="h3" href="#0-4-平台上的对应物">0.4 平台上的对应物</a><a class="" href="#工作区约定-上传件与产物都归-agent">工作区约定：上传件与产物都归 agent</a><a class="" href="#开场-页面原文">开场（页面原文）</a><a class="" href="#create-agent-就是一个可配置的-harness">create_agent 就是一个可配置的 harness</a><a class="" href="#核心组件-core-components">核心组件（Core components）</a><a class="" href="#在平台上-模型-系统提示词-工具">在平台上：模型 + 系统提示词 + 工具</a><a class="" href="#实测-四个例子">实测：四个例子</a><a class="" href="#两条要讲的判断">两条要讲的判断</a><a class="" href="#实测">实测</a><a class="" href="#两条要讲的判断-1">两条要讲的判断</a><a class="" href="#三条规则-抄自-doc-chat-py-的-rules">三条规则（抄自 doc_chat.py 的 RULES）</a><a class="" href="#实测-上传真文件-不是演示数据">实测（上传真文件，不是演示数据）</a><a class="" href="#两条要讲的判断-2">两条要讲的判断</a><a class="" href="#overview-页面原文-中文译文">Overview（页面原文 · 中文译文）</a><a class="" href="#why-use-a-supervisor-页面原文-中文译文">Why use a supervisor?（页面原文 · 中文译文）</a><a class="" href="#结构-一共-3-个-agent-1-2">结构：一共 3 个 agent（1 + 2）</a><a class="" href="#教程的步骤">教程的步骤</a><a class="" href="#平台上怎么还原">平台上怎么还原</a><a class="" href="#实测-case-4-assistant-id-323">实测（case-4-assistant，id 323）</a><a class="" href="#和教程的差异-要如实讲">和教程的差异（要如实讲）</a><a class="" href="#四个要讲的判断">四个要讲的判断</a><a class="" href="#overview-页面原文-中文译文-1">Overview（页面原文 · 中文译文）</a><a class="" href="#流程-页面那张图的文字版">流程（页面那张图的文字版）</a><a class="" href="#结构-1-个-agent-3-步配置">结构：1 个 agent + 3 步配置</a><a class="" href="#教程的步骤-9-节压成-5-行">教程的步骤（9 节压成 5 行）</a><a class="" href="#平台上怎么还原-1-个-agent-1-段-middleware">平台上怎么还原（1 个 agent + 1 段 middleware）</a><a class="" href="#实测-case-5-support-id-325">实测（case-5-support，id 325）</a><a class="" href="#和教程的差异-要如实讲-1">和教程的差异（要如实讲）</a><a class="" href="#三个要讲的判断">三个要讲的判断</a><a class="" href="#复建自检-5-条">复建自检（5 条）</a><a class="" href="#实测-deep-agent-bash-设成-bash-may-mutate">实测（deep agent，bash 设成 bash_may_mutate）</a><a class="" href="#两个必须讲的判断">两个必须讲的判断</a><a class="" href="#实测-case-6-subagents-deepseek-flash-temperature-0">实测（case-6-subagents，deepseek-flash，temperature 0）</a><a class="" href="#三个必须讲的判断">三个必须讲的判断</a><a class="" href="#对照实验-改描述-委派会变吗">对照实验：改描述，委派会变吗？</a><a class="" href="#实测-case-7-handoff-三个角色-cli-验收">实测（case-7-handoff，三个角色，CLI 验收）</a><a class="" href="#四个要讲的判断-1">四个要讲的判断</a><a class="" href="#实测-case-8-skills-只有-skill-python-execute-两个工具">实测（case-8-skills，只有 skill + python_execute 两个工具）</a><a class="" href="#三个要讲的判断-1">三个要讲的判断</a><a class="" href="#实测-case-9-router">实测（case-9-router）</a><a class="" href="#三个要讲的判断-2">三个要讲的判断</a><a class="" href="#实测-同一个问题-三轮改造">实测（同一个问题，三轮改造）</a><a class="" href="#三条要讲的判断">三条要讲的判断</a><a class="" href="#实测-教程原句-write-a-blog-post-about-how-ai-agents-are-transforming-software-development">实测（教程原句：Write a blog post about how AI agents are transforming software development）</a><a class="" href="#判断">判断</a><a class="" href="#多-sheet-excel-用户要求的-quot-和-csv-一样-quot">多 sheet Excel（用户要求的&amp;quot;和 CSV 一样&amp;quot;）</a><a class="" href="#示例-一个-3-sheet-工作簿的完整对话">示例：一个 3-sheet 工作簿的完整对话</a><a class="" href="#它的完整配置-照抄即可复建">它的完整配置（照抄即可复建）</a><a class="" href="#落盘产物-实测">落盘产物（实测）</a><a class="" href="#三个要讲的判断-3">三个要讲的判断</a><a class="" href="#a-建-agent">A. 建 agent</a><a class="" href="#b-工具">B. 工具</a><a class="" href="#c-两个专家">C. 两个专家</a><a class="" href="#d-开新聊天-这一步最容易漏">D. 开新聊天（这一步最容易漏）</a><a class="" href="#e-例-1-单域">E. 例 1 · 单域</a><a class="" href="#f-例-2-跨域-审批">F. 例 2 · 跨域 + 审批</a><a class="" href="#g-看日程-右侧-calendar">G. 看日程（右侧 Calendar）</a><a class="" href="#h-反证-可选-但很值得做">H. 反证（可选，但很值得做）</a><a class="" href="#i-常见失败对照">I. 常见失败对照</a></nav>
 </div>
 </body></html>
