@@ -665,7 +665,10 @@ async def web_fetch(url: str, timeout: int = 10) -> str:
 # =============================================================================
 
 async def rag_search(query: str, k: int = 4) -> str:
-    """Search the documents this account has indexed, by meaning.
+    """
+    用我：检索【本账号上传的文档】的段落（向量检索），答案要标来源。
+    别用我：查平台库用 pg_query；要整本文档的目录结构用 graphindex_*。
+Search the documents this account has indexed, by meaning.
 
     This is the tutorial's retrieval step exposed as a tool:
     https://docs.langchain.com/oss/python/langchain/knowledge-base
@@ -905,6 +908,9 @@ def _resolve_sandbox_path(path_str: str):
 @tool
 def read_file(file_path: str, offset: int = 0, limit: int = None, max_chars: int = 500_000) -> str:
     """
+    用我：读工作区里的文本文件（可带 offset/limit）。
+    别用我：pdf/docx/pptx 等多格式文档用 read_any_file；图片用 read_image。
+
     Read the contents of a file with optional line offset and limit.
 
     Supports plain text files (.txt, .md, .py, .json, .csv, etc.) plus
@@ -2606,7 +2612,10 @@ def mkdir(directory_path: str) -> str:
 # =============================================================================
 @tool
 def read_image(file_path: str) -> str:
-    """Read an image file: return its dimensions/format plus OCR-extracted text.
+    """
+    用我：读图片（OCR / 多模态）。
+    别用我：文本或多格式文档用 read_file / read_any_file。
+Read an image file: return its dimensions/format plus OCR-extracted text.
 
     Use when the user references or attaches an image (screenshot, scan,
     diagram, chart) and you need its text content. OCR runs through the
@@ -3297,6 +3306,9 @@ def pg_describe_table(table_name: str, schema_name: str = "public") -> str:
 @tool
 def pg_query(sql: str) -> str:
     """
+    用我：查平台自己的 PostgreSQL（只读 SELECT），例如 deep_agent_templates。
+    别用我：查 SQLite / 临时表用 sqlite_execute；用自然语言问业务库用 sql_agent_tool。
+
     Run a read-only SQL SELECT query against PostgreSQL and return results as a table.
 
     SAFETY: Only SELECT statements are allowed. INSERT/UPDATE/DELETE are rejected.
@@ -3513,22 +3525,32 @@ def pg_get_agent(agent_id: int) -> str:
 
 
 @tool
-def pg_list_skills() -> str:
+def pg_list_skills(limit: int = 50) -> str:
     """
-    List all skills in the database with their IDs, descriptions, tags, and usage counts.
+    List skills in the database: id, description, tags, usage count.
 
-    Skills define reusable capabilities that agents can auto-discover and invoke.
+    Skills are reusable capabilities an agent can load on demand; use this to
+    find the id to pass to the `skill` tool. Use it when the user asks what
+    skills exist — not for running a skill.
+
+    Args:
+        limit: Maximum number of skills to return (default 50, most used first).
 
     Returns:
         Formatted list of available skills
 
     Example:
-        >>> pg_list_skills()
+        >>> pg_list_skills(limit=10)
     """
     from models.skill import Skill
     db = _get_pg_session()
     try:
-        skills = db.query(Skill).order_by(Skill.usage_count.desc()).all()
+        skills = (
+            db.query(Skill)
+            .order_by(Skill.usage_count.desc())
+            .limit(max(1, int(limit or 50)))
+            .all()
+        )
         if not skills:
             return "No skills found in the database."
         lines = [f"## Skills ({len(skills)} total)", ""]
@@ -3595,17 +3617,22 @@ def search_skills(query: str) -> str:
 
 
 @tool
-def pg_list_projects() -> str:
+def pg_list_projects(limit: int = 50) -> str:
     """
-    List all projects with their IDs, names, document count, and indexing status.
+    List projects: id, name, document count, indexing status.
 
-    Projects group documents and workflows together.
+    Projects group documents and workflows, and are the scope for the
+    graphindex/doc_index retrieval tools. Use it to find a project id — not to
+    read a project's documents.
+
+    Args:
+        limit: Maximum number of projects to return (default 50).
 
     Returns:
         Formatted list of projects
 
     Example:
-        >>> pg_list_projects()
+        >>> pg_list_projects(limit=10)
     """
     from models.core import Project, ContextDocument
     from sqlalchemy import func
@@ -3616,7 +3643,9 @@ def pg_list_projects() -> str:
             func.count(ContextDocument.id).label("doc_count")
         ).outerjoin(
             ContextDocument, ContextDocument.project_id == Project.id
-        ).group_by(Project.id).order_by(Project.updated_at.desc()).all()
+        ).group_by(Project.id).order_by(Project.updated_at.desc()).limit(
+            max(1, int(limit or 50))
+        ).all()
         if not projects:
             return "No projects found."
         lines = ["## Projects", ""]
@@ -3994,6 +4023,9 @@ def _get_doc_client():
 
 def doc_index_list(workspace: Optional[str] = None) -> str:
     """
+    用我：列出某项目里可做页级检索的文档。
+    别用我：本账号上传文档用 rag_search。
+
     List all indexed documents with metadata.
 
     Uses GraphIndex-style vectorless retrieval — no embeddings, no chunking.
@@ -4073,6 +4105,9 @@ def doc_index_structure(doc_id: str, workspace: Optional[str] = None) -> str:
 
 def doc_index_pages(doc_id: str, pages: str, workspace: Optional[str] = None) -> str:
     """
+    用我：按 doc_id 取指定页范围的内容。
+    别用我：读本地文件用 read_file。
+
     Get the full content of specific pages from a document.
 
     Args:
@@ -4176,7 +4211,10 @@ def _get_project_id() -> Optional[int]:
 
 
 def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
-    """Search project documents using GraphIndex vector matching.
+    """
+    用我：在某个项目的整本文档上做结构化检索（PageIndex 树，返回上下文 id）。
+    别用我：本账号上传的单个文档用 rag_search；只取某一页用 doc_index_pages。
+Search project documents using GraphIndex vector matching.
 
     Uses the canonical Phase 9 graphindex modules (learning.phase9.graphindex):
       - Neo4jDocumentIndex.find_best_document for vector-based document matching
@@ -4236,7 +4274,10 @@ def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
 
 
 def graphindex_load(context_doc_id: int, max_chars: int = 10_000_000) -> str:
-    """Load the full content of a document by its context_doc_id.
+    """
+    用我：按 graphindex_search 给的 context_doc_id 取回文档正文。
+    别用我：普通文件用 read_file。
+Load the full content of a document by its context_doc_id.
 
     Uses the canonical Phase 9 graphindex modules:
       1. Lookup ContextDocument from DB by context_doc_id
@@ -4717,6 +4758,9 @@ def _validate_sqlite_db_path(db_path: str):
 
 def sqlite_execute(sql: str, db_path: str = ":memory:") -> str:
     """
+    用我：对 SQLite 文件或临时表跑只读 SQL（配 sqlite_load_csv 建表）。
+    别用我：查平台库用 pg_query。
+
     Execute a read-only SQL query on a SQLite database.
 
     Useful for the sql-skill-generator agent to validate generated SQL queries
@@ -4949,6 +4993,9 @@ def python_execute(code: str, timeout: int = 30) -> str:
 @tool
 def sql_agent_tool(question: str, database: str = "") -> str:
     """
+    用我：用自然语言问 Chinook 业务库（内部先转 SQL，返回结论）。
+    别用我：要精确 SQL 或查平台库用 pg_query。
+
     Ask a natural-language question and get an answer from a PostgreSQL
     database (read-only).
 
@@ -4976,6 +5023,9 @@ def sql_agent_tool(question: str, database: str = "") -> str:
 @tool
 def advanced_sql_agent_tool(question: str, database: str = "") -> str:
     """
+    用我：复杂业务问题、需要多步 SQL 推理时（Chinook）。
+    别用我：一条简单查询用 sql_agent_tool 或 pg_query。
+
     Ask a natural-language question and get an answer from a PostgreSQL
     database (read-only), with automatic planning for complex questions.
 

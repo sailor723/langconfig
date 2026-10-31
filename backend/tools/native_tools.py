@@ -457,14 +457,17 @@ TOOL_REGISTRY = [
     {
         "id": "memory_store",
         "name": "Memory Store",
-        "description": "Store a fact in long-term memory",
+        "description": ("Store a fact in long-term memory. Only available when the agent runs with "
+                        "memory enabled (deep agents / enable_memory); in a plain chat it loads "
+                        "nothing and must not be selected on its own."),
         "category": "memory",
         "requires_api_key": None,
     },
     {
         "id": "memory_recall",
         "name": "Memory Recall",
-        "description": "Recall relevant facts from long-term memory",
+        "description": ("Recall facts stored by memory_store. Same limitation: only with memory "
+                        "enabled — inert in a plain chat."),
         "category": "memory",
         "requires_api_key": None,
     },
