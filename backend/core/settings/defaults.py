@@ -33,11 +33,11 @@ def get_defaults() -> dict[str, dict]:
     """Default documents for a fresh install (mirrors the old root .env)."""
     return {
         "models": {
-            "default_model": "deepseek-chat",
+            "default_model": "deepseek-flash",
             "default_temperature": 0.0,
             "max_tokens": 256000,
             "fallback_models": _fallback_list("local-ollama-qwen25-14b"),
-            "primary_model": "deepseek-chat",
+            "primary_model": "deepseek-flash",
             "local_provider": "ollama",
             # Source of truth: OLLAMA_BASE_URL / LOCAL_LLM_BASE_URL in .env.
             # No hardcoded port here: the centralized connection module

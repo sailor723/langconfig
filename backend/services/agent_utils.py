@@ -36,7 +36,7 @@ MAX_MAX_TOKENS = 1_000_000
 # Default model/temperature/max-tokens fallbacks. Phase 5b: the effective
 # values now come from the settings documents (core/settings.runtime_get,
 # seeded from the old .env); these literals are only the last-resort fallback.
-DEFAULT_MODEL = "deepseek-chat"
+DEFAULT_MODEL = "deepseek-flash"
 DEFAULT_TEMPERATURE = 0.0
 DEFAULT_MAX_TOKENS = 256000
 

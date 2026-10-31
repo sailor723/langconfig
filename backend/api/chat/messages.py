@@ -1663,9 +1663,9 @@ async def get_session_metrics(
     rag_tokens = session.metrics.get("rag_context_tokens", 0)
 
     agent = db.query(DeepAgentTemplate).filter_by(id=session.agent_id).first()
-    model = "claude-sonnet-4-5-20250929"
+    model = "deepseek-flash"
     if agent and agent.config:
-        model = agent.config.get("model", "claude-sonnet-4-5-20250929")
+        model = agent.config.get("model", "deepseek-flash")
 
     MODEL_PRICING = {
         "claude-sonnet-4-5-20250929": 9.0,

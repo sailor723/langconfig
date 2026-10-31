@@ -514,8 +514,8 @@ async def _business_summary(dbname: str, tables: List[Dict[str, Any]], lang: str
     The model is resolved from the ``models`` settings document's
     ``default_model`` (the same setting the rest of the app uses — see
     Settings -> Models -> default model). This makes the summary follow the
-    team's chosen LLM instead of a hardcoded ``deepseek-chat``. Falls back
-    to ``deepseek-chat`` when no default is configured.
+    team's chosen LLM instead of a hardcoded model. Falls back to the shared
+    ``DEFAULT_MODEL`` (``deepseek-flash``) when no default is configured.
     """
     key = (dbname, lang)
     if key in _BUSINESS_SUMMARY_CACHE:
@@ -523,7 +523,7 @@ async def _business_summary(dbname: str, tables: List[Dict[str, Any]], lang: str
 
     # Resolve the configured default model (Settings -> Models -> default
     # model) so the summary follows the team's chosen LLM. Falls back to
-    # DEFAULT_MODEL (deepseek-chat) when the settings document is empty or
+    # DEFAULT_MODEL (deepseek-flash) when the settings document is empty or
     # the settings engine is unavailable (pre-migration DB / import error).
     from services.agent_utils import DEFAULT_MODEL, resolve_model
 
