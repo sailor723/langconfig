@@ -842,7 +842,15 @@ class _DeepAgentAssemblyMixin:
                                 "description": f"Approve tool action?"
                             }
                         elif isinstance(val, dict):
-                            config_dict = val
+                            # `when` travels as a name (a policy that lives in
+                            # JSON cannot carry a callable); resolve it here.
+                            from core.middleware.predicates import resolve_when
+
+                            config_dict = dict(val)
+                            if "when" in config_dict:
+                                config_dict["when"] = resolve_when(
+                                    config_dict["when"], key
+                                )
                         elif val:
                             config_dict = {
                                 "allowed_decisions": ["approve", "edit", "reject", "respond"],

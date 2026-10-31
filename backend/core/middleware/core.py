@@ -1167,12 +1167,21 @@ def create_middleware_from_config(middleware_config: Dict[str, Any]) -> AgentMid
         # editor (`{"interrupt_on": ...}`) or a pydantic MiddlewareConfig that
         # only keeps `config` (`{"config": {"interrupt_on": ...}}`).
         _cfg = middleware_config.get("config") or {}
+        _policy = middleware_config.get("interrupt_on") or _cfg.get("interrupt_on") or {}
+        # `when` names arrive as strings from the editor; the middleware needs
+        # callables, so resolve them here (unknown names fail toward asking).
+        from core.middleware.predicates import resolve_when
+
+        _policy = {
+            tool: (
+                {**spec, "when": resolve_when(spec.get("when"), tool)}
+                if isinstance(spec, dict) and "when" in spec
+                else spec
+            )
+            for tool, spec in _policy.items()
+        }
         return HumanInTheLoopMiddleware(
-            interrupt_on=(
-                middleware_config.get("interrupt_on")
-                or _cfg.get("interrupt_on")
-                or {}
-            ),
+            interrupt_on=_policy,
             description_prefix=(
                 middleware_config.get("description_prefix")
                 or _cfg.get("description_prefix")

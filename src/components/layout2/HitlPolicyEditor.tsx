@@ -16,7 +16,22 @@
  */
 import type { LayoutTokens } from './tokens';
 
-export type InterruptOn = Record<string, boolean | { allowed_decisions?: string[] }>;
+export type InterruptOn = Record<
+  string,
+  boolean | { allowed_decisions?: string[]; when?: string }
+>;
+
+/** Predicates the backend knows by name (core/middleware/predicates.py). */
+const WHEN_OPTIONS: Record<string, { value: string; label: string }[]> = {
+  bash: [
+    { value: '', label: '每条命令都要批' },
+    { value: 'bash_may_mutate', label: '只读命令不批（ls / cat / grep …）' },
+  ],
+  write_file: [
+    { value: '', label: '每次写都要批' },
+    { value: 'writes_deliverable', label: '只批交付物（other/、skills/ 里的不批）' },
+  ],
+};
 
 interface HitlPolicyEditorProps {
   /** ``HumanInTheLoopMiddleware(interrupt_on=...)`` — the documented shape. */
@@ -135,6 +150,38 @@ export default function HitlPolicyEditor({ value, onChange, candidateTools, t }:
                 <span style={{ fontFamily: 'monospace', fontSize: 11, color: t.textPrimary }}>
                   {tool}
                 </span>
+                {on && WHEN_OPTIONS[tool] && (
+                  <select
+                    value={
+                      typeof policy[tool] === 'object'
+                        ? ((policy[tool] as any).when ?? '')
+                        : ''
+                    }
+                    onChange={e => {
+                      const when = e.target.value;
+                      const spec =
+                        typeof policy[tool] === 'object'
+                          ? { ...(policy[tool] as any) }
+                          : { allowed_decisions: [...DECISIONS] };
+                      if (when) spec.when = when;
+                      else delete spec.when;
+                      onChange({ ...policy, [tool]: spec });
+                    }}
+                    style={{
+                      marginLeft: 8,
+                      fontSize: 10,
+                      background: t.bgContent,
+                      color: t.textPrimary,
+                      border: `1px solid ${t.border}`,
+                      borderRadius: 4,
+                      padding: '2px 4px',
+                    }}
+                  >
+                    {WHEN_OPTIONS[tool].map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                )}
                 {allDecisions && (
                   <span style={{ fontSize: 10, color: t.textMuted }}>
                     （配置里允许全部四种决策，界面只给批准/拒绝）
