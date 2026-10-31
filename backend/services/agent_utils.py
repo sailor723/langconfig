@@ -492,6 +492,27 @@ async def create_llm_with_fallbacks(
     attempted_models = []
     errors = []
 
+    # An agent config may leave `model` unset — the editor offers "(Backend
+    # default)" for exactly that, and it stores `null`. Resolve it here, once, so
+    # the setting means what it says: the account's default from Settings → Models.
+    # Without this an unset model failed at chat time with
+    # "'NoneType' object has no attribute 'startswith'", which reads like a code
+    # fault rather than "no model was chosen".
+    if not primary_model:
+        from db.database import SessionLocal
+        from core.settings import resolve_value
+
+        _db = SessionLocal()
+        try:
+            primary_model = resolve_value(_db, "models").get("default_model")
+        finally:
+            _db.close()
+        if not primary_model:
+            raise ValueError(
+                "No model configured: this agent has no model and Settings → Models has "
+                "no default_model. Pick a model in the agent, or set a default."
+            )
+
     # Try primary model
     try:
         logger.info(f"Attempting to create primary model: {primary_model}")

@@ -106,6 +106,9 @@ SEEDABLE_TOOL_META = {
     "graphindex_rebuild_one": ("GraphIndex - Rebuild One Document", "retrieval", None),
     "graphindex_rebuild_project": ("GraphIndex - Rebuild Project", "retrieval", None),
     "graphindex_show": ("GraphIndex - Show Document", "retrieval", None),
+    # Embedding retrieval (the semantic-search tutorial's step 5 as a tool). The
+    # INDEX side is deliberately not a tool — see scripts/rag_index.py for why.
+    "rag_search": ("RAG - Search Documents", "retrieval", None),
     "sqlite_execute": ("SQLite Execute", "data", None),
     "sqlite_load_csv": ("SQLite Load CSV", "data", None),
     "python_execute": ("Python Execute", "data", None),

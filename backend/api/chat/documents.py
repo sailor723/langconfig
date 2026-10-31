@@ -371,6 +371,79 @@ async def upload_multiple_files_to_session(
     return results
 
 
+async def _index_for_retrieval(
+    user_id: int,
+    document_id: int,
+    filename: str,
+    sandbox_path,
+    stored_path: str,
+) -> None:
+    """Embed one uploaded document into the uploader's retrieval collection.
+
+    Runs as a background task after the upload response, so a 200-page PDF does not
+    make the client wait for hundreds of local embedding calls. It writes the result
+    back onto the ``session_documents`` row (``indexing_status`` /
+    ``indexed_chunks_count``) — that column is the only place a user can see whether
+    "upload" also meant "searchable".
+
+    Ids are deterministic (see ``core.rag.index``), so re-uploading the same file
+    overwrites its chunks instead of duplicating them.
+
+    Never raises: a failed index must not leave the document marked ready-but-empty,
+    and it must not fail the upload that already succeeded.
+    """
+    import os as _os
+    from pathlib import Path as _Path
+
+    from db.database import SessionLocal
+    from models.deep_agent import SessionDocument
+
+    db = SessionLocal()
+    try:
+        doc = db.query(SessionDocument).filter(SessionDocument.id == document_id).first()
+        if doc is None:
+            return
+        path = sandbox_path or stored_path
+        if not path or not _Path(str(path)).exists():
+            # The sandbox copy is what the agent can read; the stored copy is the
+            # fallback. Neither present means there is nothing to embed.
+            doc.indexing_status = IndexingStatus.READY
+            db.commit()
+            return
+
+        from core.rag import index_file
+
+        doc.indexing_status = IndexingStatus.INDEXING
+        db.commit()
+
+        report = index_file(
+            user_id=int(user_id),
+            file_path=str(path),
+            source_label=filename,
+            extra_metadata={"document_id": document_id},
+        )
+        doc.indexed_chunks_count = int(report.get("chunks") or 0)
+        doc.indexed_at = datetime.utcnow()
+        doc.indexing_status = IndexingStatus.READY
+        db.commit()
+        logger.info(
+            "Retrieval indexing done for %s: %s chunk(s) → %s",
+            filename, report.get("chunks"), report.get("collection"),
+        )
+    except Exception as exc:  # noqa: BLE001 — upload already succeeded
+        logger.warning("Retrieval indexing failed for %s: %s", filename, exc)
+        try:
+            doc = db.query(SessionDocument).filter(SessionDocument.id == document_id).first()
+            if doc is not None:
+                doc.indexing_status = IndexingStatus.FAILED
+                doc.indexed_chunks_count = 0
+                db.commit()
+        except Exception:  # noqa: BLE001
+            db.rollback()
+    finally:
+        db.close()
+
+
 async def _process_single_chat_upload(
     session_id: str,
     file: UploadFile,
@@ -428,6 +501,7 @@ async def _process_single_chat_upload(
         except Exception as e:
             logger.warning(f"Failed to copy {file.filename} to sandbox: {e}")
 
+
     # Detect document type
     file_ext = file.filename.split('.')[-1].lower()
     document_type = resolve_document_type(file.filename)
@@ -467,6 +541,30 @@ async def _process_single_chat_upload(
     elif ext_with_dot in extractable_exts:
         doc.indexing_status = IndexingStatus.READY
         db.commit()
+
+        # Embed for retrieval (`rag_search`) in the background: the upload response
+        # must not wait for hundreds of local embedding calls, and the agent should
+        # be able to search the document moments later. This is what makes
+        # "upload a PDF, then ask about it" work — the upload alone embeds nothing.
+        #
+        # The account is captured HERE, not inside the task: by the time the task
+        # runs the request's identity context is gone, and a background job without
+        # identity resolves the install OWNER's collection — one person's document
+        # would then be searchable by the owner instead of by its uploader.
+        if ext_with_dot in ('.pdf', '.md', '.txt', '.csv', '.html', '.htm', '.log'):
+            uploader_id = getattr(session, "user_id", None)
+            if uploader_id is not None:
+                background_tasks.add_task(
+                    _index_for_retrieval,
+                    int(uploader_id),
+                    doc.id,
+                    safe_name,
+                    locals().get("sandbox_path"),
+                    file_path,
+                )
+                logger.info(
+                    "Queued retrieval indexing for %s (account %s)", safe_name, uploader_id
+                )
 
         file_text = _extract_file_text(content, file.filename)
         label = file_ext.upper()
