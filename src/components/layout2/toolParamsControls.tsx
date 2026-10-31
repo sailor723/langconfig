@@ -1,6 +1,6 @@
 /**
  * Per-agent tool options, rendered INSIDE the tool box of an agent's tool panel
- * (AgentEditor → Tools, DeepAgentCreator → Tools).
+ * (AgentEditor → Tools, DeepAgentEditor → Tools).
  *
  * These write `config.tool_params[<tool_id>]`, which the platform hard-pins onto
  * the tool at agent build time (`core/tools/tool_params.py::_with_defaults`):
