@@ -1,48 +1,56 @@
-# Agent 训练 · 对齐 LangChain Agents 页
+# Agent 训练 · 跟随 LangChain Agents 页
 
 > 依据：**<https://docs.langchain.com/oss/python/langchain/agents>**
+>
+> 页面的一句话：*a model calling tools in a loop until a task is complete, shaped by a harness
+> of prompt, tools, and middleware.*
 
-## 页面上怎么说的
+## 开场（页面原文）
 
-> **An agent is a model calling tools in a loop** until a given task is complete.
+> An agent is a **model calling tools in a loop** until a given task is complete.
+
+![核心 agent 循环：request → model → action → tools → observation → model，直到模型给 result](assets/agent-loop.svg)
 
 > A harness is everything around that loop: **the prompt, the tools, and any middleware**
 > that shapes the model's behavior.
 
-> **The job of a harness: get the model the right context at the right time for the given task.**
+> **Agent = Model + Harness**
+> The job of a harness: get the model the right context at the right time for the given task.
 
-> **Agent = Model + Harness.**
+## create_agent 就是一个可配置的 harness
 
-> **Middleware is the primitive for customization**: each piece handles one concern, hooks into
-> the agent loop at the right moment, and composes freely with any other.
+> `create_agent` is a highly configurable harness. At its simplest, you can create one with:
 
-## 图 1 · 核心循环
+```python
+from langchain.agents import create_agent
 
-![核心 agent 循环：request → model → action → tools → observation → model，直到模型给 result](assets/agent-loop.svg)
+agent = create_agent(model="deepseek-flash", tools=tools)
+```
 
-循环的终点由模型决定；`action` 是它要调工具，`observation` 是工具回来的结果。
-**没有 tools 这条边，就只是一次模型调用。**
+> Building on that, you can configure the basics directly with the `model=`, `tools=`, and
+> `system_prompt=` parameters. For more advanced capabilities, extend the harness with middleware.
 
-## 图 2 · agent = model + harness
+## Core components
 
 ![agent = model + harness：model 在中心，周围是 system prompt、skills、memory、context、tools、subagents](assets/agent-harness.svg)
 
-中间只有 model 是"智能"；其余六块（system prompt、tools、skills、memory、context、subagents）
-都是围着它摆的上下文。
+| 组件 | 页面原话 |
+|---|---|
+| **Model** | Pass a model identifier string (`"provider:model"`) or an initialized model instance to select the model for your agent. |
+| **Tools** | To provide the agent with tools, pass any Python callable, LangChain tool, or tool dict. |
+| **System prompt** | Shape how the agent approaches tasks. Accepts a string or `SystemMessage`. For dynamic prompts at runtime, use middleware. |
+| **Structured output** | Return a **validated schema** from the agent using `response_format=`. |
+| **Agent state** | Every agent manages its execution context through `AgentState`, a typed dictionary. The built-in field is `messages` (append-only). To add custom fields, subclass it and pass via `state_schema=`. |
 
-## 页面上那段代码
+## 在平台上：模型 + 系统提示词 + 工具
 
-```python
-agent = create_agent(
-    "deepseek-flash",                               # 模型
-    tools=[get_weather],                            # 工具
-    system_prompt="You are a helpful assistant",    # 系统提示词
-)
-agent.invoke({"messages": [{"role": "user", "content": "上海的天气如何？"}]})
-```
+三个位置填一次（Temperature `0`）：
 
-平台上：**Model** = `deepseek-flash`（Temperature `0`）｜**System Prompt** =
-`You are a helpful assistant`｜**Tools** = `web_search`、`python_execute`、`pg_query`、`save_document`。
+| 页面参数 | 平台上 | 填什么 |
+|---|---|---|
+| `model=` | Overview → Model | `deepseek-flash` |
+| `system_prompt=` | Prompt → System Prompt | `You are a helpful assistant` |
+| `tools=` | Tools 页签 | `web_search`、`python_execute`、`pg_query`、`save_document` |
 
 ## 四个例子
 
