@@ -1,7 +1,8 @@
 /**
  * AgentEditor — structured editor for a normal Agent (use_deepagents=false).
  *
- * Simpler than DeepAgentEditor — no subagents, middleware, or guardrails.
+ * Simpler than DeepAgentEditor — no subagents. Middleware is a single
+ * section (Human-in-the-loop today); guardrails come from Settings → Agents.
  * Sections:
  *   - Overview   name, description, category, model, temperature, max_tokens
  *   - Prompt     system_prompt (large textarea)
@@ -10,7 +11,7 @@
  */
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLayoutTokens } from './tokens';
-import { Award, Info, FileText, Wrench, Code } from 'lucide-react';
+import { Award, Info, FileText, Wrench, Code, Shield } from 'lucide-react';
 import type { Tab } from './useLayout';
 import { useLayoutState } from './useLayout';
 import { chatStore } from './chatStore';
@@ -22,6 +23,7 @@ import CodeViewerModal from './CodeViewerModal';
 import ChatTestToolbar from './editorChatToolbar';
 import JsonEditorSection from './editorJsonSection';
 import ToolsPicker, { toToolIdList } from './editorToolsPicker';
+import HitlPolicyEditor from './HitlPolicyEditor';
 import ToolInspectModal from './ToolInspectModal';
 import SkillsPicker from './editorSkillsPicker';
 import EditorSectionNav from './editorSectionNav';
@@ -31,13 +33,14 @@ interface AgentEditorProps {
   tab: Tab;
 }
 
-type SectionId = 'overview' | 'prompt' | 'tools' | 'skills' | 'json';
+type SectionId = 'overview' | 'prompt' | 'tools' | 'skills' | 'middleware' | 'json';
 
 const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <Info size={13} /> },
   { id: 'prompt',   label: 'Prompt',   icon: <FileText size={13} /> },
   { id: 'tools',    label: 'Tools',    icon: <Wrench size={13} /> },
   { id: 'skills',   label: 'Skills',   icon: <Award size={13} /> },
+  { id: 'middleware', label: 'Middleware', icon: <Shield size={13} /> },
   { id: 'json',     label: 'JSON',     icon: <Code size={13} /> },
 ];
 
@@ -97,6 +100,39 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   useEffect(() => { jsonEditRef.current = jsonEdit; }, [jsonEdit]);
   // Tool card click -> inspect/edit panel (per-agent tool_params, e.g. database)
   const [inspectTool, setInspectTool] = useState<{ id: string; name: string; description: string } | null>(null);
+  // ── Middleware → Human-in-the-loop ──
+  // LangChain configures review with
+  //   middleware=[HumanInTheLoopMiddleware(interrupt_on={...},
+  //                                        description_prefix="...")]
+  // so that is exactly what this editor writes: config.middleware carries a
+  // {"type": "hitl"} entry whose interrupt_on is the documented mapping.
+  // (guardrails.interrupts still exists in old agent configs; the backend
+  // reads it as a fallback, it is no longer written here.)
+  const hitlMiddleware = useMemo(() => {
+    const mw = liveConfig.config?.middleware;
+    if (!Array.isArray(mw)) return undefined;
+    return mw.find((m: any) => m && (m.type === 'hitl' || m.type === 'human_in_the_loop'));
+  }, [liveConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+  const interruptOn = hitlMiddleware?.interrupt_on as Record<string, any> | undefined;
+  const descriptionPrefix: string =
+    hitlMiddleware?.description_prefix || 'Tool execution pending approval';
+
+  const writeHitl = (
+    next: Record<string, any>,
+    prefix: string = descriptionPrefix,
+  ) => {
+    let parsed: any;
+    try { parsed = JSON.parse(jsonEditRef.current); } catch { parsed = { ...agent }; }
+    if (!parsed.config) parsed.config = {};
+    const mw: any[] = Array.isArray(parsed.config.middleware) ? parsed.config.middleware : [];
+    const rest = mw.filter(m => !(m && (m.type === 'hitl' || m.type === 'human_in_the_loop')));
+    if (Object.keys(next).length > 0) {
+      rest.push({ type: 'hitl', enabled: true, interrupt_on: next, description_prefix: prefix });
+    }
+    parsed.config.middleware = rest;
+    setJsonEdit(JSON.stringify(parsed, null, 2));
+  };
+
   // ── Editable fields (synced to jsonEdit for Save) ──
   // For new agents, provide sensible defaults — user can tweak later
   const [editableName, setEditableName] = useState(agent.name || '');
@@ -423,16 +459,28 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         // Defaults for normal agents
         cli_tools: [],
         tools: [],
-        middleware: [],
         subagents: [],
         backend: { type: 'state' },
         // Guardrails + step budget come from Settings → Agents for a new agent;
         // the JSON tab still wins (spread below) if the user edited them there.
-        guardrails: agentGuardrails,
         recursion_limit: defaultRecursionLimit,
         use_deepagents: false,
         // JSON-tab overrides
         ...jsonConfig,
+        middleware: Array.isArray((jsonConfig as any).middleware)
+          ? (jsonConfig as any).middleware
+          : [],
+        // Guardrails merge instead of replace: the JSON tab writes only what it
+        // shows, and a bare `{"guardrails": {"interrupts": ...}}` used to wipe
+        // the team's token limits and summarization flags on save.
+        guardrails: {
+          ...agentGuardrails,
+          ...(jsonConfig.guardrails || {}),
+          token_limits: {
+            ...(agentGuardrails.token_limits || {}),
+            ...((jsonConfig.guardrails || {}).token_limits || {}),
+          },
+        },
         // Tool picker always wins over JSON tab for tool selection
         native_tools: selectedNativeTools,
         custom_tools: selectedCustomTools,
@@ -751,6 +799,31 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
       />
     ),
     skills:   renderSkills,
+    middleware: () => (
+      <div style={{ padding: 4 }}>
+        <HitlPolicyEditor
+          value={interruptOn}
+          onChange={next => writeHitl(next)}
+          candidateTools={[...selectedNativeTools, ...selectedCustomTools]}
+          t={t}
+        />
+        <div style={{ marginTop: 10 }}>
+          <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>description_prefix</div>
+          <input
+            value={descriptionPrefix}
+            onChange={e => writeHitl(interruptOn || {}, e.target.value)}
+            style={{
+              width: '100%', boxSizing: 'border-box', padding: '6px 8px', fontSize: 11,
+              fontFamily: 'monospace', background: t.bgContent, color: t.textPrimary,
+              border: `1px solid ${t.border}`, borderRadius: 4, outline: 'none',
+            }}
+          />
+          <div style={{ fontSize: 10, color: t.textMuted, marginTop: 4, lineHeight: '15px' }}>
+            打断信息的前缀，和工具名、参数一起组成提示。保存后开新聊天生效。
+          </div>
+        </div>
+      </div>
+    ),
     json:     () => <JsonEditorSection value={jsonEdit} onChange={setJsonEdit} t={t} />,
   };
 

@@ -24,6 +24,7 @@ import { SectionId as _SectionId, SECTIONS } from './editorConstants';
 import ChatTestToolbar from './editorChatToolbar';
 import JsonEditorSection from './editorJsonSection';
 import ToolsPicker, { toToolIdList } from './editorToolsPicker';
+import HitlPolicyEditor from './HitlPolicyEditor';
 import ToolInspectModal from './ToolInspectModal';
 import SkillsPicker from './editorSkillsPicker';
 import EditorSectionNav from './editorSectionNav';
@@ -232,6 +233,42 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
       cur[path[path.length - 1]] = value;
     });
   }, [patchJson]);
+
+  // ── Human-in-the-loop (middleware) ──
+  // Same shape the LangChain docs use: config.middleware gets a {"type":"hitl"}
+  // entry whose interrupt_on maps tool → true | {allowed_decisions}.
+  const HitlSection = () => {
+    const mw = (liveConfig.config?.middleware as any[] | undefined) ?? [];
+    const hitl = mw.find(m => m && (m.type === 'hitl' || m.type === 'human_in_the_loop'));
+    const interruptOn = (hitl?.interrupt_on ?? {}) as Record<string, any>;
+    const write = (next: Record<string, any>) => {
+      patchJson(p => {
+        if (!Array.isArray(p.config.middleware)) p.config.middleware = [];
+        const rest = p.config.middleware.filter(
+          (m: any) => !(m && (m.type === 'hitl' || m.type === 'human_in_the_loop')),
+        );
+        if (Object.keys(next).length > 0) {
+          rest.push({
+            type: 'hitl',
+            enabled: true,
+            interrupt_on: next,
+            description_prefix: hitl?.description_prefix || 'Tool execution pending approval',
+          });
+        }
+        p.config.middleware = rest;
+      });
+    };
+    return (
+      <HitlPolicyEditor
+        value={interruptOn}
+        onChange={write}
+        candidateTools={[
+          ...(Array.isArray(liveConfig.config?.native_tools) ? liveConfig.config.native_tools : []),
+        ]}
+        t={t}
+      />
+    );
+  };
 
   const handleRun = async () => {
     if (!localAgentId || running) return;
@@ -1087,12 +1124,16 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     if (mw.length === 0) {
       return (
         <div style={{ padding: 4 }}>
-          <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>(no middleware)</div>
+          <HitlSection />
+          <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>
+            (no other middleware)
+          </div>
         </div>
       );
     }
     return (
       <div style={{ padding: 4 }}>
+        <HitlSection />
         {mw.map((m: any, i: number) => (
           <div key={i} style={cardStyle}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

@@ -163,14 +163,23 @@ class _AgentAssemblyMixin:
         interrupt_before = agent_config.get("interrupt_before", False)
         interrupt_after = agent_config.get("interrupt_after", False)
 
-        _hitl_policy = (agent_config.get("guardrails") or {}).get("interrupts") or {}
+        # The documented home is middleware:
+        #   HumanInTheLoopMiddleware(interrupt_on={...}, description_prefix=...)
+        # so a `{"type": "hitl"}` middleware entry wins. `guardrails.interrupts`
+        # is the older deep-agent spelling and is read only as a fallback, so
+        # existing agents keep working without being rewritten.
+        _hitl_policy = {}
+        for _m in (agent_config.get("middleware") or []):
+            if (isinstance(_m, dict)
+                    and _m.get("type") in ("hitl", "human_in_the_loop")
+                    and _m.get("enabled", True)):
+                _hitl_policy = _m.get("interrupt_on") or DEFAULT_HITL_POLICY
+                break
         if not _hitl_policy:
-            for _m in (agent_config.get("middleware") or []):
-                if (isinstance(_m, dict)
-                        and _m.get("type") in ("hitl", "human_in_the_loop")
-                        and _m.get("enabled", True)):
-                    _hitl_policy = _m.get("interrupt_on") or DEFAULT_HITL_POLICY
-                    break
+            _legacy = (agent_config.get("guardrails") or {}).get("interrupts")
+            if _legacy:
+                _hitl_policy = _legacy
+                logger.info("HITL policy from legacy guardrails.interrupts")
         if _hitl_policy:
             _mw = [m for m in (agent_config.get("middleware") or [])
                    if not (isinstance(m, dict)
