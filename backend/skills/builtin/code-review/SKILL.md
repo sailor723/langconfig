@@ -9,7 +9,7 @@ triggers:
   - "when user mentions pull request review"
   - "when user mentions refactor"
 allowed-tools: [filesystem, grep]
-author: EBL Carrier
+author: LangConfig
 ---
 
 You are an expert code reviewer. When reviewing code, systematically evaluate the following areas:

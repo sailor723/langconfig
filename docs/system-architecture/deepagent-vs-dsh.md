@@ -1,7 +1,7 @@
 # DeepAgent vs DeepSeek Harness — study & comparison (2026-08-15)
 
 Companion research reports (full line-cited detail):
-- `DEEPAGENTS_RESEARCH.md` (repo root) — EBL Carrier DeepAgent definition/configuration/runtime build.
+- `DEEPAGENTS_RESEARCH.md` (repo root) — LangConfig DeepAgent definition/configuration/runtime build.
 - `DSH_AGENT_MODEL_REPORT.md` (repo root) — DeepSeek Harness agent/settings/tools/UI model.
 
 This doc is the distilled comparison and the decision record for building a new DeepAgent.
@@ -10,7 +10,7 @@ This doc is the distilled comparison and the decision record for building a new 
 
 ## 1. The two mental models
 
-| | EBL Carrier DeepAgent | DeepSeek Harness (DSH) |
+| | LangConfig DeepAgent | DeepSeek Harness (DSH) |
 |---|---|---|
 | What an agent IS | A **database row** (`deep_agent_templates.config` JSON) validated by `DeepAgentConfig` Pydantic, compiled at chat time into a LangGraph graph by the `deepagents` SDK | A **live runtime object**: `ReactLoopAgent` + `Session` (append-only event log) sharing one `SessionId`; no persisted agent record |
 | Where definitions live | PostgreSQL row + REST CRUD + GUI builder form (`DeepAgentCreator`/`Editor`) | `cordis.yml` boot rows, runtime `ctx.agents.create/resume` with a `setup` window, per-session **agent presets** (dirs mounted into the agent's scoped context) |
@@ -22,51 +22,51 @@ This doc is the distilled comparison and the decision record for building a new 
 
 ---
 
-## 2. What DSH has that EBL Carrier DeepAgent lacks (candidates to adopt)
+## 2. What DSH has that LangConfig DeepAgent lacks (candidates to adopt)
 
 Ranked by value-for-effort for a new DeepAgent:
 
 1. **Guarded tool-execution pipeline (approval/timeout/output-schema).** DSH runs every tool
    through pre-execute waterfall → monotonic guards → one-shot approval → execute → post-execute →
    `finalizeContent` → `tools/result`, with `timeoutMs`, `isConcurrencySafe`, and **output JSON
-   Schema enforced**. EBL Carrier's `ToolDefinition` (core/tools/definition.py) already *declares*
+   Schema enforced**. LangConfig's `ToolDefinition` (core/tools/definition.py) already *declares*
    `timeout_ms`, `is_concurrency_safe`, `output_schema`, `guard` — but enforcement is gradual
    (Phase A declared the surface; Phases B–D are incomplete). The tool pipeline
    (`core/tools/pipeline.py`, `ApprovalGate`) exists for the regular-agent path.
 
 2. **Code Mode (`run_code` + generated SDK).** DSH collapses the tool surface to one
    `run_code` transport; the model writes a program calling `tools.name(args)` bindings that
-   re-enter the guarded pipeline. EBL Carrier ported `core/tools/code_mode.py` with a generated
+   re-enter the guarded pipeline. LangConfig ported `core/tools/code_mode.py` with a generated
    Python SDK — but it is **regular-agent-only** (`DeepAgentConfig` has no `code_mode` field;
    the key is silently dropped by Pydantic). A new DeepAgent with `code_mode: true` would be
    the first to exercise it on the deep path.
 
 3. **Session-log-as-truth.** DSH's agent memory is one append-only log; replay is
-   reconstructable, cold resume works, compaction is pressure-triggered. EBL Carrier's dual
+   reconstructable, cold resume works, compaction is pressure-triggered. LangConfig's dual
    storage (`ChatSession.messages` JSON + LangGraph checkpointer) is the acknowledged weak
    spot — worth noting for the new agent, not necessarily fixing now.
 
 4. **Dynamic tool/skill injection** — *see §6 for the corrected finding*. DSH reads its
    tool registry every step; LangChain supports the same via `wrap_model_call` +
-   `wrap_tool_call` middleware (per-step `request.tools` re-binding), but EBL Carrier does
+   `wrap_tool_call` middleware (per-step `request.tools` re-binding), but LangConfig does
    not wire it. §7 is the concrete plan to close this.
 
 5. **Per-agent scope composition.** DSH mounts preset plugin subtrees into `agent.ctx`;
-   everything registers agent-locally and unwinds on disposal. EBL Carrier's nearest analog is
+   everything registers agent-locally and unwinds on disposal. LangConfig's nearest analog is
    per-session agent caching (`session_id:agent_id:updated_at`) — no scoped tool registry.
 
 5. **Waterfall events** (`agent/pre-step`, `agent/request`, `llm/stream`, `tools/*`) as the
-   extension mechanism vs EBL Carrier's middleware instances + LangGraph interrupts.
+   extension mechanism vs LangConfig's middleware instances + LangGraph interrupts.
 
 6. **Credentials seam** — secrets referenced by env-var name, resolved per request, rotated
-   keys reach the next request. EBL Carrier stores wizard-only keys encrypted in settings
+   keys reach the next request. LangConfig stores wizard-only keys encrypted in settings
    documents; fine for now.
 
-7. **Compaction / spill** — pressure-triggered summarization + tool-result pruning; EBL Carrier
+7. **Compaction / spill** — pressure-triggered summarization + tool-result pruning; LangConfig
    has SummarizationMiddleware (the only actually-enforced guardrail) but no tool-result
    spill/prune on the deep path.
 
-## 3. What EBL Carrier DeepAgent has that DSH lacks (keep)
+## 3. What LangConfig DeepAgent has that DSH lacks (keep)
 
 - **Persisted, user-facing agent record + REST CRUD + builder UI** — the whole product surface.
 - **Graph-based workflow authoring** (LangGraph canvas; compiled subagents = workflow graphs).
@@ -74,7 +74,7 @@ Ranked by value-for-effort for a new DeepAgent:
 - **Multi-tenant SaaS posture** (projects/vaults/users) vs DSH's local-first harness.
 - **Familiar Python/LangChain ecosystem** — `@tool`, LangSmith, third-party integrations.
 - **Skills** with progressive disclosure (SkillsMiddleware + DbBackend in db mode) — DSH has
-  skills too, but EBL Carrier's DB-managed skill catalog is product-grade.
+  skills too, but LangConfig's DB-managed skill catalog is product-grade.
 
 ## 4. Known DeepAgent gaps surfaced by the study (from `DEEPAGENTS_RESEARCH.md` §E)
 
@@ -102,7 +102,7 @@ Ranked by value-for-effort for a new DeepAgent:
 
 ## 5. Decision record — what the new DeepAgent should use
 
-For the next DeepAgent built in EBL Carrier, adopt DSH-informed choices that are already
+For the next DeepAgent built in LangConfig, adopt DSH-informed choices that are already
 available in-tree, and fix the minimal set of gaps that block them:
 
 1. **Model**: use a configured provider from the `models` settings document (deepseek /
@@ -146,7 +146,7 @@ available in-tree, and fix the minimal set of gaps that block them:
 
 **Correction to the earlier claim that dynamic injection is a platform boundary.**
 The deepagents/LangChain stack **does** support dynamic tool injection natively;
-EBL Carrier just doesn't wire it. The "kick off" problem is a *wiring* gap, not a
+LangConfig just doesn't wire it. The "kick off" problem is a *wiring* gap, not a
 *platform* gap.
 
 ### 6.1 Evidence — LangChain `create_agent` middleware contract
@@ -169,7 +169,7 @@ EBL Carrier just doesn't wire it. The "kick off" problem is a *wiring* gap, not 
    tools are collected into the ToolNode at build (factory.py:1005, 1056-1067);
    `wrap_tool_call` is the escape hatch for the dynamic ones.
 
-**EBL Carrier already ships one such middleware — unwired.** `core/middleware/tool_selection.py`
+**LangConfig already ships one such middleware — unwired.** `core/middleware/tool_selection.py`
 `PermissionBasedToolMiddleware` filters `request.tools` by user role via `@wrap_model_call`
 (lines 94-140). No code outside its own module imports it; the deep path never passes it.
 
@@ -189,7 +189,7 @@ EBL Carrier just doesn't wire it. The "kick off" problem is a *wiring* gap, not 
 
 ### 6.3 What this unlocks vs DSH
 
-| Capability | DSH (native) | EBL Carrier after plan |
+| Capability | DSH (native) | LangConfig after plan |
 |---|---|---|
 | Create a skill, use it this turn | live catalog read per step | write-through registry + state pop → same-turn |
 | New skill appears in prompt without restart | live catalog read per step | `LiveSkillsMiddleware` pops state on fingerprint change → next turn |
@@ -295,5 +295,5 @@ class LiveSkillsMiddleware(AgentMiddleware):
 
 ---
 
-*Research sources: `DEEPAGENTS_RESEARCH.md` (EBL Carrier), `DSH_AGENT_MODEL_REPORT.md` (DSH),
+*Research sources: `DEEPAGENTS_RESEARCH.md` (LangConfig), `DSH_AGENT_MODEL_REPORT.md` (DSH),
 plus `docs/tools-refactor.md` and `docs/settings-refactor.md` for the already-ported DSH seams.*

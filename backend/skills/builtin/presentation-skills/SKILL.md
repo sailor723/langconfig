@@ -6,7 +6,7 @@ description: >-
   and/or PDF via the gen_pptx / gen_html_deck / gen_pdf_deck tools. Use when producing
   a slide deck from documents.
 version: 1.1.0
-author: EBL Carrier (derived from agent 165 + gen_pptx/gen_html_deck/gen_pdf_deck)
+author: LangConfig (derived from agent 165 + gen_pptx/gen_html_deck/gen_pdf_deck)
 tags: [presentation, pptx, html, pdf, deck, multi-agent, pipeline]
 triggers:
   - "when a slide deck must be produced from a document"

@@ -1,4 +1,4 @@
-# EBL Carrier — Usage Guide
+# LangConfig — Usage Guide
 
 How to use the app: the shell, the thirteen activities, and two end-to-end walkthroughs
 (first agent, first workflow). For how it works internally see

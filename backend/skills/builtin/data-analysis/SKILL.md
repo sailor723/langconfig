@@ -9,7 +9,7 @@ triggers:
   - "when user asks about database or SQL"
   - "when user wants data visualization or charts"
 allowed-tools: [execute, filesystem, read_file, save_analysis_result]
-author: EBL Carrier
+author: LangConfig
 ---
 
 # Data Analysis Skill (System)

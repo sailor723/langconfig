@@ -10,7 +10,7 @@ triggers:
   - "when file extension is _test.py"
   - "when working with pytest"
 allowed-tools: [filesystem, shell, python]
-author: EBL Carrier
+author: LangConfig
 ---
 
 You are an expert Python testing specialist. When helping with Python tests, follow these guidelines:

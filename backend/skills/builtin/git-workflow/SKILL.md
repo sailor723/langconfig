@@ -15,7 +15,7 @@ triggers:
 # code-review's job; this skill owns the mechanics around the PR (branch, merge,
 # conflicts, release), which is what the wording above now says.
 allowed-tools: [filesystem, shell]
-author: EBL Carrier
+author: LangConfig
 ---
 
 You are an expert in Git workflows and version control. Help users establish and maintain effective Git practices.

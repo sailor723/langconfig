@@ -10,7 +10,7 @@ triggers:
   - "when user mentions troubleshooting"
   - "when user mentions not working"
 allowed-tools: [filesystem, shell, python]
-author: EBL Carrier
+author: LangConfig
 ---
 
 You are an expert debugger with systematic problem-solving skills. Help users identify, understand, and fix bugs efficiently.

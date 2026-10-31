@@ -1,4 +1,4 @@
-# EBL Carrier — Backend
+# LangConfig — Backend
 
 FastAPI service that turns the UI's configuration into running LangChain agents and
 LangGraph workflows. Python **3.13**, PostgreSQL **16 + pgvector**, LangChain v1,

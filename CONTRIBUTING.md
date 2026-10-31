@@ -1,6 +1,6 @@
-# Contributing to EBL Carrier
+# Contributing to LangConfig
 
-Thank you for your interest in contributing to EBL Carrier! We welcome contributions from everyone.
+Thank you for your interest in contributing to LangConfig! We welcome contributions from everyone.
 
 ## Table of Contents
 
@@ -29,7 +29,7 @@ This project and everyone participating in it is governed by our [Code of Conduc
 
 ## How to Contribute
 
-There are many ways to contribute to EBL Carrier:
+There are many ways to contribute to LangConfig:
 
 - **Report bugs** - If you find a bug, please report it by opening an issue
 - **Suggest features** - Have an idea? Open an issue to discuss it
@@ -224,5 +224,5 @@ If you have questions, feel free to:
 - Check existing issues and discussions
 - Review the documentation
 
-Thank you for contributing to EBL Carrier!
+Thank you for contributing to LangConfig!
 

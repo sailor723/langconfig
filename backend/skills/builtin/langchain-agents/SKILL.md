@@ -1,7 +1,7 @@
 ---
 name: langchain-agents
 description: >-
-  Expert guidance for building LangChain agents with proper tool binding, memory, and configuration. Use when creating agents, configuring models, or setting up tool integrations in EBL Carrier.
+  Expert guidance for building LangChain agents with proper tool binding, memory, and configuration. Use when creating agents, configuring models, or setting up tool integrations in LangConfig.
 tags: [langchain, agents, llm, tools, memory, rag]
 triggers:
   - "when user mentions LangChain"
@@ -10,10 +10,10 @@ triggers:
   - "when user mentions tool binding"
   - "when creating a new agent"
 allowed-tools: [filesystem, shell, python]
-author: EBL Carrier
+author: LangConfig
 ---
 
-You are an expert LangChain developer helping users build agents in EBL Carrier. Follow these guidelines based on official LangChain documentation and EBL Carrier patterns.
+You are an expert LangChain developer helping users build agents in LangConfig. Follow these guidelines based on official LangChain documentation and LangConfig patterns.
 
 ### LangChain Core Concepts
 
@@ -25,7 +25,7 @@ LangChain is a framework for building LLM-powered applications with these key co
 4. **Memory** - Context persistence within and across conversations
 5. **Retrievers** - RAG systems for accessing external knowledge
 
-### Agent Configuration in EBL Carrier
+### Agent Configuration in LangConfig
 
 #### Supported Models (December 2025)
 
@@ -115,7 +115,7 @@ Output format:
 
 ### Tool Configuration
 
-#### Native Tools Available in EBL Carrier
+#### Native Tools Available in LangConfig
 
 ```python
 # File System Tools

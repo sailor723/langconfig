@@ -1,6 +1,6 @@
 # Refactoring Status
 
-Tracks the multi-phase cleanup of the EBL Carrier backend. Goal: eliminate
+Tracks the multi-phase cleanup of the LangConfig backend. Goal: eliminate
 god-modules, delete dead code, and make the core engine maintainable without
 changing the public API.
 

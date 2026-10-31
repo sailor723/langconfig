@@ -1304,7 +1304,7 @@ JSON 数据契约里追加一个 `overall` 字段（agent 算好后写入 JSON�
 
 HTML 必须从运行时数据源读取，**禁止把数据快照硬编码进文件**。两个模式选一个：
 
-- **模式 B — Static Embed（默认）**：把 JSON 数据直接内嵌到 `<script>`，单文件打开即可渲染，不依赖后端服务或外网 CDN（详见「模式 B 模式说明」）。EBL Carrier 项目内嵌了完整的 plotly.min.js，可直接通过 `http://localhost:8765/static/plotly.min.js` 引用。
+- **模式 B — Static Embed（默认）**：把 JSON 数据直接内嵌到 `<script>`，单文件打开即可渲染，不依赖后端服务或外网 CDN（详见「模式 B 模式说明」）。LangConfig 项目内嵌了完整的 plotly.min.js，可直接通过 `http://localhost:8765/static/plotly.min.js` 引用。
 - **模式 A — Live Fetch（仅用于需要实时刷新 DB 数据的场景）**：通过 `fetch()` 调后端 API。优点：DB 更新后刷新即看到最新；缺点：依赖后端服务可用。
 
 默认用 B；只有当用户明确要求「数据要在 DB 更新后即时刷新」或「模式 A」时才用 A。
@@ -1386,11 +1386,11 @@ bootstrap();
    </script>
    ```
    同时删除 `fetch(DATA_API)`，让 `bootstrap()` 直接 `renderAll(salesData)`。
-4. **必须**在文件顶部加 EBL Carrier Dashboard Meta 注释块（**这是 Analysis 面板用来加载对应 Skill 与 DB 的元数据，缺它会导致 Chat 面板不可用**）：
+4. **必须**在文件顶部加 LangConfig Dashboard Meta 注释块（**这是 Analysis 面板用来加载对应 Skill 与 DB 的元数据，缺它会导致 Chat 面板不可用**）：
    ```html
    <!--
      Generated: <ISO date> | Source: erp_data.db | Mode: static-embed
-     EBL Carrier Dashboard Meta
+     LangConfig Dashboard Meta
      db: /abs/path/to/erp_data.db
      skills: sql-analyst,erp-analyst
    -->
@@ -1595,9 +1595,9 @@ Python 端再加 `year`/`quarter` 拆分后输出 JSON。
 <head>
   <meta charset="utf-8">
   <title>█ 仪表盘标题 █</title>
-  <!-- Mode B (Static Embed) 默认：使用本机 EBL Carrier 后端托管的 Plotly。
+  <!-- Mode B (Static Embed) 默认：使用本机 LangConfig 后端托管的 Plotly。
        FastAPI 在 backend/main.py 把 backend/static 挂到 /static，并已附完整 4.8MB plotly.min.js。
-       当通过 EBL Carrier Analysis 面板访问时 iframe 直接走 :8765，<script src=> 同源解析、可工作。
+       当通过 LangConfig Analysis 面板访问时 iframe 直接走 :8765，<script src=> 同源解析、可工作。
        直接 file:// 打开时这条 <script> 会加载不到（跨源 file→http），此时需要把整段 Plotly 源内联到 <script>...</script>（见本 SKILL.md 「模式 B」章节）。 -->
   <script src="http://localhost:8765/static/plotly.min.js"></script>
   <style>

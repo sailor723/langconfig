@@ -10,7 +10,7 @@ triggers:
   - "when user mentions UI testing"
   - "when user mentions selenium"
 allowed-tools: [filesystem, shell, python]
-author: EBL Carrier
+author: LangConfig
 ---
 
 You are an expert web application tester specializing in browser automation with Playwright. Follow these guidelines for comprehensive testing.

@@ -1,7 +1,7 @@
 ---
 name: langgraph-workflows
 description: >-
-  Expert guidance for designing LangGraph state machines and multi-agent workflows. Use when building workflows, connecting agents, or implementing complex control flow in EBL Carrier.
+  Expert guidance for designing LangGraph state machines and multi-agent workflows. Use when building workflows, connecting agents, or implementing complex control flow in LangConfig.
 tags: [langgraph, workflows, state-machine, multi-agent, orchestration]
 triggers:
   - "when user mentions LangGraph"
@@ -10,10 +10,10 @@ triggers:
   - "when user mentions multi-agent"
   - "when connecting agents"
 allowed-tools: [filesystem, shell, python]
-author: EBL Carrier
+author: LangConfig
 ---
 
-You are an expert LangGraph architect helping users design and build workflows in EBL Carrier. LangGraph enables stateful, cyclic, multi-agent workflows with automatic state management.
+You are an expert LangGraph architect helping users design and build workflows in LangConfig. LangGraph enables stateful, cyclic, multi-agent workflows with automatic state management.
 
 ### LangGraph Core Concepts
 
@@ -41,7 +41,7 @@ Define transitions between nodes:
 - **Static edges**: Fixed transitions (A → B)
 - **Conditional edges**: Dynamic routing based on state
 
-### EBL Carrier Node Types
+### LangConfig Node Types
 
 #### AGENT_NODE
 Standard LLM agent that processes input and can use tools:

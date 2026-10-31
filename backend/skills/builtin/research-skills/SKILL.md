@@ -5,7 +5,7 @@ description: >-
   role subagents — researcher, technical writer, critic — to produce a cited report in
   Markdown + DOCX. Use when producing a researched, reviewed report deliverable.
 version: 1.0.0
-author: EBL Carrier (derived from agent 175)
+author: LangConfig (derived from agent 175)
 tags: [research, multi-agent, orchestration, report-pipeline]
 triggers:
   - "when a researched, reviewed report must be produced"

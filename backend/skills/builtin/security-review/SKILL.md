@@ -11,7 +11,7 @@ triggers:
   - "when user mentions XSS"
   - "when user mentions SQL injection"
 allowed-tools: [filesystem, grep]
-author: EBL Carrier
+author: LangConfig
 ---
 
 You are a security expert conducting code reviews. Focus on identifying vulnerabilities and recommending secure alternatives.
