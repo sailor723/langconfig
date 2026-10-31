@@ -311,6 +311,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         />
         <HandoffPolicyEditor
           value={handoffCfg}
+          resetKey={`${agent.id ?? 'new'}:${(liveConfig.config?.middleware || []).length}`}
           onChange={writeHandoff}
           candidateTools={[
             ...(Array.isArray(liveConfig.config?.native_tools) ? liveConfig.config.native_tools : []),

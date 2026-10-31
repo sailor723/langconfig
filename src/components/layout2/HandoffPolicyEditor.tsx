@@ -28,6 +28,11 @@ interface Props {
   onChange: (next: HandoffConfig) => void;
   candidateTools: string[];
   t: LayoutTokens;
+  /**
+   * 变化时强制用 value 重置草稿（例如“服务器配置载入完成”、切到另一个 agent）。
+   * 内容比较会在用户输入过程中保留草稿，只有这个信号才代表“外面换了一份配置”。
+   */
+  resetKey?: string;
 }
 
 const box = (t: LayoutTokens) => ({
@@ -42,12 +47,17 @@ const smallBtn = (t: LayoutTokens, accent = false) => ({
   background: 'transparent', color: accent ? t.accent : t.textMuted, fontSize: 10,
 });
 
-export default function HandoffPolicyEditor({ value, onChange, candidateTools, t }: Props) {
+export default function HandoffPolicyEditor({ value, onChange, candidateTools, t, resetKey }: Props) {
   const [draft, setDraft] = useState<HandoffConfig>(value ?? {});
   const incoming = useMemo(() => JSON.stringify(value ?? {}), [value]);
   useEffect(() => {
     setDraft(prev => (JSON.stringify(prev) === incoming ? prev : JSON.parse(incoming)));
   }, [incoming]);
+
+  // 服务器配置到位（或换了 agent）时无条件重置：此时屏幕上的草稿不是用户正在写的东西。
+  useEffect(() => {
+    setDraft(value ?? {});
+  }, [resetKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const steps = draft.steps ?? {};
   const stepNames = Object.keys(steps);

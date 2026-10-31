@@ -895,6 +895,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         </div>
         <HandoffPolicyEditor
           value={handoffConfig}
+          resetKey={`${agent.id ?? 'new'}:${configLoaded}:${configLoadError ?? ''}`}
           onChange={writeHandoff}
           candidateTools={[...selectedNativeTools, ...selectedCustomTools]}
           t={t}
