@@ -155,6 +155,7 @@ docs/reference/*
 !docs/reference/GOOGLE_OAUTH_SETUP.md
 !docs/reference/agent-practice.md
 !docs/reference/agent-training-runbook.md
+!docs/reference/README.md
 # deep-research report template (referenced by the run book)
 !docs/reference/deep-research-agents.md
 # diagrams for the run book (sources are .dot, rendered to .svg)
