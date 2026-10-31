@@ -8,7 +8,9 @@
 > | [deepagents/overview](https://docs.langchain.com/oss/python/deepagents/overview) | deep agent 的定义、四类内置能力 |
 > | [langchain/multi-agent](https://docs.langchain.com/oss/python/langchain/multi-agent) | subagents / handoffs / skills / router 四种编排 |
 >
-> 每个案例都在平台上真实搭过、跑过；表格里的数字是实测值，不是示意。
+> 每个案例都在 Carrier 上真实搭过、跑过；表格里的数字是实测值，不是示意。
+>
+> 产品叫 **EBL Carrier**，文中简称 Carrier。
 
 **全书三部分**
 
@@ -73,7 +75,7 @@ deep agent 用的还是同一个循环，区别在于**装配已经提前装好�
 
 官方把这些能力分成四组。对上课来说，你只需要知道每组「给你什么」：
 
-| 这组能力 | 你拿到什么 | 在平台上对应 |
+| 这组能力 | 你拿到什么 | 在 Carrier 上对应 |
 |---|---|---|
 | 执行环境 | 能读能写文件、能跑代码 | 工具注册表、工作区、文件系统中间件 |
 | 上下文管理 | 技能、记忆（`AGENTS.md`）、摘要压缩 | 技能库、`MemoryMiddleware`、摘要中间件 |
@@ -88,16 +90,16 @@ deep agent 用的还是同一个循环，区别在于**装配已经提前装好�
 | | agent | deep agent |
 |---|---|---|
 | 循环 | 一样 | 一样（内部仍调 `create_agent`） |
-| 提示词 | 你写的 + 平台自动补的规则 | 只认你写的那段 |
+| 提示词 | 你写的 + Carrier 自动补的规则 | 只认你写的那段 |
 | 自带工具 | 你勾选的那些 | 另外自带读写文件、`glob`/`grep`、`task` 等 |
 | 文件系统 | 有（工作区隔离） | 有，还能换存储后端、设权限 |
 | 子代理 | 支持 | 支持，且能给子代理单独指定模型 |
 | 待办计划 | 要手动挂中间件 | 同样要手动挂 |
 | `AGENTS.md` | 不读进提示词 | 每次运行都读进提示词 |
 | 技能 | 用 `skill` 工具按需加载 | 先自动编目，再按需读全文 |
-| HITL / RAG / 结构化输出 | 平台中间件提供 | 能配，但默认不带 |
+| HITL / RAG / 结构化输出 | Carrier 中间件提供 | 能配，但默认不带 |
 
-### 0.4 在平台上怎么选
+### 0.4 在 Carrier 上怎么选
 
 每个 agent 面板上都有一个 `use_deepagents` 开关，默认是关的。**它决定装配怎么装，并不改变模型本身的能力。**
 
@@ -164,15 +166,15 @@ agent = create_agent(
 
 三个参数之外什么都不给，它就自己能跑了。想再加强，才需要动中间件。
 
-## 这三个参数在平台上填在哪
+## 这三个参数在 Carrier 上填在哪
 
 打开 Agents → New Agent，三样东西分别落在三个地方（Temperature 记得填 `0`）：
 
-| 代码里的参数 | 平台上填在哪 | 我们填什么 |
+| 代码里的参数 | Carrier 上填在哪 | 我们填什么 |
 |---|---|---|
 | `model=` | Overview → Model | `deepseek-flash` |
 | `system_prompt=` | Prompt → System Prompt | `You are a helpful assistant` |
-| `tools=` | Tools 页签 | 勾三个：`web_search`、`python_execute`、`pg_query`（写文件用的 `write_file` 平台自带，不用勾） |
+| `tools=` | Tools 页签 | 勾三个：`web_search`、`python_execute`、`pg_query`（写文件用的 `write_file` Carrier 自带，不用勾） |
 
 保存后开新聊天，先发一句 `hi` 把开场白用掉，再问下面四个问题。
 
@@ -229,10 +231,10 @@ agent = create_agent(
 
 # 案例 3 · 文档问答：上传附件、读它、标出来源（`case-3-doc-chat`，id 326）
 
-依据：平台自己的「知识库对话」实现（`api/knowledge/doc_chat.py`）里的提示词规则，
+依据：Carrier 自己的「知识库对话」实现（`api/knowledge/doc_chat.py`）里的提示词规则，
 以及 [tools 页](https://docs.langchain.com/oss/python/langchain/tools) 关于工具读写的说法。
 
-平台原本的「知识库对话」做法很直接：把整个文件夹的内容塞进提示词。库一大，上下文就满了。
+Carrier 原本的「知识库对话」做法很直接：把整个文件夹的内容塞进提示词。库一大，上下文就满了。
 这个案例把它改成一个普通 agent：**不预载文档，用工具按需读**，而且每条结论都要标来源。
 
 它只有三个只读工具，分工很清楚：
@@ -331,7 +333,7 @@ agent = create_agent(
 | 4. 建 supervisor | 按领域派活；一句话里有两件事，就在同一轮里调两个包装工具 |
 | 5. 跑两个例子 | ①"安排明天 9 点站会" → 只调日程；②"下周二 2 点开会，并发邮件提醒" → 两个一起调 |
 
-## 平台上怎么还原
+## Carrier 上怎么还原
 
 1. **建 agent**：名字 `case-4-assistant`，Model `deepseek-flash`，Temperature `0`。
 2. **Tools 页签只勾 `Task (Subagent)`** —— supervisor 只该看到“派人”这一件事，具体 API 由专家自己拿。
@@ -374,8 +376,8 @@ agent = create_agent(
 
 | 教程 | 我们这里 | 为什么 |
 |---|---|---|
-| 三个占位工具 | 用 `python_execute` 算日期、用 `write_file` 写 `.ics` 和 `.eml`，**不新造工具** | 平台不鼓励为演示造占位工具；"做完了"这件事靠文件就能看见 |
-| 每个专家包成一个工具 | 用平台内置的 `task(description, subagent_type)` | 效果一样：supervisor 照样看不到专家手里的工具 |
+| 三个占位工具 | 用 `python_execute` 算日期、用 `write_file` 写 `.ics` 和 `.eml`，**不新造工具** | Carrier 不鼓励为演示造占位工具；"做完了"这件事靠文件就能看见 |
+| 每个专家包成一个工具 | 用 Carrier 内置的 `task(description, subagent_type)` | 效果一样：supervisor 照样看不到专家手里的工具 |
 | 真发日历、真发邮件 | 写成文件 | 教程自己也是占位的；这台机器没有真通道 |
 | 审批里可以"改参数再执行" | 只给批准、拒绝两个按钮 | 改参数会让模型重新规划一遍，实测更乱 |
 
@@ -386,7 +388,7 @@ agent = create_agent(
    所以**约束必须写在专家身上**，写在 supervisor 上是白写。
 3. **审批放在会动真东西的那一层。** 放在 supervisor 只拦得住"派活"，拦不住"发信"。
 4. **专家也要有自己的中间件。** 早先子代理既没有 `interrupt_on`，也没有文件系统，
-   让它写文件根本落不了盘（平台已修）。
+   让它写文件根本落不了盘（Carrier 已修）。
 
 ---
 
@@ -441,7 +443,7 @@ agent = create_agent(
 | 5. 建 agent | `state_schema=SupportState`、`middleware=[apply_step_config]`、加 checkpointer |
 | 6–9. 跑 4 轮 + 回退 | 保修 → 分类 → 方案；再加 `go_back_to_*` 让客户改错的信息 |
 
-## 平台上怎么还原（1 个 agent + 1 段 middleware）
+## Carrier 上怎么还原（1 个 agent + 1 段 middleware）
 
 Agents → New Agent，名字 `case-5-support`，Model `deepseek-flash`，Temperature `0`；
 Tools 页签只勾 `write_file`；JSON 页签贴：
@@ -463,7 +465,7 @@ Tools 页签只勾 `write_file`；JSON 页签贴：
         "transfers": [{"to": "resolution_specialist", "description": "已判定硬件/软件"}]
       },
       "resolution_specialist": {
-        "system_prompt": "你是售后客服，当前阶段：解决方案。回答最多 5 行，细节写进文件。文件名用 generated/support/<Current time 的日期时间>-<类型>.md（不要用客户名）。软件→排查步骤；硬件+在保→保修维修；硬件+过保→升级人工（写明平台没有真实工单系统）。客户说信息有误就用 transfer_to_warranty_collector / transfer_to_issue_classifier 回去改。",
+        "system_prompt": "你是售后客服，当前阶段：解决方案。回答最多 5 行，细节写进文件。文件名用 generated/support/<Current time 的日期时间>-<类型>.md（不要用客户名）。软件→排查步骤；硬件+在保→保修维修；硬件+过保→升级人工（写明 Carrier 没有真实工单系统）。客户说信息有误就用 transfer_to_warranty_collector / transfer_to_issue_classifier 回去改。",
         "tools": ["write_file"],
         "transfers": [
           {"to": "warranty_collector", "description": "客户说保修信息有误"},
@@ -493,12 +495,12 @@ Tools 页签只勾 `write_file`；JSON 页签贴：
 
 ## 和教程的差异（要如实讲）
 
-| 教程 | 平台 | 原因 |
+| 教程 | Carrier | 原因 |
 |---|---|---|
-| `warranty_status` / `issue_type` 存进 state，prompt 用 `{warranty_status}` 插值 | 没有：事实留在**对话历史**里，prompt 写"自己回看" | 平台没有可编辑的 state 字段 |
+| `warranty_status` / `issue_type` 存进 state，prompt 用 `{warranty_status}` 插值 | 没有：事实留在**对话历史**里，prompt 写"自己回看" | Carrier 没有可编辑的 state 字段 |
 | `requires` 缺字段就 `raise` | 没有这道校验；顺序靠"这一步手里有哪些转移工具" | 同上，属于要新增的能力 |
 | `record_warranty_status` 返回 `Command` 写 state | `transfer_to_*` 写 `handoff_to` | 机制同构：工具改状态、中间件换配置 |
-| `provide_solution` / `escalate_to_human`（stub 返回字符串） | `write_file` 写 `generated/support/*.md` | 平台没有工单系统，"升级人工"只是文件 + 一句告知 |
+| `provide_solution` / `escalate_to_human`（stub 返回字符串） | `write_file` 写 `generated/support/*.md` | Carrier 没有工单系统，"升级人工"只是文件 + 一句告知 |
 | 第 8 节：用摘要中间件压历史 | 中间件页签可加 `summarization` | 等价 |
 
 ## 三个要讲的判断
@@ -547,11 +549,11 @@ agent = create_agent(
             description_prefix="Tool execution pending approval",
         ),
     ],
-    checkpointer=InMemorySaver(),   # 打断要靠它持久化；平台聊天本来就有
+    checkpointer=InMemorySaver(),   # 打断要靠它持久化；Carrier 聊天本来就有
 )
 ```
 
-平台上就是 **Middleware 页签** → 勾工具 → 选“每条都批 / 只批会改东西的”，保存后**开新聊天**。
+Carrier 上就是 **Middleware 页签** → 勾工具 → 选“每条都批 / 只批会改东西的”，保存后**开新聊天**。
 
 ## 实测（deep agent，`bash` 设成 `bash_may_mutate`）
 
@@ -567,7 +569,7 @@ agent = create_agent(
 ## 两个必须讲的判断
 
 1. **这是“人在环里”，不是“让模型小心点”。** 提示词里写“重要操作前先问我”，模型可以不听；
-   中间件是**循环停下来**，等人。页面的四种决策里，平台只给 approve / reject 两个按钮 ——
+   中间件是**循环停下来**，等人。页面的四种决策里，Carrier 只给 approve / reject 两个按钮 ——
    `edit`（改参数再执行）会让模型重新规划，实测批准后它常会再试一次。
 2. **拦“调用”，不拦“工具”。** deep agent 用同一个 `bash` 干自己的活（扫目录、写临时文件）。
    按工具名拦，拦到的几乎都是它的簿记；所以要配谓词：只读命令放行、写文件只拦交付物
@@ -613,7 +615,7 @@ agent = create_agent(
    页面把“直接交互”标成一星，就是这个意思。
 
 > 同步执行：主 agent 会**等**子代理返回才继续（文档的 *Synchronous (default)*）。
-> 文档里还有一种 *Asynchronous*（后台跑、不阻塞），这一版平台没有。
+> 文档里还有一种 *Asynchronous*（后台跑、不阻塞），这一版 Carrier 没有。
 
 ## 对照实验：改描述，委派会变吗？
 
@@ -673,14 +675,14 @@ changes, switching agents or adjusting the current agent's tools and prompt.*
 2. **目标必须写在工具里，不能写在参数里。** 我们第一版是 `handoff(to="…")`，模型填了个
    `technical_support`（不存在的角色）→ 静默失效。改成 `transfer_to_finance` 之后，
    这类错误在结构上不可能发生 —— 和 subagents 的“一个子代理一个工具”是同一个道理。
-3. **转交即交棒。** 平台给每个角色自动附加规则：“不属于你的直接转，不要先回答”。
+3. **转交即交棒。** Carrier 给每个角色自动附加规则：“不属于你的直接转，不要先回答”。
    否则会出现“财务先答 500、再转给售后、售后没开口”的一轮两个嘴。
 4. **这和 Subagents 正相反 —— 上下文是共享的。** 子代理只拿到那一句 `description`；
    handoff 是**同一段对话**换个角色继续说，前面的历史都在。所以：
    **要隔离用 subagents，要接力用 handoffs。**
 
 > 页面还给了第二种实现（多个 agent 子图 + `Command(goto=…, graph=Command.PARENT)`），
-> 那是把每个角色做成图节点；平台这一版实现的是第一种（单 agent + 中间件），
+> 那是把每个角色做成图节点；Carrier 这一版实现的是第一种（单 agent + 中间件），
 > 对“少角色、强接力”的场景够用。
 
 ---
@@ -746,14 +748,14 @@ into a coherent response.*
 ## 三个要讲的判断
 
 1. **Router 和 Subagents 是同一个机制，两种用法。** 区别只在 prompt：Subagents 是“需要时才叫一个
-   专家”，Router 是“先分类，再把每一部分都派出去”。平台的差别不是能力，是**分派策略**。
+   专家”，Router 是“先分类，再把每一部分都派出去”。Carrier 的差别不是能力，是**分派策略**。
 2. **分类是模型做的，不是确定性的。** 这是和“真 router”（一次分类 → 固定分支）最大的差异：
    同一句话，模型可能派 0 个、1 个或多个专家。要确定性分类，得把分类拿去做成独立的工具/节点。
 3. **汇总质量取决于专家返回的形态。** 实测这条回答里数字和天气挨在一起，读起来不整齐 ——
    因为子代理各说各的。要让汇总好看，得**在子代理的 system prompt 里约定输出格式**，
    而不是在分派台的 prompt 里补救（分派台看不到子代理的内部过程）。
 
-> 平台没有 `Send` 的多路 fan-out（那是图层的概念）。所以“并行”在这里指的是
+> Carrier 没有 `Send` 的多路 fan-out（那是图层的概念）。所以“并行”在这里指的是
 > **一轮里多个 `task` 工具调用** —— 模型一次发出，框架并发执行；不是图上的并行分支。
 
 ---
@@ -792,11 +794,11 @@ into a coherent response.*
 
 完整的报告模板另见 `docs/tutorial/deep-research-agents.md`。
 
-1. **结果太长会被平台截断，主 agent 就会抢活干。** 工具返回的内容超过阈值时，
-   平台只留 500 字预览 —— 主 agent 以为"资料不全"，就自己搜起来了（第一版 13 次搜索就是这么来的）。
+1. **结果太长会被 Carrier 截断，主 agent 就会抢活干。** 工具返回的内容超过阈值时，
+   Carrier 只留 500 字预览 —— 主 agent 以为"资料不全"，就自己搜起来了（第一版 13 次搜索就是这么来的）。
    对策是让子代理把细节写进文件，回报只留结论。
 2. **"最多搜 5 次"只是句提醒，不是硬闸。** 写进提示词后，搜网页从 13 次降到 5 次，
-   但读网页还是跑到 11 次。平台没有限制调用次数的中间件，真要卡住得靠代码。
+   但读网页还是跑到 11 次。Carrier 没有限制调用次数的中间件，真要卡住得靠代码。
 3. **一轮对话就是一条消息。** 过程中的"我先查一下"和最后的报告在同一条消息里，
    在聊天里没法只留摘要 —— 所以报告写进文件、聊天只回几句结论。
 
@@ -836,7 +838,7 @@ into a coherent response.*
 
 这个 agent 只干一件事：用户传一个表格，问问题，它写 SQL 查出来。
 
-官方那节给的四个工具，平台上没有现成的，就用两个现有的拼出来：
+官方那节给的四个工具，Carrier 上没有现成的，就用两个现有的拼出来：
 
 | 文档里的工具 | 我们拿什么顶 |
 |---|---|
@@ -979,7 +981,7 @@ SELECT month, SUM(CAST(revenue AS REAL)) FROM m10 GROUP BY month;
 ## D. 开新聊天（这一步最容易漏）
 
 - [ ] 关掉编辑器的旧聊天，**开一个新聊天**
-- [ ] 先发 `hi`（首轮会带平台开场白，别拿它当结果）
+- [ ] 先发 `hi`（首轮会带 Carrier 开场白，别拿它当结果）
 - [ ] 判据：回复里出现 `case-4-assistant` 或你的 agent 名、以及工作区路径
 
 ## E. 例 1 · 单域
@@ -1025,4 +1027,4 @@ SELECT month, SUM(CAST(revenue AS REAL)) FROM m10 GROUP BY month;
 | 日历面板空白 | 这次会话没有写过 `.ics`，或 `.ics` 里没有 `DTSTART` | 看 Files 面板有没有 `.ics`；面板底部会列出“读不出日程”的文件名 |
 
 > 整份清单跑完约 3–5 分钟。跑通后，这套配置就是“教程里的 supervisor + 专家 + 外发审批”
-> 在本平台的完整对应物。
+> 在 Carrier 里的完整对应物。
