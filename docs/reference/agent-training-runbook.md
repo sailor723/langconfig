@@ -204,3 +204,77 @@ Tools 页签勾上 **`task`**，保存后开新聊天。
 
 > 这一组数据可以直接从 `chat_sessions.subagent_spawns` 读出来（谁被派了、派的是什么任务），
 > 比看回答文本可靠。
+
+---
+
+# 案例 · 把对话交给另一个角色（Handoffs）
+
+页面：**<https://docs.langchain.com/oss/python/langchain/multi-agent/index>**、
+**<https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs>**
+
+文档原句：*Tool calls update a state variable that triggers routing or configuration
+changes, switching agents or adjusting the current agent's tools and prompt.*
+
+一个 handoff 工具**不改答案，改状态**：
+
+```python
+@tool
+def transfer_to_specialist(runtime: ToolRuntime) -> Command:
+    """Transfer to the specialist agent."""
+    return Command(
+        update={
+            "messages": [ToolMessage(content="Transferred to specialist",
+                                     tool_call_id=runtime.tool_call_id)],
+            "current_step": "specialist",      # 触发行为变化
+        }
+    )
+```
+
+平台上是 **Middleware 页签 →「转交（handoff）」**：定义角色，再定义**谁 → 谁**。
+
+```json
+"middleware": [{"type": "handoff", "enabled": true, "config": {
+  "default_step": "sales",
+  "steps": {
+    "sales":   {"label": "售前", "system_prompt": "…", "tools": ["web_search"],
+                "transfers": [{"to": "support", "description": "技术故障交给售后"}]},
+    "support": {"label": "售后", "system_prompt": "…", "tools": ["web_search","python_execute"],
+                "transfers": [{"to": "finance", "description": "发票、账务问题转财务"}]},
+    "finance": {"label": "财务", "system_prompt": "…", "tools": []}
+  }}}]
+```
+
+**一条转交关系 = 一个自动生成的工具** `transfer_to_<目标>`（只有 `reason` 参数）。
+不需要去 Tools 页签勾它们，也不允许手写 —— 目标写在工具名里，模型编不出不存在的角色。
+
+## 实测（`case-3-handoff`，三个角色，CLI 验收）
+
+| 轮次 | 用户说 | 发生什么 | 谁回答 |
+|---|---|---|---|
+| 1 | 我有发票问题 | `transfer_to_support` → `transfer_to_finance` | **财务**（「你好，我是财务专员…」）|
+| 2 | 另外，我有 500 错误 | `transfer_to_support` | **售后**（「500 属于服务端内部错误…」）|
+
+每跳都留下痕迹，且**刷新后仍在**：`session.messages` 里是一条
+
+```json
+{"role": "handoff", "to": "finance", "reason": "…", "content": "转交给「财务」 · …"}
+```
+
+聊天里渲染成琥珀色卡片：`转交给「finance」· 用户咨询发票开错如何处理…`
+
+## 四个要讲的判断
+
+1. **转交是中间件的活，不是提示词的活。** 提示词写“遇到技术问题请转给售后”，模型可以不听；
+   中间件是**换提示词、换工具**，由状态决定，不靠模型自觉。
+2. **目标必须写在工具里，不能写在参数里。** 我们第一版是 `handoff(to="…")`，模型填了个
+   `technical_support`（不存在的角色）→ 静默失效。改成 `transfer_to_finance` 之后，
+   这类错误在结构上不可能发生 —— 和 subagents 的“一个子代理一个工具”是同一个道理。
+3. **转交即交棒。** 平台给每个角色自动附加规则：“不属于你的直接转，不要先回答”。
+   否则会出现“财务先答 500、再转给售后、售后没开口”的一轮两个嘴。
+4. **这和 Subagents 正相反 —— 上下文是共享的。** 子代理只拿到那一句 `description`；
+   handoff 是**同一段对话**换个角色继续说，前面的历史都在。所以：
+   **要隔离用 subagents，要接力用 handoffs。**
+
+> 页面还给了第二种实现（多个 agent 子图 + `Command(goto=…, graph=Command.PARENT)`），
+> 那是把每个角色做成图节点；平台这一版实现的是第一种（单 agent + 中间件），
+> 对“少角色、强接力”的场景够用。
