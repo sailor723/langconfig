@@ -159,7 +159,7 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey }: Session
                   <button
                     onClick={() => setDeleteConfirmId(null)}
                     className="text-[10px] px-1.5 py-0.5 rounded font-medium"
-                    style={{ backgroundColor: '#e5e7eb', color: 'var(--color-text-primary)' }}
+                    style={{ backgroundColor: 'var(--color-input-background, #e5e7eb)', color: 'var(--color-text-primary)' }}
                   >
                     No
                   </button>

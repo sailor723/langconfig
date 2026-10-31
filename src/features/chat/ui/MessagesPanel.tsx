@@ -244,7 +244,7 @@ export default function MessagesPanel({
                       className="text-xs px-3 py-1.5 rounded-lg inline-block"
                       style={{
                         color: 'var(--color-text-muted)',
-                        backgroundColor: '#e5e7eb',
+                        backgroundColor: 'var(--color-input-background, #e5e7eb)',
                       }}
                     >
                       {message.content}
@@ -303,8 +303,8 @@ export default function MessagesPanel({
                                   <code
                                     className={`${className} px-1 py-0.5 rounded text-[0.75rem]`}
                                     style={{
-                                      backgroundColor: message.role === 'user' ? '#f1f5f9' : '#f3f4f6',
-                                      color: message.role === 'user' ? '#334155' : '#1f2937',
+                                      backgroundColor: 'var(--color-input-background, #f3f4f6)',
+                                      color: 'var(--color-text-primary, #1f2937)',
                                       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
                                     }}
                                     {...props}
@@ -340,7 +340,7 @@ export default function MessagesPanel({
                                         width: '100%',
                                         borderCollapse: 'collapse',
                                         fontSize: '0.75rem',
-                                        border: '1px solid #e5e7eb',
+                                        border: '1px solid var(--color-border-dark, #e5e7eb)',
                                         borderRadius: '0.375rem',
                                         overflow: 'hidden',
                                       }}
@@ -352,7 +352,7 @@ export default function MessagesPanel({
                               },
                               thead({ children }) {
                                 return (
-                                  <thead style={{ backgroundColor: '#f9fafb' }}>
+                                  <thead style={{ backgroundColor: 'var(--color-input-background, #f9fafb)' }}>
                                     {children}
                                   </thead>
                                 );
@@ -362,7 +362,7 @@ export default function MessagesPanel({
                               },
                               tr({ children }) {
                                 return (
-                                  <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                                  <tr style={{ borderBottom: '1px solid var(--color-border-dark, #e5e7eb)' }}>
                                     {children}
                                   </tr>
                                 );
@@ -374,8 +374,8 @@ export default function MessagesPanel({
                                       padding: '0.35rem 0.5rem',
                                       textAlign: 'left',
                                       fontWeight: '600',
-                                      color: '#374151',
-                                      borderBottom: '2px solid #e5e7eb',
+                                      color: 'var(--color-text-primary, #374151)',
+                                      borderBottom: '2px solid var(--color-border-dark, #e5e7eb)',
                                     }}
                                   >
                                     {children}
@@ -387,7 +387,7 @@ export default function MessagesPanel({
                                   <td
                                     style={{
                                       padding: '0.35rem 0.5rem',
-                                      color: '#4b5563',
+                                      color: 'var(--color-text-primary, #4b5563)',
                                     }}
                                   >
                                     {children}
