@@ -303,6 +303,26 @@ class _AgentLLMMixin:
                 except Exception as e:  # noqa: BLE001
                     logger.warning(f"Sub-agent '{sa_name}' HITL failed: {e}")
 
+            # A subagent needs a workspace of its own as much as its parent does:
+            # without the filesystem middleware it has no write_file at all, and a
+            # specialist told to "write the .ics" ends up shelling out through
+            # python_execute (measured: the file never appeared on disk).
+            _sa_workspace = (workspace_context or {}).get("workspace_root")
+            if _sa_workspace:
+                try:
+                    from deepagents.middleware.filesystem import FilesystemMiddleware
+                    from services.workspace_filesystem_backend import WorkspaceFilesystemBackend
+
+                    _sa_middleware.insert(
+                        0,
+                        FilesystemMiddleware(
+                            backend=WorkspaceFilesystemBackend(root_dir=str(_sa_workspace))
+                        ),
+                    )
+                    logger.info("Sub-agent '%s': workspace %s", sa_name, _sa_workspace)
+                except Exception as e:  # noqa: BLE001
+                    logger.warning(f"Sub-agent '{sa_name}' filesystem failed: {e}")
+
             sub_agents[sa_name] = create_agent(
                 sa_llm,
                 system_prompt=sa_prompt,
