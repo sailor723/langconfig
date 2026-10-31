@@ -278,3 +278,47 @@ def transfer_to_specialist(runtime: ToolRuntime) -> Command:
 > 页面还给了第二种实现（多个 agent 子图 + `Command(goto=…, graph=Command.PARENT)`），
 > 那是把每个角色做成图节点；平台这一版实现的是第一种（单 agent + 中间件），
 > 对“少角色、强接力”的场景够用。
+
+---
+
+# 案例 · 需要时才加载知识（Skills）
+
+页面：**<https://docs.langchain.com/oss/python/langchain/multi-agent/skills>**
+
+文档原句：*Skills are primarily prompt-driven specializations that an agent can invoke
+**on-demand** —— progressive disclosure of specialized prompts and domain knowledge.*
+
+文档的实现是一个“加载技能”的工具：
+
+```python
+@tool
+def load_skill(skill_name: str) -> str:
+    """Load a specialized skill prompt.
+
+    Available skills:
+    - write_sql: SQL query writing expert
+    - review_legal_doc: Legal document reviewer
+    """
+```
+
+平台上是 **Skills 页签 + 内置 `skill` 工具**：技能内容存在库里，agent 需要时按 id 取。
+
+## 实测（`case-4-skills`，只有 `skill` + `python_execute` 两个工具）
+
+| 问题 | 是否加载技能 | 结果 |
+|---|---|---|
+| 帮我把这句话改得更简洁：今天天气不错 | **0 次** | 直接改（7 字 → 5 字） |
+| 帮我 review 这段 Python 代码：`def f(x): return x/0` | **`skill(skill_id="code-review")`** | 先加载技能，再作答 |
+
+> 修之前两次都**不加载**：`skill` 工具的说明里没有列任何技能 id，模型不知道有
+> `code-review` 这个东西。把技能清单写进工具描述（名称 + 一句话）之后才会调 ——
+> 和 `task` 列子代理、`transfer_to_*` 把目标写进工具名，是**同一个机制**。
+
+## 三个要讲的判断
+
+1. **技能不增加能力，只改变“什么时候知道”。** 内容不变，变的是它什么时候进入上下文 —— 这就是
+   *progressive disclosure*（渐进披露）。
+2. **触发靠描述，不靠“存在”。** 工具描述里不写“有哪些、什么时候用”，技能就等于不存在。
+   这一条和工具路由（1.2）、子代理委派、转交目标**完全同源**。
+3. **技能 vs 子代理**：技能是“给同一个 agent 加知识”，上下文不断、不隔离；子代理是“另开一个
+   上下文干活再回来”。知识多而任务单一 → 技能；任务长且要隔离 → 子代理。
