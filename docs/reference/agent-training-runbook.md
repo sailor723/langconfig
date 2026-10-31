@@ -371,3 +371,113 @@ into a coherent response.*
 
 > 平台没有 `Send` 的多路 fan-out（那是图层的概念）。所以“并行”在这里指的是
 > **一轮里多个 `task` 工具调用** —— 模型一次发出，框架并发执行；不是图上的并行分支。
+
+---
+
+# 案例 6 · 个人助理（Supervisor + 专家 + 外发审批）
+
+教程：**<https://docs.langchain.com/oss/python/langchain/multi-agent/subagents-personal-assistant>**
+
+## 教程在讲什么（照它的顺序）
+
+> *The supervisor pattern is a multi-agent architecture where a central supervisor agent
+> coordinates specialized worker agents.*
+
+它建两个专家：**calendar agent**（排期、查空闲、建事件）和 **email agent**（起草、发送），
+再由一个 **supervisor** 协调。教程还特意加入 **HITL**：外发邮件前由人**批准 / 编辑 / 拒绝**。
+
+**为什么要把工具切开用 supervisor**（教程原话）：
+
+> 一个 agent 如果同时握着日历和邮件两套 API，就要在**很多相似的**工具里挑、还要记住每套 API 的
+> 格式、同时处理两个领域。"*If performance degrades, it may be helpful to separate related tools
+> and associated prompts into logical groups.*"
+
+教程的四个步骤：
+
+| 步骤 | 教程做了什么 |
+|---|---|
+| 1. 定义工具 | 三个 stub：`create_calendar_event`（要 ISO 时间）、`send_email`、`get_available_time_slots` |
+| 2. 建专家 | calendar agent（**把「下周二下午 2 点」解析成 ISO**）、email agent（推断收件人、写主题正文） |
+| 3. **包装成工具** | `schedule_event(request)`、`manage_email(request)` — **supervisor 只看到这两个高层工具，看不到 `create_calendar_event`** |
+| 4. supervisor | 按领域分派；一句话涉及两件事时，**一轮里同时调两个工具** |
+| 5. 两个例子 | ①「安排明天 9 点站会」→ 只调 `schedule_event`；②「下周二 2 点跟设计团队开会，并发邮件提醒」→ 同时调度两个 |
+
+## 平台上怎么还原（三步）
+
+**① 建 agent**：Agents → New Agent → 名字 `case-6-assistant`，Model `deepseek-flash`，Temperature `0`。
+
+**② Tools 页签**：**只勾 `Task (Subagent)`** —— supervisor 只该看到“派人”这一件事，
+具体 API 由专家自己拿（这正是教程说的分层）。
+
+**③ JSON 页签**：把两个专家写进 `subagents`：
+
+```json
+"subagents": [
+  {
+    "name": "calendar_expert",
+    "description": "日程助手：把「下周二下午 2 点」这类说法换成具体时间，并生成日程文件（.ics）。",
+    "type": "dictionary",
+    "system_prompt": "你是日程助手。把自然语言时间解析成具体日期与时间（今天是 2026-10-31，周六）；需要算日期或时长时用 python_execute；确定后用 write_file 生成 generated/<标题>.ics（含 DTSTART/DTEND/SUMMARY）。最后用一句话确认安排了什么。",
+    "tools": ["python_execute", "write_file"]
+  },
+  {
+    "name": "email_expert",
+    "description": "邮件助手：起草并发出邮件（写出 .eml 到 outbox）。",
+    "type": "dictionary",
+    "system_prompt": "你是邮件助手。根据要求写一封邮件，用 write_file 写到 generated/outbox/<收件人>-<主题>.eml，内容包含 To / Subject / 正文。发出前会有人工审批，你只需写好文件。",
+    "tools": ["write_file"],
+    "interrupt_on": {"write_file": {"allowed_decisions": ["approve", "reject"], "when": "writes_deliverable"}}
+  }
+]
+```
+
+`interrupt_on` 写在**专家身上**（不是 supervisor 上）：supervisor 的中间件只看得到 `task`，
+看不到专家手里的 `write_file` —— 教程要的“外发前批准”只能在专家这一层拦。
+
+**supervisor 的 system prompt**（Prompt 页签）：
+
+```text
+你是一个个人助理。日程问题交给 calendar_expert，邮件问题交给 email_expert；
+你自己不写文件、不算日期。一个请求涉及两件事时，分别派给两个专家并汇总结果。
+```
+
+## 实测（`case-6-assistant`，id 323）
+
+**例 1（教程的 Example 1：单域）** 问：`安排下周二下午 2 点跟 Alice 开 1 小时的会`
+
+```
+task(calendar_expert) → ls → python_execute(算日期) → write_file → read_file → edit_file
+回答：「2026-11-03 周二 14:00–15:00，与 Alice 开会」
+文件：generated/与Alice开会.ics        ← 日期换算由专家自己算的
+```
+
+**例 2（教程的 Example 2：跨域）** 问：`安排下周二下午 2 点跟 Alice 开 1 小时的会，然后给 alice@example.com 发封确认邮件`
+
+```
+task(calendar_expert) → task(email_expert) → …
+interrupt: True
+  待批：write_file('…/generated/outbox/alice@example.com-会议确认….eml')
+点「批准这一次」→ 200 → outbox: ['alice@example.com-会议确认：11月3日（周二）14:00–15:00 UTC.eml']
+```
+
+## 和教程的差异（要如实讲）
+
+| 教程 | 平台 | 原因 |
+|---|---|---|
+| 三个 stub 工具（`create_calendar_event` / `send_email` / `get_available_time_slots`） | **不新增工具**：日历用 `python_execute` 算 + `write_file` 存 `.ics`；邮件用 `write_file` 存 `.eml` | 平台不鼓励为了演示造 stub；“发出去”用“写进 outbox 目录”代表，副作用仍然可观测 |
+| 每个专家包成**一个工具**（`schedule_event` / `manage_email`） | 用内置的 `task(description, subagent_type)` 单分发工具 | 机制等价：supervisor 一样只看得到“派人”，看不到专家的工具；差别只是工具的粒度 |
+| API 真发送（SendGrid / Google Calendar） | 写文件 | 没有真发信通道 |
+| `edit`（改参数后再执行） | 界面只给 批准 / 拒绝，`edit` 留 API | 改参数会让模型重新规划，实测反而更乱 |
+
+## 四个要讲的判断
+
+1. **分层是为了“少选项”，不是为了“多角色”。** supervisor 只面对 1 个工具（`task`），
+   每个专家只面对自己那 2 个 —— 模型选错的概率下降。这和第 0 步“工具太多时路由变差”是同一件事。
+2. **supervisor 与专家之间存在信息差。** 它不知道 `write_file` 存在、不知道 `.ics` 怎么写；
+   它只知道“有个日程专家”。这种信息差是**设计出来的**，不是 bug —— 但也意味着
+   **约束必须写在专家身上**（比如“时间用 UTC”“邮件要含主题”）。
+3. **审批要放在“有副作用的那一层”。** 放 supervisor 只能拦“派活”，拦不到“发信”；
+   放邮件专家才是教程要的“外发前批准”。
+4. **专家需要自己的中间件。** 实测坑：子代理原来既没有 `interrupt_on` 也没有文件系统，
+   让它写 `.ics` 只能退回 `python_execute`、文件根本没落盘。平台已修（专家现在有独立工作区
+   与自己的审批策略）—— 讲课时可以拿它说明“中间件是按层配的，不是全局开关”。
