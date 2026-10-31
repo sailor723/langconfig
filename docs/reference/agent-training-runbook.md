@@ -5,6 +5,36 @@
 >
 > 深度研究（多轮搜索 → 带引用报告）单独成篇：`docs/reference/deep-research-agents.md`。
 
+## 两种 agent：LangChain agent（normal）与 Deep Agent
+
+平台上的每个 agent 都有 `use_deepagents` 这个开关，默认 `false`。它不是"高级版/简化版"的关系 —— **两者用的是同一个推理循环，差别在于 harness 里塞了什么。**
+
+| | **normal（LangChain agent）** | **Deep Agent** |
+|---|---|---|
+| 底层构造 | `create_agent(model, tools, system_prompt, middleware)` | `create_deep_agent(...)`，**内部仍然是 `create_agent`** |
+| 系统提示词 | 平台拼装：guardrails + 角色 + 上下文（含工具强制规则、记忆/知识库说明） | **你自己写的那段**（平台只追加少量规则），品牌/角色全靠你 |
+| 内置工具 | 注册表里勾的那些 | SDK 自带 `ls` / `read_file` / `write_file` / `edit_file` / `glob` / `grep` / `execute`（沙箱才可用）+ `task` |
+| 文件系统 | **也有**（平台给普通 agent 默认挂 `FilesystemMiddleware`，工作区隔离） | 有，且可换 backend（`FilesystemBackend`、虚拟根、权限） |
+| 子代理 | 有（`task` 工具，子代理可带自己的 prompt/工具） | 有，且规格更完整（子代理可指定独立 model） |
+| 计划/待办 | 需要手动加 `todo_list` 中间件 | 同（`TodoListMiddleware`），案例 10/11 都开了 |
+| **AGENTS.md 品牌/项目说明** | ❌ 不读进提示词（只是工作区里的一个文件） | ✅ `MemoryMiddleware` 读进系统提示词，**每次运行都生效** |
+| **技能自动编目** | 靠 `skill` 工具按需加载（渐进披露） | `SkillsMiddleware` 先把技能目录/描述编目，再按需读全文 |
+| 交接 / HITL | 平台中间件：`handoff`、HITL 策略、RAG、长期记忆、结构化输出都是这里给的 | 同样能配，但默认只带 SDK 那套 |
+
+**我们平台的实测数字**（`select config->>'use_deepagents', count(*) from deep_agent_templates group by 1`）：
+41 个 normal、30 个 deep；案例 1–9 全是 normal，**案例 10（深度研究）、案例 11（内容创作）是 deep**。
+
+### 怎么选（三句话）
+
+1. **要"平台帮你拼提示词"**（guardrails、工具强制、知识库/记忆说明）→ **normal**。
+2. **要"提示词完全归我 + 品牌语气每次生效（AGENTS.md）+ 文件即交付物"** → **deep**。
+3. **只是要多个子代理/待办/写文件** → 两者都能做，**选 normal 更省事**（平台已给普通 agent 挂了文件系统）。
+
+### 两个容易踩的坑
+
+- **同一个 agent 换类型 = 新聊天**：`use_deepagents` 改了以后旧会话不会迁移（提示词和工具集都变了）。
+- **deep agent 的工具栏是"你自己声明 + SDK 自带"**：写 `native_tools` 时不要指望里面出现 `ls`/`write_file` —— 那些来自 SDK 的文件系统中间件，配置里看不到但运行时有。
+
 # 案例 1 · 第一个 agent：create_agent 的三要素 + 四个例子
 
 > 依据：**[https://docs.langchain.com/oss/python/langchain/agents](https://docs.langchain.com/oss/python/langchain/agents)**
