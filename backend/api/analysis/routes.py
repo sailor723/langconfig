@@ -98,6 +98,35 @@ class DashboardFile(BaseModel):
 ANALYSIS_DBS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "analysis_dbs"
 
 
+def _analysis_skills_root() -> Path:
+    """Where the bundled analysis skills actually live.
+
+    It was `backend/skills`, but the skills are filed under `backend/skills/builtin/…`,
+    so `SkillsMiddleware` logged "Cannot load skills from 'sql-analyst': path_not_found"
+    and the analysis agent ran without its skill.
+    """
+    return Path(__file__).resolve().parent.parent.parent / "skills" / "builtin"
+
+
+async def _analysis_model():
+    """The chat model for analysis work — the platform's own resolution.
+
+    This used to construct `ChatOpenAI(model=MINIMAX_MODEL, api_key=MINIMAX_API_KEY)`
+    directly, so on an install whose MiniMax key is stale every dashboard
+    generation died with 401 while the rest of the app answered fine (the
+    platform keeps provider keys in the database, not in `.env`).
+    """
+    from core.settings import runtime_get
+    from services.agent_utils import resolve_model
+
+    model_name = (
+        os.getenv("ANALYSIS_MODEL")
+        or runtime_get("models", "default_model")
+        or "deepseek-flash"
+    )
+    return await resolve_model(model_name, temperature=0.3, max_tokens=None, config={})
+
+
 def _load_skill_markdown_parts(skills: list[str]) -> list[str]:
     """Load SKILL.md files for the given skill names."""
     skills_root = Path(__file__).resolve().parent.parent.parent / "skills"
@@ -317,9 +346,7 @@ async def analysis_init(request: AnalysisInitRequest, db: Session = Depends(get_
     import sqlite3
     from services.csv_to_sqlite import csv_to_sqlite_from_bytes
 
-    csv_path = Path(request.csv_path)
-    if not csv_path.exists():
-        raise HTTPException(status_code=404, detail=f"CSV not found: {request.csv_path}")
+    csv_path = _resolve_csv_path(request.csv_path, request.session_id)
 
     try:
         csv_bytes = csv_path.read_bytes()
@@ -405,14 +432,9 @@ async def analysis_chat(request: AnalysisChatRequest, db: Session = Depends(get_
         from deepagents.backends.filesystem import FilesystemBackend
         from config import settings
 
-        skills_root = Path(__file__).resolve().parent.parent.parent / "skills"
+        skills_root = _analysis_skills_root()
 
-        model = ChatOpenAI(
-            model=os.getenv("MINIMAX_MODEL", "minimax-m3"),
-            base_url=settings.MINIMAX_API_BASE,
-            api_key=settings.MINIMAX_API_KEY,
-            temperature=0.3,
-        )
+        model = await _analysis_model()
 
         backend = FilesystemBackend(root_dir=str(skills_root))
         checkpointer = MemorySaver()
@@ -631,6 +653,62 @@ def _persist_message(db, dashboard_filename: str, role: str, content: str,
             pass
 
 
+def _resolve_csv_path(raw: str, session_id: str | None = None) -> Path:
+    """Find the uploaded CSV wherever this platform actually put it — or 404.
+
+    The chat uploader writes into the agent's own workspace
+    (`outputs/users/<uid>/agents/agent_<id>/upload/…`), while the Analysis panel
+    has always asked for `outputs/default/<name>` — a path from before the
+    per-agent workspaces existed. The mismatch turned "upload a CSV, get a
+    dashboard" into `404 CSV not found` with the file sitting right there.
+    """
+    from fastapi import HTTPException
+
+    given = Path(raw)
+    candidates = [given]
+    name = given.name
+
+    # the conversation's own workspace: the authoritative location
+    if session_id:
+        try:
+            from db.database import SessionLocal
+            from models.deep_agent import ChatSession
+            from services.workspace_manager import get_workspace_manager
+
+            with SessionLocal() as db:
+                session = db.query(ChatSession).filter(
+                    ChatSession.session_id == session_id
+                ).first()
+                if session and session.agent_id:
+                    # Same resolution the chat uploader used, so the reader and
+                    # the writer cannot disagree about where the file is.
+                    from api.chat.documents import _resolve_agent_workspace
+
+                    mgr = get_workspace_manager()
+                    ws = _resolve_agent_workspace(session, db, mgr)
+                    candidates += [ws / "upload" / name, ws / name]
+        except Exception as e:      # never let resolution break the request
+            logger.warning(f"CSV path resolution via session failed: {e}")
+
+    # legacy + shared locations, so older links keep working
+    for extra in ("outputs/default", "outputs/agents/default"):
+        candidates.append(Path(extra) / name)
+    try:
+        from services.workspace_manager import get_workspace_manager
+
+        candidates.append(get_workspace_manager().user_base() / "default" / name)
+    except Exception:
+        pass
+
+    for cand in candidates:
+        if cand.exists() and cand.is_file():
+            return cand
+    raise HTTPException(
+        status_code=404,
+        detail=f"CSV not found: {raw} (also tried the session workspace and outputs/default)",
+    )
+
+
 async def _run_analysis_agent(
     db_path: str,
     message: str,
@@ -724,14 +802,9 @@ async def _run_analysis_agent(
 
     # ── Agent ────────────────────────────────────────────────────────
 
-    skills_root = Path(__file__).resolve().parent.parent.parent / "skills"
+    skills_root = _analysis_skills_root()
 
-    model = ChatOpenAI(
-        model=os.getenv("MINIMAX_MODEL", "minimax-m3"),
-        base_url=settings.MINIMAX_API_BASE,
-        api_key=settings.MINIMAX_API_KEY,
-        temperature=0.3,
-    )
+    model = await _analysis_model()
 
     backend = FilesystemBackend(root_dir=str(skills_root))
     checkpointer = MemorySaver()
