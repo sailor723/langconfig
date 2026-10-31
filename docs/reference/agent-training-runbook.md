@@ -466,7 +466,7 @@ interrupt: True
 |---|---|---|
 | 三个 stub 工具（`create_calendar_event` / `send_email` / `get_available_time_slots`） | **不新增工具**：日历用 `python_execute` 算 + `write_file` 存 `.ics`；邮件用 `write_file` 存 `.eml` | 平台不鼓励为了演示造 stub；“发出去”用“写进 outbox 目录”代表，副作用仍然可观测 |
 | 每个专家包成**一个工具**（`schedule_event` / `manage_email`） | 用内置的 `task(description, subagent_type)` 单分发工具 | 机制等价：supervisor 一样只看得到“派人”，看不到专家的工具；差别只是工具的粒度 |
-| API 真发送（SendGrid / Google Calendar） | 写文件 | 没有真发信通道 |
+| API 真发送（SendGrid / Google Calendar） | 写文件 | 教程**自己也没接**：原文 *"In real applications, these would call actual APIs (Google Calendar, SendGrid, etc.). For this tutorial, you'll use stubs"*，三个工具里只有 `# Stub: In practice, this would call Google Calendar API…` 这样的注释，没有日历/邮箱界面。平台这边没有真发信、真日历通道，“发出去/排上了”就用写进 `generated/` 的文件代表 |
 | `edit`（改参数后再执行） | 界面只给 批准 / 拒绝，`edit` 留 API | 改参数会让模型重新规划，实测反而更乱 |
 
 ## 四个要讲的判断
