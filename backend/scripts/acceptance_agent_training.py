@@ -16,6 +16,8 @@ Sections (each checks behaviour, not configuration alone):
   D  handoffs     — two hops, persisted, and each answer follows its hop
   E  skills       — no skill for an unrelated ask, `skill` loaded when it matters
   F  router       — two verticals dispatched in one turn, then synthesised
+  G  calendar     — the .ics an agent writes is readable as calendar events
+  H  support      — the handoff state machine: ordered stages, a written file, and a way back
 
 Requires the backend on :8765 with the case agents from the run book
 (`case-2-subagents`, `case-3-handoff`, `case-4-skills`, `case-5-router`);
@@ -222,6 +224,54 @@ if wanted("calendar"):
             check("a floating time arrives as an explicit null zone",
                   "timezone" in first and (first["timezone"] is None or isinstance(first["timezone"], str)),
                   repr(first.get("timezone")))
+
+# ── H. customer support as a state machine (case 7) ─────────────────────────
+if wanted("support"):
+    print("\n== H. support (handoff state machine) ==")
+    sup_id = find_agent("case-7-support")
+    check("case-7-support exists", sup_id is not None, str(sup_id))
+    if sup_id:
+        # Straight from the doc's own script: no "hi" primer, so the first user
+        # message is the one that has to start the warranty stage.
+        sid = post("/api/chat/start", {"agent_id": sup_id})["session_id"]
+        seen = []
+
+        def turn(message):
+            events = chat(sid, message)
+            hops = [e.get("to") for e in events if e.get("type") == "handoff"]
+            seen.extend(hops)
+            return calls_of(events), hops, answer_of(events)
+
+        tools, hops, answer = turn("Hi, my phone screen is cracked")
+        check("stage 1 asks about warranty before anything else", not hops, str(hops))
+        check("stage 1 asks a warranty question", "保修" in answer or "warranty" in answer.lower(),
+              answer.strip()[:50])
+
+        tools, hops, answer = turn("Yes, it's still under warranty")
+        check("stage 1 hands off to issue classification", "issue_classifier" in hops, str(hops))
+
+        tools, hops, answer = turn("The screen is physically cracked from dropping it")
+        check("stage 2 hands off to resolution", "resolution_specialist" in hops, str(hops))
+        check("resolution writes a file", "write_file" in tools, str(tools))
+
+        tools, hops, answer = turn("Actually I made a mistake - my device is out of warranty")
+        # The correction turn may hop twice: back to warranty, and straight on to
+        # classification because the customer already supplied the new answer in
+        # the same sentence. What matters is that a way back exists at all.
+        check("a correction can go back to warranty", "warranty_collector" in hops, str(seen))
+
+        # The stage chain has to be recorded, and in order — the UI reads these rows.
+        hist = get(f"/api/chat/{sid}/history")
+        persisted = [m.get("to") for m in hist["messages"] if m.get("role") == "handoff"]
+        check("every hop persisted", len(persisted) == len(seen), f"{len(persisted)}/{len(seen)}")
+        check("stages advanced in order",
+              persisted[:2] == ["issue_classifier", "resolution_specialist"], str(persisted))
+
+        # Escalation/solution files land in the agent workspace, one per case.
+        from pathlib import Path
+        ws = Path(__file__).resolve().parent.parent / "outputs" / "users" / "1" / "agents" / f"agent_{sup_id}" / "generated" / "support"
+        written = sorted(ws.glob("*.md")) if ws.is_dir() else []
+        check("the resolution stage left a file", bool(written), str([p.name for p in written][:3]))
 
 print("\n" + "=" * 60)
 print(f"PASS {len(PASS)}   FAIL {len(FAIL)}")
