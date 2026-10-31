@@ -378,15 +378,39 @@ into a coherent response.*
 
 教程：**<https://docs.langchain.com/oss/python/langchain/multi-agent/subagents-personal-assistant>**
 
-## 教程在讲什么（照它的顺序）
+## Overview（页面原文）
 
-> *The supervisor pattern is a multi-agent architecture where a central supervisor agent
-> coordinates specialized worker agents.*
+> The supervisor pattern is a multi-agent architecture where a central supervisor agent
+> coordinates specialized worker agents. This approach excels when tasks require different
+> types of expertise. Rather than building one agent that manages tool selection across
+> domains, you create focused specialists coordinated by a supervisor who understands the
+> overall workflow.
+>
+> In this tutorial, you'll build a personal assistant system that demonstrates these
+> benefits through a realistic workflow. The system will coordinate two specialists with
+> fundamentally different responsibilities:
+>
+> - A **calendar agent** that handles scheduling, availability checking, and event management.
+> - An **email agent** that manages communication, drafts messages, and sends notifications.
+>
+> We will also incorporate human-in-the-loop review to allow users to approve, edit, and
+> reject actions (such as outbound emails) as desired.
+>
+> If you are migrating from the `langgraph-supervisor` package, see Migrate from
+> langgraph-supervisor for before-and-after patterns, including interrupt and resume flows.
 
-它建两个专家：**calendar agent**（排期、查空闲、建事件）和 **email agent**（起草、发送），
-再由一个 **supervisor** 协调。教程还特意加入 **HITL**：外发邮件前由人**批准 / 编辑 / 拒绝**。
+## Why use a supervisor?（页面原文）
 
-**先记住结构：一共 3 个 agent** —— 1 个 supervisor + 2 个 worker（教程把 worker 叫 subagent）。
+> Multi-agent architectures allow you to partition tools across workers, each with their own
+> individual prompts or instructions. Consider an agent with direct access to all calendar and
+> email APIs: it must choose from many similar tools, understand exact formats for each API,
+> and handle multiple domains simultaneously. If performance degrades, it may be helpful to
+> separate related tools and associated prompts into logical groups (in part to manage
+> iterative improvements).
+
+## 结构：一共 3 个 agent（1 + 2）
+
+教程把 worker 叫 subagent；**supervisor 自己也是一个 agent**。
 
 ```text
                 supervisor                  ← 它自己也是一个 agent
@@ -401,18 +425,10 @@ into a coherent response.*
 
 两条要点：
 
-1. **supervisor 看不到 `create_calendar_event`**。这是**故意**的信息差：它只面对 2 个包装工具，
-   选项少，模型才不容易挑错（和第 0 步“工具太多时路由变差”是同一件事）。
-2. **审批挂在外发那一层**。`HumanInTheLoopMiddleware(interrupt_on={"send_email": …})` 属于 email agent；
-   挂到 supervisor 上只能拦住“派活”，拦不到“发信”。
+1. **supervisor 看不到 `create_calendar_event`** —— 故意的信息差：它只面对 2 个包装工具，选项少才不容易挑错。
+2. **审批挂在外发那一层** —— `interrupt_on={"send_email": …}` 属于 email agent；挂到 supervisor 只能拦住“派活”。
 
-**为什么要把工具切开用 supervisor**（教程原话）：
-
-> 一个 agent 如果同时握着日历和邮件两套 API，就要在**很多相似的**工具里挑、还要记住每套 API 的
-> 格式、同时处理两个领域。"*If performance degrades, it may be helpful to separate related tools
-> and associated prompts into logical groups.*"
-
-教程的四个步骤：
+## 教程的步骤
 
 | 步骤 | 教程做了什么 |
 |---|---|
