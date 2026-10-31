@@ -215,6 +215,7 @@ export default function GlobalChatModal() {
               >
                 <MetricsPanel
                   metrics={c.metrics}
+                  isStreaming={c.isStreaming}
                   toolCalls={c.toolCalls}
                   activeToolCalls={c.activeToolCalls}
                   subagentActivity={c.subagentActivity}

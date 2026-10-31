@@ -15,6 +15,9 @@ interface MetricsPanelProps {
   toolCalls: ToolCall[];
   activeToolCalls?: ToolCall[];
   subagentActivity: SubAgentActivity[];
+  /** True while a turn is streaming: the live list is the truth then, the
+   *  fetched one afterwards — never both, or rows flash in and out. */
+  isStreaming?: boolean;
   isLoading: boolean;
   agentName?: string;
   agentDescription?: string;
@@ -26,6 +29,7 @@ export default function MetricsPanel({
   toolCalls,
   activeToolCalls = [],
   subagentActivity,
+  isStreaming = false,
   isLoading,
   agentName,
   agentDescription,
@@ -38,9 +42,12 @@ export default function MetricsPanel({
   // with the subagent's name; listing it again under Tool Calls made one
   // delegation look like two events.
   const direct_calls = toolCalls.filter(c => c.tool_name !== 'task');
-  const activeDirect_calls = activeToolCalls.filter(
-    c => c.status === 'running' && c.tool_name !== 'task',
-  );
+  const live_calls = activeToolCalls.filter(c => c.tool_name !== 'task');
+  // One source at a time. While a turn streams, the live events are all we
+  // have (and a call that just finished is still part of this turn); once it
+  // ends, the fetched list is authoritative and the live one is cleared —
+  // showing both made rows appear, vanish and reappear mid-answer.
+  const shown_calls = isStreaming ? live_calls : direct_calls;
   const { t } = useTranslation('chat');
 
   return (
@@ -138,7 +145,7 @@ export default function MetricsPanel({
       </div>
 
       {/* Tool Calls - show both active (streaming) and completed (from API) */}
-      {(activeDirect_calls.length > 0 || direct_calls.length > 0) && (
+      {shown_calls.length > 0 && (
         <div
           className="border-t"
           style={{ borderColor: 'var(--color-border-dark)' }}
@@ -153,7 +160,7 @@ export default function MetricsPanel({
                 className="text-xs font-semibold uppercase tracking-wide"
                 style={{ color: 'var(--color-text-primary)' }}
               >
-                Tool Calls ({direct_calls.length + activeDirect_calls.length})
+                Tool Calls ({shown_calls.length})
               </h3>
             </div>
             {toolCallsExpanded ? (
@@ -166,7 +173,7 @@ export default function MetricsPanel({
           {toolCallsExpanded && (
             <div className="px-3 pb-3 space-y-1.5">
               {/* Active (streaming) tool calls first */}
-              {activeDirect_calls.slice(-5).reverse().map((call, index) => (
+              {isStreaming && shown_calls.slice(-6).reverse().map((call, index) => (
                 <div
                   key={`active-${index}`}
                   className="p-2 rounded border border-blue-300"
@@ -200,7 +207,7 @@ export default function MetricsPanel({
                 </div>
               ))}
               {/* Completed tool calls from API */}
-              {direct_calls.slice(-10).reverse().map((call, index) => (
+              {!isStreaming && shown_calls.slice(-10).reverse().map((call, index) => (
                 <div
                   key={index}
                   className="p-2 rounded border"
