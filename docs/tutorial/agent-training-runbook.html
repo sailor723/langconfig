@@ -476,9 +476,9 @@ agent = create_agent(model=&quot;deepseek-flash&quot;, tools=tools, system_promp
 <h1 id="案例-1-第一个-agent-三个参数就是一个能用的-agent-case-1-basic-agent-id-281">案例 1 · 第一个 agent：三个参数就是一个能用的 agent（<code>case-1-basic-agent</code>，id 281）</h1>
 <p>依据：<a href="https://docs.langchain.com/oss/python/langchain/agents">langchain/agents</a>。</p>
 <blockquote>
-<p><strong>要点</strong> —— 三个参数（模型、工具、一句话提示词）就能跑；先别急着写长提示词。
-<strong>什么时候用</strong> —— 单领域、工具不多、先验证「模型 + 工具」这条路通不通。
-<strong>为什么</strong> —— 挑哪个工具由工具描述决定，不由提示词里的列举决定；所以先备好工具，再谈规则。</p>
+<p>说白了就一件事：模型、工具、一句提示词，三样填上它就能干活，先别急着写长提示词。
+什么时候会用到？就一个领域的活、工具也不多，先拿它试试水最省事。
+为什么这么配？挑哪个工具是工具描述说了算，提示词里列一遍没什么用。所以先把工具弄对，规则后加。</p>
 </blockquote>
 <p>第 0 节讲过：agent 就是「模型在循环里调工具」，外面包一层装配。这一节就把那层装配填到最简 ——
 <strong>只填三个参数，看它能不能干活。</strong></p>
@@ -617,9 +617,9 @@ agent = create_agent(
 <h1 id="案例-2-工具多到-27-个-还挑得对吗-case-2-all-tools-id-159">案例 2 · 工具多到 27 个，还挑得对吗（<code>case-2-all-tools</code>，id 159）</h1>
 <p>依据：还是 <a href="https://docs.langchain.com/oss/python/langchain/agents">agents 页</a> —— 工具是装配的一部分。</p>
 <blockquote>
-<p><strong>要点</strong> —— 27 个工具也挑得对；难的不是数量，是名字和描述写没写清。
-<strong>什么时候用</strong> —— 团队共用一个通才 agent，或者分工还没想清楚时的起步形态。
-<strong>为什么</strong> —— 代价是慢、选错余地大（同一道题 8.1s → 11.5s）；过了某个数量就该拆（案例 6、9）。</p>
+<p>27 个工具它照样挑得对。麻烦的从来不是数量，是工具名和描述写没写清楚。
+什么时候会用到？团队共用一个啥都能干的 agent，或者分工还没想好的时候先这么起来。
+为什么这么配？代价是慢一点、选错的机会大一点，同一道题从 8.1 秒变 11.5 秒。工具再往上加就该拆了，看案例 6 和 9。</p>
 </blockquote>
 <p>案例 1 只给了 3 个工具，所以挑起来不难。这一节把同样的题摆到 27 个工具面前，
 看它还挑不挑得对。</p>
@@ -674,9 +674,9 @@ agent = create_agent(
 <p>依据：Carrier 自己的「知识库对话」实现（<code>api/knowledge/doc_chat.py</code>）里的提示词规则，
 以及 <a href="https://docs.langchain.com/oss/python/langchain/tools">tools 页</a> 关于工具读写的说法。</p>
 <blockquote>
-<p><strong>要点</strong> —— 文档不预载，按需读，每条结论标来源。
-<strong>什么时候用</strong> —— 文档多、更新快，而且答案必须能追到「哪份文件、哪一段」。
-<strong>为什么</strong> —— 全塞进提示词会把上下文撑爆，答出来还说不出出处；改成工具按需读，上下文只装这次用到的。</p>
+<p>文档别提前塞进去，用的时候再去读，答完还得说清出处。
+什么时候会用到？文档多、还老改，而且你要求答出来能指到是哪份文件、哪一段。
+为什么这么配？全塞进提示词，上下文一下就满了，答出来也说不出出处。改成用工具按需读，上下文里只装这次用到的那点。</p>
 </blockquote>
 <p>Carrier 原本的「知识库对话」做法很直接：把整个文件夹的内容塞进提示词。库一大，上下文就满了。
 这个案例把它改成一个普通 agent：<strong>不预载文档，用工具按需读</strong>，而且每条结论都要标来源。</p>
@@ -781,9 +781,9 @@ agent 版先用 <code>glob</code>、<code>grep</code> 把范围缩小，只读�
 <h1 id="案例-4-个人助理-supervisor-两个专家-case-4-assistant-id-323">案例 4 · 个人助理：supervisor + 两个专家（<code>case-4-assistant</code>，id 323）</h1>
 <p>教程：<strong><a href="https://docs.langchain.com/oss/python/langchain/multi-agent/subagents-personal-assistant">https://docs.langchain.com/oss/python/langchain/multi-agent/subagents-personal-assistant</a></strong></p>
 <blockquote>
-<p><strong>要点</strong> —— 主 agent 只做协调，专家各自带工具和规则。
-<strong>什么时候用</strong> —— 任务跨几个明确领域（日历、邮件），每个领域都有自己的一套工具。
-<strong>为什么</strong> —— 一个 agent 挑 27 个工具又慢又容易错；拆开后主 agent 只在两个专家里选。代价是多一跳，且专家看不到彼此。</p>
+<p>主 agent 只管分活，两个专家各带自己的工具和规矩。
+什么时候会用到？活分跨几个明确的领域，比如日历一个、邮件一个，各自有各自的工具。
+为什么这么配？一个 agent 扛 27 个工具，又慢又容易挑错。拆开以后主 agent 只在两个专家里选就行。代价是多一跳，专家之间还互相看不见。</p>
 </blockquote>
 <h2 id="overview-页面原文-中文译文">Overview（页面原文 · 中文译文）</h2>
 <blockquote>
@@ -1017,9 +1017,9 @@ supervisor 的中间件只看得到 <code>task</code>，看不到专家手里的
 <h1 id="案例-5-售后客服-一个-agent-三步配置-case-5-support-id-325">案例 5 · 售后客服：一个 agent 三步配置（<code>case-5-support</code>，id 325）</h1>
 <p>页面：<a href="https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs-customer-support">handoffs-customer-support</a>。</p>
 <blockquote>
-<p><strong>要点</strong> —— 同一个 agent，按阶段换提示词和工具（状态机）。
-<strong>什么时候用</strong> —— 流程有固定阶段，每个阶段「该做什么、不许做什么」不一样（售后、审批、开户）。
-<strong>为什么</strong> —— 用工具集当闸门：第一阶段手里根本没有「进方案」的工具，顺序就乱不了，比在提示词里写「请按顺序」可靠。</p>
+<p>还是一个 agent，只是走到哪个阶段就换哪套提示词和工具。
+什么时候会用到？流程有固定几步，每步&quot;能干的事、不能干的事&quot;不一样，比如客服、审批、开户。
+为什么这么配？拿工具当闸门：第一步手里根本没有进下一步的工具，顺序就乱不了。这比在提示词里写&quot;请按顺序&quot;靠谱得多。</p>
 </blockquote>
 <p>上一节是三个角色互相转交；这一节不一样 —— <strong>只有一个 agent，但它分三个阶段说话。</strong>
 保修确认、问题分类、给方案，每个阶段换一套提示词和工具。客户说错了，还能退回去重问。</p>
@@ -1291,9 +1291,9 @@ Tools 页签只勾 <code>write_file</code>；JSON 页签贴：</p>
 <h1 id="机制-改文件前要人批准-hitl-acc-hitl-id-321">机制 · 改文件前要人批准（HITL，<code>acc-hitl</code>，id 321）</h1>
 <p>页面：<strong><a href="https://docs.langchain.com/oss/python/concepts/human-in-the-loop">https://docs.langchain.com/oss/python/concepts/human-in-the-loop</a></strong></p>
 <blockquote>
-<p><strong>要点</strong> —— 拦的是「这一次工具调用」，不是「这个工具」；拦在循环里，不是提醒模型。
-<strong>什么时候用</strong> —— 有不可逆的动作：写库、对外发文件、扣钱。
-<strong>为什么</strong> —— 提示词只是建议，模型可以不听；中间件能让循环停下来等人。</p>
+<p>它拦的是&quot;这一次调用&quot;，不是&quot;这个工具&quot;；而且是让循环停下来等人，不是嘴上提醒模型。
+什么时候会用到？有收不回来的动作：写库、往外发文件、扣钱。
+为什么这么配？提示词只能算建议，模型可以不听。中间件一拦，它就必须等。</p>
 </blockquote>
 <p>文档的写法是<strong>中间件</strong>，不是提示词：</p>
 <pre><code class="language-python">from langchain.agents import create_agent
@@ -1368,9 +1368,9 @@ agent = create_agent(
 <h1 id="案例-6-主-agent-把专家当工具-case-6-subagents-id-301">案例 6 · 主 agent 把专家当工具（<code>case-6-subagents</code>，id 301）</h1>
 <p>页面：<a href="https://docs.langchain.com/oss/python/langchain/multi-agent/index">multi-agent 总览</a>、<a href="https://docs.langchain.com/oss/python/langchain/multi-agent/subagents">subagents</a>。</p>
 <blockquote>
-<p><strong>要点</strong> —— 主 agent 把专家当工具（<code>task</code>）来调。
-<strong>什么时候用</strong> —— 需要几项专业能力，而且每项结果一两句话就能带回来。
-<strong>为什么</strong> —— 专家在自己的上下文里干活，主 agent 只收一份摘要；这是省上下文最直接的一招。</p>
+<p>主 agent 把专家当工具使，一个 task 派下去。
+什么时候会用到？要几种专业能力，而且每样的结果一两句话就能带回来。
+为什么这么配？专家在自己那块上下文里干活，主 agent 只收一份摘要。省上下文，这是最直接的一招。</p>
 </blockquote>
 <p>这一节讲最简单的一种分工：<strong>主 agent 把专家当成工具来调。</strong>
 主 agent 决定派谁、给什么输入、怎么把结果拼起来 —— 所有路由都经过它。</p>
@@ -1526,9 +1526,9 @@ agent = create_agent(
 <h1 id="案例-7-把对话交给另一个角色-case-7-handoff-id-314">案例 7 · 把对话交给另一个角色（<code>case-7-handoff</code>，id 314）</h1>
 <p>页面：<a href="https://docs.langchain.com/oss/python/langchain/multi-agent/index">multi-agent 总览</a>、<a href="https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs">handoffs</a>。</p>
 <blockquote>
-<p><strong>要点</strong> —— 把整段对话交给另一个角色：提示词和工具跟着一起换。
-<strong>什么时候用</strong> —— 多个角色轮流服务同一个用户，而用户不该重开对话（售后、售前 → 技术）。
-<strong>为什么</strong> —— 历史连续，用户不用复述；代价是角色之间互相看得见历史，所以每个角色都要写明「不属于你的直接转」。</p>
+<p>整段对话交给另一个角色，提示词和工具跟着一起换人。
+什么时候会用到？几个角色轮流服务同一个人，而且不该让他重开对话，比如售后接售前、售前转技术。
+为什么这么配？对话是连着的，用户不用再讲一遍。代价是几个角色互相都看得到前面说了什么，所以每个角色都得写一句&quot;不是你的活就直接转&quot;。</p>
 </blockquote>
 <p>和第 6 个案例相反：这里不是主 agent 去调别人，而是<strong>把对话整体交给另一个角色</strong>。
 交接之后，说话的人变了，提示词和工具也跟着变，用户不用重开对话。</p>
@@ -1638,9 +1638,9 @@ handoff 是<strong>同一段对话</strong>换个角色继续说，前面的历�
 <h1 id="案例-8-需要时才加载知识-case-8-skills-id-319">案例 8 · 需要时才加载知识（<code>case-8-skills</code>，id 319）</h1>
 <p>页面：<a href="https://docs.langchain.com/oss/python/langchain/multi-agent/skills">skills</a>。</p>
 <blockquote>
-<p><strong>要点</strong> —— 知识先给目录，用到再读全文。
-<strong>什么时候用</strong> —— 领域知识长、不常用、还要能单独改（写作规范、SQL 约定）。
-<strong>为什么</strong> —— 常驻提示词吃上下文，删掉又不够用，技能是两者的折中。代价是多一次读文件。</p>
+<p>知识先给一张目录，真用到了再读全文。
+什么时候会用到？领域知识又长又不常用，还得能单独改，比如写作规范、SQL 约定。
+为什么这么配？一直挂在提示词里太占上下文，删了又不够用，技能就是中间的第三条路。代价是多读一次文件。</p>
 </blockquote>
 <p>有些领域知识又长又不常用。全塞进提示词浪费上下文，删掉又不够用 ——
 <strong>技能就是按需加载的那一份。</strong> 平时只给模型一张技能目录，用到时再读全文。</p>
@@ -1686,9 +1686,9 @@ handoff 是<strong>同一段对话</strong>换个角色继续说，前面的历�
 <h1 id="案例-9-分派台-专家并行-汇总-case-9-router-id-320">案例 9 · 分派台 + 专家并行 + 汇总（<code>case-9-router</code>，id 320）</h1>
 <p>页面：<a href="https://docs.langchain.com/oss/python/langchain/multi-agent/router">router</a>。</p>
 <blockquote>
-<p><strong>要点</strong> —— 先分类，再并行派出去，最后合成一条回答。
-<strong>什么时候用</strong> —— 一句话里有多件互不相干的事，而用户只想看一个答案。
-<strong>为什么</strong> —— 串行做三次就是三倍时间；并行只多一次汇总的开销。</p>
+<p>先把话分个类，再同时派出去，最后合成一条回答。
+什么时候会用到？一句话里塞了几件互不相干的事，而用户只想看一个答案。
+为什么这么配？一件一件做就是三倍时间，同时做只多一次汇总的功夫。</p>
 </blockquote>
 <p>一句话里有两件互不相干的事，可以<strong>同时派出去做，再合成一个回答</strong>。
 它和第 6 个案例的区别：第 6 个是主 agent 按需调专家，这里是先分派、再并行、最后汇总。</p>
@@ -1802,9 +1802,9 @@ into a coherent response.</em></p>
 <p>依据：<a href="https://docs.langchain.com/oss/python/deepagents/deep-research">deepagents/deep-research</a>，
 以及仓库里那份可直接跑的示例 <code>deepagents-quickstarts/deep_research</code>。</p>
 <blockquote>
-<p><strong>要点</strong> —— 给题目不给步骤：待办清单管进度，<code>think_tool</code> 管收束，文件管交付。
-<strong>什么时候用</strong> —— 开放研究类任务，产出是一份带引用的文档，而不是一句话。
-<strong>为什么</strong> —— 不约束就会乱搜（第一版 13 次）；写进提示词后压到 5 次。但预算不是硬闸（读网页仍 11 次）——Carrier 没有调用上限中间件。</p>
+<p>只给题目，不给步骤。走到哪了看待办清单，想清楚靠 think_tool，东西落地靠文件。
+什么时候会用到？开放式研究，交出来的是一份带引用的文档，不是一句话。
+为什么这么配？不框住它就乱搜，第一版搜了 13 次。提示词里写上以后压到 5 次。可它终究只是句话，不是硬闸：读网页还是跑了 11 次，Carrier 没有限制调用次数的中间件。</p>
 </blockquote>
 <p>前九个案例都是&quot;问一句、答一句&quot;。这个不一样：用户只给一个题目，agent 要自己拆成几个子问题、
 自己搜、自己读全文，最后写成一份带引用的报告。它用的是一个 <strong>deep agent</strong>：</p>
@@ -1904,9 +1904,9 @@ Carrier 只留 500 字预览 —— 主 agent 以为&quot;资料不全&quot;，�
 <h1 id="案例-11-内容创作-先定语气-再按技能写-case-11-content-builder-id-328">案例 11 · 内容创作：先定语气，再按技能写（<code>case-11-content-builder</code>，id 328）</h1>
 <p>依据：<a href="https://docs.langchain.com/oss/python/deepagents/content-builder">deepagents/content-builder</a>。</p>
 <blockquote>
-<p><strong>要点</strong> —— 语气是常量，写进 <code>AGENTS.md</code>；写法规格是长文，放进 <code>SKILL.md</code>。
-<strong>什么时候用</strong> —— 对外内容要一致的品牌口吻，而且不同渠道有不同格式。
-<strong>为什么</strong> —— 两者加载时机不同：语气每次都要生效，规格用到才读。位置放对，提示词里就不用重复写。</p>
+<p>语气天天要用，写进 AGENTS.md；写法规格太长，放进 SKILL.md。
+什么时候会用到？对外发的东西要保持一个口吻，而且不同渠道格式还不一样。
+为什么这么配？这两样加载的时机不同：语气每次都得在，规格用到了才读。放对地方，提示词里就不用反复写。</p>
 </blockquote>
 <p>这一节要解决的不是&quot;会不会写&quot;，而是<strong>写出来像不像这家公司发的</strong>。做法分四块：</p>
 <table>
@@ -1954,9 +1954,9 @@ Carrier 只留 500 字预览 —— 主 agent 以为&quot;资料不全&quot;，�
 <h1 id="案例-12-上传-csv-或-excel-然后问它-case-12-csv-chat-id-329">案例 12 · 上传 CSV 或 Excel，然后问它（<code>case-12-csv-chat</code>，id 329）</h1>
 <p>依据：<a href="https://docs.langchain.com/oss/python/langchain/sql-agent">langchain/sql-agent</a>。</p>
 <blockquote>
-<p><strong>要点</strong> —— 先把表格建成库，再让模型写 SQL；自查写成清单，而不是再造一个工具。
-<strong>什么时候用</strong> —— 用户传 CSV/Excel，然后用自然语言问问题。
-<strong>为什么</strong> —— 模型写 SQL 的错集中在 NULL、UNION、边界、类型；把这些钉成固定清单，比多做一次工具调用省事。</p>
+<p>先把表格建成库，再让模型写 SQL。自查那张单子直接写死，别为它再做一个工具。
+什么时候会用到？用户传上来一个 CSV 或 Excel，然后用大白话问问题。
+为什么这么配？模型写 SQL 出错，多半栽在 NULL、UNION、边界、类型这几处。把这些钉成一张清单，比多调一次工具省事。</p>
 </blockquote>
 <p>这个 agent 只干一件事：用户传一个表格，问问题，它写 SQL 查出来。</p>
 <p>官方那节给的四个工具，Carrier 上没有现成的，就用两个现有的拼出来：</p>
