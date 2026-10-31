@@ -45,6 +45,10 @@ interface ToolsPickerProps {
   selectedNativeTools: string[];
   selectedCustomTools: string[];
   onToggleNative: (id: string) => void;
+  /** Clear every native tool in one click (build a tool-less agent). */
+  onClearNative?: () => void;
+  /** Tick the whole default set in one click. */
+  onSelectAllNative?: () => void;
   onToggleCustom: (id: string) => void;
   showAllTools: boolean;
   onShowAllChange: (v: boolean) => void;
@@ -65,6 +69,8 @@ export default function ToolsPicker({
   selectedNativeTools,
   selectedCustomTools,
   onToggleNative,
+  onClearNative,
+  onSelectAllNative,
   onToggleCustom,
   showAllTools,
   onShowAllChange,
@@ -77,6 +83,16 @@ export default function ToolsPicker({
   visionModels,
   t,
 }: ToolsPickerProps) {
+  const bulkBtnStyle: React.CSSProperties = {
+    fontSize: 10,
+    padding: '2px 8px',
+    borderRadius: 9,
+    border: `1px solid ${t.border}`,
+    background: 'transparent',
+    color: t.textMuted,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  };
   const cardStyle: React.CSSProperties = {
     background: t.bgContent,
     border: `1px solid ${t.border}`,
@@ -206,6 +222,10 @@ export default function ToolsPicker({
             Native Tools ({nativeCount}/{allNativeLoaded.length} selected)
           </div>
           <div style={{ flex: 1 }} />
+          {/* Bulk selection: unticking 28 boxes by hand to build a tool-less agent
+              was the only way to get there. */}
+          {onSelectAllNative && <button type="button" onClick={onSelectAllNative} style={bulkBtnStyle}>All tools</button>}
+          {onClearNative && <button type="button" onClick={onClearNative} style={bulkBtnStyle}>None</button>}
           {toggleBtn('All', showAllTools, () => onShowAllChange(true))}
           {toggleBtn('Selected', !showAllTools, () => onShowAllChange(false))}
         </div>

@@ -155,14 +155,23 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   // (untick anything you do not want), not a rule the server applies afterwards.
   const [selectedNativeTools, setSelectedNativeTools] = useState<string[]>(
     () => toToolIdList(config.native_tools));
+  // True once the user has ticked, unticked, cleared or filled the list by hand.
+  // Without it the pre-tick effect keeps restoring the template after a deliberate
+  // "clear all" (it re-runs whenever defaultToolIds arrive).
+  const [toolsTouched, setToolsTouched] = useState(false);
   useEffect(() => {
-    if (defaultToolIds.length && selectedNativeTools.length === 0 && !toToolIdList(config.native_tools).length) {
-      // New agent with nothing stored yet → offer the base pre-ticked. Editing an
-      // existing agent with an empty list must stay empty.
+    // NEW agent only: offer the universal base pre-ticked so the user can untick
+    // what they do not want. An EXISTING agent shows exactly what is stored — an
+    // agent saved with no tools must open with nothing ticked, or the next save
+    // would quietly hand it the base back.
+    //
+    // Only fills an untouched draft: once the user has clicked anything (even to
+    // clear the list) `toolsTouched` stops this effect from re-adding everything.
+    if (isNew && !toolsTouched && defaultToolIds.length && selectedNativeTools.length === 0) {
       setSelectedNativeTools(defaultToolIds);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultToolIds]);
+  }, [defaultToolIds, isNew, toolsTouched]);
   const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>(toToolIdList(config.custom_tools));
   const [showAllTools, setShowAllTools] = useState(true);
 
@@ -185,6 +194,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     // Stored list only — an existing agent with [] stays []. (The default base is
     // offered only for a brand-new agent, in the effect above.)
     setSelectedNativeTools(toToolIdList(config.native_tools));
+    setToolsTouched(false);       // switching agents resets the draft
     setSelectedCustomTools(toToolIdList(config.custom_tools));
     setSelectedSkills(config.skills || []);
     setActiveSection('overview');
@@ -202,10 +212,20 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
 
   // Toggle helpers
   const toggleNativeTool = useCallback((toolId: string) => {
+    setToolsTouched(true);          // a click beats the pre-ticked template
     setSelectedNativeTools(prev =>
       prev.includes(toolId) ? prev.filter(t => t !== toolId) : [...prev, toolId]
     );
   }, []);
+  // One click to build a tool-less agent, instead of unticking 28 boxes.
+  const clearNativeTools = useCallback(() => {
+    setToolsTouched(true);
+    setSelectedNativeTools([]);
+  }, []);
+  const selectAllNativeTools = useCallback(() => {
+    setToolsTouched(true);
+    setSelectedNativeTools(defaultToolIds);
+  }, [defaultToolIds]);
   const toggleCustomTool = useCallback((toolId: string) => {
     setSelectedCustomTools(prev =>
       prev.includes(toolId) ? prev.filter(t => t !== toolId) : [...prev, toolId]
@@ -709,6 +729,8 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         selectedNativeTools={selectedNativeTools}
         selectedCustomTools={selectedCustomTools}
         onToggleNative={toggleNativeTool}
+        onClearNative={clearNativeTools}
+        onSelectAllNative={selectAllNativeTools}
         onToggleCustom={toggleCustomTool}
         showAllTools={showAllTools}
         onShowAllChange={setShowAllTools}

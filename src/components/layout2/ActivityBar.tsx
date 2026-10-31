@@ -10,12 +10,13 @@
  * Settings opens a popover (mirroring agent-workspace) instead of navigating.
  * Vault opens a popover (Obsidian-style vault switcher) instead of navigating.
  */
-import { useState, useRef, Fragment } from 'react';
+import { useState, useRef, useEffect, Fragment } from 'react';
 import { useLayoutState, ACTIVITIES, type ActivityDef, type ActivityId } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import {
   GitBranch, Brain, Users, BarChart3, Network, Settings, Wrench, Database, Award, MessageSquare, Archive, FileText, BookOpen, Workflow, UserRound, type LucideIcon,
 } from 'lucide-react';
+import apiClient from '../../lib/api-client';
 import VaultPopover from './VaultPopover';
 import UserPopover from './UserPopover';
 
@@ -105,6 +106,18 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
   const [vaultOpen, setVaultOpen] = useState(false);
   const vaultBtnRef = useRef<HTMLButtonElement | null>(null);
   const [userOpen, setUserOpen] = useState(false);
+  // Which account this rail belongs to. Two people sharing a machine saw an
+  // identical rail, so "am I signed in as me?" had no answer anywhere on screen.
+  // Fetched here rather than lifted: the rail renders before any account context
+  // exists, and a failed call must leave the bare icon rather than break the bar.
+  const [username, setUsername] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    apiClient.getMe()
+      .then((r) => { if (!cancelled) setUsername(r?.data?.username ?? null); })
+      .catch(() => { /* not signed in / offline: keep the plain icon */ });
+    return () => { cancelled = true; };
+  }, []);
   const userBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const handleActivityClick = (id: ActivityId) => {
@@ -194,7 +207,7 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
           Settings: it is about you, not about a document. */}
       <button
         ref={userBtnRef}
-        title="Your account"
+        title={username ? `Your account — ${username}` : 'Your account'}
         onClick={() => setUserOpen(v => !v)}
         style={{
           width: 48,
@@ -223,7 +236,30 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
             }}
           />
         )}
-        <UserRound size={20} strokeWidth={userOpen ? 2 : 1.5} />
+        <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+          <UserRound size={18} strokeWidth={userOpen ? 2 : 1.5} />
+          {username && (
+            <span
+              title={username}
+              style={{
+                fontSize: 9,
+                lineHeight: '10px',
+                // 48px cell: clamp rather than widen the rail. A long login is
+                // ellipsised here and spelled out in full by the tooltip.
+                maxWidth: 44,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                // Same muted colour as the inactive rail icons, so the name reads as
+                // a label under the glyph rather than a second control.
+                color: 'inherit',
+                opacity: 0.85,
+              }}
+            >
+              {username}
+            </span>
+          )}
+        </span>
       </button>
 
       {userOpen && (

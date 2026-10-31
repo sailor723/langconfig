@@ -154,7 +154,7 @@ export default function UserPopover({
               <div style={{ fontSize: 11, color: t.textMuted, display: 'flex', alignItems: 'center', gap: 4 }}>
                 {me.role === 'admin' && <ShieldCheck size={11} />}
                 {me.role === 'admin' ? 'Administrator' : 'Member'}
-                {me.display_name ? ` · ${me.username}` : ''}
+                {me.username ? ` · ${me.username}` : ''}
               </div>
             </>
           ) : (
