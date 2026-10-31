@@ -270,8 +270,8 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   // ── Human-in-the-loop (middleware) ──
   // Same shape the LangChain docs use: config.middleware gets a {"type":"hitl"}
   // entry whose interrupt_on maps tool → true | {allowed_decisions}.
-  const handoffMw = ((liveConfig.config?.middleware as any[] | undefined) ?? [])
-    .find(m => m && (m.type === 'handoff' || m.type === 'handoffs'));
+  const _mwList = (((liveConfig as any).middleware ?? (liveConfig as any).config?.middleware) as any[] | undefined) ?? [];
+  const handoffMw = _mwList.find(m => m && (m.type === 'handoff' || m.type === 'handoffs'));
   const handoffCfg = handoffMw?.config ?? {};
   const writeHandoff = (next: any) => {
     patchJson(p => {
@@ -287,7 +287,8 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   };
 
   const HitlSection = () => {
-    const mw = (liveConfig.config?.middleware as any[] | undefined) ?? [];
+    const mwRaw = ((liveConfig as any).middleware ?? (liveConfig as any).config?.middleware) as any[] | undefined;
+    const mw = Array.isArray(mwRaw) ? mwRaw : [];
     const hitl = mw.find(m => m && (m.type === 'hitl' || m.type === 'human_in_the_loop'));
     const interruptOn = (
       (hitl?.config?.interrupt_on ?? hitl?.interrupt_on) ?? {}

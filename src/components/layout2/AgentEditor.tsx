@@ -165,11 +165,16 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   // {"type": "hitl"} entry whose interrupt_on is the documented mapping.
   // (guardrails.interrupts still exists in old agent configs; the backend
   // reads it as a fallback, it is no longer written here.)
+  const middlewareList = useMemo<Record<string, any>[]>(() => {
+    const raw = (liveConfig as any).middleware ?? (liveConfig as any).config?.middleware;
+    return Array.isArray(raw) ? raw : [];
+  }, [liveConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const hitlMiddleware = useMemo(() => {
-    const mw = liveConfig.config?.middleware;
+    const mw = middlewareList;
     if (!Array.isArray(mw)) return undefined;
     return mw.find((m: any) => m && (m.type === 'hitl' || m.type === 'human_in_the_loop'));
-  }, [liveConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [middlewareList]);
   // The API model keeps only `type` / `enabled` / `config`, so the policy lives
   // under config.* — top-level interrupt_on would be dropped on save.
   const hitlConfig = (hitlMiddleware?.config ?? {}) as Record<string, any>;
@@ -181,11 +186,10 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
 
   // Handoff middleware: step graph + transfer edges, written as one more
   // `{"type": "handoff"}` entry in the same middleware list.
-  const handoffMiddleware = useMemo(() => {
-    const mw = liveConfig.config?.middleware;
-    if (!Array.isArray(mw)) return undefined;
-    return mw.find((m: any) => m && (m.type === 'handoff' || m.type === 'handoffs'));
-  }, [liveConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+  const handoffMiddleware = useMemo(
+    () => middlewareList.find((m: any) => m && (m.type === 'handoff' || m.type === 'handoffs')),
+    [middlewareList],
+  );
   const handoffConfig = (handoffMiddleware?.config ?? {}) as any;
 
   const writeHandoff = (next: any) => {
@@ -956,7 +960,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         canRun={!!localAgentId}
         saveDisabled={false}
         saveMsg={saveMsg}
-        statusLabel={`ID: ${agent.id ?? '—'} (${typeof agent.id}) · loaded=${String(configLoaded)} · v${agent.version ?? '?'}`}
+        statusLabel={`ID: ${agent.id ?? '—'} · v${agent.version ?? '?'} · ${agent.category ?? ''}`}
         agentId={localAgentId}
         agentName={agent.name}
         onImported={handleImported}
