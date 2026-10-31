@@ -27,6 +27,8 @@ interface CodexMessageInputProps {
   sessionId?: string | null;
   projectId?: number | null;
   onFileUploaded?: (file: SessionDocument) => void;
+  /** Folder upload: one callback for the whole batch, so the agent is told once. */
+  onMultipleUploaded?: (files: SessionDocument[]) => void;
   /**
    * Agent label for the composer's control row — which agent this composer
    * sends to. It carried the WORKSPACE (project) name before; the workspace is
@@ -98,6 +100,7 @@ export default function CodexMessageInput({
   sessionId = null,
   projectId = null,
   onFileUploaded = () => {},
+  onMultipleUploaded,
   agentName,
   context,
 }: CodexMessageInputProps) {
@@ -223,6 +226,7 @@ export default function CodexMessageInput({
             sessionId={sessionId}
             projectId={projectId}
             onFileUploaded={onFileUploaded}
+            onMultipleUploaded={onMultipleUploaded}
             disabled={disabled || isStreaming}
           />
           {agentName && (

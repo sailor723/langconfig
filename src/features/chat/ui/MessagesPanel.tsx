@@ -11,7 +11,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import type { ChatMessage, ContextOccupancy, CustomEventPayload, InterruptData, ToolCall } from '../types/chat';
+import type { ChatMessage, ContextOccupancy, CustomEventPayload, InterruptData, SessionDocument, ToolCall } from '../types/chat';
 import { formatCompactDateTime, formatFullDateTime } from '../utils/formatChatTime';
 import CodexMessageInput, { COMPOSER_MAX_WIDTH } from './CodexMessageInput';
 import AnalysisPanel from './AnalysisPanel';
@@ -63,6 +63,28 @@ interface MessagesPanelProps {
    */
   stats?: { tokens: number; toolCalls: number; theme?: string } | null;
 }
+
+/**
+ * Kick the agent off after a document upload.
+ *
+ * An upload is a request: the file is already in the workspace, so waiting for
+ * the user to also type "please read it" is a step that exists only because the
+ * UI stayed quiet. Data files keep their dashboard path (handled separately).
+ */
+const DOC_UPLOAD_EXTS = ['pdf', 'md', 'markdown', 'txt', 'docx', 'pptx', 'xlsx', 'xls', 'html', 'htm', 'json', 'rtf'];
+
+const isDocumentUpload = (filename: string) => {
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  return DOC_UPLOAD_EXTS.includes(ext);
+};
+
+const uploadKickoffMessage = (filenames: string[]) => {
+  const what = filenames.length === 1
+    ? `附件「${filenames[0]}」`
+    : ` ${filenames.length} 个附件（${filenames.join('、')}）`;
+  return `我已上传${what}。请先用一行确认你收到了，然后立刻开始处理：能读就直接读并给出它的结构与关键信息；`
+    + `读不了就直接说明原因和缺什么工具。不要反问我是否需要读。`;
+};
 
 export default function MessagesPanel({
   messages,
@@ -137,6 +159,12 @@ export default function MessagesPanel({
   };
 
   // ── CSV upload handler — calls /api/analysis/init + shows dashboard ─
+  /** Announce an upload in one turn so the agent starts reading immediately. */
+  const announceUploads = (files: SessionDocument[]) => {
+    const docs = (files || []).filter(f => isDocumentUpload(f.filename));
+    if (docs.length) onSendMessage(uploadKickoffMessage(docs.map(f => f.filename)));
+  };
+
   const handleCsvUpload = (filename: string) => {
     setShowAnalysis(false);
     setCsvUploading(true);
@@ -190,11 +218,17 @@ export default function MessagesPanel({
                 sessionId={sessionId}
                 projectId={projectId}
                 onFileUploaded={(file) => {
-                  // Data files trigger the analysis dashboard; other uploads stay silent
+                  // Data files trigger the analysis dashboard; a document starts
+                  // a reading turn instead of sitting there silently.
                   if (/\.(csv|db|sqlite|sqlite3)$/i.test(file.filename)) {
                     handleCsvUpload(file.filename);
+                    return;
+                  }
+                  if (isDocumentUpload(file.filename)) {
+                    announceUploads([file]);
                   }
                 }}
+                onMultipleUploaded={announceUploads}
                 agentName={agentName}
                 context={context}
               />
@@ -818,8 +852,15 @@ export default function MessagesPanel({
                   console.error('Analysis init failed:', err);
                   setCsvUploading(false);
                 });
+              return;
+            }
+            // Everything else that is a document: acknowledge and start reading
+            // now, in the same turn, rather than waiting for the user to ask.
+            if (isDocumentUpload(file.filename)) {
+              announceUploads([file]);
             }
           }}
+          onMultipleUploaded={announceUploads}
         />
         {/* Stats strip: centred on the composer's axis, directly under the box.
             DSH's own line excludes context occupancy on purpose — that number
