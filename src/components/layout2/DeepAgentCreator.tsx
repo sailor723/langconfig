@@ -5,7 +5,7 @@
  * Skills, Subagents, Middleware, Guardrails, JSON). On submit, calls
  * POST /api/deepagents/ and switches to the resulting DeepAgentEditor tab.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Tab } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState } from './useLayout';
@@ -199,6 +199,19 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
 
   const canSubmit = name.trim().length > 0 && systemPrompt.trim().length > 0 && !submitting;
 
+  // Which tool calls the HITL toggle gates. A creator has no per-tool UI, so it
+  // starts from the tools that change something outside the conversation; the
+  // editor (Middleware tab) is where that list is refined.
+  const hitlInterruptOn = useMemo(() => {
+    const MUTATING = ['write_file', 'edit_file', 'delete', 'bash', 'python_execute',
+                      'sqlite_execute', 'pg_execute'];
+    const selected = [...selectedNativeTools, ...selectedCustomTools];
+    const gated = MUTATING.filter(tool => selected.includes(tool));
+    const policy: Record<string, { allowed_decisions: string[] }> = {};
+    for (const tool of gated) policy[tool] = { allowed_decisions: ['approve', 'reject'] };
+    return policy;
+  }, [selectedNativeTools, selectedCustomTools]);
+
   // Valid MiddlewareType values the backend accepts.
   const VALID_MW_TYPES = ['todo_list', 'filesystem', 'subagent', 'hitl', 'summarization', 'tool_retry'] as const;
 
@@ -221,10 +234,23 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
       model: s.model || undefined,
       system_prompt: s.system_prompt || undefined,
     })),
-    // Convert string IDs → MiddlewareConfig objects, dropping unknown types
+    // Convert string IDs → MiddlewareConfig objects, dropping unknown types.
+    // Human-in-the-loop carries its policy inline — LangChain spells it
+    // `HumanInTheLoopMiddleware(interrupt_on={tool: True | {allowed_decisions}})`
+    // — so the entry is not just `config: {}`; without interrupt_on the agent
+    // would fall back to gating every mutating tool.
     middleware: enabledMiddleware
       .filter(id => (VALID_MW_TYPES as readonly string[]).includes(id))
-      .map(id => ({ type: id, enabled: true, config: {} })),
+      .map(id => (
+        id === 'hitl'
+          ? {
+              type: 'hitl',
+              enabled: true,
+              interrupt_on: hitlInterruptOn,
+              description_prefix: 'Tool execution pending approval',
+            }
+          : { type: id, enabled: true, config: {} }
+      )),
     // Map frontend labels to valid BackendType enum values
     backend: (() => {
       const typeMap: Record<string, string> = {
