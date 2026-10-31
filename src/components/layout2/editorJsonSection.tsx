@@ -4,6 +4,7 @@
  * Verbatim extraction of the renderJson section that was duplicated in
  * AgentEditor and DeepAgentEditor.
  */
+import { useState } from 'react';
 import type { LayoutTokens } from './tokens';
 
 interface JsonEditorSectionProps {
@@ -13,9 +14,39 @@ interface JsonEditorSectionProps {
 }
 
 export default function JsonEditorSection({ value, onChange, t }: JsonEditorSectionProps) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard needs a secure context; fall back to selecting the text so the
+      // user can copy it with the keyboard.
+      const el = document.querySelector<HTMLTextAreaElement>('[data-json-editor]');
+      el?.focus();
+      el?.select();
+    }
+  };
+
   return (
-    <div style={{ padding: 4 }}>
+    <div style={{ padding: 4 }} data-copied={copied}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+        <button
+          type="button"
+          onClick={copy}
+          style={{
+            padding: '3px 10px', borderRadius: 10, cursor: 'pointer',
+            border: `1px solid ${t.border}`, background: 'transparent',
+            color: t.textMuted, fontSize: 11,
+          }}
+        >
+          {copied ? '已复制' : '复制 JSON'}
+        </button>
+      </div>
       <textarea
+        data-json-editor
         value={value}
         onChange={e => onChange(e.target.value)}
         spellCheck={false}

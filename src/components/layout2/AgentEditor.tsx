@@ -94,6 +94,23 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     try { return JSON.parse(jsonEdit) || {}; } catch { return agent || {}; }
   }, [jsonEdit]); // eslint-disable-line react-hooks/exhaustive-deps
   const liveConfig = live.config || {};
+  // Tabs persist their `data.agent` snapshot (Workspace restores them), so a
+  // reopened tab can show the config as it was when the tab was created — edits
+  // made elsewhere (another tab, the API, a restore) are invisible, and saving
+  // then writes the stale copy back. Pull the agent fresh on open.
+  useEffect(() => {
+    const id = typeof agent.id === 'number' ? agent.id : null;
+    if (!id) return;
+    let cancelled = false;
+    apiClient.getDeepAgent(id)
+      .then(res => {
+        if (cancelled || !res?.data) return;
+        setJsonEdit(JSON.stringify(res.data, null, 2));
+      })
+      .catch(() => { /* offline or deleted — keep the snapshot */ });
+    return () => { cancelled = true; };
+  }, [agent.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Always-current mirror of jsonEdit — lets async handlers (e.g. the tool
   // inspect modal's Save -> main save) read the latest JSON after a state
   // flush instead of a stale render closure.
