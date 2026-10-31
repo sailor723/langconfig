@@ -10,12 +10,13 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { X, GripVertical, BarChart3, FolderOpen } from 'lucide-react';
+import { X, GripVertical, BarChart3, FolderOpen, CalendarDays } from 'lucide-react';
 import { useChat } from '../state/ChatContext';
 import { useProject } from '../../../contexts/ProjectContext';
 import { themes, type ThemeName } from '../../../lib/themes';
 import { useChatController } from '../hooks/useChatController';
 import FilesPanel from './FilesPanel';
+import CalendarPanel from './CalendarPanel';
 import MetricsPanel from './MetricsPanel';
 import MessagesPanel from './MessagesPanel';
 import ChatHistorySidebar from './ChatHistorySidebar';
@@ -215,6 +216,13 @@ export default function ChatPage() {
                 >
                   <FolderOpen className="w-4 h-4" style={{ color: c.showFiles ? 'var(--color-primary)' : 'var(--color-text-muted)' }} />
                 </button>
+                <button
+                  onClick={() => c.togglePanel('calendar')}
+                  className={`p-2 rounded-lg transition-colors ${c.showCalendar ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                  title={c.showCalendar ? 'Hide calendar' : 'Show calendar'}
+                >
+                  <CalendarDays className="w-4 h-4" style={{ color: c.showCalendar ? 'var(--color-primary)' : 'var(--color-text-muted)' }} />
+                </button>
               </>
             )}
             {c.isAgentCreator && c.currentSessionId && (
@@ -329,6 +337,18 @@ export default function ChatPage() {
               <FilesPanel
                 sessionId={c.currentSessionId}
                 onClose={() => c.togglePanel('files')}
+              />
+            </SidePanel>
+          )}
+          {c.currentSessionId && c.showCalendar && (
+            <SidePanel
+              width={c.panelWidth}
+              isResizing={c.isPanelResizing}
+              onResizeStart={c.handlePanelResizeStart}
+            >
+              <CalendarPanel
+                sessionId={c.currentSessionId}
+                onClose={() => c.togglePanel('calendar')}
               />
             </SidePanel>
           )}

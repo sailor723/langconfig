@@ -22,6 +22,7 @@ from db.database import get_db
 from .shared import load_session_for_caller
 from models.core import DocumentType, IndexingStatus
 from models.deep_agent import ChatSession, DeepAgentTemplate, SessionDocument
+from services.calendar_ics import parse_ics
 from services.document_type import resolve_document_type
 
 from .schemas import SessionDocumentResponse
@@ -784,6 +785,79 @@ async def list_session_generated_files(
 
     generated.sort(key=lambda f: f.get("modified_at") or "", reverse=True)
     return {"files": generated, "total_files": len(generated)}
+
+
+@router.get("/{session_id}/calendar")
+async def get_session_calendar(
+    session_id: str,
+    db: Session = Depends(get_db)
+):
+    """Calendar events read out of the ``.ics`` files in the agent workspace.
+
+    Read-only on purpose: the agent already writes the files (``calendar_expert``
+    in the training build), so rendering them keeps a single source of truth —
+    no second event store that the agent would need a new tool to reach.
+
+    A file that yields no VEVENT is reported in ``unparsed_files`` rather than
+    silently dropped, and an event without a TZID comes back with
+    ``timezone: null`` so the UI can show the literal time instead of inventing
+    a local one.
+    """
+    from services.workspace_manager import get_workspace_manager
+
+    MAX_ICS_FILES = 200
+
+    session = load_session_for_caller(db, session_id)
+    workspace_mgr = get_workspace_manager()
+
+    events: List[dict] = []
+    unparsed: List[str] = []
+    scanned = 0
+    workspace_rel: Optional[str] = None
+
+    root = _resolve_agent_workspace(session, db, workspace_mgr) if session.agent_id else None
+    if root is not None and root.is_dir():
+        try:
+            workspace_rel = str(root.resolve().relative_to(workspace_mgr.user_base()))
+        except ValueError:
+            workspace_rel = str(root)
+
+        for path in sorted(root.rglob("*.ics")):
+            if scanned >= MAX_ICS_FILES:
+                break
+            if not path.is_file() or "__pycache__" in path.parts:
+                continue
+            scanned += 1
+            try:
+                rel = str(path.resolve().relative_to(root.resolve()))
+            except ValueError:
+                rel = path.name
+            try:
+                raw = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                unparsed.append(rel)
+                continue
+            try:
+                stat = path.stat()
+                modified_at = datetime.fromtimestamp(stat.st_mtime).isoformat()
+            except OSError:
+                modified_at = None
+            parsed = parse_ics(raw, fallback_title=path.stem)
+            if not parsed:
+                unparsed.append(rel)
+                continue
+            for event in parsed:
+                event["file"] = rel
+                event["modified_at"] = modified_at
+                events.append(event)
+
+    events.sort(key=lambda e: (e.get("start") or "", e.get("title") or ""))
+    return {
+        "events": events,
+        "files_scanned": scanned,
+        "unparsed_files": unparsed,
+        "workspace": workspace_rel,
+    }
 
 
 @router.get("/{session_id}/documents/{document_id}/download")

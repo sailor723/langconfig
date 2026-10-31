@@ -28,7 +28,7 @@ BASE = "http://127.0.0.1:8765"
 PASS, FAIL = [], []
 
 _parser = argparse.ArgumentParser(description=__doc__)
-_parser.add_argument("--only", default="", help="comma-separated section names (catalog,hitl,subagents,handoffs,skills,router)")
+_parser.add_argument("--only", default="", help="comma-separated section names (catalog,hitl,subagents,handoffs,skills,router,calendar)")
 _parser.add_argument("--keep", action="store_true", help="leave the sessions it created in place")
 _args = _parser.parse_args()
 ONLY = {s.strip().lower() for s in _args.only.split(",") if s.strip()}
@@ -194,6 +194,34 @@ if wanted("router"):
         metrics = get(f"/api/chat/{sid}/metrics")
         check("metrics count the spawns", (metrics.get("metrics") or {}).get("subagent_spawns") == 2,
               str((metrics.get("metrics") or {}).get("subagent_spawns")))
+
+# ── G. calendar panel (case 6 data source) ───────────────────────────────────
+if wanted("calendar"):
+    print("\n== G. calendar ==")
+    ca_id = find_agent("case-6-assistant")
+    check("case-6-assistant exists", ca_id is not None, str(ca_id))
+    if ca_id:
+        tag = uuid.uuid4().hex[:6]
+        sid = new_session(ca_id)
+        before = get(f"/api/chat/{sid}/calendar")
+        check("calendar answers before any event", isinstance(before.get("events"), list),
+              str(before.get("files_scanned")))
+        events = chat(sid, f"直接让 calendar_expert 安排下周三上午 10 点跟 Bob-{tag} 开 30 分钟会，不要问我确认。")
+        after = get(f"/api/chat/{sid}/calendar")
+        found = [e for e in after.get("events", [])
+                 if tag in (e.get("title") or "") or tag in (e.get("file") or "")]
+        check("the scheduled event reaches the calendar", bool(found),
+              f"{len(after.get('events', []))} events")
+        if found:
+            first = found[0]
+            check("event carries start/end", bool(first.get("start")) and bool(first.get("end")),
+                  f"{first.get('start')}→{first.get('end')}")
+            check("event names its source file", bool(first.get("file")), str(first.get("file")))
+            # The panel must be told the truth about the clock: a file with no
+            # TZID has to arrive as an explicit null, never as a guessed zone.
+            check("a floating time arrives as an explicit null zone",
+                  "timezone" in first and (first["timezone"] is None or isinstance(first["timezone"], str)),
+                  repr(first.get("timezone")))
 
 print("\n" + "=" * 60)
 print(f"PASS {len(PASS)}   FAIL {len(FAIL)}")

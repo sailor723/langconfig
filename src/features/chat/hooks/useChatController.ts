@@ -21,7 +21,7 @@ import { useChatMetrics } from './useChatMetrics';
 import type { ChatSession, ChatStreamEvent, CustomEventPayload, InterruptData, ToolCall } from '../types/chat';
 import type { ThinkingStep } from '../ui/ThinkingBlock';
 
-type Panel = 'metrics' | 'context' | 'files';
+type Panel = 'metrics' | 'context' | 'files' | 'calendar';
 
 interface UseChatControllerOptions {
   /** Welcome-message language when a new session starts ('en' = page, 'zh' = modal) */
@@ -44,24 +44,28 @@ export function useChatController(options: UseChatControllerOptions = {}) {
     renameSession,
   } = useChat();
 
-  // ── Side panel visibility (metrics / context / files) ──────────────
+  // ── Side panel visibility (metrics / context / files / calendar) ────
   const [showMetrics, setShowMetrics] = useState(false);
   const [showContext, setShowContext] = useState(false);
   const [showFiles, setShowFiles] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
 
   // Toggle the clicked panel; clicking a different panel switches to it
   const togglePanel = useCallback((panel: Panel) => {
     if (panel === 'metrics') {
       setShowMetrics(v => !v);
-      if (!showMetrics) { setShowContext(false); setShowFiles(false); }
+      if (!showMetrics) { setShowContext(false); setShowFiles(false); setShowCalendar(false); }
     } else if (panel === 'context') {
       setShowContext(v => !v);
-      if (!showContext) { setShowMetrics(false); setShowFiles(false); }
+      if (!showContext) { setShowMetrics(false); setShowFiles(false); setShowCalendar(false); }
+    } else if (panel === 'calendar') {
+      setShowCalendar(v => !v);
+      if (!showCalendar) { setShowMetrics(false); setShowContext(false); setShowFiles(false); }
     } else {
       setShowFiles(v => !v);
-      if (!showFiles) { setShowMetrics(false); setShowContext(false); }
+      if (!showFiles) { setShowMetrics(false); setShowContext(false); setShowCalendar(false); }
     }
-  }, [showMetrics, showContext, showFiles]);
+  }, [showMetrics, showContext, showFiles, showCalendar]);
 
   // ── Streaming / tool / thinking / HITL state ───────────────────────
   const [activeToolCalls, setActiveToolCalls] = useState<ToolCall[]>([]);
@@ -449,6 +453,7 @@ export function useChatController(options: UseChatControllerOptions = {}) {
     showMetrics,
     showContext,
     showFiles,
+    showCalendar,
     togglePanel,
     // sidebar resize
     sidebarWidth,
