@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { File, FolderOpen, Folder, Download, X, Loader2, CheckCircle, AlertCircle, Clock, RefreshCw, ChevronRight, ChevronDown } from 'lucide-react';
+import { File, FolderOpen, Folder, Download, X, Loader2, CheckCircle, AlertCircle, Clock, RefreshCw, ChevronRight, ChevronDown, Trash2 } from 'lucide-react';
 import type { SessionDocument } from '../types/chat';
 import apiClient from '../../../lib/api-client';
 import { downloadFile } from '../utils/downloadFile';
@@ -41,6 +41,32 @@ export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
     return () => window.removeEventListener('chat:files-changed', handleFilesChanged);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Empty the workspace: the panel is where a user sees what an agent produced,
+  // so it is also where they start over. Two-step (click → confirm) because it
+  // deletes files and there is no undo.
+  const [confirmClearing, setConfirmClearing] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [clearResult, setClearResult] = useState<string | null>(null);
+
+  const handleClearWorkspace = async () => {
+    if (!sessionId) return;
+    setClearing(true);
+    setClearResult(null);
+    try {
+      const res = await apiClient.post(`/api/chat/${sessionId}/workspace/clear`);
+      const removed = res.data?.removed_files ?? 0;
+      setClearResult(`已清空 ${removed} 个文件`);
+      setConfirmClearing(false);
+      handleRefresh();
+      window.dispatchEvent(new Event('chat:files-changed'));
+    } catch (err) {
+      console.error('Failed to clear workspace:', err);
+      setClearResult('清空失败，请重试');
+    } finally {
+      setClearing(false);
+    }
+  };
 
   const loadDocuments = async () => {
     if (!sessionId) {
@@ -118,6 +144,14 @@ export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
         </span>
         <div className="flex items-center gap-1">
           <button
+            onClick={() => { setConfirmClearing(v => !v); setClearResult(null); }}
+            className="p-1 rounded hover:bg-black/5 transition-colors"
+            style={{ color: confirmClearing ? '#ef4444' : undefined }}
+            title="清空工作区（删除 upload/ generated/ 里的文件）"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+          <button
             onClick={handleRefresh}
             className="p-1 rounded hover:bg-black/5 transition-colors"
             title="Refresh"
@@ -129,6 +163,33 @@ export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
           </button>
         </div>
       </div>
+
+      {confirmClearing && (
+        <div className="px-3 py-2 border-b text-[11px] flex items-center gap-2"
+             style={{ borderColor: 'var(--color-border-dark)', backgroundColor: 'rgba(239,68,68,0.08)' }}>
+          <span style={{ color: 'var(--color-text-primary)' }}>
+            清空这个工作区？`upload/`、`generated/` 里的文件会被删除，不可恢复（AGENTS.md 保留）。
+          </span>
+          <button
+            onClick={handleClearWorkspace}
+            disabled={clearing}
+            className="ml-auto px-2 py-0.5 rounded font-medium"
+            style={{ backgroundColor: '#ef4444', color: '#fff', opacity: clearing ? 0.6 : 1 }}
+          >
+            {clearing ? '清空中…' : '确认清空'}
+          </button>
+          <button
+            onClick={() => setConfirmClearing(false)}
+            className="px-2 py-0.5 rounded"
+            style={{ border: '1px solid var(--color-border-dark)' }}
+          >
+            取消
+          </button>
+        </div>
+      )}
+      {clearResult && (
+        <div className="px-3 py-1 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{clearResult}</div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-3 space-y-4">
         {loading ? (

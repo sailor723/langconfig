@@ -471,6 +471,10 @@ async def _process_single_chat_upload(
     sandbox_exts = (
         '.csv', '.pdf', '.docx', '.pptx', '.md', '.txt', '.json', '.py',
         '.js', '.ts', '.tsx', '.jsx',
+        # Spreadsheets: a workbook is a data source like a CSV, so it has to reach
+        # the agent workspace too — otherwise the upload lands in project storage
+        # and read_any_file (which reads .xlsx sheet by sheet) cannot see it.
+        '.xlsx', '.xlsm', '.xls',
         # Images: copied into the agent workspace upload/ folder so the
         # read_image (OCR) tool and vision models (deepseek-flash) can
         # reach them through the workspace sandbox. Without this an image
@@ -785,6 +789,62 @@ async def list_session_generated_files(
 
     generated.sort(key=lambda f: f.get("modified_at") or "", reverse=True)
     return {"files": generated, "total_files": len(generated)}
+
+
+@router.post("/{session_id}/workspace/clear")
+async def clear_session_workspace(session_id: str, db: Session = Depends(get_db)):
+    """Empty the agent workspace this conversation runs in.
+
+    The Files panel is the only place a non-technical user can see what an agent
+    has produced, so it is also where they should be able to start over — a
+    workspace full of test uploads is otherwise cleared by hand on the server.
+
+    What is removed: the contents of `upload/`, `generated/`, `other/` and
+    `skills/` (all user-visible data). What is kept: the directory skeleton and
+    the agent's own instruction docs (AGENTS.md / CLAUDE.md) — those are
+    configuration, and the chat path rewrites them on the next run anyway.
+    """
+    from services.workspace_manager import get_workspace_manager
+
+    session = load_session_for_caller(db, session_id)
+    workspace_mgr = get_workspace_manager()
+
+    if not session.agent_id:
+        raise HTTPException(status_code=400, detail="This conversation has no agent workspace")
+
+    root = _resolve_agent_workspace(session, db, workspace_mgr)
+    if not root.is_dir():
+        return {"status": "ok", "removed_files": 0, "workspace": str(root), "note": "workspace did not exist"}
+
+    keep_names = {"AGENTS.md", "CLAUDE.md", ".gitkeep"}
+    removed, kept = 0, []
+    for entry in sorted(root.iterdir()):
+        if entry.name in keep_names:
+            kept.append(entry.name)
+            continue
+        if entry.is_dir():
+            for child in sorted(entry.rglob("*"), reverse=True):
+                if child.is_file():
+                    removed += 1
+                    child.unlink(missing_ok=True)
+            # leave the skeleton directories in place
+            if entry.name in ("upload", "generated", "other", "skills"):
+                (entry / ".gitkeep").touch()
+            else:
+                import shutil
+
+                shutil.rmtree(entry, ignore_errors=True)
+        else:
+            removed += 1
+            entry.unlink(missing_ok=True)
+
+    logger.info(f"Workspace cleared for session {session_id}: {removed} file(s) in {root}")
+    return {
+        "status": "ok",
+        "removed_files": removed,
+        "workspace": str(root),
+        "kept": kept,
+    }
 
 
 @router.get("/{session_id}/calendar")
