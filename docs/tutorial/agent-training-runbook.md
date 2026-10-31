@@ -10,13 +10,13 @@
 >
 > 每个案例都在平台上真实搭过、跑过；表格里的数字是实测值，不是示意。
 
-**全书三条线**
+**全书三部分**
 
 | 段落 | 讲什么 | 案例 |
 |---|---|---|
 | 第 1 类 · 能直接用的 agent | 从最小可用到业务可用 | 1 基础 · 2 全工具 · 3 文档问答 · 4 个人助理 · 5 售后客服 |
 | 第 2 类 · 机制演示 | 一个机制一个最小例子 | HITL · 6 subagents · 7 handoffs · 8 skills · 9 router |
-| 案例 10–12 · 重活 agent | 多轮研究、内容生产、数据分析 | 10 深度研究 · 11 内容创作 · 12 CSV/Excel 分析 |
+| 案例 10–12 · 一题多步的 agent | 自己查资料写报告、按品牌语气写内容、把表格变成能问的数据 | 10 深度研究 · 11 内容创作 · 12 CSV/Excel 问答 |
 
 ## 目录
 
@@ -34,9 +34,9 @@
 | [案例 7 · 把对话交给另一个角色（`case-7-handoff`，id 314）](#案例-7-把对话交给另一个角色-case-7-handoff-id-314) |
 | [案例 8 · 需要时才加载知识（`case-8-skills`，id 319）](#案例-8-需要时才加载知识-case-8-skills-id-319) |
 | [案例 9 · 分派台 + 专家并行 + 汇总（`case-9-router`，id 320）](#案例-9-分派台-专家并行-汇总-case-9-router-id-320) |
-| [案例 10 · 深度研究：文件即交付物（`case-10-deep-research`，id 327）](#案例-10-深度研究-文件即交付物-case-10-deep-research-id-327) |
-| [案例 11 · 内容创作：品牌语气 + 技能 + 研究子代理（`case-11-content-builder`，id 328）](#案例-11-内容创作-品牌语气-技能-研究子代理-case-11-content-builder-id-328) |
-| [案例 12 · CSV / Excel 数据分析（`case-12-csv-chat`，id 329）](#案例-12-csv-excel-数据分析-case-12-csv-chat-id-329) |
+| [案例 10 · 深度研究：让它自己查、自己写报告（`case-10-deep-research`，id 327）](#案例-10-深度研究-让它自己查-自己写报告-case-10-deep-research-id-327) |
+| [案例 11 · 内容创作：先定语气，再按技能写（`case-11-content-builder`，id 328）](#案例-11-内容创作-先定语气-再按技能写-case-11-content-builder-id-328) |
+| [案例 12 · 上传 CSV 或 Excel，然后问它（`case-12-csv-chat`，id 329）](#案例-12-上传-csv-或-excel-然后问它-case-12-csv-chat-id-329) |
 | [附录 · 复建自检清单（照案例 4 复建一遍）](#附录-复建自检清单-照案例-4-复建一遍) |
 ## 0 · 先分清两个词：agent 和 deep agent
 
@@ -112,7 +112,7 @@ deep agent 用的还是同一个循环，区别在于**装配已经提前装好�
 # 第 1 类 · 能直接用的 agent（案例 1–5）
 
 > 按"从最小到完整"排：基础 → 全工具 → 文档问答 → 个人助理 → 售后客服。
-> 第 2 类是机制演示（HITL + 四个模式），用到时再查；案例 10–12 是三个重活 agent。
+> 第 2 类是机制演示（HITL + 四个模式），用到时再查。案例 10–12 不按机制分，按「一件完整的事」分：自己查资料写报告、按品牌语气写内容、把上传的表格变成能问的数据。
 
 ## 工作区约定：上传的文件和产出的文件，都留在 agent 自己的目录里
 
@@ -759,74 +759,94 @@ into a coherent response.*
 ---
 
 
-# 案例 10 · 深度研究：文件即交付物（`case-10-deep-research`，id 327）
+# 案例 10 · 深度研究：让它自己查、自己写报告（`case-10-deep-research`，id 327）
 
-依据：**[deepagents/deep-research](https://docs.langchain.com/oss/python/deepagents/deep-research)** + 本地 `deepagents-quickstarts/deep_research`。
+依据：[deepagents/deep-research](https://docs.langchain.com/oss/python/deepagents/deep-research)，
+以及仓库里那份可直接跑的示例 `deepagents-quickstarts/deep_research`。
 
-| 项 | 值 |
+前九个案例都是"问一句、答一句"。这个不一样：用户只给一个题目，agent 要自己拆成几个子问题、
+自己搜、自己读全文，最后写成一份带引用的报告。它用的是一个 **deep agent**：
+
+| 项 | 配置 |
 |---|---|
-| 类型 | **deep agent** |
-| 结构 | orchestrator + **1 个** `research-agent` 子代理 + `todo_list` |
-| 工具 | `tavily_search` / `web_fetch` / `think_tool` / `write_todos` / `read_todos` |
-| 契约 | 报告写进文件、子代理回报 ≤500 字、**每次搜索后必须 `think_tool`**、引用 `[n]` + `### Sources` 连续编号 |
+| 结构 | 主 agent + **1 个**研究子代理 + 待办清单 |
+| 主 agent 的工具 | 搜网页、读网页、`think_tool`、`write_todos` / `read_todos` |
+| 子代理的工具 | 搜网页、读网页、`think_tool` |
+| 约定 | 报告写进文件；子代理回报不超过 500 字；每次搜完必须 `think_tool`；引用编号连续 |
 
-## 实测（同一个问题，三轮改造）
+## 实测：同一个问题改了三轮
 
-*Compare the main approaches to context engineering for AI agents in 2025.*
+问的是 *Compare the main approaches to context engineering for AI agents in 2025.*
 
-| | 第一版 | 加严 prompt | **对齐 quickstart 契约** |
+|  | 第一版 | 只加严提示词 | 按官方示例重写之后 |
 |---|---|---|---|
-| 耗时 | 180s | 261s | 277s |
-| 委派 | 1 | 2 | **1（默认单个 ✓）** |
-| `think_tool` | 0 | 0 | **2 ✓** |
-| `tavily_search` | 13 ❌ | 12 ❌ | **5 ✓**（上限 5） |
-| `web_fetch` | 15 ❌ | 16 ❌ | **11**（上限 8，仍超） |
-| 交付物 | 无 | 无 | **`generated/research/<主题>/{research_request.md, final_report.md}` ✓** |
-| 引用 | 30 | 38 | **40 + Sources ✓** |
+| 耗时 | 180 秒 | 261 秒 | 277 秒 |
+| 派给子代理几次 | 1 | 2 | **1**（约定里写的"默认一个"） |
+| `think_tool` 用了几次 | 0 | 0 | **2** |
+| 搜网页几次 | 13（超了） | 12（超了） | **5**（约定上限 5） |
+| 读网页几次 | 15（超了） | 16（超了） | **11**（上限 8，仍超） |
+| 报告写在哪 | 只在聊天里 | 只在聊天里 | **`generated/research/<主题>/` 两个文件** |
+| 引用 | 30 处 | 38 处 | **40 处 + 来源列表** |
 
 ## 三条要讲的判断
 
-完整报告模板见 `docs/tutorial/deep-research-agents.md`。
+完整的报告模板另见 `docs/tutorial/deep-research-agents.md`。
 
-1. **超大工具结果会被平台截断**（换成 500 字预览）→ 主 agent 误判"资料不全"就自己下场搜（第一版 13 次搜索的由来）。
-2. **预算只是 prompt 建议**：写"≤5 次"能把 13 压到 5，但 `web_fetch` 仍跑到 11（平台没有 `ToolCallLimit` 中间件）。
-3. **一轮 = 一条消息**：过程旁白和最终答复同体，聊天里无法只留摘要。
+1. **结果太长会被平台截断，主 agent 就会抢活干。** 工具返回的内容超过阈值时，
+   平台只留 500 字预览 —— 主 agent 以为"资料不全"，就自己搜起来了（第一版 13 次搜索就是这么来的）。
+   对策是让子代理把细节写进文件，回报只留结论。
+2. **"最多搜 5 次"只是句提醒，不是硬闸。** 写进提示词后，搜网页从 13 次降到 5 次，
+   但读网页还是跑到 11 次。平台没有限制调用次数的中间件，真要卡住得靠代码。
+3. **一轮对话就是一条消息。** 过程中的"我先查一下"和最后的报告在同一条消息里，
+   在聊天里没法只留摘要 —— 所以报告写进文件、聊天只回几句结论。
 
-# 案例 11 · 内容创作：品牌语气 + 技能 + 研究子代理（`case-11-content-builder`，id 328）
+# 案例 11 · 内容创作：先定语气，再按技能写（`case-11-content-builder`，id 328）
 
-依据：**[deepagents/content-builder](https://docs.langchain.com/oss/python/deepagents/content-builder)**。
+依据：[deepagents/content-builder](https://docs.langchain.com/oss/python/deepagents/content-builder)。
 
-| 教程机制 | 平台落地 |
+这一节要解决的不是"会不会写"，而是**写出来像不像这家公司发的**。做法分四块：
+
+| 教程里的做法 | 我们怎么落 |
 |---|---|
-| `AGENTS.md` 品牌语气（always-on） | 存进 `agent_docs`，deep agent 由 `MemoryMiddleware` 读进系统提示词 |
-| `skills/blog-post/SKILL.md`、`social-media` | 技能库新增两个技能，生产契约写在技能里 |
-| `researcher` 子代理 | 独立 prompt，必须先研究并**把结果写到指定路径** |
-| `generate_cover`（Gemini 出图） | **平台无文生图** → 改用 `write_file` 写 **SVG 封面**（1200×630 / 1080×1080） |
+| 品牌语气写进 `AGENTS.md`，每次运行都生效 | 存进 agent 的说明文档，deep agent 会自动读进提示词 |
+| 博客、社媒各写一份 `SKILL.md` | 技能库新增两个技能，产出路径和自检清单都写在里面 |
+| 派一个研究子代理先查资料 | 独立提示词，且要求把结果写到指定路径 |
+| 用 Gemini 生成封面图 | **这台机器没有文生图** → 改成写一张 SVG 封面 |
 
-## 实测（教程原句：*Write a blog post about how AI agents are transforming software development*）
+## 实测：用教程原句试一遍
 
-- 249.6s；工具：`write_file`×6、`task`×1、`tavily_search`×9、`web_fetch`×11、`think_tool`×1
-- 产物：`generated/blogs/ai-agents-software-development/{post.md（139 行，7 个 H2/H3+CTA）, hero.svg}` + 研究笔记
-- 正文 **24 处 `[来源: URL]`**，全部真实链接；研究笔记里写清了互相冲突的数据（Copilot 快 55.8% vs METR 慢 19% vs DORA 吞吐下降）
+*Write a blog post about how AI agents are transforming software development.*
 
-## 判断
+- 耗时 249 秒，一共调了 35 次工具，其中派研究子代理 1 次、搜网页 9 次、读网页 11 次
+- 产出两个文件：`generated/blogs/ai-agents-software-development/post.md`（139 行，7 个小标题，结尾有行动号召）
+  和同目录的 `hero.svg`（封面色块 + 标题）
+- 正文里 **24 处来源标注**，全部是真链接；研究笔记里还写清了互相矛盾的数据
+  （Copilot 实验快 55.8%、METR 实测慢 19%、DORA 观测吞吐下降）
 
-1. **没有文生图也能做内容 agent**：SVG 封面让"必须有配图"这条契约仍然可验收。
-2. **技能是契约载体**：产出路径、封面规格、自检清单都写在 SKILL.md 里，agent 换一次对话也不会忘。
+## 两条要讲的判断
 
-# 案例 12 · CSV / Excel 数据分析（`case-12-csv-chat`，id 329）
+1. **没有文生图，内容 agent 一样能做。** 用 SVG 当封面，"必须配图"这条要求仍然能验收，
+   只是封面来自模板而不是模型。
+2. **把要求写进技能，比写进提示词更牢。** 产出路径、封面尺寸、完成前的自检清单都在 `SKILL.md` 里，
+   换一次对话也不会忘。
 
-依据：**[langchain/sql-agent](https://docs.langchain.com/oss/python/langchain/sql-agent)**。
+# 案例 12 · 上传 CSV 或 Excel，然后问它（`case-12-csv-chat`，id 329）
 
-| 文档的 4 个工具 | 平台的对应物 |
+依据：[langchain/sql-agent](https://docs.langchain.com/oss/python/langchain/sql-agent)。
+
+这个 agent 只干一件事：用户传一个表格，问问题，它写 SQL 查出来。
+
+官方那节给的四个工具，平台上没有现成的，就用两个现有的拼出来：
+
+| 文档里的工具 | 我们拿什么顶 |
 |---|---|
-| `sql_db_list_tables()` | `sqlite_execute("SELECT name FROM sqlite_master WHERE type='table' …")` |
-| `sql_db_schema(tables)` | `SELECT sql FROM sqlite_master WHERE name=…` + `SELECT * FROM "t" LIMIT 3` |
-| `sql_db_query(query)` | `sqlite_execute(sql, db_path=…)`（出错把错误串回给模型） |
-| `sql_db_query_checker(query)`（LLM 复检） | **写成执行前自检清单**（NULL/NOT IN、UNION ALL、BETWEEN 开闭、类型、引号、JOIN 列） |
-| — | 多一步：**CSV / Excel → 建表**（`sqlite_load_csv`，文档假定库已存在） |
+| 列出所有表 | `sqlite_execute` 查 `sqlite_master` |
+| 看表结构和样例 | 查 `sqlite_master` 拿建表语句，再 `LIMIT 3` 看几行 |
+| 执行查询 | `sqlite_execute`；出错就把错误原样还给模型 |
+| 执行前让模型自查（这是文档里单独一个工具） | **写成一张自检清单**：NULL、UNION ALL、边界、类型、引号、JOIN 列 |
+| —（文档假定库已经存在） | 我们多一步：**先把上传的表格建成表** |
 
-## 多 sheet Excel（用户要求的"和 CSV 一样"）
+## 多个 sheet 的 Excel 怎么处理
 
 1. `glob("**/*", path="upload")` 找文件；
 2. **`read_any_file("upload/<文件>")`** 读 —— Excel 返回按 sheet 分块的文本 `[Sheet: 汇总]` + `a | b | c` 行；
@@ -922,7 +942,7 @@ SELECT month, SUM(CAST(revenue AS REAL)) FROM m10 GROUP BY month;
 | `sqlite_execute` | 只读 SELECT；报错就把错误串回给模型 |
 | `python_execute` | 只在要画图时用（matplotlib → base64） |
 
-## 落盘产物（实测）
+## 最后落成什么
 
 ![一个库三张表：summary / m9 / m10；所有列建成 TEXT，求和前要 CAST](../assets/sqlite-tables.svg)
 

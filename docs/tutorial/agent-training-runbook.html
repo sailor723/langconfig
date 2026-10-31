@@ -78,7 +78,7 @@ nav a:hover { color:var(--accent); }
 </table>
 <p>每个案例都在平台上真实搭过、跑过；表格里的数字是实测值，不是示意。</p>
 </blockquote>
-<p><strong>全书三条线</strong></p>
+<p><strong>全书三部分</strong></p>
 <table>
 <thead>
 <tr>
@@ -99,9 +99,9 @@ nav a:hover { color:var(--accent); }
 <td>HITL · 6 subagents · 7 handoffs · 8 skills · 9 router</td>
 </tr>
 <tr>
-<td>案例 10–12 · 重活 agent</td>
-<td>多轮研究、内容生产、数据分析</td>
-<td>10 深度研究 · 11 内容创作 · 12 CSV/Excel 分析</td>
+<td>案例 10–12 · 一题多步的 agent</td>
+<td>自己查资料写报告、按品牌语气写内容、把表格变成能问的数据</td>
+<td>10 深度研究 · 11 内容创作 · 12 CSV/Excel 问答</td>
 </tr>
 </tbody>
 </table>
@@ -150,13 +150,13 @@ nav a:hover { color:var(--accent); }
 <td><a href="#%E6%A1%88%E4%BE%8B-9-%E5%88%86%E6%B4%BE%E5%8F%B0-%E4%B8%93%E5%AE%B6%E5%B9%B6%E8%A1%8C-%E6%B1%87%E6%80%BB-case-9-router-id-320">案例 9 · 分派台 + 专家并行 + 汇总（<code>case-9-router</code>，id 320）</a></td>
 </tr>
 <tr>
-<td><a href="#%E6%A1%88%E4%BE%8B-10-%E6%B7%B1%E5%BA%A6%E7%A0%94%E7%A9%B6-%E6%96%87%E4%BB%B6%E5%8D%B3%E4%BA%A4%E4%BB%98%E7%89%A9-case-10-deep-research-id-327">案例 10 · 深度研究：文件即交付物（<code>case-10-deep-research</code>，id 327）</a></td>
+<td><a href="#%E6%A1%88%E4%BE%8B-10-%E6%B7%B1%E5%BA%A6%E7%A0%94%E7%A9%B6-%E8%AE%A9%E5%AE%83%E8%87%AA%E5%B7%B1%E6%9F%A5-%E8%87%AA%E5%B7%B1%E5%86%99%E6%8A%A5%E5%91%8A-case-10-deep-research-id-327">案例 10 · 深度研究：让它自己查、自己写报告（<code>case-10-deep-research</code>，id 327）</a></td>
 </tr>
 <tr>
-<td><a href="#%E6%A1%88%E4%BE%8B-11-%E5%86%85%E5%AE%B9%E5%88%9B%E4%BD%9C-%E5%93%81%E7%89%8C%E8%AF%AD%E6%B0%94-%E6%8A%80%E8%83%BD-%E7%A0%94%E7%A9%B6%E5%AD%90%E4%BB%A3%E7%90%86-case-11-content-builder-id-328">案例 11 · 内容创作：品牌语气 + 技能 + 研究子代理（<code>case-11-content-builder</code>，id 328）</a></td>
+<td><a href="#%E6%A1%88%E4%BE%8B-11-%E5%86%85%E5%AE%B9%E5%88%9B%E4%BD%9C-%E5%85%88%E5%AE%9A%E8%AF%AD%E6%B0%94-%E5%86%8D%E6%8C%89%E6%8A%80%E8%83%BD%E5%86%99-case-11-content-builder-id-328">案例 11 · 内容创作：先定语气，再按技能写（<code>case-11-content-builder</code>，id 328）</a></td>
 </tr>
 <tr>
-<td><a href="#%E6%A1%88%E4%BE%8B-12-csv-excel-%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90-case-12-csv-chat-id-329">案例 12 · CSV / Excel 数据分析（<code>case-12-csv-chat</code>，id 329）</a></td>
+<td><a href="#%E6%A1%88%E4%BE%8B-12-%E4%B8%8A%E4%BC%A0-csv-%E6%88%96-excel-%E7%84%B6%E5%90%8E%E9%97%AE%E5%AE%83-case-12-csv-chat-id-329">案例 12 · 上传 CSV 或 Excel，然后问它（<code>case-12-csv-chat</code>，id 329）</a></td>
 </tr>
 <tr>
 <td><a href="#%E9%99%84%E5%BD%95-%E5%A4%8D%E5%BB%BA%E8%87%AA%E6%A3%80%E6%B8%85%E5%8D%95-%E7%85%A7%E6%A1%88%E4%BE%8B-4-%E5%A4%8D%E5%BB%BA%E4%B8%80%E9%81%8D">附录 · 复建自检清单（照案例 4 复建一遍）</a></td>
@@ -387,7 +387,7 @@ agent = create_agent(model=&quot;deepseek-flash&quot;, tools=tools, system_promp
 <h1 id="第-1-类-能直接用的-agent-案例-1-5">第 1 类 · 能直接用的 agent（案例 1–5）</h1>
 <blockquote>
 <p>按&quot;从最小到完整&quot;排：基础 → 全工具 → 文档问答 → 个人助理 → 售后客服。
-第 2 类是机制演示（HITL + 四个模式），用到时再查；案例 10–12 是三个重活 agent。</p>
+第 2 类是机制演示（HITL + 四个模式），用到时再查。案例 10–12 不按机制分，按「一件完整的事」分：自己查资料写报告、按品牌语气写内容、把上传的表格变成能问的数据。</p>
 </blockquote>
 <h2 id="工作区约定-上传的文件和产出的文件-都留在-agent-自己的目录里">工作区约定：上传的文件和产出的文件，都留在 agent 自己的目录里</h2>
 <p>每个 agent 有一个自己的工作目录：</p>
@@ -1862,169 +1862,184 @@ into a coherent response.</em></p>
 <strong>一轮里多个 <code>task</code> 工具调用</strong> —— 模型一次发出，框架并发执行；不是图上的并行分支。</p>
 </blockquote>
 <hr />
-<h1 id="案例-10-深度研究-文件即交付物-case-10-deep-research-id-327">案例 10 · 深度研究：文件即交付物（<code>case-10-deep-research</code>，id 327）</h1>
-<p>依据：<strong><a href="https://docs.langchain.com/oss/python/deepagents/deep-research">deepagents/deep-research</a></strong> + 本地 <code>deepagents-quickstarts/deep_research</code>。</p>
+<h1 id="案例-10-深度研究-让它自己查-自己写报告-case-10-deep-research-id-327">案例 10 · 深度研究：让它自己查、自己写报告（<code>case-10-deep-research</code>，id 327）</h1>
+<p>依据：<a href="https://docs.langchain.com/oss/python/deepagents/deep-research">deepagents/deep-research</a>，
+以及仓库里那份可直接跑的示例 <code>deepagents-quickstarts/deep_research</code>。</p>
+<p>前九个案例都是&quot;问一句、答一句&quot;。这个不一样：用户只给一个题目，agent 要自己拆成几个子问题、
+自己搜、自己读全文，最后写成一份带引用的报告。它用的是一个 <strong>deep agent</strong>：</p>
 <table>
 <thead>
 <tr>
 <th>项</th>
-<th>值</th>
+<th>配置</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>类型</td>
-<td><strong>deep agent</strong></td>
-</tr>
-<tr>
 <td>结构</td>
-<td>orchestrator + <strong>1 个</strong> <code>research-agent</code> 子代理 + <code>todo_list</code></td>
+<td>主 agent + <strong>1 个</strong>研究子代理 + 待办清单</td>
 </tr>
 <tr>
-<td>工具</td>
-<td><code>tavily_search</code> / <code>web_fetch</code> / <code>think_tool</code> / <code>write_todos</code> / <code>read_todos</code></td>
+<td>主 agent 的工具</td>
+<td>搜网页、读网页、<code>think_tool</code>、<code>write_todos</code> / <code>read_todos</code></td>
 </tr>
 <tr>
-<td>契约</td>
-<td>报告写进文件、子代理回报 ≤500 字、<strong>每次搜索后必须 <code>think_tool</code></strong>、引用 <code>[n]</code> + <code>### Sources</code> 连续编号</td>
+<td>子代理的工具</td>
+<td>搜网页、读网页、<code>think_tool</code></td>
+</tr>
+<tr>
+<td>约定</td>
+<td>报告写进文件；子代理回报不超过 500 字；每次搜完必须 <code>think_tool</code>；引用编号连续</td>
 </tr>
 </tbody>
 </table>
-<h2 id="实测-同一个问题-三轮改造">实测（同一个问题，三轮改造）</h2>
-<p><em>Compare the main approaches to context engineering for AI agents in 2025.</em></p>
+<h2 id="实测-同一个问题改了三轮">实测：同一个问题改了三轮</h2>
+<p>问的是 <em>Compare the main approaches to context engineering for AI agents in 2025.</em></p>
 <table>
 <thead>
 <tr>
 <th></th>
 <th>第一版</th>
-<th>加严 prompt</th>
-<th><strong>对齐 quickstart 契约</strong></th>
+<th>只加严提示词</th>
+<th>按官方示例重写之后</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>耗时</td>
-<td>180s</td>
-<td>261s</td>
-<td>277s</td>
+<td>180 秒</td>
+<td>261 秒</td>
+<td>277 秒</td>
 </tr>
 <tr>
-<td>委派</td>
+<td>派给子代理几次</td>
 <td>1</td>
 <td>2</td>
-<td><strong>1（默认单个 ✓）</strong></td>
+<td><strong>1</strong>（约定里写的&quot;默认一个&quot;）</td>
 </tr>
 <tr>
-<td><code>think_tool</code></td>
+<td><code>think_tool</code> 用了几次</td>
 <td>0</td>
 <td>0</td>
-<td><strong>2 ✓</strong></td>
+<td><strong>2</strong></td>
 </tr>
 <tr>
-<td><code>tavily_search</code></td>
-<td>13 ❌</td>
-<td>12 ❌</td>
-<td><strong>5 ✓</strong>（上限 5）</td>
+<td>搜网页几次</td>
+<td>13（超了）</td>
+<td>12（超了）</td>
+<td><strong>5</strong>（约定上限 5）</td>
 </tr>
 <tr>
-<td><code>web_fetch</code></td>
-<td>15 ❌</td>
-<td>16 ❌</td>
+<td>读网页几次</td>
+<td>15（超了）</td>
+<td>16（超了）</td>
 <td><strong>11</strong>（上限 8，仍超）</td>
 </tr>
 <tr>
-<td>交付物</td>
-<td>无</td>
-<td>无</td>
-<td><strong><code>generated/research/&lt;主题&gt;/{research_request.md, final_report.md}</code> ✓</strong></td>
+<td>报告写在哪</td>
+<td>只在聊天里</td>
+<td>只在聊天里</td>
+<td><strong><code>generated/research/&lt;主题&gt;/</code> 两个文件</strong></td>
 </tr>
 <tr>
 <td>引用</td>
-<td>30</td>
-<td>38</td>
-<td><strong>40 + Sources ✓</strong></td>
+<td>30 处</td>
+<td>38 处</td>
+<td><strong>40 处 + 来源列表</strong></td>
 </tr>
 </tbody>
 </table>
 <h2 id="三条要讲的判断-1">三条要讲的判断</h2>
-<p>完整报告模板见 <code>docs/tutorial/deep-research-agents.md</code>。</p>
+<p>完整的报告模板另见 <code>docs/tutorial/deep-research-agents.md</code>。</p>
 <ol>
-<li><strong>超大工具结果会被平台截断</strong>（换成 500 字预览）→ 主 agent 误判&quot;资料不全&quot;就自己下场搜（第一版 13 次搜索的由来）。</li>
-<li><strong>预算只是 prompt 建议</strong>：写&quot;≤5 次&quot;能把 13 压到 5，但 <code>web_fetch</code> 仍跑到 11（平台没有 <code>ToolCallLimit</code> 中间件）。</li>
-<li><strong>一轮 = 一条消息</strong>：过程旁白和最终答复同体，聊天里无法只留摘要。</li>
+<li><strong>结果太长会被平台截断，主 agent 就会抢活干。</strong> 工具返回的内容超过阈值时，
+平台只留 500 字预览 —— 主 agent 以为&quot;资料不全&quot;，就自己搜起来了（第一版 13 次搜索就是这么来的）。
+对策是让子代理把细节写进文件，回报只留结论。</li>
+<li><strong>&quot;最多搜 5 次&quot;只是句提醒，不是硬闸。</strong> 写进提示词后，搜网页从 13 次降到 5 次，
+但读网页还是跑到 11 次。平台没有限制调用次数的中间件，真要卡住得靠代码。</li>
+<li><strong>一轮对话就是一条消息。</strong> 过程中的&quot;我先查一下&quot;和最后的报告在同一条消息里，
+在聊天里没法只留摘要 —— 所以报告写进文件、聊天只回几句结论。</li>
 </ol>
-<h1 id="案例-11-内容创作-品牌语气-技能-研究子代理-case-11-content-builder-id-328">案例 11 · 内容创作：品牌语气 + 技能 + 研究子代理（<code>case-11-content-builder</code>，id 328）</h1>
-<p>依据：<strong><a href="https://docs.langchain.com/oss/python/deepagents/content-builder">deepagents/content-builder</a></strong>。</p>
+<h1 id="案例-11-内容创作-先定语气-再按技能写-case-11-content-builder-id-328">案例 11 · 内容创作：先定语气，再按技能写（<code>case-11-content-builder</code>，id 328）</h1>
+<p>依据：<a href="https://docs.langchain.com/oss/python/deepagents/content-builder">deepagents/content-builder</a>。</p>
+<p>这一节要解决的不是&quot;会不会写&quot;，而是<strong>写出来像不像这家公司发的</strong>。做法分四块：</p>
 <table>
 <thead>
 <tr>
-<th>教程机制</th>
-<th>平台落地</th>
+<th>教程里的做法</th>
+<th>我们怎么落</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>AGENTS.md</code> 品牌语气（always-on）</td>
-<td>存进 <code>agent_docs</code>，deep agent 由 <code>MemoryMiddleware</code> 读进系统提示词</td>
+<td>品牌语气写进 <code>AGENTS.md</code>，每次运行都生效</td>
+<td>存进 agent 的说明文档，deep agent 会自动读进提示词</td>
 </tr>
 <tr>
-<td><code>skills/blog-post/SKILL.md</code>、<code>social-media</code></td>
-<td>技能库新增两个技能，生产契约写在技能里</td>
+<td>博客、社媒各写一份 <code>SKILL.md</code></td>
+<td>技能库新增两个技能，产出路径和自检清单都写在里面</td>
 </tr>
 <tr>
-<td><code>researcher</code> 子代理</td>
-<td>独立 prompt，必须先研究并<strong>把结果写到指定路径</strong></td>
+<td>派一个研究子代理先查资料</td>
+<td>独立提示词，且要求把结果写到指定路径</td>
 </tr>
 <tr>
-<td><code>generate_cover</code>（Gemini 出图）</td>
-<td><strong>平台无文生图</strong> → 改用 <code>write_file</code> 写 <strong>SVG 封面</strong>（1200×630 / 1080×1080）</td>
+<td>用 Gemini 生成封面图</td>
+<td><strong>这台机器没有文生图</strong> → 改成写一张 SVG 封面</td>
 </tr>
 </tbody>
 </table>
-<h2 id="实测-教程原句-write-a-blog-post-about-how-ai-agents-are-transforming-software-development">实测（教程原句：<em>Write a blog post about how AI agents are transforming software development</em>）</h2>
+<h2 id="实测-用教程原句试一遍">实测：用教程原句试一遍</h2>
+<p><em>Write a blog post about how AI agents are transforming software development.</em></p>
 <ul>
-<li>249.6s；工具：<code>write_file</code>×6、<code>task</code>×1、<code>tavily_search</code>×9、<code>web_fetch</code>×11、<code>think_tool</code>×1</li>
-<li>产物：<code>generated/blogs/ai-agents-software-development/{post.md（139 行，7 个 H2/H3+CTA）, hero.svg}</code> + 研究笔记</li>
-<li>正文 <strong>24 处 <code>[来源: URL]</code></strong>，全部真实链接；研究笔记里写清了互相冲突的数据（Copilot 快 55.8% vs METR 慢 19% vs DORA 吞吐下降）</li>
+<li>耗时 249 秒，一共调了 35 次工具，其中派研究子代理 1 次、搜网页 9 次、读网页 11 次</li>
+<li>产出两个文件：<code>generated/blogs/ai-agents-software-development/post.md</code>（139 行，7 个小标题，结尾有行动号召）
+和同目录的 <code>hero.svg</code>（封面色块 + 标题）</li>
+<li>正文里 <strong>24 处来源标注</strong>，全部是真链接；研究笔记里还写清了互相矛盾的数据
+（Copilot 实验快 55.8%、METR 实测慢 19%、DORA 观测吞吐下降）</li>
 </ul>
-<h2 id="判断">判断</h2>
+<h2 id="两条要讲的判断-2">两条要讲的判断</h2>
 <ol>
-<li><strong>没有文生图也能做内容 agent</strong>：SVG 封面让&quot;必须有配图&quot;这条契约仍然可验收。</li>
-<li><strong>技能是契约载体</strong>：产出路径、封面规格、自检清单都写在 SKILL.md 里，agent 换一次对话也不会忘。</li>
+<li><strong>没有文生图，内容 agent 一样能做。</strong> 用 SVG 当封面，&quot;必须配图&quot;这条要求仍然能验收，
+只是封面来自模板而不是模型。</li>
+<li><strong>把要求写进技能，比写进提示词更牢。</strong> 产出路径、封面尺寸、完成前的自检清单都在 <code>SKILL.md</code> 里，
+换一次对话也不会忘。</li>
 </ol>
-<h1 id="案例-12-csv-excel-数据分析-case-12-csv-chat-id-329">案例 12 · CSV / Excel 数据分析（<code>case-12-csv-chat</code>，id 329）</h1>
-<p>依据：<strong><a href="https://docs.langchain.com/oss/python/langchain/sql-agent">langchain/sql-agent</a></strong>。</p>
+<h1 id="案例-12-上传-csv-或-excel-然后问它-case-12-csv-chat-id-329">案例 12 · 上传 CSV 或 Excel，然后问它（<code>case-12-csv-chat</code>，id 329）</h1>
+<p>依据：<a href="https://docs.langchain.com/oss/python/langchain/sql-agent">langchain/sql-agent</a>。</p>
+<p>这个 agent 只干一件事：用户传一个表格，问问题，它写 SQL 查出来。</p>
+<p>官方那节给的四个工具，平台上没有现成的，就用两个现有的拼出来：</p>
 <table>
 <thead>
 <tr>
-<th>文档的 4 个工具</th>
-<th>平台的对应物</th>
+<th>文档里的工具</th>
+<th>我们拿什么顶</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>sql_db_list_tables()</code></td>
-<td><code>sqlite_execute(&quot;SELECT name FROM sqlite_master WHERE type='table' …&quot;)</code></td>
+<td>列出所有表</td>
+<td><code>sqlite_execute</code> 查 <code>sqlite_master</code></td>
 </tr>
 <tr>
-<td><code>sql_db_schema(tables)</code></td>
-<td><code>SELECT sql FROM sqlite_master WHERE name=…</code> + <code>SELECT * FROM &quot;t&quot; LIMIT 3</code></td>
+<td>看表结构和样例</td>
+<td>查 <code>sqlite_master</code> 拿建表语句，再 <code>LIMIT 3</code> 看几行</td>
 </tr>
 <tr>
-<td><code>sql_db_query(query)</code></td>
-<td><code>sqlite_execute(sql, db_path=…)</code>（出错把错误串回给模型）</td>
+<td>执行查询</td>
+<td><code>sqlite_execute</code>；出错就把错误原样还给模型</td>
 </tr>
 <tr>
-<td><code>sql_db_query_checker(query)</code>（LLM 复检）</td>
-<td><strong>写成执行前自检清单</strong>（NULL/NOT IN、UNION ALL、BETWEEN 开闭、类型、引号、JOIN 列）</td>
+<td>执行前让模型自查（这是文档里单独一个工具）</td>
+<td><strong>写成一张自检清单</strong>：NULL、UNION ALL、边界、类型、引号、JOIN 列</td>
 </tr>
 <tr>
-<td>—</td>
-<td>多一步：<strong>CSV / Excel → 建表</strong>（<code>sqlite_load_csv</code>，文档假定库已存在）</td>
+<td>—（文档假定库已经存在）</td>
+<td>我们多一步：<strong>先把上传的表格建成表</strong></td>
 </tr>
 </tbody>
 </table>
-<h2 id="多-sheet-excel-用户要求的-quot-和-csv-一样-quot">多 sheet Excel（用户要求的&quot;和 CSV 一样&quot;）</h2>
+<h2 id="多个-sheet-的-excel-怎么处理">多个 sheet 的 Excel 怎么处理</h2>
 <ol>
 <li><code>glob(&quot;**/*&quot;, path=&quot;upload&quot;)</code> 找文件；</li>
 <li><strong><code>read_any_file(&quot;upload/&lt;文件&gt;&quot;)</code></strong> 读 —— Excel 返回按 sheet 分块的文本 <code>[Sheet: 汇总]</code> + <code>a | b | c</code> 行；</li>
@@ -2251,7 +2266,7 @@ SELECT month, SUM(CAST(revenue AS REAL)) FROM m10 GROUP BY month;
 </tr>
 </tbody>
 </table>
-<h2 id="落盘产物-实测">落盘产物（实测）</h2>
+<h2 id="最后落成什么">最后落成什么</h2>
 <figure><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <!-- Generated by graphviz version 16.0.0 (20260814.1018)
@@ -2433,6 +2448,6 @@ SELECT month, SUM(CAST(revenue AS REAL)) FROM m10 GROUP BY month;
 在本平台的完整对应物。</p>
 </blockquote>
 </article>
-<nav><div class="title">Steps</div><a class="" href="#目录">目录</a><a class="" href="#0-先分清两个词-agent-和-deep-agent">0 · 先分清两个词：agent 和 deep agent</a><a class="h3" href="#0-1-agent-是什么">0.1 agent 是什么</a><a class="h3" href="#0-2-deep-agent-又是什么">0.2 deep agent 又是什么</a><a class="h3" href="#0-3-两者的差别-上课就讲这张表">0.3 两者的差别（上课就讲这张表）</a><a class="h3" href="#0-4-在平台上怎么选">0.4 在平台上怎么选</a><a class="" href="#工作区约定-上传的文件和产出的文件-都留在-agent-自己的目录里">工作区约定：上传的文件和产出的文件，都留在 agent 自己的目录里</a><a class="" href="#这三个参数在平台上填在哪">这三个参数在平台上填在哪</a><a class="" href="#实测-四个例子">实测：四个例子</a><a class="" href="#两条要讲的判断">两条要讲的判断</a><a class="" href="#实测-同样三个问题">实测：同样三个问题</a><a class="" href="#三条要讲的判断">三条要讲的判断</a><a class="" href="#从参考实现抄了三条规则">从参考实现抄了三条规则</a><a class="" href="#实测-上传真文件">实测：上传真文件</a><a class="" href="#两条要讲的判断-1">两条要讲的判断</a><a class="" href="#overview-页面原文-中文译文">Overview（页面原文 · 中文译文）</a><a class="" href="#why-use-a-supervisor-页面原文-中文译文">Why use a supervisor?（页面原文 · 中文译文）</a><a class="" href="#结构-一共-3-个-agent-1-2">结构：一共 3 个 agent（1 + 2）</a><a class="" href="#教程分五步">教程分五步</a><a class="" href="#平台上怎么还原">平台上怎么还原</a><a class="" href="#实测-case-4-assistant-id-323">实测（case-4-assistant，id 323）</a><a class="" href="#和教程不一样的地方-要讲清楚">和教程不一样的地方，要讲清楚</a><a class="" href="#四个要讲的判断">四个要讲的判断</a><a class="" href="#overview-页面原文-中文译文-1">Overview（页面原文 · 中文译文）</a><a class="" href="#流程-页面那张图的文字版">流程（页面那张图的文字版）</a><a class="" href="#结构-1-个-agent-3-步配置">结构：1 个 agent + 3 步配置</a><a class="" href="#教程的步骤-9-节压成-5-行">教程的步骤（9 节压成 5 行）</a><a class="" href="#平台上怎么还原-1-个-agent-1-段-middleware">平台上怎么还原（1 个 agent + 1 段 middleware）</a><a class="" href="#实测-case-5-support-id-325">实测（case-5-support，id 325）</a><a class="" href="#和教程的差异-要如实讲">和教程的差异（要如实讲）</a><a class="" href="#三个要讲的判断">三个要讲的判断</a><a class="" href="#复建自检-5-条">复建自检（5 条）</a><a class="" href="#实测-deep-agent-bash-设成-bash-may-mutate">实测（deep agent，bash 设成 bash_may_mutate）</a><a class="" href="#两个必须讲的判断">两个必须讲的判断</a><a class="" href="#实测-case-6-subagents-deepseek-flash-temperature-0">实测（case-6-subagents，deepseek-flash，temperature 0）</a><a class="" href="#三个必须讲的判断">三个必须讲的判断</a><a class="" href="#对照实验-改描述-委派会变吗">对照实验：改描述，委派会变吗？</a><a class="" href="#实测-case-7-handoff-三个角色-cli-验收">实测（case-7-handoff，三个角色，CLI 验收）</a><a class="" href="#四个要讲的判断-1">四个要讲的判断</a><a class="" href="#实测-case-8-skills-只有-skill-python-execute-两个工具">实测（case-8-skills，只有 skill + python_execute 两个工具）</a><a class="" href="#三个要讲的判断-1">三个要讲的判断</a><a class="" href="#实测-case-9-router">实测（case-9-router）</a><a class="" href="#三个要讲的判断-2">三个要讲的判断</a><a class="" href="#实测-同一个问题-三轮改造">实测（同一个问题，三轮改造）</a><a class="" href="#三条要讲的判断-1">三条要讲的判断</a><a class="" href="#实测-教程原句-write-a-blog-post-about-how-ai-agents-are-transforming-software-development">实测（教程原句：Write a blog post about how AI agents are transforming software development）</a><a class="" href="#判断">判断</a><a class="" href="#多-sheet-excel-用户要求的-quot-和-csv-一样-quot">多 sheet Excel（用户要求的&amp;quot;和 CSV 一样&amp;quot;）</a><a class="" href="#示例-一个-3-sheet-工作簿的完整对话">示例：一个 3-sheet 工作簿的完整对话</a><a class="" href="#它的完整配置-照抄即可复建">它的完整配置（照抄即可复建）</a><a class="" href="#落盘产物-实测">落盘产物（实测）</a><a class="" href="#三个要讲的判断-3">三个要讲的判断</a><a class="" href="#a-建-agent">A. 建 agent</a><a class="" href="#b-工具">B. 工具</a><a class="" href="#c-两个专家">C. 两个专家</a><a class="" href="#d-开新聊天-这一步最容易漏">D. 开新聊天（这一步最容易漏）</a><a class="" href="#e-例-1-单域">E. 例 1 · 单域</a><a class="" href="#f-例-2-跨域-审批">F. 例 2 · 跨域 + 审批</a><a class="" href="#g-看日程-右侧-calendar">G. 看日程（右侧 Calendar）</a><a class="" href="#h-反证-可选-但很值得做">H. 反证（可选，但很值得做）</a><a class="" href="#i-常见失败对照">I. 常见失败对照</a></nav>
+<nav><div class="title">Steps</div><a class="" href="#目录">目录</a><a class="" href="#0-先分清两个词-agent-和-deep-agent">0 · 先分清两个词：agent 和 deep agent</a><a class="h3" href="#0-1-agent-是什么">0.1 agent 是什么</a><a class="h3" href="#0-2-deep-agent-又是什么">0.2 deep agent 又是什么</a><a class="h3" href="#0-3-两者的差别-上课就讲这张表">0.3 两者的差别（上课就讲这张表）</a><a class="h3" href="#0-4-在平台上怎么选">0.4 在平台上怎么选</a><a class="" href="#工作区约定-上传的文件和产出的文件-都留在-agent-自己的目录里">工作区约定：上传的文件和产出的文件，都留在 agent 自己的目录里</a><a class="" href="#这三个参数在平台上填在哪">这三个参数在平台上填在哪</a><a class="" href="#实测-四个例子">实测：四个例子</a><a class="" href="#两条要讲的判断">两条要讲的判断</a><a class="" href="#实测-同样三个问题">实测：同样三个问题</a><a class="" href="#三条要讲的判断">三条要讲的判断</a><a class="" href="#从参考实现抄了三条规则">从参考实现抄了三条规则</a><a class="" href="#实测-上传真文件">实测：上传真文件</a><a class="" href="#两条要讲的判断-1">两条要讲的判断</a><a class="" href="#overview-页面原文-中文译文">Overview（页面原文 · 中文译文）</a><a class="" href="#why-use-a-supervisor-页面原文-中文译文">Why use a supervisor?（页面原文 · 中文译文）</a><a class="" href="#结构-一共-3-个-agent-1-2">结构：一共 3 个 agent（1 + 2）</a><a class="" href="#教程分五步">教程分五步</a><a class="" href="#平台上怎么还原">平台上怎么还原</a><a class="" href="#实测-case-4-assistant-id-323">实测（case-4-assistant，id 323）</a><a class="" href="#和教程不一样的地方-要讲清楚">和教程不一样的地方，要讲清楚</a><a class="" href="#四个要讲的判断">四个要讲的判断</a><a class="" href="#overview-页面原文-中文译文-1">Overview（页面原文 · 中文译文）</a><a class="" href="#流程-页面那张图的文字版">流程（页面那张图的文字版）</a><a class="" href="#结构-1-个-agent-3-步配置">结构：1 个 agent + 3 步配置</a><a class="" href="#教程的步骤-9-节压成-5-行">教程的步骤（9 节压成 5 行）</a><a class="" href="#平台上怎么还原-1-个-agent-1-段-middleware">平台上怎么还原（1 个 agent + 1 段 middleware）</a><a class="" href="#实测-case-5-support-id-325">实测（case-5-support，id 325）</a><a class="" href="#和教程的差异-要如实讲">和教程的差异（要如实讲）</a><a class="" href="#三个要讲的判断">三个要讲的判断</a><a class="" href="#复建自检-5-条">复建自检（5 条）</a><a class="" href="#实测-deep-agent-bash-设成-bash-may-mutate">实测（deep agent，bash 设成 bash_may_mutate）</a><a class="" href="#两个必须讲的判断">两个必须讲的判断</a><a class="" href="#实测-case-6-subagents-deepseek-flash-temperature-0">实测（case-6-subagents，deepseek-flash，temperature 0）</a><a class="" href="#三个必须讲的判断">三个必须讲的判断</a><a class="" href="#对照实验-改描述-委派会变吗">对照实验：改描述，委派会变吗？</a><a class="" href="#实测-case-7-handoff-三个角色-cli-验收">实测（case-7-handoff，三个角色，CLI 验收）</a><a class="" href="#四个要讲的判断-1">四个要讲的判断</a><a class="" href="#实测-case-8-skills-只有-skill-python-execute-两个工具">实测（case-8-skills，只有 skill + python_execute 两个工具）</a><a class="" href="#三个要讲的判断-1">三个要讲的判断</a><a class="" href="#实测-case-9-router">实测（case-9-router）</a><a class="" href="#三个要讲的判断-2">三个要讲的判断</a><a class="" href="#实测-同一个问题改了三轮">实测：同一个问题改了三轮</a><a class="" href="#三条要讲的判断-1">三条要讲的判断</a><a class="" href="#实测-用教程原句试一遍">实测：用教程原句试一遍</a><a class="" href="#两条要讲的判断-2">两条要讲的判断</a><a class="" href="#多个-sheet-的-excel-怎么处理">多个 sheet 的 Excel 怎么处理</a><a class="" href="#示例-一个-3-sheet-工作簿的完整对话">示例：一个 3-sheet 工作簿的完整对话</a><a class="" href="#它的完整配置-照抄即可复建">它的完整配置（照抄即可复建）</a><a class="" href="#最后落成什么">最后落成什么</a><a class="" href="#三个要讲的判断-3">三个要讲的判断</a><a class="" href="#a-建-agent">A. 建 agent</a><a class="" href="#b-工具">B. 工具</a><a class="" href="#c-两个专家">C. 两个专家</a><a class="" href="#d-开新聊天-这一步最容易漏">D. 开新聊天（这一步最容易漏）</a><a class="" href="#e-例-1-单域">E. 例 1 · 单域</a><a class="" href="#f-例-2-跨域-审批">F. 例 2 · 跨域 + 审批</a><a class="" href="#g-看日程-右侧-calendar">G. 看日程（右侧 Calendar）</a><a class="" href="#h-反证-可选-但很值得做">H. 反证（可选，但很值得做）</a><a class="" href="#i-常见失败对照">I. 常见失败对照</a></nav>
 </div>
 </body></html>
