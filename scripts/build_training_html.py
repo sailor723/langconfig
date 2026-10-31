@@ -18,6 +18,9 @@ Usage::
     backend/.venv/bin/python scripts/build_training_html.py
     # → docs/tutorial/agent-training-runbook.html
 
+    backend/.venv/bin/python scripts/build_training_html.py --pdf
+    # → ...runbook.html + ...runbook.pdf (A4, fonts ×0.6; --pdf-scale=0.75 to taste)
+
 Hints for a live session:
 
 * the tables of contents on the right links to every step;
@@ -29,6 +32,8 @@ from __future__ import annotations
 
 import html
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -143,6 +148,70 @@ def build_toc(rendered_html: str) -> str:
     return '<nav><div class="title">Steps</div>' + "".join(items) + "</nav>"
 
 
+def scale_fonts(css: str, scale: float) -> str:
+    """Shrink every absolute font size in the stylesheet by `scale`.
+
+    The classroom sheet and the handout want different sizes: 16px reads well on
+    a projector, ~9.6px fits a printed page. Scaling the stylesheet (instead of
+    shipping a second stylesheet) keeps one source of layout truth.
+    """
+    css = re.sub(
+        r"font-size:\s*([\d.]+)px",
+        lambda m: f"font-size:{float(m.group(1)) * scale:.2f}px",
+        css,
+    )
+    css = re.sub(
+        r"font:\s*([\d.]+)px/",
+        lambda m: f"font: {float(m.group(1)) * scale:.2f}px/",
+        css,
+    )
+    # diagrams are sized relative to the text, so they shrink with it
+    for old, new in (
+        ("img { max-width:70%", f"img {{ max-width:{70 * scale:.0f}%"),
+        ("figure svg { max-width:70%", f"figure svg {{ max-width:{70 * scale:.0f}%"),
+    ):
+        css = css.replace(old, new)
+    return css
+
+
+PDF_PAGE_CSS = """
+@page {
+  size: A4;
+  margin: 14mm 12mm 16mm;
+  @bottom-center { content: counter(page) " / " counter(pages);
+                   font-size: 8px; color: #94a3b8; }
+}
+"""
+
+
+def write_pdf(doc: str, scale: float) -> Path | None:
+    """Print the built document to A4 PDF with WeasyPrint.
+
+    WeasyPrint rather than a headless browser: it renders the inlined SVG
+    diagrams as vector art in one process, no browser sandbox to launch.
+    """
+    exe = shutil.which("weasyprint") or "/opt/homebrew/bin/weasyprint"
+    if not Path(exe).exists():
+        print("weasyprint not found — PDF skipped (brew install weasyprint)")
+        return None
+
+    pdf_path = OUT.with_suffix(".pdf")
+    tmp_html = OUT.with_suffix(".print.html")
+    tmp_html.write_text(
+        scale_fonts(doc, scale).replace("</style>", f"{PDF_PAGE_CSS}</style>", 1),
+        encoding="utf-8",
+    )
+    try:
+        subprocess.run([exe, str(tmp_html), str(pdf_path)], check=True,
+                       capture_output=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        print(f"weasyprint failed: {exc.stderr.strip()[-400:]}")
+        return None
+    finally:
+        tmp_html.unlink(missing_ok=True)
+    return pdf_path
+
+
 def main() -> int:
     if not SRC.exists():
         sys.exit(f"not found: {SRC}")
@@ -173,6 +242,13 @@ def main() -> int:
 """
     OUT.write_text(doc, encoding="utf-8")
     print(f"wrote {OUT.relative_to(REPO)}  ({len(doc)/1024:.1f} KB, diagrams inlined)")
+
+    args = dict(a.split("=", 1) if "=" in a else (a, "") for a in sys.argv[1:] if a.startswith("--"))
+    if "--pdf" in args:
+        scale = float(args.get("--pdf-scale", 0.6))
+        pdf = write_pdf(doc, scale)
+        if pdf:
+            print(f"wrote {pdf.relative_to(REPO)}  ({pdf.stat().st_size/1024:.0f} KB, 字号 ×{scale})")
     return 0
 
 
