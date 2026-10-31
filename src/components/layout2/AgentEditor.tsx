@@ -113,9 +113,14 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     if (!Array.isArray(mw)) return undefined;
     return mw.find((m: any) => m && (m.type === 'hitl' || m.type === 'human_in_the_loop'));
   }, [liveConfig]); // eslint-disable-line react-hooks/exhaustive-deps
-  const interruptOn = hitlMiddleware?.interrupt_on as Record<string, any> | undefined;
+  // The API model keeps only `type` / `enabled` / `config`, so the policy lives
+  // under config.* — top-level interrupt_on would be dropped on save.
+  const hitlConfig = (hitlMiddleware?.config ?? {}) as Record<string, any>;
+  const interruptOn = (hitlConfig.interrupt_on
+    ?? hitlMiddleware?.interrupt_on) as Record<string, any> | undefined;
   const descriptionPrefix: string =
-    hitlMiddleware?.description_prefix || 'Tool execution pending approval';
+    hitlConfig.description_prefix || hitlMiddleware?.description_prefix
+    || 'Tool execution pending approval';
 
   const writeHitl = (
     next: Record<string, any>,
@@ -127,7 +132,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     const mw: any[] = Array.isArray(parsed.config.middleware) ? parsed.config.middleware : [];
     const rest = mw.filter(m => !(m && (m.type === 'hitl' || m.type === 'human_in_the_loop')));
     if (Object.keys(next).length > 0) {
-      rest.push({ type: 'hitl', enabled: true, interrupt_on: next, description_prefix: prefix });
+      rest.push({ type: 'hitl', enabled: true, config: { interrupt_on: next, description_prefix: prefix } });
     }
     parsed.config.middleware = rest;
     setJsonEdit(JSON.stringify(parsed, null, 2));

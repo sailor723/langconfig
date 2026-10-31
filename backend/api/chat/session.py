@@ -587,6 +587,22 @@ async def resume_chat(
                 detail="No pending approval for this session (already answered, or never asked).",
             )
 
+        # Session policy: `never` means nobody is available to review, so the
+        # call is refused deterministically instead of waiting for a person who
+        # is not there (DSH's approval seam calls this the `never` policy).
+        _policy = str(((resume_data or {}).get("approval_policy")
+                       or os.environ.get("HITL_APPROVAL_POLICY")
+                       or "ask")).lower()
+        if _policy == "never":
+            logger.info(f"Approval policy 'never' for {session_id}: auto-rejecting")
+            resume_data = {"decisions": [{
+                "type": "reject",
+                "message": (
+                    "Approval prompts are disabled for this session, so the action "
+                    "was rejected automatically. Do not retry it."
+                ),
+            }]}
+
         age = _interrupt_age_seconds(snapshot)
         expired = age is not None and age > APPROVAL_TTL_SECONDS
         if expired:
@@ -600,6 +616,33 @@ async def resume_chat(
             logger.info(f"Approval for {session_id} expired after {int(age)}s -> rejecting")
         else:
             decisions = _decisions_from_resume(resume_data)
+        # Audit the decision before it is applied: one row per answer, naming
+        # the tool calls under review and the reviewer.
+        try:
+            from models.audit_log import AuditAction
+            from services.audit_service import audit_log
+
+            _asked = [
+                req.get("name")
+                for req in (getattr(pending[0], "value", {}) or {}).get("action_requests", [])
+            ]
+            await audit_log(
+                db=db,
+                request=None,
+                action=AuditAction.UPDATE,
+                resource_type="HitlApproval",
+                resource_id=session.agent_id,
+                user_id=current_user_id(),
+                changes={"decisions": decisions},
+                additional_context={
+                    "session_id": session_id,
+                    "tools_under_review": _asked,
+                },
+                message="Human-in-the-loop decision",
+            )
+        except Exception as audit_err:  # noqa: BLE001 — never block a resume on the log
+            logger.warning(f"HITL audit append failed for {session_id}: {audit_err}")
+
         resume_value = {"decisions": decisions}
         logger.info(f"Resuming {session_id} with decisions={decisions}")
         result = await agent_instance.ainvoke(
@@ -610,10 +653,14 @@ async def resume_chat(
 
         response_text = ""
         if result and "messages" in result:
-            # Only prose from the model counts as the answer: the last message
-            # in an interrupted run is often a ToolMessage or the injected
-            # "Current time: ..." line, which used to leak into the reply.
-            for msg in reversed(result["messages"]):
+            # Only prose the run produced *after* the review counts as the
+            # reply. Walking the whole history picked up the opening greeting
+            # once the resumed turn ended on a tool call.
+            _msgs = result["messages"]
+            _start = len(_msgs) - 1
+            while _start > 0 and getattr(_msgs[_start], "type", "") != "human":
+                _start -= 1
+            for msg in reversed(_msgs[_start:]):
                 if getattr(msg, "type", "") != "ai":
                     continue
                 if getattr(msg, "tool_calls", None):
@@ -659,6 +706,10 @@ async def resume_chat(
             payload["interrupt"] = make_json_safe(getattr(first, "value", first))
         return payload
 
+    except HTTPException:
+        # 409 (nothing pending) and 400 (bad edit payload) are answers, not
+        # failures — re-raising keeps the status instead of wrapping it in 500.
+        raise
     except Exception as e:
         logger.error(f"Failed to resume session {session_id}: {e}", exc_info=True)
         raise HTTPException(

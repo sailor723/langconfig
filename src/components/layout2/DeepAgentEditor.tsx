@@ -244,7 +244,9 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const HitlSection = () => {
     const mw = (liveConfig.config?.middleware as any[] | undefined) ?? [];
     const hitl = mw.find(m => m && (m.type === 'hitl' || m.type === 'human_in_the_loop'));
-    const interruptOn = (hitl?.interrupt_on ?? {}) as Record<string, any>;
+    const interruptOn = (
+      (hitl?.config?.interrupt_on ?? hitl?.interrupt_on) ?? {}
+    ) as Record<string, any>;
     const write = (next: Record<string, any>) => {
       patchJson(p => {
         if (!Array.isArray(p.config.middleware)) p.config.middleware = [];
@@ -255,8 +257,11 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
           rest.push({
             type: 'hitl',
             enabled: true,
-            interrupt_on: next,
-            description_prefix: hitl?.description_prefix || 'Tool execution pending approval',
+            config: {
+              interrupt_on: next,
+              description_prefix:
+                hitl?.config?.description_prefix || 'Tool execution pending approval',
+            },
           });
         }
         p.config.middleware = rest;

@@ -23,16 +23,18 @@ from services.agent_utils import DEFAULT_MAX_TOKENS, DEFAULT_MODEL, DEFAULT_TEMP
 
 from .shared import logger
 
-#: Tools that change something outside the conversation. The HITL toggle in the
-#: chat UI (and a bare `middleware: [{type: "hitl"}]`) gates exactly these; an
-#: explicit `interrupt_on` / `guardrails.interrupts` overrides the list.
+#: Default policy for a bare `middleware: [{type: "hitl"}]` entry — the tools a
+#: reviewer should ALWAYS see, because they cannot be undone from the transcript.
+#:
+#: `write_file` is deliberately absent. A deep agent writes scratch files through
+#: the same tool as its deliverables, so gating it turns one request into a queue
+#: of approvals over its own bookkeeping. Reviewing file writes is a choice, made
+#: per agent in the Middleware tab (`interrupt_on`); an explicit policy always
+#: overrides this list.
 DEFAULT_HITL_POLICY = {
-    "write_file": True,
-    "edit_file": True,
     "delete": True,
+    "delete_file": True,
     "bash": True,
-    "python_execute": True,
-    "sqlite_execute": True,
     "pg_execute": True,
 }
 
@@ -173,13 +175,22 @@ class _AgentAssemblyMixin:
             if (isinstance(_m, dict)
                     and _m.get("type") in ("hitl", "human_in_the_loop")
                     and _m.get("enabled", True)):
-                _hitl_policy = _m.get("interrupt_on") or DEFAULT_HITL_POLICY
+                _hitl_policy = (
+                    _m.get("interrupt_on")
+                    or (_m.get("config") or {}).get("interrupt_on")
+                    or DEFAULT_HITL_POLICY
+                )
                 break
         if not _hitl_policy:
             _legacy = (agent_config.get("guardrails") or {}).get("interrupts")
             if _legacy:
                 _hitl_policy = _legacy
-                logger.info("HITL policy from legacy guardrails.interrupts")
+                logger.warning(
+                    "HITL policy read from guardrails.interrupts — deprecated. "
+                    "LangChain configures review with middleware "
+                    "[{type: 'hitl', config: {interrupt_on: ...}}]; the Middleware "
+                    "tab writes that, and this fallback will be removed."
+                )
         if _hitl_policy:
             _mw = [m for m in (agent_config.get("middleware") or [])
                    if not (isinstance(m, dict)

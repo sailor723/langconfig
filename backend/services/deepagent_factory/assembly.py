@@ -795,8 +795,25 @@ class _DeepAgentAssemblyMixin:
 
             # Try to pass guardrails if supported
             try:
-                # Map guardrails.interrupts to interrupt_on for HITL support
-                raw_interrupts = guardrails_config.get("interrupts") or None
+                # HITL policy — documented home first, legacy second:
+                #   middleware: [{"type": "hitl", "config": {"interrupt_on": {...}}}]
+                #   guardrails.interrupts  (older deep-agent spelling)
+                _mw_hitl = None
+                for _m in (config.middleware or []):
+                    if getattr(_m, "type", None) in ("hitl", "human_in_the_loop") \
+                            and getattr(_m, "enabled", True):
+                        _mw_hitl = (getattr(_m, "config", None) or {}).get("interrupt_on")
+                        if _mw_hitl:
+                            logger.info(
+                                f"  HITL policy from middleware ({len(_mw_hitl)} tools): {sorted(_mw_hitl)}"
+                            )
+                        break
+                if not _mw_hitl and guardrails_config.get("interrupts"):
+                    logger.warning(
+                        "HITL policy read from guardrails.interrupts — deprecated; "
+                        "move it into middleware [{type: 'hitl', config: {interrupt_on: ...}}]"
+                    )
+                raw_interrupts = _mw_hitl or guardrails_config.get("interrupts") or None
                 interrupt_on = None
                 if raw_interrupts:
                     # Convert bool values to proper InterruptOnConfig dicts

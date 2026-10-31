@@ -1163,10 +1163,20 @@ def create_middleware_from_config(middleware_config: Dict[str, Any]) -> AgentMid
         # LangChain's signature is (interrupt_on, *, description_prefix=...);
         # passing `description=` raised TypeError, which middleware setup
         # swallowed — so a configured HITL gate silently did nothing.
+        # The policy can arrive in two shapes: a raw config dict from the
+        # editor (`{"interrupt_on": ...}`) or a pydantic MiddlewareConfig that
+        # only keeps `config` (`{"config": {"interrupt_on": ...}}`).
+        _cfg = middleware_config.get("config") or {}
         return HumanInTheLoopMiddleware(
-            interrupt_on=middleware_config.get("interrupt_on") or {},
-            description_prefix=middleware_config.get(
-                "description_prefix", "Tool execution pending approval"
+            interrupt_on=(
+                middleware_config.get("interrupt_on")
+                or _cfg.get("interrupt_on")
+                or {}
+            ),
+            description_prefix=(
+                middleware_config.get("description_prefix")
+                or _cfg.get("description_prefix")
+                or "Tool execution pending approval"
             ),
         )
 
