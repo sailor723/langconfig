@@ -113,7 +113,7 @@ export interface DeepAgent {
 }
 
 export interface ChatStreamEvent {
-  type: 'chunk' | 'complete' | 'error' | 'thinking' | 'tool_start' | 'tool_end' | 'tool_artifact' | 'custom_event' | 'interrupt';
+  type: 'chunk' | 'complete' | 'error' | 'thinking' | 'tool_start' | 'tool_end' | 'tool_artifact' | 'custom_event' | 'interrupt' | 'handoff';
   content?: string;
   message?: string;
   tool_name?: string;

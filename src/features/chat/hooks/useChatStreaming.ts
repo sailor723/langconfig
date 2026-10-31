@@ -16,6 +16,9 @@ interface UseChatStreamingResult {
     onMessageUpdate: (content: string) => void,
     onComplete: () => void,
     onToolEvent?: (event: ChatStreamEvent) => void,
+    /** A handoff moved the conversation to another step: the next text is not
+     *  the same speaker as the previous one. */
+    onHandoff?: (event: ChatStreamEvent) => void,
     onCustomEvent?: (event: ChatStreamEvent) => void,
     onInterrupt?: (event: ChatStreamEvent) => void,
     /** Called with thinking content (pre-tool-call text) during streaming */
@@ -60,6 +63,7 @@ export function useChatStreaming(
       onMessageUpdate: (content: string) => void,
       onComplete: () => void,
       onToolEvent?: (event: ChatStreamEvent) => void,
+      onHandoff?: (event: ChatStreamEvent) => void,
       onCustomEvent?: (event: ChatStreamEvent) => void,
       onInterrupt?: (event: ChatStreamEvent) => void,
       onThinkingUpdate?: (content: string) => void,
@@ -208,6 +212,8 @@ export function useChatStreaming(
             if (onToolEvent) {
               onToolEvent(data);
             }
+          } else if (data.type === 'handoff') {
+            onHandoff?.(data as any);
           } else if (data.type === 'custom_event') {
             // Pass custom events to callback (LangGraph-style progress, status, etc.)
             if (onCustomEvent) {

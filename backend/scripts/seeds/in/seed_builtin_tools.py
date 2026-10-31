@@ -67,6 +67,7 @@ SEEDABLE_TOOL_META = {
     "bash": ("Bash Shell", "shell", None),
     "reasoning_chain": ("Reasoning Chain", "reasoning", None),
     "task": ("Task (Subagent)", "delegation", None),
+    "handoff": ("Handoff (multi-step)", "delegation", None),
     "save_analysis_result": ("Save Analysis Result", "data_analysis", None),
     "gen_pptx": ("Generate PPTX", "presentation", None),
     "gen_html_deck": ("Generate HTML Deck", "presentation", None),

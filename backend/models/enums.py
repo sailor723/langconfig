@@ -28,6 +28,7 @@ class MiddlewareType(str, Enum):
     HITL = "hitl"               # Human-in-the-Loop middleware (pauses before tool calls)
     SUMMARIZATION = "summarization"  # Auto-summarization middleware
     TOOL_RETRY = "tool_retry"   # Tool retry middleware
+    HANDOFF = "handoff"         # Step handoff middleware (prompt/tools per step)
 
 
 class BackendType(str, Enum):

@@ -267,6 +267,19 @@ export function useChatController(options: UseChatControllerOptions = {}) {
         setCustomEvents(new Map());
       },
       (event: ChatStreamEvent) => {
+        // A handoff moves the speaker, so the transcript records it: without a
+        // marker the same bubble reads as one agent that both offers to
+        // transfer and answers as the expert.
+        if ((event as any).type === 'handoff') {
+          const to = (event as any).to || '另一个步骤';
+          const reason = (event as any).reason;
+          addMessage({
+            role: 'system',
+            content: reason ? `已转交给「${to}」· 原因：${reason}` : `已转交给「${to}」`,
+            timestamp: new Date().toISOString(),
+          } as any);
+          return;
+        }
         // Tool events
         if (event.type === 'tool_start' && event.tool_name) {
           const skill_name = event.skill_name || null;
@@ -296,6 +309,7 @@ export function useChatController(options: UseChatControllerOptions = {}) {
           tracesRef.current = [...tracesRef.current, { type: 'tool_end', tool_name: event.tool_name, data: event.data }];
         }
       },
+      undefined, // onHandoff — handled inline in the tool-event callback above
       (event: ChatStreamEvent) => {
         // Custom events (LangGraph-style progress, status, etc.)
         if (event.type === 'custom_event' && event.data) {

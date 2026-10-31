@@ -804,6 +804,118 @@ except ImportError:  # pragma: no cover — older langchain, keep the name bound
 
 
 # =============================================================================
+# Handoff Middleware
+# =============================================================================
+
+class HandoffMiddleware(AgentMiddleware):
+    """Switch prompt and tools when a handoff tool moves the conversation.
+
+    LangChain's handoff pattern (docs: multi-agent/handoffs) is a tool that
+    returns a ``Command`` updating a state field, plus middleware that reads that
+    field and reconfigures the agent. This is the reading half:
+
+        {"type": "handoff", "config": {
+            "state_field": "handoff_to",          # optional, this is the default
+            "default_step": "triage",             # step before any handoff
+            "steps": {
+                "sales":   {"system_prompt": "...", "tools": ["web_search"]},
+                "support": {"system_prompt": "...", "tools": ["python_execute"]},
+            }}}
+
+    Each step may narrow the tool set; a tool named in a step but not loaded on
+    the agent is ignored with a warning rather than silently dropped.
+    """
+
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
+        super().__init__()
+        config = config or {}
+        self.state_field = config.get("state_field") or "handoff_to"
+        self.default_step = config.get("default_step")
+        self.steps: Dict[str, Dict[str, Any]] = config.get("steps") or {}
+
+    def _step_config(self, state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        current = (state or {}).get(self.state_field) or self.default_step
+        if not current:
+            return None
+        step = self.steps.get(str(current))
+        if step is None:
+            logger.warning(
+                "handoff: state says '%s' but no such step is configured (%s)",
+                current, sorted(self.steps),
+            )
+        return step
+
+    # The chat path invokes agents asynchronously, and an async run only uses the
+    # `a*` hooks — a middleware that implements just the synchronous ones is
+    # silently skipped (the base class says so if you call it). So both are
+    # implemented, sharing one decision helper.
+    def _handoff_update(self, request, result):
+        tool_call = getattr(request, "tool_call", None) or {}
+        target = (tool_call.get("args") or {}).get("to")
+        if not target:
+            return None
+
+        from langgraph.types import Command
+        from langchain_core.messages import ToolMessage
+
+        content = getattr(result, "content", result)
+        return Command(
+            update={
+                "handoff_to": str(target),
+                "messages": [ToolMessage(content=str(content), tool_call_id=tool_call.get("id"))],
+            }
+        )
+
+    def wrap_tool_call(self, request, handler):
+        """Turn a `handoff` tool call into the state change it stands for.
+
+        The tool itself only acknowledges; the middleware has the real
+        `tool_call_id`, which is what the ToolMessage must carry — building that
+        message inside the tool produced a mismatched id and LangGraph refused
+        the update:
+          "Expected to have a matching ToolMessage in Command.update".
+        """
+        tool_call = getattr(request, "tool_call", None) or {}
+        if tool_call.get("name") != "handoff":
+            return handler(request)
+        update = self._handoff_update(request, handler(request))
+        return update or handler(request)
+
+    async def awrap_tool_call(self, request, handler):
+        tool_call = getattr(request, "tool_call", None) or {}
+        if tool_call.get("name") != "handoff":
+            return await handler(request)
+        result = await handler(request)
+        return self._handoff_update(request, result) or result
+
+    def _step_overrides(self, request):
+        step = self._step_config(getattr(request, "state", {}) or {})
+        if not step:
+            return None
+        overrides: Dict[str, Any] = {}
+        if step.get("system_prompt"):
+            from langchain_core.messages import SystemMessage
+
+            overrides["system_message"] = SystemMessage(content=step["system_prompt"])
+        if step.get("tools"):
+            wanted = set(step["tools"])
+            available = {getattr(t, "name", ""): t for t in (request.tools or [])}
+            missing = wanted - set(available)
+            if missing:
+                logger.warning("handoff step wants tools that are not loaded: %s", sorted(missing))
+            overrides["tools"] = [t for name, t in available.items() if name in wanted]
+        return overrides or None
+
+    def wrap_model_call(self, request, handler):
+        overrides = self._step_overrides(request)
+        return handler(request.override(**overrides)) if overrides else handler(request)
+
+    async def awrap_model_call(self, request, handler):
+        overrides = self._step_overrides(request)
+        return await (handler(request.override(**overrides)) if overrides else handler(request))
+
+
+# =============================================================================
 # Tool Retry Middleware
 # =============================================================================
 
@@ -1188,6 +1300,9 @@ def create_middleware_from_config(middleware_config: Dict[str, Any]) -> AgentMid
                 or "Tool execution pending approval"
             ),
         )
+
+    elif middleware_type in ("handoff", "handoffs"):
+        return HandoffMiddleware(middleware_config.get("config") or middleware_config)
 
     elif middleware_type == "tool_retry":
         return ToolRetryMiddleware(

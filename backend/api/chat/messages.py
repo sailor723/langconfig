@@ -1275,6 +1275,13 @@ async def send_message_stream(
                             safe_data = make_json_safe(tool_data)
                             yield f"data: {json.dumps({'type': 'tool_start', 'tool_name': tool_name, 'skill_name': skill_name, 'data': safe_data})}\n\n"
 
+                            # A handoff moves the *speaker*: from here on the answer
+                            # comes from another step, and the transcript has to say
+                            # so — otherwise one reply reads as if a single agent
+                            # both offered to transfer and answered as the expert.
+                            if tool_name == "handoff" and isinstance(tool_input, dict):
+                                yield f"data: {json.dumps({'type': 'handoff', 'to': tool_input.get('to'), 'reason': tool_input.get('reason') or ''})}\n\n"
+
                         elif kind == "on_tool_end":
                             tool_data = event.get("data", {})
                             tool_name = event.get("name", "unknown")

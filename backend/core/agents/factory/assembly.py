@@ -604,6 +604,58 @@ class _AgentAssemblyMixin:
             else:
                 logger.debug("No middleware configured for this agent")
 
+            # Handoff: the model can only hand off to a step it can name, so the
+            # tool description carries the step list (same trick as `task` for
+            # subagents). Without it the model invents a name and the handoff
+            # silently does nothing but add a message.
+            for _m in (agent_config.get("middleware") or []):
+                if not (isinstance(_m, dict)
+                        and _m.get("type") in ("handoff", "handoffs")
+                        and _m.get("enabled", True)):
+                    continue
+                _steps = (_m.get("config") or {}).get("steps") or {}
+                if not _steps:
+                    break
+                _tool = next((t for t in tools if getattr(t, "name", "") == "handoff"), None)
+                if _tool is None:
+                    logger.warning("handoff middleware configured but no `handoff` tool is selected")
+                    break
+                listing = "\n".join(
+                    f"- {name}: {cfg.get('description') or cfg.get('system_prompt', '')[:80]}"
+                    for name, cfg in _steps.items()
+                )
+                _tool.description = (
+                    "用我：把对话本身交给另一个步骤/专家，之后由那个角色继续回答。\n"
+                    f"可转交的步骤：\n{listing}\n"
+                    "别用我：只是想让人去查一件事再回来，那用 task（subagent）。"
+                )
+                logger.info("handoff tool description lists %d step(s): %s", len(_steps), list(_steps))
+                break
+
+            # Custom state fields (LangChain handoffs need one: the tool writes
+            # `handoff_to`, the middleware reads it). JSON in, class out.
+            try:
+                from core.agents.state_schema import build_state_schema, HANDOFF_FIELD
+
+                _handoff_mw = [
+                    m for m in (agent_config.get("middleware") or [])
+                    if isinstance(m, dict)
+                    and m.get("type") in ("handoff", "handoffs")
+                    and m.get("enabled", True)
+                ]
+                _schema = build_state_schema(
+                    agent_config.get("state_schema"),
+                    extra={HANDOFF_FIELD: "str"} if _handoff_mw else None,
+                )
+                if _schema is not None:
+                    create_agent_kwargs["state_schema"] = _schema
+                    logger.info(
+                        "✓ Custom state schema: %s",
+                        sorted(getattr(_schema, "__annotations__", {})),
+                    )
+            except Exception as e:
+                logger.warning(f"Custom state schema failed (non-fatal): {e}")
+
             # Add context_schema if provided (v1.0 pattern)
             # Allows agents to use custom runtime context types
             context_schema = agent_config.get("context_schema")
