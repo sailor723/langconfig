@@ -560,6 +560,15 @@ class _DeepAgentAssemblyMixin:
             prompt_parts.append(config.custom_suffix)
         final_system_prompt = "\n\n".join(prompt_parts)
 
+        # Process feedback: speak one line before the first tool call. Regular
+        # agents get this through DEFAULT_AGENT_GUARDRAILS; deep agents build
+        # their own prompt and would otherwise go straight into ls / web_search
+        # and leave the user staring at an empty thread (measured on the market
+        # research agent: six tool calls, zero text for 16s).
+        from core.agents.factory.shared import PROCESS_FEEDBACK_RULE
+
+        final_system_prompt += "\n\n" + PROCESS_FEEDBACK_RULE
+
         # Web-research efficiency hints (same as regular agents): without
         # these, research questions loop through dozens of one-at-a-time
         # web_search calls with rate-limit retries.

@@ -24,6 +24,17 @@ logger = logging.getLogger("core.agents.factory")
 # This can be customized per-agent via the "reasoning_framework" config field.
 # =============================================================================
 
+PROCESS_FEEDBACK_RULE = """## SAY WHAT YOU ARE DOING — BEFORE THE TOOLS RUN
+- Your FIRST output on any turn that will use a tool is ONE short sentence (<= 20 words) saying what you
+  are about to do, in the user's language: "我先查一下最新行情。" / "Let me pull the latest filings."
+- Emit that sentence BEFORE calling the first tool. The user is watching an empty thread until you
+  speak; a tool call produces no visible text, so silence there reads as a hung chat.
+- One line at the start is enough. Do not narrate every call, and do not stop to ask permission when the
+  request is already clear.
+- If the work changes direction (a search failed, the question turns out to be different), one more
+  short line is fine. Then finish and answer.
+"""
+
 DEFAULT_AGENT_GUARDRAILS = """
 # AGENT EXECUTION GUARDRAILS
 
@@ -34,7 +45,8 @@ DEFAULT_AGENT_GUARDRAILS = """
 - **When you have relevant information, STOP and provide your answer**
 - **Do NOT repeat the same tool call** - if it succeeded, use the results and move on
 
-## TOOL USAGE RULES
+
+""" + PROCESS_FEEDBACK_RULE + """## TOOL USAGE RULES
 - **ALWAYS verify you have ALL required parameters** before calling a tool
 - **For write_file**: You MUST provide both `file_path` AND `content` parameters
   - Do NOT call write_file with only file_path
