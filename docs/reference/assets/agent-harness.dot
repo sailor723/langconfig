@@ -1,0 +1,43 @@
+digraph harness {
+  rankdir=LR;
+  bgcolor="#1A1334";
+  pad=0.5;
+  nodesep=0.45;
+  ranksep=1.25;
+  fontname="Menlo";
+  newrank=true;
+
+  node [shape=box, style="rounded,filled", penwidth=2.0, fontname="Menlo", fontsize=14,
+        margin="0.16,0.10", fillcolor="#251A49", color="#C7AEFF", fontcolor="#E5DBFF"];
+  edge [color="#9B7BDB", penwidth=1.8, style=dashed, dir=none, arrowsize=0.6];
+
+  model [label=<<B><FONT POINT-SIZE="20">model</FONT></B><BR/><FONT POINT-SIZE="10" COLOR="#62B7FF">the core loop</FONT>>,
+         fillcolor="#201940", color="#62B7FF", penwidth=3.0, margin="0.30,0.22"];
+
+  subgraph cluster_in {
+    style="invis";
+    system [label=<<B>system prompt</B><BR/><FONT POINT-SIZE="9.5" COLOR="#9B7BDB">role · output contract</FONT>>];
+    skills [label=<<B>skills</B><BR/><FONT POINT-SIZE="9.5" COLOR="#9B7BDB">knowledge on demand</FONT>>];
+    memory [label=<<B>memory</B><BR/><FONT POINT-SIZE="9.5" COLOR="#9B7BDB">instructions at startup</FONT>>];
+  }
+
+  subgraph cluster_out {
+    style="invis";
+    context   [label=<<B>context</B><BR/><FONT POINT-SIZE="9.5" COLOR="#9B7BDB">summarise before overflow</FONT>>];
+    tools     [label=<<B>tools</B><BR/><FONT POINT-SIZE="9.5" COLOR="#9B7BDB">act on the world</FONT>>, color="#62B7FF"];
+    subagents [label=<<B>subagents</B><BR/><FONT POINT-SIZE="9.5" COLOR="#9B7BDB">isolated context</FONT>>];
+  }
+
+  { rank=same; system; skills; memory; }
+  { rank=same; context; tools; subagents; }
+
+  system -> model;
+  skills -> model;
+  memory -> model;
+  model -> context;
+  model -> tools;
+  model -> subagents;
+
+  labelloc="t";
+  label=<<B><FONT POINT-SIZE="18" COLOR="#E5DBFF">agent = model + harness</FONT></B><BR/><FONT POINT-SIZE="10.5" COLOR="#9B7BDB">one concern per middleware — each hooks the loop at its own moment</FONT>>;
+}

@@ -1,0 +1,174 @@
+#!/usr/bin/env python
+"""Render the training run book to one self-contained HTML file.
+
+Why HTML on top of the markdown:
+
+* **Classroom projection.** A single file, no network, no markdown previewer, no
+  font surprises — double-click and it fills a projector.
+* **Print to PDF from the same source.** The stylesheet has a print block, so
+  `Cmd-P → Save as PDF` from the browser gives the handout, with diagrams vector-
+  sharp because the SVGs are inlined, not rasterised.
+* **Nothing to keep in sync.** This reads `docs/reference/agent-training-runbook.md`
+  and inlines the diagrams from `docs/reference/assets/`. Edit the markdown, re-run,
+  done — there is no second copy of the text.
+
+Usage::
+
+    cd <repo>
+    backend/.venv/bin/python scripts/build_training_html.py
+    # → docs/reference/agent-training-runbook.html
+
+Hints for a live session:
+
+* the tables of contents on the right links to every step;
+* each step's heading carries its number, so you can call out "第 1.2 步" and
+  everyone lands in the same place;
+* the 「应该看到」 blocks are styled so a wrong result is obvious on screen.
+"""
+from __future__ import annotations
+
+import html
+import re
+import sys
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[1]
+SRC = REPO / "docs" / "reference" / "agent-training-runbook.md"
+ASSETS = REPO / "docs" / "reference" / "assets"
+OUT = REPO / "docs" / "reference" / "agent-training-runbook.html"
+
+CSS = """
+:root { --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --accent:#4f46e5; --bg:#ffffff; --soft:#f8fafc; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font: 16px/1.75 -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; }
+.layout { display:grid; grid-template-columns: 1fr 300px; gap:48px; max-width:1180px; margin:0 auto; padding:56px 32px 120px; }
+article { min-width:0; }
+h1 { font-size:32px; line-height:1.3; margin:0 0 8px; letter-spacing:-.2px; }
+h1 + blockquote { margin-top:20px; }
+h2 { font-size:23px; margin:52px 0 14px; padding-top:18px; border-top:1px solid var(--line); }
+h3 { font-size:18px; margin:32px 0 10px; }
+h4 { font-size:16px; margin:24px 0 8px; color:#334155; }
+p, li { color:#1e293b; }
+a { color:var(--accent); text-decoration:none; }
+a:hover { text-decoration:underline; }
+blockquote { margin:18px 0; padding:14px 18px; background:var(--soft);
+             border-left:3px solid var(--accent); border-radius:0 6px 6px 0; color:#334155; }
+blockquote p { margin:6px 0; }
+code { font: 13.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+       background:#f1f5f9; padding:2px 5px; border-radius:4px; color:#0f172a; }
+pre { margin:16px 0; padding:14px 16px; background:#0f172a; border-radius:8px; overflow:auto; }
+pre code { background:none; color:#e2e8f0; padding:0; font-size:13px; line-height:1.6; }
+table { width:100%; border-collapse:collapse; margin:16px 0; font-size:14px; }
+th, td { padding:8px 10px; border:1px solid var(--line); text-align:left; vertical-align:top; }
+th { background:var(--soft); font-weight:600; }
+hr { border:0; border-top:1px solid var(--line); margin:40px 0; }
+img { max-width:100%; height:auto; display:block; margin:20px 0; }
+figure { margin:24px 0; }
+figcaption { font-size:13px; color:var(--muted); margin-top:8px; }
+nav { position:sticky; top:40px; align-self:start; font-size:13px; max-height:calc(100vh - 80px); overflow:auto; }
+nav .title { font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-size:11px; margin-bottom:10px; }
+nav a { display:block; padding:3px 0; color:#475569; }
+nav a.h3 { padding-left:14px; color:#64748b; font-size:12.5px; }
+nav a:hover { color:var(--accent); }
+.badge { display:inline-block; font-size:11.5px; padding:2px 8px; border-radius:999px;
+         background:#eef2ff; color:#4338ca; margin-left:6px; vertical-align:middle; }
+@media print {
+  .layout { display:block; max-width:none; padding:0; }
+  nav { display:none; }
+  h2 { break-after:avoid; page-break-after:avoid; }
+  table, pre, blockquote, figure { break-inside:avoid; page-break-inside:avoid; }
+  pre { background:#f8fafc; border:1px solid var(--line); }
+  pre code { color:#0f172a; }
+  a { color:inherit; }
+}
+"""
+
+
+def inline_svgs(md: str) -> str:
+    """Replace `![alt](assets/x.svg)` with the SVG's own markup.
+
+    Inlined rather than linked so the file is genuinely one file: no missing-image
+    boxes when it is mailed, projected from another machine, or printed.
+    """
+    def repl(m: re.Match) -> str:
+        alt, rel = m.group(1), m.group(2)
+        path = (REPO / "docs" / "reference" / rel).resolve()
+        if not path.exists():
+            return m.group(0)
+        svg = path.read_text(encoding="utf-8")
+        svg = re.sub(r"<\?xml[^>]*\?>", "", svg).strip()
+        return f'<figure>{svg}<figcaption>{html.escape(alt)}</figcaption></figure>'
+
+    return re.sub(r"!\[([^\]]*)\]\((assets/[^)]+)\)", repl, md)
+
+
+def add_heading_ids(rendered_html: str) -> str:
+    """Give every h2/h3 an id so the sidebar can link to a step.
+
+    markdown-it does not emit ids (no slug plugin installed), and a 600-line run book
+    is unusable in a session without a jump list. Slugs are derived from the heading
+    text with a counter, because step titles repeat ("练习" appears many times).
+    """
+    seen: dict[str, int] = {}
+
+    def repl(m: re.Match) -> str:
+        level, text = m.group(1), m.group(2)
+        plain = re.sub(r"<[^>]+>", "", text).strip()
+        slug = re.sub(r"[^0-9A-Za-z\u4e00-\u9fff]+", "-", plain).strip("-").lower() or "s"
+        if slug in seen:
+            seen[slug] += 1
+            slug = f"{slug}-{seen[slug]}"
+        else:
+            seen[slug] = 0
+        return f'<h{level} id="{slug}">{text}</h{level}>'
+
+    return re.sub(r"<h([23])>(.*?)</h\1>", repl, rendered_html, flags=re.S)
+
+
+def build_toc(rendered_html: str) -> str:
+    items = []
+    for level, anchor, text in re.findall(
+        r'<h([23])[^>]*id="([^"]*)"[^>]*>(.*?)</h\1>', rendered_html, re.S
+    ):
+        label = re.sub(r"<[^>]+>", "", text).strip()
+        cls = "h3" if level == "3" else ""
+        items.append(f'<a class="{cls}" href="#{anchor}">{html.escape(label)}</a>')
+    return '<nav><div class="title">Steps</div>' + "".join(items) + "</nav>"
+
+
+def main() -> int:
+    if not SRC.exists():
+        sys.exit(f"not found: {SRC}")
+    try:
+        from markdown_it import MarkdownIt
+    except ImportError:
+        sys.exit("markdown-it-py missing: backend/.venv/bin/pip install markdown-it-py")
+
+    md_text = inline_svgs(SRC.read_text(encoding="utf-8"))
+    md = MarkdownIt("commonmark", {"html": True, "linkify": False}).enable("table")
+    body = add_heading_ids(md.render(md_text))
+
+    title = re.search(r"<h1[^>]*>(.*?)</h1>", body, re.S)
+    title_text = re.sub(r"<[^>]+>", "", title.group(1)).strip() if title else SRC.stem
+
+    doc = f"""<!doctype html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{html.escape(title_text)}</title>
+<style>{CSS}</style>
+</head><body>
+<div class="layout">
+<article>{body}</article>
+{build_toc(body)}
+</div>
+</body></html>
+"""
+    OUT.write_text(doc, encoding="utf-8")
+    print(f"wrote {OUT.relative_to(REPO)}  ({len(doc)/1024:.1f} KB, diagrams inlined)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -154,6 +154,18 @@ docs/*
 docs/reference/*
 !docs/reference/GOOGLE_OAUTH_SETUP.md
 !docs/reference/agent-practice.md
+!docs/reference/agent-training-runbook.md
+# diagrams for the run book (sources are .dot, rendered to .svg)
+!docs/reference/assets/
+docs/reference/assets/*
+!docs/reference/assets/agent-loop.dot
+!docs/reference/assets/agent-loop.svg
+!docs/reference/assets/agent-loop.png
+!docs/reference/assets/agent-loop.pdf
+!docs/reference/assets/agent-harness.dot
+!docs/reference/assets/agent-harness.svg
+!docs/reference/assets/agent-harness.png
+!docs/reference/assets/agent-harness.pdf
 !docs/reference/agents-audit.md
 !docs/reference/data-taxonomy.md
 !docs/reference/deepagent-vs-dsh.md
