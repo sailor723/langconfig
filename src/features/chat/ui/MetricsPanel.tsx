@@ -33,6 +33,14 @@ export default function MetricsPanel({
 }: MetricsPanelProps) {
   const [toolCallsExpanded, setToolCallsExpanded] = useState(false);
   const [subagentsExpanded, setSubagentsExpanded] = useState(false);
+
+  // A `task` call *is* a delegation and already appears in Subagent Activity
+  // with the subagent's name; listing it again under Tool Calls made one
+  // delegation look like two events.
+  const direct_calls = toolCalls.filter(c => c.tool_name !== 'task');
+  const activeDirect_calls = activeToolCalls.filter(
+    c => c.status === 'running' && c.tool_name !== 'task',
+  );
   const { t } = useTranslation('chat');
 
   return (
@@ -130,7 +138,7 @@ export default function MetricsPanel({
       </div>
 
       {/* Tool Calls - show both active (streaming) and completed (from API) */}
-      {(activeToolCalls.length > 0 || toolCalls.length > 0) && (
+      {(activeDirect_calls.length > 0 || direct_calls.length > 0) && (
         <div
           className="border-t"
           style={{ borderColor: 'var(--color-border-dark)' }}
@@ -145,7 +153,7 @@ export default function MetricsPanel({
                 className="text-xs font-semibold uppercase tracking-wide"
                 style={{ color: 'var(--color-text-primary)' }}
               >
-                Tool Calls ({toolCalls.length + activeToolCalls.filter(t => t.status === 'running').length})
+                Tool Calls ({direct_calls.length + activeDirect_calls.length})
               </h3>
             </div>
             {toolCallsExpanded ? (
@@ -158,7 +166,7 @@ export default function MetricsPanel({
           {toolCallsExpanded && (
             <div className="px-3 pb-3 space-y-1.5">
               {/* Active (streaming) tool calls first */}
-              {activeToolCalls.filter(t => t.status === 'running').slice(-5).reverse().map((call, index) => (
+              {activeDirect_calls.slice(-5).reverse().map((call, index) => (
                 <div
                   key={`active-${index}`}
                   className="p-2 rounded border border-blue-300"
@@ -192,7 +200,7 @@ export default function MetricsPanel({
                 </div>
               ))}
               {/* Completed tool calls from API */}
-              {toolCalls.slice(-10).reverse().map((call, index) => (
+              {direct_calls.slice(-10).reverse().map((call, index) => (
                 <div
                   key={index}
                   className="p-2 rounded border"
