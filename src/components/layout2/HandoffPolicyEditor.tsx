@@ -82,6 +82,30 @@ export default function HandoffPolicyEditor({ value, onChange, candidateTools, t
     });
   };
 
+  const renameStep = (from: string, raw: string) => {
+    const to = raw.trim();
+    if (!to || to === from) return;
+    // The key becomes the tool suffix (`transfer_to_<key>`), and tool names are
+    // restricted to [A-Za-z0-9_-] by the model APIs — a Chinese key would make
+    // the generated tool unloadable. The Chinese name belongs in `label`.
+    if (!/^[A-Za-z0-9_-]{1,40}$/.test(to)) return;
+    if (steps[to]) return;
+    const next: Record<string, HandoffStep> = {};
+    for (const key of stepNames) {
+      const step = steps[key];
+      const renamed = key === from ? to : key;
+      next[renamed] = {
+        ...step,
+        transfers: (step.transfers ?? []).map(e => (e.to === from ? { ...e, to } : e)),
+      };
+    }
+    commit({
+      ...draft,
+      steps: next,
+      default_step: draft.default_step === from ? to : draft.default_step,
+    });
+  };
+
   const removeStep = (name: string) => {
     const next: Record<string, HandoffStep> = {};
     for (const key of stepNames) {
@@ -148,6 +172,9 @@ export default function HandoffPolicyEditor({ value, onChange, candidateTools, t
       </div>
 
       <div style={{ fontSize: 10, color: t.textMuted, marginTop: 4, lineHeight: '15px' }}>
+        左边写显示名（中文即可），等宽那格是<b>键名</b> —— 工具名会叫
+        <code> transfer_to_&lt;键名&gt;</code>，模型接口只接受英文/数字/下划线。
+        <br />
         一条转交关系生成一个工具 <code>transfer_to_&lt;目标&gt;</code>（只有 reason 参数）。
         模型调用后 agent 换成目标角色的提示词与工具继续回答；一个角色可以转给多个目标。
       </div>
@@ -171,7 +198,18 @@ export default function HandoffPolicyEditor({ value, onChange, candidateTools, t
                     placeholder={name}
                     style={{ ...box(t), flex: 1, fontWeight: 600 }}
                   />
-                  <span style={{ fontFamily: 'monospace', fontSize: 10, color: t.textMuted }}>{name}</span>
+                  <input
+                    defaultValue={name}
+                    key={`key-${name}`}
+                    onBlur={e => {
+                      if (e.target.value.trim() !== name) renameStep(name, e.target.value);
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                    }}
+                    title="键名（工具名会是 transfer_to_<键名>，只能用英文/数字/下划线）；中文名写到左边的显示名"
+                    style={{ ...box(t), width: 110, fontFamily: 'monospace', fontSize: 10 }}
+                  />
                   {draft.default_step === name && <span style={{ fontSize: 10, color: t.accent }}>起始</span>}
                   <button type="button" onClick={() => removeStep(name)} style={smallBtn(t)}>删除</button>
                 </div>
