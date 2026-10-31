@@ -188,7 +188,8 @@ async def list_dashboards():
 
 # ── Dashboard auto-generation helper ─────────────────────────────
 
-async def _auto_generate_dashboard(db_path: str, skill_path: Optional[str] = None) -> Optional[str]:
+async def _auto_generate_dashboard(db_path: str, skill_path: Optional[str] = None,
+                                  out_dir: Optional[Path] = None) -> Optional[str]:
     """Run the analysis agent to generate an interactive HTML dashboard, return file URL."""
     import asyncio
     import re
@@ -217,9 +218,16 @@ async def _auto_generate_dashboard(db_path: str, skill_path: Optional[str] = Non
             except Exception as e:
                 logger.warning(f"Skill parse failed: {e}")
 
+        # Where the HTML must land: the agent's workspace when we know it, so the
+        # dashboard sits beside its database instead of in a shared folder.
+        target_dir = Path(out_dir) if out_dir else ANALYSIS_DBS_DIR
+        target_dir.mkdir(parents=True, exist_ok=True)
+        _dash_name = Path(db_path).stem + '_dashboard.html'
+
         dash_msg = (
             'Generate an interactive BUSINESS dashboard using Plotly for the data at '
             f'{db_path}. Read the business context below. '
+            f'Save the HTML to exactly {target_dir / _dash_name} . '
             'MUST INCLUDE: 1) Control bar with filters for each categorical '
             'column + Reset button, 2) KPI cards for key business metrics, '
             '3) 2-3 charts that answer the key business questions from the companion skill, '
@@ -237,14 +245,21 @@ async def _auto_generate_dashboard(db_path: str, skill_path: Optional[str] = Non
             ),
             timeout=180,
         )
-        full_text = dash_result.message or ""
-        fname_match = re.search(r'analysis_dbs/([\w.-]+\.html)', full_text)
-        if fname_match:
-            dashboard_file = f"/api/files/{fname_match.group(1)}"
+        # Trust the file we asked for, not the model's prose: its reply often
+        # mentions the name with decoration ("dashboard.foo.html"), and reading a
+        # filename out of free text is how the panel ended up pointing at a file
+        # that does not exist.
+        written = target_dir / _dash_name
+        if not written.is_file():
+            candidates = sorted(
+                target_dir.glob('*dashboard*.html'),
+                key=lambda f: f.stat().st_mtime, reverse=True,
+            )
+            written = candidates[0] if candidates else None
+        if written is not None and written.is_file():
+            dashboard_file = f"/api/files/{written.name}"
         else:
-            html_files = sorted(ANALYSIS_DBS_DIR.glob("*.html"), key=lambda f: f.stat().st_mtime, reverse=True)
-            if html_files:
-                dashboard_file = f"/api/files/{html_files[0].name}"
+            logger.warning(f"dashboard generation produced no HTML in {target_dir}")
     except asyncio.TimeoutError:
         logger.warning(f"Dashboard generation timed out for {db_path}")
     except Exception as e:
@@ -347,10 +362,13 @@ async def analysis_init(request: AnalysisInitRequest, db: Session = Depends(get_
     from services.csv_to_sqlite import csv_to_sqlite_from_bytes
 
     csv_path = _resolve_csv_path(request.csv_path, request.session_id)
+    out_dir = _analysis_out_dir(request.session_id)
 
     try:
         csv_bytes = csv_path.read_bytes()
-        db_path = csv_to_sqlite_from_bytes(csv_bytes, csv_path.name, request.table_name)
+        db_path = csv_to_sqlite_from_bytes(
+            csv_bytes, csv_path.name, request.table_name, out_dir=out_dir
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to convert CSV: {e}")
 
@@ -365,8 +383,10 @@ async def analysis_init(request: AnalysisInitRequest, db: Session = Depends(get_
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read schema: {e}")
 
-    # Auto-generate dashboard
-    dashboard_file = await _auto_generate_dashboard(db_path, skill_path=request.skill_path)
+    # Auto-generate dashboard, next to the database it describes
+    dashboard_file = await _auto_generate_dashboard(
+        db_path, skill_path=request.skill_path, out_dir=out_dir
+    )
 
     return AnalysisInitResponse(
         db_path=db_path,
@@ -707,6 +727,51 @@ def _resolve_csv_path(raw: str, session_id: str | None = None) -> Path:
         status_code=404,
         detail=f"CSV not found: {raw} (also tried the session workspace and outputs/default)",
     )
+
+
+def _analysis_out_dir(session_id: str | None) -> Path:
+    """The agent workspace this analysis belongs to (or the shared dir as fallback).
+
+    Uploaded files and generated files live in the agent's own workspace — that is
+    the platform rule, and the Files panel is built on it. Analysis used to write
+    its database and dashboard into the shared `data/analysis_dbs`, so a CSV a
+    customer uploaded to one agent piled up next to everybody else's dashboards and
+    none of it appeared in Files.
+    """
+    if session_id:
+        try:
+            from db.database import SessionLocal
+            from models.deep_agent import ChatSession
+            from services.workspace_manager import get_workspace_manager
+            from api.chat.documents import _resolve_agent_workspace
+
+            with SessionLocal() as db:
+                session = db.query(ChatSession).filter(
+                    ChatSession.session_id == session_id
+                ).first()
+                if session and session.agent_id:
+                    ws = _resolve_agent_workspace(session, db, get_workspace_manager())
+                    out = ws / "generated" / "analysis"
+                    out.mkdir(parents=True, exist_ok=True)
+                    return out
+        except Exception as e:
+            logger.warning(f"Analysis workspace resolution failed, using shared dir: {e}")
+    return ANALYSIS_DBS_DIR
+
+
+def _find_dashboard(filename: str) -> Path | None:
+    """Locate a dashboard by name: agent workspaces first, then the shared dir."""
+    from services.workspace_manager import get_workspace_manager
+
+    try:
+        base = Path(get_workspace_manager().user_base())
+        for p in base.rglob(filename):
+            if p.is_file():
+                return p
+    except Exception:
+        pass
+    shared = ANALYSIS_DBS_DIR / filename
+    return shared if shared.is_file() else None
 
 
 async def _run_analysis_agent(

@@ -622,8 +622,26 @@ async def serve_output_file(filename: str):
         "Expires": "0",
     }
 
-    # 1. Analysis dashboards: data/analysis_dbs/<...>/<filename> (uses absolute repo path
-    #    because python_execute saves there).
+    # 0. Agent workspaces first: an analysis now writes its dashboard beside the
+    #    database it describes (outputs/users/<uid>/agents/<agent>/generated/…),
+    #    which is where every other deliverable lives and what the Files panel lists.
+    try:
+        from services.workspace_manager import get_workspace_manager as _get_ws
+
+        _ws_base = Path(_get_ws().user_base())
+        if _ws_base.exists():
+            for _hit in _ws_base.rglob(filename):
+                if not _hit.is_file():
+                    continue
+                if _hit.suffix == ".html":
+                    _html = _hit.read_text(encoding="utf-8")
+                    return HTMLResponse(_swap_plotly_cdn_to_local(_html), headers=no_cache_headers)
+                return FileResponse(str(_hit), headers=no_cache_headers)
+    except Exception as _e:      # never fail the static route on a workspace hiccup
+        import logging as _logging
+        _logging.getLogger(__name__).warning(f"workspace lookup for {filename} failed: {_e}")
+
+    # 1. Analysis dashboards: data/analysis_dbs/<...>/<filename> (legacy shared dir).
     analysis_dir = Path(__file__).resolve().parent.parent / "data" / "analysis_dbs"
     if analysis_dir.exists():
         analysis_match = list(analysis_dir.rglob(filename))

@@ -118,6 +118,7 @@ def csv_to_sqlite_from_bytes(
     csv_bytes: bytes,
     csv_filename: str,
     table_name: str = "data",
+    out_dir: Optional[Path] = None,
 ) -> str:
     """
     Convert CSV bytes to a SQLite database.
@@ -126,22 +127,25 @@ def csv_to_sqlite_from_bytes(
         csv_bytes: Raw CSV file content as bytes
         csv_filename: Original filename (used to generate .db name)
         table_name: Name for the SQLite table
+        out_dir: Where the database goes. Defaults to the shared
+            ``data/analysis_dbs``; callers pass the agent's workspace so an
+            analysis belongs to the agent that ran it, the way every other
+            deliverable does.
 
     Returns:
         Absolute path to the created .db file
-    """
-    ANALYSIS_DB_DIR.mkdir(parents=True, exist_ok=True)
-    db_stem = Path(csv_filename).stem
-    db_path = str(ANALYSIS_DB_DIR / f"{db_stem}.db")
 
-    # Avoid collisions
-    counter = 1
-    while Path(db_path).exists():
-        db_path = str(ANALYSIS_DB_DIR / f"{db_stem}_{counter}.db")
-        counter += 1
+    Re-running the same CSV **overwrites** its database. It used to pick
+    ``<stem>_1.db``, ``_2`` … so every retry during testing left another copy
+    behind, with no cleanup anywhere.
+    """
+    target_dir = Path(out_dir) if out_dir else ANALYSIS_DB_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+    db_stem = Path(csv_filename).stem
+    db_path = str(target_dir / f"{db_stem}.db")
 
     # Write CSV temp file
-    csv_path = str(ANALYSIS_DB_DIR / f"{db_stem}_temp.csv")
+    csv_path = str(target_dir / f"{db_stem}_temp.csv")
     Path(csv_path).write_bytes(csv_bytes)
 
     try:
