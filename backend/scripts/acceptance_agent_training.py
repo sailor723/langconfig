@@ -20,7 +20,7 @@ Sections (each checks behaviour, not configuration alone):
   H  support      — the handoff state machine: ordered stages, a written file, and a way back
 
 Requires the backend on :8765 with the case agents from the run book
-(`case-4-subagents`, `case-5-handoff`, `case-6-skills`, `case-7-router`);
+(`case-6-subagents`, `case-7-handoff`, `case-8-skills`, `case-9-router`);
 the HITL agent is created on first run and reused afterwards.
 """
 
@@ -128,8 +128,8 @@ if wanted("hitl"):
 # ── C. subagents ──────────────────────────────────────────────────────────────
 if wanted("subagents"):
     print("\n== C. subagents ==")
-    sub_id = find_agent("case-4-subagents")
-    check("case-4-subagents exists", sub_id is not None, str(sub_id))
+    sub_id = find_agent("case-6-subagents")
+    check("case-6-subagents exists", sub_id is not None, str(sub_id))
     if sub_id:
         sid = new_session(sub_id)
         events = chat(sid, "上海今天的天气怎么样？另外算一下 1234567 乘以 891011。")
@@ -145,8 +145,8 @@ if wanted("subagents"):
 # ── D. handoffs ───────────────────────────────────────────────────────────────
 if wanted("handoffs"):
     print("\n== D. handoffs ==")
-    ho_id = find_agent("case-5-handoff")
-    check("case-5-handoff exists", ho_id is not None, str(ho_id))
+    ho_id = find_agent("case-7-handoff")
+    check("case-7-handoff exists", ho_id is not None, str(ho_id))
     if ho_id:
         steps = get(f"/api/deepagents/{ho_id}")["config"]["middleware"][0]["config"]["steps"]
         check("three roles configured", set(steps) == {"sales", "support", "finance"}, str(list(steps)))
@@ -170,8 +170,8 @@ if wanted("handoffs"):
 # ── E. skills ────────────────────────────────────────────────────────────────
 if wanted("skills"):
     print("\n== E. skills ==")
-    sk_id = find_agent("case-6-skills")
-    check("case-6-skills exists", sk_id is not None, str(sk_id))
+    sk_id = find_agent("case-8-skills")
+    check("case-8-skills exists", sk_id is not None, str(sk_id))
     if sk_id:
         sid = new_session(sk_id)
         events = chat(sid, "帮我把这句话改得更简洁：今天天气不错。")
@@ -184,8 +184,8 @@ if wanted("skills"):
 # ── F. router ────────────────────────────────────────────────────────────────
 if wanted("router"):
     print("\n== F. router ==")
-    ro_id = find_agent("case-7-router")
-    check("case-7-router exists", ro_id is not None, str(ro_id))
+    ro_id = find_agent("case-9-router")
+    check("case-9-router exists", ro_id is not None, str(ro_id))
     if ro_id:
         sid = new_session(ro_id)
         events = chat(sid, "上海今天天气怎么样？顺便算一下 1280 的 15% 是多少。")
@@ -200,8 +200,8 @@ if wanted("router"):
 # ── G. calendar panel (case 6 data source) ───────────────────────────────────
 if wanted("calendar"):
     print("\n== G. calendar ==")
-    ca_id = find_agent("case-8-assistant")
-    check("case-8-assistant exists", ca_id is not None, str(ca_id))
+    ca_id = find_agent("case-4-assistant")
+    check("case-4-assistant exists", ca_id is not None, str(ca_id))
     if ca_id:
         tag = uuid.uuid4().hex[:6]
         sid = new_session(ca_id)
@@ -228,8 +228,8 @@ if wanted("calendar"):
 # ── H. customer support as a state machine (case 7) ─────────────────────────
 if wanted("support"):
     print("\n== H. support (handoff state machine) ==")
-    sup_id = find_agent("case-9-support")
-    check("case-9-support exists", sup_id is not None, str(sup_id))
+    sup_id = find_agent("case-5-support")
+    check("case-5-support exists", sup_id is not None, str(sup_id))
     if sup_id:
         # Straight from the doc's own script: no "hi" primer, so the first user
         # message is the one that has to start the warranty stage.

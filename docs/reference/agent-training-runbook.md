@@ -1,4 +1,9 @@
-# Agent 训练 · 跟随 LangChain Agents 页
+# 第 1 类 · 能直接用的 agent（案例 1–5）
+
+> 五个能直接用的 agent，按"从最小到完整"排：1 基础 → 2 全工具 → 3 文档问答 → **4 个人助理** → **5 售后客服**。
+> 后面第 2 类才是机制（HITL + 四个模式），用到时再查。
+
+# 案例 1 · 第一个 agent：create_agent 的三要素 + 四个例子
 
 > 依据：**[https://docs.langchain.com/oss/python/langchain/agents](https://docs.langchain.com/oss/python/langchain/agents)**
 >
@@ -70,314 +75,77 @@ agent = create_agent(model="deepseek-flash", tools=tools)
 
 ---
 
-# 案例 · 改文件前要人批准（Human-in-the-loop）
+# 案例 2 · 工具多到 27 个，还挑得对吗（`case-2-all-tools`，id 159）
 
-页面：**[https://docs.langchain.com/oss/python/concepts/human-in-the-loop](https://docs.langchain.com/oss/python/concepts/human-in-the-loop)**
+案例 1 只有 3 个工具。这一节把同一个问题推到 27 个工具：**工具一多，模型还会挑对吗？**
 
-文档的写法是**中间件**，不是提示词：
+`case-2-all-tools`：`deepseek-flash`、Temperature `0`、**27 个工具**（`web_search`/`tavily_search`/`web_fetch`、
+`pg_query`/`pg_list_tables`/`pg_describe_table`、`python_execute`/`sqlite_execute`、
+`memory_store`/`memory_recall`、`think_tool`/`reasoning_chain`、`write_todos`/`read_todos`、
+`bash`、`write_file`…），提示词是一份**中文能力清单**（"你可以搜索信息、查数据库、写文件…"）。
 
-```python
-from langchain.agents import create_agent
-from langchain.agents.middleware import HumanInTheLoopMiddleware
-from langgraph.checkpoint.memory import InMemorySaver
+## 实测
 
-agent = create_agent(
-    model="gpt-5.5",
-    tools=[write_file, execute_sql, read_data],
-    middleware=[
-        HumanInTheLoopMiddleware(
-            interrupt_on={
-                "write_file": True,                                   # 四种决策都允许
-                "execute_sql": {"allowed_decisions": ["approve", "reject"]},
-                "read_data": False,                                   # 显式放行
-            },
-            description_prefix="Tool execution pending approval",
-        ),
-    ],
-    checkpointer=InMemorySaver(),   # 打断要靠它持久化；平台聊天本来就有
-)
-```
+| 问 | 它挑了 | 结果 | 用时 |
+|---|---|---|---|
+| `上海今天天气怎么样？` | `web_fetch` → `web_search` ×2 | 19℃ 实况 + 今日温度区间 | 11.5s |
+| `把这句存成文件：hello world。` | `write_file` | `generated/hello_world.txt` | 6.1s |
+| `用 pg_query 查一下 deep_agent_templates 有多少个 agent。` | `pg_query` | 69 | 5.9s |
+| `上海今天天气怎么样？`（案例 1 的同题） | 案例 1：`web_search` ×4 | 同样的答案 | 8.1s |
 
-平台上就是 **Middleware 页签** → 勾工具 → 选“每条都批 / 只批会改东西的”，保存后**开新聊天**。
+## 两条要讲的判断
 
-## 实测（deep agent，`bash` 设成 `bash_may_mutate`）
-
-| 步骤                                                              | 看到什么                                              |
-| ----------------------------------------------------------------- | ----------------------------------------------------- |
-| 发 `hi`，它自己 `cd … && ls -la … 2>/dev/null` 扫工作区     | **没有打断**（只读命令不批）                    |
-| 发「用 bash 执行：`echo approved > …/generated/approved.txt`」 | 输入框变成审批卡，显示工具名和整条命令                |
-| 点 **批准这一次**                                           | 命令执行，`approved.txt` 出现，内容是 `approved`  |
-| 再点一次批准                                                      | **409**：没有待批的东西了（批准只对那一次有效） |
-| 15 分钟不点                                                       | 按**拒绝**处理，并告诉模型“工具没执行”        |
-| agent 配 `approval_policy: "never"`                             | 直接拒绝，不等人                                      |
-
-## 两个必须讲的判断
-
-1. **这是“人在环里”，不是“让模型小心点”。** 提示词里写“重要操作前先问我”，模型可以不听；
-   中间件是**循环停下来**，等人。页面的四种决策里，平台只给 approve / reject 两个按钮 ——
-   `edit`（改参数再执行）会让模型重新规划，实测批准后它常会再试一次。
-2. **拦“调用”，不拦“工具”。** deep agent 用同一个 `bash` 干自己的活（扫目录、写临时文件）。
-   按工具名拦，拦到的几乎都是它的簿记；所以要配谓词：只读命令放行、写文件只拦交付物
-   （`other/`、`skills/` 里的不拦）。这就是 `InterruptOnConfig` 的 `when`。
-
-> 每次决策都会在 `audit_logs` 留痕（`HitlApproval`）：谁批的、审的是哪些工具、什么决定。
+1. **工具数量不是主要矛盾，名字和描述才是。** 27 个工具里，模型按"名字 + 一句描述"挑，每次都挑到最具体的那一个
+   （写文件用 `write_file`、查库用 `pg_query`、天气用 `web_search`）—— 和案例 1 的 3 工具表现一致。
+2. **提示词里的能力清单是"索引"，不是"路由表"。** 中文那段只说了"你能干什么"，没有一条"天气 → 用 web_search"的规则；
+   真正决定挑哪个的是工具自身描述。这也解释了为什么**加工具比加规则更省事**，以及为什么工具描述写得含糊会直接掉准确率。
+3. 代价是**选错的空间变大、延迟变高**（同题 11.5s vs 8.1s）。「工具太多要不要拆」的答案在案例 4/9：
+   拆成专家（subagents）或分派台（router）。
 
 ---
 
-# 案例 · 主 agent 把专家当工具（Subagents）
+# 案例 3 · 文档问答：上传附件 → 读 → 标来源（`case-3-doc-chat`，id 326）
 
-页面：**[https://docs.langchain.com/oss/python/langchain/multi-agent/index](https://docs.langchain.com/oss/python/langchain/multi-agent/index)**、
-**[https://docs.langchain.com/oss/python/langchain/multi-agent/subagents](https://docs.langchain.com/oss/python/langchain/multi-agent/subagents)**
+平台原本的「知识库对话」是**把整个文件夹的内容塞进提示词**（`api/knowledge/doc_chat.py`）。
+这个案例把它做成一个 **normal agent**：不预载文档，改用工具按需读 —— 上传什么、读什么、答什么，且每条结论标来源。
 
-文档原句：*a central main agent coordinates subagents by **calling them as tools**.*
-主 agent 决定调谁、给什么输入、怎么合并结果；**所有路由都经过主 agent**。
+`case-3-doc-chat`：`deepseek-flash`、温度 `0`、**只有 3 个只读工具**：`glob`（列附件）、`grep`（大文件里定位）、
+`read_any_file`（文本 / PDF / 扫描件 / Word / PowerPoint / Excel 统一读取入口）。
 
-```python
-from langchain.tools import tool
-from langchain.agents import create_agent
+## 三条规则（抄自 `doc_chat.py` 的 RULES）
 
-subagent = create_agent(model="google_genai:gemini-3.6-flash", tools=[...])
+| 参考实现 | agent 版 |
+|---|---|
+| 每条结论标 `[Source: filename.ext]` | 同样格式，去掉文件名前的 8 位存储前缀 |
+| 开头声明读了多少文档 | `**[Documents loaded: N file(s)]**`（N = 本轮实际读的） |
+| 读不到就明确说（原文 `The loaded documents do not contain information about …`） | 「读到的文档里没有关于 … 的信息」 |
+| 数字/金额/日期原样引用，不换算口径 | 同 |
+| 不许用自身知识补 | 同 |
 
-@tool("research", description="Research a topic and return findings")
-def call_research_agent(query: str):
-    result = subagent.invoke({"messages": [{"role": "user", "content": query}]})
-    return result["messages"][-1].content
+预算：一轮最多读 3 个文件；长文件只读命中部分（doc_chat 的等价限制是 300 文件 / 1M 字符）。
 
-main_agent = create_agent(model="...", tools=[call_research_agent])
-```
+## 实测（上传真文件，不是演示数据）
 
-平台上是**单分发工具**（文档里的 *single dispatch tool*）：agent 的 JSON 加一段
+| 上传 | 问 | 工具 | 结果 |
+|---|---|---|---|
+| `星河项目交付说明.md`（322 B） | 项目编号和预算是多少 | `glob` → `read_any_file` | `XH-2026-014` / `人民币 128 万元`，各带 `[Source: 星河项目交付说明.md]` |
+| `industry_analysis_report.pdf`（612 KB，11 页） | 这份 PDF 讲什么行业？2025 市场规模 | `read_any_file`（6s） | 全球眼镜行业；列出 6 家机构口径表，全部带来源 |
+| 同上 | 有没有提到越南的监管要求？没有就说没有 | `grep` | **「读到的文档里没有关于越南监管要求的信息」** + 核对过程（监管章节只覆盖美/欧/中） |
 
-```json
-"subagents": [
-  {"name": "weather_expert", "description": "查询某个城市的实时天气（温度、天气状况）。",
-   "type": "dictionary", "system_prompt": "你是天气助手，用 web_search 查实时天气。",
-   "tools": ["web_search"]},
-  {"name": "math_expert", "description": "做精确的算术计算。",
-   "type": "dictionary", "system_prompt": "你是计算助手，所有计算都用 python_execute。",
-   "tools": ["python_execute"]}
-]
-```
+**上传即开始**：附件上传后前端会替用户发一句"我已上传附件「X」"，agent 先回一行确认再读 ——
+不需要用户再补一句"请读一下"。没有读文件工具的 agent 收到同样的话，会直接说明"缺什么工具"。
 
-Tools 页签勾上 **`task`**，保存后开新聊天。
+## 两条要讲的判断
 
-## 实测（`case-2-subagents`，`deepseek-flash`，temperature 0）
-
-问一句：**「上海今天的天气怎么样？另外算一下 1234567 乘以 891011。」**
-
-| 顺序 | 发生了什么                                                                                          |
-| ---- | --------------------------------------------------------------------------------------------------- |
-| 1    | 主 agent 一轮里发出**两个** `task`：`weather_expert`（查天气）、`math_expert`（算乘法） |
-| 2    | 子代理内部各自调用工具：`web_search` ×3、`python_execute` ×1                                  |
-| 3    | 结果回到主 agent，主 agent 汇总成一条回答                                                           |
-| 4    | 落库：`tool_calls` 5 条、`subagent_spawns` 2 条（`{subagent, task, status:"completed"}`）     |
-
-## 三个必须讲的判断
-
-1. **描述决定委派。** `task` 工具的描述就是子代理清单——
-   `Available agents for delegation are: - weather_expert: … - math_expert: …`。
-   模型照它挑人。这和工具路由、技能触发是**同一个机制**：写清“什么时候该找我”。
-2. **上下文隔离是真的。** 让子代理在自己的 prompt 里复述“你收到的全部信息”，它答的是
-   `我收到的信息：计算 1234567 × 891011` —— 它**不知道**父对话里说过的“我叫卫平、我住在上海”。
-   所以要在子代理身上生效的约束（用中文、别用表情、输出格式）**必须写进子代理的 system prompt**，
-   写在不进它上下文的地方就等于没写。
-3. **子代理不直接面对用户。** 它只把结果交回主 agent；用户看到的是主 agent 那一句总结。
-   页面把“直接交互”标成一星，就是这个意思。
-
-> 同步执行：主 agent 会**等**子代理返回才继续（文档的 *Synchronous (default)*）。
-> 文档里还有一种 *Asynchronous*（后台跑、不阻塞），这一版平台没有。
-
-## 对照实验：改描述，委派会变吗？
-
-同一个问题、同一套工具，只动子代理的 `description`，问三次：
-
-| 实验                | 配置                                                                                     | 结果                                                                               |
-| ------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| ① 描述匹配         | `weather_expert`：「查询某个城市的实时天气」                                           | 委派给 `weather_expert` ✅                                                       |
-| ② 描述改成无关     | 同一个子代理，描述改成「整理会议纪要并输出要点」                                         | **仍然委派给它** —— 没变                                                   |
-| ③ 两个候选都说得通 | `data_expert`：「查询【实时】天气…」和 `archive_expert`：「查询【历史】气候统计…」 | 「现在气温多少」→ `data_expert`；「往年 10 月平均气温」→ `archive_expert` ✅ |
-
-**结论要如实讲**：路由不是只看描述 —— 任务文本、子代理名字、以及**候选有几个**都在参与。
-② 之所以没变，是因为只有两个候选、任务里又出现了“天气”这个词，模型顺着**名字**也能找对。
-描述真正的威力在 ③：**当两个候选都说得通时，只有描述能把它们分开。**
-
-> 这一组数据可以直接从 `chat_sessions.subagent_spawns` 读出来（谁被派了、派的是什么任务），
-> 比看回答文本可靠。
+1. **agent 版和面板版的差别是"按需读"而不是"全塞进去"。** 面板版一次把文件夹里能塞的都放进提示词，
+   大库会顶满上下文；agent 版先 `glob`/`grep` 缩小范围，只读命中的 1–3 个文件，读不到就明说。
+2. **"读不到"比"答得像"更重要。** 三条规则里最值钱的是那句缺席声明：它把"我不知道"从模型的礼貌变成了可验收的判据
+   （我们的验收脚本就是按这句话断言的）。
 
 ---
 
-# 案例 · 把对话交给另一个角色（Handoffs）
 
-页面：**[https://docs.langchain.com/oss/python/langchain/multi-agent/index](https://docs.langchain.com/oss/python/langchain/multi-agent/index)**、
-**[https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs](https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs)**
-
-文档原句：*Tool calls update a state variable that triggers routing or configuration
-changes, switching agents or adjusting the current agent's tools and prompt.*
-
-一个 handoff 工具**不改答案，改状态**：
-
-```python
-@tool
-def transfer_to_specialist(runtime: ToolRuntime) -> Command:
-    """Transfer to the specialist agent."""
-    return Command(
-        update={
-            "messages": [ToolMessage(content="Transferred to specialist",
-                                     tool_call_id=runtime.tool_call_id)],
-            "current_step": "specialist",      # 触发行为变化
-        }
-    )
-```
-
-平台上是 **Middleware 页签 →「转交（handoff）」**：定义角色，再定义**谁 → 谁**。
-
-```json
-"middleware": [{"type": "handoff", "enabled": true, "config": {
-  "default_step": "sales",
-  "steps": {
-    "sales":   {"label": "售前", "system_prompt": "…", "tools": ["web_search"],
-                "transfers": [{"to": "support", "description": "技术故障交给售后"}]},
-    "support": {"label": "售后", "system_prompt": "…", "tools": ["web_search","python_execute"],
-                "transfers": [{"to": "finance", "description": "发票、账务问题转财务"}]},
-    "finance": {"label": "财务", "system_prompt": "…", "tools": []}
-  }}}]
-```
-
-**一条转交关系 = 一个自动生成的工具** `transfer_to_<目标>`（只有 `reason` 参数）。
-不需要去 Tools 页签勾它们，也不允许手写 —— 目标写在工具名里，模型编不出不存在的角色。
-
-## 实测（`case-3-handoff`，三个角色，CLI 验收）
-
-| 轮次 | 用户说              | 发生什么                                           | 谁回答                                         |
-| ---- | ------------------- | -------------------------------------------------- | ---------------------------------------------- |
-| 1    | 我有发票问题        | `transfer_to_support` → `transfer_to_finance` | **财务**（「你好，我是财务专员…」）     |
-| 2    | 另外，我有 500 错误 | `transfer_to_support`                            | **售后**（「500 属于服务端内部错误…」） |
-
-每跳都留下痕迹，且**刷新后仍在**：`session.messages` 里是一条
-
-```json
-{"role": "handoff", "to": "finance", "reason": "…", "content": "转交给「财务」 · …"}
-```
-
-聊天里渲染成琥珀色卡片：`转交给「finance」· 用户咨询发票开错如何处理…`
-
-> **跳数是模型判断，不是契约**：同一个问题（"发票开错了怎么处理"）复跑会得到 1 跳
-> （售后自己答）或 2 跳（`support → finance`）。所以判据只能写"至少一次转交 + 回答在最后一跳之后"，
-> 写死"必须两跳"会假失败。
-
-## 四个要讲的判断
-
-1. **转交是中间件的活，不是提示词的活。** 提示词写“遇到技术问题请转给售后”，模型可以不听；
-   中间件是**换提示词、换工具**，由状态决定，不靠模型自觉。
-2. **目标必须写在工具里，不能写在参数里。** 我们第一版是 `handoff(to="…")`，模型填了个
-   `technical_support`（不存在的角色）→ 静默失效。改成 `transfer_to_finance` 之后，
-   这类错误在结构上不可能发生 —— 和 subagents 的“一个子代理一个工具”是同一个道理。
-3. **转交即交棒。** 平台给每个角色自动附加规则：“不属于你的直接转，不要先回答”。
-   否则会出现“财务先答 500、再转给售后、售后没开口”的一轮两个嘴。
-4. **这和 Subagents 正相反 —— 上下文是共享的。** 子代理只拿到那一句 `description`；
-   handoff 是**同一段对话**换个角色继续说，前面的历史都在。所以：
-   **要隔离用 subagents，要接力用 handoffs。**
-
-> 页面还给了第二种实现（多个 agent 子图 + `Command(goto=…, graph=Command.PARENT)`），
-> 那是把每个角色做成图节点；平台这一版实现的是第一种（单 agent + 中间件），
-> 对“少角色、强接力”的场景够用。
-
----
-
-# 案例 · 需要时才加载知识（Skills）
-
-页面：**[https://docs.langchain.com/oss/python/langchain/multi-agent/skills](https://docs.langchain.com/oss/python/langchain/multi-agent/skills)**
-
-文档原句：*Skills are primarily prompt-driven specializations that an agent can invoke
-**on-demand** —— progressive disclosure of specialized prompts and domain knowledge.*
-
-文档的实现是一个“加载技能”的工具：
-
-```python
-@tool
-def load_skill(skill_name: str) -> str:
-    """Load a specialized skill prompt.
-
-    Available skills:
-    - write_sql: SQL query writing expert
-    - review_legal_doc: Legal document reviewer
-    """
-```
-
-平台上是 **Skills 页签 + 内置 `skill` 工具**：技能内容存在库里，agent 需要时按 id 取。
-
-## 实测（`case-4-skills`，只有 `skill` + `python_execute` 两个工具）
-
-| 问题                                                   | 是否加载技能                                | 结果                   |
-| ------------------------------------------------------ | ------------------------------------------- | ---------------------- |
-| 帮我把这句话改得更简洁：今天天气不错                   | **0 次**                              | 直接改（7 字 → 5 字） |
-| 帮我 review 这段 Python 代码：`def f(x): return x/0` | **`skill(skill_id="code-review")`** | 先加载技能，再作答     |
-
-> 修之前两次都**不加载**：`skill` 工具的说明里没有列任何技能 id，模型不知道有
-> `code-review` 这个东西。把技能清单写进工具描述（名称 + 一句话）之后才会调 ——
-> 和 `task` 列子代理、`transfer_to_*` 把目标写进工具名，是**同一个机制**。
-
-## 三个要讲的判断
-
-1. **技能不增加能力，只改变“什么时候知道”。** 内容不变，变的是它什么时候进入上下文 —— 这就是
-   *progressive disclosure*（渐进披露）。
-2. **触发靠描述，不靠“存在”。** 工具描述里不写“有哪些、什么时候用”，技能就等于不存在。
-   这一条和工具路由（1.2）、子代理委派、转交目标**完全同源**。
-3. **技能 vs 子代理**：技能是“给同一个 agent 加知识”，上下文不断、不隔离；子代理是“另开一个
-   上下文干活再回来”。知识多而任务单一 → 技能；任务长且要隔离 → 子代理。
-
----
-
-# 案例 · 分派台 + 专家并行 + 汇总（Router）
-
-页面：**[https://docs.langchain.com/oss/python/langchain/multi-agent/router](https://docs.langchain.com/oss/python/langchain/multi-agent/router)**
-
-文档原句：*A routing step classifies input and directs it to specialized agents …
-Zero or more specialized agents are invoked in parallel. Results are synthesized
-into a coherent response.*
-
-文档的两种实现：`Command` 路由到**单个**专家；`Send` 做**并行 fan-out** 到多个专家，再汇总。
-
-**平台上没有 `Send`**（没有图/节点层），能落地的是“**分派台 agent + 子代理 + 主 agent 汇总**”
-—— 也就是用 Subagents 那个机制，按 router 的写法用：先分类、再一轮并行派出、最后合并。
-
-```json
-"system_prompt": "你是一个分派台。判断问题涉及哪些领域，把每一部分并行交给对应专家
-                  （一次发出多个 task 调用），再把结果合并成一条回答。你自己不查资料、不算数。",
-"native_tools": ["task"],
-"subagents": [
-  {"name": "weather_desk", "description": "查询某个城市的实时天气与短期预报。", "tools": ["web_search"]},
-  {"name": "math_desk",    "description": "做精确计算（算术、单位换算、百分比）。", "tools": ["python_execute"]}
-]
-```
-
-## 实测（`case-5-router`）
-
-问：**「上海今天天气怎么样？顺便算一下 1280 的 15% 是多少。」**
-
-| 观察点       | 实测                                                                                     |
-| ------------ | ---------------------------------------------------------------------------------------- |
-| 分派内容     | 一轮里发出**两个** `task`：`weather_desk`（查天气）、`math_desk`（算百分比） |
-| 专家各自干活 | 子代理内部 `web_search` ×2、`python_execute` ×1                                    |
-| 汇总         | 同一条回答里既有 `192` 也有上海 19.9℃ / 湿度 68%                                      |
-| 记账         | `subagent_spawns` 2 条（两个都 completed）、`tool_calls` 5 条                        |
-
-## 三个要讲的判断
-
-1. **Router 和 Subagents 是同一个机制，两种用法。** 区别只在 prompt：Subagents 是“需要时才叫一个
-   专家”，Router 是“先分类，再把每一部分都派出去”。平台的差别不是能力，是**分派策略**。
-2. **分类是模型做的，不是确定性的。** 这是和“真 router”（一次分类 → 固定分支）最大的差异：
-   同一句话，模型可能派 0 个、1 个或多个专家。要确定性分类，得把分类拿去做成独立的工具/节点。
-3. **汇总质量取决于专家返回的形态。** 实测这条回答里数字和天气挨在一起，读起来不整齐 ——
-   因为子代理各说各的。要让汇总好看，得**在子代理的 system prompt 里约定输出格式**，
-   而不是在分派台的 prompt 里补救（分派台看不到子代理的内部过程）。
-
-> 平台没有 `Send` 的多路 fan-out（那是图层的概念）。所以“并行”在这里指的是
-> **一轮里多个 `task` 工具调用** —— 模型一次发出，框架并发执行；不是图上的并行分支。
-
----
-
-# 案例 6 · 个人助理（Supervisor + 专家 + 外发审批）
+# 案例 4 · 个人助理（Supervisor + 专家 + 外发审批）
 
 教程：**[https://docs.langchain.com/oss/python/langchain/multi-agent/subagents-personal-assistant](https://docs.langchain.com/oss/python/langchain/multi-agent/subagents-personal-assistant)**
 
@@ -437,7 +205,7 @@ into a coherent response.*
 
 ## 平台上怎么还原
 
-1. **建 agent**：名字 `case-6-assistant`，Model `deepseek-flash`，Temperature `0`。
+1. **建 agent**：名字 `case-4-assistant`，Model `deepseek-flash`，Temperature `0`。
 2. **Tools 页签只勾 `Task (Subagent)`** —— supervisor 只该看到“派人”这一件事，具体 API 由专家自己拿。
 3. **JSON 页签**贴两个专家（`interrupt_on` 写在 `email_expert` 身上，不是 supervisor 上 ——
    supervisor 的中间件只看得到 `task`，看不到专家手里的 `write_file`）：
@@ -464,7 +232,7 @@ into a coherent response.*
 
 4. **Prompt 页签**：`你是一个个人助理。日程问题交给 calendar_expert，邮件问题交给 email_expert；你自己不写文件、不算日期。一件事涉及两方时，分别派活再汇总。`
 
-## 实测（`case-6-assistant`，id 323）
+## 实测（`case-4-assistant`，id 323）
 
 | 问 | 发生了什么 |
 |---|---|
@@ -492,7 +260,8 @@ into a coherent response.*
 
 ---
 
-# 案例 7 · 售后客服（handoffs：一个 agent，三步配置）
+
+# 案例 5 · 售后客服（handoffs：一个 agent，三步配置）
 
 教程：**<https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs-customer-support>**
 
@@ -544,7 +313,7 @@ into a coherent response.*
 
 ## 平台上怎么还原（1 个 agent + 1 段 middleware）
 
-Agents → New Agent，名字 `case-7-support`，Model `deepseek-flash`，Temperature `0`；
+Agents → New Agent，名字 `case-5-support`，Model `deepseek-flash`，Temperature `0`；
 Tools 页签只勾 `write_file`；JSON 页签贴：
 
 ```json
@@ -576,7 +345,7 @@ Tools 页签只勾 `write_file`；JSON 页签贴：
 }]
 ```
 
-## 实测（`case-7-support`，id 325）
+## 实测（`case-5-support`，id 325）
 
 | 轮 | 客户说 | 用了什么 | 结果 |
 |---|---|---|---|
@@ -618,13 +387,331 @@ Tools 页签只勾 `write_file`；JSON 页签贴：
 
 ---
 
-# 附录 · 复建自检清单（照案例 6 复建一遍）
+
+# 第 2 类 · 机制演示（机制一项 + 四个模式）
+
+> 这些章节各讲**一个机制**，用最小例子证明它成立；业务场景请看第 1 类的案例 4（用 subagents + HITL）
+> 和案例 5（用 handoff 状态机）。
+
+# 机制 · 改文件前要人批准（Human-in-the-loop）
+
+页面：**[https://docs.langchain.com/oss/python/concepts/human-in-the-loop](https://docs.langchain.com/oss/python/concepts/human-in-the-loop)**
+
+文档的写法是**中间件**，不是提示词：
+
+```python
+from langchain.agents import create_agent
+from langchain.agents.middleware import HumanInTheLoopMiddleware
+from langgraph.checkpoint.memory import InMemorySaver
+
+agent = create_agent(
+    model="gpt-5.5",
+    tools=[write_file, execute_sql, read_data],
+    middleware=[
+        HumanInTheLoopMiddleware(
+            interrupt_on={
+                "write_file": True,                                   # 四种决策都允许
+                "execute_sql": {"allowed_decisions": ["approve", "reject"]},
+                "read_data": False,                                   # 显式放行
+            },
+            description_prefix="Tool execution pending approval",
+        ),
+    ],
+    checkpointer=InMemorySaver(),   # 打断要靠它持久化；平台聊天本来就有
+)
+```
+
+平台上就是 **Middleware 页签** → 勾工具 → 选“每条都批 / 只批会改东西的”，保存后**开新聊天**。
+
+## 实测（deep agent，`bash` 设成 `bash_may_mutate`）
+
+| 步骤                                                              | 看到什么                                              |
+| ----------------------------------------------------------------- | ----------------------------------------------------- |
+| 发 `hi`，它自己 `cd … && ls -la … 2>/dev/null` 扫工作区     | **没有打断**（只读命令不批）                    |
+| 发「用 bash 执行：`echo approved > …/generated/approved.txt`」 | 输入框变成审批卡，显示工具名和整条命令                |
+| 点 **批准这一次**                                           | 命令执行，`approved.txt` 出现，内容是 `approved`  |
+| 再点一次批准                                                      | **409**：没有待批的东西了（批准只对那一次有效） |
+| 15 分钟不点                                                       | 按**拒绝**处理，并告诉模型“工具没执行”        |
+| agent 配 `approval_policy: "never"`                             | 直接拒绝，不等人                                      |
+
+## 两个必须讲的判断
+
+1. **这是“人在环里”，不是“让模型小心点”。** 提示词里写“重要操作前先问我”，模型可以不听；
+   中间件是**循环停下来**，等人。页面的四种决策里，平台只给 approve / reject 两个按钮 ——
+   `edit`（改参数再执行）会让模型重新规划，实测批准后它常会再试一次。
+2. **拦“调用”，不拦“工具”。** deep agent 用同一个 `bash` 干自己的活（扫目录、写临时文件）。
+   按工具名拦，拦到的几乎都是它的簿记；所以要配谓词：只读命令放行、写文件只拦交付物
+   （`other/`、`skills/` 里的不拦）。这就是 `InterruptOnConfig` 的 `when`。
+
+> 每次决策都会在 `audit_logs` 留痕（`HitlApproval`）：谁批的、审的是哪些工具、什么决定。
+
+---
+
+
+# 案例 6 · 主 agent 把专家当工具（Subagents）
+
+页面：**[https://docs.langchain.com/oss/python/langchain/multi-agent/index](https://docs.langchain.com/oss/python/langchain/multi-agent/index)**、
+**[https://docs.langchain.com/oss/python/langchain/multi-agent/subagents](https://docs.langchain.com/oss/python/langchain/multi-agent/subagents)**
+
+文档原句：*a central main agent coordinates subagents by **calling them as tools**.*
+主 agent 决定调谁、给什么输入、怎么合并结果；**所有路由都经过主 agent**。
+
+```python
+from langchain.tools import tool
+from langchain.agents import create_agent
+
+subagent = create_agent(model="google_genai:gemini-3.6-flash", tools=[...])
+
+@tool("research", description="Research a topic and return findings")
+def call_research_agent(query: str):
+    result = subagent.invoke({"messages": [{"role": "user", "content": query}]})
+    return result["messages"][-1].content
+
+main_agent = create_agent(model="...", tools=[call_research_agent])
+```
+
+平台上是**单分发工具**（文档里的 *single dispatch tool*）：agent 的 JSON 加一段
+
+```json
+"subagents": [
+  {"name": "weather_expert", "description": "查询某个城市的实时天气（温度、天气状况）。",
+   "type": "dictionary", "system_prompt": "你是天气助手，用 web_search 查实时天气。",
+   "tools": ["web_search"]},
+  {"name": "math_expert", "description": "做精确的算术计算。",
+   "type": "dictionary", "system_prompt": "你是计算助手，所有计算都用 python_execute。",
+   "tools": ["python_execute"]}
+]
+```
+
+Tools 页签勾上 **`task`**，保存后开新聊天。
+
+## 实测（`case-6-subagents`，`deepseek-flash`，temperature 0）
+
+问一句：**「上海今天的天气怎么样？另外算一下 1234567 乘以 891011。」**
+
+| 顺序 | 发生了什么                                                                                          |
+| ---- | --------------------------------------------------------------------------------------------------- |
+| 1    | 主 agent 一轮里发出**两个** `task`：`weather_expert`（查天气）、`math_expert`（算乘法） |
+| 2    | 子代理内部各自调用工具：`web_search` ×3、`python_execute` ×1                                  |
+| 3    | 结果回到主 agent，主 agent 汇总成一条回答                                                           |
+| 4    | 落库：`tool_calls` 5 条、`subagent_spawns` 2 条（`{subagent, task, status:"completed"}`）     |
+
+## 三个必须讲的判断
+
+1. **描述决定委派。** `task` 工具的描述就是子代理清单——
+   `Available agents for delegation are: - weather_expert: … - math_expert: …`。
+   模型照它挑人。这和工具路由、技能触发是**同一个机制**：写清“什么时候该找我”。
+2. **上下文隔离是真的。** 让子代理在自己的 prompt 里复述“你收到的全部信息”，它答的是
+   `我收到的信息：计算 1234567 × 891011` —— 它**不知道**父对话里说过的“我叫卫平、我住在上海”。
+   所以要在子代理身上生效的约束（用中文、别用表情、输出格式）**必须写进子代理的 system prompt**，
+   写在不进它上下文的地方就等于没写。
+3. **子代理不直接面对用户。** 它只把结果交回主 agent；用户看到的是主 agent 那一句总结。
+   页面把“直接交互”标成一星，就是这个意思。
+
+> 同步执行：主 agent 会**等**子代理返回才继续（文档的 *Synchronous (default)*）。
+> 文档里还有一种 *Asynchronous*（后台跑、不阻塞），这一版平台没有。
+
+## 对照实验：改描述，委派会变吗？
+
+同一个问题、同一套工具，只动子代理的 `description`，问三次：
+
+| 实验                | 配置                                                                                     | 结果                                                                               |
+| ------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| ① 描述匹配         | `weather_expert`：「查询某个城市的实时天气」                                           | 委派给 `weather_expert` ✅                                                       |
+| ② 描述改成无关     | 同一个子代理，描述改成「整理会议纪要并输出要点」                                         | **仍然委派给它** —— 没变                                                   |
+| ③ 两个候选都说得通 | `data_expert`：「查询【实时】天气…」和 `archive_expert`：「查询【历史】气候统计…」 | 「现在气温多少」→ `data_expert`；「往年 10 月平均气温」→ `archive_expert` ✅ |
+
+**结论要如实讲**：路由不是只看描述 —— 任务文本、子代理名字、以及**候选有几个**都在参与。
+② 之所以没变，是因为只有两个候选、任务里又出现了“天气”这个词，模型顺着**名字**也能找对。
+描述真正的威力在 ③：**当两个候选都说得通时，只有描述能把它们分开。**
+
+> 这一组数据可以直接从 `chat_sessions.subagent_spawns` 读出来（谁被派了、派的是什么任务），
+> 比看回答文本可靠。
+
+---
+
+
+# 案例 7 · 把对话交给另一个角色（Handoffs）
+
+页面：**[https://docs.langchain.com/oss/python/langchain/multi-agent/index](https://docs.langchain.com/oss/python/langchain/multi-agent/index)**、
+**[https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs](https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs)**
+
+文档原句：*Tool calls update a state variable that triggers routing or configuration
+changes, switching agents or adjusting the current agent's tools and prompt.*
+
+一个 handoff 工具**不改答案，改状态**：
+
+```python
+@tool
+def transfer_to_specialist(runtime: ToolRuntime) -> Command:
+    """Transfer to the specialist agent."""
+    return Command(
+        update={
+            "messages": [ToolMessage(content="Transferred to specialist",
+                                     tool_call_id=runtime.tool_call_id)],
+            "current_step": "specialist",      # 触发行为变化
+        }
+    )
+```
+
+平台上是 **Middleware 页签 →「转交（handoff）」**：定义角色，再定义**谁 → 谁**。
+
+```json
+"middleware": [{"type": "handoff", "enabled": true, "config": {
+  "default_step": "sales",
+  "steps": {
+    "sales":   {"label": "售前", "system_prompt": "…", "tools": ["web_search"],
+                "transfers": [{"to": "support", "description": "技术故障交给售后"}]},
+    "support": {"label": "售后", "system_prompt": "…", "tools": ["web_search","python_execute"],
+                "transfers": [{"to": "finance", "description": "发票、账务问题转财务"}]},
+    "finance": {"label": "财务", "system_prompt": "…", "tools": []}
+  }}}]
+```
+
+**一条转交关系 = 一个自动生成的工具** `transfer_to_<目标>`（只有 `reason` 参数）。
+不需要去 Tools 页签勾它们，也不允许手写 —— 目标写在工具名里，模型编不出不存在的角色。
+
+## 实测（`case-7-handoff`，三个角色，CLI 验收）
+
+| 轮次 | 用户说              | 发生什么                                           | 谁回答                                         |
+| ---- | ------------------- | -------------------------------------------------- | ---------------------------------------------- |
+| 1    | 我有发票问题        | `transfer_to_support` → `transfer_to_finance` | **财务**（「你好，我是财务专员…」）     |
+| 2    | 另外，我有 500 错误 | `transfer_to_support`                            | **售后**（「500 属于服务端内部错误…」） |
+
+每跳都留下痕迹，且**刷新后仍在**：`session.messages` 里是一条
+
+```json
+{"role": "handoff", "to": "finance", "reason": "…", "content": "转交给「财务」 · …"}
+```
+
+聊天里渲染成琥珀色卡片：`转交给「finance」· 用户咨询发票开错如何处理…`
+
+> **跳数是模型判断，不是契约**：同一个问题（"发票开错了怎么处理"）复跑会得到 1 跳
+> （售后自己答）或 2 跳（`support → finance`）。所以判据只能写"至少一次转交 + 回答在最后一跳之后"，
+> 写死"必须两跳"会假失败。
+
+## 四个要讲的判断
+
+1. **转交是中间件的活，不是提示词的活。** 提示词写“遇到技术问题请转给售后”，模型可以不听；
+   中间件是**换提示词、换工具**，由状态决定，不靠模型自觉。
+2. **目标必须写在工具里，不能写在参数里。** 我们第一版是 `handoff(to="…")`，模型填了个
+   `technical_support`（不存在的角色）→ 静默失效。改成 `transfer_to_finance` 之后，
+   这类错误在结构上不可能发生 —— 和 subagents 的“一个子代理一个工具”是同一个道理。
+3. **转交即交棒。** 平台给每个角色自动附加规则：“不属于你的直接转，不要先回答”。
+   否则会出现“财务先答 500、再转给售后、售后没开口”的一轮两个嘴。
+4. **这和 Subagents 正相反 —— 上下文是共享的。** 子代理只拿到那一句 `description`；
+   handoff 是**同一段对话**换个角色继续说，前面的历史都在。所以：
+   **要隔离用 subagents，要接力用 handoffs。**
+
+> 页面还给了第二种实现（多个 agent 子图 + `Command(goto=…, graph=Command.PARENT)`），
+> 那是把每个角色做成图节点；平台这一版实现的是第一种（单 agent + 中间件），
+> 对“少角色、强接力”的场景够用。
+
+---
+
+
+# 案例 8 · 需要时才加载知识（Skills）
+
+页面：**[https://docs.langchain.com/oss/python/langchain/multi-agent/skills](https://docs.langchain.com/oss/python/langchain/multi-agent/skills)**
+
+文档原句：*Skills are primarily prompt-driven specializations that an agent can invoke
+**on-demand** —— progressive disclosure of specialized prompts and domain knowledge.*
+
+文档的实现是一个“加载技能”的工具：
+
+```python
+@tool
+def load_skill(skill_name: str) -> str:
+    """Load a specialized skill prompt.
+
+    Available skills:
+    - write_sql: SQL query writing expert
+    - review_legal_doc: Legal document reviewer
+    """
+```
+
+平台上是 **Skills 页签 + 内置 `skill` 工具**：技能内容存在库里，agent 需要时按 id 取。
+
+## 实测（`case-8-skills`，只有 `skill` + `python_execute` 两个工具）
+
+| 问题                                                   | 是否加载技能                                | 结果                   |
+| ------------------------------------------------------ | ------------------------------------------- | ---------------------- |
+| 帮我把这句话改得更简洁：今天天气不错                   | **0 次**                              | 直接改（7 字 → 5 字） |
+| 帮我 review 这段 Python 代码：`def f(x): return x/0` | **`skill(skill_id="code-review")`** | 先加载技能，再作答     |
+
+> 修之前两次都**不加载**：`skill` 工具的说明里没有列任何技能 id，模型不知道有
+> `code-review` 这个东西。把技能清单写进工具描述（名称 + 一句话）之后才会调 ——
+> 和 `task` 列子代理、`transfer_to_*` 把目标写进工具名，是**同一个机制**。
+
+## 三个要讲的判断
+
+1. **技能不增加能力，只改变“什么时候知道”。** 内容不变，变的是它什么时候进入上下文 —— 这就是
+   *progressive disclosure*（渐进披露）。
+2. **触发靠描述，不靠“存在”。** 工具描述里不写“有哪些、什么时候用”，技能就等于不存在。
+   这一条和工具路由（1.2）、子代理委派、转交目标**完全同源**。
+3. **技能 vs 子代理**：技能是“给同一个 agent 加知识”，上下文不断、不隔离；子代理是“另开一个
+   上下文干活再回来”。知识多而任务单一 → 技能；任务长且要隔离 → 子代理。
+
+---
+
+
+# 案例 9 · 分派台 + 专家并行 + 汇总（Router）
+
+页面：**[https://docs.langchain.com/oss/python/langchain/multi-agent/router](https://docs.langchain.com/oss/python/langchain/multi-agent/router)**
+
+文档原句：*A routing step classifies input and directs it to specialized agents …
+Zero or more specialized agents are invoked in parallel. Results are synthesized
+into a coherent response.*
+
+文档的两种实现：`Command` 路由到**单个**专家；`Send` 做**并行 fan-out** 到多个专家，再汇总。
+
+**平台上没有 `Send`**（没有图/节点层），能落地的是“**分派台 agent + 子代理 + 主 agent 汇总**”
+—— 也就是用 Subagents 那个机制，按 router 的写法用：先分类、再一轮并行派出、最后合并。
+
+```json
+"system_prompt": "你是一个分派台。判断问题涉及哪些领域，把每一部分并行交给对应专家
+                  （一次发出多个 task 调用），再把结果合并成一条回答。你自己不查资料、不算数。",
+"native_tools": ["task"],
+"subagents": [
+  {"name": "weather_desk", "description": "查询某个城市的实时天气与短期预报。", "tools": ["web_search"]},
+  {"name": "math_desk",    "description": "做精确计算（算术、单位换算、百分比）。", "tools": ["python_execute"]}
+]
+```
+
+## 实测（`case-9-router`）
+
+问：**「上海今天天气怎么样？顺便算一下 1280 的 15% 是多少。」**
+
+| 观察点       | 实测                                                                                     |
+| ------------ | ---------------------------------------------------------------------------------------- |
+| 分派内容     | 一轮里发出**两个** `task`：`weather_desk`（查天气）、`math_desk`（算百分比） |
+| 专家各自干活 | 子代理内部 `web_search` ×2、`python_execute` ×1                                    |
+| 汇总         | 同一条回答里既有 `192` 也有上海 19.9℃ / 湿度 68%                                      |
+| 记账         | `subagent_spawns` 2 条（两个都 completed）、`tool_calls` 5 条                        |
+
+## 三个要讲的判断
+
+1. **Router 和 Subagents 是同一个机制，两种用法。** 区别只在 prompt：Subagents 是“需要时才叫一个
+   专家”，Router 是“先分类，再把每一部分都派出去”。平台的差别不是能力，是**分派策略**。
+2. **分类是模型做的，不是确定性的。** 这是和“真 router”（一次分类 → 固定分支）最大的差异：
+   同一句话，模型可能派 0 个、1 个或多个专家。要确定性分类，得把分类拿去做成独立的工具/节点。
+3. **汇总质量取决于专家返回的形态。** 实测这条回答里数字和天气挨在一起，读起来不整齐 ——
+   因为子代理各说各的。要让汇总好看，得**在子代理的 system prompt 里约定输出格式**，
+   而不是在分派台的 prompt 里补救（分派台看不到子代理的内部过程）。
+
+> 平台没有 `Send` 的多路 fan-out（那是图层的概念）。所以“并行”在这里指的是
+> **一轮里多个 `task` 工具调用** —— 模型一次发出，框架并发执行；不是图上的并行分支。
+
+---
+
+
+# 附录 · 复建自检清单（照案例 4 复建一遍）
 
 照着做，每步都有**可观察的判据**。任一步判据不成立，先修这一步再往下走 —— 后面的现象都会失真。
 
 ## A. 建 agent
 
-- [ ] Agents → **New Agent**，名字填 `case-6-assistant`
+- [ ] Agents → **New Agent**，名字填 `case-4-assistant`
 - [ ] Overview → Model 选 `deepseek-flash`，Temperature 填 `0`
 - [ ] Prompt 页签 → System Prompt 填：
   `你是一个个人助理。日程问题交给 calendar_expert，邮件问题交给 email_expert；你自己不写文件、不算日期。一个请求涉及两件事时，分别派给两个专家并汇总结果。`
@@ -646,7 +733,7 @@ Tools 页签只勾 `write_file`；JSON 页签贴：
 
 - [ ] 关掉编辑器的旧聊天，**开一个新聊天**
 - [ ] 先发 `hi`（首轮会带平台开场白，别拿它当结果）
-- [ ] 判据：回复里出现 `case-6-assistant` 或你的 agent 名、以及工作区路径
+- [ ] 判据：回复里出现 `case-4-assistant` 或你的 agent 名、以及工作区路径
 
 ## E. 例 1 · 单域
 
