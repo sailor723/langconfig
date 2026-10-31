@@ -64,14 +64,15 @@ def test_resolver_falls_back_when_empty_string(tmp_path):
     assert resolved == (tmp_path / "agents" / "agent_159").resolve()
 
 
-async def test_regular_agent_gets_workspace_save_document_tool(tmp_path, monkeypatch):
-    """A regular agent built with workspace_root must expose save_document
-    and writing through it lands a file in the workspace."""
-    import os
-    import pytest
+async def test_regular_agent_has_no_injected_save_document(tmp_path, monkeypatch):
+    """The workspace-scoped save_document injection is gone.
 
-    if not os.getenv("ANTHROPIC_API_KEY"):
-        pytest.skip("ANTHROPIC_API_KEY not set (enter it in Settings → Models)")
+    It existed because "regular agents have no FilesystemMiddleware" — untrue
+    since the factory installs the middleware for every agent — and it shadowed
+    the catalogued save_document with a second tool of the same name but a
+    different schema (file_path/content instead of title/content/doc_type).
+    write_file from the middleware is the single writer now.
+    """
     from core.agents.factory import AgentFactory
 
     m = _make_manager(tmp_path)
@@ -79,7 +80,7 @@ async def test_regular_agent_gets_workspace_save_document_tool(tmp_path, monkeyp
 
     cfg = {
         "system_prompt": "test",
-        "model": "claude-haiku-4-5-20251015",
+        "model": "deepseek-flash",
         "use_deepagents": False,
         "native_tools": [],
         "custom_tools": [],
@@ -88,21 +89,13 @@ async def test_regular_agent_gets_workspace_save_document_tool(tmp_path, monkeyp
     async def _load_native(names, workspace_context=None, agent_context=None):
         return []
 
-    # Isolate tool loading so no DB rows are needed.
     monkeypatch.setattr("core.agents.tool_loader.ToolLoader.load_native", _load_native)
 
-    inst, tools, _ = await AgentFactory.create_agent(
+    _inst, tools, _ = await AgentFactory.create_agent(
         agent_config=cfg, project_id=0, task_id=0, context="",
         workspace_root=str(ws), agent_id=159,
     )
-    names = [getattr(t, "name", "") for t in tools]
-    assert "save_document" in names
-    sd = next(t for t in tools if t.name == "save_document")
-    result = await sd.ainvoke({"file_path": "report.md", "content": "# Report"})
-    assert "Successfully wrote" in str(result)
-    # Generated deliverables land in the workspace's generated/ subfolder.
-    assert (ws / "generated" / "report.md").exists()
-    assert "Report" in (ws / "generated" / "report.md").read_text(encoding="utf-8")
+    assert "save_document" not in [getattr(t, "name", "") for t in tools]
 
 
 async def test_save_document_binds_agent_id_and_writes_copy(tmp_path, monkeypatch):

@@ -296,42 +296,12 @@ class _AgentAssemblyMixin:
                 agent_context=agent_context,
             )
 
-        # 3d. Per-agent workspace document tool. Regular agents have no
-        # FilesystemMiddleware (deep agents get one via their backend), so
-        # without this tool a regular agent literally cannot persist a file —
-        # it will *claim* it saved a report while writing nothing (the "file
-        # missing from the Files panel" bug). Inject a workspace-scoped
-        # save_document tool whenever the caller provides a workspace root.
-        if workspace_root:
-            existing_names = {getattr(t, "name", "") for t in tools}
-            if "save_document" not in existing_names:
-                try:
-                    from langchain_core.tools import StructuredTool
-                    from tools.native_impl import _write_file_impl
-
-                    def _save_to_agent_workspace(file_path: str, content: str) -> str:
-                        return _write_file_impl(
-                            file_path,
-                            content,
-                            _workspace_context={"workspace_root": workspace_root},
-                            _agent_context={"agent_id": agent_id},
-                        )
-
-                    tools.append(StructuredTool.from_function(
-                        func=_save_to_agent_workspace,
-                        name="save_document",
-                        description=(
-                            "Persist a document (report.md / report.docx / "
-                            "report.pdf / report.html — format chosen by the "
-                            "file extension) into the agent's workspace so the "
-                            "user can see and download it in the Files panel. "
-                            "Use this whenever the user asks to save, persist, "
-                            "or export a document."
-                        ),
-                    ))
-                    logger.info(f"Added workspace-scoped save_document tool (root={workspace_root})")
-                except Exception as e:
-                    logger.warning(f"Failed to add workspace save_document tool: {e}")
+        # 3d. (removed) A workspace-scoped save_document used to be injected
+        # here, because "regular agents have no FilesystemMiddleware" — untrue
+        # since the middleware below is installed for every agent, and the
+        # injection created a second `save_document` with a different schema
+        # (file_path/content) from the catalogued one (title/content/doc_type).
+        # write_file from FilesystemMiddleware is the single writer now.
 
         # 3e. DSH-style execution pipeline (Phase B, docs/tools-refactor.md):
         # wrap tools whose declarative definition requests enforcement

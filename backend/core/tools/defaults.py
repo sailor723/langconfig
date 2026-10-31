@@ -61,9 +61,9 @@ DEFAULT_NATIVE_TOOLS: List[str] = [
     # skills (progressive disclosure on demand)
     "skill",
     # deliverables — write_file generates format-aware documents (.md/.html/
-    # .pdf/.docx); save_document persists the final deliverable to the versioned
-    # document library (agent_documents table + workspace copy).
-    "save_document",
+    # .pdf/.docx) straight into the workspace's generated/ folder, which is what
+    # the Files panel lists. (save_document was removed: it wrote the same file
+    # plus an agent_documents row that no UI ever read.)
     # database — read-only (pg_execute stays opt-in)
     "pg_list_tables",
     "pg_describe_table",

@@ -112,7 +112,6 @@ SEEDABLE_TOOL_META = {
     "sqlite_execute": ("SQLite Execute", "data", None),
     "sqlite_load_csv": ("SQLite Load CSV", "data", None),
     "python_execute": ("Python Execute", "data", None),
-    "save_document": ("Save Document", "document", None),
     # Wrapped LangGraph agents (backend/langgraph/*.py) exposed as selectable
     # native tools. Invocation is delegated to langgraph.tool_adapters so the
     # hand-built pipelines (schema -> generate -> check -> execute) stay in one

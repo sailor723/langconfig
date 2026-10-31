@@ -14,7 +14,10 @@ def test_default_set_is_curated():
     for tool in ("think_tool", "reasoning_chain", "write_todos", "read_todos",
                  "memory_store", "memory_recall", "web_search", "web_fetch",
                  "tavily_search", "rename_file", "move_file", "mkdir", "bash",
-                 "skill", "save_document"):
+                 "skill"):
+    # save_document is deliberately absent: write_file (FilesystemMiddleware)
+    # produces the deliverable, and the archived copy had no UI consumer.
+
         assert tool in d, tool
     # db/analysis/retrieval categories present (read-only db; no pg_execute)
     for tool in ("pg_list_tables", "pg_describe_table", "pg_query",

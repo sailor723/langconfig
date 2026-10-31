@@ -39,7 +39,7 @@ TOOL_CATEGORIES = {
     "todo",         # write_todos, read_todos
     "notification", # slack/discord/wordpress
     "presentation", # gen_pptx
-    "document",     # save_document (agent document library)
+    "document",     # document tooling (agent document library; save_document retired)
     "shell",        # bash (agent terminal)
     "custom",       # user-defined (default)
 }
