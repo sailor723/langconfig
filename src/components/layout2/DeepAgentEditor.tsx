@@ -85,6 +85,11 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   // second, divergent implementation of the same form). `data.new` marks a
   // draft; the first save POSTs it and the id lands in localAgentId.
   const isNew = tab.data?.new === true || typeof agent.id !== 'number';
+  // An existing agent is read from the server before rendering; the tab's
+  // snapshot is only a placeholder until then.
+  const [configLoaded, setConfigLoaded] = useState(isNew);
+  const [configLoadError, setConfigLoadError] = useState<string | null>(null);
+  const [configRev, setConfigRev] = useState(0);
   // Same reason as AgentEditor: the tab carries a snapshot, the server is the
   // truth. Re-read it when the tab opens so two tabs cannot silently diverge.
   useEffect(() => {
@@ -95,8 +100,15 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
       .then(res => {
         if (cancelled || !res?.data) return;
         setJsonEdit(JSON.stringify(res.data, null, 2));
+        setConfigLoadError(null);
+        setConfigLoaded(true);
+        setConfigRev(v => v + 1);
       })
-      .catch(() => { /* offline or deleted — keep the snapshot */ });
+      .catch((err: any) => {
+        if (cancelled) return;
+        setConfigLoadError(err?.message || '载入失败');
+        setConfigLoaded(true);
+      });
     return () => { cancelled = true; };
   }, [agent.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -311,7 +323,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         />
         <HandoffPolicyEditor
           value={handoffCfg}
-          resetKey={`${agent.id ?? 'new'}:${(liveConfig.config?.middleware || []).length}`}
+          resetKey={`${agent.id ?? 'new'}:${configRev}`}
           onChange={writeHandoff}
           candidateTools={[
             ...(Array.isArray(liveConfig.config?.native_tools) ? liveConfig.config.native_tools : []),
@@ -1390,6 +1402,22 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
       />
 
       {/* ── Body: section nav + section content ── */}
+      {(!configLoaded || configLoadError) && (
+        <div
+          style={{
+            padding: '6px 12px',
+            fontSize: 11,
+            background: configLoadError ? 'rgba(239,68,68,0.12)' : t.bgSidebar,
+            color: configLoadError ? '#e5484d' : t.textMuted,
+            borderBottom: `1px solid ${t.border}`,
+          }}
+        >
+          {configLoadError
+            ? `配置载入失败：${configLoadError} —— 下面显示的是草稿，别保存`
+            : '正在从服务器载入配置…'}
+        </div>
+      )}
+
       <EditorSectionNav
         sections={SECTIONS}
         activeSection={activeSection}

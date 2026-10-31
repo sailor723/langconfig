@@ -97,6 +97,8 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   );
   const [configLoaded, setConfigLoaded] = useState(!_hasId);
   const [configLoadError, setConfigLoadError] = useState<string | null>(null);
+  // Bumped on every successful load; the handoff editor resets its draft on change.
+  const [configRev, setConfigRev] = useState(0);
   // Live view of jsonEdit — the tool-inspect modal reads tool_params from
   // here (the immutable `agent` prop would show the stale pre-save value
   // until a reload). Mirrors DeepAgentEditor's live/liveConfig.
@@ -122,6 +124,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         setJsonEdit(JSON.stringify(res.data, null, 2));
         setConfigLoadError(null);
         setConfigLoaded(true);
+        setConfigRev(v => v + 1);
       })
       .catch((err: any) => {
         if (cancelled) return;
@@ -895,7 +898,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         </div>
         <HandoffPolicyEditor
           value={handoffConfig}
-          resetKey={`${agent.id ?? 'new'}:${configLoaded}:${configLoadError ?? ''}`}
+          resetKey={`${agent.id ?? 'new'}:${configRev}`}
           onChange={writeHandoff}
           candidateTools={[...selectedNativeTools, ...selectedCustomTools]}
           t={t}
