@@ -1464,6 +1464,17 @@ async def send_message_stream(
                         if final_session:
                             logger.info(f"Before adding assistant message: total_messages={len(final_session.messages)}")
 
+                            for hop in collected_handoffs:
+                                final_session.messages.append({
+                                    "role": "handoff",
+                                    "content": f"转交给「{hop['to']}」" + (f" · {hop['reason']}" if hop["reason"] else ""),
+                                    "to": hop["to"],
+                                    "reason": hop["reason"],
+                                    "timestamp": hop["timestamp"],
+                                })
+                            if collected_handoffs:
+                                flag_modified(final_session, "messages")
+
                             if full_response:
                                 final_session.messages.append(
                                     _stored_message("assistant", full_response)
@@ -1499,17 +1510,6 @@ async def send_message_stream(
                                         tc["status"] = "completed"
                                 final_session.tool_calls = (final_session.tool_calls or []) + collected_tool_names
                                 flag_modified(final_session, "tool_calls")
-
-                            for hop in collected_handoffs:
-                                final_session.messages.append({
-                                    "role": "handoff",
-                                    "content": f"转交给「{hop['to']}」" + (f" · {hop['reason']}" if hop["reason"] else ""),
-                                    "to": hop["to"],
-                                    "reason": hop["reason"],
-                                    "timestamp": hop["timestamp"],
-                                })
-                            if collected_handoffs:
-                                flag_modified(final_session, "messages")
 
                             if collected_subagent_spawns:
                                 for spawn in collected_subagent_spawns:
