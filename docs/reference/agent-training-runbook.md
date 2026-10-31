@@ -122,3 +122,85 @@ agent = create_agent(
    （`other/`、`skills/` 里的不拦）。这就是 `InterruptOnConfig` 的 `when`。
 
 > 每次决策都会在 `audit_logs` 留痕（`HitlApproval`）：谁批的、审的是哪些工具、什么决定。
+
+---
+
+# 案例 · 主 agent 把专家当工具（Subagents）
+
+页面：**<https://docs.langchain.com/oss/python/langchain/multi-agent/index>**、
+**<https://docs.langchain.com/oss/python/langchain/multi-agent/subagents>**
+
+文档原句：*a central main agent coordinates subagents by **calling them as tools**.*
+主 agent 决定调谁、给什么输入、怎么合并结果；**所有路由都经过主 agent**。
+
+```python
+from langchain.tools import tool
+from langchain.agents import create_agent
+
+subagent = create_agent(model="google_genai:gemini-3.6-flash", tools=[...])
+
+@tool("research", description="Research a topic and return findings")
+def call_research_agent(query: str):
+    result = subagent.invoke({"messages": [{"role": "user", "content": query}]})
+    return result["messages"][-1].content
+
+main_agent = create_agent(model="...", tools=[call_research_agent])
+```
+
+平台上是**单分发工具**（文档里的 *single dispatch tool*）：agent 的 JSON 加一段
+
+```json
+"subagents": [
+  {"name": "weather_expert", "description": "查询某个城市的实时天气（温度、天气状况）。",
+   "type": "dictionary", "system_prompt": "你是天气助手，用 web_search 查实时天气。",
+   "tools": ["web_search"]},
+  {"name": "math_expert", "description": "做精确的算术计算。",
+   "type": "dictionary", "system_prompt": "你是计算助手，所有计算都用 python_execute。",
+   "tools": ["python_execute"]}
+]
+```
+
+Tools 页签勾上 **`task`**，保存后开新聊天。
+
+## 实测（`case-2-subagents`，`deepseek-flash`，temperature 0）
+
+问一句：**「上海今天的天气怎么样？另外算一下 1234567 乘以 891011。」**
+
+| 顺序 | 发生了什么 |
+|---|---|
+| 1 | 主 agent 一轮里发出**两个** `task`：`weather_expert`（查天气）、`math_expert`（算乘法） |
+| 2 | 子代理内部各自调用工具：`web_search` ×3、`python_execute` ×1 |
+| 3 | 结果回到主 agent，主 agent 汇总成一条回答 |
+| 4 | 落库：`tool_calls` 5 条、`subagent_spawns` 2 条（`{subagent, task, status:"completed"}`） |
+
+## 三个必须讲的判断
+
+1. **描述决定委派。** `task` 工具的描述就是子代理清单——
+   `Available agents for delegation are: - weather_expert: … - math_expert: …`。
+   模型照它挑人。这和工具路由、技能触发是**同一个机制**：写清“什么时候该找我”。
+2. **上下文隔离是真的。** 让子代理在自己的 prompt 里复述“你收到的全部信息”，它答的是
+   `我收到的信息：计算 1234567 × 891011` —— 它**不知道**父对话里说过的“我叫卫平、我住在上海”。
+   所以要在子代理身上生效的约束（用中文、别用表情、输出格式）**必须写进子代理的 system prompt**，
+   写在不进它上下文的地方就等于没写。
+3. **子代理不直接面对用户。** 它只把结果交回主 agent；用户看到的是主 agent 那一句总结。
+   页面把“直接交互”标成一星，就是这个意思。
+
+> 同步执行：主 agent 会**等**子代理返回才继续（文档的 *Synchronous (default)*）。
+> 文档里还有一种 *Asynchronous*（后台跑、不阻塞），这一版平台没有。
+
+## 对照实验：改描述，委派会变吗？
+
+同一个问题、同一套工具，只动子代理的 `description`，问三次：
+
+| 实验 | 配置 | 结果 |
+|---|---|---|
+| ① 描述匹配 | `weather_expert`：「查询某个城市的实时天气」 | 委派给 `weather_expert` ✅ |
+| ② 描述改成无关 | 同一个子代理，描述改成「整理会议纪要并输出要点」 | **仍然委派给它** —— 没变 |
+| ③ 两个候选都说得通 | `data_expert`：「查询【实时】天气…」和 `archive_expert`：「查询【历史】气候统计…」 | 「现在气温多少」→ `data_expert`；「往年 10 月平均气温」→ `archive_expert` ✅ |
+
+**结论要如实讲**：路由不是只看描述 —— 任务文本、子代理名字、以及**候选有几个**都在参与。
+② 之所以没变，是因为只有两个候选、任务里又出现了“天气”这个词，模型顺着**名字**也能找对。
+描述真正的威力在 ③：**当两个候选都说得通时，只有描述能把它们分开。**
+
+> 这一组数据可以直接从 `chat_sessions.subagent_spawns` 读出来（谁被派了、派的是什么任务），
+> 比看回答文本可靠。
