@@ -1211,6 +1211,7 @@ async def send_message_stream(
                 # setting (same resolution as the non-streaming path).
                 tool_calls_count = 0
                 collected_tool_names = []  # Track tool names for DB persistence and skill detection
+                collected_subagent_spawns = []  # One entry per `task` delegation
                 # Same binding as the non-streaming path: the tools' sandbox comes
                 # from the run, because the harness does not carry the request
                 # identity into tool execution.
@@ -1249,6 +1250,18 @@ async def send_message_stream(
                                 parts = file_path.split("/skills/")[1].split("/")
                                 if parts:
                                     skill_name = parts[0]
+                            # Delegation evidence: the Metrics panel's
+                            # "subagent activity" reads this list, and until now
+                            # nothing wrote it — a session that delegated to
+                            # three subagents recorded zero spawns.
+                            if tool_name == "task" and isinstance(tool_input, dict):
+                                collected_subagent_spawns.append({
+                                    "subagent": tool_input.get("subagent_type")
+                                    or tool_input.get("name") or "unknown",
+                                    "task": str(tool_input.get("description") or "")[:300],
+                                    "status": "running",
+                                    "timestamp": datetime.utcnow().isoformat(),
+                                })
                             # Track tool name for persistence
                             collected_tool_names.append({
                                 "tool_name": tool_name,
@@ -1268,6 +1281,11 @@ async def send_message_stream(
                             # Update the running tool call with result
                             for tc in reversed(collected_tool_names):
                                 if tc["tool_name"] == tool_name and tc["status"] == "running":
+                                    if tool_name == "task":
+                                        for spawn in reversed(collected_subagent_spawns):
+                                            if spawn["status"] == "running":
+                                                spawn["status"] = "completed"
+                                                break
                                     output = tool_data.get("output", "")
                                     if isinstance(output, str):
                                         tc["result"] = output[:500]
@@ -1418,7 +1436,7 @@ async def send_message_stream(
                 # Save the turn even when it ended in an interrupt: the run has
                 # no prose yet, but the tool calls it made (and the ones it is
                 # waiting to make) are exactly the evidence a reviewer needs.
-                if full_response or collected_tool_names:
+                if full_response or collected_tool_names or collected_subagent_spawns:
                     try:
                         # Re-query session to ensure we have a fresh, attached object
                         final_session = (await async_db.execute(
@@ -1455,6 +1473,15 @@ async def send_message_stream(
                                         tc["status"] = "completed"
                                 final_session.tool_calls = (final_session.tool_calls or []) + collected_tool_names
                                 flag_modified(final_session, "tool_calls")
+
+                            if collected_subagent_spawns:
+                                for spawn in collected_subagent_spawns:
+                                    if spawn["status"] == "running":
+                                        spawn["status"] = "completed"
+                                final_session.subagent_spawns = (
+                                    final_session.subagent_spawns or []
+                                ) + collected_subagent_spawns
+                                flag_modified(final_session, "subagent_spawns")
 
                             await async_db.commit()
                             await async_db.refresh(final_session)  # Refresh to confirm save
