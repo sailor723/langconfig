@@ -229,6 +229,7 @@ def has_workspace_status_tools(native_tools: list | tuple | set | None) -> bool:
 def first_chat_greeting(
     workspace_root: str,
     include_workspace_status: bool = True,
+    subagents: list | None = None,
 ) -> str:
     """Instruction appended to the system prompt on the first message of a
     new chat session: introduce yourself (+ report workspace status only when
@@ -241,11 +242,28 @@ def first_chat_greeting(
         "- Introduce yourself (agent name and id).\n",
     ]
     if include_workspace_status:
+        # Unchanged wording for agents that can inspect the workspace: they were
+        # the only ones with anything to say here, and their first turn should
+        # read exactly as it did before.
         lines.append(
             f"- Report the current workspace status: what is in `{workspace_root}` "
             "(uploads in `upload/`, existing deliverables in `generated/`, skills "
             "in `skills/`).\n"
         )
+    else:
+        # No filesystem tools: state the path (a fact, no tool needed) and, when
+        # the agent has specialists, what it coordinates — otherwise the intro
+        # says nothing beyond a name and an id.
+        lines.append(
+            f"- Mention where you work: your workspace is `{workspace_root}` "
+            "(uploads in `upload/`, deliverables in `generated/`).\n"
+        )
+        if subagents:
+            names = "、".join(str(n) for n in subagents if n)
+            lines.append(
+                f"- Say what you can do: you coordinate {len(subagents)} specialists "
+                f"({names}); they run the tools, you route and summarise.\n"
+            )
     lines.append("- Keep it concise and in the user's language.\n")
     return "".join(lines)
 

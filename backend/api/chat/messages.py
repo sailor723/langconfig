@@ -535,6 +535,10 @@ async def send_message(
                     include_workspace_status=has_workspace_status_tools(
                         _safe_config.get("native_tools")
                     ),
+                    subagents=[
+                        s.get("name") for s in (_safe_config.get("subagents") or [])
+                        if isinstance(s, dict) and s.get("name")
+                    ],
                 )
                 _safe_config["system_prompt"] = (
                     (_safe_config.get("system_prompt") or "") + _greeting
@@ -1113,6 +1117,10 @@ async def send_message_stream(
                             include_workspace_status=has_workspace_status_tools(
                                 agent_config.get("native_tools")
                             ),
+                            subagents=[
+                                s.get("name") for s in (agent_config.get("subagents") or [])
+                                if isinstance(s, dict) and s.get("name")
+                            ],
                         )
                         agent_config["system_prompt"] = (
                             (agent_config.get("system_prompt") or "") + _greeting
