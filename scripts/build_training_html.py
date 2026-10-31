@@ -8,15 +8,15 @@ Why HTML on top of the markdown:
 * **Print to PDF from the same source.** The stylesheet has a print block, so
   `Cmd-P → Save as PDF` from the browser gives the handout, with diagrams vector-
   sharp because the SVGs are inlined, not rasterised.
-* **Nothing to keep in sync.** This reads `docs/reference/agent-training-runbook.md`
-  and inlines the diagrams from `docs/reference/assets/`. Edit the markdown, re-run,
+* **Nothing to keep in sync.** This reads `docs/tutorial/agent-training-runbook.md`
+  and inlines the diagrams from `docs/assets/`. Edit the markdown, re-run,
   done — there is no second copy of the text.
 
 Usage::
 
     cd <repo>
     backend/.venv/bin/python scripts/build_training_html.py
-    # → docs/reference/agent-training-runbook.html
+    # → docs/tutorial/agent-training-runbook.html
 
 Hints for a live session:
 
@@ -33,9 +33,9 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-SRC = REPO / "docs" / "reference" / "agent-training-runbook.md"
-ASSETS = REPO / "docs" / "reference" / "assets"
-OUT = REPO / "docs" / "reference" / "agent-training-runbook.html"
+SRC = REPO / "docs" / "tutorial" / "agent-training-runbook.md"
+ASSETS = REPO / "docs" / "assets"
+OUT = REPO / "docs" / "tutorial" / "agent-training-runbook.html"
 
 CSS = """
 :root { --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --accent:#4f46e5; --bg:#ffffff; --soft:#f8fafc; }
@@ -93,14 +93,16 @@ def inline_svgs(md: str) -> str:
     """
     def repl(m: re.Match) -> str:
         alt, rel = m.group(1), m.group(2)
-        path = (REPO / "docs" / "reference" / rel).resolve()
+        # The markdown lives in docs/tutorial/ and links `../assets/x.svg` so it
+        # renders on GitHub; resolve against the assets dir either way.
+        path = (ASSETS / Path(rel).name).resolve()
         if not path.exists():
             return m.group(0)
         svg = path.read_text(encoding="utf-8")
         svg = re.sub(r"<\?xml[^>]*\?>", "", svg).strip()
         return f'<figure>{svg}<figcaption>{html.escape(alt)}</figcaption></figure>'
 
-    return re.sub(r"!\[([^\]]*)\]\((assets/[^)]+)\)", repl, md)
+    return re.sub(r"!\[([^\]]*)\]\((\.\./assets/[^)]+|assets/[^)]+)\)", repl, md)
 
 
 def add_heading_ids(rendered_html: str) -> str:
