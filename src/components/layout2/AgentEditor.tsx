@@ -91,7 +91,11 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   // silently wrote stale config back (the handoff steps came out as step_1
   // while the server held sales/support). A new agent has no server copy yet, so
   // it starts from the draft.
-  const _hasId = typeof agent.id === 'number';
+  // Ids arrive as numbers from most openers but as strings from a few (quick
+  // picker, older tabs), and `typeof === 'number'` silently treated those as a
+  // brand-new agent — no fetch, no banner, edits saved over the server copy.
+  const _agentIdNum = Number(agent.id);
+  const _hasId = Number.isFinite(_agentIdNum) && _agentIdNum > 0;
   const [jsonEdit, setJsonEdit] = useState(() =>
     _hasId ? '{}' : JSON.stringify(agent, null, 2),
   );
@@ -111,7 +115,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   // made elsewhere (another tab, the API, a restore) are invisible, and saving
   // then writes the stale copy back. Pull the agent fresh on open.
   useEffect(() => {
-    const id = typeof agent.id === 'number' ? agent.id : null;
+    const id = _hasId ? _agentIdNum : null;
     if (!id) return;
     let cancelled = false;
     apiClient.getDeepAgent(id)
@@ -132,7 +136,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         setConfigLoaded(true); // let the editor open, but say it is a draft
       });
     return () => { cancelled = true; };
-  }, [agent.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [_hasId, _agentIdNum]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Always-current mirror of jsonEdit — lets async handlers (e.g. the tool
   // inspect modal's Save -> main save) read the latest JSON after a state
@@ -937,7 +941,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         canRun={!!localAgentId}
         saveDisabled={false}
         saveMsg={saveMsg}
-        statusLabel={`ID: ${agent.id ?? '—'} · v${agent.version ?? '?'} · ${agent.category ?? ''}`}
+        statusLabel={`ID: ${agent.id ?? '—'} (${typeof agent.id}) · loaded=${String(configLoaded)} · v${agent.version ?? '?'}`}
         agentId={localAgentId}
         agentName={agent.name}
         onImported={handleImported}

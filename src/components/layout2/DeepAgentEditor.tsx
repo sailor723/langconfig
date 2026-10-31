@@ -84,7 +84,8 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   // Creating and editing share this component (the old DeepAgentCreator was a
   // second, divergent implementation of the same form). `data.new` marks a
   // draft; the first save POSTs it and the id lands in localAgentId.
-  const isNew = tab.data?.new === true || typeof agent.id !== 'number';
+  const _agentIdNum = Number(agent.id);
+  const isNew = tab.data?.new === true || !(Number.isFinite(_agentIdNum) && _agentIdNum > 0);
   // An existing agent is read from the server before rendering; the tab's
   // snapshot is only a placeholder until then.
   const [configLoaded, setConfigLoaded] = useState(isNew);
@@ -93,7 +94,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   // Same reason as AgentEditor: the tab carries a snapshot, the server is the
   // truth. Re-read it when the tab opens so two tabs cannot silently diverge.
   useEffect(() => {
-    const id = typeof agent.id === 'number' ? agent.id : null;
+    const id = isNew ? null : _agentIdNum;
     if (!id) return;
     let cancelled = false;
     apiClient.getDeepAgent(id)
@@ -110,7 +111,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         setConfigLoaded(true);
       });
     return () => { cancelled = true; };
-  }, [agent.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isNew, _agentIdNum]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [localAgentId, setLocalAgentId] = useState<number | null>(
     typeof agent.id === 'number' ? agent.id : null
