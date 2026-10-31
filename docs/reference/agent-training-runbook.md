@@ -563,3 +563,125 @@ into a coherent response.*
 
 > 整份清单跑完约 3–5 分钟。跑通后，这套配置就是“教程里的 supervisor + 专家 + 外发审批”
 > 在本平台的完整对应物。
+
+---
+
+# 案例 7 · 售后客服（handoffs：一个 agent，三步配置）
+
+教程：**<https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs-customer-support>**
+
+## Overview（页面原文 · 中文译文）
+
+> 状态机模式描述的是这样一类工作流：agent 的行为随着任务走到不同状态而改变。本教程用**工具调用
+> 动态改变同一个 agent 的配置** —— 按当前状态更换它可用的工具与指令 —— 来实现一个状态机。状态可以
+> 来自多个来源：agent 过去的动作（工具调用）、外部状态（比如 API 返回），甚至最初的用户输入
+> （比如先跑一个分类器判断意图）。
+>
+> 本教程要搭的是一个售后客服 agent，它会：
+>
+> - 先收集保修信息再往下走；
+> - 把问题分成硬件或软件；
+> - 给出解决方案，或升级给人工；
+> - 在多轮对话里保持状态。
+>
+> 和 subagents 模式（把子代理当工具调用）不同，**状态机模式用的是一个 agent**，它的配置随流程推进
+> 而改变。所谓“一步”，只是同一个 agent 的另一套配置（system prompt + 工具），由状态动态选中。
+
+## 流程（页面那张图的文字版）
+
+```text
+客户报问题 → 在保？ ──是──→ 问题类型？ ──硬件──→ 保修维修流程
+                │                        └─软件──→ 排查步骤
+                └──否──→ 问题类型？ ──硬件──→ 升级人工（付费维修）
+                                    └─软件──→ 排查步骤
+```
+
+## 结构：1 个 agent + 3 步配置
+
+| 步骤 | 这一步看得到什么 | 什么时候进 |
+|---|---|---|
+| `warranty_collector` | `transfer_to_issue_classifier` | 一开始（`default_step`） |
+| `issue_classifier` | `transfer_to_resolution_specialist` | 保修状态问清之后 |
+| `resolution_specialist` | `write_file` + `transfer_to_warranty_collector` + `transfer_to_issue_classifier` | 硬件/软件判定之后 |
+
+**顺序不是靠提示词自觉，是靠工具集**：第一步手里根本没有进方案的转移工具，所以它进不去。
+
+## 教程的步骤（9 节压成 5 行）
+
+| 教程 | 做了什么 |
+|---|---|
+| 1. 定义 state | `current_step` / `warranty_status` / `issue_type` |
+| 2. 建工具 | `record_warranty_status(...)` 返回 `Command(update={..., "current_step": ...})` |
+| 3–4. 每步配置 + 中间件 | 字典里存 `prompt` / `tools` / `requires`；中间件读 `current_step`，覆盖 prompt 与工具，缺字段就 `raise` |
+| 5. 建 agent | `state_schema=SupportState`、`middleware=[apply_step_config]`、加 checkpointer |
+| 6–9. 跑 4 轮 + 回退 | 保修 → 分类 → 方案；再加 `go_back_to_*` 让客户改错的信息 |
+
+## 平台上怎么还原（1 个 agent + 1 段 middleware）
+
+Agents → New Agent，名字 `case-7-support`，Model `deepseek-flash`，Temperature `0`；
+Tools 页签只勾 `write_file`；JSON 页签贴：
+
+```json
+"middleware": [{
+  "type": "handoff",
+  "config": {
+    "default_step": "warranty_collector",
+    "steps": {
+      "warranty_collector": {
+        "system_prompt": "你是售后客服，当前阶段：保修确认。先打招呼，再问设备是否在保修期内，不要一次问多个问题。客户回答后调用 transfer_to_issue_classifier。",
+        "tools": [],
+        "transfers": [{"to": "issue_classifier", "description": "客户已说明是否在保修期内"}]
+      },
+      "issue_classifier": {
+        "system_prompt": "你是售后客服，当前阶段：问题分类。先请客户说明问题怎么发生的（即使开头提过也要确认），再判断硬件还是软件，然后调用 transfer_to_resolution_specialist。保修状态在对话历史里，自己回看。",
+        "tools": [],
+        "transfers": [{"to": "resolution_specialist", "description": "已判定硬件/软件"}]
+      },
+      "resolution_specialist": {
+        "system_prompt": "你是售后客服，当前阶段：解决方案。回答最多 5 行，细节写进文件。文件名用 generated/support/<Current time 的日期时间>-<类型>.md（不要用客户名）。软件→排查步骤；硬件+在保→保修维修；硬件+过保→升级人工（写明平台没有真实工单系统）。客户说信息有误就用 transfer_to_warranty_collector / transfer_to_issue_classifier 回去改。",
+        "tools": ["write_file"],
+        "transfers": [
+          {"to": "warranty_collector", "description": "客户说保修信息有误"},
+          {"to": "issue_classifier", "description": "客户说问题类型判断有误"}
+        ]
+      }
+    }
+  }
+}]
+```
+
+## 实测（`case-7-support`，id 325）
+
+| 轮 | 客户说 | 用了什么 | 结果 |
+|---|---|---|---|
+| 1 | `Hi, my phone screen is cracked` | 无工具 | 只问保修状态（进不去下一步） |
+| 2 | `Yes, it's still under warranty` | `transfer_to_issue_classifier` | 换配置：问"屏幕怎么坏的" |
+| 3 | `The screen is physically cracked from dropping it` | `transfer_to_resolution_specialist` + `write_file` | 换配置：给保修维修流程；`generated/support/2026-10-31T1324-保修维修.md` |
+| 4 | `What should I do?` | 无工具 | 只补充操作步骤（不再复述整份方案） |
+| 5 | `Actually I made a mistake - my device is out of warranty` | `transfer_to_warranty_collector` | **回退**到保修确认（教程第 9 节） |
+
+三次 hop 都落库成 `handoff` 消息，顺序 `issue_classifier → resolution_specialist → warranty_collector`。
+
+## 和教程的差异（要如实讲）
+
+| 教程 | 平台 | 原因 |
+|---|---|---|
+| `warranty_status` / `issue_type` 存进 state，prompt 用 `{warranty_status}` 插值 | 没有：事实留在**对话历史**里，prompt 写"自己回看" | 平台没有可编辑的 state 字段 |
+| `requires` 缺字段就 `raise` | 没有这道校验；顺序靠"这一步手里有哪些转移工具" | 同上，属于要新增的能力 |
+| `record_warranty_status` 返回 `Command` 写 state | `transfer_to_*` 写 `handoff_to` | 机制同构：工具改状态、中间件换配置 |
+| `provide_solution` / `escalate_to_human`（stub 返回字符串） | `write_file` 写 `generated/support/*.md` | 平台没有工单系统，"升级人工"只是文件 + 一句告知 |
+| 第 8 节：用摘要中间件压历史 | 中间件页签可加 `summarization` | 等价 |
+
+## 三个要讲的判断
+
+1. **一个 agent 也能"变成好几个人"**：换的是配置（prompt + 工具），不是进程，也不是子代理。
+2. **顺序由工具集约束，不是靠模型自觉**：第一步没有"进方案"的工具，它想跳也跳不过去。
+3. **回退要显式给**：只在方案步给 `transfer_to_warranty_collector`，客户改错才有路可走；给多了就等于没有流程。
+
+## 复建自检（5 条）
+
+- [ ] 第 1 轮只问保修，**没有** hop —— 判据：工具记录为空、没有 `handoff` 消息
+- [ ] 第 2 轮出现 `transfer_to_issue_classifier`，回答变成"问问题怎么发生的"
+- [ ] 第 3 轮出现 `transfer_to_resolution_specialist` + `write_file`，Files 面板多出 `generated/support/…md`
+- [ ] 第 5 轮说"其实过保了" → 出现 `transfer_to_warranty_collector`（回退成功）
+- [ ] 反证：把 `resolution_specialist` 的两个 `transfers` 删掉 → 客户说"搞错了"时它只能解释，退不回去
