@@ -121,7 +121,7 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
   const handleNewFile = useCallback(() => {
     const id = `new-${Date.now()}`;
     if (activeActivity === 'deepagents') {
-      openTab({ id, label: 'New DeepAgent', viewType: 'deepagent-create', data: {} });
+      openTab({ id, label: 'New DeepAgent', viewType: 'deepagent', data: { new: true } });
     } else if (activeActivity === 'agents') {
       openTab({ id, label: 'New Agent', viewType: 'agent', data: { new: true } });
     } else {
@@ -136,7 +136,7 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
   }, [reload]);
   const handleFolderAction = useCallback((node: TreeNode) => {
     if (node.id === 'folder-deepagents') {
-      openTab({ id: `new-${Date.now()}`, label: 'New DeepAgent', viewType: 'deepagent-create', data: {} });
+      openTab({ id: `new-${Date.now()}`, label: 'New DeepAgent', viewType: 'deepagent', data: { new: true } });
     } else if (node.id === 'folder-agents') {
       openTab({ id: `new-${Date.now()}`, label: 'New Agent', viewType: 'agent', data: { new: true } });
     }

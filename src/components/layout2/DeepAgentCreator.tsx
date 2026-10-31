@@ -1,9 +1,17 @@
 /**
- * DeepAgentCreator — form to create a new DeepAgent from scratch.
+ * RETIRED — kept for reference, not routed anywhere.
  *
- * Mirrors the DeepAgentEditor section structure (Overview, Prompt, Tools,
- * Skills, Subagents, Middleware, Guardrails, JSON). On submit, calls
- * POST /api/deepagents/ and switches to the resulting DeepAgentEditor tab.
+ * This was the "new DeepAgent" form: a second implementation of the same
+ * fields DeepAgentEditor already edits (name, prompt, model, tools, middleware,
+ * backends). Because it was a separate component it drifted — its
+ * "Human-in-Loop" toggle wrote `{type: 'hitl', config: {}}` while the editor
+ * wrote a full `interrupt_on` policy, so the same box meant two behaviours.
+ *
+ * Creation now happens in DeepAgentEditor with `data: {new: true}`
+ * (Workspace maps the legacy `deepagent-create` view id to that component), the
+ * same way AgentEditor has always handled both create and edit.
+ *
+ * Nothing imports this file; delete it once nobody misses it.
  */
 import { useState, useEffect, useMemo } from 'react';
 import type { Tab } from './useLayout';

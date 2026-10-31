@@ -1355,7 +1355,7 @@ export default function DeepAgentHomePage() {
   }, [loadTemplates]);
 
   const handleNewAgent = () => {
-    openTab({ id: `new-deepagent-${Date.now()}`, label: 'New DeepAgent', viewType: 'deepagent-create', data: {} });
+    openTab({ id: `new-deepagent-${Date.now()}`, label: 'New DeepAgent', viewType: 'deepagent', data: { new: true } });
   };
 
   const handleRefresh = () => {

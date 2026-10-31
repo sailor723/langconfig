@@ -400,7 +400,7 @@ function openEditorTabFor(
   if (fromBlank) {
     switch (activity) {
       case 'deepagents':
-        return { id: `deepagent-new-${Date.now()}`, label: 'New DeepAgent', viewType: 'deepagent-create', data: {} };
+        return { id: `deepagent-new-${Date.now()}`, label: 'New DeepAgent', viewType: 'deepagent', data: { new: true } };
       case 'agents':
         return { id: `agent-new-${Date.now()}`, label: 'New Agent', viewType: 'agent', data: { new: true } };
       case 'skills':
@@ -421,7 +421,7 @@ function openEditorTabFor(
       return {
         id: `deepagent-from-${template.id}-${Date.now()}`,
         label: `From: ${template.name}`,
-        viewType: 'deepagent-create',
+        viewType: 'deepagent',
         data: {
           name: '',
           description: template.description ?? '',

@@ -12,7 +12,6 @@ import { useLayoutTokens } from './tokens';
 import { X, File, User, BookOpen, BarChart3, Brain, Globe, Wrench, Database, Award, FileText, LayoutGrid } from 'lucide-react';
 import FileEditor from './FileEditor';
 import DeepAgentEditor from './DeepAgentEditor';
-import DeepAgentCreator from './DeepAgentCreator';
 import AgentEditor from './AgentEditor';
 import ToolCategoryTab from './ToolCategoryTab';
 import ToolEditor from './ToolEditor';
@@ -51,7 +50,9 @@ interface ViewComponentProps {
 const VIEWS: Record<string, React.FC<ViewComponentProps>> = {
   workflow:            FileEditor,
   deepagent:           DeepAgentEditor,
-  'deepagent-create':  DeepAgentCreator,
+  // Legacy view id: old tabs (and saved links) still say deepagent-create.
+  // Creation and editing are one component now, so it renders the editor.
+  'deepagent-create':  DeepAgentEditor,
   'template-picker':   TemplatePicker,
   agent:               AgentEditor,
   'tool-category':      ToolCategoryTab,

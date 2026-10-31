@@ -80,6 +80,10 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const [docsSaving, setDocsSaving] = useState(false);
   const [docsMsg, setDocsMsg] = useState<{ ok: boolean; text: string } | null>(null);
   // Track the persisted agent id locally — template ids are strings until saved
+  // Creating and editing share this component (the old DeepAgentCreator was a
+  // second, divergent implementation of the same form). `data.new` marks a
+  // draft; the first save POSTs it and the id lands in localAgentId.
+  const isNew = tab.data?.new === true || typeof agent.id !== 'number';
   const [localAgentId, setLocalAgentId] = useState<number | null>(
     typeof agent.id === 'number' ? agent.id : null
   );
@@ -470,6 +474,18 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         setSaveMsg({ ok: false, text: 'Invalid JSON — fix errors and try again' });
         setSaving(false);
         return;
+      }
+      if (!localAgentId) {
+        const draftName = String(payload.name || agent.name || '').trim();
+        const draftPrompt = String(payload.config?.system_prompt || '').trim();
+        if (!draftName || !draftPrompt) {
+          setSaveMsg({
+            ok: false,
+            text: 'New DeepAgent needs a name and a system prompt before it can be created',
+          });
+          setSaving(false);
+          return;
+        }
       }
       if (localAgentId) {
         payload.workspace_path = workspacePath.trim() || null;
@@ -1318,8 +1334,8 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         agentName={agent.name}
         onImported={handleImported}
         onDelete={handleDelete}
-        canRun={!!localAgentId}
-        saveDisabled={!localAgentId}
+        canRun={!!localAgentId && !isNew}
+        saveDisabled={false}
         saveMsg={saveMsg}
         statusLabel={`ID: ${localAgentId ?? agent.id ?? '—'} · v${agent.version ?? '?'} · ${agent.category ?? ''}`}
         t={t}
