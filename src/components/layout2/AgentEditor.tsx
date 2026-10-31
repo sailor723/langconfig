@@ -24,6 +24,7 @@ import ChatTestToolbar from './editorChatToolbar';
 import JsonEditorSection from './editorJsonSection';
 import ToolsPicker, { toToolIdList } from './editorToolsPicker';
 import HitlPolicyEditor from './HitlPolicyEditor';
+import HandoffPolicyEditor from './HandoffPolicyEditor';
 import ToolInspectModal from './ToolInspectModal';
 import SkillsPicker from './editorSkillsPicker';
 import EditorSectionNav from './editorSectionNav';
@@ -121,6 +122,29 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   const descriptionPrefix: string =
     hitlConfig.description_prefix || hitlMiddleware?.description_prefix
     || 'Tool execution pending approval';
+
+  // Handoff middleware: step graph + transfer edges, written as one more
+  // `{"type": "handoff"}` entry in the same middleware list.
+  const handoffMiddleware = useMemo(() => {
+    const mw = liveConfig.config?.middleware;
+    if (!Array.isArray(mw)) return undefined;
+    return mw.find((m: any) => m && (m.type === 'handoff' || m.type === 'handoffs'));
+  }, [liveConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+  const handoffConfig = (handoffMiddleware?.config ?? {}) as any;
+
+  const writeHandoff = (next: any) => {
+    let parsed: any;
+    try { parsed = JSON.parse(jsonEditRef.current); } catch { parsed = { ...agent }; }
+    if (!parsed.config) parsed.config = {};
+    const mw: any[] = Array.isArray(parsed.config.middleware) ? parsed.config.middleware : [];
+    const rest = mw.filter(m => !(m && (m.type === 'handoff' || m.type === 'handoffs')));
+    const hasSteps = next && next.steps && Object.keys(next.steps).length > 0;
+    if (hasSteps) {
+      rest.push({ type: 'handoff', enabled: true, config: next });
+    }
+    parsed.config.middleware = rest;
+    setJsonEdit(JSON.stringify(parsed, null, 2));
+  };
 
   const writeHitl = (
     next: Record<string, any>,
@@ -826,6 +850,26 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
           <div style={{ fontSize: 10, color: t.textMuted, marginTop: 4, lineHeight: '15px' }}>
             打断信息的前缀，和工具名、参数一起组成提示。保存后开新聊天生效。
           </div>
+        </div>
+        <HandoffPolicyEditor
+          value={handoffConfig}
+          onChange={writeHandoff}
+          candidateTools={[...selectedNativeTools, ...selectedCustomTools]}
+          t={t}
+        />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
+          {handoffMiddleware && (
+            <button
+              onClick={() => writeHandoff({})}
+              style={{
+                padding: '2px 8px', borderRadius: 10, cursor: 'pointer',
+                border: `1px solid ${t.border}`, background: 'transparent',
+                color: t.textMuted, fontSize: 10,
+              }}
+            >
+              移除转交配置
+            </button>
+          )}
         </div>
       </div>
     ),

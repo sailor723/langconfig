@@ -25,6 +25,7 @@ import ChatTestToolbar from './editorChatToolbar';
 import JsonEditorSection from './editorJsonSection';
 import ToolsPicker, { toToolIdList } from './editorToolsPicker';
 import HitlPolicyEditor from './HitlPolicyEditor';
+import HandoffPolicyEditor from './HandoffPolicyEditor';
 import ToolInspectModal from './ToolInspectModal';
 import SkillsPicker from './editorSkillsPicker';
 import EditorSectionNav from './editorSectionNav';
@@ -241,6 +242,22 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   // ── Human-in-the-loop (middleware) ──
   // Same shape the LangChain docs use: config.middleware gets a {"type":"hitl"}
   // entry whose interrupt_on maps tool → true | {allowed_decisions}.
+  const handoffMw = ((liveConfig.config?.middleware as any[] | undefined) ?? [])
+    .find(m => m && (m.type === 'handoff' || m.type === 'handoffs'));
+  const handoffCfg = handoffMw?.config ?? {};
+  const writeHandoff = (next: any) => {
+    patchJson(p => {
+      if (!Array.isArray(p.config.middleware)) p.config.middleware = [];
+      const rest = p.config.middleware.filter(
+        (m: any) => !(m && (m.type === 'handoff' || m.type === 'handoffs')),
+      );
+      if (next && next.steps && Object.keys(next.steps).length > 0) {
+        rest.push({ type: 'handoff', enabled: true, config: next });
+      }
+      p.config.middleware = rest;
+    });
+  };
+
   const HitlSection = () => {
     const mw = (liveConfig.config?.middleware as any[] | undefined) ?? [];
     const hitl = mw.find(m => m && (m.type === 'hitl' || m.type === 'human_in_the_loop'));
@@ -268,14 +285,24 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
       });
     };
     return (
-      <HitlPolicyEditor
-        value={interruptOn}
-        onChange={write}
-        candidateTools={[
-          ...(Array.isArray(liveConfig.config?.native_tools) ? liveConfig.config.native_tools : []),
-        ]}
-        t={t}
-      />
+      <>
+        <HitlPolicyEditor
+          value={interruptOn}
+          onChange={write}
+          candidateTools={[
+            ...(Array.isArray(liveConfig.config?.native_tools) ? liveConfig.config.native_tools : []),
+          ]}
+          t={t}
+        />
+        <HandoffPolicyEditor
+          value={handoffCfg}
+          onChange={writeHandoff}
+          candidateTools={[
+            ...(Array.isArray(liveConfig.config?.native_tools) ? liveConfig.config.native_tools : []),
+          ]}
+          t={t}
+        />
+      </>
     );
   };
 
