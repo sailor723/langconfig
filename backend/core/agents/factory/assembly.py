@@ -583,7 +583,12 @@ class _AgentAssemblyMixin:
             # Use the unified agent creator
             create_agent_kwargs = {
                 "model": llm_or_model,  # Unbound model (or selector callable)
-                "tools": tools or [],   # create_agent handles binding
+                # Keep the *same list object*: `tools or []` on an empty list built a
+                # NEW list, so the handoff block below appended the generated
+                # `transfer_to_*` tools to a list create_agent never saw. The agent
+                # then had no transfer tool at all and simply never handed off
+                # (measured on case-7-support, whose steps declare no native tools).
+                "tools": tools if tools is not None else [],
                 "system_prompt": system_prompt_str,  # v1.0: Pass string, messages handled automatically
                 "state_schema": DeepAgentState,  # Extends AgentState with todos + files for VFS/todo tools
                 # Note: callbacks are passed when invoking the agent, not when creating it
@@ -650,6 +655,9 @@ class _AgentAssemblyMixin:
                 _existing = {getattr(t, "name", "") for t in tools}
                 _generated = [t for t in build_transfer_tools(_steps) if t.name not in _existing]
                 tools.extend(_generated)
+                # Belt and braces: hand the very list that now holds the transfers
+                # to create_agent, whatever happened to the reference above.
+                create_agent_kwargs["tools"] = tools
                 logger.info("handoff: %d transfer tool(s) available", len(_generated))
                 break
 
