@@ -834,7 +834,7 @@ Three generation regimes feed it:
 | **ERP study case** | `backend/skills/erp-analyst/9_erp_dashboard.py` | ❌ deterministic (`Mode: static-embed`) | `erp_dashboard_*.html` |
 | **Sun Hing study case** | `data/analysis_dbs/gen_sunhing_kpi_dashboard.py` — one script builds the hub + 5 factor sub-dashboards (+ gantt/data) and copies the ERD/intro/employees/liability masters | ❌ deterministic (byte-stable modulo a timestamp) | `sunhing_dashboard*.html` |
 
-See **[docs/reference/sunhing-dashboards.md](reference/sunhing-dashboards.md)** for the Sun Hing
+See **[docs/system-architecture/sunhing-dashboards.md](sunhing-dashboards.md)** for the Sun Hing
 producer map, the 28-KPI coverage proof, the determinism guarantee, and the known
 drift risks (two divergent DB copies; copy-propagated static pages).
 
@@ -1240,7 +1240,7 @@ stored Fernet-encrypted in the `models` settings document (`models.api_keys`). R
 `.env` key is required. See §16.2.
 ### 16.2 Settings & configuration — DSH-style documents (Phase 5)
 
-> Full design + migration record: `docs/reference/settings-refactor.md` · status: ✅ done
+> Full design + migration record: `docs/system-architecture/settings-refactor.md` · status: ✅ done
 > (`core/settings/` engine, describe/mutate API, `.env` shrink, `env_example` removed).
 
 **What was already there (before the Phase-5 refactor):**
@@ -1359,7 +1359,7 @@ matter for which tier.
 
 ### 16.3 Tools — DSH-shaped definitions on the compile model (Phase 6)
 
-> Full design + phase record: `docs/reference/tools-refactor.md` · status: ✅ Phases A+B.
+> Full design + phase record: `docs/system-architecture/tools-refactor.md` · status: ✅ Phases A+B.
 
 LangConfig's tool system compiles **DB rows → runnable tools** at runtime
 (`custom_tools` → `ToolFactory` codegen → `StructuredTool`), and the tool source

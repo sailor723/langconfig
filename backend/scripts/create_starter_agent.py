@@ -8,7 +8,7 @@ the text.
 
 Its `AGENTS.md` opens with a **lab** block: four rules, each independently observable, each
 with the experiment to run and the change to expect. Edit one, start a new chat, do the same
-task, compare. That is P2 of `docs/reference/agent-practice.md` made concrete.
+task, compare. That is P2 of `docs/tutorial/agent-training-runbook.md` made concrete.
 
 Idempotent: run it again and the agent is refreshed in place, not duplicated (matched by
 name). Safe on any install — it only touches its own row.
@@ -232,7 +232,7 @@ def main() -> int:
             return delete(db, args.name)
         agent_id = upsert(db, args.name)
         print(f"\n  next: open {args.name} in the UI, run one experiment from its lab section,")
-        print("        then read docs/reference/agent-practice.md §P2.")
+        print("        then read docs/tutorial/agent-training-runbook.md §P2.")
         return 0 if agent_id else 1
     finally:
         db.close()

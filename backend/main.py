@@ -75,7 +75,7 @@ async def lifespan(app: FastAPI):
         logger.error("Make sure PostgreSQL is running: docker-compose up -d postgres")
         raise
 
-    # Bootstrap the first accounts from .env (docs/reference/lan-access.md).
+    # Bootstrap the first accounts from .env (docs/installation/lan-access.md).
     # This is a ONE-TIME seed: the first LAN credential becomes the admin, the
     # rest become members, and afterwards the users table is the only user list —
     # editing LANGCONFIG_LAN_USERS no longer creates, renames or removes anyone.
@@ -460,7 +460,7 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-# LAN access guard (docs/reference/lan-access.md).
+# LAN access guard (docs/installation/lan-access.md).
 # The backend binds 0.0.0.0, so without this every route on port 8765 is open
 # to the whole network — this app runs code and holds your provider API keys.
 # Loopback (local dev, the Vite proxy, tests) is exempt, so this is a no-op
@@ -769,7 +769,7 @@ app.include_router(classic_graph.router)  # Classic LangGraph builder API
 app.include_router(graph_studio.router)  # Graph Engineering Studio (code-defined graphs)
 app.include_router(plugins)  # LangChain-style declarative plugins (marketplace + components)
 
-# ── Built SPA for LAN users (docs/reference/lan-access.md) ───────────────────
+# ── Built SPA for LAN users (docs/installation/lan-access.md) ───────────────────
 # Local development serves the UI from Vite on :1421. A colleague on another
 # machine cannot use that entry point safely: Vite binds the LAN but its
 # allowedHosts default refuses unknown hosts, and — more importantly — the

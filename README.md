@@ -23,7 +23,7 @@ your own PostgreSQL, so nothing leaves the machine.
 | **[docs/usage.md](docs/usage.md)** | How to use it — the shell, the thirteen activities, first-agent and first-workflow walkthroughs |
 | **[docs/installation.md](docs/installation.md)** | Install **and** update: local development, team install from a zip, and the seed out → push → pull → seed loop (plus a [Chinese edition](docs/installation.zh-CN.md)) |
 | **[docs/system-architecture.md](docs/system-architecture.md)** | How it works — five-layer model, agent build pipeline, execution engine, data layer ([Chinese edition](docs/system-architecture.zh-CN.md)) |
-| [docs/reference/](docs/reference/) | Deeper reference: storage map, data taxonomy, skill authoring, settings and tools design notes, studies and audits |
+| [docs/system-architecture/](docs/system-architecture/) | How the system is built: storage map, data taxonomy, skill authoring, settings/tools design, audits, studies |
 | [REFACTORING.md](REFACTORING.md) | Backend refactor history and known gaps |
 
 ---

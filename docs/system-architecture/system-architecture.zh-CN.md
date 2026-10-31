@@ -798,7 +798,7 @@ Analysis 活动（ActivityBar 中的柱状图图标 → `/analysis` → `src/pag
 | **ERP 研究案例** | `backend/skills/erp-analyst/9_erp_dashboard.py` | ❌ 确定性（`Mode: static-embed`） | `erp_dashboard_*.html` |
 | **Sun Hing 研究案例** | `data/analysis_dbs/gen_sunhing_kpi_dashboard.py` —— 一个脚本生成 hub + 5 个因子子看板（外加 gantt/data），并复制 ERD/intro/employees/liability 母版 | ❌ 确定性（除时间戳外逐字节稳定） | `sunhing_dashboard*.html` |
 
-详见 **[docs/reference/sunhing-dashboards.md](reference/sunhing-dashboards.md)**：Sun Hing 的生产者映射、
+详见 **[docs/system-architecture/sunhing-dashboards.md](sunhing-dashboards.md)**：Sun Hing 的生产者映射、
 28 个 KPI 的覆盖证明、确定性验证，以及已知的漂移风险（两份分叉的数据库副本；
 复制传播的静态页面）。
 

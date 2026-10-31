@@ -3,7 +3,7 @@
 > 五个能直接用的 agent，按"从最小到完整"排：1 基础 → 2 全工具 → 3 文档问答 → **4 个人助理** → **5 售后客服**。
 > 后面第 2 类才是机制（HITL + 四个模式），用到时再查。
 >
-> 深度研究（多轮搜索 → 带引用报告），完整版另见 `docs/reference/deep-research-agents.md`。
+> 深度研究（多轮搜索 → 带引用报告），完整版另见 `docs/tutorial/deep-research-agents.md`。
 >
 > 全书三条线：**第 1 类**能直接用的 agent（案例 1–5）→ **第 2 类**机制（HITL + 案例 6–9）
 > → **案例 10–12** 三个重活 agent（深度研究 / 内容创作 / CSV·Excel 分析）。
@@ -72,7 +72,7 @@
 > Agent 是一个**在循环里调用工具的模型**，直到给定任务完成为止。
 > （*An agent is a model calling tools in a loop until a given task is complete.*）
 
-![核心 agent 循环：request → model → action → tools → observation → model，直到模型给 result](assets/agent-loop.svg)
+![核心 agent 循环：request → model → action → tools → observation → model，直到模型给 result](../assets/agent-loop.svg)
 
 > Harness 是围绕这个循环的一切：**提示词、工具，以及任何塑造模型行为的中间件。**
 > （*A harness is everything around that loop: the prompt, the tools, and any middleware
@@ -96,7 +96,7 @@ agent = create_agent(model="deepseek-flash", tools=tools)
 
 ## 核心组件（Core components）
 
-![agent = model + harness：model 在中心，周围是 system prompt、skills、memory、context、tools、subagents](assets/agent-harness.svg)
+![agent = model + harness：model 在中心，周围是 system prompt、skills、memory、context、tools、subagents](../assets/agent-harness.svg)
 
 | 组件                        | 页面原话                                                                                                                                                   |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -787,7 +787,7 @@ into a coherent response.*
 | 交付物 | 无 | 无 | **`generated/research/<主题>/{research_request.md, final_report.md}` ✓** |
 | 引用 | 30 | 38 | **40 + Sources ✓** |
 
-**三条教训**（详见 `docs/reference/deep-research-agents.md`）：
+**三条教训**（详见 `docs/tutorial/deep-research-agents.md`）：
 
 1. **超大工具结果会被平台截断**（换成 500 字预览）→ 主 agent 误判"资料不全"就自己下场搜（第一版 13 次搜索的由来）。
 2. **预算只是 prompt 建议**：写"≤5 次"能把 13 压到 5，但 `web_fetch` 仍跑到 11（平台没有 `ToolCallLimit` 中间件）。

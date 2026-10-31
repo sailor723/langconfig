@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Embedding-based document chat (see `core/rag/` and `docs/reference/agent-practice.md`)."""
+"""Embedding-based document chat (see `core/rag/` and `docs/tutorial/agent-training-runbook.md`)."""
 
 from .routes import router
 

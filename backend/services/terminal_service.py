@@ -75,7 +75,7 @@ class TerminalSession:
         env["TERM"] = "xterm-256color"
         # Start in the caller's workspace instead of whatever directory the server
         # happened to be launched from. This is a starting directory, not a cage:
-        # it is a real shell, so `cd ..` works — see docs/reference/lan-access.md.
+        # it is a real shell, so `cd ..` works — see docs/installation/lan-access.md.
         cwd = self._start_dir()
         if self.shell.endswith("bash"):
             env["PS1"] = "\\u@\\h:\\w$ "

@@ -7,7 +7,7 @@
 
 Deliberately separate from `api/knowledge/*` (llama_index, whole-folder inline
 context) so the two approaches can be compared side by side instead of one
-quietly becoming the other. See `docs/reference/agent-practice.md`, case 1.
+quietly becoming the other. See `docs/tutorial/agent-training-runbook.md`, case 1.
 
 Steps map one-to-one onto modules, in tutorial order:
 

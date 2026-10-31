@@ -11,7 +11,7 @@
  * `navigator.clipboard` only exists in a *secure context*: https, localhost, or
  * a file. Opened over plain http from another machine — which is exactly what
  * LAN access looks like (`http://192.168.x.x:8765`, see
- * docs/reference/lan-access.md) — the whole object is `undefined`.
+ * docs/installation/lan-access.md) — the whole object is `undefined`.
  *
  * The app calls `navigator.clipboard.writeText(...)` directly in ~20 places
  * (MessagesPanel, WorkflowCanvas, AgentContextViewer, the terminal, …). Each of

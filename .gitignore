@@ -137,14 +137,45 @@ client_secret*.json
 docs/*
 !docs/.gitkeep
 
-# ── the three key docs ──
-!docs/system-architecture.md
-!docs/system-architecture.zh-CN.md
-!docs/installation.md
-!docs/installation.zh-CN.md
-!docs/installation.zh-CN.pdf
+# ── docs tree (published) ──
+# Four folders hold everything a reader needs; a handful of local-only notes stay
+# out of the repo on purpose (client briefings, unpublished design notes).
+!docs/installation/
+!docs/installation/**
+!docs/system-architecture/
+docs/system-architecture/*
+!docs/system-architecture/agents-audit.md
+!docs/system-architecture/data-taxonomy.md
+!docs/system-architecture/deepagent-vs-dsh.md
+!docs/system-architecture/deepagents-study.md
+!docs/system-architecture/deepseek-vision-model.md
+!docs/system-architecture/multitenancy.md
+!docs/system-architecture/settings-refactor.md
+!docs/system-architecture/skill-authoring.md
+!docs/system-architecture/storage-map.md
+!docs/system-architecture/sunhing-dashboards.md
+!docs/system-architecture/system-architecture.md
+!docs/system-architecture/system-architecture.zh-CN.md
+!docs/system-architecture/tools-audit.md
+!docs/system-architecture/tools-refactor.md
+!docs/tutorial/
+docs/tutorial/*
+!docs/tutorial/README.md
+!docs/tutorial/agent-training-runbook.md
+!docs/tutorial/deep-research-agents.md
+!docs/assets/
+docs/assets/*
+!docs/assets/agent-loop.dot
+!docs/assets/agent-loop.svg
+!docs/assets/agent-loop.png
+!docs/assets/agent-loop.pdf
+!docs/assets/agent-harness.dot
+!docs/assets/agent-harness.svg
+!docs/assets/agent-harness.png
+!docs/assets/agent-harness.pdf
 !docs/usage.md
 !docs/usage.zh-CN.md
+
 
 # ── reference material (published subset) ──
 # Un-ignoring the directory is required to reach files inside it, but that alone

@@ -83,16 +83,16 @@ See `docs/` for architecture and design documentation:
 
 | File | Contents |
 |------|----------|
-| `docs/system-architecture.md` | System design, five-layer model, agent landscape, storage strategy |
-| `docs/installation.md` | Install and update: local dev, team zip, and the seed out → push → pull → seed loop |
+| `docs/system-architecture/system-architecture.md` | System design, five-layer model, agent landscape, storage strategy |
+| `docs/installation/installation.md` | Install and update: local dev, team zip, and the seed out → push → pull → seed loop |
 | `docs/usage.md` | User guide: the shell, the 13 activities, first-agent / first-workflow walkthroughs |
-| `docs/reference/agent-practice.md` | Working *with* agents: eight practical exercises — identity, changing behaviour with rules, skill triggering, deliverables, verification, one-task-per-chat, tool budget, refusals |
-| `docs/reference/` | Reference material (storage map, data taxonomy, skill authoring, settings/tools design, audits, studies) |
-| `docs/reference/sunhing-dashboards.md` | Sun Hing dashboard generation (deterministic generator, producer map, 28-KPI coverage, UI wiring) |
-| `docs/reference/lan-access.md` | Letting other people use this instance over the network: the LAN gate, the /signin page and its sessions, what stays shared, and why per-user data is a rebuild |
+| `docs/system-architecture/` | How the system is built: storage map, data taxonomy, skill authoring, settings/tools design, audits, studies |
+| `docs/tutorial/` | Training material: the 12-case run book, its HTML build, and the deep-research report template |
+| `docs/installation/` | Install/update, Google OAuth, LAN access |
+| `docs/assets/` | Diagrams for the run book (`.dot` sources + rendered `.svg/.png/.pdf`) |
+| `docs/system-architecture/sunhing-dashboards.md` | Sun Hing dashboard generation (deterministic generator, producer map, 28-KPI coverage, UI wiring) |
+| `docs/installation/lan-access.md` | Letting other people use this instance over the network: the LAN gate, the /signin page and its sessions, what stays shared, and why per-user data is a rebuild |
 | `REFACTORING.md` | Backend refactor status (god-module splits, verification methodology) |
-| `docs/reference/plans/` | SaaS design + implementation plans |
-| `docs/reference/plans/2026-10-17-multiuser-design.md` | Multi-user study: per-user API keys, shared-vs-private assets, per-user workspace, phasing |
-| `docs/reference/OKF_MINIMAL_PROFILE.md` | OKF knowledge-bundle profile (local-only, not committed) |
-| `docs/reference/PAGEINDEX_OKF_DESIGN.md` | PageIndex + OKF knowledge design note (local-only, not committed) |
+| `docs/system-architecture/OKF_MINIMAL_PROFILE.md` | OKF knowledge-bundle profile (local-only, not committed) |
+| `docs/system-architecture/PAGEINDEX_OKF_DESIGN.md` | PageIndex + OKF knowledge design note (local-only, not committed) |
 | `backend/README.md` | Backend-specific setup |

@@ -30,7 +30,7 @@ Three deliberate properties:
 * **This module resolves paths; it does not enforce them.** The terminal is a real
   shell: a root here sets its starting directory, it does not cage it. Isolation for
   the app's own read paths comes from the ``owner_id`` filters, and the honest
-  boundary is documented in docs/reference/multiuser docs.
+  boundary is documented in docs/system-architecture/multitenancy.md.
 """
 
 from __future__ import annotations
