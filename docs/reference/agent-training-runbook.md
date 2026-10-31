@@ -322,3 +322,52 @@ def load_skill(skill_name: str) -> str:
    这一条和工具路由（1.2）、子代理委派、转交目标**完全同源**。
 3. **技能 vs 子代理**：技能是“给同一个 agent 加知识”，上下文不断、不隔离；子代理是“另开一个
    上下文干活再回来”。知识多而任务单一 → 技能；任务长且要隔离 → 子代理。
+
+---
+
+# 案例 · 分派台 + 专家并行 + 汇总（Router）
+
+页面：**<https://docs.langchain.com/oss/python/langchain/multi-agent/router>**
+
+文档原句：*A routing step classifies input and directs it to specialized agents …
+Zero or more specialized agents are invoked in parallel. Results are synthesized
+into a coherent response.*
+
+文档的两种实现：`Command` 路由到**单个**专家；`Send` 做**并行 fan-out** 到多个专家，再汇总。
+
+**平台上没有 `Send`**（没有图/节点层），能落地的是“**分派台 agent + 子代理 + 主 agent 汇总**”
+—— 也就是用 Subagents 那个机制，按 router 的写法用：先分类、再一轮并行派出、最后合并。
+
+```json
+"system_prompt": "你是一个分派台。判断问题涉及哪些领域，把每一部分并行交给对应专家
+                  （一次发出多个 task 调用），再把结果合并成一条回答。你自己不查资料、不算数。",
+"native_tools": ["task"],
+"subagents": [
+  {"name": "weather_desk", "description": "查询某个城市的实时天气与短期预报。", "tools": ["web_search"]},
+  {"name": "math_desk",    "description": "做精确计算（算术、单位换算、百分比）。", "tools": ["python_execute"]}
+]
+```
+
+## 实测（`case-5-router`）
+
+问：**「上海今天天气怎么样？顺便算一下 1280 的 15% 是多少。」**
+
+| 观察点 | 实测 |
+|---|---|
+| 分派内容 | 一轮里发出**两个** `task`：`weather_desk`（查天气）、`math_desk`（算百分比） |
+| 专家各自干活 | 子代理内部 `web_search` ×2、`python_execute` ×1 |
+| 汇总 | 同一条回答里既有 `192` 也有上海 19.9℃ / 湿度 68% |
+| 记账 | `subagent_spawns` 2 条（两个都 completed）、`tool_calls` 5 条 |
+
+## 三个要讲的判断
+
+1. **Router 和 Subagents 是同一个机制，两种用法。** 区别只在 prompt：Subagents 是“需要时才叫一个
+   专家”，Router 是“先分类，再把每一部分都派出去”。平台的差别不是能力，是**分派策略**。
+2. **分类是模型做的，不是确定性的。** 这是和“真 router”（一次分类 → 固定分支）最大的差异：
+   同一句话，模型可能派 0 个、1 个或多个专家。要确定性分类，得把分类拿去做成独立的工具/节点。
+3. **汇总质量取决于专家返回的形态。** 实测这条回答里数字和天气挨在一起，读起来不整齐 ——
+   因为子代理各说各的。要让汇总好看，得**在子代理的 system prompt 里约定输出格式**，
+   而不是在分派台的 prompt 里补救（分派台看不到子代理的内部过程）。
+
+> 平台没有 `Send` 的多路 fan-out（那是图层的概念）。所以“并行”在这里指的是
+> **一轮里多个 `task` 工具调用** —— 模型一次发出，框架并发执行；不是图上的并行分支。
