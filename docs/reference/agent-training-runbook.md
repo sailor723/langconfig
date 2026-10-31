@@ -261,6 +261,10 @@ def transfer_to_specialist(runtime: ToolRuntime) -> Command:
 
 聊天里渲染成琥珀色卡片：`转交给「finance」· 用户咨询发票开错如何处理…`
 
+> **跳数是模型判断，不是契约**：同一个问题（"发票开错了怎么处理"）复跑会得到 1 跳
+> （售后自己答）或 2 跳（`support → finance`）。所以判据只能写"至少一次转交 + 回答在最后一跳之后"，
+> 写死"必须两跳"会假失败。
+
 ## 四个要讲的判断
 
 1. **转交是中间件的活，不是提示词的活。** 提示词写“遇到技术问题请转给售后”，模型可以不听；
@@ -661,6 +665,10 @@ Tools 页签只勾 `write_file`；JSON 页签贴：
 | 5 | `Actually I made a mistake - my device is out of warranty` | `transfer_to_warranty_collector` | **回退**到保修确认（教程第 9 节） |
 
 三次 hop 都落库成 `handoff` 消息，顺序 `issue_classifier → resolution_specialist → warranty_collector`。
+
+> **回退那一轮可能连跳两次**：客户在"其实过保了"这句话里已经给出了新答案，所以
+> `warranty_collector` 收到后立刻又转给 `issue_classifier`（实测出现过 4 跳）。判据要写"能回到保修"，
+> 不能写"最后一跳必须是保修" —— 否则复跑会假失败。
 
 ## 和教程的差异（要如实讲）
 
