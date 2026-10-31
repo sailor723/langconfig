@@ -903,7 +903,15 @@ class HandoffMiddleware(AgentMiddleware):
         if step.get("system_prompt"):
             from langchain_core.messages import SystemMessage
 
-            overrides["system_message"] = SystemMessage(content=step["system_prompt"])
+            # A transfer IS the turn's answer: the receiving role answers, not
+            # the role that handed over. Without this rule the model tended to
+            # answer first and transfer afterwards, so one turn read as two
+            # speakers — and the second never got to speak.
+            _rule = (
+                "\n\n转交规则：如果这件事不属于你负责，直接调用 transfer_to_<目标> 工具，"
+                "**不要先回答用户**；接手的那一方会回答。转交后也不要重复转交同一步骤。"
+            )
+            overrides["system_message"] = SystemMessage(content=step["system_prompt"] + _rule)
         from core.agents.handoff_tools import tools_for_step
 
         wanted_names = tools_for_step(step)
