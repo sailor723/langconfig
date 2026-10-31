@@ -157,3 +157,45 @@ async def test_save_document_binds_agent_id_and_writes_copy(tmp_path, monkeypatc
     assert captured["obj"].agent_id == 159
     # workspace copy written into the generated/ subfolder
     assert (ws / "generated" / "测试报告.md").exists()
+
+
+async def test_save_document_treats_zero_project_as_unscoped(tmp_path, monkeypatch):
+    """A project-less chat passes project_id=0 (`_session_project_id or 0`).
+
+    0 is not a row in `projects`, so storing it trips
+    agent_documents_project_id_fkey and the retry loop reported the failure as
+    "concurrent version conflict". The sentinel must be stored as NULL.
+    """
+    from tools.native_impl import _save_document_impl
+
+    m = _make_manager(tmp_path)
+    ws = m.resolve_agent_workspace(_FakeAgent(159, None))
+    captured = {}
+
+    class _FakeQuery:
+        def filter(self, *a, **kw): return self
+        def order_by(self, *a, **kw): return self
+        def with_for_update(self): return self
+        def first(self): return None
+
+    class _FakeDb:
+        def query(self, model): return _FakeQuery()
+        def add(self, obj):
+            captured["obj"] = obj
+            obj.id = 1
+        def commit(self): pass
+        def rollback(self): pass
+        def close(self): pass
+
+    monkeypatch.setattr("db.database.SessionLocal", lambda: _FakeDb())
+    monkeypatch.setenv("GRAPHINDEX_PROJECT_ID", "")
+    monkeypatch.setattr("sqlalchemy.exc.IntegrityError", type("IntegrityError", (Exception,), {}))
+
+    result = _save_document_impl(
+        title="无项目文档",
+        content="# 内容",
+        _workspace_context={"workspace_root": str(ws), "project_id": 0},
+        _agent_context={"agent_id": 159},
+    )
+    assert "saved to the document library" in str(result)
+    assert captured["obj"].project_id is None

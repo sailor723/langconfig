@@ -2046,13 +2046,35 @@ def _save_document_impl(
         project_id = ctx.get("project_id")
         execution_id = ctx.get("execution_id")
         agent_id = (_agent_context or {}).get("agent_id")
+        # A project-less chat passes project_id=0 as its "no project" sentinel
+        # (api/chat/messages.py: `_session_project_id or 0`). 0 is not a row in
+        # `projects`, so inserting it violates agent_documents_project_id_fkey
+        # and the version-retry loop below used to report that as a bogus
+        # "concurrent version conflict". The column is nullable — normalise.
+        if not project_id:
+            project_id = None
         if project_id is None:
             pid = os.environ.get("GRAPHINDEX_PROJECT_ID")
             if pid:
                 try:
-                    project_id = int(pid)
+                    project_id = int(pid) or None
                 except (ValueError, TypeError):
                     project_id = None
+        # Same class of bug one level out: a stale id (project row deleted)
+        # fails the FK just as hard, so verify before we rely on it.
+        if project_id is not None:
+            from models.core import Project
+
+            db_probe = SessionLocal()
+            try:
+                if db_probe.query(Project.id).filter(Project.id == project_id).first() is None:
+                    logger.warning(
+                        "save_document: project %s does not exist; saving unscoped",
+                        project_id,
+                    )
+                    project_id = None
+            finally:
+                db_probe.close()
 
         db = SessionLocal()
         try:
@@ -2061,6 +2083,7 @@ def _save_document_impl(
             # Version chain: same (project, title) -> next version. Retry a few
             # times on unique-constraint conflicts so two concurrent saves can't
             # both pick the same version number (version-race fix).
+            last_error = "unknown integrity error"
             for _attempt in range(3):
                 query = db.query(AgentDocument).filter(AgentDocument.title == title)
                 if project_id is not None:
@@ -2081,12 +2104,15 @@ def _save_document_impl(
                 try:
                     db.commit()
                     break
-                except IntegrityError:
+                except IntegrityError as exc:
                     # Another writer won the version race — rollback and retry
-                    # on the next free version.
+                    # on the next free version. Any *other* integrity error
+                    # repeats identically, so say what it actually was instead
+                    # of blaming a conflict that never happened.
+                    last_error = exc.orig
                     db.rollback()
             else:
-                return "Error saving document: concurrent version conflict, please retry."
+                return (f"Error saving document: {last_error}")
         finally:
             db.close()
 
