@@ -86,7 +86,17 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   const [running, setRunning] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [jsonEdit, setJsonEdit] = useState(() => JSON.stringify(agent, null, 2));
+  // An existing agent is loaded from the server before anything is rendered:
+  // the tab's snapshot is whatever the tab was created with, and editing it
+  // silently wrote stale config back (the handoff steps came out as step_1
+  // while the server held sales/support). A new agent has no server copy yet, so
+  // it starts from the draft.
+  const _hasId = typeof agent.id === 'number';
+  const [jsonEdit, setJsonEdit] = useState(() =>
+    _hasId ? '{}' : JSON.stringify(agent, null, 2),
+  );
+  const [configLoaded, setConfigLoaded] = useState(!_hasId);
+  const [configLoadError, setConfigLoadError] = useState<string | null>(null);
   // Live view of jsonEdit — the tool-inspect modal reads tool_params from
   // here (the immutable `agent` prop would show the stale pre-save value
   // until a reload). Mirrors DeepAgentEditor's live/liveConfig.
@@ -104,10 +114,20 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     let cancelled = false;
     apiClient.getDeepAgent(id)
       .then(res => {
-        if (cancelled || !res?.data) return;
+        if (cancelled) return;
+        if (!res?.data) {
+          setConfigLoadError('服务器没有返回配置');
+          return;
+        }
         setJsonEdit(JSON.stringify(res.data, null, 2));
+        setConfigLoadError(null);
+        setConfigLoaded(true);
       })
-      .catch(() => { /* offline or deleted — keep the snapshot */ });
+      .catch((err: any) => {
+        if (cancelled) return;
+        setConfigLoadError(err?.message || '载入失败');
+        setConfigLoaded(true); // let the editor open, but say it is a draft
+      });
     return () => { cancelled = true; };
   }, [agent.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -490,6 +510,11 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     setSaving(true);
     setSaveMsg(null);
     try {
+      if (!configLoaded) {
+        setSaveMsg({ ok: false, text: '正在从服务器载入配置，稍后再保存' });
+        setSaving(false);
+        return;
+      }
       let payload: any;
       try {
         payload = JSON.parse(jsonEditRef.current);
@@ -917,6 +942,22 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
       />
 
       {/* ── Body: section nav + section content ── */}
+      {(!configLoaded || configLoadError) && (
+        <div
+          style={{
+            padding: '6px 12px',
+            fontSize: 11,
+            background: configLoadError ? 'rgba(239,68,68,0.12)' : 'var(--color-background-light)',
+            color: configLoadError ? '#e5484d' : 'var(--color-text-muted)',
+            borderBottom: '1px solid var(--color-border-dark)',
+          }}
+        >
+          {configLoadError
+            ? `配置载入失败：${configLoadError} —— 下面显示的是草稿，别保存`
+            : '正在从服务器载入配置…'}
+        </div>
+      )}
+
       <EditorSectionNav
         sections={SECTIONS}
         activeSection={activeSection}
