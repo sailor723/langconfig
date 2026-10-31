@@ -72,6 +72,19 @@ export function useChatController(options: UseChatControllerOptions = {}) {
   const [pendingInterrupt, setPendingInterrupt] = useState<InterruptData | null>(null);
   const [isResuming, setIsResuming] = useState(false);
 
+  // Per-turn state belongs to the session that produced it. Without this, an
+  // open conversation kept showing the previous chat's tool/subagent list under
+  // its last message — the transcript was reloaded, the stream state was not.
+  useEffect(() => {
+    setActiveToolCalls([]);
+    setThinkingTraces([]);
+    setThinkingBuffer('');
+    tracesRef.current = [];
+    setCustomEvents(new Map());
+    setPendingInterrupt(null);
+    setIsResuming(false);
+  }, [currentSessionId]);
+
   // ── History sidebar resize ─────────────────────────────────────────
   const [sidebarWidth, setSidebarWidth] = useState(260);
   const [isResizing, setIsResizing] = useState(false);
