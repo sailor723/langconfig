@@ -733,6 +733,33 @@ export default function MessagesPanel({
               </div>
           )}
 
+          {/* Live work strip.
+              The assistant bubble is only created on the first content chunk,
+              so an agent that opens with tool calls (search → read → answer)
+              showed nothing at all until the answer landed: measured on a
+              market question, tens of seconds of a blank thread. The strip
+              reports what is actually happening — which tool is running, how
+              many steps so far, elapsed time — from the same events the
+              transcript uses; it is not a spinner that lies. */}
+          {isStreaming && !(messages.length > 0 && messages[messages.length - 1].role === 'assistant') && (
+            <div data-live-work="1" className="flex items-center gap-2 px-3 py-1.5 text-[11px]"
+                 style={{ color: 'var(--color-text-muted)' }}>
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse"
+                    style={{ backgroundColor: 'var(--color-primary)' }} />
+              <span>Working…</span>
+              {activeToolCalls.length > 0 && (
+                <span>
+                  {'· '}{activeToolCalls[activeToolCalls.length - 1]?.tool_name}
+                  {activeToolCalls.length > 1 ? ` ×${activeToolCalls.length}` : ''}
+                </span>
+              )}
+              {thinkingBuffer && (
+                <span className="truncate max-w-[40ch]">{'· '}{thinkingBuffer.slice(-80)}</span>
+              )}
+              <span>{'· '}{(elapsedMs / 1000).toFixed(0)}s</span>
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
           </div>
         )}
