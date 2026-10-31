@@ -123,7 +123,7 @@ nav a:hover { color:var(--accent); }
 <td><a href="#%E6%A1%88%E4%BE%8B-2-%E5%B7%A5%E5%85%B7%E5%A4%9A%E5%88%B0-27-%E4%B8%AA-%E8%BF%98%E6%8C%91%E5%BE%97%E5%AF%B9%E5%90%97-case-2-all-tools-id-159">案例 2 · 工具多到 27 个，还挑得对吗（<code>case-2-all-tools</code>，id 159）</a></td>
 </tr>
 <tr>
-<td><a href="#%E6%A1%88%E4%BE%8B-3-%E6%96%87%E6%A1%A3%E9%97%AE%E7%AD%94-%E4%B8%8A%E4%BC%A0%E9%99%84%E4%BB%B6-%E8%AF%BB-%E6%A0%87%E6%9D%A5%E6%BA%90-case-3-doc-chat-id-326">案例 3 · 文档问答：上传附件 → 读 → 标来源（<code>case-3-doc-chat</code>，id 326）</a></td>
+<td><a href="#%E6%A1%88%E4%BE%8B-3-%E6%96%87%E6%A1%A3%E9%97%AE%E7%AD%94-%E4%B8%8A%E4%BC%A0%E9%99%84%E4%BB%B6-%E8%AF%BB%E5%AE%83-%E6%A0%87%E5%87%BA%E6%9D%A5%E6%BA%90-case-3-doc-chat-id-326">案例 3 · 文档问答：上传附件、读它、标出来源（<code>case-3-doc-chat</code>，id 326）</a></td>
 </tr>
 <tr>
 <td><a href="#%E6%A1%88%E4%BE%8B-4-%E4%B8%AA%E4%BA%BA%E5%8A%A9%E7%90%86-supervisor-%E4%B8%A4%E4%B8%AA%E4%B8%93%E5%AE%B6-case-4-assistant-id-323">案例 4 · 个人助理：supervisor + 两个专家（<code>case-4-assistant</code>，id 323）</a></td>
@@ -583,105 +583,124 @@ agent = create_agent(
 </ol>
 <hr />
 <h1 id="案例-2-工具多到-27-个-还挑得对吗-case-2-all-tools-id-159">案例 2 · 工具多到 27 个，还挑得对吗（<code>case-2-all-tools</code>，id 159）</h1>
-<p>依据：<strong>同案例 1 的 <a href="https://docs.langchain.com/oss/python/langchain/agents">agents 页</a></strong>（工具也是 harness 的一部分）。</p>
-<p>案例 1 只有 3 个工具。这一节把同一个问题推到 27 个工具：<strong>工具一多，模型还会挑对吗？</strong></p>
-<p><code>case-2-all-tools</code>：<code>deepseek-flash</code>、Temperature <code>0</code>、<strong>27 个工具</strong>（<code>web_search</code>/<code>tavily_search</code>/<code>web_fetch</code>、
-<code>pg_query</code>/<code>pg_list_tables</code>/<code>pg_describe_table</code>、<code>python_execute</code>/<code>sqlite_execute</code>、
-<code>memory_store</code>/<code>memory_recall</code>、<code>think_tool</code>/<code>reasoning_chain</code>、<code>write_todos</code>/<code>read_todos</code>、
-<code>bash</code>、<code>write_file</code>…），提示词是一份<strong>中文能力清单</strong>（&quot;你可以搜索信息、查数据库、写文件…&quot;）。</p>
-<h2 id="实测">实测</h2>
+<p>依据：还是 <a href="https://docs.langchain.com/oss/python/langchain/agents">agents 页</a> —— 工具是装配的一部分。</p>
+<p>案例 1 只给了 3 个工具，所以挑起来不难。这一节把同样的题摆到 27 个工具面前，
+看它还挑不挑得对。</p>
+<p>这个 agent（id 159）挂着 <code>deepseek-flash</code>、温度 0，工具一共 27 个：搜网页、查数据库、
+跑 Python、存记忆、列待办、跑 bash、写文件……提示词里不是规则，而是一份中文的「能力清单」
+（&quot;你可以搜索信息、查数据库、写文件……&quot;）。</p>
+<h2 id="实测-同样三个问题">实测：同样三个问题</h2>
 <table>
 <thead>
 <tr>
 <th>问</th>
-<th>它挑了</th>
+<th>它挑了哪个工具</th>
 <th>结果</th>
 <th>用时</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>上海今天天气怎么样？</code></td>
+<td>上海今天天气怎么样？</td>
 <td><code>web_fetch</code> → <code>web_search</code> ×2</td>
 <td>19℃ 实况 + 今日温度区间</td>
 <td>11.5s</td>
 </tr>
 <tr>
-<td><code>把这句存成文件：hello world。</code></td>
+<td>把这句存成文件：hello world</td>
 <td><code>write_file</code></td>
-<td><code>generated/hello_world.txt</code></td>
+<td>生成了 <code>generated/hello_world.txt</code></td>
 <td>6.1s</td>
 </tr>
 <tr>
-<td><code>用 pg_query 查一下 deep_agent_templates 有多少个 agent。</code></td>
+<td>用 pg_query 查 deep_agent_templates 有多少个 agent</td>
 <td><code>pg_query</code></td>
 <td>69</td>
 <td>5.9s</td>
 </tr>
-<tr>
-<td><code>上海今天天气怎么样？</code>（案例 1 的同题）</td>
-<td>案例 1：<code>web_search</code> ×4</td>
-<td>同样的答案</td>
-<td>8.1s</td>
-</tr>
 </tbody>
 </table>
-<h2 id="两条要讲的判断-1">两条要讲的判断</h2>
+<p>对照案例 1 的同一道天气题：那边 4 次 <code>web_search</code>、8.1 秒；这边 11.5 秒。
+答案一样，慢了一些。</p>
+<h2 id="三条要讲的判断">三条要讲的判断</h2>
 <ol>
-<li><strong>工具数量不是主要矛盾，名字和描述才是。</strong> 27 个工具里，模型按&quot;名字 + 一句描述&quot;挑，每次都挑到最具体的那一个
-（写文件用 <code>write_file</code>、查库用 <code>pg_query</code>、天气用 <code>web_search</code>）—— 和案例 1 的 3 工具表现一致。</li>
-<li><strong>提示词里的能力清单是&quot;索引&quot;，不是&quot;路由表&quot;。</strong> 中文那段只说了&quot;你能干什么&quot;，没有一条&quot;天气 → 用 web_search&quot;的规则；
-真正决定挑哪个的是工具自身描述。这也解释了为什么<strong>加工具比加规则更省事</strong>，以及为什么工具描述写得含糊会直接掉准确率。</li>
-<li>代价是<strong>选错的空间变大、延迟变高</strong>（同题 11.5s vs 8.1s）。「工具太多要不要拆」的答案在案例 4/9：
-拆成专家（subagents）或分派台（router）。</li>
+<li><strong>工具多不是主要问题，名字和描述才是。</strong> 27 个工具里，它每次都能挑到最具体的那一个：
+写文件用 <code>write_file</code>，查库用 <code>pg_query</code>，查天气用 <code>web_search</code>。挑的依据是工具自己的名字和描述。</li>
+<li><strong>提示词里的能力清单只是&quot;目录&quot;，不是&quot;路由表&quot;。</strong> 那段中文只说了它能干什么，
+没有一条&quot;天气就用 web_search&quot;的规定。真正拿主意的是工具描述 —— 所以<strong>加工具比加规则省事</strong>，
+而工具描述写含糊，准确率会立刻掉。</li>
+<li><strong>代价是慢，而且选错的余地变大。</strong> 同样的题，3 个工具 8.1 秒，27 个工具 11.5 秒。
+工具多到一定程度该怎么办？案例 6（拆成专家）和案例 9（加一个分派台）给的就是这个答案。</li>
 </ol>
 <hr />
-<h1 id="案例-3-文档问答-上传附件-读-标来源-case-3-doc-chat-id-326">案例 3 · 文档问答：上传附件 → 读 → 标来源（<code>case-3-doc-chat</code>，id 326）</h1>
-<p>依据：<strong><a href="https://docs.langchain.com/oss/python/langchain/tools">knowledge/doc-chat 实现</a></strong>（工具的读写与引用规则）+
-平台自身的 <code>api/knowledge/doc_chat.py</code>（提示词规则来源）。</p>
-<p>平台原本的「知识库对话」是<strong>把整个文件夹的内容塞进提示词</strong>（<code>api/knowledge/doc_chat.py</code>）。
-这个案例把它做成一个 <strong>normal agent</strong>：不预载文档，改用工具按需读 —— 上传什么、读什么、答什么，且每条结论标来源。</p>
-<p><code>case-3-doc-chat</code>：<code>deepseek-flash</code>、温度 <code>0</code>、<strong>只有 3 个只读工具</strong>：<code>glob</code>（列附件）、<code>grep</code>（大文件里定位）、
-<code>read_any_file</code>（文本 / PDF / 扫描件 / Word / PowerPoint / Excel 统一读取入口）。</p>
-<h2 id="三条规则-抄自-doc-chat-py-的-rules">三条规则（抄自 <code>doc_chat.py</code> 的 RULES）</h2>
+<h1 id="案例-3-文档问答-上传附件-读它-标出来源-case-3-doc-chat-id-326">案例 3 · 文档问答：上传附件、读它、标出来源（<code>case-3-doc-chat</code>，id 326）</h1>
+<p>依据：平台自己的「知识库对话」实现（<code>api/knowledge/doc_chat.py</code>）里的提示词规则，
+以及 <a href="https://docs.langchain.com/oss/python/langchain/tools">tools 页</a> 关于工具读写的说法。</p>
+<p>平台原本的「知识库对话」做法很直接：把整个文件夹的内容塞进提示词。库一大，上下文就满了。
+这个案例把它改成一个普通 agent：<strong>不预载文档，用工具按需读</strong>，而且每条结论都要标来源。</p>
+<p>它只有三个只读工具，分工很清楚：</p>
 <table>
 <thead>
 <tr>
-<th>参考实现</th>
-<th>agent 版</th>
+<th>工具</th>
+<th>干什么</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>每条结论标 <code>[Source: filename.ext]</code></td>
-<td>同样格式，去掉文件名前的 8 位存储前缀</td>
+<td><code>glob</code></td>
+<td>看 <code>upload/</code> 里有什么附件</td>
 </tr>
 <tr>
-<td>开头声明读了多少文档</td>
-<td><code>**[Documents loaded: N file(s)]**</code>（N = 本轮实际读的）</td>
+<td><code>grep</code></td>
+<td>在长文档里定位关键词，省得整篇读</td>
 </tr>
 <tr>
-<td>读不到就明确说（原文 <code>The loaded documents do not contain information about …</code>）</td>
-<td>「读到的文档里没有关于 … 的信息」</td>
+<td><code>read_any_file</code></td>
+<td>读内容。文本、PDF、扫描件、Word、PowerPoint、Excel 都走这一个入口</td>
+</tr>
+</tbody>
+</table>
+<h2 id="从参考实现抄了三条规则">从参考实现抄了三条规则</h2>
+<table>
+<thead>
+<tr>
+<th>参考实现怎么写</th>
+<th>这个 agent 怎么写</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>每条结论标 <code>[Source: 文件名]</code></td>
+<td>同样格式，但去掉文件名前的 8 位存储前缀</td>
 </tr>
 <tr>
-<td>数字/金额/日期原样引用，不换算口径</td>
+<td>开头说明读了多少文档</td>
+<td><code>[Documents loaded: N file(s)]</code>，N 是这一轮真正读过的</td>
+</tr>
+<tr>
+<td>读不到就明说</td>
+<td>「读到的文档里没有关于 …… 的信息」</td>
+</tr>
+<tr>
+<td>数字、金额、日期原样引用</td>
 <td>同</td>
 </tr>
 <tr>
-<td>不许用自身知识补</td>
+<td>不许拿自己的知识补</td>
 <td>同</td>
 </tr>
 </tbody>
 </table>
-<p>预算：一轮最多读 3 个文件；长文件只读命中部分（doc_chat 的等价限制是 300 文件 / 1M 字符）。</p>
-<h2 id="实测-上传真文件-不是演示数据">实测（上传真文件，不是演示数据）</h2>
+<p>另外还压了两条预算：一轮最多读 3 个文件；长文件只读命中的部分
+（参考实现的上限是 300 个文件、100 万字符，量级差别在这里）。</p>
+<h2 id="实测-上传真文件">实测：上传真文件</h2>
 <table>
 <thead>
 <tr>
 <th>上传</th>
 <th>问</th>
-<th>工具</th>
+<th>它怎么做的</th>
 <th>结果</th>
 </tr>
 </thead>
@@ -690,30 +709,31 @@ agent = create_agent(
 <td><code>星河项目交付说明.md</code>（322 B）</td>
 <td>项目编号和预算是多少</td>
 <td><code>glob</code> → <code>read_any_file</code></td>
-<td><code>XH-2026-014</code> / <code>人民币 128 万元</code>，各带 <code>[Source: 星河项目交付说明.md]</code></td>
+<td><code>XH-2026-014</code>、<code>人民币 128 万元</code>，各带 <code>[Source: 星河项目交付说明.md]</code></td>
 </tr>
 <tr>
 <td><code>industry_analysis_report.pdf</code>（612 KB，11 页）</td>
-<td>这份 PDF 讲什么行业？2025 市场规模</td>
-<td><code>read_any_file</code>（6s）</td>
-<td>全球眼镜行业；列出 6 家机构口径表，全部带来源</td>
+<td>这份 PDF 讲什么行业？2025 年市场规模多少</td>
+<td><code>read_any_file</code>，6 秒读完</td>
+<td>全球眼镜行业；列出 6 家机构的口径表，逐条带来源</td>
 </tr>
 <tr>
-<td>同上</td>
+<td>同一份 PDF</td>
 <td>有没有提到越南的监管要求？没有就说没有</td>
 <td><code>grep</code></td>
-<td><strong>「读到的文档里没有关于越南监管要求的信息」</strong> + 核对过程（监管章节只覆盖美/欧/中）</td>
+<td>「读到的文档里没有关于越南监管要求的信息」，并说明监管章节只覆盖美国、欧盟、中国</td>
 </tr>
 </tbody>
 </table>
-<p><strong>上传即开始</strong>：附件上传后前端会替用户发一句&quot;我已上传附件「X」&quot;，agent 先回一行确认再读 ——
-不需要用户再补一句&quot;请读一下&quot;。没有读文件工具的 agent 收到同样的话，会直接说明&quot;缺什么工具&quot;。</p>
-<h2 id="两条要讲的判断-2">两条要讲的判断</h2>
+<p>还有一个小设计：<strong>上传完它就开始动，不用你再补一句&quot;请读一下&quot;。</strong>
+附件传上去以后，界面会替用户发一句&quot;我已上传附件 X&quot;，agent 先回一行确认，接着就读。
+换成没有读文件工具的 agent 收到同样的话，会直接说清自己缺什么工具。</p>
+<h2 id="两条要讲的判断-1">两条要讲的判断</h2>
 <ol>
-<li><strong>agent 版和面板版的差别是&quot;按需读&quot;而不是&quot;全塞进去&quot;。</strong> 面板版一次把文件夹里能塞的都放进提示词，
-大库会顶满上下文；agent 版先 <code>glob</code>/<code>grep</code> 缩小范围，只读命中的 1–3 个文件，读不到就明说。</li>
-<li><strong>&quot;读不到&quot;比&quot;答得像&quot;更重要。</strong> 三条规则里最值钱的是那句缺席声明：它把&quot;我不知道&quot;从模型的礼貌变成了可验收的判据
-（我们的验收脚本就是按这句话断言的）。</li>
+<li><strong>agent 版和面板版的区别在&quot;读多少&quot;。</strong> 面板版一次把能塞的都塞进提示词，大库直接顶满；
+agent 版先用 <code>glob</code>、<code>grep</code> 把范围缩小，只读命中的一两个文件。</li>
+<li><strong>&quot;读不到就说读不到&quot;比&quot;答得像&quot;重要。</strong> 这几条规则里最值钱的是那句缺席声明：
+它把&quot;我不知道&quot;从一句客套话变成了可以验收的判据 —— 验收脚本就是按这句话断言的。</li>
 </ol>
 <hr />
 <h1 id="案例-4-个人助理-supervisor-两个专家-case-4-assistant-id-323">案例 4 · 个人助理：supervisor + 两个专家（<code>case-4-assistant</code>，id 323）</h1>
@@ -751,12 +771,14 @@ agent = create_agent(
    create_calendar_event       send_email
    get_available_time_slots
 </code></pre>
-<p>两条要点：</p>
+<p>看图其实就两件事：</p>
 <ol>
-<li><strong>supervisor 看不到 <code>create_calendar_event</code></strong> —— 故意的信息差：它只面对 2 个包装工具，选项少才不容易挑错。</li>
-<li><strong>审批挂在外发那一层</strong> —— <code>interrupt_on={&quot;send_email&quot;: …}</code> 属于 email agent；挂到 supervisor 只能拦住“派活”。</li>
+<li><strong>supervisor 看不到最底下那些工具。</strong> 它面前只有两个&quot;派活&quot;工具。
+这是故意留的信息差 —— 选项少，它才不容易挑错。</li>
+<li><strong>审批要挂在外发那一层。</strong> <code>interrupt_on={&quot;send_email&quot;: …}</code> 写在 email agent 身上；
+写到 supervisor 上，只能拦住&quot;派活&quot;，拦不住&quot;发信&quot;。</li>
 </ol>
-<h2 id="教程的步骤">教程的步骤</h2>
+<h2 id="教程分五步">教程分五步</h2>
 <table>
 <thead>
 <tr>
@@ -767,23 +789,23 @@ agent = create_agent(
 <tbody>
 <tr>
 <td>1. 定义工具</td>
-<td>三个 stub：<code>create_calendar_event</code>（要 ISO 时间）、<code>send_email</code>、<code>get_available_time_slots</code></td>
+<td>写三个占位工具：建日程、发邮件、查空闲</td>
 </tr>
 <tr>
 <td>2. 建专家</td>
-<td>calendar agent（<strong>把「下周二下午 2 点」解析成 ISO</strong>）、email agent（推断收件人、写主题正文）</td>
+<td>一个日程专家（把&quot;下周二下午 2 点&quot;换算成具体时间），一个邮件专家（推断收件人、写主题和正文）</td>
 </tr>
 <tr>
-<td>3. <strong>包装成工具</strong></td>
-<td><code>schedule_event(request)</code>、<code>manage_email(request)</code> — <strong>supervisor 只看到这两个高层工具，看不到 <code>create_calendar_event</code></strong></td>
+<td>3. 包装成工具</td>
+<td>把两个专家各包一层，变成 <code>schedule_event</code>、<code>manage_email</code>。supervisor 只看见这两个</td>
 </tr>
 <tr>
-<td>4. supervisor</td>
-<td>按领域分派；一句话涉及两件事时，<strong>一轮里同时调两个工具</strong></td>
+<td>4. 建 supervisor</td>
+<td>按领域派活；一句话里有两件事，就在同一轮里调两个包装工具</td>
 </tr>
 <tr>
-<td>5. 两个例子</td>
-<td>①「安排明天 9 点站会」→ 只调 <code>schedule_event</code>；②「下周二 2 点跟设计团队开会，并发邮件提醒」→ 同时调度两个</td>
+<td>5. 跑两个例子</td>
+<td>①&quot;安排明天 9 点站会&quot; → 只调日程；②&quot;下周二 2 点开会，并发邮件提醒&quot; → 两个一起调</td>
 </tr>
 </tbody>
 </table>
@@ -836,48 +858,53 @@ supervisor 的中间件只看得到 <code>task</code>，看不到专家手里的
 </table>
 <p>点聊天窗口右上角<strong>日历图标</strong>：11 月 3 日格子里是 <code>14:00 与 Alice 开会</code>，来源文件与 Files 面板一致；
 面板底部写明「N 个日程的文件没写时区，时间按文件字面显示」—— 只读，不替模型编时区。</p>
-<h2 id="和教程的差异-要如实讲">和教程的差异（要如实讲）</h2>
+<h2 id="和教程不一样的地方-要讲清楚">和教程不一样的地方，要讲清楚</h2>
 <table>
 <thead>
 <tr>
 <th>教程</th>
-<th>平台</th>
-<th>原因</th>
+<th>我们这里</th>
+<th>为什么</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>三个 stub 工具</td>
-<td><code>python_execute</code> 算 + <code>write_file</code> 存 <code>.ics</code> / <code>.eml</code>，<strong>不新增工具</strong></td>
-<td>平台不鼓励为演示造 stub；副作用靠文件可观测</td>
+<td>三个占位工具</td>
+<td>用 <code>python_execute</code> 算日期、用 <code>write_file</code> 写 <code>.ics</code> 和 <code>.eml</code>，<strong>不新造工具</strong></td>
+<td>平台不鼓励为演示造占位工具；&quot;做完了&quot;这件事靠文件就能看见</td>
 </tr>
 <tr>
-<td>每个专家包成 1 个工具</td>
-<td>用内置的 <code>task(description, subagent_type)</code></td>
-<td>等价：supervisor 一样看不到专家的工具</td>
+<td>每个专家包成一个工具</td>
+<td>用平台内置的 <code>task(description, subagent_type)</code></td>
+<td>效果一样：supervisor 照样看不到专家手里的工具</td>
 </tr>
 <tr>
-<td>真发信 / 真日历（SendGrid、Google Calendar）</td>
-<td>写文件</td>
-<td>教程<strong>自己也是 stub</strong>；平台没有真通道</td>
+<td>真发日历、真发邮件</td>
+<td>写成文件</td>
+<td>教程自己也是占位的；这台机器没有真通道</td>
 </tr>
 <tr>
-<td><code>edit</code>（改参数再执行）</td>
-<td>只有批准 / 拒绝</td>
-<td>改参数会触发重新规划，实测更乱</td>
+<td>审批里可以&quot;改参数再执行&quot;</td>
+<td>只给批准、拒绝两个按钮</td>
+<td>改参数会让模型重新规划一遍，实测更乱</td>
 </tr>
 </tbody>
 </table>
 <h2 id="四个要讲的判断">四个要讲的判断</h2>
 <ol>
-<li><strong>分层是为了“少选项”</strong>：supervisor 只面对 1 个工具、每个专家只面对自己的 2 个 —— 选错的概率就下来了。</li>
-<li><strong>信息差是设计出来的</strong>：supervisor 不知道 <code>write_file</code>、也不知道 <code>.ics</code> 怎么写得出来；所以<strong>约束要写在专家身上</strong>。</li>
-<li><strong>审批放在有副作用的那一层</strong>：放 supervisor 只能拦住“派活”，拦不住“发信”。</li>
-<li><strong>专家要有自己的中间件</strong>：子代理原来既无 <code>interrupt_on</code> 也无文件系统，文件根本落不了盘（平台已修）。</li>
+<li><strong>分层是为了减少选项。</strong> supervisor 面前只有 1 个工具，每个专家只看得到自己那 2 个，挑错的概率自然低。</li>
+<li><strong>信息差是设计出来的。</strong> supervisor 不知道有 <code>write_file</code>，也不知道 <code>.ics</code> 该怎么写 ——
+所以<strong>约束必须写在专家身上</strong>，写在 supervisor 上是白写。</li>
+<li><strong>审批放在会动真东西的那一层。</strong> 放在 supervisor 只拦得住&quot;派活&quot;，拦不住&quot;发信&quot;。</li>
+<li><strong>专家也要有自己的中间件。</strong> 早先子代理既没有 <code>interrupt_on</code>，也没有文件系统，
+让它写文件根本落不了盘（平台已修）。</li>
 </ol>
 <hr />
 <h1 id="案例-5-售后客服-一个-agent-三步配置-case-5-support-id-325">案例 5 · 售后客服：一个 agent 三步配置（<code>case-5-support</code>，id 325）</h1>
-<p>教程：<strong><a href="https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs-customer-support">https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs-customer-support</a></strong></p>
+<p>页面：<a href="https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs-customer-support">handoffs-customer-support</a>。</p>
+<p>上一节是三个角色互相转交；这一节不一样 —— <strong>只有一个 agent，但它分三个阶段说话。</strong>
+保修确认、问题分类、给方案，每个阶段换一套提示词和工具。客户说错了，还能退回去重问。</p>
+<p>先把页面的开头读一遍（中文译文）：</p>
 <h2 id="overview-页面原文-中文译文-1">Overview（页面原文 · 中文译文）</h2>
 <blockquote>
 <p>状态机模式描述的是这样一类工作流：agent 的行为随着任务走到不同状态而改变。本教程用<strong>工具调用
@@ -1038,7 +1065,7 @@ Tools 页签只勾 <code>write_file</code>；JSON 页签贴：</p>
 <code>warranty_collector</code> 收到后立刻又转给 <code>issue_classifier</code>（实测出现过 4 跳）。判据要写&quot;能回到保修&quot;，
 不能写&quot;最后一跳必须是保修&quot; —— 否则复跑会假失败。</p>
 </blockquote>
-<h2 id="和教程的差异-要如实讲-1">和教程的差异（要如实讲）</h2>
+<h2 id="和教程的差异-要如实讲">和教程的差异（要如实讲）</h2>
 <table>
 <thead>
 <tr>
@@ -1168,33 +1195,10 @@ agent = create_agent(
 </blockquote>
 <hr />
 <h1 id="案例-6-主-agent-把专家当工具-case-6-subagents-id-301">案例 6 · 主 agent 把专家当工具（<code>case-6-subagents</code>，id 301）</h1>
-<p>页面：<strong><a href="https://docs.langchain.com/oss/python/langchain/multi-agent/index">https://docs.langchain.com/oss/python/langchain/multi-agent/index</a></strong>、
-<strong><a href="https://docs.langchain.com/oss/python/langchain/multi-agent/subagents">https://docs.langchain.com/oss/python/langchain/multi-agent/subagents</a></strong></p>
-<p>文档原句：<em>a central main agent coordinates subagents by <strong>calling them as tools</strong>.</em>
-主 agent 决定调谁、给什么输入、怎么合并结果；<strong>所有路由都经过主 agent</strong>。</p>
-<pre><code class="language-python">from langchain.tools import tool
-from langchain.agents import create_agent
-
-subagent = create_agent(model=&quot;google_genai:gemini-3.6-flash&quot;, tools=[...])
-
-@tool(&quot;research&quot;, description=&quot;Research a topic and return findings&quot;)
-def call_research_agent(query: str):
-    result = subagent.invoke({&quot;messages&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: query}]})
-    return result[&quot;messages&quot;][-1].content
-
-main_agent = create_agent(model=&quot;...&quot;, tools=[call_research_agent])
-</code></pre>
-<p>平台上是<strong>单分发工具</strong>（文档里的 <em>single dispatch tool</em>）：agent 的 JSON 加一段</p>
-<pre><code class="language-json">&quot;subagents&quot;: [
-  {&quot;name&quot;: &quot;weather_expert&quot;, &quot;description&quot;: &quot;查询某个城市的实时天气（温度、天气状况）。&quot;,
-   &quot;type&quot;: &quot;dictionary&quot;, &quot;system_prompt&quot;: &quot;你是天气助手，用 web_search 查实时天气。&quot;,
-   &quot;tools&quot;: [&quot;web_search&quot;]},
-  {&quot;name&quot;: &quot;math_expert&quot;, &quot;description&quot;: &quot;做精确的算术计算。&quot;,
-   &quot;type&quot;: &quot;dictionary&quot;, &quot;system_prompt&quot;: &quot;你是计算助手，所有计算都用 python_execute。&quot;,
-   &quot;tools&quot;: [&quot;python_execute&quot;]}
-]
-</code></pre>
-<p>Tools 页签勾上 <strong><code>task</code></strong>，保存后开新聊天。</p>
+<p>页面：<a href="https://docs.langchain.com/oss/python/langchain/multi-agent/index">multi-agent 总览</a>、<a href="https://docs.langchain.com/oss/python/langchain/multi-agent/subagents">subagents</a>。</p>
+<p>这一节讲最简单的一种分工：<strong>主 agent 把专家当成工具来调。</strong>
+主 agent 决定派谁、给什么输入、怎么把结果拼起来 —— 所有路由都经过它。</p>
+<p>页面原话：<em>a central main agent coordinates subagents by calling them as tools.</em></p>
 <h2 id="实测-case-6-subagents-deepseek-flash-temperature-0">实测（<code>case-6-subagents</code>，<code>deepseek-flash</code>，temperature 0）</h2>
 <p>问一句：<strong>「上海今天的天气怎么样？另外算一下 1234567 乘以 891011。」</strong></p>
 <table>
@@ -1276,35 +1280,11 @@ main_agent = create_agent(model=&quot;...&quot;, tools=[call_research_agent])
 </blockquote>
 <hr />
 <h1 id="案例-7-把对话交给另一个角色-case-7-handoff-id-314">案例 7 · 把对话交给另一个角色（<code>case-7-handoff</code>，id 314）</h1>
-<p>页面：<strong><a href="https://docs.langchain.com/oss/python/langchain/multi-agent/index">https://docs.langchain.com/oss/python/langchain/multi-agent/index</a></strong>、
-<strong><a href="https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs">https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs</a></strong></p>
-<p>文档原句：<em>Tool calls update a state variable that triggers routing or configuration
+<p>页面：<a href="https://docs.langchain.com/oss/python/langchain/multi-agent/index">multi-agent 总览</a>、<a href="https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs">handoffs</a>。</p>
+<p>和第 6 个案例相反：这里不是主 agent 去调别人，而是<strong>把对话整体交给另一个角色</strong>。
+交接之后，说话的人变了，提示词和工具也跟着变，用户不用重开对话。</p>
+<p>页面原话：<em>Tool calls update a state variable that triggers routing or configuration
 changes, switching agents or adjusting the current agent's tools and prompt.</em></p>
-<p>一个 handoff 工具<strong>不改答案，改状态</strong>：</p>
-<pre><code class="language-python">@tool
-def transfer_to_specialist(runtime: ToolRuntime) -&gt; Command:
-    &quot;&quot;&quot;Transfer to the specialist agent.&quot;&quot;&quot;
-    return Command(
-        update={
-            &quot;messages&quot;: [ToolMessage(content=&quot;Transferred to specialist&quot;,
-                                     tool_call_id=runtime.tool_call_id)],
-            &quot;current_step&quot;: &quot;specialist&quot;,      # 触发行为变化
-        }
-    )
-</code></pre>
-<p>平台上是 <strong>Middleware 页签 →「转交（handoff）」</strong>：定义角色，再定义<strong>谁 → 谁</strong>。</p>
-<pre><code class="language-json">&quot;middleware&quot;: [{&quot;type&quot;: &quot;handoff&quot;, &quot;enabled&quot;: true, &quot;config&quot;: {
-  &quot;default_step&quot;: &quot;sales&quot;,
-  &quot;steps&quot;: {
-    &quot;sales&quot;:   {&quot;label&quot;: &quot;售前&quot;, &quot;system_prompt&quot;: &quot;…&quot;, &quot;tools&quot;: [&quot;web_search&quot;],
-                &quot;transfers&quot;: [{&quot;to&quot;: &quot;support&quot;, &quot;description&quot;: &quot;技术故障交给售后&quot;}]},
-    &quot;support&quot;: {&quot;label&quot;: &quot;售后&quot;, &quot;system_prompt&quot;: &quot;…&quot;, &quot;tools&quot;: [&quot;web_search&quot;,&quot;python_execute&quot;],
-                &quot;transfers&quot;: [{&quot;to&quot;: &quot;finance&quot;, &quot;description&quot;: &quot;发票、账务问题转财务&quot;}]},
-    &quot;finance&quot;: {&quot;label&quot;: &quot;财务&quot;, &quot;system_prompt&quot;: &quot;…&quot;, &quot;tools&quot;: []}
-  }}}]
-</code></pre>
-<p><strong>一条转交关系 = 一个自动生成的工具</strong> <code>transfer_to_&lt;目标&gt;</code>（只有 <code>reason</code> 参数）。
-不需要去 Tools 页签勾它们，也不允许手写 —— 目标写在工具名里，模型编不出不存在的角色。</p>
 <h2 id="实测-case-7-handoff-三个角色-cli-验收">实测（<code>case-7-handoff</code>，三个角色，CLI 验收）</h2>
 <table>
 <thead>
@@ -1359,20 +1339,11 @@ handoff 是<strong>同一段对话</strong>换个角色继续说，前面的历�
 </blockquote>
 <hr />
 <h1 id="案例-8-需要时才加载知识-case-8-skills-id-319">案例 8 · 需要时才加载知识（<code>case-8-skills</code>，id 319）</h1>
-<p>页面：<strong><a href="https://docs.langchain.com/oss/python/langchain/multi-agent/skills">https://docs.langchain.com/oss/python/langchain/multi-agent/skills</a></strong></p>
-<p>文档原句：<em>Skills are primarily prompt-driven specializations that an agent can invoke
+<p>页面：<a href="https://docs.langchain.com/oss/python/langchain/multi-agent/skills">skills</a>。</p>
+<p>有些领域知识又长又不常用。全塞进提示词浪费上下文，删掉又不够用 ——
+<strong>技能就是按需加载的那一份。</strong> 平时只给模型一张技能目录，用到时再读全文。</p>
+<p>页面原话：<em>Skills are primarily prompt-driven specializations that an agent can invoke
 <strong>on-demand</strong> —— progressive disclosure of specialized prompts and domain knowledge.</em></p>
-<p>文档的实现是一个“加载技能”的工具：</p>
-<pre><code class="language-python">@tool
-def load_skill(skill_name: str) -&gt; str:
-    &quot;&quot;&quot;Load a specialized skill prompt.
-
-    Available skills:
-    - write_sql: SQL query writing expert
-    - review_legal_doc: Legal document reviewer
-    &quot;&quot;&quot;
-</code></pre>
-<p>平台上是 <strong>Skills 页签 + 内置 <code>skill</code> 工具</strong>：技能内容存在库里，agent 需要时按 id 取。</p>
 <h2 id="实测-case-8-skills-只有-skill-python-execute-两个工具">实测（<code>case-8-skills</code>，只有 <code>skill</code> + <code>python_execute</code> 两个工具）</h2>
 <table>
 <thead>
@@ -1411,21 +1382,12 @@ def load_skill(skill_name: str) -&gt; str:
 </ol>
 <hr />
 <h1 id="案例-9-分派台-专家并行-汇总-case-9-router-id-320">案例 9 · 分派台 + 专家并行 + 汇总（<code>case-9-router</code>，id 320）</h1>
-<p>页面：<strong><a href="https://docs.langchain.com/oss/python/langchain/multi-agent/router">https://docs.langchain.com/oss/python/langchain/multi-agent/router</a></strong></p>
-<p>文档原句：<em>A routing step classifies input and directs it to specialized agents …
+<p>页面：<a href="https://docs.langchain.com/oss/python/langchain/multi-agent/router">router</a>。</p>
+<p>一句话里有两件互不相干的事，可以<strong>同时派出去做，再合成一个回答</strong>。
+它和第 6 个案例的区别：第 6 个是主 agent 按需调专家，这里是先分派、再并行、最后汇总。</p>
+<p>页面原话：<em>A routing step classifies input and directs it to specialized agents …
 Zero or more specialized agents are invoked in parallel. Results are synthesized
 into a coherent response.</em></p>
-<p>文档的两种实现：<code>Command</code> 路由到<strong>单个</strong>专家；<code>Send</code> 做<strong>并行 fan-out</strong> 到多个专家，再汇总。</p>
-<p><strong>平台上没有 <code>Send</code></strong>（没有图/节点层），能落地的是“<strong>分派台 agent + 子代理 + 主 agent 汇总</strong>”
-—— 也就是用 Subagents 那个机制，按 router 的写法用：先分类、再一轮并行派出、最后合并。</p>
-<pre><code class="language-json">&quot;system_prompt&quot;: &quot;你是一个分派台。判断问题涉及哪些领域，把每一部分并行交给对应专家
-                  （一次发出多个 task 调用），再把结果合并成一条回答。你自己不查资料、不算数。&quot;,
-&quot;native_tools&quot;: [&quot;task&quot;],
-&quot;subagents&quot;: [
-  {&quot;name&quot;: &quot;weather_desk&quot;, &quot;description&quot;: &quot;查询某个城市的实时天气与短期预报。&quot;, &quot;tools&quot;: [&quot;web_search&quot;]},
-  {&quot;name&quot;: &quot;math_desk&quot;,    &quot;description&quot;: &quot;做精确计算（算术、单位换算、百分比）。&quot;, &quot;tools&quot;: [&quot;python_execute&quot;]}
-]
-</code></pre>
 <h2 id="实测-case-9-router">实测（<code>case-9-router</code>）</h2>
 <p>问：<strong>「上海今天天气怎么样？顺便算一下 1280 的 15% 是多少。」</strong></p>
 <table>
@@ -1553,7 +1515,7 @@ into a coherent response.</em></p>
 </tr>
 </tbody>
 </table>
-<h2 id="三条要讲的判断">三条要讲的判断</h2>
+<h2 id="三条要讲的判断-1">三条要讲的判断</h2>
 <p>完整报告模板见 <code>docs/tutorial/deep-research-agents.md</code>。</p>
 <ol>
 <li><strong>超大工具结果会被平台截断</strong>（换成 500 字预览）→ 主 agent 误判&quot;资料不全&quot;就自己下场搜（第一版 13 次搜索的由来）。</li>
@@ -1919,6 +1881,6 @@ SELECT month, SUM(CAST(revenue AS REAL)) FROM m10 GROUP BY month;
 在本平台的完整对应物。</p>
 </blockquote>
 </article>
-<nav><div class="title">Steps</div><a class="" href="#目录">目录</a><a class="" href="#0-先分清两个词-agent-和-deep-agent">0 · 先分清两个词：agent 和 deep agent</a><a class="h3" href="#0-1-agent-是什么">0.1 agent 是什么</a><a class="h3" href="#0-2-deep-agent-又是什么">0.2 deep agent 又是什么</a><a class="h3" href="#0-3-两者的差别-上课就讲这张表">0.3 两者的差别（上课就讲这张表）</a><a class="h3" href="#0-4-在平台上怎么选">0.4 在平台上怎么选</a><a class="" href="#工作区约定-上传的文件和产出的文件-都留在-agent-自己的目录里">工作区约定：上传的文件和产出的文件，都留在 agent 自己的目录里</a><a class="" href="#这三个参数在平台上填在哪">这三个参数在平台上填在哪</a><a class="" href="#实测-四个例子">实测：四个例子</a><a class="" href="#两条要讲的判断">两条要讲的判断</a><a class="" href="#实测">实测</a><a class="" href="#两条要讲的判断-1">两条要讲的判断</a><a class="" href="#三条规则-抄自-doc-chat-py-的-rules">三条规则（抄自 doc_chat.py 的 RULES）</a><a class="" href="#实测-上传真文件-不是演示数据">实测（上传真文件，不是演示数据）</a><a class="" href="#两条要讲的判断-2">两条要讲的判断</a><a class="" href="#overview-页面原文-中文译文">Overview（页面原文 · 中文译文）</a><a class="" href="#why-use-a-supervisor-页面原文-中文译文">Why use a supervisor?（页面原文 · 中文译文）</a><a class="" href="#结构-一共-3-个-agent-1-2">结构：一共 3 个 agent（1 + 2）</a><a class="" href="#教程的步骤">教程的步骤</a><a class="" href="#平台上怎么还原">平台上怎么还原</a><a class="" href="#实测-case-4-assistant-id-323">实测（case-4-assistant，id 323）</a><a class="" href="#和教程的差异-要如实讲">和教程的差异（要如实讲）</a><a class="" href="#四个要讲的判断">四个要讲的判断</a><a class="" href="#overview-页面原文-中文译文-1">Overview（页面原文 · 中文译文）</a><a class="" href="#流程-页面那张图的文字版">流程（页面那张图的文字版）</a><a class="" href="#结构-1-个-agent-3-步配置">结构：1 个 agent + 3 步配置</a><a class="" href="#教程的步骤-9-节压成-5-行">教程的步骤（9 节压成 5 行）</a><a class="" href="#平台上怎么还原-1-个-agent-1-段-middleware">平台上怎么还原（1 个 agent + 1 段 middleware）</a><a class="" href="#实测-case-5-support-id-325">实测（case-5-support，id 325）</a><a class="" href="#和教程的差异-要如实讲-1">和教程的差异（要如实讲）</a><a class="" href="#三个要讲的判断">三个要讲的判断</a><a class="" href="#复建自检-5-条">复建自检（5 条）</a><a class="" href="#实测-deep-agent-bash-设成-bash-may-mutate">实测（deep agent，bash 设成 bash_may_mutate）</a><a class="" href="#两个必须讲的判断">两个必须讲的判断</a><a class="" href="#实测-case-6-subagents-deepseek-flash-temperature-0">实测（case-6-subagents，deepseek-flash，temperature 0）</a><a class="" href="#三个必须讲的判断">三个必须讲的判断</a><a class="" href="#对照实验-改描述-委派会变吗">对照实验：改描述，委派会变吗？</a><a class="" href="#实测-case-7-handoff-三个角色-cli-验收">实测（case-7-handoff，三个角色，CLI 验收）</a><a class="" href="#四个要讲的判断-1">四个要讲的判断</a><a class="" href="#实测-case-8-skills-只有-skill-python-execute-两个工具">实测（case-8-skills，只有 skill + python_execute 两个工具）</a><a class="" href="#三个要讲的判断-1">三个要讲的判断</a><a class="" href="#实测-case-9-router">实测（case-9-router）</a><a class="" href="#三个要讲的判断-2">三个要讲的判断</a><a class="" href="#实测-同一个问题-三轮改造">实测（同一个问题，三轮改造）</a><a class="" href="#三条要讲的判断">三条要讲的判断</a><a class="" href="#实测-教程原句-write-a-blog-post-about-how-ai-agents-are-transforming-software-development">实测（教程原句：Write a blog post about how AI agents are transforming software development）</a><a class="" href="#判断">判断</a><a class="" href="#多-sheet-excel-用户要求的-quot-和-csv-一样-quot">多 sheet Excel（用户要求的&amp;quot;和 CSV 一样&amp;quot;）</a><a class="" href="#示例-一个-3-sheet-工作簿的完整对话">示例：一个 3-sheet 工作簿的完整对话</a><a class="" href="#它的完整配置-照抄即可复建">它的完整配置（照抄即可复建）</a><a class="" href="#落盘产物-实测">落盘产物（实测）</a><a class="" href="#三个要讲的判断-3">三个要讲的判断</a><a class="" href="#a-建-agent">A. 建 agent</a><a class="" href="#b-工具">B. 工具</a><a class="" href="#c-两个专家">C. 两个专家</a><a class="" href="#d-开新聊天-这一步最容易漏">D. 开新聊天（这一步最容易漏）</a><a class="" href="#e-例-1-单域">E. 例 1 · 单域</a><a class="" href="#f-例-2-跨域-审批">F. 例 2 · 跨域 + 审批</a><a class="" href="#g-看日程-右侧-calendar">G. 看日程（右侧 Calendar）</a><a class="" href="#h-反证-可选-但很值得做">H. 反证（可选，但很值得做）</a><a class="" href="#i-常见失败对照">I. 常见失败对照</a></nav>
+<nav><div class="title">Steps</div><a class="" href="#目录">目录</a><a class="" href="#0-先分清两个词-agent-和-deep-agent">0 · 先分清两个词：agent 和 deep agent</a><a class="h3" href="#0-1-agent-是什么">0.1 agent 是什么</a><a class="h3" href="#0-2-deep-agent-又是什么">0.2 deep agent 又是什么</a><a class="h3" href="#0-3-两者的差别-上课就讲这张表">0.3 两者的差别（上课就讲这张表）</a><a class="h3" href="#0-4-在平台上怎么选">0.4 在平台上怎么选</a><a class="" href="#工作区约定-上传的文件和产出的文件-都留在-agent-自己的目录里">工作区约定：上传的文件和产出的文件，都留在 agent 自己的目录里</a><a class="" href="#这三个参数在平台上填在哪">这三个参数在平台上填在哪</a><a class="" href="#实测-四个例子">实测：四个例子</a><a class="" href="#两条要讲的判断">两条要讲的判断</a><a class="" href="#实测-同样三个问题">实测：同样三个问题</a><a class="" href="#三条要讲的判断">三条要讲的判断</a><a class="" href="#从参考实现抄了三条规则">从参考实现抄了三条规则</a><a class="" href="#实测-上传真文件">实测：上传真文件</a><a class="" href="#两条要讲的判断-1">两条要讲的判断</a><a class="" href="#overview-页面原文-中文译文">Overview（页面原文 · 中文译文）</a><a class="" href="#why-use-a-supervisor-页面原文-中文译文">Why use a supervisor?（页面原文 · 中文译文）</a><a class="" href="#结构-一共-3-个-agent-1-2">结构：一共 3 个 agent（1 + 2）</a><a class="" href="#教程分五步">教程分五步</a><a class="" href="#平台上怎么还原">平台上怎么还原</a><a class="" href="#实测-case-4-assistant-id-323">实测（case-4-assistant，id 323）</a><a class="" href="#和教程不一样的地方-要讲清楚">和教程不一样的地方，要讲清楚</a><a class="" href="#四个要讲的判断">四个要讲的判断</a><a class="" href="#overview-页面原文-中文译文-1">Overview（页面原文 · 中文译文）</a><a class="" href="#流程-页面那张图的文字版">流程（页面那张图的文字版）</a><a class="" href="#结构-1-个-agent-3-步配置">结构：1 个 agent + 3 步配置</a><a class="" href="#教程的步骤-9-节压成-5-行">教程的步骤（9 节压成 5 行）</a><a class="" href="#平台上怎么还原-1-个-agent-1-段-middleware">平台上怎么还原（1 个 agent + 1 段 middleware）</a><a class="" href="#实测-case-5-support-id-325">实测（case-5-support，id 325）</a><a class="" href="#和教程的差异-要如实讲">和教程的差异（要如实讲）</a><a class="" href="#三个要讲的判断">三个要讲的判断</a><a class="" href="#复建自检-5-条">复建自检（5 条）</a><a class="" href="#实测-deep-agent-bash-设成-bash-may-mutate">实测（deep agent，bash 设成 bash_may_mutate）</a><a class="" href="#两个必须讲的判断">两个必须讲的判断</a><a class="" href="#实测-case-6-subagents-deepseek-flash-temperature-0">实测（case-6-subagents，deepseek-flash，temperature 0）</a><a class="" href="#三个必须讲的判断">三个必须讲的判断</a><a class="" href="#对照实验-改描述-委派会变吗">对照实验：改描述，委派会变吗？</a><a class="" href="#实测-case-7-handoff-三个角色-cli-验收">实测（case-7-handoff，三个角色，CLI 验收）</a><a class="" href="#四个要讲的判断-1">四个要讲的判断</a><a class="" href="#实测-case-8-skills-只有-skill-python-execute-两个工具">实测（case-8-skills，只有 skill + python_execute 两个工具）</a><a class="" href="#三个要讲的判断-1">三个要讲的判断</a><a class="" href="#实测-case-9-router">实测（case-9-router）</a><a class="" href="#三个要讲的判断-2">三个要讲的判断</a><a class="" href="#实测-同一个问题-三轮改造">实测（同一个问题，三轮改造）</a><a class="" href="#三条要讲的判断-1">三条要讲的判断</a><a class="" href="#实测-教程原句-write-a-blog-post-about-how-ai-agents-are-transforming-software-development">实测（教程原句：Write a blog post about how AI agents are transforming software development）</a><a class="" href="#判断">判断</a><a class="" href="#多-sheet-excel-用户要求的-quot-和-csv-一样-quot">多 sheet Excel（用户要求的&amp;quot;和 CSV 一样&amp;quot;）</a><a class="" href="#示例-一个-3-sheet-工作簿的完整对话">示例：一个 3-sheet 工作簿的完整对话</a><a class="" href="#它的完整配置-照抄即可复建">它的完整配置（照抄即可复建）</a><a class="" href="#落盘产物-实测">落盘产物（实测）</a><a class="" href="#三个要讲的判断-3">三个要讲的判断</a><a class="" href="#a-建-agent">A. 建 agent</a><a class="" href="#b-工具">B. 工具</a><a class="" href="#c-两个专家">C. 两个专家</a><a class="" href="#d-开新聊天-这一步最容易漏">D. 开新聊天（这一步最容易漏）</a><a class="" href="#e-例-1-单域">E. 例 1 · 单域</a><a class="" href="#f-例-2-跨域-审批">F. 例 2 · 跨域 + 审批</a><a class="" href="#g-看日程-右侧-calendar">G. 看日程（右侧 Calendar）</a><a class="" href="#h-反证-可选-但很值得做">H. 反证（可选，但很值得做）</a><a class="" href="#i-常见失败对照">I. 常见失败对照</a></nav>
 </div>
 </body></html>

@@ -25,7 +25,7 @@
 | [第 1 类 · 能直接用的 agent（案例 1–5）](#第-1-类-能直接用的-agent-案例-1-5) |
 | [案例 1 · 第一个 agent：三个参数就是一个能用的 agent（`case-1-basic-agent`，id 281）](#案例-1-第一个-agent-三个参数就是一个能用的-agent-case-1-basic-agent-id-281) |
 | [案例 2 · 工具多到 27 个，还挑得对吗（`case-2-all-tools`，id 159）](#案例-2-工具多到-27-个-还挑得对吗-case-2-all-tools-id-159) |
-| [案例 3 · 文档问答：上传附件 → 读 → 标来源（`case-3-doc-chat`，id 326）](#案例-3-文档问答-上传附件-读-标来源-case-3-doc-chat-id-326) |
+| [案例 3 · 文档问答：上传附件、读它、标出来源（`case-3-doc-chat`，id 326）](#案例-3-文档问答-上传附件-读它-标出来源-case-3-doc-chat-id-326) |
 | [案例 4 · 个人助理：supervisor + 两个专家（`case-4-assistant`，id 323）](#案例-4-个人助理-supervisor-两个专家-case-4-assistant-id-323) |
 | [案例 5 · 售后客服：一个 agent 三步配置（`case-5-support`，id 325）](#案例-5-售后客服-一个-agent-三步配置-case-5-support-id-325) |
 | [第 2 类 · 机制演示（机制一项 + 四个模式）](#第-2-类-机制演示-机制一项-四个模式) |
@@ -198,78 +198,87 @@ agent = create_agent(
 
 # 案例 2 · 工具多到 27 个，还挑得对吗（`case-2-all-tools`，id 159）
 
-依据：**同案例 1 的 [agents 页](https://docs.langchain.com/oss/python/langchain/agents)**（工具也是 harness 的一部分）。
+依据：还是 [agents 页](https://docs.langchain.com/oss/python/langchain/agents) —— 工具是装配的一部分。
 
-案例 1 只有 3 个工具。这一节把同一个问题推到 27 个工具：**工具一多，模型还会挑对吗？**
+案例 1 只给了 3 个工具，所以挑起来不难。这一节把同样的题摆到 27 个工具面前，
+看它还挑不挑得对。
 
-`case-2-all-tools`：`deepseek-flash`、Temperature `0`、**27 个工具**（`web_search`/`tavily_search`/`web_fetch`、
-`pg_query`/`pg_list_tables`/`pg_describe_table`、`python_execute`/`sqlite_execute`、
-`memory_store`/`memory_recall`、`think_tool`/`reasoning_chain`、`write_todos`/`read_todos`、
-`bash`、`write_file`…），提示词是一份**中文能力清单**（"你可以搜索信息、查数据库、写文件…"）。
+这个 agent（id 159）挂着 `deepseek-flash`、温度 0，工具一共 27 个：搜网页、查数据库、
+跑 Python、存记忆、列待办、跑 bash、写文件……提示词里不是规则，而是一份中文的「能力清单」
+（"你可以搜索信息、查数据库、写文件……"）。
 
-## 实测
+## 实测：同样三个问题
 
-| 问 | 它挑了 | 结果 | 用时 |
+| 问 | 它挑了哪个工具 | 结果 | 用时 |
 |---|---|---|---|
-| `上海今天天气怎么样？` | `web_fetch` → `web_search` ×2 | 19℃ 实况 + 今日温度区间 | 11.5s |
-| `把这句存成文件：hello world。` | `write_file` | `generated/hello_world.txt` | 6.1s |
-| `用 pg_query 查一下 deep_agent_templates 有多少个 agent。` | `pg_query` | 69 | 5.9s |
-| `上海今天天气怎么样？`（案例 1 的同题） | 案例 1：`web_search` ×4 | 同样的答案 | 8.1s |
+| 上海今天天气怎么样？ | `web_fetch` → `web_search` ×2 | 19℃ 实况 + 今日温度区间 | 11.5s |
+| 把这句存成文件：hello world | `write_file` | 生成了 `generated/hello_world.txt` | 6.1s |
+| 用 pg_query 查 deep_agent_templates 有多少个 agent | `pg_query` | 69 | 5.9s |
 
-## 两条要讲的判断
+对照案例 1 的同一道天气题：那边 4 次 `web_search`、8.1 秒；这边 11.5 秒。
+答案一样，慢了一些。
 
-1. **工具数量不是主要矛盾，名字和描述才是。** 27 个工具里，模型按"名字 + 一句描述"挑，每次都挑到最具体的那一个
-   （写文件用 `write_file`、查库用 `pg_query`、天气用 `web_search`）—— 和案例 1 的 3 工具表现一致。
-2. **提示词里的能力清单是"索引"，不是"路由表"。** 中文那段只说了"你能干什么"，没有一条"天气 → 用 web_search"的规则；
-   真正决定挑哪个的是工具自身描述。这也解释了为什么**加工具比加规则更省事**，以及为什么工具描述写得含糊会直接掉准确率。
-3. 代价是**选错的空间变大、延迟变高**（同题 11.5s vs 8.1s）。「工具太多要不要拆」的答案在案例 4/9：
-   拆成专家（subagents）或分派台（router）。
+## 三条要讲的判断
+
+1. **工具多不是主要问题，名字和描述才是。** 27 个工具里，它每次都能挑到最具体的那一个：
+   写文件用 `write_file`，查库用 `pg_query`，查天气用 `web_search`。挑的依据是工具自己的名字和描述。
+2. **提示词里的能力清单只是"目录"，不是"路由表"。** 那段中文只说了它能干什么，
+   没有一条"天气就用 web_search"的规定。真正拿主意的是工具描述 —— 所以**加工具比加规则省事**，
+   而工具描述写含糊，准确率会立刻掉。
+3. **代价是慢，而且选错的余地变大。** 同样的题，3 个工具 8.1 秒，27 个工具 11.5 秒。
+   工具多到一定程度该怎么办？案例 6（拆成专家）和案例 9（加一个分派台）给的就是这个答案。
 
 ---
 
-# 案例 3 · 文档问答：上传附件 → 读 → 标来源（`case-3-doc-chat`，id 326）
+# 案例 3 · 文档问答：上传附件、读它、标出来源（`case-3-doc-chat`，id 326）
 
-依据：**[knowledge/doc-chat 实现](https://docs.langchain.com/oss/python/langchain/tools)**（工具的读写与引用规则）+
-平台自身的 `api/knowledge/doc_chat.py`（提示词规则来源）。
+依据：平台自己的「知识库对话」实现（`api/knowledge/doc_chat.py`）里的提示词规则，
+以及 [tools 页](https://docs.langchain.com/oss/python/langchain/tools) 关于工具读写的说法。
 
-平台原本的「知识库对话」是**把整个文件夹的内容塞进提示词**（`api/knowledge/doc_chat.py`）。
-这个案例把它做成一个 **normal agent**：不预载文档，改用工具按需读 —— 上传什么、读什么、答什么，且每条结论标来源。
+平台原本的「知识库对话」做法很直接：把整个文件夹的内容塞进提示词。库一大，上下文就满了。
+这个案例把它改成一个普通 agent：**不预载文档，用工具按需读**，而且每条结论都要标来源。
 
-`case-3-doc-chat`：`deepseek-flash`、温度 `0`、**只有 3 个只读工具**：`glob`（列附件）、`grep`（大文件里定位）、
-`read_any_file`（文本 / PDF / 扫描件 / Word / PowerPoint / Excel 统一读取入口）。
+它只有三个只读工具，分工很清楚：
 
-## 三条规则（抄自 `doc_chat.py` 的 RULES）
-
-| 参考实现 | agent 版 |
+| 工具 | 干什么 |
 |---|---|
-| 每条结论标 `[Source: filename.ext]` | 同样格式，去掉文件名前的 8 位存储前缀 |
-| 开头声明读了多少文档 | `**[Documents loaded: N file(s)]**`（N = 本轮实际读的） |
-| 读不到就明确说（原文 `The loaded documents do not contain information about …`） | 「读到的文档里没有关于 … 的信息」 |
-| 数字/金额/日期原样引用，不换算口径 | 同 |
-| 不许用自身知识补 | 同 |
+| `glob` | 看 `upload/` 里有什么附件 |
+| `grep` | 在长文档里定位关键词，省得整篇读 |
+| `read_any_file` | 读内容。文本、PDF、扫描件、Word、PowerPoint、Excel 都走这一个入口 |
 
-预算：一轮最多读 3 个文件；长文件只读命中部分（doc_chat 的等价限制是 300 文件 / 1M 字符）。
+## 从参考实现抄了三条规则
 
-## 实测（上传真文件，不是演示数据）
+| 参考实现怎么写 | 这个 agent 怎么写 |
+|---|---|
+| 每条结论标 `[Source: 文件名]` | 同样格式，但去掉文件名前的 8 位存储前缀 |
+| 开头说明读了多少文档 | `[Documents loaded: N file(s)]`，N 是这一轮真正读过的 |
+| 读不到就明说 | 「读到的文档里没有关于 …… 的信息」 |
+| 数字、金额、日期原样引用 | 同 |
+| 不许拿自己的知识补 | 同 |
 
-| 上传 | 问 | 工具 | 结果 |
+另外还压了两条预算：一轮最多读 3 个文件；长文件只读命中的部分
+（参考实现的上限是 300 个文件、100 万字符，量级差别在这里）。
+
+## 实测：上传真文件
+
+| 上传 | 问 | 它怎么做的 | 结果 |
 |---|---|---|---|
-| `星河项目交付说明.md`（322 B） | 项目编号和预算是多少 | `glob` → `read_any_file` | `XH-2026-014` / `人民币 128 万元`，各带 `[Source: 星河项目交付说明.md]` |
-| `industry_analysis_report.pdf`（612 KB，11 页） | 这份 PDF 讲什么行业？2025 市场规模 | `read_any_file`（6s） | 全球眼镜行业；列出 6 家机构口径表，全部带来源 |
-| 同上 | 有没有提到越南的监管要求？没有就说没有 | `grep` | **「读到的文档里没有关于越南监管要求的信息」** + 核对过程（监管章节只覆盖美/欧/中） |
+| `星河项目交付说明.md`（322 B） | 项目编号和预算是多少 | `glob` → `read_any_file` | `XH-2026-014`、`人民币 128 万元`，各带 `[Source: 星河项目交付说明.md]` |
+| `industry_analysis_report.pdf`（612 KB，11 页） | 这份 PDF 讲什么行业？2025 年市场规模多少 | `read_any_file`，6 秒读完 | 全球眼镜行业；列出 6 家机构的口径表，逐条带来源 |
+| 同一份 PDF | 有没有提到越南的监管要求？没有就说没有 | `grep` | 「读到的文档里没有关于越南监管要求的信息」，并说明监管章节只覆盖美国、欧盟、中国 |
 
-**上传即开始**：附件上传后前端会替用户发一句"我已上传附件「X」"，agent 先回一行确认再读 ——
-不需要用户再补一句"请读一下"。没有读文件工具的 agent 收到同样的话，会直接说明"缺什么工具"。
+还有一个小设计：**上传完它就开始动，不用你再补一句"请读一下"。**
+附件传上去以后，界面会替用户发一句"我已上传附件 X"，agent 先回一行确认，接着就读。
+换成没有读文件工具的 agent 收到同样的话，会直接说清自己缺什么工具。
 
 ## 两条要讲的判断
 
-1. **agent 版和面板版的差别是"按需读"而不是"全塞进去"。** 面板版一次把文件夹里能塞的都放进提示词，
-   大库会顶满上下文；agent 版先 `glob`/`grep` 缩小范围，只读命中的 1–3 个文件，读不到就明说。
-2. **"读不到"比"答得像"更重要。** 三条规则里最值钱的是那句缺席声明：它把"我不知道"从模型的礼貌变成了可验收的判据
-   （我们的验收脚本就是按这句话断言的）。
+1. **agent 版和面板版的区别在"读多少"。** 面板版一次把能塞的都塞进提示词，大库直接顶满；
+   agent 版先用 `glob`、`grep` 把范围缩小，只读命中的一两个文件。
+2. **"读不到就说读不到"比"答得像"重要。** 这几条规则里最值钱的是那句缺席声明：
+   它把"我不知道"从一句客套话变成了可以验收的判据 —— 验收脚本就是按这句话断言的。
 
 ---
-
 
 # 案例 4 · 个人助理：supervisor + 两个专家（`case-4-assistant`，id 323）
 
@@ -314,20 +323,22 @@ agent = create_agent(
    get_available_time_slots
 ```
 
-两条要点：
+看图其实就两件事：
 
-1. **supervisor 看不到 `create_calendar_event`** —— 故意的信息差：它只面对 2 个包装工具，选项少才不容易挑错。
-2. **审批挂在外发那一层** —— `interrupt_on={"send_email": …}` 属于 email agent；挂到 supervisor 只能拦住“派活”。
+1. **supervisor 看不到最底下那些工具。** 它面前只有两个"派活"工具。
+   这是故意留的信息差 —— 选项少，它才不容易挑错。
+2. **审批要挂在外发那一层。** `interrupt_on={"send_email": …}` 写在 email agent 身上；
+   写到 supervisor 上，只能拦住"派活"，拦不住"发信"。
 
-## 教程的步骤
+## 教程分五步
 
-| 步骤                    | 教程做了什么                                                                                                                          |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. 定义工具             | 三个 stub：`create_calendar_event`（要 ISO 时间）、`send_email`、`get_available_time_slots`                                     |
-| 2. 建专家               | calendar agent（**把「下周二下午 2 点」解析成 ISO**）、email agent（推断收件人、写主题正文）                                    |
-| 3. **包装成工具** | `schedule_event(request)`、`manage_email(request)` — **supervisor 只看到这两个高层工具，看不到 `create_calendar_event`** |
-| 4. supervisor           | 按领域分派；一句话涉及两件事时，**一轮里同时调两个工具**                                                                        |
-| 5. 两个例子             | ①「安排明天 9 点站会」→ 只调 `schedule_event`；②「下周二 2 点跟设计团队开会，并发邮件提醒」→ 同时调度两个                       |
+| 步骤 | 教程做了什么 |
+|---|---|
+| 1. 定义工具 | 写三个占位工具：建日程、发邮件、查空闲 |
+| 2. 建专家 | 一个日程专家（把"下周二下午 2 点"换算成具体时间），一个邮件专家（推断收件人、写主题和正文） |
+| 3. 包装成工具 | 把两个专家各包一层，变成 `schedule_event`、`manage_email`。supervisor 只看见这两个 |
+| 4. 建 supervisor | 按领域派活；一句话里有两件事，就在同一轮里调两个包装工具 |
+| 5. 跑两个例子 | ①"安排明天 9 点站会" → 只调日程；②"下周二 2 点开会，并发邮件提醒" → 两个一起调 |
 
 ## 平台上怎么还原
 
@@ -368,28 +379,35 @@ agent = create_agent(
 点聊天窗口右上角**日历图标**：11 月 3 日格子里是 `14:00 与 Alice 开会`，来源文件与 Files 面板一致；
 面板底部写明「N 个日程的文件没写时区，时间按文件字面显示」—— 只读，不替模型编时区。
 
-## 和教程的差异（要如实讲）
+## 和教程不一样的地方，要讲清楚
 
-| 教程 | 平台 | 原因 |
+| 教程 | 我们这里 | 为什么 |
 |---|---|---|
-| 三个 stub 工具 | `python_execute` 算 + `write_file` 存 `.ics` / `.eml`，**不新增工具** | 平台不鼓励为演示造 stub；副作用靠文件可观测 |
-| 每个专家包成 1 个工具 | 用内置的 `task(description, subagent_type)` | 等价：supervisor 一样看不到专家的工具 |
-| 真发信 / 真日历（SendGrid、Google Calendar） | 写文件 | 教程**自己也是 stub**；平台没有真通道 |
-| `edit`（改参数再执行） | 只有批准 / 拒绝 | 改参数会触发重新规划，实测更乱 |
+| 三个占位工具 | 用 `python_execute` 算日期、用 `write_file` 写 `.ics` 和 `.eml`，**不新造工具** | 平台不鼓励为演示造占位工具；"做完了"这件事靠文件就能看见 |
+| 每个专家包成一个工具 | 用平台内置的 `task(description, subagent_type)` | 效果一样：supervisor 照样看不到专家手里的工具 |
+| 真发日历、真发邮件 | 写成文件 | 教程自己也是占位的；这台机器没有真通道 |
+| 审批里可以"改参数再执行" | 只给批准、拒绝两个按钮 | 改参数会让模型重新规划一遍，实测更乱 |
 
 ## 四个要讲的判断
 
-1. **分层是为了“少选项”**：supervisor 只面对 1 个工具、每个专家只面对自己的 2 个 —— 选错的概率就下来了。
-2. **信息差是设计出来的**：supervisor 不知道 `write_file`、也不知道 `.ics` 怎么写得出来；所以**约束要写在专家身上**。
-3. **审批放在有副作用的那一层**：放 supervisor 只能拦住“派活”，拦不住“发信”。
-4. **专家要有自己的中间件**：子代理原来既无 `interrupt_on` 也无文件系统，文件根本落不了盘（平台已修）。
+1. **分层是为了减少选项。** supervisor 面前只有 1 个工具，每个专家只看得到自己那 2 个，挑错的概率自然低。
+2. **信息差是设计出来的。** supervisor 不知道有 `write_file`，也不知道 `.ics` 该怎么写 ——
+   所以**约束必须写在专家身上**，写在 supervisor 上是白写。
+3. **审批放在会动真东西的那一层。** 放在 supervisor 只拦得住"派活"，拦不住"发信"。
+4. **专家也要有自己的中间件。** 早先子代理既没有 `interrupt_on`，也没有文件系统，
+   让它写文件根本落不了盘（平台已修）。
 
 ---
 
 
 # 案例 5 · 售后客服：一个 agent 三步配置（`case-5-support`，id 325）
 
-教程：**<https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs-customer-support>**
+页面：[handoffs-customer-support](https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs-customer-support)。
+
+上一节是三个角色互相转交；这一节不一样 —— **只有一个 agent，但它分三个阶段说话。**
+保修确认、问题分类、给方案，每个阶段换一套提示词和工具。客户说错了，还能退回去重问。
+
+先把页面的开头读一遍（中文译文）：
 
 ## Overview（页面原文 · 中文译文）
 
@@ -576,40 +594,12 @@ agent = create_agent(
 
 # 案例 6 · 主 agent 把专家当工具（`case-6-subagents`，id 301）
 
-页面：**[https://docs.langchain.com/oss/python/langchain/multi-agent/index](https://docs.langchain.com/oss/python/langchain/multi-agent/index)**、
-**[https://docs.langchain.com/oss/python/langchain/multi-agent/subagents](https://docs.langchain.com/oss/python/langchain/multi-agent/subagents)**
+页面：[multi-agent 总览](https://docs.langchain.com/oss/python/langchain/multi-agent/index)、[subagents](https://docs.langchain.com/oss/python/langchain/multi-agent/subagents)。
 
-文档原句：*a central main agent coordinates subagents by **calling them as tools**.*
-主 agent 决定调谁、给什么输入、怎么合并结果；**所有路由都经过主 agent**。
+这一节讲最简单的一种分工：**主 agent 把专家当成工具来调。**
+主 agent 决定派谁、给什么输入、怎么把结果拼起来 —— 所有路由都经过它。
 
-```python
-from langchain.tools import tool
-from langchain.agents import create_agent
-
-subagent = create_agent(model="google_genai:gemini-3.6-flash", tools=[...])
-
-@tool("research", description="Research a topic and return findings")
-def call_research_agent(query: str):
-    result = subagent.invoke({"messages": [{"role": "user", "content": query}]})
-    return result["messages"][-1].content
-
-main_agent = create_agent(model="...", tools=[call_research_agent])
-```
-
-平台上是**单分发工具**（文档里的 *single dispatch tool*）：agent 的 JSON 加一段
-
-```json
-"subagents": [
-  {"name": "weather_expert", "description": "查询某个城市的实时天气（温度、天气状况）。",
-   "type": "dictionary", "system_prompt": "你是天气助手，用 web_search 查实时天气。",
-   "tools": ["web_search"]},
-  {"name": "math_expert", "description": "做精确的算术计算。",
-   "type": "dictionary", "system_prompt": "你是计算助手，所有计算都用 python_execute。",
-   "tools": ["python_execute"]}
-]
-```
-
-Tools 页签勾上 **`task`**，保存后开新聊天。
+页面原话：*a central main agent coordinates subagents by calling them as tools.*
 
 ## 实测（`case-6-subagents`，`deepseek-flash`，temperature 0）
 
@@ -659,43 +649,13 @@ Tools 页签勾上 **`task`**，保存后开新聊天。
 
 # 案例 7 · 把对话交给另一个角色（`case-7-handoff`，id 314）
 
-页面：**[https://docs.langchain.com/oss/python/langchain/multi-agent/index](https://docs.langchain.com/oss/python/langchain/multi-agent/index)**、
-**[https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs](https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs)**
+页面：[multi-agent 总览](https://docs.langchain.com/oss/python/langchain/multi-agent/index)、[handoffs](https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs)。
 
-文档原句：*Tool calls update a state variable that triggers routing or configuration
+和第 6 个案例相反：这里不是主 agent 去调别人，而是**把对话整体交给另一个角色**。
+交接之后，说话的人变了，提示词和工具也跟着变，用户不用重开对话。
+
+页面原话：*Tool calls update a state variable that triggers routing or configuration
 changes, switching agents or adjusting the current agent's tools and prompt.*
-
-一个 handoff 工具**不改答案，改状态**：
-
-```python
-@tool
-def transfer_to_specialist(runtime: ToolRuntime) -> Command:
-    """Transfer to the specialist agent."""
-    return Command(
-        update={
-            "messages": [ToolMessage(content="Transferred to specialist",
-                                     tool_call_id=runtime.tool_call_id)],
-            "current_step": "specialist",      # 触发行为变化
-        }
-    )
-```
-
-平台上是 **Middleware 页签 →「转交（handoff）」**：定义角色，再定义**谁 → 谁**。
-
-```json
-"middleware": [{"type": "handoff", "enabled": true, "config": {
-  "default_step": "sales",
-  "steps": {
-    "sales":   {"label": "售前", "system_prompt": "…", "tools": ["web_search"],
-                "transfers": [{"to": "support", "description": "技术故障交给售后"}]},
-    "support": {"label": "售后", "system_prompt": "…", "tools": ["web_search","python_execute"],
-                "transfers": [{"to": "finance", "description": "发票、账务问题转财务"}]},
-    "finance": {"label": "财务", "system_prompt": "…", "tools": []}
-  }}}]
-```
-
-**一条转交关系 = 一个自动生成的工具** `transfer_to_<目标>`（只有 `reason` 参数）。
-不需要去 Tools 页签勾它们，也不允许手写 —— 目标写在工具名里，模型编不出不存在的角色。
 
 ## 实测（`case-7-handoff`，三个角色，CLI 验收）
 
@@ -738,25 +698,13 @@ def transfer_to_specialist(runtime: ToolRuntime) -> Command:
 
 # 案例 8 · 需要时才加载知识（`case-8-skills`，id 319）
 
-页面：**[https://docs.langchain.com/oss/python/langchain/multi-agent/skills](https://docs.langchain.com/oss/python/langchain/multi-agent/skills)**
+页面：[skills](https://docs.langchain.com/oss/python/langchain/multi-agent/skills)。
 
-文档原句：*Skills are primarily prompt-driven specializations that an agent can invoke
+有些领域知识又长又不常用。全塞进提示词浪费上下文，删掉又不够用 ——
+**技能就是按需加载的那一份。** 平时只给模型一张技能目录，用到时再读全文。
+
+页面原话：*Skills are primarily prompt-driven specializations that an agent can invoke
 **on-demand** —— progressive disclosure of specialized prompts and domain knowledge.*
-
-文档的实现是一个“加载技能”的工具：
-
-```python
-@tool
-def load_skill(skill_name: str) -> str:
-    """Load a specialized skill prompt.
-
-    Available skills:
-    - write_sql: SQL query writing expert
-    - review_legal_doc: Legal document reviewer
-    """
-```
-
-平台上是 **Skills 页签 + 内置 `skill` 工具**：技能内容存在库里，agent 需要时按 id 取。
 
 ## 实测（`case-8-skills`，只有 `skill` + `python_execute` 两个工具）
 
@@ -783,26 +731,14 @@ def load_skill(skill_name: str) -> str:
 
 # 案例 9 · 分派台 + 专家并行 + 汇总（`case-9-router`，id 320）
 
-页面：**[https://docs.langchain.com/oss/python/langchain/multi-agent/router](https://docs.langchain.com/oss/python/langchain/multi-agent/router)**
+页面：[router](https://docs.langchain.com/oss/python/langchain/multi-agent/router)。
 
-文档原句：*A routing step classifies input and directs it to specialized agents …
+一句话里有两件互不相干的事，可以**同时派出去做，再合成一个回答**。
+它和第 6 个案例的区别：第 6 个是主 agent 按需调专家，这里是先分派、再并行、最后汇总。
+
+页面原话：*A routing step classifies input and directs it to specialized agents …
 Zero or more specialized agents are invoked in parallel. Results are synthesized
 into a coherent response.*
-
-文档的两种实现：`Command` 路由到**单个**专家；`Send` 做**并行 fan-out** 到多个专家，再汇总。
-
-**平台上没有 `Send`**（没有图/节点层），能落地的是“**分派台 agent + 子代理 + 主 agent 汇总**”
-—— 也就是用 Subagents 那个机制，按 router 的写法用：先分类、再一轮并行派出、最后合并。
-
-```json
-"system_prompt": "你是一个分派台。判断问题涉及哪些领域，把每一部分并行交给对应专家
-                  （一次发出多个 task 调用），再把结果合并成一条回答。你自己不查资料、不算数。",
-"native_tools": ["task"],
-"subagents": [
-  {"name": "weather_desk", "description": "查询某个城市的实时天气与短期预报。", "tools": ["web_search"]},
-  {"name": "math_desk",    "description": "做精确计算（算术、单位换算、百分比）。", "tools": ["python_execute"]}
-]
-```
 
 ## 实测（`case-9-router`）
 
