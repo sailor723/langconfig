@@ -149,6 +149,10 @@ deep agent 用的还是同一个循环，区别在于**装配已经提前装好�
 
 依据：[langchain/agents](https://docs.langchain.com/oss/python/langchain/agents)。
 
+> **要点** —— 三个参数（模型、工具、一句话提示词）就能跑；先别急着写长提示词。
+> **什么时候用** —— 单领域、工具不多、先验证「模型 + 工具」这条路通不通。
+> **为什么** —— 挑哪个工具由工具描述决定，不由提示词里的列举决定；所以先备好工具，再谈规则。
+
 第 0 节讲过：agent 就是「模型在循环里调工具」，外面包一层装配。这一节就把那层装配填到最简 ——
 **只填三个参数，看它能不能干活。**
 
@@ -199,6 +203,10 @@ agent = create_agent(
 
 依据：还是 [agents 页](https://docs.langchain.com/oss/python/langchain/agents) —— 工具是装配的一部分。
 
+> **要点** —— 27 个工具也挑得对；难的不是数量，是名字和描述写没写清。
+> **什么时候用** —— 团队共用一个通才 agent，或者分工还没想清楚时的起步形态。
+> **为什么** —— 代价是慢、选错余地大（同一道题 8.1s → 11.5s）；过了某个数量就该拆（案例 6、9）。
+
 案例 1 只给了 3 个工具，所以挑起来不难。这一节把同样的题摆到 27 个工具面前，
 看它还挑不挑得对。
 
@@ -233,6 +241,10 @@ agent = create_agent(
 
 依据：Carrier 自己的「知识库对话」实现（`api/knowledge/doc_chat.py`）里的提示词规则，
 以及 [tools 页](https://docs.langchain.com/oss/python/langchain/tools) 关于工具读写的说法。
+
+> **要点** —— 文档不预载，按需读，每条结论标来源。
+> **什么时候用** —— 文档多、更新快，而且答案必须能追到「哪份文件、哪一段」。
+> **为什么** —— 全塞进提示词会把上下文撑爆，答出来还说不出出处；改成工具按需读，上下文只装这次用到的。
 
 Carrier 原本的「知识库对话」做法很直接：把整个文件夹的内容塞进提示词。库一大，上下文就满了。
 这个案例把它改成一个普通 agent：**不预载文档，用工具按需读**，而且每条结论都要标来源。
@@ -282,6 +294,10 @@ Carrier 原本的「知识库对话」做法很直接：把整个文件夹的内
 # 案例 4 · 个人助理：supervisor + 两个专家（`case-4-assistant`，id 323）
 
 教程：**[https://docs.langchain.com/oss/python/langchain/multi-agent/subagents-personal-assistant](https://docs.langchain.com/oss/python/langchain/multi-agent/subagents-personal-assistant)**
+
+> **要点** —— 主 agent 只做协调，专家各自带工具和规则。
+> **什么时候用** —— 任务跨几个明确领域（日历、邮件），每个领域都有自己的一套工具。
+> **为什么** —— 一个 agent 挑 27 个工具又慢又容易错；拆开后主 agent 只在两个专家里选。代价是多一跳，且专家看不到彼此。
 
 ## Overview（页面原文 · 中文译文）
 
@@ -396,6 +412,10 @@ Carrier 原本的「知识库对话」做法很直接：把整个文件夹的内
 # 案例 5 · 售后客服：一个 agent 三步配置（`case-5-support`，id 325）
 
 页面：[handoffs-customer-support](https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs-customer-support)。
+
+> **要点** —— 同一个 agent，按阶段换提示词和工具（状态机）。
+> **什么时候用** —— 流程有固定阶段，每个阶段「该做什么、不许做什么」不一样（售后、审批、开户）。
+> **为什么** —— 用工具集当闸门：第一阶段手里根本没有「进方案」的工具，顺序就乱不了，比在提示词里写「请按顺序」可靠。
 
 上一节是三个角色互相转交；这一节不一样 —— **只有一个 agent，但它分三个阶段说话。**
 保修确认、问题分类、给方案，每个阶段换一套提示词和工具。客户说错了，还能退回去重问。
@@ -529,6 +549,10 @@ Tools 页签只勾 `write_file`；JSON 页签贴：
 
 页面：**[https://docs.langchain.com/oss/python/concepts/human-in-the-loop](https://docs.langchain.com/oss/python/concepts/human-in-the-loop)**
 
+> **要点** —— 拦的是「这一次工具调用」，不是「这个工具」；拦在循环里，不是提醒模型。
+> **什么时候用** —— 有不可逆的动作：写库、对外发文件、扣钱。
+> **为什么** —— 提示词只是建议，模型可以不听；中间件能让循环停下来等人。
+
 文档的写法是**中间件**，不是提示词：
 
 ```python
@@ -583,6 +607,10 @@ Carrier 上就是 **Middleware 页签** → 勾工具 → 选“每条都批 / �
 # 案例 6 · 主 agent 把专家当工具（`case-6-subagents`，id 301）
 
 页面：[multi-agent 总览](https://docs.langchain.com/oss/python/langchain/multi-agent/index)、[subagents](https://docs.langchain.com/oss/python/langchain/multi-agent/subagents)。
+
+> **要点** —— 主 agent 把专家当工具（`task`）来调。
+> **什么时候用** —— 需要几项专业能力，而且每项结果一两句话就能带回来。
+> **为什么** —— 专家在自己的上下文里干活，主 agent 只收一份摘要；这是省上下文最直接的一招。
 
 这一节讲最简单的一种分工：**主 agent 把专家当成工具来调。**
 主 agent 决定派谁、给什么输入、怎么把结果拼起来 —— 所有路由都经过它。
@@ -641,6 +669,10 @@ Carrier 上就是 **Middleware 页签** → 勾工具 → 选“每条都批 / �
 
 页面：[multi-agent 总览](https://docs.langchain.com/oss/python/langchain/multi-agent/index)、[handoffs](https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs)。
 
+> **要点** —— 把整段对话交给另一个角色：提示词和工具跟着一起换。
+> **什么时候用** —— 多个角色轮流服务同一个用户，而用户不该重开对话（售后、售前 → 技术）。
+> **为什么** —— 历史连续，用户不用复述；代价是角色之间互相看得见历史，所以每个角色都要写明「不属于你的直接转」。
+
 和第 6 个案例相反：这里不是主 agent 去调别人，而是**把对话整体交给另一个角色**。
 交接之后，说话的人变了，提示词和工具也跟着变，用户不用重开对话。
 
@@ -692,6 +724,10 @@ changes, switching agents or adjusting the current agent's tools and prompt.*
 
 页面：[skills](https://docs.langchain.com/oss/python/langchain/multi-agent/skills)。
 
+> **要点** —— 知识先给目录，用到再读全文。
+> **什么时候用** —— 领域知识长、不常用、还要能单独改（写作规范、SQL 约定）。
+> **为什么** —— 常驻提示词吃上下文，删掉又不够用，技能是两者的折中。代价是多一次读文件。
+
 有些领域知识又长又不常用。全塞进提示词浪费上下文，删掉又不够用 ——
 **技能就是按需加载的那一份。** 平时只给模型一张技能目录，用到时再读全文。
 
@@ -724,6 +760,10 @@ changes, switching agents or adjusting the current agent's tools and prompt.*
 # 案例 9 · 分派台 + 专家并行 + 汇总（`case-9-router`，id 320）
 
 页面：[router](https://docs.langchain.com/oss/python/langchain/multi-agent/router)。
+
+> **要点** —— 先分类，再并行派出去，最后合成一条回答。
+> **什么时候用** —— 一句话里有多件互不相干的事，而用户只想看一个答案。
+> **为什么** —— 串行做三次就是三倍时间；并行只多一次汇总的开销。
 
 一句话里有两件互不相干的事，可以**同时派出去做，再合成一个回答**。
 它和第 6 个案例的区别：第 6 个是主 agent 按需调专家，这里是先分派、再并行、最后汇总。
@@ -766,6 +806,10 @@ into a coherent response.*
 依据：[deepagents/deep-research](https://docs.langchain.com/oss/python/deepagents/deep-research)，
 以及仓库里那份可直接跑的示例 `deepagents-quickstarts/deep_research`。
 
+> **要点** —— 给题目不给步骤：待办清单管进度，`think_tool` 管收束，文件管交付。
+> **什么时候用** —— 开放研究类任务，产出是一份带引用的文档，而不是一句话。
+> **为什么** —— 不约束就会乱搜（第一版 13 次）；写进提示词后压到 5 次。但预算不是硬闸（读网页仍 11 次）——Carrier 没有调用上限中间件。
+
 前九个案例都是"问一句、答一句"。这个不一样：用户只给一个题目，agent 要自己拆成几个子问题、
 自己搜、自己读全文，最后写成一份带引用的报告。它用的是一个 **deep agent**：
 
@@ -806,6 +850,10 @@ into a coherent response.*
 
 依据：[deepagents/content-builder](https://docs.langchain.com/oss/python/deepagents/content-builder)。
 
+> **要点** —— 语气是常量，写进 `AGENTS.md`；写法规格是长文，放进 `SKILL.md`。
+> **什么时候用** —— 对外内容要一致的品牌口吻，而且不同渠道有不同格式。
+> **为什么** —— 两者加载时机不同：语气每次都要生效，规格用到才读。位置放对，提示词里就不用重复写。
+
 这一节要解决的不是"会不会写"，而是**写出来像不像这家公司发的**。做法分四块：
 
 | 教程里的做法 | 我们怎么落 |
@@ -835,6 +883,10 @@ into a coherent response.*
 # 案例 12 · 上传 CSV 或 Excel，然后问它（`case-12-csv-chat`，id 329）
 
 依据：[langchain/sql-agent](https://docs.langchain.com/oss/python/langchain/sql-agent)。
+
+> **要点** —— 先把表格建成库，再让模型写 SQL；自查写成清单，而不是再造一个工具。
+> **什么时候用** —— 用户传 CSV/Excel，然后用自然语言问问题。
+> **为什么** —— 模型写 SQL 的错集中在 NULL、UNION、边界、类型；把这些钉成固定清单，比多做一次工具调用省事。
 
 这个 agent 只干一件事：用户传一个表格，问问题，它写 SQL 查出来。
 
