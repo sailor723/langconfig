@@ -8,7 +8,9 @@
 |---|---|---|---|
 | 1 | **`agent-training-runbook.md`** | 主线教材：12 个案例，从 `create_agent` 到深度研究/内容创作/CSV·Excel 分析，每个案例都有实测证据 | 上课、复建、验收 |
 | 2 | `deep-research-agents.md` | 深度研究的**报告模板**：骨架、写作规则、引用规范、agent 契约 | 写案例 10 时对照 |
-| 3 | `agent-practice.md` | 八课实践（身份、改行为、技能触发、交付物、验证、一任务一聊天、工具预算、拒绝） | 学员自己动手练 |
+
+
+> `agent-practice.md`（八课实践）已从工作区删除；需要时 `git checkout docs/reference/agent-practice.md` 可以取回。
 
 生成物：`agent-training-runbook.html`（`scripts/build_training_html.py` 从 md 构建，别手改）。
 
