@@ -386,6 +386,26 @@ into a coherent response.*
 它建两个专家：**calendar agent**（排期、查空闲、建事件）和 **email agent**（起草、发送），
 再由一个 **supervisor** 协调。教程还特意加入 **HITL**：外发邮件前由人**批准 / 编辑 / 拒绝**。
 
+**先记住结构：一共 3 个 agent** —— 1 个 supervisor + 2 个 worker（教程把 worker 叫 subagent）。
+
+```text
+                supervisor                  ← 它自己也是一个 agent
+                     │  只看得见「包装工具」
+          ┌──────────┴──────────┐
+   schedule_event            manage_email
+          │                        │
+   calendar agent              email agent      ← 两个 worker
+   create_calendar_event       send_email
+   get_available_time_slots
+```
+
+两条要点：
+
+1. **supervisor 看不到 `create_calendar_event`**。这是**故意**的信息差：它只面对 2 个包装工具，
+   选项少，模型才不容易挑错（和第 0 步“工具太多时路由变差”是同一件事）。
+2. **审批挂在外发那一层**。`HumanInTheLoopMiddleware(interrupt_on={"send_email": …})` 属于 email agent；
+   挂到 supervisor 上只能拦住“派活”，拦不到“发信”。
+
 **为什么要把工具切开用 supervisor**（教程原话）：
 
 > 一个 agent 如果同时握着日历和邮件两套 API，就要在**很多相似的**工具里挑、还要记住每套 API 的
