@@ -20,15 +20,18 @@ over the agent's own housekeeping. Predicates gate the *call*, not the tool.
 from __future__ import annotations
 
 import logging
-import shlex
+import re
 from typing import Any, Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
 #: Commands that only read. Anything else (or any redirection/pipe) may change
 #: state, so it is worth a review.
+#: `2>/dev/null`, `2>&1`, `>/dev/null`, `&>/dev/null` — output that goes nowhere.
+_DISCARD_REDIRECTS = re.compile(r"(\d?&?>\s*/dev/null|\d?>&\s*\d|&>\s*/dev/null)")
+
 _READ_ONLY_COMMANDS = {
-    "ls", "cat", "head", "tail", "wc", "grep", "rg", "find", "pwd", "echo",
+    "cd", "ls", "cat", "head", "tail", "wc", "grep", "rg", "find", "pwd", "echo",
     "which", "whoami", "date", "file", "stat", "du", "df", "tree", "sort",
     "uniq", "cut", "tr", "jq", "ps", "env", "printenv", "dirname", "basename",
 }
@@ -45,9 +48,11 @@ def bash_may_mutate(request: Any) -> bool:
     if not command:
         return True
 
-    # Redirection writes somewhere; `>` inside a heredoc still counts, so treat
-    # any redirect as a write. A pipe is fine only if every segment is read-only.
-    if any(token in command for token in (">", ">>", "tee ")):
+    # Strip redirects that discard output (`2>/dev/null`, `2>&1`, `>/dev/null`)
+    # before looking for one that writes a file — those are part of everyday
+    # read-only commands and an agent's `ls … 2>/dev/null` is not a write.
+    residue = _DISCARD_REDIRECTS.sub(" ", command)
+    if ">" in residue or "tee " in residue:
         return True
 
     for segment in command.replace("&&", ";").replace("||", ";").split(";"):
