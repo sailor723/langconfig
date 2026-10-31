@@ -109,7 +109,7 @@ export default function MessagesPanel({
 }: MessagesPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-  const [showThinking, setShowThinking] = useState(false);
+  const [showThinking, setShowThinking] = useState(true);
   const streamingStartRef = useRef<number>(0);
   const [elapsedMs, setElapsedMs] = useState(0);
   // Analysis panel state — dashboard auto-generated after CSV upload
@@ -488,7 +488,7 @@ export default function MessagesPanel({
                       </div>
 
                       {/* Thinking & Tool Calls toggle */}
-                      {message.role === 'assistant' && index === messages.length - 1 && (isStreaming && (activeToolCalls.length > 0 || thinkingBuffer)) && (
+                      {message.role === 'assistant' && index === messages.length - 1 && isStreaming && (
                         <div className="mt-2">
                           {/* Toggle button */}
                           <button
@@ -498,7 +498,11 @@ export default function MessagesPanel({
                           >
                             {showThinking ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                             <Brain className="w-3 h-3" />
-                            <span>Thinking ({activeToolCalls.length} step{activeToolCalls.length !== 1 ? 's' : ''})</span>
+                            <span>
+                              {activeToolCalls.length > 0
+                                ? `Thinking (${activeToolCalls.length} step${activeToolCalls.length !== 1 ? 's' : ''})`
+                                : 'Thinking'}
+                            </span>
                             <span className="text-[10px] ml-0.5">{(elapsedMs / 1000).toFixed(1)}s</span>
                             {!showThinking && activeToolCalls.some(t => t.status === 'running') && (
                               <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse ml-1" />
@@ -731,33 +735,6 @@ export default function MessagesPanel({
                   })}
                 </div>
               </div>
-          )}
-
-          {/* Live work strip.
-              The assistant bubble is only created on the first content chunk,
-              so an agent that opens with tool calls (search → read → answer)
-              showed nothing at all until the answer landed: measured on a
-              market question, tens of seconds of a blank thread. The strip
-              reports what is actually happening — which tool is running, how
-              many steps so far, elapsed time — from the same events the
-              transcript uses; it is not a spinner that lies. */}
-          {isStreaming && !(messages.length > 0 && messages[messages.length - 1].role === 'assistant') && (
-            <div data-live-work="1" className="flex items-center gap-2 px-3 py-1.5 text-[11px]"
-                 style={{ color: 'var(--color-text-muted)' }}>
-              <span className="w-1.5 h-1.5 rounded-full animate-pulse"
-                    style={{ backgroundColor: 'var(--color-primary)' }} />
-              <span>Working…</span>
-              {activeToolCalls.length > 0 && (
-                <span>
-                  {'· '}{activeToolCalls[activeToolCalls.length - 1]?.tool_name}
-                  {activeToolCalls.length > 1 ? ` ×${activeToolCalls.length}` : ''}
-                </span>
-              )}
-              {thinkingBuffer && (
-                <span className="truncate max-w-[40ch]">{'· '}{thinkingBuffer.slice(-80)}</span>
-              )}
-              <span>{'· '}{(elapsedMs / 1000).toFixed(0)}s</span>
-            </div>
           )}
 
           <div ref={messagesEndRef} />

@@ -117,6 +117,27 @@ export function useChatStreaming(
         let accumulatedContent = '';
         let assistantMessageAdded = false;
 
+        /**
+         * Materialise the assistant bubble before the first token.
+         *
+         * An agent that opens with tool calls (search → read → answer) emits no
+         * content for tens of seconds, and the bubble — the only place the
+         * "Thinking (N steps)" panel can attach — used to be created on the
+         * first chunk. So the panel that reports the work in progress could not
+         * exist during the work. Adding an empty bubble as soon as the run emits
+         * anything (a tool, a thought, a handoff) restores it without inventing
+         * content: the text still arrives in the same bubble.
+         */
+        const ensureAssistantMessage = () => {
+          if (assistantMessageAdded) return;
+          onMessageAdd({
+            role: 'assistant',
+            content: accumulatedContent,
+            timestamp: new Date().toISOString(),
+          });
+          assistantMessageAdded = true;
+        };
+
         // Shared SSE transport — fetch + `data:` parsing live in
         // streamChatEvents so this hook and chatStore don't each
         // reimplement the reader loop.
@@ -156,13 +177,7 @@ export function useChatStreaming(
               }
             }
             if (!assistantMessageAdded) {
-              const assistantMessage: ChatMessage = {
-                role: 'assistant',
-                content: accumulatedContent,
-                timestamp: new Date().toISOString(),
-              };
-              onMessageAdd(assistantMessage);
-              assistantMessageAdded = true;
+              ensureAssistantMessage();
             } else {
               onMessageUpdate(accumulatedContent);
             }
@@ -181,6 +196,7 @@ export function useChatStreaming(
             // Backend emits this for <think>...</think> blocks
             // (e.g., Minimax M3's reasoning) — separate from
             // the final answer text.
+            ensureAssistantMessage();
             thinkingBufferRef.current += data.content;
             if (onThinkingUpdate) {
               onThinkingUpdate(thinkingBufferRef.current);
@@ -195,6 +211,7 @@ export function useChatStreaming(
             // tool-using case will keep streaming more
             // chunks after this, which will append to the
             // existing message.
+            ensureAssistantMessage();
             if (!toolPhaseSeenRef.current) {
               toolPhaseSeenRef.current = true;
             }
