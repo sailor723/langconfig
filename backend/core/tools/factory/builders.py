@@ -1847,12 +1847,24 @@ class _ToolBuildersMixin:
 
         fn = tool_ns[function_name]
 
-        async def _run(**kwargs) -> str:
+        async def _run(**kwargs):
             """Execute the user-defined Python function."""
             try:
                 result = fn(**kwargs)
                 if asyncio.iscoroutine(result):
                     result = await result
+                # A tool may return a Command to update agent state — that is how
+                # LangChain does handoffs. Stringifying it would turn the state
+                # update into the literal text "Command(update={...})", so the
+                # handoff would silently do nothing.
+                if result is not None and not isinstance(result, (str, bytes, dict, list)):
+                    try:
+                        from langgraph.types import Command
+
+                        if isinstance(result, Command):
+                            return result
+                    except ImportError:  # pragma: no cover — langgraph always present
+                        pass
                 return str(result)
             except Exception as e:
                 return f"❌ Error: {e}"
