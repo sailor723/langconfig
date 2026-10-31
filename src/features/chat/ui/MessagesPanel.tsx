@@ -250,8 +250,22 @@ export default function MessagesPanel({
               )}
 
               <div className={`min-w-0 ${message.role === 'user' ? 'max-w-[60%] ml-auto' : 'max-w-[80%]'}`}>
-                <div className={`${message.role === 'system' ? 'text-center w-full' : 'max-w-6xl'}`}>
-                  {message.role === 'system' ? (
+                <div className={`${message.role === 'system' || (message as any).role === 'handoff' ? 'text-center w-full' : 'max-w-6xl'}`}>
+                  {(message as any).role === 'handoff' ? (
+                    <div
+                      className="text-xs px-3 py-1.5 rounded-lg inline-flex items-center gap-2"
+                      style={{
+                        color: 'var(--color-text-primary)',
+                        backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                        border: '1px solid rgba(245, 158, 11, 0.35)',
+                      }}
+                    >
+                      <span>转交给「{(message as any).to || '另一角色'}」</span>
+                      {(message as any).reason && (
+                        <span style={{ color: 'var(--color-text-muted)' }}>· {(message as any).reason}</span>
+                      )}
+                    </div>
+                  ) : message.role === 'system' ? (
                     <div
                       className="text-xs px-3 py-1.5 rounded-lg inline-block"
                       style={{

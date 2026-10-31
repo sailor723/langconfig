@@ -24,9 +24,17 @@ class StartChatRequest(BaseModel):
 
 
 class ChatMessage(BaseModel):
-    """A single chat message."""
-    role: str  # 'user' or 'assistant'
+    """A single chat message.
+
+    `role` is 'user' / 'assistant' / 'system', plus 'handoff' for the step
+    transitions a handoff middleware performs — those carry `to` and `reason` so
+    a reloaded conversation can still show which role took over, and why.
+    """
+    role: str
     content: str
+    to: Optional[str] = None
+    reason: Optional[str] = None
+    timestamp: Optional[str] = None
 
 
 class SendMessageRequest(BaseModel):

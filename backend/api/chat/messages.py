@@ -1212,6 +1212,7 @@ async def send_message_stream(
                 tool_calls_count = 0
                 collected_tool_names = []  # Track tool names for DB persistence and skill detection
                 collected_subagent_spawns = []  # One entry per `task` delegation
+                collected_handoffs = []  # One entry per transfer_to_* call
                 # Same binding as the non-streaming path: the tools' sandbox comes
                 # from the run, because the harness does not carry the request
                 # identity into tool execution.
@@ -1284,6 +1285,12 @@ async def send_message_stream(
                             _target = _tt(str(tool_name))
                             if _target:
                                 _reason = (tool_input or {}).get("reason") if isinstance(tool_input, dict) else ""
+                                collected_handoffs.append({
+                                    "from": None,  # filled at persist time from the running step
+                                    "to": _target,
+                                    "reason": _reason or "",
+                                    "timestamp": datetime.utcnow().isoformat(),
+                                })
                                 yield f"data: {json.dumps({'type': 'handoff', 'to': _target, 'reason': _reason or ''})}\n\n"
 
                         elif kind == "on_tool_end":
@@ -1447,7 +1454,7 @@ async def send_message_stream(
                 # Save the turn even when it ended in an interrupt: the run has
                 # no prose yet, but the tool calls it made (and the ones it is
                 # waiting to make) are exactly the evidence a reviewer needs.
-                if full_response or collected_tool_names or collected_subagent_spawns:
+                if full_response or collected_tool_names or collected_subagent_spawns or collected_handoffs:
                     try:
                         # Re-query session to ensure we have a fresh, attached object
                         final_session = (await async_db.execute(
@@ -1492,6 +1499,17 @@ async def send_message_stream(
                                         tc["status"] = "completed"
                                 final_session.tool_calls = (final_session.tool_calls or []) + collected_tool_names
                                 flag_modified(final_session, "tool_calls")
+
+                            for hop in collected_handoffs:
+                                final_session.messages.append({
+                                    "role": "handoff",
+                                    "content": f"转交给「{hop['to']}」" + (f" · {hop['reason']}" if hop["reason"] else ""),
+                                    "to": hop["to"],
+                                    "reason": hop["reason"],
+                                    "timestamp": hop["timestamp"],
+                                })
+                            if collected_handoffs:
+                                flag_modified(final_session, "messages")
 
                             if collected_subagent_spawns:
                                 for spawn in collected_subagent_spawns:
