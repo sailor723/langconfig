@@ -68,3 +68,57 @@ agent = create_agent(model="deepseek-flash", tools=tools)
 提示词只有 `You are a helpful assistant` 一句，没有一个字提工具，四个例子它都自己挑对了 ——
 **挑哪个由工具自己的描述决定**。这就是页面那句 *a model calling tools in a loop*。
 
+
+---
+
+# 案例 · 改文件前要人批准（Human-in-the-loop）
+
+页面：**<https://docs.langchain.com/oss/python/concepts/human-in-the-loop>**
+
+文档的写法是**中间件**，不是提示词：
+
+```python
+from langchain.agents import create_agent
+from langchain.agents.middleware import HumanInTheLoopMiddleware
+from langgraph.checkpoint.memory import InMemorySaver
+
+agent = create_agent(
+    model="gpt-5.5",
+    tools=[write_file, execute_sql, read_data],
+    middleware=[
+        HumanInTheLoopMiddleware(
+            interrupt_on={
+                "write_file": True,                                   # 四种决策都允许
+                "execute_sql": {"allowed_decisions": ["approve", "reject"]},
+                "read_data": False,                                   # 显式放行
+            },
+            description_prefix="Tool execution pending approval",
+        ),
+    ],
+    checkpointer=InMemorySaver(),   # 打断要靠它持久化；平台聊天本来就有
+)
+```
+
+平台上就是 **Middleware 页签** → 勾工具 → 选“每条都批 / 只批会改东西的”，保存后**开新聊天**。
+
+## 实测（deep agent，`bash` 设成 `bash_may_mutate`）
+
+| 步骤 | 看到什么 |
+|---|---|
+| 发 `hi`，它自己 `cd … && ls -la … 2>/dev/null` 扫工作区 | **没有打断**（只读命令不批） |
+| 发「用 bash 执行：`echo approved > …/generated/approved.txt`」 | 输入框变成审批卡，显示工具名和整条命令 |
+| 点 **批准这一次** | 命令执行，`approved.txt` 出现，内容是 `approved` |
+| 再点一次批准 | **409**：没有待批的东西了（批准只对那一次有效） |
+| 15 分钟不点 | 按**拒绝**处理，并告诉模型“工具没执行” |
+| agent 配 `approval_policy: "never"` | 直接拒绝，不等人 |
+
+## 两个必须讲的判断
+
+1. **这是“人在环里”，不是“让模型小心点”。** 提示词里写“重要操作前先问我”，模型可以不听；
+   中间件是**循环停下来**，等人。页面的四种决策里，平台只给 approve / reject 两个按钮 ——
+   `edit`（改参数再执行）会让模型重新规划，实测批准后它常会再试一次。
+2. **拦“调用”，不拦“工具”。** deep agent 用同一个 `bash` 干自己的活（扫目录、写临时文件）。
+   按工具名拦，拦到的几乎都是它的簿记；所以要配谓词：只读命令放行、写文件只拦交付物
+   （`other/`、`skills/` 里的不拦）。这就是 `InterruptOnConfig` 的 `when`。
+
+> 每次决策都会在 `audit_logs` 留痕（`HitlApproval`）：谁批的、审的是哪些工具、什么决定。
