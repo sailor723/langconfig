@@ -278,11 +278,37 @@ class _AgentLLMMixin:
                 f"(inherited {len(tools)} parent + {len(extra_tool_names)} extra)"
             )
 
+            # Per-subagent review: a specialist that sends things outward (email,
+            # a webhook) needs its own gate — the supervisor's HITL middleware
+            # only sees the supervisor's tools (`task`), never the specialist's.
+            _sa_middleware = []
+            _sa_interrupt_on = sa_config.get("interrupt_on") or {}
+            if _sa_interrupt_on:
+                try:
+                    from langchain.agents.middleware import HumanInTheLoopMiddleware
+                    from core.middleware.predicates import resolve_when
+
+                    _policy = {
+                        tool: (
+                            {**spec, "when": resolve_when(spec.get("when"), tool)}
+                            if isinstance(spec, dict) and "when" in spec
+                            else spec
+                        )
+                        for tool, spec in _sa_interrupt_on.items()
+                    }
+                    _sa_middleware.append(HumanInTheLoopMiddleware(interrupt_on=_policy))
+                    logger.info(
+                        "Sub-agent '%s': HITL on %s", sa_name, sorted(_policy)
+                    )
+                except Exception as e:  # noqa: BLE001
+                    logger.warning(f"Sub-agent '{sa_name}' HITL failed: {e}")
+
             sub_agents[sa_name] = create_agent(
                 sa_llm,
                 system_prompt=sa_prompt,
                 tools=sa_tools,
                 state_schema=DeepAgentState,
+                **({"middleware": _sa_middleware} if _sa_middleware else {}),
             )
 
         # Build the 'task' tool description listing all available sub-agents.
