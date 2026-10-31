@@ -1457,6 +1457,14 @@ async def send_message_stream(
                             final_session.metrics["total_tokens"] = final_session.metrics.get("total_tokens", 0) + rough_tokens + rag_tokens_used
                             final_session.metrics["rag_context_tokens"] = final_session.metrics.get("rag_context_tokens", 0) + rag_tokens_used
                             final_session.metrics["tool_calls"] = final_session.metrics.get("tool_calls", 0) + tool_calls_count
+                            # The counter the Metrics panel prints, kept next to
+                            # the tool_calls counter it sits beside. Only the
+                            # spawn *list* used to be written, so the panel read
+                            # 0 while the activity list showed two entries.
+                            final_session.metrics["subagent_spawns"] = (
+                                final_session.metrics.get("subagent_spawns", 0)
+                                + len(collected_subagent_spawns)
+                            )
                             flag_modified(final_session, "metrics")
 
                             # Update cost tracking columns (if they exist)

@@ -810,8 +810,9 @@ export default function MessagesPanel({
               </span>{' '}
               tokens
             </span>
-            <span className="mx-2">·</span>
-            <span>{stats.toolCalls} tool call{stats.toolCalls === 1 ? '' : 's'}</span>
+            {/* No tool-call count here: the Metrics panel owns that number
+                (with the call list), and repeating it under the composer read
+                as a second, disagreeing source. */}
             <span className="mx-2">·</span>
             <span>{messages.length} message{messages.length !== 1 ? 's' : ''}</span>
             {stats.theme && (
