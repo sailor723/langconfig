@@ -1163,6 +1163,22 @@ async def send_message_stream(
                         yield f"data: {json.dumps({'type': 'error', 'message': 'Failed to build agent'})}\n\n"
                         return
 
+                # A paused review must be answered before the conversation moves
+                # on: sending a new message into a run that is parked on an
+                # interrupt would either double-run it or lose the pending call.
+                try:
+                    _snap = await agent_instance.aget_state(
+                        {"configurable": {"thread_id": session_id}}
+                    )
+                    _pending = tuple(getattr(_snap, "interrupts", ()) or ())
+                except Exception as _e:  # noqa: BLE001 — never block a chat on this probe
+                    logger.warning(f"Pending-interrupt probe failed for {session_id}: {_e}")
+                    _pending = ()
+                if _pending:
+                    yield f"data: {json.dumps({'type': 'interrupt', 'session_id': session_id, 'data': make_json_safe(_pending[0].value)})}\n\n"
+                    await async_db.close()
+                    return
+
                 # Create event handler for tracking tool calls and subagent activity
                 event_handler = ExecutionEventCallbackHandler(
                     project_id=project_id or 0,

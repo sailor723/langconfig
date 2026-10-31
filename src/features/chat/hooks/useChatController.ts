@@ -309,15 +309,22 @@ export function useChatController(options: UseChatControllerOptions = {}) {
     );
   };
 
-  const handleResume = async (action: 'approve' | 'reject' | 'edit' | 'respond', value?: string) => {
+  const handleResume = async (
+    action: 'approve' | 'reject' | 'edit' | 'respond',
+    value?: string,
+    editedAction?: { name: string; args: Record<string, unknown> },
+  ) => {
     if (!currentSessionId) return;
     setIsResuming(true);
     try {
-      // Use raw fetch since apiClient doesn't have a resume method
+      // Use raw fetch since apiClient doesn't have a resume method.
+      // `edit` must carry the action to run instead (LangChain's decision
+      // shape: {"type": "edit", "edited_action": {name, args}}); without it
+      // the backend rejects the resume instead of silently continuing.
       const response = await fetch(`${apiClient.baseURL}/api/chat/${currentSessionId}/resume`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, value }),
+        body: JSON.stringify({ action, value, edited_action: editedAction }),
       });
       if (!response.ok) {
         throw new Error(`Resume failed: ${response.statusText}`);

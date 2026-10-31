@@ -10,6 +10,7 @@ registered on a prefix-less router that the parent (routes.py) includes under
 the "/api/chat" prefix.
 """
 import logging
+import os
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -462,6 +463,36 @@ async def restore_messages_from_checkpoint(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+APPROVAL_TTL_SECONDS = int(os.environ.get("HITL_APPROVAL_TTL_SECONDS", "900"))
+
+
+async def _pending_interrupts(agent_instance, session_id: str):
+    """Return the interrupts a session is currently parked on (if any).
+
+    LangGraph keeps the paused run in the checkpointer, so this is the
+    authoritative "is a review outstanding?" check — no shadow state to drift.
+    """
+    snapshot = await agent_instance.aget_state({"configurable": {"thread_id": session_id}})
+    return snapshot, tuple(getattr(snapshot, "interrupts", ()) or ())
+
+
+def _interrupt_age_seconds(snapshot) -> float | None:
+    """Seconds since the checkpoint (i.e. the interrupt) was written."""
+    created = getattr(snapshot, "created_at", None)
+    if not created:
+        return None
+    try:
+        from datetime import datetime, timezone
+
+        if isinstance(created, str):
+            created = datetime.fromisoformat(created.replace("Z", "+00:00"))
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - created).total_seconds()
+    except Exception:
+        return None
+
+
 def _decisions_from_resume(resume_data: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Build the ``decisions`` list LangChain's HITL middleware expects.
 
@@ -546,7 +577,29 @@ async def resume_chat(
     try:
         from langgraph.types import Command
 
-        decisions = _decisions_from_resume(resume_data)
+        # Fail closed: a resume only means something while a review is pending,
+        # and a review that nobody answered must not silently expire into "carry
+        # on". Answering twice is a client bug, not a second approval.
+        snapshot, pending = await _pending_interrupts(agent_instance, session_id)
+        if not pending:
+            raise HTTPException(
+                status_code=409,
+                detail="No pending approval for this session (already answered, or never asked).",
+            )
+
+        age = _interrupt_age_seconds(snapshot)
+        expired = age is not None and age > APPROVAL_TTL_SECONDS
+        if expired:
+            decisions = [{
+                "type": "reject",
+                "message": (
+                    f"Approval timed out after {int(age)}s (limit {APPROVAL_TTL_SECONDS}s). "
+                    "The tool was not executed; ask before retrying."
+                ),
+            }]
+            logger.info(f"Approval for {session_id} expired after {int(age)}s -> rejecting")
+        else:
+            decisions = _decisions_from_resume(resume_data)
         resume_value = {"decisions": decisions}
         logger.info(f"Resuming {session_id} with decisions={decisions}")
         result = await agent_instance.ainvoke(
@@ -591,7 +644,7 @@ async def resume_chat(
 
         # A resumed run can stop again: the model may call another gated tool.
         payload = {
-            "status": "resumed",
+            "status": "expired" if expired else "resumed",
             "session_id": session_id,
             "content": response_text,
         }

@@ -11,10 +11,11 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import type { ChatMessage, ContextOccupancy, CustomEventPayload, ToolCall } from '../types/chat';
+import type { ChatMessage, ContextOccupancy, CustomEventPayload, InterruptData, ToolCall } from '../types/chat';
 import { formatCompactDateTime, formatFullDateTime } from '../utils/formatChatTime';
 import CodexMessageInput, { COMPOSER_MAX_WIDTH } from './CodexMessageInput';
 import AnalysisPanel from './AnalysisPanel';
+import HitlApprovalPanel from './HitlApprovalPanel';
 import { ContentBlockRenderer } from '@/components/common/ContentBlockRenderer';
 import type { ThinkingStep } from './ThinkingBlock';
 import { ProgressCard, StatusBadge, FileOperationCard } from '@/features/workflows/execution/CustomEventCards';
@@ -22,6 +23,14 @@ import type { ProgressEvent, StatusEvent, FileStatusEvent } from '@/hooks/useCus
 
 interface MessagesPanelProps {
   messages: ChatMessage[];
+  /** Pending HITL review: rendered as one more assistant turn, not an overlay. */
+  pendingInterrupt?: InterruptData | null;
+  isResuming?: boolean;
+  onResume?: (
+    action: 'approve' | 'reject' | 'edit' | 'respond',
+    value?: string,
+    editedAction?: { name: string; args: Record<string, unknown> },
+  ) => void;
   isStreaming: boolean;
   error: string | null;
   onSendMessage: (message: string) => void;
@@ -57,6 +66,9 @@ interface MessagesPanelProps {
 
 export default function MessagesPanel({
   messages,
+  pendingInterrupt = null,
+  isResuming = false,
+  onResume,
   isStreaming,
   error,
   onSendMessage,
@@ -729,7 +741,15 @@ export default function MessagesPanel({
           area. pb-2 rather than the old pb-6 — that 24px read as dead space
           under the box, which now sits a few pixels above the window's bottom
           bar, the way DSH ends its column. */}
-      {(messages.length > 0 || disabled) && (
+      {pendingInterrupt && onResume ? (
+        <div className="px-6 pt-4 pb-2">
+          <HitlApprovalPanel
+            pendingInterrupt={pendingInterrupt}
+            isResuming={Boolean(isResuming)}
+            onResume={onResume}
+          />
+        </div>
+      ) : (messages.length > 0 || disabled) && (
       <div className="px-6 pt-4 pb-2">
         <CodexMessageInput
           onSendMessage={onSendMessage}

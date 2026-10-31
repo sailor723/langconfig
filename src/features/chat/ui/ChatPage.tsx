@@ -15,7 +15,6 @@ import { useChat } from '../state/ChatContext';
 import { useProject } from '../../../contexts/ProjectContext';
 import { themes, type ThemeName } from '../../../lib/themes';
 import { useChatController } from '../hooks/useChatController';
-import HitlInterruptModal from './HitlInterruptModal';
 import FilesPanel from './FilesPanel';
 import MetricsPanel from './MetricsPanel';
 import MessagesPanel from './MessagesPanel';
@@ -279,6 +278,9 @@ export default function ChatPage() {
         <div className="flex flex-1 overflow-hidden">
           <MessagesPanel
             messages={c.messages}
+            pendingInterrupt={c.pendingInterrupt}
+            isResuming={c.isResuming}
+            onResume={c.handleResume}
             isStreaming={c.isStreaming}
             error={c.error}
             onSendMessage={c.handleSendMessage}
@@ -339,13 +341,6 @@ export default function ChatPage() {
 
       </div>
 
-      {c.pendingInterrupt && (
-        <HitlInterruptModal
-          pendingInterrupt={c.pendingInterrupt}
-          isResuming={c.isResuming}
-          onResume={c.handleResume}
-        />
-      )}
     </div>
   );
 }
