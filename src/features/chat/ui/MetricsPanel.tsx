@@ -117,16 +117,9 @@ export default function MetricsPanel({
                 warning={(metrics.context_tokens ?? 0) > 30000}
               />
             )}
-            <MetricCard
-              icon={<Zap className="w-4 h-4" />}
-              label={t('tool_calls')}
-              value={(metrics?.tool_calls ?? 0).toString()}
-            />
-            <MetricCard
-              icon={<Users className="w-4 h-4" />}
-              label={t('subagent_spawns')}
-              value={(metrics?.subagent_spawns ?? 0).toString()}
-            />
+            {/* Tool calls and subagent spawns are not repeated here as bare
+                counters: the two lists below already carry their counts in
+                their headers, with the detail that makes the number useful. */}
             <MetricCard
               icon={<Database className="w-4 h-4" />}
               label={t('context_ops')}
