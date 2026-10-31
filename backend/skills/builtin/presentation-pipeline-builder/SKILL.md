@@ -6,7 +6,7 @@ description: >-
   with their tool sets and role-file pointers, pins presentation-skills, and saves via
   create_deepagent. Use when creating a new presentation/deck agent.
 version: 1.0.0
-author: LangConfig (derived from agent 165 + research-pipeline-builder)
+author: EBL Carrier (derived from agent 165 + research-pipeline-builder)
 tags: [meta, agent-creation, presentation, pptx, pipeline, builder]
 triggers:
   - "when the user asks to create a presentation agent"

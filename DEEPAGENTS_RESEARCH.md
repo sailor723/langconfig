@@ -1,4 +1,4 @@
-# LangConfig DeepAgents — Definition, Configuration & Runtime Build
+# EBL Carrier DeepAgents — Definition, Configuration & Runtime Build
 
 **Scope.** This document is a precise map of how DeepAgents are *defined* (Pydantic schema +
 SQLAlchemy persistence), *configured* (CRUD API, prompt assembly, export), and *built at
@@ -30,7 +30,7 @@ writing. Files cited with `file:line` shorthand:
 ## 0. One-paragraph mental model
 
 A DeepAgent is a LangGraph agent built by the `deepagents` SDK (0.7.1) and wrapped in
-LangConfig infrastructure. The authoritative configuration lives in one PostgreSQL row
+EBL Carrier infrastructure. The authoritative configuration lives in one PostgreSQL row
 (`deep_agent_templates`) whose `config` JSON column is validated by the Pydantic
 `DeepAgentConfig` model (`models/deep_agent.py:188-300`); three sibling JSON columns hold
 middleware / subagents / backend / guardrails sub-configs (mirroring the nested Pydantic
@@ -373,7 +373,7 @@ Built in `factory/assembly.py:275-400`. Note the SDK's own middleware is injecte
 `PostgresSaver` (or None). Passed as `checkpointer=` so chat conversations persist per
 `thread_id` (factory/assembly.py:403-409).
 
-### B.8 Step 7 — system prompt assembly (LangConfig side)
+### B.8 Step 7 — system prompt assembly (EBL Carrier side)
 
 `prompt_parts = [config.system_prompt]` + `getattr(config, 'custom_prompt', None)` +
 `getattr(config, 'custom_suffix', None)` joined with `"\n\n"`
@@ -416,7 +416,7 @@ than limiting discovery (assembly.py:488-506).
 ### B.11 Step 10 — filesystem dedup
 
 When a disk backend is present (`has_disk_backend` = sandbox or staged skills or
-DbBackend), the SDK always injects its own FilesystemMiddleware, so LangConfig drops its
+DbBackend), the SDK always injects its own FilesystemMiddleware, so EBL Carrier drops its
 own instrumented copy (via `_is_filesystem_middleware`, 27-43) and removes native fs tools
 `{ls, read_file, write_file, edit_file, glob, grep}` from `all_tools` to avoid duplicate
 tool names in the model schema (factory/assembly.py:517-545). Without a disk backend the
@@ -455,7 +455,7 @@ SDK's fs tools are in-memory no-ops, so the native copies stay (disk writes keep
   `"{provider}:{identifier}"` (from `deepagents._models.get_model_provider/
   get_model_identifier`) with `excluded_tools=frozenset({"write_todos",
   "update_todo_status", "get_todos", "ls", "glob", "grep", "execute", "task"})`
-  (645-677) — so the SDK hides its built-in harness tools that LangConfig replaces.
+  (645-677) — so the SDK hides its built-in harness tools that EBL Carrier replaces.
 - `guardrails=` is **never passed** to the SDK (0.7.x signature has no such param — it
   would raise TypeError); the code logs a warning that token_limits/auto_eviction are not
   SDK-enforced and that SummarizationMiddleware handles summarization (679-694).
@@ -578,17 +578,17 @@ event loop):
 
 The SDK's assembly order is **USER → (BASE) → SUFFIX**:
 
-- `USER` = the caller's `system_prompt=` (LangConfig's `system_prompt`).
+- `USER` = the caller's `system_prompt=` (EBL Carrier's `system_prompt`).
 - `BASE` = `HarnessProfile.base_system_prompt` when set, otherwise the stack's authored
   base (the main agent has none by default) — `harness_profiles.py:544-559, 780-798`
   (`_apply_profile_prompt`: `prompt = profile.base_system_prompt if ... else base_prompt`;
   then `prompt + "\n\n" + profile.system_prompt_suffix` if a suffix exists).
 - `SUFFIX` = `HarnessProfile.system_prompt_suffix` (561+).
 
-LangConfig's own factory additionally prepends `custom_prompt` (as a second USER part) and
+EBL Carrier's own factory additionally prepends `custom_prompt` (as a second USER part) and
 `custom_suffix` (as a trailing part) to the `system_prompt` **before** the SDK sees it
 (factory/assembly.py:421-428) — but as established, those fields are dropped by Pydantic
-(E.5), so effectively only the `USER` slot is authored in LangConfig, and the SDK applies
+(E.5), so effectively only the `USER` slot is authored in EBL Carrier, and the SDK applies
 BASE/SUFFIX from the model's registered harness profile.
 
 ### D.2 `HarnessProfile` fields (`harness_profiles.py:483-620`, SDK 0.7.1)
@@ -630,7 +630,7 @@ preview returns segments:
 `custom_prompt`/`custom_suffix` into the agent's raw `config` dict (used by the preview and
 export; see E.5 for why the factory can't read them).
 
-### D.4 LangConfig's runtime harness-profile registration
+### D.4 EBL Carrier's runtime harness-profile registration
 
 In the factory, a harness profile is registered **only when `guardrails.interrupts` is
 non-empty** (factory/assembly.py:645-677): `register_harness_profile(
@@ -639,7 +639,7 @@ HarnessProfile(excluded_tools=frozenset({"write_todos", "update_todo_status",
 "get_todos", "ls", "glob", "grep", "execute", "task"})))`. The key is derived from the
 resolved `BaseChatModel` instance (a fix for a previous NameError that made this block dead
 code, 650-654). Effect: for agents with HITL configured, the SDK's built-in harness tools
-that LangConfig replaces (todo tools come from native tools; fs/execute from the disk
+that EBL Carrier replaces (todo tools come from native tools; fs/execute from the disk
 backend) are hidden from the model schema.
 
 ---
@@ -695,7 +695,7 @@ backend) are hidden from the model schema.
 
 7. **`long_term_memory` has no consumer.** Declared (166-169) but never read; the factory
    never passes a LangGraph `store=` to `create_deep_agent` (agent_kwargs has only
-   checkpointer). Also note the SDK param is `store`, and LangConfig's default backend
+   checkpointer). Also note the SDK param is `store`, and EBL Carrier's default backend
    config maps `/memory/ → vectordb`, but none of that is plumbed.
 
 8. **`BackendConfig` (type/config/mappings) is stored but not used at build time.** The
@@ -717,7 +717,7 @@ backend) are hidden from the model schema.
     scaffolding.** The `spawn_subagent` tool literally returns
     `"[Subagent execution would happen here]"` (middleware/deep.py:366-389) — real
     subagent spawning is done by the SDK's `SubAgentMiddleware`/`task` tool and
-    `_prepare_subagents`. The LangConfig copy of `TodoListMiddleware` duplicates the native
+    `_prepare_subagents`. The EBL Carrier copy of `TodoListMiddleware` duplicates the native
     `write_todos`/`update_todo_status`/`get_todos` tools that already ship in
     `DEFAULT_NATIVE_TOOLS`, so an agent with defaults + default middleware can receive
     duplicate todo tools; the harness profile that hides them is registered only when
@@ -744,7 +744,7 @@ backend) are hidden from the model schema.
 14. **Harness-profile exclusion is conditional.** The registered profile that hides
     `write_todos/update_todo_status/get_todos/ls/glob/grep/execute/task` is only registered
     inside the `if interrupt_on:` block (factory/assembly.py:641-677). Agents without HITL
-    get no profile registration, so the SDK's built-in todo/fs tools and LangConfig's native
+    get no profile registration, so the SDK's built-in todo/fs tools and EBL Carrier's native
     ones can coexist as duplicates in the model schema.
 
 15. **Chat dual-storage drift risk.** Conversation state lives in two places: the

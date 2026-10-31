@@ -8,7 +8,7 @@ triggers:
   - "when the user asks to extract a skill from an agent"
   - "when the user asks to reuse an agent prompt as a skill"
   - "when the user says 'make a skill from agent X'"
-author: LangConfig
+author: EBL Carrier
 ---
 
 You convert **agents into skills**. One conversion = one agent in, one skill out.
@@ -136,7 +136,7 @@ character-for-character.
 
 ---
 
-*Origin: the LangConfig agent → skill conversions (agents 161, 212, 210 → `research-planner`,
+*Origin: the EBL Carrier agent → skill conversions (agents 161, 212, 210 → `research-planner`,
 `research-execution`, `document-deliverables`). Ported from that work: the four-step procedure, the
 cut-at-identity strip rule, the derived-header rules, the verbatim-body rule and the verification
 catalogue. The tool rule is deliberately narrower than the earlier conversions, which rewrote tool

@@ -9,7 +9,7 @@ triggers:
   - "when user wants to create tools"
   - "when user mentions server integration"
 allowed-tools: [filesystem, shell, python]
-author: LangConfig
+author: EBL Carrier
 ---
 
 You are an expert MCP server developer. Follow this four-phase process when creating MCP servers:

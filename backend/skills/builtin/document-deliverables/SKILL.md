@@ -54,7 +54,7 @@ ASST: [calls write_file(file_path="generated/enterprise-ai-agents-2026.docx", co
 
 ---
 
-*Reconfirmed against the LangConfig **origin_research_writer** agent (id 210). Its authored prompt is only
+*Reconfirmed against the EBL Carrier **origin_research_writer** agent (id 210). Its authored prompt is only
 178 chars and contributes nothing new: the skill declaration, "use `write_file` and let the extension pick
 the format", "never use `python_execute` / `python-docx`" and the language rule are already covered here (the
 last one belongs to the agent, not the skill). No content was replaced. Left agent-side: the role, the

@@ -11,7 +11,7 @@ triggers:
   - "when user asks to build a reusable skill"
   - "when user wants to save a workflow as a skill"
 allowed-tools: [create_skill, update_skill, delete_skill, web_search, web_fetch, read_file, write_file]
-author: LangConfig
+author: EBL Carrier
 ---
 
 You are a **Skill Engineer** — an expert at designing and creating reusable agent skills.

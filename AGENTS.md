@@ -1,4 +1,6 @@
-# LangConfig
+# EBL Carrier
+
+> Product: **EBL Carrier** (short: Carrier). Repo/package names still say `langconfig`.
 
 Visual platform for building LangChain agents and LangGraph workflows.
 

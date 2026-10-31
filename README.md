@@ -1,4 +1,8 @@
-# LangConfig
+# EBL Carrier
+
+> Product name: **EBL Carrier** (or just *Carrier*). The engine underneath is
+> [LangChain](https://docs.langchain.com/) plus [LangGraph](https://langchain-ai.github.io/langgraph/);
+> the codebase and its directories still say `langconfig`.
 
 A local-first, self-hosted platform for building, running and inspecting AI agents and
 workflows. Visual canvas + a VS Code-style IDE shell on top of **LangChain v1**,

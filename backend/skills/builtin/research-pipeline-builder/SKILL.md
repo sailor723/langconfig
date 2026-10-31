@@ -6,7 +6,7 @@ description: >-
   with their tool sets and role-file pointers, pins research-skills, and can create
   domain-specialized pipeline variants. Use when creating a new research/report agent.
 version: 1.0.0
-author: LangConfig (derived from agent 175)
+author: EBL Carrier (derived from agent 175)
 tags: [meta, agent-creation, research, pipeline, builder, skill-generation]
 triggers:
   - "when the user asks to create a research agent"

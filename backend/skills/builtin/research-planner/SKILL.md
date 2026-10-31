@@ -12,7 +12,7 @@ triggers:
   - "when user says 'research plan', 'sub-queries' or 'decompose this topic'"
   - "before multi-step web research"
 allowed-tools: []
-author: LangConfig
+author: EBL Carrier
 ---
 
 Decompose a research topic into a comprehensive set of focused, independent sub-queries. The expertise
@@ -70,7 +70,7 @@ overhead when the answer is not multi-hop.
 
 ---
 
-*Reconverted from the LangConfig **Research Planner** agent (id 161, category `system`, authored base 944
+*Reconverted from the EBL Carrier **Research Planner** agent (id 161, category `system`, authored base 944
 chars). Ported from it: the process, the constraints and the JSON-only output contract with its CRITICAL
 emphasis. Added during conversion: the description in what+when form for skill discovery, the
 structured-output recommendation, the parallel-fan-out note, and the "skip this skill when the answer is not

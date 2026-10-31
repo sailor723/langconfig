@@ -11,7 +11,7 @@ triggers:
   - "when user asks to take minutes or summarize a meeting"
   - "when user asks for action items or decisions from a discussion"
 allowed-tools: [read_file, write_file, bash, python_execute]
-author: LangConfig
+author: EBL Carrier
 ---
 
 # Meeting Minutes Skill

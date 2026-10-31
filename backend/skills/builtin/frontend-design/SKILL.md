@@ -10,7 +10,7 @@ triggers:
   - "when user mentions aesthetics"
   - "when user mentions Tailwind"
 allowed-tools: [filesystem, shell]
-author: LangConfig
+author: EBL Carrier
 ---
 
 You are an expert frontend designer focused on creating distinctive, intentional interfaces. Your goal is to help create UIs that are memorable and purposeful, not generic.

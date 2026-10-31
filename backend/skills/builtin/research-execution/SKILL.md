@@ -17,7 +17,7 @@ compatibility: >-
   Requires a host agent carrying web_search / tavily_search / web_fetch. think_tool is strongly
   recommended (it is how you count the budget and avoid looping) and the graphindex tools are needed
   only for internal documents. This skill itself enables no tools.
-author: LangConfig
+author: EBL Carrier
 ---
 
 This skill is **know-how, not capability**: it enables no tools. The host agent must already carry the
@@ -185,7 +185,7 @@ agent, or an orchestrator that only delegates.
 
 ---
 
-*Origin: LangConfig **hello** agent (id 159, category `general`) — three research rules (search with
+*Origin: EBL Carrier **hello** agent (id 159, category `general`) — three research rules (search with
 `web_search`/`web_fetch`, verify with real tool results instead of fabricating, plan long tasks with
 `write_todos`). Reconverted and reconfirmed against agent **212** (`origin_research_execution`), whose prompt
 is the validated pattern: the tool ladder, the 7-step Procedure, the Hard Limits (including the self-counted

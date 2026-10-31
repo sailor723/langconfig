@@ -10,7 +10,7 @@ triggers:
   - "when user wants exploratory data analysis"
   - "when the analysis question is open-ended"
 allowed-tools: [execute, filesystem]
-author: LangConfig
+author: EBL Carrier
 ---
 
 # Data Analysis (LLM-Driven) Skill

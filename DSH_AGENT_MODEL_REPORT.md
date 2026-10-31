@@ -2,7 +2,7 @@
 
 **Scope.** This report documents how the DeepSeek Harness codebase (checked out at
 `/Users/weiping/dev/Learn/deepseek-harness`) defines, configures, and builds agents. It is
-intended to be compared against LangConfig's DeepAgent model, so every claim carries a
+intended to be compared against EBL Carrier's DeepAgent model, so every claim carries a
 file path + line number. No DSH files were modified.
 
 **Reading guide / primary sources.** The canonical docs are:
@@ -633,7 +633,7 @@ agent in a form.
 
 ## F. Key concepts DSH has that a typical LangChain-based platform lacks — and vice versa
 
-### F.1 Concepts DSH has that typical LangChain platforms (e.g. LangConfig) lack
+### F.1 Concepts DSH has that typical LangChain platforms (e.g. EBL Carrier) lack
 
 1. **The session log is the agent's source of truth, and model-visible == logged.**
    History, header, tools, usage, todos, and errors all derive from one append-only
@@ -684,10 +684,10 @@ agent in a form.
 12. **Tool-catalog and config-catalog are generated and completeness-guarded** so a new
     tool/provider cannot ship undocumented (`docs/tool-catalog.md:8-10`).
 
-### F.2 Concepts a typical LangChain-based platform (LangConfig) has that DSH lacks
+### F.2 Concepts a typical LangChain-based platform (EBL Carrier) has that DSH lacks
 
 1. **A persisted, user-facing agent record** — name, description, avatar, system prompt,
-   per-agent model, tool list — stored in a relational DB (LangConfig: SQLAlchemy models +
+   per-agent model, tool list — stored in a relational DB (EBL Carrier: SQLAlchemy models +
    Alembic; `AgentFactory.create_agent`, `DeepAgentFactory.create_deep_agent`) with REST
    CRUD and an **agent builder UI form** (`src/features/agents/`). DSH's GUI deliberately
    has no such form: an agent's behavior is its composition, not a record.
@@ -695,14 +695,14 @@ agent in a form.
    state are first-class and agents can be plain graph nodes. DSH has a *script* workflow
    engine (JS orchestration of subagents) but no visual graph editor.
 3. **RAG / knowledge bases.** LangChain platforms typically integrate a vector store and a
-   document-upload/knowledge API (LangConfig: `POST /api/knowledge/documents`, pgvector).
+   document-upload/knowledge API (EBL Carrier: `POST /api/knowledge/documents`, pgvector).
    DSH's memory model is the session log + workspace files + skills; there is no vector
    index or document corpus abstraction.
 4. **Familiar Python/LangChain tool ecosystem.** LangChain tools, `@tool` decorators,
    LangSmith tracing, and the huge third-party integration surface. DSH defines its own
    `defineTool` + schema DSL and ships its own tool packages (bash/fs/web/terminal/LSP/
    subagent/…).
-5. **Multi-tenant SaaS posture.** LangConfig targets a hosted multi-tenant app (workspaces,
+5. **Multi-tenant SaaS posture.** EBL Carrier targets a hosted multi-tenant app (workspaces,
    users, orgs). DSH is a local-first harness: one home directory, one user document, one
    credentials file, loopback-trust web gateway (`packages/client/connection` trusted-hosts
    fence; `config-catalog.md:390-413`).
@@ -719,10 +719,10 @@ agent in a form.
 ### F.3 Where the two overlap
 
 Both have: providers/models with per-request API keys; tools with JSON-schema params;
-chat/turn execution with streaming; approval/permission concerns (LangConfig via
+chat/turn execution with streaming; approval/permission concerns (EBL Carrier via
 deepagents' interruption & human-approval; DSH via `ctx.approval` + permission presets);
 subagent/delegation; sessions and titles; workspace/cwd notion; SSE/streaming to the UI.
-The philosophical difference: LangConfig treats the **agent as a configured artifact** the
+The philosophical difference: EBL Carrier treats the **agent as a configured artifact** the
 user assembles in a GUI, while DSH treats the **agent as a composed runtime** whose
 definition is the plugin tree + session log, with configuration (settings/credentials/
 presets/model selection) layered around it.

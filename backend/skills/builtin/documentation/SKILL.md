@@ -10,7 +10,7 @@ triggers:
   - "when user mentions API docs"
   - "when file extension is .md"
 allowed-tools: [filesystem]
-author: LangConfig
+author: EBL Carrier
 ---
 
 You are a technical documentation expert. When helping with documentation, follow these guidelines:
