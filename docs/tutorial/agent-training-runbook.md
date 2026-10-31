@@ -23,7 +23,7 @@
 | 章节 |
 |---|
 | [第 1 类 · 能直接用的 agent（案例 1–5）](#第-1-类-能直接用的-agent-案例-1-5) |
-| [案例 1 · 第一个 agent：create_agent 的三要素 + 四个例子（`case-1-basic-agent`，id 281）](#案例-1-第一个-agent-create-agent-的三要素-四个例子-case-1-basic-agent-id-281) |
+| [案例 1 · 第一个 agent：三个参数就是一个能用的 agent（`case-1-basic-agent`，id 281）](#案例-1-第一个-agent-三个参数就是一个能用的-agent-case-1-basic-agent-id-281) |
 | [案例 2 · 工具多到 27 个，还挑得对吗（`case-2-all-tools`，id 159）](#案例-2-工具多到-27-个-还挑得对吗-case-2-all-tools-id-159) |
 | [案例 3 · 文档问答：上传附件 → 读 → 标来源（`case-3-doc-chat`，id 326）](#案例-3-文档问答-上传附件-读-标来源-case-3-doc-chat-id-326) |
 | [案例 4 · 个人助理：supervisor + 两个专家（`case-4-assistant`，id 323）](#案例-4-个人助理-supervisor-两个专家-case-4-assistant-id-323) |
@@ -38,18 +38,22 @@
 | [案例 11 · 内容创作：品牌语气 + 技能 + 研究子代理（`case-11-content-builder`，id 328）](#案例-11-内容创作-品牌语气-技能-研究子代理-case-11-content-builder-id-328) |
 | [案例 12 · CSV / Excel 数据分析（`case-12-csv-chat`，id 329）](#案例-12-csv-excel-数据分析-case-12-csv-chat-id-329) |
 | [附录 · 复建自检清单（照案例 4 复建一遍）](#附录-复建自检清单-照案例-4-复建一遍) |
-## 0 · 两个概念：agent 与 deep agent
+## 0 · 先分清两个词：agent 和 deep agent
 
-### 0.1 agent = model + harness
+课上最常混的就是这两个词。先花两分钟说清，后面每个案例就都顺了。
 
-LangChain 的说法（[agents 页](https://docs.langchain.com/oss/python/langchain/agents)）：
+### 0.1 agent 是什么
 
-> *An agent is a model calling tools in a loop until a given task is complete.*
->
-> 一个 agent 是**在循环里调用工具**的模型，直到给定任务完成。
+LangChain 官方的定义很短（[agents 页](https://docs.langchain.com/oss/python/langchain/agents)）：
 
-这个循环外面的一切叫 **harness**：提示词、工具，以及任何塑造模型行为的中间件（middleware）。
-`create_agent` 就是把这个 harness 暴露成参数：
+> 一个 agent，就是**一个在循环里调用工具的模型**，直到把这件事做完。
+
+循环本身很简单：模型想一想 → 调一个工具 → 看到结果 → 再想一想。模型不调工具了，就说明它答完了。
+
+![agent = model + harness：model 在中间，四周是 system prompt、skills、memory、context、tools、subagents](../assets/agent-harness.svg)
+
+循环外面还包着一层东西，官方叫 **harness**，中文可以理解成「装配」：
+提示词、工具清单，以及任何能改变模型行为的中间件。`create_agent` 就是把这层装配开放成参数：
 
 ```python
 from langchain.agents import create_agent
@@ -57,150 +61,132 @@ from langchain.agents import create_agent
 agent = create_agent(model="deepseek-flash", tools=tools, system_prompt="...")
 ```
 
-**要点：循环是固定的**（模型 → 工具 → 观察 → 模型），可变的是 harness。所有"让 agent 变强"的手段，
-本质上都是在改 harness —— 加工具、加中间件、换提示词。
+**记住一件事就够了：循环是固定的，能改的是装配。** 想让它更强，无非三种做法——
+多给工具、加中间件、把提示词写清楚。
 
-### 0.2 deep agent = 同一个循环 + 四类内置能力
+### 0.2 deep agent 又是什么
 
-deep agent 不是另一个推理引擎，而是**预先组装好的 harness**
+deep agent 用的还是同一个循环，区别在于**装配已经提前装好了**
 （[deepagents overview](https://docs.langchain.com/oss/python/deepagents/overview)）：
 
-> *Deep Agents is the agent harness for complex, multi-step work. It adds planning, a virtual
-> filesystem for context, subagent spawning, and long-term memory on top of LangChain and LangGraph.*
->
-> Deep Agents 是面向复杂、多步工作的 agent harness：在 LangChain 与 LangGraph 之上，
-> 内置了**计划、虚拟文件系统、子代理、长期记忆**。
+> 在 LangChain 和 LangGraph 之上，直接内置了计划、虚拟文件系统、子代理和长期记忆。
 
-官方把它拆成四类能力：
+官方把这些能力分成四组。对上课来说，你只需要知道每组「给你什么」：
 
-| 能力 | 内容 | 在本平台的对应物 |
+| 这组能力 | 你拿到什么 | 在平台上对应 |
 |---|---|---|
-| **Execution environment** | 工具、虚拟文件系统、可选沙箱、REPL | 工具注册表 + `FilesystemMiddleware` + 工作区 |
-| **Context management** | skills、memory、摘要、结果卸载、prompt caching | 技能库 + `AGENTS.md`（`MemoryMiddleware`）+ 摘要中间件 |
-| **Delegation** | 子代理（`task`）、可选任务计划（`write_todos`） | subagents + `todo_list` 中间件 |
-| **Steering** | HITL 审批、中断 | HITL 中间件 |
+| 执行环境 | 能读能写文件、能跑代码 | 工具注册表、工作区、文件系统中间件 |
+| 上下文管理 | 技能、记忆（`AGENTS.md`）、摘要压缩 | 技能库、`MemoryMiddleware`、摘要中间件 |
+| 任务分工 | 可以派子代理干活，也可以先列待办 | subagents、`todo_list` 中间件 |
+| 人机协作 | 关键动作停下来等人批准 | HITL 中间件 |
 
-注意两点：**任务计划自 v0.7 起是 opt-in**（要显式挂 `TodoListMiddleware`）；
-**子代理是"一次委派、一份回报"**（stateless，不能多轮对话）。
+有两个细节容易踩：**列待办（计划）从 v0.7 起要自己挂**，不是默认就有；
+**子代理是一次性的**，派出去、拿回一份报告就结束，不能来回对话。
 
-### 0.3 两者的差别（一张表）
+### 0.3 两者的差别（上课就讲这张表）
 
-| | **agent（LangChain）** | **deep agent** |
+| | agent | deep agent |
 |---|---|---|
-| 推理循环 | 相同 | 相同（`create_deep_agent` 内部仍调 `create_agent`） |
-| 系统提示词 | 你写 + 平台拼装的 guardrails/上下文 | **只有你写的那段**（平台只追加少量规则） |
-| 内置工具 | 注册表里勾选的 | SDK 自带 `ls`/`read_file`/`write_file`/`edit_file`/`glob`/`grep`/`execute` + `task` |
-| 文件系统 | 平台默认也挂（工作区隔离） | 有，且可换 backend / 虚拟根 / 权限 |
-| 子代理 | 有（`task`） | 有，且可给子代理指定独立 model |
-| 任务计划 | 需手动挂 `todo_list` | 同（v0.7 起也是 opt-in） |
-| `AGENTS.md` | ❌ 不读进提示词 | ✅ `MemoryMiddleware` 读进提示词，每次运行都生效 |
-| 技能 | `skill` 工具按需加载 | `SkillsMiddleware` 先编目，再按需读全文 |
-| HITL / RAG / 结构化输出 | 平台中间件提供 | 能配，但默认只带 SDK 那一套 |
+| 循环 | 一样 | 一样（内部仍调 `create_agent`） |
+| 提示词 | 你写的 + 平台自动补的规则 | 只认你写的那段 |
+| 自带工具 | 你勾选的那些 | 另外自带读写文件、`glob`/`grep`、`task` 等 |
+| 文件系统 | 有（工作区隔离） | 有，还能换存储后端、设权限 |
+| 子代理 | 支持 | 支持，且能给子代理单独指定模型 |
+| 待办计划 | 要手动挂中间件 | 同样要手动挂 |
+| `AGENTS.md` | 不读进提示词 | 每次运行都读进提示词 |
+| 技能 | 用 `skill` 工具按需加载 | 先自动编目，再按需读全文 |
+| HITL / RAG / 结构化输出 | 平台中间件提供 | 能配，但默认不带 |
 
-### 0.4 平台上的对应物
+### 0.4 在平台上怎么选
 
-每个 agent 都有 `use_deepagents` 开关（默认 `false`）。**它改的是 harness 的组装方式，不是模型能力。**
-本机实测：41 个 agent 用 normal、30 个用 deep；案例 1–9 是 normal，案例 10–12 是 deep。
+每个 agent 面板上都有一个 `use_deepagents` 开关，默认是关的。**它决定装配怎么装，并不改变模型本身的能力。**
 
-两个坑：
+当前这台机器上：63 个 agent，41 个是普通 agent、22 个是 deep（案例 1–9 是普通，10–12 是 deep）。
 
-1. **换类型 = 开新聊天**：`use_deepagents` 改了以后旧会话不迁移（提示词与工具集都变了）。
-2. **deep agent 的工具栏 ≠ `native_tools`**：`ls`/`write_file` 这些来自 SDK 的文件系统中间件，
-   配置里看不到，但运行时有。
+两个提醒：
+
+1. **改了开关要开新聊天。** 旧会话不会迁移，因为提示词和工具集都变了。
+2. **deep agent 的工具箱不等于配置里勾的那些。** 读写文件、`ls`、`task` 是 SDK 自带的，
+   在配置里看不到，但运行时确实有 —— 别以为它们在别的页面被关掉了。
 
 # 第 1 类 · 能直接用的 agent（案例 1–5）
 
 > 按"从最小到完整"排：基础 → 全工具 → 文档问答 → 个人助理 → 售后客服。
 > 第 2 类是机制演示（HITL + 四个模式），用到时再查；案例 10–12 是三个重活 agent。
 
-## 工作区约定：上传件与产物都归 agent
+## 工作区约定：上传的文件和产出的文件，都留在 agent 自己的目录里
 
-每个 agent 有自己的工作区 `outputs/users/<uid>/agents/agent_<id>/`（绑 vault 的会话在 `outputs/users/<uid>/<vault>/agents/agent_<id>/`）。规矩只有一条：
+每个 agent 有一个自己的工作目录：
 
-> **用户上传的文件、agent 生成的交付物，都必须落在这个工作区里。**
+```
+outputs/users/<用户>/agents/agent_<id>/           普通会话
+outputs/users/<用户>/<vault>/agents/agent_<id>/   绑定了 vault 的会话
+```
 
-| 目录 | 放什么 |
+里面分四个文件夹，各放各的：
+
+| 文件夹 | 放什么 |
 |---|---|
-| `upload/` | 用户上传的附件（csv / xlsx / pdf / docx / 图片…） |
-| `generated/` | agent 的交付物（报告、`.ics`、`.eml`、dashboard、数据库） |
-| `skills/` | 该 agent 的私有技能 |
-| `other/` | 中间产物 |
+| `upload/` | 用户上传的 CSV、Excel、PDF、图片 |
+| `generated/` | agent 做出来的东西：报告、`.ics`、`.eml`、dashboard、数据库 |
+| `skills/` | 这个 agent 自己的技能 |
+| `other/` | 中间文件 |
 
-**为什么坚持这条**：Files 面板就是按工作区列的（`GET /api/chat/{sid}/generated-files`），落在别处的文件用户在界面上**看不见**，也删不掉。
+**这条规矩一定要守住：上传和产出都必须落在工作区里。**
+原因很实际 —— Files 面板就是按这个目录列文件的，放在别处，用户在界面上既看不见、也删不掉。
 
-**两个曾经的例外（已修）**：
+之前有两处没守住，现在都改了：
 
-- **数据分析**（上传 CSV 自动出 dashboard）原本把库和 HTML 写进共享目录 `data/analysis_dbs/`，所以「我传的文件去哪了？」——现在写进 `<工作区>/generated/analysis/`，同名覆盖。
-- **Excel 上传**原本不在"复制到工作区"的白名单里，agent 在工作区里根本看不见文件；`.xlsx/.xlsm/.xls` 已补进名单。
+- **数据分析**（上传 CSV 自动出 dashboard）原来把数据库和 HTML 写进公共目录 `data/analysis_dbs/`，
+  所以常有人问「我传的文件去哪了」。现在写进 `<工作区>/generated/analysis/`，同名覆盖。
+- **Excel 上传**原来不在「复制进工作区」的名单里，agent 在自己的目录里根本看不到文件。
+  `.xlsx`、`.xlsm`、`.xls` 已经补进去。
 
-**清空工作区**：Files 面板右上角 🗑 → 两段确认 → 清 `upload/ generated/ other/ skills/` 的内容，保留 `AGENTS.md` / `CLAUDE.md` 与目录骨架；同时删除该会话的 `session_documents` 记录（否则面板列表还显示旧文件）。
+**想清空工作区**：在 Files 面板点右上角的 🗑，确认一次即可。
+它会删掉 `upload/`、`generated/`、`other/`、`skills/` 里的文件，保留说明文档和目录结构，
+同时把数据库里这份会话的文件记录一起清掉 —— 否则列表里还挂着旧文件名。
 
-# 案例 1 · 第一个 agent：create_agent 的三要素 + 四个例子（`case-1-basic-agent`，id 281）
+# 案例 1 · 第一个 agent：三个参数就是一个能用的 agent（`case-1-basic-agent`，id 281）
 
-> 依据：**[https://docs.langchain.com/oss/python/langchain/agents](https://docs.langchain.com/oss/python/langchain/agents)**
->
-> 一句话：*a model calling tools in a loop until a task is complete, shaped by a harness
-> of prompt, tools, and middleware.*
+依据：[langchain/agents](https://docs.langchain.com/oss/python/langchain/agents)。
 
-## 开场（页面原文）
+第 0 节讲过：agent 就是「模型在循环里调工具」，外面包一层装配。这一节就把那层装配填到最简 ——
+**只填三个参数，看它能不能干活。**
 
-> Agent 是一个**在循环里调用工具的模型**，直到给定任务完成为止。
-> （*An agent is a model calling tools in a loop until a given task is complete.*）
-
-![核心 agent 循环：request → model → action → tools → observation → model，直到模型给 result](../assets/agent-loop.svg)
-
-> Harness 是围绕这个循环的一切：**提示词、工具，以及任何塑造模型行为的中间件。**
-> （*A harness is everything around that loop: the prompt, the tools, and any middleware
-> that shapes the model's behavior.*）
-
-> **Agent = Model + Harness**
-> Harness 的职责：**在正确的时刻，把正确的上下文交给模型。**
-
-## create_agent 就是一个可配置的 harness
-
-> `create_agent` 高度可配置。最简单的用法是这样：
+![核心循环：request → model → action → tools → observation → model，直到给出结果](../assets/agent-loop.svg)
 
 ```python
 from langchain.agents import create_agent
 
-agent = create_agent(model="deepseek-flash", tools=tools)
+agent = create_agent(
+    model="deepseek-flash",        # 用哪个模型
+    tools=[weather, calculator],   # 手里有哪些工具
+    system_prompt="You are a helpful assistant",   # 一句话说明它是谁
+)
 ```
 
-> 在此基础上，**基础配置就是 `model=`、`tools=`、`system_prompt=` 三个参数**；
-> 再往上要加能力，用中间件扩展 harness。
+三个参数之外什么都不给，它就自己能跑了。想再加强，才需要动中间件。
 
-## 核心组件（Core components）
+## 这三个参数在平台上填在哪
 
-![agent = model + harness：model 在中心，周围是 system prompt、skills、memory、context、tools、subagents](../assets/agent-harness.svg)
+打开 Agents → New Agent，三样东西分别落在三个地方（Temperature 记得填 `0`）：
 
-| 组件                        | 页面原话                                                                                                                                                   |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Model**             | 传一个模型标识字符串（`"provider:model"`），或一个已初始化的模型实例。                                                                                   |
-| **Tools**             | 传任何 Python 可调用对象、LangChain 工具或工具字典。                                                                                                       |
-| **System prompt**     | 塑造 agent 处理任务的方式。接受字符串或 `SystemMessage`。运行时要动态改，用中间件。                                                                      |
-| **Structured output** | 用 `response_format=` 让 agent 返回**校验过的结构**。                                                                                              |
-| **Agent state**       | 每个 agent 都用 `AgentState`（typed dictionary）管理执行上下文。内置字段是 `messages`（只追加）。要加自定义字段，继承它并用 `state_schema=` 传进去。 |
+| 代码里的参数 | 平台上填在哪 | 我们填什么 |
+|---|---|---|
+| `model=` | Overview → Model | `deepseek-flash` |
+| `system_prompt=` | Prompt → System Prompt | `You are a helpful assistant` |
+| `tools=` | Tools 页签 | 勾三个：`web_search`、`python_execute`、`pg_query`（写文件用的 `write_file` 平台自带，不用勾） |
 
-## 在平台上：模型 + 系统提示词 + 工具
-
-三个位置填一次（Temperature 填 `0`）：
-
-| 页面参数           | 平台上                  | 填什么                                                                                               |
-| ------------------ | ----------------------- | ---------------------------------------------------------------------------------------------------- |
-| `model=`         | Overview → Model       | `deepseek-flash`（Temperature `0`）                                                              |
-| `system_prompt=` | Prompt → System Prompt | `You are a helpful assistant`                                                                      |
-| `tools=`         | Tools 页签              | 三个：`web_search`、`python_execute`、`pg_query`（写文件用的 `write_file` 平台自带，不用勾） |
+保存后开新聊天，先发一句 `hi` 把开场白用掉，再问下面四个问题。
 
 ## 实测：四个例子
 
-每个例子各开新聊天，先发一句 `hi`。
-
-| 问                                                     | 它用了                   | 结果                               | 用时 |
-| ------------------------------------------------------ | ------------------------ | ---------------------------------- | ---- |
-| 上海的天气如何                                         | `web_search` ×4       | 晴到多云，白天 24–25℃，夜间 15℃ | 8.1s |
-| 1,234,567 乘以 891,011 等于多少？                      | `python_execute`       | 1,100,012,777,237                  | 4.8s |
-| 用 pg_query 查一下 deep_agent_templates 有多少个 agent | `pg_query`             | 63                                 | 3.3s |
-| 把这句话存成一份文档：标题《工具路由测试》             | `ls` → `write_file` | `generated/工具路由测试.md`      | 9.1s |
+| 问 | 它挑了哪个工具 | 结果 | 用时 |
+|---|---|---|---|
+| 上海的天气如何 | `web_search` ×4 | 晴到多云，白天 24–25℃，夜间 15℃ | 8.1s |
+| 1,234,567 乘以 891,011 等于多少？ | `python_execute` | 1,100,012,777,237 | 4.8s |
+| 用 pg_query 查一下 deep_agent_templates 有多少个 agent | `pg_query` | 63 | 3.3s |
+| 把这句话存成一份文档：标题《工具路由测试》 | `ls` → `write_file` | `generated/工具路由测试.md` | 9.1s |
 
 ## 两条要讲的判断
 

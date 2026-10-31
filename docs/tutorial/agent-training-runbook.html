@@ -117,7 +117,7 @@ nav a:hover { color:var(--accent); }
 <td><a href="#%E7%AC%AC-1-%E7%B1%BB-%E8%83%BD%E7%9B%B4%E6%8E%A5%E7%94%A8%E7%9A%84-agent-%E6%A1%88%E4%BE%8B-1-5">第 1 类 · 能直接用的 agent（案例 1–5）</a></td>
 </tr>
 <tr>
-<td><a href="#%E6%A1%88%E4%BE%8B-1-%E7%AC%AC%E4%B8%80%E4%B8%AA-agent-create-agent-%E7%9A%84%E4%B8%89%E8%A6%81%E7%B4%A0-%E5%9B%9B%E4%B8%AA%E4%BE%8B%E5%AD%90-case-1-basic-agent-id-281">案例 1 · 第一个 agent：create_agent 的三要素 + 四个例子（<code>case-1-basic-agent</code>，id 281）</a></td>
+<td><a href="#%E6%A1%88%E4%BE%8B-1-%E7%AC%AC%E4%B8%80%E4%B8%AA-agent-%E4%B8%89%E4%B8%AA%E5%8F%82%E6%95%B0%E5%B0%B1%E6%98%AF%E4%B8%80%E4%B8%AA%E8%83%BD%E7%94%A8%E7%9A%84-agent-case-1-basic-agent-id-281">案例 1 · 第一个 agent：三个参数就是一个能用的 agent（<code>case-1-basic-agent</code>，id 281）</a></td>
 </tr>
 <tr>
 <td><a href="#%E6%A1%88%E4%BE%8B-2-%E5%B7%A5%E5%85%B7%E5%A4%9A%E5%88%B0-27-%E4%B8%AA-%E8%BF%98%E6%8C%91%E5%BE%97%E5%AF%B9%E5%90%97-case-2-all-tools-id-159">案例 2 · 工具多到 27 个，还挑得对吗（<code>case-2-all-tools</code>，id 159）</a></td>
@@ -163,269 +163,14 @@ nav a:hover { color:var(--accent); }
 </tr>
 </tbody>
 </table>
-<h2 id="0-两个概念-agent-与-deep-agent">0 · 两个概念：agent 与 deep agent</h2>
-<h3 id="0-1-agent-model-harness">0.1 agent = model + harness</h3>
-<p>LangChain 的说法（<a href="https://docs.langchain.com/oss/python/langchain/agents">agents 页</a>）：</p>
+<h2 id="0-先分清两个词-agent-和-deep-agent">0 · 先分清两个词：agent 和 deep agent</h2>
+<p>课上最常混的就是这两个词。先花两分钟说清，后面每个案例就都顺了。</p>
+<h3 id="0-1-agent-是什么">0.1 agent 是什么</h3>
+<p>LangChain 官方的定义很短（<a href="https://docs.langchain.com/oss/python/langchain/agents">agents 页</a>）：</p>
 <blockquote>
-<p><em>An agent is a model calling tools in a loop until a given task is complete.</em></p>
-<p>一个 agent 是<strong>在循环里调用工具</strong>的模型，直到给定任务完成。</p>
+<p>一个 agent，就是<strong>一个在循环里调用工具的模型</strong>，直到把这件事做完。</p>
 </blockquote>
-<p>这个循环外面的一切叫 <strong>harness</strong>：提示词、工具，以及任何塑造模型行为的中间件（middleware）。
-<code>create_agent</code> 就是把这个 harness 暴露成参数：</p>
-<pre><code class="language-python">from langchain.agents import create_agent
-
-agent = create_agent(model=&quot;deepseek-flash&quot;, tools=tools, system_prompt=&quot;...&quot;)
-</code></pre>
-<p><strong>要点：循环是固定的</strong>（模型 → 工具 → 观察 → 模型），可变的是 harness。所有&quot;让 agent 变强&quot;的手段，
-本质上都是在改 harness —— 加工具、加中间件、换提示词。</p>
-<h3 id="0-2-deep-agent-同一个循环-四类内置能力">0.2 deep agent = 同一个循环 + 四类内置能力</h3>
-<p>deep agent 不是另一个推理引擎，而是<strong>预先组装好的 harness</strong>
-（<a href="https://docs.langchain.com/oss/python/deepagents/overview">deepagents overview</a>）：</p>
-<blockquote>
-<p><em>Deep Agents is the agent harness for complex, multi-step work. It adds planning, a virtual
-filesystem for context, subagent spawning, and long-term memory on top of LangChain and LangGraph.</em></p>
-<p>Deep Agents 是面向复杂、多步工作的 agent harness：在 LangChain 与 LangGraph 之上，
-内置了<strong>计划、虚拟文件系统、子代理、长期记忆</strong>。</p>
-</blockquote>
-<p>官方把它拆成四类能力：</p>
-<table>
-<thead>
-<tr>
-<th>能力</th>
-<th>内容</th>
-<th>在本平台的对应物</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Execution environment</strong></td>
-<td>工具、虚拟文件系统、可选沙箱、REPL</td>
-<td>工具注册表 + <code>FilesystemMiddleware</code> + 工作区</td>
-</tr>
-<tr>
-<td><strong>Context management</strong></td>
-<td>skills、memory、摘要、结果卸载、prompt caching</td>
-<td>技能库 + <code>AGENTS.md</code>（<code>MemoryMiddleware</code>）+ 摘要中间件</td>
-</tr>
-<tr>
-<td><strong>Delegation</strong></td>
-<td>子代理（<code>task</code>）、可选任务计划（<code>write_todos</code>）</td>
-<td>subagents + <code>todo_list</code> 中间件</td>
-</tr>
-<tr>
-<td><strong>Steering</strong></td>
-<td>HITL 审批、中断</td>
-<td>HITL 中间件</td>
-</tr>
-</tbody>
-</table>
-<p>注意两点：<strong>任务计划自 v0.7 起是 opt-in</strong>（要显式挂 <code>TodoListMiddleware</code>）；
-<strong>子代理是&quot;一次委派、一份回报&quot;</strong>（stateless，不能多轮对话）。</p>
-<h3 id="0-3-两者的差别-一张表">0.3 两者的差别（一张表）</h3>
-<table>
-<thead>
-<tr>
-<th></th>
-<th><strong>agent（LangChain）</strong></th>
-<th><strong>deep agent</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>推理循环</td>
-<td>相同</td>
-<td>相同（<code>create_deep_agent</code> 内部仍调 <code>create_agent</code>）</td>
-</tr>
-<tr>
-<td>系统提示词</td>
-<td>你写 + 平台拼装的 guardrails/上下文</td>
-<td><strong>只有你写的那段</strong>（平台只追加少量规则）</td>
-</tr>
-<tr>
-<td>内置工具</td>
-<td>注册表里勾选的</td>
-<td>SDK 自带 <code>ls</code>/<code>read_file</code>/<code>write_file</code>/<code>edit_file</code>/<code>glob</code>/<code>grep</code>/<code>execute</code> + <code>task</code></td>
-</tr>
-<tr>
-<td>文件系统</td>
-<td>平台默认也挂（工作区隔离）</td>
-<td>有，且可换 backend / 虚拟根 / 权限</td>
-</tr>
-<tr>
-<td>子代理</td>
-<td>有（<code>task</code>）</td>
-<td>有，且可给子代理指定独立 model</td>
-</tr>
-<tr>
-<td>任务计划</td>
-<td>需手动挂 <code>todo_list</code></td>
-<td>同（v0.7 起也是 opt-in）</td>
-</tr>
-<tr>
-<td><code>AGENTS.md</code></td>
-<td>❌ 不读进提示词</td>
-<td>✅ <code>MemoryMiddleware</code> 读进提示词，每次运行都生效</td>
-</tr>
-<tr>
-<td>技能</td>
-<td><code>skill</code> 工具按需加载</td>
-<td><code>SkillsMiddleware</code> 先编目，再按需读全文</td>
-</tr>
-<tr>
-<td>HITL / RAG / 结构化输出</td>
-<td>平台中间件提供</td>
-<td>能配，但默认只带 SDK 那一套</td>
-</tr>
-</tbody>
-</table>
-<h3 id="0-4-平台上的对应物">0.4 平台上的对应物</h3>
-<p>每个 agent 都有 <code>use_deepagents</code> 开关（默认 <code>false</code>）。<strong>它改的是 harness 的组装方式，不是模型能力。</strong>
-本机实测：41 个 agent 用 normal、30 个用 deep；案例 1–9 是 normal，案例 10–12 是 deep。</p>
-<p>两个坑：</p>
-<ol>
-<li><strong>换类型 = 开新聊天</strong>：<code>use_deepagents</code> 改了以后旧会话不迁移（提示词与工具集都变了）。</li>
-<li><strong>deep agent 的工具栏 ≠ <code>native_tools</code></strong>：<code>ls</code>/<code>write_file</code> 这些来自 SDK 的文件系统中间件，
-配置里看不到，但运行时有。</li>
-</ol>
-<h1 id="第-1-类-能直接用的-agent-案例-1-5">第 1 类 · 能直接用的 agent（案例 1–5）</h1>
-<blockquote>
-<p>按&quot;从最小到完整&quot;排：基础 → 全工具 → 文档问答 → 个人助理 → 售后客服。
-第 2 类是机制演示（HITL + 四个模式），用到时再查；案例 10–12 是三个重活 agent。</p>
-</blockquote>
-<h2 id="工作区约定-上传件与产物都归-agent">工作区约定：上传件与产物都归 agent</h2>
-<p>每个 agent 有自己的工作区 <code>outputs/users/&lt;uid&gt;/agents/agent_&lt;id&gt;/</code>（绑 vault 的会话在 <code>outputs/users/&lt;uid&gt;/&lt;vault&gt;/agents/agent_&lt;id&gt;/</code>）。规矩只有一条：</p>
-<blockquote>
-<p><strong>用户上传的文件、agent 生成的交付物，都必须落在这个工作区里。</strong></p>
-</blockquote>
-<table>
-<thead>
-<tr>
-<th>目录</th>
-<th>放什么</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>upload/</code></td>
-<td>用户上传的附件（csv / xlsx / pdf / docx / 图片…）</td>
-</tr>
-<tr>
-<td><code>generated/</code></td>
-<td>agent 的交付物（报告、<code>.ics</code>、<code>.eml</code>、dashboard、数据库）</td>
-</tr>
-<tr>
-<td><code>skills/</code></td>
-<td>该 agent 的私有技能</td>
-</tr>
-<tr>
-<td><code>other/</code></td>
-<td>中间产物</td>
-</tr>
-</tbody>
-</table>
-<p><strong>为什么坚持这条</strong>：Files 面板就是按工作区列的（<code>GET /api/chat/{sid}/generated-files</code>），落在别处的文件用户在界面上<strong>看不见</strong>，也删不掉。</p>
-<p><strong>两个曾经的例外（已修）</strong>：</p>
-<ul>
-<li><strong>数据分析</strong>（上传 CSV 自动出 dashboard）原本把库和 HTML 写进共享目录 <code>data/analysis_dbs/</code>，所以「我传的文件去哪了？」——现在写进 <code>&lt;工作区&gt;/generated/analysis/</code>，同名覆盖。</li>
-<li><strong>Excel 上传</strong>原本不在&quot;复制到工作区&quot;的白名单里，agent 在工作区里根本看不见文件；<code>.xlsx/.xlsm/.xls</code> 已补进名单。</li>
-</ul>
-<p><strong>清空工作区</strong>：Files 面板右上角 🗑 → 两段确认 → 清 <code>upload/ generated/ other/ skills/</code> 的内容，保留 <code>AGENTS.md</code> / <code>CLAUDE.md</code> 与目录骨架；同时删除该会话的 <code>session_documents</code> 记录（否则面板列表还显示旧文件）。</p>
-<h1 id="案例-1-第一个-agent-create-agent-的三要素-四个例子-case-1-basic-agent-id-281">案例 1 · 第一个 agent：create_agent 的三要素 + 四个例子（<code>case-1-basic-agent</code>，id 281）</h1>
-<blockquote>
-<p>依据：<strong><a href="https://docs.langchain.com/oss/python/langchain/agents">https://docs.langchain.com/oss/python/langchain/agents</a></strong></p>
-<p>一句话：<em>a model calling tools in a loop until a task is complete, shaped by a harness
-of prompt, tools, and middleware.</em></p>
-</blockquote>
-<h2 id="开场-页面原文">开场（页面原文）</h2>
-<blockquote>
-<p>Agent 是一个<strong>在循环里调用工具的模型</strong>，直到给定任务完成为止。
-（<em>An agent is a model calling tools in a loop until a given task is complete.</em>）</p>
-</blockquote>
-<figure><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
- "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<!-- Generated by graphviz version 16.0.0 (20260814.1018)
- -->
-<!-- Title: loop Pages: 1 -->
-<svg width="592pt" height="209pt"
- viewBox="0.00 0.00 592.00 209.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(32.4 177)">
-<title>loop</title>
-<polygon fill="#1a1334" stroke="none" points="-32.4,32.4 -32.4,-177 559.69,-177 559.69,32.4 -32.4,32.4"/>
-<!-- request -->
-<g id="node1" class="node">
-<title>request</title>
-<path fill="#251a49" stroke="#62b7ff" stroke-width="2.2" d="M82.68,-101.72C82.68,-101.72 12,-101.72 12,-101.72 6,-101.72 0,-95.72 0,-89.72 0,-89.72 0,-77 0,-77 0,-71 6,-65 12,-65 12,-65 82.68,-65 82.68,-65 88.68,-65 94.68,-71 94.68,-77 94.68,-77 94.68,-89.72 94.68,-89.72 94.68,-95.72 88.68,-101.72 82.68,-101.72"/>
-<text xml:space="preserve" text-anchor="middle" x="47.34" y="-78.11" font-family="Menlo" font-size="15.00" fill="#e5dbff">request</text>
-</g>
-<!-- model -->
-<g id="node2" class="node">
-<title>model</title>
-<path fill="#251a49" stroke="#9b7bdb" stroke-width="3" d="M255.61,-103.97C255.61,-103.97 191.68,-103.97 191.68,-103.97 185.68,-103.97 179.68,-97.97 179.68,-91.97 179.68,-91.97 179.68,-74.75 179.68,-74.75 179.68,-68.75 185.68,-62.75 191.68,-62.75 191.68,-62.75 255.61,-62.75 255.61,-62.75 261.61,-62.75 267.61,-68.75 267.61,-74.75 267.61,-74.75 267.61,-91.97 267.61,-91.97 267.61,-97.97 261.61,-103.97 255.61,-103.97"/>
-<text xml:space="preserve" text-anchor="middle" x="223.65" y="-76.56" font-family="Menlo" font-size="19.00" fill="#e5dbff">model</text>
-</g>
-<!-- request&#45;&gt;model -->
-<g id="edge1" class="edge">
-<title>request&#45;&gt;model</title>
-<path fill="none" stroke="#62b7ff" stroke-width="2.2" d="M95.51,-83.36C117.29,-83.36 143.32,-83.36 166.14,-83.36"/>
-<polygon fill="#62b7ff" stroke="#62b7ff" stroke-width="2.2" points="166.11,-86.51 175.11,-83.36 166.11,-80.21 166.11,-86.51"/>
-</g>
-<!-- tools -->
-<g id="node3" class="node">
-<title>tools</title>
-<path fill="#251a49" stroke="#62b7ff" stroke-width="3" d="M514.54,-144.59C514.54,-144.59 454.36,-144.59 454.36,-144.59 448.36,-144.59 442.36,-138.59 442.36,-132.59 442.36,-132.59 442.36,-116.12 442.36,-116.12 442.36,-110.12 448.36,-104.12 454.36,-104.12 454.36,-104.12 514.54,-104.12 514.54,-104.12 520.54,-104.12 526.54,-110.12 526.54,-116.12 526.54,-116.12 526.54,-132.59 526.54,-132.59 526.54,-138.59 520.54,-144.59 514.54,-144.59"/>
-<text xml:space="preserve" text-anchor="middle" x="484.45" y="-118.14" font-family="Menlo" font-size="18.00" fill="#e5dbff">tools</text>
-</g>
-<!-- model&#45;&gt;tools -->
-<g id="edge2" class="edge">
-<title>model&#45;&gt;tools</title>
-<path fill="none" stroke="#62b7ff" stroke-width="2.2" d="M269.06,-93.44C282.09,-96.22 296.38,-99.09 309.61,-101.36 349.43,-108.2 394.68,-114.13 429.03,-118.25"/>
-<polygon fill="#62b7ff" stroke="#62b7ff" stroke-width="2.2" points="428.54,-121.37 437.85,-119.3 429.28,-115.11 428.54,-121.37"/>
-<text xml:space="preserve" text-anchor="middle" x="354.61" y="-118.73" font-family="Menlo" font-size="13.00" fill="#62b7ff">action</text>
-</g>
-<!-- result -->
-<g id="node4" class="node">
-<title>result</title>
-<path fill="#251a49" stroke="#6e5fa8" stroke-width="2.2" stroke-dasharray="5,2" d="M515.29,-36.72C515.29,-36.72 453.61,-36.72 453.61,-36.72 447.61,-36.72 441.61,-30.72 441.61,-24.72 441.61,-24.72 441.61,-12 441.61,-12 441.61,-6 447.61,0 453.61,0 453.61,0 515.29,0 515.29,0 521.29,0 527.29,-6 527.29,-12 527.29,-12 527.29,-24.72 527.29,-24.72 527.29,-30.72 521.29,-36.72 515.29,-36.72"/>
-<text xml:space="preserve" text-anchor="middle" x="484.45" y="-13.11" font-family="Menlo" font-size="15.00" fill="#c7aeff">result</text>
-</g>
-<!-- model&#45;&gt;result -->
-<g id="edge4" class="edge">
-<title>model&#45;&gt;result</title>
-<path fill="none" stroke="#6e5fa8" stroke-width="2.2" stroke-dasharray="5,2" d="M264.27,-61.4C278.23,-54.49 294.28,-47.48 309.61,-42.86 348.34,-31.2 393.63,-25.05 428.27,-21.82"/>
-<polygon fill="#6e5fa8" stroke="#6e5fa8" stroke-width="2.2" points="428.51,-24.96 437.2,-21.05 427.96,-18.69 428.51,-24.96"/>
-<text xml:space="preserve" text-anchor="middle" x="354.61" y="-47.01" font-family="Menlo" font-size="13.00" fill="#c7aeff">final answer</text>
-</g>
-<!-- tools&#45;&gt;model -->
-<g id="edge3" class="edge">
-<title>tools&#45;&gt;model</title>
-<path fill="none" stroke="#c7aeff" stroke-width="2.2" d="M454.04,-102.72C438.66,-92.73 419.02,-81.98 399.61,-76.86 360.83,-66.64 315.55,-68.68 280.76,-73.06"/>
-<polygon fill="#c7aeff" stroke="#c7aeff" stroke-width="2.2" points="280.71,-69.89 272.23,-74.23 281.57,-76.13 280.71,-69.89"/>
-<text xml:space="preserve" text-anchor="middle" x="354.61" y="-81.01" font-family="Menlo" font-size="13.00" fill="#c7aeff">observation</text>
-</g>
-</g>
-</svg><figcaption>核心 agent 循环：request → model → action → tools → observation → model，直到模型给 result</figcaption></figure>
-<blockquote>
-<p>Harness 是围绕这个循环的一切：<strong>提示词、工具，以及任何塑造模型行为的中间件。</strong>
-（<em>A harness is everything around that loop: the prompt, the tools, and any middleware
-that shapes the model's behavior.</em>）</p>
-</blockquote>
-<blockquote>
-<p><strong>Agent = Model + Harness</strong>
-Harness 的职责：<strong>在正确的时刻，把正确的上下文交给模型。</strong></p>
-</blockquote>
-<h2 id="create-agent-就是一个可配置的-harness">create_agent 就是一个可配置的 harness</h2>
-<blockquote>
-<p><code>create_agent</code> 高度可配置。最简单的用法是这样：</p>
-</blockquote>
-<pre><code class="language-python">from langchain.agents import create_agent
-
-agent = create_agent(model=&quot;deepseek-flash&quot;, tools=tools)
-</code></pre>
-<blockquote>
-<p>在此基础上，<strong>基础配置就是 <code>model=</code>、<code>tools=</code>、<code>system_prompt=</code> 三个参数</strong>；
-再往上要加能力，用中间件扩展 harness。</p>
-</blockquote>
-<h2 id="核心组件-core-components">核心组件（Core components）</h2>
+<p>循环本身很简单：模型想一想 → 调一个工具 → 看到结果 → 再想一想。模型不调工具了，就说明它答完了。</p>
 <figure><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <!-- Generated by graphviz version 16.0.0 (20260814.1018)
@@ -524,52 +269,261 @@ agent = create_agent(model=&quot;deepseek-flash&quot;, tools=tools)
 <path fill="none" stroke="#9b7bdb" stroke-width="1.8" stroke-dasharray="5,2" d="M151.78,-153.32C182.08,-143.84 218.27,-132.52 248.32,-123.11"/>
 </g>
 </g>
-</svg><figcaption>agent = model + harness：model 在中心，周围是 system prompt、skills、memory、context、tools、subagents</figcaption></figure>
+</svg><figcaption>agent = model + harness：model 在中间，四周是 system prompt、skills、memory、context、tools、subagents</figcaption></figure>
+<p>循环外面还包着一层东西，官方叫 <strong>harness</strong>，中文可以理解成「装配」：
+提示词、工具清单，以及任何能改变模型行为的中间件。<code>create_agent</code> 就是把这层装配开放成参数：</p>
+<pre><code class="language-python">from langchain.agents import create_agent
+
+agent = create_agent(model=&quot;deepseek-flash&quot;, tools=tools, system_prompt=&quot;...&quot;)
+</code></pre>
+<p><strong>记住一件事就够了：循环是固定的，能改的是装配。</strong> 想让它更强，无非三种做法——
+多给工具、加中间件、把提示词写清楚。</p>
+<h3 id="0-2-deep-agent-又是什么">0.2 deep agent 又是什么</h3>
+<p>deep agent 用的还是同一个循环，区别在于<strong>装配已经提前装好了</strong>
+（<a href="https://docs.langchain.com/oss/python/deepagents/overview">deepagents overview</a>）：</p>
+<blockquote>
+<p>在 LangChain 和 LangGraph 之上，直接内置了计划、虚拟文件系统、子代理和长期记忆。</p>
+</blockquote>
+<p>官方把这些能力分成四组。对上课来说，你只需要知道每组「给你什么」：</p>
 <table>
 <thead>
 <tr>
-<th>组件</th>
-<th>页面原话</th>
+<th>这组能力</th>
+<th>你拿到什么</th>
+<th>在平台上对应</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Model</strong></td>
-<td>传一个模型标识字符串（<code>&quot;provider:model&quot;</code>），或一个已初始化的模型实例。</td>
+<td>执行环境</td>
+<td>能读能写文件、能跑代码</td>
+<td>工具注册表、工作区、文件系统中间件</td>
 </tr>
 <tr>
-<td><strong>Tools</strong></td>
-<td>传任何 Python 可调用对象、LangChain 工具或工具字典。</td>
+<td>上下文管理</td>
+<td>技能、记忆（<code>AGENTS.md</code>）、摘要压缩</td>
+<td>技能库、<code>MemoryMiddleware</code>、摘要中间件</td>
 </tr>
 <tr>
-<td><strong>System prompt</strong></td>
-<td>塑造 agent 处理任务的方式。接受字符串或 <code>SystemMessage</code>。运行时要动态改，用中间件。</td>
+<td>任务分工</td>
+<td>可以派子代理干活，也可以先列待办</td>
+<td>subagents、<code>todo_list</code> 中间件</td>
 </tr>
 <tr>
-<td><strong>Structured output</strong></td>
-<td>用 <code>response_format=</code> 让 agent 返回<strong>校验过的结构</strong>。</td>
-</tr>
-<tr>
-<td><strong>Agent state</strong></td>
-<td>每个 agent 都用 <code>AgentState</code>（typed dictionary）管理执行上下文。内置字段是 <code>messages</code>（只追加）。要加自定义字段，继承它并用 <code>state_schema=</code> 传进去。</td>
+<td>人机协作</td>
+<td>关键动作停下来等人批准</td>
+<td>HITL 中间件</td>
 </tr>
 </tbody>
 </table>
-<h2 id="在平台上-模型-系统提示词-工具">在平台上：模型 + 系统提示词 + 工具</h2>
-<p>三个位置填一次（Temperature 填 <code>0</code>）：</p>
+<p>有两个细节容易踩：<strong>列待办（计划）从 v0.7 起要自己挂</strong>，不是默认就有；
+<strong>子代理是一次性的</strong>，派出去、拿回一份报告就结束，不能来回对话。</p>
+<h3 id="0-3-两者的差别-上课就讲这张表">0.3 两者的差别（上课就讲这张表）</h3>
 <table>
 <thead>
 <tr>
-<th>页面参数</th>
-<th>平台上</th>
-<th>填什么</th>
+<th></th>
+<th>agent</th>
+<th>deep agent</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>循环</td>
+<td>一样</td>
+<td>一样（内部仍调 <code>create_agent</code>）</td>
+</tr>
+<tr>
+<td>提示词</td>
+<td>你写的 + 平台自动补的规则</td>
+<td>只认你写的那段</td>
+</tr>
+<tr>
+<td>自带工具</td>
+<td>你勾选的那些</td>
+<td>另外自带读写文件、<code>glob</code>/<code>grep</code>、<code>task</code> 等</td>
+</tr>
+<tr>
+<td>文件系统</td>
+<td>有（工作区隔离）</td>
+<td>有，还能换存储后端、设权限</td>
+</tr>
+<tr>
+<td>子代理</td>
+<td>支持</td>
+<td>支持，且能给子代理单独指定模型</td>
+</tr>
+<tr>
+<td>待办计划</td>
+<td>要手动挂中间件</td>
+<td>同样要手动挂</td>
+</tr>
+<tr>
+<td><code>AGENTS.md</code></td>
+<td>不读进提示词</td>
+<td>每次运行都读进提示词</td>
+</tr>
+<tr>
+<td>技能</td>
+<td>用 <code>skill</code> 工具按需加载</td>
+<td>先自动编目，再按需读全文</td>
+</tr>
+<tr>
+<td>HITL / RAG / 结构化输出</td>
+<td>平台中间件提供</td>
+<td>能配，但默认不带</td>
+</tr>
+</tbody>
+</table>
+<h3 id="0-4-在平台上怎么选">0.4 在平台上怎么选</h3>
+<p>每个 agent 面板上都有一个 <code>use_deepagents</code> 开关，默认是关的。<strong>它决定装配怎么装，并不改变模型本身的能力。</strong></p>
+<p>当前这台机器上：63 个 agent，41 个是普通 agent、22 个是 deep（案例 1–9 是普通，10–12 是 deep）。</p>
+<p>两个提醒：</p>
+<ol>
+<li><strong>改了开关要开新聊天。</strong> 旧会话不会迁移，因为提示词和工具集都变了。</li>
+<li><strong>deep agent 的工具箱不等于配置里勾的那些。</strong> 读写文件、<code>ls</code>、<code>task</code> 是 SDK 自带的，
+在配置里看不到，但运行时确实有 —— 别以为它们在别的页面被关掉了。</li>
+</ol>
+<h1 id="第-1-类-能直接用的-agent-案例-1-5">第 1 类 · 能直接用的 agent（案例 1–5）</h1>
+<blockquote>
+<p>按&quot;从最小到完整&quot;排：基础 → 全工具 → 文档问答 → 个人助理 → 售后客服。
+第 2 类是机制演示（HITL + 四个模式），用到时再查；案例 10–12 是三个重活 agent。</p>
+</blockquote>
+<h2 id="工作区约定-上传的文件和产出的文件-都留在-agent-自己的目录里">工作区约定：上传的文件和产出的文件，都留在 agent 自己的目录里</h2>
+<p>每个 agent 有一个自己的工作目录：</p>
+<pre><code>outputs/users/&lt;用户&gt;/agents/agent_&lt;id&gt;/           普通会话
+outputs/users/&lt;用户&gt;/&lt;vault&gt;/agents/agent_&lt;id&gt;/   绑定了 vault 的会话
+</code></pre>
+<p>里面分四个文件夹，各放各的：</p>
+<table>
+<thead>
+<tr>
+<th>文件夹</th>
+<th>放什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>upload/</code></td>
+<td>用户上传的 CSV、Excel、PDF、图片</td>
+</tr>
+<tr>
+<td><code>generated/</code></td>
+<td>agent 做出来的东西：报告、<code>.ics</code>、<code>.eml</code>、dashboard、数据库</td>
+</tr>
+<tr>
+<td><code>skills/</code></td>
+<td>这个 agent 自己的技能</td>
+</tr>
+<tr>
+<td><code>other/</code></td>
+<td>中间文件</td>
+</tr>
+</tbody>
+</table>
+<p><strong>这条规矩一定要守住：上传和产出都必须落在工作区里。</strong>
+原因很实际 —— Files 面板就是按这个目录列文件的，放在别处，用户在界面上既看不见、也删不掉。</p>
+<p>之前有两处没守住，现在都改了：</p>
+<ul>
+<li><strong>数据分析</strong>（上传 CSV 自动出 dashboard）原来把数据库和 HTML 写进公共目录 <code>data/analysis_dbs/</code>，
+所以常有人问「我传的文件去哪了」。现在写进 <code>&lt;工作区&gt;/generated/analysis/</code>，同名覆盖。</li>
+<li><strong>Excel 上传</strong>原来不在「复制进工作区」的名单里，agent 在自己的目录里根本看不到文件。
+<code>.xlsx</code>、<code>.xlsm</code>、<code>.xls</code> 已经补进去。</li>
+</ul>
+<p><strong>想清空工作区</strong>：在 Files 面板点右上角的 🗑，确认一次即可。
+它会删掉 <code>upload/</code>、<code>generated/</code>、<code>other/</code>、<code>skills/</code> 里的文件，保留说明文档和目录结构，
+同时把数据库里这份会话的文件记录一起清掉 —— 否则列表里还挂着旧文件名。</p>
+<h1 id="案例-1-第一个-agent-三个参数就是一个能用的-agent-case-1-basic-agent-id-281">案例 1 · 第一个 agent：三个参数就是一个能用的 agent（<code>case-1-basic-agent</code>，id 281）</h1>
+<p>依据：<a href="https://docs.langchain.com/oss/python/langchain/agents">langchain/agents</a>。</p>
+<p>第 0 节讲过：agent 就是「模型在循环里调工具」，外面包一层装配。这一节就把那层装配填到最简 ——
+<strong>只填三个参数，看它能不能干活。</strong></p>
+<figure><!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+ "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Generated by graphviz version 16.0.0 (20260814.1018)
+ -->
+<!-- Title: loop Pages: 1 -->
+<svg width="592pt" height="209pt"
+ viewBox="0.00 0.00 592.00 209.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(32.4 177)">
+<title>loop</title>
+<polygon fill="#1a1334" stroke="none" points="-32.4,32.4 -32.4,-177 559.69,-177 559.69,32.4 -32.4,32.4"/>
+<!-- request -->
+<g id="node1" class="node">
+<title>request</title>
+<path fill="#251a49" stroke="#62b7ff" stroke-width="2.2" d="M82.68,-101.72C82.68,-101.72 12,-101.72 12,-101.72 6,-101.72 0,-95.72 0,-89.72 0,-89.72 0,-77 0,-77 0,-71 6,-65 12,-65 12,-65 82.68,-65 82.68,-65 88.68,-65 94.68,-71 94.68,-77 94.68,-77 94.68,-89.72 94.68,-89.72 94.68,-95.72 88.68,-101.72 82.68,-101.72"/>
+<text xml:space="preserve" text-anchor="middle" x="47.34" y="-78.11" font-family="Menlo" font-size="15.00" fill="#e5dbff">request</text>
+</g>
+<!-- model -->
+<g id="node2" class="node">
+<title>model</title>
+<path fill="#251a49" stroke="#9b7bdb" stroke-width="3" d="M255.61,-103.97C255.61,-103.97 191.68,-103.97 191.68,-103.97 185.68,-103.97 179.68,-97.97 179.68,-91.97 179.68,-91.97 179.68,-74.75 179.68,-74.75 179.68,-68.75 185.68,-62.75 191.68,-62.75 191.68,-62.75 255.61,-62.75 255.61,-62.75 261.61,-62.75 267.61,-68.75 267.61,-74.75 267.61,-74.75 267.61,-91.97 267.61,-91.97 267.61,-97.97 261.61,-103.97 255.61,-103.97"/>
+<text xml:space="preserve" text-anchor="middle" x="223.65" y="-76.56" font-family="Menlo" font-size="19.00" fill="#e5dbff">model</text>
+</g>
+<!-- request&#45;&gt;model -->
+<g id="edge1" class="edge">
+<title>request&#45;&gt;model</title>
+<path fill="none" stroke="#62b7ff" stroke-width="2.2" d="M95.51,-83.36C117.29,-83.36 143.32,-83.36 166.14,-83.36"/>
+<polygon fill="#62b7ff" stroke="#62b7ff" stroke-width="2.2" points="166.11,-86.51 175.11,-83.36 166.11,-80.21 166.11,-86.51"/>
+</g>
+<!-- tools -->
+<g id="node3" class="node">
+<title>tools</title>
+<path fill="#251a49" stroke="#62b7ff" stroke-width="3" d="M514.54,-144.59C514.54,-144.59 454.36,-144.59 454.36,-144.59 448.36,-144.59 442.36,-138.59 442.36,-132.59 442.36,-132.59 442.36,-116.12 442.36,-116.12 442.36,-110.12 448.36,-104.12 454.36,-104.12 454.36,-104.12 514.54,-104.12 514.54,-104.12 520.54,-104.12 526.54,-110.12 526.54,-116.12 526.54,-116.12 526.54,-132.59 526.54,-132.59 526.54,-138.59 520.54,-144.59 514.54,-144.59"/>
+<text xml:space="preserve" text-anchor="middle" x="484.45" y="-118.14" font-family="Menlo" font-size="18.00" fill="#e5dbff">tools</text>
+</g>
+<!-- model&#45;&gt;tools -->
+<g id="edge2" class="edge">
+<title>model&#45;&gt;tools</title>
+<path fill="none" stroke="#62b7ff" stroke-width="2.2" d="M269.06,-93.44C282.09,-96.22 296.38,-99.09 309.61,-101.36 349.43,-108.2 394.68,-114.13 429.03,-118.25"/>
+<polygon fill="#62b7ff" stroke="#62b7ff" stroke-width="2.2" points="428.54,-121.37 437.85,-119.3 429.28,-115.11 428.54,-121.37"/>
+<text xml:space="preserve" text-anchor="middle" x="354.61" y="-118.73" font-family="Menlo" font-size="13.00" fill="#62b7ff">action</text>
+</g>
+<!-- result -->
+<g id="node4" class="node">
+<title>result</title>
+<path fill="#251a49" stroke="#6e5fa8" stroke-width="2.2" stroke-dasharray="5,2" d="M515.29,-36.72C515.29,-36.72 453.61,-36.72 453.61,-36.72 447.61,-36.72 441.61,-30.72 441.61,-24.72 441.61,-24.72 441.61,-12 441.61,-12 441.61,-6 447.61,0 453.61,0 453.61,0 515.29,0 515.29,0 521.29,0 527.29,-6 527.29,-12 527.29,-12 527.29,-24.72 527.29,-24.72 527.29,-30.72 521.29,-36.72 515.29,-36.72"/>
+<text xml:space="preserve" text-anchor="middle" x="484.45" y="-13.11" font-family="Menlo" font-size="15.00" fill="#c7aeff">result</text>
+</g>
+<!-- model&#45;&gt;result -->
+<g id="edge4" class="edge">
+<title>model&#45;&gt;result</title>
+<path fill="none" stroke="#6e5fa8" stroke-width="2.2" stroke-dasharray="5,2" d="M264.27,-61.4C278.23,-54.49 294.28,-47.48 309.61,-42.86 348.34,-31.2 393.63,-25.05 428.27,-21.82"/>
+<polygon fill="#6e5fa8" stroke="#6e5fa8" stroke-width="2.2" points="428.51,-24.96 437.2,-21.05 427.96,-18.69 428.51,-24.96"/>
+<text xml:space="preserve" text-anchor="middle" x="354.61" y="-47.01" font-family="Menlo" font-size="13.00" fill="#c7aeff">final answer</text>
+</g>
+<!-- tools&#45;&gt;model -->
+<g id="edge3" class="edge">
+<title>tools&#45;&gt;model</title>
+<path fill="none" stroke="#c7aeff" stroke-width="2.2" d="M454.04,-102.72C438.66,-92.73 419.02,-81.98 399.61,-76.86 360.83,-66.64 315.55,-68.68 280.76,-73.06"/>
+<polygon fill="#c7aeff" stroke="#c7aeff" stroke-width="2.2" points="280.71,-69.89 272.23,-74.23 281.57,-76.13 280.71,-69.89"/>
+<text xml:space="preserve" text-anchor="middle" x="354.61" y="-81.01" font-family="Menlo" font-size="13.00" fill="#c7aeff">observation</text>
+</g>
+</g>
+</svg><figcaption>核心循环：request → model → action → tools → observation → model，直到给出结果</figcaption></figure>
+<pre><code class="language-python">from langchain.agents import create_agent
+
+agent = create_agent(
+    model=&quot;deepseek-flash&quot;,        # 用哪个模型
+    tools=[weather, calculator],   # 手里有哪些工具
+    system_prompt=&quot;You are a helpful assistant&quot;,   # 一句话说明它是谁
+)
+</code></pre>
+<p>三个参数之外什么都不给，它就自己能跑了。想再加强，才需要动中间件。</p>
+<h2 id="这三个参数在平台上填在哪">这三个参数在平台上填在哪</h2>
+<p>打开 Agents → New Agent，三样东西分别落在三个地方（Temperature 记得填 <code>0</code>）：</p>
+<table>
+<thead>
+<tr>
+<th>代码里的参数</th>
+<th>平台上填在哪</th>
+<th>我们填什么</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>model=</code></td>
 <td>Overview → Model</td>
-<td><code>deepseek-flash</code>（Temperature <code>0</code>）</td>
+<td><code>deepseek-flash</code></td>
 </tr>
 <tr>
 <td><code>system_prompt=</code></td>
@@ -579,17 +533,17 @@ agent = create_agent(model=&quot;deepseek-flash&quot;, tools=tools)
 <tr>
 <td><code>tools=</code></td>
 <td>Tools 页签</td>
-<td>三个：<code>web_search</code>、<code>python_execute</code>、<code>pg_query</code>（写文件用的 <code>write_file</code> 平台自带，不用勾）</td>
+<td>勾三个：<code>web_search</code>、<code>python_execute</code>、<code>pg_query</code>（写文件用的 <code>write_file</code> 平台自带，不用勾）</td>
 </tr>
 </tbody>
 </table>
+<p>保存后开新聊天，先发一句 <code>hi</code> 把开场白用掉，再问下面四个问题。</p>
 <h2 id="实测-四个例子">实测：四个例子</h2>
-<p>每个例子各开新聊天，先发一句 <code>hi</code>。</p>
 <table>
 <thead>
 <tr>
 <th>问</th>
-<th>它用了</th>
+<th>它挑了哪个工具</th>
 <th>结果</th>
 <th>用时</th>
 </tr>
@@ -1965,6 +1919,6 @@ SELECT month, SUM(CAST(revenue AS REAL)) FROM m10 GROUP BY month;
 在本平台的完整对应物。</p>
 </blockquote>
 </article>
-<nav><div class="title">Steps</div><a class="" href="#目录">目录</a><a class="" href="#0-两个概念-agent-与-deep-agent">0 · 两个概念：agent 与 deep agent</a><a class="h3" href="#0-1-agent-model-harness">0.1 agent = model + harness</a><a class="h3" href="#0-2-deep-agent-同一个循环-四类内置能力">0.2 deep agent = 同一个循环 + 四类内置能力</a><a class="h3" href="#0-3-两者的差别-一张表">0.3 两者的差别（一张表）</a><a class="h3" href="#0-4-平台上的对应物">0.4 平台上的对应物</a><a class="" href="#工作区约定-上传件与产物都归-agent">工作区约定：上传件与产物都归 agent</a><a class="" href="#开场-页面原文">开场（页面原文）</a><a class="" href="#create-agent-就是一个可配置的-harness">create_agent 就是一个可配置的 harness</a><a class="" href="#核心组件-core-components">核心组件（Core components）</a><a class="" href="#在平台上-模型-系统提示词-工具">在平台上：模型 + 系统提示词 + 工具</a><a class="" href="#实测-四个例子">实测：四个例子</a><a class="" href="#两条要讲的判断">两条要讲的判断</a><a class="" href="#实测">实测</a><a class="" href="#两条要讲的判断-1">两条要讲的判断</a><a class="" href="#三条规则-抄自-doc-chat-py-的-rules">三条规则（抄自 doc_chat.py 的 RULES）</a><a class="" href="#实测-上传真文件-不是演示数据">实测（上传真文件，不是演示数据）</a><a class="" href="#两条要讲的判断-2">两条要讲的判断</a><a class="" href="#overview-页面原文-中文译文">Overview（页面原文 · 中文译文）</a><a class="" href="#why-use-a-supervisor-页面原文-中文译文">Why use a supervisor?（页面原文 · 中文译文）</a><a class="" href="#结构-一共-3-个-agent-1-2">结构：一共 3 个 agent（1 + 2）</a><a class="" href="#教程的步骤">教程的步骤</a><a class="" href="#平台上怎么还原">平台上怎么还原</a><a class="" href="#实测-case-4-assistant-id-323">实测（case-4-assistant，id 323）</a><a class="" href="#和教程的差异-要如实讲">和教程的差异（要如实讲）</a><a class="" href="#四个要讲的判断">四个要讲的判断</a><a class="" href="#overview-页面原文-中文译文-1">Overview（页面原文 · 中文译文）</a><a class="" href="#流程-页面那张图的文字版">流程（页面那张图的文字版）</a><a class="" href="#结构-1-个-agent-3-步配置">结构：1 个 agent + 3 步配置</a><a class="" href="#教程的步骤-9-节压成-5-行">教程的步骤（9 节压成 5 行）</a><a class="" href="#平台上怎么还原-1-个-agent-1-段-middleware">平台上怎么还原（1 个 agent + 1 段 middleware）</a><a class="" href="#实测-case-5-support-id-325">实测（case-5-support，id 325）</a><a class="" href="#和教程的差异-要如实讲-1">和教程的差异（要如实讲）</a><a class="" href="#三个要讲的判断">三个要讲的判断</a><a class="" href="#复建自检-5-条">复建自检（5 条）</a><a class="" href="#实测-deep-agent-bash-设成-bash-may-mutate">实测（deep agent，bash 设成 bash_may_mutate）</a><a class="" href="#两个必须讲的判断">两个必须讲的判断</a><a class="" href="#实测-case-6-subagents-deepseek-flash-temperature-0">实测（case-6-subagents，deepseek-flash，temperature 0）</a><a class="" href="#三个必须讲的判断">三个必须讲的判断</a><a class="" href="#对照实验-改描述-委派会变吗">对照实验：改描述，委派会变吗？</a><a class="" href="#实测-case-7-handoff-三个角色-cli-验收">实测（case-7-handoff，三个角色，CLI 验收）</a><a class="" href="#四个要讲的判断-1">四个要讲的判断</a><a class="" href="#实测-case-8-skills-只有-skill-python-execute-两个工具">实测（case-8-skills，只有 skill + python_execute 两个工具）</a><a class="" href="#三个要讲的判断-1">三个要讲的判断</a><a class="" href="#实测-case-9-router">实测（case-9-router）</a><a class="" href="#三个要讲的判断-2">三个要讲的判断</a><a class="" href="#实测-同一个问题-三轮改造">实测（同一个问题，三轮改造）</a><a class="" href="#三条要讲的判断">三条要讲的判断</a><a class="" href="#实测-教程原句-write-a-blog-post-about-how-ai-agents-are-transforming-software-development">实测（教程原句：Write a blog post about how AI agents are transforming software development）</a><a class="" href="#判断">判断</a><a class="" href="#多-sheet-excel-用户要求的-quot-和-csv-一样-quot">多 sheet Excel（用户要求的&amp;quot;和 CSV 一样&amp;quot;）</a><a class="" href="#示例-一个-3-sheet-工作簿的完整对话">示例：一个 3-sheet 工作簿的完整对话</a><a class="" href="#它的完整配置-照抄即可复建">它的完整配置（照抄即可复建）</a><a class="" href="#落盘产物-实测">落盘产物（实测）</a><a class="" href="#三个要讲的判断-3">三个要讲的判断</a><a class="" href="#a-建-agent">A. 建 agent</a><a class="" href="#b-工具">B. 工具</a><a class="" href="#c-两个专家">C. 两个专家</a><a class="" href="#d-开新聊天-这一步最容易漏">D. 开新聊天（这一步最容易漏）</a><a class="" href="#e-例-1-单域">E. 例 1 · 单域</a><a class="" href="#f-例-2-跨域-审批">F. 例 2 · 跨域 + 审批</a><a class="" href="#g-看日程-右侧-calendar">G. 看日程（右侧 Calendar）</a><a class="" href="#h-反证-可选-但很值得做">H. 反证（可选，但很值得做）</a><a class="" href="#i-常见失败对照">I. 常见失败对照</a></nav>
+<nav><div class="title">Steps</div><a class="" href="#目录">目录</a><a class="" href="#0-先分清两个词-agent-和-deep-agent">0 · 先分清两个词：agent 和 deep agent</a><a class="h3" href="#0-1-agent-是什么">0.1 agent 是什么</a><a class="h3" href="#0-2-deep-agent-又是什么">0.2 deep agent 又是什么</a><a class="h3" href="#0-3-两者的差别-上课就讲这张表">0.3 两者的差别（上课就讲这张表）</a><a class="h3" href="#0-4-在平台上怎么选">0.4 在平台上怎么选</a><a class="" href="#工作区约定-上传的文件和产出的文件-都留在-agent-自己的目录里">工作区约定：上传的文件和产出的文件，都留在 agent 自己的目录里</a><a class="" href="#这三个参数在平台上填在哪">这三个参数在平台上填在哪</a><a class="" href="#实测-四个例子">实测：四个例子</a><a class="" href="#两条要讲的判断">两条要讲的判断</a><a class="" href="#实测">实测</a><a class="" href="#两条要讲的判断-1">两条要讲的判断</a><a class="" href="#三条规则-抄自-doc-chat-py-的-rules">三条规则（抄自 doc_chat.py 的 RULES）</a><a class="" href="#实测-上传真文件-不是演示数据">实测（上传真文件，不是演示数据）</a><a class="" href="#两条要讲的判断-2">两条要讲的判断</a><a class="" href="#overview-页面原文-中文译文">Overview（页面原文 · 中文译文）</a><a class="" href="#why-use-a-supervisor-页面原文-中文译文">Why use a supervisor?（页面原文 · 中文译文）</a><a class="" href="#结构-一共-3-个-agent-1-2">结构：一共 3 个 agent（1 + 2）</a><a class="" href="#教程的步骤">教程的步骤</a><a class="" href="#平台上怎么还原">平台上怎么还原</a><a class="" href="#实测-case-4-assistant-id-323">实测（case-4-assistant，id 323）</a><a class="" href="#和教程的差异-要如实讲">和教程的差异（要如实讲）</a><a class="" href="#四个要讲的判断">四个要讲的判断</a><a class="" href="#overview-页面原文-中文译文-1">Overview（页面原文 · 中文译文）</a><a class="" href="#流程-页面那张图的文字版">流程（页面那张图的文字版）</a><a class="" href="#结构-1-个-agent-3-步配置">结构：1 个 agent + 3 步配置</a><a class="" href="#教程的步骤-9-节压成-5-行">教程的步骤（9 节压成 5 行）</a><a class="" href="#平台上怎么还原-1-个-agent-1-段-middleware">平台上怎么还原（1 个 agent + 1 段 middleware）</a><a class="" href="#实测-case-5-support-id-325">实测（case-5-support，id 325）</a><a class="" href="#和教程的差异-要如实讲-1">和教程的差异（要如实讲）</a><a class="" href="#三个要讲的判断">三个要讲的判断</a><a class="" href="#复建自检-5-条">复建自检（5 条）</a><a class="" href="#实测-deep-agent-bash-设成-bash-may-mutate">实测（deep agent，bash 设成 bash_may_mutate）</a><a class="" href="#两个必须讲的判断">两个必须讲的判断</a><a class="" href="#实测-case-6-subagents-deepseek-flash-temperature-0">实测（case-6-subagents，deepseek-flash，temperature 0）</a><a class="" href="#三个必须讲的判断">三个必须讲的判断</a><a class="" href="#对照实验-改描述-委派会变吗">对照实验：改描述，委派会变吗？</a><a class="" href="#实测-case-7-handoff-三个角色-cli-验收">实测（case-7-handoff，三个角色，CLI 验收）</a><a class="" href="#四个要讲的判断-1">四个要讲的判断</a><a class="" href="#实测-case-8-skills-只有-skill-python-execute-两个工具">实测（case-8-skills，只有 skill + python_execute 两个工具）</a><a class="" href="#三个要讲的判断-1">三个要讲的判断</a><a class="" href="#实测-case-9-router">实测（case-9-router）</a><a class="" href="#三个要讲的判断-2">三个要讲的判断</a><a class="" href="#实测-同一个问题-三轮改造">实测（同一个问题，三轮改造）</a><a class="" href="#三条要讲的判断">三条要讲的判断</a><a class="" href="#实测-教程原句-write-a-blog-post-about-how-ai-agents-are-transforming-software-development">实测（教程原句：Write a blog post about how AI agents are transforming software development）</a><a class="" href="#判断">判断</a><a class="" href="#多-sheet-excel-用户要求的-quot-和-csv-一样-quot">多 sheet Excel（用户要求的&amp;quot;和 CSV 一样&amp;quot;）</a><a class="" href="#示例-一个-3-sheet-工作簿的完整对话">示例：一个 3-sheet 工作簿的完整对话</a><a class="" href="#它的完整配置-照抄即可复建">它的完整配置（照抄即可复建）</a><a class="" href="#落盘产物-实测">落盘产物（实测）</a><a class="" href="#三个要讲的判断-3">三个要讲的判断</a><a class="" href="#a-建-agent">A. 建 agent</a><a class="" href="#b-工具">B. 工具</a><a class="" href="#c-两个专家">C. 两个专家</a><a class="" href="#d-开新聊天-这一步最容易漏">D. 开新聊天（这一步最容易漏）</a><a class="" href="#e-例-1-单域">E. 例 1 · 单域</a><a class="" href="#f-例-2-跨域-审批">F. 例 2 · 跨域 + 审批</a><a class="" href="#g-看日程-右侧-calendar">G. 看日程（右侧 Calendar）</a><a class="" href="#h-反证-可选-但很值得做">H. 反证（可选，但很值得做）</a><a class="" href="#i-常见失败对照">I. 常见失败对照</a></nav>
 </div>
 </body></html>
