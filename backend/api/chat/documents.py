@@ -813,12 +813,50 @@ async def clear_session_workspace(session_id: str, db: Session = Depends(get_db)
         raise HTTPException(status_code=400, detail="This conversation has no agent workspace")
 
     root = _resolve_agent_workspace(session, db, workspace_mgr)
-    if not root.is_dir():
+
+    # Candidate workspaces for this agent: the resolved one plus the legacy default.
+    # A vault-bound conversation resolves to the vault workspace, but files uploaded
+    # from an earlier unbound conversation of the same agent sit in
+    # outputs/<user>/agents/agent_<id>/ — clearing only one made "empty" look broken.
+    roots = [root]
+    try:
+        legacy = workspace_mgr.user_base() / "agents" / f"agent_{session.agent_id}"
+        if legacy.resolve() != root.resolve():
+            roots.append(legacy)
+    except Exception:
+        pass
+    roots = [r for r in roots if r.is_dir()]
+    if not roots:
         return {"status": "ok", "removed_files": 0, "workspace": str(root), "note": "workspace did not exist"}
+
+    # The Files panel's "Uploaded" list is built from `session_documents`, not from
+    # the directory: deleting the bytes alone left the panel still listing the file
+    # (and the agent still believing it exists). Clear the rows with the files.
+    from models.deep_agent import SessionDocument as _SessionDocument
+
+    doc_rows = db.query(_SessionDocument).filter(_SessionDocument.session_id == session_id).all()
+    removed_docs = 0
+    for doc in doc_rows:
+        for candidate in (doc.file_path, doc.filename):
+            if not candidate:
+                continue
+            try:
+                from pathlib import Path as _P
+
+                p_ = _P(candidate)
+                if p_.is_file() and (root in p_.parents or p_.parent == root):
+                    p_.unlink(missing_ok=True)
+            except Exception:
+                pass
+        db.delete(doc)
+        removed_docs += 1
+    if removed_docs:
+        db.commit()
 
     keep_names = {"AGENTS.md", "CLAUDE.md", ".gitkeep"}
     removed, kept = 0, []
-    for entry in sorted(root.iterdir()):
+    for root in roots:
+      for entry in sorted(root.iterdir()):
         if entry.name in keep_names:
             kept.append(entry.name)
             continue
@@ -842,6 +880,7 @@ async def clear_session_workspace(session_id: str, db: Session = Depends(get_db)
     return {
         "status": "ok",
         "removed_files": removed,
+        "removed_documents": removed_docs,
         "workspace": str(root),
         "kept": kept,
     }
