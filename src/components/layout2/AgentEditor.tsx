@@ -125,7 +125,19 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
           setConfigLoadError('服务器没有返回配置');
           return;
         }
-        setJsonEdit(JSON.stringify(res.data, null, 2));
+        const loaded = res.data;
+        setJsonEdit(JSON.stringify(loaded, null, 2));
+        const cfg = loaded.config || {};
+        setEditableName(loaded.name || '');
+        setEditableDesc(loaded.description || '');
+        setEditableCategory(loaded.category || 'general');
+        setEditableModel(cfg.model || '');
+        setEditableTemp(cfg.temperature ?? 0.7);
+        setEditableMaxTokens(cfg.max_tokens ?? '');
+        setEditablePrompt(cfg.system_prompt || '');
+        setSelectedNativeTools(toToolIdList(cfg.native_tools));
+        setSelectedCustomTools(toToolIdList(cfg.custom_tools));
+        setSelectedSkills(cfg.skills || []);
         setConfigLoadError(null);
         setConfigLoaded(true);
         setConfigRev(v => v + 1);
@@ -298,8 +310,11 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         ? 'You are a helpful AI assistant. Be concise and accurate. When you are unsure, admit it rather than guessing.'
         : '')
     );
-    setJsonEdit(JSON.stringify(agent, null, 2));
-    setLocalAgentId(typeof agent.id === 'number' ? agent.id : null);
+    // jsonEdit belongs to the server fetch for an existing agent. Writing the tab
+    // snapshot here raced with that fetch and won, so the editor showed (and
+    // would save) the snapshot while the server held the real config.
+    if (isNew) setJsonEdit(JSON.stringify(agent, null, 2));
+    setLocalAgentId(typeof agent.id === 'number' ? agent.id : Number(agent.id) || null);
     // Stored list only — an existing agent with [] stays []. (The default base is
     // offered only for a brand-new agent, in the effect above.)
     setSelectedNativeTools(toToolIdList(config.native_tools));
