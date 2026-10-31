@@ -656,18 +656,34 @@ async def resume_chat(
             # Only prose the run produced *after* the review counts as the
             # reply. Walking the whole history picked up the opening greeting
             # once the resumed turn ended on a tool call.
+            def _role(msg):
+                # Checkpointed messages may be objects or plain dicts; read both
+                # so the scope below cannot silently fall through to "everything".
+                if isinstance(msg, dict):
+                    return str(msg.get("type") or msg.get("role") or "")
+                return str(getattr(msg, "type", "") or "")
+
+            def _content(msg):
+                return msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", "")
+
+            def _tool_calls(msg):
+                return msg.get("tool_calls") if isinstance(msg, dict) else getattr(msg, "tool_calls", None)
+
             _msgs = result["messages"]
             _start = len(_msgs) - 1
-            while _start > 0 and getattr(_msgs[_start], "type", "") != "human":
+            while _start > 0 and _role(_msgs[_start]) != "human":
                 _start -= 1
             for msg in reversed(_msgs[_start:]):
-                if getattr(msg, "type", "") != "ai":
+                if _role(msg) != "ai" or _tool_calls(msg):
                     continue
-                if getattr(msg, "tool_calls", None):
-                    continue
-                if msg.content:
-                    response_text = msg.content
+                if _content(msg):
+                    response_text = _content(msg)
                     break
+            if not response_text:
+                logger.info(
+                    f"Resume for {session_id} produced no prose in the current turn "
+                    f"(roles: {[_role(m) for m in _msgs]})"
+                )
 
         logger.info(f"Chat resumed for session {session_id}: {response_text[:100]}")
 

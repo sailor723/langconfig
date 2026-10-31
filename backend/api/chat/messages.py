@@ -1415,8 +1415,10 @@ async def send_message_stream(
                 yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
 
             finally:
-                # Always save assistant message, even if there was an error
-                if full_response:
+                # Save the turn even when it ended in an interrupt: the run has
+                # no prose yet, but the tool calls it made (and the ones it is
+                # waiting to make) are exactly the evidence a reviewer needs.
+                if full_response or collected_tool_names:
                     try:
                         # Re-query session to ensure we have a fresh, attached object
                         final_session = (await async_db.execute(
@@ -1426,10 +1428,11 @@ async def send_message_stream(
                         if final_session:
                             logger.info(f"Before adding assistant message: total_messages={len(final_session.messages)}")
 
-                            final_session.messages.append(
-                                _stored_message("assistant", full_response)
-                            )
-                            flag_modified(final_session, "messages")
+                            if full_response:
+                                final_session.messages.append(
+                                    _stored_message("assistant", full_response)
+                                )
+                                flag_modified(final_session, "messages")
 
                             # Update metrics with RAG token tracking
                             rough_tokens = len(request.message) + len(full_response)
