@@ -661,6 +661,78 @@ async def web_fetch(url: str, timeout: int = 10) -> str:
 
 
 # =============================================================================
+# Retrieval over documents (embedding search — the semantic-search tutorial)
+# =============================================================================
+
+async def rag_search(query: str, k: int = 4) -> str:
+    """Search the documents this account has indexed, by meaning.
+
+    This is the tutorial's retrieval step exposed as a tool:
+    https://docs.langchain.com/oss/python/langchain/knowledge-base
+
+    Returns the nearest passages with their **source and page**, so the model can
+    cite where a claim came from. The header says out loud that these are the only
+    passages available: a retrieval tool whose output looks like a general answer
+    invites the model to continue from its own memory, which is the failure the
+    document-chat case exists to expose.
+
+    Scoped to the caller's own collection (`lc_kb_u<id>`), so an agent cannot search
+    another account's documents — the collection is chosen from the identity, never
+    from an argument.
+
+    Args:
+        query: What to look for, in natural language. Not keywords — this is a
+            semantic search, so the question the user asked is a valid query.
+        k: How many passages to return (1-20, default 4). More passages means more
+            context but a weaker signal-to-noise ratio; if the answer is "vague",
+            raise this, and if it is "wrong", lower it.
+
+    Returns:
+        Numbered passages with `source p.<page>` labels and a distance score, or an
+        explanation of why there is nothing to search.
+    """
+    from core.context.current_user import current_user_id
+
+    try:
+        user_id = current_user_id()
+        if user_id is None:
+            return (
+                "No account context for this run, so no document index to search. "
+                "Do not answer from memory — say the documents could not be searched."
+            )
+        from core.rag import has_index, search_with_scores
+
+        if not has_index(user_id):
+            return (
+                "No documents are indexed for this account yet. Index a document "
+                "first; until then say you cannot search the documents rather than "
+                "answering from your own knowledge."
+            )
+        pairs = search_with_scores(user_id, query, k=max(1, min(int(k or 4), 20)))
+    except Exception as exc:  # noqa: BLE001 — a retrieval failure is not a turn failure
+        logger.warning("rag_search failed: %s", exc)
+        return f"Document search failed: {exc}. Do not answer from memory — tell the user the search failed."
+
+    if not pairs:
+        return "No passages matched this query. Say the documents do not cover it."
+
+    lines = [
+        f"{len(pairs)} passage(s) from the indexed documents. These are the ONLY "
+        "passages available: cite them by number, and if they do not answer the "
+        "question say so instead of filling the gap yourself.",
+        "",
+    ]
+    for i, (doc, distance) in enumerate(pairs, start=1):
+        md = doc.metadata or {}
+        source = md.get("source") or "unknown"
+        page = f" p.{md['page']}" if md.get("page") else ""
+        text = "\n".join(line.rstrip() for line in (doc.page_content or "").splitlines()).strip()
+        lines.append(f"[{i}] {source}{page} (distance {float(distance):.3f})\n{text}")
+        lines.append("")
+    return "\n".join(lines).strip()
+
+
+# =============================================================================
 # Tavily Search (AI-optimized web search, requires API key)
 # =============================================================================
 
@@ -1791,8 +1863,18 @@ def _record_file_metadata(
                 db.commit()
                 logger.debug(f"Updated file metadata for: {relative_path}")
             else:
+                # Owner: whoever this run belongs to. Migration 034 backfilled every
+                # pre-existing row so that no workspace file is ownerless — a new row
+                # written without one breaks that invariant, and an ownerless row is
+                # visible to nobody (or to everybody) depending on the query, which is
+                # how one person's deliverable disappears from the Files panel.
+                from services import workspace_scope
+
+                owner_id = workspace_scope.owner_id(db)
+
                 # Create new record
                 file_record = WorkspaceFile(
+                    owner_id=owner_id,
                     filename=filename,
                     file_path=relative_path,
                     size_bytes=actual_size,
