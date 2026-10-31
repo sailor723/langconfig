@@ -3,7 +3,10 @@
 > 五个能直接用的 agent，按"从最小到完整"排：1 基础 → 2 全工具 → 3 文档问答 → **4 个人助理** → **5 售后客服**。
 > 后面第 2 类才是机制（HITL + 四个模式），用到时再查。
 >
-> 深度研究（多轮搜索 → 带引用报告）单独成篇：`docs/reference/deep-research-agents.md`。
+> 深度研究（多轮搜索 → 带引用报告），完整版另见 `docs/reference/deep-research-agents.md`。
+>
+> 全书三条线：**第 1 类**能直接用的 agent（案例 1–5）→ **第 2 类**机制（HITL + 案例 6–9）
+> → **案例 10–12** 三个重活 agent（深度研究 / 内容创作 / CSV·Excel 分析）。
 
 ## 两种 agent：LangChain agent（normal）与 Deep Agent
 
@@ -34,6 +37,28 @@
 
 - **同一个 agent 换类型 = 新聊天**：`use_deepagents` 改了以后旧会话不会迁移（提示词和工具集都变了）。
 - **deep agent 的工具栏是"你自己声明 + SDK 自带"**：写 `native_tools` 时不要指望里面出现 `ls`/`write_file` —— 那些来自 SDK 的文件系统中间件，配置里看不到但运行时有。
+
+## 工作区约定：上传件与产物都归 agent
+
+每个 agent 有自己的工作区 `outputs/users/<uid>/agents/agent_<id>/`（绑 vault 的会话在 `outputs/users/<uid>/<vault>/agents/agent_<id>/`）。规矩只有一条：
+
+> **用户上传的文件、agent 生成的交付物，都必须落在这个工作区里。**
+
+| 目录 | 放什么 |
+|---|---|
+| `upload/` | 用户上传的附件（csv / xlsx / pdf / docx / 图片…） |
+| `generated/` | agent 的交付物（报告、`.ics`、`.eml`、dashboard、数据库） |
+| `skills/` | 该 agent 的私有技能 |
+| `other/` | 中间产物 |
+
+**为什么坚持这条**：Files 面板就是按工作区列的（`GET /api/chat/{sid}/generated-files`），落在别处的文件用户在界面上**看不见**，也删不掉。
+
+**两个曾经的例外（已修）**：
+
+- **数据分析**（上传 CSV 自动出 dashboard）原本把库和 HTML 写进共享目录 `data/analysis_dbs/`，所以「我传的文件去哪了？」——现在写进 `<工作区>/generated/analysis/`，同名覆盖。
+- **Excel 上传**原本不在"复制到工作区"的白名单里，agent 在工作区里根本看不见文件；`.xlsx/.xlsm/.xls` 已补进名单。
+
+**清空工作区**：Files 面板右上角 🗑 → 两段确认 → 清 `upload/ generated/ other/ skills/` 的内容，保留 `AGENTS.md` / `CLAUDE.md` 与目录骨架；同时删除该会话的 `session_documents` 记录（否则面板列表还显示旧文件）。
 
 # 案例 1 · 第一个 agent：create_agent 的三要素 + 四个例子
 
@@ -736,6 +761,95 @@ into a coherent response.*
 
 ---
 
+
+# 案例 10 · 深度研究：文件即交付物（`case-10-deep-research`，id 327）
+
+依据：**[deepagents/deep-research](https://docs.langchain.com/oss/python/deepagents/deep-research)** + 本地 `deepagents-quickstarts/deep_research`。
+
+| 项 | 值 |
+|---|---|
+| 类型 | **deep agent** |
+| 结构 | orchestrator + **1 个** `research-agent` 子代理 + `todo_list` |
+| 工具 | `tavily_search` / `web_fetch` / `think_tool` / `write_todos` / `read_todos` |
+| 契约 | 报告写进文件、子代理回报 ≤500 字、**每次搜索后必须 `think_tool`**、引用 `[n]` + `### Sources` 连续编号 |
+
+## 实测（同一个问题，三轮改造）
+
+*Compare the main approaches to context engineering for AI agents in 2025.*
+
+| | 第一版 | 加严 prompt | **对齐 quickstart 契约** |
+|---|---|---|---|
+| 耗时 | 180s | 261s | 277s |
+| 委派 | 1 | 2 | **1（默认单个 ✓）** |
+| `think_tool` | 0 | 0 | **2 ✓** |
+| `tavily_search` | 13 ❌ | 12 ❌ | **5 ✓**（上限 5） |
+| `web_fetch` | 15 ❌ | 16 ❌ | **11**（上限 8，仍超） |
+| 交付物 | 无 | 无 | **`generated/research/<主题>/{research_request.md, final_report.md}` ✓** |
+| 引用 | 30 | 38 | **40 + Sources ✓** |
+
+**三条教训**（详见 `docs/reference/deep-research-agents.md`）：
+
+1. **超大工具结果会被平台截断**（换成 500 字预览）→ 主 agent 误判"资料不全"就自己下场搜（第一版 13 次搜索的由来）。
+2. **预算只是 prompt 建议**：写"≤5 次"能把 13 压到 5，但 `web_fetch` 仍跑到 11（平台没有 `ToolCallLimit` 中间件）。
+3. **一轮 = 一条消息**：过程旁白和最终答复同体，聊天里无法只留摘要。
+
+# 案例 11 · 内容创作：品牌语气 + 技能 + 研究子代理（`case-11-content-builder`，id 328）
+
+依据：**[deepagents/content-builder](https://docs.langchain.com/oss/python/deepagents/content-builder)**。
+
+| 教程机制 | 平台落地 |
+|---|---|
+| `AGENTS.md` 品牌语气（always-on） | 存进 `agent_docs`，deep agent 由 `MemoryMiddleware` 读进系统提示词 |
+| `skills/blog-post/SKILL.md`、`social-media` | 技能库新增两个技能，生产契约写在技能里 |
+| `researcher` 子代理 | 独立 prompt，必须先研究并**把结果写到指定路径** |
+| `generate_cover`（Gemini 出图） | **平台无文生图** → 改用 `write_file` 写 **SVG 封面**（1200×630 / 1080×1080） |
+
+## 实测（教程原句：*Write a blog post about how AI agents are transforming software development*）
+
+- 249.6s；工具：`write_file`×6、`task`×1、`tavily_search`×9、`web_fetch`×11、`think_tool`×1
+- 产物：`generated/blogs/ai-agents-software-development/{post.md（139 行，7 个 H2/H3+CTA）, hero.svg}` + 研究笔记
+- 正文 **24 处 `[来源: URL]`**，全部真实链接；研究笔记里写清了互相冲突的数据（Copilot 快 55.8% vs METR 慢 19% vs DORA 吞吐下降）
+
+## 判断
+
+1. **没有文生图也能做内容 agent**：SVG 封面让"必须有配图"这条契约仍然可验收。
+2. **技能是契约载体**：产出路径、封面规格、自检清单都写在 SKILL.md 里，agent 换一次对话也不会忘。
+
+# 案例 12 · CSV / Excel 数据分析（`case-12-csv-chat`，id 329）
+
+依据：**[langchain/sql-agent](https://docs.langchain.com/oss/python/langchain/sql-agent)**。
+
+| 文档的 4 个工具 | 平台的对应物 |
+|---|---|
+| `sql_db_list_tables()` | `sqlite_execute("SELECT name FROM sqlite_master WHERE type='table' …")` |
+| `sql_db_schema(tables)` | `SELECT sql FROM sqlite_master WHERE name=…` + `SELECT * FROM "t" LIMIT 3` |
+| `sql_db_query(query)` | `sqlite_execute(sql, db_path=…)`（出错把错误串回给模型） |
+| `sql_db_query_checker(query)`（LLM 复检） | **写成执行前自检清单**（NULL/NOT IN、UNION ALL、BETWEEN 开闭、类型、引号、JOIN 列） |
+| — | 多一步：**CSV / Excel → 建表**（`sqlite_load_csv`，文档假定库已存在） |
+
+## 多 sheet Excel（用户要求的"和 CSV 一样"）
+
+1. `glob("**/*", path="upload")` 找文件；
+2. **`read_any_file("upload/<文件>")`** 读 —— Excel 返回按 sheet 分块的文本 `[Sheet: 汇总]` + `a | b | c` 行；
+3. 每个 sheet 块当一份 CSV：`|` 换逗号 → `sqlite_load_csv(..., db_path="generated/<stem>.db")`，**所有 sheet 同一个库**；
+4. 表名规则：**只能 ASCII**（`9月`→`m9`、`汇总`→`summary`），否则 `sqlite_load_csv` 直接报错重试。
+
+## 实测（3 sheet 工作簿：汇总 / 9月 / 10月）
+
+```
+一次建好：summary(3行) / m9(3行) / m10(3行)  →  generated/multi_sheet.db (16 KB)
+```
+
+| 问 | 结果 |
+|---|---|
+| 几个 sheet、哪些表 | 3 个 → `summary` / `m9` / `m10`，各 3 行 |
+| 9 月 / 10 月总收入 | 2,780,000 / 3,042,000，环比 **+262,000（+9.42%）** |
+| 增长最快 region | **华北 +13.33%**（华东 +10.16%、华南 +6.25%） |
+
+## 两个坑
+
+1. **类型**：`sqlite_load_csv` 把所有列建成 TEXT，求和前必须 `CAST(x AS REAL)` —— agent 会自己发现并说明（实测它主动提示了这点）。
+2. **中文 sheet 名**：`sqlite_load_csv` 表名只接受 `[A-Za-z_][A-Za-z0-9_]*`，所以中文 sheet 必须转写成 ASCII 表名（想保留中文得改走 `python_execute` + `to_sql`）。
 
 # 附录 · 复建自检清单（照案例 4 复建一遍）
 
