@@ -604,6 +604,36 @@ class _AgentAssemblyMixin:
             else:
                 logger.debug("No middleware configured for this agent")
 
+            # Skills: the `skill` tool only means something if the model knows
+            # which ids exist. The docs' `load_skill` example lists them in its
+            # docstring for exactly this reason; without the list the agent never
+            # asks (measured: a code-review question went straight to
+            # python_execute because the tool said nothing about code-review).
+            _skill_tool = next((t for t in tools if getattr(t, "name", "") == "skill"), None)
+            if _skill_tool is not None:
+                try:
+                    from db.database import SessionLocal
+                    from models.skill import Skill
+
+                    _db = SessionLocal()
+                    try:
+                        _rows = _db.query(Skill).order_by(Skill.usage_count.desc()).limit(40).all()
+                        if _rows:
+                            _listing = "\n".join(
+                                f"- {r.skill_id}: {(r.description or '').strip().splitlines()[0][:80]}"
+                                for r in _rows
+                            )
+                            _skill_tool.description = (
+                                "用我：按需加载一项专门技能的内容（渐进披露）。"
+                                "只有需要该领域的专门知识时才调用，闲聊和通用问题不要调用。\n"
+                                f"可用技能：\n{_listing}"
+                            )
+                            logger.info("skill tool description lists %d skill(s)", len(_rows))
+                    finally:
+                        _db.close()
+                except Exception as _e:  # noqa: BLE001 — never block a build on this
+                    logger.warning(f"Could not list skills on the tool description: {_e}")
+
             # Handoff: generate one transfer tool per configured edge, the way
             # the docs define a handoff tool (`transfer_to_sales`), instead of a
             # single `handoff(to=...)` whose target the model has to invent.
