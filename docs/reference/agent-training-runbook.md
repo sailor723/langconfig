@@ -490,84 +490,6 @@ into a coherent response.*
 3. **审批放在有副作用的那一层**：放 supervisor 只能拦住“派活”，拦不住“发信”。
 4. **专家要有自己的中间件**：子代理原来既无 `interrupt_on` 也无文件系统，文件根本落不了盘（平台已修）。
 
-
----
-
-# 附录 · 复建自检清单（案例 6 · 个人助理）
-
-照着做，每步都有**可观察的判据**。任一步判据不成立，先修这一步再往下走 —— 后面的现象都会失真。
-
-## A. 建 agent
-
-- [ ] Agents → **New Agent**，名字填 `case-6-assistant`
-- [ ] Overview → Model 选 `deepseek-flash`，Temperature 填 `0`
-- [ ] Prompt 页签 → System Prompt 填：
-  `你是一个个人助理。日程问题交给 calendar_expert，邮件问题交给 email_expert；你自己不写文件、不算日期。一个请求涉及两件事时，分别派给两个专家并汇总结果。`
-- [ ] **Save**（判据：顶部出现保存成功，工具条 `ID:` 变成一个数字）
-
-## B. 工具
-
-- [ ] Tools 页签 → **只勾 `Task (Subagent)`**
-- [ ] 判据：面板显示 **`1/N selected`**；勾其他工具会破坏这个案例的分层
-
-## C. 两个专家
-
-- [ ] JSON 页签 → 找到 `"subagents": []`，替换成文档里那段（calendar_expert / email_expert）
-- [ ] 判据：`"subagents"` 里两个对象，各含 `name` / `description` / `system_prompt` / `tools`
-- [ ] 判据：**`email_expert` 的 `interrupt_on` 在自己的对象里**（不是写在 agent 顶层的 `middleware`）
-- [ ] **Save**
-
-## D. 开新聊天（这一步最容易漏）
-
-- [ ] 关掉编辑器的旧聊天，**开一个新聊天**
-- [ ] 先发 `hi`（首轮会带平台开场白，别拿它当结果）
-- [ ] 判据：回复里出现 `case-6-assistant` 或你的 agent 名、以及工作区路径
-
-## E. 例 1 · 单域
-
-- [ ] 发：`安排下周二下午 2 点跟 Alice 开 1 小时的会`
-- [ ] 判据 1：工具记录里有 **`task`**，且子代理是 `calendar_expert`
-- [ ] 判据 2：子代理内部出现 `python_execute`（算日期）
-- [ ] 判据 3：出现 **`write_file`**，Files 面板里多出 `与…开会.ics`
-- [ ] 判据 4：回复里有具体日期（例：2026-11-03）与 14:00–15:00
-
-## F. 例 2 · 跨域 + 审批
-
-- [ ] **再开一个新聊天** → `hi`
-- [ ] 发：`安排下周二下午 2 点跟 Alice 开 1 小时的会，然后给 alice@example.com 发封确认邮件`
-- [ ] 判据 1：一轮里出现**两个 `task`**（calendar_expert + email_expert）
-- [ ] 判据 2：**输入框变成审批卡**，待批的是 `write_file`，路径含 `generated/outbox/`
-- [ ] 判据 3：点 **批准这一次** → Files 面板出现 `outbox/…eml`
-- [ ] 判据 4：再点一次批准 → **409**（批准只对那一次有效）
-
-## G. 看日程（右侧 Calendar）
-
-- [ ] 点聊天窗口右上角的**日历图标** → 面板出现在右侧
-- [ ] 判据 1：例 1 那天（例：11 月 3 日）格子里有 `14:00 与…开会`
-- [ ] 判据 2：点那天，下方显示时间 / 参与者 / 来源文件 `generated/….ics`
-- [ ] 判据 3：底部有「N 个日程的文件没写时区，时间按文件字面显示」（没有 TZID 时）
-- [ ] 反证：删掉那个 `.ics`（或换一个没有日历的 agent）→ 刷新 → 面板显示“还没有日程”
-
-## H. 反证（可选，但很值得做）
-
-- [ ] 重跑例 2，这次点 **拒绝** → 判据：`outbox/` 里**没有**新文件，且答复里说明没发出去
-- [ ] 把 `email_expert` 的 `interrupt_on` 删掉 → Save → 新聊天重跑 → 判据：**不再打断**
-  （反向证明这次审批确实来自那一段配置）
-
-## I. 常见失败对照
-
-| 现象                          | 大概率原因                                                                              | 修法                                                            |
-| ----------------------------- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| 完全不派活，supervisor 自己答 | supervisor 的 system prompt 没写清“交给谁”，或 Tools 里没勾 `task`                  | 补 prompt / 勾 `task`                                         |
-| 派了但**没有文件**      | 专家的 `tools` 里没写 `write_file`（或该环境没有工作区）                            | 在专家的 `tools` 里补 `write_file`                          |
-| 例 2 **不打断**         | `interrupt_on` 写到了 agent 顶层 `middleware`，而不是专家对象里                     | 移到 `email_expert.intrrupt_on`（注意拼写：`interrupt_on`） |
-| 打断后批准了但没文件          | `when: writes_deliverable` 把该路径当成了草稿（`other/`、`skills/` 不拦也不落地） | 让文件写到 `generated/`                                       |
-| 刷新后转交/审批痕迹不见了     | 用的是旧会话                                                                            | 开新聊天重跑（历史记录已落库，但当前回合别复用旧上下文）        |
-| 日历面板空白 | 这次会话没有写过 `.ics`，或 `.ics` 里没有 `DTSTART` | 看 Files 面板有没有 `.ics`；面板底部会列出“读不出日程”的文件名 |
-
-> 整份清单跑完约 3–5 分钟。跑通后，这套配置就是“教程里的 supervisor + 专家 + 外发审批”
-> 在本平台的完整对应物。
-
 ---
 
 # 案例 7 · 售后客服（handoffs：一个 agent，三步配置）
@@ -693,3 +615,80 @@ Tools 页签只勾 `write_file`；JSON 页签贴：
 - [ ] 第 3 轮出现 `transfer_to_resolution_specialist` + `write_file`，Files 面板多出 `generated/support/…md`
 - [ ] 第 5 轮说"其实过保了" → 出现 `transfer_to_warranty_collector`（回退成功）
 - [ ] 反证：把 `resolution_specialist` 的两个 `transfers` 删掉 → 客户说"搞错了"时它只能解释，退不回去
+
+---
+
+# 附录 · 复建自检清单（照案例 6 复建一遍）
+
+照着做，每步都有**可观察的判据**。任一步判据不成立，先修这一步再往下走 —— 后面的现象都会失真。
+
+## A. 建 agent
+
+- [ ] Agents → **New Agent**，名字填 `case-6-assistant`
+- [ ] Overview → Model 选 `deepseek-flash`，Temperature 填 `0`
+- [ ] Prompt 页签 → System Prompt 填：
+  `你是一个个人助理。日程问题交给 calendar_expert，邮件问题交给 email_expert；你自己不写文件、不算日期。一个请求涉及两件事时，分别派给两个专家并汇总结果。`
+- [ ] **Save**（判据：顶部出现保存成功，工具条 `ID:` 变成一个数字）
+
+## B. 工具
+
+- [ ] Tools 页签 → **只勾 `Task (Subagent)`**
+- [ ] 判据：面板显示 **`1/N selected`**；勾其他工具会破坏这个案例的分层
+
+## C. 两个专家
+
+- [ ] JSON 页签 → 找到 `"subagents": []`，替换成文档里那段（calendar_expert / email_expert）
+- [ ] 判据：`"subagents"` 里两个对象，各含 `name` / `description` / `system_prompt` / `tools`
+- [ ] 判据：**`email_expert` 的 `interrupt_on` 在自己的对象里**（不是写在 agent 顶层的 `middleware`）
+- [ ] **Save**
+
+## D. 开新聊天（这一步最容易漏）
+
+- [ ] 关掉编辑器的旧聊天，**开一个新聊天**
+- [ ] 先发 `hi`（首轮会带平台开场白，别拿它当结果）
+- [ ] 判据：回复里出现 `case-6-assistant` 或你的 agent 名、以及工作区路径
+
+## E. 例 1 · 单域
+
+- [ ] 发：`安排下周二下午 2 点跟 Alice 开 1 小时的会`
+- [ ] 判据 1：工具记录里有 **`task`**，且子代理是 `calendar_expert`
+- [ ] 判据 2：子代理内部出现 `python_execute`（算日期）
+- [ ] 判据 3：出现 **`write_file`**，Files 面板里多出 `与…开会.ics`
+- [ ] 判据 4：回复里有具体日期（例：2026-11-03）与 14:00–15:00
+
+## F. 例 2 · 跨域 + 审批
+
+- [ ] **再开一个新聊天** → `hi`
+- [ ] 发：`安排下周二下午 2 点跟 Alice 开 1 小时的会，然后给 alice@example.com 发封确认邮件`
+- [ ] 判据 1：一轮里出现**两个 `task`**（calendar_expert + email_expert）
+- [ ] 判据 2：**输入框变成审批卡**，待批的是 `write_file`，路径含 `generated/outbox/`
+- [ ] 判据 3：点 **批准这一次** → Files 面板出现 `outbox/…eml`
+- [ ] 判据 4：再点一次批准 → **409**（批准只对那一次有效）
+
+## G. 看日程（右侧 Calendar）
+
+- [ ] 点聊天窗口右上角的**日历图标** → 面板出现在右侧
+- [ ] 判据 1：例 1 那天（例：11 月 3 日）格子里有 `14:00 与…开会`
+- [ ] 判据 2：点那天，下方显示时间 / 参与者 / 来源文件 `generated/….ics`
+- [ ] 判据 3：底部有「N 个日程的文件没写时区，时间按文件字面显示」（没有 TZID 时）
+- [ ] 反证：删掉那个 `.ics`（或换一个没有日历的 agent）→ 刷新 → 面板显示“还没有日程”
+
+## H. 反证（可选，但很值得做）
+
+- [ ] 重跑例 2，这次点 **拒绝** → 判据：`outbox/` 里**没有**新文件，且答复里说明没发出去
+- [ ] 把 `email_expert` 的 `interrupt_on` 删掉 → Save → 新聊天重跑 → 判据：**不再打断**
+  （反向证明这次审批确实来自那一段配置）
+
+## I. 常见失败对照
+
+| 现象                          | 大概率原因                                                                              | 修法                                                            |
+| ----------------------------- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 完全不派活，supervisor 自己答 | supervisor 的 system prompt 没写清“交给谁”，或 Tools 里没勾 `task`                  | 补 prompt / 勾 `task`                                         |
+| 派了但**没有文件**      | 专家的 `tools` 里没写 `write_file`（或该环境没有工作区）                            | 在专家的 `tools` 里补 `write_file`                          |
+| 例 2 **不打断**         | `interrupt_on` 写到了 agent 顶层 `middleware`，而不是专家对象里                     | 移到 `email_expert.intrrupt_on`（注意拼写：`interrupt_on`） |
+| 打断后批准了但没文件          | `when: writes_deliverable` 把该路径当成了草稿（`other/`、`skills/` 不拦也不落地） | 让文件写到 `generated/`                                       |
+| 刷新后转交/审批痕迹不见了     | 用的是旧会话                                                                            | 开新聊天重跑（历史记录已落库，但当前回合别复用旧上下文）        |
+| 日历面板空白 | 这次会话没有写过 `.ics`，或 `.ics` 里没有 `DTSTART` | 看 Files 面板有没有 `.ics`；面板底部会列出“读不出日程”的文件名 |
+
+> 整份清单跑完约 3–5 分钟。跑通后，这套配置就是“教程里的 supervisor + 专家 + 外发审批”
+> 在本平台的完整对应物。
