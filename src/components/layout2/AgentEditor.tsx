@@ -203,6 +203,9 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
       rest.push({ type: 'handoff', enabled: true, config: next });
     }
     parsed.config.middleware = rest;
+    // The API also returns `middleware_config` (a mirror of config.middleware).
+    // Patching only the config made the JSON tab show two disagreeing copies.
+    parsed.middleware_config = JSON.parse(JSON.stringify(rest));
     setJsonEdit(JSON.stringify(parsed, null, 2));
   };
 
@@ -219,6 +222,9 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
       rest.push({ type: 'hitl', enabled: true, config: { interrupt_on: next, description_prefix: prefix } });
     }
     parsed.config.middleware = rest;
+    // The API also returns `middleware_config` (a mirror of config.middleware).
+    // Patching only the config made the JSON tab show two disagreeing copies.
+    parsed.middleware_config = JSON.parse(JSON.stringify(rest));
     setJsonEdit(JSON.stringify(parsed, null, 2));
   };
 

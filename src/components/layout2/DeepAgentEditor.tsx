@@ -283,6 +283,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         rest.push({ type: 'handoff', enabled: true, config: next });
       }
       p.config.middleware = rest;
+      p.middleware_config = JSON.parse(JSON.stringify(rest));
     });
   };
 
