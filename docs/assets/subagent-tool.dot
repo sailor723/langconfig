@@ -1,0 +1,28 @@
+digraph subagent {
+  rankdir=LR;
+  bgcolor="#1A1334";
+  pad=0.45;
+  nodesep=0.7;
+  ranksep=1.05;
+  fontname="Menlo";
+
+  node [shape=box, style="rounded,filled", penwidth=2.2, fontname="Menlo", fontsize=14,
+        margin="0.24,0.14", fillcolor="#251A49", color="#9B7BDB", fontcolor="#E5DBFF"];
+  edge [fontname="Menlo", fontsize=12, color="#62B7FF", fontcolor="#C7AEFF",
+        penwidth=2.2, arrowsize=0.9];
+
+  main [label="主 agent\ntools = [task]", color="#62B7FF", penwidth=3.0];
+  ta [label="task(weather_expert)", color="#6E5FA8"];
+  tb [label="task(math_expert)", color="#6E5FA8"];
+  we [label="专家内部\nweb_search ×3", style="rounded,filled,dashed", color="#9B7BDB", fontcolor="#C7AEFF"];
+  me [label="专家内部\npython_execute", style="rounded,filled,dashed", color="#9B7BDB", fontcolor="#C7AEFF"];
+  out [label="主 agent 汇总", color="#6E5FA8"];
+
+  main -> ta; main -> tb;
+  ta -> we [arrowhead=none, style=dashed, color="#6E5FA8"];
+  tb -> me [arrowhead=none, style=dashed, color="#6E5FA8"];
+  we -> out [style=dashed, color="#C7AEFF"];
+  me -> out [style=dashed, color="#C7AEFF"];
+  {rank=same; ta; tb;}
+  {rank=same; we; me;}
+}

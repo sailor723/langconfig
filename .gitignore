@@ -166,14 +166,10 @@ docs/tutorial/*
 !docs/tutorial/deep-research-agents.md
 !docs/assets/
 docs/assets/*
-!docs/assets/agent-loop.dot
-!docs/assets/agent-loop.svg
-!docs/assets/agent-loop.png
-!docs/assets/agent-loop.pdf
-!docs/assets/agent-harness.dot
-!docs/assets/agent-harness.svg
-!docs/assets/agent-harness.png
-!docs/assets/agent-harness.pdf
+!docs/assets/*.dot
+!docs/assets/*.svg
+!docs/assets/*.png
+!docs/assets/*.pdf
 !docs/usage.md
 !docs/usage.zh-CN.md
 

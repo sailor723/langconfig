@@ -118,10 +118,7 @@ deep agent 用的还是同一个循环，区别在于**装配已经提前装好�
 
 每个 agent 有一个自己的工作目录：
 
-```
-outputs/users/<用户>/agents/agent_<id>/           普通会话
-outputs/users/<用户>/<vault>/agents/agent_<id>/   绑定了 vault 的会话
-```
+![每个 agent 一个目录，里面四个文件夹各放各的](../assets/workspace-layout.svg)
 
 里面分四个文件夹，各放各的：
 
@@ -312,16 +309,10 @@ agent = create_agent(
 
 教程把 worker 叫 subagent；**supervisor 自己也是一个 agent**。
 
-```text
-                supervisor                  ← 它自己也是一个 agent
-                     │  只看得见「包装工具」
-          ┌──────────┴──────────┐
-   schedule_event            manage_email
-          │                        │
-   calendar agent              email agent      ← 两个 worker
-   create_calendar_event       send_email
-   get_available_time_slots
-```
+
+![supervisor 只看得见两个包装工具；每个包装工具背后是一个专家，专家手里才是真正的工具](../assets/supervisor-workers.svg)
+
+
 
 看图其实就两件事：
 
@@ -428,12 +419,7 @@ agent = create_agent(
 
 ## 流程（页面那张图的文字版）
 
-```text
-客户报问题 → 在保？ ──是──→ 问题类型？ ──硬件──→ 保修维修流程
-                │                        └─软件──→ 排查步骤
-                └──否──→ 问题类型？ ──硬件──→ 升级人工（付费维修）
-                                    └─软件──→ 排查步骤
-```
+![三个阶段依次推进，只有到了方案阶段才能写文件；客户改口就沿虚线退回去](../assets/support-stages.svg)
 
 ## 结构：1 个 agent + 3 步配置
 
@@ -601,6 +587,8 @@ agent = create_agent(
 
 页面原话：*a central main agent coordinates subagents by calling them as tools.*
 
+![主 agent 手里只有 task；专家在隔离的上下文里自己调工具，最后只回一份结果](../assets/subagent-tool.svg)
+
 ## 实测（`case-6-subagents`，`deepseek-flash`，temperature 0）
 
 问一句：**「上海今天的天气怎么样？另外算一下 1234567 乘以 891011。」**
@@ -656,6 +644,8 @@ agent = create_agent(
 
 页面原话：*Tool calls update a state variable that triggers routing or configuration
 changes, switching agents or adjusting the current agent's tools and prompt.*
+
+![同一段对话换了三次说话的人；虚线是回头改的退路](../assets/handoff-chain.svg)
 
 ## 实测（`case-7-handoff`，三个角色，CLI 验收）
 
@@ -739,6 +729,8 @@ changes, switching agents or adjusting the current agent's tools and prompt.*
 页面原话：*A routing step classifies input and directs it to specialized agents …
 Zero or more specialized agents are invoked in parallel. Results are synthesized
 into a coherent response.*
+
+![一轮里发出两个 task，两件事同时做，最后由分派台合成一条回答](../assets/router-fanout.svg)
 
 ## 实测（`case-9-router`）
 
@@ -861,9 +853,7 @@ into a coherent response.*
 
 它做的事（工具轨迹）：
 
-```
-glob(upload/**) → read_any_file(upload/xxx.xlsx) → sqlite_load_csv ×3 → sqlite_execute ×2
-```
+![四步：找文件 → 读成按 sheet 分块的文本 → 一个 sheet 一张表 → 回读表结构和样例](../assets/tool-trace.svg)
 
 回答（它会自己列出对照表）：
 
@@ -934,11 +924,7 @@ SELECT month, SUM(CAST(revenue AS REAL)) FROM m10 GROUP BY month;
 
 ## 落盘产物（实测）
 
-```
-generated/<文件名stem>.db      16 KB
-  ├─ summary(3行) / m9(3行) / m10(3行)     ← 一次建好，同名的重跑覆盖
-└─ 全部列 TEXT（sqlite_load_csv 的行为），求和前必须 CAST
-```
+![一个库三张表：summary / m9 / m10；所有列建成 TEXT，求和前要 CAST](../assets/sqlite-tables.svg)
 
 ## 三个要讲的判断
 

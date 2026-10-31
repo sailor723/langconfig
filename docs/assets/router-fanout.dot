@@ -1,0 +1,26 @@
+digraph router {
+  rankdir=TB;
+  bgcolor="#1A1334";
+  pad=0.45;
+  nodesep=0.8;
+  ranksep=0.8;
+  fontname="Menlo";
+
+  node [shape=box, style="rounded,filled", penwidth=2.2, fontname="Menlo", fontsize=14,
+        margin="0.24,0.14", fillcolor="#251A49", color="#9B7BDB", fontcolor="#E5DBFF"];
+  edge [fontname="Menlo", fontsize=12, color="#62B7FF", fontcolor="#C7AEFF",
+        penwidth=2.2, arrowsize=0.9];
+
+  user [label="一个问题里两件事", color="#6E5FA8"];
+  desk [label="分派台\n一轮发两个 task", color="#62B7FF", penwidth=3.0];
+  a [label="weather_desk\n查天气"];
+  b [label="math_desk\n算百分比"];
+  sum [label="汇总成一条回答", color="#6E5FA8"];
+
+  user -> desk [color="#62B7FF"];
+  desk -> a;
+  desk -> b;
+  a -> sum;
+  b -> sum;
+  {rank=same; a; b;}
+}

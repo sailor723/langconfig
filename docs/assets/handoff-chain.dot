@@ -1,0 +1,22 @@
+digraph handoff {
+  rankdir=LR;
+  bgcolor="#1A1334";
+  pad=0.45;
+  nodesep=0.7;
+  ranksep=1.1;
+  fontname="Menlo";
+
+  node [shape=box, style="rounded,filled", penwidth=2.2, fontname="Menlo", fontsize=14,
+        margin="0.24,0.14", fillcolor="#251A49", color="#9B7BDB", fontcolor="#E5DBFF"];
+  edge [fontname="Menlo", fontsize=12, color="#62B7FF", fontcolor="#C7AEFF",
+        penwidth=2.2, arrowsize=0.9];
+
+  s [label="售前\n产品 · 报价", color="#62B7FF"];
+  t [label="售后\n故障排查", color="#9B7BDB"];
+  f [label="财务\n发票 · 账务", color="#6E5FA8"];
+
+  s -> t [label="transfer_to_support"];
+  t -> f [label="transfer_to_finance"];
+  f -> t [style=dashed, color="#C7AEFF", fontcolor="#C7AEFF", label="回头改"];
+  t -> s [style=dashed, color="#C7AEFF", fontcolor="#C7AEFF"];
+}

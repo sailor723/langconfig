@@ -1,0 +1,22 @@
+digraph tables {
+  rankdir=TB;
+  bgcolor="#1A1334";
+  pad=0.45;
+  nodesep=0.55;
+  ranksep=0.6;
+  fontname="Menlo";
+
+  node [shape=box, style="rounded,filled", penwidth=2.0, fontname="Menlo", fontsize=13,
+        margin="0.20,0.12", fillcolor="#251A49", color="#9B7BDB", fontcolor="#E5DBFF"];
+  edge [color="#62B7FF", penwidth=2.0, arrowsize=0.8];
+
+  db [label="generated/<文件名>.db", color="#62B7FF", penwidth=3.0];
+  s  [label="summary\nregion · revenue · orders"];
+  m9 [label="m9\nregion · month · revenue"];
+  m10 [label="m10\nregion · month · revenue"];
+  note [label="所有列都建成 TEXT\n求和前要 CAST", style="rounded,filled,dashed", color="#6E5FA8", fontcolor="#C7AEFF"];
+
+  db -> s; db -> m9; db -> m10;
+  db -> note [style=dashed, arrowhead=none, color="#6E5FA8"];
+  {rank=same; s; m9; m10;}
+}

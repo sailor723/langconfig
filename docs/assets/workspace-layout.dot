@@ -1,0 +1,20 @@
+digraph workspace {
+  rankdir=LR;
+  bgcolor="#1A1334";
+  pad=0.45;
+  nodesep=0.45;
+  ranksep=0.7;
+  fontname="Menlo";
+
+  node [shape=box, style="rounded,filled", penwidth=2.0, fontname="Menlo", fontsize=13,
+        margin="0.20,0.12", fillcolor="#251A49", color="#9B7BDB", fontcolor="#E5DBFF"];
+  edge [color="#62B7FF", penwidth=2.0, arrowsize=0.8];
+
+  root [label="agent_<id>/", color="#62B7FF", penwidth=3.0];
+  up   [label="upload/\n用户上传的附件"];
+  gen  [label="generated/\n报告 · dashboard · 数据库"];
+  sk   [label="skills/\n私有技能"];
+  ot   [label="other/\n中间文件"];
+
+  root -> up; root -> gen; root -> sk; root -> ot;
+}

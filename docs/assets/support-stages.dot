@@ -1,0 +1,22 @@
+digraph stages {
+  rankdir=LR;
+  bgcolor="#1A1334";
+  pad=0.45;
+  nodesep=0.65;
+  ranksep=1.05;
+  fontname="Menlo";
+
+  node [shape=box, style="rounded,filled", penwidth=2.2, fontname="Menlo", fontsize=14,
+        margin="0.24,0.14", fillcolor="#251A49", color="#9B7BDB", fontcolor="#E5DBFF"];
+  edge [fontname="Menlo", fontsize=12, color="#62B7FF", fontcolor="#C7AEFF",
+        penwidth=2.2, arrowsize=0.9];
+
+  w [label="保修确认\n只问是否在保\n没有其它工具", color="#62B7FF"];
+  i [label="问题分类\n问清楚怎么坏的\n判定硬件 / 软件", color="#9B7BDB"];
+  r [label="解决方案\n给方案或升级人工\n唯一能写文件的阶段", color="#6E5FA8"];
+
+  w -> i [label="transfer_to_issue_classifier"];
+  i -> r [label="transfer_to_resolution_specialist"];
+  r -> w [label="客户说保修信息有误", style=dashed, color="#C7AEFF", fontcolor="#C7AEFF"];
+  r -> i [label="客户说分类搞错了", style=dashed, color="#C7AEFF", fontcolor="#C7AEFF"];
+}
