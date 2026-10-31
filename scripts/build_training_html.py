@@ -106,7 +106,7 @@ def inline_svgs(md: str) -> str:
 
 
 def add_heading_ids(rendered_html: str) -> str:
-    """Give every h2/h3 an id so the sidebar can link to a step.
+    """Give every h1/h2/h3 an id so the sidebar and the markdown TOC can link.
 
     markdown-it does not emit ids (no slug plugin installed), and a 600-line run book
     is unusable in a session without a jump list. Slugs are derived from the heading
@@ -125,7 +125,7 @@ def add_heading_ids(rendered_html: str) -> str:
             seen[slug] = 0
         return f'<h{level} id="{slug}">{text}</h{level}>'
 
-    return re.sub(r"<h([23])>(.*?)</h\1>", repl, rendered_html, flags=re.S)
+    return re.sub(r"<h([123])>(.*?)</h\1>", repl, rendered_html, flags=re.S)
 
 
 def build_toc(rendered_html: str) -> str:

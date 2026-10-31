@@ -1,42 +1,117 @@
+# Agent 训练 · 跟随 LangChain 官方文档
+
+> 依据三个页面（其余内容都是它们的延伸，不是另起一套说法）：
+>
+> | 页面 | 取什么 |
+> |---|---|
+> | [langchain/agents](https://docs.langchain.com/oss/python/langchain/agents) | agent 的定义、`create_agent` 三要素、harness 与中间件 |
+> | [deepagents/overview](https://docs.langchain.com/oss/python/deepagents/overview) | deep agent 的定义、四类内置能力 |
+> | [langchain/multi-agent](https://docs.langchain.com/oss/python/langchain/multi-agent) | subagents / handoffs / skills / router 四种编排 |
+>
+> 每个案例都在平台上真实搭过、跑过；表格里的数字是实测值，不是示意。
+
+**全书三条线**
+
+| 段落 | 讲什么 | 案例 |
+|---|---|---|
+| 第 1 类 · 能直接用的 agent | 从最小可用到业务可用 | 1 基础 · 2 全工具 · 3 文档问答 · 4 个人助理 · 5 售后客服 |
+| 第 2 类 · 机制演示 | 一个机制一个最小例子 | HITL · 6 subagents · 7 handoffs · 8 skills · 9 router |
+| 案例 10–12 · 重活 agent | 多轮研究、内容生产、数据分析 | 10 深度研究 · 11 内容创作 · 12 CSV/Excel 分析 |
+
+## 目录
+
+| 章节 |
+|---|
+| [第 1 类 · 能直接用的 agent（案例 1–5）](#第-1-类-能直接用的-agent-案例-1-5) |
+| [案例 1 · 第一个 agent：create_agent 的三要素 + 四个例子（`case-1-basic-agent`，id 281）](#案例-1-第一个-agent-create-agent-的三要素-四个例子-case-1-basic-agent-id-281) |
+| [案例 2 · 工具多到 27 个，还挑得对吗（`case-2-all-tools`，id 159）](#案例-2-工具多到-27-个-还挑得对吗-case-2-all-tools-id-159) |
+| [案例 3 · 文档问答：上传附件 → 读 → 标来源（`case-3-doc-chat`，id 326）](#案例-3-文档问答-上传附件-读-标来源-case-3-doc-chat-id-326) |
+| [案例 4 · 个人助理：supervisor + 两个专家（`case-4-assistant`，id 323）](#案例-4-个人助理-supervisor-两个专家-case-4-assistant-id-323) |
+| [案例 5 · 售后客服：一个 agent 三步配置（`case-5-support`，id 325）](#案例-5-售后客服-一个-agent-三步配置-case-5-support-id-325) |
+| [第 2 类 · 机制演示（机制一项 + 四个模式）](#第-2-类-机制演示-机制一项-四个模式) |
+| [机制 · 改文件前要人批准（HITL，`acc-hitl`，id 321）](#机制-改文件前要人批准-hitl-acc-hitl-id-321) |
+| [案例 6 · 主 agent 把专家当工具（`case-6-subagents`，id 301）](#案例-6-主-agent-把专家当工具-case-6-subagents-id-301) |
+| [案例 7 · 把对话交给另一个角色（`case-7-handoff`，id 314）](#案例-7-把对话交给另一个角色-case-7-handoff-id-314) |
+| [案例 8 · 需要时才加载知识（`case-8-skills`，id 319）](#案例-8-需要时才加载知识-case-8-skills-id-319) |
+| [案例 9 · 分派台 + 专家并行 + 汇总（`case-9-router`，id 320）](#案例-9-分派台-专家并行-汇总-case-9-router-id-320) |
+| [案例 10 · 深度研究：文件即交付物（`case-10-deep-research`，id 327）](#案例-10-深度研究-文件即交付物-case-10-deep-research-id-327) |
+| [案例 11 · 内容创作：品牌语气 + 技能 + 研究子代理（`case-11-content-builder`，id 328）](#案例-11-内容创作-品牌语气-技能-研究子代理-case-11-content-builder-id-328) |
+| [案例 12 · CSV / Excel 数据分析（`case-12-csv-chat`，id 329）](#案例-12-csv-excel-数据分析-case-12-csv-chat-id-329) |
+| [附录 · 复建自检清单（照案例 4 复建一遍）](#附录-复建自检清单-照案例-4-复建一遍) |
+## 0 · 两个概念：agent 与 deep agent
+
+### 0.1 agent = model + harness
+
+LangChain 的说法（[agents 页](https://docs.langchain.com/oss/python/langchain/agents)）：
+
+> *An agent is a model calling tools in a loop until a given task is complete.*
+>
+> 一个 agent 是**在循环里调用工具**的模型，直到给定任务完成。
+
+这个循环外面的一切叫 **harness**：提示词、工具，以及任何塑造模型行为的中间件（middleware）。
+`create_agent` 就是把这个 harness 暴露成参数：
+
+```python
+from langchain.agents import create_agent
+
+agent = create_agent(model="deepseek-flash", tools=tools, system_prompt="...")
+```
+
+**要点：循环是固定的**（模型 → 工具 → 观察 → 模型），可变的是 harness。所有"让 agent 变强"的手段，
+本质上都是在改 harness —— 加工具、加中间件、换提示词。
+
+### 0.2 deep agent = 同一个循环 + 四类内置能力
+
+deep agent 不是另一个推理引擎，而是**预先组装好的 harness**
+（[deepagents overview](https://docs.langchain.com/oss/python/deepagents/overview)）：
+
+> *Deep Agents is the agent harness for complex, multi-step work. It adds planning, a virtual
+> filesystem for context, subagent spawning, and long-term memory on top of LangChain and LangGraph.*
+>
+> Deep Agents 是面向复杂、多步工作的 agent harness：在 LangChain 与 LangGraph 之上，
+> 内置了**计划、虚拟文件系统、子代理、长期记忆**。
+
+官方把它拆成四类能力：
+
+| 能力 | 内容 | 在本平台的对应物 |
+|---|---|---|
+| **Execution environment** | 工具、虚拟文件系统、可选沙箱、REPL | 工具注册表 + `FilesystemMiddleware` + 工作区 |
+| **Context management** | skills、memory、摘要、结果卸载、prompt caching | 技能库 + `AGENTS.md`（`MemoryMiddleware`）+ 摘要中间件 |
+| **Delegation** | 子代理（`task`）、可选任务计划（`write_todos`） | subagents + `todo_list` 中间件 |
+| **Steering** | HITL 审批、中断 | HITL 中间件 |
+
+注意两点：**任务计划自 v0.7 起是 opt-in**（要显式挂 `TodoListMiddleware`）；
+**子代理是"一次委派、一份回报"**（stateless，不能多轮对话）。
+
+### 0.3 两者的差别（一张表）
+
+| | **agent（LangChain）** | **deep agent** |
+|---|---|---|
+| 推理循环 | 相同 | 相同（`create_deep_agent` 内部仍调 `create_agent`） |
+| 系统提示词 | 你写 + 平台拼装的 guardrails/上下文 | **只有你写的那段**（平台只追加少量规则） |
+| 内置工具 | 注册表里勾选的 | SDK 自带 `ls`/`read_file`/`write_file`/`edit_file`/`glob`/`grep`/`execute` + `task` |
+| 文件系统 | 平台默认也挂（工作区隔离） | 有，且可换 backend / 虚拟根 / 权限 |
+| 子代理 | 有（`task`） | 有，且可给子代理指定独立 model |
+| 任务计划 | 需手动挂 `todo_list` | 同（v0.7 起也是 opt-in） |
+| `AGENTS.md` | ❌ 不读进提示词 | ✅ `MemoryMiddleware` 读进提示词，每次运行都生效 |
+| 技能 | `skill` 工具按需加载 | `SkillsMiddleware` 先编目，再按需读全文 |
+| HITL / RAG / 结构化输出 | 平台中间件提供 | 能配，但默认只带 SDK 那一套 |
+
+### 0.4 平台上的对应物
+
+每个 agent 都有 `use_deepagents` 开关（默认 `false`）。**它改的是 harness 的组装方式，不是模型能力。**
+本机实测：41 个 agent 用 normal、30 个用 deep；案例 1–9 是 normal，案例 10–12 是 deep。
+
+两个坑：
+
+1. **换类型 = 开新聊天**：`use_deepagents` 改了以后旧会话不迁移（提示词与工具集都变了）。
+2. **deep agent 的工具栏 ≠ `native_tools`**：`ls`/`write_file` 这些来自 SDK 的文件系统中间件，
+   配置里看不到，但运行时有。
+
 # 第 1 类 · 能直接用的 agent（案例 1–5）
 
-> 五个能直接用的 agent，按"从最小到完整"排：1 基础 → 2 全工具 → 3 文档问答 → **4 个人助理** → **5 售后客服**。
-> 后面第 2 类才是机制（HITL + 四个模式），用到时再查。
->
-> 深度研究（多轮搜索 → 带引用报告），完整版另见 `docs/tutorial/deep-research-agents.md`。
->
-> 全书三条线：**第 1 类**能直接用的 agent（案例 1–5）→ **第 2 类**机制（HITL + 案例 6–9）
-> → **案例 10–12** 三个重活 agent（深度研究 / 内容创作 / CSV·Excel 分析）。
-
-## 两种 agent：LangChain agent（normal）与 Deep Agent
-
-平台上的每个 agent 都有 `use_deepagents` 这个开关，默认 `false`。它不是"高级版/简化版"的关系 —— **两者用的是同一个推理循环，差别在于 harness 里塞了什么。**
-
-| | **normal（LangChain agent）** | **Deep Agent** |
-|---|---|---|
-| 底层构造 | `create_agent(model, tools, system_prompt, middleware)` | `create_deep_agent(...)`，**内部仍然是 `create_agent`** |
-| 系统提示词 | 平台拼装：guardrails + 角色 + 上下文（含工具强制规则、记忆/知识库说明） | **你自己写的那段**（平台只追加少量规则），品牌/角色全靠你 |
-| 内置工具 | 注册表里勾的那些 | SDK 自带 `ls` / `read_file` / `write_file` / `edit_file` / `glob` / `grep` / `execute`（沙箱才可用）+ `task` |
-| 文件系统 | **也有**（平台给普通 agent 默认挂 `FilesystemMiddleware`，工作区隔离） | 有，且可换 backend（`FilesystemBackend`、虚拟根、权限） |
-| 子代理 | 有（`task` 工具，子代理可带自己的 prompt/工具） | 有，且规格更完整（子代理可指定独立 model） |
-| 计划/待办 | 需要手动加 `todo_list` 中间件 | 同（`TodoListMiddleware`），案例 10/11 都开了 |
-| **AGENTS.md 品牌/项目说明** | ❌ 不读进提示词（只是工作区里的一个文件） | ✅ `MemoryMiddleware` 读进系统提示词，**每次运行都生效** |
-| **技能自动编目** | 靠 `skill` 工具按需加载（渐进披露） | `SkillsMiddleware` 先把技能目录/描述编目，再按需读全文 |
-| 交接 / HITL | 平台中间件：`handoff`、HITL 策略、RAG、长期记忆、结构化输出都是这里给的 | 同样能配，但默认只带 SDK 那套 |
-
-**我们平台的实测数字**（`select config->>'use_deepagents', count(*) from deep_agent_templates group by 1`）：
-41 个 normal、30 个 deep；案例 1–9 全是 normal，**案例 10（深度研究）、案例 11（内容创作）是 deep**。
-
-### 怎么选（三句话）
-
-1. **要"平台帮你拼提示词"**（guardrails、工具强制、知识库/记忆说明）→ **normal**。
-2. **要"提示词完全归我 + 品牌语气每次生效（AGENTS.md）+ 文件即交付物"** → **deep**。
-3. **只是要多个子代理/待办/写文件** → 两者都能做，**选 normal 更省事**（平台已给普通 agent 挂了文件系统）。
-
-### 两个容易踩的坑
-
-- **同一个 agent 换类型 = 新聊天**：`use_deepagents` 改了以后旧会话不会迁移（提示词和工具集都变了）。
-- **deep agent 的工具栏是"你自己声明 + SDK 自带"**：写 `native_tools` 时不要指望里面出现 `ls`/`write_file` —— 那些来自 SDK 的文件系统中间件，配置里看不到但运行时有。
+> 按"从最小到完整"排：基础 → 全工具 → 文档问答 → 个人助理 → 售后客服。
+> 第 2 类是机制演示（HITL + 四个模式），用到时再查；案例 10–12 是三个重活 agent。
 
 ## 工作区约定：上传件与产物都归 agent
 
@@ -60,7 +135,7 @@
 
 **清空工作区**：Files 面板右上角 🗑 → 两段确认 → 清 `upload/ generated/ other/ skills/` 的内容，保留 `AGENTS.md` / `CLAUDE.md` 与目录骨架；同时删除该会话的 `session_documents` 记录（否则面板列表还显示旧文件）。
 
-# 案例 1 · 第一个 agent：create_agent 的三要素 + 四个例子
+# 案例 1 · 第一个 agent：create_agent 的三要素 + 四个例子（`case-1-basic-agent`，id 281）
 
 > 依据：**[https://docs.langchain.com/oss/python/langchain/agents](https://docs.langchain.com/oss/python/langchain/agents)**
 >
@@ -116,7 +191,7 @@ agent = create_agent(model="deepseek-flash", tools=tools)
 | `system_prompt=` | Prompt → System Prompt | `You are a helpful assistant`                                                                      |
 | `tools=`         | Tools 页签              | 三个：`web_search`、`python_execute`、`pg_query`（写文件用的 `write_file` 平台自带，不用勾） |
 
-## 四个例子
+## 实测：四个例子
 
 每个例子各开新聊天，先发一句 `hi`。
 
@@ -127,12 +202,17 @@ agent = create_agent(model="deepseek-flash", tools=tools)
 | 用 pg_query 查一下 deep_agent_templates 有多少个 agent | `pg_query`             | 63                                 | 3.3s |
 | 把这句话存成一份文档：标题《工具路由测试》             | `ls` → `write_file` | `generated/工具路由测试.md`      | 9.1s |
 
-提示词只有 `You are a helpful assistant` 一句，没有一个字提工具，四个例子它都自己挑对了 ——
-**挑哪个由工具自己的描述决定**。这就是页面那句 *a model calling tools in a loop*。
+## 两条要讲的判断
+
+1. **挑哪个工具由工具描述决定，不由提示词列举决定。** 提示词只有 `You are a helpful assistant` 一句，
+   没有一个字提工具，四个例子都挑对了 —— 这就是页面那句 *a model calling tools in a loop*。
+2. **harness 只有三件东西就能工作**：模型、工具、一句提示词。后面所有案例都是在往这三样上叠中间件。
 
 ---
 
 # 案例 2 · 工具多到 27 个，还挑得对吗（`case-2-all-tools`，id 159）
+
+依据：**同案例 1 的 [agents 页](https://docs.langchain.com/oss/python/langchain/agents)**（工具也是 harness 的一部分）。
 
 案例 1 只有 3 个工具。这一节把同一个问题推到 27 个工具：**工具一多，模型还会挑对吗？**
 
@@ -162,6 +242,9 @@ agent = create_agent(model="deepseek-flash", tools=tools)
 ---
 
 # 案例 3 · 文档问答：上传附件 → 读 → 标来源（`case-3-doc-chat`，id 326）
+
+依据：**[knowledge/doc-chat 实现](https://docs.langchain.com/oss/python/langchain/tools)**（工具的读写与引用规则）+
+平台自身的 `api/knowledge/doc_chat.py`（提示词规则来源）。
 
 平台原本的「知识库对话」是**把整个文件夹的内容塞进提示词**（`api/knowledge/doc_chat.py`）。
 这个案例把它做成一个 **normal agent**：不预载文档，改用工具按需读 —— 上传什么、读什么、答什么，且每条结论标来源。
@@ -202,7 +285,7 @@ agent = create_agent(model="deepseek-flash", tools=tools)
 ---
 
 
-# 案例 4 · 个人助理（Supervisor + 专家 + 外发审批）
+# 案例 4 · 个人助理：supervisor + 两个专家（`case-4-assistant`，id 323）
 
 教程：**[https://docs.langchain.com/oss/python/langchain/multi-agent/subagents-personal-assistant](https://docs.langchain.com/oss/python/langchain/multi-agent/subagents-personal-assistant)**
 
@@ -318,7 +401,7 @@ agent = create_agent(model="deepseek-flash", tools=tools)
 ---
 
 
-# 案例 5 · 售后客服（handoffs：一个 agent，三步配置）
+# 案例 5 · 售后客服：一个 agent 三步配置（`case-5-support`，id 325）
 
 教程：**<https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs-customer-support>**
 
@@ -450,7 +533,7 @@ Tools 页签只勾 `write_file`；JSON 页签贴：
 > 这些章节各讲**一个机制**，用最小例子证明它成立；业务场景请看第 1 类的案例 4（用 subagents + HITL）
 > 和案例 5（用 handoff 状态机）。
 
-# 机制 · 改文件前要人批准（Human-in-the-loop）
+# 机制 · 改文件前要人批准（HITL，`acc-hitl`，id 321）
 
 页面：**[https://docs.langchain.com/oss/python/concepts/human-in-the-loop](https://docs.langchain.com/oss/python/concepts/human-in-the-loop)**
 
@@ -505,7 +588,7 @@ agent = create_agent(
 ---
 
 
-# 案例 6 · 主 agent 把专家当工具（Subagents）
+# 案例 6 · 主 agent 把专家当工具（`case-6-subagents`，id 301）
 
 页面：**[https://docs.langchain.com/oss/python/langchain/multi-agent/index](https://docs.langchain.com/oss/python/langchain/multi-agent/index)**、
 **[https://docs.langchain.com/oss/python/langchain/multi-agent/subagents](https://docs.langchain.com/oss/python/langchain/multi-agent/subagents)**
@@ -588,7 +671,7 @@ Tools 页签勾上 **`task`**，保存后开新聊天。
 ---
 
 
-# 案例 7 · 把对话交给另一个角色（Handoffs）
+# 案例 7 · 把对话交给另一个角色（`case-7-handoff`，id 314）
 
 页面：**[https://docs.langchain.com/oss/python/langchain/multi-agent/index](https://docs.langchain.com/oss/python/langchain/multi-agent/index)**、
 **[https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs](https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs)**
@@ -667,7 +750,7 @@ def transfer_to_specialist(runtime: ToolRuntime) -> Command:
 ---
 
 
-# 案例 8 · 需要时才加载知识（Skills）
+# 案例 8 · 需要时才加载知识（`case-8-skills`，id 319）
 
 页面：**[https://docs.langchain.com/oss/python/langchain/multi-agent/skills](https://docs.langchain.com/oss/python/langchain/multi-agent/skills)**
 
@@ -712,7 +795,7 @@ def load_skill(skill_name: str) -> str:
 ---
 
 
-# 案例 9 · 分派台 + 专家并行 + 汇总（Router）
+# 案例 9 · 分派台 + 专家并行 + 汇总（`case-9-router`，id 320）
 
 页面：**[https://docs.langchain.com/oss/python/langchain/multi-agent/router](https://docs.langchain.com/oss/python/langchain/multi-agent/router)**
 
@@ -787,7 +870,9 @@ into a coherent response.*
 | 交付物 | 无 | 无 | **`generated/research/<主题>/{research_request.md, final_report.md}` ✓** |
 | 引用 | 30 | 38 | **40 + Sources ✓** |
 
-**三条教训**（详见 `docs/tutorial/deep-research-agents.md`）：
+## 三条要讲的判断
+
+完整报告模板见 `docs/tutorial/deep-research-agents.md`。
 
 1. **超大工具结果会被平台截断**（换成 500 字预览）→ 主 agent 误判"资料不全"就自己下场搜（第一版 13 次搜索的由来）。
 2. **预算只是 prompt 建议**：写"≤5 次"能把 13 压到 5，但 `web_fetch` 仍跑到 11（平台没有 `ToolCallLimit` 中间件）。
@@ -846,10 +931,11 @@ into a coherent response.*
 | 9 月 / 10 月总收入 | 2,780,000 / 3,042,000，环比 **+262,000（+9.42%）** |
 | 增长最快 region | **华北 +13.33%**（华东 +10.16%、华南 +6.25%） |
 
-## 两个坑
+## 三个要讲的判断
 
-1. **类型**：`sqlite_load_csv` 把所有列建成 TEXT，求和前必须 `CAST(x AS REAL)` —— agent 会自己发现并说明（实测它主动提示了这点）。
-2. **中文 sheet 名**：`sqlite_load_csv` 表名只接受 `[A-Za-z_][A-Za-z0-9_]*`，所以中文 sheet 必须转写成 ASCII 表名（想保留中文得改走 `python_execute` + `to_sql`）。
+1. **先看库再写 SQL**：`sqlite_master` 拿到表和结构、`LIMIT 3` 看样例，再写业务查询 —— 跳过这步必错。
+2. **类型**：`sqlite_load_csv` 把所有列建成 TEXT，求和前必须 `CAST(x AS REAL)` —— agent 会自己发现并说明（实测它主动提示了这点）。
+3. **中文 sheet 名**：`sqlite_load_csv` 表名只接受 `[A-Za-z_][A-Za-z0-9_]*`，所以中文 sheet 必须转写成 ASCII 表名（想保留中文得改走 `python_execute` + `to_sql`）。
 
 # 附录 · 复建自检清单（照案例 4 复建一遍）
 

@@ -162,6 +162,7 @@ docs/system-architecture/*
 docs/tutorial/*
 !docs/tutorial/README.md
 !docs/tutorial/agent-training-runbook.md
+!docs/tutorial/agent-training-runbook.html
 !docs/tutorial/deep-research-agents.md
 !docs/assets/
 docs/assets/*
