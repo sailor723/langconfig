@@ -664,7 +664,11 @@ class _AgentAssemblyMixin:
             # Custom state fields (LangChain handoffs need one: the tool writes
             # `handoff_to`, the middleware reads it). JSON in, class out.
             try:
-                from core.agents.state_schema import build_state_schema, HANDOFF_FIELD
+                from core.agents.state_schema import (
+                    build_state_schema,
+                    HANDOFF_FIELD,
+                    HANDOFF_FROM_FIELD,
+                )
 
                 _handoff_mw = [
                     m for m in (agent_config.get("middleware") or [])
@@ -674,7 +678,8 @@ class _AgentAssemblyMixin:
                 ]
                 _schema = build_state_schema(
                     agent_config.get("state_schema"),
-                    extra={HANDOFF_FIELD: "str"} if _handoff_mw else None,
+                    extra=({HANDOFF_FIELD: "str", HANDOFF_FROM_FIELD: "str"}
+                           if _handoff_mw else None),
                 )
                 if _schema is not None:
                     create_agent_kwargs["state_schema"] = _schema

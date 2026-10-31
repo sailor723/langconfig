@@ -860,16 +860,23 @@ class HandoffMiddleware(AgentMiddleware):
         if not target:
             return None
 
+        # Where the conversation came from: a transfer is an edge, and "转到财务"
+        # without "从售后" is only half of it. Read from the state the tool call
+        # arrived with, before this update overwrites it.
+        state = getattr(request, "state", None) or {}
+        source = state.get(self.state_field) or self.default_step
+
         from langgraph.types import Command
         from langchain_core.messages import ToolMessage
 
         content = getattr(result, "content", result)
-        return Command(
-            update={
-                "handoff_to": str(target),
-                "messages": [ToolMessage(content=str(content), tool_call_id=tool_call.get("id"))],
-            }
-        )
+        update = {
+            "handoff_to": str(target),
+            "messages": [ToolMessage(content=str(content), tool_call_id=tool_call.get("id"))],
+        }
+        if source:
+            update["handoff_from"] = str(source)
+        return Command(update=update)
 
     def wrap_tool_call(self, request, handler):
         """Turn a `handoff` tool call into the state change it stands for.

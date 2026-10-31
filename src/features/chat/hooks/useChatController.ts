@@ -275,11 +275,20 @@ export function useChatController(options: UseChatControllerOptions = {}) {
         // marker the same bubble reads as one agent that both offers to
         // transfer and answers as the expert.
         if ((event as any).type === 'handoff') {
-          const to = (event as any).to || '另一个步骤';
-          const reason = (event as any).reason;
+          // Same shape the history endpoint returns, so the live card and the
+          // reloaded card are one component, not two look-alikes.
+          const fromLabel = (event as any).from_label || (event as any).from_step;
+          const toLabel = (event as any).to_label || (event as any).to || '另一个步骤';
+          const reason = (event as any).reason as string | undefined;
+          const where = fromLabel ? `${fromLabel} → ${toLabel}` : `转交给「${toLabel}」`;
           addMessage({
-            role: 'system',
-            content: reason ? `已转交给「${to}」· 原因：${reason}` : `已转交给「${to}」`,
+            role: 'handoff',
+            content: reason ? `${where} · ${reason}` : where,
+            from_step: (event as any).from_step ?? null,
+            from_label: (event as any).from_label ?? null,
+            to: (event as any).to ?? null,
+            to_label: (event as any).to_label ?? null,
+            reason: reason ?? null,
             timestamp: new Date().toISOString(),
           } as any);
           return;

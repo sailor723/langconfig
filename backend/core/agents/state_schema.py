@@ -34,6 +34,9 @@ _FIELD_TYPES = {
 
 #: Field the built-in `handoff` tool writes and the handoff middleware reads.
 HANDOFF_FIELD = "handoff_to"
+#: Where the conversation came *from* on the last hop. Kept because a transfer
+#: is only meaningful as an edge: "转交给 finance" says less than "售后 → 财务".
+HANDOFF_FROM_FIELD = "handoff_from"
 
 
 def build_state_schema(fields: Optional[Dict[str, Any]], *, extra: Optional[Dict[str, Any]] = None) -> Optional[Type]:

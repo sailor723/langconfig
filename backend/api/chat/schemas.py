@@ -32,7 +32,12 @@ class ChatMessage(BaseModel):
     """
     role: str
     content: str
+    # A hop is an edge: `from_step` is where the conversation was, `to` where it
+    # went, and the labels are what the card prints ("售后 → 财务").
+    from_step: Optional[str] = None
+    from_label: Optional[str] = None
     to: Optional[str] = None
+    to_label: Optional[str] = None
     reason: Optional[str] = None
     timestamp: Optional[str] = None
 

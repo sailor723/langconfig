@@ -260,7 +260,18 @@ export default function MessagesPanel({
                         border: '1px solid rgba(245, 158, 11, 0.35)',
                       }}
                     >
-                      <span>转交给「{(message as any).to || '另一角色'}」</span>
+                      {/* The hop is an edge: show both ends. A single target
+                          ("转交给 finance") hides who handed over, which is the
+                          half of the transfer the reader needs to follow it. */}
+                      {(message as any).from_label || (message as any).from_step ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span>{((message as any).from_label || (message as any).from_step)}</span>
+                          <span aria-hidden>→</span>
+                          <span>{((message as any).to_label || (message as any).to || '另一角色')}</span>
+                        </span>
+                      ) : (
+                        <span>转交给「{(message as any).to_label || (message as any).to || '另一角色'}」</span>
+                      )}
                       {(message as any).reason && (
                         <span style={{ color: 'var(--color-text-muted)' }}>· {(message as any).reason}</span>
                       )}

@@ -8,9 +8,16 @@
 import type { ContentBlock } from '@/types/content-blocks';
 
 export interface ChatMessage {
-  role: 'user' | 'assistant' | 'system';
+  /** 'handoff' marks a step transition: the speaker changes for what follows. */
+  role: 'user' | 'assistant' | 'system' | 'handoff';
   content: string;
   timestamp: string;
+  /** A hop is an edge — where it came from, where it went, and their labels. */
+  from_step?: string | null;
+  from_label?: string | null;
+  to?: string | null;
+  to_label?: string | null;
+  reason?: string | null;
   /** Structured content blocks from tool results (multimodal support) */
   content_blocks?: ContentBlock[];
   /** Artifacts for UI display only (not sent to LLM) */

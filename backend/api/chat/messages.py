@@ -105,6 +105,35 @@ def _resolve_recursion_limit(agent_config: Optional[dict]) -> int:
     return _app_settings.analysis_recursion_limit
 
 
+def _handoff_steps(agent_config: dict) -> dict:
+    """`step key → display label` for the agent's handoff middleware ({} if none).
+
+    The card reads "售后 → 财务" rather than "support → finance", so the labels
+    the reviewer typed in the policy editor have to travel with the event.
+    """
+    for entry in (agent_config or {}).get("middleware") or []:
+        if (isinstance(entry, dict)
+                and entry.get("type") in ("handoff", "handoffs")
+                and entry.get("enabled", True)):
+            steps = (entry.get("config") or {}).get("steps") or {}
+            return {
+                str(key): str((step or {}).get("label") or key)
+                for key, step in steps.items()
+                if isinstance(step, dict) or step is None
+            }
+    return {}
+
+
+def _handoff_default_step(agent_config: dict) -> str | None:
+    """The step a conversation starts in — the origin of the first hop."""
+    for entry in (agent_config or {}).get("middleware") or []:
+        if (isinstance(entry, dict)
+                and entry.get("type") in ("handoff", "handoffs")
+                and entry.get("enabled", True)):
+            return (entry.get("config") or {}).get("default_step")
+    return None
+
+
 def _default_agent_docs(agent, workspace_root: str) -> dict:
     """Sensible default AGENTS.md / CLAUDE.md for agents that have no
     user-authored docs in PostgreSQL.
@@ -1221,6 +1250,18 @@ async def send_message_stream(
                 collected_tool_names = []  # Track tool names for DB persistence and skill detection
                 collected_subagent_spawns = []  # One entry per `task` delegation
                 collected_handoffs = []  # One entry per transfer_to_* call
+                # A hop is an edge, so remember where the conversation is: the
+                # first transfer starts from `default_step`, each later one from
+                # wherever the previous hop landed.
+                _hop_labels = _handoff_steps(agent_config)
+                # Where the conversation currently stands. Each user turn is a
+                # fresh request, so the counter cannot live in this function: the
+                # last persisted hop is the truth across turns (a single turn may
+                # hop twice, and the loop below keeps up with that).
+                _hop_current = _handoff_default_step(agent_config)
+                for _msg in (getattr(fresh_session, "messages", None) or []):
+                    if isinstance(_msg, dict) and _msg.get("role") == "handoff" and _msg.get("to"):
+                        _hop_current = _msg["to"]
                 # Same binding as the non-streaming path: the tools' sandbox comes
                 # from the run, because the harness does not carry the request
                 # identity into tool execution.
@@ -1293,13 +1334,18 @@ async def send_message_stream(
                             _target = _tt(str(tool_name))
                             if _target:
                                 _reason = (tool_input or {}).get("reason") if isinstance(tool_input, dict) else ""
-                                collected_handoffs.append({
-                                    "from": None,  # filled at persist time from the running step
+                                _from = _hop_current
+                                _hop_current = _target
+                                _hop = {
+                                    "from_step": _from,
+                                    "from_label": _hop_labels.get(_from, _from) if _from else None,
                                     "to": _target,
+                                    "to_label": _hop_labels.get(_target, _target),
                                     "reason": _reason or "",
                                     "timestamp": datetime.utcnow().isoformat(),
-                                })
-                                yield f"data: {json.dumps({'type': 'handoff', 'to': _target, 'reason': _reason or ''})}\n\n"
+                                }
+                                collected_handoffs.append(_hop)
+                                yield f"data: {json.dumps({'type': 'handoff', **_hop})}\n\n"
 
                         elif kind == "on_tool_end":
                             tool_data = event.get("data", {})
@@ -1473,10 +1519,17 @@ async def send_message_stream(
                             logger.info(f"Before adding assistant message: total_messages={len(final_session.messages)}")
 
                             for hop in collected_handoffs:
+                                _where = (
+                                    f"{hop['from_label']} → {hop['to_label']}"
+                                    if hop.get("from_label") else f"转交给「{hop['to_label']}」"
+                                )
                                 final_session.messages.append({
                                     "role": "handoff",
-                                    "content": f"转交给「{hop['to']}」" + (f" · {hop['reason']}" if hop["reason"] else ""),
+                                    "content": _where + (f" · {hop['reason']}" if hop["reason"] else ""),
+                                    "from_step": hop.get("from_step"),
+                                    "from_label": hop.get("from_label"),
                                     "to": hop["to"],
+                                    "to_label": hop.get("to_label"),
                                     "reason": hop["reason"],
                                     "timestamp": hop["timestamp"],
                                 })
