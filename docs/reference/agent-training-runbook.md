@@ -48,21 +48,24 @@ agent = create_agent(model="deepseek-flash", tools=tools)
 
 三个位置填一次（Temperature 填 `0`）：
 
-| 页面参数 | 平台上 | 填什么 |
+| 页面参数 | 平台上 | 这一轮填的 |
 |---|---|---|
-| `model=` | Overview → Model | `deepseek-flash` |
-| `system_prompt=` | Prompt → System Prompt | `You are a helpful assistant` |
-| `tools=` | Tools 页签 | `web_search`、`python_execute`、`pg_query`、`save_document` |
+| `model=` | Overview → Model | `deepseek-flash`（Temperature `0`） |
+| `system_prompt=` | Prompt → System Prompt | 一段中文工具说明（"搜索用 web_search / web_fetch，出文档用 write_file，不要编造数据"） |
+| `tools=` | Tools 页签 | 28 个（`web_search`、`web_fetch`、`tavily_search`、`python_execute`、`pg_query`、`pg_describe_table`、`write_file`、`save_document`、`bash`、`ls` …） |
 
 ## 四个例子
 
-每个例子各开新聊天，先发一句 `hi`。
+同一个聊天里依次问这四句（第一条先发 `hi`）。
 
 | 问 | 它用了 | 结果 |
 |---|---|---|
-| 上海的天气如何？ | `web_search` | 晴转多云，18–25℃ |
+| 上海的天气如何 | `web_search` ×2 + `web_fetch`（wttr.in） | 晴、约 23℃，今天 16–24℃ |
 | 1,234,567 乘以 891,011 等于多少？ | `python_execute` | 1,100,012,777,237 |
-| 用 pg_query 查一下 deep_agent_templates 有多少个 agent | `pg_query` | 63 |
-| 把这句话存成一份文档：标题《工具路由测试》，正文「四个工具各自命中了一次」 | `write_file` → `save_document` | 文件 + 文档库 |
+| 用 pg_query 查一下 deep_agent_templates 有多少个 agent | `pg_query`（+ `pg_describe_table`） | 63 个，19 个分类 |
+| 总结现在的 agent，输出一个文档 → 输出为 PDF | `write_file` ×5 + `save_document` + `python_execute` | `Agent_模板清单总览.md`、7 页 PDF、文档库归档 |
 
-提示词里没有一个字提工具，四个例子它都自己挑对了 —— **挑哪个由工具自己的描述决定**。
+这 7 轮对话一共 **39 次工具调用、10 个工具**（还用到了 `ls`、`bash`、`delete`）。
+天气那一句它同时用了 `web_fetch` 和 `web_search` 两个工具交叉核对 —— 页面那句 *a model calling tools
+in a loop*，现场就是这样。
+
