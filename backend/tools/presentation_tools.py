@@ -23,6 +23,8 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
+
+from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
 
 from langchain_core.tools import tool
@@ -362,7 +364,10 @@ def _unique_pptx_path(output_dir: Path, base_filename: str) -> Path:
 
 @tool
 def gen_pptx(title: str, slides_json: str, output_dir: str = "", theme: str = "business") -> str:
-    """Generate a styled PowerPoint (.pptx) deck from a slides JSON outline.
+    """
+    用我：把 slides_json 渲染成 PPTX。
+    别用我：普通文档用 write_file；要同时出 HTML+PPTX 用 doc_to_deck。
+Generate a styled PowerPoint (.pptx) deck from a slides JSON outline.
 
     Args:
         title: Deck title shown in the filename and slide footers.
@@ -633,7 +638,10 @@ def _render_pdf_deck(data: dict, output_dir: Path, theme_name: str, filename: st
 @tool
 def gen_html_deck(title: str, slides_json: str, output_dir: str = "", theme: str = "business",
                   filename: str = "") -> str:
-    """Generate a single-file themed HTML slide deck from a slides JSON outline.
+    """
+    用我：把 slides_json 渲染成单文件 HTML 幻灯片。
+    别用我：普通网页/文档用 write_file。
+Generate a single-file themed HTML slide deck from a slides JSON outline.
 
     Args:
         title: Deck title (used in the HTML <title> and fallback filename).
@@ -667,7 +675,10 @@ def gen_html_deck(title: str, slides_json: str, output_dir: str = "", theme: str
 @tool
 def gen_pdf_deck(title: str, slides_json: str, output_dir: str = "", theme: str = "business",
                  filename: str = "") -> str:
-    """Generate a themed PDF slide deck (one landscape page per slide) via fpdf.
+    """
+    用我：把 slides_json 渲染成 PDF 幻灯片。
+    别用我：普通文档转 PDF 用 write_file（按扩展名）。
+Generate a themed PDF slide deck (one landscape page per slide) via fpdf.
 
     Args:
         title: Deck title (used in the fallback filename).
@@ -845,9 +856,20 @@ def _load_outline_model():
     return build_chat_model(temperature=0)
 
 
-@tool
+class _NoArgs(BaseModel):
+    """Explicitly empty argument set.
+
+    Without it, ``@tool`` on a zero-argument function exposes a catch-all
+    ``kwargs`` parameter, and the model has to guess what to put in it.
+    """
+
+
+@tool(args_schema=_NoArgs)
 def list_deck_templates() -> str:
-    """List the available deck templates (theme + layout sets) with a short
+    """
+    用我：列出可选的演示模板 id。
+    别用我：不是列出文档或工具。
+List the available deck templates (theme + layout sets) with a short
     description of each, so the caller can pick one for doc_to_deck / gen_pptx."""
     rows = _list_templates()
     if not rows:
@@ -861,7 +883,10 @@ def list_deck_templates() -> str:
 
 @tool
 def doc_to_slides_outline(file_path: str, template: str = "business", pages: int = 0) -> str:
-    """Turn a document (.md / .txt / .pdf / .docx) into a validated slides outline.
+    """
+    用我：先把文档转成幻灯片大纲（JSON），供 gen_* 渲染。
+    别用我：要最终成品直接 doc_to_deck。
+Turn a document (.md / .txt / .pdf / .docx) into a validated slides outline.
 
     Reads the document server-side, then runs two LLM passes (draft → refine)
     producing a 12–15 slide outline JSON. The outline is normalized against the
@@ -895,7 +920,10 @@ def doc_to_slides_outline(file_path: str, template: str = "business", pages: int
 @tool
 def doc_to_deck(file_paths: str, template: str = "business", formats: str = "html,pptx",
                 output_dir: str = "", pages: int = 0) -> str:
-    """Convert one or more documents (.md / .txt / .pdf / .docx) into themed
+    """
+    用我：从一份文档一步生成 HTML+PPTX 两版幻灯片。
+    别用我：只要一份普通文档用 write_file；只想先看大纲用 doc_to_slides_outline。
+Convert one or more documents (.md / .txt / .pdf / .docx) into themed
     HTML + PPTX decks in a single call (batch supported).
 
     Pipeline: read each document → LLM outline (12–15 slides, draft → refine)

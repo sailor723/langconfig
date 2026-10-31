@@ -1878,23 +1878,19 @@ class _ToolBuildersMixin:
                     schema_fields[arg_name] = (py_type, arg_info["default"])
                 else:
                     schema_fields[arg_name] = (py_type, ...)
-            InputModel = create_model(f"{function_name}_input", **schema_fields)
-        else:
-            InputModel = None
 
-        if InputModel:
-            tool_instance = StructuredTool.from_function(
-                coroutine=_run,
-                name=tool_config["name"],
-                description=tool_config.get("description") or tool_config["name"],
-                args_schema=InputModel,
-            )
-        else:
-            tool_instance = StructuredTool.from_function(
-                coroutine=_run,
-                name=tool_config["name"],
-                description=tool_config.get("description") or tool_config["name"],
-            )
+        # Always hand StructuredTool an explicit schema — including the empty
+        # one for a tool that declares no parameters. Without it, StructuredTool
+        # infers the schema from `_run(**kwargs)` above and the model is offered
+        # a bogus catch-all `kwargs` parameter it has to guess a shape for.
+        InputModel = create_model(f"{function_name}_input", **schema_fields)
+
+        tool_instance = StructuredTool.from_function(
+            coroutine=_run,
+            name=tool_config["name"],
+            description=tool_config.get("description") or tool_config["name"],
+            args_schema=InputModel,
+        )
 
         return tool_instance
 
