@@ -1,6 +1,6 @@
 # Agent 训练 · 跟随 LangChain Agents 页
 
-> 依据：**<https://docs.langchain.com/oss/python/langchain/agents>**
+> 依据：**[https://docs.langchain.com/oss/python/langchain/agents](https://docs.langchain.com/oss/python/langchain/agents)**
 >
 > 一句话：*a model calling tools in a loop until a task is complete, shaped by a harness
 > of prompt, tools, and middleware.*
@@ -36,44 +36,43 @@ agent = create_agent(model="deepseek-flash", tools=tools)
 
 ![agent = model + harness：model 在中心，周围是 system prompt、skills、memory、context、tools、subagents](assets/agent-harness.svg)
 
-| 组件 | 页面原话 |
-|---|---|
-| **Model** | 传一个模型标识字符串（`"provider:model"`），或一个已初始化的模型实例。 |
-| **Tools** | 传任何 Python 可调用对象、LangChain 工具或工具字典。 |
-| **System prompt** | 塑造 agent 处理任务的方式。接受字符串或 `SystemMessage`。运行时要动态改，用中间件。 |
-| **Structured output** | 用 `response_format=` 让 agent 返回**校验过的结构**。 |
-| **Agent state** | 每个 agent 都用 `AgentState`（typed dictionary）管理执行上下文。内置字段是 `messages`（只追加）。要加自定义字段，继承它并用 `state_schema=` 传进去。 |
+| 组件                        | 页面原话                                                                                                                                                   |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Model**             | 传一个模型标识字符串（`"provider:model"`），或一个已初始化的模型实例。                                                                                   |
+| **Tools**             | 传任何 Python 可调用对象、LangChain 工具或工具字典。                                                                                                       |
+| **System prompt**     | 塑造 agent 处理任务的方式。接受字符串或 `SystemMessage`。运行时要动态改，用中间件。                                                                      |
+| **Structured output** | 用 `response_format=` 让 agent 返回**校验过的结构**。                                                                                              |
+| **Agent state**       | 每个 agent 都用 `AgentState`（typed dictionary）管理执行上下文。内置字段是 `messages`（只追加）。要加自定义字段，继承它并用 `state_schema=` 传进去。 |
 
 ## 在平台上：模型 + 系统提示词 + 工具
 
 三个位置填一次（Temperature 填 `0`）：
 
-| 页面参数 | 平台上 | 填什么 |
-|---|---|---|
-| `model=` | Overview → Model | `deepseek-flash`（Temperature `0`） |
-| `system_prompt=` | Prompt → System Prompt | `You are a helpful assistant` |
-| `tools=` | Tools 页签 | 三个：`web_search`、`python_execute`、`pg_query`（写文件用的 `write_file` 平台自带，不用勾） |
+| 页面参数           | 平台上                  | 填什么                                                                                               |
+| ------------------ | ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| `model=`         | Overview → Model       | `deepseek-flash`（Temperature `0`）                                                              |
+| `system_prompt=` | Prompt → System Prompt | `You are a helpful assistant`                                                                      |
+| `tools=`         | Tools 页签              | 三个：`web_search`、`python_execute`、`pg_query`（写文件用的 `write_file` 平台自带，不用勾） |
 
 ## 四个例子
 
 每个例子各开新聊天，先发一句 `hi`。
 
-| 问 | 它用了 | 结果 | 用时 |
-|---|---|---|---|
-| 上海的天气如何 | `web_search` ×4 | 晴到多云，白天 24–25℃，夜间 15℃ | 8.1s |
-| 1,234,567 乘以 891,011 等于多少？ | `python_execute` | 1,100,012,777,237 | 4.8s |
-| 用 pg_query 查一下 deep_agent_templates 有多少个 agent | `pg_query` | 63 | 3.3s |
-| 把这句话存成一份文档：标题《工具路由测试》 | `ls` → `write_file` | `generated/工具路由测试.md` | 9.1s |
+| 问                                                     | 它用了                   | 结果                               | 用时 |
+| ------------------------------------------------------ | ------------------------ | ---------------------------------- | ---- |
+| 上海的天气如何                                         | `web_search` ×4       | 晴到多云，白天 24–25℃，夜间 15℃ | 8.1s |
+| 1,234,567 乘以 891,011 等于多少？                      | `python_execute`       | 1,100,012,777,237                  | 4.8s |
+| 用 pg_query 查一下 deep_agent_templates 有多少个 agent | `pg_query`             | 63                                 | 3.3s |
+| 把这句话存成一份文档：标题《工具路由测试》             | `ls` → `write_file` | `generated/工具路由测试.md`      | 9.1s |
 
 提示词只有 `You are a helpful assistant` 一句，没有一个字提工具，四个例子它都自己挑对了 ——
 **挑哪个由工具自己的描述决定**。这就是页面那句 *a model calling tools in a loop*。
-
 
 ---
 
 # 案例 · 改文件前要人批准（Human-in-the-loop）
 
-页面：**<https://docs.langchain.com/oss/python/concepts/human-in-the-loop>**
+页面：**[https://docs.langchain.com/oss/python/concepts/human-in-the-loop](https://docs.langchain.com/oss/python/concepts/human-in-the-loop)**
 
 文档的写法是**中间件**，不是提示词：
 
@@ -103,14 +102,14 @@ agent = create_agent(
 
 ## 实测（deep agent，`bash` 设成 `bash_may_mutate`）
 
-| 步骤 | 看到什么 |
-|---|---|
-| 发 `hi`，它自己 `cd … && ls -la … 2>/dev/null` 扫工作区 | **没有打断**（只读命令不批） |
-| 发「用 bash 执行：`echo approved > …/generated/approved.txt`」 | 输入框变成审批卡，显示工具名和整条命令 |
-| 点 **批准这一次** | 命令执行，`approved.txt` 出现，内容是 `approved` |
-| 再点一次批准 | **409**：没有待批的东西了（批准只对那一次有效） |
-| 15 分钟不点 | 按**拒绝**处理，并告诉模型“工具没执行” |
-| agent 配 `approval_policy: "never"` | 直接拒绝，不等人 |
+| 步骤                                                              | 看到什么                                              |
+| ----------------------------------------------------------------- | ----------------------------------------------------- |
+| 发 `hi`，它自己 `cd … && ls -la … 2>/dev/null` 扫工作区     | **没有打断**（只读命令不批）                    |
+| 发「用 bash 执行：`echo approved > …/generated/approved.txt`」 | 输入框变成审批卡，显示工具名和整条命令                |
+| 点 **批准这一次**                                           | 命令执行，`approved.txt` 出现，内容是 `approved`  |
+| 再点一次批准                                                      | **409**：没有待批的东西了（批准只对那一次有效） |
+| 15 分钟不点                                                       | 按**拒绝**处理，并告诉模型“工具没执行”        |
+| agent 配 `approval_policy: "never"`                             | 直接拒绝，不等人                                      |
 
 ## 两个必须讲的判断
 
@@ -127,8 +126,8 @@ agent = create_agent(
 
 # 案例 · 主 agent 把专家当工具（Subagents）
 
-页面：**<https://docs.langchain.com/oss/python/langchain/multi-agent/index>**、
-**<https://docs.langchain.com/oss/python/langchain/multi-agent/subagents>**
+页面：**[https://docs.langchain.com/oss/python/langchain/multi-agent/index](https://docs.langchain.com/oss/python/langchain/multi-agent/index)**、
+**[https://docs.langchain.com/oss/python/langchain/multi-agent/subagents](https://docs.langchain.com/oss/python/langchain/multi-agent/subagents)**
 
 文档原句：*a central main agent coordinates subagents by **calling them as tools**.*
 主 agent 决定调谁、给什么输入、怎么合并结果；**所有路由都经过主 agent**。
@@ -166,12 +165,12 @@ Tools 页签勾上 **`task`**，保存后开新聊天。
 
 问一句：**「上海今天的天气怎么样？另外算一下 1234567 乘以 891011。」**
 
-| 顺序 | 发生了什么 |
-|---|---|
-| 1 | 主 agent 一轮里发出**两个** `task`：`weather_expert`（查天气）、`math_expert`（算乘法） |
-| 2 | 子代理内部各自调用工具：`web_search` ×3、`python_execute` ×1 |
-| 3 | 结果回到主 agent，主 agent 汇总成一条回答 |
-| 4 | 落库：`tool_calls` 5 条、`subagent_spawns` 2 条（`{subagent, task, status:"completed"}`） |
+| 顺序 | 发生了什么                                                                                          |
+| ---- | --------------------------------------------------------------------------------------------------- |
+| 1    | 主 agent 一轮里发出**两个** `task`：`weather_expert`（查天气）、`math_expert`（算乘法） |
+| 2    | 子代理内部各自调用工具：`web_search` ×3、`python_execute` ×1                                  |
+| 3    | 结果回到主 agent，主 agent 汇总成一条回答                                                           |
+| 4    | 落库：`tool_calls` 5 条、`subagent_spawns` 2 条（`{subagent, task, status:"completed"}`）     |
 
 ## 三个必须讲的判断
 
@@ -192,10 +191,10 @@ Tools 页签勾上 **`task`**，保存后开新聊天。
 
 同一个问题、同一套工具，只动子代理的 `description`，问三次：
 
-| 实验 | 配置 | 结果 |
-|---|---|---|
-| ① 描述匹配 | `weather_expert`：「查询某个城市的实时天气」 | 委派给 `weather_expert` ✅ |
-| ② 描述改成无关 | 同一个子代理，描述改成「整理会议纪要并输出要点」 | **仍然委派给它** —— 没变 |
+| 实验                | 配置                                                                                     | 结果                                                                               |
+| ------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| ① 描述匹配         | `weather_expert`：「查询某个城市的实时天气」                                           | 委派给 `weather_expert` ✅                                                       |
+| ② 描述改成无关     | 同一个子代理，描述改成「整理会议纪要并输出要点」                                         | **仍然委派给它** —— 没变                                                   |
 | ③ 两个候选都说得通 | `data_expert`：「查询【实时】天气…」和 `archive_expert`：「查询【历史】气候统计…」 | 「现在气温多少」→ `data_expert`；「往年 10 月平均气温」→ `archive_expert` ✅ |
 
 **结论要如实讲**：路由不是只看描述 —— 任务文本、子代理名字、以及**候选有几个**都在参与。
@@ -209,8 +208,8 @@ Tools 页签勾上 **`task`**，保存后开新聊天。
 
 # 案例 · 把对话交给另一个角色（Handoffs）
 
-页面：**<https://docs.langchain.com/oss/python/langchain/multi-agent/index>**、
-**<https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs>**
+页面：**[https://docs.langchain.com/oss/python/langchain/multi-agent/index](https://docs.langchain.com/oss/python/langchain/multi-agent/index)**、
+**[https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs](https://docs.langchain.com/oss/python/langchain/multi-agent/handoffs)**
 
 文档原句：*Tool calls update a state variable that triggers routing or configuration
 changes, switching agents or adjusting the current agent's tools and prompt.*
@@ -249,10 +248,10 @@ def transfer_to_specialist(runtime: ToolRuntime) -> Command:
 
 ## 实测（`case-3-handoff`，三个角色，CLI 验收）
 
-| 轮次 | 用户说 | 发生什么 | 谁回答 |
-|---|---|---|---|
-| 1 | 我有发票问题 | `transfer_to_support` → `transfer_to_finance` | **财务**（「你好，我是财务专员…」）|
-| 2 | 另外，我有 500 错误 | `transfer_to_support` | **售后**（「500 属于服务端内部错误…」）|
+| 轮次 | 用户说              | 发生什么                                           | 谁回答                                         |
+| ---- | ------------------- | -------------------------------------------------- | ---------------------------------------------- |
+| 1    | 我有发票问题        | `transfer_to_support` → `transfer_to_finance` | **财务**（「你好，我是财务专员…」）     |
+| 2    | 另外，我有 500 错误 | `transfer_to_support`                            | **售后**（「500 属于服务端内部错误…」） |
 
 每跳都留下痕迹，且**刷新后仍在**：`session.messages` 里是一条
 
@@ -283,7 +282,7 @@ def transfer_to_specialist(runtime: ToolRuntime) -> Command:
 
 # 案例 · 需要时才加载知识（Skills）
 
-页面：**<https://docs.langchain.com/oss/python/langchain/multi-agent/skills>**
+页面：**[https://docs.langchain.com/oss/python/langchain/multi-agent/skills](https://docs.langchain.com/oss/python/langchain/multi-agent/skills)**
 
 文档原句：*Skills are primarily prompt-driven specializations that an agent can invoke
 **on-demand** —— progressive disclosure of specialized prompts and domain knowledge.*
@@ -305,10 +304,10 @@ def load_skill(skill_name: str) -> str:
 
 ## 实测（`case-4-skills`，只有 `skill` + `python_execute` 两个工具）
 
-| 问题 | 是否加载技能 | 结果 |
-|---|---|---|
-| 帮我把这句话改得更简洁：今天天气不错 | **0 次** | 直接改（7 字 → 5 字） |
-| 帮我 review 这段 Python 代码：`def f(x): return x/0` | **`skill(skill_id="code-review")`** | 先加载技能，再作答 |
+| 问题                                                   | 是否加载技能                                | 结果                   |
+| ------------------------------------------------------ | ------------------------------------------- | ---------------------- |
+| 帮我把这句话改得更简洁：今天天气不错                   | **0 次**                              | 直接改（7 字 → 5 字） |
+| 帮我 review 这段 Python 代码：`def f(x): return x/0` | **`skill(skill_id="code-review")`** | 先加载技能，再作答     |
 
 > 修之前两次都**不加载**：`skill` 工具的说明里没有列任何技能 id，模型不知道有
 > `code-review` 这个东西。把技能清单写进工具描述（名称 + 一句话）之后才会调 ——
@@ -327,7 +326,7 @@ def load_skill(skill_name: str) -> str:
 
 # 案例 · 分派台 + 专家并行 + 汇总（Router）
 
-页面：**<https://docs.langchain.com/oss/python/langchain/multi-agent/router>**
+页面：**[https://docs.langchain.com/oss/python/langchain/multi-agent/router](https://docs.langchain.com/oss/python/langchain/multi-agent/router)**
 
 文档原句：*A routing step classifies input and directs it to specialized agents …
 Zero or more specialized agents are invoked in parallel. Results are synthesized
@@ -352,12 +351,12 @@ into a coherent response.*
 
 问：**「上海今天天气怎么样？顺便算一下 1280 的 15% 是多少。」**
 
-| 观察点 | 实测 |
-|---|---|
-| 分派内容 | 一轮里发出**两个** `task`：`weather_desk`（查天气）、`math_desk`（算百分比） |
-| 专家各自干活 | 子代理内部 `web_search` ×2、`python_execute` ×1 |
-| 汇总 | 同一条回答里既有 `192` 也有上海 19.9℃ / 湿度 68% |
-| 记账 | `subagent_spawns` 2 条（两个都 completed）、`tool_calls` 5 条 |
+| 观察点       | 实测                                                                                     |
+| ------------ | ---------------------------------------------------------------------------------------- |
+| 分派内容     | 一轮里发出**两个** `task`：`weather_desk`（查天气）、`math_desk`（算百分比） |
+| 专家各自干活 | 子代理内部 `web_search` ×2、`python_execute` ×1                                    |
+| 汇总         | 同一条回答里既有 `192` 也有上海 19.9℃ / 湿度 68%                                      |
+| 记账         | `subagent_spawns` 2 条（两个都 completed）、`tool_calls` 5 条                        |
 
 ## 三个要讲的判断
 
@@ -376,37 +375,31 @@ into a coherent response.*
 
 # 案例 6 · 个人助理（Supervisor + 专家 + 外发审批）
 
-教程：**<https://docs.langchain.com/oss/python/langchain/multi-agent/subagents-personal-assistant>**
+教程：**[https://docs.langchain.com/oss/python/langchain/multi-agent/subagents-personal-assistant](https://docs.langchain.com/oss/python/langchain/multi-agent/subagents-personal-assistant)**
 
-## Overview（页面原文）
+## Overview（页面原文 · 中文译文）
 
-> The supervisor pattern is a multi-agent architecture where a central supervisor agent
-> coordinates specialized worker agents. This approach excels when tasks require different
-> types of expertise. Rather than building one agent that manages tool selection across
-> domains, you create focused specialists coordinated by a supervisor who understands the
-> overall workflow.
+> supervisor 模式是一种多 agent 架构：一个中心的 **supervisor agent** 协调若干专职的
+> **worker agent**。当任务需要几种不同类型的专业能力时，它最合适 —— 与其造一个要在多个领域里
+> 挑工具的 agent，不如造几个各自专注的专家，由理解整体流程的 supervisor 来协调。
 >
-> In this tutorial, you'll build a personal assistant system that demonstrates these
-> benefits through a realistic workflow. The system will coordinate two specialists with
-> fundamentally different responsibilities:
+> 教程要搭的是一套个人助理系统，用一条真实的工作流来演示这套结构。系统协调两个
+> **职责完全不同**的专家：
 >
-> - A **calendar agent** that handles scheduling, availability checking, and event management.
-> - An **email agent** that manages communication, drafts messages, and sends notifications.
+> - **calendar agent**：排期、查空闲、管理日程事件。
+> - **email agent**：负责沟通、起草消息、发送通知。
 >
-> We will also incorporate human-in-the-loop review to allow users to approve, edit, and
-> reject actions (such as outbound emails) as desired.
+> 还会引入 **human-in-the-loop review**，让人**批准 / 编辑 / 拒绝**动作（例如对外发邮件）。
 >
-> If you are migrating from the `langgraph-supervisor` package, see Migrate from
-> langgraph-supervisor for before-and-after patterns, including interrupt and resume flows.
+> 从 `langgraph-supervisor` 迁移过来的，参考「Migrate from langgraph-supervisor」——
+> 那里有 interrupt 与 resume 的前后对照。
 
-## Why use a supervisor?（页面原文）
+## Why use a supervisor?（页面原文 · 中文译文）
 
-> Multi-agent architectures allow you to partition tools across workers, each with their own
-> individual prompts or instructions. Consider an agent with direct access to all calendar and
-> email APIs: it must choose from many similar tools, understand exact formats for each API,
-> and handle multiple domains simultaneously. If performance degrades, it may be helpful to
-> separate related tools and associated prompts into logical groups (in part to manage
-> iterative improvements).
+> 多 agent 架构可以把**工具**切分给不同 worker，每个 worker 有自己的提示词或指令。
+> 试想一个直接握着全部日历与邮件 API 的 agent：它要在**很多相似的**工具里挑、要记住每套 API
+> 的确切格式、还要同时处理多个领域。**如果效果开始变差**，把相关工具与配套提示词拆成逻辑组
+> 往往有帮助（一部分也是为了让后续迭代更好管理）。
 
 ## 结构：一共 3 个 agent（1 + 2）
 
@@ -430,13 +423,13 @@ into a coherent response.*
 
 ## 教程的步骤
 
-| 步骤 | 教程做了什么 |
-|---|---|
-| 1. 定义工具 | 三个 stub：`create_calendar_event`（要 ISO 时间）、`send_email`、`get_available_time_slots` |
-| 2. 建专家 | calendar agent（**把「下周二下午 2 点」解析成 ISO**）、email agent（推断收件人、写主题正文） |
+| 步骤                    | 教程做了什么                                                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. 定义工具             | 三个 stub：`create_calendar_event`（要 ISO 时间）、`send_email`、`get_available_time_slots`                                     |
+| 2. 建专家               | calendar agent（**把「下周二下午 2 点」解析成 ISO**）、email agent（推断收件人、写主题正文）                                    |
 | 3. **包装成工具** | `schedule_event(request)`、`manage_email(request)` — **supervisor 只看到这两个高层工具，看不到 `create_calendar_event`** |
-| 4. supervisor | 按领域分派；一句话涉及两件事时，**一轮里同时调两个工具** |
-| 5. 两个例子 | ①「安排明天 9 点站会」→ 只调 `schedule_event`；②「下周二 2 点跟设计团队开会，并发邮件提醒」→ 同时调度两个 |
+| 4. supervisor           | 按领域分派；一句话涉及两件事时，**一轮里同时调两个工具**                                                                        |
+| 5. 两个例子             | ①「安排明天 9 点站会」→ 只调 `schedule_event`；②「下周二 2 点跟设计团队开会，并发邮件提醒」→ 同时调度两个                       |
 
 ## 平台上怎么还原（三步）
 
@@ -507,12 +500,12 @@ interrupt: True
 
 ## 和教程的差异（要如实讲）
 
-| 教程 | 平台 | 原因 |
-|---|---|---|
+| 教程                                                                                        | 平台                                                                                                               | 原因                                                                              |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | 三个 stub 工具（`create_calendar_event` / `send_email` / `get_available_time_slots`） | **不新增工具**：日历用 `python_execute` 算 + `write_file` 存 `.ics`；邮件用 `write_file` 存 `.eml` | 平台不鼓励为了演示造 stub；“发出去”用“写进 outbox 目录”代表，副作用仍然可观测 |
-| 每个专家包成**一个工具**（`schedule_event` / `manage_email`） | 用内置的 `task(description, subagent_type)` 单分发工具 | 机制等价：supervisor 一样只看得到“派人”，看不到专家的工具；差别只是工具的粒度 |
-| API 真发送（SendGrid / Google Calendar） | 写文件 | 教程**自己也没接**：原文 *"In real applications, these would call actual APIs (Google Calendar, SendGrid, etc.). For this tutorial, you'll use stubs"*，三个工具里只有 `# Stub: In practice, this would call Google Calendar API…` 这样的注释，没有日历/邮箱界面。平台这边没有真发信、真日历通道，“发出去/排上了”就用写进 `generated/` 的文件代表 |
-| `edit`（改参数后再执行） | 界面只给 批准 / 拒绝，`edit` 留 API | 改参数会让模型重新规划，实测反而更乱 |
+| 每个专家包成**一个工具**（`schedule_event` / `manage_email`）                     | 用内置的 `task(description, subagent_type)` 单分发工具                                                           | 机制等价：supervisor 一样只看得到“派人”，看不到专家的工具；差别只是工具的粒度   |
+| API 真发送（SendGrid / Google Calendar）                                                    | 写文件                                                                                                             | 教程**自己也没接**：原文说这些工具 "would call actual APIs (Google Calendar, SendGrid, etc.)"，代码里只有 `# Stub: …` 注释；平台这边没有真发信 / 真日历通道，“发出去 / 排上了”就用写进 `generated/` 的文件代表 |
+| `edit`（改参数后再执行）                                                                  | 界面只给 批准 / 拒绝，`edit` 留 API                                                                              | 改参数会让模型重新规划，实测反而更乱                                              |
 
 ## 四个要讲的判断
 
@@ -538,7 +531,7 @@ interrupt: True
 - [ ] Agents → **New Agent**，名字填 `case-6-assistant`
 - [ ] Overview → Model 选 `deepseek-flash`，Temperature 填 `0`
 - [ ] Prompt 页签 → System Prompt 填：
-      `你是一个个人助理。日程问题交给 calendar_expert，邮件问题交给 email_expert；你自己不写文件、不算日期。一个请求涉及两件事时，分别派给两个专家并汇总结果。`
+  `你是一个个人助理。日程问题交给 calendar_expert，邮件问题交给 email_expert；你自己不写文件、不算日期。一个请求涉及两件事时，分别派给两个专家并汇总结果。`
 - [ ] **Save**（判据：顶部出现保存成功，工具条 `ID:` 变成一个数字）
 
 ## B. 工具
@@ -588,17 +581,17 @@ interrupt: True
 
 - [ ] 重跑例 2，这次点 **拒绝** → 判据：`outbox/` 里**没有**新文件，且答复里说明没发出去
 - [ ] 把 `email_expert` 的 `interrupt_on` 删掉 → Save → 新聊天重跑 → 判据：**不再打断**
-      （反向证明这次审批确实来自那一段配置）
+  （反向证明这次审批确实来自那一段配置）
 
 ## I. 常见失败对照
 
-| 现象 | 大概率原因 | 修法 |
-|---|---|---|
-| 完全不派活，supervisor 自己答 | supervisor 的 system prompt 没写清“交给谁”，或 Tools 里没勾 `task` | 补 prompt / 勾 `task` |
-| 派了但**没有文件** | 专家的 `tools` 里没写 `write_file`（或该环境没有工作区） | 在专家的 `tools` 里补 `write_file` |
-| 例 2 **不打断** | `interrupt_on` 写到了 agent 顶层 `middleware`，而不是专家对象里 | 移到 `email_expert.intrrupt_on`（注意拼写：`interrupt_on`） |
-| 打断后批准了但没文件 | `when: writes_deliverable` 把该路径当成了草稿（`other/`、`skills/` 不拦也不落地） | 让文件写到 `generated/` |
-| 刷新后转交/审批痕迹不见了 | 用的是旧会话 | 开新聊天重跑（历史记录已落库，但当前回合别复用旧上下文） |
+| 现象                          | 大概率原因                                                                              | 修法                                                            |
+| ----------------------------- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 完全不派活，supervisor 自己答 | supervisor 的 system prompt 没写清“交给谁”，或 Tools 里没勾 `task`                  | 补 prompt / 勾 `task`                                         |
+| 派了但**没有文件**      | 专家的 `tools` 里没写 `write_file`（或该环境没有工作区）                            | 在专家的 `tools` 里补 `write_file`                          |
+| 例 2 **不打断**         | `interrupt_on` 写到了 agent 顶层 `middleware`，而不是专家对象里                     | 移到 `email_expert.intrrupt_on`（注意拼写：`interrupt_on`） |
+| 打断后批准了但没文件          | `when: writes_deliverable` 把该路径当成了草稿（`other/`、`skills/` 不拦也不落地） | 让文件写到 `generated/`                                       |
+| 刷新后转交/审批痕迹不见了     | 用的是旧会话                                                                            | 开新聊天重跑（历史记录已落库，但当前回合别复用旧上下文）        |
 | 日历面板空白 | 这次会话没有写过 `.ics`，或 `.ics` 里没有 `DTSTART` | 看 Files 面板有没有 `.ics`；面板底部会列出“读不出日程”的文件名 |
 
 > 整份清单跑完约 3–5 分钟。跑通后，这套配置就是“教程里的 supervisor + 专家 + 外发审批”
