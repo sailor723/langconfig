@@ -588,6 +588,24 @@ async def list_deepagents(
 
         agents = query.order_by(DeepAgentTemplate.created_at.desc()).all()
 
+        # Order: the training build first, in curriculum order, then everything
+        # else A→Z. `created_at desc` used to decide, which meant the numbered
+        # cases scattered among whatever had been touched last — the one list
+        # where order carries meaning (case-1 → case-9) had no order at all.
+        # Sorted here rather than in SQL because the number lives inside the
+        # name: "case-10" must follow "case-9", which string ordering gets wrong.
+        import re as _re
+
+        _case = _re.compile(r"^case-(\d+)", _re.IGNORECASE)
+
+        def _order(agent: DeepAgentTemplate):
+            match = _case.match(agent.name or "")
+            if match:
+                return (0, int(match.group(1)), (agent.name or "").lower())
+            return (1, 0, (agent.name or "").lower())
+
+        agents = sorted(agents, key=_order)
+
         # Get chat session counts for each agent
         from models.deep_agent import ChatSession
         from sqlalchemy import func
