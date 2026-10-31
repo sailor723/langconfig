@@ -431,14 +431,12 @@ into a coherent response.*
 | 4. supervisor           | 按领域分派；一句话涉及两件事时，**一轮里同时调两个工具**                                                                        |
 | 5. 两个例子             | ①「安排明天 9 点站会」→ 只调 `schedule_event`；②「下周二 2 点跟设计团队开会，并发邮件提醒」→ 同时调度两个                       |
 
-## 平台上怎么还原（三步）
+## 平台上怎么还原
 
-**① 建 agent**：Agents → New Agent → 名字 `case-6-assistant`，Model `deepseek-flash`，Temperature `0`。
-
-**② Tools 页签**：**只勾 `Task (Subagent)`** —— supervisor 只该看到“派人”这一件事，
-具体 API 由专家自己拿（这正是教程说的分层）。
-
-**③ JSON 页签**：把两个专家写进 `subagents`：
+1. **建 agent**：名字 `case-6-assistant`，Model `deepseek-flash`，Temperature `0`。
+2. **Tools 页签只勾 `Task (Subagent)`** —— supervisor 只该看到“派人”这一件事，具体 API 由专家自己拿。
+3. **JSON 页签**贴两个专家（`interrupt_on` 写在 `email_expert` 身上，不是 supervisor 上 ——
+   supervisor 的中间件只看得到 `task`，看不到专家手里的 `write_file`）：
 
 ```json
 "subagents": [
@@ -460,65 +458,34 @@ into a coherent response.*
 ]
 ```
 
-`interrupt_on` 写在**专家身上**（不是 supervisor 上）：supervisor 的中间件只看得到 `task`，
-看不到专家手里的 `write_file` —— 教程要的“外发前批准”只能在专家这一层拦。
-
-**supervisor 的 system prompt**（Prompt 页签）：
-
-```text
-你是一个个人助理。日程问题交给 calendar_expert，邮件问题交给 email_expert；
-你自己不写文件、不算日期。一个请求涉及两件事时，分别派给两个专家并汇总结果。
-```
+4. **Prompt 页签**：`你是一个个人助理。日程问题交给 calendar_expert，邮件问题交给 email_expert；你自己不写文件、不算日期。一件事涉及两方时，分别派活再汇总。`
 
 ## 实测（`case-6-assistant`，id 323）
 
-**例 1（教程的 Example 1：单域）** 问：`安排下周二下午 2 点跟 Alice 开 1 小时的会`
+| 问 | 发生了什么 |
+|---|---|
+| `安排下周二下午 2 点跟 Alice 开 1 小时的会` | `task(calendar_expert)` → `ls` → `python_execute` 算日期 → `write_file` → `generated/与Alice开会.ics`；答「2026-11-03 周二 14:00–15:00」 |
+| 同一句 + `然后给 alice@example.com 发封确认邮件` | 一轮两个 `task`；`email_expert` 写 `.eml` 前**打断** → 点批准 → `outbox/…eml` 出现 |
 
-```
-task(calendar_expert) → ls → python_execute(算日期) → write_file → read_file → edit_file
-回答：「2026-11-03 周二 14:00–15:00，与 Alice 开会」
-文件：generated/与Alice开会.ics        ← 日期换算由专家自己算的
-```
-
-**例 2（教程的 Example 2：跨域）** 问：`安排下周二下午 2 点跟 Alice 开 1 小时的会，然后给 alice@example.com 发封确认邮件`
-
-```
-task(calendar_expert) → task(email_expert) → …
-interrupt: True
-  待批：write_file('…/generated/outbox/alice@example.com-会议确认….eml')
-点「批准这一次」→ 200 → outbox: ['alice@example.com-会议确认：11月3日（周二）14:00–15:00 UTC.eml']
-```
-
-**看结果（右侧 Calendar）**：聊天窗口右上角点日历图标 → 11 月 3 日格子里出现
-`14:00 与 Alice 开会`，点那天在下方看到时间 / 参与者 / 来源文件 `generated/与Alice开会.ics`。
-
-```
-只读：面板不写任何东西，读的就是工作区里的 .ics
-判据 1：格子里有事件，且来源文件与 Files 面板里的一致
-判据 2：底部写明「N 个日程的文件没写时区，时间按文件字面显示」← 文件没有 TZID 时它不会替模型编时区
-```
+点聊天窗口右上角**日历图标**：11 月 3 日格子里是 `14:00 与 Alice 开会`，来源文件与 Files 面板一致；
+面板底部写明「N 个日程的文件没写时区，时间按文件字面显示」—— 只读，不替模型编时区。
 
 ## 和教程的差异（要如实讲）
 
-| 教程                                                                                        | 平台                                                                                                               | 原因                                                                              |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| 三个 stub 工具（`create_calendar_event` / `send_email` / `get_available_time_slots`） | **不新增工具**：日历用 `python_execute` 算 + `write_file` 存 `.ics`；邮件用 `write_file` 存 `.eml` | 平台不鼓励为了演示造 stub；“发出去”用“写进 outbox 目录”代表，副作用仍然可观测 |
-| 每个专家包成**一个工具**（`schedule_event` / `manage_email`）                     | 用内置的 `task(description, subagent_type)` 单分发工具                                                           | 机制等价：supervisor 一样只看得到“派人”，看不到专家的工具；差别只是工具的粒度   |
-| API 真发送（SendGrid / Google Calendar）                                                    | 写文件                                                                                                             | 教程**自己也没接**：原文说这些工具 "would call actual APIs (Google Calendar, SendGrid, etc.)"，代码里只有 `# Stub: …` 注释；平台这边没有真发信 / 真日历通道，“发出去 / 排上了”就用写进 `generated/` 的文件代表 |
-| `edit`（改参数后再执行）                                                                  | 界面只给 批准 / 拒绝，`edit` 留 API                                                                              | 改参数会让模型重新规划，实测反而更乱                                              |
+| 教程 | 平台 | 原因 |
+|---|---|---|
+| 三个 stub 工具 | `python_execute` 算 + `write_file` 存 `.ics` / `.eml`，**不新增工具** | 平台不鼓励为演示造 stub；副作用靠文件可观测 |
+| 每个专家包成 1 个工具 | 用内置的 `task(description, subagent_type)` | 等价：supervisor 一样看不到专家的工具 |
+| 真发信 / 真日历（SendGrid、Google Calendar） | 写文件 | 教程**自己也是 stub**；平台没有真通道 |
+| `edit`（改参数再执行） | 只有批准 / 拒绝 | 改参数会触发重新规划，实测更乱 |
 
 ## 四个要讲的判断
 
-1. **分层是为了“少选项”，不是为了“多角色”。** supervisor 只面对 1 个工具（`task`），
-   每个专家只面对自己那 2 个 —— 模型选错的概率下降。这和第 0 步“工具太多时路由变差”是同一件事。
-2. **supervisor 与专家之间存在信息差。** 它不知道 `write_file` 存在、不知道 `.ics` 怎么写；
-   它只知道“有个日程专家”。这种信息差是**设计出来的**，不是 bug —— 但也意味着
-   **约束必须写在专家身上**（比如“时间用 UTC”“邮件要含主题”）。
-3. **审批要放在“有副作用的那一层”。** 放 supervisor 只能拦“派活”，拦不到“发信”；
-   放邮件专家才是教程要的“外发前批准”。
-4. **专家需要自己的中间件。** 实测坑：子代理原来既没有 `interrupt_on` 也没有文件系统，
-   让它写 `.ics` 只能退回 `python_execute`、文件根本没落盘。平台已修（专家现在有独立工作区
-   与自己的审批策略）—— 讲课时可以拿它说明“中间件是按层配的，不是全局开关”。
+1. **分层是为了“少选项”**：supervisor 只面对 1 个工具、每个专家只面对自己的 2 个 —— 选错的概率就下来了。
+2. **信息差是设计出来的**：supervisor 不知道 `write_file`、也不知道 `.ics` 怎么写得出来；所以**约束要写在专家身上**。
+3. **审批放在有副作用的那一层**：放 supervisor 只能拦住“派活”，拦不住“发信”。
+4. **专家要有自己的中间件**：子代理原来既无 `interrupt_on` 也无文件系统，文件根本落不了盘（平台已修）。
+
 
 ---
 
