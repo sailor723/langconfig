@@ -1,14 +1,14 @@
 digraph handoff {
   rankdir=LR;
   bgcolor="#1A1334";
-  pad=0.45;
-  nodesep=0.7;
+  pad=0.30;
+  nodesep=0.59;
   ranksep=1.1;
   fontname="Menlo";
 
-  node [shape=box, style="rounded,filled", penwidth=2.2, fontname="Menlo", fontsize=14,
-        margin="0.24,0.14", fillcolor="#251A49", color="#9B7BDB", fontcolor="#E5DBFF"];
-  edge [fontname="Menlo", fontsize=12, color="#62B7FF", fontcolor="#C7AEFF",
+  node [shape=box, style="rounded,filled", penwidth=2.2, fontname="Menlo", fontsize=10,
+        margin="0.14,0.07", fillcolor="#251A49", color="#9B7BDB", fontcolor="#E5DBFF"];
+  edge [fontname="Menlo", fontsize=9, color="#62B7FF", fontcolor="#C7AEFF",
         penwidth=2.2, arrowsize=0.9];
 
   s [label="售前\n产品 · 报价", color="#62B7FF"];

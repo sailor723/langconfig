@@ -1,17 +1,17 @@
 digraph supervisor {
   rankdir=TB;
   bgcolor="#1A1334";
-  pad=0.45;
-  nodesep=0.75;
-  ranksep=0.85;
+  pad=0.30;
+  nodesep=0.64;
+  ranksep=0.72;
   fontname="Menlo";
 
-  node [shape=box, style="rounded,filled", penwidth=2.2, fontname="Menlo", fontsize=14,
-        margin="0.22,0.13", fillcolor="#251A49", color="#9B7BDB", fontcolor="#E5DBFF"];
-  edge [fontname="Menlo", fontsize=12, color="#9B7BDB", fontcolor="#C7AEFF",
+  node [shape=box, style="rounded,filled", penwidth=2.2, fontname="Menlo", fontsize=10,
+        margin="0.14,0.07", fillcolor="#251A49", color="#9B7BDB", fontcolor="#E5DBFF"];
+  edge [fontname="Menlo", fontsize=9, color="#9B7BDB", fontcolor="#C7AEFF",
         penwidth=2.2, arrowsize=0.9];
 
-  sup [label="supervisor\n(自己也是一个 agent)", fontsize=16, penwidth=3.0, color="#62B7FF"];
+  sup [label="supervisor\n(自己也是一个 agent)", fontsize=11, penwidth=3.0, color="#62B7FF"];
   sch [label="schedule_event", color="#6E5FA8"];
   mng [label="manage_email", color="#6E5FA8"];
   cal [label="calendar agent\n日期换算 · 建日程", color="#62B7FF"];

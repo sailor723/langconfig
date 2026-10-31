@@ -1,19 +1,19 @@
 digraph loop {
   rankdir=LR;
   bgcolor="#1A1334";
-  pad=0.45;
-  nodesep=0.60;
+  pad=0.30;
+  nodesep=0.51;
   ranksep=1.15;
   fontname="Menlo";
 
-  node [shape=box, style="rounded,filled", penwidth=2.2, fontname="Menlo", fontsize=15,
-        margin="0.22,0.13", fillcolor="#251A49", color="#9B7BDB", fontcolor="#E5DBFF"];
-  edge [fontname="Menlo", fontsize=13, color="#9B7BDB", fontcolor="#C7AEFF",
+  node [shape=box, style="rounded,filled", penwidth=2.2, fontname="Menlo", fontsize=11,
+        margin="0.14,0.07", fillcolor="#251A49", color="#9B7BDB", fontcolor="#E5DBFF"];
+  edge [fontname="Menlo", fontsize=9, color="#9B7BDB", fontcolor="#C7AEFF",
         penwidth=2.2, arrowsize=0.9];
 
   request [label="request", color="#62B7FF"];
-  model   [label="model",   fontsize=19, penwidth=3.0, color="#9B7BDB"];
-  tools   [label="tools",   fontsize=18, penwidth=3.0, color="#62B7FF"];
+  model   [label="model",   fontsize=13, penwidth=3.0, color="#9B7BDB"];
+  tools   [label="tools",   fontsize=12, penwidth=3.0, color="#62B7FF"];
   result  [label="result",  color="#6E5FA8", style="rounded,filled,dashed", fontcolor="#C7AEFF"];
 
   request -> model [color="#62B7FF", fontcolor="#62B7FF"];

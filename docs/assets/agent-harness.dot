@@ -2,12 +2,12 @@ digraph harness {
   rankdir=LR;
   bgcolor="#1A1334";
   pad=0.5;
-  nodesep=0.45;
+  nodesep=0.38;
   ranksep=1.25;
   fontname="Menlo";
   newrank=true;
 
-  node [shape=box, style="rounded,filled", penwidth=2.0, fontname="Menlo", fontsize=14,
+  node [shape=box, style="rounded,filled", penwidth=2.0, fontname="Menlo", fontsize=10,
         margin="0.16,0.10", fillcolor="#251A49", color="#C7AEFF", fontcolor="#E5DBFF"];
   edge [color="#9B7BDB", penwidth=1.8, style=dashed, dir=none, arrowsize=0.6];
 

@@ -63,8 +63,12 @@ table { width:100%; border-collapse:collapse; margin:16px 0; font-size:14px; }
 th, td { padding:8px 10px; border:1px solid var(--line); text-align:left; vertical-align:top; }
 th { background:var(--soft); font-weight:600; }
 hr { border:0; border-top:1px solid var(--line); margin:40px 0; }
-img { max-width:100%; height:auto; display:block; margin:20px 0; }
+/* diagrams are rendered at their natural size; cap them so a wide graph does
+   not dominate the page — 70% of the column keeps them readable on a projector */
+img { max-width:70%; height:auto; display:block; margin:20px auto; }
 figure { margin:24px 0; }
+figure svg { max-width:70%; height:auto; display:block; margin:0 auto; }
+figcaption { font-size:.82em; color:#9aa4b2; text-align:center; margin-top:6px; }
 figcaption { font-size:13px; color:var(--muted); margin-top:8px; }
 nav { position:sticky; top:40px; align-self:start; font-size:13px; max-height:calc(100vh - 80px); overflow:auto; }
 nav .title { font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-size:11px; margin-bottom:10px; }
