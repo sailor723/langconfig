@@ -65,7 +65,7 @@ schema 里，模型看得到；提示词只该写**什么时候用哪个**。
 |---|---|---|
 | 工具 | 2–4 个 | 超过 5 个先问：是不是该拆成 T2 |
 | `write_file` | 要落盘才选 | normal agent **不带**自带文件工具，必须显式选 |
-| `read_any_file` | 要"写完回读校验"才选 | **deep agent 在本平台拿不到 `read_file`**：harness 只给 `ls/glob/grep/write_file/edit_file/delete`。回读内容用 `read_any_file`，或只用 `grep` 做行级核对 |
+| `read_any_file` | 要"写完回读校验"才选 | 回读这件事**别假设工具在**：实测有的 deep agent 能调 `read_file`（334 用了 7 次），有的会话里模型报"工具不存在"（331）。做法：先 `ls`/`grep` 确认路径，读内容时优先显式选 `read_any_file`，并在 rubric 里要求"用任一读取工具读回"而不是点名 `read_file` |
 | middleware | 无 | 这个结构不需要；要审批再挂 `hitl`（→ 见 T2 第 4 段） |
 
 最小够用集合，别照抄满配：案例 1 用 3 个工具就够，案例 2 的 27 个是反面教材。
