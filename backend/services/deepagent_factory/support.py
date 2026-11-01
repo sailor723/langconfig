@@ -59,6 +59,17 @@ class _DeepAgentSupportMixin:
         from core.tools.tool_params import apply_tool_params
         tools = apply_tool_params(tools, getattr(config, "tool_params", None) or None)
 
+        # MCP servers add their discovered tools to the same catalog the model
+        # reads. A server that is down is logged and skipped — an unreachable
+        # calendar must not stop the agent from answering everything else.
+        mcp_servers = getattr(config, "mcp_servers", None)
+        if mcp_servers:
+            from core.mcp import load_mcp_tools
+            mcp_tools = await load_mcp_tools(mcp_servers)
+            if mcp_tools:
+                tools.extend(mcp_tools)
+                logger.info(f"MCP tools: {[t.name for t in mcp_tools]}")
+
         # Bind every tool call to this run's workspace root — see
         # core/tools/sandbox_scope.py for why the binding cannot live in the request
         # context (the agent harness runs tools outside it).

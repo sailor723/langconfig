@@ -301,6 +301,15 @@ class _AgentAssemblyMixin:
         from core.tools.tool_params import apply_tool_params
         tools = apply_tool_params(tools, agent_config.get("tool_params"))
 
+        # MCP servers contribute discovered tools to the same catalog. Same rule
+        # as the deep-agent path: a server that is down is logged and skipped.
+        if agent_config.get("mcp_servers"):
+            from core.mcp import load_mcp_tools
+            mcp_tools = await load_mcp_tools(agent_config["mcp_servers"])
+            if mcp_tools:
+                tools.extend(mcp_tools)
+                logger.info(f"🔌 MCP TOOLS: {[t.name for t in mcp_tools]}")
+
         # DIAGNOSTIC: Log final tool list (before constraint wrapping)
         tool_names = [t.name for t in tools]
         logger.info(f"🔧 TOOLS LOADED: {tool_names}")

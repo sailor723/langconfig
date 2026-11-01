@@ -283,6 +283,14 @@ class DeepAgentConfig(BaseModel):
                     "Pinned defaults are bound onto the tool at build time so the agent "
                     "knows the target (the model can still override by passing the arg)."
     )
+    mcp_servers: Optional[Dict[str, Any]] = Field(
+        None,
+        description="MCP servers whose tools this agent gets, spelled like .mcp.json: "
+                    "{'calendar': {'url': 'http://127.0.0.1:3000/mcp'}} or "
+                    "{'fs': {'command': 'npx', 'args': ['-y', 'server-filesystem']}}. "
+                    "Discovered at build time via core/mcp/client.py and exposed as "
+                    "<server>_<tool> tools."
+    )
 
     # DeepAgents-specific
     use_deepagents: bool = Field(
