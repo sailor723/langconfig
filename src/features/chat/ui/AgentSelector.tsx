@@ -129,12 +129,12 @@ export default function AgentSelector({
             className="fixed inset-0 z-40"
             onClick={() => setIsOpen(false)}
           />
-          {/* Height only — the width (24rem) was fine. The old 32rem cap showed
-              four rows, which made picking an agent look like a search problem;
-              the panel now grows to 70% of the viewport (44rem at most) and
-              still scrolls inside. */}
+          {/* Height only — the width (24rem) was fine. The cap is the screen
+              itself minus the chrome above and below (7rem), instead of a fixed
+              row count, so the panel shows as many agents as the display can
+              hold and still scrolls inside when the library outgrows it. */}
           <div
-            className="absolute left-0 mt-2 w-96 rounded-lg shadow-lg border z-50 max-h-[min(70vh,44rem)] overflow-hidden flex flex-col"
+            className="absolute left-0 mt-2 w-96 rounded-lg shadow-lg border z-50 max-h-[calc(100vh-7rem)] overflow-hidden flex flex-col"
             style={{
               backgroundColor: 'var(--color-background-light)',
               borderColor: 'var(--color-border-dark)',
