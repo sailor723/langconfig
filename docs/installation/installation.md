@@ -361,6 +361,21 @@ uv run python -c "import fastapi, langgraph, deepagents; print('deps OK')"
 > Frontend deps are separate: `cd .. && npm install` (only needed for the UI;
 > the backend API alone does not need it).
 
+##### When `uv sync` misbehaves
+
+Three things bite on a machine that has been running for a while:
+
+| Symptom | Cause | Do this |
+|---|---|---|
+| `Failed to initialize cache at ~/.cache/uv … Operation not permitted` | that directory is owned by another user | `UV_CACHE_DIR=/tmp/uv-cache uv sync` |
+| `uv sync` wants to uninstall 60+ packages | the venv has hand-installed extras (dbt, weasyprint) that no manifest declares | `uv sync --dry-run` first; if you still need them, `uv pip install` them back after, or put them in `pyproject.toml` |
+| `No module named pip` after syncing | uv-managed venvs have no pip | use `uv pip install --python .venv <pkg>` |
+
+`uv sync --frozen --no-install-project` is the shape that reproduces our venv:
+the lock is used as-is (`--frozen`), and the backend package is not installed
+into its own venv (`--no-install-project`), because `backend/` is run from
+source.
+
 ##### Node.js — required for the frontend UI
 
 The UI needs Node **20.19+** (Vite 7 requirement). Install via nvm:
