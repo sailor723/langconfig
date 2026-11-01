@@ -100,10 +100,13 @@ Everything below, step 0 through step 9, is the detailed team-install path.
 
 `langconfig.zip` (≈31 MB) contains the full source tree minus secrets/build
 artifacts (no `.env`, `node_modules`, `.venv`, `data`, `backend/outputs`, git
-history). The database seed restores a machine-agnostic baseline: 56 deep
-agents, 29 LLM models, 67 tools, 43 skills. **Your workspace paths and API keys
-are added locally in the steps below — nothing machine-specific ships in the
-zip.**
+history). The database seed restores a machine-agnostic baseline: **44 deep
+agents, 28 LLM models, 57 tools, 42 skills** — counted from
+`backend/scripts/seeds/in/*.sql`, `models_seed.csv` and the `SKILL.md` files
+under `backend/skills/`, i.e. what the zip actually ships. The counts grow on a
+used machine (additive merges, local edits); they are not a promise about a live
+database. **Your workspace paths and API keys are added locally in the steps
+below — nothing machine-specific ships in the zip.**
 
 ##### Prerequisites — Ubuntu (22.04 / 24.04)
 
@@ -353,13 +356,24 @@ and creates `backend/.venv`.
 ```bash
 cd backend
 uv sync                 # creates .venv/ and installs all pinned deps
-uv run python -c "import fastapi, langgraph, deepagents; print('deps OK')"
+uv run python -c "import fastapi, langgraph, deepagents, mcp; print('deps OK')"
 ```
 
 > `backend/requirements.txt` also exists as a pip fallback
 > (`pip install -r requirements.txt`), but **`uv sync` is the canonical path**.
 > Frontend deps are separate: `cd .. && npm install` (only needed for the UI;
 > the backend API alone does not need it).
+
+The venv uv creates has **no `pip`** (that is normal for uv-managed
+environments). Install anything extra with:
+
+```bash
+UV_CACHE_DIR=/tmp/uv-cache uv pip install --python .venv <package>
+```
+
+Anything installed that way is *not* in `uv.lock`, so the next `uv sync` will
+remove it again — the supported way to keep an extra is to add it to
+`backend/pyproject.toml` and re-run `uv lock`.
 
 ##### When `uv sync` misbehaves
 
@@ -375,6 +389,27 @@ Three things bite on a machine that has been running for a while:
 the lock is used as-is (`--frozen`), and the backend package is not installed
 into its own venv (`--no-install-project`), because `backend/` is run from
 source.
+
+##### Optional — MCP server tools (Google Calendar, …)
+
+An agent can run with tools discovered from an MCP server. Give the agent's
+config an `mcp_servers` map; `backend/core/mcp/client.py` connects at build time
+and exposes each tool as `<server>_<tool>` (`calendar_list_events`, …):
+
+```json
+{"calendar": {"url": "http://127.0.0.1:3000"}}
+```
+
+```json
+{"fs": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]}}
+```
+
+No Python dependency is needed for this — `mcp` is already in
+`backend/pyproject.toml`. What the zip cannot ship is **credentials**: a Google
+Calendar MCP server needs its own OAuth client (`gcp-oauth.keys.json`) and one
+browser consent per machine, stored under `~/.config/google-calendar-mcp/`.
+Never put that file in the repo or in `.env`. A server that is down is logged
+and skipped — the agent keeps working with its other tools.
 
 ##### Node.js — required for the frontend UI
 
