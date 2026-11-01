@@ -173,6 +173,8 @@ docs/assets/*
 !docs/assets/*.pdf
 !docs/usage.md
 !docs/usage.zh-CN.md
+!docs/design/
+!docs/design/agent-builder.md
 
 
 # ── reference material (published subset) ──

@@ -78,6 +78,10 @@ SEEDABLE_TOOL_META = {
     "skill": ("Read Skill", "skills", None),
     "update_skill": ("Update Skill", "skills", None),
     "delete_skill": ("Delete Skill", "skills", None),
+    "create_agent": ("Create Agent (deep or normal)", "agent_management", None),
+    "update_agent": ("Update Agent Config", "agent_management", None),
+    "test_agent": ("Test Agent (probe run)", "agent_management", None),
+    # legacy id kept so existing agent configs still resolve
     "create_deepagent": ("Create DeepAgent", "agent_management", None),
     "pg_list_tables": ("PG - List Tables", "database", None),
     "pg_describe_table": ("PG - Describe Table", "database", None),
@@ -357,7 +361,10 @@ def _simplify_type(spec: dict) -> str:
             if stype:
                 break
     stype = stype or "string"
-    return stype if stype in ("string", "integer", "number", "boolean") else "string"
+    # array/object used to be flattened to string here, which made every
+    # list-typed tool argument (agent tools, todos, …) arrive as CSV text. The
+    # builder understands list/dict now, so keep the real type.
+    return stype if stype in ("string", "integer", "number", "boolean", "array", "object") else "string"
 
 
 _PY_TO_JSON_TYPE = {

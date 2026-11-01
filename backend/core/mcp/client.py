@@ -177,15 +177,22 @@ def _approval_decision(tool_name: str, payload: Dict[str, Any], allowed: List[st
 
     # The resume endpoint sends {"decisions": [{...}]}; accept a bare decision too.
     if isinstance(decision, dict) and "decisions" in decision:
-        decision = (decision.get("decisions") or [{}])[0]
+        flat = decision.get("decisions") or []
+        decision = flat[0] if flat else {}
     if isinstance(decision, list):
         decision = decision[0] if decision else {}
-    kind = decision.get("type") if isinstance(decision, dict) else str(decision)
+    kind = decision.get("type") if isinstance(decision, dict) else decision
 
-    if kind in (None, "approve"):
+    # Fail closed. An empty decision list — the shape a "carry on" resume without
+    # an explicit choice produces — must not read as approval: it did, because an
+    # empty list normalised to `{}` and `{}` to None. Only a literal "approve"
+    # runs the tool (found by agent 1 reading this file, 2026-11-01).
+    if kind == "approve":
         return None
     if kind == "reject":
         return f"[rejected by human] {decision.get('message') or 'no reason given'}"
+    if kind in (None, ""):
+        return "[rejected] no decision was recorded — the tool did not run"
     return f"[rejected by human] unsupported decision: {kind}"
 
 

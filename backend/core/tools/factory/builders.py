@@ -1867,6 +1867,18 @@ class _ToolBuildersMixin:
                         pass
                 return str(result)
             except Exception as e:
+                # A tool that pauses for human approval raises GraphInterrupt.
+                # Stringifying it turns "wait for a person" into "the tool
+                # errored" — the model then tells the user to approve something
+                # that is not waiting (observed with create_agent, 2026-11-01).
+                # GraphBubbleUp is LangGraph's "this must not be swallowed" base.
+                try:
+                    from langgraph.errors import GraphBubbleUp
+
+                    if isinstance(e, GraphBubbleUp):
+                        raise
+                except ImportError:  # pragma: no cover
+                    pass
                 return f"❌ Error: {e}"
 
         # Build args schema
@@ -1885,6 +1897,12 @@ class _ToolBuildersMixin:
                     "float": float, "int": int, "str": str,
                     "bool": bool, "number": float, "integer": int,
                     "string": str, "boolean": bool,
+                    # List/dict args were flattened to str, so an agent passing
+                    # ["a", "b"] had it schema-invalidated into the string
+                    # "a,b" — create_agent built an agent whose tool list was
+                    # the characters of that string.
+                    "array": list, "list": list,
+                    "object": dict, "dict": dict,
                 }.get(arg_type, str)
                 if isinstance(arg_info, dict) and "default" in arg_info:
                     schema_fields[arg_name] = (py_type, arg_info["default"])

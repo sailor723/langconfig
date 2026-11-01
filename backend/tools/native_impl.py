@@ -3093,8 +3093,323 @@ def delete_skill(skill_id: str) -> str:
 # =============================================================================
 # Agent Management Tools (direct PostgreSQL write)
 # =============================================================================
+#
+# These are the only tools that write agent configuration. Two rules shape them:
+#
+# 1. **They gate themselves.** Approval lives inside the tool, not in the agent's
+#    middleware, because a subagent runs its own graph and the parent's
+#    HumanInTheLoopMiddleware never sees the call it makes. Measured, not assumed:
+#    a `task` subagent created a real Google Calendar event with `interrupt_on` set
+#    on the parent (2026-11-01). A gate placed here fires wherever the tool runs.
+# 2. **They fail closed.** No decision recorded means "did not run", never "go".
+
+AGENT_BUILDER_APPROVED = "[rejected] this write needs an approval decision — the tool did not run"
+
+
+def _in_agent_run() -> bool:
+    """True when this tool call is executing inside a LangGraph run.
+
+    `interrupt()` raises outside a checkpointed graph, and these tools are also
+    callable from the UI and from scripts — those paths must not try to pause.
+    """
+    try:
+        from langchain_core.runnables.config import ensure_config
+
+        cfg = ensure_config() or {}
+        return bool((cfg.get("configurable") or {}).get("thread_id"))
+    except Exception:
+        return False
+
+
+def _approval_gate(tool_name: str, payload: dict, description: str) -> str | None:
+    """Pause for a human decision. Returns None to proceed, or a refusal string."""
+    if not _in_agent_run():
+        return None
+
+    from langgraph.types import interrupt
+
+    decision = interrupt(
+        {
+            "action_requests": [
+                {"name": tool_name, "args": payload, "description": description}
+            ],
+            "review_configs": [
+                {"action_name": tool_name, "allowed_decisions": ["approve", "reject"]}
+            ],
+        }
+    )
+
+    if isinstance(decision, dict) and "decisions" in decision:
+        flat = decision.get("decisions") or []
+        decision = flat[0] if flat else {}
+    if isinstance(decision, list):
+        decision = decision[0] if decision else {}
+    kind = decision.get("type") if isinstance(decision, dict) else decision
+
+    if kind == "approve":
+        return None
+    if kind == "reject":
+        return f"[rejected by human] {decision.get('message') or 'no reason given'}"
+    return AGENT_BUILDER_APPROVED
+
+
+def _agent_config_payload(kind: str, cfg: dict) -> dict:
+    """The DeepAgentConfig for a new agent, normal or deep.
+
+    `kind="normal"` flips `use_deepagents` off: the platform then assembles the
+    prompt (guardrails + tool enforcement) instead of taking ours verbatim, and
+    the harness file tools no longer arrive for free — a normal agent that needs
+    to write files must list `write_file` itself.
+    """
+    from models.deep_agent import (
+        DeepAgentConfig,
+        MiddlewareConfig,
+        SubAgentConfig,
+        create_default_backend_config,
+        create_default_guardrails_config,
+        create_default_middleware_config,
+    )
+
+    subagents = []
+    for sub in cfg.get("subagents") or []:
+        if not isinstance(sub, dict) or not sub.get("name"):
+            continue
+        subagents.append(
+            SubAgentConfig(
+                name=sub["name"],
+                description=sub.get("description") or "",
+                system_prompt=sub.get("system_prompt") or "",
+                tools=list(sub.get("tools") or []),
+                middleware=list(sub.get("middleware") or []),
+                interrupt_on=sub.get("interrupt_on") or {},
+            )
+        )
+
+    middleware = []
+    for mw in cfg.get("middleware") or []:
+        if isinstance(mw, dict) and mw.get("type"):
+            middleware.append(
+                MiddlewareConfig(
+                    type=mw["type"],
+                    enabled=mw.get("enabled", True),
+                    config=mw.get("config") or {},
+                )
+            )
+    if not middleware:
+        middleware = create_default_middleware_config()
+
+    return DeepAgentConfig(
+        model=cfg.get("model") or None,
+        temperature=cfg.get("temperature") if cfg.get("temperature") is not None else 0.3,
+        system_prompt=(cfg.get("system_prompt") or "").strip(),
+        native_tools=list(cfg.get("native_tools") or []),
+        cli_tools=[],
+        custom_tools=[],
+        skills=cfg.get("skills"),
+        tools=[],
+        use_deepagents=(kind != "normal"),
+        middleware=middleware,
+        subagents=subagents,
+        mcp_servers=cfg.get("mcp_servers") or None,
+        tool_params=cfg.get("tool_params") or None,
+        backend=create_default_backend_config(),
+        guardrails=create_default_guardrails_config(),
+    )
+
+
+def _apply_config(agent, cfg_obj) -> list[str]:
+    """Write a DeepAgentConfig onto the template row; returns the fields saved."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    dumped = cfg_obj.dict()
+    agent.config = dumped
+    agent.middleware_config = [m.dict() for m in cfg_obj.middleware]
+    agent.subagents_config = [s.dict() for s in cfg_obj.subagents]
+    agent.backend_config = cfg_obj.backend.dict()
+    agent.guardrails_config = cfg_obj.guardrails.dict()
+    flag_modified(agent, "config")
+    saved = ["model", "temperature", "system_prompt", "native_tools", "middleware"]
+    if cfg_obj.subagents:
+        saved.append("subagents")
+    if cfg_obj.mcp_servers:
+        saved.append("mcp_servers")
+    if cfg_obj.tool_params:
+        saved.append("tool_params")
+    if cfg_obj.skills:
+        saved.append("skills")
+    return saved
+
+
+def _as_list(value, sep: str = ",") -> list:
+    """Accept a real list, a JSON array string, or CSV — models send all three.
+
+    The tool schema says "array" now, but a model that has seen older catalog
+    text still emits "web_search,tavily_search". Coercing here keeps the build
+    correct instead of silently creating an agent whose tools are the
+    characters of that string (which happened once).
+    """
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        return [str(v).strip() for v in value if str(v).strip()]
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return []
+        if text.startswith("["):
+            try:
+                import json as _json
+
+                parsed = _json.loads(text)
+                if isinstance(parsed, list):
+                    return [str(v).strip() for v in parsed if str(v).strip()]
+            except Exception:
+                pass
+        return [part.strip() for part in text.split(sep) if part.strip()]
+    return [str(value)]
+
+
+def _as_dict(value):
+    """Accept a dict or a JSON object string."""
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str) and value.strip().startswith("{"):
+        try:
+            import json as _json
+
+            parsed = _json.loads(value)
+            return parsed if isinstance(parsed, dict) else None
+        except Exception:
+            return None
+    return None
+
+
+def _as_list_of_dicts(value) -> list:
+    """Accept a list, or a JSON array string (subagents/middleware)."""
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        return [v for v in value if isinstance(v, dict)]
+    if isinstance(value, str) and value.strip().startswith("["):
+        try:
+            import json as _json
+
+            parsed = _json.loads(value)
+            return [v for v in parsed if isinstance(v, dict)] if isinstance(parsed, list) else []
+        except Exception:
+            return []
+    return []
+
 
 @tool
+def create_agent(name: str,
+                 system_prompt: str,
+                 native_tools: list[str],
+                 kind: str = "deep",
+                 skills: list[str] | None = None,
+                 description: str | None = None,
+                 category: str | None = None,
+                 model: str | None = None,
+                 temperature: float = 0.3,
+                 subagents: list[dict] | None = None,
+                 middleware: list[dict] | None = None,
+                 mcp_servers: dict | None = None,
+                 tool_params: dict | None = None,
+                 agent_docs: dict | None = None) -> str:
+    """Create an agent in the database (deep or normal). Requires human approval.
+
+    Args:
+        name: Agent name, e.g. 'case-13-weather'
+        system_prompt: Complete system prompt (what it does, how it answers, where it saves)
+        native_tools: Tool ids from pg_list_custom_tools — never guess names
+        kind: 'deep' (harness gives ls/read_file/write_file/glob/grep, subagents, skills)
+              or 'normal' (platform assembles the prompt; file tools must be listed here)
+        skills: Skill ids from search_skills / pg_list_skills
+        description: One or two sentences for the agent list
+        category: 'Custom', 'Research', 'Coding', ...
+        model: Model name; omit for the platform default
+        temperature: 0.0–1.0 (default 0.3 — precise enough for build work)
+        subagents: [{"name","description","system_prompt","tools","middleware","interrupt_on"}]
+        middleware: [{"type":"todo_list","enabled":true,"config":{...}}, ...]
+        mcp_servers: {"calendar": {"url": "http://127.0.0.1:3000"}} — see docs/design/agent-builder.md
+        tool_params: Per-tool defaults, e.g. {"neo4j_agent_tool": {"database": "neo4j"}}
+        agent_docs: {"AGENTS.md": "...", "CLAUDE.md": "..."}
+
+    Returns the new agent id plus which fields took effect. Build first in your head,
+    then write a rubric, then call this — see the agent-builder skill.
+    """
+    from db.database import SessionLocal
+    from models.deep_agent import DeepAgentTemplate
+
+    if kind not in ("deep", "normal"):
+        return f"❌ kind must be 'deep' or 'normal', got {kind!r}"
+
+    native_tools = _as_list(native_tools)
+    skills = _as_list(skills)
+    subagents = _as_list_of_dicts(subagents)
+    middleware = _as_list_of_dicts(middleware)
+    mcp_servers = _as_dict(mcp_servers)
+    tool_params = _as_dict(tool_params)
+    agent_docs = _as_dict(agent_docs)
+
+    if not native_tools:
+        return "❌ native_tools is empty — read pg_list_custom_tools and pass the real ids"
+
+    refusal = _approval_gate(
+        "create_agent",
+        {"name": name, "kind": kind, "native_tools": native_tools,
+         "skills": skills or [], "subagents": [s.get("name") for s in (subagents or [])]},
+        f"Create agent {name!r} ({kind}) with {len(native_tools)} tools",
+    )
+    if refusal:
+        return refusal
+
+    db = SessionLocal()
+    try:
+        cfg_obj = _agent_config_payload(kind, {
+            "system_prompt": system_prompt,
+            "native_tools": native_tools,
+            "skills": skills,
+            "model": model,
+            "temperature": temperature,
+            "subagents": subagents,
+            "middleware": middleware,
+            "mcp_servers": mcp_servers,
+            "tool_params": tool_params,
+        })
+        agent = DeepAgentTemplate(
+            name=name.strip(),
+            description=(description or "").strip(),
+            category=category or "Custom",
+            config=cfg_obj.dict(),
+            middleware_config=[],
+            subagents_config=[],
+            backend_config=cfg_obj.backend.dict(),
+            guardrails_config=cfg_obj.guardrails.dict(),
+            agent_docs=agent_docs,
+            is_public=False,
+        )
+        saved = _apply_config(agent, cfg_obj)
+        db.add(agent)
+        db.commit()
+        db.refresh(agent)
+
+        return (
+            f"✅ agent '{name}' created — id={agent.id}, kind={kind}\n"
+            f"保存字段: {', '.join(saved)}\n"
+            f"工具 {len(cfg_obj.native_tools)} / 技能 {len(cfg_obj.skills or [])} / "
+            f"子代理 {len(cfg_obj.subagents)} / MCP {len(cfg_obj.mcp_servers or {})}\n"
+            f"下一步: test_agent(agent_id={agent.id}, probe=...) 用针对 rubric 的探针跑一轮。"
+        )
+    except Exception as e:
+        db.rollback()
+        return f"❌ Failed to create agent: {e}"
+    finally:
+        db.close()
+
+
 def create_deepagent(name: str,
                      system_prompt: str,
                      native_tools: list[str],
@@ -3103,75 +3418,174 @@ def create_deepagent(name: str,
                      category: str | None = None,
                      model: str | None = None,
                      temperature: float | None = None) -> str:
-    """Create a new DeepAgent in the database. The agent will immediately appear in the DeepAgent Studio.
+    """Backwards-compatible alias for :func:`create_agent` (kind='deep').
 
-    Use this tool when the user wants to SAVE a designed agent configuration permanently.
+    Two seeded agents (112 Agent Creator, 178 Research Pipeline Builder) were
+    configured with this tool id before the unified create_agent existed; the
+    DB row and its embedded code keep working because this name still resolves
+    to the same behaviour.
+    """
+    return create_agent(
+        name=name,
+        system_prompt=system_prompt,
+        native_tools=native_tools,
+        kind="deep",
+        skills=skills,
+        description=description,
+        category=category,
+        model=model,
+        temperature=temperature if temperature is not None else 0.3,
+    )
 
-    Args:
-        name: Agent name (e.g. '市场研究助手')
-        system_prompt: The COMPLETE system prompt defining the agent's behavior
-        native_tools: List of tool names the agent should have (e.g. ['web_search', 'web_fetch', 'reasoning_chain'])
-        skills: List of skill IDs (e.g. ['web-search', 'text-summarizer'])
-        description: Short 1-2 sentence description of what the agent does
-        category: Agent category (e.g. 'Research', 'Coding', 'Custom')
-        model: Model name (default: 'minimax-m3')
-        temperature: Model temperature 0.0-1.0 (default: 0.7)
+
+@tool
+def update_agent(agent_id: int,
+                 system_prompt: str | None = None,
+                 native_tools: list[str] | None = None,
+                 skills: list[str] | None = None,
+                 subagents: list[dict] | None = None,
+                 middleware: list[dict] | None = None,
+                 mcp_servers: dict | None = None,
+                 model: str | None = None,
+                 temperature: float | None = None,
+                 agent_docs: dict | None = None) -> str:
+    """Patch an existing agent by id. Only the fields you pass change. Requires approval.
+
+    Read it first with pg_get_agent and change one thing at a time, so a failing
+    test can be attributed to a specific edit.
     """
     from db.database import SessionLocal
-    from models.deep_agent import (
-        DeepAgentTemplate,
-        DeepAgentConfig,
-        create_default_middleware_config,
-        create_default_backend_config,
-        create_default_guardrails_config,
+    from models.deep_agent import DeepAgentTemplate
+
+    native_tools = _as_list(native_tools) if native_tools is not None else None
+    skills = _as_list(skills) if skills is not None else None
+    subagents = _as_list_of_dicts(subagents) if subagents is not None else None
+    middleware = _as_list_of_dicts(middleware) if middleware is not None else None
+    mcp_servers = _as_dict(mcp_servers) if mcp_servers is not None else None
+    agent_docs = _as_dict(agent_docs) if agent_docs is not None else None
+
+    refusal = _approval_gate(
+        "update_agent",
+        {"agent_id": agent_id, "fields": [k for k, v in {
+            "system_prompt": system_prompt, "native_tools": native_tools, "skills": skills,
+            "subagents": subagents, "middleware": middleware, "mcp_servers": mcp_servers,
+            "model": model, "temperature": temperature, "agent_docs": agent_docs,
+        }.items() if v is not None]},
+        f"Update agent {agent_id}",
     )
-    import json
+    if refusal:
+        return refusal
 
     db = SessionLocal()
     try:
-        cfg = DeepAgentConfig(
-            model=model or "minimax-m3",
-            system_prompt=system_prompt.strip(),
-            native_tools=native_tools or [],
-            skills=skills or [],
-            tools=[],
-            cli_tools=[],
-            custom_tools=[],
-            temperature=temperature if temperature is not None else 0.7,
-            use_deepagents=True,
-            middleware=create_default_middleware_config(),
-            subagents=[],
-            backend=create_default_backend_config(),
-            guardrails=create_default_guardrails_config(),
-        )
+        agent = db.query(DeepAgentTemplate).filter(DeepAgentTemplate.id == agent_id).first()
+        if not agent:
+            return f"❌ Agent with id={agent_id} not found."
+        if getattr(agent, "is_public", False):
+            return ("❌ 拒绝修改 public agent。public 的是共享基线，改它会影响所有人；"
+                    "请先复制成私有 agent（create_agent）再改。")
 
-        agent = DeepAgentTemplate(
-            name=name.strip(),
-            description=(description or "").strip(),
-            category=category or "Custom",
-            config=cfg.dict(),
-            middleware_config=[m.dict() for m in cfg.middleware],
-            subagents_config=[],
-            backend_config=cfg.backend.dict(),
-            guardrails_config=cfg.guardrails.dict(),
-        )
-
-        db.add(agent)
+        cur = dict(agent.config or {})
+        before = {k: cur.get(k) for k in ("model", "temperature", "native_tools")}
+        merged = {
+            "system_prompt": system_prompt if system_prompt is not None else cur.get("system_prompt"),
+            "native_tools": native_tools if native_tools is not None else cur.get("native_tools"),
+            "skills": skills if skills is not None else cur.get("skills"),
+            "model": model if model is not None else cur.get("model"),
+            "temperature": temperature if temperature is not None else cur.get("temperature"),
+            "subagents": subagents if subagents is not None else cur.get("subagents"),
+            "middleware": middleware if middleware is not None else cur.get("middleware"),
+            "mcp_servers": mcp_servers if mcp_servers is not None else cur.get("mcp_servers"),
+            "tool_params": cur.get("tool_params"),
+        }
+        kind = "normal" if cur.get("use_deepagents") is False else "deep"
+        cfg_obj = _agent_config_payload(kind, merged)
+        saved = _apply_config(agent, cfg_obj)
+        if agent_docs is not None:
+            agent.agent_docs = agent_docs
+            saved.append("agent_docs")
         db.commit()
         db.refresh(agent)
 
+        after = {k: (agent.config or {}).get(k) for k in ("model", "temperature", "native_tools")}
         return (
-            f"✅ Agent '{name}' (id={agent.id}) created successfully!\n\n"
-            f"Agent is now available in the DeepAgent Studio. The user can:\n"
-            f"1. Select it from the agent dropdown to see its topology\n"
-            f"2. Click 'Test' to start a conversation with it\n"
-            f"3. Click 'Edit' to modify its configuration"
+            f"✅ agent {agent_id} updated — 保存字段: {', '.join(saved)}\n"
+            f"改前: {before}\n改后: {after}\n"
+            f"下一步: test_agent(agent_id={agent_id}, probe=...) 复测同一批 rubric 条目。"
         )
     except Exception as e:
         db.rollback()
-        return f"❌ Failed to create agent: {e}"
+        return f"❌ Failed to update agent: {e}"
     finally:
         db.close()
+
+
+@tool
+def test_agent(agent_id: int, probe: str, max_seconds: int = 120) -> str:
+    """Run one probe against an agent in a fresh session and report what happened.
+
+    The probe must target the rubric — "hi" proves nothing. Runs through the same
+    HTTP chat path a user uses, so a pass here means the agent works where the user
+    will use it.
+
+    Args:
+        agent_id: Agent to test
+        probe: The message to send (write it against your rubric criteria)
+        max_seconds: Wall-clock cap for the whole probe
+
+    Returns: tool sequence, elapsed time, answer text, and whether it hit the cap.
+    """
+    import os
+    import time
+
+    import requests as _requests
+
+    base = os.getenv("LANGCONFIG_API_BASE", "http://127.0.0.1:8765").rstrip("/")
+    started = time.time()
+    try:
+        started_session = _requests.post(f"{base}/api/chat/start",
+                                         json={"agent_id": agent_id}, timeout=60)
+        if started_session.status_code != 200:
+            return f"❌ 无法为 agent {agent_id} 开会话: HTTP {started_session.status_code} {started_session.text[:200]}"
+        sid = started_session.json()["session_id"]
+
+        tools: list[str] = []
+        answer_parts: list[str] = []
+        timed_out = False
+        with _requests.post(f"{base}/api/chat/message/stream",
+                            json={"session_id": sid, "message": probe},
+                            timeout=max_seconds + 30, stream=True) as resp:
+            for raw in resp.iter_lines(decode_unicode=True):
+                if time.time() - started > max_seconds:
+                    timed_out = True
+                    break
+                if not raw or not raw.startswith("data: "):
+                    continue
+                try:
+                    import json as _json
+                    event = _json.loads(raw[6:])
+                except Exception:
+                    continue
+                if event.get("type") == "tool_start":
+                    tools.append(event.get("tool_name") or "?")
+                elif event.get("type") == "chunk":
+                    answer_parts.append(event.get("content") or "")
+                elif event.get("type") in ("complete", "stopped", "interrupt"):
+                    break
+    except Exception as e:
+        return f"❌ test_agent failed: {type(e).__name__}: {e}"
+
+    elapsed = round(time.time() - started, 1)
+    answer = "".join(answer_parts).strip()
+    verdict = "超时（未跑完）" if timed_out else "跑完"
+    return (
+        f"## test_agent(agent_id={agent_id}) — {verdict} in {elapsed}s\n"
+        f"session: {sid}\n"
+        f"工具调用 {len(tools)}: {tools}\n"
+        f"回答 {len(answer)} 字:\n{answer[:1200]}\n"
+        f"---\n"
+        f"逐条对 rubric 判 pass/fail 时引用上面这段，不要凭印象。"
+    )
 
 
 # =============================================================================
