@@ -143,6 +143,7 @@ report blocked with the evidence, do not keep looping.
 | normal agent cannot save files | `write_file` not in `native_tools` | add it, or use `deep` |
 | works in test, breaks in use | probe was narrower than real input | widen the probe |
 | approval card never appears | the call happened inside a subagent | gate at the tool, or drop the subagent |
+| deep agent cannot read a file back | this platform's deep harness gives `ls/glob/grep/write_file/edit_file/delete` but **no `read_file`**; `grep` alone cannot dump raw lines | select `read_any_file` (or write a rubric that only needs a grep-level check) |
 
 ## When template and reality disagree
 

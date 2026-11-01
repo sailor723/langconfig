@@ -65,6 +65,7 @@ schema 里，模型看得到；提示词只该写**什么时候用哪个**。
 |---|---|---|
 | 工具 | 2–4 个 | 超过 5 个先问：是不是该拆成 T2 |
 | `write_file` | 要落盘才选 | normal agent **不带**自带文件工具，必须显式选 |
+| `read_any_file` | 要"写完回读校验"才选 | **deep agent 在本平台拿不到 `read_file`**：harness 只给 `ls/glob/grep/write_file/edit_file/delete`。回读内容用 `read_any_file`，或只用 `grep` 做行级核对 |
 | middleware | 无 | 这个结构不需要；要审批再挂 `hitl`（→ 见 T2 第 4 段） |
 
 最小够用集合，别照抄满配：案例 1 用 3 个工具就够，案例 2 的 27 个是反面教材。
