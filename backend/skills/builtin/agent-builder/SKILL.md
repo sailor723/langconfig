@@ -145,6 +145,14 @@ report blocked with the evidence, do not keep looping.
 | approval card never appears | the call happened inside a subagent | gate at the tool, or drop the subagent |
 | deep agent cannot read a file back | this platform's deep harness gives `ls/glob/grep/write_file/edit_file/delete` but **no `read_file`**; `grep` alone cannot dump raw lines | select `read_any_file` (or write a rubric that only needs a grep-level check) |
 
+## Are the templates on disk for you?
+
+They live next to this file (`templates/`, `facts/`). If a deep agent's workspace
+shows only `SKILL.md` under `skills/agent-builder/`, the staging step did not copy
+the supporting files — say so and ask for them instead of inventing the structure
+from the index table alone. (Seen on 2026-11-01: `skills/` staged empty for the
+builder itself, so it rebuilt T2 from a library agent rather than the template.)
+
 ## When template and reality disagree
 
 `facts/case-facts.md` records known bad examples on purpose (agent 319 is the
