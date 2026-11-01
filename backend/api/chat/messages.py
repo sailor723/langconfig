@@ -1005,8 +1005,17 @@ async def send_message_stream(
         agent_project_id = getattr(agent, 'project_id', None)
 
         async def generate_stream():
-            clear_stop(session_id)
             """Generate streaming response."""
+            clear_stop(session_id)
+
+            # The finalizer below saves the turn from these three lists, and it
+            # runs even when the stream fails before they would be created — the
+            # UnboundLocalError it raised then masked the original error. Create
+            # them here so every path can rely on them.
+            tool_calls_count = 0
+            collected_tool_names = []  # tool names for DB persistence + skill detection
+            collected_subagent_spawns = []  # one entry per `task` delegation
+            collected_handoffs = []  # one entry per transfer_to_* call
             full_response = ""
             all_context = ""
             rag_tokens_used = 0
@@ -1286,10 +1295,6 @@ async def send_message_stream(
                 # Use astream_events for token-by-token streaming
                 # Turn cap: the agent's own recursion_limit, else the team-wide
                 # setting (same resolution as the non-streaming path).
-                tool_calls_count = 0
-                collected_tool_names = []  # Track tool names for DB persistence and skill detection
-                collected_subagent_spawns = []  # One entry per `task` delegation
-                collected_handoffs = []  # One entry per transfer_to_* call
                 # A hop is an edge, so remember where the conversation is: the
                 # first transfer starts from `default_step`, each later one from
                 # wherever the previous hop landed.
