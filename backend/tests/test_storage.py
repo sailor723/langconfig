@@ -767,7 +767,7 @@ def test_upload_and_doc_chat_are_the_same_folder(tmp_path, monkeypatch):
 
     # The read end sees the uploaded bytes — at the subfolder scope and at the root scope.
     for scope in ("business_model", ""):
-        files = doc_chat._scan_folder_sync("langconfig-test", scope)
+        files, _scan = doc_chat._scan_folder_sync("langconfig-test", scope)
         assert files, f"doc chat found nothing at scope {scope!r}"
         assert any(marker in f["content"] for f in files), \
             f"doc chat did not read the uploaded document at scope {scope!r}"
