@@ -3195,7 +3195,10 @@ def _agent_config_payload(kind: str, cfg: dict) -> dict:
                     config=mw.get("config") or {},
                 )
             )
-    if not middleware:
+    # None = "I did not say" → platform defaults. [] = "I said none" → none.
+    # Collapsing the two made a template that says "no middleware" silently get
+    # todo_list + filesystem + subagent (found by Agent Builder, 2026-11-01).
+    if cfg.get("middleware") is None:
         middleware = create_default_middleware_config()
 
     return DeepAgentConfig(
@@ -3521,7 +3524,7 @@ def update_agent(agent_id: int,
 
 
 @tool
-def test_agent(agent_id: int, probe: str, max_seconds: int = 120) -> str:
+async def test_agent(agent_id: int, probe: str, max_seconds: int = 120) -> str:
     """Run one probe against an agent in a fresh session and report what happened.
 
     The probe must target the rubric — "hi" proves nothing. Runs through the same
@@ -3535,45 +3538,52 @@ def test_agent(agent_id: int, probe: str, max_seconds: int = 120) -> str:
 
     Returns: tool sequence, elapsed time, answer text, and whether it hit the cap.
     """
+    import asyncio
     import os
     import time
 
-    import requests as _requests
+    import httpx
 
     base = os.getenv("LANGCONFIG_API_BASE", "http://127.0.0.1:8765").rstrip("/")
     started = time.time()
+    sid = ""
     try:
-        started_session = _requests.post(f"{base}/api/chat/start",
-                                         json={"agent_id": agent_id}, timeout=60)
-        if started_session.status_code != 200:
-            return f"❌ 无法为 agent {agent_id} 开会话: HTTP {started_session.status_code} {started_session.text[:200]}"
-        sid = started_session.json()["session_id"]
+        # Async on purpose. As a sync tool this ran in a worker thread while the
+        # caller's event loop was busy with the outer run; the probe's own
+        # streaming request then waited for that loop and died of a read timeout
+        # (measured: three attempts, 40/90/180s, all ReadTimeout while the same
+        # probe run from outside finished in 11.5s).
+        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, read=max_seconds + 30)) as client:
+            started_session = await client.post(f"{base}/api/chat/start", json={"agent_id": agent_id})
+            if started_session.status_code != 200:
+                return (f"❌ 无法为 agent {agent_id} 开会话: HTTP {started_session.status_code} "
+                        f"{started_session.text[:200]}")
+            sid = started_session.json()["session_id"]
 
-        tools: list[str] = []
-        answer_parts: list[str] = []
-        timed_out = False
-        with _requests.post(f"{base}/api/chat/message/stream",
-                            json={"session_id": sid, "message": probe},
-                            timeout=max_seconds + 30, stream=True) as resp:
-            for raw in resp.iter_lines(decode_unicode=True):
-                if time.time() - started > max_seconds:
-                    timed_out = True
-                    break
-                if not raw or not raw.startswith("data: "):
-                    continue
-                try:
-                    import json as _json
-                    event = _json.loads(raw[6:])
-                except Exception:
-                    continue
-                if event.get("type") == "tool_start":
-                    tools.append(event.get("tool_name") or "?")
-                elif event.get("type") == "chunk":
-                    answer_parts.append(event.get("content") or "")
-                elif event.get("type") in ("complete", "stopped", "interrupt"):
-                    break
+            tools: list[str] = []
+            answer_parts: list[str] = []
+            timed_out = False
+            async with client.stream("POST", f"{base}/api/chat/message/stream",
+                                     json={"session_id": sid, "message": probe}) as resp:
+                async for raw in resp.aiter_lines():
+                    if time.time() - started > max_seconds:
+                        timed_out = True
+                        break
+                    if not raw or not raw.startswith("data: "):
+                        continue
+                    try:
+                        import json as _json
+                        event = _json.loads(raw[6:])
+                    except Exception:
+                        continue
+                    if event.get("type") == "tool_start":
+                        tools.append(event.get("tool_name") or "?")
+                    elif event.get("type") == "chunk":
+                        answer_parts.append(event.get("content") or "")
+                    elif event.get("type") in ("complete", "stopped", "interrupt"):
+                        break
     except Exception as e:
-        return f"❌ test_agent failed: {type(e).__name__}: {e}"
+        return f"❌ test_agent failed: {type(e).__name__}: {e} (session={sid})"
 
     elapsed = round(time.time() - started, 1)
     answer = "".join(answer_parts).strip()
@@ -3927,6 +3937,39 @@ def pg_get_agent(agent_id: int) -> str:
                 name = s.get("name") if isinstance(s, dict) else getattr(s, "name", "?")
                 desc = s.get("description") if isinstance(s, dict) else getattr(s, "description", "")
                 lines.append(f"- **{name}**: {desc}")
+        else:
+            lines.append("(none)")
+
+        # Middleware is not decoration on this platform — it *creates* tools.
+        # `handoff` generates one `transfer_to_<step>` per step and swaps the
+        # prompt/tools per step; `todo_list` generates write_todos/read_todos;
+        # `hitl` gates calls. A reviewer that only reads `native_tools` therefore
+        # concludes "no handoff, no approval" about agents that have both — which
+        # is exactly what the 12-case audit did on 2026-11-01.
+        lines.append("")
+        lines.append("### Middleware (these add or gate tools)")
+        middleware = cfg.get("middleware") or agent.middleware_config or []
+        if middleware:
+            for m in middleware:
+                if not isinstance(m, dict):
+                    continue
+                mtype = m.get("type") or "?"
+                conf = m.get("config") or {}
+                enabled = m.get("enabled", True)
+                detail = f"- **{mtype}** (enabled={enabled})"
+                if mtype in ("handoff", "human_in_the_loop_recall") and isinstance(conf.get("steps"), dict):
+                    bits = []
+                    for step, spec in conf["steps"].items():
+                        spec = spec or {}
+                        to = [t.get("to") for t in (spec.get("transfers") or []) if isinstance(t, dict)]
+                        bits.append(f"{step} → {to or '(terminal)'} tools={spec.get('tools') or []}")
+                    detail += "\n  " + "\n  ".join(bits)
+                elif mtype in ("hitl", "human_in_the_loop"):
+                    policy = conf.get("interrupt_on") or m.get("interrupt_on") or {}
+                    detail += f" interrupt_on={sorted(policy) if isinstance(policy, dict) else policy}"
+                elif conf:
+                    detail += f" config={str(conf)[:200]}"
+                lines.append(detail)
         else:
             lines.append("(none)")
         lines.append("")

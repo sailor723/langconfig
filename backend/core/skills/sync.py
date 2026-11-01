@@ -212,6 +212,19 @@ def db_row_to_fs(skill_row, skills_root: Optional[Path] = None) -> Path:
     return skill_md
 
 
+def owner_id_for(skill_md: Path) -> Optional[int]:
+    """Owner of a personal skill, from `personal/<uid>/<skill>/SKILL.md`."""
+    parts = skill_md.parts
+    if "personal" in parts:
+        i = parts.index("personal")
+        if i + 1 < len(parts):
+            try:
+                return int(parts[i + 1])
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
 def fs_to_db_dict(skill_md: Path) -> Dict[str, Any]:
     """
     Parse a SKILL.md file and return a dict ready for DB upsert.
@@ -242,6 +255,7 @@ def fs_to_db_dict(skill_md: Path) -> Dict[str, Any]:
         "examples": fm.get("examples"),
         "instructions": body,
         "source_path": str(skill_md.parent),
+        "owner_id": owner_id_for(skill_md),
         "file_modified_at": mtime,
     }
 

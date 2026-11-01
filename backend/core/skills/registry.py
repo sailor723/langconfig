@@ -152,6 +152,22 @@ class SkillRegistry:
             result = await session.execute(query)
             existing_skill = result.scalar_one_or_none()
 
+            if existing_skill is None and owner_id is not None:
+                # Legacy rows were written by the startup FS→DB sync with
+                # owner_id NULL (it did not parse `personal/<uid>/`), while the
+                # unique index is on skill_id alone. Looking up (id, owner) then
+                # inserting therefore hit ix_skills_skill_id and rolled back the
+                # whole session — `skill()` failed for EVERY skill, not just the
+                # one colliding (measured 2026-11-01, 'social-media').
+                # Adopt the orphan row and stamp the owner on it.
+                legacy = await session.execute(
+                    select(Skill).where(Skill.skill_id == parsed.skill_id, Skill.owner_id.is_(None))
+                )
+                existing_skill = legacy.scalar_one_or_none()
+                if existing_skill is not None:
+                    existing_skill.owner_id = owner_id
+                    logger.info(f"Adopted legacy skill '{parsed.skill_id}' for owner {owner_id}")
+
             if existing_skill:
                 # Update if file changed
                 if existing_skill.file_modified_at < parsed.file_modified_at:
