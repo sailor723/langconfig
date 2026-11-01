@@ -39,6 +39,7 @@
 | [案例 10 · 深度研究：让它自己查、自己写报告（`case-10-deep-research`，id 327）](#案例-10-深度研究-让它自己查-自己写报告-case-10-deep-research-id-327) |
 | [案例 11 · 内容创作：先定语气，再按技能写（`case-11-content-builder`，id 328）](#案例-11-内容创作-先定语气-再按技能写-case-11-content-builder-id-328) |
 | [案例 12 · 上传 CSV 或 Excel，然后问它（`case-12-csv-chat`，id 329）](#案例-12-上传-csv-或-excel-然后问它-case-12-csv-chat-id-329) |
+| [第 3 类 · 让 agent 建 agent（Agent Builder）](#第-3-类-让-agent-建-agent-agent-builder) |
 | [附录 · 复建自检清单（照案例 4 复建一遍）](#附录-复建自检清单-照案例-4-复建一遍) |
 ## 0 · 先分清两个词：agent 和 deep agent
 
@@ -1005,6 +1006,55 @@ SELECT month, SUM(CAST(revenue AS REAL)) FROM m10 GROUP BY month;
 1. **先看库再写 SQL**：`sqlite_master` 拿到表和结构、`LIMIT 3` 看样例，再写业务查询 —— 跳过这步必错。
 2. **类型**：`sqlite_load_csv` 把所有列建成 TEXT，求和前必须 `CAST(x AS REAL)` —— agent 会自己发现并说明（实测它主动提示了这点）。
 3. **中文 sheet 名**：`sqlite_load_csv` 表名只接受 `[A-Za-z_][A-Za-z0-9_]*`，所以中文 sheet 必须转写成 ASCII 表名（想保留中文得改走 `python_execute` + `to_sql`）。
+
+# 第 3 类 · 让 agent 建 agent（Agent Builder）
+
+前 12 个案例是人手工搭一遍。这一节把搭的过程交给一个 agent：它先写验收标准，再按模板建，
+再跑探针逐条判，最后给证据。**它建过的六个 agent 都在库里，id 330–336。**
+
+## 它凭什么能建
+
+三件东西，缺一不可：
+
+| 件 | 在哪儿 | 作用 |
+|---|---|---|
+| 事实表 | `backend/skills/builtin/agent-builder/facts/case-facts.md` | 12 个教学 agent 的真实配置，含"哪里和 run book 不一致" |
+| 六个模板 | `…/templates/T1–T6.md` | 单 agent / supervisor / handoff / 技能 / 研究流水线 / 表格问答 |
+| 三个工具 | `create_agent` / `update_agent` / `test_agent` | 建、改、跑探针；前两个自带审批门 |
+
+模板只写这个结构独有的段落，通用规则留在技能正文里——这就是案例 8 讲的 progressive
+disclosure，现在用在"建 agent"这件事上。
+
+## 实测：六个模板各建一个
+
+| id | 模板 | 结构 | 探针结果 |
+|---|---|---|---|
+| 330 | 手搓（模板之前） | deep 单 agent | 44.3s，`web_search`×2 + `web_fetch`×7，写出 1,844 字节 |
+| 331 | T1 | deep 单 agent | 12.2s，4/5 通过；R4「读回文件」判不了（判据点名了具体读工具） |
+| 332 | T2 | supervisor + 2 专家 | 14.3s / 20.6s，**4/4**，主 agent 只有 `task` |
+| 333 | T3 | 三阶段 handoff | 2 项通过；R4 需要多轮才能判 |
+| 334 | T5 | deep + todo_list + 研究子代理 | 264s，33 次搜索 + 25 次抓取，报告 26 处引用 |
+| 335 | T6 | 表格问答 | 13.8s，`glob → read_any_file → sqlite_load_csv → sqlite_execute`×2，答案与数据一致 |
+| 336 | T4 | 技能驱动 | 25.9s，先 `skill("social-media")` 再落 `post.md` + `card.svg` |
+
+## 三条要讲的判断
+
+1. **先定验收标准，再动手。** 331 的第一版 R4 是"用 `read_file` 读回"，而那个 agent 的工具表里
+   未必有这个工具——判据写得比平台能力还硬，就会得到一个"永远失败"的验收。标准要写成
+   "用任一读取工具读回"，别点名具体工具。
+2. **预算写在提示词里不是硬闸。** 334 一轮跑了 33 次搜索、25 次抓取；327 之前也超。
+   平台没有调用次数上限中间件，所以"最多搜 5 次"只能靠 rubric 断言，不能靠自觉。
+3. **审批要放对位置。** `create_agent` / `update_agent` 的审批做在**工具内部**，因为子代理
+   跑自己的图，父 agent 的中间件看不到它调的工具有哪些。这和日历那次事故是同一个原因。
+
+## 已知缺口（要写进课里，不要藏）
+
+- `update_agent` 是字段级覆盖，**没有"只改某一步"的入参**：handoff 三个阶段的 prompt 要整段重发。
+  Builder 发现这点后拒绝盲改（怕覆盖另外两步），这个判断是对的，但工具本该更好用。
+- `test_agent` 一次只发一句话，需要**多轮**才能验的判据（例如"用户说信息有误要退回上一步"）它测不了。
+- 技能的 `templates/`、`facts/` 不在技能正文里，要用 `skill("agent-builder", file="templates/T3-…md")` 单独取。
+
+---
 
 # 附录 · 复建自检清单（照案例 4 复建一遍）
 

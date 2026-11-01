@@ -2722,15 +2722,42 @@ def bash(command: str, timeout: int = 30, cwd: str = None) -> str:
 # skill (progressive disclosure on demand) — docs/tools-audit.md ADD #5
 # =============================================================================
 @tool
-async def skill(skill_id: str) -> str:
-    """Fetch a skill's full instructions by its id.
+def _skill_support_files(base: Path, limit: int = 40) -> list:
+    """Files next to SKILL.md, as skill-relative paths (sorted, capped).
+
+    A skill that ships templates or reference tables is useless if the model
+    cannot see that they exist: the instructions are in the DB, the files are on
+    disk. Seen 2026-11-01 — Agent Builder rebuilt a template from memory because
+    `templates/` was invisible.
+    """
+    if base is None or not base.is_dir():
+        return []
+    out = []
+    for path in sorted(base.rglob("*")):
+        if not path.is_file() or path.name == "SKILL.md":
+            continue
+        out.append(str(path.relative_to(base)))
+        if len(out) >= limit:
+            break
+    return out
+
+
+async def skill(skill_id: str, file: str = "") -> str:
+    """Fetch a skill's full instructions by its id — or one of its support files.
 
     Use when the user asks about a topic that a skill covers but the skill was
     not pre-injected into your context. Reads the skill from the library on
     demand (progressive disclosure).
 
+    Skills may ship supporting files next to SKILL.md (templates, fact tables,
+    scripts). Those are NOT loaded with the instructions; list them with this
+    tool first (it prints `Support files:`), then ask for one by path.
+
     Args:
         skill_id: The skill's id (e.g. "web-search", "text-summarizer")
+        file: Optional path inside the skill directory, e.g.
+              "templates/T2-supervisor-experts.md". Leave empty for the
+              instructions. Must stay inside the skill.
     """
     try:
         from core.skills.registry import get_skill_registry
@@ -2741,6 +2768,23 @@ async def skill(skill_id: str) -> str:
         if found is None:
             available = ", ".join(sorted(s.skill_id for s in registry.list_all())) or "none"
             return f"Error: skill '{skill_id}' not found. Available skills: {available}"
+        base = Path(found.source_path) if getattr(found, "source_path", None) else None
+
+        if file:
+            if base is None or not base.is_dir():
+                return f"Error: skill '{skill_id}' has no source directory on disk."
+            target = (base / file).resolve()
+            try:
+                target.relative_to(base.resolve())
+            except ValueError:
+                return f"Error: '{file}' escapes skill '{skill_id}'."
+            if not target.is_file():
+                listing = _skill_support_files(base)
+                return (f"Error: '{file}' not found in skill '{skill_id}'. "
+                        f"Support files: {', '.join(listing) or 'none'}")
+            text = target.read_text(encoding="utf-8", errors="replace")
+            return f"# Skill file: {skill_id}/{file}\n\n{text}"
+
         parts = [
             f"# Skill: {found.name}",
             f"**Description:** {found.description}",
@@ -2751,6 +2795,14 @@ async def skill(skill_id: str) -> str:
             parts += ["", "**Examples:**", found.examples]
         if found.allowed_tools:
             parts += ["", f"**Allowed tools:** {', '.join(found.allowed_tools)}"]
+        support = _skill_support_files(base) if base else []
+        if support:
+            parts += [
+                "",
+                "**Support files** (not loaded above — fetch one with "
+                f"skill(\"{found.skill_id}\", file=\"<path>\")):",
+                *[f"- {f}" for f in support],
+            ]
         return "\n".join(parts)
     except Exception as e:
         return f"Error loading skill '{skill_id}': {e}"
@@ -3962,7 +4014,22 @@ def pg_get_agent(agent_id: int) -> str:
                     for step, spec in conf["steps"].items():
                         spec = spec or {}
                         to = [t.get("to") for t in (spec.get("transfers") or []) if isinstance(t, dict)]
-                        bits.append(f"{step} → {to or '(terminal)'} tools={spec.get('tools') or []}")
+                        prompt = (spec.get("system_prompt") or "").strip()
+                        if prompt:
+                            # Full text, not a prefix: update_agent replaces the
+                            # whole middleware field, so a caller that wants to
+                            # change one step must be able to reproduce the other
+                            # two verbatim. Truncating here forced a rewrite from
+                            # stale local copies (Agent Builder refused, correctly).
+                            snippet = (
+                                f" prompt[{len(prompt)}c]:\n      "
+                                + prompt.replace("\n", "\n      ")
+                            )
+                        else:
+                            snippet = " prompt=(empty)"
+                        bits.append(
+                            f"{step} → {to or '(terminal)'} tools={spec.get('tools') or []}{snippet}"
+                        )
                     detail += "\n  " + "\n  ".join(bits)
                 elif mtype in ("hitl", "human_in_the_loop"):
                     policy = conf.get("interrupt_on") or m.get("interrupt_on") or {}

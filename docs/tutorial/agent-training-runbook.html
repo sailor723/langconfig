@@ -164,6 +164,9 @@ nav a:hover { color:var(--accent); }
 <td><a href="#%E6%A1%88%E4%BE%8B-12-%E4%B8%8A%E4%BC%A0-csv-%E6%88%96-excel-%E7%84%B6%E5%90%8E%E9%97%AE%E5%AE%83-case-12-csv-chat-id-329">案例 12 · 上传 CSV 或 Excel，然后问它（<code>case-12-csv-chat</code>，id 329）</a></td>
 </tr>
 <tr>
+<td><a href="#%E7%AC%AC-3-%E7%B1%BB-%E8%AE%A9-agent-%E5%BB%BA-agent-agent-builder">第 3 类 · 让 agent 建 agent（Agent Builder）</a></td>
+</tr>
+<tr>
 <td><a href="#%E9%99%84%E5%BD%95-%E5%A4%8D%E5%BB%BA%E8%87%AA%E6%A3%80%E6%B8%85%E5%8D%95-%E7%85%A7%E6%A1%88%E4%BE%8B-4-%E5%A4%8D%E5%BB%BA%E4%B8%80%E9%81%8D">附录 · 复建自检清单（照案例 4 复建一遍）</a></td>
 </tr>
 </tbody>
@@ -2267,6 +2270,112 @@ SELECT month, SUM(CAST(revenue AS REAL)) FROM m10 GROUP BY month;
 <li><strong>类型</strong>：<code>sqlite_load_csv</code> 把所有列建成 TEXT，求和前必须 <code>CAST(x AS REAL)</code> —— agent 会自己发现并说明（实测它主动提示了这点）。</li>
 <li><strong>中文 sheet 名</strong>：<code>sqlite_load_csv</code> 表名只接受 <code>[A-Za-z_][A-Za-z0-9_]*</code>，所以中文 sheet 必须转写成 ASCII 表名（想保留中文得改走 <code>python_execute</code> + <code>to_sql</code>）。</li>
 </ol>
+<h1 id="第-3-类-让-agent-建-agent-agent-builder">第 3 类 · 让 agent 建 agent（Agent Builder）</h1>
+<p>前 12 个案例是人手工搭一遍。这一节把搭的过程交给一个 agent：它先写验收标准，再按模板建，
+再跑探针逐条判，最后给证据。<strong>它建过的六个 agent 都在库里，id 330–336。</strong></p>
+<h2 id="它凭什么能建">它凭什么能建</h2>
+<p>三件东西，缺一不可：</p>
+<table>
+<thead>
+<tr>
+<th>件</th>
+<th>在哪儿</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>事实表</td>
+<td><code>backend/skills/builtin/agent-builder/facts/case-facts.md</code></td>
+<td>12 个教学 agent 的真实配置，含&quot;哪里和 run book 不一致&quot;</td>
+</tr>
+<tr>
+<td>六个模板</td>
+<td><code>…/templates/T1–T6.md</code></td>
+<td>单 agent / supervisor / handoff / 技能 / 研究流水线 / 表格问答</td>
+</tr>
+<tr>
+<td>三个工具</td>
+<td><code>create_agent</code> / <code>update_agent</code> / <code>test_agent</code></td>
+<td>建、改、跑探针；前两个自带审批门</td>
+</tr>
+</tbody>
+</table>
+<p>模板只写这个结构独有的段落，通用规则留在技能正文里——这就是案例 8 讲的 progressive
+disclosure，现在用在&quot;建 agent&quot;这件事上。</p>
+<h2 id="实测-六个模板各建一个">实测：六个模板各建一个</h2>
+<table>
+<thead>
+<tr>
+<th>id</th>
+<th>模板</th>
+<th>结构</th>
+<th>探针结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>330</td>
+<td>手搓（模板之前）</td>
+<td>deep 单 agent</td>
+<td>44.3s，<code>web_search</code>×2 + <code>web_fetch</code>×7，写出 1,844 字节</td>
+</tr>
+<tr>
+<td>331</td>
+<td>T1</td>
+<td>deep 单 agent</td>
+<td>12.2s，4/5 通过；R4「读回文件」判不了（判据点名了具体读工具）</td>
+</tr>
+<tr>
+<td>332</td>
+<td>T2</td>
+<td>supervisor + 2 专家</td>
+<td>14.3s / 20.6s，<strong>4/4</strong>，主 agent 只有 <code>task</code></td>
+</tr>
+<tr>
+<td>333</td>
+<td>T3</td>
+<td>三阶段 handoff</td>
+<td>2 项通过；R4 需要多轮才能判</td>
+</tr>
+<tr>
+<td>334</td>
+<td>T5</td>
+<td>deep + todo_list + 研究子代理</td>
+<td>264s，33 次搜索 + 25 次抓取，报告 26 处引用</td>
+</tr>
+<tr>
+<td>335</td>
+<td>T6</td>
+<td>表格问答</td>
+<td>13.8s，<code>glob → read_any_file → sqlite_load_csv → sqlite_execute</code>×2，答案与数据一致</td>
+</tr>
+<tr>
+<td>336</td>
+<td>T4</td>
+<td>技能驱动</td>
+<td>25.9s，先 <code>skill(&quot;social-media&quot;)</code> 再落 <code>post.md</code> + <code>card.svg</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="三条要讲的判断-2">三条要讲的判断</h2>
+<ol>
+<li><strong>先定验收标准，再动手。</strong> 331 的第一版 R4 是&quot;用 <code>read_file</code> 读回&quot;，而那个 agent 的工具表里
+未必有这个工具——判据写得比平台能力还硬，就会得到一个&quot;永远失败&quot;的验收。标准要写成
+&quot;用任一读取工具读回&quot;，别点名具体工具。</li>
+<li><strong>预算写在提示词里不是硬闸。</strong> 334 一轮跑了 33 次搜索、25 次抓取；327 之前也超。
+平台没有调用次数上限中间件，所以&quot;最多搜 5 次&quot;只能靠 rubric 断言，不能靠自觉。</li>
+<li><strong>审批要放对位置。</strong> <code>create_agent</code> / <code>update_agent</code> 的审批做在<strong>工具内部</strong>，因为子代理
+跑自己的图，父 agent 的中间件看不到它调的工具有哪些。这和日历那次事故是同一个原因。</li>
+</ol>
+<h2 id="已知缺口-要写进课里-不要藏">已知缺口（要写进课里，不要藏）</h2>
+<ul>
+<li><code>update_agent</code> 是字段级覆盖，<strong>没有&quot;只改某一步&quot;的入参</strong>：handoff 三个阶段的 prompt 要整段重发。
+Builder 发现这点后拒绝盲改（怕覆盖另外两步），这个判断是对的，但工具本该更好用。</li>
+<li><code>test_agent</code> 一次只发一句话，需要<strong>多轮</strong>才能验的判据（例如&quot;用户说信息有误要退回上一步&quot;）它测不了。</li>
+<li>技能的 <code>templates/</code>、<code>facts/</code> 不在技能正文里，要用 <code>skill(&quot;agent-builder&quot;, file=&quot;templates/T3-…md&quot;)</code> 单独取。</li>
+</ul>
+<hr />
 <h1 id="附录-复建自检清单-照案例-4-复建一遍">附录 · 复建自检清单（照案例 4 复建一遍）</h1>
 <p>照着做，每步都有<strong>可观察的判据</strong>。任一步判据不成立，先修这一步再往下走 —— 后面的现象都会失真。</p>
 <h2 id="a-建-agent">A. 建 agent</h2>
@@ -2373,6 +2482,6 @@ SELECT month, SUM(CAST(revenue AS REAL)) FROM m10 GROUP BY month;
 在 Carrier 里的完整对应物。</p>
 </blockquote>
 </article>
-<nav><div class="title">Steps</div><a class="" href="#目录">目录</a><a class="" href="#0-先分清两个词-agent-和-deep-agent">0 · 先分清两个词：agent 和 deep agent</a><a class="h3" href="#0-1-agent-是什么">0.1 agent 是什么</a><a class="h3" href="#0-2-deep-agent-又是什么">0.2 deep agent 又是什么</a><a class="h3" href="#0-3-两者的差别-上课就讲这张表">0.3 两者的差别（上课就讲这张表）</a><a class="h3" href="#0-4-在-carrier-上怎么选">0.4 在 Carrier 上怎么选</a><a class="" href="#工作区约定-上传的文件和产出的文件-都留在-agent-自己的目录里">工作区约定：上传的文件和产出的文件，都留在 agent 自己的目录里</a><a class="" href="#这三个参数在-carrier-上填在哪">这三个参数在 Carrier 上填在哪</a><a class="" href="#实测-四个例子">实测：四个例子</a><a class="" href="#两条要讲的判断">两条要讲的判断</a><a class="" href="#实测-同样三个问题">实测：同样三个问题</a><a class="" href="#三条要讲的判断">三条要讲的判断</a><a class="" href="#从参考实现抄了三条规则">从参考实现抄了三条规则</a><a class="" href="#实测-上传真文件">实测：上传真文件</a><a class="" href="#两条要讲的判断-1">两条要讲的判断</a><a class="" href="#overview-页面原文-中文译文">Overview（页面原文 · 中文译文）</a><a class="" href="#why-use-a-supervisor-页面原文-中文译文">Why use a supervisor?（页面原文 · 中文译文）</a><a class="" href="#结构-一共-3-个-agent-1-2">结构：一共 3 个 agent（1 + 2）</a><a class="" href="#教程分五步">教程分五步</a><a class="" href="#carrier-上怎么还原">Carrier 上怎么还原</a><a class="" href="#实测-case-4-assistant-id-323">实测（case-4-assistant，id 323）</a><a class="" href="#和教程不一样的地方-要讲清楚">和教程不一样的地方，要讲清楚</a><a class="" href="#四个要讲的判断">四个要讲的判断</a><a class="" href="#overview-页面原文-中文译文-1">Overview（页面原文 · 中文译文）</a><a class="" href="#流程-页面那张图的文字版">流程（页面那张图的文字版）</a><a class="" href="#结构-1-个-agent-3-步配置">结构：1 个 agent + 3 步配置</a><a class="" href="#教程的步骤-9-节压成-5-行">教程的步骤（9 节压成 5 行）</a><a class="" href="#carrier-上怎么还原-1-个-agent-1-段-middleware">Carrier 上怎么还原（1 个 agent + 1 段 middleware）</a><a class="" href="#实测-case-5-support-id-325">实测（case-5-support，id 325）</a><a class="" href="#和教程的差异-要如实讲">和教程的差异（要如实讲）</a><a class="" href="#三个要讲的判断">三个要讲的判断</a><a class="" href="#复建自检-5-条">复建自检（5 条）</a><a class="" href="#实测-deep-agent-bash-设成-bash-may-mutate">实测（deep agent，bash 设成 bash_may_mutate）</a><a class="" href="#两个必须讲的判断">两个必须讲的判断</a><a class="" href="#实测-case-6-subagents-deepseek-flash-temperature-0">实测（case-6-subagents，deepseek-flash，temperature 0）</a><a class="" href="#三个必须讲的判断">三个必须讲的判断</a><a class="" href="#对照实验-改描述-委派会变吗">对照实验：改描述，委派会变吗？</a><a class="" href="#实测-case-7-handoff-三个角色-cli-验收">实测（case-7-handoff，三个角色，CLI 验收）</a><a class="" href="#四个要讲的判断-1">四个要讲的判断</a><a class="" href="#实测-case-8-skills-只有-skill-python-execute-两个工具">实测（case-8-skills，只有 skill + python_execute 两个工具）</a><a class="" href="#三个要讲的判断-1">三个要讲的判断</a><a class="" href="#实测-case-9-router">实测（case-9-router）</a><a class="" href="#三个要讲的判断-2">三个要讲的判断</a><a class="" href="#实测-同一个问题改了三轮">实测：同一个问题改了三轮</a><a class="" href="#三条要讲的判断-1">三条要讲的判断</a><a class="" href="#实测-用教程原句试一遍">实测：用教程原句试一遍</a><a class="" href="#两条要讲的判断-2">两条要讲的判断</a><a class="" href="#多个-sheet-的-excel-怎么处理">多个 sheet 的 Excel 怎么处理</a><a class="" href="#示例-一个-3-sheet-工作簿的完整对话">示例：一个 3-sheet 工作簿的完整对话</a><a class="" href="#它的完整配置-照抄即可复建">它的完整配置（照抄即可复建）</a><a class="" href="#最后落成什么">最后落成什么</a><a class="" href="#三个要讲的判断-3">三个要讲的判断</a><a class="" href="#a-建-agent">A. 建 agent</a><a class="" href="#b-工具">B. 工具</a><a class="" href="#c-两个专家">C. 两个专家</a><a class="" href="#d-开新聊天-这一步最容易漏">D. 开新聊天（这一步最容易漏）</a><a class="" href="#e-例-1-单域">E. 例 1 · 单域</a><a class="" href="#f-例-2-跨域-审批">F. 例 2 · 跨域 + 审批</a><a class="" href="#g-看日程-右侧-calendar">G. 看日程（右侧 Calendar）</a><a class="" href="#h-反证-可选-但很值得做">H. 反证（可选，但很值得做）</a><a class="" href="#i-常见失败对照">I. 常见失败对照</a></nav>
+<nav><div class="title">Steps</div><a class="" href="#目录">目录</a><a class="" href="#0-先分清两个词-agent-和-deep-agent">0 · 先分清两个词：agent 和 deep agent</a><a class="h3" href="#0-1-agent-是什么">0.1 agent 是什么</a><a class="h3" href="#0-2-deep-agent-又是什么">0.2 deep agent 又是什么</a><a class="h3" href="#0-3-两者的差别-上课就讲这张表">0.3 两者的差别（上课就讲这张表）</a><a class="h3" href="#0-4-在-carrier-上怎么选">0.4 在 Carrier 上怎么选</a><a class="" href="#工作区约定-上传的文件和产出的文件-都留在-agent-自己的目录里">工作区约定：上传的文件和产出的文件，都留在 agent 自己的目录里</a><a class="" href="#这三个参数在-carrier-上填在哪">这三个参数在 Carrier 上填在哪</a><a class="" href="#实测-四个例子">实测：四个例子</a><a class="" href="#两条要讲的判断">两条要讲的判断</a><a class="" href="#实测-同样三个问题">实测：同样三个问题</a><a class="" href="#三条要讲的判断">三条要讲的判断</a><a class="" href="#从参考实现抄了三条规则">从参考实现抄了三条规则</a><a class="" href="#实测-上传真文件">实测：上传真文件</a><a class="" href="#两条要讲的判断-1">两条要讲的判断</a><a class="" href="#overview-页面原文-中文译文">Overview（页面原文 · 中文译文）</a><a class="" href="#why-use-a-supervisor-页面原文-中文译文">Why use a supervisor?（页面原文 · 中文译文）</a><a class="" href="#结构-一共-3-个-agent-1-2">结构：一共 3 个 agent（1 + 2）</a><a class="" href="#教程分五步">教程分五步</a><a class="" href="#carrier-上怎么还原">Carrier 上怎么还原</a><a class="" href="#实测-case-4-assistant-id-323">实测（case-4-assistant，id 323）</a><a class="" href="#和教程不一样的地方-要讲清楚">和教程不一样的地方，要讲清楚</a><a class="" href="#四个要讲的判断">四个要讲的判断</a><a class="" href="#overview-页面原文-中文译文-1">Overview（页面原文 · 中文译文）</a><a class="" href="#流程-页面那张图的文字版">流程（页面那张图的文字版）</a><a class="" href="#结构-1-个-agent-3-步配置">结构：1 个 agent + 3 步配置</a><a class="" href="#教程的步骤-9-节压成-5-行">教程的步骤（9 节压成 5 行）</a><a class="" href="#carrier-上怎么还原-1-个-agent-1-段-middleware">Carrier 上怎么还原（1 个 agent + 1 段 middleware）</a><a class="" href="#实测-case-5-support-id-325">实测（case-5-support，id 325）</a><a class="" href="#和教程的差异-要如实讲">和教程的差异（要如实讲）</a><a class="" href="#三个要讲的判断">三个要讲的判断</a><a class="" href="#复建自检-5-条">复建自检（5 条）</a><a class="" href="#实测-deep-agent-bash-设成-bash-may-mutate">实测（deep agent，bash 设成 bash_may_mutate）</a><a class="" href="#两个必须讲的判断">两个必须讲的判断</a><a class="" href="#实测-case-6-subagents-deepseek-flash-temperature-0">实测（case-6-subagents，deepseek-flash，temperature 0）</a><a class="" href="#三个必须讲的判断">三个必须讲的判断</a><a class="" href="#对照实验-改描述-委派会变吗">对照实验：改描述，委派会变吗？</a><a class="" href="#实测-case-7-handoff-三个角色-cli-验收">实测（case-7-handoff，三个角色，CLI 验收）</a><a class="" href="#四个要讲的判断-1">四个要讲的判断</a><a class="" href="#实测-case-8-skills-只有-skill-python-execute-两个工具">实测（case-8-skills，只有 skill + python_execute 两个工具）</a><a class="" href="#三个要讲的判断-1">三个要讲的判断</a><a class="" href="#实测-case-9-router">实测（case-9-router）</a><a class="" href="#三个要讲的判断-2">三个要讲的判断</a><a class="" href="#实测-同一个问题改了三轮">实测：同一个问题改了三轮</a><a class="" href="#三条要讲的判断-1">三条要讲的判断</a><a class="" href="#实测-用教程原句试一遍">实测：用教程原句试一遍</a><a class="" href="#两条要讲的判断-2">两条要讲的判断</a><a class="" href="#多个-sheet-的-excel-怎么处理">多个 sheet 的 Excel 怎么处理</a><a class="" href="#示例-一个-3-sheet-工作簿的完整对话">示例：一个 3-sheet 工作簿的完整对话</a><a class="" href="#它的完整配置-照抄即可复建">它的完整配置（照抄即可复建）</a><a class="" href="#最后落成什么">最后落成什么</a><a class="" href="#三个要讲的判断-3">三个要讲的判断</a><a class="" href="#它凭什么能建">它凭什么能建</a><a class="" href="#实测-六个模板各建一个">实测：六个模板各建一个</a><a class="" href="#三条要讲的判断-2">三条要讲的判断</a><a class="" href="#已知缺口-要写进课里-不要藏">已知缺口（要写进课里，不要藏）</a><a class="" href="#a-建-agent">A. 建 agent</a><a class="" href="#b-工具">B. 工具</a><a class="" href="#c-两个专家">C. 两个专家</a><a class="" href="#d-开新聊天-这一步最容易漏">D. 开新聊天（这一步最容易漏）</a><a class="" href="#e-例-1-单域">E. 例 1 · 单域</a><a class="" href="#f-例-2-跨域-审批">F. 例 2 · 跨域 + 审批</a><a class="" href="#g-看日程-右侧-calendar">G. 看日程（右侧 Calendar）</a><a class="" href="#h-反证-可选-但很值得做">H. 反证（可选，但很值得做）</a><a class="" href="#i-常见失败对照">I. 常见失败对照</a></nav>
 </div>
 </body></html>
