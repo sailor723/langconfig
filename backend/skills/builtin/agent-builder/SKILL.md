@@ -113,6 +113,17 @@ approval list set).
 is skipped with a warning; the agent still runs. Approval for those tools comes from the
 agent's HITL policy and is enforced inside each tool.
 
+## Creating a skill
+
+A skill on this platform is two things: a row in `skills` and a git-tracked
+`SKILL.md` under `backend/skills/personal/<owner>/<skill_id>/`. `create_skill`
+writes both and returns the path; `update_skill` writes the file back. Never write
+only the row — a skill without its folder has no support files and no way to reach
+a teammate.
+
+Put supporting files (templates, reference tables, scripts) in that same folder
+and read them with `skill("<id>", file="<relative path>")`.
+
 ## Testing
 
 `test_agent(agent_id, probe)` returns: tool sequence, elapsed time, answer text, timeout

@@ -32,6 +32,13 @@
 **`skills` 必须真的填**（案例 8 的教训）。技能 id 先用 `search_skills` /
 `pg_list_skills` 查，别凭名字猜。
 
+库里没有现成的就用 `create_skill` 造一个。**技能在这平台上是两份东西**：
+`skills` 表里的一行 + `backend/skills/personal/<owner>/<skill_id>/SKILL.md` 这个文件。
+`create_skill` 两个都写（带 frontmatter：name/description/version/author/tags/triggers/
+allowed_tools），返回磁盘路径；`update_skill` 改完会写回同一个文件。
+support files（模板、参考表、脚本）放进同一文件夹，用
+`skill("<id>", file="<相对路径>")` 取——它们不会随正文一起加载。
+
 ## 3 提示词骨架
 
 ```

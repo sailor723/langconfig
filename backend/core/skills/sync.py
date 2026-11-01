@@ -84,7 +84,11 @@ def serialize_skill_md(frontmatter: Dict[str, Any], body: str) -> str:
         if key not in seen:
             ordered_fm[key] = value
 
-    yaml_str = yaml.safe_dump(ordered_fm, default_flow_style=False, sort_keys=False).rstrip()
+    # allow_unicode: without it every Chinese description lands in the file as
+    # "\u9A8C\u8BC1…" — valid YAML, unreadable in git and in review.
+    yaml_str = yaml.safe_dump(
+        ordered_fm, default_flow_style=False, sort_keys=False, allow_unicode=True
+    ).rstrip()
 
     parts = ["---", yaml_str, "---", ""]
     if body:

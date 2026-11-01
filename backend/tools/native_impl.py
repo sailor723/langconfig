@@ -3010,54 +3010,76 @@ def _coerce_str_list(value) -> list[str] | None:
 
 
 @tool
-def create_skill(name: str, description: str, instructions: str,
-                 tags: list[str] | None = None,
-                 triggers: list[str] | None = None) -> str:
-    """Create a new skill in the database. The skill will appear in the Skills Library and agents can use it.
+async def create_skill(name: str, description: str, instructions: str,
+                       tags: list[str] | None = None,
+                       triggers: list[str] | None = None,
+                       allowed_tools: list[str] | None = None) -> str:
+    """Create a skill the way this platform stores skills: DB row + SKILL.md on disk.
+
+    A skill is two things here — a row in `skills` and a git-tracked
+    `SKILL.md` under `backend/skills/personal/<owner>/<skill_id>/`. Writing only
+    the row (which this tool used to do, with a `db://` pseudo-path) produced a
+    skill that no teammate could receive, that had no folder for support files,
+    and that `skill(id, file=...)` could not read from.
+
+    Requires human approval.
 
     Args:
-        name: Human-readable name of the skill (e.g. 'Twitter Analyzer')
-        description: Brief 1-2 sentence description of what the skill does
-        instructions: Detailed step-by-step instructions for the agent to follow
-        tags: List of categorization tags (e.g. ['data-analysis', 'social-media'])
-        triggers: List of conditions that auto-trigger this skill (e.g. ['when user uploads a CSV'])
+        name: Human-readable name, e.g. 'Wechat Article Rewriter' (id is derived)
+        description: One or two sentences — this is what the agent matches on
+        instructions: The SKILL.md body: steps, output contract, self-check
+        tags: Categorization tags, e.g. ['writing', 'content']
+        triggers: When it applies, e.g. ['user asks for a 公众号 article']
+        allowed_tools: Tools the skill assumes, e.g. ['read_file', 'write_file']
     """
-    from db.database import SessionLocal
-    from models.skill import Skill
-    import datetime
+    from core.skills.registry import get_skill_registry
 
     skill_id = name.lower().strip().replace(" ", "-").replace("_", "-")
+    if not description or not description.strip():
+        return "❌ description is required — an agent matches a skill by its description"
+    if not instructions or not instructions.strip():
+        return "❌ instructions is empty — the SKILL.md body is the skill"
 
-    db = SessionLocal()
+    refusal = _approval_gate(
+        "create_skill",
+        {"name": name, "skill_id": skill_id, "tags": tags or []},
+        f"Create skill {skill_id!r} (DB row + SKILL.md on disk)",
+    )
+    if refusal:
+        return refusal
+
     try:
-        existing = db.query(Skill).filter(Skill.skill_id == skill_id).first()
+        registry = get_skill_registry()
+        if not registry._initialized:
+            await registry.initialize()
+        existing = registry.get_skill(skill_id)
         if existing:
-            return f"Skill '{skill_id}' already exists (ID={existing.id}). Use update_skill to modify it."
+            return (f"Skill '{skill_id}' already exists (ID={existing.id}). "
+                    f"Use update_skill to modify it.")
 
-        skill = Skill(
+        skill = await registry.create_skill(
             skill_id=skill_id,
             name=name.strip(),
             description=description.strip(),
-            version="1.0.0",
+            instructions=instructions.strip(),
             tags=_coerce_str_list(tags) or ["custom"],
             triggers=_coerce_str_list(triggers) or [],
-            instructions=instructions.strip(),
-            source_type="personal",
-            source_path=f"db://personal/{skill_id}",
-            file_modified_at=datetime.datetime.now(datetime.timezone.utc),
-            allowed_tools=None,
-            examples=None,
+            allowed_tools=_coerce_str_list(allowed_tools) or [],
             author="AI Generated",
         )
-        db.add(skill)
-        db.commit()
-        db.refresh(skill)
-        return f"✅ Skill '{name}' (ID={skill_id}) created successfully!"
+
+        from core.skills.sync import db_row_to_fs
+
+        path = db_row_to_fs(skill)
+        return (
+            f"✅ Skill '{skill_id}' created (ID={skill.id}).\n"
+            f"SKILL.md: {path}\n"
+            f"文件夹: {Path(path).parent}\n"
+            f"技能 id 可以填进 agent 的 skills 列表；support files 放进同一文件夹，"
+            f"用 skill(\"{skill_id}\", file=\"<相对路径>\") 读。"
+        )
     except Exception as e:
-        db.rollback()
         return f"❌ Failed to create skill: {e}"
-    finally:
-        db.close()
 
 
 @tool
@@ -3104,6 +3126,15 @@ def update_skill(skill_id: str, name: str | None = None,
             skill.triggers = _coerce_str_list(triggers)
         skill.updated_at = datetime.datetime.now(datetime.timezone.utc)
         db.commit()
+        # Mirror to SKILL.md: the file is what a teammate receives.
+        try:
+            from core.skills.sync import db_row_to_fs
+
+            row = db.query(Skill).filter(Skill.skill_id == skill_id).first()
+            if row is not None:
+                db_row_to_fs(row)
+        except Exception as _e:  # noqa: BLE001
+            logger.warning(f"update_skill: SKILL.md mirror skipped: {_e}")
         return f"✅ Skill '{skill_id}' updated successfully!"
     except Exception as e:
         db.rollback()
@@ -3632,25 +3663,39 @@ def update_agent(agent_id: int,
 
 
 @tool
-async def test_agent(agent_id: int, probe: str, max_seconds: int = 120) -> str:
-    """Run one probe against an agent in a fresh session and report what happened.
+async def test_agent(agent_id: int, probe: str = "", probes: list[str] | None = None,
+                    max_seconds: int = 120) -> str:
+    """Run one or more probes against an agent in ONE session and report what happened.
 
     The probe must target the rubric — "hi" proves nothing. Runs through the same
     HTTP chat path a user uses, so a pass here means the agent works where the user
     will use it.
 
+    Use `probes` when a criterion needs several turns (a state machine that must
+    walk stage 1 → 2 → 3, or "the user says the earlier answer was wrong" which
+    only means something after two turns). Each message is sent in order in the
+    same session, and each turn gets its own tool sequence.
+
     Args:
         agent_id: Agent to test
-        probe: The message to send (write it against your rubric criteria)
-        max_seconds: Wall-clock cap for the whole probe
+        probe: One message to send (write it against your rubric criteria)
+        probes: Several messages, sent in order in the same session. Use this
+                instead of `probe` for multi-turn criteria.
+        max_seconds: Wall-clock cap for the whole run (all turns together)
 
-    Returns: tool sequence, elapsed time, answer text, and whether it hit the cap.
+    Returns: per-turn tool sequence, elapsed time and answer text, then a total.
     """
-    import asyncio
     import os
     import time
 
     import httpx
+
+    steps = list(probes or [])
+    if not steps and probe:
+        steps = [probe]
+    steps = [str(m).strip() for m in steps if str(m).strip()]
+    if not steps:
+        return "❌ test_agent needs `probe` or `probes` — an empty probe proves nothing"
 
     base = os.getenv("LANGCONFIG_API_BASE", "http://127.0.0.1:8765").rstrip("/")
     started = time.time()
@@ -3668,42 +3713,58 @@ async def test_agent(agent_id: int, probe: str, max_seconds: int = 120) -> str:
                         f"{started_session.text[:200]}")
             sid = started_session.json()["session_id"]
 
-            tools: list[str] = []
-            answer_parts: list[str] = []
+            turns: list[dict] = []
             timed_out = False
-            async with client.stream("POST", f"{base}/api/chat/message/stream",
-                                     json={"session_id": sid, "message": probe}) as resp:
-                async for raw in resp.aiter_lines():
-                    if time.time() - started > max_seconds:
-                        timed_out = True
-                        break
-                    if not raw or not raw.startswith("data: "):
-                        continue
-                    try:
-                        import json as _json
-                        event = _json.loads(raw[6:])
-                    except Exception:
-                        continue
-                    if event.get("type") == "tool_start":
-                        tools.append(event.get("tool_name") or "?")
-                    elif event.get("type") == "chunk":
-                        answer_parts.append(event.get("content") or "")
-                    elif event.get("type") in ("complete", "stopped", "interrupt"):
-                        break
+            for index, message in enumerate(steps, 1):
+                tools: list[str] = []
+                answer_parts: list[str] = []
+                turn_started = time.time()
+                async with client.stream("POST", f"{base}/api/chat/message/stream",
+                                         json={"session_id": sid, "message": message}) as resp:
+                    async for raw in resp.aiter_lines():
+                        if time.time() - started > max_seconds:
+                            timed_out = True
+                            break
+                        if not raw or not raw.startswith("data: "):
+                            continue
+                        try:
+                            import json as _json
+                            event = _json.loads(raw[6:])
+                        except Exception:
+                            continue
+                        if event.get("type") == "tool_start":
+                            tools.append(event.get("tool_name") or "?")
+                        elif event.get("type") == "chunk":
+                            answer_parts.append(event.get("content") or "")
+                        elif event.get("type") in ("complete", "stopped", "interrupt"):
+                            break
+                turns.append({
+                    "n": index, "message": message, "tools": tools,
+                    "answer": "".join(answer_parts).strip(),
+                    "elapsed": round(time.time() - turn_started, 1),
+                })
+                if timed_out:
+                    break
     except Exception as e:
         return f"❌ test_agent failed: {type(e).__name__}: {e} (session={sid})"
 
     elapsed = round(time.time() - started, 1)
-    answer = "".join(answer_parts).strip()
     verdict = "超时（未跑完）" if timed_out else "跑完"
-    return (
-        f"## test_agent(agent_id={agent_id}) — {verdict} in {elapsed}s\n"
-        f"session: {sid}\n"
-        f"工具调用 {len(tools)}: {tools}\n"
-        f"回答 {len(answer)} 字:\n{answer[:1200]}\n"
-        f"---\n"
-        f"逐条对 rubric 判 pass/fail 时引用上面这段，不要凭印象。"
-    )
+    lines = [
+        f"## test_agent(agent_id={agent_id}) — {verdict} in {elapsed}s "
+        f"({len(turns)}/{len(steps)} 轮)",
+        f"session: {sid}",
+    ]
+    for turn in turns:
+        lines += [
+            "",
+            f"### T{turn['n']} — {turn['elapsed']}s, {len(turn['tools'])} 次工具",
+            f"U: {turn['message'][:160]}",
+            f"tools: {turn['tools']}",
+            f"A ({len(turn['answer'])} 字): {turn['answer'][:700]}",
+        ]
+    lines += ["", "---", "逐条对 rubric 判 pass/fail 时引用上面这段，不要凭印象。"]
+    return "\n".join(lines)
 
 
 # =============================================================================
