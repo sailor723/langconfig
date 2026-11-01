@@ -351,6 +351,39 @@ def step_search_providers() -> None:
     _run_python(["scripts/seeds/in/seed_search_providers.py"])
 
 
+# Tools the platform retired (they must not be selectable), which the legacy
+# `custom_tools_dump.sql` still carries. Restoring that dump on a fresh install
+# put all four back — the ECS came up with 72 tools where the maintained library
+# has 68, and the acceptance suite's catalog section asserts these are gone.
+RETIRED_TOOL_IDS = (
+    "save_document",        # replaced by write_file (multi-format)
+    "current_time",         # replaced by python_execute / the prompt clock
+    "image_generation",     # no image model on these deployments
+    "update_agent_prompt",  # agents are edited through the builder/API
+    "handoff",              # transfers are generated per step by the middleware
+)
+
+
+def _retire_tools() -> None:
+    """Delete retired tool rows the legacy dump may have restored."""
+    from db.database import SessionLocal
+    from models.custom_tool import CustomTool
+
+    db = SessionLocal()
+    try:
+        rows = db.query(CustomTool).filter(CustomTool.tool_id.in_(RETIRED_TOOL_IDS)).all()
+        if not rows:
+            print("  -> no retired tools present")
+            return
+        removed = [r.tool_id for r in rows]
+        for row in rows:
+            db.delete(row)
+        db.commit()
+        print(f"  -> removed {len(removed)} retired tool(s): {removed}")
+    finally:
+        db.close()
+
+
 def step_custom_tools(replace: bool) -> None:
     print("\n[7/10] custom_tools  (restore-if-empty, then additive merge)")
     count = _table_count("custom_tools")
@@ -386,6 +419,10 @@ def step_custom_tools(replace: bool) -> None:
     # updates the row in place.
     print("  -> seed_read_any_file_tool.py (builtin reader tool)")
     _run_python(["scripts/seeds/in/seed_read_any_file_tool.py"])
+
+    # Last: drop anything the legacy dump resurrected from the retirement list.
+    print("  -> retiring tools that the legacy dump still carries")
+    _retire_tools()
 
 
 def step_deep_agents(replace: bool) -> None:
