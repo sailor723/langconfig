@@ -168,6 +168,7 @@ docs/tutorial/*
 !docs/tutorial/agent-training-runbook.html
 !docs/tutorial/agent-training-runbook.pdf
 !docs/tutorial/deep-research-agents.md
+!docs/tutorial/training-day.md
 !docs/assets/
 docs/assets/*
 !docs/assets/*.dot

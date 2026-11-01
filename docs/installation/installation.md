@@ -803,6 +803,80 @@ bash scripts/health_check.sh                  # ALL CHECKS PASSED
 前端只构建一次，不用常驻 Vite：`npm install && npm run build`，后端会自动
 serve `dist/`（日志里出现 `Serving built frontend from …/dist`）。
 
+### 上线前安全加固
+
+单机 + 公网最先要做的四件事。都是在一台真实 ECS 上验证过的（2026-11-01）。
+
+```bash
+# 1. SSH：只认密钥，不认密码
+sed -i 's/^#*PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+sshd -t && systemctl reload ssh
+# 改完先用新连接确认还能登，再关掉旧窗口
+```
+
+```bash
+# 2. 主机防火墙：默认拒绝，只开需要的
+apt install -y ufw
+ufw default deny incoming && ufw default allow outgoing
+ufw allow 22/tcp                 # SSH
+ufw allow 8765/tcp               # 只有直连训练/内网时才开，训完删掉
+# ufw allow 80,443/tcp           # 走 Caddy/nginx 时才需要
+ufw --force enable
+```
+
+```bash
+# 3. fail2ban：挡 SSH 爆破
+apt install -y fail2ban
+cat > /etc/fail2ban/jail.local <<'EOF'
+[DEFAULT]
+bantime = 1h
+findtime = 10m
+maxretry = 5
+backend = systemd
+
+[sshd]
+enabled = true
+EOF
+systemctl enable --now fail2ban && fail2ban-client status sshd
+```
+
+```bash
+# 4. 每日备份：数据库 + .env
+mkdir -p /root/backups && cat > /root/backup.sh <<'EOF'
+#!/bin/bash
+set -euo pipefail
+D=$(date +%F)
+PGPASSWORD=langconfig_dev pg_dump -h 127.0.0.1 -U langconfig -d langconfig -Fc \
+  -f "/root/backups/db-$D.dump"
+tar czf "/root/backups/env-$D.tgz" -C /root/langconfig .env
+find /root/backups -type f -mtime +14 -delete
+EOF
+chmod +x /root/backup.sh && /root/backup.sh
+( crontab -l 2>/dev/null; echo "30 3 * * * /root/backup.sh >> /root/backups/cron.log 2>&1" ) | crontab -
+```
+
+> **`.env` 必须一起备份。** `API_KEY_ENCRYPTION_KEY` 是解库中 API key 的 Fernet 主密钥；
+> 数据库备份没有它，换台机器恢复出来是一堆解不开的密文。也别把它留在同一台机器上——
+> `scp` 一份到本机或对象存储。
+
+**三个常见误区**
+
+| 以为 | 实际 |
+|---|---|
+| 安全组放行了就够了 | 公网 IP + 全 0 放行等于裸奔；安全组之外再加 ufw，两层都要最小化 |
+| 有登录页就是安全的 | 明文 HTTP 下 Basic 认证每请求都带 base64 密码，链路上可截；要么上 TLS，要么只走 SSH 隧道 |
+| 备份 = 数据库备份 | 少了 `API_KEY_ENCRYPTION_KEY`，恢复出来用不了 |
+
+**恢复演练**（备份可用性只有真恢复过才算数）
+
+```bash
+createdb -h 127.0.0.1 -U langconfig restore_test
+pg_restore -h 127.0.0.1 -U langconfig -d restore_test /root/backups/db-<日期>.dump
+psql -h 127.0.0.1 -U langconfig -d restore_test -tAc "select count(*) from deep_agent_templates;"
+dropdb -h 127.0.0.1 -U langconfig restore_test
+```
+
 ### If other people (or the internet) will reach this machine
 
 Two shapes to get right, and one of them can silently remove *all* authentication.

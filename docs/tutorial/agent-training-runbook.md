@@ -1013,7 +1013,7 @@ SELECT month, SUM(CAST(revenue AS REAL)) FROM m10 GROUP BY month;
 # 第 3 类 · 让 agent 建 agent（Agent Builder）
 
 前 12 个案例是人手工搭一遍。这一节把搭的过程交给一个 agent：它先写验收标准，再按模板建，
-再跑探针逐条判，最后给证据。**它建过的六个 agent 都在库里，id 330–336。**
+再跑探针逐条判，最后给证据。**它建过六个 agent，验证完删了四个（表里划掉的），现在库里还剩 332 和 333 两个私有示例。**
 
 ## 它凭什么能建
 
