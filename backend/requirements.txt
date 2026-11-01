@@ -25,6 +25,7 @@ langgraph-checkpoint-postgres
 langgraph-supervisor
 langgraph-swarm
 langgraph-bigtool
+mcp>=1.12.0,<2.0  # MCP client for core/mcp/client.py (imported directly)
 tiktoken>=0.5.0
 langchain-text-splitters  # Advanced text splitting capabilities
 
