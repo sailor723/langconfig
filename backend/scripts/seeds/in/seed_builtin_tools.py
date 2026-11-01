@@ -81,6 +81,7 @@ SEEDABLE_TOOL_META = {
     "create_agent": ("Create Agent (deep or normal)", "agent_management", None),
     "update_agent": ("Update Agent Config", "agent_management", None),
     "test_agent": ("Test Agent (probe run)", "agent_management", None),
+    "sync_skills": ("Sync Skills (disk → DB)", "agent_management", None),
     # legacy id kept so existing agent configs still resolve
     "create_deepagent": ("Create DeepAgent", "agent_management", None),
     "pg_list_tables": ("PG - List Tables", "database", None),

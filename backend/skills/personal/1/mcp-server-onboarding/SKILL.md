@@ -97,5 +97,6 @@ allowed_tools:
 
 ## 支持文件（按需读取，不要整份预载）
 
+
 - `references/checklist.md` —— 逐条勾选清单（A 传输方式 → F 交付，21 条）。接入过程中每一步都照它对一遍；任何一条不通过就停在那一步。
 - `references/agent-mcp-config.json` —— 配置骨架（http 与 stdio 两种）。写 `mcp_servers` 前先复制它，别凭记忆拼字段。

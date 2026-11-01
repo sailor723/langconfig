@@ -3141,6 +3141,84 @@ async def create_skill(name: str, description: str, instructions: str,
 
 
 @tool
+async def sync_skills(dry_run: bool = False) -> str:
+    """Re-read skills from disk into the database (the reverse of update_skill).
+
+    `SKILL.md` on disk is the source of truth a teammate edits and commits; the
+    DB row is what `skill()` serves and what the agent sees. Editing a file on
+    disk alone does NOT reach an agent until this runs — the startup sync only
+    compares mtimes once per boot. Requires approval (it writes the DB).
+
+    Args:
+        dry_run: Report what would change without writing.
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from core.skills.sync import (
+        DEFAULT_BUILTIN_SKILLS_ROOT, derive_source_type, fs_to_db_dict,
+    )
+    from db.database import AsyncSessionLocal
+    from models.skill import Skill
+    from services import user_roots
+
+    roots = [DEFAULT_BUILTIN_SKILLS_ROOT, user_roots.personal_skills_dir_for(user_roots.subject_user_id())]
+    files = []
+    for root in roots:
+        if root and Path(root).is_dir():
+            files.extend(sorted(Path(root).rglob("SKILL.md")))
+    if not files:
+        return "❌ 没有找到任何 SKILL.md（检查 backend/skills/builtin 与 personal/<uid>）"
+
+    refusal = _approval_gate(
+        "sync_skills", {"files": len(files), "dry_run": dry_run},
+        f"Sync {len(files)} SKILL.md file(s) into the database",
+    )
+    if refusal:
+        return refusal
+
+    created, updated, unchanged, errors = [], [], [], []
+    async with AsyncSessionLocal() as session:
+        for md in files:
+            try:
+                data = fs_to_db_dict(md)
+                data["source_type"] = derive_source_type(md)
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"{md}: {exc}")
+                continue
+            res = await session.execute(select(Skill).where(Skill.skill_id == data["skill_id"]))
+            row = res.scalar_one_or_none()
+            if row is None:
+                if not dry_run:
+                    data["indexed_at"] = datetime.now(timezone.utc)
+                    session.add(Skill(**data))
+                created.append(data["skill_id"])
+            elif (data.get("file_modified_at") and
+                  (not row.file_modified_at or data["file_modified_at"] > row.file_modified_at)):
+                if not dry_run:
+                    for key, value in data.items():
+                        if hasattr(row, key):
+                            setattr(row, key, value)
+                    row.indexed_at = datetime.now(timezone.utc)
+                updated.append(data["skill_id"])
+            else:
+                unchanged.append(data["skill_id"])
+        if not dry_run:
+            await session.commit()
+
+    head = "（dry-run，未写入）" if dry_run else ""
+    return (
+        f"## sync_skills{head}\n"
+        f"扫描 {len(files)} 个 SKILL.md\n"
+        f"新建 {len(created)}: {created}\n"
+        f"更新 {len(updated)}: {updated}\n"
+        f"未变 {len(unchanged)}\n"
+        + (f"错误 {len(errors)}:\n  " + "\n  ".join(errors) if errors else "")
+    )
+
+
+@tool
 def update_skill(skill_id: str, name: str | None = None,
                  description: str | None = None,
                  instructions: str | None = None,

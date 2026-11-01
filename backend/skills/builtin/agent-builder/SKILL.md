@@ -133,6 +133,13 @@ agent's HITL policy and is enforced inside each tool.
 - Load order is fixed: metadata (name + description) at startup → full `SKILL.md`
   on invocation → support files only when the instructions ask for them.
 
+## Disk and DB drift
+
+`SKILL.md` on disk is the source a teammate edits and commits; the DB row is what
+`skill()` serves. Editing the file alone does not reach an agent — run
+`sync_skills()` (dry-run first) to pull newer files into the DB. The reverse
+direction has always worked: `create_skill` and `update_skill` write both.
+
 ## Creating a skill
 
 A skill on this platform is two things: a row in `skills` and a git-tracked
