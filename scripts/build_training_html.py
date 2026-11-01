@@ -21,6 +21,11 @@ Usage::
     backend/.venv/bin/python scripts/build_training_html.py --pdf
     # → ...runbook.html + ...runbook.pdf (A4, fonts ×0.6; --pdf-scale=0.75 to taste)
 
+    backend/.venv/bin/python scripts/build_training_html.py --pdf \
+        --src=docs/tutorial/training-day.md --out=docs/tutorial/training-day.html
+    # any sibling doc, same stylesheet and PDF pipeline (0.75 reads better for a
+    # one-page organizer sheet than the run book's 0.6)
+
 Hints for a live session:
 
 * the tables of contents on the right links to every step;
@@ -184,7 +189,7 @@ PDF_PAGE_CSS = """
 """
 
 
-def write_pdf(doc: str, scale: float) -> Path | None:
+def write_pdf(doc: str, scale: float, out: Path | None = None) -> Path | None:
     """Print the built document to A4 PDF with WeasyPrint.
 
     WeasyPrint rather than a headless browser: it renders the inlined SVG
@@ -195,8 +200,9 @@ def write_pdf(doc: str, scale: float) -> Path | None:
         print("weasyprint not found — PDF skipped (brew install weasyprint)")
         return None
 
-    pdf_path = OUT.with_suffix(".pdf")
-    tmp_html = OUT.with_suffix(".print.html")
+    out = out or OUT
+    pdf_path = out.with_suffix(".pdf")
+    tmp_html = out.with_suffix(".print.html")
     tmp_html.write_text(
         scale_fonts(doc, scale).replace("</style>", f"{PDF_PAGE_CSS}</style>", 1),
         encoding="utf-8",
@@ -213,19 +219,24 @@ def write_pdf(doc: str, scale: float) -> Path | None:
 
 
 def main() -> int:
-    if not SRC.exists():
-        sys.exit(f"not found: {SRC}")
+    args = dict(a.split("=", 1) if "=" in a else (a, "") for a in sys.argv[1:] if a.startswith("--"))
+    # --src=/--out= let the same stylesheet and PDF pipeline render a sibling doc
+    # (e.g. training-day.md); with no flags this is still exactly the run book.
+    src = Path(args["--src"]).resolve() if args.get("--src") else SRC
+    out = Path(args["--out"]).resolve() if args.get("--out") else OUT
+    if not src.exists():
+        sys.exit(f"not found: {src}")
     try:
         from markdown_it import MarkdownIt
     except ImportError:
         sys.exit("markdown-it-py missing: backend/.venv/bin/pip install markdown-it-py")
 
-    md_text = inline_svgs(SRC.read_text(encoding="utf-8"))
+    md_text = inline_svgs(src.read_text(encoding="utf-8"))
     md = MarkdownIt("commonmark", {"html": True, "linkify": False}).enable("table")
     body = add_heading_ids(md.render(md_text))
 
     title = re.search(r"<h1[^>]*>(.*?)</h1>", body, re.S)
-    title_text = re.sub(r"<[^>]+>", "", title.group(1)).strip() if title else SRC.stem
+    title_text = re.sub(r"<[^>]+>", "", title.group(1)).strip() if title else src.stem
 
     doc = f"""<!doctype html>
 <html lang="zh-CN"><head>
@@ -240,13 +251,12 @@ def main() -> int:
 </div>
 </body></html>
 """
-    OUT.write_text(doc, encoding="utf-8")
-    print(f"wrote {OUT.relative_to(REPO)}  ({len(doc)/1024:.1f} KB, diagrams inlined)")
+    out.write_text(doc, encoding="utf-8")
+    print(f"wrote {out.relative_to(REPO)}  ({len(doc)/1024:.1f} KB, diagrams inlined)")
 
-    args = dict(a.split("=", 1) if "=" in a else (a, "") for a in sys.argv[1:] if a.startswith("--"))
     if "--pdf" in args:
         scale = float(args.get("--pdf-scale", 0.6))
-        pdf = write_pdf(doc, scale)
+        pdf = write_pdf(doc, scale, out)
         if pdf:
             print(f"wrote {pdf.relative_to(REPO)}  ({pdf.stat().st_size/1024:.0f} KB, 字号 ×{scale})")
     return 0

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>训练当天：环境、账号、开场与收尾</title>
+<style>
+:root { --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --accent:#4f46e5; --bg:#ffffff; --soft:#f8fafc; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font: 16px/1.75 -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; }
+.layout { display:grid; grid-template-columns: 1fr 300px; gap:48px; max-width:1180px; margin:0 auto; padding:56px 32px 120px; }
+article { min-width:0; }
+h1 { font-size:32px; line-height:1.3; margin:0 0 8px; letter-spacing:-.2px; }
+h1 + blockquote { margin-top:20px; }
+h2 { font-size:23px; margin:52px 0 14px; padding-top:18px; border-top:1px solid var(--line); }
+h3 { font-size:18px; margin:32px 0 10px; }
+h4 { font-size:16px; margin:24px 0 8px; color:#334155; }
+p, li { color:#1e293b; }
+a { color:var(--accent); text-decoration:none; }
+a:hover { text-decoration:underline; }
+blockquote { margin:18px 0; padding:14px 18px; background:var(--soft);
+             border-left:3px solid var(--accent); border-radius:0 6px 6px 0; color:#334155; }
+blockquote p { margin:6px 0; }
+code { font: 13.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+       background:#f1f5f9; padding:2px 5px; border-radius:4px; color:#0f172a; }
+pre { margin:16px 0; padding:14px 16px; background:#0f172a; border-radius:8px; overflow:auto; }
+pre code { background:none; color:#e2e8f0; padding:0; font-size:13px; line-height:1.6; }
+table { width:100%; border-collapse:collapse; margin:16px 0; font-size:14px; }
+th, td { padding:8px 10px; border:1px solid var(--line); text-align:left; vertical-align:top; }
+th { background:var(--soft); font-weight:600; }
+hr { border:0; border-top:1px solid var(--line); margin:40px 0; }
+/* diagrams are rendered at their natural size; cap them so a wide graph does
+   not dominate the page — 70% of the column keeps them readable on a projector */
+img { max-width:70%; height:auto; display:block; margin:20px auto; }
+figure { margin:24px 0; }
+figure svg { max-width:70%; height:auto; display:block; margin:0 auto; }
+figcaption { font-size:.82em; color:#9aa4b2; text-align:center; margin-top:6px; }
+figcaption { font-size:13px; color:var(--muted); margin-top:8px; }
+nav { position:sticky; top:40px; align-self:start; font-size:13px; max-height:calc(100vh - 80px); overflow:auto; }
+nav .title { font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-size:11px; margin-bottom:10px; }
+nav a { display:block; padding:3px 0; color:#475569; }
+nav a.h3 { padding-left:14px; color:#64748b; font-size:12.5px; }
+nav a:hover { color:var(--accent); }
+.badge { display:inline-block; font-size:11.5px; padding:2px 8px; border-radius:999px;
+         background:#eef2ff; color:#4338ca; margin-left:6px; vertical-align:middle; }
+@media print {
+  .layout { display:block; max-width:none; padding:0; }
+  nav { display:none; }
+  h2 { break-after:avoid; page-break-after:avoid; }
+  table, pre, blockquote, figure { break-inside:avoid; page-break-inside:avoid; }
+  pre { background:#f8fafc; border:1px solid var(--line); }
+  pre code { color:#0f172a; }
+  a { color:inherit; }
+}
+</style>
+</head><body>
+<div class="layout">
+<article><h1 id="训练当天-环境-账号-开场与收尾">训练当天：环境、账号、开场与收尾</h1>
+<p>这份是给<strong>组织者</strong>看的。学员只需要一条消息（见文末「发群里的消息」）。</p>
+<h2 id="环境">环境</h2>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>地址</td>
+<td><code>http://8.216.101.189:8765/</code></td>
+</tr>
+<tr>
+<td>账号</td>
+<td><code>admin</code>（管理员）+ <code>user1</code> … <code>user10</code>（学员，member 角色）</td>
+</tr>
+<tr>
+<td>密码</td>
+<td>训练前统一下发；管理员账号的密码单独管理</td>
+</tr>
+<tr>
+<td>数据</td>
+<td>51 个 agent（21 个公开）、68 个工具、44 个技能、29 个模型</td>
+</tr>
+<tr>
+<td>数据库</td>
+<td>原生 PostgreSQL 16（systemd 自启），每日 03:30 备份到 <code>/root/backups</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>这台是<strong>临时训练环境</strong>，训练结束就收回公网端口。别放正式资料。</p>
+</blockquote>
+<p>进机器：<code>ssh -i &lt;阿里云下载的 .pem&gt; root@8.216.101.189</code>。已关掉密码登录，那个 <code>.pem</code> 是唯一入口 —— 丢在 <code>~/Downloads</code> 里迟早被清理，挪到安全的地方。</p>
+<h2 id="多人边界-开场要讲清的一句话">多人边界（开场要讲清的一句话）</h2>
+<table>
+<thead>
+<tr>
+<th>共享的</th>
+<th>各自独立的</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>agent 模板（51 个）、工具、技能、模型与 API key</td>
+<td>聊天记录、上传文件、生成的文件（在 <code>outputs/users/&lt;id&gt;/</code> 下）</td>
+</tr>
+</tbody>
+</table>
+<p>所以：<strong>练习可以随便做，但不要改 agent 配置</strong> —— 模板是共享的，一个人改了所有人受影响。要试配置改动，就让 Builder 复制一份私有 agent 再改。</p>
+<h2 id="开场前-3-分钟自检">开场前 3 分钟自检</h2>
+<pre><code class="language-bash"># 1) 用一台非本机的电脑打开地址，确认能登录
+# 2) 选 case-1-basic-agent，发一句「hi」，确认有回复
+# 3) Settings → Models 确认 provider key 显示已验证（没配 key 全场会卡在这一步）
+
+# 4) run book 里写的 13 个 agent id 在这个库里是否都还在
+cd /root/langconfig/backend &amp;&amp; .venv/bin/python scripts/verify_runbook_ids.py --ecs
+# 期望 13/13 ok。少一条就说明库被重灌过（id 会重排），学员按 run book 找 agent 会找不到
+</code></pre>
+<p>命令行自检（可选，从任何一台机器）：</p>
+<pre><code class="language-bash">curl -s -o /dev/null -w 'ui:%{http_code}\n' -u 'user1:&lt;密码&gt;' http://8.216.101.189:8765/
+# 200 = 界面通；401 = 密码不对；000 = 端口没开（查安全组）
+</code></pre>
+<h2 id="训练中可能被问到的三件事">训练中可能被问到的三件事</h2>
+<ol>
+<li><strong>「我的文件在哪？」</strong> 每人一个工作区：<code>outputs/users/&lt;你的 id&gt;/agents/agent_&lt;id&gt;/</code>，上传在 <code>upload/</code>，产出在 <code>generated/</code>。</li>
+<li><strong>「为什么我看不到同事的文件？」</strong> 这是设计：不同 <code>users/&lt;id&gt;/</code> 之间互相不可见，agent 会主动拒绝跨账号路径。</li>
+<li><strong>「agent 回答里带一句自我介绍？」</strong> 首轮会带身份注入，属于正常行为，别把它当结果。</li>
+</ol>
+<h2 id="收尾清单-训练结束当天做">收尾清单（训练结束当天做）</h2>
+<pre><code class="language-bash"># 1) 收回公网入口
+ufw delete allow 8765/tcp
+#    阿里云安全组：删掉 8765 入方向规则
+
+# 2) 确认备份仍在
+ls -lh /root/backups | tail -3
+
+# 3) 改掉共用密码（10 个人共用一个密码等于一人泄露全体）
+#    在 UI 里逐个改，或让每人自己登录后改
+</code></pre>
+<p>想长期开放的话，把 80/443 配好 HTTPS（<code>docs/installation/installation.md</code> 的 Caddy 段），再决定是否继续暴露 8765。</p>
+<h2 id="发群里的消息">发群里的消息</h2>
+<pre><code>明天训练环境（临时云端，用完即删）
+
+地址：http://8.216.101.189:8765/
+账号：user1 / user2 / … / user10（人名对应我另行分配）
+密码：另行通知
+
+三点说明：
+1. 这是临时环境，只为这次训练准备，别放重要资料。
+2. 每人账号独立 —— 上传文件、聊天记录、生成的文件只有自己能看到。
+3. agent 配置是共享的，练习时只改自己的文件和对话，不要改 agent 设置。
+
+浏览器会弹登录框，输账号密码即可。
+</code></pre>
+</article>
+<nav><div class="title">Steps</div><a class="" href="#环境">环境</a><a class="" href="#多人边界-开场要讲清的一句话">多人边界（开场要讲清的一句话）</a><a class="" href="#开场前-3-分钟自检">开场前 3 分钟自检</a><a class="" href="#训练中可能被问到的三件事">训练中可能被问到的三件事</a><a class="" href="#收尾清单-训练结束当天做">收尾清单（训练结束当天做）</a><a class="" href="#发群里的消息">发群里的消息</a></nav>
+</div>
+</body></html>
