@@ -226,6 +226,9 @@ agent = create_agent(
 对照案例 1 的同一道天气题：那边 4 次 `web_search`、8.1 秒；这边 11.5 秒。
 答案一样，慢了一些。
 
+上面划掉的五个是**一次性验证实例**，跑完就删了——数字留着是因为它证明的是「模板能建出可用的结构」，
+不是「系统里一直有这五个 agent」。留下的 332/333 是课堂要用的两个私有示例。
+
 ## 三条要讲的判断
 
 1. **工具多不是主要问题，名字和描述才是。** 27 个工具里，它每次都能挑到最具体的那一个：
@@ -1029,13 +1032,13 @@ disclosure，现在用在"建 agent"这件事上。
 
 | id | 模板 | 结构 | 探针结果 |
 |---|---|---|---|
-| 330 | 手搓（模板之前） | deep 单 agent | 44.3s，`web_search`×2 + `web_fetch`×7，写出 1,844 字节 |
-| 331 | T1 | deep 单 agent | 12.2s，4/5 通过；R4「读回文件」判不了（判据点名了具体读工具） |
-| 332 | T2 | supervisor + 2 专家 | 14.3s / 20.6s，**4/4**，主 agent 只有 `task` |
-| 333 | T3 | 三阶段 handoff | 三轮 11.4s / 7.7s / 3.4s：先问型号（不跳步）→ `transfer_to_issue_classifier → transfer_to_resolution_specialist → write_file` → 用户说信息有误时 `transfer_to_warranty_collector` 退回。**这一条是用独立脚本跑的三轮**，原因见下面的缺口 |
-| 334 | T5 | deep + todo_list + 研究子代理 | 264s，33 次搜索 + 25 次抓取，报告 26 处引用 |
-| 335 | T6 | 表格问答 | 13.8s，`glob → read_any_file → sqlite_load_csv → sqlite_execute`×2，答案与数据一致 |
-| 336 | T4 | 技能驱动 | 25.9s，先 `skill("social-media")` 再落 `post.md` + `card.svg` |
+| ~~330~~ | 手搓（模板之前）· 验证后已删 | deep 单 agent | 44.3s，`web_search`×2 + `web_fetch`×7，写出 1,844 字节 |
+| ~~331~~ | T1 · 验证后已删 | deep 单 agent | 12.2s，4/5 通过；R4「读回文件」判不了（判据点名了具体读工具） |
+| 332 | T2（私有示例） | supervisor + 2 专家 | 14.3s / 20.6s，**4/4**，主 agent 只有 `task` |
+| 333 | T3（私有示例） | 三阶段 handoff | 三轮 11.4s / 7.7s / 3.4s：先问型号（不跳步）→ `transfer_to_issue_classifier → transfer_to_resolution_specialist → write_file` → 用户说信息有误时 `transfer_to_warranty_collector` 退回。**这一条是用独立脚本跑的三轮**，原因见下面的缺口 |
+| ~~334~~ | T5 · 验证后已删 | deep + todo_list + 研究子代理 | 264s，33 次搜索 + 25 次抓取，报告 26 处引用 |
+| ~~335~~ | T6 · 验证后已删 | 表格问答 | 13.8s，`glob → read_any_file → sqlite_load_csv → sqlite_execute`×2，答案与数据一致 |
+| ~~336~~ | T4 · 验证后已删 | 技能驱动 | 25.9s，先 `skill("social-media")` 再落 `post.md` + `card.svg` |
 
 ## 三条要讲的判断
 

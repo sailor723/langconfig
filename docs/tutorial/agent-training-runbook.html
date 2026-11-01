@@ -662,6 +662,8 @@ agent = create_agent(
 </table>
 <p>对照案例 1 的同一道天气题：那边 4 次 <code>web_search</code>、8.1 秒；这边 11.5 秒。
 答案一样，慢了一些。</p>
+<p>上面划掉的五个是<strong>一次性验证实例</strong>，跑完就删了——数字留着是因为它证明的是「模板能建出可用的结构」，
+不是「系统里一直有这五个 agent」。留下的 332/333 是课堂要用的两个私有示例。</p>
 <h2 id="三条要讲的判断">三条要讲的判断</h2>
 <ol>
 <li><strong>工具多不是主要问题，名字和描述才是。</strong> 27 个工具里，它每次都能挑到最具体的那一个：
@@ -2315,44 +2317,44 @@ disclosure，现在用在&quot;建 agent&quot;这件事上。</p>
 </thead>
 <tbody>
 <tr>
-<td>330</td>
-<td>手搓（模板之前）</td>
+<td>~~330~~</td>
+<td>手搓（模板之前）· 验证后已删</td>
 <td>deep 单 agent</td>
 <td>44.3s，<code>web_search</code>×2 + <code>web_fetch</code>×7，写出 1,844 字节</td>
 </tr>
 <tr>
-<td>331</td>
-<td>T1</td>
+<td>~~331~~</td>
+<td>T1 · 验证后已删</td>
 <td>deep 单 agent</td>
 <td>12.2s，4/5 通过；R4「读回文件」判不了（判据点名了具体读工具）</td>
 </tr>
 <tr>
 <td>332</td>
-<td>T2</td>
+<td>T2（私有示例）</td>
 <td>supervisor + 2 专家</td>
 <td>14.3s / 20.6s，<strong>4/4</strong>，主 agent 只有 <code>task</code></td>
 </tr>
 <tr>
 <td>333</td>
-<td>T3</td>
+<td>T3（私有示例）</td>
 <td>三阶段 handoff</td>
 <td>三轮 11.4s / 7.7s / 3.4s：先问型号（不跳步）→ <code>transfer_to_issue_classifier → transfer_to_resolution_specialist → write_file</code> → 用户说信息有误时 <code>transfer_to_warranty_collector</code> 退回。<strong>这一条是用独立脚本跑的三轮</strong>，原因见下面的缺口</td>
 </tr>
 <tr>
-<td>334</td>
-<td>T5</td>
+<td>~~334~~</td>
+<td>T5 · 验证后已删</td>
 <td>deep + todo_list + 研究子代理</td>
 <td>264s，33 次搜索 + 25 次抓取，报告 26 处引用</td>
 </tr>
 <tr>
-<td>335</td>
-<td>T6</td>
+<td>~~335~~</td>
+<td>T6 · 验证后已删</td>
 <td>表格问答</td>
 <td>13.8s，<code>glob → read_any_file → sqlite_load_csv → sqlite_execute</code>×2，答案与数据一致</td>
 </tr>
 <tr>
-<td>336</td>
-<td>T4</td>
+<td>~~336~~</td>
+<td>T4 · 验证后已删</td>
 <td>技能驱动</td>
 <td>25.9s，先 <code>skill(&quot;social-media&quot;)</code> 再落 <code>post.md</code> + <code>card.svg</code></td>
 </tr>
