@@ -3077,21 +3077,30 @@ async def create_skill(name: str, description: str, instructions: str,
         from core.skills.sync import db_row_to_fs
 
         path = db_row_to_fs(skill)
+        base = Path(path).parent
         written: list[str] = []
         skipped: list[str] = []
         files = _as_dict(files) or {}
-        if files:
-            base = Path(path).parent
-            for rel, content in files.items():
-                target = (base / str(rel)).resolve()
-                try:
-                    target.relative_to(base.resolve())
-                except ValueError:
-                    skipped.append(f"{rel} (escapes the skill folder)")
-                    continue
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text(str(content), encoding="utf-8")
-                written.append(str(rel))
+        for rel, content in files.items():
+            target = (base / str(rel)).resolve()
+            try:
+                target.relative_to(base.resolve())
+            except ValueError:
+                skipped.append(f"{rel} (escapes the skill folder)")
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(str(content), encoding="utf-8")
+            written.append(str(rel))
+
+        # Verify from disk and report sizes: the agent cannot `ls` this folder
+        # (it lives under backend/skills/, outside the agent workspace), so the
+        # tool has to be the one that confirms what actually landed.
+        on_disk: list[str] = []
+        for f in sorted(base.rglob("*")):
+            if f.is_file():
+                on_disk.append(f"{f.relative_to(base)} ({f.stat().st_size} B)")
+        missing = [rel for rel in written if not (base / rel).is_file()]
+
         return (
             f"✅ Skill '{skill_id}' created (ID={skill.id}).\n"
             f"SKILL.md: {path}\n"
@@ -3100,6 +3109,9 @@ async def create_skill(name: str, description: str, instructions: str,
             f"support files 用 skill(\"{skill_id}\", file=\"<相对路径>\") 读。"
             + (f"\nsupport files 已写: {written}" if written else "")
             + (f"\n被拒绝（越界路径）: {skipped}" if skipped else "")
+            + ("\n目录实际内容（磁盘核对）:\n  " + "\n  ".join(on_disk) if on_disk else
+               "\n目录实际内容: (empty)")
+            + (f"\n⚠️ 写入后不存在: {missing}" if missing else "")
         )
     except Exception as e:
         return f"❌ Failed to create skill: {e}"

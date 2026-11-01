@@ -1,0 +1,50 @@
+{
+  "_comment": "MCP server onboarding skeleton — copy, fill placeholders, then pass to create_agent / update_agent. Never overwrite an existing mcp_servers map wholesale: read it with pg_get_agent first, then add one key.",
+
+  "name": "{{agent_name}}",
+  "description": "{{one_sentence_purpose}}",
+  "kind": "deep",
+  "model": "{{model_or_omit_for_default}}",
+  "temperature": 0.3,
+
+  "mcp_servers": {
+    "{{server_short_name}}": {
+      "url": "http://127.0.0.1:{{port}}"
+    }
+  },
+
+  "_stdio_alternative": {
+    "{{server_short_name}}": {
+      "command": "npx",
+      "args": ["-y", "{{package_name}}"],
+      "env": {
+        "{{ENV_KEY}}": "{{env_value_from_user}}"
+      }
+    }
+  },
+
+  "native_tools": ["{{tool_id_from_pg_list_custom_tools}}"],
+  "skills": ["{{skill_id_from_search_skills}}"],
+
+  "middleware": [
+    {
+      "type": "human_in_the_loop",
+      "enabled": true,
+      "config": {
+        "interrupt_on": {
+          "{{mcp_write_tool_name}}": {
+            "allowed_decisions": ["approve", "edit", "reject"]
+          }
+        }
+      }
+    }
+  ],
+
+  "system_prompt": "You have MCP tools from the {{server_short_name}} server.\n\nRead tool names ONLY from the live tool list — never invent them.\n\nRead-class tools (list/get/search/read) you may call directly.\nFor write-class tools (create/update/delete/send/post) you MUST ask the user for confirmation before calling; if a call is interrupted for approval, explain exactly what will change and wait.\n\nIf a tool call fails, report the real error. Do not fabricate results.",
+
+  "_verification_probes": [
+    "Read-class probe: ask for a listing/query that only that MCP server can answer; confirm the MCP tool name appears in the tool sequence.",
+    "Write-class probe: ask for a create/update; confirm the agent stops for approval and does not mutate data.",
+    "Error-path probe: use a nonexistent id/parameter; confirm the agent reports an error instead of inventing a result."
+  ]
+}

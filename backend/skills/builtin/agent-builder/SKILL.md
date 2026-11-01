@@ -127,6 +127,11 @@ Paths are checked: anything that escapes the skill folder is refused and
 reported. They are read on demand with `skill("<id>", file="<relative path>")`
 and never loaded together with the instructions.
 
+The tool answers with a **disk listing and byte sizes** (`SKILL.md (4.0 KB)`,
+`references/checklist.md (… B)`), because you cannot `ls` that folder yourself —
+it lives under `backend/skills/`, outside your workspace. Quote that listing when
+you report what you built; do not claim a file exists without it.
+
 ## Testing
 
 `test_agent(agent_id, probe)` returns: tool sequence, elapsed time, answer text, timeout
