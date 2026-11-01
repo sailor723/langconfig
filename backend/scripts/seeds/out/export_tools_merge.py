@@ -71,12 +71,14 @@ def main(argv: list[str] | None = None) -> int:
 
     db = SessionLocal()
     try:
-        # Every column except the surrogate id — introspected rather than
-        # hardcoded so a future migration cannot silently drop a field here.
+        # Introspected rather than hardcoded so a future migration cannot
+        # silently drop a field here. `id` is included on purpose: the seed must
+        # land the same library on every machine, and the merge uses it only when
+        # that id is still free (see the INSERT ... WHERE NOT EXISTS above).
         columns = [r[0] for r in db.execute(text(
             "SELECT column_name FROM information_schema.columns "
-            "WHERE table_name = 'custom_tools' AND column_name <> 'id' "
-            "ORDER BY ordinal_position"
+            "WHERE table_name = 'custom_tools' "
+            "ORDER BY (column_name <> 'id'), ordinal_position"
         ))]
         rows = [dict(r._mapping) for r in db.execute(text(
             f"SELECT {', '.join(columns)} FROM custom_tools ORDER BY tool_id"
@@ -105,14 +107,22 @@ def main(argv: list[str] | None = None) -> int:
     for row in rows:
         cols = ", ".join(columns)
         vals = ", ".join(lit(row.get(col)) for col in columns)
+        row_id = row.get("id")
+        # Same rule as the agents merge: reuse the id when it is free, otherwise
+        # let the sequence assign one, and never touch an existing tool_id.
         lines.append(
             f"INSERT INTO custom_tools ({cols})\n"
             f"SELECT {vals}\n"
-            f"WHERE NOT EXISTS (SELECT 1 FROM custom_tools WHERE tool_id = {lit(row['tool_id'])});"
+            f"WHERE NOT EXISTS (SELECT 1 FROM custom_tools WHERE tool_id = {lit(row['tool_id'])})"
+            + (f"\n  AND NOT EXISTS (SELECT 1 FROM custom_tools WHERE id = {lit(row_id)});"
+               if row_id is not None else ";")
         )
         lines.append("")
 
     lines += [
+        "SELECT setval(pg_get_serial_sequence('custom_tools', 'id'), "
+        "(SELECT COALESCE(MAX(id), 1) FROM custom_tools));",
+        "",
         "COMMIT;",
         "",
         f"-- done: {len(rows)} tool(s) offered; existing tool_ids were skipped.",
