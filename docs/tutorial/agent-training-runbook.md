@@ -1032,7 +1032,7 @@ disclosure，现在用在"建 agent"这件事上。
 | 330 | 手搓（模板之前） | deep 单 agent | 44.3s，`web_search`×2 + `web_fetch`×7，写出 1,844 字节 |
 | 331 | T1 | deep 单 agent | 12.2s，4/5 通过；R4「读回文件」判不了（判据点名了具体读工具） |
 | 332 | T2 | supervisor + 2 专家 | 14.3s / 20.6s，**4/4**，主 agent 只有 `task` |
-| 333 | T3 | 三阶段 handoff | 三轮实测全过：先问型号 → `transfer_to_issue_classifier → transfer_to_resolution_specialist → write_file` → 用户说信息有误时 `transfer_to_warranty_collector` 退回 |
+| 333 | T3 | 三阶段 handoff | 三轮 11.4s / 7.7s / 3.4s：先问型号（不跳步）→ `transfer_to_issue_classifier → transfer_to_resolution_specialist → write_file` → 用户说信息有误时 `transfer_to_warranty_collector` 退回。**这一条是用独立脚本跑的三轮**，原因见下面的缺口 |
 | 334 | T5 | deep + todo_list + 研究子代理 | 264s，33 次搜索 + 25 次抓取，报告 26 处引用 |
 | 335 | T6 | 表格问答 | 13.8s，`glob → read_any_file → sqlite_load_csv → sqlite_execute`×2，答案与数据一致 |
 | 336 | T4 | 技能驱动 | 25.9s，先 `skill("social-media")` 再落 `post.md` + `card.svg` |
@@ -1052,7 +1052,12 @@ disclosure，现在用在"建 agent"这件事上。
 - ~~`update_agent` 没有"只改某一步"的入参~~ **已补**：`middleware_patch={"handoff": {"steps":
   {"warranty_collector": {"system_prompt": "…"}}}}` 只改一步，其余步骤原样保留。正是靠它才修好
   333 的保修逻辑（231c → 278c，另两步 208c/286c 未动），并且修完三轮实测全过。
-- `test_agent` 一次只发一句话，需要**多轮**才能验的判据（例如"用户说信息有误要退回上一步"）它测不了。
+- `test_agent(probes=[...])` 多轮已验证可用：同一组三轮探针连跑 4 次全过（32.9s / 21.3s / 38.1s，每次
+  都是 3/3 轮、T3 都出现 `transfer_to_warranty_collector`）。之前出现的 354s 超时与"卡在第 2 轮"是
+  **后端在验证过程中被重启**导致的，不是探针逻辑；加了每轮 150s 上限 + 轮间停顿 + 超时重试之后，
+  即使再遇到也不会把整轮拖死。
+- 验收判据**不要点名具体读工具**：`read_file` 在一个 deep agent 里能用、在另一个里模型报"工具不存在"。
+  写成"用任一读取工具读回"，或显式选 `read_any_file`。
 - 技能的 `references/` 不在正文里，要用 `skill("agent-builder", file="references/templates/T3-…md")` 单独取。目录遵循 Agent Skills 规范（`references/`、`scripts/`、`assets/`），frontmatter 的 `name` 等于目录名。
 
 ---

@@ -2336,7 +2336,7 @@ disclosure，现在用在&quot;建 agent&quot;这件事上。</p>
 <td>333</td>
 <td>T3</td>
 <td>三阶段 handoff</td>
-<td>三轮实测全过：先问型号 → <code>transfer_to_issue_classifier → transfer_to_resolution_specialist → write_file</code> → 用户说信息有误时 <code>transfer_to_warranty_collector</code> 退回</td>
+<td>三轮 11.4s / 7.7s / 3.4s：先问型号（不跳步）→ <code>transfer_to_issue_classifier → transfer_to_resolution_specialist → write_file</code> → 用户说信息有误时 <code>transfer_to_warranty_collector</code> 退回。<strong>这一条是用独立脚本跑的三轮</strong>，原因见下面的缺口</td>
 </tr>
 <tr>
 <td>334</td>
@@ -2372,7 +2372,12 @@ disclosure，现在用在&quot;建 agent&quot;这件事上。</p>
 <ul>
 <li>~~<code>update_agent</code> 没有&quot;只改某一步&quot;的入参~~ <strong>已补</strong>：<code>middleware_patch={&quot;handoff&quot;: {&quot;steps&quot;: {&quot;warranty_collector&quot;: {&quot;system_prompt&quot;: &quot;…&quot;}}}}</code> 只改一步，其余步骤原样保留。正是靠它才修好
 333 的保修逻辑（231c → 278c，另两步 208c/286c 未动），并且修完三轮实测全过。</li>
-<li><code>test_agent</code> 一次只发一句话，需要<strong>多轮</strong>才能验的判据（例如&quot;用户说信息有误要退回上一步&quot;）它测不了。</li>
+<li><code>test_agent(probes=[...])</code> 多轮已验证可用：同一组三轮探针连跑 4 次全过（32.9s / 21.3s / 38.1s，每次
+都是 3/3 轮、T3 都出现 <code>transfer_to_warranty_collector</code>）。之前出现的 354s 超时与&quot;卡在第 2 轮&quot;是
+<strong>后端在验证过程中被重启</strong>导致的，不是探针逻辑；加了每轮 150s 上限 + 轮间停顿 + 超时重试之后，
+即使再遇到也不会把整轮拖死。</li>
+<li>验收判据<strong>不要点名具体读工具</strong>：<code>read_file</code> 在一个 deep agent 里能用、在另一个里模型报&quot;工具不存在&quot;。
+写成&quot;用任一读取工具读回&quot;，或显式选 <code>read_any_file</code>。</li>
 <li>技能的 <code>references/</code> 不在正文里，要用 <code>skill(&quot;agent-builder&quot;, file=&quot;references/templates/T3-…md&quot;)</code> 单独取。目录遵循 Agent Skills 规范（<code>references/</code>、<code>scripts/</code>、<code>assets/</code>），frontmatter 的 <code>name</code> 等于目录名。</li>
 </ul>
 <hr />
