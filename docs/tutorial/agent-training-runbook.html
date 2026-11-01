@@ -2336,7 +2336,7 @@ disclosure，现在用在&quot;建 agent&quot;这件事上。</p>
 <td>333</td>
 <td>T3</td>
 <td>三阶段 handoff</td>
-<td>2 项通过；R4 需要多轮才能判</td>
+<td>三轮实测全过：先问型号 → <code>transfer_to_issue_classifier → transfer_to_resolution_specialist → write_file</code> → 用户说信息有误时 <code>transfer_to_warranty_collector</code> 退回</td>
 </tr>
 <tr>
 <td>334</td>
@@ -2370,8 +2370,8 @@ disclosure，现在用在&quot;建 agent&quot;这件事上。</p>
 </ol>
 <h2 id="已知缺口-要写进课里-不要藏">已知缺口（要写进课里，不要藏）</h2>
 <ul>
-<li><code>update_agent</code> 是字段级覆盖，<strong>没有&quot;只改某一步&quot;的入参</strong>：handoff 三个阶段的 prompt 要整段重发。
-Builder 发现这点后拒绝盲改（怕覆盖另外两步），这个判断是对的，但工具本该更好用。</li>
+<li>~~<code>update_agent</code> 没有&quot;只改某一步&quot;的入参~~ <strong>已补</strong>：<code>middleware_patch={&quot;handoff&quot;: {&quot;steps&quot;: {&quot;warranty_collector&quot;: {&quot;system_prompt&quot;: &quot;…&quot;}}}}</code> 只改一步，其余步骤原样保留。正是靠它才修好
+333 的保修逻辑（231c → 278c，另两步 208c/286c 未动），并且修完三轮实测全过。</li>
 <li><code>test_agent</code> 一次只发一句话，需要<strong>多轮</strong>才能验的判据（例如&quot;用户说信息有误要退回上一步&quot;）它测不了。</li>
 <li>技能的 <code>templates/</code>、<code>facts/</code> 不在技能正文里，要用 <code>skill(&quot;agent-builder&quot;, file=&quot;templates/T3-…md&quot;)</code> 单独取。</li>
 </ul>

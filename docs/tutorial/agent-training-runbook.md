@@ -1032,7 +1032,7 @@ disclosure，现在用在"建 agent"这件事上。
 | 330 | 手搓（模板之前） | deep 单 agent | 44.3s，`web_search`×2 + `web_fetch`×7，写出 1,844 字节 |
 | 331 | T1 | deep 单 agent | 12.2s，4/5 通过；R4「读回文件」判不了（判据点名了具体读工具） |
 | 332 | T2 | supervisor + 2 专家 | 14.3s / 20.6s，**4/4**，主 agent 只有 `task` |
-| 333 | T3 | 三阶段 handoff | 2 项通过；R4 需要多轮才能判 |
+| 333 | T3 | 三阶段 handoff | 三轮实测全过：先问型号 → `transfer_to_issue_classifier → transfer_to_resolution_specialist → write_file` → 用户说信息有误时 `transfer_to_warranty_collector` 退回 |
 | 334 | T5 | deep + todo_list + 研究子代理 | 264s，33 次搜索 + 25 次抓取，报告 26 处引用 |
 | 335 | T6 | 表格问答 | 13.8s，`glob → read_any_file → sqlite_load_csv → sqlite_execute`×2，答案与数据一致 |
 | 336 | T4 | 技能驱动 | 25.9s，先 `skill("social-media")` 再落 `post.md` + `card.svg` |
@@ -1049,8 +1049,9 @@ disclosure，现在用在"建 agent"这件事上。
 
 ## 已知缺口（要写进课里，不要藏）
 
-- `update_agent` 是字段级覆盖，**没有"只改某一步"的入参**：handoff 三个阶段的 prompt 要整段重发。
-  Builder 发现这点后拒绝盲改（怕覆盖另外两步），这个判断是对的，但工具本该更好用。
+- ~~`update_agent` 没有"只改某一步"的入参~~ **已补**：`middleware_patch={"handoff": {"steps":
+  {"warranty_collector": {"system_prompt": "…"}}}}` 只改一步，其余步骤原样保留。正是靠它才修好
+  333 的保修逻辑（231c → 278c，另两步 208c/286c 未动），并且修完三轮实测全过。
 - `test_agent` 一次只发一句话，需要**多轮**才能验的判据（例如"用户说信息有误要退回上一步"）它测不了。
 - 技能的 `templates/`、`facts/` 不在技能正文里，要用 `skill("agent-builder", file="templates/T3-…md")` 单独取。
 

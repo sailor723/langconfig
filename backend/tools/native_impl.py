@@ -3493,6 +3493,51 @@ def create_deepagent(name: str,
     )
 
 
+def _merge_middleware_patch(middleware: list, patch) -> list:
+    """Merge a per-type middleware patch into an existing middleware list.
+
+    `update_agent(middleware=...)` replaces the whole field, so changing one
+    handoff step means reproducing every other step verbatim — a caller that has
+    only a stale copy either clobbers the agent or (correctly) refuses to act.
+    A patch says just what changes:
+
+        {"handoff": {"steps": {"warranty_collector": {"system_prompt": "…"}}}}
+        {"hitl": {"interrupt_on": {"write_file": True}}}
+
+    Steps merge one level deep, so touching one step leaves the others alone.
+    A type that is not present yet is appended.
+    """
+    patch = _as_dict(patch) or {}
+    merged = [dict(m) if isinstance(m, dict) else m for m in (middleware or [])]
+    for mtype, spec in patch.items():
+        if not isinstance(spec, dict):
+            continue
+        target = None
+        for m in merged:
+            if isinstance(m, dict) and m.get("type") == mtype:
+                target = m
+                break
+        if target is None:
+            merged.append({"type": mtype, "enabled": True, "config": dict(spec)})
+            continue
+        conf = dict(target.get("config") or {})
+        for key, value in spec.items():
+            if key == "steps" and isinstance(value, dict):
+                steps = dict(conf.get("steps") or {})
+                for step_name, step_spec in value.items():
+                    if not isinstance(step_spec, dict):
+                        continue
+                    step = dict(steps.get(step_name) or {})
+                    step.update(step_spec)
+                    steps[step_name] = step
+                conf["steps"] = steps
+            else:
+                conf[key] = value
+        target["config"] = conf
+        target.setdefault("enabled", True)
+    return merged
+
+
 @tool
 def update_agent(agent_id: int,
                  system_prompt: str | None = None,
@@ -3501,10 +3546,15 @@ def update_agent(agent_id: int,
                  subagents: list[dict] | None = None,
                  middleware: list[dict] | None = None,
                  mcp_servers: dict | None = None,
+                 middleware_patch: dict | None = None,
                  model: str | None = None,
                  temperature: float | None = None,
                  agent_docs: dict | None = None) -> str:
     """Patch an existing agent by id. Only the fields you pass change. Requires approval.
+
+    Prefer ``middleware_patch`` over ``middleware`` when changing one step of a
+    handoff or one entry of a HITL policy: it merges, so the rest of the
+    middleware stays exactly as it is.
 
     Read it first with pg_get_agent and change one thing at a time, so a failing
     test can be attributed to a specific edit.
@@ -3513,6 +3563,7 @@ def update_agent(agent_id: int,
     from models.deep_agent import DeepAgentTemplate
 
     native_tools = _as_list(native_tools) if native_tools is not None else None
+    middleware_patch = _as_dict(middleware_patch) if middleware_patch is not None else None
     skills = _as_list(skills) if skills is not None else None
     subagents = _as_list_of_dicts(subagents) if subagents is not None else None
     middleware = _as_list_of_dicts(middleware) if middleware is not None else None
@@ -3524,6 +3575,7 @@ def update_agent(agent_id: int,
         {"agent_id": agent_id, "fields": [k for k, v in {
             "system_prompt": system_prompt, "native_tools": native_tools, "skills": skills,
             "subagents": subagents, "middleware": middleware, "mcp_servers": mcp_servers,
+            "middleware_patch": middleware_patch,
             "model": model, "temperature": temperature, "agent_docs": agent_docs,
         }.items() if v is not None]},
         f"Update agent {agent_id}",
@@ -3549,7 +3601,11 @@ def update_agent(agent_id: int,
             "model": model if model is not None else cur.get("model"),
             "temperature": temperature if temperature is not None else cur.get("temperature"),
             "subagents": subagents if subagents is not None else cur.get("subagents"),
-            "middleware": middleware if middleware is not None else cur.get("middleware"),
+            "middleware": (
+            _merge_middleware_patch(cur.get("middleware") or [], middleware_patch)
+            if middleware_patch is not None
+            else (middleware if middleware is not None else cur.get("middleware"))
+        ),
             "mcp_servers": mcp_servers if mcp_servers is not None else cur.get("mcp_servers"),
             "tool_params": cur.get("tool_params"),
         }
