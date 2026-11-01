@@ -116,6 +116,9 @@ A fresh Ubuntu server needs a few base tools before the steps below:
 sudo apt update && sudo apt install -y unzip git curl ca-certificates lsof
 ```
 
+> 国内 ECS（阿里云等）先读下一节 **Path B-2**：那边多装 4 类系统包（`postgresql-client`、中文字体、
+> 文档解析库、Playwright 运行时），并配镜像加速、tiktoken 预热、安全组与 systemd。
+
 `lsof` is not in a default Ubuntu/WSL image, and `start.sh` uses it to stop a previous backend or
 frontend still holding `:8765` / `:1421` before starting a new one. Without it the port stays busy,
 Vite refuses to fall back to another port (`strictPort: true`), and the only symptom is
@@ -650,6 +653,116 @@ workspace you enter here should match `WORKSPACE_ROOT` from step 5 so the
 identity baked into agents points at the same folders the runtime uses.
 
 ---
+
+### Path B-2 — 阿里云 ECS（国内网络）
+
+Path B 是按「网络通畅的 Ubuntu」写的。放到国内 ECS 上只有七处不一样，其余照 Path B 走。
+先读完这一节，因为**第 1 项是硬阻塞**：不装 `psql`，Path B 第 6 步的种子直接失败。
+
+```bash
+# 1. 系统依赖（在 Path B 的 apt 那行基础上补，一次装完）
+sudo apt update && sudo apt install -y \
+  unzip git curl ca-certificates lsof \
+  build-essential postgresql-client \
+  fonts-noto-cjk fonts-noto-color-emoji \
+  libmagic1 poppler-utils tesseract-ocr tesseract-ocr-chi-sim \
+  libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libxkbcommon0 \
+  libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2
+```
+
+| 为什么装 | 不装的症状 |
+|---|---|
+| `postgresql-client` | `seed_all.py` 全程调 `psql` 恢复 dump（只要客户端，不装数据库本体） | `psql: command not found`，第 6 步直接失败 |
+| `fonts-noto-cjk` | docx/pdf 渲染、matplotlib 图表 | 中文变方块 |
+| `libmagic1 poppler-utils tesseract-ocr-*` | `unstructured` 读 PDF/扫描件、`read_any_file` | 上传 PDF 报缺依赖 |
+| 那串 `lib*` | Playwright chromium 的运行时 | `Target page closed.`，浏览器工具不可用 |
+
+```bash
+# 2. 镜像加速（一次性，写进 ~/.bashrc 或 /etc/environment）
+export UV_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+export PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+npm config set registry https://registry.npmmirror.com
+
+# Docker Hub 在国内基本拉不动，先配加速器再用 compose
+sudo mkdir -p /etc/docker
+sudo tee /etc/docker/daemon.json >/dev/null <<'JSON'
+{ "registry-mirrors": ["https://<你的阿里云账号ID>.mirror.aliyuncs.com"] }
+JSON
+sudo systemctl restart docker
+docker pull pgvector/pgvector:pg16      # 能拉下来再往下
+```
+
+> `uv` 本身也可以用镜像装：`pip install uv -i https://mirrors.aliyun.com/pypi/simple/`，
+> 比 `curl astral.sh | sh` 在国内稳。
+
+```bash
+# 3. tiktoken 预热（国内必做，否则第一次 token 计数 / 上下文压缩就超时）
+export TIKTOKEN_CACHE_DIR=/opt/tiktoken-cache
+sudo mkdir -p $TIKTOKEN_CACHE_DIR && sudo chown $USER $TIKTOKEN_CACHE_DIR
+cd backend && .venv/bin/python -c "
+import tiktoken
+for name in ('cl100k_base', 'o200k_base'):
+    try:
+        tiktoken.get_encoding(name); print('cached:', name)
+    except Exception as e:
+        print('FAILED:', name, e)
+"
+```
+
+> 这一步就失败，说明这台机器必须走代理；在解决之前 token 计数与上下文压缩都用不了。
+> `TIKTOKEN_CACHE_DIR` 要写进 `.env` 或 systemd 的 `Environment=`，否则重启后又去联网。
+
+```bash
+# 4. Playwright 浏览器（依赖已在第 1 步装好，别再带 --with-deps）
+cd backend && .venv/bin/python -m playwright install chromium
+```
+
+```bash
+# 5. 安全组放行（阿里云控制台 → 安全组 → 入方向）
+#   8765   后端 API（前后端同机时必须，前端从这里取数据）
+#   1421   Vite 开发服务器（只在开发时开）
+#   80/443 生产入口（nginx）
+```
+
+```bash
+# 6. 时区与 swap（2C4G 建议加：Playwright + Postgres + Vite 会一起抢内存）
+sudo timedatectl set-timezone Asia/Shanghai
+sudo fallocate -l 4G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+```bash
+# 7. 常驻：start.sh 是开发启动器，前台跑，被 shell 杀掉就没了
+sudo tee /etc/systemd/system/langconfig.service >/dev/null <<'UNIT'
+[Unit]
+Description=LangConfig (backend + frontend)
+After=network.target docker.service
+
+[Service]
+Type=simple
+User=langconfig
+WorkingDirectory=/opt/langconfig
+EnvironmentFile=/opt/langconfig/.env
+ExecStart=/bin/bash /opt/langconfig/start.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+sudo systemctl daemon-reload && sudo systemctl enable --now langconfig
+journalctl -u langconfig -f          # 看日志
+```
+
+**两个 ECS 特有的坑**
+
+- `POSTGRES_PORT` 默认 **5432**（原生安装）。用 compose 起 Postgres 要改成 **5433**
+  （compose 把宿主机 5433 映射到容器 5432），改完再 `docker compose up -d postgres`。
+- 从公网访问属于「非 loopback」，**`LANGCONFIG_LAN_ACCESS` 必须显式开**，否则 `/signin`
+  不生效：`.env` 里写 `LANGCONFIG_LAN_ACCESS=on` 加用户名密码，一次配好。
+
+> 这七步做完，回到 Path B 第 4 步继续（`uv sync`）——镜像已在第 2 步配好，这一步会明显变快。
 
 ### If other people (or the internet) will reach this machine
 
@@ -1373,6 +1486,10 @@ details.
 | Seed step 1 prints manual CREATE ROLE instructions | App user can't connect as superuser → run the two `psql` commands it prints, then re-run `seed_all.py` |
 | `column custom_tools.definition does not exist` | Stale schema from an earlier seed run (the `custom_tools` table predates the tools refactor) → drop the DB and re-seed: `sudo -u postgres psql -c "DROP DATABASE IF EXISTS langconfig;"` then re-run `uv run python scripts/seeds/in/seed_all.py` |
 | `table "store_migrations" does not exist` during `alembic upgrade head` | Run against an **empty** database. The initial schema is autogenerated against a populated DB (it drops tables it then recreates), so it cannot bootstrap one. Run `scripts/seeds/in/seed_all.py` instead — its step 2 runs `init_db()` first and step 3 then stamps/upgrades correctly. `alembic upgrade head` first is only for a machine that already has a schema (see §3) |
+| `psql: command not found` while seeding | 只装了 docker 里的 Postgres，宿主机缺客户端 | `sudo apt install -y postgresql-client` |
+| 浏览器工具报 `Target page closed` / 起不来 | 缺 Playwright chromium 或其系统库 | `apt install` 那一串 `lib*`，再 `python -m playwright install chromium` |
+| 第一次对话就卡在 token 计数 / 上下文压缩 | tiktoken 在联网下载 BPE 文件，国内常被墙 | 设 `TIKTOKEN_CACHE_DIR` 并预热（见 Path B-2 第 3 步） |
+| `docker pull` 超时 | Docker Hub 在国内不可达 | 配 `registry-mirrors`（见 Path B-2 第 2 步） |
 | `permission denied to create extension "vector"` | The `langconfig` role lacks superuser (native installs create it with only `CREATEDB`) → `sudo -u postgres psql -c "ALTER ROLE langconfig SUPERUSER;"` then re-run the seed |
 | `deep agents: 0` after health check | Run step 7; verify `WORKSPACE_ROOT` was exported |
 | `WORKSPACE_BASE/` or `{{...}}` visible in an agent's prompt | Backfill didn't run → `uv run python scripts/seeds/in/backfill_agent_identity.py --workspace-root <root>` |
