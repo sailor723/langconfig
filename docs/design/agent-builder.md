@@ -74,6 +74,12 @@ fail-closed like `core/mcp/client.py`), so a subagent cannot route around them:
 The builder runs **without subagents**: it is the orchestrator, and a second layer only
 lengthens the approval chain that today's bug showed to be unreliable.
 
+## Where the knowledge lives
+
+`backend/skills/builtin/agent-builder/` — `SKILL.md` plus `references/templates/T1–T6.md`
+and `references/facts/case-facts.md`, laid out per the Agent Skills spec
+(`references/`, `scripts/`, `assets/`; frontmatter `name` = directory name).
+
 ## Deliverables
 
 ```

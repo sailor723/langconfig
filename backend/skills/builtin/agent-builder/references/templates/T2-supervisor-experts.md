@@ -1,6 +1,6 @@
 # T2 · supervisor + 专家
 
-> 提炼自：案例 4（323）、案例 6（301）、案例 9（320）· 事实见 `facts/case-facts.md`
+> 提炼自：案例 4（323）、案例 6（301）、案例 9（320）· 事实见 `references/facts/case-facts.md`
 
 ## 1 适用场景
 

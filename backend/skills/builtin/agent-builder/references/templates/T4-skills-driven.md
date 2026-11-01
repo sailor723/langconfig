@@ -1,6 +1,6 @@
 # T4 · 技能驱动的 agent
 
-> 提炼自：案例 8（319）、案例 11（328）· 事实见 `facts/case-facts.md`
+> 提炼自：案例 8（319）、案例 11（328）· 事实见 `references/facts/case-facts.md`
 > 反例警告：案例 8 的 agent **自己没有挂技能**（`skills: []`），它靠读工作区 `skills/` 目录
 > 演示概念。照抄它会得到一个"讲技能但没有技能"的 agent。
 
@@ -47,7 +47,7 @@ create_skill(
   allowed_tools=["read_file", "write_file"],
   files={
     "references/style-guide.md": "# 语气\n- 短句\n- 不编数字\n",
-    "templates/outline.md": "# 大纲\n1. 钩子\n2. 论点\n3. 收尾\n",
+    "assets/outline.md": "# 大纲\n1. 钩子\n2. 论点\n3. 收尾\n",
   },
 )
 ```
@@ -70,7 +70,7 @@ create_skill(
 ```
 skills/personal/<owner>/<id>/SKILL.md
 skills/personal/<owner>/<id>/references/style-guide.md
-skills/personal/<owner>/<id>/templates/outline.md
+skills/personal/<owner>/<id>/assets/outline.md
 ```
 
 `files` 的路径会被检查，`../escape.md` 这类越界写入会被拒绝并上报。

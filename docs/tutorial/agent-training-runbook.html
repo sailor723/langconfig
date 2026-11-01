@@ -2286,12 +2286,12 @@ SELECT month, SUM(CAST(revenue AS REAL)) FROM m10 GROUP BY month;
 <tbody>
 <tr>
 <td>事实表</td>
-<td><code>backend/skills/builtin/agent-builder/facts/case-facts.md</code></td>
+<td><code>backend/skills/builtin/agent-builder/references/facts/case-facts.md</code></td>
 <td>12 个教学 agent 的真实配置，含&quot;哪里和 run book 不一致&quot;</td>
 </tr>
 <tr>
 <td>六个模板</td>
-<td><code>…/templates/T1–T6.md</code></td>
+<td><code>…/references/templates/T1–T6.md</code></td>
 <td>单 agent / supervisor / handoff / 技能 / 研究流水线 / 表格问答</td>
 </tr>
 <tr>
@@ -2373,7 +2373,7 @@ disclosure，现在用在&quot;建 agent&quot;这件事上。</p>
 <li>~~<code>update_agent</code> 没有&quot;只改某一步&quot;的入参~~ <strong>已补</strong>：<code>middleware_patch={&quot;handoff&quot;: {&quot;steps&quot;: {&quot;warranty_collector&quot;: {&quot;system_prompt&quot;: &quot;…&quot;}}}}</code> 只改一步，其余步骤原样保留。正是靠它才修好
 333 的保修逻辑（231c → 278c，另两步 208c/286c 未动），并且修完三轮实测全过。</li>
 <li><code>test_agent</code> 一次只发一句话，需要<strong>多轮</strong>才能验的判据（例如&quot;用户说信息有误要退回上一步&quot;）它测不了。</li>
-<li>技能的 <code>templates/</code>、<code>facts/</code> 不在技能正文里，要用 <code>skill(&quot;agent-builder&quot;, file=&quot;templates/T3-…md&quot;)</code> 单独取。</li>
+<li>技能的 <code>references/</code> 不在正文里，要用 <code>skill(&quot;agent-builder&quot;, file=&quot;references/templates/T3-…md&quot;)</code> 单独取。目录遵循 Agent Skills 规范（<code>references/</code>、<code>scripts/</code>、<code>assets/</code>），frontmatter 的 <code>name</code> 等于目录名。</li>
 </ul>
 <hr />
 <h1 id="附录-复建自检清单-照案例-4-复建一遍">附录 · 复建自检清单（照案例 4 复建一遍）</h1>

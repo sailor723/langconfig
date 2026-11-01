@@ -1,6 +1,6 @@
 # T6 · 表格问答（SQL）
 
-> 提炼自：案例 12（329）· 事实见 `facts/case-facts.md`
+> 提炼自：案例 12（329）· 事实见 `references/facts/case-facts.md`
 
 ## 1 适用场景
 

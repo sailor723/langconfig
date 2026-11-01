@@ -1018,8 +1018,8 @@ SELECT month, SUM(CAST(revenue AS REAL)) FROM m10 GROUP BY month;
 
 | 件 | 在哪儿 | 作用 |
 |---|---|---|
-| 事实表 | `backend/skills/builtin/agent-builder/facts/case-facts.md` | 12 个教学 agent 的真实配置，含"哪里和 run book 不一致" |
-| 六个模板 | `…/templates/T1–T6.md` | 单 agent / supervisor / handoff / 技能 / 研究流水线 / 表格问答 |
+| 事实表 | `backend/skills/builtin/agent-builder/references/facts/case-facts.md` | 12 个教学 agent 的真实配置，含"哪里和 run book 不一致" |
+| 六个模板 | `…/references/templates/T1–T6.md` | 单 agent / supervisor / handoff / 技能 / 研究流水线 / 表格问答 |
 | 三个工具 | `create_agent` / `update_agent` / `test_agent` | 建、改、跑探针；前两个自带审批门 |
 
 模板只写这个结构独有的段落，通用规则留在技能正文里——这就是案例 8 讲的 progressive
@@ -1053,7 +1053,7 @@ disclosure，现在用在"建 agent"这件事上。
   {"warranty_collector": {"system_prompt": "…"}}}}` 只改一步，其余步骤原样保留。正是靠它才修好
   333 的保修逻辑（231c → 278c，另两步 208c/286c 未动），并且修完三轮实测全过。
 - `test_agent` 一次只发一句话，需要**多轮**才能验的判据（例如"用户说信息有误要退回上一步"）它测不了。
-- 技能的 `templates/`、`facts/` 不在技能正文里，要用 `skill("agent-builder", file="templates/T3-…md")` 单独取。
+- 技能的 `references/` 不在正文里，要用 `skill("agent-builder", file="references/templates/T3-…md")` 单独取。目录遵循 Agent Skills 规范（`references/`、`scripts/`、`assets/`），frontmatter 的 `name` 等于目录名。
 
 ---
 

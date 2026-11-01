@@ -33,19 +33,19 @@ then fill in its JSON skeleton — do not invent a structure from scratch.
 
 | template | structure | pick when |
 |---|---|---|
-| `templates/T1-single-agent.md` | one agent, 2–4 tools, no middleware | one job, one tool set, answer or file out |
-| `templates/T2-supervisor-experts.md` | `task` only + N experts | work spans distinct domains, each expert answers in ~3 lines |
-| `templates/T3-handoff-machine.md` | one agent + `handoff` middleware, per-step prompt/tools | one conversation, several stages, role changes mid-flow |
-| `templates/T4-skills-driven.md` | agent + `skills` list + `skill` tool | long, rarely used, must stay editable knowledge |
-| `templates/T5-research-pipeline.md` | deep agent + `todo_list` + research subagent | open question, deliverable is a cited file |
-| `templates/T6-data-qa.md` | upload → sqlite → SQL | a table goes in, questions come after |
+| `references/templates/T1-single-agent.md` | one agent, 2–4 tools, no middleware | one job, one tool set, answer or file out |
+| `references/templates/T2-supervisor-experts.md` | `task` only + N experts | work spans distinct domains, each expert answers in ~3 lines |
+| `references/templates/T3-handoff-machine.md` | one agent + `handoff` middleware, per-step prompt/tools | one conversation, several stages, role changes mid-flow |
+| `references/templates/T4-skills-driven.md` | agent + `skills` list + `skill` tool | long, rarely used, must stay editable knowledge |
+| `references/templates/T5-research-pipeline.md` | deep agent + `todo_list` + research subagent | open question, deliverable is a cited file |
+| `references/templates/T6-data-qa.md` | upload → sqlite → SQL | a table goes in, questions come after |
 
 Every template has the same seven sections: when to use it, the JSON skeleton
 (with `{{placeholders}}`), the prompt skeleton, tools/middleware, a rubric
 template, a measured baseline, and the failure table. Copy the skeleton, replace
 the placeholders, then verify every tool id against `pg_list_custom_tools`.
 
-`facts/case-facts.md` holds the ground truth for the twelve training agents —
+`references/facts/case-facts.md` holds the ground truth for the twelve training agents —
 what they actually are, and where they disagree with the run book. Read it when
 a template and a real agent disagree; quote the conflict instead of hiding it.
 
@@ -142,7 +142,7 @@ only the row — a skill without its folder has no support files and no way to r
 a teammate.
 
 `create_skill(files={...})` writes the supporting files in the same call —
-`references/`, `templates/`, `scripts/`, whatever the instructions point at.
+`references/`, `scripts/`, `assets/` — the directories the Agent Skills spec defines.
 Paths are checked: anything that escapes the skill folder is refused and
 reported. They are read on demand with `skill("<id>", file="<relative path>")`
 and never loaded together with the instructions.
@@ -186,7 +186,7 @@ report blocked with the evidence, do not keep looping.
 
 ## Are the templates on disk for you?
 
-They live next to this file (`templates/`, `facts/`). If a deep agent's workspace
+They live under `references/` next to this file (`references/templates/`, `references/facts/`). If a deep agent's workspace
 shows only `SKILL.md` under `skills/agent-builder/`, the staging step did not copy
 the supporting files — say so and ask for them instead of inventing the structure
 from the index table alone. (Seen on 2026-11-01: `skills/` staged empty for the
@@ -194,7 +194,7 @@ builder itself, so it rebuilt T2 from a library agent rather than the template.)
 
 ## When template and reality disagree
 
-`facts/case-facts.md` records known bad examples on purpose (agent 319 is the
+`references/facts/case-facts.md` records known bad examples on purpose (agent 319 is the
 skills case with zero skills; agent 328 lists skill names as zero-tool
 subagents; agent 159 carries 27 tools). Do not copy them. Say which template
 rule the real agent breaks, and build the corrected version.
