@@ -59,6 +59,9 @@ htmlcov/
 .idea/
 *.iml
 
+# Agent/session dumps taken before housekeeping (may contain chat text)
+/backups/
+
 # Archive directory (local development docs)
 archive/
 
