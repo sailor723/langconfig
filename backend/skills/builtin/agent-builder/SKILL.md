@@ -121,8 +121,11 @@ writes both and returns the path; `update_skill` writes the file back. Never wri
 only the row — a skill without its folder has no support files and no way to reach
 a teammate.
 
-Put supporting files (templates, reference tables, scripts) in that same folder
-and read them with `skill("<id>", file="<relative path>")`.
+`create_skill(files={...})` writes the supporting files in the same call —
+`references/`, `templates/`, `scripts/`, whatever the instructions point at.
+Paths are checked: anything that escapes the skill folder is refused and
+reported. They are read on demand with `skill("<id>", file="<relative path>")`
+and never loaded together with the instructions.
 
 ## Testing
 

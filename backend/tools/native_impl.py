@@ -3013,7 +3013,8 @@ def _coerce_str_list(value) -> list[str] | None:
 async def create_skill(name: str, description: str, instructions: str,
                        tags: list[str] | None = None,
                        triggers: list[str] | None = None,
-                       allowed_tools: list[str] | None = None) -> str:
+                       allowed_tools: list[str] | None = None,
+                       files: dict[str, str] | None = None) -> str:
     """Create a skill the way this platform stores skills: DB row + SKILL.md on disk.
 
     A skill is two things here — a row in `skills` and a git-tracked
@@ -3031,6 +3032,11 @@ async def create_skill(name: str, description: str, instructions: str,
         tags: Categorization tags, e.g. ['writing', 'content']
         triggers: When it applies, e.g. ['user asks for a 公众号 article']
         allowed_tools: Tools the skill assumes, e.g. ['read_file', 'write_file']
+        files: Support files to write next to SKILL.md, as {relative path: content}.
+               Use it for reference material the instructions point at —
+               `{"references/style-guide.md": "…", "templates/outline.md": "…"}`.
+               They are read on demand with skill(<id>, file="<path>"), never
+               loaded with the instructions.
     """
     from core.skills.registry import get_skill_registry
 
@@ -3071,12 +3077,29 @@ async def create_skill(name: str, description: str, instructions: str,
         from core.skills.sync import db_row_to_fs
 
         path = db_row_to_fs(skill)
+        written: list[str] = []
+        skipped: list[str] = []
+        files = _as_dict(files) or {}
+        if files:
+            base = Path(path).parent
+            for rel, content in files.items():
+                target = (base / str(rel)).resolve()
+                try:
+                    target.relative_to(base.resolve())
+                except ValueError:
+                    skipped.append(f"{rel} (escapes the skill folder)")
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(str(content), encoding="utf-8")
+                written.append(str(rel))
         return (
             f"✅ Skill '{skill_id}' created (ID={skill.id}).\n"
             f"SKILL.md: {path}\n"
             f"文件夹: {Path(path).parent}\n"
-            f"技能 id 可以填进 agent 的 skills 列表；support files 放进同一文件夹，"
-            f"用 skill(\"{skill_id}\", file=\"<相对路径>\") 读。"
+            f"技能 id 可以填进 agent 的 skills 列表；"
+            f"support files 用 skill(\"{skill_id}\", file=\"<相对路径>\") 读。"
+            + (f"\nsupport files 已写: {written}" if written else "")
+            + (f"\n被拒绝（越界路径）: {skipped}" if skipped else "")
         )
     except Exception as e:
         return f"❌ Failed to create skill: {e}"
@@ -3685,6 +3708,7 @@ async def test_agent(agent_id: int, probe: str = "", probes: list[str] | None = 
 
     Returns: per-turn tool sequence, elapsed time and answer text, then a total.
     """
+    import asyncio
     import os
     import time
 
@@ -3719,31 +3743,55 @@ async def test_agent(agent_id: int, probe: str = "", probes: list[str] | None = 
                 tools: list[str] = []
                 answer_parts: list[str] = []
                 turn_started = time.time()
-                async with client.stream("POST", f"{base}/api/chat/message/stream",
-                                         json={"session_id": sid, "message": message}) as resp:
-                    async for raw in resp.aiter_lines():
-                        if time.time() - started > max_seconds:
-                            timed_out = True
+
+                async def _one_turn() -> None:
+                    async with client.stream(
+                        "POST", f"{base}/api/chat/message/stream",
+                        json={"session_id": sid, "message": message},
+                    ) as resp:
+                        async for raw in resp.aiter_lines():
+                            if time.time() - started > max_seconds:
+                                return
+                            if not raw or not raw.startswith("data: "):
+                                continue
+                            try:
+                                import json as _json
+                                event = _json.loads(raw[6:])
+                            except Exception:
+                                continue
+                            if event.get("type") == "tool_start":
+                                tools.append(event.get("tool_name") or "?")
+                            elif event.get("type") == "chunk":
+                                answer_parts.append(event.get("content") or "")
+                            elif event.get("type") in ("complete", "stopped", "interrupt"):
+                                return
+
+                turn_note = ""
+                for attempt in (1, 2):
+                    try:
+                        # A turn that never closes its stream used to hang the
+                        # whole call until the client read-timeout fired (354s on
+                        # a handoff agent). Cap each turn; retry once, because the
+                        # usual cause is sending the next message while the server
+                        # is still finishing the previous run.
+                        await asyncio.wait_for(_one_turn(), timeout=min(max_seconds, 150))
+                        break
+                    except Exception as _exc:  # noqa: BLE001
+                        turn_note = type(_exc).__name__
+                        if attempt == 2:
                             break
+                        await asyncio.sleep(2.0)
+                if False:  # placeholder kept out of the async-for shape
                         if not raw or not raw.startswith("data: "):
                             continue
-                        try:
-                            import json as _json
-                            event = _json.loads(raw[6:])
-                        except Exception:
-                            continue
-                        if event.get("type") == "tool_start":
-                            tools.append(event.get("tool_name") or "?")
-                        elif event.get("type") == "chunk":
-                            answer_parts.append(event.get("content") or "")
-                        elif event.get("type") in ("complete", "stopped", "interrupt"):
-                            break
                 turns.append({
                     "n": index, "message": message, "tools": tools,
                     "answer": "".join(answer_parts).strip(),
                     "elapsed": round(time.time() - turn_started, 1),
+                    "note": turn_note,
                 })
-                if timed_out:
+                await asyncio.sleep(1.5)  # let the server close the previous run
+                if timed_out or turn_note:
                     break
     except Exception as e:
         return f"❌ test_agent failed: {type(e).__name__}: {e} (session={sid})"
@@ -3761,7 +3809,8 @@ async def test_agent(agent_id: int, probe: str = "", probes: list[str] | None = 
             f"### T{turn['n']} — {turn['elapsed']}s, {len(turn['tools'])} 次工具",
             f"U: {turn['message'][:160]}",
             f"tools: {turn['tools']}",
-            f"A ({len(turn['answer'])} 字): {turn['answer'][:700]}",
+            f"A ({len(turn['answer'])} 字): {turn['answer'][:700]}"
+            + (f"\n⚠️ 本轮中断: {turn['note']}" if turn.get("note") else ""),
         ]
     lines += ["", "---", "逐条对 rubric 判 pass/fail 时引用上面这段，不要凭印象。"]
     return "\n".join(lines)

@@ -36,8 +36,32 @@
 `skills` 表里的一行 + `backend/skills/personal/<owner>/<skill_id>/SKILL.md` 这个文件。
 `create_skill` 两个都写（带 frontmatter：name/description/version/author/tags/triggers/
 allowed_tools），返回磁盘路径；`update_skill` 改完会写回同一个文件。
-support files（模板、参考表、脚本）放进同一文件夹，用
-`skill("<id>", file="<相对路径>")` 取——它们不会随正文一起加载。
+`create_skill` 一次可以把支持文件一起写好：
+
+```python
+create_skill(
+  name="Wechat Article Rewriter",
+  description="把长文改写成公众号推文：标题党但可核查，正文 800 字内",
+  instructions="# 步骤…\n# 输出契约…\n# 自检…",
+  tags=["writing"], triggers=["用户要公众号推文"],
+  allowed_tools=["read_file", "write_file"],
+  files={
+    "references/style-guide.md": "# 语气\n- 短句\n- 不编数字\n",
+    "templates/outline.md": "# 大纲\n1. 钩子\n2. 论点\n3. 收尾\n",
+  },
+)
+```
+
+落盘结果（实测）：
+
+```
+skills/personal/<owner>/<id>/SKILL.md
+skills/personal/<owner>/<id>/references/style-guide.md
+skills/personal/<owner>/<id>/templates/outline.md
+```
+
+`files` 的路径会被检查，`../escape.md` 这类越界写入会被拒绝并上报。
+支持文件**不随正文加载**，用 `skill("<id>", file="references/style-guide.md")` 按需取。
 
 ## 3 提示词骨架
 
