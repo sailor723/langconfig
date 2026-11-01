@@ -556,7 +556,16 @@ def step_skills() -> None:
 
     synced = 0
     with SessionLocal() as db:
+        from core.skills.sync import resolve_owner_id
+
         for data in parsed.values():
+            # A personal skill's `personal/<uid>/` is a layout claim; on a fresh
+            # database that user does not exist yet and owner_id is a FK.
+            if data.get("owner_id") is not None:
+                resolved = resolve_owner_id(db, data["owner_id"])
+                if resolved is None:
+                    skipped.append((data.get("skill_id"), f"owner {data['owner_id']} not in users (row written unowned)"))
+                data["owner_id"] = resolved
             existing = db.query(SkillModel).filter(SkillModel.skill_id == data["skill_id"]).first()
             if existing:
                 # Only overwrite when the filesystem copy is newer than the DB row.

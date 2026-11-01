@@ -217,7 +217,13 @@ def db_row_to_fs(skill_row, skills_root: Optional[Path] = None) -> Path:
 
 
 def owner_id_for(skill_md: Path) -> Optional[int]:
-    """Owner of a personal skill, from `personal/<uid>/<skill>/SKILL.md`."""
+    """Owner of a personal skill, from `personal/<uid>/<skill>/SKILL.md`.
+
+    The id is only a claim about the filesystem layout — a fresh install has no
+    `users` row yet (the first account is created at sign-in), and `skills.owner_id`
+    is a foreign key. Callers that write rows must therefore verify the user
+    exists (see `resolve_owner_id`) instead of trusting this.
+    """
     parts = skill_md.parts
     if "personal" in parts:
         i = parts.index("personal")
@@ -226,6 +232,25 @@ def owner_id_for(skill_md: Path) -> Optional[int]:
                 return int(parts[i + 1])
             except (TypeError, ValueError):
                 return None
+    return None
+
+
+def resolve_owner_id(db, owner_id: Optional[int]) -> Optional[int]:
+    """`owner_id` if that user exists, else None (an unowned/builtin row).
+
+    Measured on a fresh Aliyun install: seeding `skills/personal/1/...` inserted
+    owner_id=1 into an empty `users` table and died on
+    `skills_owner_id_fkey`, taking the whole skills step with it.
+    """
+    if owner_id is None:
+        return None
+    try:
+        from models.user import User
+
+        if db.query(User.id).filter(User.id == owner_id).first() is not None:
+            return owner_id
+    except Exception:  # noqa: BLE001 — never let ownership mapping break a seed
+        return None
     return None
 
 

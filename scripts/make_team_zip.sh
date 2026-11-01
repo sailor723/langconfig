@@ -86,7 +86,7 @@ entries="$(unzip -Z1 "$OUT")"
 for required in \
   backend/main.py \
   backend/scripts/seeds/in/seed_all.py \
-  backend/scripts/seeds/custom_tools_merge.sql \
+  backend/scripts/seeds/in/custom_tools_merge.sql \
   backend/core/mcp/client.py \
   package.json \
   learning/phase9/graphindex/index_build.py

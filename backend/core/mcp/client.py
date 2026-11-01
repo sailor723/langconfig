@@ -212,6 +212,13 @@ def _build_tool(
     else:
         allowed = list((approval or {}).get("allowed_decisions") or ["approve", "reject"])
 
+    # A tool call must fail fast. Without a cap, a server that is waiting on
+    # something it cannot reach (Google OAuth refresh with the token expired and
+    # the network down, measured 2026-11-01) hangs the whole agent turn: the
+    # stream produced nothing for 230s and the acceptance calendar section timed
+    # out twice. The server is not ours to fix, so bound the wait here.
+    call_timeout = float(os.getenv("MCP_CALL_TIMEOUT", "90"))
+
     async def _acall(**kwargs: Any) -> str:
         # Drop unset optionals instead of sending `null`: MCP servers validate
         # with zod-style schemas that reject an explicit null for an optional
@@ -223,9 +230,18 @@ def _build_tool(
             refusal = _approval_decision(_tool_name(server_key, remote_name), payload, allowed)
             if refusal:
                 return refusal
-        async with open_session(server_cfg) as session:
-            result = await session.call_tool(remote_name, payload)
-            return _text_of(result)
+        try:
+            async with asyncio.timeout(call_timeout):
+                async with open_session(server_cfg) as session:
+                    result = await session.call_tool(remote_name, payload)
+                    return _text_of(result)
+        except TimeoutError:
+            return (
+                f"[MCP timeout] {server_key}/{remote_name} did not answer within "
+                f"{call_timeout:.0f}s. The server is reachable but its tool call is not "
+                f"returning — check its own upstream (network, credentials, token refresh) "
+                f"before retrying. Raise MCP_CALL_TIMEOUT to wait longer."
+            )
 
     def _call(**kwargs: Any) -> str:
         # Sync callers (tool previews, workflow nodes) have no running loop.
