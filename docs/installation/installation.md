@@ -678,6 +678,19 @@ sudo apt update && sudo apt install -y \
 | 那串 `lib*` | Playwright chromium 的运行时 | `Target page closed.`，浏览器工具不可用 |
 
 ```bash
+# 1b. PostgreSQL 用原生，不用 docker（2026-11-01 在 ECS 上走通过）
+sudo apt install -y postgresql-16 postgresql-16-pgvector
+sudo systemctl enable --now postgresql
+sudo -u postgres psql -c "CREATE ROLE langconfig LOGIN PASSWORD 'langconfig_dev' CREATEDB SUPERUSER;"
+sudo -u postgres psql -c "CREATE DATABASE langconfig OWNER langconfig;"
+sudo -u postgres psql -d langconfig -c "CREATE EXTENSION IF NOT EXISTS vector;"
+# .env 保持 POSTGRES_PORT=5432（原生安装），不要改成 5433
+```
+
+> 原生安装的好处：`psql` 客户端顺手就有了，种子那步不会再缺命令；坏处是
+> `pgvector` 由 apt 提供（0.6.0），比 docker 镜像里的版本旧一点，够用。
+
+```bash
 # 2. 镜像加速（一次性，写进 ~/.bashrc 或 /etc/environment）
 export UV_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
 export PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
@@ -694,6 +707,12 @@ docker pull pgvector/pgvector:pg16      # 能拉下来再往下
 
 > `uv` 本身也可以用镜像装：`pip install uv -i https://mirrors.aliyun.com/pypi/simple/`，
 > 比 `curl astral.sh | sh` 在国内稳。
+
+> **`uv sync` 会拉 7GB CUDA（如果还按老配置）**。CPU 机器上 torch 走默认 PyPI
+> 轮子会带 15 个 `nvidia-*` 包。仓库已经把 torch 固定到 CPU 索引
+> （`tool.uv.sources` + `download.pytorch.org/whl/cpu`），装完 venv 约 2.6GB、
+> `torch.__version__` 带 `+cpu`。如果看到 `nvidia-*` 被下载，说明用的还是旧
+> `uv.lock`。
 
 ```bash
 # 3. tiktoken 预热（国内必做，否则第一次 token 计数 / 上下文压缩就超时）
@@ -741,9 +760,13 @@ After=network.target docker.service
 [Service]
 Type=simple
 User=langconfig
-WorkingDirectory=/opt/langconfig
+WorkingDirectory=/opt/langconfig/backend
+Environment=SKIP_STARTUP_API_TEST=true
 EnvironmentFile=/opt/langconfig/.env
-ExecStart=/bin/bash /opt/langconfig/start.sh
+# 直接跑 venv 里的 uvicorn：start.sh 会顺手拉起 Vite、还会去杀 8765/1421 上的进程，
+# 那是开发用的。生产只要后端（它自带来 `dist/` 的前端静态文件）。
+ExecStart=/opt/langconfig/backend/.venv/bin/python -m uvicorn main:app \
+    --host 0.0.0.0 --port 8765 --workers 1 --log-level warning
 Restart=always
 RestartSec=5
 
@@ -763,6 +786,22 @@ journalctl -u langconfig -f          # 看日志
   不生效：`.env` 里写 `LANGCONFIG_LAN_ACCESS=on` 加用户名密码，一次配好。
 
 > 这七步做完，回到 Path B 第 4 步继续（`uv sync`）——镜像已在第 2 步配好，这一步会明显变快。
+
+**装完自检（2026-11-01 在 8.216.101.189 上实测通过）**
+
+```bash
+systemctl is-active postgresql langconfig     # active / active
+ss -ltn | grep -E ':8765|:5432'               # 8765 对外，5432 只听本机
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8765/docs   # 200
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8765/       # 200（UI 由后端提供）
+PGPASSWORD=langconfig_dev psql -h 127.0.0.1 -U langconfig -d langconfig -tAc \
+  "select (select count(*) from deep_agent_templates),(select count(*) from custom_tools),(select count(*) from skills)"
+# 期望 52|72|44
+bash scripts/health_check.sh                  # ALL CHECKS PASSED
+```
+
+前端只构建一次，不用常驻 Vite：`npm install && npm run build`，后端会自动
+serve `dist/`（日志里出现 `Serving built frontend from …/dist`）。
 
 ### If other people (or the internet) will reach this machine
 
