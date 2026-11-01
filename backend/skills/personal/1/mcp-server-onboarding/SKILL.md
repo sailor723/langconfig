@@ -1,5 +1,5 @@
 ---
-name: MCP Server Onboarding
+name: mcp-server-onboarding
 description: 在本平台接入一个新的 MCP 服务器：确认传输方式、写进 agent 配置的 mcp_servers、核对工具名、给写类工具挂审批、用 test_agent
   验证。用户要接入/更换 MCP 服务器，或现有 MCP 工具调不通（工具名报错、连接失败、工具列表为空）时读它。
 version: 1.0.0
@@ -94,3 +94,8 @@ allowed_tools:
 ## 输出契约
 
 完成后给出：接入的服务器名与传输方式、`mcp_servers` 的实际配置、核对到的工具名清单（标出哪些挂了审批）、test_agent 逐条结果（pass/fail + 证据）。没跑通就写没跑通，不要用"已配置完成"代替证据。
+
+## 支持文件（按需读取，不要整份预载）
+
+- `references/checklist.md` —— 逐条勾选清单（A 传输方式 → F 交付，21 条）。接入过程中每一步都照它对一遍；任何一条不通过就停在那一步。
+- `references/agent-mcp-config.json` —— 配置骨架（http 与 stdio 两种）。写 `mcp_servers` 前先复制它，别凭记忆拼字段。

@@ -52,6 +52,19 @@ create_skill(
 )
 ```
 
+目录必须符合 Agent Skills 规范（LangChain 文档照此实现）：
+
+```
+<skill-root>/<skill-id>/
+├── SKILL.md          # frontmatter: name(=目录名) + description
+├── references/       # 指令里点名的参考文档
+├── scripts/          # 可执行脚本
+└── assets/           # 产出用的模板/图片
+```
+
+`files` 只接受这三类顶层目录；`templates/x.md`、`facts/x.md` 会被拒绝并说明原因。
+正文必须**逐个点名**支持文件并说明何时读它——没人提到的文件，永远不会被加载。
+
 落盘结果（实测）：
 
 ```

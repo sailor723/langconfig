@@ -3063,9 +3063,13 @@ async def create_skill(name: str, description: str, instructions: str,
             return (f"Skill '{skill_id}' already exists (ID={existing.id}). "
                     f"Use update_skill to modify it.")
 
+        # The Agent Skills spec the LangChain docs follow makes `name` the
+        # identifier (the directory name). Keep the human label for the DB and
+        # the body heading, but write the id into frontmatter — a reader that
+        # loads the folder by name would otherwise mismatch.
         skill = await registry.create_skill(
             skill_id=skill_id,
-            name=name.strip(),
+            name=skill_id,
             description=description.strip(),
             instructions=instructions.strip(),
             tags=_coerce_str_list(tags) or ["custom"],
@@ -3081,12 +3085,25 @@ async def create_skill(name: str, description: str, instructions: str,
         written: list[str] = []
         skipped: list[str] = []
         files = _as_dict(files) or {}
+        allowed_dirs = ("references", "scripts", "assets")
         for rel, content in files.items():
-            target = (base / str(rel)).resolve()
+            rel_str = str(rel)
+            top = rel_str.split("/")[0]
+            if not rel_str.strip():
+                continue
+            if "/" in rel_str and top not in allowed_dirs:
+                # Spec layout: scripts/ references/ assets/. `templates/x.md` and
+                # `facts/x.md` work on disk but a spec-following reader will not
+                # look there.
+                skipped.append(
+                    f"{rel_str} (top-level dir must be one of {', '.join(allowed_dirs)})"
+                )
+                continue
+            target = (base / rel_str).resolve()
             try:
                 target.relative_to(base.resolve())
             except ValueError:
-                skipped.append(f"{rel} (escapes the skill folder)")
+                skipped.append(f"{rel_str} (escapes the skill folder)")
                 continue
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(str(content), encoding="utf-8")
@@ -3100,6 +3117,8 @@ async def create_skill(name: str, description: str, instructions: str,
             if f.is_file():
                 on_disk.append(f"{f.relative_to(base)} ({f.stat().st_size} B)")
         missing = [rel for rel in written if not (base / rel).is_file()]
+        body = (skill.instructions or "")
+        unmentioned = [rel for rel in written if Path(rel).name not in body]
 
         return (
             f"✅ Skill '{skill_id}' created (ID={skill.id}).\n"
@@ -3112,6 +3131,10 @@ async def create_skill(name: str, description: str, instructions: str,
             + ("\n目录实际内容（磁盘核对）:\n  " + "\n  ".join(on_disk) if on_disk else
                "\n目录实际内容: (empty)")
             + (f"\n⚠️ 写入后不存在: {missing}" if missing else "")
+            + (
+                "\n⚠️ 正文没有提到这些文件（规范要求逐一点名并说明何时用）: "
+                + ", ".join(unmentioned) if unmentioned else ""
+            )
         )
     except Exception as e:
         return f"❌ Failed to create skill: {e}"

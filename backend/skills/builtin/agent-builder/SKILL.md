@@ -113,6 +113,26 @@ approval list set).
 is skipped with a warning; the agent still runs. Approval for those tools comes from the
 agent's HITL policy and is enforced inside each tool.
 
+## Skill format (the spec the LangChain docs follow)
+
+```
+<skills-root>/<skill-id>/
+├── SKILL.md            # YAML frontmatter (name, description) + instructions
+├── references/         # docs the instructions point at
+├── scripts/            # runnable helpers
+└── assets/             # files used in output (templates, images)
+```
+
+- `name` **equals the directory name** (kebab-case id). The human label belongs in
+  the body heading and the DB row, not in frontmatter.
+- Only `references/`, `scripts/`, `assets/` are spec directories. A file under
+  `templates/` or `facts/` is invisible to a spec-following reader — `create_skill`
+  refuses those paths and says why.
+- The instructions must **name every support file** and say when to read it. Files
+  nobody mentions are files nobody loads (progressive disclosure level 3).
+- Load order is fixed: metadata (name + description) at startup → full `SKILL.md`
+  on invocation → support files only when the instructions ask for them.
+
 ## Creating a skill
 
 A skill on this platform is two things: a row in `skills` and a git-tracked
