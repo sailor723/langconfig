@@ -796,7 +796,7 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8765/docs   # 200
 curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8765/       # 200（UI 由后端提供）
 PGPASSWORD=langconfig_dev psql -h 127.0.0.1 -U langconfig -d langconfig -tAc \
   "select (select count(*) from deep_agent_templates),(select count(*) from custom_tools),(select count(*) from skills)"
-# 期望 52|72|44
+# 期望 51|68|44（和 seed 目录里的数量一致；这里的数字随 housekeeping 变，别当常量背）
 bash scripts/health_check.sh                  # ALL CHECKS PASSED
 ```
 
