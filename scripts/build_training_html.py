@@ -26,6 +26,19 @@ Usage::
     # any sibling doc, same stylesheet and PDF pipeline (0.75 reads better for a
     # one-page organizer sheet than the run book's 0.6)
 
+    ... --pdf --pdf-font="Noto Serif CJK SC"
+    # override the print CJK face. It must have TrueType (glyf) outlines — see
+    # PDF_CJK_FONT. The build prints a warning if a CFF-outline font still got in.
+
+Why the PDF pass picks its own CJK font (the short version):
+
+    A PDF can carry correct Unicode text and still *look* like garbage, because
+    display uses the embedded font program while copying uses the ToUnicode map.
+    WeasyPrint writes PingFang/Hiragino (CFF outlines) as /FontFile3 /OpenType,
+    which CoreGraphics — Preview, Quick Look, iOS — refuses to render: correct
+    text layer, broken glyphs. Every font in the finished PDF must therefore be
+    /FontFile2 (TrueType). The build checks and warns.
+
 Hints for a live session:
 
 * the tables of contents on the right links to every step;
@@ -188,8 +201,97 @@ PDF_PAGE_CSS = """
 }
 """
 
+# Why the PDF asks for a different CJK family than the screen:
+#
+#   Screen: PingFang SC (what macOS and every Chinese reader here expects).
+#   PDF:    Songti SC, because PingFang has **CFF outlines** and WeasyPrint 70 writes
+#           those as /FontFile3 with /Subtype /OpenType around a bare `OTTO` CFF dump.
+#           Chromium's pdf.js copes; CoreGraphics does not — Preview shows the Chinese
+#           as garbage glyphs while the text layer still extracts fine, so a
+#           text-extraction check says "the PDF is fine" and it isn't.
+#
+# Songti SC has TrueType (glyf) outlines, so its program lands as /FontFile2, which
+# every viewer renders. It is also the conventional Chinese print face. Verified by
+# OCR'ing the rendered page through PDFKit (PreView's own engine): PingFang → no
+# Chinese recognised at all, Songti/Hei/Arial Unicode → recognised cleanly.
+PDF_CJK_FONT = "Songti SC"
 
-def write_pdf(doc: str, scale: float, out: Path | None = None) -> Path | None:
+
+def pdf_page_css(cjk_font: str) -> str:
+    """Stylesheet fragment for the PDF pass: A4 page box + embeddable CJK families.
+
+    Both rules matter. The `body` one keeps body text out of CFF fonts; the `pre/code`
+    one keeps *Chinese inside code blocks* out of the hand-written fallback Pango picks
+    on its own (it chose Hannotate SC — also CFF — for every CJK character in a
+    `<code>` span, which put garbage glyphs back in the one place people copy from).
+    """
+    return PDF_PAGE_CSS + f"""
+body {{ font-family: "{cjk_font}", sans-serif; }}
+pre, pre code, code, kbd {{ font-family: Menlo, "{cjk_font}", monospace; }}
+"""
+
+
+def fixup_svg_fonts(doc: str, cjk_font: str) -> str:
+    """Give the inlined diagrams' `font-family="Menlo"` a CJK fallback, print copy only.
+
+    Document CSS does not reach into an inline SVG here — WeasyPrint honours the
+    presentation attribute, so `svg text {{ font-family: … }}` in the print stylesheet
+    changed nothing (measured: PingFang still embedded). Every diagram in `docs/assets/`
+    says `font-family="Menlo"`, and Menlo has no CJK, so each Chinese label fell through
+    to the system default (PingFang, CFF outlines) and rendered as garbage in Preview
+    while the rest of the page was fine. Rewriting the attribute to a font *list* keeps
+    the diagram's Latin in Menlo and sends only its Chinese to the embeddable face.
+
+    This runs on the print copy only, so the on-screen HTML keeps PingFang.
+    """
+    for quote in ('"', "'"):
+        doc = doc.replace(f"font-family={quote}Menlo{quote}",
+                          f"font-family={quote}Menlo, {cjk_font}, monospace{quote}")
+    return doc
+
+
+def warn_about_cff_fonts(pdf_path: Path) -> None:
+    """Report fonts that will likely render as garbage in Preview / Adobe.
+
+    A CFF-outline font embedded as /FontFile3 /OpenType is the specific combination
+    CoreGraphics refuses. Nothing here can fix it — the point is to fail loudly at
+    build time instead of finding out when someone opens the handout.
+    """
+    try:
+        import pypdf
+    except ImportError:
+        return
+    suspects = set()
+    for page in pypdf.PdfReader(str(pdf_path)).pages:
+        fonts = (page.get("/Resources") or {}).get("/Font")
+        if not fonts:
+            continue
+        for ref in fonts.get_object().values():
+            font = ref.get_object()
+            descendants = font.get("/DescendantFonts")
+            if not descendants:
+                continue
+            descriptor = descendants.get_object()[0].get_object().get("/FontDescriptor")
+            if not descriptor:
+                continue
+            descriptor = descriptor.get_object()
+            stream = descriptor.get("/FontFile3")
+            if stream is None:
+                continue
+            stream = stream.get_object()
+            if stream.get_data()[:4] == b"OTTO":
+                suspects.add(str(font.get("/BaseFont")).split("+")[-1])
+    if suspects:
+        print(
+            f"  ⚠️  {pdf_path.name}: CFF-outline fonts embedded as /FontFile3 "
+            f"/OpenType — Preview and Adobe render these as garbage: "
+            f"{', '.join(sorted(suspects))}\n"
+            f"      fix: rebuild with --pdf-font=<a TrueType-outline CJK face>"
+        )
+
+
+def write_pdf(doc: str, scale: float, out: Path | None = None,
+              cjk_font: str = PDF_CJK_FONT) -> Path | None:
     """Print the built document to A4 PDF with WeasyPrint.
 
     WeasyPrint rather than a headless browser: it renders the inlined SVG
@@ -204,7 +306,10 @@ def write_pdf(doc: str, scale: float, out: Path | None = None) -> Path | None:
     pdf_path = out.with_suffix(".pdf")
     tmp_html = out.with_suffix(".print.html")
     tmp_html.write_text(
-        scale_fonts(doc, scale).replace("</style>", f"{PDF_PAGE_CSS}</style>", 1),
+        fixup_svg_fonts(
+            scale_fonts(doc, scale).replace("</style>", f"{pdf_page_css(cjk_font)}</style>", 1),
+            cjk_font,
+        ),
         encoding="utf-8",
     )
     try:
@@ -256,9 +361,12 @@ def main() -> int:
 
     if "--pdf" in args:
         scale = float(args.get("--pdf-scale", 0.6))
-        pdf = write_pdf(doc, scale, out)
+        cjk_font = args.get("--pdf-font") or PDF_CJK_FONT
+        pdf = write_pdf(doc, scale, out, cjk_font)
         if pdf:
-            print(f"wrote {pdf.relative_to(REPO)}  ({pdf.stat().st_size/1024:.0f} KB, 字号 ×{scale})")
+            print(f"wrote {pdf.relative_to(REPO)}  ({pdf.stat().st_size/1024:.0f} KB, "
+                  f"字号 ×{scale}, 中文字体 {cjk_font})")
+            warn_about_cff_fonts(pdf)
     return 0
 
 
