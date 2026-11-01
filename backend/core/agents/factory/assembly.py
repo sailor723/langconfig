@@ -303,9 +303,14 @@ class _AgentAssemblyMixin:
 
         # MCP servers contribute discovered tools to the same catalog. Same rule
         # as the deep-agent path: a server that is down is logged and skipped.
+        # The agent's HITL policy is enforced *inside* those tools too — a
+        # subagent runs its own graph, so the parent's HumanInTheLoopMiddleware
+        # never sees the call it makes.
         if agent_config.get("mcp_servers"):
             from core.mcp import load_mcp_tools
-            mcp_tools = await load_mcp_tools(agent_config["mcp_servers"])
+            mcp_tools = await load_mcp_tools(
+                agent_config["mcp_servers"], approvals=_hitl_policy or None
+            )
             if mcp_tools:
                 tools.extend(mcp_tools)
                 logger.info(f"🔌 MCP TOOLS: {[t.name for t in mcp_tools]}")

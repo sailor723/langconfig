@@ -178,7 +178,14 @@ export function useChatController(options: UseChatControllerOptions = {}) {
     isStreaming,
     error: streamingError,
     clearError: clearStreamingError,
+    cancel: cancelStreaming,
   } = useChatStreaming(currentSessionId, hitlEnabled);
+
+  /** Stop the run that is streaming: aborts the SSE reader and closes the
+   *  request, which is what tells the backend to stop producing. */
+  const handleStop = useCallback(() => {
+    cancelStreaming();
+  }, [cancelStreaming]);
 
   const {
     metrics,
@@ -442,6 +449,7 @@ export function useChatController(options: UseChatControllerOptions = {}) {
     // session data
     messages,
     isStreaming,
+    handleStop,
     error,
     clearError,
     // metrics

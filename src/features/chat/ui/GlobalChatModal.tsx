@@ -191,6 +191,7 @@ export default function GlobalChatModal() {
               isStreaming={c.isStreaming}
               error={c.error}
               onSendMessage={c.handleSendMessage}
+              onStop={c.handleStop}
               onClearError={c.clearError}
               disabled={!c.currentSessionId}
               sessionId={c.currentSessionId}

@@ -62,10 +62,21 @@ class _DeepAgentSupportMixin:
         # MCP servers add their discovered tools to the same catalog the model
         # reads. A server that is down is logged and skipped — an unreachable
         # calendar must not stop the agent from answering everything else.
+        # Approvals come from this agent's HITL policy, but they are enforced
+        # inside the tool: a subagent runs its own graph and would never see the
+        # parent's HumanInTheLoopMiddleware.
         mcp_servers = getattr(config, "mcp_servers", None)
         if mcp_servers:
             from core.mcp import load_mcp_tools
-            mcp_tools = await load_mcp_tools(mcp_servers)
+            approvals = {}
+            for _m in (getattr(config, "middleware", None) or []):
+                if getattr(_m, "type", None) in ("hitl", "human_in_the_loop") \
+                        and getattr(_m, "enabled", True):
+                    approvals.update((getattr(_m, "config", None) or {}).get("interrupt_on") or {})
+            interrupts = (getattr(config, "guardrails", None) or {})
+            if isinstance(interrupts, dict) and interrupts.get("interrupts"):
+                approvals.update(interrupts["interrupts"])
+            mcp_tools = await load_mcp_tools(mcp_servers, approvals=approvals)
             if mcp_tools:
                 tools.extend(mcp_tools)
                 logger.info(f"MCP tools: {[t.name for t in mcp_tools]}")

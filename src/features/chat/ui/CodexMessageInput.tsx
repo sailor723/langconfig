@@ -14,13 +14,19 @@
  * hardcoded string describing nothing.
  */
 import { useState, useRef, KeyboardEvent, useEffect } from 'react';
-import { Send } from 'lucide-react';
+import { Send, Square } from 'lucide-react';
 import FileUploadButton from './FileUploadButton';
 import ContextMeter from './ContextMeter';
 import type { ContextOccupancy, SessionDocument } from '../types/chat';
 
 interface CodexMessageInputProps {
   onSendMessage: (message: string) => void;
+  /**
+   * Stop the run that is streaming right now. While streaming the send button
+   * becomes this one — the same control DSH shows — so a runaway agent is a
+   * click away from stopping, not a page reload.
+   */
+  onStop?: () => void;
   disabled?: boolean;
   isStreaming?: boolean;
   placeholder?: string;
@@ -96,6 +102,7 @@ export default function CodexMessageInput({
   onSendMessage,
   disabled = false,
   isStreaming = false,
+  onStop,
   placeholder = 'Do anything',
   sessionId = null,
   projectId = null,
@@ -244,24 +251,38 @@ export default function CodexMessageInput({
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <ContextMeter context={context} />
 
-          <button
-            onClick={handleSend}
-            disabled={!canSend}
-            className="w-8 h-8 rounded-full flex items-center justify-center transition-all flex-shrink-0
-                       disabled:opacity-40 disabled:cursor-not-allowed
-                       hover:opacity-90 active:scale-95"
-            style={{
-              backgroundColor: 'var(--color-primary)',
-              color: 'white',
-            }}
-            title={isStreaming ? 'Streaming...' : 'Send message'}
-          >
-            {isStreaming ? (
-              <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
+          {isStreaming ? (
+            /* Same slot, different job: while a run is in flight the button
+               stops it instead of stacking another message behind it. */
+            <button
+              onClick={onStop}
+              className="w-8 h-8 rounded-full flex items-center justify-center transition-all flex-shrink-0
+                         hover:opacity-90 active:scale-95"
+              style={{
+                backgroundColor: 'var(--color-text-primary)',
+                color: 'var(--color-bg-primary, white)',
+              }}
+              title="Stop generating"
+              aria-label="Stop generating"
+            >
+              <Square className="w-3 h-3" fill="currentColor" />
+            </button>
+          ) : (
+            <button
+              onClick={handleSend}
+              disabled={!canSend}
+              className="w-8 h-8 rounded-full flex items-center justify-center transition-all flex-shrink-0
+                         disabled:opacity-40 disabled:cursor-not-allowed
+                         hover:opacity-90 active:scale-95"
+              style={{
+                backgroundColor: 'var(--color-primary)',
+                color: 'white',
+              }}
+              title="Send message"
+            >
               <Send className="w-3.5 h-3.5" />
-            )}
-          </button>
+            </button>
+          )}
         </div>
       </div>
     </div>

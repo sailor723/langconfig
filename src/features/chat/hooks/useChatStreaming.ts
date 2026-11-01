@@ -264,12 +264,20 @@ export function useChatStreaming(
   // Cleanup on unmount — abort any in-flight stream so the aborted request
   // can't keep writing into state after the component is gone
   const cancel = useCallback(() => {
+    // Tell the server first: closing the socket alone leaves a run alive while
+    // it sits inside a slow tool call, so the UI would say "stopped" while the
+    // agent kept working. The endpoint sets a flag the stream loop reads.
+    if (sessionId) {
+      fetch(`/api/chat/${sessionId}/stop`, { method: 'POST' }).catch(() => {
+        /* best effort — the abort below still ends the client side */
+      });
+    }
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
     setIsStreaming(false);
-  }, []);
+  }, [sessionId]);
 
   useEffect(() => cancel, [cancel]);
 

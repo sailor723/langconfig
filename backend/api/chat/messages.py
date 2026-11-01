@@ -892,6 +892,45 @@ async def _aiter_sync(gen):
 # not called by the route.
 
 
+# ---------------------------------------------------------------------------
+# Stopping a run
+# ---------------------------------------------------------------------------
+# The composer's send button becomes a stop button while a run streams. Hanging
+# up the HTTP request is not enough on its own: uvicorn notices the disconnect
+# between chunks, but a run sitting inside a slow tool call keeps going and the
+# user is told "stopped" while the agent is still working (and still spending
+# tokens). So the client also calls POST /api/chat/{session_id}/stop, which sets
+# this flag; the event loop checks it after every event and breaks, closing the
+# LangGraph stream with it.
+_STOP_REQUESTS: set[str] = set()
+
+
+def request_stop(session_id: str) -> None:
+    _STOP_REQUESTS.add(session_id)
+
+
+def _stop_requested(session_id: str) -> bool:
+    return session_id in _STOP_REQUESTS
+
+
+def clear_stop(session_id: str) -> None:
+    _STOP_REQUESTS.discard(session_id)
+
+
+@router.post("/{session_id}/stop")
+async def stop_message_stream(session_id: str):
+    """Ask the run streaming for `session_id` to stop.
+
+    Idempotent and cheap: the flag is read by the streaming generator, which
+    emits a terminal `stopped` event and returns. Anything already written to
+    the transcript stays — a stopped run keeps its partial answer instead of
+    losing it.
+    """
+    request_stop(session_id)
+    logger.info(f"[CHAT-STOP] stop requested for session {session_id}")
+    return {"status": "stopping", "session_id": session_id}
+
+
 @router.post("/message/stream")
 async def send_message_stream(
     request: SendMessageRequest,
@@ -966,6 +1005,7 @@ async def send_message_stream(
         agent_project_id = getattr(agent, 'project_id', None)
 
         async def generate_stream():
+            clear_stop(session_id)
             """Generate streaming response."""
             full_response = ""
             all_context = ""
@@ -1281,6 +1321,24 @@ async def send_message_stream(
                         version="v2"
                     )
                     async for event in _stream:
+                        if _stop_requested(session_id):
+                            # Break here and answer immediately: closing the
+                            # LangGraph stream raises CancelledError into this
+                            # generator, so anything scheduled *after* the loop
+                            # (interrupt probing, filter flush) never runs.
+                            logger.info(
+                                f"[CHAT-STOP] stopping {session_id} after "
+                                f"{len(full_response)} chars, {tool_calls_count} tool calls"
+                            )
+                            stopped = True
+                            try:
+                                await _stream.aclose()
+                            except Exception as _exc:  # noqa: BLE001
+                                logger.debug(f"[CHAT-STOP] stream close: {_exc}")
+                            clear_stop(session_id)
+                            # Keep the partial answer: stop means stop, not amnesia.
+                            yield f"data: {json.dumps({'type': 'stopped', 'content': full_response, 'tool_calls': tool_calls_count})}\n\n"
+                            return
                         kind = event.get("event")
                         if kind == "on_tool_start":
                             tool_calls_count += 1
@@ -1431,6 +1489,7 @@ async def send_message_stream(
 
                 # After stream completes, check for pending interrupts
                 interrupted = False
+                stopped = False
                 try:
                     state_snapshot = await agent_instance.aget_state(
                         {"configurable": {"thread_id": session_id}}
@@ -1481,8 +1540,17 @@ async def send_message_stream(
                     full_response += final_prose
                     yield f"data: {json.dumps({'type': 'chunk', 'content': final_prose})}\n\n"
 
-                # Send completion event (skip if interrupted)
-                if not interrupted:
+                # Send completion event (skip if interrupted or stopped)
+                if stopped:
+                    # A stopped run keeps whatever it already produced: the user
+                    # asked for it to stop, not for the text to disappear.
+                    logger.info(
+                        f"[CHAT-STOP] stopped for {session_id} after "
+                        f"{len(full_response)} chars, {tool_calls_count} tool calls"
+                    )
+                    yield f"data: {json.dumps({'type': 'stopped', 'content': full_response})}\n\n"
+                    clear_stop(session_id)
+                elif not interrupted:
                     yield f"data: {json.dumps({'type': 'complete', 'content': full_response})}\n\n"
                 else:
                     full_response = ""  # Clear response — interrupt means no completion happened

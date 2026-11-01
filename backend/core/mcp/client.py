@@ -145,18 +145,79 @@ def _tool_name(server_key: str, remote_name: str) -> str:
     return f"{server_key}_{_TOOL_NAME_OK.sub('_', remote_name)}".strip("_")
 
 
+def _approval_decision(tool_name: str, payload: Dict[str, Any], allowed: List[str]) -> Optional[str]:
+    """Ask a human whether this call may run. Returns None (go) or a refusal.
+
+    The gate lives inside the tool, not in the agent's middleware chain, because
+    a subagent runs its own graph: `HumanInTheLoopMiddleware` on the parent never
+    sees a tool the child calls. Measured, not assumed — a `task` subagent
+    created a real Google Calendar event with the parent's `interrupt_on` set.
+    Interrupting from the tool itself fires wherever the tool runs.
+
+    Payload shape matches `HumanInTheLoopMiddleware`, so the existing approval
+    card and the resume endpoint work unchanged:
+    {"action_requests": [...], "review_configs": [...]}.
+    """
+    from langgraph.types import interrupt
+
+    decision = interrupt(
+        {
+            "action_requests": [
+                {
+                    "name": tool_name,
+                    "args": payload,
+                    "description": f"Approve {tool_name}? It writes through MCP.",
+                }
+            ],
+            "review_configs": [
+                {"action_name": tool_name, "allowed_decisions": allowed}
+            ],
+        }
+    )
+
+    # The resume endpoint sends {"decisions": [{...}]}; accept a bare decision too.
+    if isinstance(decision, dict) and "decisions" in decision:
+        decision = (decision.get("decisions") or [{}])[0]
+    if isinstance(decision, list):
+        decision = decision[0] if decision else {}
+    kind = decision.get("type") if isinstance(decision, dict) else str(decision)
+
+    if kind in (None, "approve"):
+        return None
+    if kind == "reject":
+        return f"[rejected by human] {decision.get('message') or 'no reason given'}"
+    return f"[rejected by human] unsupported decision: {kind}"
+
+
 def _build_tool(
     server_key: str,
     server_cfg: Dict[str, Any],
     remote_name: str,
     description: str,
     args_schema: Optional[Any],
+    approval: Optional[Dict[str, Any]] = None,
 ) -> BaseTool:
     """One MCP tool as a LangChain tool: async path opens its own session."""
 
+    # `interrupt_on` values are either True or {"allowed_decisions": [...]}.
+    if approval is True:
+        allowed = ["approve", "reject"]
+    else:
+        allowed = list((approval or {}).get("allowed_decisions") or ["approve", "reject"])
+
     async def _acall(**kwargs: Any) -> str:
+        # Drop unset optionals instead of sending `null`: MCP servers validate
+        # with zod-style schemas that reject an explicit null for an optional
+        # string ("expected string, received null at account" — seen on the
+        # google-calendar server). LangChain hands us every field of the args
+        # model, including the ones the model did not fill in.
+        payload = {k: v for k, v in kwargs.items() if v is not None}
+        if approval is not None:
+            refusal = _approval_decision(_tool_name(server_key, remote_name), payload, allowed)
+            if refusal:
+                return refusal
         async with open_session(server_cfg) as session:
-            result = await session.call_tool(remote_name, kwargs)
+            result = await session.call_tool(remote_name, payload)
             return _text_of(result)
 
     def _call(**kwargs: Any) -> str:
@@ -169,17 +230,29 @@ def _build_tool(
         args_schema=args_schema,
         func=_call,
         coroutine=_acall,
-        metadata={"mcp_server": server_key, "mcp_tool": remote_name},
+        metadata={
+            "mcp_server": server_key,
+            "mcp_tool": remote_name,
+            "needs_approval": approval is not None,
+        },
     )
 
 
-async def load_mcp_tools(servers: Any, timeout: float = 20.0) -> List[BaseTool]:
+async def load_mcp_tools(
+    servers: Any,
+    timeout: float = 20.0,
+    approvals: Optional[Dict[str, Any]] = None,
+) -> List[BaseTool]:
     """Discover every configured server's tools and adapt them.
 
     A server that fails to start must not take the agent down with it: the
     failure is logged with the server key so it shows up in the chat log rather
     than as a silent empty tool list.
+
+    `approvals` maps an exposed tool name (``calendar_create_event``) to its
+    approval policy; those tools interrupt for a human before they run.
     """
+    approvals = approvals or {}
     tools: List[BaseTool] = []
     for key, cfg in normalize_server_config(servers).items():
         try:
@@ -190,6 +263,7 @@ async def load_mcp_tools(servers: Any, timeout: float = 20.0) -> List[BaseTool]:
             logger.warning(f"MCP server {key!r} unavailable: {type(exc).__name__}: {exc}")
             continue
         for remote in listed.tools:
+            exposed = _tool_name(key, remote.name)
             tools.append(
                 _build_tool(
                     key,
@@ -197,11 +271,14 @@ async def load_mcp_tools(servers: Any, timeout: float = 20.0) -> List[BaseTool]:
                     remote.name,
                     remote.description or "",
                     _args_model(remote.name, getattr(remote, "inputSchema", None) or {}),
+                    approval=approvals.get(exposed) or approvals.get(remote.name),
                 )
             )
+        gated = [t.name for t in tools if t.metadata.get("needs_approval")]
         logger.info(
             f"MCP server {key!r}: {len(listed.tools)} tools "
             f"({', '.join(t.name for t in listed.tools[:4])}{'…' if len(listed.tools) > 4 else ''})"
+            + (f" · approval required: {sorted(gated)}" if gated else "")
         )
     return tools
 

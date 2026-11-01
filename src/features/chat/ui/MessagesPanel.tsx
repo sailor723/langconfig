@@ -34,6 +34,8 @@ interface MessagesPanelProps {
   isStreaming: boolean;
   error: string | null;
   onSendMessage: (message: string) => void;
+  /** Stop the in-flight run (the composer's send button becomes this). */
+  onStop?: () => void;
   onClearError: () => void;
   disabled?: boolean;
   sessionId?: string | null;
@@ -94,6 +96,7 @@ export default function MessagesPanel({
   isStreaming,
   error,
   onSendMessage,
+  onStop,
   onClearError,
   disabled = false,
   sessionId = null,
@@ -212,6 +215,7 @@ export default function MessagesPanel({
               </h1>
               <CodexMessageInput
                 onSendMessage={onSendMessage}
+                onStop={onStop}
                 disabled={disabled}
                 isStreaming={isStreaming}
                 placeholder={disabled ? "No agent selected" : "Do anything"}
@@ -816,6 +820,7 @@ export default function MessagesPanel({
       <div className="px-6 pt-4 pb-2">
         <CodexMessageInput
           onSendMessage={onSendMessage}
+          onStop={onStop}
           disabled={disabled}
           isStreaming={isStreaming}
           placeholder={disabled ? "No agent selected" : "Do anything"}
