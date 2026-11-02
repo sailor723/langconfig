@@ -11,6 +11,7 @@
  *   - JSON         raw config
  */
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { Tab } from './useLayout';
@@ -40,6 +41,7 @@ type SectionId = _SectionId;
 
 export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const { setRightPanelTab, openRightPanel, closeTab } = useLayoutState();
   const agent = tab.data?.agent ?? tab.data ?? {};
   const config = agent.config || {};
@@ -646,7 +648,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const renderOverview = () => (
     <div style={{ padding: 4 }}>
       <div style={compactCardStyle}>
-        <div style={labelStyle}>Name</div>
+        <div style={labelStyle}>{tr('ag_name')}</div>
         <input
           value={live.name || ''}
           onChange={e => handleFieldChange('name', e.target.value)}
@@ -663,7 +665,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         )}
       </div>
       <div style={compactCardStyle}>
-        <div style={labelStyle}>Description</div>
+        <div style={labelStyle}>{tr('ag_description')}</div>
         <textarea
           value={live.description || ''}
           onChange={e => handleFieldChange('description', e.target.value)}
@@ -673,7 +675,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         />
       </div>
       <div style={compactCardStyle}>
-        <div style={labelStyle}>Category</div>
+        <div style={labelStyle}>{tr('ag_category')}</div>
         <input
           value={live.category || ''}
           onChange={e => handleFieldChange('category', e.target.value)}
@@ -682,7 +684,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
       </div>
       {/* Workspace path — user-defined per-agent directory (PostgreSQL) */}
       <div style={compactCardStyle}>
-        <div style={labelStyle}>Workspace Path (optional)</div>
+        <div style={labelStyle}>{tr('ag_workspace_path')}</div>
         <input
           value={workspacePath}
           onChange={e => setWorkspacePath(e.target.value)}
@@ -735,11 +737,11 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
       )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
         <div style={compactCardStyle}>
-          <div style={labelStyle}>Category</div>
+          <div style={labelStyle}>{tr('ag_category')}</div>
           <div style={valueStyle}>{agent.category || '—'}</div>
         </div>
         <div style={compactCardStyle}>
-          <div style={labelStyle}>Model</div>
+          <div style={labelStyle}>{tr('ag_model')}</div>
           <select
             value={editableModel}
             onChange={e => handleModelChange(e.target.value)}
@@ -779,7 +781,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
           </select>
         </div>
         <div style={compactCardStyle}>
-          <div style={labelStyle}>Temperature</div>
+          <div style={labelStyle}>{tr('ag_temperature')}</div>
           <input
             type="number"
             step="0.1"
@@ -791,7 +793,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
           />
         </div>
         <div style={compactCardStyle}>
-          <div style={labelStyle}>Max Tokens</div>
+          <div style={labelStyle}>{tr('ag_max_tokens')}</div>
           <input
             type="number"
             step={1}
@@ -802,19 +804,19 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
           />
         </div>
         <div style={compactCardStyle}>
-          <div style={labelStyle}>Version</div>
+          <div style={labelStyle}>{tr('ag_version')}</div>
           <div style={{ ...valueStyle, fontSize: 12 }}>{agent.version || '—'}</div>
         </div>
         <div style={compactCardStyle}>
-          <div style={labelStyle}>Public</div>
+          <div style={labelStyle}>{tr('ag_public')}</div>
           <div style={{ ...valueStyle, fontSize: 12 }}>{agent.is_public ? 'Yes' : 'No'}</div>
         </div>
         <div style={compactCardStyle}>
-          <div style={labelStyle}>Usage Count</div>
+          <div style={labelStyle}>{tr('ag_usage_count')}</div>
           <div style={{ ...valueStyle, fontSize: 12 }}>{agent.usage_count ?? 0}</div>
         </div>
         <div style={compactCardStyle}>
-          <div style={labelStyle}>Chat Sessions</div>
+          <div style={labelStyle}>{tr('ag_chat_sessions')}</div>
           <div style={{ ...valueStyle, fontSize: 12 }}>{agent.chat_sessions_count ?? 0}</div>
         </div>
       </div>
@@ -844,7 +846,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     return (
       <div style={{ padding: 4 }}>
         <div style={cardStyle}>
-          <div style={labelStyle}>Agent Docs — this agent only</div>
+          <div style={labelStyle}>{tr('ag_agent_docs_own')}</div>
           <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 8 }}>
             Stored in PostgreSQL on this agent&apos;s row; written into the agent workspace
             (AGENTS.md is loaded by MemoryMiddleware) on each chat run.
@@ -908,7 +910,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     <div style={{ padding: 4 }}>
       <div style={cardStyle}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <div style={labelStyle}>System Prompt ({promptDraft.length} chars)</div>
+          <div style={labelStyle}>{tr('ag_system_prompt_chars', { count: promptDraft.length })}</div>
           <span style={{ fontSize: 10, color: t.textMuted }}>
             Saved with the Save button
           </span>
@@ -1051,25 +1053,25 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     return (
       <div style={{ padding: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={labelStyle}>Auto Eviction</div>
+          <div style={labelStyle}>{tr('ag_auto_eviction')}</div>
           {toggle(Boolean(g.enable_auto_eviction),
             () => handleGuardrailChange(['enable_auto_eviction'], true),
             () => handleGuardrailChange(['enable_auto_eviction'], false))}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
-          <div style={labelStyle}>Summarization</div>
+          <div style={labelStyle}>{tr('ag_summarization')}</div>
           {toggle(Boolean(g.enable_summarization),
             () => handleGuardrailChange(['enable_summarization'], true),
             () => handleGuardrailChange(['enable_summarization'], false))}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
-          <div style={labelStyle}>Long-Term Memory</div>
+          <div style={labelStyle}>{tr('ag_long_term_memory')}</div>
           {toggle(Boolean(g.long_term_memory),
             () => handleGuardrailChange(['long_term_memory'], true),
             () => handleGuardrailChange(['long_term_memory'], false))}
         </div>
         <div style={compactCardStyle}>
-          <div style={labelStyle}>Execution Limit</div>
+          <div style={labelStyle}>{tr('ag_execution_limit')}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 11, color: t.textMuted, width: 150 }}>recursion_limit</span>
             <input
@@ -1093,7 +1095,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
           </div>
         </div>
         <div style={compactCardStyle}>
-          <div style={labelStyle}>Token Limits</div>
+          <div style={labelStyle}>{tr('ag_token_limits')}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 11, color: t.textMuted, width: 150 }}>max_total_tokens</span>
@@ -1130,7 +1132,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
           </div>
         </div>
         <div style={compactCardStyle}>
-          <div style={labelStyle}>Backend</div>
+          <div style={labelStyle}>{tr('ag_backend')}</div>
           <div style={{ fontSize: 11, color: t.textMuted }}>
             {agent.backend_config?.type ?? 'state'} — set automatically at build time
           </div>

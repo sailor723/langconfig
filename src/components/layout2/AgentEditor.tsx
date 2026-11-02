@@ -21,6 +21,7 @@
  * invisible unless you knew to open the JSON.
  */
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import { Award, ChevronDown, ChevronRight, Info, FileText, Wrench, Code, Shield, Users } from 'lucide-react';
 import type { Tab } from './useLayout';
@@ -60,6 +61,7 @@ const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode }[] = [
 
 export default function AgentEditor({ tab }: AgentEditorProps) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const { setRightPanelTab, openRightPanel, closeTab } = useLayoutState();
   const agent = tab.data?.agent ?? tab.data ?? {};
   const config = agent.config || {};
@@ -687,7 +689,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   const renderOverview = () => (
     <div style={{ padding: 4 }}>
       <div style={compactCardStyle}>
-        <div style={labelStyle}>Name</div>
+        <div style={labelStyle}>{tr('ag_name')}</div>
         <input
           value={editableName}
           onChange={e => { setEditableName(e.target.value); updateTopField('name', e.target.value); }}
@@ -695,7 +697,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         />
       </div>
       <div style={compactCardStyle}>
-        <div style={labelStyle}>Description</div>
+        <div style={labelStyle}>{tr('ag_description')}</div>
         <input
           value={editableDesc}
           onChange={e => { setEditableDesc(e.target.value); updateTopField('description', e.target.value); }}
@@ -704,7 +706,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
       </div>
       {/* Workspace path — user-defined per-agent directory (PostgreSQL) */}
       <div style={compactCardStyle}>
-        <div style={labelStyle}>Workspace Path (optional)</div>
+        <div style={labelStyle}>{tr('ag_workspace_path')}</div>
         <input
           value={workspacePath}
           onChange={e => setWorkspacePath(e.target.value)}
@@ -717,7 +719,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
       </div>
       {/* Agent docs (AGENTS.md / CLAUDE.md — this agent only) */}
       <div style={compactCardStyle}>
-        <div style={labelStyle}>Agent Docs (AGENTS.md / CLAUDE.md)</div>
+        <div style={labelStyle}>{tr('ag_agent_docs')}</div>
         {['AGENTS.md', 'CLAUDE.md'].map(name => (
           <div key={name} style={{ marginBottom: 6 }}>
             <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 2 }}>{name}</div>
@@ -736,7 +738,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
         <div style={compactCardStyle}>
-          <div style={labelStyle}>Category</div>
+          <div style={labelStyle}>{tr('ag_category')}</div>
           <select
             value={editableCategory}
             onChange={e => { setEditableCategory(e.target.value); updateTopField('category', e.target.value); }}
@@ -748,7 +750,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
           </select>
         </div>
         <div style={compactCardStyle}>
-          <div style={labelStyle}>Model</div>
+          <div style={labelStyle}>{tr('ag_model')}</div>
           <select
             value={editableModel}
             onChange={e => { setEditableModel(e.target.value); updateConfigField('model', e.target.value || null); }}
@@ -777,7 +779,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
           </select>
         </div>
         <div style={compactCardStyle}>
-          <div style={labelStyle}>Temperature</div>
+          <div style={labelStyle}>{tr('ag_temperature')}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <input
               type="range"
@@ -792,7 +794,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
           </div>
         </div>
         <div style={compactCardStyle}>
-          <div style={labelStyle}>Max Tokens</div>
+          <div style={labelStyle}>{tr('ag_max_tokens')}</div>
           <input
             type="number"
             value={editableMaxTokens}
@@ -803,7 +805,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
           />
         </div>
         <div style={compactCardStyle}>
-          <div style={labelStyle}>Recursion Limit</div>
+          <div style={labelStyle}>{tr('ag_recursion_limit')}</div>
           <input
             type="number"
             value={config.recursion_limit ?? ''}
@@ -822,19 +824,19 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
           </div>
         </div>
         <div style={compactCardStyle}>
-          <div style={labelStyle}>Version</div>
+          <div style={labelStyle}>{tr('ag_version')}</div>
           <div style={valueStyle}>{agent.version || '—'}</div>
         </div>
         <div style={compactCardStyle}>
-          <div style={labelStyle}>Public</div>
+          <div style={labelStyle}>{tr('ag_public')}</div>
           <div style={valueStyle}>{agent.is_public ? 'Yes' : 'No'}</div>
         </div>
         <div style={compactCardStyle}>
-          <div style={labelStyle}>Usage Count</div>
+          <div style={labelStyle}>{tr('ag_usage_count')}</div>
           <div style={valueStyle}>{agent.usage_count ?? 0}</div>
         </div>
         <div style={compactCardStyle}>
-          <div style={labelStyle}>Chat Sessions</div>
+          <div style={labelStyle}>{tr('ag_chat_sessions')}</div>
           <div style={valueStyle}>{agent.chat_sessions_count ?? 0}</div>
         </div>
       </div>
@@ -845,12 +847,12 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   const renderPrompt = () => (
     <div style={{ padding: 4, height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ ...cardStyle, flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div style={labelStyle}>System Prompt ({editablePrompt.length} chars)</div>
+        <div style={labelStyle}>{tr('ag_system_prompt_chars', { count: editablePrompt.length })}</div>
         <textarea
           value={editablePrompt}
           onChange={e => { setEditablePrompt(e.target.value); updateConfigField('system_prompt', e.target.value); }}
           spellCheck={false}
-          placeholder="Instructions that define the agent's behavior..."
+          placeholder={tr('ag_prompt_ph')}
           style={{
             flex: 1,
             width: '100%',
