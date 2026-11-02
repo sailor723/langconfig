@@ -178,7 +178,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
               </div>
 
               <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
-                Persistent memory that agents can access via <code className="px-1 py-0.5 bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded text-xs">runtime.store</code> API.
+                {tr('mv_persistent_hint2')}<code className="px-1 py-0.5 bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded text-xs">runtime.store</code> API.
                 Stored items persist across workflow executions.
               </p>
 
@@ -242,7 +242,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
                         }}
                         className="px-4 py-2 bg-white dark:bg-background-dark border border-gray-300 dark:border-border-dark rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition-colors font-medium text-text-primary dark:text-text-primary"
                       >
-                        Cancel
+                        {tr('c_cancel')}
                       </button>
                     </div>
                   </div>
@@ -266,7 +266,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
                         <p className="font-semibold mb-2">{tr('mv_how_works')}</p>
                         <ul className="space-y-1 text-xs" style={{ color: 'var(--color-text-primary)' }}>
                           <li><strong>{tr('mv_short_term')}</strong> Conversation state saved automatically (checkpoints) - enables pause/resume</li>
-                          <li><strong>Long-term:</strong> Persistent workflow memory across sessions - agents can store/retrieve context</li>
+                          <li><strong>{tr('mv_long_term')}</strong> {tr('mv_long_term_desc')}</li>
                           <li><strong>{tr('mv_knowledge')}</strong> Project RAG database - semantic search over documents</li>
                         </ul>
                       </div>
@@ -313,7 +313,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
           {/* Agent Settings Section */}
           {activeSection === 'agent-settings' && (
             <div>
-              <h3 className="text-lg font-semibold mb-4">Agent Memory Configuration</h3>
+              <h3 className="text-lg font-semibold mb-4">{tr('mv_agent_memory_config')}</h3>
               <p className="text-sm mb-6" style={{ color: 'var(--color-text-muted)' }}>
                 View which agents in this workflow have memory features enabled. Configure memory settings in the Studio tab.
               </p>
@@ -321,7 +321,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
               {nodes.length === 0 && (
                 <div className="text-center py-12" style={{ color: 'var(--color-text-muted)' }}>
                   <Brain className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p>No agents in workflow</p>
+                  <p>{tr('mv_no_agents_wf')}</p>
                 </div>
               )}
 
@@ -342,7 +342,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
 
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center justify-between">
-                      <span style={{ color: 'var(--color-text-muted)' }}>Project Memory (RAG Tools)</span>
+                      <span style={{ color: 'var(--color-text-muted)' }}>{tr('mv_project_memory')}</span>
                       <span className={node.data?.config?.enable_memory ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}>
                         {node.data?.config?.enable_memory ? 'Enabled' : 'Disabled'}
                       </span>
@@ -354,7 +354,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span style={{ color: 'var(--color-text-muted)' }}>Codebase Search (RAG)</span>
+                      <span style={{ color: 'var(--color-text-muted)' }}>{tr('mv_codebase_search')}</span>
                       <span className={node.data?.config?.enable_rag ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}>
                         {node.data?.config?.enable_rag ? 'Enabled' : 'Disabled'}
                       </span>
@@ -369,13 +369,13 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
           {activeSection === 'knowledge' && (
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Project Knowledge Base</h3>
+                <h3 className="text-lg font-semibold">{tr('mv_project_kb')}</h3>
                 <a
                   href="#knowledge"
                   className="flex items-center gap-2 text-sm text-primary hover:underline"
                 >
                   <LinkIcon className="w-4 h-4" />
-                  Manage in Knowledge Tab
+                  {tr('mv_manage_in_kb')}
                 </a>
               </div>
 
@@ -387,7 +387,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
               <div className="space-y-4">
                 {/* RAG Summary */}
                 <div className="p-4 border rounded-lg" style={{ borderColor: 'var(--color-border-dark)' }}>
-                  <h4 className="font-semibold mb-3">Agents with Codebase Search</h4>
+                  <h4 className="font-semibold mb-3">{tr('mv_agents_with_codebase')}</h4>
                   {agentsWithRAG.length === 0 ? (
                     <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
                       No agents have RAG enabled. Enable in agent configuration.
@@ -405,7 +405,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
 
                 {/* Memory Tools Summary */}
                 <div className="p-4 border rounded-lg" style={{ borderColor: 'var(--color-border-dark)' }}>
-                  <h4 className="font-semibold mb-3">Agents with Memory Tools</h4>
+                  <h4 className="font-semibold mb-3">{tr('mv_agents_with_memory')}</h4>
                   {agentsWithMemory.length === 0 ? (
                     <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
                       No agents have memory tools enabled. Enable in agent configuration.
@@ -426,7 +426,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
                   <div className="flex items-start gap-3">
                     <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                     <div className="text-sm text-text-primary dark:text-text-primary">
-                      <p className="font-semibold mb-1">Knowledge Base is King</p>
+                      <p className="font-semibold mb-1">{tr('mv_kb_is_king')}</p>
                       <p className="text-xs" style={{ color: 'var(--color-text-primary)' }}>
                         Use the Knowledge tab to upload documents, manage embeddings, and configure RAG settings.
                         This Memory view provides quick access to memory-related settings within your workflow.

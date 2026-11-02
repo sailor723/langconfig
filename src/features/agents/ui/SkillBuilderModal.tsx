@@ -1190,7 +1190,7 @@ when user needs external facts not in their training data
         <div className="flex-1 overflow-hidden">
           {codeLoading ? (
             <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-              Loading…
+              {t('sb_loading')}
             </div>
           ) : (
             <textarea
@@ -1266,9 +1266,9 @@ when user needs external facts not in their training data
                 style={{ color: '#FFFFFF', backgroundColor: 'rgba(255, 255, 255, 0.18)' }}
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.28)')}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.18)')}
-                title="Reset to original values"
+                title={t('sb_reset_title')}
               >
-                <RotateCcw size={12} /> Reset
+                <RotateCcw size={12} /> {t('am_reset')}
               </button>
               <button
                 onClick={onClose}
@@ -1329,7 +1329,7 @@ when user needs external facts not in their training data
                 active={viewMode === 'test'}
                 onClick={() => setViewMode('test')}
                 icon="🎯"
-                label="Test Triggers"
+                label={t('sb_test_triggers')}
               />
             </div>
             {/* === Conditional view rendering === */}
@@ -1422,7 +1422,7 @@ when user needs external facts not in their training data
                       className="px-3 py-1 text-xs font-medium bg-gray-100 hover:bg-gray-200 rounded-md"
                       title="Re-generate markdown from current form state"
                     >
-                      ↻ Reset to form
+                      ↻ {t('sb_reset_to_form')}
                     </button>
                     <button
                       onClick={() => {
@@ -1473,7 +1473,7 @@ when user needs external facts not in their training data
               <div className="rounded-xl border border-gray-200 overflow-hidden bg-white">
                 <div className="flex items-center gap-2 px-4 py-2.5" style={{ backgroundColor: '#FAF9F5', borderBottom: '1px solid #E8E4DA' }}>
                   <span className="text-sm">🎯</span>
-                  <span className="text-sm font-medium">Test Triggers</span>
+                  <span className="text-sm font-medium">{t('sb_test_triggers')}</span>
                   <span className="text-[10px] text-gray-500">
                     — type a sample user query and see which skills would activate
                   </span>
@@ -1495,7 +1495,7 @@ when user needs external facts not in their training data
                     </div>
                     <div className="text-[11px]" style={{ color: '#374151' }}>
                       {testSkillPool === null ? (
-                        <span>All <strong>{allSkills.length}</strong> skills (default)</span>
+                        <span>{t('sb_all')} <strong>{allSkills.length}</strong> {t('sb_skills_default')}</span>
                       ) : (
                         <span><strong>{testSkillPool.size}</strong> of {allSkills.length} skills selected</span>
                       )}
@@ -1508,7 +1508,7 @@ when user needs external facts not in their training data
                             className="text-[10px] px-2 py-0.5 rounded hover:bg-gray-200"
                             style={{ backgroundColor: '#E8E4DA', color: '#1F1E1B' }}
                           >
-                            Select all
+                            {t('sb_select_all')}
                           </button>
                           <button
                             onClick={() => setTestSkillPool(new Set())}
@@ -1522,7 +1522,7 @@ when user needs external facts not in their training data
                             className="text-[10px] px-2 py-0.5 rounded hover:bg-gray-200"
                             style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}
                           >
-                            Use all
+                            {t('sb_use_all')}
                           </button>
                         </div>
                         {allSkills.map((s) => {
@@ -1555,7 +1555,7 @@ when user needs external facts not in their training data
                   </div>
 
                   <label className="block text-xs font-medium text-gray-700 uppercase">
-                    Sample user input
+                    {t('sb_sample_input')}
                   </label>
                   <textarea
                     value={testInput}
@@ -1666,7 +1666,7 @@ when user needs external facts not in their training data
               onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#F5F2EC')}
               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#FFFFFF')}
             >
-              Close
+              {t('c_close')}
             </button>
             {!isEditing && (
               <button
