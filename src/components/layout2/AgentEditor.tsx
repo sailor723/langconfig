@@ -1,17 +1,28 @@
 /**
  * AgentEditor — structured editor for a normal Agent (use_deepagents=false).
  *
- * Simpler than DeepAgentEditor — no subagents. Middleware is a single
- * section (Human-in-the-loop today); guardrails come from Settings → Agents.
+ * Simpler than DeepAgentEditor: middleware is one section (Human-in-the-loop,
+ * optional handoff) and guardrails come from Settings → Agents.
  * Sections:
  *   - Overview   name, description, category, model, temperature, max_tokens
  *   - Prompt     system_prompt (large textarea)
  *   - Tools      native_tools / cli_tools / custom_tools
+ *   - Skills     skills this agent may load
+ *   - Middleware HITL policy, handoff steps
+ *   - Subagents  READ-ONLY list of config.subagents
  *   - JSON       raw config
+ *
+ * Subagents are read-only here on purpose. A normal agent does run them — it is
+ * handed the `task` tool and the entries in `config.subagents` — but the editing
+ * surface for them lives in the JSON tab, because the shape (dictionary vs
+ * compiled workflow vs langgraph graph) is per-entry and a half-form for it would
+ * be worse than the JSON. What the section owes the reader is: "yes, these two
+ * experts are configured, here is what each one gets" — which was previously
+ * invisible unless you knew to open the JSON.
  */
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLayoutTokens } from './tokens';
-import { Award, Info, FileText, Wrench, Code, Shield } from 'lucide-react';
+import { Award, ChevronDown, ChevronRight, Info, FileText, Wrench, Code, Shield, Users } from 'lucide-react';
 import type { Tab } from './useLayout';
 import { useLayoutState } from './useLayout';
 import { chatStore } from './chatStore';
@@ -34,13 +45,14 @@ interface AgentEditorProps {
   tab: Tab;
 }
 
-type SectionId = 'overview' | 'prompt' | 'tools' | 'skills' | 'middleware' | 'json';
+type SectionId = 'overview' | 'prompt' | 'tools' | 'skills' | 'subagents' | 'middleware' | 'json';
 
 const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <Info size={13} /> },
   { id: 'prompt',   label: 'Prompt',   icon: <FileText size={13} /> },
   { id: 'tools',    label: 'Tools',    icon: <Wrench size={13} /> },
   { id: 'skills',   label: 'Skills',   icon: <Award size={13} /> },
+  { id: 'subagents', label: 'Subagents', icon: <Users size={13} /> },
   { id: 'middleware', label: 'Middleware', icon: <Shield size={13} /> },
   { id: 'json',     label: 'JSON',     icon: <Code size={13} /> },
 ];
@@ -82,6 +94,9 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     .filter((m: any) => m?.capabilities?.vision)
     .map((m: any) => ({ id: m.id, name: m.name || m.id }));
   const [activeSection, setActiveSection] = useState<SectionId>('overview');
+  // Subagent cards default to expanded: this panel exists so the roster is visible
+  // at a glance, so starting collapsed would defeat it.
+  const [expandedSubagents, setExpandedSubagents] = useState<Record<number, boolean>>({});
   const [testPrompt, setTestPrompt] = useState('Hello, please introduce yourself.');
   const [running, setRunning] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -872,6 +887,133 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     />
   );
 
+  // ── Subagents (read-only) ────────────────────────────────────────────────
+  //
+  // A normal agent delegates through the single `task` tool: the model picks a
+  // name from `config.subagents`, and that entry supplies the sub-agent's own
+  // prompt/tools/model. Without this panel the only way to see the roster was to
+  // open the JSON tab, which made "did case-4 really get two experts?" a question
+  // about JSON literacy rather than about the configuration.
+  const renderSubagents = () => {
+    const raw = (liveConfig as any).subagents ?? (liveConfig as any).config?.subagents ?? [];
+    const subs: any[] = Array.isArray(raw) ? raw : [];
+
+    const hasTask = (liveConfig as any).native_tools?.includes?.('task')
+      || (liveConfig as any).tools?.includes?.('task');
+
+    if (subs.length === 0) {
+      return (
+        <div style={{ padding: 4 }}>
+          <div style={{ ...valueStyle, color: t.textMuted }}>
+            This agent has no subagents.
+          </div>
+          <div style={{ fontSize: 11, color: t.textMuted, marginTop: 6, lineHeight: 1.6 }}>
+            A normal agent gets subagents through the <code>task</code> tool plus entries in{' '}
+            <code>config.subagents</code>. Add them in the <strong>JSON</strong> tab — each entry is
+            a name, a description (the model routes by it), a system prompt and its own tools.
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ padding: 4 }}>
+        <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 10, lineHeight: 1.6 }}>
+          {subs.length} subagent{subs.length === 1 ? '' : 's'} — read-only here; edit them in the{' '}
+          <strong>JSON</strong> tab.{' '}
+          {hasTask
+            ? 'The agent calls them through its `task` tool.'
+            : 'Warning: `task` is not in this agent\'s tools, so it cannot call them.'}
+        </div>
+
+        {subs.map((sa: any, i: number) => {
+          const entry = typeof sa === 'string' ? { name: sa } : (sa || {});
+          const open = expandedSubagents[i] ?? true;
+          const tools: string[] = Array.isArray(entry.tools) ? entry.tools : [];
+          const interruptOn = entry.interrupt_on && typeof entry.interrupt_on === 'object'
+            ? Object.keys(entry.interrupt_on)
+            : [];
+          return (
+            <div key={i} style={cardStyle}>
+              <div
+                onClick={() => setExpandedSubagents(prev => ({ ...prev, [i]: !open }))}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}
+              >
+                {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                <span style={{ ...valueStyle, fontWeight: 600 }}>
+                  {entry.name || `Subagent #${i + 1}`}
+                </span>
+                <span style={{ ...valueStyle, fontSize: 11, color: t.textMuted, flex: 1, marginLeft: 6 }}>
+                  {(entry.description || '').slice(0, 70)}
+                </span>
+                <span style={{ fontSize: 10, color: t.textMuted, fontFamily: 'monospace' }}>
+                  {entry.type || 'dictionary'}
+                </span>
+              </div>
+
+              {open && (
+                <div style={{ marginTop: 10, paddingLeft: 19 }}>
+                  <div style={labelStyle}>Description (how `task` routes here)</div>
+                  <div style={{ ...valueStyle, marginBottom: 8 }}>{entry.description || '—'}</div>
+
+                  {!!entry.model && (
+                    <>
+                      <div style={labelStyle}>Model</div>
+                      <div style={{ ...valueStyle, fontFamily: 'monospace', marginBottom: 8 }}>{entry.model}</div>
+                    </>
+                  )}
+
+                  <div style={labelStyle}>Tools ({tools.length})</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+                    {tools.length === 0 ? (
+                      <span style={{ fontSize: 11, color: t.textMuted }}>
+                        none — it talks, but cannot act
+                      </span>
+                    ) : (
+                      tools.map((tool, j) => (
+                        <span key={j} style={{
+                          fontSize: 11, padding: '2px 6px', background: t.bgHover,
+                          borderRadius: 3, color: t.textPrimary, fontFamily: 'monospace',
+                        }}>{tool}</span>
+                      ))
+                    )}
+                  </div>
+
+                  {interruptOn.length > 0 && (
+                    <>
+                      <div style={labelStyle}>Needs approval for</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+                        {interruptOn.map((tool, j) => (
+                          <span key={j} style={{
+                            fontSize: 11, padding: '2px 6px',
+                            background: t.bgHover, borderRadius: 3, color: '#f0b429',
+                            fontFamily: 'monospace',
+                          }}>{tool}</span>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {entry.system_prompt && (
+                    <>
+                      <div style={labelStyle}>System prompt</div>
+                      <pre style={{
+                        whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                        fontFamily: '"SF Mono", monospace', fontSize: 11,
+                        color: t.textMuted, lineHeight: 1.5, margin: 0,
+                        maxHeight: 180, overflow: 'auto',
+                      }}>{entry.system_prompt}</pre>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   const sections: Record<SectionId, () => React.ReactNode> = {
     overview: renderOverview,
     prompt:   renderPrompt,
@@ -902,6 +1044,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
       />
     ),
     skills:   renderSkills,
+    subagents: renderSubagents,
     middleware: () => (
       <div style={{ padding: 4 }}>
         <HitlPolicyEditor

@@ -933,7 +933,9 @@ agent 版先用 <code>glob</code>、<code>grep</code> 把范围缩小，只读�
 <li><strong>建 agent</strong>：名字 <code>case-4-assistant</code>，Model <code>deepseek-flash</code>，Temperature <code>0</code>。</li>
 <li><strong>Tools 页签只勾 <code>Task (Subagent)</code></strong> —— supervisor 只该看到“派人”这一件事，具体 API 由专家自己拿。</li>
 <li><strong>JSON 页签</strong>贴两个专家（<code>interrupt_on</code> 写在 <code>email_expert</code> 身上，不是 supervisor 上 ——
-supervisor 的中间件只看得到 <code>task</code>，看不到专家手里的 <code>write_file</code>）：</li>
+supervisor 的中间件只看得到 <code>task</code>，看不到专家手里的 <code>write_file</code>）。贴完点
+<strong>Subagents 页签</strong>，那里会只读列出这两个专家（名字、描述、模型、工具、要审批的工具）：
+学员最容易以为&quot;没配上&quot;，因为 Tools 里只看得见 <code>task</code>，看不见专家本身。</li>
 </ol>
 <pre><code class="language-json">&quot;subagents&quot;: [
   {
@@ -2437,6 +2439,7 @@ R4 算术正确：7006652，出自 math_expert
 <li>[ ] JSON 页签 → 找到 <code>&quot;subagents&quot;: []</code>，替换成文档里那段（calendar_expert / email_expert）</li>
 <li>[ ] 判据：<code>&quot;subagents&quot;</code> 里两个对象，各含 <code>name</code> / <code>description</code> / <code>system_prompt</code> / <code>tools</code></li>
 <li>[ ] 判据：<strong><code>email_expert</code> 的 <code>interrupt_on</code> 在自己的对象里</strong>（不是写在 agent 顶层的 <code>middleware</code>）</li>
+<li>[ ] 判据：<strong>切到 Subagents 页签能看到这两张卡</strong>（只读；<code>email_expert</code> 卡上&quot;Needs approval for&quot;里有 <code>write_file</code>）</li>
 <li>[ ] <strong>Save</strong></li>
 </ul>
 <h2 id="d-开新聊天-这一步最容易漏">D. 开新聊天（这一步最容易漏）</h2>
