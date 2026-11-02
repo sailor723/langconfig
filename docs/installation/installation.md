@@ -656,8 +656,9 @@ identity baked into agents points at the same folders the runtime uses.
 
 ### Path B-2 — 阿里云 ECS（国内网络）
 
-Path B 是按「网络通畅的 Ubuntu」写的。放到国内 ECS 上只有七处不一样，其余照 Path B 走。
-先读完这一节，因为**第 1 项是硬阻塞**：不装 `psql`，Path B 第 6 步的种子直接失败。
+Path B 是按「网络通畅的 Ubuntu」写的。放到国内 ECS 上只有八处不一样（1 / 1b / 1c / 2–7），
+其余照 Path B 走。先读完这一节，因为**第 1 项是硬阻塞**：不装 `psql`，Path B 第 6 步的种子直接失败；
+第 1c 项（Ollama）不是阻塞项，但少了它 RAG / 知识库检索就是关的。
 
 ```bash
 # 1. 系统依赖（在 Path B 的 apt 那行基础上补，一次装完）
@@ -689,6 +690,33 @@ sudo -u postgres psql -d langconfig -c "CREATE EXTENSION IF NOT EXISTS vector;"
 
 > 原生安装的好处：`psql` 客户端顺手就有了，种子那步不会再缺命令；坏处是
 > `pgvector` 由 apt 提供（0.6.0），比 docker 镜像里的版本旧一点，够用。
+
+```bash
+# 1c. Ollama + 嵌入模型（RAG / 知识库要用；不装就只是没有检索，聊天不受影响）
+curl -fsSL https://ollama.com/install.sh | sh      # 装包 + 建 systemd 服务，监听 127.0.0.1:11434
+ollama pull nomic-embed-text:latest                # 274MB，137M 参数，768 维
+curl -s http://127.0.0.1:11434/api/embed \
+  -d '{"model":"nomic-embed-text:latest","input":"维度测试"}' \
+  | python3 -c "import sys,json;d=json.load(sys.stdin);e=d.get('embeddings') or [d.get('embedding')];print('dim:',len(e[0]))"
+# 期望 dim: 768
+```
+
+| 为什么装 | 不装会怎样 |
+|---|---|
+| RAG 检索、知识库索引、会话附件向量化 | 这些功能**静默关闭**：日志 `RAG is disabled — no embedding model available`，对话照常。2026-11-02 之前的版本更糟——整条回复直接报 `Error: 'NoneType' object is not callable` |
+
+> `.env` 里的 `OLLAMA_BASE_URL` / `OLLAMA_EMBED_MODEL` 只是**承诺**：不装服务时探测
+> `/api/tags` 连不上，就会退到 OpenAI（无 key）再退到 HuggingFace（通常没装
+> sentence-transformers），最后没有任何嵌入模型。装了服务，这几行才名副其实。
+> 这台没有 GPU，Ollama 跑 CPU 模式（`WARNING: No NVIDIA/AMD GPU detected`），
+> 嵌入这种小模型够用。pgvector 0.6.0 已由第 1b 步的 apt 包装好。
+
+> **装完必须重启后端才生效** —— 嵌入模型只在第一次用到时初始化，结果会缓存；
+> 重启前它一直是旧的"没有模型"状态。
+> `sudo systemctl restart langconfig && journalctl -u langconfig -n 20`
+> 期望看到 `Initializing Ollama embedding model: nomic-embed-text:latest` 和
+> `LlamaIndex settings initialized successfully`。
+
 
 ```bash
 # 2. 镜像加速（一次性，写进 ~/.bashrc 或 /etc/environment）
@@ -755,7 +783,10 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 sudo tee /etc/systemd/system/langconfig.service >/dev/null <<'UNIT'
 [Unit]
 Description=LangConfig (backend + frontend)
-After=network.target docker.service
+# 原生 Postgres、Ollama、容器化的 Neo4j 都可能在这台机器上：先起它们再起应用。
+# 缺哪个单元 systemd 只是忽略，不会因此启动失败。
+After=network-online.target postgresql.service ollama.service docker.service
+Wants=network-online.target
 
 [Service]
 Type=simple
@@ -790,8 +821,9 @@ journalctl -u langconfig -f          # 看日志
 **装完自检（2026-11-01 在 8.216.101.189 上实测通过）**
 
 ```bash
-systemctl is-active postgresql langconfig     # active / active
-ss -ltn | grep -E ':8765|:5432'               # 8765 对外，5432 只听本机
+systemctl is-active postgresql langconfig ollama   # active / active / active
+ss -ltn | grep -E ':8765|:5432|:11434'        # 8765 对外；5432、11434 只听本机
+curl -s http://127.0.0.1:11434/api/tags | head -c 80   # 有 nomic-embed-text 就说明嵌入模型在位
 curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8765/docs   # 200
 curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8765/       # 200（UI 由后端提供）
 PGPASSWORD=langconfig_dev psql -h 127.0.0.1 -U langconfig -d langconfig -tAc \
@@ -1615,3 +1647,8 @@ details.
 | `WORKSPACE_BASE/` or `{{...}}` visible in an agent's prompt | Backfill didn't run → `uv run python scripts/seeds/in/backfill_agent_identity.py --workspace-root <root>` |
 | Frontend blank on :1421 | `npm install` then `bash start.sh --fe` |
 | API key not working | Add it in Settings → Models (DB, encrypted); verify `API_KEY_ENCRYPTION_KEY` is set in `.env` |
+| `tavily_search` says the key is not configured, but Settings → API Keys shows it | The built-in tool row predates the fix: the dump freezes each tool's `implementation_config.code`, and the old Tavily call passed `api_key=` where the langchain wrapper only reads `tavily_api_key`/`TAVILY_API_KEY` → `uv run python scripts/seeds/in/seed_builtin_tools.py --refresh` (fresh installs now do this automatically after restoring the dumps). Confirm with `custom_tools.implementation_config->>'code' like '%api.tavily.com%'` |
+| Chat dies with `Error: 'NoneType' object is not callable` on every message in a project | No embedding provider at all: Ollama unreachable, no OpenAI key, and `sentence-transformers` not installed → `HuggingFaceEmbedding` is `None` and older builds call it. Install Ollama (Path B-2 step 1c) or set an embedding key, then restart the backend. Current builds log `RAG is disabled — …` and keep answering |
+| A named account cannot sign in, though `users` shows it active | Someone changed that password in the UI (`POST /api/users/me/password` revokes their sessions) → check `Failed sign-in for 'x'` in the log, then `uv run python scripts/create_user.py <name> --reset-password '<pw>'`. Read the log first: resetting also kicks the sessions of a person who is mid-work |
+| A newly installed/changed provider (Ollama, an API key) has no effect | Provider init runs once and is cached for the process lifetime → `sudo systemctl restart langconfig` |
+| `systemctl restart langconfig` sits in `deactivating` for ~40s | Uvicorn is draining open SSE streams (a chat in progress). It completes on its own; avoid restarting while somebody is mid-chat |
