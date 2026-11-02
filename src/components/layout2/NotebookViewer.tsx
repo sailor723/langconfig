@@ -10,6 +10,7 @@
  *   - Kernel restart
  */
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import apiClient from '../../lib/api-client';
 import {
@@ -153,6 +154,7 @@ function useStyles(t: ReturnType<typeof useLayoutTokens>) {
 
 export default function NotebookViewer({ tab }: NotebookViewerProps) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const s = useStyles(t);
   const { module: modName, name: nbName } = tab.data || {};
 
@@ -168,7 +170,7 @@ export default function NotebookViewer({ tab }: NotebookViewerProps) {
   const [cellResults, setCellResults] = useState<Record<number, CellExecutionResult>>({});
 
   const loadNotebook = useCallback(async () => {
-    if (!modName || !nbName) { setError('Missing notebook module/name'); setLoading(false); return; }
+    if (!modName || !nbName) { setError(tr('nv_missing')); setLoading(false); return; }
     setLoading(true); setError(null);
     try {
       const res = await apiClient.get(`/api/notebooks/${modName}/${nbName}`);
@@ -187,7 +189,7 @@ export default function NotebookViewer({ tab }: NotebookViewerProps) {
         _outputCollapsed: false,
       })));
     } catch (err: any) {
-      setError(err?.message || 'Failed to load notebook');
+      setError(err?.message || tr('nv_load_failed'));
     } finally { setLoading(false); }
   }, [modName, nbName]);
 
@@ -251,7 +253,7 @@ export default function NotebookViewer({ tab }: NotebookViewerProps) {
     } catch (err: any) {
       if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return; // User cancelled
       const result: CellExecutionResult = {
-        success: false, stdout: '', stderr: `Error: ${err?.message || 'Unknown'}`,
+        success: false, stdout: '', stderr: `Error: ${err?.message || tr('nv_unknown')}`,
         execute_result: '', error_name: 'APIError', error_value: err?.message || '',
       };
       setCellResults(prev => {
@@ -348,7 +350,7 @@ export default function NotebookViewer({ tab }: NotebookViewerProps) {
       };
       const res = await apiClient.put(`/api/notebooks/${modName}/${nbName}/cells`, payload);
       setNotebook(res.data);
-      setSaveMsg('Saved!');
+      setSaveMsg(tr('nv_saved'));
       setTimeout(() => setSaveMsg(''), 2000);
     } catch (err: any) {
       setSaveMsg(`Save failed: ${err?.message || ''}`);
@@ -373,7 +375,7 @@ export default function NotebookViewer({ tab }: NotebookViewerProps) {
     return (
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: t.textMuted, gap: 8 }}>
         <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} />
-        Loading notebook...
+        {tr('nv_loading')}
       </div>
     );
   }
@@ -383,7 +385,7 @@ export default function NotebookViewer({ tab }: NotebookViewerProps) {
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#e5484d', gap: 8, padding: 40, flexDirection: 'column' }}>
         <AlertCircle size={24} />
         <p>{error}</p>
-        <button onClick={loadNotebook} style={s.actionBtn(t.accent)}>Retry</button>
+        <button onClick={loadNotebook} style={s.actionBtn(t.accent)}>{tr('c_retry')}</button>
       </div>
     );
   }
@@ -412,21 +414,21 @@ export default function NotebookViewer({ tab }: NotebookViewerProps) {
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {executingAll ? (
-            <button onClick={handleInterrupt} title="Stop All" style={s.actionBtn('#da3633')}>
+            <button onClick={handleInterrupt} title={tr('nv_stop_all')} style={s.actionBtn('#da3633')}>
               <Square size={12} /> Stop All
             </button>
           ) : (
-            <button onClick={handleRunAll} title="Run All Cells" style={s.actionBtn('#238636')}>
+            <button onClick={handleRunAll} title={tr('nv_run_all')} style={s.actionBtn('#238636')}>
               <Play size={12} /> Run All
             </button>
           )}
-          <button onClick={handleRestartKernel} title="Restart Kernel" style={{
+          <button onClick={handleRestartKernel} title={tr('nv_restart_kernel')} style={{
             ...s.actionBtn('#555'),
             background: 'transparent', color: t.textMuted, border: `1px solid ${t.border}`,
           }}>
             <RefreshCw size={12} /> Restart Kernel
           </button>
-          <button onClick={handleSave} disabled={saving} title="Save Notebook" style={{
+          <button onClick={handleSave} disabled={saving} title={tr('nv_save_nb')} style={{
             ...s.actionBtn(t.accent),
             opacity: saving ? 0.6 : 1,
           }}>
@@ -449,14 +451,14 @@ export default function NotebookViewer({ tab }: NotebookViewerProps) {
               {/* Cell header */}
               <div style={s.cellHeader(cell.cell_type === 'code')}>
                 <span>
-                  [{idx + 1}] {cell.cell_type === 'code' ? 'Code' : 'Markdown'}
+                  [{idx + 1}] {cell.cell_type === 'code' ? tr('nv_code') : tr('nv_markdown')}
                 </span>
                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                   {/* Toggle markdown edit/preview */}
                   {cell.cell_type === 'markdown' && (
                     <button
                       onClick={() => toggleMarkdownEdit(idx)}
-                      title={cell._editing ? 'Preview' : 'Edit'}
+                      title={cell._editing ? tr('nv_preview') : tr('c_edit')}
                       style={{
                         background: 'none', border: 'none', color: t.textMuted,
                         cursor: 'pointer', padding: 2, display: 'flex',
@@ -470,7 +472,7 @@ export default function NotebookViewer({ tab }: NotebookViewerProps) {
                     executingCell === idx ? (
                       <button
                         onClick={handleInterrupt}
-                        title="Interrupt cell"
+                        title={tr('nv_interrupt_cell')}
                         style={{ ...s.actionBtn('#da3633') }}
                       >
                         <Square size={12} /> Stop
@@ -478,7 +480,7 @@ export default function NotebookViewer({ tab }: NotebookViewerProps) {
                     ) : (
                       <button
                         onClick={() => handleRunCell(idx)}
-                        title="Run cell"
+                        title={tr('nv_run_cell')}
                         style={s.actionBtn('#238636')}
                       >
                         <Play size={12} /> Run
@@ -488,7 +490,7 @@ export default function NotebookViewer({ tab }: NotebookViewerProps) {
                   {/* Delete cell */}
                   <button
                     onClick={() => deleteCell(idx)}
-                    title="Delete cell"
+                    title={tr('nv_delete_cell')}
                     style={{
                       background: 'none', border: 'none', color: t.textMuted,
                       cursor: 'pointer', padding: 2, display: 'flex',
@@ -509,7 +511,7 @@ export default function NotebookViewer({ tab }: NotebookViewerProps) {
                   <textarea
                     value={cell.source}
                     onChange={e => updateCellSource(idx, e.target.value)}
-                    placeholder={cell.cell_type === 'code' ? '# Type your code here...' : 'Type markdown here...'}
+                    placeholder={cell.cell_type === 'code' ? tr('nv_code_ph') : tr('nv_md_ph')}
                     style={{
                       ...s.textarea,
                       minHeight: cell.source ? Math.max(60, cell.source.split('\n').length * 20) : 60,
@@ -523,14 +525,14 @@ export default function NotebookViewer({ tab }: NotebookViewerProps) {
                       cell.source ? (
                         <div className="notebook-markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(cell.source) }} />
                       ) : (
-                        <span style={{ color: t.textMuted, fontStyle: 'italic' }}>Empty markdown cell</span>
+                        <span style={{ color: t.textMuted, fontStyle: 'italic' }}>{tr('nv_empty_md')}</span>
                       )
                     ) : (
                       <pre style={{
                         margin: 0, overflow: 'auto', fontSize: 12, lineHeight: 1.5,
                         color: '#e6e6e6', fontFamily: "'SF Mono', 'Fira Code', monospace",
                       }}>
-                        <code>{cell.source || <span style={{ opacity: 0.4 }}>Empty code cell</span>}</code>
+                        <code>{cell.source || <span style={{ opacity: 0.4 }}>{tr('nv_empty_code')}</span>}</code>
                       </pre>
                     )}
                   </div>
@@ -553,7 +555,7 @@ export default function NotebookViewer({ tab }: NotebookViewerProps) {
                   >
                     {cell._outputCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
                     <Terminal size={11} />
-                    <span>Output</span>
+                    <span>{tr('nv_output')}</span>
                     {!cellResults[idx].success && (
                       <span style={{ color: '#e5484d', marginLeft: 4 }}>
                         ({cellResults[idx].error_name}: {cellResults[idx].error_value?.slice(0, 40)})

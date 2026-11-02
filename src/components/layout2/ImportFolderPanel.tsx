@@ -23,6 +23,7 @@
  * folder somewhere else actually needs.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import apiClient from '../../lib/api-client';
 import type { SettingsPanelTokens } from './settingsPanelTokens';
 import { FolderUp, Loader, CheckCircle, AlertTriangle } from 'lucide-react';
@@ -41,6 +42,7 @@ function equivalenceKey(name: string): string {
 }
 
 export default function ImportFolderPanel({ onImported, existingBases, t }: Props) {
+  const { t: tr } = useTranslation('chat');
   const inputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [folderName, setFolderName] = useState('');
@@ -189,7 +191,7 @@ export default function ImportFolderPanel({ onImported, existingBases, t }: Prop
         </div>
         <input
           value={path}
-          placeholder="/Users/you/Downloads/EBL_OS_docs — or pick the folder below"
+          placeholder={tr('if_path_ph')}
           onChange={(e) => handlePathChange(e.target.value)}
           style={{ ...inputStyle, fontFamily: '"SF Mono", monospace', fontSize: 11.5 }}
         />
@@ -218,7 +220,7 @@ export default function ImportFolderPanel({ onImported, existingBases, t }: Prop
         >
           <FolderUp size={14} />
           {files.length === 0
-            ? 'Select folder'
+            ? tr('if_select_folder')
             : `${folderName || 'folder'} · ${files.length} file${files.length === 1 ? '' : 's'}`
               + (folderCount > 0 ? `, ${folderCount} subfolder${folderCount === 1 ? '' : 's'}` : '')}
         </button>
@@ -231,7 +233,7 @@ export default function ImportFolderPanel({ onImported, existingBases, t }: Prop
         <input
           value={knowledge}
           list="import-kb-names"
-          placeholder="Prefilled from the folder — change it to whatever it should be called"
+          placeholder={tr('if_name_ph')}
           onChange={(e) => setKnowledge(e.target.value)}
           style={{ ...inputStyle, borderColor: trimmed && !existing ? t.primary : t.border }}
         />
@@ -240,10 +242,10 @@ export default function ImportFolderPanel({ onImported, existingBases, t }: Prop
         </datalist>
         <div style={{ marginTop: 4, fontSize: 11, color: t.textMuted }}>
           {!trimmed
-            ? 'Name the knowledge base this folder becomes.'
+            ? tr('if_name_kb')
             : existing
-              ? <>merges into the existing <span style={{ fontFamily: 'monospace' }}>{existing}</span></>
-              : <>a new knowledge base called <span style={{ fontFamily: 'monospace' }}>{trimmed}</span> will be created</>}
+              ? <>{tr('if_merges')} <span style={{ fontFamily: 'monospace' }}>{existing}</span></>
+              : <>{tr('if_new_base')} <span style={{ fontFamily: 'monospace' }}>{trimmed}</span> will be created</>}
         </div>
       </div>
 
@@ -264,8 +266,8 @@ export default function ImportFolderPanel({ onImported, existingBases, t }: Prop
           type="button"
           onClick={handleImport}
           disabled={busy || !canImport}
-          title={!trimmed ? 'Name a knowledge base first'
-            : !canImport ? 'Give a path or pick a folder first' : undefined}
+          title={!trimmed ? tr('up_name_first')
+            : !canImport ? tr('if_need_path') : undefined}
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '7px 16px', borderRadius: 10, fontSize: 13, fontFamily: 'inherit',
@@ -277,10 +279,10 @@ export default function ImportFolderPanel({ onImported, existingBases, t }: Prop
         >
           {busy && <Loader size={13} className="animate-spin" />}
           {busy
-            ? 'Importing…'
+            ? tr('if_importing')
             : path.trim() && files.length === 0
-              ? 'Import from path'
-              : 'Upload folder'}
+              ? tr('if_import_path')
+              : tr('if_upload_folder')}
         </button>
       </div>
     </div>

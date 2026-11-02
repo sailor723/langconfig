@@ -18,6 +18,7 @@
  * means nothing inside another.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { LayoutTokens } from './tokens';
 import apiClient from '../../lib/api-client';
 import { FileUp, Loader, X } from 'lucide-react';
@@ -46,6 +47,7 @@ function equivalenceKey(name: string): string {
 export default function UploadFilesDialog({
   open, onClose, onUploaded, currentKnowledge, scopeFolder, existingBases, initialFiles, t,
 }: Props) {
+  const { t: tr } = useTranslation('chat');
   const inputRef = useRef<HTMLInputElement>(null);
   const [knowledge, setKnowledge] = useState('');
   const [files, setFiles] = useState<File[]>([]);
@@ -103,7 +105,7 @@ export default function UploadFilesDialog({
       onUploaded(trimmed);
       onClose();
     } catch (err: any) {
-      setError(err?.response?.data?.detail || err?.message || 'Upload failed');
+      setError(err?.response?.data?.detail || err?.message || tr('up_failed'));
     } finally {
       setUploading(false);
     }
@@ -141,7 +143,7 @@ export default function UploadFilesDialog({
           </div>
           <button
             onClick={onClose}
-            title="Close"
+            title={tr('c_close')}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 22, height: 22, border: 'none', borderRadius: 3,
@@ -161,7 +163,7 @@ export default function UploadFilesDialog({
           <input
             value={knowledge}
             list="upload-kb-names"
-            placeholder="Pick one, or type a new name"
+            placeholder={tr('up_kb_ph')}
             onChange={(e) => setKnowledge(e.target.value)}
             style={{
               ...inputStyle,
@@ -173,11 +175,11 @@ export default function UploadFilesDialog({
           </datalist>
           <div style={{ marginTop: 4, fontSize: 11, color: t.textMuted }}>
             {!trimmed
-              ? 'Name the knowledge base these files belong to.'
+              ? tr('up_name_kb')
               : existing
-                ? <>into the existing <span style={{ fontFamily: 'monospace' }}>{existing}</span>
+                ? <>{tr('if_merges')} <span style={{ fontFamily: 'monospace' }}>{existing}</span>
                     {keepScope && scopeParts.length > 0 && <> · folder {scopeFolder}</>}</>
-                : <>a new knowledge base called <span style={{ fontFamily: 'monospace' }}>{trimmed}</span> will be created</>}
+                : <>{tr('if_new_base')} <span style={{ fontFamily: 'monospace' }}>{trimmed}</span> will be created</>}
           </div>
         </div>
 
@@ -203,7 +205,7 @@ export default function UploadFilesDialog({
           >
             <FileUp size={13} />
             {files.length === 0
-              ? 'Choose files'
+              ? tr('up_choose_files')
               : `${files.length} file${files.length === 1 ? '' : 's'} · ${(totalBytes / 1024).toFixed(0)} KB`}
           </button>
           {files.length > 0 && (
@@ -226,12 +228,12 @@ export default function UploadFilesDialog({
               background: 'transparent', border: `1px solid ${t.border}`,
               color: t.textPrimary, fontSize: 12.5, fontFamily: 'inherit',
             }}
-          >Cancel</button>
+          >{tr('c_cancel')}</button>
           <button
             onClick={handleUpload}
             disabled={uploading || !trimmed || files.length === 0}
-            title={!trimmed ? 'Name a knowledge base first'
-              : files.length === 0 ? 'Choose files first' : undefined}
+            title={!trimmed ? tr('up_name_first')
+              : files.length === 0 ? tr('up_choose_first') : undefined}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '6px 14px', borderRadius: 4, fontSize: 12.5, fontFamily: 'inherit',
@@ -242,7 +244,7 @@ export default function UploadFilesDialog({
             }}
           >
             {uploading && <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} />}
-            {uploading ? 'Uploading…' : 'Upload'}
+            {uploading ? tr('up_uploading') : tr('up_upload')}
           </button>
         </div>
       </div>
