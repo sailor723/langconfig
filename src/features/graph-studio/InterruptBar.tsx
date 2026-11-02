@@ -14,6 +14,7 @@
  *   { value: [{ action, args: { query|cypher, ... }, description }] }
  */
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ShieldAlert, Check, PencilLine, MessageSquareWarning } from 'lucide-react';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { studio, useStudioState } from './studioStore';
@@ -50,6 +51,7 @@ function queryKey(req: ReviewRequest | undefined): string {
 }
 
 export default function InterruptBar() {
+  const { t: tr } = useTranslation('chat');
   const t = useLayoutTokens();
   const { threadState, running } = useStudioState();
   const interrupts = (threadState?.interrupts ?? []) as unknown[];
@@ -100,7 +102,7 @@ export default function InterruptBar() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <ShieldAlert size={13} color="#e5484d" />
         <span style={{ fontSize: 11.5, fontWeight: 700, color: t.textPrimary }}>
-          Human review required
+          {tr('gs_human_review')}
         </span>
         <span style={{ fontSize: 11, color: t.textMuted }}>
           {primary.action ? `· ${primary.action}` : ''}
@@ -148,7 +150,7 @@ export default function InterruptBar() {
         <input
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
-          placeholder="Why should it not run? (sent back to the model)"
+          placeholder={tr('gs_why_not_run')}
           style={{
             width: '100%',
             marginTop: 6,
@@ -183,7 +185,7 @@ export default function InterruptBar() {
               })
             }
           >
-            <Check size={12} /> Run edited
+            <Check size={12} /> {tr('gs_run_edited')}
           </button>
         ) : (
           <button style={btn(t.bgSelected, t.textPrimary)} disabled={busy} onClick={() => setMode('edit')}>
@@ -199,7 +201,7 @@ export default function InterruptBar() {
               void studio.resume({ type: 'response', args: feedback.trim() })
             }
           >
-            <MessageSquareWarning size={12} /> Send feedback
+            <MessageSquareWarning size={12} /> {tr('gs_send_feedback')}
           </button>
         ) : (
           <button
@@ -207,13 +209,13 @@ export default function InterruptBar() {
             disabled={busy}
             onClick={() => setMode('reject')}
           >
-            <MessageSquareWarning size={12} /> Reject
+            <MessageSquareWarning size={12} /> {tr('ha_reject')}
           </button>
         )}
 
         {mode !== 'idle' && (
           <button style={btn('transparent', t.textMuted)} disabled={busy} onClick={() => setMode('idle')}>
-            Cancel
+            {tr('c_cancel')}
           </button>
         )}
       </div>

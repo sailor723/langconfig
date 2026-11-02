@@ -3,6 +3,7 @@
  */
 
 import { memo, useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Handle, Position, NodeProps } from 'reactflow';
 
 interface Data {
@@ -18,6 +19,7 @@ interface Data {
 }
 
 const SubAgentNode = memo(({ data }: NodeProps<Data>) => {
+  const { t: tr } = useTranslation('chat');
   const [showTooltip, setShowTooltip] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
   const tooltipTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -89,7 +91,7 @@ const SubAgentNode = memo(({ data }: NodeProps<Data>) => {
           className="text-[11px] uppercase tracking-wider mb-1 font-bold flex items-center justify-center gap-1"
           style={{ color: '#7FC8FF' }}
         >
-          {data.skill_type || 'Skill'}
+          {data.skill_type || tr('ds_skill')}
           {data.prompt && (
             <span
               className="inline-flex items-center justify-center rounded w-4 h-4 cursor-pointer transition-colors"
@@ -98,7 +100,7 @@ const SubAgentNode = memo(({ data }: NodeProps<Data>) => {
                 e.stopPropagation();
                 setShowPrompt(!showPrompt);
               }}
-              title="View prompt"
+              title={tr('ds_view_prompt')}
             >
               📜
             </span>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 /**
  * ModernCapabilityBar — horizontal pill bar showing tool capabilities.
  */
@@ -29,6 +30,7 @@ const nativeIcons: Record<string, string> = {
 };
 
 export default function ModernCapabilityBar({ structure }: Props) {
+  const { t: tr } = useTranslation('chat');
   if (!structure) return null;
   const tools = [...(structure.native_tools || []), ...(structure.tools || [])];
   if (tools.length === 0) {
@@ -37,7 +39,7 @@ export default function ModernCapabilityBar({ structure }: Props) {
         className="px-4 py-2 text-xs"
         style={{ color: '#99D3FF' }}
       >
-        No tools configured
+        {tr('ds_no_tools')}
       </div>
     );
   }
@@ -54,7 +56,7 @@ export default function ModernCapabilityBar({ structure }: Props) {
         className="text-[15px] uppercase tracking-wider font-bold flex-shrink-0"
         style={{ color: '#7FC8FF' }}
       >
-        Capabilities
+        {tr('ds_capabilities')}
       </span>
       {tools.map((t, i) => (
         <span

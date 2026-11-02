@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 /**
  * Click-popup for schema-view nodes (SQL table or Neo4j label).
  *
@@ -19,6 +20,7 @@ import { studio, useStudioState } from './studioStore';
 import type { LabelNode, TableNode } from './api';
 
 export function SchemaNodePopup() {
+  const { t: tr } = useTranslation('chat');
   const t = useLayoutTokens();
   const { activeNodeId, dbSummary } = useStudioState();
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
@@ -116,7 +118,7 @@ export function SchemaNodePopup() {
           </span>
           <button
             onClick={() => studio.selectNode(null)}
-            title="Close (Esc)"
+            title={tr('gs_close_esc')}
             style={{
               marginLeft: 'auto',
               width: 24,
@@ -158,6 +160,7 @@ function TableDetail({
   table: TableNode;
   t: LayoutTokens;
 }) {
+  const { t: tr } = useTranslation('chat');
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div>
@@ -213,7 +216,7 @@ function TableDetail({
                     {c.type}
                   </td>
                   <td style={{ ...cellStyle('left'), color: t.textMuted }}>
-                    {c.nullable ? 'YES' : 'NO'}
+                    {c.nullable ? tr('gs_yes') : tr('gs_no')}
                   </td>
                   <td
                     style={{

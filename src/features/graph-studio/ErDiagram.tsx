@@ -9,6 +9,7 @@
  * Postgres schema the user has connected.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import ReactFlow, {
   Background,
   BackgroundVariant,
@@ -53,6 +54,7 @@ interface TableNodeData {
 type TableNodeProps = NodeProps<TableNodeData>;
 
 function TableCard({ data }: TableNodeProps) {
+  const { t: tr } = useTranslation('chat');
   const t = useLayoutTokens();
   const { table, selected } = data;
   const cols = table.columns;
@@ -391,6 +393,7 @@ function buildEdges(
 }
 
 function ErDiagramInner() {
+  const { t: tr } = useTranslation('chat');
   const t = useLayoutTokens();
   const { dbSummary, activeNodeId } = useStudioState();
   const { fitView } = useReactFlow();
@@ -504,7 +507,7 @@ function ErDiagramInner() {
         }}
       >
         {dbSummary == null
-          ? 'Loading schema…'
+          ? tr('gs_loading_schema')
           : 'Schema view unavailable. The active database could not be introspected.'}
       </div>
     );

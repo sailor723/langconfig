@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 /**
  * ModernDetailPanel — shows detail of selected node.
  */
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function ModernDetailPanel({ structure, selectedNode }: Props) {
+  const { t: tr } = useTranslation('chat');
   if (!structure) {
     return (
       <div
@@ -52,9 +54,9 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
             {structure.description}
           </p>
         )}
-        <SectionTitle>Model</SectionTitle>
+        <SectionTitle>{tr('ag_model')}</SectionTitle>
         <Pill>{structure.model}</Pill>
-        <SectionTitle>Tools</SectionTitle>
+        <SectionTitle>{tr('ed_tools')}</SectionTitle>
         <div className="flex flex-wrap gap-1.5">
           {(structure.native_tools ?? []).slice(0, 8).map((t, i) => (
             <Pill key={i}>{t}</Pill>
@@ -63,18 +65,18 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
             <Pill>+{(structure.native_tools?.length ?? 0) - 8} more</Pill>
           )}
         </div>
-        <SectionTitle>Sub-agents</SectionTitle>
+        <SectionTitle>{tr('ds_sub_agents')}</SectionTitle>
         <div className="flex flex-wrap gap-1.5">
           {(structure.subagents ?? []).slice(0, 6).map((s, i) => (
             <Pill key={i}>{s.name}</Pill>
           ))}
           {(structure.subagents?.length ?? 0) === 0 && (
-            <span className="text-[15px]" style={{ color: '#99D3FF' }}>None</span>
+            <span className="text-[15px]" style={{ color: '#99D3FF' }}>{tr('pk_none')}</span>
           )}
         </div>
         {structure.system_prompt && (
           <>
-            <SectionTitle>System Prompt</SectionTitle>
+            <SectionTitle>{tr('sa_prompt_label')}</SectionTitle>
             <div
               className="text-[15px] p-2 rounded-lg"
               style={{
@@ -111,7 +113,7 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
 
       {data.model && (
         <>
-          <SectionTitle>Model</SectionTitle>
+          <SectionTitle>{tr('ag_model')}</SectionTitle>
           <Pill>{data.model}</Pill>
         </>
       )}
@@ -137,14 +139,14 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
 
       {data.skill_type && (
         <>
-          <SectionTitle>Type</SectionTitle>
+          <SectionTitle>{tr('ds_type')}</SectionTitle>
           <Pill>{data.skill_type}</Pill>
         </>
       )}
 
       {data.description && !data.value && (
         <>
-          <SectionTitle>Description</SectionTitle>
+          <SectionTitle>{tr('ti_description')}</SectionTitle>
           <div className="text-[11px]" style={{ color: '#99D3FF' }}>{data.description}</div>
         </>
       )}
@@ -152,7 +154,7 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
       {/* Skill detail sections */}
       {isSkill && data.tags && data.tags.length > 0 && (
         <>
-          <SectionTitle>Tags</SectionTitle>
+          <SectionTitle>{tr('se_tags')}</SectionTitle>
           <div className="flex flex-wrap gap-1.5">
             {(data.tags as string[]).map((t: string, i: number) => (
               <Pill key={i}>{t}</Pill>
@@ -163,7 +165,7 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
 
       {isSkill && data.triggers && data.triggers.length > 0 && (
         <>
-          <SectionTitle>Triggers</SectionTitle>
+          <SectionTitle>{tr('ds_triggers')}</SectionTitle>
           <div className="flex flex-wrap gap-1.5">
             {(data.triggers as string[]).map((t: string, i: number) => (
               <Pill key={i}>{t}</Pill>
@@ -174,7 +176,7 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
 
       {isSkill && data.allowed_tools && data.allowed_tools.length > 0 && (
         <>
-          <SectionTitle>Allowed Tools</SectionTitle>
+          <SectionTitle>{tr('ds_allowed_tools')}</SectionTitle>
           <div className="flex flex-wrap gap-1.5">
             {(data.allowed_tools as string[]).map((t: string, i: number) => (
               <Pill key={i}>{t}</Pill>
@@ -185,7 +187,7 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
 
       {isSkill && data.prompt && (
         <>
-          <SectionTitle>SKILL.md Instructions</SectionTitle>
+          <SectionTitle>{tr('ds_skill_instructions')}</SectionTitle>
           <div
             className="text-[13px] p-2 rounded-lg"
             style={{
@@ -210,7 +212,7 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
         </div>
       )}
 
-      <SectionTitle>Node Info</SectionTitle>
+      <SectionTitle>{tr('ds_node_info')}</SectionTitle>
       <div className="text-[15px] space-y-1" style={{ color: '#99D3FF' }}>
         <div>ID: <span style={{ color: '#F2FAFF' }}>{selectedNode.id}</span></div>
         <div>Position: <span style={{ color: '#F2FAFF' }}>{Math.round(selectedNode.position.x)}, {Math.round(selectedNode.position.y)}</span></div>

@@ -5,6 +5,7 @@
  */
 
 import { useMemo, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import ReactFlow, {
   Background,
   Controls,
@@ -99,6 +100,7 @@ export default function ModernStudioCanvas(props: Props) {
 }
 
 function ModernStudioCanvasInner({ structure, onNodeClick }: Props) {
+  const { t: tr } = useTranslation('chat');
   const layout = useMemo(
     () => (structure ? autoLayout(structure) : { nodes: [], edges: [] }),
     [structure]
@@ -120,7 +122,7 @@ function ModernStudioCanvasInner({ structure, onNodeClick }: Props) {
     return () => clearTimeout(t);
   }, [layout, setNodes, setEdges, fitView]);
 
-  // Reset layout — restore to auto-layout positions
+  // tr('ds_reset_layout') — restore to auto-layout positions
   const handleResetLayout = useCallback(() => {
     setNodes(layout.nodes);
     setEdges(layout.edges);
@@ -222,7 +224,7 @@ function ModernStudioCanvasInner({ structure, onNodeClick }: Props) {
             color: '#F2FAFF',
             boxShadow: '0 2px 6px rgba(0, 0, 0, 0.3)',
           }}
-          title="Reset layout"
+          title="tr('ds_reset_layout')"
         >
           <span style={{ fontSize: 16 }}>↺</span>
         </button>

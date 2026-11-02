@@ -5,12 +5,14 @@
  * `input` field (form graphs). Enter submits; Shift+Enter inserts a newline.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowUp, Square } from 'lucide-react';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { studio, useStudioState } from './studioStore';
 import { hasMessagesInput } from './api';
 
 export default function ChatInput() {
+  const { t: tr } = useTranslation('chat');
   const t = useLayoutTokens();
   const { running, threadState, schemas } = useStudioState();
   const [value, setValue] = useState('');
@@ -29,10 +31,10 @@ export default function ChatInput() {
   };
 
   const placeholder = interrupted
-    ? 'Agent is waiting for approval…'
+    ? tr('gs_waiting_approval')
     : running
-      ? 'Agent is running…'
-      : 'Ask anything…';
+      ? tr('gs_agent_running')
+      : tr('gs_ask_anything');
 
   return (
     <div
@@ -74,7 +76,7 @@ export default function ChatInput() {
         // While a run is in-flight the send button becomes "Interrupt".
         <button
           onClick={() => void studio.cancel()}
-          title="Interrupt the run"
+          title={tr('gs_interrupt_run')}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -94,7 +96,7 @@ export default function ChatInput() {
         <button
           onClick={() => void submit()}
           disabled={!value.trim() || running || interrupted}
-          title="Send (Enter)"
+          title={tr('gs_send_enter')}
           style={{
             display: 'flex',
             alignItems: 'center',

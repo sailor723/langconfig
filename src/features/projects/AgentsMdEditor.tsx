@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import apiClient from '../../lib/api-client';
 
 interface AgentsMdEditorProps {
@@ -35,6 +36,7 @@ const DEFAULT_CONTENT = `# Project {projectId} Conventions
 `;
 
 export default function AgentsMdEditor({ projectId, onClose }: AgentsMdEditorProps) {
+  const { t: tr } = useTranslation('chat');
   const [content, setContent] = useState<string>('');
   const [originalContent, setOriginalContent] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -57,7 +59,7 @@ export default function AgentsMdEditor({ projectId, onClose }: AgentsMdEditorPro
       setOriginalContent(data.content || _default);
       setExists(!!data.exists);
     } catch (e: any) {
-      setError(e?.message || 'Failed to load AGENTS.md');
+      setError(e?.message || tr('am_load_failed'));
     } finally {
       setLoading(false);
     }
@@ -75,10 +77,10 @@ export default function AgentsMdEditor({ projectId, onClose }: AgentsMdEditorPro
       await apiClient.updateAgentsMd(projectId, content);
       setOriginalContent(content);
       setExists(true);
-      setSuccess('Saved');
+      setSuccess(tr('am_saved'));
       setTimeout(() => setSuccess(null), 2000);
     } catch (e: any) {
-      setError(e?.response?.data?.detail || e?.message || 'Failed to save');
+      setError(e?.response?.data?.detail || e?.message || tr('am_save_failed'));
     } finally {
       setSaving(false);
     }
@@ -99,10 +101,10 @@ export default function AgentsMdEditor({ projectId, onClose }: AgentsMdEditorPro
       setContent(DEFAULT_CONTENT);
       setOriginalContent(DEFAULT_CONTENT);
       setExists(false);
-      setSuccess('Deleted');
+      setSuccess(tr('am_deleted'));
       setTimeout(() => setSuccess(null), 2000);
     } catch (e: any) {
-      setError(e?.response?.data?.detail || e?.message || 'Failed to delete');
+      setError(e?.response?.data?.detail || e?.message || tr('am_delete_failed'));
     } finally {
       setDeleting(false);
     }
@@ -112,7 +114,7 @@ export default function AgentsMdEditor({ projectId, onClose }: AgentsMdEditorPro
     <div className="flex flex-col h-full" style={{ color: '#1f2937', backgroundColor: '#ffffff' }}>
       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">AGENTS.md</span>
+          <span className="text-sm font-medium">{tr('am_title')}</span>
           {exists ? (
             <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
               exists
@@ -130,7 +132,7 @@ export default function AgentsMdEditor({ projectId, onClose }: AgentsMdEditorPro
               onClick={onClose}
               className="text-xs px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
             >
-              Close
+              {tr('c_close')}
             </button>
           )}
         </div>
@@ -149,14 +151,14 @@ export default function AgentsMdEditor({ projectId, onClose }: AgentsMdEditorPro
 
       {loading ? (
         <div className="flex-1 flex items-center justify-center text-sm text-gray-500">
-          Loading...
+          {tr('c_loading')}
         </div>
       ) : (
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
           className="flex-1 w-full p-4 font-mono leading-relaxed rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Markdown content..."
+          placeholder={tr('am_ph')}
           spellCheck={false}
           style={{
             minHeight: '520px',
@@ -178,21 +180,21 @@ export default function AgentsMdEditor({ projectId, onClose }: AgentsMdEditorPro
             disabled={!hasChanges || saving || deleting}
             className="text-xs px-3 py-1 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Reset
+            {tr('am_reset')}
           </button>
           <button
             onClick={deleteFile}
             disabled={!exists || saving || deleting}
             className="text-xs px-3 py-1 rounded border border-red-300 text-red-700 dark:border-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {deleting ? 'Deleting...' : 'Delete'}
+            {deleting ? tr('am_deleting') : tr('c_delete')}
           </button>
           <button
             onClick={save}
             disabled={!hasChanges || saving || deleting}
             className="text-xs px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? tr('am_saving') : tr('c_save')}
           </button>
         </div>
       </div>

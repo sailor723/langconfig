@@ -3,6 +3,7 @@
  */
 
 import { memo, useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Handle, Position, NodeProps } from 'reactflow';
 
 interface Data {
@@ -13,6 +14,7 @@ interface Data {
 }
 
 const ToolNode = memo(({ data }: NodeProps<Data>) => {
+  const { t: tr } = useTranslation('chat');
   const [showDetails, setShowDetails] = useState(false);
   const icon = data.tool_type === 'native' ? '⚙️' : '🔧';
 
@@ -47,7 +49,7 @@ const ToolNode = memo(({ data }: NodeProps<Data>) => {
             setShowDetails(true);
           }
         }}
-        title={hasDetails ? 'Click for details' : data.label}
+        title={hasDetails ? tr('ds_click_details') : data.label}
       >
         <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
         <span style={{ fontSize: 16 }}>{icon}</span>
@@ -102,14 +104,14 @@ const ToolNode = memo(({ data }: NodeProps<Data>) => {
 
             {data.description && (
               <div className="mb-3">
-                <div className="text-[10px] uppercase tracking-wider mb-1 font-bold" style={{ color: '#7FC8FF' }}>Description</div>
+                <div className="text-[10px] uppercase tracking-wider mb-1 font-bold" style={{ color: '#7FC8FF' }}>{tr('ti_description')}</div>
                 <div className="text-[13px]">{data.description}</div>
               </div>
             )}
 
             {data.prompt && (
               <div>
-                <div className="text-[10px] uppercase tracking-wider mb-1 font-bold" style={{ color: '#7FC8FF' }}>Prompt</div>
+                <div className="text-[10px] uppercase tracking-wider mb-1 font-bold" style={{ color: '#7FC8FF' }}>{tr('ed_prompt')}</div>
                 <div className="text-[12px] whitespace-pre-wrap leading-relaxed">{data.prompt}</div>
               </div>
             )}

@@ -3,6 +3,7 @@
  * plus the chat input for message-based graphs.
  */
 import type { CSSProperties } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { studio, useStudioState } from './studioStore';
@@ -31,6 +32,7 @@ function renderContent(content: unknown): string {
 
 /** Collapsible block showing a reasoning model's chain-of-thought. */
 function ThinkingBlock({ text }: { text: string }) {
+  const { t: tr } = useTranslation('chat');
   const t = useLayoutTokens();
   const [open, setOpen] = useState(false);
   return (
@@ -78,11 +80,12 @@ function ThinkingBlock({ text }: { text: string }) {
 }
 
 function MessageRow({ message }: { message: LiveMessage }) {
+  const { t: tr } = useTranslation('chat');
   const t = useLayoutTokens();
   const type = message.type ?? 'ai';
   const isHuman = type === 'human';
   const isTool = type === 'tool';
-  const label = isHuman ? 'You' : isTool ? 'Tool' : 'Assistant';
+  const label = isHuman ? tr('gs_you') : isTool ? tr('gs_tool') : tr('gs_assistant');
   const body = renderContent(message.content);
   const toolCalls = message.tool_calls ?? [];
   const reasoning = message.reasoning_content;
@@ -160,6 +163,7 @@ function StatusChip({ label, tone }: { label: string; tone: string }) {
 }
 
 export default function Inspector() {
+  const { t: tr } = useTranslation('chat');
   const t = useLayoutTokens();
   const { inspectorTab, threadState, liveMap, runPath, running, runError } = useStudioState();
 
@@ -224,7 +228,7 @@ export default function Inspector() {
         {inspectorTab === 'messages' && (
           <>
             {messages.length === 0 && !runError && (
-              <span style={{ color: t.textDim, fontSize: 12 }}>No messages yet. Run a test below to get started.</span>
+              <span style={{ color: t.textDim, fontSize: 12 }}>{tr('gs_no_messages')}</span>
             )}
             {runError && (
               <div style={{ fontSize: 12, color: '#e5484d', border: `1px solid #e5484d55`, borderRadius: 6, padding: 6 }}>

@@ -5,12 +5,14 @@
  * with an empty user message), then kicks off an SSE run on the active thread.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Play } from 'lucide-react';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { studio, useStudioState } from './studioStore';
 import { hasMessagesInput } from './api';
 
 export default function RunConsole() {
+  const { t: tr } = useTranslation('chat');
   const t = useLayoutTokens();
   const { schemas, running, runError, runHistory } = useStudioState();
   const [prompt, setPrompt] = useState('');
@@ -39,7 +41,7 @@ export default function RunConsole() {
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: t.textDim }}>
-          Test Run
+          {tr('gs_test_run')}
         </span>
         {lastRun && (
           <span style={{ fontSize: 10.5, color: t.textMuted, marginLeft: 'auto' }}>
@@ -58,7 +60,7 @@ export default function RunConsole() {
           }
         }}
         rows={2}
-        placeholder={isChat ? 'e.g. how many employees are there?' : 'Enter input JSON…'}
+        placeholder={isChat ? tr('gs_input_example') : tr('gs_input_ph')}
         disabled={running}
         style={{
           width: '100%',
@@ -94,7 +96,7 @@ export default function RunConsole() {
           }}
         >
           <Play size={12} />
-          {running ? 'Running…' : 'Run'}
+          {running ? tr('gs_running') : tr('gs_run')}
         </button>
         {runError && (
           <span style={{ fontSize: 11, color: '#e5484d', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

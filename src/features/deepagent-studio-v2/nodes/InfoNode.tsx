@@ -4,6 +4,7 @@
  */
 
 import { memo, useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Handle, Position, NodeProps } from 'reactflow';
 
 interface Data {
@@ -80,7 +81,7 @@ const InfoNode = memo(({ data, selected }: NodeProps<Data>) => {
           boxShadow: '0 2px 6px rgba(0, 0, 0, 0.3)',
         }}
         onClick={() => setShowModal(true)}
-        title="Click to view full content"
+        title="tr('ds_click_full')"
       >
         <Handle type="source" position={Position.Right} id="info-out" style={{ opacity: 0 }} />
         <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />

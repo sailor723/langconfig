@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 /**
  * Schema-view toolbar: filter input + refresh button.
  *
@@ -23,6 +24,7 @@ export function subscribeSchemaFilter(l: Listener): () => void {
 }
 
 export default function SchemaViewToolbar() {
+  const { t: tr } = useTranslation('chat');
   const t = useLayoutTokens();
   const { dbSummary } = useStudioState();
   const isNeo4j = dbSummary?.type === 'neo4j';
@@ -44,8 +46,8 @@ export default function SchemaViewToolbar() {
         type="text"
         placeholder={
           isNeo4j
-            ? 'Filter labels or properties…'
-            : 'Filter tables or columns…'
+            ? tr('gs_filter_labels')
+            : tr('gs_filter_tables')
         }
         onChange={(e) => emitSchemaFilter(e.target.value)}
         style={{
@@ -62,7 +64,7 @@ export default function SchemaViewToolbar() {
       />
       <button
         onClick={() => studio.loadDatabaseSummary()}
-        title="Re-introspect the active database"
+        title={tr('gs_reintrospect')}
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -77,7 +79,7 @@ export default function SchemaViewToolbar() {
         }}
       >
         <RefreshCw size={11} />
-        Refresh
+        {tr('c_refresh')}
       </button>
     </div>
   );

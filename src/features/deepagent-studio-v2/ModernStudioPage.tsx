@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useChat } from '@/features/chat/state/ChatContext';
 import ModernStudioCanvas from './ModernStudioCanvas';
 import ModernAgentPicker from './components/ModernAgentPicker';
@@ -13,6 +14,7 @@ import { useAgentStructure } from './hooks/useAgentStructure';
 import type { Node } from 'reactflow';
 
 export default function ModernStudioPage() {
+  const { t: tr } = useTranslation('chat');
   const [selectedId, setSelectedId] = useState<number | null>(112);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const { structure, loading, error } = useAgentStructure(selectedId);
@@ -53,10 +55,10 @@ export default function ModernStudioPage() {
             </div>
             <div>
               <div className="text-sm font-semibold" style={{ color: '#F2FAFF' }}>
-                DeepAgent Studio
+                {tr('ds_title')}
               </div>
               <div className="text-[9px] uppercase tracking-wider" style={{ color: '#7FC8FF' }}>
-                Neural Agent Topology
+                {tr('ds_subtitle')}
               </div>
             </div>
           </div>
@@ -141,7 +143,7 @@ export default function ModernStudioPage() {
               style={{ background: 'rgba(3, 7, 16, 0.85)', pointerEvents: 'none' }}
             >
               <div style={{ color: '#7FC8FF' }} className="text-sm">
-                Loading agent topology...
+                {tr('ds_loading_topology')}
               </div>
             </div>
           )}
@@ -165,7 +167,7 @@ export default function ModernStudioPage() {
                   🧠
                 </div>
                 <div className="text-base font-medium mb-1" style={{ color: '#F2FAFF' }}>
-                  Select an agent to visualize
+                  {tr('ds_select_agent')}
                 </div>
                 <div className="text-xs" style={{ color: '#99D3FF' }}>
                   Pick an agent from the dropdown above to see its topology

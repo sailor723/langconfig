@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 import apiClient from '@/lib/api-client';
 
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export default function ModernAgentPicker({ selectedId, onSelect }: Props) {
+  const { t: tr } = useTranslation('chat');
   const [agents, setAgents] = useState<Agent[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -81,7 +83,7 @@ export default function ModernAgentPicker({ selectedId, onSelect }: Props) {
         }}
       >
         <span style={{ fontSize: 16 }}>🧠</span>
-        <span className="text-sm font-medium">{selected?.name ?? 'Select Agent'}</span>
+        <span className="text-sm font-medium">{selected?.name ?? tr('select_agent')}</span>
         <span style={{ color: '#7FC8FF', fontSize: 12 }}>▾</span>
       </button>
 
@@ -112,7 +114,7 @@ export default function ModernAgentPicker({ selectedId, onSelect }: Props) {
                 </div>
               ) : agents.length === 0 ? (
                 <div className="p-4 text-center" style={{ color: '#99D3FF' }}>
-                  No agents found
+                  {tr('ds_no_agents')}
                 </div>
               ) : (
                 agents.map((a) => (

@@ -4,6 +4,7 @@
  */
 
 import { memo, useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Handle, Position, NodeProps, NodeResizer } from 'reactflow';
 
 interface Data {
@@ -13,7 +14,8 @@ interface Data {
   system_prompt?: string;
 }
 
-const MainAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
+const MainAgentNode = memo(({ data, selected }: NodeProps<Data>) => {  const { t: tr } = useTranslation('chat');
+
   const [showTooltip, setShowTooltip] = useState(false);
   const tooltipTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -85,7 +87,7 @@ const MainAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
             color: '#F2FAFF',
           }}
         >
-          Main
+          {tr('ds_main')}
         </span>
       </div>
 

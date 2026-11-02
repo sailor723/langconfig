@@ -9,6 +9,7 @@
  * Generic: never references specific label or rel-type names.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import ReactFlow, {
   Background,
   BackgroundVariant,
@@ -50,6 +51,7 @@ interface LabelNodeData {
 type LabelNodeProps = NodeProps<LabelNodeData>;
 
 function LabelSupernode({ data }: LabelNodeProps) {
+  const { t: tr } = useTranslation('chat');
   const t = useLayoutTokens();
   const { label, selected } = data;
   return (
@@ -355,6 +357,7 @@ function buildEdges(
 }
 
 function Neo4jNetworkInner() {
+  const { t: tr } = useTranslation('chat');
   const t = useLayoutTokens();
   const { dbSummary, activeNodeId } = useStudioState();
   const { fitView } = useReactFlow();
@@ -465,7 +468,7 @@ function Neo4jNetworkInner() {
         }}
       >
         {dbSummary == null
-          ? 'Loading graph…'
+          ? tr('gs_loading_graph')
           : 'Network view unavailable. The active database could not be introspected.'}
       </div>
     );
