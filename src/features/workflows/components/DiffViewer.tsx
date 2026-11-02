@@ -13,6 +13,7 @@
  */
 
 import { useState, useMemo, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { SplitSquareVertical, AlignJustify, Plus, Minus, FileText } from 'lucide-react';
 
 export interface DiffStats {
@@ -183,6 +184,7 @@ export default function DiffViewer({
   defaultViewMode = 'unified',
   className = '',
 }: DiffViewerProps) {
+  const { t: tr } = useTranslation('chat');
   const [viewMode, setViewMode] = useState<'unified' | 'split'>(defaultViewMode);
 
   // Parse unified diff into colored lines
@@ -283,10 +285,10 @@ export default function DiffViewer({
               viewMode === 'unified' ? 'bg-primary/20' : 'hover:bg-white/5'
             }`}
             style={{ color: viewMode === 'unified' ? 'var(--color-primary)' : 'var(--color-text-muted)' }}
-            title="Unified view"
+            title={tr('dv_unified_view')}
           >
             <AlignJustify className="w-4 h-4" />
-            Unified
+            {tr('dv_unified')}
           </button>
           <button
             onClick={() => setViewMode('split')}
@@ -297,10 +299,10 @@ export default function DiffViewer({
               color: viewMode === 'split' ? 'var(--color-primary)' : 'var(--color-text-muted)',
               borderColor: 'var(--color-border-dark)',
             }}
-            title="Split view"
+            title={tr('dv_split_view')}
           >
             <SplitSquareVertical className="w-4 h-4" />
-            Split
+            {tr('dv_split')}
           </button>
         </div>
       </div>
@@ -312,7 +314,7 @@ export default function DiffViewer({
           <div className="font-mono text-sm">
             {unifiedLines.length === 0 ? (
               <div className="p-8 text-center" style={{ color: 'var(--color-text-muted)' }}>
-                No differences to display
+                {tr('dv_no_diff')}
               </div>
             ) : (
               unifiedLines.map((line) => (

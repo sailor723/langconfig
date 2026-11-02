@@ -17,6 +17,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Bot,
   Calendar,
@@ -72,15 +73,17 @@ interface FileMetadataPanelProps {
   onToggleCollapse?: () => void;
 }
 
-function formatBytes(bytes: number | null): string {
-  if (bytes === null || bytes === undefined) return 'Unknown';
+// Module-level helpers take the translator: a function outside a component cannot
+// call a hook.
+function formatBytes(bytes: number | null, tr: (k: string) => string): string {
+  if (bytes === null || bytes === undefined) return tr('fm_unknown');
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return 'Unknown';
+function formatDate(dateStr: string | null, tr: (k: string) => string): string {
+  if (!dateStr) return tr('fm_unknown');
   const date = new Date(dateStr);
   return date.toLocaleDateString('en-US', {
     month: 'short',
@@ -131,6 +134,7 @@ function ExpandableText({
   text: string;
   maxLines?: number;
 }) {
+  const { t: tr } = useTranslation('chat');
   const [isExpanded, setIsExpanded] = useState(false);
   const isLong = text.split('\n').length > maxLines || text.length > 200;
 
@@ -146,7 +150,7 @@ function ExpandableText({
             className="text-xs hover:underline"
             style={{ color: 'var(--color-primary)' }}
           >
-            {isExpanded ? 'Show less' : 'Show more'}
+            {isExpanded ? tr('fm_show_less') : tr('fm_show_more')}
           </button>
         )}
       </div>
@@ -169,6 +173,7 @@ export default function FileMetadataPanel({
   collapsed = false,
   onToggleCollapse,
 }: FileMetadataPanelProps) {
+  const { t: tr } = useTranslation('chat');
   if (loading) {
     return (
       <div className={`p-4 ${className}`}>
@@ -231,7 +236,7 @@ export default function FileMetadataPanel({
                 {metadata.filename}
               </p>
               <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                {formatBytes(metadata.size_bytes)} • {metadata.extension?.replace('.', '').toUpperCase() || 'FILE'}
+                {formatBytes(metadata.size_bytes, tr)} • {metadata.extension?.replace('.', '').toUpperCase() || 'FILE'}
               </p>
             </div>
           </div>
@@ -240,7 +245,7 @@ export default function FileMetadataPanel({
           {metadata.agent_label && (
             <MetadataRow
               icon={Bot}
-              label="Created by"
+              label={tr('fm_created_by')}
               value={
                 <span className="flex items-center gap-1.5">
                   {metadata.agent_label}
@@ -259,18 +264,18 @@ export default function FileMetadataPanel({
 
           {/* Workflow Context */}
           {metadata.workflow_name && (
-            <MetadataRow icon={Workflow} label="Workflow" value={metadata.workflow_name} />
+            <MetadataRow icon={Workflow} label={tr('fm_workflow')} value={metadata.workflow_name} />
           )}
 
           {/* Node ID */}
           {metadata.node_id && (
-            <MetadataRow icon={Hash} label="Node ID" value={metadata.node_id} />
+            <MetadataRow icon={Hash} label={tr('fm_node_id')} value={metadata.node_id} />
           )}
 
           {/* Timestamps */}
-          <MetadataRow icon={Calendar} label="Created" value={formatDate(metadata.created_at)} />
+          <MetadataRow icon={Calendar} label={tr('fm_created')} value={formatDate(metadata.created_at, tr)} />
           {metadata.updated_at && metadata.updated_at !== metadata.created_at && (
-            <MetadataRow icon={Clock} label="Modified" value={formatDate(metadata.updated_at)} />
+            <MetadataRow icon={Clock} label={tr('fm_modified')} value={formatDate(metadata.updated_at, tr)} />
           )}
 
           {/* Version Info */}
@@ -334,12 +339,12 @@ export default function FileMetadataPanel({
 
           {/* Description */}
           {metadata.description && (
-            <ExpandableText label="Description" text={metadata.description} maxLines={3} />
+            <ExpandableText label={tr('fm_description')} text={metadata.description} maxLines={3} />
           )}
 
           {/* Original Query */}
           {metadata.original_query && typeof metadata.original_query === 'string' && (
-            <ExpandableText label="Original Prompt" text={metadata.original_query} maxLines={3} />
+            <ExpandableText label={tr('fm_original_prompt')} text={metadata.original_query} maxLines={3} />
           )}
         </div>
       )}

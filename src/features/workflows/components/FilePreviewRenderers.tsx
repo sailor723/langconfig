@@ -11,6 +11,7 @@
  */
 
 import { useState, useMemo, memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 
 // ============================================================================
@@ -23,6 +24,7 @@ interface CsvPreviewProps {
 }
 
 function CsvPreviewComponent({ content, delimiter }: CsvPreviewProps) {
+  const { t: tr } = useTranslation('chat');
   const [sortColumn, setSortColumn] = useState<number | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
@@ -92,7 +94,7 @@ function CsvPreviewComponent({ content, delimiter }: CsvPreviewProps) {
   };
 
   if (headers.length === 0) {
-    return <div className="text-gray-500 dark:text-text-muted p-4">Empty or invalid CSV file</div>;
+    return <div className="text-gray-500 dark:text-text-muted p-4">{tr('fr_bad_csv')}</div>;
   }
 
   return (
@@ -290,6 +292,7 @@ interface SvgPreviewProps {
 }
 
 function SvgPreviewComponent({ content }: SvgPreviewProps) {
+  const { t: tr } = useTranslation('chat');
   // Create a data URL for the SVG
   const svgDataUrl = useMemo(() => {
     // Encode the SVG content properly
@@ -302,7 +305,7 @@ function SvgPreviewComponent({ content }: SvgPreviewProps) {
       <div className="max-w-full max-h-full overflow-auto bg-white dark:bg-white/10 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-border-dark">
         <img
           src={svgDataUrl}
-          alt="SVG Preview"
+          alt={tr('fr_svg_preview')}
           className="max-w-full max-h-[70vh] object-contain"
           style={{ minWidth: '100px', minHeight: '100px' }}
         />

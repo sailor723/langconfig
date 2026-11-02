@@ -13,6 +13,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   GitCommit,
   Plus,
@@ -62,20 +63,20 @@ function getOperationIcon(operation: string) {
   }
 }
 
-function getOperationLabel(operation: string) {
+function getOperationLabel(operation: string, tr: (k: string) => string) {
   switch (operation) {
     case 'create':
-      return 'Created';
+      return tr('vt_created');
     case 'edit':
-      return 'Edited';
+      return tr('vt_edited');
     case 'replace':
-      return 'Replaced';
+      return tr('vt_replaced');
     default:
-      return 'Modified';
+      return tr('vt_modified');
   }
 }
 
-function formatRelativeTime(dateStr: string | null): string {
+function formatRelativeTime(dateStr: string | null, tr: (k: string) => string): string {
   if (!dateStr) return '';
   const date = new Date(dateStr);
   const now = new Date();
@@ -84,7 +85,7 @@ function formatRelativeTime(dateStr: string | null): string {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return 'Just now';
+  if (diffMins < 1) return tr('vt_just_now');
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
@@ -100,6 +101,7 @@ export default function VersionTimeline({
   onCompareVersions,
   className = '',
 }: VersionTimelineProps) {
+  const { t: tr } = useTranslation('chat');
   const [compareMode, setCompareMode] = useState(false);
   const [selectedVersions, setSelectedVersions] = useState<FileVersion[]>([]);
 
@@ -154,7 +156,7 @@ export default function VersionTimeline({
       <div className={`p-4 text-center ${className}`}>
         <GitCommit className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--color-text-muted)', opacity: 0.5 }} />
         <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-          No version history available
+          {tr('vt_none')}
         </p>
       </div>
     );
@@ -169,7 +171,7 @@ export default function VersionTimeline({
       >
         <div>
           <h3 className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-            Version History
+            {tr('vt_history')}
           </h3>
           <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
             {versions.length} version{versions.length > 1 ? 's' : ''} • {filename}
@@ -189,7 +191,7 @@ export default function VersionTimeline({
             style={{ color: compareMode ? 'var(--color-primary)' : 'var(--color-text-muted)' }}
           >
             <GitCompare className="w-4 h-4" />
-            Compare
+            {tr('vt_compare')}
           </button>
         )}
       </div>
@@ -212,7 +214,7 @@ export default function VersionTimeline({
               color: selectedVersions.length === 2 ? 'white' : 'var(--color-text-muted)',
             }}
           >
-            View Diff
+            {tr('vt_view_diff')}
           </button>
         </div>
       )}
@@ -282,12 +284,12 @@ export default function VersionTimeline({
                           : '#3b82f6',
                     }}
                   >
-                    {getOperationLabel(version.operation)}
+                    {getOperationLabel(version.operation, tr)}
                   </span>
                   {version.created_at && (
                     <span className="text-xs flex items-center gap-1" style={{ color: 'var(--color-text-muted)' }}>
                       <Clock className="w-3 h-3" />
-                      {formatRelativeTime(version.created_at)}
+                      {formatRelativeTime(version.created_at, tr)}
                     </span>
                   )}
                 </div>
@@ -336,7 +338,7 @@ export default function VersionTimeline({
                     onViewVersion(version);
                   }}
                   className="p-1.5 rounded hover:bg-white/10 transition-colors"
-                  title="View this version"
+                  title={tr('vt_view_version')}
                 >
                   <Eye className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
                 </button>

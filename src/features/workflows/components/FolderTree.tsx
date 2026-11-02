@@ -13,6 +13,7 @@
  */
 
 import { useState, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, FileText, Bot, Hash } from 'lucide-react';
 import { getFileIcon } from '../utils/fileHelpers';
 
@@ -207,6 +208,7 @@ export default function FolderTree({
   onFileSelect,
   className = '',
 }: FolderTreeProps) {
+  const { t: tr } = useTranslation('chat');
   // Start with all workflow/task nodes expanded
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(() => {
     const expanded = new Set<string>();
@@ -270,7 +272,7 @@ export default function FolderTree({
       <div className={`flex flex-col items-center justify-center py-8 ${className}`}>
         <Folder className="w-8 h-8 mb-2" style={{ color: 'var(--color-text-muted)', opacity: 0.5 }} />
         <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-          No files found
+          {tr('ft_no_files')}
         </p>
       </div>
     );
@@ -284,7 +286,7 @@ export default function FolderTree({
         style={{ borderColor: 'var(--color-border-dark)' }}
       >
         <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-          Files
+          {tr('ft_files')}
         </span>
         <span
           className="text-xs px-2 py-0.5 rounded-full"
