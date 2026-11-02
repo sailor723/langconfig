@@ -359,8 +359,9 @@ Carrier 原本的「知识库对话」做法很直接：把整个文件夹的内
 2. **Tools 页签只勾 `Task (Subagent)`** —— supervisor 只该看到“派人”这一件事，具体 API 由专家自己拿。
 3. **JSON 页签**贴两个专家（`interrupt_on` 写在 `email_expert` 身上，不是 supervisor 上 ——
    supervisor 的中间件只看得到 `task`，看不到专家手里的 `write_file`）。贴完点
-   **Subagents 页签**，那里会只读列出这两个专家（名字、描述、模型、工具、要审批的工具）：
-   学员最容易以为"没配上"，因为 Tools 里只看得见 `task`，看不见专家本身。
+   **Subagents 页签**核对：那里会列出这两个专家（名字、描述、模型、工具、要审批的工具），
+   而且这个页签和 deep agent 的完全一样，可以直接增删改 —— 学员最容易以为"没配上"，
+   因为 Tools 里只看得见 `task`，看不见专家本身。
 
 ```json
 "subagents": [
@@ -1140,7 +1141,8 @@ R4 算术正确：7006652，出自 math_expert
 - [ ] JSON 页签 → 找到 `"subagents": []`，替换成文档里那段（calendar_expert / email_expert）
 - [ ] 判据：`"subagents"` 里两个对象，各含 `name` / `description` / `system_prompt` / `tools`
 - [ ] 判据：**`email_expert` 的 `interrupt_on` 在自己的对象里**（不是写在 agent 顶层的 `middleware`）
-- [ ] 判据：**切到 Subagents 页签能看到这两张卡**（只读；`email_expert` 卡上"Needs approval for"里有 `write_file`）
+- [ ] 判据：**切到 Subagents 页签能看到这两张卡**，`email_expert` 卡上 "Needs approval for" 里有 `write_file`
+- [ ] 判据：这张卡可以就地 `Edit`（和 deep agent 一样能改），改完不用回 JSON
 - [ ] **Save**
 
 ## D. 开新聊天（这一步最容易漏）

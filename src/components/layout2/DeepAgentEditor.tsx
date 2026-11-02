@@ -21,6 +21,7 @@ import { useAvailableTools } from '../../hooks/useAvailableTools';
 import apiClient from '../../lib/api-client';
 import CodeViewerModal from './CodeViewerModal';
 import { SectionId as _SectionId, SECTIONS } from './editorConstants';
+import SubagentsEditor from './editorSubagents';
 import ChatTestToolbar from './editorChatToolbar';
 import JsonEditorSection from './editorJsonSection';
 import ToolsPicker, { toToolIdList } from './editorToolsPicker';
@@ -48,7 +49,6 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     .filter((m: any) => m?.capabilities?.vision)
     .map((m: any) => ({ id: m.id, name: m.name || m.id }));
   const [activeSection, setActiveSection] = useState<SectionId>('overview');
-  const [expandedSubs, setExpandedSubs] = useState<Record<number, boolean>>({});
   const [testPrompt, setTestPrompt] = useState('Hello, please introduce yourself.');
   const [running, setRunning] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -952,14 +952,11 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     />
   );
 
-  // ── Subagents section — editable: add / edit / remove subagent cards ──
-  const [subagentDraft, setSubagentDraft] = useState<{
-    name: string; description: string; model: string; system_prompt: string; tools: string;
-    type: string; graph_id: string; database: string; workflow_id: string;
-  }>({ name: '', description: '', model: '', system_prompt: '', tools: '',
-       type: 'dictionary', graph_id: '', database: '', workflow_id: '' });
-  const [subagentEditIdx, setSubagentEditIdx] = useState<number | null>(null);
-
+  // ── Subagents ────────────────────────────────────────────────────────────
+  //
+  // Editing lives in the shared SubagentsEditor (layout2/editorSubagents.tsx),
+  // which AgentEditor renders too — one form, no drift. Here it only reads and
+  // writes the JSON draft the editor is already holding.
   const readSubagents = useCallback((): any[] => {
     try {
       const parsed = JSON.parse(jsonEdit);
@@ -969,233 +966,21 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     } catch { return []; }
   }, [jsonEdit]);
 
-  const startAddSubagent = () => {
-    setSubagentDraft({ name: '', description: '', model: '', system_prompt: '', tools: '',
-      type: 'dictionary', graph_id: '', database: '', workflow_id: '' });
-    setSubagentEditIdx(null);
-  };
-
-  const startEditSubagent = (idx: number) => {
-    const subs = readSubagents();
-    const sa = subs[idx] || {};
-    setSubagentDraft({
-      name: sa.name || '',
-      description: sa.description || '',
-      model: sa.model || '',
-      system_prompt: sa.system_prompt || '',
-      tools: Array.isArray(sa.tools) ? sa.tools.join(', ') : '',
-      type: sa.type || 'dictionary',
-      graph_id: sa.graph_id || '',
-      database: sa.database || '',
-      workflow_id: sa.workflow_id != null ? String(sa.workflow_id) : '',
-    });
-    setSubagentEditIdx(idx);
-  };
-
-  const saveSubagentDraft = () => {
-    if (!subagentDraft.name.trim()) {
-      setSaveMsg({ ok: false, text: 'Subagent needs a name' });
-      return;
-    }
-    if (subagentDraft.type === 'langgraph' && !subagentDraft.graph_id.trim()) {
-      setSaveMsg({ ok: false, text: 'LangGraph subagent needs a graph_id (e.g. neo4j_agent)' });
-      return;
-    }
-    const sa: any = {
-      name: subagentDraft.name.trim(),
-      description: subagentDraft.description.trim(),
-      system_prompt: subagentDraft.system_prompt,
-    };
-    if (subagentDraft.type !== 'dictionary') sa.type = subagentDraft.type;
-    if (subagentDraft.type === 'langgraph') {
-      sa.graph_id = subagentDraft.graph_id.trim();
-      if (subagentDraft.database.trim()) sa.database = subagentDraft.database.trim();
-    } else if (subagentDraft.type === 'compiled' && subagentDraft.workflow_id.trim()) {
-      const wid = Number(subagentDraft.workflow_id.trim());
-      if (Number.isInteger(wid) && wid > 0) sa.workflow_id = wid;
-    }
-    if (subagentDraft.model.trim()) sa.model = subagentDraft.model.trim();
-    if (subagentDraft.tools.trim()) {
-      sa.tools = subagentDraft.tools.split(',').map(s => s.trim()).filter(Boolean);
-    }
+  const writeSubagents = useCallback((next: any[]) => {
     patchJson(p => {
       if (!p.config) p.config = {};
-      if (!Array.isArray(p.config.subagents)) p.config.subagents = [];
-      if (subagentEditIdx !== null && subagentEditIdx < p.config.subagents.length) {
-        p.config.subagents[subagentEditIdx] = sa;
-      } else {
-        p.config.subagents.push(sa);
-      }
+      p.config.subagents = next;
     });
-    startAddSubagent();
-    setSaveMsg({ ok: true, text: subagentEditIdx !== null ? 'Subagent updated' : 'Subagent added' });
-    setTimeout(() => setSaveMsg(null), 2500);
-  };
+  }, [patchJson]);
 
-  const removeSubagent = (idx: number) => {
-    patchJson(p => {
-      if (p.config && Array.isArray(p.config.subagents)) {
-        p.config.subagents = p.config.subagents.filter((_: any, i: number) => i !== idx);
-      }
-    });
-    if (subagentEditIdx === idx) startAddSubagent();
-    setSaveMsg({ ok: true, text: 'Subagent removed' });
-    setTimeout(() => setSaveMsg(null), 2500);
-  };
-
-  const renderSubagents = () => {
-    const subs = readSubagents();
-    return (
-      <div style={{ padding: 4 }}>
-        <button onClick={startAddSubagent} style={{
-          ...compactCardStyle, cursor: 'pointer', color: t.textPrimary, fontWeight: 600,
-          display: 'flex', alignItems: 'center', gap: 6, border: `1px dashed ${t.accent}`,
-        }}>
-          <span style={{ fontSize: 15 }}>+</span> Add subagent
-        </button>
-
-        {subs.length === 0 && (
-          <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic', marginTop: 8 }}>
-            (no subagents — add one above)
-          </div>
-        )}
-
-        {subs.map((sa: any, i: number) => {
-          const sa_obj = typeof sa === 'string' ? { name: sa } : sa;
-          const open = expandedSubs[i];
-          const isEditing = subagentEditIdx === i;
-          return (
-            <div key={i} style={{ ...cardStyle, marginTop: 8 }}>
-              {isEditing ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <input value={subagentDraft.name} onChange={e => setSubagentDraft(d => ({ ...d, name: e.target.value }))}
-                    placeholder="Name (e.g. researcher)" style={inputStyle} />
-                  <input value={subagentDraft.description} onChange={e => setSubagentDraft(d => ({ ...d, description: e.target.value }))}
-                    placeholder="Description — what this subagent does" style={inputStyle} />
-                  <select
-                    value={subagentDraft.type}
-                    onChange={e => setSubagentDraft(d => ({ ...d, type: e.target.value }))}
-                    style={{
-                      width: '100%', height: 26, padding: '0 6px',
-                      background: t.bgContent, border: `1px solid ${t.border}`,
-                      borderRadius: 3, color: t.textPrimary, fontSize: 11,
-                      fontFamily: 'monospace', outline: 'none',
-                    }}
-                  >
-                    <option value="dictionary">Dictionary (model + tools)</option>
-                    <option value="compiled">Compiled (workflow)</option>
-                    <option value="langgraph">LangGraph (code-defined agent)</option>
-                  </select>
-                  {subagentDraft.type === 'langgraph' && (
-                    <>
-                      <input value={subagentDraft.graph_id} onChange={e => setSubagentDraft(d => ({ ...d, graph_id: e.target.value }))}
-                        placeholder="Graph agent id (neo4j_agent or sql_agent)" style={inputStyle} />
-                      <input value={subagentDraft.database} onChange={e => setSubagentDraft(d => ({ ...d, database: e.target.value }))}
-                        placeholder="Neo4j database (e.g. neo4j; empty = default)" style={inputStyle} />
-                    </>
-                  )}
-                  {subagentDraft.type === 'compiled' && (
-                    <input value={subagentDraft.workflow_id} onChange={e => setSubagentDraft(d => ({ ...d, workflow_id: e.target.value }))}
-                      placeholder="Workflow ID (number)" style={inputStyle} />
-                  )}
-                  <input value={subagentDraft.model} onChange={e => setSubagentDraft(d => ({ ...d, model: e.target.value }))}
-                    placeholder="Model override (optional, e.g. deepseek-chat)" style={inputStyle} />
-                  <textarea value={subagentDraft.system_prompt} onChange={e => setSubagentDraft(d => ({ ...d, system_prompt: e.target.value }))}
-                    placeholder="System prompt for this subagent" rows={3} style={textareaStyle} />
-                  <input value={subagentDraft.tools} onChange={e => setSubagentDraft(d => ({ ...d, tools: e.target.value }))}
-                    placeholder="Tools (comma-separated, optional)" style={inputStyle} />
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button onClick={saveSubagentDraft} style={{ ...smallBtnStyle, background: t.accent, color: '#fff' }}>
-                      {subagentEditIdx !== null ? 'Update' : 'Add'}
-                    </button>
-                    <button onClick={startAddSubagent} style={smallBtnStyle}>Cancel</button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div
-                    onClick={() => setExpandedSubs(prev => ({ ...prev, [i]: !prev[i] }))}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}
-                  >
-                    {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-                    <div style={{ ...valueStyle, fontWeight: 600 }}>{sa_obj.name || sa_obj.prompt || `Subagent #${i + 1}`}</div>
-                    <div style={{ ...valueStyle, color: t.textMuted, fontSize: 11, marginLeft: 8, flex: 1 }}>
-                      {sa_obj.description?.slice(0, 60)}
-                    </div>
-                    <button onClick={(e) => { e.stopPropagation(); startEditSubagent(i); }}
-                      style={smallBtnStyle}>Edit</button>
-                    <button onClick={(e) => { e.stopPropagation(); removeSubagent(i); }}
-                      style={{ ...smallBtnStyle, color: '#e5484d' }}>Remove</button>
-                  </div>
-                  {open && (
-                    <div style={{ marginTop: 10, paddingLeft: 20 }}>
-                      <div style={labelStyle}>Description</div>
-                      <div style={{ ...valueStyle, marginBottom: 8 }}>{sa_obj.description || '—'}</div>
-                      {sa_obj.type && sa_obj.type !== 'dictionary' && (
-                        <>
-                          <div style={labelStyle}>Type</div>
-                          <div style={{ ...valueStyle, fontFamily: 'monospace', marginBottom: 8 }}>{sa_obj.type}</div>
-                        </>
-                      )}
-                      {sa_obj.graph_id && (
-                        <>
-                          <div style={labelStyle}>Graph Agent</div>
-                          <div style={{ ...valueStyle, fontFamily: 'monospace', marginBottom: 8 }}>{sa_obj.graph_id}</div>
-                        </>
-                      )}
-                      {sa_obj.database && (
-                        <>
-                          <div style={labelStyle}>Database</div>
-                          <div style={{ ...valueStyle, fontFamily: 'monospace', marginBottom: 8 }}>{sa_obj.database}</div>
-                        </>
-                      )}
-                      {sa_obj.workflow_id && (
-                        <>
-                          <div style={labelStyle}>Workflow ID</div>
-                          <div style={{ ...valueStyle, fontFamily: 'monospace', marginBottom: 8 }}>{sa_obj.workflow_id}</div>
-                        </>
-                      )}
-                      {sa_obj.model && (
-                        <>
-                          <div style={labelStyle}>Model</div>
-                          <div style={{ ...valueStyle, fontFamily: 'monospace', marginBottom: 8 }}>{sa_obj.model}</div>
-                        </>
-                      )}
-                      {sa_obj.tools && sa_obj.tools.length > 0 && (
-                        <>
-                          <div style={labelStyle}>Tools ({sa_obj.tools.length})</div>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
-                            {sa_obj.tools.map((tool: string, j: number) => (
-                              <span key={j} style={{
-                                fontSize: 11, padding: '2px 6px',
-                                background: t.bgHover, borderRadius: 3,
-                                color: t.textPrimary, fontFamily: 'monospace',
-                              }}>{tool}</span>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                      {sa_obj.system_prompt && (
-                        <>
-                          <div style={labelStyle}>System Prompt</div>
-                          <pre style={{
-                            whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                            fontFamily: '"SF Mono", monospace', fontSize: 11,
-                            color: t.textMuted, lineHeight: 1.5, margin: 0,
-                            maxHeight: 200, overflow: 'auto',
-                          }}>{sa_obj.system_prompt}</pre>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
+  const renderSubagents = () => (
+    <SubagentsEditor
+      subagents={readSubagents()}
+      onChange={writeSubagents}
+      t={t}
+      emptyHint="(no subagents — add one above)"
+    />
+  );
 
   // ── Middleware section ──
   const renderMiddleware = () => {
