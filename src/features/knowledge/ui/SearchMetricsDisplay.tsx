@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 /**
  * Copyright (c) 2025 Cade Russell (Ghost Peony)
  *
@@ -29,6 +30,7 @@ interface SearchMetricsDisplayProps {
 }
 
 export default function SearchMetricsDisplay({ metrics, comparisonMetrics, className = '' }: SearchMetricsDisplayProps) {
+  const { t: tr } = useTranslation('chat');
   const formatDuration = (ms: number) => `${ms.toFixed(0)}ms`;
   const formatScore = (score: number) => (score * 100).toFixed(1) + '%';
 
@@ -88,7 +90,7 @@ export default function SearchMetricsDisplay({ metrics, comparisonMetrics, class
         <div className="flex flex-col">
           <div className="flex items-center gap-1 text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>
             <Hash className="w-3 h-3" />
-            <span>Results</span>
+            <span>{tr('sh_results')}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>{metrics.results_count}</span>
@@ -102,7 +104,7 @@ export default function SearchMetricsDisplay({ metrics, comparisonMetrics, class
         <div className="flex flex-col">
           <div className="flex items-center gap-1 text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>
             <Activity className="w-3 h-3" />
-            <span>Total Tokens</span>
+            <span>{tr('sm_total_tokens')}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
@@ -121,7 +123,7 @@ export default function SearchMetricsDisplay({ metrics, comparisonMetrics, class
         <div className="flex flex-col">
           <div className="flex items-center gap-1 text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>
             <Clock className="w-3 h-3" />
-            <span>Retrieval Time</span>
+            <span>{tr('sm_retrieval_time')}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
@@ -140,7 +142,7 @@ export default function SearchMetricsDisplay({ metrics, comparisonMetrics, class
         <div className="flex flex-col">
           <div className="flex items-center gap-1 text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>
             <Activity className="w-3 h-3" />
-            <span>Avg Similarity</span>
+            <span>{tr('sm_avg_similarity')}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
@@ -160,19 +162,19 @@ export default function SearchMetricsDisplay({ metrics, comparisonMetrics, class
       <div className="mt-3 pt-3 border-t border-gray-200 dark:border-border-dark">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
           <div>
-            <span style={{ color: 'var(--color-text-muted)' }}>Query Tokens:</span>
+            <span style={{ color: 'var(--color-text-muted)' }}>{tr('sm_query_tokens')}</span>
             <span className="ml-1 font-medium" style={{ color: 'var(--color-text-primary)' }}>{metrics.query_tokens}</span>
           </div>
           <div>
-            <span style={{ color: 'var(--color-text-muted)' }}>Top-K:</span>
+            <span style={{ color: 'var(--color-text-muted)' }}>{tr('sm_top_k')}</span>
             <span className="ml-1 font-medium" style={{ color: 'var(--color-text-primary)' }}>{metrics.top_k}</span>
           </div>
           <div>
-            <span style={{ color: 'var(--color-text-muted)' }}>Max Similarity:</span>
+            <span style={{ color: 'var(--color-text-muted)' }}>{tr('sm_max_sim')}</span>
             <span className="ml-1 font-medium" style={{ color: 'var(--color-text-primary)' }}>{formatScore(metrics.max_similarity_score)}</span>
           </div>
           <div>
-            <span style={{ color: 'var(--color-text-muted)' }}>Min Similarity:</span>
+            <span style={{ color: 'var(--color-text-muted)' }}>{tr('sm_min_sim')}</span>
             <span className="ml-1 font-medium" style={{ color: 'var(--color-text-primary)' }}>{formatScore(metrics.min_similarity_score)}</span>
           </div>
         </div>
@@ -181,7 +183,7 @@ export default function SearchMetricsDisplay({ metrics, comparisonMetrics, class
       {/* Comparison Summary (if comparing) */}
       {comparisonMetrics && tokenDiff && (
         <div className="mt-3 pt-3 border-t border-gray-200 dark:border-border-dark">
-          <div className="text-xs font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>Difference Summary:</div>
+          <div className="text-xs font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>{tr('sm_diff_summary')}</div>
           <div className="space-y-1 text-xs">
             <div className="flex items-center justify-between">
               <span style={{ color: 'var(--color-text-muted)' }}>Tokens:</span>

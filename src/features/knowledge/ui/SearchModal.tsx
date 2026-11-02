@@ -15,6 +15,7 @@
  *      the search, then close to return to the doc viewer.
  */
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, Loader, X, ChevronDown, ChevronUp, Filter } from 'lucide-react';
 
 interface SearchModalProps {
@@ -74,6 +75,7 @@ export default function SearchModal({
   onToggleChunkExpansion,
   t,
 }: SearchModalProps) {
+  const { t: tr } = useTranslation('chat');
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Auto-focus the search input when the modal opens
@@ -129,7 +131,7 @@ export default function SearchModal({
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-all"
-            aria-label="Close"
+            aria-label={tr('c_close')}
           >
             <X className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
           </button>
@@ -379,7 +381,7 @@ export default function SearchModal({
           className="px-5 py-2 border-t border-gray-200 dark:border-border-dark text-[10px] flex items-center justify-between"
           style={{ color: 'var(--color-text-muted)' }}
         >
-          <span>Press <kbd className="px-1 py-0.5 rounded bg-gray-100 dark:bg-white/10 font-mono">Esc</kbd> to close</span>
+          <span>{tr('sd_press_esc')} <kbd className="px-1 py-0.5 rounded bg-gray-100 dark:bg-white/10 font-mono">Esc</kbd> {tr('sd_esc_to_close')}</span>
           <span>{t('kb_search_modal_hint')}</span>
         </div>
       </div>

@@ -19,6 +19,7 @@
  * viewer doesn't honor view=TwoPageView URL params).
  */
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import * as pdfjsLib from 'pdfjs-dist';
 // Vite-friendly worker import — uses ?url to get the asset path.
 // pdfjs-dist ships the worker in the build output, so this resolves
@@ -38,6 +39,7 @@ interface TwoPagePdfViewerProps {
 }
 
 export default function TwoPagePdfViewer({ url, title }: TwoPagePdfViewerProps) {
+  const { t: tr } = useTranslation('chat');
   const [pdf, setPdf] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [zoomIndex, setZoomIndex] = useState(FIT_ZOOM_INDEX); // 1.0 = fit to container height
@@ -77,7 +79,7 @@ export default function TwoPagePdfViewer({ url, title }: TwoPagePdfViewerProps) 
         setLoading(false);
       } catch (e: any) {
         if (cancelled) return;
-        setError(e?.message || 'Failed to load PDF');
+        setError(e?.message || tr('pv_load_failed'));
         setLoading(false);
       }
     })();
@@ -172,7 +174,7 @@ export default function TwoPagePdfViewer({ url, title }: TwoPagePdfViewerProps) 
       } catch (e: any) {
         if (e?.name === 'RenderingCancelledException') return;
         console.error('[PdfViewer] render error:', e);
-        setError(e?.message || 'Failed to render PDF');
+        setError(e?.message || tr('pv_render_failed'));
       }
     })();
 
@@ -281,7 +283,7 @@ export default function TwoPagePdfViewer({ url, title }: TwoPagePdfViewerProps) 
             onClick={() => scrollByViewport(-1)}
             className="px-2 py-0.5 rounded bg-gray-100 dark:bg-white/10 hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
             style={{ color: 'var(--color-text-primary)' }}
-            title="Scroll up one screen (Prev)"
+            title={tr('pv_scroll_prev')}
           >
             ← Prev
           </button>
@@ -294,7 +296,7 @@ export default function TwoPagePdfViewer({ url, title }: TwoPagePdfViewerProps) 
             onClick={() => scrollByViewport(1)}
             className="px-2 py-0.5 rounded bg-gray-100 dark:bg-white/10 hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
             style={{ color: 'var(--color-text-primary)' }}
-            title="Scroll down one screen (Next)"
+            title={tr('pv_scroll_next')}
           >
             Next →
           </button>
@@ -321,7 +323,7 @@ export default function TwoPagePdfViewer({ url, title }: TwoPagePdfViewerProps) 
             }}
             className="w-10 px-1 py-0.5 text-center border border-gray-200 dark:border-border-dark rounded bg-white dark:bg-panel-dark focus:outline-none focus:ring-1 focus:ring-primary"
             style={{ color: 'var(--color-text-primary)' }}
-            title="Type a page number and press Enter"
+            title={tr('pv_page_hint')}
           />
         </div>
 
@@ -332,7 +334,7 @@ export default function TwoPagePdfViewer({ url, title }: TwoPagePdfViewerProps) 
             onClick={() => setZoomIndex(Math.max(0, zoomIndex - 1))}
             className="px-2 py-0.5 rounded bg-gray-100 dark:bg-white/10 hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
             style={{ color: 'var(--color-text-primary)' }}
-            title="Zoom out"
+            title={tr('c_zoom_out')}
           >
             −
           </button>
@@ -344,7 +346,7 @@ export default function TwoPagePdfViewer({ url, title }: TwoPagePdfViewerProps) 
             onClick={() => setZoomIndex(Math.min(ZOOM_STEPS.length - 1, zoomIndex + 1))}
             className="px-2 py-0.5 rounded bg-gray-100 dark:bg-white/10 hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
             style={{ color: 'var(--color-text-primary)' }}
-            title="Zoom in"
+            title={tr('c_zoom_in')}
           >
             +
           </button>

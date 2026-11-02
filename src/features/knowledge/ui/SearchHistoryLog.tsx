@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, Clock, Hash, Activity, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import apiClient from "../../../lib/api-client";
 
@@ -34,6 +35,7 @@ interface SearchHistoryLogProps {
 }
 
 export default function SearchHistoryLog({ projectId, onRerun, className = '' }: SearchHistoryLogProps) {
+  const { t: tr } = useTranslation('chat');
   const [history, setHistory] = useState<SearchHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(true);
@@ -64,7 +66,7 @@ export default function SearchHistoryLog({ projectId, onRerun, className = '' }:
       if (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError')) {
         return;
       }
-      console.error('Failed to load search history:', error);
+      console.error(tr('sh_load_failed'), error);
     } finally {
       setLoading(false);
     }
@@ -78,7 +80,7 @@ export default function SearchHistoryLog({ projectId, onRerun, className = '' }:
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 1) return 'Just now';
+    if (diffMins < 1) return tr('sh_just_now');
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
@@ -103,7 +105,7 @@ export default function SearchHistoryLog({ projectId, onRerun, className = '' }:
         <div className="flex items-center gap-1.5">
           <Search className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
           <h3 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-            Search History
+            {tr('sh_title')}
           </h3>
           <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
             ({history.length})
@@ -116,7 +118,7 @@ export default function SearchHistoryLog({ projectId, onRerun, className = '' }:
               loadHistory();
             }}
             className="p-0.5 hover:bg-gray-200 dark:hover:bg-white/10 rounded transition-colors"
-            title="Refresh"
+            title={tr('c_refresh')}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} style={{ color: 'var(--color-text-muted)' }} />
           </button>
@@ -134,13 +136,13 @@ export default function SearchHistoryLog({ projectId, onRerun, className = '' }:
           {loading ? (
             <div className="p-4 text-center">
               <RefreshCw className="w-6 h-6 mx-auto mb-2 animate-spin" style={{ color: 'var(--color-primary)' }} />
-              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Loading history...</p>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{tr('sh_loading')}</p>
             </div>
           ) : history.length === 0 ? (
             <div className="p-4 text-center">
               <Search className="w-6 h-6 mx-auto mb-2" style={{ color: 'var(--color-text-muted)', opacity: 0.5 }} />
-              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>No search history yet</p>
-              <p className="text-[10px] mt-1" style={{ color: 'var(--color-text-muted)' }}>Run a search to see metrics here</p>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{tr('sh_empty')}</p>
+              <p className="text-[10px] mt-1" style={{ color: 'var(--color-text-muted)' }}>{tr('sh_empty_hint')}</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-200 dark:divide-border-dark max-h-[500px] overflow-y-auto">
@@ -177,28 +179,28 @@ export default function SearchHistoryLog({ projectId, onRerun, className = '' }:
                   {/* Metrics Grid */}
                   <div className="grid grid-cols-4 gap-1.5">
                     <div className="flex flex-col">
-                      <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>Results</span>
+                      <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>{tr('sh_results')}</span>
                       <span className="text-xs font-semibold flex items-center gap-0.5" style={{ color: 'var(--color-text-primary)' }}>
                         <Hash className="w-2.5 h-2.5" />
                         {item.results_count}
                       </span>
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>Tokens</span>
+                      <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>{tr('sh_tokens')}</span>
                       <span className="text-xs font-semibold flex items-center gap-0.5" style={{ color: 'var(--color-text-primary)' }}>
                         <Activity className="w-2.5 h-2.5" />
                         {item.total_context_tokens}
                       </span>
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>Time</span>
+                      <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>{tr('sh_time')}</span>
                       <span className="text-xs font-semibold flex items-center gap-0.5" style={{ color: 'var(--color-text-primary)' }}>
                         <Clock className="w-2.5 h-2.5" />
                         {item.retrieval_duration_ms.toFixed(0)}ms
                       </span>
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>Similarity</span>
+                      <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>{tr('sh_similarity')}</span>
                       <span className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                         {formatScore(item.avg_similarity)}
                       </span>
