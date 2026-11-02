@@ -34,6 +34,16 @@
 # 4) run book 里写的 13 个 agent id 在这个库里是否都还在
 cd /root/langconfig/backend && .venv/bin/python scripts/verify_runbook_ids.py --ecs
 # 期望 13/13 ok。少一条就说明库被重灌过（id 会重排），学员按 run book 找 agent 会找不到
+
+# 5) 11 个账号逐个真登录一遍（别只看「用户存在」——user1 就是这么挂的）
+PW='<共用密码>'
+for u in admin user1 user2 user3 user4 user5 user6 user7 user8 user9 user10; do
+  printf '%-8s %s\n' "$u" "$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+    http://127.0.0.1:8765/api/auth/login -H 'Content-Type: application/json' \
+    -d "{\"username\":\"$u\",\"password\":\"$PW\"}")"
+done
+# 期望 11 行全 200。有 401 就重置那个账号：
+# .venv/bin/python scripts/create_user.py <用户名> --reset-password '<共用密码>'
 ```
 
 命令行自检（可选，从任何一台机器）：
