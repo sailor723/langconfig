@@ -1514,6 +1514,76 @@ they changed themselves) comes through byte-identical — while a name clash and
 the real working tree at the end, so it cannot pass by having damaged the thing it
 was measuring.
 
+### Pushing a change to a machine that is already installed
+
+Two different things travel on two different paths, and mixing them up is the mistake
+this section exists to prevent:
+
+| What changed | How it gets there |
+|---|---|
+| **Code** — `backend/**`, `src/**`, `scripts/**` | copy the files (`scp`/`rsync`), rebuild `dist/` if the frontend changed |
+| **Data** — agents, tools, skills, models | `scripts/seeds/in/seed_all.py` (§4), which is insert-only |
+| **Built artefacts** — `docs/**/*.pdf`, `docs/**/*.html`, `dist/` | build locally, ship the file; never build them on the server |
+
+The server copy is **not a git repository** (a team install is an unpacked zip), so
+"edit it on the server" is never the answer — the fix happens in the local repo, gets
+committed, and then travels. Command by command:
+
+```bash
+# 1. local: build what is built here, and commit first — the server should always
+#    correspond to a git revision, so the diff you debug later is a real one
+cd <repo>
+npm run build                                                   # only if src/ changed
+backend/.venv/bin/python scripts/build_training_html.py --pdf    # only if docs/ changed
+git status --short && git commit -am "..."
+
+# 2. local: record what you are about to send (macOS `md5 -r`, Linux `md5sum` —
+#    same "hash path" shape, which is why the loop below reads two fields)
+FILES="backend/services/llama_config.py backend/services/context_retrieval.py
+docs/installation/installation.md"
+for f in $FILES; do md5 -r "$f"; done > /tmp/local.md5     # Linux: md5sum "$f"
+
+# 3. send — one file at a time, into its own directory
+while read -r _ f; do
+  scp -i <key.pem> "$f" "root@<host>:/root/langconfig/$(dirname "$f")/"
+done < /tmp/local.md5
+
+# 4. verify: same bytes on both sides, or nothing happened. Paths are compared
+#    relative to the install root, so hash + file name is enough
+ssh -i <key.pem> root@<host> "cd /root/langconfig && md5sum $FILES" > /tmp/remote.md5
+awk '{print $1, $NF}' /tmp/local.md5  | sort > /tmp/l.norm
+awk '{print $1, $NF}' /tmp/remote.md5 | sort > /tmp/r.norm
+diff /tmp/l.norm /tmp/r.norm && echo "identical"
+```
+
+> `rsync -av` is fine too (and cheaper for a whole directory), but it has to exist on
+> both ends — macOS ships an ancient one and a minimal Ubuntu image may have none, so
+> the loop above uses `scp`, which is always there.
+
+
+Then restart and prove it works — a file that arrived is not a change that took effect:
+
+```bash
+ssh -i <key.pem> root@<host> 'systemctl restart langconfig'   # ~40s: uvicorn drains SSE
+# wait for active, then three cheap probes
+curl -s -o /dev/null -w 'ui:%{http_code}\n' http://<host>:8765/
+curl -s -o /dev/null -w 'login:%{http_code}\n' -X POST http://<host>:8765/api/auth/login \
+  -H 'Content-Type: application/json' -d '{"username":"admin","password":"<pw>"}'
+ssh -i <key.pem> root@<host> 'journalctl -u langconfig -n 40 | grep -E "ERROR|Traceback"' # expect nothing new
+```
+
+Three things to know before you press restart:
+
+- **Restart is part of the change, not an optional extra.** Provider initialisation
+  (embeddings, API clients) is cached for the process lifetime — installing Ollama or
+  adding a key does nothing until the process is replaced.
+- **Pick the moment.** A restart waits for open SSE streams to finish; mid-training it
+  reads as an outage for whoever was typing. Check first:
+  `journalctl -u langconfig --since "-60 s" | grep -c "POST /api/chat"` → `0` means clear.
+- **A code change can need a data step too.** If the change touches a built-in tool's
+  row (the sandbox fix, the Tavily fix), the file arriving is not enough:
+  `seed_builtin_tools.py --refresh` rewrites those rows from `tools/native_impl.py`.
+
 ### On a real machine, after an update
 
 `smoke_test.py` only asserts that things are **present** (`> 0`, `>= 25`) — it says
