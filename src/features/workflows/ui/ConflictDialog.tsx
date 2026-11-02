@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AlertTriangle, RefreshCw, X, Code } from 'lucide-react';
 
 /**
@@ -35,6 +36,7 @@ export default function ConflictDialog({
   onResolve,
   onClose
 }: ConflictDialogProps) {
+  const { t: tr } = useTranslation('chat');
   const [showDetails, setShowDetails] = useState(false);
 
   if (!open) return null;
@@ -102,7 +104,7 @@ export default function ConflictDialog({
                 <RefreshCw className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <div className="font-semibold text-gray-900 mb-1">
-                    Reload and Discard My Changes (Recommended)
+                    {tr('cd_reload_discard')}
                   </div>
                   <div className="text-sm text-gray-600">
                     Reload the latest version from the server and discard your local changes.
@@ -119,11 +121,11 @@ export default function ConflictDialog({
                 <AlertTriangle className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <div className="font-semibold text-gray-900 mb-1">
-                    Overwrite Current Version (Force Save)
+                    {tr('cd_overwrite')}
                   </div>
                   <div className="text-sm text-gray-600">
-                    Save your changes and overwrite the current version.
-                    <span className="text-orange-700 font-medium"> This will discard the other user's changes.</span>
+                    {tr('cd_overwrite_hint')}
+                    <span className="text-orange-700 font-medium"> {tr('cd_discard_hint')}</span>
                   </div>
                 </div>
               </button>
@@ -136,7 +138,7 @@ export default function ConflictDialog({
                 <X className="w-5 h-5 text-gray-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <div className="font-semibold text-gray-900 mb-1">
-                    Cancel
+                    {tr('c_cancel')}
                   </div>
                   <div className="text-sm text-gray-600">
                     Close this dialog and keep editing. Your changes remain unsaved.
@@ -153,7 +155,7 @@ export default function ConflictDialog({
               className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
             >
               <Code className="w-4 h-4" />
-              {showDetails ? 'Hide' : 'Show'} Technical Details
+              {showDetails ? tr('pc_hide') : tr('pc_show')} Technical Details
             </button>
 
             {showDetails && (
@@ -161,7 +163,7 @@ export default function ConflictDialog({
                 {/* Your Changes */}
                 <div>
                   <h3 className="font-semibold text-sm text-gray-900 mb-2">
-                    Your Changes (Local)
+                    {tr('cd_local')}
                   </h3>
                   <pre className="bg-gray-100 p-3 rounded text-xs overflow-auto max-h-60">
                     {JSON.stringify(localData, null, 2)}
@@ -171,7 +173,7 @@ export default function ConflictDialog({
                 {/* Current Version */}
                 <div>
                   <h3 className="font-semibold text-sm text-gray-900 mb-2">
-                    Current Version (Remote)
+                    {tr('cd_remote')}
                   </h3>
                   <pre className="bg-blue-100 p-3 rounded text-xs overflow-auto max-h-60">
                     {JSON.stringify(remoteData, null, 2)}
@@ -201,14 +203,14 @@ export default function ConflictDialog({
             onClick={handleCancel}
             className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
           >
-            Cancel
+            {tr('c_cancel')}
           </button>
           <button
             onClick={handleReload}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
           >
             <RefreshCw className="w-4 h-4" />
-            Reload Latest
+            {tr('cd_reload_latest')}
           </button>
         </div>
       </div>

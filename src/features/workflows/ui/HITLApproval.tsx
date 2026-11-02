@@ -16,6 +16,7 @@
  */
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CheckCircle, XCircle, Database, Plus, X, AlertCircle } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 
@@ -45,6 +46,7 @@ export const HITLApproval: React.FC<HITLApprovalProps> = ({
   onReject,
   isOpen,
 }) => {
+  const { t: tr } = useTranslation('chat');
   const [memoryItems, setMemoryItems] = useState<MemoryItem[]>([]);
   const [showMemoryForm, setShowMemoryForm] = useState(false);
   const [newKey, setNewKey] = useState('');
@@ -54,7 +56,7 @@ export const HITLApproval: React.FC<HITLApprovalProps> = ({
 
   const addMemoryItem = () => {
     if (!newKey.trim()) {
-      setError('Key is required');
+      setError(tr('mm_key_required'));
       return;
     }
 
@@ -101,7 +103,7 @@ export const HITLApproval: React.FC<HITLApprovalProps> = ({
       // Call the approval handler
       onApprove(memoryItems);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : tr('mm_unknown_error'));
       setIsSubmitting(false);
     }
   };
@@ -117,7 +119,7 @@ export const HITLApproval: React.FC<HITLApprovalProps> = ({
             <AlertCircle className="w-6 h-6 text-yellow-500" />
             <div>
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                Workflow Paused - Approval Required
+                {tr('ha_paused')}
               </h2>
               {interruptReason && (
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -140,7 +142,7 @@ export const HITLApproval: React.FC<HITLApprovalProps> = ({
           {/* Current State Preview */}
           <div className="mb-6">
             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Current State
+              {tr('ha_current_state')}
             </h3>
             <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
               <pre className="text-xs text-gray-800 dark:text-gray-200 overflow-x-auto whitespace-pre-wrap max-h-40">
@@ -155,7 +157,7 @@ export const HITLApproval: React.FC<HITLApprovalProps> = ({
               <div className="flex items-center gap-2">
                 <Database className="w-4 h-4 text-primary" />
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  Inject Memory (Optional)
+                  {tr('ha_inject_memory')}
                 </h3>
               </div>
               {!showMemoryForm && (
@@ -164,7 +166,7 @@ export const HITLApproval: React.FC<HITLApprovalProps> = ({
                   className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
                 >
                   <Plus className="w-3 h-3" />
-                  Add Item
+                  {tr('ha_add_item')}
                 </button>
               )}
             </div>
@@ -204,13 +206,13 @@ export const HITLApproval: React.FC<HITLApprovalProps> = ({
                     type="text"
                     value={newKey}
                     onChange={(e) => setNewKey(e.target.value)}
-                    placeholder="Key (e.g., instructions, context)"
+                    placeholder={tr('ha_key_ph')}
                     className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                   <textarea
                     value={newValue}
                     onChange={(e) => setNewValue(e.target.value)}
-                    placeholder="Value (text or JSON)"
+                    placeholder={tr('ha_value_ph')}
                     rows={2}
                     className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
@@ -230,7 +232,7 @@ export const HITLApproval: React.FC<HITLApprovalProps> = ({
                       }}
                       className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
                     >
-                      Cancel
+                      {tr('c_cancel')}
                     </button>
                   </div>
                 </div>
@@ -247,7 +249,7 @@ export const HITLApproval: React.FC<HITLApprovalProps> = ({
             className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             <XCircle className="w-4 h-4" />
-            Reject
+            {tr('ha_reject')}
           </button>
           <button
             onClick={handleApprove}

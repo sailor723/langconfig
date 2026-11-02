@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronRight, Code, Eye, EyeOff, Layers } from 'lucide-react';
 import apiClient from '../../../lib/api-client';
 
@@ -39,6 +40,7 @@ const SEGMENT_COLORS: Record<string, { bg: string; border: string; badge: string
 };
 
 export default function PromptCanvas({ model, systemPrompt, customPrompt, customSuffix, onSystemPromptChange, onCustomPromptChange, onCustomSuffixChange }: Props) {
+  const { t: tr } = useTranslation('chat');
   const [promptData, setPromptData] = useState<PromptData | null>(null);
   const [loading, setLoading] = useState(false);
   const [expandedSegments, setExpandedSegments] = useState<Record<string, boolean>>({ USER: true, CUSTOM: !!customPrompt, SUFFIX: !!customSuffix });
@@ -56,7 +58,7 @@ export default function PromptCanvas({ model, systemPrompt, customPrompt, custom
           : data;
       setPromptData(pd);
     } catch (err) {
-      console.error('Failed to load prompt preview:', err);
+      console.error(tr('pc_load_failed'), err);
     } finally {
       setLoading(false);
     }
@@ -74,7 +76,7 @@ export default function PromptCanvas({ model, systemPrompt, customPrompt, custom
     return (
       <div className="border rounded-lg p-6 text-center" style={{ borderColor: 'var(--color-border-dark, #e5e7eb)' }}>
         <div className="animate-spin inline-block w-5 h-5 border-2 border-primary border-t-transparent rounded-full mr-2" />
-        <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Loading prompt assembly...</span>
+        <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>{tr('pc_loading')}</span>
       </div>
     );
   }
@@ -89,7 +91,7 @@ export default function PromptCanvas({ model, systemPrompt, customPrompt, custom
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
           <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-            Prompt Assembly Canvas
+            {tr('pc_assembly_canvas')}
           </span>
           <span className="text-xs px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700" style={{ color: 'var(--color-text-muted)' }}>
             {promptData.segments.length} parts
@@ -101,7 +103,7 @@ export default function PromptCanvas({ model, systemPrompt, customPrompt, custom
           style={{ color: 'var(--color-text-muted)' }}
         >
           {showAssembled ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-          {showAssembled ? 'Hide' : 'Show'} Full
+          {showAssembled ? tr('pc_hide') : tr('pc_show')} Full
         </button>
       </div>
 

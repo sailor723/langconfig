@@ -24,6 +24,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, AlertTriangle, Play, StopCircle } from 'lucide-react';
 
 export interface DiagnosticData {
@@ -82,6 +83,7 @@ export default function RecursionLimitModal({
   agentName = 'Agent',
   diagnostics,
 }: RecursionLimitModalProps) {
+  const { t: tr } = useTranslation('chat');
   const [newLimit, setNewLimit] = useState(currentLimit + 50); // Default to +50 more iterations
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -134,7 +136,7 @@ export default function RecursionLimitModal({
             </div>
             <div>
               <h2 className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                Recursion Limit Reached
+                {tr('rl_reached')}
               </h2>
               <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
                 {agentName} has reached {currentLimit} iterations
@@ -179,7 +181,7 @@ export default function RecursionLimitModal({
             >
               <h3 className="text-sm font-semibold mb-2 flex items-center gap-2" style={{ color: '#ef4444' }}>
                 <AlertTriangle className="w-4 h-4" />
-                Detected Issues
+                {tr('rl_issues')}
               </h3>
               <ul className="space-y-1">
                 {diagnostics.detected_issues.map((issue, i) => (
@@ -202,7 +204,7 @@ export default function RecursionLimitModal({
               }}
             >
               <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                Execution Pattern
+                {tr('rl_pattern')}
               </h3>
               <div
                 className="p-3 rounded font-mono text-xs overflow-x-auto"
@@ -251,7 +253,7 @@ export default function RecursionLimitModal({
               style={{ backgroundColor: 'var(--color-background-dark)' }}
             >
               <div className="text-xs font-medium mb-1" style={{ color: 'var(--color-text-muted)' }}>
-                Iterations Completed
+                {tr('rl_iterations')}
               </div>
               <div className="text-2xl font-bold" style={{ color: 'var(--color-primary)' }}>
                 {iterationCount}
@@ -262,7 +264,7 @@ export default function RecursionLimitModal({
               style={{ backgroundColor: 'var(--color-background-dark)' }}
             >
               <div className="text-xs font-medium mb-1" style={{ color: 'var(--color-text-muted)' }}>
-                Current Limit
+                {tr('rl_current_limit')}
               </div>
               <div className="text-2xl font-bold" style={{ color: 'var(--color-primary)' }}>
                 {currentLimit}
@@ -274,7 +276,7 @@ export default function RecursionLimitModal({
           {currentOutput && (
             <div>
               <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                Output Generated So Far:
+                {tr('rl_output_so_far')}
               </h3>
               <div
                 className="p-4 rounded-lg max-h-64 overflow-y-auto"
@@ -298,7 +300,7 @@ export default function RecursionLimitModal({
           {/* Limit Adjustment */}
           <div>
             <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-              New Iteration Limit:
+              {tr('rl_new_limit')}
             </label>
             <div className="flex items-center gap-4">
               <input
@@ -353,12 +355,12 @@ export default function RecursionLimitModal({
             {isProcessing ? (
               <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>Continuing...</span>
+                <span>{tr('rl_continuing')}</span>
               </>
             ) : (
               <>
                 <Play className="w-4 h-4" />
-                <span>Continue Execution</span>
+                <span>{tr('rl_continue')}</span>
               </>
             )}
           </button>
