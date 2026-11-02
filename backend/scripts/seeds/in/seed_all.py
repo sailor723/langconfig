@@ -387,7 +387,8 @@ def _retire_tools() -> None:
 def step_custom_tools(replace: bool) -> None:
     print("\n[7/10] custom_tools  (restore-if-empty, then additive merge)")
     count = _table_count("custom_tools")
-    if count == 0 or replace:
+    from_dump = count == 0 or replace
+    if from_dump:
         if replace and count:
             _truncate("custom_tools")
         # The merge below runs unconditionally, so --replace still ends at the
@@ -411,6 +412,24 @@ def step_custom_tools(replace: bool) -> None:
     else:
         print("  -> custom_tools_merge.sql missing; regenerate with "
               "scripts/seeds/out/export_tools_merge.py")
+
+    # The dumps freeze each built-in tool's row code as it looked on the machine
+    # that produced them. A fresh install therefore ran whatever implementation
+    # was current *then*: a bug fixed in tools/native_impl.py afterwards never
+    # arrived, because seed_builtin_tools only runs when the table is non-empty
+    # and leaves existing rows alone. Measured cost of that: tavily_search
+    # shipped with the old `TavilySearchResults(api_key=…)` call, which the
+    # installed langchain wrapper ignores — every Tavily search failed with
+    # "Did not find tavily_api_key" on a box with the key in Settings, while the
+    # same agent worked locally. Regenerate the built-ins from source after a
+    # restore: nothing user-authored exists yet, so nothing is overwritten.
+    if from_dump:
+        print("  -> regenerating built-in tool code from tools/native_impl.py (--refresh)")
+        _run_python(["scripts/seeds/in/seed_builtin_tools.py", "--refresh"])
+    else:
+        print("  -> note: built-in tool rows keep their existing code. If a built-in was")
+        print("     fixed in tools/native_impl.py since this DB was seeded, run")
+        print("     scripts/seeds/in/seed_builtin_tools.py --refresh to sync it.")
 
     # read_any_file is a BUILTIN whose definition lives in its own script (it
     # needs trusted code — filesystem, tesseract, the reader graph — so it is

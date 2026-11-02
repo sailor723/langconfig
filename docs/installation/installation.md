@@ -1250,9 +1250,13 @@ to run on somebody's live database, and it is why two expectations are wrong:
 | "I deleted an agent; teammates lose it too" | **No.** Their seed adds nothing new and removes nothing. The deletion reaches **fresh installs only**. An existing install keeps the agent until its owner deletes it there. |
 | "The tool fix ships with the seed" | **No.** An edited tool row is *not* re-inserted, because the row already exists. `seed in` reports nothing and the old code keeps running. |
 
-The second one is the dangerous one, and it bit this project: the per-user filesystem
-sandbox lives inside each builtin tool's `implementation_config.code`, so a machine that
-only ran `seed_all.py` kept tools that could read another account's workspace.
+The second one is the dangerous one, and it bit this project twice: the per-user
+filesystem sandbox lives inside each builtin tool's `implementation_config.code`, so a
+machine that only ran `seed_all.py` kept tools that could read another account's
+workspace. Same shape, second time: `tavily_search` shipped in the dump with its old
+`TavilySearchResults(api_key=…)` call, which the installed langchain wrapper ignores — so
+every Tavily search answered "Did not find tavily_api_key" on a box where the key *was* in
+Settings, while the same agent worked on the machine that had run `--refresh`.
 
 **On every existing machine, after pulling a tool change:**
 
@@ -1260,10 +1264,13 @@ only ran `seed_all.py` kept tools that could read another account's workspace.
 cd backend && .venv/bin/python scripts/seeds/in/seed_builtin_tools.py --refresh
 ```
 
-`--refresh` rewrites the builtin rows from `tools/native_impl.py`; `seed_all.py` does not
-call it, deliberately — a seed must not silently rewrite tools an install may be running.
-Check the result with `--check`'s `tools` line (it goes `FRESH`) and by looking for the
-change in `custom_tools_merge.sql`.
+`--refresh` rewrites the builtin rows from `tools/native_impl.py`. `seed_all.py` runs it
+by itself **only when it just restored the dumps** (empty table, or `--replace`) — nothing
+user-authored exists at that moment, and without it a fresh box starts on whatever code the
+dumps froze. On an install that is already running it still does not touch builtin rows:
+a seed must not silently rewrite a tool somebody may have tuned. Check the result with
+`--check`'s `tools` line (it goes `FRESH`) and by looking for the change in
+`custom_tools_merge.sql`.
 
 The one way to land a target database *exactly* on the seed is `seed_all.py --replace`,
 and it says what it costs before doing it: it truncates `deep_agent_templates` (and the
