@@ -6,6 +6,7 @@
  * PUT to /api/skills/{id}. Editing builtin skills is disabled (system-defined).
  */
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import { Award, Save, Loader, FileText, Tag, Zap } from 'lucide-react';
 import type { Tab } from './useLayout';
@@ -27,6 +28,7 @@ interface SkillPayload {
 
 export default function SkillEditorTab({ tab }: SkillEditorTabProps) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const skill = (tab.data?.skill ?? tab.data ?? {}) as SkillPayload;
   // Track the persisted skill_id locally so a freshly created skill flips
   // from create-mode to update-mode without needing to mutate tab data.
@@ -68,11 +70,11 @@ export default function SkillEditorTab({ tab }: SkillEditorTabProps) {
   const handleSave = useCallback(async () => {
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setSaveMsg({ ok: false, text: 'Name is required' });
+      setSaveMsg({ ok: false, text: tr('se_name_required') });
       return;
     }
     if (isBuiltin) {
-      setSaveMsg({ ok: false, text: 'Builtin skills cannot be edited' });
+      setSaveMsg({ ok: false, text: tr('se_builtin_readonly') });
       return;
     }
 
@@ -93,7 +95,7 @@ export default function SkillEditorTab({ tab }: SkillEditorTabProps) {
       } else {
         await apiClient.updateSkill(skillId as string, payload);
       }
-      setSaveMsg({ ok: true, text: isNew ? 'Skill created' : 'Saved successfully' });
+      setSaveMsg({ ok: true, text: isNew ? tr('se_created') : tr('se_saved') });
       setTimeout(() => setSaveMsg(null), 3000);
     } catch (err: any) {
       const detail = err?.response?.data?.detail ?? err?.message ?? 'unknown error';
@@ -138,14 +140,14 @@ export default function SkillEditorTab({ tab }: SkillEditorTabProps) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Award size={16} style={{ color: t.accent }} />
           <span style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary }}>
-            {isNew ? 'New Skill' : `Edit: ${skill.name}`}
+            {isNew ? tr('se_new') : tr('se_edit', { name: skill.name })}
           </span>
           {isBuiltin && (
             <span style={{
               fontSize: 10, padding: '2px 8px', borderRadius: 4,
               background: '#f59e0b18', color: '#f59e0b', fontWeight: 600,
             }}>
-              Builtin — read only
+              {tr('se_builtin_badge')}
             </span>
           )}
         </div>
@@ -173,16 +175,16 @@ export default function SkillEditorTab({ tab }: SkillEditorTabProps) {
       {/* Editor body — fills the available width, scrolls vertically */}
       <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '24px 24px 32px', width: '100%', boxSizing: 'border-box' }}>
         <div style={{ marginBottom: 14 }}>
-          <div style={labelStyle}>Name *</div>
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. api-rate-limiter" style={inputStyle} />
+          <div style={labelStyle}>{tr('se_name')}</div>
+          <input value={name} onChange={e => setName(e.target.value)} placeholder={tr('se_name_ph')} style={inputStyle} />
         </div>
 
         <div style={{ marginBottom: 14 }}>
-          <div style={labelStyle}>Description</div>
+          <div style={labelStyle}>{tr('ti_description')}</div>
           <textarea
             value={description}
             onChange={e => setDescription(e.target.value)}
-            placeholder="Brief description — the agent matches skills by this."
+            placeholder={tr('se_desc_ph')}
             style={{ ...textareaStyle, minHeight: 56, maxHeight: 120 }}
           />
         </div>
@@ -190,23 +192,23 @@ export default function SkillEditorTab({ tab }: SkillEditorTabProps) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
           <div>
             <div style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Tag size={11} /> Tags
+              <Tag size={11} /> {tr('se_tags')}
             </div>
             <textarea
               value={tags}
               onChange={e => setTags(e.target.value)}
-              placeholder="research, python, api (comma separated)"
+              placeholder={tr('se_tags_ph')}
               style={{ ...textareaStyle, minHeight: 72, maxHeight: 180 }}
             />
           </div>
           <div>
             <div style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Zap size={11} /> Triggers
+              <Zap size={11} /> {tr('se_triggers')}
             </div>
             <textarea
               value={triggers}
               onChange={e => setTriggers(e.target.value)}
-              placeholder="retry failed API calls (comma separated)"
+              placeholder={tr('se_triggers_ph')}
               style={{ ...textareaStyle, minHeight: 72, maxHeight: 180 }}
             />
           </div>
@@ -214,12 +216,12 @@ export default function SkillEditorTab({ tab }: SkillEditorTabProps) {
 
         <div>
           <div style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <FileText size={11} /> Instructions
+            <FileText size={11} /> {tr('se_instructions')}
           </div>
           <textarea
             value={instructions}
             onChange={e => setInstructions(e.target.value)}
-            placeholder={'Detailed step-by-step instructions for the agent...'}
+            placeholder={tr('se_instr_ph')}
             style={textareaStyle}
           />
         </div>

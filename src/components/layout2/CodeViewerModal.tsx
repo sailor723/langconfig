@@ -5,6 +5,7 @@
  * view-and-download UX.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Check, Copy, Download, X } from 'lucide-react';
 import { useLayoutTokens } from './tokens';
 
@@ -16,6 +17,7 @@ interface CodeViewerModalProps {
 
 export default function CodeViewerModal({ filename, code, onClose }: CodeViewerModalProps) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
@@ -82,7 +84,7 @@ export default function CodeViewerModal({ filename, code, onClose }: CodeViewerM
           <div style={{ flex: 1 }} />
           <button
             onClick={copy}
-            title="Copy to clipboard"
+            title={tr('cv_copy_clipboard')}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -101,7 +103,7 @@ export default function CodeViewerModal({ filename, code, onClose }: CodeViewerM
           </button>
           <button
             onClick={download}
-            title="Download code"
+            title={tr('cv_download_code')}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -120,7 +122,7 @@ export default function CodeViewerModal({ filename, code, onClose }: CodeViewerM
           </button>
           <button
             onClick={onClose}
-            title="Close"
+            title={tr('c_close')}
             style={{
               display: 'inline-flex',
               alignItems: 'center',

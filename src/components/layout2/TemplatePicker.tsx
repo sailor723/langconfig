@@ -10,6 +10,7 @@
  * editor opens pre-filled.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Search, FileText } from 'lucide-react';
 import type { Tab } from './useLayout';
 import { useLayoutState } from './useLayout';
@@ -37,6 +38,7 @@ export default function TemplatePicker({ tab }: { tab: Tab }) {
   // instead of a blank screen.
   const activity: PickerActivity = (tab.data?.activity as PickerActivity) ?? 'deepagents';
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const { openTab, closeTab } = useLayoutState();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +55,7 @@ export default function TemplatePicker({ tab }: { tab: Tab }) {
         const list = await loadTemplatesFor(activity);
         if (!cancelled) setTemplates(list);
       } catch (err: any) {
-        if (!cancelled) setError(err?.message ?? 'Failed to load templates');
+        if (!cancelled) setError(err?.message ?? tr('tp_load_failed'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -84,7 +86,7 @@ export default function TemplatePicker({ tab }: { tab: Tab }) {
     if (next) openTab(next);
   };
 
-  const headerTitle = activityHeader(activity);
+  const headerTitle = activityHeader(activity, tr);
   const headerSubtitle = activitySubtitle(activity);
 
   return (
@@ -117,7 +119,7 @@ export default function TemplatePicker({ tab }: { tab: Tab }) {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search templates..."
+              placeholder={tr('tp_search_ph')}
               style={{
                 border: 'none', outline: 'none', background: 'transparent',
                 color: t.textPrimary, fontSize: 12, width: 200,
@@ -133,7 +135,7 @@ export default function TemplatePicker({ tab }: { tab: Tab }) {
               borderRadius: 4, cursor: 'pointer',
               display: 'flex', alignItems: 'center', gap: 4,
             }}
-            title="Open the editor with no template pre-filled"
+            title={tr('tp_blank_hint')}
           >
             <Plus size={12} /> Blank
           </button>
@@ -163,12 +165,12 @@ export default function TemplatePicker({ tab }: { tab: Tab }) {
           }}>
             <FileText size={28} style={{ color: t.textMuted, opacity: 0.4, marginBottom: 8 }} />
             <div style={{ fontSize: 13, fontWeight: 600, color: t.textPrimary }}>
-              {templates.length === 0 ? 'No templates available' : 'No templates match your search'}
+              {templates.length === 0 ? tr('tp_none') : tr('tp_no_match')}
             </div>
             <div style={{ fontSize: 11, color: t.textMuted, marginTop: 6 }}>
               {templates.length === 0
-                ? 'Start from scratch or register more templates.'
-                : 'Try a different search term.'}
+                ? tr('tp_scratch_hint')
+                : tr('tp_try_other')}
             </div>
             <button
               onClick={handleBlank}
@@ -368,12 +370,13 @@ async function loadTemplatesFor(activity: PickerActivity): Promise<Template[]> {
   }
 }
 
-function activityHeader(activity: PickerActivity): string {
+// A plain function cannot use a hook, so the translator is passed in.
+function activityHeader(activity: PickerActivity, tr: (k: string) => string): string {
   switch (activity) {
-    case 'deepagents': return 'Quick build a DeepAgent';
-    case 'agents':     return 'Quick build an Agent';
-    case 'skills':     return 'Quick build a Skill';
-    case 'prompt':     return 'Quick build a Prompt';
+    case 'deepagents': return tr('tp_qa_deepagents');
+    case 'agents':     return tr('tp_qa_agents');
+    case 'skills':     return tr('tp_qa_skills');
+    case 'prompt':     return tr('tp_qa_prompt');
   }
 }
 function activitySubtitle(activity: PickerActivity): string {

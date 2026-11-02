@@ -11,6 +11,7 @@
  * - Save → marks tab as dirty
  */
 import { useCallback, useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import ReactFlow, {
   Node,
   Edge,
@@ -35,6 +36,7 @@ interface Props {
 // Simple custom node — displays label and an editable name input
 function EditorNode({ data, selected, id }: any) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   return (
     <div
       style={{
@@ -53,7 +55,7 @@ function EditorNode({ data, selected, id }: any) {
       <input
         type="text"
         value={data.name ?? ''}
-        placeholder="Node name..."
+        placeholder={tr('we_node_name_ph')}
         onChange={e => data.onChangeName?.(id, e.target.value)}
         style={{
           width: '100%',
@@ -74,6 +76,7 @@ const nodeTypes = { editor: EditorNode };
 
 export default function WorkflowEditor({ tab }: Props) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   const initialNodes: Node[] = [];
@@ -128,21 +131,21 @@ export default function WorkflowEditor({ tab }: Props) {
       }}>
         <span style={{ fontSize: 13, fontWeight: 600, marginRight: 8 }}>{tab.label}</span>
 
-        <ToolbarButton onClick={() => handleAddNode('agent')} t={t} title="Add agent node">
+        <ToolbarButton onClick={() => handleAddNode('agent')} t={t} title={tr('we_add_agent')}>
           <Plus size={14} /> Agent
         </ToolbarButton>
-        <ToolbarButton onClick={() => handleAddNode('tool')} t={t} title="Add tool node">
+        <ToolbarButton onClick={() => handleAddNode('tool')} t={t} title={tr('we_add_tool')}>
           <Plus size={14} /> Tool
         </ToolbarButton>
 
         <div style={{ flex: 1 }} />
 
         {selectedNodeId && (
-          <ToolbarButton onClick={handleDelete} t={t} title="Delete selected node" danger>
+          <ToolbarButton onClick={handleDelete} t={t} title={tr('we_delete_node')} danger>
             <Trash2 size={14} /> Delete
           </ToolbarButton>
         )}
-        <ToolbarButton onClick={() => alert('Save (placeholder) — wired into backend in next step')} t={t} title="Save workflow">
+        <ToolbarButton onClick={() => alert(tr('we_save_stub'))} t={t} title={tr('we_save_wf')}>
           <Save size={14} /> Save
         </ToolbarButton>
       </div>

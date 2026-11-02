@@ -5,6 +5,7 @@
  * Follows the same VS Code-style pattern as ModelCardsGridTab.
  */
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import apiClient from '../../lib/api-client';
 import type { Tab } from './useLayout';
@@ -29,16 +30,22 @@ interface SearchProviderInfo {
 
 interface Props { tab: Tab }
 
-const CATEGORY_LABEL: Record<string, string> = {
-  web: 'Web Search',
-  encyclopedia: 'Encyclopedia',
-  semantic: 'Semantic Search',
-  news: 'News',
-  academic: 'Academic',
+// A map cannot call the translator (no hooks at module level), so the labels are a
+// function of one: `categoryLabel(cat, tr)`.
+const categoryLabel = (key: string, tr: (k: string) => string): string => {
+  switch (key) {
+    case 'web': return tr('sd_web');
+    case 'encyclopedia': return tr('sd_encyclopedia');
+    case 'semantic': return tr('sd_semantic');
+    case 'news': return 'News';
+    case 'academic': return tr('sd_academic');
+    default: return key;
+  }
 };
 
 export default function SearchProviderDetailTab({ tab }: Props) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const { providerId } = tab.data ?? {};
 
   const [provider, setProvider] = useState<SearchProviderInfo | null>(null);
@@ -72,7 +79,7 @@ export default function SearchProviderDetailTab({ tab }: Props) {
         masked_key: fromList?.masked_key ?? detail.masked_key ?? null,
       });
     } catch (err: any) {
-      setError(err?.response?.data?.detail ?? err?.message ?? 'Failed to load provider');
+      setError(err?.response?.data?.detail ?? err?.message ?? tr('sd_load_failed'));
     } finally {
       setLoading(false);
     }
@@ -95,7 +102,7 @@ export default function SearchProviderDetailTab({ tab }: Props) {
       showToast('success', 'API key saved ✓');
       await loadProvider();
     } catch (err: any) {
-      showToast('error', err?.response?.data?.detail || 'Failed to save key');
+      showToast('error', err?.response?.data?.detail || tr('sd_save_failed'));
     } finally {
       setSaving(false);
     }
@@ -108,7 +115,7 @@ export default function SearchProviderDetailTab({ tab }: Props) {
       showToast('success', 'API key removed');
       await loadProvider();
     } catch (err: any) {
-      showToast('error', err?.response?.data?.detail || 'Failed to remove key');
+      showToast('error', err?.response?.data?.detail || tr('sd_remove_failed'));
     }
   };
 
@@ -118,9 +125,9 @@ export default function SearchProviderDetailTab({ tab }: Props) {
     try {
       const res = await apiClient.testSearchProvider(provider.id);
       const data = res.data;
-      showToast(data?.success ? 'success' : 'error', data?.message || 'Test completed');
+      showToast(data?.success ? 'success' : 'error', data?.message || tr('sd_test_done'));
     } catch (err: any) {
-      showToast('error', err?.response?.data?.detail || 'Test failed');
+      showToast('error', err?.response?.data?.detail || tr('sd_test_failed'));
     } finally {
       setTesting(false);
     }
@@ -136,7 +143,7 @@ export default function SearchProviderDetailTab({ tab }: Props) {
   if (error || !provider) {
     return (
       <div style={{ padding: 24, color: '#ef5350', fontSize: 13 }}>
-        {error || 'Provider not found'}
+        {error || tr('sd_not_found')}
         <button
           onClick={loadProvider}
           style={{
@@ -150,7 +157,7 @@ export default function SearchProviderDetailTab({ tab }: Props) {
     );
   }
 
-  const catLabel = CATEGORY_LABEL[provider.category] ?? provider.category;
+  const catLabel = categoryLabel(provider.category, tr);
 
   return (
     <div style={{
@@ -199,7 +206,7 @@ export default function SearchProviderDetailTab({ tab }: Props) {
             fontWeight: 600, whiteSpace: 'nowrap',
           }}>
             {provider.has_key
-              ? `✓ ${provider.masked_key || 'Key set'}`
+              ? `✓ ${provider.masked_key || tr('sd_key_set')}`
               : '⊕ No API key'}
           </span>
         ) : (
@@ -219,7 +226,7 @@ export default function SearchProviderDetailTab({ tab }: Props) {
       </p>
 
       {/* ── Capabilities ─────────────────────────────────── */}
-      <Section title="Capabilities" t_muted={t.textMuted}>
+      <Section title={tr('sd_capabilities')} t_muted={t.textMuted}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {provider.capabilities.map((cap: string) => (
             <span key={cap} style={{
@@ -241,7 +248,7 @@ export default function SearchProviderDetailTab({ tab }: Props) {
 
       {/* ── Pricing ─────────────────────────────────────── */}
       {provider.pricing && Object.keys(provider.pricing).length > 0 && (
-        <Section title="Pricing" t_muted={t.textMuted}>
+        <Section title={tr('sd_pricing')} t_muted={t.textMuted}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {Object.entries(provider.pricing).map(([k, v]) => (
               <div key={k} style={{ fontSize: 12, color: t.textPrimary }}>
@@ -257,7 +264,7 @@ export default function SearchProviderDetailTab({ tab }: Props) {
 
       {/* ── API Key Management ─────────────────────────── */}
       {provider.requires_api_key && (
-        <Section title="API Key" t_muted={t.textMuted}>
+        <Section title={tr('sd_api_key')} t_muted={t.textMuted}>
           {provider.key_url && (
             <p style={{ fontSize: 11, color: t.textMuted, margin: '0 0 10px' }}>
               Get an API key at{' '}
@@ -297,7 +304,7 @@ export default function SearchProviderDetailTab({ tab }: Props) {
                   borderRadius: 4, cursor: saving ? 'wait' : 'pointer',
                   opacity: saving ? 0.6 : 1,
                 }}>
-                {saving ? 'Saving...' : 'Save'}
+                {saving ? tr('sd_saving') : tr('c_save')}
               </button>
               <button onClick={() => { setEditingKey(false); setKeyInput(''); }}
                 style={{ fontSize: 11, color: t.textMuted, background: 'transparent', border: 'none', cursor: 'pointer' }}>
@@ -314,7 +321,7 @@ export default function SearchProviderDetailTab({ tab }: Props) {
                   color: provider.has_key ? '#f59e0b' : '#93c5fd',
                   borderRadius: 4, cursor: 'pointer',
                 }}>
-                {provider.has_key ? 'Update Key' : 'Set Key'}
+                {provider.has_key ? tr('sd_update_key') : tr('sd_set_key')}
               </button>
               {provider.has_key && (
                 <button onClick={handleDeleteKey}
@@ -333,7 +340,7 @@ export default function SearchProviderDetailTab({ tab }: Props) {
       )}
 
       {/* ── Actions ─────────────────────────────────────── */}
-      <Section title="Actions" t_muted={t.textMuted}>
+      <Section title={tr('sd_actions')} t_muted={t.textMuted}>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={handleTest} disabled={testing}
             style={{
@@ -343,7 +350,7 @@ export default function SearchProviderDetailTab({ tab }: Props) {
               cursor: testing ? 'wait' : 'pointer',
               opacity: testing ? 0.6 : 1,
             }}>
-            {testing ? 'Testing...' : 'Test Connection'}
+            {testing ? tr('sd_testing') : tr('sd_test_conn')}
           </button>
           {provider.docs_url && (
             <a href={provider.docs_url} target="_blank" rel="noopener noreferrer"

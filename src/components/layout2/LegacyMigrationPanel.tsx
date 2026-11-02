@@ -24,6 +24,7 @@
  * reloads and across browsers, not just for this session.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import apiClient from '../../lib/api-client';
 import { Loader, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
 
@@ -76,6 +77,7 @@ function equivalenceKey(name: string): string {
 }
 
 export default function LegacyMigrationPanel({ onMigrated, existingBases, t }: Props) {
+  const { t: tr } = useTranslation('chat');
   const [projects, setProjects] = useState<LegacyProject[]>([]);
   const [names, setNames] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<Record<string, boolean>>({});
@@ -172,7 +174,7 @@ export default function LegacyMigrationPanel({ onMigrated, existingBases, t }: P
     } catch (err: any) {
       setResults([{
         project: '', folder: '', knowledge: '', ok: false,
-        error: err?.response?.data?.detail || err?.message || 'Migration failed',
+        error: err?.response?.data?.detail || err?.message || tr('lm_failed'),
       }]);
     } finally {
       setRunning(false);
@@ -196,7 +198,7 @@ export default function LegacyMigrationPanel({ onMigrated, existingBases, t }: P
             type="button"
             onClick={() => load(appliedPath.trim() || undefined)}
             disabled={loading}
-            title="Scan the old layout again"
+            title={tr('lm_rescan')}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 28, height: 28, border: 'none', borderRadius: 8,
@@ -223,7 +225,7 @@ export default function LegacyMigrationPanel({ onMigrated, existingBases, t }: P
         <div style={{ display: 'flex', gap: 8 }}>
           <input
             value={scanPath}
-            placeholder="Leave empty for the old per-project layout — or name any folder"
+            placeholder={tr('lm_path_ph')}
             onChange={(e) => setScanPath(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedPath(scanPath); load(scanPath.trim() || undefined); } }}
             style={{
@@ -243,7 +245,7 @@ export default function LegacyMigrationPanel({ onMigrated, existingBases, t }: P
               background: loading ? t.bg : t.primary,
               color: loading ? t.textMuted : '#fff',
             }}
-          >Scan</button>
+          >{tr('lm_scan')}</button>
         </div>
         <div style={{ marginTop: 4, fontSize: 11, color: t.textMuted }}>
           {appliedPath
@@ -342,7 +344,7 @@ export default function LegacyMigrationPanel({ onMigrated, existingBases, t }: P
                     </div>
                     <input
                       value={name}
-                      placeholder="knowledge base name"
+                      placeholder={tr('lm_kb_name_ph')}
                       disabled={done}
                       onChange={(e) => setNames((n) => ({ ...n, [key]: e.target.value }))}
                       style={{
@@ -396,8 +398,8 @@ export default function LegacyMigrationPanel({ onMigrated, existingBases, t }: P
           onClick={handleRun}
           disabled={running || chosen.length === 0}
           title={allDone
-            ? 'Every folder has been migrated'
-            : chosen.length === 0 ? 'Select at least one folder' : undefined}
+            ? tr('lm_all_migrated')
+            : chosen.length === 0 ? tr('lm_select_one') : undefined}
           style={{
             padding: '7px 16px', borderRadius: 10, fontSize: 13, fontFamily: 'inherit',
             border: 'none',
@@ -407,12 +409,12 @@ export default function LegacyMigrationPanel({ onMigrated, existingBases, t }: P
           }}
         >
           {running
-            ? 'Migrating…'
+            ? tr('lm_migrating')
             : allDone
-              ? 'Migration complete'
+              ? tr('lm_done')
               : chosen.length === 0
-                ? 'Nothing selected'
-                : `Migrate ${chosen.length} folder${chosen.length === 1 ? '' : 's'}`}
+                ? tr('lm_nothing_selected')
+                : tr('lm_migrate_n', { count: chosen.length })}
         </button>
       </div>
     </div>

@@ -9,6 +9,7 @@
  * Finish  → marks setup complete → the app loads normally.
  */
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import apiClient from '../../lib/api-client';
 import {
@@ -53,6 +54,7 @@ const PROVIDER_LABEL: Record<string, string> = {
 
 export default function SetupWizard({ onComplete }: SetupWizardProps) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
 
   const [step, setStep] = useState<1 | 2>(1);
 
@@ -151,7 +153,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
       if (d.valid) {
         setWsValidate({ ok: true, msg: `✓ Valid — ${d.resolved_path}` });
       } else {
-        setWsValidate({ ok: false, msg: `✗ ${d.error || 'Invalid path'}` });
+        setWsValidate({ ok: false, msg: `✗ ${d.error || tr('sw_invalid_path')}` });
       }
     } catch {
       setWsValidate({ ok: false, msg: '✗ Validation failed' });
@@ -211,12 +213,12 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
             <Sparkles size={28} color="#fff" />
           </div>
           <h1 style={{ fontSize: 26, fontWeight: 750, color: t.textPrimary, margin: 0, letterSpacing: '-0.4px' }}>
-            Welcome to LangConfig
+            {tr('sw_welcome')}
           </h1>
           <p style={{ fontSize: 13, color: t.textMuted, margin: '8px 0 0 0' }}>
             {step === 1
-              ? 'Step 1 of 2 — connect your AI provider to get started'
-              : 'Step 2 of 2 — choose where your work lives'}
+              ? tr('sw_step1')
+              : tr('sw_step2')}
           </p>
         </div>
 
@@ -250,8 +252,8 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
                   <KeyRound size={15} color={t.accent} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 15, fontWeight: 650, color: t.textPrimary }}>API key</div>
-                  <div style={{ fontSize: 11, color: t.textMuted }}>Stored encrypted — you can change it later in Settings</div>
+                  <div style={{ fontSize: 15, fontWeight: 650, color: t.textPrimary }}>{tr('sw_api_key')}</div>
+                  <div style={{ fontSize: 11, color: t.textMuted }}>{tr('sw_api_key_hint')}</div>
                 </div>
               </div>
 
@@ -297,7 +299,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
                         type={showKey ? 'text' : 'password'}
                         value={apiKey}
                         onChange={e => { setApiKey(e.target.value); setKeySaved(false); setTestResult(null); }}
-                        placeholder={selectedInfo?.is_set ? 'Paste a new key to replace, or leave empty' : `sk-…  (${PROVIDER_LABEL[selected] || selected})`}
+                        placeholder={selectedInfo?.is_set ? tr('sw_key_replace_ph') : `sk-…  (${PROVIDER_LABEL[selected] || selected})`}
                         style={inputStyle}
                         autoFocus
                       />
@@ -361,7 +363,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
                     background: t.accent, color: '#fff', fontSize: 13, fontWeight: 650, cursor: 'pointer',
                   }}
                 >
-                  Continue <ArrowRight size={14} />
+                  {tr('sw_continue')} <ArrowRight size={14} />
                 </button>
               </div>
             </div>
@@ -372,7 +374,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
                   <FolderOpen size={15} color={t.accent} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 15, fontWeight: 650, color: t.textPrimary }}>Workspace</div>
+                  <div style={{ fontSize: 15, fontWeight: 650, color: t.textPrimary }}>{tr('sw_workspace')}</div>
                   <div style={{ fontSize: 11, color: t.textMuted }}>
                     Where your projects, agents, uploads (upload) and generated files live
                   </div>
@@ -390,7 +392,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <FolderPlus size={15} color={wsMode === 'default' ? t.accent : t.textMuted} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: t.textPrimary }}>Use the default workspace</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: t.textPrimary }}>{tr('sw_use_default_ws')}</span>
                 </div>
                 <div style={{ fontSize: 11, color: t.textMuted, marginTop: 4, fontFamily: 'monospace' }}>
                   {defaultWs || 'backend/outputs'}
@@ -408,7 +410,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <FolderOpen size={15} color={wsMode === 'custom' ? t.accent : t.textMuted} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: t.textPrimary }}>Choose a custom folder</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: t.textPrimary }}>{tr('sw_custom_ws')}</span>
                 </div>
               </button>
 
@@ -418,7 +420,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
                     <input
                       value={customPath}
                       onChange={e => { setCustomPath(e.target.value); setWsValidate(null); }}
-                      placeholder="/Users/you/Documents/my-workspace"
+                      placeholder={tr('sw_ws_ph')}
                       style={{ ...inputStyle, fontFamily: 'monospace' }}
                     />
                     <button
@@ -430,7 +432,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
                         opacity: customPath.trim() ? 1 : 0.5,
                       }}
                     >
-                      {validating ? <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> : 'Validate'}
+                      {validating ? <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> : tr('sw_validate')}
                     </button>
                   </div>
                   {wsValidate && (

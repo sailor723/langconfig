@@ -6,6 +6,7 @@
  * that all consume LayoutTokens consistently.
  */
 import type { ReactNode, CSSProperties } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { LayoutTokens } from './tokens';
 
 // ── Props shared across all primitives ────────────────────
@@ -27,6 +28,7 @@ interface IconButtonProps extends BaseProps {
 }
 
 export function IconButton({ onClick, title, children, style, t, large = false }: IconButtonProps) {
+  const { t: tr } = useTranslation('chat');
   const size = large ? 36 : 26;
   return (
     <button
@@ -180,6 +182,7 @@ interface PanelHeaderProps {
 }
 
 export function PanelHeader({ title, onClose, t, children }: PanelHeaderProps) {
+  const { t: tr } = useTranslation('chat');
   return (
     <div
       style={{
@@ -197,7 +200,7 @@ export function PanelHeader({ title, onClose, t, children }: PanelHeaderProps) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
         {children}
         {onClose && (
-          <IconButton onClick={onClose} title="Close" t={t}>
+          <IconButton onClick={onClose} title={tr('c_close')} t={t}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />

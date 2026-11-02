@@ -5,6 +5,7 @@
  * Changes persist in contentStore so reopen retains content.
  */
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState, type Tab } from './useLayout';
 import { ToolbarButton } from './ui-system';
@@ -17,6 +18,7 @@ interface Props {
 
 export default function FileEditor({ tab }: Props) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const { setTabDirty } = useLayoutState();
   const [content, setContentState] = useState(() => getContent(tab.id) ?? tab.data?.content ?? '');
   const [originalContent] = useState(() => getContent(tab.id) ?? tab.data?.content ?? '');
@@ -52,7 +54,7 @@ export default function FileEditor({ tab }: Props) {
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
     } catch (err: any) {
-      setSaveError(err?.message ?? 'Save failed');
+      setSaveError(err?.message ?? tr('fe_save_failed'));
     }
   }, [content, tab.id, tab.data, setTabDirty]);
 
@@ -79,7 +81,7 @@ export default function FileEditor({ tab }: Props) {
           {isDirty && <span style={{ color: t.accent, marginLeft: 6 }}>●</span>}
         </span>
 
-        <ToolbarButton onClick={handleCopy} title="Copy content" t={t}>
+        <ToolbarButton onClick={handleCopy} title={tr('fe_copy_content')} t={t}>
           <Copy size={14} /> Copy
         </ToolbarButton>
 
@@ -89,7 +91,7 @@ export default function FileEditor({ tab }: Props) {
 
         <ToolbarButton
           onClick={handleSave}
-          title="Save"
+          title={tr('c_save')}
           t={t}
           style={{
             color: saved ? '#22c55e' : (isDirty ? t.accent : t.textMuted),
@@ -106,7 +108,7 @@ export default function FileEditor({ tab }: Props) {
           ref={textareaRef}
           value={content}
           onChange={handleChange}
-          placeholder="Start typing..."
+          placeholder={tr('fe_type_ph')}
           spellCheck={false}
           style={{
             flex: 1,

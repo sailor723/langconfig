@@ -5,6 +5,7 @@
  * results grouped by file. Clicking a result navigates to that file.
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState, type Tab, type ActivityId } from './useLayout';
 import { Search, X, ArrowRight, ChevronRight, ChevronDown, File, Loader } from 'lucide-react';
@@ -31,6 +32,7 @@ interface SearchPanelProps {
 
 export default function SearchPanel({ onClose }: SearchPanelProps) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const { openTab } = useLayoutState();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
@@ -153,7 +155,7 @@ export default function SearchPanel({ onClose }: SearchPanelProps) {
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
-            placeholder="Search across files..."
+            placeholder={tr('sp_search_files_ph')}
             spellCheck={false}
             style={{
               width: '100%',
@@ -182,7 +184,7 @@ export default function SearchPanel({ onClose }: SearchPanelProps) {
             <input
               value={replaceText}
               onChange={e => setReplaceText(e.target.value)}
-              placeholder="Replace with..."
+              placeholder={tr('sp_replace_ph')}
               spellCheck={false}
               style={{
                 flex: 1,

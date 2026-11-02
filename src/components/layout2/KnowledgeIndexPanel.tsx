@@ -15,6 +15,7 @@
  * behind would strand it, and the next scan would see a catalog with no folder.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import apiClient from '../../lib/api-client';
 import type { SettingsPanelTokens } from './settingsPanelTokens';
 import { ScanSearch, Loader, CheckCircle, AlertTriangle } from 'lucide-react';
@@ -34,6 +35,7 @@ interface Props {
 }
 
 export default function KnowledgeIndexPanel({ onIndexed, t }: Props) {
+  const { t: tr } = useTranslation('chat');
   const [running, setRunning] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -58,7 +60,7 @@ export default function KnowledgeIndexPanel({ onIndexed, t }: Props) {
       onIndexed();
     } catch (err: any) {
       setFailed(true);
-      setMessage(`Failed: ${err?.response?.data?.detail || err?.message || 'Indexing failed'}`);
+      setMessage(`Failed: ${err?.response?.data?.detail || err?.message || tr('ki_indexing_failed')}`);
     } finally {
       setRunning(false);
     }
@@ -104,7 +106,7 @@ export default function KnowledgeIndexPanel({ onIndexed, t }: Props) {
           {running
             ? <Loader size={13} className="animate-spin" />
             : <ScanSearch size={13} />}
-          {running ? 'Scanning…' : 'Scan and index'}
+          {running ? tr('ki_scanning') : tr('ki_scan_index')}
         </button>
       </div>
 
