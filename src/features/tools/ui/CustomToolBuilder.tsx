@@ -587,8 +587,8 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                   color: 'var(--color-text-primary)'
                 }}
               >
-                <option value="slack">Slack</option>
-                <option value="discord">Discord</option>
+                <option value="slack">{t('ctb_slack')}</option>
+                <option value="discord">{t('ctb_discord')}</option>
               </select>
             </div>
 
@@ -600,7 +600,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                 type="text"
                 value={implementationConfig.webhook_url || ''}
                 onChange={(e) => setImplementationConfig({ ...implementationConfig, webhook_url: e.target.value })}
-                placeholder="https://hooks.slack.com/services/..."
+                placeholder={t('ctb_slack_ph')}
                 className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
                 style={{
                   backgroundColor: 'var(--color-input-background)',
@@ -611,7 +611,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                 onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-dark)'}
               />
               <div className="mt-2 p-3 rounded-lg text-sm" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.3)', color: 'var(--color-text-primary)' }}>
-                <strong>How to get webhook URL:</strong><br />
+                <strong>{t('ctb_how_to_webhook')}</strong><br />
                 {implementationConfig.provider === 'slack'
                   ? '1. Go to https://api.slack.com/messaging/webhooks\n2. Create Incoming Webhook\n3. Copy the URL'
                   : '1. Go to Server Settings → Integrations → Webhooks\n2. Create New Webhook\n3. Copy the URL'}
@@ -621,13 +621,13 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
             {implementationConfig.provider === 'slack' && (
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                  Default Channel
+                  {t('ctb_default_channel')}
                 </label>
                 <input
                   type="text"
                   value={implementationConfig.channel || '#general'}
                   onChange={(e) => setImplementationConfig({ ...implementationConfig, channel: e.target.value })}
-                  placeholder="#general"
+                  placeholder={t('ctb_channel_ph')}
                   className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
                   style={{
                     backgroundColor: 'var(--color-input-background)',
@@ -642,7 +642,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
 
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                Message Template
+                {t('ctb_message_template')}
               </label>
               <textarea
                 value={implementationConfig.message_template || '{message}'}
@@ -678,7 +678,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                 }}>
                   <div className="flex items-start justify-between mb-2">
                     <p className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                      Twitter API Setup Required
+                      {t('ctb_twitter_setup')}
                     </p>
                     <button
                       onClick={() => setShowInfoPanel(true)}
@@ -689,20 +689,20 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                       }}
                     >
                       <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>info</span>
-                      View Rate Limits
+                      {t('ctb_view_rate_limits')}
                     </button>
                   </div>
                   <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
                     Get your API credentials from the Twitter Developer Portal:
                   </p>
                   <ol className="text-xs space-y-1 mb-3" style={{ color: 'var(--color-text-muted)', paddingLeft: '1.5rem' }}>
-                    <li>Go to <a href="https://developer.twitter.com/en/portal/dashboard" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'var(--color-primary)' }}>Twitter Developer Portal</a></li>
-                    <li>Create a new App (or use existing)</li>
+                    <li>Go to <a href="https://developer.twitter.com/en/portal/dashboard" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'var(--color-primary)' }}>{t('ctb_twitter_portal')}</a></li>
+                    <li>{t('ctb_create_app')}</li>
                     <li>Navigate to "Keys and tokens" section</li>
-                    <li>Generate and copy your API credentials below</li>
+                    <li>{t('ctb_copy_credentials')}</li>
                   </ol>
                   <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    <strong>Free tier limits:</strong> 1,500 tweets/month (post), 500,000 tweets/month (read)
+                    <strong>{t('ctb_free_tier')}</strong> 1,500 tweets/month (post), 500,000 tweets/month (read)
                   </p>
                 </div>
 
@@ -714,7 +714,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                     type="password"
                     value={implementationConfig.api_key || ''}
                     onChange={(e) => setImplementationConfig({ ...implementationConfig, api_key: e.target.value })}
-                    placeholder="Your Twitter API Key"
+                    placeholder={t('ctb_twitter_key_ph')}
                     className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
                     style={{
                       backgroundColor: 'var(--color-input-background)',
@@ -737,7 +737,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                     type="password"
                     value={implementationConfig.api_secret || ''}
                     onChange={(e) => setImplementationConfig({ ...implementationConfig, api_secret: e.target.value })}
-                    placeholder="Your Twitter API Secret"
+                    placeholder={t('ctb_twitter_secret_ph')}
                     className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
                     style={{
                       backgroundColor: 'var(--color-input-background)',
@@ -760,7 +760,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                     type="password"
                     value={implementationConfig.access_token || ''}
                     onChange={(e) => setImplementationConfig({ ...implementationConfig, access_token: e.target.value })}
-                    placeholder="Your Twitter Access Token"
+                    placeholder={t('ctb_twitter_token_ph')}
                     className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
                     style={{
                       backgroundColor: 'var(--color-input-background)',
@@ -783,7 +783,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                     type="password"
                     value={implementationConfig.access_token_secret || ''}
                     onChange={(e) => setImplementationConfig({ ...implementationConfig, access_token_secret: e.target.value })}
-                    placeholder="Your Twitter Access Token Secret"
+                    placeholder={t('ctb_twitter_token_secret_ph')}
                     className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
                     style={{
                       backgroundColor: 'var(--color-input-background)',
@@ -800,13 +800,13 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
 
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                    Bearer Token (Optional - for read-only)
+                    {t('ctb_bearer_optional')}
                   </label>
                   <input
                     type="password"
                     value={implementationConfig.bearer_token || ''}
                     onChange={(e) => setImplementationConfig({ ...implementationConfig, bearer_token: e.target.value })}
-                    placeholder="Bearer Token (alternative to OAuth)"
+                    placeholder={t('ctb_bearer_ph')}
                     className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
                     style={{
                       backgroundColor: 'var(--color-input-background)',
@@ -863,7 +863,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                     type="text"
                     value={implementationConfig.url || ''}
                     onChange={(e) => setImplementationConfig({ ...implementationConfig, url: e.target.value })}
-                    placeholder="https://api.example.com/{endpoint}"
+                    placeholder={t('ctb_url_ph')}
                     className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
                     style={{
                       backgroundColor: 'var(--color-input-background)',
@@ -880,7 +880,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
 
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                    Timeout (seconds)
+                    {t('ctb_timeout_seconds')}
                   </label>
                   <input
                     type="number"
@@ -950,7 +950,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                   <>
                     <option value="gpt-image-1.5">GPT-Image-1.5 (Image)</option>
                     <option value="dall-e-3">DALL-E 3 (Image)</option>
-                    <option value="sora">Sora (Video)</option>
+                    <option value="sora">{t('ctb_sora')}</option>
                   </>
                 ) : (
                   <>
@@ -992,7 +992,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                   setImplementationConfig({ ...implementationConfig, function_name: e.target.value });
                   setVerifyResult(null); // Clear verification when code changes
                 }}
-                placeholder="my_function"
+                placeholder={t('ctb_fn_ph')}
                 className="w-full px-4 py-2 rounded-lg border text-sm font-mono"
                 style={{
                   backgroundColor: 'var(--color-input-background)',
@@ -1001,7 +1001,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                 }}
               />
               <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                The Python function name the agent will call
+                {t('ctb_function_name_hint')}
               </p>
             </div>
 
@@ -1022,12 +1022,12 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
-                  Generate with AI
+                  {t('ctb_generate_ai')}
                 </button>
               ) : (
                 <div className="space-y-2">
                   <label className="block text-xs font-medium" style={{ color: 'rgb(139, 92, 246)' }}>
-                    Describe what the tool should do
+                    {t('ctb_describe_tool')}
                   </label>
                   <textarea
                     value={aiPrompt}
@@ -1054,7 +1054,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                       {generating ? (
                         <>
                           <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent" />
-                          Generating...
+                          {t('ctb_generating')}
                         </>
                       ) : (
                         'Generate'
@@ -1101,7 +1101,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
-                        Copied
+                        {t('ctb_copied')}
                       </>
                     ) : (
                       <>
@@ -1125,14 +1125,14 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                     {verifying ? (
                       <>
                         <div className="animate-spin rounded-full h-3 w-3 border-2 border-current border-t-transparent" />
-                        Verifying...
+                        {t('ctb_verifying')}
                       </>
                     ) : (
                       <>
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        Verify Code
+                        {t('ctb_verify_code')}
                       </>
                     )}
                   </button>
@@ -1201,7 +1201,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span className="font-medium">Code is valid</span>
+                    <span className="font-medium">{t('ctb_code_valid')}</span>
                   </div>
                 )}
 
@@ -1212,7 +1212,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <span className="font-medium">Code has errors</span>
+                      <span className="font-medium">{t('ctb_code_errors')}</span>
                     </div>
                     <ul className="space-y-1">
                       {verifyResult.errors.map((err, idx) => (
@@ -1233,7 +1233,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                 {/* Warnings */}
                 {verifyResult.warnings && verifyResult.warnings.length > 0 && (
                   <div className="mt-2">
-                    <p className="text-xs font-medium mb-1" style={{ color: 'rgb(234, 179, 8)' }}>Warnings</p>
+                    <p className="text-xs font-medium mb-1" style={{ color: 'rgb(234, 179, 8)' }}>{t('ctb_warnings')}</p>
                     <ul className="space-y-0.5">
                       {verifyResult.warnings.map((w, idx) => (
                         <li key={idx} className="text-xs" style={{ color: 'var(--color-text-muted)' }}>⚠ {w}</li>
@@ -1256,7 +1256,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
-                    Show AI Suggested Fix
+                    {t('ctb_show_ai_fix')}
                   </button>
                 )}
 
@@ -1268,7 +1268,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                   }}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-semibold" style={{ color: 'rgb(139, 92, 246)' }}>
-                        AI Suggested Fix
+                        {t('ctb_ai_fix')}
                       </span>
                       <div className="flex gap-2">
                         <button
@@ -1279,7 +1279,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                             color: 'white',
                           }}
                         >
-                          Apply Fix
+                          {t('ctb_apply_fix')}
                         </button>
                         <button
                           onClick={() => setShowSuggestedFix(false)}
@@ -1289,7 +1289,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                             color: 'var(--color-text-muted)',
                           }}
                         >
-                          Dismiss
+                          {t('ctb_dismiss')}
                         </button>
                       </div>
                     </div>
@@ -1434,7 +1434,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
     return (
       <div className="space-y-4">
         <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
-          Define what parameters your tool accepts
+          {t('ctb_define_params')}
         </p>
 
         <div className="space-y-4">
@@ -1447,7 +1447,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                   <div style={{ flex: 1 }}>
                     <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                      Parameter Name
+                      {t('ctb_param_name')}
                     </label>
                     <input
                       type="text"
@@ -1482,7 +1482,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                   </div>
                   <div style={{ flex: 1 }}>
                     <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                      Type
+                      {t('ctb_type')}
                     </label>
                     <select
                       value={prop.type || 'string'}
@@ -1496,10 +1496,10 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                         boxSizing: 'border-box',
                       }}
                     >
-                      <option value="string">String</option>
-                      <option value="integer">Integer</option>
-                      <option value="number">Number</option>
-                      <option value="boolean">Boolean</option>
+                      <option value="string">{t('ctb_string')}</option>
+                      <option value="integer">{t('ctb_integer')}</option>
+                      <option value="number">{t('ctb_number')}</option>
+                      <option value="boolean">{t('ctb_boolean')}</option>
                     </select>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, paddingTop: 22 }}>
@@ -1510,7 +1510,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                       className="rounded border-gray-300 focus:ring-2"
                       style={{ accentColor: 'var(--color-primary)' }}
                     />
-                    <span style={{ color: 'var(--color-text-primary)', fontSize: 13 }}>Required</span>
+                    <span style={{ color: 'var(--color-text-primary)', fontSize: 13 }}>{t('ctb_required')}</span>
                     <button
                       onClick={() => removeProperty(propName)}
                       style={{
@@ -1531,7 +1531,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                     type="text"
                     value={prop.description || ''}
                     onChange={(e) => updatePropertyData(propName, { description: e.target.value })}
-                    placeholder="What is this parameter for?"
+                    placeholder={t('ctb_param_desc_ph')}
                     className="w-full px-3 py-2 rounded-lg border text-sm"
                     style={{
                       backgroundColor: 'var(--color-input-background)',
@@ -1635,12 +1635,12 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
           {testing ? (
             <>
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Testing...
+              {t('ctb_testing')}
             </>
           ) : (
             <>
               <Play className="w-4 h-4" />
-              Run Test
+              {t('ctb_run_test')}
             </>
           )}
         </button>
@@ -1803,22 +1803,22 @@ ${toolId}_tool = StructuredTool.from_function(
         <div className="space-y-4">
           {/* Basic Info */}
           <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--color-panel-dark)' }}>
-            <h4 className="font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>Basic Information</h4>
+            <h4 className="font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>{t('ctb_basic_info')}</h4>
             <dl className="space-y-2">
               <div className="flex">
-                <dt className="w-32 text-sm" style={{ color: 'var(--color-text-muted)' }}>Tool ID:</dt>
+                <dt className="w-32 text-sm" style={{ color: 'var(--color-text-muted)' }}>{t('ctb_tool_id_label')}</dt>
                 <dd className="text-sm font-mono" style={{ color: 'var(--color-text-primary)' }}>{toolId}</dd>
               </div>
               <div className="flex">
-                <dt className="w-32 text-sm" style={{ color: 'var(--color-text-muted)' }}>Name:</dt>
+                <dt className="w-32 text-sm" style={{ color: 'var(--color-text-muted)' }}>{t('ctb_name_label')}</dt>
                 <dd className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{toolName}</dd>
               </div>
               <div className="flex">
-                <dt className="w-32 text-sm" style={{ color: 'var(--color-text-muted)' }}>Type:</dt>
+                <dt className="w-32 text-sm" style={{ color: 'var(--color-text-muted)' }}>{t('ctb_type_label')}</dt>
                 <dd className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{selectedTemplate?.tool_type || 'custom'}</dd>
               </div>
               <div className="flex">
-                <dt className="w-32 text-sm" style={{ color: 'var(--color-text-muted)' }}>Description:</dt>
+                <dt className="w-32 text-sm" style={{ color: 'var(--color-text-muted)' }}>{t('ctb_desc_label')}</dt>
                 <dd className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{description}</dd>
               </div>
             </dl>
@@ -1827,7 +1827,7 @@ ${toolId}_tool = StructuredTool.from_function(
           {/* Generated LangChain Code */}
           <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--color-panel-dark)' }}>
             <div className="flex items-center justify-between mb-3">
-              <h4 className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>LangChain Implementation Code</h4>
+              <h4 className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{t('ctb_impl_code')}</h4>
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(generatedCode);
@@ -1838,11 +1838,11 @@ ${toolId}_tool = StructuredTool.from_function(
                   color: 'white'
                 }}
               >
-                Copy Code
+                {t('ctb_copy_code')}
               </button>
             </div>
             <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
-              Use this code to integrate your custom tool into LangChain agents. Based on <a href="https://docs.langchain.com/oss/python/langchain/middleware/custom" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'var(--color-primary)' }}>LangChain middleware documentation</a>.
+              Use this code to integrate your custom tool into LangChain agents. Based on <a href="https://docs.langchain.com/oss/python/langchain/middleware/custom" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'var(--color-primary)' }}>{t('ctb_mw_docs')}</a>.
             </p>
             <pre className="text-xs font-mono p-3 rounded border overflow-auto max-h-96" style={{
               backgroundColor: 'var(--color-input-background)',
@@ -1855,7 +1855,7 @@ ${toolId}_tool = StructuredTool.from_function(
 
           {/* Input Schema Summary */}
           <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--color-panel-dark)' }}>
-            <h4 className="font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>Input Parameters</h4>
+            <h4 className="font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>{t('ctb_input_params')}</h4>
             <div className="space-y-2">
               {Object.entries(inputSchema.properties || {}).map(([name, prop]: [string, any]) => (
                 <div key={name} className="flex items-start gap-2 text-sm">
@@ -1875,7 +1875,7 @@ ${toolId}_tool = StructuredTool.from_function(
 
           {/* Configuration Summary */}
           <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--color-panel-dark)' }}>
-            <h4 className="font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>Configuration JSON</h4>
+            <h4 className="font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>{t('ctb_config_json')}</h4>
             <pre className="text-xs font-mono p-3 rounded border overflow-auto max-h-48" style={{
               backgroundColor: 'var(--color-input-background)',
               borderColor: 'var(--color-border-dark)',
@@ -2032,7 +2032,7 @@ ${toolId}_tool = StructuredTool.from_function(
                         setToolId(slugify(newName));
                       }
                     }}
-                    placeholder="My Custom Tool"
+                    placeholder={t('ctb_my_tool_ph')}
                     className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
                     style={{
                       backgroundColor: 'var(--color-input-background)',
@@ -2086,7 +2086,7 @@ ${toolId}_tool = StructuredTool.from_function(
                       type="text"
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      placeholder="e.g., notifications, integrations"
+                      placeholder={t('ctb_tags_ph')}
                       className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
                       style={{
                         backgroundColor: 'var(--color-input-background)',
