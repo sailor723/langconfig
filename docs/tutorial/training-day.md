@@ -11,10 +11,13 @@
 | 密码 | 训练前统一下发；管理员账号的密码单独管理 |
 | 数据 | 51 个 agent（21 个公开）、68 个工具、44 个技能、29 个模型 |
 | 数据库 | 原生 PostgreSQL 16（systemd 自启），每日 03:30 备份到 `/root/backups` |
+| 嵌入模型 | Ollama + `nomic-embed-text:latest`（768 维，纯 CPU；`systemctl is-active ollama`） |
 
 > 这台是**临时训练环境**，训练结束就收回公网端口。别放正式资料。
 
 进机器：`ssh -i <阿里云下载的 .pem> root@8.216.101.189`。已关掉密码登录，那个 `.pem` 是唯一入口 —— 丢在 `~/Downloads` 里迟早被清理，挪到安全的地方。
+
+装了新东西（比如这次补的 Ollama）一定要**重启后端才算数**：嵌入模型只在第一次需要时初始化，结果会被缓存，不重启就还是旧状态。重启约 40 秒，挑没人用的时候做。
 
 ## 多人边界（开场要讲清的一句话）
 
@@ -42,9 +45,13 @@ for u in admin user1 user2 user3 user4 user5 user6 user7 user8 user9 user10; do
     http://127.0.0.1:8765/api/auth/login -H 'Content-Type: application/json' \
     -d "{\"username\":\"$u\",\"password\":\"$PW\"}")"
 done
-# 期望 11 行全 200。有 401 就重置那个账号：
+# 开场前期望 11 行全 200；有 401 就重置那个账号：
 # .venv/bin/python scripts/create_user.py <用户名> --reset-password '<共用密码>'
 ```
+
+> **课中途出现 401 别急着重置。** UI 里有「修改密码」，一次训练里实测有 8 个学员自己改掉了
+> （日志：`User userN changed their own password`）。重置会把这个人当前会话一起踢掉。
+> 先问一句「你改过密码吗」，改过就用他自己那个。
 
 命令行自检（可选，从任何一台机器）：
 

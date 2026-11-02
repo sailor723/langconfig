@@ -86,12 +86,17 @@ nav a:hover { color:var(--accent); }
 <td>数据库</td>
 <td>原生 PostgreSQL 16（systemd 自启），每日 03:30 备份到 <code>/root/backups</code></td>
 </tr>
+<tr>
+<td>嵌入模型</td>
+<td>Ollama + <code>nomic-embed-text:latest</code>（768 维，纯 CPU；<code>systemctl is-active ollama</code>）</td>
+</tr>
 </tbody>
 </table>
 <blockquote>
 <p>这台是<strong>临时训练环境</strong>，训练结束就收回公网端口。别放正式资料。</p>
 </blockquote>
 <p>进机器：<code>ssh -i &lt;阿里云下载的 .pem&gt; root@8.216.101.189</code>。已关掉密码登录，那个 <code>.pem</code> 是唯一入口 —— 丢在 <code>~/Downloads</code> 里迟早被清理，挪到安全的地方。</p>
+<p>装了新东西（比如这次补的 Ollama）一定要<strong>重启后端才算数</strong>：嵌入模型只在第一次需要时初始化，结果会被缓存，不重启就还是旧状态。重启约 40 秒，挑没人用的时候做。</p>
 <h2 id="多人边界-开场要讲清的一句话">多人边界（开场要讲清的一句话）</h2>
 <table>
 <thead>
@@ -124,9 +129,14 @@ for u in admin user1 user2 user3 user4 user5 user6 user7 user8 user9 user10; do
     http://127.0.0.1:8765/api/auth/login -H 'Content-Type: application/json' \
     -d &quot;{\&quot;username\&quot;:\&quot;$u\&quot;,\&quot;password\&quot;:\&quot;$PW\&quot;}&quot;)&quot;
 done
-# 期望 11 行全 200。有 401 就重置那个账号：
+# 开场前期望 11 行全 200；有 401 就重置那个账号：
 # .venv/bin/python scripts/create_user.py &lt;用户名&gt; --reset-password '&lt;共用密码&gt;'
 </code></pre>
+<blockquote>
+<p><strong>课中途出现 401 别急着重置。</strong> UI 里有「修改密码」，一次训练里实测有 8 个学员自己改掉了
+（日志：<code>User userN changed their own password</code>）。重置会把这个人当前会话一起踢掉。
+先问一句「你改过密码吗」，改过就用他自己那个。</p>
+</blockquote>
 <p>命令行自检（可选，从任何一台机器）：</p>
 <pre><code class="language-bash">curl -s -o /dev/null -w 'ui:%{http_code}\n' -u 'user1:&lt;密码&gt;' http://8.216.101.189:8765/
 # 200 = 界面通；401 = 密码不对；000 = 端口没开（查安全组）
