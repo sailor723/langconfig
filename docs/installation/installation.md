@@ -736,11 +736,14 @@ docker pull pgvector/pgvector:pg16      # 能拉下来再往下
 > `uv` 本身也可以用镜像装：`pip install uv -i https://mirrors.aliyun.com/pypi/simple/`，
 > 比 `curl astral.sh | sh` 在国内稳。
 
-> **`uv sync` 会拉 7GB CUDA（如果还按老配置）**。CPU 机器上 torch 走默认 PyPI
-> 轮子会带 15 个 `nvidia-*` 包。仓库已经把 torch 固定到 CPU 索引
-> （`tool.uv.sources` + `download.pytorch.org/whl/cpu`），装完 venv 约 2.6GB、
-> `torch.__version__` 带 `+cpu`。如果看到 `nvidia-*` 被下载，说明用的还是旧
-> `uv.lock`。
+> **`uv sync` 不再拉 CUDA，因为不需要 torch 了。** 2026-11-02 起 `torch` /
+> `unstructured-inference` 已从 `pyproject.toml` 移除（仓库里没有任何代码 import 它们，
+> 唯一的调用方 `context_document_indexer` 用的是 `strategy="auto"/"fast"`，pdfminer 就够），
+> 顺带删掉了 `torchvision` / `transformers` / `onnxruntime` / `timm` / `scipy` 这一条链。
+> Linux 上的 venv 从 ~6GB 降到 ~1GB 量级。
+>
+> 如果 `uv sync` 里仍然看到 `nvidia-*`、`torch`：**`uv.lock` 是旧的**，先 `uv lock`
+> 再 sync。嵌入模型走的是 Ollama（第 1c 步），跟 torch 没有任何关系。
 
 ```bash
 # 3. tiktoken 预热（国内必做，否则第一次 token 计数 / 上下文压缩就超时）

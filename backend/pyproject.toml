@@ -87,11 +87,11 @@ dependencies = [
     "pymupdf>=1.27.2.3",
     "pdfminer-six>=20260107",
     "pi-heif>=1.4.0",
-    "unstructured-inference>=1.6.13",
-    # Direct on purpose: it arrives transitively through unstructured-inference,
-    # but `tool.uv.sources` only redirects a direct dependency — declaring it is
-    # what lets the CPU index below win over the CUDA default wheel.
-    "torch>=2.6",
+    # No unstructured-inference and no torch: nothing in this repo imports them.
+    # They existed for PDF layout detection (`strategy="hi_res"`), and the only
+    # caller (services/context_document_indexer.py) asks for `auto`/`fast`, which
+    # pdfminer handles. Dropping them also drops the whole CUDA question — the
+    # Linux torch wheel dragged 15 nvidia-* packages (~7GB) on every install.
     "markdownify>=1.2.3",
     "nbformat>=5.10.4",
     "jupyter-client>=8.9.1",
@@ -101,24 +101,6 @@ dependencies = [
 
 [dependency-groups]
 dev = []
-
-# ── CPU-only torch ──────────────────────────────────────────────────────────
-# `unstructured-inference` (PDF layout/table detection) pulls torch, and the
-# default PyPI wheel for Linux drags 15 nvidia-* packages with it — ~7GB of CUDA
-# runtime on a machine that has no GPU. On the Aliyun ECS that was the single
-# largest thing in `uv sync`.
-#
-# Pin torch to the CPU wheel index so the resolver never sees the CUDA build.
-# `explicit = true` keeps the index from being used for anything else: every
-# other package still comes from PyPI.
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-[tool.uv.sources]
-torch = [{ index = "pytorch-cpu" }]
-torchvision = [{ index = "pytorch-cpu" }]
 
 [tool.pytest.ini_options]
 # Run pytest from backend/ — only collects the tests package and keeps

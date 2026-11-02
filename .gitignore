@@ -254,3 +254,6 @@ node_modules
 # Local backup snapshots written by the seed migration/repair scripts.
 # Machine-local data, not source: never commit them.
 backend/scripts/backups/
+
+# uv cache redirected here when ~/.cache is not writable (sandboxed runs)
+.uv-cache/
