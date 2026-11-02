@@ -132,7 +132,7 @@ export default function UserPopover({
             flexShrink: 0,
           }}
         >
-          {(me?.username ?? '?').slice(0, 1).toUpperCase()}
+          {(me?.display_name || me?.nickname || me?.username || '?').slice(0, 1).toUpperCase()}
         </div>
         <div style={{ minWidth: 0 }}>
           {failed ? (
@@ -149,11 +149,14 @@ export default function UserPopover({
                   whiteSpace: 'nowrap',
                 }}
               >
-                {me.display_name || me.username}
+                {me.display_name || me.nickname || me.username}
               </div>
               <div style={{ fontSize: 11, color: t.textMuted, display: 'flex', alignItems: 'center', gap: 4 }}>
                 {me.role === 'admin' && <ShieldCheck size={11} />}
                 {me.role === 'admin' ? 'Administrator' : 'Member'}
+                {/* The login name stays on this line even when a nickname is on the
+                    line above: it is the stable id, and the one an admin reads out
+                    when resetting something. */}
                 {me.username ? ` · ${me.username}` : ''}
               </div>
             </>

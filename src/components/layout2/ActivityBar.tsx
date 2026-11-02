@@ -111,10 +111,19 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
   // Fetched here rather than lifted: the rail renders before any account context
   // exists, and a failed call must leave the bare icon rather than break the bar.
   const [username, setUsername] = useState<string | null>(null);
+  // What the rail shows: the nickname when the account has one, the login name
+  // otherwise. The nickname exists precisely because `user7` is what people
+  // cannot remember, so the label under the icon is the wrong place to insist on it.
+  const [label, setLabel] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     apiClient.getMe()
-      .then((r) => { if (!cancelled) setUsername(r?.data?.username ?? null); })
+      .then((r) => {
+        if (cancelled) return;
+        const me = r?.data;
+        setUsername(me?.username ?? null);
+        setLabel(me?.nickname || me?.username || null);
+      })
       .catch(() => { /* not signed in / offline: keep the plain icon */ });
     return () => { cancelled = true; };
   }, []);
@@ -207,7 +216,13 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
           Settings: it is about you, not about a document. */}
       <button
         ref={userBtnRef}
-        title={username ? `Your account — ${username}` : 'Your account'}
+        title={
+          label
+            ? username && label !== username
+              ? `Your account — ${label} (${username})`
+              : `Your account — ${label}`
+            : 'Your account'
+        }
         onClick={() => setUserOpen(v => !v)}
         style={{
           width: 48,
@@ -238,9 +253,9 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
         )}
         <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
           <UserRound size={18} strokeWidth={userOpen ? 2 : 1.5} />
-          {username && (
+          {label && (
             <span
-              title={username}
+              title={username && label !== username ? `${label} (${username})` : label}
               style={{
                 fontSize: 9,
                 lineHeight: '10px',
@@ -256,7 +271,7 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
                 opacity: 0.85,
               }}
             >
-              {username}
+              {label}
             </span>
           )}
         </span>
