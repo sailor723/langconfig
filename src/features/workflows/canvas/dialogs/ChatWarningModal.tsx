@@ -6,6 +6,7 @@
  */
 
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ChatWarningModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ const ChatWarningModal = memo(function ChatWarningModal({
   isOpen,
   onClose,
 }: ChatWarningModalProps) {
+  const { t: tr } = useTranslation('chat');
   if (!isOpen) return null;
 
   return (
@@ -51,7 +53,7 @@ const ChatWarningModal = memo(function ChatWarningModal({
               className="text-lg font-semibold mb-2"
               style={{ color: 'var(--color-text-primary)' }}
             >
-              Agent Not Saved to Library
+              {tr('cw_not_saved')}
             </h2>
             <p
               className="text-sm"
@@ -71,7 +73,7 @@ const ChatWarningModal = memo(function ChatWarningModal({
               color: 'white',
             }}
           >
-            Got it
+            {tr('cw_got_it')}
           </button>
         </div>
       </div>

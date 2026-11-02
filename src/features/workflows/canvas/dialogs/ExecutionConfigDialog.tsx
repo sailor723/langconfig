@@ -6,6 +6,7 @@
  */
 
 import { memo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Play, Image, FileText, Clock, Database, ChevronDown, Upload, Plus, Trash2, Settings } from 'lucide-react';
 import { Attachment } from '@/components/common/AttachmentUploader';
 
@@ -64,6 +65,7 @@ const ExecutionConfigDialog = memo(function ExecutionConfigDialog({
   onAttachmentsChange,
   continueFromTaskId,
 }: ExecutionConfigDialogProps) {
+  const { t: tr } = useTranslation('chat');
   const [localAttachments, setLocalAttachments] = useState<Attachment[]>([]);
   const currentAttachments = onAttachmentsChange ? attachments : localAttachments;
   const setAttachments = onAttachmentsChange || setLocalAttachments;
@@ -90,7 +92,7 @@ const ExecutionConfigDialog = memo(function ExecutionConfigDialog({
           <div className="flex items-center gap-3">
             <Play size={22} className="text-white" />
             <h2 className="text-lg font-semibold text-white">
-              {continueFromTaskId ? 'Follow Up' : 'Run Workflow'}
+              {continueFromTaskId ? tr('exc_follow_up') : tr('exc_run')}
             </h2>
           </div>
           <button
@@ -128,14 +130,14 @@ const ExecutionConfigDialog = memo(function ExecutionConfigDialog({
           <div className="mb-5">
             <label className="block text-sm font-medium mb-2 text-gray-700">
               {continueFromTaskId
-                ? 'What would you like to follow up on?'
-                : 'What should this workflow do?'}
+                ? tr('exc_follow_up_q')
+                : tr('exc_what_should')}
             </label>
             <textarea
               className="w-full px-4 py-3 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-gray-800"
               style={{ borderColor: '#e5e7eb' }}
               rows={4}
-              placeholder="Describe your task in detail..."
+              placeholder={tr('exc_task_ph')}
               value={executionConfig.directive}
               onChange={(e) => setExecutionConfig({
                 ...executionConfig,
@@ -159,7 +161,7 @@ const ExecutionConfigDialog = memo(function ExecutionConfigDialog({
                   </span>
                 )}
               </label>
-              <span className="text-xs text-gray-400">Images, documents, videos</span>
+              <span className="text-xs text-gray-400">{tr('exc_media_hint')}</span>
             </div>
 
             <div className="border rounded-lg p-3" style={{ borderColor: '#e5e7eb' }}>
@@ -286,7 +288,7 @@ const ExecutionConfigDialog = memo(function ExecutionConfigDialog({
               className="w-full px-3 py-2 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-sm text-gray-800"
               style={{ borderColor: '#e5e7eb' }}
               rows={2}
-              placeholder="Add background information or constraints..."
+              placeholder={tr('exc_context_ph')}
               value={additionalContext}
               onChange={(e) => setAdditionalContext(e.target.value)}
             />
@@ -393,7 +395,7 @@ const ExecutionConfigDialog = memo(function ExecutionConfigDialog({
             style={{ backgroundColor: 'var(--color-primary)' }}
           >
             <Play size={16} />
-            {continueFromTaskId ? 'Send Follow Up' : 'Run Workflow'}
+            {continueFromTaskId ? tr('exc_follow_up') : tr('exc_run')}
           </button>
         </div>
       </div>

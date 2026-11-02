@@ -6,6 +6,7 @@
  */
 
 import { memo, useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Clock, Check, AlertCircle, Loader2, Play, History, Trash2 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import type { WorkflowSchedule, CronValidationResult, ScheduledRunLog } from '@/types/workflow';
@@ -18,16 +19,17 @@ interface ScheduleDialogProps {
   onSaved: () => void;
 }
 
-const CRON_PRESETS = [
-  { label: 'Every minute', value: '* * * * *' },
-  { label: 'Every 5 minutes', value: '*/5 * * * *' },
-  { label: 'Every 15 minutes', value: '*/15 * * * *' },
-  { label: 'Every hour', value: '0 * * * *' },
-  { label: 'Every 6 hours', value: '0 */6 * * *' },
-  { label: 'Daily at 9 AM', value: '0 9 * * *' },
-  { label: 'Daily at midnight', value: '0 0 * * *' },
-  { label: 'Weekly (Sunday midnight)', value: '0 0 * * 0' },
-  { label: 'Monthly (1st at midnight)', value: '0 0 1 * *' },
+// Module-level list: labels are built by a function so they can be translated.
+const cronPresets = (tr: (k: string) => string) => [
+  { label: tr('sch_every_minute'), value: '* * * * *' },
+  { label: tr('sch_every_5'), value: '*/5 * * * *' },
+  { label: tr('sch_every_15'), value: '*/15 * * * *' },
+  { label: tr('sch_every_hour'), value: '0 * * * *' },
+  { label: tr('sch_every_6h'), value: '0 */6 * * *' },
+  { label: tr('sch_daily_9am'), value: '0 9 * * *' },
+  { label: tr('sch_daily_midnight'), value: '0 0 * * *' },
+  { label: tr('sch_weekly_sunday'), value: '0 0 * * 0' },
+  { label: tr('sch_monthly'), value: '0 0 1 * *' },
 ];
 
 const TIMEZONES = [
@@ -54,6 +56,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
   existingSchedule,
   onSaved,
 }: ScheduleDialogProps) {
+  const { t: tr } = useTranslation('chat');
   const [name, setName] = useState('');
   const [cronExpression, setCronExpression] = useState('0 9 * * *');
   const [timezone, setTimezone] = useState('UTC');
@@ -114,7 +117,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
     } catch (err: any) {
       setValidation({
         valid: false,
-        error: err?.response?.data?.detail || 'Validation failed',
+        error: err?.response?.data?.detail || tr('sch_validation_failed'),
         next_runs: [],
       });
     } finally {
@@ -140,7 +143,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
       const response = await apiClient.getScheduleHistory(existingSchedule.id, { limit: 20 });
       setHistory(response.data.runs || []);
     } catch (err) {
-      console.error('Failed to load history:', err);
+      console.error(tr('sch_load_history_failed'), err);
     } finally {
       setLoadingHistory(false);
     }
@@ -167,7 +170,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
         try {
           parsedInputData = JSON.parse(defaultInputData);
         } catch {
-          setError('Invalid JSON in default input data');
+          setError(tr('sch_invalid_json'));
           setSaving(false);
           return;
         }
@@ -194,7 +197,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
       onSaved();
       onClose();
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to save schedule');
+      setError(err?.response?.data?.detail || tr('sch_save_failed'));
     } finally {
       setSaving(false);
     }
@@ -208,14 +211,14 @@ const ScheduleDialog = memo(function ScheduleDialog({
       // Optionally refresh history
       loadHistory();
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to trigger schedule');
+      setError(err?.response?.data?.detail || tr('sch_trigger_failed'));
     }
   };
 
   const handleDelete = async () => {
     if (!existingSchedule) return;
 
-    if (!window.confirm('Are you sure you want to delete this schedule?')) {
+    if (!window.confirm(tr('sch_confirm_delete'))) {
       return;
     }
 
@@ -224,7 +227,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
       onSaved();
       onClose();
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to delete schedule');
+      setError(err?.response?.data?.detail || tr('sch_delete_failed'));
     }
   };
 
@@ -247,7 +250,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
           <div className="flex items-center gap-2">
             <Clock size={20} style={{ color: 'var(--color-primary)' }} />
             <h3 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-              {isEditing ? 'Edit Schedule' : 'Create Schedule'}
+              {isEditing ? tr('sch_edit') : tr('sch_create')}
             </h3>
           </div>
           <button
@@ -264,7 +267,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
           {/* Schedule Name */}
           <div>
             <label className="text-sm font-medium block mb-1" style={{ color: 'var(--color-text-primary)' }}>
-              Schedule Name (optional)
+              {tr('sch_name')}
             </label>
             <input
               type="text"
@@ -283,7 +286,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
           {/* Cron Expression */}
           <div>
             <label className="text-sm font-medium block mb-1" style={{ color: 'var(--color-text-primary)' }}>
-              Cron Expression
+              {tr('sch_cron')}
             </label>
             <input
               type="text"
@@ -300,7 +303,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
 
             {/* Presets */}
             <div className="mt-2 flex flex-wrap gap-1">
-              {CRON_PRESETS.map((preset) => (
+              {cronPresets(tr).map((preset) => (
                 <button
                   key={preset.value}
                   onClick={() => handlePresetSelect(preset.value)}
@@ -332,12 +335,12 @@ const ScheduleDialog = memo(function ScheduleDialog({
                   <div className="flex items-center gap-1">
                     <Check size={14} style={{ color: '#22c55e' }} />
                     <span className="text-xs" style={{ color: '#22c55e' }}>
-                      {validation.human_readable || 'Valid'}
+                      {validation.human_readable || tr('sch_valid')}
                     </span>
                   </div>
                   {validation.next_runs.length > 0 && (
                     <div className="mt-1">
-                      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Next runs:</p>
+                      <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{tr('sch_next_runs')}</p>
                       <ul className="text-xs mt-1 space-y-0.5" style={{ color: 'var(--color-text-secondary)' }}>
                         {validation.next_runs.slice(0, 3).map((run, i) => (
                           <li key={i}>{new Date(run).toLocaleString()}</li>
@@ -360,7 +363,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
           {/* Timezone */}
           <div>
             <label className="text-sm font-medium block mb-1" style={{ color: 'var(--color-text-primary)' }}>
-              Timezone
+              {tr('sch_timezone')}
             </label>
             <select
               value={timezone}
@@ -383,7 +386,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
           {/* Enabled Toggle */}
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-              Enabled
+              {tr('sch_enabled')}
             </label>
             <div
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
@@ -405,7 +408,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
               className="text-sm font-medium cursor-pointer"
               style={{ color: 'var(--color-text-primary)' }}
             >
-              Advanced Settings
+              {tr('sch_advanced')}
             </summary>
             <div className="mt-3 space-y-4 pl-2">
               {/* Max Concurrent Runs */}
@@ -508,7 +511,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
                 style={{ color: 'var(--color-text-primary)' }}
               >
                 <History size={16} />
-                {showHistory ? 'Hide' : 'Show'} Execution History
+                {showHistory ? tr('pc_hide') : tr('pc_show')} Execution History
               </button>
               {showHistory && (
                 <div className="mt-3 space-y-2">
@@ -516,12 +519,12 @@ const ScheduleDialog = memo(function ScheduleDialog({
                     <div className="flex items-center gap-2">
                       <Loader2 size={14} className="animate-spin" />
                       <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                        Loading history...
+                        {tr('sch_loading_history')}
                       </span>
                     </div>
                   ) : history.length === 0 ? (
                     <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                      No executions yet
+                      {tr('sch_no_executions')}
                     </p>
                   ) : (
                     <div className="max-h-40 overflow-y-auto space-y-1">
@@ -578,7 +581,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
                   }}
                 >
                   <Play size={14} />
-                  Run Now
+                  {tr('sch_run_now')}
                 </button>
                 <button
                   onClick={handleDelete}
@@ -588,7 +591,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
                   }}
                 >
                   <Trash2 size={14} />
-                  Delete
+                  {tr('c_delete')}
                 </button>
               </>
             )}
@@ -599,7 +602,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
               className="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-white/10"
               style={{ color: 'var(--color-text-muted)' }}
             >
-              Cancel
+              {tr('c_cancel')}
             </button>
             <button
               onClick={handleSave}
@@ -607,7 +610,7 @@ const ScheduleDialog = memo(function ScheduleDialog({
               className="px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {saving && <Loader2 size={14} className="animate-spin" />}
-              {isEditing ? 'Save Changes' : 'Create Schedule'}
+              {isEditing ? tr('sch_save_changes') : tr('sch_create')}
             </button>
           </div>
         </div>

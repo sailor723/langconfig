@@ -6,6 +6,7 @@
  */
 
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 
 interface DebugNodeInfo {
@@ -45,6 +46,7 @@ const DebugWorkflowDialog = memo(function DebugWorkflowDialog({
   debugData,
   onCopyJson,
 }: DebugWorkflowDialogProps) {
+  const { t: tr } = useTranslation('chat');
   if (!isOpen || !debugData) return null;
 
   return (
@@ -75,7 +77,7 @@ const DebugWorkflowDialog = memo(function DebugWorkflowDialog({
         {/* Node Analysis */}
         <div className="mb-6">
           <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-primary)' }}>
-            Node Tool Assignments
+            {tr('dbg_tool_assign')}
           </h3>
           {debugData.nodes.map((node) => (
             <div
@@ -91,7 +93,7 @@ const DebugWorkflowDialog = memo(function DebugWorkflowDialog({
                 {node.node_id} ({node.type})
               </div>
               <div className="text-sm mb-1" style={{ color: 'var(--color-text-muted)' }}>
-                Model: {node.model || 'Not set'}
+                Model: {node.model || tr('dbg_not_set')}
               </div>
               <div className="text-sm mb-1">
                 <span style={{ color: 'var(--color-text-muted)' }}>Native Tools: </span>
@@ -117,7 +119,7 @@ const DebugWorkflowDialog = memo(function DebugWorkflowDialog({
         {/* Available Custom Tools */}
         <div className="mb-6">
           <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-primary)' }}>
-            Available Custom Tools
+            {tr('dbg_avail_custom')}
           </h3>
           <div className="grid grid-cols-2 gap-2">
             {debugData.available_custom_tools.map((tool) => (
@@ -143,7 +145,7 @@ const DebugWorkflowDialog = memo(function DebugWorkflowDialog({
         {/* Raw JSON */}
         <div>
           <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-primary)' }}>
-            Raw Configuration JSON
+            {tr('dbg_raw_json')}
           </h3>
           <pre
             className="text-xs p-3 rounded overflow-x-auto"
@@ -166,7 +168,7 @@ const DebugWorkflowDialog = memo(function DebugWorkflowDialog({
               color: 'white'
             }}
           >
-            Copy JSON
+            {tr('dbg_copy_json')}
           </button>
         </div>
       </div>

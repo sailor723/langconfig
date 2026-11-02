@@ -6,6 +6,7 @@
  */
 
 import { memo, useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import GoogleOAuthButton from '@/components/auth/GoogleOAuthButton';
 import {
   usePresentationJob,
@@ -33,6 +34,7 @@ const PresentationDialog = memo(function PresentationDialog({
   workflowId,
   taskId
 }: PresentationDialogProps) {
+  const { t: tr } = useTranslation('chat');
   // Get selected items from selection context
   const selectionContext = useSelectionOptional();
   const selectedItems = selectionContext?.getSelectedItems() ?? [];
@@ -55,10 +57,10 @@ const PresentationDialog = memo(function PresentationDialog({
     fetchFormats
   } = usePresentationJob({
     onComplete: (completedJob) => {
-      console.log('Presentation created:', completedJob);
+      console.log(tr('pd_created'), completedJob);
     },
     onError: (err) => {
-      console.error('Presentation failed:', err);
+      console.error(tr('pd_failed'), err);
     }
   });
 
@@ -82,7 +84,7 @@ const PresentationDialog = memo(function PresentationDialog({
     if (isOpen && selectedItems.length > 0) {
       // Generate default title from first item or generic
       const firstItem = selectedItems[0];
-      setTitle(firstItem?.displayName || 'Untitled Presentation');
+      setTitle(firstItem?.displayName || tr('pd_untitled'));
     }
   }, [isOpen, selectedItems]);
 
@@ -153,7 +155,7 @@ const PresentationDialog = memo(function PresentationDialog({
             className="text-xl font-semibold"
             style={{ color: 'var(--color-text-primary)' }}
           >
-            Create Presentation
+            {tr('pd_create')}
           </h2>
           <button
             onClick={handleClose}
@@ -200,13 +202,13 @@ const PresentationDialog = memo(function PresentationDialog({
             className="block text-sm font-medium mb-2"
             style={{ color: 'var(--color-text-primary)' }}
           >
-            Presentation Title
+            {tr('pd_title_label')}
           </label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Enter presentation title..."
+            placeholder={tr('pd_title_ph')}
             disabled={isLoading}
             className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
             style={{
@@ -223,7 +225,7 @@ const PresentationDialog = memo(function PresentationDialog({
             className="block text-sm font-medium mb-2"
             style={{ color: 'var(--color-text-primary)' }}
           >
-            Output Format
+            {tr('pd_format_label')}
           </label>
           <div className="grid grid-cols-3 gap-2">
             {formats.map((format) => (
@@ -247,10 +249,10 @@ const PresentationDialog = memo(function PresentationDialog({
                 </div>
                 <div className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                   {format.id === 'google_slides' && !googleConnected
-                    ? 'Connect Google first'
+                    ? tr('pd_connect_google')
                     : format.file_extension
                       ? `.${format.file_extension}`
-                      : 'Opens in browser'
+                      : tr('pd_opens_browser')
                   }
                 </div>
               </button>
@@ -305,8 +307,8 @@ const PresentationDialog = memo(function PresentationDialog({
             <div className="flex items-center gap-2 mb-2">
               <div className="w-4 h-4 border-2 border-gray-300 border-t-primary rounded-full animate-spin" />
               <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                {status === 'pending' && 'Queued...'}
-                {status === 'processing' && 'Generating presentation...'}
+                {status === 'pending' && tr('pd_queued')}
+                {status === 'processing' && tr('pd_generating')}
               </span>
             </div>
             <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
@@ -340,7 +342,7 @@ const PresentationDialog = memo(function PresentationDialog({
               onClick={openResult}
               className="w-full mt-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
             >
-              {job.result_url ? 'Open in Google Slides' : 'Download Presentation'}
+              {job.result_url ? tr('pd_open_slides') : tr('pd_download')}
             </button>
           </div>
         )}
@@ -356,7 +358,7 @@ const PresentationDialog = memo(function PresentationDialog({
               color: 'var(--color-text-muted)'
             }}
           >
-            {status === 'completed' ? 'Close' : 'Cancel'}
+            {status === 'completed' ? tr('c_close') : tr('c_cancel')}
           </button>
           {status !== 'completed' && (
             <button
@@ -368,7 +370,7 @@ const PresentationDialog = memo(function PresentationDialog({
                 color: 'white'
               }}
             >
-              {isLoading ? 'Creating...' : 'Create Presentation'}
+              {isLoading ? tr('pd_creating') : tr('pd_create')}
             </button>
           )}
         </div>

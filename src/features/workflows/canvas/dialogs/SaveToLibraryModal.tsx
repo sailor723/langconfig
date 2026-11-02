@@ -6,6 +6,7 @@
  */
 
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface SaveToLibraryModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ const SaveToLibraryModal = memo(function SaveToLibraryModal({
   agentDescription,
   setAgentDescription,
 }: SaveToLibraryModalProps) {
+  const { t: tr } = useTranslation('chat');
   if (!isOpen) return null;
 
   const handleClose = () => {
@@ -60,7 +62,7 @@ const SaveToLibraryModal = memo(function SaveToLibraryModal({
           className="text-xl font-semibold mb-4"
           style={{ color: 'var(--color-text-primary)' }}
         >
-          Save to Agent Library
+          {tr('sl_title')}
         </h2>
 
         <div className="space-y-4">
@@ -69,7 +71,7 @@ const SaveToLibraryModal = memo(function SaveToLibraryModal({
               className="block text-sm font-medium mb-2"
               style={{ color: 'var(--color-text-primary)' }}
             >
-              Agent Name
+              {tr('sl_name')}
             </label>
             <input
               type="text"
@@ -82,7 +84,7 @@ const SaveToLibraryModal = memo(function SaveToLibraryModal({
                   handleClose();
                 }
               }}
-              placeholder="Enter agent name..."
+              placeholder={tr('sl_name_ph')}
               autoFocus
               className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2"
               style={{
@@ -98,12 +100,12 @@ const SaveToLibraryModal = memo(function SaveToLibraryModal({
               className="block text-sm font-medium mb-2"
               style={{ color: 'var(--color-text-primary)' }}
             >
-              Description (optional)
+              {tr('sl_desc')}
             </label>
             <textarea
               value={agentDescription}
               onChange={(e) => setAgentDescription(e.target.value)}
-              placeholder="Describe what this agent does..."
+              placeholder={tr('sl_desc_ph')}
               rows={3}
               className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 resize-none"
               style={{
@@ -124,7 +126,7 @@ const SaveToLibraryModal = memo(function SaveToLibraryModal({
               color: 'var(--color-text-muted)',
             }}
           >
-            Cancel
+            {tr('c_cancel')}
           </button>
           <button
             onClick={handleSave}
@@ -135,7 +137,7 @@ const SaveToLibraryModal = memo(function SaveToLibraryModal({
               color: 'white',
             }}
           >
-            Save to Library
+            {tr('sl_save')}
           </button>
         </div>
       </div>

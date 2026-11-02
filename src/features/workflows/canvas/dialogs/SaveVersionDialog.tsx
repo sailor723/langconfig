@@ -6,6 +6,7 @@
  */
 
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface SaveVersionDialogProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ const SaveVersionDialog = memo(function SaveVersionDialog({
   versionNotes,
   setVersionNotes,
 }: SaveVersionDialogProps) {
+  const { t: tr } = useTranslation('chat');
   if (!isOpen) return null;
 
   const handleClose = () => {
@@ -49,7 +51,7 @@ const SaveVersionDialog = memo(function SaveVersionDialog({
           className="text-xl font-semibold mb-4"
           style={{ color: 'var(--color-text-primary)' }}
         >
-          Save New Version
+          {tr('sv_title')}
         </h2>
         <p
           className="mb-4 text-sm"
@@ -65,7 +67,7 @@ const SaveVersionDialog = memo(function SaveVersionDialog({
               handleClose();
             }
           }}
-          placeholder="What changed in this version? (optional)"
+          placeholder={tr('sv_what_changed')}
           rows={4}
           autoFocus
           className="w-full px-3 py-2 rounded-lg mb-4 border focus:outline-none focus:ring-2"
@@ -84,7 +86,7 @@ const SaveVersionDialog = memo(function SaveVersionDialog({
               color: 'var(--color-text-muted)',
             }}
           >
-            Cancel
+            {tr('c_cancel')}
           </button>
           <button
             onClick={onSave}
@@ -94,7 +96,7 @@ const SaveVersionDialog = memo(function SaveVersionDialog({
               color: 'white',
             }}
           >
-            Create Version
+            {tr('sv_create')}
           </button>
         </div>
       </div>

@@ -6,6 +6,7 @@
  */
 
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface SaveWorkflowModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ const SaveWorkflowModal = memo(function SaveWorkflowModal({
   workflowName,
   setWorkflowName,
 }: SaveWorkflowModalProps) {
+  const { t: tr } = useTranslation('chat');
   if (!isOpen) return null;
 
   const handleClose = () => {
@@ -55,13 +57,13 @@ const SaveWorkflowModal = memo(function SaveWorkflowModal({
           className="text-xl font-semibold mb-4"
           style={{ color: 'var(--color-text-primary)' }}
         >
-          Save Workflow
+          {tr('sw_title')}
         </h2>
         <p
           className="mb-4 text-sm"
           style={{ color: 'var(--color-text-muted)' }}
         >
-          Enter a name for your workflow:
+          {tr('sw_prompt')}
         </p>
         <input
           type="text"
@@ -74,7 +76,7 @@ const SaveWorkflowModal = memo(function SaveWorkflowModal({
               handleClose();
             }
           }}
-          placeholder="Enter workflow name..."
+          placeholder={tr('sw_name_ph')}
           autoFocus
           className="w-full px-3 py-2 rounded-lg mb-4 border focus:outline-none focus:ring-2"
           style={{
@@ -92,7 +94,7 @@ const SaveWorkflowModal = memo(function SaveWorkflowModal({
               color: 'var(--color-text-muted)',
             }}
           >
-            Cancel
+            {tr('c_cancel')}
           </button>
           <button
             onClick={handleSave}
@@ -103,7 +105,7 @@ const SaveWorkflowModal = memo(function SaveWorkflowModal({
               color: 'white',
             }}
           >
-            Save
+            {tr('c_save')}
           </button>
         </div>
       </div>

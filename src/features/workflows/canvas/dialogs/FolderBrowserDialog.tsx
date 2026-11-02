@@ -6,6 +6,7 @@
  */
 
 import { memo, useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Folder, ChevronUp, Loader2 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 
@@ -31,6 +32,7 @@ const FolderBrowserDialog = memo(function FolderBrowserDialog({
   onSelect,
   initialPath,
 }: FolderBrowserDialogProps) {
+  const { t: tr } = useTranslation('chat');
   const [currentPath, setCurrentPath] = useState<string>('');
   const [parentPath, setParentPath] = useState<string | null>(null);
   const [entries, setEntries] = useState<DirectoryEntry[]>([]);
@@ -47,7 +49,7 @@ const FolderBrowserDialog = memo(function FolderBrowserDialog({
       setParentPath(data.parent_path);
       setEntries(data.entries || []);
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to load directory');
+      setError(err?.response?.data?.detail || tr('fb_load_failed'));
       setEntries([]);
     } finally {
       setLoading(false);
@@ -90,7 +92,7 @@ const FolderBrowserDialog = memo(function FolderBrowserDialog({
         {/* Header */}
         <div className="px-6 py-4 border-b flex justify-between items-center" style={{ borderColor: 'var(--color-border-dark)' }}>
           <h3 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-            Select Folder
+            {tr('fb_select_folder')}
           </h3>
           <button
             onClick={onClose}
@@ -109,7 +111,7 @@ const FolderBrowserDialog = memo(function FolderBrowserDialog({
               disabled={!parentPath || loading}
               className="p-1.5 rounded hover:bg-white/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               style={{ color: 'var(--color-text-muted)' }}
-              title="Go to parent folder"
+              title={tr('fb_go_parent')}
             >
               <ChevronUp size={18} />
             </button>
@@ -131,7 +133,7 @@ const FolderBrowserDialog = memo(function FolderBrowserDialog({
             </div>
           ) : entries.length === 0 ? (
             <div className="flex items-center justify-center h-full">
-              <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>No subdirectories</p>
+              <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>{tr('fb_no_subdirs')}</p>
             </div>
           ) : (
             <div className="p-2">
@@ -158,14 +160,14 @@ const FolderBrowserDialog = memo(function FolderBrowserDialog({
             className="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-white/10"
             style={{ color: 'var(--color-text-muted)' }}
           >
-            Cancel
+            {tr('c_cancel')}
           </button>
           <button
             onClick={handleSelectCurrent}
             disabled={!currentPath || loading}
             className="px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Select This Folder
+            {tr('fb_select_this')}
           </button>
         </div>
       </div>

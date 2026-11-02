@@ -6,6 +6,7 @@
  */
 
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface CreateWorkflowDialogProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ const CreateWorkflowDialog = memo(function CreateWorkflowDialog({
   workflowName,
   setWorkflowName,
 }: CreateWorkflowDialogProps) {
+  const { t: tr } = useTranslation('chat');
   if (!isOpen) return null;
 
   const handleClose = () => {
@@ -43,13 +45,13 @@ const CreateWorkflowDialog = memo(function CreateWorkflowDialog({
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-panel-dark rounded-lg max-w-md w-full p-6 shadow-2xl">
         <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>
-          Create New Workflow
+          {tr('cwd_title')}
         </h3>
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-              Workflow Name
+              {tr('cwd_name')}
             </label>
             <input
               type="text"
@@ -60,7 +62,7 @@ const CreateWorkflowDialog = memo(function CreateWorkflowDialog({
                 backgroundColor: 'var(--color-input-background)',
                 color: 'var(--color-text-primary)'
               }}
-              placeholder="Enter workflow name..."
+              placeholder={tr('cwd_name_ph')}
               autoFocus
             />
           </div>
@@ -72,14 +74,14 @@ const CreateWorkflowDialog = memo(function CreateWorkflowDialog({
               className="px-4 py-2 text-sm font-medium border border-gray-300 dark:border-border-dark rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 hover:border-gray-400 dark:hover:border-border-light transition-all"
               style={{ color: 'var(--color-text-primary)' }}
             >
-              Cancel
+              {tr('c_cancel')}
             </button>
             <button
               type="submit"
               disabled={!workflowName.trim()}
               className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:brightness-110 hover:shadow-lg transition-all disabled:opacity-50"
             >
-              Create Workflow
+              {tr('cwd_create')}
             </button>
           </div>
         </form>
