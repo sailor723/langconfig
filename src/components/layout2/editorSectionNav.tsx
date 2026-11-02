@@ -5,6 +5,7 @@
  * by the DeepAgentEditor only.
  */
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { LayoutTokens } from './tokens';
 
 interface EditorSectionDef {
@@ -32,6 +33,10 @@ export default function EditorSectionNav({
   hint,
   t,
 }: EditorSectionNavProps) {
+  // Section labels are translated here rather than in each editor's SECTIONS array:
+  // those arrays are module-level constants (no hooks), and a new section then only
+  // needs a dictionary entry instead of touching two editors.
+  const { t: tr } = useTranslation('chat');
   return (
     <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
       <div style={{
@@ -65,7 +70,7 @@ export default function EditorSectionNav({
               }}
             >
               {s.icon}
-              {s.label}
+              {tr(`ed_${s.id}`, s.label)}
             </button>
           );
         })}

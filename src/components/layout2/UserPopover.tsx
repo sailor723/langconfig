@@ -20,6 +20,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLayoutTokens } from './tokens';
 import apiClient from '../../lib/api-client';
 import type { UserSummary } from '../../lib/api/users';
+import { useTranslation } from 'react-i18next';
 import { Loader, LogOut, ShieldCheck, UserRound, Users } from 'lucide-react';
 
 interface UserPopoverProps {
@@ -36,6 +37,7 @@ export default function UserPopover({
   onOpenUsers,
 }: UserPopoverProps) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const [me, setMe] = useState<UserSummary | null>(null);
   const [failed, setFailed] = useState(false);
@@ -136,7 +138,7 @@ export default function UserPopover({
         </div>
         <div style={{ minWidth: 0 }}>
           {failed ? (
-            <div style={{ fontSize: 12, color: t.textMuted }}>Not signed in</div>
+            <div style={{ fontSize: 12, color: t.textMuted }}>{tr('up_not_signed_in')}</div>
           ) : me ? (
             <>
               <div
@@ -153,7 +155,7 @@ export default function UserPopover({
               </div>
               <div style={{ fontSize: 11, color: t.textMuted, display: 'flex', alignItems: 'center', gap: 4 }}>
                 {me.role === 'admin' && <ShieldCheck size={11} />}
-                {me.role === 'admin' ? 'Administrator' : 'Member'}
+                {me.role === 'admin' ? tr('up_administrator') : tr('up_member')}
                 {/* The login name stays on this line even when a nickname is on the
                     line above: it is the stable id, and the one an admin reads out
                     when resetting something. */}
@@ -178,7 +180,7 @@ export default function UserPopover({
           onMouseEnter={(e) => (e.currentTarget.style.background = t.bgHover)}
           onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
         >
-          <UserRound size={14} /> Your account…
+          <UserRound size={14} /> {tr('up_account')}
         </button>
 
         {me?.role === 'admin' && (
@@ -191,7 +193,7 @@ export default function UserPopover({
             onMouseEnter={(e) => (e.currentTarget.style.background = t.bgHover)}
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >
-            <Users size={14} /> Users…
+            <Users size={14} /> {tr('up_users')}
           </button>
         )}
 
@@ -207,7 +209,7 @@ export default function UserPopover({
           onMouseEnter={(e) => (e.currentTarget.style.background = t.bgHover)}
           onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
         >
-          <LogOut size={14} /> Sign out
+          <LogOut size={14} /> {tr('up_sign_out')}
         </button>
       </div>
 

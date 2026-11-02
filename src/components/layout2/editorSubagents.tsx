@@ -28,6 +28,7 @@
  */
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { LayoutTokens } from './tokens';
 import HitlPolicyEditor from './HitlPolicyEditor';
 
@@ -125,6 +126,8 @@ export interface SubagentsEditorProps {
 }
 
 export default function SubagentsEditor({ subagents, onChange, t, notice, emptyHint }: SubagentsEditorProps) {
+  // `t` is the layout token bundle here, so the translator is `tr`.
+  const { t: tr } = useTranslation('chat');
   const [draft, setDraft] = useState<Draft | null>(null);
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
@@ -159,9 +162,9 @@ export default function SubagentsEditor({ subagents, onChange, t, notice, emptyH
 
   const saveDraft = () => {
     if (!draft) return;
-    if (!draft.name.trim()) return flash('error', 'Subagent needs a name');
+    if (!draft.name.trim()) return flash('error', tr('sa_need_name'));
     if (draft.type === 'langgraph' && !draft.graph_id.trim()) {
-      return flash('error', 'LangGraph subagent needs a graph_id (e.g. neo4j_agent)');
+      return flash('error', tr('sa_need_graph'));
     }
 
     const next = subagentFromDraft(editIdx !== null ? subagents[editIdx] : undefined, draft);
@@ -170,7 +173,7 @@ export default function SubagentsEditor({ subagents, onChange, t, notice, emptyH
     if (editIdx !== null && editIdx < list.length) list[editIdx] = next;
     else list.push(next);
     onChange(list);
-    flash('ok', editIdx !== null ? 'Subagent updated' : 'Subagent added');
+    flash('ok', editIdx !== null ? tr('sa_updated') : tr('sa_added'));
     setDraft(null);
     setEditIdx(null);
   };
@@ -181,7 +184,7 @@ export default function SubagentsEditor({ subagents, onChange, t, notice, emptyH
       setDraft(null);
       setEditIdx(null);
     }
-    flash('ok', 'Subagent removed');
+    flash('ok', tr('sa_removed'));
   };
 
   const patchEntry = (idx: number, patch: Partial<SubagentEntry>) => {
@@ -251,7 +254,7 @@ export default function SubagentsEditor({ subagents, onChange, t, notice, emptyH
                  background: 'transparent', border: `1px dashed ${t.accent}`, fontWeight: 600,
                  display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}
       >
-        <span style={{ fontSize: 14 }}>+</span> Add subagent
+        <span style={{ fontSize: 14 }}>+</span> {tr('sa_add')}
       </button>
 
       {draft && editIdx === null && (
@@ -271,7 +274,7 @@ export default function SubagentsEditor({ subagents, onChange, t, notice, emptyH
 
       {subagents.length === 0 && !draft && (
         <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic', marginTop: 10, fontSize: 12 }}>
-          {emptyHint || 'No subagents yet.'}
+          {emptyHint || tr('sa_empty')}
         </div>
       )}
 
@@ -298,33 +301,33 @@ export default function SubagentsEditor({ subagents, onChange, t, notice, emptyH
                   style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}
                 >
                   {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-                  <span style={{ ...valueStyle, fontWeight: 600 }}>{sa.name || `Subagent #${i + 1}`}</span>
+                  <span style={{ ...valueStyle, fontWeight: 600 }}>{sa.name || tr('sa_card_default', { n: i + 1 })}</span>
                   <span style={{ ...valueStyle, fontSize: 11, color: t.textMuted, flex: 1, marginLeft: 6 }}>
                     {(sa.description || '').slice(0, 70)}
                   </span>
                   <span style={{ fontSize: 10, color: t.textMuted, fontFamily: 'monospace' }}>
                     {sa.type || 'dictionary'}
                   </span>
-                  <button onClick={e => { e.stopPropagation(); startEdit(i); }} style={smallBtn}>Edit</button>
+                  <button onClick={e => { e.stopPropagation(); startEdit(i); }} style={smallBtn}>{tr('sa_edit')}</button>
                   <button onClick={e => { e.stopPropagation(); remove(i); }}
-                          style={{ ...smallBtn, color: '#e5484d' }}>Remove</button>
+                          style={{ ...smallBtn, color: '#e5484d' }}>{tr('sa_remove')}</button>
                 </div>
 
                 {open && (
                   <div style={{ marginTop: 10, paddingLeft: 19 }}>
-                    <div style={labelStyle}>Description (how `task` routes here)</div>
+                    <div style={labelStyle}>{tr('sa_desc_label')}</div>
                     <div style={{ ...valueStyle, marginBottom: 8 }}>{sa.description || '—'}</div>
 
                     {!!sa.model && (
                       <>
-                        <div style={labelStyle}>Model</div>
+                        <div style={labelStyle}>{tr('sa_model_label')}</div>
                         <div style={{ ...valueStyle, fontFamily: 'monospace', marginBottom: 8 }}>{sa.model}</div>
                       </>
                     )}
 
                     {!!sa.graph_id && (
                       <>
-                        <div style={labelStyle}>Graph agent</div>
+                        <div style={labelStyle}>{tr('sa_graph_label')}</div>
                         <div style={{ ...valueStyle, fontFamily: 'monospace', marginBottom: 8 }}>
                           {sa.graph_id}{sa.database ? ` · ${sa.database}` : ''}
                         </div>
@@ -333,16 +336,16 @@ export default function SubagentsEditor({ subagents, onChange, t, notice, emptyH
 
                     {sa.workflow_id != null && (
                       <>
-                        <div style={labelStyle}>Workflow id</div>
+                        <div style={labelStyle}>{tr('sa_wf_label')}</div>
                         <div style={{ ...valueStyle, fontFamily: 'monospace', marginBottom: 8 }}>{sa.workflow_id}</div>
                       </>
                     )}
 
-                    <div style={labelStyle}>Tools ({tools.length})</div>
+                    <div style={labelStyle}>{tr('sa_tools_label')} ({tools.length})</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
                       {tools.length === 0 ? (
                         <span style={{ fontSize: 11, color: t.textMuted }}>
-                          none — it talks, but cannot act
+                          {tr('sa_tools_none')}
                         </span>
                       ) : (
                         tools.map((tool, j) => (
@@ -367,7 +370,7 @@ export default function SubagentsEditor({ subagents, onChange, t, notice, emptyH
 
                     {!!sa.system_prompt && (
                       <>
-                        <div style={{ ...labelStyle, marginTop: 10 }}>System prompt</div>
+                        <div style={{ ...labelStyle, marginTop: 10 }}>{tr('sa_prompt_label')}</div>
                         <pre style={{
                           whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                           fontFamily: '"SF Mono", monospace', fontSize: 11,
@@ -400,47 +403,48 @@ function DraftForm({
   isNew?: boolean;
 }) {
   // The parent guarantees a draft exists whenever this form is mounted.
+  const { t: tr } = useTranslation('chat');
   const set = (patch: Partial<Draft>) => setDraft(d => ({ ...(d ?? draft), ...patch }));
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {isNew && (
-        <div style={{ fontSize: 11, color: t.textMuted }}>New subagent</div>
+        <div style={{ fontSize: 11, color: t.textMuted }}>{tr('sa_new')}</div>
       )}
       <input value={draft.name} onChange={e => set({ name: e.target.value })}
-             placeholder="Name (e.g. researcher) — this is what `task` is called with" style={inputStyle} />
+             placeholder={tr('sa_name_ph')} style={inputStyle} />
       <input value={draft.description} onChange={e => set({ description: e.target.value })}
-             placeholder="Description — the model routes on this, so say when to use it" style={inputStyle} />
+             placeholder={tr('sa_desc_ph')} style={inputStyle} />
       <select value={draft.type} onChange={e => set({ type: e.target.value })}
               style={{ ...inputStyle, height: 26 }}>
-        <option value="dictionary">Dictionary (model + tools)</option>
-        <option value="compiled">Compiled (workflow)</option>
-        <option value="langgraph">LangGraph (code-defined agent)</option>
+        <option value="dictionary">{tr('sa_type_dictionary')}</option>
+        <option value="compiled">{tr('sa_type_compiled')}</option>
+        <option value="langgraph">{tr('sa_type_langgraph')}</option>
       </select>
       {draft.type === 'langgraph' && (
         <>
           <input value={draft.graph_id} onChange={e => set({ graph_id: e.target.value })}
-                 placeholder="Graph agent id (neo4j_agent or sql_agent)" style={inputStyle} />
+                 placeholder={tr('sa_graph_ph')} style={inputStyle} />
           <input value={draft.database} onChange={e => set({ database: e.target.value })}
-                 placeholder="Neo4j database (e.g. neo4j; empty = default)" style={inputStyle} />
+                 placeholder={tr('sa_db_ph')} style={inputStyle} />
         </>
       )}
       {draft.type === 'compiled' && (
         <input value={draft.workflow_id} onChange={e => set({ workflow_id: e.target.value })}
-               placeholder="Workflow ID (number)" style={inputStyle} />
+               placeholder={tr('sa_wf_ph')} style={inputStyle} />
       )}
       <input value={draft.model} onChange={e => set({ model: e.target.value })}
-             placeholder="Model override (optional)" style={inputStyle} />
+             placeholder={tr('sa_model_ph')} style={inputStyle} />
       <textarea value={draft.system_prompt} onChange={e => set({ system_prompt: e.target.value })}
-                placeholder="System prompt for this subagent" rows={3}
+                placeholder={tr('sa_prompt_ph')} rows={3}
                 style={{ ...inputStyle, height: 'auto', padding: 6, fontFamily: 'monospace', resize: 'vertical' }} />
       <input value={draft.tools} onChange={e => set({ tools: e.target.value })}
-             placeholder="Tools (comma-separated, optional)" style={inputStyle} />
+             placeholder={tr('sa_tools_ph')} style={inputStyle} />
       <div style={{ display: 'flex', gap: 6 }}>
         <button onClick={onSave}
                 style={{ ...smallBtn, background: t.accent, color: '#fff', border: 'none' }}>
-          {isNew ? 'Add' : 'Update'}
+          {isNew ? tr('sa_add_btn') : tr('sa_update_btn')}
         </button>
-        <button onClick={onCancel} style={smallBtn}>Cancel</button>
+        <button onClick={onCancel} style={smallBtn}>{tr('sa_cancel')}</button>
       </div>
     </div>
   );
