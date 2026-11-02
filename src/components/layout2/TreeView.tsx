@@ -8,6 +8,7 @@
  * - Double-click to inline rename
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import ContextMenu, { type ContextMenuAction } from './ContextMenu';
 import { ChevronRight, File, Folder, FolderOpen, Pencil, Trash2, Plus, FilePlus, FolderPlus, RefreshCw, Search } from 'lucide-react';
@@ -65,6 +66,7 @@ export default function TreeView({
   folderSearchValue, onFolderSearchChange, level = 0,
 }: TreeViewProps) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
 
   return (
     <div>
@@ -108,6 +110,7 @@ function TreeNodeItem({
   level: number;
 }) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const [expanded, setExpanded] = useState(level < 1);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(node.label);
@@ -252,7 +255,7 @@ function TreeNodeItem({
               onChange={e => { e.stopPropagation(); onFolderSearchChange(e.target.value); }}
               onClick={e => e.stopPropagation()}
               onKeyDown={e => e.stopPropagation()}
-              placeholder="Filter..."
+              placeholder={tr('c_search_ph')}
               style={{
                 width: '100%',
                 padding: '2px 6px 2px 20px',
@@ -284,7 +287,7 @@ function TreeNodeItem({
               e.preventDefault();
               onNodeEdit(node);
             }}
-            title="Edit"
+            title={tr('c_edit')}
             style={{
               width: 18,
               height: 18,
@@ -314,7 +317,7 @@ function TreeNodeItem({
               e.preventDefault();
               onFolderRefresh(node);
             }}
-            title="Refresh"
+            title={tr('c_refresh')}
             style={{
               width: 18,
               height: 18,

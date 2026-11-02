@@ -8,6 +8,7 @@
  *     (both open the skill editor tab)
  */
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState, type Tab } from './useLayout';
 import apiClient from '../../lib/api-client';
@@ -34,6 +35,7 @@ interface SkillSummary {
 
 export default function SkillBrowserSidebar() {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const { openTab } = useLayoutState();
 
   const [skills, setSkills] = useState<SkillSummary[]>([]);
@@ -146,7 +148,7 @@ export default function SkillBrowserSidebar() {
       {editable && (
         <button
           onClick={e => { e.stopPropagation(); handleEditSkill(skill); }}
-          title="Edit skill"
+          title={tr('sk_edit')}
           style={{
             background: 'none', border: 'none', color: t.textMuted,
             cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 2,
@@ -206,7 +208,7 @@ export default function SkillBrowserSidebar() {
           <input
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search..."
+            placeholder={tr('c_search_ph')}
             style={{
               width: '100%',
               padding: '5px 8px 5px 24px',
@@ -223,7 +225,7 @@ export default function SkillBrowserSidebar() {
         <button
           onClick={loadSkills}
           disabled={loading}
-          title="Refresh"
+          title={tr('c_refresh')}
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 24, height: 24, borderRadius: 4, flexShrink: 0,
@@ -245,7 +247,7 @@ export default function SkillBrowserSidebar() {
         {loading ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 20px', fontSize: 13, color: t.textMuted }}>
             <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />
-            Loading skills...
+            {tr('sk_loading')}
           </div>
         ) : error ? (
           <div style={{ padding: '16px 20px', fontSize: 13, color: '#e5484d' }}>{error}</div>
@@ -262,7 +264,7 @@ export default function SkillBrowserSidebar() {
             {renderCategory('My Skills', mySkills, true, (
               <button
                 onClick={e => { e.stopPropagation(); handleNewSkill(); }}
-                title="New Skill"
+                title={tr('sk_new')}
                 style={{
                   background: 'none', border: 'none', color: t.textMuted,
                   cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 2,

@@ -5,6 +5,7 @@
  * with fuzzy search, keyboard navigation, and keyboard shortcut hints.
  */
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState, ACTIVITIES, type ActivityId, type Tab } from './useLayout';
 import { Search, ArrowUpDown } from 'lucide-react';
@@ -28,6 +29,7 @@ interface CommandPaletteProps {
 
 export default function CommandPalette({ onClose, onOpenQuickPicker }: CommandPaletteProps) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const {
     activeActivity, setActiveActivity,
     sidebarOpen, toggleSidebar,
@@ -173,7 +175,7 @@ export default function CommandPalette({ onClose, onOpenQuickPicker }: CommandPa
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type a command..."
+            placeholder={tr('cp_search_ph')}
             spellCheck={false}
             style={{
               flex: 1,
@@ -236,7 +238,7 @@ export default function CommandPalette({ onClose, onOpenQuickPicker }: CommandPa
         <div style={{ padding: '6px 12px', borderTop: `1px solid ${t.border}`, display: 'flex', gap: 12, fontSize: 11, color: t.textDim }}>
           <span>↑↓ Navigate</span>
           <span>↵ Execute</span>
-          <span>Esc Close</span>
+          <span>{tr('c_esc_close')}</span>
         </div>
       </div>
     </div>

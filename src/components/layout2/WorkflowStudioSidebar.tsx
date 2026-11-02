@@ -7,6 +7,7 @@
  * Agent picker lives in the editor, not here.
  */
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import apiClient from '../../lib/api-client';
 import { Layers, Bot, Loader, GitBranch, AlertTriangle } from 'lucide-react';
@@ -35,6 +36,7 @@ interface WorkflowStudioSidebarProps {
 
 export default function WorkflowStudioSidebar({ onLoadWorkflow, onLoadRecipe }: WorkflowStudioSidebarProps) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const [items, setItems] = useState<WorkflowItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -134,7 +136,7 @@ export default function WorkflowStudioSidebar({ onLoadWorkflow, onLoadRecipe }: 
         {loading ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px', fontSize: 12, color: t.textMuted }}>
             <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} />
-            Loading...
+            {tr('c_loading')}
           </div>
         ) : error ? (
           <div style={{ padding: '16px', fontSize: 12, color: '#e5484d', display: 'flex', alignItems: 'center', gap: 6 }}>

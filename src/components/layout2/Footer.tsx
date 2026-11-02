@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 /**
  * Footer — thin bottom bar carrying the app name and company copyright line.
  * Mounted once in the app shell (App.tsx) so it appears at the foot of
@@ -7,6 +8,7 @@ import { useLayoutTokens } from './tokens';
 
 export default function Footer() {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
 
   return (
     <div
@@ -25,9 +27,9 @@ export default function Footer() {
       }}
     >
       {/* App name — bottom left */}
-      <span>Carrier Studio</span>
+      <span>{tr('ft_product')}</span>
       {/* Company copyright — bottom right, padded from the edge */}
-      <span style={{ paddingRight: 12 }}>Copyright © EBL 2026</span>
+      <span style={{ paddingRight: 12 }}>{tr('ft_copyright')}</span>
     </div>
   );
 }

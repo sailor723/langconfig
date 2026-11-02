@@ -14,6 +14,7 @@
  * imperatively via refs because the libraries own the DOM they produce.
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 // MUST be imported before pptxviewjs: captures the native FileReader before
 // pptxviewjs overwrites the global (see office-compat.ts).
 import { restoreNativeFileReader } from './office-compat';
@@ -116,6 +117,7 @@ function paginateDocxSections(sections: HTMLElement[], host: HTMLElement): HTMLE
 
 export default function OfficeViewer({ url, fileName, ext }: OfficeViewerProps) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
 
   // docx: hidden full render + center stage + thumbnail rail
   const docxHiddenRef = useRef<HTMLDivElement>(null);
@@ -393,26 +395,26 @@ export default function OfficeViewer({ url, fileName, ext }: OfficeViewerProps) 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         {/* Toolbar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderBottom: `1px solid ${t.border}`, flexShrink: 0 }}>
-          <button onClick={() => goTo(currentPage - 1)} disabled={currentPage <= 0} title="Previous"
+          <button onClick={() => goTo(currentPage - 1)} disabled={currentPage <= 0} title={tr('c_previous')}
             style={toolBtn(t, currentPage <= 0)}>
             <ChevronLeft size={14} />
           </button>
           <span style={{ fontSize: 12, color: t.textMuted, minWidth: 70, textAlign: 'center' }}>
             {pageCount > 0 ? `${currentPage + 1} / ${pageCount}` : '—'}
           </span>
-          <button onClick={() => goTo(currentPage + 1)} disabled={pageCount === 0 || currentPage >= pageCount - 1} title="Next"
+          <button onClick={() => goTo(currentPage + 1)} disabled={pageCount === 0 || currentPage >= pageCount - 1} title={tr('c_next')}
             style={toolBtn(t, pageCount === 0 || currentPage >= pageCount - 1)}>
             <ChevronRight size={14} />
           </button>
           <span style={{ width: 1, height: 16, background: t.border, margin: '0 4px' }} />
-          <button onClick={() => setZoom((z) => Math.max(0.25, +(z - 0.25).toFixed(2)))} title="Zoom out" style={toolBtn(t, false)}>
+          <button onClick={() => setZoom((z) => Math.max(0.25, +(z - 0.25).toFixed(2)))} title={tr('c_zoom_out')} style={toolBtn(t, false)}>
             <ZoomOut size={13} />
           </button>
           <span style={{ fontSize: 11, color: t.textMuted, minWidth: 38, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
-          <button onClick={() => setZoom((z) => Math.min(4, +(z + 0.25).toFixed(2)))} title="Zoom in" style={toolBtn(t, false)}>
+          <button onClick={() => setZoom((z) => Math.min(4, +(z + 0.25).toFixed(2)))} title={tr('c_zoom_in')} style={toolBtn(t, false)}>
             <ZoomIn size={13} />
           </button>
-          <button onClick={() => setZoom(1)} title="Reset zoom" style={toolBtn(t, zoom === 1)}>
+          <button onClick={() => setZoom(1)} title={tr('c_reset_zoom')} style={toolBtn(t, zoom === 1)}>
             <Maximize size={13} />
           </button>
           <span style={{ fontSize: 11, color: t.textMuted, marginLeft: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

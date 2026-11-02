@@ -5,6 +5,7 @@
  * Arrow keys to navigate, Enter to open selected file, Escape to close.
  */
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState, type Tab, ACTIVITIES, type ActivityId } from './useLayout';
 import { useSidebarData } from './useSidebarData';
@@ -19,6 +20,7 @@ interface FlatItem {
 
 export default function QuickFilePicker({ onClose }: { onClose: () => void }) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const { openTab, setActiveActivity } = useLayoutState();
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -148,7 +150,7 @@ export default function QuickFilePicker({ onClose }: { onClose: () => void }) {
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search files by name..."
+            placeholder={tr('qp_search_ph')}
             spellCheck={false}
             style={{
               flex: 1,
@@ -207,7 +209,7 @@ export default function QuickFilePicker({ onClose }: { onClose: () => void }) {
         <div style={{ padding: '6px 12px', borderTop: `1px solid ${t.border}`, display: 'flex', gap: 12, fontSize: 11, color: t.textDim }}>
           <span>↑↓ Navigate</span>
           <span>↵ Open</span>
-          <span>Esc Close</span>
+          <span>{tr('c_esc_close')}</span>
         </div>
       </div>
     </div>

@@ -8,6 +8,7 @@
  *   - Status bar at bottom showing item count
  */
 import { type ReactNode, Children, useCallback, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutState, ACTIVITIES } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import TreeView, { type TreeNode } from './TreeView';
@@ -34,6 +35,7 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
   const { activeActivity, sidebarOpen, sidebarView, setSidebarView, openTab, sidebarWidth, setSidebarWidth } = useLayoutState();
   const { nodes, loading, error, getNodeContent, saveNodeContent, reload } = useSidebarData(activeActivity);
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const [treeKey, setTreeKey] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -217,7 +219,7 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
               <Search size={14} />
             </IconButton>
             {!isSearch && (
-              <IconButton onClick={handleRefresh} title="Refresh" t={t}>
+              <IconButton onClick={handleRefresh} title={tr('c_refresh')} t={t}>
                 <RefreshCw size={14} />
               </IconButton>
             )}
@@ -248,7 +250,7 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
           ) : loading ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 20px', fontSize: 13, color: t.textMuted }}>
               <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />
-              Loading...
+              {tr('c_loading')}
             </div>
           ) : error ? (
             <div style={{ padding: '16px 20px', fontSize: 13, color: '#e5484d' }}>{error}</div>
@@ -297,7 +299,7 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
       <div
         onMouseDown={handleResizeStart}
         onDoubleClick={handleResizeReset}
-        title="Drag to resize — double-click to reset"
+        title={tr('ls_drag_resize')}
         style={{
           width: 8,
           cursor: 'ew-resize',

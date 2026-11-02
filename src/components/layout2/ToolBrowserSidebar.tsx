@@ -5,6 +5,7 @@
  * Custom tools: list of user-created tools → click opens full builder.
  */
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState } from './useLayout';
 import apiClient from '../../lib/api-client';
@@ -27,6 +28,7 @@ interface CustomToolSummary {
 
 export default function ToolBrowserSidebar() {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const { openTab, tabs } = useLayoutState();
   const [categories, setCategories] = useState<Array<{ category: string; count: number; tools: ToolItem[] }>>([]);
   const [loading, setLoading] = useState(false);
@@ -166,7 +168,7 @@ export default function ToolBrowserSidebar() {
           <input
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search..."
+            placeholder={tr('c_search_ph')}
             style={{
               width: '100%',
               padding: '5px 8px 5px 24px',
@@ -183,7 +185,7 @@ export default function ToolBrowserSidebar() {
         <button
           onClick={handleRefresh}
           disabled={loading || customLoading}
-          title="Refresh"
+          title={tr('c_refresh')}
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 24, height: 24, borderRadius: 4, flexShrink: 0,
@@ -205,7 +207,7 @@ export default function ToolBrowserSidebar() {
         {/* ── Native Tool Categories ── */}
         <div style={sectionHeaderStyle}>
           <Wrench size={14} />
-          Tool Categories
+          {tr('tb_categories')}
         </div>
 
         {loading ? (
@@ -245,10 +247,10 @@ export default function ToolBrowserSidebar() {
 
         {/* ── Custom Tools ── */}
         <div style={{ ...sectionHeaderStyle, textTransform: 'none' }}>
-          <span style={{ flex: 1 }}>Custom Tools</span>
+          <span style={{ flex: 1 }}>{tr('tb_custom')}</span>
           <button
             onClick={() => handleOpenCustomTool()}
-            title="New Custom Tool"
+            title={tr('tb_new')}
             style={{
               background: 'none',
               border: 'none',
@@ -293,7 +295,7 @@ export default function ToolBrowserSidebar() {
               <span style={{ fontSize: 11, color: t.textDim }}>{tool.tool_type}</span>
               <button
                 onClick={e => { e.stopPropagation(); handleOpenCustomTool(tool.tool_id); }}
-                title="Edit"
+                title={tr('c_edit')}
                 style={{
                   background: 'none',
                   border: 'none',

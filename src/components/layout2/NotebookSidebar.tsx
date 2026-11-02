@@ -5,6 +5,7 @@
  * Clicking a notebook opens it in the workspace as a tab with 'notebook' view type.
  */
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState, type Tab } from './useLayout';
 import apiClient from '../../lib/api-client';
@@ -22,6 +23,7 @@ interface NotebookSummary {
 
 export default function NotebookSidebar() {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const { openTab } = useLayoutState();
 
   const [notebooks, setNotebooks] = useState<NotebookSummary[]>([]);
@@ -93,12 +95,12 @@ export default function NotebookSidebar() {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: t.textPrimary }}>
           <BookOpen size={14} />
-          <span>Notebooks</span>
+          <span>{tr('nb_title')}</span>
           {!loading && <span style={{ fontSize: 11, color: t.textMuted }}>({notebooks.length})</span>}
         </div>
         <button
           onClick={loadNotebooks}
-          title="Refresh"
+          title={tr('c_refresh')}
           style={{
             background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer',
             padding: 4, display: 'flex', borderRadius: 4,
@@ -115,12 +117,12 @@ export default function NotebookSidebar() {
         {loading && notebooks.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 20px', fontSize: 13, color: t.textMuted }}>
             <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />
-            Loading...
+            {tr('c_loading')}
           </div>
         ) : error ? (
           <div style={{ padding: '16px 20px', fontSize: 13, color: '#e5484d' }}>{error}</div>
         ) : moduleNames.length === 0 ? (
-          <div style={{ padding: '16px 20px', fontSize: 13, color: t.textMuted }}>No notebooks found</div>
+          <div style={{ padding: '16px 20px', fontSize: 13, color: t.textMuted }}>{tr('nb_empty')}</div>
         ) : (
           moduleNames.map(mod => {
             const items = grouped[mod];

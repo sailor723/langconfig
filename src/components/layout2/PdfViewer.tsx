@@ -10,6 +10,7 @@
  * for non-PDF documents, and the main bundle stays small via code splitting).
  */
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 import { AlertCircle, Loader } from 'lucide-react';
 import { useLayoutTokens } from './tokens';
@@ -40,6 +41,7 @@ function PdfPage({
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
 
   useEffect(() => {
     let cancelled = false;
@@ -88,6 +90,7 @@ function PdfPage({
 
 export default function PdfViewer({ url }: PdfViewerProps) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
   const [numPages, setNumPages] = useState(0);
@@ -165,7 +168,7 @@ export default function PdfViewer({ url }: PdfViewerProps) {
       {error ? (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: t.textMuted, fontSize: 13, textAlign: 'center' }}>
           <AlertCircle size={24} style={{ color: '#e5484d' }} />
-          <p style={{ color: '#e5484d' }}>Failed to render PDF: {error}</p>
+          <p style={{ color: '#e5484d' }}>{tr('pv_failed', { error })}</p>
           <a href={url} target="_blank" rel="noreferrer" style={{ color: '#a855f7', textDecoration: 'underline', fontSize: 12 }}>
             Open {url.split('/').pop()?.split('?')[0] ?? 'file'} in new tab &rarr;
           </a>
@@ -173,7 +176,7 @@ export default function PdfViewer({ url }: PdfViewerProps) {
       ) : !doc ? (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: t.textMuted, fontSize: 13 }}>
           <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />
-          Rendering PDF...
+          {tr('pv_rendering')}
         </div>
       ) : null}
     </div>

@@ -11,6 +11,7 @@
  * Vault opens a popover (Obsidian-style vault switcher) instead of navigating.
  */
 import { useState, useRef, useEffect, Fragment } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutState, ACTIVITIES, type ActivityDef, type ActivityId } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import {
@@ -103,6 +104,7 @@ interface ActivityBarProps {
 export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
   const { activeActivity, setActiveActivity, sidebarOpen, toggleSidebar, rightPanelOpen, toggleRightPanel } = useLayoutState();
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const [vaultOpen, setVaultOpen] = useState(false);
   const vaultBtnRef = useRef<HTMLButtonElement | null>(null);
   const [userOpen, setUserOpen] = useState(false);
@@ -149,7 +151,7 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
       {/* Vault (popover) — always first */}
       <button
         ref={vaultBtnRef}
-        title="Switch vault"
+        title={tr('ab_switch_vault')}
         onClick={() => setVaultOpen(v => !v)}
         style={{
           width: 48,
@@ -288,7 +290,7 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
 
       {/* Settings gear — opens the DSH-style settings modal (centered panel) */}
       <button
-        title="Settings"
+        title={tr('ab_settings')}
         onClick={() => window.dispatchEvent(new CustomEvent('settings:open'))}
         style={{
           width: 48,
@@ -317,7 +319,7 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
           that is already open is reused and keeps its size, so an existing chat
           window has to be closed once for this to take effect. */}
       <button
-        title="Open chat window"
+        title={tr('ab_open_chat')}
         onClick={() => {
           const w = Math.round(window.screen.availWidth * 0.95);
           const h = Math.round(window.screen.availHeight * 0.95);
@@ -349,7 +351,7 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
 
       {/* Toggle sidebar */}
       <button
-        title="Toggle sidebar"
+        title={tr('ab_toggle_sidebar')}
         onClick={toggleSidebar}
         style={{
           width: 48,

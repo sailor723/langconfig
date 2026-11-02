@@ -5,6 +5,7 @@
  * Clicking a provider opens its detail tab in the editor area.
  */
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState } from './useLayout';
 import apiClient from '../../lib/api-client';
@@ -37,6 +38,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 export default function SearchProvidersSidebar() {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const { openTab } = useLayoutState();
   const [providers, setProviders] = useState<SearchProviderInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -68,7 +70,7 @@ export default function SearchProvidersSidebar() {
   useEffect(() => { loadProviders(); }, [loadProviders]);
 
   if (loading) {
-    return <div style={{ padding: 16, color: t.textMuted, fontSize: 12 }}>Loading search providers…</div>;
+    return <div style={{ padding: 16, color: t.textMuted, fontSize: 12 }}>{tr('sp_loading')}</div>;
   }
   if (error) {
     return (
@@ -81,7 +83,7 @@ export default function SearchProvidersSidebar() {
             color: t.textPrimary, padding: '2px 8px', borderRadius: 3, cursor: 'pointer',
           }}
         >
-          Retry
+          {tr('c_retry')}
         </button>
       </div>
     );
@@ -153,7 +155,7 @@ export default function SearchProvidersSidebar() {
 
       {providers.length === 0 && (
         <div style={{ padding: 16, color: t.textMuted, fontSize: 12, fontStyle: 'italic' }}>
-          No search providers configured
+          {tr('sp_empty')}
         </div>
       )}
     </div>

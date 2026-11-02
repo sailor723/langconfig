@@ -5,6 +5,7 @@
  * entries, showing name + content preview. Clicking opens the prompt editor.
  */
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState } from './useLayout';
 import apiClient from '../../lib/api-client';
@@ -38,6 +39,7 @@ function truncate(text: string, max: number): string {
 
 export default function PromptBrowserSidebar() {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const { openTab } = useLayoutState();
   const [prompts, setPrompts] = useState<PromptEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,14 +106,14 @@ export default function PromptBrowserSidebar() {
       {/* Header toolbar — title + search + refresh + new, all on one line */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 12px 8px' }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary, flexShrink: 0 }}>
-          Prompt Templates
+          {tr('pb_title')}
         </span>
         <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
           <Search size={12} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: t.textMuted }} />
           <input
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search..."
+            placeholder={tr('c_search_ph')}
             style={{
               width: '100%',
               padding: '5px 8px 5px 24px',
@@ -128,7 +130,7 @@ export default function PromptBrowserSidebar() {
         <button
           onClick={handleRefresh}
           disabled={loading}
-          title="Refresh"
+          title={tr('c_refresh')}
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 24, height: 24, borderRadius: 4, flexShrink: 0,
@@ -143,7 +145,7 @@ export default function PromptBrowserSidebar() {
         </button>
         <button
           onClick={handleNewPrompt}
-          title="New Prompt"
+          title={tr('pb_new')}
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 24, height: 24, borderRadius: 4, flexShrink: 0,
@@ -162,7 +164,7 @@ export default function PromptBrowserSidebar() {
         {loading ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 8px', fontSize: 12, color: t.textMuted }}>
             <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />
-            Loading prompt templates...
+            {tr('pb_loading')}
           </div>
         ) : filtered.length === 0 ? (
           <div style={{ padding: '24px 8px', textAlign: 'center', fontSize: 12, color: t.textMuted }}>
