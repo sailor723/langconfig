@@ -19,6 +19,7 @@
  * the activity bar, matching how the settings modal is opened by `settings:open`.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import apiClient from '../../lib/api-client';
 import type { UserSummary } from '../../lib/api/users';
@@ -42,6 +43,7 @@ function DialogShell({
   footer?: React.ReactNode;
 }) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -97,7 +99,7 @@ function DialogShell({
           </div>
           <button
             onClick={onClose}
-            title="Close"
+            title={tr('ua_close')}
             style={{
               width: 28,
               height: 28,
@@ -243,13 +245,13 @@ function Notice({ tone, children }: { tone: 'error' | 'ok' | 'info'; children: R
 }
 
 /** The one thing a new admin most needs to know, stated where it is read. */
-const SHARED_DATA_NOTE =
-  'Accounts are separate. Everything else in this install — projects, agents, chats, tools and knowledge — is shared with every account.';
+// The note is a dictionary entry now; kept as a key so both dialogs stay one string.
 
 // ── account (self-service) ──────────────────────────────────────────────────
 
 export function AccountDialog({ onClose }: { onClose: () => void }) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const [me, setMe] = useState<UserSummary | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [nickname, setNickname] = useState('');
@@ -276,7 +278,7 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
         if (cancelled) return;
         setNameMessage({
           tone: 'error',
-          text: err?.response?.data?.detail ?? 'Could not load your account.',
+          text: err?.response?.data?.detail ?? tr('ua_err_load'),
         });
       });
     return () => {
@@ -294,11 +296,11 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
         nickname: nickname.trim(),
       });
       setMe(r.data);
-      setNameMessage({ tone: 'ok', text: 'Saved.' });
+      setNameMessage({ tone: 'ok', text: tr('ua_saved') });
     } catch (err: any) {
       setNameMessage({
         tone: 'error',
-        text: err?.response?.data?.detail ?? 'Could not save your name.',
+        text: err?.response?.data?.detail ?? tr('ua_err_save_name'),
       });
     } finally {
       setSavingName(false);
@@ -307,7 +309,7 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
 
   const savePassword = async () => {
     if (newPassword !== repeatPassword) {
-      setPasswordMessage({ tone: 'error', text: 'The two new passwords do not match.' });
+      setPasswordMessage({ tone: 'error', text: tr('ua_err_pw_mismatch') });
       return;
     }
     setSavingPassword(true);
@@ -317,11 +319,11 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
       setCurrentPassword('');
       setNewPassword('');
       setRepeatPassword('');
-      setPasswordMessage({ tone: 'ok', text: 'Password changed.' });
+      setPasswordMessage({ tone: 'ok', text: tr('ua_pw_changed') });
     } catch (err: any) {
       setPasswordMessage({
         tone: 'error',
-        text: err?.response?.data?.detail ?? 'Could not change your password.',
+        text: err?.response?.data?.detail ?? tr('ua_err_pw'),
       });
     } finally {
       setSavingPassword(false);
@@ -329,7 +331,7 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <DialogShell title="Your account" subtitle="The name and password you sign in with." onClose={onClose}>
+    <DialogShell title={tr('ua_your_account')} subtitle={tr('ua_your_account_sub')} onClose={onClose}>
       {!me ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: t.textMuted }}>
           <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Loading…
@@ -375,7 +377,7 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
 
           {nameMessage && <Notice tone={nameMessage.tone}>{nameMessage.text}</Notice>}
 
-          <Field label="Display name" hint="Shown next to your work. Your username stays as it is.">
+          <Field label={tr('ua_display_name')} hint={tr('ua_display_name_hint')}>
             <TextInput
               value={displayName}
               placeholder={me.username}
@@ -384,12 +386,12 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
             />
           </Field>
           <Field
-            label="Nickname"
-            hint="Sign in with this instead of your username — shorter is easier. Letters, digits, dot, dash, underscore."
+            label={tr('ua_nickname')}
+            hint={tr('ua_nickname_hint')}
           >
             <TextInput
               value={nickname}
-              placeholder="e.g. alice"
+              placeholder={tr('ua_alice_ph')}
               onChange={(e) => setNickname(e.target.value)}
               maxLength={32}
               autoCapitalize="none"
@@ -399,18 +401,18 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
           </Field>
           <div style={{ marginBottom: 20 }}>
             <Button variant="primary" busy={savingName} onClick={saveName}>
-              Save name
+              {tr('ua_save_name')}
             </Button>
           </div>
 
           <div style={{ height: 1, background: t.border, margin: '4px 0 18px' }} />
 
           <div style={{ fontSize: 13, fontWeight: 600, color: t.textPrimary, marginBottom: 10 }}>
-            Change password
+            {tr('ua_change_pw')}
           </div>
           {passwordMessage && <Notice tone={passwordMessage.tone}>{passwordMessage.text}</Notice>}
 
-          <Field label="Current password">
+          <Field label={tr('ua_current_pw')}>
             <TextInput
               type="password"
               value={currentPassword}
@@ -418,7 +420,7 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
               autoComplete="current-password"
             />
           </Field>
-          <Field label="New password" hint="At least 8 characters.">
+          <Field label={tr('ua_new_pw')} hint={tr('ua_new_pw_hint')}>
             <TextInput
               type="password"
               value={newPassword}
@@ -426,7 +428,7 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
               autoComplete="new-password"
             />
           </Field>
-          <Field label="Repeat new password">
+          <Field label={tr('ua_repeat_pw')}>
             <TextInput
               type="password"
               value={repeatPassword}
@@ -440,11 +442,11 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
             disabled={!currentPassword || newPassword.length < 8}
             onClick={savePassword}
           >
-            Change password
+            {tr('ua_change_pw')}
           </Button>
 
           <div style={{ marginTop: 20 }}>
-            <Notice tone="info">{SHARED_DATA_NOTE}</Notice>
+            <Notice tone="info">{tr('ua_shared_note')}</Notice>
           </div>
         </>
       )}
@@ -456,6 +458,7 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
 
 export function UsersDialog({ onClose }: { onClose: () => void }) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [me, setMe] = useState<UserSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -487,7 +490,7 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
       setUsers(list.data);
       setMe(mine.data);
     } catch (err: any) {
-      setError(err?.response?.data?.detail ?? 'Could not load accounts.');
+      setError(err?.response?.data?.detail ?? tr('ua_err_load_accounts'));
     } finally {
       setLoading(false);
     }
@@ -516,7 +519,7 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
       await load();
       inputRef.current?.focus();
     } catch (err: any) {
-      setCreateError(err?.response?.data?.detail ?? 'Could not create the account.');
+      setCreateError(err?.response?.data?.detail ?? tr('ua_err_update'));
     } finally {
       setCreating(false);
     }
@@ -529,7 +532,7 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
       await apiClient.updateUser(user.id, data);
       await load();
     } catch (err: any) {
-      setError(err?.response?.data?.detail ?? 'Could not update the account.');
+      setError(err?.response?.data?.detail ?? tr('ua_err_update'));
     } finally {
       setBusyId(null);
     }
@@ -545,7 +548,7 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
       setNicknameDraft('');
       await load();
     } catch (err: any) {
-      setError(err?.response?.data?.detail ?? 'Could not set that nickname.');
+      setError(err?.response?.data?.detail ?? tr('ua_err_nick'));
     } finally {
       setBusyId(null);
     }
@@ -558,11 +561,11 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
       await apiClient.adminSetPassword(user.id, { new_password: resetPassword });
       setResetFor(null);
       setResetPassword('');
-      setResetMessage({ tone: 'ok', text: `Password reset for ${user.username}. Tell them the new one.` });
+      setResetMessage({ tone: 'ok', text: tr('ua_pw_reset_ok', { username: user.username }) });
     } catch (err: any) {
       setResetMessage({
         tone: 'error',
-        text: err?.response?.data?.detail ?? 'Could not reset the password.',
+        text: err?.response?.data?.detail ?? tr('ua_err_reset'),
       });
     } finally {
       setBusyId(null);
@@ -571,8 +574,8 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <DialogShell
-      title="Users"
-      subtitle="Who may sign in to this install. Administrators can also manage accounts."
+      title={tr('up_users')}
+      subtitle={tr('ua_users_sub')}
       onClose={onClose}
       width={720}
     >
@@ -581,7 +584,7 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
 
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: t.textMuted }}>
-          <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Loading accounts…
+          <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> {tr('ua_loading')}
         </div>
       ) : (
         <>
@@ -600,10 +603,10 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                 borderBottom: `1px solid ${t.border}`,
               }}
             >
-              <div>Account</div>
-              <div>Role</div>
-              <div>Status</div>
-              <div style={{ textAlign: 'right' }}>Actions</div>
+              <div>{tr('ua_col_account')}</div>
+              <div>{tr('ua_col_role')}</div>
+              <div>{tr('ua_col_status')}</div>
+              <div style={{ textAlign: 'right' }}>{tr('ua_col_actions')}</div>
             </div>
 
             {users.map((user) => {
@@ -626,15 +629,15 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                     <div style={{ fontSize: 13, color: t.textPrimary }}>
                       {user.display_name || user.username}
                       {isMe && (
-                        <span style={{ marginLeft: 6, fontSize: 10, color: t.textMuted }}>(you)</span>
+                        <span style={{ marginLeft: 6, fontSize: 10, color: t.textMuted }}>{tr('ua_you')}</span>
                       )}
                     </div>
                     <div style={{ fontSize: 11, color: t.textMuted }}>
                       {user.username}
-                      {user.nickname ? ` · signs in as “${user.nickname}”` : ''}
+                      {user.nickname ? tr('ua_signs_in_as', { nick: user.nickname }) : ''}
                       {user.last_login_at
-                        ? ` · last sign-in ${user.last_login_at.slice(0, 16).replace('T', ' ')}`
-                        : ' · never signed in'}
+                        ? tr('ua_last_signin', { when: user.last_login_at.slice(0, 16).replace('T', ' ') })
+                        : tr('ua_never_signed')}
                     </div>
                   </div>
 
@@ -643,7 +646,7 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                       value={user.role}
                       disabled={busy || isMe}
                       onChange={(e) => patch(user, { role: e.target.value as 'admin' | 'member' })}
-                      title={isMe ? 'You cannot change your own role' : 'Change role'}
+                      title={isMe ? tr('ua_title_role_locked') : tr('ua_title_change_role')}
                       style={{
                         height: 26,
                         fontSize: 12,
@@ -654,8 +657,8 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                         padding: '0 6px',
                       }}
                     >
-                      <option value="member">Member</option>
-                      <option value="admin">Admin</option>
+                      <option value="member">{tr('up_member')}</option>
+                      <option value="admin">{tr('ua_admin')}</option>
                     </select>
                   </div>
 
@@ -670,7 +673,7 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                         setResetPassword('');
                         setResetMessage(null);
                       }}
-                      title="Set a new password for this account"
+                      title={tr('ua_title_reset_pw')}
                       style={{
                         height: 24,
                         padding: '0 8px',
@@ -682,7 +685,7 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                         cursor: 'pointer',
                       }}
                     >
-                      Reset
+                      {tr('ua_reset')}
                     </button>
                     <button
                       onClick={() => {
@@ -690,11 +693,7 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                         setNicknameDraft(user.nickname ?? '');
                         setError(null);
                       }}
-                      title={
-                        user.nickname
-                          ? 'Change or remove the nickname they can sign in with'
-                          : 'Give this account a nickname they can sign in with'
-                      }
+                      title={user.nickname ? tr('ua_title_nick_edit') : tr('ua_title_nick_add')}
                       style={{
                         height: 24,
                         padding: '0 8px',
@@ -706,17 +705,17 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                         cursor: 'pointer',
                       }}
                     >
-                      Nick
+                      {tr('ua_nick')}
                     </button>
                     <button
                       onClick={() => patch(user, { is_active: !user.is_active })}
                       disabled={busy || isMe}
                       title={
                         isMe
-                          ? 'You cannot disable your own account'
+                          ? tr('ua_title_self_disable')
                           : user.is_active
-                            ? 'Block sign-in for this account'
-                            : 'Allow this account to sign in again'
+                            ? tr('ua_title_block')
+                            : tr('ua_title_allow')
                       }
                       style={{
                         width: 24,
@@ -738,7 +737,7 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                   {nicknameFor === user.id && (
                     <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, marginTop: 8 }}>
                       <TextInput
-                        placeholder="Nickname for sign-in (empty = remove it)"
+                        placeholder={tr('ua_nick_ph')}
                         value={nicknameDraft}
                         onChange={(e) => setNicknameDraft(e.target.value)}
                         maxLength={32}
@@ -747,7 +746,7 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                         spellCheck={false}
                       />
                       <Button variant="primary" busy={busy} onClick={() => submitNickname(user)}>
-                        Save nickname
+                        {tr('ua_save_nick')}
                       </Button>
                     </div>
                   )}
@@ -756,7 +755,7 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                     <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, marginTop: 8 }}>
                       <TextInput
                         type="password"
-                        placeholder="New password (min 8 characters)"
+                        placeholder={tr('ua_pw_reset_ph')}
                         value={resetPassword}
                         onChange={(e) => setResetPassword(e.target.value)}
                         autoComplete="new-password"
@@ -767,7 +766,7 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                         disabled={resetPassword.length < 8}
                         onClick={() => submitReset(user)}
                       >
-                        Set password
+                        {tr('ua_set_password')}
                       </Button>
                     </div>
                   )}
@@ -777,39 +776,39 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
           </div>
 
           <div style={{ marginTop: 20, fontSize: 13, fontWeight: 600, color: t.textPrimary, marginBottom: 10 }}>
-            Add an account
+            {tr('ua_add_account')}
           </div>
           {createError && <Notice tone="error">{createError}</Notice>}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <Field label="Username" hint="2–64 characters: letters, digits, . _ -">
+            <Field label={tr('ua_username')} hint={tr('ua_username_hint')}>
               <TextInput
                 ref={inputRef}
                 value={newUsername}
                 onChange={(e) => setNewUsername(e.target.value)}
-                placeholder="e.g. alice"
+                placeholder={tr('ua_alice_ph')}
                 autoComplete="off"
               />
             </Field>
-            <Field label="Nickname" hint="Optional. They can sign in with this too.">
+            <Field label={tr('ua_nickname')} hint={tr('ua_nickname_optional_hint')}>
               <TextInput
                 value={newNickname}
                 onChange={(e) => setNewNickname(e.target.value)}
-                placeholder="e.g. alice"
+                placeholder={tr('ua_alice_ph')}
                 maxLength={32}
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck={false}
               />
             </Field>
-            <Field label="Display name" hint="Optional">
+            <Field label={tr('ua_display_name')} hint={tr('ua_display_optional')}>
               <TextInput
                 value={newDisplayName}
                 onChange={(e) => setNewDisplayName(e.target.value)}
-                placeholder="Alice Chan"
+                placeholder={tr('ua_display_ph')}
                 maxLength={128}
               />
             </Field>
-            <Field label="Initial password" hint="At least 8 characters. There is no email reset — tell them the password.">
+            <Field label={tr('ua_initial_pw')} hint={tr('ua_initial_pw_hint')}>
               <TextInput
                 type="password"
                 value={newPassword}
@@ -817,7 +816,7 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                 autoComplete="new-password"
               />
             </Field>
-            <Field label="Role">
+            <Field label={tr('ua_role')}>
               <select
                 value={newRole}
                 onChange={(e) => setNewRole(e.target.value as 'member' | 'admin')}
@@ -833,8 +832,8 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                   boxSizing: 'border-box',
                 }}
               >
-                <option value="member">Member — manages their own account only</option>
-                <option value="admin">Admin — also manages accounts</option>
+                <option value="member">{tr('ua_role_member')}</option>
+                <option value="admin">{tr('ua_role_admin')}</option>
               </select>
             </Field>
           </div>
@@ -844,11 +843,11 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
             disabled={newUsername.trim().length < 2 || newPassword.length < 8}
             onClick={createUser}
           >
-            <UserRound size={13} /> Create account
+            <UserRound size={13} /> {tr('ua_create_account')}
           </Button>
 
           <div style={{ marginTop: 18 }}>
-            <Notice tone="info">{SHARED_DATA_NOTE}</Notice>
+            <Notice tone="info">{tr('ua_shared_note')}</Notice>
           </div>
         </>
       )}
