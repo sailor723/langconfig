@@ -1694,6 +1694,22 @@ const en = {
   "sb_reset_to_form": "Reset to form",
   "sb_skills_default": "skills (default)",
 
+  "ctb_twitter_get_creds": "Get your API credentials from the Twitter Developer Portal:",
+  "ctb_nav_keys_tokens": "Navigate to \"Keys and tokens\" section",
+  "ctb_find_consumer_keys": "Find in Developer Portal → Your App → Keys and tokens → Consumer Keys",
+  "ctb_find_auth_tokens": "Find in Developer Portal → Your App → Keys and tokens → Authentication Tokens",
+
+  "de_save": "Save",
+  "de_saved_hint": "Saved with the Save button",
+  "de_recursion_label": "recursion_limit",
+  "de_recursion_hint": "turns per run — unset uses the team default (1000)",
+  "de_max_tokens_label": "max_total_tokens",
+  "de_max_tokens_hint": "workflow / export only",
+  "de_eviction_label": "eviction_threshold",
+  "de_eviction_hint": "not read at runtime",
+  "de_summarization_label": "summarization_threshold",
+  "de_keep_last_label": "keep_last_messages",
+  "de_chat_hint": "panel on the right.",
 };
 
 const zh = {
@@ -3384,6 +3400,22 @@ const zh = {
   "sb_reset_to_form": "重置表单",
   "sb_skills_default": "个技能（默认）",
 
+  "ctb_twitter_get_creds": "在 Twitter 开发者门户获取你的 API 凭据：",
+  "ctb_nav_keys_tokens": "进入「Keys and tokens」页面",
+  "ctb_find_consumer_keys": "在开发者门户 → 你的 App → Keys and tokens → Consumer Keys 里找",
+  "ctb_find_auth_tokens": "在开发者门户 → 你的 App → Keys and tokens → Authentication Tokens 里找",
+
+  "de_save": "保存",
+  "de_saved_hint": "用「保存」按钮保存",
+  "de_recursion_label": "recursion_limit",
+  "de_recursion_hint": "每次运行的轮数 —— 不填用团队默认值（1000）",
+  "de_max_tokens_label": "max_total_tokens",
+  "de_max_tokens_hint": "仅工作流 / 导出时使用",
+  "de_eviction_label": "eviction_threshold",
+  "de_eviction_hint": "运行时不会读取",
+  "de_summarization_label": "summarization_threshold",
+  "de_keep_last_label": "keep_last_messages",
+  "de_chat_hint": "右侧面板。",
 };
 
 i18n

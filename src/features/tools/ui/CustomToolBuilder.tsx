@@ -693,12 +693,12 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                     </button>
                   </div>
                   <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                    Get your API credentials from the Twitter Developer Portal:
+                    {t('ctb_twitter_get_creds')}
                   </p>
                   <ol className="text-xs space-y-1 mb-3" style={{ color: 'var(--color-text-muted)', paddingLeft: '1.5rem' }}>
                     <li>Go to <a href="https://developer.twitter.com/en/portal/dashboard" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'var(--color-primary)' }}>{t('ctb_twitter_portal')}</a></li>
                     <li>{t('ctb_create_app')}</li>
-                    <li>Navigate to "Keys and tokens" section</li>
+                    <li>{t('ctb_nav_keys_tokens')}</li>
                     <li>{t('ctb_copy_credentials')}</li>
                   </ol>
                   <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
@@ -725,7 +725,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                     onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-dark)'}
                   />
                   <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                    Find in Developer Portal → Your App → Keys and tokens → Consumer Keys
+                    {t('ctb_find_consumer_keys')}
                   </p>
                 </div>
 
@@ -748,7 +748,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                     onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-dark)'}
                   />
                   <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                    Find in Developer Portal → Your App → Keys and tokens → Consumer Keys
+                    {t('ctb_find_consumer_keys')}
                   </p>
                 </div>
 
@@ -771,7 +771,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                     onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-dark)'}
                   />
                   <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                    Find in Developer Portal → Your App → Keys and tokens → Authentication Tokens
+                    {t('ctb_find_auth_tokens')}
                   </p>
                 </div>
 
@@ -794,7 +794,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                     onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-dark)'}
                   />
                   <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                    Find in Developer Portal → Your App → Keys and tokens → Authentication Tokens
+                    {t('ctb_find_auth_tokens')}
                   </p>
                 </div>
 

@@ -704,7 +704,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         />
         <div style={{ fontSize: 10, color: t.textMuted, marginTop: 3 }}>
           Uploads + generated files for this agent live here (absolute, or relative to outputs/).
-          Saved on the next <b>Save</b>.
+          Saved on the next <b>{tr('de_save')}</b>.
         </div>
       </div>
       {/* Skills */}
@@ -1073,7 +1073,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         <div style={compactCardStyle}>
           <div style={labelStyle}>{tr('ag_execution_limit')}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, color: t.textMuted, width: 150 }}>recursion_limit</span>
+            <span style={{ fontSize: 11, color: t.textMuted, width: 150 }}>{tr('de_recursion_label')}</span>
             <input
               type="number"
               min={1}
@@ -1098,21 +1098,21 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
           <div style={labelStyle}>{tr('ag_token_limits')}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 11, color: t.textMuted, width: 150 }}>max_total_tokens</span>
+              <span style={{ fontSize: 11, color: t.textMuted, width: 150 }}>{tr('de_max_tokens_label')}</span>
               {numInput(['token_limits', 'max_total_tokens'], tl.max_total_tokens)}
-              <span style={{ fontSize: 10, color: t.textMuted }}>workflow / export only</span>
+              <span style={{ fontSize: 10, color: t.textMuted }}>{tr('de_max_tokens_hint')}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 11, color: t.textMuted, width: 150 }}>eviction_threshold</span>
+              <span style={{ fontSize: 11, color: t.textMuted, width: 150 }}>{tr('de_eviction_label')}</span>
               {numInput(['token_limits', 'eviction_threshold'], tl.eviction_threshold)}
-              <span style={{ fontSize: 10, color: t.textMuted }}>not read at runtime</span>
+              <span style={{ fontSize: 10, color: t.textMuted }}>{tr('de_eviction_hint')}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 11, color: t.textMuted, width: 150 }}>summarization_threshold</span>
+              <span style={{ fontSize: 11, color: t.textMuted, width: 150 }}>{tr('de_summarization_label')}</span>
               {numInput(['token_limits', 'summarization_threshold'], tl.summarization_threshold)}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 11, color: t.textMuted, width: 150 }}>keep_last_messages</span>
+              <span style={{ fontSize: 11, color: t.textMuted, width: 150 }}>{tr('de_keep_last_label')}</span>
               {numInput(['token_limits', 'keep_last_messages'], tl.keep_last_messages)}
             </div>
           </div>
