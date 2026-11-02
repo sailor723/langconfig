@@ -6,6 +6,7 @@
  */
 
 import { memo, useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   X, Webhook, FolderSearch, Check, AlertCircle, Loader2,
   Play, History, Trash2, Copy, RefreshCw, Eye, EyeOff
@@ -21,26 +22,28 @@ interface TriggerDialogProps {
   onSaved: () => void;
 }
 
-const TRIGGER_TYPES: { value: TriggerType; label: string; icon: typeof Webhook; description: string }[] = [
+// Module-level lists: labels and descriptions are built by functions of the
+// translator, because a constant cannot call a hook.
+const triggerTypes = (tr: (k: string) => string): { value: TriggerType; label: string; icon: typeof Webhook; description: string }[] => [
   {
     value: 'webhook',
-    label: 'Webhook',
+    label: tr('tr_webhook'),
     icon: Webhook,
-    description: 'Trigger workflow via HTTP POST request from external services'
+    description: tr('tr_webhook_desc'),
   },
   {
     value: 'file_watch',
-    label: 'File Watch',
+    label: tr('tr_file_watch'),
     icon: FolderSearch,
-    description: 'Trigger workflow when files are created or modified in a directory'
+    description: tr('tr_file_watch_desc'),
   },
 ];
 
-const FILE_EVENTS = [
-  { value: 'created', label: 'File Created' },
-  { value: 'modified', label: 'File Modified' },
-  { value: 'deleted', label: 'File Deleted' },
-  { value: 'moved', label: 'File Moved' },
+const fileEvents = (tr: (k: string) => string) => [
+  { value: 'created', label: tr('tr_file_created') },
+  { value: 'modified', label: tr('tr_file_modified') },
+  { value: 'deleted', label: tr('tr_file_deleted') },
+  { value: 'moved', label: tr('tr_file_moved') },
 ];
 
 /**
@@ -53,6 +56,7 @@ const TriggerDialog = memo(function TriggerDialog({
   existingTrigger,
   onSaved,
 }: TriggerDialogProps) {
+  const { t: tr } = useTranslation('chat');
   const [triggerType, setTriggerType] = useState<TriggerType>('webhook');
   const [name, setName] = useState('');
   const [enabled, setEnabled] = useState(true);
@@ -132,7 +136,7 @@ const TriggerDialog = memo(function TriggerDialog({
     } catch (err: any) {
       setPathValidation({
         valid: false,
-        error: err?.response?.data?.detail || 'Validation failed'
+        error: err?.response?.data?.detail || tr('sch_validation_failed')
       });
     } finally {
       setValidatingPath(false);
@@ -159,7 +163,7 @@ const TriggerDialog = memo(function TriggerDialog({
       const response = await apiClient.getTriggerHistory(existingTrigger.id, { limit: 20 });
       setHistory(response.data.logs || []);
     } catch (err) {
-      console.error('Failed to load history:', err);
+      console.error(tr('sch_load_history_failed'), err);
     } finally {
       setLoadingHistory(false);
     }
@@ -202,7 +206,7 @@ const TriggerDialog = memo(function TriggerDialog({
 
     try {
       if (triggerType === 'file_watch' && !watchPath.trim()) {
-        setError('Watch path is required');
+        setError(tr('tr_watch_required'));
         setSaving(false);
         return;
       }
@@ -224,7 +228,7 @@ const TriggerDialog = memo(function TriggerDialog({
       onSaved();
       onClose();
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to save trigger');
+      setError(err?.response?.data?.detail || tr('tr_save_failed'));
     } finally {
       setSaving(false);
     }
@@ -237,32 +241,32 @@ const TriggerDialog = memo(function TriggerDialog({
       await apiClient.testTrigger(existingTrigger.id, {});
       loadHistory();
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Test failed');
+      setError(err?.response?.data?.detail || tr('tr_test_failed'));
     }
   };
 
   const handleDelete = async () => {
     if (!existingTrigger) return;
-    if (!window.confirm('Delete this trigger?')) return;
+    if (!window.confirm(tr('tr_confirm_delete'))) return;
 
     try {
       await apiClient.deleteTrigger(existingTrigger.id);
       onSaved();
       onClose();
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Delete failed');
+      setError(err?.response?.data?.detail || tr('tr_delete_failed'));
     }
   };
 
   const handleRegenerateSecret = async () => {
     if (!existingTrigger) return;
-    if (!window.confirm('Regenerate webhook secret? External services will need to be updated.')) return;
+    if (!window.confirm(tr('tr_regen_confirm'))) return;
 
     try {
       await apiClient.regenerateWebhookSecret(existingTrigger.id);
       onSaved();
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to regenerate secret');
+      setError(err?.response?.data?.detail || tr('tr_regen_failed'));
     }
   };
 
@@ -293,7 +297,7 @@ const TriggerDialog = memo(function TriggerDialog({
               <FolderSearch size={20} style={{ color: 'var(--color-primary)' }} />
             )}
             <h3 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-              {isEditing ? 'Edit Trigger' : 'Create Trigger'}
+              {isEditing ? tr('tr_edit') : tr('tr_create')}
             </h3>
           </div>
           <button
@@ -311,10 +315,10 @@ const TriggerDialog = memo(function TriggerDialog({
           {!isEditing && (
             <div>
               <label className="text-sm font-medium block mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                Trigger Type
+                {tr('tr_type')}
               </label>
               <div className="grid grid-cols-2 gap-2">
-                {TRIGGER_TYPES.map(type => {
+                {triggerTypes(tr).map(type => {
                   const Icon = type.icon;
                   return (
                     <button
@@ -348,7 +352,7 @@ const TriggerDialog = memo(function TriggerDialog({
           {/* Name */}
           <div>
             <label className="text-sm font-medium block mb-1" style={{ color: 'var(--color-text-primary)' }}>
-              Trigger Name (optional)
+              {tr('tr_name')}
             </label>
             <input
               type="text"
@@ -371,7 +375,7 @@ const TriggerDialog = memo(function TriggerDialog({
               {isEditing && existingTrigger?.webhook_url && (
                 <div>
                   <label className="text-sm font-medium block mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                    Webhook URL
+                    {tr('tr_url')}
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -389,7 +393,7 @@ const TriggerDialog = memo(function TriggerDialog({
                       onClick={() => copyToClipboard(existingTrigger.webhook_url!)}
                       className="px-3 py-2 rounded-lg hover:bg-white/10"
                       style={{ border: '1px solid var(--color-border-dark)' }}
-                      title="Copy URL"
+                      title={tr('tr_copy_url')}
                     >
                       <Copy size={16} style={{ color: 'var(--color-text-muted)' }} />
                     </button>
@@ -401,7 +405,7 @@ const TriggerDialog = memo(function TriggerDialog({
               {isEditing && existingTrigger?.webhook_secret && (
                 <div>
                   <label className="text-sm font-medium block mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                    Webhook Secret
+                    {tr('tr_secret')}
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -419,7 +423,7 @@ const TriggerDialog = memo(function TriggerDialog({
                       onClick={() => setShowSecret(!showSecret)}
                       className="px-3 py-2 rounded-lg hover:bg-white/10"
                       style={{ border: '1px solid var(--color-border-dark)' }}
-                      title={showSecret ? 'Hide' : 'Show'}
+                      title={showSecret ? tr('pc_hide') : tr('pc_show')}
                     >
                       {showSecret ? (
                         <EyeOff size={16} style={{ color: 'var(--color-text-muted)' }} />
@@ -431,7 +435,7 @@ const TriggerDialog = memo(function TriggerDialog({
                       onClick={() => copyToClipboard(existingTrigger.webhook_secret!)}
                       className="px-3 py-2 rounded-lg hover:bg-white/10"
                       style={{ border: '1px solid var(--color-border-dark)' }}
-                      title="Copy Secret"
+                      title={tr('tr_copy_secret')}
                     >
                       <Copy size={16} style={{ color: 'var(--color-text-muted)' }} />
                     </button>
@@ -451,7 +455,7 @@ const TriggerDialog = memo(function TriggerDialog({
               <div className="flex items-center justify-between">
                 <div>
                   <label className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                    Require Signature
+                    {tr('tr_require_sig')}
                   </label>
                   <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                     Verify HMAC-SHA256 signature in X-Webhook-Signature header
@@ -474,7 +478,7 @@ const TriggerDialog = memo(function TriggerDialog({
               {/* Allowed IPs */}
               <div>
                 <label className="text-sm font-medium block mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                  Allowed IPs (optional)
+                  {tr('tr_allowed_ips')}
                 </label>
                 <input
                   type="text"
@@ -489,7 +493,7 @@ const TriggerDialog = memo(function TriggerDialog({
                   }}
                 />
                 <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                  Comma-separated. Leave empty to allow any IP.
+                  tr('tr_allowed_ips_hint')
                 </p>
               </div>
             </>
@@ -501,7 +505,7 @@ const TriggerDialog = memo(function TriggerDialog({
               {/* Watch Path */}
               <div>
                 <label className="text-sm font-medium block mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                  Watch Directory
+                  {tr('tr_watch_dir')}
                 </label>
                 <input
                   type="text"
@@ -535,7 +539,7 @@ const TriggerDialog = memo(function TriggerDialog({
               {/* File Patterns */}
               <div>
                 <label className="text-sm font-medium block mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                  File Patterns
+                  {tr('tr_patterns')}
                 </label>
                 <input
                   type="text"
@@ -557,10 +561,10 @@ const TriggerDialog = memo(function TriggerDialog({
               {/* Events */}
               <div>
                 <label className="text-sm font-medium block mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                  Trigger On
+                  {tr('tr_trigger_on')}
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  {FILE_EVENTS.map(event => (
+                  {fileEvents(tr).map(event => (
                     <button
                       key={event.value}
                       onClick={() => handleEventToggle(event.value)}
@@ -585,10 +589,10 @@ const TriggerDialog = memo(function TriggerDialog({
               <div className="flex items-center justify-between">
                 <div>
                   <label className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                    Watch Subdirectories
+                    {tr('tr_watch_subdirs')}
                   </label>
                   <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    Also monitor files in subdirectories
+                    tr('tr_watch_subdirs_hint')
                   </p>
                 </div>
                 <div
@@ -608,7 +612,7 @@ const TriggerDialog = memo(function TriggerDialog({
               {/* Debounce */}
               <div>
                 <label className="text-sm font-medium block mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                  Debounce (seconds)
+                  {tr('tr_debounce')}
                 </label>
                 <input
                   type="number"
@@ -624,7 +628,7 @@ const TriggerDialog = memo(function TriggerDialog({
                   }}
                 />
                 <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                  Minimum time between triggers for the same file
+                  tr('tr_debounce_hint')
                 </p>
               </div>
             </>
@@ -665,7 +669,7 @@ const TriggerDialog = memo(function TriggerDialog({
                 style={{ color: 'var(--color-text-primary)' }}
               >
                 <History size={16} />
-                {showHistory ? 'Hide' : 'Show'} Trigger History
+                {showHistory ? tr('pc_hide') : tr('pc_show')} Trigger History
               </button>
               {showHistory && (
                 <div className="mt-3 space-y-2">
@@ -675,7 +679,7 @@ const TriggerDialog = memo(function TriggerDialog({
                       <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Loading...</span>
                     </div>
                   ) : history.length === 0 ? (
-                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>No triggers yet</p>
+                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{tr('tr_no_triggers')}</p>
                   ) : (
                     <div className="max-h-40 overflow-y-auto space-y-1">
                       {history.map(log => (
@@ -731,7 +735,7 @@ const TriggerDialog = memo(function TriggerDialog({
                   style={{ border: '1px solid var(--color-border-dark)', color: 'var(--color-text-primary)' }}
                 >
                   <Play size={14} />
-                  Test
+                  {tr('tr_test')}
                 </button>
                 <button
                   onClick={handleDelete}
@@ -758,7 +762,7 @@ const TriggerDialog = memo(function TriggerDialog({
               className="px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {saving && <Loader2 size={14} className="animate-spin" />}
-              {isEditing ? 'Save Changes' : 'Create Trigger'}
+              {isEditing ? tr('tr_save_changes') : tr('tr_create')}
             </button>
           </div>
         </div>

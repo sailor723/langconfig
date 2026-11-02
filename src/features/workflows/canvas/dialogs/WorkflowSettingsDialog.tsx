@@ -6,6 +6,7 @@
  */
 
 import { memo, useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, FolderOpen, Check, AlertCircle, Loader2, Clock, Plus, Pencil, Play, Trash2, Webhook, FolderSearch } from 'lucide-react';
 import FolderBrowserDialog from './FolderBrowserDialog';
 import ScheduleDialog from './ScheduleDialog';
@@ -47,6 +48,7 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
   customOutputPath,
   onOutputPathChange,
 }: WorkflowSettingsDialogProps) {
+  const { t: tr } = useTranslation('chat');
   const [localPath, setLocalPath] = useState<string>(customOutputPath || '');
   const [showFolderBrowser, setShowFolderBrowser] = useState(false);
   const [pathValidation, setPathValidation] = useState<PathValidation | null>(null);
@@ -77,7 +79,7 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
       const response = await apiClient.listSchedules(workflowId);
       setSchedules(response.data.schedules || []);
     } catch (err) {
-      console.error('Failed to load schedules:', err);
+      console.error(tr('ws_load_schedules_failed'), err);
     } finally {
       setLoadingSchedules(false);
     }
@@ -109,7 +111,7 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
       await apiClient.updateSchedule(schedule.id, { enabled: !schedule.enabled });
       loadSchedules();
     } catch (err) {
-      console.error('Failed to toggle schedule:', err);
+      console.error(tr('ws_toggle_schedule_failed'), err);
     }
   };
 
@@ -117,17 +119,17 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
     try {
       await apiClient.triggerScheduleNow(schedule.id);
     } catch (err) {
-      console.error('Failed to trigger schedule:', err);
+      console.error(tr('ws_trigger_schedule_failed'), err);
     }
   };
 
   const handleDeleteSchedule = async (schedule: WorkflowSchedule) => {
-    if (!window.confirm('Delete this schedule?')) return;
+    if (!window.confirm(tr('sch_confirm_delete'))) return;
     try {
       await apiClient.deleteSchedule(schedule.id);
       loadSchedules();
     } catch (err) {
-      console.error('Failed to delete schedule:', err);
+      console.error(tr('ws_delete_schedule_failed'), err);
     }
   };
 
@@ -139,7 +141,7 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
       const response = await apiClient.listTriggers(workflowId);
       setTriggers(response.data.triggers || []);
     } catch (err) {
-      console.error('Failed to load triggers:', err);
+      console.error(tr('ws_load_triggers_failed'), err);
     } finally {
       setLoadingTriggers(false);
     }
@@ -171,7 +173,7 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
       await apiClient.updateTrigger(trigger.id, { enabled: !trigger.enabled });
       loadTriggers();
     } catch (err) {
-      console.error('Failed to toggle trigger:', err);
+      console.error(tr('ws_toggle_trigger_failed'), err);
     }
   };
 
@@ -179,17 +181,17 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
     try {
       await apiClient.testTrigger(trigger.id);
     } catch (err) {
-      console.error('Failed to test trigger:', err);
+      console.error(tr('ws_test_trigger_failed'), err);
     }
   };
 
   const handleDeleteTrigger = async (trigger: WorkflowTrigger) => {
-    if (!window.confirm('Delete this trigger?')) return;
+    if (!window.confirm(tr('tr_confirm_delete'))) return;
     try {
       await apiClient.deleteTrigger(trigger.id);
       loadTriggers();
     } catch (err) {
-      console.error('Failed to delete trigger:', err);
+      console.error(tr('ws_delete_trigger_failed'), err);
     }
   };
 
@@ -207,7 +209,7 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
     } catch (err: any) {
       setPathValidation({
         valid: false,
-        error: err?.response?.data?.detail || 'Validation failed',
+        error: err?.response?.data?.detail || tr('sch_validation_failed'),
         writable: false,
         exists: false,
       });
@@ -266,7 +268,7 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
         >
           <div className="px-6 py-4 border-b flex justify-between items-center shrink-0" style={{ borderColor: 'var(--color-border-dark)' }}>
             <h3 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-              Workflow Settings
+              {tr('ws_title')}
             </h3>
             <button
               onClick={onClose}
@@ -281,7 +283,7 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
             {/* Custom Output Path Setting */}
             <div>
               <label className="text-sm font-medium block mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                Custom Output Directory
+                {tr('ws_output_dir')}
               </label>
               <p className="text-xs mb-3" style={{ color: 'var(--color-text-muted)' }}>
                 Files generated by agents will be saved here. Leave empty to use the default location (backend/outputs).
@@ -309,7 +311,7 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
                   }}
                 >
                   <FolderOpen size={16} />
-                  Browse
+                  {tr('ws_browse')}
                 </button>
               </div>
 
@@ -319,7 +321,7 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
                   {validating ? (
                     <>
                       <Loader2 size={14} className="animate-spin" style={{ color: 'var(--color-text-muted)' }} />
-                      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Validating...</span>
+                      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{tr('tr_validating')}</span>
                     </>
                   ) : pathValidation?.valid ? (
                     <>
@@ -345,14 +347,14 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
                     className="px-3 py-1.5 rounded text-xs font-medium transition-colors hover:bg-white/10"
                     style={{ color: 'var(--color-text-muted)' }}
                   >
-                    Clear
+                    {tr('ws_clear')}
                   </button>
                   <button
                     onClick={handleApplyPath}
                     disabled={validating || (pathValidation !== null && !pathValidation.valid)}
                     className="px-3 py-1.5 rounded text-xs font-medium transition-colors bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Apply
+                    {tr('ws_apply')}
                   </button>
                 </div>
               )}
@@ -369,7 +371,7 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
             <div className="flex items-start gap-3">
               <div className="flex-1">
                 <label className="text-sm font-medium block mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                  Enable Persistence (Checkpointer)
+                  tr('ws_persistence')
                 </label>
                 <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
                   Saves conversation history between workflow runs. Required for Human-in-the-Loop (HITL) and resuming interrupted workflows.
@@ -391,10 +393,10 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
             {/* Recursion Limit Setting */}
             <div>
               <label className="text-sm font-medium block mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                Global Recursion Limit
+                {tr('ws_recursion')}
               </label>
               <p className="text-xs mb-3" style={{ color: 'var(--color-text-muted)' }}>
-                Maximum number of steps the workflow can execute before stopping. Prevents infinite loops.
+                {tr('ws_recursion_hint')}
               </p>
               <div className="flex items-center gap-3">
                 <input
@@ -419,7 +421,7 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
                   <div className="flex items-center gap-2">
                     <Clock size={16} style={{ color: 'var(--color-primary)' }} />
                     <label className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                      Scheduled Runs
+                      {tr('ws_schedules')}
                     </label>
                   </div>
                   <button
@@ -427,21 +429,21 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
                     className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors bg-primary text-white hover:bg-primary/90"
                   >
                     <Plus size={12} />
-                    Add Schedule
+                    {tr('ws_add_schedule')}
                   </button>
                 </div>
                 <p className="text-xs mb-3" style={{ color: 'var(--color-text-muted)' }}>
-                  Automatically run this workflow on a cron schedule.
+                  tr('ws_schedules_hint')
                 </p>
 
                 {loadingSchedules ? (
                   <div className="flex items-center gap-2 py-4">
                     <Loader2 size={14} className="animate-spin" style={{ color: 'var(--color-text-muted)' }} />
-                    <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Loading schedules...</span>
+                    <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{tr('ws_loading_schedules')}</span>
                   </div>
                 ) : schedules.length === 0 ? (
                   <p className="text-xs py-4" style={{ color: 'var(--color-text-muted)' }}>
-                    No schedules configured. Click "Add Schedule" to create one.
+                    {tr('ws_no_schedules')}
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -458,14 +460,14 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
-                                {schedule.name || 'Unnamed Schedule'}
+                                {schedule.name || tr('ws_unnamed_schedule')}
                               </span>
                               <span
                                 className={`px-1.5 py-0.5 rounded text-xs ${
                                   schedule.enabled ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'
                                 }`}
                               >
-                                {schedule.enabled ? 'Active' : 'Disabled'}
+                                {schedule.enabled ? tr('ws_active') : tr('ws_disabled')}
                               </span>
                               {schedule.last_run_status && (
                                 <span
@@ -499,7 +501,7 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
                             <button
                               onClick={() => handleToggleSchedule(schedule)}
                               className="p-1.5 rounded transition-colors hover:bg-white/10"
-                              title={schedule.enabled ? 'Disable' : 'Enable'}
+                              title={schedule.enabled ? tr('ws_disable') : tr('ws_enable')}
                             >
                               <div
                                 className={`w-8 h-4 rounded-full relative transition-colors ${
@@ -554,7 +556,7 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
                   <div className="flex items-center gap-2">
                     <Webhook size={16} style={{ color: 'var(--color-primary)' }} />
                     <label className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                      Event Triggers
+                      {tr('ws_triggers')}
                     </label>
                   </div>
                   <button
@@ -562,21 +564,21 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
                     className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors bg-primary text-white hover:bg-primary/90"
                   >
                     <Plus size={12} />
-                    Add Trigger
+                    {tr('ws_add_trigger')}
                   </button>
                 </div>
                 <p className="text-xs mb-3" style={{ color: 'var(--color-text-muted)' }}>
-                  Trigger workflow execution via webhooks or file system changes.
+                  {tr('ws_triggers_hint')}
                 </p>
 
                 {loadingTriggers ? (
                   <div className="flex items-center gap-2 py-4">
                     <Loader2 size={14} className="animate-spin" style={{ color: 'var(--color-text-muted)' }} />
-                    <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Loading triggers...</span>
+                    <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{tr('ws_loading_triggers')}</span>
                   </div>
                 ) : triggers.length === 0 ? (
                   <p className="text-xs py-4" style={{ color: 'var(--color-text-muted)' }}>
-                    No triggers configured. Click "Add Trigger" to create a webhook or file watcher.
+                    {tr('ws_no_triggers')}
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -598,21 +600,21 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
                                 <FolderSearch size={14} style={{ color: 'var(--color-text-muted)' }} />
                               )}
                               <span className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
-                                {trigger.name || (trigger.trigger_type === 'webhook' ? 'Webhook' : 'File Watch')}
+                                {trigger.name || (trigger.trigger_type === 'webhook' ? tr('ws_webhook_short') : tr('ws_file_watch_short'))}
                               </span>
                               <span
                                 className={`px-1.5 py-0.5 rounded text-xs ${
                                   trigger.enabled ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'
                                 }`}
                               >
-                                {trigger.enabled ? 'Active' : 'Disabled'}
+                                {trigger.enabled ? tr('ws_active') : tr('ws_disabled')}
                               </span>
                             </div>
                             <div className="flex items-center gap-2 mt-1">
                               <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                                 {trigger.trigger_type === 'webhook'
-                                  ? 'HTTP POST webhook'
-                                  : `Watching: ${(trigger.config.watch_path as string) || 'Not configured'}`
+                                  ? tr('ws_http_post')
+                                  : `Watching: ${(trigger.config.watch_path as string) || tr('ws_not_configured')}`
                                 }
                               </span>
                               {trigger.trigger_count > 0 && (
@@ -626,7 +628,7 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
                             <button
                               onClick={() => handleToggleTrigger(trigger)}
                               className="p-1.5 rounded transition-colors hover:bg-white/10"
-                              title={trigger.enabled ? 'Disable' : 'Enable'}
+                              title={trigger.enabled ? tr('ws_disable') : tr('ws_enable')}
                             >
                               <div
                                 className={`w-8 h-4 rounded-full relative transition-colors ${
@@ -679,7 +681,7 @@ const WorkflowSettingsDialog = memo(function WorkflowSettingsDialog({
               onClick={onClose}
               className="px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-primary text-white hover:bg-primary/90"
             >
-              Done
+              {tr('ws_done')}
             </button>
           </div>
         </div>
