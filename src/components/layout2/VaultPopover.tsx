@@ -6,6 +6,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import { useProject } from '../../contexts/ProjectContext';
 import { Folder, CheckCircle, Loader, Plus, X } from 'lucide-react';
@@ -18,6 +19,7 @@ interface VaultPopoverProps {
 
 export default function VaultPopover({ anchorRef, onClose }: VaultPopoverProps) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const navigate = useNavigate();
   const { activeProjectId, projects, setActiveProjectId, refreshProjects, loading } = useProject();
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -73,8 +75,8 @@ export default function VaultPopover({ anchorRef, onClose }: VaultPopoverProps) 
       onClose();
       navigate('/project');
     } catch (err: any) {
-      const detail = err?.response?.data?.detail ?? err?.message ?? 'Failed to create project';
-      setError(typeof detail === 'string' ? detail : 'Failed to create project');
+      const detail = err?.response?.data?.detail ?? err?.message ?? tr('vp_failed_create');
+      setError(typeof detail === 'string' ? detail : tr('vp_failed_create'));
       setCreating(false);
     }
   };
@@ -176,7 +178,7 @@ export default function VaultPopover({ anchorRef, onClose }: VaultPopoverProps) 
               value={newName}
               onChange={e => setNewName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') { setCreating(false); setNewName(''); } }}
-              placeholder="Project name…"
+              placeholder={tr('vp_project_name_ph')}
               style={{
                 flex: 1, height: 24, padding: '0 6px',
                 background: t.bgContent, border: `1px solid ${t.border}`,
@@ -186,7 +188,7 @@ export default function VaultPopover({ anchorRef, onClose }: VaultPopoverProps) 
             <button
               onClick={handleCreate}
               disabled={!newName.trim()}
-              title="Create project"
+              title={tr('vp_create_project')}
               style={{
                 height: 24, padding: '0 10px', border: 'none', borderRadius: 4,
                 background: t.accent, color: '#fff', fontSize: 11, fontWeight: 600,
@@ -197,7 +199,7 @@ export default function VaultPopover({ anchorRef, onClose }: VaultPopoverProps) 
             </button>
             <button
               onClick={() => { setCreating(false); setNewName(''); }}
-              title="Cancel"
+              title={tr('vp_cancel')}
               style={{
                 height: 24, width: 24, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 border: 'none', borderRadius: 4, background: 'transparent', color: t.textMuted, cursor: 'pointer',

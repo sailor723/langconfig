@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { useLayoutState } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import { ScrollText, Terminal, Play, FileText, Plus, Trash2, ChevronDown, ArrowUp, ArrowDown, X, Check, Search } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useChatMessages } from './chatStore';
 import TerminalTab, { type TerminalTabHandle } from './TerminalTab';
 
@@ -26,11 +27,12 @@ interface ShellTerminal {
 export default function BottomPanel() {
   const { bottomPanelOpen, toggleBottomPanel } = useLayoutState();
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const [activeSection, setActiveSection] = useState<PanelSection>('terminal');
   // One shell terminal is created by default (like VS Code opening a terminal
   // with the panel); more can be added with "+" or Ctrl+Shift+`.
   const [shells, setShells] = useState<ShellTerminal[]>(() => [
-    { id: 'term-1', n: 1, name: 'Terminal 1' },
+    { id: 'term-1', n: 1, name: '' },
   ]);
   const [activeShellId, setActiveShellId] = useState<string | null>(null);
   const [showList, setShowList] = useState(false);
@@ -52,7 +54,9 @@ export default function BottomPanel() {
   const addShell = useCallback(() => {
     const n = nextTerminalN.current++;
     const id = `term-${Date.now()}-${n}`;
-    setShells(prev => [...prev, { id, n, name: `Terminal ${n}` }]);
+    // The stored name is only a fallback; the label is rendered from `n` so it
+    // follows the language switch.
+    setShells(prev => [...prev, { id, n, name: '' }]);
     setActiveSection('terminal');
     setActiveShellId(id);
     setShowList(false);
@@ -173,7 +177,7 @@ export default function BottomPanel() {
       {/* Drag handle at the top edge: pull up to see more messages */}
       <div
         onMouseDown={startResize}
-        title="Drag to resize"
+        title={tr('bp_drag_resize')}
         style={{
           height: 4,
           flexShrink: 0,
@@ -199,10 +203,10 @@ export default function BottomPanel() {
         <button
           onClick={() => focusSection('terminal', null)}
           style={tabStyle(activeSection === 'terminal' && activeTerminalId === 'system-log')}
-          title="Backend system logs"
+          title={tr('bp_system_logs_title')}
         >
           <ScrollText size={13} />
-          System Log
+          {tr('bp_system_log')}
         </button>
 
         {shells.map(shell => (
@@ -210,14 +214,14 @@ export default function BottomPanel() {
             <button
               onClick={() => focusSection('terminal', shell.id)}
               style={tabStyle(activeSection === 'terminal' && activeShellId === shell.id)}
-              title={`${shell.name} — shell session`}
+              title={tr('bp_shell_session', { name: shell.name || tr('bp_terminal_name', { n: shell.n }) })}
             >
               <Terminal size={13} />
-              {shell.name}
+              {shell.name || tr('bp_terminal_name', { n: shell.n })}
             </button>
             <button
               onClick={() => closeShell(shell.id)}
-              title={`Close ${shell.name}`}
+              title={tr('bp_kill_terminal')}
               style={{
                 ...iconBtnStyle,
                 width: 20,
@@ -233,7 +237,7 @@ export default function BottomPanel() {
 
         <button
           onClick={addShell}
-          title="New terminal (Ctrl+Shift+`)"
+          title={tr('bp_new_terminal')}
           style={{
             ...iconBtnStyle,
             width: 26,
@@ -271,7 +275,7 @@ export default function BottomPanel() {
             <button
               onClick={() => shellRefs.current[activeShellId ?? '']?.scrollUp()}
               disabled={!activeShellId}
-              title={activeShellId ? 'Scroll up (older output)' : 'No terminal to scroll'}
+              title={activeShellId ? tr('bp_scroll_up') : tr('bp_no_terminal_scroll')}
               style={{ ...iconBtnStyle, opacity: activeShellId ? 1 : 0.35, cursor: activeShellId ? 'pointer' : 'not-allowed' }}
             >
               <ArrowUp size={14} />
@@ -279,14 +283,14 @@ export default function BottomPanel() {
             <button
               onClick={() => shellRefs.current[activeShellId ?? '']?.scrollDown()}
               disabled={!activeShellId}
-              title={activeShellId ? 'Scroll down (newer output)' : 'No terminal to scroll'}
+              title={activeShellId ? tr('bp_scroll_down') : tr('bp_no_terminal_scroll')}
               style={{ ...iconBtnStyle, opacity: activeShellId ? 1 : 0.35, cursor: activeShellId ? 'pointer' : 'not-allowed' }}
             >
               <ArrowDown size={14} />
             </button>
             <button
               onClick={() => setShowList(v => !v)}
-              title="Terminal list"
+              title={tr('bp_terminal_list')}
               style={iconBtnStyle}
             >
               <ChevronDown size={14} />
@@ -294,7 +298,7 @@ export default function BottomPanel() {
             <button
               onClick={() => activeShellId && closeShell(activeShellId)}
               disabled={!activeShellId}
-              title={activeShellId ? 'Kill active terminal' : 'No terminal to kill'}
+              title={activeShellId ? tr('bp_kill_terminal_active') : tr('bp_no_terminal_kill')}
               style={{ ...iconBtnStyle, opacity: activeShellId ? 1 : 0.35, cursor: activeShellId ? 'pointer' : 'not-allowed' }}
             >
               <Trash2 size={13} />
@@ -305,7 +309,7 @@ export default function BottomPanel() {
         {/* Collapse/expand toggle */}
         <button
           onClick={toggleBottomPanel}
-          title={bottomPanelOpen ? 'Close panel' : 'Open panel'}
+          title={bottomPanelOpen ? tr('bp_close_panel') : tr('bp_open_panel')}
           style={iconBtnStyle}
         >
           <ChevronDown size={14} style={{ transform: bottomPanelOpen ? 'rotate(180deg)' : 'none' }} />
@@ -331,11 +335,11 @@ export default function BottomPanel() {
             }}
           >
             <div style={{ padding: '4px 12px', fontSize: 10, color: t.textDim, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              Terminals
+              {tr('bp_terminals')}
             </div>
             {([
-              { id: 'system-log', label: 'System Log' },
-              ...shells.map(s => ({ id: s.id, label: s.name })),
+              { id: 'system-log', label: tr('bp_system_log') },
+              ...shells.map(s => ({ id: s.id, label: s.name || tr('bp_terminal_name', { n: s.n }) })),
             ] as { id: string; label: string }[]).map(item => {
               const active = activeSection === 'terminal' && activeTerminalId === item.id;
               return (
@@ -359,9 +363,9 @@ export default function BottomPanel() {
               );
             })}
             <div style={{ borderTop: `1px solid ${t.border}`, marginTop: 4, paddingTop: 4 }}>
-              <DropdownAction label="Add Terminal" onClick={addShell} t={t} />
+              <DropdownAction label={tr('bp_add_terminal')} onClick={addShell} t={t} />
               <DropdownAction
-                label="Kill Terminal"
+                label={tr('bp_kill_terminal')}
                 disabled={!activeShellId}
                 onClick={() => activeShellId && closeShell(activeShellId)}
                 t={t}
@@ -479,6 +483,7 @@ function parseLogMeta(line: string): { level?: LogLevel; source?: string } {
 }
 
 function SystemLogContent({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
+  const { t: tr } = useTranslation('chat');
   const [lines, setLines] = useState<LogEntry[]>([]);
   const [connected, setConnected] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -593,7 +598,7 @@ function SystemLogContent({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
           <input
             value={filterText}
             onChange={e => setFilterText(e.target.value)}
-            placeholder="Filter…"
+            placeholder={tr('bp_filter_ph')}
             style={{
               background: 'transparent', border: 'none', outline: 'none',
               color: t.textPrimary, fontSize: 11, width: 120,
@@ -603,7 +608,7 @@ function SystemLogContent({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
           {filterText && (
             <button
               onClick={() => setFilterText('')}
-              title="Clear filter"
+              title={tr('bp_clear_filter')}
               style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: t.textDim, display: 'flex', padding: 0 }}
             >
               <X size={10} />
@@ -617,7 +622,7 @@ function SystemLogContent({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
           onChange={e => setFilterLevel(e.target.value as 'all' | LogLevel)}
           style={selectStyle}
         >
-          <option value="all">All levels</option>
+          <option value="all">{tr('bp_all_levels')}</option>
           {LOG_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
         </select>
 
@@ -627,7 +632,7 @@ function SystemLogContent({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
           onChange={e => setFilterSource(e.target.value)}
           style={selectStyle}
         >
-          <option value="all">All sources</option>
+          <option value="all">{tr('bp_all_sources')}</option>
           {sources.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
 
@@ -641,7 +646,7 @@ function SystemLogContent({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
 
         <button
           onClick={() => setLines([])}
-          title="Clear logs"
+          title={tr('bp_clear_logs')}
           style={{
             display: 'flex', alignItems: 'center', gap: 4,
             background: 'transparent', border: 'none', cursor: 'pointer',

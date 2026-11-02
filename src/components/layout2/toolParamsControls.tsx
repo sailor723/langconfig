@@ -14,6 +14,7 @@
  */
 import type { CSSProperties, MouseEvent } from 'react';
 
+import { useTranslation } from 'react-i18next';
 import type { LayoutTokens } from './tokens';
 
 export interface VisionModelOption {
@@ -62,6 +63,8 @@ const labelStyle = (t: LayoutTokens): CSSProperties => ({
 export default function ToolParamsControls({
   toolId, params, onChange, visionModels = [], t,
 }: Props) {
+  // Before the early return: hooks must not be conditional.
+  const { t: tr } = useTranslation('chat');
   if (!TOOLS_WITH_OPTIONS.has(toolId)) return null;
 
   const current = params || {};
@@ -93,29 +96,29 @@ export default function ToolParamsControls({
       style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 2 }}
     >
       <div>
-        <div style={labelStyle(t)}>Image reading</div>
+        <div style={labelStyle(t)}>{tr('tp_image_reading')}</div>
         <select
           value={mode}
           onChange={(e) => setMode(e.target.value as 'default' | 'vision' | 'ocr')}
           style={selectStyle(t)}
-          title="Pinned for this agent only — the same tool stays shared with every other agent."
+          title={tr('tp_pinned_hint')}
         >
-          <option value="default">Default (model decides)</option>
-          <option value="vision">Vision + OCR</option>
-          <option value="ocr">OCR only (no model call)</option>
+          <option value="default">{tr('tp_default_model_decides')}</option>
+          <option value="vision">{tr('tp_vision_ocr')}</option>
+          <option value="ocr">{tr('tp_ocr_only')}</option>
         </select>
       </div>
 
       {mode !== 'ocr' && (
         <div>
-          <div style={labelStyle(t)}>Vision model</div>
+          <div style={labelStyle(t)}>{tr('tp_vision_model')}</div>
           <select
             value={current.vision_model || ''}
             onChange={(e) => setModel(e.target.value)}
             style={selectStyle(t)}
-            title="Which model reads images for this agent."
+            title={tr('tp_vision_model_hint')}
           >
-            <option value="">Platform default</option>
+            <option value="">{tr('tp_platform_default')}</option>
             {visionModels.map((m) => (
               <option key={m.id} value={m.id}>{m.name}</option>
             ))}
