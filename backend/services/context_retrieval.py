@@ -92,7 +92,16 @@ class ContextRetriever:
             max_context_tokens: Maximum tokens allowed in final context package
         """
         self.max_context_tokens = max_context_tokens
+        # Never raise here: this class is constructed at import time
+        # (`context_retriever = ContextRetriever()` at the bottom of the module),
+        # and the chat path imports it. A missing embedding provider used to take
+        # down the whole reply with "'NoneType' object is not callable".
         ensure_initialized()
+        from services.llama_config import embeddings_available, embeddings_unavailable_reason
+
+        self.available = embeddings_available()
+        if not self.available:
+            logger.warning("Context retrieval disabled — %s", embeddings_unavailable_reason())
 
     @staticmethod
     def is_code_generation_query(query: str) -> bool:
@@ -297,6 +306,12 @@ class ContextRetriever:
             ValueError: If project not ready for retrieval
             RuntimeError: If retrieval process fails
         """
+        if not getattr(self, "available", False):
+            # No embedding model on this machine (see services/llama_config): answer
+            # without retrieved context instead of failing the whole turn.
+            return {"components": {}, "total_tokens": 0, "query": task_description,
+                    "retrieval_skipped": "embeddings unavailable"}
+
         logger.info(f"Starting context retrieval for project {project_id}")
         start_time = datetime.now(timezone.utc)
 

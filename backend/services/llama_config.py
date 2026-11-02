@@ -45,6 +45,26 @@ except ImportError:
 # Global flag to track initialization
 _initialized = False
 _multimodal_enabled = False
+# Set when the embedding model could not be built (no Ollama, no OpenAI key, and
+# sentence-transformers not installed). Vector/RAG features degrade to "off";
+# nothing else in the app may fail because of it.
+_embeddings_unavailable_reason: Optional[str] = None
+
+
+def embeddings_available() -> bool:
+    """Whether a real embedding model is configured.
+
+    Callers that need vectors (RAG retrieval, document indexing) must check this
+    instead of assuming Settings.embed_model exists: on a machine with no Ollama,
+    no OpenAI key and no sentence-transformers, there is no embedding model at
+    all, and that is a *feature switch*, not an error.
+    """
+    return _initialized and _embeddings_unavailable_reason is None
+
+
+def embeddings_unavailable_reason() -> Optional[str]:
+    return _embeddings_unavailable_reason
+
 
 def initialize_llama_index_settings(
     litellm_proxy_url: Optional[str] = None, 
@@ -59,8 +79,8 @@ def initialize_llama_index_settings(
         litellm_api_key: API key for LiteLLM proxy authentication
         enable_multimodal: Whether to use multimodal embeddings (requires OpenAI API key)
     """
-    global _initialized, _multimodal_enabled
-    
+    global _initialized, _multimodal_enabled, _embeddings_unavailable_reason
+
     if _initialized:
         logger.info("LlamaIndex settings already initialized")
         return
@@ -104,13 +124,32 @@ def initialize_llama_index_settings(
                 )
                 _multimodal_enabled = True
                 logger.info("Multimodal embeddings enabled with OpenAI text-embedding-3-large")
-            else:
+            elif HuggingFaceEmbedding is not None:
                 if enable_multimodal:
                     logger.warning("Multimodal requested but OpenAI API key not available, falling back to text-only")
                 logger.info("Initializing HuggingFace text-only embedding model")
                 Settings.embed_model = HuggingFaceEmbedding(
                     model_name="sentence-transformers/all-MiniLM-L6-v2"
                 )
+                _multimodal_enabled = False
+            else:
+                # No Ollama (not installed / not reachable), no OpenAI key, and
+                # `llama_index.embeddings.huggingface` failed to import because
+                # sentence-transformers (or torch) is missing. This used to call
+                # `HuggingFaceEmbedding(...)` where the name was None, which
+                # raised `'NoneType' object is not callable` — and because
+                # ensure_initialized() is reached from the chat path, EVERY
+                # message in a project died with that message instead of simply
+                # answering without retrieval. Measured on a fresh install.
+                _embeddings_unavailable_reason = (
+                    "no embedding model available: Ollama is not reachable at "
+                    f"{ollama_base_url}, no OpenAI API key is configured, and "
+                    "sentence-transformers is not installed "
+                    "(pip install sentence-transformers, or set an embedding "
+                    "provider key in Settings → Models)"
+                )
+                logger.error("RAG is disabled — %s", _embeddings_unavailable_reason)
+                Settings.embed_model = None
                 _multimodal_enabled = False
         
         # Configure LLM for HyDE if proxy details are provided
@@ -135,8 +174,11 @@ def initialize_llama_index_settings(
         logger.info("LlamaIndex settings initialized successfully")
         
     except Exception as e:
-        logger.error(f"Failed to initialize LlamaIndex settings: {e}")
-        raise
+        # Never propagate: initialization is reached from the chat path, and a
+        # broken/absent embedding provider must cost retrieval, not the reply.
+        _embeddings_unavailable_reason = f"LlamaIndex initialization failed: {e}"
+        logger.error("RAG is disabled — %s", _embeddings_unavailable_reason)
+        _initialized = True
 
 
 def get_vector_store(project_id: int, embed_dim: Optional[int] = None) -> PGVectorStore:
