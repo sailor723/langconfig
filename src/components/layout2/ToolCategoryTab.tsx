@@ -8,6 +8,7 @@ import { useLayoutTokens } from './tokens';
 import { useLayoutState, type Tab } from './useLayout';
 import { Wrench, Globe, FolderOpen, Brain, Share2, HardDrive, Eye } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import apiClient from '../../lib/api-client';
 
 interface ToolItem {
@@ -30,6 +31,7 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 };
 
 export default function ToolCategoryTab({ tab }: Props) {
+  const { t: tr } = useTranslation('chat');
   const t = useLayoutTokens();
   const { openTab } = useLayoutState();
   const { category, tools } = (tab.data ?? {}) as { category: string; tools: ToolItem[] };
@@ -167,7 +169,7 @@ export default function ToolCategoryTab({ tab }: Props) {
                   )}
                   <button
                     onClick={() => handleViewPrompt(tool.id)}
-                    title="View LLM-facing prompt"
+                    title={tr('te_view_prompt')}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -244,7 +246,7 @@ export default function ToolCategoryTab({ tab }: Props) {
             {/* Modal body */}
             <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
               {detailsLoading && (
-                <div style={{ color: t.textMuted, fontSize: 13 }}>Loading...</div>
+                <div style={{ color: t.textMuted, fontSize: 13 }}>{tr('c_loading')}</div>
               )}
               {details?.error && (
                 <div style={{ color: '#e5484d', fontSize: 13 }}>{details.error}</div>

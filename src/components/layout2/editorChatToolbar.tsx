@@ -14,6 +14,7 @@
  * and DeepAgentEditor.handleDelete).
  */
 import { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { LayoutTokens } from './tokens';
 import { Loader, Play, Square, Save, Eye, Download, Upload, Trash2 } from 'lucide-react';
 import apiClient from '../../lib/api-client';
@@ -71,6 +72,7 @@ export default function ChatTestToolbar({
   onImported,
   onDelete,
 }: ChatTestToolbarProps) {
+  const { t: tr } = useTranslation('chat');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { activeProjectId } = useProject();
 
@@ -125,12 +127,12 @@ export default function ChatTestToolbar({
       borderBottom: `1px solid ${t.border}`,
       flexShrink: 0,
     }}>
-      <span style={{ fontSize: 12, color: t.textMuted }}>Test:</span>
+      <span style={{ fontSize: 12, color: t.textMuted }}>{tr('tb_test')}</span>
       <input
         value={testPrompt}
         onChange={e => onTestPromptChange(e.target.value)}
         disabled={running}
-        placeholder="Type a test message..."
+        placeholder={tr('tb_test_ph')}
         style={{
           flex: 1,
           maxWidth: 360,
@@ -148,7 +150,7 @@ export default function ChatTestToolbar({
       <button
         onClick={onRun}
         disabled={running || !canRun}
-        title="Run test"
+        title={tr('tb_run')}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -171,7 +173,7 @@ export default function ChatTestToolbar({
       {running && (
         <button
           onClick={onStop}
-          title="Cancel stream"
+          title={tr('tb_cancel_stream')}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -193,7 +195,7 @@ export default function ChatTestToolbar({
       <button
         onClick={onViewCode}
         disabled={!canRun}
-        title="View generated agent.py — runnable Python CLI"
+        title={tr('tb_view_code')}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -215,7 +217,7 @@ export default function ChatTestToolbar({
       <button
         onClick={handleExport}
         disabled={!agentId}
-        title="Download as .langconfig — full config + tools + skills (shareable)"
+        title={tr('tb_download')}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -236,7 +238,7 @@ export default function ChatTestToolbar({
       </button>
       <button
         onClick={() => fileInputRef.current?.click()}
-        title="Import a .langconfig file (agent + tools + skills)"
+        title={tr('tb_import')}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -267,7 +269,7 @@ export default function ChatTestToolbar({
       <button
         onClick={onSave}
         disabled={saving || saveDisabled}
-        title="Save changes"
+        title={tr('tb_save')}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -304,7 +306,7 @@ export default function ChatTestToolbar({
           <button
             onClick={onDelete}
             disabled={!agentId}
-            title="Delete this agent permanently"
+            title={tr('tb_delete')}
             style={{
               display: 'flex',
               alignItems: 'center',

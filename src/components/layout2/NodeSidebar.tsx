@@ -5,6 +5,7 @@
  * When a canvas node is selected, a Properties tab appears.
  */
 import { useState, useRef, useCallback, useEffect, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutState } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import { MessageSquare, FileText, Settings, X, Send, Trash2, Copy, Download, RotateCw, Brain, ChevronDown, ChevronRight } from 'lucide-react';
@@ -38,6 +39,7 @@ const SIDEBAR_MIN_WIDTH = 240;
 const SIDEBAR_MAX_WIDTH = 800;
 
 export default function NodeSidebar({ children, onClose }: NodeSidebarProps) {
+  const { t: tr } = useTranslation('chat');
   const { rightPanelOpen, rightPanelContent, rightPanelTab, closeRightPanel, rightPanelWidth, setRightPanelWidth } = useLayoutState();
   const t = useLayoutTokens();
   const [localTab, setLocalTab] = useState<'chat' | 'properties' | 'doc-chat'>('chat');
@@ -88,7 +90,7 @@ export default function NodeSidebar({ children, onClose }: NodeSidebarProps) {
       {/* Resize handle (left edge of the right sidebar) */}
       <div
         onMouseDown={handleResizeStart}
-        title="Drag to resize sidebar width"
+        title={tr('ns_drag_width')}
         style={{
           width: 7,
           cursor: 'ew-resize',
@@ -171,7 +173,7 @@ export default function NodeSidebar({ children, onClose }: NodeSidebarProps) {
             closeRightPanel();
             onClose?.();
           }}
-          title="Close"
+          title={tr('c_close')}
           style={{
             width: 24,
             height: 24,
@@ -202,6 +204,7 @@ export default function NodeSidebar({ children, onClose }: NodeSidebarProps) {
 // ── Chat sidebar content ────────────────────────────────
 
 function ChatSidebar({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
+  const { t: tr } = useTranslation('chat');
   const messages = useChatMessages();
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -282,7 +285,7 @@ function ChatSidebar({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
         {messages.length > 0 && (
           <button
             onClick={() => chatStore.clear()}
-            title="Clear chat"
+            title={tr('ns_clear_chat')}
             style={{
               display: 'flex', alignItems: 'center', gap: 4,
               padding: '2px 6px', fontSize: 11,
@@ -313,7 +316,7 @@ function ChatSidebar({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') handleSend(); }}
-          placeholder="Type a message..."
+          placeholder={tr('ns_type_message')}
           style={{
             flex: 1,
             padding: '5px 8px',
@@ -474,6 +477,7 @@ interface ChatBubbleProps {
 }
 
 function ChatBubble({ msg }: ChatBubbleProps) {
+  const { t: tr } = useTranslation('chat');
   const t = useLayoutTokens();
   const isUser = msg.role === 'user';
   const isAssistant = msg.role === 'assistant';
@@ -679,14 +683,14 @@ function ChatBubble({ msg }: ChatBubbleProps) {
       {/* Action row (only for assistant messages) */}
       {isAssistant && (
         <div style={{ display: 'flex', gap: 4, paddingLeft: 4 }}>
-          <ActionBtn onClick={handleCopy} title={copied ? 'Copied!' : 'Copy'} t={t}>
-            <Copy size={10} /> {copied ? 'Copied' : 'Copy'}
+          <ActionBtn onClick={handleCopy} title={copied ? tr('ns_copied') : tr('c_copy')} t={t}>
+            <Copy size={10} /> {copied ? tr('ns_copied') : tr('c_copy')}
           </ActionBtn>
-          <ActionBtn onClick={handleDownload} title="Download as Markdown" t={t}>
-            <Download size={10} /> Save
+          <ActionBtn onClick={handleDownload} title={tr('ns_download_md')} t={t}>
+            <Download size={10} /> {tr('c_save')}
           </ActionBtn>
-          <ActionBtn onClick={handleRerun} title="Re-run with same prompt" t={t}>
-            <RotateCw size={10} /> Re-run
+          <ActionBtn onClick={handleRerun} title={tr('ns_rerun')} t={t}>
+            <RotateCw size={10} /> {tr('ns_rerun')}
           </ActionBtn>
         </div>
       )}

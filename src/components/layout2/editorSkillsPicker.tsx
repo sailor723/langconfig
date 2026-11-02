@@ -6,6 +6,7 @@
  * local to this component — it never touches config.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { LayoutTokens } from './tokens';
 import { Award, Search } from 'lucide-react';
 
@@ -40,6 +41,7 @@ export default function SkillsPicker({
   availableSkills,
   t,
 }: SkillsPickerProps) {
+  const { t: tr } = useTranslation('chat');
   const [searchQuery, setSearchQuery] = useState('');
 
   const cardStyle: React.CSSProperties = {
@@ -116,7 +118,7 @@ export default function SkillsPicker({
           <input
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search skills..."
+            placeholder={tr('pk_search_skills')}
             style={{
               width: '100%',
               padding: '6px 8px 6px 24px',
@@ -132,7 +134,7 @@ export default function SkillsPicker({
         </div>
 
         {skillsLoading ? (
-          <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>Loading skills...</div>
+          <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>{tr('pk_loading_skills')}</div>
         ) : visible.length === 0 ? (
           <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>
             {q ? '(no matching skills)' : '(no skills available — create one in the Skills activity)'}

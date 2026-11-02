@@ -8,6 +8,7 @@
  * database at runtime without the model having to remember it.
  */
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { LayoutTokens } from './tokens';
 import apiClient from '../../lib/api-client';
 
@@ -55,6 +56,7 @@ interface Props {
 }
 
 export default function ToolInspectModal({ tool, toolParams, onSave, onClose, t }: Props) {
+  const { t: tr } = useTranslation('chat');
   const [paramsText, setParamsText] = useState('{}');
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [dbLists, setDbLists] = useState<DbLists | null>(_dbListsCache);
@@ -154,7 +156,7 @@ export default function ToolInspectModal({ tool, toolParams, onSave, onClose, t 
         </div>
 
         <div>
-          <div style={labelStyle}>Description</div>
+          <div style={labelStyle}>{tr('ti_description')}</div>
           <div style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.5 }}>{tool.description || '—'}</div>
         </div>
 
@@ -203,7 +205,7 @@ export default function ToolInspectModal({ tool, toolParams, onSave, onClose, t 
         )}
 
         <div>
-          <div style={labelStyle}>Parameters (tool_params) — JSON</div>
+          <div style={labelStyle}>{tr('ti_params_json')}</div>
           <textarea
             value={paramsText}
             onChange={(e) => { setParamsText(e.target.value); setJsonError(null); }}
@@ -218,11 +220,11 @@ export default function ToolInspectModal({ tool, toolParams, onSave, onClose, t 
           <button onClick={onClose} style={{
             padding: '5px 14px', borderRadius: 4, cursor: 'pointer',
             background: 'transparent', border: `1px solid ${t.border}`, color: t.textPrimary, fontSize: 12,
-          }}>Cancel</button>
+          }}>{tr('c_cancel')}</button>
           <button onClick={handleSave} style={{
             padding: '5px 14px', borderRadius: 4, cursor: 'pointer',
             background: t.accent, border: 'none', color: '#fff', fontSize: 12, fontWeight: 600,
-          }}>Save</button>
+          }}>{tr('c_save')}</button>
         </div>
       </div>
     </div>

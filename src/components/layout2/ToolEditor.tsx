@@ -6,6 +6,7 @@
  * Sections: Overview, Prompt, Schema, JSON
  */
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import { Info, FileText, Database, Code, Loader } from 'lucide-react';
 import type { Tab } from './useLayout';
@@ -25,6 +26,7 @@ const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode }[] = [
 ];
 
 export default function ToolEditor({ tab }: ToolEditorProps) {
+  const { t: tr } = useTranslation('chat');
   const t = useLayoutTokens();
   const { toolId } = tab.data ?? {};
   const [tool, setTool] = useState<any>(tab.data?.details ?? null);
@@ -87,28 +89,28 @@ export default function ToolEditor({ tab }: ToolEditorProps) {
   const renderOverview = () => (
     <div style={{ padding: 4 }}>
       <div style={cardStyle}>
-        <div style={labelStyle}>Name</div>
+        <div style={labelStyle}>{tr('te_name')}</div>
         <div style={{ ...valueStyle, fontSize: 18, fontWeight: 600 }}>{tool.name || tool.id || '—'}</div>
       </div>
       <div style={cardStyle}>
-        <div style={labelStyle}>Tool ID</div>
+        <div style={labelStyle}>{tr('te_tool_id')}</div>
         <code style={{ ...valueStyle, fontFamily: 'monospace' }}>{tool.id || '—'}</code>
       </div>
       <div style={cardStyle}>
-        <div style={labelStyle}>UI Description</div>
+        <div style={labelStyle}>{tr('te_ui_description')}</div>
         <div style={valueStyle}>{tool.ui_description || tool.description || '—'}</div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         <div style={cardStyle}>
-          <div style={labelStyle}>Category</div>
+          <div style={labelStyle}>{tr('ag_category')}</div>
           <div style={valueStyle}>{tool.category || '—'}</div>
         </div>
         <div style={cardStyle}>
-          <div style={labelStyle}>Requires API Key</div>
+          <div style={labelStyle}>{tr('te_requires_key')}</div>
           {tool.requires_api_key ? (
             <div style={{ ...valueStyle, fontFamily: 'monospace', color: '#f59e0b' }}>{tool.requires_api_key}</div>
           ) : (
-            <div style={{ ...valueStyle, color: '#4caf50' }}>None</div>
+            <div style={{ ...valueStyle, color: '#4caf50' }}>{tr('pk_none')}</div>
           )}
         </div>
       </div>
@@ -147,7 +149,7 @@ export default function ToolEditor({ tab }: ToolEditorProps) {
     return (
       <div style={{ padding: 4 }}>
         <div style={cardStyle}>
-          <div style={labelStyle}>Argument Schema (JSON Schema)</div>
+          <div style={labelStyle}>{tr('te_argument_schema')}</div>
           {hasSchema ? (
             <pre style={{
               whiteSpace: 'pre-wrap',

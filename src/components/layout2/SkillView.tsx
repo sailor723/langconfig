@@ -5,6 +5,7 @@
  * instructions (the main SKILL.md body), allowed tools, and source files.
  */
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import type { Tab } from './useLayout';
 import apiClient from '../../lib/api-client';
@@ -35,6 +36,7 @@ interface SkillViewProps {
 }
 
 export default function SkillView({ tab }: SkillViewProps) {
+  const { t: tr } = useTranslation('chat');
   const t = useLayoutTokens();
   const skillId = tab.data?.skillId as string;
   const initial = tab.data?.skill as SkillDetail | undefined;
@@ -88,7 +90,7 @@ export default function SkillView({ tab }: SkillViewProps) {
   }
 
   if (!skill) {
-    return <div style={{ padding: 24, color: t.textMuted }}>Skill not found</div>;
+    return <div style={{ padding: 24, color: t.textMuted }}>{tr('sv_not_found')}</div>;
   }
 
   return (
@@ -116,7 +118,7 @@ export default function SkillView({ tab }: SkillViewProps) {
       {/* Description */}
       {skill.description && (
         <div style={cardStyle}>
-          <div style={labelStyle}>Description</div>
+          <div style={labelStyle}>{tr('ti_description')}</div>
           <div style={valueStyle}>{skill.description}</div>
         </div>
       )}
@@ -211,7 +213,7 @@ export default function SkillView({ tab }: SkillViewProps) {
               fontSize: 11, height: 24, padding: '0 8px',
               background: t.bgHover, border: `1px solid ${t.border}`,
               borderRadius: 3, color: t.textPrimary, cursor: 'pointer',
-            }}>Copy</button>
+            }}>{tr('c_copy')}</button>
             <button onClick={() => {
               const text = `# ${skill.name || skill.skill_id}\n\n${skill.description || ''}\n\n## Tags\n${(skill.tags || []).join(', ')}\n\n## Instructions\n\n${skill.instructions}`;
               const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
@@ -223,7 +225,7 @@ export default function SkillView({ tab }: SkillViewProps) {
               fontSize: 11, height: 24, padding: '0 8px',
               background: t.bgHover, border: `1px solid ${t.border}`,
               borderRadius: 3, color: t.textPrimary, cursor: 'pointer',
-            }}>Download</button>
+            }}>{tr('c_download')}</button>
           </div>
         </div>
       )}
@@ -248,18 +250,18 @@ export default function SkillView({ tab }: SkillViewProps) {
       {/* Stats */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <div style={cardStyle}>
-          <div style={labelStyle}>Usage</div>
+          <div style={labelStyle}>{tr('sv_usage')}</div>
           <div style={valueStyle}>{skill.usage_count ?? 0} runs</div>
         </div>
         <div style={cardStyle}>
-          <div style={labelStyle}>Success Rate</div>
+          <div style={labelStyle}>{tr('sv_success_rate')}</div>
           <div style={valueStyle}>
             {skill.avg_success_rate != null ? `${(skill.avg_success_rate * 100).toFixed(0)}%` : '—'}
           </div>
         </div>
         {(skill.required_context || []).length > 0 && (
           <div style={cardStyle}>
-            <div style={labelStyle}>Required Context</div>
+            <div style={labelStyle}>{tr('sv_required_context')}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {skill.required_context.map((ctx, i) => (
                 <span key={i} style={{ fontSize: 12, color: t.textPrimary, fontFamily: 'monospace' }}>

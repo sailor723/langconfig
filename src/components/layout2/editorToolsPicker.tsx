@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 /**
  * ToolsPicker — native/custom tool grid shared by the agent editors.
  *
@@ -83,6 +84,7 @@ export default function ToolsPicker({
   visionModels,
   t,
 }: ToolsPickerProps) {
+  const { t: tr } = useTranslation('chat');
   const bulkBtnStyle: React.CSSProperties = {
     fontSize: 10,
     padding: '2px 8px',
@@ -224,13 +226,13 @@ export default function ToolsPicker({
           <div style={{ flex: 1 }} />
           {/* Bulk selection: unticking 28 boxes by hand to build a tool-less agent
               was the only way to get there. */}
-          {onSelectAllNative && <button type="button" onClick={onSelectAllNative} style={bulkBtnStyle}>All tools</button>}
-          {onClearNative && <button type="button" onClick={onClearNative} style={bulkBtnStyle}>None</button>}
+          {onSelectAllNative && <button type="button" onClick={onSelectAllNative} style={bulkBtnStyle}>{tr('pk_all_tools')}</button>}
+          {onClearNative && <button type="button" onClick={onClearNative} style={bulkBtnStyle}>{tr('pk_none')}</button>}
           {toggleBtn('All', showAllTools, () => onShowAllChange(true))}
           {toggleBtn('Selected', !showAllTools, () => onShowAllChange(false))}
         </div>
         {toolsLoading ? (
-          <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>Loading tools...</div>
+          <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>{tr('pk_loading_tools')}</div>
         ) : allNativeLoaded.length === 0 ? (
           <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>(none available)</div>
         ) : (
