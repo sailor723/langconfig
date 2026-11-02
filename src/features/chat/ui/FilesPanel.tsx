@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { File, FolderOpen, Folder, Download, X, Loader2, CheckCircle, AlertCircle, Clock, RefreshCw, ChevronRight, ChevronDown, Trash2 } from 'lucide-react';
 import type { SessionDocument } from '../types/chat';
 import apiClient from '../../../lib/api-client';
@@ -20,6 +21,7 @@ interface GeneratedFile {
 }
 
 export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
+  const { t: tr } = useTranslation('chat');
   const [documents, setDocuments] = useState<SessionDocument[]>([]);
   const [generatedFiles, setGeneratedFiles] = useState<GeneratedFile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -147,18 +149,18 @@ export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
             onClick={() => { setConfirmClearing(v => !v); setClearResult(null); }}
             className="p-1 rounded hover:bg-black/5 transition-colors"
             style={{ color: confirmClearing ? '#ef4444' : undefined }}
-            title="清空工作区（删除 upload/ generated/ 里的文件）"
+            title={tr('fp_clear_ws')}
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={handleRefresh}
             className="p-1 rounded hover:bg-black/5 transition-colors"
-            title="Refresh"
+            title={tr('c_refresh')}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
-          <button onClick={onClose} className="p-1 rounded hover:bg-black/5 transition-colors" title="Close">
+          <button onClick={onClose} className="p-1 rounded hover:bg-black/5 transition-colors" title={tr('c_close')}>
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -193,7 +195,7 @@ export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
 
       <div className="flex-1 overflow-y-auto p-3 space-y-4">
         {loading ? (
-          <div className="text-center text-xs" style={{ color: 'var(--color-text-muted)' }}>Loading...</div>
+          <div className="text-center text-xs" style={{ color: 'var(--color-text-muted)' }}>{tr('fp_loading')}</div>
         ) : documents.length > 0 ? (
           <div>
             <div className="text-[11px] font-semibold mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
@@ -216,7 +218,7 @@ export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
                       doc.original_filename || doc.filename,
                     )}
                     className="p-1 rounded hover:bg-white/10"
-                    title="Download"
+                    title={tr('c_download')}
                   >
                     <Download className="w-3 h-3" />
                   </button>
@@ -270,7 +272,7 @@ export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
                                 file.filename,
                               )}
                               className="p-1 rounded hover:bg-white/10"
-                              title="Download"
+                              title={tr('c_download')}
                             >
                               <Download className="w-3 h-3" />
                             </button>

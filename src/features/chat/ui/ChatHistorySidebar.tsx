@@ -17,6 +17,7 @@
  *   └─────────────────────┘
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, MessageSquare, MessageSquarePlus, Search, ChevronDown, ChevronRight, Calendar, Folder, FolderOpen, Package, Users, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import type { ChatSession } from '../types/chat';
 import { useChat } from '../state/ChatContext';
@@ -107,6 +108,7 @@ function viewToggle(opts: {
 const SIDEBAR_BG = 'var(--color-panel-dark, var(--color-panel, #f9fafb))';
 
 export default function ChatHistorySidebar({ onNewSession, footer, footerCompact }: ChatHistorySidebarProps) {
+  const { t: tr } = useTranslation('chat');
   const { sessions, currentSessionId, switchSession } = useChat();
   // The heading says "Projects", so the value has to be the project (vault).
   // It used to render the current session's agent name — an agent shown under a
@@ -117,7 +119,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
   const sessionProject = projects.find(p => p.id === currentSession?.project_id);
   const projectName = sessionProject?.name
     || activeProject?.name
-    || (currentSession ? 'No project' : 'my-project');
+    || (currentSession ? tr('ch_no_project') : 'my-project');
   const [collapsed, setCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -174,7 +176,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
       } else {
         byAgent.set(session.agent_id, {
           agentId: session.agent_id,
-          agentName: session.agent_name || 'Unknown agent',
+          agentName: session.agent_name || tr('ch_unknown_agent'),
           sessions: [session],
           latest: stamp,
         });
@@ -204,9 +206,9 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
       const day = startOfDay(date);
       const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
       const label = day.getTime() === today.getTime()
-        ? 'Today'
+        ? tr('ch_today')
         : day.getTime() === yesterday.getTime()
-          ? 'Yesterday'
+          ? tr('ch_yesterday')
           : day.toLocaleDateString(undefined, {
               weekday: 'short',
               day: 'numeric',
@@ -284,7 +286,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
   const sessionLabel = (session: ChatSession) =>
     session.title || (session.last_message_preview
       ? session.last_message_preview.slice(0, 60)
-      : 'New conversation');
+      : tr('ch_new_conversation'));
 
   // The box lives in the open conversation's header, not on every row: pinning is
   // a decision you make while reading, and an icon per row turns the list into
@@ -294,7 +296,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
     const isFavoriteRow = variant === 'favorite';
     // A pinned chat with no name would otherwise be an anonymous date, so it
     // says so rather than borrowing the conversation's first message.
-    const label = isFavoriteRow ? (session.title || 'Untitled chat') : sessionLabel(session);
+    const label = isFavoriteRow ? (session.title || tr('ch_untitled')) : sessionLabel(session);
 
     return (
       <button
@@ -441,7 +443,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
         <button
           onClick={() => setCollapsed(false)}
           className="p-2 rounded-lg hover:bg-[rgba(128,128,128,0.18)] transition-colors mb-4"
-          title="Expand sidebar"
+          title={tr('ch_expand_sidebar')}
         >
           <PanelLeftOpen className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
         </button>
@@ -450,7 +452,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
           onClick={onNewSession}
           className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-[rgba(128,128,128,0.18)] transition-colors mb-2"
           style={{ color: 'var(--color-text-primary)' }}
-          title="New session"
+          title={tr('ch_new_session')}
         >
           <MessageSquarePlus className="w-4 h-4" />
         </button>
@@ -530,7 +532,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
             fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', "
               + "'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif",
           }}
-          title="EBL Carrier Chat — new session"
+          title={tr('ch_window_title')}
         >
           &nbsp;EBL Carrier Chat
         </button>
@@ -540,8 +542,8 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
         <button
           onClick={() => setCollapsed(true)}
           className="p-1.5 rounded-lg hover:bg-[rgba(128,128,128,0.18)] transition-colors flex-shrink-0"
-          title="Collapse sidebar"
-          aria-label="Collapse sidebar"
+          title={tr('ch_collapse_sidebar')}
+          aria-label={tr('ch_collapse_sidebar')}
         >
           <PanelLeftClose className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
         </button>
@@ -571,7 +573,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
           }}
           onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85'; }}
           onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
-          title="New session"
+          title={tr('ch_new_session')}
         >
           <MessageSquarePlus className="w-3.5 h-3.5" />
           New session
@@ -600,7 +602,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
           className="text-[11px] font-medium truncate"
           style={{ color: 'var(--color-text-primary)' }}
         >
-          {view === 'favorites' ? 'Favourites' : view === 'dates' ? 'Dates' : 'Agents'}
+          {view === 'favorites' ? tr('ch_favourites') : view === 'dates' ? tr('ch_dates') : tr('ch_agents')}
         </span>
         <div className="flex-1" />
         {viewToggle({
@@ -670,7 +672,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
               onKeyDown={e => {
                 if (e.key === 'Escape') { setSearchQuery(''); setSearchOpen(false); }
               }}
-              placeholder="Search titles…"
+              placeholder={tr('ch_search_ph')}
               className="flex-1 min-w-0 bg-transparent py-1.5 text-xs focus:outline-none"
               style={{ color: 'var(--color-text-primary)' }}
             />
@@ -678,7 +680,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
               <button
                 onClick={() => setSearchQuery('')}
                 className="p-0.5 rounded hover:bg-[rgba(128,128,128,0.18)]"
-                title="Clear"
+                title={tr('ch_clear')}
                 style={{ color: 'var(--color-text-muted)' }}
               >
                 <X className="w-3.5 h-3.5" />

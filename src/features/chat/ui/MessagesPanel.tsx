@@ -6,6 +6,7 @@
  */
 
 import { useRef, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Activity, Copy, CheckCircle, AlertCircle, X, Brain, User, ChevronDown, ChevronRight, Wrench, BarChart3, Loader2, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -110,6 +111,7 @@ export default function MessagesPanel({
   context,
   stats = null,
 }: MessagesPanelProps) {
+  const { t: tr } = useTranslation('chat');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [showThinking, setShowThinking] = useState(true);
@@ -485,7 +487,7 @@ export default function MessagesPanel({
                         {/* Artifacts (UI-only content, not sent to LLM) */}
                         {message.artifacts && message.artifacts.length > 0 && (
                           <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-medium">Generated Content:</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-medium">{tr('mg_generated_content')}</p>
                             <ContentBlockRenderer blocks={message.artifacts} />
                           </div>
                         )}
@@ -505,7 +507,7 @@ export default function MessagesPanel({
                             <span>
                               {activeToolCalls.length > 0
                                 ? `Thinking (${activeToolCalls.length} step${activeToolCalls.length !== 1 ? 's' : ''})`
-                                : 'Thinking'}
+                                : tr('mg_thinking')}
                             </span>
                             <span className="text-[10px] ml-0.5">{(elapsedMs / 1000).toFixed(1)}s</span>
                             {!showThinking && activeToolCalls.some(t => t.status === 'running') && (
@@ -558,7 +560,7 @@ export default function MessagesPanel({
                                         </span>
                                         <span style={{ color: 'var(--color-text-primary)' }}>{step.label}</span>
                                         {step.status === 'running' && (
-                                          <span className="text-blue-500 text-[10px] animate-pulse">in progress...</span>
+                                          <span className="text-blue-500 text-[10px] animate-pulse">{tr('mg_in_progress')}</span>
                                         )}
                                         {step.message && step.status !== 'running' && (
                                           <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{step.message}</span>
@@ -578,9 +580,9 @@ export default function MessagesPanel({
                                         {tc.tool_name}
                                       </span>
                                       {tc.status === 'running' ? (
-                                        <span className="text-blue-500 text-[10px] animate-pulse">running...</span>
+                                        <span className="text-blue-500 text-[10px] animate-pulse">{tr('mg_running')}</span>
                                       ) : (
-                                        <span style={{ color: '#10b981' }} className="text-[10px]">done</span>
+                                        <span style={{ color: '#10b981' }} className="text-[10px]">{tr('mg_done')}</span>
                                       )}
                                       <span className="text-[10px] ml-auto" style={{ color: 'var(--color-text-muted)' }}>
                                         {tc.timestamp ? ((Date.now() - new Date(tc.timestamp).getTime()) / 1000).toFixed(1) + 's' : ''}
@@ -615,13 +617,13 @@ export default function MessagesPanel({
                           style={{ color: 'var(--color-text-muted)' }}
                           title={formatFullDateTime(message.timestamp) || undefined}
                         >
-                          {message.role === 'user' ? 'You' : message.role === 'assistant' ? 'Assistant' : 'System'}
+                          {message.role === 'user' ? tr('mg_you') : message.role === 'assistant' ? tr('mg_assistant') : tr('mg_system')}
                           {formatCompactDateTime(message.timestamp) && ` · ${formatCompactDateTime(message.timestamp)}`}
                         </span>
                         <button
                           onClick={() => copyToClipboard(message.content, index)}
                           className="p-1 hover:bg-gray-200 rounded transition-colors"
-                          title="Copy message"
+                          title={tr('mg_copy')}
                           style={{ color: 'var(--color-text-muted)' }}
                         >
                           {copiedIndex === index ? (
@@ -633,7 +635,7 @@ export default function MessagesPanel({
                         <button
                           onClick={() => downloadAsFile(message.content, `${message.role === 'assistant' ? 'answer' : 'question'}-${index}.md`)}
                           className="p-1 hover:bg-gray-200 rounded transition-colors"
-                          title="Download as file"
+                          title={tr('mg_download')}
                           style={{ color: 'var(--color-text-muted)' }}
                         >
                           <Download className="w-3 h-3" />
@@ -677,7 +679,7 @@ export default function MessagesPanel({
                       const progressEvent: ProgressEvent = {
                         id: eventId,
                         data: {
-                          label: event.payload.label || 'Progress',
+                          label: event.payload.label || tr('mg_progress'),
                           value: event.payload.value || 0,
                           total: event.payload.total,
                           message: event.payload.message,
