@@ -6,11 +6,13 @@
  */
 
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Displayed when the workflow canvas has no nodes
  */
 const EmptyCanvasState = memo(function EmptyCanvasState() {
+  const { t: tr } = useTranslation('chat');
   return (
     <div className="w-full h-full flex flex-col items-center justify-center gap-6 text-center p-12">
       <div className="w-24 h-24 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
@@ -20,7 +22,7 @@ const EmptyCanvasState = memo(function EmptyCanvasState() {
       </div>
       <div>
         <h4 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-          Start Building Your Workflow
+          {tr('ec_start')}
         </h4>
         <p className="text-gray-600 dark:text-gray-400 max-w-md text-base">
           Click on an agent from the left panel to add your first node, then connect them to create your workflow.

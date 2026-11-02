@@ -20,14 +20,15 @@
  *
  * Usage:
  *   <NodeThinkingOverlay
- *     thinking="Agent is analyzing the problem..."
- *     thinkingPreview="Agent is analyzing..."
+ *     thinking="tr('nt_analyzing_problem')"
+ *     thinkingPreview="tr('nt_analyzing')"
  *     isActive={status.state === 'thinking'}
  *     nodePosition={{ x: 100, y: 200 }}
  *   />
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Brain, ChevronDown, ChevronUp, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -62,6 +63,7 @@ export default function NodeThinkingOverlay({
   zIndex = 1000,
   onClose,
 }: NodeThinkingOverlayProps) {
+  const { t: tr } = useTranslation('chat');
   const [isExpanded, setIsExpanded] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -131,7 +133,7 @@ export default function NodeThinkingOverlay({
               className="text-sm font-semibold"
               style={{ color: 'var(--color-text-primary)' }}
             >
-              {isActive ? 'Thinking...' : 'Agent Reasoning'}
+              {isActive ? tr('nt_thinking') : tr('nt_reasoning')}
             </span>
           </div>
 
@@ -140,7 +142,7 @@ export default function NodeThinkingOverlay({
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="p-1 rounded hover:bg-gray-700/50 transition-colors"
-              aria-label={isExpanded ? 'Collapse' : 'Expand'}
+              aria-label={isExpanded ? tr('nt_collapse') : tr('nt_expand')}
             >
               {isExpanded ? (
                 <ChevronUp className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
@@ -261,14 +263,14 @@ export default function NodeThinkingOverlay({
                 />
               )}
 
-              {/* "Expand to read more" hint */}
+              {/* "tr('nt_expand_more')" hint */}
               {thinking.length > thinkingPreview.length && (
                 <button
                   onClick={() => setIsExpanded(true)}
                   className="mt-2 text-xs underline hover:no-underline transition-all"
                   style={{ color: 'var(--color-primary)' }}
                 >
-                  Expand to read more
+                  tr('nt_expand_more')
                 </button>
               )}
             </div>

@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import apiClient from '@/lib/api-client';
 
 interface MetricsPanelProps {
@@ -30,6 +31,7 @@ interface CostData {
 }
 
 export default function MinimizableMetricsPanel({ workflowId }: MetricsPanelProps) {
+  const { t: tr } = useTranslation('chat');
   const [isMinimized, setIsMinimized] = useState(true);
   const [costData, setCostData] = useState<CostData>({
     totalCost: 0,
@@ -52,7 +54,7 @@ export default function MinimizableMetricsPanel({ workflowId }: MetricsPanelProp
         const response = await apiClient.getWorkflowCostMetrics(workflowId, 30);
         setCostData(response.data);
       } catch (error) {
-        console.error('Failed to fetch cost metrics:', error);
+        console.error(tr('mp_fetch_failed'), error);
       } finally {
         setLoading(false);
       }
@@ -111,7 +113,7 @@ export default function MinimizableMetricsPanel({ workflowId }: MetricsPanelProp
             payments
           </span>
           <h3 className="text-white font-semibold text-sm">
-            Workflow Cost Metrics
+            {tr('mp_title')}
           </h3>
         </div>
         <button
@@ -149,26 +151,26 @@ export default function MinimizableMetricsPanel({ workflowId }: MetricsPanelProp
               <div className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
                 {costData.totalTokens.toLocaleString()}
               </div>
-              <div className="text-xxs" style={{ color: 'var(--color-text-muted)' }}>Total</div>
+              <div className="text-xxs" style={{ color: 'var(--color-text-muted)' }}>{tr('fc_total')}</div>
             </div>
             <div className="p-2 rounded text-center" style={{ backgroundColor: 'var(--color-background-light)' }}>
               <div className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
                 {costData.promptTokens.toLocaleString()}
               </div>
-              <div className="text-xxs" style={{ color: 'var(--color-text-muted)' }}>Prompt</div>
+              <div className="text-xxs" style={{ color: 'var(--color-text-muted)' }}>{tr('fc_prompt')}</div>
             </div>
             <div className="p-2 rounded text-center" style={{ backgroundColor: 'var(--color-background-light)' }}>
               <div className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
                 {costData.completionTokens.toLocaleString()}
               </div>
-              <div className="text-xxs" style={{ color: 'var(--color-text-muted)' }}>Output</div>
+              <div className="text-xxs" style={{ color: 'var(--color-text-muted)' }}>{tr('fc_output')}</div>
             </div>
           </div>
         </div>
 
         {/* Executions */}
         <div className="flex items-center justify-between p-2 rounded" style={{ backgroundColor: 'var(--color-background-light)' }}>
-          <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Executions</span>
+          <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>{tr('mp_executions')}</span>
           <span className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
             {costData.executionCount}
           </span>
@@ -177,7 +179,7 @@ export default function MinimizableMetricsPanel({ workflowId }: MetricsPanelProp
         {/* Cost by Agent */}
         <div>
           <h4 className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
-            Cost by Agent
+            {tr('mp_cost_by_agent')}
           </h4>
           <div className="space-y-1">
             {costData.agents.length > 0 ? (
@@ -205,7 +207,7 @@ export default function MinimizableMetricsPanel({ workflowId }: MetricsPanelProp
               ))
             ) : (
               <div className="text-xs text-center py-4" style={{ color: 'var(--color-text-muted)' }}>
-                No agent data available
+                {tr('mp_no_agent')}
               </div>
             )}
           </div>
@@ -237,7 +239,7 @@ export default function MinimizableMetricsPanel({ workflowId }: MetricsPanelProp
               ))
             ) : (
               <div className="text-xs text-center py-4" style={{ color: 'var(--color-text-muted)' }}>
-                No tool usage data available
+                {tr('mp_no_tool')}
               </div>
             )}
           </div>
@@ -252,7 +254,7 @@ export default function MinimizableMetricsPanel({ workflowId }: MetricsPanelProp
           }}
           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-primary-light)'}
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--color-background-light)'}
-          onClick={() => alert('Navigate to Library for full project dashboard')}
+          onClick={() => alert(tr('mp_library_hint'))}
         >
           View Full Report in Library →
         </button>

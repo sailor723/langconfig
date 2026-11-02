@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 
 interface CostBreakdown {
@@ -40,6 +41,7 @@ export default function FloatingCostPanel({
   position,
   onClose
 }: FloatingCostPanelProps) {
+  const { t: tr } = useTranslation('chat');
   const [isDragging, setIsDragging] = useState(false);
   const [currentPosition, setCurrentPosition] = useState(position);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -139,40 +141,40 @@ export default function FloatingCostPanel({
               ${costData.totalCost.toFixed(4)}
             </div>
             <div className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-              Total Cost
+              {tr('fc_total_cost')}
             </div>
           </div>
 
           {/* Token Breakdown */}
           <div>
             <h4 className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
-              Token Usage
+              {tr('fc_token_usage')}
             </h4>
             <div className="grid grid-cols-3 gap-2">
               <div className="p-2 rounded text-center" style={{ backgroundColor: 'var(--color-background-light)' }}>
                 <div className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
                   {costData.totalTokens.toLocaleString()}
                 </div>
-                <div className="text-xxs" style={{ color: 'var(--color-text-muted)' }}>Total</div>
+                <div className="text-xxs" style={{ color: 'var(--color-text-muted)' }}>{tr('fc_total')}</div>
               </div>
               <div className="p-2 rounded text-center" style={{ backgroundColor: 'var(--color-background-light)' }}>
                 <div className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
                   {costData.promptTokens.toLocaleString()}
                 </div>
-                <div className="text-xxs" style={{ color: 'var(--color-text-muted)' }}>Prompt</div>
+                <div className="text-xxs" style={{ color: 'var(--color-text-muted)' }}>{tr('fc_prompt')}</div>
               </div>
               <div className="p-2 rounded text-center" style={{ backgroundColor: 'var(--color-background-light)' }}>
                 <div className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
                   {costData.completionTokens.toLocaleString()}
                 </div>
-                <div className="text-xxs" style={{ color: 'var(--color-text-muted)' }}>Output</div>
+                <div className="text-xxs" style={{ color: 'var(--color-text-muted)' }}>{tr('fc_output')}</div>
               </div>
             </div>
           </div>
 
           {/* Model Info */}
           <div className="flex items-center justify-between p-2 rounded" style={{ backgroundColor: 'var(--color-background-light)' }}>
-            <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Model</span>
+            <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>{tr('fc_model')}</span>
             <span className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
               {costData.model}
             </span>
@@ -182,7 +184,7 @@ export default function FloatingCostPanel({
           {costData.toolCalls && costData.toolCalls.length > 0 && (
             <div>
               <h4 className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
-                Tool Usage
+                {tr('fc_tool_usage')}
               </h4>
               <div className="space-y-1">
                 {costData.toolCalls.map((tool, idx) => (
@@ -210,7 +212,7 @@ export default function FloatingCostPanel({
           {costData.executionHistory && costData.executionHistory.length > 0 && (
             <div>
               <h4 className="text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
-                Recent Runs
+                {tr('fc_recent_runs')}
               </h4>
               <div className="space-y-1 max-h-32 overflow-y-auto">
                 {costData.executionHistory.map((run, idx) => (
