@@ -32,6 +32,7 @@ import logging
 import re
 from typing import Iterable, Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.security.passwords import (
@@ -47,6 +48,12 @@ logger = logging.getLogger(__name__)
 # Deliberately conservative: Basic auth splits on ':' and the username appears in
 # URLs/logs, so keep it to characters that never need escaping.
 USERNAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{1,63}$")
+
+# A nickname is typed at the same prompt as a username, so it keeps the same
+# character set — Basic auth has no encoding negotiation worth relying on, and a
+# name with a space or a colon is a support ticket waiting to happen. Shorter cap:
+# it exists to be *easy* to type.
+NICKNAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{1,31}$")
 
 
 class UserError(ValueError):
@@ -91,6 +98,67 @@ def validate_username(username: str) -> str:
             "underscore, starting with a letter or digit."
         )
     return username
+
+
+def validate_nickname(nickname) -> Optional[str]:
+    """Normalise a nickname. ``""``/None means "no alias" and returns None."""
+    text = (nickname or "").strip()
+    if not text:
+        return None
+    if not NICKNAME_RE.match(text):
+        raise UserError(
+            "Nickname must be 2-32 characters: letters, digits, dot, dash or "
+            "underscore, starting with a letter or digit."
+        )
+    return text
+
+
+def _ensure_nickname_free(db: Session, nickname: str, *, exclude_user_id: Optional[int] = None) -> None:
+    """Two identifiers for one person are fine; one identifier for two is not.
+
+    The partial unique index covers nickname-vs-nickname. It cannot cover
+    nickname-vs-*username*, which is the ambiguity that actually bites at a login
+    prompt, so that half is a scan here. Both comparisons ignore case: the browser's
+    Basic prompt does not preserve the case the owner typed.
+    """
+    lowered = nickname.lower()
+
+    clash = db.query(User).filter(func.lower(User.nickname) == lowered)
+    if exclude_user_id is not None:
+        clash = clash.filter(User.id != exclude_user_id)
+    other = clash.first()
+    if other is not None:
+        raise UserError(f"Nickname {nickname!r} is already used by {other.username!r}.")
+
+    shadow = db.query(User).filter(func.lower(User.username) == lowered)
+    if exclude_user_id is not None:
+        shadow = shadow.filter(User.id != exclude_user_id)
+    taken = shadow.first()
+    if taken is not None:
+        raise UserError(
+            f"Nickname {nickname!r} is somebody's username - pick another one."
+        )
+
+
+def get_by_nickname(db: Session, nickname: str) -> Optional[User]:
+    """Case-insensitive lookup by alias. None for blank input, never a wildcard."""
+    text = (nickname or "").strip()
+    if not text:
+        return None
+    return db.query(User).filter(func.lower(User.nickname) == text.lower()).first()
+
+
+def get_by_login(db: Session, identifier: str) -> Optional[User]:
+    """Resolve whatever the person typed: their username first, then their nickname.
+
+    Username wins on an exact match. That ordering is what keeps an alias from ever
+    shadowing a real account, and it is why :func:`_ensure_nickname_free` refuses a
+    nickname that equals an existing username.
+    """
+    text = (identifier or "").strip()
+    if not text:
+        return None
+    return get_by_username(db, text) or get_by_nickname(db, text)
 
 
 def coerce_role(role) -> UserRole:
@@ -166,20 +234,29 @@ def create_user(
     password: str,
     *,
     display_name: Optional[str] = None,
+    nickname: Optional[str] = None,
     role: UserRole | str = UserRole.MEMBER,
     _commit: bool = True,
 ) -> User:
     username = validate_username(username)
     validate_password(password)
+    nickname = validate_nickname(nickname)
 
     if get_by_username(db, username) is not None:
         raise UserError(f"User {username!r} already exists.")
+    # Same ambiguity as _ensure_nickname_free, from the other side: a new username
+    # must not steal an alias somebody already signs in with.
+    if get_by_nickname(db, username) is not None:
+        raise UserError(f"{username!r} is already somebody's nickname - pick another username.")
+    if nickname is not None:
+        _ensure_nickname_free(db, nickname)
 
     role_value = coerce_role(role)
     user = User(
         username=username,
         password_hash=hash_password(password),
         display_name=(display_name or "").strip() or None,
+        nickname=nickname,
         role=role_value,
         is_active=True,
     )
@@ -206,6 +283,7 @@ def update_user(
     user: User,
     *,
     display_name: Optional[str] = None,
+    nickname: Optional[str] = None,
     role: Optional[UserRole | str] = None,
     is_active: Optional[bool] = None,
     acting_user_id: Optional[int] = None,
@@ -237,6 +315,15 @@ def update_user(
     if display_name is not None:
         user.display_name = display_name.strip() or None
 
+    # Convention matches display_name: None = "leave it alone", "" = "clear it".
+    # Clearing matters — an alias that has been leaked to a group chat is worth
+    # being able to take away without deleting the account.
+    if nickname is not None:
+        clean = validate_nickname(nickname)
+        if clean is not None and clean.lower() != (user.nickname or "").lower():
+            _ensure_nickname_free(db, clean, exclude_user_id=user.id)
+        user.nickname = clean
+
     disabling = is_active is not None and not is_active
     user.updated_at = datetime.datetime.now(datetime.timezone.utc)
     db.commit()
@@ -257,7 +344,9 @@ def authenticate(db: Session, username: str, password: str) -> Optional[User]:
     distinguish them, so an attacker learns nothing about which usernames exist or
     which are merely switched off.
     """
-    user = get_by_username(db, (username or "").strip())
+    # The prompt says "username or nickname": username wins on an exact match, and
+    # an alias may never shadow a real username (see _ensure_nickname_free).
+    user = get_by_login(db, username)
     if user is None:
         return None
     if not verify_password(password, user.password_hash):

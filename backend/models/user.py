@@ -28,7 +28,7 @@ Two deliberate limits:
 import datetime
 import enum
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Index, Integer, String, func, text
 from sqlalchemy import Enum as SQLEnum
 
 from db.database import Base
@@ -64,6 +64,16 @@ class User(Base):
 
     display_name = Column(String(128), nullable=True)
 
+    # A second login identifier: what a person actually types. `username` stays the
+    # stable, machine-shaped key (ownership columns point at it, the Basic prompt
+    # used to demand it), so an alias is additive — the account can still sign in
+    # with either. NULL means "no alias".
+    #
+    # Case-insensitive uniqueness is enforced by a partial index in migration 040;
+    # the "a nickname may not shadow somebody else's username" rule needs a scan and
+    # therefore lives in services/user_service.py.
+    nickname = Column(String(32), nullable=True)
+
     role = Column(
         SQLEnum(UserRole, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
@@ -90,6 +100,21 @@ class User(Base):
     )
     last_login_at = Column(DateTime(timezone=True), nullable=True)
 
+    # Declared here, after the columns, because it names `nickname`: a table-level
+    # constraint written above the column would reference a name that does not exist
+    # yet. nickname is a login identifier, so two accounts may not share one — and
+    # the comparison has to ignore case, because nobody types "Alice" the same way
+    # twice. Partial (WHERE nickname IS NOT NULL) so the many alias-less accounts do
+    # not collide with each other on NULL.
+    __table_args__ = (
+        Index(
+            "ix_users_nickname_lower",
+            func.lower(nickname),
+            unique=True,
+            postgresql_where=text("nickname IS NOT NULL"),
+        ),
+    )
+
     # ── serialisation ────────────────────────────────────────────────────────
 
     def to_public(self) -> dict:
@@ -98,6 +123,7 @@ class User(Base):
         return {
             "id": self.id,
             "username": self.username,
+            "nickname": self.nickname,
             "display_name": self.display_name,
             "role": self.role.value if isinstance(self.role, UserRole) else str(self.role),
             "is_active": bool(self.is_active),

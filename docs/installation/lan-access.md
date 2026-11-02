@@ -115,9 +115,16 @@ disabling and promoting all live in the app.
 
 ### Signing in
 
-Open the instance in a browser: `http://<your-ip>:8765`. You land on **/signin** — username,
-password, one button. Everything after that is a normal app session; SSE streams and the
-terminal's WebSocket carry the cookie automatically, so nothing else needs credentials.
+Open the instance in a browser: `http://<your-ip>:8765`. You land on **/signin** — username
+or nickname, password, one button. Everything after that is a normal app session; SSE streams
+and the terminal's WebSocket carry the cookie automatically, so nothing else needs credentials.
+
+**Nickname.** An account may carry an alias (`users.nickname`, 2–32 chars, same character set
+as a username) and sign in with either: `Andy` and `user7` are the same person. Uniqueness
+ignores case — the browser prompt does not preserve the case people type — and a nickname may
+not shadow anybody's username, or the prompt would have two owners for one string. Admins set
+it in **Users → Nick** (or on creation); a person can set their own in **Your account**.
+Removing one (`""`) leaves the account signing in by username again.
 
 | Situation | What happens |
 |---|---|

@@ -42,6 +42,8 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 class UserOut(BaseModel):
     id: int
     username: str
+    #: Optional alias that also works at the login prompt (case-insensitive).
+    nickname: Optional[str] = None
     display_name: Optional[str] = None
     role: str
     is_active: bool
@@ -65,6 +67,8 @@ class MeOut(UserOut):
 
 class UpdateMeRequest(BaseModel):
     display_name: Optional[str] = Field(None, max_length=128)
+    #: Alias you can sign in with. Send "" to remove it, omit to leave it alone.
+    nickname: Optional[str] = Field(None, max_length=32)
     #: Absolute path for this account's files. Omit to leave it alone, send ""
     #: (or null) to fall back to ``<install root>/users/<id>``.
     workspace_path: Optional[str] = Field(None, max_length=1024)
@@ -78,12 +82,15 @@ class ChangePasswordRequest(BaseModel):
 class CreateUserRequest(BaseModel):
     username: str = Field(..., description="2-64 chars: letters, digits, . _ -")
     password: str = Field(..., description="At least 8 characters")
+    nickname: Optional[str] = Field(None, description="2-32 chars: an extra login alias")
     display_name: Optional[str] = None
     role: str = Field("member", description="admin or member")
 
 
 class UpdateUserRequest(BaseModel):
     display_name: Optional[str] = None
+    #: "" removes the alias; omit the field to leave it alone.
+    nickname: Optional[str] = Field(None, max_length=32)
     role: Optional[str] = None
     is_active: Optional[bool] = None
     workspace_path: Optional[str] = Field(None, max_length=1024)
@@ -154,7 +161,9 @@ def update_me(
     """
     user = _require_target(db, me.id)
     try:
-        user_service.update_user(db, user, display_name=request.display_name)
+        user_service.update_user(
+            db, user, display_name=request.display_name, nickname=request.nickname
+        )
     except UserError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if "workspace_path" in getattr(request, "model_fields_set", set()):
@@ -205,6 +214,7 @@ def create_user(
             request.username,
             request.password,
             display_name=request.display_name,
+            nickname=request.nickname,
             role=request.role,
         )
     except UserError as exc:
@@ -231,6 +241,7 @@ def update_user(
             db,
             user,
             display_name=request.display_name,
+            nickname=request.nickname,
             role=request.role,
             is_active=request.is_active,
             acting_user_id=admin.id,
@@ -240,11 +251,12 @@ def update_user(
     if "workspace_path" in getattr(request, "model_fields_set", set()):
         _apply_workspace_path(db, user, request.workspace_path)
     logger.info(
-        "Admin %s updated user %s (role=%s active=%s)",
+        "Admin %s updated user %s (role=%s active=%s nickname=%s)",
         admin.username,
         user.username,
         user.role,
         user.is_active,
+        user.nickname or "-",
     )
     return _out(user)
 

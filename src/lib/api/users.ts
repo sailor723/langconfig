@@ -14,6 +14,8 @@ import type { APIClient } from '../api-client';
 export interface UserSummary {
   id: number;
   username: string;
+  /** Optional alias that also works at the sign-in prompt (case-insensitive). */
+  nickname: string | null;
   display_name: string | null;
   role: 'admin' | 'member';
   is_active: boolean;
@@ -23,18 +25,25 @@ export interface UserSummary {
 
 export interface UsersApi {
   getMe(): Promise<{ data: UserSummary }>;
-  updateMe(data: { display_name?: string | null }): Promise<{ data: UserSummary }>;
+  updateMe(data: { display_name?: string | null; nickname?: string | null }): Promise<{ data: UserSummary }>;
   changeMyPassword(data: { current_password: string; new_password: string }): Promise<any>;
   listUsers(): Promise<{ data: UserSummary[] }>;
   createUser(data: {
     username: string;
     password: string;
+    nickname?: string | null;
     display_name?: string | null;
     role?: 'admin' | 'member';
   }): Promise<{ data: UserSummary }>;
   updateUser(
     id: number,
-    data: { display_name?: string | null; role?: 'admin' | 'member'; is_active?: boolean }
+    data: {
+      display_name?: string | null;
+      /** "" clears the alias; omit to leave it alone. */
+      nickname?: string | null;
+      role?: 'admin' | 'member';
+      is_active?: boolean;
+    }
   ): Promise<{ data: UserSummary }>;
   adminSetPassword(id: number, data: { new_password: string }): Promise<any>;
   listRoles(): Promise<{ data: { roles: string[] } }>;
@@ -45,7 +54,7 @@ export const usersApi: UsersApi = {
     return this.get('/api/users/me');
   },
 
-  async updateMe(this: APIClient, data: { display_name?: string | null }) {
+  async updateMe(this: APIClient, data: { display_name?: string | null; nickname?: string | null }) {
     return this.patch('/api/users/me', data);
   },
 

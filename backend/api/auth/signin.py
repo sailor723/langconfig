@@ -196,10 +196,14 @@ def render_page(
     {error_html}
     <form method="post" action="/api/auth/login" autocomplete="on">
       <input type="hidden" name="next" value="{html.escape(next)}">
-      <label for="username">Username</label>
+      <label for="username">Username or nickname</label>
       <input id="username" name="username" value="{html.escape(username)}"
              autocapitalize="none" autocorrect="off" spellcheck="false"
-             autocomplete="username" required autofocus>
+             autocomplete="username" required autofocus
+             aria-describedby="username-hint">
+      <p class="sub" id="username-hint" style="margin:-6px 0 10px">
+        Either works — a nickname is just an easier alias for the same account.
+      </p>
       <label for="password">Password</label>
       <input id="password" name="password" type="password"
              autocomplete="current-password" required>
@@ -322,7 +326,7 @@ async def login(request: Request):
         if user is None:
             _record_failure(key)
             logger.warning("Failed sign-in for %r from %s", username, key)
-            message = "Incorrect username or password."
+            message = "Incorrect username/nickname or password."
             if wants_html:
                 return _page(error=message, next=target, username=username)
             return JSONResponse({"detail": message}, status_code=401)

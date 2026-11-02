@@ -252,6 +252,7 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
   const t = useLayoutTokens();
   const [me, setMe] = useState<UserSummary | null>(null);
   const [displayName, setDisplayName] = useState('');
+  const [nickname, setNickname] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [nameMessage, setNameMessage] = useState<{ tone: 'error' | 'ok'; text: string } | null>(null);
 
@@ -269,6 +270,7 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
         if (cancelled) return;
         setMe(r.data);
         setDisplayName(r.data.display_name ?? '');
+        setNickname(r.data.nickname ?? '');
       })
       .catch((err: any) => {
         if (cancelled) return;
@@ -286,7 +288,11 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
     setSavingName(true);
     setNameMessage(null);
     try {
-      const r = await apiClient.updateMe({ display_name: displayName.trim() || null });
+      const r = await apiClient.updateMe({
+        display_name: displayName.trim() || null,
+        // "" clears the alias; the server treats a missing field as "leave alone".
+        nickname: nickname.trim(),
+      });
       setMe(r.data);
       setNameMessage({ tone: 'ok', text: 'Saved.' });
     } catch (err: any) {
@@ -377,6 +383,20 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
               maxLength={128}
             />
           </Field>
+          <Field
+            label="Nickname"
+            hint="Sign in with this instead of your username — shorter is easier. Letters, digits, dot, dash, underscore."
+          >
+            <TextInput
+              value={nickname}
+              placeholder="e.g. alice"
+              onChange={(e) => setNickname(e.target.value)}
+              maxLength={32}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+          </Field>
           <div style={{ marginBottom: 20 }}>
             <Button variant="primary" busy={savingName} onClick={saveName}>
               Save name
@@ -443,7 +463,11 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
   const [busyId, setBusyId] = useState<number | null>(null);
 
   const [newUsername, setNewUsername] = useState('');
+  const [newNickname, setNewNickname] = useState('');
   const [newDisplayName, setNewDisplayName] = useState('');
+  // Which row is having its nickname edited, and the draft for it.
+  const [nicknameFor, setNicknameFor] = useState<number | null>(null);
+  const [nicknameDraft, setNicknameDraft] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState<'member' | 'admin'>('member');
   const [creating, setCreating] = useState(false);
@@ -480,10 +504,12 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
       await apiClient.createUser({
         username: newUsername.trim(),
         password: newPassword,
+        nickname: newNickname.trim() || null,
         display_name: newDisplayName.trim() || null,
         role: newRole,
       });
       setNewUsername('');
+      setNewNickname('');
       setNewDisplayName('');
       setNewPassword('');
       setNewRole('member');
@@ -504,6 +530,22 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
       await load();
     } catch (err: any) {
       setError(err?.response?.data?.detail ?? 'Could not update the account.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const submitNickname = async (user: UserSummary) => {
+    setBusyId(user.id);
+    setError(null);
+    try {
+      // "" removes the alias — that is also how a leaked nickname is taken away.
+      await apiClient.updateUser(user.id, { nickname: nicknameDraft.trim() });
+      setNicknameFor(null);
+      setNicknameDraft('');
+      await load();
+    } catch (err: any) {
+      setError(err?.response?.data?.detail ?? 'Could not set that nickname.');
     } finally {
       setBusyId(null);
     }
@@ -589,6 +631,7 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                     </div>
                     <div style={{ fontSize: 11, color: t.textMuted }}>
                       {user.username}
+                      {user.nickname ? ` · signs in as “${user.nickname}”` : ''}
                       {user.last_login_at
                         ? ` · last sign-in ${user.last_login_at.slice(0, 16).replace('T', ' ')}`
                         : ' · never signed in'}
@@ -642,6 +685,30 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                       Reset
                     </button>
                     <button
+                      onClick={() => {
+                        setNicknameFor(nicknameFor === user.id ? null : user.id);
+                        setNicknameDraft(user.nickname ?? '');
+                        setError(null);
+                      }}
+                      title={
+                        user.nickname
+                          ? 'Change or remove the nickname they can sign in with'
+                          : 'Give this account a nickname they can sign in with'
+                      }
+                      style={{
+                        height: 24,
+                        padding: '0 8px',
+                        fontSize: 11,
+                        color: t.textPrimary,
+                        background: 'transparent',
+                        border: `1px solid ${t.border}`,
+                        borderRadius: 5,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Nick
+                    </button>
+                    <button
                       onClick={() => patch(user, { is_active: !user.is_active })}
                       disabled={busy || isMe}
                       title={
@@ -667,6 +734,23 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                       {user.is_active ? <Trash2 size={12} /> : <Check size={12} />}
                     </button>
                   </div>
+
+                  {nicknameFor === user.id && (
+                    <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, marginTop: 8 }}>
+                      <TextInput
+                        placeholder="Nickname for sign-in (empty = remove it)"
+                        value={nicknameDraft}
+                        onChange={(e) => setNicknameDraft(e.target.value)}
+                        maxLength={32}
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                      />
+                      <Button variant="primary" busy={busy} onClick={() => submitNickname(user)}>
+                        Save nickname
+                      </Button>
+                    </div>
+                  )}
 
                   {resetFor === user.id && (
                     <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, marginTop: 8 }}>
@@ -704,6 +788,17 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                 onChange={(e) => setNewUsername(e.target.value)}
                 placeholder="e.g. alice"
                 autoComplete="off"
+              />
+            </Field>
+            <Field label="Nickname" hint="Optional. They can sign in with this too.">
+              <TextInput
+                value={newNickname}
+                onChange={(e) => setNewNickname(e.target.value)}
+                placeholder="e.g. alice"
+                maxLength={32}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
               />
             </Field>
             <Field label="Display name" hint="Optional">

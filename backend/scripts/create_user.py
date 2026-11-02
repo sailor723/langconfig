@@ -81,6 +81,16 @@ def main() -> int:
     parser.add_argument("--admin", action="store_true", help="create as an administrator")
     parser.add_argument("--display-name", default=None, help="name shown in the UI")
     parser.add_argument(
+        "--nickname",
+        default=None,
+        help="extra login alias (2-32 chars); the account can sign in with it too",
+    )
+    parser.add_argument(
+        "--set-nickname",
+        default=None,
+        help="change or clear ('' ) the nickname of an existing account",
+    )
+    parser.add_argument(
         "--reset-password",
         metavar="NEW_PASSWORD",
         default=None,
@@ -102,7 +112,7 @@ def main() -> int:
         existing = user_service.get_by_username(db, args.username)
 
         # ── reset an existing account ───────────────────────────────────────
-        if args.reset_password is not None or args.enable:
+        if args.reset_password is not None or args.enable or args.set_nickname is not None:
             if existing is None:
                 _fail(f"no account named {args.username!r} — drop --reset-password to create it")
 
@@ -112,6 +122,16 @@ def main() -> int:
                 except UserError as exc:
                     _fail(str(exc))
                 print(f"password reset for {existing.username!r}")
+
+            if args.set_nickname is not None:
+                try:
+                    user_service.update_user(db, existing, nickname=args.set_nickname)
+                except UserError as exc:
+                    _fail(str(exc))
+                print(
+                    f"nickname for {existing.username!r}: "
+                    f"{existing.nickname or '(cleared)'}"
+                )
 
             if args.enable and not existing.is_active:
                 user_service.update_user(db, existing, is_active=True)
@@ -135,12 +155,14 @@ def main() -> int:
                 args.username,
                 password,
                 display_name=args.display_name,
+                nickname=args.nickname,
                 role=role,
             )
         except UserError as exc:
             _fail(str(exc))
 
-        print(f"created {user.username!r} ({user.role.value})")
+        alias = f" — signs in as {user.username!r} or {user.nickname!r}" if user.nickname else ""
+        print(f"created {user.username!r} ({user.role.value}){alias}")
         if user.role == UserRole.ADMIN and user_service.count_active_admins(db) == 1:
             print("  this is the first administrator: LAN access now works, and")
             print("  further accounts can be created in the app (Admin -> Users).")
