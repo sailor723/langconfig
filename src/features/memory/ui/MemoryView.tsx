@@ -16,6 +16,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Database, Brain, FileText, Settings, Plus, Trash2, RefreshCw, Info, Link as LinkIcon } from 'lucide-react';
 import apiClient from "../../../lib/api-client";
 
@@ -32,7 +33,7 @@ interface StoreItem {
   updated_at?: string;
 }
 
-export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => {
+export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => {  const { t: tr } = useTranslation('chat');
   const [activeSection, setActiveSection] = useState<'long-term' | 'agent-settings' | 'knowledge'>('long-term');
   const [longTermMemory, setLongTermMemory] = useState<StoreItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -52,7 +53,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
       const response = await apiClient.getWorkflowMemory(workflowId);
       setLongTermMemory(response.data || []);
     } catch (err) {
-      console.error('Error loading memory:', err);
+      console.error(tr('mm_err_load'), err);
     } finally {
       setLoading(false);
     }
@@ -80,7 +81,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
       setShowAddForm(false);
       await loadLongTermMemory();
     } catch (err) {
-      console.error('Error adding memory:', err);
+      console.error(tr('mm_err_add'), err);
     }
   };
 
@@ -91,7 +92,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
       await apiClient.deleteWorkflowMemoryItem(workflowId, key);
       await loadLongTermMemory();
     } catch (err) {
-      console.error('Error deleting memory:', err);
+      console.error(tr('mm_err_delete'), err);
     }
   };
 
@@ -109,7 +110,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
       <div className="p-6 border-b" style={{ borderColor: 'var(--color-border-dark)' }}>
         <div className="max-w-5xl mx-auto">
           <h2 className="text-2xl font-bold mb-2" style={{ fontFamily: 'var(--font-family-display)' }}>
-            Workflow Memory
+            {tr('mm_title')}
           </h2>
           <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
             Manage how your workflow remembers and learns across executions
@@ -129,7 +130,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
             style={activeSection !== 'long-term' ? { color: 'var(--color-text-muted)' } : {}}
           >
             <Database className="w-4 h-4 inline mr-2" />
-            Long-Term Memory
+            {tr('mv_long_term')}
           </button>
           <button
             onClick={() => setActiveSection('agent-settings')}
@@ -140,7 +141,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
             style={activeSection !== 'agent-settings' ? { color: 'var(--color-text-muted)' } : {}}
           >
             <Settings className="w-4 h-4 inline mr-2" />
-            Agent Settings
+            {tr('mv_agent_settings')}
           </button>
           <button
             onClick={() => setActiveSection('knowledge')}
@@ -151,7 +152,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
             style={activeSection !== 'knowledge' ? { color: 'var(--color-text-muted)' } : {}}
           >
             <FileText className="w-4 h-4 inline mr-2" />
-            Knowledge Base
+            {tr('mv_kb')}
           </button>
         </div>
       </div>
@@ -163,13 +164,13 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
           {activeSection === 'long-term' && (
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Workflow-Scoped Memory</h3>
+                <h3 className="text-lg font-semibold">{tr('mv_ws_memory')}</h3>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={loadLongTermMemory}
                     disabled={loading}
                     className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-lg transition-colors"
-                    title="Refresh"
+                    title={tr('c_refresh')}
                   >
                     <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} style={{ color: 'var(--color-text-muted)' }} />
                   </button>
@@ -213,7 +214,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-1">Value (JSON or text)</label>
+                      <label className="block text-sm font-medium mb-1">{tr('mm_value_label')}</label>
                       <textarea
                         value={newValue}
                         onChange={(e) => setNewValue(e.target.value)}
@@ -253,8 +254,8 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
                 <div className="py-8">
                   <div className="text-center mb-6" style={{ color: 'var(--color-text-muted)' }}>
                     <Database className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                    <p>No memory items yet</p>
-                    <p className="text-sm mt-1">Add items to provide persistent context to your workflow</p>
+                    <p>{tr('mm_empty')}</p>
+                    <p className="text-sm mt-1">{tr('mv_empty_hint')}</p>
                   </div>
 
                   {/* Memory System Explanation - shown when empty */}
@@ -262,11 +263,11 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
                     <div className="flex items-start gap-3">
                       <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                       <div className="text-sm text-text-primary dark:text-text-primary">
-                        <p className="font-semibold mb-2">How Memory Works:</p>
+                        <p className="font-semibold mb-2">{tr('mv_how_works')}</p>
                         <ul className="space-y-1 text-xs" style={{ color: 'var(--color-text-primary)' }}>
-                          <li><strong>Short-term:</strong> Conversation state saved automatically (checkpoints) - enables pause/resume</li>
+                          <li><strong>{tr('mv_short_term')}</strong> Conversation state saved automatically (checkpoints) - enables pause/resume</li>
                           <li><strong>Long-term:</strong> Persistent workflow memory across sessions - agents can store/retrieve context</li>
-                          <li><strong>Knowledge:</strong> Project RAG database - semantic search over documents</li>
+                          <li><strong>{tr('mv_knowledge')}</strong> Project RAG database - semantic search over documents</li>
                         </ul>
                       </div>
                     </div>
@@ -294,7 +295,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
                     <button
                       onClick={() => deleteMemoryItem(item.key)}
                       className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                      title="Delete"
+                      title={tr('c_delete')}
                     >
                       <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
                     </button>
@@ -334,7 +335,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
                     <div>
                       <h4 className="font-semibold">{node.data?.label || node.id}</h4>
                       <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                        {node.data?.config?.model || 'No model configured'}
+                        {node.data?.config?.model || tr('mv_no_model')}
                       </p>
                     </div>
                   </div>
@@ -347,7 +348,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({ workflowId, nodes }) => 
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span style={{ color: 'var(--color-text-muted)' }}>Long-Term Memory (Store API)</span>
+                      <span style={{ color: 'var(--color-text-muted)' }}>{tr('mv_store_api')}</span>
                       <span className={node.data?.config?.guardrails?.long_term_memory ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}>
                         {node.data?.config?.guardrails?.long_term_memory ? 'Enabled' : 'Disabled'}
                       </span>

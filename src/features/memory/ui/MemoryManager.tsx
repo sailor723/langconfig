@@ -13,6 +13,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Plus, Trash2, RefreshCw, Database } from 'lucide-react';
 import apiClient from '../../../lib/api-client';
 
@@ -35,7 +36,7 @@ export const MemoryManager: React.FC<MemoryManagerProps> = ({
   isOpen,
   onClose,
 }) => {
-  const [items, setItems] = useState<StoreItem[]>([]);
+  const [items, setItems] = useState<StoreItem[]>([]);  const { t: tr } = useTranslation('chat');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,7 +59,7 @@ export const MemoryManager: React.FC<MemoryManagerProps> = ({
       setItems(response.data || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
-      console.error('Error loading memory:', err);
+      console.error(tr('mm_err_load'), err);
     } finally {
       setLoading(false);
     }
@@ -66,7 +67,7 @@ export const MemoryManager: React.FC<MemoryManagerProps> = ({
 
   const addMemoryItem = async () => {
     if (!newKey.trim()) {
-      setError('Key is required');
+      setError(tr('mm_key_required'));
       return;
     }
 
@@ -94,7 +95,7 @@ export const MemoryManager: React.FC<MemoryManagerProps> = ({
       await loadMemoryItems();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
-      console.error('Error adding memory:', err);
+      console.error(tr('mm_err_add'), err);
     } finally {
       setLoading(false);
     }
@@ -112,7 +113,7 @@ export const MemoryManager: React.FC<MemoryManagerProps> = ({
       await loadMemoryItems();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
-      console.error('Error deleting memory:', err);
+      console.error(tr('mm_err_delete'), err);
     } finally {
       setLoading(false);
     }
@@ -130,7 +131,7 @@ export const MemoryManager: React.FC<MemoryManagerProps> = ({
       await loadMemoryItems();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
-      console.error('Error clearing memory:', err);
+      console.error(tr('mm_err_clear'), err);
     } finally {
       setLoading(false);
     }
@@ -146,7 +147,7 @@ export const MemoryManager: React.FC<MemoryManagerProps> = ({
           <div className="flex items-center gap-2">
             <Database className="w-5 h-5 text-primary" />
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-              Workflow Memory
+              {tr('mm_title')}
             </h2>
             <span className="text-sm text-gray-500 dark:text-gray-400">
               ({items.length} items)
@@ -157,7 +158,7 @@ export const MemoryManager: React.FC<MemoryManagerProps> = ({
               onClick={loadMemoryItems}
               disabled={loading}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              title="Refresh"
+              title={tr('c_refresh')}
             >
               <RefreshCw className={`w-4 h-4 text-gray-600 dark:text-gray-400 ${loading ? 'animate-spin' : ''}`} />
             </button>
@@ -186,14 +187,14 @@ export const MemoryManager: React.FC<MemoryManagerProps> = ({
               className="w-full mb-4 p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-primary dark:hover:border-primary transition-colors flex items-center justify-center gap-2 text-gray-600 dark:text-gray-400 hover:text-primary"
             >
               <Plus className="w-4 h-4" />
-              <span>Add Memory Item</span>
+              <span>{tr('mm_add_item')}</span>
             </button>
           )}
 
           {/* Add Item Form */}
           {showAddForm && (
             <div className="mb-4 p-4 border border-primary dark:border-primary/50 rounded-lg bg-primary/5 dark:bg-primary/10">
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Add Memory Item</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-3">{tr('mm_add_item')}</h3>
               <div className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -209,7 +210,7 @@ export const MemoryManager: React.FC<MemoryManagerProps> = ({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Value (JSON or text)
+                    {tr('mm_value_label')}
                   </label>
                   <textarea
                     value={newValue}
@@ -247,8 +248,8 @@ export const MemoryManager: React.FC<MemoryManagerProps> = ({
           {items.length === 0 && !loading && (
             <div className="text-center py-12 text-gray-500 dark:text-gray-400">
               <Database className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p>No memory items yet</p>
-              <p className="text-sm mt-1">Add items to provide context to your workflow</p>
+              <p>{tr('mm_empty')}</p>
+              <p className="text-sm mt-1">{tr('mm_empty_hint')}</p>
             </div>
           )}
 
@@ -272,7 +273,7 @@ export const MemoryManager: React.FC<MemoryManagerProps> = ({
                   onClick={() => deleteMemoryItem(item.key)}
                   disabled={loading}
                   className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                  title="Delete"
+                  title={tr('c_delete')}
                 >
                   <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
                 </button>
@@ -293,7 +294,7 @@ export const MemoryManager: React.FC<MemoryManagerProps> = ({
             disabled={loading || items.length === 0}
             className="px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Clear All Memory
+            {tr('mm_clear_all')}
           </button>
           <button
             onClick={onClose}
