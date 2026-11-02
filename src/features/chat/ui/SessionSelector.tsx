@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronDown, Plus, History } from 'lucide-react';
 import type { ChatSession } from '../types/chat';
 import { useChat } from '../state/ChatContext';
@@ -15,6 +16,7 @@ interface SessionSelectorProps {
 }
 
 export default function SessionSelector({ onNewSession }: SessionSelectorProps) {
+  const { t: tr } = useTranslation('chat');
   const { sessions, currentSessionId, switchSession } = useChat();
   const [isOpen, setIsOpen] = useState(false);
   const [hoveredSession, setHoveredSession] = useState<string | null>(null);
@@ -57,10 +59,10 @@ export default function SessionSelector({ onNewSession }: SessionSelectorProps) 
           backgroundColor: 'var(--color-background-light)',
           color: 'var(--color-text-primary)',
         }}
-        title="View conversation history"
+        title={tr('ss_history')}
       >
         <History className="w-4 h-4" />
-        <span className="text-sm">Conversations</span>
+        <span className="text-sm">{tr('ss_conversations')}</span>
         <ChevronDown className="w-4 h-4" />
       </button>
 

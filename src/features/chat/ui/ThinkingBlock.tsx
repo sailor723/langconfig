@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronRight, Brain, Wrench } from 'lucide-react';
 
 export interface ThinkingStep {
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function ThinkingBlock({ steps, defaultExpanded = false }: Props) {
+  const { t: tr } = useTranslation('chat');
   const [expanded, setExpanded] = useState(defaultExpanded);
 
   return (
@@ -24,7 +26,7 @@ export default function ThinkingBlock({ steps, defaultExpanded = false }: Props)
       >
         {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
         <Brain className="w-3.5 h-3.5" />
-        <span>{expanded ? 'Hide thinking' : steps.length > 0 ? `Show thinking (${steps.length} steps)` : 'Show thinking'}</span>
+        <span>{expanded ? tr('th_hide_thinking') : steps.length > 0 ? tr('th_show_steps', { count: steps.length }) : tr('th_show_thinking')}</span>
       </button>
 
       {expanded && (
@@ -37,7 +39,7 @@ export default function ThinkingBlock({ steps, defaultExpanded = false }: Props)
         >
           {steps.length === 0 ? (
             <div className="p-3 text-xs italic" style={{ color: 'var(--color-text-muted)' }}>
-              No tool calls in this response.
+              {tr('th_no_tool_calls')}
             </div>
           ) : (
           <div className="max-h-72 overflow-y-auto p-3 space-y-2">

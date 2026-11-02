@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Settings, Download, Trash2, LogOut, Check, Sun, Moon } from 'lucide-react';
 import { useChat } from '../state/ChatContext';
 import type { ThemeName } from '../../../lib/themes';
@@ -35,6 +36,7 @@ export default function ChatSettingsMenu({
   onClearHistory,
   onEndSession
 }: ChatSettingsMenuProps) {
+  const { t: tr } = useTranslation('chat');
   const { hitlEnabled, toggleHitl } = useChat();
   const [isOpen, setIsOpen] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
@@ -60,14 +62,14 @@ export default function ChatSettingsMenu({
   };
 
   const handleClearHistory = () => {
-    if (window.confirm('Are you sure you want to clear the chat history? This cannot be undone.')) {
+    if (window.confirm(tr('cs_confirm_clear'))) {
       onClearHistory();
       setIsOpen(false);
     }
   };
 
   const handleEndSession = () => {
-    if (window.confirm('Are you sure you want to end this session? The session will be closed.')) {
+    if (window.confirm(tr('cs_confirm_end'))) {
       onEndSession();
       setIsOpen(false);
     }
@@ -83,7 +85,7 @@ export default function ChatSettingsMenu({
         onClick={() => setIsOpen(!isOpen)}
         className="p-2 rounded-lg transition-colors hover:bg-gray-100"
         style={{ color: 'var(--color-text-muted)' }}
-        title="Settings"
+        title={tr('cs_settings')}
       >
         <Settings className="w-5 h-5" />
       </button>
@@ -131,7 +133,7 @@ export default function ChatSettingsMenu({
                   className="text-sm"
                   style={{ color: hoveredItem === 'theme' ? 'white' : 'var(--color-text-primary)' }}
                 >
-                  {themeName === 'dark' ? 'Dark Theme' : themeName === 'warm' ? 'Warm Theme' : 'Light Theme'}
+                  {themeName === 'dark' ? tr('cs_dark_theme') : themeName === 'warm' ? tr('cs_warm_theme') : tr('cs_light_theme')}
                 </span>
               </div>
               <span className="text-xs" style={{ color: hoveredItem === 'theme' ? 'white' : 'var(--color-text-muted)' }}>
@@ -155,7 +157,7 @@ export default function ChatSettingsMenu({
                   className="text-sm"
                   style={{ color: hoveredItem === 'hitl' ? 'white' : 'var(--color-text-primary)' }}
                 >
-                  Human-in-the-Loop
+                  {tr('cs_hitl')}
                 </span>
               </div>
               <div

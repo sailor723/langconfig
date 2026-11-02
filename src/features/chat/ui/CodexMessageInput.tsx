@@ -14,6 +14,7 @@
  * hardcoded string describing nothing.
  */
 import { useState, useRef, KeyboardEvent, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Send, Square } from 'lucide-react';
 import FileUploadButton from './FileUploadButton';
 import ContextMeter from './ContextMeter';
@@ -103,7 +104,7 @@ export default function CodexMessageInput({
   disabled = false,
   isStreaming = false,
   onStop,
-  placeholder = 'Do anything',
+  placeholder,
   sessionId = null,
   projectId = null,
   onFileUploaded = () => {},
@@ -111,6 +112,10 @@ export default function CodexMessageInput({
   agentName,
   context,
 }: CodexMessageInputProps) {
+  const { t: tr } = useTranslation('chat');
+  // Default resolved here, not in the parameter list: a parameter default cannot call
+  // a hook.
+  const effectivePlaceholder = placeholder ?? tr('mi_do_anything');
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -192,7 +197,7 @@ export default function CodexMessageInput({
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder={placeholder}
+        placeholder={effectivePlaceholder}
         disabled={disabled || isStreaming}
         rows={1}
         // `block` is load-bearing for the height, not cosmetic: as an
@@ -262,8 +267,8 @@ export default function CodexMessageInput({
                 backgroundColor: 'var(--color-text-primary)',
                 color: 'var(--color-bg-primary, white)',
               }}
-              title="Stop generating"
-              aria-label="Stop generating"
+              title={tr('mi_stop_generating')}
+              aria-label={tr('mi_stop_generating')}
             >
               <Square className="w-3 h-3" fill="currentColor" />
             </button>

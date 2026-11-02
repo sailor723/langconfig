@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 /**
  * HitlApprovalPanel — the composer-takeover approval prompt.
  *
@@ -28,6 +29,7 @@ export default function HitlApprovalPanel({
   isResuming,
   onResume,
 }: HitlApprovalPanelProps) {
+  const { t: tr } = useTranslation('chat');
   const requests = pendingInterrupt.action_requests ?? [];
   const allowed = pendingInterrupt.review_configs?.[0]?.allowed_decisions ?? ['approve', 'reject'];
   const canApprove = allowed.includes('approve');

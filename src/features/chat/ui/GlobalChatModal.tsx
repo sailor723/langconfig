@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, GripVertical, BarChart3, FolderOpen } from 'lucide-react';
 import { useChat } from '../state/ChatContext';
 import { useProject } from '../../../contexts/ProjectContext';
@@ -18,6 +19,7 @@ import AgentSelector from './AgentSelector';
 import SidePanel from './SidePanel';
 
 export default function GlobalChatModal() {
+  const { t: tr } = useTranslation('chat');
   const { isOpen, closeChat } = useChat();
   // Shared chat controller (same logic as ChatPage) — modal shell only
   const c = useChatController({ locale: 'zh', autoStart: isOpen });
@@ -107,14 +109,14 @@ export default function GlobalChatModal() {
                   <button
                     onClick={() => c.togglePanel('metrics')}
                     className={`p-2 rounded-lg transition-colors ${c.showMetrics ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
-                    title={c.showMetrics ? 'Hide metrics' : 'Show metrics'}
+                    title={c.showMetrics ? tr('gc_hide_metrics') : tr('gc_show_metrics')}
                   >
                     <BarChart3 className="w-4 h-4" style={{ color: c.showMetrics ? 'var(--color-primary)' : 'var(--color-text-muted)' }} />
                   </button>
                   <button
                     onClick={() => c.togglePanel('files')}
                     className={`p-2 rounded-lg transition-colors ${c.showFiles ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
-                    title={c.showFiles ? 'Hide files' : 'Show files'}
+                    title={c.showFiles ? tr('gc_hide_files') : tr('gc_show_files')}
                   >
                     <FolderOpen className="w-4 h-4" style={{ color: c.showFiles ? 'var(--color-primary)' : 'var(--color-text-muted)' }} />
                   </button>
@@ -136,9 +138,9 @@ export default function GlobalChatModal() {
                         boxShadow: c.saving ? 'none' : '0 0 8px rgba(0, 109, 221, 0.3)',
                         opacity: c.saving ? 0.7 : 1,
                       }}
-                      title={c.saveError || 'Save designed agent to library'}
+                      title={c.saveError || tr('gc_save_library')}
                     >
-                      {c.saving ? 'Saving...' : 'Save Agent'}
+                      {c.saving ? tr('gc_saving') : tr('gc_save_agent')}
                     </button>
                   ) : (
                     <>
@@ -150,7 +152,7 @@ export default function GlobalChatModal() {
                           color: '#FFFFFF',
                           boxShadow: '0 0 8px rgba(0, 109, 221, 0.3)',
                         }}
-                        title="Test with the newly created agent"
+                        title="tr('gc_test_new')"
                       >
                         Test New Agent
                       </button>
@@ -162,7 +164,7 @@ export default function GlobalChatModal() {
                           border: '1px solid rgba(99, 102, 241, 0.3)',
                           color: '#818CF8',
                         }}
-                        title="Go back to Agent Creator for tuning"
+                        title="tr('gc_back_tuning')"
                       >
                         Tune
                       </button>
@@ -173,7 +175,7 @@ export default function GlobalChatModal() {
               <button
                 onClick={closeChat}
                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                title="Close (ESC)"
+                title="tr('gc_close_esc')"
               >
                 <X className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
               </button>

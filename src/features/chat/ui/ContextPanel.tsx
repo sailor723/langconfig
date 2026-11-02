@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FileText, ChevronDown, ChevronRight, Wrench, BookMarked, Sparkles } from 'lucide-react';
 import apiClient from '../../../lib/api-client';
 
@@ -8,6 +9,7 @@ interface ContextPanelProps {
 }
 
 export default function ContextPanel({ selectedAgentId, sessionId }: ContextPanelProps) {
+  const { t: tr } = useTranslation('chat');
   const [agentConfig, setAgentConfig] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>('prompt');
@@ -43,9 +45,9 @@ export default function ContextPanel({ selectedAgentId, sessionId }: ContextPane
   return (
     <div className="text-xs overflow-y-auto h-full" style={{ color: 'var(--color-text-primary)' }}>
       {loading ? (
-        <div className="p-4 text-center" style={{ color: 'var(--color-text-muted)' }}>Loading...</div>
+        <div className="p-4 text-center" style={{ color: 'var(--color-text-muted)' }}>{tr('cx_loading')}</div>
       ) : !config ? (
-        <div className="p-4 text-center" style={{ color: 'var(--color-text-muted)' }}>No agent selected</div>
+        <div className="p-4 text-center" style={{ color: 'var(--color-text-muted)' }}>{tr('cx_no_agent')}</div>
       ) : (
         <div className="p-3 space-y-2">
           <div className="flex items-center gap-2 p-2 rounded-lg" style={{ backgroundColor: 'var(--color-background-light)' }}>

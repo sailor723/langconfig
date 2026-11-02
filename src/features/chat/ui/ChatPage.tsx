@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { X, GripVertical, BarChart3, FolderOpen, CalendarDays } from 'lucide-react';
 import { useChat } from '../state/ChatContext';
@@ -28,6 +29,7 @@ import ChatSettingsMenu from './ChatSettingsMenu';
 import SidePanel from './SidePanel';
 
 export default function ChatPage() {
+  const { t: tr } = useTranslation('chat');
   // The open conversation is labelled with its workspace (project), which sits
   // above the agent in the platform's hierarchy.
   const { activeProject } = useProject();
@@ -173,7 +175,7 @@ export default function ChatPage() {
               const firstUserMessage = c.messages.find((m: any) => m.role === 'user')?.content;
               const fallback = firstUserMessage
                 ? String(firstUserMessage).slice(0, 50)
-                : 'New conversation';
+                : tr('cp_new_conversation');
               // Prefer the live count: it includes the turn being streamed,
               // while the stored one is only as fresh as the last list refresh.
               const liveCount = c.messages.length || session?.message_count || 0;
@@ -205,21 +207,21 @@ export default function ChatPage() {
                 <button
                   onClick={() => c.togglePanel('metrics')}
                   className={`p-2 rounded-lg transition-colors ${c.showMetrics ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
-                  title={c.showMetrics ? 'Hide metrics' : 'Show metrics'}
+                  title={c.showMetrics ? tr('gc_hide_metrics') : tr('gc_show_metrics')}
                 >
                   <BarChart3 className="w-4 h-4" style={{ color: c.showMetrics ? 'var(--color-primary)' : 'var(--color-text-muted)' }} />
                 </button>
                 <button
                   onClick={() => c.togglePanel('files')}
                   className={`p-2 rounded-lg transition-colors ${c.showFiles ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
-                  title={c.showFiles ? 'Hide files' : 'Show files'}
+                  title={c.showFiles ? tr('gc_hide_files') : tr('gc_show_files')}
                 >
                   <FolderOpen className="w-4 h-4" style={{ color: c.showFiles ? 'var(--color-primary)' : 'var(--color-text-muted)' }} />
                 </button>
                 <button
                   onClick={() => c.togglePanel('calendar')}
                   className={`p-2 rounded-lg transition-colors ${c.showCalendar ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
-                  title={c.showCalendar ? 'Hide calendar' : 'Show calendar'}
+                  title={c.showCalendar ? tr('gc_hide_calendar') : tr('gc_show_calendar')}
                 >
                   <CalendarDays className="w-4 h-4" style={{ color: c.showCalendar ? 'var(--color-primary)' : 'var(--color-text-muted)' }} />
                 </button>
@@ -240,9 +242,9 @@ export default function ChatPage() {
                       boxShadow: c.saving ? 'none' : '0 0 8px rgba(0, 109, 221, 0.3)',
                       opacity: c.saving ? 0.7 : 1,
                     }}
-                    title={c.saveError || 'Save designed agent to library'}
+                    title={c.saveError || tr('gc_save_library')}
                   >
-                    {c.saving ? 'Saving...' : 'Save Agent'}
+                    {c.saving ? tr('gc_saving') : tr('gc_save_agent')}
                   </button>
                 ) : (
                   <>
@@ -275,7 +277,7 @@ export default function ChatPage() {
             <button
               onClick={() => window.close()}
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              title="Close window"
+              title={tr('gc_close_window')}
             >
               <X className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
             </button>
@@ -358,7 +360,7 @@ export default function ChatPage() {
         {/* No bar under the chat area: settings and the copyright moved to the
             foot of the left sidebar, and the composer block is now the last thing
             in this column — the box sits at the bottom, as DSH ends its column.
-            The old bar's "No session — pick an agent to start" hint is already
+            The old bar's "no session" hint is already
             the composer's own placeholder ("No agent selected"). */}
 
       </div>

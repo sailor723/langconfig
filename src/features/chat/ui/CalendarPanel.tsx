@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   CalendarDays, ChevronLeft, ChevronRight, RefreshCw, X, Loader2, AlertCircle, Clock,
 } from 'lucide-react';
@@ -58,6 +59,7 @@ function monthMatrix(year: number, month: number): Date[] {
 }
 
 export default function CalendarPanel({ sessionId, onClose }: CalendarPanelProps) {
+  const { t: tr } = useTranslation('chat');
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [unparsed, setUnparsed] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -87,7 +89,7 @@ export default function CalendarPanel({ sessionId, onClose }: CalendarPanelProps
         if (y && m) setCursor(new Date(y, m - 1, 1));
       }
     } catch (err) {
-      console.error('Failed to load calendar:', err);
+      console.error(tr('cal_load_failed') + '', err);
       setError('读取日程文件失败');
     } finally {
       setLoading(false);
@@ -123,7 +125,7 @@ export default function CalendarPanel({ sessionId, onClose }: CalendarPanelProps
       <div className="flex items-center justify-between px-3 py-2 border-b" style={{ borderColor: 'var(--color-border-dark)' }}>
         <span className="text-xs font-semibold flex items-center gap-1.5">
           <CalendarDays className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
-          Calendar
+          {tr('cal_title')}
           <span className="font-normal" style={{ color: 'var(--color-text-muted)' }}>
             {cursor.getFullYear()} 年 {cursor.getMonth() + 1} 月
           </span>

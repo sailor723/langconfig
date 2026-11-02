@@ -5,6 +5,7 @@
  * This panel just loads and displays it in an iframe.
  */
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Monitor, Loader2, BarChart3, RefreshCw } from 'lucide-react';
 
 interface AnalysisPanelProps {
@@ -25,6 +26,7 @@ export default function AnalysisPanel({
   colCount,
   onClose,
 }: AnalysisPanelProps) {
+  const { t: tr } = useTranslation('chat');
   const [htmlContent, setHtmlContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +55,7 @@ export default function AnalysisPanel({
         setHtmlContent(html);
         setGenerating(false);
       } catch (err: any) {
-        setError(err.message || 'Failed to load dashboard');
+        setError(err.message || tr('an_load_failed'));
         setGenerating(false);
       } finally {
         setLoading(false);
@@ -98,7 +100,7 @@ export default function AnalysisPanel({
       <div className="flex items-center justify-between p-3 border-b rounded-t-lg flex-shrink-0" style={{ backgroundColor: 'var(--color-panel-dark, #f9fafb)' }}>
         <div className="flex items-center gap-2">
           <BarChart3 className="w-5 h-5 text-blue-600" />
-          <span className="font-semibold text-sm">Dashboard</span>
+          <span className="font-semibold text-sm">{tr('an_dashboard')}</span>
           {rowCount !== undefined && (
             <span className="text-xs text-gray-500">({rowCount} rows, {colCount} cols)</span>
           )}
@@ -114,7 +116,7 @@ export default function AnalysisPanel({
           <div className="flex-1 flex items-center justify-center">
             <div className="flex flex-col items-center gap-3 text-gray-500">
               <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-              <span className="text-sm">Loading dashboard...</span>
+              <span className="text-sm">{tr('an_loading')}</span>
             </div>
           </div>
         )}
@@ -123,8 +125,8 @@ export default function AnalysisPanel({
           <div className="flex-1 flex items-center justify-center">
             <div className="flex flex-col items-center gap-3 text-gray-500">
               <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-              <span className="text-sm">Agent is generating dashboard...</span>
-              <p className="text-xs text-gray-400">Usually takes 30-60 seconds</p>
+              <span className="text-sm">{tr('an_generating')}</span>
+              <p className="text-xs text-gray-400">{tr('an_generating_hint')}</p>
             </div>
           </div>
         )}
@@ -141,7 +143,7 @@ export default function AnalysisPanel({
               ref={iframeRef}
               srcDoc={htmlContent}
               className="w-full h-full border-0"
-              title="Dashboard"
+              title={tr('an_dashboard')}
               sandbox="allow-scripts allow-same-origin"
             />
           </div>

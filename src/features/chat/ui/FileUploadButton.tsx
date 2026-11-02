@@ -7,6 +7,7 @@
 
 import { Plus, Loader2, FolderUp, FileUp } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 import type { SessionDocument } from '../types/chat';
 import apiClient from '../../../lib/api-client';
@@ -26,6 +27,7 @@ interface FileUploadButtonProps {
 }
 
 export default function FileUploadButton({ sessionId, projectId, onFileUploaded, onMultipleUploaded, disabled }: FileUploadButtonProps) {
+  const { t: tr } = useTranslation('chat');
   const [uploading, setUploading] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   // Viewport coordinates for the portalled menu. Computed when it opens rather
@@ -139,7 +141,7 @@ export default function FileUploadButton({ sessionId, projectId, onFileUploaded,
       // Notify any open Files panels to refresh their lists
       window.dispatchEvent(new CustomEvent('chat:files-changed'));
     } catch (error: any) {
-      console.error('Failed to upload file(s):', error);
+      console.error(tr('fu_failed') + ':', error);
       alert(error.response?.data?.detail || 'Failed to upload file(s)');
     } finally {
       setUploading(false);
@@ -184,7 +186,7 @@ export default function FileUploadButton({ sessionId, projectId, onFileUploaded,
           type="button"
           onClick={toggleMenu}
           disabled={isDisabled}
-          aria-label="Upload files or a folder"
+          aria-label={tr('fu_upload_any')}
           aria-haspopup="menu"
           aria-expanded={showMenu}
           className="w-7 h-7 rounded-full grid place-items-center flex-shrink-0
@@ -198,7 +200,7 @@ export default function FileUploadButton({ sessionId, projectId, onFileUploaded,
           }}
           onMouseEnter={(e) => { if (!isDisabled) e.currentTarget.style.backgroundColor = 'rgba(128,128,128,0.28)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = showMenu ? 'rgba(128,128,128,0.28)' : 'rgba(128,128,128,0.18)'; }}
-          title={!sessionId ? 'Start a chat session first' : 'Upload files or a folder'}
+          title={!sessionId ? tr('fu_start_chat_first') : tr('fu_upload_any')}
         >
           {uploading ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -229,7 +231,7 @@ export default function FileUploadButton({ sessionId, projectId, onFileUploaded,
               style={{ color: 'var(--color-text-primary)' }}
             >
               <FileUp className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="flex-1">Upload file(s)</span>
+              <span className="flex-1">{tr('fu_upload_files')}</span>
             </button>
             <button
               role="menuitem"
@@ -238,7 +240,7 @@ export default function FileUploadButton({ sessionId, projectId, onFileUploaded,
               style={{ color: 'var(--color-text-primary)', borderColor: 'var(--color-border-dark, #3c3c3c)' }}
             >
               <FolderUp className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="flex-1">Upload folder</span>
+              <span className="flex-1">{tr('fu_upload_folder')}</span>
               <span
                 className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0"
                 style={{ backgroundColor: 'rgba(128,128,128,0.18)', color: 'var(--color-text-muted)' }}

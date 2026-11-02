@@ -8,6 +8,7 @@
  * first user message, so every conversation is readable without a naming step.
  */
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Package } from 'lucide-react';
 
 interface ConversationTitleProps {
@@ -23,6 +24,7 @@ interface ConversationTitleProps {
 export default function ConversationTitle({
   title, fallback, isFavorite, onRename, onToggleFavorite,
 }: ConversationTitleProps) {
+  const { t: tr } = useTranslation('chat');
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(title ?? '');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -87,14 +89,14 @@ export default function ConversationTitle({
           // (date/time/length) and the header buttons out of the row.
           maxWidth: '280px',
         }}
-        title={title ? `${title} — click to rename` : 'Click to name this conversation'}
+        title={title ? `${title} — click to rename` : tr('ct_name_hint')}
       >
         {title || fallback}
       </button>
       <button
         onClick={() => void onToggleFavorite()}
         className="p-1 rounded-lg hover:bg-black/5 transition-colors flex-shrink-0"
-        title={isFavorite ? 'Remove from favourites' : 'Add to favourites'}
+        title={isFavorite ? tr('ct_remove_fav') : tr('ct_add_fav')}
         aria-pressed={isFavorite}
       >
         {/* A closed box, not Archive: Archive is a lid line sitting on a body, which

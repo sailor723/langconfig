@@ -17,6 +17,7 @@
  * the threshold it is measured against, so the percentage is never ambiguous.
  */
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 import type { ContextOccupancy } from '../types/chat';
 import HoverTooltip from './HoverTooltip';
@@ -45,6 +46,7 @@ export function formatTokens(tokens: number): string {
 }
 
 export default function ContextMeter({ context, accentColor = 'var(--color-primary)' }: ContextMeterProps) {
+  const { t: tr } = useTranslation('chat');
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -145,7 +147,7 @@ export default function ContextMeter({ context, accentColor = 'var(--color-prima
         <div
           ref={panelRef}
           role="dialog"
-          aria-label="Context usage"
+          aria-label={tr('cm_usage')}
           className="chat-composer-menu fixed border rounded-lg shadow-lg z-[60]"
           style={{
             left: pos.left,
@@ -159,7 +161,7 @@ export default function ContextMeter({ context, accentColor = 'var(--color-prima
           }}
         >
           <div className="flex items-center gap-1.5">
-            <span style={{ color: 'var(--color-text-muted)' }}>of context used</span>
+            <span style={{ color: 'var(--color-text-muted)' }}>{tr('cm_of_used')}</span>
             <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{reading}</span>
           </div>
           <div className="mt-1" style={{ color: 'var(--color-text-primary)', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
@@ -174,21 +176,21 @@ export default function ContextMeter({ context, accentColor = 'var(--color-prima
 
           <dl className="mt-2 space-y-0.5">
             <div className="flex items-center justify-between gap-2">
-              <dt>Summarize at</dt>
+              <dt>{tr('cm_summarize_at')}</dt>
               <dd style={{ color: 'var(--color-text-primary)' }}>{context.summarization_threshold.toLocaleString()}</dd>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <dt>Evict at</dt>
+              <dt>{tr('cm_evict_at')}</dt>
               <dd style={{ color: 'var(--color-text-primary)' }}>{context.eviction_threshold.toLocaleString()}</dd>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <dt>Max context</dt>
+              <dt>{tr('cm_max_context')}</dt>
               <dd style={{ color: 'var(--color-text-primary)' }}>
                 {context.max_total_tokens.toLocaleString()} ({context.percent_of_max}%)
               </dd>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <dt>Keep verbatim</dt>
+              <dt>{tr('cm_keep_verbatim')}</dt>
               <dd style={{ color: 'var(--color-text-primary)' }}>{context.keep_last_messages} messages</dd>
             </div>
             {!context.enable_summarization && (
