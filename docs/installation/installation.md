@@ -809,6 +809,12 @@ sudo systemctl daemon-reload && sudo systemctl enable --now langconfig
 journalctl -u langconfig -f          # 看日志
 ```
 
+> **上面单元里的路径是通用写法（`/opt/langconfig` + `User=langconfig`）。**
+> 训练服务器 `8.216.101.189` 实际是 `/root/langconfig` + `User=root`（zip 解开就在 root 家目录），
+> 除了 `WorkingDirectory=` / `EnvironmentFile=` / `User=` 三行，其余完全相同。两种都可以，
+> 关键是**只跑 uvicorn 一个进程**，别在 systemd 里再拉起 Vite。
+> 换路径时把这三行一起改，漏掉 `EnvironmentFile=` 会因为读不到 `.env` 起不来。
+
 **两个 ECS 特有的坑**
 
 - `POSTGRES_PORT` 默认 **5432**（原生安装）。用 compose 起 Postgres 要改成 **5433**
