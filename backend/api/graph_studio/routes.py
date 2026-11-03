@@ -1350,6 +1350,85 @@ def create_thread(payload: ThreadCreateRequest) -> Dict[str, Any]:
     return _thread_out(record)
 
 
+class ThreadClearRequest(BaseModel):
+    """Which threads to forget. `graph_id` scopes it to one graph's history."""
+    graph_id: Optional[str] = None
+    assistant_id: Optional[str] = None
+
+
+@router.post("/threads/clear")
+def clear_threads(payload: ThreadClearRequest) -> Dict[str, Any]:
+    """Empty the Studio chat log — and the graph's own checkpointed memory.
+
+    Why this is needed at all: switching the target database leaves the thread
+    list pointing at conversations about the OLD database. `sql_agent` even bakes
+    the database name into its schema sentinel, so an old thread's history is not
+    just stale context, it is wrong context.
+
+    Two layers are cleared, because they are two different stores:
+      1. the in-memory thread registry the Studio sidebar lists, and
+      2. each compiled graph's checkpointer — `delete_thread`, so the graph really
+         forgets instead of only disappearing from the list. Without (2) a new
+         thread id would be clean anyway, but reusing the graph would still find
+         the old messages.
+    """
+    wanted = (payload.graph_id or "").strip()
+    if not wanted and payload.assistant_id:
+        entry = next(
+            (a for a in _ASSISTANT_REGISTRY if a["assistant_id"] == payload.assistant_id),
+            None,
+        )
+        if entry is None:
+            raise HTTPException(404, f"unknown assistant '{payload.assistant_id}'")
+        wanted = entry["graph_id"]
+
+    doomed = [
+        tid for tid, t in _THREADS.items()
+        if not wanted or t.get("graph_id") == wanted
+    ]
+
+    # Forget the graph's own memory first: if that raises, the registry entries must
+    # stay visible so a failure is not hidden behind a tidy-looking empty list.
+    # `_load_compiled` is keyed by ASSISTANT id, and several assistants can share one
+    # graph — so delete each thread from ITS assistant's checkpointer, once.
+    deleted_checkpoints = 0
+    for assistant_id in {_THREADS[tid].get("assistant_id") for tid in doomed}:
+        if not assistant_id:
+            continue
+        try:
+            runnable = _load_compiled(assistant_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"[graph-studio] cannot load '{assistant_id}' to clear checkpoints: {exc}")
+            continue
+        cp = getattr(runnable, "checkpointer", None)
+        if cp is None or not hasattr(cp, "delete_thread"):
+            continue
+        for tid in (t for t in doomed if _THREADS[t].get("assistant_id") == assistant_id):
+            try:
+                cp.delete_thread(tid)
+                deleted_checkpoints += 1
+            except Exception as exc:  # noqa: BLE001 — report, keep going
+                logger.warning(f"[graph-studio] delete_thread({tid}) failed: {exc}")
+
+    for tid in doomed:
+        _THREADS.pop(tid, None)
+        _RUNS.pop(tid, None)
+        event = _CANCEL_EVENTS.pop(tid, None)
+        if event is not None:
+            event.set()
+
+    logger.info(
+        f"[graph-studio] cleared {len(doomed)} thread(s) "
+        f"(graph={wanted or 'all'}, checkpoints deleted={deleted_checkpoints})"
+    )
+    return {
+        "cleared": len(doomed),
+        "graph_id": wanted or None,
+        "checkpoints_deleted": deleted_checkpoints,
+        "remaining": len(_THREADS),
+    }
+
+
 @router.get("/threads/{thread_id}/state")
 async def get_thread_state(thread_id: str) -> Dict[str, Any]:
     """Return the checkpointed state of a thread (values, next, interrupts…)."""

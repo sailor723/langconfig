@@ -14,7 +14,7 @@
  * (the same convention used by studioStore.ts to pick SQL vs Neo4j
  * endpoints) so the grouping stays consistent with the canvas header.
  */
-import { Plus, Database, Network, ChevronRight, Send } from 'lucide-react';
+import { Plus, Database, Network, ChevronRight, Send, Eraser } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from '../../components/layout2/tokens';
@@ -347,6 +347,45 @@ export default function GraphStudioSidebar() {
         <span style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.6, color: t.textDim }}>
           Threads
         </span>
+        <button
+          onClick={async () => {
+            const assistant = assistants.find((a) => a.assistant_id === activeAssistantId);
+            if (!assistant) return;
+            const msg = `清空 ${assistant.name} 的对话记录？\n\n`
+              + 'Studio 的线程列表和这张图的 checkpoint 记忆都会清掉，'
+              + '换数据库调试时应该先做这一步。';
+            if (!window.confirm(msg)) return;
+            try {
+              const res = await studio.clearThreads();
+              window.dispatchEvent(new CustomEvent('graph-studio:toast', {
+                detail: {
+                  message: `已清空 ${res.cleared} 条对话（checkpoint ${res.checkpoints_deleted}），并新开一条线程`,
+                  type: 'success',
+                },
+              }));
+            } catch (e) {
+              window.dispatchEvent(new CustomEvent('graph-studio:toast', {
+                detail: { message: `清空失败：${e instanceof Error ? e.message : String(e)}`, type: 'error' },
+              }));
+            }
+          }}
+          title="清空对话记录（换库前用）"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 20,
+            height: 20,
+            border: `1px solid ${t.border}`,
+            borderRadius: 5,
+            background: 'transparent',
+            color: t.textMuted,
+            cursor: 'pointer',
+            marginRight: 4,
+          }}
+        >
+          <Eraser size={12} />
+        </button>
         <button
           onClick={() => void studio.createThread()}
           title="New thread"

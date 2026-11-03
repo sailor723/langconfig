@@ -285,6 +285,34 @@ export const studio = {
     await studio.selectThread(thread.thread_id);
   },
 
+  /** Empty the chat log for the active graph.
+   *
+   *  Needed when the target database changes: the thread list would otherwise keep
+   *  conversations about the OLD database, and `sql_agent` bakes the database name
+   *  into its schema sentinel — stale history is wrong context, not just noise.
+   *  Clears both stores: the Studio thread registry and each graph's checkpointer.
+   */
+  async clearThreads() {
+    const assistant = state.assistants.find((a) => a.assistant_id === state.activeAssistantId);
+    if (!assistant) return { cleared: 0, checkpoints_deleted: 0, remaining: 0 };
+    try {
+      const res = await api.clearThreads(assistant.graph_id);
+      setState({
+        threads: state.threads.filter((th) => th.metadata?.graph_id !== assistant.graph_id),
+        currentThreadId: undefined,
+        threadState: null,
+        runPath: [],
+        liveMap: {},
+        runError: null,
+      });
+      await studio.createThread();
+      return res;
+    } catch (err) {
+      console.error('[graph-studio] clearThreads failed', err);
+      throw err;
+    }
+  },
+
   async selectThread(threadId: string) {
     setState({ currentThreadId: threadId });
     await studio.refreshState();

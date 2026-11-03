@@ -381,6 +381,14 @@ export const api = {
     });
   },
 
+  /** Empty the Studio chat log for a graph (and its checkpointed memory). */
+  async clearThreads(graphId: string): Promise<{ cleared: number; checkpoints_deleted: number; remaining: number }> {
+    return request('/threads/clear', {
+      method: 'POST',
+      body: JSON.stringify({ graph_id: graphId }),
+    });
+  },
+
   async loadThreadState(threadId: string): Promise<ThreadState> {
     return request(`/threads/${threadId}/state`);
   },
