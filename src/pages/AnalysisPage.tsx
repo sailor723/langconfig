@@ -14,10 +14,15 @@ import { useLayoutTokens } from '../components/layout2/tokens';
 // (it also carries `title`, parsed server-side from the page's <title>).
 type DashboardFile = import('../features/analysis/analysisStore').DashboardFile;
 interface ToolTraceStep { step: number; type: string; name: string; input?: string; output?: string; }
+/** One step of how the agent worked: a graph node it entered, or text it produced
+ *  on the way (reasoning_content, or an intermediate message such as the SQL the
+ *  checker rewrote). Rendered read-only under the answer. */
+interface ThinkStep { kind: 'node' | 'reasoning' | 'text'; name: string; content?: string; }
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   tool_trace?: ToolTraceStep[] | null;
+  thinking?: ThinkStep[] | null;
 }
 
 function shouldShowDashboardInPanel(dashboard: DashboardFile): boolean {
@@ -169,6 +174,7 @@ export default function AnalysisPage() {
       let buffer = '';
       let fullResponse = '';
       let tool_trace: any = null;
+      let thinking: ThinkStep[] = [];
       // Insert a placeholder assistant message that will be updated
       setChatMessages(p => [...p, { role: 'assistant', content: '' }]);
       while (true) {
@@ -182,7 +188,18 @@ export default function AnalysisPage() {
           if (line.startsWith('data: ')) {
             try {
               const evt = JSON.parse(line.slice(6));
-              if (evt.type === 'chunk' && evt.content) {
+              if (evt.type === 'node') {
+                thinking = [...thinking, { kind: 'node', name: String(evt.name || '') }];
+                setChatMessages(p => p.map((m, i) =>
+                  i === p.length - 1 && m.role === 'assistant' ? { ...m, thinking } : m));
+              } else if (evt.type === 'thinking' && evt.content) {
+                thinking = [...thinking, {
+                  kind: evt.source === 'reasoning' ? 'reasoning' : 'text',
+                  name: '', content: String(evt.content),
+                }];
+                setChatMessages(p => p.map((m, i) =>
+                  i === p.length - 1 && m.role === 'assistant' ? { ...m, thinking } : m));
+              } else if (evt.type === 'chunk' && evt.content) {
                 fullResponse += evt.content;
                 // Update the assistant message reactively
                 setChatMessages(p => p.map((m, i) =>
@@ -196,7 +213,7 @@ export default function AnalysisPage() {
                 // Final update
                 setChatMessages(p => p.map((m, i) =>
                   i === p.length - 1 && m.role === 'assistant'
-                    ? { ...m, content: fullResponse, tool_trace }
+                    ? { ...m, content: fullResponse, tool_trace, thinking }
                     : m
                 ));
               } else if (evt.type === 'error') {
@@ -211,7 +228,7 @@ export default function AnalysisPage() {
       // If we never got a "done" event, finalize with whatever we have
       setChatMessages(p => p.map((m, i) =>
         i === p.length - 1 && m.role === 'assistant' && !m.content
-          ? { ...m, content: fullResponse || '(no response)', tool_trace }
+          ? { ...m, content: fullResponse || '(no response)', tool_trace, thinking }
           : m
       ));
     } catch (e: any) {
@@ -359,6 +376,55 @@ export default function AnalysisPage() {
                   m.content
                 )}
               </div>
+              {/* How the agent worked: graph nodes it entered, plus the reasoning
+                  and intermediate text it produced. Collapsed by default — the
+                  answer is what most readers want, the trace is for "why". */}
+              {m.role === 'assistant' && m.thinking && m.thinking.length > 0 && (() => {
+                const nodes = m.thinking.filter(x => x.kind === 'node');
+                const texts = m.thinking.filter(x => x.kind !== 'node');
+                const open = expandedTrace.has(-i - 1);
+                return (
+                  <div className="max-w-[85%] mt-1">
+                    <button
+                      onClick={() => {
+                        setExpandedTrace(prev => {
+                          const next = new Set(prev);
+                          if (next.has(-i - 1)) next.delete(-i - 1); else next.add(-i - 1);
+                          return next;
+                        });
+                      }}
+                      className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                      title="Show / hide the agent's steps"
+                    >
+                      {open ? '▼' : '▶'} 🧠 思考过程 · {nodes.length} 个节点
+                      {texts.length > 0 ? ` · ${texts.length} 段推理` : ''}
+                    </button>
+                    {open && (
+                      <div className="mt-1 border-l-2 border-blue-200 pl-2 space-y-1">
+                        {nodes.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {nodes.map((n, ni) => (
+                              <span key={ni} className="text-[10px] font-mono px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded">
+                                {n.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {texts.map((x, ti) => (
+                          <div key={ti} className="text-[11px] bg-gray-50 border rounded p-1.5">
+                            <div className="text-[10px] text-gray-500 mb-0.5">
+                              {x.kind === 'reasoning' ? '模型推理' : '中间输出'}
+                            </div>
+                            <pre className="text-[10px] text-gray-700 whitespace-pre-wrap break-all max-h-40 overflow-auto">
+                              {x.content}
+                            </pre>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               {/* Tool trace — only for assistant messages that have one. */}
               {m.role === 'assistant' && m.tool_trace && m.tool_trace.length > 0 && (
                 <div className="max-w-[85%] mt-1">

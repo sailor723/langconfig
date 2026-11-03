@@ -8,6 +8,7 @@ Endpoints:
 """
 import logging
 import os
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -100,6 +101,8 @@ class DashboardFile(BaseModel):
 
 
 ANALYSIS_DBS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "analysis_dbs"
+# backend/ — needed to reach langgraph/ (assigned.py, sql_setup_db.py) and semantics/.
+BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 
 def _analysis_skills_root() -> Path:
@@ -562,8 +565,27 @@ async def analysis_chat(request: AnalysisChatRequest, db: Session = Depends(get_
         # process CWD may be backend/.  Resolve against ANALYSIS_DBS_DIR
         # by using only the filename portion.
         db_full_path = ANALYSIS_DBS_DIR / db_full_path.name
+
+    # A dashboard's meta `db:` can name a SQLite FILE (CSV uploads) or a
+    # POSTGRES target (the generated Chinook pages say `db: chinook`). The chat
+    # used to 404 on the second kind — "Database not found: chinook" — which is
+    # why it looked broken. When the name is not a file but resolves as a SQL
+    # target, the answer comes from the code-defined LangGraph instead, so the
+    # chat obeys the same SEMANTICS.md the Studio shows.
+    graph_id = None
+    sql_target = None
     if not db_full_path.exists():
-        raise HTTPException(status_code=404, detail=f"Database not found: {db_path}")
+        graph_id, sql_target = _resolve_analysis_graph(db_path)
+        if graph_id is None:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"Database not found: {db_path}. Neither a SQLite file under "
+                    f"{ANALYSIS_DBS_DIR} nor a SQL target with an assigned graph "
+                    f"(assigned: {_assigned_graph_ids()})."
+                ),
+            )
+        logger.info(f"[analysis-chat] '{db_path}' -> LangGraph '{graph_id}' (target={sql_target})")
     # Use the resolved absolute path for all downstream operations
     db_path = str(db_full_path)
 
@@ -587,6 +609,87 @@ async def analysis_chat(request: AnalysisChatRequest, db: Session = Depends(get_
     async def generate_stream():
         """Async generator that yields SSE events during agent execution."""
         import re
+
+        # ── A Postgres-backed dashboard answers through its LangGraph ────────
+        # Same SSE protocol as the SQLite path (tool_start / tool_end / chunk /
+        # done), so the panel's transcript, tool trace and persistence all keep
+        # working. The graph carries the prompt, the tools, the checkpointer and —
+        # the reason this exists — the SEMANTICS.md definitions.
+        if graph_id is not None:
+            _think = re.compile(r"<think>.*?</think>", re.DOTALL)
+            tool_trace: list[dict] = []
+            step_idx = 0
+            full_response = ""
+            try:
+                sys.path.insert(0, str(BACKEND_DIR))
+                from langgraph.tool_adapters import get_graph_runnable
+
+                runnable = get_graph_runnable(graph_id)
+                init_state = {
+                    "messages": [{"role": "user", "content": request.message}],
+                    # The NAME the user's dashboard declared (`chinook`), not the
+                    # resolved path — a path is not a database.
+                    "sql_database": sql_target or db_path,
+                }
+                cfg = {
+                    "configurable": {
+                        "thread_id": f"analysis-{request.session_id}-{dashboard_filename or 'dash'}",
+                    },
+                    "recursion_limit": 60,
+                }
+                async for upd in runnable.astream(init_state, config=cfg, stream_mode="updates"):
+                    for _node, payload in (upd or {}).items():
+                        # Every node the graph enters is a step a reader can watch:
+                        # this is the difference between "the agent answered" and
+                        # "here is what it did". Cheap to emit, and the panel only
+                        # renders it when expanded.
+                        yield f"data: {json.dumps({'type': 'node', 'name': str(_node)})}\n\n"
+                        if not isinstance(payload, dict):
+                            continue
+                        for msg in payload.get("messages") or []:
+                            # Reasoning the model exposes (DeepSeek/Qwen-style
+                            # `reasoning_content`) plus the text it wrote on the way
+                            # to the final answer — the "thinking" viewers expect.
+                            _reason = ""
+                            _extra = getattr(msg, "additional_kwargs", None) or {}
+                            if isinstance(_extra, dict):
+                                _reason = str(_extra.get("reasoning_content") or "")
+                            if _reason.strip():
+                                yield f"data: {json.dumps({'type': 'thinking', 'content': _reason[:4000], 'source': 'reasoning'})}\n\n"
+                            calls = getattr(msg, "tool_calls", None) or []
+                            if not calls and getattr(msg, "type", "") == "ai" and getattr(msg, "content", ""):
+                                # e.g. check_query rewrote the SQL, or a node explained itself
+                                yield f"data: {json.dumps({'type': 'thinking', 'content': str(msg.content)[:2000], 'source': 'text'})}\n\n"
+                            if calls:
+                                for call in calls:
+                                    step_idx += 1
+                                    name = str(call.get("name", ""))
+                                    tool_trace.append({
+                                        "step": step_idx, "type": "tool_call", "name": name,
+                                        "input": str(call.get("args"))[:500], "output": None,
+                                    })
+                                    yield f"data: {json.dumps({'type': 'tool_start', 'tool_name': name, 'data': {'input': str(call.get('args'))[:500]}})}\n\n"
+                            elif getattr(msg, "type", "") == "tool":
+                                for step in reversed(tool_trace):
+                                    if step.get("output") is None:
+                                        step["output"] = str(getattr(msg, "content", ""))[:1500]
+                                        break
+                                yield f"data: {json.dumps({'type': 'tool_end', 'tool_name': step.get('name', '') if step else ''})}\n\n"
+                            elif getattr(msg, "type", "") == "ai" and getattr(msg, "content", ""):
+                                full_response = str(msg.content)
+
+                clean = _think.sub("", full_response).strip()
+                if not clean:
+                    clean = "(图跑完了，但没有产出一句话回答)"
+                if dashboard_filename:
+                    _persist_message(db, dashboard_filename, "assistant", clean, tool_trace=tool_trace)
+                yield f"data: {json.dumps({'type': 'chunk', 'content': clean})}\n\n"
+                yield f"data: {json.dumps({'type': 'done', 'content': clean, 'tool_calls': len(tool_trace), 'tool_trace': tool_trace})}\n\n"
+            except Exception as exc:  # noqa: BLE001 — surface the reason, keep the stream valid
+                logger.error(f"Analysis graph chat failed ({graph_id}): {exc}", exc_info=True)
+                yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
+            return
+
         import sqlite3
         from langchain_core.tools import tool
         from langchain_openai import ChatOpenAI
@@ -793,6 +896,73 @@ async def analysis_chat(request: AnalysisChatRequest, db: Session = Depends(get_
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
 
     return StreamingResponse(generate_stream(), media_type="text/event-stream")
+
+
+# ── Dashboard chat: pick the graph that owns a Postgres-backed dashboard ────
+# The Analysis chat historically only spoke SQLite because every dashboard came
+# from a CSV upload. The generated dashboards declare their source database as a
+# name (`db: chinook`), which is a Postgres target — so the chat has to hand those
+# questions to the code-defined LangGraph instead of opening a file that is not
+# there. Preference order is deliberate: a database that has a SEMANTICS.md gets
+# the semantic graph, because that is the graph whose answers obey the file.
+_SEMANTIC_GRAPH = "langgraph_semantic"
+_PLAIN_SQL_GRAPH = "sql_agent"
+
+
+def _assigned_graph_ids() -> list[str]:
+    try:
+        sys.path.insert(0, str(BACKEND_DIR))
+        from langgraph.assigned import ASSIGNED_GRAPHS
+
+        return sorted(ASSIGNED_GRAPHS)
+    except Exception:  # noqa: BLE001 — a missing whitelist must not 500 the chat
+        return []
+
+
+def _resolve_analysis_graph(db_name: str) -> tuple[Optional[str], Optional[str]]:
+    """(graph_id, target) for a dashboard whose `db:` is not a SQLite file.
+
+    Returns (None, None) when the name is neither a registered SQL target nor a
+    database on the platform server — the caller turns that into a 404 that names
+    both possibilities instead of only "Database not found".
+    """
+    name = (db_name or "").strip()
+    if not name or "/" in name or name.startswith("."):
+        return None, None
+    try:
+        sys.path.insert(0, str(BACKEND_DIR))
+        from langgraph.sql_setup_db import is_target, list_targets, platform_params
+
+        known = set(list_targets())
+        if not is_target(name):
+            import psycopg2
+
+            try:
+                conn = psycopg2.connect(**platform_params())
+                try:
+                    with conn.cursor() as cur:
+                        cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (name,))
+                        if cur.fetchone() is None:
+                            return None, None
+                finally:
+                    conn.close()
+                known.add(name)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(f"[analysis-chat] cannot list databases to resolve '{name}': {exc}")
+                return None, None
+        if name not in known:
+            return None, None
+
+        # Prefer the semantic graph when this database has a semantics file.
+        semantics = BACKEND_DIR / "semantics" / name / "SEMANTICS.md"
+        assigned = set(_assigned_graph_ids())
+        for candidate in (_SEMANTIC_GRAPH if semantics.is_file() else None, _PLAIN_SQL_GRAPH):
+            if candidate and candidate in assigned:
+                return candidate, name
+        return None, None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"[analysis-chat] graph resolution failed for '{db_name}': {exc}")
+        return None, None
 
 
 def _persist_message(db, dashboard_filename: str, role: str, content: str,
