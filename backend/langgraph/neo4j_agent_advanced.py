@@ -1,9 +1,8 @@
 """Advanced Neo4j agent built with LangGraph primitives (planner + monitor).
 
-Mirrors ``sql_agent_advanced.py`` for Cypher / graph databases: the same
-analysis → plan → step → check → run → monitor → synthesize structure, and
-the same simple-vs-plan routing (simple questions keep the classic one-shot
-loop; multi-hop questions get an action plan that drives the execution and a
+Structure: analysis → plan → step → check → run → monitor → synthesize, with
+simple-vs-plan routing (simple questions keep the classic one-shot loop;
+multi-hop questions get an action plan that drives the execution and a
 monitor that checks progress after every result).
 
 Database-agnostic by design: NOTHING here is tied to a particular graph —
@@ -58,7 +57,7 @@ MAX_RETRIES = 3           # retry budget per plan step before giving up
 
 
 class AdvancedNeo4jAgentState(MessagesState):
-    """MessagesState + plan machinery (mirrors sql_agent_advanced).
+    """MessagesState + plan machinery.
 
     ``plan`` is the action plan produced by ``analyze_question``; an empty
     list means "simple question — no plan" (classic one-shot loop). The
@@ -162,7 +161,7 @@ def list_labels(state: AdvancedNeo4jAgentState):
     return {"messages": [tool_call_message, tool_message, response]}
 
 
-def call_get_schema_details(state: MessagesState):
+def call_get_schema_details(state: AdvancedNeo4jAgentState):
     """Force the model to drill into the labels it cares about
     (tool_choice='any' — the labels come from the schema in the history)."""
     llm_with_tools = model.bind_tools(
@@ -172,7 +171,7 @@ def call_get_schema_details(state: MessagesState):
     return {"messages": [response]}
 
 
-def should_preamble(state: MessagesState) -> Literal["list_labels", "analyze_question"]:
+def should_preamble(state: AdvancedNeo4jAgentState) -> Literal["list_labels", "analyze_question"]:
     """Skip the labels/schema preamble once the schema is in the history.
 
     The marker is database-scoped: if the studio switched the target
@@ -350,7 +349,7 @@ def route_from_analysis(state: AdvancedNeo4jAgentState) -> Literal["plan_step", 
 
 
 # ── 5. Simple path: one-shot generate → check → run ─────────────────────────
-def generate_query(state: MessagesState):
+def generate_query(state: AdvancedNeo4jAgentState):
     """Ask the model for a Cypher query (or a direct answer when none is needed)."""
     system_message = {"role": "system", "content": GENERATE_CYPHER_SYSTEM_PROMPT}
     llm_with_tools = model.bind_tools([run_query_tool])
@@ -358,13 +357,13 @@ def generate_query(state: MessagesState):
     return {"messages": [response]}
 
 
-def should_continue_simple(state: MessagesState) -> Literal[END, "check_query"]:
+def should_continue_simple(state: AdvancedNeo4jAgentState) -> Literal[END, "check_query"]:
     """Simple path: tool calls go to the checker, plain answers end the graph."""
     last_message = state["messages"][-1]
     return "check_query" if last_message.tool_calls else END
 
 
-def check_query(state: MessagesState):
+def check_query(state: AdvancedNeo4jAgentState):
     """Cypher expert reviews the last generated query before execution."""
     system_message = {"role": "system", "content": CHECK_CYPHER_SYSTEM_PROMPT}
 

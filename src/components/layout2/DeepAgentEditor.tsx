@@ -59,6 +59,13 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const [inspectTool, setInspectTool] = useState<{ id: string; name: string; description: string } | null>(null);
   // Editable JSON text for the JSON tab
   const [jsonEdit, setJsonEdit] = useState(() => JSON.stringify(agent, null, 2));
+  // Graphs that may answer in chat (GET /api/graph-studio/assigned). Only assigned
+  // graphs are offered: Studio runs drafts, the chat panel runs the assigned ones.
+  const [assignedGraphs, setAssignedGraphs] = useState<{ graph_id: string; label: string }[]>([]);
+  const [boundGraphId, setBoundGraphId] = useState<string>(
+    () => String((agent.config as any)?.graph_id || ''),
+  );
+  const [graphNodes, setGraphNodes] = useState<string[]>([]);
 
   // Always-current mirror of jsonEdit — lets async handlers (e.g. the tool
   // inspect modal's Save -> main save) read the latest JSON after a state
@@ -195,6 +202,48 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
       if (!cancelled && res?.data) setAvailableCustomTools(res.data);
     }).catch(() => {});
     return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/graph-studio/assigned')
+      .then(r => (r.ok ? r.json() : []))
+      .then((rows: { graph_id: string; label: string }[]) => {
+        if (!cancelled) setAssignedGraphs(Array.isArray(rows) ? rows : []);
+      })
+      .catch(() => { if (!cancelled) setAssignedGraphs([]); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // The node list is the same one Studio draws — showing it here is the point:
+  // binding a graph hands the run over to these nodes, not to the config below.
+  useEffect(() => {
+    if (!boundGraphId) { setGraphNodes([]); return; }
+    let cancelled = false;
+    fetch(`/api/graph-studio/assistants/${encodeURIComponent(boundGraphId)}/graph`)
+      .then(r => (r.ok ? r.json() : null))
+      .then((g: { nodes?: { id: string }[] } | null) => {
+        if (cancelled) return;
+        setGraphNodes((g?.nodes || []).map(n => n.id).filter(id => !id.startsWith('__')));
+      })
+      .catch(() => { if (!cancelled) setGraphNodes([]); });
+    return () => { cancelled = true; };
+  }, [boundGraphId]);
+
+  const handleBoundGraphChange = useCallback((graphId: string) => {
+    setBoundGraphId(graphId);
+    // Sync into jsonEdit so the Save button persists it, same pattern as model.
+    setJsonEdit(prev => {
+      try {
+        const parsed = JSON.parse(prev);
+        if (!parsed.config) parsed.config = {};
+        if (graphId) parsed.config.graph_id = graphId;
+        else delete parsed.config.graph_id;
+        return JSON.stringify(parsed, null, 2);
+      } catch {
+        return prev;
+      }
+    });
   }, []);
 
   const handleModelChange = useCallback((newModel: string) => {
@@ -823,6 +872,63 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     </div>
   );
 
+  // ── LangGraph section — pick a code-defined graph, or build an agent ──
+  const renderLangGraph = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 720 }}>
+      <div style={{ fontSize: 12, color: t.textMuted, lineHeight: '17px' }}>
+        A code-defined graph under <code>backend/langgraph/</code> can run <b>as</b> this
+        agent. When one is bound, chat executes that graph directly — the prompt, tools and
+        skills in the other sections are <b>ignored</b>, because the graph carries its own.
+        Only <i>assigned</i> graphs are listed here; Studio still runs the drafts.
+      </div>
+
+      <div>
+        <div style={labelStyle}>{tr('lg_bound_graph')}</div>
+        <select
+          value={boundGraphId}
+          onChange={e => handleBoundGraphChange(e.target.value)}
+          style={{
+            width: '100%', height: 28, padding: '0 8px',
+            background: t.bgContent, border: `1px solid ${t.border}`,
+            borderRadius: 3, color: t.textPrimary, fontSize: 11.5,
+            fontFamily: 'monospace', outline: 'none',
+          }}
+        >
+          <option value="">{tr('lg_build_agent')}</option>
+          {assignedGraphs.map(g => (
+            <option key={g.graph_id} value={g.graph_id}>{g.label} — {g.graph_id}</option>
+          ))}
+        </select>
+        {assignedGraphs.length === 0 && (
+          <div style={{ fontSize: 10, color: t.textMuted, marginTop: 4 }}>
+            {tr('lg_none_assigned')}
+          </div>
+        )}
+      </div>
+
+      {boundGraphId && (
+        <div>
+          <div style={labelStyle}>{tr('lg_nodes')} ({graphNodes.length})</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {graphNodes.map(n => (
+              <span key={n} style={{
+                fontFamily: 'monospace', fontSize: 10.5, padding: '3px 7px',
+                borderRadius: 3, background: t.bgContent,
+                border: `1px solid ${t.border}`, color: t.textPrimary,
+              }}>{n}</span>
+            ))}
+            {graphNodes.length === 0 && (
+              <span style={{ fontSize: 10.5, color: t.textMuted }}>{tr('lg_no_nodes')}</span>
+            )}
+          </div>
+          <div style={{ fontSize: 10, color: t.accentMuted, marginTop: 8, lineHeight: '14px' }}>
+            {tr('lg_runs_directly')}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   // ── Agent Docs section (AGENTS.md / CLAUDE.md — per specific agent) ──
   const renderDocs = () => {
     const docKeys = ['AGENTS.md', 'CLAUDE.md'];
@@ -1160,6 +1266,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
       visionModels={visionCapableModels}
       t={t}
     />,
+    langgraph:  renderLangGraph,
     skills:     renderSkills,
     subagents:  renderSubagents,
     middleware: renderMiddleware,

@@ -68,16 +68,16 @@ _ASSISTANT_REGISTRY: List[Dict[str, Any]] = [
         "description": "Custom SQL agent with memory (Chinook DB)",
     },
     {
+        "assistant_id": "langgraph_semantic",
+        "graph_id": "langgraph_semantic",
+        "name": "SQL Agent (Semantics)",
+        "description": "Same SQL pipeline, plus a load_semantics node that injects backend/semantics/<db>/SEMANTICS.md (schema, business rules, reference SQL) into the query prompts",
+    },
+    {
         "assistant_id": "sql_agent_hitl",
         "graph_id": "sql_agent_hitl",
         "name": "SQL Agent (HITL)",
         "description": "SQL agent with human-in-the-loop query approval",
-    },
-    {
-        "assistant_id": "sql_agent_advanced",
-        "graph_id": "sql_agent_advanced",
-        "name": "SQL Agent (Advanced)",
-        "description": "Planner-based SQL agent: analyzes the question, plans multi-hop queries, monitors progress (Chinook DB)",
     },
     {
         "assistant_id": "neo4j_agent",
@@ -312,6 +312,26 @@ class AssistantSearchRequest(BaseModel):
     metadata: Dict[str, Any] = {}
 
 
+@router.get("/assigned")
+def list_assigned_graphs() -> List[Dict[str, Any]]:
+    """Graphs that may answer in the chat panel (see backend/langgraph/assigned.py).
+
+    The agent editor reads this to offer a "bind to LangGraph graph" picker. Studio
+    shows every graph; this endpoint only ever lists the assigned ones, so a draft
+    cannot be wired into a user-facing agent by accident.
+    """
+    from langgraph.assigned import ASSIGNED_GRAPHS
+    return [
+        {
+            "graph_id": gid,
+            "label": meta.get("label", gid),
+            "smoke_question": meta.get("smoke_question"),
+            "file": meta.get("file"),
+        }
+        for gid, meta in sorted(ASSIGNED_GRAPHS.items())
+    ]
+
+
 @router.post("/assistants/search")
 def list_assistants(payload: AssistantSearchRequest) -> List[Dict[str, Any]]:
     """List the code-defined assistants (optionally filtered by metadata)."""
@@ -328,6 +348,81 @@ def list_assistants(payload: AssistantSearchRequest) -> List[Dict[str, Any]]:
             }
         )
     return result
+
+
+@router.post("/assistants/{assistant_id}/publish")
+def publish_assistant_to_chat(assistant_id: str) -> Dict[str, Any]:
+    """Publish a Studio graph to the chat panel as an agent.
+
+    Two steps live behind this: (a) a graph must be *assigned* — the reviewable list
+    in `backend/langgraph/assigned.py` — and (b) chat needs an agent record whose
+    `config.graph_id` names it. This endpoint does (b) and refuses (a): it will not
+    write to `assigned.py`, because "which graph may answer users" has to stay a
+    diff someone reads.
+    """
+    entry = next((a for a in _ASSISTANT_REGISTRY if a["assistant_id"] == assistant_id), None)
+    if entry is None:
+        raise HTTPException(404, f"unknown assistant '{assistant_id}'")
+
+    graph_id = entry["graph_id"]
+    from langgraph.assigned import ASSIGNED_GRAPHS, describe, is_assigned
+    if not is_assigned(graph_id):
+        raise HTTPException(status_code=409, detail=describe(graph_id))
+
+    # Idempotent: one agent per graph. Re-publishing returns the existing one instead
+    # of piling up duplicates in the Agents list.
+    from db.database import SessionLocal
+    from models.deep_agent import DeepAgentTemplate
+    from sqlalchemy import cast
+    from sqlalchemy.dialects.postgresql import JSONB
+    db = SessionLocal()
+    try:
+        # `config` is a plain JSON column (not JSONB), so there is no `.astext`.
+        # Cast to jsonb and compare the extracted text: exact, and it stays one
+        # SQL predicate instead of loading every agent into Python.
+        existing = (
+            db.query(DeepAgentTemplate)
+            .filter(cast(DeepAgentTemplate.config, JSONB)["graph_id"].astext == graph_id)
+            .first()
+        )
+        if existing is not None:
+            return {"agent_id": existing.id, "name": existing.name,
+                    "graph_id": graph_id, "created": False}
+
+        meta = ASSIGNED_GRAPHS[graph_id]
+        cfg = {
+            "model": "", "graph_id": graph_id, "system_prompt": "",
+            "tools": [], "skills": [], "subagents": [], "middleware": [], "plugins": [],
+            "cli_tools": [], "custom_tools": [], "native_tools": [], "tool_params": None,
+            "backend": {"type": "state", "config": {}, "mappings": None},
+            "guardrails": {"interrupts": {}, "token_limits": {
+                "max_total_tokens": 100000, "eviction_threshold": 80000,
+                "keep_last_messages": 20, "summarization_threshold": 60000},
+                "long_term_memory": False, "enable_auto_eviction": True,
+                "enable_summarization": True},
+            "temperature": 0.0, "max_tokens": 3000,
+            "use_deepagents": False, "enable_compiled_subagents": True,
+            "reasoning_effort": "low",
+        }
+        agent = DeepAgentTemplate(
+            name=meta.get("label") or graph_id,
+            description=(
+                f"Published from LangGraph Studio: runs backend/langgraph/{graph_id}.py "
+                f"directly (tools / prompt / skills are ignored — the graph owns them)."
+            ),
+            category="Analysis",
+            config=cfg,
+            middleware_config=[], subagents_config=[], backend_config={},
+            guardrails_config={}, usage_count=0, version=1,
+            is_public=True, is_community=False, lock_version=1,
+        )
+        db.add(agent)
+        db.commit()
+        db.refresh(agent)
+        return {"agent_id": agent.id, "name": agent.name,
+                "graph_id": graph_id, "created": True}
+    finally:
+        db.close()
 
 
 @router.get("/assistants/{assistant_id}/graph")
@@ -401,20 +496,35 @@ def _sql_setup_module() -> Any:
 
 
 def _list_databases() -> List[str]:
-    """List every non-template database on the Postgres server."""
+    """Every target the SQL tools can point at, sorted.
+
+    Two sources, one list: the non-template databases on the *platform* server,
+    plus named targets that live on another instance (TPC-H at :5432). The
+    dropdown only deals in names, so a target looks like any other entry — the
+    host/port/role it needs is resolved inside sql_setup_db.
+    """
     import psycopg2
 
     sqlmod = _sql_setup_module()
-    conn = psycopg2.connect(**sqlmod._connection_params())
+    names: List[str] = []
+    # Platform server on purpose: the picker lists the local databases plus the
+    # registered targets, whichever target is currently active.
+    conn = psycopg2.connect(**sqlmod.platform_params())
     try:
         with conn.cursor() as cur:
             cur.execute(
                 "SELECT datname FROM pg_database "
                 "WHERE datistemplate = false ORDER BY datname"
             )
-            return [row[0] for row in cur.fetchall()]
+            names = [row[0] for row in cur.fetchall()]
     finally:
         conn.close()
+    # A target whose server is down must not empty the whole picker: it is
+    # listed (and fails loudly on use) rather than dropped.
+    for name in sqlmod.list_targets():
+        if name not in names:
+            names.append(name)
+    return sorted(names)
 
 
 @router.get("/databases")
@@ -430,6 +540,13 @@ def list_databases() -> Dict[str, Any]:
     out: Dict[str, Any] = {
         "active_sql": sqlmod.get_target_database(),
         "active_neo4j": _neo4j_setup_module().get_target_database(),
+        # Which entries are remote targets and where they live, so the UI can
+        # label them (`tpch · 127.0.0.1:5432`) instead of implying they are on
+        # the platform server.
+        "sql_targets": {
+            name: f"{cfg.get('host', '?')}:{cfg.get('port', '?')}"
+            for name, cfg in sqlmod.list_targets().items()
+        },
     }
     # Postgres DBs (for SQL agents)
     try:

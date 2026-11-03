@@ -95,6 +95,10 @@ ENVIRONMENT=development
 # Must use the SAME port as POSTGRES_PORT above (5432 native / 5433 docker).
 TEST_DATABASE_URL=postgresql+asyncpg://langconfig:langconfig_dev@localhost:5432/langconfig_test
 SQL_POSTGRES_DB=chinook
+# Databases on ANOTHER Postgres server, resolvable by name from the SQL tools and
+# the Studio database dropdown. A built-in `tpch` target (127.0.0.1:5432, role
+# weiping) ships with the code; this line only overrides it or adds your own.
+# SQL_TARGETS={"tpch": {"host": "127.0.0.1", "port": 5432, "user": "weiping", "dbname": "tpch"}}
 GOOGLE_REDIRECT_URI=http://localhost:8765/api/auth/google/callback
 SQL_ECHO=false
 RATE_LIMIT_CLEANUP_INTERVAL=300

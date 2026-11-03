@@ -78,7 +78,7 @@ _REPO_TOP_MODULES = frozenset({
 # genuine third-party package and stays allowed.
 _REPO_LANGGRAPH_SUBMODULES = frozenset({
     "connection", "llm", "neo4j_agent", "neo4j_agent_advanced", "neo4j_agent_hitl",
-    "neo4j_setup_db", "sql_agent", "sql_agent_advanced", "sql_agent_hitl",
+    "neo4j_setup_db", "sql_agent", "sql_agent_hitl",
     "sql_setup_db", "tool_adapters",
 })
 

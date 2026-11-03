@@ -118,7 +118,7 @@ async def _deepseek_search(query: str, max_results: int, api_key: str):
         # api_keys blob; the tools API lives beside it.
         from config import get_api_key_from_db as _get
 
-        base = (_get("deepseek_api_base") or "").strip()
+        base = (_get("deepseek_base_url") or _get("deepseek_api_base") or "").strip()
     except Exception:
         base = ""
     url = (base.rstrip("/") if base else "https://api.deepseek.com") + "/v1/tools/search"
@@ -2929,6 +2929,211 @@ Expected Output: {expected_output if expected_output else 'Any relevant output'}
 Note: This task has been queued for subagent execution. The DeepAgents framework
 will route this to the appropriate configured subagent. If no subagents are
 configured, this task will be executed by the main agent."""
+
+
+# =============================================================================
+# Dashboard generation (deterministic; see data/analysis_dbs/gen_*_dashboard.py)
+# =============================================================================
+
+# Where the Analysis activity globs and /api/files/<name> serves from. The tool
+# never accepts a different output dir: a dashboard written into an agent's
+# workspace is a page nobody can open in the app.
+_DASHBOARD_DIR = Path(__file__).resolve().parents[2] / "data" / "analysis_dbs"
+
+# The option vocabulary a caller must decide on before anything is rendered.
+# Kept here (not in prose) so the refusal below can name exactly what is missing.
+_DASHBOARD_QUESTIONS = {
+    "pages": "要哪些页面？（hub 总览 / revenue 营收 / catalog 曲库 / customers 客户，或全部）",
+    "lang": "语言用中文还是 English？（zh / en）",
+    "focus": "有什么要突出的？（Top-N 只取几行、自定义标题、重点国家或流派）",
+}
+
+
+def _dashboard_generators() -> dict[str, dict]:
+    """Discover generator modules: data/analysis_dbs/gen_<db>_dashboard.py.
+
+    The module must expose GENERATOR = {...} (see gen_chinook_dashboard.py). The
+    manifest is read with ast so discovery never imports a module it only wants
+    to describe.
+    """
+    import ast as _ast
+
+    found: dict[str, dict] = {}
+    if not _DASHBOARD_DIR.is_dir():
+        return found
+    for path in sorted(_DASHBOARD_DIR.glob("gen_*_dashboard.py")):
+        try:
+            tree = _ast.parse(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        for node in tree.body:
+            if not (isinstance(node, _ast.Assign) and any(
+                getattr(t, "id", "") == "GENERATOR" for t in node.targets
+            )):
+                continue
+            try:
+                manifest = _ast.literal_eval(node.value)
+            except Exception:
+                continue
+            if isinstance(manifest, dict) and manifest.get("database"):
+                found[manifest["database"]] = {**manifest, "path": str(path)}
+    return found
+
+
+@tool
+def gen_dashboard(
+    database: str = "",
+    pages: str = "",
+    lang: str = "",
+    top: int = 0,
+    title: str = "",
+) -> str:
+    """
+    用我：生成/刷新某个数据库的 HTML 仪表盘（确定性生成器，不写 HTML）。
+    别用我：自己手写 HTML 或做一次性图表——那用 python_execute。
+
+    Build or refresh a database dashboard by running the deterministic generator
+    in data/analysis_dbs/gen_<db>_dashboard.py. Returns JSON.
+
+    You MUST know the user's choices before calling this: which pages, which
+    language, and anything to stress. When an option is missing the tool refuses
+    with status "needs_clarification" and the exact questions to ask — nothing is
+    rendered, so ask the user first and call again with their answers.
+
+    Args:
+        database: Database name, e.g. "chinook". Empty lists what is available.
+        pages: Comma-separated page ids (hub, revenue, catalog, customers), or
+            "all". Empty means "not decided yet" -> clarification.
+        lang: "zh" or "en". Empty means "not decided yet" -> clarification.
+        top: Rows in top-N lists and pies (0 = not decided yet -> clarification).
+        title: Optional custom title for the hub page.
+
+    Returns:
+        JSON with status "needs_clarification" | "ok" | "error".
+    """
+    import json as _json
+
+    gens = _dashboard_generators()
+    db = (database or "").strip().lower()
+    if not db:
+        return _json.dumps({
+            "status": "error",
+            "why": "no database given",
+            "available": sorted(gens),
+        }, ensure_ascii=False)
+    manifest = gens.get(db)
+    if manifest is None:
+        return _json.dumps({
+            "status": "error",
+            "why": f"no deterministic generator for database '{db}'",
+            "available": sorted(gens),
+            "hint": "add data/analysis_dbs/gen_<db>_dashboard.py exporting GENERATOR = {...}",
+        }, ensure_ascii=False)
+
+    valid_pages = list(manifest.get("pages") or {})
+    pages_arg = (pages or "").strip().lower()
+    if pages_arg == "all":
+        wanted = list(valid_pages)
+    else:
+        wanted = [p.strip() for p in pages_arg.split(",") if p.strip()]
+    if wanted:
+        unknown = [p for p in wanted if p not in valid_pages]
+        if unknown:
+            return _json.dumps({
+                "status": "error",
+                "why": f"unknown page(s): {unknown}",
+                "valid_pages": valid_pages,
+                "page_meaning": manifest.get("pages"),
+            }, ensure_ascii=False)
+
+    langs = list((manifest.get("options") or {}).get("lang") or ["zh", "en"])
+    lang_arg = (lang or "").strip().lower()
+
+    # ── The clarification gate ──────────────────────────────────────────────
+    # Any undecided option stops the call. The agent cannot render its way past
+    # a missing decision, which is the whole point of having the tool rather
+    # than a prompt instruction.
+    missing = []
+    if not wanted:
+        missing.append("pages")
+    if not lang_arg:
+        missing.append("lang")
+    if not top:
+        missing.append("focus")
+    if missing:
+        return _json.dumps({
+            "status": "needs_clarification",
+            "database": db,
+            "ask": [_DASHBOARD_QUESTIONS[m] for m in missing],
+            "valid_pages": valid_pages,
+            "page_meaning": manifest.get("pages"),
+            "valid_lang": langs,
+            "defaults": manifest.get("defaults"),
+            "note": "Nothing was generated. Ask the user, then call again with their answers.",
+        }, ensure_ascii=False)
+
+    if lang_arg not in langs:
+        return _json.dumps({
+            "status": "error",
+            "why": f"unsupported lang '{lang_arg}'",
+            "valid_lang": langs,
+        }, ensure_ascii=False)
+
+    lo, hi = (manifest.get("options") or {}).get("top") or (3, 100)
+    top_val = max(int(lo), min(int(hi), int(top)))
+
+    # ── Run the generator in-process ────────────────────────────────────────
+    import importlib.util
+
+    path = Path(manifest["path"])
+    spec = importlib.util.spec_from_file_location(f"gen_dashboard_{db}", path)
+    if spec is None or spec.loader is None:
+        return _json.dumps({"status": "error", "why": f"cannot load {path}"}, ensure_ascii=False)
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+        conn = module.connect(db)
+        try:
+            data = module.collect(conn)
+        finally:
+            conn.close()
+        written = module.build(_DASHBOARD_DIR, data, wanted, lang_arg, top_val, title or None)
+        gate = module.check(written, data, wanted)
+    except Exception as exc:  # noqa: BLE001 — surface the real reason to the model
+        return _json.dumps({
+            "status": "error",
+            "why": f"{type(exc).__name__}: {exc}",
+            "generator": str(path),
+        }, ensure_ascii=False)
+
+    if gate != 0:
+        return _json.dumps({
+            "status": "error",
+            "why": "generator gate failed — numbers in the HTML do not match the database",
+            "files": [p.name for p in written],
+            "generator": str(path),
+        }, ensure_ascii=False)
+
+    return _json.dumps({
+        "status": "ok",
+        "database": db,
+        "pages": wanted,
+        "lang": lang_arg,
+        "top": top_val,
+        "title": title or None,
+        "files": [p.name for p in written],
+        "urls": [f"/api/files/{p.name}" for p in written],
+        "gate": "PASS",
+        "summary": (
+            f"revenue {data['revenue_total']:,.2f} "
+            f"(USA {data['revenue_usa']:,.2f}, ARPU {data['arpu_usa']:,.2f}) · "
+            f"{data['invoices']} invoices · "
+            f"{data['tracks_sold']:,}/{data['tracks']:,} tracks sold · "
+            f"{len(data['monthly'])} months"
+        ),
+        "where": "Analysis activity lists these first (newest first)",
+        "note": "Report both revenue readings: the pages show all-invoice and USA-only side by side.",
+    }, ensure_ascii=False)
 
 
 # =============================================================================
@@ -5821,38 +6026,6 @@ def sql_agent_tool(question: str, database: str = "") -> str:
     """
     from langgraph.tool_adapters import run_sql_agent
     return run_sql_agent(question, database=database or None)
-
-
-@tool
-def advanced_sql_agent_tool(question: str, database: str = "") -> str:
-    """
-    用我：复杂业务问题、需要多步 SQL 推理时（Chinook）。
-    别用我：一条简单查询用 sql_agent_tool 或 pg_query。
-
-    Ask a natural-language question and get an answer from a PostgreSQL
-    database (read-only), with automatic planning for complex questions.
-
-    Runs the planner-based LangGraph SQL agent: it analyzes the question
-    against the schema first — simple questions are answered with one query,
-    while multi-hop / analytical questions are decomposed into a step-by-step
-    plan, each step executed and monitored, then synthesized into the final
-    answer. Handles joins, aggregations, multi-step and comparison questions.
-
-    Args:
-        question: The natural-language SQL question to answer.
-        database: Optional PostgreSQL database name to query. Empty uses the
-            default (env SQL_POSTGRES_DB, else POSTGRES_DB, else chinook).
-
-    Returns:
-        The final answer text (not raw query results).
-
-    Example:
-        >>> advanced_sql_agent_tool(
-        ...     "List the top 3 artists by revenue, then for the top artist "
-        ...     "name their 3 longest tracks.", database="chinook")
-    """
-    from langgraph.tool_adapters import run_sql_agent_advanced
-    return run_sql_agent_advanced(question, database=database or None)
 
 
 @tool

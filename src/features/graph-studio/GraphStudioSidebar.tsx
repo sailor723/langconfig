@@ -14,7 +14,8 @@
  * (the same convention used by studioStore.ts to pick SQL vs Neo4j
  * endpoints) so the grouping stays consistent with the canvas header.
  */
-import { Plus, Database, Network, ChevronRight } from 'lucide-react';
+import { Plus, Database, Network, ChevronRight, Send } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { studio, useStudioState } from './studioStore';
@@ -58,6 +59,51 @@ const TYPE_GROUPS: TypeGroup[] = [
 
 export default function GraphStudioSidebar() {
   const t = useLayoutTokens();
+  // Publishing is a two-step contract: the graph must already be *assigned*
+  // (backend/langgraph/assigned.py — a reviewable diff), and chat needs an agent
+  // record pointing at it. This button only does the second part; the backend
+  // refuses with the exact reason when the first part is missing.
+  const [publishing, setPublishing] = useState<string | null>(null);
+  // Chat only runs *assigned* graphs (backend/langgraph/assigned.py). Studio runs
+  // them all — that is the whole point of the split — so the publish button is
+  // shown only for the graphs chat would accept; the rest stay draft/testable here.
+  const [assignedIds, setAssignedIds] = useState<string[]>([]);
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/graph-studio/assigned')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: { graph_id: string }[]) => {
+        if (alive && Array.isArray(rows)) setAssignedIds(rows.map((x) => x.graph_id));
+      })
+      .catch(() => { /* offline: no publish buttons, canvas still works */ });
+    return () => { alive = false; };
+  }, []);
+  const notify = (message: string, type: 'success' | 'error' | 'warning' = 'success') => {
+    window.dispatchEvent(new CustomEvent('graph-studio:toast', { detail: { message, type } }));
+  };
+  const publishToChat = async (assistantId: string, name: string) => {
+    setPublishing(assistantId);
+    try {
+      const r = await fetch(
+        `/api/graph-studio/assistants/${encodeURIComponent(assistantId)}/publish`,
+        { method: 'POST' },
+      );
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        // 409 carries the reason the graph is not assignable — show it verbatim,
+        // it names the file to edit.
+        notify(body?.detail || `publish failed (HTTP ${r.status})`, 'error');
+      } else if (body.created) {
+        notify(`Published "${name}" to Agents as "${body.name}" (agent ${body.agent_id}).`);
+      } else {
+        notify(`"${name}" is already published as "${body.name}" (agent ${body.agent_id}).`, 'warning');
+      }
+    } catch (e) {
+      notify(`publish failed: ${e instanceof Error ? e.message : String(e)}`, 'error');
+    } finally {
+      setPublishing(null);
+    }
+  };
   const { t: tr } = useTranslation('chat');
   const {
     assistants, activeAssistantId, threads, currentThreadId,
@@ -183,8 +229,12 @@ export default function GraphStudioSidebar() {
               {groupItems.map((a) => {
                 const active = a.assistant_id === activeAssistantId;
                 return (
-                  <button
+                  <div
                     key={a.assistant_id}
+                    style={{ display: 'flex', alignItems: 'stretch', borderRadius: 6,
+                             background: active ? t.bgSelected : 'transparent' }}
+                  >
+                  <button
                     onClick={() => void studio.selectAssistant(a)}
                     title={a.description ?? a.name}
                     style={{
@@ -195,11 +245,12 @@ export default function GraphStudioSidebar() {
                       padding: '5px 8px 5px 22px', // indent under the group header
                       border: 'none',
                       borderRadius: 6,
-                      background: active ? t.bgSelected : 'transparent',
+                      background: 'transparent',
                       borderLeft: active ? `2px solid ${group.accent}` : '2px solid transparent',
                       cursor: 'pointer',
                       textAlign: 'left',
-                      width: '100%',
+                      flex: 1,
+                      minWidth: 0,
                     }}
                   >
                     <span style={{
@@ -213,8 +264,25 @@ export default function GraphStudioSidebar() {
                       {active && <ChevronRight size={10} color={group.accent} />}
                       {a.name}
                     </span>
-                    <span style={{ color: t.textDim, fontSize: 10, fontFamily: 'monospace' }}>{a.graph_id}</span>
+                    <span style={{ color: t.textDim, fontSize: 10, fontFamily: 'monospace',
+                                   overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{a.graph_id}</span>
                   </button>
+                  {/* Publish → chat, only for graphs chat is allowed to run. */}
+                  {assignedIds.includes(a.graph_id) && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); void publishToChat(a.assistant_id, a.name); }}
+                      disabled={publishing === a.assistant_id}
+                      title={`Publish "${a.name}" to chat (creates/returns the agent bound to ${a.graph_id})`}
+                      style={{
+                        border: 'none', background: 'transparent', cursor: 'pointer',
+                        padding: '0 6px', color: group.accent, display: 'flex',
+                        alignItems: 'center', opacity: publishing === a.assistant_id ? 0.4 : 1,
+                      }}
+                    >
+                      <Send size={11} />
+                    </button>
+                  )}
+                  </div>
                 );
               })}
             </div>

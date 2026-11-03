@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1338 346">
+<rect width="100%" height="100%" fill="#1e1e1e"/>
+<defs>
+<marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3c3c3c"/></marker>
+<marker id="c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#e8a33d"/></marker>
+</defs>
+<text x="24" y="20" fill="#8a8a8a" font-family="Helvetica Neue" font-size="11">sql_agent.py · LangGraph Studio layout</text>
+<g transform="translate(0,30)">
+<path d="M224,44.0 L299.0,44.0 L299.0,118.0 L374,118.0" fill="none" stroke="#e8a33d" stroke-width="1.2" marker-end="url(#c)" />
+<path d="M224,44.0 L299.0,44.0 L299.0,44.0 L374,44.0" fill="none" stroke="#e8a33d" stroke-width="1.2" marker-end="url(#c)" />
+<path d="M924,44.0 L999.0,44.0 L999.0,44.0 L1074,44.0" fill="none" stroke="#3c3c3c" stroke-width="1.2" marker-end="url(#a)" stroke-dasharray="0"/>
+<path d="M924,118.0 L999.0,118.0 L999.0,118.0 L1074,118.0" fill="none" stroke="#3c3c3c" stroke-width="1.2" marker-end="url(#a)" stroke-dasharray="0"/>
+<path d="M574,118.0 L649.0,118.0 L649.0,266.0 L724,266.0" fill="none" stroke="#e8a33d" stroke-width="1.2" marker-end="url(#c)" />
+<path d="M574,118.0 L649.0,118.0 L649.0,118.0 L724,118.0" fill="none" stroke="#e8a33d" stroke-width="1.2" marker-end="url(#c)" />
+<path d="M574,118.0 L649.0,118.0 L649.0,192.0 L724,192.0" fill="none" stroke="#e8a33d" stroke-width="1.2" marker-end="url(#c)" />
+<path d="M1274,44.0 L824.0,44.0 L824.0,118.0 L374,118.0" fill="none" stroke="#3c3c3c" stroke-width="1.2" marker-end="url(#a)" stroke-dasharray="0"/>
+<path d="M574,44.0 L649.0,44.0 L649.0,44.0 L724,44.0" fill="none" stroke="#3c3c3c" stroke-width="1.2" marker-end="url(#a)" stroke-dasharray="0"/>
+<path d="M924,192.0 L649.0,192.0 L649.0,118.0 L374,118.0" fill="none" stroke="#3c3c3c" stroke-width="1.2" marker-end="url(#a)" stroke-dasharray="0"/>
+<path d="M1274,118.0 L824.0,118.0 L824.0,118.0 L374,118.0" fill="none" stroke="#3c3c3c" stroke-width="1.2" marker-end="url(#a)" stroke-dasharray="0"/>
+<g><rect x="24" y="24.0" width="200" height="40" rx="6" fill="#3f9e4d" stroke="none" stroke-width="1.2"/><text x="124.0" y="48.0" fill="#ffffff" font-family="Helvetica Neue" font-size="12.5" font-weight="500" text-anchor="middle">Start</text></g>
+<g><rect x="374" y="24.0" width="200" height="40" rx="6" fill="#252526" stroke="#3c3c3c" stroke-width="1.2"/><circle cx="386" cy="44.0" r="3" fill="#6e6e6e"/><text x="398" y="48.0" fill="#cccccc" font-family="Helvetica Neue" font-size="12.5" font-weight="500" text-anchor="start">list_tables</text></g>
+<g><rect x="374" y="98.0" width="200" height="40" rx="6" fill="#1d3557" stroke="#3794ff" stroke-width="1.2"/><circle cx="386" cy="118.0" r="3" fill="#3794ff"/><text x="398" y="122.0" fill="#ffffff" font-family="Helvetica Neue" font-size="12.5" font-weight="600" text-anchor="start">generate_query</text></g>
+<g><rect x="724" y="24.0" width="200" height="40" rx="6" fill="#1d3557" stroke="#3794ff" stroke-width="1.2"/><circle cx="736" cy="44.0" r="3" fill="#3794ff"/><text x="748" y="48.0" fill="#ffffff" font-family="Helvetica Neue" font-size="12.5" font-weight="600" text-anchor="start">call_get_schema</text></g>
+<g><rect x="724" y="98.0" width="200" height="40" rx="6" fill="#1d3557" stroke="#3794ff" stroke-width="1.2"/><circle cx="736" cy="118.0" r="3" fill="#3794ff"/><text x="748" y="122.0" fill="#ffffff" font-family="Helvetica Neue" font-size="12.5" font-weight="600" text-anchor="start">check_query</text></g>
+<g><rect x="724" y="172.0" width="200" height="40" rx="6" fill="#252526" stroke="#3c3c3c" stroke-width="1.2"/><circle cx="736" cy="192.0" r="3" fill="#6e6e6e"/><text x="748" y="196.0" fill="#cccccc" font-family="Helvetica Neue" font-size="12.5" font-weight="500" text-anchor="start">memory_tools</text></g>
+<g><rect x="724" y="246.0" width="200" height="40" rx="6" fill="#0078d4" stroke="none" stroke-width="1.2"/><text x="824.0" y="270.0" fill="#ffffff" font-family="Helvetica Neue" font-size="12.5" font-weight="500" text-anchor="middle">End</text></g>
+<g><rect x="1074" y="24.0" width="200" height="40" rx="6" fill="#252526" stroke="#3c3c3c" stroke-width="1.2"/><circle cx="1086" cy="44.0" r="3" fill="#6e6e6e"/><text x="1098" y="48.0" fill="#cccccc" font-family="Helvetica Neue" font-size="12.5" font-weight="500" text-anchor="start">get_schema</text></g>
+<g><rect x="1074" y="98.0" width="200" height="40" rx="6" fill="#252526" stroke="#3c3c3c" stroke-width="1.2"/><circle cx="1086" cy="118.0" r="3" fill="#6e6e6e"/><text x="1098" y="122.0" fill="#cccccc" font-family="Helvetica Neue" font-size="12.5" font-weight="500" text-anchor="start">run_query</text></g>
+</g></svg>

@@ -131,7 +131,7 @@ def list_labels(state: Neo4jAgentState):
     return {"messages": [tool_call_message, tool_message, response]}
 
 
-def call_get_schema_details(state: MessagesState):
+def call_get_schema_details(state: Neo4jAgentState):
     """Force the model to emit a neo4j_graph_schema_details tool call
     (tool_choice='any')."""
     llm_with_tools = model.bind_tools(
@@ -159,7 +159,7 @@ the graph, use the Neo4j Browser directly.
 """.format(top_k=5)
 
 
-def generate_query(state: MessagesState):
+def generate_query(state: Neo4jAgentState):
     """Ask the model for a Cypher query; not forced, so it can answer
     directly."""
     system_message = {"role": "system", "content": GENERATE_CYPHER_SYSTEM_PROMPT}
@@ -169,7 +169,7 @@ def generate_query(state: MessagesState):
 
 
 # ── 5. Graph (with checkpointer for the interrupt) ───────────────────
-def should_continue(state: MessagesState) -> Literal[END, "run_query"]:
+def should_continue(state: Neo4jAgentState) -> Literal[END, "run_query"]:
     """Route generated queries to the (reviewed) run_query node; end otherwise."""
     last_message = state["messages"][-1]
     return END if not last_message.tool_calls else "run_query"

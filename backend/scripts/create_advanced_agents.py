@@ -1,10 +1,13 @@
-"""One-shot script: create two agents that wrap the advanced LangGraph tools.
+"""One-shot script: create the agent that wraps the advanced Neo4j tool.
 
-The advanced SQL / Neo4j agents are already exposed as native tools
-(advanced_sql_agent_tool, neo4j_agent_advanced_tool — ids 102 / 103 in
-custom_tools). This script creates the two end-user agents that
-DELEGATE to those tools, modeled on the existing "db query" agent
-(id 198).
+``neo4j_agent_advanced_tool`` (id 103 in custom_tools) is the delegation
+target; this script creates the end-user agent that DELEGATES to it,
+modeled on the existing "db query" agent (id 198).
+
+The SQL counterpart was removed with ``backend/langgraph/sql_agent_advanced.py``:
+its planner never addressed the actual defect (no committed definition of
+the business terms), so the plain ``sql_agent`` + SEMANTICS.md is the SQL
+story instead.
 
 Run:  cd backend && .venv/bin/python scripts/create_advanced_agents.py
 """
@@ -40,21 +43,6 @@ REF_USE_DEEPAGENTS = bool(REF_CONFIG.get("use_deepagents", False))
 # ---------------------------------------------------------------------------
 # Agent definitions
 # ---------------------------------------------------------------------------
-ADV_SQL_AGENT = {
-    "name": "Advanced SQL Expert",
-    "description": "SQL database expert that delegates analytical / multi-hop questions to the planner-based advanced SQL agent (schema discovery, action plan, monitor, synthesis). Read-only.",
-    "category": "database",
-    "delegation_tool": "advanced_sql_agent_tool",
-    "system_prompt_prefix": (
-        "you are an expert for querying SQL databases with the planner-based advanced agent. "
-        "For any question about a SQL database, call the advanced_sql_agent_tool — it handles "
-        "schema discovery, plans multi-step queries, and synthesizes the final answer. "
-        "For simple questions it returns one query; for complex / multi-hop questions it "
-        "decomposes the work into a plan and runs each step with monitoring. The tool is "
-        "read-only — DML is rejected by design. Always base your answer on the tool's result."
-    ),
-}
-
 ADV_NEO4J_AGENT = {
     "name": "Advanced Neo4j Graph Expert",
     "description": "Neo4j graph database expert that delegates analytical / multi-hop Cypher questions to the planner-based advanced Neo4j agent (label/schema discovery, plan, monitor, synthesis). Read-only; database-agnostic.",
@@ -71,7 +59,7 @@ ADV_NEO4J_AGENT = {
     ),
 }
 
-AGENT_DEFS = [ADV_SQL_AGENT, ADV_NEO4J_AGENT]
+AGENT_DEFS = [ADV_NEO4J_AGENT]
 
 
 def _build_config(agent_def: dict) -> dict:

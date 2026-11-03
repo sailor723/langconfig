@@ -37,15 +37,102 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file_
 _DB_OVERRIDE: str | None = None
 
 
+# ── Named targets: a database on a DIFFERENT server ─────────────────────────
+# Everything below assumes one Postgres instance (POSTGRES_*) and only varies the
+# dbname. That breaks the moment the target lives elsewhere: TPC-H sits on its
+# own instance at :5432 under another role, so "select dbname=tpch" would look
+# for tpch on the platform server and 404. A target is therefore a *server +
+# database* pair and is the single place a second instance is described. Picking
+# one happens through the same studio dropdown as a plain dbname — `_connect()`
+# and `_connection_params()` resolve the name here.
+#
+# Env override (merged over these defaults, same shape):
+#   SQL_TARGETS='{"tpch": {"host": "10.0.0.9", "port": 5432, "user": "analyst",
+#                          "dbname": "tpch", "password": "…"}}'
+_BUILTIN_TARGETS: dict[str, dict[str, Any]] = {
+    "tpch": {
+        "host": "127.0.0.1",
+        "port": 5432,
+        "dbname": "tpch",
+        "user": "weiping",
+        # No password on purpose: local trust auth. An empty string would be
+        # sent as a password and rejected, so it is omitted rather than blank.
+    },
+}
+
+
+def _load_targets() -> dict[str, dict[str, Any]]:
+    """Built-in targets merged with the SQL_TARGETS env override."""
+    import json
+
+    targets = {name: dict(cfg) for name, cfg in _BUILTIN_TARGETS.items()}
+    raw = os.getenv("SQL_TARGETS")
+    if raw:
+        try:
+            over = json.loads(raw)
+        except ValueError:
+            # A malformed env blob must not take the SQL graph down: the
+            # built-ins still work and the bad name simply stays unrecognised.
+            over = None
+        if isinstance(over, dict):
+            for name, cfg in over.items():
+                if isinstance(cfg, dict):
+                    targets.setdefault(name, {}).update(cfg)
+    return targets
+
+
+_TARGETS: dict[str, dict[str, Any]] = _load_targets()
+
+
+def list_targets() -> dict[str, dict[str, Any]]:
+    """Named targets (server + database) — the studio picker lists these too."""
+    return {name: dict(cfg) for name, cfg in _TARGETS.items()}
+
+
+def is_target(name: Optional[str]) -> bool:
+    """True when `name` is a registered target rather than a plain dbname."""
+    return bool(name) and (name or "").strip() in _TARGETS
+
+
+def _target_params(name: str) -> Optional[dict[str, Any]]:
+    """Connection params for a named target, or None when it is a plain dbname."""
+    cfg = _TARGETS.get((name or "").strip())
+    if not cfg:
+        return None
+    if cfg.get("dsn"):
+        return {"dsn": cfg["dsn"]}
+    params: dict[str, Any] = {
+        "host": cfg.get("host", POSTGRES_HOST),
+        "port": int(cfg.get("port", POSTGRES_PORT)),
+        "dbname": cfg.get("dbname", name),
+        "user": cfg.get("user", POSTGRES_USER),
+    }
+    password = cfg.get("password")
+    if password not in (None, ""):
+        params["password"] = password
+    return params
+
+
 def set_target_database(name: str) -> None:
-    """Point the SQL tools at a different database for this process lifetime."""
+    """Point the SQL tools at a different database for this process lifetime.
+
+    `name` is either a database on the platform server (chinook, manufacturing…)
+    or a named target (tpch) that carries its own host/port/role.
+    """
     global _DB_OVERRIDE
     _DB_OVERRIDE = name
 
 
 def get_target_database() -> str:
-    """Return the database the SQL tools are currently pointed at."""
-    return _DB_OVERRIDE or os.getenv("SQL_POSTGRES_DB", os.getenv("POSTGRES_DB", "chinook"))
+    """Return the database the SQL tools are currently pointed at.
+
+    The fallback chain deliberately never lands on ``POSTGRES_DB``: that is the
+    PLATFORM database (agents, skills, runs, audit) and pointing the SQL graph at
+    it is exactly how a "which genre has the longest tracks" question ends up
+    scanning 52 platform tables instead of Chinook's 11. SQL tools get their own
+    knob (``SQL_POSTGRES_DB``) and the demo database as the built-in default.
+    """
+    return _DB_OVERRIDE or os.getenv("SQL_POSTGRES_DB") or "chinook"
 
 
 def _resolve_database(database: Optional[str]) -> str:
@@ -86,22 +173,62 @@ def _connection_params(connection: Optional[dict] = None) -> dict[str, Any]:
     if explicit:
         return {"dsn": explicit}
 
-    # Single source of truth: POSTGRES_* env vars in .env (read by
-    # backend/langgraph/connection.py). No hardcoded literals here.
+    # A named target carries its own server, so it wins over the platform
+    # defaults. This is the one branch that lets a second Postgres instance be
+    # reachable from every graph and from the studio dropdown.
+    target = _target_params(_resolve_database(None))
+    if target:
+        return target
+
+    return _platform_params(_resolve_database(None))
+
+
+def _platform_params(dbname: Optional[str] = None) -> dict[str, Any]:
+    """Params for the PLATFORM Postgres (:5433), never for a named target.
+
+    The studio picker enumerates databases with this: it must list what the
+    platform server holds regardless of which target is currently active, or
+    switching to a remote target would hide every local database (measured: with
+    tpch selected, a picker built from `_connection_params()` reported the TPCH
+    server's list and "chinook" became unreachable — 404 unknown database).
+    """
     return {
         "host": os.getenv("SQL_POSTGRES_HOST", os.getenv("POSTGRES_HOST", POSTGRES_HOST)),
         "port": int(os.getenv("SQL_POSTGRES_PORT", os.getenv("POSTGRES_PORT", str(POSTGRES_PORT)))),
-        "dbname": _resolve_database(None),
+        # Default to the PLATFORM database, not the active SQL target: with
+        # "tpch" selected, `_resolve_database(None)` returns a name that lives on
+        # another server, and connecting to it here failed with
+        # `database "tpch" does not exist` — which took the whole picker down.
+        "dbname": dbname or POSTGRES_DB,
         "user": os.getenv("SQL_POSTGRES_USER", os.getenv("POSTGRES_USER", POSTGRES_USER)),
         "password": os.getenv("SQL_POSTGRES_PASSWORD", os.getenv("POSTGRES_PASSWORD", POSTGRES_PASSWORD)),
     }
 
 
+def platform_params() -> dict[str, Any]:
+    """Public alias: platform-server params (used to enumerate its databases)."""
+    return _platform_params()
+
+
 def _connect(database: Optional[str] = None, connection: Optional[dict] = None):
-    """Open a read-only psycopg2 connection to the resolved database."""
-    params = _connection_params(connection)
-    if database and "dsn" not in params:
-        params["dbname"] = database
+    """Open a read-only psycopg2 connection to the resolved database.
+
+    Resolution order — explicit per-call `connection` dict, then a named
+    `database` target (host/port/role included), then the platform server with
+    `database` as the dbname.
+    """
+    if connection:
+        params = _connection_params(connection)
+        if database and "dsn" not in params:
+            params["dbname"] = database
+    elif database:
+        # An explicit name is honoured even when another target is active:
+        # asking for "chinook" while "tpch" is selected must reach :5433, not
+        # the TPCH server with a chinook dbname on it.
+        target = _target_params(database)
+        params = dict(target) if target else {**_platform_params(database)}
+    else:
+        params = _connection_params(None)
     conn = psycopg2.connect(**params)
     # Read-only transaction: every SELECT succeeds, every DML fails.
     conn.set_session(readonly=True, autocommit=False)

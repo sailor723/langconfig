@@ -68,6 +68,7 @@ SEEDABLE_TOOL_META = {
     "reasoning_chain": ("Reasoning Chain", "reasoning", None),
     "task": ("Task (Subagent)", "delegation", None),
     "save_analysis_result": ("Save Analysis Result", "data_analysis", None),
+    "gen_dashboard": ("Generate Dashboard", "data_analysis", None),
     "gen_pptx": ("Generate PPTX", "presentation", None),
     "gen_html_deck": ("Generate HTML Deck", "presentation", None),
     "gen_pdf_deck": ("Generate PDF Deck", "presentation", None),
@@ -122,7 +123,6 @@ SEEDABLE_TOOL_META = {
     # hand-built pipelines (schema -> generate -> check -> execute) stay in one
     # place. Available to both normal agents and DeepAgents via native_tools.
     "sql_agent_tool": ("SQL Agent (Chinook)", "database", None),
-    "advanced_sql_agent_tool": ("SQL Agent (Advanced)", "database", None),
     "neo4j_agent_tool": ("Neo4j Graph Agent", "database", None),
     "neo4j_agent_advanced_tool": ("Neo4j Graph Agent (Advanced)", "database", None),
 }

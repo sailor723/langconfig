@@ -1051,6 +1051,15 @@ Key mechanics:
 - **Target database switching.** The SQL tools in `sql_setup_db.py` resolve their database
   at call time: a runtime `_DB_OVERRIDE` (set by `POST /databases/select`) takes
   precedence over the `SQL_*` env config, so switching needs no graph re-import.
+- **Named targets — a database on another server.** A dbname alone only reaches the
+  platform Postgres. `_BUILTIN_TARGETS` / `SQL_TARGETS` describe *server + database* pairs
+  (`tpch` → `127.0.0.1:5432`, role `weiping`), and `_connection_params()` returns those
+  params when the active name is a target. The picker lists them next to the local
+  databases (`GET /databases` also returns `sql_targets`, e.g. `{"tpch":"127.0.0.1:5432"}`).
+  Two rules keep this honest, both learned from a bug: the picker enumerates the
+  **platform** server via `platform_params()` so a remote target cannot hide the local
+  list, and an explicit `database=` argument beats the active target so `chinook` still
+  means `:5433` while `tpch` is selected.
 - **The SQL agents query Postgres.** `backend/langgraph/sql_setup_db.py` connects to the
   Postgres `chinook` database (read-only psycopg2 sessions; `information_schema`
   introspection emits Postgres-flavoured DDL). The target DB is configured via the
@@ -1335,7 +1344,7 @@ The root `.env` is split into three tiers; each lives where it belongs:
 
 | Tier | What | Where | Source of truth at runtime |
 |---|---|---|---|
-| **Operator-only** | Infrastructure the user must not touch: `POSTGRES_*`, `API_KEY_ENCRYPTION_KEY`, `ENVIRONMENT`, `TEST_DATABASE_URL`, `SQL_POSTGRES_DB`, `GOOGLE_REDIRECT_URI`, `OLLAMA_BASE_URL`, `SQL_ECHO`, `RATE_LIMIT_CLEANUP_INTERVAL` | `.env` (read once at boot) | `.env` |
+| **Operator-only** | Infrastructure the user must not touch: `POSTGRES_*`, `API_KEY_ENCRYPTION_KEY`, `ENVIRONMENT`, `TEST_DATABASE_URL`, `SQL_POSTGRES_DB`, `SQL_TARGETS`, `GOOGLE_REDIRECT_URI`, `OLLAMA_BASE_URL`, `SQL_ECHO`, `RATE_LIMIT_CLEANUP_INTERVAL` | `.env` (read once at boot) | `.env` |
 | **User-adjustable runtime** | Team-tunable knobs: workspace path, backup dir, storage mode, ollama embed model, langsmith tracing/project, db pool size / max overflow, rate-limit on/off + r/min, performance monitoring + slow thresholds + log toggles, analysis recursion limit + dashboard / chat timeouts, execution history rows / retention days / auto-cleanup | `.env` (bootstrap default) → DB `runtime` namespace → Settings panel UI | `runtime` settings document; `.env` is read only as the first-boot seed |
 | **API keys (secrets)** | OpenAI / Anthropic / Google / DeepSeek / MiniMax / Qwen / Kimi / GLM / Cohere / Replicate / Tavily / Serper / Agnes + LangSmith + Google OAuth client + Slack + Discord webhooks | DB `models.api_keys` field (Fernet-encrypted) → Settings → Models UI | DB; `.env` is only an emergency bootstrap for legacy upgrades |
 

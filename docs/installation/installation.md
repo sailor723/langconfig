@@ -455,6 +455,12 @@ API_KEY_ENCRYPTION_KEY=PASTE-THE-64-HEX-OUTPUT-OF-OPENSSL-RAND-HEX-32
 ENVIRONMENT=development
 TEST_DATABASE_URL=postgresql+asyncpg://langconfig:langconfig_dev@localhost:5433/langconfig_test
 SQL_POSTGRES_DB=chinook
+# Optional: databases that live on ANOTHER Postgres server. The SQL tools and the
+# Studio database dropdown resolve these by name, so a second instance becomes a
+# normal entry in the picker instead of needing its own agent. A built-in `tpch`
+# target (127.0.0.1:5432, role weiping) is there already; this line only overrides
+# it or adds targets of your own.
+# SQL_TARGETS={"tpch": {"host": "127.0.0.1", "port": 5432, "user": "weiping", "dbname": "tpch"}}
 GOOGLE_REDIRECT_URI=http://localhost:8765/api/auth/google/callback
 OLLAMA_BASE_URL=http://localhost:11434
 SQL_ECHO=false

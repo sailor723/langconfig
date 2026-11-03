@@ -292,6 +292,23 @@ class DeepAgentConfig(BaseModel):
                     "<server>_<tool> tools."
     )
 
+    # ── LangGraph binding ────────────────────────────────────────────────
+    # A code-defined graph under backend/langgraph/ can run AS this agent. The
+    # field belongs on the CONFIG schema (not only on SubAgentConfig): without it
+    # pydantic silently drops `config.graph_id` on create/update, so a UI that
+    # offered the binding would lose it on save — measured: POST /api/deepagents
+    # with graph_id returned `graph_id: None` and chat ran a plain agent loop.
+    # Membership is enforced at run time by langgraph/assigned.py (403 otherwise),
+    # not here, so a draft id can be saved but never answers.
+    graph_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Code-defined LangGraph graph id (backend/langgraph/<id>.py) that runs as "
+            "this agent. When set, chat executes the graph and the prompt/tools/skills/"
+            "use_deepagents settings are ignored — the graph carries its own."
+        ),
+    )
+
     # DeepAgents-specific
     use_deepagents: bool = Field(
         default=True,

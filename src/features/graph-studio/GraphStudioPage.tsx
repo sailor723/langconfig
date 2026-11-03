@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from '../../components/layout2/tokens';
-import { Eye } from 'lucide-react';
+import { Eye, Send } from 'lucide-react';
 import CodeViewerModal from '../../components/layout2/CodeViewerModal';
 import { studio, useStudioState } from './studioStore';
 import { api } from './api';
@@ -31,7 +31,7 @@ export default function GraphStudioPage() {
   const { showToast } = useToast();
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent<{ message: string; type: 'error' | 'warning' }>).detail;
+      const detail = (e as CustomEvent<{ message: string; type: 'success' | 'error' | 'warning' }>).detail;
       if (detail?.message) {
         showToast(detail.message, detail.type || 'error');
       }
@@ -66,6 +66,55 @@ export default function GraphStudioPage() {
   }, []);
 
   const active = assistants.find((a) => a.assistant_id === activeAssistantId);
+
+  // ── Publish to the chat panel ───────────────────────────────
+  // Two gates, deliberately separate: *assignment* lives in
+  // backend/langgraph/assigned.py (a diff someone reads), and the agent record
+  // that chat binds to comes from POST /assistants/{id}/publish. Studio runs
+  // every graph; only assigned ones can be published, so the button reflects
+  // that instead of failing on click.
+  const [assignedIds, setAssignedIds] = useState<string[]>([]);
+  const [publishing, setPublishing] = useState(false);
+  useEffect(() => {
+    fetch('/api/graph-studio/assigned')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: { graph_id: string }[]) => {
+        if (Array.isArray(rows)) setAssignedIds(rows.map((x) => x.graph_id));
+      })
+      .catch(() => { /* offline — button stays disabled */ });
+  }, []);
+  const isAssigned = !!active && assignedIds.includes(active.graph_id);
+  const handlePublish = async () => {
+    if (!active) return;
+    setPublishing(true);
+    try {
+      const r = await fetch(
+        `/api/graph-studio/assistants/${encodeURIComponent(active.assistant_id)}/publish`,
+        { method: 'POST' },
+      );
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        window.dispatchEvent(new CustomEvent('graph-studio:toast', {
+          detail: { message: body?.detail || `publish failed (HTTP ${r.status})`, type: 'error' },
+        }));
+      } else {
+        window.dispatchEvent(new CustomEvent('graph-studio:toast', {
+          detail: {
+            message: body.created
+              ? tr('gs_publish_done', { name: body.name, id: body.agent_id })
+              : tr('gs_publish_exists', { name: body.name, id: body.agent_id }),
+            type: body.created ? 'success' : 'warning',
+          },
+        }));
+      }
+    } catch (err) {
+      window.dispatchEvent(new CustomEvent('graph-studio:toast', {
+        detail: { message: `publish failed: ${err instanceof Error ? err.message : String(err)}`, type: 'error' },
+      }));
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   // ── "View code" popup (the assistant's graph module source) ──
   const [codeModal, setCodeModal] = useState<{ filename: string; code: string } | null>(null);
@@ -117,6 +166,37 @@ export default function GraphStudioPage() {
           </span>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: t.textDim }}>
+          {/* Publish the active graph as a chat agent. Disabled (with the reason in
+            * the tooltip) for drafts: chat only runs assigned graphs. */}
+          <button
+            onClick={() => void handlePublish()}
+            disabled={!active || !isAssigned || publishing}
+            title={
+              !active
+                ? tr('gs_no_assistant')
+                : isAssigned
+                  ? tr('gs_publish')
+                  : tr('gs_publish_unassigned', { graph: `${active.graph_id}.py` })
+            }
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              height: 22,
+              padding: '0 8px',
+              background: isAssigned && active ? t.accent : 'transparent',
+              color: isAssigned && active ? '#fff' : t.textPrimary,
+              border: `1px solid ${isAssigned && active ? t.accent : t.border}`,
+              borderRadius: 3,
+              fontSize: 11,
+              fontWeight: isAssigned && active ? 600 : 400,
+              cursor: isAssigned && active ? 'pointer' : 'not-allowed',
+              opacity: isAssigned && active ? 1 : 0.5,
+            }}
+          >
+            <Send size={11} />
+            {publishing ? tr('gs_publishing') : tr('gs_publish')}
+          </button>
           {/* View the assistant's graph module source (same as the agent editors) */}
           <button
             onClick={handleViewCode}

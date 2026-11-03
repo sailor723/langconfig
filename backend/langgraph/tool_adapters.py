@@ -80,6 +80,41 @@ def _load_graph_module(name: str) -> Any:
     return module
 
 
+def _final_answer(messages) -> str:
+    """The answer is the last thing the GRAPH SAID, not the last message it produced.
+
+    The pipeline ends in `run_query` (a ToolNode), so `messages[-1]` is a ToolMessage
+    holding the SQL rows — not the sentence the agent wrote for the user. Returning that
+    is how a caller ends up with a fragment of a result set instead of an answer.
+    """
+    for m in reversed(messages):
+        if getattr(m, "type", "") == "ai" and getattr(m, "content", ""):
+            return str(m.content)
+    return str(getattr(messages[-1], "content", "") or "")
+
+
+def _run_graph(name: str, question: str, database: Optional[str],
+               connection: Optional[dict], thread_id: Optional[str]) -> str:
+    """Invoke a compiled graph and return its answer as text.
+
+    A model outage (503) or any other failure inside the graph comes back as READABLE
+    text, not as an exception: the caller is a tool, and a tool that throws gives the
+    caller model nothing to work with — it just says "the tool failed".
+    """
+    module = _load_graph_module(name)
+    config = {"configurable": {"thread_id": thread_id or f"{name}-tool-{uuid.uuid4().hex}"}}
+    graph_input: Dict[str, Any] = {"messages": [{"role": "user", "content": question}]}
+    if database:
+        graph_input["sql_database"] = database
+    if connection:
+        graph_input["sql_connection"] = connection
+    try:
+        result = module.agent.invoke(graph_input, config=config)
+    except Exception as exc:  # noqa: BLE001 — the caller is a tool; it must return text
+        return f"查询失败：{type(exc).__name__}: {str(exc)[:300]}"
+    return _final_answer(result["messages"])
+
+
 def run_sql_agent(
     question: str,
     database: Optional[str] = None,
@@ -95,52 +130,7 @@ def run_sql_agent(
     optionally overrides the server (dsn or host/port/dbname/user/password).
     Returns the final answer text.
     """
-    module = _load_graph_module("sql_agent")
-    config = {
-        "configurable": {
-            "thread_id": thread_id or f"sql-agent-tool-{uuid.uuid4().hex}"
-        }
-    }
-    graph_input: Dict[str, Any] = {
-        "messages": [{"role": "user", "content": question}]
-    }
-    if database:
-        graph_input["sql_database"] = database
-    if connection:
-        graph_input["sql_connection"] = connection
-    result = module.agent.invoke(graph_input, config=config)
-    return result["messages"][-1].content or ""
-
-
-def run_sql_agent_advanced(
-    question: str,
-    database: Optional[str] = None,
-    connection: Optional[dict] = None,
-    thread_id: Optional[str] = None,
-) -> str:
-    """Answer a natural-language question against a SQL database (planner).
-
-    Same read-only pipeline as ``run_sql_agent`` but with the planner layer
-    (``sql_agent_advanced``): the question is analyzed, multi-hop questions
-    get an action plan whose steps run one query each, a monitor checks
-    progress after every result, and the final answer is synthesized from the
-    collected results. Simple questions take the classic one-shot loop.
-    """
-    module = _load_graph_module("sql_agent_advanced")
-    config = {
-        "configurable": {
-            "thread_id": thread_id or f"sql-agent-advanced-tool-{uuid.uuid4().hex}"
-        }
-    }
-    graph_input: Dict[str, Any] = {
-        "messages": [{"role": "user", "content": question}]
-    }
-    if database:
-        graph_input["sql_database"] = database
-    if connection:
-        graph_input["sql_connection"] = connection
-    result = module.agent.invoke(graph_input, config=config)
-    return result["messages"][-1].content or ""
+    return _run_graph("sql_agent", question, database, connection, thread_id)
 
 
 def run_neo4j_agent(
@@ -158,21 +148,7 @@ def run_neo4j_agent(
     overrides the server (uri / user / password / encrypted). Returns the
     final answer text.
     """
-    module = _load_graph_module("neo4j_agent")
-    config = {
-        "configurable": {
-            "thread_id": thread_id or f"neo4j-agent-tool-{uuid.uuid4().hex}"
-        }
-    }
-    graph_input: Dict[str, Any] = {
-        "messages": [{"role": "user", "content": question}]
-    }
-    if database:
-        graph_input["neo4j_database"] = database
-    if connection:
-        graph_input["neo4j_connection"] = connection
-    result = module.agent.invoke(graph_input, config=config)
-    return result["messages"][-1].content or ""
+    return _run_graph("neo4j_agent", question, database, connection, thread_id)
 
 
 def run_neo4j_agent_advanced(
@@ -191,31 +167,12 @@ def run_neo4j_agent_advanced(
     loop. Database-agnostic: works against whatever graph the connection
     points at.
     """
-    module = _load_graph_module("neo4j_agent_advanced")
-    config = {
-        "configurable": {
-            "thread_id": thread_id or f"neo4j-agent-advanced-tool-{uuid.uuid4().hex}"
-        }
-    }
-    graph_input: Dict[str, Any] = {
-        "messages": [{"role": "user", "content": question}]
-    }
-    if database:
-        graph_input["neo4j_database"] = database
-    if connection:
-        graph_input["neo4j_connection"] = connection
-    result = module.agent.invoke(graph_input, config=config)
-    return result["messages"][-1].content or ""
+    return _run_graph("neo4j_agent_advanced", question, database, connection, thread_id)
 
 
 def get_sql_agent_graph() -> Any:
     """The compiled ``sql_agent`` graph — for ``CompiledSubAgent`` usage."""
     return _load_graph_module("sql_agent").agent
-
-
-def get_sql_agent_advanced_graph() -> Any:
-    """The compiled ``sql_agent_advanced`` (planner) graph — for subagents."""
-    return _load_graph_module("sql_agent_advanced").agent
 
 
 def get_neo4j_agent_graph() -> Any:
@@ -232,9 +189,11 @@ def get_neo4j_agent_advanced_graph() -> Any:
 # subagents. graph_id values are stored in SubAgentConfig.graph_id.
 _GRAPH_RUNNABLES: Dict[str, Any] = {
     "sql_agent": get_sql_agent_graph,
-    "sql_agent_advanced": get_sql_agent_advanced_graph,
+    "sql_agent_hitl": lambda: _load_graph_module("sql_agent_hitl").agent,
+    "langgraph_semantic": lambda: _load_graph_module("langgraph_semantic").agent,
     "neo4j_agent": get_neo4j_agent_graph,
     "neo4j_agent_advanced": get_neo4j_agent_advanced_graph,
+    "neo4j_agent_hitl": lambda: _load_graph_module("neo4j_agent_hitl").agent,
 }
 
 

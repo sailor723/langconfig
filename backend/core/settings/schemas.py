@@ -68,15 +68,20 @@ class ApiKeys(BaseModel):
     replicate_api_key: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
     replicate_base_url: Optional[str] = None
     deepseek_api_key: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
-    deepseek_api_base: Optional[str] = None
+    deepseek_base_url: Optional[str] = None   # canonical
+    deepseek_api_base: Optional[str] = None   # legacy, still read
     glm_api_key: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
-    glm_api_base: Optional[str] = None
+    glm_base_url: Optional[str] = None        # canonical
+    glm_api_base: Optional[str] = None        # legacy, still read
     minimax_api_key: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
-    minimax_api_base: Optional[str] = None
+    minimax_base_url: Optional[str] = None    # canonical
+    minimax_api_base: Optional[str] = None    # legacy, still read
     qwen_api_key: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
-    qwen_api_base: Optional[str] = None
+    qwen_base_url: Optional[str] = None       # canonical
+    qwen_api_base: Optional[str] = None       # legacy, still read
     kimi_api_key: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
-    kimi_api_base: Optional[str] = None
+    kimi_base_url: Optional[str] = None       # canonical
+    kimi_api_base: Optional[str] = None       # legacy, still read
     tavily_api_key: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
     serper_api_key: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
     exa_api_key: Optional[str] = Field(None, json_schema_extra={"role": "secret"})

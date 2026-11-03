@@ -117,7 +117,10 @@ def build_chat_model(
     api_key = get_api_key_from_db("deepseek_api_key") or os.environ.get("DEEPSEEK_API_KEY")
     # DEEPSEEK_BASE_URL lives in .env (or the settings document via
     # get_api_key_from_db). No hardcoded fallback.
-    base_url = os.environ.get("DEEPSEEK_BASE_URL") or settings.deepseek_api_base
+    base_url = (os.environ.get("DEEPSEEK_BASE_URL")
+                or getattr(settings, "deepseek_base_url", None)
+                or getattr(settings, "deepseek_api_base", None)   # legacy key name
+                or "https://api.deepseek.com/v1")
 
     return init_chat_model(
         model=model_name,

@@ -55,10 +55,14 @@ const PROVIDER_FIELD: Record<string, string> = {
 // wrong section.
 const WEB_API_PROVIDERS_FALLBACK = new Set(['tavily', 'serper'])
 
+// ONE naming rule per provider: <provider>_api_key + <provider>_base_url.
+// The backend (backend/config.py `_db_api_base`) reads <provider>_base_url first and
+// still accepts the legacy <provider>_api_base, so rows written before this rename
+// keep working — but everything written from here on uses the single name.
 const PROVIDER_BASE_FIELD: Record<string, string> = {
   openai: 'openai_base_url', anthropic: 'anthropic_base_url', google: 'google_base_url',
-  cohere: 'cohere_base_url', replicate: 'replicate_base_url', deepseek: 'deepseek_api_base',
-  glm: 'glm_api_base', minimax: 'minimax_api_base', qwen: 'qwen_api_base', kimi: 'kimi_api_base',
+  cohere: 'cohere_base_url', replicate: 'replicate_base_url', deepseek: 'deepseek_base_url',
+  glm: 'glm_base_url', minimax: 'minimax_base_url', qwen: 'qwen_base_url', kimi: 'kimi_base_url',
   agnes: 'agnes_base_url',
 }
 

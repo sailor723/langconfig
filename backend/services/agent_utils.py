@@ -377,11 +377,13 @@ async def resolve_model(
         extra: Dict[str, Any] = {}
         if "stream_chunk_timeout" in config:
             extra["stream_chunk_timeout"] = config["stream_chunk_timeout"]
+        # This early return is why the clamp has to run HERE: it happens before the
+        # generic kwargs block below, so clamping only down there never took effect.
         return init_chat_model(
             model=model_name,
             model_provider="deepseek",
             temperature=temperature,
-            max_tokens=max_tokens,
+            max_tokens=_cap_max_tokens(model_name, max_tokens),
             api_key=get_api_key_from_db("deepseek_api_key"),
             streaming=streaming,
             **extra,
@@ -423,6 +425,13 @@ async def resolve_model(
         provider = "openai"
         api_key = get_api_key_from_db("agnes_api_key")
         base_url = settings.AGNES_BASE_URL
+    elif db_provider == "deepseek" or model_name.startswith("deepseek"):
+        # DeepSeek is OpenAI-compatible: same client, its own key + base. This branch
+        # used to be missing here (only create_llm had it), so a deepseek model fell
+        # through to the generic OpenAI branch and looked for an OpenAI key.
+        provider = "openai"
+        api_key = get_api_key_from_db("deepseek_api_key")
+        base_url = settings.DEEPSEEK_API_BASE
     elif db_provider == "minimax" or model_name.startswith("minimax"):
         provider = "openai"
         api_key = get_api_key_from_db("minimax_api_key")
@@ -445,8 +454,39 @@ async def resolve_model(
         api_key = get_api_key_from_db("openai_api_key")
         base_url = getattr(settings, 'OPENAI_API_BASE', None)
 
+
+# Vendors reject an out-of-range `max_tokens` with a 400 at call time, and the value
+# that reaches them is a platform-wide setting (`models.max_tokens`, currently tuned for
+# the largest model). A value that one vendor accepts another rejects — MiniMax caps at
+# 393,216 and DeepSeek at 8,192 — so cap it here, per provider, instead of letting a
+# shared default break every agent that switches model.
+PROVIDER_MAX_TOKENS = {
+    # Both vendors document 393,216 as the ceiling (the server says so in its 400).
+    "minimax": 393_216,
+    "deepseek": 393_216,
+}
+
+
+def _cap_max_tokens(model_name: str, max_tokens: Optional[int]) -> Optional[int]:
+    """Clamp `max_tokens` to the vendor's documented ceiling (no-op when it fits)."""
+    if not max_tokens:
+        return max_tokens
+    for prefix, cap in PROVIDER_MAX_TOKENS.items():
+        if str(model_name).startswith(prefix) and max_tokens > cap:
+            logger.warning(
+                "max_tokens=%s exceeds the %s limit of %s — clamped to %s",
+                max_tokens, prefix, cap, cap,
+            )
+            return cap
+    return max_tokens
+
+
     if not api_key:
         raise ValueError(f"API key is required for model {model_name} (provider: {provider})")
+
+    # Clamp BEFORE the kwargs are built — clamping after this point changes a local
+    # variable that nobody reads any more.
+    max_tokens = _cap_max_tokens(model_name, max_tokens)
 
     init_kwargs = {
         "model": model_name,

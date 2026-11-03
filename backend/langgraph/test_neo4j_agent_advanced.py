@@ -1,7 +1,7 @@
 """Test script for the planner-based advanced Neo4j agent
 (neo4j_agent_advanced.py).
 
-Mirrors test_sql_agent_advanced.py. The AGENT is database-agnostic (it works
+The AGENT is database-agnostic (it works
 from whatever schema the connection exposes), so the e2e tests are
 SCHEMA-DRIVEN: they probe the live graph at test time and build questions +
 assertions from the actual labels / relationship counts — no hardcoded graph

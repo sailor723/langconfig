@@ -573,7 +573,25 @@ async def send_message(
                     (_safe_config.get("system_prompt") or "") + _greeting
                 )
                 config.system_prompt = (config.system_prompt or "") + _greeting
-            if not use_deepagents:
+            # ── A code-defined LangGraph graph IS the agent ──────────────────
+            # `config.graph_id` names a graph under backend/langgraph/. Running it
+            # directly (instead of wrapping it in a tool) is what makes the middle
+            # of the run visible: the same graph the Studio renders is the one the
+            # chat executes. The graph carries its own checkpointer; chat history
+            # still lives in Postgres, so the two are independent by design.
+            _graph_id = (_safe_config.get("graph_id") or "").strip()
+            if _graph_id:
+                from langgraph.assigned import is_assigned, describe
+                from langgraph.tool_adapters import get_graph_runnable
+                if not is_assigned(_graph_id):
+                    raise HTTPException(status_code=403, detail=describe(_graph_id))
+                try:
+                    agent_instance = get_graph_runnable(_graph_id)
+                    _tools, _callbacks = [], []
+                    logger.info(f"Chat bound to LangGraph graph '{_graph_id}' (agent {agent.id})")
+                except KeyError as exc:
+                    raise HTTPException(status_code=400, detail=str(exc))
+            elif not use_deepagents:
                 from core.agents.factory import AgentFactory
                 agent_instance, _tools, _callbacks = await AgentFactory.create_agent(
                     agent_config=_safe_config,
@@ -1146,6 +1164,25 @@ async def send_message_stream(
                                             )
                         except Exception as e:
                             logger.warning(f"Failed to inject companion .skill.md: {e}")
+
+                # ── A code-defined LangGraph graph IS the agent (streaming path) ──
+                # Same rule as the non-streaming entry point, and the same guard: only
+                # graphs in langgraph/assigned.py may answer in chat. Studio runs the
+                # drafts; the product runs the assigned ones.
+                _graph_id = str((agent.config or {}).get("graph_id") or "").strip()
+                if not agent_instance and _graph_id:
+                    from langgraph.assigned import is_assigned, describe
+                    from langgraph.tool_adapters import get_graph_runnable
+                    if not is_assigned(_graph_id):
+                        raise HTTPException(status_code=403, detail=describe(_graph_id))
+                    try:
+                        agent_instance = get_graph_runnable(_graph_id)
+                        logger.info(
+                            f"Chat (stream) bound to assigned LangGraph graph "
+                            f"'{_graph_id}' (agent {agent.id})"
+                        )
+                    except KeyError as exc:
+                        raise HTTPException(status_code=400, detail=str(exc))
 
                 if not agent_instance:
                     # Create agent via appropriate factory.

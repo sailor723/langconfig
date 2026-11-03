@@ -152,7 +152,7 @@ def list_labels(state: Neo4jAgentState):
     return {"messages": [tool_call_message, tool_message, response]}
 
 
-def call_get_schema_details(state: MessagesState):
+def call_get_schema_details(state: Neo4jAgentState):
     """Force the model to emit a neo4j_graph_schema_details tool call.
 
     Once the labels/rels are in the history, force the model to drill
@@ -182,7 +182,7 @@ the graph, use the Neo4j Browser directly.
 """.format(top_k=5)
 
 
-def generate_query(state: MessagesState):
+def generate_query(state: Neo4jAgentState):
     """Ask the model for a Cypher query; not forced, so it can answer
     directly or use the memory tools first."""
     system_message = {"role": "system", "content": GENERATE_CYPHER_SYSTEM_PROMPT}
@@ -211,7 +211,7 @@ You will call the appropriate tool to execute the query after running this check
 """
 
 
-def check_query(state: MessagesState):
+def check_query(state: Neo4jAgentState):
     """Cypher expert reviews the last generated query before it is executed.
 
     Mirrors sql_agent.check_query: only review calls that target the query
@@ -237,7 +237,7 @@ def check_query(state: MessagesState):
 
 
 # ── 4. Graph ────────────────────────────────────────────────────────
-def should_continue(state: MessagesState) -> Literal[END, "check_query", "memory_tools"]:
+def should_continue(state: Neo4jAgentState) -> Literal[END, "check_query", "memory_tools"]:
     """Route generated tool calls: memory calls to the memory node,
     Cypher queries to the checker, and plain answers to the end."""
     last_message = state["messages"][-1]
@@ -249,7 +249,7 @@ def should_continue(state: MessagesState) -> Literal[END, "check_query", "memory
     return "check_query"
 
 
-def should_preamble(state: MessagesState) -> Literal["list_labels", "generate_query"]:
+def should_preamble(state: Neo4jAgentState) -> Literal["list_labels", "generate_query"]:
     """Skip the labels/schema preamble once the schema is in the history.
 
     The list_labels node marks the schema dump with 'Available schema:', so

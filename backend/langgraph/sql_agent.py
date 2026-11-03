@@ -139,7 +139,7 @@ def list_tables(state: SqlAgentState):
     return {"messages": [tool_call_message, tool_message, response]}
 
 
-def call_get_schema(state: MessagesState):
+def call_get_schema(state: SqlAgentState):
     """Force the model to emit a sql_db_schema tool call (tool_choice='any')."""
     llm_with_tools = model.bind_tools([get_schema_tool], tool_choice="any")
     response = llm_with_tools.invoke(state["messages"])
@@ -161,7 +161,7 @@ DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.) to the databa
 """.format(dialect="postgresql", top_k=5)
 
 
-def generate_query(state: MessagesState):
+def generate_query(state: SqlAgentState):
     """Ask the model for a SQL query; not forced, so it can answer directly
     or use the memory tools first."""
     system_message = {"role": "system", "content": GENERATE_QUERY_SYSTEM_PROMPT}
@@ -189,7 +189,7 @@ You will call the appropriate tool to execute the query after running this check
 """.format(dialect="postgresql")
 
 
-def check_query(state: MessagesState):
+def check_query(state: SqlAgentState):
     """SQL expert reviews the last generated query before it is executed."""
     system_message = {"role": "system", "content": CHECK_QUERY_SYSTEM_PROMPT}
 
@@ -213,7 +213,7 @@ def check_query(state: MessagesState):
 
 
 # ── 4. Graph ────────────────────────────────────────────────────────
-def should_continue(state: MessagesState) -> Literal[END, "check_query", "memory_tools"]:
+def should_continue(state: SqlAgentState) -> Literal[END, "check_query", "memory_tools"]:
     """Route generated tool calls: memory calls to the memory node,
     SQL queries to the checker, and plain answers to the end."""
     last_message = state["messages"][-1]
@@ -225,7 +225,7 @@ def should_continue(state: MessagesState) -> Literal[END, "check_query", "memory
     return "check_query"
 
 
-def should_preamble(state: MessagesState) -> Literal["list_tables", "generate_query"]:
+def should_preamble(state: SqlAgentState) -> Literal["list_tables", "generate_query"]:
     """Skip the table/schema preamble once the schema is in the history.
     The list_tables node marks the schema dump with 'Available tables', so
     its presence means the tables and schema are already in the thread."""

@@ -23,7 +23,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
-import { Award, ChevronDown, ChevronRight, Info, FileText, Wrench, Code, Shield, Users } from 'lucide-react';
+import { Award, ChevronDown, ChevronRight, Info, FileText, Wrench, Code, Shield, Users, Network } from 'lucide-react';
 import type { Tab } from './useLayout';
 import { useLayoutState } from './useLayout';
 import { chatStore } from './chatStore';
@@ -47,7 +47,7 @@ interface AgentEditorProps {
   tab: Tab;
 }
 
-type SectionId = 'overview' | 'prompt' | 'tools' | 'skills' | 'subagents' | 'middleware' | 'json';
+type SectionId = 'overview' | 'prompt' | 'tools' | 'skills' | 'subagents' | 'middleware' | 'langgraph' | 'json';
 
 const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <Info size={13} /> },
@@ -56,6 +56,9 @@ const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode }[] = [
   { id: 'skills',   label: 'Skills',   icon: <Award size={13} /> },
   { id: 'subagents', label: 'Subagents', icon: <Users size={13} /> },
   { id: 'middleware', label: 'Middleware', icon: <Shield size={13} /> },
+  // A LangGraph graph can BE the agent: chat then executes the graph and every
+  // section above is ignored. Users need this at CREATE time, not only as JSON.
+  { id: 'langgraph', label: 'LangGraph', icon: <Network size={13} /> },
   { id: 'json',     label: 'JSON',     icon: <Code size={13} /> },
 ];
 
@@ -549,9 +552,22 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
       setSaveMsg({ ok: false, text: 'Name is required' });
       return;
     }
-    if (!trimmedPrompt) {
+    // A graph-bound agent has no prompt of its own — the graph carries it. Requiring
+    // one would force the user to type a dummy string that is then ignored at run
+    // time. Fill a note instead so downstream readers still see why it is empty.
+    let boundGraph = '';
+    try {
+      boundGraph = String(JSON.parse(jsonEditRef.current)?.config?.graph_id || '');
+    } catch { boundGraph = ''; }
+    if (!trimmedPrompt && !boundGraph) {
       setSaveMsg({ ok: false, text: 'System prompt is required' });
       return;
+    }
+    if (!trimmedPrompt && boundGraph) {
+      setEditablePrompt(
+        `Bound to the LangGraph graph "${boundGraph}". This prompt is unused: the graph ` +
+        `carries its own system prompts, tools and checkpointer (see the LangGraph section).`,
+      );
     }
 
     setSaving(true);
@@ -686,6 +702,188 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   };
 
   // ── Overview section (all fields editable) ──
+  // ── LangGraph binding (config.graph_id) ─────────────────────────────
+  // Only *assigned* graphs are offered: Studio runs drafts, chat only runs what
+  // backend/langgraph/assigned.py lists.
+  const [assignedGraphs, setAssignedGraphs] = useState<{ graph_id: string; label: string }[]>([]);
+  const [boundGraphId, setBoundGraphId] = useState<string>(
+    () => String((agent.config as any)?.graph_id || ''),
+  );
+  const [graphNodes, setGraphNodes] = useState<string[]>([]);
+  // The database a bound SQL graph runs against. Deliberately NOT saved on the
+  // agent: the Studio dropdown is a development target for the whole process
+  // (sql_setup_db._DB_OVERRIDE). Baking it into the agent config would make one
+  // build point at one database forever, which is the wrong default.
+  const [sqlDbs, setSqlDbs] = useState<string[]>([]);
+  const [sqlTargets, setSqlTargets] = useState<Record<string, string>>({});
+  const [activeSql, setActiveSql] = useState<string>('');
+  const [dbMsg, setDbMsg] = useState<string | null>(null);
+
+  const loadDatabases = useCallback(() => {
+    fetch('/api/graph-studio/databases')
+      .then(r => (r.ok ? r.json() : null))
+      .then((d: { sql?: string[]; active_sql?: string; sql_targets?: Record<string, string> } | null) => {
+        if (!d) return;
+        setSqlDbs(Array.isArray(d.sql) ? d.sql : []);
+        setSqlTargets(d.sql_targets || {});
+        setActiveSql(d.active_sql || '');
+      })
+      .catch(() => { setSqlDbs([]); });
+  }, []);
+
+  useEffect(() => { loadDatabases(); }, [loadDatabases]);
+
+  const handleSqlTargetChange = useCallback(async (name: string) => {
+    if (!name) return;
+    setDbMsg(null);
+    try {
+      const r = await fetch('/api/graph-studio/databases/select', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ database: name, type: 'sql' }),
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setDbMsg(body?.detail || `switch failed (HTTP ${r.status})`);
+        return;
+      }
+      setActiveSql(body?.active_sql || name);
+      setDbMsg(`运行目标已切到 ${body?.active_sql || name}（进程级，重启后端即复位）`);
+    } catch (e) {
+      setDbMsg(`switch failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/graph-studio/assigned')
+      .then(r => (r.ok ? r.json() : []))
+      .then((rows: { graph_id: string; label: string }[]) => {
+        if (!cancelled) setAssignedGraphs(Array.isArray(rows) ? rows : []);
+      })
+      .catch(() => { if (!cancelled) setAssignedGraphs([]); });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!boundGraphId) { setGraphNodes([]); return; }
+    let cancelled = false;
+    fetch(`/api/graph-studio/assistants/${encodeURIComponent(boundGraphId)}/graph`)
+      .then(r => (r.ok ? r.json() : null))
+      .then((g: { nodes?: { id: string }[] } | null) => {
+        if (cancelled) return;
+        setGraphNodes((g?.nodes || []).map(n => n.id).filter(id => !id.startsWith('__')));
+      })
+      .catch(() => { if (!cancelled) setGraphNodes([]); });
+    return () => { cancelled = true; };
+  }, [boundGraphId]);
+
+  const handleBoundGraphChange = useCallback((graphId: string) => {
+    setBoundGraphId(graphId);
+    // Same path as the other fields: write through jsonEdit so Save persists it.
+    updateConfigField('graph_id', graphId || null);
+  }, [updateConfigField]);
+
+  const renderLangGraph = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 720 }}>
+      <div style={{ fontSize: 12, color: t.textMuted, lineHeight: '17px' }}>
+        A code-defined graph under <code>backend/langgraph/</code> can run <b>as</b> this
+        agent. When one is bound, chat executes that graph directly — the prompt, tools and
+        skills in the other sections are <b>ignored</b>, because the graph carries its own.
+        Only <i>assigned</i> graphs are listed; Studio still runs the drafts.
+      </div>
+
+      <div>
+        <div style={labelStyle}>{tr('lg_bound_graph')}</div>
+        <select
+          value={boundGraphId}
+          onChange={e => handleBoundGraphChange(e.target.value)}
+          style={{
+            width: '100%', height: 28, padding: '0 8px',
+            background: t.bgContent, border: `1px solid ${t.border}`,
+            borderRadius: 3, color: t.textPrimary, fontSize: 11.5,
+            fontFamily: 'monospace', outline: 'none',
+          }}
+        >
+          <option value="">{tr('lg_build_agent')}</option>
+          {assignedGraphs.map(g => (
+            <option key={g.graph_id} value={g.graph_id}>{g.label} — {g.graph_id}</option>
+          ))}
+        </select>
+        {assignedGraphs.length === 0 && (
+          <div style={{ fontSize: 10, color: t.textMuted, marginTop: 4 }}>
+            {tr('lg_none_assigned')}
+          </div>
+        )}
+      </div>
+
+      {boundGraphId && (
+        <div>
+          <div style={labelStyle}>{tr('lg_nodes')} ({graphNodes.length})</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {graphNodes.map(n => (
+              <span key={n} style={{
+                fontFamily: 'monospace', fontSize: 10.5, padding: '3px 7px',
+                borderRadius: 3, background: t.bgContent,
+                border: `1px solid ${t.border}`, color: t.textPrimary,
+              }}>{n}</span>
+            ))}
+            {graphNodes.length === 0 && (
+              <span style={{ fontSize: 10.5, color: t.textMuted }}>{tr('lg_no_nodes')}</span>
+            )}
+          </div>
+          <div style={{ fontSize: 10, color: t.accentMuted, marginTop: 8, lineHeight: '14px' }}>
+            {tr('lg_runs_directly')}
+          </div>
+        </div>
+      )}
+
+      {/* Runtime database target — development only, never saved on the agent. */}
+      <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
+        <div style={labelStyle}>Database (development target)</div>
+        <div style={{ fontSize: 10.5, color: t.textMuted, margin: '2px 0 8px', lineHeight: '15px' }}>
+          Which database these SQL nodes read from. This is a <b>process-wide runtime switch</b>
+          (the same one Studio&rsquo;s header uses) — it is <b>not</b> stored on the agent, so the
+          agent stays database-agnostic and resets to the <code>.env</code> default on backend
+          restart. Bind it per deployment / per call, not here.
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <select
+            value={activeSql}
+            onChange={e => void handleSqlTargetChange(e.target.value)}
+            style={{
+              flex: 1, height: 28, padding: '0 8px',
+              background: t.bgContent, border: `1px solid ${t.border}`,
+              borderRadius: 3, color: t.textPrimary, fontSize: 11.5,
+              fontFamily: 'monospace', outline: 'none',
+            }}
+          >
+            {activeSql && !sqlDbs.includes(activeSql) && (
+              <option value={activeSql}>{activeSql}</option>
+            )}
+            {sqlDbs.map(d => (
+              <option key={d} value={d}>
+                {d}{sqlTargets[d] ? `  ·  ${sqlTargets[d]} (remote target)` : ''}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => loadDatabases()}
+            title="Refresh the list"
+            style={{
+              height: 28, padding: '0 10px', background: 'transparent',
+              color: t.textPrimary, border: `1px solid ${t.border}`,
+              borderRadius: 3, fontSize: 11, cursor: 'pointer',
+            }}
+          >Refresh</button>
+        </div>
+        {dbMsg && (
+          <div style={{ fontSize: 10, color: t.textMuted, marginTop: 6 }}>{dbMsg}</div>
+        )}
+      </div>
+    </div>
+  );
+
   const renderOverview = () => (
     <div style={{ padding: 4 }}>
       <div style={compactCardStyle}>
@@ -918,6 +1116,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
 
   const sections: Record<SectionId, () => React.ReactNode> = {
     overview: renderOverview,
+    langgraph: renderLangGraph,
     prompt:   renderPrompt,
     tools:    () => (
       <ToolsPicker

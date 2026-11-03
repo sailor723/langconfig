@@ -249,6 +249,27 @@ start_backend() {
           SERPER_API_KEY 2>/dev/null || true
     echo "  Starting backend..."
     cd "$BE_DIR"
+    # ── pre-flight: LangGraph node signatures ────────────────────────────────
+    # LangGraph builds a node's input from the annotation on its first parameter.
+    # A node declared `state: MessagesState` receives ONLY `messages`; any other
+    # field the function reads (semantics, sql_database, a plan, a connection
+    # override) is silently absent — no exception, no log line. That is how a
+    # semantics node once wrote its business rules and `generate_query` never saw
+    # them, and every test looked like "the model ignores the rules".
+    #
+    # `check_states.py` is ast-only (no imports, no DB, no model), so it costs
+    # milliseconds and catches the mistake before it becomes a measurement.
+    # SKIP_STATE_CHECK=1 starts anyway (a broken signature is a bug, not a crash).
+    if ! .venv/bin/python langgraph/check_states.py; then
+        echo ""
+        echo "  ❌ check_states: a LangGraph node reads a field its State cannot carry."
+        echo "     That node will silently receive an empty state at runtime."
+        echo "     Fix the annotation, or start with SKIP_STATE_CHECK=1 to ignore it."
+        if [ "${SKIP_STATE_CHECK:-0}" != "1" ]; then
+            cd "$ROOT_DIR"
+            return 1
+        fi
+    fi
     # Worker count. DEFAULT IS 1 — deliberately.
     #
     # The Graph activity (code-defined LangGraph assistants) keeps its threads,

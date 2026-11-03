@@ -138,7 +138,7 @@ class Settings(BaseSettings):
 
     @property
     def OPENAI_API_BASE(self) -> Optional[str]:
-        return _db_api_key_only("openai_base_url")
+        return _db_api_base("openai")
 
     @property
     def ANTHROPIC_API_KEY(self) -> Optional[str]:
@@ -146,7 +146,7 @@ class Settings(BaseSettings):
 
     @property
     def ANTHROPIC_API_BASE(self) -> Optional[str]:
-        return _db_api_key_only("anthropic_base_url")
+        return _db_api_base("anthropic")
 
     @property
     def GOOGLE_API_KEY(self) -> Optional[str]:
@@ -154,7 +154,7 @@ class Settings(BaseSettings):
 
     @property
     def GOOGLE_API_BASE(self) -> Optional[str]:
-        return _db_api_key_only("google_base_url")
+        return _db_api_base("google")
 
     @property
     def COHERE_API_KEY(self) -> Optional[str]:
@@ -165,12 +165,20 @@ class Settings(BaseSettings):
         return _db_api_key_only("replicate_api_key")
 
     @property
+    def REPLICATE_BASE_URL(self) -> Optional[str]:
+        return _db_api_base("replicate")
+
+    @property
+    def COHERE_BASE_URL(self) -> Optional[str]:
+        return _db_api_base("cohere")
+
+    @property
     def DEEPSEEK_API_KEY(self) -> Optional[str]:
         return _db_api_key_only("deepseek_api_key")
 
     @property
     def DEEPSEEK_API_BASE(self) -> Optional[str]:
-        return _db_api_key_only("deepseek_api_base")
+        return _db_api_base("deepseek")
 
     @property
     def SERPER_API_KEY(self) -> Optional[str]:
@@ -186,7 +194,7 @@ class Settings(BaseSettings):
 
     @property
     def AGNES_BASE_URL(self) -> Optional[str]:
-        return _db_api_key_only("agnes_base_url")
+        return _db_api_base("agnes")
 
     @property
     def MINIMAX_API_KEY(self) -> Optional[str]:
@@ -194,7 +202,7 @@ class Settings(BaseSettings):
 
     @property
     def MINIMAX_API_BASE(self) -> Optional[str]:
-        return _db_api_key_only("minimax_api_base")
+        return _db_api_base("minimax")
 
     @property
     def KIMI_API_KEY(self) -> Optional[str]:
@@ -202,7 +210,7 @@ class Settings(BaseSettings):
 
     @property
     def KIMI_API_BASE(self) -> Optional[str]:
-        return _db_api_key_only("kimi_api_base")
+        return _db_api_base("kimi")
 
     @property
     def QWEN_API_KEY(self) -> Optional[str]:
@@ -210,7 +218,7 @@ class Settings(BaseSettings):
 
     @property
     def QWEN_API_BASE(self) -> Optional[str]:
-        return _db_api_key_only("qwen_api_base")
+        return _db_api_base("qwen")
 
     @property
     def GLM_API_KEY(self) -> Optional[str]:
@@ -218,7 +226,7 @@ class Settings(BaseSettings):
 
     @property
     def GLM_API_BASE(self) -> Optional[str]:
-        return _db_api_key_only("glm_api_base")
+        return _db_api_base("glm")
 
     def env_only_credentials(self) -> list:
         """Credential names present in the environment (all ignored at runtime).
@@ -316,6 +324,45 @@ class Settings(BaseSettings):
 # Read UI-set keys from the DSH-style settings documents (models.api_keys,
 # decrypted) and fall back to the .env value. Used by uppercase property
 # aliases above so runtime resolution honors what the user saved in Settings.
+# ── provider base URLs ──────────────────────────────────────────────────────
+# ONE naming rule for every provider:  <provider>_api_key  +  <provider>_base_url
+#
+# History: half the providers were stored as `<provider>_api_base` (deepseek, minimax,
+# qwen, kimi, glm) and half as `<provider>_base_url` (openai, anthropic, google, agnes).
+# Both are READ here — the new `<provider>_base_url` first, the old
+# `<provider>_api_base` as a fallback — so a database written before the rename keeps
+# working, while everything new is written one way.
+#
+# The defaults are the DOMESTIC endpoints, because that is where this platform's users
+# are; an international account overrides the base in Settings (MiniMax's two endpoints
+# are https://api.minimax.chat/v1 and https://api.minimaxi.com/v1).
+DEFAULT_PROVIDER_BASE_URLS = {
+    "openai": None,                 # the official default is correct for OpenAI
+    "anthropic": None,              # the SDK talks to api.anthropic.com directly
+    "google": None,                 # google_genai has its own endpoint
+    "cohere": None,
+    "replicate": None,
+    "deepseek": "https://api.deepseek.com/v1",
+    "minimax": "https://api.minimax.chat/v1",
+    "qwen": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "kimi": "https://api.moonshot.cn/v1",
+    "glm": "https://open.bigmodel.cn/api/paas/v4",
+    "agnes": "https://apihub.agnes-ai.com/v1",
+}
+
+
+def _db_api_base(provider: str) -> Optional[str]:
+    """The base URL for a provider: new key, then legacy key, then the built-in default."""
+    value = _db_api_key_only(f"{provider}_base_url")
+    if value:
+        return value
+    value = _db_api_key_only(f"{provider}_api_base")      # legacy name, still honoured
+    if value:
+        return value
+    return DEFAULT_PROVIDER_BASE_URLS.get(provider)
+
+
+
 def _db_api_key_only(key_name: str) -> Optional[str]:
     """Read just the DB value (decrypted). Returns None if absent.
 
