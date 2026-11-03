@@ -265,41 +265,9 @@ def should_continue(state: SqlAgentState) -> Literal[END, "check_query", "memory
 SEMANTICS_ROOT = Path(__file__).resolve().parent.parent / "semantics"
 
 
-def _semantic_blocks(text: str) -> dict:
-    """Split a SKILL.md into the three blocks a SQL prompt can use.
-
-    Deliberately dumb: heading keywords, no LLM. A file whose headings say
-    "Schema / 业务逻辑 / 示例" lands in schema / semantic / examples; anything else
-    is dropped rather than guessed at.
-    """
-    blocks: dict[str, list[str]] = {"schema": [], "semantic": [], "examples": []}
-    current: str | None = None
-    buf: list[str] = []
-
-    def flush() -> None:
-        if current and buf:
-            body = "\n".join(buf).strip()
-            if body:
-                blocks[current].append(body)
-
-    for line in text.splitlines():
-        if line.startswith("## "):
-            flush()
-            title = line[3:].strip().lower()
-            if any(k in title for k in ("schema", "表", "table", "column", "列")):
-                current = "schema"
-            elif any(k in title for k in ("业务", "指标", "过滤", "规则", "business", "kpi", "rule", "口径")):
-                current = "semantic"
-            elif any(k in title for k in ("示例", "example", "sql", "few")):
-                current = "examples"
-            else:
-                current = None
-            buf = [line]
-            continue
-        if current is not None:
-            buf.append(line)
-    flush()
-    return {k: "\n\n".join(v) for k, v in blocks.items()}
+# One definition, shared with the semantics editor (api/semantics/routes.py) so the
+# editor cannot promise blocks the loader does not find.
+from semantics_blocks import semantic_blocks as _semantic_blocks  # noqa: E402
 
 
 def load_semantics(state: SqlAgentState):

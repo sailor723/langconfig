@@ -266,6 +266,51 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 // ---------------------------------------------------------------------------
 // Endpoints
 // ---------------------------------------------------------------------------
+/** SEMANTICS.md lives on its own router: it is per DATABASE, not per graph. */
+export interface SemanticsDoc {
+  database: string;
+  path: string;
+  exists: boolean;
+  text: string;
+  bytes: number;
+  blocks: string[];
+  checker: string;
+  mtime: number | null;
+}
+
+export const semanticsApi = {
+  async load(database: string): Promise<SemanticsDoc> {
+    const r = await fetch(`/api/semantics/${encodeURIComponent(database)}`);
+    if (!r.ok) {
+      const body = await r.text().catch(() => '');
+      throw new Error(`${r.status}: ${body.slice(0, 300) || r.statusText}`);
+    }
+    return r.json();
+  },
+
+  async save(database: string, text: string): Promise<{
+    saved: boolean; bytes: number; blocks: string[];
+    check: { status: string; lines: string[]; checker?: string | null };
+    note?: string;
+  }> {
+    const r = await fetch(`/api/semantics/${encodeURIComponent(database)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body?.detail || `${r.status}`);
+    return body;
+  },
+
+  async check(database: string): Promise<{ database: string; check: { status: string; lines: string[] } }> {
+    const r = await fetch(`/api/semantics/${encodeURIComponent(database)}/check`, { method: 'POST' });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body?.detail || `${r.status}`);
+    return body;
+  },
+};
+
 export const api = {
   async loadAssistants(metadata: Record<string, unknown> = {}): Promise<Assistant[]> {
     return request('/assistants/search', { method: 'POST', body: JSON.stringify({ metadata }) });

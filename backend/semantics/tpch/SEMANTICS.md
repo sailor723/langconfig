@@ -1,8 +1,8 @@
-#### TPC-H — 语义层（给 SQL 图的 SEMANTICS）
+# TPC-H — 语义层（给 SQL 图的 SEMANTICS）
 
 > 只放 DDL 看不出来的东西。指标以本库 `unit_registry` 为准（A 段），数字由 `check_semantics.py` 核对。
 
-### 表与 join
+## 表与 join
 
 `region` 5 · `nation` 25 · `customer` 15,000 · `supplier` 1,000 · `part` 20,000 ·
 `partsupp` 80,000 · `orders` 150,000 · `lineitem` 600,572（SF≈0.1，每单 4.004 行）
@@ -12,7 +12,7 @@ lineitem.l_orderkey→orders   orders.o_custkey→customer   customer.c_nationke
 nation.n_regionkey→region    lineitem.(l_partkey,l_suppkey)→partsupp(ps_partkey,ps_suppkey)
 ```
 
-### A. 已注册指标（`unit_registry`）
+## A. 已注册指标（`unit_registry`）
 
 | id | 指标 | 定义 | 粒度 | 单位 | 方向 | 实测 |
 |---|---|---|---|---|---|---|
@@ -26,7 +26,7 @@ nation.n_regionkey→region    lineitem.(l_partkey,l_suppkey)→partsupp(ps_part
 | A8 | `order_line.weighted_average_discount` | `A3 / A2`（保持 **ratio**） | lineitem | ratio | 低 | 0.050003 |
 | A9 | `sales_order.average_order_value` | 按 `o_orderkey` 汇总 A1 再 `AVG` | orders | money/单 | 高 | 136,900.48 |
 
-### B. 运营比率（本文件定义，`unit_registry` 无规则号）
+## B. 运营比率（本文件定义，`unit_registry` 无规则号）
 
 | id | 指标 | 定义 | 单位 | 方向 | 实测 |
 |---|---|---|---|---|---|
@@ -35,7 +35,7 @@ nation.n_regionkey→region    lineitem.(l_partkey,l_suppkey)→partsupp(ps_part
 | B3 | 高余额客户数 | `COUNT(*) WHERE c_acctbal>=5000` | count | 高 | 6,733 |
 | B4 | 负余额供应商数 | `COUNT(*) WHERE s_acctbal<0` | count | 低 | 88 |
 
-### 口径规则
+## 口径规则
 
 1. **"总收入"有三个，差约 5%**：A2 21,615,929,280.24 · A1 20,535,072,231.42 ·
    `SUM(o_totalprice)` 21,356,596,030.63（含税、订单级四舍五入）。报数必须报名。
@@ -60,7 +60,7 @@ nation.n_regionkey→region    lineitem.(l_partkey,l_suppkey)→partsupp(ps_part
 8. **没有费用科目 → 算不出净利润/ROE/现金流**：能算 A1-A9、B1-B4；被问到说明缺口，
    给毛利 A6/A7，不要拿 `o_totalprice` 冒充利润。
 
-### 回答规则
+## 回答规则
 
 - 金额报名；比率说明 ratio/percent 与是否加权；交付/退货类给定义；时间用 `o_orderdate`。
 - 库里没有的字段不编；`order_line`/`sales_order` 是逻辑实体（无物理表），按表名 join 会失败。

@@ -238,6 +238,10 @@ backend/data/**
 # keep on disk, never commit (backend/data/** covers the backend copy)
 /data/
 
+# Semantics editor backups (*.md.bak) are a one-click undo for the last save, not
+# source. The file itself is tracked; its previous version is not.
+backend/semantics/**/*.md.bak
+
 # Notebook fonts (large binaries; only the processed .pkl forms are tracked)
 backend/notebooks/**/*.ttf
 

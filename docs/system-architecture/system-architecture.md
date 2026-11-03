@@ -1048,6 +1048,15 @@ Key mechanics:
   checks the flag between events and raises `_RunCancelled` when the user hits Stop,
   emitting a clean `Run cancelled by user` error event — the graph checkpointer stays in
   a consistent state.
+- **Analysis dashboards are per account.** `data/analysis_dbs/` is one directory shared
+  by every account, so `GET /api/analysis/dashboards` filters it through
+  `services/dashboard_owners.py`: a page with a registry entry belongs to ONE account,
+  a page with no entry is shared (the pre-account demos), and the owner is recorded when
+  the app creates the page (upload / init) or when the `gen_dashboard` tool writes it.
+  Files stay in the shared directory on purpose — the page path IS the API (`/api/files/
+  <name>`, the iframe `src`, and the in-page ERD/Gantt links all use it). **Known gap:**
+  `/api/files/<name>` does not check ownership, so a page is hidden from another
+  account's list but still fetchable if you know the name.
 - **Target database switching.** The SQL tools in `sql_setup_db.py` resolve their database
   at call time: a runtime `_DB_OVERRIDE` (set by `POST /databases/select`) takes
   precedence over the `SQL_*` env config, so switching needs no graph re-import.

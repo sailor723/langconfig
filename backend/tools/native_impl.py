@@ -3106,6 +3106,16 @@ def gen_dashboard(
             "generator": str(path),
         }, ensure_ascii=False)
 
+    # Record who owns these pages: the Analysis activity lists per account, so a
+    # page without an owner is shared with everyone (see services/dashboard_owners).
+    try:
+        from services.user_roots import subject_user_id
+        from services.dashboard_owners import record_many
+
+        record_many([p.name for p in written], subject_user_id())
+    except Exception:  # noqa: BLE001 — bookkeeping must not fail the render
+        pass
+
     if gate != 0:
         return _json.dumps({
             "status": "error",

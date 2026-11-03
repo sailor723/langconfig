@@ -93,6 +93,10 @@ class DashboardFile(BaseModel):
     skills: list[str] = []
     mode: Optional[str] = None   # 'static-embed' | 'live-fetch' | None
     entry: Optional[str] = None  # 'hub' | 'detail' | None
+    # The page's own <title> — the dashboard browser shows this instead of the
+    # filename. Parsed here because the HTML is served from the API origin, so
+    # the browser client could not read it without a CORS fetch per card.
+    title: Optional[str] = None
 
 
 ANALYSIS_DBS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "analysis_dbs"
@@ -158,9 +162,19 @@ async def list_dashboards():
     META_SKILLS = re.compile(r"db:\s*\S+\s*\n\s*skills:\s*([^\n]+)")
     META_MODE = re.compile(r"Mode:\s*(\S+)")
     META_ENTRY = re.compile(r"entry:\s*([^\n]+)")
+    TITLE_RE = re.compile(r"<title>(.*?)</title>", re.IGNORECASE | re.DOTALL)
     if not ANALYSIS_DBS_DIR.exists():
         return []
+    # Per-account visibility: a page belongs to whoever generated it; pages with
+    # no owner entry are the pre-account demos and stay shared. Without this every
+    # account saw the same directory — see services/dashboard_owners.py.
+    from services.dashboard_owners import filter_visible
+    from services.user_roots import subject_user_id
+
+    _uid = subject_user_id()
     files = sorted(ANALYSIS_DBS_DIR.glob("*.html"), key=lambda f: f.stat().st_mtime, reverse=True)
+    _visible = set(filter_visible([f.name for f in files], _uid))
+    files = [f for f in files if f.name in _visible]
     out = []
     for f in files:
         # Read only the first ~16KB to find the meta block (it's always in <head>)
@@ -173,6 +187,7 @@ async def list_dashboards():
         sk_m = META_SKILLS.search(head)
         mo_m = META_MODE.search(head)
         en_m = META_ENTRY.search(head)
+        ti_m = TITLE_RE.search(head)
         out.append(DashboardFile(
             filename=f.name,
             path=f"/api/files/{f.name}",
@@ -182,7 +197,117 @@ async def list_dashboards():
             skills=[s.strip() for s in sk_m.group(1).split(",")] if sk_m else [],
             mode=mo_m.group(1) if mo_m else None,
             entry=en_m.group(1).strip() if en_m else None,
+            title=(ti_m.group(1).strip() if ti_m else None),
         ))
+    return out
+
+
+# ── Databases: the browser's first level ────────────────────────────
+# The Analysis rail lists DATABASES, not files: 38 pages is a file tree, and a
+# user cannot tell "sunhing_dashboard_liability.html" from "sunhing_gantt.html"
+# without opening both. A database gets one row, one intro, one home page.
+_DATABASES_REGISTRY = ANALYSIS_DBS_DIR / "databases.json"
+
+
+def _load_db_registry() -> dict:
+    """Curated {db_key: {name, intro, home, match[]}}; {} when absent/unreadable.
+
+    A bare `except: return {}` here hid a NameError (`json` was not imported at
+    module scope) and silently degraded every database to its filename prefix —
+    `registered` stayed False on all nine. Log the reason instead.
+    """
+    import json as _json
+
+    try:
+        raw = _json.loads(_DATABASES_REGISTRY.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        logger.info(f"no dashboard registry at {_DATABASES_REGISTRY} — using filename prefixes")
+        return {}
+    except Exception as exc:  # noqa: BLE001 — say why, do not silently degrade
+        logger.warning(f"dashboard registry unreadable ({type(exc).__name__}: {exc}) — using filename prefixes")
+        return {}
+    dbs = raw.get("databases") if isinstance(raw, dict) else None
+    if not isinstance(dbs, dict):
+        logger.warning("dashboard registry has no 'databases' object — using filename prefixes")
+        return {}
+    return dbs
+
+
+def _family_key_of(filename: str, db_path: Optional[str], registry: dict) -> str:
+    """Which registered database a page belongs to."""
+    meta_name = (db_path or "").split("/")[-1]
+    hay = [filename.lower()]
+    if meta_name and meta_name != "None":
+        hay.append(meta_name.lower())
+    for key, cfg in registry.items():
+        for needle in cfg.get("match") or []:
+            n = str(needle).lower()
+            # A needle with a dot is a whole filename ("dashboard.html") → exact;
+            # otherwise it is a prefix. Substring matching was wrong: "dashboard.html"
+            # swallowed business_dashboard.html and tesla_strategy_dashboard.html,
+            # folding two databases into the sales family.
+            if "." in n:
+                if hay[0] == n:
+                    return key
+            elif any(h.startswith(n) for h in hay[1:]) or hay[0].startswith(n):
+                return key
+    # Unregistered pages: keep them visible under their own filename prefix
+    # rather than hiding them behind a registry edit.
+    return filename.split("_")[0] or "other"
+
+
+def _pick_home(key: str, cfg: dict, pages: list[dict]) -> Optional[dict]:
+    """The page a click on this database opens."""
+    by_name = {p["filename"]: p for p in pages}
+    wanted = (cfg or {}).get("home")
+    if wanted and wanted in by_name:
+        return by_name[wanted]
+    hubs = [p for p in pages if (p.get("entry") or "").lower() == "hub"]
+    if hubs:
+        return hubs[0]
+    named = [p for p in pages if p["filename"] in (f"{key}_dashboard.html", f"{key}_dashboard_v2.html")]
+    if named:
+        return named[0]
+    rest = [p for p in pages if f"{key}_dashboard" in p["filename"]]
+    if rest:
+        return rest[0]
+    return max(pages, key=lambda p: float(p["created"] or 0)) if pages else None
+
+
+@router.get("/databases")
+async def list_databases():
+    """One entry per database: name, intro, home page, page count.
+
+    This is what the dashboard browser renders. Pages are grouped with the
+    curated registry in data/analysis_dbs/databases.json (a page's meta db_path or
+    its filename prefix decides membership); `home` falls back to entry=hub, then
+    <key>_dashboard.html, then the newest page, so a registry edit is optional.
+    """
+    rows = await list_dashboards()
+    pages = [r.model_dump() if hasattr(r, "model_dump") else dict(r) for r in rows]
+    registry = _load_db_registry()
+
+    grouped: dict[str, list[dict]] = {}
+    for p in pages:
+        grouped.setdefault(_family_key_of(p["filename"], p.get("db_path"), registry), []).append(p)
+
+    out = []
+    for key, members in grouped.items():
+        cfg = registry.get(key, {})
+        home = _pick_home(key, cfg, members)
+        out.append({
+            "key": key,
+            "name": cfg.get("name") or (home or {}).get("title") or key,
+            "intro": cfg.get("intro") or (
+                f"{len(members)} 个页面，来自 {key}。"
+                if len(members) > 1 else (home or {}).get("title") or key
+            ),
+            "home": home,
+            "pages": len(members),
+            "latest": max((float(p["created"] or 0) for p in members), default=0),
+            "registered": bool(cfg),
+        })
+    out.sort(key=lambda d: (-d["pages"], d["key"]))
     return out
 
 
@@ -328,6 +453,16 @@ async def analysis_upload(
     # Auto-generate dashboard
     dashboard_file = await _auto_generate_dashboard(db_path, skill_path=skill_path)
 
+    # This page belongs to the account that uploaded the CSV.
+    if dashboard_file:
+        try:
+            from services.dashboard_owners import record
+            from services.user_roots import subject_user_id
+
+            record(Path(dashboard_file).name, subject_user_id(db))
+        except Exception as exc:  # noqa: BLE001 — never fail the upload over bookkeeping
+            logger.warning(f"could not record dashboard owner: {exc}")
+
     # Save metadata for refresh capability (creates {stem}.meta.json)
     if dashboard_file:
         try:
@@ -387,6 +522,14 @@ async def analysis_init(request: AnalysisInitRequest, db: Session = Depends(get_
     dashboard_file = await _auto_generate_dashboard(
         db_path, skill_path=request.skill_path, out_dir=out_dir
     )
+    if dashboard_file:
+        try:
+            from services.dashboard_owners import record
+            from services.user_roots import subject_user_id
+
+            record(Path(dashboard_file).name, subject_user_id(db))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"could not record dashboard owner: {exc}")
 
     return AnalysisInitResponse(
         db_path=db_path,

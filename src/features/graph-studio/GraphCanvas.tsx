@@ -36,6 +36,7 @@ import SchemaViewToolbar from './SchemaViewToolbar';
 import { ErDiagram } from './ErDiagram';
 import { Neo4jNetwork } from './Neo4jNetwork';
 import { SchemaNodePopup } from './SchemaNodePopup';
+import SemanticsEditor from './SemanticsEditor';
 
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 40;
@@ -194,14 +195,14 @@ function ViewModeToggle() {
     background: t.bgSidebar,
     overflow: 'hidden',
   };
-  const item = (label: string, value: 'flow' | 'schema'): CSSProperties => ({
+  const item = (label: string, value: 'flow' | 'schema' | 'semantic'): CSSProperties => ({
     padding: '3px 10px',
     fontSize: 11,
     fontWeight: 600,
     cursor: 'pointer',
     background: viewMode === value ? t.accent : 'transparent',
     color: viewMode === value ? '#ffffff' : t.textDim,
-    borderRight: value === 'flow' ? `1px solid ${t.border}` : 'none',
+    borderRight: value === 'semantic' ? 'none' : `1px solid ${t.border}`,
     userSelect: 'none',
   });
   return (
@@ -211,6 +212,10 @@ function ViewModeToggle() {
       </span>
       <span style={item('schema', 'schema')} onClick={() => studio.setViewMode('schema')}>
         Schema
+      </span>
+      {/* The rules the SQL prompts get — the only editable view. */}
+      <span style={item('semantic', 'semantic')} onClick={() => studio.setViewMode('semantic')}>
+        Semantic
       </span>
     </div>
   );
@@ -472,7 +477,9 @@ function GraphCanvasInner() {
   return (
     <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
       <DatabaseSummaryBox />
-      {viewMode === 'flow' ? (
+      {viewMode === 'semantic' ? (
+        <SemanticsEditor />
+      ) : viewMode === 'flow' ? (
         graph ? (
           <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
             <ReactFlow

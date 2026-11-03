@@ -58,6 +58,7 @@ import WorkflowStudioPage, { type WorkflowStudioRef, type StudioNodeConfig } fro
 import WorkflowStudioSidebar from './components/layout2/WorkflowStudioSidebar';
 import GraphStudioPage from './features/graph-studio/GraphStudioPage';
 import GraphStudioSidebar from './features/graph-studio/GraphStudioSidebar';
+import AnalysisSidebar from './features/analysis/AnalysisSidebar';
 
 type View = 'studio' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'chat' | 'learning' | 'graph' | 'project';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
@@ -684,6 +685,8 @@ function AppContent() {
             />
           )}
           {currentView === 'graph' && <GraphStudioSidebar />}
+          {/* Dashboard browser in the rail, like every other activity's browser. */}
+          {currentView === 'analysis' && <AnalysisSidebar />}
         </LeftSidebar>
         )}
 

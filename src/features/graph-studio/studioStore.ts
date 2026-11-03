@@ -9,7 +9,7 @@
  *   refreshState() → thread state from the graph's checkpointer
  */
 import { useSyncExternalStore } from 'react';
-import { api } from './api';
+import { api, semanticsApi } from './api';
 import { streamSSE } from './stream';
 import i18n from '../../i18n';
 import type {
@@ -27,7 +27,29 @@ export type Direction = 'lr' | 'tb';
 
 /** Currently active visualization: flow chart of the assistant's runtime,
  *  or schema network of the underlying database. Defaults to 'flow'. */
-export type ViewMode = 'flow' | 'schema';
+// Three representations of the same run:
+//   flow     — the graph's nodes/edges (what the code does)
+//   schema   — the database it queries (what the code sees)
+//   semantic — the rules injected into the SQL prompts (what the code means)
+// The third one is edited in place; `load_semantics` re-reads the file every run.
+export type ViewMode = 'flow' | 'schema' | 'semantic';
+
+export interface SemanticsState {
+  database: string;
+  path: string;
+  exists: boolean;
+  bytes: number;
+  /** Sections the loader will actually inject ('schema' | 'semantic' | 'examples'). */
+  blocks: string[];
+  checker: string;
+  text: string;
+  loading: boolean;
+  saving: boolean;
+  dirty: boolean;
+  message: string | null;
+  /** Verdict from the database's own gate, when it has one. */
+  check: { status: string; lines: string[]; checker?: string | null } | null;
+}
 
 export interface StudioState {
   apiOnline: boolean;
@@ -38,6 +60,7 @@ export interface StudioState {
   direction: Direction;
   /** Which visualization the canvas renders. */
   viewMode: ViewMode;
+  semantics: SemanticsState | null;
   /** DBs split by type so the dropdown swaps source based on the active assistant. */
   sqlDatabases: string[];
   neo4jDatabases: string[];
@@ -67,6 +90,7 @@ const initialState: StudioState = {
   schemas: null,
   direction: 'lr',
   viewMode: 'flow',
+  semantics: null,
   sqlDatabases: [],
   neo4jDatabases: [],
   activeSqlDatabase: '',
@@ -369,6 +393,95 @@ export const studio = {
 
   toggleDirection() {
     setState({ direction: state.direction === 'lr' ? 'tb' : 'lr' });
+  },
+
+  /** Load the SEMANTICS.md of the ACTIVE database — the file the next run loads. */
+  async loadSemantics() {
+    const db = state.activeSqlDatabase || 'chinook';
+    setState({
+      semantics: {
+        ...(state.semantics || {
+          database: db, path: '', exists: false, bytes: 0, blocks: [],
+          checker: '', text: '', loading: false, saving: false,
+          dirty: false, message: null, check: null,
+        }),
+        database: db, loading: true, message: null,
+      },
+    });
+    try {
+      const doc = await semanticsApi.load(db);
+      setState({
+        semantics: {
+          database: doc.database, path: doc.path, exists: doc.exists, bytes: doc.bytes,
+          blocks: doc.blocks, checker: doc.checker, text: doc.text,
+          loading: false, saving: false, dirty: false, message: null, check: null,
+        },
+      });
+    } catch (err) {
+      setState({
+        semantics: {
+          ...(state.semantics as SemanticsState),
+          loading: false,
+          message: err instanceof Error ? err.message : 'failed to load SEMANTICS.md',
+        },
+      });
+    }
+  },
+
+  /** Local edit — does not touch the file. */
+  setSemanticsText(text: string) {
+    if (!state.semantics) return;
+    setState({ semantics: { ...state.semantics, text, dirty: true, message: null } });
+  },
+
+  /** Save, then report the database's own gate verdict. */
+  async saveSemantics() {
+    if (!state.semantics || state.semantics.saving) return;
+    const doc = state.semantics;
+    setState({ semantics: { ...doc, saving: true, message: null } });
+    try {
+      const res = await semanticsApi.save(doc.database, doc.text);
+      const gate = res.check?.status;
+      setState({
+        semantics: {
+          ...doc, saving: false, dirty: false, bytes: res.bytes, blocks: res.blocks,
+          check: res.check ?? null,
+          message: gate === 'fail'
+            ? '已保存，但校验未通过 —— 见下方输出'
+            : gate === 'pass'
+              ? '已保存，校验通过'
+              : '已保存（该库没有校验脚本）',
+        },
+      });
+      // The file changed: reload summaries so the model's view and the UI agree.
+      void studio.loadDatabaseSummary?.();
+    } catch (err) {
+      setState({
+        semantics: { ...doc, saving: false, message: err instanceof Error ? err.message : 'save failed' },
+      });
+    }
+  },
+
+  /** Run the gate without saving. */
+  async checkSemantics() {
+    if (!state.semantics) return;
+    const doc = state.semantics;
+    setState({ semantics: { ...doc, saving: true, message: null } });
+    try {
+      const res = await semanticsApi.check(doc.database);
+      setState({
+        semantics: {
+          ...doc, saving: false, check: res.check ?? null,
+          message: res.check?.status === 'pass' ? '校验通过'
+            : res.check?.status === 'fail' ? '校验未通过'
+            : '该库没有校验脚本',
+        },
+      });
+    } catch (err) {
+      setState({
+        semantics: { ...doc, saving: false, message: err instanceof Error ? err.message : 'check failed' },
+      });
+    }
   },
 
   /** Switch between Graph Flow and Schema Network visualization.

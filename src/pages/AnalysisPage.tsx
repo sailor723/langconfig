@@ -2,23 +2,17 @@
  * AnalysisPage — resizable vertical side panel for Data, Skill, Chat.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Monitor, Loader2, FileText, ExternalLink, Upload, Table, FileCode, MessageSquare, Send, X, GripVertical, Copy, Download, Check } from 'lucide-react';
+import { Monitor, Loader2, FileText, ExternalLink, Upload, Table, FileCode, MessageSquare, Send, X, GripVertical, Copy, Download, Check, Database, PlayCircle, RefreshCw, ArrowRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import apiClient from '../lib/api-client';
 import { API_BASE_URL } from '../config/api';
+import { analysis, useAnalysisState } from '../features/analysis/analysisStore';
+import { useLayoutTokens } from '../components/layout2/tokens';
 
-interface DashboardFile {
-  filename: string;
-  path: string;
-  size_bytes: number;
-  created: string;
-  // Optional enrichment from the dashboard's LangConfig Dashboard Meta block.
-  db_path?: string | null;
-  skills?: string[];
-  mode?: string | null;
-  entry?: string | null;
-}
+// One dashboard shape for the whole feature: the store's type is canonical
+// (it also carries `title`, parsed server-side from the page's <title>).
+type DashboardFile = import('../features/analysis/analysisStore').DashboardFile;
 interface ToolTraceStep { step: number; type: string; name: string; input?: string; output?: string; }
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -31,6 +25,7 @@ function shouldShowDashboardInPanel(dashboard: DashboardFile): boolean {
 }
 
 export default function AnalysisPage() {
+  const t = useLayoutTokens();
   const [dashboards, setDashboards] = useState<DashboardFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeDashboard, setActiveDashboard] = useState<DashboardFile | null>(null);
@@ -58,16 +53,28 @@ export default function AnalysisPage() {
   const startX = useRef(0);
   const startW = useRef(400);
 
-  const loadDashboards = async () => {
-    setLoading(true);
-    try {
-      const r = await apiClient.get('/api/analysis/dashboards');
-      const all: DashboardFile[] = r.data || [];
-      setDashboards(all.filter(shouldShowDashboardInPanel));
-    }
-    catch { setDashboards([]); } finally { setLoading(false); }
-  };
-  useEffect(() => { loadDashboards(); }, []);
+  // The LEFT rail (AnalysisSidebar) owns discovery and selection; this page is the
+  // viewer. Mirror the store rather than fetching a second list here — two copies
+  // drift every time a dashboard agent writes a page.
+  const store = useAnalysisState();
+  useEffect(() => {
+    setDashboards(store.dashboards.filter(shouldShowDashboardInPanel));
+    setLoading(store.loading);
+  }, [store.dashboards, store.loading]);
+
+  const loadDashboards = () => analysis.loadDashboards();
+
+  // Follow the rail's selection; a repeat click on the same page bumps reloadToken,
+  // which is how "re-open after regenerating" picks up the new file.
+  const lastToken = useRef(-1);
+  useEffect(() => {
+    if (!store.activeFilename) return;
+    const row = store.dashboards.find(d => d.filename === store.activeFilename);
+    if (!row) return;
+    if (activeDashboard?.filename === row.filename && store.reloadToken === lastToken.current) return;
+    lastToken.current = store.reloadToken;
+    void openDashboard(row);
+  }, [store.activeFilename, store.reloadToken, store.dashboards]);
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages]);
 
   const openDashboard = async (d: DashboardFile) => {
@@ -456,10 +463,18 @@ export default function AnalysisPage() {
       <div className="flex-1 flex flex-col h-full">
         {uploadBar()}
         <div className="flex items-center justify-between px-6 py-2 border-b bg-white shrink-0">
-          <div className="flex items-center gap-3">
-            <Monitor className="w-4 h-4 text-blue-600" />
-            <span className="text-sm font-semibold">{activeDashboard.filename}</span>
-            <span className="text-xs text-gray-400">{rawData ? rawData.length + ' rows' : fmtSize(activeDashboard.size_bytes)}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            {store.databases.find(db => db.home?.filename === activeDashboard.filename) && (
+              <>
+                <span className="text-xs text-gray-600 truncate max-w-[180px]" title={store.databases.find(db => db.home?.filename === activeDashboard.filename)?.name}>
+                  {store.databases.find(db => db.home?.filename === activeDashboard.filename)?.name}
+                </span>
+                <span className="text-gray-300 shrink-0">/</span>
+              </>
+            )}
+            <Monitor className="w-4 h-4 text-blue-600 shrink-0" />
+            <span className="text-sm font-semibold truncate">{activeDashboard.title || activeDashboard.filename}</span>
+            <span className="text-xs text-gray-400 shrink-0">{rawData ? rawData.length + ' rows' : fmtSize(activeDashboard.size_bytes)}</span>
           </div>
           <div className="flex items-center gap-2">
             {panelBtn('data', <Table className="w-3.5 h-3.5" />, 'Data')}
@@ -495,38 +510,209 @@ export default function AnalysisPage() {
     );
   }
 
-  // ── List view ──
+  // ── Homepage ──
+  // No title bar and no upload row here: the left rail owns the section title and
+  // the refresh action, and the hero owns the first line of the page. Uploading a
+  // CSV is a per-dashboard action, so it lives in the viewer (uploadBar below).
   return (
     <div className="flex-1 flex flex-col h-full overflow-y-auto">
-      <div className="shrink-0">
-        <div className="flex items-center justify-between px-6 py-4 border-b bg-white">
-          <div className="flex items-center gap-3"><Monitor className="w-5 h-5 text-blue-600" /><h1 className="text-lg font-semibold">Dashboards</h1></div>
-          <button onClick={loadDashboards} className="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg">Refresh</button>
-        </div>
-        {uploadBar()}
-      </div>
       <div className="flex-1 p-6">
         {loading && <div className="flex items-center justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-gray-400" /></div>}
         {!loading && dashboards.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 gap-4">
             <Monitor className="w-16 h-16 text-gray-200" />
             <p className="text-gray-500 font-medium">No dashboards yet</p>
-            <p className="text-gray-400 text-sm">Upload a CSV above, then click <b>Generate Dashboard</b>.</p>
+            <p className="text-gray-400 text-sm">让 dashboard agent 生成，或在某个已打开的仪表盘里上传 CSV。</p>
           </div>
         )}
-        {!loading && dashboards.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {dashboards.map(d => (
-              <button key={d.filename} onClick={() => openDashboard(d)}
-                className="flex flex-col items-center gap-3 p-6 bg-white border rounded-xl hover:shadow-md hover:border-blue-300 transition-all">
-                <FileText className="w-10 h-10 text-blue-500" />
-                <p className="text-sm font-medium text-gray-700 truncate max-w-full">{d.filename}</p>
-                <p className="text-xs text-gray-400">{fmtSize(d.size_bytes)}</p>
-                <span className="text-xs text-blue-500 flex items-center gap-1">Open <ExternalLink className="w-3 h-3" /></span>
-              </button>
-            ))}
-          </div>
-        )}
+        {/* ── Homepage — same shape as the DeepAgents home: hero banner, filter
+             row, token-styled card grid, then how it works. A dashboard page
+             answers "what is this database and where do I enter it", so the card
+             carries the intro rather than a thumbnail. ── */}
+        {!loading && store.databases.length > 0 && (() => {
+          const visible = store.databases;
+          const totalPages = store.databases.reduce((n, d) => n + d.pages, 0);
+          const newest = store.databases.reduce<typeof store.databases[number] | null>(
+            (best, d) => (!best || d.latest > best.latest ? d : best), null,
+          );
+          return (
+            <>
+              {/* Hero */}
+              <div style={{
+                display: 'flex', gap: 24, alignItems: 'center',
+                background: `linear-gradient(135deg, ${t.accent}22 0%, ${t.accent}08 55%, ${t.bgContent} 100%)`,
+                border: `1px solid ${t.border}`, borderRadius: 12,
+                padding: '32px 32px 28px', marginBottom: 28,
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
+                    <div style={{
+                      width: 50, height: 50, borderRadius: 12,
+                      background: `linear-gradient(135deg, ${t.accent}, ${t.accent}cc)`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: `0 4px 14px ${t.accent}35`, flexShrink: 0,
+                    }}>
+                      <Monitor size={26} color="#fff" />
+                    </div>
+                    <div>
+                      <h1 style={{ fontSize: 26, fontWeight: 750, color: t.textPrimary, margin: 0, letterSpacing: '-0.4px' }}>
+                        仪表盘
+                      </h1>
+                      <p style={{ fontSize: 13, color: t.textMuted, margin: '3px 0 0 0' }}>
+                        {store.databases.length} 个数据库 · {totalPages} 个页面 · 全部离线可开
+                      </p>
+                    </div>
+                  </div>
+                  <p style={{ fontSize: 13, color: t.textMuted, lineHeight: 1.7, margin: '0 0 6px 0', maxWidth: 620 }}>
+                    每个数据库一份 HTML 仪表盘：页面由生成器直接查库渲染，数字不是模型写的，
+                    每次重新生成都会用同一套口径重算。
+                  </p>
+                  <p style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.6, margin: '0 0 6px 0', maxWidth: 620, opacity: 0.85 }}>
+                    一个数据库 = 一个入口页 + 若干子页（营收、曲库、客户…），子页从入口页顶部的导航进入，
+                    不需要在下拉里找文件名。
+                  </p>
+                  <p style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.6, margin: '0 0 18px 0', maxWidth: 620, opacity: 0.75 }}>
+                    口径差异留在页面上：例如 Chinook 的营收同时给全店与美国开票两个读法，
+                    任何一处只出现一个数字都算缺陷。
+                  </p>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    {newest?.home && (
+                      <button
+                        onClick={() => analysis.openDatabase(newest.key)}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 8,
+                          padding: '10px 20px', borderRadius: 8, border: 'none',
+                          background: t.accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; }}
+                        onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+                      >
+                        <PlayCircle size={15} />
+                        打开最新的 {newest.key}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => void analysis.loadDashboards()}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '10px 16px', borderRadius: 8,
+                        border: `1px solid ${t.border}`, background: 'transparent',
+                        color: t.textPrimary, fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = t.bgHover; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <RefreshCw size={14} /> 重新扫描
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section header */}
+              <div style={{ marginBottom: 12 }}>
+                <h2 style={{ fontSize: 16, fontWeight: 700, color: t.textPrimary, margin: 0, letterSpacing: '-0.2px' }}>
+                  数据库
+                </h2>
+                <p style={{ fontSize: 12, color: t.textMuted, margin: '4px 0 0 0', lineHeight: 1.5 }}>
+                  点卡片进入该库的入口页；入口页里再用顶部导航看它的子页。
+                </p>
+              </div>
+
+              {/* Card grid — same metrics as the DeepAgents template grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
+                {visible.map(db => (
+                  <button
+                    key={db.key}
+                    onClick={() => analysis.openDatabase(db.key)}
+                    style={{
+                      display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left',
+                      padding: 14, borderRadius: 8, background: t.bgContent,
+                      border: `1px solid ${t.border}`, cursor: 'pointer', width: '100%',
+                      transition: 'border-color 0.15s, box-shadow 0.15s',
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.borderColor = t.accent;
+                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.borderColor = t.border;
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{
+                        width: 28, height: 28, borderRadius: 6, flexShrink: 0,
+                        background: `${t.accent}15`, display: 'flex',
+                        alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <Database size={14} color={t.accent} />
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {db.name}
+                        </div>
+                        <div style={{ fontSize: 10, color: t.textMuted, fontFamily: 'monospace' }}>
+                          {db.key} · {db.pages} 页
+                        </div>
+                      </div>
+                    </div>
+
+                    <p style={{
+                      fontSize: 11, color: t.textMuted, lineHeight: 1.45, margin: 0,
+                      overflow: 'hidden', display: '-webkit-box',
+                      WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
+                    }}>
+                      {db.intro}
+                    </p>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 'auto', paddingTop: 2, fontSize: 10, color: t.textDim }}>
+                      {db.home
+                        ? <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            入口 · {db.home.title || db.home.filename}
+                          </span>
+                        : <span style={{ color: '#e5484d' }}>没有入口页</span>}
+                      <span style={{ marginLeft: 'auto', color: t.accent, display: 'flex', alignItems: 'center' }}>
+                        <ArrowRight size={13} />
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* How it works — three short steps, same card idiom */}
+              <div style={{ marginTop: 32 }}>
+                <h2 style={{ fontSize: 16, fontWeight: 700, color: t.textPrimary, margin: '0 0 4px 0', letterSpacing: '-0.2px' }}>
+                  怎么用
+                </h2>
+                <p style={{ fontSize: 12, color: t.textMuted, margin: '0 0 10px 0' }}>
+                  从数据库到数字，中间没有一步是模型写出来的。
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+                  {[
+                    { n: 1, t: '选数据库', d: '左侧栏或这里的卡片，一个库一行，不展开文件。' },
+                    { n: 2, t: '开入口页', d: '入口页是全库总览：KPI 卡片 + 趋势 + 分布。' },
+                    { n: 3, t: '页内导航', d: '营收 / 曲库 / 客户等子页在入口页顶部切换。' },
+                  ].map(st => (
+                    <div key={st.n} style={{
+                      display: 'flex', gap: 10, padding: 14, borderRadius: 8,
+                      background: t.bgContent, border: `1px solid ${t.border}`,
+                    }}>
+                      <div style={{
+                        width: 22, height: 22, borderRadius: 99, flexShrink: 0,
+                        background: t.accent, color: '#fff', fontSize: 11, fontWeight: 700,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>{st.n}</div>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary }}>{st.t}</div>
+                        <div style={{ fontSize: 11, color: t.textMuted, lineHeight: 1.45, marginTop: 2 }}>{st.d}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          );
+        })()}
       </div>
     </div>
   );
