@@ -185,7 +185,7 @@ export default function OntologyHomePage() {
                 <div style={{ fontSize: 12, color: DANGER, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
                   <AlertTriangle size={13} style={{ flex: 'none', marginTop: 2 }} />
                   <span style={{ lineHeight: 1.6 }}>
-                    {probe?.error || 'starting…'}
+                    {s.starting ? 'starting the workbench…' : (probe?.error || 'not running')}
                     <br />
                     <span style={{ color: t.textMuted, fontSize: 11.5 }}>
                       the app starts a workbench for this profile on demand — if it stays down,

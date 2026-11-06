@@ -116,6 +116,8 @@ export interface OntologyState {
   profiles: OntologyProfile[];
   /** Where the list came from: the settings document, or the compiled-in fallback. */
   profilesFrom: 'settings' | 'fallback';
+  /** A workbench start is in flight, so the UI says 'starting' instead of 'down'. */
+  starting: boolean;
   /** Why the list is the built-in fallback, when it is. A silent fallback is a lie. */
   profilesError: string | null;
   defaultKey: string | null;
@@ -152,6 +154,7 @@ let state: OntologyState = {
   profiles: FALLBACK_PROFILES,
   profilesFrom: 'fallback',
   profilesError: null,
+  starting: false,
   defaultKey: null,
   showSql: true,
   sections: SECTIONS.map(x => ({ ...x, enabled: x.key !== 'actions' && x.key !== 'tutorial' })),
@@ -187,6 +190,8 @@ function pickProfiles(ns: any): { items: OntologyProfile[]; defaultKey: string |
     }));
   return { items, defaultKey: value.default_key ?? null, showSql: value.show_sql !== false };
 }
+
+let attempts = 0;
 
 export const ontology = {
   subscribe(fn: () => void) {
@@ -300,33 +305,58 @@ export const ontology = {
     }
   },
 
-  /** Probe every configured profile in parallel — the home page shows what is running. */
+  /**
+   * Ask the backend to make sure every configured workbench is up, then record what it says.
+   *
+   * The servers are local child processes the backend starts on demand: a user should never
+   * read a URL or open a terminal, so this is the ONLY way the UI learns liveness. The first
+   * call may have to spawn four processes, hence the long timeout and the bounded retry.
+   */
   async probeAll() {
-    await Promise.all(
-      state.profiles.map(async p => {
-        try {
-          const doc = await getJson(p.url, '/api/ontology', 4000);
-          emit({
-            probes: {
-              ...state.probes,
-              [p.url]: doc.ok
-                ? { status: 'up', counts: doc.counts }
-                : { status: 'down', error: doc.error || 'refused the profile' },
-            },
-          });
-        } catch (err: any) {
-          emit({
-            probes: {
-              ...state.probes,
-              [p.url]: {
-                status: 'down',
-                error: err?.name === 'TimeoutError' ? 'no answer in 4 s' : String(err?.message || err),
-              },
-            },
-          });
+    try {
+      const res: any = await apiClient.get('/api/ontology/workbenches', { timeout: 45000 });
+      const rows: any[] = res?.data?.workbenches || [];
+      const probes: OntologyState['probes'] = { ...state.probes };
+      for (const r of rows) {
+        const url = state.profiles.find(p => p.key === r.key)?.url || r.key;
+        probes[url] = {
+          status: r.up ? 'up' : 'down',
+          counts: r.counts || undefined,
+          error: r.error || undefined,
+        };
+      }
+      emit({ probes });
+      const down = rows.filter(r => !r.up);
+      if (down.length) {
+        attempts += 1;
+        if (attempts <= 3) {
+          emit({ starting: true });
+          setTimeout(() => { void ontology.probeAll(); }, 2500 * attempts);
+        } else {
+          emit({ starting: false });
         }
-      }),
-    );
+      } else {
+        attempts = 0;
+        emit({ starting: false });
+      }
+      // load the selected profile's document so the browser and its sections follow
+      const selected = rows.find(r => r.key === state.preset) ?? rows.find(r => r.up);
+      if (selected?.up) {
+        const url = state.profiles.find(p => p.key === selected.key)?.url;
+        if (url && (!state.ontology || state.preset !== selected.key)) {
+          await ontology.select(url, selected.key);
+        }
+      }
+    } catch (err: any) {
+      attempts += 1;
+      if (attempts <= 3) {
+        emit({ starting: true });
+        setTimeout(() => { void ontology.probeAll(); }, 2500 * attempts);
+        return;
+      }
+      emit({ starting: false });
+      console.warn('[ontology] workbench status failed:', err?.message || err);
+    }
   },
 };
 
