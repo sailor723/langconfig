@@ -379,6 +379,95 @@ class KnowledgeSettings(BaseModel):
     doc_chat_max_context_chars: Optional[int] = Field(default=None, ge=10_000, le=20_000_000)
 
 
+
+class DatabaseEntry(BaseModel):
+    """One database the SQL tools and the Studio picker are allowed to use.
+
+    Why a setting and not server enumeration: today the picker lists every
+    database on the platform Postgres (`langconfig`, `postgres`, …), so any signed
+    in account can point `sql_db_query` at the platform's own tables. An explicit
+    list makes "which databases exist for analysis" a decision someone made.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(..., description="Target name shown in the picker, e.g. 'chinook'")
+    label: Optional[str] = Field(default=None, description="Display name; falls back to name")
+    kind: Literal["platform", "target", "dashboard"] = Field(
+        default="platform",
+        description=(
+            "'platform' = a database on the platform Postgres (host/port come from "
+            "POSTGRES_*), 'target' = its own server (host/port/user required, or set "
+            "through SQL_TARGETS), 'dashboard' = a dashboard grouping in "
+            "data/analysis_dbs (offered by the Analysis browser, never by the SQL picker)."
+        ),
+    )
+    host: Optional[str] = None
+    port: Optional[int] = None
+    dbname: Optional[str] = Field(default=None, description="Defaults to `name`")
+    user: Optional[str] = None
+    #: Connection password for a `target`. A secret: Fernet-encrypted at rest and
+    #: stripped from every wire response (the UI only learns set/missing), because
+    #: a database password in a settings row is exactly the kind of value that
+    #: leaks through a JSON dump of the settings API.
+    password: Optional[str] = Field(
+        default=None,
+        json_schema_extra={"role": "secret"},
+        description="Password for a `target`; empty means 'use SQL_TARGETS / .env'.",
+    )
+    enabled: bool = True
+
+
+class DatabasesSettings(BaseModel):
+    """The list the Studio picker offers. Empty = fall back to enumeration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[DatabaseEntry] = Field(default_factory=list)
+
+class OntologyProfile(BaseModel):
+    """One ontology workbench a user can open.
+
+    The workbench (``ontology/retail_graph/serve_ui.py``) loads exactly one *profile* — an
+    ontology folder, its computation overlay, the target DSN, the SQL guardrail limits and
+    the sample questions. Which profiles exist is a decision, not server enumeration, so it
+    is a setting: the UI lists these, the activity bar opens one, and the browser reads the
+    declarations from whatever that server reports.
+
+    Nothing here duplicates the profile's own content: the URL is where the server runs and
+    `profile` is the path the server was started with, shown so a reader can find the file.
+    The ontology's declarations stay in the ontology repo, versioned with the ontology.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str = Field(..., description="Stable id, e.g. 'clinic'")
+    label: str = Field(..., description="Display name, e.g. 'Clinic'")
+    url: str = Field(..., description="Where the workbench server answers, e.g. http://127.0.0.1:8096")
+    profile: Optional[str] = Field(
+        default=None,
+        description="Path of the profile the server was started with (shown, not loaded, by the UI)",
+    )
+    note: Optional[str] = Field(default=None, description="One line: what this ontology is for")
+    enabled: bool = True
+
+
+class OntologySettings(BaseModel):
+    """Which ontologies this account can open, and which one the activity opens first."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[OntologyProfile] = Field(default_factory=list)
+    default_key: Optional[str] = Field(
+        default=None, description="key of the profile the Ontology activity opens by default"
+    )
+    show_sql: bool = Field(
+        default=True,
+        description="Show the compiled SQL in the browser. Off = the number is the contract, "
+                    "the SQL is an implementation detail.",
+    )
+
+
 NAMESPACE_SCHEMAS: dict[str, type[BaseModel]] = {
     "general": GeneralSettings,
     "models": ModelsSettings,
@@ -390,4 +479,9 @@ NAMESPACE_SCHEMAS: dict[str, type[BaseModel]] = {
     "runtime": RuntimeSettings,
     "agents": AgentsSettings,
     "knowledge": KnowledgeSettings,
+    # Which databases the SQL tools may point at (admin-managed; see
+    # api/graph_studio/routes.py::_list_databases). Empty list = enumerate.
+    "databases": DatabasesSettings,
+    # The ontology workbench: which profiles a user can open (see OntologyProfile).
+    "ontology": OntologySettings,
 }

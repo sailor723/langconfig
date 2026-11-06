@@ -12,7 +12,7 @@ import {
   ListTree, Table2, Link2, Sigma, AlertTriangle, Play, RefreshCw, Copy, Check, Boxes, Search,
 } from 'lucide-react';
 import { useLayoutTokens } from '../components/layout2/tokens';
-import { workbench, useWorkbench } from '../features/workbench/workbenchStore';
+import { ontology, useOntology } from '../features/ontology/ontologyStore';
 
 type Tab = 'objects' | 'definitions' | 'links' | 'metrics';
 
@@ -26,14 +26,20 @@ const TAB_META: Array<{ id: Tab; label: string; icon: typeof Table2 }> = [
 export default function OntologyBrowserPage() {
   const t = useLayoutTokens();
   const navigate = useNavigate();
-  const s = useWorkbench();
+  const s = useOntology();
   const [tab, setTab] = useState<Tab>('metrics');
   const [selected, setSelected] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (!s.ontology && s.status !== 'loading') void workbench.select(s.url, s.preset ?? undefined);
+    void (async () => {
+      await ontology.ensureReady();
+      if (!ontology.get().ontology && ontology.get().status !== 'loading') {
+        const url = ontology.get().url;
+        if (url) await ontology.select(url, ontology.get().preset ?? undefined);
+      }
+    })();
   }, []);
 
   const doc = s.ontology;
@@ -84,7 +90,7 @@ export default function OntologyBrowserPage() {
             &nbsp;&nbsp;--settings ontologies/clinic/clinic_settings.json --port 8096
           </div>
         </div>
-        <button style={{ ...btn, marginTop: 12 }} onClick={() => navigate('/workbench')}>
+        <button style={{ ...btn, marginTop: 12 }} onClick={() => navigate('/ontology')}>
           back to the ontology list
         </button>
       </div>
@@ -114,10 +120,10 @@ export default function OntologyBrowserPage() {
           {String(guard.default_window_days ?? '?')}d
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button style={btn} onClick={() => void workbench.select(s.url, s.preset ?? undefined)}>
+          <button style={btn} onClick={() => void ontology.select(s.url, s.preset ?? undefined)}>
             <RefreshCw size={11} /> reload
           </button>
-          <button style={{ ...btn, borderColor: t.accent, color: t.accent }} onClick={() => navigate('/workbench/app')}>
+          <button style={{ ...btn, borderColor: t.accent, color: t.accent }} onClick={() => navigate('/ontology/app')}>
             <Play size={11} /> open app
           </button>
         </div>

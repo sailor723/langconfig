@@ -30,7 +30,7 @@ const ICON_MAP: Partial<Record<ActivityId, LucideIcon>> = {
   prompt:     FileText,
   tools:      Wrench,
   skills:     Award,
-  workbench:  Boxes,
+  ontology:   Boxes,
   knowledge:  Database,
   analysis:   BarChart3,
   studio:     Network,
@@ -42,7 +42,7 @@ const ICON_MAP: Partial<Record<ActivityId, LucideIcon>> = {
 const SECTION_GROUPS: ActivityId[][] = [
   ['vault', 'deepagents', 'agents', 'graph'],
   ['prompt', 'tools', 'skills'],
-  ['workbench', 'knowledge', 'analysis', 'learning'],
+  ['ontology', 'knowledge', 'analysis', 'learning'],
 ];
 
 interface ActivityButtonProps {

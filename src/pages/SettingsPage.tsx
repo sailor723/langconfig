@@ -23,11 +23,15 @@ import ImportFolderPanel from '../components/layout2/ImportFolderPanel'
 import DocChatSettingsPanel from '../components/layout2/DocChatSettingsPanel'
 import { useProject } from '../contexts/ProjectContext'
 
-type SectionId = 'general' | 'models' | 'webapi' | 'localmodels' | 'workspace' | 'storage' | 'runtime' | 'agents' | 'knowledge' | 'about'
+type SectionId = 'general' | 'models' | 'ontology' | 'databases' | 'webapi' | 'localmodels' | 'workspace' | 'storage' | 'runtime' | 'agents' | 'knowledge' | 'about'
 
 const SECTIONS: { id: SectionId; labelKey: string; icon: string }[] = [
   { id: 'general', labelKey: 'settings_general', icon: 'tune' },
   { id: 'models', labelKey: 'settings_models', icon: 'smart_toy' },
+  // Which databases the SQL tools may point at (admin-only).
+  // Which ontology workbench profiles this account can open (the Ontology activity's list).
+  { id: 'ontology', labelKey: 'Ontology', icon: 'account_tree' },
+  { id: 'databases', labelKey: 'settings_databases', icon: 'database' },
   { id: 'webapi', labelKey: 'settings_search_providers', icon: 'travel_explore' },
   { id: 'localmodels', labelKey: 'settings_local_models', icon: 'terminal' },
   { id: 'workspace', labelKey: 'settings_workspace', icon: 'folder_open' },
@@ -267,7 +271,12 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         role="dialog" aria-modal="true"
         style={{
           position: 'relative', zIndex: 1, display: 'flex',
-          width: 800, height: 'min(800px, calc(100vh - 48px))', maxWidth: 'calc(100vw - 48px)',
+          // The databases section is a 7-column table: at 800px it scrolled
+          // sideways and only a couple of rows fit. Give that one section a
+          // roomier shell (8 rows on screen, no horizontal scroll).
+          width: section === 'databases' || section === 'ontology' ? 1080 : 800,
+          height: section === 'databases' ? 'min(880px, calc(100vh - 48px))' : 'min(800px, calc(100vh - 48px))',
+          maxWidth: 'calc(100vw - 48px)',
           borderRadius: 24, overflow: 'hidden',
           background: tok.layer2, boxShadow: '0 16px 48px rgba(0,0,0,0.35)',
         }}
@@ -310,9 +319,11 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             >✕</button>
           </div>
           <div style={{ flex: 1, minHeight: 0, padding: '0 24px 24px', overflowY: 'auto' }}>
-            <div style={{ maxWidth: 720 }}>
+            <div style={{ maxWidth: section === 'databases' || section === 'ontology' ? 1080 : 720 }}>
               {section === 'general' && <GeneralSection i18n={i18n} activeTheme={activeTheme.name} setTheme={setTheme} />}
               {section === 'models' && <ModelsSection />}
+              {section === 'ontology' && <OntologySection />}
+              {section === 'databases' && <DatabasesSection />}
               {section === 'webapi' && <SearchSection />}
               {section === 'localmodels' && <LocalModelsSection />}
               {section === 'workspace' && <WorkspaceSection />}
@@ -1503,6 +1514,512 @@ function KnowledgeSection() {
 }
 
 // ── About ─────────────────────────────────────────────────────────
+
+// ── Databases ────────────────────────────────────────────────────────
+/** Which databases the SQL tools (and the Studio picker) may point at.
+ *
+ * The table lists the CATALOG — every database the server can reach, joined with
+ * the stored setting — so the admin sees the ones they switched off instead of
+ * having them vanish from the page. Only switched-ON rows are stored: the setting
+ * IS the offered list.
+ *
+ * This exists because the picker used to enumerate EVERY database on the platform
+ * Postgres — including `langconfig` and `postgres`, i.e. the platform's own tables
+ * were one dropdown click away from `sql_db_query`.
+ *
+ * Admin-only: the list changes what every account's tools may reach. Members see
+ * it read-only rather than a control that would 403.
+ */
+interface DbEntry {
+  name: string
+  label?: string | null
+  /** platform/target = a SQL database; dashboard = a dashboard grouping with pages. */
+  kind: 'platform' | 'target' | 'dashboard'
+  host?: string | null
+  port?: number | string | null
+  dbname?: string | null
+  user?: string | null
+  enabled?: boolean
+  /** True when a password is stored for this target (the value never arrives). */
+  has_password?: boolean
+  /** True when the row comes from the setting; false = discovered on the server. */
+  registered?: boolean
+}
+
+// ── Ontology workbench profiles ──────────────────────────────────
+// The Ontology activity opens ONE profile at a time: a workbench server that loads an
+// ontology folder, its computation overlay, the target DSN and the SQL guardrails. Which
+// profiles exist is a decision, so it lives here — before this section it was four URLs
+// compiled into the frontend bundle, which meant "add an ontology" required a rebuild.
+//
+// The ontology's actual content (objects, definitions, metrics) is NOT edited here: it is
+// TTL in the ontology repo, versioned with the ontology, and readable in the browser.
+
+interface OntologyProfileRow {
+  key: string
+  label: string
+  url: string
+  profile?: string | null
+  note?: string | null
+  enabled?: boolean
+}
+
+function OntologySection() {
+  const [items, setItems] = useState<OntologyProfileRow[]>([])
+  const [defaultKey, setDefaultKey] = useState<string>('')
+  const [showSql, setShowSql] = useState(true)
+  const [revision, setRevision] = useState<number>(0)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [dirty, setDirty] = useState(false)
+
+  const load = useCallback(async () => {
+    const ns = await describeNs('ontology')
+    if (!ns) {
+      setMsg({ ok: false, text: 'the `ontology` settings namespace is not registered on this backend' })
+      return
+    }
+    setItems((ns.value?.items || []) as OntologyProfileRow[])
+    setDefaultKey(ns.value?.default_key || '')
+    setShowSql(ns.value?.show_sql !== false)
+    setRevision(ns.revision || 0)
+    setDirty(false)
+  }, [])
+  useEffect(() => { void load() }, [load])
+
+  const patch = (i: number, k: keyof OntologyProfileRow, v: any) => {
+    setItems(rows => rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)))
+    setDirty(true)
+  }
+  const addRow = () => {
+    const n = items.length + 1
+    setItems(rows => [...rows, { key: `ontology${n}`, label: `Ontology ${n}`, url: 'http://127.0.0.1:8099', profile: '', note: '', enabled: true }])
+    setDirty(true)
+  }
+  const removeRow = (i: number) => {
+    setItems(rows => rows.filter((_, j) => j !== i))
+    setDirty(true)
+  }
+  const move = (i: number, d: -1 | 1) => {
+    setItems(rows => {
+      const next = [...rows]
+      const j = i + d
+      if (j < 0 || j >= next.length) return rows
+      ;[next[i], next[j]] = [next[j], next[i]]
+      return next
+    })
+    setDirty(true)
+  }
+
+  const save = async () => {
+    setBusy(true)
+    setMsg(null)
+    const clean = items.map(r => ({
+      key: (r.key || '').trim(),
+      label: (r.label || r.key || '').trim(),
+      url: (r.url || '').trim().replace(/\/+$/, ''),
+      profile: (r.profile || '').trim() || null,
+      note: (r.note || '').trim() || null,
+      enabled: r.enabled !== false,
+    }))
+    const dupes = clean.map(r => r.key).filter((k, i, all) => k && all.indexOf(k) !== i)
+    const blank = clean.filter(r => !r.key || !r.url)
+    if (blank.length) {
+      setMsg({ ok: false, text: 'every profile needs a key and a URL' })
+      setBusy(false)
+      return
+    }
+    if (dupes.length) {
+      setMsg({ ok: false, text: `duplicate key(s): ${[...new Set(dupes)].join(', ')}` })
+      setBusy(false)
+      return
+    }
+    const ok = await mutateNs('ontology', [
+      { op: 'set', path: ['items'], value: clean },
+      { op: 'set', path: ['default_key'], value: defaultKey || (clean[0]?.key ?? null) },
+      { op: 'set', path: ['show_sql'], value: showSql },
+    ])
+    setBusy(false)
+    if (ok) {
+      setMsg({ ok: true, text: 'saved — the Ontology activity reads this list on its next load' })
+      await load()
+    } else {
+      setMsg({ ok: false, text: 'save failed (a stale revision or an invalid value) — reloaded from the server' })
+      await load()
+    }
+  }
+
+  const input: React.CSSProperties = {
+    width: '100%', boxSizing: 'border-box', height: 30, padding: '0 8px', borderRadius: 7,
+    fontSize: 12, border: `1px solid ${tok.borderL2}`,
+    background: `var(--color-input-background, ${tok.layer1})`, color: tok.labelPrimary, outline: 'none',
+    fontFamily: 'ui-monospace, Menlo, monospace',
+  }
+  const label: React.CSSProperties = { fontSize: 10.5, color: tok.labelTertiary, marginBottom: 3, display: 'block' }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%' }}>
+      <SectionTitle
+        title="Ontology"
+        desc="The workbench profiles the Ontology activity can open. Each one is a server that loads one ontology folder and serves its numbers; the ontology's own content lives in TTL files in the ontology repo, not here."
+      />
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', border: `1px solid ${tok.borderL2}`, borderRadius: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, lineHeight: '22px', fontWeight: 500, color: tok.labelPrimary }}>Show compiled SQL in the browser</div>
+          <div style={{ fontSize: 12, lineHeight: '18px', color: tok.labelTertiary }}>
+            A metric's number is the contract; the SQL is how it was computed. Off hides the SQL for readers who only need the definition.
+          </div>
+        </div>
+        <Toggle checked={showSql} onChange={v => { setShowSql(v); setDirty(true) }} />
+      </div>
+
+      {items.map((row, i) => (
+        <div key={i} style={{ border: `1px solid ${tok.borderL2}`, borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              value={row.label || ''}
+              onChange={e => patch(i, 'label', e.target.value)}
+              placeholder="Label"
+              style={{ ...input, width: 200, fontFamily: 'inherit', fontSize: 13, fontWeight: 500 }}
+            />
+            <input
+              value={row.key || ''}
+              onChange={e => patch(i, 'key', e.target.value)}
+              placeholder="key"
+              style={{ ...input, width: 130 }}
+            />
+            {defaultKey === row.key && (
+              <span style={{ fontSize: 10.5, padding: '1px 7px', borderRadius: 9, border: `1px solid ${tok.borderL2}`, color: tok.labelTertiary }}>
+                default
+              </span>
+            )}
+            <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+              <Btn dense onClick={() => setDefaultKey(row.key)} disabled={defaultKey === row.key}>make default</Btn>
+              <Btn dense onClick={() => move(i, -1)} disabled={i === 0}>↑</Btn>
+              <Btn dense onClick={() => move(i, 1)} disabled={i === items.length - 1}>↓</Btn>
+              <Toggle checked={row.enabled !== false} onChange={v => patch(i, 'enabled', v)} />
+              <Btn dense variant="danger" onClick={() => removeRow(i)}>remove</Btn>
+            </span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 10 }}>
+            <div>
+              <span style={label}>workbench URL</span>
+              <input value={row.url || ''} onChange={e => patch(i, 'url', e.target.value)} placeholder="http://127.0.0.1:8096" style={input} />
+            </div>
+            <div>
+              <span style={label}>profile path (shown to the reader; the server was started with it)</span>
+              <input value={row.profile || ''} onChange={e => patch(i, 'profile', e.target.value)} placeholder="ontologies/clinic/clinic_settings.json" style={input} />
+            </div>
+          </div>
+          <div>
+            <span style={label}>one line — what this ontology is for</span>
+            <input value={row.note || ''} onChange={e => patch(i, 'note', e.target.value)} placeholder="built by a DeepAgent from clinic_db" style={{ ...input, fontFamily: 'inherit' }} />
+          </div>
+        </div>
+      ))}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Btn onClick={addRow}>+ add profile</Btn>
+        <Btn variant="primary" onClick={() => void save()} disabled={busy || !dirty}>{busy ? 'saving…' : 'save'}</Btn>
+        <Btn onClick={() => void load()} disabled={busy}>reload</Btn>
+        <span style={{ fontSize: 12, color: tok.labelTertiary }}>
+          {dirty ? 'unsaved changes' : `${items.length} profile(s) · revision ${revision}`}
+        </span>
+      </div>
+
+      {msg && (
+        <div style={{ fontSize: 12, lineHeight: '18px', color: msg.ok ? tok.success : tok.error }}>{msg.text}</div>
+      )}
+      <div style={{ fontSize: 12, lineHeight: '18px', color: tok.labelTertiary }}>
+        A profile that is not running still appears in the Ontology activity — it shows as “not running”
+        with the command that starts it, so a stopped server never looks like an empty ontology.
+      </div>
+    </div>
+  )
+}
+
+function DatabasesSection() {
+  const { t } = useTranslation('chat')
+  const [rows, setRows] = useState<DbEntry[]>([])
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const [active, setActive] = useState<string | null>(null)
+  // Draft password per row, and the result of the last connection test per row.
+  const [pwDraft, setPwDraft] = useState<Record<string, string>>({})
+  const [testResult, setTestResult] = useState<Record<string, { ok: boolean; text: string }>>({})
+  const [testing, setTesting] = useState<string | null>(null)
+
+  // The table shows the CATALOG (every database the server can reach), not just
+  // the stored list. Storing only the switched-on names meant a database that
+  // exists but is switched off was invisible on this page — which is why it
+  // looked like the setting had one or two databases in it.
+  const load = useCallback(async () => {
+    try {
+      const res = await apiClient.get('/api/graph-studio/databases/catalog')
+      const list = (res.data?.databases || []) as DbEntry[]
+      setActive(res.data?.active_sql ?? null)
+      setRows(list.map(r => ({
+        ...r,
+        kind: (r.kind || 'platform') as 'platform' | 'target',
+        enabled: r.enabled !== false,
+      })))
+    } catch {
+      // Catalog unreachable → fall back to what is stored, so an admin can still
+      // fix the setting instead of being shown an empty table.
+      const ns = await describeNs('databases')
+      const items = (ns?.value?.items || []) as DbEntry[]
+      setRows(items.map(i => ({ ...i, kind: (i.kind || 'platform') as 'platform' | 'target' })))
+    }
+    setLoaded(true)
+  }, [])
+
+  useEffect(() => { load(); currentUserIsAdmin().then(setIsAdmin) }, [load])
+
+  const patch = (idx: number, key: keyof DbEntry, value: any) =>
+    setRows(prev => prev.map((r, i) => (i === idx ? { ...r, [key]: value } : r)))
+
+  const addRow = () =>
+    setRows(prev => [...prev, { name: '', label: '', kind: 'platform', enabled: true, registered: false }])
+
+  const removeRow = (idx: number) => setRows(prev => prev.filter((_, i) => i !== idx))
+
+  /** Save one row's password. Kept separate from 保存 because the table is stored
+   *  as one list value and the browser never receives the stored secret — saving
+   *  the whole table would blank it. */
+  const savePassword = async (name: string) => {
+    const value = (pwDraft[name] || '').trim()
+    if (!value) return
+    try {
+      await apiClient.post(`/api/graph-studio/databases/${encodeURIComponent(name)}/password`, { password: value })
+      setPwDraft(prev => ({ ...prev, [name]: '' }))
+      await load()
+      setMsg({ ok: true, text: `${name}：密码已保存` })
+    } catch (e: any) {
+      setMsg({ ok: false, text: `${name}：密码保存失败 — ${e?.response?.data?.detail || e?.message || ''}` })
+    }
+  }
+
+  /** Open a real connection and show what the server said. */
+  const testConnection = async (name: string) => {
+    setTesting(name)
+    try {
+      const res = await apiClient.post(`/api/graph-studio/databases/${encodeURIComponent(name)}/test`, {})
+      const d = res.data || {}
+      setTestResult(prev => ({
+        ...prev,
+        [name]: d.ok
+          ? { ok: true, text: `${d.tables} 张表 · ${d.role} · ${d.version}` }
+          : { ok: false, text: String(d.detail || '连接失败') },
+      }))
+    } catch (e: any) {
+      setTestResult(prev => ({ ...prev, [name]: { ok: false, text: e?.response?.data?.detail || e?.message || '连接失败' } }))
+    } finally {
+      setTesting(null)
+    }
+  }
+
+  const onCount = rows.filter(r => r.enabled && (r.name || '').trim()).length
+
+  // Every row is stored, including the switched-OFF ones: "off on purpose" has to
+  // be told apart from "not registered yet". A published database is shared with
+  // every account; an off one is hidden from everyone; an unregistered draft stays
+  // with whoever generated it (see services/offered_databases.visibility_of).
+  const save = async () => {
+    const clean = rows
+      .map(r => ({
+        name: (r.name || '').trim(),
+        label: (r.label || '').toString().trim() || null,
+        kind: r.kind || 'platform',
+        host: (r.host || '').toString().trim() || null,
+        port: r.port ? Number(r.port) : null,
+        dbname: (r.dbname || '').toString().trim() || null,
+        user: (r.user || '').toString().trim() || null,
+        enabled: r.enabled !== false,
+      }))
+      .filter(r => r.name)
+    const bad = clean.find((r, i) => clean.findIndex(x => x.name === r.name) !== i)
+    if (bad) { setMsg({ ok: false, text: `重复的名字：${bad.name}` }); return }
+    setSaving(true); setMsg(null)
+    const ok = await mutateNs('databases', [{ op: 'set', path: ['items'], value: clean }])
+    setSaving(false)
+    if (ok) {
+      await load() // re-read the catalog: the switches now come from the setting
+      const offCount = clean.filter(r => !r.enabled).length
+      setMsg({ ok: true, text: `已保存：${clean.length - offCount} 个开启 · ${offCount} 个关闭` })
+    } else {
+      await load()
+      setMsg({ ok: false, text: '保存失败：需要 admin 账号（见下方说明）' })
+    }
+  }
+
+  const cell = (style?: React.CSSProperties): React.CSSProperties => ({
+    // 38px rows: eight databases fit on one screen without scrolling.
+    padding: '9px 10px', fontSize: 13, background: tok.layer1,
+    border: `1px solid ${tok.borderL2}`, borderRadius: 6, color: tok.labelPrimary,
+    minWidth: 0, boxSizing: 'border-box', ...style,
+  })
+
+  return (
+    <div>
+      <SectionTitle
+        title={t('settings_databases')}
+        desc={t('settings_databases_desc')}
+      />
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 10px' }}>
+        <span style={{ fontSize: 12, color: tok.labelTertiary }}>
+          {rows.length} 个库 · {onCount} 个开启 · {rows.length - onCount} 个关闭
+          {active ? ` · 当前指向 ${active}` : ''}
+        </span>
+        <button onClick={() => void load()} title="重新扫描服务器上的库" style={{
+          marginLeft: 'auto', padding: '3px 10px', fontSize: 12, borderRadius: 4, cursor: 'pointer',
+          border: `1px solid ${tok.borderL2}`, background: 'transparent', color: tok.labelSecondary,
+        }}>重新扫描</button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {loaded && rows.length === 0 && (
+          <div style={{ fontSize: 13, color: tok.labelTertiary, padding: '10px 0' }}>
+            {t('settings_databases_empty')}
+          </div>
+        )}
+
+        {rows.length > 0 && (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 4px', fontSize: 13 }}>
+              <thead>
+                <tr style={{ color: tok.labelTertiary, textAlign: 'left' }}>
+                  {['on', 'name', 'label', 'kind', 'host', 'port', 'user', 'password', '', ''].map((h, i) => (
+                    <th key={h || `c${i}`} style={{ padding: '4px 6px', fontWeight: 500, fontSize: 12 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => {
+                  const fixedName = r.registered === false // discovered: the name is the real dbname
+                  return (
+                    <tr key={`${r.name}-${i}`} style={{ opacity: r.enabled ? 1 : 0.55 }}>
+                      <td style={{ padding: '0 4px', textAlign: 'center' }}>
+                        <input type="checkbox" checked={r.enabled !== false} disabled={!isAdmin}
+                          title={r.enabled !== false ? '开启：出现在下拉里' : '关闭：不提供给 agent'}
+                          onChange={e => patch(i, 'enabled', e.target.checked)} />
+                      </td>
+                      <td style={{ padding: '0 4px' }}>
+                        <input value={r.name} disabled={!isAdmin || fixedName}
+                          onChange={e => patch(i, 'name', e.target.value)}
+                          title={fixedName ? '服务器上已有的库，名字固定' : ''}
+                          placeholder="chinook" style={cell({ width: 140, fontFamily: 'monospace' })} />
+                      </td>
+                      <td style={{ padding: '0 4px' }}>
+                        <input value={r.label || ''} disabled={!isAdmin} onChange={e => patch(i, 'label', e.target.value)}
+                          placeholder="显示名" style={cell({ width: 160 })} />
+                      </td>
+                      <td style={{ padding: '0 4px' }}>
+                        <select value={r.kind} disabled={!isAdmin || fixedName} onChange={e => patch(i, 'kind', e.target.value)}
+                          style={cell({ width: 96 })}>
+                          <option value="platform">platform</option>
+                          <option value="target">target</option>
+                          <option value="dashboard">dashboard</option>
+                        </select>
+                      </td>
+                      <td style={{ padding: '0 4px' }}>
+                        <input value={r.host || ''} disabled={!isAdmin || r.kind !== 'target'}
+                          onChange={e => patch(i, 'host', e.target.value)}
+                          placeholder={r.kind === 'target' ? '127.0.0.1' : '—'} style={cell({ width: 110, fontFamily: 'monospace' })} />
+                      </td>
+                      <td style={{ padding: '0 4px' }}>
+                        <input value={r.port ?? ''} disabled={!isAdmin || r.kind !== 'target'}
+                          onChange={e => patch(i, 'port', e.target.value ? Number(e.target.value) : null)}
+                          placeholder={r.kind === 'target' ? '5432' : '—'} style={cell({ width: 66, fontFamily: 'monospace' })} />
+                      </td>
+                      <td style={{ padding: '0 4px' }}>
+                        <input value={r.user || ''} disabled={!isAdmin || r.kind !== 'target'}
+                          onChange={e => patch(i, 'user', e.target.value)}
+                          placeholder={r.kind === 'target' ? 'myrole' : '—'} style={cell({ width: 88, fontFamily: 'monospace' })} />
+                      </td>
+                      <td style={{ padding: '0 4px' }}>
+                        <input
+                          type="password"
+                          value={pwDraft[r.name] || ''}
+                          disabled={!isAdmin || r.kind !== 'target'}
+                          onChange={e => setPwDraft(prev => ({ ...prev, [r.name]: e.target.value }))}
+                          onKeyDown={e => { if (e.key === 'Enter') void savePassword(r.name) }}
+                          onBlur={() => void savePassword(r.name)}
+                          placeholder={r.kind === 'target' ? (r.has_password ? '已设置（留空不改）' : '密码') : '—'}
+                          title={r.kind === 'target'
+                            ? (r.has_password ? '已保存密码；留空保存不会清除它' : '这个 target 还没有密码')
+                            : 'platform 用 POSTGRES_* 里的凭据'}
+                          style={cell({ width: 112, fontFamily: 'monospace' })}
+                        />
+                      </td>
+                      <td style={{ padding: '0 4px', whiteSpace: 'nowrap' }}>
+                        <button
+                          onClick={() => void testConnection(r.name)}
+                          disabled={testing === r.name}
+                          title="真的连一次库，把服务器返回的原话显示出来"
+                          style={{
+                            height: 26, padding: '0 8px', fontSize: 11, borderRadius: 5,
+                            border: `1px solid ${tok.borderL2}`, background: 'transparent',
+                            color: tok.labelSecondary, cursor: testing === r.name ? 'wait' : 'pointer',
+                          }}
+                        >{testing === r.name ? '…' : '测试'}</button>
+                        {testResult[r.name] && (
+                          <div
+                            title={testResult[r.name].text}
+                            style={{
+                              marginTop: 3, maxWidth: 190, fontSize: 10.5, lineHeight: '14px',
+                              color: testResult[r.name].ok ? '#2e7d32' : '#e5484d',
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}
+                          >{testResult[r.name].ok ? '✓ ' : '✗ '}{testResult[r.name].text}</div>
+                        )}
+                      </td>
+                      <td style={{ padding: '0 4px' }}>
+                        {isAdmin && !fixedName && (
+                          <button onClick={() => removeRow(i)} title="移除这一行"
+                            style={{ border: 'none', background: 'transparent', color: '#e5484d', cursor: 'pointer', fontSize: 13 }}>
+                            ✕
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
+          {isAdmin ? (
+            <>
+              <button onClick={addRow} style={{
+                padding: '5px 12px', fontSize: 13, borderRadius: 4, cursor: 'pointer',
+                border: `1px solid ${tok.borderL2}`, background: 'transparent', color: tok.labelPrimary,
+              }}>{t('settings_databases_add')}</button>
+              <button onClick={save} disabled={saving} style={{
+                padding: '5px 14px', fontSize: 13, borderRadius: 4, cursor: saving ? 'wait' : 'pointer',
+                border: 'none', background: tok.primary, color: '#fff', opacity: saving ? 0.6 : 1,
+              }}>{saving ? '…' : t('settings_databases_save')}</button>
+            </>
+          ) : (
+            <span style={{ fontSize: 12, color: tok.labelTertiary }}>{t('settings_databases_admin_only')}</span>
+          )}
+          {msg && (
+            <span style={{ fontSize: 12, color: msg.ok ? '#2e7d32' : '#e5484d' }}>{msg.text}</span>
+          )}
+        </div>
+
+        <p style={{ fontSize: 12, lineHeight: '18px', color: tok.labelTertiary, margin: '10px 0 0', maxWidth: 760 }}>
+          {t('settings_databases_hint')}
+        </p>
+      </div>
+    </div>
+  )
+}
 
 function AboutSection() {
   const { t } = useTranslation('chat')
