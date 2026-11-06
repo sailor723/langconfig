@@ -76,6 +76,37 @@ export const FALLBACK_PROFILES: OntologyProfile[] = [
 
 const STORAGE_URL = 'langconfig.ontology.url';
 
+export interface OntologySection {
+  key: string;
+  label: string;
+  path: string;
+  hint: string;
+  enabled: boolean;
+}
+
+/**
+ * The workbench section an ontology exposes. The workbench's own rail is hidden when it is
+ * framed (embed=1) — these are the entries that replace it, one list under each ontology.
+ */
+export const SECTIONS: Array<{ key: string; label: string; path: string; hint: string }> = [
+  { key: 'home', label: 'Overview', path: '/', hint: 'the generated ontology page: objects, links, documentation' },
+  { key: 'query', label: 'Query', path: '/query', hint: 'ask in your own words; rules first, model only when unsure' },
+  { key: 'actions', label: 'Actions', path: '/actions', hint: 'declared writes: compiled preconditions, dry-run, audit' },
+  { key: 'design', label: 'Design', path: '/design', hint: 'the architecture of this ontology: two lanes, one question' },
+  { key: 'tutorial', label: 'Tutorial', path: '/tutorial', hint: 'a guided walk through the axioms and their numbers' },
+];
+
+/** Everything the frame needs: the page, no workbench chrome, and the host app's look. */
+export function framedUrl(url: string, sectionPath: string, theme: 'dark' | 'light', lang?: string): string {
+  const base = normalizeUrl(url);
+  const sep = sectionPath.includes('?') ? '&' : '?';
+  const params = new URLSearchParams({ embed: '1', theme });
+  if (lang) params.set('lang', lang);
+  return `${base}${sectionPath}${sep}${params.toString()}`;
+}
+
+
+
 export interface OntologyState {
   url: string;
   preset: string | null;
@@ -89,6 +120,8 @@ export interface OntologyState {
   profilesError: string | null;
   defaultKey: string | null;
   showSql: boolean;
+  /** Sections this profile serves (from the server, not a compiled list). */
+  sections: OntologySection[];
   probes: Record<string, { status: 'unknown' | 'up' | 'down'; counts?: OntologyCounts; error?: string }>;
 }
 
@@ -115,6 +148,7 @@ let state: OntologyState = {
   profilesError: null,
   defaultKey: null,
   showSql: true,
+  sections: SECTIONS.map(x => ({ ...x, enabled: x.key !== 'actions' && x.key !== 'tutorial' })),
   probes: {},
 };
 
@@ -229,11 +263,21 @@ export const ontology = {
     }
     emit({ url: clean, preset, status: 'loading', error: null, ontology: null });
     try {
-      const doc: Ontology = await getJson(clean, '/api/ontology', 8000);
+      const [doc, secs] = await Promise.all([
+        getJson(clean, '/api/ontology', 8000),
+        getJson(clean, '/api/sections', 4000).catch(() => null),
+      ]);
       if (!doc.ok) throw new Error(doc.error || 'the workbench refused the profile');
+      const served = Array.isArray(secs?.sections) ? secs.sections : null;
       emit({
         status: 'up',
         ontology: doc,
+        sections: served
+          ? served.map((x: any) => ({
+              key: String(x.key), label: String(x.label), path: String(x.path),
+              hint: String(x.hint || ''), enabled: x.enabled !== false,
+            }))
+          : SECTIONS.map(x => ({ ...x, enabled: true })),
         probes: { ...state.probes, [clean]: { status: 'up', counts: doc.counts } },
       });
     } catch (err: any) {

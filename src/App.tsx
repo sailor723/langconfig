@@ -33,7 +33,7 @@ import KnowledgeHomePage from './components/layout2/KnowledgeHomePage';
 // surface and the other the ingest surface over the same data.
 import OntologyHomePage from './pages/OntologyHomePage';
 import OntologyBrowserPage from './pages/OntologyBrowserPage';
-import OntologyAskPage from './pages/OntologyAskPage';
+import OntologySectionPage from './pages/OntologySectionPage';
 import OntologySidebar from './features/ontology/OntologySidebar';
 import HomePage from './pages/HomePage';
 import ProjectHomePage from './pages/ProjectHomePage';
@@ -654,7 +654,7 @@ function AppContent() {
         return skipHomeForDirect ? null : <KnowledgeHomePage />;
       case 'ontology': return <OntologyHomePage />;
       case 'ontology-browse': return <OntologyBrowserPage />;
-      case 'ontology-app': return <OntologyAskPage />;
+      case 'ontology-app': return <OntologySectionPage />;
       case 'analysis': return <AnalysisPage />;
       case 'playground': return <PlaygroundPage />;
       case 'deepagent-studio': return <DeepAgentStudioPage />;

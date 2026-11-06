@@ -9,9 +9,19 @@
  */
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Boxes, RefreshCw, Loader2, Play, ListTree, Settings2 } from 'lucide-react';
+import {
+  Boxes, RefreshCw, Loader2, ListTree, Settings2, Compass, PlayCircle, Gavel, FileCode2, GraduationCap,
+} from 'lucide-react';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { ontology, useOntology } from './ontologyStore';
+
+const SECTION_ICON: Record<string, any> = {
+  home: Compass,
+  query: PlayCircle,
+  actions: Gavel,
+  design: FileCode2,
+  tutorial: GraduationCap,
+};
 
 export default function OntologySidebar() {
   const t = useLayoutTokens();
@@ -103,20 +113,30 @@ export default function OntologySidebar() {
               <div style={{ fontSize: 10.5, color: t.textDim, marginTop: 2, lineHeight: 1.4 }}>
                 {p.profile || p.url}
               </div>
+              {/* The sections of the selected ontology. The workbench's own rail is hidden
+                  inside the frame (embed=1); this list is what replaces it, and it lives under
+                  the ontology it belongs to. */}
               {active && up && (
-                <div style={{ display: 'flex', gap: 10, marginTop: 5 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginTop: 5, paddingLeft: 12 }}>
                   <button
                     onClick={e => { e.stopPropagation(); navigate('/ontology/browse'); }}
-                    style={{ ...rowTitle, fontSize: 10.5, color: t.accent }}
+                    style={{ ...rowTitle, fontSize: 10.5, color: t.accent, padding: '2px 0' }}
                   >
-                    <ListTree size={11} /> browse
+                    <ListTree size={11} /> declarations
                   </button>
-                  <button
-                    onClick={e => { e.stopPropagation(); navigate('/ontology/app'); }}
-                    style={{ ...rowTitle, fontSize: 10.5, color: t.textMuted }}
-                  >
-                    <Play size={11} /> ask
-                  </button>
+                  {s.sections.filter(sec => sec.enabled).map(sec => {
+                    const Icon = SECTION_ICON[sec.key] ?? Compass;
+                    return (
+                      <button
+                        key={sec.key}
+                        title={sec.hint}
+                        onClick={e => { e.stopPropagation(); navigate(sec.key === 'home' ? '/ontology/app' : `/ontology/app?view=${sec.key}`); }}
+                        style={{ ...rowTitle, fontSize: 10.5, color: t.textMuted, padding: '2px 0' }}
+                      >
+                        <Icon size={11} /> {sec.label.toLowerCase()}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
