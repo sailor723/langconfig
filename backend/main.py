@@ -356,6 +356,13 @@ async def lifespan(app: FastAPI):
             notebook_cleanup_task.cancel()
         from services.notebook_kernel_manager import get_kernel_manager
         get_kernel_manager().shutdown_all()
+        # Workbench children are this process's to clean up: they were started on demand,
+        # and leaving them behind means the next boot finds orphaned servers on their ports.
+        try:
+            from services import ontology_workbench
+            ontology_workbench.shutdown()
+        except Exception as exc:  # noqa: BLE001 — never block shutdown
+            logger.warning("ontology workbench shutdown failed: %s", exc)
         logger.info("Notebook kernels shut down")
     except Exception as e:
         logger.error(f"Error shutting down notebook kernels: {e}")
@@ -685,7 +692,6 @@ from api.knowledge import rag, store
 from api.knowledge import graphindex_chat  # Phase 9 / Step K
 from api.knowledge import doc_chat  # Simplified doc chat (folder-based, no RAG/Neo4j)
 from api.knowledge import kv  # Simple KV document store (no DB dependencies)
-from api import rag_chat  # Embedding-based doc chat (semantic search, per-account collections)
 from api.system import settings, health, debug, background_tasks, search_providers
 from api.system import settings_documents  # DSH-style describe/mutate wire API
 from api.models import local as local_models
@@ -717,6 +723,7 @@ from api.classic_graph import routes as classic_graph
 from api.graph_studio import routes as graph_studio
 from api.semantics import routes as semantics
 from api.plugins import router as plugins
+from api.ontology import routes as ontology_workbench_routes
 
 # Health check endpoints
 app.include_router(health.router)
@@ -733,7 +740,6 @@ app.include_router(tasks.router)
 app.include_router(rag.router)
 app.include_router(graphindex_chat.router)  # Phase 9 / Step K — graphindex_chat agent API
 app.include_router(doc_chat.router)  # Simplified doc-chat — folder-based context, no RAG/Neo4j
-app.include_router(rag_chat.router)  # Embedding doc-chat — splits/embeds/retrieves, cites pages
 app.include_router(kv.router)  # KV document store — no DB dependencies
 app.include_router(background_tasks.router)  # Background task queue management
 app.include_router(auth_signin)  # Sign-in page, login/logout, sessions (public)
@@ -770,6 +776,7 @@ app.include_router(classic_graph.router)  # Classic LangGraph builder API
 app.include_router(graph_studio.router)  # Graph Engineering Studio (code-defined graphs)
 app.include_router(semantics.router)  # SEMANTICS.md per database: read + edit + gate
 app.include_router(plugins)  # LangChain-style declarative plugins (marketplace + components)
+app.include_router(ontology_workbench_routes.router)  # ontology workbench: start/probe per-profile servers
 
 # ── Built SPA for LAN users (docs/installation/lan-access.md) ───────────────────
 # Local development serves the UI from Vite on :1421. A colleague on another

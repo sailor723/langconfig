@@ -105,8 +105,8 @@ export default function OntologySectionPage() {
         <Btn onClick={() => { void ontology.select(s.url, s.preset ?? undefined); setNonce(n => n + 1); }} title="reload the section">
           <RefreshCw size={13} /> reload
         </Btn>
-        <Btn onClick={() => navigate('/ontology/browse')} title="declarations (objects, definitions, links, metrics)">
-          <ListTree size={13} /> declarations
+        <Btn onClick={() => navigate('/ontology/browse')} title="objects, definitions, links and every metric with its compiled SQL">
+          <ListTree size={13} /> schema &amp; metrics
         </Btn>
         <Btn title="open this section without the frame" onClick={() => window.open(src, '_blank', 'noreferrer')}>
           <ExternalLink size={13} /> open

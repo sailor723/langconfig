@@ -166,8 +166,10 @@ export default function OntologyHomePage() {
                   {up ? 'running' : loading ? 'probing' : 'not running'}
                 </Chip>
               </div>
+              {/* The address is an implementation detail: the backend starts the server.
+                  What a reader needs is which profile is loaded. */}
               <div style={{ fontSize: 11.5, color: t.textDim, fontFamily: 'ui-monospace, Menlo, monospace' }}>
-                {p.url} · {p.profile}
+                {p.profile || p.key}
               </div>
               <div style={{ fontSize: 12.5, color: t.textMuted, lineHeight: 1.6 }}>{p.note}</div>
 
@@ -183,11 +185,12 @@ export default function OntologyHomePage() {
                 <div style={{ fontSize: 12, color: DANGER, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
                   <AlertTriangle size={13} style={{ flex: 'none', marginTop: 2 }} />
                   <span style={{ lineHeight: 1.6 }}>
-                    {probe?.error || 'probing…'}
+                    {probe?.error || 'starting…'}
                     <br />
-                    <code style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 11, color: t.textMuted }}>
-                      {`serve_ui.py --settings ${p.profile || '<profile>'} --port ${new URL(p.url).port}`}
-                    </code>
+                    <span style={{ color: t.textMuted, fontSize: 11.5 }}>
+                      the app starts a workbench for this profile on demand — if it stays down,
+                      check Settings → Ontology (repo path and interpreter).
+                    </span>
                   </span>
                 </div>
               )}

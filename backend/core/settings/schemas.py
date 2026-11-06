@@ -461,6 +461,18 @@ class OntologySettings(BaseModel):
     default_key: Optional[str] = Field(
         default=None, description="key of the profile the Ontology activity opens by default"
     )
+    repo_path: Optional[str] = Field(
+        default=None,
+        description=(
+            "Where the ontology repo lives (the folder with retail_graph/serve_ui.py). The "
+            "supervisor starts each profile's workbench from here, so the URLs are an "
+            "implementation detail the user never has to manage."
+        ),
+    )
+    python: Optional[str] = Field(
+        default=None,
+        description="Interpreter for the workbench — it needs rdflib + psycopg2 (the repo's tutorial venv).",
+    )
     show_sql: bool = Field(
         default=True,
         description="Show the compiled SQL in the browser. Off = the number is the contract, "

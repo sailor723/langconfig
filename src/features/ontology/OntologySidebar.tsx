@@ -127,7 +127,7 @@ export default function OntologySidebar() {
                 </span>
               </div>
               <div style={{ fontSize: 11, color: t.textDim, marginTop: 2, lineHeight: 1.45 }}>
-                {p.profile || p.url}
+                {p.profile || p.key}
               </div>
               {/* The sections of the selected ontology. The workbench's own rail is hidden
                   inside the frame (embed=1); this list is what replaces it, and it lives under
@@ -136,9 +136,10 @@ export default function OntologySidebar() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginTop: 5, paddingLeft: 12 }}>
                   <button
                     onClick={e => { e.stopPropagation(); navigate('/ontology/browse'); }}
+                    title="objects, definitions, links and every metric with its compiled SQL"
                     style={{ ...rowTitle, fontSize: 11.5, color: t.accent, padding: '2px 0' }}
                   >
-                    <ListTree size={11} /> declarations
+                    <ListTree size={11} /> schema &amp; metrics
                   </button>
                   {(probe?.sections ?? s.sections).filter(sec => sec.enabled).map(sec => {
                     const Icon = SECTION_ICON[sec.key] ?? Compass;

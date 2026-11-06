@@ -71,6 +71,10 @@ def get_defaults() -> dict[str, dict]:
             ],
             "default_key": "clinic",
             "show_sql": True,
+            # The supervisor starts each profile's workbench on demand from here; the
+            # addresses stay an implementation detail.
+            "repo_path": "/Users/weiping/dev/Learn/ontology",
+            "python": "/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python",
         },
         "workspace": {
             "base_dir": "backend/outputs",
