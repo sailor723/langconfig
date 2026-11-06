@@ -19,41 +19,51 @@ import {
 } from 'lucide-react';
 import { useLayoutTokens } from '../components/layout2/tokens';
 import { ontology, useOntology } from '../features/ontology/ontologyStore';
+import {
+  PageShell, Hero, Section, Card, Stat, Chip, Btn, Quiet, StatusDot,
+  SUCCESS, DANGER, WARN, VIOLET, CYAN, INFO,
+} from '../features/ontology/ui';
 
 const CONCEPTS = [
   {
     icon: Layers,
     term: 'Objects',
+    colour: INFO,
     palantir: 'Object type',
     body: 'A thing the business talks about — a patient, an order, an appointment. Each object names its physical table and its primary key, including composite keys. 18 classes in the clinic ontology: 8 objects, 10 definitions.',
   },
   {
     icon: Link2,
     term: 'Links',
+    colour: CYAN,
     palantir: 'Link type',
     body: 'A declared relationship, never an inferred one: the child’s foreign-key column plus the target it references. Drop the reference and a join is refused by name — the ontology refuses to guess a path between two tables.',
   },
   {
     icon: GitBranch,
     term: 'Definitions',
+    colour: VIOLET,
     palantir: 'Type / derived property',
     body: 'What a word MEANS, as an axiom: 已完成就诊 is an appointment whose status is "completed". A ratio’s denominator is written down once, so 拒赔率 cannot silently count pending claims as "not rejected".',
   },
   {
     icon: Sigma,
     term: 'Metrics',
+    colour: SUCCESS,
     palantir: 'Function / metric',
     body: 'Meaning and computation live in separate files: the axiom says what a number is, the overlay says how it is computed (aggregate, grain, universe, where, group-by). A metric with a formula but no grain refuses — that is the whole point.',
   },
   {
     icon: Gavel,
     term: 'Actions',
+    colour: WARN,
     palantir: 'Action type',
     body: 'A declared write with compiled preconditions, a dry-run and an audit trail (lane C). Properties a write owns are marked as such, so nobody hand-edits state that an action is supposed to own.',
   },
   {
     icon: ShieldCheck,
     term: 'Guardrails + gates',
+    colour: DANGER,
     palantir: 'Platform controls',
     body: 'Page cap, time bound, plan budget, statement timeout — enforced on every read. And gates that can go red: 41 checks on the clinic ontology, including five mutations that must each fail.',
   },
@@ -99,204 +109,150 @@ export default function OntologyHomePage() {
     navigate(where === 'browse' ? '/ontology/browse' : '/ontology/app');
   };
 
-  const card: React.CSSProperties = {
-    background: t.bgInput,
-    border: `1px solid ${t.border}`,
-    borderRadius: 10,
-    padding: '13px 15px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 7,
-  };
-  const h2 = (text: string, icon?: React.ReactNode) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 7, margin: '26px 0 10px' }}>
-      {icon}
-      <h2 style={{ margin: 0, fontSize: 13, fontWeight: 650, color: t.textPrimary, letterSpacing: 0.2 }}>
-        {text}
-      </h2>
-    </div>
-  );
-  const stat = (label: string, value: React.ReactNode, dim = false) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      <span style={{ fontSize: 16, fontWeight: 600, color: dim ? t.textMuted : t.textPrimary }}>{value}</span>
-      <span style={{ fontSize: 9.5, textTransform: 'uppercase', letterSpacing: 0.5, color: t.textDim }}>{label}</span>
-    </div>
-  );
-
   return (
-    <div style={{ height: '100%', overflowY: 'auto', padding: '22px 28px 48px' }}>
-      {/* ── hero ─────────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginBottom: 6 }}>
-        <Boxes size={20} color={t.accent} />
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 650, color: t.textPrimary }}>Ontology</h1>
-        <button
-          onClick={() => void ontology.probeAll()}
-          style={{
-            marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6,
-            fontSize: 11.5, padding: '5px 10px', borderRadius: 999, cursor: 'pointer',
-            border: `1px solid ${t.border}`, background: 'transparent', color: t.textMuted,
-          }}
-        >
-          <RefreshCw size={11} /> re-probe
-        </button>
-      </div>
+    <PageShell>
+      <Hero
+        icon={Boxes}
+        title="Ontology"
+        subtitle="the semantic layer, compiled — objects, definitions and metrics one number at a time"
+        actions={
+          <Btn onClick={() => void ontology.probeAll()} title="re-probe every workbench">
+            <RefreshCw size={13} /> re-probe
+          </Btn>
+        }
+      >
+        <p style={{ fontSize: 14, color: t.textPrimary, lineHeight: 1.8, margin: '0 0 8px', maxWidth: 760 }}>
+          An <b>ontology</b> is the layer where a company's data is described in its own words — objects,
+          the links between them, and what each number means — so every report, dashboard and agent
+          computes from the same definitions instead of re-deriving them in SQL.
+        </p>
+        <p style={{ fontSize: 13, color: t.textMuted, lineHeight: 1.7, margin: 0, maxWidth: 760 }}>
+          This one goes further than a catalogue: the semantic layer is <b>compiled</b>. A metric is a
+          declaration; the SQL is generated from it; a declaration that cannot compile is <b>refused by
+          name</b> rather than approximated. That refusal — not the dashboard — is the deliverable.
+        </p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+          {[
+            'nouns → objects · links · properties',
+            'verbs → definitions · metrics · actions',
+            'numbers → compiled, never typed',
+            'refusals → the backlog',
+          ].map(chip => <Chip key={chip}>{chip}</Chip>)}
+        </div>
+      </Hero>
 
-      <p style={{ margin: '0 0 6px', fontSize: 13, color: t.textMuted, maxWidth: 880, lineHeight: 1.7 }}>
-        An <b>ontology</b> is the layer where a company’s data is described in its own words — objects,
-        the links between them, and what each number means — so that every report, dashboard and agent
-        computes from the same definitions instead of re-deriving them in SQL.
-      </p>
-      <p style={{ margin: '0 0 4px', fontSize: 12.5, color: t.textMuted, maxWidth: 880, lineHeight: 1.7 }}>
-        This one goes further than a catalogue: the semantic layer is <b>compiled</b>. A metric is a
-        declaration; the SQL is generated from it; a declaration that cannot compile is <b>refused by
-        name</b> rather than approximated. That refusal — not the dashboard — is the deliverable.
-      </p>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '10px 0 4px' }}>
-        {[
-          'nouns → objects · links · properties',
-          'verbs → definitions · metrics · actions',
-          'numbers → compiled, never typed',
-          'refusals → the backlog',
-        ].map(chip => (
-          <span
-            key={chip}
-            style={{
-              fontSize: 10.5, padding: '2px 9px', borderRadius: 999,
-              border: `1px solid ${t.border}`, color: t.textMuted,
-              fontFamily: 'ui-monospace, Menlo, monospace',
-            }}
-          >
-            {chip}
-          </span>
-        ))}
-      </div>
-
-      {/* ── the ontologies ──────────────────────────────────────────────── */}
-      {h2('Ontologies available here', <Boxes size={13} color={t.accent} />)}
-      <p style={{ margin: '0 0 10px', fontSize: 11.5, color: t.textDim, maxWidth: 860, lineHeight: 1.6 }}>
-        Each card is one workbench profile — a server that loads one ontology folder and serves it.
-        Counts come from that server right now; a profile that is not running is listed with the command
-        that starts it. Which profiles appear is a setting (Settings → Ontology), not a hardcoded list.
-      </p>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
+      <Section
+        title="Ontologies available here"
+        hint={`${s.profiles.length} profile${s.profiles.length === 1 ? '' : 's'} · counts read live`}
+      >
+      <Quiet>
+        Each card is one workbench profile — a server that loads one ontology folder and serves it. A
+        profile that is not running is listed with the command that starts it. Which profiles appear is
+        a setting (Settings → Ontology), not a hardcoded list.
+      </Quiet>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 14, marginTop: 12 }}>
         {s.profiles.map(p => {
           const probe = s.probes[p.url];
           const up = probe?.status === 'up';
           const c = probe?.counts;
           const loading = probe?.status === 'unknown';
           return (
-            <div key={p.key} style={{ ...card, opacity: up ? 1 : 0.92 }}>
+            <Card key={p.key} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 14, fontWeight: 650, color: t.textPrimary }}>{p.label}</span>
-                <span
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10,
-                    padding: '1px 7px', borderRadius: 999,
-                    background: up ? '#e9f7f0' : loading ? '#fdf6e3' : '#fdecea',
-                    color: up ? '#12805c' : loading ? '#8a6d3b' : '#b3261e',
-                  }}
-                >
-                  {loading && <Loader2 size={9} className="animate-spin" />}
+                <StatusDot up={up} reason={probe?.error} />
+                <span style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary }}>{p.label}</span>
+                <Chip colour={up ? SUCCESS : loading ? WARN : DANGER}>
+                  {loading && <Loader2 size={10} className="animate-spin" />}
                   {up ? 'running' : loading ? 'probing' : 'not running'}
-                </span>
+                </Chip>
               </div>
-              <div style={{ fontSize: 10.5, color: t.textDim, fontFamily: 'ui-monospace, Menlo, monospace' }}>
+              <div style={{ fontSize: 11.5, color: t.textDim, fontFamily: 'ui-monospace, Menlo, monospace' }}>
                 {p.url} · {p.profile}
               </div>
-              <div style={{ fontSize: 11.5, color: t.textMuted, lineHeight: 1.5 }}>{p.note}</div>
+              <div style={{ fontSize: 12.5, color: t.textMuted, lineHeight: 1.6 }}>{p.note}</div>
 
               {up && c ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6, marginTop: 2 }}>
-                  {stat('objects', c.objects)}
-                  {stat('definitions', c.definitions)}
-                  {stat('links', c.links)}
-                  {stat('metrics', c.metrics)}
-                  {stat('refused', c.refused, c.refused > 0)}
+                  <Stat label="objects" value={c.objects} />
+                  <Stat label="definitions" value={c.definitions} />
+                  <Stat label="links" value={c.links} />
+                  <Stat label="metrics" value={c.metrics} />
+                  <Stat label="refused" value={c.refused} tone={c.refused > 0 ? DANGER : undefined} />
                 </div>
               ) : (
-                <div style={{ fontSize: 11, color: '#b3261e', display: 'flex', gap: 5, alignItems: 'flex-start' }}>
-                  <AlertTriangle size={12} style={{ flex: 'none', marginTop: 2 }} />
-                  <span>
+                <div style={{ fontSize: 12, color: DANGER, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                  <AlertTriangle size={13} style={{ flex: 'none', marginTop: 2 }} />
+                  <span style={{ lineHeight: 1.6 }}>
                     {probe?.error || 'probing…'}
                     <br />
-                    <code style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 10 }}>
+                    <code style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 11, color: t.textMuted }}>
                       {`serve_ui.py --settings ${p.profile || '<profile>'} --port ${new URL(p.url).port}`}
                     </code>
                   </span>
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: 8, marginTop: 'auto', paddingTop: 4 }}>
-                <button
-                  disabled={!up}
-                  onClick={() => void openProfile(p.key, p.url, 'browse')}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5,
-                    padding: '6px 11px', borderRadius: 7, cursor: up ? 'pointer' : 'default',
-                    border: 'none', background: up ? t.accent : t.border,
-                    color: up ? '#fff' : t.textDim, opacity: up ? 1 : 0.7,
-                  }}
-                >
-                  <ListTree size={12} /> Browse
-                </button>
-                <button
-                  disabled={!up}
-                  onClick={() => void openProfile(p.key, p.url, 'app')}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5,
-                    padding: '6px 11px', borderRadius: 7, cursor: up ? 'pointer' : 'default',
-                    border: `1px solid ${t.border}`, background: 'transparent',
-                    color: up ? t.textMuted : t.textDim,
-                  }}
-                >
-                  <Play size={12} /> Ask
-                </button>
+              <div style={{ display: 'flex', gap: 8, marginTop: 'auto', paddingTop: 6 }}>
+                <Btn variant="primary" disabled={!up} onClick={() => void openProfile(p.key, p.url, 'browse')}>
+                  <ListTree size={13} /> Browse
+                </Btn>
+                <Btn disabled={!up} onClick={() => void openProfile(p.key, p.url, 'app')} title="open the workbench">
+                  <Play size={13} /> Open
+                </Btn>
               </div>
-            </div>
+            </Card>
           );
         })}
       </div>
+      </Section>
 
-      {/* ── what is inside ──────────────────────────────────────────────── */}
-      {h2('What is inside an ontology', <Layers size={13} color={t.accent} />)}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-        {CONCEPTS.map(({ icon: Icon, term, palantir, body }) => (
-          <div key={term} style={card}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <Icon size={13} color={t.accent} />
-              <span style={{ fontSize: 12.5, fontWeight: 650, color: t.textPrimary }}>{term}</span>
-              <span
-                style={{
-                  marginLeft: 'auto', fontSize: 9.5, padding: '1px 7px', borderRadius: 999,
-                  border: `1px solid ${t.border}`, color: t.textDim,
-                }}
-              >
-                Palantir · {palantir}
-              </span>
-            </div>
-            <div style={{ fontSize: 11.5, color: t.textMuted, lineHeight: 1.6 }}>{body}</div>
-          </div>
-        ))}
-      </div>
+      <Section title="What is inside an ontology">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 12 }}>
+          {CONCEPTS.map(({ icon: Icon, term, palantir, body, colour }) => (
+            <Card key={term} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div
+                  style={{
+                    width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', background: `${colour}22`, color: colour, flex: 'none',
+                  }}
+                >
+                  <Icon size={14} />
+                </div>
+                <span style={{ fontSize: 13.5, fontWeight: 600, color: t.textPrimary }}>{term}</span>
+                <span style={{ marginLeft: 'auto', fontSize: 11, color: t.textDim, whiteSpace: 'nowrap' }}>
+                  {palantir}
+                </span>
+              </div>
+              <div style={{ fontSize: 12.5, color: t.textMuted, lineHeight: 1.65 }}>{body}</div>
+            </Card>
+          ))}
+        </div>
+      </Section>
 
-      {/* ── how to use ──────────────────────────────────────────────────── */}
-      {h2('How to use it', <Compass size={13} color={t.accent} />)}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
-        {STEPS.map(({ icon: Icon, title, body }) => (
-          <div key={title} style={{ ...card, background: t.bgTabBar }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <Icon size={13} color={t.accent} />
-              <span style={{ fontSize: 12, fontWeight: 650, color: t.textPrimary }}>{title}</span>
-            </div>
-            <div style={{ fontSize: 11.5, color: t.textMuted, lineHeight: 1.6 }}>{body}</div>
-          </div>
-        ))}
-      </div>
+      <Section title="How to use it">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
+          {STEPS.map(({ icon: Icon, title, body }) => (
+            <Card key={title} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div
+                  style={{
+                    width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', background: `${t.accent}22`, color: t.accent, flex: 'none',
+                  }}
+                >
+                  <Icon size={14} />
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 600, color: t.textPrimary }}>{title}</span>
+              </div>
+              <div style={{ fontSize: 12.5, color: t.textMuted, lineHeight: 1.65 }}>{body}</div>
+            </Card>
+          ))}
+        </div>
+      </Section>
 
-      {/* ── Palantir vocabulary ─────────────────────────────────────────── */}
-      {h2('Vocabulary — Foundry ↔ here', <Sparkles size={13} color={t.accent} />)}
-      <div style={{ border: `1px solid ${t.border}`, borderRadius: 10, overflow: 'hidden', maxWidth: 900 }}>
+      <Section title="Vocabulary — Foundry ↔ here" hint="the same ideas, two names">
+      <Card style={{ padding: 0, overflow: 'hidden', maxWidth: 940 }}>
         {[
           ['Object type', 'Object — a class with :physicalTable and :primaryKey'],
           ['Property type', 'Property — a data property with :physicalColumn and a label in the user’s words'],
@@ -320,31 +276,23 @@ export default function OntologyHomePage() {
             <span style={{ color: t.textPrimary, lineHeight: 1.55 }}>{here}</span>
           </div>
         ))}
-      </div>
+      </Card>
+      </Section>
 
-      {/* ── footer ──────────────────────────────────────────────────────── */}
-      <div
-        style={{
-          marginTop: 22, padding: '12px 14px', borderRadius: 9,
-          border: `1px solid ${t.border}`, background: t.bgTabBar,
-          fontSize: 11.5, color: t.textMuted, lineHeight: 1.7, maxWidth: 900,
-          display: 'flex', gap: 8, alignItems: 'flex-start',
-        }}
-      >
-        <ShieldCheck size={14} color={t.accent} style={{ flex: 'none', marginTop: 2 }} />
-        <span>
+      <Card style={{ maxWidth: 940, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <ShieldCheck size={16} color={t.accent} style={{ flex: 'none', marginTop: 2 }} />
+        <div style={{ fontSize: 12.5, color: t.textMuted, lineHeight: 1.75 }}>
           Every number the workbench serves is computed by SQL compiled from a declaration and run
           under the guardrails. The browser shows the other half: what is <i>declared</i>, which
           metrics compile, and which refuse. A gate that cannot fail is decoration — so the clinic
           ontology’s suite includes five mutations (delete a grain, drop a reference, misspell a
           formula column, duplicate a column, remove an axiom) that each have to turn it red.
-          <br />
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 8, color: t.accent }}>
-            <CircleHelp size={12} /> Settings → Ontology decides which profiles exist here.
-            <ArrowRight size={12} />
-          </span>
-        </span>
-      </div>
-    </div>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, color: t.accent, fontSize: 12.5 }}>
+            <CircleHelp size={13} /> Settings → Ontology decides which profiles exist here.
+            <ArrowRight size={13} />
+          </div>
+        </div>
+      </Card>
+    </PageShell>
   );
 }

@@ -52,8 +52,8 @@ export default function OntologySidebar() {
           style={{ ...rowTitle, color: s.ontology ? t.textMuted : t.textPrimary }}
         >
           <Boxes size={13} color={t.accent} />
-          <span style={{ fontSize: 11.5, fontWeight: 700 }}>Ontologies</span>
-          <span style={{ fontSize: 10, color: t.textDim }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700 }}>Ontologies</span>
+          <span style={{ fontSize: 11, color: t.textDim }}>
             {upCount}/{s.profiles.length}
           </span>
         </button>
@@ -102,15 +102,15 @@ export default function OntologySidebar() {
                     background: up ? '#12805c' : probe?.status === 'down' ? '#c2410c' : t.textDim,
                   }}
                 />
-                <span style={{ fontSize: 12, fontWeight: active ? 600 : 500, color: t.textPrimary }}>
+                <span style={{ fontSize: 12.5, fontWeight: active ? 600 : 500, color: t.textPrimary }}>
                   {p.label}
                 </span>
                 {probe?.status === 'unknown' && <Loader2 size={10} className="animate-spin" />}
-                <span style={{ marginLeft: 'auto', fontSize: 10, color: t.textDim }}>
+                <span style={{ marginLeft: 'auto', fontSize: 11, color: t.textDim }}>
                   {up && probe?.counts ? `${probe.counts.metrics} m · ${probe.counts.objects} o` : ''}
                 </span>
               </div>
-              <div style={{ fontSize: 10.5, color: t.textDim, marginTop: 2, lineHeight: 1.4 }}>
+              <div style={{ fontSize: 11, color: t.textDim, marginTop: 2, lineHeight: 1.45 }}>
                 {p.profile || p.url}
               </div>
               {/* The sections of the selected ontology. The workbench's own rail is hidden
@@ -120,7 +120,7 @@ export default function OntologySidebar() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginTop: 5, paddingLeft: 12 }}>
                   <button
                     onClick={e => { e.stopPropagation(); navigate('/ontology/browse'); }}
-                    style={{ ...rowTitle, fontSize: 10.5, color: t.accent, padding: '2px 0' }}
+                    style={{ ...rowTitle, fontSize: 11.5, color: t.accent, padding: '2px 0' }}
                   >
                     <ListTree size={11} /> declarations
                   </button>
@@ -131,7 +131,7 @@ export default function OntologySidebar() {
                         key={sec.key}
                         title={sec.hint}
                         onClick={e => { e.stopPropagation(); navigate(sec.key === 'home' ? '/ontology/app' : `/ontology/app?view=${sec.key}`); }}
-                        style={{ ...rowTitle, fontSize: 10.5, color: t.textMuted, padding: '2px 0' }}
+                        style={{ ...rowTitle, fontSize: 11.5, color: t.textMuted, padding: '2px 0' }}
                       >
                         <Icon size={11} /> {sec.label.toLowerCase()}
                       </button>
@@ -151,7 +151,7 @@ export default function OntologySidebar() {
         )}
       </div>
 
-      <div style={{ padding: '6px 10px', borderTop: `1px solid ${t.border}`, fontSize: 10, color: t.textDim, lineHeight: 1.5 }}>
+      <div style={{ padding: '8px 12px', borderTop: `1px solid ${t.border}`, fontSize: 11, color: t.textDim, lineHeight: 1.55 }}>
         {s.profilesFrom === 'settings' ? (
           'profiles from Settings → Ontology'
         ) : (

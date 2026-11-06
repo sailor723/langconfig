@@ -12,6 +12,7 @@ import {
   ListTree, Table2, Link2, Sigma, AlertTriangle, Play, RefreshCw, Copy, Check, Boxes, Search,
 } from 'lucide-react';
 import { useLayoutTokens } from '../components/layout2/tokens';
+import { Card, Chip, Btn, mono, SUCCESS, DANGER, WARN } from '../features/ontology/ui';
 import { ontology, useOntology } from '../features/ontology/ontologyStore';
 
 type Tab = 'objects' | 'definitions' | 'links' | 'metrics';
@@ -62,16 +63,18 @@ export default function OntologyBrowserPage() {
     return rows.find((r: any) => r.name === selected) ?? rows[0];
   }, [rows, selected]);
 
-  const mono: React.CSSProperties = { fontFamily: 'ui-monospace, Menlo, monospace' };
+  // Labels and headings follow the same scale as the other activity pages (13–15px),
+  // not the 10px caps this page started with.
   const chip: React.CSSProperties = {
-    display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5,
-    padding: '1px 7px', borderRadius: 999, border: `1px solid ${t.border}`, color: t.textMuted,
+    display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5,
+    padding: '2px 9px', borderRadius: 999, border: `1px solid ${t.border}`, color: t.textMuted,
   };
-  const btn: React.CSSProperties = {
-    display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5,
-    padding: '5px 10px', borderRadius: 7, cursor: 'pointer',
-    border: `1px solid ${t.border}`, background: 'transparent', color: t.textMuted,
-  };
+  const btn = (primary = false): React.CSSProperties => ({
+    display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: primary ? 600 : 500,
+    padding: '6px 12px', borderRadius: 8, cursor: 'pointer',
+    border: primary ? 'none' : `1px solid ${t.border}`, background: primary ? t.accent : 'transparent',
+    color: primary ? '#fff' : t.textPrimary,
+  });
 
   if (s.status === 'loading' && !doc) {
     return <div style={{ padding: 26, color: t.textMuted, fontSize: 12.5 }}>loading {s.url} …</div>;
@@ -90,7 +93,7 @@ export default function OntologyBrowserPage() {
             &nbsp;&nbsp;--settings ontologies/clinic/clinic_settings.json --port 8096
           </div>
         </div>
-        <button style={{ ...btn, marginTop: 12 }} onClick={() => navigate('/ontology')}>
+        <button style={{ ...btn(), marginTop: 12 }} onClick={() => navigate('/ontology')}>
           back to the ontology list
         </button>
       </div>
@@ -104,7 +107,7 @@ export default function OntologyBrowserPage() {
       {/* header: which profile, and what it is pointed at */}
       <div style={{ padding: '12px 18px 8px', borderBottom: `1px solid ${t.border}`, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
         <Boxes size={15} color={t.accent} />
-        <span style={{ fontSize: 13, fontWeight: 650, color: t.textPrimary }}>
+        <span style={{ fontSize: 15, fontWeight: 700, color: t.textPrimary, letterSpacing: '-0.2px' }}>
           {doc.profile || 'ontology'}
         </span>
         <span style={{ ...chip, ...mono }}>{doc.ns}</span>
@@ -120,10 +123,10 @@ export default function OntologyBrowserPage() {
           {String(guard.default_window_days ?? '?')}d
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button style={btn} onClick={() => void ontology.select(s.url, s.preset ?? undefined)}>
+          <button style={btn()} onClick={() => void ontology.select(s.url, s.preset ?? undefined)}>
             <RefreshCw size={11} /> reload
           </button>
-          <button style={{ ...btn, borderColor: t.accent, color: t.accent }} onClick={() => navigate('/ontology/app')}>
+          <button style={btn(true)} onClick={() => navigate('/ontology/app')}>
             <Play size={11} /> open app
           </button>
         </div>
@@ -139,15 +142,15 @@ export default function OntologyBrowserPage() {
               key={id}
               onClick={() => { setTab(id); setSelected(null); }}
               style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5,
-                padding: '5px 11px', borderRadius: 7, cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5,
+                padding: '6px 12px', borderRadius: 8, cursor: 'pointer',
                 border: `1px solid ${active ? t.accent : t.border}`,
                 background: active ? `${t.accent}12` : 'transparent',
                 color: active ? t.accent : t.textMuted, fontWeight: active ? 600 : 400,
               }}
             >
               <Icon size={12} /> {label}
-              <span style={{ fontSize: 10, color: t.textDim }}>{count}</span>
+              <span style={{ fontSize: 11, color: active ? t.accent : t.textDim }}>{count}</span>
             </button>
           );
         })}
@@ -169,7 +172,7 @@ export default function OntologyBrowserPage() {
         {/* list */}
         <div style={{ width: 280, borderRight: `1px solid ${t.border}`, overflowY: 'auto', flex: 'none' }}>
           {rows.length === 0 && (
-            <div style={{ padding: 12, fontSize: 11.5, color: t.textDim }}>nothing matches</div>
+            <div style={{ padding: 12, fontSize: 12.5, color: t.textDim }}>nothing matches</div>
           )}
           {rows.map((r: any) => {
             const active = current?.name === r.name;
@@ -185,10 +188,10 @@ export default function OntologyBrowserPage() {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ ...mono, fontSize: 11.5, color: t.textPrimary }}>{r.name}</span>
+                  <span style={{ ...mono, fontSize: 12.5, color: t.textPrimary }}>{r.name}</span>
                   {refused && <span title="refused at compile time"><AlertTriangle size={10} color="#c2410c" /></span>}
                 </div>
-                <div style={{ fontSize: 10.5, color: t.textDim }}>
+                <div style={{ fontSize: 11.5, color: t.textDim }}>
                   {r.label || ''}
                   {r.table ? ` · ${r.table}` : ''}
                   {tab === 'metrics' && r.grain ? ` · ${String(r.grain).replace(/^.*#/, '')}` : ''}
@@ -200,13 +203,13 @@ export default function OntologyBrowserPage() {
 
         {/* detail */}
         <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '14px 18px 40px' }}>
-          {!current && <div style={{ fontSize: 12, color: t.textDim }}>pick a row</div>}
+          {!current && <div style={{ fontSize: 13, color: t.textDim }}>pick a row on the left</div>}
 
           {current && tab === 'objects' && (
             <div>
-              <h2 style={{ margin: '0 0 4px', fontSize: 15, color: t.textPrimary }}>
+              <h2 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: t.textPrimary }}>
                 {current.label || current.name}{' '}
-                <span style={{ ...mono, fontSize: 11, color: t.textDim }}>:{current.name}</span>
+                <span style={{ ...mono, fontSize: 12, color: t.textDim, fontWeight: 400 }}>:{current.name}</span>
               </h2>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
                 <span style={{ ...chip, ...mono }}>table {current.table}</span>
@@ -214,9 +217,9 @@ export default function OntologyBrowserPage() {
                 <span style={{ ...chip }}>{(current.columns || []).length} columns</span>
               </div>
               {current.description && (
-                <p style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.65, marginTop: 0 }}>{current.description}</p>
+                <p style={{ fontSize: 13, color: t.textMuted, lineHeight: 1.7, marginTop: 0 }}>{current.description}</p>
               )}
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11.5 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
                 <thead>
                   <tr style={{ color: t.textDim, textAlign: 'left' }}>
                     <th style={{ padding: '4px 8px', fontWeight: 500 }}>property</th>
@@ -228,7 +231,7 @@ export default function OntologyBrowserPage() {
                   {(current.columns || []).map((c: any) => (
                     <tr key={c.name} style={{ borderTop: `1px solid ${t.border}` }}>
                       <td style={{ ...mono, padding: '4px 8px', color: t.textPrimary }}>:{c.name}</td>
-                      <td style={{ ...mono, padding: '4px 8px', color: c.column ? t.textMuted : '#c2410c' }}>
+                      <td style={{ ...mono, padding: '4px 8px', color: c.column ? t.textMuted : DANGER }}>
                         {c.column || '— not annotated'}
                       </td>
                       <td style={{ padding: '4px 8px', color: t.textMuted }}>{c.label || ''}</td>
@@ -241,9 +244,9 @@ export default function OntologyBrowserPage() {
 
           {current && tab === 'definitions' && (
             <div>
-              <h2 style={{ margin: '0 0 4px', fontSize: 15, color: t.textPrimary }}>
+              <h2 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: t.textPrimary }}>
                 {current.label || current.name}{' '}
-                <span style={{ ...mono, fontSize: 11, color: t.textDim }}>:{current.name}</span>
+                <span style={{ ...mono, fontSize: 12, color: t.textDim, fontWeight: 400 }}>:{current.name}</span>
               </h2>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
                 <span style={{ ...chip, ...mono }}>{(current.kinds || [current.kind]).join(' + ')}</span>
@@ -256,7 +259,7 @@ export default function OntologyBrowserPage() {
                 )}
               </div>
               {current.description && (
-                <p style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.65, marginTop: 0 }}>
+                <p style={{ fontSize: 13, color: t.textMuted, lineHeight: 1.7, marginTop: 0 }}>
                   {current.description}
                 </p>
               )}
@@ -269,9 +272,9 @@ export default function OntologyBrowserPage() {
 
           {current && tab === 'links' && (
             <div>
-              <h2 style={{ margin: '0 0 4px', fontSize: 15, color: t.textPrimary }}>
+              <h2 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: t.textPrimary }}>
                 {current.label || current.name}{' '}
-                <span style={{ ...mono, fontSize: 11, color: t.textDim }}>:{current.name}</span>
+                <span style={{ ...mono, fontSize: 12, color: t.textDim, fontWeight: 400 }}>:{current.name}</span>
               </h2>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
                 <span style={{ ...chip, ...mono }}>{(current.from || []).join(', ') || '—'}</span>
@@ -288,13 +291,13 @@ export default function OntologyBrowserPage() {
           {current && tab === 'metrics' && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <h2 style={{ margin: 0, fontSize: 15, color: t.textPrimary }}>
+                <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: t.textPrimary }}>
                   {current.label || current.name}{' '}
-                  <span style={{ ...mono, fontSize: 11, color: t.textDim }}>:{current.name}</span>
+                  <span style={{ ...mono, fontSize: 12, color: t.textDim, fontWeight: 400 }}>:{current.name}</span>
                 </h2>
                 {current.sql && (
                   <button
-                    style={{ ...btn, marginLeft: 'auto' }}
+                    style={{ ...btn(), marginLeft: 'auto' }}
                     onClick={async () => {
                       await navigator.clipboard.writeText(current.sql || '');
                       setCopied(true);
@@ -321,20 +324,20 @@ export default function OntologyBrowserPage() {
                 {current.unit && <span style={{ ...chip, ...mono }}>{current.unit}</span>}
               </div>
               {current.description && (
-                <p style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.65, marginTop: 0 }}>
+                <p style={{ fontSize: 13, color: t.textMuted, lineHeight: 1.7, marginTop: 0 }}>
                   {current.description}
                 </p>
               )}
               {current.refused ? (
-                <div style={{ padding: '10px 12px', borderRadius: 8, background: '#fdecea', color: '#8c1d18', fontSize: 11.5, lineHeight: 1.6 }}>
+                <Card style={{ borderColor: `${DANGER}55`, background: `${DANGER}10`, padding: '12px 14px', fontSize: 12.5, lineHeight: 1.7, color: t.textPrimary }}>
                   <b>Refused by the compiler:</b> {current.refused}
-                  <div style={{ marginTop: 6, color: '#7a3b36' }}>
+                  <div style={{ marginTop: 6, color: t.textMuted }}>
                     A refusal is a result: the definition is incomplete, and the reason names what is missing.
                   </div>
-                </div>
+                </Card>
               ) : (
                 <pre style={{
-                  ...mono, fontSize: 11, lineHeight: 1.5, padding: '10px 12px', borderRadius: 8,
+                  ...mono, fontSize: 12, lineHeight: 1.6, padding: '12px 14px', borderRadius: 9,
                   background: '#0f172a', color: '#dbe7f3', overflowX: 'auto', margin: 0,
                   whiteSpace: 'pre-wrap',
                 }}>
@@ -342,12 +345,12 @@ export default function OntologyBrowserPage() {
                 </pre>
               )}
               {(current.notes || []).length > 0 && (
-                <div style={{ marginTop: 8, fontSize: 11, color: t.textDim, lineHeight: 1.6 }}>
+                <div style={{ marginTop: 8, fontSize: 12, color: t.textDim, lineHeight: 1.7 }}>
                   {(current.notes || []).map((n: string, i: number) => <div key={i}>· {n}</div>)}
                 </div>
               )}
               {(current.missing || []).length > 0 && (
-                <div style={{ marginTop: 8, fontSize: 11, color: '#8a6d3b' }}>
+                <div style={{ marginTop: 8, fontSize: 12, color: WARN }}>
                   missing in the overlay: {(current.missing || []).join(', ')}
                 </div>
               )}
