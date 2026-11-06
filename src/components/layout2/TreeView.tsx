@@ -112,6 +112,10 @@ function TreeNodeItem({
   const t = useLayoutTokens();
   const { t: tr } = useTranslation('chat');
   const [expanded, setExpanded] = useState(level < 1);
+  // Second layer, revealed on hover: a folder shows its children while the pointer is on
+  // it, without a click and without losing the click-to-pin expansion. Every activity whose
+  // browser is a tree (agents, deepagents, skills, prompt, notebooks …) gets this from here.
+  const [peek, setPeek] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(node.label);
   const [cm, setCm] = useState<CMState | null>(null);
@@ -191,13 +195,21 @@ function TreeNodeItem({
           borderRadius: 0,
           userSelect: 'none',
         }}
-        onMouseEnter={e => { e.currentTarget.style.background = t.bgHover; }}
-        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+        onMouseEnter={e => {
+          e.currentTarget.style.background = t.bgHover;
+          if (isFolder) setPeek(true);
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = 'transparent';
+          if (isFolder) setPeek(false);
+        }}
+        onFocus={() => { if (isFolder) setPeek(true); }}
+        onBlur={() => setPeek(false)}
       >
         {/* Expand/collapse chevron */}
         {isFolder ? (
           <span style={{ display: 'flex', opacity: 0.6, width: 16, height: 16, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <ChevronRight size={14} style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} />
+            <ChevronRight size={14} style={{ transform: expanded || peek ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} />
           </span>
         ) : (
           <span style={{ width: 16, flexShrink: 0 }} />
@@ -206,7 +218,7 @@ function TreeNodeItem({
         {/* Folder/file icon */}
         <span style={{ display: 'flex', opacity: 0.7, flexShrink: 0 }}>
           {isFolder ? (
-            expanded ? <FolderOpen size={15} /> : <Folder size={15} />
+            expanded || peek ? <FolderOpen size={15} /> : <Folder size={15} />
           ) : (
             <File size={15} />
           )}
@@ -371,7 +383,7 @@ function TreeNodeItem({
       </div>
 
       {/* Children */}
-      {isFolder && expanded && node.children && (
+      {isFolder && (expanded || peek) && node.children && (
         <TreeView
           nodes={node.children}
           onFileOpen={onFileOpen}

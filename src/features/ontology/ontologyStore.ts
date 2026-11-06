@@ -122,7 +122,13 @@ export interface OntologyState {
   showSql: boolean;
   /** Sections this profile serves (from the server, not a compiled list). */
   sections: OntologySection[];
-  probes: Record<string, { status: 'unknown' | 'up' | 'down'; counts?: OntologyCounts; error?: string }>;
+  probes: Record<string, {
+    status: 'unknown' | 'up' | 'down';
+    counts?: OntologyCounts;
+    error?: string;
+    /** That profile's own sections — a peeked row must not list the selected one's. */
+    sections?: OntologySection[];
+  }>;
 }
 
 export function normalizeUrl(raw: string): string {
@@ -269,16 +275,20 @@ export const ontology = {
       ]);
       if (!doc.ok) throw new Error(doc.error || 'the workbench refused the profile');
       const served = Array.isArray(secs?.sections) ? secs.sections : null;
+      const emit_sections = served
+        ? served.map((x: any) => ({
+            key: String(x.key), label: String(x.label), path: String(x.path),
+            hint: String(x.hint || ''), enabled: x.enabled !== false,
+          }))
+        : SECTIONS.map(x => ({ ...x, enabled: true }));
       emit({
         status: 'up',
         ontology: doc,
-        sections: served
-          ? served.map((x: any) => ({
-              key: String(x.key), label: String(x.label), path: String(x.path),
-              hint: String(x.hint || ''), enabled: x.enabled !== false,
-            }))
-          : SECTIONS.map(x => ({ ...x, enabled: true })),
-        probes: { ...state.probes, [clean]: { status: 'up', counts: doc.counts } },
+        sections: emit_sections,
+        probes: {
+          ...state.probes,
+          [clean]: { status: 'up', counts: doc.counts, sections: emit_sections },
+        },
       });
     } catch (err: any) {
       const message = err?.name === 'TimeoutError' ? 'no answer in 8 s' : String(err?.message || err);

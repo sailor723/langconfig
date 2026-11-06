@@ -7,7 +7,7 @@
  * profile that is not running is shown as off with its counts hidden, not hidden altogether,
  * because "why is nothing here" is the question a missing row creates.
  */
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Boxes, RefreshCw, Loader2, ListTree, Settings2, Compass, PlayCircle, Gavel, FileCode2, GraduationCap,
@@ -27,6 +27,10 @@ export default function OntologySidebar() {
   const t = useLayoutTokens();
   const navigate = useNavigate();
   const s = useOntology();
+  // Second layer: which ontology's activities are open. Hovering any row opens it (the
+  // first layer expands on hover too — same idea, one level down); the selected row stays
+  // open so you can still see where you are after the pointer leaves.
+  const [peek, setPeek] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -81,14 +85,26 @@ export default function OntologySidebar() {
           return (
             <div
               key={p.key}
+              // data-* so the hover expansion can be asserted from a test without guessing
+              // at DOM shape: data-peek flips while the pointer is on the row.
+              data-ontology-row={p.key}
+              data-peek={peek === p.key ? '1' : '0'}
               style={{
                 padding: '6px 10px',
                 background: active ? t.bgSelected : 'transparent',
                 borderLeft: `2px solid ${active ? t.accent : 'transparent'}`,
                 cursor: 'pointer',
               }}
-              onMouseEnter={e => { if (!active) e.currentTarget.style.background = t.bgHover; }}
-              onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+              onMouseEnter={e => {
+                if (!active) e.currentTarget.style.background = t.bgHover;
+                setPeek(p.key);
+              }}
+              onMouseLeave={e => {
+                if (!active) e.currentTarget.style.background = 'transparent';
+                setPeek(null);
+              }}
+              onFocus={() => setPeek(p.key)}
+              onBlur={() => setPeek(null)}
               onClick={async () => {
                 await ontology.select(p.url, p.key);
                 navigate('/ontology/browse');
@@ -116,7 +132,7 @@ export default function OntologySidebar() {
               {/* The sections of the selected ontology. The workbench's own rail is hidden
                   inside the frame (embed=1); this list is what replaces it, and it lives under
                   the ontology it belongs to. */}
-              {active && up && (
+              {(active || peek === p.key) && up && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginTop: 5, paddingLeft: 12 }}>
                   <button
                     onClick={e => { e.stopPropagation(); navigate('/ontology/browse'); }}
@@ -124,7 +140,7 @@ export default function OntologySidebar() {
                   >
                     <ListTree size={11} /> declarations
                   </button>
-                  {s.sections.filter(sec => sec.enabled).map(sec => {
+                  {(probe?.sections ?? s.sections).filter(sec => sec.enabled).map(sec => {
                     const Icon = SECTION_ICON[sec.key] ?? Compass;
                     return (
                       <button

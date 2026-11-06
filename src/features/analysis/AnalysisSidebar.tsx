@@ -8,7 +8,7 @@
  * opens that database's home page. Pages inside it are reachable from the home
  * page's own nav (Hub / Revenue / Catalog / …), which is where a reader looks.
  */
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Monitor, Search, RefreshCw, Loader2, X } from 'lucide-react';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { analysis, useAnalysisState } from './analysisStore';
@@ -16,6 +16,10 @@ import { analysis, useAnalysisState } from './analysisStore';
 export default function AnalysisSidebar() {
   const t = useLayoutTokens();
   const s = useAnalysisState();
+  // Second layer on hover, same pattern as the rail and the ontology list: the pages a
+  // database owns appear while the pointer is on its row, so "how many pages, which ones"
+  // does not require opening the database first.
+  const [peek, setPeek] = useState<string | null>(null);
 
   useEffect(() => {
     void analysis.loadDashboards();
@@ -120,8 +124,16 @@ export default function AnalysisSidebar() {
                 background: active ? t.bgSelected : 'transparent',
                 cursor: 'pointer', textAlign: 'left',
               }}
-              onMouseEnter={e => { if (!active) e.currentTarget.style.background = t.bgHover; }}
-              onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+              onMouseEnter={e => {
+                if (!active) e.currentTarget.style.background = t.bgHover;
+                setPeek(d.key);
+              }}
+              onMouseLeave={e => {
+                if (!active) e.currentTarget.style.background = 'transparent';
+                setPeek(null);
+              }}
+              onFocus={() => setPeek(d.key)}
+              onBlur={() => setPeek(null)}
             >
               <span style={{
                 fontSize: 12, fontWeight: active ? 600 : 500,
@@ -135,6 +147,35 @@ export default function AnalysisSidebar() {
                 <span>{d.pages} 页</span>
                 {!d.home && <span style={{ color: '#e5484d' }}>no home</span>}
               </span>
+              {peek === d.key && (() => {
+                const own = s.dashboards
+                  .filter(f => (f.db_path || '').includes(d.key))
+                  .slice(0, 6);
+                if (own.length === 0) return null;
+                return (
+                  <span
+                    style={{
+                      display: 'flex', flexDirection: 'column', gap: 1, marginTop: 2,
+                      paddingLeft: 8, borderLeft: `1px solid ${t.border}`,
+                    }}
+                  >
+                    {own.map(f => (
+                      <span
+                        key={f.filename}
+                        style={{
+                          fontSize: 10.5, color: t.textMuted, maxWidth: '100%',
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {f.title || f.filename}
+                      </span>
+                    ))}
+                    {(d.pages > own.length) && (
+                      <span style={{ fontSize: 10, color: t.textDim }}>+{d.pages - own.length} more</span>
+                    )}
+                  </span>
+                );
+              })()}
             </button>
           );
         })}
