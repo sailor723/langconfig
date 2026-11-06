@@ -32,6 +32,9 @@ import KnowledgeHomePage from './components/layout2/KnowledgeHomePage';
 // it; the icon sits above Knowledge because one is the ask surface and the other the ingest
 // surface over the same ontology.
 import WorkbenchApp from './components/layout2/WorkbenchApp';
+import WorkbenchHomePage from './pages/WorkbenchHomePage';
+import OntologyBrowserPage from './pages/OntologyBrowserPage';
+import WorkbenchSidebar from './features/workbench/WorkbenchSidebar';
 import HomePage from './pages/HomePage';
 import ProjectHomePage from './pages/ProjectHomePage';
 import DeepAgentHomePage from './components/layout2/DeepAgentHomePage';
@@ -64,7 +67,7 @@ import GraphStudioPage from './features/graph-studio/GraphStudioPage';
 import GraphStudioSidebar from './features/graph-studio/GraphStudioSidebar';
 import AnalysisSidebar from './features/analysis/AnalysisSidebar';
 
-type View = 'studio' | 'settings' | 'workbench' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'chat' | 'learning' | 'graph' | 'project';
+type View = 'studio' | 'settings' | 'workbench' | 'workbench-browse' | 'workbench-app' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'chat' | 'learning' | 'graph' | 'project';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
 interface Agent {
@@ -167,6 +170,8 @@ const ROUTE_TO_VIEW: Record<string, View> = {
   '/graph': 'graph',
   '/agents': 'agents', '/deepagents': 'deepagents',
   '/workbench': 'workbench',
+  '/workbench/browse': 'workbench-browse',
+  '/workbench/app': 'workbench-app',
   '/knowledge': 'knowledge',
   '/skills': 'skills',
   '/tools': 'tools',
@@ -186,7 +191,10 @@ const VIEW_ROUTE: Record<View, string> = {
   project: '/project',
   graph: '/graph',
   agents: '/agents', deepagents: '/deepagents', skills: '/skills',
-  workbench: '/workbench', knowledge: '/knowledge', analysis: '/analysis', settings: '/settings',
+  workbench: '/workbench',
+  'workbench-browse': '/workbench/browse',
+  'workbench-app': '/workbench/app',
+  knowledge: '/knowledge', analysis: '/analysis', settings: '/settings',
   playground: '/playground', tools: '/tools', prompt: '/prompt',
   'deepagent-studio': '/deepagent-studio',
   chat: '/chat',
@@ -205,6 +213,8 @@ const VIEW_TO_ACTIVITY: Record<View, ActivityId | null> = {
   tools: 'tools',
   prompt: 'prompt',
   workbench: 'workbench',
+  'workbench-browse': 'workbench',
+  'workbench-app': 'workbench',
   knowledge: 'knowledge',
   analysis: 'analysis',
   settings: 'settings',
@@ -638,7 +648,9 @@ function AppContent() {
         // Workspace just renders empty. The user can click back to
         // verbose via Settings if they want the catalog back.
         return skipHomeForDirect ? null : <KnowledgeHomePage />;
-      case 'workbench': return <WorkbenchApp />;
+      case 'workbench': return <WorkbenchHomePage />;
+      case 'workbench-browse': return <OntologyBrowserPage />;
+      case 'workbench-app': return <WorkbenchApp />;
       case 'analysis': return <AnalysisPage />;
       case 'playground': return <PlaygroundPage />;
       case 'deepagent-studio': return <DeepAgentStudioPage />;
@@ -695,6 +707,10 @@ function AppContent() {
           {currentView === 'graph' && <GraphStudioSidebar />}
           {/* Dashboard browser in the rail, like every other activity's browser. */}
           {currentView === 'analysis' && <AnalysisSidebar />}
+          {/* Ontology list in the rail; the pages are the viewer, same split as Analysis. */}
+          {(currentView === 'workbench' || currentView === 'workbench-browse' || currentView === 'workbench-app') && (
+            <WorkbenchSidebar />
+          )}
         </LeftSidebar>
         )}
 
