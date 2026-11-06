@@ -29,6 +29,7 @@ import logging
 import os
 import pathlib
 import subprocess
+import time
 import urllib.error
 import urllib.request
 
@@ -40,6 +41,12 @@ DEFAULT_REPO = "/Users/weiping/dev/Learn/ontology"
 DEFAULT_PYTHON = "/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python"
 
 _PROC: dict[str, subprocess.Popen] = {}
+#: When each child was started (epoch seconds). A child that predates the workbench script
+#: is serving old code — measured: an ABC workbench started at 00:05 kept returning 404 for
+#: /api/metrics/cards, added to serve_ui.py at 00:09, and the UI showed an empty metric grid
+#: with no error anywhere. Restarting on staleness is the only honest way to survive a
+#: deploy: the process looks healthy and answers every endpoint it knows about.
+_SPAWNED: dict[str, float] = {}
 
 
 def _settings() -> dict:
@@ -94,6 +101,76 @@ def _port(url: str) -> int | None:
         return None
 
 
+def _script_mtime() -> float:
+    try:
+        return (_repo() / "retail_graph" / "serve_ui.py").stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+def _listener_pid(port: int) -> int | None:
+    """The PID listening on `port` — the child may not be one we spawned (a restarted backend
+    finds the previous run's children still serving)."""
+    try:
+        out = subprocess.run(["lsof", "-ti", f"tcp:{port}", "-sTCP:LISTEN"],
+                             capture_output=True, text=True, timeout=5).stdout.split()
+        return int(out[0]) if out else None
+    except Exception:                                           # noqa: BLE001
+        return None
+
+
+def _listener_start(pid: int) -> float | None:
+    """Epoch seconds when `pid` started, from the OS (ps), not from our own bookkeeping."""
+    try:
+        out = subprocess.run(["ps", "-p", str(pid), "-o", "lstart="],
+                             capture_output=True, text=True, timeout=5,
+                             env=dict(os.environ, LC_ALL="C")).stdout.strip()
+        if not out:
+            return None
+        import datetime
+        return datetime.datetime.strptime(" ".join(out.split()), "%a %b %d %H:%M:%S %Y").timestamp()
+    except Exception:                                           # noqa: BLE001
+        return None
+
+
+def _is_stale(url: str) -> bool:
+    """True when the process serving this URL was started before serve_ui.py was edited.
+
+    Two ways to know the start time: our own spawn stamp when we started it, or the OS when
+    the child came from a previous backend process (measured: an ABC workbench started at
+    00:05 kept 404-ing /api/metrics/cards, added at 00:09, and looked healthy — every endpoint
+    it knew about answered). A stale child is restarted, because "it answers" is not "it is
+    current".
+    """
+    mtime = _script_mtime()
+    if not mtime:
+        return False
+    proc = _PROC.get(url)
+    if proc is not None and proc.poll() is None:
+        started = _SPAWNED.get(url)
+        if started is not None:
+            return mtime > started
+    port = _port(url)
+    if port is None:
+        return False
+    pid = _listener_pid(port)
+    if pid is None:
+        return False
+    started = _listener_start(pid)
+    return bool(started and mtime > started + 1)     # 1s slack for clock granularity
+
+
+def _stop_proc(url: str) -> None:
+    proc = _PROC.pop(url, None)
+    _SPAWNED.pop(url, None)
+    if proc is not None and proc.poll() is None:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+
+
 def _probe(url: str, timeout: float = 1.5) -> tuple[bool, dict | Exception]:
     """Ask the workbench what it serves. `ok` means it answered with a profile."""
     try:
@@ -139,15 +216,31 @@ def _spawn(row: dict) -> tuple[bool, str]:
     except Exception as exc:                                    # noqa: BLE001
         return False, f"{type(exc).__name__}: {exc}"
     _PROC[row["url"]] = proc
+    _SPAWNED[row["url"]] = time.time()
     logger.info("started workbench %s on :%s (pid %s)", row["key"], port, proc.pid)
     return True, f"pid {proc.pid}, log {log}"
 
 
 async def ensure_started(row: dict, wait_s: float = 12.0) -> dict:
     """Probe; if it is not answering, start it and wait for it — bounded and reported."""
+    restarted = False
+    if _is_stale(row["url"]):
+        logger.info("workbench %s predates serve_ui.py — restarting it", row["key"])
+        _stop_proc(row["url"])
+        port = _port(row["url"])
+        pid = _listener_pid(port) if port else None
+        if pid:
+            try:
+                os.kill(pid, 15)
+                time.sleep(0.6)
+            except OSError:
+                pass
+        restarted = True
+
     up, detail = _probe(row["url"])
     if up:
         return {"key": row["key"], "url": row["url"], "up": True, "started": False,
+                "restarted": restarted,
                 "profile": detail.get("profile"), "counts": detail.get("counts")}
     proc = _PROC.get(row["url"])
     started = False
@@ -165,6 +258,7 @@ async def ensure_started(row: dict, wait_s: float = 12.0) -> dict:
         up, detail = _probe(row["url"], timeout=1.0)
         if up:
             return {"key": row["key"], "url": row["url"], "up": True, "started": started,
+                    "restarted": restarted,
                     "profile": detail.get("profile"), "counts": detail.get("counts"),
                     "note": note}
         proc = _PROC.get(row["url"])
@@ -197,6 +291,7 @@ async def status(ensure: bool = True) -> dict:
             "note": row.get("note"),
             "up": bool(res.get("up")),
             "started": bool(res.get("started")),
+            "restarted": bool(res.get("restarted")),
             "counts": res.get("counts"),
             "error": res.get("error"),
         })
@@ -215,6 +310,7 @@ def stop(key: str) -> dict:
             except subprocess.TimeoutExpired:
                 proc.kill()
         _PROC.pop(url, None)
+        _SPAWNED.pop(url, None)
         return {"ok": True, "stopped": key}
     return {"ok": True, "stopped": None, "note": f"{key} was not started by this process"}
 
@@ -225,3 +321,4 @@ def shutdown() -> None:
         if proc.poll() is None:
             proc.terminate()
         _PROC.pop(url, None)
+        _SPAWNED.pop(url, None)
