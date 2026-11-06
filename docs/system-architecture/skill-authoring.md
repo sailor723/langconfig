@@ -156,6 +156,31 @@ skill's name + description into **every** agent's prompt:
   review; git-workflow owns branch/merge/rebase/release mechanics and says so in its own
   body. When adding a skill, grep the other triggers for its main words first.
 
+## 5d. Skills that hand artifacts to a workbench
+
+A skill can produce something another program must load — here an ontology workbench that
+reads ONE profile file and nothing else. Two facts from that build are worth generalising:
+
+**The credential belongs in configuration, not in the conversation.** The agent's
+`datasource` names a Settings → Databases entry; the factory exports it to the sandbox as
+`PGHOST`/`PGPORT`/`PGDATABASE`/`PGUSER`/`PGPASSWORD` and tells the prompt the target
+*without* the secret. Measured: the agent ran `psql -c 'select current_database()'` and got
+`clinic_db`; no DSN and no password appeared in any message. A prompt that carries a DSN
+leaks it into the transcript, the checkpoint and every log line.
+
+**The loader's requirements belong in configuration too.** `config.workbench` carries the
+profile filename, the fields the workbench fixes (namespace, overlay name, guard limits,
+feature flags), the values the build must *decide* from the introspected data (window vs
+refuse, big tables, samples, labels, aliases) and the gate ids that must be green. The
+skill body stays host-agnostic — it says *what* to decide and *why*, never what this
+workbench wants. Measured: with the contract in the prompt and nothing about the profile in
+the user's message, the agent wrote the profile to the specified filename, copied the fixed
+fields verbatim, and wrote its own reasoning for each decided value.
+
+Two things the build proved about gate ids: naming them in the contract makes the agent
+**report numbers** instead of claiming success, and an agent that cannot run a gate says so
+(the compiler lived in another repository, so it said "not run" — the honest answer).
+
 ## 6. Measuring — use the checkpointer, not the chat log
 
 `chat_sessions.tool_calls` **double-counts batched tool calls** (observed: 16 recorded vs 12 real; 10
