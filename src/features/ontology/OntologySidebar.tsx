@@ -134,6 +134,8 @@ export default function OntologySidebar() {
                   the ontology it belongs to. */}
               {(active || peek === p.key) && up && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginTop: 5, paddingLeft: 12 }}>
+                  <span style={{ fontSize: 9.5, letterSpacing: 0.5, textTransform: 'uppercase',
+                                 color: t.textDim, marginTop: 2 }}>workbench</span>
                   <button
                     onClick={e => { e.stopPropagation(); navigate('/ontology/browse'); }}
                     title="objects, definitions, links and every metric with its compiled SQL"

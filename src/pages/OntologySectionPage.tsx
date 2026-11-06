@@ -65,6 +65,7 @@ export default function OntologySectionPage() {
         </Btn>
         <Server size={15} color={t.textMuted} />
         <span style={{ fontSize: 14, fontWeight: 600 }}>{section.label}</span>
+        <Chip title="the ontology's own app, framed here">{s.ontology?.profile?.replace('_settings.json', '') || 'workbench'}</Chip>
         <Chip
           colour={badge.colour}
           title={s.error || s.ontology?.profile || undefined}
@@ -92,8 +93,8 @@ export default function OntologySectionPage() {
         <Btn onClick={() => navigate('/ontology/browse')} title="objects, definitions, links and every metric with its compiled SQL">
           <ListTree size={13} /> schema &amp; metrics
         </Btn>
-        <Btn title="open this section without the frame" onClick={() => window.open(src, '_blank', 'noreferrer')}>
-          <ExternalLink size={13} /> open
+        <Btn title="open this section in a new browser tab (without the frame)" onClick={() => window.open(src, '_blank', 'noreferrer')}>
+          <ExternalLink size={13} /> new tab
         </Btn>
       </div>
 

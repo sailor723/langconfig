@@ -141,8 +141,9 @@ export default function OntologyBrowserPage() {
           <button style={btn()} onClick={() => void ontology.select(s.url, s.preset ?? undefined)}>
             <RefreshCw size={11} /> reload
           </button>
-          <button style={btn(true)} onClick={() => navigate('/ontology/app')}>
-            <Play size={11} /> open app
+          <button style={btn(true)} onClick={() => navigate('/ontology/app')}
+                  title="the ontology's own app — graph page, query console, actions, tutorial">
+            <Play size={11} /> workbench
           </button>
         </div>
       </div>

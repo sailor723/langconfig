@@ -199,8 +199,14 @@ export default function OntologyHomePage() {
                 <Btn variant="primary" disabled={!up} onClick={() => void openProfile(p.key, p.url, 'browse')}>
                   <ListTree size={13} /> Browse
                 </Btn>
-                <Btn disabled={!up} onClick={() => void openProfile(p.key, p.url, 'app')} title="open the workbench">
-                  <Play size={13} /> Open
+                {/* "Open" read as "open a new window". It actually frames this ontology's
+                    own server in place, so the label says what you get: the workbench. */}
+                <Btn
+                  disabled={!up}
+                  onClick={() => void openProfile(p.key, p.url, 'app')}
+                  title="the ontology's own app — graph page, query console, actions, tutorial (shown in this window; started by the app)"
+                >
+                  <Play size={13} /> Workbench
                 </Btn>
               </div>
             </Card>
