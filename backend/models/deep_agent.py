@@ -336,6 +336,27 @@ class DeepAgentConfig(BaseModel):
             "WARNING: shell commands run on the host machine with no security isolation."
         )
     )
+    workbench: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description=(
+            "The workbench contract the agent's artifacts must satisfy: profile filename, "
+            "fixed profile fields (ns / ontology_dir / overlay / guard limits / feature "
+            "flags), the values the agent must decide from the data (window vs refuse, "
+            "big tables, samples) and the gate ids that must be green before it reports "
+            "done. Rendered into the prompt at build time, so 'what the workbench needs' "
+            "travels with the skill config instead of living in the skill body."
+        )
+    )
+    datasource: Optional[str] = Field(
+        default=None,
+        description=(
+            "Name of a database in the `databases` settings namespace (Settings → Databases). "
+            "At build time its host/port/dbname/user/credential become PG* environment "
+            "variables in the sandbox, and the prompt names the target — never the secret. "
+            "So an agent builds an ontology against a real database without a DSN or a "
+            "password appearing in the chat."
+        )
+    )
     middleware: List[MiddlewareConfig] = Field(
         default_factory=list,
         description="Middleware configurations"

@@ -10,6 +10,7 @@ The main ``create_deep_agent`` orchestration, extracted from the former
 monolithic deepagent_factory.py.
 """
 
+import json
 import shutil
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
@@ -344,6 +345,55 @@ def _stage_plugin_skills_to_storage(
         return []
 
 
+def _datasource_env(name: str) -> tuple[dict[str, str], dict[str, str]]:
+    """Resolve a named database from the `databases` settings document.
+
+    Returns ``(env, dsn)``: ``env`` is what the sandbox shell gets (libpq reads
+    PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD, so psql and psycopg2 both work with no
+    arguments), ``dsn`` is the same information **without** the password, for the prompt.
+
+    The credential lives in the settings store and is decrypted there; it is never put
+    in a prompt, a tool argument, or the transcript. Raising is deliberate: an agent
+    pointed at a database that no longer exists should fail at build time with the list
+    of names that do, not half-way through a run.
+    """
+    from core.settings import store
+    from db.database import SessionLocal
+
+    if not name or not name.strip():
+        raise ValueError("empty datasource name")
+
+    db = SessionLocal()
+    try:
+        own, effective = store.get_effective_document(db, "databases")
+    finally:
+        db.close()
+
+    items: list[dict] = []
+    for doc in (own, effective):
+        for item in (doc or {}).get("items") or []:
+            if isinstance(item, dict):
+                items.append(item)
+    wanted = name.strip().lower()
+    item = next((i for i in items if str(i.get("name") or "").strip().lower() == wanted), None)
+    if item is None:
+        raise ValueError(f"database '{name}' is not configured under Settings → Databases "
+                         f"(have: {sorted({str(i.get('name')) for i in items})})")
+
+    host = str(item.get("host") or "127.0.0.1")
+    port = str(item.get("port") or 5432)
+    dbname = str(item.get("dbname") or item.get("name") or "")
+    user = str(item.get("user") or "")
+    password = str(item.get("password") or "")
+
+    env = {"PGHOST": host, "PGPORT": port, "PGDATABASE": dbname}
+    if user:
+        env["PGUSER"] = user
+        env["PGPASSWORD"] = password          # libpq reads it; empty means trust auth
+    dsn = {"host": host, "port": port, "dbname": dbname, "user": user}
+    return env, dsn
+
+
 class _DeepAgentAssemblyMixin:
     @staticmethod
     async def create_deep_agent(
@@ -654,6 +704,9 @@ class _DeepAgentAssemblyMixin:
         # scoped to the task workspace directory on the host machine.
         local_sandbox_backend = None
         sandbox_path = None
+        datasource_name = getattr(config, "datasource", None)
+        datasource_env: dict[str, str] = {}
+        datasource_dsn: dict[str, str] = {}
         if getattr(config, 'use_local_sandbox', False):
             try:
                 from deepagents.backends import LocalShellBackend
@@ -679,11 +732,25 @@ class _DeepAgentAssemblyMixin:
                     )
                     sandbox_path.mkdir(parents=True, exist_ok=True)
 
+                # Target database (agent config `datasource`) → PG* environment for the
+                # sandbox. The credential stays in the settings store and never in the
+                # prompt or the transcript; the agent gets a working `psql`/psycopg2
+                # without ever being handed a DSN containing a password.
+                if datasource_name:
+                    try:
+                        datasource_env, datasource_dsn = _datasource_env(datasource_name)
+                        logger.info(f"Datasource '{datasource_name}' bound to sandbox env "
+                                    f"(PGDATABASE={datasource_env.get('PGDATABASE')}, "
+                                    f"credential={'yes' if datasource_env.get('PGPASSWORD') else 'none'})")
+                    except Exception as e:  # noqa: BLE001 — a bad datasource must be loud
+                        logger.warning(f"Datasource '{datasource_name}' could not be resolved: {e}")
+
                 local_sandbox_backend = LocalShellBackend(
                     root_dir=str(sandbox_path),
                     timeout=120,
                     max_output_bytes=100000,
                     inherit_env=True,  # Inherit PATH so pip/python etc. are available
+                    env=datasource_env or None,
                 )
                 logger.info(f"LocalShellBackend sandbox enabled at: {sandbox_path}")
             except Exception as e:
@@ -712,6 +779,65 @@ class _DeepAgentAssemblyMixin:
                 "copy them elsewhere first. If a path fails, retry it relative to the "
                 "workspace root before concluding the file is missing."
             )
+
+        # Target database, when the agent config names one: the prompt states what the
+        # agent is pointed at and how to reach it, and stops there. The password lives in
+        # the settings store and reaches the shell as PGPASSWORD — never in this text,
+        # never in a tool call, never in the transcript.
+        if datasource_name and datasource_dsn:
+            dsn_text = " ".join(f"{k}={v}" for k, v in datasource_dsn.items() if v)
+            final_system_prompt += (
+                "\n\n# Target database\n"
+                f"- The database for this task is `{datasource_name}`: {dsn_text}.\n"
+                "- Its connection settings are already exported in the shell as "
+                "PGHOST / PGPORT / PGDATABASE / PGUSER (and PGPASSWORD when a credential "
+                "is configured), so `psql -c 'select 1'` and psycopg2 connect with no "
+                "arguments.\n"
+                '- Pass the DSN without a password: --dsn "' + dsn_text + '". libpq picks '
+                "the password up from PGPASSWORD.\n"
+                "- Never print, echo or write the password anywhere, and do not ask the "
+                "user for one."
+            )
+        elif datasource_name:
+            final_system_prompt += (
+                f"\n\n# Target database\n- `{datasource_name}` is configured for this "
+                "agent but its connection settings could not be read. Say so instead of "
+                "guessing a host or a credential."
+            )
+
+        # The workbench contract. A skill that produces artifacts somebody else has to
+        # load (a profile, an overlay, declarations) needs the loader's requirements, and
+        # those belong to the agent's configuration — not to the skill body, which has to
+        # stay host-agnostic. Fixed values are stated as fixed; the values the build must
+        # decide (window vs refuse, big tables, samples) are named as decisions.
+        workbench = getattr(config, "workbench", None)
+        if isinstance(workbench, dict) and workbench:
+            fixed = workbench.get("profile") or {}
+            decide = workbench.get("decide") or []
+            gates = workbench.get("gates") or []
+            lines = ["\n\n# Workbench contract\n",
+                     "Your artifacts are loaded by an ontology workbench. It reads ONE profile "
+                     "file; anything it cannot read is an artifact that does not exist.\n"]
+            if workbench.get("profile_file"):
+                lines.append(f"- Write the profile to `{workbench['profile_file']}`.\n")
+            if fixed:
+                lines.append("- Fixed by the workbench — write these verbatim, do not "
+                             "re-derive them:\n")
+                lines.append("```json\n" + json.dumps(fixed, ensure_ascii=False, indent=2)
+                             + "\n```\n")
+            if decide:
+                lines.append("- You decide these from the introspected data, and say in the "
+                             "profile's comments what the evidence was:\n")
+                for item in decide:
+                    lines.append(f"  - `{item}`\n")
+            if gates:
+                lines.append("- Before you report done, these gates must be green (name them "
+                             "in the summary, with the numbers they printed):\n")
+                for gate in gates:
+                    lines.append(f"  - `{gate}`\n")
+            lines.append("- A gate you could not run is reported as NOT RUN with the reason; "
+                         "it is never reported as passed.\n")
+            final_system_prompt += "".join(lines)
 
         # ── Skills (progressive disclosure via SkillsMiddleware) ──
         # Classic Anthropic pattern: the FULL skill catalog (builtin + personal
