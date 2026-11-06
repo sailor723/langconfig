@@ -173,6 +173,13 @@ export const ontology = {
         await ontology.select(first.url, first.key);
         return first.url;
       }
+      return '';
+    }
+    // A remembered URL is not a loaded ontology: on a reload the store has the URL from
+    // localStorage and nothing else, so a page that only called ensureReady() sat on
+    // "checking…" forever instead of asking the server.
+    if (!state.ontology && state.status !== 'loading') {
+      await ontology.select(state.url, state.preset ?? undefined);
     }
     return state.url;
   },
