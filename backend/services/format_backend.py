@@ -217,6 +217,21 @@ class FormatAwareBackend(BackendProtocol):
             return default
         return None
 
+    def _read_bytes_via_backend(self, file_path: str) -> Optional[bytes]:
+        """Read raw bytes via the wrapped backend (base64 content for DbBackend)."""
+        try:
+            full = self._backend.read(file_path, offset=0, limit=10_000_000)
+            if full.error or not full.file_data:
+                return None
+            raw = full.file_data.get("content", "")
+            encoding = full.file_data.get("encoding", "utf-8")
+            if encoding == "base64":
+                import base64
+                return base64.b64decode(raw)
+            return raw.encode("utf-8")
+        except Exception:
+            return None
+
     # ── delegation ───────────────────────────────────────────────────────────
     # BackendProtocol base methods raise NotImplementedError; since we subclass
     # it (for isinstance checks), we must delegate each one explicitly —
@@ -273,10 +288,25 @@ class FormatAwareBackend(BackendProtocol):
 class _FormatAwareSandboxBackend(FormatAwareBackend):
     """FormatAwareBackend that still *is* a SandboxBackendProtocol.
 
-    The protocol is only used for capability checks (``isinstance``); execution itself is
-    delegated to the wrapped backend by ``__getattr__``. Declaring the base class is what
-    makes the SDK keep the `execute` tool.
+    The SDK inspects the **class**, not the instance: its `execute` tool calls
+    `execute_accepts_timeout(type(backend))`, which reads `cls.execute`, so merely
+    registering the ABC left `execute` missing at class level and every run died with
+    ``type object '_FormatAwareSandboxBackend' has no attribute 'execute'``. The
+    protocol methods are therefore declared here and delegate to the wrapped sandbox.
     """
+
+    @property
+    def id(self):  # the protocol exposes an id for logging/telemetry
+        return getattr(self._backend, "id", "format-aware-sandbox")
+
+    def execute(self, command: str, *, timeout: int | None = None):
+        return self._backend.execute(command, timeout=timeout)
+
+    async def aexecute(self, command: str, *, timeout: int | None = None):
+        aexecute = getattr(self._backend, "aexecute", None)
+        if aexecute is not None:
+            return await aexecute(command, timeout=timeout)
+        return self.execute(command, timeout=timeout)
 
 
 try:  # pragma: no cover - import-time capability registration
@@ -286,21 +316,6 @@ try:  # pragma: no cover - import-time capability registration
         _Sandbox.register(_FormatAwareSandboxBackend)
 except Exception:  # noqa: BLE001
     pass
-
-    def _read_bytes_via_backend(self, file_path: str) -> Optional[bytes]:
-        """Read raw bytes via the wrapped backend (base64 content for DbBackend)."""
-        try:
-            full = self._backend.read(file_path, offset=0, limit=10_000_000)
-            if full.error or not full.file_data:
-                return None
-            raw = full.file_data.get("content", "")
-            encoding = full.file_data.get("encoding", "utf-8")
-            if encoding == "base64":
-                import base64
-                return base64.b64decode(raw)
-            return raw.encode("utf-8")
-        except Exception:
-            return None
 
 
 def _path_for_extraction(file_path: str, data: bytes) -> Path:

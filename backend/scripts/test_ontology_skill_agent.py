@@ -84,21 +84,26 @@ def stage_workspace() -> None:
 def build_model(model_id: str):
     """Resolve the model the way the platform does — no key handling here.
 
-    DeepSeek is the first choice: its key lives in the app's encrypted settings document
-    (`settings_documents`, ns=models), so `config.settings.DEEPSEEK_API_KEY` is the only
-    reader. Ollama is the fallback for a machine without a key.
+    DeepSeek's key lives in the app's settings store (`settings_documents`, ns=models,
+    user 1), so `resolve_model` is its only reader: the shell needs no
+    `DEEPSEEK_API_KEY`, and a run that did need one would not prove the DB path works.
+    A silent Ollama fallback used to sit here; it is gone on purpose — a green test
+    against a local model says nothing about the model the agents actually use.
     """
     import asyncio
     import sys as _sys
     _sys.path.insert(0, str(REPO))
-    try:
-        from services.agent_utils import resolve_model
-        return asyncio.run(resolve_model(model_id, 0, 4096, {"streaming": True}))
-    except Exception as exc:  # noqa: BLE001 — no key / unknown id → local model
-        print(f"  (platform resolve_model failed: {type(exc).__name__}: {str(exc)[:120]})")
-        from langchain_openai import ChatOpenAI
-        return ChatOpenAI(model="qwen2.5:3b", base_url="http://127.0.0.1:11434/v1",
-                          api_key="ollama", temperature=0, timeout=180)
+    from services.agent_utils import resolve_model
+    model = asyncio.run(resolve_model(model_id, 0, 4096, {"streaming": True}))
+
+    key = getattr(model, "openai_api_key", None)
+    raw = key.get_secret_value() if hasattr(key, "get_secret_value") else key
+    base = (getattr(model, "openai_api_base", None) or getattr(model, "base_url", None)
+            or "provider default")
+    print(f"  model: {type(model).__name__}({getattr(model, 'model_name', model_id)}) "
+          f"· base={base} · key from DB: "
+          f"{'yes (' + str(len(raw or '')) + ' chars)' if raw else 'NO'}")
+    return model
 
 
 def build_agent(model_id: str):

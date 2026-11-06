@@ -25,6 +25,7 @@ import argparse
 import json
 import pathlib
 import sys
+import time
 import urllib.request
 
 OK = True
@@ -106,6 +107,9 @@ def main() -> int:
 
     session = call(args.base_url, "/api/chat/start", {"agent_id": args.agent_id})
     sid = session["session_id"]
+    # A brief left over from an earlier run would let a run that never executed the
+    # script pass on stale evidence, so only artifacts newer than this moment count.
+    started = time.time()
     print(f"session:   {sid}")
 
     script = ("skills/builtin/build-ontology-from-db/scripts/introspect_db.py")
@@ -137,8 +141,11 @@ def main() -> int:
                 parsed = json.loads(cand.read_text())
             except (OSError, json.JSONDecodeError):
                 continue
-            if isinstance(parsed, dict) and isinstance(parsed.get("tables"), list):
-                briefs.append((cand, parsed))
+            if not isinstance(parsed, dict) or not isinstance(parsed.get("tables"), list):
+                continue
+            if cand.stat().st_mtime < started - 5:      # 5 s slack for clock granularity
+                continue
+            briefs.append((cand, parsed))
     check("P3c the brief landed in the agent workspace", bool(briefs),
           f"no *brief*.json under {workspace}")
     if briefs:

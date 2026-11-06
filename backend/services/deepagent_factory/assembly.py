@@ -690,22 +690,27 @@ class _DeepAgentAssemblyMixin:
                 logger.warning(f"Failed to initialize LocalShellBackend: {e}. Proceeding without sandbox.")
 
         # A skill is read through the file tools but *run* through `execute`, and the
-        # two disagree about paths: file tools accept the virtual root (`/skills/...`),
-        # the shell needs the real relative path (`skills/...`). Agents that were not
-        # told this copied a skill's script into another directory and ran that copy
-        # instead of the staged one — measured on the ontology skill, whose whole value
+        # two disagree about paths: file tools take virtual paths rooted at the
+        # workspace (`/skills/...`, `/`), the shell takes real ones (`skills/...`, `.`).
+        # Agents that were not told this copied a skill's script into another directory
+        # and ran that copy instead of the staged one, and passed the host path to `ls`
+        # (→ "path_not_found") — both measured on the ontology skill, whose whole value
         # is running the three scripts where they live.
         if local_sandbox_backend is not None:
             final_system_prompt += (
                 "\n\n# Shell paths vs. file-tool paths\n"
-                "- `ls` / `read_file` / `write_file` accept the virtual root: "
-                "`/skills/builtin/<skill>/SKILL.md` works.\n"
-                "- `execute` runs in the workspace root on the real filesystem: the same "
-                "file is `skills/builtin/<skill>/SKILL.md` — no leading slash. A path "
-                "like `/skills/...` does not exist for the shell.\n"
-                "- Run a skill's scripts where they are staged; do not copy them to "
-                "another directory first. If a shell path fails, retry it relative to "
-                "the workspace root before concluding the file is missing."
+                "- `ls` / `read_file` / `write_file` / `glob` use a **virtual** filesystem "
+                "rooted at the workspace: `/` is the workspace, and "
+                "`/skills/builtin/<skill>/SKILL.md` is a skill's file. A host path such as "
+                "`/Users/…/agents/agent_1` is **not** a valid path for these tools "
+                "(`path_not_found`).\n"
+                "- `execute` runs on the real filesystem with the workspace as its working "
+                "directory: the same two files are `./` and `skills/builtin/<skill>/SKILL.md` "
+                "— no leading slash, and a bare `ls` already lists the workspace.\n"
+                "- So: inspect with `ls`/`read_file` using virtual paths, run with `execute` "
+                "using relative paths. Run a skill's scripts where they are staged; do not "
+                "copy them elsewhere first. If a path fails, retry it relative to the "
+                "workspace root before concluding the file is missing."
             )
 
         # ── Skills (progressive disclosure via SkillsMiddleware) ──
