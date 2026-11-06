@@ -101,8 +101,23 @@ async def publish_apply(staged_id: str, req: ApplyRequest):
 
 
 @router.get("/publish/history")
-async def publish_history(key: Optional[str] = None, limit: int = 50):
-    return {"ok": True, "publishes": ontology_publish.history(key=key, limit=limit)}
+async def publish_history(key: Optional[str] = None, limit: int = 50,
+                          status: Optional[str] = None):
+    """The publish ledger, newest first. `status=staged` is what a human has to decide on."""
+    rows = ontology_publish.history(key=key, limit=limit)
+    if status:
+        rows = [r for r in rows if r.get("status") == status]
+    return {"ok": True, "publishes": rows}
+
+
+@router.post("/publish/{staged_id}/discard")
+async def publish_discard(staged_id: str):
+    """Drop a staged candidate (an editor decision, same role as apply)."""
+    actor = _require_editor()
+    res = ontology_publish.discard(staged_id, actor=actor)
+    if not res.get("ok"):
+        raise HTTPException(409, res.get("error") or "discard failed")
+    return res
 
 
 @router.get("/publish/{staged_id}")

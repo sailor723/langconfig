@@ -368,8 +368,28 @@ def apply(staged_id: str, *, actor: str | None = None, confirmed: bool = False,
             "workbench_reloaded": reload_note == "", "reload_note": reload_note,
             "report": {"compile": final_compile, "gates_ok": final_gates.get("ok"),
                        "gates_fails": final_gates.get("fails", []),
-                       "gates_not_run": final_gates.get("not_run", [])},
-            "workbench_reloaded": reload_note == "", "reload_note": reload_note}
+                       "gates_not_run": final_gates.get("not_run", [])}}
+
+
+def discard(staged_id: str, *, actor: str | None = None) -> dict:
+    """Throw away a staged publish and its staging tree. Nothing installed is touched.
+
+    A staging tree is a copy of an ontology plus the agent's edits — it is scratch, but it sits
+    inside the repo (git-ignored), so leaving refused and superseded ones there forever is how a
+    repo fills with candidates nobody can tell apart. Discarding records the decision.
+    """
+    rows = _audit_list(staged_id)
+    if not rows:
+        return {"ok": False, "error": f"no publish {staged_id!r}"}
+    row = rows[0]
+    if row.get("status") == "applied":
+        return {"ok": False, "error": "that publish is already installed; there is nothing to discard"}
+    key = row["key"]
+    staging = _staging_dir(key) / staged_id
+    shutil.rmtree(staging, ignore_errors=True)
+    _audit_row(staged_id, key, actor or row.get("actor"), "discarded",
+               note=row.get("note") or "discarded", report=row.get("report") or {})
+    return {"ok": True, "staged_id": staged_id, "key": key, "status": "discarded"}
 
 
 def _profile_for_staged(staging: pathlib.Path) -> pathlib.Path | None:
@@ -396,7 +416,14 @@ def _restore(live: pathlib.Path, backup: pathlib.Path, existed: bool) -> None:
 
 
 def reload_workbench(key: str) -> str:
-    """Restart the workbench serving this ontology. Returns a human reason ("" = reloaded)."""
+    """Restart the workbench serving this ontology. Returns a human reason ("" = reloaded).
+
+    The coroutine is run on its OWN thread: this is called from the publish API handler (a running
+    event loop, where `asyncio.run` raises) and from the agent's publish tool (no loop at all).
+    Measured on the first real publish: the apply committed and left `workbench_reloaded: false`
+    with `RuntimeError: asyncio.run() cannot be called from a running event loop`, so the served
+    numbers stayed on the old code until someone restarted it by hand.
+    """
     try:
         from services import ontology_workbench
 
@@ -406,8 +433,13 @@ def reload_workbench(key: str) -> str:
             return (f"{key} is not registered in Settings → Ontology, so no workbench was "
                     f"running for it; add the profile there to serve it")
         import asyncio
+        import concurrent.futures
 
-        res = asyncio.run(ontology_workbench.ensure_started(rows[0], wait_s=15))
+        def _start():
+            return asyncio.run(ontology_workbench.ensure_started(rows[0], wait_s=15))
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            res = pool.submit(_start).result()
         return "" if res.get("up") else f"the workbench for {key} did not come back up"
     except Exception as exc:                                    # noqa: BLE001
         logger.warning("workbench reload for %s failed: %s", key, exc)

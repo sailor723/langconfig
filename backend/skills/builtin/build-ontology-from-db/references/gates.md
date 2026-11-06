@@ -88,3 +88,20 @@ Do not write gates breadth-first. Add them in this order, because each one makes
 5. `guard` + `plan budget` — once there is a big table
 6. `samples` and the language layer — last, because their content depends on the names
 7. `i18n`, `profile isolation` — when a second profile exists
+
+## The publish gate (phase 11)
+
+The last gate is not a script you run — it is the channel you hand the artifacts to.
+`ontology_publish` re-runs this entire suite against a **staging copy of the installed ontology** and
+compares its refusals with the ones already there:
+
+- **new refusal → refused publish.** A metric that stops compiling is a number that silently
+  disappears from a report; the publish must not be installable.
+- **carried refusal → published.** Things the installed ontology already refused are the existing
+  backlog, not this change's fault. Dressing them up as new failures makes the gate unusable, and
+  treating them as success is how a definition rots.
+- **NOT RUN gates are printed by name** in the same report. A reader must be able to tell "this
+  profile has no truth map" from "every number was verified".
+
+If the tool is absent, the gate is NOT RUN: say so, hand over the folder, and do not write into the
+installed ontology by hand.

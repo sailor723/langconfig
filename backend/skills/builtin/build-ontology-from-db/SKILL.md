@@ -238,6 +238,32 @@ REFUSED  price by brand: :Price declares no :grain — an aggregate needs the ob
 
 That list is the backlog and the negotiation with the business. Ship it with the numbers.
 
+### 11. Publish through the channel — the ontology lands itself
+
+The artifacts are not the deliverable until they are *installed*. Call the `ontology_publish` tool
+with your workspace's ontology folder instead of copying files into the repo by hand:
+
+```
+ontology_publish(ontology_key="logistics",
+                 source_dir="ontologies/logistics",   # 01-structure.ttl, 02-meaning.ttl,
+                                                      # metrics_ext.ttl, *_settings.json, tutorial.json
+                 note="added damagedBoxes; 3 refusals carried")
+```
+
+What it does, and what it refuses to do:
+
+- It copies your files over a **staging copy of the installed ontology** and re-runs the whole suite
+  there: every metric compiled or refused **by name**, every gate. You get that report back.
+- A publish that introduces a **new refusal** or a **failing gate** is refused at stage time. Carried
+  refusals (already refused before you started) are listed separately — those are not yours.
+- It **never installs**. A human with the `ontology_editor` role confirms the apply in one click
+  (Settings → Ontology → pending publishes); that re-runs the gates on the installed path, commits
+  with the gate summary, and reloads the workbench.
+
+So the honest end state of a build is: **files written, gates green where they can run, staged, and a
+named report of what a human must decide.** Never leave the artifacts only on your disk, and never
+claim the ontology is live because a publish was staged.
+
 ## What this skill will not do
 
 - invent a threshold, a grain, a dimension, or an "acceptable" rate — ask
@@ -256,6 +282,7 @@ That list is the backlog and the negotiation with the business. Ship it with the
 | **a PostgreSQL connection** | introspection and every gate run against the real database, never a description of it |
 | **the workbench (or any host that serves the ontology)** | phase 9's tutorial is *verified by running it*; without a host, write the file and say the verification is NOT RUN |
 | **a Python environment with `psycopg2` + `rdflib`** | the scripts import them; the repo's `backend/.venv` already has psycopg2, and `rdflib` only matters for the gate |
+| **the `ontology_publish` tool** | phase 11: the build lands through the validated channel. Without it, hand the folder over and say the publish is NOT RUN — do not copy files into the ontology repo |
 
 The compiler and guardrails (`sqlgen.py`, `guard.py`) live in the host repo. If they are absent, the
 skill still produces the TTL and the definitions; the **gate** is what needs them.

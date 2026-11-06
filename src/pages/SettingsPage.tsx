@@ -1735,6 +1735,222 @@ function OntologySection() {
         A profile that is not running still appears in the Ontology activity — it shows as “not running”
         with the command that starts it, so a stopped server never looks like an empty ontology.
       </div>
+
+      <PublishPanel />
+    </div>
+  )
+}
+
+interface PublishRow {
+  id: string
+  key: string
+  actor: string | null
+  status: string
+  note: string | null
+  report: any
+  git_commit: string | null
+  created_at: string | null
+}
+
+/**
+ * Pending publishes — what an agent staged, and the one decision a person makes.
+ *
+ * An agent that builds or edits an ontology hands its files to `/api/ontology/publish/stage`,
+ * which copies them over a STAGING copy of the installed ontology and runs the whole suite
+ * there: every metric compiled or refused by name, every gate. A publish that introduces a new
+ * refusal or a failing gate is refused at that point. Applying installs, re-runs the gates
+ * against the real path, commits with the gate summary and reloads the workbench; a failure
+ * reverts byte for byte.
+ *
+ * The two halves exist so that the agent can do the work while a human decides that a number's
+ * meaning changes for everyone. Without this panel the staged publish had no surface, so "the
+ * agent published it" really meant "someone copied files by hand and no gate ran".
+ */
+function PublishPanel() {
+  const [rows, setRows] = useState<PublishRow[] | null>(null)
+  const [open, setOpen] = useState<string | null>(null)
+  const [armed, setArmed] = useState<string | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [showHistory, setShowHistory] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  const load = useCallback(async () => {
+    try {
+      const res = await apiClient.get('/api/ontology/publish/history', { params: { limit: 40 } })
+      setRows((res.data?.publishes || []) as PublishRow[])
+    } catch {
+      setRows([])
+    }
+  }, [])
+  useEffect(() => { void load() }, [load])
+
+  const applyOne = async (id: string) => {
+    setBusy(id); setMsg(null)
+    try {
+      const res = await apiClient.post(`/api/ontology/publish/${id}/apply`, { confirmed: true })
+      const d = res.data || {}
+      setMsg({
+        ok: true,
+        text: `installed ${id} · commit ${d.git_commit || '(none)'} · workbench ${d.workbench_reloaded ? 'reloaded' : `NOT reloaded (${d.reload_note || 'unknown'})`}`,
+      })
+      setArmed(null)
+    } catch (e: any) {
+      const status = e?.response?.status
+      const detail = e?.response?.data?.detail || e?.message || 'apply failed'
+      setMsg({
+        ok: false,
+        text: status === 403
+          ? `你的帐号没有 ontology_editor 角色，不能发布：${detail}`
+          : `apply failed: ${detail}`,
+      })
+    } finally {
+      setBusy(null)
+      await load()
+    }
+  }
+
+  const discardOne = async (id: string) => {
+    setBusy(id); setMsg(null)
+    try {
+      await apiClient.post(`/api/ontology/publish/${id}/discard`, {})
+      setMsg({ ok: true, text: `discarded ${id} — the installed ontology was never touched` })
+    } catch (e: any) {
+      setMsg({ ok: false, text: `discard failed: ${e?.response?.data?.detail || e?.message || ''}` })
+    } finally {
+      setBusy(null)
+      setArmed(null)
+      await load()
+    }
+  }
+
+  const pending = (rows || []).filter(r => r.status === 'staged')
+  const past = (rows || []).filter(r => r.status !== 'staged').slice(0, 12)
+  const mono = 'ui-monospace, Menlo, monospace'
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, border: `1px solid ${tok.borderL2}`, borderRadius: 12, padding: '12px 14px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, lineHeight: '22px', fontWeight: 500, color: tok.labelPrimary }}>Pending publishes</div>
+          <div style={{ fontSize: 12, lineHeight: '18px', color: tok.labelTertiary }}>
+            An agent stages; a person installs. Each candidate was already compiled and gated against a copy —
+            applying re-runs the suite on the installed path, commits with the gate summary, and reloads the workbench.
+          </div>
+        </div>
+        <Btn dense onClick={() => void load()} disabled={busy !== null}>reload</Btn>
+      </div>
+
+      {rows === null && <div style={{ fontSize: 12, color: tok.labelTertiary }}>reading the publish ledger…</div>}
+      {rows !== null && pending.length === 0 && (
+        <div style={{ fontSize: 12, color: tok.labelTertiary }}>
+          Nothing is waiting. An agent's <code style={{ fontFamily: mono }}>ontology_publish</code> call lands here;
+          the installed ontologies are unchanged until something does.
+        </div>
+      )}
+
+      {pending.map(row => {
+        const rep = row.report || {}
+        const comp = rep.compile || {}
+        const refused: any[] = comp.refused || []
+        const newRef: string[] = rep.new_refusals || []
+        const carried: string[] = rep.carried_refusals || []
+        const fails: string[] = rep.gates_fails || []
+        const notRun: string[] = rep.gates_not_run || []
+        const isOpen = open === row.id
+        return (
+          <div key={row.id} style={{ border: `1px solid ${tok.borderL2}`, borderRadius: 10, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => setOpen(isOpen ? null : row.id)}>
+              <span style={{ fontSize: 13, fontWeight: 500, color: tok.labelPrimary }}>{row.key}</span>
+              <span style={{ fontSize: 11.5, fontFamily: mono, color: tok.labelTertiary }}>{row.id}</span>
+              <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 9, border: `1px solid ${tok.borderL2}`, color: rep.gates_ok ? tok.success : tok.error }}>
+                gates {rep.gates_ok ? 'pass' : 'fail'}
+              </span>
+              <span style={{ fontSize: 11.5, color: tok.labelTertiary }}>
+                {comp.compiled ?? 0}/{comp.metrics ?? 0} metrics · {refused.length} refused{newRef.length ? ` · ${newRef.length} new` : ''}
+              </span>
+              <span style={{ marginLeft: 'auto', fontSize: 11.5, color: tok.labelTertiary }}>{isOpen ? '▾' : '▸'}</span>
+            </div>
+
+            {row.note && <div style={{ fontSize: 12, lineHeight: '18px', color: tok.labelSecondary ?? tok.labelPrimary }}>{row.note}</div>}
+            <div style={{ fontSize: 11.5, color: tok.labelTertiary }}>
+              {row.actor || 'unknown'} · {row.created_at ? new Date(row.created_at).toLocaleString() : ''}
+              {(rep.files || []).length ? ` · ${(rep.files || []).length} file(s)` : ''}
+            </div>
+
+            {isOpen && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {newRef.length > 0 && (
+                  <div style={{ fontSize: 12, color: tok.error }}>
+                    new refusals (this is why it must not be applied): {newRef.join(', ')}
+                  </div>
+                )}
+                {refused.length > 0 && (
+                  <div style={{ fontSize: 11.5, fontFamily: mono, color: tok.labelTertiary, whiteSpace: 'pre-wrap' }}>
+                    {refused.slice(0, 12).map((r: any) => `REFUSED ${r.name}: ${r.why}`).join('\n')}
+                    {carried.length > 0 ? `\n(carried, already refused before this publish: ${carried.join(', ')})` : ''}
+                  </div>
+                )}
+                {fails.length > 0 && (
+                  <div style={{ fontSize: 12, color: tok.error, whiteSpace: 'pre-wrap' }}>{fails.join('\n')}</div>
+                )}
+                {notRun.length > 0 && (
+                  <div style={{ fontSize: 11.5, color: tok.labelTertiary }}>not run (named, not passed): {notRun.join(' · ')}</div>
+                )}
+                {(rep.files || []).length > 0 && (
+                  <div style={{ fontSize: 11, fontFamily: mono, color: tok.labelTertiary, wordBreak: 'break-all' }}>
+                    {(rep.files || []).join(' · ')}
+                  </div>
+                )}
+                {rep.gates_text && (
+                  <details>
+                    <summary style={{ fontSize: 11.5, color: tok.labelTertiary, cursor: 'pointer' }}>gate output</summary>
+                    <pre style={{ fontSize: 10.5, fontFamily: mono, color: tok.labelSecondary ?? tok.labelPrimary, background: tok.layer1, padding: 8, borderRadius: 8, maxHeight: 260, overflow: 'auto', margin: '6px 0 0' }}>
+                      {rep.gates_text}
+                    </pre>
+                  </details>
+                )}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {armed === row.id ? (
+                <>
+                  <Btn dense variant="primary" onClick={() => void applyOne(row.id)} disabled={busy === row.id}>
+                    {busy === row.id ? 'installing…' : 'confirm apply'}
+                  </Btn>
+                  <Btn dense onClick={() => setArmed(null)} disabled={busy === row.id}>cancel</Btn>
+                  <span style={{ fontSize: 11.5, color: tok.labelTertiary }}>
+                    this changes what {row.key}'s numbers mean for everyone
+                  </span>
+                </>
+              ) : (
+                <Btn dense onClick={() => setArmed(row.id)} disabled={busy !== null || newRef.length > 0 || fails.length > 0}>
+                  apply…
+                </Btn>
+              )}
+              <Btn dense variant="danger" onClick={() => void discardOne(row.id)} disabled={busy !== null}>discard</Btn>
+            </div>
+          </div>
+        )
+      })}
+
+      {past.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span
+            onClick={() => setShowHistory(v => !v)}
+            style={{ fontSize: 11.5, color: tok.labelTertiary, cursor: 'pointer' }}
+          >
+            {showHistory ? '▾' : '▸'} history ({past.length})
+          </span>
+          {showHistory && past.map(r => (
+            <div key={r.id} style={{ fontSize: 11.5, fontFamily: mono, color: tok.labelTertiary }}>
+              {r.status} · {r.key} · {r.id}{r.git_commit ? ` · ${r.git_commit.slice(0, 7)}` : ''} · {r.actor || '?'}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {msg && <div style={{ fontSize: 12, lineHeight: '18px', color: msg.ok ? tok.success : tok.error }}>{msg.text}</div>}
     </div>
   )
 }
