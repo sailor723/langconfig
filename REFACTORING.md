@@ -21,6 +21,23 @@ changing the public API.
 
 ---
 
+## Phase 4b — Script-bearing skills (measured, uncommitted)
+
+Found by taking a real script-bearing skill (`build-ontology-from-db`: three Python entry
+points) through an agent row and running it end to end. Each defect is silent — the run looks
+successful without the fix. Regression tests: `backend/scripts/test_ontology_skill_platform_agent.py`
+(P1–P5, platform/SSE level, DeepSeek) and `backend/scripts/test_ontology_skill_agent.py`
+(A/B/C, SDK level). Both are green: 10/10 and 11/11.
+
+| Area | Fix |
+|---|---|
+| Skill assets | `_stage_skill_catalog` (db mode) persisted only the rendered `SKILL.md`, so `scripts/`, `references/` and `examples/` were unreadable and unrunnable. It now saves every sibling under the skill prefix **and** mirrors the whole skill to `<sandbox>/skills/<type>/<skill>/`, returning the sandbox path as the skill source (`Serving skills from the sandbox mirror … execute stays available`) |
+| `execute` tool | `supports_execution()` is `isinstance(backend, SandboxBackendProtocol)`; wrapping in `FormatAwareBackend` dropped the subclassing, so a sandboxed agent had **no** `execute` tool at all. Added `FormatAwareBackend.wrap()` → `_FormatAwareSandboxBackend`, registered against `SandboxBackendProtocol` |
+| Prompt | Agents were never told that file-tool paths (`/skills/...`, virtual root) and shell paths (`skills/...`, real workspace root) differ — so they copied a skill's script to another directory and ran the copy. Factory now appends a "Shell paths vs. file-tool paths" block when a sandbox is active |
+| SSE tool results | `make_json_safe` kept only primitives, so `tool_end` shipped `"output": null` for every tool returning a `ToolMessage`, pydantic model, or `ExecuteResponse` — the chat UI showed an empty tool result. It now unwraps `.content`, dataclasses and `model_dump()` |
+
+---
+
 ## Phase 4 — Security & correctness pass (uncommitted)
 
 Fixes from the architecture review (each ships with regression tests in

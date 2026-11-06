@@ -1,0 +1,57 @@
+# The declared edges the TPCH app's compiler walks. The merged ontology (tpch.ttl) carries the
+# classes, the defined-class axioms and the metric meaning; these are the relationships and the
+# property-to-column bindings that make them reachable — no column name is guessed in SQL.
+@prefix : <https://cube.local/ontology/tpch#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ---- properties on the measures' columns
+:l_extendedprice a owl:DatatypeProperty ; rdfs:domain :OrderLine ; rdfs:range xsd:decimal ;
+    :physicalColumn "l_extendedprice" .
+:l_discount a owl:DatatypeProperty ; rdfs:domain :OrderLine ; rdfs:range xsd:decimal ;
+    :physicalColumn "l_discount" .
+:l_quantity a owl:DatatypeProperty ; rdfs:domain :OrderLine ; rdfs:range xsd:decimal ;
+    :physicalColumn "l_quantity" .
+:l_tax a owl:DatatypeProperty ; rdfs:domain :OrderLine ; rdfs:range xsd:decimal ;
+    :physicalColumn "l_tax" .
+:l_returnflag a owl:DatatypeProperty ; rdfs:domain :OrderLine ; rdfs:range xsd:string ;
+    :physicalColumn "l_returnflag" .
+:p_name a owl:DatatypeProperty ; rdfs:domain :Product ; rdfs:range xsd:string ;
+    :physicalColumn "p_name" .
+:ps_supplycost a owl:DatatypeProperty ; rdfs:domain :ProductSupplier ; rdfs:range xsd:decimal ;
+    :physicalColumn "ps_supplycost" .
+:n_name a owl:DatatypeProperty ; rdfs:domain :Nation ; rdfs:range xsd:string ;
+    :physicalColumn "n_name" .
+:r_name a owl:DatatypeProperty ; rdfs:domain :Region ; rdfs:range xsd:string ;
+    :physicalColumn "r_name" .
+
+# the group keys, named for the question a person asks (the local name IS the word matched)
+:nationName a owl:DatatypeProperty ; rdfs:label "nation name" ; 
+    :businessDescription "The nation a customer is in — a dimension, never a measure." ; rdfs:domain :Nation ;
+    rdfs:range xsd:string ; :physicalColumn "n_name" .
+:regionName a owl:DatatypeProperty ; rdfs:label "region name" ; 
+    :businessDescription "The region a nation belongs to — the coarsest geography in TPC-H." ; rdfs:domain :Region ;
+    rdfs:range xsd:string ; :physicalColumn "r_name" .
+:productName a owl:DatatypeProperty ; rdfs:label "product name" ; 
+    :businessDescription "The product's name — the label every product question groups by." ; rdfs:domain :Product ;
+    rdfs:range xsd:string ; :physicalColumn "p_name" .
+
+# ---- the four-to-five hop path  OrderLine -> SalesOrder -> Customer -> Nation -> Region
+:salesOrderOf a owl:ObjectProperty ; rdfs:domain :OrderLine ; rdfs:range :SalesOrder ;
+    :physicalColumn "l_orderkey" ; :references :SalesOrder .
+:customerOf a owl:ObjectProperty ; rdfs:domain :SalesOrder ; rdfs:range :Customer ;
+    :physicalColumn "o_custkey" ; :references :Customer .
+:nationOf a owl:ObjectProperty ; rdfs:domain :Customer ; rdfs:range :Nation ;
+    :physicalColumn "c_nationkey" ; :references :Nation .
+:regionOf a owl:ObjectProperty ; rdfs:domain :Nation ; rdfs:range :Region ;
+    :physicalColumn "n_regionkey" ; :references :Region .
+
+# ---- products, and the COMPOSITE link to partsupp (two FK columns, two key columns)
+:partOf a owl:ObjectProperty ; rdfs:domain :OrderLine ; rdfs:range :Product ;
+    :physicalColumn "l_partkey" ; :references :Product .
+:productSupplier a owl:ObjectProperty ; rdfs:domain :OrderLine ; rdfs:range :ProductSupplier ;
+    :physicalColumn "l_partkey, l_suppkey" ;
+    :referencesKey "ps_partkey, ps_suppkey" ;
+    :references :ProductSupplier ;
+    :businessDescription "TPC-H declares this link with TWO columns: a line names a part AND a supplier, and partsupp is keyed by both. The compiler joins on both or refuses." .

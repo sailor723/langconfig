@@ -1,0 +1,14 @@
+{
+  "title": "Clinic ontology",
+  "ns": "https://cube.local/ontology/clinic#",
+  "ontology_dir": "ontology",
+  "overlay": "",
+  "dsn": {"host": "127.0.0.1", "port": 5432, "dbname": "clinic_db", "user": "weiping", "password": ""},
+  "guard": {
+    "enabled": true, "max_rows": 500, "default_window_days": 90,
+    "statement_timeout_ms": 8000, "max_plan_rows": 5000000,
+    "big_tables": {"appointments": "scheduled_at", "treatment_lines": "appointment_id"}
+  },
+  "features": {"actions": false, "lane_b": false, "tutorial": false},
+  "samples": ["预约数", "爽约率", "诊疗收入", "待决理赔数", "按患者城市收入", "按项目收入"]
+}

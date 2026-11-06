@@ -1,0 +1,62 @@
+# 诊所 —— 定义与指标（由“人”决定的部分：阈值、口径、颗粒度）
+@prefix : <https://cube.local/ontology/clinic#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ---- 定义：一个 code（枚举）
+:NoShowAppointment a owl:Class ; rdfs:label "爽约" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Appointment [ a owl:Restriction ;
+        owl:onProperty :appointmentStatus ; owl:hasValue "no_show" ] ) ] ;
+    :businessDescription "到了时间病人没来（status = no_show）。爽约不是取消，也不是完成。" .
+:CompletedAppointment a owl:Class ; rdfs:label "已完成就诊" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Appointment [ a owl:Restriction ;
+        owl:onProperty :appointmentStatus ; owl:hasValue "completed" ] ) ] .
+
+# ---- 定义：一个可空状态（IS NULL）—— OWL 表达不了，用唯一那处声明式谓词
+:PendingClaim a owl:Class ; rdfs:label "待决保险理赔" ;
+    :physicalPredicate "decision IS NULL" ;
+    :businessDescription "已提交但尚未裁决的理赔。decision 为空是状态，不是缺失 —— 这正是要统计的东西。" .
+
+# ---- 定义：一个阈值（facet），阈值只写在这里一次
+:HighValueInvoice a owl:Class ; rdfs:label "高额发票" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Invoice [ a owl:Restriction ;
+        owl:onProperty :total ; owl:withRestrictions ( [ xsd:minInclusive 500 ] ) ] ) ] .
+:Invoice a owl:Class .   # already declared in 01-structure; harmless repeat for the axiom's base
+
+# ---- 指标：可加
+:appointments a owl:DatatypeProperty ; rdfs:label "预约数" ; :aggregate "count" ;
+    :grain :Appointment ; :universe :Appointment ; :unit "count" .
+:noShowAppointments a owl:DatatypeProperty ; rdfs:label "爽约数" ; :aggregate "count" ;
+    :grain :Appointment ; :universe :Appointment ; :where :NoShowAppointment ; :unit "count" .
+:completedAppointments a owl:DatatypeProperty ; rdfs:label "完成就诊数" ; :aggregate "count" ;
+    :grain :Appointment ; :universe :Appointment ; :where :CompletedAppointment ; :unit "count" .
+:treatmentRevenue a owl:DatatypeProperty ; rdfs:label "诊疗收入" ; :aggregate "sum" ;
+    :grain :TreatmentLine ; :universe :TreatmentLine ;
+    :formula "qty * unit_price * (1 - discount)" ; :unit "money" ; :additivity "additive" .
+:pendingClaims a owl:DatatypeProperty ; rdfs:label "待决理赔数" ; :aggregate "count" ;
+    :grain :Claim ; :universe :Claim ; :where :PendingClaim ; :unit "count" .
+:claims a owl:DatatypeProperty ; rdfs:label "理赔数" ; :aggregate "count" ;
+    :grain :Claim ; :universe :Claim ; :unit "count" .
+
+# ---- 指标：比率（分子分母都是已声明的指标）
+:noShowRate a owl:DatatypeProperty ; rdfs:label "爽约率" ; :aggregate "ratio_of_sums" ;
+    :grain :Appointment ; :universe :Appointment ;
+    :numerator :noShowAppointments ; :denominator :appointments ; :unit "ratio" .
+:pendingClaimRate a owl:DatatypeProperty ; rdfs:label "理赔待决率" ; :aggregate "ratio_of_sums" ;
+    :grain :Claim ; :universe :Claim ;
+    :numerator :pendingClaims ; :denominator :claims ; :unit "ratio" .
+:revenuePerCompletedVisit a owl:DatatypeProperty ; rdfs:label "每次就诊收入" ;
+    :aggregate "ratio_of_sums" ; :grain :TreatmentLine ; :universe :TreatmentLine ;
+    :numerator :treatmentRevenue ; :denominator :completedAppointments ; :unit "money" .
+
+# ---- 指标：分维度（键在另一个对象上，需要声明的连接路径）
+:revenueByPatientCity a owl:DatatypeProperty ; rdfs:label "按患者城市收入" ;
+    :aggregate "sum" ; :grain :TreatmentLine ; :universe :TreatmentLine ;
+    :formula "qty * unit_price * (1 - discount)" ; :groupBy :city ; :unit "money" .
+:revenueByTreatment a owl:DatatypeProperty ; rdfs:label "按项目收入" ;
+    :aggregate "sum" ; :grain :TreatmentLine ; :universe :TreatmentLine ;
+    :formula "qty * unit_price * (1 - discount)" ; :groupBy :treatmentName ; :unit "money" .
+:appointmentsByStatus a owl:DatatypeProperty ; rdfs:label "按状态预约数" ;
+    :aggregate "count" ; :grain :Appointment ; :universe :Appointment ;
+    :groupBy :appointmentStatus ; :unit "count" .

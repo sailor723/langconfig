@@ -105,6 +105,68 @@ def _stage_skill_catalog(
                     skill_row_to_markdown(s).encode("utf-8"),
                     "text/markdown",
                 )
+
+            # A skill is SKILL.md *plus* whatever it tells the agent to open or run
+            # (scripts/, references/, examples/). Staging only the markdown made those
+            # files unreachable in db mode: the model reads "run scripts/introspect_db.py"
+            # and finds an empty directory — measured with a skill whose whole point is
+            # three scripts. Persist the siblings under the same skill prefix so
+            # read_file works, and mirror them onto the sandbox when one is active,
+            # because a DbBackend path is virtual and the shell cannot see it.
+            assets_root = None
+            if sandbox_path is not None:
+                assets_root = Path(sandbox_path).resolve()
+            elif workspace_root:
+                assets_root = Path(workspace_root).resolve()
+            assets_staged = 0
+            mirrored_types: set[str] = set()
+            for s in skill_records:
+                src = Path(getattr(s, "source_path", "") or "")
+                source_type = normalize_source_type(getattr(s, "source_type", "builtin"))
+                prefix = skill_storage_key(s)[: -len("SKILL.md")]
+                if assets_root is not None:
+                    # A sandbox cannot see DbBackend paths, and the SDK exposes no
+                    # `execute` tool for a CompositeBackend — so a skill that ships
+                    # scripts would be readable-but-unrunnable. Write the whole skill
+                    # (rendered SKILL.md included) next to the sandbox and serve the
+                    # catalog from there instead.
+                    dst = assets_root / "skills" / source_type / s.skill_id / "SKILL.md"
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    dst.write_text(skill_row_to_markdown(s), encoding="utf-8")
+                    mirrored_types.add(source_type)
+                if not src.is_dir():
+                    continue
+                for f in sorted(src.rglob("*")):
+                    if not f.is_file() or f.name == "SKILL.md":
+                        continue
+                    rel = f.relative_to(src).as_posix()
+                    try:
+                        data = f.read_bytes()
+                    except OSError:
+                        continue
+                    mime = ("text/markdown" if f.suffix in (".md", ".txt")
+                            else "application/octet-stream")
+                    storage.save(prefix + rel, data, mime)
+                    if assets_root is not None:
+                        dst = assets_root / "skills" / source_type / s.skill_id / rel
+                        dst.parent.mkdir(parents=True, exist_ok=True)
+                        dst.write_bytes(data)
+                    assets_staged += 1
+            if assets_staged or mirrored_types:
+                logger.info(
+                    f"Staged {assets_staged} skill asset file(s) for "
+                    f"{len(skill_records)} skill(s)"
+                    + (f" (mirrored to {assets_root})" if assets_root else "")
+                )
+            if mirrored_types and assets_root is not None:
+                # disk sources, so SkillsMiddleware reads them through the sandbox and
+                # the `execute` tool can run the scripts they contain
+                disk_sources = [f"skills/{t}" for t in sorted(mirrored_types)]
+                logger.info(
+                    f"Serving skills from the sandbox mirror ({', '.join(disk_sources)}) "
+                    f"instead of DbBackend — execute stays available"
+                )
+                return assets_root, disk_sources, None
             types = sorted({
                 normalize_source_type(getattr(s, "source_type", "builtin"))
                 for s in skill_records
@@ -627,6 +689,25 @@ class _DeepAgentAssemblyMixin:
             except Exception as e:
                 logger.warning(f"Failed to initialize LocalShellBackend: {e}. Proceeding without sandbox.")
 
+        # A skill is read through the file tools but *run* through `execute`, and the
+        # two disagree about paths: file tools accept the virtual root (`/skills/...`),
+        # the shell needs the real relative path (`skills/...`). Agents that were not
+        # told this copied a skill's script into another directory and ran that copy
+        # instead of the staged one — measured on the ontology skill, whose whole value
+        # is running the three scripts where they live.
+        if local_sandbox_backend is not None:
+            final_system_prompt += (
+                "\n\n# Shell paths vs. file-tool paths\n"
+                "- `ls` / `read_file` / `write_file` accept the virtual root: "
+                "`/skills/builtin/<skill>/SKILL.md` works.\n"
+                "- `execute` runs in the workspace root on the real filesystem: the same "
+                "file is `skills/builtin/<skill>/SKILL.md` — no leading slash. A path "
+                "like `/skills/...` does not exist for the shell.\n"
+                "- Run a skill's scripts where they are staged; do not copy them to "
+                "another directory first. If a shell path fails, retry it relative to "
+                "the workspace root before concluding the file is missing."
+            )
+
         # ── Skills (progressive disclosure via SkillsMiddleware) ──
         # Classic Anthropic pattern: the FULL skill catalog (builtin + personal
         # roots) is exposed to every agent, not just config.skills. The
@@ -746,6 +827,8 @@ class _DeepAgentAssemblyMixin:
                 # Pass LocalShellBackend so the agent gains the `execute` tool for
                 # running scripts (Python, shell commands, pip install, etc.)
                 agent_kwargs["backend"] = local_sandbox_backend
+                if skills_sources:
+                    agent_kwargs["skills"] = skills_sources
             elif skills_staging_root is not None:
                 # Skills need a disk-backed backend (StateBackend is in-memory)
                 # so SkillsMiddleware can list the staged SKILL.md files.
@@ -764,7 +847,7 @@ class _DeepAgentAssemblyMixin:
             # (docs/tools-refactor.md — native format-aware renderers reused).
             try:
                 from services.format_backend import FormatAwareBackend
-                agent_kwargs["backend"] = FormatAwareBackend(agent_kwargs["backend"])
+                agent_kwargs["backend"] = FormatAwareBackend.wrap(agent_kwargs["backend"])
             except Exception as e:
                 logger.warning(f"FormatAwareBackend wrap failed (non-fatal): {e}")
 

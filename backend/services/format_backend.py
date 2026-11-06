@@ -56,6 +56,27 @@ class FormatAwareBackend(BackendProtocol):
     def __init__(self, backend: Any):
         self._backend = backend
 
+    @classmethod
+    def wrap(cls, backend: Any):
+        """Wrap `backend`, keeping its shell capability visible to the SDK.
+
+        `supports_execution()` decides whether the `execute` tool exists with
+        ``isinstance(backend, SandboxBackendProtocol)``. A plain adapter is not that
+        protocol, so wrapping a LocalShellBackend here silently removed `execute` from
+        every sandboxed agent — measured: sandbox enabled in the log, no shell tool in
+        the model's schema, a skill that ships scripts could read but not run them.
+        So a shell backend gets a subclass that keeps the protocol.
+        """
+        from deepagents.backends.protocol import SandboxBackendProtocol
+        from deepagents.middleware.filesystem import supports_execution
+
+        try:
+            if supports_execution(backend):
+                return _FormatAwareSandboxBackend(backend)
+        except Exception:  # noqa: BLE001 — never fail the build over capability probing
+            pass
+        return cls(backend)
+
     # ── format-aware read ────────────────────────────────────────────────────
     def read(
         self,
@@ -247,6 +268,24 @@ class FormatAwareBackend(BackendProtocol):
 
     def __getattr__(self, name: str):
         return getattr(self._backend, name)
+
+
+class _FormatAwareSandboxBackend(FormatAwareBackend):
+    """FormatAwareBackend that still *is* a SandboxBackendProtocol.
+
+    The protocol is only used for capability checks (``isinstance``); execution itself is
+    delegated to the wrapped backend by ``__getattr__``. Declaring the base class is what
+    makes the SDK keep the `execute` tool.
+    """
+
+
+try:  # pragma: no cover - import-time capability registration
+    from deepagents.backends.protocol import SandboxBackendProtocol as _Sandbox
+
+    if not issubclass(_FormatAwareSandboxBackend, _Sandbox):
+        _Sandbox.register(_FormatAwareSandboxBackend)
+except Exception:  # noqa: BLE001
+    pass
 
     def _read_bytes_via_backend(self, file_path: str) -> Optional[bytes]:
         """Read raw bytes via the wrapped backend (base64 content for DbBackend)."""

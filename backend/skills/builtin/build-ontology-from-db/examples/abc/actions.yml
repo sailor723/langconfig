@@ -1,0 +1,33 @@
+# ABC 冷链 —— 两个被审计的写操作（lane C）。
+#
+# 只写本体标记 :state "action" 的属性；前置条件编译自 TTL，与读路径同一个编译器。
+namespace: https://cube.local/ontology/abc#
+actions:
+  - name: AssignTrip
+    applies_to: Trip
+    parameters:
+      trip_id: { type: integer, required: true }
+      driver_id: { type: integer, required: true }
+      vehicle_id: { type: integer, required: true }
+    preconditions:
+      - { kind: exists, object_type: Trip, key: "{trip_id}" }
+      - { kind: exists, object_type: Driver, key: "{driver_id}" }
+      - { kind: exists, object_type: Vehicle, key: "{vehicle_id}" }
+    # 写入的是「谁跑这一趟」——这正是那条人情调度要留下的记录
+    effect: { kind: property, property: driver_id, value: "{driver_id}" }
+    permission: write:trip.assignment
+    audit: required
+    description: "把一趟派给某个司机与车辆；每次指派都留审计行，人情调度从此有据可查。"
+
+  - name: JudgeLiability
+    applies_to: Complaint
+    parameters:
+      complaint_id: { type: integer, required: true }
+      liability: { type: string, required: true }   # driver / labourer / depot / unknown
+      amount: { type: number, required: true }
+    preconditions:
+      - { kind: exists, object_type: Complaint, key: "{complaint_id}" }
+    effect: { kind: property, property: liability, value: "{liability}" }
+    permission: write:complaint.liability
+    audit: required
+    description: "判定客诉责任归属；未判定保持为空，判定后写入并留审计。"

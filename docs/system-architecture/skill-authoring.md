@@ -93,7 +93,36 @@ The only change was wording. Treat the anti-loop rule, stop conditions and hard 
 | `SkillsMiddleware.before_agent` loads `skills_metadata` **once per thread** | the catalog is frozen for that conversation; a new/edited skill needs a new chat |
 | The catalog is metadata only; level 2 is `read_file` on the path, level 3 is whatever that body references | the skill must be readable **as a file**, and the agent must carry a file-reading tool |
 
-### Which root a skill belongs in, and who can see it
+## 5b. Skills that ship scripts (`scripts/`, `references/`)
+
+A skill whose value is *running* something — `build-ontology-from-db` ships three Python
+scripts — needs three things a markdown-only skill never did. All three were broken in this
+platform and are now fixed; each failed silently in a different way:
+
+| Requirement | Why a markdown-only skill never needed it | How it broke, and the fix |
+|---|---|---|
+| the skill's **sibling files are staged**, not just `SKILL.md` | level-3 references were all prose before | db mode saved only the rendered `SKILL.md`. `_stage_skill_catalog` now persists every file under the skill prefix and mirrors it under `assets_root` (`Staged 69 skill asset file(s) for 45 skill(s)`) |
+| the **mirror is served, not DbBackend** | a virtual path is unreadable to a shell | sources become `skills/<type>` on disk so `SkillsMiddleware` reads through the sandbox (`Serving skills from the sandbox mirror … execute stays available`) |
+| the backend still **exposes `execute`** | file-only skills need only `read_file` | `supports_execution()` tests `isinstance(backend, SandboxBackendProtocol)` and the format-aware wrapper was not one → no `execute` tool at all. `FormatAwareBackend.wrap()` returns a subclass that registers *as* `SandboxBackendProtocol` |
+
+One more trap that costs a run every time it is missed: **file-tool paths and shell paths
+differ.** `read_file` accepts the virtual root (`/skills/builtin/<s>/SKILL.md`); `execute`
+runs on the real filesystem rooted at the workspace, where the same file is
+`skills/builtin/<s>/SKILL.md`. An agent not told this tries `/skills/...`, gets "no such
+file", and *copies the script elsewhere to run it* — which works, so nothing looks broken,
+while the staged copy was never exercised. The factory appends a "Shell paths vs. file-tool
+paths" block whenever a sandbox is active, and
+`scripts/test_ontology_skill_platform_agent.py` asserts **P3d: the script ran from the
+mirror, not a copy.**
+
+A second platform fix came out of the same test: **`tool_end` events carried
+`"output": null`** for any tool returning an object (`ToolMessage`, a pydantic model, or
+deepagents' `ExecuteResponse`), because `make_json_safe` only kept primitives. The agent
+could still act, but the UI showed an empty result and the test could not see stdout.
+`make_json_safe` now unwraps `.content`, dataclasses and `model_dump()` before giving up.
+
+## 5c. Which root a skill belongs in, and who can see it
+
 
 Two roots, and the difference is now enforced rather than nominal:
 

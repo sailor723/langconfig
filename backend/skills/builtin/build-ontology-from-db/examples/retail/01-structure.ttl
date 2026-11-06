@@ -1,0 +1,176 @@
+@prefix :     <https://cube.local/ontology/retail#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+# Annotation property: a property whose value is owned by a business ACTION, never hand-edited.
+# Declared here so the file is self-describing (PALANTIR_MAPPING.md §4, "action-owned state").
+:state a owl:AnnotationProperty .
+
+:Customer a owl:Class ;
+    rdfs:label "Customer" ;
+    :physicalTable "customers" ;
+    :primaryKey "id" ;
+    :businessDescription "Anyone who has bought from the retailer at least once." .
+
+:Order a owl:Class ;
+    rdfs:label "Order" ;
+    :physicalTable "orders" ;
+    :primaryKey "id" ;
+    :businessDescription "One purchase, online or in a store." .
+
+:Product a owl:Class ;
+    rdfs:label "Product" ;
+    :physicalTable "products" ;
+    :primaryKey "id" ;
+    :businessDescription "Something an order can contain (the video's Product)." .
+
+:Store a owl:Class ;
+    rdfs:label "Store" ;
+    :physicalTable "stores" ;
+    :primaryKey "id" ;
+    :businessDescription "Where an order was sold (the video's Store)." .
+
+:OrderLine a owl:Class ;
+    rdfs:label "Order line" ;
+    :physicalTable "order_lines" ;
+    :primaryKey "id" ;
+    :businessDescription "The association that models 'Order contains Product': one line per product in an order." .
+
+:PremiumCustomer a owl:Class ;
+    rdfs:label "Premium customer" ;
+    :businessDescription "Defined class: a Customer whose tier is PREMIUM. The definition lives in the owl:equivalentClass axiom (02-meaning.ttl); the mapping only binds raw rows." .
+
+:cust_id a owl:DatatypeProperty ;
+    rdfs:label "cust_id" ;
+    rdfs:domain :Customer ;
+    rdfs:range xsd:integer ;
+    :physicalColumn "id" ;
+    :sqlType "int" .
+
+:name a owl:DatatypeProperty ;
+    rdfs:label "name" ;
+    rdfs:domain :Customer ;
+    rdfs:range xsd:string ;
+    :physicalColumn "name" ;
+    :sqlType "text" .
+
+:tier a owl:DatatypeProperty ;
+    rdfs:label "tier" ;
+    rdfs:domain :Customer ;
+    rdfs:range xsd:string ;
+    :physicalColumn "tier" ;
+    :sqlType "text" ;
+    :state "action" .
+
+:order_id a owl:DatatypeProperty ;
+    rdfs:label "order_id" ;
+    rdfs:domain :Order ;
+    rdfs:range xsd:integer ;
+    :physicalColumn "id" ;
+    :sqlType "int" .
+
+:customer_id a owl:DatatypeProperty ;
+    rdfs:label "customer_id" ;
+    rdfs:domain :Order ;
+    rdfs:range xsd:integer ;
+    :physicalColumn "customer_id" ;
+    :sqlType "int" ;
+    :state "action" .
+
+:product_id a owl:DatatypeProperty ;
+    rdfs:label "product_id" ;
+    rdfs:domain :Product ;
+    rdfs:range xsd:integer ;
+    :physicalColumn "id" ;
+    :sqlType "int" .
+
+:product_name a owl:DatatypeProperty ;
+    rdfs:label "product_name" ;
+    rdfs:domain :Product ;
+    rdfs:range xsd:string ;
+    :physicalColumn "name" ;
+    :sqlType "text" .
+
+:price a owl:DatatypeProperty ;
+    rdfs:label "price" ;
+    rdfs:domain :Product ;
+    rdfs:range xsd:decimal ;
+    :physicalColumn "price" ;
+    :sqlType "numeric" ;
+    :unit "money" .
+
+:store_id a owl:DatatypeProperty ;
+    rdfs:label "store_id" ;
+    rdfs:domain :Store ;
+    rdfs:range xsd:integer ;
+    :physicalColumn "id" ;
+    :sqlType "int" .
+
+:city a owl:DatatypeProperty ;
+    rdfs:label "city" ;
+    rdfs:domain :Store ;
+    rdfs:range xsd:string ;
+    :physicalColumn "city" ;
+    :sqlType "text" .
+
+:line_id a owl:DatatypeProperty ;
+    rdfs:label "line_id" ;
+    rdfs:domain :OrderLine ;
+    rdfs:range xsd:integer ;
+    :physicalColumn "id" ;
+    :sqlType "int" .
+
+:qty a owl:DatatypeProperty ;
+    rdfs:label "qty" ;
+    rdfs:domain :OrderLine ;
+    rdfs:range xsd:integer ;
+    :physicalColumn "qty" ;
+    :sqlType "int" .
+
+:placed_at a owl:DatatypeProperty ;
+    rdfs:label "placed at" ;
+    rdfs:domain :Order ;
+    rdfs:range xsd:dateTime ;
+    :physicalColumn "placed_at" ;
+    :sqlType "timestamptz" ;
+    :businessDescription "When the purchase happened. This is what a :TimeWindow slot filters on." .
+
+:amount a owl:DatatypeProperty ;
+    rdfs:label "amount" ;
+    rdfs:domain :Order ;
+    rdfs:range xsd:decimal ;
+    :physicalColumn "amount" ;
+    :sqlType "numeric" ;
+    :unit "money" ;
+    :state "action" .
+
+:sold_at a owl:ObjectProperty ;
+    rdfs:label "sold at" ;
+    rdfs:domain :Order ;
+    rdfs:range :Store ;
+    :physicalColumn "sold_at" ;
+    :references :Store ;
+    :businessDescription "The video's 'Order sold at Store'. FK on the order row." .
+
+:order_ref a owl:ObjectProperty ;
+    rdfs:label "order" ;
+    rdfs:domain :OrderLine ;
+    rdfs:range :Order ;
+    :physicalColumn "order_id" ;
+    :references :Order .
+
+:product_ref a owl:ObjectProperty ;
+    rdfs:label "product" ;
+    rdfs:domain :OrderLine ;
+    rdfs:range :Product ;
+    :physicalColumn "product_id" ;
+    :references :Product .
+
+:customer a owl:ObjectProperty ;
+    rdfs:label "customer" ;
+    rdfs:domain :Order ;
+    rdfs:range :Customer ;
+    :physicalColumn "customer_id" ;
+    :references :Customer ;
+    :businessDescription "Every order belongs to exactly one customer. The FK (customer_id) lives on the order row; :references names the target class so the compiler can build the JOIN from the declaration instead of guessing from column names." .

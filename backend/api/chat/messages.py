@@ -18,6 +18,7 @@ _REPO_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(__file__), "..", ".
 if _REPO_ROOT not in _sys.path and _os.path.isdir(_REPO_ROOT):
     _sys.path.insert(0, _REPO_ROOT)
 
+import dataclasses
 import json
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -285,6 +286,25 @@ def make_json_safe(obj):
     elif isinstance(obj, (list, tuple)):
         return [make_json_safe(item) for item in obj]
     else:
+        # Messages and rich tool results are payloads, not junk: LangChain
+        # messages carry theirs in `.content`, dataclasses and pydantic models
+        # (e.g. deepagents' ``ExecuteResponse``) in their fields. Without this a
+        # tool that returns an object serialised as ``null`` and the chat UI
+        # showed an empty result for every such tool — including ``execute``.
+        content = getattr(obj, "content", None)
+        if isinstance(content, (str, list, dict)):
+            return make_json_safe(content)
+        if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+            try:
+                return make_json_safe(dataclasses.asdict(obj))
+            except Exception:
+                pass
+        model_dump = getattr(obj, "model_dump", None)
+        if callable(model_dump):
+            try:
+                return make_json_safe(model_dump())
+            except Exception:
+                pass
         # Skip non-serializable objects like Command
         try:
             json.dumps(obj)
@@ -1458,11 +1478,13 @@ async def send_message_stream(
                                             if spawn["status"] == "running":
                                                 spawn["status"] = "completed"
                                                 break
-                                    output = tool_data.get("output", "")
+                                    output = make_json_safe(tool_data.get("output", ""))
                                     if isinstance(output, str):
                                         tc["result"] = output[:500]
-                                    elif isinstance(output, dict):
-                                        tc["result"] = json.dumps(output)[:500]
+                                    elif isinstance(output, (dict, list)):
+                                        tc["result"] = json.dumps(output, ensure_ascii=False)[:500]
+                                    elif tool_data.get("output") is not None:
+                                        tc["result"] = str(tool_data.get("output"))[:500]
                                     tc["status"] = "completed"
                                     break
                             # Filter out non-serializable objects

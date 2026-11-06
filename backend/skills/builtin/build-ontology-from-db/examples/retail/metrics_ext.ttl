@@ -1,0 +1,137 @@
+# Overlay: the three declarations Cube used to hold implicitly
+# (:aggregate / :grain / :universe, plus :concept for the concept count).
+# Same contract as sql-first/metrics_ext.ttl — only the member names differ.
+@prefix :     <https://cube.local/ontology/retail#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+:aggregate a owl:AnnotationProperty .
+:supportsSlot a owl:AnnotationProperty .
+
+# SLOTS: the dimensions a question may constrain. A metric declares the slots it can honour
+# with :supportsSlot; a question that asks for an unsupported slot is refused BY NAME
+# (the capability graph has no edge), instead of silently ignoring the constraint.
+:CustomerFilter a owl:Class ;
+    :isSlot "true" ;
+    rdfs:label "customer filter" ;
+    :filterColumn "customer_id" ;
+    :businessDescription "Restrict a metric to one customer. Declared only by metrics whose grain table carries customer_id." .
+:TimeWindow a owl:Class ;
+    :isSlot "true" ;
+    rdfs:label "time window" ;
+    :filterColumn "placed_at" ;
+    :businessDescription "Restrict facts to a time range on :placed_at. Declared by metrics whose grain table carries placed_at." .
+
+:RegionFilter a owl:Class ;
+    :isSlot "true" ;
+    rdfs:label "region filter" ;
+    :businessDescription "Declared, but no metric supports it: a live example of a slot that must be refused by name." .
+:grain     a owl:AnnotationProperty .
+:universe  a owl:AnnotationProperty .
+
+:orderRevenue
+    :supportsSlot :CustomerFilter ;
+    :supportsSlot :TimeWindow ;
+    :aggregate "sum" ;
+    :grain     :Order ;
+    :universe  :Order .
+
+:averageOrderValue
+    :supportsSlot :CustomerFilter ;
+    :supportsSlot :TimeWindow ;
+    :aggregate "ratio_of_sums" ;
+    :grain     :Order ;
+    :universe  :Order .
+
+:premiumCustomers
+    :aggregate "count" ;
+    :grain     :Customer ;
+    :universe  :Customer ;
+    :counts    :Customer ;
+    :concept   :PremiumCustomer .
+
+:orderCount
+    :supportsSlot :CustomerFilter ;
+    :supportsSlot :TimeWindow ;
+    :aggregate "count" ;
+    :grain     :Order ;
+    :universe  :Order .
+
+:revenueByCity
+    :aggregate "sum" ;
+    :grain     :Order ;
+    :universe  :Order .
+
+:premiumRevenueByCity
+    :aggregate "sum" ;
+    :grain     :Order ;
+    :universe  :Order ;
+    :where     :PremiumCustomer ;
+    :groupBy   :city .
+
+:revenueByProductCity
+    :aggregate "sum" ;
+    :grain     :OrderLine ;
+    :universe  :OrderLine .
+
+:premiumRevenueByProduct
+    :aggregate "sum" ;
+    :grain     :OrderLine ;
+    :universe  :OrderLine ;
+    :where     :PremiumCustomer .
+
+:revenueByProduct
+    :aggregate "sum" ;
+    :grain     :OrderLine ;
+    :universe  :OrderLine .
+
+:productRevenue
+    :aggregate "sum" ;
+    :grain     :OrderLine ;
+    :universe  :OrderLine .
+
+:revenuePerCustomer
+    :aggregate "ratio_of_sums" ;
+    :grain     :Order ;
+    :universe  :Customer .
+
+:premiumProductRevenue
+    :aggregate "sum" ;
+    :grain     :OrderLine ;
+    :universe  :OrderLine ;
+    :where     :PremiumCustomer .
+
+:customers
+    :aggregate "count" ;
+    :grain     :Customer ;
+    :universe  :Customer .
+
+:maximumOrderValue
+    :aggregate "max" ;
+    :grain     :Order ;
+    :universe  :Order .
+
+# CROSS-OBJECT metrics: the facts are Orders, the filter (:where) is a concept built on
+# Customer. The join is NOT hand-written: sqlgen.relationship() reads the declared
+# :customer object property (FK customer_id -> :Customer) and compiles
+#   FROM orders JOIN customers ON orders.customer_id = customers.id
+:premiumCustomerRevenue a owl:DatatypeProperty ;
+    :supportsSlot :CustomerFilter ;
+    :supportsSlot :TimeWindow ;
+    :aggregate  "sum" ;
+    :grain      :Order ;
+    :universe   :Order ;
+    :where      :PremiumCustomer ;
+    :formula    "amount" ;
+    :unit       "money" ;
+    :additivity "additive" .
+
+:premiumCustomersWithOrders a owl:DatatypeProperty ;
+    :supportsSlot :CustomerFilter ;
+    :supportsSlot :TimeWindow ;
+    :aggregate "count" ;
+    :grain     :Order ;
+    :universe  :Order ;
+    :where     :PremiumCustomer ;
+    :counts    :Customer ;
+    :unit      "count" .
