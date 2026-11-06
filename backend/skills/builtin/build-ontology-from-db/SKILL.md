@@ -181,7 +181,52 @@ promises. Metrics report the unbounded scan and the plan budget decides.
 - only then the UI/profile/tabs. The profile is one file: namespace, ontology dir, overlay,
   generated page, DSN, feature flags, guardrails, samples, aliases, actions file.
 
-### 9. Deliver the refusals
+### 9. Write the tutorial — an ontology nobody can read is a database with extra steps
+
+Every ontology ships a tutorial. The workbench **derives** one from the declarations when none is
+authored (objects → definitions → metrics → refusals → guardrails), so this phase is not about
+producing *a* tutorial; it is about producing one that teaches **this** ontology's decisions,
+in the user's words, with numbers that are actually run.
+
+Write `tutorial.json` **next to the profile**:
+
+```json
+{"title": "Clinic ontology",
+ "intro": "One sentence: what this ontology is for and what it refuses to guess.",
+ "steps": [
+   {"kind": "objects", "title": "…", "body": "…", "items": ["Appointment", "Patient", "Invoice"]},
+   {"kind": "definitions", "title": "…", "body": "…", "items": ["NoShowAppointment", "DecidedClaim"]},
+   {"kind": "metrics", "title": "…", "body": "…", "items": ["collectionRate", "lineRevenue"]},
+   {"kind": "refusals", "title": "…", "body": "…", "items": ["claimDecisionDays"]},
+   {"kind": "guard", "title": "…", "body": "…", "items": []}
+ ]}
+```
+
+Rules that keep it honest:
+
+- **every `items` name must be declared** — an object, a definition class or a metric that
+  `GET /api/tutorial/steps` and the graph both know. A typo is a step that teaches nothing.
+- **at least one metric step must actually run**: the workbench executes it through
+  `GET /api/tutorial/run?metric=…` under the guardrails, so never write the number into the text —
+  the step shows the number the database returns. Same for a definition: `…/definition?class=…`
+  reports the predicate and the row count.
+- **at least one refusal step.** The refusal is the most valuable thing you are shipping; a
+  tutorial that only shows what works teaches the wrong lesson.
+- **6–10 steps, ordered by the reader's question**, not by your file layout. Start where the user
+  starts ("what is one row here?"), not with the overlay.
+- write it in **the user's language**, in the business's words — the tutorial is the one artifact in
+  this build that is read by someone who will never open the TTL.
+- the `guard` step carries no `items`; the workbench renders the profile's limits itself.
+
+Verify before you claim done:
+
+```
+GET /api/tutorial/steps            -> "source": "profile", every item present
+GET /api/tutorial/run?metric=<one of your metric steps>   -> ok:true, a value, plan_rows
+GET /api/tutorial/definition?class=<one of your definition steps> -> ok:true, rows > 0
+```
+
+### 10. Deliver the refusals
 
 The most valuable artifact is the list of what the ontology **cannot** answer and why:
 
@@ -209,6 +254,7 @@ That list is the backlog and the negotiation with the business. Ship it with the
 | **shell execution** (`execute` / `bash`) | the three scripts under `scripts/` are the phases: introspection, scaffolding, gating |
 | **file read + write** | the skill's `references/` and `examples/` are read on demand; the TTL it produces is written to disk |
 | **a PostgreSQL connection** | introspection and every gate run against the real database, never a description of it |
+| **the workbench (or any host that serves the ontology)** | phase 9's tutorial is *verified by running it*; without a host, write the file and say the verification is NOT RUN |
 | **a Python environment with `psycopg2` + `rdflib`** | the scripts import them; the repo's `backend/.venv` already has psycopg2, and `rdflib` only matters for the gate |
 
 The compiler and guardrails (`sqlgen.py`, `guard.py`) live in the host repo. If they are absent, the

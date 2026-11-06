@@ -24,8 +24,34 @@ generic template.
 | **not-now-relative** | an empty injected window is reported | a historical dataset returns an empty page as a fact |
 | **no free-form SQL** | the request never carries SQL | a route reads `payload["sql"]` |
 | **samples** | every documented example still works | a metric is renamed; a sample rots |
+| **tutorial steps** | `tutorial.json` names only declared objects/definitions/metrics | a step points at a metric that was renamed or dropped |
+| **tutorial runs** | a metric step's number is produced by the compiled SQL, not typed | the metric refuses, or the number in the text drifts from the database |
+| **tutorial teaches a refusal** | the refusal is part of what a reader learns | the tutorial only shows what works |
 | **profile isolation** | each profile loads its own ontology | a module hard-codes a folder |
 | **i18n** | translation changes words, not markup or code | `<pre>`, `<code>`, `<script>` change |
+
+## The tutorial gate, concretely
+
+`tutorial.json` is data, so its gates are structural — and they are run by the workbench, which is
+the only thing that can resolve a name against the graph:
+
+```bash
+GET /api/tutorial/steps
+# {ok:true, source:"profile", steps:[{kind,title,body,items}]}
+#   -> source must be "profile" (not "derived"), and every items[] entry must exist
+
+GET /api/tutorial/run?metric=collectionRate
+# {ok:true, sql:"SELECT …", value:55.87, plan_rows:3236, ms:1, notes:[…]}
+#   -> ok:false means the step teaches a metric that does not compile
+
+GET /api/tutorial/definition?class=NoShowAppointment
+# {ok:true, predicate:"status = 'no_show'", table:"appointments", rows:1077}
+#   -> rows:0 means the definition selects nothing: a dead definition, not a tutorial step
+```
+
+The mutation that proves these gates bite: rename one metric in `metrics_ext.ttl` and re-ask — the
+step must stop resolving, and `run` must refuse by name. A tutorial whose steps cannot go stale is
+not being checked, it is being printed.
 
 ## How to make a gate bite
 
