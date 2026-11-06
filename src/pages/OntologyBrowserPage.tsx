@@ -184,7 +184,7 @@ export default function OntologyBrowserPage() {
       </div>
 
       {tab === 'metrics' ? (
-        <MetricsGrid cards={cards} error={cardsError} needle={needle} />
+        <MetricsGrid cards={cards} error={cardsError} needle={needle} doc={doc} />
       ) : (
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
         {/* list */}
@@ -320,12 +320,49 @@ export default function OntologyBrowserPage() {
  * response (one call for the whole grid); a metric that refuses shows the compiler's sentence
  * instead of a value, because that refusal is the declaration still missing.
  */
-function MetricsGrid({ cards, error, needle }: { cards: MetricCard[] | null; error: string | null; needle: string }) {
+function MetricsGrid({ cards, error, needle, doc }: { cards: MetricCard[] | null; error: string | null; needle: string; doc: any }) {
   const t = useLayoutTokens();
   if (error) {
+    // A workbench can be up and still not serve the cards endpoint (an older build, for
+    // instance). Showing "nothing" there is the worst answer; show what /api/ontology
+    // already knows — every declaration and its SQL — and say the numbers are missing.
+    const fallback: any[] = (doc?.metrics || []).filter(
+      (m: any) => !needle || m.name.toLowerCase().includes(needle) || (m.label || '').toLowerCase().includes(needle),
+    );
     return (
-      <div style={{ padding: 18, fontSize: 12.5, color: DANGER, lineHeight: 1.7 }}>
-        could not read the metric cards — {error}
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px 16px 40px' }}>
+        <div style={{
+          marginBottom: 12, padding: '10px 12px', borderRadius: 9, fontSize: 12.5, lineHeight: 1.7,
+          border: `1px solid ${WARN}55`, background: `${WARN}12`, color: t.textPrimary,
+        }}>
+          <b>values unavailable</b> — {error}. The declarations and their compiled SQL are below;
+          the numbers need a workbench that serves <code style={mono}>/api/metrics/cards</code>{' '}
+          (restart it and reload).
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 12 }}>
+          {fallback.map((m: any) => (
+            <Card key={m.name} style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '12px 14px' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                <span style={{ ...mono, fontSize: 13.5, fontWeight: 600, color: t.accent }}>{m.name}</span>
+                {m.label && <span style={{ fontSize: 12, color: t.textPrimary }}>{m.label}</span>}
+              </div>
+              <div style={{ ...mono, fontSize: 10.5, lineHeight: 1.6, color: WARN, background: `${WARN}14`, borderRadius: 5, padding: '5px 7px' }}>
+                {[m.aggregate && `:aggregate ${m.aggregate}`, m.formula && `:formula "${m.formula}"`,
+                  m.grain && `:grain :${m.grain}`, m.where && `:where :${m.where}`].filter(Boolean).join(' · ')}
+              </div>
+              {m.refused ? (
+                <div style={{ fontSize: 12, color: DANGER, lineHeight: 1.65 }}><b>refused:</b> {m.refused}</div>
+              ) : (
+                <pre style={{ ...mono, fontSize: 10, lineHeight: 1.5, background: '#0f172a', color: '#dbe7f3', borderRadius: 7, padding: '8px 10px', margin: 0, whiteSpace: 'pre-wrap', maxHeight: 110, overflow: 'auto' }}>
+                  {m.sql}
+                </pre>
+              )}
+            </Card>
+          ))}
+          {fallback.length === 0 && (
+            <div style={{ fontSize: 12.5, color: t.textDim }}>and no declarations came back either — the profile itself did not load.</div>
+          )}
+        </div>
       </div>
     );
   }
