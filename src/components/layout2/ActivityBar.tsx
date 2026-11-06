@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { useLayoutState, ACTIVITIES, type ActivityDef, type ActivityId } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import {
-  GitBranch, Brain, Users, BarChart3, Network, Settings, Wrench, Database, Award, MessageSquare, Archive, FileText, BookOpen, Workflow, UserRound, type LucideIcon,
+  GitBranch, Brain, Users, BarChart3, Network, Settings, Wrench, Database, Award, MessageSquare, Archive, FileText, BookOpen, Workflow, UserRound, Boxes, type LucideIcon,
 } from 'lucide-react';
 import apiClient from '../../lib/api-client';
 import VaultPopover from './VaultPopover';
@@ -30,6 +30,7 @@ const ICON_MAP: Partial<Record<ActivityId, LucideIcon>> = {
   prompt:     FileText,
   tools:      Wrench,
   skills:     Award,
+  workbench:  Boxes,
   knowledge:  Database,
   analysis:   BarChart3,
   studio:     Network,
@@ -41,7 +42,7 @@ const ICON_MAP: Partial<Record<ActivityId, LucideIcon>> = {
 const SECTION_GROUPS: ActivityId[][] = [
   ['vault', 'deepagents', 'agents', 'graph'],
   ['prompt', 'tools', 'skills'],
-  ['knowledge', 'analysis', 'learning'],
+  ['workbench', 'knowledge', 'analysis', 'learning'],
 ];
 
 interface ActivityButtonProps {

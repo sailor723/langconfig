@@ -19,6 +19,7 @@ export type ActivityId =
   | 'prompt'
   | 'tools'
   | 'skills'
+  | 'workbench'
   | 'knowledge'
   | 'analysis'
   | 'settings'
@@ -41,6 +42,9 @@ export const ACTIVITIES: ActivityDef[] = [
   { id: 'prompt',     label: 'Prompt',     icon: 'FileText',   group: 'main' },
   { id: 'tools',      label: 'Tools',      icon: 'Wrench',     group: 'main' },
   { id: 'skills',     label: 'Skills',     icon: 'Award',      group: 'main' },
+  // Placed immediately above Knowledge: the workbench is the read/ask surface over
+  // the ontology, and Knowledge is the write/ingest one — two halves of the same idea.
+  { id: 'workbench',  label: 'Workbench',  icon: 'Boxes',      group: 'main' },
   { id: 'knowledge',  label: 'Knowledge',  icon: 'Database',   group: 'main' },
   { id: 'analysis',   label: 'Analysis',   icon: 'BarChart3',  group: 'main' },
   { id: 'studio',     label: 'Studio',     icon: 'Network',    group: 'main' },

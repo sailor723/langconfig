@@ -28,6 +28,10 @@ import ToolHomePage from './components/layout2/ToolHomePage';
 import PromptHomePage from './components/layout2/PromptHomePage';
 import SkillHomePage from './components/layout2/SkillHomePage';
 import KnowledgeHomePage from './components/layout2/KnowledgeHomePage';
+// The ontology workbench is a separate server (retail_graph/serve_ui.py). This view frames
+// it; the icon sits above Knowledge because one is the ask surface and the other the ingest
+// surface over the same ontology.
+import WorkbenchApp from './components/layout2/WorkbenchApp';
 import HomePage from './pages/HomePage';
 import ProjectHomePage from './pages/ProjectHomePage';
 import DeepAgentHomePage from './components/layout2/DeepAgentHomePage';
@@ -60,7 +64,7 @@ import GraphStudioPage from './features/graph-studio/GraphStudioPage';
 import GraphStudioSidebar from './features/graph-studio/GraphStudioSidebar';
 import AnalysisSidebar from './features/analysis/AnalysisSidebar';
 
-type View = 'studio' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'chat' | 'learning' | 'graph' | 'project';
+type View = 'studio' | 'settings' | 'workbench' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'chat' | 'learning' | 'graph' | 'project';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
 interface Agent {
@@ -162,6 +166,7 @@ const ROUTE_TO_VIEW: Record<string, View> = {
   '/studio': 'studio', '/results': 'studio',
   '/graph': 'graph',
   '/agents': 'agents', '/deepagents': 'deepagents',
+  '/workbench': 'workbench',
   '/knowledge': 'knowledge',
   '/skills': 'skills',
   '/tools': 'tools',
@@ -181,7 +186,7 @@ const VIEW_ROUTE: Record<View, string> = {
   project: '/project',
   graph: '/graph',
   agents: '/agents', deepagents: '/deepagents', skills: '/skills',
-  knowledge: '/knowledge', analysis: '/analysis', settings: '/settings',
+  workbench: '/workbench', knowledge: '/knowledge', analysis: '/analysis', settings: '/settings',
   playground: '/playground', tools: '/tools', prompt: '/prompt',
   'deepagent-studio': '/deepagent-studio',
   chat: '/chat',
@@ -199,6 +204,7 @@ const VIEW_TO_ACTIVITY: Record<View, ActivityId | null> = {
   skills: 'skills',
   tools: 'tools',
   prompt: 'prompt',
+  workbench: 'workbench',
   knowledge: 'knowledge',
   analysis: 'analysis',
   settings: 'settings',
@@ -216,6 +222,7 @@ const ACTIVITY_TO_VIEW: Partial<Record<ActivityId, View>> = {
   agents: 'agents',
   prompt: 'prompt',
   tools: 'tools',
+  workbench: 'workbench',
   knowledge: 'knowledge',
   analysis: 'analysis',
   skills: 'skills',
@@ -631,6 +638,7 @@ function AppContent() {
         // Workspace just renders empty. The user can click back to
         // verbose via Settings if they want the catalog back.
         return skipHomeForDirect ? null : <KnowledgeHomePage />;
+      case 'workbench': return <WorkbenchApp />;
       case 'analysis': return <AnalysisPage />;
       case 'playground': return <PlaygroundPage />;
       case 'deepagent-studio': return <DeepAgentStudioPage />;
