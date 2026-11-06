@@ -41,12 +41,18 @@ def _utc_now() -> datetime.datetime:
 class UserRole(str, enum.Enum):
     """What a user may do beyond their own account.
 
-    Two roles on purpose. More would need a per-endpoint permission matrix, and
-    nothing in the current scope asks for one.
+    Three roles, each one action-shaped rather than a permission matrix:
+    admin (users + settings), ontology_editor (publish ontology declarations),
+    member (own account only).
     """
 
-    ADMIN = "admin"    # manages users; may publish shared assets later
+    ADMIN = "admin"    # manages users, settings, and every shared asset
+    ONTOLOGY_EDITOR = "ontology_editor"  # may PUBLISH ontology changes (staged, gated, audited)
     MEMBER = "member"  # their own account only
+
+    # Two lines of responsibility, not a permission matrix: an ontology editor can change
+    # what a number MEANS for everyone (that is why it is a role, not a checkbox), and every
+    # publish is staged, compiled, gated and audited so the role is accountable.
 
 
 class User(Base):
