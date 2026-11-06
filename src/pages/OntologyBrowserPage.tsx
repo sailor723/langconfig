@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useLayoutTokens } from '../components/layout2/tokens';
 import { Card, Chip, Btn, mono, SUCCESS, DANGER, WARN } from '../features/ontology/ui';
-import { ontology, useOntology } from '../features/ontology/ontologyStore';
+import { ontology, useOntology, fetchMetricCards, type MetricCard } from '../features/ontology/ontologyStore';
 
 type Tab = 'objects' | 'definitions' | 'links' | 'metrics';
 
@@ -32,6 +32,11 @@ export default function OntologyBrowserPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [copied, setCopied] = useState(false);
+  // Metrics are shown as CARDS (the workbench's own layout): declaration, compiled SQL, the
+  // number the database returns and the guard's report, all on one card. One request fills
+  // the whole grid, because a card without its number is half a card.
+  const [cards, setCards] = useState<MetricCard[] | null>(null);
+  const [cardsError, setCardsError] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -42,6 +47,16 @@ export default function OntologyBrowserPage() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (tab !== 'metrics' || cards || !s.url) return;
+    let cancelled = false;
+    setCardsError(null);
+    fetchMetricCards(s.url)
+      .then(list => { if (!cancelled) setCards(list); })
+      .catch(err => { if (!cancelled) setCardsError(String(err?.message || err)); });
+    return () => { cancelled = true; };
+  }, [tab, cards, s.url]);
 
   const doc = s.ontology;
   const needle = q.trim().toLowerCase();
@@ -168,6 +183,9 @@ export default function OntologyBrowserPage() {
         </div>
       </div>
 
+      {tab === 'metrics' ? (
+        <MetricsGrid cards={cards} error={cardsError} needle={needle} />
+      ) : (
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
         {/* list */}
         <div style={{ width: 280, borderRight: `1px solid ${t.border}`, overflowY: 'auto', flex: 'none' }}>
@@ -176,7 +194,7 @@ export default function OntologyBrowserPage() {
           )}
           {rows.map((r: any) => {
             const active = current?.name === r.name;
-            const refused = tab === 'metrics' && !!r.refused;
+            const refused = !!r.refused;
             return (
               <div
                 key={r.name}
@@ -194,7 +212,7 @@ export default function OntologyBrowserPage() {
                 <div style={{ fontSize: 11.5, color: t.textDim }}>
                   {r.label || ''}
                   {r.table ? ` · ${r.table}` : ''}
-                  {tab === 'metrics' && r.grain ? ` · ${String(r.grain).replace(/^.*#/, '')}` : ''}
+                  {r.grain ? ` · ${String(r.grain).replace(/^.*#/, '')}` : ''}
                 </div>
               </div>
             );
@@ -288,75 +306,106 @@ export default function OntologyBrowserPage() {
             </div>
           )}
 
-          {current && tab === 'metrics' && (
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: t.textPrimary }}>
-                  {current.label || current.name}{' '}
-                  <span style={{ ...mono, fontSize: 12, color: t.textDim, fontWeight: 400 }}>:{current.name}</span>
-                </h2>
-                {current.sql && (
-                  <button
-                    style={{ ...btn(), marginLeft: 'auto' }}
-                    onClick={async () => {
-                      await navigator.clipboard.writeText(current.sql || '');
-                      setCopied(true);
-                      setTimeout(() => setCopied(false), 1200);
-                    }}
-                  >
-                    {copied ? <Check size={11} /> : <Copy size={11} />} {copied ? 'copied' : 'SQL'}
-                  </button>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-                {current.aggregate && <span style={{ ...chip, ...mono }}>{current.aggregate}</span>}
-                {current.grain && <span style={{ ...chip, ...mono }}>grain :{String(current.grain).replace(/^.*#/, '')}</span>}
-                {current.where && <span style={{ ...chip, ...mono }}>where :{String(current.where).replace(/^.*#/, '')}</span>}
-                {(current.groupBy || []).length > 0 && (
-                  <span style={{ ...chip, ...mono }}>groupBy {(current.groupBy || []).join(', ')}</span>
-                )}
-                {current.numerator && (
-                  <span style={{ ...chip, ...mono }}>
-                    ratio :{current.numerator}/:{current.denominator}
-                    {current.scale ? ` ×${current.scale}` : ''}
-                  </span>
-                )}
-                {current.unit && <span style={{ ...chip, ...mono }}>{current.unit}</span>}
-              </div>
-              {current.description && (
-                <p style={{ fontSize: 13, color: t.textMuted, lineHeight: 1.7, marginTop: 0 }}>
-                  {current.description}
-                </p>
-              )}
-              {current.refused ? (
-                <Card style={{ borderColor: `${DANGER}55`, background: `${DANGER}10`, padding: '12px 14px', fontSize: 12.5, lineHeight: 1.7, color: t.textPrimary }}>
-                  <b>Refused by the compiler:</b> {current.refused}
-                  <div style={{ marginTop: 6, color: t.textMuted }}>
-                    A refusal is a result: the definition is incomplete, and the reason names what is missing.
-                  </div>
-                </Card>
-              ) : (
-                <pre style={{
-                  ...mono, fontSize: 12, lineHeight: 1.6, padding: '12px 14px', borderRadius: 9,
-                  background: '#0f172a', color: '#dbe7f3', overflowX: 'auto', margin: 0,
-                  whiteSpace: 'pre-wrap',
-                }}>
-                  {current.sql}
-                </pre>
-              )}
-              {(current.notes || []).length > 0 && (
-                <div style={{ marginTop: 8, fontSize: 12, color: t.textDim, lineHeight: 1.7 }}>
-                  {(current.notes || []).map((n: string, i: number) => <div key={i}>· {n}</div>)}
-                </div>
-              )}
-              {(current.missing || []).length > 0 && (
-                <div style={{ marginTop: 8, fontSize: 12, color: WARN }}>
-                  missing in the overlay: {(current.missing || []).join(', ')}
-                </div>
-              )}
-            </div>
-          )}
+
         </div>
+      </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * MetricsGrid — the workbench's metric cards: name, label, the declaration it compiles from,
+ * that compiled SQL, the guard's report and the number. The number is read from the card
+ * response (one call for the whole grid); a metric that refuses shows the compiler's sentence
+ * instead of a value, because that refusal is the declaration still missing.
+ */
+function MetricsGrid({ cards, error, needle }: { cards: MetricCard[] | null; error: string | null; needle: string }) {
+  const t = useLayoutTokens();
+  if (error) {
+    return (
+      <div style={{ padding: 18, fontSize: 12.5, color: DANGER, lineHeight: 1.7 }}>
+        could not read the metric cards — {error}
+      </div>
+    );
+  }
+  if (!cards) {
+    return <div style={{ padding: 18, fontSize: 12.5, color: t.textMuted }}>running every metric once…</div>;
+  }
+  const shown = cards.filter(c =>
+    !needle || c.name.toLowerCase().includes(needle) || (c.label || '').toLowerCase().includes(needle));
+  const def = (c: MetricCard) => {
+    if (c.numerator && c.denominator) {
+      return [`:numerator :${c.numerator}`, `:denominator :${c.denominator}`,
+        c.grain && `:grain :${c.grain}`, c.scale && `:scale ${c.scale}`].filter(Boolean).join(' · ');
+    }
+    return [
+      c.aggregate && `:aggregate ${c.aggregate}`,
+      c.formula && `:formula "${c.formula}"`,
+      c.grain && `:grain :${c.grain}`,
+      c.where && `:where :${c.where}`,
+      (c.groupBy || []).length > 0 && `:groupBy :${(c.groupBy || []).join(' :')}`,
+    ].filter(Boolean).join(' · ');
+  };
+  const value = (c: MetricCard) => {
+    if (c.value === null || c.value === undefined) return '—';
+    if (typeof c.value === 'number') return c.value.toLocaleString(undefined, { maximumFractionDigits: 4 });
+    return String(c.value);
+  };
+
+  return (
+    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px 16px 40px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 12 }}>
+        {shown.map(c => (
+          <Card key={c.name} style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '12px 14px' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span style={{ ...mono, fontSize: 13.5, fontWeight: 600, color: t.accent }}>{c.name}</span>
+              {c.label && <span style={{ fontSize: 12, color: t.textPrimary }}>{c.label}</span>}
+              {c.unit && <span style={{ marginLeft: 'auto', fontSize: 10.5, color: t.textDim }}>{c.unit}</span>}
+            </div>
+            {c.error ? (
+              <div style={{ fontSize: 12, color: DANGER, lineHeight: 1.65 }}>
+                <b>refused:</b> {c.error}
+              </div>
+            ) : (
+              <>
+                <div style={{
+                  ...mono, fontSize: 10.5, lineHeight: 1.6, color: WARN,
+                  background: `${WARN}14`, borderRadius: 5, padding: '5px 7px', wordBreak: 'break-word',
+                }}>
+                  {def(c)}
+                </div>
+                <pre style={{
+                  ...mono, fontSize: 10, lineHeight: 1.5, background: '#0f172a', color: '#dbe7f3',
+                  borderRadius: 7, padding: '8px 10px', margin: 0, whiteSpace: 'pre-wrap',
+                  maxHeight: 110, overflow: 'auto',
+                }}>
+                  {c.sql}
+                </pre>
+                {(c.notes || []).length > 0 && (
+                  <div style={{ fontSize: 10.5, color: t.textDim, lineHeight: 1.55 }}>
+                    {(c.notes || []).map((n, i) => <div key={i}>· {n}</div>)}
+                  </div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 'auto' }}>
+                  <span style={{ ...mono, fontSize: 17, fontWeight: 700, color: SUCCESS }}>{value(c)}</span>
+                  {c.plan_rows !== undefined && (
+                    <span style={{ fontSize: 10.5, color: t.textDim }}>
+                      plan {c.plan_rows?.toLocaleString?.() ?? c.plan_rows} rows
+                      {c.ms !== undefined ? ` · ${c.ms} ms` : ''}
+                    </span>
+                  )}
+                </div>
+                {c.run_error && (
+                  <div style={{ fontSize: 11, color: DANGER, lineHeight: 1.55 }}>run failed: {c.run_error}</div>
+                )}
+              </>
+            )}
+          </Card>
+        ))}
+        {shown.length === 0 && (
+          <div style={{ fontSize: 12.5, color: t.textDim }}>no metric matches “{needle}”</div>
+        )}
       </div>
     </div>
   );

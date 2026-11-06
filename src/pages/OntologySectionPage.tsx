@@ -27,7 +27,6 @@ export default function OntologySectionPage() {
   const { i18n } = useTranslation('chat');
   const s = useOntology();
   const [nonce, setNonce] = useState(0);
-  const [draft, setDraft] = useState(s.url);
 
   const view = params.get('view') || 'home';
   // The server says which sections this profile serves: offering a section that is switched
@@ -38,7 +37,7 @@ export default function OntologySectionPage() {
   const themeName = theme?.name === 'dark' ? 'dark' : 'light';
 
   useEffect(() => { void ontology.ensureReady(); }, []);
-  useEffect(() => { setDraft(s.url); }, [s.url]);
+
 
   const src = useMemo(
     () => (s.url ? framedUrl(s.url, section.path, themeName, lang) : ''),
@@ -86,21 +85,6 @@ export default function OntologySectionPage() {
           </Chip>
         ))}
 
-        <form
-          onSubmit={e => { e.preventDefault(); void ontology.select(draft); setNonce(n => n + 1); }}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}
-        >
-          <input
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            spellCheck={false}
-            placeholder="http://127.0.0.1:8096"
-            style={{ width: 230, font: '12px ui-monospace, Menlo, monospace', padding: '6px 9px', borderRadius: 8, border: `1px solid ${t.border}`, background: t.bgInput, color: t.textPrimary }}
-          />
-          <Btn title="load this ontology" onClick={() => { void ontology.select(draft); setNonce(n => n + 1); }}>
-            <ChevronDown size={13} style={{ transform: 'rotate(-90deg)' }} /> load
-          </Btn>
-        </form>
 
         <Btn onClick={() => { void ontology.select(s.url, s.preset ?? undefined); setNonce(n => n + 1); }} title="reload the section">
           <RefreshCw size={13} /> reload

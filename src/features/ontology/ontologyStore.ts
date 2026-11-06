@@ -191,6 +191,38 @@ function pickProfiles(ns: any): { items: OntologyProfile[]; defaultKey: string |
   return { items, defaultKey: value.default_key ?? null, showSql: value.show_sql !== false };
 }
 
+export interface MetricCard {
+  name: string;
+  label?: string | null;
+  sql?: string;
+  value?: string | number | null;
+  plan_rows?: number;
+  ms?: number;
+  error?: string;
+  run_error?: string;
+  aggregate?: string | null;
+  formula?: string | null;
+  grain?: string | null;
+  universe?: string | null;
+  where?: string | null;
+  groupBy?: string[];
+  numerator?: string | null;
+  denominator?: string | null;
+  scale?: string | null;
+  unit?: string | null;
+  notes?: string[];
+  guard_notes?: string[];
+}
+
+/** Every metric as the workbench's own card shape — one call, because the values come from
+ *  the database under the guardrails and a card without its number is half a card. */
+export async function fetchMetricCards(url: string): Promise<MetricCard[]> {
+  const res = await fetch(`${normalizeUrl(url)}/api/metrics/cards`, { signal: AbortSignal.timeout(60000) });
+  const body = await res.json();
+  if (!body?.ok) throw new Error(body?.error || `HTTP ${res.status}`);
+  return (body.cards || []) as MetricCard[];
+}
+
 let attempts = 0;
 
 export const ontology = {
