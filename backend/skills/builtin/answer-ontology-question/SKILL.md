@@ -56,6 +56,12 @@ what defines them), actions (name, parameters, the guard they compile to). Then,
 - **only when the rules are unsure** does the model run, and it may only return
   `{kind, name, params}` from the menu. Off-menu → refuse by name, listing what is on the menu.
 - **validate** the chosen name and parameter types against the menu before executing anything.
+- **a stated constraint is carried, never dropped**: if the question says "last 90 days" or names a
+  customer, that constraint must reach the SQL (pushed down as a parameter) or the question must be
+  refused. Measured failure: the model path returned an intent with no slots, the SQL had no `WHERE`,
+  and the answer was the all-time total for a question that stated a period. `nl._ask` now re-attaches
+  the stated slots and lets `capability.resolve` accept or refuse them; the trace shows a `2b · slots`
+  step when it does.
 
 Two different metrics that both match is not a tie to break silently: say which two, and ask which
 definition the user means (different grain = different number).
