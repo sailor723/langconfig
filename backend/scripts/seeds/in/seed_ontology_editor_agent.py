@@ -135,7 +135,10 @@ CONFIG = {
     # answer that cost ~1,000 lines of context and it answered with a code dump.
     "native_tools": ["read_file", "write_file", "edit_file", "ls", "glob", "grep", "execute",
                      "ontology_open", "ontology_inspect", "ontology_publish"],
-    "skills": ["edit-ontology-metrics", "build-ontology-from-db"],
+    # `answer-ontology-question` is the answering pipeline itself: when someone asks "这个数是多少" in
+    # this chat, the agent resolves the question through the menu (rules first), lets the compiler build
+    # the SQL, and only then writes prose — instead of answering from memory or with a query it typed.
+    "skills": ["edit-ontology-metrics", "build-ontology-from-db", "answer-ontology-question"],
     "use_deepagents": True,
     "use_local_sandbox": True,
 }
