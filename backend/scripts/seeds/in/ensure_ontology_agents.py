@@ -48,9 +48,13 @@ EXPECTED = {
         "datasource": "clinic",
     },
     "Ontology Builder (logistics)": {
-        "skills": ["build-ontology-from-db"],
+        # + generate-mock-dataset: this is the one builder whose database is SYNTHETIC, so it must be
+        # able to (re)generate it and re-verify the story's claims before it declares anything.
+        "skills": ["build-ontology-from-db", "generate-mock-dataset"],
         "skill_params": {"build-ontology-from-db": {"datasource": "logistics",
-                                                   "ontology_key": "logistics"}},
+                                                   "ontology_key": "logistics"},
+                         "generate-mock-dataset": {"dataset_name": "abc_coldchain",
+                                                   "generator": "retail_graph/abc/gen_abc.py"}},
         "datasource": "logistics",
     },
     "logics_query": {
@@ -58,11 +62,26 @@ EXPECTED = {
         "skill_params": {"answer-ontology-question": {"ontology_key": "logistics",
                                                      "workbench": "http://127.0.0.1:8098"}},
     },
+    # The two skills as their own agents: one turns a story into a checked dataset, the other turns an
+    # ontology into a checked board. Both invariants are the same as every other ontology agent — visible,
+    # carrying the skill, carrying the skill's declared parameters.
+    "Mock Data Agent": {
+        "skills": ["generate-mock-dataset"],
+        "skill_params": {"generate-mock-dataset": {"dataset_name": "abc_coldchain",
+                                                   "generator": "retail_graph/abc/gen_abc.py"}},
+    },
+    "Dashboard Agent": {
+        "skills": ["build-ontology-dashboard"],
+        "skill_params": {"build-ontology-dashboard": {"ontology_key": "logistics"}},
+    },
     "Ontology Editor": {
-        "skills": ["edit-ontology-metrics", "answer-ontology-question"],
+        # + build-ontology-dashboard: the board is a declaration over the metrics this agent authors,
+        # so authoring the metric and authoring the panel must not be two different skills' business.
+        "skills": ["edit-ontology-metrics", "answer-ontology-question", "build-ontology-dashboard"],
         "skill_params": {"edit-ontology-metrics": {"ontology_key": "logistics"},
                          "answer-ontology-question": {"ontology_key": "logistics",
-                                                      "workbench": "http://127.0.0.1:8098"}},
+                                                      "workbench": "http://127.0.0.1:8098"},
+                         "build-ontology-dashboard": {"ontology_key": "logistics"}},
     },
 }
 

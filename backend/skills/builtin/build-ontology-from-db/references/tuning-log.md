@@ -223,14 +223,17 @@ that move, including a state change compiled → refused).
 **Symptom.** `:damagePer1kKmByVehicle` (`ratio_of_sums` + `:groupBy :plate`) was refused with
 `':aggregate ratio_of_sums' with :groupBy is not supported (sum/count/avg/min/max are)`.
 
-**Measurement.** The compiler supports grouped sum/count/avg/min/max; a ratio grouped by a dimension
-is not implemented. Two working alternatives: an **ungrouped** cross-grain ratio, or a **grouped
-plain sum**.
+**Measurement (2026-11, superseded).** At the time the compiler supported only grouped
+sum/count/avg/min/max. It now supports a grouped `ratio_of_sums` **when both sides are declared at the
+same grain** — a group's rate is "numerator summed inside the group ÷ denominator summed inside the
+group", which is a number only then. A cross-grain ratio is still refused, now naming both grains
+(rules.md 17).
 
-**Rule.** Before writing a grouped ratio, ask the compiler (`ontology_inspect(metric=…)`). Then choose:
-ungrouped ratio, or grouped additive metric — and say which you chose and why.
+**Rule.** Before writing a grouped rate, check the two sides' `:grain`. Same grain → grouped ratio.
+Different grains → ungrouped cross-grain ratio (Recipe 1) or a grouped additive metric (Recipe 2).
 
-**Gate.** The refusal is by name, so it is visible in every compile report.
+**Gate.** `D3` (`check_dashboard.py`) weights each grouped rate back to the ungrouped value; a cross-grain
+grouped ratio refuses by name, so it shows up in every compile report.
 
 ---
 
@@ -247,3 +250,134 @@ missing (profile `aliases`), then whether the label is the phrase people type (`
 then whether the declaration itself is missing. A missing synonym is not a missing metric.
 
 **Gate.** N1 covers labels; aliases are a profile decision and are checked by the samples gate.
+
+---
+
+## T15. The silent 100%: a grouped rate that read only half the declaration
+
+**Symptom.** `:stopOnTimeRateByRouteVersion` compiled cleanly and reported **100%** on-time for both route
+versions. The fleet value is 93.6%.
+
+**Measurement.** The two sides carry their predicate differently: `:onTimeStops` uses `:concept
+:OnTimeStop` (compiled FROM the axiom), `:overloadedTrips` uses `:where :OverloadedTrip` (a declared
+filter). The ungrouped compiler reads `m.concept or m.where`; the first version of the grouped-ratio path
+read only `:where`, so the numerator became `count(DISTINCT stops.id)` — numerator and denominator were
+the same expression.
+
+**Rule.** A new compile path must read the SAME fields as the path it sits next to, and the gate must be
+able to see the difference. Any rate that comes out suspiciously clean (100%, 0%) is a missing predicate
+until proven otherwise.
+
+**Gate.** `D3` weighted identities plus `D5`'s independent `overload_v2` SQL both go red when the FILTER
+is deleted (proved by mutation, four D3 failures + the D5 mismatch).
+
+## T16. Comparing two grouped queries by row position invents a number
+
+**Symptom.** The first version of the identity check reported a fleet overload rate of **45.5%**; the real
+one is 36.8%.
+
+**Measurement.** `overloadRateByRouteVersion` orders by VALUE (v2 80.2%, v1 2.0%) while
+`tripCountByRouteVersion` orders by COUNT (v1 2,250, v2 1,800). Zipping the two row lists paired v2's rate
+with v1's size.
+
+**Rule.** Any check that combines two result sets must key them (here: on the version string), never zip
+by position. Test the check by deliberately reordering one side.
+
+**Gate.** `D3`/`D5` in `check_dashboard.py` key every comparison through `_by_key`.
+
+## T17. `--profile` after the import is a profile that never loaded
+
+**Symptom.** Running `run_dashboard.py --profile …/logistics_settings.json` reported **23 panels
+"missing_declaration" — `no metric :tripCount declared`** for every metric in the file.
+
+**Measurement.** `sqlgen` and `guard` read `$APP_SETTINGS` once, at import, to pick the ontology directory
+and the overlay (`metrics_ext.ttl`). Parsing `--profile` inside `main()` left the graph without its
+overlay, and an overlay-less ontology looks exactly like an ontology whose metrics were never declared.
+
+**Rule.** Anything that selects a profile must set `APP_SETTINGS` before importing the compiler modules
+(same failure the samples-reset path hit). A "23 panels missing" report is a load problem until proven
+a declaration problem.
+
+**Gate.** `D0` names the panel and the metric; the first honest reading of it is "did the overlay load".
+
+## T18. The write that succeeded and then vanished (a `Decimal` in the audit row)
+
+**Symptom.** The first real `RecordDispatchDecision` run raised a `TypeError` from `json.dumps` *after* the
+INSERT, and `dispatch_decisions` stayed empty.
+
+**Measurement.** The audit row is built with `json.dumps` over the returned row; `numeric` columns come
+back as `Decimal`, which json refuses. `run_action` caught it, rolled back, and nothing was written — the
+transaction discipline worked, the failure was invisible unless you read the traceback.
+
+**Rule.** Every value that goes into an audit/structured column must survive `json.dumps` for real
+(`Decimal`, `time`, `timedelta`, `bytes`); the "last resort" is `str(v)`, because an audit row that cannot
+be written means the business write cannot be committed either.
+
+**Gate.** `A4` runs a real write and reads the audit row back, so this class of bug fails the gate, not the
+user.
+
+## T19. A gate for the data it was written on
+
+**Symptom.** `check_actions.py --profile …/logistics_settings.json` died on
+`relation "customers" does not exist` — it is retail's gate, hard-coded to `customers.tier` and `orders`.
+
+**Measurement.** The gate could only pass on retail; on any other ontology it was either broken or "passed"
+while checking nothing.
+
+**Rule.** A gate carries the knowledge of the dataset it validates. For a different ontology, either
+declare its fixture (`actions_fixture.json` + `samples.json` style) and run a declaration-driven gate
+(`check_actions_run.py`), or state `NOT RUN` by name. Never reuse a retail-shaped gate and call it green.
+
+**Gate.** `check_actions_run.py` (A1–A6).
+
+## T20. Adding a verb silently re-routed three measure questions
+
+**Symptom.** After declaring `RecordDispatchDecision`, three sample questions changed their answer:
+「派单决策记录覆盖率是多少」 came back as a DRY RUN of the write instead of the coverage number. `N1`
+caught it ("got 'RecordDispatchDecision', want 'decisionCoverage'").
+
+**Measurement.** The built-in glossary maps `记录 → "record"`; the question tokenized to `record`;
+`_rule_intent`'s verb branch (`VERBS = {promote, demote, record}`) matched before any metric was
+scored. So the collision was in the WORDS, and it appeared the moment a verb had a name in the glossary.
+
+**Rule.** A question that carries a measure cue (是多少 / 率 / 覆盖率 / 数 …) cannot be answered by a
+verb — an action is reachable only by an imperative. `_measure_cue` already existed for exactly this
+distinction; the verb branch now honours it.
+
+**Gate.** `A7` in `check_actions_run.py`: the fixture names one measure question (must resolve to the
+declared metric) and one imperative (must still reach the verb). Both run against the real menu.
+
+## T21. A declaration that is only honoured by its own server
+
+**Symptom.** Turning `features.actions` on for logistics made every sample refuse with
+*"cannot compile action declarations: :Customer has no :physicalTable"* — retail's verbs compiled
+against the logistics graph.
+
+**Measurement.** `actions.SCHEMA` was `APP_ACTIONS or retail's schema/actions.yml`. `serve_ui` sets
+`APP_ACTIONS` for the children it spawns, so the workbench was fine; every other reader (the samples
+gate, `nl.menu`, an inspection script) silently used retail's file. Making the path profile-aware was not
+enough either: `_settings()` reads a PATH bound at import, so a gate that switches `APP_SETTINGS` mid-run
+still saw the old profile.
+
+**Rule.** A resolver must read the live environment at CALL time (`actions.actions_path()`), and a profile
+field that governs behaviour must be honoured by every reader, not only by the server that happens to set
+the env var.
+
+**Gate.** `check_samples` (all samples answering again) · `check_ontology_generic` N/W gates (which run
+`nl.menu` from a profile switch).
+
+## T22. One alias poisoned every dimension question
+
+**Symptom.** After declaring the chart channels, the sample 「按门店区域看破损箱数」 started refusing with
+*"no declared metric groups by ['coreZonePermit', 'storeZone']"*.
+
+**Measurement.** `_group_dims` matched a dimension when ANY camel word of its property name appeared in
+the question's tokens. The profile alias 区域 → `zone` therefore matched `:storeZone` AND
+`:coreZonePermit`, producing a two-dimension conjunction no metric satisfies.
+
+**Rule.** Match a dimension by a word that is UNAMBIGUOUS: if two dimensions answer to the same word, the
+word decides nothing and is dropped (the label-literal matcher still sees the question). Measured after
+the fix: 门店区域 → {storeZone}; 核心区通行证 → {coreZonePermit}.
+
+**Gate.** `check_nl` (retail's grouped questions) + `check_samples` (logistics) both go red on the naive
+version.

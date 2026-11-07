@@ -124,9 +124,11 @@ add up to `damagedBoxCount`), top `core / 沪A73435 = 168`, then `core / 沪A350
 
 ## What the compiler will NOT do (measured, refused by name)
 
-- `:aggregate "ratio_of_sums"` **with** `:groupBy` → *":aggregate 'ratio_of_sums' with :groupBy is not
-  supported (sum/count/avg/min/max are)"*. A grouped ratio has to be split: an ungrouped cross-grain
-  ratio (Recipe 1) or a grouped additive metric (Recipe 2).
+- `:aggregate "ratio_of_sums"` **with** `:groupBy` → compiles ONLY when both sides are declared at the
+  same grain (Recipe 4). A cross-grain one is refused with both grains named; split it into an ungrouped
+  cross-grain ratio (Recipe 1) or a grouped additive metric (Recipe 2).
+- `:timeBucket` **without** an own `:timeColumn` on the grain → refused with the nearest declared column
+  named. A bucket through a join is the compiler inventing a join.
 - a `:formula` column that is not a column of the grain class **or of a class reachable through
   declared relationships** → refused with the reachable set named, e.g.
   *"formula mentions 'reveneu', which is not a column of :Trip or of any class reachable through
@@ -149,3 +151,53 @@ $PY scripts/check_metric.py --profile work/logistics/logistics_settings.json --m
 
 A grouped metric prints its key/value pairs (a group key is not a number). A number that runs is not a
 number that is right: the second route is the only proof.
+
+## Recipe 4 — a rate per group (same grain on both sides)
+
+**The ask.** "哪台车破损最重" / "并线前后超载率各是多少" — a RATE cut by a dimension.
+
+```ttl
+:stopOnTimeRateByVehicle a owl:DatatypeProperty ;
+    rdfs:label "按车辆看准时率" ;
+    :grain :Stop ; :universe :Stop ; :aggregate "ratio_of_sums" ;
+    :numerator :onTimeStops ; :denominator :stopCount ;
+    :groupBy :plate ; :unit "ratio" .
+```
+
+```sql
+SELECT vehicles.plate AS key1,
+       ((count(DISTINCT stops.id) FILTER (WHERE stops.on_time = 'true'))::numeric)
+       / NULLIF((count(DISTINCT stops.id)), 0)
+FROM stops JOIN trips ON stops.trip_id = trips.id JOIN vehicles ON trips.vehicle_id = vehicles.id
+GROUP BY vehicles.plate ORDER BY 2 DESC;
+```
+
+**The two things that go wrong here, both measured:**
+
+- **the predicate is `:concept` OR `:where`.** `:onTimeStops` carries `:concept :OnTimeStop` (compiled from
+  the axiom); a ratio path that read only `:where` emitted `count()/count()` and answered **100%**. If a
+  grouped ratio's number looks too clean, check that the FILTER is in the SQL.
+- **same grain only.** `:complaintsPer1kKm` (complaints ÷ km) cannot be grouped: the denominator lives on
+  `:Trip`, the numerator on `:Complaint`. The refusal names both grains; the fix is a per-group metric whose
+  denominator exists at the same grain (Recipe 2), not a cross-grain average.
+
+**The check:** `Σ(rate × group size) / Σsize` must equal the ungrouped rate (measured: 159.03 per 1k stops
+by vehicle weights back to 159.03).
+
+## Recipe 5 — a time series (declared bucket, own time column)
+
+```ttl
+:tripCountByWeek a owl:DatatypeProperty ;
+    :domain :Trip ; :aggregate "count" ; :grain :Trip ; :universe :Trip ;
+    :timeBucket "week" ; :unit "count" ; :additivity "additive" .
+```
+
+```sql
+SELECT date_trunc('week', trips.trip_date) AS key1, count(DISTINCT trips.id)
+FROM trips GROUP BY date_trunc('week', trips.trip_date) ORDER BY 1 ASC;
+```
+
+- `:Trip` declares `:timeColumn "trip_date"`; `:Stop` does not, so a stop-grain weekly metric refuses and
+  names `:Trip.trip_date` one hop away — same rule as the TimeWindow slot.
+- one row is a legitimate answer (`complaintCountByWeek` → 1 bucket, because every complaint is stamped the
+  same minute). Declare it and let the panel say why, instead of drawing a trend on a constant column.

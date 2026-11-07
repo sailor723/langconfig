@@ -209,6 +209,13 @@ promises. Metrics report the unbounded scan and the plan budget decides.
   `refused_by_name`), the numbers coming from a **second SQL route**; mark what the ontology cannot
   honour yet as `unresolved` with the missing declaration named. `retail_graph/check_samples.py
   --profile …` runs it, and the generic gate runs it as `S` on every publish.
+- **a dashboard is a declaration too**, not a page of queries: `<profile dir>/dashboard.json` names
+  which DECLARED metric each panel shows, by what it is cut, and what a missing one costs.
+  `retail_graph/run_dashboard.py` runs it (compile → guard `mode="declared"` → execute) and
+  `retail_graph/check_dashboard.py` gates it as **D0–D6**: every referenced metric is declared or is a
+  declared hole, each metric has the shape its panel needs, a low-end ranking says `client_sort`
+  (the compiler emits DESC), grouped rates weight back to the ungrouped value, independent SQL agrees,
+  and each event marker sits on a real time axis. A panel that cannot answer ships as a refusal card.
 - only then the UI/profile/tabs. The profile is one file: namespace, ontology dir, overlay,
   generated page, DSN, feature flags, guardrails, samples, aliases, actions file.
 

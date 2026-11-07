@@ -157,3 +157,99 @@ Two "gates" that are really habits, because each one silently rots:
   a correct answer — compare to an independent route);
 - **run metrics with `mode="declared"`** (the default mode windows a big table and answered 3950 where
   the definition says 4050).
+
+## The dashboard gate (D0–D9, F1), and why it is not decoration
+
+`retail_graph/check_dashboard.py --profile <a *_settings.json>` — 120 checks on the logistics dashboard.
+
+It runs the SAME declaration the app serves (`dashboard.json` → `run_dashboard.run_metric`), so the gate and
+the page cannot disagree about what a panel says. What each family of checks catches, each measured:
+
+| check | catches | how it was proved able to fail |
+|---|---|---|
+| `D0` | a panel naming a metric that does not exist | renamed one panel's metric → 5 failures, D0 named the panel and the metric |
+| `D1` | a panel whose metric has the wrong shape (a "series" with no time axis, a matrix with one key, a ranked list with no sizes) | — shape rule per `kind` |
+| `D2` | "the 20 WORST vehicles" rendering the 20 best: the compiler always emits `ORDER BY … DESC`, so an `asc` panel must say `client_sort` | flipped `client_sort` off → failed naming the panel |
+| `D3` | a join that fans out, a FILTER applied on one side only, a rate cut by a dimension that no longer weights back | deleted the `FILTER (WHERE …)` from the grouped-ratio path → 4 D3 failures + the D5 independent check |
+| `D4` | a HOLE that started answering (the declaration is stale, and the panel is lying in the other direction) | — a stale hole must fail |
+| `D5` | two derivations agreeing with each other but neither agreeing with the data: independent SQL, written in the gate, never compiled by the ontology | same mutation as D3 → `overload rate v2` mismatch |
+| `D6` | an event marker on a categorical axis (a lie about causality), or one with no data on one side | moved the marker outside the range |
+
+Two rules the gate learned from its own mutations:
+
+- **read the ORDER BY direction, not the last token.** `guard` appends `LIMIT 1000` *after* the ORDER BY,
+  so `sql.endswith("DESC")` reported every panel as ASC and the check passed on nothing.
+- **key the comparison, never zip by position.** Two grouped queries order differently (DESC by value vs
+  DESC by count); a positional zip compared `overloadRateByRouteVersion` against `tripCountByRouteVersion`
+  row by row and produced a 45.5% "fleet overload rate" against the real 36.8%.
+
+Run it from the repo's `retail_graph/` with the ontology's own interpreter:
+
+```bash
+PY=/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python
+$PY check_dashboard.py --profile ../ontologies/logistics/logistics_settings.json
+#   → 120 checks, 0 failed
+```
+
+## The action gate (A1–A6): a declared write path, proven
+
+`check_actions.py` is retail's (it hard-codes `customers.tier`), so an ontology declaring its own verb had
+no gate. `retail_graph/check_actions_run.py --profile …` is declaration-driven: the fixture beside the
+profile (`actions_fixture.json`) supplies only PARAMETERS; every number is counted from the database.
+
+| check | what it proves | how it bites |
+|---|---|---|
+| `A1` | every declared action compiles | an uncompilable verb refuses the whole declaration set |
+| `A2` | the good parameters DRY-RUN as admitted, and write nothing | row + audit counts identical before/after (a "check" that writes is the worst of both) |
+| `A3` | bad parameters are refused BY NAME, with the precondition quoted, and nothing written | the rollback is MEASURED (counts unchanged), not trusted |
+| `A4` | a real run writes one row, one audit row, and MOVES the probe metric read back through the ontology's own compiled metric | count the row, then the metric; then the fixture teardown restores the baseline |
+| `A5` | dropping `:state "action"` from an effect target makes the compile refuse, naming the property | in-memory graph mutation, restored afterwards — without it "action-owned state" is a comment |
+| `A6` | the audit row carries action, actor, the written row and the statements it ran | — |
+
+Measured on logistics: **19 checks, 0 failed** (a real 1-row write, then teardown, then `0 / 4,050` again).
+
+### D7–D9: the parts a dashboard gets wrong quietly
+
+- **D7 the opening assessment.** Every number in the briefing must arrive through a `{metric}` /
+  `{metric:key}` placeholder; the gate strips placeholders and fails on ANY remaining digit. Measured:
+  the first draft hand-typed "50 条压成 40 条" and quoted a trip count in a sentence about stops-per-route
+  — both became declarations (`routeCountByVersion`, `stopsPerRouteByVersion`) rather than prose. A
+  policy threshold must also declare `assumed` or `confirmed`, and the gate recomputes each verdict from
+  the metric value instead of trusting the payload's `breached` flag.
+- **D8 Sankey conservation.** Every band is ONE declared group value (`metric:key`); nothing is summed
+  to make a band. For each INTERNAL node inflow must equal outflow, and the root's outflow must equal a
+  declared whole (`:stopCount`). Measured: the first version checked terminal nodes too (准时 47,920 in /
+  0 out) and failed on arithmetic that was never a claim.
+- **D9 bubble channels.** x / y / size / colour must cover the same keys. A gap is allowed only when the
+  panel declares `allow_missing` — and then the chart prints the number of undrawn objects. Measured:
+  the colour channel is itself a 2-key grouped count (plate × permit), so the rule is "key → category",
+  not "one key".
+
+### F1: a filter narrows the same declaration, and the parts add up to the whole
+
+A client-side filter cannot be trusted for a RATE: hiding dots is layout, but re-weighting"per vehicle"
+down to "this vehicle, under v2" is arithmetic, and arithmetic in the browser is the silent wrong number
+this repo exists to prevent. So the filter goes into the COMPILER (`sqlgen.apply_dimension_filters`):
+
+    FROM trips  →  FROM (SELECT * FROM trips WHERE trips.id IN (
+                        SELECT f0.id FROM trips f0 JOIN routes t0 ON f0.route_id = t0.id
+                        WHERE t0.version = 'v2')) trips
+
+A derived table with the SAME NAME, so every outer `trips.col` still resolves — and every occurrence of
+`FROM trips` is rewritten, which is what makes a two-subquery RATIO filter both sides. Measured: appending
+one predicate to the first `WHERE` would have filtered the numerator only.
+
+`F1` checks that bite:
+- `F1a` every `emit_filter.dimension` is a `:groupBy` of a declared metric — the value set is a
+  declaration, not a UI list;
+- `F1b` Σ(metric | dim=v) over v equals the unfiltered metric (`tripCount`, `stopCount`,
+  `complaintCount`). Measured first version: 102,420 vs 51,210 — the emitter was a 2-key metric, so the
+  same zone appeared twice in the value set;
+- `F1c` `:overloadRate` filtered to `v2` equals the `v2` row of `:overloadRateByRouteVersion` — the one
+  check that proves BOTH sides of a ratio were filtered;
+- `F1d` a dimension the grain cannot reach refuses BY NAME (`cannot filter :Trip by :storeZone`);
+- `F1e` a value the declaration does not offer is refused by the runner (exit 2, allowed values listed)
+  — otherwise `routeVersion=v9` answers a confident `0`.
+
+And a panel that cannot be cut shows its refusal in place; a view whose subject is the missing record
+(`dispatch_review`) declares `filter_not_applicable` and carries the badge.

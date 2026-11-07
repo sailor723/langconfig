@@ -130,6 +130,45 @@ read path compiles.
 *If you skip it:* writes become ad-hoc SQL, no audit trail survives, and an analytics user edits the
 state a business process owns.
 
+## 13b. A write path is a declaration, and it is the only way state changes
+
+Measured on the logistics decision log (`dispatch_decisions`, 2026-11), which exists for one reason:
+`trips` records the OUTCOME of a dispatch decision and never the decision, so "did the good drivers get
+the bad routes" is untestable — `corr(准时率, 趟数) ≈ 0` is what you can measure, and it is not an answer.
+
+```yaml
+- name: RecordDispatchDecision
+  applies_to: DispatchDecision
+  parameters:
+    trip_id: { type: integer, required: true }      # …
+  preconditions:
+    - { kind: exists, object_type: Trip, key: "{trip_id}" }
+  effect:
+    create: DispatchDecision
+    values:
+      decidedTripOf: "{trip_id}"                    # an ObjectProperty: a FK is a column
+      loanPressureAtDispatch: "{loan_pressure}"
+  permission: write:dispatch.decision
+  audit: required
+```
+
+Three things that had to be true, each measured:
+
+- **an effect may name a foreign key.** `effect_property` accepted only `owl:DatatypeProperty`, so writing
+  `trip_id` forced a second declaration of the FK as a datatype property — which the structure file
+  forbids (a FK column appears exactly once, on the ObjectProperty). Reading and writing now resolve the
+  SAME declaration; `:state "action"` is still the only thing that admits a write.
+- **`audit: required` is the floor**, and the audit row is written INSIDE the transaction: a refusal or an
+  exception rolls back both the effect and its audit row. A write you cannot trace is not a governed write.
+- **"has a decision" is a read, and it is an axiom, not SQL.** `:TripWithDecision` is
+  `∃:decisionsOf.(:DispatchDecision)` with `:decisionsOf owl:inverseOf :decidedTripOf` — the compiler
+  already emits `EXISTS (…)` for `owl:someValuesFrom`, so the coverage metric needed a declaration, not a
+  new compiler feature. The inverse is declared because the FK lives on the OTHER table; a FK column name
+  is never guessed.
+
+The honest end state: the write path exists, is audited, and the metric reads `0 / 4,050` — because
+nothing dispatches through it yet. **0 is a measurement, not a placeholder.**
+
 ## 14. Guardrails are part of the contract
 
 `big_tables` with their time column, a page cap, a plan budget, a statement timeout — and one rule
@@ -182,3 +221,77 @@ Gate `W1/W2` (`check_ontology_generic`): every metric that declares `:supportsSl
 pushable `:timeColumn` on its grain, and asking a windowed question must put that column in the WHERE with
 a value that is a subset of the all-time one — compared as `windowed <= all-time`, never against a
 constant, because a `now()`-relative number rots.
+
+## 17. A rate per group needs both sides at the same grain
+
+`ratio_of_sums` + `:groupBy` used to be refused outright, which made every "per vehicle / per route"
+RATE undeclarable — and a dashboard's whole question is *per what*. It compiles now, under one rule:
+
+```ttl
+:damagePer1kStopsByVehicle a owl:DatatypeProperty ;
+    :grain :Stop ; :universe :Stop ; :aggregate "ratio_of_sums" ;
+    :numerator :damagedBoxCount ; :denominator :stopCount ; :scale "1000.0" ;
+    :groupBy :plate ; :unit "count" .
+```
+
+```sql
+SELECT vehicles.plate AS key1,
+       (1000.0) * (((sum(stops.damaged_boxes))::numeric) / NULLIF((count(DISTINCT stops.id)), 0))
+FROM stops JOIN trips ON stops.trip_id = trips.id JOIN vehicles ON trips.vehicle_id = vehicles.id
+GROUP BY vehicles.plate ORDER BY 2 DESC;
+```
+
+- **same grain only.** A group's rate is "numerator summed inside the group ÷ denominator summed inside
+  the group"; that is a number only when both sides are counted at the grain being grouped. A cross-grain
+  ratio (`complaintsPer1kKm`: complaints at `:Complaint`, km at `:Trip`) has no per-group denominator that
+  is not a choice, so it **refuses by name and says which grains disagree**.
+- **the predicate may be `:concept` or `:where`, and the compiler reads both.** `:onTimeStops` carries
+  `:concept :OnTimeStop` and `:overloadedTrips` carries `:where :OverloadedTrip`; a grouped-ratio path that
+  read only `:where` compiled `count()/count()` = **100%** on-time — a silent wrong number, not a refusal.
+- **never take the average of group rates.** Weighted reconstruction is the check:
+  `Σ(rate × count) / Σcount` must equal the ungrouped rate. Gate `D3` does exactly that (measured:
+  per-vehicle damage weights back to 159.03 = the fleet value; wrong pairs, zipped by row position
+  instead of by key, "found" a 45.5% overload rate against the real 36.8%).
+
+## 18. A time series declares its bucket — it never guesses one
+
+`:timeBucket "day|week|month|quarter"` turns the grain's **own** `:timeColumn` into the first GROUP BY key
+and orders the result ascending:
+
+```ttl
+:overloadRateByWeek a owl:DatatypeProperty ;
+    :grain :Trip ; :universe :Trip ; :aggregate "ratio_of_sums" ;
+    :numerator :overloadedTrips ; :denominator :tripCount ;
+    :timeBucket "week" ; :unit "ratio" .
+```
+
+- **own column only**, same rule as the TimeWindow slot (rule 16): `:Stop` has no `:timeColumn`, so
+  `:damagePer1kStopsByWeek` refuses and names `:Trip.trip_date` one hop away. Bucketing through a join is
+  the compiler adding a join by string surgery — how a number goes quietly wrong.
+- **ordered by the axis, not by the value.** A grouped metric orders `DESC` by its value; a series that
+  keeps that order is not a series. The bucket is key 1, `ORDER BY 1 ASC`.
+- **a word the compiler does not emit is refused**, not passed to `date_trunc` (`"weeks"` would compile and
+  then fail at run time).
+- **compiles ≠ readable.** `complaintCountByWeek` is correct and returns ONE row: all 6,876 complaints are
+  stamped `2026-11-05 09:00`. Declare it anyway — the single bucket *is* the finding, and the dashboard
+  panel says so instead of drawing a trend.
+
+## 19. A dashboard is a declaration, and its holes are part of it
+
+`<profile dir>/dashboard.json` says which DECLARED metric each panel shows, by what it is cut, which event
+markers belong on it, and — for metrics that cannot answer — the refusal it expects. It contains no SQL and
+no numbers. `retail_graph/run_dashboard.py` compiles/guards/runs it; `retail_graph/check_dashboard.py`
+(D0–D6) makes it bite:
+
+- `D0` every referenced metric is declared — or is listed under `holes` and really refuses;
+- `D1` each panel's metric has the shape the panel needs (kpi = 1 row, matrix = 2 keys, ranked keys all
+  have their `size_by`, a one-row series must declare why it has one row);
+- `D2` a panel asking for the LOW end must declare `client_sort` — the compiler always emits `DESC`, so
+  "the 20 worst vehicles" otherwise renders the 20 best;
+- `D3` grouped numbers reproduce ungrouped ones (sums and weighted rates, keyed — never zipped by position);
+- `D4` a declared hole that starts answering fails the gate (a stale declaration lies in both directions);
+- `D5` independent SQL, written in the gate, agrees with the compiled numbers;
+- `D6` an event marker names a metric with a time axis and has buckets on both sides of its date.
+
+A panel that cannot answer is rendered as a refusal naming the missing declaration. That is the point:
+a dashboard which silently drops a block is how a business mistake survives a year of review.
