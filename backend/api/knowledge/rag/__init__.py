@@ -27,7 +27,7 @@ from fastapi import APIRouter
 
 logger = logging.getLogger("api.knowledge.rag")
 
-from . import documents, helpers, search, uploads
+from . import documents, helpers, kb, search, uploads
 from .documents import (delete_document, get_document, get_document_content,
                         get_document_file, list_documents)
 from .helpers import (SUPPORTED_GRAPHINDEX_EXTS, _extract_text_for_viewer,
@@ -48,6 +48,9 @@ router = APIRouter(prefix="/api/rag", tags=["rag"])
 router.include_router(uploads.router)
 router.include_router(documents.router)
 router.include_router(search.router)
+# The RAG agent's index/search over the ACCOUNT collection (lc_kb_u<id>) —
+# distinct from the project-document endpoints above; see kb.py.
+router.include_router(kb.router)
 
 __all__ = [
     "router",
@@ -68,4 +71,6 @@ __all__ = [
     "get_document_content", "delete_document",
     # search endpoints
     "search_documents", "index_document", "get_search_history",
+    # account-collection (RAG agent) endpoints
+    "kb",
 ]

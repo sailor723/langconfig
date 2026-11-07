@@ -21,6 +21,7 @@ the absolute workspace path behave identically to the relative form.
 from pathlib import Path
 
 from deepagents.backends.filesystem import FilesystemBackend
+from deepagents.backends.local_shell import LocalShellBackend
 
 
 class WorkspaceFilesystemBackend(FilesystemBackend):
@@ -59,5 +60,34 @@ class WorkspaceFilesystemBackend(FilesystemBackend):
             # Virtual absolute path: "/generated/report.md" (the SDK prepends
             # "/" itself when the key does not start with one). The workspace
             # root itself maps to the virtual root "/".
+            key = "/" + rel.as_posix() if rel.as_posix() != "." else "/"
+        return super()._resolve_path(key)
+
+
+class WorkspaceShellBackend(LocalShellBackend):
+    """LocalShellBackend whose file tools accept the REAL absolute workspace path.
+
+    The sandbox backend has the same defect the filesystem one had, and it is worse there because every agent
+    that runs scripts uses it: `LocalShellBackend._resolve_path` treats every path as virtual, so an absolute
+    path the agent knows from its identity block
+    (`/Users/…/agents/agent_352/generated/doc_demo/ANALYSIS.md`) lands at
+    `<workspace>/Users/…/agents/agent_352/generated/doc_demo/ANALYSIS.md` — nested, invisible to a later
+    `ls generated/`, and reported back as "Updated file …". Measured: a Mock Data Agent wrote its 16 KB
+    analysis there, then could not find it, then answered from memory.
+
+    `execute` is untouched: the shell still runs with the workspace as its cwd and real absolute paths mean
+    what they say. Only the file tools (`read_file`/`write_file`/`edit_file`/`ls`/`glob`/`grep`) re-base, which
+    is exactly where the identity-block path was being mangled.
+    """
+
+    def _resolve_path(self, key: str) -> Path:
+        if not key or key == "/":
+            return super()._resolve_path(key)
+        if Path(key).is_absolute():
+            try:
+                rel = Path(key).resolve().relative_to(self.cwd)
+            except ValueError:
+                # not inside the workspace: leave the SDK's own checks in charge
+                return super()._resolve_path(key)
             key = "/" + rel.as_posix() if rel.as_posix() != "." else "/"
         return super()._resolve_path(key)

@@ -570,7 +570,7 @@ flowchart TB
         direction LR
         R1["agents + deepagents<br/>CRUD · prompt-preview · export"]
         R2["chat + workflows<br/>SSE · orchestration · hitl"]
-        R3["rag + doc_chat + memory<br/>knowledge · store · agents_md"]
+        R3["rag (kb/*) + doc_chat + memory<br/>knowledge · store · agents_md"]
         R4["tools + skills + workspace<br/>models · settings"]
         R5["graph_studio<br/>code-defined graphs · threads · SSE runs"]
     end
@@ -743,9 +743,10 @@ flowchart LR
 
 ---
 
-## 8. Backend API layer — the 45 routers
+## 8. Backend API layer — the 48 routers
 
-`backend/main.py` registers **45 routers** on the FastAPI app (291 paths / 345 operations). They are thin controllers:
+`backend/main.py` registers **48 routers** on the FastAPI app (320 paths / 380 operations; measured
+2026-11-04, after `rag_chat` was removed — see §9 "Retrieval"). They are thin controllers:
 parse the request, delegate to a service/factory, and stream the result.
 
 | Group                | Routers (in`main.py` order)                                                                               | Purpose                                                                                                                   |
@@ -756,7 +757,7 @@ parse the request, delegate to a service/factory, and stream the result.
 | Workflows            | `workflows`, `orchestration`, `hitl`, `checkpoints`                                                 | Workflow CRUD/execute, simplified orchestration, human-in-the-loop approvals, checkpoint restore                          |
 | Graph Engineering    | `graph_studio`                                                                                    | Code-defined graph hosting (`backend/langgraph/*.py`): introspection, threads, SSE runs, target-DB switching, run interrupt — see §13 |
 | Chat & memory        | `memory`, `store`, `agents_md_router`, `chat_skill_review`                                          | Agent memory, long-term store, AGENTS.md (MemoryMiddleware), data-skill review                                            |
-| Knowledge / RAG      | `rag`, `graphindex_chat`, `doc_chat`, `kv`, `analysis`                                            | RAG ingestion/search, graph-index chat, folder-based doc-chat, KV store, CSV→SQLite→charts                              |
+| Knowledge / RAG      | `rag`, `graphindex_chat`, `doc_chat`, `kv`, `analysis`                                            | Two retrieval systems in one router: project documents (`/api/rag/search`, `/api/rag/index/{doc_id}`) and the RAG agent's own collection (`/api/rag/kb/index|search|status` — see §9 "Retrieval"); graph-index chat, folder-based doc-chat, KV store, CSV→SQLite→charts |
 | Tools & skills       | `custom_tools`, `tool_registry`, `skills`                                                             | User tools, native tool registry (single source of truth), skills system                                                  |
 | Docs & classic graph | `agent_documents`, `classic_graph`                                                                     | DB-mode document library; classic LangGraph builder API                                                                   |
 | Workspace & projects | `projects`, `tasks`, `workspace`, `background_tasks`                                                | Projects, task workspaces, file trees, background job queue                                                               |
@@ -837,6 +838,83 @@ Three generation regimes feed it:
 See **[docs/system-architecture/sunhing-dashboards.md](sunhing-dashboards.md)** for the Sun Hing
 producer map, the 28-KPI coverage proof, the determinism guarantee, and the known
 drift risks (two divergent DB copies; copy-propagated static pages).
+
+### Retrieval — two collections, and only one of them belongs to the RAG agent
+
+There are **two independent retrieval systems** in this app, and nearly every
+confusion about "the RAG" comes from mixing them up:
+
+| | **Account collection** | **Project documents** |
+|---|---|---|
+| Store | `core/rag/` → collection `lc_kb_u<user id>` | `context_documents` rows → table `data_project_index_<project id>` |
+| Written by | `POST /api/rag/kb/index`, the `rag_index` tool, `scripts/rag_index.py` | `POST /api/rag/index/{document_id}`, `services/context_document_indexer.py` |
+| Read by | `POST /api/rag/kb/search`, the `rag_search` tool, `POST /api/rag/search` | `POST /api/rag/search` (project scope) |
+| Owner | the **RAG agent** (`doc-chat-embed`, template id 278) | the project / knowledge library |
+| Isolation | collection name derived from the caller, never an argument | project id |
+
+**The RAG agent owns both halves.** Template 278 `doc-chat-embed` carries exactly
+two native tools — `rag_search` (retrieve) and `rag_index` (split · embed · store) —
+because a retrieval-only agent could say *"nothing is indexed yet"* and had no way to
+fix it. Its API mirror is the `/api/rag/kb/*` trio (`backend/api/knowledge/rag/kb.py`),
+identity-scoped through `require_user`, returning structured passages
+(`text, source, page, score`) rather than a formatted answer.
+
+**Indexing is an explicit action, never a side effect.** That is a rule learned the
+hard way:
+
+* Chat attachments used to be embedded on upload. One 4 MB CSV became a **single**
+  ollama request that ran **4 min 20 s**; the embedding server serves one request at
+  a time, so every other account's search queued behind that upload and the instance
+  looked down. Chat uploads now only append the extracted text to the conversation —
+  which is all "upload a file, then ask about it" ever needed. (Measured 2026-11-04:
+  0 embedding calls after an upload, text still present in `session.messages`.)
+* `core/rag/index.py` batches embeddings (`EMBED_BATCH_SIZE = 32`) so no single
+  request can own the queue: a 90-chunk document becomes 3 requests `[32, 32, 26]`
+  instead of one.
+
+**Removed, so nobody looks for them again** (all three were unreachable or broken;
+verified 2026-11-04):
+
+| Gone | Why |
+|---|---|
+| `api/rag_chat/` (`/index`, `/ask`, `/status`) | no frontend caller; a second, parallel RAG chat |
+| `POST /api/projects/{id}/index` + `indexProject()` | a stub: set `indexing_status=INDEXING` and returned — projects sat "indexing" forever |
+| embeddings on chat upload (`_index_for_retrieval`) | the 4-minute queue blocker above |
+
+**Known gap.** `POST /api/rag/upload` (and `/upload-bulk`, `/ingest-folder`) still
+route through `learning/phase9/graphindex/index_build.py`, which imports a module
+this checkout does not have (`services.neo4j_embedding_matcher`). The call is now
+defensive (logged, not fatal), but a machine without Neo4j still cannot use those
+three endpoints. Nothing in the UI calls them — knowledge uploads go through
+`/api/kv/*`, which stores files and reads them as text (no vectors at all).
+
+**Dashboards have exactly one producer.** `POST /api/analysis/upload` and
+`/api/analysis/init` convert a CSV (or accept an existing SQLite) and stop there:
+`dashboard_file` is always `null`, the request returns in **0.29 s** instead of up to
+180 s, and no HTML appears. Before 2026-11-04 both endpoints ended with
+`_auto_generate_dashboard()`, which ran an internal LLM told to "write Plotly HTML" —
+a third generator next to template 343's deterministic one and the ERP/Sun Hing
+scripts, and the only one whose output nobody could reproduce. A chat upload no
+longer touches `/api/analysis/init` either (`MessagesPanel.onFileUploaded`): the CSV
+text goes into the conversation, which is all the chat agent needs.
+
+| Path | Converts CSV | Builds pages | Reproducible |
+|---|---|---|---|
+| Analysis upload → `/api/analysis/upload` | ✅ | ❌ (since 2026-11-04) | — |
+| Dashboard agent (template 343 `chinook-dashboard-builder`) | — | ✅ deterministic generator + `--check` | ✅ |
+| ERP / Sun Hing study scripts | — | ✅ `Mode: static-embed` | ✅ |
+| Chat upload (any agent, incl. 329) | ❌ | ❌ | — |
+
+Invariants worth keeping when touching this area:
+
+1. **One collection per account, chosen from identity.** Never accept a collection
+   name as a parameter — that is how one account searches another's documents.
+2. **`reset=true` is the only re-index path.** Chunk ids are content-derived, so
+   re-indexing an unchanged file updates rather than duplicates; after editing a
+   document, old chunks of deleted text otherwise stay retrievable.
+3. **Embedding is a queue of one.** `OLLAMA_NUM_PARALLEL=1` plus a cgroup CPU cap on
+   the ECS install (see `docs/installation/installation.md`) is what keeps a slow
+   index from starving the API — do not raise it without re-measuring.
 
 ---
 
@@ -1792,6 +1870,7 @@ tool works transparently against the DB.
 | Question                      | Answer                                                                                                                |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | Where does an agent's workspace live? | `WorkspaceManager.resolve_agent_workspace` — user `workspace_path` → `{base}/{vault_key}/agents/{agent_key}/` (vault-scoped, per session `project_id`) → legacy `agents/agent_{id}/`; identity + docs re-baked per session (§16.10) |
+| Where is the RAG (index + search)? | Agent `doc-chat-embed` (template 278): tools `rag_index` / `rag_search` → `/api/rag/kb/index|search|status`, collection `lc_kb_u<user id>`. Indexing is explicit — never a side effect of uploading. Two collections exist; see §9 "Retrieval" |
 | What builds a normal agent?   | `core/agents/factory/assembly.py` → `AgentFactory.create_agent`                                                  |
 | What builds a DeepAgent?      | `services/deepagent_factory/assembly.py` → `DeepAgentFactory.create_deep_agent`                                  |
 | What is`deep_agents.py`?    | The REST controller (CRUD + prompt-preview + export) — not the builder                                               |
@@ -1946,7 +2025,7 @@ It runs, in order:
 2. `init_db` — `create_all` from the ORM models + pgvector (`init_db()` in `db/database.py`)
 3. `alembic stamp head` — marks the schema current (no legacy migrations to replay)
 4. `seed_models` / `seed_search_providers` — LLM providers + search backends
-5. `custom_tools` — 53 built-in tools (dump) · `deep_agents` — agent templates (dump)
+5. `custom_tools` — 69 built-in tools (dump; `rag_index` added 2026-11-04) · `deep_agents` — agent templates (dump)
 6. `skills` — `backend/skills/**/SKILL.md` synced into the DB
 7. `chinook` — sample business DB for the SQL agent
 

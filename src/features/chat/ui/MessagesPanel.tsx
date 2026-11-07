@@ -7,7 +7,7 @@
 
 import { useRef, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Activity, Copy, CheckCircle, AlertCircle, X, Brain, User, ChevronDown, ChevronRight, Wrench, BarChart3, Loader2, Download } from 'lucide-react';
+import { Activity, Copy, CheckCircle, AlertCircle, X, Brain, User, ChevronDown, ChevronRight, Wrench, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -15,7 +15,6 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { ChatMessage, ContextOccupancy, CustomEventPayload, InterruptData, SessionDocument, ToolCall } from '../types/chat';
 import { formatCompactDateTime, formatFullDateTime } from '../utils/formatChatTime';
 import CodexMessageInput, { COMPOSER_MAX_WIDTH } from './CodexMessageInput';
-import AnalysisPanel from './AnalysisPanel';
 import HitlApprovalPanel from './HitlApprovalPanel';
 import { ContentBlockRenderer } from '@/components/common/ContentBlockRenderer';
 import type { ThinkingStep } from './ThinkingBlock';
@@ -118,10 +117,6 @@ export default function MessagesPanel({
   const streamingStartRef = useRef<number>(0);
   const [elapsedMs, setElapsedMs] = useState(0);
   // Analysis panel state — dashboard auto-generated after CSV upload
-  const [dashboardUrl, setDashboardUrl] = useState('');
-  const [showAnalysis, setShowAnalysis] = useState(false);
-  const [analysisMeta, setAnalysisMeta] = useState<{rowCount: number; colCount: number} | null>(null);
-  const [csvUploading, setCsvUploading] = useState(false);
 
   // Codex-style heading: the workspace is the "where", the agent is the "who".
   // This used to render the AGENT name under the word "in", which labelled an
@@ -163,37 +158,19 @@ export default function MessagesPanel({
     URL.revokeObjectURL(url);
   };
 
-  // ── CSV upload handler — calls /api/analysis/init + shows dashboard ─
-  /** Announce an upload in one turn so the agent starts reading immediately. */
+  // ── Upload handler — announce, do not build a dashboard ─────────
+  /** Announce an upload in one turn so the agent starts reading immediately.
+   *
+   * `handleCsvUpload` used to live here: it POSTed `/api/analysis/init` and showed
+   * the generated page. That is gone — a chat upload is not a dashboard request,
+   * and the page it produced was hand-written HTML from an LLM rather than the
+   * dashboard agent's deterministic generator. Data files are announced like any
+   * other document; the agent reads the CSV text that is already in the
+   * conversation.
+   */
   const announceUploads = (files: SessionDocument[]) => {
     const docs = (files || []).filter(f => isDocumentUpload(f.filename));
     if (docs.length) onSendMessage(uploadKickoffMessage(docs.map(f => f.filename)));
-  };
-
-  const handleCsvUpload = (filename: string) => {
-    setShowAnalysis(false);
-    setCsvUploading(true);
-    const csvPath = `outputs/default/${filename}`;
-    fetch('/api/analysis/init', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        session_id: sessionId,
-        csv_path: csvPath,
-        table_name: filename.replace(/\.csv$/i, '').replace(/[^a-zA-Z0-9_]/g, '_'),
-      }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        setDashboardUrl(data.dashboard_file || '');
-        setAnalysisMeta({ rowCount: data.row_count, colCount: data.col_count });
-        setShowAnalysis(true);
-        setCsvUploading(false);
-      })
-      .catch((err) => {
-        console.error('Analysis init failed:', err);
-        setCsvUploading(false);
-      });
   };
 
   // ── Empty state ───────────────────────────────────────────────
@@ -224,15 +201,11 @@ export default function MessagesPanel({
                 sessionId={sessionId}
                 projectId={projectId}
                 onFileUploaded={(file) => {
-                  // Data files trigger the analysis dashboard; a document starts
-                  // a reading turn instead of sitting there silently.
-                  if (/\.(csv|db|sqlite|sqlite3)$/i.test(file.filename)) {
-                    handleCsvUpload(file.filename);
-                    return;
-                  }
-                  if (isDocumentUpload(file.filename)) {
-                    announceUploads([file]);
-                  }
+                  // Every upload gets the same treatment: announce it so the agent
+                  // reads it now. CSV/SQLite used to branch into dashboard
+                  // generation — that branch is gone (dashboards belong to the
+                  // dashboard agent).
+                  announceUploads([file]);
                 }}
                 onMultipleUploaded={announceUploads}
                 agentName={agentName}
@@ -771,41 +744,6 @@ export default function MessagesPanel({
         </div>
       )}
 
-      {/* Data Analysis Button — generate interactive dashboard via current agent */}
-      {typeof onSendMessage === 'function' && (
-        <div className="px-4 pb-2">
-          {csvUploading && (
-            <div className="flex items-center justify-center gap-2 py-3 text-sm text-gray-400">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Processing CSV &amp; generating dashboard...
-            </div>
-          )}
-          {showAnalysis && dashboardUrl !== '' && (
-            <AnalysisPanel
-              sessionId={sessionId || ''}
-              dashboardUrl={dashboardUrl}
-              rowCount={analysisMeta?.rowCount}
-              colCount={analysisMeta?.colCount}
-              onClose={() => setShowAnalysis(false)}
-            />
-          )}
-          {showAnalysis && dashboardUrl === '' && !csvUploading && (
-            <button
-              onClick={() => {
-                setShowAnalysis(false);
-                setTimeout(() => setShowAnalysis(true), 100);
-              }}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 
-                         bg-blue-50 border border-blue-200 text-blue-700 
-                         rounded-lg text-sm font-medium hover:bg-blue-100 transition-all"
-            >
-              <BarChart3 className="w-4 h-4" />
-              Dashboard (regenerate)
-            </button>
-          )}
-        </div>
-      )}
-
       {/* Composer block: the box and its stats line, at the foot of the chat
           area. pb-2 rather than the old pb-6 — that 24px read as dead space
           under the box, which now sits a few pixels above the window's bottom
@@ -832,39 +770,14 @@ export default function MessagesPanel({
           context={context}
           onFileUploaded={(file) => {
             console.log('File uploaded:', file);
-            // Auto-trigger data analysis after CSV or SQLite upload (no chat message)
-            const docExt = file.filename.split('.').pop()?.toLowerCase() || '';
-            const isDataFile = ['csv', 'db', 'sqlite', 'sqlite3'].includes(docExt);
-            if (isDataFile) {
-              setShowAnalysis(false); // reset if previously open
-              setCsvUploading(true);
-              // File was saved to sandbox by FileUploadButton
-              // Call /api/analysis/init to convert (CSV) or use-as-is (SQLite), auto-generate dashboard
-              const filePath = `outputs/default/${file.filename}`;
-              // Strip any recognized extension to derive a safe table name
-              const stem = file.filename.replace(/\.(csv|db|sqlite|sqlite3)$/i, '').replace(/[^a-zA-Z0-9_]/g, '_');
-              fetch('/api/analysis/init', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  session_id: sessionId,
-                  csv_path: filePath,
-                  table_name: stem,
-                }),
-              })
-                .then(res => res.json())
-                .then(data => {
-                  setDashboardUrl(data.dashboard_file || '');
-                  setAnalysisMeta({ rowCount: data.row_count, colCount: data.col_count });
-                  setShowAnalysis(true);
-                  setCsvUploading(false);
-                })
-                .catch(err => {
-                  console.error('Analysis init failed:', err);
-                  setCsvUploading(false);
-                });
-              return;
-            }
+            // NO dashboard on upload (2026-11-04).
+            //
+            // This used to call `/api/analysis/init` for CSV/SQLite and then open
+            // the Analysis panel with a freshly generated page. That made the CHAT
+            // agent look like a dashboard builder, and it produced a hand-written
+            // Plotly page nobody asked for (see `api/analysis/routes.py`). The CSV's
+            // text is already appended to this conversation, which is all the chat
+            // agent needs; dashboards have one producer — the dashboard agent.
             // Everything else that is a document: acknowledge and start reading
             // now, in the same turn, rather than waiting for the user to ask.
             if (isDocumentUpload(file.filename)) {

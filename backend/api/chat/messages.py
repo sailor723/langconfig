@@ -18,8 +18,11 @@ _REPO_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(__file__), "..", ".
 if _REPO_ROOT not in _sys.path and _os.path.isdir(_REPO_ROOT):
     _sys.path.insert(0, _REPO_ROOT)
 
+import asyncio
 import dataclasses
+import hashlib
 import json
+import time
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -58,6 +61,98 @@ logger = logging.getLogger(__name__)
 # No prefix here: this router is included into routes.router, which already
 # carries the "/api/chat" prefix (FastAPI would otherwise stack prefixes).
 router = APIRouter(tags=["chat"])
+
+
+#: Transport failures between this backend and the model provider. They are NOT the agent's fault and they are
+#: NOT fatal: the turn can be retried, because the graph checkpoints its state per thread. Measured twice on one
+#: evening: `StreamChunkTimeoutError … for 600.0s (chunks_received=28)` and `httpx.ConnectTimeout →
+#: openai.APITimeoutError`. Both surfaced to the user as a bare 500 with the word "detail" in it.
+_TRANSPORT_ERROR_NAMES = ("StreamChunkTimeoutError", "APITimeoutError", "ConnectTimeout", "ReadTimeout",
+                          "ConnectError", "RemoteProtocolError")
+
+
+def _is_transport_error(exc: BaseException) -> bool:
+    """True for a link problem to the model provider (retryable), False for a bug in the graph."""
+    name = type(exc).__name__
+    if name in _TRANSPORT_ERROR_NAMES:
+        return True
+    # httpx/openai wrap the cause, and langchain wraps both: look one level down as well.
+    cause = getattr(exc, "__cause__", None)
+    if cause is not None and type(cause).__name__ in _TRANSPORT_ERROR_NAMES:
+        return True
+    text = str(exc)
+    return "No streaming chunk received" in text or "Request timed out" in text
+
+
+def _transport_message(exc: BaseException, attempts: int) -> str:
+    """What the human is told when the link — not the agent — failed, and what to do about it."""
+    return (
+        f"⚠ 到模型服务的链路断了（{type(exc).__name__}），已自动重试 {attempts} 次仍未恢复。\n\n"
+        "这不是 agent 的错，也不是本轮指令的问题：**已经写入的文件和数据库都在**，"
+        "产物请以 workspace 的 `generated/` 与库里的表为准。\n\n"
+        "处理建议：等网络稳定后，再发一句「继续」即可（会话状态在 checkpoint 里，不会从头再来）。"
+    )
+
+
+def _args_grow(prev: str, cur: str) -> bool:
+    """True when `cur` is `prev` plus MORE of the same thing — the signature of the degenerate loop.
+
+    Measured twice:
+      1. ten `psql -c "select count(*) … trip_date < X"` calls, each the previous command with one more `-c`
+         appended — growth at the END, so `cur.startswith(prev)` saw it;
+      2. this turn: **78** `execute` calls of `… | grep -rn "samples" f1 f2 … fN 2>/dev/null | head -20`, where
+         each call appended one more file to the MIDDLE of the command (the `2>/dev/null | head -20` tail never
+         moved). Prefix test was false every time, so nothing tripped and the turn burned to the recursion limit.
+
+    So growth means: after removing the common suffix the two strings share, the shorter is a prefix of the
+    longer. That catches append-at-end (common suffix empty) and insert-in-the-middle (common suffix is the
+    fixed tail) — and still says NO to `ls a` vs `ls b` (no common suffix, no prefix) and to unrelated
+    commands. Plain equality must NOT trip at 3: "run the generator twice, then once more to prove
+    determinism" is a legitimate pattern this same agent is asked to do (equality trips at 5).
+    """
+    if not prev or len(cur) <= len(prev):
+        return False
+    if cur.startswith(prev):
+        return True
+    n = 0                                            # length of the shared TAIL
+    while n < len(prev) and prev[-1 - n] == cur[-1 - n]:
+        n += 1
+    if n == 0:
+        return False
+    head_prev, head_cur = prev[: len(prev) - n], cur[: len(cur) - n]
+    return head_cur.startswith(head_prev) and head_cur != head_prev
+
+
+def _args_signature(name: str, payload) -> str:
+    """A stable fingerprint of one tool call, so a REPEATED call is detectable."""
+    try:
+        raw = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    except Exception:                                          # noqa: BLE001
+        raw = str(payload)
+    return f"{name}::{hashlib.sha1(raw.encode('utf-8', 'replace')).hexdigest()[:16]}"
+
+
+def _turn_is_empty(result) -> bool:
+    """True when the graph ended WITHOUT an assistant answer (empty AI turn or a dangling tool message).
+
+    Measured twice on the Mock Data Agent: the model executed tools and then returned
+    `ai content=0 tool_calls=[]`. The graph treats that as "done", so the loop ends; the response extraction
+    used to walk backwards and hand the last TOOL output back as the assistant's answer — the run looked
+    finished, and nothing had been produced.
+    """
+    msgs = getattr(result, "messages", None)
+    if msgs is None and isinstance(result, dict):
+        msgs = result.get("messages")
+    if not msgs:
+        return True
+    last = msgs[-1]
+    role = getattr(last, "type", None) or (last.get("role") if isinstance(last, dict) else None)
+    content = getattr(last, "content", None) if not isinstance(last, dict) else last.get("content")
+    if isinstance(content, list):
+        content = "".join(b.get("text", "") if isinstance(b, dict) else str(b) for b in content)
+    has_text = isinstance(content, str) and content.strip()
+    tool_calls = getattr(last, "tool_calls", None) or (last.get("tool_calls") if isinstance(last, dict) else None)
+    return role == "ai" and not has_text and not tool_calls
 
 
 def _resolve_recursion_limit(agent_config: Optional[dict]) -> int:
@@ -678,23 +773,84 @@ async def send_message(
         # the first account's tree. The run knows whose workspace it is; say so.
         from tools.native_impl import bind_run_root, clear_run_root
         from services import user_roots
-        _run_root_token = bind_run_root(user_roots.root_for(getattr(session, "user_id", None)))
+        from services.workspace_manager import get_workspace_manager as _wsm_for_run
+
+        # The run root is the SESSION'S AGENT WORKSPACE, not the account's whole tree. Measured: with the user
+        # root bound, `read_any_file /upload/<the file the user just uploaded>` was refused with "outside the
+        # allowed workspace" three times in one turn — the agent could see the file through its own file tools
+        # but not through the native reader. Resolved here, outside the agent-cache branch, because a cached
+        # agent (the second and later turns) never reached the code that computed it.
+        _run_ws_root = None
         try:
-            result = await agent_instance.ainvoke(
-                {"messages": [new_message]},
+            _wsm_run = _wsm_for_run()
+            _run_ws_root = str(_wsm_run.resolve_agent_workspace(
+                agent, getattr(session, "project_id", None),
+                vault_key=_wsm_run.project_vault_key(db, getattr(session, "project_id", None)) or None,
+                agent_key=_wsm_run.agent_vault_key(db, agent),
+            ))
+        except Exception as _ws_exc:                            # noqa: BLE001 — never block a turn
+            logger.warning("could not resolve the run workspace: %s", _ws_exc)
+
+        def _invoke_once(_messages):
+            return agent_instance.ainvoke(
+                {"messages": _messages},
                 config={
                     "configurable": {"thread_id": session.session_id},
                     "recursion_limit": _resolve_recursion_limit(_safe_config),
-                }
+                },
             )
+
+        _run_root_token = bind_run_root(_run_ws_root or user_roots.root_for(getattr(session, "user_id", None)))
+        try:
+            try:
+                result = await _invoke_once([new_message])
+            except Exception as _e:                              # noqa: BLE001
+                if not _is_transport_error(_e):
+                    raise
+                # One retry on a link failure, then a message a human can act on (this path used to return a
+                # bare 500 whose `detail` was the openai exception's str()).
+                logger.error("transport failure (non-streaming), retrying once: %s", _e)
+                try:
+                    result = await _invoke_once([new_message])
+                except Exception as _e2:                         # noqa: BLE001
+                    raise HTTPException(status_code=503, detail=_transport_message(_e2, 2)) from _e2
+            # An EMPTY final assistant turn is a dead end, not an answer: the model ran the tools and then
+            # produced nothing, and the old code returned the last tool output as if it were the reply.
+            # One bounded retry turns that into progress instead of a silent stop.
+            if _turn_is_empty(result):
+                logger.warning("empty assistant turn for session=%s — retrying once", session.session_id)
+                result = await _invoke_once([
+                    new_message,
+                    HumanMessage(content=(
+                        "你上一步执行完工具后没有输出任何内容（空回合）。请继续：直接调用需要的工具推进"
+                        "当前任务，不要说『已完成』除非产物真的存在。若已经完成，用一段话给出产物路径与检查数。"
+                    )),
+                ])
         finally:
             clear_run_root(_run_root_token)
 
-        # Extract response — iterate backwards for the last non-empty text.
-        # When the agent uses task() to delegate, the final AIMessage may have
-        # empty content (tool_calls only). We need the ToolMessage result or
-        # the agent's follow-up response instead.
+        # Extract response. The LAST message decides: a turn that ended on a tool result is a turn with NO
+        # answer, and saying so beats dressing a `psql` dump up as one. Only an assistant message counts; for
+        # subagent/delegation turns the final AIMessage carries the summary, which is what we want anyway.
         response_text = ""
+        _last = None
+        _all = getattr(result, "messages", None) or (result.get("messages") if isinstance(result, dict) else None)
+        if _all:
+            _last = _all[-1]
+        _last_role = getattr(_last, "type", None) or (_last.get("role") if isinstance(_last, dict) else None)
+        _last_text = getattr(_last, "content", "") if _last is not None and not isinstance(_last, dict) else ((_last or {}).get("content") if isinstance(_last, dict) else "")
+        if isinstance(_last_text, list):
+            _last_text = "".join(b.get("text", "") if isinstance(b, dict) else str(b) for b in _last_text)
+        if _last_role != "ai" or not (isinstance(_last_text, str) and _last_text.strip()):
+            logger.warning("⚠ no assistant answer for session=%s (last message: %s) — reporting it as such",
+                           session.session_id, _last_role)
+            _hint = (getattr(_last, "content", "") if _last is not None and not isinstance(_last, dict) else "")
+            _hint = _hint if isinstance(_hint, str) else ""
+            response_text = (
+                "⚠ 本轮没有生成回答：模型在工具执行后返回了空回合。\n\n"
+                + (f"上一步的工具输出（供参考）：\n```\n{_hint[:1200]}\n```\n\n" if _hint.strip() else "")
+                + "已完成的部分在 workspace 里（用文件面板看 `generated/`）。再发一句「继续」即可推进，或换一个更小的步骤。"
+            )
         if hasattr(result, "messages") and result.messages:
             for msg in reversed(result.messages):
                 c = getattr(msg, "content", "")
@@ -1055,6 +1211,7 @@ async def send_message_stream(
             collected_subagent_spawns = []  # one entry per `task` delegation
             collected_handoffs = []  # one entry per transfer_to_* call
             full_response = ""
+            reasoning_chars = 0        # characters of visible deliberation (never the answer)
             all_context = ""
             rag_tokens_used = 0
             stream_filter = StreamingFilter()
@@ -1373,6 +1530,10 @@ async def send_message_stream(
                     _user_roots.root_for(getattr(fresh_session, "user_id", None))
                 )
                 try:
+                    # A HEARTBEAT is the difference between "working" and "hung" from the user's chair. Measured
+                    # tonight: a turn that emitted nothing for 600 s, and another that emitted nothing while it
+                    # wrote a 30 KB file — both looked identical to a dead spinner. So the stream is consumed with
+                    # a 5 s timeout: a quiet 5 s emits one `progress` event (elapsed, tool, chunks, tokens).
                     _stream = agent_instance.astream_events(
                         {"messages": [new_message]},
                         config={
@@ -1382,7 +1543,43 @@ async def send_message_stream(
                         },
                         version="v2"
                     )
-                    async for event in _stream:
+                    _turn_started = time.monotonic()
+                    _heartbeat_s = 5.0
+                    _tokens_seen = 0
+                    _last_tool = ""
+                    _prev_args: dict[str, str] = {}
+                    _growth: dict[str, int] = {}
+                    _same_calls: dict[str, int] = {}
+                    _loop_stopped = False
+
+                    # The stream is consumed by a PUMP TASK into a queue, not with `wait_for(__anext__())`.
+                    # Measured (CLI probe, 22:52): cancelling the pending `__anext__()` on each 5 s timeout put
+                    # the async generator into a broken state — the probe that should have completed instead got a
+                    # spurious `interrupt` event and no answer. Cancelling a step of an async generator is not a
+                    # "peek": it raises inside it. A queue decouples "wait for the next event" from "read it".
+                    _event_q: asyncio.Queue = asyncio.Queue(maxsize=200)
+                    _PUMP_DONE = object()
+
+                    async def _pump_events():
+                        try:
+                            async for _ev in _stream:
+                                await _event_q.put(_ev)
+                            await _event_q.put(_PUMP_DONE)
+                        except BaseException as _exc:              # noqa: BLE001 — forwarded to the consumer
+                            await _event_q.put((_PUMP_DONE, _exc))
+
+                    _pump_task = asyncio.create_task(_pump_events())
+                    while True:
+                        try:
+                            _item = await asyncio.wait_for(_event_q.get(), timeout=_heartbeat_s)
+                        except asyncio.TimeoutError:
+                            yield f"data: {json.dumps({'type': 'progress', 'elapsed_s': int(time.monotonic() - _turn_started), 'tool': _last_tool, 'tool_calls': tool_calls_count, 'chars': len(full_response), 'tokens': _tokens_seen})}\n\n"
+                            continue
+                        if _item is _PUMP_DONE:
+                            break
+                        if isinstance(_item, tuple) and len(_item) == 2 and _item[0] is _PUMP_DONE:
+                            raise _item[1]
+                        event = _item
                         if _stop_requested(session_id):
                             # Break here and answer immediately: closing the
                             # LangGraph stream raises CancelledError into this
@@ -1405,6 +1602,49 @@ async def send_message_stream(
                         if kind == "on_tool_start":
                             tool_calls_count += 1
                             tool_data = event.get("data", {})
+                            # A REPEATED call is not progress. Measured: ten `psql -c "select count(*) …"` calls
+                            # whose arguments grew by one query each, no number reported, the turn eventually lost.
+                            try:
+                                _sig = _args_signature(event.get("name", "?"), tool_data.get("input"))
+                            except Exception:                            # noqa: BLE001
+                                _sig = ""
+                            _tool_nm = str(event.get("name") or "")
+                            _args_txt = _sig.split("::", 1)[1] if _sig else ""
+                            if _sig:
+                                try:
+                                    _args_json = json.dumps(tool_data.get("input"), ensure_ascii=False,
+                                                            sort_keys=True)
+                                except Exception:                        # noqa: BLE001
+                                    _args_json = str(tool_data.get("input"))
+                                _prev = _prev_args.get(_tool_nm, "")
+                                if _prev and _args_grow(_prev, _args_json):
+                                    _growth[_tool_nm] = _growth.get(_tool_nm, 0) + 1
+                                    _same_calls[_tool_nm] = 0
+                                elif _prev == _args_json:
+                                    _same_calls[_tool_nm] = _same_calls.get(_tool_nm, 0) + 1
+                                    _growth[_tool_nm] = 0
+                                else:
+                                    _growth[_tool_nm] = 0
+                                    _same_calls[_tool_nm] = 0
+                                _prev_args[_tool_nm] = _args_json
+                                _why = ""
+                                if _growth.get(_tool_nm, 0) >= 3:
+                                    _why = f"参数在连续递增（第 {_growth[_tool_nm] + 1} 次比上一次更长且包含上一次）"
+                                elif _same_calls.get(_tool_nm, 0) >= 5:
+                                    _why = f"同一条调用已连续 {_same_calls[_tool_nm] + 1} 次完全一样"
+                                if _why:
+                                    _loop_stopped = True
+                                    _msg = (f"⚠ 循环已中止：{_tool_nm} {_why}。上一次的输出就在上面——"
+                                            "请换一种做法（一条聚合 SQL 一次算完，或分块写文件），然后发「继续」。")
+                                    logger.warning("loop guard tripped: %s (%s)", _tool_nm, _why)
+                                    yield f"data: {json.dumps({'type': 'error', 'message': _msg})}\n\n"
+                                    try:
+                                        await _stream.aclose()
+                                    except Exception:                    # noqa: BLE001
+                                        pass
+                                    full_response = (full_response + "\n\n" + _msg).strip()
+                                    break
+                            _last_tool = str(event.get("name") or "")
                             # Tool name is in event["name"] for astream_events v2
                             tool_name = event.get("name", "unknown")
                             # Detect skill name from read_file path or task subagent_type
@@ -1520,6 +1760,20 @@ async def send_message_stream(
                                 elif not isinstance(token, str):
                                     token = str(token)
 
+                                # A thinking model streams `reasoning_content` in additional_kwargs with an
+                                # EMPTY `content`. Without this the user watches a spinner for two minutes and
+                                # then gets nothing ("No response generated"), which is what made the build
+                                # look dead. Show the deliberation as `thinking`, never as the answer.
+                                _reason = ""
+                                try:
+                                    _ak = getattr(chunk_content, "additional_kwargs", None) or {}
+                                    _reason = _ak.get("reasoning_content") or ""
+                                except Exception:                        # noqa: BLE001
+                                    _reason = ""
+                                if _reason:
+                                    reasoning_chars += len(_reason)
+                                    yield f"data: {json.dumps({'type': 'thinking', 'content': _reason})}\n\n"
+
                                 if token:
                                     # Apply StreamingFilter to strip <think> and <tool_call> tags and their contents
                                     # The filter captures stripped think content in think_buffer
@@ -1533,6 +1787,7 @@ async def send_message_stream(
                                         stream_filter.think_buffer = ""  # Reset after emit
                                 
                                     if filtered_token:
+                                        _tokens_seen += 1
                                         full_response += filtered_token
                                         yield f"data: {json.dumps({'type': 'chunk', 'content': filtered_token})}\n\n"
 
@@ -1549,6 +1804,10 @@ async def send_message_stream(
                             yield f"data: {payload}\n\n"
 
                 finally:
+                    try:
+                        _pump_task.cancel()                     # noqa: F821 — defined above the try
+                    except Exception:                           # noqa: BLE001
+                        pass
                     _clear_root(_run_root_token)
 
                 # After stream completes, check for pending interrupts
@@ -1633,8 +1892,39 @@ async def send_message_stream(
                 full_response = ""
 
             except Exception as e:
-                logger.error(f"Error in stream: {e}")
-                yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+                if _is_transport_error(e):
+                    # The LINK died, not the agent. Retry the turn once (the graph checkpoints per thread), then
+                    # say what actually happened instead of a bare 500 with a stack trace in `detail`.
+                    logger.error("transport failure in stream: %s", e)
+                    yield f"data: {json.dumps({'type': 'progress', 'note': '到模型服务的链路中断，自动重试一次'})}\n\n"
+                    _recovered = False
+                    try:
+                        _retry_stream = agent_instance.astream_events(
+                            {"messages": [new_message]},
+                            config={
+                                "configurable": {"thread_id": session_id},
+                                "callbacks": [event_handler],
+                                "recursion_limit": _resolve_recursion_limit(agent_config),
+                            },
+                            version="v2",
+                        )
+                        async for _ev in _retry_stream:
+                            if _ev.get("event") == "on_chat_model_stream":
+                                _chunk = _ev.get("data", {}).get("chunk")
+                                _tok = getattr(_chunk, "content", "") if _chunk is not None else ""
+                                if isinstance(_tok, str) and _tok.strip():
+                                    full_response += _tok
+                                    _recovered = True
+                                    yield f"data: {json.dumps({'type': 'chunk', 'content': _tok})}\n\n"
+                        logger.info("transport retry finished for session=%s (text=%s)", session_id, _recovered)
+                    except Exception as retry_exc:                 # noqa: BLE001
+                        logger.error("transport retry failed for session=%s: %s", session_id, retry_exc)
+                        _tmsg = _transport_message(retry_exc, 2)
+                        yield f"data: {json.dumps({'type': 'error', 'message': _tmsg})}\n\n"
+                        full_response = (full_response + "\n\n" + _tmsg).strip()
+                else:
+                    logger.error(f"Error in stream: {e}")
+                    yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
 
             finally:
                 # Save the turn even when it ended in an interrupt: the run has
@@ -1744,7 +2034,36 @@ async def send_message_stream(
                         logger.error(f"❌ Failed to save assistant message to DB: {save_error}", exc_info=True)
                         await async_db.rollback()
                 else:
-                    logger.warning(f"⚠ No response generated for session={session_id}")
+                    # The turn produced no answer. Retry ONCE (non-streamed) with a nudge, then report the
+                    # truth: an empty turn is a failed turn, and dressing up the last tool output as an answer
+                    # is how a dead build looked finished.
+                    logger.warning("⚠ No response generated for session=%s (reasoning=%s chars) — retrying once",
+                                   session_id, reasoning_chars)
+                    _retry_text = ""
+                    try:
+                        _retry = await agent_instance.ainvoke(
+                            {"messages": [HumanMessage(content=(
+                                "你上一步执行完工具后没有输出任何最终答复（只有推理）。请直接给出最终答复，"
+                                "要么继续调用工具推进任务，要么用一段话说明产物路径与检查数。"))]},
+                            config={"configurable": {"thread_id": session_id},
+                                    "recursion_limit": _resolve_recursion_limit(_safe_config)},
+                        )
+                        _rmsgs = getattr(_retry, "messages", None) or []
+                        if _rmsgs:
+                            _lastc = getattr(_rmsgs[-1], "content", "") or ""
+                            if isinstance(_lastc, str):
+                                _retry_text = _lastc.strip()
+                    except Exception as _retry_exc:            # noqa: BLE001
+                        logger.warning("retry after an empty turn failed: %s", _retry_exc)
+                    if _retry_text:
+                        full_response = _retry_text
+                        yield f"data: {json.dumps({'type': 'chunk', 'content': _retry_text})}\n\n"
+                    else:
+                        _notice = ("⚠ 本轮模型没有给出最终答复（推理了 %d 字符，但 content 为空）。"
+                                   "这不是完成 —— 产物请以 workspace 的 generated/ 与库里的表为准；"
+                                   "再发一句「继续」即可推进，或把任务拆成更小的一步。") % reasoning_chars
+                        full_response = _notice
+                        yield f"data: {json.dumps({'type': 'chunk', 'content': _notice})}\n\n"
 
                 # Release the stream's DB session (runs on success and error).
                 await async_db.close()

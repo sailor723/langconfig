@@ -11,11 +11,12 @@
  *
  * The counts on the cards are compiled from the ontology's declarations by the app itself, never typed in.
  */
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Boxes, ListTree, Play, RefreshCw, AlertTriangle, ShieldCheck, Loader2, Layers, Link2, Sigma, GitBranch, Gavel, Compass, CircleHelp, ArrowRight, Sparkles } from 'lucide-react';
 import { useLayoutTokens } from '../components/layout2/tokens';
 import { ontology, useOntology } from '../features/ontology/ontologyStore';
+import BuildOntologyDialog from '../features/ontology/BuildOntologyDialog';
 import {
   PageShell, Hero, Section, Card, Stat, Chip, Btn, Quiet, StatusDot,
   SUCCESS, DANGER, WARN, VIOLET, CYAN, INFO,
@@ -106,16 +107,33 @@ export default function OntologyHomePage() {
     navigate(where === 'browse' ? '/ontology/browse' : '/ontology/app');
   };
 
+  const [buildOpen, setBuildOpen] = useState(false);
+
   return (
     <PageShell>
+      {buildOpen && (
+        <BuildOntologyDialog
+          ontologyKey={ontology.get().preset ?? ''}
+          onClose={() => setBuildOpen(false)}
+          onLanded={() => void ontology.probeAll()}
+        />
+      )}
       <Hero
         icon={Boxes}
         title="Ontology"
         subtitle="the semantic layer, compiled — objects, definitions and metrics one number at a time"
         actions={
-          <Btn onClick={() => void ontology.probeAll()} title="re-compile every ontology and report what each one declares">
-            <RefreshCw size={13} /> re-probe
-          </Btn>
+          <>
+            <Btn onClick={() => void ontology.probeAll()} title="re-compile every ontology and report what each one declares">
+              <RefreshCw size={13} /> re-probe
+            </Btn>
+            {/* Measured: the Build entry existed only on /ontology/browse, inside the tab bar, and
+                only once an ontology compiled — so "generate an ontology with an agent" was
+                unreachable for exactly the people who do not know the browse URL. It is here too. */}
+            <Btn onClick={() => setBuildOpen(true)} title="generate or rebuild an ontology with an agent (runs as a background job)">
+              <Sparkles size={13} /> Build…
+            </Btn>
+          </>
         }
       >
         <p style={{ fontSize: 14, color: t.textPrimary, lineHeight: 1.8, margin: '0 0 8px', maxWidth: 760 }}>

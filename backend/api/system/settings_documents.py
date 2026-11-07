@@ -81,11 +81,43 @@ def _apply_runtime_side_effects(db: Session, ns: str) -> None:
             pass
 
 
+# Namespaces whose contents change what every account's tools may reach. Writing
+# these is an operator action, not a personal preference — without this check any
+# signed-in account could point the SQL tools at a different database.
+ADMIN_ONLY_NAMESPACES = {"databases"}
+
+
+def _require_admin_for(ns: str) -> None:
+    if ns not in ADMIN_ONLY_NAMESPACES:
+        return
+    from services.user_roots import subject_user_id
+
+    uid = subject_user_id()
+    if uid is None:
+        return  # no accounts configured → single-user install
+    try:
+        from db.database import SessionLocal
+        from services.user_service import get_user
+
+        db = SessionLocal()
+        try:
+            user = get_user(db, uid)
+            role = getattr(user, "role", None)
+            role = getattr(role, "value", role)
+        finally:
+            db.close()
+    except Exception as exc:  # noqa: BLE001 — an unreadable role must not grant write
+        raise HTTPException(403, f"could not verify your role ({exc}); {ns} is admin-only") from exc
+    if role != "admin":
+        raise HTTPException(403, f"{ns} can only be changed by an admin account (you are role={role})")
+
+
 @router.post("/mutate", response_model=MutateResponse)
 def mutate(req: MutateRequest, db: Session = Depends(get_db)):
     """Apply path ops to one namespace's user section (optimistic revision)."""
     if not core_settings.is_registered(req.ns):
         raise HTTPException(status_code=404, detail=f"unknown settings namespace {req.ns!r}")
+    _require_admin_for(req.ns)
     ops = [op.model_dump() for op in req.ops]
     try:
         doc, revision = core_settings.mutate(db, req.ns, ops, req.expected_revision)

@@ -152,6 +152,22 @@ _STYLE = """
     font-size: 14px; outline: none;
   }
   input:focus { border-color: #0e639c; box-shadow: 0 0 0 2px rgba(14,99,156,0.35); }
+  /* Password row: the reveal button sits inside the field, so the layout does not
+     shift and nobody has to hunt for a separate control. */
+  .pw { position: relative; }
+  .pw input { padding-right: 42px; }
+  .pw .toggle {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    width: 30px; height: 28px; margin: 0; padding: 0; border: none; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; color: #8a8a8a; cursor: pointer;
+  }
+  .pw .toggle:hover { color: #f0f0f0; background: rgba(255,255,255,0.08); }
+  .pw .toggle:focus-visible { outline: 2px solid #0e639c; outline-offset: 1px; }
+  .pw .toggle svg { width: 16px; height: 16px; fill: currentColor; }
+  .pw .toggle .eye-off { display: none; }
+  .pw .toggle[aria-pressed="true"] .eye { display: none; }
+  .pw .toggle[aria-pressed="true"] .eye-off { display: block; }
   button {
     width: 100%; height: 36px; border: none; border-radius: 18px; cursor: pointer;
     background: #0e639c; color: #fff; font-size: 13px; font-weight: 600;
@@ -167,6 +183,32 @@ _STYLE = """
   .note { margin-top: 20px; font-size: 11.5px; color: #7a7a7a; line-height: 1.55; }
   .note strong { color: #9a9a9a; font-weight: 600; }
 """
+
+
+#: The password eye toggle. Kept OUT of the f-string below so its braces stay
+#: literal, and inline because this page runs no other script (no bundler, no CSP).
+_PW_TOGGLE_SCRIPT = """  <script>
+    /* Show/hide the password. Nothing else on this page runs a script, so this
+       stays inline and tiny: toggling `type` keeps the value and the caret. */
+    (function () {
+      var btn = document.getElementById('pw-toggle');
+      var field = document.getElementById('password');
+      if (!btn || !field) return;
+      function apply(show) {
+        field.type = show ? 'text' : 'password';
+        btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+        var label = show ? 'Hide password' : 'Show password';
+        btn.setAttribute('aria-label', label);
+        btn.setAttribute('title', label);
+      }
+      btn.addEventListener('click', function () {
+        apply(field.type === 'password');
+        field.focus();                 /* keep typing where you were */
+      });
+      /* Hold-to-peek would be nicer but a plain toggle is what people expect. */
+      apply(false);
+    })();
+  </script>"""
 
 
 def render_page(
@@ -205,8 +247,18 @@ def render_page(
         Either works — a nickname is just an easier alias for the same account.
       </p>
       <label for="password">Password</label>
-      <input id="password" name="password" type="password"
-             autocomplete="current-password" required>
+      <div class="pw">
+        <input id="password" name="password" type="password"
+               autocomplete="current-password" required>
+        <!-- Reveal the typed password. Kept as a real button (not a hover trick):
+             a mistyped password on a projector is the whole reason this exists,
+             and the field must stay reachable from the keyboard. -->
+        <button type="button" class="toggle" id="pw-toggle"
+                aria-pressed="false" aria-label="Show password" title="Show password">
+          <svg class="eye" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5C5.6 5 1.7 11.1 1.5 11.4a1 1 0 0 0 0 .9C1.7 12.9 5.6 19 12 19s10.3-6.1 10.5-6.4a1 1 0 0 0 0-.9C22.3 11.1 18.4 5 12 5zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+          <svg class="eye-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-1.5 0-2.9.3-4.2.8l1.6 1.6c.8-.3 1.7-.4 2.6-.4a5 5 0 0 1 5 5c0 .4 0 .7-.1 1l3 3c1.6-1.6 2.7-3.2 2.8-3.4a1 1 0 0 0 0-.9C22.3 11.1 18.4 5 12 5zM2.7 3.3 1.3 4.7l2.6 2.6C2.4 8.8 1.8 10.4 1.5 11.4a1 1 0 0 0 0 .9C1.7 12.9 5.6 19 12 19c1.8 0 3.4-.5 4.8-1.2l3.5 3.5 1.4-1.4-19-16.6zM12 17a5 5 0 0 1-5-5c0-.8.2-1.6.5-2.2l1.6 1.6A3 3 0 0 0 12 15c.4 0 .8-.1 1.1-.2l1.6 1.6c-.8.4-1.7.6-2.7.6z"/></svg>
+        </button>
+      </div>
       <button type="submit">Sign in</button>
     </form>
     {notice_html}
@@ -216,6 +268,7 @@ def render_page(
       Lost your password? An administrator can set a new one — there is no email reset.
     </div>
   </main>
+{_PW_TOGGLE_SCRIPT}
 </body>
 </html>"""
 

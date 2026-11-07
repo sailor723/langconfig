@@ -20,10 +20,14 @@ editor chat's apply is about changing what a number MEANS.
 """
 from __future__ import annotations
 
+import json
 import logging
+import pathlib
 from typing import Optional
 
 from sqlalchemy.orm import Session
+
+from services import ontology_publish as _pub   # noqa: E402  (the installed-ontology fact)
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +75,134 @@ def _note(task_id: int, note: str) -> None:
         db.close()
 
 
+# ── the rebuild seed, and the delta verdict ─────────────────────────────────────────────────────
+def _installed_dir(key: str):
+    root = getattr(_pub, "ONTOLOGIES", None)
+    if root is None:
+        return None
+    d = pathlib.Path(root) / key
+    return d if d.is_dir() else None
+
+
+def _installed_facts(key: str) -> dict:
+    """What the installed ontology already declares — small enough to put IN the prompt.
+
+    Measured: a rebuild turn that had to open `01-structure.ttl` (597 lines) + `metrics_ext.ttl` + the
+    uploaded documents spent 285 s and 188 tool calls and wrote nothing; the same job, with this list
+    handed over inline, answered in 12 s / 1 tool call. The platform knows these facts, so it composes
+    them instead of making the model read a 600-line file to learn 28 names.
+    """
+    d = _installed_dir(key)
+    if d is None:
+        return {}
+    metrics = []
+    ttl = d / "metrics_ext.ttl"
+    if ttl.is_file():
+        for line in ttl.read_text(encoding="utf-8").splitlines():
+            if "a owl:DatatypeProperty" not in line:
+                continue
+            raw = line.split(":", 1)[1] if ":" in line else line
+            name = raw.split()[0].strip() if raw.split() else ""
+            label = ""
+            if 'rdfs:label "' in line:
+                label = line.split('rdfs:label "', 1)[1].split('"', 1)[0]
+            if name:
+                metrics.append(name + (f"({label})" if label else ""))
+    objects = []
+    struct = d / "ontology" / "01-structure.ttl"
+    if struct.is_file():
+        for line in struct.read_text(encoding="utf-8").splitlines():
+            if "a owl:Class" in line and line.strip().startswith(":"):
+                objects.append(line.strip().split(":", 1)[1].split()[0])
+    settings = {}
+    try:
+        import json as _json
+        settings = _json.loads((d / f"{key}_settings.json").read_text(encoding="utf-8"))
+    except Exception:                                            # noqa: BLE001
+        settings = {}
+    return {"objects": objects, "metrics": metrics,
+            "samples": len(settings.get("samples") or []),
+            "guard": settings.get("guard") or {}}
+
+
+def _rebuild_seed(key: str) -> str:
+    """The context a rebuild must start from: installed declarations + the answers already given.
+
+    A rebuild is not "build it again": it is "prove what changed against the installed declarations,
+    then ask only about the delta". The seed says that, in the words the skill uses.
+    """
+    facts = _installed_facts(key)
+    if not facts:
+        return ""
+    lines = [
+        "## 这次是 **重建**，不是首次生成",
+        "",
+        f"已装本体 `{key}` 已经声明了 {len(facts.get('objects') or [])} 个对象、{len(facts.get('metrics') or [])} 个指标、"
+        f"{facts.get('samples') or 0} 条样例。**先证明 delta，再动手**：",
+        "",
+        "1. 对照【已装声明】+【上次口径】+【本次文档】，产出 `work/<key>/delta.json`："
+        "`{\"items\": [{\"kind\": \"unchanged|changed|added|removed\", ...}], \"questions\": [], \"skip\": []}`；",
+        "2. 若 `changed=added=removed=0` 且 `questions` 为空，**停在这里**，最后一行输出"
+        " `NO DELTA`（不要重编译、不要跑 S1..S8、不要 publish —— 没有 delta 就没有要建的东西）；",
+        "3. 只有 delta 非空时才继续 ladder，且**只改 delta 涉及的声明**；与已装冲突的必须问业务（进 questions，带 default）。",
+        "",
+        "【已装指标】" + "、".join(facts.get("metrics") or []) or "",
+        "",
+        "【已装对象】" + "、".join(facts.get("objects") or []),
+        "",
+    ]
+    answers = _answers_of(key)
+    if answers:
+        lines += ["【上次口径（已答，不要重复问）】" + answers, ""]
+    return "\n".join([ln for ln in lines if ln is not None])
+
+
+def _answers_of(key: str) -> str:
+    """The answers already recorded for this ontology, one line each — cheap and decisive."""
+    d = _installed_dir(key)
+    candidates = []
+    if d is not None:
+        candidates.append(d / ".build" / "answers.json")
+    # the builder's workspace copy, where the skill writes it
+    try:
+        from services.workspace_manager import get_workspace_manager
+        ws = get_workspace_manager()
+        for agent_dir in (pathlib.Path(getattr(ws, "ROOT", "")) if getattr(ws, "ROOT", None) else None,) if False else ():
+            pass
+    except Exception:                                            # noqa: BLE001
+        pass
+    for path in candidates:
+        if path.is_file():
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:                                    # noqa: BLE001
+                continue
+            rows = data.get("answers") or []
+            out = "; ".join(f"{r.get('id')}={r.get('answer')}" + ("(assumed)" if r.get("assumed") else "")
+                            for r in rows if isinstance(r, dict))
+            if out:
+                return out[:1500]
+    return ""
+
+
+def _delta_of(workspace: pathlib.Path | None, key: str) -> dict | None:
+    """`work/<key>/delta.json` if the agent produced one. The ledger is the truth, not the prose."""
+    if workspace is None:
+        return None
+    path = pathlib.Path(workspace) / "work" / key / "delta.json"
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:                                            # noqa: BLE001
+        return None
+    items = data.get("items") or []
+    changed = sum(1 for i in items if isinstance(i, dict) and i.get("kind") in ("changed", "added", "removed"))
+    return {"path": str(path), "items": len(items), "changed": changed,
+            "questions": len(data.get("questions") or []),
+            "unchanged": sum(1 for i in items if isinstance(i, dict) and i.get("kind") == "unchanged")}
+
+
 async def _run_build(payload: dict, task_id: int) -> dict:
     """The worker body: one agent turn, then the landing decision. Returns the task result."""
     from api.chat.messages import send_message
@@ -98,15 +230,69 @@ async def _run_build(payload: dict, task_id: int) -> dict:
             session_id = getattr(started, "session_id", None) or started["session_id"]
             _note(task_id, f"opened chat session {session_id} with {agent.name}")
 
-        _note(task_id, "agent is reading the database and writing the declarations")
+        # A REBUILD gets the installed facts IN the prompt. Measured: without this the turn explored the
+        # installed TTL and the documents for 285 s / 188 tool calls and wrote nothing; with it, 12 s /
+        # 1 tool call. The platform knows these facts — making the model read 600 lines to learn 28 names
+        # is the expensive way to ask.
+        message = brief
+        if _installed_dir(key) is not None:
+            seed = _rebuild_seed(key)
+            if seed:
+                message = seed + "\n\n" + brief
+                _note(task_id, "rebuild: the installed declarations and the answers already given are in the prompt")
+
+        _note(task_id, "agent is proving the delta" if _installed_dir(key) is not None
+              else "agent is reading the database and writing the declarations")
         reply = await send_message(
-            SendMessageRequest(session_id=session_id, message=brief, project_id=project_id), db)
+            SendMessageRequest(session_id=session_id, message=message, project_id=project_id), db)
         body = reply.model_dump() if hasattr(reply, "model_dump") else dict(reply or {})
         answer = body.get("message") or ""
         tool_calls = body.get("tool_calls") or []
         _note(task_id, f"agent turn finished ({len(tool_calls)} tool call(s))")
     finally:
         db.close()
+
+    # A rebuild that proves NO DELTA is a finished job, not a failure: the documents already agree with
+    # the installed ontology, so re-running the ladder would rewrite green declarations for nothing.
+    # The verdict comes from the artifact (`work/<key>/delta.json`), never from the agent's prose.
+    workspace = None
+    try:
+        from services.workspace_manager import get_workspace_manager
+        from models.deep_agent import DeepAgentTemplate as _T
+        _db2 = _db()
+        try:
+            _agent = _db2.query(_T).filter(_T.id == agent_id).first()
+            _ws = get_workspace_manager()
+            workspace = _ws.resolve_agent_workspace(
+                _agent, project_id,
+                vault_key=_ws.project_vault_key(_db2, project_id) or None,
+                agent_key=_ws.agent_vault_key(_db2, _agent),
+            ) if _agent is not None else None
+        finally:
+            _db2.close()
+    except Exception as exc:                                    # noqa: BLE001
+        logger.warning("could not resolve the build workspace: %s", exc)
+
+    delta = _delta_of(workspace, key)
+    if delta and delta["changed"] == 0 and delta["questions"] == 0:
+        _note(task_id, f"NO DELTA — {delta['unchanged']} item(s) compared, 0 changed, 0 questions "
+                       f"({delta['path']})")
+        return {
+            "ok": True,
+            "no_delta": True,
+            "delta": delta,
+            "session_id": session_id,
+            "ontology_key": key,
+            "answer": answer,
+            "tool_calls": tool_calls,
+            "landed": False,
+            "reason": (f"no delta: the material agrees with the installed ontology on all "
+                       f"{delta['items']} item(s) — nothing to rebuild, so nothing was staged. "
+                       f"To change a number, say which one and what it should become."),
+        }
+    if delta:
+        _note(task_id, f"delta: {delta['changed']} change(s), {delta['questions']} question(s) "
+                       f"({delta['path']})")
 
     # What did it stage? The ledger is the truth, not the agent's prose.
     staged = [r for r in ontology_publish.history(key=key, limit=20) if r.get("status") == "staged"]
@@ -118,6 +304,7 @@ async def _run_build(payload: dict, task_id: int) -> dict:
             "answer": answer,
             "tool_calls": tool_calls,
             "landed": False,
+            "delta": delta,
             "reason": ("the agent finished without staging a publish — nothing to install. Its answer "
                        "is above; the likely reasons are a refusal it could not resolve or a build it "
                        "left in its workspace."),
@@ -131,8 +318,19 @@ async def _run_build(payload: dict, task_id: int) -> dict:
     gates_fails = report.get("gates_fails") or []
 
     landed, reason, applied = False, "", None
+    # IS THIS A FIRST GENERATION OR A REBUILD? `auto_land` means "a first generation lands itself"
+    # — a new claim, not a change to a number people already quote. A rebuild of an ontology that is
+    # already installed is the SECOND case, and auto-landing one replaces verified declarations with a
+    # fresh generation without anybody reading the diff. Measured: the dialog defaulted auto-land to
+    # true for every key, so rebuilding the just-installed new_coldchain would have installed itself.
+    # The installed profile is the fact that decides it, and this checks it at decision time.
+    root = getattr(ontology_publish, "ONTOLOGIES", None)
+    already_installed = bool(root is not None and (pathlib.Path(root) / key).is_dir())
     if not auto_land:
         reason = "auto-land is off for this build: a person applies it in Settings → Ontology."
+    elif already_installed:
+        reason = ("not landed automatically: this ontology is ALREADY INSTALLED, so this is a rebuild, "
+                  "not a first generation — a person applies it in Settings → Ontology.")
     elif new_refusals or gates_fails or not gates_ok:
         reason = ("not landed automatically: "
                   + (f"new refusals {new_refusals}; " if new_refusals else "")
@@ -223,6 +421,12 @@ def builders(db: Optional[Session] = None) -> list[dict]:
             key = profile_file.replace("_settings.json", "") if profile_file else str(datasource)
             profile = workbench.get("profile") or {}
             dsn = profile.get("dsn") or {}
+            # `has_ontology` decides two things a person sees — "首次生成" vs "重建", and whether
+            # auto-land may default on — so it must answer "is this installed", not "does this agent's
+            # config happen to carry a workbench block". Measured: agent 355's config has no workbench
+            # block, so new_coldchain was advertised as 尚无本体 while its profile was already installed.
+            root = getattr(_pub, "ONTOLOGIES", None)
+            installed = bool(root is not None and (pathlib.Path(root) / key).is_dir())
             out.append({
                 "agent_id": agent.id,
                 "agent_name": agent.name,
@@ -230,7 +434,7 @@ def builders(db: Optional[Session] = None) -> list[dict]:
                 "ontology_key": key,
                 "business_label": labels.get(str(datasource), str(datasource)),
                 "database": dsn.get("dbname"),
-                "has_ontology": bool(workbench.get("profile")),
+                "has_ontology": bool(workbench.get("profile")) or installed,
             })
         return out
     finally:

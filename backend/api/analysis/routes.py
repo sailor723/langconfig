@@ -18,6 +18,15 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from db.database import get_db
+# The dashboards directory and the page→database grouping rule live in
+# services/dashboard_keys so the Settings table (graph-studio catalog) lists the
+# same databases this browser groups into; services/offered_databases is the
+# on/off rule both surfaces follow.
+from services.dashboard_keys import (
+    ANALYSIS_DBS_DIR,
+    family_key_of as _family_impl,
+    load_registry as _registry_impl,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
@@ -100,7 +109,6 @@ class DashboardFile(BaseModel):
     title: Optional[str] = None
 
 
-ANALYSIS_DBS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "analysis_dbs"
 # backend/ — needed to reach langgraph/ (assigned.py, sql_setup_db.py) and semantics/.
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 
@@ -162,22 +170,39 @@ async def list_dashboards():
     """
     import re
     META_DB = re.compile(r"LangConfig Dashboard Meta\s*\n\s*db:\s*(\S+)")
-    META_SKILLS = re.compile(r"db:\s*\S+\s*\n\s*skills:\s*([^\n]+)")
+    META_SKILLS = re.compile(r"db:[ \t]*\S+[ \t]*\n[ \t]*skills:[ \t]*([^\n]*)")
     META_MODE = re.compile(r"Mode:\s*(\S+)")
     META_ENTRY = re.compile(r"entry:\s*([^\n]+)")
     TITLE_RE = re.compile(r"<title>(.*?)</title>", re.IGNORECASE | re.DOTALL)
     if not ANALYSIS_DBS_DIR.exists():
         return []
-    # Per-account visibility: a page belongs to whoever generated it; pages with
-    # no owner entry are the pre-account demos and stay shared. Without this every
-    # account saw the same directory — see services/dashboard_owners.py.
+    # Who sees a page — three cases, one rule (services/offered_databases):
+    #   * the database is switched ON in Settings → every account sees it. The
+    #     list is a team decision, so the dashboards behind it are team data; the
+    #     old rule (page belongs to its generator) left every other account with
+    #     an empty board.
+    #   * switched OFF on purpose            → hidden from everyone;
+    #   * not in the setting at all          → a private draft: its generator only.
     from services.dashboard_owners import filter_visible
+    from services.offered_databases import settings_items, visibility_of
     from services.user_roots import subject_user_id
 
     _uid = subject_user_id()
+    _registry = _registry_impl()
+    _items = settings_items()
     files = sorted(ANALYSIS_DBS_DIR.glob("*.html"), key=lambda f: f.stat().st_mtime, reverse=True)
     _visible = set(filter_visible([f.name for f in files], _uid))
-    files = [f for f in files if f.name in _visible]
+
+    def _show(f) -> bool:
+        key = _family_key_of(f.name, None, _registry)
+        vis = visibility_of(key, _items)
+        if vis == "published":
+            return True
+        if vis == "hidden":
+            return False
+        return f.name in _visible  # private draft
+
+    files = [f for f in files if _show(f)]
     out = []
     for f in files:
         # Read only the first ~16KB to find the meta block (it's always in <head>)
@@ -197,7 +222,9 @@ async def list_dashboards():
             size_bytes=f.stat().st_size,
             created=str(f.stat().st_mtime),
             db_path=db_m.group(1) if db_m else None,
-            skills=[s.strip() for s in sk_m.group(1).split(",")] if sk_m else [],
+            # `skills:` may legitimately be empty (a generated page with no companion
+            # skill); splitting "" yields [""], which renders as a blank skill chip.
+            skills=[s.strip() for s in sk_m.group(1).split(",") if s.strip()] if sk_m else [],
             mode=mo_m.group(1) if mo_m else None,
             entry=en_m.group(1).strip() if en_m else None,
             title=(ti_m.group(1).strip() if ti_m else None),
@@ -213,50 +240,13 @@ _DATABASES_REGISTRY = ANALYSIS_DBS_DIR / "databases.json"
 
 
 def _load_db_registry() -> dict:
-    """Curated {db_key: {name, intro, home, match[]}}; {} when absent/unreadable.
-
-    A bare `except: return {}` here hid a NameError (`json` was not imported at
-    module scope) and silently degraded every database to its filename prefix —
-    `registered` stayed False on all nine. Log the reason instead.
-    """
-    import json as _json
-
-    try:
-        raw = _json.loads(_DATABASES_REGISTRY.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        logger.info(f"no dashboard registry at {_DATABASES_REGISTRY} — using filename prefixes")
-        return {}
-    except Exception as exc:  # noqa: BLE001 — say why, do not silently degrade
-        logger.warning(f"dashboard registry unreadable ({type(exc).__name__}: {exc}) — using filename prefixes")
-        return {}
-    dbs = raw.get("databases") if isinstance(raw, dict) else None
-    if not isinstance(dbs, dict):
-        logger.warning("dashboard registry has no 'databases' object — using filename prefixes")
-        return {}
-    return dbs
+    """Curated {db_key: {name, intro, home, match[]}} — rule lives in services."""
+    return _registry_impl()
 
 
 def _family_key_of(filename: str, db_path: Optional[str], registry: dict) -> str:
-    """Which registered database a page belongs to."""
-    meta_name = (db_path or "").split("/")[-1]
-    hay = [filename.lower()]
-    if meta_name and meta_name != "None":
-        hay.append(meta_name.lower())
-    for key, cfg in registry.items():
-        for needle in cfg.get("match") or []:
-            n = str(needle).lower()
-            # A needle with a dot is a whole filename ("dashboard.html") → exact;
-            # otherwise it is a prefix. Substring matching was wrong: "dashboard.html"
-            # swallowed business_dashboard.html and tesla_strategy_dashboard.html,
-            # folding two databases into the sales family.
-            if "." in n:
-                if hay[0] == n:
-                    return key
-            elif any(h.startswith(n) for h in hay[1:]) or hay[0].startswith(n):
-                return key
-    # Unregistered pages: keep them visible under their own filename prefix
-    # rather than hiding them behind a registry edit.
-    return filename.split("_")[0] or "other"
+    """Which registered database a page belongs to (rule lives in services)."""
+    return _family_impl(filename, db_path, registry)
 
 
 def _pick_home(key: str, cfg: dict, pages: list[dict]) -> Optional[dict]:
@@ -294,6 +284,9 @@ async def list_databases():
     for p in pages:
         grouped.setdefault(_family_key_of(p["filename"], p.get("db_path"), registry), []).append(p)
 
+    # Visibility was already decided per page in list_dashboards() (published /
+    # hidden / private draft), so grouping must not filter again: doing it here
+    # would also drop a private draft, i.e. hide someone's own upload from them.
     out = []
     for key, members in grouped.items():
         cfg = registry.get(key, {})
@@ -314,85 +307,43 @@ async def list_databases():
     return out
 
 
-# ── Dashboard auto-generation helper ─────────────────────────────
+# ── Dashboard metadata (the page's own `db:` binding) ─────────────
 
-async def _auto_generate_dashboard(db_path: str, skill_path: Optional[str] = None,
-                                  out_dir: Optional[Path] = None) -> Optional[str]:
-    """Run the analysis agent to generate an interactive HTML dashboard, return file URL."""
-    import asyncio
-    import re
+def _inject_dashboard_meta(html_path: Path, db_path: str, skill_path: Optional[str]) -> None:
+    """Insert the `LangConfig Dashboard Meta` comment into a generated page.
 
-    session_id = f"auto-dash-{Path(db_path).stem}"
-    dashboard_file = None
+    Idempotent: a page that already carries the block is left untouched (the
+    deterministic generators write their own). The `db:` value must be the same
+    string the analysis chat resolves — a SQLite path for CSV uploads, a target
+    name for Postgres-backed pages — because that is what the panel passes back.
+    """
     try:
-        biz_context = ""
-        if skill_path:
-            try:
-                from services.data_dashboard import parse_skill
-                _sk = parse_skill(skill_path)
-                _sec = _sk.get("sections", {})
-                parts = ["\n\n=== BUSINESS CONTEXT (from companion skill) ===\n"]
-                if "Column Definitions" in _sec:
-                    parts.append("COLUMN DEFINITIONS:\n" + _sec["Column Definitions"])
-                if "Business Logic" in _sec:
-                    parts.append("BUSINESS RULES:\n" + _sec["Business Logic"])
-                if "Common Analysis Questions" in _sec:
-                    parts.append("KEY QUESTIONS TO ANSWER:\n" + _sec["Common Analysis Questions"])
-                if "Sample SQL" in _sec:
-                    parts.append("REFERENCE SQL:\n" + _sec["Sample SQL"])
-                parts.append("=== END BUSINESS CONTEXT ===\n")
-                biz_context = "\n\n".join(parts)
-                logger.info(f"Companion skill injected: {skill_path}")
-            except Exception as e:
-                logger.warning(f"Skill parse failed: {e}")
-
-        # Where the HTML must land: the agent's workspace when we know it, so the
-        # dashboard sits beside its database instead of in a shared folder.
-        target_dir = Path(out_dir) if out_dir else ANALYSIS_DBS_DIR
-        target_dir.mkdir(parents=True, exist_ok=True)
-        _dash_name = Path(db_path).stem + '_dashboard.html'
-
-        dash_msg = (
-            'Generate an interactive BUSINESS dashboard using Plotly for the data at '
-            f'{db_path}. Read the business context below. '
-            f'Save the HTML to exactly {target_dir / _dash_name} . '
-            'MUST INCLUDE: 1) Control bar with filters for each categorical '
-            'column + Reset button, 2) KPI cards for key business metrics, '
-            '3) 2-3 charts that answer the key business questions from the companion skill, '
-            '4) Key insights section at bottom with '
-            '<ul id="insightList"> that updates dynamically. '
-            'Put ALL data rows in the JS array. '
-            'Save the HTML file in the analysis_dbs directory with python_execute. '
-            'Reply with just the filename that was saved.'
-        ) + biz_context
-        dash_result = await asyncio.wait_for(
-            _run_analysis_agent(
-                db_path=db_path,
-                message=dash_msg,
-                session_id=session_id,
-            ),
-            timeout=180,
+        text = html_path.read_text(encoding="utf-8", errors="replace")
+        if "LangConfig Dashboard Meta" in text:
+            return
+        skills = Path(skill_path).name if skill_path else ""
+        meta = (
+            "<!--\n"
+            "  LangConfig Dashboard Meta\n"
+            f"  db: {db_path}\n"
+            f"  skills: {skills}\n"
+            "  Mode: static-embed\n"
+            "  entry: hub\n"
+            "-->\n"
         )
-        # Trust the file we asked for, not the model's prose: its reply often
-        # mentions the name with decoration ("dashboard.foo.html"), and reading a
-        # filename out of free text is how the panel ended up pointing at a file
-        # that does not exist.
-        written = target_dir / _dash_name
-        if not written.is_file():
-            candidates = sorted(
-                target_dir.glob('*dashboard*.html'),
-                key=lambda f: f.stat().st_mtime, reverse=True,
-            )
-            written = candidates[0] if candidates else None
-        if written is not None and written.is_file():
-            dashboard_file = f"/api/files/{written.name}"
+        lower = text.lower()
+        insert_at = lower.find("<head>")
+        if insert_at != -1:
+            insert_at += len("<head>")
         else:
-            logger.warning(f"dashboard generation produced no HTML in {target_dir}")
-    except asyncio.TimeoutError:
-        logger.warning(f"Dashboard generation timed out for {db_path}")
-    except Exception as e:
-        logger.error(f"Dashboard generation failed: {e}")
-    return dashboard_file
+            insert_at = lower.find("<html")
+            insert_at = insert_at if insert_at == -1 else text.find(">", insert_at) + 1
+        if insert_at == -1:
+            return
+        html_path.write_text(text[:insert_at] + "\n" + meta + text[insert_at:], encoding="utf-8")
+        logger.info("injected dashboard meta into %s (db=%s)", html_path.name, db_path)
+    except Exception as exc:  # noqa: BLE001 — metadata is an extra, never a failed upload
+        logger.warning("could not inject dashboard meta into %s: %s", html_path, exc)
 
 
 # ── Upload: CSV file → SQLite ───────────────────────────────────────
@@ -445,7 +396,18 @@ async def analysis_upload(
         if not _skill_path.exists():
             try:
                 from services.data_skill_generator import generate_data_skill
-                _result = generate_data_skill(db_path.replace('.db', '.csv'), str(ANALYSIS_DBS_DIR))
+
+                # The generator reads COLUMNS from a CSV, so it needs one on disk.
+                # `db_path.replace('.db', '.csv')` pointed at a file that never
+                # existed (the converter's temp CSV is deleted when it finishes), so
+                # every upload logged "CSV not found" and shipped without a
+                # companion — silently, because the dashboard step used to dominate
+                # the log. Park the source next to the .db it produced instead: one
+                # file, and it is the input the tables were built from.
+                _csv_for_skill = ANALYSIS_DBS_DIR / f"{csv_stem}.csv"
+                if not _csv_for_skill.exists():
+                    _csv_for_skill.write_bytes(csv_bytes)
+                _result = generate_data_skill(str(_csv_for_skill), str(ANALYSIS_DBS_DIR))
                 if _result:
                     skill_path = _result
                     skill_status = "pending"
@@ -453,8 +415,14 @@ async def analysis_upload(
             except Exception as e:
                 logger.warning(f"Failed to auto-generate companion: {e}")
 
-    # Auto-generate dashboard
-    dashboard_file = await _auto_generate_dashboard(db_path, skill_path=skill_path)
+    # NO dashboard here (2026-11-04). Uploading a CSV means "make this queryable",
+    # not "build me a page": dashboards have exactly ONE producer — the dashboard
+    # agent (template 343, deterministic generator) — plus the explicit scripts for
+    # the ERP/Sun Hing study cases. The old auto-generation ran its own LLM with a
+    # "write Plotly HTML" prompt inside the upload request (180 s timeout), which is
+    # how a 1.4 MB hand-written page appeared with no meta block, no home card and
+    # nothing tying it to the data it came from.
+    dashboard_file = None
 
     # This page belongs to the account that uploaded the CSV.
     if dashboard_file:
@@ -521,18 +489,9 @@ async def analysis_init(request: AnalysisInitRequest, db: Session = Depends(get_
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read schema: {e}")
 
-    # Auto-generate dashboard, next to the database it describes
-    dashboard_file = await _auto_generate_dashboard(
-        db_path, skill_path=request.skill_path, out_dir=out_dir
-    )
-    if dashboard_file:
-        try:
-            from services.dashboard_owners import record
-            from services.user_roots import subject_user_id
-
-            record(Path(dashboard_file).name, subject_user_id(db))
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(f"could not record dashboard owner: {exc}")
+    # No dashboard on /init either — same rule as /upload above. This endpoint now
+    # only converts a CSV (or accepts an existing SQLite) so the data is queryable.
+    dashboard_file = None
 
     return AnalysisInitResponse(
         db_path=db_path,
@@ -1498,7 +1457,7 @@ def _load_dashboard_meta(hash_id: str) -> dict:
         if "LangConfig Dashboard Meta" not in head:
             continue
         db_m = re.search(r"LangConfig Dashboard Meta\s*\n\s*db:\s*(\S+)", head)
-        sk_m = re.search(r"db:\s*\S+\s*\n\s*skills:\s*([^\n]+)", head)
+        sk_m = re.search(r"db:[ \t]*\S+[ \t]*\n[ \t]*skills:[ \t]*([^\n]*)", head)
         mo_m = re.search(r"Mode:\s*(\S+)", head)
         en_m = re.search(r"entry:\s*([^\n]+)", head)
         if not db_m:

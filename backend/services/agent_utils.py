@@ -377,6 +377,15 @@ async def resolve_model(
         extra: Dict[str, Any] = {}
         if "stream_chunk_timeout" in config:
             extra["stream_chunk_timeout"] = config["stream_chunk_timeout"]
+        # REASONING EFFORT is the difference between "an answer" and "an empty turn". It has always been a
+        # config field on the agent and it was never passed to the model — measured: an agent built on
+        # deepseek-v4-flash ran a five-step dataset build, and its final turn came back as
+        # `content='' additional_kwargs={'reasoning_content': …}` from langchain's side, so the chat showed
+        # NOTHING (`No response generated`), twice, while the model had been thinking for 100+ seconds.
+        # `none` is what a tool-loop agent wants for its final answer; the model then streams content.
+        _effort = (config or {}).get("reasoning_effort")
+        if _effort:
+            extra["reasoning_effort"] = str(getattr(_effort, "value", _effort))
         # This early return is why the clamp has to run HERE: it happens before the
         # generic kwargs block below, so clamping only down there never took effect.
         return init_chat_model(

@@ -2,7 +2,7 @@
  * AnalysisPage — resizable vertical side panel for Data, Skill, Chat.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Monitor, Loader2, FileText, ExternalLink, Upload, Table, FileCode, MessageSquare, Send, X, GripVertical, Copy, Download, Check, Database, PlayCircle, RefreshCw, ArrowRight } from 'lucide-react';
+import { Monitor, Loader2, FileText, ExternalLink, Upload, FileCode, MessageSquare, Send, X, GripVertical, Copy, Download, Check, Database, PlayCircle, RefreshCw, ArrowRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import apiClient from '../lib/api-client';
@@ -39,7 +39,6 @@ export default function AnalysisPage() {
   const [skillFile, setSkillFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
-  const [rawData, setRawData] = useState<any[] | null>(null);
   const [activePanel, setActivePanel] = useState<'data' | 'skill' | 'chat' | null>(null);
   const [skillContent, setSkillContent] = useState<string>('');
   const [dbPath, setDbPath] = useState<string>('');
@@ -83,7 +82,7 @@ export default function AnalysisPage() {
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages]);
 
   const openDashboard = async (d: DashboardFile) => {
-    setActiveDashboard(d); setLoadingContent(true); setRawData(null); setActivePanel(null); setChatMessages([]); setDbPath(''); setExpandedTrace(new Set());
+    setActiveDashboard(d); setLoadingContent(true); setActivePanel(null); setChatMessages([]); setDbPath(''); setExpandedTrace(new Set());
     chatSessId.current = Date.now();
     try {
       // /api/analysis/dashboards now returns db_path, skills, mode from
@@ -92,21 +91,6 @@ export default function AnalysisPage() {
       // /meta/{hash} endpoints still exist for backward compat.
       const m = d;  // DashboardFile
       setDbPath(m.db_path || '');
-      // /data/{filename} → embedded data (preferred) or live DB
-      try {
-        const dr = await apiClient.get(`/api/analysis/data-embedded/${encodeURIComponent(d.filename)}`);
-        const embedded = dr.data || {};
-        // Find the largest array (the row data the dashboard renders)
-        let rows: any[] = [];
-        let bestKey = '';
-        for (const [k, v] of Object.entries(embedded)) {
-          if (Array.isArray(v) && v.length > rows.length && typeof v[0] === 'object') {
-            rows = v;
-            bestKey = k;
-          }
-        }
-        setRawData(rows);
-      } catch { setRawData(null); }
       // /skill-content/{filename} → concatenated SKILL.md files
       try {
         const sr = await apiClient.get(`/api/analysis/skill-content/${encodeURIComponent(d.filename)}`);
@@ -125,7 +109,7 @@ export default function AnalysisPage() {
       } catch { /* no history yet */ }
     } finally { setLoadingContent(false); }
   };
-  const closeDashboard = () => { setActiveDashboard(null); setRawData(null); setActivePanel(null); setChatMessages([]); setExpandedTrace(new Set()); };
+  const closeDashboard = () => { setActiveDashboard(null); setActivePanel(null); setChatMessages([]); setExpandedTrace(new Set()); };
 
   // Wipe chat history for the active dashboard (both server and UI).
   const clearChatHistory = async () => {
@@ -273,27 +257,6 @@ export default function AnalysisPage() {
   );
 
   const panelContent = () => {
-    if (activePanel === 'data' && rawData) return (
-      <div className="p-3 text-xs h-full flex flex-col">
-        <div className="text-gray-500 mb-1.5 shrink-0 flex flex-wrap gap-x-3 gap-y-0.5">
-          <span><b className="text-gray-700">源数据库:</b> <code className="bg-gray-100 px-1 rounded">{dbPath || '未知'}</code></span>
-          <span><b className="text-gray-700">行数:</b> {rawData.length}</span>
-          <span><b className="text-gray-700">列数:</b> {Object.keys(rawData[0] || {}).length}</span>
-        </div>
-        <div className="overflow-auto flex-1 border rounded">
-          <table className="w-full border-collapse">
-            <thead><tr className="bg-gray-100 dark:bg-gray-700 sticky top-0">
-              {Object.keys(rawData[0] || {}).map(k => <th key={k} className="border px-1.5 py-1 text-left font-medium whitespace-nowrap">{k}</th>)}
-            </tr></thead>
-            <tbody>{rawData.map((row, i) => (
-              <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                {Object.values(row).map((v: any, j) => <td key={j} className="border px-1.5 py-0.5 whitespace-nowrap">{typeof v === 'number' ? (Number.isInteger(v) ? v : v.toFixed(2)) : String(v)}</td>)}
-              </tr>
-            ))}</tbody>
-          </table>
-        </div>
-      </div>
-    );
     if (activePanel === 'skill') return (
       <div className="p-3 text-xs h-full overflow-auto">
         {skillContent ? (
@@ -540,10 +503,9 @@ export default function AnalysisPage() {
             )}
             <Monitor className="w-4 h-4 text-blue-600 shrink-0" />
             <span className="text-sm font-semibold truncate">{activeDashboard.title || activeDashboard.filename}</span>
-            <span className="text-xs text-gray-400 shrink-0">{rawData ? rawData.length + ' rows' : fmtSize(activeDashboard.size_bytes)}</span>
+            <span className="text-xs text-gray-400 shrink-0">{fmtSize(activeDashboard.size_bytes)}</span>
           </div>
           <div className="flex items-center gap-2">
-            {panelBtn('data', <Table className="w-3.5 h-3.5" />, 'Data')}
             {panelBtn('skill', <FileCode className="w-3.5 h-3.5" />, 'Skill')}
             {panelBtn('chat', <MessageSquare className="w-3.5 h-3.5" />, 'Chat')}
             <button onClick={closeDashboard} className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">Back</button>

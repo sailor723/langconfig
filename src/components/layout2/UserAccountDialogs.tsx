@@ -23,7 +23,62 @@ import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import apiClient from '../../lib/api-client';
 import type { UserSummary } from '../../lib/api/users';
-import { Check, Loader, ShieldCheck, Trash2, UserRound, X } from 'lucide-react';
+import { AtSign, Ban, CheckCircle2, KeyRound, Loader, ShieldCheck, UserRound, X } from 'lucide-react';
+
+/**
+ * One 24px icon button for the users table.
+ *
+ * Why a component instead of three inline styles: the actions kept drifting (a
+ * red trash for "disable", a bare text button, no hover state), and the row is
+ * the one place an admin clicks destructive things by reflex. One shape, one
+ * hover, one disabled look — the `title` carries the wording.
+ */
+function IconAction({
+  title,
+  onClick,
+  active = false,
+  disabled = false,
+  tone = 'plain',
+  children,
+}: {
+  title: string;
+  onClick: () => void;
+  active?: boolean;
+  disabled?: boolean;
+  tone?: 'plain' | 'danger' | 'ok' | 'muted';
+  children: React.ReactNode;
+}) {
+  const t = useLayoutTokens();
+  const colour =
+    tone === 'danger' ? '#f87171' : tone === 'ok' ? '#4ade80' : tone === 'muted' ? t.textDim : t.textPrimary;
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      disabled={disabled}
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        width: 24,
+        height: 24,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 0,
+        color: disabled ? t.textDim : colour,
+        background: active ? t.bgSelected : hover && !disabled ? t.bgHover : 'transparent',
+        border: `1px solid ${active ? t.border : 'transparent'}`,
+        borderRadius: 5,
+        cursor: disabled ? 'default' : 'pointer',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
 
 // ── shared shell ────────────────────────────────────────────────────────────
 
@@ -625,16 +680,21 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                     opacity: user.is_active ? 1 : 0.6,
                   }}
                 >
-                  <div>
-                    <div style={{ fontSize: 13, color: t.textPrimary }}>
-                      {user.display_name || user.username}
+                  <div style={{ minWidth: 0 }}>
+                    {/* Nickname first: the inline 昵称 editor changes that field, so a
+                        row that showed display_name looked like the save had failed
+                        (nickname=phil, display_name=Raymond → still "Raymond"). */}
+                    <div style={{ fontSize: 13, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {user.nickname || user.display_name || user.username}
                       {isMe && (
                         <span style={{ marginLeft: 6, fontSize: 10, color: t.textMuted }}>{tr('ua_you')}</span>
                       )}
                     </div>
-                    <div style={{ fontSize: 11, color: t.textMuted }}>
+                    <div style={{ fontSize: 11, color: t.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {user.username}
-                      {user.nickname ? tr('ua_signs_in_as', { nick: user.nickname }) : ''}
+                      {user.display_name && user.display_name !== (user.nickname || user.username)
+                        ? ` · ${user.display_name}` : ''}
+                      {' · '}
                       {user.last_login_at
                         ? tr('ua_last_signin', { when: user.last_login_at.slice(0, 16).replace('T', ' ') })
                         : tr('ua_never_signed')}
@@ -666,50 +726,33 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                     {user.is_active ? 'Active' : 'Disabled'}
                   </div>
 
-                  <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                    <button
+                  <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                    {/* Three small icon buttons instead of two text buttons plus a
+                        trash-can. The trash read as "delete this account" but only
+                        disabled it — the shape now says what each click does. */}
+                    <IconAction
+                      title={tr('ua_title_reset_pw')}
                       onClick={() => {
                         setResetFor(resetFor === user.id ? null : user.id);
                         setResetPassword('');
                         setResetMessage(null);
                       }}
-                      title={tr('ua_title_reset_pw')}
-                      style={{
-                        height: 24,
-                        padding: '0 8px',
-                        fontSize: 11,
-                        color: t.textPrimary,
-                        background: 'transparent',
-                        border: `1px solid ${t.border}`,
-                        borderRadius: 5,
-                        cursor: 'pointer',
-                      }}
+                      active={resetFor === user.id}
                     >
-                      {tr('ua_reset')}
-                    </button>
-                    <button
+                      <KeyRound size={13} />
+                    </IconAction>
+                    <IconAction
+                      title={user.nickname ? tr('ua_title_nick_edit') : tr('ua_title_nick_add')}
                       onClick={() => {
                         setNicknameFor(nicknameFor === user.id ? null : user.id);
                         setNicknameDraft(user.nickname ?? '');
                         setError(null);
                       }}
-                      title={user.nickname ? tr('ua_title_nick_edit') : tr('ua_title_nick_add')}
-                      style={{
-                        height: 24,
-                        padding: '0 8px',
-                        fontSize: 11,
-                        color: t.textPrimary,
-                        background: 'transparent',
-                        border: `1px solid ${t.border}`,
-                        borderRadius: 5,
-                        cursor: 'pointer',
-                      }}
+                      active={nicknameFor === user.id}
                     >
-                      {tr('ua_nick')}
-                    </button>
-                    <button
-                      onClick={() => patch(user, { is_active: !user.is_active })}
-                      disabled={busy || isMe}
+                      <AtSign size={13} />
+                    </IconAction>
+                    <IconAction
                       title={
                         isMe
                           ? tr('ua_title_self_disable')
@@ -717,21 +760,12 @@ export function UsersDialog({ onClose }: { onClose: () => void }) {
                             ? tr('ua_title_block')
                             : tr('ua_title_allow')
                       }
-                      style={{
-                        width: 24,
-                        height: 24,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: isMe ? t.textDim : user.is_active ? '#f87171' : '#4ade80',
-                        background: 'transparent',
-                        border: `1px solid ${t.border}`,
-                        borderRadius: 5,
-                        cursor: busy || isMe ? 'default' : 'pointer',
-                      }}
+                      onClick={() => patch(user, { is_active: !user.is_active })}
+                      disabled={busy || isMe}
+                      tone={isMe ? 'muted' : user.is_active ? 'danger' : 'ok'}
                     >
-                      {user.is_active ? <Trash2 size={12} /> : <Check size={12} />}
-                    </button>
+                      {user.is_active ? <Ban size={13} /> : <CheckCircle2 size={13} />}
+                    </IconAction>
                   </div>
 
                   {nicknameFor === user.id && (

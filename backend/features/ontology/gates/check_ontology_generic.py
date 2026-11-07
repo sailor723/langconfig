@@ -234,12 +234,25 @@ def reasoning_gates(profile, g, cur, truth: dict | None) -> None:
             continue
         table = definition_table(g, cls, sqlgen.metrics(g))
         if not table:
-            empty.append(f"{cls} (no table)")
+            # A definition whose table comes from a METRIC (`:where :X` + `:universe`) cannot be checked
+            # before those metrics exist. Measured while building new_coldchain: the meaning layer is
+            # written before the computation layer, so a predicate-only concept legitimately has no table
+            # yet. Calling that a FAILURE would force a build to write metrics before definitions — the
+            # opposite of the order that keeps definitions honest. Name it as NOT RUN instead.
+            NOT_RUN.append(f"R1 {cls}: no metric declares it as :where yet, so it has no table to count over")
             continue
         pred = sqlgen.concept_sql(g, cls)
         outer = sqlgen.table_of(g, table)
-        cur.execute(f"SELECT count(*) FROM {outer} WHERE {pred}")
-        n = cur.fetchone()[0]
+        try:
+            cur.execute(f"SELECT count(*) FROM {outer} WHERE {pred}")
+            n = cur.fetchone()[0]
+        except Exception as exc:                               # noqa: BLE001 — a broken predicate is a FAIL
+            # The most common shape: a :physicalPredicate that names a table alias ("c.amount IS NULL").
+            # The compiler emits the FROM itself, so declared predicates are UNQUALIFIED columns (abc's
+            # "liability IS NULL" is the reference). Say that instead of a raw psycopg2 error.
+            empty.append(f"{cls} (predicate does not run over {outer}: {type(exc).__name__}: "
+                         f"{str(exc).splitlines()[0][:120]} — declared predicates use UNQUALIFIED columns)")
+            continue
         if not n:
             # A predicate that exists over an EMPTY relation cannot be disproved by counting: 0 rows is
             # the correct answer, not a broken axiom. Name the unrun case instead of failing it — and
@@ -323,15 +336,27 @@ def guard_gates(profile, g, cur) -> None:
     if not big:
         return
     table, col = big[0]
+    window_relative = int(cfg.get("default_window_days") or 0) > 0
 
-    g1 = guard.apply(f"select * from {table}", cfg, mode="rows")
-    check_true("G1b an unpaged listing gets a LIMIT", f"LIMIT {int(cfg['max_rows'])}" in g1["sql"], g1["sql"][-60:])
-
-    if int(cfg.get("default_window_days") or 0) > 0:
+    # A profile whose data sits in a FIXED historical window is told to refuse an unbounded scan rather than
+    # narrow it — and `guard.apply` then RAISES. The old first line called apply() unguarded, so those
+    # profiles crashed the gate instead of failing a check (measured on new_coldchain, default_window_days=0,
+    # which is what its own documentation requires). Ask for the refusal first, and only when a relative
+    # window is meaningful demand a windowed query.
+    refusal = refused(guard.apply, f"select * from {table}", cfg, mode="rows")
+    if window_relative:
+        g1 = guard.apply(f"select * from {table}", cfg, mode="rows")
+        check_true("G1b an unpaged listing gets a LIMIT", f"LIMIT {int(cfg['max_rows'])}" in g1["sql"],
+                   g1["sql"][-60:])
         check_true("G2 a now()-relative window is injected", g1.get("window") is not None, str(g1.get("notes")))
     else:
-        msg = refused(guard.apply, f"select * from {table}", cfg, mode="rows")
-        check_true("G2 default_window_days = 0 refuses an unbounded scan", bool(msg), "it narrowed instead")
+        check_true(f"G1b an unbounded scan of {table} is REFUSED by name", bool(refusal) and col in str(refusal),
+                   str(refusal))
+        # the page cap still applies once the query carries its own explicit bound
+        g1 = guard.apply(f"select * from {table} where {col} >= date '2026-08-01'", cfg, mode="rows")
+        check_true("G1c a bounded listing is still capped, not windowed",
+                   f"LIMIT {int(cfg['max_rows'])}" in g1["sql"] and g1.get("window") is None, g1["sql"][-60:])
+        check_true("G2 default_window_days = 0 refuses an unbounded scan", bool(refusal), "it narrowed instead")
 
     cart = f"select count(*) from {table} a, {table} b"
     est = guard.plan_rows(cur, cart, cfg=cfg)
@@ -646,6 +671,11 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--profile", required=True)
     ap.add_argument("--truth", default="", help="optional {metric: number} written by a second route")
+    # A build is green step by step, not in one leap: each family is one step's gate, so a step can be
+    # declared done (or not) by running exactly its own family.
+    ap.add_argument("--family", action="append", default=None,
+                    help="only these gate families (C structure · R reasoning · G guard · P page · "
+                         "T tutorial · N nl · S samples · W window); repeatable. Default: every family")
     args = ap.parse_args()
     path = pathlib.Path(args.profile).expanduser().resolve()
     if not path.exists():
@@ -659,14 +689,27 @@ def main() -> int:
     conn.autocommit = True
     cur = conn.cursor()
     try:
-        structure_gates(profile, g, cur)
-        reasoning_gates(profile, g, cur, None)
-        guard_gates(profile, g, cur)
-        page_gates(profile, g, cur)
-        tutorial_gates(profile, g, cur)
-        nl_gates(profile, g, cur)
-        samples_gates(profile, g, cur)
-        window_gates(profile, g, cur)
+        wanted = {f.upper() for f in (args.family or ["C", "R", "G", "P", "T", "N", "S", "W"])}
+        unknown = wanted - {"C", "R", "G", "P", "T", "N", "S", "W"}
+        if unknown:
+            print(f"unknown gate family/families: {sorted(unknown)}")
+            return 2
+        if "C" in wanted:
+            structure_gates(profile, g, cur)
+        if "R" in wanted:
+            reasoning_gates(profile, g, cur, None)
+        if "G" in wanted:
+            guard_gates(profile, g, cur)
+        if "P" in wanted:
+            page_gates(profile, g, cur)
+        if "T" in wanted:
+            tutorial_gates(profile, g, cur)
+        if "N" in wanted:
+            nl_gates(profile, g, cur)
+        if "S" in wanted:
+            samples_gates(profile, g, cur)
+        if "W" in wanted:
+            window_gates(profile, g, cur)
     finally:
         conn.close()
     print()

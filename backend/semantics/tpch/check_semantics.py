@@ -41,7 +41,57 @@ from typing import Any, Callable
 HERE = Path(__file__).resolve().parent
 DOC = HERE / "SEMANTICS.md"
 
-DSN = dict(host="127.0.0.1", port=5432, dbname="tpch", user="weiping")
+def _target_dsn() -> dict:
+    """Where to run the checks: the app's own `tpch` target, when it resolves.
+
+    The hardcoded literal below (host 127.0.0.1 / user weiping / no password) is a
+    trust-auth local install. On a machine whose Postgres asks for a password the
+    checker died with "fe_sendauth: no password supplied" — from the UI that is a
+    red 校验 with no explanation, which reads like the semantic document is wrong.
+
+    Reading the same target the agent uses keeps one answer to "which server, with
+    which role": `SQL_TARGETS` (env) wins over the built-in target, exactly as it
+    does for `sql_db_query`. Loaded by path, not `sys.path`, because putting
+    backend/langgraph on the path shadows the real `langgraph` package.
+    """
+    import importlib.util
+
+    backend_dir = HERE.parents[1]
+    mod_path = backend_dir / "langgraph" / "sql_setup_db.py"
+    if not mod_path.exists():
+        return {}
+    # `backend/` on sys.path, not `backend/langgraph/`: the module resolves its own
+    # siblings as `langgraph.connection` / `langgraph.prebuilt`, which only import
+    # when the PARENT of that package is on the path. Without it the import raises,
+    # the DSN silently falls back to the hardcoded literal, and the gate fails with
+    # "no password supplied" — the exact symptom this function exists to remove.
+    added = str(backend_dir) not in sys.path
+    if added:
+        sys.path.insert(0, str(backend_dir))
+    try:
+        spec = importlib.util.spec_from_file_location("_sql_setup_db_for_semantics", mod_path)
+        mod = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(mod)
+        params = mod._target_params("tpch")
+        if not params:
+            # TPC-H installed ON the platform server: same host/role as the app.
+            params = dict(mod._connection_params())
+            params["dbname"] = "tpch"
+        return dict(params) if params else {}
+    except Exception as exc:  # noqa: BLE001 — a broken import must not hide the checks
+        print(f"  ! target lookup failed ({type(exc).__name__}: {exc}); using the built-in DSN")
+        return {}
+    finally:
+        if added:
+            try:
+                sys.path.remove(str(backend_dir))
+            except ValueError:
+                pass
+
+
+# Resolution order: the app's target (SQL_TARGETS aware) → this file's default.
+DSN = {**dict(host="127.0.0.1", port=5432, dbname="tpch", user="weiping"), **_target_dsn()}
 
 # The query for each KPI id. Deliberately independent of the doc's prose: the doc
 # states the number, this states how it is produced, and neither is derived from

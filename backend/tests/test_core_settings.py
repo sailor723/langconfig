@@ -64,7 +64,7 @@ def _db(db_session_factory):
 def test_v1_namespaces_registered():
     assert cs.namespaces() == [
         "general", "models", "workspace", "storage", "rag", "search", "onboarding", "runtime",
-        "agents", "knowledge",
+        "agents", "knowledge", "databases",
     ]
     for ns in cs.namespaces():
         assert cs.is_registered(ns)

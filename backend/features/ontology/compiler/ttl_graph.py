@@ -51,7 +51,17 @@ def collect(graph) -> dict:
         name = sqlgen._local(cls)
         table = sqlgen._one(graph, cls, sqlgen.P("physicalTable"))
         label = sqlgen._one(graph, cls, RDFS.label) or name
-        if table:
+        # A DEFINITION that names its own table is still a definition. Measured on new_coldchain:
+        # :JudgedComplaint / :UnjudgedComplaint / :UnrecordedRefusalReason carry BOTH a
+        # :physicalPredicate and a :physicalTable (C1b needs the table, because a predicate-only
+        # definition has nothing else to say which table it counts), so `if table` filed them as
+        # structure. The page then claimed "18/21 classes list their properties" and red-flagged a
+        # correct ontology: a defined set has no properties of its own to list, by construction.
+        # So the definition test comes FIRST, and the table only decides `physical` when there is
+        # no definition to compile.
+        has_def = ((cls, OWL.equivalentClass, None) in graph
+                   or sqlgen._one(graph, cls, sqlgen.P("physicalPredicate")))
+        if table and not has_def:
             # Every modelled column, in both shapes the ontology uses: a value column is an
             # owl:DatatypeProperty, a foreign key is an owl:ObjectProperty (l_orderkey).
             # Metrics are excluded on purpose — they carry :formula/:aggregate and are not
@@ -73,7 +83,7 @@ def collect(graph) -> dict:
             except sqlgen.Refusal as exc:
                 predicate, notes = None, "refused: " + short(exc)
             defined.append(dict(name=name, label=label, defined_by=predicate, note=notes,
-                                via="equivalentClass"))
+                                table=table, via="equivalentClass"))
         else:
             # :LateLine is the one class defined by a `:physicalPredicate` instead of an
             # axiom — OWL cannot say "this line shipped after its own promise date",
@@ -82,7 +92,7 @@ def collect(graph) -> dict:
             predicate = sqlgen._one(graph, cls, sqlgen.P("physicalPredicate"))
             if predicate:
                 defined.append(dict(name=name, label=label, defined_by=predicate,
-                                    via="physicalPredicate",
+                                    table=table, via="physicalPredicate",
                                     note="declared as :physicalPredicate — OWL cannot say this"))
             else:
                 unexplained.append(dict(name=name, label=label))

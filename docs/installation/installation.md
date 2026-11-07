@@ -850,6 +850,79 @@ bash scripts/health_check.sh                  # ALL CHECKS PASSED
 前端只构建一次，不用常驻 Vite：`npm install && npm run build`，后端会自动
 serve `dist/`（日志里出现 `Serving built frontend from …/dist`）。
 
+### 上线后踩过的两件事（2026-11-04，都在 8.216.101.189 上）
+
+**一、「网站挂了」其实是被本地嵌入模型吃满 CPU**
+
+症状：进程都在、`:8765` 在监听，但浏览器转圈、`curl` 超时。
+
+```bash
+curl -s -o /dev/null -m 8 -w '%{http_code}\n' http://127.0.0.1:8765/api/projects/   # 000
+ps -eo pid,pcpu,rss,command --sort=-pcpu | head -3
+#   llama-server --embedding …      798% CPU      ← 就是它
+uptime                                              # load average 7.5
+```
+
+原因：知识库检索/索引一次性喂大量文本给嵌入模型，ollama 默认**多并行 + 吃满所有核**；
+后端是**单 worker**（刻意：Graph 的线程存在进程内），同步等嵌入 → 一个慢请求就堵死整个 API。
+
+止血：`systemctl restart ollama`（15 秒恢复，`/api/projects/` 从超时回到 0.02s）。
+根治（drop-in，已在该机器上生效）：
+
+```bash
+mkdir -p /etc/systemd/system/ollama.service.d
+cat > /etc/systemd/system/ollama.service.d/limits.conf <<'EOF'
+# 注释必须各占一行：systemd 会把行尾的 # 当成值的一部分，然后整条指令作废
+# （journal 里是 "ignoring: 0-11  # …"），表面上改过、实际没有任何限制。
+[Service]
+Environment="OLLAMA_NUM_PARALLEL=1"
+Environment="OLLAMA_MAX_LOADED_MODELS=1"
+Environment="OLLAMA_KEEP_ALIVE=5m"
+CPUAffinity=0-11
+CPUQuota=1200%
+EOF
+systemctl daemon-reload && systemctl restart ollama
+# 验证三件事，缺一不算生效
+systemctl show ollama -p CPUAffinity --value        # 0-11
+systemctl show ollama -p CPUQuotaPerSecUSec --value # 12s
+curl -s http://127.0.0.1:11434/api/embeddings \
+  -d '{"model":"nomic-embed-text","prompt":"hi"}' | head -c 80   # 有 embedding
+```
+
+**为什么两个都要**：ollama 自己会把 `llama-server` 子进程的 affinity 覆盖成全部核
+（实测子进程 `Cpus_allowed_list: 0-15`，只有主进程是 `0-11`），所以**光靠 CPUAffinity 限不住算力**，
+真正起作用的是 cgroup 的 `CPUQuota`。两个一起配，主进程亲和、整个 cgroup 一并封顶。
+
+实测（16 vCPU，nomic-embed-text，512 词单次嵌入）：
+
+| 配置 | 单次嵌入 | 8 并发总时长 | 同时打 API |
+|---|---|---|---|
+| 不限（故障现场） | — | — | 8 秒超时，等于宕机 |
+| `CPUAffinity=0-3` | 1.34–2.2 s | 13.2 s | 25 ms |
+| `CPUAffinity=0-11` + `CPUQuota=1200%` | **0.23–0.59 s** | **2.7 s** | **15 ms** |
+
+并发行为：`NUM_PARALLEL=1` ⇒ 请求**排队、逐个**处理（8 个并发的时间等差 +0.33 s），
+都返回 200；队列上限默认 `OLLAMA_MAX_QUEUE=512`，超了才 503，而检索用的
+`langchain_ollama.OllamaEmbeddings`（`core/rag/embeddings.py`）**不重试** ——
+真遇到高频并发检索，要么调大 `NUM_PARALLEL`/`CPUQuota`，要么给嵌入客户端加 503 退避重试。
+
+**二、生产用 systemd，别用 `./start.sh`**
+
+`start.sh` 是开发启动器：它会**杀掉占用 8765/1421 的进程**，再起 uvicorn **和 Vite**。
+在 systemd 托管的机器上跑它，等于让两个进程抢同一个端口（表现为 `address already in use`
+加重启风暴）。而且那些进程父进程是 ssh 会话，会话一断或机器重启就没了 —— 网站真的起不来。
+
+```bash
+# 想从 start.sh 切回 systemd
+kill $(cat /tmp/langconfig-be.pid) $(cat /tmp/langconfig-fe.pid) 2>/dev/null
+systemctl start langconfig && systemctl is-enabled langconfig      # active / enabled
+ss -ltn | grep -E ':8765|:1421'                                    # 只该有 8765
+```
+
+顺手加的两个停机护栏（也在该机器的 unit 里）：`TimeoutStopSec=15` +
+`--timeout-graceful-shutdown 10`。没有它们时，一次重启会卡在 `deactivating` 最长 90 秒、
+端口已关，看起来就是「服务起不来」。加上后 `systemctl restart` 实测 15 秒。
+
 ### 上线前安全加固
 
 单机 + 公网最先要做的四件事。都是在一台真实 ECS 上验证过的（2026-11-01）。

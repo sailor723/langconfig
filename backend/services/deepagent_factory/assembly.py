@@ -12,6 +12,8 @@ monolithic deepagent_factory.py.
 
 import json
 import pathlib
+import os
+import sys
 import shutil
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
@@ -746,12 +748,23 @@ class _DeepAgentAssemblyMixin:
                     except Exception as e:  # noqa: BLE001 — a bad datasource must be loud
                         logger.warning(f"Datasource '{datasource_name}' could not be resolved: {e}")
 
-                local_sandbox_backend = LocalShellBackend(
+                # WorkspaceShellBackend, not the bare LocalShellBackend: the sandbox's file tools must accept
+                # the absolute workspace path the agent's identity block gives it, or every write lands in a
+                # nested `Users/...` tree (measured: a 16 KB analysis the agent then could not find).
+                from services.workspace_filesystem_backend import WorkspaceShellBackend
+
+                local_sandbox_backend = WorkspaceShellBackend(
                     root_dir=str(sandbox_path),
                     timeout=120,
                     max_output_bytes=100000,
                     inherit_env=True,  # Inherit PATH so pip/python etc. are available
-                    env=datasource_env or None,
+                    # Put THIS app's interpreter first on the sandbox PATH. Measured: the shell's `python3` was
+                    # Homebrew 3.14 with no psycopg2, while every script the ontology skills ship needs it (and
+                    # the app's own `.venv` has it). An agent should not have to discover which python is "the
+                    # real one" — the answer is the interpreter running the app.
+                    env={**(datasource_env or {}),
+                         "PATH": f"{pathlib.Path(sys.executable).resolve().parent}:"
+                                 f"{os.environ.get('PATH', '')}"},
                 )
                 logger.info(f"LocalShellBackend sandbox enabled at: {sandbox_path}")
             except Exception as e:
@@ -943,12 +956,27 @@ class _DeepAgentAssemblyMixin:
         # Create DeepAgent with all components
         try:
             # Build a BaseChatModel instance from config.model using shared resolve_model
+            # `reasoning_effort` travels with the model call. It used to be validated and stored and then
+            # dropped on the floor, which is how an agent ends a turn with reasoning and no answer.
+            # `stream_chunk_timeout` is langchain's liveness guard: 120 s without a *content* chunk and it
+            # declares the socket dead. A build agent legitimately streams no content for minutes while it
+            # emits a 700-line generator, a 13 KB spec or a manifest JSON as a TOOL CALL (tool-call deltas do
+            # not count as content). Measured: replaying "write the manifest" died with
+            # `No streaming chunk received for 120.0s (chunks_received=174)` and the turn was lost.
+            from config import settings as _app_settings
+            _model_opts = {"streaming": True,
+                           "stream_chunk_timeout": float(
+                               getattr(_app_settings, "stream_chunk_timeout_s", 0) or 600)}
+            if getattr(config, "reasoning_effort", None):
+                _model_opts["reasoning_effort"] = str(getattr(config.reasoning_effort, "value",
+                                                             config.reasoning_effort))
             main_chat_model = await resolve_model(
                 config.model,
                 config.temperature,
                 config.max_tokens or 4096,
-                {"streaming": True}
-            ) if config.model else await resolve_model(DEFAULT_MODEL, config.temperature, config.max_tokens or 4096, {"streaming": True})
+                _model_opts,
+            ) if config.model else await resolve_model(DEFAULT_MODEL, config.temperature,
+                                                       config.max_tokens or 4096, _model_opts)
             agent_kwargs = {
                 "model": main_chat_model,  # Pass BaseChatModel, not string
                 "tools": all_tools,

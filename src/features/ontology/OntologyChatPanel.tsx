@@ -131,15 +131,19 @@ export default function OntologyChatPanel() {
   }, [key]);
 
   const loadPublishes = useCallback(async () => {
-    if (!key) { setPublishes([]); return; }
+    // NOT filtered by the open key. Measured: this rail asked for `key=new_coldchain`, but that
+    // ontology had no installed profile, so the panel that lists what you can open never offered
+    // it — and its staged publish was invisible everywhere except one settings section. Every
+    // staged publish is listed, with its key, so "an agent staged something for an ontology you
+    // have not opened yet" cannot hide.
     try {
       const res: any = await apiClient.get('/api/ontology/publish/history',
-        { params: { key, status: 'staged', limit: 20 } });
+        { params: { status: 'staged', limit: 20 } });
       setPublishes((res?.data?.publishes || []) as PublishRow[]);
     } catch {
       setPublishes([]);
     }
-  }, [key]);
+  }, []);
   useEffect(() => { void loadPublishes(); }, [loadPublishes]);
 
   /** Fetch the diff for one staged publish, once, and keep it — a diff is a fact, not a poll. */
@@ -337,6 +341,7 @@ export default function OntologyChatPanel() {
                   style={{ cursor: 'pointer', display: 'flex', alignItems: 'baseline', gap: 5 }}
                 >
                   <span style={{ ...mono, fontSize: 10.5, color: t.textDim }}>{p.id}</span>
+                  <span style={{ fontSize: 10.5, color: t.textPrimary }}>{p.key}</span>
                   <span style={{ fontSize: 10.5, color: t.textDim }}>{p.actor || 'agent'}</span>
                   <span style={{ marginLeft: 'auto', fontSize: 10.5, color: t.textDim }}>
                     {isOpen ? '▾' : '▸'} diff

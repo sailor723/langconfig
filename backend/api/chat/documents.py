@@ -340,6 +340,245 @@ async def upload_file_to_session(
     file: UploadFile = File(...),
     background_tasks: BackgroundTasks = BackgroundTasks(),
     project_id: Optional[int] = Query(None, description="Project ID for GraphIndex indexing"),
+    db: Session = Depends(get_db),
+    outline: bool = Query(False, description="put the document's outline, not its full text, into the conversation"),
+):
+    """
+    Upload a single file to a chat session for agent context.
+    """
+    result = await _process_single_chat_upload(session_id, file, background_tasks, project_id, db, outline=outline)
+    return result
+
+
+@router.post("/{session_id}/upload-multiple", response_model=List[SessionDocumentResponse])
+async def upload_multiple_files_to_session(
+    session_id: str,
+    files: List[UploadFile] = File(..., description="Multiple files to upload"),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    project_id: Optional[int] = Query(None, description="Project ID for GraphIndex indexing"),
+    db: Session = Depends(get_db),
+    outline: bool = Query(False, description="put the document's outline, not its full text, into the conversation"),
+):
+    """
+    Upload multiple files to a chat session at once. Each file is extracted,
+    injected as a separate context message, and optionally indexed to GraphIndex.
+    """
+    results = []
+    for file in files:
+        try:
+            result = await _process_single_chat_upload(session_id, file, background_tasks, project_id, db, outline=outline)
+            results.append(result)
+        except Exception as e:
+            logger.error(f"Failed to upload {file.filename} in batch: {e}")
+            # Continue with other files
+    return results
+
+
+def _extract_file_text(content: bytes, filename: str, max_chars: int = 1_000_000) -> str:
+    """Extract text from various file types (PDF, DOCX, PPTX, MD, TXT, etc.)."""
+    import io
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ""
+
+    try:
+        # --- Plain text files ---
+        if ext in ('txt', 'md', 'json', 'py', 'js', 'ts', 'tsx', 'jsx',
+                    'yaml', 'yml', 'xml', 'html', 'htm', 'css', 'scss',
+                    'sql', 'sh', 'bash', 'rb', 'go', 'rs', 'java',
+                    'c', 'cpp', 'h', 'hpp', 'rtf', 'tex', 'toml',
+                    'ini', 'cfg', 'conf', 'log'):
+            text = content.decode('utf-8', errors='replace')
+            if len(text) > max_chars:
+                text = text[:max_chars] + "\n\n[...truncated]"
+            return text
+
+        # --- CSV ---
+        if ext == 'csv':
+            import csv
+            text = content.decode('utf-8', errors='replace')
+            reader = csv.reader(io.StringIO(text))
+            rows = []
+            for i, row in enumerate(reader):
+                rows.append(' | '.join(row))
+                if i >= 2000:  # limit rows
+                    rows.append('... (truncated)')
+                    break
+            result = '\n'.join(rows)
+            if len(result) > max_chars:
+                result = result[:max_chars] + "\n\n[...truncated]"
+            return result
+
+        # --- PDF ---
+        if ext == 'pdf':
+            from pypdf import PdfReader
+            reader = PdfReader(io.BytesIO(content))
+            pages = []
+            for i, page in enumerate(reader.pages, start=1):
+                text = page.extract_text()
+                if text and text.strip():
+                    pages.append(f"--- Page {i}/{len(reader.pages)} ---\n{text.strip()}")
+            if pages:
+                full_text = "\n\n".join(pages)
+                if len(full_text) > max_chars:
+                    full_text = full_text[:max_chars] + "\n\n[...truncated]"
+                return full_text
+            return "[Empty PDF]"
+
+        # --- DOCX ---
+        if ext == 'docx':
+            from docx import Document
+            doc = Document(io.BytesIO(content))
+            paragraphs = []
+            for p in doc.paragraphs:
+                if p.text.strip():
+                    paragraphs.append(p.text.strip())
+            text = '\n'.join(paragraphs)
+            # Also extract tables
+            for table in doc.tables:
+                for row in table.rows:
+                    cells = [cell.text.strip() for cell in row.cells]
+                    text += '\n' + ' | '.join(cells)
+            if len(text) > max_chars:
+                text = text[:max_chars] + "\n\n[...truncated]"
+            return text if text.strip() else "[Empty DOCX]"
+
+        # --- PPTX ---
+        if ext == 'pptx':
+            from pptx import Presentation
+            prs = Presentation(io.BytesIO(content))
+            slides_text = []
+            for i, slide in enumerate(prs.slides, start=1):
+                slide_lines = [f"--- Slide {i}/{len(prs.slides)} ---"]
+                for shape in slide.shapes:
+                    if shape.has_text_frame:
+                        for para in shape.text_frame.paragraphs:
+                            if para.text.strip():
+                                slide_lines.append(para.text.strip())
+                    if shape.has_table:
+                        for row in shape.table.rows:
+                            cells = [cell.text.strip() for cell in row.cells]
+                            slide_lines.append(' | '.join(cells))
+                slides_text.append('\n'.join(slide_lines))
+            text = '\n\n'.join(slides_text)
+            if len(text) > max_chars:
+                text = text[:max_chars] + "\n\n[...truncated]"
+            return text if text.strip() else "[Empty PPTX]"
+
+        return f"[Unsupported file type: .{ext}]"
+
+    except Exception as e:
+        logger.warning(f"Failed to extract text from {filename}: {e}")
+        return f"[Text extraction failed: {e}]"
+
+
+async def _index_to_graphindex_for_chat(
+    project_id: int,
+    file_content: bytes,
+    filename: str,
+    file_path: str,
+    file_size: int,
+    mime_type: str,
+    file_text: str,
+):
+    """
+    Background: Index a chat-uploaded file into GraphIndex (Neo4j).
+
+    Deduplicates by SHA256 content hash first, then filename as fallback.
+    If the exact same content already exists in the project, reuses it.
+    Otherwise creates a new ContextDocument and syncs to Neo4j.
+    """
+    import logging
+    import hashlib
+    logger = logging.getLogger(__name__)
+    try:
+        from db.database import SessionLocal
+        from models.core import ContextDocument, DocumentType, IndexingStatus
+        from services.file_storage import file_storage
+
+        logger.info(
+            f"[phase9] chat upload starting: filename={filename!r}, "
+            f"project_id={project_id}, file_size={file_size} bytes"
+        )
+
+        content_hash = hashlib.sha256(file_content).hexdigest()
+
+        db = SessionLocal()
+        try:
+            # Dedup: check by content hash first (precise)
+            existing = db.query(ContextDocument).filter(
+                ContextDocument.project_id == project_id,
+                ContextDocument.content_hash == content_hash,
+                ContextDocument.indexing_status != IndexingStatus.FAILED,
+            ).first()
+
+            # Fallback: check by filename (user may re-upload same name, different content)
+            if not existing:
+                existing = db.query(ContextDocument).filter(
+                    ContextDocument.project_id == project_id,
+                    ContextDocument.filename == filename,
+                    ContextDocument.indexing_status != IndexingStatus.FAILED,
+                ).first()
+
+            if existing:
+                # Update hash if it was missing (backfill for old docs)
+                if not existing.content_hash:
+                    existing.content_hash = content_hash
+
+                logger.info(f"Dedup ({'hash' if existing.content_hash == content_hash else 'filename'}): "
+                           f"reusing ContextDocument {existing.id} for {filename}")
+                # Re-index if not already indexing
+                if existing.indexing_status != IndexingStatus.INDEXING:
+                    existing.indexing_status = IndexingStatus.NOT_INDEXED
+                    db.commit()
+                    from api.knowledge.rag import index_document_background
+                    await index_document_background(existing.id)
+                    logger.info(f"Re-indexed existing doc {existing.id}: {filename}")
+                else:
+                    db.commit()
+                return
+
+            # Save file to project storage
+            project_file_path = file_storage.save_file(project_id, filename, file_content)
+
+            doc = ContextDocument(
+                project_id=project_id,
+                filename=filename,
+                original_filename=filename,
+                file_path=project_file_path,
+                file_size=file_size,
+                mime_type=mime_type,
+                content_hash=content_hash,
+                document_type=DocumentType.PDF if filename.lower().endswith('.pdf') else DocumentType.TEXT,
+                indexing_status=IndexingStatus.INDEXING,
+                description=f"Uploaded via chat: {filename}",
+            )
+            db.add(doc)
+            db.commit()
+            db.refresh(doc)
+
+            # Trigger full indexing (GraphIndex + vector).
+            # The knowledge-panel path inside this will call
+            # _phase9_get_or_generate_enrichment and populate
+            # about / supports / out_of_scope / few_shot on the Neo4j node,
+            # so chat-uploaded docs become routable.
+            from api.knowledge.rag import index_document_background
+            await index_document_background(doc.id)
+
+            logger.info(
+                f"[phase9] chat upload indexed: doc_id={doc.id}, "
+                f"filename={filename!r} (now routable in Neo4j)"
+            )
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"Failed to index chat-uploaded file to GraphIndex: {e}")
+
+
+@router.post("/{session_id}/upload", response_model=SessionDocumentResponse)
+async def upload_file_to_session(
+    session_id: str,
+    file: UploadFile = File(...),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    project_id: Optional[int] = Query(None, description="Project ID for GraphIndex indexing"),
     db: Session = Depends(get_db)
 ):
     """
@@ -372,85 +611,13 @@ async def upload_multiple_files_to_session(
     return results
 
 
-async def _index_for_retrieval(
-    user_id: int,
-    document_id: int,
-    filename: str,
-    sandbox_path,
-    stored_path: str,
-) -> None:
-    """Embed one uploaded document into the uploader's retrieval collection.
-
-    Runs as a background task after the upload response, so a 200-page PDF does not
-    make the client wait for hundreds of local embedding calls. It writes the result
-    back onto the ``session_documents`` row (``indexing_status`` /
-    ``indexed_chunks_count``) — that column is the only place a user can see whether
-    "upload" also meant "searchable".
-
-    Ids are deterministic (see ``core.rag.index``), so re-uploading the same file
-    overwrites its chunks instead of duplicating them.
-
-    Never raises: a failed index must not leave the document marked ready-but-empty,
-    and it must not fail the upload that already succeeded.
-    """
-    import os as _os
-    from pathlib import Path as _Path
-
-    from db.database import SessionLocal
-    from models.deep_agent import SessionDocument
-
-    db = SessionLocal()
-    try:
-        doc = db.query(SessionDocument).filter(SessionDocument.id == document_id).first()
-        if doc is None:
-            return
-        path = sandbox_path or stored_path
-        if not path or not _Path(str(path)).exists():
-            # The sandbox copy is what the agent can read; the stored copy is the
-            # fallback. Neither present means there is nothing to embed.
-            doc.indexing_status = IndexingStatus.READY
-            db.commit()
-            return
-
-        from core.rag import index_file
-
-        doc.indexing_status = IndexingStatus.INDEXING
-        db.commit()
-
-        report = index_file(
-            user_id=int(user_id),
-            file_path=str(path),
-            source_label=filename,
-            extra_metadata={"document_id": document_id},
-        )
-        doc.indexed_chunks_count = int(report.get("chunks") or 0)
-        doc.indexed_at = datetime.utcnow()
-        doc.indexing_status = IndexingStatus.READY
-        db.commit()
-        logger.info(
-            "Retrieval indexing done for %s: %s chunk(s) → %s",
-            filename, report.get("chunks"), report.get("collection"),
-        )
-    except Exception as exc:  # noqa: BLE001 — upload already succeeded
-        logger.warning("Retrieval indexing failed for %s: %s", filename, exc)
-        try:
-            doc = db.query(SessionDocument).filter(SessionDocument.id == document_id).first()
-            if doc is not None:
-                doc.indexing_status = IndexingStatus.FAILED
-                doc.indexed_chunks_count = 0
-                db.commit()
-        except Exception:  # noqa: BLE001
-            db.rollback()
-    finally:
-        db.close()
-
-
 async def _process_single_chat_upload(
     session_id: str,
     file: UploadFile,
     background_tasks: BackgroundTasks,
     project_id: Optional[int],
     db: Session,
+    outline: bool = False,
 ) -> SessionDocumentResponse:
     """Process a single file upload for chat: save, extract, inject as context message."""
     from services.file_storage import file_storage
@@ -547,39 +714,56 @@ async def _process_single_chat_upload(
         doc.indexing_status = IndexingStatus.READY
         db.commit()
 
-        # Embed for retrieval (`rag_search`) in the background: the upload response
-        # must not wait for hundreds of local embedding calls, and the agent should
-        # be able to search the document moments later. This is what makes
-        # "upload a PDF, then ask about it" work — the upload alone embeds nothing.
+        # NO embedding on upload (deliberate, 2026-11-04).
         #
-        # The account is captured HERE, not inside the task: by the time the task
-        # runs the request's identity context is gone, and a background job without
-        # identity resolves the install OWNER's collection — one person's document
-        # would then be searchable by the owner instead of by its uploader.
-        if ext_with_dot in ('.pdf', '.md', '.txt', '.csv', '.html', '.htm', '.log'):
-            uploader_id = getattr(session, "user_id", None)
-            if uploader_id is not None:
-                background_tasks.add_task(
-                    _index_for_retrieval,
-                    int(uploader_id),
-                    doc.id,
-                    safe_name,
-                    locals().get("sandbox_path"),
-                    file_path,
-                )
-                logger.info(
-                    "Queued retrieval indexing for %s (account %s)", safe_name, uploader_id
-                )
-
+        # The text below is appended to the conversation, and that is what makes
+        # "upload a file, then ask about it" work — the model reads the text, it
+        # does not need a vector index. The old extra step (embed the whole file
+        # into the uploader's collection for `rag_search`) is gone because of what
+        # it cost: one 4 MB CSV became a SINGLE ollama request that ran 4 min 20 s,
+        # and since the embedding server serves one request at a time, every other
+        # account's search queued behind that upload for four minutes. The instance
+        # looked down; it was behind one file.
+        #
+        # Anything that still wants vectors can go through the Knowledge activity
+        # (`POST /api/rag/upload`), which embeds in bounded batches and is an
+        # explicit action rather than a side effect of attaching a file.
         file_text = _extract_file_text(content, file.filename)
         label = file_ext.upper()
-        session.messages.append({
-            "role": "assistant",
-            "content": f"[{label} Content: \"{file.filename}\"]\n\n{file_text}",
-            "timestamp": datetime.utcnow().isoformat(),
-            "banked": False
-        })
-        flag_modified(session, "messages")
+        # `outline=true` — the conversation gets the document's SHAPE, not its 40 KB of text, and the
+        # file itself is in the agent's `upload/` folder where `read_any_file` can open the part it needs.
+        # Measured: a build whose session carried two full documents as context ran >6 minutes inside one
+        # model call with no tool call at all; the same comparison, handed an outline plus the paths,
+        # answered in 12 s. Full text in the context is right for "read this and answer"; it is wrong for
+        # "compare this against what we already built".
+        if outline:
+            head = "\n".join(file_text.splitlines()[:40])
+            msg = {
+                "role": "assistant",
+                "content": (f"[{label} OUTLINE: \"{file.filename}\"] {len(file_text):,} chars of text; the "
+                            f"whole file is at `upload/{file.filename}` (read it with read_any_file when you "
+                            f"need a passage).\n\n{head}"
+                            + ("\n… [outline truncated]" if len(file_text.splitlines()) > 40 else "")),
+                "timestamp": datetime.utcnow().isoformat(),
+                "banked": False,
+            }
+            # Assign a NEW list: `flag_modified` on a JSON column whose attribute was not loaded raises
+            # "Can't flag attribute 'messages' modified; it's not present in the object state" (measured
+            # as a 500 on the first outline upload). A new list is dirty by construction.
+            session.messages = list(session.messages or []) + [msg]
+            db.commit()
+            file_text = file_text[:2000]     # the indexer still gets a bounded slice
+        else:
+            session.messages = list(session.messages or []) + [{
+                "role": "assistant",
+                "content": f"[{label} Content: \"{file.filename}\"]\n\n{file_text}",
+                "timestamp": datetime.utcnow().isoformat(),
+                "banked": False
+            }]
+        # NO flag_modified here: a JSON column that was just refreshed by a commit rejects it
+        # ("Can't flag attribute 'messages' modified; it's not present in the object state" — measured
+        # as a 500 on the first outline upload, because the outline branch commits before this line).
+        # Assigning a NEW list marks the attribute dirty by construction, in both branches.
         db.commit()
 
         # If project_id provided, index to GraphIndex asynchronously

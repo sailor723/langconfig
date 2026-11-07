@@ -155,8 +155,15 @@ def main() -> int:
             if args.quick and name in ("check_samples", "check_nl"):
                 continue
             if profile is None:
-                runs.append({"gate": f"{key}:{name}", "verdict": "fail",
-                             "reason": f"{key} declares {name} but has no profile file"})
+                # A key that is STAGED BUT NOT INSTALLED has no profile to gate yet. That is a
+                # named NOT RUN, not a failure: the staged publish already re-ran the suite on its
+                # staging copy and reported the verdict (see gates.json `pending_install`).
+                if spec.get("pending_install"):
+                    runs.append({"gate": f"{key}:{name}", "verdict": "notrun",
+                                 "reason": f"{key} is staged, not installed — {spec['pending_install']}"})
+                else:
+                    runs.append({"gate": f"{key}:{name}", "verdict": "fail",
+                                 "reason": f"{key} declares {name} but has no profile file"})
                 continue
             script = _script(name)
             if script is None:

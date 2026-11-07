@@ -9,11 +9,11 @@
  * person to decide.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Play, RefreshCw, Square, X } from 'lucide-react';
+import { Loader2, Paperclip, Play, RefreshCw, Square, X } from 'lucide-react';
 import apiClient from '../../lib/api-client';
 import { useProject } from '../../contexts/ProjectContext';
 import { useLayoutTokens } from '../../components/layout2/tokens';
-import { mono, Quiet, SUCCESS, WARN } from './ui';
+import { mono, Quiet, SUCCESS, WARN, INFO } from './ui';
 import RunningLight, { RunningBar } from './RunningLight';
 
 /**
@@ -54,6 +54,8 @@ interface BuildStatus extends BuildRow {
     answer?: string;
     staged_id?: string;
     landed?: boolean;
+    no_delta?: boolean;
+    delta?: { items?: number; changed?: number; questions?: number; unchanged?: number; path?: string };
     reason?: string;
     report?: {
       compile?: { metrics?: number; compiled?: number };
@@ -99,7 +101,19 @@ export default function BuildOntologyDialog({ ontologyKey, onClose, onLanded }: 
   const [writes, setWrites] = useState('');
   const [excluded, setExcluded] = useState('');
   const key = ontologyKey;
+  // auto-land is the FIRST-GENERATION rule. Defaulting it to true for a key that already has an
+  // installed ontology would let a rebuild replace verified declarations with a fresh generation
+  // nobody read — so the default follows `has_ontology`, and the checkbox says which case you are in.
   const [autoLand, setAutoLand] = useState(true);
+  const [autoLandTouched, setAutoLandTouched] = useState(false);
+  // The business material is usually a DOCUMENT (a brief, a decisions list, a KPI sheet), not three
+  // lines typed into a textarea. Measured: the build that produced this platform's cold-chain ontology
+  // started from a docx and a markdown file, and the one thing the form could not take was exactly
+  // that. Files are uploaded to the build's own chat session, where the platform extracts their text
+  // and copies them into the agent's workspace `upload/`, so the agent reads them the same way it
+  // reads any other input.
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploadNote, setUploadNote] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<number | null>(null);
   const [status, setStatus] = useState<BuildStatus | null>(null);
   const [history, setHistory] = useState<BuildRow[]>([]);
@@ -114,9 +128,12 @@ export default function BuildOntologyDialog({ ontologyKey, onClose, onLanded }: 
         const res: any = await apiClient.get('/api/ontology/builders');
         const rows: BuilderOption[] = (res?.data?.builders || []) as BuilderOption[];
         setOptions(rows);
-        // prefer the ontology the user is looking at
+        // Preselect ONLY the ontology the user is looking at. Never fall through to rows[0]:
+        // measured twice — a build meant for one ontology ran against another (logistics) because a
+        // silent default was "whatever the dropdown happens to list first". No choice is a better
+        // default than the wrong choice; Start stays disabled until the user picks one.
         const matching = rows.find(r => r.ontology_key === ontologyKey);
-        setOptionKey(prev => prev || matching?.ontology_key || rows[0]?.ontology_key || '');
+        setOptionKey(prev => prev || matching?.ontology_key || '');
       } catch {
         setOptions([]);
       }
@@ -158,7 +175,11 @@ export default function BuildOntologyDialog({ ontologyKey, onClose, onLanded }: 
   }, [taskId, poll]);
 
   const chosen = options.find(o => o.ontology_key === optionKey) || null;
-  const ready = !!chosen && !!(oneRow.trim() || questions.trim());
+  const ready = !!chosen && (!!(oneRow.trim() || questions.trim()) || files.length > 0);
+  useEffect(() => {
+    if (!chosen || autoLandTouched) return;
+    setAutoLand(!chosen.has_ontology);
+  }, [chosen, autoLandTouched]);
 
   const start = async () => {
     if (!chosen || !ready) return;
@@ -174,12 +195,29 @@ export default function BuildOntologyDialog({ ontologyKey, onClose, onLanded }: 
       excluded.trim() && `先不算在内：${excluded.trim()}`,
     ].filter(Boolean).join('\n');
     try {
+      let sessionId: string | null = null;
+      if (files.length) {
+        setUploadNote(`opening a session for ${files.length} document(s)…`);
+        const started: any = await apiClient.post('/api/chat/start',
+          { agent_id: chosen.agent_id, project_id: projectId });
+        sessionId = started?.data?.session_id ?? null;
+        if (!sessionId) throw new Error('the build could not open a session for its documents');
+        const fd = new FormData();
+        for (const f of files) fd.append('files', f, f.name);
+        setUploadNote(`uploading ${files.length} document(s)…`);
+        await apiClient.post(`/api/chat/${sessionId}/upload-multiple`, fd,
+          { headers: { 'Content-Type': 'multipart/form-data' }, params: { project_id: projectId } });
+        setUploadNote(`attached ${files.length} document(s) — their text is in the session the agent reads`);
+      }
       const res: any = await apiClient.post('/api/ontology/build', {
         agent_id: chosen.agent_id,
         ontology_key: chosen.ontology_key,
-        brief,
+        brief: files.length
+          ? `${brief}\n\n随这次构建上传的文档：${files.map(f => f.name).join('、')}。业务口径以这些文档为准：文档没写的按 skill 的规则提问/按名拒绝，不要猜。`
+          : brief,
         project_id: projectId,
         auto_land: autoLand,
+        session_id: sessionId ?? undefined,
       });
       setTaskId(Number(res?.data?.task_id));
     } catch (err: any) {
@@ -250,15 +288,18 @@ export default function BuildOntologyDialog({ ontologyKey, onClose, onLanded }: 
                       background: t.bgInput || 'transparent', color: t.textPrimary,
                     }}
                   >
+                    <option value="">— 先选择一份数据 —</option>
                     {options.map(o => (
-                      <option key={o.ontology_key} value={o.ontology_key}>{o.business_label}</option>
+                      <option key={o.ontology_key} value={o.ontology_key}>
+                        {o.business_label} · {o.has_ontology ? '已有本体（重建）' : '尚无本体（首次生成）'}
+                      </option>
                     ))}
                   </select>
                 </label>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 11.5, color: t.textDim }}>
-                    这份数据里「一行」是什么？（最大那张表的一次记录）
+                    这份数据里「一行」是什么？<span style={{ color: WARN }}>（必填：这两个二选一）</span>
                     <input
                       value={oneRow}
                       onChange={e => setOneRow(e.target.value)}
@@ -278,7 +319,7 @@ export default function BuildOntologyDialog({ ontologyKey, onClose, onLanded }: 
                 </div>
 
                 <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 11.5, color: t.textDim }}>
-                  用户会怎么问这些数据？（几句原话，一行一句）
+                  用户会怎么问这些数据？<span style={{ color: WARN }}>（必填：这两个二选一）</span>（几句原话，一行一句）
                   <textarea
                     value={questions}
                     onChange={e => setQuestions(e.target.value)}
@@ -320,26 +361,84 @@ export default function BuildOntologyDialog({ ontologyKey, onClose, onLanded }: 
                   </label>
                 </div>
 
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                  <input type="checkbox" checked={autoLand} onChange={e => setAutoLand(e.target.checked)} />
-                  检查全部通过就自动上线；之后的修改都要我确认
+                {/* documents: the brief is usually one already written */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <span style={{ fontSize: 11.5, color: t.textDim }}>
+                    或者直接给文档（可选：需求说明 / 决策清单 / KPI 表；pdf·docx·pptx·xlsx·md·txt·csv）
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <label style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5,
+                      padding: '5px 10px', borderRadius: 8, cursor: 'pointer',
+                      border: `1px solid ${t.border}`, color: t.textPrimary,
+                    }}>
+                      <Paperclip size={11} /> 选择文档
+                      <input
+                        type="file" multiple
+                        accept=".pdf,.docx,.doc,.pptx,.xlsx,.xlsm,.md,.txt,.csv,.json"
+                        style={{ display: 'none' }}
+                        onChange={e => {
+                          const picked = Array.from(e.target.files || []);
+                          setFiles(prev => [...prev, ...picked]);
+                          e.currentTarget.value = '';
+                        }}
+                      />
+                    </label>
+                    {files.map((f, i) => (
+                      <span key={`${f.name}-${i}`} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11,
+                        padding: '3px 8px', borderRadius: 999, border: `1px solid ${t.border}`,
+                        color: t.textPrimary, maxWidth: 260,
+                      }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                        <span style={{ color: t.textDim }}>{(f.size / 1024).toFixed(0)} KB</span>
+                        <span
+                          onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))}
+                          style={{ cursor: 'pointer', color: t.textDim }}>×</span>
+                      </span>
+                    ))}
+                  </div>
+                  <span style={{ fontSize: 10.5, color: t.textDim, lineHeight: 1.5 }}>
+                    上传后平台会抽取文字放进这次构建的会话，并把文件复制到 agent 的 workspace upload/，它读文档的方式和读别的一样；
+                    文档没写的口径它要提问或按名拒绝，不会自己编。
+                  </span>
+                </div>
+
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, lineHeight: 1.6 }}>
+                  <input type="checkbox" checked={autoLand} style={{ marginTop: 3 }}
+                    onChange={e => { setAutoLand(e.target.checked); setAutoLandTouched(true) }} />
+                  <span>
+                    检查全部通过就自动上线（<b>只对第一次生成</b>）
+                    <span style={{ color: t.textDim }}>
+                      {chosen?.has_ontology
+                        ? ' — 这份数据已经有已装的本体，所以这里默认不勾：重建结果留在 Settings → Ontology 等你点 apply，不会替换已经验证过的声明。'
+                        : ' — 这份数据还没有本体，第一次生成是新的声明；之后每次改动都要你确认。'}
+                    </span>
+                  </span>
                 </label>
 
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <button
                     onClick={() => void start()}
                     disabled={busy || !ready}
+                    title={ready ? 'start the background build' : '需要先填「一行是什么」或「用户会怎么问」'}
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600,
-                      padding: '7px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                      padding: '7px 14px', borderRadius: 8, border: 'none',
+                      cursor: busy || !ready ? 'not-allowed' : 'pointer',
                       background: t.accent, color: '#fff',
                       opacity: busy || !ready ? 0.5 : 1,
                     }}
                   >
                     <Play size={12} /> 开始生成
                   </button>
-                  <span style={{ fontSize: 11, color: t.textDim }}>
-                    它会在后台跑（可关闭这个窗口），只把业务口径翻译成声明
+                  <span style={{ fontSize: 11, color: ready ? t.textDim : WARN, lineHeight: 1.5 }}>
+                    {uploadNote && <>{uploadNote}<br /></>}
+                    {!chosen
+                      ? '先选一份数据。'
+                      : ready
+                        ? '它会在后台跑（可关闭这个窗口），只把业务口径翻译成声明'
+                        : '还差一步：填「一行是什么」或「用户会怎么问」，或者上传一份文档——否则 agent 拿不到要建的对象和问题。'}
                   </span>
                 </div>
               </>
@@ -393,12 +492,28 @@ export default function BuildOntologyDialog({ ontologyKey, onClose, onLanded }: 
                 display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, lineHeight: 1.65,
               }}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
-                  <b style={{ color: result.landed ? SUCCESS : WARN }}>
-                    {result.landed ? 'landed' : 'staged, waiting for a person'}
+                  <b style={{ color: result.landed ? SUCCESS : result.no_delta ? INFO
+                              : result.staged_id ? WARN : t.textMuted }}>
+                    {result.landed ? 'landed'
+                      : result.no_delta ? 'no delta — nothing to rebuild'
+                      : result.staged_id ? 'staged, waiting for a person'
+                      : 'stopped before staging'}
                   </b>
                   {result.staged_id && <span style={{ ...mono, fontSize: 11, color: t.textDim }}>{result.staged_id}</span>}
+                  {!result.staged_id && (
+                    <span style={{ fontSize: 11, color: t.textDim }}>
+                      一次构建回合通常停在 S0：它先核对数据、把口径问题列出来（下面 agent's report 里就是）。
+                      回答这些问题再跑一次，或在本体编辑器里继续；没暂存 = 没有东西可装。
+                    </span>
+                  )}
                 </div>
                 {result.reason && <div style={{ color: t.textDim }}>{result.reason}</div>}
+                {result.delta && (
+                  <div style={{ ...mono, fontSize: 11, color: t.textDim }}>
+                    delta: {result.delta.items} item(s) compared · {result.delta.changed} change(s) ·
+                    {' '}{result.delta.questions} question(s)
+                  </div>
+                )}
                 {result.report?.compile && (
                   <div style={{ ...mono, fontSize: 11, color: t.textDim }}>
                     metrics {result.report.compile.compiled}/{result.report.compile.metrics} compiled ·

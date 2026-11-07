@@ -94,12 +94,61 @@ def is_target(name: Optional[str]) -> bool:
     return bool(name) and (name or "").strip() in _TARGETS
 
 
+_SETTINGS_CONN_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+_SETTINGS_CONN_TTL = 5.0
+
+
+def _settings_connection(name: str) -> dict[str, Any]:
+    """Connection facts from Settings → Databases for `name`, or {}.
+
+    Cached for a few seconds: this runs on every SQL tool call, and the row only
+    changes when an admin saves. A failure is not fatal — the .env/built-in
+    resolution below still stands, which is how an install without the setting
+    behaves.
+    """
+    import time
+
+    now = time.time()
+    hit = _SETTINGS_CONN_CACHE.get(name)
+    if hit and now - hit[0] < _SETTINGS_CONN_TTL:
+        return hit[1]
+    params: dict[str, Any] = {}
+    try:
+        from services.offered_databases import connection_for
+
+        params = connection_for(name) or {}
+    except Exception:  # noqa: BLE001 — settings are an override, never a requirement
+        params = {}
+    _SETTINGS_CONN_CACHE[name] = (now, params)
+    return params
+
+
 def _target_params(name: str) -> Optional[dict[str, Any]]:
-    """Connection params for a named target, or None when it is a plain dbname."""
+    """Connection params for a named target, or None when it is a plain dbname.
+
+    Order: the admin's row in Settings → Databases wins, then `SQL_TARGETS`/built-in
+    (already merged into ``_TARGETS``), then the platform defaults. The row exists
+    so a target can be added without a shell and a restart; the env stays as the
+    fallback used by installs that never opened that page.
+    """
+    # The Settings row decides what KIND a database is. A row marked `platform`
+    # means "this lives on the platform server, use POSTGRES_*" — so a stale named
+    # target with the same name (the built-in `tpch` points at another server on a
+    # dev machine) must not win. Without this, installing TPC-H onto the platform
+    # Postgres and marking it `platform` still connected as the old target role.
+    try:
+        from services.offered_databases import kind_of
+
+        if kind_of(name) == "platform":
+            return None
+    except Exception:  # noqa: BLE001 — settings are optional
+        pass
     cfg = _TARGETS.get((name or "").strip())
-    if not cfg:
+    if not cfg and not _settings_connection(name):
         return None
-    if cfg.get("dsn"):
+    cfg = cfg or {}
+    overrides = _settings_connection(name)
+    if cfg.get("dsn") and not overrides:
         return {"dsn": cfg["dsn"]}
     params: dict[str, Any] = {
         "host": cfg.get("host", POSTGRES_HOST),
@@ -110,6 +159,12 @@ def _target_params(name: str) -> Optional[dict[str, Any]]:
     password = cfg.get("password")
     if password not in (None, ""):
         params["password"] = password
+    # The row's own values win, including a password typed in the UI.
+    for key, value in overrides.items():
+        if key == "port":
+            params["port"] = int(value)
+        elif value not in (None, ""):
+            params[key] = value
     return params
 
 

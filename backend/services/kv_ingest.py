@@ -68,9 +68,14 @@ TEXT_EXTENSIONS = {
     ".swift", ".r", ".c", ".cpp", ".h", ".hpp",
 }
 PDF_EXTENSIONS = {".pdf"}
-# Deferred by decision (2026-10-15): office formats are stored and listed but doc chat cannot
-# inline them, so admitting them now would create documents that list and cannot be read.
-OFFICE_EXTENSIONS: set[str] = set()
+# Office formats (2026-11-04). They were deferred on 2026-10-15 because doc chat could not inline
+# them: a document would list and then fail to read. That reason is gone — the extractors the
+# agent's `read_any_file` already used (``tools/native_impl._extract_docx_text`` /
+# ``_extract_pptx_text`` / ``_extract_xlsx``) are now the doc-chat reader too, so the design rule
+# holds: **anything the platform can read, the knowledge chat can read**. Keeping this set EMPTY
+# is what made a trainee ask "why can it read .pptx but not .docx" — the answer was "it could read
+# neither; it was answering from the filename".
+OFFICE_EXTENSIONS: set[str] = {".docx", ".pptx", ".xlsx", ".xlsm"}
 
 DOCUMENT_EXTENSIONS = TEXT_EXTENSIONS | PDF_EXTENSIONS | OFFICE_EXTENSIONS
 

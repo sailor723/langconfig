@@ -257,6 +257,7 @@ function DatabaseSummaryBox() {
   const t = useLayoutTokens();
   const {
     dbSummary,
+    dbSummaryError,
     activeAssistantId,
     activeSqlDatabase, activeNeo4jDatabase,
   } = useStudioState();
@@ -279,6 +280,8 @@ function DatabaseSummaryBox() {
     void studio.loadDatabaseSummary();
   }, [i18n.language]);
 
+  // `dbSummary` is null after a failed fetch, so name the target the dropdown says
+  // rather than the last database that happened to load.
   const dbName = dbSummary?.database || activeDatabase || '—';
   const isNeo4j = dbSummary?.type === 'neo4j' || activeAssistantId.startsWith('neo4j_');
 
@@ -366,6 +369,24 @@ function DatabaseSummaryBox() {
         </span>
         <span style={{ marginLeft: 'auto', fontSize: 11, color: t.textDim, whiteSpace: 'nowrap' }}>{counts}</span>
       </div>
+      {dbSummaryError && (
+        <div
+          style={{
+            fontSize: 11.5,
+            color: '#e5484d',
+            lineHeight: 1.45,
+            marginBottom: 4,
+            whiteSpace: 'pre-wrap',
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+          title={dbSummaryError}
+        >
+          {zh ? `读不到这个库：${dbSummaryError}` : `Cannot read this database: ${dbSummaryError}`}
+        </div>
+      )}
       <div
         style={{
           fontSize: 12,

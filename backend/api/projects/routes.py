@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -12,6 +13,7 @@ from pydantic import BaseModel
 from datetime import datetime
 
 from db.database import get_db
+from core.context.current_user import require_admin
 from models.core import Project, ProjectStatus, IndexingStatus
 from services.workspace_manager import get_workspace_manager
 
@@ -188,25 +190,41 @@ async def update_project(
 @router.delete("/{project_id}", status_code=204)
 async def delete_project(
     project_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin=Depends(require_admin),
 ):
     """
-    Delete a project and all associated data.
+    Delete a project and all associated data. Admin only.
 
-    Cascades to delete:
-    - All workflows in this project
-    - All tasks from those workflows
-    - All execution events from those tasks
-    - All documents in the RAG database
-    - The project's vector index table
-    - Generated files in workspace directories
+    Why admin only: a project is a TEAM object — the `projects` row has no owner
+    column, `GET /api/projects/` returns the same list to every account, and the
+    knowledge documents and the per-project vector index (`data_project_index_<id>`)
+    are shared too. Without a gate any signed-in account could delete another
+    team's project and its knowledge index, which is not a permission this app
+    hands out implicitly.
 
-    Note: Memory is managed by LangGraph's store system (per-thread)
-    and doesn't require explicit cleanup.
+    Cascades in the database: workflows → versions → executions → tasks →
+    execution events, then the project row and its vector index table.
+
+    Files are NOT deleted: every account's vault (`users/<id>/<slug>/`) plus the
+    project's AGENTS.md are MOVED into `backups/deleted_projects/<stamp>_<slug>/`,
+    so a mistaken delete is recoverable and no one has to trust a docstring that
+    promises an rmtree. The slug comes from the project's name, so it is captured
+    before the row disappears.
     """
     db_project = db.query(Project).filter(Project.id == project_id).first()
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    # Capture the on-disk identity BEFORE the row is deleted: the vault key is
+    # derived from the project NAME, and there is no name left after the commit.
+    try:
+        from services.workspace_manager import WorkspaceManager
+        vault_key = WorkspaceManager.project_vault_key(db, project_id)
+    except Exception:  # noqa: BLE001 — a naming problem must not block the delete
+        vault_key = f"project_{project_id}"
+    vault_key = vault_key or f"project_{project_id}"
+    file_sources = _project_file_sources(project_id, vault_key)
 
     try:
         from models.workflow import WorkflowProfile, WorkflowVersion, WorkflowExecution
@@ -281,6 +299,12 @@ async def delete_project(
         db.delete(db_project)
         db.commit()
 
+        # 9. Move the files aside (every account's vault + the project's AGENTS.md).
+        # After the commit, so a failed delete never leaves the files moved with the
+        # row still present; and best-effort, because a half-deleted project with a
+        # clear log line beats a request that fails after the rows are already gone.
+        _archive_project_files(file_sources, vault_key)
+
         logger.info(f"Successfully deleted project {project_id} and all related data")
         return None
 
@@ -293,22 +317,78 @@ async def delete_project(
         )
 
 
-@router.post("/{project_id}/index")
-async def index_project(
-    project_id: int,
-    db: Session = Depends(get_db)
-):
-    """Start indexing a project's documents"""
-    db_project = db.query(Project).filter(Project.id == project_id).first()
-    if not db_project:
-        raise HTTPException(status_code=404, detail="Project not found")
+def _project_file_sources(project_id: int, vault_key: str) -> list[tuple]:
+    """`[(source_dir, archive_subpath)]` for one project — resolved BEFORE the delete.
 
-    # TODO: Implement document indexing with embeddings
-    db_project.indexing_status = IndexingStatus.INDEXING
-    db.commit()
+    Three shapes exist on disk for one project and all of them are archived:
 
-    return {
-        "message": "Project indexing started",
-        "project_id": project_id,
-        "status": IndexingStatus.INDEXING
-    }
+      * `<root>/users/<user id>/<slug>/`  — per-account vault (the normal case: the
+        `projects` row is shared, the files under it are not);
+      * `<root>/<slug>/`                  — the pre-account flat layout;
+      * `<backend>/.workspace_data/<slug>/` — the project's shared `AGENTS.md`.
+
+    Resolved before the row disappears: the slug comes from the project NAME, and
+    `agents_md_service` re-derives it from the DB, so after the commit every lookup
+    would fall back to the numeric id and miss the directory.
+    """
+    out: list[tuple] = []
+    try:
+        from services import user_roots
+
+        root = user_roots.install_root()  # …/outputs
+    except Exception:  # noqa: BLE001
+        logger.warning("project %s: cannot resolve the workspace root", vault_key)
+        return out
+
+    users_dir = root / "users"
+    if users_dir.is_dir():
+        for uid_dir in users_dir.iterdir():
+            candidate = uid_dir / vault_key
+            if candidate.is_dir():
+                out.append((candidate, Path("users") / uid_dir.name / vault_key))
+    if (root / vault_key).is_dir():
+        out.append((root / vault_key, Path(vault_key)))
+
+    try:
+        from services.agents_md_service import WORKSPACE_ROOT
+
+        md_dir = WORKSPACE_ROOT / vault_key
+        if md_dir.is_dir():
+            out.append((md_dir, Path("workspace_data") / vault_key))
+    except Exception:  # noqa: BLE001
+        pass
+    return out
+
+
+def _archive_project_files(sources: list[tuple], vault_key: str) -> None:
+    """Move a deleted project's directories into `backups/deleted_projects/`.
+
+    Moving (not copying, not deleting) keeps a mistaken delete recoverable and
+    stops files being silently orphaned under a slug that no longer exists in the
+    UI. Best-effort: the DB rows are already gone, so a failure here is logged
+    rather than raised.
+    """
+    import shutil
+    import time
+
+    if not sources:
+        logger.info("project %s: nothing on disk to archive", vault_key)
+        return
+
+    try:
+        from services import user_roots
+
+        archive_root = user_roots.install_root().parent / "backups" / "deleted_projects"
+    except Exception:  # noqa: BLE001
+        logger.warning("project %s: cannot resolve the backup root; files left in place", vault_key)
+        return
+
+    archive = archive_root / f"{time.strftime('%Y%m%d_%H%M%S')}_{vault_key}"
+    for src, rel in sources:
+        dest = archive / rel
+        try:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(src), str(dest))
+            logger.info("project %s: moved %s → %s", vault_key, src, dest)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("project %s: could not move %s (%s); left in place", vault_key, src, exc)

@@ -664,6 +664,68 @@ async def web_fetch(url: str, timeout: int = 10) -> str:
 # Retrieval over documents (embedding search — the semantic-search tutorial)
 # =============================================================================
 
+async def rag_index(path: str, reset: bool = False) -> str:
+    """
+    用我：把【本账号】的文档切块、嵌入、写进检索集合（rag_search 搜的就是它）。
+    别用我：只是想读一份文件的内容，用 read_file；查平台库用 pg_query。
+Index a file or folder into this account's retrieval collection.
+
+    This is the step between "the file exists" and "`rag_search` can find it". It is
+    a TOOL rather than only a script (`scripts/rag_index.py`) because the document-QA
+    agent is the one place retrieval is taught: without this half, the agent could
+    say "nothing is indexed yet" and had no way to fix that.
+
+    Cost, stated up front so the model can decide: every chunk becomes one local
+    embedding call. A 20-page PDF is ~200 chunks; that is minutes, not seconds, and
+    the turn waits for it. Index once, then ask many questions.
+
+    Idempotency: chunk ids are content-derived, so re-indexing the same unchanged
+    file updates its chunks instead of duplicating them. `reset=true` drops the
+    collection first — the honest choice after editing a document, because
+    otherwise the old chunks of deleted text stay retrievable.
+
+    Args:
+        path: File or folder path. Relative paths resolve against the backend
+            directory. Folders are walked for .pdf/.txt/.md/.csv/.log/.html.
+        reset: Drop this account's collection before indexing.
+
+    Returns:
+        A one-line report: how many files, how many chunks, how long, and which
+        collection it wrote to — the numbers that later explain a vague answer.
+    """
+    from core.context.current_user import current_user_id
+
+    try:
+        user_id = current_user_id()
+        if user_id is None:
+            return "No account context for this run, so there is no collection to write to."
+        from core.rag import index_file
+        from pathlib import Path as _Path
+
+        target = _Path(path).expanduser()
+        if not target.is_absolute():
+            from services import user_roots
+
+            backend_dir = _Path(user_roots.install_root()).parent
+            target = (backend_dir / target).resolve()
+        if not target.exists():
+            return f"Not found: {target}. Indexing needs a real file or folder."
+
+        import time as _time
+
+        started = _time.time()
+        report = index_file(user_id, str(target), reset=bool(reset))
+        elapsed = _time.time() - started
+        return (
+            f"Indexed {report.get('documents', 1)} file(s) → {report.get('chunks', 0)} chunks "
+            f"in {elapsed:.0f}s into {report.get('collection')}. "
+            f"Now call rag_search before answering questions about this document."
+        )
+    except Exception as exc:  # noqa: BLE001 — an indexing failure is not a turn failure
+        logger.warning("rag_index failed: %s", exc)
+        return f"Indexing failed: {exc}. Say so rather than answering from memory."
+
+
 async def rag_search(query: str, k: int = 4) -> str:
     """
     用我：检索【本账号上传的文档】的段落（向量检索），答案要标来源。
@@ -900,6 +962,19 @@ def _resolve_sandbox_path(path_str: str):
             return path, None
         except ValueError:
             continue
+    # A VIRTUAL path ("/upload/brief.docx") is how the agent's own file tools display its workspace, so it is
+    # the form an agent naturally passes to a reader. `/upload/brief.docx` is not a real absolute path, so the
+    # check above refuses it — measured: three refusals in one turn while the file sat in the workspace the
+    # agent was told to read. Resolve it under each allowed root, and only accept a path that exists there.
+    if path_str.startswith("/"):
+        for root in _sandbox_roots():
+            candidate = (root / path_str.lstrip("/")).resolve()
+            try:
+                candidate.relative_to(root)
+            except ValueError:
+                continue
+            if candidate.exists():
+                return candidate, None
     return (None, f"Error: Path '{path_str}' is outside the allowed workspace. "
                   f"Filesystem tools are restricted to project outputs, workspace "
                   f"data, uploaded documents, and presentation output.")

@@ -67,6 +67,40 @@ def _chunk_ids(splits: List) -> List[str]:
     return ids
 
 
+#: How many chunks one embedding request may carry.
+#:
+#: Why a constant and not "send them all": measured on the training box
+#: (2026-11-04), one `add_documents` over a whole CSV turned into a SINGLE ollama
+#: request that ran **4 min 20 s** — and because the embedding server handles one
+#: request at a time, every other user's search queued behind it for those four
+#: minutes. The site was not down; it was behind one upload.
+#:
+#: 32 keeps a batch near a second on four cores (a 50-input batch measured 5.5 s
+#: at 12 vCPU, so ~0.11 s per input) while still amortising the per-request cost.
+EMBED_BATCH_SIZE = 32
+
+
+def _add_in_batches(store, splits: List, ids: List[str]) -> List[str]:
+    """`store.add_documents()` in bounded batches, preserving ids.
+
+    Chunk order and ids are unchanged, so retrieval, citations and the
+    deterministic-id upsert behave exactly as before — the only difference is how
+    many chunks travel in one HTTP request to the embedding server.
+    """
+    written: List[str] = []
+    total = len(splits)
+    for start in range(0, total, EMBED_BATCH_SIZE):
+        window = splits[start:start + EMBED_BATCH_SIZE]
+        window_ids = ids[start:start + EMBED_BATCH_SIZE]
+        written.extend(store.add_documents(documents=window, ids=window_ids))
+        if total > EMBED_BATCH_SIZE:
+            logger.info(
+                "embedded %d/%d chunks (%d per request)",
+                min(start + EMBED_BATCH_SIZE, total), total, EMBED_BATCH_SIZE,
+            )
+    return written
+
+
 def index_file(
     user_id: int,
     file_path: str,
@@ -94,7 +128,7 @@ def index_file(
         s.metadata.setdefault("source", source_label or file_path)
 
     store = get_vector_store(user_id, url=url)
-    ids = store.add_documents(documents=splits, ids=_chunk_ids(splits))
+    ids = _add_in_batches(store, splits, _chunk_ids(splits))
 
     logger.info(
         "indexed %s into %s: %d pages → %d chunks",
@@ -121,7 +155,7 @@ def index_documents(
         drop_collection(user_id, url=url)
     splits = split_documents(list(docs))
     store = get_vector_store(user_id, url=url)
-    ids = store.add_documents(documents=splits, ids=_chunk_ids(splits))
+    ids = _add_in_batches(store, splits, _chunk_ids(splits))
     return {
         "collection": collection_name(user_id),
         "chunks": len(splits),

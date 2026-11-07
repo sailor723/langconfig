@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     environment: str = "development"
     debug: bool = True
 
+    # Seconds of silence on a streaming model call before langchain declares the socket dead. 120 (the
+    # library default) is wrong for agents that emit a large artifact as one tool call: measured, a build
+    # turn emitting a manifest JSON streamed no *content* for 120 s and the whole turn was lost.
+    stream_chunk_timeout_s: float = 600.0
+
     # ── Secrets at rest (Fernet key seed — read by services/encryption.py) ──
     api_key_encryption_key: Optional[str] = None
 

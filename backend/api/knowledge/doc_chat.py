@@ -46,7 +46,12 @@ router = APIRouter(prefix="/api/doc-chat", tags=["doc-chat"])
 # What counts as a document is defined ONCE, in the ingest core, and imported here. Doc chat kept
 # its own copy of these sets, which is how the read side and the write side could drift apart —
 # `ingest-folder` ended up with a text-only list that silently skipped PDFs while chat read them.
-from services.kv_ingest import PDF_EXTENSIONS, TEXT_EXTENSIONS  # noqa: E402
+from services.kv_ingest import (  # noqa: E402
+    DOCUMENT_EXTENSIONS,
+    OFFICE_EXTENSIONS,
+    PDF_EXTENSIONS,
+    TEXT_EXTENSIONS,
+)
 
 # FileStorage.save_file prefixes on-disk filenames with an 8-hex uuid to
 # avoid collisions (e.g. "b37a8720_industry_analysis_report.md"). Strip it
@@ -149,6 +154,28 @@ def _extract_text(file_path: Path, max_chars: int = 100_000) -> Optional[str]:
             return file_path.read_text(encoding="utf-8", errors="replace")
         except Exception as e:
             logger.warning(f"Failed to read text file {file_path}: {e}")
+            return None
+
+    if suffix in OFFICE_EXTENSIONS:
+        # The same extractors the agent's `read_any_file` uses — one reader for both
+        # surfaces, so "the knowledge chat cannot open what the agent can" cannot
+        # happen. `.xlsx` comes back as one block per sheet (what a reader expects).
+        try:
+            from tools.native_impl import (
+                _extract_docx_text,
+                _extract_pptx_text,
+                _extract_xlsx,
+            )
+
+            if suffix == ".docx":
+                text = _extract_docx_text(file_path)
+            elif suffix == ".pptx":
+                text = _extract_pptx_text(file_path)
+            else:  # .xlsx / .xlsm
+                text = _extract_xlsx(file_path)[0] or ""
+            return (text or "")[:max_chars]
+        except Exception as e:  # noqa: BLE001 — one unreadable file must not sink the turn
+            logger.warning(f"Failed to extract {suffix} text from {file_path}: {e}")
             return None
 
     if suffix in PDF_EXTENSIONS:
@@ -294,7 +321,7 @@ def _scan_folder_sync(knowledge: str, folder_path: str = "",
         if fp.name == MANIFEST_NAME:
             continue
         suffix = fp.suffix.lower()
-        if suffix not in TEXT_EXTENSIONS and suffix not in PDF_EXTENSIONS:
+        if suffix not in DOCUMENT_EXTENSIONS:
             continue
 
         try:
@@ -586,7 +613,7 @@ async def list_doc_chat_folders(knowledge: str):
         return {"folders": [], "total": 0, "knowledge": knowledge}
 
     folders: set[str] = set()
-    SUPPORTED = TEXT_EXTENSIONS | PDF_EXTENSIONS
+    SUPPORTED = DOCUMENT_EXTENSIONS
 
     # Walk all subdirectories looking for supported files
     for fp in sorted(base.rglob("*")):

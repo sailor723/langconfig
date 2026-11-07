@@ -125,9 +125,25 @@ export default function OntologyBrowserPage() {
           message above is the compiler's answer: it names the declaration it could not turn into SQL.
           Fix that, then press reload.
         </div>
-        <button style={{ ...btn(), marginTop: 12 }} onClick={() => navigate('/ontology')}>
-          back to the ontology list
-        </button>
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          <button style={btn()} onClick={() => navigate('/ontology')}>
+            back to the ontology list
+          </button>
+          {/* A profile that does not compile is exactly when someone wants to (re)generate it, and this
+              screen used to be a dead end: the Build… button lived in the tab bar, which only renders
+              once something compiles. */}
+          <button style={btn(true)} onClick={() => setBuildOpen(true)}
+                  title="generate or rebuild this ontology with an agent (runs as a background job)">
+            <Sparkles size={11} /> Build…
+          </button>
+        </div>
+        {buildOpen && (
+          <BuildOntologyDialog
+            ontologyKey={s.preset || ''}
+            onClose={() => setBuildOpen(false)}
+            onLanded={() => window.location.reload()}
+          />
+        )}
       </div>
     );
   }

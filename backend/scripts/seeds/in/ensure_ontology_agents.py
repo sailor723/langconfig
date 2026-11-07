@@ -66,9 +66,24 @@ EXPECTED = {
     # ontology into a checked board. Both invariants are the same as every other ontology agent — visible,
     # carrying the skill, carrying the skill's declared parameters.
     "Mock Data Agent": {
+        # The dataset name is ASKED (skill step 0c), so the configuration carries a placeholder rather than a
+        # name: a baked-in name is how a second brief lands in the first brief's database.
         "skills": ["generate-mock-dataset"],
-        "skill_params": {"generate-mock-dataset": {"dataset_name": "abc_coldchain",
-                                                   "generator": "retail_graph/abc/gen_abc.py"}},
+        "skill_params": {"generate-mock-dataset": {
+            "dataset_name": "(ask the user — propose one from the brief)",
+            "generator": "generated/<confirmed>/gen.py",
+        }},
+        "datasource": "doc_demo",
+        "native_tools_must_include": ["read_any_file"],
+    },
+    "Ontology Builder (new_coldchain)": {
+        # One builder per ontology key. The key is baked into `skill_params`, so a new key means a new agent
+        # — and this row is what makes that visible instead of a note in someone's shell history.
+        # (This agent was born as "doc_demo"; renamed when the confirmed dataset name became new_coldchain.)
+        "skills": ["build-ontology-from-db"],
+        "skill_params": {"build-ontology-from-db": {"datasource": "new_coldchain",
+                                                   "ontology_key": "new_coldchain"}},
+        "datasource": "new_coldchain",
     },
     "Dashboard Agent": {
         "skills": ["build-ontology-dashboard"],
@@ -112,6 +127,13 @@ def main() -> int:
                     changes.append(f"{key}: {json.dumps(cfg.get(key), ensure_ascii=False)} "
                                    f"-> {json.dumps(want[key], ensure_ascii=False)}")
                     cfg[key] = want[key]
+            # A tool the agent cannot work without. `read_any_file` is the only way a PDF/DOCX/PPTX brief
+            # becomes text, and an agent that cannot read its input invents one instead.
+            missing_tools = [t for t in (want.get("native_tools_must_include") or [])
+                             if t not in (cfg.get("native_tools") or [])]
+            if missing_tools:
+                changes.append(f"native_tools: add {missing_tools}")
+                cfg["native_tools"] = list(cfg.get("native_tools") or []) + missing_tools
             if not changes:
                 print(f"ok       #{agent_id} {name} — visible, skills and parameters in place")
                 continue

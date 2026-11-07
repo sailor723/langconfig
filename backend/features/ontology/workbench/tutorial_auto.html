@@ -188,8 +188,13 @@ async function detailMetrics(step) {
       <div class="def">${esc(decl)}</div>
       <pre class="sql">${esc(c.sql || '')}</pre>
       ${(c.notes || []).length ? `<div class="hint">${(c.notes || []).map(n => '· ' + esc(n)).join('<br>')}</div>` : ''}
-      <div class="val">${fmt(c.value)}</div>
-      <div class="hint">plan ${fmt(c.plan_rows)} rows${c.ms !== undefined ? ' · ' + c.ms + ' ms' : ''}</div>
+      <div class="val">${
+        // A GROUPED metric has one row per group and its first column is the KEY, so `value` is null
+        // by contract — printing it would show "—" for a metric that answered perfectly.
+        c.grouped && (c.rows || []).length
+          ? (c.rows || []).map(r => `<span class="mono">${esc(fmt(r[0]))}</span> → <b>${esc(fmt(r[1]))}</b>`).join(' &nbsp;·&nbsp; ')
+          : fmt(c.value)}</div>
+      <div class="hint">${c.grouped ? `${fmt(c.row_count)} group(s)` : `value`} · plan ${fmt(c.plan_rows)} rows${c.ms !== undefined ? ' · ' + c.ms + ' ms' : ''}</div>
     </div>`;
   }).join('') + `</div>`;
 }

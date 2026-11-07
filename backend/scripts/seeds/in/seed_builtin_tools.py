@@ -112,9 +112,13 @@ SEEDABLE_TOOL_META = {
     "graphindex_rebuild_one": ("GraphIndex - Rebuild One Document", "retrieval", None),
     "graphindex_rebuild_project": ("GraphIndex - Rebuild Project", "retrieval", None),
     "graphindex_show": ("GraphIndex - Show Document", "retrieval", None),
-    # Embedding retrieval (the semantic-search tutorial's step 5 as a tool). The
-    # INDEX side is deliberately not a tool — see scripts/rag_index.py for why.
+    # Embedding retrieval (the semantic-search tutorial's steps 3-5 as tools).
+    # Both halves live here on purpose: the document-QA agent (id 278) is the one
+    # place retrieval is taught, so "nothing is indexed yet" must be fixable from
+    # the same agent that reports it. `scripts/rag_index.py` remains the terminal
+    # path (it prints the chunk-count report), the tool is the in-conversation one.
     "rag_search": ("RAG - Search Documents", "retrieval", None),
+    "rag_index": ("RAG - Index Documents", "retrieval", None),
     "sqlite_execute": ("SQLite Execute", "data", None),
     "sqlite_load_csv": ("SQLite Load CSV", "data", None),
     "python_execute": ("Python Execute", "data", None),

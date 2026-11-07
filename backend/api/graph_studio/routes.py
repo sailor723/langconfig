@@ -49,6 +49,11 @@ from fastapi.responses import PlainTextResponse, StreamingResponse
 from langgraph.types import Command
 from pydantic import BaseModel
 
+# The on/off database list is ONE rule (services/offered_databases); the dashboard
+# groupings come from the same place the Analysis browser reads them.
+from services import offered_databases
+from services.dashboard_keys import dashboard_keys
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/graph-studio", tags=["graph-studio"])
@@ -495,36 +500,132 @@ def _sql_setup_module() -> Any:
     return sql_setup_db
 
 
-def _list_databases() -> List[str]:
-    """Every target the SQL tools can point at, sorted.
+def _settings_items() -> List[Dict[str, Any]]:
+    """Stored `databases` rows (all of them) — the shared on/off rule decides."""
+    return offered_databases.settings_items()
 
-    Two sources, one list: the non-template databases on the *platform* server,
-    plus named targets that live on another instance (TPC-H at :5432). The
-    dropdown only deals in names, so a target looks like any other entry — the
-    host/port/role it needs is resolved inside sql_setup_db.
+
+def _discovered_databases() -> List[Dict[str, Any]]:
+    """Every database the SQL tools *could* point at, with its connection facts.
+
+    Platform server's own databases plus the named targets that live on another
+    instance (TPC-H at :5432). An unreachable platform server yields just the
+    targets: a Settings list that cannot be read is worse than a short one.
     """
     import psycopg2
 
     sqlmod = _sql_setup_module()
-    names: List[str] = []
-    # Platform server on purpose: the picker lists the local databases plus the
-    # registered targets, whichever target is currently active.
-    conn = psycopg2.connect(**sqlmod.platform_params())
+    rows: List[Dict[str, Any]] = []
     try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT datname FROM pg_database "
-                "WHERE datistemplate = false ORDER BY datname"
-            )
-            names = [row[0] for row in cur.fetchall()]
-    finally:
-        conn.close()
-    # A target whose server is down must not empty the whole picker: it is
-    # listed (and fails loudly on use) rather than dropped.
-    for name in sqlmod.list_targets():
-        if name not in names:
-            names.append(name)
-    return sorted(names)
+        conn = psycopg2.connect(**sqlmod.platform_params())
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT datname FROM pg_database "
+                    "WHERE datistemplate = false ORDER BY datname"
+                )
+                rows = [{"name": r[0], "kind": "platform"} for r in cur.fetchall()]
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"[graph-studio] cannot enumerate platform databases: {exc}")
+
+    known = {r["name"] for r in rows}
+    # A target whose server is down must not vanish from the list: it is listed
+    # (and fails loudly on use) rather than dropped.
+    for name, cfg in sqlmod.list_targets().items():
+        if name in known:
+            continue
+        rows.append({
+            "name": name,
+            "kind": "target",
+            "host": cfg.get("host"),
+            "port": cfg.get("port"),
+            "user": cfg.get("user"),
+            "dbname": cfg.get("dbname") or name,
+        })
+    # Dashboard databases (data/analysis_dbs) are offered the same way: a database
+    # with pages must be a row here even when switched off, otherwise the switch
+    # to switch it back on would not exist. Same name as a SQL database (chinook)
+    # keeps the SQL kind — that row is the one the picker can target.
+    try:
+        for key in dashboard_keys():
+            if key in known:
+                continue
+            known.add(key)
+            rows.append({"name": key, "kind": "dashboard"})
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"[graph-studio] cannot list dashboard databases: {exc}")
+    return rows
+
+
+def database_catalog() -> List[Dict[str, Any]]:
+    """Every known database, each with an on/off state — the Settings table.
+
+    Settings is the DECISION, discovery is the OFFER. A database that exists on
+    the server but is absent from the setting is listed as OFF rather than
+    hidden: that is what makes the switch meaningful ("this one exists, you
+    chose not to offer it"). Rows in the setting carry their own label/connection
+    facts, which win over the discovered ones.
+    """
+    items = _settings_items()
+    by_name = {str(i["name"]): i for i in items}
+    discovered = _discovered_databases()
+
+    catalog: List[Dict[str, Any]] = []
+    seen = set()
+    for row in discovered:
+        name = str(row["name"])
+        seen.add(name)
+        item = by_name.get(name)
+        merged = {
+            "name": name,
+            "label": None,
+            "kind": row.get("kind", "platform"),
+            "host": None,
+            "port": None,
+            "user": None,
+            "dbname": None,
+            **row,
+        }
+        if item is not None:
+            # `password` never leaves the server: the row reports whether one is
+            # stored, which is all the table needs (and all it should know).
+            merged.update({k: v for k, v in item.items() if v is not None and k != "password"})
+            merged["has_password"] = bool(item.get("password"))
+            merged["name"] = name
+            merged["enabled"] = bool(item.get("enabled", True))
+        else:
+            merged["enabled"] = not items  # no setting at all yet → everything on
+        merged["registered"] = item is not None
+        catalog.append(merged)
+
+    # Entries only the admin knows (a target added by hand) still show up.
+    for name, item in by_name.items():
+        if name in seen:
+            continue
+        catalog.append({**{k: v for k, v in item.items() if k != "password"}, "name": name,
+                        "has_password": bool(item.get("password")),
+                        "enabled": bool(item.get("enabled", True)), "registered": True})
+
+    return sorted(catalog, key=lambda r: (not r.get("enabled", True), str(r["name"]).lower()))
+
+
+def _settings_databases() -> List[str]:
+    """Names the SQL picker offers: switched-ON rows that are actually SQL targets.
+
+    A `dashboard` row is a dashboard grouping, not a database the SQL tools can
+    connect to — offering it would make the picker produce a failing run.
+    """
+    return [
+        str(r["name"]) for r in database_catalog()
+        if r.get("enabled", True) and r.get("kind") in ("platform", "target")
+    ]
+
+
+def _list_databases() -> List[str]:
+    """Every target the SQL tools can point at right now, sorted."""
+    return sorted(set(_settings_databases()))
 
 
 @router.get("/databases")
@@ -561,6 +662,132 @@ def list_databases() -> Dict[str, Any]:
         out["neo4j"] = []
         out["neo4j_error"] = str(exc)
     return out
+
+
+@router.post("/databases/{name}/test")
+def test_database(name: str) -> Dict[str, Any]:
+    """Open a real connection to `name` and report what it found.
+
+    Why a button and not a belief: the Settings table can describe a target that
+    does not exist, a role without rights, or a password the server rejects, and
+    every one of those looked identical from the page — a row with an "on"
+    checkbox. This returns the server's own words ("no password supplied",
+    "database does not exist") plus table count and version when it works.
+
+    Never cached and never raises for a connection problem: a failed test is a
+    result, not a server error.
+    """
+    import psycopg2
+
+    sqlmod = _sql_setup_module()
+    params = sqlmod._target_params(name)
+    # `_target_params` returning None means "a plain database on the platform
+    # server" — which is also the answer when a Settings row marks the name
+    # `platform` even though a stale named target exists (see sql_setup_db).
+    is_platform = params is None
+    if is_platform:
+        base = dict(sqlmod._connection_params())
+        base["dbname"] = name
+        params = base
+    try:
+        conn = psycopg2.connect(connect_timeout=5, **params)
+    except Exception as exc:  # noqa: BLE001
+        return {"database": name, "ok": False, "detail": str(exc).strip(),
+                "target": "platform" if is_platform else "named"}
+    try:
+        with conn.cursor() as cur:
+            cur.execute("select current_database(), current_user, version()")
+            dbname, role, version = cur.fetchone()
+            cur.execute(
+                "SELECT count(*) FROM information_schema.tables "
+                "WHERE table_schema NOT IN ('pg_catalog','information_schema') "
+                "AND table_type = 'BASE TABLE'"
+            )
+            tables = cur.fetchone()[0]
+    finally:
+        conn.close()
+    return {
+        "database": dbname,
+        "ok": True,
+        "role": role,
+        "tables": tables,
+        "version": version.split(",")[0],
+        "target": "platform" if is_platform else "named",
+    }
+
+
+class TargetPasswordRequest(BaseModel):
+    password: str = ""
+
+
+@router.post("/databases/{name}/password")
+def set_target_password(name: str, req: TargetPasswordRequest) -> Dict[str, Any]:
+    """Set (or clear) the password of one `target` row. Admin only.
+
+    A dedicated endpoint instead of the generic settings mutate because the table
+    is saved as ONE list value: a browser that never receives the stored password
+    (it is redacted on the wire) would blank it on the next save. One row, one
+    secret, one op.
+    """
+    from fastapi import HTTPException
+    from core.context.current_user import require_admin as _require_admin
+
+    _require_admin()
+    import core.settings as core_settings
+    from db.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        items = list((core_settings.resolve(db, "databases").value or {}).get("items") or [])
+        idx = next((i for i, r in enumerate(items) if str(r.get("name")) == name), None)
+        if idx is None:
+            raise HTTPException(404, f"'{name}' is not registered in Settings → Databases")
+        # Clearing a password removes the key rather than storing "" — an empty
+        # string would be sent to the server as a password and rejected.
+        ops = ([{"op": "set", "path": ["items", idx, "password"], "value": req.password}]
+               if req.password else
+               [{"op": "unset", "path": ["items", idx, "password"]}])
+        doc, revision = core_settings.mutate(db, "databases", ops)
+    except core_settings.SettingsConflict as exc:  # pragma: no cover - single writer
+        raise HTTPException(409, str(exc)) from exc
+    finally:
+        db.close()
+    _settings_conn_cache_clear()
+    return {"database": name, "has_password": bool(req.password), "revision": revision}
+
+
+def _settings_conn_cache_clear() -> None:
+    """Drop the cached connection facts so the next query uses the new value."""
+    try:
+        _sql_setup_module()._SETTINGS_CONN_CACHE.clear()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+@router.get("/databases/catalog")
+def databases_catalog() -> Dict[str, Any]:
+    """Every known database with its on/off state — the Settings → Databases table.
+
+    Discovery answers "what exists", the `databases` setting answers "what is
+    offered". This endpoint returns both sides joined so the admin sees the
+    databases they switched off instead of having them silently disappear.
+    """
+    sqlmod = _sql_setup_module()
+    try:
+        rows = database_catalog()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"[graph-studio] catalog failed: {exc}")
+        return {"databases": [], "active_sql": None, "error": str(exc)}
+    return {
+        "databases": rows,
+        "active_sql": sqlmod.get_target_database(),
+        # Switched on, split by what the switch actually feeds: `offered` is the
+        # SQL picker's list, `offered_dashboards` is the Analysis browser's.
+        "offered": [r["name"] for r in rows
+                    if r.get("enabled", True) and r.get("kind") in ("platform", "target")],
+        "offered_dashboards": [r["name"] for r in rows
+                               if r.get("enabled", True) and r.get("kind") == "dashboard"],
+    }
 
 
 def _neo4j_setup_module() -> Any:

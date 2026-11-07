@@ -1664,6 +1664,10 @@ function OntologySection() {
         desc="The workbench profiles the Ontology activity can open. Each one is a server that loads one ontology folder and serves its numbers; the ontology's own content lives in TTL files in the ontology repo, not here."
       />
 
+      {/* The decision goes FIRST. It used to sit under a long profile editor, so a human looking for
+          "the publish an agent staged" had to scroll past every profile — and reported not finding it. */}
+      <PublishPanel />
+
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', border: `1px solid ${tok.borderL2}`, borderRadius: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, lineHeight: '22px', fontWeight: 500, color: tok.labelPrimary }}>Show compiled SQL in the browser</div>
@@ -1736,7 +1740,6 @@ function OntologySection() {
         with the command that starts it, so a stopped server never looks like an empty ontology.
       </div>
 
-      <PublishPanel />
     </div>
   )
 }

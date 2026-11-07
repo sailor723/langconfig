@@ -370,11 +370,22 @@ def main() -> int:
     args = ap.parse_args()
     base = args.base.rstrip("/")
 
-    keys = [p.name for p in sorted(PROFILES.iterdir()) if p.is_dir() and not p.name.startswith(".")]
+    # A directory that holds only a `.staging` copy is a STAGED publish, not an installed ontology:
+    # its pages answer 404 because nothing was applied yet. Measured: staging new_coldchain made
+    # this gate request five pages that could not exist and turn five checks red — a false red that
+    # says "the app is broken" about an ontology a human has not installed. So a key needs a profile
+    # file to be gated, and a staged-only key is named as pending instead of failing.
+    keys = [p.name for p in sorted(PROFILES.iterdir())
+            if p.is_dir() and not p.name.startswith(".") and _settings_file(p.name) is not None]
     if args.key:
         keys = [args.key]
 
     g = Gate()
+    staged_only = sorted(p.name for p in PROFILES.iterdir()
+                         if p.is_dir() and not p.name.startswith(".") and p.name not in keys)
+    for key in staged_only:
+        g.notrun(f"{key} pages", f"{key} is staged, not installed (no profile file) — its pages "
+                                f"answer 404 until a human applies the publish")
     authored = [k for k in keys if _style(k) == "authored" or _has_training(k)]
     if not authored:
         g.notrun("authored chapters", "no profile in this checkout declares tutorial_style=authored")

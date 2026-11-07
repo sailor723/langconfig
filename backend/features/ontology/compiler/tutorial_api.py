@@ -216,6 +216,15 @@ def _label(g, name: str):
 
 
 # ───────────────────────────────────────────────────────────── run / definition
+def _cell(c):
+    """JSON-safe copy of one result cell (dates/Decimals are the two that bite)."""
+    if hasattr(c, "isoformat"):
+        return c.isoformat()
+    if c is None or isinstance(c, (int, float, str, bool)):
+        return c
+    return str(c)
+
+
 def run_metric(profile: dict, g, name: str) -> dict:
     compiled = sqlgen.compile_metric(g, name)
     dsn = _dsn.resolved(profile)
@@ -224,14 +233,19 @@ def run_metric(profile: dict, g, name: str) -> dict:
         cur = conn.cursor()
         res = guard.run(cur, compiled.sql, cfg=profile.get("guard") or None, mode="declared")
         rows = res.get("rows") or []
-        value = rows[0][0] if rows and rows[0] else None
-        if hasattr(value, "isoformat"):
-            value = value.isoformat()
-        elif value is not None and not isinstance(value, (int, float, str, bool)):
-            value = str(value)
     finally:
         conn.close()
-    return {"ok": True, "metric": name, "sql": compiled.sql, "value": value,
+    # A GROUPED metric's first column is the GROUP KEY, not a number. Measured on
+    # :overloadRateByRouteVersion this endpoint reported `value: "v2"`, which a reader can take as
+    # the answer; the group values never travelled. So the rows travel now, and `value` keeps its
+    # scalar meaning only for a one-row / one-column result — `grouped: true` says the number is
+    # in `rows`, so nothing has to be guessed from the shape of the payload.
+    grouped = len(rows) > 1 or (len(rows) == 1 and len(rows[0]) > 1)
+    return {"ok": True, "metric": name, "sql": compiled.sql,
+            "value": _cell(rows[0][0]) if (rows and not grouped) else None,
+            "grouped": grouped,
+            "rows": [[_cell(c) for c in row] for row in rows[:50]],
+            "row_count": len(rows),
             "notes": compiled.notes + (res.get("notes") or []),
             "plan_rows": res.get("plan_rows"), "ms": res.get("ms")}
 

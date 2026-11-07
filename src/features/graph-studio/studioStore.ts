@@ -69,6 +69,11 @@ export interface StudioState {
   activeNeo4jDatabase: string;
   /** Live summary of the active database (canvas header). */
   dbSummary: DatabaseSummary | null;
+  /** Why the last summary fetch failed, or null. Kept in state so the canvas can
+   *  say "cannot read this database" instead of silently showing the previous
+   *  one's tables — that is how switching to an unreachable target looked like
+   *  "the switch did nothing". */
+  dbSummaryError: string | null;
   threads: Thread[];
   currentThreadId: string;
   threadState: ThreadState | null;
@@ -96,6 +101,7 @@ const initialState: StudioState = {
   activeSqlDatabase: '',
   activeNeo4jDatabase: '',
   dbSummary: null,
+  dbSummaryError: null,
   threads: [],
   currentThreadId: '',
   threadState: null,
@@ -185,9 +191,13 @@ export const studio = {
       const dbSummary = dbType === 'neo4j'
         ? await api.loadNeo4jSummary(lang)
         : await api.loadDatabaseSummary(lang);
-      setState({ dbSummary });
-    } catch (err) {
+      setState({ dbSummary, dbSummaryError: null });
+    } catch (err: any) {
+      // Clearing dbSummary is the point: keeping the previous database's tables
+      // is what made a failed switch look like a successful one.
+      const detail = err?.response?.data?.detail || err?.message || String(err);
       console.error('[graph-studio] loadDatabaseSummary failed', err);
+      setState({ dbSummary: null, dbSummaryError: detail });
     }
   },
 

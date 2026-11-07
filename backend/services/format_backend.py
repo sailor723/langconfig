@@ -207,14 +207,24 @@ class FormatAwareBackend(BackendProtocol):
 
     @staticmethod
     def _find_filesystem_backend(backend):
-        """Return the FilesystemBackend inside a backend or CompositeBackend."""
+        """A backend that can turn a virtual path into a real file on disk.
+
+        `FilesystemBackend` was the only accepted answer, and that is why a document read failed on exactly the
+        path that needs it most: a sandboxed agent's backend is `LocalShellBackend`, which HAS `_resolve_path`
+        but is not a `FilesystemBackend` subclass — so this returned None, the extraction fell back to
+        `_read_bytes_via_backend` (the backend's text `read`), and a 16 KB .docx came back as its raw OOXML.
+        Measured: a Mock Data Agent got 143 KB of `<w:p>` tags, could not read the brief, then shelled out to
+        `unzip word/document.xml` and pasted the tag soup as its deliverable.
+
+        Any backend exposing `_resolve_path` is usable here: that method is the whole contract this needs.
+        """
         from deepagents.backends.filesystem import FilesystemBackend
-        if isinstance(backend, FilesystemBackend):
-            return backend
-        # CompositeBackend: its `.default` handles non-routed paths.
-        default = getattr(backend, "default", None)
-        if isinstance(default, FilesystemBackend):
-            return default
+
+        for candidate in (backend, getattr(backend, "default", None)):
+            if candidate is None:
+                continue
+            if isinstance(candidate, FilesystemBackend) or callable(getattr(candidate, "_resolve_path", None)):
+                return candidate
         return None
 
     def _read_bytes_via_backend(self, file_path: str) -> Optional[bytes]:

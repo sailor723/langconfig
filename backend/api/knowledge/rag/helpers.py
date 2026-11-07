@@ -40,26 +40,30 @@ def _is_graphindexable(filename: str) -> bool:
     return ext in SUPPORTED_GRAPHINDEX_EXTS
 
 def _queue_graphindex_ingest(file_path: str, project_id: int = 1) -> None:
-    """Run cmd_ingest on the uploaded file to create a Neo4j Document node.
+    """Best-effort: also ingest into the Neo4j graph index.
 
-    This is called as a background task after a file has been uploaded and
-    saved to disk. It runs the same Phase 9 ingestion pipeline as the CLI:
-    hash → dedup (FS + Neo4j) → copy → LLM enrichment → upsert to Neo4j.
+    Deliberately tolerant. `learning/phase9/graphindex/index_build.py` imports
+    `services.neo4j_embedding_matcher`, which does not exist in this checkout, so
+    this call raised ModuleNotFoundError INSIDE the upload handler and turned every
+    `/api/rag/upload` into a 500 — a Neo4j extra taking the vector pipeline down
+    with it. Neo4j is optional here (no server configured), so the failure is
+    logged and the upload continues with the vector index, which is what the RAG
+    agent actually reads.
     """
     try:
         from learning.phase9.graphindex.index_build import (
-            make_llm, cmd_ingest, Neo4jDocumentIndex,
+            Neo4jDocumentIndex,
+            cmd_ingest,
         )
-        index = Neo4jDocumentIndex(
-            base_url=_NEO4J_HTTP_URL,
-            username=_NEO4J_HTTP_USER,
-            password=_NEO4J_HTTP_PASSWORD,
-        )
+        from langgraph.llm import get_llm
+
+        llm = get_llm()
+        index = Neo4jDocumentIndex()
         index.ensure_constraints()
-        llm = make_llm()
         cmd_ingest(index, llm, file_path, project_id=project_id)
-    except Exception as e:
-        logger.error(f"graphindex ingest failed for {file_path}: {e}")
+    except Exception as exc:  # noqa: BLE001 — Neo4j is an extra, never a requirement
+        logger.info("graphindex ingest skipped for %s (%s)", file_path, exc)
+
 
 async def index_document_background(document_id: int):
     """Background task to index a document for both vector RAG and GraphIndex."""

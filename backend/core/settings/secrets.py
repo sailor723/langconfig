@@ -35,12 +35,22 @@ _FERNET_PREFIX = "gAAAA"
 # ── JSON path helpers ────────────────────────────────────────────────────────
 
 def get_at_path(doc: dict, path: list[str]) -> Any:
-    """Return the value at a JSON path, or a MISSING sentinel."""
+    """Return the value at a JSON path, or a MISSING sentinel.
+
+    List indices are supported (``["items", 0, "password"]``) because settings
+    documents hold lists of models — a secret inside a row is still a secret.
+    """
     cur: Any = doc
     for key in path:
-        if not isinstance(cur, dict) or key not in cur:
+        if isinstance(cur, list):
+            idx = key if isinstance(key, int) else (int(key) if str(key).isdigit() else None)
+            if idx is None or not 0 <= idx < len(cur):
+                return _MISSING
+            cur = cur[idx]
+        elif isinstance(cur, dict) and key in cur:
+            cur = cur[key]
+        else:
             return _MISSING
-        cur = cur[key]
     return cur
 
 
@@ -55,30 +65,62 @@ _MISSING = _Missing()
 
 
 def set_at_path(doc: dict, path: list[str], value: Any) -> None:
-    """Set a value at a JSON path, creating intermediate dicts as needed."""
+    """Set a value at a JSON path, creating intermediate dicts as needed.
+
+    A list position must already exist when its parent chain runs through a list;
+    callers get there via :func:`expand_path`, which only yields real indices.
+    """
     if not path:
         raise ValueError("empty path")
-    cur = doc
+    cur: Any = doc
     for key in path[:-1]:
+        if isinstance(cur, list):
+            idx = key if isinstance(key, int) else int(key)
+            nxt = cur[idx]
+            if not isinstance(nxt, (dict, list)):
+                nxt = {}
+                cur[idx] = nxt
+            cur = nxt
+            continue
         nxt = cur.get(key)
-        if not isinstance(nxt, dict):
+        if not isinstance(nxt, (dict, list)):
             nxt = {}
             cur[key] = nxt
         cur = nxt
-    cur[path[-1]] = value
+    if isinstance(cur, list):
+        cur[path[-1] if isinstance(path[-1], int) else int(path[-1])] = value
+    else:
+        cur[path[-1]] = value
 
 
 def delete_at_path(doc: dict, path: list[str]) -> bool:
     """Delete a value at a JSON path. Returns True if it existed."""
     if not path:
         raise ValueError("empty path")
-    cur = doc
+    cur: Any = doc
     for key in path[:-1]:
-        if not isinstance(cur, dict) or key not in cur:
+        if isinstance(cur, list):
+            idx = key if isinstance(key, int) else (int(key) if str(key).isdigit() else None)
+            if idx is None or not 0 <= idx < len(cur):
+                return False
+            cur = cur[idx]
+        elif isinstance(cur, dict) and key in cur:
+            cur = cur[key]
+        else:
             return False
-        cur = cur[key]
-    if isinstance(cur, dict) and path[-1] in cur:
-        del cur[path[-1]]
+    last = path[-1] if isinstance(path[-1], int) else (
+        int(path[-1]) if str(path[-1]).isdigit() else path[-1]
+    )
+    if isinstance(cur, list) and isinstance(last, int):
+        # A secret inside a list row is deleted by clearing the field, not by
+        # removing the row: dropping the item would shift every later index and
+        # silently change which database the row describes.
+        if 0 <= last < len(cur):
+            cur[last] = None
+            return True
+        return False
+    if isinstance(cur, dict) and last in cur:
+        del cur[last]
         return True
     return False
 
@@ -121,8 +163,59 @@ def secret_paths(schema: type[BaseModel], prefix: Optional[list[str]] = None) ->
             paths.append(path)
         nested = _field_schema_type(model_field)
         if nested is not None:
-            paths.extend(secret_paths(nested, path))
+            # A `list[Model]` field yields "<field>.*.<secret>": the "*" is
+            # expanded per document (see `expand_path`), because the number of
+            # rows is data, not schema. Without this a password on a list row
+            # was stored (and returned) as plaintext while the UI showed it as a
+            # secret slot.
+            paths.extend(secret_paths(nested, [*path, "*"] if _is_list_of_models(model_field) else path))
     return paths
+
+
+def _is_list_of_models(model_field: Any) -> bool:
+    """True for a ``list[BaseModel]`` (or ``Optional[list[BaseModel]]``) field."""
+    annotation = model_field.annotation
+    while hasattr(annotation, "__args__"):
+        # Check the origin BEFORE unwrapping: `list[X].__args__` is `(X,)`, so
+        # unwrapping first walks straight past the list and answers False.
+        if getattr(annotation, "__origin__", None) is list:
+            args = getattr(annotation, "__args__", ())
+            return bool(args) and _is_model_class(args[0])
+        args = [a for a in annotation.__args__ if a is not type(None)]
+        if len(args) != 1:
+            return False
+        annotation = args[0]
+    return False
+
+
+def _is_model_class(annotation: Any) -> bool:
+    while hasattr(annotation, "__args__"):
+        args = [a for a in annotation.__args__ if a is not type(None)]
+        if not args:
+            return False
+        annotation = args[0]
+    return isinstance(annotation, type) and issubclass(annotation, BaseModel)
+
+
+def expand_path(doc: dict, path: list[str]) -> list[list[str]]:
+    """Concrete paths for a declared secret path — ``"*"`` matches list indices.
+
+    A declared path is schema-shaped (``items.*.password``); a document is not
+    (``items`` holds however many rows exist), so every reader/writer has to
+    expand before touching values.
+    """
+    out: list[list[str]] = [[]]
+    for seg in path:
+        nxt: list[list[str]] = []
+        for prefix in out:
+            if seg != "*":
+                nxt.append([*prefix, seg])
+                continue
+            cur = get_at_path(doc, prefix)
+            if isinstance(cur, list):
+                nxt.extend([*prefix, i] for i in range(len(cur)))
+        out = nxt
+    return out
 
 
 # ── at-rest encryption ───────────────────────────────────────────────────────
@@ -139,13 +232,14 @@ def encrypt_document_secrets(doc: dict, schema: type[BaseModel]) -> dict:
     absent). The result is what gets stored in the DB row."""
     encrypted = copy.deepcopy(doc)
     svc = _encryption()
-    for path in secret_paths(schema):
-        value = get_at_path(encrypted, path)
-        if value is _MISSING or value is None:
-            continue
-        if isinstance(value, str) and value.startswith(_FERNET_PREFIX):
-            continue  # already encrypted
-        set_at_path(encrypted, path, svc.encrypt(str(value)))
+    for declared in secret_paths(schema):
+        for path in expand_path(encrypted, declared):
+            value = get_at_path(encrypted, path)
+            if value is _MISSING or value is None:
+                continue
+            if isinstance(value, str) and value.startswith(_FERNET_PREFIX):
+                continue  # already encrypted
+            set_at_path(encrypted, path, svc.encrypt(str(value)))
     return encrypted
 
 
@@ -154,12 +248,13 @@ def decrypt_document_secrets(doc: dict, schema: type[BaseModel]) -> dict:
     plaintext values pass through unchanged (encryption_service contract)."""
     decrypted = copy.deepcopy(doc)
     svc = _encryption()
-    for path in secret_paths(schema):
-        value = get_at_path(decrypted, path)
-        if value is _MISSING or value is None:
-            continue
-        if isinstance(value, str) and value.startswith(_FERNET_PREFIX):
-            set_at_path(decrypted, path, svc.decrypt(value))
+    for declared in secret_paths(schema):
+        for path in expand_path(decrypted, declared):
+            value = get_at_path(decrypted, path)
+            if value is _MISSING or value is None:
+                continue
+            if isinstance(value, str) and value.startswith(_FERNET_PREFIX):
+                set_at_path(decrypted, path, svc.decrypt(value))
     return decrypted
 
 
@@ -174,10 +269,16 @@ def redact(doc: dict, schema: type[BaseModel]) -> tuple[dict, list[dict]]:
     """
     redacted = copy.deepcopy(doc)
     secrets: list[dict] = []
-    for path in secret_paths(schema):
-        value = get_at_path(redacted, path)
-        secrets.append({"path": path, "set": value is not _MISSING and value is not None})
-        delete_at_path(redacted, path)
+    for declared in secret_paths(schema):
+        concrete = expand_path(redacted, declared)
+        if not concrete:
+            # An empty list still reports the slot, so a form knows it exists.
+            secrets.append({"path": declared, "set": False})
+            continue
+        for path in concrete:
+            value = get_at_path(redacted, path)
+            secrets.append({"path": path, "set": value is not _MISSING and value is not None})
+            delete_at_path(redacted, path)
     return redacted, secrets
 
 
@@ -199,12 +300,13 @@ def secret_sources(own: dict, effective: dict, schema: type[BaseModel]) -> list[
     when the shared layer has one too: the account's value is the one in use.
     """
     out: list[dict] = []
-    for path in secret_paths(schema):
-        if _has_value(own, path):
-            source = "own"
-        elif _has_value(effective, path):
-            source = "shared"
-        else:
-            source = "unset"
-        out.append({"path": path, "set": source != "unset", "source": source})
+    for declared in secret_paths(schema):
+        for path in expand_path(effective, declared) or [declared]:
+            if _has_value(own, path):
+                source = "own"
+            elif _has_value(effective, path):
+                source = "shared"
+            else:
+                source = "unset"
+            out.append({"path": path, "set": source != "unset", "source": source})
     return out

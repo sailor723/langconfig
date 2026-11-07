@@ -11,7 +11,6 @@ export interface ProjectsApi {
   createProject(data: { name: string; description?: string; configuration?: object }): Promise<any>;
   updateProject(id: number, data: Partial<any>): Promise<any>;
   deleteProject(id: number): Promise<any>;
-  indexProject(id: number): Promise<any>;
   getAgentsMd(projectId: number): Promise<any>;
   updateAgentsMd(projectId: number, content: string): Promise<any>;
   deleteAgentsMd(projectId: number): Promise<any>;
@@ -47,10 +46,6 @@ export const projectsApi: ProjectsApi = {
 
   async deleteProject(this: APIClient, id: number) {
     return this.delete(`/api/projects/${id}`);
-  },
-
-  async indexProject(this: APIClient, id: number) {
-    return this.post(`/api/projects/${id}/index`);
   },
 
   // AGENTS.md (MemoryMiddleware for DeepAgent)
