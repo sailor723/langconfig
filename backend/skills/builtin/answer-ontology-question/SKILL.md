@@ -116,6 +116,23 @@ compiler:
   `NOT RUN (no R2RML mapping for this dataset / the endpoint is down)`. Never answer a SPARQL question
   from the SQL lane and call it lane B.
 
+## The samples are the front door, and they are gated
+
+The profile's `samples` are the questions a user clicks first. `samples.json` next to the profile says
+what each one must produce — a value, a set of grouped rows, or a refusal **by name** — and
+`check_samples.py` runs every one of them through this pipeline (`--profile … `, exit 2 = refused and
+gated, exit 1 = a sample failed). `check_ontology_generic.py` runs it as the `S` gate, so a publish that
+breaks a sample cannot land.
+
+Three rules for that file:
+
+- the expected numbers come from a **second route** (hand-written SQL), not from this pipeline's output;
+- `expect: {"unresolved": "…"}` is a **documented backlog item** — a sample the ontology cannot honour
+  yet, printed on every run with the declaration that is missing and the number a second route gives. It
+  is never counted as a pass;
+- a sample nobody checks is the one that rots: `check_samples.py` warns about every offered question that
+  is not in `samples.json`.
+
 ## Report like this
 
 ```

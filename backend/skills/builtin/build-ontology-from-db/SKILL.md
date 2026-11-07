@@ -187,6 +187,10 @@ promises. Metrics report the unbounded scan and the plan budget decides.
   a city; in another it is a real object)
 - **samples**: 8–15 questions, one per capability, at least one that must be refused. Then gate them
   — every sample must answer, or refuse *by name* — because a rotted sample is worse than none.
+  Write `samples.json` next to the profile with what each question must produce (`value`, `rows`, or
+  `refused_by_name`), the numbers coming from a **second SQL route**; mark what the ontology cannot
+  honour yet as `unresolved` with the missing declaration named. `retail_graph/check_samples.py
+  --profile …` runs it, and the generic gate runs it as `S` on every publish.
 - only then the UI/profile/tabs. The profile is one file: namespace, ontology dir, overlay,
   generated page, DSN, feature flags, guardrails, samples, aliases, actions file.
 
