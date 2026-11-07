@@ -53,6 +53,11 @@ EXPECTED = {
                                                    "ontology_key": "logistics"}},
         "datasource": "logistics",
     },
+    "logics_query": {
+        "skills": ["answer-ontology-question"],
+        "skill_params": {"answer-ontology-question": {"ontology_key": "logistics",
+                                                     "workbench": "http://127.0.0.1:8098"}},
+    },
     "Ontology Editor": {
         "skills": ["edit-ontology-metrics", "answer-ontology-question"],
         "skill_params": {"edit-ontology-metrics": {"ontology_key": "logistics"},

@@ -126,6 +126,23 @@ compiler:
   `NOT RUN (no R2RML mapping for this dataset / the endpoint is down)`. Never answer a SPARQL question
   from the SQL lane and call it lane B.
 
+## Running this as an agent
+
+The `logics_query` agent (seeded by `scripts/seeds/in/seed_logics_query_agent.py`) is this skill with one
+tool: **`ontology_ask(question, ontology_key, confirm)`** — the whole pipeline behind one call (menu →
+rules-first intent → validate → compile → guardrails → verified prose), returning the number with its
+definition and compiled SQL, or a refusal **by name**, or `needs_confirmation` with the understanding.
+
+It deliberately holds **no publish tool and no file-writing tools**: an answering agent that can change
+the ontology it answers from makes every number it reports suspect. Its ontology comes from
+`skill_params`, not from prose:
+
+```json
+"skills": ["answer-ontology-question"],
+"skill_params": {"answer-ontology-question": {"ontology_key": "logistics",
+                                              "workbench": "http://127.0.0.1:8098"}}
+```
+
 ## The samples are the front door, and they are gated
 
 The profile's `samples` are the questions a user clicks first. `samples.json` next to the profile says
