@@ -47,7 +47,7 @@ def _die(message: str) -> "int":
 
 def _load_compiler():
     """The repo's compiler and guardrails — not a copy of them."""
-    graph_dir = REPO / "retail_graph"
+    graph_dir = pathlib.Path(__file__).resolve().parents[4] / "features" / "ontology" / "compiler"
     if not graph_dir.is_dir():
         raise SystemExit(f"ERROR: no compiler at {graph_dir} (set ONTOLOGY_REPO)")
     if str(graph_dir) not in sys.path:

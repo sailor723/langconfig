@@ -1,6 +1,6 @@
 # The ABC cold-chain dataset — worked example
 
-`retail_graph/abc/gen_abc.py` (SEED 20251106, `--reset`), database `abc_coldchain`, 90 days
+`<skill>/scripts/gen_abc.py` (SEED 20251106, `--reset`), database `abc_coldchain`, 90 days
 (2026-08-08 → 2026-11). Facts below are MEASURED from the dataset, not copied from the brief.
 
 ## Schema (11 tables)
@@ -47,9 +47,9 @@
 
 ```bash
 PY=/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python
-$PY retail_graph/abc/gen_abc.py --reset                 # schema + data, deterministic
+$PY <skill>/scripts/gen_abc.py --reset                  # schema + data, deterministic
 $PY backend/skills/builtin/generate-mock-dataset/scripts/check_dataset.py \
-    --spec retail_graph/abc/abc_coldchain.dataset.json  # 53 checks, 0 failed
+    --spec <skill>/fixtures/abc_coldchain.dataset.json  # 53 checks, 0 failed
 ```
 
 If a check goes red after a change, the choice is: fix the generator, or change the claim in the spec AND

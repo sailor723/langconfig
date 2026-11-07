@@ -45,7 +45,7 @@ a design and a pile of holes:
 | an existence fact | `owl:someValuesFrom` restriction + the inverse link | *"has no owl:equivalentClass axiom"* |
 | cross-filtering | the dimension must be a `:groupBy` of a declared metric | *"cannot filter :Trip by :storeZone"* |
 
-Ask the compiler, never the source: `python retail_graph/run_dashboard.py --profile … --metric <name>`.
+Ask the compiler, never the source: `python backend/features/ontology/compiler/run_dashboard.py --profile … --metric <name>`.
 
 ## 1. Scaffold from what is declared (never from what you wish)
 

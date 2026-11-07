@@ -1,8 +1,8 @@
 # `dashboard.json` — the contract
 
 One file next to the profile (`<profile dir>/dashboard.json`). It contains **no SQL and no numbers**: it
-names metrics, dimensions and the sentences that talk about them. `retail_graph/run_dashboard.py` compiles
-it; `retail_graph/check_dashboard.py` gates it; the page only lays it out.
+names metrics, dimensions and the sentences that talk about them. `backend/features/ontology/compiler/run_dashboard.py`
+compiles it; `backend/features/ontology/gates/check_dashboard.py` gates it; the page only lays it out.
 
 ```jsonc
 {

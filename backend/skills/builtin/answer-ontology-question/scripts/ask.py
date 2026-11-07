@@ -42,13 +42,15 @@ import pathlib
 import sys
 
 REPO = pathlib.Path(os.environ.get("ONTOLOGY_REPO") or "/Users/weiping/dev/Learn/ontology").expanduser()
+# the compiler now lives in the app's ontology feature
+FEATURE = pathlib.Path(__file__).resolve().parents[4] / "features" / "ontology"
 
 
 def _profile_for_key(key: str) -> pathlib.Path | None:
     """An ontology is a folder with a profile: `ontologies/<key>/<key>_settings.json`."""
     for candidate in (REPO / "ontologies" / key / f"{key}_settings.json",
                       REPO / "ontologies" / key / "settings.json",
-                      REPO / "retail_graph" / f"{key}_settings.json",
+                      FEATURE / "profiles" / key / f"{key}_settings.json",
                       REPO / "retail_graph" / "settings.json" if key == "retail" else None):
         if candidate and candidate.is_file():
             return candidate
@@ -133,14 +135,14 @@ def main() -> int:
               + (f" (looked for ontologies/{args.key}/{args.key}_settings.json and "
                  f"retail_graph/{args.key}_settings.json)" if args.key else ""))
         return 1
-    if not (REPO / "retail_graph").is_dir():
+    if not (FEATURE / "compiler").is_dir():
         print(f"ERROR: no compiler at {REPO / 'retail_graph'} (set ONTOLOGY_REPO)")
         return 1
 
     os.environ["APP_SETTINGS"] = str(profile)
     if args.no_polish:
         os.environ["NL_ANSWER_LLM"] = "0"
-    sys.path.insert(0, str(REPO / "retail_graph"))
+    sys.path.insert(0, str(FEATURE / "compiler"))
 
     try:
         import nl  # noqa: PLC0415

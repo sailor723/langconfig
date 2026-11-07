@@ -2,7 +2,8 @@
 
 ```bash
 PY=/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python
-$PY check_dashboard.py --profile ../ontologies/logistics/logistics_settings.json   # 196 checks
+$PY backend/features/ontology/gates/check_dashboard.py \
+    --profile backend/features/ontology/profiles/logistics/logistics_settings.json   # 196 checks
 ```
 
 Runs the SAME declaration the app serves, through the same runner, so the gate and the page cannot disagree

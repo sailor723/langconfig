@@ -52,7 +52,7 @@ the guardrails, the plan estimate, the guard's notes — or the compiler's refus
 `…, source_dir="work/logistics"` → the same questions against your COPY, so before/after an edit is
 two calls.
 
-Measured reason: an editor that went looking for a matching rule in `retail_graph/nl.py` read ~1,000
+Measured reason: an editor that went looking for a matching rule in the compiler's `nl.py` read ~1,000
 lines and answered with a dump of the file. The facts it needed were three tool calls away.
 **Reading budget: ≤200 lines per read, and read the TTL and the profile — not the engine.**
 

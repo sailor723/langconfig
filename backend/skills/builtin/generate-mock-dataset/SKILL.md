@@ -19,9 +19,9 @@ params:
     required: true
   generator:
     label: 生成器路径
-    description: where the deterministic generator script lives (e.g. retail_graph/abc/gen_abc.py)
+    description: where the deterministic generator script lives (e.g. backend/skills/builtin/generate-mock-dataset/scripts/gen_abc.py)
     required: false
-    default: "retail_graph/{dataset_name}/gen_{dataset_name}.py"
+    default: "backend/skills/builtin/generate-mock-dataset/scripts/gen_{dataset_name}.py"
 ---
 
 # Generate a mock dataset from a business story
@@ -98,7 +98,7 @@ ontology gate:
 
 ```bash
 PY=/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python
-$PY <this skill>/scripts/check_dataset.py --spec retail_graph/abc/abc_coldchain.dataset.json
+$PY <this skill>/scripts/check_dataset.py --spec <this skill>/fixtures/abc_coldchain.dataset.json
 #   → 53 checks, 0 failed   (volume, FK, planted invariants, constant columns, NULL rates)
 ```
 
@@ -121,4 +121,4 @@ should quote the same numbers the spec asserts.
   consequence of omitting it.
 - `references/abc-case.md` — the full worked example (schema, volumes, planted signals, measured numbers).
 - `scripts/check_dataset.py` — the spec checker (this skill's gate).
-- The generator it was distilled from: `retail_graph/abc/gen_abc.py` (SEED 20251106, `--reset`).
+- The generator it was distilled from: `<this skill>/scripts/gen_abc.py` (SEED 20251106, `--reset`).

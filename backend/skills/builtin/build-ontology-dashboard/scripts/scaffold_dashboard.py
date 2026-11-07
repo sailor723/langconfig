@@ -42,8 +42,8 @@ def _early_profile() -> None:
 
 _early_profile()
 
-REPO = pathlib.Path(os.environ.get("ONTOLOGY_REPO") or "/Users/weiping/dev/Learn/ontology")
-sys.path.insert(0, str(REPO / "retail_graph"))
+REPO = pathlib.Path(__file__).resolve().parents[4] / "features" / "ontology"
+sys.path.insert(0, str(REPO / "compiler"))
 
 import sqlgen                                            # noqa: E402
 
