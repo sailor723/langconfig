@@ -1,7 +1,7 @@
 """Seed the `ontology_inspect` BUILTIN tool: ask the COMPILER about an ontology, don't read it.
 
 The failure this exists to prevent, measured on the Ontology Editor's first real turn: asked to
-add a must-refuse sample question, it read ~1,000 lines of `retail_graph/nl.py` to work out how
+add a must-refuse sample question, it read ~1,000 lines of the NL layer to work out how
 matching behaves, and then answered with a dump of source code. The information it actually needed
 is three facts away — which metrics the compiler refuses and why, what one metric compiles to, what
 number it returns, and what a question resolves to — and every one of them is cheap to produce
@@ -56,8 +56,7 @@ import sys as _sys
 # psycopg2 + rdflib. Keep this script here (not in the repo) so the tool carries its own contract.
 _CHILD = r"""
 import json, os, pathlib, sys
-REPO = pathlib.Path(os.environ["ONTOLOGY_REPO"])
-sys.path.insert(0, str(REPO / "retail_graph"))
+sys.path.insert(0, os.environ["ONTOLOGY_COMPILER"])
 payload = json.loads(sys.argv[1])
 import sqlgen, guard, nl, actions
 
@@ -148,7 +147,7 @@ def ontology_inspect(ontology_key: str, metric: str = "", question: str = "",
     NL pipeline against the profile.
 
     Arguments:
-      ontology_key  the folder name under ontologies/, e.g. "logistics".
+      ontology_key  the folder name under features/ontology/profiles/, e.g. "logistics".
       metric        one metric: its compiled SQL, its value under the guardrails, the plan estimate
                     and the guard's notes — or the compiler's refusal sentence. Empty = list.
       question      a user question: what it resolves to and the number (or the refusal, verbatim).
@@ -157,7 +156,7 @@ def ontology_inspect(ontology_key: str, metric: str = "", question: str = "",
     """
     key = (ontology_key or "").strip()
     if not key or "/" in key or key.startswith("."):
-        return "ERROR: ontology_key must be a folder name under ontologies/, e.g. 'logistics'."
+        return "ERROR: ontology_key must be a folder name under profiles/, e.g. 'logistics'."
 
     repo = _repo_root()
     if source_dir and source_dir.strip():
@@ -169,10 +168,10 @@ def ontology_inspect(ontology_key: str, metric: str = "", question: str = "",
             except Exception:
                 pass
     else:
-        folder = repo / "ontologies" / key
+        folder = repo / "profiles" / key
         if not folder.is_dir():
             try:
-                available = sorted(p.name for p in (repo / "ontologies").iterdir()
+                available = sorted(p.name for p in (repo / "profiles").iterdir()
                                    if p.is_dir() and not p.name.startswith("."))
             except Exception:
                 available = []
@@ -193,12 +192,12 @@ def ontology_inspect(ontology_key: str, metric: str = "", question: str = "",
 
     env = dict(_os.environ)
     env["APP_SETTINGS"] = str(profile)
-    env["ONTOLOGY_REPO"] = str(repo)
+    env["ONTOLOGY_COMPILER"] = str(repo / "compiler")
     env["NL_ANSWER_LLM"] = "0"          # deterministic: rules + the compiler, no prose model
     try:
         p = _sp.run([_python(), "-c", _CHILD, _json.dumps(payload)],
                     capture_output=True, text=True, timeout=180,
-                    cwd=str(repo / "retail_graph"), env=env)
+                    cwd=str(repo / "compiler"), env=env)
     except Exception as exc:
         return "ERROR: could not run the compiler (%s: %s)" % (type(exc).__name__, exc)
 
@@ -279,7 +278,7 @@ INPUT_SCHEMA = {
     "properties": {
         "ontology_key": {
             "type": "string",
-            "description": "The ontology's folder name under ontologies/, e.g. 'logistics'.",
+            "description": "The ontology's folder name under features/ontology/profiles/, e.g. 'logistics'.",
         },
         "metric": {
             "type": "string",
@@ -313,7 +312,7 @@ DEFINITION = {
 ARGS_SCHEMA = {
     "ontology_key": {
         "type": "string",
-        "description": "The ontology's folder name under ontologies/, e.g. 'logistics'.",
+        "description": "The ontology's folder name under features/ontology/profiles/, e.g. 'logistics'.",
     },
     "metric": {
         "type": "string",

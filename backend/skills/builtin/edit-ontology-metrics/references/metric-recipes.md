@@ -140,7 +140,7 @@ add up to `damagedBoxCount`), top `core / 沪A73435 = 168`, then `core / 沪A350
 ## The check that makes a recipe real
 
 ```bash
-PY=/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python
+PY=<the app's own .venv: the interpreter that runs the backend>
 $PY scripts/check_metric.py --profile work/logistics/logistics_settings.json --metric damagePer1kKm
 #   -> compiled SQL + value + guard notes
 $PY scripts/check_metric.py --profile work/logistics/logistics_settings.json --metric damagePer1kKm \

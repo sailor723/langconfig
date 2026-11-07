@@ -54,8 +54,12 @@ def use(profile_path: str | pathlib.Path) -> dict:
     # the explicit marker the compiler resolves actions/features against (it beats $APP_SETTINGS,
     # which is process-wide and outlives a single request)
     actions.ACTIVE_PROFILE = path
-    actions.SCHEMA = pathlib.Path((base / prof["actions_file"]).resolve()) \
-        if prof.get("actions_file") else (PROFILES / "retail" / "schema" / "actions.yml")
+    # No verbs declared means NO file: leaving retail's here is how PromoteCustomer was once compiled
+    # against another ontology's graph. `actions_path()` resolves from ACTIVE_PROFILE, so this is only
+    # the value a caller reads back for display.
+    conventional = base / "schema" / "actions.yml"
+    actions.SCHEMA = ((base / prof["actions_file"]).resolve() if prof.get("actions_file")
+                      else conventional.resolve() if conventional.is_file() else None)
 
     return {"profile": str(path), "ns": sqlgen.NS, "ontology_dir": ontology_dir,
             "overlay": overlay or None, "actions_file": str(actions.SCHEMA),

@@ -149,8 +149,16 @@ def actions_path() -> pathlib.Path | None:
     raw = (settings.get("actions_file") or "").strip()
     if raw:
         p = pathlib.Path(raw).expanduser()
-        return p if p.is_absolute() else (BASE / p).resolve()
-    return SCHEMA
+        # RELATIVE TO THE PROFILE, not to the compiler. Measured: a skill script that pointed
+        # APP_SETTINGS at `profiles/logistics/logistics_settings.json` (whose `actions_file` is
+        # `schema/actions.yml`) resolved it to `compiler/schema/actions.yml` and died with
+        # FileNotFoundError — the profile's own directory was never consulted outside `use()`.
+        return p if p.is_absolute() else (profile.parent / p).resolve()
+    conventional = profile.parent / "schema" / "actions.yml"
+    if conventional.is_file():
+        return conventional.resolve()
+    # No declared verbs is a fact about this ontology, not an invitation to use retail's file.
+    return None
 
 
 def load_config(path: pathlib.Path | None = None) -> dict:

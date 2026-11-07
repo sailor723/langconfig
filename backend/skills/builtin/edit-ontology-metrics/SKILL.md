@@ -13,13 +13,14 @@ author: weiping
 params:
   ontology_key:
     label: 本体
-    description: the ontology this agent edits (the folder under ontologies/)
+    description: the ontology this agent edits (the folder under features/ontology/profiles/)
     required: true
   repo:
     label: 本体仓库
-    description: where the ontology repo lives (the compiler and the gate suites)
+    description: optional — where a learning MIRROR of the ontology lives. Unset means this app's own
+      feature (backend/features/ontology), which is where the compiler, the gates and the profiles are.
     required: false
-    default: /Users/weiping/dev/Learn/ontology
+    default: ""
 ---
 
 # Editing an ontology that already exists
@@ -141,7 +142,7 @@ Say no, and say why — these are the requests that destroy an ontology's value:
 ## Verification you can run yourself
 
 The repository's compiler is the one the workbench uses. Set `PY` to an interpreter with
-`psycopg2` + `rdflib` (the repo's own: `/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python`) and
+`psycopg2` + `rdflib` (this app's own interpreter) and
 run the single-metric checker from this skill:
 
 ```bash
@@ -204,7 +205,7 @@ gates NOT RUN (named, not passed): [NOT RUN] R2 …
 | **`ontology_publish`** | the only way back: stages, re-runs compile + gates against a copy, refuses on a new refusal, never installs |
 | **file read + write** | the copy is what you edit; one file per change |
 | **shell execution** | `scripts/check_metric.py` is the local verification loop |
-| **a Python with `psycopg2` + `rdflib`** | the checker imports the repo's `sqlgen`/`guard`; the repo's own venv is `/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python` |
+| **a Python with `psycopg2` + `rdflib`** | the checker imports this app's `sqlgen`/`guard`; the repo's own venv is `<the app's own .venv: the interpreter that runs the backend>` |
 
 Without `ontology_open`/`ontology_publish` the edit is NOT RUN: say so and hand the folder over
 rather than writing into the installed ontology by hand.

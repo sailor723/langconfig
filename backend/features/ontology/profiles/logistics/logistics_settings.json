@@ -83,5 +83,5 @@
   "aliases": "数据集自己的词：线路/趟次/站点/司机/师傅/车辆/门店/片区/装卸工/版本/破损/超载/通行证。per-profile 声明，不全局：这张库的「片区」是 stores.zone，「版本」是 routes.version。",
   "max_rows / plans": "max_rows 500（最细的 listing 是 stops，5 万行，一页 500 够看且不扫全表）；statement_timeout 8000ms；max_plan_rows 5,000,000（telemetry×stops 的笛卡尔计划 ≈ 6.2 亿行，必须被拒；单条指标最贵的 path 在 5 万行量级）。"
  },
- "actions_file": "/Users/weiping/dev/Learn/ontology/ontologies/logistics/schema/actions.yml"
+ "actions_file": "schema/actions.yml"
 }

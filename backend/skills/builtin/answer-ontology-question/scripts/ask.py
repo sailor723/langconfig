@@ -26,7 +26,7 @@ ontology three ways — by key, by a profile file, or by a running workbench:
 
 Usage (from anywhere; PY must have psycopg2 + rdflib + langchain):
 
-    PY=/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python
+    PY=<the app's interpreter: the .venv that has psycopg2 + rdflib>
     $PY scripts/ask.py --profile <a *_settings.json> "行程数是多少"
     $PY scripts/ask.py --profile … "按门店区域看破损箱数" --json
     $PY scripts/ask.py --profile … "每千公里破损箱数" --no-polish     # deterministic prose only
@@ -41,17 +41,26 @@ import os
 import pathlib
 import sys
 
-REPO = pathlib.Path(os.environ.get("ONTOLOGY_REPO") or "/Users/weiping/dev/Learn/ontology").expanduser()
-# the compiler now lives in the app's ontology feature
+# The compiler and the declarations live IN this app (`backend/features/ontology`): the same ones that
+# serve the pages, so this script cannot disagree with the UI. `ONTOLOGY_REPO` is an optional pointer at
+# the learning mirror, consulted only when it is set.
 FEATURE = pathlib.Path(__file__).resolve().parents[4] / "features" / "ontology"
+REPO = pathlib.Path(os.environ["ONTOLOGY_REPO"]).expanduser() if os.environ.get("ONTOLOGY_REPO") else None
 
 
 def _profile_for_key(key: str) -> pathlib.Path | None:
-    """An ontology is a folder with a profile: `ontologies/<key>/<key>_settings.json`."""
-    for candidate in (REPO / "ontologies" / key / f"{key}_settings.json",
-                      REPO / "ontologies" / key / "settings.json",
-                      FEATURE / "profiles" / key / f"{key}_settings.json",
-                      REPO / "retail_graph" / "settings.json" if key == "retail" else None):
+    """An ontology is a profile in the app's feature: `profiles/<key>/<key>_settings.json`."""
+    candidates = [
+        FEATURE / "profiles" / key / f"{key}_settings.json",
+        FEATURE / "profiles" / key / "settings.json",
+    ]
+    if REPO is not None:                       # an explicit mirror, when the caller set one
+        candidates += [
+            REPO / "ontologies" / key / f"{key}_settings.json",
+            REPO / "ontologies" / key / "settings.json",
+            REPO / "retail_graph" / "settings.json" if key == "retail" else None,
+        ]
+    for candidate in candidates:
         if candidate and candidate.is_file():
             return candidate
     return None

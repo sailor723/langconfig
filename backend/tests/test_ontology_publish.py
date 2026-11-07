@@ -282,14 +282,18 @@ def test_history_status_filter_and_diff_after_apply(repo):
 
 # ── the gate plumbing itself, against a REAL ontology and its REAL database ──────
 # Everything above stubs the gate suite. This one does not: it stages the installed logistics
-# ontology through the channel and asserts the report carries the compiler's real numbers. It is
-# skipped — loudly, by name — on a machine without the repo or its database.
+# ontology through the channel and asserts the report carries the compiler's real numbers. The
+# declarations it reads are the app's OWN (features/ontology/profiles/), and it is skipped — loudly,
+# by name — on a machine whose database is not reachable.
+PROFILES = pathlib.Path(__file__).resolve().parents[1] / "features" / "ontology" / "profiles"
+
+
 @pytest.mark.skipif(
-    not pathlib.Path("/Users/weiping/dev/Learn/ontology/ontologies/logistics").is_dir(),
-    reason="NOT RUN: the ontology repo with the logistics ontology is not on this machine",
+    not (PROFILES / "logistics").is_dir(),
+    reason="NOT RUN: this checkout has no logistics profile under features/ontology/profiles",
 )
 def test_real_gates_on_the_installed_logistics_ontology(monkeypatch, tmp_path):
-    repo_root = pathlib.Path("/Users/weiping/dev/Learn/ontology/ontologies")
+    repo_root = PROFILES
     ledger: dict[str, dict] = {}
     monkeypatch.setattr(op, "_audit_row", lambda pid, key, actor, status, **kw: ledger.update(
         {pid: {"id": pid, "key": key, "status": status, "actor": actor,

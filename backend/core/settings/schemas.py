@@ -464,9 +464,10 @@ class OntologySettings(BaseModel):
     repo_path: Optional[str] = Field(
         default=None,
         description=(
-            "Where the ontology repo lives (the folder with retail_graph/serve_ui.py). The "
-            "supervisor starts each profile's workbench from here, so the URLs are an "
-            "implementation detail the user never has to manage."
+            "Where the ontology code lives. Empty = this app's own feature "
+            "(backend/features/ontology), which is where the compiler, the profiles and the pages are. "
+            "Set it only to point the DEVELOPMENT workbench servers somewhere else: nothing the app "
+            "serves needs it."
         ),
     )
     python: Optional[str] = Field(

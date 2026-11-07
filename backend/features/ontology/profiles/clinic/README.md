@@ -12,13 +12,22 @@ else was authored by hand.
 | skill | `build-ontology-from-db` (langconfig `backend/skills/builtin/`) |
 | agent config | `datasource: clinic` (host/user/credential from Settings → Databases, exported to the shell as `PG*`; the password never appears in the prompt or the transcript), plus a `workbench` contract (profile fields, gates to run) |
 | produced | `ontology/01-structure.ttl`, `ontology/02-meaning.ttl`, `metrics_ext.ttl`, `clinic_settings.json`, `generated/*.md` |
-| gates | `retail_graph/check_clinic.py` — C (ontology) · R (reasoning) · G (SQL guardrails) |
+| gates | `backend/features/ontology/gates/check_clinic.py` — C (ontology) · R (reasoning) · G (SQL guardrails) |
 
-## Load it in the workbench
+## Open it
+
+It is already part of the app — no server to start:
 
 ```bash
-cd /Users/weiping/dev/Learn/ontology
-python3 retail_graph/serve_ui.py --settings ontologies/clinic/clinic_settings.json --port 8096
+# the app serves this ontology's pages itself (see deploy/README.md)
+open http://127.0.0.1:8765/api/ontology/clinic/page/graph
+```
+
+For the DEVELOPMENT workbench of just this profile (optional, see `deploy/workbench.yml`):
+
+```bash
+cd backend/features/ontology/workbench
+python3 serve_ui.py --settings ../profiles/clinic/clinic_settings.json --port 8096
 ```
 
 The profile's own directory is where relative paths resolve, so `ontology_dir: "ontology"` and
@@ -27,11 +36,11 @@ The profile's own directory is where relative paths resolve, so `ontology_dir: "
 ## Run the gates
 
 ```bash
-/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python retail_graph/check_clinic.py \
-    --profile ontologies/clinic/clinic_settings.json
+# from backend/features/ontology/gates, with the interpreter that runs the app
+<the app's .venv>/python check_clinic.py --profile ../profiles/clinic/clinic_settings.json
 ```
 
-`retail_graph/check_clinic.py` covers the three families that matter here:
+`check_clinic.py` covers the three families that matter here:
 
 - **C — ontology**: every object class names a table and a primary key; every definition class
   resolves to one; every metric compiles **or refuses by name**; six metrics are reconciled

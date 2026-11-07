@@ -200,7 +200,7 @@ NOT RUN  lane B parity: no R2RML mapping for this dataset
 | `scripts/ask.py` | runs one question through all five stages and prints the trace (exit 2 = refused) |
 
 ```bash
-PY=/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python
+PY=<the app's own .venv: the interpreter that runs the backend>
 $PY scripts/ask.py --profile <ontology>/<key>_settings.json "这句话就是用户问的原话"
 $PY scripts/ask.py --profile … "按线路版本看破损箱数" --json        # full trace
 $PY scripts/ask.py --profile … "订单收入" --no-polish               # deterministic prose only

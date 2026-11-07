@@ -66,12 +66,20 @@ export interface OntologyProfile {
   enabled?: boolean;
 }
 
-/** Fallback only: the four profiles that ship in the ontology repo. */
+/**
+ * Fallback only: what THIS app ships when the settings document has not been seeded yet.
+ *
+ * `profile` is relative to `backend/features/ontology/profiles/` — the declarations are part of this
+ * repository, so a fresh checkout lists them without fetching anything. `url` is the profile's
+ * DEVELOPMENT workbench port (see deploy/workbench.yml); the app compiles and serves every page itself.
+ * The real list is a setting (Settings → Ontology); this one is labelled as the fallback in the UI.
+ */
 export const FALLBACK_PROFILES: OntologyProfile[] = [
-  { key: 'clinic', label: 'Clinic', url: 'http://127.0.0.1:8096', profile: 'ontologies/clinic/clinic_settings.json', note: 'built by a DeepAgent from clinic_db — 门诊 / 收费 / 理赔' },
-  { key: 'retail', label: 'Retail', url: 'http://127.0.0.1:8092', profile: 'retail_graph/settings.json', note: 'the hand-built reference: orders, customers, stores, two lanes' },
-  { key: 'tpch', label: 'TPC-H', url: 'http://127.0.0.1:8093', profile: 'retail_graph/tpch_settings.json', note: 'SF0.1 benchmark — historical data, so the guard refuses windows' },
-  { key: 'abc', label: 'ABC', url: 'http://127.0.0.1:8094', profile: 'retail_graph/abc_settings.json', note: 'cold-chain training set with declared writes (lane C)' },
+  { key: 'clinic', label: 'Clinic', url: 'http://127.0.0.1:8096', profile: 'clinic/clinic_settings.json', note: 'built by a DeepAgent from clinic_db — 门诊 / 收费 / 理赔' },
+  { key: 'retail', label: 'Retail', url: 'http://127.0.0.1:8092', profile: 'retail/settings.json', note: 'the hand-built reference: orders, customers, stores, two lanes' },
+  { key: 'logistics', label: 'Logistics', url: 'http://127.0.0.1:8098', profile: 'logistics/logistics_settings.json', note: 'cold-chain trips, stops and complaints — with a dashboard declaration' },
+  { key: 'tpch', label: 'TPC-H', url: 'http://127.0.0.1:8093', profile: 'tpch/tpch_settings.json', note: 'SF0.1 benchmark — historical data, so the guard refuses windows' },
+  { key: 'abc', label: 'ABC', url: 'http://127.0.0.1:8094', profile: 'abc/abc_settings.json', note: 'cold-chain training set with declared writes (lane C)' },
 ];
 
 const STORAGE_URL = 'langconfig.ontology.url';

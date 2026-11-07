@@ -16,7 +16,7 @@ The pipeline is per ontology. What that means in practice:
 Ask one ontology three ways (same pipeline, three entry points):
 
 ```bash
-PY=/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python
+PY=<the app's own .venv: the interpreter that runs the backend>
 $PY scripts/ask.py --key logistics "行程数"                 # resolve ontologies/logistics/*_settings.json
 $PY scripts/ask.py --workbench http://127.0.0.1:8098 "…"    # the ontology's own Query surface
 $PY scripts/ask.py --profile <path/to/*_settings.json> "…"  # an explicit profile

@@ -50,7 +50,7 @@ Ask the compiler, never the source: `python backend/features/ontology/compiler/r
 ## 1. Scaffold from what is declared (never from what you wish)
 
 ```bash
-PY=/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python
+PY=<the app's own .venv: the interpreter that runs the backend>
 cd <ontology repo>/retail_graph
 $PY ../backend/skills/builtin/build-ontology-dashboard/scripts/scaffold_dashboard.py \
     --profile ../ontologies/logistics/logistics_settings.json --out /tmp/dashboard.json

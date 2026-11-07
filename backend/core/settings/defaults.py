@@ -46,35 +46,37 @@ def get_defaults() -> dict[str, dict]:
                 or os.getenv("OLLAMA_BASE_URL", "") + "/v1",
             "local_model_name": "llama3.2:latest",
         },
-        # The ontology workbench: which profiles a user can open from the Ontology
-        # activity. These are the four that ship in the ontology repo; a server that is
-        # not running shows up as "not running" with its start command, never as a
-        # silently empty card.
+        # The ontology feature: which ontologies a user can open from the Ontology activity.
+        # `profile` is relative to `backend/features/ontology/profiles/` — the declarations ship
+        # INSIDE the app, so a fresh install lists four ontologies without fetching anything.
+        # `url` is the profile's development workbench port (see deploy/workbench.yml); the app
+        # compiles and serves every page itself and never needs it.
         "ontology": {
             "items": [
                 {"key": "clinic", "label": "Clinic", "url": "http://127.0.0.1:8096",
-                 "profile": "ontologies/clinic/clinic_settings.json",
+                 "profile": "clinic/clinic_settings.json",
                  "note": "built by a DeepAgent from clinic_db — 门诊 / 收费 / 理赔, 28 metrics",
                  "enabled": True},
                 {"key": "retail", "label": "Retail", "url": "http://127.0.0.1:8092",
-                 "profile": "retail_graph/settings.json",
+                 "profile": "retail/settings.json",
                  "note": "the hand-built reference: orders, customers, stores, two lanes",
                  "enabled": True},
                 {"key": "tpch", "label": "TPC-H", "url": "http://127.0.0.1:8093",
-                 "profile": "retail_graph/tpch_settings.json",
+                 "profile": "tpch/tpch_settings.json",
                  "note": "SF0.1 benchmark — historical data, so the guard refuses windows",
                  "enabled": True},
                 {"key": "abc", "label": "ABC", "url": "http://127.0.0.1:8094",
-                 "profile": "retail_graph/abc_settings.json",
+                 "profile": "abc/abc_settings.json",
                  "note": "cold-chain training set with declared writes (lane C)",
                  "enabled": True},
             ],
             "default_key": "clinic",
             "show_sql": True,
-            # The supervisor starts each profile's workbench on demand from here; the
-            # addresses stay an implementation detail.
-            "repo_path": "/Users/weiping/dev/Learn/ontology",
-            "python": "/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python",
+            # Empty means "the app's own feature directory and the app's own interpreter" — the
+            # ontology code lives in this repository. Set these only to point the development
+            # workbench servers somewhere else.
+            "repo_path": "",
+            "python": "",
         },
         "workspace": {
             "base_dir": "backend/outputs",

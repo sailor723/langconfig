@@ -17,8 +17,8 @@ Three properties that make it safe for an agent to hold:
 * **a constraint the question states is carried** — "last 90 days" either becomes a slot that reaches the
   SQL or the call returns `needs_confirmation` with the understanding, and only `confirm=true` runs it.
 
-Profiles are resolved from the ontology key (`ontologies/<key>/<key>_settings.json`, or
-`retail_graph/<key>_settings.json` for the built-in datasets), so the database connection comes from the
+Profiles are resolved from the ontology key (`features/ontology/profiles/<key>/<key>_settings.json`), so
+the database connection comes from the
 profile rather than from the agent.
 
 Idempotent: re-running updates the row in place.
@@ -50,8 +50,7 @@ import subprocess as _sp
 
 _CHILD = r"""
 import json, os, pathlib, sys
-REPO = pathlib.Path(os.environ["ONTOLOGY_REPO"])
-sys.path.insert(0, str(REPO / "retail_graph"))
+sys.path.insert(0, os.environ["ONTOLOGY_COMPILER"])
 import nl
 
 payload = json.loads(sys.argv[1])
@@ -69,8 +68,9 @@ except Exception as exc:
 
 
 def _repo():
+    """The app's ontology FEATURE: the compiler, the profiles and the gates live in this repository."""
     from services import ontology_publish
-    return _pl.Path(ontology_publish.REPO)
+    return _pl.Path(ontology_publish.FEATURE)
 
 
 def _python():
@@ -79,32 +79,21 @@ def _python():
 
 
 def _profile_for(repo, key):
-    """A key can be an ontology folder OR one of the built-in datasets in retail_graph/."""
-    candidates = [repo / "ontologies" / key / (key + "_settings.json"),
-                  repo / "ontologies" / key / "settings.json",
-                  repo / "retail_graph" / (key + "_settings.json")]
-    if key == "retail":
-        candidates.append(repo / "retail_graph" / "settings.json")
-    for candidate in candidates:
+    """One ontology is one folder in the feature's profiles/: `<key>/<key>_settings.json`."""
+    for candidate in (repo / "profiles" / key / (key + "_settings.json"),
+                      repo / "profiles" / key / "settings.json"):
         if candidate.is_file():
             return candidate
     return None
 
 
 def _installed(repo):
-    keys = set()
+    """The ontologies this app ships: every folder under the feature's profiles/."""
     try:
-        keys |= {p.name for p in (repo / "ontologies").iterdir()
-                 if p.is_dir() and not p.name.startswith(".")}
+        return sorted(p.name for p in (repo / "profiles").iterdir()
+                      if p.is_dir() and not p.name.startswith("."))
     except OSError:
-        pass
-    try:
-        keys |= {p.name[:-len("_settings.json")] for p in (repo / "retail_graph").glob("*_settings.json")}
-        if (repo / "retail_graph" / "settings.json").is_file():
-            keys.add("retail")
-    except OSError:
-        pass
-    return sorted(k for k in keys if k not in ("ontologies",))
+        return []
 
 
 def ontology_ask(question: str, ontology_key: str = "logistics", confirm: bool = False,
@@ -119,7 +108,7 @@ def ontology_ask(question: str, ontology_key: str = "logistics", confirm: bool =
 
     Arguments:
       question       the user's words, verbatim — do not clean them up first; the words are the evidence
-      ontology_key   which ontology answers (default logistics); any key under ontologies/ works
+      ontology_key   which ontology answers (default logistics); any folder name under profiles/ works
       confirm        a question that states a period or a customer comes back as `needs_confirmation`
                      with the understanding; call again with confirm=true to run it
       polish         false = the deterministic template writes the prose (faster, no model)
@@ -141,12 +130,12 @@ def ontology_ask(question: str, ontology_key: str = "logistics", confirm: bool =
 
     env = dict(_os.environ)
     env["APP_SETTINGS"] = str(profile)
-    env["ONTOLOGY_REPO"] = str(repo)
+    env["ONTOLOGY_COMPILER"] = str(repo / "compiler")
     env["NL_ANSWER_LLM"] = "1" if polish else "0"
     try:
         p = _sp.run([_python(), "-c", _CHILD, _json.dumps({"question": text, "confirm": bool(confirm)})],
                     capture_output=True, text=True, timeout=300,
-                    cwd=str(repo / "retail_graph"), env=env)
+                    cwd=str(repo / "compiler"), env=env)
     except Exception as exc:
         return "ERROR: the pipeline did not run (%s: %s)" % (type(exc).__name__, exc)
 

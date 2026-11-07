@@ -92,7 +92,7 @@ AGENTS_MD = """# Ontology Editor
 
 ## 读代码的预算
 
-不要为了弄清一条规则去读编译器源码（`retail_graph/sqlgen.py`、`nl.py`、`guard.py`）。用
+不要为了弄清一条规则去读编译器源码（`backend/features/ontology/compiler/` 下的 `sqlgen.py`、`nl.py`、`guard.py`）。用
 `ontology_inspect(ontology_key=..., metric=...)` 或 `question=...`：它会跑真编译器、真护栏、真 NL
 管线并只把结论给你。一次读文件不超过 200 行；要读的是 TTL 声明和 profile，不是引擎。
 
@@ -101,14 +101,16 @@ AGENTS_MD = """# Ontology Editor
 ## 验证（真跑，不要声称）
 
 ```bash
-PY=/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python
+PY=<启动本应用的 .venv 解释器（它已经有 psycopg2 + rdflib）>
 $PY scripts/check_metric.py --profile work/logistics/logistics_settings.json
 $PY scripts/check_metric.py --profile work/logistics/logistics_settings.json --metric tripCount --sql
 $PY scripts/check_metric.py --profile work/logistics/logistics_settings.json --metric totalRevenue \\
     --independent "select sum(revenue) from trips"
 ```
 
-编译器与门禁在 `/Users/weiping/dev/Learn/ontology/retail_graph/`（`sqlgen.py`、`guard.py`）；技能脚本自己会找 `ONTOLOGY_REPO`，默认就是那个路径。
+编译器与门禁就在本应用里：`backend/features/ontology/compiler/`（`sqlgen.py`、`guard.py`）与
+`backend/features/ontology/gates/`；声明在各 profile 的 `backend/features/ontology/profiles/<key>/`。
+技能脚本自己会找这个目录，`ONTOLOGY_REPO` 只是可选的镜像覆盖。
 
 ## 规矩
 

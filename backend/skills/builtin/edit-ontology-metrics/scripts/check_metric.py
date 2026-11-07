@@ -18,14 +18,15 @@ to point them at a `work/<key>/` copy. It never writes anything.
 
 Usage (from anywhere; `PY` must have psycopg2 + rdflib):
 
-    PY=/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python
+    PY=<the app's own .venv: the interpreter that runs the backend>
     $PY scripts/check_metric.py --profile work/logistics/logistics_settings.json
     $PY scripts/check_metric.py --profile … --metric tripCount --sql
     $PY scripts/check_metric.py --profile … --metric totalRevenue \
         --independent "select sum(freight_fee) from trips"
 
 Environment:
-    ONTOLOGY_REPO   the ontology repository root (default /Users/weiping/dev/Learn/ontology)
+    ONTOLOGY_REPO   optional: the learning mirror root. Unset means "this app's own ontology feature",
+                    which is where the compiler and every profile live.
 
 Exit: 0 everything asked for passed, 1 something failed or refused.
 """
@@ -37,7 +38,7 @@ import os
 import pathlib
 import sys
 
-REPO = pathlib.Path(os.environ.get("ONTOLOGY_REPO") or "/Users/weiping/dev/Learn/ontology").expanduser()
+FEATURE = pathlib.Path(__file__).resolve().parents[4] / "features" / "ontology"
 
 
 def _die(message: str) -> "int":
@@ -46,10 +47,10 @@ def _die(message: str) -> "int":
 
 
 def _load_compiler():
-    """The repo's compiler and guardrails — not a copy of them."""
-    graph_dir = pathlib.Path(__file__).resolve().parents[4] / "features" / "ontology" / "compiler"
+    """This app's compiler and guardrails — the ones that serve the numbers, not a copy of them."""
+    graph_dir = FEATURE / "compiler"
     if not graph_dir.is_dir():
-        raise SystemExit(f"ERROR: no compiler at {graph_dir} (set ONTOLOGY_REPO)")
+        raise SystemExit(f"ERROR: no compiler at {graph_dir} — the app's ontology feature is missing")
     if str(graph_dir) not in sys.path:
         sys.path.insert(0, str(graph_dir))
     import guard  # noqa: E402
@@ -72,9 +73,20 @@ def _configure(sqlgen, profile_path: pathlib.Path):
 
 
 def _connect(prof: dict):
+    """One connection, with the profile's `${VAR:-default}` placeholders resolved first.
+
+    Reading the dsn dict raw is how this script failed outside the app with
+    `invalid integer value "${ONTOLOGY_DB_PORT:-5432}" for connection option "port"` — every other path
+    resolves placeholders in `compiler/dsn.py`, so this one must too.
+    """
     import psycopg2
 
-    dsn = prof.get("dsn") or {}
+    try:
+        import dsn as _dsn                  # the app's own resolver (on sys.path via _load_compiler)
+        resolved = _dsn.resolved(prof)
+    except Exception:                        # noqa: BLE001 — a profile with a literal dsn
+        resolved = None
+    dsn = resolved if isinstance(resolved, dict) and resolved else (prof.get("dsn") or {})
     if isinstance(dsn, str) and dsn:
         return psycopg2.connect(dsn)
     if not isinstance(dsn, dict) or not dsn.get("dbname"):

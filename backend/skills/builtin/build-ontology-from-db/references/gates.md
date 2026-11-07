@@ -186,7 +186,7 @@ Two rules the gate learned from its own mutations:
 Run it from the repo's `retail_graph/` with the ontology's own interpreter:
 
 ```bash
-PY=/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python
+PY=<the app's own .venv: the interpreter that runs the backend>
 $PY check_dashboard.py --profile ../ontologies/logistics/logistics_settings.json
 #   → 120 checks, 0 failed
 ```

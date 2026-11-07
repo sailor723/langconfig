@@ -1,7 +1,7 @@
 # `check_dashboard.py` — D0–D9 + F1
 
 ```bash
-PY=/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python
+PY=<the app's own .venv: the interpreter that runs the backend>
 $PY backend/features/ontology/gates/check_dashboard.py \
     --profile backend/features/ontology/profiles/logistics/logistics_settings.json   # 196 checks
 ```

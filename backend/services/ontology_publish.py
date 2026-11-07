@@ -50,8 +50,10 @@ logger = logging.getLogger(__name__)
 FEATURE = pathlib.Path(__file__).resolve().parents[1] / "features" / "ontology"
 ONTOLOGIES = FEATURE / "profiles"
 GATES = FEATURE / "gates"
-#: The learning mirror (kept whole, for study; never edited by a publish).
-REPO = pathlib.Path(os.environ.get("ONTOLOGY_REPO") or "/Users/weiping/dev/Learn/ontology")
+#: The COMPILER, in the app: a child script that compiles a staged declaration must use THIS one, not a
+#: copy — a publish that validated against the learning mirror would be validating a different compiler
+#: than the one that serves the numbers.
+COMPILER = FEATURE / "compiler"
 #: Interpreter with rdflib + psycopg2. The feature lives INSIDE the app, so the app's own
 #: interpreter already has them; ONTOLOGY_PYTHON still overrides it.
 PYTHON = os.environ.get("ONTOLOGY_PYTHON") or __import__("sys").executable
@@ -157,7 +159,7 @@ def _compile_report(profile_path: pathlib.Path) -> dict:
     import textwrap
     script = textwrap.dedent('''
         import json, sys
-        sys.path.insert(0, {repo!r} + "/retail_graph")
+        sys.path.insert(0, {compiler!r})
         import sqlgen
         prof = json.loads(open({profile!r}).read())
         base = __import__("pathlib").Path({profile!r}).parent
@@ -175,7 +177,7 @@ def _compile_report(profile_path: pathlib.Path) -> dict:
                 bad.append({{"name": n, "why": str(exc).splitlines()[0]}})
         print(json.dumps({{"metrics": len(ms), "compiled": len(ok), "refused": bad}}))
     ''')
-    src = script.format(repo=str(REPO), profile=str(profile_path))
+    src = script.format(compiler=str(COMPILER), profile=str(profile_path))
     try:
         p = subprocess.run([PYTHON, "-c", src], capture_output=True, text=True, timeout=300)
         out = (p.stdout or "").strip()
@@ -561,8 +563,7 @@ def _values_script() -> str:
     """Compile every metric of ONE profile and run it under that profile's guardrails."""
     return r"""
 import json, os, pathlib, sys
-REPO = pathlib.Path(os.environ["ONTOLOGY_REPO"])
-sys.path.insert(0, str(REPO / "retail_graph"))
+sys.path.insert(0, os.environ["ONTOLOGY_COMPILER"])
 prof_path = pathlib.Path(os.environ["APP_SETTINGS"])
 import sqlgen, guard, actions
 
@@ -609,10 +610,10 @@ print(json.dumps(out, ensure_ascii=False))
 def _values_for(profile_path: pathlib.Path) -> dict:
     import subprocess
 
-    env = dict(os.environ, ONTOLOGY_REPO=str(REPO), APP_SETTINGS=str(profile_path))
+    env = dict(os.environ, ONTOLOGY_COMPILER=str(COMPILER), APP_SETTINGS=str(profile_path))
     try:
         p = subprocess.run([PYTHON, "-c", _values_script()], capture_output=True, text=True,
-                           timeout=240, cwd=str(REPO / "retail_graph"), env=env)
+                           timeout=240, cwd=str(COMPILER), env=env)
     except Exception as exc:                                    # noqa: BLE001
         return {"__error__": f"{type(exc).__name__}: {exc}"}
     lines = (p.stdout or "").strip().splitlines()

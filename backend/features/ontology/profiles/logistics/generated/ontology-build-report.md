@@ -1,7 +1,7 @@
 # ABC 冷链物流（logistics）语义层 — 阶段 6–8 验收记录
 
 数据库：`abc_coldchain` @ 127.0.0.1:5432（user `weiping`）
-编译器：`/Users/weiping/dev/Learn/ontology/retail_graph/sqlgen.py` + `guard.py`（仓库只读引用，不手检）
+编译器：`backend/features/ontology/compiler/sqlgen.py` + `guard.py`（本应用内，只读引用，不手检）
 产物：`logistics_settings.json`、`ontology/01-structure.ttl`、`ontology/02-meaning.ttl`、`metrics_ext.ttl`、`tutorial.json`
 
 ---

@@ -34,10 +34,8 @@ import pathlib
 import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
-# The COMPILER lives in the ontology repository (sqlgen, guard, actions); the scripts that use it
-# live here, with this skill. Both paths are explicit: a sibling script (HERE) and the compiler's
-# own home (ONTOLOGY_REPO/retail_graph) — never "whichever directory this file happens to sit in".
-ONTOLOGY_REPO = pathlib.Path(os.environ.get("ONTOLOGY_REPO") or "/Users/weiping/dev/Learn/ontology")
+# The COMPILER lives in this app (features/ontology/compiler: sqlgen, guard, actions); this gate lives
+# with the other gates. Both paths are explicit — never "whichever directory this file happens to sit in".
 # The COMPILER lives one directory up (features/ontology/compiler) and its modules import each
 # other by bare name, so its directory goes on sys.path — a path that never depends on where this
 # repository happens to live.

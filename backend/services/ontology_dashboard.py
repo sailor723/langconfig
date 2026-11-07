@@ -28,7 +28,6 @@ from services import ontology_publish, ontology_runtime
 logger = logging.getLogger(__name__)
 
 PYTHON = ontology_publish.PYTHON
-REPO = pathlib.Path(ontology_publish.REPO)
 
 # The runner and the gate that asserts its payload live INSIDE the ontology feature
 # (backend/features/ontology/): the feature owns the compiler, the declarations and the checks that
@@ -47,22 +46,24 @@ class DashboardError(Exception):
 def ontology_profile(key: str) -> pathlib.Path | None:
     """Where one ontology's DECLARATIONS live.
 
-    The feature owns them now (backend/features/ontology/profiles/<key>/); the ontology repository is
-    kept as a learning mirror and still works as a fallback, so a checkout that has not moved yet
-    keeps answering.
+    The declarations live IN the app (`backend/features/ontology/profiles/<key>/`). The learning mirror
+    in `ONTOLOGY_REPO` is consulted only when that variable is set explicitly — a checkout that still has
+    the mirror can point at it, and a deployment that has never heard of it needs nothing.
     """
-    feature = pathlib.Path(__file__).resolve().parents[1] / "features" / "ontology"
-    mirror = pathlib.Path(os.environ.get("ONTOLOGY_REPO") or "/Users/weiping/dev/Learn/ontology")
     candidates = [
-        feature / "profiles" / key / f"{key}_settings.json",
-        feature / "profiles" / key / "settings.json",
-        mirror / "ontologies" / key / f"{key}_settings.json",
-        mirror / "ontologies" / key / "settings.json",
-        mirror / "retail_graph" / f"{key}_settings.json",
+        ONTOLOGY_FEATURE / "profiles" / key / f"{key}_settings.json",
+        ONTOLOGY_FEATURE / "profiles" / key / "settings.json",
     ]
-    if key == "retail":
-        candidates.append(feature / "profiles" / "retail" / "settings.json")
-        candidates.append(mirror / "retail_graph" / "settings.json")
+    mirror_env = os.environ.get("ONTOLOGY_REPO")
+    if mirror_env:
+        mirror = pathlib.Path(mirror_env)
+        candidates += [
+            mirror / "ontologies" / key / f"{key}_settings.json",
+            mirror / "ontologies" / key / "settings.json",
+            mirror / "retail_graph" / f"{key}_settings.json",
+        ]
+        if key == "retail":
+            candidates.append(mirror / "retail_graph" / "settings.json")
     for candidate in candidates:
         if candidate.is_file():
             return candidate
@@ -82,9 +83,14 @@ def dashboard_path(key: str) -> pathlib.Path | None:
 
 
 def installed() -> list[dict]:
-    """Which ontologies have a dashboard declaration — for a nav that does not invent entries."""
+    """Which ontologies have a dashboard declaration — for a nav that does not invent entries.
+
+    Read from the FEATURE (`profiles/*/dashboard.json`), which is where the declarations live. It used to
+    read the learning mirror's `ontologies/*`, so a deployment without that repository had no dashboards
+    at all while the app was perfectly able to compile them.
+    """
     out = []
-    for folder in sorted((REPO / "ontologies").glob("*")):
+    for folder in sorted((ONTOLOGY_FEATURE / "profiles").glob("*")):
         if folder.is_dir() and not folder.name.startswith(".") and (folder / "dashboard.json").is_file():
             out.append({"key": folder.name, "path": str(folder / "dashboard.json")})
     return out

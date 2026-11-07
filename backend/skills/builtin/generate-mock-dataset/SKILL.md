@@ -97,7 +97,7 @@ ontology gate:
 ## 5. Verify with the spec, then hand off
 
 ```bash
-PY=/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python
+PY=<the app's own .venv: the interpreter that runs the backend>
 $PY <this skill>/scripts/check_dataset.py --spec <this skill>/fixtures/abc_coldchain.dataset.json
 #   → 53 checks, 0 failed   (volume, FK, planted invariants, constant columns, NULL rates)
 ```

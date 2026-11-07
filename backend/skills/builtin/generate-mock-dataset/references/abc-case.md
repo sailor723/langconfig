@@ -46,7 +46,7 @@
 ## Regeneration
 
 ```bash
-PY=/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python
+PY=<the app's own .venv: the interpreter that runs the backend>
 $PY <skill>/scripts/gen_abc.py --reset                  # schema + data, deterministic
 $PY backend/skills/builtin/generate-mock-dataset/scripts/check_dataset.py \
     --spec <skill>/fixtures/abc_coldchain.dataset.json  # 53 checks, 0 failed

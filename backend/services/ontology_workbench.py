@@ -6,8 +6,8 @@ the tutorial (all eight authored chapters) and ABC's training pages are served b
 every number in them is compiled in-process. Five processes were only ever a URL, and that URL is gone.
 
 It is kept because a workbench is still the fastest way to look at ONE profile's pages while editing the
-HTML, and because the learning repo (`/Users/weiping/dev/Learn/ontology`) still runs one. Starting a child
-now requires an explicit `ensure=true`; the default is to report what already exists. A deploy that
+HTML, and because a learning mirror of the same material still runs one. Starting a child now requires an
+explicit `ensure=true`; the default is to report what already exists. A deploy that
 forgets this module exists loses nothing.
 
 The workbench (``ontology/retail_graph/serve_ui.py``) is a separate process per profile — it
@@ -41,16 +41,17 @@ import logging
 import os
 import pathlib
 import subprocess
+import sys
 import time
 import urllib.error
 import urllib.request
 
 logger = logging.getLogger(__name__)
 
-#: Where the ontology repo lives and which interpreter has rdflib/psycopg2. Overridable in
-#: the `ontology` settings namespace (repo_path / python), because none of this is portable.
-DEFAULT_REPO = "/Users/weiping/dev/Learn/ontology"
-DEFAULT_PYTHON = "/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python"
+#: The workbench runs from this app: the script is `features/ontology/workbench/serve_ui.py` and the
+#: interpreter is the one already running the app (it has rdflib + psycopg2 — that is what serves every
+#: number). `settings.ontology.python` can still override the interpreter, and nothing assumes a path on
+#: somebody's laptop.
 
 _PROC: dict[str, subprocess.Popen] = {}
 #: When each child was started (epoch seconds). A child that predates the workbench script
@@ -97,8 +98,9 @@ def _profile_rows() -> list[dict]:
 
 
 def _repo() -> pathlib.Path:
-    """The LEARNING MIRROR (kept whole, for study). Nothing is spawned from here any more."""
-    return pathlib.Path(_settings().get("repo_path") or DEFAULT_REPO)
+    """Where the ontology code lives: THIS app's feature (the learning mirror is not spawned from)."""
+    configured = (_settings().get("repo_path") or "").strip()
+    return pathlib.Path(configured) if configured else _feature()
 
 
 def _feature() -> pathlib.Path:
@@ -107,7 +109,8 @@ def _feature() -> pathlib.Path:
 
 
 def _python() -> str:
-    return _settings().get("python") or DEFAULT_PYTHON
+    """The app's own interpreter unless a profile owner overrides it — never a hard-coded venv."""
+    return (_settings().get("python") or "").strip() or sys.executable
 
 
 def _port(url: str) -> int | None:

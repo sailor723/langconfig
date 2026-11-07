@@ -92,8 +92,11 @@ def main() -> int:
     print("=== A4 the two writes are declared actions with audit ===")
     import importlib
     importlib.reload(actions)          # SCHEMA is read at import: reload after pointing it
-    actions.SCHEMA = (profile_dir("abc") / prof["actions_file"]).resolve()
-    compiled = actions.compile_actions(g, actions.load_config())
+    declared = (profile_dir("abc") / prof["actions_file"]).resolve()
+    actions.SCHEMA = declared
+    # pass the file EXPLICITLY: `load_config()` resolves from the live profile and refuses to fall back
+    # to another ontology's verbs, so a caller with a file in hand must say so
+    compiled = actions.compile_actions(g, actions.load_config(declared))
     check("two actions", sorted(compiled), ["AssignTrip", "JudgeLiability"])
     check("AssignTrip checks the three objects", len(compiled["AssignTrip"]["checks"]), 3)
     check("every action audits", all(a.get("audit") for a in compiled.values()), True)

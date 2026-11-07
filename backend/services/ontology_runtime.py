@@ -34,7 +34,9 @@ FEATURE = pathlib.Path(__file__).resolve().parents[1] / "features" / "ontology"
 COMPILER = FEATURE / "compiler"
 GATES = FEATURE / "gates"
 PROFILES = FEATURE / "profiles"
-MIRROR = pathlib.Path(os.environ.get("ONTOLOGY_REPO") or "/Users/weiping/dev/Learn/ontology")
+#: The learning mirror, consulted ONLY when a checkout sets `ONTOLOGY_REPO` explicitly. A deployment
+#: never sets it: the declarations live in `profiles/`, inside this app.
+MIRROR = pathlib.Path(os.environ["ONTOLOGY_REPO"]) if os.environ.get("ONTOLOGY_REPO") else None
 
 
 class OntologyError(Exception):
@@ -42,16 +44,23 @@ class OntologyError(Exception):
 
 
 def profile_for(key: str) -> pathlib.Path | None:
-    """Where one ontology's DECLARATIONS live: the feature first, the learning mirror second."""
+    """Where one ontology's DECLARATIONS live: in this app's feature.
+
+    The learning mirror is a fallback only when `ONTOLOGY_REPO` is set — so a checkout that still keeps
+    the mirror can read it, and a deployment that has never heard of it resolves everything locally.
+    """
     candidates = [
         PROFILES / key / f"{key}_settings.json",
         PROFILES / key / "settings.json",
-        MIRROR / "ontologies" / key / f"{key}_settings.json",
-        MIRROR / "ontologies" / key / "settings.json",
-        MIRROR / "retail_graph" / f"{key}_settings.json",
     ]
-    if key == "retail":
-        candidates.append(MIRROR / "retail_graph" / "settings.json")
+    if MIRROR is not None:
+        candidates += [
+            MIRROR / "ontologies" / key / f"{key}_settings.json",
+            MIRROR / "ontologies" / key / "settings.json",
+            MIRROR / "retail_graph" / f"{key}_settings.json",
+        ]
+        if key == "retail":
+            candidates.append(MIRROR / "retail_graph" / "settings.json")
     for candidate in candidates:
         if candidate.is_file():
             return candidate
