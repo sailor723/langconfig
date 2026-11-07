@@ -166,9 +166,19 @@ async def inspect(agent_id: int, show_prompt: bool) -> None:
         print("=" * 78)
         prompt = sdk_kwargs.get("system_prompt") or ""
         print(f"  {len(prompt)} chars, {prompt.count(chr(10))} lines")
+        in_params = False
         for line in prompt.splitlines():
             if line.startswith("#") or line.startswith("- **"):
+                # a heading or a skill name: the outline. Only a HEADING closes the parameter section —
+                # a skill name line used to reset the flag, which hid the values right under it.
                 print(f"    {line[:106]}")
+                if line.startswith("#"):
+                    in_params = line.startswith("# Skill parameters")
+                continue
+            if in_params and line.strip():
+                # under `# Skill parameters` the VALUES are the point — print them too, otherwise the
+                # outline shows a header and two skill names with no configuration in sight.
+                print(f"      {line.strip()[:106]}")
 
 
 def main() -> None:

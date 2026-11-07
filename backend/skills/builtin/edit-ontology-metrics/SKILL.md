@@ -9,6 +9,17 @@ triggers:
   - When relabelling, aliasing or re-teaching an ontology (labels, samples, tutorial)
 version: 1.0
 author: weiping
+
+params:
+  ontology_key:
+    label: 本体
+    description: the ontology this agent edits (the folder under ontologies/)
+    required: true
+  repo:
+    label: 本体仓库
+    description: where the ontology repo lives (the compiler and the gate suites)
+    required: false
+    default: /Users/weiping/dev/Learn/ontology
 ---
 
 # Editing an ontology that already exists

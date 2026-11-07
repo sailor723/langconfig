@@ -11,6 +11,7 @@ monolithic deepagent_factory.py.
 """
 
 import json
+import pathlib
 import shutil
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
@@ -839,6 +840,30 @@ class _DeepAgentAssemblyMixin:
                          "it is never reported as passed.\n")
             final_system_prompt += "".join(lines)
 
+        # ── Skill parameters (the same skill, pointed at THIS agent's database/ontology) ──
+        # `config.skills` says which skills may be read; `config.skill_params` says what they are
+        # pointed at. A parameter the skill declares as required and the agent does not supply fails
+        # the build BY NAME — filling a silent default would build into the wrong ontology.
+        skill_values: Dict[str, Dict[str, Any]] = {}
+        try:
+            from core.skills import params as skill_params_mod
+
+            skill_values, problems = skill_params_mod.resolve(
+                getattr(config, "agent_id", None) if hasattr(config, "agent_id") else None,
+                list(getattr(config, "skills", None) or []),
+                getattr(config, "skill_params", None) or {},
+                config.model_dump() if hasattr(config, "model_dump") else {},
+            )
+            if problems:
+                raise ValueError("; ".join(problems))
+            if skill_values:
+                final_system_prompt += skill_params_mod.render_block(skill_values)
+                logger.info(f"Skill parameters: {json.dumps(skill_values, ensure_ascii=False)}")
+        except ValueError:
+            raise
+        except Exception as exc:                                 # noqa: BLE001
+            logger.warning(f"skill parameters were not applied (non-fatal): {exc}")
+
         # ── Skills (progressive disclosure via SkillsMiddleware) ──
         # Classic Anthropic pattern: the FULL skill catalog (builtin + personal
         # roots) is exposed to every agent, not just config.skills. The
@@ -858,6 +883,23 @@ class _DeepAgentAssemblyMixin:
             custom_output_path=custom_output_path,
             workspace_root=workspace_root,
         )
+
+        # Put each configured skill's values ON DISK next to its SKILL.md, so its scripts read the
+        # parameters instead of parsing the prompt: /skills/<source>/<id>/params.json
+        if skill_values and skills_staging_root is not None:
+            try:
+                from core.skills import params as skill_params_mod
+
+                skills_dir = pathlib.Path(skills_staging_root) / "skills"
+                for skill_name, values in skill_values.items():
+                    hits = list(skills_dir.glob(f"*/{skill_name}/SKILL.md"))
+                    for hit in hits:
+                        skill_params_mod.write_params(hit.parent, skill_name, values)
+                    if not hits:
+                        logger.warning(f"skill {skill_name!r} has parameters but was not staged "
+                                       f"under {skills_dir} — {skill_params_mod.PARAMS_FILE} not written")
+            except Exception as exc:                             # noqa: BLE001
+                logger.warning(f"writing skill params to disk failed (non-fatal): {exc}")
 
         # Deduplicate filesystem tools when a disk backend is used.
         # deepagents always adds its own FilesystemMiddleware (required, cannot

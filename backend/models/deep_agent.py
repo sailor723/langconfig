@@ -381,6 +381,16 @@ class DeepAgentConfig(BaseModel):
                     "Skills are synced to the sandbox filesystem at agent creation time "
                     "and loaded via create_deep_agent(skills=[...]) for progressive disclosure."
     )
+    # Values for the parameters each pinned skill DECLARES (skill frontmatter `params:`). Kept apart
+    # from `skills` on purpose: which skill an agent may read is a permission-ish choice, what that
+    # skill is pointed AT is configuration — a database, an ontology folder, a workbench URL.
+    skill_params: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Per-skill parameter values, e.g. {build-ontology-from-db: {datasource: logistics, "
+                    "ontology_key: logistics}}. Rendered into the system prompt and written to "
+                    "/skills/<source>/<skill>/params.json; a required parameter with no value fails "
+                    "the build by name.",
+    )
     # Plugins (LangChain-style declarative plugins, backend/plugins/<name>).
     # Each plugin contributes skills (+ optional MCP servers / hooks) that are
     # mounted into this agent at build time. Plugin skills are staged into the

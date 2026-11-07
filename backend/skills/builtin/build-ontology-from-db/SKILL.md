@@ -8,6 +8,24 @@ triggers:
   - When "the same metric gives two different numbers" and the definitions must be settled
 version: 1.0
 author: weiping
+
+# The parameters this skill needs. The VALUES live on the agent (config.skill_params) — the skill says
+# what it must be pointed at, because a build without a database and an ontology folder is not a build.
+params:
+  datasource:
+    label: 数据库
+    description: which database the ontology is built from (the agent's `datasource`)
+    required: true
+    default_from: agent.datasource
+  ontology_key:
+    label: 本体
+    description: the folder under ontologies/ this agent writes (e.g. logistics)
+    required: true
+  profile_file:
+    label: profile 文件名
+    description: the workbench profile inside that folder
+    required: false
+    default: "{ontology_key}_settings.json"
 ---
 
 # Building an ontology from a database

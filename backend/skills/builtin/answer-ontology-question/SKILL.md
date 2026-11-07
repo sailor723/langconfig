@@ -9,6 +9,16 @@ triggers:
   - When a metric/class/action name must be resolved from the words a user actually types
 version: 1.0
 author: weiping
+
+params:
+  ontology_key:
+    label: 本体
+    description: which ontology answers the questions (its Query section)
+    required: true
+  workbench:
+    label: 工作台地址
+    description: the URL of that ontology's workbench, e.g. http://127.0.0.1:8098
+    required: false
 ---
 
 # Answering a business question with an ontology
