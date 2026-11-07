@@ -42,13 +42,19 @@ import uuid
 
 logger = logging.getLogger(__name__)
 
-#: Where ontologies live. The workbench reads `<repo>/ontologies/<key>/<profile>` and the
-#: supervisor starts one process per profile from here, so this is the only place a publish
-#: can land.
+#: Where the LIVE ontologies live: the ontology FEATURE (backend/features/ontology). Its
+#: profiles/ holds the declarations, its gates/ holds the checks, its compiler/ the compiler.
+#: The ontology repository stays as a learning mirror of the same material — it is not a runtime
+#: dependency, because a publish that edits the mirror while the app reads the feature is exactly
+#: the "two copies of the truth" failure this feature was created to end.
+FEATURE = pathlib.Path(__file__).resolve().parents[1] / "features" / "ontology"
+ONTOLOGIES = FEATURE / "profiles"
+GATES = FEATURE / "gates"
+#: The learning mirror (kept whole, for study; never edited by a publish).
 REPO = pathlib.Path(os.environ.get("ONTOLOGY_REPO") or "/Users/weiping/dev/Learn/ontology")
-ONTOLOGIES = REPO / "ontologies"
-#: Interpreter with rdflib + psycopg2 (the workbench's own runtime).
-PYTHON = os.environ.get("ONTOLOGY_PYTHON") or "/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python"
+#: Interpreter with rdflib + psycopg2. The feature lives INSIDE the app, so the app's own
+#: interpreter already has them; ONTOLOGY_PYTHON still overrides it.
+PYTHON = os.environ.get("ONTOLOGY_PYTHON") or __import__("sys").executable
 
 _AUDIT_DDL = """
 CREATE TABLE IF NOT EXISTS ontology_publishes (
@@ -130,13 +136,13 @@ def _profile_for(key: str) -> pathlib.Path | None:
 
 def _run_gates(profile_path: pathlib.Path, truth: pathlib.Path | None = None) -> dict:
     """Run the generic gate suite against a profile. Never raises: a gate failure is a result."""
-    args = [PYTHON, str(REPO / "retail_graph" / "check_ontology_generic.py"),
+    args = [PYTHON, str(GATES / "check_ontology_generic.py"),
             "--profile", str(profile_path)]
     if truth and truth.exists():
         args += ["--truth", str(truth)]
     try:
         p = subprocess.run(args, capture_output=True, text=True, timeout=600,
-                           cwd=str(REPO / "retail_graph"))
+                           cwd=str(GATES))
     except Exception as exc:                                    # noqa: BLE001
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}", "text": ""}
     text_out = (p.stdout or "") + (p.stderr or "")
@@ -193,14 +199,18 @@ def _git(key: str, message: str) -> str | None:
         ignore = ONTOLOGIES / key / ".gitignore"
         if not ignore.exists():
             ignore.write_text(".staging/\n.backup/\n", encoding="utf-8")
-        subprocess.run(["git", "-C", str(REPO), "add", "-A", f"ontologies/{key}"],
+        # the commit lands in the repository that HOLDS the feature now (the app's), because that is
+        # where the published declarations live; the learning mirror keeps its own history
+        app_repo = pathlib.Path(__file__).resolve().parents[2]
+        rel = (ONTOLOGIES / key).relative_to(app_repo)
+        subprocess.run(["git", "-C", str(app_repo), "add", "-A", str(rel)],
                        capture_output=True, text=True, timeout=60, check=True)
-        p = subprocess.run(["git", "-C", str(REPO), "commit", "-m", message],
+        p = subprocess.run(["git", "-C", str(app_repo), "commit", "-m", message],
                            capture_output=True, text=True, timeout=120)
         if p.returncode != 0:
             logger.warning("git commit for %s failed: %s", key, (p.stderr or "").strip()[:200])
             return None
-        sha = subprocess.run(["git", "-C", str(REPO), "rev-parse", "--short", "HEAD"],
+        sha = subprocess.run(["git", "-C", str(app_repo), "rev-parse", "--short", "HEAD"],
                              capture_output=True, text=True, timeout=30).stdout.strip()
         return sha or None
     except Exception as exc:                                    # noqa: BLE001
