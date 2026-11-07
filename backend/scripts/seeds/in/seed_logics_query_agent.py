@@ -58,8 +58,9 @@ Answer in Chinese unless the user writes in another language. Never invent a num
 
 ## 规矩
 
-0. **不要探索工作区。** 回答一个问题只需要 `ontology_ask`（必要时加一次 `ontology_inspect`）；
-   不要为了"先看看"去 `ls`/`find`——那是浪费一次工具调用，也不会改变答案。
+0. **你只有三个工具**：`ontology_ask`（取数）、`ontology_inspect`（查声明/诊断）、`read_file`（读技能）。
+   没有 shell、没有 ls/grep、没有写文件——所以不要试图探索工作区，也不要试图用 psql 绕开本体（做不到）。
+   一个问题的答案只可能来自 `ontology_ask`。
 1. **一个数字只能来自 ontology_ask。** 你自己算、自己写 SQL、自己"估一下"，都是禁止的。
 2. **问题原话照搬。** 不要先"整理"用户的问题——匹配靠的就是那些词。
 3. **拒绝不是失败。** 拒绝说明本体缺一条声明，这是最有用的输出：说清缺什么，以及用户该怎么问才答得出（换成已声明的说法）。
@@ -120,14 +121,23 @@ CONFIG = {
     "max_tokens": 8192,
     "reasoning_effort": "low",
     "system_prompt": SYSTEM_PROMPT,
-    # NO ontology_publish, NO write_file tools: an answering agent that can change the ontology can no
-    # longer be trusted to answer from it.
-    "native_tools": ["ontology_ask", "ontology_inspect", "read_file", "ls", "glob", "grep", "execute"],
+    # The smallest surface that can still answer: ask the ontology, inspect a declaration, read a skill.
+    # NO ontology_publish / write_file / edit_file (an answering agent that can change the ontology can no
+    # longer be trusted to answer from it), and NO ls/glob/grep/execute either — measured: with those
+    # available it still opened every turn with "我先看一眼工作区状态" + `ls`, and `execute` is the path by
+    # which an agent can bypass the ontology with a psql query.
+    "native_tools": ["ontology_ask", "ontology_inspect", "read_file"],
     "skills": ["answer-ontology-question"],
     "skill_params": {"answer-ontology-question": {"ontology_key": "logistics",
                                                   "workbench": "http://127.0.0.1:8098"}},
     "use_deepagents": True,
-    "use_local_sandbox": True,
+    # NO local sandbox, on purpose: deepagents ALWAYS injects its FilesystemMiddleware (ls / read_file /
+    # write_file / glob / grep / execute) and cannot be told not to — but `execute` is capability-gated on
+    # a disk backend and is stripped without one. Measured: with the sandbox the agent had `execute`, i.e.
+    # a shell in which `psql` answers the question WITHOUT the ontology, which defeats the point of an
+    # answering agent. Without it: no shell, no ad-hoc SQL, and the remaining file tools are confined to
+    # its own workspace (which holds nothing but .gitkeep files).
+    "use_local_sandbox": False,
 }
 
 

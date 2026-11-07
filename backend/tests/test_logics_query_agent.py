@@ -25,13 +25,22 @@ def test_the_query_agent_exists_and_is_visible():
 
 
 def test_it_holds_the_ask_tool_and_no_way_to_change_the_ontology():
+    """Two guarantees, and the SECOND one is not a property of native_tools.
+
+    deepagents injects its own FilesystemMiddleware (ls / read_file / write_file / edit_file / glob /
+    grep / execute) and cannot be told not to, so asserting `write_file not in native_tools` (the first
+    version of this test) measured the config, not the agent — the model could still write and, worse,
+    still had `execute`, i.e. a shell in which psql answers the question without the ontology at all.
+    `use_local_sandbox = False` is what actually removes `execute` (capability-gated on a disk backend);
+    the remaining file tools are confined to the agent's own workspace.
+    """
     cfg = _agent().config or {}
     tools = cfg.get("native_tools") or []
     assert "ontology_ask" in tools, tools
-    # an answering agent that can publish can no longer be trusted to answer FROM the ontology
+    # the one tool that could change the ontology
     assert "ontology_publish" not in tools, tools
-    assert "write_file" not in tools, tools
-    assert "edit_file" not in tools, tools
+    # …and the mechanism that keeps an ad-hoc SQL path out of the model's schema
+    assert cfg.get("use_local_sandbox") is False, cfg.get("use_local_sandbox")
 
 
 def test_its_ontology_comes_from_skill_parameters_not_from_prose():
