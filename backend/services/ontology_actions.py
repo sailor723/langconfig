@@ -30,19 +30,42 @@ logger = logging.getLogger(__name__)
 
 PYTHON = ontology_publish.PYTHON
 REPO = pathlib.Path(ontology_publish.REPO)
+# The ontology feature: the compiler, the workbench and the declarations live here now. The ontology
+# repository is kept as a learning mirror, not a runtime dependency.
+FEATURE = pathlib.Path(__file__).resolve().parents[1] / "features" / "ontology"
 
 
 class ActionError(Exception):
     """No action declaration, or the engine could not be executed at all."""
 
 
-def _profile_for(key: str) -> pathlib.Path | None:
-    for candidate in (REPO / "ontologies" / key / f"{key}_settings.json",
-                      REPO / "ontologies" / key / "settings.json",
-                      REPO / "retail_graph" / f"{key}_settings.json"):
+def ontology_profile(key: str) -> pathlib.Path | None:
+    """Where one ontology's DECLARATIONS live.
+
+    The feature owns them now (backend/features/ontology/profiles/<key>/); the ontology repository is
+    kept as a learning mirror and still works as a fallback, so a checkout that has not moved yet
+    keeps answering.
+    """
+    feature = pathlib.Path(__file__).resolve().parents[1] / "features" / "ontology"
+    mirror = pathlib.Path(os.environ.get("ONTOLOGY_REPO") or "/Users/weiping/dev/Learn/ontology")
+    candidates = [
+        feature / "profiles" / key / f"{key}_settings.json",
+        feature / "profiles" / key / "settings.json",
+        mirror / "ontologies" / key / f"{key}_settings.json",
+        mirror / "ontologies" / key / "settings.json",
+        mirror / "retail_graph" / f"{key}_settings.json",
+    ]
+    if key == "retail":
+        candidates.append(feature / "profiles" / "retail" / "settings.json")
+        candidates.append(mirror / "retail_graph" / "settings.json")
+    for candidate in candidates:
         if candidate.is_file():
             return candidate
     return None
+
+
+def _profile_for(key: str) -> pathlib.Path | None:
+    return ontology_profile(key)
 
 
 def _declaration(key: str) -> tuple[pathlib.Path, pathlib.Path | None]:
@@ -59,7 +82,7 @@ def _declaration(key: str) -> tuple[pathlib.Path, pathlib.Path | None]:
         return profile, None
     path = pathlib.Path(raw).expanduser()
     if not path.is_absolute():
-        path = (REPO / "retail_graph" / path).resolve()
+        path = (profile.parent / path).resolve()
     return profile, (path if path.is_file() else None)
 
 
@@ -71,8 +94,11 @@ def _run(key: str, argv: list[str]) -> tuple[int, dict | list | None]:
             f"that is not declared does not exist")
     env = dict(os.environ)
     env.update(ONTOLOGY_REPO=str(REPO), APP_SETTINGS=str(profile), APP_ACTIONS=str(actions_file))
-    proc = subprocess.run([PYTHON, "actions.py", *argv], capture_output=True, text=True,
-                          timeout=120, cwd=str(REPO / "retail_graph"), env=env)
+    # the ENGINE (actions.py) stays with the compiler it compiles against; the VERB declaration
+    # (actions.yml) is the profile's own file
+    proc = subprocess.run([PYTHON, str(FEATURE / "compiler" / "actions.py"), *argv],
+                          capture_output=True, text=True,
+                          timeout=120, cwd=str(FEATURE / "compiler"), env=env)
     raw = (proc.stdout or "").strip()
     if not raw:
         tail = (proc.stderr or "").strip().splitlines()

@@ -30,6 +30,12 @@ logger = logging.getLogger(__name__)
 PYTHON = ontology_publish.PYTHON
 REPO = pathlib.Path(ontology_publish.REPO)
 
+# The runner and the gate that asserts its payload live INSIDE the ontology feature
+# (backend/features/ontology/): the feature owns the compiler, the declarations and the checks that
+# hold them honest. The ontology repository is kept as a learning mirror, not a runtime dependency.
+ONTOLOGY_FEATURE = pathlib.Path(__file__).resolve().parents[1] / "features" / "ontology"
+RUNNER = ONTOLOGY_FEATURE / "compiler" / "run_dashboard.py"
+
 CACHE: dict[str, tuple[float, dict]] = {}
 CACHE_SECONDS = 30.0
 
@@ -38,19 +44,33 @@ class DashboardError(Exception):
     """No dashboard declaration, or the runner could not be executed at all."""
 
 
-def _profile_for(key: str) -> pathlib.Path | None:
-    """A key is either an ontology folder under `ontologies/` or a built-in dataset."""
+def ontology_profile(key: str) -> pathlib.Path | None:
+    """Where one ontology's DECLARATIONS live.
+
+    The feature owns them now (backend/features/ontology/profiles/<key>/); the ontology repository is
+    kept as a learning mirror and still works as a fallback, so a checkout that has not moved yet
+    keeps answering.
+    """
+    feature = pathlib.Path(__file__).resolve().parents[1] / "features" / "ontology"
+    mirror = pathlib.Path(os.environ.get("ONTOLOGY_REPO") or "/Users/weiping/dev/Learn/ontology")
     candidates = [
-        REPO / "ontologies" / key / f"{key}_settings.json",
-        REPO / "ontologies" / key / "settings.json",
-        REPO / "retail_graph" / f"{key}_settings.json",
+        feature / "profiles" / key / f"{key}_settings.json",
+        feature / "profiles" / key / "settings.json",
+        mirror / "ontologies" / key / f"{key}_settings.json",
+        mirror / "ontologies" / key / "settings.json",
+        mirror / "retail_graph" / f"{key}_settings.json",
     ]
     if key == "retail":
-        candidates.append(REPO / "retail_graph" / "settings.json")
+        candidates.append(feature / "profiles" / "retail" / "settings.json")
+        candidates.append(mirror / "retail_graph" / "settings.json")
     for candidate in candidates:
         if candidate.is_file():
             return candidate
     return None
+
+
+def _profile_for(key: str) -> pathlib.Path | None:
+    return ontology_profile(key)
 
 
 def dashboard_path(key: str) -> pathlib.Path | None:
@@ -91,7 +111,7 @@ def panels(key: str, *, refresh: bool = False, filter: str | None = None) -> dic
     env["APP_SETTINGS"] = str(profile)
     started = time.time()
     try:
-        argv = [PYTHON, "run_dashboard.py", "--profile", str(profile)]
+        argv = [PYTHON, str(RUNNER), "--profile", str(profile)]
         if filter:
             argv += ["--filter", filter]
         proc = subprocess.run(

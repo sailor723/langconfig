@@ -3,6 +3,7 @@ fastapi==0.115.0
 uvicorn[standard]==0.31.0
 pydantic>=2.10.0
 pydantic-settings>=2.10.1
+rdflib>=7.6.0                # the ontology compiler reads the TTL declarations (features/ontology/compiler)
 python-multipart
 
 # Database
