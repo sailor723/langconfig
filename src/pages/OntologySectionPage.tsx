@@ -32,9 +32,15 @@ export default function OntologySectionPage() {
   // The server says which sections this profile serves: offering a section that is switched
   // off in the profile would frame a 404.
   const sections = s.sections?.length ? s.sections.filter(x => x.enabled) : SECTIONS.map(x => ({ ...x, enabled: true }));
-  const section = sections.find(x => x.key === view) ?? sections[0] ?? SECTIONS[0];
+  const framed = sections.filter(x => x.kind !== 'app');
+  const section = framed.find(x => x.key === view) ?? framed[0] ?? SECTIONS[0];
   const lang = (i18n?.language || '').startsWith('zh') ? 'zh' : 'en';
   const themeName = theme?.name === 'dark' ? 'dark' : 'light';
+
+  useEffect(() => {
+    const app_section = sections.find(x => x.key === view && x.kind === 'app');
+    if (app_section) navigate(app_section.path, { replace: true });
+  }, [view, sections, navigate]);
 
   useEffect(() => { void ontology.ensureReady(); }, []);
 
@@ -80,7 +86,12 @@ export default function OntologySectionPage() {
             key={sec.key}
             title={sec.hint}
             active={sec.key === section.key}
-            onClick={() => setParams(sec.key === 'home' ? {} : { view: sec.key }, { replace: true })}
+            onClick={() => {
+              // the dashboard is a page of THIS app, not a workbench path: switching ?view would frame a
+              // 404. The two kinds share one list, and this is where they part company.
+              if (sec.kind === 'app') { navigate(sec.path); return; }
+              setParams(sec.key === 'home' ? {} : { view: sec.key }, { replace: true });
+            }}
           >
             {sec.label}
           </Chip>

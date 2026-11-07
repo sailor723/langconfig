@@ -76,25 +76,60 @@ export const FALLBACK_PROFILES: OntologyProfile[] = [
 
 const STORAGE_URL = 'langconfig.ontology.url';
 
+/**
+ * A section of one ontology, and there are two kinds — the list shows them side by side:
+ *
+ *  · `workbench` — a path served by the ONTOLOGY's own server (`/query`, `/actions`, …), rendered in a
+ *    frame. The server reports which of these it actually serves.
+ *  · `app`      — a page of THIS application (`/ontology/dashboard`) that reads the ontology THROUGH the
+ *    app backend. The dashboard is one: it compiles the declaration with the ontology's compiler, but the
+ *    workbench does not serve it, so framing it would 404.
+ *
+ * They sit in ONE list because a reader does not care which process answers — Query and Dashboard are the
+ * two ways to read a number, and they belong next to each other.
+ */
 export interface OntologySection {
   key: string;
   label: string;
   path: string;
   hint: string;
   enabled: boolean;
+  kind?: 'app' | 'workbench';
 }
 
-/**
- * The workbench section an ontology exposes. The workbench's own rail is hidden when it is
- * framed (embed=1) — these are the entries that replace it, one list under each ontology.
- */
-export const SECTIONS: Array<{ key: string; label: string; path: string; hint: string }> = [
-  { key: 'home', label: 'Overview', path: '/', hint: 'the generated ontology page: objects, links, documentation' },
-  { key: 'query', label: 'Query', path: '/query', hint: 'ask in your own words; rules first, model only when unsure' },
-  { key: 'actions', label: 'Actions', path: '/actions', hint: 'declared writes: compiled preconditions, dry-run, audit' },
-  { key: 'design', label: 'Design', path: '/design', hint: 'the architecture of this ontology: two lanes, one question' },
-  { key: 'tutorial', label: 'Tutorial', path: '/tutorial', hint: 'a guided walk through the axioms and their numbers' },
+/** Pages of this app that belong in an ontology's section list (never framed). */
+export const APP_SECTIONS: OntologySection[] = [
+  {
+    key: 'dashboard', label: 'Dashboard', path: '/ontology/dashboard', kind: 'app', enabled: true,
+    hint: 'the board: declared metrics, an opening assessment, cross-filter — served by the app, every number compiled by the ontology',
+  },
 ];
+
+export const SECTIONS: Array<Omit<OntologySection, 'enabled'> & { enabled?: boolean }> = [
+  // the page IS the generated graph + documentation (graph_view.py); the key stays `home` for old links
+  { key: 'home', label: 'Graph view', path: '/', kind: 'workbench', hint: 'the graph and the documentation generated from the TTL, with live numbers' },
+  { key: 'query', label: 'Query', path: '/query', kind: 'workbench', hint: 'ask in your own words; rules first, model only when unsure' },
+  ...APP_SECTIONS,
+  { key: 'actions', label: 'Actions', path: '/actions', kind: 'workbench', hint: 'declared writes: compiled preconditions, dry-run, audit' },
+  { key: 'design', label: 'Design', path: '/design', kind: 'workbench', hint: 'the architecture of this ontology: two lanes, one question' },
+  { key: 'tutorial', label: 'Tutorial', path: '/tutorial', kind: 'workbench', hint: 'a guided walk through the axioms and their numbers' },
+];
+
+/**
+ * Merge the app's own pages into the sections the workbench reports.
+ *
+ * The server replaces the compiled list wholesale, so an app page added only to `SECTIONS` vanished as soon
+ * as a profile answered `/api/sections`. This is the one place that keeps the two kinds together, and it
+ * puts the dashboard directly after Query — the two ways to read a number belong next to each other.
+ */
+export function mergeSections(served: OntologySection[]): OntologySection[] {
+  const list = served.map(s => ({ ...s, kind: s.kind ?? 'workbench' as const }));
+  const missing = APP_SECTIONS.filter(a => !list.some(s => s.key === a.key));
+  if (!missing.length) return list;
+  const afterQuery = list.findIndex(s => s.key === 'query');
+  const at = afterQuery >= 0 ? afterQuery + 1 : list.length;
+  return [...list.slice(0, at), ...missing, ...list.slice(at)];
+}
 
 /** Everything the frame needs: the page, no workbench chrome, and the host app's look. */
 export function framedUrl(url: string, sectionPath: string, theme: 'dark' | 'light', lang?: string): string {
@@ -157,7 +192,7 @@ let state: OntologyState = {
   starting: false,
   defaultKey: null,
   showSql: true,
-  sections: SECTIONS.map(x => ({ ...x, enabled: x.key !== 'actions' && x.key !== 'tutorial' })),
+  sections: mergeSections(SECTIONS.map(x => ({ ...x, enabled: x.key !== 'actions' && x.key !== 'tutorial' }))),
   probes: {},
 };
 
@@ -318,13 +353,14 @@ export const ontology = {
             hint: String(x.hint || ''), enabled: x.enabled !== false,
           }))
         : SECTIONS.map(x => ({ ...x, enabled: true }));
+      const with_app = mergeSections(emit_sections);
       emit({
         status: 'up',
         ontology: doc,
-        sections: emit_sections,
+        sections: with_app,
         probes: {
           ...state.probes,
-          [clean]: { status: 'up', counts: doc.counts, sections: emit_sections },
+          [clean]: { status: 'up', counts: doc.counts, sections: with_app },
         },
       });
     } catch (err: any) {

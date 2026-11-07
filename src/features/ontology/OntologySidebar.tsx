@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Boxes, RefreshCw, Loader2, ListTree, Settings2, Compass, PlayCircle, Gavel, FileCode2, GraduationCap,
+  BarChart3,
 } from 'lucide-react';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { ontology, useOntology } from './ontologyStore';
@@ -18,6 +19,7 @@ import { ontology, useOntology } from './ontologyStore';
 const SECTION_ICON: Record<string, any> = {
   home: Compass,
   query: PlayCircle,
+  dashboard: BarChart3,
   actions: Gavel,
   design: FileCode2,
   tutorial: GraduationCap,
@@ -149,7 +151,13 @@ export default function OntologySidebar() {
                       <button
                         key={sec.key}
                         title={sec.hint}
-                        onClick={e => { e.stopPropagation(); navigate(sec.key === 'home' ? '/ontology/app' : `/ontology/app?view=${sec.key}`); }}
+                        onClick={e => {
+                          e.stopPropagation();
+                          // an APP page (the dashboard) is a route in this app; a workbench section is a
+                          // path the ontology's own server serves and this shell frames.
+                          if (sec.kind === 'app') { navigate(sec.path); return; }
+                          navigate(sec.key === 'home' ? '/ontology/app' : `/ontology/app?view=${sec.key}`);
+                        }}
                         style={{ ...rowTitle, fontSize: 11.5, color: t.textMuted, padding: '2px 0' }}
                       >
                         <Icon size={11} /> {sec.label.toLowerCase()}

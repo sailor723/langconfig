@@ -13,10 +13,7 @@
  */
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Boxes, ListTree, Play, RefreshCw, AlertTriangle, ShieldCheck, Loader2, Layers,
-  Link2, Sigma, GitBranch, Gavel, Compass, CircleHelp, ArrowRight, Sparkles,
-} from 'lucide-react';
+import { Boxes, ListTree, Play, RefreshCw, AlertTriangle, ShieldCheck, Loader2, Layers, Link2, Sigma, GitBranch, Gavel, Compass, CircleHelp, ArrowRight, Sparkles } from 'lucide-react';
 import { useLayoutTokens } from '../components/layout2/tokens';
 import { ontology, useOntology } from '../features/ontology/ontologyStore';
 import {
