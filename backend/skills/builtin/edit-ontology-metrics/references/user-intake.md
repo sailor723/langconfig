@@ -83,8 +83,11 @@ Three of these exist per ontology, and each is a **business question with its an
 | 每千公里漏筐数 | 每跑一千公里会丢几个筐？ | a cross-grain ratio whose denominator is another object's column; must give 112.9505 |
 | 按车辆看温控超标站点数 | 哪台车温控超标最多？ | a declared definition class (`:TempExcursionStop`) + two hops; must give 60 rows, top 沪A62447 = 58 |
 
-Clicking one fills every guided step and lands on the summary, so a newcomer reads the answers, presses
-go, and watches intake → interpretation → declaration → verification → proposal → apply without typing.
+Clicking one **fills every guided step and walks from the first question**, so the user sees each answer
+*in the input* and presses 下一步 through them — the answers are the thing worth reading, and jumping
+straight to the summary hid them. The summary is still one click away (the 摘要 chip), and every filled
+answer can be edited like any other. Then intake → interpretation → declaration → verification →
+proposal → apply, without typing anything.
 
 **Every sample is resettable.** The reset is not an edit: it finds the metric's declaration block,
 removes exactly that block, runs the channel (compile + gates) and installs the result — so the ledger

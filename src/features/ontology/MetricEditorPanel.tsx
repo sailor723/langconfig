@@ -17,7 +17,7 @@
  * The two halves share one conversation: composing from a field sends into it, so the transcript shows
  * exactly what was asked. Nothing in the panel talks to a database, and nothing here writes SQL.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpRight, CheckCheck, Loader2, MessageSquare, Pencil, Plus, Sigma, X,
 } from 'lucide-react';
@@ -115,6 +115,11 @@ export default function MetricEditorPanel({
   const chatRef = useRef<HTMLDivElement | null>(null);
 
   const card = (cards || []).find(c => c.name === metricName) || null;
+  // Stable identity on purpose: GuidedIntake treats a NEW object as "a sample was selected" and walks
+  // from step 1. A fresh object per render would keep throwing the user back to step 1.
+  const samplePrefill = useMemo(
+    () => (sampleId ? (samples.find(x => x.id === sampleId)?.answers ?? null) : null),
+    [sampleId, samples]);
 
   const loadProposals = useCallback(async () => {
     if (!ontologyKey) return;
@@ -352,7 +357,7 @@ export default function MetricEditorPanel({
           )}
         </div>
           )}
-          prefill={sampleId ? (samples.find(x => x.id === sampleId)?.answers || null) : null}
+          prefill={samplePrefill}
           title="新增指标（一步一步来）"
           intro="我一次只问一件事。全部答完会给你一段摘要请你核对——确认之后 agent 先给你的解读，再动手。"
           steps={METRIC_STEPS}

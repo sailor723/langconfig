@@ -15,7 +15,7 @@
  * Nothing here is technical: steps carry business words, examples and choices. The translation to
  * declarations happens on the agent's side (references/user-intake.md).
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 
@@ -60,9 +60,20 @@ export default function GuidedIntake({
 }: GuidedIntakeProps) {
   const t = useLayoutTokens();
   const [answers, setAnswers] = useState<Record<string, string>>(prefill || {});
-  // A prefilled (sample) intake starts on the summary: the point is to read it and press go, not to
-  // walk nine steps that are already answered. Editing goes back through the same pencils.
-  const [at, setAt] = useState(prefill ? steps.length : 0);
+  const [at, setAt] = useState(0);           // 0..steps.length-1 are questions, steps.length is the summary
+
+  // A sample fills the answers INTO the steps and walks from the first question, so the user SEES each
+  // answer in the input and presses 下一步 through them. (It used to jump straight to the summary, which
+  // hid the answers the sample had filled — the thing worth reading.) The object identity is the
+  // trigger: the panel memoises it, so selecting the same sample twice does not reset a step the user
+  // is reading.
+  const prefillRef = useRef<Record<string, string> | null>(null);
+  useEffect(() => {
+    if (!prefill || prefill === prefillRef.current) return;
+    prefillRef.current = prefill;
+    setAnswers({ ...prefill });
+    setAt(0);
+  }, [prefill]);
   const onSummary = at >= steps.length;
   const step = steps[Math.min(at, steps.length - 1)];
   const value = answers[step?.id ?? ''] ?? '';
@@ -147,6 +158,15 @@ export default function GuidedIntake({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             {at === 0 && intro && (
               <div style={{ fontSize: 11.5, lineHeight: 1.6, color: t.textDim }}>{intro}</div>
+            )}
+            {prefill && at === 0 && (
+              <div style={{
+                fontSize: 10.5, lineHeight: 1.6, padding: '5px 8px', borderRadius: 6,
+                border: `1px solid ${t.accent}55`, background: `${t.accent}10`, color: t.textPrimary,
+              }}>
+                样例已填入：下面每一问都有答案，点「下一步」逐个核对即可（想直接看结论就点右上角「摘要」）。
+                任何一项都能改。
+              </div>
             )}
             <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.5 }}>{step.question}</div>
             {step.why && <div style={{ fontSize: 11, lineHeight: 1.55, color: t.textDim }}>{step.why}</div>}
