@@ -152,6 +152,22 @@ class BuildRequest(BaseModel):
     session_id: Optional[str] = None
 
 
+@router.get("/builders")
+async def build_options():
+    """Which data an agent can build an ontology for — labelled for a person, not by agent id.
+
+    The build form asks one question ("which data?") and gets these entries back; the agent id and the
+    ontology folder are the platform's business, not the user's.
+    """
+    from db.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        return {"ok": True, "builders": ontology_build.builders(db)}
+    finally:
+        db.close()
+
+
 @router.post("/build")
 async def start_build(req: BuildRequest):
     """Queue a build. Returns the task id immediately; poll /build/{task_id} for progress."""

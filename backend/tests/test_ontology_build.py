@@ -244,3 +244,28 @@ def test_recent_builds_filter_by_ontology_key(monkeypatch):
     rows = ontology_build.recent_builds(ontology_key="logistics", limit=5)
     assert [r["task_id"] for r in rows] == [3, 1]
     assert rows[0]["landed"] is True
+
+
+# ── the form asks which DATA, never an agent id or a folder name ───────────────
+
+def test_builders_are_labelled_for_a_person_and_carry_the_derived_key():
+    """The build form's only data question is "which data?" — so the platform must answer with a
+    business label and a derived ontology key, not with "agent 349 / ontologies/logistics"."""
+    try:
+        from db.database import SessionLocal
+    except Exception as exc:                                    # noqa: BLE001
+        pytest.skip(f"NOT RUN: no database ({exc})")
+    db = SessionLocal()
+    try:
+        rows = ontology_build.builders(db)
+    finally:
+        db.close()
+    if not rows:
+        pytest.skip("NOT RUN: no agent carries ontology_publish with a datasource")
+    for r in rows:
+        assert r["agent_id"] and r["agent_name"]
+        assert r["datasource"] and r["ontology_key"]
+        assert "_settings" not in r["ontology_key"], "the form must not surface a profile file name"
+        assert r["business_label"], "a person reads the dataset label, not the datasource key"
+    keys = [r["ontology_key"] for r in rows]
+    assert len(keys) == len(set(keys)), f"two builders share an ontology key: {keys}"

@@ -11,10 +11,29 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Play, RefreshCw, Square, X } from 'lucide-react';
 import apiClient from '../../lib/api-client';
+import { useProject } from '../../contexts/ProjectContext';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { mono, Quiet, SUCCESS, WARN } from './ui';
 
-interface BuilderAgent { id: number; name: string }
+/**
+ * What the form asks, and what it must never ask.
+ *
+ * A person choosing "generate an ontology" knows WHICH DATA this is about and what they want to ask it.
+ * They do not know agent ids, folder names, profile files or ports — so the form asks for the data (by
+ * its business label, from the database catalogue), the questions they ask, the decisions the numbers
+ * support, the time range, whether anything is written, and what is out of scope. Agent, ontology
+ * folder and landing mechanics are derived or phrased in plain language.
+ */
+interface BuilderOption {
+  agent_id: number;
+  agent_name: string;
+  datasource: string;
+  ontology_key: string;
+  business_label: string;
+  database?: string | null;
+  has_ontology: boolean;
+}
+
 interface BuildRow {
   task_id: number;
   status: string;
@@ -45,6 +64,18 @@ interface BuildStatus extends BuildRow {
   } | null;
 }
 
+const inputStyle = (t: any): React.CSSProperties => ({
+  height: 28, padding: '0 8px', borderRadius: 6, fontSize: 12,
+  border: `1px solid ${t.border}`, background: t.bgInput || 'transparent',
+  color: t.textPrimary, outline: 'none', fontFamily: 'inherit',
+});
+
+const textareaStyle = (t: any): React.CSSProperties => ({
+  padding: '6px 8px', borderRadius: 6, fontSize: 12, lineHeight: 1.6,
+  border: `1px solid ${t.border}`, background: t.bgInput || 'transparent',
+  color: t.textPrimary, outline: 'none', resize: 'vertical', fontFamily: 'inherit',
+});
+
 interface Props {
   ontologyKey: string;
   onClose: () => void;
@@ -53,10 +84,18 @@ interface Props {
 
 export default function BuildOntologyDialog({ ontologyKey, onClose, onLanded }: Props) {
   const t = useLayoutTokens();
-  const [agents, setAgents] = useState<BuilderAgent[]>([]);
-  const [agentId, setAgentId] = useState<number | null>(null);
-  const [key, setKey] = useState(ontologyKey);
-  const [brief, setBrief] = useState('');
+  const { activeProjectId } = useProject();
+  const projectId = activeProjectId ?? 1;
+  const [options, setOptions] = useState<BuilderOption[]>([]);
+  const [optionKey, setOptionKey] = useState<string>('');
+  // the brief, as the four questions a person can actually answer
+  const [oneRow, setOneRow] = useState('');
+  const [questions, setQuestions] = useState('');
+  const [decisions, setDecisions] = useState('');
+  const [timeRange, setTimeRange] = useState('');
+  const [writes, setWrites] = useState('');
+  const [excluded, setExcluded] = useState('');
+  const key = ontologyKey;
   const [autoLand, setAutoLand] = useState(true);
   const [taskId, setTaskId] = useState<number | null>(null);
   const [status, setStatus] = useState<BuildStatus | null>(null);
@@ -65,22 +104,21 @@ export default function BuildOntologyDialog({ ontologyKey, onClose, onLanded }: 
   const [busy, setBusy] = useState(false);
   const pollRef = useRef<number | null>(null);
 
-  // Which agents can build: the ones that carry the publish channel, i.e. the ontology builders.
+  // Which DATA can be built — business labels, and the agent is whatever the platform wired to it.
   useEffect(() => {
     void (async () => {
       try {
-        const res: any = await apiClient.get('/api/deepagents/');
-        const rows: any[] = res?.data || [];
-        const builders: BuilderAgent[] = rows
-          .filter((r: any) => (r?.config?.native_tools || []).includes('ontology_publish'))
-          .map((r: any) => ({ id: Number(r.id), name: String(r.name || `agent ${r.id}`) }));
-        setAgents(builders);
-        setAgentId(prev => prev ?? (builders[0]?.id ?? null));
+        const res: any = await apiClient.get('/api/ontology/builders');
+        const rows: BuilderOption[] = (res?.data?.builders || []) as BuilderOption[];
+        setOptions(rows);
+        // prefer the ontology the user is looking at
+        const matching = rows.find(r => r.ontology_key === ontologyKey);
+        setOptionKey(prev => prev || matching?.ontology_key || rows[0]?.ontology_key || '');
       } catch {
-        setAgents([]);
+        setOptions([]);
       }
     })();
-  }, []);
+  }, [ontologyKey]);
 
   const loadHistory = useCallback(async () => {
     try {
@@ -116,15 +154,28 @@ export default function BuildOntologyDialog({ ontologyKey, onClose, onLanded }: 
     };
   }, [taskId, poll]);
 
+  const chosen = options.find(o => o.ontology_key === optionKey) || null;
+  const ready = !!chosen && !!(oneRow.trim() || questions.trim());
+
   const start = async () => {
-    if (!agentId || !key.trim() || !brief.trim()) return;
+    if (!chosen || !ready) return;
     setBusy(true); setError(null); setStatus(null);
+    // The brief is the business answers, in the user's own words. Nothing technical travels here:
+    // the ontology folder and the agent come from the chosen data.
+    const brief = [
+      oneRow.trim() && `这份数据里"一行"是什么：${oneRow.trim()}`,
+      questions.trim() && `用户会这么问：${questions.trim()}`,
+      decisions.trim() && `这些数字支撑什么决定：${decisions.trim()}`,
+      timeRange.trim() && `时间范围：${timeRange.trim()}`,
+      writes.trim() && `有没有写入（谁改数据、要不要审计）：${writes.trim()}`,
+      excluded.trim() && `先不算在内：${excluded.trim()}`,
+    ].filter(Boolean).join('\n');
     try {
       const res: any = await apiClient.post('/api/ontology/build', {
-        agent_id: agentId,
-        ontology_key: key.trim(),
-        brief: brief.trim(),
-        project_id: 1,
+        agent_id: chosen.agent_id,
+        ontology_key: chosen.ontology_key,
+        brief,
+        project_id: projectId,
         auto_land: autoLand,
       });
       setTaskId(Number(res?.data?.task_id));
@@ -162,7 +213,10 @@ export default function BuildOntologyDialog({ ontologyKey, onClose, onLanded }: 
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 15, fontWeight: 600 }}>Generate / rebuild an ontology</span>
-          <span style={{ ...mono, fontSize: 11, color: t.textDim }}>{key || '—'}</span>
+          <span style={{ fontSize: 11.5, color: t.textDim }}>
+            {(options.find(o => o.ontology_key === optionKey) || {}).business_label
+              || (options.length ? '' : key || '')}
+          </span>
           <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: t.textDim }}>
             <X size={15} />
           </button>
@@ -175,72 +229,117 @@ export default function BuildOntologyDialog({ ontologyKey, onClose, onLanded }: 
 
         {taskId == null && (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11.5, color: t.textDim }}>
-                builder agent
-                <select
-                  value={agentId ?? ''}
-                  onChange={e => setAgentId(Number(e.target.value))}
-                  style={{
-                    height: 30, borderRadius: 7, fontSize: 12, border: `1px solid ${t.border}`,
-                    background: t.bgInput || 'transparent', color: t.textPrimary,
-                  }}
-                >
-                  {agents.length === 0 && <option value="">(no agent carries ontology_publish)</option>}
-                  {agents.map(a => <option key={a.id} value={a.id}>{a.name} · #{a.id}</option>)}
-                </select>
-              </label>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11.5, color: t.textDim }}>
-                ontology key (folder under ontologies/)
-                <input
-                  value={key}
-                  onChange={e => setKey(e.target.value)}
-                  style={{
-                    height: 30, padding: '0 8px', borderRadius: 7, fontSize: 12,
-                    border: `1px solid ${t.border}`, background: t.bgInput || 'transparent',
-                    color: t.textPrimary, fontFamily: 'ui-monospace, Menlo, monospace',
-                  }}
-                />
-              </label>
-            </div>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11.5, color: t.textDim }}>
-              brief — objects, the questions users actually ask, the decisions the numbers support
-              <textarea
-                value={brief}
-                onChange={e => setBrief(e.target.value)}
-                rows={6}
-                placeholder="例：abc_coldchain；对象是行程/站点/车辆/司机/门店；老板会问「这个月运费多少」「哪条线路超载」「哪些站点准时率低」；要支持「该不该加一趟车」的决定；数据是最近 90 天；没有任何写路径。"
-                style={{
-                  padding: '8px 10px', borderRadius: 8, fontSize: 12, lineHeight: 1.6,
-                  border: `1px solid ${t.border}`, background: t.bgInput || 'transparent',
-                  color: t.textPrimary, fontFamily: 'inherit', resize: 'vertical',
-                }}
-              />
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-              <input type="checkbox" checked={autoLand} onChange={e => setAutoLand(e.target.checked)} />
-              land automatically when every gate is green
-            </label>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button
-                onClick={() => void start()}
-                disabled={busy || !agentId || !key.trim() || !brief.trim()}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600,
-                  padding: '7px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                  background: t.accent, color: '#fff',
-                  opacity: busy || !agentId || !brief.trim() ? 0.5 : 1,
-                }}
-              >
-                <Play size={12} /> start build
-              </button>
-              {agents.length === 0 && (
-                <span style={{ fontSize: 11.5, color: WARN }}>
-                  no DeepAgent carries <code style={mono}>ontology_publish</code> — the builders are
-                  348/349, seeded by the ontology skill
-                </span>
-              )}
-            </div>
+            {options.length === 0 ? (
+              <div style={{ fontSize: 12, color: WARN, lineHeight: 1.6 }}>
+                还没有可以为这份数据生成本体的助手。这是管理员的一次性配置（把一份数据接到一个
+                「本体构建助手」上）；配好后这里只会显示可选的<b>数据名称</b>，不需要你选 agent 或路径。
+              </div>
+            ) : (
+              <>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11.5, color: t.textDim }}>
+                  这是哪份数据？
+                  <select
+                    value={optionKey}
+                    onChange={e => setOptionKey(e.target.value)}
+                    style={{
+                      height: 30, borderRadius: 7, fontSize: 12, border: `1px solid ${t.border}`,
+                      background: t.bgInput || 'transparent', color: t.textPrimary,
+                    }}
+                  >
+                    {options.map(o => (
+                      <option key={o.ontology_key} value={o.ontology_key}>{o.business_label}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 11.5, color: t.textDim }}>
+                    这份数据里「一行」是什么？（最大那张表的一次记录）
+                    <input
+                      value={oneRow}
+                      onChange={e => setOneRow(e.target.value)}
+                      placeholder="一次配送 / 一次门诊预约 / 一张订单"
+                      style={inputStyle(t)}
+                    />
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 11.5, color: t.textDim }}>
+                    时间范围（"最近 30 天"有意义吗）
+                    <input
+                      value={timeRange}
+                      onChange={e => setTimeRange(e.target.value)}
+                      placeholder="数据是最近三个月 / 历史数据保留到去年 / 按财年"
+                      style={inputStyle(t)}
+                    />
+                  </label>
+                </div>
+
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 11.5, color: t.textDim }}>
+                  用户会怎么问这些数据？（几句原话，一行一句）
+                  <textarea
+                    value={questions}
+                    onChange={e => setQuestions(e.target.value)}
+                    rows={4}
+                    placeholder="这个月运费多少？&#10;哪条线路超载最多？&#10;哪些站点准时率低？&#10;并线之后破损有变化吗？"
+                    style={textareaStyle(t)}
+                  />
+                </label>
+
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 11.5, color: t.textDim }}>
+                  这些数字支撑什么决定？
+                  <textarea
+                    value={decisions}
+                    onChange={e => setDecisions(e.target.value)}
+                    rows={2}
+                    placeholder="该不该加一趟车 / 哪条线路要复查 / 哪个司机要培训"
+                    style={textareaStyle(t)}
+                  />
+                </label>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 11.5, color: t.textDim }}>
+                    有没有写入？（谁改数据、要不要留痕）
+                    <input
+                      value={writes}
+                      onChange={e => setWrites(e.target.value)}
+                      placeholder="只读 / 调度会改派单"
+                      style={inputStyle(t)}
+                    />
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 11.5, color: t.textDim }}>
+                    先不算在内
+                    <input
+                      value={excluded}
+                      onChange={e => setExcluded(e.target.value)}
+                      placeholder="测试门店 / 已停用的线路"
+                      style={inputStyle(t)}
+                    />
+                  </label>
+                </div>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                  <input type="checkbox" checked={autoLand} onChange={e => setAutoLand(e.target.checked)} />
+                  检查全部通过就自动上线；之后的修改都要我确认
+                </label>
+
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button
+                    onClick={() => void start()}
+                    disabled={busy || !ready}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600,
+                      padding: '7px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                      background: t.accent, color: '#fff',
+                      opacity: busy || !ready ? 0.5 : 1,
+                    }}
+                  >
+                    <Play size={12} /> 开始生成
+                  </button>
+                  <span style={{ fontSize: 11, color: t.textDim }}>
+                    它会在后台跑（可关闭这个窗口），只把业务口径翻译成声明
+                  </span>
+                </div>
+              </>
+            )}
           </>
         )}
 

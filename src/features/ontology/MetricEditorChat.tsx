@@ -21,6 +21,7 @@ import {
 import apiClient from '../../lib/api-client';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { streamChatEvents } from '../chat/utils/streamChatEvents';
+import { useProject } from '../../contexts/ProjectContext';
 import { mono, Quiet, SUCCESS, WARN } from './ui';
 
 interface ToolStep { name: string; done: boolean; detail?: string }
@@ -86,12 +87,12 @@ const INTAKE_EXAMPLE: IntakeState = {
   notes: '',
 };
 
-/** The message the panel sends. It is shown to the user before sending, on purpose. */
-function composeIntake(key: string, i: IntakeState): string {
+/** What the USER wrote — business only. This is what the textarea holds and what they can edit. */
+function composeBusiness(i: IntakeState): string {
   const line = (label: string, value: string) =>
     value.trim() ? `- ${label}：${value.trim()}\n` : '';
   return [
-    `【新增指标】（业务口径，不含任何技术细节） ontology_key=${key}\n\n`,
+    '【新增指标】\n\n',
     line('用户会这么叫它', i.name),
     line('它会回答', i.question),
     line('怎么算（业务语言）', i.arithmetic),
@@ -102,14 +103,22 @@ function composeIntake(key: string, i: IntakeState): string {
     line('大概多少（用来校验，不是目标）', i.expected),
     line('谁用它做什么决定', i.purpose),
     line('其他约定', i.notes),
-    '\n把它翻译成声明：对象与属性从已声明的本体里取，:aggregate / :formula（或 :numerator+:denominator+:scale）/ ',
-    ':grain / :universe / :where / :groupBy 由你决定，JOIN 由编译器从 :references 推导 —— 不要向我问表名、列名或 TTL。',
-    '任何会改变这个数含义而上面没答的点（颗粒度、范围、阈值、维度），先问我，不要自己定。\n\n',
-    '\n开始前先 ontology_open(ontology_key="' + key + '", overwrite=true) 取一份与已安装本体一致的副本——',
-    '旧副本会把别人后来的改动悄悄回退（已经发生过一次：label 被旧副本发布会退）。',
-    '\n做完按 edit-ontology-metrics 验证：编译；值与你自己写的第二条独立路线一致；其余指标的数字一个都不许变。',
-    '然后 ontology_publish 暂存，include 只点名你改过的文件；报告里写：值多少、独立路线是什么、哪些门禁 NOT RUN。',
   ].join('');
+}
+
+/** The fixed handoff appended at send time. Shown to the user in a collapsible note, never typed. */
+function composeHandoff(key: string): string {
+  return [
+    '\n（以下是平台附给 agent 的固定说明，不是用户输入）',
+    `ontology_key=${key}`,
+    '把它翻译成声明：对象与属性从已声明的本体里取，:aggregate / :formula（或 :numerator+:denominator+:scale）/ ',
+    ':grain / :universe / :where / :groupBy 由你决定，JOIN 由编译器从 :references 推导 —— 不要向我问表名、列名或 TTL。',
+    '任何会改变这个数含义而上面没答的点（颗粒度、范围、阈值、维度），先问我，不要自己定。',
+    '开始前先 ontology_open(ontology_key="' + key + '", overwrite=true) 取一份与已安装本体一致的副本——',
+    '旧副本会把别人后来的改动悄悄回退（已经发生过一次：label 被旧副本发布会退）。',
+    '做完按 edit-ontology-metrics 验证：编译；值与你自己写的第二条独立路线一致；其余指标的数字一个都不许变。',
+    '然后 ontology_publish 暂存，include 只点名你改过的文件；报告里写：值多少、独立路线是什么、哪些门禁 NOT RUN。',
+  ].join('\n');
 }
 
 const fieldStyle = (t: any): React.CSSProperties => ({
@@ -176,7 +185,7 @@ function IntakeForm({ ontologyKey, onClose, onCompose }: {
       </div>
       <div style={{ padding: '8px 12px', borderTop: `1px solid ${t.border}`, display: 'flex', gap: 6 }}>
         <button
-          onClick={() => onCompose(composeIntake(ontologyKey, v))}
+          onClick={() => onCompose(composeBusiness(v))}
           disabled={!ready}
           style={{
             fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 7, border: 'none',
@@ -204,6 +213,8 @@ interface Props {
 
 export default function MetricEditorChat({ ontologyKey, onApplied, onClose }: Props) {
   const t = useLayoutTokens();
+  const { activeProjectId } = useProject();
+  const projectId = activeProjectId ?? 1;
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -289,7 +300,10 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose }: Pr
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     try {
-      const body: Record<string, unknown> = { message: text, project_id: 1 };
+      const body: Record<string, unknown> = {
+        message: text + composeHandoff(ontologyKey),
+        project_id: projectId,
+      };
       const sid = (() => { try { return localStorage.getItem(sessionKey) || ''; } catch { return ''; } })();
       if (sid) body.session_id = sid;
 
@@ -569,8 +583,14 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose }: Pr
             </button>
           )}
         </div>
-        <div style={{ fontSize: 10, color: t.textDim, marginTop: 4 }}>
-          the agent can only stage; applying is yours and changes what the number means
+        <div style={{ fontSize: 10, color: t.textDim, marginTop: 4, lineHeight: 1.6 }}>
+          你只需要说业务口径；发送时会附一段固定的技术说明（ontology_key、如何翻译成声明、怎么验证）。
+          <details style={{ display: 'inline-block', marginLeft: 4 }}>
+            <summary style={{ cursor: 'pointer' }}>看看那段</summary>
+            <pre style={{ fontSize: 9.5, whiteSpace: 'pre-wrap', margin: '4px 0 0', color: t.textDim }}>
+              {composeHandoff(ontologyKey)}
+            </pre>
+          </details>
         </div>
       </div>
     </div>

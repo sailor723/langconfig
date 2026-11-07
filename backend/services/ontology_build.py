@@ -186,6 +186,58 @@ def _known_types() -> list[str]:
         return []
 
 
+def builders(db: Optional[Session] = None) -> list[dict]:
+    """Who can build, and for WHICH DATA — labelled the way a person reads it.
+
+    A UI must not ask a user to choose an agent id or type a folder name: they know "ABC 冷链物流", not
+    "agent 349 / ontologies/logistics". This joins the two facts the platform already has — which
+    agents carry the publish tool and the `datasource` each is wired to, plus the business label the
+    database catalogue gives that datasource — so a form can ask "which data?" and nothing else.
+    """
+    own = db is None
+    db = db or _db()
+    try:
+        from models.deep_agent import DeepAgentTemplate
+
+        labels: dict[str, str] = {}
+        try:
+            from api.graph_studio.routes import database_catalog  # noqa: PLC0415
+            for row in database_catalog() or []:
+                name = row.get("name")
+                if name:
+                    labels[str(name)] = str(row.get("label") or name)
+        except Exception as exc:                                # noqa: BLE001
+            logger.warning("database catalogue unavailable for builder labels: %s", exc)
+
+        out: list[dict] = []
+        for agent in db.query(DeepAgentTemplate).order_by(DeepAgentTemplate.id).all():
+            cfg = agent.config or {}
+            tools = cfg.get("native_tools") or []
+            if "ontology_publish" not in tools:
+                continue
+            datasource = cfg.get("datasource")
+            if not datasource:
+                continue                       # the editor edits; it does not build a dataset
+            workbench = cfg.get("workbench") or {}
+            profile_file = workbench.get("profile_file") or ""
+            key = profile_file.replace("_settings.json", "") if profile_file else str(datasource)
+            profile = workbench.get("profile") or {}
+            dsn = profile.get("dsn") or {}
+            out.append({
+                "agent_id": agent.id,
+                "agent_name": agent.name,
+                "datasource": datasource,
+                "ontology_key": key,
+                "business_label": labels.get(str(datasource), str(datasource)),
+                "database": dsn.get("dbname"),
+                "has_ontology": bool(workbench.get("profile")),
+            })
+        return out
+    finally:
+        if own:
+            db.close()
+
+
 # ────────────────────────────────────────────────────────── API helpers
 async def enqueue_build(agent_id: int, ontology_key: str, brief: str, *, project_id: Optional[int] = None,
                         auto_land: bool = True,
