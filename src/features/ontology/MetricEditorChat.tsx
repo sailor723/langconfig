@@ -215,9 +215,11 @@ interface Props {
   hideProposals?: boolean;
   /** Receives a sender so the panel can put a composed message into the conversation. */
   onReady?: (api: { send: (text: string) => void; busy: () => boolean }) => void;
+  /** Busy changes, so a parent can disable (and explain) its own actions instead of dropping them. */
+  onStatus?: (status: { busy: boolean; queued: number }) => void;
 }
 
-export default function MetricEditorChat({ ontologyKey, onApplied, onClose, hideIntake, hideProposals, onReady }: Props) {
+export default function MetricEditorChat({ ontologyKey, onApplied, onClose, hideIntake, hideProposals, onReady, onStatus }: Props) {
   const t = useLayoutTokens();
   const { activeProjectId } = useProject();
   const projectId = activeProjectId ?? 1;
@@ -232,6 +234,11 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose, hide
   // The business-language intake form (see references/user-intake.md): it collects what a person
   // actually knows, and shows the composed request before anything is sent.
   const [intakeOpen, setIntakeOpen] = useState(false);
+  // Sends that arrive while a turn is running used to be DROPPED (`if (busy) return`), which is
+  // exactly what "I approved and nothing happened" looks like from the outside. They queue now.
+  const queueRef = useRef<string[]>([]);
+  const [queued, setQueued] = useState(0);
+  const [lastSentAt, setLastSentAt] = useState<string>('');
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sessionKey = `langconfig.ontology.editor.${ontologyKey}`;
@@ -293,9 +300,15 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose, hide
   };
 
   const sendText = async (text: string) => {
-    if (!text.trim() || busy) return;
+    if (!text.trim()) return;
+    if (busy) {
+      queueRef.current.push(text);
+      setQueued(queueRef.current.length);
+      return;
+    }
     setError(null);
     setNotice(null);
+    setLastSentAt(new Date().toLocaleTimeString());
     setBusy(true);
     setTurns(prev => [...prev, { role: 'user', content: text },
                              { role: 'assistant', content: '', tools: [] }]);
@@ -352,6 +365,12 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose, hide
     } finally {
       abortRef.current = null;
       setBusy(false);
+      if (queueRef.current.length) {
+        // one turn at a time: the next composed message starts after this one, never beside it
+        const next = queueRef.current.shift();
+        setQueued(queueRef.current.length);
+        if (next) setTimeout(() => void sendText(next), 0);
+      }
     }
   };
 
@@ -360,6 +379,9 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose, hide
   useEffect(() => {
     onReady?.({ send: (t: string) => void sendText(t), busy: () => busy });
   }, [onReady, busy]);
+  useEffect(() => {
+    onStatus?.({ busy, queued });
+  }, [onStatus, busy, queued]);
 
   const apply = async (id: string) => {
     setApplying(id);
@@ -478,7 +500,8 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose, hide
         ))}
         {busy && (
           <div style={{ fontSize: 11, color: t.textDim, display: 'flex', alignItems: 'center', gap: 5 }}>
-            <Loader2 size={11} /> the editor is working — it opens a copy, edits, verifies, stages
+            <Loader2 size={11} /> agent 正在处理（它会取副本、改声明、验证、暂存）
+            {queued > 0 ? ` · 还有 ${queued} 条在排队` : ''}
           </div>
         )}
         {error && <div style={{ fontSize: 11.5, color: '#b3261e', whiteSpace: 'pre-wrap' }}>{error}</div>}
@@ -601,6 +624,12 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose, hide
               <Send size={11} /> send
             </button>
           )}
+        </div>
+        <div style={{ display: 'flex', gap: 8, fontSize: 10, color: t.textDim, marginTop: 3, flexWrap: 'wrap' }}>
+          <span>{busy ? '通道：agent 处理中' : '通道：就绪'}</span>
+          <span>会话 {sessionId ? sessionId.slice(0, 8) : '（首条消息时新建）'}</span>
+          {lastSentAt && <span>上次发送 {lastSentAt}</span>}
+          {queued > 0 && <span style={{ color: WARN }}>排队 {queued}</span>}
         </div>
         <div style={{ fontSize: 10, color: t.textDim, marginTop: 4, lineHeight: 1.6 }}>
           你只需要说业务口径；发送时会附一段固定的技术说明（ontology_key、如何翻译成声明、怎么验证）。

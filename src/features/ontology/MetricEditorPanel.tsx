@@ -85,6 +85,10 @@ export default function MetricEditorPanel({
   const [tab, setTab] = useState<Tab>('new');
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [chatReady, setChatReady] = useState<{ send: (s: string) => void; busy: () => boolean } | null>(null);
+  const [chatStatus, setChatStatus] = useState<{ busy: boolean; queued: number }>({ busy: false, queued: 0 });
+  // A composed message handed over before the conversation mounted used to vanish. It waits here.
+  const [outbox, setOutbox] = useState<string[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
   // The two-phase rule: the intake asks the agent for an INTERPRETATION first, and only a
   // confirmation sends the implementation. `pending` holds the answers we are about to confirm.
   const [pending, setPending] = useState<Record<string, string> | null>(null);
@@ -144,10 +148,25 @@ export default function MetricEditorPanel({
     ].join('\n');
   };
 
+  useEffect(() => {
+    if (!chatReady || outbox.length === 0) return;
+    outbox.forEach(t => chatReady.send(t));
+    setOutbox([]);
+  }, [chatReady, outbox]);
+
   const send = (text: string) => {
-    if (!chatReady) return;
-    chatReady.send(text);
     setTab('chat');
+    setNotice(null);
+    if (!chatReady) {
+      setOutbox(prev => [...prev, text]);
+      setNotice('对话还在准备，消息已排好，准备好就发出去');
+      return;
+    }
+    chatReady.send(text);
+    // an immediate, visible acknowledgement: the user clicked, something must move
+    setNotice(chatStatus.busy
+      ? '已排在上一条后面 —— agent 一次只处理一件事'
+      : '已发给 agent，正在处理');
   };
 
   const tabs: Array<{ id: Tab; label: string; icon: any; badge?: number }> = [
@@ -168,6 +187,11 @@ export default function MetricEditorPanel({
         <span style={{ ...mono, fontSize: 10.5, color: t.textDim }}>
           {card ? card.name : ontologyKey}
         </span>
+        {(chatStatus.busy || chatStatus.queued > 0) && (
+          <span style={{ fontSize: 10.5, color: WARN }}>
+            {chatStatus.busy ? 'agent 处理中' : ''}{chatStatus.queued ? `${chatStatus.busy ? ' · ' : ''}${chatStatus.queued} 条排队` : ''}
+          </span>
+        )}
         {onClose && (
           <button
             onClick={onClose}
@@ -178,6 +202,12 @@ export default function MetricEditorPanel({
           </button>
         )}
       </div>
+
+      {notice && (
+        <div style={{ padding: '4px 12px', fontSize: 10.5, color: SUCCESS, borderBottom: `1px solid ${t.border}66` }}>
+          {notice}
+        </div>
+      )}
 
       {/* section tabs */}
       <div style={{ display: 'flex', gap: 2, padding: '6px 8px', borderBottom: `1px solid ${t.border}` }}>
@@ -332,6 +362,7 @@ export default function MetricEditorPanel({
           hideIntake
           hideProposals
           onReady={setChatReady}
+          onStatus={setChatStatus}
         />
       </div>
 
@@ -365,7 +396,9 @@ export default function MetricEditorPanel({
             解读确认，开始实施
           </button>
           <span style={{ fontSize: 10.5, color: t.textDim, flex: 1 }}>
-            先读它的解读：口径对不对。读错就点「回去看看」改答案。
+            {chatStatus.busy || chatStatus.queued > 0
+              ? `agent 还在处理${chatStatus.queued ? `（${chatStatus.queued} 条排队中）` : ''}：点确认会排在它后面`
+              : '先读它的解读：口径对不对。读错就点「回去看看」改答案。'}
           </span>
           <button
             onClick={() => { setPending(null); setTab('new'); }}
