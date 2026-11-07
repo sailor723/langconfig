@@ -1,13 +1,14 @@
 {
-  "_doc": "Which gate families hold for which ontology. A family that does not apply is NOT silently skipped: it is absent from this declaration, and the runner prints the declaration it used. Rationale per ontology is below — a gate whose expectations belong to another track (the hand-built retail story, the TPC-H benchmark) must not be the thing that turns a deploy red.",
+  "_doc": "Which gate families hold for which ontology. A family that does not apply is NOT silently skipped: it is absent from this declaration, and the runner prints the declaration it used. Rationale per ontology is below — a gate whose expectations belong to another track (the hand-built retail story, the TPC-H benchmark) must not be the thing that turns a deploy red. `check_chapters` runs against the SERVED app (base URL), not the checkout: it reads the endpoints out of each chapter's own HTML.",
   "retail": {
-    "why": "the hand-built reference: two lanes, an authored tutorial, its own metric/NL/action families",
+    "why": "the hand-built reference: two lanes, an authored tutorial (eight chapters, now served by the app), its own metric/NL/action families",
     "standalone": [
       "check_metrics",
       "check_guard",
       "check_i18n",
       "check_nl",
-      "check_actions"
+      "check_actions",
+      "check_chapters"
     ]
   },
   "clinic": {
@@ -27,9 +28,10 @@
     ]
   },
   "abc": {
-    "why": "the cold-chain training set with declared writes: its own gate; its generic gate currently fails on :AtRiskDriver (see known_failures)",
+    "why": "the cold-chain training set with declared writes and eight training pages: its own gate; its generic gate currently fails on :AtRiskDriver (see known_failures)",
     "standalone": [
-      "check_abc"
+      "check_abc",
+      "check_chapters"
     ],
     "known_failures": [
       "check_ontology_generic: C1b/R1 — :AtRiskDriver is a definition with no :physicalTable (the ABC ontology declares a refusal concept but no table for it). Declared here rather than hidden: the generic gate is not run for abc, and this is the item that would make it pass."

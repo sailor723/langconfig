@@ -1,4 +1,16 @@
-"""Ontology workbench supervisor.
+"""Ontology workbench supervisor — a DEVELOPMENT tool, not part of serving the app.
+
+**Status after M5: nothing in the app calls this.** The graph page, the query console, the actions page,
+the tutorial (all eight authored chapters) and ABC's training pages are served by the app itself
+(`api/ontology/routes.py` → `services/ontology_pages.py` + `services/ontology_tutorial_chapters.py`), and
+every number in them is compiled in-process. Five processes were only ever a URL, and that URL is gone.
+
+It is kept because a workbench is still the fastest way to look at ONE profile's pages while editing the
+HTML, and because the learning repo (`/Users/weiping/dev/Learn/ontology`) still runs one. Starting a child
+now requires an explicit `ensure=true`; the default is to report what already exists. A deploy that
+forgets this module exists loses nothing.
+
+The workbench (``ontology/retail_graph/serve_ui.py``) is a separate process per profile — it
 
 The workbench (``ontology/retail_graph/serve_ui.py``) is a separate process per profile — it
 loads one ontology folder and serves it. Asking a user to open four terminals is not a
@@ -276,8 +288,13 @@ async def ensure_started(row: dict, wait_s: float = 12.0) -> dict:
             "error": f"did not answer within {wait_s:.0f}s ({note})"}
 
 
-async def status(ensure: bool = True) -> dict:
-    """Every configured workbench, started on demand unless `ensure` is False."""
+async def status(ensure: bool = False) -> dict:
+    """Every configured workbench, and what it says about itself.
+
+    `ensure=True` (explicit, opt-in) starts whatever is missing — that is the development flow. The
+    default only reports: no page of the app needs a workbench to answer any more, so nothing should be
+    starting one behind a user's back.
+    """
     rows = _profile_rows()
     if not rows:
         return {"ok": True, "auto_start": False, "workbenches": [],

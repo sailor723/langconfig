@@ -30,6 +30,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 import psycopg2  # noqa: E402
+import dsn as _dsn  # the one place a declared DSN becomes a connection
 import sqlgen  # noqa: E402
 import guard  # noqa: E402
 from rdflib import OWL, RDF  # noqa: E402
@@ -167,7 +168,7 @@ def metric_cards(profile: dict, g) -> list[dict]:
     declaration in monospace, the SQL it compiles to, the value the database returns, and the
     guard's notes — so a reader can check all four without leaving the card.
     """
-    dsn = {k: v for k, v in (profile.get("dsn") or {}).items() if v not in (None, "")}
+    dsn = _dsn.resolved(profile)      # ${VAR:-default} in a profile's dsn is the deployment's
     out: list[dict] = []
     conn = psycopg2.connect(**dsn) if dsn else None
     try:
@@ -217,7 +218,7 @@ def _label(g, name: str):
 # ───────────────────────────────────────────────────────────── run / definition
 def run_metric(profile: dict, g, name: str) -> dict:
     compiled = sqlgen.compile_metric(g, name)
-    dsn = {k: v for k, v in (profile.get("dsn") or {}).items() if v not in (None, "")}
+    dsn = _dsn.resolved(profile)
     conn = psycopg2.connect(**dsn)
     try:
         cur = conn.cursor()
@@ -248,7 +249,7 @@ def definition(profile: dict, g, name: str) -> dict:
                 break
     rows = None
     if table:
-        dsn = {k: v for k, v in (profile.get("dsn") or {}).items() if v not in (None, "")}
+        dsn = _dsn.resolved(profile)
         conn = psycopg2.connect(**dsn)
         try:
             cur = conn.cursor()

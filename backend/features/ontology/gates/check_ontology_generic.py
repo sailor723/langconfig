@@ -292,6 +292,34 @@ def guard_gates(profile, g, cur) -> None:
     check_true("G0 the guard is enabled", bool(cfg.get("enabled")), str(cfg))
     big = list((cfg.get("big_tables") or {}).items())
     check_true("G1a the profile names its big tables", bool(big), "no big_tables")
+
+    # G1c: the window the guard injects goes on a column the profile names — so that column must EXIST.
+    # Measured on abc: `big_tables: {"stops": "trip_date"}` when `stops` has no `trip_date` (its date is
+    # trips.trip_date, one join away). Every read of stops then died with
+    # `column stops.trip_date does not exist`, including the training page's own table. logistics had
+    # the same table declared the same way and documented the rule in its settings; ABC never got it.
+    def column_exists(table: str, column: str) -> bool:
+        cur.execute("select 1 from information_schema.columns "
+                    "where table_name = %s and column_name = %s", (table, column))
+        return cur.fetchone() is not None
+
+    missing = [f"{t}.{c}" for t, c in big if not column_exists(t, c)]
+    check_true("G1c every big_table's window column exists", not missing,
+               f"{', '.join(missing)} — the guard would inject a window on a column that is not there")
+    if missing:
+        print(f"         missing: {', '.join(missing)}")
+    large = list(cfg.get("large_tables") or [])
+    if large:
+        def table_exists(t: str) -> bool:
+            cur.execute("select 1 from information_schema.tables where table_name = %s", (t,))
+            return cur.fetchone() is not None
+
+        gone = [t for t in large if not table_exists(t)]
+        check_true("G1d every large_table exists", not gone, ", ".join(gone))
+        overlap = sorted(set(large) & {t for t, _ in big})
+        check_true("G1e a table is not both big and large", not overlap,
+                   f"{overlap} — big_tables windows it, large_tables only budgets it")
+
     if not big:
         return
     table, col = big[0]

@@ -3,7 +3,7 @@
 
     python -m scripts.deploy_smoke                          # against http://127.0.0.1:8765
     python -m scripts.deploy_smoke --base https://host:8765
-    python -m scripts.deploy_smoke --skip-workbench          # workbenches not deployed (the end state)
+    python -m scripts.deploy_smoke                          # the app alone: no workbench is probed
     python -m scripts.deploy_smoke --json
 
 Why this exists. Everything this feature does is one call away from a wrong answer: a profile that
@@ -22,7 +22,7 @@ The checks:
   5  the dashboard: panels answer, and the opening assessment parses
   6  one question answers and one refuses — the pipeline works in both directions
   7  the write verbs: a dry run is admitted, bad parameters are refused BY NAME
-  8  each workbench (when deployed) serves ITS OWN graph page — the "retail's page for logistics" bug
+  8  every ontology's pages are served by THIS APP — the workbench is a dev tool, not a deploy unit
   9  the gate suite runs on this machine
 
 Exit: 0 every check held; 1 something failed (and the sentence says what); 2 the smoke itself cannot run.
@@ -87,7 +87,7 @@ def main() -> int:
     ap.add_argument("--base", default="http://127.0.0.1:8765", help="the app backend")
     ap.add_argument("--frontend", default="", help="the frontend origin (default: --base)")
     ap.add_argument("--skip-workbench", action="store_true",
-                    help="do not probe the per-ontology workbench servers")
+                    help="kept for old runbooks: no longer changes anything (row 8 probes the app)")
     ap.add_argument("--skip-gates", action="store_true")
     ap.add_argument("--json", action="store_true", dest="as_json")
     args = ap.parse_args()
@@ -178,32 +178,32 @@ def main() -> int:
     except Exception as exc:                                    # noqa: BLE001
         check("7 the write verbs are declared", False, f"{type(exc).__name__}: {exc}")
 
-    # 8 each workbench serves ITS OWN page
-    if args.skip_workbench:
-        print("  NOT RUN  8 workbench pages (--skip-workbench)")
-    else:
+    # 8 every ontology's pages are served by THIS APP (the workbench is a dev tool, not a deploy unit)
+    #
+    # This row used to probe five per-ontology workbench ports. The pages are same-origin assets now —
+    # `/api/ontology/{key}/page/{graph|query|actions|design|tutorial}` — so the row became stronger: it
+    # asks each profile for the graph page and the one page that must never be another ontology's
+    # (the tutorial), and it fails when a page's own absolute paths point at an origin that is not this one.
+    try:
+        status, listing = _get(base, "/api/ontology/workbenches?ensure=false", timeout=60)
+        keys = [w.get("key") for w in (listing.get("workbenches") or []) if w.get("key")]
+    except Exception as exc:                                    # noqa: BLE001
+        keys = []
+        print(f"  NOT RUN  8 app-served pages (the ontology list failed: {type(exc).__name__}: {exc})")
+    for key in keys:
         try:
-            # the FULL listing: `?ensure=false` omits the url, and a row without a url was silently
-            # skipped here — a NOT RUN that prints nothing is the failure mode this whole script exists
-            # to prevent. Every row reports either a result or a named NOT RUN.
-            status, listing = _get(base, "/api/ontology/workbenches", timeout=300)
+            status, html = _get(base, f"/api/ontology/{key}/page/graph", timeout=180)
+            text = html if isinstance(html, str) else ""
+            own = key.lower() in text.lower() or "ontology" in text.lower()
+            check(f"8 {key}: the app serves its graph page", status == 200 and own,
+                  f"status {status}, own_title={own}")
+            status, html = _get(base, f"/api/ontology/{key}/page/tutorial", timeout=180)
+            text = html if isinstance(html, str) else ""
+            stray = "'/api/" in text and f"'/api/ontology/{key}" not in text
+            check(f"8 {key}: its tutorial page needs no second origin", status == 200 and not stray,
+                  f"status {status}, stray_absolute_paths={stray}")
         except Exception as exc:                                # noqa: BLE001
-            listing = {}
-            print(f"  NOT RUN  8 workbench pages (the listing failed: {type(exc).__name__}: {exc})")
-        for row in listing.get("workbenches") or []:
-            url, key = row.get("url"), row.get("key")
-            if not (url and key):
-                print(f"  NOT RUN  8 workbench {key or '?'} (no url configured for this profile)")
-                continue
-            try:
-                status, html = _get(url, "/", timeout=90)
-                text = html if isinstance(html, str) else ""
-                titled = key.lower() in text.lower() or "ontology" in text.lower()
-                check(f"8 workbench {key} serves a graph page", status == 200 and titled,
-                      f"status {status}, title={'?' if not titled else 'ok'}")
-            except Exception as exc:                            # noqa: BLE001
-                check(f"8 workbench {key} serves a graph page", False,
-                      f"{type(exc).__name__}: {exc} (is the profile running? {url})")
+            check(f"8 {key}: the app serves its graph page", False, f"{type(exc).__name__}: {exc}")
 
     # 9 the gates on this box
     if args.skip_gates:

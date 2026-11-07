@@ -10,8 +10,9 @@ This directory is that layer, as a feature of the application:
 compiler/    the compiler. `sqlgen.py` turns declarations into SQL; `guard.py` bounds every read;
              `actions.py` + `capability.py` are the write verbs and the question pipeline; `nl.py` maps
              a question in the user's words onto a declared metric; `graph_view.py` draws the graph page.
-workbench/   the standalone server that serves ONE profile on its own (`serve_ui.py`) plus the static
-             pages it serves. Useful for debugging and for teaching; the app does not need it.
+workbench/   the static pages (graph, query, actions, design, retail's eight tutorial chapters, ABC's
+             training steps) and `serve_ui.py`, the DEVELOPMENT server that could serve one profile on
+             its own. The app serves those same pages itself and does not need this process.
 gates/       the checks that hold the declarations honest. Thirteen of them; every one can fail.
 profiles/    the DECLARATIONS, one directory per ontology:
                ontology/01-structure.ttl   objects, their tables, their links
@@ -55,13 +56,28 @@ $PY compiler/run_dashboard.py --profile profiles/logistics/logistics_settings.js
 
 ## What the application uses it for
 
-| app surface | calls |
-|---|---|
-| the dashboard page | `compiler/run_dashboard.py` (via `services/ontology_dashboard.py`) |
-| the question panel | the `answer-ontology-question` skill's `ask.py` → `compiler/nl.py` |
-| the declared writes | `compiler/actions.py` (via `services/ontology_actions.py`) |
-| the schema & metrics page | `compiler/sqlgen.py` in-process |
+Everything below runs **in the app's own process**: the compiler binds its profile per request inside
+`services/ontology_runtime._LOCK`, so two ontologies never share a binding (M2).
 
-The two `services/` modules shell out on purpose: the compiler binds its profile and its
-`APP_ACTIONS` file **once per process**, so a per-request child process is the honest way to serve
-two ontologies from one backend (the samples-reset lesson).
+| app surface | endpoint | module |
+|---|---|---|
+| the dashboard page | `GET /api/ontology/{key}/panels` · `/ask` | `services/ontology_dashboard.py` |
+| the schema & metrics page | `GET /api/ontology/{key}/document` · `/metrics/cards` | `compiler/ontology_api.py` · `compiler/tutorial_api.py` |
+| the question panel | `POST /api/ontology/{key}/ask` · `/wb/nl` | `compiler/nl.py` |
+| the declared writes | `GET/POST /api/ontology/{key}/actions[/{name}]` | `compiler/actions.py` |
+| the graph / design / tutorial pages | `GET /api/ontology/{key}/page/{name}` | `services/ontology_pages.py` |
+| retail's eight chapters · ABC's training steps | `/tutorial/chapter/{n}` · `/abct[/{n}]` · the `/wb/…` JSON behind them | `services/ontology_tutorial_chapters.py` |
+| which sections an ontology offers | `GET /api/ontology/{key}/sections` | the profile's `features` |
+
+`services/ontology_workbench.py` is the only remaining shell-out, and it is a **development tool**: it can
+start one `serve_ui.py` per profile so a page can be edited in isolation. No UI path calls it, and
+`GET /api/ontology/workbenches` reports state without starting anything unless `ensure=true`.
+
+## The check that the workbench is really gone
+
+`scripts/check_chapters.py` (declared in `gates.json` for retail and ABC, run by
+`scripts/ontology_gates.py`) fetches every section page and every chapter from the **running app**,
+reads the endpoints out of each page's own JavaScript, and calls all of them — 209 checks: no bare
+`/api/` path survives the rewrite, every referenced endpoint answers (an empty POST must get a verdict,
+not a 500), chapter 4's dry run reports `admitted` and binds its parameters, a refused run leaves no audit
+row, and a profile without chapters refuses by name instead of borrowing retail's.

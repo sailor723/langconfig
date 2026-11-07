@@ -66,9 +66,11 @@
   "statement_timeout_ms": 8000,
   "max_plan_rows": 5000000,
   "big_tables": {
-   "stops": "trip_date",
    "trips": "trip_date"
-  }
+  },
+  "large_tables": [
+   "stops"
+  ]
  },
  "features": {
   "actions": true,

@@ -33,6 +33,10 @@ BACKEND = pathlib.Path(__file__).resolve().parents[1]
 FEATURE = BACKEND / "features" / "ontology"
 GATES = FEATURE / "gates"
 PROFILES = FEATURE / "profiles"
+#: A family that needs the SERVED app rather than the checkout lives in `scripts/` (`check_chapters` reads
+#: the endpoints out of the chapter pages themselves, so it must talk to the running app). Both dirs are
+#: searched, so a declaration can name either kind of gate.
+SCRIPT_DIRS = (GATES, BACKEND / "scripts")
 
 #: Which gate families hold for which ontology is a DECLARATION (features/ontology/gates.json), not a
 #: convention in this file: retail's expectations are not the build track's, and a family that does not
@@ -58,6 +62,14 @@ def _profile_of(key: str) -> pathlib.Path | None:
 def _keys() -> list[str]:
     return sorted(d.name for d in PROFILES.iterdir()
                   if d.is_dir() and _profile_of(d.name) is not None)
+
+
+def _script(name: str) -> pathlib.Path | None:
+    for d in SCRIPT_DIRS:
+        candidate = d / f"{name}.py"
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def _python() -> str:
@@ -131,9 +143,12 @@ def main() -> int:
         for name in spec.get("standalone") or []:
             if args.only and name not in args.only:
                 continue
-            script = GATES / f"{name}.py"
-            if script.is_file():
+            script = _script(name)
+            if script is not None:
                 runs.append(_run(script, []))
+            else:
+                runs.append({"gate": f"{key}:{name}", "verdict": "fail",
+                             "reason": f"declared gate script missing: {name}.py"})
         for name in spec.get("profile") or []:
             if args.only and name not in args.only:
                 continue
@@ -143,10 +158,10 @@ def main() -> int:
                 runs.append({"gate": f"{key}:{name}", "verdict": "fail",
                              "reason": f"{key} declares {name} but has no profile file"})
                 continue
-            script = GATES / f"{name}.py"
-            if not script.is_file():
+            script = _script(name)
+            if script is None:
                 runs.append({"gate": f"{key}:{name}", "verdict": "fail",
-                             "reason": f"declared gate script missing: {script}"})
+                             "reason": f"declared gate script missing: {name}.py"})
                 continue
             runs.append(_run(script, ["--profile", str(profile)]))
 

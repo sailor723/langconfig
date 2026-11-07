@@ -11,11 +11,12 @@ import logging
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 
 from services import (ontology_actions, ontology_build, ontology_dashboard, ontology_editor,
-                      ontology_publish, ontology_samples, ontology_workbench)
+                      ontology_pages, ontology_publish, ontology_samples, ontology_tutorial_chapters,
+                      ontology_workbench)
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +24,13 @@ router = APIRouter(prefix="/api/ontology", tags=["ontology"])
 
 
 @router.get("/workbenches")
-async def list_workbenches(ensure: bool = True):
-    """Every configured ontology, with its live state. Starts what is not running."""
+async def list_workbenches(ensure: bool = False):
+    """The per-ontology workbench servers — a DEVELOPMENT tool, not what serves the app.
+
+    Every page and every number the app shows is compiled in-process; these five ports exist only to
+    look at one profile's raw pages while editing them. `ensure=true` starts what is missing (that is
+    the development flow) and is explicit on purpose: nothing in the UI turns it on any more.
+    """
     return await ontology_workbench.status(ensure=ensure)
 
 
@@ -359,6 +365,145 @@ async def dashboard_panels(key: str, refresh: bool = False, filter: Optional[str
     try:
         return {"ok": True, **ontology_dashboard.panels(key, refresh=refresh, filter=filter)}
     except ontology_dashboard.DashboardError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+# ── the pages and documents the app used to fetch from a per-ontology workbench ────────────
+# Five workbench processes existed to serve three JSON documents and a few HTML pages. The compiler is
+# in this process now, so these routes serve the same shapes from the same declarations — one origin,
+# no ports, and no second resolver to disagree about which ontology a page belongs to.
+
+@router.get("/{key}/document")
+async def ontology_document(key: str):
+    """Objects, definitions, links and metrics of one ontology (the browser page's whole input)."""
+    try:
+        return {"ok": True, **ontology_pages.document(key)}
+    except ontology_pages.PageError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/{key}/metrics/cards")
+async def ontology_metric_cards(key: str):
+    """Every metric as a card: declaration, compiled SQL, value under the guard — or the refusal."""
+    try:
+        return {"ok": True, "cards": ontology_pages.cards(key)}
+    except ontology_pages.PageError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/{key}/sections")
+async def ontology_sections(key: str):
+    """Which sections this profile serves; a switched-off one is named, not omitted silently."""
+    try:
+        return {"ok": True, "key": key, "sections": ontology_pages.sections(key)}
+    except ontology_pages.PageError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/{key}/tutorial/steps")
+async def ontology_tutorial_steps(key: str):
+    try:
+        return ontology_pages.steps(key)
+    except ontology_pages.PageError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/{key}/tutorial/run")
+async def ontology_tutorial_run(key: str, metric: str):
+    try:
+        return ontology_pages.tutorial_run(key, metric)
+    except ontology_pages.PageError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/{key}/tutorial/definition")
+async def ontology_tutorial_definition(key: str, cls: str = Query(default="", alias="class")):
+    """One definition's compiled predicate and the rows it selects (`?class=…`, a reserved word here)."""
+    try:
+        return ontology_pages.tutorial_definition(key, cls)
+    except ontology_pages.PageError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/{key}/page/{name}")
+async def ontology_page(key: str, name: str):
+    """Serve one of this profile's OWN HTML pages, from this origin.
+
+    The tutorial page's JavaScript calls absolute `/api/tutorial/...` paths; `ontology_pages.page`
+    rewrites them to this ontology's routes at serve time, which is the whole compatibility layer.
+    """
+    try:
+        html, content_type = ontology_pages.page(key, name)
+        return Response(content=html, media_type=content_type)
+    except ontology_pages.PageError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/{key}/asset/{name}")
+async def ontology_page_asset(key: str, name: str):
+    """A page's own static file (`tutorial_graph.js`, `architecture.svg`) — same origin, whitelisted."""
+    try:
+        body, content_type = ontology_pages.asset(key, name)
+    except ontology_pages.PageError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    return Response(content=body, media_type=content_type)
+
+
+# ── the authored tutorial chapters ──────────────────────────────────────────
+# Retail's eight hand-written chapters and ABC's eight training steps used to live on their own
+# workbench ports. They are teaching material, not an API: each chapter is one HTML page plus the
+# endpoints its own JavaScript calls. Both are served here now — the pages rewritten so their absolute
+# paths reach this ontology, the endpoints calling the SAME functions the workbench called.
+
+@router.get("/{key}/tutorial/chapter/{number}")
+async def ontology_tutorial_chapter(key: str, number: int):
+    try:
+        html = ontology_tutorial_chapters.chapter(key, number)
+    except ontology_tutorial_chapters.ChapterError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    return Response(content=html, media_type="text/html; charset=utf-8")
+
+
+@router.get("/{key}/abct")
+async def ontology_abct_shell(key: str):
+    """ABC's training shell: the eight-step frame."""
+    try:
+        html = ontology_tutorial_chapters.abct(key)
+    except ontology_tutorial_chapters.ChapterError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    return Response(content=html, media_type="text/html; charset=utf-8")
+
+
+@router.get("/{key}/abct/{number}")
+async def ontology_abct_step(key: str, number: int, embed: bool = False):
+    try:
+        html = ontology_tutorial_chapters.abct(key, number, embed=embed)
+    except ontology_tutorial_chapters.ChapterError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    return Response(content=html, media_type="text/html; charset=utf-8")
+
+
+@router.get("/{key}/wb/{rest:path}")
+async def ontology_chapter_api(key: str, rest: str, request: Request):
+    """The JSON a chapter's JavaScript asks for, by the path it asked for under the workbench."""
+    try:
+        return ontology_tutorial_chapters.call(key, rest, dict(request.query_params))
+    except ontology_tutorial_chapters.ChapterError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.post("/{key}/wb/{rest:path}")
+async def ontology_chapter_api_post(key: str, rest: str, request: Request):
+    """The same endpoints in their write/ask form (chapter 4's buttons, chapters 6–8's ask box)."""
+    try:
+        payload = await request.json()
+    except Exception:                                          # noqa: BLE001 — an empty or broken body
+        payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
+    try:
+        return ontology_tutorial_chapters.call(key, rest, dict(request.query_params), payload)
+    except ontology_tutorial_chapters.ChapterError as exc:
         raise HTTPException(404, str(exc)) from exc
 
 

@@ -1,20 +1,35 @@
-# OPTIONAL: the standalone workbench servers (one process per ontology), served behind the same host.
+# OPTIONAL, DEVELOPMENT ONLY — the standalone workbench servers.
 #
-# The app does not need them: the dashboard, the question pipeline and the declared writes compile
-# inside the app process. This file exists for the pages that ARE the workbench (the generated graph
-# page, the hand-written teaching lanes) and for debugging a profile in isolation.
+# The app does NOT need this file. Since M5 every page and every JSON the UI shows is served by the app
+# itself, in its own process:
 #
-#   docker compose -f deploy/docker-compose.yml -f deploy/workbench.yml up -d
+#   /api/ontology/{key}/document            objects, definitions, links, metrics (compiled in-process)
+#   /api/ontology/{key}/metrics/cards       every metric as a card, run under the guard
+#   /api/ontology/{key}/sections            which sections this profile declares
+#   /api/ontology/{key}/page/{name}         graph · design · tutorial · query · actions
+#   /api/ontology/{key}/tutorial/chapter/N  retail's eight authored chapters
+#   /api/ontology/{key}/abct[/N]            ABC's eight training steps
+#   /api/ontology/{key}/wb/…                the JSON those pages call (`check_chapters` proves each one)
 #
-# Each workbench is a `serve_ui.py` for ONE profile. nginx routes /workbench/<key>/ to it, so the
-# browser sees one origin (a framed page pointing at 127.0.0.1 would be the USER's machine).
+# Measured with no workbench process running at all: `deploy_smoke` 25/25 and `check_chapters` 209/209.
+# That is the point of this file being optional.
+#
+# Use it to look at ONE profile's raw pages while editing the HTML, or to debug a profile in isolation:
+#
+#   python backend/features/ontology/workbench/serve_ui.py \
+#       --settings backend/features/ontology/profiles/retail/settings.json --port 8092
+#
+# Respectively: `serve_ui.py` lives at `backend/features/ontology/workbench/serve_ui.py`, and a profile at
+# `backend/features/ontology/profiles/<key>/<key>_settings.json` (retail's file is plain `settings.json`).
+# Nothing in the app starts these any more: `GET /api/ontology/workbenches` only reports, and
+# `?ensure=true` — the development flow — is the one way to spawn a child.
 x-workbench: &workbench
   image: langconfig:latest
   depends_on:
     ontology-postgres: {condition: service_healthy}
   restart: unless-stopped
   command: ["python", "backend/features/ontology/workbench/serve_ui.py",
-            "--settings", "backend/features/ontology/profiles/REPLACE/settings.json",
+            "--settings", "backend/features/ontology/profiles/REPLACE/REPLACE_settings.json",
             "--port", "8090"]
 
 services:

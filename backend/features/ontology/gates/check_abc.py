@@ -104,10 +104,19 @@ def main() -> int:
     print("=== A5 the guardrails fit this profile ===")
     guard.SETTINGS = PROFILE
     cfg = guard.config()
-    check("stops is a big table here", cfg["big_tables"].get("stops"), "trip_date")
+    # `stops` has NO time column of its own (its date is trips.trip_date, one join away). Declaring it a
+    # big table with `trip_date` — which this gate used to require — made the guard inject a window on a
+    # column that does not exist, so EVERY read of stops died with
+    # `column stops.trip_date does not exist`, the training page's own table included. The true facts:
+    check("trips is a big table (it has the date column)", cfg["big_tables"].get("trips"), "trip_date")
+    check("stops is budgeted but not windowed", "stops" in (cfg.get("large_tables") or []), True)
+    check("stops is not declared as a big table", (cfg["big_tables"] or {}).get("stops"), None)
     listing = guard.apply("SELECT id FROM stops", cfg, mode="rows")
-    check("a listing is windowed and capped",
-          ("trip_date >= now()" in listing["sql"], "LIMIT" in listing["sql"]), (True, True))
+    check("a stops listing is capped, not windowed",
+          ("now()" in listing["sql"], "LIMIT" in listing["sql"]), (False, True))
+    tripped = guard.apply("SELECT id FROM trips", cfg, mode="rows")
+    check("a trips listing IS windowed and capped",
+          ("now()" in tripped["sql"], "LIMIT" in tripped["sql"]), (True, True))
     metric = guard.apply("SELECT count(*) FROM stops", cfg, mode="declared")
     check("a metric is not windowed", "now() - interval" in metric["sql"], False)
 

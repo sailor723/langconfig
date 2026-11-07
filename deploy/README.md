@@ -14,9 +14,12 @@ browser ──► nginx ──► app:8765          (frontend + API + ontology c
                       └─ ontology-postgres   the ontology databases (abc_coldchain, clinic_db, …)
 ```
 
-The standalone workbench servers (one per ontology) are **optional**: the dashboard, the question
-pipeline and the declared writes all compile inside the app process. `deploy/workbench.yml` adds them
-for the hand-written teaching pages and for debugging a profile in isolation.
+**Nothing but the app is required.** Every page the UI shows — the dashboard, the graph view, the query
+console, the actions page, the tutorial (including retail's eight hand-authored chapters and ABC's eight
+training steps) — and every number in them is served and computed by the app process itself, at
+`/api/ontology/{key}/…`. The five per-ontology workbench servers are a **development tool** now:
+`deploy/workbench.yml` adds them for editing a profile's HTML in isolation, and nothing in the app starts
+one. Measured with zero workbench processes running: `deploy_smoke` 25/25, `check_chapters` 209/209.
 
 ## 1. Configure
 
@@ -48,20 +51,26 @@ The ontology database starts empty. Two ways to fill it:
 ## 3. Prove it, before a user does
 
 ```bash
-python -m scripts.deploy_smoke --base http://<host>:8765 --skip-workbench
+python -m scripts.deploy_smoke --base http://<host>:8765
 ```
 
-Twenty checks, each one a way this system has actually broken: the app answers · the frontend was
+Twenty-five checks, each one a way this system has actually broken: the app answers · the frontend was
 **built** · every ontology resolves its own profile · the dashboard renders panels and its opening
 assessment parses · a question answers and a question refuses **by name** · a write verb's dry run with
-impossible ids is not admitted · the gate suite runs on this box. Exit 0 or it names what is missing.
+impossible ids is not admitted · each ontology's graph page and tutorial are served **by the app** with no
+absolute path pointing at a second origin · the gate suite runs on this box. Exit 0 or it names what is
+missing. (`--skip-workbench` is accepted and ignored: there is no workbench to probe.)
 
 Then the declarations themselves:
 
 ```bash
-python -m scripts.ontology_gates          # 14 runs, one verdict
+python -m scripts.ontology_gates          # 16 runs, one verdict
 python -m scripts.ontology_gates --quick  # skip the slow NL/samples families
 ```
+
+`check_chapters` is part of that suite for retail and ABC: it fetches each chapter and training page from
+the running app, extracts the endpoints out of the page's OWN JavaScript, and calls every one of them
+(209 checks). A chapter that grows a new `fetch()` is covered the day it is written.
 
 A gate that reports `NOT RUN` is named and does not fail the run (an unrun gate is not a green one);
 a family an ontology is not held to is **absent from `features/ontology/gates.json`**, and a known
@@ -94,6 +103,6 @@ survive a redeploy:
 | not deployed | why |
 |---|---|
 | the ontology repository | it is a learning mirror; the compiler and the declarations live in the app |
-| the workbench servers | the app compiles in-process; they exist for the teaching pages and debugging |
+| the workbench servers | the app compiles in-process AND serves the pages: graph, query, actions, tutorial, retail's eight chapters, ABC's eight training steps. They survive as a development tool (`deploy/workbench.yml`) |
 | a second virtualenv | the compiler runs under the app's interpreter (M1/M2) |
-| `serve_ui.py` framed pages | superseded by native pages for Dashboard/Query/Actions; the rest is workbench-only |
+| `serve_ui.py` framed pages | all of them are app endpoints now (`/api/ontology/{key}/page/…`, `/tutorial/chapter/{n}`, `/abct/{n}`); `check_chapters` calls every path they contain |
