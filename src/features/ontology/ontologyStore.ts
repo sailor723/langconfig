@@ -6,11 +6,11 @@
  * bundle. The built-in list below is only a fallback for a first run before the settings
  * document is seeded — it is labelled as such in the UI's error path, never silently mixed in.
  *
- * Three facts are kept apart because they come from three places: the selected URL
- * (localStorage), whether that workbench answers (a fetch of /api/ontology), and what it
- * declares (the document that same call returns). The document is replaced on every profile
- * switch and never merged — a browser showing clinic declarations under a TPC-H header is
- * the failure mode this tool exists to prevent.
+ * Three facts are kept apart because they come from three places: the selected profile
+ * (localStorage), whether the app can compile it (a fetch of `/api/ontology/{key}/document`), and what it
+ * declares (that same document). The document is replaced on every profile switch and never merged — a
+ * browser showing clinic declarations under a TPC-H header is the failure mode this tool exists to
+ * prevent, and it is also why a missing page never falls back to another ontology's.
  */
 import { useEffect, useReducer } from 'react';
 import apiClient from '../../lib/api-client';
@@ -79,11 +79,11 @@ const STORAGE_URL = 'langconfig.ontology.url';
 /**
  * A section of one ontology, and there are two kinds — the list shows them side by side:
  *
- *  · `workbench` — a path served by the ONTOLOGY's own server (`/query`, `/actions`, …), rendered in a
- *    frame. The server reports which of these it actually serves.
- *  · `app`      — a page of THIS application (`/ontology/dashboard`) that reads the ontology THROUGH the
- *    app backend. The dashboard is one: it compiles the declaration with the ontology's compiler, but the
- *    workbench does not serve it, so framing it would 404.
+ *  · `section` — a page of this ontology (graph view, query, actions, design, tutorial), served by THIS
+ *    app at `/api/ontology/{key}/page/…` and rendered in a frame. The profile declares which of these it
+ *    actually has (`features`), and a section it does not have is not offered.
+ *  · `app`     — a page of THIS application (`/ontology/dashboard`): a React route that reads the ontology
+ *    through the app's own API, so framing it would be a second copy of the app itself.
  *
  * They sit in ONE list because a reader does not care which process answers — Query and Dashboard are the
  * two ways to read a number, and they belong next to each other.
@@ -116,7 +116,7 @@ export const SECTIONS: Array<Omit<OntologySection, 'enabled'> & { enabled?: bool
 ];
 
 /**
- * Merge the app's own pages into the sections the workbench reports.
+ * Merge the app's own pages into the sections the profile reports.
  *
  * The server replaces the compiled list wholesale, so an app page added only to `SECTIONS` vanished as soon
  * as a profile answered `/api/sections`. This is the one place that keeps the two kinds together, and it
@@ -131,13 +131,29 @@ export function mergeSections(served: OntologySection[]): OntologySection[] {
   return [...list.slice(0, at), ...missing, ...list.slice(at)];
 }
 
-/** Everything the frame needs: the page, no workbench chrome, and the host app's look. */
+/** Everything the frame needs: the page, no page chrome, and the host app's look. */
 export function framedUrl(url: string, sectionPath: string, theme: 'dark' | 'light', lang?: string): string {
   const base = normalizeUrl(url);
   const sep = sectionPath.includes('?') ? '&' : '?';
   const params = new URLSearchParams({ embed: '1', theme });
   if (lang) params.set('lang', lang);
   return `${base}${sectionPath}${sep}${params.toString()}`;
+}
+
+/**
+ * Where one ontology's section is served: THIS app, by section key.
+ *
+ * The five workbench servers used to answer these paths on their own ports (`/`, `/query`, `/actions`,
+ * `/design`, `/tutorial`). Each is now a same-origin asset of the app under `/api/ontology/{key}/page/…`,
+ * so the frame in `OntologySectionPage` loads a page from the origin the user is already on — no port
+ * list, no CORS, and no second resolver to disagree about which ontology the page belongs to.
+ */
+export function sectionPageUrl(key: string, sectionKey: string): string {
+  const name: Record<string, string> = {
+    home: 'graph', graph: 'graph', design: 'design', tutorial: 'tutorial', query: 'query', actions: 'actions',
+  };
+  const page = name[sectionKey] ?? sectionKey;
+  return apiFor(key, `/page/${page}`);
 }
 
 
@@ -151,7 +167,7 @@ export interface OntologyState {
   profiles: OntologyProfile[];
   /** Where the list came from: the settings document, or the compiled-in fallback. */
   profilesFrom: 'settings' | 'fallback';
-  /** A workbench start is in flight, so the UI says 'starting' instead of 'down'. */
+  /** A compile of every ontology is in flight, so the UI says 'compiling' instead of 'refused'. */
   starting: boolean;
   /** Why the list is the built-in fallback, when it is. A silent fallback is a lie. */
   profilesError: string | null;
@@ -203,10 +219,30 @@ function emit(next: Partial<OntologyState>) {
   listeners.forEach(fn => fn());
 }
 
+/**
+ * Where the documents come from: THIS application.
+ *
+ * They used to be fetched from a per-ontology workbench server (`http://127.0.0.1:8098/api/ontology`),
+ * which is why five processes had to be running before a page could render. The compiler is inside the
+ * app now, so the same shapes are served at `/api/ontology/{key}/…` — one origin, no ports, and no
+ * second resolver to disagree about which ontology a page belongs to.
+ */
+export function apiFor(key: string, path: string): string {
+  return `/api/ontology/${encodeURIComponent(key)}${path}`;
+}
+
 async function getJson(url: string, path: string, ms: number): Promise<any> {
   const res = await fetch(normalizeUrl(url) + path, { signal: AbortSignal.timeout(ms) });
   const body = await res.json();
-  if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
+  if (!res.ok) throw new Error(body?.error || body?.detail || `HTTP ${res.status}`);
+  return body;
+}
+
+/** One ontology's document, card list or section list — from this app, keyed by the ontology's key. */
+async function getAppJson(key: string, path: string, ms: number): Promise<any> {
+  const res = await fetch(apiFor(key, path), { signal: AbortSignal.timeout(ms) });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body?.error || body?.detail || `HTTP ${res.status}`);
   return body;
 }
 
@@ -249,12 +285,11 @@ export interface MetricCard {
   guard_notes?: string[];
 }
 
-/** Every metric as the workbench's own card shape — one call, because the values come from
+/** Every metric as a card — one call, because the values come from
  *  the database under the guardrails and a card without its number is half a card. */
-export async function fetchMetricCards(url: string): Promise<MetricCard[]> {
-  const res = await fetch(`${normalizeUrl(url)}/api/metrics/cards`, { signal: AbortSignal.timeout(60000) });
-  const body = await res.json();
-  if (!body?.ok) throw new Error(body?.error || `HTTP ${res.status}`);
+export async function fetchMetricCards(key: string): Promise<MetricCard[]> {
+  const body = await getAppJson(key, '/metrics/cards', 120000);
+  if (!body?.ok) throw new Error(body?.error || body?.detail || 'the card list was refused');
   return (body.cards || []) as MetricCard[];
 }
 
@@ -330,7 +365,7 @@ export const ontology = {
     }
   },
 
-  /** Select a workbench, remember it, and load what it declares. */
+  /** Select an ontology, remember it, and load what it declares. */
   async select(url: string, presetKey?: string) {
     const clean = normalizeUrl(url);
     const preset = presetKey ?? state.profiles.find(p => p.url === clean)?.key ?? null;
@@ -340,12 +375,19 @@ export const ontology = {
       /* private mode: the choice simply does not persist */
     }
     emit({ url: clean, preset, status: 'loading', error: null, ontology: null });
+    if (!preset) {
+      // every document now comes from `/api/ontology/{key}/…`, so a profile the app cannot name has no
+      // documents — saying so beats framing a URL that only a workbench process would answer
+      const message = 'this ontology is not in the app\'s list, so the app has no key to load it by';
+      emit({ status: 'down', error: message });
+      return;
+    }
     try {
       const [doc, secs] = await Promise.all([
-        getJson(clean, '/api/ontology', 8000),
-        getJson(clean, '/api/sections', 4000).catch(() => null),
+        getAppJson(preset, '/document', 20000),
+        getAppJson(preset, '/sections', 8000).catch(() => null),
       ]);
-      if (!doc.ok) throw new Error(doc.error || 'the workbench refused the profile');
+      if (!doc.ok) throw new Error(doc.error || 'the app refused to compile this ontology');
       const served = Array.isArray(secs?.sections) ? secs.sections : null;
       const emit_sections = served
         ? served.map((x: any) => ({
@@ -364,7 +406,7 @@ export const ontology = {
         },
       });
     } catch (err: any) {
-      const message = err?.name === 'TimeoutError' ? 'no answer in 8 s' : String(err?.message || err);
+      const message = err?.name === 'TimeoutError' ? 'no answer in 20 s' : String(err?.message || err);
       emit({
         status: 'down',
         error: message,
@@ -374,58 +416,39 @@ export const ontology = {
   },
 
   /**
-   * Ask the backend to make sure every configured workbench is up, then record what it says.
+   * Ask the APP, per ontology, whether it can compile it — and record the answer.
    *
-   * The servers are local child processes the backend starts on demand: a user should never
-   * read a URL or open a terminal, so this is the ONLY way the UI learns liveness. The first
-   * call may have to spawn four processes, hence the long timeout and the bounded retry.
+   * This used to ask the backend to START five workbench servers and report their ports. Nothing is
+   * started any more: every document is compiled in the app, so liveness is a question the app answers
+   * about itself (`/api/ontology/{key}/document`). One request per profile, in parallel, no retries:
+   * a compile that fails says why in the same breath, and a retry loop over it would only hide that.
    */
   async probeAll() {
-    try {
-      const res: any = await apiClient.get('/api/ontology/workbenches', { timeout: 45000 });
-      const rows: any[] = res?.data?.workbenches || [];
-      const probes: OntologyState['probes'] = { ...state.probes };
-      for (const r of rows) {
-        const url = state.profiles.find(p => p.key === r.key)?.url || r.key;
-        probes[url] = {
-          status: r.up ? 'up' : 'down',
-          counts: r.counts || undefined,
-          error: r.error || undefined,
-        };
+    emit({ starting: true });
+    const probes: OntologyState['probes'] = { ...state.probes };
+    const results = await Promise.all(state.profiles.map(async p => {
+      try {
+        // the document is the same compile the section pages need, and it carries the counts the cards
+        // show — so liveness and the numbers are one answer, not two that can disagree
+        const body = await getAppJson(p.key, '/document', 60000);
+        return { key: p.key, url: p.url, up: true as const, counts: body?.counts };
+      } catch (err: any) {
+        return { key: p.key, url: p.url, up: false as const, error: String(err?.message || err) };
       }
-      emit({ probes });
-      const down = rows.filter(r => !r.up);
-      if (down.length) {
-        attempts += 1;
-        if (attempts <= 3) {
-          emit({ starting: true });
-          setTimeout(() => { void ontology.probeAll(); }, 2500 * attempts);
-        } else {
-          emit({ starting: false });
-        }
-      } else {
-        attempts = 0;
-        emit({ starting: false });
-      }
-      // load the selected profile's document so the browser and its sections follow
-      const selected = rows.find(r => r.key === state.preset) ?? rows.find(r => r.up);
-      if (selected?.up) {
-        const url = state.profiles.find(p => p.key === selected.key)?.url;
-        if (url && (!state.ontology || state.preset !== selected.key)) {
-          await ontology.select(url, selected.key);
-        }
-      }
-    } catch (err: any) {
-      attempts += 1;
-      if (attempts <= 3) {
-        emit({ starting: true });
-        setTimeout(() => { void ontology.probeAll(); }, 2500 * attempts);
-        return;
-      }
-      emit({ starting: false });
-      console.warn('[ontology] workbench status failed:', err?.message || err);
+    }));
+    for (const r of results) {
+      probes[r.url] = r.up
+        ? { status: 'up', counts: r.counts }
+        : { status: 'down', error: r.error };
     }
-  },
+    emit({ probes, starting: false });
+
+    // load the selected profile's document so the browser and its sections follow
+    const chosen = results.find(r => r.key === state.preset) ?? results.find(r => r.up);
+    if (chosen?.up && chosen.url && (!state.ontology || state.preset !== chosen.key)) {
+      await ontology.select(chosen.url, chosen.key);
+    }
+  }
 };
 
 /** Subscribe a component to the store (a small external store; no provider needed). */

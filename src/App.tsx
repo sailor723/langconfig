@@ -29,7 +29,7 @@ import PromptHomePage from './components/layout2/PromptHomePage';
 import SkillHomePage from './components/layout2/SkillHomePage';
 import KnowledgeHomePage from './components/layout2/KnowledgeHomePage';
 // The Ontology activity: home (what an ontology is), browser (what this profile declares) and
-// ask (the workbench server itself, framed). It sits above Knowledge because one is the ask
+// ask (the ontology's own sections, framed). It sits above Knowledge because one is the ask
 // surface and the other the ingest surface over the same data.
 import OntologyHomePage from './pages/OntologyHomePage';
 import OntologyBrowserPage from './pages/OntologyBrowserPage';

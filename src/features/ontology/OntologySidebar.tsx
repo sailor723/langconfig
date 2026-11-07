@@ -2,8 +2,8 @@
  * OntologySidebar — the ontology list in the left rail, like every other activity's browser
  * (Analysis lists dashboards, Knowledge lists sources, this lists ontologies).
  *
- * One row per ONTOLOGY (a workbench profile), not per file: a profile is the unit a number is
- * compiled from, so it is the unit a reader picks. The dot is that workbench's liveness — a
+ * One row per ONTOLOGY (a profile), not per file: a profile is the unit a number is
+ * compiled from, so it is the unit a reader picks. The dot is whether the app compiles it — a
  * profile that is not running is shown as off with its counts hidden, not hidden altogether,
  * because "why is nothing here" is the question a missing row creates.
  */
@@ -65,7 +65,7 @@ export default function OntologySidebar() {
         </button>
         <button
           onClick={() => void ontology.probeAll()}
-          title="re-probe every workbench"
+          title="re-compile every ontology"
           style={{ ...rowTitle, marginLeft: 'auto', color: t.textDim }}
         >
           <RefreshCw size={12} />
@@ -114,7 +114,7 @@ export default function OntologySidebar() {
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span
-                  title={up ? 'workbench answering' : (probe?.error || 'not probed')}
+                  title={up ? 'compiled by the app' : (probe?.error || 'not compiled yet')}
                   style={{
                     width: 6, height: 6, borderRadius: 999, flex: 'none',
                     background: up ? '#12805c' : probe?.status === 'down' ? '#c2410c' : t.textDim,
@@ -131,13 +131,12 @@ export default function OntologySidebar() {
               <div style={{ fontSize: 11, color: t.textDim, marginTop: 2, lineHeight: 1.45 }}>
                 {p.profile || p.key}
               </div>
-              {/* The sections of the selected ontology. The workbench's own rail is hidden
-                  inside the frame (embed=1); this list is what replaces it, and it lives under
-                  the ontology it belongs to. */}
+              {/* The sections of the selected ontology. The framed page carries no rail of its own;
+                  this list is the navigation, and it lives under the ontology it belongs to. */}
               {(active || peek === p.key) && up && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginTop: 5, paddingLeft: 12 }}>
                   <span style={{ fontSize: 9.5, letterSpacing: 0.5, textTransform: 'uppercase',
-                                 color: t.textDim, marginTop: 2 }}>workbench</span>
+                                 color: t.textDim, marginTop: 2 }}>sections</span>
                   <button
                     onClick={e => { e.stopPropagation(); navigate('/ontology/browse'); }}
                     title="objects, definitions, links and every metric with its compiled SQL"
@@ -153,8 +152,8 @@ export default function OntologySidebar() {
                         title={sec.hint}
                         onClick={e => {
                           e.stopPropagation();
-                          // an APP page (the dashboard) is a route in this app; a workbench section is a
-                          // path the ontology's own server serves and this shell frames.
+                          // an APP page (the dashboard) is a route in this app; a section page is served
+                          // by this app too (`/api/ontology/{key}/page/…`) and framed here.
                           if (sec.kind === 'app') { navigate(sec.path); return; }
                           navigate(sec.key === 'home' ? '/ontology/app' : `/ontology/app?view=${sec.key}`);
                         }}

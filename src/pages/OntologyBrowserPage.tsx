@@ -1,7 +1,7 @@
 /**
  * OntologyBrowserPage — read what the loaded profile declares.
  *
- * The workbench answers questions; this page answers "what is in there": objects and their
+ * The dashboard answers questions; this page answers "what is in there": objects and their
  * physical tables, the definitions (axioms) that decide membership, the declared links, and
  * every metric with its compiled SQL *or* its refusal. Nothing is fetched per row — the
  * document is one `/api/ontology` call, so the lists cannot disagree with each other.
@@ -36,7 +36,7 @@ export default function OntologyBrowserPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [copied, setCopied] = useState(false);
-  // Metrics are shown as CARDS (the workbench's own layout): declaration, compiled SQL, the
+  // Metrics are shown as CARDS (the same layout the tutorial uses): declaration, compiled SQL, the
   // number the database returns and the guard's report, all on one card. One request fills
   // the whole grid, because a card without its number is half a card.
   const [cards, setCards] = useState<MetricCard[] | null>(null);
@@ -65,15 +65,17 @@ export default function OntologyBrowserPage() {
     })();
   }, []);
 
+  // the cards come from the app, keyed by the ontology (the URL only chose the profile)
+  const cardKey = s.preset || s.profiles.find(p => p.url === s.url)?.key || '';
   useEffect(() => {
-    if (tab !== 'metrics' || cards || !s.url) return;
+    if (tab !== 'metrics' || cards || !cardKey) return;
     let cancelled = false;
     setCardsError(null);
-    fetchMetricCards(s.url)
+    fetchMetricCards(cardKey)
       .then(list => { if (!cancelled) setCards(list); })
       .catch(err => { if (!cancelled) setCardsError(String(err?.message || err)); });
     return () => { cancelled = true; };
-  }, [tab, cards, s.url]);
+  }, [tab, cards, cardKey]);
 
   const doc = s.ontology;
   const needle = q.trim().toLowerCase();
@@ -115,15 +117,13 @@ export default function OntologyBrowserPage() {
     return (
       <div style={{ padding: 26, maxWidth: 720 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary, marginBottom: 6 }}>
-          No ontology loaded from {s.url}
+          No ontology compiled{s.preset ? ` for ${s.preset}` : ''}
         </div>
         <div style={{ fontSize: 12, color: '#b3261e', marginBottom: 10 }}>{s.error}</div>
         <div style={{ fontSize: 11.5, color: t.textMuted, lineHeight: 1.7 }}>
-          Start a workbench with a profile, then press reload:
-          <div style={{ ...mono, fontSize: 11, marginTop: 6 }}>
-            cd ontology && python3 retail_graph/serve_ui.py \<br />
-            &nbsp;&nbsp;--settings ontologies/clinic/clinic_settings.json --port 8096
-          </div>
+          The declarations are compiled by this app, in this process — there is no server to start. The
+          message above is the compiler's answer: it names the declaration it could not turn into SQL.
+          Fix that, then press reload.
         </div>
         <button style={{ ...btn(), marginTop: 12 }} onClick={() => navigate('/ontology')}>
           back to the ontology list
@@ -159,8 +159,8 @@ export default function OntologyBrowserPage() {
             <RefreshCw size={11} /> reload
           </button>
           <button style={btn(true)} onClick={() => navigate('/ontology/app')}
-                  title="the ontology's own app — graph page, query console, actions, tutorial">
-            <Play size={11} /> workbench
+                  title="this ontology's sections — graph view, query console, actions, tutorial">
+            <Play size={11} /> sections
           </button>
         </div>
       </div>
@@ -382,7 +382,7 @@ export default function OntologyBrowserPage() {
 }
 
 /**
- * MetricsGrid — the workbench's metric cards: name, label, the declaration it compiles from,
+ * MetricsGrid — the metric cards: name, label, the declaration it compiles from,
  * that compiled SQL, the guard's report and the number. The number is read from the card
  * response (one call for the whole grid); a metric that refuses shows the compiler's sentence
  * instead of a value, because that refusal is the declaration still missing.
@@ -393,7 +393,7 @@ function MetricsGrid({ cards, error, needle, doc, selected, onSelect }: {
 }) {
   const t = useLayoutTokens();
   if (error) {
-    // A workbench can be up and still not serve the cards endpoint (an older build, for
+    // An ontology can compile and still not answer the cards endpoint (a refusal, for
     // instance). Showing "nothing" there is the worst answer; show what /api/ontology
     // already knows — every declaration and its SQL — and say the numbers are missing.
     const fallback: any[] = (doc?.metrics || []).filter(

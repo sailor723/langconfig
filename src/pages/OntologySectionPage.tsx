@@ -16,7 +16,7 @@ import { ExternalLink, RefreshCw, ServerCrash, Server, ListTree, ChevronDown, Ar
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../lib/themes';
 import { useLayoutTokens } from '../components/layout2/tokens';
-import { ontology, useOntology, SECTIONS, framedUrl } from '../features/ontology/ontologyStore';
+import { ontology, useOntology, SECTIONS, sectionPageUrl } from '../features/ontology/ontologyStore';
 import { Chip, Btn, SUCCESS, DANGER, WARN } from '../features/ontology/ui';
 
 export default function OntologySectionPage() {
@@ -36,6 +36,7 @@ export default function OntologySectionPage() {
   const section = framed.find(x => x.key === view) ?? framed[0] ?? SECTIONS[0];
   const lang = (i18n?.language || '').startsWith('zh') ? 'zh' : 'en';
   const themeName = theme?.name === 'dark' ? 'dark' : 'light';
+  const sectionKey = s.preset || s.profiles.find(p => p.url === s.url)?.key || '';
 
   useEffect(() => {
     const app_section = sections.find(x => x.key === view && x.kind === 'app');
@@ -45,10 +46,14 @@ export default function OntologySectionPage() {
   useEffect(() => { void ontology.ensureReady(); }, []);
 
 
-  const src = useMemo(
-    () => (s.url ? framedUrl(s.url, section.path, themeName, lang) : ''),
-    [s.url, section.path, themeName, lang],
-  );
+  // The page comes from THIS app now (`/api/ontology/{key}/page/…`), not from a workbench port: the frame
+  // stays, the second server does not. `theme`/`lang` still travel so an embedded page matches the shell.
+  const src = useMemo(() => {
+    if (!sectionKey) return '';
+    const base = sectionPageUrl(sectionKey, section.key);
+    const sep = base.includes('?') ? '&' : '?';
+    return `${base}${sep}${new URLSearchParams({ theme: themeName, lang }).toString()}`;
+  }, [sectionKey, section.key, themeName, lang]);
 
   // A toolbar, not a hero: the same 12–13px scale and 8px radii the rest of the app's
   // panel headers use, so a framed workbench does not look bolted on.
@@ -111,11 +116,10 @@ export default function OntologySectionPage() {
 
       {s.status === 'down' && (
         <div style={{ margin: '12px 14px 0', padding: '12px 14px', borderRadius: 10, border: `1px solid ${DANGER}55`, background: `${DANGER}10`, color: t.textPrimary, fontSize: 12.5, lineHeight: 1.7 }}>
-          <b>No workbench at {s.url || '(no profile selected)'}</b>{s.error ? ` — ${s.error}` : ''}.<br />
-          Start one with a profile, then press reload:
-          <div style={{ font: '12px ui-monospace, Menlo, monospace', marginTop: 6, whiteSpace: 'pre-wrap' }}>
-            {`cd ontology && python3 retail_graph/serve_ui.py \\\n    --settings ontologies/clinic/clinic_settings.json --port 8096`}
-          </div>
+          <b>This ontology did not compile</b>{sectionKey ? ` (${sectionKey})` : ''}{s.error ? ` — ${s.error}` : ''}.<br />
+          Every section of this page is compiled in the app, from the ontology's own declarations — there is
+          no second server to start. The refusal above is the compiler's answer; fix the declaration it
+          names, then press reload.
         </div>
       )}
 

@@ -4,19 +4,19 @@
  * Three things, and they are deliberately in one panel because they are one question
  * ("what does this number mean, and is it right?"):
  *
- *  1. **Ask** — a question goes to the workbench's own `/api/nl`, which answers from the
+ *  1. **Ask** — a question goes to the ontology's own NL lane (`/api/ontology/{key}/wb/nl`), which answers from the
  *     declarations (rules first) or refuses BY NAME. The refusal is rendered as the answer,
  *     not as an error: "no metric declares that count" is the useful output.
  *  2. **Declarations** — every metric with the declaration it compiles from, the compiled SQL,
  *     the number under the guardrails, and the guard's own report. One call fills it
- *     (`/api/metrics/cards`, the same one the browser's card grid uses), so a number can never
+ *     (`/api/ontology/{key}/metrics/cards`, the same one the browser's card grid uses), so a number can never
  *     disagree with the declaration it belongs to.
  *  3. **Pending publishes** — what an agent staged for this ontology, so a proposal is visible
  *     where the declarations are discussed instead of only in Settings. Applying stays there:
  *     it is a role check + a deliberate confirmation, not a button in a chat rail.
  *
  * It does NOT invent tools of its own: no SQL is typed here, no number is computed here, and
- * the panel never talks to the database. Everything is the workbench's answer or nothing.
+ * the panel never talks to the database. Everything is the ontology's answer or nothing.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -102,7 +102,7 @@ export default function OntologyChatPanel() {
   const [valuesOpen, setValuesOpen] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, ValueDelta | null>>({});
 
-  // Make sure a workbench is selected before asking it anything (a bookmark or a reload
+  // Make sure an ontology is selected before asking it anything (a bookmark or a reload
   // arrives with no selection, and asking '' is a 404 against the frontend's own origin).
   useEffect(() => {
     void (async () => {
@@ -117,16 +117,18 @@ export default function OntologyChatPanel() {
   const url = s.url;
   const key = s.preset || s.profiles.find(p => p.url === url)?.key || '';
 
+  // the cards come from the app now (one origin, keyed by the ontology) — the URL is only how the
+  // profile was chosen, never where its numbers are fetched from
   useEffect(() => {
-    if (!url) return;
+    if (!key) return;
     let cancelled = false;
     setCards(null);
     setCardsError(null);
-    fetchMetricCards(url)
+    fetchMetricCards(key)
       .then(list => { if (!cancelled) setCards(list); })
       .catch(err => { if (!cancelled) setCardsError(String(err?.message || err)); });
     return () => { cancelled = true; };
-  }, [url]);
+  }, [key]);
 
   const loadPublishes = useCallback(async () => {
     if (!key) { setPublishes([]); return; }
@@ -434,7 +436,7 @@ export default function OntologyChatPanel() {
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 12px 20px' }}>
         {cardsError && (
           <Quiet>
-            values unavailable — {cardsError}. The workbench must serve{' '}
+            values unavailable — {cardsError}. The app must compile{' '}
             <code style={mono}>/api/metrics/cards</code> (restart it and reload).
           </Quiet>
         )}

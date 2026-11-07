@@ -9,7 +9,7 @@
  * is *compiled*: a metric is a declaration, the SQL is generated from it, and a declaration
  * that cannot compile is refused by name instead of being approximated.
  *
- * The counts on the cards are read from the running workbench, never typed in.
+ * The counts on the cards are compiled from the ontology's declarations by the app itself, never typed in.
  */
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -75,7 +75,7 @@ const STEPS = [
   {
     icon: Play,
     title: '2 · Ask in your own words',
-    body: 'The workbench maps the question onto the menu (rules first, model only when unsure), compiles the metric, runs it under the guardrails, and shows the number with the SQL that produced it.',
+    body: 'The question is mapped onto the metric menu (rules first, model only when unsure), the metric is compiled, run under the guardrails, and shown with the SQL that produced it.',
   },
   {
     icon: Sigma,
@@ -113,7 +113,7 @@ export default function OntologyHomePage() {
         title="Ontology"
         subtitle="the semantic layer, compiled — objects, definitions and metrics one number at a time"
         actions={
-          <Btn onClick={() => void ontology.probeAll()} title="re-probe every workbench">
+          <Btn onClick={() => void ontology.probeAll()} title="re-compile every ontology and report what each one declares">
             <RefreshCw size={13} /> re-probe
           </Btn>
         }
@@ -143,9 +143,9 @@ export default function OntologyHomePage() {
         hint={`${s.profiles.length} profile${s.profiles.length === 1 ? '' : 's'} · counts read live`}
       >
       <Quiet>
-        Each card is one workbench profile — a server that loads one ontology folder and serves it. A
-        profile that is not running is listed with the command that starts it. Which profiles appear is
-        a setting (Settings → Ontology), not a hardcoded list.
+        Each card is one ontology — its declarations compiled by this app, in this process. A card that is
+        not answering says what the compiler refused; nothing has to be started first. Which ontologies
+        appear is a setting (Settings → Ontology), not a hardcoded list.
       </Quiet>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 14, marginTop: 12 }}>
         {s.profiles.map(p => {
@@ -160,11 +160,11 @@ export default function OntologyHomePage() {
                 <span style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary }}>{p.label}</span>
                 <Chip colour={up ? SUCCESS : loading ? WARN : DANGER}>
                   {loading && <Loader2 size={10} className="animate-spin" />}
-                  {up ? 'running' : loading ? 'probing' : 'not running'}
+                  {up ? 'declared' : loading ? 'compiling' : 'refused'}
                 </Chip>
               </div>
-              {/* The address is an implementation detail: the backend starts the server.
-                  What a reader needs is which profile is loaded. */}
+              {/* The address is an implementation detail: the app compiles the profile in place.
+                  What a reader needs is which ontology is loaded. */}
               <div style={{ fontSize: 11.5, color: t.textDim, fontFamily: 'ui-monospace, Menlo, monospace' }}>
                 {p.profile || p.key}
               </div>
@@ -182,11 +182,11 @@ export default function OntologyHomePage() {
                 <div style={{ fontSize: 12, color: DANGER, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
                   <AlertTriangle size={13} style={{ flex: 'none', marginTop: 2 }} />
                   <span style={{ lineHeight: 1.6 }}>
-                    {s.starting ? 'starting the workbench…' : (probe?.error || 'not running')}
+                    {s.starting ? 'compiling…' : (probe?.error || 'not answering')}
                     <br />
                     <span style={{ color: t.textMuted, fontSize: 11.5 }}>
-                      the app starts a workbench for this profile on demand — if it stays down,
-                      check Settings → Ontology (repo path and interpreter).
+                      this app compiles the ontology in-process: if it refuses, the message above is the
+                      compiler's own — the declaration it names is the thing to fix.
                     </span>
                   </span>
                 </div>
@@ -196,14 +196,14 @@ export default function OntologyHomePage() {
                 <Btn variant="primary" disabled={!up} onClick={() => void openProfile(p.key, p.url, 'browse')}>
                   <ListTree size={13} /> Browse
                 </Btn>
-                {/* "Open" read as "open a new window". It actually frames this ontology's
-                    own server in place, so the label says what you get: the workbench. */}
+                {/* "Open" read as "open a new window". It actually opens this ontology's sections
+                    inside this app, so the label says what you get. */}
                 <Btn
                   disabled={!up}
                   onClick={() => void openProfile(p.key, p.url, 'app')}
-                  title="the ontology's own app — graph page, query console, actions, tutorial (shown in this window; started by the app)"
+                  title="the ontology's sections — graph view, query console, actions, tutorial — compiled by this app and shown in this window"
                 >
-                  <Play size={13} /> Workbench
+                  <Play size={13} /> Open
                 </Btn>
               </div>
             </Card>
@@ -267,7 +267,7 @@ export default function OntologyHomePage() {
           ['Function / metric', 'Metric — meaning in 02-meaning.ttl, computation in metrics_ext.ttl; compiled to SQL, or refused by name'],
           ['Action type', 'Declared action — compiled preconditions, dry-run, audit trail (lane C)'],
           ['Platform controls', 'Guardrails (page cap · time bound · plan budget · statement timeout) plus gates that can go red'],
-          ['AIP / agents', 'A DeepAgent with the build-ontology-from-db skill: it introspects a database and writes the declarations; the workbench compiles them'],
+          ['AIP / agents', 'A DeepAgent with the build-ontology-from-db skill: it introspects a database and writes the declarations; the app compiles them'],
         ].map(([foundry, here], i) => (
           <div
             key={foundry}
@@ -288,7 +288,7 @@ export default function OntologyHomePage() {
       <Card style={{ maxWidth: 940, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
         <ShieldCheck size={16} color={t.accent} style={{ flex: 'none', marginTop: 2 }} />
         <div style={{ fontSize: 12.5, color: t.textMuted, lineHeight: 1.75 }}>
-          Every number the workbench serves is computed by SQL compiled from a declaration and run
+          Every number shown here is computed by SQL compiled from a declaration and run
           under the guardrails. The browser shows the other half: what is <i>declared</i>, which
           metrics compile, and which refuse. A gate that cannot fail is decoration — so the clinic
           ontology’s suite includes five mutations (delete a grain, drop a reference, misspell a
