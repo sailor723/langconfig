@@ -306,10 +306,14 @@ def test_real_gates_on_the_installed_logistics_ontology(monkeypatch, tmp_path):
              and p.suffix in (".ttl", ".json")}
     res = op.stage("logistics", files, actor="gate", note="real gate run")
     try:
-        assert res["report"]["compile"]["metrics"] == 23
-        assert res["report"]["compile"]["compiled"] == 20
-        assert sorted(r["name"] for r in res["report"]["compile"]["refused"]) == [
-            "atRiskDrivers", "driverRecentOnTimeRate", "plannedStopsVisited"]
+        # The CONTRACT is the refusal list, not the total: this ontology legitimately grew (23 -> 26
+        # metrics while three of them stayed refused by name). Hardcoding the count made a correct
+        # build look like a regression.
+        comp = res["report"]["compile"]
+        assert sorted(r["name"] for r in comp["refused"]) == [
+            "atRiskDrivers", "driverRecentOnTimeRate", "plannedStopsVisited"], comp["refused"]
+        assert comp["metrics"] == comp["compiled"] + len(comp["refused"]), comp
+        assert comp["compiled"] >= 20
         assert res["report"]["new_refusals"] == []
         # R2 has no truth map for this profile: it must be NAMED, not silently green
         assert any("R2" in n for n in res["report"]["gates_not_run"]), res["report"]["gates_not_run"]

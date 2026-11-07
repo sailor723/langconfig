@@ -581,7 +581,14 @@ for name in sorted(sqlgen.metrics(g)):
         with conn.cursor() as cur:
             r = guard.run(cur, c.sql, cfg=cfg, mode="declared")
             rows = r.get("rows") or []
-            out[name] = {"value": str(rows[0][0]) if rows and rows[0] else None}
+            cols = r.get("cols") or []
+            if rows and len(cols) > 1:
+                # a GROUP BY metric has no single number: the last column of the first row plus the
+                # ROW COUNT is the comparable fact. Without the count, "before None -> after 'v2'"
+                # was reported for a metric whose real change was two new rows.
+                out[name] = {"value": str(rows[0][-1]), "rows": len(rows), "grouped": True}
+            else:
+                out[name] = {"value": str(rows[0][0]) if rows and rows[0] else None}
     except Exception as exc:
         out[name] = {"error": str(exc).splitlines()[0]}
 conn.close()
@@ -647,12 +654,14 @@ def value_delta(staged_id: str) -> dict:
         a = after.get(name) or {}
         bv = b.get("value", b.get("refused") or b.get("error"))
         av = a.get("value", a.get("refused") or a.get("error"))
-        if bv == av:
+        if bv == av and b.get("rows") == a.get("rows"):
             continue
         changes.append({
             "metric": name,
             "before": bv,
             "after": av,
+            "before_rows": b.get("rows"),
+            "after_rows": a.get("rows"),
             "before_state": ("value" if "value" in b else
                              "refused" if "refused" in b else "error" if "error" in b else None),
             "after_state": ("value" if "value" in a else

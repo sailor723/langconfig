@@ -464,6 +464,10 @@ function ProposalCard({ proposal, onApplied }: { proposal: Proposal; onApplied: 
               : (values.changed || []).map((c: any) => (
                 <div key={c.metric}>
                   <span style={{ color: WARN }}>{c.metric}</span> {String(c.before ?? '—')} → <b>{String(c.after ?? '—')}</b>
+                  {/* a GROUP BY metric has rows, not one number: say how many */}
+                  {c.after_rows !== undefined && c.after_rows !== null
+                    ? <span style={{ color: t.textDim }}>（{c.before_rows ?? 0} → {c.after_rows} 行）</span>
+                    : null}
                 </div>
               ))}
         </div>
