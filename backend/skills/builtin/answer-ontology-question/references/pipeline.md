@@ -1,7 +1,35 @@
-# The pipeline, module by module (the retail reference)
+# The pipeline, module by module
 
-Everything here is anchored in `retail_graph/`, which is the reference implementation the other
-ontologies reuse. Line numbers are from the current checkout — read the function, not the number.
+## Where this lives for ONE ontology
+
+The pipeline is per ontology. What that means in practice:
+
+| surface | what it is | how to reach it |
+|---|---|---|
+| the ontology's Query section | the page a user asks on | `<workbench>/query` (each profile has its own port) |
+| the same thing as an API | one question in, one trace out | `POST <workbench>/api/nl {question, confirm}` |
+| the per-ontology menu | what *this* ontology declares | built from `ontologies/<key>/**/*.ttl` at request time |
+| the per-ontology samples | the questions a user is offered, and the gate on them | `GET <workbench>/api/samples` (from the profile's `samples`) |
+| the per-ontology words | aliases (synonyms) and labels (the phrase people type) | profile `aliases`, TTL `rdfs:label` |
+| the per-ontology tutorial | what to read first, and the refusal it teaches | `GET <workbench>/api/tutorial/steps` |
+
+Ask one ontology three ways (same pipeline, three entry points):
+
+```bash
+PY=/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python
+$PY scripts/ask.py --key logistics "行程数"                 # resolve ontologies/logistics/*_settings.json
+$PY scripts/ask.py --workbench http://127.0.0.1:8098 "…"    # the ontology's own Query surface
+$PY scripts/ask.py --profile <path/to/*_settings.json> "…"  # an explicit profile
+```
+
+The per-ontology gate that keeps this honest is the **samples gate**: every sample question in the
+profile must answer, or refuse **by name** — a sample that rots is worse than none, because it is the
+first thing a user clicks.
+
+## Module by module
+
+The anchors below are in `retail_graph/`, the reference implementation the other ontologies reuse.
+Line numbers are from the current checkout — read the function, not the number.
 
 ## 1 · menu — `nl.menu(graph)` (`nl.py:315`)
 

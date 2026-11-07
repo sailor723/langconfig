@@ -13,9 +13,17 @@ author: weiping
 
 # Answering a business question with an ontology
 
-The retail reference already does this end to end — `retail_graph/nl.py` plus `sqlgen.py`, `capability.py`,
-`guard.py`, and the SPARQL lane in `lane_b.py`. This skill is the shape of that pipeline, in the order
-that keeps the number honest. Read [references/pipeline.md](references/pipeline.md) for the module
+**This pipeline lives in each ontology, not in one place.** Every ontology has its own workbench, and
+that workbench serves the ontology's own **Query** section (`<workbench>/query`, backed by
+`POST /api/nl`) — the pipeline is the same code, but the *menu*, the *samples*, the *aliases*, the
+*labels* and the *tutorial* are that ontology's. So "answer a customer query" always means "answer it
+against THIS ontology's declarations", and the first step is knowing which ontology you are in.
+
+`retail_graph/` (`nl.py`, `sqlgen.py`, `capability.py`, `guard.py`, `lane_b.py`) is the **reference
+implementation** of that pipeline, which is why the anchors below point there; the per-ontology assets
+live in `ontologies/<key>/` (`*_settings.json` → `samples`, `aliases`, `ns`, `dsn`, `guard`).
+
+This skill is the shape of the pipeline, in the order that keeps the number honest. Read [references/pipeline.md](references/pipeline.md) for the module
 anchors, the intent JSON, the slot types and the guard knobs; read
 [../build-ontology-from-db/references/tuning-log.md](../build-ontology-from-db/references/tuning-log.md)
 before blaming the ontology for a strange answer — most strange answers are matching failures, and they

@@ -14,6 +14,16 @@ Why a script and not a curl: the pipeline lives in the ontology repo and knows i
 honest way to ask a question is to run it there — with the same refusal culture (`NOT RUN` named, never
 faked) that the rest of this repo holds.
 
+The pipeline is PER ONTOLOGY: each ontology's own workbench serves its Query section
+(`<workbench>/query`) backed by `POST /api/nl`, and the assets that make matching work are that
+ontology's profile (samples, aliases), its TTL labels and its tutorial. So this script targets an
+ontology three ways — by key, by a profile file, or by a running workbench:
+
+    --key logistics         ontologies/logistics/logistics_settings.json (or retail_graph/…)
+    --profile <path>        an explicit profile file
+    --workbench URL         the ontology's OWN Query surface: POST URL/api/nl (the same pipeline the
+                            page uses, so the answer here is the answer the user sees)
+
 Usage (from anywhere; PY must have psycopg2 + rdflib + langchain):
 
     PY=/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python
@@ -34,20 +44,94 @@ import sys
 REPO = pathlib.Path(os.environ.get("ONTOLOGY_REPO") or "/Users/weiping/dev/Learn/ontology").expanduser()
 
 
+def _profile_for_key(key: str) -> pathlib.Path | None:
+    """An ontology is a folder with a profile: `ontologies/<key>/<key>_settings.json`."""
+    for candidate in (REPO / "ontologies" / key / f"{key}_settings.json",
+                      REPO / "ontologies" / key / "settings.json",
+                      REPO / "retail_graph" / f"{key}_settings.json",
+                      REPO / "retail_graph" / "settings.json" if key == "retail" else None):
+        if candidate and candidate.is_file():
+            return candidate
+    return None
+
+
+def _ask_workbench(args) -> int:
+    """Ask the ontology's own Query surface — the same call the /query page makes."""
+    import urllib.error
+    import urllib.request
+
+    url = args.workbench.rstrip("/") + "/api/nl"
+    body = json.dumps({"question": args.question, "confirm": bool(args.confirm)}).encode()
+    req = urllib.request.Request(url, data=body, method="POST",
+                                 headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=180) as res:
+            data = json.loads(res.read().decode() or "{}")
+    except urllib.error.HTTPError as exc:                       # 4xx/5xx: the body is the answer
+        raw = exc.read().decode()
+        try:
+            data = json.loads(raw)
+        except Exception:                                       # noqa: BLE001
+            print(f"ERROR: HTTP {exc.code} from {url}: {raw[:300]}")
+            return 1
+    except Exception as exc:                                    # noqa: BLE001
+        print(f"ERROR: could not reach {url} ({type(exc).__name__}: {exc}). "
+              "Is that ontology's workbench running?")
+        return 1
+
+    if args.json:
+        print(json.dumps(data, ensure_ascii=False, indent=1, default=str))
+    elif not data.get("ok"):
+        print("REFUSED (this is the answer, not an error):\n  "
+              + str(data.get("refused") or data.get("error") or "see the trace"))
+    else:
+        print(f"question: {args.question}")
+        print(f"workbench: {args.workbench}")
+        for step in data.get("steps") or []:
+            print(f"  {step.get('step')} · {step.get('ms')} ms  "
+                  + str(step.get("detail") or "")[:140])
+        result = data.get("result") or {}
+        print(f"\nintent:  {(data.get('intent') or {}).get('kind')} "
+              f"{(data.get('intent') or {}).get('name')}")
+        if result:
+            print(f"value:   {result.get('value')}")
+            if result.get("sql"):
+                print("sql:     " + str(result["sql"]).replace("\n", " ")[:300])
+        if data.get("answer"):
+            print(f"answer ({data.get('answer_source')}):\n  "
+                  + str(data["answer"]).replace("\n", "\n  "))
+        if data.get("needs_confirmation"):
+            print("\nneeds_confirmation — re-run with --confirm")
+    return 0 if data.get("ok") else 2
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("question")
-    ap.add_argument("--profile", required=True, help="the ontology profile (*_settings.json)")
+    ap.add_argument("--key", help="the ontology's folder name under ontologies/ (e.g. logistics)")
+    ap.add_argument("--profile", help="the ontology profile (*_settings.json) — overrides --key")
+    ap.add_argument("--json", action="store_true", help="print the raw response as JSON")
+    ap.add_argument("--workbench", help="a running workbench URL; asks through its own /api/nl")
     ap.add_argument("--confirm", action="store_true",
                     help="answer a question that involves slots (time window / customer)")
     ap.add_argument("--no-polish", action="store_true",
                     help="skip the LLM polish: the deterministic template answers")
-    ap.add_argument("--json", action="store_true", help="print the raw response as JSON")
     args = ap.parse_args()
 
-    profile = pathlib.Path(args.profile).expanduser().resolve()
-    if not profile.is_file():
-        print(f"ERROR: no profile at {profile}")
+    if args.workbench:
+        return _ask_workbench(args)
+
+    if not args.profile and not args.key:
+        print("ERROR: pass --key <ontology>, --profile <profile.json>, or --workbench <url>")
+        return 1
+    if args.profile:
+        profile = pathlib.Path(args.profile).expanduser().resolve()
+    else:
+        profile = _profile_for_key(args.key)
+    if profile is None or not profile.is_file():
+        print(f"ERROR: no profile for {args.profile or args.key!r}"
+              + (f" (looked for ontologies/{args.key}/{args.key}_settings.json and "
+                 f"retail_graph/{args.key}_settings.json)" if args.key else ""))
         return 1
     if not (REPO / "retail_graph").is_dir():
         print(f"ERROR: no compiler at {REPO / 'retail_graph'} (set ONTOLOGY_REPO)")
