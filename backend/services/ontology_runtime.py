@@ -183,7 +183,9 @@ def invoke(key: str, action: str, params: dict, *, dry_run: bool = False,
                 payload = actions.check_action(action, params, compiled=compiled)
             else:
                 payload = actions.run_action(action, params, actor or "app", compiled=compiled)
-            return {"ok": bool(payload.get("ok")), "exit_code": 0, "key": key, "action": action,
+            # a dry run that would not be admitted IS the refusal a caller is asking about
+            ok = payload.get("admitted") if dry_run else payload.get("ok")
+            return {"ok": bool(ok), "exit_code": 0 if ok else 2, "key": key, "action": action,
                     "verb": "check" if dry_run else "run", "result": payload}
         except Exception as exc:                                # noqa: BLE001 — a refusal, by name
             return {"ok": False, "exit_code": 2, "key": key, "action": action,

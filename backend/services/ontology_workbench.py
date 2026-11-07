@@ -85,7 +85,13 @@ def _profile_rows() -> list[dict]:
 
 
 def _repo() -> pathlib.Path:
+    """The LEARNING MIRROR (kept whole, for study). Nothing is spawned from here any more."""
     return pathlib.Path(_settings().get("repo_path") or DEFAULT_REPO)
+
+
+def _feature() -> pathlib.Path:
+    """The ontology FEATURE: the workbench script, the profiles and the compiler live here."""
+    return pathlib.Path(__file__).resolve().parents[1] / "features" / "ontology"
 
 
 def _python() -> str:
@@ -103,7 +109,7 @@ def _port(url: str) -> int | None:
 
 def _script_mtime() -> float:
     try:
-        return (_repo() / "retail_graph" / "serve_ui.py").stat().st_mtime
+        return (_feature() / "workbench" / "serve_ui.py").stat().st_mtime
     except OSError:
         return 0.0
 
@@ -185,8 +191,8 @@ def _probe(url: str, timeout: float = 1.5) -> tuple[bool, dict | Exception]:
 
 def _spawn(row: dict) -> tuple[bool, str]:
     """Start one profile's workbench. Returns (started, detail)."""
-    repo = _repo()
-    script = repo / "retail_graph" / "serve_ui.py"
+    feature = _feature()
+    script = feature / "workbench" / "serve_ui.py"
     if not script.exists():
         return False, f"no workbench script at {script}"
     port = _port(row["url"])
@@ -197,7 +203,8 @@ def _spawn(row: dict) -> tuple[bool, str]:
         return False, "the profile has no path configured"
     profile_path = pathlib.Path(profile)
     if not profile_path.is_absolute():
-        profile_path = repo / profile
+        # a profile is named relative to the feature's profiles/ (e.g. "logistics/logistics_settings.json")
+        profile_path = feature / "profiles" / profile
     if not profile_path.exists():
         return False, f"profile not found: {profile_path}"
 
@@ -207,7 +214,7 @@ def _spawn(row: dict) -> tuple[bool, str]:
         with log.open("ab") as fh:
             proc = subprocess.Popen(  # noqa: S603 — a fixed argv, not a shell string
                 args,
-                cwd=str(repo / "retail_graph"),
+                cwd=str(feature / "workbench"),
                 stdout=fh,
                 stderr=subprocess.STDOUT,
                 start_new_session=True,
@@ -286,6 +293,9 @@ async def status(ensure: bool = True) -> dict:
         row = by_key.get(res["key"], {})
         out.append({
             "key": res["key"],
+            # the URL belongs in the payload: a deploy check (and the app) must be able to reach the
+            # workbench it is being told about, and `?ensure=false` used to drop it silently
+            "url": row.get("url") or res.get("url"),
             "label": row.get("label") or res["key"],
             "profile": row.get("profile"),
             "note": row.get("note"),
