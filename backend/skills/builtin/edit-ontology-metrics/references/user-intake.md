@@ -50,6 +50,29 @@ Two rules that keep the translation honest:
    sentence it answers, which tables/objects it had to touch (called that, not `JOIN`), the value, the
    independent route that proved it, and what a person must still decide.
 
+## How the panel asks: one question at a time, then a summary, then an interpretation
+
+A nine-field form gets nine half-answers. The panel is a **stepper**: it asks one business question at
+a time (with an example and one line saying what that answer changes), and the last step is not a
+question — it is the **summary**, the same answers restated as sentences the user can disagree with,
+each with a way back to the step that produced it. Skipping an optional step means "you will ask me",
+never "pick a default".
+
+**Then the agent runs in two phases, and the second one needs a second confirmation.**
+
+- Phase 1 — **interpretation only.** The composed message ends with *"先只给我你的解读，不要改任何文件"*.
+  You answer with: the declaration you intend (in business words first), which objects it lands on,
+  the expected value, and the independent route you will use to check it. No file is touched.
+- Phase 2 — the user answers *"解读确认，可以实施"*. Only then do you edit, verify and stage.
+
+Why: the interpretation is where a wrong grain or a wrong denominator gets caught, and it is free —
+one message, no files, no gates. A user who cannot read TTL can still read "这个数是 破损箱数 ÷ 计划里程 ×
+1000，按站点数、按行程算里程" and say "不对，里程要按实际跑的".
+
+For **generation** (the build job) the same idea applies with the skill's own stop point: the confirmed
+summary is the user's sign-off on the brief, and the job stops with questions rather than guessing if
+something that changes the data's meaning is still missing.
+
 ## The message the panel composes from the form
 
 ```

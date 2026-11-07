@@ -209,9 +209,15 @@ interface Props {
   /** Called after a publish is applied, so the metric cards can re-read their numbers. */
   onApplied?: () => void;
   onClose?: () => void;
+  /** A parent (the panel) owns the intake form, so this component is the conversation only. */
+  hideIntake?: boolean;
+  /** The parent renders the proposals in its own section instead. */
+  hideProposals?: boolean;
+  /** Receives a sender so the panel can put a composed message into the conversation. */
+  onReady?: (api: { send: (text: string) => void; busy: () => boolean }) => void;
 }
 
-export default function MetricEditorChat({ ontologyKey, onApplied, onClose }: Props) {
+export default function MetricEditorChat({ ontologyKey, onApplied, onClose, hideIntake, hideProposals, onReady }: Props) {
   const t = useLayoutTokens();
   const { activeProjectId } = useProject();
   const projectId = activeProjectId ?? 1;
@@ -283,6 +289,11 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose }: Pr
     const text = input.trim();
     if (!text || busy) return;
     setInput('');
+    await sendText(text);
+  };
+
+  const sendText = async (text: string) => {
+    if (!text.trim() || busy) return;
     setError(null);
     setNotice(null);
     setBusy(true);
@@ -344,6 +355,12 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose }: Pr
     }
   };
 
+  // The panel composes a message (from the guided intake or a field edit) and hands it here, so the
+  // conversation is still the one thing that talks to the agent.
+  useEffect(() => {
+    onReady?.({ send: (t: string) => void sendText(t), busy: () => busy });
+  }, [onReady, busy]);
+
   const apply = async (id: string) => {
     setApplying(id);
     setNotice(null);
@@ -383,7 +400,7 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose }: Pr
       width: 400, flex: 'none', display: 'flex', flexDirection: 'column', minHeight: 0,
       borderLeft: `1px solid ${t.border}`, background: t.bgSidebar, position: 'relative',
     }}>
-      {intakeOpen && (
+      {intakeOpen && !hideIntake && (
         <IntakeForm
           ontologyKey={ontologyKey}
           onClose={() => setIntakeOpen(false)}
@@ -401,16 +418,18 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose }: Pr
       }}>
         <span style={{ fontSize: 12.5, fontWeight: 600, color: t.textPrimary }}>Metric editor chat</span>
         <span style={{ ...mono, fontSize: 10.5, color: t.textDim }}>{ontologyKey}</span>
-        <button
-          onClick={() => setIntakeOpen(true)}
-          title="按业务口径描述一个新指标，agent 负责翻译成声明"
-          style={{
-            marginLeft: 'auto', fontSize: 11, padding: '3px 8px', borderRadius: 6,
-            border: `1px solid ${t.border}`, background: 'transparent', color: t.textMuted, cursor: 'pointer',
-          }}
-        >
-          + 新增指标
-        </button>
+        {!hideIntake && (
+          <button
+            onClick={() => setIntakeOpen(true)}
+            title="按业务口径描述一个新指标，agent 负责翻译成声明"
+            style={{
+              marginLeft: 'auto', fontSize: 11, padding: '3px 8px', borderRadius: 6,
+              border: `1px solid ${t.border}`, background: 'transparent', color: t.textMuted, cursor: 'pointer',
+            }}
+          >
+            + 新增指标
+          </button>
+        )}
         {onClose && (
           <button
             onClick={onClose}
@@ -466,7 +485,7 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose }: Pr
       </div>
 
       {/* proposals: the "set result" half */}
-      {proposals.length > 0 && (
+      {!hideProposals && proposals.length > 0 && (
         <div style={{
           borderTop: `1px solid ${t.border}`, maxHeight: 260, overflowY: 'auto',
           padding: '8px 12px', flexShrink: 0,

@@ -16,6 +16,7 @@ import { useLayoutTokens } from '../components/layout2/tokens';
 import { Card, Chip, Btn, mono, SUCCESS, DANGER, WARN } from '../features/ontology/ui';
 import { ontology, useOntology, fetchMetricCards, type MetricCard } from '../features/ontology/ontologyStore';
 import MetricEditorChat from '../features/ontology/MetricEditorChat';
+import MetricEditorPanel from '../features/ontology/MetricEditorPanel';
 import BuildOntologyDialog from '../features/ontology/BuildOntologyDialog';
 
 type Tab = 'objects' | 'definitions' | 'links' | 'metrics';
@@ -46,6 +47,9 @@ export default function OntologyBrowserPage() {
   // Generation is step one and it runs as a job — the entry point lives here because this is the
   // page where a person reads what an ontology declares and decides it is missing something.
   const [buildOpen, setBuildOpen] = useState(false);
+  // Which metric the editor panel is showing. Clicking a card selects it; the panel is the
+  // standardized surface for that one metric (business fields + declaration + value).
+  const [metricName, setMetricName] = useState<string | null>(null);
   const refreshCards = useCallback(() => {
     setCards(null);
     setCardsError(null);
@@ -219,11 +223,17 @@ export default function OntologyBrowserPage() {
       {tab === 'metrics' ? (
         <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-            <MetricsGrid cards={cards} error={cardsError} needle={needle} doc={doc} />
+            <MetricsGrid
+              cards={cards} error={cardsError} needle={needle} doc={doc}
+              selected={metricName} onSelect={setMetricName}
+            />
           </div>
           {editorOpen ? (
-            <MetricEditorChat
+            <MetricEditorPanel
               ontologyKey={s.preset || s.profiles.find(p => p.url === s.url)?.key || ''}
+              cards={cards}
+              metricName={metricName}
+              onSelectMetric={setMetricName}
               onApplied={refreshCards}
               onClose={() => setEditorOpen(false)}
             />
@@ -377,7 +387,10 @@ export default function OntologyBrowserPage() {
  * response (one call for the whole grid); a metric that refuses shows the compiler's sentence
  * instead of a value, because that refusal is the declaration still missing.
  */
-function MetricsGrid({ cards, error, needle, doc }: { cards: MetricCard[] | null; error: string | null; needle: string; doc: any }) {
+function MetricsGrid({ cards, error, needle, doc, selected, onSelect }: {
+  cards: MetricCard[] | null; error: string | null; needle: string; doc: any;
+  selected?: string | null; onSelect?: (name: string) => void;
+}) {
   const t = useLayoutTokens();
   if (error) {
     // A workbench can be up and still not serve the cards endpoint (an older build, for
@@ -398,7 +411,15 @@ function MetricsGrid({ cards, error, needle, doc }: { cards: MetricCard[] | null
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 12 }}>
           {fallback.map((m: any) => (
-            <Card key={m.name} style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '12px 14px' }}>
+            <Card
+              key={m.name}
+              style={{
+                display: 'flex', flexDirection: 'column', gap: 6, padding: '12px 14px',
+                cursor: 'pointer',
+                outline: selected === m.name ? `2px solid ${t.accent}` : 'none',
+              }}
+              {...(onSelect ? { onClick: () => onSelect(m.name) } : {})}
+            >
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                 <span style={{ ...mono, fontSize: 13.5, fontWeight: 600, color: t.accent }}>{m.name}</span>
                 {m.label && <span style={{ fontSize: 12, color: t.textPrimary }}>{m.label}</span>}
@@ -451,7 +472,15 @@ function MetricsGrid({ cards, error, needle, doc }: { cards: MetricCard[] | null
     <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px 16px 40px' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 12 }}>
         {shown.map(c => (
-          <Card key={c.name} style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '12px 14px' }}>
+          <Card
+            key={c.name}
+            style={{
+              display: 'flex', flexDirection: 'column', gap: 6, padding: '12px 14px',
+              cursor: onSelect ? 'pointer' : 'default',
+              outline: selected === c.name ? `2px solid ${t.accent}` : 'none',
+            }}
+            {...(onSelect ? { onClick: () => onSelect(c.name) } : {})}
+          >
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <span style={{ ...mono, fontSize: 13.5, fontWeight: 600, color: t.accent }}>{c.name}</span>
               {c.label && <span style={{ fontSize: 12, color: t.textPrimary }}>{c.label}</span>}
