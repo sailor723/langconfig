@@ -19,11 +19,31 @@ it produces. Everything else — the workbench, the reports, every future questi
 
 **Read [../build-ontology-from-db/references/rules.md](../build-ontology-from-db/references/rules.md)
 before touching a declaration.** It is the single source of the fifteen configuration rules and the
-failure each one prevents. This skill does not repeat them. Read
+failure each one prevents. This skill does not repeat them.
+[references/metric-recipes.md](references/metric-recipes.md) has the three shapes that actually need
+declarations — a cross-grain ratio whose denominator lives on another object, a grouped metric whose
+dimension is two hops away, a two-dimension four-table group-by — each with the TTL, the SQL the
+compiler derives, and the value measured on a real ontology. And
+[../build-ontology-from-db/references/tuning-log.md](../build-ontology-from-db/references/tuning-log.md)
+is the log of failures agents actually made here (reading the engine, answering a count with a class,
+vetoing a label) — read it before blaming the ontology for a bad answer. Read
 [../build-ontology-from-db/references/pitfalls.md](../build-ontology-from-db/references/pitfalls.md)
 when something refuses and
 [../build-ontology-from-db/references/gates.md](../build-ontology-from-db/references/gates.md) for the
 gate matrix, including the publish gate at the end.
+
+## Ask the compiler, do not read it
+
+`ontology_inspect(ontology_key="logistics")` → every metric, and every refusal **by name**.
+`ontology_inspect(ontology_key="logistics", metric="tripCount")` → the compiled SQL, the value under
+the guardrails, the plan estimate, the guard's notes — or the compiler's refusal sentence.
+`…, question="有多少条线路"` → what the NL layer resolves it to, verbatim.
+`…, source_dir="work/logistics"` → the same questions against your COPY, so before/after an edit is
+two calls.
+
+Measured reason: an editor that went looking for a matching rule in `retail_graph/nl.py` read ~1,000
+lines and answered with a dump of the file. The facts it needed were three tool calls away.
+**Reading budget: ≤200 lines per read, and read the TTL and the profile — not the engine.**
 
 ## The loop — in this order, always
 
@@ -58,6 +78,18 @@ gate matrix, including the publish gate at the end.
 | "it refuses too much / it should be allowed" | the profile's `guard` | decide refuse-vs-narrow from the real data range; a declared metric is **never** windowed |
 | "it returns nothing / everything" | introspection, not a declaration | check the data range and the join path before editing meaning |
 
+## Before you edit: is the word missing, or the declaration?
+
+An unanswered question has three causes, and only the third needs a new declaration:
+
+1. **the words** — the profile's `aliases` lack a synonym (`车` → `vehicle`, `趟次` → `trip`);
+2. **the label** — `rdfs:label` is not the phrase people type (it is a *label*, not a description:
+   `站点准时率`, not `准时率` when the metric counts stops);
+3. **the declaration** — the metric does not exist, or its `:where`/`:grain`/`:formula` does not.
+
+Check 1 and 2 first. A missing synonym is not a missing metric, and adding a declaration to fix a
+wording problem is how two metrics end up claiming the same question.
+
 ## What you must refuse to do
 
 Say no, and say why — these are the requests that destroy an ontology's value:
@@ -70,6 +102,9 @@ Say no, and say why — these are the requests that destroy an ontology's value:
 - **Hand-write SQL for a metric**, or add a code path that bypasses the compiler. The compiler is
   the only source of SQL.
 - **Add a metric without a `:grain`** and then "make it work" — the compiler's refusal is correct.
+- **Write a grouped ratio.** `:aggregate "ratio_of_sums"` with `:groupBy` is refused by name
+  (*"sum/count/avg/min/max are"*): split it into an ungrouped cross-grain ratio or a grouped
+  additive metric, and say which you chose.
 - **Widen `features` or any guard limit to get a number through.** Narrow the question instead, or
   report the refusal.
 - **Edit the installed ontology directly** (repo paths). Apply is a human decision with a role and a

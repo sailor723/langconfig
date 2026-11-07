@@ -123,3 +123,45 @@ no module may hard-code an ontology folder.
 ### An action file bound at import
 **Symptom:** changing the profile's actions file has no effect.
 **Fix:** resolve defaults at call time, not at function-definition time.
+
+## Pitfalls from the deployed side (measured, 2026-11)
+
+These were not found while writing a declaration — they were found while *running* a built ontology.
+They are the failures a builder only meets after its artifacts reach a workbench.
+
+### The profile loaded an EMPTY graph and nothing said so
+`sqlgen._apply_env_profile()` resolved the profile's `ontology_dir`/`overlay` against the **engine's**
+folder instead of the **profile's** folder. Retail worked by luck (its profile sits next to the
+engine); every other profile loaded nothing, and the workbench refused every question with
+`metrics []` — indistinguishable from "this ontology declares nothing". **Rule:** a profile's relative
+paths are relative to the profile. A loader that cannot find them must say so.
+
+### A metric's number came from a windowed query
+`tripCount` answered **3950** from a verification script while the definition says **4050**: the script
+used the guard's default `mode="rows"`, which injects `trip_date >= now() - 90 days` on a big table.
+Correct for a listing, wrong for a declared metric. **Rule:** running a metric is `mode="declared"` —
+it reports the unbounded scan and lets the plan budget decide. Never let a tool's default decide what
+a definition means.
+
+### A gate rotted instead of failing
+A gate compared a `now()`-relative total to the constant `969.5`. The data aged; the ontology kept
+answering correctly (`849.5`); the gate failed on a right answer. **Rule:** compare to an independent
+route, never to a constant.
+
+### "The fix didn't apply" — three backends on one port
+After editing a route, the API still served the old schema. `lsof -ti tcp:8765` showed three
+`uvicorn main:app` processes; killing the first left a survivor serving old code, so identical URLs
+behaved differently per call. Workbench children have the same shape: they import the engine at
+start-up, so an engine edit needs the child killed **by port**, not merely "ensure started".
+
+### The agent read the engine and answered with source code
+Asked to settle a matching rule, the editor read ~1,000 lines of `nl.py` and replied with a dump of the
+file. The information was three tool calls away (`ontology_inspect`). **Rule:** an agent's reading
+budget belongs in its instructions (≤200 lines per read; read the TTL and the profile, not the
+engine), and the compiler must be *askable* — if a tool is missing, add the tool, not a longer prompt.
+
+### A count was answered by a class listing
+「高风险线路数」 was answered with a listing of `:Route`; 「哪台车破损最多」 with `:DamagedStop`. In both
+cases the class won on a tiebreak and the salient-noun check could not see it (it skips CJK). **Rule:**
+a measure cue (数/多少/率/最多/最高/排名 …) with a class match refuses by name; a *declared* count finds
+its metric even when the class name is shorter.

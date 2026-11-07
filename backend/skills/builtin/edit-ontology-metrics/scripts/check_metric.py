@@ -169,9 +169,21 @@ def main() -> int:
             # answered 3950 where the definition says 4050).
             g = guard.run(cur, sql, cfg=cfg, mode="declared")
             rows = g.get("rows") or []
-            value = rows[0][0] if rows and rows[0] else None
-            print(f"{args.metric} = {value!r}   (plan_rows={g.get('plan_rows')}, "
-                  f"guard={'on' if cfg.get('enabled') else 'off'})")
+            cols = g.get("cols") or []
+            if rows and len(cols) and len(rows[0]) > 1:
+                # a GROUP BY metric's first cell is a dimension KEY, not the number: print the
+                # pairs, because "damagedBoxesByRouteVersion = 'v2'" is a value nobody can check
+                print(f"{args.metric} ({len(rows)} row(s), plan_rows={g.get('plan_rows')}):")
+                for row in rows[:20]:
+                    key = " / ".join("" if cell is None else str(cell) for cell in row[:-1])
+                    print(f"  {key} = {row[-1]!r}")
+                if len(rows) > 20:
+                    print(f"  … {len(rows) - 20} more row(s)")
+                value = rows[0][-1]
+            else:
+                value = rows[0][0] if rows and rows[0] else None
+                print(f"{args.metric} = {value!r}   (plan_rows={g.get('plan_rows')}, "
+                      f"guard={'on' if cfg.get('enabled') else 'off'})")
             for note in g.get("notes") or []:
                 print(f"  guard: {note}")
             if args.independent:

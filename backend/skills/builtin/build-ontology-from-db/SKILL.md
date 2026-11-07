@@ -23,7 +23,10 @@ decisions, not modelling ones.
 **Read [references/rules.md](references/rules.md) before writing TTL.** It lists the fifteen
 configuration rules with the failure each one prevents. [references/pitfalls.md](references/pitfalls.md)
 is the catalogue of failures observed in real builds — read it after the first draft, it will
-explain most of what goes wrong. [references/gates.md](references/gates.md) is the gate matrix and
+explain most of what goes wrong. [references/tuning-log.md](references/tuning-log.md) is the same
+thing for the *agent's own behaviour*: 14 measured failures (reading the engine instead of asking it,
+answering a count with a class listing, loading an empty graph without noticing, a gate that compared
+a moving number to a constant) with the rule and the gate each one became. [references/gates.md](references/gates.md) is the gate matrix and
 how to prove each gate bites.
 
 ## The two stop-and-ask points
@@ -156,6 +159,12 @@ definition.
 
 Then let the mutations argue: drop a `:references`, duplicate a column, delete `:grain`, misspell a
 formula column — each must go red. **A gate that cannot fail is decoration.**
+
+Two things that make a gate decay instead of fail, both measured: comparing a `now()`-relative number
+to a constant (the demo data ages and the gate starts "failing" on a correct answer — compare against
+an independent route instead), and running a metric with the guard's default mode (it windows a big
+table and answers 3950 where the definition says 4050 — a declared metric is never windowed; use
+`mode="declared"`).
 
 ### 7. Guardrails — decide refuse-vs-narrow for this data
 

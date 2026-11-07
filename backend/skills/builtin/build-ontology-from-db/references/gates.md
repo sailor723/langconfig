@@ -136,3 +136,24 @@ Two related traps measured in the same session:
   ontology declares nothing".
 - a gate that compares a `now()`-relative window against a **constant** rots: `969.5` had
   silently drifted to a correct `849.5`. Compare against an independent route instead.
+
+## Two gates about the NL layer (both run per profile)
+
+A built ontology is judged by the questions it answers, so the matcher is gated like the compiler:
+
+- **N1 — a declaration's own label is final.** For every CJK label, 「<label>是多少」 must resolve to
+  that declaration. Measured failure: 「每千公里破损箱数是多少」 was refused although
+  `:damagePer1kKm` carries exactly that label — an alias token (破损→damaged) had no counterpart in
+  the metric's own words, so the salient-noun veto discarded a literal label.
+- **N2 — a superlative is a number.** 「哪台车破损最多」 must reach a metric or be refused by name;
+  a class listing ("here are the damaged stops") is the one outcome that fails.
+
+Both live in `check_ontology_generic.py`, so every profile gets them:
+23/23 labels on logistics, 28/28 on clinic.
+
+Two "gates" that are really habits, because each one silently rots:
+
+- **do not compare a `now()`-relative number to a constant** (the data ages; the gate starts failing on
+  a correct answer — compare to an independent route);
+- **run metrics with `mode="declared"`** (the default mode windows a big table and answered 3950 where
+  the definition says 4050).
