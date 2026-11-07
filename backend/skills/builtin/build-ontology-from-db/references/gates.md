@@ -105,3 +105,34 @@ compares its refusals with the ones already there:
 
 If the tool is absent, the gate is NOT RUN: say so, hand over the folder, and do not write into the
 installed ontology by hand.
+
+### Samples: a count is never answered by a class
+
+A sample question that asks for a **number** must be answered by a metric or refused by name —
+never by a listing of a class. This is the failure that looks most like success:
+
+```
+Q: 高风险线路数        -> ANSWERED with a listing of :Route      (wrong: no such metric)
+A: REFUSED: asks for a number (数), the best declaration is the CLASS :Route —
+   no metric declares that count. Declare a metric on :Route with :aggregate and :grain.
+```
+
+Two cases, both gated (`check_nl.py` N13):
+
+- **declared count** → the metric: `订单数` / `有多少订单` / `how many orders` → `orderCount`;
+- **undeclared count** → refusal naming the class and what to declare. `线路有哪些` (a list
+  request) still answers with the class — the rule must not eat honest reads.
+
+The gate is worth having because Chinese tokenises to whole runs and 2-grams: `订单行`
+(order lines) contains `订单` (orders), so the class `:Order` swallows the sentence and a
+count of order orders gets answered with a count of orders. A noun keeps its modifier in
+**front**, so a suffix match counts and a prefix-only match does not.
+
+Two related traps measured in the same session:
+
+- `sqlgen._apply_env_profile()` resolved a profile's `ontology_dir` against `retail_graph/`
+  rather than the profile's own folder, so a profile outside that folder loaded an **empty
+  graph** — every NL question refused with `metrics []`, which reads exactly like "this
+  ontology declares nothing".
+- a gate that compares a `now()`-relative window against a **constant** rots: `969.5` had
+  silently drifted to a correct `849.5`. Compare against an independent route instead.
