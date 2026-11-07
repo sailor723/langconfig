@@ -42,6 +42,8 @@ export interface GuidedIntakeProps {
   title: string;
   intro?: string;
   steps: IntakeStep[];
+  /** a tutorial sample's answers: every step filled, starting on the summary */
+  prefill?: Record<string, string> | null;
   /** label of the final action, e.g. 「确认，先给我解读」 */
   confirmLabel: string;
   /** sentence under the summary explaining what happens after the confirmation */
@@ -51,11 +53,13 @@ export interface GuidedIntakeProps {
 }
 
 export default function GuidedIntake({
-  title, intro, steps, confirmLabel, afterNote, onConfirm, onCancel,
+  title, intro, steps, confirmLabel, afterNote, prefill, onConfirm, onCancel,
 }: GuidedIntakeProps) {
   const t = useLayoutTokens();
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [at, setAt] = useState(0);           // 0..steps.length-1 are questions, steps.length is the summary
+  const [answers, setAnswers] = useState<Record<string, string>>(prefill || {});
+  // A prefilled (sample) intake starts on the summary: the point is to read it and press go, not to
+  // walk nine steps that are already answered. Editing goes back through the same pencils.
+  const [at, setAt] = useState(prefill ? steps.length : 0);
   const onSummary = at >= steps.length;
   const step = steps[Math.min(at, steps.length - 1)];
   const value = answers[step?.id ?? ''] ?? '';

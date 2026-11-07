@@ -14,7 +14,8 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from services import ontology_build, ontology_editor, ontology_publish, ontology_workbench
+from services import (ontology_build, ontology_editor, ontology_publish, ontology_samples,
+                      ontology_workbench)
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +135,32 @@ async def ask_editor(key: str, req: AskEditorRequest):
         raise HTTPException(409, str(exc)) from exc
     finally:
         db.close()
+
+
+# ── tutorial samples: click through one, then reset it ─────────────────────
+# A guided intake still asks a person to type nine answers before anything happens. A sample is the
+# answers already filled with a question they recognise, so the whole pipeline (intake → interpretation
+# → declaration → verification → proposal → apply) can be watched and then undone.
+
+@router.get("/{key}/samples")
+async def list_samples(key: str):
+    """Three business questions for this ontology, with whether each is already installed."""
+    from db.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        return {"ok": True, "key": key, "samples": ontology_samples.list_samples(db, key)}
+    finally:
+        db.close()
+
+
+@router.post("/{key}/samples/{sample_id}/reset")
+async def reset_sample(key: str, sample_id: str, apply_now: bool = True):
+    """Undo a sample: remove its declaration through the channel (compile + gates), then install it."""
+    try:
+        return {"ok": True, **ontology_samples.reset(key, sample_id, apply_now=apply_now)}
+    except ontology_samples.SampleError as exc:
+        raise HTTPException(409, str(exc)) from exc
 
 
 # ── generating an ontology (a job, because it takes minutes) ────────────────

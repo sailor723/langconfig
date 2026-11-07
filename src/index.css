@@ -1144,3 +1144,44 @@ html[data-theme="dark"] .chat-user-bubble {
 [data-theme="claude"] [style*="color: var(--color-text-muted)"] {
   color: #5A5046 !important;
 }
+
+/* ── the "something is running" light ───────────────────────────────────────────
+   One vocabulary for "the agent/worker is working right now": a dot that breathes
+   (lc-live), a sweeping bar for long jobs (lc-sweep), and a rotating glyph (lc-spin).
+   A running turn can take a minute or more; a static spinner that never changes looks
+   like a frozen UI, which is exactly how "I clicked and nothing happened" happens. */
+@keyframes lc-live {
+  0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(250, 184, 64, 0.55); }
+  50%      { opacity: 0.55; transform: scale(0.82); box-shadow: 0 0 0 5px rgba(250, 184, 64, 0); }
+}
+
+@keyframes lc-sweep {
+  0%   { background-position: -180% 0; }
+  100% { background-position: 180% 0; }
+}
+
+@keyframes lc-spin { to { transform: rotate(360deg); } }
+
+.lc-live {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #fab840;
+  animation: lc-live 1.15s ease-in-out infinite;
+}
+
+.lc-sweep {
+  height: 2px;
+  border-radius: 2px;
+  background-image: linear-gradient(90deg, transparent 0%, #fab840 45%, #fab840 55%, transparent 100%);
+  background-size: 45% 100%;
+  background-repeat: no-repeat;
+  animation: lc-sweep 1.6s linear infinite;
+}
+
+.lc-spin { animation: lc-spin 1s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lc-live, .lc-sweep, .lc-spin { animation: none; }
+}

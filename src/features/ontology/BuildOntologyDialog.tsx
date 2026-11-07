@@ -14,6 +14,7 @@ import apiClient from '../../lib/api-client';
 import { useProject } from '../../contexts/ProjectContext';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { mono, Quiet, SUCCESS, WARN } from './ui';
+import RunningLight, { RunningBar } from './RunningLight';
 
 /**
  * What the form asks, and what it must never ask.
@@ -45,6 +46,8 @@ interface BuildRow {
   landed: boolean | null;
 }
 interface BuildStatus extends BuildRow {
+  started_at?: string | null;
+  completed_at?: string | null;
   progress?: string[];
   error?: string | null;
   result?: {
@@ -196,6 +199,7 @@ export default function BuildOntologyDialog({ ontologyKey, onClose, onLanded }: 
   };
 
   const running = status?.status === 'RUNNING' || status?.status === 'PENDING';
+  const startedAtMs = status?.started_at ? Date.parse(status.started_at) : null;
   const result = status?.result;
 
   return (
@@ -371,6 +375,7 @@ export default function BuildOntologyDialog({ ontologyKey, onClose, onLanded }: 
                 start another
               </button>
             </div>
+            <RunningBar running={!!running} />
             <div style={{ fontSize: 11.5, color: t.textDim, lineHeight: 1.7 }}>
               {(status?.progress || []).length === 0 && (running
                 ? <span><Loader2 size={11} /> waiting for the worker…</span>

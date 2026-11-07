@@ -23,6 +23,7 @@ import { useLayoutTokens } from '../../components/layout2/tokens';
 import { streamChatEvents } from '../chat/utils/streamChatEvents';
 import { useProject } from '../../contexts/ProjectContext';
 import { mono, Quiet, SUCCESS, WARN } from './ui';
+import RunningLight, { RunningBar } from './RunningLight';
 
 interface ToolStep { name: string; done: boolean; detail?: string }
 interface Turn {
@@ -239,6 +240,7 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose, hide
   const queueRef = useRef<string[]>([]);
   const [queued, setQueued] = useState(0);
   const [lastSentAt, setLastSentAt] = useState<string>('');
+  const [runningSince, setRunningSince] = useState<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sessionKey = `langconfig.ontology.editor.${ontologyKey}`;
@@ -309,6 +311,7 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose, hide
     setError(null);
     setNotice(null);
     setLastSentAt(new Date().toLocaleTimeString());
+    setRunningSince(Date.now());
     setBusy(true);
     setTurns(prev => [...prev, { role: 'user', content: text },
                              { role: 'assistant', content: '', tools: [] }]);
@@ -365,6 +368,7 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose, hide
     } finally {
       abortRef.current = null;
       setBusy(false);
+      setRunningSince(null);
       if (queueRef.current.length) {
         // one turn at a time: the next composed message starts after this one, never beside it
         const next = queueRef.current.shift();
@@ -499,9 +503,12 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose, hide
           </div>
         ))}
         {busy && (
-          <div style={{ fontSize: 11, color: t.textDim, display: 'flex', alignItems: 'center', gap: 5 }}>
-            <Loader2 size={11} /> agent 正在处理（它会取副本、改声明、验证、暂存）
-            {queued > 0 ? ` · 还有 ${queued} 条在排队` : ''}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <RunningBar running />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: t.textDim }}>
+              <RunningLight running label="agent 正在跑" startedAt={runningSince} />
+              <span>取副本 → 改声明 → 验证 → 暂存{queued > 0 ? ` · 还有 ${queued} 条排队` : ''}</span>
+            </div>
           </div>
         )}
         {error && <div style={{ fontSize: 11.5, color: '#b3261e', whiteSpace: 'pre-wrap' }}>{error}</div>}

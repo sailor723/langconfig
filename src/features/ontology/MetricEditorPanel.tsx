@@ -26,9 +26,21 @@ import { useLayoutTokens } from '../../components/layout2/tokens';
 import type { MetricCard } from './ontologyStore';
 import { mono, Quiet, SUCCESS, WARN } from './ui';
 import GuidedIntake, { METRIC_STEPS } from './GuidedIntake';
+import RunningLight, { RunningBar } from './RunningLight';
 import MetricEditorChat from './MetricEditorChat';
 
 type Tab = 'new' | 'metric' | 'chat' | 'proposals';
+
+interface Sample {
+  id: string;
+  title: string;
+  blurb: string;
+  metric: string;
+  answers: Record<string, string>;
+  expect: Record<string, any>;
+  why_it_is_not_one_table: string;
+  installed: boolean;
+}
 
 interface Proposal {
   id: string;
@@ -89,9 +101,16 @@ export default function MetricEditorPanel({
   // A composed message handed over before the conversation mounted used to vanish. It waits here.
   const [outbox, setOutbox] = useState<string[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  // when the current run started, so the light can count instead of just blinking
+  const [runningSince, setRunningSince] = useState<number | null>(null);
   // The two-phase rule: the intake asks the agent for an INTERPRETATION first, and only a
   // confirmation sends the implementation. `pending` holds the answers we are about to confirm.
   const [pending, setPending] = useState<Record<string, string> | null>(null);
+  // tutorial samples: click one and every guided step is answered; reset removes what it added
+  const [samples, setSamples] = useState<Sample[]>([]);
+  const [sampleId, setSampleId] = useState<string | null>(null);
+  const [resetting, setResetting] = useState<string | null>(null);
+  const [sampleMsg, setSampleMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [editing, setEditing] = useState<{ field: string; value: string } | null>(null);
   const chatRef = useRef<HTMLDivElement | null>(null);
 
@@ -107,7 +126,39 @@ export default function MetricEditorPanel({
       setProposals([]);
     }
   }, [ontologyKey]);
-  useEffect(() => { void loadProposals(); }, [loadProposals]);
+  const loadSamples = useCallback(async () => {
+    if (!ontologyKey) return;
+    try {
+      const res: any = await apiClient.get(`/api/ontology/${encodeURIComponent(ontologyKey)}/samples`);
+      setSamples((res?.data?.samples || []) as Sample[]);
+    } catch {
+      setSamples([]);
+    }
+  }, [ontologyKey]);
+
+  useEffect(() => { void loadProposals(); void loadSamples(); }, [loadProposals, loadSamples]);
+
+  const resetSample = async (id: string) => {
+    setResetting(id);
+    setSampleMsg(null);
+    try {
+      const res: any = await apiClient.post(
+        `/api/ontology/${encodeURIComponent(ontologyKey)}/samples/${id}/reset`, {}, { timeout: 600000 });
+      const d = res?.data || {};
+      setSampleMsg(d.ok
+        ? { ok: true, text: `已撤回 ${d.metric}${d.git_commit ? `（commit ${d.git_commit}）` : ''} — 指标卡片会刷新` }
+        : { ok: false, text: d.reason || '撤回没有通过检查' });
+      await loadSamples();
+      await loadProposals();
+      onApplied?.();
+    } catch (e: any) {
+      setSampleMsg({ ok: false, text: `撤回失败：${e?.response?.data?.detail || e?.message}` });
+    } finally { setResetting(null); }
+  };
+  useEffect(() => {
+    const isRunning = chatStatus.busy || chatStatus.queued > 0;
+    setRunningSince(prev => (isRunning ? (prev ?? Date.now()) : null));
+  }, [chatStatus.busy, chatStatus.queued]);
   // Clicking a card is a request to LOOK at it — jump to that section instead of making the user
   // find the tab themselves.
   useEffect(() => { if (metricName) setTab('metric'); }, [metricName]);
@@ -187,10 +238,13 @@ export default function MetricEditorPanel({
         <span style={{ ...mono, fontSize: 10.5, color: t.textDim }}>
           {card ? card.name : ontologyKey}
         </span>
-        {(chatStatus.busy || chatStatus.queued > 0) && (
-          <span style={{ fontSize: 10.5, color: WARN }}>
-            {chatStatus.busy ? 'agent 处理中' : ''}{chatStatus.queued ? `${chatStatus.busy ? ' · ' : ''}${chatStatus.queued} 条排队` : ''}
-          </span>
+        <RunningLight
+          running={chatStatus.busy || chatStatus.queued > 0}
+          label={chatStatus.busy ? 'agent 运行中' : '排队中'}
+          startedAt={runningSince}
+        />
+        {chatStatus.queued > 0 && (
+          <span style={{ fontSize: 10.5, color: t.textDim }}>{chatStatus.queued} 条排队</span>
         )}
         {onClose && (
           <button
@@ -208,6 +262,8 @@ export default function MetricEditorPanel({
           {notice}
         </div>
       )}
+
+      <RunningBar running={chatStatus.busy || chatStatus.queued > 0} />
 
       {/* section tabs */}
       <div style={{ display: 'flex', gap: 2, padding: '6px 8px', borderBottom: `1px solid ${t.border}` }}>
@@ -234,7 +290,65 @@ export default function MetricEditorPanel({
 
       {/* 新增指标: guided, then a summary, then interpretation */}
       {tab === 'new' && (
+        <div style={{ borderBottom: `1px solid ${t.border}`, padding: '8px 12px', flexShrink: 0 }}>
+          <div style={{ fontSize: 10.5, color: t.textDim, marginBottom: 5 }}>
+            先用一个样例走一遍（点一下就填满，不用打字），做完可以撤回：
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+            {samples.map(sp => {
+              const active = sampleId === sp.id;
+              return (
+                <button
+                  key={sp.id}
+                  onClick={() => setSampleId(active ? null : sp.id)}
+                  title={`${sp.blurb}\n\n${sp.why_it_is_not_one_table}`}
+                  style={{
+                    fontSize: 11, padding: '3px 9px', borderRadius: 999, cursor: 'pointer',
+                    border: `1px solid ${active ? t.accent : t.border}`,
+                    background: active ? `${t.accent}14` : 'transparent',
+                    color: active ? t.accent : sp.installed ? t.textDim : t.textPrimary,
+                  }}
+                >
+                  {sp.installed ? '✓ ' : ''}{sp.title}
+                </button>
+              );
+            })}
+            {samples.length === 0 && <span style={{ fontSize: 11, color: t.textDim }}>（这个本体没有样例）</span>}
+          </div>
+          {sampleId && (() => {
+            const sp = samples.find(x => x.id === sampleId);
+            if (!sp) return null;
+            return (
+              <div style={{ marginTop: 6, fontSize: 10.5, lineHeight: 1.6, color: t.textDim }}>
+                {sp.blurb}
+                <div style={{ marginTop: 2 }}>它必须有：{JSON.stringify(sp.expect.values)}（{sp.expect.rows} 行）—— 这个数对不上就是有问题。</div>
+                {sp.installed && (
+                  <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, color: WARN }}>
+                    这个样例的指标已经在用（{sp.metric}）。
+                    <button
+                      onClick={() => void resetSample(sp.id)}
+                      disabled={resetting === sp.id}
+                      style={{
+                        fontSize: 10.5, padding: '2px 8px', borderRadius: 6, cursor: 'pointer',
+                        border: `1px solid ${t.border}`, background: 'transparent', color: t.textPrimary,
+                      }}
+                    >
+                      {resetting === sp.id ? '撤回中…' : '撤回这个样例'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+          {sampleMsg && (
+            <div style={{ marginTop: 4, fontSize: 10.5, color: sampleMsg.ok ? SUCCESS : '#b3261e' }}>{sampleMsg.text}</div>
+          )}
+        </div>
+      )}
+
+      {tab === 'new' && (
         <GuidedIntake
+          prefill={sampleId ? (samples.find(x => x.id === sampleId)?.answers || null) : null}
           title="新增指标（一步一步来）"
           intro="我一次只问一件事。全部答完会给你一段摘要请你核对——确认之后 agent 先给你的解读，再动手。"
           steps={METRIC_STEPS}
@@ -242,7 +356,9 @@ export default function MetricEditorPanel({
           afterNote="确认后 agent 只做解读（不改文件）：它打算怎么算、落到哪些对象、预计多少、用哪条独立路线核。你确认解读之后，它才会改声明并暂存。"
           onConfirm={answers => {
             setPending(answers);
-            send(composeNewMetric(answers));
+            // the sample's metric is what should come back; say so, so the agent does not invent a name
+            const sp = samples.find(x => x.id === sampleId);
+            send(composeNewMetric(answers) + (sp ? `\n\n（这是一个教程样例，指标名预期为 :${sp.metric}；若你判断应该叫别的名字，先说明理由。）` : ''));
           }}
           onCancel={() => setTab('chat')}
         />

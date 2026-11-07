@@ -73,6 +73,25 @@ For **generation** (the build job) the same idea applies with the skill's own st
 summary is the user's sign-off on the brief, and the job stops with questions rather than guessing if
 something that changes the data's meaning is still missing.
 
+## Samples: the fastest way to show the whole pipeline
+
+Three of these exist per ontology, and each is a **business question with its answers already filled in**:
+
+| sample | the question | what it proves |
+|---|---|---|
+| 按线路版本看破损箱数 | 并线前后破损有没有变多？ | grading by a dimension two hops away (站点→行程→线路); must give v1 = 3,490 · v2 = 4,654 |
+| 每千公里漏筐数 | 每跑一千公里会丢几个筐？ | a cross-grain ratio whose denominator is another object's column; must give 112.9505 |
+| 按车辆看温控超标站点数 | 哪台车温控超标最多？ | a declared definition class (`:TempExcursionStop`) + two hops; must give 60 rows, top 沪A62447 = 58 |
+
+Clicking one fills every guided step and lands on the summary, so a newcomer reads the answers, presses
+go, and watches intake → interpretation → declaration → verification → proposal → apply without typing.
+
+**Every sample is resettable.** The reset is not an edit: it finds the metric's declaration block,
+removes exactly that block, runs the channel (compile + gates) and installs the result — so the ledger
+holds a publish with `tutorial reset: remove :X` and the gate summary that allowed it. A metric that
+another declaration still refers to (a ratio naming it as numerator) makes the compile gates fail, and
+then nothing is installed: the reset is refused, which is the same contract as every other change.
+
 ## The message the panel composes from the form
 
 ```
