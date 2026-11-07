@@ -14,7 +14,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from services import ontology_publish, ontology_workbench
+from services import ontology_editor, ontology_publish, ontology_workbench
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,60 @@ async def list_workbenches(ensure: bool = True):
 @router.post("/workbenches/{key}/stop")
 async def stop_workbench(key: str):
     return ontology_workbench.stop(key)
+
+
+# ── talking to the editor agent about one ontology ──────────────────────────
+# The panel asks; the agent stages; a human applies. Nothing here can install.
+
+class AskEditorRequest(BaseModel):
+    message: str
+    session_id: Optional[str] = None
+    project_id: Optional[int] = None
+
+
+@router.get("/editor")
+async def editor_agent():
+    """Which agent is the ontology editor (by name, never a hard-coded id)."""
+    from db.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        agent = ontology_editor.editor_agent(db)
+        return {"ok": True, "id": agent.id, "name": agent.name,
+                "model": (agent.config or {}).get("model"),
+                "skills": (agent.config or {}).get("skills") or [],
+                "native_tools": (agent.config or {}).get("native_tools") or []}
+    except ontology_editor.EditorUnavailable as exc:
+        raise HTTPException(409, str(exc)) from exc
+    finally:
+        db.close()
+
+
+@router.get("/{key}/proposals")
+async def ontology_proposals(key: str):
+    """What is staged for this ontology right now — each proposal carries the files it changes."""
+    from db.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        return {"ok": True, "key": key, "proposals": ontology_editor.proposals(db, key)}
+    finally:
+        db.close()
+
+
+@router.post("/{key}/ask-editor")
+async def ask_editor(key: str, req: AskEditorRequest):
+    """One editor turn about this ontology: the answer, the tool calls, and what it staged."""
+    from db.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        return await ontology_editor.ask(db, key, req.message, session_id=req.session_id,
+                                        project_id=req.project_id)
+    except ontology_editor.EditorUnavailable as exc:
+        raise HTTPException(409, str(exc)) from exc
+    finally:
+        db.close()
 
 
 # ── publishing declarations ────────────────────────────────────────────────

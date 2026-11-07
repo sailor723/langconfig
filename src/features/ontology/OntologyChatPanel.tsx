@@ -90,6 +90,11 @@ export default function OntologyChatPanel() {
   const [asked, setAsked] = useState<{ q: string; res: AskResult } | null>(null);
   const [askError, setAskError] = useState<string | null>(null);
   const [publishes, setPublishes] = useState<PublishRow[]>([]);
+  // The editor agent's conversation. One session per ontology, kept in localStorage so a reload
+  // continues the same thread instead of starting a fresh one every time.
+  const [editorText, setEditorText] = useState('');
+  const [working, setWorking] = useState(false);
+  const [turn, setTurn] = useState<{ answer: string; toolCalls: number; error?: string } | null>(null);
   const [diffOpen, setDiffOpen] = useState<string | null>(null);
   const [diffs, setDiffs] = useState<Record<string, DiffResult | null>>({});
 
@@ -141,6 +146,41 @@ export default function OntologyChatPanel() {
     } catch (err: any) {
       setDiffs(prev => ({ ...prev, [id]: null }));
       setAskError(`diff unavailable: ${err?.response?.data?.detail || err?.message || err}`);
+    }
+  };
+
+  const sessionKey = `langconfig.ontology.editor.${key}`;
+  const editorSessionId = (() => {
+    try { return localStorage.getItem(sessionKey) || ''; } catch { return ''; }
+  })();
+
+  /** One editor turn. The backend binds the ontology key, runs the agent, and returns both the
+   *  answer and the proposals it staged — so the panel never has to guess what changed. */
+  const runEditor = async () => {
+    const text = editorText.trim();
+    if (!text || !key) return;
+    setWorking(true);
+    setTurn(null);
+    try {
+      const res: any = await apiClient.post(`/api/ontology/${encodeURIComponent(key)}/ask-editor`, {
+        message: text,
+        session_id: editorSessionId || undefined,
+        project_id: 1,
+      }, { timeout: 600000 });
+      const d = res?.data || {};
+      if (d.session_id) {
+        try { localStorage.setItem(sessionKey, d.session_id); } catch { /* private mode */ }
+      }
+      setTurn({
+        answer: String(d.answer || ''),
+        toolCalls: (d.tool_calls || []).length,
+      });
+      setEditorText('');
+      await loadPublishes();
+    } catch (err: any) {
+      setTurn({ answer: '', toolCalls: 0, error: err?.response?.data?.detail || String(err?.message || err) });
+    } finally {
+      setWorking(false);
     }
   };
 
@@ -265,6 +305,49 @@ export default function OntologyChatPanel() {
                 Ontology Editor agent) — do not type SQL for it.
               </div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* the editor agent */}
+      <div style={{ padding: '10px 12px', borderBottom: `1px solid ${t.border}`, flexShrink: 0 }}>
+        <div style={sectionLabel}>Ask the Editor agent</div>
+        <textarea
+          value={editorText}
+          onChange={e => setEditorText(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void runEditor(); }
+          }}
+          placeholder="把 onTimeStops 的说明符补清楚 · 教程第 7 步解释一下每条拒绝 · 加一条必须被拒的样本"
+          rows={2}
+          style={{
+            width: '100%', boxSizing: 'border-box', padding: '6px 8px', borderRadius: 7, fontSize: 11.5,
+            border: `1px solid ${t.border}`, background: t.bgInput || 'transparent', color: t.textPrimary,
+            outline: 'none', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5,
+          }}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+          <Btn variant="primary" onClick={() => void runEditor()} disabled={working || !editorText.trim() || !key}>
+            {working ? <Loader2 size={12} /> : 'Send to editor'}
+          </Btn>
+          <span style={{ fontSize: 10.5, color: t.textDim }}>
+            {working ? 'the agent is working — it opens a copy, edits, verifies, stages'
+                     : '⌘/Ctrl+Enter · it can only stage; applying is yours'}
+          </span>
+        </div>
+        {turn?.error && (
+          <div style={{ marginTop: 6, fontSize: 11.5, color: DANGER, whiteSpace: 'pre-wrap' }}>{turn.error}</div>
+        )}
+        {turn && !turn.error && (
+          <div style={{
+            marginTop: 8, padding: '8px 9px', borderRadius: 8, fontSize: 11.5, lineHeight: 1.65,
+            border: `1px solid ${t.border}`, background: t.bgInput || 'rgba(127,127,127,0.06)',
+            maxHeight: 260, overflowY: 'auto', whiteSpace: 'pre-wrap',
+          }}>
+            {turn.answer || '(the agent returned no text)'}
+            <div style={{ marginTop: 4, fontSize: 10.5, color: t.textDim }}>
+              {turn.toolCalls} tool call(s) · read the proposals below before believing any of it
+            </div>
           </div>
         )}
       </div>
