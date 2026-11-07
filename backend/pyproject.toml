@@ -16,6 +16,11 @@ dependencies = [
     "alembic==1.13.3",
     "psycopg[binary]>=3.2.0",
     "psycopg-pool>=3.2.0",
+    # The ontology COMPILER reads the TTL declarations (features/ontology/compiler). Measured on a
+    # real deploy: uv sync --frozen produced a venv without rdflib, so every /api/ontology request
+    # answered 500 ModuleNotFoundError while the Docker path (pip -r requirements.txt) was fine.
+    # The native and container installs must agree about what the app depends on.
+    "rdflib>=7.6.0",
     # Graph database — Neo4j agent + Graph Studio (backend/langgraph/neo4j_*)
     "neo4j>=5.0",
     # LangChain v1.0 + LangGraph
