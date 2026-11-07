@@ -1,185 +1,185 @@
 {
-  "title": "ABC 冷链物流",
-  "ns": "https://cube.local/ontology/abc#",
-  "ontology_dir": "ontology",
-  "overlay": "",
-  "app_html": "ontology.html",
-  "dsn": {
-    "host": "127.0.0.1",
-    "port": 5432,
-    "dbname": "abc_coldchain",
-    "user": "weiping",
-    "password": ""
+ "title": "ABC 冷链物流",
+ "ns": "https://cube.local/ontology/abc#",
+ "ontology_dir": "ontology",
+ "overlay": "",
+ "app_html": "ontology.html",
+ "dsn": {
+  "host": "${ONTOLOGY_DB_HOST:-127.0.0.1}",
+  "port": "${ONTOLOGY_DB_PORT:-5432}",
+  "dbname": "abc_coldchain",
+  "user": "weiping",
+  "password": ""
+ },
+ "sample": 20,
+ "lane": "a",
+ "nl": {
+  "backend": "auto",
+  "model": "",
+  "answer_llm": true
+ },
+ "ontop_endpoint": "http://127.0.0.1:8080/sparql",
+ "ontop_ns": "http://example.org/abc#",
+ "ui": {
+  "language": "zh"
+ },
+ "profile": "abc",
+ "profiles": [
+  {
+   "key": "retail",
+   "label": "Retail",
+   "url": "http://127.0.0.1:8092/"
   },
-  "sample": 20,
-  "lane": "a",
-  "nl": {
-    "backend": "auto",
-    "model": "",
-    "answer_llm": true
+  {
+   "key": "tpch",
+   "label": "TPC-H",
+   "url": "http://127.0.0.1:8093/"
   },
-  "ontop_endpoint": "http://127.0.0.1:8080/sparql",
-  "ontop_ns": "http://example.org/abc#",
-  "ui": {
-    "language": "zh"
+  {
+   "key": "abc",
+   "label": "冷链 ABC",
+   "url": "http://127.0.0.1:8094/"
+  }
+ ],
+ "samples": [
+  "超载率",
+  "准时率",
+  "客诉率",
+  "单趟站点数",
+  "货损箱数",
+  "每千站货损",
+  "高风险司机数",
+  "未判定客诉",
+  "路权覆盖率",
+  "按线路版本看单趟站点数",
+  "按司机看准时率",
+  "按司机看超载趟次",
+  "按门店区域看客诉数",
+  "按车辆排放看超载趟次",
+  "上个月的超载率",
+  "这辆车能不能进核心区"
+ ],
+ "guard": {
+  "enabled": true,
+  "max_rows": 500,
+  "default_window_days": 90,
+  "statement_timeout_ms": 8000,
+  "max_plan_rows": 5000000,
+  "big_tables": {
+   "stops": "trip_date",
+   "trips": "trip_date"
+  }
+ },
+ "features": {
+  "actions": true,
+  "lane_b": false,
+  "tutorial": true,
+  "tutorial_style": "auto"
+ },
+ "aliases": {
+  "线路": "route",
+  "趟次": "trip",
+  "站点": "stop",
+  "司机": "driver",
+  "车辆": "vehicle",
+  "门店": "store",
+  "客诉": "complaint",
+  "临时工": "handler",
+  "区域": "zone",
+  "版本": "version"
+ },
+ "actions_file": "schema/actions.yml",
+ "ask_aliases": {
+  "哪些车没有核心区路权": {
+   "kind": "class",
+   "name": "VehicleNoPermit"
   },
-  "profile": "abc",
-  "profiles": [
-    {
-      "key": "retail",
-      "label": "Retail",
-      "url": "http://127.0.0.1:8092/"
-    },
-    {
-      "key": "tpch",
-      "label": "TPC-H",
-      "url": "http://127.0.0.1:8093/"
-    },
-    {
-      "key": "abc",
-      "label": "冷链 ABC",
-      "url": "http://127.0.0.1:8094/"
-    }
-  ],
-  "samples": [
-    "超载率",
-    "准时率",
-    "客诉率",
-    "单趟站点数",
-    "货损箱数",
-    "每千站货损",
-    "高风险司机数",
-    "未判定客诉",
-    "路权覆盖率",
-    "按线路版本看单趟站点数",
-    "按司机看准时率",
-    "按司机看超载趟次",
-    "按门店区域看客诉数",
-    "按车辆排放看超载趟次",
-    "上个月的超载率",
-    "这辆车能不能进核心区"
-  ],
-  "guard": {
-    "enabled": true,
-    "max_rows": 500,
-    "default_window_days": 90,
-    "statement_timeout_ms": 8000,
-    "max_plan_rows": 5000000,
-    "big_tables": {
-      "stops": "trip_date",
-      "trips": "trip_date"
-    }
+  "无核心区路权车辆": {
+   "kind": "class",
+   "name": "VehicleNoPermit"
   },
-  "features": {
-    "actions": true,
-    "lane_b": false,
-    "tutorial": true,
-    "tutorial_style": "auto"
+  "哪些车能进核心区": {
+   "kind": "class",
+   "name": "VehicleWithPermit"
   },
-  "aliases": {
-    "线路": "route",
-    "趟次": "trip",
-    "站点": "stop",
-    "司机": "driver",
-    "车辆": "vehicle",
-    "门店": "store",
-    "客诉": "complaint",
-    "临时工": "handler",
-    "区域": "zone",
-    "版本": "version"
+  "有多少台国四车": {
+   "kind": "class",
+   "name": "Vehicle"
   },
-  "actions_file": "schema/actions.yml",
-  "ask_aliases": {
-    "哪些车没有核心区路权": {
-      "kind": "class",
-      "name": "VehicleNoPermit"
-    },
-    "无核心区路权车辆": {
-      "kind": "class",
-      "name": "VehicleNoPermit"
-    },
-    "哪些车能进核心区": {
-      "kind": "class",
-      "name": "VehicleWithPermit"
-    },
-    "有多少台国四车": {
-      "kind": "class",
-      "name": "Vehicle"
-    },
-    "有多少台车": {
-      "kind": "metric",
-      "name": "vehicles"
-    },
-    "超载率": {
-      "kind": "metric",
-      "name": "overloadRate"
-    },
-    "准时率": {
-      "kind": "metric",
-      "name": "onTimeRate"
-    },
-    "单趟站点数": {
-      "kind": "metric",
-      "name": "stopsPerTrip"
-    },
-    "每千站货损": {
-      "kind": "metric",
-      "name": "damagePer1kStops"
-    },
-    "高风险司机数": {
-      "kind": "metric",
-      "name": "atRiskDrivers"
-    },
-    "未判定客诉": {
-      "kind": "metric",
-      "name": "unjudgedComplaints"
-    },
-    "路权覆盖率": {
-      "kind": "metric",
-      "name": "permitCoverage"
-    },
-    "货损箱数": {
-      "kind": "metric",
-      "name": "damagedBoxes"
-    },
-    "客诉率": {
-      "kind": "metric",
-      "name": "complaintRate"
-    },
-    "倒温站点数": {
-      "kind": "class",
-      "name": "TempExcursion"
-    },
-    "客诉数": {
-      "kind": "metric",
-      "name": "complaints"
-    },
-    "按线路版本看单趟站点数": {
-      "kind": "metric",
-      "name": "stopsByVersion"
-    },
-    "按线路版本看超载趟次": {
-      "kind": "metric",
-      "name": "overloadsByVersion"
-    },
-    "按线路版本看趟次": {
-      "kind": "metric",
-      "name": "tripsByVersion"
-    },
-    "按司机看准时率": {
-      "kind": "class",
-      "name": "Driver"
-    },
-    "按门店区域看客诉数": {
-      "kind": "metric",
-      "name": "complaints"
-    }
+  "有多少台车": {
+   "kind": "metric",
+   "name": "vehicles"
   },
-  "extra_nav": [
-    [
-      "/abctutorial",
-      "▸",
-      "案例八步"
-    ]
+  "超载率": {
+   "kind": "metric",
+   "name": "overloadRate"
+  },
+  "准时率": {
+   "kind": "metric",
+   "name": "onTimeRate"
+  },
+  "单趟站点数": {
+   "kind": "metric",
+   "name": "stopsPerTrip"
+  },
+  "每千站货损": {
+   "kind": "metric",
+   "name": "damagePer1kStops"
+  },
+  "高风险司机数": {
+   "kind": "metric",
+   "name": "atRiskDrivers"
+  },
+  "未判定客诉": {
+   "kind": "metric",
+   "name": "unjudgedComplaints"
+  },
+  "路权覆盖率": {
+   "kind": "metric",
+   "name": "permitCoverage"
+  },
+  "货损箱数": {
+   "kind": "metric",
+   "name": "damagedBoxes"
+  },
+  "客诉率": {
+   "kind": "metric",
+   "name": "complaintRate"
+  },
+  "倒温站点数": {
+   "kind": "class",
+   "name": "TempExcursion"
+  },
+  "客诉数": {
+   "kind": "metric",
+   "name": "complaints"
+  },
+  "按线路版本看单趟站点数": {
+   "kind": "metric",
+   "name": "stopsByVersion"
+  },
+  "按线路版本看超载趟次": {
+   "kind": "metric",
+   "name": "overloadsByVersion"
+  },
+  "按线路版本看趟次": {
+   "kind": "metric",
+   "name": "tripsByVersion"
+  },
+  "按司机看准时率": {
+   "kind": "class",
+   "name": "Driver"
+  },
+  "按门店区域看客诉数": {
+   "kind": "metric",
+   "name": "complaints"
+  }
+ },
+ "extra_nav": [
+  [
+   "/abctutorial",
+   "▸",
+   "案例八步"
   ]
+ ]
 }

@@ -71,7 +71,9 @@ def main() -> int:
         str(o) for o in g.objects()), False)
 
     print("=== T2 the numbers are sql-first's ground truth ===")
-    conn = psycopg2.connect(**{**tpch["dsn"], "password": tpch["dsn"].get("password", "")})
+    import dsn as _dsn
+
+    conn = psycopg2.connect(**_dsn.resolved(tpch))
     cur = conn.cursor()
     truth = {
         "netRevenue": 20535072231.4150,
@@ -164,7 +166,9 @@ def main() -> int:
     check("retail namespace is back", s["ns"], "https://cube.local/ontology/retail#")
     gr = sqlgen.load()
     check("retail graph is retail's", len(gr) < 400, True)
-    conn = psycopg2.connect(**{**retail["dsn"]})
+    import dsn as _dsn
+
+    conn = psycopg2.connect(**_dsn.resolved(retail))
     cur = conn.cursor()
     c = sqlgen.compile_metric(gr, "orderRevenue")
     check("retail orderRevenue is still 969.50",

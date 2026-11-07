@@ -44,7 +44,6 @@ ONTOLOGY_REPO = pathlib.Path(os.environ.get("ONTOLOGY_REPO") or "/Users/weiping/
 import pathlib as _pathlib
 import sys as _sys
 sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[1] / "compiler"))
-sys.path.insert(0, str(ONTOLOGY_REPO / "retail_graph"))
 
 
 
@@ -118,7 +117,7 @@ def main() -> int:
         return 0 if not FAILS else 1
     fixture = json.loads(fixture_path.read_text()).get("actions") or {}
 
-    conn = psycopg2.connect(**{**actions.DSN, "password": ""})
+    conn = psycopg2.connect(**{**actions.dsn(), "password": ""})
     try:
         for name, spec in fixture.items():
             if name not in compiled:

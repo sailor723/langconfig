@@ -4,8 +4,8 @@
  "ontology_dir": "ontology",
  "overlay": "metrics_ext.ttl",
  "dsn": {
-  "host": "127.0.0.1",
-  "port": 5432,
+  "host": "${ONTOLOGY_DB_HOST:-127.0.0.1}",
+  "port": "${ONTOLOGY_DB_PORT:-5432}",
   "dbname": "clinic_db",
   "user": "weiping",
   "password": ""

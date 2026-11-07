@@ -76,11 +76,11 @@ def dsn() -> dict:
     two ontologies" impossible: `actions.py` would connect to whichever database happened to be
     active the first time it was imported.
     """
-    d = dict(_settings().get("dsn") or {"host": "127.0.0.1", "port": 15432,
-                                       "dbname": "retail_db", "user": "postgres",
-                                       "password": "postgres"})
-    d.setdefault("password", "")
-    return d
+    import dsn as _dsn
+
+    return _dsn.resolved({"dsn": _settings().get("dsn") or {
+        "host": "127.0.0.1", "port": 15432, "dbname": "retail_db",
+        "user": "postgres", "password": "postgres"}})
 
 
 # kept for callers that read the name directly (the CLI, the gates); `connect()` uses dsn()

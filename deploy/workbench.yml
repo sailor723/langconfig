@@ -1,0 +1,37 @@
+# OPTIONAL: the standalone workbench servers (one process per ontology), served behind the same host.
+#
+# The app does not need them: the dashboard, the question pipeline and the declared writes compile
+# inside the app process. This file exists for the pages that ARE the workbench (the generated graph
+# page, the hand-written teaching lanes) and for debugging a profile in isolation.
+#
+#   docker compose -f deploy/docker-compose.yml -f deploy/workbench.yml up -d
+#
+# Each workbench is a `serve_ui.py` for ONE profile. nginx routes /workbench/<key>/ to it, so the
+# browser sees one origin (a framed page pointing at 127.0.0.1 would be the USER's machine).
+x-workbench: &workbench
+  image: langconfig:latest
+  depends_on:
+    ontology-postgres: {condition: service_healthy}
+  restart: unless-stopped
+  command: ["python", "backend/features/ontology/workbench/serve_ui.py",
+            "--settings", "backend/features/ontology/profiles/REPLACE/settings.json",
+            "--port", "8090"]
+
+services:
+  workbench-logistics:
+    <<: *workbench
+    command: ["python", "backend/features/ontology/workbench/serve_ui.py",
+              "--settings", "backend/features/ontology/profiles/logistics/logistics_settings.json",
+              "--port", "8098"]
+  workbench-clinic:
+    <<: *workbench
+    command: ["python", "backend/features/ontology/workbench/serve_ui.py",
+              "--settings", "backend/features/ontology/profiles/clinic/clinic_settings.json",
+              "--port", "8096"]
+  nginx:
+    image: nginx:alpine
+    depends_on: [app]
+    ports: ["${HTTP_PORT:-8080}:80"]
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped

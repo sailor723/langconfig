@@ -1,0 +1,72 @@
+# Production-shaped deployment: the app (frontend + backend + ontology feature), the app's own
+# database, and the ontology databases. Workbenches are NOT started here: the app does not need them
+# (the dashboard, the question pipeline and the declared writes all compile in-process), and their
+# framed pages are a developer convenience. `deploy/workbench.yml` adds them when someone wants the
+# standalone server on a box.
+#
+#   cp deploy/.env.example deploy/.env      # then fill it in
+#   docker compose -f deploy/docker-compose.yml up -d --build
+#   python -m scripts.deploy_smoke --base http://<host>:8765 --skip-workbench
+#   (runbook: deploy/README.md — configure, bring up, prove it, and the compiler-specific operations)
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    image: langconfig:latest
+    env_file: [.env]
+    environment:
+      # the app's own store
+      APP_SETTINGS: /app/backend/features/ontology/profiles/logistics/logistics_settings.json
+    ports: ["${APP_PORT:-8765}:8765"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      ontology-postgres: {condition: service_healthy}
+    volumes:
+      # storage/ holds uploads and agent workspaces; keeping it on a volume is what makes a restart
+      # non-destructive
+      - app_storage:/app/storage
+      # the ontology repository, if this deployment keeps the learning mirror available
+      - ${ONTOLOGY_MIRROR:-./empty}:/app/ontology-repo:ro
+    restart: unless-stopped
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-langconfig}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+      POSTGRES_DB: ${POSTGRES_DB:-langconfig}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ../backend/db/init_postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-langconfig}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # The ontology databases (abc_coldchain, clinic_db, retail_db…). The profiles' `dsn` blocks declare
+  # `${ONTOLOGY_DB_HOST}` etc., which `compiler/dsn.py` substitutes — that is why the same declaration
+  # works on a laptop (127.0.0.1) and here (the service name).
+  ontology-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${ONTOLOGY_DB_USER:-weiping}
+      POSTGRES_PASSWORD: ${ONTOLOGY_DB_PASSWORD:-ontology_dev}
+      POSTGRES_DB: ${ONTOLOGY_DB_NAME:-abc_coldchain}
+    volumes:
+      - ontology_pg_data:/var/lib/postgresql/data
+      # put dumps/schemas here to seed on first boot (docker-entrypoint-initdb.d runs them once)
+      - ${ONTOLOGY_SEED_DIR:-./seed}:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ONTOLOGY_DB_USER:-weiping}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  app_storage: {}
+  pg_data: {}
+  ontology_pg_data: {}

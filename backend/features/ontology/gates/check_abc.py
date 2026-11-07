@@ -44,7 +44,9 @@ def main() -> int:
     sqlgen.reconfigure(ns=prof["ns"], ontology_dir=str(profile_dir("abc") / prof["ontology_dir"]),
                        drop_overlay=True)
     g = sqlgen.load()
-    conn = psycopg2.connect(**{**prof["dsn"], "password": prof["dsn"].get("password", "")})
+    import dsn as _dsn
+
+    conn = psycopg2.connect(**_dsn.resolved(prof))
     cur = conn.cursor()
 
     print("=== A1 the objects and their links ===")

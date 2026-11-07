@@ -92,7 +92,9 @@ def load(profile_path: pathlib.Path):
                        overlay=str(rel("overlay")) if profile.get("overlay") else "",
                        drop_overlay=not profile.get("overlay"))
     g = sqlgen.load()
-    dsn = dict(profile["dsn"])
+    import dsn as _dsn
+
+    dsn = _dsn.resolved(profile)
     profile["_dsn"] = " ".join(f"{k}={v}" for k, v in dsn.items() if k != "password") + (
         f" password={dsn['password']}" if dsn.get("password") else "")
     return profile, g

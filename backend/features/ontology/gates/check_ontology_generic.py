@@ -88,7 +88,10 @@ def load(profile_path: pathlib.Path):
                        overlay=str(rel("overlay")) if profile.get("overlay") else "",
                        drop_overlay=not profile.get("overlay"))
     g = sqlgen.load()
-    dsn = " ".join(f"{k}={v}" for k, v in profile["dsn"].items() if v not in (None, ""))
+    import dsn as _dsn
+
+    dsn = " ".join(f"{k}={v}" for k, v in _dsn.resolved(profile).items()
+                   if v not in (None, ""))
     return profile, g, dsn
 
 

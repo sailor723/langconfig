@@ -414,7 +414,10 @@ TUTORIAL1_RULES = [
 
 
 def _dsn() -> dict:
-    d = load_settings()["dsn"]
+    """The profile's DSN, resolved against the environment (a container cannot reach 127.0.0.1)."""
+    import dsn as _dsn_mod
+
+    d = _dsn_mod.resolved(load_settings())
     return dict(host=d["host"], port=int(d["port"]), dbname=d["dbname"],
                 user=d["user"], password=d["password"])
 

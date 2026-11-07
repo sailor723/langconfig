@@ -49,7 +49,6 @@ ONTOLOGY_REPO = pathlib.Path(os.environ.get("ONTOLOGY_REPO") or "/Users/weiping/
 import pathlib as _pathlib
 import sys as _sys
 sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[1] / "compiler"))
-sys.path.insert(0, str(ONTOLOGY_REPO / "retail_graph"))
 
 
 
@@ -161,7 +160,7 @@ def main() -> int:
     g = sqlgen.load()
     classes = _classes(g)
 
-    conn = psycopg2.connect(**{**actions.DSN, "password": ""})
+    conn = psycopg2.connect(**{**actions.dsn(), "password": ""})
     cur = conn.cursor()
     try:
         results = {name: run_dashboard.run_metric(cur, g, name)
