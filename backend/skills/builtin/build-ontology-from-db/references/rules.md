@@ -146,3 +146,39 @@ column, delete `:grain`, misspell a formula column), UI last. Every gate must ha
 turns it red.
 
 *If you skip it:* you ship confidence, not correctness. A gate that cannot fail is decoration.
+
+
+---
+
+## 16. A time window filters the object's own time column — declare it on the class
+
+`guard.default_window_days` decides whether a *listing* may be narrowed by `now()`. A **question's** time
+window ("上个月", "最近 90 天") is different: it is a constraint the user stated, it must reach the SQL, and
+it must be refused if it cannot.
+
+Two declarations make that work, and both are per ontology:
+
+```ttl
+:Trip a owl:Class ; :physicalTable "trips" ; :primaryKey "id" ;
+    :timeColumn "trip_date" ;            # the column a window filters on, for THIS object
+    ...
+:tripCount a owl:DatatypeProperty ; :supportsSlot :TimeWindow ; ...   # this metric accepts a window
+```
+
+Three rules learned the hard way (all measured):
+
+- **the column belongs to the object, not to the slot.** A slot declaring `:filterColumn "placed_at"` is a
+  retail-shaped assumption; in logistics it produced `column "placed_at" does not exist` for every metric
+  that declared the slot. `:timeColumn` on the grain class removes the assumption.
+- **declare the slot only where the column is the grain's own.** Pushing `WHERE trips.trip_date` onto a
+  query whose FROM is `stops` fails with `column "trip_date" does not exist`: a window through another
+  table needs a JOIN, and a compiler that adds joins by string surgery is a compiler that silently changes
+  numbers. A metric whose grain has no own time column **refuses by name**, and the refusal names the
+  nearest declared column one hop away — that is the backlog item, in the answer.
+- **never declare the slot on a ratio** (`ratio_of_sums`): the filter would have to go into both
+  subqueries, which is not implemented, so a windowed ratio is refused rather than answered half-windowed.
+
+Gate `W1/W2` (`check_ontology_generic`): every metric that declares `:supportsSlot :TimeWindow` must have a
+pushable `:timeColumn` on its grain, and asking a windowed question must put that column in the WHERE with
+a value that is a subset of the all-time one — compared as `windowed <= all-time`, never against a
+constant, because a `now()`-relative number rots.

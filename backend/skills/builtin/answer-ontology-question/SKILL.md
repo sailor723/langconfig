@@ -71,6 +71,9 @@ what defines them), actions (name, parameters, the guard they compile to). Then,
 - **slots** (`:supportsSlot :TimeWindow` / `:CustomerFilter`): the question's period and customer become
   parameters, not SQL. A complex intent (any slot, or an action) is **echoed back as an understanding
   and needs a confirmation before it runs** — that echo is the cheapest wrong-answer check there is.
+  A window filters the metric's grain class's own `:timeColumn` (declared on the class, e.g.
+  `:Trip "trip_date"`); a grain without one is **refused by name**, never answered without the window.
+  A `ratio_of_sums` metric does not carry a window yet — refuse rather than half-window one.
 - **only when the rules are unsure** does the model run, and it may only return
   `{kind, name, params}` from the menu. Off-menu → refuse by name, listing what is on the menu.
 - **validate** the chosen name and parameter types against the menu before executing anything.
