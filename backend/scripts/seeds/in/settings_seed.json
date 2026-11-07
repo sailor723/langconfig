@@ -6,7 +6,9 @@
       "rag",
       "runtime",
       "storage",
-      "workspace"
+      "workspace",
+      "databases",
+      "ontology"
     ],
     "note": "Applied by seed_all.py with a three-way merge: a key the teammate has changed is left alone, an untouched one adopts the team value. See core/settings/team_seed.py.",
     "skipped": {
@@ -15,9 +17,11 @@
       "onboarding": "not a team namespace (see module docstring)"
     },
     "stripped": [
-      "models.api_keys.deepseek_api_key",
+      "models.api_keys.minimax_api_key",
       "models.api_keys (emptied)",
-      "workspace.workspace_path"
+      "workspace.workspace_path",
+      "ontology.repo_path",
+      "ontology.python"
     ]
   },
   "agents": {
@@ -40,7 +44,199 @@
       "summarization_threshold": 60000
     }
   },
+  "databases": {
+    "items": [
+      {
+        "dbname": null,
+        "enabled": true,
+        "host": null,
+        "kind": "platform",
+        "label": "Chinook 音乐商店",
+        "name": "chinook",
+        "password": null,
+        "port": null,
+        "user": null
+      },
+      {
+        "dbname": null,
+        "enabled": true,
+        "host": null,
+        "kind": "platform",
+        "label": "制造样例",
+        "name": "manufacturing",
+        "password": null,
+        "port": null,
+        "user": null
+      },
+      {
+        "dbname": null,
+        "enabled": true,
+        "host": "127.0.0.1",
+        "kind": "target",
+        "label": "TPC-H 基准库",
+        "name": "tpch",
+        "password": null,
+        "port": 5432,
+        "user": "weiping"
+      },
+      {
+        "dbname": null,
+        "enabled": true,
+        "host": null,
+        "kind": "dashboard",
+        "label": "Sun Hing 新溢眼镜 · ROE 转型",
+        "name": "sunhing",
+        "password": null,
+        "port": null,
+        "user": null
+      },
+      {
+        "dbname": null,
+        "enabled": true,
+        "host": null,
+        "kind": "dashboard",
+        "label": "AcmeCloud · ERP 财务",
+        "name": "erp",
+        "password": null,
+        "port": null,
+        "user": null
+      },
+      {
+        "dbname": null,
+        "enabled": true,
+        "host": null,
+        "kind": "dashboard",
+        "label": "AcmeCloud / 样例销售",
+        "name": "sales",
+        "password": null,
+        "port": null,
+        "user": null
+      },
+      {
+        "dbname": null,
+        "enabled": true,
+        "host": null,
+        "kind": "dashboard",
+        "label": "AcmeCloud · 客户经营",
+        "name": "business",
+        "password": null,
+        "port": null,
+        "user": null
+      },
+      {
+        "dbname": null,
+        "enabled": true,
+        "host": null,
+        "kind": "dashboard",
+        "label": "特斯拉 · 战略分析",
+        "name": "tesla",
+        "password": null,
+        "port": null,
+        "user": null
+      },
+      {
+        "dbname": "clinic_db",
+        "enabled": true,
+        "host": "127.0.0.1",
+        "kind": "target",
+        "label": "Clinic 诊所 (clinic_db)",
+        "name": "clinic",
+        "password": "",
+        "port": 5432,
+        "user": "weiping"
+      },
+      {
+        "dbname": "abc_coldchain",
+        "enabled": true,
+        "host": "127.0.0.1",
+        "kind": "target",
+        "label": "ABC 冷链物流 (abc_coldchain)",
+        "name": "logistics",
+        "password": "",
+        "port": 5432,
+        "user": "weiping"
+      },
+      {
+        "dbname": "doc_demo",
+        "enabled": true,
+        "host": "127.0.0.1",
+        "kind": "target",
+        "label": "文档演示库 (doc_demo)",
+        "name": "doc_demo",
+        "password": "",
+        "port": 5432,
+        "user": "weiping"
+      },
+      {
+        "dbname": "new_coldchain",
+        "enabled": true,
+        "host": "127.0.0.1",
+        "kind": "target",
+        "label": "ABC 调度副驾演示库 (new_coldchain)",
+        "name": "new_coldchain",
+        "password": "",
+        "port": 5432,
+        "user": "weiping"
+      }
+    ]
+  },
   "models": {},
+  "ontology": {
+    "default_key": "clinic",
+    "items": [
+      {
+        "enabled": true,
+        "key": "clinic",
+        "label": "Clinic",
+        "note": "built by a DeepAgent from clinic_db — 门诊 / 收费 / 理赔, 28 metrics",
+        "profile": "clinic/clinic_settings.json",
+        "url": "http://127.0.0.1:8096"
+      },
+      {
+        "enabled": true,
+        "key": "retail",
+        "label": "Retail",
+        "note": "the hand-built reference: orders, customers, stores, two lanes",
+        "profile": "retail/settings.json",
+        "url": "http://127.0.0.1:8092"
+      },
+      {
+        "enabled": true,
+        "key": "tpch",
+        "label": "TPC-H",
+        "note": "SF0.1 benchmark — historical data, so the guard refuses windows",
+        "profile": "tpch/tpch_settings.json",
+        "url": "http://127.0.0.1:8093"
+      },
+      {
+        "enabled": true,
+        "key": "abc",
+        "label": "ABC",
+        "note": "cold-chain training set with declared writes (lane C)",
+        "profile": "abc/abc_settings.json",
+        "url": "http://127.0.0.1:8094"
+      },
+      {
+        "enabled": true,
+        "key": "logistics",
+        "label": "Logistics (cold chain)",
+        "note": "built by DeepAgent 349 from abc_coldchain — 配送/站点/理赔 11 tables",
+        "profile": "logistics/logistics_settings.json",
+        "url": "http://127.0.0.1:8098"
+      },
+      {
+        "enabled": true,
+        "key": "new_coldchain",
+        "label": "ABC 冷链 · new_coldchain",
+        "note": "built by the Ontology Builder from the brief — 18 objects / 28 metrics, 并线前后对比（v1 2.7% / v2 75.4% 按重量超载）",
+        "profile": "new_coldchain/new_coldchain_settings.json",
+        "url": ""
+      }
+    ],
+    "python": "",
+    "repo_path": "",
+    "show_sql": true
+  },
   "rag": {
     "embedding_model": "ollama-nomic-embed-text:latest"
   },

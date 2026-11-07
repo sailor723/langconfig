@@ -50,7 +50,13 @@ from db.database import SessionLocal             # noqa: E402
 OUT_FILE = IN_DIR / "settings_seed.json"
 
 # Namespaces that carry team decisions. Order is the file's order.
-TEAM_NAMESPACES = ["agents", "models", "rag", "runtime", "storage", "workspace"]
+TEAM_NAMESPACES = ["agents", "models", "rag", "runtime", "storage", "workspace",
+                   # Which databases are OFFERED, and which ontologies appear in the Ontology
+                   # activity, are team decisions, not per-machine facts: a teammate who cannot see
+                   # the cold-chain database cannot build its ontology, and the two rows are small.
+                   # Measured: without them a fresh box had the ontology agents and the compiler but
+                   # the Ontology list was empty and `builders()` returned nothing to build.
+                   "databases", "ontology"]
 
 # Per-namespace keys removed as MACHINE-SPECIFIC (not secrets — see below).
 STRIP: dict[str, tuple[str, ...]] = {
