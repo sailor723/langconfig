@@ -69,10 +69,22 @@ def _settings() -> dict:
         return {}
 
 
-DSN = dict((_settings().get("dsn") or {"host": "127.0.0.1", "port": 15432,
+def dsn() -> dict:
+    """The DSN of the ACTIVE profile, read at call time.
+
+    This used to be a module constant captured at import — the one binding that made "one process,
+    two ontologies" impossible: `actions.py` would connect to whichever database happened to be
+    active the first time it was imported.
+    """
+    d = dict(_settings().get("dsn") or {"host": "127.0.0.1", "port": 15432,
                                        "dbname": "retail_db", "user": "postgres",
-                                       "password": "postgres"}))
-DSN.setdefault("password", "")
+                                       "password": "postgres"})
+    d.setdefault("password", "")
+    return d
+
+
+# kept for callers that read the name directly (the CLI, the gates); `connect()` uses dsn()
+DSN = dsn()
 AUDIT_DDL = """
 CREATE TABLE IF NOT EXISTS audit_events (
     id         bigserial PRIMARY KEY,
@@ -94,7 +106,12 @@ class Refusal(Exception):
     """A result, not an error: the action declined, nothing was written."""
 
 
-def actions_path() -> pathlib.Path:
+#: Set by `profile.use()` when this process is pointed at a profile explicitly (the app's in-process
+#: path). It WINS over the environment, because the environment is process-wide and outlives a request.
+ACTIVE_PROFILE: pathlib.Path | None = None
+
+
+def actions_path() -> pathlib.Path | None:
     """The declaration file for the ontology this process is pointed at — read at CALL time.
 
     `SETTINGS` (and therefore `_settings()`) is a PATH bound at import, so a caller that sets
@@ -102,6 +119,24 @@ def actions_path() -> pathlib.Path:
     `check_ontology_generic` rightly does — would still be told retail's declarations. Resolving the
     profile from the live environment at call time is the only version that cannot go stale.
     """
+    if ACTIVE_PROFILE is not None:
+        profile = ACTIVE_PROFILE
+        settings: dict = {}
+        try:
+            settings = json.loads(profile.read_text(encoding="utf-8"))
+        except Exception:                                      # noqa: BLE001
+            settings = {}
+        raw = (settings.get("actions_file") or "").strip()
+        if raw:
+            p = pathlib.Path(raw).expanduser()
+            return p if p.is_absolute() else (profile.parent / p).resolve()
+        conventional = profile.parent / "schema" / "actions.yml"
+        if conventional.is_file():
+            return conventional.resolve()
+        # A profile that declares no write verbs HAS no actions file. Returning retail's here is how
+        # PromoteCustomer ended up being compiled against clinic's graph and surfaced as a 500 —
+        # "this ontology has no writes" is a fact, not a fallback.
+        return None
     if os.environ.get("APP_ACTIONS"):
         return pathlib.Path(os.environ["APP_ACTIONS"])
     live = os.environ.get("APP_SETTINGS") or ""
@@ -119,7 +154,11 @@ def actions_path() -> pathlib.Path:
 
 
 def load_config(path: pathlib.Path | None = None) -> dict:
-    path = path or actions_path()   # default bound HERE, not at definition time
+    """The verb declarations. An ontology with no verbs declares an EMPTY set, not an error."""
+    if path is None:
+        path = actions_path()       # default bound HERE, not at definition time
+    if path is None:
+        return {"namespace": None, "actions": []}
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
@@ -384,7 +423,7 @@ def compile_actions(graph, cfg: dict) -> dict[str, dict]:
 
 # ------------------------------------------------------------------ execution
 def connect():
-    conn = psycopg2.connect(**DSN)
+    conn = psycopg2.connect(**dsn())
     cur = conn.cursor()
     cur.execute(AUDIT_DDL)
     conn.commit()
@@ -514,7 +553,7 @@ def check_action(name: str, params: dict, *, compiled: dict | None = None) -> di
 
     out = {"ok": True, "action": name, "admitted": None,
            "checks": [], "effect": act["effect_sql"], "effect_bound": act["effect_sql"]}
-    conn = psycopg2.connect(**DSN)
+    conn = psycopg2.connect(**dsn())
     try:
         cur = conn.cursor()
         if act["kind"] == "edit":
@@ -548,7 +587,7 @@ def check_action(name: str, params: dict, *, compiled: dict | None = None) -> di
 
 
 def recent_audit(limit: int = 50) -> list[dict]:
-    conn = psycopg2.connect(**DSN)
+    conn = psycopg2.connect(**dsn())
     try:
         cur = conn.cursor()
         cur.execute(AUDIT_DDL)

@@ -39,6 +39,12 @@ from _paths import COMPILER as BASE, PROFILES, WORKBENCH, WORKBENCH as APP, prof
 # ontology with no metrics at all.
 import os as _os
 _os.environ["APP_SETTINGS"] = str(profile_dir("retail") / "settings.json")
+# DETERMINISTIC PROSE for the whole gate. N9 asserts the confirmation echo's WORDING ("will run" /
+# 「将执行」), and that wording is model-written whenever an LLM key is present — measured: with
+# DEEPSEEK_API_KEY in the environment the echo said "The SQL query to achieve this is", so a check about
+# the pipeline failed on a paraphrase. The gate is about the pipeline, so it runs without the model;
+# N15 already did this, and the need was not specific to N15.
+_os.environ["NL_ANSWER_LLM"] = "0"
 _sys.path.insert(0, str(BASE))
 sys.path.insert(0, str(WORKBENCH))
 sys.path.insert(0, str(BASE))

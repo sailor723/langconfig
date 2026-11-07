@@ -41,7 +41,11 @@ import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+# `i18n`, `guard` and the rest of the compiler live next door in compiler/; the pages it serves
+# live here. Both go on the path: the modules import each other by bare name.
+_HERE = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(_HERE))
+sys.path.insert(0, str(_HERE.parent / "compiler"))
 import i18n  # noqa: E402  (the UI language table and page translator)
 import guard  # noqa: E402  (SQL guardrails: LIMIT, time bound, plan budget, statement timeout)
 
@@ -1648,14 +1652,31 @@ def nl_cli(question: str, timeout=90, confirm: bool = False) -> tuple[int, dict 
         return 1, {"ok": False, "refused": f"nl.py failed: {exc}"}
 
 
+def declared_actions_file(prof: dict | None = None) -> pathlib.Path | None:
+    """The actions declaration of the ACTIVE profile, or None when it declares no write verbs.
+
+    Resolution is the profile's, not the code's: `actions_file` when the profile names one, otherwise
+    the `schema/actions.yml` that sits in the profile's own directory (retail and abc declare their
+    verbs that way). It NEVER falls back to another ontology's file — that fallback is how retail's
+    PromoteCustomer ended up being compiled against clinic's graph, returned as a 500 for an ontology
+    that simply has no writes.
+    """
+    prof = prof if prof is not None else load_settings()
+    raw = (prof.get("actions_file") or "").strip()
+    if raw:
+        p = pathlib.Path(raw)
+        return (SETTINGS.parent / p).resolve() if not p.is_absolute() else p
+    conventional = SETTINGS.parent / "schema" / "actions.yml"
+    return conventional.resolve() if conventional.is_file() else None
+
+
 def actions_cli(*args, timeout=120) -> tuple[int, dict | list | None]:
     """Run retail_graph/actions.py (psycopg2 + rdflib + pyyaml live in the cube venv)."""
     try:
         env = dict(os.environ, APP_SETTINGS=str(SETTINGS))
-        prof = load_settings()
-        env["APP_ACTIONS"] = (str((PROFILE / prof["actions_file"]).resolve())
-                              if prof.get("actions_file") else "")
-        p = subprocess.run([PYTHON, str(BASE / "actions.py"), *args],
+        declared = declared_actions_file()
+        env["APP_ACTIONS"] = str(declared) if declared else ""
+        p = subprocess.run([PYTHON, str(COMPILER / "actions.py"), *args],
                            capture_output=True, text=True, timeout=timeout, env=env)
         txt = p.stdout.strip()
         try:
@@ -1668,7 +1689,7 @@ def actions_cli(*args, timeout=120) -> tuple[int, dict | list | None]:
 
 def run_lane_b(s: dict) -> dict:
     """Lane B numbers (SPARQL/Ontop) for the comparison page and the save log."""
-    cmd = [PYTHON, str(BASE / "lane_b.py"),
+    cmd = [PYTHON, str(COMPILER / "lane_b.py"),
            "--endpoint", s["ontop_endpoint"],
            "--ontop-ns", s["ontop_ns"],
            "--sample", str(s["sample"])]
@@ -1801,7 +1822,7 @@ def ontology_api() -> dict:
     stays stdlib-only, and there is one implementation of "what is declared".
     """
     try:
-        p = subprocess.run([PYTHON, str(BASE / "ontology_api.py"), "--profile", str(SETTINGS)],
+        p = subprocess.run([PYTHON, str(COMPILER / "ontology_api.py"), "--profile", str(SETTINGS)],
                            capture_output=True, text=True, timeout=180, cwd=str(BASE),
                            env=dict(os.environ))
         return json.loads((p.stdout or "").strip().splitlines()[-1])
@@ -1817,7 +1838,7 @@ def _tutorial_cli(*args: str, timeout: int = 180) -> dict:
     metric import.
     """
     try:
-        p = subprocess.run([PYTHON, str(BASE / "tutorial_api.py"), "--profile", str(SETTINGS),
+        p = subprocess.run([PYTHON, str(COMPILER / "tutorial_api.py"), "--profile", str(SETTINGS),
                             *args],
                            capture_output=True, text=True, timeout=timeout, cwd=str(BASE),
                            env=dict(os.environ))
@@ -2188,6 +2209,14 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/actions":
             self._page("actions.html", "/actions")
         elif path == "/api/actions":
+            # A profile that declares no write verbs (features.actions false, or no actions_file) has an
+            # EMPTY verb list — that is a fact about this ontology, not a server error. Without this guard
+            # the compiler fell back to retail's declarations and tried to compile PromoteCustomer against
+            # this ontology's graph: "cannot compile action declarations: :Customer has no :physicalTable",
+            # returned as a 500 for a profile that simply has no writes.
+            if declared_actions_file() is None:
+                return self._json({"ok": True, "actions": [],
+                                   "note": "this ontology declares no write verbs (no actions file)"})
             code, data = actions_cli("list")
             if code != 0:
                 return self._json({"ok": False, "error": data}, 500)

@@ -31,13 +31,14 @@ import re
 import sys
 import time
 
-HERE = pathlib.Path(__file__).resolve().parent
-# The COMPILER lives in the ontology repository (sqlgen, guard, actions); the scripts that use it
-# live here, with this skill. Both paths are explicit: a sibling script (HERE) and the compiler's
-# own home (ONTOLOGY_REPO/retail_graph) — never "whichever directory this file happens to sit in".
-ONTOLOGY_REPO = pathlib.Path(os.environ.get("ONTOLOGY_REPO") or "/Users/weiping/dev/Learn/ontology")
+HERE = pathlib.Path(__file__).resolve().parent          # the compiler directory
+FEATURE = HERE.parent                                     # backend/features/ontology
+# This file lives IN the compiler, so its own directory is the compiler's. The feature root goes on
+# the path too, for `ontology_profile`. NOTHING from the learning mirror belongs here: this used to
+# insert `<ONTOLOGY_REPO>/retail_graph`, so a copy of `actions.py` without `dsn()` could win over the
+# one next door depending on sys.path order — a mirror silently serving stale code.
 sys.path.insert(0, str(HERE))
-sys.path.insert(0, str(ONTOLOGY_REPO / "retail_graph"))
+sys.path.insert(0, str(FEATURE))
 
 
 
@@ -159,6 +160,12 @@ def run_metric(cur, g, name: str, *, since=None, until=None,
         raw = cur.fetchall()
         names = [d[0] for d in cur.description]
     except Exception as exc:                                    # noqa: BLE001
+        # a failed statement leaves the transaction ABORTED, so every later metric would report
+        # "commands ignored until end of transaction block" — one broken query must cost one panel
+        try:
+            cur.connection.rollback()
+        except Exception:                                       # noqa: BLE001
+            pass
         return {"ok": False, "metric": name, "status": "error",
                 "refused": f"the query did not run ({type(exc).__name__}: {exc})", **meta,
                 "sql": guarded["sql"], "ms": round((time.time() - t0) * 1000)}
@@ -374,48 +381,45 @@ def resolve_briefing(dash: dict, results: dict) -> dict:
 
 
 def _conn():
-    """One connection, from the profile the same module the workbench uses reads (`actions.DSN`)."""
+    """One connection, to the database of the profile the compiler is pointed at NOW.
+
+    `actions.DSN` is a constant captured at import; in a process that serves several ontologies it
+    still names whichever database was active first — measured: `FROM trips` against retail_db, which
+    aborted the transaction and turned every later metric into "the query did not run".
+    """
     import psycopg2
 
     import actions
 
-    dsn = dict(actions.DSN)
+    dsn = dict(actions.dsn())
     dsn.setdefault("password", "")
     return psycopg2.connect(**dsn)
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--profile", help="profile path (default: $APP_SETTINGS)")
-    ap.add_argument("--dashboard", help="dashboard.json (default: next to the profile)")
-    ap.add_argument("--metric", action="append", help="run just these metrics (repeatable)")
-    ap.add_argument("--since"), ap.add_argument("--until")
-    ap.add_argument("--filter", action="append", default=[],
-                    help="dimension:value (repeatable), e.g. --filter routeVersion:v2")
-    args = ap.parse_args()
+def build(profile_path, *, dim_filters: dict | None = None,
+          metrics: list[str] | None = None, dashboard: str | None = None,
+          since=None, until=None) -> dict:
+    """Run a dashboard declaration IN THIS PROCESS and return the payload.
 
-    profile = _profile(args.profile)
-    path = dashboard_path(profile, args.dashboard)
+    The CLI below is a thin wrapper over this function, so the app and the command line cannot
+    disagree about what a board says. The caller is responsible for serialising calls: the
+    compiler's state is process-wide (`profile.use()` is what points it here).
+    """
+    import ontology_profile as _profile_mod
+
+    profile = pathlib.Path(profile_path).expanduser().resolve()
+    path = dashboard_path(profile, dashboard)
     if not path.is_file():
-        print(json.dumps({"ok": False, "error": f"no dashboard declaration at {path}"},
-                         ensure_ascii=False))
-        return 2
+        return {"ok": False, "error": f"no dashboard declaration at {path}"}
     dash = json.loads(path.read_text())
-
+    _profile_mod.use(profile)                 # the compiler now compiles THIS ontology
     g = sqlgen.load()
-    wanted = ([(m, "cli") for m in args.metric] if args.metric
-              else collect_metrics(dash))
+    wanted = ([(m, "cli") for m in metrics] if metrics else collect_metrics(dash))
+    return _execute(profile, path, dash, g, wanted, dict(dim_filters or {}),
+                    since=since, until=until)
 
-    dim_filters: dict[str, object] = {}
-    for raw in args.filter or []:
-        if ":" not in raw:
-            print(json.dumps({"ok": False, "error": f"--filter {raw!r} must be dimension:value"},
-                             ensure_ascii=False))
-            return 2
-        prop, value = raw.split(":", 1)
-        dim_filters[prop.strip()] = (None if value.strip().lower() in ("null", "none")
-                                    else value.strip())
 
+def _execute(profile, path, dash, g, wanted, dim_filters, *, since=None, until=None) -> dict:
     conn = _conn()
     cur = conn.cursor()
     results: dict[str, dict] = {}
@@ -433,19 +437,13 @@ def main() -> int:
                     allowed[dim] = list(dict.fromkeys(r[0] for r in (probe.get("rows") or [])))
         for prop, value in dim_filters.items():
             if prop not in allowed:
-                print(json.dumps({"ok": False, "error":
-                                  f"no declared panel emits a filter on {prop!r}",
-                                  "filterable": sorted(allowed)}, ensure_ascii=False))
-                return 2
+                return {"ok": False, "error": f"no declared panel emits a filter on {prop!r}",
+                        "filterable": sorted(allowed)}
             if value not in allowed[prop]:
-                print(json.dumps({"ok": False, "error":
-                                  f"filter value {value!r} is not a value :{prop} takes",
-                                  "allowed": allowed[prop][:40]}, ensure_ascii=False,
-                                 default=str))
-                return 2
+                return {"ok": False, "error": f"filter value {value!r} is not a value :{prop} takes",
+                        "allowed": allowed[prop][:40]}
         for name, why in wanted:
-            res = run_metric(cur, g, name, since=args.since, until=args.until,
-                             dim_filters=dim_filters)
+            res = run_metric(cur, g, name, since=since, until=until, dim_filters=dim_filters)
             res["why"] = why
             results[name] = res
     finally:
@@ -459,28 +457,23 @@ def main() -> int:
         expect = hole.get("expect_refusal") or ""
         refused = res.get("status") == "refused"
         holes.append({
-            "metric": name, "label": res.get("label"), "status": "refused" if refused else "answered",
+            "metric": name, "label": res.get("label"),
+            "status": "refused" if refused else "answered",
             "reason": res.get("refused") or ("it answered — this declared hole is stale" if res else None),
             "expect_refusal": expect,
             "matches_declaration": bool(refused and expect and expect in (res.get("refused") or "")),
             **({"value": res["rows"][0][0]} if res.get("rows") else {}),
         })
 
-    # A hole that is not declared as one is a failure: the declaration says "this answers", and it
-    # does not. `.get`, not `[]` — an UNDECLARED metric has no label to read.
     declared_holes = {h.get("metric") for h in dash.get("holes") or []}
-    live_refused = [{"metric": n,
-                     "label": results[n].get("label"),
+    live_refused = [{"metric": n, "label": results[n].get("label"),
                      "status": results[n].get("status"),
-                     "refused": results[n].get("refused"),
-                     "why": results[n].get("why")}
+                     "refused": results[n].get("refused"), "why": results[n].get("why")}
                     for n, _ in wanted
                     if results.get(n, {}).get("status") in ("refused", "error", "missing_declaration")
                     and n not in declared_holes
                     and not results[n].get("filter_unsupported")]
 
-    # the values a filter may take are DECLARED: each `emit_filter.dimension` is a :groupBy of a
-    # declared metric, so its own rows are the complete, honest set of choices.
     value_sets: dict[str, list] = {}
     for panel in dash.get("panels") or []:
         emit = panel.get("emit_filter") or {}
@@ -499,8 +492,9 @@ def main() -> int:
         "events": dash.get("events") or [],
         "kpis": [{"metric": k.get("metric"), "note": k.get("note"),
                   "result": results.get(k.get("metric"))} for k in dash.get("kpis") or []],
-        "panels": [{**p, "results": {n: results[n] for n in panel_metric_refs(p)
-                                     if n in results}} for p in dash.get("panels") or []],
+        "panels": [{**p, "resultset": None,
+                    "results": {n: results[n] for n in panel_metric_refs(p) if n in results}}
+                   for p in dash.get("panels") or []],
         "briefing": resolve_briefing(dash, results),
         "filters": dim_filters,
         "value_sets": value_sets,
@@ -508,9 +502,44 @@ def main() -> int:
         "refused": live_refused,
         "metrics": results,
     }
+    payload.pop("resultset", None)
+    for panel in payload["panels"]:
+        panel.pop("resultset", None)
+    return payload
+
+
+def exit_code(payload: dict) -> int:
+    """0 when every panel answers and every hole still refuses; 1 when the declaration is stale."""
+    if not payload.get("ok"):
+        return 1
+    stale = [h for h in payload.get("holes") or [] if h.get("status") != "refused"]
+    return 1 if stale else 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--profile", help="profile path (default: $APP_SETTINGS)")
+    ap.add_argument("--dashboard", help="dashboard.json (default: next to the profile)")
+    ap.add_argument("--metric", action="append", help="run just these metrics (repeatable)")
+    ap.add_argument("--since"), ap.add_argument("--until")
+    ap.add_argument("--filter", action="append", default=[],
+                    help="dimension:value (repeatable), e.g. --filter routeVersion:v2")
+    args = ap.parse_args()
+
+    profile = _profile(args.profile)
+    dim_filters: dict[str, object] = {}
+    for raw in args.filter or []:
+        if ":" not in raw:
+            print(json.dumps({"ok": False, "error": f"--filter {raw!r} must be dimension:value"},
+                             ensure_ascii=False))
+            return 2
+        prop, value = raw.split(":", 1)
+        dim_filters[prop.strip()] = (None if value.strip().lower() in ("null", "none")
+                                    else value.strip())
+    payload = build(profile, dim_filters=dim_filters, metrics=args.metric,
+                    dashboard=args.dashboard, since=args.since, until=args.until)
     print(json.dumps(payload, ensure_ascii=False, default=str))
-    stale = [h for h in holes if h["status"] != "refused"]
-    return 1 if (live_refused or stale) else 0
+    return 2 if payload.get("error") and not payload.get("panels") else exit_code(payload)
 
 
 if __name__ == "__main__":

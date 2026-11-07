@@ -23,7 +23,7 @@ import pathlib
 import subprocess
 import time
 
-from services import ontology_publish
+from services import ontology_publish, ontology_runtime
 
 logger = logging.getLogger(__name__)
 
@@ -91,52 +91,33 @@ def installed() -> list[dict]:
 
 
 def panels(key: str, *, refresh: bool = False, filter: str | None = None) -> dict:
-    """Every panel of this ontology's dashboard, with its data or its refusal."""
-    cache_key = f"{key}|{filter or ''}"          # a filtered view is a different answer
+    """Every panel of this ontology's dashboard, with its data or its refusal.
+
+    Compiled IN THIS PROCESS by the ontology feature (see `ontology_runtime`): the same code path a
+    gate runs, so a panel cannot say something the gate would disagree with.
+    """
+    cache_key = f"{key}|{filter or ''}"
     cached = CACHE.get(cache_key)
     if cached and not refresh and time.time() - cached[0] < CACHE_SECONDS:
         return {**cached[1], "cached": True}
 
-    profile = _profile_for(key)
-    if profile is None:
-        raise DashboardError(f"no ontology {key!r} — nothing to read a dashboard from")
-    path = profile.parent / "dashboard.json"
-    if not path.is_file():
-        raise DashboardError(
-            f"{key} has no dashboard declaration ({path}); the dashboard is a declaration, not a "
-            f"default — write one, or this ontology simply has no dashboard yet")
-
-    env = dict(os.environ)
-    env["ONTOLOGY_REPO"] = str(REPO)
-    env["APP_SETTINGS"] = str(profile)
     started = time.time()
+    dim_filters = {}
+    if filter:
+        if ":" not in filter:
+            raise DashboardError(f"filter {filter!r} must be dimension:value")
+        prop, value = filter.split(":", 1)
+        dim_filters[prop.strip()] = (None if value.strip().lower() in ("null", "none")
+                                     else value.strip())
     try:
-        argv = [PYTHON, str(RUNNER), "--profile", str(profile)]
-        if filter:
-            argv += ["--filter", filter]
-        proc = subprocess.run(
-            argv,
-            capture_output=True, text=True, timeout=180, cwd=str(REPO / "retail_graph"), env=env)
-    except subprocess.TimeoutExpired as exc:
-        raise DashboardError(f"the dashboard runner did not finish in {exc.seconds}s") from exc
-    except Exception as exc:                                    # noqa: BLE001
-        raise DashboardError(f"could not run the dashboard runner: {exc}") from exc
-
-    lines = (proc.stdout or "").strip().splitlines()
-    if not lines:
-        tail = (proc.stderr or "").strip().splitlines()
-        raise DashboardError("the dashboard runner printed nothing"
-                            + (f" ({tail[-1]})" if tail else f" (exit {proc.returncode})"))
-    try:
-        payload = json.loads(lines[-1])
-    except Exception as exc:                                    # noqa: BLE001
-        raise DashboardError(f"the runner's answer was not JSON: {lines[-1][:300]}") from exc
+        payload = ontology_runtime.panels(key, filters=dim_filters or None)
+    except ontology_runtime.OntologyError as exc:
+        raise DashboardError(str(exc)) from exc
 
     payload["key"] = key
     payload["elapsed_ms"] = round((time.time() - started) * 1000)
-    # exit 1 = the DECLARATION is stale (a hole started answering, or a live panel refuses).
-    # It is still a payload worth showing — with the staleness visible in it.
-    payload["declaration_stale"] = proc.returncode == 1
+    # a payload whose every hole still refuses is complete; one with a LIVE refusal is stale
+    payload["declaration_stale"] = not payload.get("ok", True)
     CACHE[cache_key] = (time.time(), payload)
     return {**payload, "cached": False}
 
@@ -152,55 +133,11 @@ ASK_SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "skills" / "builtin" 
 
 def ask(key: str, question: str, *, polish: bool = False) -> dict:
     """One business question through the ontology. A refusal comes back as `ok=false` + the words."""
-    text = (question or "").strip()
-    if not text:
-        raise DashboardError("ask a question; an empty one has no answer")
-    profile = _profile_for(key)
-    if profile is None:
-        raise DashboardError(f"no ontology {key!r}")
-    if not ASK_SCRIPT.is_file():
-        raise DashboardError(f"the question pipeline is missing ({ASK_SCRIPT})")
-
-    env = dict(os.environ, ONTOLOGY_REPO=str(REPO), APP_SETTINGS=str(profile))
-    argv = [PYTHON, str(ASK_SCRIPT), text, "--profile", str(profile), "--json"]
-    if not polish:
-        argv.append("--no-polish")
     started = time.time()
     try:
-        proc = subprocess.run(argv, capture_output=True, text=True, timeout=180,
-                              cwd=str(REPO / "retail_graph"), env=env)
-    except subprocess.TimeoutExpired as exc:
-        raise DashboardError(f"the question did not finish in {exc.seconds}s") from exc
+        out = ontology_runtime.ask(key, question, polish=polish)
+    except ontology_runtime.OntologyError as exc:
+        raise DashboardError(str(exc)) from exc
+    return {**out, "ms": round((time.time() - started) * 1000)}
 
-    raw = (proc.stdout or "").strip()
-    if not raw:
-        tail = (proc.stderr or "").strip().splitlines()
-        raise DashboardError("the pipeline printed nothing"
-                            + (f" ({tail[-1]})" if tail else f" (exit {proc.returncode})"))
-    try:
-        payload = json.loads(raw[raw.index("{"):])
-    except Exception as exc:                                     # noqa: BLE001
-        raise DashboardError(f"the pipeline's answer was not JSON: {raw[:300]}") from exc
 
-    ms = round((time.time() - started) * 1000)
-    if not payload.get("ok"):
-        return {"ok": False, "key": key, "question": text, "ms": ms,
-                "refused": payload.get("refused") or payload.get("text") or "refused",
-                "answer": payload.get("text") or payload.get("refused") or "refused"}
-    result = payload.get("result") or {}
-    return {
-        "ok": True, "key": key, "question": text, "ms": ms,
-        "answer": payload.get("answer"),
-        "kind": result.get("kind"),
-        "metric": result.get("name"),
-        "value": result.get("value"),
-        "rows": result.get("rows"),
-        "sql": result.get("sql"),
-        "guard": result.get("guard"),
-        "notes": result.get("notes"),
-        "source": payload.get("answer_source"),
-        "needs_confirmation": payload.get("needs_confirmation"),
-        "intent": payload.get("intent"),
-        "steps": [{"step": s.get("step"), "ms": s.get("ms"), "detail": s.get("detail")}
-                  for s in (payload.get("steps") or [])],
-    }

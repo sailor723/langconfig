@@ -164,7 +164,7 @@ def _record(question: str, ok: bool, refused: str | None = None,
     if _os.getenv("NL_TELEMETRY", "1") == "0":
         return
     try:
-        conn = psycopg2.connect(**actions.DSN)
+        conn = psycopg2.connect(**actions.dsn())
         try:
             cur = conn.cursor()
             cur.execute(NL_DDL)
@@ -194,7 +194,7 @@ SUGGESTIONS = {
 
 def backlog(limit: int = 50) -> dict:
     """Aggregate refusals into a declaration backlog: what to declare next, from data."""
-    conn = psycopg2.connect(**actions.DSN)
+    conn = psycopg2.connect(**actions.dsn())
     try:
         cur = conn.cursor()
         cur.execute(NL_DDL)
@@ -302,7 +302,15 @@ def _label(g, name: str) -> tuple[str | None, str | None]:
 
 
 def _features() -> dict:
-    """The profile's feature flags (a profile may have no actions at all)."""
+    """The ACTIVE profile's feature flags (a profile may have no actions at all).
+
+    `profile.use()` sets `actions.ACTIVE_PROFILE`; a child process instead carries `$APP_SETTINGS`.
+    Reading the environment first is what made an in-process caller serve another ontology's flags.
+    """
+    import actions as _actions
+
+    if getattr(_actions, "ACTIVE_PROFILE", None) is not None:
+        return (_actions._settings().get("features") or {})
     try:
         s = json.loads(pathlib.Path(os.environ.get("APP_SETTINGS")
                                     or pathlib.Path(__file__).with_name("settings.json")
@@ -1460,16 +1468,21 @@ def _ask(question: str, confirm: bool = False, graph=None, slots: bool = True) -
 
     if not slots:                   # a caller may own the constraints itself
         intent["slots"] = {}
-    elif not intent.get("slots"):
+    else:
         # SLOT PRESERVATION. The rules attach the constraints a question states; the MODEL does not,
         # and nothing used to notice. Measured: "order revenue last 90 days" came back from the model
         # as {kind: metric, name: orderRevenue} with no slots, compiled to `SELECT sum(amount)` with no
         # WHERE, and answered the all-time total — the period vanished from a question that stated it.
-        # Re-attach what the question said; `capability.resolve` then either accepts it (the metric
-        # declares the slot) or refuses by name (it does not). Never answer without the constraint.
+        # A SECOND shape of the same failure was measured later: the model returned
+        # `{"TimeWindow": {"days": 90}}` — a slot that EXISTS but is UNTYPED, so `since`/`until` were
+        # never computed and the window was silently dropped again. Presence is not typing.
         stated = _slots(question)
-        if stated:
-            intent["slots"] = stated
+        current = intent.get("slots") or {}
+        tw = current.get("TimeWindow") or {}
+        untyped = bool(stated and "TimeWindow" in stated
+                       and not (tw.get("since") and tw.get("until")))
+        if stated and (not current or untyped):
+            intent["slots"] = {**current, **stated}   # the typed form wins over an untyped one
             steps.append({
                 "step": "2b · slots",
                 "ms": 0,
@@ -1497,7 +1510,7 @@ def _ask(question: str, confirm: bool = False, graph=None, slots: bool = True) -
                     "intent": intent, "understanding": understanding,
                     "steps": steps, "total_ms": sum(st["ms"] for st in steps)}
         # an action: the dry-run is safe, so run it and ask the user to confirm the WRITE
-    conn = psycopg2.connect(**actions.DSN)
+    conn = psycopg2.connect(**actions.dsn())
     try:
         cur = conn.cursor()
         try:
