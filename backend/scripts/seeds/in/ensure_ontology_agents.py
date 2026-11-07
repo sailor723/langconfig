@@ -1,0 +1,109 @@
+"""Keep the ontology agents visible and correctly pointed — idempotently, without rewriting them.
+
+Why this exists. Agent 349 ("Ontology Builder (logistics)") was created with `is_public = false`, and
+`GET /api/deepagents/` defaults to `public_only=true` — so it existed, ran, published ontologies, and was
+invisible in the UI. A row that works but cannot be found is indistinguishable from a missing row, and
+the only thing that made it visible was a manual UPDATE.
+
+So the invariants that a manual UPDATE fixed are stated here once:
+
+* every ontology agent is **visible** (`is_public = true`) — they are shared project agents, not personal
+  ones;
+* each carries the skill it runs, and the **parameters** that skill declared (datasource, ontology_key,
+  workbench) — `core/skills/params.py` is where those are resolved and validated;
+* a builder is wired to its `datasource`, an editor is not (it edits whatever ontology it is pointed at).
+
+It PRESERVES everything else: prompts, agent docs, the workbench contract, tools. This script is a
+"make sure", not a "rebuild" — a rebuild would throw away the hard-won contract text in those rows.
+Creating an agent from scratch is `seed_ontology_editor_agent.py`'s job.
+
+    cd backend && .venv/bin/python scripts/seeds/in/ensure_ontology_agents.py
+    cd backend && .venv/bin/python scripts/seeds/in/ensure_ontology_agents.py --dry-run
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+for _p in Path(__file__).resolve().parents:
+    if (_p / "_seedpaths.py").exists():
+        sys.path.insert(0, str(_p))
+        break
+from _seedpaths import BACKEND, REPO  # noqa: E402,F401
+
+from dotenv import load_dotenv  # noqa: E402
+
+load_dotenv(BACKEND.parent / ".env")
+
+from db.database import SessionLocal  # noqa: E402
+from sqlalchemy import text  # noqa: E402
+
+# What each agent MUST be, minimal and non-negotiable. Everything not listed is left alone.
+EXPECTED = {
+    "Ontology Builder (TPC-H / clinic)": {
+        "skills": ["build-ontology-from-db"],
+        "skill_params": {"build-ontology-from-db": {"datasource": "clinic", "ontology_key": "clinic"}},
+        "datasource": "clinic",
+    },
+    "Ontology Builder (logistics)": {
+        "skills": ["build-ontology-from-db"],
+        "skill_params": {"build-ontology-from-db": {"datasource": "logistics",
+                                                   "ontology_key": "logistics"}},
+        "datasource": "logistics",
+    },
+    "Ontology Editor": {
+        "skills": ["edit-ontology-metrics", "answer-ontology-question"],
+        "skill_params": {"edit-ontology-metrics": {"ontology_key": "logistics"},
+                         "answer-ontology-question": {"ontology_key": "logistics",
+                                                      "workbench": "http://127.0.0.1:8098"}},
+    },
+}
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--dry-run", action="store_true", help="report what would change, change nothing")
+    args = ap.parse_args()
+
+    db = SessionLocal()
+    problems = 0
+    try:
+        for name, want in EXPECTED.items():
+            row = db.execute(text("select id, config, is_public from deep_agent_templates "
+                                  "where name = :n order by id desc limit 1"), {"n": name}).fetchone()
+            if row is None:
+                print(f"MISSING  {name!r} — create it (builder: the UI or a seed; editor: "
+                      f"seed_ontology_editor_agent.py)")
+                problems += 1
+                continue
+            agent_id, cfg, is_public = row
+            cfg = cfg if isinstance(cfg, dict) else json.loads(cfg or "{}")
+            changes: list[str] = []
+            if not is_public:
+                changes.append("is_public: false -> true (the list endpoint hides non-public rows)")
+            for key in ("skills", "skill_params", "datasource"):
+                if key in want and cfg.get(key) != want[key]:
+                    changes.append(f"{key}: {json.dumps(cfg.get(key), ensure_ascii=False)} "
+                                   f"-> {json.dumps(want[key], ensure_ascii=False)}")
+                    cfg[key] = want[key]
+            if not changes:
+                print(f"ok       #{agent_id} {name} — visible, skills and parameters in place")
+                continue
+            print(f"UPDATE   #{agent_id} {name}")
+            for change in changes:
+                print(f"           {change}")
+            if not args.dry_run:
+                db.execute(text("update deep_agent_templates set is_public = true, "
+                                "config = CAST(:c AS json), updated_at = now() where id = :i"),
+                           {"c": json.dumps(cfg), "i": agent_id})
+        if not args.dry_run:
+            db.commit()
+        return 1 if problems else 0
+    finally:
+        db.close()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
