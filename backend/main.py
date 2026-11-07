@@ -281,6 +281,10 @@ async def lifespan(app: FastAPI):
     try:
         # Import task handlers to register them
         import core.task_handlers  # noqa - registers handlers via decorators
+        # ontology builds are long (schema introspection, three TTL files, a tutorial, the gate
+        # suite) and must survive the tab that started them: they run here, not in the reply stream
+        from services import ontology_build
+        ontology_build.register()
 
         from core.task_queue import task_queue
         task_queue.start_workers(num_workers=2)

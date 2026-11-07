@@ -10,11 +10,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ListTree, Table2, Link2, Sigma, AlertTriangle, Play, RefreshCw, Copy, Check, Boxes, Search,
+  Sparkles,
 } from 'lucide-react';
 import { useLayoutTokens } from '../components/layout2/tokens';
 import { Card, Chip, Btn, mono, SUCCESS, DANGER, WARN } from '../features/ontology/ui';
 import { ontology, useOntology, fetchMetricCards, type MetricCard } from '../features/ontology/ontologyStore';
 import MetricEditorChat from '../features/ontology/MetricEditorChat';
+import BuildOntologyDialog from '../features/ontology/BuildOntologyDialog';
 
 type Tab = 'objects' | 'definitions' | 'links' | 'metrics';
 
@@ -41,6 +43,9 @@ export default function OntologyBrowserPage() {
   // The metric editor's chat is docked on the right of the Metrics tab. Applying a proposal
   // changes what the numbers ARE, so the grid behind it has to re-read them.
   const [editorOpen, setEditorOpen] = useState(true);
+  // Generation is step one and it runs as a job — the entry point lives here because this is the
+  // page where a person reads what an ontology declares and decides it is missing something.
+  const [buildOpen, setBuildOpen] = useState(false);
   const refreshCards = useCallback(() => {
     setCards(null);
     setCardsError(null);
@@ -179,6 +184,17 @@ export default function OntologyBrowserPage() {
           );
         })}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            onClick={() => setBuildOpen(true)}
+            title="generate or rebuild this ontology with an agent (runs as a background job)"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12,
+              padding: '5px 10px', borderRadius: 8, cursor: 'pointer',
+              border: `1px solid ${t.border}`, background: 'transparent', color: t.textMuted,
+            }}
+          >
+            <Sparkles size={12} /> Build…
+          </button>
           <Search size={12} color={t.textDim} />
           <input
             value={q}
@@ -191,6 +207,14 @@ export default function OntologyBrowserPage() {
           />
         </div>
       </div>
+
+      {buildOpen && (
+        <BuildOntologyDialog
+          ontologyKey={s.preset || s.profiles.find(p => p.url === s.url)?.key || ''}
+          onClose={() => setBuildOpen(false)}
+          onLanded={refreshCards}
+        />
+      )}
 
       {tab === 'metrics' ? (
         <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>

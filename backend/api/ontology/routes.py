@@ -14,7 +14,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from services import ontology_editor, ontology_publish, ontology_workbench
+from services import ontology_build, ontology_editor, ontology_publish, ontology_workbench
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +134,47 @@ async def ask_editor(key: str, req: AskEditorRequest):
         raise HTTPException(409, str(exc)) from exc
     finally:
         db.close()
+
+
+# ── generating an ontology (a job, because it takes minutes) ────────────────
+# Generation is step one and it is slow: schema introspection, three declaration files, a profile,
+# a tutorial, then the gate suite a few times. As a chat turn it dies with the connection; as a
+# background task it survives the tab, reports what step it is on, and can be cancelled or retried.
+
+class BuildRequest(BaseModel):
+    agent_id: int
+    ontology_key: str
+    brief: str
+    project_id: Optional[int] = None
+    # The user's rule for the FIRST generation: gates green -> it lands itself. Anything after that
+    # is a change to what a number means, and stays a human decision in the editor chat.
+    auto_land: bool = True
+    session_id: Optional[str] = None
+
+
+@router.post("/build")
+async def start_build(req: BuildRequest):
+    """Queue a build. Returns the task id immediately; poll /build/{task_id} for progress."""
+    try:
+        return await ontology_build.enqueue_build(
+            req.agent_id, req.ontology_key, req.brief, project_id=req.project_id,
+            auto_land=req.auto_land, session_id=req.session_id)
+    except ontology_build.BuildError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.get("/build/{task_id}")
+async def build_status(task_id: int):
+    res = ontology_build.build_status(task_id)
+    if not res.get("ok"):
+        raise HTTPException(404, res.get("error") or "no such build")
+    return res
+
+
+@router.get("/builds")
+async def build_list(key: Optional[str] = None, limit: int = 10):
+    """Recent builds (for one ontology when `key` is given) — what survives a page reload."""
+    return {"ok": True, "builds": ontology_build.recent_builds(ontology_key=key, limit=limit)}
 
 
 # ── publishing declarations ────────────────────────────────────────────────
