@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Declaration backlog — ontology app</title>
+<style>
+  body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  header a { color:#9fb8cf; font-size:13px; }
+  main { max-width:1000px; margin:20px auto; padding:0 20px; }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:18px 20px; margin-bottom:16px; }
+  h2 { margin:0 0 10px; font-size:13px; letter-spacing:.5px; color:#334e68; text-transform:uppercase; }
+  .stats { font:13px ui-monospace,Menlo,monospace; color:#334e68; margin-bottom:10px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; font-size:11px; text-transform:uppercase; color:#687b8f; padding:6px 8px;
+       border-bottom:1px solid #e3e6ea; }
+  td { padding:7px 8px; border-bottom:1px solid #f0f2f5; vertical-align:top; }
+  td.q { font-family:ui-monospace,Menlo,monospace; }
+  .kind { font-size:11px; border-radius:4px; padding:1px 6px; background:#eef2f6; color:#4a6f9c; }
+  .kind.unsupported_slot { background:#fdf6e3; color:#8a6d3b; }
+  .kind.multi_dimension { background:#fbe9e7; color:#b3261e; }
+  .kind.off_menu { background:#eef3fb; color:#0b4f9c; }
+  .hint { font-size:12px; color:#687b8f; margin-top:8px; }
+</style></head>
+<body>
+<header><h1>▤ Declaration backlog — what to declare next, from data</h1>
+  <a href="/">← app</a> · <a href="/query">query ✦</a> · <a href="/reasoner">reasoner ⌨</a> · <a href="/actions">actions ⚡</a> · <a href="/design">design</a> · <a href="/settings">settings</a></header>
+<main>
+  <div class="card">
+    <h2>Refusal telemetry</h2>
+    <div class="stats" id="stats">loading …</div>
+    <table>
+      <thead><tr><th>kind</th><th>question</th><th>×</th><th>last seen</th><th>suggested declaration</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="hint">Read-only. Nothing here changes the ontology — it is the evidence list a
+      human uses to decide which shape to declare next. Answers that succeed are counted, not listed.</div>
+  </div>
+</main>
+<script>
+fetch('/api/nl/backlog').then(r => r.json()).then(j => {
+  const st = document.getElementById('stats');
+  if (!j.ok) { st.textContent = 'backlog unavailable: ' + (j.error || '?'); return; }
+  const kinds = Object.entries(j.by_kind || {}).map(([k, n]) => k + '=' + n).join(' · ');
+  st.textContent = 'answered ' + j.answered + ' · refused ' + j.refused +
+                   (kinds ? ' (' + kinds + ')' : '');
+  const rows = document.getElementById('rows');
+  (j.items || []).forEach(it => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td><span class="kind ' + it.kind + '">' + it.kind + '</span></td>' +
+      '<td class="q">' + it.question + '</td><td>' + it.count + '</td>' +
+      '<td>' + (it.last_seen || '').slice(0, 19).replace('T', ' ') + '</td><td>' + it.suggestion + '</td>';
+    rows.appendChild(tr);
+  });
+}).catch(e => { document.getElementById('stats').textContent = 'request failed: ' + e; });
+</script>
+</body></html>

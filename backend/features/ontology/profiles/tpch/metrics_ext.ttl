@@ -1,0 +1,170 @@
+# sql-first overlay — the THREE declarations Cube used to make implicitly.
+#
+# The tutorial's ontology already carries the MEANING of each metric (`:formula`,
+# `:unit`, `:additivity`, `:formulaSource` on `owl:DatatypeProperty`). What it does
+# NOT carry — because Cube held it — is:
+#
+#   :aggregate   how this becomes a number over an object SET (sum/avg/count/…)
+#   :grain       the object type the aggregation is over (no implicit DISTINCT)
+#   :universe    which rows are in scope (the denominator; e.g. evaluable patients)
+#
+# That absence is MEASURED by check_metric.py: run it against the tutorial ontology
+# alone and every aggregate request is refused with `no :aggregate declared`. These
+# three triples are what makes the same ontology answerable without a semantic layer.
+@prefix :     <https://cube.local/ontology/tpch#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+:aggregate   a owl:AnnotationProperty .
+:grain       a owl:AnnotationProperty .
+:universe    a owl:AnnotationProperty .
+
+# Additive money of a transaction: a plain SUM over the line grain.
+:netRevenue
+    :aggregate "sum" ;
+    :grain     :OrderLine ;
+    :universe  :OrderLine .
+
+# A ratio of sums, NOT the average of per-line values. `:additivity "non-additive"`
+# already said so; `:aggregate "ratio_of_sums"` is how the generator knows what to
+# emit instead of quietly writing avg().
+:averageLineValue
+    :aggregate "ratio_of_sums" ;
+    :grain     :OrderLine ;
+    :universe  :OrderLine .
+
+# A COUNT of an object type, filtered by a concept's own axiom (see sqlgen.py: the
+# predicate is compiled from :HighBalanceCustomer's owl:equivalentClass, so 5000 is
+# never re-typed here).
+:highBalanceCustomers
+    a owl:DatatypeProperty ;
+    rdfs:domain :Customer ;
+    rdfs:label "High balance customers" ;
+    :aggregate "count" ;
+    :grain     :Customer ;
+    :universe  :Customer ;
+    :counts    :Customer ;
+    :concept   :HighBalanceCustomer .
+
+# ---------------------------------------------------------------------------
+# EXPOSED BY DELETING CUBE: a member with no meaning at all.
+#
+# `:averageLineValue`'s formula is `revenue / line_items`. `revenue` maps to
+# `:netRevenue` above, but `line_items` had NO ontology counterpart — it was a bare
+# Cube `type: count` measure with no concept bound to it (measured: 9 of the model's
+# members are bound to a concept, the count measures are not). With Cube gone, that
+# absence is no longer hidden behind a member name: the generator refuses the metric
+# by name until the count itself is declared.
+:lineItems
+    a owl:DatatypeProperty ;
+    rdfs:domain :OrderLine ;
+    rdfs:label "Line items" ;
+    :unit "count" ;
+    :additivity "additive" ;
+    :aggregate "count" ;
+    :grain     :OrderLine ;
+    :universe  :OrderLine .
+
+# ---------------------------------------------------------------------------
+# MIGRATION RESIDUE, made explicit instead of implicit.
+#
+# `:averageLineValue`'s formula is written in CUBE MEMBER names (`revenue`,
+# `line_items`), not in ontology names — the two systems were allowed to drift while a
+# binding table (`meta.ontology_concept`) held them together. With that table gone, the
+# names must be reconciled, and the honest way is an explicit alias list: greppable,
+# countable, and removable (rename the formula, delete the alias).
+#
+# The generator resolves an alias and SAYS SO in its notes; it never matches a name by
+# resemblance.
+:memberAlias a owl:AnnotationProperty .
+
+:netRevenue :memberAlias "revenue" .
+:lineItems  :memberAlias "line_items" .
+
+# ---------------------------------------------------------------------------------------
+# Revived: the derived metrics. Their MEANING stays in tpch.ttl (:formula / {references});
+# this overlay says how to COMPUTE it at a declared grain — the same split retail uses.
+# ---------------------------------------------------------------------------------------
+:totalDiscount
+    :aggregate "sum" ;
+    :grain     :OrderLine ;
+    :universe  :OrderLine .
+
+:supplyCost
+    :aggregate "sum" ;
+    :grain     :OrderLine ;
+    :universe  :OrderLine .
+
+:contributionMargin
+    :aggregate "sum" ;
+    :grain     :OrderLine ;
+    :universe  :OrderLine .
+
+:averageOrderValue
+    :aggregate "ratio_of_sums" ;
+    :grain     :SalesOrder ;
+    :universe  :SalesOrder .
+
+# a ratio of two DECLARED metrics: each side is compiled by the same compiler
+:weightedAverageDiscount
+    :numerator   :totalDiscount ;
+    :denominator :netRevenue ;
+    :grain       :OrderLine ;
+    :universe    :OrderLine .
+
+:contributionMarginPct
+    :numerator   :contributionMargin ;
+    :denominator :netRevenue ;
+    :scale       "100.0" ;
+    :grain       :OrderLine ;
+    :universe    :OrderLine .
+
+# ---------------------------------------------------------------------------------------
+# Enriched: the dimensions and the defined classes the new relationships made answerable.
+# ---------------------------------------------------------------------------------------
+:netRevenueByRegion a owl:DatatypeProperty ;
+    :aggregate "sum" ;
+    :grain     :OrderLine ;
+    :universe  :OrderLine ;
+    :formula   "l_extendedprice * (1 - l_discount)" ;
+    :groupBy   :regionName .
+
+:netRevenueByNation a owl:DatatypeProperty ;
+    :aggregate "sum" ;
+    :grain     :OrderLine ;
+    :universe  :OrderLine ;
+    :formula   "l_extendedprice * (1 - l_discount)" ;
+    :groupBy   :nationName .
+
+:netRevenueByProduct a owl:DatatypeProperty ;
+    :aggregate "sum" ;
+    :grain     :OrderLine ;
+    :universe  :OrderLine ;
+    :formula   "l_extendedprice * (1 - l_discount)" ;
+    :groupBy   :productName .
+
+:lineItemsByReturnFlag a owl:DatatypeProperty ;
+    :aggregate "count" ;
+    :grain     :OrderLine ;
+    :universe  :OrderLine ;
+    :groupBy   :l_returnflag .
+
+:lateLineRevenue a owl:DatatypeProperty ;
+    :aggregate "sum" ;
+    :grain     :OrderLine ;
+    :universe  :OrderLine ;
+    :where     :LateLine ;
+    :formula   "l_extendedprice * (1 - l_discount)" .
+
+:returnedLineValue a owl:DatatypeProperty ;
+    :aggregate "sum" ;
+    :grain     :OrderLine ;
+    :universe  :OrderLine ;
+    :where     :ReturnedLine ;
+    :formula   "l_extendedprice * (1 - l_discount)" .
+
+:highValueOrders a owl:DatatypeProperty ;
+    :aggregate "count" ;
+    :grain     :SalesOrder ;
+    :universe  :SalesOrder ;
+    :where     :HighValueOrder .

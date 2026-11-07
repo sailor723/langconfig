@@ -1,0 +1,121 @@
+{
+  "_doc": "阶段 9：教程。与 logistics_settings.json 同目录（tutorial_api 固定读 profile 旁的 tutorial.json）。items 里每个名字都必须是图里已声明的对象/定义类/指标；正文不写死任何数字——数字由 /api/tutorial/run 与 /api/tutorial/definition 现场从库里跑出来。",
+  "title": "ABC 冷链物流本体 · 教程",
+  "intro": "这份本体把每一个数写成声明，再编译成 SQL：先定一行是什么（颗粒），再把「准时」「不合格」写成公理，最后把答不了的口径按名拒绝——它不猜业务没给的东西。",
+  "steps": [
+    {
+      "kind": "objects",
+      "title": "一行是什么：先定颗粒",
+      "body": "每个数字都落在某个颗粒上。一次配送是一行 Trip，一次卸货是一行 Stop，一条投诉是一行 Complaint，一辆车是一行 Vehicle，一个司机一段时间的日报是一行 DriverStat。最容易混的是 Stop 与 Trip：一趟车要停十几家店，站点数和行程数差一个量级，所以问「准时率」时说的是按站算还是按趟算，本来就是两个数。点开任一个对象，能看到它的物理表、主键和可分组列。",
+      "items": [
+        "Trip",
+        "Stop",
+        "Route",
+        "RouteStop",
+        "Vehicle",
+        "Driver",
+        "Store",
+        "Handler",
+        "DriverStat",
+        "Telemetry",
+        "Complaint"
+      ]
+    },
+    {
+      "kind": "definitions",
+      "title": "「准时」「温控超标」「漏筐」到底指哪些行",
+      "body": "这几个词不是形容词，是定义：每条都写成公理，编译成一个 WHERE 条件，所以同一份报表里同一个词永远选中同一批行。准时站点取数据里现成的布尔列，不是我画的线；晚点站点是它的另一半，两者互斥、加起来正好是全部站点；温控超标、破损、漏筐、误触警铃各是一个现成状态列。点开一个定义，能看到它的 predicate 和实际选中多少行——选中 0 行的定义是死定义，不配当教程步骤。",
+      "items": [
+        "OnTimeStop",
+        "LateStop",
+        "TempExcursionStop",
+        "DamagedStop",
+        "BasketsMissingStop",
+        "AlarmStop"
+      ]
+    },
+    {
+      "kind": "definitions",
+      "title": "「不合格」是四个来源的并集，不是一条更大的阈值",
+      "body": "履约不合格站点 = 晚点 ∪ 温控超标 ∪ 破损 ∪ 误触警铃。用并集表达：四个来源、一个定义，四个条件里没有一个是新阈值，全是数据里现成的状态。这样「不合格」与「准时」的差就永远解释得清——差在哪三项上、各差多少，都能拆开查。哪天有人想把并集改成交集或加权，改的是这一条公理，所有引用它的指标一起动。另外两个定义口径要干净得多：超载行程是三项负载任一达到发车时快照容量，责任未判定投诉是责任字段为空——都没有人为阈值。",
+      "items": [
+        "FailedDelivery",
+        "OverloadedTrip",
+        "UnjudgedComplaint"
+      ]
+    },
+    {
+      "kind": "metrics",
+      "title": "先数数：行程数、站点数、投诉数、车辆数",
+      "body": "计数是最简单的一类：声明「怎么算、在谁的颗粒上数、在哪个集合里数」，SQL 由编译器生成，没有人手写，也没有人能偷偷改。行程数、站点数、车辆数各自数自己那张表的行；投诉数数的是投诉的颗粒（一条投诉挂一次卸货，一次卸货可能被投诉多次），所以它不等于「被投诉的站点数」。点一下运行：数字是从库里现跑出来的，不是抄在文档里的截图。",
+      "items": [
+        "tripCount",
+        "stopCount",
+        "complaintCount",
+        "vehicleCount"
+      ]
+    },
+    {
+      "kind": "metrics",
+      "title": "比率：分子分母都写出来，不让人猜",
+      "body": "率不是一段手写 SQL，是一条声明：分子是谁、分母是谁、怎么算。超载率的分子是三项负载任一达到快照容量的行程，分母是全部行程；准时率按站算，分母是全部站点；通行证覆盖率的分母是整个车队（含停用车），因为问「覆盖率」问的是车队，不是在路上跑的那批。算法一律先各自聚合再相除，不是逐行算比再平均——后者会被行数多的一方悄悄加权。",
+      "items": [
+        "overloadRate",
+        "stopOnTimeRate",
+        "permitCoverage"
+      ]
+    },
+    {
+      "kind": "metrics",
+      "title": "跨颗粒的率：两条独立扫描再相除",
+      "body": "每千站投诉数、每千站破损箱数都是跨颗粒的：分子在投诉或破损上，分母在站点上。编译器用两条独立扫描再相除——不是把投诉 join 到站点再 count，那会把没有投诉的站点漏掉、把多次投诉的站点算重。声明里写下的分母颗粒（站点）就是「除以谁」唯一的答案。同一步里还有三个直接求和量：漏筐数、破损箱数、赔付金额——它们各自在自己的颗粒上求和，单位不同，不要相加。",
+      "items": [
+        "complaintsPer1kStops",
+        "damagePer1kStops",
+        "basketsMissingCount",
+        "damagedBoxCount",
+        "totalClaimAmount"
+      ]
+    },
+    {
+      "kind": "metrics",
+      "title": "分维度：路径写在关系上，不写在指标里",
+      "body": "按门店区域看破损箱数要跳两跳（站点 → 门店），按线路版本看超载行程数要跳一跳（行程 → 线路）。路径只写在关系声明上（外键列 + 指向的主键），指标里只写「按哪个维度分组」，绝不写 JOIN。任何一跳的关系被删掉，这两个指标都会按名拒绝，而不是猜一条路出来——这就是为什么改维度不需要改指标。",
+      "items": [
+        "damagedBoxesByStoreZone",
+        "overloadsByRouteVersion"
+      ]
+    },
+    {
+      "kind": "refusals",
+      "title": "答不了的也要说出来：按名拒绝",
+      "body": "有三个指标在菜单上、说明齐全，但编译期就按名拒绝。拒绝句不是我转述的，是编译器自己打的：高风险司机数——「REFUSED atRiskDrivers: :AtRiskDriver has no owl:equivalentClass axiom — nothing to compile」，缺的是 :AtRiskDriver 这条公理（02 里只写了 :refusalReason，故意没写阈值）；计划门店已访站数——「REFUSED plannedStopsVisited: :PlannedStopVisited has no owl:equivalentClass axiom — nothing to compile」，缺的是 :PlannedStopVisited 这条公理（计划与执行两份数据对不上口径，02 里同样只有 :refusalReason）；司机近30天准时率——「REFUSED driverRecentOnTimeRate: class :DriverWindow declares no :physicalTable」，缺的不是公理而是颗粒对象本身：它声明的 :DriverWindow 在图里没有 :physicalTable，因为 driver_stats 每行一个司机、窗口恒为 30 天。三条缺的都是业务没给的定义，不是我能补的声明——补上去就等于我替业务定了阈值和口径。",
+      "items": [
+        "atRiskDrivers",
+        "plannedStopsVisited",
+        "driverRecentOnTimeRate"
+      ]
+    },
+    {
+      "kind": "refusals",
+      "title": "「有多少条线路」：问题落在类上，还没有指标",
+      "body": "上面三条是声明了、但编译不过的指标；这一条不一样——它压根没落到任何指标上。问「有多少条线路」，编译器原话是：「'有多少条线路' asks for a number ('多少'), and the best declaration is the CLASS :Route (「线路」) — no metric declares that count. A class is a list, not a number: declare a metric on :Route with :aggregate and :grain, or ask for the list instead (「线路」).」它问的是数字（「多少」），而图里最贴近的声明是类 :Route：类是一份清单，不是一个数。拒绝句接着说明规矩：「A refusal names the declaration that is missing. Declare it; never type SQL for it, and never widen a guard to get past it.」——缺声明就补声明，不要手写 SQL，也不要放宽护栏绕过去。\n\n这一条后来补上了：在 :Route 的颗粒上数行的 :routeCount 已经声明（右侧卡片就是它编译出的 SQL 和值：90 = v1 的 50 条 + v2 的 40 条）。同一个问题现在有数可给，靠的是补声明，不是补一段 SQL。",
+      "items": [
+        "routeCount"
+      ],
+      "proof_note": "补声明之前按名拒绝，补上之后有数——这条步骤演示的是这个循环，不是一个观点。"
+    },
+    {
+      "kind": "guard",
+      "title": "护栏：一个问题最多能花多少",
+      "body": "护栏的每个上限都来自这份 profile 自己的 guard 段，不是通用默认值：一页最多 500 行（max_rows=500，超出的截断并在 notes 里报出来）；每条语句 8 秒超时（statement_timeout_ms=8000）；进库前先估计划行数，超过 5,000,000 行直接按名拒绝（max_plan_rows=5000000，站点拉温控明细就是这种）；没有时间过滤的大表读注入 90 天窗口（default_window_days=90——这批数据是近期的，最晚一趟行程就在两天前，所以是给窗口而不是拒绝）。被判成大表的是 profile 里 big_tables 的三张，也就是同时有真时间列的那三张：trips 用 trip_date（date）、telemetry 用 ts（timestamp）、complaints 用 opened_at（timestamp）——窗口就加在各自这一列上。stops 是行数最大的一张表，但它没有自己的时间列（它的时间是隔着 trip_id 的 trips.trip_date），所以不进 big_tables、只进 large_tables：算计划行数预算，不注入窗口。否则护栏会去给一张没有时间列的表拼 trip_date 过滤，SQL 直接报错。已声明的指标从不被窗口改写：指标的数就是它的定义，给它加窗口等于悄悄换一个问题；护栏只把这次无界扫描报出来，能不能跑交给计划预算。",
+      "items": [],
+      "guard": {
+        "max_rows": 500,
+        "default_window_days": 90,
+        "max_plan_rows": 5000000,
+        "statement_timeout_ms": 8000
+      }
+    }
+  ]
+}

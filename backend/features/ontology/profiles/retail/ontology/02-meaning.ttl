@@ -1,0 +1,140 @@
+@prefix :     <https://cube.local/ontology/retail#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+:Customer rdfs:comment "The business concept any purchase is attributed to." .
+
+:Order rdfs:comment "A purchase; every order belongs to exactly one customer." .
+
+# THE CONCEPT: a defined class, not a mapping filter. sqlgen compiles this
+# axiom into the WHERE predicate; the string 'PREMIUM' exists in exactly one
+# place (here), which is the whole point of sql-first.
+:PremiumCustomer
+    rdfs:subClassOf :Customer ;
+    owl:equivalentClass [
+    a owl:Class ;
+    owl:intersectionOf (
+        :Customer
+        [ a owl:Restriction ; owl:onProperty :tier ; owl:hasValue "PREMIUM" ]
+    )
+] .
+
+:orderRevenue a owl:DatatypeProperty ;
+    rdfs:label "Order revenue" ;
+    rdfs:domain :Order ;
+    :additivity "additive" ;
+    :businessDescription "Total amount of all orders. Additive: money of a transaction adds up." ;
+    :formula "amount" ;
+    :unit "money" .
+
+:averageOrderValue a owl:DatatypeProperty ;
+    rdfs:label "Average order value" ;
+    rdfs:domain :Order ;
+    :additivity "non-additive" ;
+    :businessDescription "Order revenue divided by the number of orders: a RATIO OF SUMS, not the average of per-order values." ;
+    :formula "order_revenue / order_count" ;
+    :unit "money" .
+
+:premiumCustomers a owl:DatatypeProperty ;
+    rdfs:label "Premium customers" ;
+    rdfs:domain :Customer ;
+    :businessDescription "Count of customers whose tier is PREMIUM. The predicate is compiled from the :PremiumCustomer axiom, so 'PREMIUM' is never re-typed in SQL." .
+
+:maximumOrderValue a owl:DatatypeProperty ;
+    rdfs:label "Maximum order value" ;
+    rdfs:domain :Order ;
+    :additivity "non-additive" ;
+    :businessDescription "The largest single order amount. max() does not add up, so it is non-additive; a sum of maxima would be wrong." ;
+    :formula "amount" ;
+    :unit "money" .
+
+:revenueByCity a owl:DatatypeProperty ;
+    rdfs:label "Revenue by city" ;
+    rdfs:domain :Order ;
+    :additivity "additive" ;
+    :businessDescription "Order revenue grouped by the store's city (region proxy). The group key lives on Store; the join comes from the declared :sold_at relationship." ;
+    :groupBy :city ;
+    :formula "amount" ;
+    :unit "money" .
+
+:premiumRevenueByCity a owl:DatatypeProperty ;
+    rdfs:label "Premium revenue by city" ;
+    rdfs:domain :Order ;
+    :additivity "additive" ;
+    :businessDescription "Order revenue of PREMIUM customers, grouped by the store's city. Combines a defined class (:PremiumCustomer, a WHERE predicate) with a dimension living on another object (:city on :Store) — the shape behind 'where do premium customers spend?'." ;
+    :groupBy :city ;
+    :where   :PremiumCustomer ;
+    :formula "amount" ;
+    :unit "money" .
+
+:revenueByProductCity a owl:DatatypeProperty ;
+    rdfs:label "Revenue by product and city" ;
+    rdfs:domain :OrderLine ;
+    :additivity "additive" ;
+    :businessDescription "Product revenue (qty * price) grouped by product name AND store city: a two-dimension GROUP BY. The two group keys live on Product and Store; both joins come from declared relationships." ;
+    :groupBy :product_name ;
+    :groupBy :city ;
+    :formula "qty * price" ;
+    :unit "money" .
+
+:premiumRevenueByProduct a owl:DatatypeProperty ;
+    rdfs:label "Premium revenue by product" ;
+    rdfs:domain :OrderLine ;
+    :additivity "additive" ;
+    :businessDescription "Product revenue (qty * price) for PREMIUM customers only, grouped by product name. Combines :where (join customers) with :groupBy (join products) — a filtered group-by." ;
+    :groupBy :product_name ;
+    :where   :PremiumCustomer ;
+    :formula "qty * price" ;
+    :unit "money" .
+
+:revenueByProduct a owl:DatatypeProperty ;
+    rdfs:label "Revenue by product" ;
+    rdfs:domain :OrderLine ;
+    :additivity "additive" ;
+    :businessDescription "Product revenue (qty * price) grouped by product name. The group key lives on Product, the qty on OrderLine — joined through the declared relationship." ;
+    :groupBy :product_name ;
+    :formula "qty * price" ;
+    :unit "money" .
+
+:productRevenue a owl:DatatypeProperty ;
+    rdfs:label "Product revenue" ;
+    rdfs:domain :OrderLine ;
+    :additivity "additive" ;
+    :businessDescription "Revenue of the products sold (qty * price), all orders. Two-table join compiled from the declared order_lines -> products relationship." ;
+    :formula "qty * price" ;
+    :unit "money" .
+
+:revenuePerCustomer a owl:DatatypeProperty ;
+    rdfs:label "Revenue per customer" ;
+    rdfs:domain :Order ;
+    :businessDescription "Order revenue divided by the number of customers: a CROSS-GRAIN ratio — the numerator lives on orders, the denominator on customers. Compiled as two subqueries." ;
+    :numerator :orderRevenue ;
+    :denominator :customers ;
+    :unit "money" .
+
+:premiumProductRevenue a owl:DatatypeProperty ;
+    rdfs:label "Premium product revenue" ;
+    rdfs:domain :OrderLine ;
+    :additivity "additive" ;
+    :businessDescription "Revenue (qty * price) of products in orders placed by PREMIUM customers. The FOUR-table case: order_lines JOIN orders JOIN customers JOIN products — every join comes from a declared :references relationship." ;
+    :formula "qty * price" ;
+    :unit "money" .
+
+:customers a owl:DatatypeProperty ;
+    rdfs:label "Customers" ;
+    rdfs:domain :Customer ;
+    :unit "count" ;
+    :businessDescription "Number of customers. Any customer has a tier, so every row of the customer table counts." .
+
+:orderCount a owl:DatatypeProperty ;
+    rdfs:label "Order count" ;
+    rdfs:domain :Order ;
+    :unit "count" ;
+    :additivity "additive" ;
+    :businessDescription "Number of orders; used by :averageOrderValue's formula." .
+
+# Member aliases: formulas are written in snake_case identifiers (sqlgen's
+# identifier regex is [a-z_][a-z0-9_]*), resolved explicitly to the CamelCase
+# members — same migration-residue pattern as sql-first's :memberAlias.
+:orderRevenue :memberAlias "order_revenue" .
+:orderCount   :memberAlias "order_count" .

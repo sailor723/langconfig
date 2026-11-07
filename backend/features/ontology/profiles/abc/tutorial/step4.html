@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 4 步 —— 一个动作类型：被校验、被审计的写操作</title>
+<style>
+  body { font-family:-apple-system,"PingFang SC","Segoe UI",Roboto,sans-serif;
+         background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  .rev { display:block; margin-top:4px; font:10px ui-monospace,Menlo,monospace;
+         color:#9fb8cf; opacity:.85 }
+  main { max-width:1180px; margin:20px auto; padding:0 20px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:980px) { .cols { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px;
+          padding:16px 18px; margin-bottom:14px; }
+  h2 { margin:0 0 10px; font-size:13px; letter-spacing:.5px; color:#334e68;
+       text-transform:uppercase; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:12px; }
+  .schema-box { background:#f2f4f6; border:1px solid #e3e6ea; border-radius:8px;
+                padding:10px 12px; margin-bottom:10px; }
+  .box-label { margin:0 0 6px; font-size:10px; letter-spacing:.4px;
+               text-transform:uppercase; color:#687b8f; }
+  table { width:100%; border-collapse:collapse; font:11px ui-monospace,Menlo,monospace; }
+  th { text-align:left; font-size:10px; color:#687b8f; padding:3px 6px;
+       border-bottom:1px solid #e3e6ea; }
+  td { padding:3px 6px; border-bottom:1px solid #f0f2f5; }
+  td.hl { color:#b3261e; font-weight:600; }
+  pre { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px; overflow:auto;
+        font:11px/1.55 ui-monospace,Menlo,monospace; white-space:pre-wrap; margin:6px 0; }
+  pre.sql { font-size:10px; }
+  .def { font:10.5px ui-monospace,Menlo,monospace; color:#8a6d3b; background:#fdf6e3;
+         border-radius:5px; padding:6px 8px; margin:6px 0; }
+  .val { font:16px ui-monospace,Menlo,monospace; color:#1d6b33; font-weight:700;
+         margin-top:6px; }
+  .note { font-size:12px; color:#687b8f; margin-top:8px; line-height:1.6; }
+  .note code, .hint code { background:#eef2f6; padding:1px 4px; border-radius:4px;
+                           font-size:11px; }
+  .hint { font-size:11px; color:#687b8f; margin-top:6px; line-height:1.5; }
+  input.q { width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid #cdd5df;
+            border-radius:8px; font:13px ui-monospace,Menlo,monospace; background:#fff; }
+  button.run { margin-top:9px; background:#0b4f9c; color:#fff; border:0; border-radius:8px;
+               padding:9px 16px; font-size:12.5px; cursor:pointer; }
+  button.dry { background:#334e68; }
+  button.reset { background:#8a6d3b; }
+  .ex { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .ex button { margin:0; background:#eef2f6; color:#0b4f9c; font-size:11px;
+               padding:5px 9px; border:0; border-radius:6px; cursor:pointer; }
+  .metric { border:1px solid #e3e6ea; border-radius:9px; padding:12px 14px; background:#fff; }
+  .metric h3 { margin:0 0 3px; font-size:13px; color:#0b4f9c; }
+  .badge { font-size:11px; border-radius:4px; padding:1px 7px; background:#eef2f6;
+           color:#4a6f9c; }
+  .badge.action { background:#fbe9e7; color:#b3261e; }
+  .badge.read { background:#eef3fb; color:#0b4f9c; }
+  .win { font:11px ui-monospace,Menlo,monospace; color:#334e68; background:#eef2f6;
+         border-radius:6px; padding:5px 9px; display:inline-block; margin:2px 0 6px; }
+</style></head>
+<body>
+<header><h1>第 4 步 —— 一个动作类型：被校验、被审计的写操作</h1>
+  <span class="rev">ABC 冷链 · 第 4 步</span></header>
+<main>
+  <div class="cols">
+    <div>
+      <div class="card">
+        <h2>动作类型：AssignTrip</h2>
+        <div class="schema-box"><p class="box-label">声明在 <code>abc/schema/actions.yml</code></p>
+          <table><tbody>
+            <tr><td>参数</td><td colspan="2"><code>trip_id</code> · <code>driver_id</code> · <code>vehicle_id</code></td></tr>
+            <tr><td>前置条件</td><td colspan="2">三个对象都必须存在（编译成 SELECT）</td></tr>
+            <tr><td>效果</td><td colspan="2">写 <code>trips.driver_id</code>（只有动作能写）</td></tr>
+            <tr><td>审计</td><td colspan="2">每次指派都留一条 audit 行</td></tr>
+          </tbody></table></div>
+        <div class="note"><code>actions.py</code> 把守卫和效果编译出来，然后跑一个事务：
+          锁行 → 校验 → 写入 → 审计。这正是「人情调度」变成<b>记录</b>的地方。</div>
+      </div>
+      <div class="card">
+        <h2>实时的趟次（最新 6 条）</h2>
+        <table><thead><tr><th>id</th><th>日期</th><th>车辆</th><th>司机</th></tr></thead>
+          <tbody id="live"></tbody></table>
+        <div class="note">执行一次指派后，这一列会立刻变 —— 读和写是同一批行。</div>
+      </div></div>
+    <div>
+      <div class="card">
+        <h2>跑一个动作</h2>
+        <div class="schema-box"><p class="box-label">参数（JSON）</p>
+          <input class="q" id="params" value='{"trip_id": 1, "driver_id": 2, "vehicle_id": 2}'/></div>
+        <div class="ex" id="ex"></div>
+        <button class="run dry" id="dry">预演（只校验）</button>
+        <button class="run" id="go">真跑（写入 + 审计）</button>
+        <button class="run reset" id="rst">重置</button>
+        <pre class="sql" id="out"></pre>
+        <div class="hint" id="hint"></div>
+        <div class="note">预演不写任何东西；真跑是一个事务，写入 + 审计一起成功或一起失败。</div>
+      </div>
+      <div class="card">
+        <h2>审计轨迹（最新 6 条）</h2>
+        <table><thead><tr><th>id</th><th>动作</th><th>操作者</th><th>时间</th></tr></thead>
+          <tbody id="audit"></tbody></table>
+      </div></div>
+  </div>
+</main>
+<script>
+const F = id => document.getElementById(id);
+async function live() {
+  const j = await (await fetch('/api/abct/trips')).json();
+  F('live').innerHTML = j.rows.slice(0, 6).map(r => '<tr>' + r.map(v => `<td>${v}</td>`).join('') + '</tr>').join('');
+}
+async function audit() {
+  const j = await (await fetch('/api/abct/audit')).json();
+  F('audit').innerHTML = (j.rows || []).slice(0, 6).map(r => `<tr><td>${r.id}</td><td>${r.action}</td><td>${r.actor}</td><td>${String(r.ts).slice(0, 19)}</td></tr>`).join('');
+}
+async function call(verb) {
+  F('out').style.display = 'block'; F('out').textContent = '…';
+  const params = JSON.parse(F('params').value || '{}');
+  const j = await (await fetch('/api/abct/action/' + verb, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'AssignTrip', params, actor: 'training' }) })).json();
+  F('out').textContent = JSON.stringify(j, null, 2).slice(0, 1600);
+  live(); audit();
+}
+F('dry').onclick = () => call('check');
+F('go').onclick = () => call('run');
+F('rst').onclick = () => call('reset');
+live(); audit();
+</script>
+</body></html>

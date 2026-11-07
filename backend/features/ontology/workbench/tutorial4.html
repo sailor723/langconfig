@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-store">
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Step 4 — an action type: validated, audited writes</title>
+<style>
+  body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  header a { color:#9fb8cf; font-size:13px; }
+  main { max-width:1120px; margin:20px auto; padding:0 20px; }
+  .cols { display:grid; grid-template-columns:6fr 6fr; gap:16px; }
+  @media (max-width:980px) { .cols { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:16px 18px; margin-bottom:14px; }
+  h2 { margin:0 0 10px; font-size:13px; letter-spacing:.5px; color:#334e68; text-transform:uppercase; }
+  .obj { border:1px solid #e4e8ec; border-radius:8px; padding:10px 12px; margin-bottom:8px; background:#fbfcfd; }
+  .obj .t { font-size:13px; font-weight:600; color:#b3261e; }
+  .obj .d { font-size:11px; color:#687b8f; margin:2px 0 6px; }
+  .props { display:flex; flex-wrap:wrap; gap:6px; }
+  .prop { font:9.5px ui-monospace,Menlo,monospace; background:#eef2f6; border-radius:4px;
+          padding:2px 6px; color:#4a6f9c; }
+  .prop.w { background:#fbe9e7; color:#b3261e; }
+  .schema, .schema th, .schema td { font-size:10.5px; font-family:-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .schema th { font-size:9.5px; letter-spacing:.08em; color:#7a8899; padding:4px 8px; }
+  .schema td { padding:4px 8px; color:#4a5568; }
+  .schema td:first-child { font-family:ui-monospace,Menlo,monospace; font-size:9.5px; color:#334e68; }
+  input { font:12px ui-monospace,Menlo,monospace; padding:5px 7px; border:1px solid #cdd5df;
+          border-radius:6px; width:64px; }
+  button { margin-top:10px; background:#0b4f9c; color:#fff; border:0; border-radius:8px;
+           padding:8px 14px; font-size:13px; cursor:pointer; }
+  button.warn { background:#b3261e; }
+  button.alt { background:#334e68; }
+  .res { width:100%; border-collapse:collapse; font-size:12px; margin-top:10px; }
+  .res th { text-align:left; font-size:10.5px; text-transform:uppercase; color:#687b8f; padding:5px 8px;
+            border-bottom:1px solid #e3e6ea; }
+  .res td { padding:5px 8px; border-bottom:1px solid #f0f2f5; font-family:ui-monospace,Menlo,monospace; }
+  pre.out { display:none; background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px;
+            font:11.5px/1.55 ui-monospace,Menlo,monospace; white-space:pre-wrap; margin-top:12px; }
+  .note { font-size:12px; color:#687b8f; margin-top:8px; line-height:1.55; }
+  .note code { background:#eef2f6; padding:1px 4px; border-radius:4px; font-size:11px; }
+  .box-label { font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:#687b8f; margin:14px 0 4px; }
+  .good { color:#1d6b33; } .bad { color:#b3261e; }
+</style></head>
+<body>
+<header><h1>Step 4 — an action type: validated, audited writes</h1>
+  <span class="rev" style="display:block;margin-top:4px;font:10px ui-monospace,Menlo,monospace;color:#9fb8cf;opacity:.85">step 4 · actions — rev split-3/4</span>
+</header>
+<main>
+    <div class="cols">
+    <div>
+      <div class="card">
+        <h2>The action type: PromoteCustomer</h2>
+        <div id="action" class="obj">loading …</div>
+        <div class="note">Declared in <code>schema/actions.yml</code>: parameters, preconditions,
+          effect, permission, audit. <code>actions.py</code> compiles the guard and the effect,
+          then runs ONE transaction: lock the row → check → write → audit.</div>
+        <div class="box-label">target customer id</div>
+        <input id="cid" type="number" value="4"/>
+        <div>
+          <button id="dry" class="alt">Dry-run (check only)</button>
+          <button id="real" class="warn">Run for real (audited)</button>
+          <button id="reset" class="alt">Reset (demote)</button>
+        </div>
+        <pre class="out" id="out"></pre>
+      </div>
+      <div class="card">
+        <h2>Live data — stored object types</h2>
+        <table class="schema" style="width:100%"><thead><tr><th>id</th><th>name</th><th>stored as</th></tr></thead>
+          <tbody id="livec"></tbody></table>
+        <div class="note" id="liveinfo"></div>
+        <div class="note">A promote MOVES a row from <code>:Customer</code> to
+          <code>:PremiumCustomer</code> — the write changes which stored type the row belongs to.
+          That it is still a Customer after the move is derived (step 5).</div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <h2>Audit trail (latest 6)</h2>
+        <table class="res"><thead><tr><th>#</th><th>action</th><th>actor</th><th>before → after</th><th>when</th></tr></thead>
+          <tbody id="audit"></tbody></table>
+        <div class="note">Every write is recorded: who, when, parameters, before/after rows and the
+          compiled statements (<code>audit_events</code>, append-only). A REFUSED action writes
+          nothing and leaves no audit row.</div>
+      </div>
+      <div class="card">
+        <h2>The story continues</h2>
+        <div class="note" style="margin-top:0">What you just wrote is a membership fact. Step 5
+          takes that single write and shows what the <b>reasoner</b> derives from it: the customer
+          becomes a <code>:Customer</code> — a triple nobody stored.</div>
+        <a href="/tutorial/5" class="go-link" style="display:inline-block;margin-top:10px;
+           background:#0b4f9c;color:#fff;text-decoration:none;padding:7px 12px;border-radius:7px;
+           font-size:12px">Continue to step 5 →</a>
+      </div>
+      <div class="card">
+        <h2>Why not just UPDATE?</h2>
+        <div class="note" style="margin-top:0">
+          <code>actions.yml</code> is the contract: the effect may only touch properties marked
+          <code>:state "action"</code>; preconditions are compiled, not trusted; the write and the
+          audit are one transaction. Try promoting a customer who is already PREMIUM — the guard
+          refuses and <b>nothing changes</b>.
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+<script>
+const F = id => document.getElementById(id);
+const esc = s => String(s).replace(/</g, '&lt;');
+
+async function loadAction() {
+  const j = await (await fetch('/api/actions')).json();
+  const a = (j.actions || []).find(x => x.name === 'PromoteCustomer');
+  if (!a) return;
+  F('action').innerHTML = `<div class="t">PromoteCustomer</div>
+    <div class="d">applies to :${a.applies_to} · params ${a.parameters.join(', ')}</div>
+    <div class="props">${(a.preconditions || []).map(p =>
+      `<span class="prop">check · ${esc(p)}</span>`).join('')}</div>
+    <div class="props" style="margin-top:6px"><span class="prop w">${esc(a.effect)}</span></div>`;
+}
+
+async function loadTable() {
+  const j = await (await fetch('/api/tutorial4/table')).json();
+  if (!j.ok) return;
+  F('livec').innerHTML = j.rows.map(r => {
+    const stored = r[2] === 'PREMIUM' ? ':PremiumCustomer' : ':Customer';
+    const cls = r[2] === 'PREMIUM' ? 'tier-PREMIUM' : '';
+    return `<tr><td>${r[0]}</td><td>${r[1]}</td><td class="${cls}">${stored}</td></tr>`;
+  }).join('');
+  F('liveinfo').textContent = j.rows.length + ' customers · ' + j.orders + ' orders';
+}
+
+async function loadAudit() {
+  const j = await (await fetch('/api/actions/audit')).json();
+  const rows = (j.rows || []).slice(0, 6);
+  F('audit').innerHTML = rows.map(r => {
+    const b = (r.before_row || {}).tier || '—';
+    const a = (r.after_row || {}).tier || '—';
+    return `<tr><td>${r.id}</td><td>${r.action}</td><td>${r.actor || '—'}</td>
+            <td>${b} → ${a}</td><td>${(r.ts || '').slice(0, 19).replace('T', ' ')}</td></tr>`;
+  }).join('') || '<tr><td colspan="5">no audit rows yet</td></tr>';
+}
+
+async function showOut(text) { F('out').style.display = 'block'; F('out').textContent = text; }
+
+async function act(kind) {
+  const cid = Number(F('cid').value || 4);
+  if (kind === 'check') {
+    const j = await (await fetch('/api/guard', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'PromoteCustomer', params: { customer_id: cid } }) })).json();
+    if (!j.ok) return showOut('guard error: ' + (j.error || j.refused));
+    const lines = [(j.admitted ? '✓ ADMITTED (dry-run)' : '✗ REFUSED (dry-run)') +
+                   ' — customer ' + cid + ' (nothing written)'];
+    lines.push('effect: ' + (j.effect_bound || j.effect));
+    (j.checks || []).forEach(c => lines.push('  ' +
+      (c.pass ? 'PASS' : 'FAIL') + '  [' + c.kind + ']  ' + (c.sql_bound || c.sql)));
+    return showOut(lines.join('\n'));
+  }
+  const name = kind === 'promote' ? 'PromoteCustomer' : 'DemoteCustomer';
+  const j = await (await fetch('/api/actions/run', { method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, params: { customer_id: cid }, actor: 'tutorial' }) })).json();
+  if (!j.ok) {
+    showOut('✗ REFUSED — ' + (j.refused || j.error) + '\n(nothing was written, no audit row)');
+    return;
+  }
+  showOut('✓ WROTE — ' + j.action + ' · audit #' + j.audit_id + ' · actor ' + j.actor +
+          '\nbefore: ' + JSON.stringify(j.before) + '\nafter : ' + JSON.stringify(j.after));
+  await loadTable();
+  await loadAudit();
+}
+
+F('dry').onclick = () => act('check');
+F('real').onclick = () => act('promote');
+F('reset').onclick = () => act('demote');
+loadAction();
+loadTable();
+loadAudit();
+</script>
+</body></html>

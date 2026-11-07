@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-store">
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Step 2 — two objects and a link</title>
+<style>
+  body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  header a { color:#9fb8cf; font-size:13px; }
+  main { max-width:1120px; margin:20px auto; padding:0 20px; }
+  .cols { display:grid; grid-template-columns:5fr 7fr; gap:16px; }
+  @media (max-width:980px) { .cols { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:16px 18px; margin-bottom:14px; }
+  h2 { margin:0 0 10px; font-size:13px; letter-spacing:.5px; color:#334e68; text-transform:uppercase; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; margin-top:6px; }
+  th { text-align:left; font-size:11px; text-transform:uppercase; color:#687b8f; padding:5px 8px;
+       border-bottom:1px solid #e3e6ea; }
+  td { padding:5px 8px; border-bottom:1px solid #f0f2f5; font-family:ui-monospace,Menlo,monospace; }
+  td.tier-PREMIUM { color:#0b4f9c; font-weight:600; }
+  .schema td:nth-child(3) { color:#687b8f; font-family:-apple-system,Segoe UI,Roboto,sans-serif;
+                             font-size:12px; }
+  .schema-box { background:#f2f4f6; border:1px solid #e4e8ec; border-radius:8px;
+                padding:10px 12px 6px; margin-bottom:18px; }
+  .box-label { font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:#687b8f;
+               margin:0 0 4px; }
+  .schema, .schema th, .schema td { font-size:10.5px;
+      font-family:-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .schema th { font-size:9.5px; letter-spacing:.08em; color:#7a8899; padding:4px 8px; }
+  .schema td { padding:4px 8px; color:#4a5568; }
+  .schema td:first-child { font-family:ui-monospace,Menlo,monospace; font-size:9.5px; color:#334e68; }
+  .box-label { font-size:9.5px; letter-spacing:.08em; }
+  .fk { color:#b3261e; }
+  #q { width:100%; box-sizing:border-box; font:14px ui-monospace,Menlo,monospace;
+       border:1px solid #cdd5df; border-radius:8px; padding:10px; }
+  button { margin-top:10px; background:#0b4f9c; color:#fff; border:0; border-radius:8px;
+           padding:9px 16px; font-size:13px; cursor:pointer; }
+  .ex { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .ex button { margin:0; background:#eef2f6; color:#0b4f9c; font-size:12px; padding:5px 10px; }
+  pre#sql { display:none; background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px;
+            font:12px ui-monospace,Menlo,monospace; white-space:pre-wrap; margin-top:12px; }
+  #why { display:none; color:#8a6d3b; font-size:12px; margin-top:8px; }
+  #hint { display:none; color:#b3261e; font-size:12px; margin-top:10px; }
+  .badge { font-size:11px; border-radius:4px; padding:1px 7px; background:#eef2f6; color:#4a6f9c; }
+  .badge.join { background:#eef3fb; color:#0b4f9c; }
+  .big { font-size:34px; color:#0b4f9c; font-weight:700; text-align:center; padding:8px 0 2px; }
+  .bigsub { text-align:center; font-size:12px; color:#687b8f; }
+  .note { font-size:12px; color:#687b8f; margin-top:8px; line-height:1.5; }
+  .note code { background:#eef2f6; padding:1px 4px; border-radius:4px; font-size:11px; }
+</style></head>
+<body>
+<header><h1>Step 2 — two objects and a link</h1>
+  <span class="rev" style="display:block;margin-top:4px;font:10px ui-monospace,Menlo,monospace;color:#9fb8cf;opacity:.85">step 2 — rev object-first</span>
+</header>
+<main>
+    <div class="cols">
+    <div>
+      <div class="card">
+        <h2>Object 1: Order</h2>
+        <div class="schema-box">
+          <p class="box-label">schema — the columns</p>
+          <table class="schema"><thead><tr><th>column</th><th>type</th><th>meaning</th></tr></thead>
+            <tbody id="oschema"></tbody></table>
+        </div>
+        <p class="box-label">data — the rows</p>
+        <table><thead id="ohead"></thead><tbody id="orows"></tbody></table>
+      </div>
+      <div class="card">
+        <h2>Object 2: Customer</h2>
+        <div class="schema-box">
+          <p class="box-label">schema — the columns</p>
+          <table class="schema"><thead><tr><th>column</th><th>type</th><th>meaning</th></tr></thead>
+            <tbody>
+              <tr><td>id</td><td>integer</td><td>primary key</td></tr>
+              <tr><td>name</td><td>text</td><td>the customer's name</td></tr>
+              <tr><td>tier</td><td>text</td><td>PREMIUM or STANDARD</td></tr>
+            </tbody></table>
+        </div>
+        <p class="box-label">data — the rows</p>
+        <table><thead><tr><th>id</th><th>name</th><th>tier</th></tr></thead>
+          <tbody id="crows"></tbody></table>
+        <div class="note">The red column <code>orders.customer_id</code> holds a value from the
+          <code>customers.id</code> column. In SQL that is a <b>foreign key</b>; in the ontology it
+          is a <b>link</b> — <code>:Order —customer→ :Customer</code> — and the join below is only
+          how the link gets walked.</div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Ask a question</h2>
+      <input id="q" placeholder="e.g. dana's orders"/>
+      <div class="ex" id="examples"></div>
+      <button id="run">Ask (runs one fixed SQL statement)</button>
+      <pre id="sql"></pre>
+      <div id="why"></div>
+      <div style="margin-top:10px" id="kindwrap"><span class="badge" id="kind"></span></div>
+      <div id="bigbox" style="display:none">
+        <div class="big" id="big"></div>
+        <div class="bigsub" id="bigsub"></div>
+      </div>
+      <table id="result" style="display:none"><thead id="rhead"></thead><tbody id="rbody"></tbody></table>
+      <div id="hint"></div>
+      <div class="note">Same rule as step 1: every question maps to one hard-coded statement —
+        first over <b>one table</b>, then with a <b>JOIN</b>. The video case: Dana is PREMIUM —
+        in SQL that is a value in the <code>tier</code> column, used in a <code>WHERE</code>.</div>
+    </div>
+  </div>
+</main>
+<script>
+const EX = [
+  "show all orders",
+  "how many orders",
+  "total revenue",
+  "dana's orders",
+  "orders of premium customers",
+  "premium revenue",
+];
+const F = id => document.getElementById(id);
+EX.forEach(t => {
+  const b = document.createElement('button');
+  b.textContent = t;
+  b.onclick = () => { F('q').value = t; run(); };
+  F('examples').appendChild(b);
+});
+
+async function load() {
+  const j = await (await fetch('/api/tutorial2/table')).json();
+  if (!j.ok) return;
+  F('oschema').innerHTML = j.orders.schema.map(s =>
+    `<tr><td>${s.column}</td><td>${s.type}</td><td>${s.note}</td></tr>`).join('');
+  F('ohead').innerHTML = '<tr>' + j.orders.cols.map(c =>
+    `<th${c === 'customer_id' ? ' style="color:#b3261e"' : ''}>${c}</th>`).join('') + '</tr>';
+  F('orows').innerHTML = j.orders.rows.map(r =>
+    '<tr>' + r.map((v, i) => `<td${j.orders.cols[i] === 'customer_id'
+      ? ' class="fk"' : ''}>${v}</td>`).join('') + '</tr>').join('');
+  F('crows').innerHTML = j.customers.rows.map(r =>
+    `<tr><td>${r[0]}</td><td>${r[1]}</td><td class="tier-${r[2]}">${r[2]}</td></tr>`).join('');
+}
+
+async function run() {
+  F('sql').style.display = 'none'; F('why').style.display = 'none';
+  F('hint').style.display = 'none'; F('result').style.display = 'none';
+  F('bigbox').style.display = 'none'; F('kindwrap').style.display = 'none';
+  const q = F('q').value.trim();
+  if (!q) return;
+  F('sql').style.display = 'block'; F('sql').textContent = 'running …';
+  try {
+    const j = await (await fetch('/api/tutorial2', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q }) })).json();
+    if (!j.ok) { F('sql').style.display = 'none'; F('hint').style.display = 'block';
+                 F('hint').textContent = j.hint || 'no match'; return; }
+    F('sql').textContent = j.sql;
+    F('why').style.display = 'block';
+    F('why').textContent = j.why || '';
+    F('kindwrap').style.display = 'block';
+    F('kind').textContent = j.join ? 'this query walks the link (a JOIN)' : 'one object, no link';
+    F('kind').className = 'badge' + (j.join ? ' join' : '');
+    if (j.cols.length === 1) {
+      F('bigbox').style.display = 'block';
+      F('big').textContent = j.rows.length ? j.rows[0][0] : '0';
+      F('bigsub').textContent = j.sql.split('FROM')[0].trim();
+      return;
+    }
+    F('rhead').innerHTML = '<tr>' + j.cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+    F('rbody').innerHTML = j.rows.map(r =>
+      '<tr>' + r.map((v, i) => `<td${j.cols[i] === 'tier'
+        ? ` class="tier-${v}"` : ''}>${v}</td>`).join('') + '</tr>').join('');
+    F('result').style.display = 'table';
+  } catch (e) {
+    F('hint').style.display = 'block'; F('hint').textContent = 'request failed: ' + e;
+  }
+}
+F('run').onclick = run;
+F('q').addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
+load();
+</script>
+</body></html>

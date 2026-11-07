@@ -1,0 +1,904 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rdf:RDF
+   xmlns="https://cube.local/ontology/clinic#"
+   xmlns:owl="http://www.w3.org/2002/07/owl#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+   xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb10">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Restriction"/>
+    <owl:onProperty rdf:resource="https://cube.local/ontology/clinic#appointmentStatus"/>
+    <owl:hasValue>cancelled</owl:hasValue>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#pendingClaimRate">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>理赔待决率</rdfs:label>
+    <unit>ratio</unit>
+    <numerator rdf:resource="https://cube.local/ontology/clinic#pendingClaims"/>
+    <denominator rdf:resource="https://cube.local/ontology/clinic#claims"/>
+    <scale>100.0</scale>
+    <businessDescription>待决 / 全部理赔 = 642 / 1,934 = 33.20%。这是运营积压的度量，不是质量指标。</businessDescription>
+    <aggregate>ratio_of_sums</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#CancelledAppointment">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:label>取消预约</rdfs:label>
+    <owl:equivalentClass rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb9"/>
+    <businessDescription>提前取消，实测 1,105 次（20.39%）。取消没有发生服务，但它占过时段，所以进爽约率的分母、不进服务人次。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#PendingClaim">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:label>待决保险理赔</rdfs:label>
+    <physicalPredicate>decision IS NULL</physicalPredicate>
+    <businessDescription>已提交、保险公司还没给结果，实测 642 笔（33.20%）。decision 为空在这里是状态不是缺失值 —— 它正是要统计的东西，所以不能当脏数据清掉。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#ApprovedClaim">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:label>已核准理赔</rdfs:label>
+    <owl:equivalentClass rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb13"/>
+    <businessDescription>保险公司同意赔付，实测 679 笔。注意：本库没有赔付金额、只有裁决结果，所以『核减了多少钱』答不了。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#invoiceRevenue">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>开票收入</rdfs:label>
+    <unit>money</unit>
+    <businessDescription>发票开出金额合计，实测 1,353,412.00 元。这是收入的默认口径（诊疗收入）。它不等于收到钱：实收只有 756,089.20 元。跨表对账：按收费行算出来也是 1,353,412.00（:lineRevenue），两条独立路径一致。</businessDescription>
+    <aggregate>sum</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#Invoice"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#Invoice"/>
+    <formula>total</formula>
+    <additivity>additive</additivity>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#discountedLines">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>打折行数</rdfs:label>
+    <unit>count</unit>
+    <businessDescription>折扣率大于 0 的收费行，实测 2,152（33.40%）。</businessDescription>
+    <aggregate>count</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <where rdf:resource="https://cube.local/ontology/clinic#DiscountedLine"/>
+    <additivity>additive</additivity>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#appointmentOfLine">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <rdfs:range rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <rdfs:label>所属就诊</rdfs:label>
+    <physicalColumn>appointment_id</physicalColumn>
+    <references rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#startedAt">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#dateTime"/>
+    <rdfs:label>实际开始时间</rdfs:label>
+    <physicalColumn>started_at</physicalColumn>
+    <businessDescription>实际开始就诊的时间。只有 completed 有值；cancelled 与 no_show 的 2,182 行恒为 NULL——NULL 是一种状态，不是 false，也不是迟到 0 分钟。用它做时间桶会静默丢掉 40% 的预约。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#rejectionRate">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>拒赔率</rdfs:label>
+    <unit>ratio</unit>
+    <numerator rdf:resource="https://cube.local/ontology/clinic#rejectedClaims"/>
+    <denominator rdf:resource="https://cube.local/ontology/clinic#decidedClaims"/>
+    <scale>100.0</scale>
+    <businessDescription>拒赔笔数 / 已裁决理赔 = 613 / 1,292 = 47.45%。分母不含 642 笔待决。若用全量 1,934 作分母会得到 31.70% —— 那是『暂定拒赔率』，随待决理赔陆续裁决必然上升，不能拿去汇报。</businessDescription>
+    <aggregate>ratio_of_sums</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#city">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Patient"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    <rdfs:label>城市</rdfs:label>
+    <physicalColumn>city</physicalColumn>
+    <businessDescription>患者所在城市：上海 / 无锡 / 杭州 / 苏州。它是患者属性，不是机构属性——本库没有分院概念，所以『按城市看收入』其实是在按患者居住地切。病历里常把『地区/区域』也译成 region，别名属于 profile。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#invoiceOfClaim">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+    <rdfs:range rdf:resource="https://cube.local/ontology/clinic#Invoice"/>
+    <rdfs:label>理赔对应的发票</rdfs:label>
+    <physicalColumn>invoice_id</physicalColumn>
+    <references rdf:resource="https://cube.local/ontology/clinic#Invoice"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#appointmentsByStatus">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>按状态预约数</rdfs:label>
+    <unit>count</unit>
+    <businessDescription>按状态分组的预约数。实测：completed 3,236（59.73%）、cancelled 1,105（20.39%）、no_show 1,077（19.88%）。三档之和必须等于 :appointments 5,418 —— 这是分组口径的自检。</businessDescription>
+    <aggregate>count</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <groupBy rdf:resource="https://cube.local/ontology/clinic#appointmentStatus"/>
+    <additivity>additive</additivity>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#deepDiscountLineShare">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>深度折扣行占比</rdfs:label>
+    <unit>ratio</unit>
+    <numerator rdf:resource="https://cube.local/ontology/clinic#deepDiscountLines"/>
+    <denominator rdf:resource="https://cube.local/ontology/clinic#treatmentLines"/>
+    <scale>100.0</scale>
+    <businessDescription>深度折扣行 / 全部收费行 = 1,083 / 6,443 = 16.81%。注意这是按行算的比例；同样这批行的让价金额占全部让价的 66.42%（71,458 元里的 47,462 元），而让价占原价只有 5.02%。行占比、金额占比、降价幅度是三个不同的数，混用会把折扣政策的影响说得离谱。</businessDescription>
+    <aggregate>ratio_of_sums</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#collectedRevenue">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>实收金额</rdfs:label>
+    <unit>money</unit>
+    <businessDescription>payments 表里的实际收款合计，实测 756,089.20 元。只有这里代表钱到账；invoices.status 不代表（两者互相矛盾）。</businessDescription>
+    <aggregate>sum</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#Payment"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#Payment"/>
+    <formula>amount</formula>
+    <additivity>additive</additivity>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#DecidedClaim">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:label>已裁决理赔</rdfs:label>
+    <owl:equivalentClass rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb21"/>
+    <businessDescription>有裁决结果的理赔（approved 或 rejected），实测 1,292 笔。这是拒赔率唯一站得住的分母：待决的 642 笔是『还不知道』，不是『没被拒』。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#issuedAt">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Invoice"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#dateTime"/>
+    <rdfs:label>开票时间</rdfs:label>
+    <physicalColumn>issued_at</physicalColumn>
+    <businessDescription>开票时刻。因为发票与已完成就诊 1:1，它与 appointment.scheduledAt 同属一个时间轴，用它或用它做口径都能对上，但必须二选一并全局统一。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#revenuePerCompletedVisit">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>每次就诊收入</rdfs:label>
+    <unit>money</unit>
+    <numerator rdf:resource="https://cube.local/ontology/clinic#invoiceRevenue"/>
+    <denominator rdf:resource="https://cube.local/ontology/clinic#completedAppointments"/>
+    <businessDescription>开票收入 / 完成就诊数 = 1,353,412.00 / 3,236 = 418.24 元。注意分子是发票侧、分母是预约侧，跨颗粒。这个数恰好等于发票金额的平均值（avg total = 418.24），因为一张发票对应一次就诊；若将来一就诊多发票，这个等式会失效，届时必须改写分母。</businessDescription>
+    <aggregate>ratio_of_sums</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#Invoice"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#Invoice"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#specialty">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Doctor"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    <rdfs:label>科室</rdfs:label>
+    <physicalColumn>specialty</physicalColumn>
+    <businessDescription>儿科 / 全科 / 皮肤科 / 骨科。按科室汇总必须先经预约回到医生，不能从诊疗明细行直接跳。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#doctorName">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Doctor"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    <rdfs:label>医生姓名</rdfs:label>
+    <physicalColumn>name</physicalColumn>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#appointmentsByDoctorSpecialty">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>按医生专科预约数</rdfs:label>
+    <unit>count</unit>
+    <businessDescription>按医生专科分组的预约数。专科在 Doctor 上，经 预约 → 医生 一跳。注意：这是预约数不是人次，含取消与爽约；要看各科实际服务量必须换成 :completedAppointments 的口径。</businessDescription>
+    <aggregate>count</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <groupBy rdf:resource="https://cube.local/ontology/clinic#specialty"/>
+    <additivity>additive</additivity>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#cancelledAppointments">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>取消数</rdfs:label>
+    <unit>count</unit>
+    <businessDescription>提前取消的预约，实测 1,105。</businessDescription>
+    <aggregate>count</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <where rdf:resource="https://cube.local/ontology/clinic#CancelledAppointment"/>
+    <additivity>additive</additivity>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#insurer">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    <rdfs:label>保险公司</rdfs:label>
+    <physicalColumn>insurer</physicalColumn>
+    <businessDescription>A保险 / B保险 两家。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#discountGiven">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>让价金额</rdfs:label>
+    <unit>money</unit>
+    <businessDescription>按 数量 × 单价 × 折扣率 求和，实测 71,458.00 元。恒等式：原价总额 1,424,870.00 = 诊疗收入 1,353,412.00 + 让价 71,458.00。这是让价的第二算法（第一条是 原价 - 净额），两条都写进阶段 6 的对账。</businessDescription>
+    <aggregate>sum</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <formula>qty * unit_price * discount</formula>
+    <additivity>additive</additivity>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#claims">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>理赔笔数</rdfs:label>
+    <unit>count</unit>
+    <businessDescription>提交给保险公司的理赔笔数，实测 1,934，对应 1,934 张不同发票（本库一张发票最多一笔理赔，所以按笔和按发票同一个数）。</businessDescription>
+    <aggregate>count</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+    <additivity>additive</additivity>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#cancellationRate">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>取消率</rdfs:label>
+    <unit>ratio</unit>
+    <numerator rdf:resource="https://cube.local/ontology/clinic#cancelledAppointments"/>
+    <denominator rdf:resource="https://cube.local/ontology/clinic#appointments"/>
+    <scale>100.0</scale>
+    <businessDescription>取消数 / 全部已排程预约 = 1,105 / 5,418 = 20.39%。取消率与爽约率分母相同，所以两者可以直接相加（合计 40.27% 的预约没有发生服务），这个可加性是选同分母的原因。</businessDescription>
+    <aggregate>ratio_of_sums</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#rejectedClaims">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>拒赔笔数</rdfs:label>
+    <unit>count</unit>
+    <businessDescription>被拒赔的理赔，实测 613。</businessDescription>
+    <aggregate>count</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+    <where rdf:resource="https://cube.local/ontology/clinic#RejectedClaim"/>
+    <additivity>additive</additivity>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#revenueByPatientCity">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>按患者城市收入</rdfs:label>
+    <unit>money</unit>
+    <businessDescription>按收费行算收入，按患者所在城市分组。实测：无锡 361,352、上海 356,874、苏州 343,907、杭州 291,279（元）。城市在 Patient 上，所以要经 收费行 → 预约 → 患者 三跳；没有患者表就无法按城市看收入。</businessDescription>
+    <aggregate>sum</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <formula>qty * unit_price * (1 - discount)</formula>
+    <groupBy rdf:resource="https://cube.local/ontology/clinic#city"/>
+    <additivity>additive</additivity>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#noShowRate">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>爽约率</rdfs:label>
+    <unit>ratio</unit>
+    <numerator rdf:resource="https://cube.local/ontology/clinic#noShowAppointments"/>
+    <denominator rdf:resource="https://cube.local/ontology/clinic#appointments"/>
+    <scale>100.0</scale>
+    <businessDescription>爽约数 / 全部已排程预约 = 1,077 / 5,418 = 19.88%。分母含取消。若分母改成不含取消（4,313），同一个分子算出 24.97% —— 两个数都对，差别只是分母口径，报告里必须写清楚用了哪个。本体的答案是前一个。</businessDescription>
+    <aggregate>ratio_of_sums</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#treatmentCode">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Treatment"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    <rdfs:label>项目编码</rdfs:label>
+    <physicalColumn>code</physicalColumn>
+    <businessDescription>T01–T06，文本主键。业务问题里几乎不会直接问编码，问的是项目名称，所以它是标识而不是常用维度。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#deepDiscountLines">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>深度折扣行数</rdfs:label>
+    <unit>count</unit>
+    <businessDescription>折扣率 ≥ 20% 的收费行，实测 1,083（16.81%）。</businessDescription>
+    <aggregate>count</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <where rdf:resource="https://cube.local/ontology/clinic#DeepDiscountLine"/>
+    <additivity>additive</additivity>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#invoiceId">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Invoice"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+    <rdfs:label>发票号</rdfs:label>
+    <physicalColumn>id</physicalColumn>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#decision">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    <rdfs:label>理赔结论</rdfs:label>
+    <physicalColumn>decision</physicalColumn>
+    <businessDescription>approved / rejected，可为 NULL（待决）。approved 679 / rejected 613 / 待决 642。拒赔的定义用它来限制集合。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#paidAt">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Payment"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#dateTime"/>
+    <rdfs:label>回款时间</rdfs:label>
+    <physicalColumn>paid_at</physicalColumn>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#filedAt">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#dateTime"/>
+    <rdfs:label>提交时间</rdfs:label>
+    <physicalColumn>filed_at</physicalColumn>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#pendingClaims">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>待决理赔笔数</rdfs:label>
+    <unit>count</unit>
+    <businessDescription>还没有裁决结果的理赔，实测 642（33.20%）。</businessDescription>
+    <aggregate>count</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+    <where rdf:resource="https://cube.local/ontology/clinic#PendingClaim"/>
+    <additivity>additive</additivity>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#Doctor">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:label>医生</rdfs:label>
+    <physicalTable>doctors</physicalTable>
+    <primaryKey>id</primaryKey>
+    <businessDescription>一位出诊医生。20 位，4 个科室（皮肤科 8 / 儿科 6 / 全科 5 / 骨科 1）。医生是预约上的一个角色，本身不拥有收入——收入只能经预约归到医生。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#Patient">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:label>患者</rdfs:label>
+    <physicalTable>patients</physicalTable>
+    <primaryKey>id</primaryKey>
+    <businessDescription>一位患者。600 行，人均 9 次预约（最多 19 次）。insurance_plan 是本库对患者支付方式的唯一记载（城镇医保 / 商业保险 / 自费）。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb38">
+    <xsd:minInclusive rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">1000.0</xsd:minInclusive>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#HighValueInvoice">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:label>高额发票</rdfs:label>
+    <owl:equivalentClass rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb36"/>
+    <thresholdSource>PENDING_BUSINESS_CONFIRMATION —— 这条线是 agent 348 提的、不是业务定的，进汇报前必须有人认领。依据：发票金额实测 p50=392.50、p90=760.00、p95=844.50、max=1,508.00，分布连续无断点，故取 p95 向上取整到 1,000。敏感度（实测）：≥800 有 238 张、≥1,000 有 51 张、≥1,200 有 6 张、≥1,500 有 1 张 —— 阈值一动名单规模差 4 倍，所以这个类只用于挑催收名单，不进任何收入口径。</thresholdSource>
+    <businessDescription>发票总额 ≥ 1,000 元的发票，实测 51 张（占 3,236 张的 1.6%）。只是催收名单入口，不是收入口径的一部分。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#scheduledAt">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#dateTime"/>
+    <rdfs:label>预约时间</rdfs:label>
+    <physicalColumn>scheduled_at</physicalColumn>
+    <businessDescription>约定的就诊时间。三个状态都有值，所以按时间分桶一律用这一列；区间 2026-07-10 → 2026-11-06 约 120 天，11 月只有 6 天数据。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb40">
+    <rdf:first rdf:resource="https://cube.local/ontology/clinic#Invoice"/>
+    <rdf:rest rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb41"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#revenueByTreatment">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>按项目收入</rdfs:label>
+    <unit>money</unit>
+    <businessDescription>按收费行算收入，按诊疗项目名分组。实测：X光 403,312、输液 274,356、慢病随访 230,415、感冒问诊 180,288（元）。项目名在 Treatment 上，经 收费行 → 项目 一跳。</businessDescription>
+    <aggregate>sum</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <formula>qty * unit_price * (1 - discount)</formula>
+    <groupBy rdf:resource="https://cube.local/ontology/clinic#treatmentName"/>
+    <additivity>additive</additivity>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#unitPrice">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    <rdfs:label>成交单价</rdfs:label>
+    <physicalColumn>unit_price</physicalColumn>
+    <businessDescription>开单当时的单价（成交价），不是价目表原价；原价在 Treatment.listPrice 上，两者可以不同。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#highValueInvoices">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>高额发票张数</rdfs:label>
+    <unit>count</unit>
+    <businessDescription>金额 ≥ 1,000 元的发票张数，实测 51。阈值是 PENDING 的（见 :HighValueInvoice），只作催收名单入口。</businessDescription>
+    <aggregate>count</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#Invoice"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#Invoice"/>
+    <where rdf:resource="https://cube.local/ontology/clinic#HighValueInvoice"/>
+    <additivity>additive</additivity>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#patientOfAppointment">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <rdfs:range rdf:resource="https://cube.local/ontology/clinic#Patient"/>
+    <rdfs:label>就诊患者</rdfs:label>
+    <physicalColumn>patient_id</physicalColumn>
+    <references rdf:resource="https://cube.local/ontology/clinic#Patient"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#listPrice">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Treatment"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    <rdfs:label>项目原价</rdfs:label>
+    <physicalColumn>list_price</physicalColumn>
+    <businessDescription>价目表原价。实际成交价在 TreatmentLine.unitPrice 上，两者不同，别把原价当收入来源。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#patientName">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Patient"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    <rdfs:label>患者姓名</rdfs:label>
+    <physicalColumn>name</physicalColumn>
+    <businessDescription>600 个姓名互不相同。是自然人的标识，不是可聚合维度；任何按姓名分组的报表都等于按人列出明细。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#RejectedClaim">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:label>已拒赔理赔</rdfs:label>
+    <owl:equivalentClass rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb17"/>
+    <businessDescription>保险公司拒赔，实测 613 笔。拒赔针对整张发票，本库没有逐项拒赔的粒度。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb32">
+    <xsd:minInclusive rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">0.2</xsd:minInclusive>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#TreatmentLine">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:label>诊疗明细行</rdfs:label>
+    <physicalTable>treatment_lines</physicalTable>
+    <primaryKey>appointment_id, seq</primaryKey>
+    <businessDescription>一次就诊里的一个收费项目行——多对多带载荷，所以它是一张独立的事实表，而不是一条链接。6,443 行，每次就诊 1–3 行。载荷为 quantity × unitPrice ×（1 − discountRate）。全部 3,236 张发票的行合计与发票总额一致（0 差异），这是指标的第二条代数路径。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#lineRevenue">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>按收费行算的诊疗收入</rdfs:label>
+    <unit>money</unit>
+    <businessDescription>按 数量 × 单价 × (1 - 折扣率) 逐行算再求和，实测 1,353,412.00 元，与 :invoiceRevenue 完全相等 —— 这是本本体唯一的跨表对账（两条独立路径）。若某天两者不等，说明收费行与发票脱钩了，那是数据问题不是口径问题。</businessDescription>
+    <aggregate>sum</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <formula>qty * unit_price * (1 - discount)</formula>
+    <additivity>additive</additivity>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#claimDecisionDays">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>平均理赔裁决天数</rdfs:label>
+    <unit>days</unit>
+    <businessDescription>已裁决理赔从提交到裁决的平均天数，实测 10.60 天（最短 1 天、最长 20 天）。本库没有承诺时效字段，所以这个数没有『应当是多少』，只有『实际是多少』；超期线需要业务给，见 REFUSED 第 2 条。</businessDescription>
+    <aggregate>avg</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+    <where rdf:resource="https://cube.local/ontology/clinic#DecidedClaim"/>
+    <additivity>non-additive</additivity>
+    <formula>EXTRACT(EPOCH FROM (decided_at - filed_at)) / 86400.0</formula>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#noShowAppointments">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>爽约数</rdfs:label>
+    <unit>count</unit>
+    <businessDescription>病人没到的预约，实测 1,077。</businessDescription>
+    <aggregate>count</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <where rdf:resource="https://cube.local/ontology/clinic#NoShowAppointment"/>
+    <additivity>additive</additivity>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#patientId">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Patient"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+    <rdfs:label>患者号</rdfs:label>
+    <physicalColumn>id</physicalColumn>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#decidedClaims">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>已裁决理赔笔数</rdfs:label>
+    <unit>count</unit>
+    <businessDescription>已出裁决结果的理赔，实测 1,292（679 核准 + 613 拒赔）。拒赔率的分母。</businessDescription>
+    <aggregate>count</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+    <where rdf:resource="https://cube.local/ontology/clinic#DecidedClaim"/>
+    <additivity>additive</additivity>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb29">
+    <rdf:first rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb25"/>
+    <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#Claim">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:label>保险理赔</rdfs:label>
+    <physicalTable>claims</physicalTable>
+    <primaryKey>id</primaryKey>
+    <businessDescription>一次向保险公司的理赔申请。1,934 笔，覆盖 1,934 张发票（每张最多 1 笔）。decision 与 decidedAt 可空：642 笔尚未出结论（占 33%），所以拒赔率的分母必须由业务定义，不能默认取全部。另有 111 笔 decidedAt 晚于数据库当前时间。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#quantity">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+    <rdfs:label>数量</rdfs:label>
+    <physicalColumn>qty</physicalColumn>
+    <businessDescription>这一行的项目数量。3,275 行数量 ≠ 1，按行数计费会算错，计价必须乘数量。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#paymentAmount">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Payment"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    <rdfs:label>回款金额</rdfs:label>
+    <physicalColumn>amount</physicalColumn>
+    <businessDescription>这一笔实收金额。多数小于发票金额（部分收款），因此不能当作发票金额的副本。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#paymentId">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Payment"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+    <rdfs:label>回款号</rdfs:label>
+    <physicalColumn>id</physicalColumn>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb25">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Restriction"/>
+    <owl:onProperty rdf:resource="https://cube.local/ontology/clinic#discountRate"/>
+    <owl:withRestrictions rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb27"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#appointments">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>预约数</rdfs:label>
+    <unit>count</unit>
+    <businessDescription>已排程的预约条数，实测 5,418。它是爽约率与取消率的分母（含取消），不是服务人次。</businessDescription>
+    <aggregate>count</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <additivity>additive</additivity>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#Appointment">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:label>预约就诊</rdfs:label>
+    <physicalTable>appointments</physicalTable>
+    <primaryKey>id</primaryKey>
+    <businessDescription>一次预约就诊：患者 × 医生 × 排班时间。5,418 次，是唯一的时间事实。status 三态互斥且穷尽：completed 3,236 / cancelled 1,105 / no_show 1,077。取消与爽约的就诊既没有发票也没有诊疗明细，因此『按预约算』与『按发票算』的分母天然不同。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb14">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Restriction"/>
+    <owl:onProperty rdf:resource="https://cube.local/ontology/clinic#decision"/>
+    <owl:hasValue>approved</owl:hasValue>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#Invoice">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:label>发票</rdfs:label>
+    <physicalTable>invoices</physicalTable>
+    <primaryKey>id</primaryKey>
+    <businessDescription>一张发票，与一次已完成就诊 1:1（3,236 张 / 3,236 次完成就诊）。invoiceTotal 是开票金额，不是收到的钱；收到的钱在 Payment 上。status（paid / unpaid）与回款事实存在矛盾——938 张标记 unpaid 的发票里 694 张已有回款，所以 status 不能当作收款口径，口径待阶段 4 由业务定。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#appointmentOfInvoice">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Invoice"/>
+    <rdfs:range rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <rdfs:label>开票对应的就诊</rdfs:label>
+    <physicalColumn>appointment_id</physicalColumn>
+    <references rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#appointmentStatus">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    <rdfs:label>预约状态</rdfs:label>
+    <physicalColumn>status</physicalColumn>
+    <businessDescription>completed（已完成）/ cancelled（取消）/ no_show（爽约）。互斥且穷尽，定义用它来限制集合。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#DeepDiscountLine">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:label>深度折扣收费行</rdfs:label>
+    <owl:equivalentClass rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb30"/>
+    <thresholdSource>分布事实 + 一个选择，两者都写明：折扣只取 0 / 0.1 / 0.2 三档，0.2 是唯一高档（1,083 行）。把深度折扣定义成最高档（minInclusive 0.2）而不是 0.15 之类中间值，因为数据里不存在 0.15 这一档 —— 任何中间阈值都等价于 0.2，写 0.2 才与数据同构。若业务将来引入 0.15 档，此处必须重新裁决。</thresholdSource>
+    <businessDescription>折扣率 ≥ 20% 的收费行，实测 1,083 行，让价 47,462 元（占总让价 71,458 元的 66.4%）。折扣政策的钱主要花在这一档上。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb1">
+    <owl:intersectionOf rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb3"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb15">
+    <rdf:first rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+    <rdf:rest rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb16"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#appointmentId">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+    <rdfs:label>预约号</rdfs:label>
+    <physicalColumn>id</physicalColumn>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb5">
+    <owl:intersectionOf rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb7"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb31">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Restriction"/>
+    <owl:onProperty rdf:resource="https://cube.local/ontology/clinic#discountRate"/>
+    <owl:withRestrictions rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb33"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#NoShowAppointment">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:label>爽约</rdfs:label>
+    <owl:equivalentClass rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb5"/>
+    <businessDescription>到点病人没来（status = no_show），实测 1,077 次。爽约既不是取消也不是完成：取消是提前说，爽约是没来。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#doctorId">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Doctor"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+    <rdfs:label>医生号</rdfs:label>
+    <physicalColumn>id</physicalColumn>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#DiscountedLine">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:label>打了折的收费行</rdfs:label>
+    <owl:equivalentClass rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb24"/>
+    <thresholdSource>分布事实，不需要业务认领：discount 列实测只取 0 / 0.1 / 0.2 三个值（4,291 / 1,069 / 1,083 行），0 与非 0 是数据里的自然分界。minExclusive 0 就是这处分界，不是我们划的线。</thresholdSource>
+    <businessDescription>折扣率大于 0 的收费行，实测 2,152 行（占 6,443 行的 33.40%）。用来把原价收入与让价分开看。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#doctorOfAppointment">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <rdfs:range rdf:resource="https://cube.local/ontology/clinic#Doctor"/>
+    <rdfs:label>接诊医生</rdfs:label>
+    <physicalColumn>doctor_id</physicalColumn>
+    <references rdf:resource="https://cube.local/ontology/clinic#Doctor"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#decidedAt">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#dateTime"/>
+    <rdfs:label>出结论时间</rdfs:label>
+    <physicalColumn>decided_at</physicalColumn>
+    <businessDescription>可空：642 笔为 NULL（尚未出结论）。与 decision 严格同步为空/非空。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#completedAppointments">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>完成就诊数</rdfs:label>
+    <unit>count</unit>
+    <businessDescription>真正发生的服务次数，实测 3,236（59.73%）。口径 = status completed，取消与爽约都不算。</businessDescription>
+    <aggregate>count</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <where rdf:resource="https://cube.local/ontology/clinic#CompletedAppointment"/>
+    <additivity>additive</additivity>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#treatmentOfLine">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <rdfs:range rdf:resource="https://cube.local/ontology/clinic#Treatment"/>
+    <rdfs:label>所属项目</rdfs:label>
+    <physicalColumn>treatment_code</physicalColumn>
+    <references rdf:resource="https://cube.local/ontology/clinic#Treatment"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#Treatment">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:label>诊疗项目</rdfs:label>
+    <physicalTable>treatments</physicalTable>
+    <primaryKey>code</primaryKey>
+    <businessDescription>一个可开单的收费项目（T01–T06：X光 / 感冒问诊 / 慢病随访 / 换药 / 血常规 / 输液），只有 6 个。主键是文本 code，不是自增 id。list_price 是价目表原价，实际收费在诊疗明细行上（含数量与折扣），两者可以不一致。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb28">
+    <rdf:first rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <rdf:rest rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb29"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb16">
+    <rdf:first rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb14"/>
+    <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#Payment">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:label>回款</rdfs:label>
+    <physicalTable>payments</physicalTable>
+    <primaryKey>id</primaryKey>
+    <businessDescription>一次收款动作。2,339 笔，覆盖 2,339 张发票（每张最多 1 笔）。只有 810 笔金额恰好等于发票总额，其余落在发票总额的 50%–100% 之间（部分收款）。另有 59 笔 paidAt 晚于数据库当前时间，任何 paidAt &lt;= now() 的窗口都会少算。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#invoiceOfPayment">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Payment"/>
+    <rdfs:range rdf:resource="https://cube.local/ontology/clinic#Invoice"/>
+    <rdfs:label>回款对应的发票</rdfs:label>
+    <physicalColumn>invoice_id</physicalColumn>
+    <references rdf:resource="https://cube.local/ontology/clinic#Invoice"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#treatmentLines">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>收费行数</rdfs:label>
+    <unit>count</unit>
+    <businessDescription>收费明细行数，实测 6,443。一次就诊平均 1.99 行（6,443 / 3,236），所以按行计数和按人次计数是两个数，问的时候要说清是哪一个。</businessDescription>
+    <aggregate>count</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <additivity>additive</additivity>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb4">
+    <rdf:first rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb2"/>
+    <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#lineSeq">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+    <rdfs:label>行号</rdfs:label>
+    <physicalColumn>seq</physicalColumn>
+    <businessDescription>同一就诊内的行序号，复合主键的一半。只用于唯一标识一行，不作为分析维度。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb39">
+    <rdf:first rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb38"/>
+    <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#paymentMethod">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Payment"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    <rdfs:label>回款方式</rdfs:label>
+    <physicalColumn>method</physicalColumn>
+    <businessDescription>医保结算 / 微信 / 现金 三种。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb6">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Restriction"/>
+    <owl:onProperty rdf:resource="https://cube.local/ontology/clinic#appointmentStatus"/>
+    <owl:hasValue>no_show</owl:hasValue>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb19">
+    <rdf:first rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+    <rdf:rest rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb20"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#collectionRate">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:label>回款率</rdfs:label>
+    <unit>ratio</unit>
+    <numerator rdf:resource="https://cube.local/ontology/clinic#collectedRevenue"/>
+    <denominator rdf:resource="https://cube.local/ontology/clinic#invoiceRevenue"/>
+    <scale>100.0</scale>
+    <businessDescription>实收 / 开票 = 756,089.20 / 1,353,412.00 = 55.87%。分子在 Payment 颗粒、分母在 Invoice 颗粒，跨颗粒比率 —— 编译器必须用两条独立的扫描再相除，不能把 payments 与 invoices 直接 join 后逐行算比率（一张发票多笔回款会重复计分母）。差额 597,322.80 元就是未回款，但不要把它叫应收余额：那只在本报告口径下成立。</businessDescription>
+    <aggregate>ratio_of_sums</aggregate>
+    <grain rdf:resource="https://cube.local/ontology/clinic#Invoice"/>
+    <universe rdf:resource="https://cube.local/ontology/clinic#Invoice"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#insurancePlan">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Patient"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    <rdfs:label>参保类型</rdfs:label>
+    <physicalColumn>insurance_plan</physicalColumn>
+    <businessDescription>城镇医保 / 商业保险 / 自费。注意：694 笔理赔发生在『自费』患者身上，所以这一列不等于『这笔费用由谁付』——矛盾已记入阶段 0，待业务澄清。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#birthYear">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Patient"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+    <rdfs:label>出生年份</rdfs:label>
+    <physicalColumn>birth_year</physicalColumn>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb8">
+    <rdf:first rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb6"/>
+    <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#treatmentName">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Treatment"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    <rdfs:label>项目名称</rdfs:label>
+    <physicalColumn>name</physicalColumn>
+    <businessDescription>X光 / 感冒问诊 / 慢病随访 / 换药 / 血常规 / 输液。『按项目看收入』匹配的是这一列。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#invoiceStatus">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Invoice"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    <rdfs:label>发票状态</rdfs:label>
+    <physicalColumn>status</physicalColumn>
+    <businessDescription>paid / unpaid。与回款事实互相矛盾（938 张 unpaid 中 694 张已收到钱），因此它记录的是流程状态，不是收款口径。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#discountRate">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    <rdfs:label>折扣率</rdfs:label>
+    <physicalColumn>discount</physicalColumn>
+    <businessDescription>折扣比例而不是折扣金额：0 到 0.2，均 0.050。2,152 行（33%）带折扣。折扣金额 = quantity × unitPrice × discountRate。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#CompletedAppointment">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Class"/>
+    <rdfs:label>已完成就诊</rdfs:label>
+    <owl:equivalentClass rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb1"/>
+    <businessDescription>病人来了、服务做完了。实测 3,236 次，占 5,418 次预约的 59.73%。这是唯一能用来算服务人次的定义。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb7">
+    <rdf:first rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <rdf:rest rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb8"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb27">
+    <rdf:first rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb26"/>
+    <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#invoiceTotal">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Invoice"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    <rdfs:label>发票金额</rdfs:label>
+    <physicalColumn>total</physicalColumn>
+    <businessDescription>开票金额（含全价，折扣已扣）。全库合计 1,353,412.00。这是应收，不是实收；实收在 Payment.paymentAmount 上，全库合计 756,089.20。</businessDescription>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb37">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Restriction"/>
+    <owl:onProperty rdf:resource="https://cube.local/ontology/clinic#invoiceTotal"/>
+    <owl:withRestrictions rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb39"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb36">
+    <owl:intersectionOf rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb40"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb12">
+    <rdf:first rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb10"/>
+    <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb17">
+    <owl:intersectionOf rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb19"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="https://cube.local/ontology/clinic#claimId">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:domain rdf:resource="https://cube.local/ontology/clinic#Claim"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+    <rdfs:label>理赔号</rdfs:label>
+    <physicalColumn>id</physicalColumn>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb22">
+    <rdf:first rdf:resource="https://cube.local/ontology/clinic#ApprovedClaim"/>
+    <rdf:rest rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb23"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb41">
+    <rdf:first rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb37"/>
+    <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb2">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Restriction"/>
+    <owl:onProperty rdf:resource="https://cube.local/ontology/clinic#appointmentStatus"/>
+    <owl:hasValue>completed</owl:hasValue>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb23">
+    <rdf:first rdf:resource="https://cube.local/ontology/clinic#RejectedClaim"/>
+    <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb35">
+    <rdf:first rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb31"/>
+    <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb20">
+    <rdf:first rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb18"/>
+    <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb34">
+    <rdf:first rdf:resource="https://cube.local/ontology/clinic#TreatmentLine"/>
+    <rdf:rest rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb35"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb26">
+    <xsd:minExclusive rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">0.0</xsd:minExclusive>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb18">
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#Restriction"/>
+    <owl:onProperty rdf:resource="https://cube.local/ontology/clinic#decision"/>
+    <owl:hasValue>rejected</owl:hasValue>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb3">
+    <rdf:first rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <rdf:rest rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb4"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb9">
+    <owl:intersectionOf rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb11"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb30">
+    <owl:intersectionOf rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb34"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb13">
+    <owl:intersectionOf rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb15"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb11">
+    <rdf:first rdf:resource="https://cube.local/ontology/clinic#Appointment"/>
+    <rdf:rest rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb12"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb24">
+    <owl:intersectionOf rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb28"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb33">
+    <rdf:first rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb32"/>
+    <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+  </rdf:Description>
+  <rdf:Description rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb21">
+    <owl:unionOf rdf:nodeID="n55ff94c5289b45b99f5a96b72b3ef88eb22"/>
+  </rdf:Description>
+</rdf:RDF>

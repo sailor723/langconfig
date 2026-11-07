@@ -1,0 +1,97 @@
+{
+ "_doc": "每条 sample 都是可跑的门禁。expect.value / expect.rows 的数字来自另一条手写 SQL（不是本流水线输出）；expect.refused_by_name 表示按名拒绝是对的；expect.unresolved 是**有记录、有理由的待办**：这条样例现在做不到，缺的是哪条声明写在这里，门禁每次运行都会把它列出来——不许静默通过。",
+ "samples": [
+  {
+   "question": "预约数是多少",
+   "expect": {
+    "metric": "appointments",
+    "value": "5418"
+   }
+  },
+  {
+   "question": "爽约率是多少",
+   "expect": {
+    "metric": "noShowRate",
+    "value": "19.8781838317",
+    "tolerance": 1e-06
+   }
+  },
+  {
+   "question": "理赔待决率是多少",
+   "expect": {
+    "metric": "pendingClaimRate",
+    "value": "33.1954498449",
+    "tolerance": 1e-06
+   }
+  },
+  {
+   "question": "回款率是多少",
+   "expect": {
+    "metric": "collectionRate",
+    "value": "55.8654127494",
+    "tolerance": 1e-06
+   }
+  },
+  {
+   "question": "按专科看预约数",
+   "expect": {
+    "metric": "appointmentsByDoctorSpecialty",
+    "rows": {
+     "儿科": "1644",
+     "全科": "1396",
+     "皮肤科": "2111",
+     "骨科": "267"
+    }
+   }
+  },
+  {
+   "question": "how many completed appointments were there",
+   "expect": {
+    "metric": "completedAppointments",
+    "value": "3236"
+   }
+  },
+  {
+   "question": "按患者城市看诊疗收入",
+   "expect": {
+    "unresolved": "问的是「按城市看收入」，现在被 :Patient 类以 600 作答（那是患者/城市行数，不是钱）。缺一条声明：:revenueByPatientCity（sum(invoices.total)，经 :appointmentOf/:patientOf 两跳按 patients.city 分组）。数据支持它：上海 356,874 · 无锡 361,352 · 杭州 291,279 · 苏州 343,907（合计 1,353,412 = 发票总额）。"
+   }
+  },
+  {
+   "question": "按诊疗项目看收入",
+   "expect": {
+    "unresolved": "拒绝（nothing declares a grouping by ['诊疗项目']）是对的——但这条样例就答不了。缺一条声明：:revenueByTreatmentItem（sum(qty*unit_price*(1-discount))，按 treatments.name 分组）。数据支持它：X光 403,312 · 输液 274,356 · 慢病随访 230,415 · 感冒问诊 180,288 · 换药 140,049 · 血常规 124,992。"
+   }
+  },
+  {
+   "question": "高额发票有几张",
+   "expect": {
+    "unresolved": "问的是「几张」，现在由 :HighValueInvoice 类作答（51，数字对、答案类型不对）。应声明 :highValueInvoiceCount（:aggregate count、:grain :Invoice、:where :HighValueInvoice）。"
+   }
+  },
+  {
+   "question": "待决理赔有几笔",
+   "expect": {
+    "unresolved": "拒绝是对的（:pendingClaims 筛 :PendingClaim，而那个类没有落地表）。要修的是声明：给 :PendingClaim 补 :subClassOf :Claim（或改 :pendingClaims 直接筛 claims.decision IS NULL）；现在库里有 642 笔待决。"
+   }
+  },
+  {
+   "question": "平均理赔裁决天数是多少",
+   "expect": {
+    "refused_by_name": "claimDecisionDays is declared but refused by the compiler"
+   }
+  },
+  {
+   "question": "应收余额是多少",
+   "expect": {
+    "unresolved": "拒绝（不在菜单上）是对的：没有任何声明叫「应收余额」。要答它需要一条业务定义（应收 = 发票总额 − 已收款？按客户还是按险种？），这不是建模问题而是业务问题，所以先记在这里。参考：发票总额 1,353,412 − 已收 756,089.2 = 597,322.8。"
+   }
+  },
+  {
+   "question": "按险种看拒赔率",
+   "expect": {
+    "unresolved": "拒绝（nothing declares a grouping by ['险种']）是对的；需要一条 :deniedRateByInsurer 的声明（claims 的 insurer 是 A保险 / B保险 两个值），并把拒赔（decision 的取值）作为定义类写出来。"
+   }
+  }
+ ]
+}

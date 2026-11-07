@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-store">
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Step 3 — an initial ontology (concepts + actions)</title>
+<style>
+  body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  header a { color:#9fb8cf; font-size:13px; }
+  main { max-width:1120px; margin:20px auto; padding:0 20px; }
+  .cols { display:grid; grid-template-columns:5fr 7fr; gap:16px; }
+  @media (max-width:980px) { .cols { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:16px 18px; margin-bottom:14px; }
+  h2 { margin:0 0 10px; font-size:13px; letter-spacing:.5px; color:#334e68; text-transform:uppercase; }
+  h3 { margin:14px 0 6px; font-size:12px; color:#334e68; }
+  .obj { border:1px solid #e4e8ec; border-radius:8px; padding:10px 12px; margin-bottom:10px; background:#fbfcfd; }
+  .obj .t { font-size:13px; font-weight:600; color:#0b4f9c; }
+  .obj .d { font-size:11px; color:#687b8f; margin:2px 0 6px; }
+  .def { margin:8px 0 0; padding:8px 10px; border-left:3px solid #8a6d3b; background:#fdf6e3;
+         border-radius:4px; font:10.5px ui-monospace,Menlo,monospace; color:#6b5a2e;
+         white-space:pre-wrap; }
+  .props { display:flex; flex-wrap:wrap; gap:6px; }
+  .prop { font:9.5px ui-monospace,Menlo,monospace; background:#eef2f6; border-radius:4px;
+          padding:2px 6px; color:#4a6f9c; }
+  .prop.pk { background:#eef3fb; color:#0b4f9c; }
+  .prop.w { background:#fbe9e7; color:#b3261e; }
+  pre.ttl { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px; font:10.5px/1.5
+            ui-monospace,Menlo,monospace; white-space:pre-wrap; overflow:auto; max-height:280px; }
+  .schema, .schema th, .schema td { font-size:10.5px; font-family:-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .schema th { font-size:9.5px; letter-spacing:.08em; color:#7a8899; padding:4px 8px; }
+  .schema td { padding:4px 8px; color:#4a5568; }
+  .schema td:first-child { font-family:ui-monospace,Menlo,monospace; font-size:9.5px; color:#334e68; }
+  .schema-box { background:#f2f4f6; border:1px solid #e4e8ec; border-radius:8px;
+                padding:10px 12px 6px; margin-bottom:14px; }
+  .box-label { font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:#687b8f;
+               margin:0 0 4px; }
+  #q { width:100%; box-sizing:border-box; font:14px ui-monospace,Menlo,monospace;
+       border:1px solid #cdd5df; border-radius:8px; padding:10px; }
+  button { margin-top:10px; background:#0b4f9c; color:#fff; border:0; border-radius:8px;
+           padding:9px 16px; font-size:13px; cursor:pointer; }
+  .ex { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .ex button { margin:0; background:#eef2f6; color:#0b4f9c; font-size:12px; padding:5px 10px; }
+  pre#sql { display:none; background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px;
+            font:12px ui-monospace,Menlo,monospace; white-space:pre-wrap; margin-top:12px; }
+  #why { display:none; color:#8a6d3b; font-size:12px; margin-top:8px; }
+  #hint { display:none; color:#b3261e; font-size:12px; margin-top:10px; }
+  .badge { font-size:11px; border-radius:4px; padding:1px 7px; background:#eef2f6; color:#4a6f9c; }
+  .badge.read { background:#eef3fb; color:#0b4f9c; }
+  .badge.action { background:#fbe9e7; color:#b3261e; }
+  table.res { width:100%; border-collapse:collapse; font-size:12px; margin-top:10px; display:none; }
+  table.res th { text-align:left; font-size:11px; text-transform:uppercase; color:#687b8f; padding:5px 8px;
+                 border-bottom:1px solid #e3e6ea; }
+  table.res td { padding:5px 8px; border-bottom:1px solid #f0f2f5; font-family:ui-monospace,Menlo,monospace; }
+  .big { font-size:32px; color:#0b4f9c; font-weight:700; text-align:center; padding:8px 0 2px; display:none; }
+  .note { font-size:12px; color:#687b8f; margin-top:8px; line-height:1.5; }
+  .note code { background:#eef2f6; padding:1px 4px; border-radius:4px; font-size:11px; }
+</style></head>
+<body>
+<header><h1>Step 3 — an initial ontology: concepts + actions</h1>
+  <span class="rev" style="display:block;margin-top:4px;font:10px ui-monospace,Menlo,monospace;color:#9fb8cf;opacity:.85">step 3 · reasoning — rev split-3/4</span>
+</header>
+<main>
+    <div class="cols">
+    <div>
+      <div class="card">
+        <h2>The ontology: object types</h2>
+        <div id="objects"></div>
+        <div class="note">Same tables as steps 1–2, now declared as <b>object types</b> with typed
+          properties. Red = written only by actions (<code>:state "action"</code>).</div>
+      </div>
+      <div class="card">
+        <h2>Live data — stored object types</h2>
+        <table class="schema" style="width:100%"><thead><tr><th>id</th><th>name</th><th>stored as</th></tr></thead>
+          <tbody id="livec"></tbody></table>
+        <div class="note" id="liveinfo"></div>
+        <div class="note">Each row is stored under ONE object type, decided by its <code>tier</code>
+          value: a STANDARD row is a <code>:Customer</code>; a PREMIUM row is a
+          <code>:PremiumCustomer</code>. That a PremiumCustomer is ALSO a Customer is the
+          <b>derived</b> fact — see step 5.</div>
+      </div>
+      <div class="card">
+        <h2>The definition (a class, not a table)</h2>
+        <pre class="ttl" id="defpre">loading …</pre>
+        <div class="note">A <b>defined class</b> has no rows of its own: membership is derived
+          from this axiom. The read path compiles it to a WHERE predicate.</div>
+      </div>
+      <div class="card">
+        <h2>What is NOT shown here yet</h2>
+        <div class="note" style="margin-top:0">The data below says Dana's <code>tier</code> is
+          PREMIUM — it does <b>not</b> say “Dana is a Customer”. That extra fact is a
+          <b>reasoning result</b> and belongs to step 5; here we only look at what is stored.</div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Ask the ontology</h2>
+      <input id="q" placeholder="e.g. which customers are premium?"/>
+      <div class="ex" id="examples"></div>
+      <button id="run">Ask (compiled ontology query)</button>
+      <div style="margin-top:10px"><span class="badge" id="kind"></span></div>
+      <pre id="sql"></pre>
+      <div id="why"></div>
+      <div class="big" id="big"></div>
+      <table class="res" id="result"><thead id="rhead"></thead><tbody id="rbody"></tbody></table>
+      <div id="hint"></div>
+      <div id="ttlbox" style="display:none">
+        <p class="box-label" style="margin-top:14px">the definition behind the answer</p>
+        <pre class="ttl" id="ttl"></pre>
+      </div>
+      <div class="note">No joins yet: each question reads ONE object type. The difference from
+        steps 1–2: the <code>WHERE</code> predicate for “premium customers” is <b>compiled from
+        the ontology axiom</b>, not typed into the query.</div>
+    </div>
+  </div>
+</main>
+<script>
+const EX = [
+  "which customers are premium?",
+  "how many customers",
+  "list orders",
+  "how many orders",
+  "promote customer 4",
+];
+const F = id => document.getElementById(id);
+EX.forEach(t => {
+  const b = document.createElement('button');
+  b.textContent = t;
+  b.onclick = () => { F('q').value = t; run(); };
+  F('examples').appendChild(b);
+});
+
+async function loadDef() {
+  const j = await (await fetch('/api/tutorial3/objects')).json();
+  if (j.ok) F('defpre').textContent = j.axiom;
+}
+
+async function loadTable() {
+  const j = await (await fetch('/api/tutorial3/table')).json();
+  if (!j.ok) return;
+  F('livec').innerHTML = j.rows.map(r => {
+    const stored = r[2] === 'PREMIUM' ? ':PremiumCustomer' : ':Customer';
+    const cls = r[2] === 'PREMIUM' ? 'tier-PREMIUM' : '';
+    return `<tr><td>${r[0]}</td><td>${r[1]}</td><td class="${cls}">${stored}</td></tr>`;
+  }).join('');
+  F('liveinfo').textContent = j.rows.length + ' customers · ' + j.orders +
+    ' orders — this table refreshes after every action and every query.';
+}
+
+async function loadObjects() {
+  const j = await (await fetch('/api/tutorial3/objects')).json();
+  if (!j.ok) return;
+  F('objects').innerHTML = j.classes.map(c => {
+    const props = c.properties.map(([p, col]) =>
+      `<span class="prop" title="property ${p} → column ${col}">:${p}</span>`).join('');
+    if (c.defined) {
+      return `<div class="obj">
+        <div class="t">:${c.name} <span class="badge" style="background:#fdf6e3;color:#8a6d3b">defined class</span></div>
+        <div class="d">no rows of its own — membership is DERIVED from the definition below</div>
+        <div class="def">:${c.name} ≡ :${c.base} ⊓ (${c.predicate})
+        # the read path compiles this to: WHERE ${c.predicate}</div>
+      </div>`;
+    }
+    return `<div class="obj">
+      <div class="t">:${c.name}</div>
+      <div class="d">table ${c.table || '—'} · key ${c.pk || '—'}</div>
+      <div class="props">${props}</div>
+    </div>`;
+  }).join('');
+  const a = (j.actions || []).find(x => x.name === 'PromoteCustomer');
+  if (a) {
+    F('action').innerHTML = `<div class="t">PromoteCustomer</div>
+      <div class="d">applies to :${a.applies_to} · params ${a.parameters.join(', ')}</div>
+      <div class="props">${(a.preconditions || []).map(p =>
+        `<span class="prop">check · ${p}</span>`).join('')}</div>
+      <div class="props" style="margin-top:6px"><span class="prop w">${a.effect}</span></div>`;
+  }
+}
+
+function show(text) { F('hint').style.display = 'block'; F('hint').textContent = text; }
+
+async function run() {
+  ['sql', 'why', 'hint', 'ttlbox'].forEach(id => F(id).style.display = 'none');
+  F('result').style.display = 'none'; F('big').style.display = 'none';
+  F('kind').textContent = ''; F('kind').className = 'badge';
+  const q = F('q').value.trim();
+  if (!q) return;
+  F('sql').style.display = 'block'; F('sql').textContent = 'running …';
+  try {
+    const j = await (await fetch('/api/tutorial3', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q }) })).json();
+    if (!j.ok) { F('sql').style.display = 'none'; show(j.hint || 'no match'); return; }
+    F('kind').className = 'badge ' + j.kind;
+    F('kind').textContent = j.kind === 'action' ? 'action type — dry-run (no write)'
+                                                : 'read — compiled from the ontology';
+    F('sql').textContent = j.sql || '';
+    F('why').style.display = 'block';
+    F('why').textContent = j.why || '';
+    F('sql').textContent = j.sql || '';
+    if (j.kind === 'action') {
+      F('result').style.display = 'table';
+      F('rhead').innerHTML = '<tr><th>check</th><th>compiled SQL</th><th>pass</th></tr>';
+      F('rbody').innerHTML = (j.checks || []).map(c =>
+        `<tr><td>${c.kind}</td><td>${c.sql}</td><td>${c.pass ? '✓' : '✗'}</td></tr>`).join('');
+      F('why').textContent = (j.admitted ? '✓ ADMITTED (dry-run) — ' : '✗ REFUSED — ')
+        + j.why;
+      F('big').style.display = 'block';
+      F('big').textContent = j.admitted ? 'ADMITTED' : 'REFUSED';
+      return;
+    }
+    if (j.cols.length === 1) {
+      F('big').style.display = 'block';
+      F('big').textContent = j.rows.length ? j.rows[0][0] : '0';
+    } else {
+      F('rhead').innerHTML = '<tr>' + j.cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+      F('rbody').innerHTML = j.rows.map(r =>
+        '<tr>' + r.map(v => `<td>${v}</td>`).join('') + '</tr>').join('');
+      F('result').style.display = 'table';
+    }
+    F('ttlbox').style.display = 'block';
+    F('ttl').textContent = j.ttl || '';
+  } catch (e) { F('sql').style.display = 'none'; show('request failed: ' + e); }
+}
+F('run').onclick = run;
+F('q').addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
+loadObjects();
+loadDef();
+loadTable();
+</script>
+</body></html>

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Step 5 — premium is a definition, not a column</title>
+<style>
+  body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  header a { color:#9fb8cf; font-size:13px; }
+  main { max-width:1120px; margin:20px auto; padding:0 20px; }
+  .cols { display:grid; grid-template-columns:5fr 7fr; gap:16px; }
+  @media (max-width:980px) { .cols { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:16px 18px; margin-bottom:14px; }
+  h2 { margin:0 0 10px; font-size:13px; letter-spacing:.5px; color:#334e68; text-transform:uppercase; }
+  table { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px; }
+  th { text-align:left; font-size:10.5px; text-transform:uppercase; color:#687b8f; padding:4px 8px;
+       border-bottom:1px solid #e3e6ea; }
+  td { padding:4px 8px; border-bottom:1px solid #f0f2f5; font-family:ui-monospace,Menlo,monospace; }
+  pre.ttl { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px;
+            font:10.5px/1.55 ui-monospace,Menlo,monospace; white-space:pre-wrap; margin:0;
+            max-height:300px; overflow:auto; }
+  pre.sql { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px;
+            font:11px/1.55 ui-monospace,Menlo,monospace; white-space:pre-wrap; margin-top:10px; }
+  button { margin-top:10px; background:#0b4f9c; color:#fff; border:0; border-radius:8px;
+           padding:8px 14px; font-size:13px; cursor:pointer; }
+  .note { font-size:12px; color:#687b8f; margin-top:8px; line-height:1.55; }
+  .note code { background:#eef2f6; padding:1px 4px; border-radius:4px; font-size:11px; }
+  .def { background:#fdf6e3; border-left:3px solid #8a6d3b; border-radius:4px;
+         padding:8px 10px; margin-top:10px; font:11px ui-monospace,Menlo,monospace;
+         color:#6b5a2e; white-space:pre-wrap; }
+  table.res { display:none; }
+  table.res td { color:#1d6b33; font-weight:600; }
+</style></head>
+<body>
+<header><h1>Step 5 — premium is a definition, not a column</h1>
+</header>
+<main>
+    <div class="cols">
+    <div>
+      <div class="card">
+        <h2>What is stored</h2>
+        <p class="note" style="margin-top:0">Only customers and what they did. There is
+          <b>no premium column</b> — “premium” is not a fact anybody recorded.</p>
+        <table><thead><tr><th>id</th><th>name</th></tr></thead><tbody id="cust"></tbody></table>
+        <table><thead><tr><th>order</th><th>customer</th><th>amount</th></tr></thead><tbody id="ords"></tbody></table>
+        <div class="note">Dana's order is 500. Bob 250, Chen 99.50, Amara 120. The rule will say
+          only Dana qualifies.</div>
+      </div>
+      <div class="card">
+        <h2>The definition (TTL)</h2>
+        <pre class="ttl" id="ttl">loading …</pre>
+        <div class="def">:PremiumCustomer ≡ :Customer ⊓ ∃:placesOrder.(:Order ⊓ (:amount ≥ 500))</div>
+        <div class="note">The threshold <code>500</code> lives here, in the ontology — it is not
+          typed into any SQL statement.</div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Compile the definition to SQL (lane A)</h2>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px">
+        <label style="font-size:12px;color:#334e68">premium gate · amount ≥</label>
+        <input id="gate" type="number" value="500" step="50" min="0"
+               style="width:90px;font:13px ui-monospace,Menlo,monospace;padding:5px 7px;
+                      border:1px solid #cdd5df;border-radius:6px"/>
+        <button id="compile" style="margin-top:0">Compile &amp; run</button>
+      </div>
+      <div class="note" style="margin-top:6px">The gate is a parameter of the DEFINITION. Changing
+        it rewrites the axiom's facet and recompiles — the number is never typed into SQL by hand.
+        Try 300 (adds Bob) or 900 (nobody qualifies).</div>
+      <pre class="sql" id="sqlout" style="display:none"></pre>
+      <div class="box-label" style="display:none;font-size:9.5px;letter-spacing:.08em;
+           text-transform:uppercase;color:#687b8f;margin:14px 0 4px" id="lbl">result</div>
+      <table class="res" id="res"><thead><tr><th>id</th><th>name</th></tr></thead>
+        <tbody id="resbody"></tbody></table>
+      <div class="note" id="expl">The compiler turns the axiom into a correlated EXISTS:
+        <code>customers</code> joined to <code>orders</code> by the declared FK, with
+        <code>amount &gt;= 500</code>. The runtime answer is plain SQL — no reasoner on the
+        request path.</div>
+      <div class="note">HermiT is a <b>design-time</b> tool: it validates that this definition is
+        consistent and classifies sample instances; the same definition is then compiled for
+        execution. This axiom is outside OWL 2 QL, so lane B (Ontop) would silently drop it —
+        which is exactly why the compiled lane owns the answer.</div>
+    </div>
+  </div>
+</main>
+<script>
+const F = id => document.getElementById(id);
+
+async function loadData() {
+  try {
+    const j = await (await fetch('/api/tutorial2/table')).json();
+    if (!j.ok) return;
+    F('cust').innerHTML = j.customers.rows.map(r =>
+      `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
+    F('ords').innerHTML = j.orders.rows.map(r =>
+      `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('');
+  } catch (e) {}
+}
+
+async function compileDef() {
+  F('sqlout').style.display = 'block';
+  F('sqlout').textContent = 'compiling …';
+  F('lbl').style.display = 'block';
+  F('res').style.display = 'none';
+  try {
+    const gate = Number(F('gate').value || 500);
+    const j = await (await fetch('/api/tutorial5/compile?gate=' + encodeURIComponent(gate))).json();
+    if (!j.ok) { F('sqlout').textContent = 'error: ' + j.error; return; }
+    F('ttl').textContent = j.ttl;
+    F('sqlout').textContent = 'gate = ' + (j.gate ?? gate) + '\n' + j.sql;
+    F('resbody').innerHTML = j.rows.length
+      ? j.rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')
+      : '<tr><td colspan="2">nobody qualifies at this gate</td></tr>';
+    F('res').style.display = 'table';
+  } catch (e) { F('sqlout').textContent = 'request failed: ' + e; }
+}
+F('compile').onclick = compileDef;
+loadData();
+</script>
+</body></html>

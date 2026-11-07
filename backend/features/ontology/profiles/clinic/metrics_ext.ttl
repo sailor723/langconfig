@@ -1,0 +1,194 @@
+# =====================================================================
+# clinic 本体 · metrics_ext.ttl  —— 计算覆盖层（阶段 5 产物）
+#
+# 分工：02-meaning.ttl 说"什么意思"（定义、阈值、分子分母是谁），
+#       本文件只说"怎么算"（:aggregate / :grain / :universe / :where / :groupBy / :formula）。
+#
+# 为什么比率的三件套不重复写在这里：:numerator / :denominator / :scale 已经在
+# 02-meaning.ttl 里声明过，"谁的比谁"是含义不是算法；本文件只补 :aggregate
+# "ratio_of_sums" 与 :grain/:universe。编译器把目录 + overlay 读进同一张图，
+# 位置不影响合并结果 —— 但同一个三元组绝不在两个文件里各写一遍（那就是两个真相）。
+#
+# 三条硬约束（阶段 6 的变异测试就照这三条打）：
+#   ① 每个带 :formula 的指标必须有 :grain —— 删掉 :grain 必须被拒绝；
+#   ② 每个指标必须有 :universe，且 :universe 要么等于 :grain，要么是它的子类；
+#      没有 :universe 的指标等于"不知道在谁的集合里数数"；
+#   ③ :where 只指向 02-meaning.ttl 声明过的类，且该类只能有一个判定方式
+#      （公理 XOR :physicalPredicate），两边都写必须被拒绝。
+# =====================================================================
+@prefix : <https://cube.local/ontology/clinic#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+
+# ---------------------------------------------------------------------
+# 一、计数：预约（颗粒 Appointment，总体 = 全部已排程预约）
+# ---------------------------------------------------------------------
+:appointments a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :Appointment ; :universe :Appointment ;
+    :additivity "additive" .
+:completedAppointments a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :Appointment ; :universe :Appointment ;
+    :where :CompletedAppointment ; :additivity "additive" .
+:noShowAppointments a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :Appointment ; :universe :Appointment ;
+    :where :NoShowAppointment ; :additivity "additive" .
+:cancelledAppointments a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :Appointment ; :universe :Appointment ;
+    :where :CancelledAppointment ; :additivity "additive" .
+
+# ---------------------------------------------------------------------
+# 二、计数：收费行（颗粒 TreatmentLine，总体 = 全部收费行）
+# ---------------------------------------------------------------------
+:treatmentLines a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :TreatmentLine ; :universe :TreatmentLine ;
+    :additivity "additive" .
+:discountedLines a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :TreatmentLine ; :universe :TreatmentLine ;
+    :where :DiscountedLine ; :additivity "additive" .
+:deepDiscountLines a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :TreatmentLine ; :universe :TreatmentLine ;
+    :where :DeepDiscountLine ; :additivity "additive" .
+
+# ---------------------------------------------------------------------
+# 三、计数：理赔（颗粒 Claim，总体 = 全部已提交理赔）
+#     :pendingClaims 的 :where 用的是 :physicalPredicate 定义的类 —— 覆盖层不关心
+#     它怎么判定的，只关心它是 02 里声明过的类。
+# ---------------------------------------------------------------------
+:claims a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :Claim ; :universe :Claim ;
+    :additivity "additive" .
+:pendingClaims a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :Claim ; :universe :Claim ;
+    :where :PendingClaim ; :additivity "additive" .
+:decidedClaims a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :Claim ; :universe :Claim ;
+    :where :DecidedClaim ; :additivity "additive" .
+:rejectedClaims a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :Claim ; :universe :Claim ;
+    :where :RejectedClaim ; :additivity "additive" .
+
+# ---------------------------------------------------------------------
+# 四、计数：发票（颗粒 Invoice）—— 唯一带 PENDING 阈值的指标
+# ---------------------------------------------------------------------
+:highValueInvoices a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :Invoice ; :universe :Invoice ;
+    :where :HighValueInvoice ; :additivity "additive" .
+
+# ---------------------------------------------------------------------
+# 五、金额：三条互相独立的求和路径
+#     :invoiceRevenue 走发票表，:lineRevenue 走收费行（两跳不同表），
+#     两者必须相等（1,353,412.00）—— 这是本本体的跨表对账锚点。
+#     :discountGiven 走第三条路（让价），满足 原价 = 净额 + 让价。
+# ---------------------------------------------------------------------
+:invoiceRevenue a owl:DatatypeProperty ;
+    :aggregate "sum" ; :grain :Invoice ; :universe :Invoice ;
+    :formula "total" ; :additivity "additive" .
+:collectedRevenue a owl:DatatypeProperty ;
+    :aggregate "sum" ; :grain :Payment ; :universe :Payment ;
+    :formula "amount" ; :additivity "additive" .
+:lineRevenue a owl:DatatypeProperty ;
+    :aggregate "sum" ; :grain :TreatmentLine ; :universe :TreatmentLine ;
+    :formula "qty * unit_price * (1 - discount)" ; :additivity "additive" .
+:discountGiven a owl:DatatypeProperty ;
+    :aggregate "sum" ; :grain :TreatmentLine ; :universe :TreatmentLine ;
+    :formula "qty * unit_price * discount" ; :additivity "additive" .
+
+# ---------------------------------------------------------------------
+# 六、比率：一律 ratio_of_sums（先各自求和再相除），永不逐行算比再平均
+#     :collectionRate 与 :revenuePerCompletedVisit 是跨颗粒比率：
+#     :grain 取分子的颗粒（声明"这次扫描的主表是谁"），分母用独立的第二次扫描。
+#     逐行 join 后再算比会重复计分母（一张发票多笔回款），必须在编译期避免。
+# ---------------------------------------------------------------------
+:noShowRate a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Appointment ; :universe :Appointment .
+:cancellationRate a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Appointment ; :universe :Appointment .
+:collectionRate a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Invoice ; :universe :Invoice .
+:revenuePerCompletedVisit a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Invoice ; :universe :Invoice .
+:rejectionRate a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Claim ; :universe :Claim .
+:pendingClaimRate a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Claim ; :universe :Claim .
+:deepDiscountLineShare a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :TreatmentLine ; :universe :TreatmentLine .
+
+# ---------------------------------------------------------------------
+# 七、平均：理赔裁决时长
+#     :formula 是逐行表达式（两个时间列相减），所以必须有 :grain；
+#     :where :DecidedClaim 让 642 笔待决的 NULL 被排除在平均之外 ——
+#     少了这个 :where，NULL 会被 AVG 静默跳过（结果侥幸相同），
+#     但行数会从 1,292 变成 1,934，任何"人均"类指标都会错。宁可显式声明。
+# ---------------------------------------------------------------------
+:claimDecisionDays a owl:DatatypeProperty ;
+    :aggregate "avg" ; :grain :Claim ; :universe :Claim ;
+    :where :DecidedClaim ; :additivity "non-additive" ;
+    :formula "EXTRACT(EPOCH FROM (decided_at - filed_at)) / 86400.0" .
+
+# ---------------------------------------------------------------------
+# 八、分维度：键在别的对象上，路径由 01 的 :references 决定，不在这里写 JOIN
+#     按城市要三跳（收费行 → 预约 → 患者），按项目一跳，按专科两跳（预约 → 医生）。
+#     任何一跳的 :references 被删掉，这些指标必须被拒绝而不是猜路径。
+# ---------------------------------------------------------------------
+:revenueByPatientCity a owl:DatatypeProperty ;
+    :aggregate "sum" ; :grain :TreatmentLine ; :universe :TreatmentLine ;
+    :formula "qty * unit_price * (1 - discount)" ; :groupBy :city ; :additivity "additive" .
+:revenueByTreatment a owl:DatatypeProperty ;
+    :aggregate "sum" ; :grain :TreatmentLine ; :universe :TreatmentLine ;
+    :formula "qty * unit_price * (1 - discount)" ; :groupBy :treatmentName ; :additivity "additive" .
+:appointmentsByStatus a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :Appointment ; :universe :Appointment ;
+    :groupBy :appointmentStatus ; :additivity "additive" .
+:appointmentsByDoctorSpecialty a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :Appointment ; :universe :Appointment ;
+    :groupBy :specialty ; :additivity "additive" .
+
+
+# =====================================================================
+# 九、刻意不声明的指标（REFUSED 预演 · 阶段 9 的正式清单从这里长出来）
+#     每条都是"不声明"的决定，写在这里是为了让下一个人不必重新踩一遍。
+#     拒绝的理由分三类：没有分母、没有口径、数据自相矛盾。
+# =====================================================================
+
+# 1. :outstandingReceivable 应收余额 —— 跨颗粒差，没有单一 grain 能同时持有两个总体
+#    开票额在 Invoice、回款额在 Payment，相减得到的数不属于任何颗粒；
+#    真要声明就得先定账龄基准日与"部分回款如何归属"，这两件事业务没给。
+#    替代：:invoiceRevenue - :collectedRevenue = 597,322.80 只能作为本报告口径下的差额，
+#    不能叫应收余额。这个差额的分母是 2,426 张有余额的发票：897 张完全未收款（合计
+#    374,410.00）、1,529 张部分收款（补差 222,912.80）、810 张恰好收齐、0 张超额收款。
+#    另注：本库实测 0 张发票有超过 1 笔回款，所以逐张余额用一次子查询就能算 —— 但那需要
+#    一个以 Invoice 为颗粒、formula 里能内嵌子查询的指标类型，本编译层没有这种类型，
+#    硬写就是绕过 grain。
+
+# 2. :slowClaimRate 超期理赔率 —— 没有阈值来源
+#    裁决时长 1–20 天近乎均匀（每个 2 天区间 106–137 笔；最长端 19–20 天 134 笔，
+#    与最短端 1–2 天的 134 笔一样多），没有断点；
+#    任何 N 天都是凭空划的。业务给出承诺时效之前不出这个指标。
+#    替代：:claimDecisionDays（10.60 天）只说事实，不说好坏。
+
+# 3. :doctorUtilization 医生产能利用率 —— 没有分母
+#    本库只有预约结果，没有医生班表/可约时段。拿预约数当分母是循环论证。
+#    要这个指标必须先有 capacity 表。
+
+# 4. :selfPayClaimRate 按险种拆理赔 —— 数据自相矛盾
+#    patients.insurance_plan 与 claims 的存在对不上：保险计划标为 自费 的 214 名患者身上
+#    挂着 694 笔理赔（225 待决 / 235 核准 / 234 拒赔），『自费』身份与『有保险理赔』直接矛盾。
+#    调和它需要付款方台账，本库没有。任何"按险种"的理赔指标一律拒绝。
+
+# 5. :yoyGrowth 同比 —— 没有对照窗口
+#    数据只有单一 120 天窗口（2026-07-10 ~ 2026-11-06，db now = 2026-11-06）。
+#    环比可以按 :scheduledAt 自建窗口，同比不可能。
+
+# 6. :paidInvoiceRate 已收款发票占比 —— 依据是错的列
+#    invoices.status 与 payments 互相矛盾（status 说未付的里面有已收款，反之亦然）。
+#    用 status 算收款口径会给出一个自洽但错误的数。要用回款就必须走 :collectedRevenue。
+
+# 7. :reimbursedAmount 核减金额 —— 字段不存在
+#    claims 只有 decision（approved / rejected），没有赔付金额，也没有核减额。
+#    能回答"拒了几笔"，不能回答"少收多少钱"。
+
+# 8. :startedAt 相关的一切时间分桶 —— 字段不可用
+#    appointments.started_at 对 2,182 行恒为 NULL（40.3%）。任何以它为时间轴的
+#    指标都会静默丢掉这部分预约。时间轴一律用 :scheduledAt。

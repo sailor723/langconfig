@@ -1,0 +1,90 @@
+{
+  "title": "TPC-H ontology",
+  "ns": "https://cube.local/ontology/tpch#",
+  "ontology_dir": "ontology",
+  "overlay": "metrics_ext.ttl",
+  "dsn": {
+    "host": "127.0.0.1",
+    "port": 5432,
+    "dbname": "tpch",
+    "user": "weiping",
+    "password": ""
+  },
+  "sample": 20,
+  "lane": "a",
+  "nl": {
+    "backend": "auto",
+    "model": "",
+    "answer_llm": true
+  },
+  "ontop_endpoint": "http://127.0.0.1:8080/sparql",
+  "ontop_ns": "http://example.org/tpch#",
+  "ui": {
+    "language": "en"
+  },
+  "guard": {
+    "enabled": true,
+    "max_rows": 1000,
+    "default_window_days": 36500,
+    "statement_timeout_ms": 10000,
+    "max_plan_rows": 5000000,
+    "big_tables": {
+      "lineitem": "l_shipdate",
+      "orders": "o_orderdate"
+    }
+  },
+  "features": {
+    "actions": false,
+    "lane_b": false,
+    "tutorial": false
+  },
+  "app_html": "ontology.html",
+  "samples": [
+    "net revenue",
+    "revenue by region",
+    "revenue by nation",
+    "revenue by product",
+    "contribution margin",
+    "contribution margin percentage",
+    "supply cost",
+    "total discount",
+    "weighted average discount",
+    "average order value",
+    "late line revenue",
+    "returned line value",
+    "line items by return flag",
+    "high balance customers",
+    "late lines",
+    "high value orders",
+    "revenue by brand"
+  ],
+  "profile": "tpch",
+  "profiles": [
+    {
+      "key": "retail",
+      "label": "Retail",
+      "url": "http://127.0.0.1:8092/"
+    },
+    {
+      "key": "tpch",
+      "label": "TPC-H",
+      "url": "http://127.0.0.1:8093/"
+    },
+    {
+      "key": "abc",
+      "label": "冷链 ABC",
+      "url": "http://127.0.0.1:8094/"
+    }
+  ],
+  "aliases": {
+    "region": "region",
+    "nation": "nation",
+    "product": "product",
+    "part": "product",
+    "item": "line",
+    "line": "line",
+    "customer": "customer",
+    "supplier": "supplier",
+    "order": "order"
+  }
+}

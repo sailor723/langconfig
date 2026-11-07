@@ -1,0 +1,34 @@
+{
+  "_doc": "写动词闸门的 fixture：每个已声明的 action 一组「应该被接受」和一组「应该被拒绝」的参数，以及运行前后要看的那个指标。数字由闸门自己数，不写在这里——这里只写参数。 也写两句问法：一句要数字（必须落到指标），一句是命令（必须落到写动词）。",
+  "ontology": "logistics",
+  "actions": {
+    "RecordDispatchDecision": {
+      "why": "派单决策是「人情调度」唯一可复核的证据来源；写坏了就永远查不出偏袒。",
+      "params": {
+        "trip_id": 1,
+        "driver_id": 15,
+        "planner": "闸门 fixture（不是真实调度）",
+        "reason": "闸门验证写入路径；运行结束后这一行会被删除",
+        "loan_pressure": 4200
+      },
+      "bad_params": {
+        "trip_id": 1,
+        "driver_id": 99999,
+        "planner": "闸门 fixture",
+        "reason": "司机不存在，应该被 precondition 按名字拒绝，并且什么都不写",
+        "loan_pressure": 4200
+      },
+      "bad_expect": "precondition exists failed",
+      "probe_metric": "dispatchDecisionCount",
+      "moves_metric": "decisionCoverage",
+      "creates": "dispatch_decisions",
+      "action_owned_check": {
+        "property": "decidedDriverOf",
+        "why": "外键列也必须是 action-owned：把它的 :state 去掉，编译必须拒绝"
+      },
+      "measure_question": "派单决策记录覆盖率是多少",
+      "measure_expect_metric": "decisionCoverage",
+      "imperative_question": "记录一次派单决策"
+    }
+  }
+}

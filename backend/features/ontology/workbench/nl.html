@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Query — natural language — ontology app</title>
+<style>
+  body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  header a { color:#9fb8cf; font-size:13px; }
+  main { max-width:880px; margin:20px auto; padding:0 20px; }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:18px 20px; margin-bottom:16px; }
+  h2 { margin:0 0 10px; font-size:13px; letter-spacing:.5px; color:#334e68; text-transform:uppercase; }
+  #q { width:100%; box-sizing:border-box; font:14px ui-monospace,Menlo,monospace;
+       border:1px solid #cdd5df; border-radius:8px; padding:10px; }
+  button { margin-top:10px; background:#0b4f9c; color:#fff; border:0; border-radius:8px;
+           padding:9px 16px; font-size:13px; cursor:pointer; }
+  button.alt { background:#334e68; }
+  button:disabled { opacity:.55; cursor:default; }
+  .ex { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .ex button { margin:0; background:#eef2f6; color:#0b4f9c; font-size:12px; padding:5px 10px; }
+  #answer { margin-top:14px; padding:14px 16px; border-radius:10px; background:#eef6f1;
+            border:1px solid #cfe6d8; font-size:14px; line-height:1.55; display:none; }
+  #answer.refused { background:#fdecea; border-color:#f5c6c2; }
+  #prov { margin-top:12px; font:12px ui-monospace,Menlo,monospace; background:#0f172a;
+          color:#dbe7f3; border-radius:8px; padding:12px; display:none; white-space:pre-wrap;
+          max-height:360px; overflow:auto; }
+  .hint { font-size:12px; color:#687b8f; margin-top:8px; }
+  #confirm { display:none; margin-top:10px; }
+  #steps { margin-top:14px; border:1px solid #e3e6ea; border-radius:10px; overflow:hidden; }
+  #steps h3 { margin:0; padding:10px 14px; font-size:12px; letter-spacing:.4px;
+              text-transform:uppercase; color:#334e68; background:#f3f6f9;
+              border-bottom:1px solid #e3e6ea; }
+  #steps ol { margin:0; padding:6px 14px 12px 30px; }
+  #steps li { margin:8px 0; font-size:12px; line-height:1.5; }
+  #steps .what { font-weight:600; color:#102a43; }
+  #steps .where { color:#687b8f; }
+  #steps code { font:11px ui-monospace,Menlo,monospace; background:#f1f4f7;
+                padding:1px 5px; border-radius:4px; }
+  #steps .val { color:#0b4f9c; font-weight:600; }
+  #steps .ms { color:#8a6d3b; font:11px ui-monospace,Menlo,monospace; margin-left:6px; }
+  #steps .total { padding:6px 14px 10px; text-align:right; font-size:11px; color:#687b8f; }
+</style></head>
+<body>
+<header><h1>✦ Query — natural language</h1>
+  <span id="llm-badge" style="float:right; font:11px ui-monospace,Menlo,monospace;
+        background:#1c3b57; border-radius:6px; padding:2px 8px; opacity:.9">llm: …</span>
+  <a href="/">← back to the app</a> · <a href="/reasoner">⌨ reasoner</a> · <a href="/actions">actions ⚡</a> · <a href="/backlog">backlog ▤</a> · <a href="/settings">settings</a></header>
+<main>
+  <div class="card">
+    <h2>Question</h2>
+    <input id="q" placeholder="例如：高级客户的收入是多少？ / what is premium customer revenue?"/>
+    <div class="ex" id="examples"></div>
+    <div>
+      <button id="run">Ask</button>
+    </div>
+    <div class="hint">The model only picks an entry from the compiled ontology (metric / class / action);
+      it never writes SQL. Numbers come from the compiled SQL; actions are dry-run only until you confirm.</div>
+    <div id="answer"></div>
+    <div id="confirm"><button class="alt" id="do-run">Confirm</button></div>
+    <div id="steps" style="display:none; margin-top:14px"></div>
+    <div id="prov"></div>
+  </div>
+  <div class="card">
+    <h2>What it can answer</h2>
+    <p class="hint" style="margin:0">
+      metrics: orderRevenue · averageOrderValue · premiumCustomers · maximumOrderValue ·
+      orderCount · premiumCustomerRevenue · premiumCustomersWithOrders<br>
+      classes: Customer · Order · PremiumCustomer<br>
+      actions (dry-run): PromoteCustomer · DemoteCustomer · RecordOrder<br>
+      Unknown questions are refused by name — no free SQL, no guessed numbers.
+    </p>
+  </div>
+</main>
+<script>
+fetch('/api/nl/config').then(r => r.json()).then(c => {
+  const label = c.effective + (c.model ? ' · ' + c.model : '');
+  document.getElementById('llm-badge').textContent =
+    'llm: ' + label + (c.effective === 'fallback' ? ' (no model)' : '');
+  document.getElementById('llm-badge').title =
+    'settings: ' + c.backend + ' · DEEPSEEK_API_KEY ' +
+    (c.key_present ? 'set' : 'missing') + ' · ollama ' +
+    (c.ollama_alive ? 'up' : 'down');
+}).catch(e => {});
+
+// One sample per capability, in both languages, plus one refusal on purpose.
+// N15 runs every one of these through the real pipeline, so a sample cannot rot.
+const EX = [
+  "revenue by product and city",        // grouped by two keys
+  "revenue by city",                    // grouped by one key
+  "premium product revenue",            // filtered, three tables
+  "revenue per customer",               // cross-grain ratio
+  "order revenue last month",           // time-window slot
+  "premium customer revenue for customer 1",   // slot: customer filter
+  "how many orders",                    // a count that IS declared (orderCount); asking for a
+                                        // count of order LINES is refused by name instead —
+                                        // no metric declares that number
+  "产品收入",                              // the same, in Chinese
+  "按产品、城市的收入",                       // two keys, Chinese
+  "revenue by product and brand",       // REFUSED: no such dimension
+];
+const F = id => document.getElementById(id);
+const Q = F('q'), A = F('answer'), P = F('prov'), CONF = F('confirm');
+const ex = F('examples');
+async function paintExamples() {
+  let list = EX;
+  try {
+    const j = await (await fetch('/api/samples')).json();
+    if (j && j.samples && j.samples.length) list = j.samples;
+  } catch (e) { /* offline: keep the built-in list */ }
+  ex.innerHTML = '';
+  list.forEach(t => {
+    const b = document.createElement('button');
+    b.textContent = t;
+    b.onclick = () => { Q.value = t; ask(false); };
+    ex.appendChild(b);
+  });
+}
+paintExamples();
+let pending = null;
+
+function ms(v) {
+  if (v === undefined || v === null) return '';
+  return v >= 1000 ? (v / 1000).toFixed(2) + ' s' : v + ' ms';
+}
+
+function showSteps(steps, total) {
+  const box = F('steps');
+  box.innerHTML = '';
+  box.style.display = 'block';
+  const h = document.createElement('h3');
+  h.textContent = 'Steps — where each part ran' + (total !== undefined ? ' · total ' + ms(total) : '');
+  box.appendChild(h);
+  const ol = document.createElement('ol');
+  (steps || []).forEach(st => {
+    const li = document.createElement('li');
+    const what = document.createElement('span');
+    what.className = 'what';
+    what.textContent = st.step + '  ';
+    li.appendChild(what);
+    if (st.backend) {
+      const b = document.createElement('span');
+      b.className = 'where';
+      b.textContent = 'backend: ' + st.backend + ' · ';
+      li.appendChild(b);
+    }
+    if (st.source) {
+      const b = document.createElement('span');
+      b.className = 'where';
+      b.textContent = 'source: ' + st.source + ' · ';
+      li.appendChild(b);
+    }
+    if (st.detail) {
+      const d = document.createElement('span');
+      d.textContent = st.detail;
+      li.appendChild(d);
+    }
+    if (st.value !== undefined && st.value !== null) {
+      const v = document.createElement('span');
+      v.className = 'val';
+      v.textContent = '  → ' + st.value;
+      li.appendChild(v);
+    }
+    if (st.ms !== undefined && st.ms !== null) {
+      const tm = document.createElement('span');
+      tm.className = 'ms';
+      tm.textContent = ms(st.ms);
+      li.appendChild(tm);
+    }
+    if (st.path && st.path.length) {
+      const p = document.createElement('div');
+      p.className = 'where';
+      p.textContent = 'path: ' + st.path.join('  ·  ');
+      li.appendChild(p);
+    }
+    ol.appendChild(li);
+  });
+  box.appendChild(ol);
+  if (total !== undefined && total !== null) {
+    const tot = document.createElement('div');
+    tot.className = 'total';
+    tot.textContent = 'total ' + ms(total);
+    box.appendChild(tot);
+  }
+}
+
+function show(text, cls) {
+  A.style.display = 'block';
+  A.className = cls || '';
+  A.textContent = text;
+}
+function showProv(obj) {
+  P.style.display = 'block';
+  P.textContent = JSON.stringify(obj, null, 2);
+}
+
+async function run() {
+  A.style.display = 'block'; A.className = '';
+  A.textContent = 'thinking (intent → compiled query → answer) …';
+  P.style.display = 'none'; CONF.style.display = 'none'; pending = null;
+  F('steps').style.display = 'none';
+  try {
+    const r = await fetch('/api/nl', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: Q.value }) });
+    const j = await r.json().catch(() => null);
+    if (!j || typeof j !== 'object') {
+      show('request failed: the server returned no JSON result', 'refused');
+      return;
+    }
+    if (!j.ok) {
+      show('✗ ' + (j.answer || j.refused), 'refused');
+      showProv(j);
+      return;
+    }
+    if (j.needs_confirmation) {
+      show('Our understanding — confirm to run:\n\n' + j.understanding.text);
+      showSteps(j.steps, j.total_ms);
+      showProv({ intent: j.intent, understanding: j.understanding });
+      pending = { confirm: true, question: Q.value };
+      CONF.style.display = 'block';
+      F('do-run').textContent = 'Confirm & run';
+      return;
+    }
+    show(j.answer);
+    showSteps(j.steps, j.total_ms);
+    showProv({ intent: j.intent, result: j.result, understanding: j.understanding });
+    if (j.intent.kind === 'action' && j.result.requires_confirmation) {
+      pending = j;
+      CONF.style.display = 'block';
+      F('do-run').textContent = 'Confirm: write ' + j.intent.name +
+        ' ' + JSON.stringify(j.intent.params) + ' for real (audited)';
+    }
+  } catch (e) { show('request failed: ' + e, 'refused'); }
+}
+
+async function doRun() {
+  if (!pending) return;
+  F('do-run').disabled = true;
+  try {
+    if (pending.confirm) {           // confirm an UNDERSTOOD read: execute it now
+      const r = await fetch('/api/nl', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: pending.question, confirm: true }) });
+      const j = await r.json();
+      if (!j.ok) {
+      show('✗ ' + (j.answer || j.refused), 'refused');
+      showProv(j);
+      return;
+    }
+      show(j.answer);
+      showSteps(j.steps, j.total_ms);
+      showProv({ intent: j.intent, result: j.result, understanding: j.understanding });
+      CONF.style.display = 'none';
+      return;
+    }
+    const r = await fetch('/api/actions/run', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: pending.intent.name, params: pending.intent.params,
+                             actor: 'nl' }) });
+    const j = await r.json();
+    const lines = [j.ok ? '✓ WROTE — ' + j.action + ' (audit #' + j.audit_id + ')'
+                        : '✗ REFUSED — ' + (j.refused || j.error)];
+    if (j.ok) lines.push('before: ' + JSON.stringify(j.before), 'after: ' + JSON.stringify(j.after));
+    show(lines.join('\n'));
+    showProv({ action_run: j });
+  } finally { F('do-run').disabled = false; }
+}
+
+F('run').onclick = () => run();
+Q.addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
+F('do-run').onclick = () => doRun();
+</script>
+</body></html>

@@ -1,0 +1,137 @@
+# =============================================================================
+# abc_coldchain —— 02 含义层：定义（不是列），阈值只在数据里出现一次
+# =============================================================================
+# 这一层只回答一件事：用户嘴里的「晚点」「超载」「破损」「责任没定」到底是哪个集合。
+# 每个定义编译成一段 WHERE，没有任何一个数被写进报表模板。
+#
+# 三条纪律：
+# 1) 阈值只能用数据里已有的东西：布尔列的真假、数量的自然下界（>=1）、
+#    或者一列和另一列比较（装载量 vs 派遣时冻结的能力）。**没有一个是业务方给了但我不知道的数**。
+# 2) 业务没定阈值的定义，这里**故意不写公理**：让编译器按名字拒绝（见文件末尾 REFUSED 段）。
+#    编一个 0.93/160/22 出来，报表会很好看，但那是我发明的政策，不是客户的。
+# 3) 每条定义都带 :businessDescription —— 拒绝理由要能从图里读出来，不能靠我口述。
+# =============================================================================
+
+@prefix :     <https://cube.local/ontology/logistics#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+# -----------------------------------------------------------------------------
+# 站点执行的单条件定义（facet）：每一个都只用一列，取值来自数据本身
+# -----------------------------------------------------------------------------
+
+:OnTimeStop a owl:Class ;
+    rdfs:label "准时站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :onTime ; owl:hasValue true ] ) ] ;
+    :businessDescription "on_time = true。数据里 51,210 站有 43,244 站准时（84.4%）。" .
+
+:LateStop a owl:Class ;
+    rdfs:label "晚点站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :onTime ; owl:hasValue false ] ) ] ;
+    :businessDescription "on_time = false。与「准时站点」互补：数据集里没有 NULL，所以两者之和 = 站点总数。" .
+
+:TempExcursionStop a owl:Class ;
+    rdfs:label "温控超标站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :tempExcursion ; owl:hasValue true ] ) ] ;
+    :businessDescription "temp_excursion = true，即在途温度越界。判定由甲方的探头给出，落库时已经是布尔值——这里不需要我再定一个温度阈值。" .
+
+:DamagedStop a owl:Class ;
+    rdfs:label "破损站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :damagedBoxes ;
+        owl:withRestrictions ( [ xsd:minInclusive 1 ] ) ] ) ] ;
+    :businessDescription "damaged_boxes >= 1：至少一箱破损。「1」不是阈值，是「有货损」这个状态的下界。" .
+
+:BasketsMissingStop a owl:Class ;
+    rdfs:label "漏筐站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :basketsMissing ;
+        owl:withRestrictions ( [ xsd:minInclusive 1 ] ) ] ) ] ;
+    :businessDescription "baskets_missing >= 1：退回来的周转筐少了。同样是自然下界，不是政策。" .
+
+:AlarmStop a owl:Class ;
+    rdfs:label "误触警铃站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :alarmTriggered ; owl:hasValue true ] ) ] ;
+    :businessDescription "alarm_triggered = true：门店的安防警铃被误触。这是甲方最在意的体验指标之一。" .
+
+# 互补的一对必须互斥：一条公理，让推理机（不只是编译器）知道它们不可能同时成立。
+:OnTimeStop owl:disjointWith :LateStop .
+
+# ---- 并集（OR）：履约不合格 = 晚点 或 温控超标 或 破损 或 误触警铃
+:FailedDelivery a owl:Class ;
+    rdfs:label "履约不合格站点" ;
+    owl:equivalentClass [ owl:unionOf ( :LateStop :TempExcursionStop :DamagedStop :AlarmStop ) ] ;
+    # 并集只说"由哪几个集合组成"，不说"数的是哪种对象"——这两句是两件事。
+    # 没有下面这句，编译器能编出 WHERE，却选不出一张表（行数 = None），
+    # 教程里的这一步就会显示"有定义、没有数"。所以基数对象必须显式声明。
+    rdfs:subClassOf :Stop ;
+    :businessDescription "四项任一发生即为不合格。用并集表达：四个来源、一个定义；四个条件里没有任何一个是新阈值，都是数据里现成的状态。" .
+
+# -----------------------------------------------------------------------------
+# 行程：超载 —— 一列比另一列，OWL 的 facet 表达不了
+# -----------------------------------------------------------------------------
+
+:OverloadedTrip a owl:Class ;
+    rdfs:label "超载行程" ;
+    # 基数对象必须显式写出来（同 :FailedDelivery）：这条谓词筛的是 trips 的行。
+    # 不写，编译器能编出 WHERE，但能力图找不到落地表，就按名拒绝一个本来答得了的问题。
+    rdfs:subClassOf :Trip ;
+    :physicalPredicate "load_boxes >= box_capacity_snapshot OR load_volume >= volume_capacity_snapshot OR load_weight >= weight_capacity_snapshot" ;
+    :businessDescription "三个维度任一达到或超过派遣时冻结的装载能力。用快照而不用车辆当前能力：能力在派单那一刻定下，事后换车不改历史。这是全库唯一一类声明式谓词（一列比一列，OWL facet 做不到），行数 1,489 已用直连 SQL 复核。" .
+
+# -----------------------------------------------------------------------------
+# 投诉：责任未判定是一种状态，不是缺失
+# -----------------------------------------------------------------------------
+
+:UnjudgedComplaint a owl:Class ;
+    rdfs:label "责任未判定投诉" ;
+    # 同上：liability IS NULL 筛的是 complaints 的行。缺这句，能力图按名拒绝，
+    # 尽管它 3,167 行就在库里、谓词也编译得出来。
+    rdfs:subClassOf :Complaint ;
+    :physicalPredicate "liability IS NULL" ;
+    :businessDescription "liability 为空：责任在司机和日结装卸工之间互相推诿，系统保留这个状态而不是替它做决定。3,167 / 6,876 条（46.1%）。这里不能写 IS NULL = 未知然后丢掉，那 46% 正是要追的钱。" .
+
+# -----------------------------------------------------------------------------
+# 车辆：核心区通行证
+# -----------------------------------------------------------------------------
+
+:VehicleWithPermit a owl:Class ;
+    rdfs:label "有核心区通行证车辆" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Vehicle [ a owl:Restriction ;
+        owl:onProperty :coreZonePermit ; owl:hasValue true ] ) ] ;
+    :businessDescription "core_zone_permit = true。" .
+
+:NoPermitVehicle a owl:Class ;
+    rdfs:label "无核心区通行证车辆" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Vehicle [ a owl:Restriction ;
+        owl:onProperty :coreZonePermit ; owl:hasValue false ] ) ] ;
+    :businessDescription "拿不到核心城区通行证的车辆：只能跑郊区，调度灵活性直接下降。" .
+
+:VehicleWithPermit owl:disjointWith :NoPermitVehicle .
+
+# =============================================================================
+# REFUSED —— 故意不写公理的三个词。编译器会按名字拒绝，理由就在下面这行 :refusalReason。
+# 写公理很容易，难的是承认「这需要业务方给一个数，而它不在库里」。
+# =============================================================================
+
+:AtRiskDriver a owl:Class ;
+    rdfs:label "高风险司机" ;
+    :refusalReason "「高风险」需要一个阈值（准时率低于多少？破损多少箱？超载多少趟？）。库里 driver_stats 只有历史表现，没有任何一列写着客户的判定线。阈值是业务方的政策，不是数据里的事实：给一个我编的数（例如准时率<0.93、破损>=160箱、超载>=22趟）会得到一个能跑、能上会、但没有出处的排行榜。请客户给出这三条线，我再写公理。" ;
+    :businessDescription "未定义：缺的是阈值，不是数据。" .
+
+:PlannedStopVisited a owl:Class ;
+    rdfs:label "计划门店已访" ;
+    :refusalReason "「计划了但没去」需要把 route_stops（计划）和 stops（实际）按 (线路, 站序, 门店) 对账，但两者对不上：按 (route_id, seq) 比只有 75/51,210 站同店（0.15%），按「落在计划门店集合内」比也只有 1.6%。这说明实际线路根本不按计划走，或者两份数据的线路编号含义不同。这个 SQL 跑得出数，但它量的是两份不一致的表之间的差，不是「漏访」。先对齐口径，再定义。" ;
+    :businessDescription "未定义：缺的是两份数据对账的口径。" .
+
+# 另外两个高频问题连公理都不需要，因为它们要的东西库里没有：
+#   「温度趋势」—— telemetry 有 12,144 个采样点，但 ts 与 trip_date 没有一天落在同一天
+#                  （同一天 0 点，跨天 12,144 点），日期轴对不上，画出来的趋势是伪造的。
+#   「投诉趋势」—— complaints.opened_at 只有一个取值（6,876 条全是 2026-11-05 09:00:00），
+#                  没有时间轴。这类问题一条 SQL 就能跑，结果是一条平线，看起来「合规」，
+#                  实质是把「没记时间」包装成「每天一样」。

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 3 步 —— 一个本体和一个定义</title>
+<style>
+  body { font-family:-apple-system,"PingFang SC","Segoe UI",Roboto,sans-serif;
+         background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  .rev { display:block; margin-top:4px; font:10px ui-monospace,Menlo,monospace;
+         color:#9fb8cf; opacity:.85 }
+  main { max-width:1180px; margin:20px auto; padding:0 20px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:980px) { .cols { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px;
+          padding:16px 18px; margin-bottom:14px; }
+  h2 { margin:0 0 10px; font-size:13px; letter-spacing:.5px; color:#334e68;
+       text-transform:uppercase; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:12px; }
+  .schema-box { background:#f2f4f6; border:1px solid #e3e6ea; border-radius:8px;
+                padding:10px 12px; margin-bottom:10px; }
+  .box-label { margin:0 0 6px; font-size:10px; letter-spacing:.4px;
+               text-transform:uppercase; color:#687b8f; }
+  table { width:100%; border-collapse:collapse; font:11px ui-monospace,Menlo,monospace; }
+  th { text-align:left; font-size:10px; color:#687b8f; padding:3px 6px;
+       border-bottom:1px solid #e3e6ea; }
+  td { padding:3px 6px; border-bottom:1px solid #f0f2f5; }
+  td.hl { color:#b3261e; font-weight:600; }
+  pre { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px; overflow:auto;
+        font:11px/1.55 ui-monospace,Menlo,monospace; white-space:pre-wrap; margin:6px 0; }
+  pre.sql { font-size:10px; }
+  .def { font:10.5px ui-monospace,Menlo,monospace; color:#8a6d3b; background:#fdf6e3;
+         border-radius:5px; padding:6px 8px; margin:6px 0; }
+  .val { font:16px ui-monospace,Menlo,monospace; color:#1d6b33; font-weight:700;
+         margin-top:6px; }
+  .note { font-size:12px; color:#687b8f; margin-top:8px; line-height:1.6; }
+  .note code, .hint code { background:#eef2f6; padding:1px 4px; border-radius:4px;
+                           font-size:11px; }
+  .hint { font-size:11px; color:#687b8f; margin-top:6px; line-height:1.5; }
+  input.q { width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid #cdd5df;
+            border-radius:8px; font:13px ui-monospace,Menlo,monospace; background:#fff; }
+  button.run { margin-top:9px; background:#0b4f9c; color:#fff; border:0; border-radius:8px;
+               padding:9px 16px; font-size:12.5px; cursor:pointer; }
+  button.dry { background:#334e68; }
+  button.reset { background:#8a6d3b; }
+  .ex { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .ex button { margin:0; background:#eef2f6; color:#0b4f9c; font-size:11px;
+               padding:5px 9px; border:0; border-radius:6px; cursor:pointer; }
+  .metric { border:1px solid #e3e6ea; border-radius:9px; padding:12px 14px; background:#fff; }
+  .metric h3 { margin:0 0 3px; font-size:13px; color:#0b4f9c; }
+  .badge { font-size:11px; border-radius:4px; padding:1px 7px; background:#eef2f6;
+           color:#4a6f9c; }
+  .badge.action { background:#fbe9e7; color:#b3261e; }
+  .badge.read { background:#eef3fb; color:#0b4f9c; }
+  .win { font:11px ui-monospace,Menlo,monospace; color:#334e68; background:#eef2f6;
+         border-radius:6px; padding:5px 9px; display:inline-block; margin:2px 0 6px; }
+</style></head>
+<body>
+<header><h1>第 3 步 —— 一个本体和一个定义</h1>
+  <span class="rev">ABC 冷链 · 第 3 步</span></header>
+<main>
+  <div class="cols">
+    <div>
+      <div class="card">
+        <h2>对象类型 —— 车辆、趟次、司机、门店、线路</h2>
+        <div class="schema-box"><p class="box-label">对象类型（来自 TTL）</p>
+          <table><thead><tr><th>对象</th><th>表</th><th>主键</th></tr></thead><tbody id="objects"></tbody></table></div>
+        <div class="note">还是第 1、2 步那些表，现在被声明成<b>对象类型</b>，属性有了类型。
+          红色 = 只由动作写入（<code>:state "action"</code>）。</div>
+      </div>
+      <div class="card">
+        <h2>被定义的类：无核心区路权车辆</h2>
+        <div class="schema-box"><p class="box-label">定义（TTL）</p>
+          <pre id="ttl">加载中 …</pre></div>
+        <div class="note">被定义的类没有属于自己的行：成员身份由这条公理推出来。读取路径把它
+          编译成 <code>WHERE</code> 谓词 —— 阈值只写在本体里一次。</div>
+      </div></div>
+    <div>
+      <div class="card">
+        <h2>向本体提问</h2>
+        <input class="q" id="q" placeholder="例如：哪些车没有核心区路权？"/>
+        <div class="ex" id="ex"></div>
+        <button class="run" id="run">提问（编译好的本体查询）</button>
+        <div style="margin-top:8px"><span class="badge" id="kind"></span></div>
+        <pre class="sql" id="sql" style="display:none"></pre>
+        <div class="win" id="big" style="display:none"></div>
+        <div class="hint" id="hint"></div>
+        <div class="note">这一页的区别：<code>:VehicleNoPermit</code> 的谓词不是手写的，
+          而是从本体公理<b>编译</b>出来的。</div>
+      </div></div>
+  </div>
+</main>
+<script>
+const F = id => document.getElementById(id);
+const EX = ["哪些车没有核心区路权", "有多少台国四车", "哪些车能进核心区", "有多少台车"];
+EX.forEach(t => { const b = document.createElement('button'); b.textContent = t;
+  b.onclick = () => { F('q').value = t; run(); }; F('ex').appendChild(b); });
+async function load() {
+  const j = await (await fetch('/api/abct/objects')).json();
+  F('objects').innerHTML = j.objects.map(o => `<tr><td>${o.name}</td><td>${o.table}</td><td>${o.pk}</td></tr>`).join('');
+  F('ttl').textContent = j.definition;
+}
+async function run() {
+  const q = F('q').value.trim(); if (!q) return;
+  const j = await (await fetch('/api/abct/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q }) })).json();
+  F('sql').style.display = 'none'; F('big').style.display = 'none'; F('hint').textContent = '';
+  if (!j.ok) { F('hint').textContent = j.refused || '没有匹配的问题'; return; }
+  const r = j.result || {};
+  F('kind').textContent = (j.intent || {}).kind + ' · ' + r.name;
+  F('kind').className = 'badge read';
+  F('sql').style.display = 'block'; F('sql').textContent = r.sql || '';
+  if (r.value !== null && r.value !== undefined) { F('big').style.display = 'block'; F('big').textContent = r.value; }
+  F('hint').textContent = j.answer || '';
+}
+F('run').onclick = run; F('q').addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
+load();
+</script>
+</body></html>

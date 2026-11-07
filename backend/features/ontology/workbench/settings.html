@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Settings — ontology app</title>
+<style>
+  body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:20px 26px; }
+  header h1 { margin:0; font-size:18px; }
+  header a { color:#9fb8cf; font-size:13px; }
+  main { max-width:760px; margin:22px auto; padding:0 20px; }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:18px 20px; margin-bottom:16px; }
+  h2 { margin:0 0 12px; font-size:13px; letter-spacing:.5px; color:#334e68; text-transform:uppercase; }
+  label { display:block; font-size:12px; color:#687b8f; margin:10px 0 4px; }
+  input { width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid #cdd5df;
+          border-radius:7px; font:13px ui-monospace,Menlo,monospace; background:#fff; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .grid .full { grid-column:1/-1; }
+  .lane { display:flex; gap:10px; margin:4px 0 2px; }
+  .lane label { flex:1; margin:0; border:1px solid #cdd5df; border-radius:9px; padding:10px 12px;
+                cursor:pointer; background:#fff; display:block; }
+  .lane label.on { border-color:#0b4f9c; box-shadow:0 0 0 1px #0b4f9c inset; }
+  .lane .t { font-size:13px; font-weight:600; color:#1c1e21; }
+  .lane .d { font-size:12px; color:#687b8f; margin-top:2px; }
+  .kind { font-size:10px; text-transform:uppercase; letter-spacing:.4px; border-radius:4px;
+          padding:1px 5px; background:#eef2f6; color:#4a6f9c; vertical-align:middle; }
+  .kind.write { background:#fbe9e7; color:#b3261e; }
+  .lane-c { margin-top:14px; border:1px dashed #cdd5df; border-radius:9px; padding:12px 14px; background:#fbfcfd; }
+  .lc-head { font-size:13px; margin-bottom:4px; }
+  .lc-head .d { display:inline; margin-left:8px; }
+  a.btn { display:inline-block; margin-top:10px; background:#334e68; color:#fff; text-decoration:none;
+          padding:7px 12px; border-radius:7px; font-size:12px; }
+  button { margin-top:16px; background:#0b4f9c; color:#fff; border:0; border-radius:8px;
+           padding:10px 18px; font-size:14px; cursor:pointer; }
+  button:disabled { opacity:.55; cursor:default; }
+  #out { margin-top:14px; font:12px ui-monospace,Menlo,monospace; white-space:pre-wrap;
+         background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px; display:none; max-height:260px; overflow:auto; }
+  .hint { font-size:12px; color:#687b8f; margin-top:6px; }
+  .hint code { font-size:11px; background:#eef2f6; padding:1px 4px; border-radius:4px; }
+</style></head>
+<body>
+<header>
+  <h1>⚙ Settings — ontology app</h1>
+  <a href="/">← back to the app</a> · <a href="/compare">⚖ compare lanes</a>
+</header>
+<main>
+  <form id="form">
+    <div class="card">
+      <h2>Language / 语言</h2>
+      <div class="lane" id="lang-row">
+        <label id="lang-en">
+          <span class="t"><input type="radio" name="language" value="en" style="width:auto"> English</span>
+          <span class="d">The pages as they were written.</span>
+        </label>
+        <label id="lang-zh">
+          <span class="t"><input type="radio" name="language" value="zh" style="width:auto"> 中文</span>
+          <span class="d">界面用中文显示；SQL、公理、代码示例保持原样。</span>
+        </label>
+      </div>
+      <div class="hint">Interface language. The pages are written once in English and
+        translated by lookup, so SQL, axioms and code samples never change.</div>
+    </div>
+
+    <div class="card">
+      <h2>SQL guardrails — a database with tens of millions of rows</h2>
+      <label style="display:flex; gap:8px; align-items:center; margin-top:0">
+        <input type="checkbox" id="guard-enabled" style="width:auto">
+        <span>Enable the guardrails (LIMIT · time bound · plan budget · statement timeout)</span>
+      </label>
+      <div class="grid">
+        <div><label for="guard-max-rows">Row cap — LIMIT injected when a query has none</label>
+          <input id="guard-max-rows" type="number" min="1" max="100000"/></div>
+        <div><label for="guard-window">Time bound — days injected on a big table (0 = refuse instead)</label>
+          <input id="guard-window" type="number" min="0" max="3650"/></div>
+        <div><label for="guard-timeout">Statement timeout (ms)</label>
+          <input id="guard-timeout" type="number" min="100" max="600000"/></div>
+        <div><label for="guard-plan">Plan budget — refuse a scan estimated to read more rows than</label>
+          <input id="guard-plan" type="number" min="1000" max="1000000000"/></div>
+        <div class="full"><label for="guard-big">Big tables — "table:time_column", one per line</label>
+          <textarea id="guard-big" rows="2"
+            style="width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid #cdd5df;
+                   border-radius:7px; font:13px ui-monospace,Menlo,monospace"></textarea></div>
+      </div>
+      <div class="hint">A declared metric is never windowed by the guard — that would change the
+        number its definition promises. Listings get the window and the row cap, and every
+        injection is printed next to the SQL. Anything estimated over the plan budget is refused
+        by name before it runs.</div>
+    </div>
+
+    <div class="card">
+      <h2>Lanes — A and B read, C writes</h2>
+      <div class="lane">
+        <label id="lane-a" class="on">
+          <span class="t"><input type="radio" name="lane" value="a" style="width:auto" checked> Lane A · compiled SQL <span class="kind">read</span></span>
+          <span class="d">ontology → SQL once (axiom becomes a <code>WHERE</code> predicate), run on the source DB</span>
+        </label>
+        <label id="lane-b">
+          <span class="t"><input type="radio" name="lane" value="b" style="width:auto"> Lane B · SPARQL + Ontop <span class="kind">read</span></span>
+          <span class="d">virtual RDF graph + R2RML mapping; each SPARQL query is rewritten to SQL (OWL 2 QL)</span>
+        </label>
+      </div>
+      <div class="grid" id="lane-b-fields">
+        <div><label for="ontop_endpoint">Lane B — Ontop SPARQL endpoint</label>
+             <input id="ontop_endpoint" placeholder="http://127.0.0.1:8080/sparql"></div>
+        <div><label for="ontop_ns">Lane B — ontology namespace</label>
+             <input id="ontop_ns" placeholder="http://example.org/retail#"></div>
+      </div>
+      <div class="lane-c">
+        <div class="lc-head"><b>Lane C · actions</b> <span class="kind write">write</span>
+          <span id="lane-c-stats" class="d">loading…</span></div>
+        <div class="d">Declared, validated, audited writes: <code>schema/actions.yml</code> → one transaction
+          (preconditions → effect → append-only audit). This lane is what changes the data the other two read.</div>
+        <a class="btn" href="/actions">open the action runner →</a>
+      </div>
+      <div class="hint">A and B read the same rows; neither materializes a copy. C is the only lane allowed to write,
+        and only to properties the ontology marks <code>:state "action"</code>.</div>
+    </div>
+
+    <div class="card">
+      <h2>Ontology / namespace</h2>
+      <label for="ns">Namespace IRI</label>
+      <input id="ns" required>
+      <label for="title">Page title</label>
+      <input id="title" required>
+      <div class="grid">
+        <div><label for="ontology_dir">Ontology folder (relative to app dir)</label>
+             <input id="ontology_dir"></div>
+        <div><label for="overlay">Overlay TTL (relative)</label>
+             <input id="overlay"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Database (DSN)</h2>
+      <div class="grid">
+        <div><label for="host">Host</label><input id="host"></div>
+        <div><label for="port">Port</label><input id="port" type="number"></div>
+        <div><label for="dbname">Database</label><input id="dbname"></div>
+        <div><label for="user">User</label><input id="user"></div>
+        <div class="full"><label for="password">Password</label><input id="password" type="password"></div>
+      </div>
+      <div class="hint">Lane A's live numbers are measured by compiling TTL → SQL and running it here.</div>
+    </div>
+
+    <div class="card">
+      <h2>Natural language (LLM)</h2>
+      <label for="nl-backend">Backend</label>
+      <select id="nl-backend"
+              style="width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid #cdd5df;
+                     border-radius:7px; font:13px ui-monospace,Menlo,monospace; background:#fff">
+        <option value="auto">auto — DeepSeek if DEEPSEEK_API_KEY, else local Ollama</option>
+        <option value="deepseek">deepseek — cloud (needs DEEPSEEK_API_KEY in the server env)</option>
+        <option value="ollama">ollama — local (OLLAMA_BASE, default 127.0.0.1:11434)</option>
+        <option value="fallback">fallback — deterministic, no model at all</option>
+      </select>
+      <label for="nl-model">Model (blank = default for the backend)</label>
+      <input id="nl-model" placeholder="e.g. qwen2.5:3b / qwen3.5:27b / deepseek-v4-flash">
+      <label style="display:flex; gap:8px; align-items:center; margin-top:12px">
+        <input type="checkbox" id="nl-answer-llm" style="width:auto">
+        <span>Polish answers with the model, then verify numbers/keys/language (template fallback)</span>
+      </label>
+      <div class="hint" id="nl-status">checking backends …</div>
+      <div class="hint">The API key is never stored here — it comes from the server's
+        environment. The model only picks from the compiled ontology (metric / class /
+        action); it never writes SQL, and actions stay dry-run until you confirm.</div>
+    </div>
+
+    <div class="card">
+      <h2>Rendering</h2>
+      <label for="sample">List individuals when a class has at most (rows)</label>
+      <input id="sample" type="number" min="1" max="1000">
+    </div>
+
+    <button id="save" type="submit">Save &amp; regenerate</button>
+    <div id="out"></div>
+  </form>
+</main>
+<script>
+const F = id => document.getElementById(id);
+const laneRadios = [...document.querySelectorAll('input[name="lane"]')];
+const langRadios = [...document.querySelectorAll('input[name="language"]')];
+function paintLang() {
+  langRadios.forEach(r => r.closest('label').classList.toggle('on', r.checked));
+}
+langRadios.forEach(r => r.addEventListener('change', () => { paintLang(); saveLang(r.value); }));
+async function saveLang(lang) {
+  const out = F('out');
+  out.style.display = 'block'; out.textContent = 'switching language …';
+  try {
+    const r = await fetch('/api/settings', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ui: { language: lang } }) });
+    const j = await r.json();
+    out.textContent = j.ok ? '✓ language: ' + lang + ' — reloading …' : '✗ ' + (j.error || 'failed');
+    if (j.ok) setTimeout(() => location.reload(), 400);
+  } catch (e) { out.textContent = 'request failed: ' + e; }
+}
+function paintLane() {
+  laneRadios.forEach(r => {
+    const card = r.closest('label');
+    card.classList.toggle('on', r.checked);
+  });
+  F('lane-b-fields').style.display = laneRadios.find(r => r.checked)?.value === 'b' ? 'grid' : 'none';
+}
+laneRadios.forEach(r => r.addEventListener('change', paintLane));
+async function load() {
+  const s = await (await fetch('/api/settings')).json();
+  const c = await (await fetch('/api/nl/config')).json();
+  F('nl-backend').value = c.backend || 'auto';
+  F('nl-model').value = c.model || '';
+  F('nl-answer-llm').checked = !!c.answer_llm;
+  const bits = [];
+  bits.push('effective: ' + c.effective);
+  bits.push('DEEPSEEK_API_KEY: ' + (c.key_present ? 'set' : 'missing'));
+  bits.push('ollama: ' + (c.ollama_alive ? 'up (' + c.ollama_model + ')' : 'down'));
+  document.getElementById('nl-status').textContent = bits.join(' · ');
+  const lang = (s.ui && s.ui.language) || 'en';
+  langRadios.forEach(r => { r.checked = r.value === lang; });
+  paintLang();
+  F('ns').value = s.ns;
+  F('title').value = s.title;
+  F('ontology_dir').value = s.ontology_dir;
+  F('overlay').value = s.overlay;
+  F('host').value = s.dsn.host;
+  F('port').value = s.dsn.port;
+  F('dbname').value = s.dsn.dbname;
+  F('user').value = s.dsn.user;
+  F('password').value = s.dsn.password;
+  F('sample').value = s.sample;
+  const gd = s.guard || {};
+  F('guard-enabled').checked = gd.enabled !== false;
+  F('guard-max-rows').value = gd.max_rows ?? 1000;
+  F('guard-window').value = gd.default_window_days ?? 90;
+  F('guard-timeout').value = gd.statement_timeout_ms ?? 5000;
+  F('guard-plan').value = gd.max_plan_rows ?? 2000000;
+  F('guard-big').value = Object.entries(gd.big_tables || { orders: 'placed_at' })
+    .map(([t, c]) => t + ': ' + c).join('\n');
+  const lane = s.lane || 'a';
+  laneRadios.forEach(r => { r.checked = r.value === lane; });
+  F('ontop_endpoint').value = s.ontop_endpoint || '';
+  F('ontop_ns').value = s.ontop_ns || '';
+  paintLane();
+}
+document.getElementById('form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const btn = F('save'); const out = F('out');
+  btn.disabled = true; out.style.display = 'block'; out.textContent = 'Saving and regenerating …';
+  const lane = laneRadios.find(r => r.checked)?.value || 'a';
+  const body = {
+    ns: F('ns').value.trim(), title: F('title').value.trim(),
+    ontology_dir: F('ontology_dir').value.trim(), overlay: F('overlay').value.trim(),
+    sample: Number(F('sample').value) || 20,
+    lane,
+    nl: { backend: F('nl-backend').value,
+          model: F('nl-model').value.trim(),
+          answer_llm: F('nl-answer-llm').checked },
+    ontop_endpoint: F('ontop_endpoint').value.trim(),
+    ontop_ns: F('ontop_ns').value.trim(),
+    ui: { language: (langRadios.find(r => r.checked) || {value: 'en'}).value },
+    guard: {
+      enabled: F('guard-enabled').checked,
+      max_rows: Number(F('guard-max-rows').value) || 1000,
+      default_window_days: Number(F('guard-window').value) >= 0
+        ? Number(F('guard-window').value) : 90,
+      statement_timeout_ms: Number(F('guard-timeout').value) || 5000,
+      max_plan_rows: Number(F('guard-plan').value) || 2000000,
+      big_tables: Object.fromEntries(F('guard-big').value.split('\n').map(l => l.split(':'))
+        .filter(p => p.length === 2 && p[0].trim())
+        .map(p => [p[0].trim(), p[1].trim()])),
+    },
+    dsn: { host: F('host').value.trim(), port: Number(F('port').value) || 5432,
+           dbname: F('dbname').value.trim(), user: F('user').value.trim(),
+           password: F('password').value }
+  };
+  try {
+    const r = await fetch('/api/settings', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json();
+    out.textContent = (j.ok ? '✓ regenerated\n\n' : '✗ regeneration failed\n\n') + (j.log || '');
+    if (j.ok) setTimeout(() => { location.href = j.redirect || '/'; }, 1500);
+  } catch (e) {
+    out.textContent = 'request failed: ' + e;
+  } finally { btn.disabled = false; }
+});
+fetch('/api/actions').then(r => r.json()).then(j => {
+  const n = (j.actions || []).length;
+  return fetch('/api/actions/audit').then(r => r.json()).then(a => {
+    const last = (a.rows || [])[0];
+    document.getElementById('lane-c-stats').textContent =
+      n + ' action type(s) declared' + (last ? ' · latest audit #' + last.id + ' (' + last.action + ')' : '');
+  });
+}).catch(e => { document.getElementById('lane-c-stats').textContent = 'lane C unavailable: ' + e; });
+
+load().catch(e => { document.getElementById('out').style.display = 'block';
+                    document.getElementById('out').textContent = 'cannot load settings: ' + e; });
+</script>
+</body></html>

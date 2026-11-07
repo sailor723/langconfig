@@ -1,0 +1,33 @@
+# 派单决策的写动词 —— 本体里唯一能往 dispatch_decisions 写东西的路径。
+#
+# 为什么是一次 action 而不是一个 INSERT：读是编译出来的（TTL 公理 → SQL），写不允许是自由 SQL。
+# 一次派单决策必须写下「谁派的、为什么、当时司机月供多少」，并且留下审计行——因为要复核的正是
+# 「人情调度」这种没有记录就无法证实也无法证伪的事。
+namespace: https://cube.local/ontology/logistics#
+actions:
+  - name: RecordDispatchDecision
+    applies_to: DispatchDecision
+    parameters:
+      trip_id:       { type: integer, required: true }
+      driver_id:     { type: integer, required: true }
+      planner:       { type: string,  required: true }
+      reason:        { type: string,  required: true }
+      loan_pressure: { type: number,  required: true }
+    preconditions:
+      # both FKs must exist before anything is written — a bad id is a named refusal, not a
+      # database error in the middle of a transaction
+      - { kind: exists, object_type: Trip,   key: "{trip_id}" }
+      - { kind: exists, object_type: Driver, key: "{driver_id}" }
+      # 月供压力是复核的依据：拿一个负值进来，这条记录就没有意义
+      - { kind: params, expression: "loan_pressure >= 0" }
+    effect:
+      create: DispatchDecision
+      values:
+        decidedTripOf:   "{trip_id}"      # an ObjectProperty: writing a FK is writing a column
+        decidedDriverOf: "{driver_id}"
+        planner:         "{planner}"
+        decisionReason:  "{reason}"
+        loanPressureAtDispatch: "{loan_pressure}"
+    permission: write:dispatch.decision
+    audit: required
+    description: "记录一次派单决策：谁派的、派给谁、为什么、当时该司机月供多少。写入不可覆盖、必留审计行；这是「人情调度」唯一可被复核的数据来源。"

@@ -1,0 +1,41 @@
+@prefix :     <https://cube.local/ontology/retail#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+# Tutorial ontology: "Premium is a behaviour, not a column".
+# Only what a customer DOES is stored; membership is DERIVED from the definition below.
+# The threshold 500 appears exactly once, in the axiom — not in any SQL.
+
+:Customer a owl:Class ; :physicalTable "customers" ; :primaryKey "id" .
+:Order    a owl:Class ; :physicalTable "orders"    ; :primaryKey "id" .
+
+:customer a owl:ObjectProperty ;
+    rdfs:domain :Order ; rdfs:range :Customer ;
+    :physicalColumn "customer_id" ; :references :Customer .
+
+:placesOrder a owl:ObjectProperty ;
+    rdfs:domain :Customer ; rdfs:range :Order ;
+    owl:inverseOf :customer .
+
+:amount a owl:DatatypeProperty ;
+    rdfs:domain :Order ;
+    rdfs:range xsd:decimal ;
+    :physicalColumn "amount" .
+
+# :PremiumCustomer ≡ :Customer ⊓ ∃:placesOrder.(:Order ⊓ (:amount ≥ 500))
+:PremiumCustomer a owl:Class ;
+    owl:equivalentClass [
+        a owl:Class ;
+        owl:intersectionOf (
+            :Customer
+            [ a owl:Restriction ;
+              owl:onProperty :placesOrder ;
+              owl:someValuesFrom [
+                  a owl:Class ;
+                  owl:intersectionOf (
+                      :Order
+                      [ a owl:Restriction ;
+                        owl:onProperty :amount ;
+                        owl:withRestrictions (
+                            [ xsd:minInclusive "500.0" ] ) ] ) ] ] ) ] .

@@ -1,0 +1,79 @@
+# ABC 冷链物流 —— 对象与物理列。一个对象类型对应一张表；没有一列是猜出来的。
+@prefix : <https://cube.local/ontology/abc#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+:Vehicle a owl:Class ; rdfs:label "车辆" ; :physicalTable "vehicles" ; :primaryKey "id" ;
+    :businessDescription "司机自有的冷藏车（带车加盟）。吨位、排放、车龄、路权决定它能接什么线路。" .
+:Driver a owl:Class ; rdfs:label "司机" ; :physicalTable "drivers" ; :primaryKey "id" ;
+    :businessDescription "加盟司机。车是自己的，所以司机与车辆是一体绑定的。" .
+:Store a owl:Class ; rdfs:label "门店" ; :physicalTable "stores" ; :primaryKey "id" ;
+    :businessDescription "甲方连锁餐厅的门店：收货窗口、冰柜、安防警铃。" .
+:Route a owl:Class ; rdfs:label "线路" ; :physicalTable "routes" ; :primaryKey "id" ;
+    :businessDescription "甲方下达的每日配送线路，有版本：并线前 v1，并线后 v2。" .
+:Trip a owl:Class ; rdfs:label "趟次" ; :physicalTable "trips" ; :primaryKey "id" ;
+    :businessDescription "一趟配送 = 一天 + 一辆车 + 一个司机 + 一条线路。装载与运费的颗粒度。" .
+:Stop a owl:Class ; rdfs:label "站点执行" ; :physicalTable "stops" ; :primaryKey "id" ;
+    :businessDescription "一趟里的一次门店送货：准时、温度、破损、警铃、退货筐都记在这里。" .
+:Handler a owl:Class ; rdfs:label "临时工" ; :physicalTable "handlers" ; :primaryKey "id" ;
+    :businessDescription "日结装卸工（劳务派遣）。流动率极高，破损常集中在其上岗头几天。" .
+:Complaint a owl:Class ; rdfs:label "客诉" ; :physicalTable "complaints" ; :primaryKey "id" ;
+    :businessDescription "门店发起的客诉。liability 为空表示责任未判定——这是状态，不是缺失。" .
+:DriverStat a owl:Class ; rdfs:label "司机近30天画像" ; :physicalTable "driver_stats" ;
+    :primaryKey "driver_id" ;
+    :businessDescription "窗口期的司机事实快照。窗口不是列，定义需要一行才能挂靠。" .
+
+# ---- 属性（列）
+:plate a owl:DatatypeProperty ; rdfs:domain :Vehicle ; :physicalColumn "plate" .
+:tonnage a owl:DatatypeProperty ; rdfs:domain :Vehicle ; rdfs:range xsd:decimal ; :physicalColumn "tonnage" .
+:emission a owl:DatatypeProperty ; rdfs:domain :Vehicle ; :physicalColumn "emission" .
+:age_years a owl:DatatypeProperty ; rdfs:domain :Vehicle ; rdfs:range xsd:decimal ; :physicalColumn "age_years" .
+:core_zone_permit a owl:DatatypeProperty ; rdfs:domain :Vehicle ; rdfs:range xsd:boolean ; :physicalColumn "core_zone_permit" .
+:box_capacity a owl:DatatypeProperty ; rdfs:domain :Vehicle ; rdfs:range xsd:integer ; :physicalColumn "box_capacity" .
+:name a owl:DatatypeProperty ; rdfs:domain :Driver ; :physicalColumn "name" .
+:driver_age a owl:DatatypeProperty ; rdfs:domain :Driver ; rdfs:range xsd:integer ; :physicalColumn "age" .
+:zone a owl:DatatypeProperty ; rdfs:domain :Store ; :physicalColumn "zone" .
+:version a owl:DatatypeProperty ; rdfs:domain :Route ; :physicalColumn "version" .
+:planned_stops a owl:DatatypeProperty ; rdfs:domain :Route ; rdfs:range xsd:integer ; :physicalColumn "planned_stops" .
+:trip_date a owl:DatatypeProperty ; rdfs:domain :Trip ; rdfs:range xsd:date ; :physicalColumn "trip_date" .
+:load_boxes a owl:DatatypeProperty ; rdfs:domain :Trip ; rdfs:range xsd:integer ; :physicalColumn "load_boxes" .
+:load_volume a owl:DatatypeProperty ; rdfs:domain :Trip ; rdfs:range xsd:decimal ; :physicalColumn "load_volume" .
+:load_weight a owl:DatatypeProperty ; rdfs:domain :Trip ; rdfs:range xsd:decimal ; :physicalColumn "load_weight" .
+:driver_id a owl:DatatypeProperty ; rdfs:domain :Trip ; rdfs:range xsd:integer ;
+    :physicalColumn "driver_id" ; :state "action" ;
+    :businessDescription "这一趟的司机。只有动作可以写它——派单是一次被审计的决定。" .
+:vehicle_id a owl:DatatypeProperty ; rdfs:domain :Trip ; rdfs:range xsd:integer ;
+    :physicalColumn "vehicle_id" ; :state "action" ;
+    :businessDescription "这一趟的车辆。与司机一起被派单动作写入。" .
+:box_capacity_snapshot a owl:DatatypeProperty ; rdfs:domain :Trip ; rdfs:range xsd:integer ;
+    :physicalColumn "box_capacity_snapshot" ;
+    :businessDescription "派遣时冻结的车辆装载能力。冻结是事实：计划在那一刻定下，事后换车不改历史。" .
+:volume_capacity_snapshot a owl:DatatypeProperty ; rdfs:domain :Trip ; rdfs:range xsd:decimal ;
+    :physicalColumn "volume_capacity_snapshot" .
+:weight_capacity_snapshot a owl:DatatypeProperty ; rdfs:domain :Trip ; rdfs:range xsd:decimal ;
+    :physicalColumn "weight_capacity_snapshot" .
+:revenue a owl:DatatypeProperty ; rdfs:domain :Trip ; rdfs:range xsd:decimal ; :physicalColumn "revenue" ;
+    :unit "money" .
+:on_time a owl:DatatypeProperty ; rdfs:domain :Stop ; rdfs:range xsd:boolean ; :physicalColumn "on_time" .
+:temp_excursion a owl:DatatypeProperty ; rdfs:domain :Stop ; rdfs:range xsd:boolean ; :physicalColumn "temp_excursion" .
+:damaged_boxes a owl:DatatypeProperty ; rdfs:domain :Stop ; rdfs:range xsd:integer ; :physicalColumn "damaged_boxes" .
+:alarm_triggered a owl:DatatypeProperty ; rdfs:domain :Stop ; rdfs:range xsd:boolean ; :physicalColumn "alarm_triggered" .
+:baskets_missing a owl:DatatypeProperty ; rdfs:domain :Stop ; rdfs:range xsd:integer ; :physicalColumn "baskets_missing" .
+:kind a owl:DatatypeProperty ; rdfs:domain :Complaint ; :physicalColumn "kind" .
+:liability a owl:DatatypeProperty ; rdfs:domain :Complaint ; :physicalColumn "liability" ; :state "action" .
+:on_time_rate a owl:DatatypeProperty ; rdfs:domain :DriverStat ; rdfs:range xsd:decimal ; :physicalColumn "on_time_rate" .
+:damaged_boxes_30d a owl:DatatypeProperty ; rdfs:domain :DriverStat ; rdfs:range xsd:integer ; :physicalColumn "damaged_boxes" .
+:overload_trips_30d a owl:DatatypeProperty ; rdfs:domain :DriverStat ; rdfs:range xsd:integer ; :physicalColumn "overload_trips" .
+
+# ---- 关系（外键声明）
+:driverOf a owl:ObjectProperty ; rdfs:domain :Trip ; rdfs:range :Driver ; :physicalColumn "driver_id" ; :references :Driver .
+:vehicleOf a owl:ObjectProperty ; rdfs:domain :Trip ; rdfs:range :Vehicle ; :physicalColumn "vehicle_id" ; :references :Vehicle .
+:routeOf a owl:ObjectProperty ; rdfs:domain :Trip ; rdfs:range :Route ; :physicalColumn "route_id" ; :references :Route .
+:tripOf a owl:ObjectProperty ; rdfs:domain :Stop ; rdfs:range :Trip ; :physicalColumn "trip_id" ; :references :Trip .
+:storeOf a owl:ObjectProperty ; rdfs:domain :Stop ; rdfs:range :Store ; :physicalColumn "store_id" ; :references :Store .
+:handlerOf a owl:ObjectProperty ; rdfs:domain :Stop ; rdfs:range :Handler ; :physicalColumn "handler_id" ; :references :Handler .
+:stopOf a owl:ObjectProperty ; rdfs:domain :Complaint ; rdfs:range :Stop ; :physicalColumn "stop_id" ; :references :Stop .
+:ownedBy a owl:ObjectProperty ; rdfs:domain :Vehicle ; rdfs:range :Driver ; :physicalColumn "id" ;
+    :references :Vehicle ; :businessDescription "带车加盟：车与司机一体（这里只记录绑定方向，避免把运费当工资）。" .
+:statOf a owl:ObjectProperty ; rdfs:domain :DriverStat ; rdfs:range :Driver ; :physicalColumn "driver_id" ; :references :Driver .

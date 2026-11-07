@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 5 步 —— 超载是一个定义，不是某一列</title>
+<style>
+  body { font-family:-apple-system,"PingFang SC","Segoe UI",Roboto,sans-serif;
+         background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  .rev { display:block; margin-top:4px; font:10px ui-monospace,Menlo,monospace;
+         color:#9fb8cf; opacity:.85 }
+  main { max-width:1180px; margin:20px auto; padding:0 20px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:980px) { .cols { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px;
+          padding:16px 18px; margin-bottom:14px; }
+  h2 { margin:0 0 10px; font-size:13px; letter-spacing:.5px; color:#334e68;
+       text-transform:uppercase; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:12px; }
+  .schema-box { background:#f2f4f6; border:1px solid #e3e6ea; border-radius:8px;
+                padding:10px 12px; margin-bottom:10px; }
+  .box-label { margin:0 0 6px; font-size:10px; letter-spacing:.4px;
+               text-transform:uppercase; color:#687b8f; }
+  table { width:100%; border-collapse:collapse; font:11px ui-monospace,Menlo,monospace; }
+  th { text-align:left; font-size:10px; color:#687b8f; padding:3px 6px;
+       border-bottom:1px solid #e3e6ea; }
+  td { padding:3px 6px; border-bottom:1px solid #f0f2f5; }
+  td.hl { color:#b3261e; font-weight:600; }
+  pre { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px; overflow:auto;
+        font:11px/1.55 ui-monospace,Menlo,monospace; white-space:pre-wrap; margin:6px 0; }
+  pre.sql { font-size:10px; }
+  .def { font:10.5px ui-monospace,Menlo,monospace; color:#8a6d3b; background:#fdf6e3;
+         border-radius:5px; padding:6px 8px; margin:6px 0; }
+  .val { font:16px ui-monospace,Menlo,monospace; color:#1d6b33; font-weight:700;
+         margin-top:6px; }
+  .note { font-size:12px; color:#687b8f; margin-top:8px; line-height:1.6; }
+  .note code, .hint code { background:#eef2f6; padding:1px 4px; border-radius:4px;
+                           font-size:11px; }
+  .hint { font-size:11px; color:#687b8f; margin-top:6px; line-height:1.5; }
+  input.q { width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid #cdd5df;
+            border-radius:8px; font:13px ui-monospace,Menlo,monospace; background:#fff; }
+  button.run { margin-top:9px; background:#0b4f9c; color:#fff; border:0; border-radius:8px;
+               padding:9px 16px; font-size:12.5px; cursor:pointer; }
+  button.dry { background:#334e68; }
+  button.reset { background:#8a6d3b; }
+  .ex { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .ex button { margin:0; background:#eef2f6; color:#0b4f9c; font-size:11px;
+               padding:5px 9px; border:0; border-radius:6px; cursor:pointer; }
+  .metric { border:1px solid #e3e6ea; border-radius:9px; padding:12px 14px; background:#fff; }
+  .metric h3 { margin:0 0 3px; font-size:13px; color:#0b4f9c; }
+  .badge { font-size:11px; border-radius:4px; padding:1px 7px; background:#eef2f6;
+           color:#4a6f9c; }
+  .badge.action { background:#fbe9e7; color:#b3261e; }
+  .badge.read { background:#eef3fb; color:#0b4f9c; }
+  .win { font:11px ui-monospace,Menlo,monospace; color:#334e68; background:#eef2f6;
+         border-radius:6px; padding:5px 9px; display:inline-block; margin:2px 0 6px; }
+</style></head>
+<body>
+<header><h1>第 5 步 —— 超载是一个定义，不是某一列</h1>
+  <span class="rev">ABC 冷链 · 第 5 步</span></header>
+<main>
+  <div class="cols">
+    <div>
+      <div class="card">
+        <h2>实际存了什么</h2>
+        <div class="note" style="margin-top:0">只存了装载与那台车的额定能力，没有任何一列叫
+          <b>超载</b>：「超载」不是谁记录下来的事实。</div>
+        <div class="schema-box"><p class="box-label">trips 里的装载与能力快照</p>
+          <table><thead><tr><th>列</th><th>含义</th></tr></thead><tbody id="cols"></tbody></table></div>
+        <table><thead><tr><th>trip</th><th>箱数</th><th>额定箱</th><th>比例</th></tr></thead>
+          <tbody id="sample"></tbody></table>
+      </div>
+      <div class="card">
+        <h2>定义（TTL）</h2>
+        <pre id="ttl">加载中 …</pre>
+        <div class="note">一列比一列，OWL 的 facet 表达不了，所以这一条是
+          <b>声明式谓词</b>（全仓唯一一类例外）—— 但比例写在本体里，不写在报表里。</div>
+      </div></div>
+    <div>
+      <div class="card">
+        <h2>把定义编译成 SQL（通道 A）</h2>
+        <div class="schema-box"><p class="box-label">超载门槛 · 装载达到额定能力的</p>
+          <input class="q" id="gate" type="number" value="100" step="5" style="width:120px"/>
+          <span class="hint">%</span></div>
+        <button class="run" id="run">编译并执行</button>
+        <div class="def" id="def"></div>
+        <pre class="sql" id="sql"></pre>
+        <div class="win" id="val"></div>
+        <div class="hint" id="hint"></div>
+        <div class="note">把 100 改成 95 或 90：定理没变，阈值变了，数字跟着变 —— 因为阈值
+          只住在定义里一处。</div>
+      </div></div>
+  </div>
+</main>
+<script>
+const F = id => document.getElementById(id);
+async function load() {
+  const j = await (await fetch('/api/abct/overload')).json();
+  F('cols').innerHTML = j.cols.map(c => `<tr><td>${c.column}</td><td>${c.note}</td></tr>`).join('');
+  F('sample').innerHTML = j.sample.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join('');
+  F('ttl').textContent = j.definition;
+}
+async function run() {
+  const pct = Number(F('gate').value) || 100;
+  const j = await (await fetch('/api/abct/overload/compile?pct=' + pct)).json();
+  F('def').textContent = j.predicate || '';
+  F('sql').textContent = j.sql || '';
+  F('val').textContent = j.ok ? (j.count + ' 趟超载（共 ' + j.total + ' 趟，' + j.rate + '%）') : (j.error || '');
+  F('hint').textContent = j.note || '';
+}
+F('run').onclick = run;
+load(); run();
+</script>
+</body></html>

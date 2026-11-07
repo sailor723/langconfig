@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Step 6 — metrics: definitions that compile to numbers</title>
+<style>
+  body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:14px 20px; }
+  header h1 { margin:0 0 3px; font-size:16px; }
+  header a { color:#9fb8cf; font-size:12px; }
+  main { max-width:1200px; margin:16px auto; padding:0 16px; }
+  .bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+  .bar label { font-size:12px; color:#334e68; }
+  .bar input { width:80px; font:13px ui-monospace,Menlo,monospace; padding:5px 7px;
+               border:1px solid #cdd5df; border-radius:6px; }
+  .bar button { margin:0; background:#0b4f9c; color:#fff; border:0; border-radius:7px;
+                padding:6px 12px; font-size:12px; cursor:pointer; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:12px; }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:12px 14px; }
+  .card h3 { margin:0 0 4px; font-size:13.5px; color:#0b4f9c; }
+  .def { font:10px ui-monospace,Menlo,monospace; color:#8a6d3b; background:#fdf6e3;
+         border-radius:4px; padding:5px 7px; margin:4px 0 6px; }
+  pre.sql { font:9.5px/1.45 ui-monospace,Menlo,monospace; background:#0f172a; color:#dbe7f3;
+            border-radius:6px; padding:8px; white-space:pre-wrap; margin:6px 0; }
+  .val { font:16px ui-monospace,Menlo,monospace; color:#1d6b33; font-weight:700; margin-top:4px; }
+  .err { color:#b3261e; font-size:11px; }
+  .edit { display:none; margin-top:8px; border-top:1px dashed #e3e6ea; padding-top:8px; }
+  .edit label { display:block; font-size:10px; color:#687b8f; margin:4px 0 2px; }
+  .edit input, .edit select { width:100%; box-sizing:border-box; font:11px ui-monospace,Menlo,monospace;
+                              padding:4px 6px; border:1px solid #cdd5df; border-radius:5px; }
+  .edit button { margin-top:6px; }
+  .more { margin-top:6px; background:#eef2f6; color:#334e68; border:0; border-radius:6px;
+          padding:4px 9px; font-size:11px; cursor:pointer; }
+  .hint { font-size:11px; color:#687b8f; margin-top:4px; line-height:1.5; }
+  .win { font:11px ui-monospace,Menlo,monospace; color:#334e68; background:#eef2f6;
+         border-radius:6px; padding:5px 9px; }
+  .win b { color:#0b4f9c; }
+  .label { font-size:11.5px; color:#486581; margin:0 0 2px; }
+  .ask { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:12px 14px;
+         margin-bottom:14px; }
+  .ask h2 { margin:0 0 8px; font-size:12px; letter-spacing:.5px; color:#334e68;
+            text-transform:uppercase; }
+  .ask input#aq { width:100%; box-sizing:border-box; padding:8px 10px; border:1px solid #cdd5df;
+                  border-radius:8px; font:13px ui-monospace,Menlo,monospace; background:#fff; }
+  .ask button#arun { margin-top:8px; background:#0b4f9c; color:#fff; border:0; border-radius:8px;
+                     padding:8px 14px; font-size:12px; cursor:pointer; }
+  .ex { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .ex button { margin:0; background:#eef2f6; color:#0b4f9c; font-size:11px; padding:4px 9px;
+               border:0; border-radius:6px; cursor:pointer; }
+  #ares { display:none; margin-top:12px; border-top:1px dashed #e3e6ea; padding-top:10px; }
+  #ahead { font:12px ui-monospace,Menlo,monospace; color:#0b4f9c; font-weight:600; }
+</style></head>
+<body>
+<header><h1>Step 6 — metrics: definitions that compile to numbers</h1>
+</header>
+<main>
+  <div class="bar">
+    <label>time window: revenue of the last</label>
+    <input id="days" type="number" value="30" min="1" step="1"/>
+    <label>days</label>
+    <button id="reload">Apply window</button>
+  </div>
+  <div class="bar" style="margin-top:-4px">
+    <span class="win" id="winline">…</span>
+    <span class="hint">This window feeds <b>one</b> metric, <code>:revenueLastDays</code>: its
+      <code>:where</code> is the defined class <code>:RecentOrder</code>, i.e.
+      <code>:Order ⊓ (:placed_at ≥ now − N days)</code>. The other cards ignore it — they are
+      all orders, all customers, all time. The last card is a <b>ratio across two grains</b>
+      (<code>:numerator</code> / <code>:denominator</code>), not a formula.</span>
+  </div>
+  <div class="ask">
+    <h2>Ask for a metric</h2>
+    <input id="aq" placeholder="e.g. revenue from premium customers"/>
+    <div class="ex" id="aex"></div>
+    <button id="arun">Ask (definition → SQL → number)</button>
+    <div id="ares">
+      <div id="ahead"></div>
+      <p class="box-label" style="margin:6px 0 2px">the definition that produced this number</p>
+      <div class="def" id="adef"></div>
+      <pre class="sql" id="asql"></pre>
+      <div class="hint" id="aguard"></div>
+      <div class="val" id="aval"></div>
+      <table class="ares" id="arows" style="display:none"></table>
+      <div class="hint" id="aans"></div>
+      <div class="hint" id="asrc"></div>
+    </div>
+  </div>
+  <div class="grid" id="grid"></div>
+</main>
+<script>
+const F = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/</g, '&lt;');
+
+function card(m) {
+  if (m.error) {
+    return `<div class="card"><h3>${m.name}</h3><div class="err">refused: ${esc(m.error)}</div></div>`;
+  }
+  const d = m.definition || {};
+  const ratio = d.numerator && d.denominator;
+  const def = ratio
+    ? [`:numerator :${d.numerator}`, `:denominator :${d.denominator}`,
+       d.grain && `:grain :${d.grain}`].filter(Boolean).join(' · ')
+    : [d.aggregate && `:aggregate ${d.aggregate}`,
+       d.formula && `:formula "${d.formula}"`,
+       d.grain && `:grain :${d.grain}`,
+       d.where && `:where :${d.where}`].filter(Boolean).join(' · ');
+  const id = 'c_' + m.name;
+  if (ratio) {
+    // a cross-grain ratio has no formula of its own: its two sides are the definition
+    return `<div class="card">
+    <h3>${m.name}</h3>
+    ${m.label ? `<div class="label">${esc(m.label)}</div>` : ''}
+    <div class="def">${esc(def)}</div>
+    <pre class="sql">${esc(m.sql)}</pre>
+    <div class="hint">${esc(m.guard ? m.guard.text : '')}</div>
+    <div class="val">${esc(m.value)}</div>
+    <div class="hint">two metrics, two grains: the top one sums <code>:orderRevenue</code> over
+      orders, the bottom one counts <code>:customers</code>. Edit either and this ratio moves with
+      it. With today's data every customer has exactly one order, so this happens to equal the
+      average order value — give one customer a second order and the two numbers split.</div>
+  </div>`;
+  }
+  return `<div class="card">
+    <h3>${m.name}</h3>
+    ${m.label ? `<div class="label">${esc(m.label)}</div>` : ''}
+    ${m.window ? `<div class="win" style="margin:4px 0 6px">orders placed
+      <b>${esc(m.window.since)}</b> → <b>${esc(m.window.until)}</b> ·
+      ${m.window.ordersInside} of ${m.window.ordersTotal} orders fall inside</div>` : ''}
+    <div class="def">${esc(def)}</div>
+    <pre class="sql">${esc(m.sql)}</pre>
+    <div class="hint">${esc(m.guard ? m.guard.text : '')}</div>
+    <div class="val">${esc(m.value)}</div>
+    <button class="more" data-edit="${m.name}">edit definition</button>
+    <div class="edit" id="edit_${m.name}">
+      <label>formula</label>
+      <input id="f_${m.name}" value="${esc(m.definition.formula || '')}"/>
+      <label>aggregate</label>
+      <select id="a_${m.name}">
+        ${['sum','count','avg','min','max'].map(a =>
+          `<option${a === m.definition.aggregate ? ' selected' : ''}>${a}</option>`).join('')}
+      </select>
+      <label>where (defined class, optional)</label>
+      <input id="w_${m.name}" value="${esc(m.definition.where || '')}"/>
+      <button class="more" data-recompile="${m.name}">Recompile &amp; run</button>
+      <div class="hint" id="out_${m.name}"></div>
+    </div>
+  </div>`;
+}
+
+// One sample per capability, in both languages, plus one refusal on purpose.
+// N15 runs every one of these through the real pipeline, so a sample cannot rot.
+const AEX = [
+  "revenue from premium customers",     // filtered
+  "average order value",               // ratio of sums
+  "revenue per customer",              // cross-grain ratio
+  "how many orders",                   // count
+  "revenue by city",                   // grouped by one key
+  "revenue by product and city",       // grouped by two keys
+  "revenue last 7 days",               // window, from the words
+  "total revenue last 90 days",        // window, wider
+  "按产品、城市的收入",                    // the same, in Chinese
+  "revenue by product and city and brand",  // REFUSED: no such dimension
+];
+AEX.forEach(t => {
+  const b = document.createElement('button');
+  b.textContent = t;
+  b.onclick = () => { F('aq').value = t; ask(); };
+  F('aex').appendChild(b);
+});
+
+function definitionLine(d) {
+  if (!d) return '';
+  if (d.numerator && d.denominator) {
+    return [`:numerator :${d.numerator}`, `:denominator :${d.denominator}`,
+            d.grain && `:grain :${d.grain}`].filter(Boolean).join(' · ');
+  }
+  return [d.aggregate && `:aggregate ${d.aggregate}`,
+          d.formula && `:formula "${d.formula}"`,
+          d.grain && `:grain :${d.grain}`,
+          d.where && `:where :${d.where}`,
+          (d.groupBy || []).length && `:groupBy ${d.groupBy.map(x => ':' + x).join(', ')}`,
+          d.universe && `:universe :${d.universe}`].filter(Boolean).join(' · ');
+}
+
+async function ask() {
+  const q = F('aq').value.trim();
+  if (!q) return;
+  const days = Number(F('days').value) || 30;
+  F('ares').style.display = 'block';
+  F('ahead').textContent = 'asking …';
+  ['adef', 'asql', 'aval', 'aans', 'asrc'].forEach(id => { F(id).textContent = ''; });
+  F('arows').style.display = 'none';
+  F('arows').innerHTML = '';
+  let j;
+  try {
+    j = await (await fetch('/api/tutorial6/ask', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q, days: days }) })).json();
+  } catch (e) {
+    F('ahead').textContent = 'request failed: ' + e;
+    return;
+  }
+  if (!j.ok) {
+    F('ahead').textContent = 'REFUSED · ' + (j.question || '');
+    F('aans').textContent = j.refused || 'refused';
+    if (j.menu) {
+      F('asrc').textContent = 'this page can answer about: ' +
+        j.menu.metrics.map(m => m.name).join(' · ');
+    }
+    return;
+  }
+  const r = j.result || {};
+  F('ahead').textContent = (j.intent.kind) + ' · ' + r.name;
+  F('adef').textContent = definitionLine(r.definition);
+  F('asql').textContent = r.sql || '';
+  F('aguard').textContent = (r.guard && r.guard.notes && r.guard.notes.length)
+    ? 'guard: ' + r.guard.notes.join(' · ') : '';
+  if (r.rows && r.rows.length) {
+    F('arows').style.display = 'table';
+    const dims = ((r.definition && r.definition.groupBy) || []);
+    const head = dims.length ? dims.map(d => ':' + d).join(' · ') : 'key';
+    F('arows').innerHTML = `<tr><th>${esc(head)}</th><th>value</th></tr>` + r.rows.map(row =>
+      `<tr><td>${esc(row.keys ? row.keys.join(' · ') : row.key)}</td>` +
+      `<td>${esc(row.value)}</td></tr>`).join('');
+  } else {
+    F('aval').textContent = (r.value === null || r.value === undefined) ? '—' : r.value;
+  }
+  F('aans').textContent = j.answer || '';
+  const bits = [];
+  if (j.window_days && Number(F('days').value) !== j.window_days) {
+    bits.push('window set by the question: ' + j.window_days + ' days');
+    F('days').value = j.window_days;
+    F('reload').click();
+  }
+  if (!j.is_card) bits.push('not one of the cards above — declared in the wider ontology');
+  if (j.answer_source) bits.push('answer source: ' + j.answer_source);
+  F('asrc').textContent = bits.join(' · ');
+}
+
+F('arun').onclick = ask;
+F('aq').addEventListener('keydown', ev => { if (ev.key === 'Enter') ask(); });
+
+async function load() {
+  const days = Math.max(1, Math.floor(Number(F('days').value) || 30));
+  F('days').value = days;
+  const j = await (await fetch('/api/tutorial6/metrics?days=' + days)).json();
+  if (!j.ok) { F('grid').textContent = 'failed to load metrics'; return; }
+  F('winline').innerHTML = j.window
+    ? `window: last <b>${j.window.days}</b> days = <b>${esc(j.window.since)}</b> → ` +
+      `<b>${esc(j.window.until)}</b> · now() fixed at load time`
+    : 'no window';
+  F('grid').innerHTML = j.metrics.map(card).join('');
+}
+
+F('grid').addEventListener('click', async (ev) => {
+  const t = ev.target;
+  if (t.dataset && t.dataset.edit) {
+    const box = F('edit_' + t.dataset.edit);
+    box.style.display = box.style.display === 'block' ? 'none' : 'block';
+    return;
+  }
+  if (t.dataset && t.dataset.recompile) {
+    const name = t.dataset.recompile;
+    const body = { metric: name, formula: F('f_' + name).value,
+                   aggregate: F('a_' + name).value,
+                   where: F('w_' + name).value || null };
+    F('out_' + name).textContent = 'compiling …';
+    const r = await (await fetch('/api/tutorial6/compile', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
+    if (!r.ok) { F('out_' + name).innerHTML = '<span class="err">refused: ' + esc(r.error) + '</span>'; return; }
+    F('out_' + name).innerHTML =
+      '<pre class="sql" style="display:block">' + esc(r.sql) + '</pre>' +
+      '<div class="val">' + esc(r.value) + '</div>';
+    return;
+  }
+});
+F('reload').onclick = load;
+load();
+</script>
+</body></html>

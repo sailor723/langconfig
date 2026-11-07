@@ -1,0 +1,248 @@
+# =====================================================================
+# clinic 本体 · 01-structure.ttl  —— 对象与结构（阶段 1–3 产物）
+#
+# 数据源: clinic_db / public @ 127.0.0.1:5432   生成时点 db now = 2026-11-06 22:30 +08
+# 底稿:   scaffold_ttl.py（other/clinic_brief.json）+ 人工修订
+# 人工修订了四件事：
+#   ① 类与属性按"问题里的词"命名（:quantity 而非 :qty，:discountRate 而非 :discount，
+#      防止折扣被当成金额）；
+#   ② 外键只做链接，不再重复声明成数据属性；
+#   ③ 两条都指向 Invoice 的链接分别叫 :invoiceOfPayment / :invoiceOfClaim——RDF 里同名
+#      局部名只能是同一个属性，同名的两个 ObjectProperty 会被合并成一个；
+#   ④ 补 rdfs:label（中文）与 :businessDescription，因为业务含义不是从列名能看出来的。
+#
+# 写入：已确认只读，本文件没有任何 :state "action"。
+#
+# ---------------------------------------------------------------------
+# 阶段 2 分类（每张表都有形状，没有延后项）
+#
+#   表               形状                    成为
+#   patients         有身份的实体            :Patient   （object）
+#   doctors          有身份的实体            :Doctor    （object）
+#   treatments       有身份的实体，文本主键  :Treatment （object, PK = code）
+#   appointments     有身份的实体（事件）    :Appointment（object）
+#   treatment_lines  多对多【带载荷】        :TreatmentLine（reified class，复合主键）
+#   invoices         有身份的实体            :Invoice   （object）
+#   payments         有身份的实体            :Payment   （object）
+#   claims           有身份的实体            :Claim     （object）
+#
+#   7 条外键 → 7 条链接，全部声明在子行上；无"多对多无载荷"的纯连接表；无快照表
+#   （本库没有窗口事实，"最近 N 天"只属于 guardrail，不进模型）。
+#
+# 复现（原地运行 skill 脚本，不复制）：
+#   python3 skills/builtin/build-ontology-from-db/scripts/introspect_db.py \
+#       --dsn "host=127.0.0.1 port=5432 dbname=clinic_db user=weiping" \
+#       --out other/clinic_brief.json --sample-nulls
+#   python3 skills/builtin/build-ontology-from-db/scripts/scaffold_ttl.py \
+#       --brief other/clinic_brief.json --ns "https://cube.local/ontology/clinic#" \
+#       --out 01-structure.ttl
+# =====================================================================
+
+@prefix : <https://cube.local/ontology/clinic#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ============================================================ 对象（类）
+# 一个类的 :primaryKey 就是"一行是什么"——阶段 0 已确认。
+
+:Patient a owl:Class ;
+    rdfs:label "患者" ;
+    :physicalTable "patients" ; :primaryKey "id" ;
+    :businessDescription "一位患者。600 行，人均 9 次预约（最多 19 次）。insurance_plan 是本库对患者支付方式的唯一记载（城镇医保 / 商业保险 / 自费）。" .
+
+:Doctor a owl:Class ;
+    rdfs:label "医生" ;
+    :physicalTable "doctors" ; :primaryKey "id" ;
+    :businessDescription "一位出诊医生。20 位，4 个科室（皮肤科 8 / 儿科 6 / 全科 5 / 骨科 1）。医生是预约上的一个角色，本身不拥有收入——收入只能经预约归到医生。" .
+
+:Treatment a owl:Class ;
+    rdfs:label "诊疗项目" ;
+    :physicalTable "treatments" ; :primaryKey "code" ;
+    :businessDescription "一个可开单的收费项目（T01–T06：X光 / 感冒问诊 / 慢病随访 / 换药 / 血常规 / 输液），只有 6 个。主键是文本 code，不是自增 id。list_price 是价目表原价，实际收费在诊疗明细行上（含数量与折扣），两者可以不一致。" .
+
+:Appointment a owl:Class ;
+    rdfs:label "预约就诊" ;
+    :physicalTable "appointments" ; :primaryKey "id" ;
+    :businessDescription "一次预约就诊：患者 × 医生 × 排班时间。5,418 次，是唯一的时间事实。status 三态互斥且穷尽：completed 3,236 / cancelled 1,105 / no_show 1,077。取消与爽约的就诊既没有发票也没有诊疗明细，因此『按预约算』与『按发票算』的分母天然不同。" .
+
+:TreatmentLine a owl:Class ;
+    rdfs:label "诊疗明细行" ;
+    :physicalTable "treatment_lines" ; :primaryKey "appointment_id, seq" ;
+    :businessDescription "一次就诊里的一个收费项目行——多对多带载荷，所以它是一张独立的事实表，而不是一条链接。6,443 行，每次就诊 1–3 行。载荷为 quantity × unitPrice ×（1 − discountRate）。全部 3,236 张发票的行合计与发票总额一致（0 差异），这是指标的第二条代数路径。" .
+# NOTE 复合主键 (appointment_id, seq)：编译器把这两列当作一个元组来 join 与计数。
+#      本库没有任何表引用它，所以不存在复合外键的匹配风险；将来若有子表引用，
+#      链接必须同时给出两列（:referencesKey "appointment_id, seq"）。
+
+:Invoice a owl:Class ;
+    rdfs:label "发票" ;
+    :physicalTable "invoices" ; :primaryKey "id" ;
+    :businessDescription "一张发票，与一次已完成就诊 1:1（3,236 张 / 3,236 次完成就诊）。invoiceTotal 是开票金额，不是收到的钱；收到的钱在 Payment 上。status（paid / unpaid）与回款事实存在矛盾——938 张标记 unpaid 的发票里 694 张已有回款，所以 status 不能当作收款口径，口径待阶段 4 由业务定。" .
+
+:Payment a owl:Class ;
+    rdfs:label "回款" ;
+    :physicalTable "payments" ; :primaryKey "id" ;
+    :businessDescription "一次收款动作。2,339 笔，覆盖 2,339 张发票（每张最多 1 笔）。只有 810 笔金额恰好等于发票总额，其余落在发票总额的 50%–100% 之间（部分收款）。另有 59 笔 paidAt 晚于数据库当前时间，任何 paidAt <= now() 的窗口都会少算。" .
+
+:Claim a owl:Class ;
+    rdfs:label "保险理赔" ;
+    :physicalTable "claims" ; :primaryKey "id" ;
+    :businessDescription "一次向保险公司的理赔申请。1,934 笔，覆盖 1,934 张发票（每张最多 1 笔）。decision 与 decidedAt 可空：642 笔尚未出结论（占 33%），所以拒赔率的分母必须由业务定义，不能默认取全部。另有 111 笔 decidedAt 晚于数据库当前时间。" .
+
+# ============================================================ 属性
+# 命名规则：局部名 = 问题里会出现的词；列名是实现细节（:physicalColumn）。
+# 同一局部名在 RDF 里只能是同一个属性，因此各类的名字互不相同。
+# 外键列不在这里出现——它们只以链接的形式声明在下面的 links 段。
+
+# ---- 诊疗明细行 TreatmentLine
+:lineSeq a owl:DatatypeProperty ; rdfs:domain :TreatmentLine ; rdfs:range xsd:integer ;
+    rdfs:label "行号" ; :physicalColumn "seq" ;
+    :businessDescription "同一就诊内的行序号，复合主键的一半。只用于唯一标识一行，不作为分析维度。" .
+
+:quantity a owl:DatatypeProperty ; rdfs:domain :TreatmentLine ; rdfs:range xsd:integer ;
+    rdfs:label "数量" ; :physicalColumn "qty" ;
+    :businessDescription "这一行的项目数量。3,275 行数量 ≠ 1，按行数计费会算错，计价必须乘数量。" .
+
+:unitPrice a owl:DatatypeProperty ; rdfs:domain :TreatmentLine ; rdfs:range xsd:decimal ;
+    rdfs:label "成交单价" ; :physicalColumn "unit_price" ;
+    :businessDescription "开单当时的单价（成交价），不是价目表原价；原价在 Treatment.listPrice 上，两者可以不同。" .
+
+:discountRate a owl:DatatypeProperty ; rdfs:domain :TreatmentLine ; rdfs:range xsd:decimal ;
+    rdfs:label "折扣率" ; :physicalColumn "discount" ;
+    :businessDescription "折扣比例而不是折扣金额：0 到 0.2，均 0.050。2,152 行（33%）带折扣。折扣金额 = quantity × unitPrice × discountRate。" .
+
+# ---- 预约就诊 Appointment
+:appointmentId a owl:DatatypeProperty ; rdfs:domain :Appointment ; rdfs:range xsd:integer ;
+    rdfs:label "预约号" ; :physicalColumn "id" .
+:scheduledAt a owl:DatatypeProperty ; rdfs:domain :Appointment ; rdfs:range xsd:dateTime ;
+    rdfs:label "预约时间" ; :physicalColumn "scheduled_at" ;
+    :businessDescription "约定的就诊时间。三个状态都有值，所以按时间分桶一律用这一列；区间 2026-07-10 → 2026-11-06 约 120 天，11 月只有 6 天数据。" .
+:startedAt a owl:DatatypeProperty ; rdfs:domain :Appointment ; rdfs:range xsd:dateTime ;
+    rdfs:label "实际开始时间" ; :physicalColumn "started_at" ;
+    :businessDescription "实际开始就诊的时间。只有 completed 有值；cancelled 与 no_show 的 2,182 行恒为 NULL——NULL 是一种状态，不是 false，也不是迟到 0 分钟。用它做时间桶会静默丢掉 40% 的预约。" .
+:appointmentStatus a owl:DatatypeProperty ; rdfs:domain :Appointment ; rdfs:range xsd:string ;
+    rdfs:label "预约状态" ; :physicalColumn "status" ;
+    :businessDescription "completed（已完成）/ cancelled（取消）/ no_show（爽约）。互斥且穷尽，定义用它来限制集合。" .
+
+# ---- 发票 Invoice
+:invoiceId a owl:DatatypeProperty ; rdfs:domain :Invoice ; rdfs:range xsd:integer ;
+    rdfs:label "发票号" ; :physicalColumn "id" .
+:issuedAt a owl:DatatypeProperty ; rdfs:domain :Invoice ; rdfs:range xsd:dateTime ;
+    rdfs:label "开票时间" ; :physicalColumn "issued_at" ;
+    :businessDescription "开票时刻。因为发票与已完成就诊 1:1，它与 appointment.scheduledAt 同属一个时间轴，用它或用它做口径都能对上，但必须二选一并全局统一。" .
+:invoiceTotal a owl:DatatypeProperty ; rdfs:domain :Invoice ; rdfs:range xsd:decimal ;
+    rdfs:label "发票金额" ; :physicalColumn "total" ;
+    :businessDescription "开票金额（含全价，折扣已扣）。全库合计 1,353,412.00。这是应收，不是实收；实收在 Payment.paymentAmount 上，全库合计 756,089.20。" .
+:invoiceStatus a owl:DatatypeProperty ; rdfs:domain :Invoice ; rdfs:range xsd:string ;
+    rdfs:label "发票状态" ; :physicalColumn "status" ;
+    :businessDescription "paid / unpaid。与回款事实互相矛盾（938 张 unpaid 中 694 张已收到钱），因此它记录的是流程状态，不是收款口径。" .
+
+# ---- 回款 Payment
+:paymentId a owl:DatatypeProperty ; rdfs:domain :Payment ; rdfs:range xsd:integer ;
+    rdfs:label "回款号" ; :physicalColumn "id" .
+:paidAt a owl:DatatypeProperty ; rdfs:domain :Payment ; rdfs:range xsd:dateTime ;
+    rdfs:label "回款时间" ; :physicalColumn "paid_at" .
+:paymentAmount a owl:DatatypeProperty ; rdfs:domain :Payment ; rdfs:range xsd:decimal ;
+    rdfs:label "回款金额" ; :physicalColumn "amount" ;
+    :businessDescription "这一笔实收金额。多数小于发票金额（部分收款），因此不能当作发票金额的副本。" .
+:paymentMethod a owl:DatatypeProperty ; rdfs:domain :Payment ; rdfs:range xsd:string ;
+    rdfs:label "回款方式" ; :physicalColumn "method" ;
+    :businessDescription "医保结算 / 微信 / 现金 三种。" .
+
+# ---- 保险理赔 Claim
+:claimId a owl:DatatypeProperty ; rdfs:domain :Claim ; rdfs:range xsd:integer ;
+    rdfs:label "理赔号" ; :physicalColumn "id" .
+:insurer a owl:DatatypeProperty ; rdfs:domain :Claim ; rdfs:range xsd:string ;
+    rdfs:label "保险公司" ; :physicalColumn "insurer" ;
+    :businessDescription "A保险 / B保险 两家。" .
+:filedAt a owl:DatatypeProperty ; rdfs:domain :Claim ; rdfs:range xsd:dateTime ;
+    rdfs:label "提交时间" ; :physicalColumn "filed_at" .
+:decidedAt a owl:DatatypeProperty ; rdfs:domain :Claim ; rdfs:range xsd:dateTime ;
+    rdfs:label "出结论时间" ; :physicalColumn "decided_at" ;
+    :businessDescription "可空：642 笔为 NULL（尚未出结论）。与 decision 严格同步为空/非空。" .
+:decision a owl:DatatypeProperty ; rdfs:domain :Claim ; rdfs:range xsd:string ;
+    rdfs:label "理赔结论" ; :physicalColumn "decision" ;
+    :businessDescription "approved / rejected，可为 NULL（待决）。approved 679 / rejected 613 / 待决 642。拒赔的定义用它来限制集合。" .
+
+# ---- 患者 Patient
+:patientId a owl:DatatypeProperty ; rdfs:domain :Patient ; rdfs:range xsd:integer ;
+    rdfs:label "患者号" ; :physicalColumn "id" .
+:patientName a owl:DatatypeProperty ; rdfs:domain :Patient ; rdfs:range xsd:string ;
+    rdfs:label "患者姓名" ; :physicalColumn "name" ;
+    :businessDescription "600 个姓名互不相同。是自然人的标识，不是可聚合维度；任何按姓名分组的报表都等于按人列出明细。" .
+:birthYear a owl:DatatypeProperty ; rdfs:domain :Patient ; rdfs:range xsd:integer ;
+    rdfs:label "出生年份" ; :physicalColumn "birth_year" .
+:city a owl:DatatypeProperty ; rdfs:domain :Patient ; rdfs:range xsd:string ;
+    rdfs:label "城市" ; :physicalColumn "city" ;
+    :businessDescription "患者所在城市：上海 / 无锡 / 杭州 / 苏州。它是患者属性，不是机构属性——本库没有分院概念，所以『按城市看收入』其实是在按患者居住地切。病历里常把『地区/区域』也译成 region，别名属于 profile。" .
+:insurancePlan a owl:DatatypeProperty ; rdfs:domain :Patient ; rdfs:range xsd:string ;
+    rdfs:label "参保类型" ; :physicalColumn "insurance_plan" ;
+    :businessDescription "城镇医保 / 商业保险 / 自费。注意：694 笔理赔发生在『自费』患者身上，所以这一列不等于『这笔费用由谁付』——矛盾已记入阶段 0，待业务澄清。" .
+
+# ---- 医生 Doctor
+:doctorId a owl:DatatypeProperty ; rdfs:domain :Doctor ; rdfs:range xsd:integer ;
+    rdfs:label "医生号" ; :physicalColumn "id" .
+:doctorName a owl:DatatypeProperty ; rdfs:domain :Doctor ; rdfs:range xsd:string ;
+    rdfs:label "医生姓名" ; :physicalColumn "name" .
+:specialty a owl:DatatypeProperty ; rdfs:domain :Doctor ; rdfs:range xsd:string ;
+    rdfs:label "科室" ; :physicalColumn "specialty" ;
+    :businessDescription "儿科 / 全科 / 皮肤科 / 骨科。按科室汇总必须先经预约回到医生，不能从诊疗明细行直接跳。" .
+
+# ---- 诊疗项目 Treatment
+:treatmentCode a owl:DatatypeProperty ; rdfs:domain :Treatment ; rdfs:range xsd:string ;
+    rdfs:label "项目编码" ; :physicalColumn "code" ;
+    :businessDescription "T01–T06，文本主键。业务问题里几乎不会直接问编码，问的是项目名称，所以它是标识而不是常用维度。" .
+:treatmentName a owl:DatatypeProperty ; rdfs:domain :Treatment ; rdfs:range xsd:string ;
+    rdfs:label "项目名称" ; :physicalColumn "name" ;
+    :businessDescription "X光 / 感冒问诊 / 慢病随访 / 换药 / 血常规 / 输液。『按项目看收入』匹配的是这一列。" .
+:listPrice a owl:DatatypeProperty ; rdfs:domain :Treatment ; rdfs:range xsd:decimal ;
+    rdfs:label "项目原价" ; :physicalColumn "list_price" ;
+    :businessDescription "价目表原价。实际成交价在 TreatmentLine.unitPrice 上，两者不同，别把原价当收入来源。" .
+
+# ============================================================ 链接（外键）
+# 规则：链接声明在子行上，:physicalColumn 是子表的 FK 列，:references 是被引用的类。
+# FK 列不再单独声明成 DatatypeProperty——否则同一条关系变成两个东西。
+# 命名用 <被引用者>Of<持有者>，与 skill 示例里的 :routeOf 一致，且两个子表都指向
+# Invoice 时不会撞名（:invoiceOfPayment / :invoiceOfClaim）。
+
+:treatmentOfLine a owl:ObjectProperty ; rdfs:domain :TreatmentLine ; rdfs:range :Treatment ;
+    rdfs:label "所属项目" ;
+    :physicalColumn "treatment_code" ; :references :Treatment .
+# NOTE 目标是文本主键 treatments.code。若有人把 treatments.id 加进来，join 会静默归零。
+
+:appointmentOfLine a owl:ObjectProperty ; rdfs:domain :TreatmentLine ; rdfs:range :Appointment ;
+    rdfs:label "所属就诊" ;
+    :physicalColumn "appointment_id" ; :references :Appointment .
+# NOTE 这是把诊疗明细接回时间轴、患者、医生、城市的唯一通路；
+#      一次就诊最多 3 行，因此"从明细行汇总金额"与"汇总发票金额"在不同 grain 上，
+#      未经聚合地 join 两者会按行数放大金额。
+
+:patientOfAppointment a owl:ObjectProperty ; rdfs:domain :Appointment ; rdfs:range :Patient ;
+    rdfs:label "就诊患者" ;
+    :physicalColumn "patient_id" ; :references :Patient .
+
+:doctorOfAppointment a owl:ObjectProperty ; rdfs:domain :Appointment ; rdfs:range :Doctor ;
+    rdfs:label "接诊医生" ;
+    :physicalColumn "doctor_id" ; :references :Doctor .
+
+:appointmentOfInvoice a owl:ObjectProperty ; rdfs:domain :Invoice ; rdfs:range :Appointment ;
+    rdfs:label "开票对应的就诊" ;
+    :physicalColumn "appointment_id" ; :references :Appointment .
+# NOTE 实测 1:1（3,236 张发票对 3,236 次已完成就诊），所以沿这条链接换 grain 不会放大。
+
+:invoiceOfPayment a owl:ObjectProperty ; rdfs:domain :Payment ; rdfs:range :Invoice ;
+    rdfs:label "回款对应的发票" ;
+    :physicalColumn "invoice_id" ; :references :Invoice .
+# NOTE 每张发票最多 1 笔回款（2,339 / 2,339），但并非每张发票都有回款。
+
+:invoiceOfClaim a owl:ObjectProperty ; rdfs:domain :Claim ; rdfs:range :Invoice ;
+    rdfs:label "理赔对应的发票" ;
+    :physicalColumn "invoice_id" ; :references :Invoice .
+# NOTE 同理 1:1 上界（1,934 / 1,934）；从发票算拒赔率时必须用 LEFT JOIN 的语义，
+#      不是每张发票都提交过理赔。
+
+# ============================================================ 本文件不包含
+# - 定义（爽约、已完成就诊、待决理赔、拒赔……）与指标：在 02-meaning.ttl，等阶段 4
+#   由业务拍板（阶段 0 第 7 节的 6 个口径仍未定）。
+# - 计算覆盖（:aggregate / :grain / :universe / :groupBy）：在 metrics_ext.ttl。
+# - 任何 :state "action"：已确认只读；写入另开声明式 action 与审计评审。

@@ -1,0 +1,114 @@
+# ABC —— 定义（不是列）。阈值只写一次，编译成 WHERE。
+@prefix : <https://cube.local/ontology/abc#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ---- 单条件定义（facet）
+:LateStop a owl:Class ; rdfs:label "晚点站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :on_time ; owl:hasValue false ] ) ] ;
+    :businessDescription "离开时超过了门店收货窗口的站点。" .
+
+:TempExcursion a owl:Class ; rdfs:label "倒温站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :temp_excursion ; owl:hasValue true ] ) ] ;
+    :businessDescription "在途温度越界（冷冻/冷藏要求被破坏）。" .
+
+:DamagedStop a owl:Class ; rdfs:label "破损站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :damaged_boxes ;
+        owl:withRestrictions ( [ xsd:minInclusive 1 ] ) ] ) ] ;
+    :businessDescription "至少一箱货损的站点。" .
+
+# ---- 并集（OR）：履约不合格 = 晚点 或 倒温 或 破损 或 误触警铃
+:FailedDelivery a owl:Class ; rdfs:label "履约不合格" ;
+    owl:equivalentClass [ owl:unionOf ( :LateStop :TempExcursion :DamagedStop
+        [ a owl:Restriction ; owl:onProperty :alarm_triggered ; owl:hasValue true ] ) ] ;
+    :businessDescription "四项任一发生即为不合格。用并集表达：四个来源，一个定义。" .
+
+# ---- 跨列比较（OWL 做不到）：超载 = 任一维度达到或超过出车时冻结的装载能力
+:OverloadedTrip a owl:Class ; rdfs:label "超载趟次" ;
+    :physicalPredicate "load_boxes >= box_capacity_snapshot OR load_volume >= volume_capacity_snapshot OR load_weight >= weight_capacity_snapshot" ;
+    :businessDescription "一列比一列，OWL 的 facet 表达不了，因此这一条是声明式谓词（全仓唯一一类例外）。装载能力用派遣时快照，因为计划在那一刻定下。" .
+
+:VehicleNoPermit a owl:Class ; rdfs:label "无核心区路权车辆" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Vehicle [ a owl:Restriction ;
+        owl:onProperty :core_zone_permit ; owl:hasValue false ] ) ] ;
+    :businessDescription "拿不到核心城区通行证的车辆——只能跑郊区，调度灵活性直接下降。" .
+
+# ---- 司机画像上的并集：高风险 = 准时率低 或 破损多 或 超载多
+:AtRiskDriver a owl:Class ; rdfs:label "高风险司机" ;
+    owl:equivalentClass [ owl:unionOf (
+        [ a owl:Restriction ; owl:onProperty :on_time_rate ;
+          owl:withRestrictions ( [ xsd:maxInclusive 0.93 ] ) ]
+        [ a owl:Restriction ; owl:onProperty :damaged_boxes_30d ;
+          owl:withRestrictions ( [ xsd:minInclusive 160 ] ) ]
+        [ a owl:Restriction ; owl:onProperty :overload_trips_30d ;
+          owl:withRestrictions ( [ xsd:minInclusive 22 ] ) ] ) ] ;
+    :businessDescription "三个条件任一成立。基于近30天事实快照（窗口需要一行才能挂靠）。" .
+
+# ---- 指标
+:overloadedTrips a owl:DatatypeProperty ; rdfs:label "超载趟次" ; rdfs:domain :Trip ;
+    :aggregate "count" ; :grain :Trip ; :universe :Trip ; :where :OverloadedTrip ;
+    :unit "count" ; :additivity "additive" .
+:trips a owl:DatatypeProperty ; rdfs:label "趟次" ; rdfs:domain :Trip ;
+    :aggregate "count" ; :grain :Trip ; :universe :Trip ; :unit "count" ; :additivity "additive" .
+:stops a owl:DatatypeProperty ; rdfs:label "站点数" ; rdfs:domain :Stop ;
+    :aggregate "count" ; :grain :Stop ; :universe :Stop ; :unit "count" ; :additivity "additive" .
+:onTimeStops a owl:DatatypeProperty ; rdfs:label "准时站点数" ; rdfs:domain :Stop ;
+    :aggregate "count" ; :grain :Stop ; :universe :Stop ;
+    :concept :OnTimeStop ; :unit "count" ; :additivity "additive" .
+:damagedBoxes a owl:DatatypeProperty ; rdfs:label "货损箱数" ; rdfs:domain :Stop ;
+    :aggregate "sum" ; :grain :Stop ; :universe :Stop ; :formula "damaged_boxes" ;
+    :unit "count" ; :additivity "additive" .
+:complaints a owl:DatatypeProperty ; rdfs:label "客诉数" ; rdfs:domain :Complaint ;
+    :aggregate "count" ; :grain :Complaint ; :universe :Complaint ; :unit "count" .
+:unjudgedComplaints a owl:DatatypeProperty ; rdfs:label "未判定客诉" ; rdfs:domain :Complaint ;
+    :aggregate "count" ; :grain :Complaint ; :universe :Complaint ;
+    :where :UnjudgedComplaint ; :unit "count" .
+:vehicles a owl:DatatypeProperty ; rdfs:label "车辆数" ; rdfs:domain :Vehicle ;
+    :aggregate "count" ; :grain :Vehicle ; :universe :Vehicle ; :unit "count" .
+:noPermitVehicles a owl:DatatypeProperty ; rdfs:label "无路权车辆数" ; rdfs:domain :Vehicle ;
+    :aggregate "count" ; :grain :Vehicle ; :universe :Vehicle ; :where :VehicleNoPermit ;
+    :unit "count" .
+:atRiskDrivers a owl:DatatypeProperty ; rdfs:label "高风险司机数" ; rdfs:domain :DriverStat ;
+    :aggregate "count" ; :grain :DriverStat ; :universe :DriverStat ; :where :AtRiskDriver ;
+    :unit "count" .
+
+:OnTimeStop a owl:Class ; rdfs:label "准时站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :on_time ; owl:hasValue true ] ) ] .
+:UnjudgedComplaint a owl:Class ; rdfs:label "责任未判定" ;
+    :physicalPredicate "liability IS NULL" ;
+    :businessDescription "liability 为空的客诉：责任在司机和日结工之间互相推诿，系统保留这个状态而不是替它做决定。" .
+
+# ---- 比率（分母是另一个指标：跨颗粒度）
+:overloadRate a owl:DatatypeProperty ; :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ; rdfs:label "超载率" ;
+    :numerator :overloadedTrips ; :denominator :trips ; :unit "ratio" .
+:onTimeRate a owl:DatatypeProperty ; :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ; rdfs:label "准时率" ;
+    :numerator :onTimeStops ; :denominator :stops ; :unit "ratio" .
+:complaintRate a owl:DatatypeProperty ; :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ; rdfs:label "客诉率" ;
+    :numerator :complaints ; :denominator :stops ; :unit "ratio" .
+:stopsPerTrip a owl:DatatypeProperty ; :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ; rdfs:label "单趟站点数" ;
+    :numerator :stops ; :denominator :trips ; :unit "ratio" .
+:permitVehicles a owl:DatatypeProperty ; rdfs:label "有核心区路权车辆数" ; rdfs:domain :Vehicle ;
+    :aggregate "count" ; :grain :Vehicle ; :universe :Vehicle ; :where :VehicleWithPermit ;
+    :unit "count" .
+:VehicleWithPermit a owl:Class ; rdfs:label "有核心区路权车辆" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Vehicle [ a owl:Restriction ;
+        owl:onProperty :core_zone_permit ; owl:hasValue true ] ) ] .
+
+:permitCoverage a owl:DatatypeProperty ; :aggregate "ratio_of_sums" ; :grain :Vehicle ; :universe :Vehicle ; rdfs:label "路权覆盖率" ;
+    :numerator :permitVehicles ; :denominator :vehicles ; :unit "ratio" .
+:damagePer1kStops a owl:DatatypeProperty ; :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ; rdfs:label "每千站货损箱数" ;
+    :numerator :damagedBoxes ; :denominator :stops ; :scale "1000.0" ; :unit "count" .
+
+# ---- 按维度拆（并线前后那张表的来源）
+:stopsByVersion a owl:DatatypeProperty ; :aggregate "count" ; :grain :Stop ; :universe :Stop ;
+    :groupBy :version ; :unit "count" ; rdfs:label "按线路版本的站点数" .
+:overloadsByVersion a owl:DatatypeProperty ; :aggregate "count" ; :grain :Trip ; :universe :Trip ;
+    :where :OverloadedTrip ; :groupBy :version ; :unit "count" ;
+    rdfs:label "按线路版本的超载趟次" .
+:tripsByVersion a owl:DatatypeProperty ; :aggregate "count" ; :grain :Trip ; :universe :Trip ;
+    :groupBy :version ; :unit "count" ; rdfs:label "按线路版本的趟次" .

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Step 8 — a new object: Store, and a link that needs no table</title>
+<style>
+  body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  header a { color:#9fb8cf; font-size:13px; }
+  main { max-width:1180px; margin:20px auto; padding:0 20px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:980px) { .cols { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:16px 18px; margin-bottom:14px; }
+  h2 { margin:0 0 10px; font-size:13px; letter-spacing:.5px; color:#334e68; text-transform:uppercase; }
+  .schema-box { background:#f2f4f6; border:1px solid #e3e6ea; border-radius:8px; padding:10px 12px; margin-bottom:10px; }
+  .box-label { margin:0 0 6px; font-size:10px; letter-spacing:.4px; text-transform:uppercase; color:#687b8f; }
+  .schema { width:100%; border-collapse:collapse; font:10.5px ui-monospace,Menlo,monospace; }
+  .schema th { text-align:left; font-size:9.5px; color:#687b8f; padding:3px 6px; border-bottom:1px solid #dde3ea; }
+  .schema td { padding:3px 6px; border-bottom:1px solid #e8ecf0; color:#334e68; }
+  .fk { color:#b3261e; font-weight:600; }
+  table.data { width:100%; border-collapse:collapse; font:11px ui-monospace,Menlo,monospace; }
+  table.data th { text-align:left; font-size:10px; color:#687b8f; padding:3px 6px; border-bottom:1px solid #e3e6ea; }
+  table.data td { padding:3px 6px; border-bottom:1px solid #f0f2f5; }
+  table.data td.hl { color:#b3261e; font-weight:600; }
+  pre.ttl { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px; overflow:auto;
+            font:11px/1.5 ui-monospace,Menlo,monospace; white-space:pre-wrap; margin:6px 0; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:12px; }
+  .metric { border:1px solid #e3e6ea; border-radius:9px; padding:12px 14px; margin-bottom:0;
+            background:#fff; }
+  .metric h3 { margin:0 0 3px; font-size:13px; color:#0b4f9c; }
+  .metric .tables { font-size:10px; color:#687b8f; margin-bottom:4px; }
+  .metric .tables b { color:#b3261e; }
+  .def { font:10px ui-monospace,Menlo,monospace; color:#8a6d3b; background:#fdf6e3;
+         border-radius:4px; padding:5px 7px; margin:4px 0 5px; }
+  pre.sql { font:9.5px/1.45 ui-monospace,Menlo,monospace; background:#0f172a; color:#dbe7f3;
+            border-radius:6px; padding:8px; white-space:pre-wrap; margin:5px 0; }
+  .val { font:15px ui-monospace,Menlo,monospace; color:#1d6b33; font-weight:700; }
+  table.mini { width:100%; border-collapse:collapse; font:10.5px ui-monospace,Menlo,monospace; margin-top:4px; }
+  table.mini th { text-align:left; font-size:9.5px; color:#687b8f; padding:2px 5px; border-bottom:1px solid #e3e6ea; }
+  table.mini td { padding:2px 5px; border-bottom:1px solid #f2f4f6; }
+  .ask { background:#fff; }
+  .ask input#aq { width:100%; box-sizing:border-box; padding:8px 10px; border:1px solid #cdd5df;
+                  border-radius:8px; font:13px ui-monospace,Menlo,monospace; background:#fff; }
+  .ask button#arun { margin-top:8px; background:#0b4f9c; color:#fff; border:0; border-radius:8px;
+                     padding:8px 14px; font-size:12px; cursor:pointer; }
+  .ex { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .ex button { margin:0; background:#eef2f6; color:#0b4f9c; font-size:11px; padding:4px 9px;
+               border:0; border-radius:6px; cursor:pointer; }
+  #ares { display:none; margin-top:12px; border-top:1px dashed #e3e6ea; padding-top:10px; }
+  #ahead { font:12px ui-monospace,Menlo,monospace; color:#0b4f9c; font-weight:600; }
+  #arows { display:none; width:100%; border-collapse:collapse; font:11px ui-monospace,Menlo,monospace; margin-top:6px; }
+  #arows th { text-align:left; font-size:10px; color:#687b8f; padding:3px 6px; border-bottom:1px solid #e3e6ea; }
+  #arows td { padding:3px 6px; border-bottom:1px solid #f0f2f5; }
+  #aval { font:16px ui-monospace,Menlo,monospace; color:#1d6b33; font-weight:700; margin-top:6px; }
+  .hint { font-size:11px; color:#687b8f; margin-top:6px; line-height:1.5; }
+  .note { font-size:12px; color:#687b8f; margin-top:8px; line-height:1.5; }
+  .note code, .hint code { background:#eef2f6; padding:1px 4px; border-radius:4px; font-size:11px; }
+</style></head>
+<body>
+<header><h1>Step 8 — a new object: Store, and a link that needs no table</h1>
+  <span class="rev" style="display:block;margin-top:4px;font:10px ui-monospace,Menlo,monospace;color:#9fb8cf;opacity:.85">step 8 · a new object — rev split-3/4</span>
+</header>
+<main>
+  <div class="cols">
+    <div>
+      <div class="card">
+        <h2>The new object: Store</h2>
+        <div class="schema-box">
+          <p class="box-label">an object type — label, physical table, key, properties</p>
+          <table class="schema"><tbody>
+            <tr><td>object type</td><td colspan="2"><b>:Store</b></td></tr>
+            <tr><td>stored in</td><td colspan="2"><code>stores</code></td></tr>
+            <tr><td>primary key</td><td colspan="2"><code>id</code></td></tr>
+          </tbody></table>
+        </div>
+        <div class="schema-box">
+          <p class="box-label">stores — the columns that become its properties</p>
+          <table class="schema"><thead><tr><th>column</th><th>type</th><th>meaning</th></tr></thead>
+            <tbody id="sschema"></tbody></table>
+        </div>
+        <table class="data"><thead id="shead"></thead><tbody id="srows"></tbody></table>
+        <div class="note">A second object, but of a different kind: nothing <em>is</em> a store in a
+          report — a store is something orders are <b>attributed to</b>. It has no measure at all,
+          only the dimension every city metric groups by.</div>
+      </div>
+
+      <div class="card">
+        <h2>The link: an order was sold at a store</h2>
+        <div class="schema-box">
+          <p class="box-label">a many-to-one link — so a column is enough</p>
+          <table class="schema"><tbody>
+            <tr><td>link</td><td colspan="2"><b>:Order —sold at→ :Store</b></td></tr>
+            <tr><td>cardinality</td><td colspan="2">many-to-one (many orders per store, one store per order)</td></tr>
+            <tr><td>carries</td><td colspan="2">nothing — the link has no data of its own</td></tr>
+            <tr><td>stored in</td><td colspan="2"><code>orders.sold_at</code> (one FK, no extra table)</td></tr>
+          </tbody></table>
+        </div>
+        <div class="note">Compare with step 7: a many-to-many link that carried <code>qty</code>
+          needed a table of its own (reification). This link is many-to-one and carries nothing, so
+          a single foreign key on the order row is enough — <b>cardinality and payload decide the
+          storage shape</b>, not habit.</div>
+      </div>
+
+      <div class="card">
+        <h2>A dimension, not a measurement</h2>
+        <table class="data"><thead><tr><th>city</th><th>orders</th><th>revenue</th></tr></thead>
+          <tbody id="percity"></tbody></table>
+        <div class="note">The numbers above are sums of orders. The <b>city</b> next to each sum is
+          never summed — it is the key the metric groups by, and it lives on another object. That
+          is the whole job of a dimension: it divides a measure, it never adds to one.</div>
+        <div class="note">Which is why “revenue by store” is <em>not</em> a declared metric: a store
+          has no name property to group on here, only a city. The ontology says what can be a key,
+          and the query layer refuses the rest by name.</div>
+      </div>
+
+      <div class="card">
+        <h2>The ontology says</h2>
+        <pre class="ttl" id="ttl"></pre>
+        <div class="note">One declared edge is all this link needs:
+          <code>orders.sold_at → stores.id</code>, with <code>:references :Store</code> naming the
+          target. The metric then reads <code>:city</code> off that object and groups by it — the
+          compiler never guesses that <code>sold_at</code> is a store, it reads the declaration.
+          Adding the premium filter rides on the same machinery: <code>:where :PremiumCustomer</code>
+          compiles to a <code>WHERE</code> predicate, not to hand-written SQL.</div>
+      </div>
+
+      <div class="card">
+        <h2>Where the key comes from</h2>
+        <pre class="sql" id="chain"></pre>
+        <div class="note">The FROM list grows by declared edges, not by hand: the group key adds
+          <code>JOIN stores</code>, and the defined class <code>:PremiumCustomer</code> adds
+          <code>JOIN customers</code> with its <code>WHERE</code> predicate compiled from the
+          axiom. Two concepts, two joins, no guessing.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="card ask">
+    <h2>Ask about cities</h2>
+    <input id="aq" placeholder="e.g. revenue by product"/>
+    <div class="ex" id="aex"></div>
+    <button id="arun">Ask (definition → SQL → rows)</button>
+    <div id="ares">
+      <div id="ahead"></div>
+      <p class="box-label" style="margin:6px 0 2px">the definition that produced this answer</p>
+      <div class="def" id="adef"></div>
+      <pre class="sql" id="asql"></pre>
+      <div class="hint" id="aguard"></div>
+      <div id="aval"></div>
+      <table id="arows"></table>
+      <div class="hint" id="aans"></div>
+      <div class="hint" id="asrc"></div>
+    </div>
+    <div class="note">Same pipeline as the metrics step and as <code>/query</code>: the
+      question may only resolve to a declared metric, and the rows above are that metric's
+      own compiled SQL. Note the <code>:grain :OrderLine</code> on the product metrics —
+      and (for <code>:premiumRevenueByCity</code>) a <code>:where</code> pointing at the defined
+      class from step 5 — a dimension and a definition in one metric.</div>
+  </div>
+
+  <div class="card">
+    <h2>Metrics whose key is a store's city</h2>
+    <div class="grid" id="grid"></div>
+  </div>
+</main>
+<script>
+const F = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/</g, '&lt;');
+
+const TTL = `@prefix : <https://cube.local/ontology/retail#> .
+
+# the new OBJECT
+:Store a owl:Class ; rdfs:label "Store" ;
+    :physicalTable "stores" ; :primaryKey "id" .
+
+:city a owl:DatatypeProperty ; rdfs:domain :Store ; :physicalColumn "city" .
+
+# the LINK "Order sold at Store" — many-to-one, so it lives on the order row
+:sold_at a owl:ObjectProperty ; rdfs:domain :Order ; rdfs:range :Store ;
+    :physicalColumn "sold_at" ; :references :Store .
+
+# a metric that combines a defined class with a dimension from another object
+:premiumRevenueByCity a owl:DatatypeProperty ;
+    :groupBy :city ;
+    :where   :PremiumCustomer ;
+    :formula "amount" ;
+    :aggregate "sum" ; :grain :Order ; :universe :Order .`;
+
+const CHAIN = `-- revenueByCity: the key lives on Store           (2 tables)
+SELECT stores.city, sum(orders.amount)
+FROM orders JOIN stores ON orders.sold_at = stores.id
+GROUP BY stores.city ORDER BY 2 DESC;
+
+-- premiumRevenueByCity: + the defined class        (3 tables)
+FROM orders
+  JOIN stores    ON orders.sold_at        = stores.id
+  JOIN customers ON orders.customer_id    = customers.id
+WHERE customers.tier = 'PREMIUM'
+GROUP BY stores.city ORDER BY 2 DESC;`;
+
+// One sample per capability, and two refusals on purpose. N15 runs them all.
+const AEX = [
+  "revenue by city",                    // the key lives on Store
+  "premium revenue by city",            // dimension + defined class
+  "revenue by product and city",        // two keys (step 7's four-table compile)
+  "revenue by region",                  // "region" aliases to city
+  "premium customer revenue",           // the same filter without the dimension
+  "revenue by store",                   // REFUSED: a store has no name to group on
+  "revenue by city and brand",          // REFUSED: no such dimension
+];
+
+F('ttl').textContent = TTL;
+F('chain').textContent = CHAIN;
+
+AEX.forEach(t => {
+  const b = document.createElement('button');
+  b.textContent = t;
+  b.onclick = () => { F('aq').value = t; ask(); };
+  F('aex').appendChild(b);
+});
+
+function definitionLine(d) {
+  if (!d) return '';
+  if (d.numerator && d.denominator) {
+    return [`:numerator :${d.numerator}`, `:denominator :${d.denominator}`,
+            d.grain && `:grain :${d.grain}`].filter(Boolean).join(' · ');
+  }
+  return [d.aggregate && `:aggregate ${d.aggregate}`,
+          d.formula && `:formula "${d.formula}"`,
+          d.grain && `:grain :${d.grain}`,
+          d.where && `:where :${d.where}`,
+          (d.groupBy || []).length && `:groupBy ${d.groupBy.map(x => ':' + x).join(', ')}`,
+          d.universe && `:universe :${d.universe}`].filter(Boolean).join(' · ');
+}
+
+async function loadTables() {
+  const t = await (await fetch('/api/tutorial8/tables')).json();
+  if (!t.ok) return;
+  F('sschema').innerHTML = t.stores.schema.map(s =>
+    `<tr><td>${esc(s.column)}</td><td>${esc(s.type)}</td><td>${esc(s.note)}</td></tr>`).join('');
+  F('shead').innerHTML = '<tr>' + t.stores.cols.map(c => `<th>${esc(c)}</th>`).join('') + '</tr>';
+  F('srows').innerHTML = t.stores.rows.map(r =>
+    '<tr>' + r.map(v => `<td>${esc(v)}</td>`).join('') + '</tr>').join('');
+  F('percity').innerHTML = t.per_city.map(c =>
+    `<tr><td>${esc(c.city)}</td><td>${esc(c.orders)}</td><td>${esc(c.revenue)}</td></tr>`).join('');
+}
+
+async function loadMetrics() {
+  const j = await (await fetch('/api/tutorial8/metrics')).json();
+  if (!j.ok) { F('grid').textContent = 'failed to load metrics'; return; }
+  F('grid').innerHTML = j.metrics.map(m => {
+    const d = m.definition || {};
+    const def = definitionLine(d);
+    const rows = (m.rows || []).length
+      ? `<table class="mini"><tr>${(d.groupBy || ['key']).map(k => `<th>${esc(k)}</th>`)
+          .join('')}<th>value</th></tr>` +
+        m.rows.map(r => `<tr><td>${esc((r.keys || [r.key || '']).join(' · '))}</td>` +
+                        `<td>${esc(r.value)}</td></tr>`).join('') + '</table>'
+      : `<div class="val">${esc(m.value ?? '—')}</div>`;
+    return `<div class="metric">
+      <h3>${esc(m.name)}</h3>
+      <div class="tables">tables: ${esc((m.tables || []).join(' + '))} ·
+        <b>${(m.tables || []).length}</b> in the FROM/JOIN</div>
+      <div class="def">${esc(def)}</div>
+      <pre class="sql">${esc(m.sql)}</pre>
+      <div class="hint">${esc(m.guard ? m.guard.text : '')}</div>
+      ${rows}
+    </div>`;
+  }).join('');
+}
+
+async function ask() {
+  const q = F('aq').value.trim();
+  if (!q) return;
+  F('ares').style.display = 'block';
+  F('ahead').textContent = 'asking …';
+  ['adef', 'aval', 'aans', 'asrc'].forEach(id => { F(id).textContent = ''; });
+  if (F('aguard')) F('aguard').textContent = '';
+  F('asql').textContent = '';
+  F('arows').style.display = 'none';
+  F('arows').innerHTML = '';
+  let j;
+  try {
+    j = await (await fetch('/api/tutorial8/ask', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q }) })).json();
+  } catch (e) {
+    F('ahead').textContent = 'request failed: ' + e;
+    return;
+  }
+  if (!j.ok) {
+    F('ahead').textContent = 'REFUSED · ' + (j.question || '');
+    F('aans').textContent = j.refused || 'refused';
+    return;
+  }
+  const r = j.result || {};
+  F('ahead').textContent = (j.intent.kind) + ' · ' + r.name;
+  F('adef').textContent = definitionLine(r.definition);
+  F('asql').textContent = r.sql || '';
+  F('aguard').textContent = (r.guard && r.guard.notes && r.guard.notes.length)
+    ? 'guard: ' + r.guard.notes.join(' · ') : '';
+  if (r.rows && r.rows.length) {
+    const dims = (r.definition && r.definition.groupBy) || [];
+    F('arows').style.display = 'table';
+    F('arows').innerHTML = '<tr>' + (dims.length ? dims.map(d => `<th>:${esc(d)}</th>`).join('')
+      : '<th>key</th>') + '<th>value</th></tr>' + r.rows.map(row =>
+      `<tr><td>${esc(row.keys ? row.keys.join(' · ') : row.key)}</td>` +
+      `<td>${esc(row.value)}</td></tr>`).join('');
+  } else {
+    F('aval').textContent = (r.value === null || r.value === undefined) ? '—' : r.value;
+  }
+  F('aans').textContent = j.answer || '';
+  F('asrc').textContent = j.answer_source ? 'answer source: ' + j.answer_source : '';
+}
+
+F('arun').onclick = ask;
+F('aq').addEventListener('keydown', ev => { if (ev.key === 'Enter') ask(); });
+
+loadTables();
+loadMetrics();
+</script>
+</body></html>

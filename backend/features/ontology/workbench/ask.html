@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reasoner — ontology app</title>
+<style>
+  body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  header a { color:#9fb8cf; font-size:13px; }
+  main { max-width:880px; margin:20px auto; padding:0 20px; }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:18px 20px; margin-bottom:16px; }
+  h2 { margin:0 0 10px; font-size:13px; letter-spacing:.5px; color:#334e68; text-transform:uppercase; }
+  textarea { width:100%; box-sizing:border-box; min-height:120px; font:13px ui-monospace,Menlo,monospace;
+             border:1px solid #cdd5df; border-radius:8px; padding:10px; }
+  button { margin-top:10px; background:#0b4f9c; color:#fff; border:0; border-radius:8px;
+           padding:9px 16px; font-size:13px; cursor:pointer; }
+  button.alt { background:#334e68; }
+  button:disabled { opacity:.55; cursor:default; }
+  .ex { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .ex button { margin:0; background:#eef2f6; color:#0b4f9c; font-size:12px; padding:5px 10px; }
+  #out { margin-top:14px; font:12px ui-monospace,Menlo,monospace; white-space:pre-wrap;
+         background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px; display:none;
+         max-height:340px; overflow:auto; }
+  table { width:100%; border-collapse:collapse; margin-top:10px; font-size:13px; display:none; }
+  th { text-align:left; font-size:11px; text-transform:uppercase; color:#687b8f; padding:6px 8px;
+       border-bottom:1px solid #e3e6ea; }
+  td { padding:6px 8px; border-bottom:1px solid #f0f2f5; font-family:ui-monospace,Menlo,monospace; }
+  .hint { font-size:12px; color:#687b8f; margin-top:8px; }
+  .badge { display:inline-block; border-radius:5px; padding:1px 6px; font-size:11px; }
+</style></head>
+<body>
+<header><h1>⌨ Reasoner — SPARQL · HermiT · guard dry-run</h1>
+  <a href="/">← back to the app</a> · <a href="/compare">⚖ compare lanes</a> · <a href="/query">query ✦</a> · <a href="/actions">actions ⚡</a> · <a href="/settings">settings</a></header>
+<main>
+  <div class="card">
+    <h2>SPARQL — lane B (Ontop over the virtual RDF graph)</h2>
+    <textarea id="q">PREFIX ex: <http://example.org/retail#>
+ASK { <http://example.org/retail/customer/1> a ex:Customer }</textarea>
+    <div class="ex" id="examples"></div>
+    <div>
+      <button id="run-sparql">Run SPARQL (lane B)</button>
+      <button id="run-dl" class="alt">Run HermiT demo (lane beyond QL)</button>
+    </div>
+    <div class="hint">The map search on the main page only filters words. This box runs real queries:
+      lane B answers `Customer` even though the data never stored it — subclass entailment inside OWL 2 QL.
+      The HermiT demo shows the answer that only a DL reasoner can produce (owl:hasValue).</div>
+    <div id="out"></div>
+    <table id="tbl"></table>
+  </div>
+  <div class="card">
+    <h2>Lane C guard — would this action be admitted? (dry-run, no write)</h2>
+    <div class="hint" style="margin-bottom:10px">PromoteCustomer's guard is <em>compiled from the :PremiumCustomer axiom</em> — the
+      same definition lane A/B use. This runs the compiled preconditions in a transaction that is always rolled
+      back, so it answers “admitted or refused, and why” without writing and without an audit row.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">
+      <select id="gaction" style="padding:8px 10px;border:1px solid #cdd5df;border-radius:8px;font-size:13px"></select>
+      <input id="gparams" value='{"customer_id": 2}'
+             style="flex:1;min-width:220px;font:13px ui-monospace,Menlo,monospace;padding:8px 10px;
+                    border:1px solid #cdd5df;border-radius:8px">
+      <button id="run-guard" class="alt">Check guard (no write)</button>
+      <button id="run-effect" style="background:#b3261e">Run it for real (writes + audits)</button>
+    </div>
+    <div id="gout" style="margin-top:12px;font:12px ui-monospace,Menlo,monospace;white-space:pre-wrap;
+         background:#0f172a;color:#dbe7f3;border-radius:8px;padding:12px;display:none"></div>
+  </div>
+  <div class="card">
+    <h2>What to expect</h2>
+    <p class="hint" style="margin:0">
+      <code>ASK { &lt;…/customer/1&gt; a ex:Customer }</code> → <code>true</code> — entailed, never stored.<br>
+      <code>SELECT ?c WHERE { ?c a ex:Customer }</code> → 4 rows (includes the 2 PremiumCustomers).<br>
+      <code>SELECT ?c ?n WHERE { ?c a ex:PremiumCustomer ; ex:name ?n }</code> → Dana Okafor, Chen Hong.<br>
+      HermiT demo: before-reasoning query is empty, after-reasoning it lists customer_1 and customer_3 —
+      the fact derived from <code>PremiumCustomer ≡ Customer ⊓ hasTier value tier_PREMIUM</code>, which
+      Ontop cannot rewrite (not OWL 2 QL).<br>
+      Guard dry-run: <code>PromoteCustomer</code> on customer 2 → ADMITTED, with the parameters BOUND
+      (<code>… WHERE id = 2 AND NOT (tier = 'PREMIUM')</code>) and the target row shown as
+      <code>Bob Smith · STANDARD</code>; on customer 1 → REFUSED and the failing check names the axiom.
+      Nothing is written, no audit row appears — the dry-run is the read of what the write would do.
+      The <b>Run it for real</b> button executes the same params through lane C: one transaction, an audit row,
+      and the guard is re-checked on the same target so you watch it flip to REFUSED.
+    </p>
+  </div>
+</main>
+<script>
+const EX = [
+  ["ASK Dana is a Customer (entailed)",
+   "PREFIX ex: <http://example.org/retail#>\nASK { <http://example.org/retail/customer/1> a ex:Customer }"],
+  ["who is a Customer (4)",
+   "PREFIX ex: <http://example.org/retail#>\nSELECT ?c WHERE { ?c a ex:Customer } ORDER BY ?c"],
+  ["PremiumCustomers with names",
+   "PREFIX ex: <http://example.org/retail#>\nSELECT ?c ?n WHERE { ?c a ex:PremiumCustomer ; ex:name ?n } ORDER BY ?c"],
+  ["classes the endpoint serves",
+   "SELECT DISTINCT ?c WHERE { ?x a ?c }"],
+  ['ASK: is customer 2 premium? (the lane C guard read twin)',
+   "PREFIX ex: <http://example.org/retail#>\nASK { <http://example.org/retail/customer/2> a ex:PremiumCustomer }"],
+];
+const F = id => document.getElementById(id);
+const Q = F('q'), OUT = F('out'), TBL = F('tbl');
+const GA = F('gaction'), GP = F('gparams'), GOUT = F('gout');
+const ex = F('examples');
+EX.forEach(([label, text]) => {
+  const b = document.createElement('button');
+  b.textContent = label;
+  b.onclick = () => { Q.value = text; };
+  ex.appendChild(b);
+});
+
+function show(text, keepTable) { OUT.style.display = 'block'; OUT.textContent = text;
+  if (!keepTable) TBL.style.display = 'none'; }
+
+async function runSparql() {
+  show('running on lane B …');
+  try {
+    const r = await fetch('/api/ask', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: Q.value }) });
+    const j = await r.json();
+    if (!j.ok) { show('error: ' + j.error); return; }
+    if ('boolean' in j) { show('boolean: ' + j.boolean); return; }
+    if (!j.rows.length) { show(j.vars.length ? '0 rows' : 'done'); return; }
+    TBL.innerHTML = '';
+    const head = document.createElement('tr');
+    j.vars.forEach(v => { const th = document.createElement('th'); th.textContent = v; head.appendChild(th); });
+    TBL.appendChild(head);
+    j.rows.forEach(row => {
+      const tr = document.createElement('tr');
+      j.vars.forEach(v => { const td = document.createElement('td'); td.textContent = row[v] ?? ''; tr.appendChild(td); });
+      TBL.appendChild(tr);
+    });
+    TBL.style.display = 'table';
+    show(j.total + ' row(s)' + (j.total > j.rows.length ? ' (showing first ' + j.rows.length + ')' : ''), true);
+  } catch (e) { show('request failed: ' + e); }
+}
+
+async function runDl() {
+  show('running HermiT (before / after) …');
+  try {
+    const r = await fetch('/api/dl', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const j = await r.json();
+    show((j.ok ? '✓ demo passed\n\n' : '✗ demo failed\n\n') + j.log);
+  } catch (e) { show('request failed: ' + e); }
+}
+
+let ACTIONS = [];
+async function loadActions() {
+  try {
+    const r = await fetch('/api/actions');
+    const j = await r.json();
+    ACTIONS = j.actions || [];
+    ACTIONS.forEach(a => {
+      const o = document.createElement('option');
+      o.value = a.name; o.textContent = a.name + ' · ' + a.applies_to;
+      GA.appendChild(o);
+    });
+    syncGuardParams();
+  } catch (e) { /* leave the select empty; the button explains */ }
+}
+function syncGuardParams() {
+  const a = ACTIONS.find(x => x.name === GA.value);
+  if (!a) return;
+  const p = {};
+  if (a.parameters.includes('customer_id')) p.customer_id = 2;
+  if (a.parameters.includes('amount')) p.amount = 25;
+  GP.value = JSON.stringify(p);
+}
+function renderGuard(j) {
+  const lines = [(j.admitted ? '✓ ADMITTED' : '✗ REFUSED') + ' — ' + j.action, ''];
+  if (j.target) lines.push('target row: ' + JSON.stringify(j.target), '');
+  (j.checks || []).forEach(c => {
+    lines.push((c.pass ? 'PASS' : 'FAIL') + '  [' + c.kind + ']  ' + (c.sql_bound || c.sql) +
+               (c.detail ? '  — ' + c.detail : ''));
+  });
+  lines.push('', 'effect (NOT executed): ' + (j.effect_bound || j.effect));
+  if (j.lanes && j.lanes.classes && j.lanes.classes.length) {
+    lines.push('', 'lane A / lane B cross-check (served classes — the SAME predicate the guard compiles):');
+    j.lanes.classes.forEach(r => {
+      lines.push('  ' + r.name + ':  lane A=' + r.laneA + '  lane B=' +
+                 (r.laneB === null ? 'n/a' : r.laneB) + (r.match ? '  ✓' : '  ✗'));
+    });
+  }
+  GOUT.textContent = lines.join('\n');
+}
+
+async function guard(writeTo) {
+  GOUT.style.display = 'block';
+  GOUT.textContent = 'checking (read-only) …';
+  let params;
+  try { params = JSON.parse(GP.value || '{}'); }
+  catch (e) { GOUT.textContent = 'params is not valid JSON: ' + e; return null; }
+  try {
+    const r = await fetch('/api/guard', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: GA.value, params }) });
+    const j = await r.json();
+    if (!j.ok) { GOUT.textContent = 'error: ' + (j.error || j.refused || JSON.stringify(j)); return null; }
+    if (writeTo) renderGuard(j); else renderGuard(j);
+    return j;
+  } catch (e) { GOUT.textContent = 'request failed: ' + e; return null; }
+}
+
+async function runGuard() { return guard(false); }
+
+async function runEffect() {
+  GOUT.style.display = 'block';
+  GOUT.textContent = 'executing (this WRITES and leaves an audit row) …';
+  let params;
+  try { params = JSON.parse(GP.value || '{}'); }
+  catch (e) { GOUT.textContent = 'params is not valid JSON: ' + e; return; }
+  try {
+    const r = await fetch('/api/actions/run', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: GA.value, params, actor: 'ask' }) });
+    const j = await r.json();
+    const lines = [];
+    if (j.ok) {
+      lines.push('✓ WROTE — ' + j.action + ' (audit #' + j.audit_id + ', actor ' + j.actor + ')', '');
+      lines.push('before: ' + JSON.stringify(j.before || {}));
+      lines.push('after:  ' + JSON.stringify(j.after || {}));
+      const g = await guard(false);
+      lines.push('', 'guard re-checked on the same target after the write: ' +
+                 (g ? (g.admitted ? '✓ still admitted' : '✗ now REFUSED — the precondition did its job') : 'n/a'));
+    } else {
+      lines.push('✗ REFUSED — ' + j.action + ' (nothing written, no audit row)');
+      lines.push('reason: ' + (j.refused || j.error || JSON.stringify(j)));
+    }
+    GOUT.textContent = lines.join('\n');
+  } catch (e) { GOUT.textContent = 'request failed: ' + e; }
+}
+
+GA.onchange = syncGuardParams;
+F('run-sparql').onclick = () => runSparql();
+F('run-dl').onclick = () => runDl();
+F('run-guard').onclick = () => runGuard();
+F('run-effect').onclick = () => runEffect();
+loadActions();
+</script>
+</body></html>

@@ -1,0 +1,61 @@
+# Action types — the VERB layer of the retail ontology (Palantir-style).
+#
+# A read query is compiled from the TTL axioms by graph_view.py. A WRITE is not allowed to be
+# a free SQL statement: every write is a declared action here, with parameters, preconditions,
+# an effect, permissions and an audit trail. actions.py compiles this file against the TTL
+# (property -> :physicalColumn, object type -> :physicalTable/:primaryKey) and executes it in
+# one transaction with an append-only audit row.
+#
+# The guardrail: an effect may only write properties the ontology marks `:state "action"`.
+# That is the "action-owned state" rule (PALANTIR_MAPPING.md §4) enforced by check_actions.py,
+# so an analytics user can never hand-edit the tier a business process owns.
+namespace: https://cube.local/ontology/retail#
+actions:
+  - name: PromoteCustomer
+    applies_to: Customer
+    parameters:
+      customer_id: { type: integer, required: true }
+    preconditions:
+      - { kind: exists, object_type: Customer, key: "{customer_id}" }
+      # DERIVED guard: NOT member of the reasoner's :PremiumCustomer class
+      - { kind: class, class: PremiumCustomer, member: false }
+    # DERIVED effect: write membership IN the class, not a column/value pair. The assignment
+    # (tier = 'PREMIUM') is compiled from the class's owl:equivalentClass axiom — the same
+    # axiom lane A/B compile for reads — so definition, guard and effect move together.
+    effect: { kind: class, class: PremiumCustomer }
+    permission: write:customer.tier
+    audit: required
+    description: "Upgrade a customer to the PREMIUM tier. Refuses a second promotion; every write leaves an audit row."
+
+  - name: DemoteCustomer
+    applies_to: Customer
+    parameters:
+      customer_id: { type: integer, required: true }
+    preconditions:
+      - { kind: exists, object_type: Customer, key: "{customer_id}" }
+      # DERIVED guard: member of :PremiumCustomer (it is what DemoteCustomer undoes)
+      - { kind: class, class: PremiumCustomer, member: true }
+    # NOT class-driven, deliberately: the axiom pins membership to tier='PREMIUM', so
+    # leaving the class has no single assignment (any other value works) — the complement
+    # needs an explicit target value. This asymmetry is a property of the definition.
+    effect: { property: tier, value: "STANDARD" }
+    permission: write:customer.tier
+    audit: required
+    description: "Downgrade a customer to STANDARD. The inverse of PromoteCustomer, used by the gates to restore state."
+
+  - name: RecordOrder
+    applies_to: Order
+    parameters:
+      customer_id: { type: integer, required: true }
+      amount: { type: number, required: true }
+    preconditions:
+      - { kind: exists, object_type: Customer, key: "{customer_id}" }
+      - { kind: params, expression: "amount > 0" }
+    effect:
+      create: Order
+      values:
+        customer_id: "{customer_id}"
+        amount: "{amount}"
+    permission: write:order
+    audit: required
+    description: "Record a purchase for an existing customer. The primary key is assigned by the engine (max(id)+1 in the same transaction)."

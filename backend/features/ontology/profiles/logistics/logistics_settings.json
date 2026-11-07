@@ -1,0 +1,87 @@
+{
+ "_doc": "工作台读的唯一 profile。字段来源全部是 introspection，evidence 见 _comments；固定字段（ns/ontology_dir/overlay/dsn/guard 的四个上限/features）按工作台契约原样写。",
+ "title": "ABC 冷链物流（logistics）",
+ "ns": "https://cube.local/ontology/logistics#",
+ "ontology_dir": "ontology",
+ "overlay": "metrics_ext.ttl",
+ "dsn": {
+  "host": "127.0.0.1",
+  "port": 5432,
+  "dbname": "abc_coldchain",
+  "user": "weiping",
+  "password": ""
+ },
+ "guard": {
+  "enabled": true,
+  "max_rows": 500,
+  "statement_timeout_ms": 8000,
+  "max_plan_rows": 5000000,
+  "default_window_days": 90,
+  "big_tables": {
+   "trips": "trip_date",
+   "telemetry": "ts",
+   "complaints": "opened_at"
+  },
+  "large_tables": [
+   "stops"
+  ]
+ },
+ "features": {
+  "actions": true,
+  "lane_b": false,
+  "tutorial": true,
+  "tutorial_style": "auto"
+ },
+ "samples": [
+  "行程数",
+  "运费收入",
+  "超载率",
+  "准时率",
+  "温控超标站点数",
+  "每千站破损箱数",
+  "漏筐数",
+  "按门店区域看破损箱数",
+  "责任未判定投诉数",
+  "每千站投诉数",
+  "通行证覆盖率",
+  "按线路版本看超载行程数",
+  "高风险司机数",
+  "计划门店已访站数",
+  "司机近30天准时率"
+ ],
+ "aliases": {
+  "线路": "route",
+  "趟次": "trip",
+  "趟": "trip",
+  "站点": "stop",
+  "店": "store",
+  "司机": "driver",
+  "师傅": "driver",
+  "车辆": "vehicle",
+  "门店": "store",
+  "客诉": "complaint",
+  "投诉": "complaint",
+  "片区": "zone",
+  "区域": "zone",
+  "装卸工": "handler",
+  "临时工": "handler",
+  "版本": "version",
+  "破损": "damaged",
+  "货损": "damaged",
+  "超载": "overload",
+  "通行证": "permit",
+  "路权": "permit",
+  "温度": "temp",
+  "准时率": "stopOnTimeRate",
+  "准时交付率": "stopOnTimeRate",
+  "准时交付率是多少": "stopOnTimeRate"
+ },
+ "_comments": {
+  "guard.default_window_days": "90。introspection：trips 的 trip_date 是 2026-08-08 .. 2026-11-05，今天是 2026-11-07，最晚一条行程距今 2 天、整段历史正好 90 天 —— 这是**近期**数据，所以不是 0。取 90 而不是 30：30 天会把 8 月的三分之二行程切掉，而窗口是给 listing 兜底的，不该在用户没设窗口时悄悄丢数据。数据哪天变成历史（最晚 trip_date 距今 > 90 天），这条就要改成 0，让无窗口的 listing 按名拒绝而不是返回窄过的页。",
+  "guard.big_tables": "按行数从 introspection 取：stops 51,210 / telemetry 12,144 / complaints 6,876 / trips 4,050。能进 big_tables 的是**同时有真时间列**的那几张：trips.trip_date（date，90 天）、telemetry.ts（timestamp，2026-11-03 06:00 .. 08:45）、complaints.opened_at（timestamp，全部 2026-11-05 09:00）。stops 是最大的一张表但没有自己的时间列（它的时间是 trips.trip_date，隔着 trip_id），所以它只进 large_tables：算计划行数预算，不注入窗口 —— 否则 guard 会去给一张没有时间列的表拼 trip_date 过滤，SQL 直接报错。",
+  "samples": "15 条，用户自己的说法（都是指标/定义的中文 label，不是我的转述）。最后三条是按名拒绝：高风险司机数 / 计划门店已访站数（两个概念没有公理，业务没给口径）、司机近30天准时率（颗粒 :DriverWindow 不存在，driver_stats 每行一个司机、窗口恒为 30 天）。",
+  "aliases": "数据集自己的词：线路/趟次/站点/司机/师傅/车辆/门店/片区/装卸工/版本/破损/超载/通行证。per-profile 声明，不全局：这张库的「片区」是 stores.zone，「版本」是 routes.version。",
+  "max_rows / plans": "max_rows 500（最细的 listing 是 stops，5 万行，一页 500 够看且不扫全表）；statement_timeout 8000ms；max_plan_rows 5,000,000（telemetry×stops 的笛卡尔计划 ≈ 6.2 亿行，必须被拒；单条指标最贵的 path 在 5 万行量级）。"
+ },
+ "actions_file": "/Users/weiping/dev/Learn/ontology/ontologies/logistics/schema/actions.yml"
+}

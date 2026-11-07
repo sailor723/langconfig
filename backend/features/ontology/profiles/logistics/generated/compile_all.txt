@@ -1,0 +1,48 @@
+OK   :tripCount
+     SELECT count(*) AS trip_count FROM trips;
+OK   :totalRevenue
+     SELECT sum(revenue) AS total_revenue FROM trips;
+OK   :overloadedTrips
+     SELECT count(*) AS overloaded_trips FROM trips WHERE load_boxes >= box_capacity_snapshot OR load_volume >= volume_capacity_snapshot OR load_weight >= weight_capacity_snapshot;
+OK   :overloadRate
+     SELECT ((SELECT count(*) AS overloaded_trips FROM trips WHERE load_boxes >= box_capacity_snapshot OR load_volume >= volume_capacity_snapshot OR load_weight >= weight_capacity_snapshot)::numeric) / NULLIF((SELECT count(*) AS trip_count FROM trips), 0) AS overload_rate;
+OK   :overloadsByRouteVersion
+     SELECT routes.version AS overloads_by_route_version_key1, count(DISTINCT trips.id) AS overloads_by_route_version FROM trips JOIN routes ON trips.route_id = routes.id WHERE trips.load_boxes >= trips.box_capacity_snapshot OR trips.load_volume >= trips.volume_capacity_snapshot OR trips.load_weight >= trips.weight_capacity_snapshot GROUP BY routes.version ORDER BY 2 DESC;
+OK   :stopCount
+     SELECT count(*) AS stop_count FROM stops;
+OK   :onTimeStops
+     SELECT count(*) AS on_time_stops FROM stops WHERE on_time = 'true';
+OK   :stopOnTimeRate
+     SELECT ((SELECT count(*) AS on_time_stops FROM stops WHERE on_time = 'true')::numeric) / NULLIF((SELECT count(*) AS stop_count FROM stops), 0) AS stop_on_time_rate;
+OK   :tempExcursionStops
+     SELECT count(*) AS temp_excursion_stops FROM stops WHERE temp_excursion = 'true';
+OK   :damagedBoxCount
+     SELECT sum(stops.damaged_boxes) AS damaged_box_count FROM stops;
+OK   :damagePer1kStops
+     SELECT (1000.0) * (((SELECT sum(stops.damaged_boxes) AS damaged_box_count FROM stops)::numeric) / NULLIF((SELECT count(*) AS stop_count FROM stops), 0)) AS damage_per1k_stops;
+OK   :basketsMissingCount
+     SELECT sum(stops.baskets_missing) AS baskets_missing_count FROM stops;
+OK   :damagedBoxesByStoreZone
+     SELECT stores.zone AS damaged_boxes_by_store_zone_key1, sum(stops.damaged_boxes) AS damaged_boxes_by_store_zone FROM stops JOIN stores ON stops.store_id = stores.id GROUP BY stores.zone ORDER BY 2 DESC;
+OK   :complaintCount
+     SELECT count(*) AS complaint_count FROM complaints;
+OK   :unjudgedComplaints
+     SELECT count(*) AS unjudged_complaints FROM complaints WHERE liability IS NULL;
+OK   :totalClaimAmount
+     SELECT sum(complaints.amount) AS total_claim_amount FROM complaints;
+OK   :complaintsPer1kStops
+     SELECT (1000.0) * (((SELECT count(*) AS complaint_count FROM complaints)::numeric) / NULLIF((SELECT count(*) AS stop_count FROM stops), 0)) AS complaints_per1k_stops;
+OK   :vehicleCount
+     SELECT count(*) AS vehicle_count FROM vehicles;
+OK   :permitVehicles
+     SELECT count(*) AS permit_vehicles FROM vehicles WHERE core_zone_permit = 'true';
+OK   :permitCoverage
+     SELECT ((SELECT count(*) AS permit_vehicles FROM vehicles WHERE core_zone_permit = 'true')::numeric) / NULLIF((SELECT count(*) AS vehicle_count FROM vehicles), 0) AS permit_coverage;
+REFUSED :atRiskDrivers
+     :AtRiskDriver has no owl:equivalentClass axiom — nothing to compile
+REFUSED :plannedStopsVisited
+     :PlannedStopVisited has no owl:equivalentClass axiom — nothing to compile
+REFUSED :driverRecentOnTimeRate
+     class :DriverWindow declares no :physicalTable
+
+23 declared -> 20 compile, 3 refuse

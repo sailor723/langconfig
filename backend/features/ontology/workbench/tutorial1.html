@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-store">
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Step 1 — one object, plain SQL</title>
+<style>
+  body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  header a { color:#9fb8cf; font-size:13px; }
+  main { max-width:1080px; margin:20px auto; padding:0 20px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:860px) { .cols { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:16px 18px; }
+  h2 { margin:0 0 10px; font-size:13px; letter-spacing:.5px; color:#334e68; text-transform:uppercase; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; font-size:11px; text-transform:uppercase; color:#687b8f; padding:6px 8px;
+       border-bottom:1px solid #e3e6ea; }
+  td { padding:6px 8px; border-bottom:1px solid #f0f2f5; font-family:ui-monospace,Menlo,monospace; }
+  td.tier-PREMIUM { color:#0b4f9c; font-weight:600; }
+  .schema td:last-child { color:#687b8f; font-family:-apple-system,Segoe UI,Roboto,sans-serif; font-size:12px; }
+  .schema-box { background:#f2f4f6; border:1px solid #e4e8ec; border-radius:8px;
+                padding:10px 12px 6px; margin-bottom:18px; }
+  .box-label { font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:#687b8f;
+               margin:0 0 4px; }
+  .schema, .schema th, .schema td { font-size:10.5px;
+      font-family:-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .schema th { font-size:9.5px; letter-spacing:.08em; color:#7a8899; padding:4px 8px; }
+  .schema td { padding:4px 8px; color:#4a5568; }
+  .schema td:first-child { font-family:ui-monospace,Menlo,monospace; font-size:9.5px; color:#334e68; }
+  .box-label { font-size:9.5px; letter-spacing:.08em; }
+  #q { width:100%; box-sizing:border-box; font:14px ui-monospace,Menlo,monospace;
+       border:1px solid #cdd5df; border-radius:8px; padding:10px; }
+  button { margin-top:10px; background:#0b4f9c; color:#fff; border:0; border-radius:8px;
+           padding:9px 16px; font-size:13px; cursor:pointer; }
+  .ex { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .ex button { margin:0; background:#eef2f6; color:#0b4f9c; font-size:12px; padding:5px 10px; }
+  pre#sql { display:none; background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px;
+            font:12px ui-monospace,Menlo,monospace; white-space:pre-wrap; margin-top:12px; }
+  #why { display:none; color:#8a6d3b; font-size:12px; margin-top:8px; }
+  #hint { display:none; color:#b3261e; font-size:12px; margin-top:10px; }
+  .note { font-size:12px; color:#687b8f; margin-top:8px; }
+  .big { font-size:34px; color:#0b4f9c; font-weight:700; text-align:center; padding:6px 0 2px; }
+  .bigsub { text-align:center; font-size:12px; color:#687b8f; }
+</style></head>
+<body>
+<header><h1>Step 1 — one object, plain SQL</h1>
+  <span class="rev" style="display:block;margin-top:4px;font:10px ui-monospace,Menlo,monospace;color:#9fb8cf;opacity:.85">step 1 — rev object-first</span>
+</header>
+<main>
+    <div class="cols">
+    <div class="card">
+      <h2>The object: Customer</h2>
+      <div class="schema-box">
+        <p class="box-label">object type — label, where it is stored, its key</p>
+        <table class="schema"><tbody>
+          <tr><td>object type</td><td colspan="2"><b>:Customer</b></td></tr>
+          <tr><td>stored in</td><td colspan="2"><code>customers</code> (one row per customer)</td></tr>
+          <tr><td>primary key</td><td colspan="2"><code>id</code></td></tr>
+        </tbody></table>
+      </div>
+      <div class="schema-box">
+        <p class="box-label">properties — the columns that become them</p>
+        <table class="schema"><thead><tr><th>column</th><th>type</th><th>meaning</th></tr></thead>
+          <tbody id="schema"></tbody></table>
+      </div>
+      <p class="box-label">instances — the rows are objects, not just rows</p>
+      <table><thead><tr><th>id</th><th>name</th><th>tier</th></tr></thead><tbody id="rows"></tbody></table>
+      <div class="note">One object type, one table. Each row <b>is</b> a customer — an object with
+        identity (<code>id</code>) and properties (<code>name</code>, <code>tier</code>). The table
+        is only where those objects are stored; from here on we talk about the objects.</div>
+      <div class="note" id="count"></div>
+      <div class="note" id="guard"></div>
+    </div>
+    <div class="card">
+      <h2>Ask a question</h2>
+      <input id="q" placeholder="e.g. how many customers?"/>
+      <div class="ex" id="examples"></div>
+      <button id="run">Ask (runs a fixed SQL statement)</button>
+      <pre id="sql"></pre>
+      <div id="why"></div>
+      <div id="bigbox" style="display:none">
+        <div class="big" id="big"></div>
+        <div class="bigsub" id="bigsub"></div>
+      </div>
+      <table id="result" style="display:none"><thead id="rhead"></thead><tbody id="rbody"></tbody></table>
+      <div id="hint"></div>
+      <div class="note">No model and no ontology yet: each question maps to one hard-coded SQL
+        statement over the customer objects. The point of step 1 is to make
+        “question → SQL → objects” visible before anything is declared.</div>
+    </div>
+  </div>
+</main>
+<script>
+const EX = [
+  "how many customers?",
+  "which customers are premium?",
+  "is Dana premium?",
+  "list all customers",
+  "有多少客户",
+];
+const F = id => document.getElementById(id);
+EX.forEach(t => {
+  const b = document.createElement('button');
+  b.textContent = t;
+  b.onclick = () => { F('q').value = t; run(); };
+  F('examples').appendChild(b);
+});
+
+async function loadTable() {
+  const j = await (await fetch('/api/tutorial1/table')).json();
+  if (!j.ok) return;
+  F('schema').innerHTML = j.schema.map(s =>
+    `<tr><td>${s.column}</td><td>${s.type}</td><td>${s.note}</td></tr>`).join('');
+  F('rows').innerHTML = j.rows.map(r =>
+    `<tr><td>${r[0]}</td><td>${r[1]}</td><td class="tier-${r[2]}">${r[2]}</td></tr>`).join('');
+  F('count').textContent = j.rows.length + ' rows.';
+  if (j.guard && j.guard.text) F('guard').textContent = 'guard: ' + j.guard.text;
+}
+
+async function run() {
+  F('sql').style.display = 'none';
+  F('why').style.display = 'none';
+  F('hint').style.display = 'none';
+  F('result').style.display = 'none';
+  F('bigbox').style.display = 'none';
+  const q = F('q').value.trim();
+  if (!q) return;
+  F('sql').style.display = 'block';
+  F('sql').textContent = 'running …';
+  try {
+    const j = await (await fetch('/api/tutorial1', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q }) })).json();
+    if (!j.ok) {
+      F('sql').style.display = 'none';
+      F('hint').style.display = 'block';
+      F('hint').textContent = j.hint || 'no match';
+      return;
+    }
+    F('sql').textContent = j.sql;
+    F('why').style.display = 'block';
+    F('why').textContent = j.why || '';
+    if (j.cols.length === 1) {
+      F('bigbox').style.display = 'block';
+      F('big').textContent = j.rows.length ? j.rows[0][0] : '0';
+      F('bigsub').textContent = j.sql.split('FROM')[0].trim();
+      return;
+    }
+    F('rhead').innerHTML = '<tr>' + j.cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+    F('rbody').innerHTML = j.rows.map(r =>
+      '<tr>' + r.map((v, i) => `<td class="tier-${j.cols[i] === 'tier' ? v : ''}">${v}</td>`).join('') + '</tr>').join('');
+    F('result').style.display = 'table';
+  } catch (e) {
+    F('hint').style.display = 'block';
+    F('hint').textContent = 'request failed: ' + e;
+  }
+}
+
+F('run').onclick = run;
+F('q').addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
+loadTable();
+</script>
+</body></html>

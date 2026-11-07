@@ -1,0 +1,203 @@
+#!/usr/bin/env python3
+"""Per-ontology samples gate: every question the ontology offers must ANSWER, or refuse BY NAME.
+
+The profile's `samples` are the questions a user is offered first — they are the ontology's front door.
+A sample that rots (a metric renamed, an alias lost, a label reworded) is worse than no sample: the user
+clicks it, gets a refusal, and concludes the ontology is broken.
+
+So a sample is a GATE, not a suggestion. `samples.json` sits next to the profile and says what each
+question must produce:
+
+    {"samples": [
+      {"question": "行程数", "expect": {"metric": "tripCount", "value": "4050"}},
+      {"question": "按门店区域看破损箱数",
+       "expect": {"metric": "damagedBoxesByStoreZone", "rows": {"core": "5496", "suburb": "2648"}}},
+      {"question": "高风险司机数",
+       "expect": {"refused_by_name": "AtRiskDriver has no owl:equivalentClass"}},
+      {"question": "准时率", "expect": {"metric": "stopOnTimeRate", "value": "0.9357547354",
+                                        "tolerance": 1e-6}}
+    ]}
+
+The numbers must be written from a SECOND route — a hand-written SQL, not this pipeline's own output —
+otherwise the gate only proves "it still returns what it returned".
+
+Usage:
+    PY=/Users/weiping/dev/Learn/cube/tutorial/.venv/bin/python
+    $PY check_samples.py --profile ontologies/logistics/logistics_settings.json
+    $PY check_samples.py --profile … --file /some/other/samples.json
+
+Exit: 0 all samples behave, 1 a sample failed, 2 nothing to check (no samples.json).
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import pathlib
+import sys
+
+HERE = pathlib.Path(__file__).resolve().parent
+# The COMPILER lives one directory up (features/ontology/compiler) and its modules import each
+# other by bare name, so its directory goes on sys.path — a path that never depends on where this
+# repository happens to live.
+import pathlib as _pathlib
+import sys as _sys
+sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parents[1] / "compiler"))
+
+# `nl` must be imported AFTER APP_SETTINGS is set: sqlgen applies the profile at import time, so a
+# gate that imports it first measures the RETAIL ontology whatever --profile says. (Measured: the first
+# run of this file answered '运费收入' with retail's orderRevenue, i.e. it gated the wrong ontology.)
+nl = None  # imported in main()
+
+OK = True
+
+
+def check(label: str, got, want) -> None:
+    global OK
+    state = "PASS" if got == want else "FAIL"
+    OK = OK and got == want
+    print(f"  [{state}] {label}: got {got!r}, want {want!r}")
+
+
+def _num(text) -> float | None:
+    try:
+        return float(str(text))
+    except (TypeError, ValueError):
+        return None
+
+
+def _same(got, want, tol: float) -> bool:
+    if got == want:
+        return True
+    a, b = _num(got), _num(want)
+    return a is not None and b is not None and abs(a - b) <= max(tol, 1e-9 * max(abs(a), abs(b), 1.0))
+
+
+def _rows_of(result: dict) -> dict[str, str]:
+    """Grouped answers, in either of the two shapes the pipeline produces.
+
+    A one-key GROUP BY comes back as `[{"key": "core", "value": 5496}, …]`; a metric with several keys
+    comes back as row lists whose key columns come first and whose measure is last. Both are normalised
+    here, because "the gate did not understand the answer" must not look like "the answer is wrong".
+    """
+    rows = result.get("rows") or []
+    out: dict[str, str] = {}
+    for row in rows:
+        if isinstance(row, dict):
+            key = row.get("key")
+            if "key2" in row:
+                key = f"{key} / {row.get('key2')}"
+            if key is not None:
+                out[str(key)] = "" if row.get("value") is None else str(row.get("value"))
+            continue
+        if not isinstance(row, (list, tuple)) or not row:
+            continue
+        key = " / ".join("" if c is None else str(c) for c in row[:-1])
+        out[key] = "" if row[-1] is None else str(row[-1])
+    return out
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--profile", required=True, help="the ontology's *_settings.json")
+    ap.add_argument("--file", default="", help="samples.json (default: next to the profile)")
+    args = ap.parse_args()
+
+    profile = pathlib.Path(args.profile).expanduser().resolve()
+    if not profile.is_file():
+        print(f"no profile at {profile}")
+        return 1
+    spec_path = pathlib.Path(args.file).expanduser() if args.file else profile.parent / "samples.json"
+    if not spec_path.is_file():
+        print(f"NOT RUN — no samples.json at {spec_path}")
+        print("  The profile's samples are still offered to users; they are just not gated yet.")
+        return 2
+
+    # Point the process at THIS ontology before anything imports the compiler.
+    os.environ["APP_SETTINGS"] = str(profile)
+    os.environ.setdefault("NL_ANSWER_LLM", "0")     # a gate measures the pipeline, not the prose
+    global nl
+    import nl as _nl                                       # noqa: PLC0415
+    nl = _nl
+
+    spec = json.loads(spec_path.read_text(encoding="utf-8"))
+    samples = spec.get("samples") or []
+    if not samples:
+        print(f"NOT RUN — {spec_path} declares no samples")
+        return 2
+
+    offered = json.loads(profile.read_text(encoding="utf-8")).get("samples") or []
+    print(f"profile: {profile}")
+    print(f"spec:    {spec_path}")
+    print(f"samples: {len(samples)} gated · {len(offered)} offered by the profile")
+    print()
+
+    gated = {s.get("question") for s in samples}
+    for question in offered:
+        if question not in gated:
+            print(f"  [WARN] offered but not gated: {question!r} — add it to {spec_path.name} "
+                  f"(a sample nobody checks is the one that rots)")
+    print()
+
+    for entry in samples:
+        question = entry.get("question") or ""
+        expect = entry.get("expect") or {}
+        tol = float(expect.get("tolerance") or 1e-9)
+        resolved, out, refusal = False, None, ""
+        try:
+            out = nl.ask(question, confirm=True, record=False)
+            resolved = True
+        except Exception as exc:                                # noqa: BLE001
+            refusal = str(exc)
+
+        if expect.get("unresolved"):
+            # A DOCUMENTED BACKLOG ITEM: the profile offers this question, the ontology cannot honour it
+            # yet, and the reason says which declaration is missing — with the number a second route
+            # gives, so the future declaration can be verified. Printed on every run; never counted as
+            # a pass. The observed behaviour is appended, because "it fails" and "it answers wrongly"
+            # are different backlog items.
+            observed = "now answers" if resolved else "now refuses"
+            print(f"  [UNRESOLVED] {question!r} ({observed}): "
+                  f"{expect['unresolved'].splitlines()[0][:150]}")
+            continue
+
+        if expect.get("refused_by_name"):
+            want = expect["refused_by_name"]
+            check(f"{question!r} refused BY NAME ({want[:44]})", want in refusal, True)
+            continue
+        if not resolved:
+            check(f"{question!r} answers", f"REFUSED: {refusal.splitlines()[0][:90]}", "answered")
+            continue
+
+        intent_name = (out.get("intent") or {}).get("name")
+        if expect.get("metric"):
+            check(f"{question!r} resolves to :{expect['metric']}", intent_name, expect["metric"])
+        result = out.get("result") or {}
+        if "value" in expect:
+            got = result.get("value")
+            check(f"{question!r} value", expect["value"] if _same(got, expect["value"], tol) else got,
+                  expect["value"])
+        if "rows" in expect:
+            got_rows = _rows_of(result)
+            want_rows = {str(k): str(v) for k, v in (expect["rows"] or {}).items()}
+            same = set(got_rows) == set(want_rows) and all(
+                _same(got_rows[k], want_rows[k], tol) for k in want_rows)
+            check(f"{question!r} rows ({len(want_rows)} group(s))", "match" if same else got_rows, "match")
+
+    print()
+    unresolved = [s for s in samples if (s.get("expect") or {}).get("unresolved")]
+    if unresolved:
+        print(f"{len(unresolved)} sample(s) UNRESOLVED — offered by the profile, not answerable yet. "
+              "Each line says which declaration is missing (and the number a second route gives, so the "
+              "future declaration can be verified).")
+        print()
+    if OK:
+        print("ALL SAMPLES PASS" + (" (with UNRESOLVED items)" if unresolved else ""))
+        return 0
+    print("SOME SAMPLES FAILED — a sample a user clicks must answer or refuse by name; "
+          "fix the declaration, the alias or the label (not the expected number).")
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

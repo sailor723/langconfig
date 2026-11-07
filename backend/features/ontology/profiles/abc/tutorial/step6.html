@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 6 步 —— 指标：编译成数字的定义</title>
+<style>
+  body { font-family:-apple-system,"PingFang SC","Segoe UI",Roboto,sans-serif;
+         background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  .rev { display:block; margin-top:4px; font:10px ui-monospace,Menlo,monospace;
+         color:#9fb8cf; opacity:.85 }
+  main { max-width:1180px; margin:20px auto; padding:0 20px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:980px) { .cols { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px;
+          padding:16px 18px; margin-bottom:14px; }
+  h2 { margin:0 0 10px; font-size:13px; letter-spacing:.5px; color:#334e68;
+       text-transform:uppercase; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:12px; }
+  .schema-box { background:#f2f4f6; border:1px solid #e3e6ea; border-radius:8px;
+                padding:10px 12px; margin-bottom:10px; }
+  .box-label { margin:0 0 6px; font-size:10px; letter-spacing:.4px;
+               text-transform:uppercase; color:#687b8f; }
+  table { width:100%; border-collapse:collapse; font:11px ui-monospace,Menlo,monospace; }
+  th { text-align:left; font-size:10px; color:#687b8f; padding:3px 6px;
+       border-bottom:1px solid #e3e6ea; }
+  td { padding:3px 6px; border-bottom:1px solid #f0f2f5; }
+  td.hl { color:#b3261e; font-weight:600; }
+  pre { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px; overflow:auto;
+        font:11px/1.55 ui-monospace,Menlo,monospace; white-space:pre-wrap; margin:6px 0; }
+  pre.sql { font-size:10px; }
+  .def { font:10.5px ui-monospace,Menlo,monospace; color:#8a6d3b; background:#fdf6e3;
+         border-radius:5px; padding:6px 8px; margin:6px 0; }
+  .val { font:16px ui-monospace,Menlo,monospace; color:#1d6b33; font-weight:700;
+         margin-top:6px; }
+  .note { font-size:12px; color:#687b8f; margin-top:8px; line-height:1.6; }
+  .note code, .hint code { background:#eef2f6; padding:1px 4px; border-radius:4px;
+                           font-size:11px; }
+  .hint { font-size:11px; color:#687b8f; margin-top:6px; line-height:1.5; }
+  input.q { width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid #cdd5df;
+            border-radius:8px; font:13px ui-monospace,Menlo,monospace; background:#fff; }
+  button.run { margin-top:9px; background:#0b4f9c; color:#fff; border:0; border-radius:8px;
+               padding:9px 16px; font-size:12.5px; cursor:pointer; }
+  button.dry { background:#334e68; }
+  button.reset { background:#8a6d3b; }
+  .ex { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .ex button { margin:0; background:#eef2f6; color:#0b4f9c; font-size:11px;
+               padding:5px 9px; border:0; border-radius:6px; cursor:pointer; }
+  .metric { border:1px solid #e3e6ea; border-radius:9px; padding:12px 14px; background:#fff; }
+  .metric h3 { margin:0 0 3px; font-size:13px; color:#0b4f9c; }
+  .badge { font-size:11px; border-radius:4px; padding:1px 7px; background:#eef2f6;
+           color:#4a6f9c; }
+  .badge.action { background:#fbe9e7; color:#b3261e; }
+  .badge.read { background:#eef3fb; color:#0b4f9c; }
+  .win { font:11px ui-monospace,Menlo,monospace; color:#334e68; background:#eef2f6;
+         border-radius:6px; padding:5px 9px; display:inline-block; margin:2px 0 6px; }
+</style></head>
+<body>
+<header><h1>第 6 步 —— 指标：编译成数字的定义</h1>
+  <span class="rev">ABC 冷链 · 第 6 步</span></header>
+<main>
+  <div class="cols">
+    <div>
+      <div class="card">
+        <h2>指标从哪来</h2>
+        <div class="note" style="margin-top:0">每个指标都是一条声明：
+          <code>:aggregate</code>、<code>:grain</code>、<code>:universe</code>、
+          <code>:where</code>，比率再声明 <code>:numerator</code> / <code>:denominator</code>。
+          编译器把定义变成 SQL，数字从来不是手写的。</div>
+        <div class="schema-box"><p class="box-label">这一页的指标</p>
+          <table><thead><tr><th>指标</th><th>定义</th></tr></thead><tbody id="defs"></tbody></table></div>
+      </div></div>
+    <div>
+      <div class="card">
+        <h2>就运营提问</h2>
+        <input class="q" id="q" placeholder="例如：超载率"/>
+        <div class="ex" id="ex"></div>
+        <button class="run" id="run">提问（定义 → SQL → 数字）</button>
+        <div id="ares">
+          <div class="badge" id="kind"></div>
+          <p class="box-label" style="margin:6px 0 2px">产生这个答案的定义</p>
+          <div class="def" id="adef"></div>
+          <pre class="sql" id="asql"></pre>
+          <div class="hint" id="aguard"></div>
+          <div class="win" id="aval"></div>
+          <table id="arows" style="display:none"></table>
+          <div class="hint" id="aans"></div>
+        </div>
+      </div></div>
+  </div>
+</main>
+<script>
+const F = id => document.getElementById(id);
+const EX = ["超载率", "准时率", "单趟站点数", "每千站货损", "高风险司机数", "未判定客诉", "路权覆盖率"];
+EX.forEach(t => { const b = document.createElement('button'); b.textContent = t;
+  b.onclick = () => { F('q').value = t; run(); }; F('ex').appendChild(b); });
+async function load() {
+  const j = await (await fetch('/api/abct/metrics')).json();
+  F('defs').innerHTML = j.metrics.map(m => `<tr><td>${m.name}</td><td>${m.definition || ''}</td></tr>`).join('');
+}
+function defline(d) {
+  if (!d) return '';
+  if (d.numerator && d.denominator) return `:numerator :${d.numerator} · :denominator :${d.denominator}${d.scale ? ' · :scale ' + d.scale : ''}`;
+  return [d.aggregate && `:aggregate ${d.aggregate}`, d.formula && `:formula "${d.formula}"`,
+          d.grain && `:grain :${d.grain}`, d.where && `:where :${d.where}`,
+          (d.groupBy || []).length && `:groupBy ${d.groupBy.map(x => ':' + x).join(', ')}`].filter(Boolean).join(' · ');
+}
+async function run() {
+  const q = F('q').value.trim(); if (!q) return;
+  const j = await (await fetch('/api/abct/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q }) })).json();
+  F('arows').style.display = 'none'; F('aval').textContent = '';
+  if (!j.ok) { F('kind').textContent = 'REFUSED'; F('kind').className = 'badge action'; F('aans').textContent = j.refused || ''; return; }
+  const r = j.result || {};
+  F('kind').textContent = (j.intent || {}).kind + ' · ' + r.name; F('kind').className = 'badge read';
+  F('adef').textContent = defline(r.definition);
+  F('asql').textContent = r.sql || '';
+  F('aguard').textContent = (r.guard && r.guard.notes && r.guard.notes.length) ? 'guard: ' + r.guard.notes.join(' · ') : '';
+  if (r.rows && r.rows.length) {
+    F('arows').style.display = 'table';
+    F('arows').innerHTML = '<tr><th>组</th><th>值</th></tr>' + r.rows.map(x => `<tr><td>${(x.keys || [x.key]).join(' · ')}</td><td>${x.value}</td></tr>`).join('');
+  } else { F('aval').textContent = (r.value === null || r.value === undefined) ? '—' : r.value; }
+  F('aans').textContent = j.answer || '';
+}
+F('run').onclick = run; F('q').addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
+load();
+</script>
+</body></html>

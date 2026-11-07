@@ -1,0 +1,56 @@
+{
+  "ns": "https://cube.local/ontology/retail#",
+  "ontology_dir": "ontology",
+  "overlay": "metrics_ext.ttl",
+  "dsn": {
+    "host": "127.0.0.1",
+    "port": 15432,
+    "dbname": "retail_db",
+    "user": "postgres",
+    "password": "postgres"
+  },
+  "title": "Retail ontology",
+  "sample": 20,
+  "lane": "a",
+  "nl": {
+    "backend": "auto",
+    "model": "",
+    "answer_llm": true
+  },
+  "ontop_endpoint": "http://127.0.0.1:8080/sparql",
+  "ontop_ns": "http://example.org/retail#",
+  "ui": {
+    "language": "zh"
+  },
+  "guard": {
+    "enabled": true,
+    "max_rows": 1000,
+    "default_window_days": 90,
+    "statement_timeout_ms": 5000,
+    "max_plan_rows": 2000000,
+    "big_tables": {
+      "orders": "placed_at"
+    }
+  },
+  "profile": "retail",
+  "profiles": [
+    {
+      "key": "retail",
+      "label": "Retail",
+      "url": "http://127.0.0.1:8092/"
+    },
+    {
+      "key": "tpch",
+      "label": "TPC-H",
+      "url": "http://127.0.0.1:8093/"
+    },
+    {
+      "key": "abc",
+      "label": "冷链 ABC",
+      "url": "http://127.0.0.1:8094/"
+    }
+  ],
+  "features": {
+    "tutorial_style": "authored"
+  }
+}

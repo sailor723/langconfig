@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 1 步 —— 一个对象，最普通的 SQL</title>
+<style>
+  body { font-family:-apple-system,"PingFang SC","Segoe UI",Roboto,sans-serif;
+         background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  .rev { display:block; margin-top:4px; font:10px ui-monospace,Menlo,monospace;
+         color:#9fb8cf; opacity:.85 }
+  main { max-width:1180px; margin:20px auto; padding:0 20px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:980px) { .cols { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px;
+          padding:16px 18px; margin-bottom:14px; }
+  h2 { margin:0 0 10px; font-size:13px; letter-spacing:.5px; color:#334e68;
+       text-transform:uppercase; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:12px; }
+  .schema-box { background:#f2f4f6; border:1px solid #e3e6ea; border-radius:8px;
+                padding:10px 12px; margin-bottom:10px; }
+  .box-label { margin:0 0 6px; font-size:10px; letter-spacing:.4px;
+               text-transform:uppercase; color:#687b8f; }
+  table { width:100%; border-collapse:collapse; font:11px ui-monospace,Menlo,monospace; }
+  th { text-align:left; font-size:10px; color:#687b8f; padding:3px 6px;
+       border-bottom:1px solid #e3e6ea; }
+  td { padding:3px 6px; border-bottom:1px solid #f0f2f5; }
+  td.hl { color:#b3261e; font-weight:600; }
+  pre { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px; overflow:auto;
+        font:11px/1.55 ui-monospace,Menlo,monospace; white-space:pre-wrap; margin:6px 0; }
+  pre.sql { font-size:10px; }
+  .def { font:10.5px ui-monospace,Menlo,monospace; color:#8a6d3b; background:#fdf6e3;
+         border-radius:5px; padding:6px 8px; margin:6px 0; }
+  .val { font:16px ui-monospace,Menlo,monospace; color:#1d6b33; font-weight:700;
+         margin-top:6px; }
+  .note { font-size:12px; color:#687b8f; margin-top:8px; line-height:1.6; }
+  .note code, .hint code { background:#eef2f6; padding:1px 4px; border-radius:4px;
+                           font-size:11px; }
+  .hint { font-size:11px; color:#687b8f; margin-top:6px; line-height:1.5; }
+  input.q { width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid #cdd5df;
+            border-radius:8px; font:13px ui-monospace,Menlo,monospace; background:#fff; }
+  button.run { margin-top:9px; background:#0b4f9c; color:#fff; border:0; border-radius:8px;
+               padding:9px 16px; font-size:12.5px; cursor:pointer; }
+  button.dry { background:#334e68; }
+  button.reset { background:#8a6d3b; }
+  .ex { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .ex button { margin:0; background:#eef2f6; color:#0b4f9c; font-size:11px;
+               padding:5px 9px; border:0; border-radius:6px; cursor:pointer; }
+  .metric { border:1px solid #e3e6ea; border-radius:9px; padding:12px 14px; background:#fff; }
+  .metric h3 { margin:0 0 3px; font-size:13px; color:#0b4f9c; }
+  .badge { font-size:11px; border-radius:4px; padding:1px 7px; background:#eef2f6;
+           color:#4a6f9c; }
+  .badge.action { background:#fbe9e7; color:#b3261e; }
+  .badge.read { background:#eef3fb; color:#0b4f9c; }
+  .win { font:11px ui-monospace,Menlo,monospace; color:#334e68; background:#eef2f6;
+         border-radius:6px; padding:5px 9px; display:inline-block; margin:2px 0 6px; }
+</style></head>
+<body>
+<header><h1>第 1 步 —— 一个对象，最普通的 SQL</h1>
+  <span class="rev">ABC 冷链 · 第 1 步</span></header>
+<main>
+  <div class="cols">
+    <div>
+      <div class="card">
+        <h2>对象：车辆</h2>
+        <div class="schema-box">
+          <p class="box-label">对象类型 —— 名字、存在哪里、主键是什么</p>
+          <table><tbody>
+            <tr><td>对象类型</td><td colspan="2"><b>:Vehicle</b></td></tr>
+            <tr><td>存储于</td><td colspan="2"><code>vehicles</code>（一台车一行）</td></tr>
+            <tr><td>主键</td><td colspan="2"><code>id</code></td></tr>
+          </tbody></table>
+        </div>
+        <div class="schema-box"><p class="box-label">属性 —— 这些列成为它的属性</p>
+          <table><tbody id="schema"></tbody></table></div>
+        <p class="box-label">实例 —— 每一行就是一台车，不只是行</p>
+        <table><thead id="head"></thead><tbody id="rows"></tbody></table>
+        <div class="note">一个对象类型、一张表。车队只有 60 台车，但这里已经藏着三个约束：
+          <b>吨位</b>决定能装多少，<b>排放标准</b>决定能不能进核心区，<b>车龄</b>决定这两件事。</div>
+      </div></div>
+    <div>
+      <div class="card">
+        <h2>问一个问题</h2>
+        <input class="q" id="q" placeholder="例如：有多少台车？"/>
+        <div class="ex" id="ex"></div>
+        <button class="run" id="run">提问（执行一条固定的 SQL）</button>
+        <pre class="sql" id="sql" style="display:none"></pre>
+        <div class="win" id="big" style="display:none"></div>
+        <table id="res" style="display:none"><thead id="rhead"></thead><tbody id="rbody"></tbody></table>
+        <div class="hint" id="hint"></div>
+        <div class="note">这一页没有模型、也没有本体：每个问题对应一条写死的 SQL。第 1 步
+          的目的，是先让「问题 → SQL → 行」这条链路可见。</div>
+      </div></div>
+  </div>
+</main>
+<script>
+const EX = ["有多少台车", "哪些车能进核心区", "国四有几台", "12吨的车有哪些", "车龄超过10年的有几台"];
+const F = id => document.getElementById(id);
+EX.forEach(t => { const b = document.createElement('button'); b.textContent = t;
+  b.onclick = () => { F('q').value = t; run(); }; F('ex').appendChild(b); });
+const RULES = [
+  [/多少(台|辆)车|车辆数/, "vehicles_count"],
+  [/核心区|路权|通行证/, "vehicles_core_permit"],
+  [/国四/, "vehicles_gb4"],
+  [/12吨|12t/i, "vehicles_12t"],
+  [/车龄/, "vehicles_old"],
+];
+async function loadTable() {
+  const j = await (await fetch('/api/abct/vehicles')).json();
+  if (!j.ok) return;
+  F('schema').innerHTML = j.schema.map(s => `<tr><td>${s.column}</td><td>${s.type}</td><td>${s.note}</td></tr>`).join('');
+  F('head').innerHTML = '<tr>' + j.cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+  F('rows').innerHTML = j.rows.map(r => '<tr>' + r.map((v, i) => `<td${j.cols[i] === 'core_zone_permit' ? ' class="hl"' : ''}>${v}</td>`).join('') + '</tr>').join('');
+  F('hint').textContent = j.rows.length + ' 行（展示前 ' + j.rows.length + ' 台）';
+}
+async function run() {
+  const q = F('q').value.trim(); if (!q) return;
+  const hit = RULES.find(([re]) => re.test(q));
+  F('res').style.display = 'none'; F('big').style.display = 'none'; F('hint').textContent = '';
+  if (!hit) { F('hint').textContent = '这一页只认写死的规则：换一个问法试试。'; return; }
+  const j = await (await fetch('/api/abct/query', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: hit[1] }) })).json();
+  F('sql').style.display = 'block';
+  F('sql').textContent = '-- 服务器上的写死规则（页面只发名字，不发 SQL）\n' + (j.sql || '');
+  if (!j.ok) { F('hint').textContent = j.error || 'failed'; return; }
+  if (j.rows.length === 1 && j.cols.length === 1) { F('big').style.display = 'block'; F('big').textContent = j.rows[0][0]; return; }
+  F('res').style.display = 'table';
+  F('rhead').innerHTML = '<tr>' + j.cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+  F('rbody').innerHTML = j.rows.map(r => '<tr>' + r.map(v => `<td>${v}</td>`).join('') + '</tr>').join('');
+}
+F('run').onclick = run; F('q').addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
+loadTable();
+</script>
+</body></html>

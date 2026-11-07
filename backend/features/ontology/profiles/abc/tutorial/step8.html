@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 8 步 —— 一个维度：线路版本（并线前后）</title>
+<style>
+  body { font-family:-apple-system,"PingFang SC","Segoe UI",Roboto,sans-serif;
+         background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  .rev { display:block; margin-top:4px; font:10px ui-monospace,Menlo,monospace;
+         color:#9fb8cf; opacity:.85 }
+  main { max-width:1180px; margin:20px auto; padding:0 20px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:980px) { .cols { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px;
+          padding:16px 18px; margin-bottom:14px; }
+  h2 { margin:0 0 10px; font-size:13px; letter-spacing:.5px; color:#334e68;
+       text-transform:uppercase; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:12px; }
+  .schema-box { background:#f2f4f6; border:1px solid #e3e6ea; border-radius:8px;
+                padding:10px 12px; margin-bottom:10px; }
+  .box-label { margin:0 0 6px; font-size:10px; letter-spacing:.4px;
+               text-transform:uppercase; color:#687b8f; }
+  table { width:100%; border-collapse:collapse; font:11px ui-monospace,Menlo,monospace; }
+  th { text-align:left; font-size:10px; color:#687b8f; padding:3px 6px;
+       border-bottom:1px solid #e3e6ea; }
+  td { padding:3px 6px; border-bottom:1px solid #f0f2f5; }
+  td.hl { color:#b3261e; font-weight:600; }
+  pre { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px; overflow:auto;
+        font:11px/1.55 ui-monospace,Menlo,monospace; white-space:pre-wrap; margin:6px 0; }
+  pre.sql { font-size:10px; }
+  .def { font:10.5px ui-monospace,Menlo,monospace; color:#8a6d3b; background:#fdf6e3;
+         border-radius:5px; padding:6px 8px; margin:6px 0; }
+  .val { font:16px ui-monospace,Menlo,monospace; color:#1d6b33; font-weight:700;
+         margin-top:6px; }
+  .note { font-size:12px; color:#687b8f; margin-top:8px; line-height:1.6; }
+  .note code, .hint code { background:#eef2f6; padding:1px 4px; border-radius:4px;
+                           font-size:11px; }
+  .hint { font-size:11px; color:#687b8f; margin-top:6px; line-height:1.5; }
+  input.q { width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid #cdd5df;
+            border-radius:8px; font:13px ui-monospace,Menlo,monospace; background:#fff; }
+  button.run { margin-top:9px; background:#0b4f9c; color:#fff; border:0; border-radius:8px;
+               padding:9px 16px; font-size:12.5px; cursor:pointer; }
+  button.dry { background:#334e68; }
+  button.reset { background:#8a6d3b; }
+  .ex { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .ex button { margin:0; background:#eef2f6; color:#0b4f9c; font-size:11px;
+               padding:5px 9px; border:0; border-radius:6px; cursor:pointer; }
+  .metric { border:1px solid #e3e6ea; border-radius:9px; padding:12px 14px; background:#fff; }
+  .metric h3 { margin:0 0 3px; font-size:13px; color:#0b4f9c; }
+  .badge { font-size:11px; border-radius:4px; padding:1px 7px; background:#eef2f6;
+           color:#4a6f9c; }
+  .badge.action { background:#fbe9e7; color:#b3261e; }
+  .badge.read { background:#eef3fb; color:#0b4f9c; }
+  .win { font:11px ui-monospace,Menlo,monospace; color:#334e68; background:#eef2f6;
+         border-radius:6px; padding:5px 9px; display:inline-block; margin:2px 0 6px; }
+</style></head>
+<body>
+<header><h1>第 8 步 —— 一个维度：线路版本（并线前后）</h1>
+  <span class="rev">ABC 冷链 · 第 8 步</span></header>
+<main>
+  <div class="cols">
+    <div>
+      <div class="card">
+        <h2>对象：线路（有版本）</h2>
+        <div class="schema-box"><p class="box-label">routes —— 甲方下达的每日线路</p>
+          <table><tbody>
+            <tr><td>对象类型</td><td colspan="2"><b>:Route</b></td></tr>
+            <tr><td>连接</td><td colspan="2"><code>:Trip —routeOf→ :Route</code></td></tr>
+            <tr><td>维度</td><td colspan="2"><code>:version</code>（v1 / v2）· <code>:zone</code></td></tr>
+          </tbody></table></div>
+        <table><thead><tr><th>版本</th><th>线路数</th><th>计划站点</th></tr></thead>
+          <tbody id="versions"></tbody></table>
+        <div class="note">线路不是度量，是<b>维度</b>：它切分趟次和站点，从不被求和。
+          「并线」把 50 条压到 40 条 —— 于是每趟站点数上升、超载上升。</div>
+      </div>
+      <div class="card">
+        <h2>并线前后</h2>
+        <table><thead><tr><th>版本</th><th>单趟站点</th><th>超载率</th><th>准时率</th></tr></thead>
+          <tbody id="compare"></tbody></table>
+        <div class="note">同一批门店、同一个车队，唯一变的是线路版本 —— 这就是拿给甲方看的
+          那张表。</div>
+      </div></div>
+    <div>
+      <div class="card">
+        <h2>按维度提问</h2>
+        <input class="q" id="q" placeholder="例如：按线路版本看单趟站点数"/>
+        <div class="ex" id="ex"></div>
+        <button class="run" id="run">提问</button>
+        <div class="badge" id="kind"></div>
+        <div class="def" id="def"></div>
+        <pre class="sql" id="sql"></pre>
+        <table id="rows" style="display:none"></table>
+        <div class="hint" id="ans"></div>
+        <div class="note">分组键来自另一个对象（线路），度量来自站点 —— 一次跨对象的编译。</div>
+      </div></div>
+  </div>
+</main>
+<script>
+const F = id => document.getElementById(id);
+const EX = ["按线路版本看单趟站点数", "按线路版本看超载率", "按门店区域看客诉数", "按司机看准时率"];
+EX.forEach(t => { const b = document.createElement('button'); b.textContent = t;
+  b.onclick = () => { F('q').value = t; run(); }; F('ex').appendChild(b); });
+async function load() {
+  const j = await (await fetch('/api/abct/versions')).json();
+  F('versions').innerHTML = j.versions.map(v => `<tr><td>${v.version}</td><td>${v.routes}</td><td>${v.planned}</td></tr>`).join('');
+  F('compare').innerHTML = j.compare.map(v => `<tr><td>${v.version}</td><td>${v.stops}</td><td>${v.overload}</td><td>${v.on_time}</td></tr>`).join('');
+}
+function defline(d) {
+  if (!d) return '';
+  if (d.numerator && d.denominator) return `:numerator :${d.numerator} · :denominator :${d.denominator}`;
+  return [d.aggregate && `:aggregate ${d.aggregate}`, d.grain && `:grain :${d.grain}`,
+          (d.groupBy || []).length && `:groupBy ${d.groupBy.map(x => ':' + x).join(', ')}`].filter(Boolean).join(' · ');
+}
+async function run() {
+  const q = F('q').value.trim(); if (!q) return;
+  const j = await (await fetch('/api/abct/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q }) })).json();
+  F('rows').style.display = 'none';
+  if (!j.ok) { F('kind').textContent = 'REFUSED'; F('kind').className = 'badge action'; F('ans').textContent = j.refused || ''; F('def').textContent = ''; F('sql').textContent = ''; return; }
+  const r = j.result || {};
+  F('kind').textContent = (j.intent || {}).kind + ' · ' + r.name; F('kind').className = 'badge read';
+  F('def').textContent = defline(r.definition); F('sql').textContent = r.sql || '';
+  if (r.rows && r.rows.length) {
+    F('rows').style.display = 'table';
+    F('rows').innerHTML = '<tr><th>组</th><th>值</th></tr>' + r.rows.map(x => `<tr><td>${(x.keys || [x.key]).join(' · ')}</td><td>${x.value}</td></tr>`).join('');
+  }
+  F('ans').textContent = j.answer || '';
+}
+F('run').onclick = run; F('q').addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
+load();
+</script>
+</body></html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 7 步 —— 一个新的对象：站点执行（Stop）</title>
+<style>
+  body { font-family:-apple-system,"PingFang SC","Segoe UI",Roboto,sans-serif;
+         background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  .rev { display:block; margin-top:4px; font:10px ui-monospace,Menlo,monospace;
+         color:#9fb8cf; opacity:.85 }
+  main { max-width:1180px; margin:20px auto; padding:0 20px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:980px) { .cols { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px;
+          padding:16px 18px; margin-bottom:14px; }
+  h2 { margin:0 0 10px; font-size:13px; letter-spacing:.5px; color:#334e68;
+       text-transform:uppercase; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:12px; }
+  .schema-box { background:#f2f4f6; border:1px solid #e3e6ea; border-radius:8px;
+                padding:10px 12px; margin-bottom:10px; }
+  .box-label { margin:0 0 6px; font-size:10px; letter-spacing:.4px;
+               text-transform:uppercase; color:#687b8f; }
+  table { width:100%; border-collapse:collapse; font:11px ui-monospace,Menlo,monospace; }
+  th { text-align:left; font-size:10px; color:#687b8f; padding:3px 6px;
+       border-bottom:1px solid #e3e6ea; }
+  td { padding:3px 6px; border-bottom:1px solid #f0f2f5; }
+  td.hl { color:#b3261e; font-weight:600; }
+  pre { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px; overflow:auto;
+        font:11px/1.55 ui-monospace,Menlo,monospace; white-space:pre-wrap; margin:6px 0; }
+  pre.sql { font-size:10px; }
+  .def { font:10.5px ui-monospace,Menlo,monospace; color:#8a6d3b; background:#fdf6e3;
+         border-radius:5px; padding:6px 8px; margin:6px 0; }
+  .val { font:16px ui-monospace,Menlo,monospace; color:#1d6b33; font-weight:700;
+         margin-top:6px; }
+  .note { font-size:12px; color:#687b8f; margin-top:8px; line-height:1.6; }
+  .note code, .hint code { background:#eef2f6; padding:1px 4px; border-radius:4px;
+                           font-size:11px; }
+  .hint { font-size:11px; color:#687b8f; margin-top:6px; line-height:1.5; }
+  input.q { width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid #cdd5df;
+            border-radius:8px; font:13px ui-monospace,Menlo,monospace; background:#fff; }
+  button.run { margin-top:9px; background:#0b4f9c; color:#fff; border:0; border-radius:8px;
+               padding:9px 16px; font-size:12.5px; cursor:pointer; }
+  button.dry { background:#334e68; }
+  button.reset { background:#8a6d3b; }
+  .ex { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .ex button { margin:0; background:#eef2f6; color:#0b4f9c; font-size:11px;
+               padding:5px 9px; border:0; border-radius:6px; cursor:pointer; }
+  .metric { border:1px solid #e3e6ea; border-radius:9px; padding:12px 14px; background:#fff; }
+  .metric h3 { margin:0 0 3px; font-size:13px; color:#0b4f9c; }
+  .badge { font-size:11px; border-radius:4px; padding:1px 7px; background:#eef2f6;
+           color:#4a6f9c; }
+  .badge.action { background:#fbe9e7; color:#b3261e; }
+  .badge.read { background:#eef3fb; color:#0b4f9c; }
+  .win { font:11px ui-monospace,Menlo,monospace; color:#334e68; background:#eef2f6;
+         border-radius:6px; padding:5px 9px; display:inline-block; margin:2px 0 6px; }
+</style></head>
+<body>
+<header><h1>第 7 步 —— 一个新的对象：站点执行（Stop）</h1>
+  <span class="rev">ABC 冷链 · 第 7 步</span></header>
+<main>
+  <div class="cols">
+    <div>
+      <div class="card">
+        <h2>新对象：Stop（站点执行）</h2>
+        <div class="schema-box"><p class="box-label">对象类型 —— 一次门店送货</p>
+          <table><tbody>
+            <tr><td>对象类型</td><td colspan="2"><b>:Stop</b></td></tr>
+            <tr><td>存储于</td><td colspan="2"><code>stops</code>（一趟里每个门店一行）</td></tr>
+            <tr><td>连接</td><td colspan="2"><code>:Stop —tripOf→ :Trip</code>（多对一）</td></tr>
+          </tbody></table></div>
+        <div class="note">这个对象是真实的事件：有身份、有发生时间、有结果。它和工作订单里的
+          「关联行」不同 —— 站点不是关系的记录，而是<b>履约本身</b>。</div>
+      </div>
+      <div class="card">
+        <h2>它自己带数据</h2>
+        <div class="schema-box"><p class="box-label">stops 的列</p>
+          <table><thead><tr><th>列</th><th>含义</th></tr></thead><tbody id="cols"></tbody></table></div>
+        <table><thead><tr><th>trip</th><th>准时</th><th>倒温</th><th>破损箱</th><th>警铃</th></tr></thead>
+          <tbody id="sample"></tbody></table>
+        <div class="note">准时、倒温、破损、警铃是站点自己的事实 —— 所以 3 个定义
+          （<code>:LateStop</code> / <code>:TempExcursion</code> / <code>:DamagedStop</code>）
+          和它们的并集都是可编译的。</div>
+      </div></div>
+    <div>
+      <div class="card">
+        <h2>从站点往回问</h2>
+        <input class="q" id="q" placeholder="例如：准时率"/>
+        <div class="ex" id="ex"></div>
+        <button class="run" id="run">提问</button>
+        <pre class="sql" id="sql"></pre>
+        <div class="win" id="val"></div>
+        <div class="hint" id="ans"></div>
+        <div class="note">站点是「失败」发生的颗粒度：晚点、倒温、破损都长在这一层，
+          而不是长在趟次上。</div>
+      </div></div>
+  </div>
+</main>
+<script>
+const F = id => document.getElementById(id);
+const EX = ["准时率", "货损箱数", "每千站货损", "客诉率", "倒温站点数"];
+EX.forEach(t => { const b = document.createElement('button'); b.textContent = t;
+  b.onclick = () => { F('q').value = t; run(); }; F('ex').appendChild(b); });
+async function load() {
+  const j = await (await fetch('/api/abct/stops')).json();
+  F('cols').innerHTML = j.schema.map(s => `<tr><td>${s.column}</td><td>${s.note}</td></tr>`).join('');
+  F('sample').innerHTML = j.rows.map(r => '<tr>' + r.map(v => `<td>${v}</td>`).join('') + '</tr>').join('');
+}
+async function run() {
+  const q = F('q').value.trim(); if (!q) return;
+  const j = await (await fetch('/api/abct/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q }) })).json();
+  F('sql').textContent = ''; F('val').textContent = '';
+  if (!j.ok) { F('ans').textContent = j.refused || ''; return; }
+  const r = j.result || {};
+  F('sql').textContent = r.sql || '';
+  F('val').textContent = (r.value !== null && r.value !== undefined) ? r.value : ((r.rows || []).length + ' 组');
+  F('ans').textContent = j.answer || '';
+}
+F('run').onclick = run; F('q').addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
+load();
+</script>
+</body></html>

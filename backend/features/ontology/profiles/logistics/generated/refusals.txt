@@ -1,0 +1,22 @@
+=== 阶段 9 附带：objects 步骤的 11 个名字逐个查图（不是 definition，不走 definition 端点）
+  Trip         table=trips        pk=id     declared=True
+  Stop         table=stops        pk=id     declared=True
+  Route        table=routes       pk=id     declared=True
+  RouteStop    table=route_stops  pk=route_id, seq  declared=True
+  Vehicle      table=vehicles     pk=id     declared=True
+  Driver       table=drivers      pk=id     declared=True
+  Store        table=stores       pk=id     declared=True
+  Handler      table=handlers     pk=id     declared=True
+  DriverStat   table=driver_stats pk=driver_id, window_days  declared=True
+  Telemetry    table=telemetry    pk=id     declared=True
+  Complaint    table=complaints   pk=id     declared=True
+
+=== 阶段 10：拒绝清单（从图上生成，不是手写）
+REFUSED  atRiskDrivers            高风险司机数             :AtRiskDriver has no owl:equivalentClass axiom — nothing to compile
+REFUSED  driverRecentOnTimeRate   司机近30天准时率          class :DriverWindow declares no :physicalTable
+REFUSED  plannedStopsVisited      计划门店已访站数           :PlannedStopVisited has no owl:equivalentClass axiom — nothing to compile
+
+3 / 23 个指标按名拒绝
+  - https://cube.local/ontology/logistics#atRiskDrivers
+  - https://cube.local/ontology/logistics#driverRecentOnTimeRate
+  - https://cube.local/ontology/logistics#plannedStopsVisited

@@ -1,0 +1,276 @@
+# =====================================================================
+# clinic 本体 · 02-meaning.ttl  —— 定义（公理）与指标的含义
+#
+# 阶段 4 产物。本文件只写"什么意思"，不写"怎么算"：
+#   定义 = OWL 公理（可判定的部分） | 阈值 = 只出现一次 | 计算 = 见 metrics_ext.ttl
+#
+# ---------------------------------------------------------------------
+# 阶段 0 遗留的 6 个口径，本文件按 agent 348 的建议落定（admin 授权"按建议走"）。
+# 每条都写依据；数据不能支撑、只能由业务裁决的，标 PENDING 并拒绝出数。
+#
+#   ① 收入 = 开票额，回款 = 实收额，两个指标分开声明（:invoiceRevenue / :collectedRevenue），
+#      第三个数 :collectionRate 是两者的比。不用 invoices.status 判断是否收款 ——
+#      阶段 0 实测：该列与 payments 表互相矛盾（见 01 里 :invoiceStatus 的说明）。
+#   ② 爽约率分母 = 全部已排程预约（含取消）。理由：取消也是被占掉又被放弃的时段，
+#      从"要不要发提醒"的决策看，取消与爽约都要算丢失；把取消单独报告的替代口径写进
+#      :cancellationRate。分母不含取消时爽约率为 24.97%（已实测），这个差额写进
+#      :noShowRate 的说明里，避免有人拿到两个数以为是 bug。
+#   ③ 拒赔率分母 = 已裁决理赔（approved + rejected），不含待决。待决不是"被拒"，
+#      放进分母就是把未知当已知。全量作分母的口径 31.70% 写进说明。
+#   ④ 理赔与患者险种不一致：不调和。claims 独立于 patients.insurance_plan 统计，
+#      任何"按险种拆理赔"的问题一律拒绝（metrics_ext.ttl 末尾 REFUSED 第 4 条）。
+#   ⑤ 取消不计入服务人次：:completedAppointments 是"发生的服务"，取消与爽约只进分母。
+#      真正的产能利用率拒绝 —— 本库没有医生可约时段表，没有分母。
+#   ⑥ 时间列：预约用 :scheduledAt（全部状态都有值），发票 :issuedAt，回款 :paidAt，
+#      理赔 :filedAt。**永远不用 :startedAt 分桶** —— 它对 2,182 行恒为 NULL，
+#      用它分桶会静默丢掉 40% 的预约。
+#
+# 阈值纪律：每个 owl:withRestrictions 必须能回答"这个数字哪来的"，答案写在
+# :thresholdSource。实测分布支持的直接给分布；需要业务拍的标 PENDING 并附敏感度，
+# 不进汇报口径直到有人认领。全本体只有三处阈值：
+#   :DiscountedLine    0     分布自然分界（数据只有 0/0.1/0.2 三档）
+#   :DeepDiscountLine  0.2   唯一高档
+#   :HighValueInvoice  1000  PENDING_BUSINESS_CONFIRMATION
+# =====================================================================
+@prefix : <https://cube.local/ontology/clinic#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+
+# =====================================================================
+# 一、定义：一个枚举值（owl:hasValue）
+#     枚举是数据里就有的分类，不是我们划的线，因此不需要阈值来源。
+# =====================================================================
+
+:CompletedAppointment a owl:Class ; rdfs:label "已完成就诊" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Appointment
+        [ a owl:Restriction ; owl:onProperty :appointmentStatus ; owl:hasValue "completed" ] ) ] ;
+    :businessDescription "病人来了、服务做完了。实测 3,236 次，占 5,418 次预约的 59.73%。这是唯一能用来算服务人次的定义。" .
+
+:NoShowAppointment a owl:Class ; rdfs:label "爽约" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Appointment
+        [ a owl:Restriction ; owl:onProperty :appointmentStatus ; owl:hasValue "no_show" ] ) ] ;
+    :businessDescription "到点病人没来（status = no_show），实测 1,077 次。爽约既不是取消也不是完成：取消是提前说，爽约是没来。" .
+
+:CancelledAppointment a owl:Class ; rdfs:label "取消预约" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Appointment
+        [ a owl:Restriction ; owl:onProperty :appointmentStatus ; owl:hasValue "cancelled" ] ) ] ;
+    :businessDescription "提前取消，实测 1,105 次（20.39%）。取消没有发生服务，但它占过时段，所以进爽约率的分母、不进服务人次。" .
+
+:ApprovedClaim a owl:Class ; rdfs:label "已核准理赔" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Claim
+        [ a owl:Restriction ; owl:onProperty :decision ; owl:hasValue "approved" ] ) ] ;
+    :businessDescription "保险公司同意赔付，实测 679 笔。注意：本库没有赔付金额、只有裁决结果，所以『核减了多少钱』答不了。" .
+
+:RejectedClaim a owl:Class ; rdfs:label "已拒赔理赔" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Claim
+        [ a owl:Restriction ; owl:onProperty :decision ; owl:hasValue "rejected" ] ) ] ;
+    :businessDescription "保险公司拒赔，实测 613 笔。拒赔针对整张发票，本库没有逐项拒赔的粒度。" .
+
+
+# =====================================================================
+# 二、定义：多个枚举值（owl:unionOf）
+#     分母必须显式写成"已裁决"，否则拒赔率会悄悄把 642 笔待决算成没拒。
+# =====================================================================
+
+:DecidedClaim a owl:Class ; rdfs:label "已裁决理赔" ;
+    owl:equivalentClass [ owl:unionOf ( :ApprovedClaim :RejectedClaim ) ] ;
+    :businessDescription "有裁决结果的理赔（approved 或 rejected），实测 1,292 笔。这是拒赔率唯一站得住的分母：待决的 642 笔是『还不知道』，不是『没被拒』。" .
+
+
+# =====================================================================
+# 三、定义：IS NULL —— OWL 表达不了的唯一一处声明式谓词
+#     按规则：本类只有 :physicalPredicate、没有公理；两者同时出现会被拒绝。
+# =====================================================================
+
+:PendingClaim a owl:Class ; rdfs:label "待决保险理赔" ;
+    :physicalPredicate "decision IS NULL" ;
+    :businessDescription "已提交、保险公司还没给结果，实测 642 笔（33.20%）。decision 为空在这里是状态不是缺失值 —— 它正是要统计的东西，所以不能当脏数据清掉。" .
+
+
+# =====================================================================
+# 四、定义：阈值（facet）—— 每个阈值全库只在这里出现一次
+#     数据里读出来的线 → :thresholdSource 给分布
+#     必须业务认领的线 → 标 PENDING 并附敏感度
+# =====================================================================
+
+:DiscountedLine a owl:Class ; rdfs:label "打了折的收费行" ;
+    owl:equivalentClass [ owl:intersectionOf ( :TreatmentLine
+        [ a owl:Restriction ; owl:onProperty :discountRate ;
+          owl:withRestrictions ( [ xsd:minExclusive 0.0 ] ) ] ) ] ;
+    :thresholdSource "分布事实，不需要业务认领：discount 列实测只取 0 / 0.1 / 0.2 三个值（4,291 / 1,069 / 1,083 行），0 与非 0 是数据里的自然分界。minExclusive 0 就是这处分界，不是我们划的线。" ;
+    :businessDescription "折扣率大于 0 的收费行，实测 2,152 行（占 6,443 行的 33.40%）。用来把原价收入与让价分开看。" .
+
+:DeepDiscountLine a owl:Class ; rdfs:label "深度折扣收费行" ;
+    owl:equivalentClass [ owl:intersectionOf ( :TreatmentLine
+        [ a owl:Restriction ; owl:onProperty :discountRate ;
+          owl:withRestrictions ( [ xsd:minInclusive 0.2 ] ) ] ) ] ;
+    :thresholdSource "分布事实 + 一个选择，两者都写明：折扣只取 0 / 0.1 / 0.2 三档，0.2 是唯一高档（1,083 行）。把深度折扣定义成最高档（minInclusive 0.2）而不是 0.15 之类中间值，因为数据里不存在 0.15 这一档 —— 任何中间阈值都等价于 0.2，写 0.2 才与数据同构。若业务将来引入 0.15 档，此处必须重新裁决。" ;
+    :businessDescription "折扣率 ≥ 20% 的收费行，实测 1,083 行，让价 47,462 元（占总让价 71,458 元的 66.4%）。折扣政策的钱主要花在这一档上。" .
+
+:HighValueInvoice a owl:Class ; rdfs:label "高额发票" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Invoice
+        [ a owl:Restriction ; owl:onProperty :invoiceTotal ;
+          owl:withRestrictions ( [ xsd:minInclusive 1000.0 ] ) ] ) ] ;
+    :thresholdSource "PENDING_BUSINESS_CONFIRMATION —— 这条线是 agent 348 提的、不是业务定的，进汇报前必须有人认领。依据：发票金额实测 p50=392.50、p90=760.00、p95=844.50、max=1,508.00，分布连续无断点，故取 p95 向上取整到 1,000。敏感度（实测）：≥800 有 238 张、≥1,000 有 51 张、≥1,200 有 6 张、≥1,500 有 1 张 —— 阈值一动名单规模差 4 倍，所以这个类只用于挑催收名单，不进任何收入口径。" ;
+    :businessDescription "发票总额 ≥ 1,000 元的发票，实测 51 张（占 3,236 张的 1.6%）。只是催收名单入口，不是收入口径的一部分。" .
+
+# 为什么只有三处阈值：另一个候选（理赔时效超期）实测没有断点 —— 裁决时长 1–20 天
+# 近乎均匀（每个 2 天区间 106–137 笔，19–20 天有 134 笔、1–2 天也是 134 笔），
+# 任何超期线都是凭空划的。因此不声明该阈值、
+# 不出超期率指标，改为直接给平均裁决天数（:claimDecisionDays）并在 REFUSED 里说明。
+
+
+# =====================================================================
+# 五、互斥公理（owl:disjointWith）—— 给推理车道用，编译车道不读它
+#     上面那些 owl:hasValue 定义本身并不告诉推理机"两个类不可能同时成立"：
+#     一个 status 值只能取一次，是我们的常识，不是等价类定义蕴含的结论。
+#     把互斥显式写成公理，推理机才能做反证：若某个类同时是两边的子类，它必然
+#     被推成 owl:Nothing（OWL-RL 的 cax-dw 规则），那就是本体自相矛盾。
+#     阶段 9 的 reasoning.consistent 就建在这组公理上，并有一条变异测试专门
+#     把 :CompletedAppointment 挂到 :NoShowAppointment 下面，看它是否立刻 RED。
+# =====================================================================
+
+:CompletedAppointment owl:disjointWith :NoShowAppointment, :CancelledAppointment .
+:NoShowAppointment owl:disjointWith :CancelledAppointment .
+#     预约三档两两互斥，且实测 3,236 + 1,077 + 1,105 = 5,418 = :appointments，
+#     即三档穷尽 —— 互斥是可判定的，穷尽是数据事实（写在这里当对账基准，不当公理）。
+
+:ApprovedClaim owl:disjointWith :RejectedClaim .
+:PendingClaim owl:disjointWith :DecidedClaim .
+#     decision 为 NULL 与 decision 取 approved/rejected 不可能同时成立；
+#     这条公理挡住"待决也算进分母"的那类错误：混算的类会被推成 owl:Nothing。
+
+
+# =====================================================================
+# 六、指标：含义（rdfs:label / :unit / :businessDescription）
+#     :aggregate / :grain / :universe / :where / :groupBy / :formula 一律不写在这里，
+#     全部集中在 metrics_ext.ttl。比率只写"是谁比谁"（:numerator/:denominator/:scale），
+#     因为分子分母各是什么口径本身就是含义。
+#     说明里的实测值来自阶段 0 的手工 SQL（不是编译器输出），阶段 6 拿它当对账基准。
+# =====================================================================
+
+# ---- 计数：预约侧 ----
+:appointments a owl:DatatypeProperty ; rdfs:label "预约数" ;
+    :unit "count" ;
+    :businessDescription "已排程的预约条数，实测 5,418。它是爽约率与取消率的分母（含取消），不是服务人次。" .
+
+:completedAppointments a owl:DatatypeProperty ; rdfs:label "完成就诊数" ;
+    :unit "count" ;
+    :businessDescription "真正发生的服务次数，实测 3,236（59.73%）。口径 = status completed，取消与爽约都不算。" .
+
+:noShowAppointments a owl:DatatypeProperty ; rdfs:label "爽约数" ;
+    :unit "count" ;
+    :businessDescription "病人没到的预约，实测 1,077。" .
+
+:cancelledAppointments a owl:DatatypeProperty ; rdfs:label "取消数" ;
+    :unit "count" ;
+    :businessDescription "提前取消的预约，实测 1,105。" .
+
+# ---- 计数：收费行侧 ----
+:treatmentLines a owl:DatatypeProperty ; rdfs:label "收费行数" ;
+    :unit "count" ;
+    :businessDescription "收费明细行数，实测 6,443。一次就诊平均 1.99 行（6,443 / 3,236），所以按行计数和按人次计数是两个数，问的时候要说清是哪一个。" .
+
+:discountedLines a owl:DatatypeProperty ; rdfs:label "打折行数" ;
+    :unit "count" ;
+    :businessDescription "折扣率大于 0 的收费行，实测 2,152（33.40%）。" .
+
+:deepDiscountLines a owl:DatatypeProperty ; rdfs:label "深度折扣行数" ;
+    :unit "count" ;
+    :businessDescription "折扣率 ≥ 20% 的收费行，实测 1,083（16.81%）。" .
+
+# ---- 计数：理赔侧 ----
+:claims a owl:DatatypeProperty ; rdfs:label "理赔笔数" ;
+    :unit "count" ;
+    :businessDescription "提交给保险公司的理赔笔数，实测 1,934，对应 1,934 张不同发票（本库一张发票最多一笔理赔，所以按笔和按发票同一个数）。" .
+
+:pendingClaims a owl:DatatypeProperty ; rdfs:label "待决理赔笔数" ;
+    :unit "count" ;
+    :businessDescription "还没有裁决结果的理赔，实测 642（33.20%）。" .
+
+:decidedClaims a owl:DatatypeProperty ; rdfs:label "已裁决理赔笔数" ;
+    :unit "count" ;
+    :businessDescription "已出裁决结果的理赔，实测 1,292（679 核准 + 613 拒赔）。拒赔率的分母。" .
+
+:rejectedClaims a owl:DatatypeProperty ; rdfs:label "拒赔笔数" ;
+    :unit "count" ;
+    :businessDescription "被拒赔的理赔，实测 613。" .
+
+# ---- 金额 ----
+:invoiceRevenue a owl:DatatypeProperty ; rdfs:label "开票收入" ;
+    :unit "money" ;
+    :businessDescription "发票开出金额合计，实测 1,353,412.00 元。这是收入的默认口径（诊疗收入）。它不等于收到钱：实收只有 756,089.20 元。跨表对账：按收费行算出来也是 1,353,412.00（:lineRevenue），两条独立路径一致。" .
+
+:collectedRevenue a owl:DatatypeProperty ; rdfs:label "实收金额" ;
+    :unit "money" ;
+    :businessDescription "payments 表里的实际收款合计，实测 756,089.20 元。只有这里代表钱到账；invoices.status 不代表（两者互相矛盾）。" .
+
+:lineRevenue a owl:DatatypeProperty ; rdfs:label "按收费行算的诊疗收入" ;
+    :unit "money" ;
+    :businessDescription "按 数量 × 单价 × (1 - 折扣率) 逐行算再求和，实测 1,353,412.00 元，与 :invoiceRevenue 完全相等 —— 这是本本体唯一的跨表对账（两条独立路径）。若某天两者不等，说明收费行与发票脱钩了，那是数据问题不是口径问题。" .
+
+:discountGiven a owl:DatatypeProperty ; rdfs:label "让价金额" ;
+    :unit "money" ;
+    :businessDescription "按 数量 × 单价 × 折扣率 求和，实测 71,458.00 元。恒等式：原价总额 1,424,870.00 = 诊疗收入 1,353,412.00 + 让价 71,458.00。这是让价的第二算法（第一条是 原价 - 净额），两条都写进阶段 6 的对账。" .
+
+:highValueInvoices a owl:DatatypeProperty ; rdfs:label "高额发票张数" ;
+    :unit "count" ;
+    :businessDescription "金额 ≥ 1,000 元的发票张数，实测 51。阈值是 PENDING 的（见 :HighValueInvoice），只作催收名单入口。" .
+
+# ---- 比率 ----
+:noShowRate a owl:DatatypeProperty ; rdfs:label "爽约率" ;
+    :unit "ratio" ; :numerator :noShowAppointments ; :denominator :appointments ;
+    :scale "100.0" ;
+    :businessDescription "爽约数 / 全部已排程预约 = 1,077 / 5,418 = 19.88%。分母含取消。若分母改成不含取消（4,313），同一个分子算出 24.97% —— 两个数都对，差别只是分母口径，报告里必须写清楚用了哪个。本体的答案是前一个。" .
+
+:cancellationRate a owl:DatatypeProperty ; rdfs:label "取消率" ;
+    :unit "ratio" ; :numerator :cancelledAppointments ; :denominator :appointments ;
+    :scale "100.0" ;
+    :businessDescription "取消数 / 全部已排程预约 = 1,105 / 5,418 = 20.39%。取消率与爽约率分母相同，所以两者可以直接相加（合计 40.27% 的预约没有发生服务），这个可加性是选同分母的原因。" .
+
+:collectionRate a owl:DatatypeProperty ; rdfs:label "回款率" ;
+    :unit "ratio" ; :numerator :collectedRevenue ; :denominator :invoiceRevenue ;
+    :scale "100.0" ;
+    :businessDescription "实收 / 开票 = 756,089.20 / 1,353,412.00 = 55.87%。分子在 Payment 颗粒、分母在 Invoice 颗粒，跨颗粒比率 —— 编译器必须用两条独立的扫描再相除，不能把 payments 与 invoices 直接 join 后逐行算比率（一张发票多笔回款会重复计分母）。差额 597,322.80 元就是未回款，但不要把它叫应收余额：那只在本报告口径下成立。" .
+
+:revenuePerCompletedVisit a owl:DatatypeProperty ; rdfs:label "每次就诊收入" ;
+    :unit "money" ; :numerator :invoiceRevenue ; :denominator :completedAppointments ;
+    :businessDescription "开票收入 / 完成就诊数 = 1,353,412.00 / 3,236 = 418.24 元。注意分子是发票侧、分母是预约侧，跨颗粒。这个数恰好等于发票金额的平均值（avg total = 418.24），因为一张发票对应一次就诊；若将来一就诊多发票，这个等式会失效，届时必须改写分母。" .
+
+:rejectionRate a owl:DatatypeProperty ; rdfs:label "拒赔率" ;
+    :unit "ratio" ; :numerator :rejectedClaims ; :denominator :decidedClaims ;
+    :scale "100.0" ;
+    :businessDescription "拒赔笔数 / 已裁决理赔 = 613 / 1,292 = 47.45%。分母不含 642 笔待决。若用全量 1,934 作分母会得到 31.70% —— 那是『暂定拒赔率』，随待决理赔陆续裁决必然上升，不能拿去汇报。" .
+
+:pendingClaimRate a owl:DatatypeProperty ; rdfs:label "理赔待决率" ;
+    :unit "ratio" ; :numerator :pendingClaims ; :denominator :claims ;
+    :scale "100.0" ;
+    :businessDescription "待决 / 全部理赔 = 642 / 1,934 = 33.20%。这是运营积压的度量，不是质量指标。" .
+
+:deepDiscountLineShare a owl:DatatypeProperty ; rdfs:label "深度折扣行占比" ;
+    :unit "ratio" ; :numerator :deepDiscountLines ; :denominator :treatmentLines ;
+    :scale "100.0" ;
+    :businessDescription "深度折扣行 / 全部收费行 = 1,083 / 6,443 = 16.81%。注意这是按行算的比例；同样这批行的让价金额占全部让价的 66.42%（71,458 元里的 47,462 元），而让价占原价只有 5.02%。行占比、金额占比、降价幅度是三个不同的数，混用会把折扣政策的影响说得离谱。" .
+
+:claimDecisionDays a owl:DatatypeProperty ; rdfs:label "平均理赔裁决天数" ;
+    :unit "days" ;
+    :businessDescription "已裁决理赔从提交到裁决的平均天数，实测 10.60 天（最短 1 天、最长 20 天）。本库没有承诺时效字段，所以这个数没有『应当是多少』，只有『实际是多少』；超期线需要业务给，见 REFUSED 第 2 条。" .
+
+# ---- 分维度 ----
+:revenueByPatientCity a owl:DatatypeProperty ; rdfs:label "按患者城市收入" ;
+    :unit "money" ;
+    :businessDescription "按收费行算收入，按患者所在城市分组。实测：无锡 361,352、上海 356,874、苏州 343,907、杭州 291,279（元）。城市在 Patient 上，所以要经 收费行 → 预约 → 患者 三跳；没有患者表就无法按城市看收入。" .
+
+:revenueByTreatment a owl:DatatypeProperty ; rdfs:label "按项目收入" ;
+    :unit "money" ;
+    :businessDescription "按收费行算收入，按诊疗项目名分组。实测：X光 403,312、输液 274,356、慢病随访 230,415、感冒问诊 180,288（元）。项目名在 Treatment 上，经 收费行 → 项目 一跳。" .
+
+:appointmentsByStatus a owl:DatatypeProperty ; rdfs:label "按状态预约数" ;
+    :unit "count" ;
+    :businessDescription "按状态分组的预约数。实测：completed 3,236（59.73%）、cancelled 1,105（20.39%）、no_show 1,077（19.88%）。三档之和必须等于 :appointments 5,418 —— 这是分组口径的自检。" .
+
+:appointmentsByDoctorSpecialty a owl:DatatypeProperty ; rdfs:label "按医生专科预约数" ;
+    :unit "count" ;
+    :businessDescription "按医生专科分组的预约数。专科在 Doctor 上，经 预约 → 医生 一跳。注意：这是预约数不是人次，含取消与爽约；要看各科实际服务量必须换成 :completedAppointments 的口径。" .

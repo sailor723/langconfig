@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Actions — ontology app</title>
+<style>
+  body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  header a { color:#9fb8cf; font-size:13px; }
+  main { max-width:980px; margin:20px auto; padding:0 20px; }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:18px 20px; margin-bottom:16px; }
+  h2 { margin:0 0 10px; font-size:13px; letter-spacing:.5px; color:#334e68; text-transform:uppercase; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; font-size:11px; text-transform:uppercase; color:#687b8f; padding:6px 8px; border-bottom:1px solid #e3e6ea; }
+  td { padding:6px 8px; border-bottom:1px solid #f0f2f5; vertical-align:top; }
+  td.mono, pre { font:12px ui-monospace,Menlo,monospace; }
+  pre { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:10px; overflow:auto; margin:8px 0 0; }
+  select, textarea, input { width:100%; box-sizing:border-box; font:13px ui-monospace,Menlo,monospace;
+    border:1px solid #cdd5df; border-radius:8px; padding:8px; background:#fff; }
+  label { display:block; font-size:12px; color:#687b8f; margin:8px 0 4px; }
+  button { margin-top:10px; background:#0b4f9c; color:#fff; border:0; border-radius:8px;
+           padding:9px 16px; font-size:13px; cursor:pointer; }
+  button:disabled { opacity:.55; cursor:default; }
+  .hint { font-size:12px; color:#687b8f; }
+  .refused { color:#b3261e; }
+  .done { color:#1d7a3a; }
+  .badge { display:inline-block; border-radius:5px; padding:1px 6px; font-size:11px; background:#eef2f6; color:#334e68; }
+</style></head>
+<body>
+<header><h1>⚡ Lane C · Actions — declared writes</h1>
+  <a href="/">← back to the app</a> · <a href="/reasoner">⌨ reasoner</a> · <a href="/query">query ✦</a> · <a href="/compare">⚖ compare lanes</a> · <a href="/settings">settings</a></header>
+<main>
+  <div class="card">
+    <h2>Action types — compiled from schema/actions.yml against the same TTL as lanes A and B</h2>
+    <p class="hint">This page is <b>lane C</b>: the only lane allowed to write. Lanes A (compiled SQL) and
+      B (SPARQL/Ontop) are read-only, so every write that changes their data went through an action here.</p>
+    <table id="list"><tr><th>name</th><th>object</th><th>parameters</th><th>effect (compiled)</th></tr></table>
+    <p class="hint">An effect may only write properties the ontology marks <code>:state "action"</code>.
+      Every run is one transaction: preconditions, write, and an append-only audit row.</p>
+  </div>
+
+  <div class="card">
+    <h2>Run an action</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div><label for="act">action</label><select id="act"></select></div>
+      <div><label for="actor">actor</label><input id="actor" value="ui-demo"></div>
+    </div>
+    <label for="params">parameters (JSON)</label>
+    <textarea id="params" rows="4"></textarea>
+    <button id="run">Run action</button>
+    <pre id="result" style="display:none"></pre>
+  </div>
+
+  <div class="card">
+    <h2>Audit — append-only (latest first)</h2>
+    <table id="audit"><tr><th>id</th><th>when</th><th>action</th><th>actor</th><th>params</th><th>before → after</th></tr></table>
+  </div>
+</main>
+<script>
+const F = id => document.getElementById(id);
+let ACTIONS = [];
+
+function esc(s){ return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+function fmt(row){ return Object.entries(row || {}).map(([k,v]) => `${k}=${esc(v)}`).join(", "); }
+
+async function loadList(){
+  const r = await fetch('/api/actions'); const j = await r.json();
+  if (!j.ok) { F('list').innerHTML = `<tr><td colspan=4 class="refused">${esc(j.error)}</td></tr>`; return; }
+  ACTIONS = j.actions;
+  F('list').innerHTML = '<tr><th>name</th><th>object</th><th>parameters</th><th>effect (compiled)</th></tr>' +
+    ACTIONS.map(a => `<tr><td><b>${esc(a.name)}</b></td><td>${esc(a.applies_to)} <span class="badge">${esc(a.kind)}</span></td>` +
+      `<td class="mono">${a.parameters.map(p => esc(p)).join(', ')}</td><td class="mono">${esc(a.effect)}</td></tr>`).join("");
+  F('act').innerHTML = ACTIONS.map(a => `<option value="${esc(a.name)}">${esc(a.name)}</option>`).join("");
+  pick();
+}
+function pick(){
+  const a = ACTIONS.find(x => x.name === F('act').value);
+  if (!a) return;
+  const ex = {};
+  for (const p of a.parameters) ex[p] = p.includes('amount') ? 99.5 : (p.includes('customer') ? 2 : 1);
+  F('params').value = JSON.stringify(ex, null, 1);
+}
+F('act').addEventListener('change', pick);
+
+async function loadAudit(){
+  const r = await fetch('/api/actions/audit'); const j = await r.json();
+  const rows = (j.rows || []).map(x => `<tr><td>${x.id}</td><td>${esc(x.ts)}</td><td><b>${esc(x.action)}</b></td>` +
+      `<td>${esc(x.actor)}</td><td class="mono">${esc(JSON.stringify(x.params))}</td>` +
+      `<td class="mono">${esc(JSON.stringify(x.after_row))}</td></tr>`).join("");
+  F('audit').innerHTML = '<tr><th>id</th><th>when</th><th>action</th><th>actor</th><th>params</th><th>after</th></tr>' + rows;
+}
+
+F('run').onclick = async () => {
+  const out = F('result'); out.style.display = 'block'; out.textContent = 'running …';
+  try {
+    const r = await fetch('/api/actions/run', { method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ name: F('act').value, actor: F('actor').value.trim(),
+                             params: JSON.parse(F('params').value || '{}') }) });
+    const j = await r.json();
+    out.className = j.ok ? 'done' : 'refused';
+    out.textContent = JSON.stringify(j, null, 2);
+    loadAudit();
+  } catch (e) { out.className = 'refused'; out.textContent = 'request failed: ' + e; }
+};
+loadList().then(loadAudit);
+</script>
+</body></html>
