@@ -172,7 +172,7 @@ export default function MetricEditorPanel({
   const composeNewMetric = (a: Record<string, string>) => {
     const line = (l: string, v?: string) => (v && v.trim() ? `- ${l}：${v.trim()}\n` : '');
     return [
-      '【新增指标】（业务口径；先只给我你的解读，不要改任何文件）\n\n',
+      '【新增指标 · 构建】（我会把下面这些建成一条声明并试跑；先给我解读，不要改任何文件）\n\n',
       line('用户会这么叫它', a.name),
       line('它会回答', a.question),
       line('怎么算（业务语言）', a.arithmetic),
@@ -228,7 +228,10 @@ export default function MetricEditorPanel({
   const tabs: Array<{ id: Tab; label: string; icon: any; badge?: number }> = [
     { id: 'new', label: '新增', icon: Plus },
     { id: 'metric', label: '当前指标', icon: Sigma },
-    { id: 'chat', label: '对话', icon: MessageSquare },
+    // 「构建」not 「对话」: this tab authors and tests a DECLARATION. A business question ("这个月
+    // 超载率多少") belongs beside the numbers, on the dashboard — two chat boxes answering it is how
+    // a panel starts disagreeing with the page.
+    { id: 'chat', label: '构建', icon: MessageSquare },
     { id: 'proposals', label: '提案', icon: CheckCheck, badge: proposals.length || undefined },
   ];
 
@@ -239,7 +242,12 @@ export default function MetricEditorPanel({
     }}>
       {/* header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderBottom: `1px solid ${t.border}` }}>
-        <span style={{ fontSize: 12.5, fontWeight: 600 }}>指标编辑</span>
+        <span style={{ fontSize: 12.5, fontWeight: 600 }}>指标构建</span>
+        <span title="这里构建并试跑声明；业务问答在看板"
+          style={{ fontSize: 10, color: t.textDim, border: `1px solid ${t.border}`,
+                   borderRadius: 999, padding: '0 6px', lineHeight: '16px' }}>
+          建/试跑
+        </span>
         <span style={{ ...mono, fontSize: 10.5, color: t.textDim }}>
           {ontologyKey}{card ? ` · ${card.name}` : ''}
         </span>

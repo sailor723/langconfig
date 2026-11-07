@@ -24,7 +24,7 @@ import { ArrowUpRight, Loader2, Search, Sigma, Sparkles } from 'lucide-react';
 import apiClient from '../../lib/api-client';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import {
-  fetchMetricCards, normalizeUrl, ontology, useOntology, type MetricCard,
+  fetchMetricCards, ontology, useOntology, type MetricCard,
 } from './ontologyStore';
 import { Btn, DANGER, INFO, mono, Quiet, SUCCESS, WARN } from './ui';
 
@@ -70,15 +70,6 @@ interface ValueDelta {
   error?: string;
 }
 
-interface AskResult {
-  ok?: boolean;
-  answer?: string;
-  refused?: string;
-  result?: { name?: string; value?: unknown; sql?: string; definition?: Record<string, unknown> };
-  intent?: { kind?: string; name?: string };
-  needs_confirmation?: boolean;
-  understanding?: { text?: string } | null;
-}
 
 const declBits = (c: MetricCard): string =>
   [
@@ -100,10 +91,6 @@ export default function OntologyChatPanel() {
   const [cardsError, setCardsError] = useState<string | null>(null);
   const [needle, setNeedle] = useState('');
   const [open, setOpen] = useState<string | null>(null);
-  const [question, setQuestion] = useState('');
-  const [asking, setAsking] = useState(false);
-  const [asked, setAsked] = useState<{ q: string; res: AskResult } | null>(null);
-  const [askError, setAskError] = useState<string | null>(null);
   const [publishes, setPublishes] = useState<PublishRow[]>([]);
   // The editor agent's conversation. One session per ontology, kept in localStorage so a reload
   // continues the same thread instead of starting a fresh one every time.
@@ -162,7 +149,7 @@ export default function OntologyChatPanel() {
       setDiffs(prev => ({ ...prev, [id]: (res?.data || null) as DiffResult }));
     } catch (err: any) {
       setDiffs(prev => ({ ...prev, [id]: null }));
-      setAskError(`diff unavailable: ${err?.response?.data?.detail || err?.message || err}`);
+      setCardsError(`diff unavailable: ${err?.response?.data?.detail || err?.message || err}`);
     }
   };
 
@@ -211,26 +198,6 @@ export default function OntologyChatPanel() {
     } catch (err: any) {
       setValues(prev => ({ ...prev, [id]: {
         ok: false, error: err?.response?.data?.detail || String(err?.message || err) } }));
-    }
-  };
-
-  const ask = async () => {
-    const q = question.trim();
-    if (!q || !url) return;
-    setAsking(true); setAskError(null); setAsked(null);
-    try {
-      const res = await fetch(`${normalizeUrl(url)}/api/nl`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: q }),
-        signal: AbortSignal.timeout(120000),
-      });
-      const body = (await res.json()) as AskResult;
-      setAsked({ q, res: body });
-    } catch (err: any) {
-      setAskError(String(err?.message || err));
-    } finally {
-      setAsking(false);
     }
   };
 
@@ -288,55 +255,27 @@ export default function OntologyChatPanel() {
         )}
       </div>
 
-      {/* ask */}
+      {/* ask MOVED: business questions are answered beside the business numbers.
+          Two chat boxes answering the same question in two places is how a panel starts disagreeing
+          with the dashboard — so this rail keeps the DECLARATIONS and the pending publishes, and
+          points at the one place a question is asked. */}
       <div style={{ padding: '10px 12px', borderBottom: `1px solid ${t.border}`, flexShrink: 0 }}>
         <div style={sectionLabel}>Ask this ontology</div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <input
-            value={question}
-            onChange={e => setQuestion(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') void ask(); }}
-            placeholder="行程数 · 按门店区域看破损箱数 · 有多少条线路"
-            style={{
-              flex: 1, minWidth: 0, height: 28, padding: '0 8px', borderRadius: 7, fontSize: 12,
-              border: `1px solid ${t.border}`, background: t.bgInput || 'transparent',
-              color: t.textPrimary, outline: 'none',
-            }}
-          />
-          <Btn variant="primary" onClick={() => void ask()} disabled={asking || !url}>
-            {asking ? <Loader2 size={12} /> : 'Ask'}
-          </Btn>
+        <Link
+          to="/ontology/dashboard"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '7px 9px', borderRadius: 8,
+            border: `1px solid ${t.border}`, color: t.textPrimary, textDecoration: 'none',
+            fontSize: 11.5, lineHeight: 1.5,
+          }}
+        >
+          <Sparkles size={12} color={t.accent} />
+          <span>业务问答已移到看板</span>
+          <ArrowUpRight size={12} style={{ marginLeft: 'auto', color: t.textDim }} />
+        </Link>
+        <div style={{ marginTop: 5, fontSize: 10.5, color: t.textDim, lineHeight: 1.5 }}>
+          看板把问题、数字和编译出的 SQL 放在一起；这一栏保留声明与待发布提案。
         </div>
-        {askError && (
-          <div style={{ marginTop: 6, fontSize: 11.5, color: DANGER }}>{askError}</div>
-        )}
-        {asked && (
-          <div style={{
-            marginTop: 8, padding: '8px 9px', borderRadius: 8, fontSize: 11.5, lineHeight: 1.65,
-            border: `1px solid ${(asked.res.ok ? SUCCESS : WARN)}55`,
-            background: `${asked.res.ok ? SUCCESS : WARN}10`,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-              <Sparkles size={11} color={asked.res.ok ? SUCCESS : WARN} />
-              <span style={{ ...mono, fontSize: 10.5, color: t.textDim }}>
-                {asked.q}
-                {asked.res.intent?.name ? ` → ${asked.res.intent.kind} :${asked.res.intent.name}` : ''}
-              </span>
-            </div>
-            <div style={{ whiteSpace: 'pre-wrap' }}>
-              {asked.res.ok
-                ? (asked.res.answer || asked.res.understanding?.text ||
-                   (asked.res.needs_confirmation ? 'resolved — it needs a confirmation to run' : 'answered'))
-                : (asked.res.refused || 'refused')}
-            </div>
-            {!asked.res.ok && (
-              <div style={{ marginTop: 4, fontSize: 10.5, color: t.textDim }}>
-                A refusal names what is missing. Declare it (Settings → Ontology, or ask the
-                Ontology Editor agent) — do not type SQL for it.
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* the editor agent */}
