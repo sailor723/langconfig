@@ -44,6 +44,9 @@ export interface GuidedIntakeProps {
   steps: IntakeStep[];
   /** a tutorial sample's answers: every step filled, starting on the summary */
   prefill?: Record<string, string> | null;
+  /** rendered at the top of the overlay — a caller's own strip (the tutorial samples) lives here,
+   *  because this component is absolutely positioned over the whole panel and would cover it */
+  header?: React.ReactNode;
   /** label of the final action, e.g. 「确认，先给我解读」 */
   confirmLabel: string;
   /** sentence under the summary explaining what happens after the confirmation */
@@ -53,7 +56,7 @@ export interface GuidedIntakeProps {
 }
 
 export default function GuidedIntake({
-  title, intro, steps, confirmLabel, afterNote, prefill, onConfirm, onCancel,
+  title, intro, steps, confirmLabel, afterNote, prefill, header, onConfirm, onCancel,
 }: GuidedIntakeProps) {
   const t = useLayoutTokens();
   const [answers, setAnswers] = useState<Record<string, string>>(prefill || {});
@@ -133,6 +136,10 @@ export default function GuidedIntake({
           </span>
         </div>
       </div>
+
+      {header && (
+        <div style={{ borderBottom: `1px solid ${t.border}`, flexShrink: 0 }}>{header}</div>
+      )}
 
       {/* body: one question, or the summary */}
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px 12px' }}>

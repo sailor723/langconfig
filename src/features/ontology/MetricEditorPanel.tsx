@@ -236,7 +236,7 @@ export default function MetricEditorPanel({
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderBottom: `1px solid ${t.border}` }}>
         <span style={{ fontSize: 12.5, fontWeight: 600 }}>指标编辑</span>
         <span style={{ ...mono, fontSize: 10.5, color: t.textDim }}>
-          {card ? card.name : ontologyKey}
+          {ontologyKey}{card ? ` · ${card.name}` : ''}
         </span>
         <RunningLight
           running={chatStatus.busy || chatStatus.queued > 0}
@@ -290,6 +290,8 @@ export default function MetricEditorPanel({
 
       {/* 新增指标: guided, then a summary, then interpretation */}
       {tab === 'new' && (
+        <GuidedIntake
+          header={(
         <div style={{ borderBottom: `1px solid ${t.border}`, padding: '8px 12px', flexShrink: 0 }}>
           <div style={{ fontSize: 10.5, color: t.textDim, marginBottom: 5 }}>
             先用一个样例走一遍（点一下就填满，不用打字），做完可以撤回：
@@ -313,7 +315,12 @@ export default function MetricEditorPanel({
                 </button>
               );
             })}
-            {samples.length === 0 && <span style={{ fontSize: 11, color: t.textDim }}>（这个本体没有样例）</span>}
+            {samples.length === 0 && (
+              <span style={{ fontSize: 11, color: t.textDim, lineHeight: 1.6 }}>
+                这个本体（<b>{ontologyKey || '未选择'}</b>）还没有教程样例 —— 样例按本体单独定义，
+                目前只有 <b>ABC 冷链物流</b> 有 3 个。切到那份本体就能看到可直接点击的样例。
+              </span>
+            )}
           </div>
           {sampleId && (() => {
             const sp = samples.find(x => x.id === sampleId);
@@ -344,10 +351,7 @@ export default function MetricEditorPanel({
             <div style={{ marginTop: 4, fontSize: 10.5, color: sampleMsg.ok ? SUCCESS : '#b3261e' }}>{sampleMsg.text}</div>
           )}
         </div>
-      )}
-
-      {tab === 'new' && (
-        <GuidedIntake
+          )}
           prefill={sampleId ? (samples.find(x => x.id === sampleId)?.answers || null) : null}
           title="新增指标（一步一步来）"
           intro="我一次只问一件事。全部答完会给你一段摘要请你核对——确认之后 agent 先给你的解读，再动手。"
