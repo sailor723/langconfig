@@ -1,0 +1,211 @@
+{
+  "_doc": "ABC 冷链数据集的事实清单：每一条都是可以被查询证伪的claim。改数据前先改这里，否则闸门绿着而故事已经变了。",
+  "name": "abc_coldchain",
+  "dsn": {
+    "host": "127.0.0.1",
+    "port": 5432,
+    "dbname": "abc_coldchain",
+    "user": "weiping"
+  },
+  "tables": [
+    {
+      "name": "vehicles",
+      "rows": 60,
+      "why": "带车加盟的 60 台车"
+    },
+    {
+      "name": "drivers",
+      "rows": 60,
+      "why": "一车一人（60/60 对得上）"
+    },
+    {
+      "name": "routes",
+      "rows": 90,
+      "why": "v1 50 条 + v2 40 条"
+    },
+    {
+      "name": "route_stops",
+      "why": "计划站（与 stops 对不上：只有 75 站同店）"
+    },
+    {
+      "name": "trips",
+      "rows": 4050,
+      "why": "90 天 × 45 趟/天"
+    },
+    {
+      "name": "stops",
+      "rows": 51210,
+      "why": "每趟 10–17 站"
+    },
+    {
+      "name": "complaints",
+      "rows": 6876,
+      "why": "一站一单"
+    },
+    {
+      "name": "handlers",
+      "rows": 420,
+      "why": "三家派遣公司的日结工"
+    },
+    {
+      "name": "driver_stats",
+      "rows": 60,
+      "why": "每司机一行快照"
+    },
+    {
+      "name": "stores",
+      "rows": 800,
+      "why": "414 家装警铃"
+    },
+    {
+      "name": "telemetry",
+      "rows": 12144,
+      "why": "只有 3 小时遥测：画不了温度趋势"
+    }
+  ],
+  "foreign_keys": [
+    {
+      "table": "trips",
+      "column": "route_id",
+      "ref_table": "routes"
+    },
+    {
+      "table": "trips",
+      "column": "vehicle_id",
+      "ref_table": "vehicles"
+    },
+    {
+      "table": "trips",
+      "column": "driver_id",
+      "ref_table": "drivers"
+    },
+    {
+      "table": "stops",
+      "column": "trip_id",
+      "ref_table": "trips"
+    },
+    {
+      "table": "stops",
+      "column": "store_id",
+      "ref_table": "stores"
+    },
+    {
+      "table": "complaints",
+      "column": "stop_id",
+      "ref_table": "stops"
+    },
+    {
+      "table": "telemetry",
+      "column": "trip_id",
+      "ref_table": "trips"
+    }
+  ],
+  "invariants": [
+    {
+      "id": "merge_route_counts",
+      "why": "痛点二：并线把 50 条压成 40 条",
+      "sql": "SELECT version, count(*) FROM routes GROUP BY 1",
+      "expect": {
+        "v1": 50,
+        "v2": 40
+      }
+    },
+    {
+      "id": "stops_per_route",
+      "why": "并线后每条线更满（10.2 → 15.7 站）",
+      "sql": "SELECT version, round(avg(planned_stops),1) FROM routes GROUP BY 1",
+      "expect": {
+        "v1": 10.2,
+        "v2": 15.7
+      }
+    },
+    {
+      "id": "overload_regime",
+      "why": "超载是并线的后果，不是常态（2% → 80%）",
+      "sql": "SELECT r.version, round(1.0*count(*) FILTER (WHERE t.load_weight >= t.weight_capacity_snapshot OR t.load_boxes >= t.box_capacity_snapshot OR t.load_volume >= t.volume_capacity_snapshot)/count(*),3) FROM trips t JOIN routes r ON r.id=t.route_id GROUP BY 1",
+      "expect": {
+        "v1": 0.02,
+        "v2": 0.802
+      }
+    },
+    {
+      "id": "permits_vs_emission",
+      "why": "痛点一：国四 36 台里 0 台有路权",
+      "sql": "SELECT count(*) FILTER (WHERE emission='国四' AND core_zone_permit) FROM vehicles",
+      "expect": 0
+    },
+    {
+      "id": "permit_coverage",
+      "why": "覆盖 14/60 = 23.3%",
+      "sql": "SELECT round(1.0*count(*) FILTER (WHERE core_zone_permit)/count(*),3) FROM vehicles",
+      "expect": 0.233
+    },
+    {
+      "id": "handler_turnover",
+      "why": "痛点三：临时工流动率极高",
+      "sql": "SELECT round(1.0*count(*) FILTER (WHERE days_worked <= 3)/count(*),3) FROM handlers",
+      "expect_range": [
+        0.45,
+        0.65
+      ]
+    },
+    {
+      "id": "on_time_by_version",
+      "why": "并线让准时率下滑",
+      "sql": "SELECT r.version, round(1.0*count(*) FILTER (WHERE s.on_time)/count(*),3) FROM stops s JOIN trips t ON t.id=s.trip_id JOIN routes r ON r.id=t.route_id GROUP BY 1",
+      "expect": {
+        "v1": 0.956,
+        "v2": 0.919
+      }
+    },
+    {
+      "id": "complaint_liability_split",
+      "why": "责任未判定作为独立一组出现",
+      "sql": "SELECT coalesce(liability,'NULL'), count(*) FROM complaints GROUP BY 1",
+      "expect": {
+        "NULL": 3167,
+        "labourer": 2036,
+        "driver": 1673
+      }
+    },
+    {
+      "id": "claims_only_when_judged",
+      "why": "未判定组没有金额（不是 0）",
+      "sql": "SELECT count(*) FROM complaints WHERE liability IS NULL AND amount IS NOT NULL",
+      "expect": 0
+    }
+  ],
+  "constant_columns": [
+    {
+      "table": "complaints",
+      "column": "kind",
+      "why": "只有 late：不能做投诉类型分布"
+    },
+    {
+      "table": "complaints",
+      "column": "opened_at",
+      "why": "同一分钟批量回填：时间维度不可信"
+    },
+    {
+      "table": "driver_stats",
+      "column": "window_days",
+      "why": "恒为 30：不是可选窗口，是一个标签"
+    }
+  ],
+  "null_rates": [
+    {
+      "table": "complaints",
+      "column": "liability",
+      "min": 0.3,
+      "max": 0.6,
+      "why": "责任推诿要有体积"
+    },
+    {
+      "table": "stops",
+      "column": "handler_id",
+      "min": 0.2,
+      "max": 0.35,
+      "why": "27.8% 站点没有装卸工：上卷会静默丢掉"
+    }
+  ]
+}
