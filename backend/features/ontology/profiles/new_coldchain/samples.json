@@ -1,0 +1,136 @@
+{
+ "samples": [
+  {
+   "question": "准点率（站点级）是多少？",
+   "expect": {
+    "metric": "onTimeRate",
+    "value": 0.94596,
+    "tolerance": 0.001
+   }
+  },
+  {
+   "question": "整趟全准点率",
+   "expect": {
+    "metric": "fullOnTimeTripRate",
+    "value": 0.53908,
+    "tolerance": 0.001
+   }
+  },
+  {
+   "question": "超载率",
+   "expect": {
+    "metric": "overloadRate",
+    "value": 0.2949,
+    "tolerance": 0.001
+   }
+  },
+  {
+   "question": "外车占比",
+   "expect": {
+    "metric": "externalShare",
+    "value": 0.10121,
+    "tolerance": 0.001
+   }
+  },
+  {
+   "question": "毛利率",
+   "expect": {
+    "metric": "grossMarginRate",
+    "value": 0.51506,
+    "tolerance": 0.001
+   }
+  },
+  {
+   "question": "平均耗时（分钟）",
+   "expect": {
+    "metric": "avgTripDuration",
+    "value": 178.33,
+    "tolerance": 0.05
+   }
+  },
+  {
+   "question": "每千站破损箱",
+   "expect": {
+    "metric": "damagedBoxesPer1kStops",
+    "value": 160.21,
+    "tolerance": 0.05
+   }
+  },
+  {
+   "question": "赔付成本（已判定）",
+   "expect": {
+    "metric": "compensationCost",
+    "value": 543309.02,
+    "tolerance": 0.01
+   }
+  },
+  {
+   "question": "拒单次数",
+   "expect": {
+    "metric": "refusalCount",
+    "value": 389,
+    "tolerance": 0
+   }
+  },
+  {
+   "question": "客诉数",
+   "expect": {
+    "metric": "complaintCount",
+    "value": 1585,
+    "tolerance": 0
+   }
+  },
+  {
+   "question": "按线路版本看超载率",
+   "expect": {
+    "metric": "overloadRateByRouteVersion",
+    "tolerance": 0.001,
+    "rows": {
+     "v1": 0.02654,
+     "v2": 0.75395
+    }
+   }
+  },
+  {
+   "question": "按高峰/平日看外车占比",
+   "expect": {
+    "metric": "externalShareByPeak",
+    "tolerance": 0.001,
+    "rows": {
+     "False": 0.06566,
+     "True": 0.19304
+    }
+   }
+  },
+  {
+   "question": "温度趋势怎么样？",
+   "expect": {
+    "refused_by_name": "is not on the menu"
+   }
+  },
+  {
+   "question": "谁因为还款压力被保护性安排？",
+   "expect": {
+    "refused_by_name": "I can answer about"
+   }
+  },
+  {
+   "question": "所有赔付成本（含未判定）是多少？",
+   "expect": {
+    "unresolved": "answered the judged-only subset (543,309.02 of 854 complaints), not 'all':\n:compensationCost declares :universe :JudgedComplaint, and the 46.1% unjudged\nis a state, not a zero. To honour the wording the ontology would need a second\nmetric over ALL complaints (docx Q4 decided not to). Second route: judge-only\nsum(amount) where liability is not null = 543309.02; all 1,585 complaints carry\nan amount, so 'all' would be a different, larger number."
+   }
+  },
+  {
+   "question": "司机的贷款压力分布",
+   "expect": {
+    "unresolved": "answered a Driver HEADCOUNT (60) and dropped 贷款压力 entirely:\nthe class :Driver matched, the qualifier was never proven. docx Q14 excludes\nloan pressure from the platform on purpose, so the honest answer is a refusal;\nthe NL layer should not answer a count for a qualifier it cannot honour."
+   }
+  },
+  {
+   "question": "按线路版本看超载",
+   "expect": {
+    "unresolved": "answered a Route LISTING (90) instead of a grouped overload rate:\ndropping 率 turned a measure into a dimension word, and the class :Route won.\n:overloadRateByRouteVersion answers the question only when the measure is named."
+   }
+  }
+ ]
+}

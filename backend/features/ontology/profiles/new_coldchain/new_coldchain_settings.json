@@ -1,0 +1,57 @@
+{
+ "title": "ABC 冷链运输本体",
+ "ns": "https://cube.local/ontology/new_coldchain#",
+ "ontology_dir": "ontology",
+ "overlay": "metrics_ext.ttl",
+ "dsn": {
+  "host": "${ONTOLOGY_DB_HOST:-127.0.0.1}",
+  "port": "${ONTOLOGY_DB_PORT:-5432}",
+  "dbname": "new_coldchain",
+  "user": "weiping",
+  "password": ""
+ },
+ "guard": {
+  "enabled": true,
+  "max_rows": 500,
+  "default_window_days": 0,
+  "statement_timeout_ms": 8000,
+  "max_plan_rows": 5000000,
+  "big_tables": {
+   "trips": "trip_date",
+   "telemetry": "ts",
+   "complaints": "opened_at"
+  },
+  "large_tables": [
+   "stops"
+  ]
+ },
+ "features": {
+  "actions": false,
+  "lane_b": false,
+  "tutorial": true,
+  "tutorial_style": "auto"
+ },
+ "aliases": {
+  "高峰": "peak",
+  "峰": "peak",
+  "平日": "day",
+  "版本": "version",
+  "线路": "route"
+ },
+ "samples": [
+  "准点率（站点级）是多少？",
+  "整趟全准点率",
+  "超载率",
+  "外车占比",
+  "毛利率",
+  "平均耗时（分钟）",
+  "每千站破损箱",
+  "赔付成本（已判定）",
+  "拒单次数",
+  "客诉数",
+  "按线路版本看超载率",
+  "按高峰/平日看外车占比",
+  "温度趋势怎么样？",
+  "谁因为还款压力被保护性安排？"
+ ]
+}
