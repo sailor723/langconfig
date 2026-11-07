@@ -14,8 +14,8 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from services import (ontology_build, ontology_editor, ontology_publish, ontology_samples,
-                      ontology_workbench)
+from services import (ontology_actions, ontology_build, ontology_dashboard, ontology_editor,
+                      ontology_publish, ontology_samples, ontology_workbench)
 
 logger = logging.getLogger(__name__)
 
@@ -336,3 +336,80 @@ async def publish_one(staged_id: str):
     if not rows:
         raise HTTPException(404, f"no publish {staged_id!r}")
     return {"ok": True, "publish": rows[0]}
+
+
+# ── the dashboard: a declaration, run ───────────────────────────────────────
+# A dashboard is `<profile dir>/dashboard.json`: which DECLARED metric each panel shows, what it is
+# cut by, and what a missing one costs. These two routes carry that declaration through the
+# ontology's own compiler — they never name a metric themselves, so a panel cannot show a number
+# the ontology does not declare, and a panel that cannot answer arrives as a refusal, not as a gap.
+
+@router.get("/dashboards")
+async def dashboards():
+    """Which ontologies have a dashboard declaration (a nav must not invent entries)."""
+    return {"ok": True, "ontologies": ontology_dashboard.installed()}
+
+
+@router.get("/{key}/dashboard/panels")
+async def dashboard_panels(key: str, refresh: bool = False, filter: Optional[str] = None):
+    """Every panel + its data, or the refusal that names what is missing.
+
+    `refresh=true` re-runs it (the cache is 30 s so a page reload does not re-scan the warehouse).
+    """
+    try:
+        return {"ok": True, **ontology_dashboard.panels(key, refresh=refresh, filter=filter)}
+    except ontology_dashboard.DashboardError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+# ── declared writes ─────────────────────────────────────────────────────────
+# A write is an action declared in the ontology's `schema/actions.yml`, never a free INSERT from a
+# client. `dry_run=true` is the read-only form: it reports every precondition with the parameters
+# bound and writes nothing. A refusal (exit 2) is a RESULT — nothing was written — so it comes back
+# as 200 with ok=false and the engine's own words, not as a 500.
+
+class ActionRequest(BaseModel):
+    params: dict = {}
+    dry_run: bool = False
+    actor: Optional[str] = None
+
+
+@router.get("/{key}/actions")
+async def list_ontology_actions(key: str):
+    """The verbs this ontology declares — with parameters, preconditions and the compiled effect."""
+    return ontology_actions.list_actions(key)
+
+
+class AskQuestionRequest(BaseModel):
+    question: str
+    polish: bool = False
+
+
+@router.post("/{key}/ask")
+async def ask_ontology(key: str, req: AskQuestionRequest):
+    """A business question answered by the ontology's own pipeline — or refused BY NAME.
+
+    This is the dashboard's chat: the same three parts as the Query page (the number, the compiled
+    SQL, the refusal) because a number without its definition is a rumour. Deterministic template
+    first (`polish=false`); a refusal is a 200 with `ok=false`, not an error.
+    """
+    try:
+        return {"ok": True, **ontology_dashboard.ask(key, req.question, polish=req.polish)}
+    except ontology_dashboard.DashboardError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.get("/{key}/actions/audit")
+async def ontology_action_audit(key: str, limit: int = 50):
+    """The append-only trail: who ran which declared write, with before/after rows."""
+    return ontology_actions.audit(key, limit=limit)
+
+
+@router.post("/{key}/actions/{action}")
+async def run_ontology_action(key: str, action: str, req: ActionRequest):
+    """`dry_run=true` → check; otherwise run it (one transaction + an audit row)."""
+    try:
+        return ontology_actions.invoke(key, action, req.params, dry_run=req.dry_run,
+                                       actor=req.actor)
+    except ontology_actions.ActionError as exc:
+        raise HTTPException(409, str(exc)) from exc
