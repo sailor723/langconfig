@@ -110,6 +110,15 @@ async def publish_history(key: Optional[str] = None, limit: int = 50,
     return {"ok": True, "publishes": rows}
 
 
+@router.get("/publish/{staged_id}/diff")
+async def publish_diff(staged_id: str):
+    """What this publish would change, file by file. Read-only, and available for a refusal too."""
+    res = ontology_publish.diff(staged_id)
+    if not res.get("ok"):
+        raise HTTPException(404, res.get("error") or "no diff")
+    return res
+
+
 @router.post("/publish/{staged_id}/discard")
 async def publish_discard(staged_id: str):
     """Drop a staged candidate (an editor decision, same role as apply)."""

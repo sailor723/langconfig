@@ -172,7 +172,14 @@ def _compile_report(profile_path: pathlib.Path) -> dict:
     src = script.format(repo=str(REPO), profile=str(profile_path))
     try:
         p = subprocess.run([PYTHON, "-c", src], capture_output=True, text=True, timeout=300)
-        return json.loads((p.stdout or "").strip().splitlines()[-1])
+        out = (p.stdout or "").strip()
+        if not out:
+            # A compile child that prints nothing says nothing useful: report what it DID say
+            # (its stderr) instead of an IndexError from taking the last line of "".
+            err = (p.stderr or "").strip().splitlines()
+            return {"error": "the compiler printed nothing"
+                             + (f": {err[-1]}" if err else f" (exit {p.returncode})")}
+        return json.loads(out.splitlines()[-1])
     except Exception as exc:                                    # noqa: BLE001
         return {"error": f"{type(exc).__name__}: {exc}"}
 
@@ -444,6 +451,99 @@ def reload_workbench(key: str) -> str:
     except Exception as exc:                                    # noqa: BLE001
         logger.warning("workbench reload for %s failed: %s", key, exc)
         return f"{type(exc).__name__}: {exc}"
+
+
+def diff(staged_id: str, max_chars: int = 20000) -> dict:
+    """What this publish would CHANGE: a per-file unified diff, installed vs staged.
+
+    A publish report says "gates PASS, 20 compiled, 3 carried refusals" — true and useless to a
+    reviewer who has to decide whether a number's meaning changes. The unit is the file, because
+    that is the unit a publish installs; each file comes back with its own diff so a reviewer can
+    read the one that matters and skip the build report that came along.
+
+    Read-only, and it works for refused publishes too (a candidate that will not install is
+    exactly what someone wants to look at). Nothing here runs the compiler or the database.
+    """
+    import difflib
+
+    rows = _audit_list(staged_id)
+    if not rows:
+        return {"ok": False, "error": f"no publish {staged_id!r}"}
+    row = rows[0]
+    key = row["key"]
+    staging = _staging_dir(key) / staged_id
+    live = ONTOLOGIES / key
+    if not staging.is_dir():
+        return {"ok": False, "error": f"the staging dir for {staged_id} is gone "
+                                      f"(applied, discarded, or cleaned up)",
+                "files": [], "staged_id": staged_id, "key": key}
+
+    files: list[dict] = []
+    budget = max_chars
+    for staged_file in sorted(staging.rglob("*")):
+        if not staged_file.is_file():
+            continue
+        rel = staged_file.relative_to(staging)
+        if rel.parts and rel.parts[0] in (".staging", ".backup"):
+            continue
+        rel_str = str(rel).replace("\\", "/")
+        live_file = live / rel
+        try:
+            new_text = staged_file.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            files.append({"path": rel_str, "status": "binary", "diff": ""})
+            continue
+        old_text = ""
+        existed = live_file.is_file()
+        if existed:
+            try:
+                old_text = live_file.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                files.append({"path": rel_str, "status": "binary", "diff": ""})
+                continue
+        if existed and old_text == new_text:
+            files.append({"path": rel_str, "status": "unchanged", "added": 0, "removed": 0,
+                          "diff": ""})
+            continue
+        old_lines = old_text.splitlines(keepends=True)
+        new_lines = new_text.splitlines(keepends=True)
+        text = "".join(difflib.unified_diff(
+            old_lines, new_lines,
+            fromfile=f"a/{rel_str}" if existed else "/dev/null",
+            tofile=f"b/{rel_str}",
+            n=3,
+        ))
+        added = sum(1 for line in text.splitlines() if line.startswith("+") and not line.startswith("+++"))
+        removed = sum(1 for line in text.splitlines() if line.startswith("-") and not line.startswith("---"))
+        status = "added" if not existed else "changed"
+        if budget > 0:
+            clipped = text[:budget]
+            budget -= len(clipped)
+            if len(clipped) < len(text):
+                clipped += "\n… diff truncated (open the file in the staging tree to see the rest)\n"
+            text_out = clipped
+        else:
+            text_out = "… diff omitted (this publish is larger than the diff budget; read the files)"
+        files.append({"path": rel_str, "status": status, "added": added, "removed": removed,
+                      "diff": text_out})
+
+    # files the publish does not carry can no longer be deleted by it: the staging tree starts as
+    # a copy, so a missing live file is a file the installed ontology never had — report both
+    # directions honestly rather than implying a full-tree sync.
+    removed_paths = []
+    if live.is_dir():
+        for live_file in sorted(live.rglob("*")):
+            if not live_file.is_file():
+                continue
+            rel = live_file.relative_to(live)
+            if rel.parts and rel.parts[0] in (".staging", ".backup"):
+                continue
+            if not (staging / rel).exists():
+                removed_paths.append(str(rel).replace("\\", "/"))
+
+    return {"ok": True, "staged_id": staged_id, "key": key, "status": row.get("status"),
+            "files": files, "not_in_staging": removed_paths,
+            "changed": [f["path"] for f in files if f["status"] in ("added", "changed")]}
 
 
 def _audit_list(staged_id: str | None = None, limit: int = 50) -> list[dict]:

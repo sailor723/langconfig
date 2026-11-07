@@ -8,10 +8,11 @@ import { useState, useRef, useCallback, useEffect, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next';
 import { useLayoutState } from './useLayout';
 import { useLayoutTokens } from './tokens';
-import { MessageSquare, FileText, Settings, X, Send, Trash2, Copy, Download, RotateCw, Brain, ChevronDown, ChevronRight } from 'lucide-react';
+import { MessageSquare, FileText, Settings, X, Send, Trash2, Copy, Download, RotateCw, Brain, ChevronDown, ChevronRight, Sigma } from 'lucide-react';
 import { chatStore, useChatMessages } from './chatStore';
 import apiClient from '../../lib/api-client';
 import DocChatPanel from '../../features/knowledge/ui/DocChatPanel';
+import OntologyChatPanel from '../../features/ontology/OntologyChatPanel';
 import { useKnowledgeScope } from '../../features/knowledge/knowledgeScope';
 import { useProject } from '../../contexts/ProjectContext';
 import ReactMarkdown from 'react-markdown';
@@ -42,7 +43,7 @@ export default function NodeSidebar({ children, onClose }: NodeSidebarProps) {
   const { t: tr } = useTranslation('chat');
   const { rightPanelOpen, rightPanelContent, rightPanelTab, closeRightPanel, rightPanelWidth, setRightPanelWidth } = useLayoutState();
   const t = useLayoutTokens();
-  const [localTab, setLocalTab] = useState<'chat' | 'properties' | 'doc-chat'>('chat');
+  const [localTab, setLocalTab] = useState<'chat' | 'properties' | 'doc-chat' | 'ontology'>('chat');
 
   // External tab requests (e.g. the "Doc Playground" button in the Knowledge
   // sidebar) switch this panel's active tab programmatically.
@@ -79,9 +80,13 @@ export default function NodeSidebar({ children, onClose }: NodeSidebarProps) {
   // When a node is selected (rightPanelContent set), switch to Properties tab
   const activeTab = rightPanelContent ? 'properties' : localTab;
 
-  const tabs: { id: 'chat' | 'properties' | 'doc-chat'; label: string; icon: React.ReactNode }[] = [
+  const tabs: { id: 'chat' | 'properties' | 'doc-chat' | 'ontology'; label: string; icon: React.ReactNode }[] = [
     { id: 'chat', label: 'Chat', icon: <MessageSquare size={13} /> },
     { id: 'doc-chat', label: 'Doc Chat', icon: <FileText size={13} /> },
+    // The ontology, next to the work: the same three questions as the Ontology activity
+    // (what does this mean / what number comes out / what did an agent propose), asked
+    // without leaving the page you are on.
+    { id: 'ontology', label: 'Ontology', icon: <Sigma size={13} /> },
     ...(rightPanelContent ? [{ id: 'properties' as const, label: 'Properties', icon: <Settings size={13} /> }] : []),
   ];
 
@@ -195,6 +200,7 @@ export default function NodeSidebar({ children, onClose }: NodeSidebarProps) {
         {activeTab === 'properties' && (children ?? <DefaultNodePanel />)}
         {activeTab === 'chat' && <ChatSidebar t={t} />}
         {activeTab === 'doc-chat' && <DocChatSidebar />}
+        {activeTab === 'ontology' && <OntologyChatPanel />}
       </div>
       </div>
     </div>

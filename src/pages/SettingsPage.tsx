@@ -1773,6 +1773,10 @@ function PublishPanel() {
   const [busy, setBusy] = useState<string | null>(null)
   const [showHistory, setShowHistory] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  // Per-publish diff, fetched on demand: a reviewer deciding "does this number change meaning?"
+  // needs the declarations that differ, not a file count.
+  const [showDiff, setShowDiff] = useState<string | null>(null)
+  const [diffs, setDiffs] = useState<Record<string, any>>({})
 
   const load = useCallback(async () => {
     try {
@@ -1806,6 +1810,17 @@ function PublishPanel() {
     } finally {
       setBusy(null)
       await load()
+    }
+  }
+
+  const toggleDiff = async (id: string) => {
+    setShowDiff(prev => (prev === id ? null : id))
+    if (diffs[id] !== undefined) return
+    try {
+      const res = await apiClient.get(`/api/ontology/publish/${id}/diff`)
+      setDiffs(prev => ({ ...prev, [id]: res.data }))
+    } catch (e: any) {
+      setDiffs(prev => ({ ...prev, [id]: { ok: false, error: e?.response?.data?.detail || e?.message } }))
     }
   }
 
@@ -1901,6 +1916,37 @@ function PublishPanel() {
                     {(rep.files || []).join(' · ')}
                   </div>
                 )}
+                <div>
+                  <span
+                    onClick={() => void toggleDiff(row.id)}
+                    style={{ fontSize: 11.5, color: tok.labelTertiary, cursor: 'pointer' }}
+                  >
+                    {showDiff === row.id ? '▾' : '▸'} what would change (diff)
+                  </span>
+                  {showDiff === row.id && (() => {
+                    const d = diffs[row.id]
+                    if (d === undefined) return <div style={{ fontSize: 11.5, color: tok.labelTertiary }}>reading the diff…</div>
+                    if (!d || !d.ok) return <div style={{ fontSize: 11.5, color: tok.labelTertiary }}>{d?.error || 'no diff'}</div>
+                    if (!(d.changed || []).length) {
+                      return <div style={{ fontSize: 11.5, color: tok.labelTertiary }}>no file differs from the installed ontology</div>
+                    }
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {d.files.filter((f: any) => f.status === 'added' || f.status === 'changed').map((f: any) => (
+                          <div key={f.path}>
+                            <div style={{ fontSize: 11, fontFamily: mono, color: tok.labelPrimary }}>
+                              {f.path} <span style={{ color: tok.success }}>+{f.added || 0}</span>{' '}
+                              <span style={{ color: tok.error }}>−{f.removed || 0}</span>
+                            </div>
+                            <pre style={{ fontSize: 10, fontFamily: mono, background: tok.layer1, padding: 8, borderRadius: 8, maxHeight: 220, overflow: 'auto', margin: '2px 0 0' }}>
+                              {f.diff.trim()}
+                            </pre>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })()}
+                </div>
                 {rep.gates_text && (
                   <details>
                     <summary style={{ fontSize: 11.5, color: tok.labelTertiary, cursor: 'pointer' }}>gate output</summary>
