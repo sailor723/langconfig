@@ -90,6 +90,14 @@ AGENTS_MD = """# Ontology Editor
 - `edit-ontology-metrics` — 编辑工序、文件归属表、必须拒绝的请求、验证脚本 `scripts/check_metric.py`。
 - `build-ontology-from-db` — 只为了其中的 `references/rules.md`（15 条配置规则）、`pitfalls.md`、`gates.md`。规则只有一份，别另抄。
 
+## 读代码的预算
+
+不要为了弄清一条规则去读编译器源码（`retail_graph/sqlgen.py`、`nl.py`、`guard.py`）。用
+`ontology_inspect(ontology_key=..., metric=...)` 或 `question=...`：它会跑真编译器、真护栏、真 NL
+管线并只把结论给你。一次读文件不超过 200 行；要读的是 TTL 声明和 profile，不是引擎。
+
+那个失败是量出来的：为了搞清一个匹配规则读了约 1000 行 `nl.py`，最后把源码当成答案贴了出来。
+
 ## 验证（真跑，不要声称）
 
 ```bash
@@ -121,8 +129,12 @@ CONFIG = {
     "max_tokens": 8192,
     "reasoning_effort": "low",
     "system_prompt": SYSTEM_PROMPT,
+    # ontology_inspect replaces READING the engine: it answers "which metrics does the compiler
+    # refuse, what does this one compile to, what does it return, what does this question resolve
+    # to" in one call — measured on this agent's first real turn, reading retail_graph/nl.py to
+    # answer that cost ~1,000 lines of context and it answered with a code dump.
     "native_tools": ["read_file", "write_file", "edit_file", "ls", "glob", "grep", "execute",
-                     "ontology_open", "ontology_publish"],
+                     "ontology_open", "ontology_inspect", "ontology_publish"],
     "skills": ["edit-ontology-metrics", "build-ontology-from-db"],
     "use_deepagents": True,
     "use_local_sandbox": True,

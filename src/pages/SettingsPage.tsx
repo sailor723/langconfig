@@ -1777,6 +1777,8 @@ function PublishPanel() {
   // needs the declarations that differ, not a file count.
   const [showDiff, setShowDiff] = useState<string | null>(null)
   const [diffs, setDiffs] = useState<Record<string, any>>({})
+  const [showValues, setShowValues] = useState<string | null>(null)
+  const [values, setValues] = useState<Record<string, any>>({})
 
   const load = useCallback(async () => {
     try {
@@ -1821,6 +1823,19 @@ function PublishPanel() {
       setDiffs(prev => ({ ...prev, [id]: res.data }))
     } catch (e: any) {
       setDiffs(prev => ({ ...prev, [id]: { ok: false, error: e?.response?.data?.detail || e?.message } }))
+    }
+  }
+
+  /** Which numbers move. Both ontologies are compiled and run, so this is the slow one and it is
+   *  asked per proposal — right before the apply decision, not by default. */
+  const toggleValues = async (id: string) => {
+    setShowValues(prev => (prev === id ? null : id))
+    if (values[id] !== undefined) return
+    try {
+      const res = await apiClient.get(`/api/ontology/publish/${id}/values`, { timeout: 300000 })
+      setValues(prev => ({ ...prev, [id]: res.data }))
+    } catch (e: any) {
+      setValues(prev => ({ ...prev, [id]: { ok: false, error: e?.response?.data?.detail || e?.message } }))
     }
   }
 
@@ -1943,6 +1958,37 @@ function PublishPanel() {
                             </pre>
                           </div>
                         ))}
+                      </div>
+                    )
+                  })()}
+                </div>
+                <div>
+                  <span
+                    onClick={() => void toggleValues(row.id)}
+                    style={{ fontSize: 11.5, color: tok.labelTertiary, cursor: 'pointer' }}
+                  >
+                    {showValues === row.id ? '▾' : '▸'} which numbers move
+                  </span>
+                  {showValues === row.id && (() => {
+                    const v = values[row.id]
+                    if (v === undefined) return <div style={{ fontSize: 11.5, color: tok.labelTertiary }}>running both ontologies…</div>
+                    if (!v || !v.ok) return <div style={{ fontSize: 11.5, color: tok.labelTertiary }}>{v?.error || 'no comparison'}</div>
+                    const changed = v.changed || []
+                    if (!changed.length) {
+                      return <div style={{ fontSize: 11.5, color: tok.labelTertiary }}>no number moves ({v.unchanged || 0} checked)</div>
+                    }
+                    return (
+                      <div style={{ fontSize: 11, fontFamily: mono, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {changed.map((c: any) => (
+                          <div key={c.metric}>
+                            <span style={{ color: tok.error }}>{c.metric}</span>{' '}
+                            {String(c.before ?? c.before_state ?? '—')}{' → '}
+                            <b>{String(c.after ?? c.after_state ?? '—')}</b>
+                          </div>
+                        ))}
+                        <div style={{ fontSize: 10.5, color: tok.labelTertiary }}>
+                          {changed.length} of {v.metrics} move
+                        </div>
                       </div>
                     )
                   })()}

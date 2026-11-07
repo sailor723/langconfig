@@ -71,6 +71,56 @@ async def ontology_proposals(key: str):
         db.close()
 
 
+@router.post("/{key}/ask-editor/stream")
+async def ask_editor_stream(key: str, req: AskEditorRequest):
+    """One editor turn, STREAMED — the same events the global Chat panel receives.
+
+    The panel needs what a chat needs: tokens as they arrive, the tool calls, a session it can
+    continue, and a stop button. Rather than re-implement any of that, this delegates to
+    `api.chat.messages.send_message_stream` after binding the ontology into the message — and
+    prepends one extra event, `{"type": "session"}`, because a stream that only learns its session
+    id at the end cannot be continued.
+
+    The chat handler needs a database session for the whole stream, so it gets its own here and the
+    wrapper closes it when the last event is sent (FastAPI's dependency would have closed it as
+    soon as this route returned).
+    """
+    import json as _json
+
+    from fastapi.responses import StreamingResponse
+
+    from api.chat.messages import send_message_stream
+    from api.chat.schemas import SendMessageRequest
+    from db.database import SessionLocal
+
+    prep_db = SessionLocal()
+    try:
+        prompt = await ontology_editor.prepare(prep_db, key, req.message,
+                                              session_id=req.session_id,
+                                              project_id=req.project_id)
+    except ontology_editor.EditorUnavailable as exc:
+        raise HTTPException(409, str(exc)) from exc
+    finally:
+        prep_db.close()
+
+    stream_db = SessionLocal()
+    inner = await send_message_stream(
+        SendMessageRequest(session_id=prompt["session_id"], message=prompt["message"],
+                           project_id=req.project_id), stream_db)
+
+    async def with_session():
+        head = {"type": "session", "session_id": prompt["session_id"], "key": prompt["key"],
+                "agent": {"id": prompt["agent_id"], "name": prompt["agent_name"]}}
+        yield f"data: {_json.dumps(head)}\n\n"
+        try:
+            async for chunk in inner.body_iterator:
+                yield chunk
+        finally:
+            stream_db.close()
+
+    return StreamingResponse(with_session(), media_type="text/event-stream")
+
+
 @router.post("/{key}/ask-editor")
 async def ask_editor(key: str, req: AskEditorRequest):
     """One editor turn about this ontology: the answer, the tool calls, and what it staged."""
@@ -170,6 +220,19 @@ async def publish_diff(staged_id: str):
     res = ontology_publish.diff(staged_id)
     if not res.get("ok"):
         raise HTTPException(404, res.get("error") or "no diff")
+    return res
+
+
+@router.get("/publish/{staged_id}/values")
+async def publish_values(staged_id: str):
+    """Which NUMBERS this publish would move — before/after per metric, under the guardrails.
+
+    Slower than the diff (it runs both ontologies), which is why it is its own call: a reviewer
+    asks it about the one proposal they are about to apply.
+    """
+    res = ontology_publish.value_delta(staged_id)
+    if not res.get("ok"):
+        raise HTTPException(409, res.get("error") or "value comparison failed")
     return res
 
 

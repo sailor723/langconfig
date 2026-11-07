@@ -546,6 +546,123 @@ def diff(staged_id: str, max_chars: int = 20000) -> dict:
             "changed": [f["path"] for f in files if f["status"] in ("added", "changed")]}
 
 
+# ────────────────────────────────────────────── what the numbers do
+def _values_script() -> str:
+    """Compile every metric of ONE profile and run it under that profile's guardrails."""
+    return r"""
+import json, os, pathlib, sys
+REPO = pathlib.Path(os.environ["ONTOLOGY_REPO"])
+sys.path.insert(0, str(REPO / "retail_graph"))
+prof_path = pathlib.Path(os.environ["APP_SETTINGS"])
+import sqlgen, guard, actions
+
+prof = json.loads(prof_path.read_text())
+root = prof_path.resolve().parent
+sqlgen.reconfigure(ns=prof.get("ns"),
+                   ontology_dir=str((root / (prof.get("ontology_dir") or "ontology")).resolve()),
+                   overlay=str((root / prof["overlay"]).resolve()) if prof.get("overlay") else "",
+                   drop_overlay=not prof.get("overlay"))
+g = sqlgen.load()
+cfg = guard.config()
+if isinstance(prof.get("guard"), dict):
+    cfg.update({k: v for k, v in prof["guard"].items() if v is not None})
+
+out = {}
+import psycopg2
+conn = psycopg2.connect(**actions.DSN)
+conn.autocommit = True
+for name in sorted(sqlgen.metrics(g)):
+    try:
+        c = sqlgen.compile_metric(g, name)
+    except Exception as exc:
+        out[name] = {"refused": str(exc).splitlines()[0]}
+        continue
+    try:
+        with conn.cursor() as cur:
+            r = guard.run(cur, c.sql, cfg=cfg, mode="declared")
+            rows = r.get("rows") or []
+            out[name] = {"value": str(rows[0][0]) if rows and rows[0] else None}
+    except Exception as exc:
+        out[name] = {"error": str(exc).splitlines()[0]}
+conn.close()
+print(json.dumps(out, ensure_ascii=False))
+"""
+
+
+def _values_for(profile_path: pathlib.Path) -> dict:
+    import subprocess
+
+    env = dict(os.environ, ONTOLOGY_REPO=str(REPO), APP_SETTINGS=str(profile_path))
+    try:
+        p = subprocess.run([PYTHON, "-c", _values_script()], capture_output=True, text=True,
+                           timeout=240, cwd=str(REPO / "retail_graph"), env=env)
+    except Exception as exc:                                    # noqa: BLE001
+        return {"__error__": f"{type(exc).__name__}: {exc}"}
+    lines = (p.stdout or "").strip().splitlines()
+    if not lines:
+        tail = (p.stderr or "").strip().splitlines()
+        return {"__error__": "the value run printed nothing"
+                              + (": " + tail[-1] if tail else f" (exit {p.returncode})")}
+    try:
+        return json.loads(lines[-1])
+    except Exception:                                           # noqa: BLE001
+        return {"__error__": "the value run did not return JSON: " + lines[-1][:300]}
+
+
+def value_delta(staged_id: str) -> dict:
+    """Which NUMBERS this publish would move: every metric's value before and after.
+
+    The report says gates PASS and the diff says which declarations changed — neither answers the
+    question a reviewer actually has: "does the number I report change?" This runs both sides and
+    diffs the values. Only metrics whose value (or refusal/error) differs are returned, with the
+    rest counted, so a 23-metric ontology does not bury the one line that matters.
+
+    Read-only: it compiles and runs SELECTs under the profile's guardrails (mode=declared, so a
+    definition is never windowed). Both sides are read-only runs; nothing is written.
+    """
+    rows = _audit_list(staged_id)
+    if not rows:
+        return {"ok": False, "error": f"no publish {staged_id!r}"}
+    row = rows[0]
+    key = row["key"]
+    staging = _staging_dir(key) / staged_id
+    installed_profile = _profile_for(key)
+    if not staging.is_dir():
+        return {"ok": False, "error": f"the staging dir for {staged_id} is gone", "changes": []}
+    staged_profile = _profile_for_staged(staging)
+    if staged_profile is None:
+        return {"ok": False, "error": "the staged ontology has no profile", "changes": []}
+    if installed_profile is None:
+        return {"ok": False, "error": "the installed ontology has no profile", "changes": []}
+
+    before = _values_for(installed_profile)
+    after = _values_for(staged_profile)
+    if "__error__" in before or "__error__" in after:
+        return {"ok": False, "changes": [],
+                "error": before.get("__error__") or after.get("__error__")}
+
+    changes = []
+    for name in sorted(set(before) | set(after)):
+        b = before.get(name) or {}
+        a = after.get(name) or {}
+        bv = b.get("value", b.get("refused") or b.get("error"))
+        av = a.get("value", a.get("refused") or a.get("error"))
+        if bv == av:
+            continue
+        changes.append({
+            "metric": name,
+            "before": bv,
+            "after": av,
+            "before_state": ("value" if "value" in b else
+                             "refused" if "refused" in b else "error" if "error" in b else None),
+            "after_state": ("value" if "value" in a else
+                            "refused" if "refused" in a else "error" if "error" in a else None),
+        })
+    return {"ok": True, "staged_id": staged_id, "key": key,
+            "metrics": len(set(before) | set(after)),
+            "changed": changes, "unchanged": len(set(before) | set(after)) - len(changes)}
+
+
 def _audit_list(staged_id: str | None = None, limit: int = 50) -> list[dict]:
     try:
         _ensure_table()

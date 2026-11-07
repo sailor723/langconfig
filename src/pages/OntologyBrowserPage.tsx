@@ -6,7 +6,7 @@
  * every metric with its compiled SQL *or* its refusal. Nothing is fetched per row — the
  * document is one `/api/ontology` call, so the lists cannot disagree with each other.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ListTree, Table2, Link2, Sigma, AlertTriangle, Play, RefreshCw, Copy, Check, Boxes, Search,
@@ -14,6 +14,7 @@ import {
 import { useLayoutTokens } from '../components/layout2/tokens';
 import { Card, Chip, Btn, mono, SUCCESS, DANGER, WARN } from '../features/ontology/ui';
 import { ontology, useOntology, fetchMetricCards, type MetricCard } from '../features/ontology/ontologyStore';
+import MetricEditorChat from '../features/ontology/MetricEditorChat';
 
 type Tab = 'objects' | 'definitions' | 'links' | 'metrics';
 
@@ -37,6 +38,13 @@ export default function OntologyBrowserPage() {
   // the whole grid, because a card without its number is half a card.
   const [cards, setCards] = useState<MetricCard[] | null>(null);
   const [cardsError, setCardsError] = useState<string | null>(null);
+  // The metric editor's chat is docked on the right of the Metrics tab. Applying a proposal
+  // changes what the numbers ARE, so the grid behind it has to re-read them.
+  const [editorOpen, setEditorOpen] = useState(true);
+  const refreshCards = useCallback(() => {
+    setCards(null);
+    setCardsError(null);
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -185,7 +193,31 @@ export default function OntologyBrowserPage() {
       </div>
 
       {tab === 'metrics' ? (
-        <MetricsGrid cards={cards} error={cardsError} needle={needle} doc={doc} />
+        <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <MetricsGrid cards={cards} error={cardsError} needle={needle} doc={doc} />
+          </div>
+          {editorOpen ? (
+            <MetricEditorChat
+              ontologyKey={s.preset || s.profiles.find(p => p.url === s.url)?.key || ''}
+              onApplied={refreshCards}
+              onClose={() => setEditorOpen(false)}
+            />
+          ) : (
+            <button
+              onClick={() => setEditorOpen(true)}
+              title="open the metric editor chat"
+              style={{
+                width: 34, flex: 'none', borderLeft: `1px solid ${t.border}`, background: 'transparent',
+                color: t.textMuted, cursor: 'pointer', fontSize: 11, writingMode: 'vertical-rl',
+                padding: '10px 0', border: 'none', borderLeftWidth: 1, borderLeftStyle: 'solid',
+                borderLeftColor: t.border,
+              }}
+            >
+              metric editor chat
+            </button>
+          )}
+        </div>
       ) : (
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
         {/* list */}

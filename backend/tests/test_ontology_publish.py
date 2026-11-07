@@ -316,3 +316,74 @@ def test_real_gates_on_the_installed_logistics_ontology(monkeypatch, tmp_path):
         assert res["ok"] is True, res
     finally:
         op.discard(res["staged_id"], actor="gate")
+
+
+# ── which NUMBERS move: the question a diff cannot answer ──────────────────────
+def test_value_delta_reports_only_the_metrics_that_move(repo, monkeypatch):
+    """A reviewer's question is "does my number change?", so the answer is the changed ones plus a
+    count of the rest — not 23 rows of "unchanged"."""
+    res = op.stage("pubtest", {"metrics_ext.ttl": OVERLAY_GOOD.replace(
+        'rdfs:label "订单数"', 'rdfs:label "订单条数"')}, actor="gate")
+    assert res["ok"] is True, res
+
+    before = {"orderCount": {"value": "4050"}}
+    after = {"orderCount": {"value": "721449"}}
+    calls = {"n": 0}
+
+    def fake_values(profile_path):
+        calls["n"] += 1
+        return before if calls["n"] == 1 else after
+
+    monkeypatch.setattr(op, "_values_for", fake_values)
+    d = op.value_delta(res["staged_id"])
+    assert d["ok"] is True
+    assert [c["metric"] for c in d["changed"]] == ["orderCount"]
+    assert d["changed"][0]["before"] == "4050" and d["changed"][0]["after"] == "721449"
+    assert d["unchanged"] == 0
+    op.discard(res["staged_id"], actor="gate")
+
+
+def test_value_delta_says_when_nothing_moves(repo, monkeypatch):
+    """A text-only edit (a tutorial body, a label) must be reported as "no number moves" — that is
+    the evidence that a documentation publish cannot change what anyone reports."""
+    res = op.stage("pubtest", {"metrics_ext.ttl": OVERLAY_GOOD + "\n# comment\n"}, actor="gate")
+    assert res["ok"] is True, res
+    same = {"orderCount": {"value": "4050"}, "other": {"refused": ":X has no axiom"}}
+    monkeypatch.setattr(op, "_values_for", lambda profile_path: dict(same))
+    d = op.value_delta(res["staged_id"])
+    assert d["ok"] is True and d["changed"] == [] and d["unchanged"] == 2
+    op.discard(res["staged_id"], actor="gate")
+
+
+def test_value_delta_reports_a_metric_that_starts_or_stops_refusing(repo, monkeypatch):
+    """Compiling vs refusing is a change of STATE, not of value, and it must be visible: a metric
+    that silently disappears from the reports is worse than one whose number moved."""
+    res = op.stage("pubtest", {"metrics_ext.ttl": OVERLAY_GOOD + "\n# x\n"}, actor="gate")
+    assert res["ok"] is True, res
+
+    # identical on both sides -> nothing moves, refusals included (a no-op publish)
+    same = {"orderCount": {"value": "4050"}, "newCount": {"refused": ":NewThing has no axiom"}}
+    monkeypatch.setattr(op, "_values_for", lambda profile_path: dict(same))
+    d = op.value_delta(res["staged_id"])
+    assert d["ok"] is True and d["changed"] == [] and d["unchanged"] == 2
+
+    # the installed side compiles 7; the staged side refuses -> report the state change
+    def by_side(profile_path):
+        if ".staging" in str(profile_path):
+            return {"orderCount": {"value": "4050"},
+                    "newCount": {"refused": ":NewThing has no axiom"}}
+        return {"orderCount": {"value": "4050"}, "newCount": {"value": "7"}}
+
+    monkeypatch.setattr(op, "_values_for", by_side)
+    d = op.value_delta(res["staged_id"])
+    assert [c["metric"] for c in d["changed"]] == ["newCount"]
+    assert d["changed"][0]["before"] == "7"
+    assert d["changed"][0]["after_state"] == "refused"
+    op.discard(res["staged_id"], actor="gate")
+
+
+def test_value_delta_refuses_when_the_staging_tree_is_gone(repo):
+    res = op.stage("pubtest", {"metrics_ext.ttl": OVERLAY_GOOD + "\n# y\n"}, actor="gate")
+    op.discard(res["staged_id"], actor="gate")
+    d = op.value_delta(res["staged_id"])
+    assert d["ok"] is False and "staging dir" in d["error"]

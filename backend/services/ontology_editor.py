@@ -71,11 +71,14 @@ def _usable_session(db: Session, session_id: Optional[str], agent_id: int):
     return session
 
 
-async def ask(db: Session, key: str, message: str, session_id: Optional[str] = None,
-              project_id: Optional[int] = None) -> dict:
-    """One turn with the editor about one ontology. Returns the answer and what got staged."""
-    from api.chat.messages import send_message
-    from api.chat.schemas import SendMessageRequest
+async def prepare(db: Session, key: str, message: str, session_id: Optional[str] = None,
+                  project_id: Optional[int] = None) -> dict:
+    """Validate a turn and bind the ontology into it — everything the stream needs up front.
+
+    Split from `ask` so the streaming route can create/continue the session BEFORE the response
+    starts (a stream that discovers its session halfway through has no way to tell the panel
+    which session to continue). Everything it rejects is rejected here, before a model call.
+    """
     from api.chat.session import start_chat_session
     from api.chat.schemas import StartChatRequest
 
@@ -109,23 +112,42 @@ async def ask(db: Session, key: str, message: str, session_id: Optional[str] = N
     if session is None:
         started = await start_chat_session(
             StartChatRequest(agent_id=agent.id, project_id=project_id), db)
-        session_id = started.session_id if hasattr(started, "session_id") else started["session_id"]
+        session_id = (started.session_id if hasattr(started, "session_id")
+                      else started["session_id"])
     else:
         session_id = session.session_id
-
-    bound = PREAMBLE.format(key=key) + text
-    reply = await send_message(
-        SendMessageRequest(session_id=session_id, message=bound, project_id=project_id), db)
-    body = reply.model_dump() if hasattr(reply, "model_dump") else dict(reply or {})
 
     return {
         "ok": True,
         "key": key,
-        "agent": {"id": agent.id, "name": agent.name},
+        "agent_id": agent.id,
+        "agent_name": agent.name,
         "session_id": session_id,
+        "message": PREAMBLE.format(key=key) + text,
+    }
+
+
+async def ask(db: Session, key: str, message: str, session_id: Optional[str] = None,
+              project_id: Optional[int] = None) -> dict:
+    """One turn (non-streaming): the answer, the tool calls, and what got staged."""
+    from api.chat.messages import send_message
+    from api.chat.schemas import SendMessageRequest
+
+    prompt = await prepare(db, key, message, session_id=session_id, project_id=project_id)
+
+    reply = await send_message(
+        SendMessageRequest(session_id=prompt["session_id"], message=prompt["message"],
+                           project_id=project_id), db)
+    body = reply.model_dump() if hasattr(reply, "model_dump") else dict(reply or {})
+
+    return {
+        "ok": True,
+        "key": prompt["key"],
+        "agent": {"id": prompt["agent_id"], "name": prompt["agent_name"]},
+        "session_id": prompt["session_id"],
         "answer": body.get("message") or "",
         "tool_calls": body.get("tool_calls") or [],
-        "proposals": proposals(db, key),
+        "proposals": proposals(db, prompt["key"]),
     }
 
 

@@ -55,6 +55,21 @@ interface DiffResult {
   error?: string;
 }
 
+interface ValueChange {
+  metric: string;
+  before: unknown;
+  after: unknown;
+  before_state?: string | null;
+  after_state?: string | null;
+}
+interface ValueDelta {
+  ok: boolean;
+  metrics?: number;
+  changed?: ValueChange[];
+  unchanged?: number;
+  error?: string;
+}
+
 interface AskResult {
   ok?: boolean;
   answer?: string;
@@ -97,6 +112,8 @@ export default function OntologyChatPanel() {
   const [turn, setTurn] = useState<{ answer: string; toolCalls: number; error?: string } | null>(null);
   const [diffOpen, setDiffOpen] = useState<string | null>(null);
   const [diffs, setDiffs] = useState<Record<string, DiffResult | null>>({});
+  const [valuesOpen, setValuesOpen] = useState<string | null>(null);
+  const [values, setValues] = useState<Record<string, ValueDelta | null>>({});
 
   // Make sure a workbench is selected before asking it anything (a bookmark or a reload
   // arrives with no selection, and asking '' is a 404 against the frontend's own origin).
@@ -181,6 +198,19 @@ export default function OntologyChatPanel() {
       setTurn({ answer: '', toolCalls: 0, error: err?.response?.data?.detail || String(err?.message || err) });
     } finally {
       setWorking(false);
+    }
+  };
+
+  /** Run both ontologies and show which NUMBERS move. The reviewer's actual question. */
+  const openValues = async (id: string) => {
+    setValuesOpen(prev => (prev === id ? null : id));
+    if (values[id] !== undefined) return;
+    try {
+      const res: any = await apiClient.get(`/api/ontology/publish/${id}/values`, { timeout: 300000 });
+      setValues(prev => ({ ...prev, [id]: (res?.data || null) as ValueDelta }));
+    } catch (err: any) {
+      setValues(prev => ({ ...prev, [id]: {
+        ok: false, error: err?.response?.data?.detail || String(err?.message || err) } }));
     }
   };
 
@@ -399,6 +429,36 @@ export default function OntologyChatPanel() {
                         ))}
                       </>
                     )}
+                    <span
+                      onClick={e => { e.stopPropagation(); void openValues(p.id); }}
+                      style={{ display: 'inline-block', marginTop: 6, fontSize: 10.5, color: t.textDim, cursor: 'pointer' }}
+                    >
+                      {valuesOpen === p.id ? '▾' : '▸'} which numbers move
+                    </span>
+                    {valuesOpen === p.id && (() => {
+                      const v = values[p.id];
+                      if (v === undefined) return <Quiet>running both ontologies…</Quiet>;
+                      if (!v || !v.ok) return <Quiet>{v?.error || 'no comparison'}</Quiet>;
+                      const changed = v.changed || [];
+                      if (!changed.length) {
+                        return <Quiet>no number moves ({v.unchanged || 0} metric(s) checked) — this publish changes declarations or text only.</Quiet>;
+                      }
+                      return (
+                        <div style={{ marginTop: 4 }}>
+                          {changed.map(c => (
+                            <div key={c.metric} style={{ ...mono, fontSize: 10.5, lineHeight: 1.7 }}>
+                              <span style={{ color: WARN }}>{c.metric}</span>{' '}
+                              <span style={{ color: t.textDim }}>{String(c.before ?? c.before_state ?? '—')}</span>
+                              {' → '}
+                              <span style={{ color: t.textPrimary }}>{String(c.after ?? c.after_state ?? '—')}</span>
+                            </div>
+                          ))}
+                          <div style={{ fontSize: 10, color: t.textDim, marginTop: 2 }}>
+                            {changed.length} of {v.metrics} metric(s) move · the rest agree
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
