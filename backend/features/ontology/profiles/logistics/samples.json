@@ -1,3 +1,118 @@
 {
-  "questions": []
+ "_doc": "每条 sample 都是可跑的门禁：expect.value / expect.rows 必须给出，且数字来自另一条手写 SQL 路线，不是本流水线的输出；expect.refused_by_name 表示这条问题必须按名拒绝（拒绝理由里含这段文字）。samples 必须覆盖 profile 里 samples 的每一条。",
+ "samples": [
+  {
+   "question": "行程数",
+   "expect": {
+    "metric": "tripCount",
+    "value": "4050"
+   }
+  },
+  {
+   "question": "运费收入",
+   "expect": {
+    "metric": "totalRevenue",
+    "value": "4397302.97"
+   }
+  },
+  {
+   "question": "超载率",
+   "expect": {
+    "metric": "overloadRate",
+    "value": "0.367654320988",
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "准时率",
+   "expect": {
+    "metric": "stopOnTimeRate",
+    "value": "0.935754735403",
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "温控超标站点数",
+   "expect": {
+    "metric": "tempExcursionStops",
+    "value": "1930"
+   }
+  },
+  {
+   "question": "每千站破损箱数",
+   "expect": {
+    "metric": "damagePer1kStops",
+    "value": "159.031439172",
+    "tolerance": 1e-06
+   }
+  },
+  {
+   "question": "漏筐数",
+   "expect": {
+    "metric": "basketsMissingCount",
+    "value": "25545"
+   }
+  },
+  {
+   "question": "按门店区域看破损箱数",
+   "expect": {
+    "metric": "damagedBoxesByStoreZone",
+    "rows": {
+     "core": "5496",
+     "suburb": "2648"
+    }
+   }
+  },
+  {
+   "question": "责任未判定投诉数",
+   "expect": {
+    "metric": "unjudgedComplaints",
+    "value": "3167"
+   }
+  },
+  {
+   "question": "每千站投诉数",
+   "expect": {
+    "metric": "complaintsPer1kStops",
+    "value": "134.2706502636",
+    "tolerance": 1e-06
+   }
+  },
+  {
+   "question": "通行证覆盖率",
+   "expect": {
+    "metric": "permitCoverage",
+    "value": "0.233333333333",
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "按线路版本看超载行程数",
+   "expect": {
+    "metric": "overloadsByRouteVersion",
+    "rows": {
+     "v1": "46",
+     "v2": "1443"
+    }
+   }
+  },
+  {
+   "question": "高风险司机数",
+   "expect": {
+    "refused_by_name": "AtRiskDriver has no owl:equivalentClass"
+   }
+  },
+  {
+   "question": "计划门店已访站数",
+   "expect": {
+    "refused_by_name": "PlannedStopVisited has no owl:equivalentClass"
+   }
+  },
+  {
+   "question": "司机近30天准时率",
+   "expect": {
+    "refused_by_name": "DriverWindow declares no :physicalTable"
+   }
+  }
+ ]
 }
