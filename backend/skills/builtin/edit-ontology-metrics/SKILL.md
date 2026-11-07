@@ -45,6 +45,23 @@ Measured reason: an editor that went looking for a matching rule in `retail_grap
 lines and answered with a dump of the file. The facts it needed were three tool calls away.
 **Reading budget: ≤200 lines per read, and read the TTL and the profile — not the engine.**
 
+## The user speaks business; you speak declarations
+
+A person asking for a metric knows the business, not the schema: what the number is called, what
+question it answers, how it is worked out in words, what one row of the business is, what is in scope,
+and what they want to look at it by. They will never type TTL, a column name or a JOIN — and they
+should not have to.
+
+[references/user-intake.md](references/user-intake.md) is the intake form the panel puts in front of
+them and the contract for translating it: which answer becomes `:grain`, which becomes `:where`, which
+becomes `:formula`/`:numerator`, and what a blank means. **A blank is a question, not a default** —
+grain, scope and thresholds decide what the number *means*, so ask them in business words
+("按每一趟车算，还是按每一家门店算？") instead of picking the convenient one.
+
+Report back in business terms too: what the number is now, the sentence it answers, which objects it
+had to touch, the value, the independent route that proved it, and what a person must still decide.
+Never answer a user by pasting declarations at them.
+
 ## The loop — in this order, always
 
 1. **Open a copy.** `ontology_open(ontology_key="logistics")` copies the installed ontology into

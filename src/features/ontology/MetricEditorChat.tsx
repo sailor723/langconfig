@@ -43,6 +43,157 @@ interface Proposal {
   compile: { metrics?: number; compiled?: number; refused?: unknown[] };
 }
 
+/**
+ * The intake form — what a USER can answer.
+ *
+ * A person asking for a metric knows the business: the phrase they use, the question it answers, how
+ * it is worked out in words, what one row of the business is, what is in scope, what they want to
+ * group by. They do not know tables, columns, joins, `:grain`, TTL or SPARQL, so the form never asks
+ * for any of it — the agent derives the declarations. (backend/skills/builtin/edit-ontology-metrics/
+ * references/user-intake.md is the contract on the other side of this form.)
+ *
+ * Blank stays blank: grain and scope change what the number MEANS, so an unanswered one is a
+ * question the agent must ask in business words, not a default it may pick.
+ */
+interface IntakeState {
+  name: string;
+  question: string;
+  arithmetic: string;
+  grain: string;
+  scope: string;
+  dimensions: string;
+  unit: string;
+  expected: string;
+  purpose: string;
+  notes: string;
+}
+
+const EMPTY_INTAKE: IntakeState = {
+  name: '', question: '', arithmetic: '', grain: '', scope: '全部', dimensions: '',
+  unit: '', expected: '', purpose: '', notes: '',
+};
+
+const INTAKE_EXAMPLE: IntakeState = {
+  name: '每千公里破损箱数',
+  question: '每跑一千公里会破多少箱？',
+  arithmetic: '一共破了多少箱 ÷ 一共跑了多少公里，再乘 1000',
+  grain: '一次配送的一个站点（货损是记在站点上的）',
+  scope: '全部',
+  dimensions: '',
+  unit: '箱',
+  expected: '三十几箱',
+  purpose: '判断是不是某条线路或某台车在货损上要复查',
+  notes: '',
+};
+
+/** The message the panel sends. It is shown to the user before sending, on purpose. */
+function composeIntake(key: string, i: IntakeState): string {
+  const line = (label: string, value: string) =>
+    value.trim() ? `- ${label}：${value.trim()}\n` : '';
+  return [
+    `【新增指标】（业务口径，不含任何技术细节） ontology_key=${key}\n\n`,
+    line('用户会这么叫它', i.name),
+    line('它会回答', i.question),
+    line('怎么算（业务语言）', i.arithmetic),
+    line('一行代表', i.grain),
+    line('算哪些 / 不算哪些', i.scope),
+    line('要看的维度', i.dimensions),
+    line('单位 / 量级', i.unit),
+    line('大概多少（用来校验，不是目标）', i.expected),
+    line('谁用它做什么决定', i.purpose),
+    line('其他约定', i.notes),
+    '\n把它翻译成声明：对象与属性从已声明的本体里取，:aggregate / :formula（或 :numerator+:denominator+:scale）/ ',
+    ':grain / :universe / :where / :groupBy 由你决定，JOIN 由编译器从 :references 推导 —— 不要向我问表名、列名或 TTL。',
+    '任何会改变这个数含义而上面没答的点（颗粒度、范围、阈值、维度），先问我，不要自己定。\n\n',
+    '\n开始前先 ontology_open(ontology_key="' + key + '", overwrite=true) 取一份与已安装本体一致的副本——',
+    '旧副本会把别人后来的改动悄悄回退（已经发生过一次：label 被旧副本发布会退）。',
+    '\n做完按 edit-ontology-metrics 验证：编译；值与你自己写的第二条独立路线一致；其余指标的数字一个都不许变。',
+    '然后 ontology_publish 暂存，include 只点名你改过的文件；报告里写：值多少、独立路线是什么、哪些门禁 NOT RUN。',
+  ].join('');
+}
+
+const fieldStyle = (t: any): React.CSSProperties => ({
+  width: '100%', boxSizing: 'border-box', padding: '5px 7px', borderRadius: 6, fontSize: 11.5,
+  border: `1px solid ${t.border}`, background: t.bgInput || 'transparent', color: t.textPrimary,
+  outline: 'none', fontFamily: 'inherit', lineHeight: 1.5,
+});
+
+const FIELD_HELP: Array<[keyof IntakeState, string, string]> = [
+  ['name', '它叫什么', '你平时怎么问它'],
+  ['question', '回答什么问题', '一句话，像你会问的那样'],
+  ['arithmetic', '怎么算', '用你自己的话说：多少 ÷ 多少，再乘多少'],
+  ['grain', '一行代表什么', '一次配送的一个站点 / 一趟车 / 一家门店 …'],
+  ['scope', '算哪些、不算哪些', '全部；或什么排除在外'],
+  ['dimensions', '要分维度看吗', '按线路版本、按车辆、按门店区域 …（可空）'],
+  ['unit', '单位', '箱、元、次、%'],
+  ['expected', '大概多少', '用来校验，不是目标'],
+  ['purpose', '谁用它做什么决定', '可选'],
+  ['notes', '其他约定', '可选'],
+];
+
+function IntakeForm({ ontologyKey, onClose, onCompose }: {
+  ontologyKey: string;
+  onClose: () => void;
+  onCompose: (text: string) => void;
+}) {
+  const t = useLayoutTokens();
+  const [v, setV] = useState<IntakeState>(EMPTY_INTAKE);
+  const set = (k: keyof IntakeState) => (e: any) => setV(prev => ({ ...prev, [k]: e.target.value }));
+  const ready = v.name.trim() && v.question.trim() && v.arithmetic.trim();
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, zIndex: 20, background: t.bgSidebar,
+      display: 'flex', flexDirection: 'column', minHeight: 0,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderBottom: `1px solid ${t.border}` }}>
+        <span style={{ fontSize: 12.5, fontWeight: 600 }}>新增指标（用业务语言填）</span>
+        <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: t.textDim }}>
+          <X size={13} />
+        </button>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ fontSize: 11, color: t.textDim, lineHeight: 1.6 }}>
+          不用写 SQL、不用管表名和列。说清楚<b>它叫什么、回答什么、怎么算、一行是什么</b>就够了；
+          其余由 agent 从已声明的本体里翻译。「一行代表什么」和「算哪些」会改变数字含义，没想好就留空，
+          它会用业务话回来问你。
+        </div>
+        {FIELD_HELP.map(([k, label, help]) => (
+          <label key={k} style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11, color: t.textDim }}>
+            <span>{label}{['name', 'question', 'arithmetic'].includes(k) ? ' *' : ''}</span>
+            <input value={v[k]} onChange={set(k)} placeholder={help} style={fieldStyle(t)} />
+          </label>
+        ))}
+        <button
+          onClick={() => setV(INTAKE_EXAMPLE)}
+          style={{
+            alignSelf: 'flex-start', fontSize: 11, padding: '4px 9px', borderRadius: 6,
+            border: `1px solid ${t.border}`, background: 'transparent', color: t.textMuted, cursor: 'pointer',
+          }}
+        >
+          填一个示例（每千公里破损箱数）
+        </button>
+      </div>
+      <div style={{ padding: '8px 12px', borderTop: `1px solid ${t.border}`, display: 'flex', gap: 6 }}>
+        <button
+          onClick={() => onCompose(composeIntake(ontologyKey, v))}
+          disabled={!ready}
+          style={{
+            fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 7, border: 'none',
+            background: t.accent, color: '#fff', cursor: ready ? 'pointer' : 'default',
+            opacity: ready ? 1 : 0.45,
+          }}
+        >
+          生成请求（可以先看再发）
+        </button>
+        <span style={{ fontSize: 10.5, color: t.textDim, alignSelf: 'center' }}>
+          {'它叫什么 / 回答什么 / 怎么算 是必填'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 interface Props {
   /** The ontology this panel edits (settings profile key). */
   ontologyKey: string;
@@ -61,6 +212,9 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose }: Pr
   const [armed, setArmed] = useState<string | null>(null);
   const [applying, setApplying] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  // The business-language intake form (see references/user-intake.md): it collects what a person
+  // actually knows, and shows the composed request before anything is sent.
+  const [intakeOpen, setIntakeOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sessionKey = `langconfig.ontology.editor.${ontologyKey}`;
@@ -213,14 +367,36 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose }: Pr
   return (
     <div style={{
       width: 400, flex: 'none', display: 'flex', flexDirection: 'column', minHeight: 0,
-      borderLeft: `1px solid ${t.border}`, background: t.bgSidebar,
+      borderLeft: `1px solid ${t.border}`, background: t.bgSidebar, position: 'relative',
     }}>
+      {intakeOpen && (
+        <IntakeForm
+          ontologyKey={ontologyKey}
+          onClose={() => setIntakeOpen(false)}
+          onCompose={text => {
+            // the user reads the composed request before it is sent — the form exists to collect
+            // business words, not to hide a prompt
+            setInput(text);
+            setIntakeOpen(false);
+          }}
+        />
+      )}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px',
         borderBottom: `1px solid ${t.border}`, flexShrink: 0,
       }}>
         <span style={{ fontSize: 12.5, fontWeight: 600, color: t.textPrimary }}>Metric editor chat</span>
         <span style={{ ...mono, fontSize: 10.5, color: t.textDim }}>{ontologyKey}</span>
+        <button
+          onClick={() => setIntakeOpen(true)}
+          title="按业务口径描述一个新指标，agent 负责翻译成声明"
+          style={{
+            marginLeft: 'auto', fontSize: 11, padding: '3px 8px', borderRadius: 6,
+            border: `1px solid ${t.border}`, background: 'transparent', color: t.textMuted, cursor: 'pointer',
+          }}
+        >
+          + 新增指标
+        </button>
         {onClose && (
           <button
             onClick={onClose}
