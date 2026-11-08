@@ -39,7 +39,10 @@ logger = logging.getLogger(__name__)
 # timeout is the worst failure mode: it looks alive, blocks the retry, and teaches the operator nothing.
 # The cap is generous (a real build turn has been measured at a few minutes) and it is a FAILURE, with
 # the second count, not a silent stop.
-TURN_TIMEOUT_SECONDS = int(os.getenv("ONTOLOGY_BUILD_TURN_TIMEOUT", "1200"))
+# 20 minutes KILLED a productive turn on the deployment: it had written 61 compiled metrics and
+# 30 KB of axioms and was still going. The cap exists to catch a SILENT hang (measured: 35+ min with
+# zero file writes), not to interrupt work, so it is now 45 minutes.
+TURN_TIMEOUT_SECONDS = int(os.getenv("ONTOLOGY_BUILD_TURN_TIMEOUT", "2700"))
 
 # A build IS one long agent turn, and the provider's SSE stream can drop in the middle of it. Measured
 # on the deployment: `httpx.ReadError` from api.deepseek.com after "200 OK", twice in a row, and the
