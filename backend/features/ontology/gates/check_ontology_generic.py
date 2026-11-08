@@ -682,6 +682,21 @@ def main() -> int:
         print(f"no profile at {path}")
         return 2
     profile, g, dsn = load(path)
+    # `--truth` used to be parsed and then thrown away: `reasoning_gates(..., None)` was hard-coded,
+    # so R2 ("definition == hand SQL") was NOT RUN on EVERY profile, forever. Measured on a v6 build:
+    # the builder wrote a truth.json with a hand-written predicate per definition, then found the
+    # runner never passed it. A declaration that is never executed is not evidence — resolve it here,
+    # from the flag, else the profile's own truth.json, else leave it None (R2 then says NOT RUN).
+    truth_path = pathlib.Path(args.truth).expanduser() if args.truth else (path.parent / "truth.json")
+    truth = None
+    if truth_path.is_file():
+        try:
+            truth = json.loads(truth_path.read_text(encoding="utf-8"))
+            print(f"truth:   {truth_path}")
+        except Exception as exc:                                 # noqa: BLE001
+            print(f"truth:   {truth_path} is not readable JSON ({exc}) — R2 stays NOT RUN")
+    elif args.truth:
+        print(f"truth:   {truth_path} does not exist — R2 stays NOT RUN")
     print(f"profile: {path}")
     print(f"ns:      {sqlgen.NS}")
     print(f"dsn:     {dsn}")
@@ -697,7 +712,7 @@ def main() -> int:
         if "C" in wanted:
             structure_gates(profile, g, cur)
         if "R" in wanted:
-            reasoning_gates(profile, g, cur, None)
+            reasoning_gates(profile, g, cur, truth)
         if "G" in wanted:
             guard_gates(profile, g, cur)
         if "P" in wanted:

@@ -55,5 +55,14 @@
       "check_dashboard"
     ],
     "installed": "applied 1794087430-aa145f · commit b258eda · 28/28 compiled, 0 new refusals. The two publishes before it were refused at stage time (P2 page checks) and are kept in the ledger as refusals."
+  },
+  "new_coldchain_v6": {
+    "why": "Ontology Builder 从 new_coldchain 库重建的 v6：Trip/Stop 双粒度、48 个编译指标、零拒绝，dashboard 自带独立 SQL 副线，truth.json 用第二条路线对照定义",
+    "profile": [
+      "check_structure",
+      "check_ontology_generic",
+      "check_samples",
+      "check_dashboard"
+    ]
   }
 }
