@@ -33,6 +33,19 @@ export default function OntologySidebar() {
   // first layer expands on hover too — same idea, one level down); the selected row stays
   // open so you can still see where you are after the pointer leaves.
   const [peek, setPeek] = useState<string | null>(null);
+  // Re-compiling every ontology takes a moment and used to give no sign it had run at all, so the
+  // button read as broken. It now says what it did: `recompiled 3/7 · 14:32:07`.
+  const [refreshed, setRefreshed] = useState<{ at: string; up: number; total: number } | null>(null);
+  const refreshAll = async () => {
+    setRefreshed(null);
+    await ontology.probeAll();
+    const st = ontology.get();
+    setRefreshed({
+      at: new Date().toLocaleTimeString(),
+      up: st.profiles.filter(p => st.probes[p.key]?.status === 'up').length,
+      total: st.profiles.length,
+    });
+  };
 
   useEffect(() => {
     void (async () => {
@@ -66,11 +79,12 @@ export default function OntologySidebar() {
           </span>
         </button>
         <button
-          onClick={() => void ontology.probeAll()}
-          title="re-compile every ontology"
-          style={{ ...rowTitle, marginLeft: 'auto', color: t.textDim }}
+          onClick={() => void refreshAll()}
+          disabled={s.starting}
+          title="re-compile every ontology (reads each one's document again)"
+          style={{ ...rowTitle, marginLeft: 'auto', color: t.textDim, opacity: s.starting ? 0.5 : 1 }}
         >
-          <RefreshCw size={12} />
+          <RefreshCw size={12} className={s.starting ? 'animate-spin' : undefined} />
         </button>
         <button
           // The gear goes to Settings → Apply: the publishes an agent staged and a person has to
@@ -84,6 +98,12 @@ export default function OntologySidebar() {
           <Settings2 size={12} />
         </button>
       </div>
+
+      {(s.starting || refreshed) && (
+        <div style={{ flexShrink: 0, padding: '0 10px 6px', fontSize: 10.5, color: t.textDim }}>
+          {s.starting ? 'recompiling…' : `recompiled ${refreshed!.up}/${refreshed!.total} · ${refreshed!.at}`}
+        </div>
+      )}
 
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {s.profiles.map(p => {

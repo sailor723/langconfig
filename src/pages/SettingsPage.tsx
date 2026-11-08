@@ -15,6 +15,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useLocation } from 'react-router-dom'
 import { themes, useTheme, type ThemeName } from '../lib/themes'
 import apiClient from '../lib/api-client'
 import LegacyMigrationPanel from '../components/layout2/LegacyMigrationPanel'
@@ -270,30 +271,26 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const KNOWN_SECTIONS: SectionId[] = ['general', 'models', 'ontology', 'apply', 'databases', 'webapi', 'localmodels', 'workspace', 'storage', 'runtime', 'agents', 'knowledge', 'about']
   const askedSection = (raw: string | null | undefined): SectionId | null =>
     (KNOWN_SECTIONS as string[]).includes(raw || '') ? (raw as SectionId) : null
+  // THIS APP IS A HashRouter: the address is `/#/settings?section=apply`, so the query lives in the
+  // HASH and `window.location.search` is always empty. Reading it there made every deep link land on
+  // General — the fix was invisible for exactly the reason the bug was. `useLocation` knows both.
+  const route = useLocation()
   const [section, setSection] = useState<SectionId>(
-    () => askedSection(new URLSearchParams(window.location.search).get('section')) || 'general',
+    () => askedSection(new URLSearchParams(route.search).get('section')) || 'general',
   )
   useEffect(() => {
-    // `settings:open` may carry the section an opener wants; the URL is the fallback and the default.
+    // Both ways in: the route (`/#/settings?section=apply`) and the `settings:open` event an opener
+    // may fire with a section. The route wins when it names one, because a link is a promise.
+    const fromRoute = askedSection(new URLSearchParams(route.search).get('section'))
+    if (fromRoute) setSection(fromRoute)
+  }, [route.search])
+  useEffect(() => {
     const fromEvent = (e: Event) => {
       const want = askedSection((e as CustomEvent<{ section?: string }>).detail?.section)
       if (want) setSection(want)
-      else {
-        const fromUrl = askedSection(new URLSearchParams(window.location.search).get('section'))
-        if (fromUrl) setSection(fromUrl)
-      }
-    }
-    const fromUrl = () => {
-      const want = askedSection(new URLSearchParams(window.location.search).get('section'))
-      if (want) setSection(want)
     }
     window.addEventListener('settings:open', fromEvent)
-    window.addEventListener('popstate', fromUrl)
-    fromUrl()
-    return () => {
-      window.removeEventListener('settings:open', fromEvent)
-      window.removeEventListener('popstate', fromUrl)
-    }
+    return () => window.removeEventListener('settings:open', fromEvent)
   }, [])
 
   useEffect(() => {
