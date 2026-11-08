@@ -276,3 +276,23 @@ The gate cannot see this, because it checks the samples that were written, and t
 the ones that already answer. **Rule:** for every new noun the material introduces, add an alias, then re-ask the
 question through `nl.ask(..., record=False, slots=False)` before writing it into `samples.json`.
 
+### 149 metrics, 34 with nobody reading them
+
+The v4 build (six KPI families, 83-metric base) ended with 149 metrics: 23 referenced by a panel,
+13 by a KPI card, 35 by a sample, 58 by the tutorial, and 53 serving as `:numerator`/`:denominator`.
+The union is 115; the other 34 were referenced by nothing at all — and `check_structure`,
+`check_ontology_generic`, `check_samples` and `check_dashboard` were all happy.
+
+Two lessons, both measured:
+
+1. **A budget cannot be met by deleting machinery.** 53 of the 149 are ratio parts; removing them
+   breaks `ratio_of_sums`. To reach ~60 the consumers must shrink — tutorial 58 metric references,
+   samples 35, panels 23, cards 13 — and the cut has to be named.
+2. **A trim is a consumer edit.** Deleting six orphans turned T2 red
+   (`every tutorial item is declared — ['metrics:handlerCount', …]`), because the tutorial still
+   named them. Nobody had looked at the tutorial before deleting.
+
+And one more, from the same afternoon: a build that starts on a shelf holding six ontologies of the
+same database inherits six gate runs, six roster rows and six pictures. Archive all but the two most
+recent **before** generating, and remove their `gates.json` entries in the same edit.
+

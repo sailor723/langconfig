@@ -6,7 +6,7 @@ triggers:
   - When asked to build or extend an ontology / semantic layer for a database
   - When a KPI or metric must be defined once and compiled, not hand-written per report
   - When "the same metric gives two different numbers" and the definitions must be settled
-version: 2.6
+version: 2.7
 author: weiping
 
 params:
@@ -494,6 +494,40 @@ Two shape traps, both measured:
   and the fuzzy matcher answers a headcount — say that out loud).
 
 ---
+
+## S7·5. Self-check before you stage (the four numbers, not a feeling)
+
+A build that reaches S8 without this step can stage 149 metrics of which 45 have no reader, a board
+with no panel for a family the business named, and a tutorial naming metrics that a later trim
+deleted. Every one of those stayed green in some gate, because the gates check the SHAPE, not the
+coverage. Write these four numbers down before `ontology_publish`:
+
+```
+1. 指标 → 去处：each metric is referenced by a panel, a KPI card, a sample, the tutorial, or a
+   `:numerator`/`:denominator`. The rest are orphans — delete them or give them a reader.
+2. 家族 → 面板：one line per family the material names (`family → metric → panel id → kind`).
+   A family with no panel is absent on purpose and says why.
+3. 消费方一致：after ANY metric is removed, `tutorial.json`, `samples.json` and `dashboard.json`
+   must not name it — measured: deleting six orphans turned T2 red ("every tutorial item is
+   declared") and nobody had looked at the tutorial.
+4. 预算：the mechanics (numerator/denominator) are not redundancy — 6 KPI families need ~50 of them
+   for the ratios to compile. If a budget is set (today: ~60 metrics), it can only be met by
+   trimming the CONSUMERS (tutorial, samples, panels, cards) as well; say which ones, with numbers,
+   instead of deleting the machinery and breaking the ratios.
+```
+
+### Before you generate: clear the shelf
+
+A rebuild inherits every ontology of that database, and each one costs a gate run, a roster row and a
+picture in the UI. Measured on the deployment: six cold-chain ontologies over one database, four of
+them superseded. So before a build:
+
+1. list the ontologies that declare THIS database (`grep dsn.dbname`);
+2. archive everything except the two most recent (`mv` into `profiles/.archive/<key>-<ts>/`, which is
+   git-ignored) and say which ones and why;
+3. remove their `gates.json` entries in the same edit — a key removed from the suite must be visible
+   in the declaration, not silently skipped;
+4. only then run the ladder, against a shelf that holds the base you are extending and nothing else.
 
 ## S8. Publish through the channel — the ontology lands itself
 

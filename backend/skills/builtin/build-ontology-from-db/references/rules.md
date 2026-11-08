@@ -369,6 +369,23 @@ Bump `version:`, run `scripts/check_skill.py` (this lint), push, then
 
 **Gate:** `check_skill.py` — L1 version, L2 dead links, L3 reachability, L4 rules-vs-gates, L5 counts.
 
+## 26. A metric with no reader does not ship, and no budget may be met by deleting the machinery
+
+Two numbers decide whether a declaration set is honest, and neither is a gate:
+
+* **Every metric has a reader** — a panel, a KPI card, a sample, the tutorial, or a `:numerator` /
+  `:denominator` of a ratio. Measured on the v4 build: 149 metrics, 34 with no reader at all, every
+  gate green.
+* **A metric budget is spent on consumers, not on mechanics.** The `:numerator`/`:denominator` entries
+  are what make a ratio compile — six KPI families need roughly fifty of them. Cutting a set to a
+  budget (today ~60) therefore means trimming the tutorial, the samples, the panels and the cards,
+  and saying which ones. Deleting the mechanics instead breaks `ratio_of_sums` and the next build
+  re-adds them.
+
+Removing a metric is a **consumer edit**, not a one-line delete: `tutorial.json`, `samples.json` and
+`dashboard.json` all name metrics, and T2 ("every tutorial item is declared") is exactly the gate
+that caught a trim which had not looked at the tutorial.
+
 ## 25. Every KPI the material names reaches a panel, or the step is not done
 
 A metric compiles, appears in the menu, answers correctly — and is still invisible, because nothing draws it. The
