@@ -283,20 +283,49 @@ def collect_metrics(dash: dict) -> list[tuple[str, str]]:
     return out
 
 
+# The names the CURRENT dashboard compiles; `briefing_refs` needs them to tell "a bare metric name in
+# a list" from "a word in a sentence". Set by build(); reset per call so two ontologies never mix.
+metrics_by_name: dict = {}
+
+
 PLACEHOLDER = re.compile(r"\{([A-Za-z][A-Za-z0-9]*)(?::([^}]+?))?(#key)?\}")
 
 
+def _strings(value, depth: int = 0):
+    """Every string inside a declared value — str, list, or dict — without assuming which it is.
+
+    A `briefing` is prose OR a structured index of what the board opens with. Measured on v5:
+    `"headline": ["stopOnTimeRate", "tripFullyOnTimeRate"]` — a LIST of metric names — crashed
+    `briefing_refs` with `TypeError: expected string or bytes-like object, got 'list'`, so a page
+    whose declaration was fine returned 500. The reader walks the shape instead of dictating it.
+    """
+    if depth > 6:
+        return
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, (list, tuple)):
+        for v in value:
+            yield from _strings(v, depth + 1)
+    elif isinstance(value, dict):
+        for v in value.values():
+            yield from _strings(v, depth + 1)
+
+
 def briefing_refs(dash: dict) -> list[tuple[str, str | None]]:
-    """Every {metric} / {metric:key[#key]} a briefing sentence names, in order, deduped."""
+    """Every metric a briefing references — as a `{metric}` placeholder, or as a bare declared name.
+
+    Both forms appear in real declarations: prose with placeholders, and `"headline": [names…]`
+    (an index of the numbers the board opens with). A bare name that is not a declared metric is
+    ignored here and reported by the gate, not by the renderer.
+    """
     out: list[tuple[str, str | None]] = []
-    brief = dash.get("briefing") or {}
-    texts = ([brief.get("headline") or "", brief.get("next") or ""]
-             + [c.get("text") or "" for c in brief.get("claims") or []]
-             + list(brief.get("cannot_see") or []))
-    for text in texts:
+    names = set(metrics_by_name) if isinstance(metrics_by_name, dict) else set()
+    for text in _strings(dash.get("briefing")):
         for metric, key, _echo in PLACEHOLDER.findall(text):
             if (metric, key) not in out:
                 out.append((metric, key))
+        if text in names and (text, None) not in out:
+            out.append((text, None))
     return out
 
 
@@ -454,6 +483,8 @@ def build(profile_path, *, dim_filters: dict | None = None,
     dash = json.loads(path.read_text())
     _profile_mod.use(profile)                 # the compiler now compiles THIS ontology
     g = sqlgen.load()
+    global metrics_by_name
+    metrics_by_name = sqlgen.metrics(g)          # the NAMES this board may reference by bare name
     wanted = ([(m, "cli") for m in metrics] if metrics else collect_metrics(dash))
     return _execute(profile, path, dash, g, wanted, dict(dim_filters or {}),
                     since=since, until=until)
