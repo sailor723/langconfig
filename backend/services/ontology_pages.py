@@ -206,7 +206,19 @@ def asset(key: str, name: str) -> tuple[bytes, str]:
         raise PageError(f"{key} has no asset {name}")
     ctype = ("image/svg+xml" if name.endswith(".svg")
              else "application/javascript; charset=utf-8")
-    return path.read_bytes(), ctype
+    body = path.read_bytes()
+    if name.endswith(".js"):
+        # A page's JavaScript is served from THIS origin, but it still calls the absolute paths the
+        # workbench answered (`/api/graph?step=…`). `page()` already rewrites those inside HTML; an
+        # asset was handed over byte for byte, so the graph fetched the app's own `/api/graph` — a
+        # 404 — and printed "graph unavailable". Same rewrite, applied where the calls actually live.
+        text = body.decode("utf-8")
+        # One rewrite, applied to BOTH quote styles: `/api/graph` starts with `/api/`, so naming it
+        # separately and then rewriting `/api/` again produced `/api/ontology/{key}/wb/ontology/…`.
+        text = (text.replace('"/api/', f'"/api/ontology/{key}/wb/')
+                    .replace("'/api/", f"'/api/ontology/{key}/wb/"))
+        body = text.encode("utf-8")
+    return body, ctype
 
 
 def page(key: str, name: str) -> tuple[str, str]:

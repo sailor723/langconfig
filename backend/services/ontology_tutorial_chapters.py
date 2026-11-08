@@ -216,6 +216,11 @@ def call(key: str, rest: str, query: dict[str, list[str]], payload: dict | None 
 
     if method == "GET":
         table = {
+            # The tutorial's own graph (`tutorial_graph.js`) asks for `/api/graph?step=N` and draws
+            # whatever it gets back. That endpoint lived on the workbench server; when the pages moved
+            # onto this app the route was never carried over, so the graph rendered as the literal text
+            # "graph unavailable" while the eight authored step pictures sat unused in `TUTORIAL_GRAPHS`.
+            "/graph": lambda: ui.tutorial_graph(arg("step", 1, int)),
             "/tutorial1/table": ui.tutorial1_table,
             "/tutorial2/table": ui.tutorial2_table,
             "/tutorial3/table": ui.tutorial3_table,
