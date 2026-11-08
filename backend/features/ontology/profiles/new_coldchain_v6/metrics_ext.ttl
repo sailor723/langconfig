@@ -179,3 +179,15 @@
     :aggregate "count" ; :grain :Trip ; :universe :Trip ; :where :OwnTrip ;
     :groupBy :tripRouteVersion ; :unit "count" ;
     :businessDescription "自有车趟次按版本切开；与外车趟次互补（两者相加 = 该版本总趟次）。" .
+
+# (4) 给气泡图：每个版本上的两把尺子（都是 Trip 自己的列，且都是比率）
+:externalShareByRouteVersion a owl:DatatypeProperty ; rdfs:label "按线路版本看外车占比" ; rdfs:domain :Trip ;
+    :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
+    :numerator :externalTrips ; :denominator :tripCount ; :groupBy :tripRouteVersion ; :unit "ratio" ;
+    :businessDescription "外车占比按并线版本切开：外车补位是不是并线之后才变多。" .
+
+# (5) 给树图：二维金额（版本 × 高峰），格子面积就是钱
+:revenueByVersionPeak a owl:DatatypeProperty ; rdfs:label "按版本×高峰看收入" ; rdfs:domain :Trip ;
+    :aggregate "sum" ; :formula "revenue" ; :grain :Trip ; :universe :Trip ;
+    :groupBy :tripRouteVersion ; :groupBy :tripIsPeakDay ; :unit "RMB" ;
+    :businessDescription "运费收入按并线版本 × 高峰/平日切成四块，树图每块面积就是这一格的钱。" .

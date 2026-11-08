@@ -173,6 +173,28 @@
    "metric": "externalShareByPeak",
    "render": "stacked",
    "note": "分组键是 is_peak_day；两组按趟次加权回 externalShare（D3）。"
+  },
+  {
+   "id": "version_bubble",
+   "kind": "bubble",
+   "title": "版本画像：超载 × 外车 × 规模",
+   "question": "并线之后，超载和外车补位是不是一起上去了？",
+   "x": "overloadRateByRouteVersion",
+   "y": "externalShareByRouteVersion",
+   "size": "tripCountByRouteVersion",
+   "note": "三个通道都是已声明指标，且都是 Trip 自己的列；缺任何一条的版本不画（D9 会报缺口）。"
+  },
+  {
+   "id": "revenue_treemap",
+   "kind": "treemap",
+   "title": "收入树图：并线版本 × 高峰/平日",
+   "question": "钱主要落在哪一块：高峰还是平日、并线前还是并线后？",
+   "metric": "revenueByVersionPeak",
+   "rows": "key1",
+   "cols": "key2",
+   "row_label": "线路版本",
+   "col_label": "是否高峰日",
+   "note": "四块面积之和应等于 tripRevenue（D3 验分组能加回总量）。"
   }
  ],
  "holes": [],
