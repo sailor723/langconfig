@@ -77,7 +77,17 @@ def build(graph, menu_: dict) -> dict:
         if cls:
             edges.append({"src": name, "dst": cls, "kind": "measures"})
         if m.where:
-            base = sqlgen.concept_base_class(graph, m.where) or m.where
+            # A `:where` class that is a DECLARED PREDICATE (:physicalPredicate, no axiom) has no
+            # base class: its columns are the GRAIN's own, which is the rule the compiler already
+            # applies (`where_class = concept_base_class(...) or grain`). The capability graph used
+            # to put such a class in the `filters` edge and then fail `_reach_table` on it — measured
+            # on new_coldchain_v6: every metric whose :where is a declared predicate refused
+            # ":overloadedTrips filters :OverloadedTrip, but that class reaches no physical table",
+            # while the same metric compiled and ran. The NL/Query path (this graph) disagreed with
+            # the compiler about the same declaration.
+            base = (sqlgen.concept_base_class(graph, m.where)
+                    or (m.grain or m.domain)
+                    or m.where)
             edges.append({"src": name, "dst": base, "kind": "filters"})
 
     # class -> table edges

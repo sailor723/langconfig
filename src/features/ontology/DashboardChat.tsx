@@ -83,7 +83,30 @@ export default function DashboardChat({
     }
   }, [text, ontologyKey, busy]);
 
-  const suggestions = ['超载率是多少', '并线前后准时率变化', '按车辆看每千站破损箱数', '责任未判定投诉数'];
+  // THE SUGGESTIONS ARE THE ONTOLOGY'S OWN SAMPLES, not a list that lives in this component.
+  //
+  // Measured on the deployment: the hardcoded four were ['超载率是多少', '并线前后准时率变化',
+  // '按车辆看每千站破损箱数', '责任未判定投诉数'] — the third one refused ("nothing declares a grouping
+  // by ['车辆']") because no grouped declaration existed, and '并线前后准时率变化' refused for the same
+  // reason. A dashboard that offers a question the ontology cannot answer teaches a user that the
+  // ontology is broken. The samples the Query page shows are the gate-checked front door
+  // (`check_samples.py` runs every one), so the dashboard reads the SAME list: one source, and a
+  // question that appears in one place appears in the other.
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  useEffect(() => {
+    if (!ontologyKey) { setSuggestions([]); return; }
+    let cancelled = false;
+    fetch(`/api/ontology/${encodeURIComponent(ontologyKey)}/wb/samples`)
+      .then(r => (r.ok ? r.json() : { samples: [] }))
+      .then(d => {
+        if (cancelled) return;
+        const list: string[] = Array.isArray(d?.samples) ? d.samples.filter((s: any) => typeof s === 'string') : [];
+        // the first few are the ones a newcomer should try first; the rest stay visible in the Query page
+        setSuggestions(list.slice(0, 8));
+      })
+      .catch(() => { if (!cancelled) setSuggestions([]); });
+    return () => { cancelled = true; };
+  }, [ontologyKey]);
 
   return (
     <div style={{
@@ -107,20 +130,24 @@ export default function DashboardChat({
       <div ref={listRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 12px' }}>
         {turns.length === 0 && !busy && (
           <div style={{ display: 'grid', gap: 6 }}>
-            <div style={{ fontSize: 11, color: t.textDim }}>可以这样问：</div>
-            {suggestions.map(s => (
-              <button
-                key={s}
-                onClick={() => setText(s)}
-                style={{
-                  textAlign: 'left', padding: '6px 8px', borderRadius: 7, cursor: 'pointer',
-                  border: `1px solid ${t.border}`, background: 'transparent',
-                  color: t.textMuted, fontSize: 11.5, fontFamily: 'inherit',
-                }}
-              >
-                {s}
-              </button>
-            ))}
+            <div style={{ fontSize: 11, color: t.textDim }}>
+              {suggestions.length ? '这个本体自己给的例句（与 Query 页同一份 samples）：' : ''}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {suggestions.map(s => (
+                <button
+                  key={s}
+                  onClick={() => setText(s)}
+                  style={{
+                    textAlign: 'left', padding: '5px 9px', borderRadius: 999, cursor: 'pointer',
+                    border: `1px solid ${t.border}`, background: 'transparent',
+                    color: t.textMuted, fontSize: 11.5, fontFamily: 'inherit',
+                  }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 

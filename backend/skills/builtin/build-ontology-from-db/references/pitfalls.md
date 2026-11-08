@@ -199,3 +199,45 @@ they name a machine that no longer serves anything.
 **Detect:** open an ontology, then reload — the same ontology must come back; the number of highlighted
 rows must be exactly one.
 
+### "The metric is there, so it should answer" — three separate reasons it did not
+
+Reported from a training session, on one question: 「按车辆看每千站破损箱数」 →
+
+```
+nothing declares a grouping by ['车辆'] — refusing rather than dropping a dimension and answering
+a different question
+```
+
+Three causes, all real, none of them the metric:
+
+1. **A grouped question needs a grouped declaration.** `:damagedBoxesPer1kStops` is a number; a
+   question that says 「按车辆看…」 needs a metric with `:groupBy :vehiclePlate`. Grouping is declared,
+   never inferred — that is why the refusal is correct rather than a dropped dimension. Declared:
+   `:damagedBoxesPer1kStopsByVehicle` (ratio_of_sums, same grain and the same numerator/denominator),
+   and the alias 车辆 → vehicle so the word reaches the dimension matcher.
+2. **A link that declares only `:references` was not a JOIN.** `_closure` required `rdfs:range`, while
+   every link in this profile (21 of them) declares exactly what the skill says: `:physicalColumn` +
+   `:references`. So `Stop → Trip → Vehicle` existed on paper and the closure saw only `['Stop']`,
+   and the compiler refused the dimension as unreachable. The closure now reads `:references` as the
+   target (the skill's own wording) — a builder following the skill gets the join.
+3. **…which exposed a second bug: same-named columns across a join.** With a real closure,
+   `:avgStopsPerTrip` (`:formula "planned_stops"` on `:Trip`) refused as "a column of MORE THAN ONE
+   joined class (['Trip', 'Route'])" — `routes.planned_stops` exists too. The rule is now: **the
+   grain's own column wins**; ambiguity is refused only when the identifier belongs to two classes
+   NEITHER of which is the grain.
+
+**Detect:** ask the grouped question, then ask the ungrouped one; if only the first refuses, the
+missing thing is a `:groupBy`, not a metric. And run `check_samples.py`: the sample for the grouped
+question carries the 60 per-vehicle values from a hand SQL, so the answer is checked against a second
+route rather than against itself.
+
+### A dashboard offered questions the ontology refuses
+
+`DashboardChat` had four hardcoded suggestions, and two of them refused on the deployment ("按车辆看每千
+站破损箱数" — no grouped declaration; "并线前后准时率变化" — same). A dashboard that suggests a question
+the ontology cannot answer teaches the user that the ontology is broken.
+
+**Fix:** the suggestions ARE the ontology's `samples` (`/api/ontology/{key}/wb/samples`), the same list
+the Query page shows and `check_samples.py` gates. One source; a question that appears in one place
+appears in the other.
+

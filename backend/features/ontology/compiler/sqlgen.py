@@ -806,7 +806,14 @@ def _closure(g: Graph, cls: str, depth: int = 6) -> dict[str, dict]:
     edges = []
     for prop in g.subjects(RDF.type, OWL.ObjectProperty):
         dom = _local(next(iter(g.objects(prop, RDFS.domain)), None))
-        rng = _local(next(iter(g.objects(prop, RDFS.range)), None))
+        # `rdfs:range` is not required: the skill tells a builder to write
+        # ":physicalColumn <fk> ; :references :Target", and that IS the range. Requiring a second
+        # declaration made the closure ignore every such link — measured on new_coldchain_v6, whose
+        # 21 links all say exactly that, so ":"damagedBoxesPer1kStopsByVehicle groups by :vehiclePlate"
+        # refused with "not ... of any class reachable through declared relationships (['Stop'])" while
+        # the path Stop→Trip→Vehicle was declared the whole time.
+        rng = (_local(next(iter(g.objects(prop, RDFS.range)), None))
+               or _local(_one(g, prop, P("references"))))
         fk = _one(g, prop, P("physicalColumn"))
         if not (dom and rng and fk and _one(g, prop, P("references"))):
             continue
@@ -875,6 +882,15 @@ def _compile_grouped_metric(g: Graph, m: Metric) -> Compiled:
     groups: list[tuple[str, str, str]] = []      # (prop, owner class, column)
     for prop in m.group_by:
         owners = [cls for cls in paths if prop in class_columns(g, cls)]
+        # THE GRAIN'S OWN COLUMN WINS. Two tables can carry the same column name (routes.planned_stops
+        # and trips.planned_stops both exist), so once the closure is real a dimension that lives on
+        # the grain itself must not become "ambiguous" because a joined class happens to reuse the
+        # name. Measured on new_coldchain_v6: the fix that taught the closure to read `:references`
+        # as the target made :avgStopsPerTrip refuse "planned_stops ... a column of MORE THAN ONE
+        # joined class (['Trip', 'Route'])" — a correct-looking refusal for a column the metric names
+        # on its own grain.
+        if grain in owners:
+            owners = [grain]
         if not owners:
             raise Refusal(f":{name} groups by :{prop}, which is not a column of :{grain} "
                           f"or of any class reachable through declared relationships "
@@ -1110,6 +1126,8 @@ def _compile_cross_metric(g: Graph, m: Metric) -> Compiled:
     formula_owners: dict[str, str] = {}
     for ident in _idents(m.formula):
         owners = _owners(g, paths, ident)
+        if grain in owners:                     # the grain's own column wins (see _compile_grouped_metric)
+            owners = [grain]
         if not owners:
             raise Refusal(f":{name} formula mentions {ident!r}, which is not a column of "
                           f":{grain} or of any class reachable through declared relationships "
