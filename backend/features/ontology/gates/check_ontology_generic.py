@@ -197,6 +197,28 @@ def structure_gates(profile, g, cur) -> None:
         print(f"         REFUSED {n}: {why.splitlines()[0]}")
     check_true("C2b every refusal names a reason", all(w and len(w) > 10 for _, w in refusals), str(refusals))
 
+    # ── C5: the MENU and the SOURCE — two rules that were prose-only, and got skipped
+    # Measured on a v6 build: 43 metrics, 0 of them carrying :askedAs, and 11 with no source sentence,
+    # while every gate stayed green. A metric nobody can ask for does not exist for a user, and a number
+    # with no source is a guess that compiled. Both are now checks, not advice.
+    no_ask = [n for n in metrics_now if not g.value(P(n), P("askedAs"))]
+    check_true("C5a every metric declares an :askedAs (the menu is a declaration)",
+               not no_ask, f"{len(no_ask)} without one: {sorted(no_ask)[:6]}")
+
+    SOURCE_MARKERS = ("answers:", "docx", "doc#", "refused:", "measured:", "table:")
+    no_src = []
+    for n in metrics_now:
+        # ALL descriptions on the predicate, not `g.value`: a metric that shares its name with a
+        # column carries two of them (the column's, from 01-structure, and the metric's, from the
+        # overlay) and `g.value` returns whichever it likes — measured as a false FAIL on
+        # :tripRevenue, whose overlay description does say 口径来自 answers:Q1.
+        descs = [str(v) for v in g.objects(P(n), P("businessDescription"))]
+        if not any(any(m in d for m in SOURCE_MARKERS) for d in descs):
+            no_src.append(n)
+    check_true("C5b every metric's :businessDescription names its source (a metric with no source is "
+               "not a declaration — it goes on the refusal list)",
+               not no_src, f"{len(no_src)} without a source: {sorted(no_src)[:6]}")
+
     # mutations must go red
     name = next((n for n, m in metrics_now.items() if m.grain), None)
     if name is None:
@@ -216,6 +238,16 @@ def structure_gates(profile, g, cur) -> None:
         g3.add((P(fname), P("formula"), Literal("no_such_column_xyz")))
         check_true(f"C4b a misspelled formula column on :{fname} refuses",
                    bool(refused(sqlgen.compile_metric, g3, fname)))
+
+    # C5c: a gate that cannot fail is decoration — remove one :askedAs and C5a must go red
+    asked = next((n for n in metrics_now if g.value(P(n), P("askedAs"))), None)
+    if asked is None:
+        not_run("C5c mutation", "no metric declares an :askedAs to remove (C5a is already red)")
+    else:
+        g4 = sqlgen.load()
+        g4.remove((P(asked), P("askedAs"), None))
+        still = [n for n in sqlgen.metrics(g4) if not g4.value(P(n), P("askedAs"))]
+        check_true(f"C5c removing :askedAs from :{asked} turns C5a red", bool(still), True)
 
 
 # ═══════════════════════════════════════════════════════════ R

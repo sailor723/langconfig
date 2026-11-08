@@ -24,96 +24,96 @@
 # ---------------------------------------------------------------------
 # 一、计数：预约（颗粒 Appointment，总体 = 全部已排程预约）
 # ---------------------------------------------------------------------
-:appointments a owl:DatatypeProperty ;
+:appointments a owl:DatatypeProperty ; rdfs:label "appointments" ; :askedAs "appointments" ;
     :aggregate "count" ; :grain :Appointment ; :universe :Appointment ;
-    :additivity "additive" .
-:completedAppointments a owl:DatatypeProperty ;
+    :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:completedAppointments a owl:DatatypeProperty ; rdfs:label "completedAppointments" ; :askedAs "completedAppointments" ;
     :aggregate "count" ; :grain :Appointment ; :universe :Appointment ;
-    :where :CompletedAppointment ; :additivity "additive" .
-:noShowAppointments a owl:DatatypeProperty ;
+    :where :CompletedAppointment ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:noShowAppointments a owl:DatatypeProperty ; rdfs:label "noShowAppointments" ; :askedAs "noShowAppointments" ;
     :aggregate "count" ; :grain :Appointment ; :universe :Appointment ;
-    :where :NoShowAppointment ; :additivity "additive" .
-:cancelledAppointments a owl:DatatypeProperty ;
+    :where :NoShowAppointment ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:cancelledAppointments a owl:DatatypeProperty ; rdfs:label "cancelledAppointments" ; :askedAs "cancelledAppointments" ;
     :aggregate "count" ; :grain :Appointment ; :universe :Appointment ;
-    :where :CancelledAppointment ; :additivity "additive" .
+    :where :CancelledAppointment ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
 
 # ---------------------------------------------------------------------
 # 二、计数：收费行（颗粒 TreatmentLine，总体 = 全部收费行）
-# ---------------------------------------------------------------------
-:treatmentLines a owl:DatatypeProperty ;
+# --------------------------------------------------------------------- ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:treatmentLines a owl:DatatypeProperty ; rdfs:label "treatmentLines" ; :askedAs "treatmentLines" ;
     :aggregate "count" ; :grain :TreatmentLine ; :universe :TreatmentLine ;
-    :additivity "additive" .
-:discountedLines a owl:DatatypeProperty ;
+    :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:discountedLines a owl:DatatypeProperty ; rdfs:label "discountedLines" ; :askedAs "discountedLines" ;
     :aggregate "count" ; :grain :TreatmentLine ; :universe :TreatmentLine ;
-    :where :DiscountedLine ; :additivity "additive" .
-:deepDiscountLines a owl:DatatypeProperty ;
+    :where :DiscountedLine ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:deepDiscountLines a owl:DatatypeProperty ; rdfs:label "deepDiscountLines" ; :askedAs "deepDiscountLines" ;
     :aggregate "count" ; :grain :TreatmentLine ; :universe :TreatmentLine ;
-    :where :DeepDiscountLine ; :additivity "additive" .
+    :where :DeepDiscountLine ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
 
 # ---------------------------------------------------------------------
 # 三、计数：理赔（颗粒 Claim，总体 = 全部已提交理赔）
 #     :pendingClaims 的 :where 用的是 :physicalPredicate 定义的类 —— 覆盖层不关心
 #     它怎么判定的，只关心它是 02 里声明过的类。
-# ---------------------------------------------------------------------
-:claims a owl:DatatypeProperty ;
+# --------------------------------------------------------------------- ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:claims a owl:DatatypeProperty ; rdfs:label "claims" ; :askedAs "claims" ;
     :aggregate "count" ; :grain :Claim ; :universe :Claim ;
-    :additivity "additive" .
-:pendingClaims a owl:DatatypeProperty ;
+    :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:pendingClaims a owl:DatatypeProperty ; rdfs:label "pendingClaims" ; :askedAs "pendingClaims" ;
     :aggregate "count" ; :grain :Claim ; :universe :Claim ;
-    :where :PendingClaim ; :additivity "additive" .
-:decidedClaims a owl:DatatypeProperty ;
+    :where :PendingClaim ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:decidedClaims a owl:DatatypeProperty ; rdfs:label "decidedClaims" ; :askedAs "decidedClaims" ;
     :aggregate "count" ; :grain :Claim ; :universe :Claim ;
-    :where :DecidedClaim ; :additivity "additive" .
-:rejectedClaims a owl:DatatypeProperty ;
+    :where :DecidedClaim ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:rejectedClaims a owl:DatatypeProperty ; rdfs:label "rejectedClaims" ; :askedAs "rejectedClaims" ;
     :aggregate "count" ; :grain :Claim ; :universe :Claim ;
-    :where :RejectedClaim ; :additivity "additive" .
+    :where :RejectedClaim ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
 
 # ---------------------------------------------------------------------
 # 四、计数：发票（颗粒 Invoice）—— 唯一带 PENDING 阈值的指标
-# ---------------------------------------------------------------------
-:highValueInvoices a owl:DatatypeProperty ;
+# --------------------------------------------------------------------- ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:highValueInvoices a owl:DatatypeProperty ; rdfs:label "highValueInvoices" ; :askedAs "highValueInvoices" ;
     :aggregate "count" ; :grain :Invoice ; :universe :Invoice ;
-    :where :HighValueInvoice ; :additivity "additive" .
+    :where :HighValueInvoice ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
 
 # ---------------------------------------------------------------------
 # 五、金额：三条互相独立的求和路径
 #     :invoiceRevenue 走发票表，:lineRevenue 走收费行（两跳不同表），
 #     两者必须相等（1,353,412.00）—— 这是本本体的跨表对账锚点。
 #     :discountGiven 走第三条路（让价），满足 原价 = 净额 + 让价。
-# ---------------------------------------------------------------------
-:invoiceRevenue a owl:DatatypeProperty ;
+# --------------------------------------------------------------------- ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:invoiceRevenue a owl:DatatypeProperty ; rdfs:label "invoiceRevenue" ; :askedAs "invoiceRevenue" ;
     :aggregate "sum" ; :grain :Invoice ; :universe :Invoice ;
-    :formula "total" ; :additivity "additive" .
-:collectedRevenue a owl:DatatypeProperty ;
+    :formula "total" ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:collectedRevenue a owl:DatatypeProperty ; rdfs:label "collectedRevenue" ; :askedAs "collectedRevenue" ;
     :aggregate "sum" ; :grain :Payment ; :universe :Payment ;
-    :formula "amount" ; :additivity "additive" .
-:lineRevenue a owl:DatatypeProperty ;
+    :formula "amount" ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:lineRevenue a owl:DatatypeProperty ; rdfs:label "lineRevenue" ; :askedAs "lineRevenue" ;
     :aggregate "sum" ; :grain :TreatmentLine ; :universe :TreatmentLine ;
-    :formula "qty * unit_price * (1 - discount)" ; :additivity "additive" .
-:discountGiven a owl:DatatypeProperty ;
+    :formula "qty * unit_price * (1 - discount)" ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:discountGiven a owl:DatatypeProperty ; rdfs:label "discountGiven" ; :askedAs "discountGiven" ;
     :aggregate "sum" ; :grain :TreatmentLine ; :universe :TreatmentLine ;
-    :formula "qty * unit_price * discount" ; :additivity "additive" .
+    :formula "qty * unit_price * discount" ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
 
 # ---------------------------------------------------------------------
 # 六、比率：一律 ratio_of_sums（先各自求和再相除），永不逐行算比再平均
 #     :collectionRate 与 :revenuePerCompletedVisit 是跨颗粒比率：
 #     :grain 取分子的颗粒（声明"这次扫描的主表是谁"），分母用独立的第二次扫描。
 #     逐行 join 后再算比会重复计分母（一张发票多笔回款），必须在编译期避免。
-# ---------------------------------------------------------------------
-:noShowRate a owl:DatatypeProperty ;
-    :aggregate "ratio_of_sums" ; :grain :Appointment ; :universe :Appointment .
-:cancellationRate a owl:DatatypeProperty ;
-    :aggregate "ratio_of_sums" ; :grain :Appointment ; :universe :Appointment .
-:collectionRate a owl:DatatypeProperty ;
-    :aggregate "ratio_of_sums" ; :grain :Invoice ; :universe :Invoice .
-:revenuePerCompletedVisit a owl:DatatypeProperty ;
-    :aggregate "ratio_of_sums" ; :grain :Invoice ; :universe :Invoice .
-:rejectionRate a owl:DatatypeProperty ;
-    :aggregate "ratio_of_sums" ; :grain :Claim ; :universe :Claim .
-:pendingClaimRate a owl:DatatypeProperty ;
-    :aggregate "ratio_of_sums" ; :grain :Claim ; :universe :Claim .
-:deepDiscountLineShare a owl:DatatypeProperty ;
-    :aggregate "ratio_of_sums" ; :grain :TreatmentLine ; :universe :TreatmentLine .
+# --------------------------------------------------------------------- ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:noShowRate a owl:DatatypeProperty ; rdfs:label "noShowRate" ; :askedAs "noShowRate" ;
+    :aggregate "ratio_of_sums" ; :grain :Appointment ; :universe :Appointment  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:cancellationRate a owl:DatatypeProperty ; rdfs:label "cancellationRate" ; :askedAs "cancellationRate" ;
+    :aggregate "ratio_of_sums" ; :grain :Appointment ; :universe :Appointment  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:collectionRate a owl:DatatypeProperty ; rdfs:label "collectionRate" ; :askedAs "collectionRate" ;
+    :aggregate "ratio_of_sums" ; :grain :Invoice ; :universe :Invoice  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:revenuePerCompletedVisit a owl:DatatypeProperty ; rdfs:label "revenuePerCompletedVisit" ; :askedAs "revenuePerCompletedVisit" ;
+    :aggregate "ratio_of_sums" ; :grain :Invoice ; :universe :Invoice  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:rejectionRate a owl:DatatypeProperty ; rdfs:label "rejectionRate" ; :askedAs "rejectionRate" ;
+    :aggregate "ratio_of_sums" ; :grain :Claim ; :universe :Claim  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:pendingClaimRate a owl:DatatypeProperty ; rdfs:label "pendingClaimRate" ; :askedAs "pendingClaimRate" ;
+    :aggregate "ratio_of_sums" ; :grain :Claim ; :universe :Claim  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:deepDiscountLineShare a owl:DatatypeProperty ; rdfs:label "deepDiscountLineShare" ; :askedAs "deepDiscountLineShare" ;
+    :aggregate "ratio_of_sums" ; :grain :TreatmentLine ; :universe :TreatmentLine  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
 
 # ---------------------------------------------------------------------
 # 七、平均：理赔裁决时长
@@ -121,29 +121,29 @@
 #     :where :DecidedClaim 让 642 笔待决的 NULL 被排除在平均之外 ——
 #     少了这个 :where，NULL 会被 AVG 静默跳过（结果侥幸相同），
 #     但行数会从 1,292 变成 1,934，任何"人均"类指标都会错。宁可显式声明。
-# ---------------------------------------------------------------------
-:claimDecisionDays a owl:DatatypeProperty ;
+# --------------------------------------------------------------------- ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:claimDecisionDays a owl:DatatypeProperty ; rdfs:label "claimDecisionDays" ; :askedAs "claimDecisionDays" ;
     :aggregate "avg" ; :grain :Claim ; :universe :Claim ;
     :where :DecidedClaim ; :additivity "non-additive" ;
-    :formula "EXTRACT(EPOCH FROM (decided_at - filed_at)) / 86400.0" .
+    :formula "EXTRACT(EPOCH FROM (decided_at - filed_at)) / 86400.0"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
 
 # ---------------------------------------------------------------------
 # 八、分维度：键在别的对象上，路径由 01 的 :references 决定，不在这里写 JOIN
 #     按城市要三跳（收费行 → 预约 → 患者），按项目一跳，按专科两跳（预约 → 医生）。
 #     任何一跳的 :references 被删掉，这些指标必须被拒绝而不是猜路径。
-# ---------------------------------------------------------------------
-:revenueByPatientCity a owl:DatatypeProperty ;
+# --------------------------------------------------------------------- ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:revenueByPatientCity a owl:DatatypeProperty ; rdfs:label "revenueByPatientCity" ; :askedAs "revenueByPatientCity" ;
     :aggregate "sum" ; :grain :TreatmentLine ; :universe :TreatmentLine ;
-    :formula "qty * unit_price * (1 - discount)" ; :groupBy :city ; :additivity "additive" .
-:revenueByTreatment a owl:DatatypeProperty ;
+    :formula "qty * unit_price * (1 - discount)" ; :groupBy :city ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:revenueByTreatment a owl:DatatypeProperty ; rdfs:label "revenueByTreatment" ; :askedAs "revenueByTreatment" ;
     :aggregate "sum" ; :grain :TreatmentLine ; :universe :TreatmentLine ;
-    :formula "qty * unit_price * (1 - discount)" ; :groupBy :treatmentName ; :additivity "additive" .
-:appointmentsByStatus a owl:DatatypeProperty ;
+    :formula "qty * unit_price * (1 - discount)" ; :groupBy :treatmentName ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:appointmentsByStatus a owl:DatatypeProperty ; rdfs:label "appointmentsByStatus" ; :askedAs "appointmentsByStatus" ;
     :aggregate "count" ; :grain :Appointment ; :universe :Appointment ;
-    :groupBy :appointmentStatus ; :additivity "additive" .
-:appointmentsByDoctorSpecialty a owl:DatatypeProperty ;
+    :groupBy :appointmentStatus ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
+:appointmentsByDoctorSpecialty a owl:DatatypeProperty ; rdfs:label "appointmentsByDoctorSpecialty" ; :askedAs "appointmentsByDoctorSpecialty" ;
     :aggregate "count" ; :grain :Appointment ; :universe :Appointment ;
-    :groupBy :specialty ; :additivity "additive" .
+    :groupBy :specialty ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
 
 
 # =====================================================================
@@ -191,4 +191,4 @@
 
 # 8. :startedAt 相关的一切时间分桶 —— 字段不可用
 #    appointments.started_at 对 2,182 行恒为 NULL（40.3%）。任何以它为时间轴的
-#    指标都会静默丢掉这部分预约。时间轴一律用 :scheduledAt。
+#    指标都会静默丢掉这部分预约。时间轴一律用 :scheduledAt。 ; :businessDescription "refused: 平台历史声明，业务出处待补" .

@@ -2,121 +2,121 @@
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 
-:tripCount a owl:DatatypeProperty ; rdfs:label "趟次" ; rdfs:domain :Trip ;
+:tripCount a owl:DatatypeProperty ; rdfs:label "趟次" ; :askedAs "趟次" ; rdfs:domain :Trip ;
     :aggregate "count" ; :grain :Trip ; :universe :Trip ; :unit "count" ;
     :businessDescription "Trip 粒度的一行一趟。口径来自 answers:Q6（外车占比的分母是全部趟次）。" .
 
-:tripRevenue a owl:DatatypeProperty ; rdfs:label "收入（运费）" ; rdfs:domain :Trip ;
+:tripRevenue a owl:DatatypeProperty ; rdfs:label "收入（运费）" ; :askedAs "收入（运费）" ; rdfs:domain :Trip ;
     :aggregate "sum" ; :formula "revenue" ; :grain :Trip ; :universe :Trip ; :unit "RMB" ;
     :businessDescription "运费收入合计，RMB。口径来自 answers:Q1。" .
 
-:tripCostTotal a owl:DatatypeProperty ; rdfs:label "已知成本合计" ; rdfs:domain :Trip ;
+:tripCostTotal a owl:DatatypeProperty ; rdfs:label "已知成本合计" ; :askedAs "已知成本合计" ; rdfs:domain :Trip ;
     :aggregate "sum" ; :formula "cost_total" ; :grain :Trip ; :universe :Trip ; :unit "RMB" ;
     :businessDescription "燃油+路桥+司机运费+装卸分摊+外车结算价；其它成本桶未知，所以这是下限。口径来自 answers:Q1。" .
 
-:grossMargin a owl:DatatypeProperty ; rdfs:label "毛利" ; rdfs:domain :Trip ;
+:grossMargin a owl:DatatypeProperty ; rdfs:label "毛利" ; :askedAs "毛利" ; rdfs:domain :Trip ;
     :aggregate "sum" ; :formula "revenue - cost_total" ; :grain :Trip ; :universe :Trip ; :unit "RMB" ;
     :businessDescription "收入 − 已知成本。因为其它成本桶为 NULL，毛利是上限而非终值。口径来自 answers:Q1。" .
 
-:grossMarginRate a owl:DatatypeProperty ; rdfs:label "毛利率" ; rdfs:domain :Trip ;
+:grossMarginRate a owl:DatatypeProperty ; rdfs:label "毛利率" ; :askedAs "毛利率" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
     :numerator :grossMargin ; :denominator :tripRevenue ; :unit "ratio" ;
     :businessDescription "分子分母都是 Trip 粒度上同口径的量。口径来自 answers:Q1。" .
 
-:overloadedTrips a owl:DatatypeProperty ; rdfs:label "超载趟次" ; rdfs:domain :Trip ;
+:overloadedTrips a owl:DatatypeProperty ; rdfs:label "超载趟次" ; :askedAs "超载趟次" ; rdfs:domain :Trip ;
     :aggregate "count" ; :grain :Trip ; :universe :Trip ; :where :OverloadedTrip ; :unit "count" ;
     :businessDescription "重量口径超载的趟次。口径来自 answers:Q5。" .
 
-:overloadRate a owl:DatatypeProperty ; rdfs:label "超载率" ; rdfs:domain :Trip ;
+:overloadRate a owl:DatatypeProperty ; rdfs:label "超载率" ; :askedAs "超载率" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
     :numerator :overloadedTrips ; :denominator :tripCount ; :unit "ratio" ;
     :businessDescription "重量口径。口径来自 answers:Q5。" .
 
-:overloadRateByRouteVersion a owl:DatatypeProperty ; rdfs:label "按线路版本看超载率" ; rdfs:domain :Trip ;
+:overloadRateByRouteVersion a owl:DatatypeProperty ; rdfs:label "按线路版本看超载率" ; :askedAs "按线路版本看超载率" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
     :numerator :overloadedTrips ; :denominator :tripCount ; :groupBy :tripRouteVersion ; :unit "ratio" ;
     :businessDescription "同一条超载率，按并线前后切开：v1 5.5% / v2 80.1%。并线把两条线路的站并到一条上，装载没跟上，这是最尖锐的那个变化。口径来自 answers:Q2。" .
 
-:externalTrips a owl:DatatypeProperty ; rdfs:label "外车趟次" ; rdfs:domain :Trip ;
+:externalTrips a owl:DatatypeProperty ; rdfs:label "外车趟次" ; :askedAs "外车趟次" ; rdfs:domain :Trip ;
     :aggregate "count" ; :grain :Trip ; :universe :Trip ; :where :ExternalTrip ; :unit "count" ;
     :businessDescription "司机不接单时外部车队补位的趟次。口径来自 answers:Q6。" .
 
-:externalShare a owl:DatatypeProperty ; rdfs:label "外车占比" ; rdfs:domain :Trip ;
+:externalShare a owl:DatatypeProperty ; rdfs:label "外车占比" ; :askedAs "外车占比" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
     :numerator :externalTrips ; :denominator :tripCount ; :unit "ratio" ;
     :businessDescription "分母是全部趟次。按高峰/平日分组见 :externalShareByPeak。口径来自 answers:Q6。" .
 
-:externalShareByPeak a owl:DatatypeProperty ; rdfs:label "按高峰/平日看外车占比" ; rdfs:domain :Trip ;
+:externalShareByPeak a owl:DatatypeProperty ; rdfs:label "按高峰/平日看外车占比" ; :askedAs "按高峰/平日看外车占比" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
     :numerator :externalTrips ; :denominator :tripCount ; :groupBy :tripIsPeakDay ; :unit "ratio" ;
     :businessDescription "同一条比率，按高峰日切开：平日 <10%、高峰 15–20% 是业务给的期望。口径来自 answers:Q6。" .
 
-:peakDayTrips a owl:DatatypeProperty ; rdfs:label "高峰日趟次" ; rdfs:domain :Trip ;
+:peakDayTrips a owl:DatatypeProperty ; rdfs:label "高峰日趟次" ; :askedAs "高峰日趟次" ; rdfs:domain :Trip ;
     :aggregate "count" ; :grain :Trip ; :universe :Trip ; :where :PeakDayTrip ; :unit "count" ;
     :businessDescription "周五/周六的趟次。分母用它才能说清外车依赖的时间结构。口径来自 answers:Q6。" .
 
-:avgTripDuration a owl:DatatypeProperty ; rdfs:label "平均耗时（分钟）" ; rdfs:domain :Trip ;
+:avgTripDuration a owl:DatatypeProperty ; rdfs:label "平均耗时（分钟）" ; :askedAs "平均耗时（分钟）" ; rdfs:domain :Trip ;
     :aggregate "avg" ; :formula "actual_duration_min" ; :grain :Trip ; :universe :Trip ; :unit "minutes" ;
-    :businessDescription "并线后应当变长——这是故事的痛点之一。口径来自 md 的『最好有：实际耗时』。" .
+    :businessDescription "并线后应当变长——这是故事的痛点之一。口径来自 md 的『最好有：实际耗时』。（refused: 平台历史声明，业务出处待补）" .
 
-:avgStopsPerTrip a owl:DatatypeProperty ; rdfs:label "每趟平均站数" ; rdfs:domain :Trip ;
+:avgStopsPerTrip a owl:DatatypeProperty ; rdfs:label "每趟平均站数" ; :askedAs "每趟平均站数" ; rdfs:domain :Trip ;
     :aggregate "avg" ; :formula "planned_stops" ; :grain :Trip ; :universe :Trip ; :unit "count" ;
     :businessDescription "并线把站数从约 10.5 推到约 15.5。口径来自 docx 的并线痛点。" .
 
 # ---- Stop 粒度
-:stopCount a owl:DatatypeProperty ; rdfs:label "站点数" ; rdfs:domain :Stop ;
+:stopCount a owl:DatatypeProperty ; rdfs:label "站点数" ; :askedAs "站点数" ; rdfs:domain :Stop ;
     :aggregate "count" ; :grain :Stop ; :universe :Stop ; :unit "count" ;
     :businessDescription "一次门店拜访一行。口径来自 answers:Q2。" .
-:onTimeStops a owl:DatatypeProperty ; rdfs:label "准时站点数" ; rdfs:domain :Stop ;
+:onTimeStops a owl:DatatypeProperty ; rdfs:label "准时站点数" ; :askedAs "准时站点数" ; rdfs:domain :Stop ;
     :aggregate "sum" ; :formula "CASE WHEN on_time THEN 1 ELSE 0 END" ; :grain :Stop ; :universe :Stop ; :unit "count" ;
     :businessDescription "站点级准时口径：按站点数，不是按趟。口径来自 answers:Q2。" .
-:onTimeRate a owl:DatatypeProperty ; rdfs:label "准点率（站点级）" ; rdfs:domain :Stop ;
+:onTimeRate a owl:DatatypeProperty ; rdfs:label "准点率（站点级）" ; :askedAs "准点率（站点级）" ; rdfs:domain :Stop ;
     :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ;
     :numerator :onTimeStops ; :denominator :stopCount ; :unit "ratio" ;
     :businessDescription "站点级：每个收货点是否在窗口内。口径来自 answers:Q2。" .
-:damagedBoxes a owl:DatatypeProperty ; rdfs:label "破损箱数" ; rdfs:domain :Stop ;
+:damagedBoxes a owl:DatatypeProperty ; rdfs:label "破损箱数" ; :askedAs "破损箱数" ; rdfs:domain :Stop ;
     :aggregate "sum" ; :formula "damaged_boxes" ; :grain :Stop ; :universe :Stop ; :unit "boxes" ;
     :businessDescription "货损箱数合计。口径来自 docx 的破损痛点。" .
-:damagedBoxesPer1kStops a owl:DatatypeProperty ; rdfs:label "每千站破损箱" ; rdfs:domain :Stop ;
+:damagedBoxesPer1kStops a owl:DatatypeProperty ; rdfs:label "每千站破损箱" ; :askedAs "每千站破损箱" ; rdfs:domain :Stop ;
     :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ;
     :numerator :damagedBoxesX1000 ; :denominator :stopCount ; :unit "boxes/1k stops" ;
     :businessDescription "把破损放到每千站上比，否则站点多的线路看着更差。口径来自 docx。" .
-:damagedBoxesX1000 a owl:DatatypeProperty ; rdfs:label "破损箱×1000" ; rdfs:domain :Stop ;
+:damagedBoxesX1000 a owl:DatatypeProperty ; rdfs:label "破损箱×1000" ; :askedAs "破损箱×1000" ; rdfs:domain :Stop ;
     :aggregate "sum" ; :formula "damaged_boxes * 1000" ; :grain :Stop ; :universe :Stop ; :unit "boxes" ;
     :businessDescription "比率的分子；乘以 1000 是为了把『每千站』做成一个可编译的比率。口径来自 docx。" .
-:newbieHandlerStops a owl:DatatypeProperty ; rdfs:label "新手搬运工操作的站点数" ; rdfs:domain :Stop ;
+:newbieHandlerStops a owl:DatatypeProperty ; rdfs:label "新手搬运工操作的站点数" ; :askedAs "新手搬运工操作的站点数" ; rdfs:domain :Stop ;
     :aggregate "count" ; :grain :Stop ; :universe :Stop ; :where :NewbieHandlerStop ; :unit "count" ;
     :businessDescription "破损集中在日结工上岗头几天。口径来自 docx。" .
 
 # ---- Complaint 粒度
-:complaintCount a owl:DatatypeProperty ; rdfs:label "客诉数" ; rdfs:domain :Complaint ;
+:complaintCount a owl:DatatypeProperty ; rdfs:label "客诉数" ; :askedAs "客诉数" ; rdfs:domain :Complaint ;
     :aggregate "count" ; :grain :Complaint ; :universe :Complaint ; :unit "count" ;
     :businessDescription "客诉记录数；类型约 25% 未记录，因此按类型拆解要带着这个缺口。口径来自 docx。" .
-:unjudgedComplaints a owl:DatatypeProperty ; rdfs:label "责任未判定客诉数" ; rdfs:domain :Complaint ;
+:unjudgedComplaints a owl:DatatypeProperty ; rdfs:label "责任未判定客诉数" ; :askedAs "责任未判定客诉数" ; rdfs:domain :Complaint ;
     :aggregate "count" ; :grain :Complaint ; :universe :Complaint ; :where :UnjudgedComplaint ; :unit "count" ;
     :businessDescription "NULL 是状态不是 0。口径来自 answers:Q4。" .
-:compensationCost a owl:DatatypeProperty ; rdfs:label "赔付成本（已判定）" ; rdfs:domain :Complaint ;
+:compensationCost a owl:DatatypeProperty ; rdfs:label "赔付成本（已判定）" ; :askedAs "赔付成本（已判定）" ; rdfs:domain :Complaint ;
     :aggregate "sum" ; :formula "amount" ; :grain :Complaint ; :universe :Complaint ; :where :JudgedComplaint ; :unit "RMB" ;
     :businessDescription "只算已判定责任的赔付；未判定的 46% 不在这个数里。口径来自 answers:Q4。" .
 
 # ---- Refusal 粒度
-:refusalCount a owl:DatatypeProperty ; rdfs:label "拒单次数" ; rdfs:domain :Refusal ;
+:refusalCount a owl:DatatypeProperty ; rdfs:label "拒单次数" ; :askedAs "拒单次数" ; rdfs:domain :Refusal ;
     :aggregate "count" ; :grain :Refusal ; :universe :Refusal ; :unit "count" ;
     :businessDescription "拒单记录数，不做归因。口径来自 answers:Q8。" .
-:unrecordedRefusals a owl:DatatypeProperty ; rdfs:label "原因未记录的拒单数" ; rdfs:domain :Refusal ;
+:unrecordedRefusals a owl:DatatypeProperty ; rdfs:label "原因未记录的拒单数" ; :askedAs "原因未记录的拒单数" ; rdfs:domain :Refusal ;
     :aggregate "count" ; :grain :Refusal ; :universe :Refusal ; :where :UnrecordedRefusalReason ; :unit "count" ;
     :businessDescription "约 29% 的拒单没填原因；归因不可靠，只报缺口。口径来自 answers:Q8。" .
 
 # ---- Trip：整趟全准点
-:fullOnTimeTrips a owl:DatatypeProperty ; rdfs:label "整趟全准点趟次" ; rdfs:domain :Trip ;
+:fullOnTimeTrips a owl:DatatypeProperty ; rdfs:label "整趟全准点趟次" ; :askedAs "整趟全准点趟次" ; rdfs:domain :Trip ;
     :aggregate "count" ; :grain :Trip ; :universe :Trip ; :where :FullOnTimeTrip ; :unit "count" ;
     :businessDescription "整趟没有任何迟到站点；与站点级准点率是两个问题。口径来自 answers:Q2。" .
-:fullOnTimeTripRate a owl:DatatypeProperty ; rdfs:label "整趟全准点率" ; rdfs:domain :Trip ;
+:fullOnTimeTripRate a owl:DatatypeProperty ; rdfs:label "整趟全准点率" ; :askedAs "整趟全准点率" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
     :numerator :fullOnTimeTrips ; :denominator :tripCount ; :unit "ratio" ;
     :businessDescription "第二口径：这趟跑干净了吗。口径来自 answers:Q2。" .
 
-:avgRevenuePerTrip a owl:DatatypeProperty ; rdfs:label "每趟平均运费" ; rdfs:domain :Trip ;
+:avgRevenuePerTrip a owl:DatatypeProperty ; rdfs:label "每趟平均运费" ; :askedAs "每趟平均运费" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
     :numerator :tripRevenue ; :denominator :tripCount ; :unit "RMB/trip" ;
     :businessDescription "运费总额除以趟次；分子分母都在 Trip 粒度上。口径来自 answers:Q1。" .

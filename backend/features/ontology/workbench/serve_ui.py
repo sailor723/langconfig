@@ -357,7 +357,11 @@ def regenerate(s: dict) -> tuple[bool, str]:
         return False, f"generator failed: {exc}"
 
 
-NL_PYTHON = "/Users/weiping/dev/Learn/ontology/.venv/bin/python"
+NL_PYTHON = PYTHON
+# The Query page (`/api/nl` → `nl_cli`) used to spawn a hardcoded `/Users/weiping/...` venv, so
+# asking a question worked only on the machine the code was written on: on ECS every ask came back
+# `nl.py failed: [Errno 2] No such file or directory: '/Users/weiping/dev/Learn/ontology/.venv/bin/python'`.
+# The rule is the same one PYTHON already follows: ONTOLOGY_PYTHON, else THIS process's interpreter.
 
 
 def _ollama_alive() -> bool:

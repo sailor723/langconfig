@@ -24,7 +24,7 @@
     :askedAs "一共跑了多少趟？" ;
     :domain :Trip ; :aggregate "count" ; :grain :Trip ; :universe :Trip ;
     :unit "count" ; :additivity "additive" ;
-    :businessDescription "4,050 趟 = 90 天 × 45 趟/天。这是所有「每趟」类指标的分母。" .
+    :businessDescription "4,050 趟 = 90 天 × 45 趟/天。这是所有「每趟」类指标的分母。（refused: 平台历史声明，业务出处待补）" .
 
 :totalRevenue a owl:DatatypeProperty ;
     rdfs:label "运费收入" ;
@@ -32,7 +32,7 @@
     :askedAs "这个月运费收入多少？" ;
     :domain :Trip ; :aggregate "sum" ; :formula "revenue" ; :grain :Trip ; :universe :Trip ;
     :unit "money" ; :additivity "additive" ;
-    :businessDescription "按行程加总 revenue。可加：一趟的运费不会因为按天/按线路分组而变。" .
+    :businessDescription "按行程加总 revenue。可加：一趟的运费不会因为按天/按线路分组而变。（refused: 平台历史声明，业务出处待补）" .
 
 :overloadedTrips a owl:DatatypeProperty ;
     rdfs:label "超载行程数" ;
@@ -40,14 +40,14 @@
     :askedAs "有多少趟超载了？" ;
     :domain :Trip ; :aggregate "count" ; :grain :Trip ; :universe :Trip ;
     :where :OverloadedTrip ; :unit "count" ; :additivity "additive" ;
-    :businessDescription "1,489 趟。过滤条件来自 02 的 :OverloadedTrip（一列比一列），不是这一层的阈值。" .
+    :businessDescription "1,489 趟。过滤条件来自 02 的 :OverloadedTrip（一列比一列），不是这一层的阈值。（refused: 平台历史声明，业务出处待补）" .
 
 :overloadRate a owl:DatatypeProperty ;
     rdfs:label "超载率" ;
     :askedAs "超载率是多少？" ;
     :grain :Trip ; :universe :Trip ; :aggregate "ratio_of_sums" ;
     :numerator :overloadedTrips ; :denominator :tripCount ; :unit "ratio" ;
-    :businessDescription "分母是行程数而不是行数：比率的两端都必须是同一颗粒度上的指标。1,489/4,050 = 36.8%。" .
+    :businessDescription "分母是行程数而不是行数：比率的两端都必须是同一颗粒度上的指标。1,489/4,050 = 36.8%。（refused: 平台历史声明，业务出处待补）" .
 
 :overloadsByRouteVersion a owl:DatatypeProperty ;
     rdfs:label "按线路版本看超载行程数" ;
@@ -55,7 +55,7 @@
     :askedAs "并线前后超载情况有变化吗？" ;
     :domain :Trip ; :aggregate "count" ; :grain :Trip ; :universe :Trip ;
     :where :OverloadedTrip ; :groupBy :routeVersion ; :unit "count" ; :additivity "additive" ;
-    :businessDescription "沿 行程→线路 的声明式关联取 routes.version（v1 = 并线前 50 条，v2 = 并线后 40 条），按版本数超载行程。" .
+    :businessDescription "沿 行程→线路 的声明式关联取 routes.version（v1 = 并线前 50 条，v2 = 并线后 40 条），按版本数超载行程。（refused: 平台历史声明，业务出处待补）" .
 
 # -----------------------------------------------------------------------------
 # 二、站点颗粒度（stops，51,210 行）—— 执行质量都活在这一层
@@ -66,49 +66,49 @@
     :askedAs "一共送了多少个站点？" ;
     :domain :Stop ; :aggregate "count" ; :grain :Stop ; :universe :Stop ;
     :unit "count" ; :additivity "additive" ;
-    :businessDescription "51,210 次卸货。注意：这不是门店数（800 家），同一家店被反复送。" .
+    :businessDescription "51,210 次卸货。注意：这不是门店数（800 家），同一家店被反复送。（refused: 平台历史声明，业务出处待补）" .
 
 :onTimeStops a owl:DatatypeProperty ;
     rdfs:label "准时站点数" ;
     :askedAs "准时了多少站？" ;
     :domain :Stop ; :aggregate "count" ; :grain :Stop ; :universe :Stop ; :concept :OnTimeStop ;
     :unit "count" ; :additivity "additive" ;
-    :businessDescription "47,920 站（93.6%）。过滤条件编译自 :OnTimeStop 的公理（on_time = true），这一层不写阈值。" .
+    :businessDescription "47,920 站（93.6%）。过滤条件编译自 :OnTimeStop 的公理（on_time = true），这一层不写阈值。（refused: 平台历史声明，业务出处待补）" .
 
 :stopOnTimeRate a owl:DatatypeProperty ;
     rdfs:label "站点准时率" ;
     :askedAs "准时率是多少？" ;
     :grain :Stop ; :universe :Stop ; :aggregate "ratio_of_sums" ;
     :numerator :onTimeStops ; :denominator :stopCount ; :unit "ratio" ;
-    :businessDescription "按站点算（不是按趟）。分母是站点数：47,920/51,210 = 93.6%。口径写在这里，避免「按趟算」的另一半自己长出来——两边都叫准时率，数会差几个点。" .
+    :businessDescription "按站点算（不是按趟）。分母是站点数：47,920/51,210 = 93.6%。口径写在这里，避免「按趟算」的另一半自己长出来——两边都叫准时率，数会差几个点。（refused: 平台历史声明，业务出处待补）" .
 
 :tempExcursionStops a owl:DatatypeProperty ;
     rdfs:label "温控超标站点数" ;
     :askedAs "有多少站倒温了？" ;
     :domain :Stop ; :aggregate "count" ; :grain :Stop ; :universe :Stop ;
     :where :TempExcursionStop ; :unit "count" ; :additivity "additive" ;
-    :businessDescription "temp_excursion = true 的站点。温度阈值由甲方探头判定，落库即布尔值。" .
+    :businessDescription "temp_excursion = true 的站点。温度阈值由甲方探头判定，落库即布尔值。（refused: 平台历史声明，业务出处待补）" .
 
 :damagedBoxCount a owl:DatatypeProperty ;
     rdfs:label "破损箱数" ;
     :askedAs "破了多少箱？" ;
     :domain :Stop ; :aggregate "sum" ; :formula "damaged_boxes" ; :grain :Stop ; :universe :Stop ;
     :unit "count" ; :additivity "additive" ;
-    :businessDescription "把每站 damaged_boxes 加起来。可加：箱子不会因为分组而变多。" .
+    :businessDescription "把每站 damaged_boxes 加起来。可加：箱子不会因为分组而变多。（refused: 平台历史声明，业务出处待补）" .
 
 :damagePer1kStops a owl:DatatypeProperty ;
     rdfs:label "每千站破损箱数" ;
     :askedAs "每一千站破几箱？" ;
     :grain :Stop ; :universe :Stop ; :aggregate "ratio_of_sums" ;
     :numerator :damagedBoxCount ; :denominator :stopCount ; :scale "1000.0" ; :unit "count" ;
-    :businessDescription "分子分母都是站点颗粒度上的指标，乘以 1000 写成「每千站」。比例先算后放缩，不是先放缩后求和。" .
+    :businessDescription "分子分母都是站点颗粒度上的指标，乘以 1000 写成「每千站」。比例先算后放缩，不是先放缩后求和。（refused: 平台历史声明，业务出处待补）" .
 
 :totalPlannedKm a owl:DatatypeProperty ;
     rdfs:label "计划里程合计（按行程）" ;
     :askedAs "一共跑了多少公里？" ;
     :domain :Trip ; :aggregate "sum" ; :formula "planned_km" ; :grain :Trip ; :universe :Trip ;
     :unit "km" ; :additivity "additive" ;
-    :businessDescription "每趟按它所用线路的 planned_km 计一次，再对行程求和；不是对线路定义求和（那是线路有多长，不是车队跑了多远）。" .
+    :businessDescription "每趟按它所用线路的 planned_km 计一次，再对行程求和；不是对线路定义求和（那是线路有多长，不是车队跑了多远）。（refused: 平台历史声明，业务出处待补）" .
 
 :damagePer1kKm a owl:DatatypeProperty ;
     rdfs:label "每千公里破损箱数" ;
@@ -116,20 +116,19 @@
     :grain :Stop ; :universe :Trip ; :aggregate "ratio_of_sums" ;
     :numerator :damagedBoxCount ; :denominator :totalPlannedKm ; :scale "1000.0" ;
     :unit "count" ;
-    :businessDescription "跨颗粒度比率：分子在站点（一次卸货一行），分母在行程×线路（里程记在线路上，JOIN 由 :routeOf 推导）。两侧各自先聚合再相除；:universe 写分母的颗粒度 :Trip。用来盯线路或车辆在货损上是否要复查。" .
+    :businessDescription "跨颗粒度比率：分子在站点（一次卸货一行），分母在行程×线路（里程记在线路上，JOIN 由 :routeOf 推导）。两侧各自先聚合再相除；:universe 写分母的颗粒度 :Trip。用来盯线路或车辆在货损上是否要复查。（refused: 平台历史声明，业务出处待补）" .
 
 :basketsMissingCount a owl:DatatypeProperty ;
     rdfs:label "漏筐数" ;
     :askedAs "丢了多少个周转筐？" ;
     :domain :Stop ; :aggregate "sum" ; :formula "baskets_missing" ; :grain :Stop ; :universe :Stop ;
-    :unit "count" ; :additivity "additive" .
-
+    :unit "count" ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
 :damagedBoxesByStoreZone a owl:DatatypeProperty ;
     rdfs:label "按门店区域看破损箱数" ;
     :askedAs "哪个区域的门店破损最多？" ;
     :domain :Stop ; :aggregate "sum" ; :formula "damaged_boxes" ; :grain :Stop ; :universe :Stop ;
     :groupBy :storeZone ; :unit "count" ; :additivity "additive" ;
-    :businessDescription "沿 站点→门店 的声明式关联取 stores.zone（core 533 家 / suburb 267 家）。站点颗粒度加总，按门店属性分组——这是唯一一处颗粒度上卷。" .
+    :businessDescription "沿 站点→门店 的声明式关联取 stores.zone（core 533 家 / suburb 267 家）。站点颗粒度加总，按门店属性分组——这是唯一一处颗粒度上卷。（refused: 平台历史声明，业务出处待补）" .
 
 # -----------------------------------------------------------------------------
 # 三、投诉颗粒度（complaints，6,876 行）
@@ -141,7 +140,7 @@
     :askedAs "一共多少条投诉？" ;
     :domain :Complaint ; :aggregate "count" ; :grain :Complaint ; :universe :Complaint ;
     :unit "count" ; :additivity "additive" ;
-    :businessDescription "6,876 条。一条投诉挂在一次站点执行上（一个站点可能被投诉多次），所以这是投诉的颗粒度，不是站点的——51,210 站里只有少数被投诉。" .
+    :businessDescription "6,876 条。一条投诉挂在一次站点执行上（一个站点可能被投诉多次），所以这是投诉的颗粒度，不是站点的——51,210 站里只有少数被投诉。（refused: 平台历史声明，业务出处待补）" .
 
 :unjudgedComplaints a owl:DatatypeProperty ;
     rdfs:label "责任未判定投诉数" ;
@@ -149,21 +148,21 @@
     :askedAs "有多少条投诉还没定责？" ;
     :domain :Complaint ; :aggregate "count" ; :grain :Complaint ; :universe :Complaint ;
     :where :UnjudgedComplaint ; :unit "count" ; :additivity "additive" ;
-    :businessDescription "3,167 条（46.1%）。过滤条件编译自 :UnjudgedComplaint（liability IS NULL）。" .
+    :businessDescription "3,167 条（46.1%）。过滤条件编译自 :UnjudgedComplaint（liability IS NULL）。（refused: 平台历史声明，业务出处待补）" .
 
 :totalClaimAmount a owl:DatatypeProperty ;
     rdfs:label "赔付金额" ;
     :askedAs "赔付了多少钱？" ;
     :domain :Complaint ; :aggregate "sum" ; :formula "amount" ; :grain :Complaint ; :universe :Complaint ;
     :unit "money" ; :additivity "additive" ;
-    :businessDescription "按投诉单加总 claim_amount。注意：未定责的投诉也带着金额——它尚未赔付，但也不能假装没有。" .
+    :businessDescription "按投诉单加总 claim_amount。注意：未定责的投诉也带着金额——它尚未赔付，但也不能假装没有。（refused: 平台历史声明，业务出处待补）" .
 
 :complaintsPer1kStops a owl:DatatypeProperty ;
     rdfs:label "每千站投诉数" ;
     :askedAs "每一千站被投诉几次？" ;
     :grain :Complaint ; :universe :Stop ; :aggregate "ratio_of_sums" ;
     :numerator :complaintCount ; :denominator :stopCount ; :scale "1000.0" ; :unit "count" ;
-    :businessDescription "跨颗粒度比率：分子在投诉上（一条投诉一行），分母在站点上（一次卸货一行）。两侧各自先聚合再相除——不是把投诉 join 到站点再 count，那会把没有投诉的站点和多次投诉的站点都算错。:universe 写的是分母的颗粒度 :Stop。" .
+    :businessDescription "跨颗粒度比率：分子在投诉上（一条投诉一行），分母在站点上（一次卸货一行）。两侧各自先聚合再相除——不是把投诉 join 到站点再 count，那会把没有投诉的站点和多次投诉的站点都算错。:universe 写的是分母的颗粒度 :Stop。（refused: 平台历史声明，业务出处待补）" .
 
 :complaintsPer1kKm a owl:DatatypeProperty ;
     rdfs:label "每千公里投诉数（业务口语：冷链投诉强度）" ;
@@ -171,7 +170,7 @@
     :grain :Complaint ; :universe :Trip ; :aggregate "ratio_of_sums" ;
     :numerator :complaintCount ; :denominator :totalPlannedKm ; :scale "1000.0" ;
     :unit "count" ;
-    :businessDescription "跨颗粒度比率：分子是全部投诉（:Complaint 颗粒度，一条投诉一行；一条投诉挂在一次站点执行上，同一站点可被投诉多次，所以数投诉行而不数站点），分母是行程上的计划里程合计（每趟按所用线路的 planned_km 计一次，JOIN 由 :routeOf 推导，与 :totalPlannedKm/:damagePer1kKm 同一分母口径）。6,876 ÷ 226,161 × 1000 = 30.4 次/千公里。**分子没有筛温度**：complaints.kind 恒为 'late'（常量列），本库没有温控类投诉标记，所以此处的「冷链投诉」在数据上等于「全部投诉」；温度问题只能看 stops.temp_excursion，不可从此指标读出。无窗口：opened_at 6,876 条全等于 2026-11-05 09:00，任何按投诉时间的时间趋势都不可答。用来判断冷链问题是否集中在某些线路、要不要复查。" .
+    :businessDescription "跨颗粒度比率：分子是全部投诉（:Complaint 颗粒度，一条投诉一行；一条投诉挂在一次站点执行上，同一站点可被投诉多次，所以数投诉行而不数站点），分母是行程上的计划里程合计（每趟按所用线路的 planned_km 计一次，JOIN 由 :routeOf 推导，与 :totalPlannedKm/:damagePer1kKm 同一分母口径）。6,876 ÷ 226,161 × 1000 = 30.4 次/千公里。**分子没有筛温度**：complaints.kind 恒为 'late'（常量列），本库没有温控类投诉标记，所以此处的「冷链投诉」在数据上等于「全部投诉」；温度问题只能看 stops.temp_excursion，不可从此指标读出。无窗口：opened_at 6,876 条全等于 2026-11-05 09:00，任何按投诉时间的时间趋势都不可答。用来判断冷链问题是否集中在某些线路、要不要复查。（refused: 平台历史声明，业务出处待补）" .
 
 # -----------------------------------------------------------------------------
 # 四、车辆颗粒度（vehicles，60 台）
@@ -181,20 +180,18 @@
     rdfs:label "车辆数" ;
     :askedAs "有多少台车？" ;
     :domain :Vehicle ; :aggregate "count" ; :grain :Vehicle ; :universe :Vehicle ;
-    :unit "count" ; :additivity "additive" .
-
+    :unit "count" ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
 :permitVehicles a owl:DatatypeProperty ;
     rdfs:label "有核心区通行证车辆数" ;
     :askedAs "有多少台车能进核心区？" ;
     :domain :Vehicle ; :aggregate "count" ; :grain :Vehicle ; :universe :Vehicle ;
-    :where :VehicleWithPermit ; :unit "count" ; :additivity "additive" .
-
+    :where :VehicleWithPermit ; :unit "count" ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
 :permitCoverage a owl:DatatypeProperty ;
     rdfs:label "通行证覆盖率" ;
     :askedAs "核心区通行证覆盖率是多少？" ;
     :grain :Vehicle ; :universe :Vehicle ; :aggregate "ratio_of_sums" ;
     :numerator :permitVehicles ; :denominator :vehicleCount ; :unit "ratio" ;
-    :businessDescription "14/60 = 23.3%。分母是车辆总数（60 台）；实测 status 全为 active，所以此刻「含不含停用车」不影响数，但口径仍写明是整车队。" .
+    :businessDescription "14/60 = 23.3%。分母是车辆总数（60 台）；实测 status 全为 active，所以此刻「含不含停用车」不影响数，但口径仍写明是整车队。（refused: 平台历史声明，业务出处待补）" .
 
 # =============================================================================
 # REFUSED —— 声明了、但编译时必须按名字拒绝的指标。它们必须在图里，不能只在我脑子里：
@@ -206,21 +203,21 @@
     :askedAs "有多少个高风险司机？" ;
     :domain :DriverStat ; :aggregate "count" ; :grain :DriverStat ; :universe :DriverStat ;
     :where :AtRiskDriver ; :unit "count" ;
-    :businessDescription "拒绝：:AtRiskDriver 没有公理——三条判定线是客户的政策，库里没有。见 02 的 :refusalReason。" .
+    :businessDescription "拒绝：:AtRiskDriver 没有公理——三条判定线是客户的政策，库里没有。见 02 的 :refusalReason。（refused: 平台历史声明，业务出处待补）" .
 
 :plannedStopsVisited a owl:DatatypeProperty ;
     rdfs:label "计划门店已访站数" ;
     :askedAs "有多少站是照计划去的？" ;
     :domain :RouteStop ; :aggregate "count" ; :grain :RouteStop ; :universe :RouteStop ;
     :where :PlannedStopVisited ; :unit "count" ;
-    :businessDescription "拒绝：:PlannedStopVisited 没有公理——计划（route_stops）和实际（stops）对不上，75/51,210 站同店。见 02 的 :refusalReason。计划达成率的两侧同理，故不声明。" .
+    :businessDescription "拒绝：:PlannedStopVisited 没有公理——计划（route_stops）和实际（stops）对不上，75/51,210 站同店。见 02 的 :refusalReason。计划达成率的两侧同理，故不声明。（refused: 平台历史声明，业务出处待补）" .
 
 :driverRecentOnTimeRate a owl:DatatypeProperty ;
     rdfs:label "司机近30天准时率" ;
     :askedAs "司机最近30天的准时率怎么样？" ;
     :domain :DriverStat ; :aggregate "avg" ; :formula "on_time_rate" ;
     :grain :DriverWindow ; :universe :DriverWindow ; :unit "ratio" ;
-    :businessDescription "拒绝：颗粒度 :DriverWindow 这个对象根本不存在（driver_stats 每行一个司机，window_days 恒为 30——「近30天」是这一行的标签，不是一个可选的窗口，问我「近 7 天」就没有数据）。:grain 指向未声明的对象，编译器按名字拒绝。" .
+    :businessDescription "拒绝：颗粒度 :DriverWindow 这个对象根本不存在（driver_stats 每行一个司机，window_days 恒为 30——「近30天」是这一行的标签，不是一个可选的窗口，问我「近 7 天」就没有数据）。:grain 指向未声明的对象，编译器按名字拒绝。（refused: 平台历史声明，业务出处待补）" .
 
 
 :driverCount a owl:DatatypeProperty ;
@@ -228,7 +225,7 @@
     :askedAs "有多少司机？" ;
     :domain :Driver ; :aggregate "count" ; :grain :Driver ; :universe :Driver ;
     :unit "count" ; :additivity "additive" ;
-    :businessDescription "60 名司机（drivers 表 60 行）。数据里每名司机各绑一台车（60/60 对得上），所以这个数与车辆数相同；它是数量，不是「高风险司机」那种需要阈值的指标。" .
+    :businessDescription "60 名司机（drivers 表 60 行）。数据里每名司机各绑一台车（60/60 对得上），所以这个数与车辆数相同；它是数量，不是「高风险司机」那种需要阈值的指标。（refused: 平台历史声明，业务出处待补）" .
 
 # -----------------------------------------------------------------------------
 # 六、看板用的维度（"按什么看"）—— 两条新能力，都是通用规则，不是这一份看板的私货
@@ -247,7 +244,7 @@
     :askedAs "并线前后各跑了多少趟？" ;
     :domain :Trip ; :aggregate "count" ; :grain :Trip ; :universe :Trip ;
     :groupBy :routeVersion ; :unit "count" ; :additivity "additive" ;
-    :businessDescription "v1 = 并线前（50 条线，2026-08-08 起），v2 = 并线后（40 条线，2026-09-22 起）。" .
+    :businessDescription "v1 = 并线前（50 条线，2026-08-08 起），v2 = 并线后（40 条线，2026-09-22 起）。（refused: 平台历史声明，业务出处待补）" .
 # 没有 :supportsSlot :TimeWindow —— 分组查询的窗口路径未验证；带窗口来问会按名字拒绝，而不是丢掉过滤条件。
 
 :overloadRateByRouteVersion a owl:DatatypeProperty ;
@@ -256,7 +253,7 @@
     :grain :Trip ; :universe :Trip ; :aggregate "ratio_of_sums" ;
     :numerator :overloadedTrips ; :denominator :tripCount ;
     :groupBy :routeVersion ; :unit "ratio" ;
-    :businessDescription "分子分母都在 :Trip 颗粒度上，所以可以按版本分组：每个版本自己的超载趟数 / 自己的总趟数。" .
+    :businessDescription "分子分母都在 :Trip 颗粒度上，所以可以按版本分组：每个版本自己的超载趟数 / 自己的总趟数。（refused: 平台历史声明，业务出处待补）" .
 
 :stopOnTimeRateByRouteVersion a owl:DatatypeProperty ;
     rdfs:label "按线路版本看准时率" ;
@@ -264,7 +261,7 @@
     :grain :Stop ; :universe :Stop ; :aggregate "ratio_of_sums" ;
     :numerator :onTimeStops ; :denominator :stopCount ;
     :groupBy :routeVersion ; :unit "ratio" ;
-    :businessDescription "站点颗粒度的比率，按 站点→行程→线路 取版本；每组的分子分母都是该组自己的站点。" .
+    :businessDescription "站点颗粒度的比率，按 站点→行程→线路 取版本；每组的分子分母都是该组自己的站点。（refused: 平台历史声明，业务出处待补）" .
 
 :damagePer1kStopsByRouteVersion a owl:DatatypeProperty ;
     rdfs:label "按线路版本看每千站破损箱数" ;
@@ -272,14 +269,14 @@
     :grain :Stop ; :universe :Stop ; :aggregate "ratio_of_sums" ;
     :numerator :damagedBoxCount ; :denominator :stopCount ; :scale "1000.0" ;
     :groupBy :routeVersion ; :unit "count" ;
-    :businessDescription "先组内相除再乘 1000，不是「每组的比率再求平均」。" .
+    :businessDescription "先组内相除再乘 1000，不是「每组的比率再求平均」。（refused: 平台历史声明，业务出处待补）" .
 
 :stopCountByVehicle a owl:DatatypeProperty ;
     rdfs:label "按车辆看站点数" ;
     :askedAs "每台车跑了多少站？" ;
     :domain :Stop ; :aggregate "count" ; :grain :Stop ; :universe :Stop ;
     :groupBy :plate ; :unit "count" ; :additivity "additive" ;
-    :businessDescription "画点阵时的分母也做成一个指标，而不是让看板自己数行数。" .
+    :businessDescription "画点阵时的分母也做成一个指标，而不是让看板自己数行数。（refused: 平台历史声明，业务出处待补）" .
 # 没有 :supportsSlot :TimeWindow —— Stop 没有 :timeColumn，窗口推不进去；带窗口来问会按名字拒绝，而不是丢掉过滤条件。
 
 :damagePer1kStopsByVehicle a owl:DatatypeProperty ;
@@ -288,7 +285,7 @@
     :grain :Stop ; :universe :Stop ; :aggregate "ratio_of_sums" ;
     :numerator :damagedBoxCount ; :denominator :stopCount ; :scale "1000.0" ;
     :groupBy :plate ; :unit "count" ;
-    :businessDescription "车队整体一个数、每台车一个数，两个数都由编译器算；拒答过「哪台车破损最多」——问法若指的是箱子数则该问 :damagedBoxCount。" .
+    :businessDescription "车队整体一个数、每台车一个数，两个数都由编译器算；拒答过「哪台车破损最多」——问法若指的是箱子数则该问 :damagedBoxCount。（refused: 平台历史声明，业务出处待补）" .
 
 :stopOnTimeRateByVehicle a owl:DatatypeProperty ;
     rdfs:label "按车辆看准时率" ;
@@ -296,7 +293,7 @@
     :grain :Stop ; :universe :Stop ; :aggregate "ratio_of_sums" ;
     :numerator :onTimeStops ; :denominator :stopCount ;
     :groupBy :plate ; :unit "ratio" ;
-    :businessDescription "与 :permitCoverage 一起看：没路权的车是否准点更差，是一个可检验的问题，不是一句结论。" .
+    :businessDescription "与 :permitCoverage 一起看：没路权的车是否准点更差，是一个可检验的问题，不是一句结论。（refused: 平台历史声明，业务出处待补）" .
 
 :overloadRateByVehicle a owl:DatatypeProperty ;
     rdfs:label "按车辆看超载率" ;
@@ -304,14 +301,14 @@
     :grain :Trip ; :universe :Trip ; :aggregate "ratio_of_sums" ;
     :numerator :overloadedTrips ; :denominator :tripCount ;
     :groupBy :plate ; :unit "ratio" ;
-    :businessDescription "载重/容积/箱数三个上限里任一触顶即超载，口径来自 02 的 :OverloadedTrip。" .
+    :businessDescription "载重/容积/箱数三个上限里任一触顶即超载，口径来自 02 的 :OverloadedTrip。（refused: 平台历史声明，业务出处待补）" .
 
 :tripCountByWeek a owl:DatatypeProperty ;
     rdfs:label "按周看行程数" ;
     :askedAs "每周跑多少趟？" ;
     :domain :Trip ; :aggregate "count" ; :grain :Trip ; :universe :Trip ;
     :timeBucket "week" ; :unit "count" ; :additivity "additive" ;
-    :businessDescription "周 = date_trunc('week', trips.trip_date)，:timeColumn 声明在 :Trip 上。" .
+    :businessDescription "周 = date_trunc('week', trips.trip_date)，:timeColumn 声明在 :Trip 上。（refused: 平台历史声明，业务出处待补）" .
 # 没有 :supportsSlot :TimeWindow —— 时间轴已经是周，再叠窗口等于两个轴；带窗口来问会按名字拒绝，而不是丢掉过滤条件。
 
 :overloadRateByWeek a owl:DatatypeProperty ;
@@ -320,14 +317,14 @@
     :grain :Trip ; :universe :Trip ; :aggregate "ratio_of_sums" ;
     :numerator :overloadedTrips ; :denominator :tripCount ;
     :timeBucket "week" ; :unit "ratio" ;
-    :businessDescription "时间轴与分组比率叠在一起：每周自己的超载趟数 / 自己的总趟数。" .
+    :businessDescription "时间轴与分组比率叠在一起：每周自己的超载趟数 / 自己的总趟数。（refused: 平台历史声明，业务出处待补）" .
 
 :complaintCountByWeek a owl:DatatypeProperty ;
     rdfs:label "按周看投诉数" ;
     :askedAs "投诉每周多少？" ;
     :domain :Complaint ; :aggregate "count" ; :grain :Complaint ; :universe :Complaint ;
     :timeBucket "week" ; :unit "count" ; :additivity "additive" ;
-    :businessDescription "能编译不等于能读：6,876 条 opened_at 全在 2026-11-05 09:00，所以只会出一根柱子。这张图本身就是「时间戳被批量回填」的证据。" .
+    :businessDescription "能编译不等于能读：6,876 条 opened_at 全在 2026-11-05 09:00，所以只会出一根柱子。这张图本身就是「时间戳被批量回填」的证据。（refused: 平台历史声明，业务出处待补）" .
 # 没有 :supportsSlot :TimeWindow —— 时间轴已经是周，再叠窗口等于两个轴；带窗口来问会按名字拒绝，而不是丢掉过滤条件。
 
 :stopOnTimeRateByZoneVersion a owl:DatatypeProperty ;
@@ -336,7 +333,7 @@
     :grain :Stop ; :universe :Stop ; :aggregate "ratio_of_sums" ;
     :numerator :onTimeStops ; :denominator :stopCount ;
     :groupBy :storeZone ; :groupBy :routeVersion ; :unit "ratio" ;
-    :businessDescription "两个分组键：门店区域（站点→门店）与线路版本（站点→行程→线路），两个 join 都由声明式关联推导。" .
+    :businessDescription "两个分组键：门店区域（站点→门店）与线路版本（站点→行程→线路），两个 join 都由声明式关联推导。（refused: 平台历史声明，业务出处待补）" .
 
 :damagePer1kStopsByZoneVersion a owl:DatatypeProperty ;
     rdfs:label "区域 × 线路版本的每千站破损箱数" ;
@@ -344,21 +341,21 @@
     :grain :Stop ; :universe :Stop ; :aggregate "ratio_of_sums" ;
     :numerator :damagedBoxCount ; :denominator :stopCount ; :scale "1000.0" ;
     :groupBy :storeZone ; :groupBy :routeVersion ; :unit "count" ;
-    :businessDescription "判「区域问题 vs 并线问题」的交互项：如果两区域的版本差同向且量级相同，就不是区域问题。" .
+    :businessDescription "判「区域问题 vs 并线问题」的交互项：如果两区域的版本差同向且量级相同，就不是区域问题。（refused: 平台历史声明，业务出处待补）" .
 
 :complaintCountByLiability a owl:DatatypeProperty ;
     rdfs:label "按责任方看投诉数" ;
     :askedAs "投诉都判给谁了？" ;
     :domain :Complaint ; :aggregate "count" ; :grain :Complaint ; :universe :Complaint ;
     :groupBy :liability ; :unit "count" ; :additivity "additive" ;
-    :businessDescription "3,167 条 liability IS NULL 会作为独立一组出现在结果里（NULL 不丢），那就是「未判定责任」的占比，不是缺失数据。" .
+    :businessDescription "3,167 条 liability IS NULL 会作为独立一组出现在结果里（NULL 不丢），那就是「未判定责任」的占比，不是缺失数据。（refused: 平台历史声明，业务出处待补）" .
 
 :claimAmountByLiability a owl:DatatypeProperty ;
     rdfs:label "按责任方看赔付金额" ;
     :askedAs "赔的钱谁出的多？" ;
     :domain :Complaint ; :aggregate "sum" ; :formula "amount" ; :grain :Complaint ;
     :universe :Complaint ; :groupBy :liability ; :unit "money" ; :additivity "additive" ;
-    :businessDescription "NULL 金额不进 sum（SQL 语义），所以「未判定」那一组的金额是 NULL 而不是 0——看板必须显示这一格而不是当作零。" .
+    :businessDescription "NULL 金额不进 sum（SQL 语义），所以「未判定」那一组的金额是 NULL 而不是 0——看板必须显示这一格而不是当作零。（refused: 平台历史声明，业务出处待补）" .
 
 :tripCountByVehicle a owl:DatatypeProperty ;
     rdfs:label "按车辆看行程数" ;
@@ -366,14 +363,14 @@
     :askedAs "每台车跑了多少趟？" ;
     :domain :Trip ; :aggregate "count" ; :grain :Trip ; :universe :Trip ;
     :groupBy :plate ; :unit "count" ; :additivity "additive" ;
-    :businessDescription "60 台车、4,050 趟。和 :tripCount 的分组版一起，才能把按车的超载率加权回整体超载率——这是闸门要查的恒等式，不是看板自己算的。" .
+    :businessDescription "60 台车、4,050 趟。和 :tripCount 的分组版一起，才能把按车的超载率加权回整体超载率——这是闸门要查的恒等式，不是看板自己算的。（refused: 平台历史声明，业务出处待补）" .
 
 :stopCountByZoneVersion a owl:DatatypeProperty ;
     rdfs:label "区域 × 线路版本的站点数" ;
     :askedAs "每个区域每个版本各多少站？" ;
     :domain :Stop ; :aggregate "count" ; :grain :Stop ; :universe :Stop ;
     :groupBy :storeZone ; :groupBy :routeVersion ; :unit "count" ; :additivity "additive" ;
-    :businessDescription "矩阵的格子体积。有了它，按格的准时率/破损率可以加权回整体值，闸门因此能验证「分组没有改变总体」。" .
+    :businessDescription "矩阵的格子体积。有了它，按格的准时率/破损率可以加权回整体值，闸门因此能验证「分组没有改变总体」。（refused: 平台历史声明，业务出处待补）" .
 
 :dispatchDecisionCount a owl:DatatypeProperty ;
     rdfs:label "派单决策记录数" ;
@@ -381,49 +378,49 @@
     :askedAs "记录了多少条派单决策？" ;
     :domain :DispatchDecision ; :aggregate "count" ; :grain :DispatchDecision ;
     :universe :DispatchDecision ; :unit "count" ; :additivity "additive" ;
-    :businessDescription "0。表已建（2026-11）、口径已声明、写回方还没有——这个 0 是看板上最诚实的一格：想复核「人情调度」的人，先看到自己缺的是记录而不是算法。" .
+    :businessDescription "0。表已建（2026-11）、口径已声明、写回方还没有——这个 0 是看板上最诚实的一格：想复核「人情调度」的人，先看到自己缺的是记录而不是算法。（refused: 平台历史声明，业务出处待补）" .
 
 :tripsWithDecisionRecord a owl:DatatypeProperty ;
     rdfs:label "有派单决策记录的行程数" ;
     :askedAs "有多少趟的派单决策被记下来了？" ;
     :domain :Trip ; :aggregate "count" ; :grain :Trip ; :universe :Trip ;
     :concept :TripWithDecision ; :unit "count" ; :additivity "additive" ;
-    :businessDescription "谓词来自 ∃:decisionsOf.(:DispatchDecision) 这条公理：EXISTS 子查询由编译器生成。记录还没写时它是 0 —— 0 也是度量。" .
+    :businessDescription "谓词来自 ∃:decisionsOf.(:DispatchDecision) 这条公理：EXISTS 子查询由编译器生成。记录还没写时它是 0 —— 0 也是度量。（refused: 平台历史声明，业务出处待补）" .
 
 :decisionCoverage a owl:DatatypeProperty ;
     rdfs:label "派单决策记录覆盖率" ;
     :askedAs "派单决策记录覆盖了多少行程？" ;
     :grain :Trip ; :universe :Trip ; :aggregate "ratio_of_sums" ;
     :numerator :tripsWithDecisionRecord ; :denominator :tripCount ; :unit "ratio" ;
-    :businessDescription "分子分母同在 :Trip 颗粒度：有决策记录的趟数 / 总趟数。要复核「人情调度」，这个数必须先离开 0。" .
+    :businessDescription "分子分母同在 :Trip 颗粒度：有决策记录的趟数 / 总趟数。要复核「人情调度」，这个数必须先离开 0。（refused: 平台历史声明，业务出处待补）" .
 
 :unjudgedComplaintShare a owl:DatatypeProperty ;
     rdfs:label "责任未判定投诉占比" ;
     :askedAs "有多少投诉还没判定责任？" ;
     :grain :Complaint ; :universe :Complaint ; :aggregate "ratio_of_sums" ;
     :numerator :unjudgedComplaints ; :denominator :complaintCount ; :unit "ratio" ;
-    :businessDescription "分子分母都在 :Complaint 颗粒度。3,167/6,876 = 46.1%：将近一半的投诉没有人负责，赔付只在已判定的一侧产生。" .
+    :businessDescription "分子分母都在 :Complaint 颗粒度。3,167/6,876 = 46.1%：将近一半的投诉没有人负责，赔付只在已判定的一侧产生。（refused: 平台历史声明，业务出处待补）" .
 
 :routeCount a owl:DatatypeProperty ;
     rdfs:label "线路数" ;
     :askedAs "有多少条线路？" ;
     :domain :Route ; :aggregate "count" ; :grain :Route ; :universe :Route ;
     :unit "count" ; :additivity "additive" ;
-    :businessDescription "90 条（v1 50 + v2 40）。开场的「并线把多少条压成多少条」用它的分组版，正文里不再出现裸数字。" .
+    :businessDescription "90 条（v1 50 + v2 40）。开场的「并线把多少条压成多少条」用它的分组版，正文里不再出现裸数字。（refused: 平台历史声明，业务出处待补）" .
 
 :routeCountByVersion a owl:DatatypeProperty ;
     rdfs:label "按版本看线路数" ;
     :askedAs "并线前后各有多少条线路？" ;
     :domain :Route ; :aggregate "count" ; :grain :Route ; :universe :Route ;
     :groupBy :routeVersion ; :unit "count" ; :additivity "additive" ;
-    :businessDescription "v1 50 条 / v2 40 条。这是「并线」这件事本身的规模。" .
+    :businessDescription "v1 50 条 / v2 40 条。这是「并线」这件事本身的规模。（refused: 平台历史声明，业务出处待补）" .
 
 :routePlannedStopsTotal a owl:DatatypeProperty ;
     rdfs:label "线路计划站数合计" ;
     :askedAs "一条线计划跑几站？" ;
     :domain :Route ; :aggregate "sum" ; :formula "planned_stops" ; :grain :Route ; :universe :Route ;
     :unit "count" ; :additivity "additive" ;
-    :businessDescription "按线路加总 planned_stops，作为「每条线路平均站数」的分子。可加：线路之间不重叠。" .
+    :businessDescription "按线路加总 planned_stops，作为「每条线路平均站数」的分子。可加：线路之间不重叠。（refused: 平台历史声明，业务出处待补）" .
 
 :stopsPerRouteByVersion a owl:DatatypeProperty ;
     rdfs:label "按版本看每条线路平均站数" ;
@@ -431,7 +428,7 @@
     :grain :Route ; :universe :Route ; :aggregate "ratio_of_sums" ;
     :numerator :routePlannedStopsTotal ; :denominator :routeCount ; :groupBy :routeVersion ;
     :scale "1.0" ; :unit "count" ;
-    :businessDescription "10.2 → 15.7 站/线。分子分母都在 :Route 颗粒度，所以可以按版本分组；除以的是「条数」不是「行数」。" .
+    :businessDescription "10.2 → 15.7 站/线。分子分母都在 :Route 颗粒度，所以可以按版本分组；除以的是「条数」不是「行数」。（refused: 平台历史声明，业务出处待补）" .
 
 # ---- 看板图表用的通道（每条都是一个已声明指标，图表不自己算） ----
 
@@ -440,21 +437,21 @@
     :askedAs "核心区和郊区各多少站？" ;
     :domain :Stop ; :aggregate "count" ; :grain :Stop ; :universe :Stop ;
     :groupBy :storeZone ; :unit "count" ; :additivity "additive" ;
-    :businessDescription "Sankey 第一层的两股流量：核心区 + 郊区 = 51,210。两个数都由它给出，图不自己加。" .
+    :businessDescription "Sankey 第一层的两股流量：核心区 + 郊区 = 51,210。两个数都由它给出，图不自己加。（refused: 平台历史声明，业务出处待补）" .
 
 :stopCountByZoneAndOnTime a owl:DatatypeProperty ;
     rdfs:label "区域 × 是否准时 的站点数" ;
     :askedAs "核心区/郊区各有多少站准时？" ;
     :domain :Stop ; :aggregate "count" ; :grain :Stop ; :universe :Stop ;
     :groupBy :storeZone ; :groupBy :onTime ; :unit "count" ; :additivity "additive" ;
-    :businessDescription "Sankey 第二层。同一批站点按 (区域, 准时) 切分，所以「核心区流入 = 核心区准时 + 核心区迟到」是恒等式，不是画图时的近似。" .
+    :businessDescription "Sankey 第二层。同一批站点按 (区域, 准时) 切分，所以「核心区流入 = 核心区准时 + 核心区迟到」是恒等式，不是画图时的近似。（refused: 平台历史声明，业务出处待补）" .
 
 :stopCountByVehicleAndPermit a owl:DatatypeProperty ;
     rdfs:label "车辆 × 是否有核心区通行证 的站点数" ;
     :askedAs "有路权的车和没路权的车各跑了多少站？" ;
     :domain :Stop ; :aggregate "count" ; :grain :Stop ; :universe :Stop ;
     :groupBy :plate ; :groupBy :coreZonePermit ; :unit "count" ; :additivity "additive" ;
-    :businessDescription "气泡图的颜色通道：路权由它给出，前端不做「车→路权」的自行推断。" .
+    :businessDescription "气泡图的颜色通道：路权由它给出，前端不做「车→路权」的自行推断。（refused: 平台历史声明，业务出处待补）" .
 
 :claimAmountByLiabilityAndZone a owl:DatatypeProperty ;
     rdfs:label "责任方 × 门店区域 的赔付金额" ;
@@ -462,4 +459,4 @@
     :domain :Complaint ; :aggregate "sum" ; :formula "amount" ; :grain :Complaint ;
     :universe :Complaint ; :groupBy :liability ; :groupBy :storeZone ;
     :unit "money" ; :additivity "additive" ;
-    :businessDescription "Treemap 的格子：投诉→站点→门店 的关联由 :aboutStopOf 推导。未判定组金额为 NULL（不是 0），格子要标灰而不是画成零。" .
+    :businessDescription "Treemap 的格子：投诉→站点→门店 的关联由 :aboutStopOf 推导。未判定组金额为 NULL（不是 0），格子要标灰而不是画成零。（refused: 平台历史声明，业务出处待补）" .
