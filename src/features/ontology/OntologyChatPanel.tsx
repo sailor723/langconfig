@@ -115,7 +115,8 @@ export default function OntologyChatPanel() {
   }, []);
 
   const url = s.url;
-  const key = s.preset || s.profiles.find(p => p.url === url)?.key || '';
+  // the key is the identity (all urls are '' for same-origin ontologies)
+  const key = s.preset || '';
 
   // the cards come from the app now (one origin, keyed by the ontology) — the URL is only how the
   // profile was chosen, never where its numbers are fetched from

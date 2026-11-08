@@ -181,3 +181,21 @@ operation): ['audit_events', 'nl_events']`). Derived from the code, so a new pla
 the day it is written; a genuinely unmapped business table still fails the gate.
 **Detect:** run `check_structure` AFTER asking one question through the Query page, not only before.
 
+### Clicking one ontology opened another (and five rows lit up)
+
+**Symptom:** in the ontology browser, clicking `new_coldchain_v6` left it unhighlighted and lit up most
+of the other rows; opening a section under one ontology framed a different one.
+**Cause:** the store keyed the selection by `url`, and that stopped being an identity the day the app
+started serving every page itself. Four roster rows still carried the same `http://127.0.0.1:8765`
+(the app's own origin) and the installed-only rows carried `''`, so `s.url === p.url` was true for
+several rows at once, `probes[p.url]` was one shared entry, `localStorage` remembered only the url (so
+a reload landed on whichever row sorted first), and the section buttons under a row navigated WITHOUT
+selecting that row — `/ontology/app` then framed whatever `s.preset` still held.
+**Fix:** the KEY is the identity. `profileIsActive()` decides the highlight, the probes map is keyed by
+ontology, the chosen key is persisted next to the url, `select()` resolves by key (a url is consulted
+only when the caller names none and the url is not empty), and the sidebar's section links select their
+own row first. The roster's workbench ports are cleared (`normalize_ontology_roster_urls.py`) because
+they name a machine that no longer serves anything.
+**Detect:** open an ontology, then reload — the same ontology must come back; the number of highlighted
+rows must be exactly one.
+

@@ -36,7 +36,10 @@ export default function OntologySectionPage() {
   const section = framed.find(x => x.key === view) ?? framed[0] ?? SECTIONS[0];
   const lang = (i18n?.language || '').startsWith('zh') ? 'zh' : 'en';
   const themeName = theme?.name === 'dark' ? 'dark' : 'light';
-  const sectionKey = s.preset || s.profiles.find(p => p.url === s.url)?.key || '';
+  // the KEY of the open ontology. The url fallback was ambiguous the moment every ontology became
+  // same-origin (url ''): `find(p => p.url === s.url)` then answered with the FIRST row, so a section
+  // opened another ontology's page.
+  const sectionKey = s.preset || '';
 
   useEffect(() => {
     const app_section = sections.find(x => x.key === view && x.kind === 'app');

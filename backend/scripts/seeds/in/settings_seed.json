@@ -182,6 +182,7 @@
   },
   "models": {},
   "ontology": {
+    "_note": "url is vestigial: every page is served by this app at /api/ontology/{key}/page/…, so a row's identity is its key. It was the workbench port when each ontology ran on its own process — left cleared so the roster cannot claim a port that no longer exists (see scripts/seeds/in/normalize_ontology_roster_urls.py).",
     "default_key": "clinic",
     "items": [
       {
@@ -190,7 +191,7 @@
         "label": "Clinic",
         "note": "built by a DeepAgent from clinic_db — 门诊 / 收费 / 理赔, 28 metrics",
         "profile": "clinic/clinic_settings.json",
-        "url": "http://127.0.0.1:8096"
+        "url": ""
       },
       {
         "enabled": true,
@@ -198,7 +199,7 @@
         "label": "Retail",
         "note": "the hand-built reference: orders, customers, stores, two lanes",
         "profile": "retail/settings.json",
-        "url": "http://127.0.0.1:8092"
+        "url": ""
       },
       {
         "enabled": true,
@@ -206,7 +207,7 @@
         "label": "TPC-H",
         "note": "SF0.1 benchmark — historical data, so the guard refuses windows",
         "profile": "tpch/tpch_settings.json",
-        "url": "http://127.0.0.1:8093"
+        "url": ""
       },
       {
         "enabled": true,
@@ -214,7 +215,7 @@
         "label": "ABC",
         "note": "cold-chain training set with declared writes (lane C)",
         "profile": "abc/abc_settings.json",
-        "url": "http://127.0.0.1:8094"
+        "url": ""
       },
       {
         "enabled": true,
@@ -222,7 +223,7 @@
         "label": "Logistics (cold chain)",
         "note": "built by DeepAgent 349 from abc_coldchain — 配送/站点/理赔 11 tables",
         "profile": "logistics/logistics_settings.json",
-        "url": "http://127.0.0.1:8098"
+        "url": ""
       },
       {
         "enabled": true,

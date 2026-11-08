@@ -14,7 +14,7 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { useLayoutTokens } from '../../components/layout2/tokens';
-import { ontology, useOntology } from './ontologyStore';
+import { ontology, profileIsActive, useOntology } from './ontologyStore';
 
 const SECTION_ICON: Record<string, any> = {
   home: Compass,
@@ -46,7 +46,9 @@ export default function OntologySidebar() {
     border: 'none', background: 'transparent', cursor: 'pointer',
   };
 
-  const upCount = s.profiles.filter(p => s.probes[p.url]?.status === 'up').length;
+  // by KEY: every same-origin ontology has url '', so a probe keyed by url reported one ontology's
+  // liveness on all seven rows.
+  const upCount = s.profiles.filter(p => s.probes[p.key]?.status === 'up').length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -81,8 +83,10 @@ export default function OntologySidebar() {
 
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {s.profiles.map(p => {
-          const probe = s.probes[p.url];
-          const active = s.url === p.url;
+          const probe = s.probes[p.key];
+          // the KEY decides the open row (see profileIsActive): comparing urls highlighted every row
+          // that shared one, which after same-origin serving was most of them.
+          const active = profileIsActive(p, s);
           const up = probe?.status === 'up';
           return (
             <div
@@ -138,7 +142,13 @@ export default function OntologySidebar() {
                   <span style={{ fontSize: 9.5, letterSpacing: 0.5, textTransform: 'uppercase',
                                  color: t.textDim, marginTop: 2 }}>sections</span>
                   <button
-                    onClick={e => { e.stopPropagation(); navigate('/ontology/browse'); }}
+                    onClick={async e => {
+                      e.stopPropagation();
+                      // select THIS row's ontology first: the page then reads `s.preset`, so the schema
+                      // and the metrics belong to the row that was clicked, not to the previous one.
+                      await ontology.select(p.url, p.key);
+                      navigate('/ontology/browse');
+                    }}
                     title="objects, definitions, links and every metric with its compiled SQL"
                     style={{ ...rowTitle, fontSize: 11.5, color: t.accent, padding: '2px 0' }}
                   >
@@ -150,8 +160,12 @@ export default function OntologySidebar() {
                       <button
                         key={sec.key}
                         title={sec.hint}
-                        onClick={e => {
+                        onClick={async e => {
                           e.stopPropagation();
+                          // the section belongs to THIS row: select it before navigating, otherwise
+                          // `/ontology/app` frames whatever `s.preset` still holds (measured: an
+                          // ontology's sections opened another ontology's page).
+                          await ontology.select(p.url, p.key);
                           // an APP page (the dashboard) is a route in this app; a section page is served
                           // by this app too (`/api/ontology/{key}/page/…`) and framed here.
                           if (sec.kind === 'app') { navigate(sec.path); return; }

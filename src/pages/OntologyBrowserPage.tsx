@@ -66,7 +66,10 @@ export default function OntologyBrowserPage() {
   }, []);
 
   // the cards come from the app, keyed by the ontology (the URL only chose the profile)
-  const cardKey = s.preset || s.profiles.find(p => p.url === s.url)?.key || '';
+  // the KEY decides which ontology this page is showing (`s.preset`). The old
+  // `profiles.find(p => p.url === s.url)` returned the first row whenever urls were equal —
+  // which they are now (every ontology is same-origin), so it showed another ontology's cards.
+  const cardKey = s.preset || '';
   useEffect(() => {
     if (tab !== 'metrics' || cards || !cardKey) return;
     let cancelled = false;
@@ -230,7 +233,7 @@ export default function OntologyBrowserPage() {
 
       {buildOpen && (
         <BuildOntologyDialog
-          ontologyKey={s.preset || s.profiles.find(p => p.url === s.url)?.key || ''}
+          ontologyKey={s.preset || ''}
           onClose={() => setBuildOpen(false)}
           onLanded={refreshCards}
         />
@@ -246,7 +249,7 @@ export default function OntologyBrowserPage() {
           </div>
           {editorOpen ? (
             <MetricEditorPanel
-              ontologyKey={s.preset || s.profiles.find(p => p.url === s.url)?.key || ''}
+              ontologyKey={s.preset || ''}
               cards={cards}
               metricName={metricName}
               onSelectMetric={setMetricName}

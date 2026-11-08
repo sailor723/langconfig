@@ -83,6 +83,16 @@ export const FALLBACK_PROFILES: OntologyProfile[] = [
 ];
 
 const STORAGE_URL = 'langconfig.ontology.url';
+/**
+ * The KEY is the identity; the URL is only where the ontology USED to be served.
+ *
+ * Every installed ontology is served from this origin, so `url` is '' for all of them — and a store
+ * keyed by url then treats them as ONE ontology. Measured on the deployment: clicking one ontology
+ * showed another, because the fallback `profiles.find(p => p.url === s.url)` returned the first row
+ * for every row, and a reload (which forgets the in-memory `preset`) landed on whatever row sorted
+ * first. The key is persisted now, so a reload re-opens the ontology that was open.
+ */
+const STORAGE_KEY = 'langconfig.ontology.key';
 
 /**
  * A section of one ontology, and there are two kinds — the list shows them side by side:
@@ -183,6 +193,13 @@ export interface OntologyState {
   showSql: boolean;
   /** Sections this profile serves (from the server, not a compiled list). */
   sections: OntologySection[];
+  /**
+   * Per-ontology liveness, keyed by the ontology's KEY.
+   *
+   * It used to be keyed by `url`, which is '' for every same-origin ontology — so all seven shared
+   * one entry: one ontology's up/down dot and metric counts were displayed on every row, and the
+   * sections listed under a row belonged to whichever profile probed last.
+   */
   probes: Record<string, {
     status: 'unknown' | 'up' | 'down';
     counts?: OntologyCounts;
@@ -190,6 +207,20 @@ export interface OntologyState {
     /** That profile's own sections — a peeked row must not list the selected one's. */
     sections?: OntologySection[];
   }>;
+}
+
+/**
+ * Is THIS row the open ontology?
+ *
+ * The sidebar used `s.url === p.url`, and that test became true for every row the day the app started
+ * serving the pages itself: four roster rows carry the same legacy url (`http://127.0.0.1:8765`) and the
+ * installed-only rows carry `''`, so clicking one ontology highlighted all the others (measured, then
+ * reported back as "I click v6 and every other one is highlighted"). The KEY is the identity; a url is
+ * only consulted for a row that still names one and is not the one already open.
+ */
+export function profileIsActive(p: OntologyProfile, s: Pick<OntologyState, 'url' | 'preset'>): boolean {
+  if (s.preset) return s.preset === p.key;
+  return !!p.url && s.url === p.url;
 }
 
 export function normalizeUrl(raw: string): string {
@@ -203,10 +234,17 @@ const storedUrl = (() => {
     return '';
   }
 })();
+const storedKey = (() => {
+  try {
+    return localStorage.getItem(STORAGE_KEY) || '';
+  } catch {
+    return '';
+  }
+})();
 
 let state: OntologyState = {
   url: storedUrl || '',
-  preset: null,
+  preset: storedKey || null,
   status: 'idle',
   error: null,
   ontology: null,
@@ -350,19 +388,24 @@ export const ontology = {
    */
   async ensureReady(): Promise<string> {
     if (state.profilesFrom !== 'settings') await ontology.loadProfiles();
-    if (!state.url) {
-      const first = state.profiles.find(p => p.key === state.defaultKey) ?? state.profiles[0];
+    if (!state.url && !state.preset) {
+      // the remembered KEY wins (a reload keeps which ontology was open), then the declared default,
+      // then the first row — and never `profiles[0]` on its own, which is how a reload landed on
+      // whichever ontology sorted first instead of the one that was open.
+      const first = state.profiles.find(p => p.key === storedKey)
+        ?? state.profiles.find(p => p.key === state.defaultKey)
+        ?? state.profiles[0];
       if (first) {
         await ontology.select(first.url, first.key);
         return first.url;
       }
       return '';
     }
-    // A remembered URL is not a loaded ontology: on a reload the store has the URL from
+    // A remembered selection is not a loaded ontology: on a reload the store has the URL/key from
     // localStorage and nothing else, so a page that only called ensureReady() sat on
     // "checking…" forever instead of asking the server.
     if (!state.ontology && state.status !== 'loading') {
-      await ontology.select(state.url, state.preset ?? undefined);
+      await ontology.select(state.url, state.preset ?? storedKey ?? undefined);
     }
     return state.url;
   },
@@ -415,9 +458,17 @@ export const ontology = {
   /** Select an ontology, remember it, and load what it declares. */
   async select(url: string, presetKey?: string) {
     const clean = normalizeUrl(url);
-    const preset = presetKey ?? state.profiles.find(p => p.url === clean)?.key ?? null;
+    // the KEY decides which ontology this is. A url is only consulted when the caller did not name a
+    // key, and only when it is not empty — every installed ontology has `url: ''`, so matching on
+    // '' made seven different ontologies resolve to the same (first) row.
+    const preset = presetKey
+      || (clean ? state.profiles.find(p => p.url === clean)?.key : undefined)
+      || state.preset
+      || null;
     try {
       localStorage.setItem(STORAGE_URL, clean);
+      if (preset) localStorage.setItem(STORAGE_KEY, preset);
+      else localStorage.removeItem(STORAGE_KEY);
     } catch {
       /* private mode: the choice simply does not persist */
     }
@@ -449,7 +500,7 @@ export const ontology = {
         sections: with_app,
         probes: {
           ...state.probes,
-          [clean]: { status: 'up', counts: doc.counts, sections: with_app },
+          ...(preset ? { [preset]: { status: 'up' as const, counts: doc.counts, sections: with_app } } : {}),
         },
       });
     } catch (err: any) {
@@ -457,7 +508,10 @@ export const ontology = {
       emit({
         status: 'down',
         error: message,
-        probes: { ...state.probes, [clean]: { status: 'down', error: message } },
+        probes: {
+          ...state.probes,
+          ...(preset ? { [preset]: { status: 'down' as const, error: message } } : {}),
+        },
       });
     }
   },
@@ -477,22 +531,33 @@ export const ontology = {
       try {
         // the document is the same compile the section pages need, and it carries the counts the cards
         // show — so liveness and the numbers are one answer, not two that can disagree
-        const body = await getAppJson(p.key, '/document', 60000);
-        return { key: p.key, url: p.url, up: true as const, counts: body?.counts };
+        const [body, secs] = await Promise.all([
+          getAppJson(p.key, '/document', 60000),
+          getAppJson(p.key, '/sections', 8000).catch(() => null),
+        ]);
+        const sections = Array.isArray(secs?.sections)
+          ? secs.sections.map((x: any) => ({
+              key: String(x.key), label: String(x.label), path: String(x.path),
+              hint: String(x.hint || ''), enabled: x.enabled !== false,
+            }))
+          : undefined;
+        return { key: p.key, url: p.url, up: true as const, counts: body?.counts, sections };
       } catch (err: any) {
         return { key: p.key, url: p.url, up: false as const, error: String(err?.message || err) };
       }
     }));
     for (const r of results) {
-      probes[r.url] = r.up
-        ? { status: 'up', counts: r.counts }
+      probes[r.key] = r.up
+        ? { status: 'up', counts: r.counts, sections: (r as any).sections }
         : { status: 'down', error: r.error };
     }
     emit({ probes, starting: false });
 
-    // load the selected profile's document so the browser and its sections follow
+    // load the selected profile's document so the browser and its sections follow. NOT gated on
+    // `chosen.url`: every same-origin ontology has url '' — the old `&& chosen.url` guard meant a
+    // probe never selected anything, and the pages fell back to "the first row".
     const chosen = results.find(r => r.key === state.preset) ?? results.find(r => r.up);
-    if (chosen?.up && chosen.url && (!state.ontology || state.preset !== chosen.key)) {
+    if (chosen?.up && (!state.ontology || state.preset !== chosen.key)) {
       await ontology.select(chosen.url, chosen.key);
     }
   }

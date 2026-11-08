@@ -167,7 +167,7 @@ export default function OntologyHomePage() {
       </Quiet>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 14, marginTop: 12 }}>
         {s.profiles.map(p => {
-          const probe = s.probes[p.url];
+          const probe = s.probes[p.key];     // keyed by ontology, not by a url that is '' for all of them
           const up = probe?.status === 'up';
           const c = probe?.counts;
           const loading = probe?.status === 'unknown';
