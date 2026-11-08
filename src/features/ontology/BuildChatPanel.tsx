@@ -24,6 +24,16 @@ import { mono, Quiet, SUCCESS, WARN } from './ui';
 
 interface Turn { role: 'user' | 'assistant'; content: string; tools?: string[] }
 
+interface Proposal {
+  id: string;
+  note?: string | null;
+  created_at?: string | null;
+  compiled?: number;
+  metrics?: number;
+  gates_ok?: boolean;
+  files?: string[];
+}
+
 interface Pinned {
   key: string;
   agent: { id: number; name: string };
@@ -51,6 +61,11 @@ export default function BuildChatPanel({ ontologyKey, onClose }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [values, setValues] = useState<Record<string, any>>({});
+  const [armed, setArmed] = useState<string | null>(null);
+  const [applying, setApplying] = useState<string | null>(null);
+  const [applyMsg, setApplyMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const sessionKey = `langconfig.build.session.${ontologyKey}`;
@@ -59,12 +74,45 @@ export default function BuildChatPanel({ ontologyKey, onClose }: {
     try {
       const res: any = await apiClient.get(`/api/ontology/${encodeURIComponent(ontologyKey)}/build/state`);
       setInfo(res?.data as Pinned);
+      setProposals(((res?.data as any)?.staged || []) as Proposal[]);
       setInfoError(null);
     } catch (e: any) {
       setInfoError(String(e?.response?.data?.detail || e?.message || e));
     }
   }, [ontologyKey]);
   useEffect(() => { void loadState(); }, [loadState]);
+
+  /** Which numbers would move — the reviewer's question before an apply, so it travels with it. */
+  const showValues = async (id: string) => {
+    setValues(prev => {
+      const next = { ...prev };
+      if (next[id] !== undefined) delete next[id];
+      else next[id] = undefined;
+      return next;
+    });
+    if (values[id] !== undefined) return;
+    try {
+      const res: any = await apiClient.get(`/api/ontology/publish/${id}/values`);
+      setValues(prev => ({ ...prev, [id]: res?.data }));
+    } catch (e: any) {
+      setValues(prev => ({ ...prev, [id]: { ok: false, error: String(e?.response?.data?.detail || e?.message) } }));
+    }
+  };
+
+  const applyOne = async (id: string) => {
+    setApplying(id); setApplyMsg(null);
+    try {
+      const res: any = await apiClient.post(`/api/ontology/publish/${id}/apply`, { confirmed: true });
+      const d = res?.data || {};
+      setApplyMsg({ ok: true, text: `installed ${id}${d.git_commit ? ` · commit ${d.git_commit}` : ''}` });
+      setArmed(null);
+      await loadState();
+    } catch (e: any) {
+      setApplyMsg({ ok: false, text: String(e?.response?.data?.detail || e?.message || 'apply failed') });
+    } finally {
+      setApplying(null);
+    }
+  };
 
   /** Documents land in the agent's workspace `upload/`, which is exactly where the seed looks. */
   const upload = async (files: FileList | null) => {
@@ -144,8 +192,11 @@ export default function BuildChatPanel({ ontologyKey, onClose }: {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderBottom: `1px solid ${t.border}` }}>
         <b style={{ fontSize: 13 }}>对话式构建 · {ontologyKey}</b>
         {info && (
-          <span style={{ ...mono, fontSize: 11, color: t.textDim }}>
-            {info.agent.name} · {info.installed ? `已装 ${info.objects} 对象/${info.metrics} 指标（重建）` : '尚无本体（首次生成）'}
+          <span style={{ ...mono, fontSize: 11, color: info.installed ? WARN : SUCCESS }}>
+            {info.installed
+              ? `更新 · 已装 ${info.objects} 对象 / ${info.metrics} 指标 · 先证 delta，auto-land 关闭`
+              : '新建 · 尚无声明 · S0 澄清 → S1…S8，首轮可 auto-land'}
+            <span style={{ color: t.textDim }}> · {info.agent.name}</span>
           </span>
         )}
         <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: t.textDim }}>
@@ -165,6 +216,62 @@ export default function BuildChatPanel({ ontologyKey, onClose }: {
         </div>
       )}
       {infoError && <div style={{ padding: '8px 12px', color: WARN, fontSize: 12 }}>{infoError}</div>}
+
+      {!!proposals.length && (
+        <div style={{ padding: '8px 12px', borderBottom: `1px solid ${t.border}`, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ fontSize: 11, color: t.textDim }}>
+            待审提案 {proposals.length} —— 已经编译并跑过门，apply 会在安装路径上重跑一遍
+          </div>
+          {proposals.map(pr => (
+            <div key={pr.id} style={{ border: `1px solid ${t.border}`, borderRadius: 8, padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5 }}>
+                <span style={{ ...mono, color: t.textDim }}>{pr.id}</span>
+                {typeof pr.metrics === 'number' && (
+                  <span style={{ color: pr.gates_ok ? SUCCESS : WARN }}>
+                    compile {pr.compiled}/{pr.metrics} · gates {pr.gates_ok ? 'pass' : 'fail'}
+                  </span>
+                )}
+                <span
+                  onClick={() => void showValues(pr.id)}
+                  style={{ marginLeft: 'auto', color: t.textDim, cursor: 'pointer', fontSize: 11 }}
+                >
+                  {values[pr.id] === undefined ? '▸ 哪些数字会变' : '▾ 哪些数字会变'}
+                </span>
+                {armed === pr.id ? (
+                  <>
+                    <button onClick={() => void applyOne(pr.id)} disabled={applying === pr.id}
+                      style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: 'none', background: t.accent, color: '#fff', cursor: 'pointer' }}>
+                      {applying === pr.id ? 'applying…' : '确认 apply'}
+                    </button>
+                    <button onClick={() => setArmed(null)}
+                      style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: `1px solid ${t.border}`, background: 'transparent', color: t.textDim, cursor: 'pointer' }}>
+                      取消
+                    </button>
+                  </>
+                ) : (
+                  <button onClick={() => setArmed(pr.id)}
+                    style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: `1px solid ${t.border}`, background: 'transparent', color: t.textPrimary, cursor: 'pointer' }}>
+                    apply…
+                  </button>
+                )}
+              </div>
+              {pr.note && <div style={{ fontSize: 11, color: t.textDim }}>{pr.note}</div>}
+              {values[pr.id] !== undefined && (
+                <div style={{ ...mono, fontSize: 10.5, color: t.textDim }}>
+                  {values[pr.id]?.ok === false
+                    ? String(values[pr.id]?.error || 'no comparison')
+                    : (values[pr.id]?.changed || []).length === 0
+                      ? `no number moves (${values[pr.id]?.unchanged || 0} checked) — declarations/text only`
+                      : (values[pr.id].changed || []).map((c: any) => `${c.metric}: ${String(c.before ?? '—')} → ${String(c.after ?? '—')}`).join(' · ')}
+                </div>
+              )}
+            </div>
+          ))}
+          {applyMsg && (
+            <div style={{ fontSize: 11, color: applyMsg.ok ? SUCCESS : WARN }}>{applyMsg.text}</div>
+          )}
+        </div>
+      )}
 
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         {first && (
