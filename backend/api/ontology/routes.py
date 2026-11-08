@@ -8,6 +8,7 @@ workbench's own answer).
 from __future__ import annotations
 
 import logging
+import pathlib
 
 from typing import Optional
 
@@ -21,6 +22,42 @@ from services import (ontology_actions, ontology_build, ontology_dashboard, onto
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/ontology", tags=["ontology"])
+
+
+@router.get("/installed")
+async def list_installed():
+    """Every ontology that is INSTALLED, derived from the profiles on disk.
+
+    A published ontology must appear in the Ontology activity without anyone editing a list. Measured:
+    v6 applied twice (48/48 and 32/32 compiled, gates green) and still could not be found, because the
+    activity renders the `ontology` settings document and nothing had added a row for it — the list was
+    a hand-maintained roster, and a roster rots. The settings document now only carries DECISIONS about
+    those ontologies (label override, note, order, enabled), never their existence.
+    """
+    from services import ontology_publish
+
+    root = pathlib.Path(ontology_publish.ONTOLOGIES)
+    rows = []
+    if root.is_dir():
+        for d in sorted(root.iterdir()):
+            if not d.is_dir() or d.name.startswith("."):
+                continue
+            profile = None
+            for name in (f"{d.name}_settings.json", "settings.json"):
+                if (d / name).is_file():
+                    profile = name
+                    break
+            if profile is None:
+                continue                      # a folder without a profile is not an ontology
+            title = None
+            try:
+                import json as _json
+                title = (_json.loads((d / profile).read_text(encoding="utf-8")) or {}).get("title")
+            except Exception:                                  # noqa: BLE001
+                title = None
+            rows.append({"key": d.name, "label": (title or d.name), "profile": f"{d.name}/{profile}",
+                         "installed": True})
+    return {"ok": True, "installed": rows}
 
 
 @router.get("/workbenches")

@@ -254,15 +254,43 @@ async function getAppJson(key: string, path: string, ms: number): Promise<any> {
   return body;
 }
 
+/**
+ * An INSTALLED ontology exists whether or not a settings row mentions it.
+ *
+ * The `ontology` settings namespace used to be the whole roster: a published ontology that nobody added
+ * a row for was invisible in the activity and in this browser (measured twice — v6 compiled 48/48 then
+ * 32/32, gates green, and could not be found). Existence now comes from the profiles on disk
+ * (`GET /api/ontology/installed`); the settings rows only decide the human-facing label, the note, the
+ * order and whether an ontology is shown at all.
+ */
+function mergeInstalled(decided: OntologyProfile[], installed: any[]): OntologyProfile[] {
+  const byKey = new Map(decided.map(p => [p.key, p]));
+  const merged: OntologyProfile[] = [];
+  for (const p of decided) merged.push(p);                     // settings order wins
+  for (const row of installed || []) {
+    const key = String(row?.key || '');
+    if (!key || byKey.has(key)) continue;                      // already listed (and possibly relabelled)
+    merged.push({
+      key,
+      label: String(row.label || key),
+      url: '',                                                 // same-origin: the app serves every page
+      profile: row.profile ?? null,
+      note: row.installed ? 'installed · appears automatically (no roster entry)' : null,
+      enabled: true,
+    });
+  }
+  return merged;
+}
+
 function pickProfiles(ns: any): { items: OntologyProfile[]; defaultKey: string | null; showSql: boolean } | null {
   const value = ns?.value;
   if (!value || !Array.isArray(value.items)) return null;
   const items = value.items
-    .filter((i: any) => i && i.key && i.url && i.enabled !== false)
+    .filter((i: any) => i && i.key && i.enabled !== false)
     .map((i: any) => ({
       key: String(i.key),
       label: String(i.label || i.key),
-      url: normalizeUrl(String(i.url)),
+      url: i.url ? normalizeUrl(String(i.url)) : '',
       profile: i.profile ?? null,
       note: i.note ?? null,
       enabled: i.enabled !== false,
@@ -346,7 +374,17 @@ export const ontology = {
       const res: any = await apiClient.describeSettings();
       const ns = (res?.data?.namespaces || []).find((n: any) => n.ns === 'ontology');
       const picked = pickProfiles(ns);
-      if (!picked || picked.items.length === 0) {
+      let installedRows: any[] = [];
+      try {
+        const inst: any = await apiClient.get('/api/ontology/installed');
+        installedRows = inst?.data?.installed || [];
+      } catch { installedRows = []; }
+      const withInstalled = picked
+        ? { ...picked, items: mergeInstalled(picked.items, installedRows) }
+        : (installedRows.length
+            ? { items: mergeInstalled([], installedRows), defaultKey: null, showSql: true }
+            : null);
+      if (!withInstalled || withInstalled.items.length === 0) {
         emit({
           profiles: FALLBACK_PROFILES, profilesFrom: 'fallback',
           profilesError: 'the `ontology` settings namespace has no profiles',
@@ -354,15 +392,16 @@ export const ontology = {
         });
         return;
       }
-      const url = state.url || picked.items.find(p => p.key === picked.defaultKey)?.url || picked.items[0].url;
+      const items = withInstalled.items;
+      const url = state.url || items.find(p => p.key === withInstalled.defaultKey)?.url || items[0]?.url || '';
       emit({
-        profiles: picked.items,
+        profiles: items,
         profilesFrom: 'settings',
-        defaultKey: picked.defaultKey,
-        showSql: picked.showSql,
+        defaultKey: withInstalled.defaultKey,
+        showSql: withInstalled.showSql,
         url,
         profilesError: null,
-        preset: picked.items.find(p => p.url === url)?.key ?? null,
+        preset: items.find(p => p.url === url)?.key ?? null,
       });
     } catch (err: any) {
       emit({
