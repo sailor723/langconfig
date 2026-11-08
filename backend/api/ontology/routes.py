@@ -7,6 +7,7 @@ workbench's own answer).
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import pathlib
 
@@ -314,8 +315,13 @@ def _require_editor() -> str:
 async def publish_stage(req: StageRequest):
     """Validate a candidate ontology without touching the installed one."""
     actor = _require_editor()
-    return ontology_publish.stage(req.key, req.files, actor=actor, note=req.note or "",
-                                  profile_name=req.profile_name)
+    # The gate suite shells out and may run for minutes (timeout 600 s). Called directly inside an
+    # `async def` it blocks the ONLY worker's event loop, so /health stopped answering while a build
+    # staged (measured on the deployment: health 000, load 0.5). A thread keeps the loop free; the
+    # service layer is untouched and already thread-safe (own session, own runtime lock).
+    return await asyncio.to_thread(
+        ontology_publish.stage, req.key, req.files, actor=actor, note=req.note or "",
+        profile_name=req.profile_name)
 
 
 @router.post("/publish/{staged_id}/apply")
@@ -324,8 +330,9 @@ async def publish_apply(staged_id: str, req: ApplyRequest):
     actor = _require_editor()
     if not req.confirmed:
         raise HTTPException(400, "confirmed=false: a publish lands only after a human says so")
-    res = ontology_publish.apply(staged_id, actor=actor, confirmed=True,
-                                 git_commit=req.git_commit)
+    res = await asyncio.to_thread(
+        ontology_publish.apply, staged_id, actor=actor, confirmed=True,
+        git_commit=req.git_commit)
     if not res.get("ok"):
         raise HTTPException(409, res.get("error") or "publish failed")
     return res
@@ -400,7 +407,9 @@ async def dashboard_panels(key: str, refresh: bool = False, filter: Optional[str
     `refresh=true` re-runs it (the cache is 30 s so a page reload does not re-scan the warehouse).
     """
     try:
-        return {"ok": True, **ontology_dashboard.panels(key, refresh=refresh, filter=filter)}
+        payload = await asyncio.to_thread(ontology_dashboard.panels, key,
+                                        refresh=refresh, filter=filter)
+        return {"ok": True, **payload}
     except ontology_dashboard.DashboardError as exc:
         raise HTTPException(404, str(exc)) from exc
 
