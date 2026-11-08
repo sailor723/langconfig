@@ -101,8 +101,13 @@ export default function DashboardChat({
       .then(d => {
         if (cancelled) return;
         const list: string[] = Array.isArray(d?.samples) ? d.samples.filter((s: any) => typeof s === 'string') : [];
-        // the first few are the ones a newcomer should try first; the rest stay visible in the Query page
-        setSuggestions(list.slice(0, 8));
+        // the menu is DECLARED samples + one question per declared metric (so a new metric shows up
+        // here without anyone editing a list). Show a few of each: the authored examples first —
+        // they are the gate-checked ones — then questions that exist because a metric exists.
+        const n = Number(d?.declared_count ?? list.length);
+        const authored = list.slice(0, Math.min(4, n));
+        const derived = list.slice(n, n + 4);
+        setSuggestions([...authored, ...derived].slice(0, 8));
       })
       .catch(() => { if (!cancelled) setSuggestions([]); });
     return () => { cancelled = true; };

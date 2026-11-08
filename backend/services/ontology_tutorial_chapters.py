@@ -61,6 +61,54 @@ def _serve_ui():
     return serve_ui
 
 
+def _menu(key: str) -> dict:
+    """`{samples, declared_count}` — the whole menu plus how many of it the profile wrote by hand.
+
+    The dashboard chat wants both kinds (a few authored examples first, then a few that exist purely
+    because a metric was declared); the Query page shows the whole list.
+    """
+    import serve_ui  # noqa: PLC0415
+    declared = [s for s in (serve_ui.load_settings().get("samples") or [])
+                if isinstance(s, str) and s.strip()]
+    return {"samples": _menu_samples(key), "declared_count": len(declared)}
+
+
+def _menu_samples(key: str) -> list[str]:
+    """The questions this ontology offers — DECLARED samples first, then one per metric.
+
+    A metric that is declared but never offered is a metric nobody asks for: `:askedAs` is mandatory
+    (C5a), so the question already exists in the declaration — there is no reason for a hand-kept list
+    to be the only way a user can discover it. This used to return `settings.samples` alone, which
+    meant adding a metric did NOT add a question anywhere: the Query page and the dashboard chat both
+    offered the same stale list until someone remembered to edit it (measured: 46 metrics declared,
+    28 questions offered, and the dashboard's own hardcoded four included one the ontology refused).
+
+    Order matters: the profile's own samples are the ones with a gate behind them, so they come first.
+    """
+    import serve_ui  # noqa: PLC0415
+    declared = [s for s in (ui_load_samples() or []) if isinstance(s, str) and s.strip()]
+    seen = set(declared)
+    extra: list[str] = []
+    try:
+        import sqlgen  # noqa: PLC0415
+        graph = sqlgen.load()
+        for name in sorted(sqlgen.metrics(graph)):
+            asked = sqlgen._one(graph, sqlgen.P(name), sqlgen.P("askedAs"))
+            asked = str(asked).strip() if asked else ""
+            if asked and asked not in seen:
+                seen.add(asked)
+                extra.append(asked)
+    except Exception:                                          # noqa: BLE001 — the menu still works
+        extra = []
+    return declared + extra
+
+
+def ui_load_samples() -> list:
+    """The profile's declared sample questions (whatever the workbench loaded last)."""
+    import serve_ui  # noqa: PLC0415
+    return serve_ui.load_settings().get("samples") or []
+
+
 def _activate(key: str):
     """Point every compiler module AND the workbench's own settings at this ontology.
 
@@ -196,7 +244,7 @@ def call(key: str, rest: str, query: dict[str, list[str]], payload: dict | None 
             # the Query page's own endpoints: the question box, its policy/backlog side panels
             "/nl/config": ui.nl_config,
             "/nl/backlog": ui.nl_backlog,
-            "/samples": lambda: {"ok": True, "samples": ui.load_settings().get("samples") or []},
+            "/samples": lambda: {"ok": True, **_menu(key)},
             "/lanes": lambda: ui.run_lane_b(ui.load_settings()),
         }
         fn = table.get(path)

@@ -20,8 +20,9 @@
  *                        (on-time vs overload per vehicle) next to what is missing (:DispatchDecision).
  */
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
-import { AlertTriangle, ArrowRight, BarChart3, Copy, RefreshCw, Route, Sigma, Sparkles } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BarChart3, Boxes, Copy, RefreshCw, Route, Sigma, Sparkles } from 'lucide-react';
 import { useLayoutTokens } from '../components/layout2/tokens';
 import { Btn, Card, Chip, Hero, PageShell, Section, mono, CYAN, DANGER, INFO, SUCCESS, VIOLET, WARN } from '../features/ontology/ui';
 import { ontology, useOntology } from '../features/ontology/ontologyStore';
@@ -610,6 +611,7 @@ function DispatchPanel({ panel, verbs }: {
 // ── the page ────────────────────────────────────────────────────────────────────────────────
 export default function OntologyDashboardPage() {
   const t = useLayoutTokens();
+  const navigate = useNavigate();
   const s = useOntology();
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -621,12 +623,14 @@ export default function OntologyDashboardPage() {
   const [filter, setFilter] = useState<{ dimension: string; value: string } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [verbs, setVerbs] = useState<Array<{ name: string; parameters: string[]; kind?: string }>>([]);
-  // Which ontologies HAVE a declaration. The profile list is ordered by someone else (clinic first),
-  // and a direct visit to /ontology/dashboard would otherwise land on an ontology that simply has no
-  // dashboard — an error card for a configuration the user never chose.
-  const [hasDashboard, setHasDashboard] = useState<Array<{ key: string }>>([]);
-
-  const key = s.preset || (s.profiles.find(p => p.url === s.url)?.key ?? null);
+  // THIS ontology's board, and only this one.
+  //
+  // The page used to fall back to `profiles.find(p => p.url === s.url)` and, when the open ontology had
+  // no `dashboard.json`, offer buttons that switched to another ontology's board ("这些本体的看板已经
+  // 写好：打开 clinic"). Reported from the deployment: opening retail's Dashboard showed a different
+  // ontology's page. A board is a declaration; an ontology without one has no board, and the page says
+  // so instead of borrowing one.
+  const key = s.preset || null;
 
   const load = useCallback(async (refresh = false) => {
     if (!key) return;
@@ -647,16 +651,6 @@ export default function OntologyDashboardPage() {
       setLoading(false);
     }
   }, [key, filter]);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const res: any = await apiClient.get('/api/ontology/dashboards', { timeout: 30000 });
-        const payload = res?.data ?? res;
-        setHasDashboard(payload?.ontologies || []);
-      } catch { setHasDashboard([]); }
-    })();
-  }, []);
 
   useEffect(() => { void ontology.ensureReady().then(() => load(false)); }, [load]);
 
@@ -774,28 +768,15 @@ export default function OntologyDashboardPage() {
             <AlertTriangle size={14} style={{ verticalAlign: -2, marginRight: 5 }} />
             {error}
           </div>
-          <div style={{ fontSize: 11, color: t.textMuted, marginTop: 6 }}>
-            看板是一份声明（<span style={mono}>ontologies/{key}/dashboard.json</span>）。没有声明就没有看板——这不是加载失败。
+          <div style={{ fontSize: 11, color: t.textMuted, marginTop: 6, lineHeight: 1.7 }}>
+            看板是一份声明（<span style={mono}>{key || '<ontology>'}/dashboard.json</span>）。没有声明就没有看板——这不是加载失败，
+            也不会借另一个本体的看板来填满这一页。
           </div>
-          {hasDashboard.filter(o => o.key !== key).length > 0 && (
-            <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 11.5, color: t.textMuted }}>这些本体的看板已经写好：</span>
-              {hasDashboard.filter(o => o.key !== key).map(o => (
-                <Btn
-                  key={o.key}
-                  variant="primary"
-                  onClick={() => void (async () => {
-                    const prof = s.profiles.find(x => x.key === o.key);
-                    if (prof) await ontology.select(prof.url, prof.key);
-                    setError(null);
-                    await load(true);
-                  })()}
-                >
-                  <BarChart3 size={13} style={{ marginRight: 4 }} />打开 {o.key}
-                </Btn>
-              ))}
-            </div>
-          )}
+          <div style={{ marginTop: 10 }}>
+            <Btn onClick={() => navigate('/ontology/browse')}>
+              <Boxes size={13} style={{ marginRight: 4 }} />回到本体列表
+            </Btn>
+          </div>
         </Card>
       )}
 

@@ -73,6 +73,27 @@ def _same(got, want, tol: float) -> bool:
     return a is not None and b is not None and abs(a - b) <= max(tol, 1e-9 * max(abs(a), abs(b), 1.0))
 
 
+def _run_route(route_sql: str) -> list[tuple]:
+    """Run the sample's OWN hand-written SQL — the second route — on the profile's database.
+
+    A sample whose expectation is a frozen number stops biting the moment the data moves: the gate
+    then compares the pipeline to a number from last month. Declaring the ROUTE instead (`"route":
+    "SELECT v.plate, sum(s.damaged_boxes)*1000.0/count(*) FROM … GROUP BY 1"`) keeps the check a
+    comparison of two independent derivations at gate time, and nothing is copied by hand into a
+    declaration (measured: a 60-row per-vehicle map was pasted into samples.json, which is exactly
+    the kind of value that rots silently).
+    """
+    import psycopg2  # noqa: PLC0415 — the gate only needs it when a route is declared
+    import actions   # noqa: PLC0415
+    conn = psycopg2.connect(**actions.dsn())
+    try:
+        cur = conn.cursor()
+        cur.execute(route_sql)
+        return cur.fetchall()
+    finally:
+        conn.close()
+
+
 def _rows_of(result: dict) -> dict[str, str]:
     """Grouped answers, in either of the two shapes the pipeline produces.
 
@@ -190,12 +211,34 @@ def main() -> int:
             got = result.get("value")
             check(f"{question!r} value", expect["value"] if _same(got, expect["value"], tol) else got,
                   expect["value"])
+        if expect.get("route"):
+            # the SECOND route is run NOW, not remembered
+            try:
+                route_rows = _run_route(str(expect["route"]))
+            except Exception as exc:                            # noqa: BLE001
+                check(f"{question!r} route runs", f"{type(exc).__name__}: {exc}"[:120], "ran")
+                continue
+            if len(route_rows) == 1 and len(route_rows[0]) == 1:
+                want = route_rows[0][0]
+                got = result.get("value")
+                check(f"{question!r} value == the hand SQL", got if _same(got, want, tol) else got,
+                      want)
+            else:
+                want_rows = {str(r[0]): "" if r[1] is None else str(r[1]) for r in route_rows}
+                got_rows = _rows_of(result)
+                same = set(got_rows) == set(want_rows) and all(
+                    _same(got_rows[k], want_rows[k], tol) for k in want_rows)
+                check(f"{question!r} rows == the hand SQL ({len(want_rows)} group(s))",
+                      "match" if same else got_rows, "match")
+            continue
         if "rows" in expect:
             got_rows = _rows_of(result)
             want_rows = {str(k): str(v) for k, v in (expect["rows"] or {}).items()}
             same = set(got_rows) == set(want_rows) and all(
                 _same(got_rows[k], want_rows[k], tol) for k in want_rows)
             check(f"{question!r} rows ({len(want_rows)} group(s))", "match" if same else got_rows, "match")
+            print(f"        [WARN] this expectation is a FROZEN number map — declare a \"route\" SQL "
+                  f"instead so the gate compares two derivations at run time, not to last month's number")
 
     print()
     unresolved = [s for s in samples if (s.get("expect") or {}).get("unresolved")]

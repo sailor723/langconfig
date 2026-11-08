@@ -104,6 +104,19 @@ def cards(key: str) -> list[dict]:
         return tutorial_api.metric_cards(_settings(key), sqlgen.load())
 
 
+def _has_dashboard(key: str) -> bool:
+    """Does this ontology DECLARE a board? `dashboard.json` next to the profile is the whole test.
+
+    The Dashboard section used to be injected by the UI for every ontology, so opening retail's
+    dashboard offered "these ontologies have a board, open them" — i.e. it showed ANOTHER ontology's
+    page for a configuration the user never chose. A section a profile does not serve is not offered.
+    """
+    try:
+        return (_profile(key).parent / "dashboard.json").is_file()
+    except Exception:                                            # noqa: BLE001
+        return False
+
+
 def sections(key: str) -> list[dict]:
     """Which sections this profile serves. Switched-off sections are named, not omitted silently."""
     feats = _settings(key).get("features") or {}
@@ -112,6 +125,10 @@ def sections(key: str) -> list[dict]:
          "hint": "the graph and the documentation generated from this TTL"},
         {"key": "query", "label": "Query", "path": "/query", "enabled": True,
          "hint": "ask in your own words; rules first, model only when unsure"},
+        # the dashboard is an APP page, and it exists only when the profile DECLARES one
+        {"key": "dashboard", "label": "Dashboard", "path": "/ontology/dashboard",
+         "kind": "app", "enabled": _has_dashboard(key),
+         "hint": "the board: declared metrics, an opening assessment, cross-filter"},
         {"key": "actions", "label": "Actions", "path": "/actions",
          "enabled": bool(feats.get("actions", False)),
          "hint": "declared writes: compiled preconditions, dry-run, audit"},
