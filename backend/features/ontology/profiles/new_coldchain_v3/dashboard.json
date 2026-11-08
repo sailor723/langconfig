@@ -69,6 +69,22 @@
   {
    "metric": "fixedCostTripTotal",
    "note": "保险/折旧/车船税/年检摊到趟次"
+  },
+  {
+   "metric": "onTimeRateByStop",
+   "label": "站点级准时率"
+  },
+  {
+   "metric": "overThresholdStopRate",
+   "label": "站点超标率（>15 站/趟）"
+  },
+  {
+   "metric": "anomalyTripRate",
+   "label": "配送异常率"
+  },
+  {
+   "metric": "violationsPer10kKm",
+   "label": "违章率（起/万公里）"
   }
  ],
  "panels": [
@@ -266,6 +282,29 @@
     "boxesOverRate"
    ],
    "note": "Excel 明确三条分别比；箱数通常先到极限。"
+  },
+  {
+   "id": "p_redlines",
+   "kind": "parallel",
+   "title": "K3 三条红线：站点超标 / 重量超载 / 轴荷超限",
+   "question": "越界是哪一种：站数排多了，还是装重了？",
+   "metrics": [
+    "overThresholdStopRate",
+    "overloadRateWeight",
+    "axleOverloadRate"
+   ],
+   "note": "三个比率并排，不做减法：站点超标看「一趟超过 15 站」，重量超载看「装重 > 核定载重」，轴荷超限看「任一根轴超轴限」。三者口径不同，相加没有意义。"
+  },
+  {
+   "id": "p_anomaly_rate",
+   "kind": "parallel",
+   "title": "K2 异常率：趟次口径与站点口径并排",
+   "question": "异常到底发生在多少趟、多少站？两个分母差多少？",
+   "metrics": [
+    "anomalyTripRate",
+    "abnormalStopRate"
+   ],
+   "note": "趟次口径 = 有异常工单的趟 ÷ 总趟次（107/4,120 = 2.60%）；站点口径 = 实测异常站 ÷ 总站次。分母不同，不能互换。口径来自 口径字典#K2。"
   }
  ],
  "briefing": {

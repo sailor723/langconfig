@@ -684,3 +684,29 @@
 :violationCountByVehicle a owl:DatatypeProperty ; rdfs:label "按车辆看违章数" ; :askedAs "按车辆看违章数" ; rdfs:domain :Violation ;
     :aggregate "count" ; :grain :Violation ; :universe :Violation ; :groupBy :vehiclePlate ; :unit "count" ;
     :businessDescription "沪A**#060 11 条 / #059 9 条 / #053 9 条最多（violations→vehicles.plate）。 口径来自 doc#Book1-KPI6；数值 measured: violations。" .
+
+:tripsWithIncident a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :TripWithIncident ; :grain :Trip ; :universe :Trip ;
+    rdfs:label "异常趟次" ; :unit "count" ; :additivity "additive" ;
+    :askedAs "多少趟出了异常" ;
+    :businessDescription "有异常工单的趟次（一趟多单只算一次）。measured: 107 趟。口径来自 answers:Q3 / 口径字典#K2。" .
+
+:anomalyTripRate a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
+    :numerator :tripsWithIncident ; :denominator :tripCount ; :scale "100.0" ;
+    rdfs:label "配送异常率（趟次口径）" ; :unit "percent" ;
+    :askedAs "异常率是多少" ;
+    :businessDescription "异常趟次 ÷ 总趟次 × 100。measured: 107/4,120 = 2.60%，在 Excel 目标 ≤3% 之内。口径来自 口径字典#K2。" .
+
+:fleetKmPer10k a owl:DatatypeProperty ;
+    :aggregate "sum" ; :formula "actual_km / 10000" ; :grain :Trip ; :universe :Trip ;
+    rdfs:label "万公里数" ; :unit "10k km" ; :askedAs "车队一共跑了多少万公里" ;
+    :businessDescription "Σ(actual_km / 10000)。只是「每万公里违章」的分母：尺度放在分母上，ratio_of_sums 才不会把单位算错。measured: 25.7872 万公里。" .
+
+:violationsPer10kKm a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
+    :numerator :violationCount ; :denominator :fleetKmPer10k ;
+    rdfs:label "违章率（每万公里）" ; :unit "起/万公里" ;
+    :askedAs "每万公里多少起违章" ;
+    :businessDescription "违章起数 ÷ 总里程 × 10,000 = 245 / 25.7872 = 9.50 起/万公里。**车队级口径**：violations 没有 trip_id，所以只能对整队算，不能摊到某一趟——分摊到趟就是发明数据。口径来自 口径字典#K5。" .
+

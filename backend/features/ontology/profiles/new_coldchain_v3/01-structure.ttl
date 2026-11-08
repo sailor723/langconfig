@@ -213,7 +213,7 @@
 :ageYears a owl:DatatypeProperty ; rdfs:label "车龄（年）" ; rdfs:domain :Vehicle ; rdfs:range xsd:decimal ;
     :physicalColumn "age_years" .
 :coreZonePermit a owl:DatatypeProperty ; rdfs:label "是否有核心区通行许可" ; rdfs:domain :Vehicle ; rdfs:range xsd:boolean ;
-    :physicalColumn "core_zone_permit" ; :businessDescription "「有没有许可证」，不是「有没有违规进入」。所以 K5 的违章率测不出来，见拒绝 roadRightViolationRate。" .
+    :physicalColumn "core_zone_permit" ; :businessDescription "「有没有许可证」，不是「有没有违规进入」。K5 的违章率只能按车队算（violations 没有 trip_id，见 :violationsPer10kKm），摊到单趟是发明数据；路权口径另算，见 roadRightViolationRate。" .
 :boxCapacity a owl:DatatypeProperty ; rdfs:label "核定箱位" ; rdfs:domain :Vehicle ; rdfs:range xsd:integer ;
     :physicalColumn "box_capacity" .
 :volumeCapacity a owl:DatatypeProperty ; rdfs:label "核定容积" ; rdfs:domain :Vehicle ; rdfs:range xsd:decimal ;

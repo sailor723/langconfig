@@ -686,6 +686,16 @@
         )
     ] .
 
+# 用户 Excel 的 K2 是「异常趟次 ÷ 总趟次」，而工单表在趟次之上：一条工单记一趟。
+# 这个定义把「有异常上报的趟」搬到 :Trip 上，分子分母才在同一颗粒上可加。
+:TripWithIncident
+    a owl:Class ;
+    rdfs:subClassOf :Trip ;
+    rdfs:label "有异常上报的趟" ;
+    rdfs:comment "incident_tickets 里存在 trip_id 指向本趟的工单。measured: 107 张工单落在 107 个不同的趟上（2.60%）。" ;
+    :businessDescription "口径来自 口径字典#K2：异常率 = 异常趟次 ÷ 总趟次。用 EXISTS 而不是 JOIN，避免一趟多单把分母乘大。" ;
+    :physicalPredicate "EXISTS (SELECT 1 FROM incident_tickets it WHERE it.trip_id = trips.id)" .
+
 :PrimaryIncidentTicket
     a owl:Class ;
     rdfs:subClassOf :IncidentTicket ;

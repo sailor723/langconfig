@@ -110,6 +110,22 @@
   {
    "metric": "tcoPerKm",
    "note": "含维修与固定成本；trip_costs.other_cost 整列无记录，所以是下限"
+  },
+  {
+   "metric": "overPlannedStopRate",
+   "label": "超规划站数趟占比"
+  },
+  {
+   "metric": "stopDeliveryCompletionRate",
+   "label": "站点交付完成率"
+  },
+  {
+   "metric": "anomalyTripRate",
+   "label": "配送异常率"
+  },
+  {
+   "metric": "violationsPer10kKm",
+   "label": "违章率（起/万公里）"
   }
  ],
  "panels": [
@@ -323,6 +339,29 @@
    "metric": "maintenanceSpendByCategory",
    "null_label": "未记录",
    "note": "金额口径，工单数口径是 maintenanceOrderCountByCategory；金额占比不等于工单数占比。"
+  },
+  {
+   "id": "delivery_rates",
+   "kind": "parallel",
+   "title": "K4 交付三率：出勤 / 线路完成 / 站点交付完成",
+   "question": "人来了吗、线跑完了吗、站交付了吗？",
+   "metrics": [
+    "attendanceRate",
+    "routeCompletionRate",
+    "stopDeliveryCompletionRate"
+   ],
+   "note": "三根柱子并排：分母不同（排班人天 / 趟次 / 计划站次），所以不做减法。口径来自 口径字典#K4。"
+  },
+  {
+   "id": "anomaly_rate",
+   "kind": "parallel",
+   "title": "K2 异常率：趟次口径与破损站口径",
+   "question": "异常发生在多少趟，破损落在多少站？",
+   "metrics": [
+    "anomalyTripRate",
+    "damagedStopRate"
+   ],
+   "note": "趟次口径 = 有异常工单的趟 ÷ 总趟次（2.60%）；破损站口径 = 有破损的站 ÷ 总站次。分母不同，不能互换。"
   }
  ],
  "holes": [],
