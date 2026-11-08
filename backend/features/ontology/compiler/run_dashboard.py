@@ -218,6 +218,46 @@ def panel_metric_refs(panel: dict) -> list[str]:
     return out
 
 
+def normalise_policy(dash: dict) -> list[dict]:
+    """`policy` in its two legal shapes, as ONE list of canonical entries.
+
+    Declared as a list, an entry is `{"id", "metric", "op", "value", assumed|confirmed}` — the shape
+    the assessment and the gate were written against. Declared as a MAPING, it is
+    `{metric: {"threshold", "kind": "floor"|"ceiling", "source"}}`, which is how a builder naturally
+    writes "8 个指标各有一条红线". Both are declarations; the reader normalises instead of crashing.
+
+    Measured: `collect_metrics` iterated the mapping and called `.get()` on its KEYS, so a perfectly
+    good dashboard 500'd on `/dashboard/panels` with `AttributeError: 'str' object has no attribute
+    'get'` — the panel page was dead for a declaration the gate had already passed.
+
+    `floor` means "at least the threshold is good", so a breach is `<`; `ceiling` means "at most",
+    so a breach is `>`. `source` starting with `refused` is what marks a threshold as NOT confirmed
+    by the business, which is exactly the `assumed` flag the gate wants marked.
+    """
+    raw = dash.get("policy")
+    if isinstance(raw, dict):
+        out = []
+        for metric, spec in raw.items():
+            if not isinstance(metric, str):
+                continue
+            spec = spec if isinstance(spec, dict) else {}
+            kind = str(spec.get("kind") or "").lower()
+            source = str(spec.get("source") or "")
+            out.append({
+                "id": metric,
+                "metric": metric,
+                "op": "<" if kind == "floor" else (">" if kind == "ceiling" else ">"),
+                "value": spec.get("threshold", spec.get("value")),
+                "assumed": source.lower().startswith(("refused", "assumed")) or spec.get("assumed") is True,
+                "confirmed": spec.get("confirmed") is True or source.lower().startswith("confirmed"),
+                "note": source or None,
+            })
+        return [x for x in out if x["value"] is not None]
+    if isinstance(raw, list):
+        return [x for x in raw if isinstance(x, dict)]
+    return []
+
+
 def collect_metrics(dash: dict) -> list[tuple[str, str]]:
     """(metric, why-it-is-here) in FIRST-SEEN order, deduped — stable output, readable errors."""
     out: list[tuple[str, str]] = []
@@ -236,7 +276,7 @@ def collect_metrics(dash: dict) -> list[tuple[str, str]]:
             add(name, f"panels:{pid}")
     for hole in dash.get("holes") or []:
         add(hole.get("metric"), f"holes:{hole.get('metric')}")
-    for pol in dash.get("policy") or []:
+    for pol in normalise_policy(dash):
         add(pol.get("metric"), f"policy:{pol.get('id')}")
     for metric, _key in briefing_refs(dash):
         add(metric, "briefing")
@@ -322,7 +362,7 @@ def resolve_briefing(dash: dict, results: dict) -> dict:
     dashboard exists to prevent.
     """
     brief = dash.get("briefing") or {}
-    policy = dash.get("policy") or []
+    policy = normalise_policy(dash)
 
     pol_out = []
     for pol in policy:
