@@ -41,6 +41,41 @@ logger = logging.getLogger(__name__)
 # the second count, not a silent stop.
 TURN_TIMEOUT_SECONDS = int(os.getenv("ONTOLOGY_BUILD_TURN_TIMEOUT", "1200"))
 
+# A build IS one long agent turn, and the provider's SSE stream can drop in the middle of it. Measured
+# on the deployment: `httpx.ReadError` from api.deepseek.com after "200 OK", twice in a row, and the
+# whole turn was lost — no error in the task, just a row that stayed RUNNING. A dropped stream is a
+# transport failure, not a wrong answer: the session still holds everything done so far, so the cheap
+# fix is to ask it to CONTINUE rather than to start over.
+STREAM_RETRIES = int(os.getenv("ONTOLOGY_BUILD_STREAM_RETRIES", "2"))
+STREAM_RETRY_BACKOFF_SECONDS = float(os.getenv("ONTOLOGY_BUILD_STREAM_BACKOFF", "5"))
+
+CONTINUE_AFTER_DROP = (
+    "上一轮的模型连接在传输中途断开了（不是你的错，重试机制已经接上）。"
+    "请**接着做**，不要重做：先看一眼 work/<key>/ 下已经写好的文件，从最后一个落盘的步骤之后继续；"
+    "每完成一步就把文件写盘，并在回答里用一行报进度。"
+)
+
+
+def _is_stream_drop(exc: BaseException) -> bool:
+    """Did the MODEL STREAM die (transport), rather than the work fail?
+
+    Walks the cause chain: an HTTPException(500) from `send_message` wraps the httpx/openai error, and
+    only the leaf names what happened. A TimeoutError is handled separately (that one fails the task).
+    """
+    seen: set[int] = set()
+    cur: BaseException | None = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        name = type(cur).__name__.lower()
+        text = f"{type(cur).__name__}: {cur}"
+        if any(t in name for t in ("readerror", "remote protocol", "remoteprotocol",
+                                   "connectionerror", "apiconnection", "incompleteread")):
+            return True
+        if "server disconnected" in text.lower() or "peer closed" in text.lower():
+            return True
+        cur = cur.__cause__ or cur.__context__
+    return False
+
 TASK_TYPE = "ontology_build"
 
 # Long: a real build reads a schema, samples rows, writes three TTL files, a profile and a tutorial,
@@ -253,20 +288,35 @@ async def _run_build(payload: dict, task_id: int) -> dict:
 
         _note(task_id, "agent is proving the delta" if _installed_dir(key) is not None
               else "agent is reading the database and writing the declarations")
-        try:
-            reply = await asyncio.wait_for(
+        async def one_turn(text: str):
+            return await asyncio.wait_for(
                 send_message(
-                    SendMessageRequest(session_id=session_id, message=message, project_id=project_id), db),
+                    SendMessageRequest(session_id=session_id, message=text, project_id=project_id), db),
                 timeout=TURN_TIMEOUT_SECONDS,
             )
-        except asyncio.TimeoutError as exc:
-            # Name it as what it is, with the number, and let the queue settle the row as failed: a
-            # build that never returns must not hold "RUNNING" forever.
-            raise BuildError(
-                f"the agent's turn did not return within {TURN_TIMEOUT_SECONDS}s "
-                f"(session {session_id}); the build was stopped. Re-run it with a narrower brief, "
-                f"or raise ONTOLOGY_BUILD_TURN_TIMEOUT if the model is simply slow."
-            ) from exc
+
+        reply = None
+        for attempt in range(STREAM_RETRIES + 1):
+            try:
+                reply = await one_turn(message if attempt == 0 else
+                                       CONTINUE_AFTER_DROP.replace("<key>", key))
+                break
+            except asyncio.TimeoutError as exc:
+                # A turn that never returns must FAIL, with the number, and let the queue settle the
+                # row: a build that stays RUNNING forever blocks the retry and teaches nobody anything.
+                raise BuildError(
+                    f"the agent's turn did not return within {TURN_TIMEOUT_SECONDS}s "
+                    f"(session {session_id}); the build was stopped. Re-run it with a narrower brief, "
+                    f"or raise ONTOLOGY_BUILD_TURN_TIMEOUT if the model is simply slow."
+                ) from exc
+            except Exception as exc:                                # noqa: BLE001
+                if attempt >= STREAM_RETRIES or not _is_stream_drop(exc):
+                    raise
+                _note(task_id, f"the model stream dropped ({type(exc).__name__}); "
+                               f"asking it to continue ({attempt + 1}/{STREAM_RETRIES})")
+                await asyncio.sleep(STREAM_RETRY_BACKOFF_SECONDS * (attempt + 1))
+        if reply is None:                                           # unreachable; kept honest
+            raise BuildError(f"the agent never answered (session {session_id})")
         body = reply.model_dump() if hasattr(reply, "model_dump") else dict(reply or {})
         answer = body.get("message") or ""
         tool_calls = body.get("tool_calls") or []
