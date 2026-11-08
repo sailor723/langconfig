@@ -6,7 +6,7 @@ triggers:
   - When asked to build or extend an ontology / semantic layer for a database
   - When a KPI or metric must be defined once and compiled, not hand-written per report
   - When "the same metric gives two different numbers" and the definitions must be settled
-version: 2.8
+version: 2.9
 author: weiping
 
 params:
@@ -210,6 +210,17 @@ document section with no declaration consequence is nothing at all.
 The rebuild seed (installed objects/metrics/samples, the answers already given, the guard) arrives **in
 the first message**. If it is missing, that is a platform bug worth naming — do not spend the turn
 reading `01-structure.ttl` (597 lines) to rebuild a list the platform already had.
+
+**The compiler and the gate scripts are not your material.** Two deployed builds died at exactly this
+point: they read `compiler/sqlgen.py` eleven times and `gates/check_structure.py` eight times (to learn
+an invocation that is written in this file), the transcript grew to 100 KB+ in two minutes, and the model
+call then never returned — the task sat `RUNNING` with zero file writes until it was killed. Read the
+declarations you must change, the seed you were given, and the answers file. Do not read the code that
+compiles you: if you need the invocation, it is below; if you need to know WHY something was refused, the
+declaration is the evidence, not the generator.
+
+**Read a file at most once.** Re-reading is how a turn silently becomes three times its size; keep the
+facts you need in `work/<key>/*.json` and read those.
 
 ---
 
@@ -560,6 +571,13 @@ Stage runs the whole build track against the staging copy, and two checks bite a
   red line there is a real defect in the TTL, not a formatting nit.
 - `P2 the page's title is this profile's title` — the page title must equal `settings.title`. A profile whose
   `title` is its own key (`"new_coldchain"`) gets a page titled `new_coldchain`; give it the business title.
+
+### A build that hangs must fail, not sit there
+
+The platform bounds one build turn (`ONTOLOGY_BUILD_TURN_TIMEOUT`, default 1200 s) and fails the task
+with the number instead of leaving it `RUNNING` forever. That does not make a hang cheap — it makes it
+visible. If you are re-running a build that hung, change what made it big (shorter brief, fewer reads,
+skip the already-green steps) rather than just pressing start again.
 
 ### A number you read may be a cached number — say `refresh=true`
 

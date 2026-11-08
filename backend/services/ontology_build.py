@@ -20,8 +20,10 @@ editor chat's apply is about changing what a number MEANS.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import os
 import pathlib
 from typing import Optional
 
@@ -30,6 +32,14 @@ from sqlalchemy.orm import Session
 from services import ontology_publish as _pub   # noqa: E402  (the installed-ontology fact)
 
 logger = logging.getLogger(__name__)
+
+# A build is ONE agent turn, and that turn can hang: measured twice on the deployment — two builds sat
+# "RUNNING" for 35+ minutes with zero file writes, ~0 % CPU (so: waiting on the model, not looping),
+# and the queue row never settled because a restart killed the worker that owned it. A hang with no
+# timeout is the worst failure mode: it looks alive, blocks the retry, and teaches the operator nothing.
+# The cap is generous (a real build turn has been measured at a few minutes) and it is a FAILURE, with
+# the second count, not a silent stop.
+TURN_TIMEOUT_SECONDS = int(os.getenv("ONTOLOGY_BUILD_TURN_TIMEOUT", "1200"))
 
 TASK_TYPE = "ontology_build"
 
@@ -243,8 +253,20 @@ async def _run_build(payload: dict, task_id: int) -> dict:
 
         _note(task_id, "agent is proving the delta" if _installed_dir(key) is not None
               else "agent is reading the database and writing the declarations")
-        reply = await send_message(
-            SendMessageRequest(session_id=session_id, message=message, project_id=project_id), db)
+        try:
+            reply = await asyncio.wait_for(
+                send_message(
+                    SendMessageRequest(session_id=session_id, message=message, project_id=project_id), db),
+                timeout=TURN_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError as exc:
+            # Name it as what it is, with the number, and let the queue settle the row as failed: a
+            # build that never returns must not hold "RUNNING" forever.
+            raise BuildError(
+                f"the agent's turn did not return within {TURN_TIMEOUT_SECONDS}s "
+                f"(session {session_id}); the build was stopped. Re-run it with a narrower brief, "
+                f"or raise ONTOLOGY_BUILD_TURN_TIMEOUT if the model is simply slow."
+            ) from exc
         body = reply.model_dump() if hasattr(reply, "model_dump") else dict(reply or {})
         answer = body.get("message") or ""
         tool_calls = body.get("tool_calls") or []
