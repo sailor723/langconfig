@@ -42,6 +42,26 @@ class PageError(Exception):
 def _profile(key: str) -> pathlib.Path:
     profile = ontology_runtime.profile_for(key)
     if profile is None:
+        # A key that a BUILDER declares is being built, not missing: the page cannot load yet because
+        # nothing is installed, and "no ontology 'x'" reads like a typo. Say which agent owns it and
+        # what turns it into an ontology, so the panel can point at the build instead of failing.
+        try:
+            from services import ontology_build as _ob
+            from db.database import SessionLocal
+            db = SessionLocal()
+            try:
+                who = [b for b in _ob.builders(db) if b.get("ontology_key") == key]
+            finally:
+                db.close()
+        except Exception:                                        # noqa: BLE001
+            who = []
+        if who:
+            b = who[0]
+            raise PageError(
+                f"{key!r} is being built, not installed yet: builder agent {b['agent_id']} "
+                f"({b['agent_name']}) owns it. Its declarations only become pages after a staged "
+                f"publish is applied — open the build (对话式构建) for this key, or apply its pending "
+                f"publish in Settings → Ontology.")
         raise PageError(f"no ontology {key!r}")
     return profile
 
