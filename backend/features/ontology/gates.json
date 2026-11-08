@@ -83,5 +83,14 @@
       "check_dashboard"
     ],
     "pending_install": "staged 1794148197-5a9db2 — publish was refused at stage time on the ENGINE, not on the declaration (check_samples pinned the answer but not the intent; fixed by NL_INTENT_LLM). Re-run the publish; once the profile is installed, DELETE this field so the suite gates it."
+  },
+  "new_coldchain_v3": {
+    "why": "v3：由 v1 重建，数据层补齐 9 张表 + 10 个列之后，六类 Excel KPI 全部落地。91 个指标编译、0 按名拒绝；17 张面板（六类各至少一图：异常类型/责任方、按车轴荷、出勤按周、按车违章、违章类别、油耗按周、线路完成率、成本构成、实际异常、三条超载口径）+ 17 个 KPI 卡；19 条样例含 8 条 KPI 真值（手写 SQL 第二条路线）与 3 条按名拒绝。",
+    "profile": [
+      "check_structure",
+      "check_ontology_generic",
+      "check_samples",
+      "check_dashboard"
+    ]
   }
 }

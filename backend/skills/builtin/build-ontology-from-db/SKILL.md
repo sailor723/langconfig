@@ -6,7 +6,7 @@ triggers:
   - When asked to build or extend an ontology / semantic layer for a database
   - When a KPI or metric must be defined once and compiled, not hand-written per report
   - When "the same metric gives two different numbers" and the definitions must be settled
-version: 2.5
+version: 2.6
 author: weiping
 
 params:
@@ -376,7 +376,11 @@ is never windowed, an empty window is reported, and **G1c** — every `big_table
 ## S5. Menu, names, samples
 
 - every metric gets a `rdfs:label` in the user's language and an `:askedAs` a question can match;
-- per-profile aliases for words that mean different things per dataset;
+- per-profile aliases for words that mean different things per dataset — **and for every new word the
+  material introduces**. Measured on the v3 build: 36 KPI metrics were declared with `:askedAs`, and the
+  questions still refused, because 违章 / 出勤 / 油耗 / 路权 / 轴荷 were not in `settings.aliases`;
+  `违章多少条` answered only after `违章 → violation` was added. The gate cannot catch this: it only
+  checks the samples you wrote, and you will have written the ones that already worked;
 - `samples.json`: 8–15 questions, one per capability, **at least one that must be refused**, each stating what it
   must produce (`value`, `rows`, `refused_by_name`) with numbers from a **second SQL route**;
 - what the ontology cannot honour yet is `unresolved`, **with the missing declaration named**;
@@ -447,6 +451,27 @@ costs. A panel that cannot answer ships as a refusal card.
 
 Gate `gates/check_dashboard.py --profile …`: every referenced metric is declared or a declared hole; each metric
 has the shape its panel needs; independent SQL agrees; a grouped rate weights back to the ungrouped value.
+
+### The board is a deliverable, not a by-product
+
+That gate validates the panels that EXIST. It does not know which families the material named, so **a board that
+shows none of them is green** — measured on the v3 build: 36 KPI metrics across the six families the business
+asked for, every gate green, and the board still carrying only the six panels inherited from v1. The build had
+done S1–S3 and stopped.
+
+So the done-line for S6 is a **coverage check, written into the profile's own words**, and it is enforced by a
+sample-shaped habit rather than by luck:
+
+1. list the families the material names (its headings are the list);
+2. for each, name the metric and the panel that shows it — one line per family, in the publish note;
+3. a family whose metric exists but has no panel is **not done**: a number nobody can see is a declaration the
+   business never asked for;
+4. the panel's `kind` is chosen by the metric's shape, not by taste — one `groupBy` → `ranked` or `composition`,
+   a time bucket → `series`, two `groupBy`s → `matrix`, several metrics of one unit → `parallel`, a share of a
+   total → `treemap`/`sankey`.
+
+Same rule for the KPI cards: a headline number belongs in `kpis` **and** in a panel, because the card says what it
+is today and the panel says where it comes from.
 
 ---
 

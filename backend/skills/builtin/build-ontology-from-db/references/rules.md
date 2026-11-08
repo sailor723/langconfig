@@ -369,6 +369,21 @@ Bump `version:`, run `scripts/check_skill.py` (this lint), push, then
 
 **Gate:** `check_skill.py` — L1 version, L2 dead links, L3 reachability, L4 rules-vs-gates, L5 counts.
 
+## 25. Every KPI the material names reaches a panel, or the step is not done
+
+A metric compiles, appears in the menu, answers correctly — and is still invisible, because nothing draws it. The
+gate validates the panels that exist, so an ontology that declared six KPI families and shipped none of them can
+be **entirely green**: measured on the v3 build, 36 KPI metrics from the customer's own KPI dictionary (准时 / 异常 /
+超载 / 出勤 / 线路完成 / 违章 / 路权 / 油耗 / 维修 / TCO) landed with the board still showing v1's six panels.
+
+**Gate:** none — this is a coverage check, so it must be written down where a person reads it: the publish note
+lists one line per family, `family → metric → panel id → kind`. A family with no panel is absent on purpose, and
+says why (no data / refused by name), never silently.
+
+Corollary, learned the same afternoon: a **headline number belongs in `kpis` and in a panel**. The card answers
+"what is it today"; the panel answers "where does it come from". Shipping only the card is how `tcoPerKm` and
+`violationCount` became the two numbers nobody could interrogate.
+
 ## 24. Nothing a profile carries may name a machine
 
 The line that must not exist: `NL_PYTHON = "/Users/weiping/.../.venv/bin/python"`. It made the Query page

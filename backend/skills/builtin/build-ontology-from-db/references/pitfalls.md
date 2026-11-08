@@ -241,3 +241,38 @@ the ontology cannot answer teaches the user that the ontology is broken.
 the Query page shows and `check_samples.py` gates. One source; a question that appears in one place
 appears in the other.
 
+### 36 KPI metrics, zero panels, every gate green
+
+The material was a six-family KPI dictionary (准时 / 异常 / 超载与站点超标 / 出勤与线路完成 / 违章与路权 / 油耗与维修).
+The build declared 36 metrics for it — `incidentCountByType`, `axleOverloadRate`, `attendanceRate`,
+`violationCountByCategory`, `fuelPer100km`, `routeCompletionRateByVersion` … — compiled 90 metrics with 0 refusals,
+and **kept the six panels it inherited from the previous version**. `check_structure` 329 green,
+`check_ontology_generic` PASS, `check_dashboard` green: the board had no KPI chart and no gate said so.
+
+The lesson is not "the agent was lazy". It is that **the ladder's S6 has no coverage gate**: `check_dashboard`
+validates the panels that exist, not the families the material named. A board can be 100% valid and 0% useful.
+
+What closes it: a per-family line in the publish note (`family → metric → panel id → kind`), and the panel `kind`
+chosen by the metric's shape (one `groupBy` → ranked/composition, a time bucket → series, two `groupBy`s → matrix,
+several metrics of one unit → parallel).
+
+### The two routes disagreed by 1.5%, and the declaration was right
+
+`tcoPerKm` came out 21.70 RMB/km from the pipeline and 21.38 from a hand-written second route — both run twice.
+The declaration divides by `actualKmCosted` (**costed** trips only, 254,030 km), the hand SQL divided by every
+trip's kilometres (257,872). Neither was arithmetic error: they measured slightly different universes, and the
+declaration's universe is the one the word means.
+
+**So write the second route against the declared `:universe`, not against the table.** If the two disagree, the
+first thing to check is which rows each one counted — not the tolerance.
+
+### New vocabulary refuses until it is aliased
+
+`违章多少条` and `百公里油耗是多少` are the metrics' own `:askedAs` strings, and both refused with
+*"I can answer about: metrics […]"* — because the rules path matches through `settings.aliases`, and 违章 / 油耗 /
+路权 / 出勤 were not in it. `轴荷超限率是多少` worked by accident: the token happened to match the label.
+
+The gate cannot see this, because it checks the samples that were written, and the samples that get written are
+the ones that already answer. **Rule:** for every new noun the material introduces, add an alias, then re-ask the
+question through `nl.ask(..., record=False, slots=False)` before writing it into `samples.json`.
+
