@@ -64,5 +64,23 @@
       "check_samples",
       "check_dashboard"
     ]
+  },
+  "new_coldchain_v1": {
+    "why": "Ontology Builder 在同一个 new_coldchain 库上跑出的 v1 迭代：54 个编译指标、8 个样例，自带 dashboard.json（6 个 KPI + 6 个面板），结构层 221 项全过。声明了 8 个 :state \"action\" 属性但没有 actions 文件，所以 check_actions_run 缺席而不是静默跳过。",
+    "profile": [
+      "check_structure",
+      "check_ontology_generic",
+      "check_samples",
+      "check_dashboard"
+    ]
+  },
+  "new_coldchain_v2": {
+    "why": "v2：83 个指标全部编译、0 按名拒绝；dashboard 111 checks；samples 15 条里有 3 条是「按名拒绝」的期望——这是第一个把「拒绝也是结果」写进前门的本体，也正是它暴露了 check_samples 只钉住答案、意图仍交给本地模型的问题（已由 nl.py 的 NL_INTENT_LLM 修掉）。",
+    "profile": [
+      "check_structure",
+      "check_ontology_generic",
+      "check_samples",
+      "check_dashboard"
+    ]
   }
 }
