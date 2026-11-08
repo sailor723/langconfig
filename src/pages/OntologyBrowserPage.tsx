@@ -174,7 +174,13 @@ export default function OntologyBrowserPage() {
           {String(guard.default_window_days ?? '?')}d
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button style={btn()} onClick={() => void ontology.select(s.url, s.preset ?? undefined)}>
+          <button style={btn()} onClick={() => {
+            // `select(url, undefined)` was a no-op whenever the store had no preset (it then has no
+            // key to load), so the button looked dead. Name the key when we have one; without one,
+            // a full reload is the only thing that can re-read the ontology.
+            if (s.preset) void ontology.select(s.url, s.preset);
+            else window.location.reload();
+          }}>
             <RefreshCw size={11} /> reload
           </button>
           <button style={btn(true)} onClick={() => navigate('/ontology/app')}

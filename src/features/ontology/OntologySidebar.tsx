@@ -117,7 +117,13 @@ export default function OntologySidebar() {
               onBlur={() => setPeek(null)}
               onClick={async () => {
                 await ontology.select(p.url, p.key);
-                navigate('/ontology/browse');
+                // Land where this ontology is most useful: the board when it DECLARES one, the
+                // metrics it does declare when it does not. `sections` already carries the answer
+                // (`dashboard` is enabled only when dashboard.json exists), so the decision is read
+                // from the declaration rather than guessed from a profile field.
+                const secs = ontology.get().sections || [];
+                const hasBoard = secs.some(x => x.key === 'dashboard' && x.enabled);
+                navigate(hasBoard ? '/ontology/dashboard' : '/ontology/browse');
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
