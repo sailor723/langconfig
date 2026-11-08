@@ -6,7 +6,7 @@ triggers:
   - When asked to build or extend an ontology / semantic layer for a database
   - When a KPI or metric must be defined once and compiled, not hand-written per report
   - When "the same metric gives two different numbers" and the definitions must be settled
-version: 2.3
+version: 2.4
 author: weiping
 
 params:
@@ -36,10 +36,16 @@ dashboard with extra steps.
 Every step below has an artifact, a command, and a "green" line. A step with no gate is `ungated`, and an ungated
 step may never be reported as done.
 
-**Read [references/rules.md](references/rules.md) before writing TTL** (the fifteen configuration rules and the
-failure each prevents). [references/pitfalls.md](references/pitfalls.md) is the catalogue of real failures;
-[references/tuning-log.md](references/tuning-log.md) is the same for the agent's *own* behaviour;
-[references/gates.md](references/gates.md) is the gate matrix and how to prove each gate bites.
+**Read [references/rules.md](references/rules.md) before writing TTL** (twenty-three numbered rules, each one
+declaring the GATE that enforces it or saying `Ungated` out loud). [references/pitfalls.md](references/pitfalls.md)
+is the catalogue of real failures; [references/tuning-log.md](references/tuning-log.md) is the same for the
+agent's *own* behaviour; [references/gates.md](references/gates.md) is the gate matrix and how to prove each gate
+bites; [references/assets.md](references/assets.md) indexes the four worked ontologies in `examples/` and the three
+helpers in `scripts/`, with the ladder step that opens each one.
+
+**Read them at the step that needs them, not as homework.** Measured: a builder read this SKILL.md eight times in
+one build and opened none of the references — so the rules that only exist in prose were the ones it broke. The
+ladder below names which section to read at which step.
 
 ## 0. How a step ends (read this before anything else)
 
@@ -110,6 +116,33 @@ is green, which is red, and continue from the red one.
 
 **Never skip a step, and never "fix it later".** A red S1 makes every later step meaningless: the compiler will
 refuse every metric for the same structural reason, and the time is spent twice.
+
+## What this round measured — and what it changed
+
+Kept here on purpose: these are the failures that taught the rules above, and a rule whose failure story is
+lost gets skipped again. Every number is from one build of one ontology (v6) on the box.
+
+**The score: it followed every rule that had a gate, and broke every rule that did not.**
+
+| what it did | evidence | why it could |
+|---|---|---|
+| invented an **S9 "re-check"** to keep adding metrics after the ontology was installed | 11 metrics added post-install; the ladder has no S9 | the skill never said where the ladder stops (fixed: the section below) |
+| 43 metrics, **0** of them with `:askedAs` | `grep -c askedAs` → 0; every gate green | no gate enforced it (rule 20, still ungated) |
+| **11 of 43** metrics with no `口径来自` | measured by block scan | no gate enforced it (rule 21, still ungated) |
+| published, then read a green suite as "my staging is green" | `--key` reads `profiles/<key>/` when one exists; `pending_install` never recorded | nothing distinguishes staged from installed (rule 22) |
+| never ran a mutation, called `exit 0` "passed" | no `steps.json` mutation entry | the record was never required (rule 15) |
+| read SKILL.md **8×**, references **0×** | tool log of the same session | the references were scheduled only "before writing TTL" |
+| a **TimeWindow / timeBucket** gap nobody named | `grep -c` → 0 declarations; month/week questions unanswerable | no rule said a declared `:timeColumn` obliges a bucket (rules 16, 18) |
+
+**The rule that came out of it:** *the agent obeyed the gated rules and broke the prose ones.* That is not a
+character flaw of the model, it is a design result — a rule with no gate is a rule that gets skipped, and a
+file nothing links to is a file nobody opens. Two mechanisms now exist because of this table:
+`scripts/check_skill.py` (this skill lints itself: rules vs gates, dead links, unreachable files) and
+`scripts/verify_skill_version.py` (which version each agent actually reads, and `--restage`).
+
+**What is still ungated, named rather than hidden:** `:askedAs` (20), the source sentence (21), staged-vs-installed
+(22), the mutation record (15), the time axis and bucket (16, 18). Until those have gates, this skill says so in
+`references/rules.md` and `check_skill.py` prints them every run.
 
 ### The ladder ends at S8 — there is no S9, S10 or S11
 
@@ -474,6 +507,20 @@ cannot run yet. That is a named `NOT RUN`, not a pass and not a failure: record 
 instead of failing on a missing profile. Measured false red: before that, `check_chapters` enumerated the staging
 directory as a profile, asked for five pages, got five 404s and turned the suite red about an ontology nobody had
 installed — an enumerator must require a profile file, and a staged-only key is pending, not broken.
+
+---
+
+## Changing this skill
+
+The skill is a base, so changing it is a change to every future build:
+
+1. edit, and **bump `version:`** (a base you cannot date is not a base);
+2. `python backend/scripts/check_skill.py --skill build-ontology-from-db` — every rule must name a gate or say
+   `Ungated`, every link must resolve, every file must be reachable, every reference must be scheduled somewhere;
+3. commit + push + deploy, then `systemctl restart` (the app syncs FS → DB on startup) and
+   `python backend/scripts/verify_skill_version.py --restage` (each agent's workspace copy is only refreshed when
+   a session starts) — then re-run the audit and require `every copy the agents read matches the repo file`;
+4. a rule you cannot gate is written as `**Ungated (MUST)**`, never as if it were enforced.
 
 ---
 

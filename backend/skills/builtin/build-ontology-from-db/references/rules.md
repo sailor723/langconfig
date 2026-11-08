@@ -1,6 +1,6 @@
 # The configuration rules
 
-Fifteen rules. Each one exists because skipping it produced a wrong number, a silent empty page, or
+Twenty-three rules (the count is checked by `scripts/check_skill.py`, which is how this line went stale at "Fifteen" while the file held nineteen). Each one exists because skipping it produced a wrong number, a silent empty page, or
 a claim nobody could defend. The "if you skip it" line is what actually happened, not a warning.
 
 ## 1. An object is not a table
@@ -17,6 +17,8 @@ and properties.
 *If you skip it:* the report becomes "columns and tables", and the business review turns into a
 schema review — the questions stop being answerable in their own words.
 
+**Gate:** `check_structure.py` — 类要有表与主键、属性要有本表列、无孤儿
+
 ## 2. A link is declared, never inferred
 
 ```ttl
@@ -26,6 +28,8 @@ schema review — the questions stop being answerable in their own words.
 
 *If you skip it:* joins get built by column-name coincidence. `customer_id` on two tables "looks
 like" a join, and one of the two is a different customer.
+
+**Gate:** `check_structure.py` — 对象属性要有 `:references` 且目标类存在
 
 ## 3. Composite keys are joined on every column
 
@@ -38,6 +42,8 @@ like" a join, and one of the two is a different customer.
 *If you skip it:* the join matches every supplier of that part, and the cost metric silently
 multiplies. (Measured: a 6-month supply cost inflated by ~2.4×.)
 
+**Gate:** `check_structure.py` — 复合键按逗号拆开逐列校验
+
 ## 4. Every number is a declared metric
 
 ```ttl
@@ -48,6 +54,8 @@ multiplies. (Measured: a 6-month supply cost inflated by ~2.4×.)
 *If you skip it:* the number lives in a dashboard query, then in a slide, then in a decision, and
 nobody can say where it came from or change it once.
 
+**Gate:** `check_ontology_generic.py --family C` — 每个数字必须是已声明指标
+
 ## 5. Meaning and computation are separate files
 
 `02-meaning.ttl` says what a metric *is*; `metrics_ext.ttl` says how it *computes*
@@ -55,6 +63,8 @@ nobody can say where it came from or change it once.
 
 *If you skip it:* you lose the measurement the split exists for — loading without the overlay must
 **refuse** aggregates, because `:aggregate`/`:grain` are what a semantic layer was holding implicitly.
+
+**Gate:** `check_ontology_generic.py --family C` — 含义/计算分层，`metrics_ext.ttl` 只放计算
 
 ## 6. A definition is an axiom (AND / OR / code)
 
@@ -68,6 +78,8 @@ nobody can say where it came from or change it once.
 
 *If you skip it:* "failed" becomes four hand-written `WHERE` clauses that drift apart. Every report
 has its own version of the definition.
+
+**Gate:** `check_ontology_generic.py --family R` — 定义可编译且选出 >0 行
 
 ## 7. One escape hatch, and it reports itself
 
@@ -84,12 +96,16 @@ replace the compiled one).
 *If you skip it:* either the definition is missing, or hand-written predicates become the norm and
 the ontology is documentation for SQL nobody compiles.
 
+**Gate:** `check_ontology_generic.py --family R` — 谓词类必须自报理由
+
 ## 8. A ratio declares its two sides
 
 `:numerator`/`:denominator`, each compiled as its own metric; `:scale` for a percentage.
 
 *If you skip it:* `sum(a)/sum(b)` typed as a formula, and then `avg(a)/avg(b)` somewhere else, and the
 two answers differ by a factor the business cannot see.
+
+**Gate:** `check_ontology_generic.py --family C` — 比率必须写分子分母
 
 ## 9. Grain is mandatory for aggregates
 
@@ -99,12 +115,16 @@ what the semantic layer held implicitly".
 *If you skip it:* silent double counting, because an aggregate over a joined set has no defined
 universe.
 
+**Gate:** `check_ontology_generic.py --family C` — 带 `:formula` 无 `:grain` 必须拒绝
+
 ## 10. A windowed definition needs a snapshot fact
 
 "Driver quality over the last 30 days" has nothing in OWL to attach to. Materialise `driver_stats`
 (window_days as part of its key) and define over that.
 
 *If you skip it:* the definition is moved into SQL, and the window becomes a magic number in a report.
+
+**Gate:** `check_ontology_generic.py --family G` — 窗口列必须存在且窗口只注入 big_tables
 
 ## 11. Name properties after the question
 
@@ -114,12 +134,16 @@ matches; the column name is an implementation detail.
 *If you skip it:* "revenue by region" cannot match `r_name`, and the NL layer refuses a question the
 data can answer.
 
+**Gate:** **Ungated (advisory)** — 命名是判断，不是可判定的规则
+
 ## 12. Aliases belong to a profile, not to the codebase
 
 "region" means *the store's city* in one dataset and *a real object* in another. Declare aliases per
 profile; never in the shared alias table.
 
 *If you skip it:* you fix one dataset by breaking another — this happened, and a retail NL gate caught it.
+
+**Gate:** `check_samples.py` — 别名丢失会让样例变红
 
 ## 13. Writes are declared actions on action-owned state
 
@@ -129,6 +153,8 @@ read path compiles.
 
 *If you skip it:* writes become ad-hoc SQL, no audit trail survives, and an analytics user edits the
 state a business process owns.
+
+**Gate:** `check_actions.py` — 写动词要有编译过的前置条件与审计
 
 ## 13b. A write path is a declaration, and it is the only way state changes
 
@@ -169,6 +195,8 @@ Three things that had to be true, each measured:
 The honest end state: the write path exists, is audited, and the metric reads `0 / 4,050` — because
 nothing dispatches through it yet. **0 is a measurement, not a placeholder.**
 
+**Gate:** `check_actions.py` — 写入只能走声明过的动作路径
+
 ## 14. Guardrails are part of the contract
 
 `big_tables` with their time column, a page cap, a plan budget, a statement timeout — and one rule
@@ -177,6 +205,8 @@ so); metrics may not.
 
 *If you skip it:* an unbounded scan on a table with tens of millions of rows takes the database down,
 or — worse — a `now()`-relative window quietly returns zero rows and looks like a fact.
+
+**Gate:** `check_guard.py` + `check_ontology_generic.py --family G` — 护栏是契约的一部分
 
 ## 15. Gate before page, and make the gate able to fail
 
@@ -188,6 +218,8 @@ turns it red.
 
 
 ---
+
+**Gate:** **Ungated (MUST)** — 变异证据要写进 `steps.json`；门还没做（见 SKILL.md「本轮实测」）
 
 ## 16. A time window filters the object's own time column — declare it on the class
 
@@ -222,6 +254,8 @@ pushable `:timeColumn` on its grain, and asking a windowed question must put tha
 a value that is a subset of the all-time one — compared as `windowed <= all-time`, never against a
 constant, because a `now()`-relative number rots.
 
+**Gate:** **Ungated (MUST)** — 时间窗口/时间轴要在类上声明；门还没做
+
 ## 17. A rate per group needs both sides at the same grain
 
 `ratio_of_sums` + `:groupBy` used to be refused outright, which made every "per vehicle / per route"
@@ -253,6 +287,8 @@ GROUP BY vehicles.plate ORDER BY 2 DESC;
   per-vehicle damage weights back to 159.03 = the fleet value; wrong pairs, zipped by row position
   instead of by key, "found" a 45.5% overload rate against the real 36.8%).
 
+**Gate:** `check_ontology_generic.py --family C` + `check_samples.py` — 分组比率两侧必须同粒度
+
 ## 18. A time series declares its bucket — it never guesses one
 
 `:timeBucket "day|week|month|quarter"` turns the grain's **own** `:timeColumn` into the first GROUP BY key
@@ -276,6 +312,8 @@ and orders the result ascending:
   stamped `2026-11-05 09:00`. Declare it anyway — the single bucket *is* the finding, and the dashboard
   panel says so instead of drawing a trend.
 
+**Gate:** **Ungated (MUST)** — 时间序列要声明时间桶；门还没做
+
 ## 19. A dashboard is a declaration, and its holes are part of it
 
 `<profile dir>/dashboard.json` says which DECLARED metric each panel shows, by what it is cut, which event
@@ -295,3 +333,36 @@ no numbers. `retail_graph/run_dashboard.py` compiles/guards/runs it; `retail_gra
 
 A panel that cannot answer is rendered as a refusal naming the missing declaration. That is the point:
 a dashboard which silently drops a block is how a business mistake survives a year of review.
+
+**Gate:** `check_dashboard.py` — 面板只能引用已声明指标，分组能加权回未分组
+
+
+## 20. Every metric carries `:askedAs` — the menu is a declaration
+
+A metric nobody can ask for does not exist for a user. `:askedAs` is the phrase the NL layer matches; a
+label alone is a caption, not an entrance.
+
+**Gate:** **Ungated (MUST)** — measured 0 of 43 metrics carried it while every gate stayed green.
+
+## 21. Every `:businessDescription` names its source
+
+`口径来自 answers:Q2` or `docx#Q10` or `refused: <which question is missing>`. A number with no source is
+not a declaration, it is a guess that compiled.
+
+**Gate:** **Ungated (MUST)** — measured 11 of 43 metrics had no source, added after the ontology was
+already installed.
+
+## 22. A publish is measured on the STAGED copy, not the installed one
+
+`ontology_gates.py --key <key>` reads `profiles/<key>/` when a profile exists there — so "I staged, then the
+suite was green" can describe the INSTALLED ontology. Record the staged id and its verdict
+(`gates.json` → `pending_install`) and measure the staging tree itself.
+
+**Gate:** **Ungated (MUST)** — the green was a coincidence, not a check.
+
+## 23. Changing this skill is itself a gated change
+
+Bump `version:`, run `scripts/check_skill.py` (this lint), push, then
+`scripts/verify_skill_version.py --restage` so every agent's workspace copy matches the repo file.
+
+**Gate:** `check_skill.py` — L1 version, L2 dead links, L3 reachability, L4 rules-vs-gates, L5 counts.
