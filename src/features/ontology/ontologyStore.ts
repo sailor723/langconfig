@@ -388,7 +388,10 @@ export const ontology = {
    */
   async ensureReady(): Promise<string> {
     if (state.profilesFrom !== 'settings') await ontology.loadProfiles();
-    if (!state.url && !state.preset) {
+    // A stored url from BEFORE the app served its own pages names a workbench port that no roster row
+    // claims any more. It is not a selection — it is a leftover — so the remembered KEY decides.
+    const urlIsKnown = !!state.url && state.profiles.some(p => p.url === state.url);
+    if (!state.preset && (!state.url || !urlIsKnown)) {
       // the remembered KEY wins (a reload keeps which ontology was open), then the declared default,
       // then the first row — and never `profiles[0]` on its own, which is how a reload landed on
       // whichever ontology sorted first instead of the one that was open.
