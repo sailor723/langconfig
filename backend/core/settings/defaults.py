@@ -111,7 +111,10 @@ def get_defaults() -> dict[str, dict]:
                 "enable_auto_eviction": True,
             },
             "deepagent": {
-                "recursion_limit": 150,
+                # 1000, not LangGraph's 150: a real build is many supersteps per ladder step (several
+                # model+tool rounds each) and a DeepAgent ontology build hit 150 mid-build. The default
+                # a NEW agent inherits must be big enough for the work this install exists to do.
+                "recursion_limit": 1000,
                 "summarization_threshold": 60000,
                 "keep_last_messages": 20,
                 "max_total_tokens": 100000,
