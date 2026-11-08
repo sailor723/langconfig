@@ -1,6 +1,6 @@
 # The configuration rules
 
-Twenty-three rules (the count is checked by `scripts/check_skill.py`, which is how this line went stale at "Fifteen" while the file held nineteen). Each one exists because skipping it produced a wrong number, a silent empty page, or
+Twenty-four rules (the count is checked by `scripts/check_skill.py`, which is how this line went stale at "Fifteen" while the file held nineteen). Each one exists because skipping it produced a wrong number, a silent empty page, or
 a claim nobody could defend. The "if you skip it" line is what actually happened, not a warning.
 
 ## 1. An object is not a table
@@ -342,15 +342,17 @@ a dashboard which silently drops a block is how a business mistake survives a ye
 A metric nobody can ask for does not exist for a user. `:askedAs` is the phrase the NL layer matches; a
 label alone is a caption, not an entrance.
 
-**Gate:** **Ungated (MUST)** — measured 0 of 43 metrics carried it while every gate stayed green.
+**Gate:** `check_ontology_generic.py --family C` (C5a: every metric declares it; C5c removes one and the
+gate must go red). Measured when it was written: 0 of 43 metrics carried it while every gate stayed green.
 
 ## 21. Every `:businessDescription` names its source
 
 `口径来自 answers:Q2` or `docx#Q10` or `refused: <which question is missing>`. A number with no source is
 not a declaration, it is a guess that compiled.
 
-**Gate:** **Ungated (MUST)** — measured 11 of 43 metrics had no source, added after the ontology was
-already installed.
+**Gate:** `check_ontology_generic.py --family C` (C5b: every `:businessDescription` names `answers:` /
+`docx#` / `doc#` / `refused:` / `measured:` / `table:`). Measured when it was written: 11 of 43 metrics had no
+source, added after the ontology was already installed.
 
 ## 22. A publish is measured on the STAGED copy, not the installed one
 
@@ -366,3 +368,22 @@ Bump `version:`, run `scripts/check_skill.py` (this lint), push, then
 `scripts/verify_skill_version.py --restage` so every agent's workspace copy matches the repo file.
 
 **Gate:** `check_skill.py` — L1 version, L2 dead links, L3 reachability, L4 rules-vs-gates, L5 counts.
+
+## 24. Nothing a profile carries may name a machine
+
+The line that must not exist: `NL_PYTHON = "/Users/weiping/.../.venv/bin/python"`. It made the Query page
+work on the laptop it was written on and refuse on ECS with `nl.py failed: [Errno 2] No such file or
+directory` — for every ontology, on the page people use most. The same class of bug sat in the actions
+resolution: `PROFILE / actions_file` pointed retail's `actions.yml` at logistics and ABC, so their questions
+died as `PromoteCustomer: :Customer has no :physicalTable` while retail stayed green.
+
+The rule is about the deploy, not about tidy code: **a profile has to compile and answer on the machine that
+serves it.** Every path a declaration or its runner uses is either derived from the install root
+(`schema/actions.yml`, `ontology/`) or from an environment value (`${ONTOLOGY_DB_HOST:-127.0.0.1}`). An
+origin-relative URL (`/api/...`) is the page's own address, not a file. A profile whose settings name
+`/Users/...` or `C:\...` is a profile that has not been tested where it will run.
+
+**Gate:** `check_ontology_generic.py --family X` — X1 scans the files a profile travels with and names every
+machine path; X1b proves the scanner fails on a synthetic declaration (`/Users/someone/...`), so a green X1
+means "looked and found nothing", not "looked at nothing".
+

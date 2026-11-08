@@ -14,6 +14,9 @@ before anybody builds a dashboard on it:
                         timeout, a declared metric is never windowed, an empty window is reported
   T  tutorial           `tutorial.json` names only declared things, a metric step runs, and the
                         set teaches at least one refusal
+  X  portability        no declaration names a machine path (/Users/…, C:\…): the profile has to
+                        compile and answer on the machine that serves it, not only on the laptop it
+                        was written on — and the scanner proves it can fail (X1b)
 
 `--truth` is `{metric: number}` with numbers produced by a SECOND, hand-written route. Without
 it the metric-vs-truth gate is reported NOT RUN — never silently green.
@@ -46,6 +49,12 @@ from rdflib import OWL, RDF, RDFS, URIRef  # noqa: E402
 
 OK = True
 NOT_RUN: list[str] = []
+
+#: An absolute path that belongs to ONE machine (`/Users/x`, `/home/u`, `/root/…`, `C:\Users\…`).
+#: A DERIVED path (`schema/actions.yml`), an env-substituted dsn (`${ONTOLOGY_DB_HOST:-…}`) and an
+#: origin-relative URL (`/api/…`) are none of these: they mean the same thing on every install.
+MACHINE_PATH = re.compile(r"(?<![\w/.])/(?:Users|home|root|opt|srv|var)/[\w.@+-]+"
+                          r"|(?<![\w/])[A-Za-z]:\\")
 
 
 def check(label: str, got, want) -> None:
@@ -699,6 +708,58 @@ def window_gates(profile, g, cur) -> None:
               f"the subset rule does not apply)", changed, True)
 
 
+def portability_gates(profile, g, cur) -> None:
+    """X1/X1b: a declaration may not name a machine path.
+
+    The failure this exists for, measured on the ECS deployment: the Query page worked on the laptop
+    it was written on and refused on the server with
+
+        nl.py failed: [Errno 2] No such file or directory:
+        '/Users/weiping/dev/Learn/ontology/.venv/bin/python'
+
+    A declaration (or a runtime command it drives) that says WHERE THIS MACHINE keeps its files is
+    not a declaration: the same profile has to compile and answer on the machine that serves it. The
+    scan reads the files that travel with a profile — settings, TTL, dashboard/samples/tutorial/truth
+    and the declared actions — and names every absolute machine path it finds. X1b proves the scanner
+    can fail: a synthetic settings file that names `/Users/someone/...` must be caught, so a green X1
+    means "the scan ran and found nothing", not "the scan looked at nothing".
+
+    Paths that are DERIVED from the install root are not hits (`schema/actions.yml`, `ontology/`, the
+    `${ONTOLOGY_DB_HOST:-...}` form in a dsn); so is an origin-relative URL (`/api/...`), which is the
+    page's own address, not a file.
+    """
+    root = pathlib.Path(profile["_path"]).parent
+
+    def scan(base: pathlib.Path) -> list[str]:
+        hits: list[str] = []
+        for pattern in ("*_settings.json", "dashboard.json", "samples.json", "tutorial.json",
+                        "truth.json", "*.ttl", "ontology/*.ttl", "schema/*.yml", "schema/*.yaml"):
+            for path in sorted(base.glob(pattern)):
+                if not path.is_file():
+                    continue
+                try:
+                    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+                except OSError:                                  # noqa: BLE001
+                    continue
+                for n, line in enumerate(lines, 1):
+                    for hit in MACHINE_PATH.finditer(line):
+                        where = path.relative_to(base) if base in path.parents else path.name
+                        hits.append(f"{where}:{n} names {hit.group(0)!r}")
+        return hits
+
+    hits = scan(root)
+    check_true("X1 no declaration names a machine path (a profile has to answer where it is installed)",
+               not hits, "; ".join(hits[:6]) + (" …" if len(hits) > 6 else ""))
+    with tempfile.TemporaryDirectory() as tmp:
+        probe = pathlib.Path(tmp, "probe_settings.json")
+        probe.write_text('{"actions_file": "/Users/someone/repo/schema/actions.yml"}',
+                         encoding="utf-8")
+        caught = scan(pathlib.Path(tmp))
+    check_true("X1b the scanner fails on a machine path (synthetic: /Users/someone/…)",
+               bool(caught), "the scanner found nothing in a file that names /Users/someone/... — "
+               "then a green X1 would be decoration")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--profile", required=True)
@@ -707,7 +768,8 @@ def main() -> int:
     # declared done (or not) by running exactly its own family.
     ap.add_argument("--family", action="append", default=None,
                     help="only these gate families (C structure · R reasoning · G guard · P page · "
-                         "T tutorial · N nl · S samples · W window); repeatable. Default: every family")
+                         "T tutorial · N nl · S samples · W window · X portability); repeatable. "
+                         "Default: every family")
     args = ap.parse_args()
     path = pathlib.Path(args.profile).expanduser().resolve()
     if not path.exists():
@@ -736,8 +798,8 @@ def main() -> int:
     conn.autocommit = True
     cur = conn.cursor()
     try:
-        wanted = {f.upper() for f in (args.family or ["C", "R", "G", "P", "T", "N", "S", "W"])}
-        unknown = wanted - {"C", "R", "G", "P", "T", "N", "S", "W"}
+        wanted = {f.upper() for f in (args.family or ["C", "R", "G", "P", "T", "N", "S", "W", "X"])}
+        unknown = wanted - {"C", "R", "G", "P", "T", "N", "S", "W", "X"}
         if unknown:
             print(f"unknown gate family/families: {sorted(unknown)}")
             return 2
@@ -757,6 +819,8 @@ def main() -> int:
             samples_gates(profile, g, cur)
         if "W" in wanted:
             window_gates(profile, g, cur)
+        if "X" in wanted:
+            portability_gates(profile, g, cur)
     finally:
         conn.close()
     print()

@@ -6,7 +6,7 @@ triggers:
   - When asked to build or extend an ontology / semantic layer for a database
   - When a KPI or metric must be defined once and compiled, not hand-written per report
   - When "the same metric gives two different numbers" and the definitions must be settled
-version: 2.4
+version: 2.5
 author: weiping
 
 params:
@@ -36,7 +36,7 @@ dashboard with extra steps.
 Every step below has an artifact, a command, and a "green" line. A step with no gate is `ungated`, and an ungated
 step may never be reported as done.
 
-**Read [references/rules.md](references/rules.md) before writing TTL** (twenty-three numbered rules, each one
+**Read [references/rules.md](references/rules.md) before writing TTL** (twenty-four numbered rules, each one
 declaring the GATE that enforces it or saying `Ungated` out loud). [references/pitfalls.md](references/pitfalls.md)
 is the catalogue of real failures; [references/tuning-log.md](references/tuning-log.md) is the same for the
 agent's *own* behaviour; [references/gates.md](references/gates.md) is the gate matrix and how to prove each gate
@@ -133,6 +133,8 @@ lost gets skipped again. Every number is from one build of one ontology (v6) on 
 | never ran a mutation, called `exit 0` "passed" | no `steps.json` mutation entry | the record was never required (rule 15) |
 | read SKILL.md **8×**, references **0×** | tool log of the same session | the references were scheduled only "before writing TTL" |
 | a **TimeWindow / timeBucket** gap nobody named | `grep -c` → 0 declarations; month/week questions unanswerable | no rule said a declared `:timeColumn` obliges a bucket (rules 16, 18) |
+| the **Query page** answered on the laptop and refused on ECS | `nl.py failed: [Errno 2] … '/Users/weiping/dev/Learn/ontology/.venv/bin/python'` — all seven ontologies | the runner spawned a hardcoded venv (rule 24); nothing scanned a profile for machine paths |
+| logistics/ABC questions died as `PromoteCustomer: :Customer has no :physicalTable` | retail's `actions.yml` compiled against their graphs | the actions path was `PROFILE / actions_file` (retail's dir), not the active profile's |
 
 **The rule that came out of it:** *the agent obeyed the gated rules and broke the prose ones.* That is not a
 character flaw of the model, it is a design result — a rule with no gate is a rule that gets skipped, and a
@@ -140,9 +142,10 @@ file nothing links to is a file nobody opens. Two mechanisms now exist because o
 `scripts/check_skill.py` (this skill lints itself: rules vs gates, dead links, unreachable files) and
 `scripts/verify_skill_version.py` (which version each agent actually reads, and `--restage`).
 
-**What is still ungated, named rather than hidden:** `:askedAs` (20), the source sentence (21), staged-vs-installed
-(22), the mutation record (15), the time axis and bucket (16, 18). Until those have gates, this skill says so in
-`references/rules.md` and `check_skill.py` prints them every run.
+**What is still ungated, named rather than hidden:** staged-vs-installed (22), the mutation record (15), the time
+axis and bucket (16, 18). `:askedAs` (20) and the source sentence (21) are now gated by C5a/C5b, and rule 24
+(machine paths) by family X. Until the rest have gates, this skill says so in `references/rules.md` and
+`check_skill.py` prints them every run.
 
 ### The ladder ends at S8 — there is no S9, S10 or S11
 
