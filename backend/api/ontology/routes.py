@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import datetime
 import pathlib
 
 from typing import Optional
@@ -56,8 +57,27 @@ async def list_installed():
                 title = (_json.loads((d / profile).read_text(encoding="utf-8")) or {}).get("title")
             except Exception:                                  # noqa: BLE001
                 title = None
+            # WHEN it was last touched, so the activity can be read newest-first. It is the newest
+            # mtime among the DECLARATION files (the TTLs, the overlay, the settings, the dashboard,
+            # the samples) — not the folder's, which a `.staging/` copy or a backup run also updates.
+            # A publish rewrites TTLs, so this is exactly "when did this ontology last change".
+            newest = 0.0
+            for f in d.rglob("*"):
+                if not f.is_file():
+                    continue
+                rel = f.relative_to(d)
+                if rel.parts and rel.parts[0] in (".staging", ".backup", ".archive"):
+                    continue
+                if f.suffix not in (".ttl", ".json", ".sql"):
+                    continue
+                try:
+                    newest = max(newest, f.stat().st_mtime)
+                except OSError:
+                    continue
             rows.append({"key": d.name, "label": (title or d.name), "profile": f"{d.name}/{profile}",
-                         "installed": True})
+                         "installed": True,
+                         "modified_at": datetime.datetime.fromtimestamp(newest, datetime.timezone.utc).isoformat()
+                                        if newest else None})
     return {"ok": True, "installed": rows}
 
 

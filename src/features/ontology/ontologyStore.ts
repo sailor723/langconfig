@@ -64,6 +64,8 @@ export interface OntologyProfile {
   profile?: string | null;
   note?: string | null;
   enabled?: boolean;
+  /** ISO time of the newest declaration file — what "sort by time" means. */
+  modifiedAt?: string | null;
 }
 
 /**
@@ -303,8 +305,12 @@ async function getAppJson(key: string, path: string, ms: number): Promise<any> {
  */
 function mergeInstalled(decided: OntologyProfile[], installed: any[]): OntologyProfile[] {
   const byKey = new Map(decided.map(p => [p.key, p]));
+  const when = new Map<string, string | null>(
+    (installed || []).map(row => [String(row?.key || ''), row?.modified_at ?? null]),
+  );
   const merged: OntologyProfile[] = [];
-  for (const p of decided) merged.push(p);                     // settings order wins
+  // A roster row is a DECISION about an installed ontology; its time still comes from the files.
+  for (const p of decided) merged.push({ ...p, modifiedAt: when.get(p.key) ?? p.modifiedAt ?? null });
   for (const row of installed || []) {
     const key = String(row?.key || '');
     if (!key || byKey.has(key)) continue;                      // already listed (and possibly relabelled)
@@ -315,6 +321,7 @@ function mergeInstalled(decided: OntologyProfile[], installed: any[]): OntologyP
       profile: row.profile ?? null,
       note: row.installed ? 'installed · appears automatically (no roster entry)' : null,
       enabled: true,
+      modifiedAt: row.modified_at ?? null,
     });
   }
   return merged;

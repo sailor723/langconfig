@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Boxes, RefreshCw, Loader2, ListTree, Settings2, Compass, PlayCircle, Gavel, FileCode2, GraduationCap,
+  ArrowDownWideNarrow,
   BarChart3,
 } from 'lucide-react';
 import { useLayoutTokens } from '../../components/layout2/tokens';
@@ -25,6 +26,15 @@ const SECTION_ICON: Record<string, any> = {
   tutorial: GraduationCap,
 };
 
+const ORDER_KEY = 'langconfig.ontology.order';
+
+/** Newest declared change first; an ontology with no timestamp sorts last, never first. */
+function byTime(a: { modifiedAt?: string | null }, b: { modifiedAt?: string | null }) {
+  const ta = a.modifiedAt ? Date.parse(a.modifiedAt) : -Infinity;
+  const tb = b.modifiedAt ? Date.parse(b.modifiedAt) : -Infinity;
+  return tb - ta;
+}
+
 export default function OntologySidebar() {
   const t = useLayoutTokens();
   const navigate = useNavigate();
@@ -36,6 +46,16 @@ export default function OntologySidebar() {
   // Re-compiling every ontology takes a moment and used to give no sign it had run at all, so the
   // button read as broken. It now says what it did: `recompiled 3/7 · 14:32:07`.
   const [refreshed, setRefreshed] = useState<{ at: string; up: number; total: number } | null>(null);
+  // Which order the list is read in. Two orders, because two questions: "where is the one I know the
+  // name of" and "which one did I just touch". Remembered per browser — an order is a habit, not a
+  // session detail.
+  const [order, setOrder] = useState<'name' | 'time'>(() => {
+    try { return (localStorage.getItem(ORDER_KEY) as 'name' | 'time') || 'time'; } catch { return 'time'; }
+  });
+  const setSortOrder = (next: 'name' | 'time') => {
+    setOrder(next);
+    try { localStorage.setItem(ORDER_KEY, next); } catch { /* private mode: the choice just is not kept */ }
+  };
   const refreshAll = async () => {
     setRefreshed(null);
     await ontology.probeAll();
@@ -87,6 +107,16 @@ export default function OntologySidebar() {
           <RefreshCw size={12} className={s.starting ? 'animate-spin' : undefined} />
         </button>
         <button
+          onClick={() => setSortOrder(order === 'time' ? 'name' : 'time')}
+          title={order === 'time'
+            ? `按最近改动排序（点一下改成按名字）· ${s.profiles.length} 个本体`
+            : `按名字排序（点一下改成按最近改动）· ${s.profiles.length} 个本体`}
+          style={{ ...rowTitle, color: t.textDim, fontSize: 10, gap: 3 }}
+        >
+          <ArrowDownWideNarrow size={12} />
+          <span>{order === 'time' ? 'time' : 'A–Z'}</span>
+        </button>
+        <button
           // The gear goes to Settings → ONTOLOGY, where the publish panel is the FIRST thing on the
           // page: profiles you can open, and the publishes an agent staged that a person has to apply.
           // It used to open Settings on General, so that panel — the whole reason to leave this page —
@@ -107,7 +137,10 @@ export default function OntologySidebar() {
       )}
 
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-        {s.profiles.map(p => {
+        {(order === 'time'
+          ? [...s.profiles].sort(byTime)
+          : [...s.profiles].sort((a, b) => (a.label || a.key).localeCompare(b.label || b.key, 'zh-Hans-CN'))
+        ).map(p => {
           const probe = s.probes[p.key];
           // the KEY decides the open row (see profileIsActive): comparing urls highlighted every row
           // that shared one, which after same-origin serving was most of them.
