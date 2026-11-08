@@ -14,7 +14,7 @@
  * the next step; until they do, the footer says so instead of implying the answer is filtered.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, CornerDownLeft, Loader2, Sigma } from 'lucide-react';
+import { AlertTriangle, CornerDownLeft, Loader2, Sigma, X } from 'lucide-react';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { Btn, DANGER, mono, SUCCESS, WARN } from './ui';
 import apiClient from '../../lib/api-client';
@@ -48,11 +48,13 @@ function fmt(v: number | null | undefined, unit?: string | null): string {
 }
 
 export default function DashboardChat({
-  ontologyKey, unitOf, height,
+  ontologyKey, unitOf, height, onClose,
 }: {
   ontologyKey: string | null;
   unitOf: (metric?: string | null) => { label?: string | null; unit?: string | null };
   height?: number | string;
+  /** Closes the dock it lives in. The page's 对话 button opens it; this is the way back out. */
+  onClose?: () => void;
 }) {
   const t = useLayoutTokens();
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -126,6 +128,13 @@ export default function DashboardChat({
           <span style={{ marginLeft: 'auto', fontSize: 10.5, color: t.textDim }}>
             确定性口径 · 拒答即答案
           </span>
+          {onClose && (
+            <button onClick={onClose} title="收起问答（看板留在原地）"
+                    style={{ border: 'none', background: 'transparent', cursor: 'pointer',
+                             color: t.textMuted, display: 'inline-flex', padding: 2 }}>
+              <X size={13} />
+            </button>
+          )}
         </div>
         <div style={{ fontSize: 10.5, color: t.textMuted, marginTop: 4, lineHeight: 1.5 }}>
           问的是这个本体声明的指标；答不出来会说出缺的是哪条声明。

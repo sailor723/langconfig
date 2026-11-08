@@ -26,7 +26,6 @@ import { AlertTriangle, ArrowRight, BarChart3, Boxes, Copy, MessageSquare, Refre
 import { useLayoutTokens } from '../components/layout2/tokens';
 import { Btn, Card, Chip, Hero, PageShell, Section, mono, CYAN, DANGER, INFO, SUCCESS, VIOLET, WARN } from '../features/ontology/ui';
 import { ontology, useOntology } from '../features/ontology/ontologyStore';
-import { useChat } from '../features/chat/state/ChatContext';
 import DashboardChat from '../features/ontology/DashboardChat';
 import { BubblePanel, ParallelPanel, SankeyPanel, TreemapPanel } from '../features/ontology/dashboardCharts';
 import apiClient from '../lib/api-client';
@@ -614,9 +613,9 @@ export default function OntologyDashboardPage() {
   const t = useLayoutTokens();
   const navigate = useNavigate();
   const s = useOntology();
-  // The chat window is the app's own (`GlobalChatModal`), opened from here: one chat, one history,
-  // no second copy of the chat UI living inside the ontology feature.
-  const { openChat } = useChat();
+  // The dock on the right is this ontology's OWN question pipeline; it is closed until asked for,
+  // so a reader who only wants the numbers gets the full width for panels.
+  const [chatOpen, setChatOpen] = useState(false);
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -694,11 +693,13 @@ export default function OntologyDashboardPage() {
         subtitle={data?.subtitle || `声明式看板 —— 每个面板都是 ${key || '本体'} 的一项已声明指标`}
         actions={
           <>
-            {/* Chat is a WINDOW, not a page: reading a board and asking a question about it are the
-                same sitting, and navigating away to ask loses the board you were reading. */}
-            <Btn onClick={() => openChat()} title="打开对话窗口：就这张板问一句，板不动">
+            {/* Opens THIS board's question dock (`DashboardChat` → the ontology's own ask pipeline),
+                not the app's agent chat: the question here is "what does this ontology declare",
+                answered by a compiled number, a refusal by name, and the SQL behind it. */}
+            <Btn onClick={() => setChatOpen(o => !o)}
+                 title={chatOpen ? '收起业务问答' : '打开业务问答：问这张板上的数，答得出来就给数+SQL，答不出来按名拒绝'}>
               <MessageSquare size={13} style={{ marginRight: 4 }} />
-              对话
+              {chatOpen ? '收起问答' : '问答'}
             </Btn>
             <Btn onClick={() => load(true)} disabled={loading}>
               <RefreshCw size={13} style={{ animation: loading ? 'lc-spin 1s linear infinite' : undefined, marginRight: 4 }} />
@@ -891,10 +892,12 @@ export default function OntologyDashboardPage() {
       </div>
 
       {/* The business question lives here, next to the business numbers. Sticky so scrolling the
-          panels never takes the input away. */}
-      <div style={{ width: 360, flex: 'none', position: 'sticky', top: 0 }}>
-        <DashboardChat ontologyKey={key} unitOf={unitOf} />
-      </div>
+          panels never takes the input away; opened by the 问答 button in the header. */}
+      {chatOpen && (
+        <div style={{ width: 360, flex: 'none', position: 'sticky', top: 0 }}>
+          <DashboardChat ontologyKey={key} unitOf={unitOf} onClose={() => setChatOpen(false)} />
+        </div>
+      )}
       </div>
     </PageShell>
   );
