@@ -93,6 +93,42 @@ def _verdict(text: str, code: int) -> str:
     return "fail"
 
 
+def _database_state(profile: pathlib.Path) -> tuple[str, str]:
+    """(dbname, "") when this profile's database answers, else (dbname, why-not).
+
+    An ontology whose database is not on this box cannot be gated, and that is a NAMED `NOT RUN` —
+    not a red. Measured on the ECS migration: the box hosts langconfig/new_coldchain/tpch, so
+    `check_abc` and `check_clinic` both failed with "database does not exist", which reads as "this
+    deploy is broken" about two ontologies that simply live on another machine. The suite must say
+    which database is missing; the refusal to guess is the product, the mis-attributed red is not.
+    """
+    try:
+        import json as _json
+        settings = _json.loads(profile.read_text(encoding="utf-8"))
+    except Exception as exc:                                     # noqa: BLE001
+        return ("", f"the profile cannot be read: {exc}")
+    sys.path.insert(0, str(GATES.parent / "compiler"))
+    try:
+        import dsn as _dsn                                       # noqa: PLC0415
+        conn_args = _dsn.resolved(settings)
+    except Exception as exc:                                     # noqa: BLE001
+        return ("", f"the profile's DSN cannot be resolved: {exc}")
+    dbname = str(conn_args.get("dbname") or "")
+    try:
+        import psycopg2                                          # noqa: PLC0415
+        conn = psycopg2.connect(connect_timeout=5, **conn_args)
+        try:
+            cur = conn.cursor()
+            cur.execute("select 1")
+            cur.fetchone()
+        finally:
+            conn.close()
+        return (dbname, "")
+    except Exception as exc:                                     # noqa: BLE001
+        first = str(exc).strip().splitlines()[0][:160] if str(exc).strip() else type(exc).__name__
+        return (dbname, first)
+
+
 def _run(script: pathlib.Path, args: list[str], timeout: int = 900) -> dict:
     started = time.time()
     try:
@@ -140,6 +176,20 @@ def main() -> int:
                                    f"that is not declared is not one that passed"})
             continue
         profile = _profile_of(key)
+        # The ontology's DATABASE decides whether anything here can be gated at all.
+        db_missing = ""
+        if profile is not None:
+            dbname, why = _database_state(profile)
+            if why:
+                db_missing = (f"{key}: its database {dbname or '(unresolved)'} does not answer on this "
+                              f"host — {why}. The ontology is installed but its data is elsewhere, so "
+                              f"its gates are NOT RUN here rather than red.")
+        if db_missing:
+            for name in (spec.get("standalone") or []) + (spec.get("profile") or []):
+                if args.only and name not in args.only:
+                    continue
+                runs.append({"gate": f"{key}:{name}", "verdict": "notrun", "reason": db_missing})
+            continue
         for name in spec.get("standalone") or []:
             if args.only and name not in args.only:
                 continue
