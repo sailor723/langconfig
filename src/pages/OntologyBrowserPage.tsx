@@ -180,6 +180,10 @@ export default function OntologyBrowserPage() {
             // store had no preset — it then has no key to load — so the button looked dead; with no key
             // at all, a full reload is the only thing that can re-read anything.
             if (!s.preset) { window.location.reload(); return; }
+            // The numbers are a SEPARATE read (`fetchMetricCards`), kept in this page's state: reloading
+            // only the document re-rendered the same cards with the same values, so a publish that moved
+            // a number looked like nothing happened. Drop the cards too, and the effect fetches them again.
+            refreshCards();
             await ontology.loadProfiles().catch(() => {});
             await ontology.select(s.url, s.preset);
           }}>
@@ -188,7 +192,7 @@ export default function OntologyBrowserPage() {
           {/* Applying a staged publish is a SETTINGS action (a number's meaning changes for everyone),
               but deciding to do it happens while reading the ontology. One click from here, not a
               hunt through Settings. */}
-          <button style={btn()} onClick={() => navigate('/settings?section=ontology')}
+          <button style={btn()} onClick={() => navigate('/settings?section=apply')}
                   title="Settings → Ontology: the publishes an agent staged, waiting for a person to apply">
             <Settings2 size={11} /> apply…
           </button>
