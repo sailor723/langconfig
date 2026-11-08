@@ -1,0 +1,61 @@
+{
+ "_doc": "第二条手写 SQL 路线。每个定义类一条谓词，直接写在本体声明之外的列名上（不抄编译输出），闸门现场与编译后的概念谓词逐条对行数。对不上时先问「哪条路线错」，不是改期望值。",
+ "_definitions": {
+  "LateStop": [
+   "stops",
+   "on_time = false"
+  ],
+  "UndeliveredStop": [
+   "stops",
+   "service_status IN ('refused','closed_store','not_delivered')"
+  ],
+  "PrimaryTicket": [
+   "incident_tickets",
+   "is_primary"
+  ],
+  "AxleOverloadTrip": [
+   "trips",
+   "axle_overload"
+  ],
+  "OverPlannedStopTrip": [
+   "trips",
+   "planned_stops > 15"
+  ],
+  "EitherBreachTrip": [
+   "trips",
+   "(axle_overload OR planned_stops > 15)"
+  ],
+  "RouteCompletedTrip": [
+   "trips",
+   "stops_delivered >= planned_stops"
+  ],
+  "CoreUnpermittedTrip": [
+   "trips",
+   "core_restricted AND permit_valid = false"
+  ],
+  "CoreRestrictedTrip": [
+   "trips",
+   "core_restricted"
+  ],
+  "AttendedShift": [
+   "driver_schedule",
+   "status = 'attended'"
+  ],
+  "ScheduledShift": [
+   "driver_schedule",
+   "scheduled"
+  ],
+  "ValidZonePermit": [
+   "zone_permits",
+   "status = '有效'"
+  ],
+  "RestrictedDay": [
+   "restriction_calendar",
+   "restricted"
+  ],
+  "FullOnTimeTrip": [
+   "trips",
+   "late_stop_count = 0"
+  ]
+ }
+}

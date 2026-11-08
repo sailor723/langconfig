@@ -54,5 +54,41 @@
       "check_samples",
       "check_dashboard"
     ]
+  },
+  "new_coldchain_v1": {
+    "why": "v1：第一个把六类 KPI 口径写进声明的迭代（54 指标 / 8 样例 / 6 面板）。库在它之后长出 9 张 KPI 表 + 11 个列，本轮把这批结构补进 01-structure.ttl（由 schema 自动生成，保证每列可达），structure 329 项转绿。",
+    "profile": [
+      "check_structure",
+      "check_ontology_generic",
+      "check_samples",
+      "check_dashboard"
+    ]
+  },
+  "new_coldchain_v2": {
+    "why": "v2：v1 的重建（83 指标 / 15 样例 / 11 面板），是第一个把「按名拒绝」写进样例的版本。结构段同样补齐；其 ontology.html 在恢复后缺失（P2 红），由 compiler/graph_view.py 重新生成。",
+    "profile": [
+      "check_structure",
+      "check_ontology_generic",
+      "check_samples",
+      "check_dashboard"
+    ]
+  },
+  "new_coldchain_v6": {
+    "why": "v6：46 指标的参考版本（Trip/Stop 双粒度、并线前后对照）。结构段补齐后 structure 320 项转绿。",
+    "profile": [
+      "check_structure",
+      "check_ontology_generic",
+      "check_samples",
+      "check_dashboard"
+    ]
+  },
+  "new_coldchain_v4": {
+    "why": "v4：数据层补齐 9 张表 + 10 个列之后，六类 Excel KPI 全量落地的一版（149 指标、17 面板、13 个 KPI 卡、40 条样例）。结构 330 项检查全绿：28 张业务表逐张建模（nl_events 作为平台表显式排除）、每一列都可达（含 vehicles.total_km）、9 条外键引用逐条成立。",
+    "profile": [
+      "check_structure",
+      "check_ontology_generic",
+      "check_samples",
+      "check_dashboard"
+    ]
   }
 }

@@ -1,0 +1,196 @@
+@prefix : <https://cube.local/ontology/new_coldchain_v4#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ---------------------------------------------------------------- 定义类
+# 每个定义类回答一句：这个词指哪一组行、在什么粒度上。
+# 单列能表达的一律用 OWL facet（编译器能静态校验）；
+# 只有「一列比另一列」和「NULL 即状态」这两类必须落成 :physicalPredicate —— 全文件只有 6 处，
+# 每一处都在 :businessDescription 里写明为什么 facet 表达不了。
+
+# 口径来自 answers:Q1（准点：站点级为主指标）
+:LateStop a owl:Class ; rdfs:label "迟到站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :stopOnTime ; owl:hasValue false ] ) ] ;
+    :businessDescription "on_time = false 的站点，2,747 站 / 50,832（5.40%）。站点级准点率的分母是全部站点，分子是其余数。" .
+
+# 口径来自 answers:Q1（整趟级作为并列的第二指标，不替代站点级）
+:FullOnTimeTrip a owl:Class ; rdfs:label "整趟全准点趟次" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Trip [ a owl:Restriction ;
+        owl:onProperty :tripLateStopCount ; owl:withRestrictions ( [ xsd:maxInclusive 0 ] ) ] ) ] ;
+    :businessDescription "该趟迟到站点数为 0，2,221 趟 / 4,120（53.91%）。与站点级 94.60% 不是一个词：一趟里 12 个站，只要有一站迟到整趟就不算。" .
+
+# 口径来自 docx（破损痛点）与 Book1 KPI 2（异常数 ÷ 总站次数）
+:DamagedStop a owl:Class ; rdfs:label "破损站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :stopDamagedBoxes ; owl:withRestrictions ( [ xsd:minInclusive 1 ] ) ] ) ] ;
+    :businessDescription "至少一箱破损的站点。破损箱数合计 8,144，每千站 160.21 箱。" .
+
+# 口径来自 answers:Q2（超载以重量为准，主口径）
+:OverloadedTrip a owl:Class ; rdfs:label "超载趟次（重量口径）" ;
+    :physicalTable "trips" ;
+    :physicalPredicate "load_weight > weight_capacity_snapshot" ;
+    :businessDescription "装载重量超过派车当时冻结的额定载重，1,215 趟 / 4,120 = 29.49%。一列比另一列，OWL facet 表达不了；用快照列而不是车辆现值，是因为事后换车不该改写历史。" .
+
+# 口径来自 answers:Q2（箱数与体积是并列口径，绝不与重量混用；名称各自带维度）
+:OverloadedTripByBoxes a owl:Class ; rdfs:label "超载趟次（箱数口径）" ;
+    :physicalTable "trips" ;
+    :physicalPredicate "load_boxes > box_capacity_snapshot" ;
+    :businessDescription "装载箱数超过额定箱数，1,253 趟 / 4,120 = 30.41%。与重量口径几乎同值但不是同一个定义，所以单独声明、单独命名，任何报表必须写明是哪一个。" .
+
+:OverloadedTripByVolume a owl:Class ; rdfs:label "超载趟次（体积口径）" ;
+    :physicalTable "trips" ;
+    :physicalPredicate "load_volume > volume_capacity_snapshot" ;
+    :businessDescription "装载体积超过额定体积，1,229 趟 / 4,120 = 29.83%。第三个并列口径，同样不与前两个相加或替代。" .
+
+# 口径来自 docx Q22-23（外车只补高峰，平日要低）
+:ExternalTrip a owl:Class ; rdfs:label "外车趟次" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Trip [ a owl:Restriction ;
+        owl:onProperty :tripIsExternal ; owl:hasValue true ] ) ] ;
+    :businessDescription "由外部车队承运的趟次，417 / 4,120 = 10.12%。司机不接单时的补位运力，成本与服务都不由我们控制。" .
+
+:PeakDayTrip a owl:Class ; rdfs:label "高峰日趟次" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Trip [ a owl:Restriction ;
+        owl:onProperty :tripIsPeakDay ; owl:hasValue true ] ) ] ;
+    :businessDescription "高峰日的趟次，1,150 / 4,120 = 27.91%。峰日落在 calendar.weekday 4 与 5 上，但整数到星期名的映射本库没有声明，所以只按 is_peak 说事。" .
+
+# 口径来自 answers:Q3（NULL 是「还没判」这个状态，不是 0，也不能丢）
+:UnjudgedComplaint a owl:Class ; rdfs:label "责任未判定客诉" ;
+    :physicalTable "complaints" ;
+    :physicalPredicate "liability IS NULL" ;
+    :businessDescription "责任未判定的客诉，731 / 1,585 = 46.12%。它必须作为一个状态被数出来：把它当 0 会让赔付成本看起来比实际低一半。" .
+
+:JudgedComplaint a owl:Class ; rdfs:label "已判定客诉" ;
+    :physicalTable "complaints" ;
+    :physicalPredicate "amount IS NOT NULL" ;
+    :businessDescription "已判责且已定金额的客诉，854 / 1,585。赔付成本 543,309.02 只能在这 854 件上求和，口径写在指标名里。" .
+
+# 口径来自 answers:Q10（只做破损归因；≤3 天是假设的阈值，不是任何文件写的）
+:NewbieHandlerStop a owl:Class ; rdfs:label "新手搬运工站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :stopHandlerDaysWorked ; owl:withRestrictions ( [ xsd:maxInclusive 3 ] ) ] ) ] ;
+    :businessDescription "这一站的搬运工累计上岗 ≤3 天，20,166 站 / 50,832 = 39.67%，均破损 0.220 箱 vs 老兵 0.138 箱（1.59 倍）。「≤3 天」是待确认的假设阈值：换它只改这一个数字，不改结构。" .
+
+# 口径来自 answers:Q7（拒单不归因，只报缺口）
+:UnrecordedRefusalReason a owl:Class ; rdfs:label "拒单原因未记录" ;
+    :physicalTable "refusals" ;
+    :physicalPredicate "reason IS NULL" ;
+    :businessDescription "没填原因的拒单，113 / 389 = 29.05%。有了这个数，原因分布才可以被读；没有它，任何「因为 X 所以拒单」的说法都是猜的。" .
+
+# 口径来自 answers:Q12（停车只声明事实；正式指派后拒单是唯一有出处的那一类）
+:AssignedRefusal a owl:Class ; rdfs:label "正式指派后拒单" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Refusal [ a owl:Restriction ;
+        owl:onProperty :refusalAssigned ; owl:hasValue true ] ) ] ;
+    :businessDescription "指派之后才拒的 144 / 389 = 37.02%。只有这一类可以往停车规则上对；「提前告知不罚」「生病车坏不罚」的例外条款还没定，所以判定本身按名拒绝。" .
+
+# 口径来自 answers:Q11（派车只声明观察量，不写 action）
+:AdoptedDecision a owl:Class ; rdfs:label "已采纳的派车建议" ;
+    owl:equivalentClass [ owl:intersectionOf ( :DispatchDecision [ a owl:Restriction ;
+        owl:onProperty :decisionAdopted ; owl:hasValue true ] ) ] ;
+    :businessDescription "人跟着建议走的 2,036 / 2,620 = 77.71%。全部是影子模式，所以这是「人与建议的重合度」，不是建议带来的效果。" .
+
+# 口径来自 answers:Q8（温控只报越界站数，趋势按名拒绝）
+:TempExcursionStop a owl:Class ; rdfs:label "温度越界站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :stopTempExcursion ; owl:hasValue true ] ) ] ;
+    :businessDescription "这一站发生了温度越界，1,148 站。布尔标记来自司机的现场判定；读数只有单日 2.75 小时，所以只报「有多少站越界」，不报「温度在变好还是变坏」。" .
+
+# 口径来自 answers:Q1（准点率的分子；与 :LateStop 互补，两者相加必须回到全部站点）
+:OnTimeStop a owl:Class ; rdfs:label "准时站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :stopOnTime ; owl:hasValue true ] ) ] ;
+    :businessDescription "on_time = true 的站，48,085 / 50,832（94.60%）。与 :LateStop 相加必须回到 :stopCount，这是本层唯一一条完整性硬约束。" .
+
+# 口径来自 docx（报警与温度越界是两个标记，不合并）
+:AlarmTriggeredStop a owl:Class ; rdfs:label "触发报警站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :stopAlarmTriggered ; owl:hasValue true ] ) ] ;
+    :businessDescription "现场触发了报警的站。报警 ≠ 温度越界：一个是设备/流程信号，一个是温度事实，两列并存时不合并。" .
+
+# 口径来自 answers:Q10（对照组：阈值 3 天的补集，仅用于并排阅读，不作为独立结论）
+:ExperiencedHandlerStop a owl:Class ; rdfs:label "老手搬运工站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :stopHandlerDaysWorked ; owl:withRestrictions ( [ xsd:minInclusive 4 ] ) ] ) ] ;
+    :businessDescription "上岗 >3 天的站，16,533 / 50,832（32.53%），均破损 0.138 箱/站。它的存在只为了让「新手 0.220 vs 老手 0.138」两个数在同一口径下并排；阈值换了，两个数一起换。" .
+
+# 口径来自 answers:Q10（缺口本身就是一类：这三列同时为 NULL）
+:UnassignedHandlerStop a owl:Class ; rdfs:label "无搬运工记录的站点" ;
+    rdfs:subClassOf :Stop ; :physicalTable "stops" ;
+    :physicalPredicate "handler_days_worked IS NULL" ;
+    :businessDescription "14,133 站 / 50,832 = 27.80% 的站完全没有搬运工记录：handler_id、handler_days_worked、handler_cooperated 三列同时为 NULL。NULL 在这里是「没记录」，不是「没配合」，所以它必须是第三类而不是被并进任何一边；新手 20,166 + 老手 16,533 + 无记录 14,133 = 50,832 是本层唯一一条加总恒等式。" .
+
+# ================================================================ v4 delta：2026 KPI 口径字典里的定义类
+# 每一句都对应口径字典 Book1 里一个 KPI 的分子；阈值已与 admin 确认（15 站、0 容忍），
+# 这里只把它们写成可编译的定义，不改它们。
+
+# 口径来自 Book1 KPI「拒收/未送达」+ 口径字典：配送结果三态（拒收/闭店/未送达）不合并
+:UndeliveredStop a owl:Class ; rdfs:label "未送达站点" ;
+    :physicalTable "stops" ;
+    :physicalPredicate "service_status <> 'delivered'" ;
+    :businessDescription "service_status 不是 delivered 的站，905 / 50,832 = 1.78%（拒收 412 / 闭店 274 / 未送达 219）。枚举取反，OWL facet 只能表达单值，表达不了「不等于」，所以落成 :physicalPredicate。三个原因分开数，因为拒收是客户行为、闭店是客户行为、未送达是我们的。" .
+
+# 口径来自 Book1 KPI 6（异常工单去重）：一单多异常只算 1 单
+:PrimaryTicket a owl:Class ; rdfs:label "主异常工单" ;
+    owl:equivalentClass [ owl:intersectionOf ( :IncidentTicket [ a owl:Restriction ;
+        owl:onProperty :ticketIsPrimary ; owl:hasValue true ] ) ] ;
+    :businessDescription "被标为主异常的工单，23 / 107 = 21.50%。去重口径落在这张标记上：107 张工单里有的是一单合并了多个异常，直接数 type 会把一张单数成两单。" .
+
+# 口径来自 2026 KPI 合规卡（轴荷超限以 trips.axle_overload 为准）
+:AxleOverloadTrip a owl:Class ; rdfs:label "轴荷超限趟次" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Trip [ a owl:Restriction ;
+        owl:onProperty :tripAxleOverload ; owl:hasValue true ] ) ] ;
+    :businessDescription "trips.axle_overload = true 的趟次，1,632 / 4,120 = 39.61%。这是库里已有的判定，本体只复述它：没有逐轴实测轴荷，就算不出「超了多少公斤」。" .
+
+# 口径已由 admin 确认：planned_stops > 15 即超规划
+:OverPlannedStopTrip a owl:Class ; rdfs:label "超规划站数趟次" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Trip [ a owl:Restriction ;
+        owl:onProperty :tripPlannedStops ; owl:withRestrictions ( [ xsd:minInclusive 16 ] ) ] ) ] ;
+    :businessDescription "单趟计划站点数 > 15 的趟次，760 / 4,120 = 18.45%。阈值 15 是业务给的规划上限，不是数据分位数：边界写成 >= 16 与 > 15 等价（整数站点数），facet 因此仍然可编译。" .
+
+# 口径来自 KPI 卡：超载与超站数任一即触发合规告警
+:EitherBreachTrip a owl:Class ; rdfs:label "合规越界趟次（超载或超站数）" ;
+    :physicalTable "trips" ;
+    :physicalPredicate "axle_overload OR planned_stops > 15" ;
+    :businessDescription "轴荷超限或计划站数超 15，任一成立即计入：1,761 / 4,120 = 42.74%。它与 :AxleOverloadTrip（1,632）和 :OverPlannedStopTrip（760）的重叠是 631 趟，所以三者不能相加当三个问题；OR 是两列的组合条件，OWL facet 表达不了。" .
+
+# 口径来自 KPI 卡：线路完成 = 实际送达站数不少于计划站数
+:RouteCompletedTrip a owl:Class ; rdfs:label "线路完成趟次" ;
+    :physicalTable "trips" ;
+    :physicalPredicate "stops_delivered >= planned_stops" ;
+    :businessDescription "实际送达站点数不少于计划站数，3,329 / 4,120 = 80.80%。一列比另一列，facet 表达不了。站点级完成率（stops_delivered / planned_stops = 98.23%）比它高 17 个百分点：一站没送到只扣一站，线路不算失败。" .
+
+# 口径来自限行卡：核心区 + 通行证无效
+:CoreUnpermittedTrip a owl:Class ; rdfs:label "核心区无有效通行证趟次" ;
+    :physicalTable "trips" ;
+    :physicalPredicate "core_restricted AND NOT permit_valid" ;
+    :businessDescription "进核心限行区且通行证无效的趟次，1,432 / 1,850 = 77.41%。两列组合条件；这个比例与 zone_permits 台账一致（20 张证只有 12 张有效，60 台车只有 20 台有证），两条路线互为核对。" .
+
+# 口径来自出勤卡：出勤率分母是「排了班的班次」，不是全部行
+:AttendedShift a owl:Class ; rdfs:label "出勤班次" ;
+    owl:equivalentClass [ owl:intersectionOf ( :DriverSchedule [ a owl:Restriction ;
+        owl:onProperty :scheduleStatus ; owl:hasValue "attended" ] ) ] ;
+    :businessDescription "status = attended 的排班行，2,894。分母 :ScheduledShift 是 5,036，不是 5,400：没排班的日子既不算出勤也不算缺勤。" .
+
+:ScheduledShift a owl:Class ; rdfs:label "排班班次" ;
+    owl:equivalentClass [ owl:intersectionOf ( :DriverSchedule [ a owl:Restriction ;
+        owl:onProperty :scheduleScheduled ; owl:hasValue true ] ) ] ;
+    :businessDescription "scheduled = true 的排班行，5,036 / 5,400。出勤率 2,894 / 5,036 = 57.47%；拿 5,400 作分母会得到 53.59%，那是把 364 个「没排班」记成了缺勤。" .
+
+# 口径来自通行证台账：状态是中文枚举
+:ValidZonePermit a owl:Class ; rdfs:label "有效通行证" ;
+    owl:equivalentClass [ owl:intersectionOf ( :ZonePermit [ a owl:Restriction ;
+        owl:onProperty :permitStatus ; owl:hasValue "有效" ] ) ] ;
+    :businessDescription "status = 有效 的通行证，12 / 20 = 60.00%（已失效 8）。这个枚举是中文值，所以 hasValue 必须写中文，写 valid 会选中 0 行——本库的枚举值不统一，逐列看过再写。" .
+
+# 口径来自限行卡：限行日的分母是「日历行」，不是自然日
+:RestrictedDay a owl:Class ; rdfs:label "限行日（按区域）" ;
+    owl:equivalentClass [ owl:intersectionOf ( :RestrictionDay [ a owl:Restriction ;
+        owl:onProperty :calendarRestricted ; owl:hasValue true ] ) ] ;
+    :businessDescription "restricted = true 的日历行，43 / 180 = 23.89%（core 40 / suburb 3）。分母是 90 天 × 2 区 = 180 行，不是 90 天：按天算限行日比例会得到 43/90 的错误数字。" .
+
+# 口径来自限行卡：核心区趟次的对照组（通行证合规率的分母）
+:CoreRestrictedTrip a owl:Class ; rdfs:label "核心区趟次" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Trip [ a owl:Restriction ;
+        owl:onProperty :tripCoreRestricted ; owl:hasValue true ] ) ] ;
+    :businessDescription "进核心限行区的趟次，1,850 / 4,120 = 44.90%（trips.core_restricted）。它不是「违规趟次」，是全部分母；违规是其中通行证无效的 1,432 趟。" .

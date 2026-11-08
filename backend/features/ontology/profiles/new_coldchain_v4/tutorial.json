@@ -1,0 +1,197 @@
+{
+ "_doc": "阶段 9：教程。与 new_coldchain_v2_settings.json 同目录（tutorial_api 读 profile 旁的 tutorial.json）。每个 items 里的名字都必须是图里已声明的类或指标（T2 逐个核对）；正文里出现的数字全部来自 generated/compile_report.json 的编译结果，不是我手算的。",
+ "title": "ABC 冷链配送本体（v2）· 教程",
+ "intro": "这份本体把每个数写成一条声明，再编译成 SQL：先定一行是什么（颗粒），把「准时」「破损」「超载」写成公理，再把答不了的口径按名拒绝。它不猜业务没给的东西——阈值、责任划分、时间窗口径，一条都没有替业务定。",
+ "steps": [
+  {
+   "kind": "objects",
+   "title": "一行是什么：先定颗粒",
+   "body": "每个数字都挂在某个颗粒上。一次配送是一行 Trip（4,120 行），一次卸货是一行 Stop（50,832 行），一家门店是一行 Store（800 行），一条客诉、一次拒单、一条调度决策各是一行。最容易混的是 Stop 与 Trip：一趟车要停十几家店（平均 12.3 站），站点数和趟次差了一个量级，所以「准时」按站算和按趟算本来就是两个数（94.6% 与 53.9%）。点开任一对象，能看到它的物理表、主键和可分组列。",
+   "items": [
+    "Trip",
+    "Stop",
+    "Route",
+    "RouteStop",
+    "Vehicle",
+    "Driver",
+    "Store",
+    "Handler",
+    "Complaint",
+    "Refusal",
+    "DispatchDecision",
+    "ParkingRecord",
+    "TripCost",
+    "DriverStat",
+    "Telemetry",
+    "Appeal",
+    "HandlerSettlement"
+   ]
+  },
+  {
+   "kind": "definitions",
+   "title": "「准时」「整趟全准点」「破损」「超载」到底指哪些行",
+   "body": "这几个词不是形容词，是公理：每条编译成一个 WHERE 条件，所以同一份报表里同一个词永远选中同一批行。准点站与晚点站是现成布尔列 on_time 的互斥两半，加起来正好是全部 50,832 站（48,085 + 2,747）；整趟全准点是「这趟一趟都没晚」（late_stop_count <= 0），不是「站点级平均值高」。超载更值得看：库里有三种容量快照，按重量、按箱数、按体积算出来的趟数分别是 1,215 / 1,253 / 1,229——三个数都不等于彼此，所以「超载率」必须说清是哪一种，本体把它们拆成三条独立声明，而不是合成一个含糊的「超载」。",
+   "items": [
+    "OnTimeStop",
+    "LateStop",
+    "FullOnTimeTrip",
+    "DamagedStop",
+    "OverloadedTrip",
+    "OverloadedTripByBoxes",
+    "OverloadedTripByVolume",
+    "TempExcursionStop",
+    "AlarmTriggeredStop"
+   ]
+  },
+  {
+   "kind": "definitions",
+   "title": "「未判定」是一根柱子，不是零",
+   "body": "客诉里责任方为 NULL 的有 731 条（占 46.1%），拒单里原因为 NULL 的有 113 条（占 29.0%）；本体把它们各自写成一条公理（UnjudgedComplaint / UnrecordedRefusalReason），所以查询结果里它们以「NULL 分组」出现，而不是被 WHERE 过滤掉、再被误读成「没有这类问题」。工龄那三条同理：新手（handler_days_worked <= 3）、老手（>= 4）、无记录（IS NULL）三组互斥且覆盖全部站点，20,166 + 16,533 + 14,133 = 50,832——「无记录」自成一组，本身就是数据质量的证据，不是可以并进新手的那一堆。",
+   "items": [
+    "UnjudgedComplaint",
+    "JudgedComplaint",
+    "UnrecordedRefusalReason",
+    "NewbieHandlerStop",
+    "ExperiencedHandlerStop",
+    "UnassignedHandlerStop",
+    "AssignedRefusal",
+    "AdoptedDecision",
+    "ExternalTrip",
+    "PeakDayTrip"
+   ]
+  },
+  {
+   "kind": "metrics",
+   "title": "先数数：趟次、站点、客诉、拒单、车辆、搬运工",
+   "body": "计数是最简单的一类：声明「怎么算、在谁的颗粒上数、在哪个集合里数」，SQL 由编译器生成，没有人手写，也没有人能偷偷改。注意客诉数（1,585）不等于「被投诉的站点数」——一条客诉挂一次卸货，一次卸货可能被投诉多次，所以它是客诉颗粒上的计数。点一下运行：数字是从库里现跑出来的，不是抄在文档里的截图。",
+   "items": [
+    "tripCount",
+    "stopCount",
+    "complaintCount",
+    "refusalCount",
+    "handlerCount",
+    "appealCount",
+    "dispatchDecisionCount",
+    "parkingRecordCount"
+   ]
+  },
+  {
+   "kind": "metrics",
+   "title": "比率：分子分母都写在声明里，不让人猜",
+   "body": "每一个率都写清分母是谁：准点率的分母是站点，整趟全准点率的分母是趟次，破损站率的分母也是站点，温控越界率的分母同样是站点。这就是为什么站点级 94.6% 和整趟级 53.9% 不矛盾：站点级高而整趟级低，说的是迟到集中在少数趟里，一趟晚一串。哪个率适合放进日报，是业务的决定；本体只保证每个率都能被指着声明复算。",
+   "items": [
+    "onTimeRate",
+    "fullOnTimeTripRate",
+    "damagedStopRate",
+    "overloadRate",
+    "tempExcursionRate"
+   ]
+  },
+  {
+   "kind": "metrics",
+   "title": "跨颗粒的率：先各算各的，再相除",
+   "body": "有些数不能在一个 SELECT 里算：每千站破损箱、每趟成本、每趟收入、每趟毛利、每条已判定客诉的平均赔付——分子和分母落在不同颗粒上，编译出来是两条独立的扫描再相除，而不是一次 JOIN 之后顺手 count（那会因一对多扇出把分母撑大）。「每千站破损箱」分母是站点数而不是箱数，所以它和「破损站率」是两个不同的问题：前者看严重程度，后者看发生率。",
+   "items": [
+    "damagedBoxesPer1kStops",
+    "costPerTrip",
+    "revenuePerTrip",
+    "grossMarginPerTrip",
+    "avgCompensationPerJudgedComplaint",
+    "avgTripDuration"
+   ]
+  },
+  {
+   "kind": "metrics",
+   "title": "分维度：路径写在关系上，不写在指标里",
+   "body": "同一个数按不同维度切开，靠的是声明里的分组列和关系路径，不是给每个维度各写一个指标。站点级准点率按线路版本切：v1 96.2%、v2 92.8%；整趟全准点率切下去差距更大：v1 66.3%、v2 32.6%。同一个「超载率」按版本切：v1 2.7%、v2 75.4%——这个差不是小数点级别的，它说明并线之后的线路和 v1 不是同一件事。分组还能跨表：按车辆看每千站破损（60 台车各自一个数）、按门店区域×线路版本看站点数与准点率、按责任方看客诉数、按高峰/平日看外车占比。",
+   "items": [
+    "onTimeRateByRouteVersion",
+    "fullOnTimeTripRateByRouteVersion",
+    "overloadRateByRouteVersion",
+    "overloadRateByBoxesByRouteVersion",
+    "damagedBoxesPer1kStopsByVehicle",
+    "stopCountByVehicle",
+    "onTimeRateByZoneVersion",
+    "damagedBoxesPer1kStopsByZoneVersion",
+    "complaintCountByLiability",
+    "externalShareByPeak",
+    "onTimeRateByPeak",
+    "tripCountByWeek"
+   ]
+  },
+  {
+   "kind": "metrics",
+   "title": "钱：收入、成本、毛利各是一条声明",
+   "body": "收入在 trips.revenue 上，成本在 trip_costs 上（油费、过路费、司机工资、搬运工费、外车费、其他），毛利是两者之差。编译出来的毛利 2,278,231.53、毛利率 51.5%、每趟毛利 552.97——成本那张表按趟一对一，所以这里可以直接相减；如果它是一对多，本体要写的是两条扫描再相减，而不是 JOIN 之后 sum 两遍。",
+   "items": [
+    "tripRevenue",
+    "tripCostTotal",
+    "grossMargin",
+    "grossMarginRate",
+    "grossMarginRateByRouteVersion"
+   ]
+  },
+  {
+   "kind": "refusals",
+   "title": "答不了的也要说出来：按名拒绝",
+   "body": "拒绝也是交付物，而且每一条都说清缺的是哪条声明。问「温度趋势怎么样」：telemetry 表里确实有逐时读数（temp_c，12,360 行，挂 trip_id + ts），但没有一条声明说「多少度算越界」——阈值是业务的，不是我定的；本体只把现成的 stops.temp_excursion 布尔列写成公理（1,148 站越界），所以能数「多少站被打了标记」，不能给「温度在变好还是变坏」的曲线。问「有多少家门店」：stores 表有 800 行、:Store 已声明，缺的是计数指标本身——没有一条 :aggregate count / :grain :Store 的声明，问题就落回类上，而类是一份清单，不是一个数。第三条是时间窗：没有任何指标声明 :supportsSlot :TimeWindow，所以「最近 30 天的趟次」按名拒绝，而不是悄悄给一个 30 天窗口——窗口按哪天算、含不含边界，业务没给。",
+   "items": [
+    "Telemetry",
+    "Store"
+   ],
+   "proof_note": "三条缺的都是业务没给的口径，不是我能补的声明。补上去就等于我替业务定了阈值、定了窗口——那正是这份本体拒绝做的事。"
+  },
+  {
+   "kind": "guard",
+   "title": "护栏：一个问题最多能花多少",
+   "body": "护栏的每个上限都来自这份 profile 自己的 guard 段，不是通用默认值：一页最多 500 行（max_rows=500，超出的截断并在 notes 里报出来）；每条语句 8 秒超时（statement_timeout_ms=8000）；进库前先估计划行数，超过 5,000,000 行直接按名拒绝（max_plan_rows=5000000）。被判成大表的是「自己有真时间列」的五张：trips.trip_date、telemetry.ts、complaints.opened_at、refusals.refused_date、dispatch_decisions.decision_date——窗口只会加在各自这一列上。stops 是行数最大的一张（50,832 行），但它没有自己的时间列（时间是隔一层 trip_id 的 trips.trip_date），所以只进 large_tables 算计划预算，不进 big_tables，否则护栏会给一张没有时间列的表拼窗口，SQL 直接报错。default_window_days 是 0，这是算过的：库里最晚一趟是 2026-10-29，而 now() 是 2026-11-08，注入 90 天窗口会静默丢掉 8 月初的 500 趟（4,120 趟只剩 3,620 趟）——悄悄少给数比按名拒绝更坏，所以不带时间过滤的整表读取拿到的是一句拒绝句加两条出路。已声明的指标从不被窗口改写：指标的数就是它的定义，护栏只把这次无界扫描记进 notes。",
+   "items": [],
+   "guard": {
+    "max_rows": 500,
+    "default_window_days": 0,
+    "max_plan_rows": 5000000,
+    "statement_timeout_ms": 8000
+   }
+  },
+  {
+   "kind": "metrics",
+   "title": "合规卡：三条比率，不能相加",
+   "body": "「越界率」不是一个式子，是三条声明：轴荷超限率（装载记录里 axle_load_kg 超过该轴限值，行程级去重）、计划站数超限率（停站计划里排的站数超过上限）、以及「任一成立」率。按本轮数据：轴荷 39.61%（1,632 趟）、站数 18.45%（760 趟）、任一成立 42.74%（1,761 趟）——前两条在 631 趟上重叠，所以 39.61% + 18.45% = 58.06% 不是「越界率」，它是一个不存在的数；任何把两条率相加的报表都是错的，要读就把「任一成立」作为第四条声明读。「核心区无有效通行证」的分母只是进核心区的 1,850 趟（77.41%），不是全部 4,120 趟；通行证台账有效率 60%（20 张证、60 台车）是另一个口径，它和趟次口径互为核对，不能互相替代。",
+   "items": [
+    "axleOverloadRate",
+    "overPlannedStopRate",
+    "eitherBreachRate",
+    "coreUnpermittedTripRate",
+    "zonePermitValidRate",
+    "zonePermitCountByStatus"
+   ]
+  },
+  {
+   "kind": "metrics",
+   "title": "执行卡：完成率有两种，别混",
+   "body": "「线路完成率」按趟算：实际送达站数 ≥ 计划站数，这一趟就算完成，一站没送到不改变线路成功。「站点级送达完成率」按站算。两者分母不同，差十几个点，报告里只能写清是哪一种。「出勤率」的分母是排了班的班次，不是日历天数：没排班的日子既不算出勤也不算缺勤，所以排班状态必须是一根有三段的分布，而不是一个二值。",
+   "items": [
+    "routeCompletionRate",
+    "stopDeliveryCompletionRate",
+    "attendanceRate",
+    "shiftCountByScheduleStatus",
+    "lateStopShare",
+    "undeliveredStopRate"
+   ]
+  },
+  {
+   "kind": "metrics",
+   "title": "成本卡：两个分母、一张缺列的账",
+   "body": "「百公里油耗」是油账 liters 合计 ÷ 趟次表里程合计：两张表各自的合计，不是逐趟相除再平均（没加油的趟会把分母撑大）。按吨位看油耗是另一条声明，路径写在车辆吨位上。「单公里 TCO」= 油 + 维修 + 单趟固定成本（保险、折旧、年检）÷ 里程；trip_costs.other_cost 整列没有记录，所以它是下限而不是终值。罚款只报合计，不摊进单公里成本——摊法业务没给。",
+   "items": [
+    "fuelPer100km",
+    "fuelPer100kmByTonnage",
+    "maintenanceCostPerKm",
+    "tripFixedCostPerKm",
+    "tcoPerKm",
+    "violationFineTotal",
+    "maintenanceSpendByCategory"
+   ]
+  }
+ ]
+}

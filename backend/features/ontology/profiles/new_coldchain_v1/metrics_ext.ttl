@@ -1,0 +1,278 @@
+# metrics_ext.ttl — the COMPUTATION layer for new_coldchain_v1 (ABC 冷链配送).
+# 02-meaning.ttl says what a number MEANS; this file says how it COMPILES:
+#   :aggregate / :formula / :where / :numerator / :denominator / :groupBy / :grain / :universe.
+# Rules this file follows:
+#   · every ratio is `ratio_of_sums` with :numerator + :denominator pointing at DECLARED metrics,
+#     so each side compiles through its own concept. A formula like "on_time / all_rows" would
+#     expand both members to count(*) and silently return 100% — the documented defect.
+#   · :scale "100.0" on every percent metric, none of the *100 is hidden inside a formula.
+#   · grouped metrics are declared separately and reuse the same numerator/denominator, so
+#     "overall" and "by route version" can never drift apart.
+#   · no thresholds. A number that needs a threshold the brief does not confirm is a refusal
+#     (see 02-meaning.ttl :refusalReason and refusals.json), not a metric.
+@prefix :     <https://cube.local/ontology/new_coldchain_v1#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+# ═══════════════════════════════════════════ 站点粒度 / grain :Stop
+:stopCount a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :Stop ; :universe :Stop .
+
+:onTimeStops a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :OnTimeStop ; :grain :Stop ; :universe :Stop .
+
+:lateStops a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :LateStop ; :grain :Stop ; :universe :Stop ;
+    rdfs:label "迟到站点数" ;
+    :unit "count" ; :additivity "additive" ;
+    :askedAs "有多少站点迟到" ;
+    :businessDescription "on_time 为假的站点数。与 :onTimeStops 相加应恒等于 :stopCount（互补校验）。measured: 2,747 = 50,832 − 48,085。口径来自 answers:Q1。" .
+
+:damagedStops a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :DamagedStop ; :grain :Stop ; :universe :Stop ;
+    rdfs:label "货损站点数" ;
+    :unit "count" ; :additivity "additive" ;
+    :askedAs "有多少站点出现货损" ;
+    :businessDescription "damaged_boxes >= 1 的站点数（分子，单看它没有意义，要和站点总数一起读）。measured: 5769 / 50832。口径来自 answers:Q8：「货损」= 该站至少一箱破损。" ;
+    :measuredFrom "answers:Q8 · 口径字典#三（货损与倒温分开计，不合并成一次）" .
+:tempExcursionStops a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :TempExcursionStop ; :grain :Stop ; :universe :Stop ;
+    rdfs:label "倒温站点数" ;
+    :unit "count" ; :additivity "additive" ;
+    :askedAs "有多少站点发生倒温" ;
+    :businessDescription "temp_excursion 为真的站点数（分子）。measured: 1148 / 50832。口径来自 answers:Q8：倒温独立计一次，不与货损合并；两者都发生的站点在 failedStops 里只算一次。" ;
+    :measuredFrom "answers:Q8 · 口径字典#三" .
+:alarmStops a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :AlarmStop ; :grain :Stop ; :universe :Stop ;
+    rdfs:label "触发警铃站点数" ;
+    :unit "count" ; :additivity "additive" ;
+    :askedAs "有多少站点触发警铃" ;
+    :businessDescription "alarm_triggered 为真的站点数 = 979。这个口径不加 stores.has_alarm 过滤，理由写在这里：979 站里有 413 站的门店 has_alarm 为假（有警铃记录、门店却没有警铃）—— 数据里这两列互相矛盾，所以「只统计有警铃的门店」这句话在本口径里是错的，已删除；要不要按门店过滤（那会变成 566）需要业务确认。在确认之前只报 alarm_triggered 这一个谓词，第二条手写 SQL 路线见 verify_second_route.py。口径来自 docx 的『敏感门店/警铃投诉』痛点。" ;
+    :measuredFrom "answers:Q7 · 数据矛盾 R-D：413/979 站的门店 has_alarm=false（见 refusals.json）" .
+
+:failedStops a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :FailedStop ; :grain :Stop ; :universe :Stop .
+
+:onTimeRateByStop a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ;
+    :numerator :onTimeStops ; :denominator :stopCount ; :scale "100.0" .
+
+:damagedStopRate a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ;
+    :numerator :damagedStops ; :denominator :stopCount ; :scale "100.0" .
+
+:abnormalStopRate a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ;
+    :numerator :failedStops ; :denominator :stopCount ; :scale "100.0" .
+
+# 并线前后切开看准时率：v1 vs v2。分子分母都是 Stop 粒度，按趟次上的 route_version 分组
+# （stops → trips 走 :stopTrip，这是 01-structure 里声明的唯一路径）。
+:onTimeRateByRouteVersion a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ;
+    :numerator :onTimeStops ; :denominator :stopCount ;
+    :groupBy :tripRouteVersion ; :scale "100.0" ;
+    rdfs:label "准时率（按并线前后）" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "并线前后准时率有什么变化" ;
+    :askedAs "按线路版本看准时率" ;
+    :askedAs "并线后的准时率是多少" ;
+    :askedAs "并线前的准时率是多少" ;
+    :businessDescription "同一对准时站点数 ÷ 站点总数，按 :tripRouteVersion 分组。口径来自 answers:Q11：并线（50 条压到 ~40 条）的影响必须按版本切开，否则平均掉。measured（第二条路线：stops ⨝ trips ⨝ routes 按 version 分组）: v1 96.16% = 26,152/27,196 站，v2 92.79% = 21,933/23,636 站。" .
+
+# ═══════════════════════════════════════════ 趟次粒度 / grain :Trip
+:tripCount a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :Trip ; :universe :Trip .
+
+:externalTrips a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :ExternalTrip ; :grain :Trip ; :universe :Trip .
+
+:ownTrips a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :OwnTrip ; :grain :Trip ; :universe :Trip ;
+    rdfs:label "自有趟次" ;
+    :unit "count" ; :additivity "additive" ;
+    :askedAs "自有车跑了多少趟" ;
+    :businessDescription "is_external 为假的趟次。与 :externalTrips 相加恒等于 :tripCount（互补校验）。measured: 3,703 = 4,120 − 417。口径来自 answers:Q6。" .
+
+:peakDayTrips a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :PeakDayTrip ; :grain :Trip ; :universe :Trip ;
+    rdfs:label "高峰日趟次" ;
+    :unit "count" ; :additivity "additive" ;
+    :askedAs "高峰日有多少趟" ;
+    :businessDescription "is_peak_day 为真的趟次（周五/周六，取自 calendar.is_peak，非阈值）。口径来自 answers:Q6。" .
+
+:tripsRouteV1 a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :RouteV1Trip ; :grain :Trip ; :universe :Trip ;
+    rdfs:label "并线前趟次" ;
+    :unit "count" ; :additivity "additive" ;
+    :askedAs "并线前跑了多少趟" ;
+    :businessDescription "route_version = 'v1' 的趟次。measured: 2,600。口径来自 answers:Q11。" .
+
+:tripsRouteV2 a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :RouteV2Trip ; :grain :Trip ; :universe :Trip ;
+    rdfs:label "并线后趟次" ;
+    :unit "count" ; :additivity "additive" ;
+    :askedAs "并线后跑了多少趟" ;
+    :businessDescription "route_version = 'v2' 的趟次。measured: 1,520。口径来自 answers:Q11。" .
+
+:overloadedTrips a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :OverloadedTripWeight ; :grain :Trip ; :universe :Trip .
+
+:volumeOverTrips a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :VolumeOverTrip ; :grain :Trip ; :universe :Trip ;
+    rdfs:label "体积超容趟次" ;
+    :unit "count" ; :additivity "additive" ;
+    :askedAs "体积超容的趟次有多少" ;
+    :businessDescription "装载体积 > 核定容积的趟次。按 answers:Q3 这是装载利用率，不是法定超载，因而单独计数、单独展示。measured: 1,229。" .
+
+:boxesOverTrips a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :BoxesOverTrip ; :grain :Trip ; :universe :Trip ;
+    rdfs:label "箱数超容趟次" ;
+    :unit "count" ; :additivity "additive" ;
+    :askedAs "箱数装不下的趟次有多少" ;
+    :businessDescription "装载箱数 > 核定箱数的趟次。装载利用率口径（answers:Q3）。measured: 1,253。" .
+
+:cleanTrips a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :CleanTrip ; :grain :Trip ; :universe :Trip ;
+    rdfs:label "整趟无迟到趟次" ;
+    :unit "count" ; :additivity "additive" ;
+    :askedAs "一趟都没迟到的趟次有多少" ;
+    :businessDescription "late_stop_count = 0 的趟次。这是趟次级诊断口径，不作 KPI（answers:Q1）。measured: 2,221。" .
+
+:revenueTotal a owl:DatatypeProperty ;
+    :aggregate "sum" ; :formula "revenue" ; :grain :Trip ; :universe :Trip .
+
+:totalCostSum a owl:DatatypeProperty ;
+    :aggregate "sum" ; :formula "cost_total" ; :grain :Trip ; :universe :Trip .
+
+:grossProfit a owl:DatatypeProperty ;
+    :aggregate "sum" ; :formula "revenue - cost_total" ; :grain :Trip ; :universe :Trip ;
+    rdfs:comment "other_cost 全为 NULL，所以这是『已知成本口径』的毛利；02-meaning 已把它标成上界而非终值。" .
+
+:avgStopsPerTrip a owl:DatatypeProperty ;
+    :aggregate "avg" ; :formula "actual_stops" ; :grain :Trip ; :universe :Trip .
+
+:externalShare a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
+    :numerator :externalTrips ; :denominator :tripCount ; :scale "100.0" .
+
+:overloadRateWeight a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
+    :numerator :overloadedTrips ; :denominator :tripCount ; :scale "100.0" .
+
+:volumeOverRate a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
+    :numerator :volumeOverTrips ; :denominator :tripCount ; :scale "100.0" .
+
+:onTimeTripShare a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
+    :numerator :cleanTrips ; :denominator :tripCount ; :scale "100.0" .
+
+:grossMarginRate a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
+    :numerator :grossProfit ; :denominator :revenueTotal ; :scale "100.0" .
+
+:overloadRateByRouteVersion a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
+    :numerator :overloadedTrips ; :denominator :tripCount ;
+    :groupBy :tripRouteVersion ; :scale "100.0" ;
+    rdfs:label "超载率（按并线前后）" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "并线前后超载率有什么变化" ;
+    :askedAs "并线后的超载率是多少" ;
+    :askedAs "并线前的超载率是多少" ;
+    :businessDescription "同一对超载趟次 ÷ 趟次，按 :tripRouteVersion 分组。并线的核心问题就在这张表：装载没跟上站点合并。口径来自 answers:Q11 + Q3。实测值见 samples.json。" .
+
+:externalShareByPeak a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
+    :numerator :externalTrips ; :denominator :tripCount ;
+    :groupBy :isPeakDay ; :scale "100.0" ;
+    rdfs:label "外车占比（按高峰/平日）" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "高峰日的外车比例是多少" ;
+    :askedAs "平日和高峰的外车占比" ;
+    :businessDescription "外车趟次 ÷ 趟次，按 is_peak_day 分组。口径来自 answers:Q6：外车主因是司机不愿接单，其次才是排放/通行限制，因此必须分时段看。实测值见 samples.json。" .
+
+# ═══════════════════════════════════════════ 成本粒度 / grain :TripCost
+# five kinds + other_cost；other_cost 在 4,120/4,120 行为 NULL，因此 :costItemSum 与
+# trips.cost_total 逐趟相等（measured: 都是 2,144,972.86）—— 这不是巧合，是对账的入口。
+:fuelCostTotal a owl:DatatypeProperty ;
+    :aggregate "sum" ; :formula "fuel_cost" ; :grain :TripCost ; :universe :TripCost .
+
+:tollCostTotal a owl:DatatypeProperty ;
+    :aggregate "sum" ; :formula "toll_cost" ; :grain :TripCost ; :universe :TripCost .
+
+:driverPayTotal a owl:DatatypeProperty ;
+    :aggregate "sum" ; :formula "driver_pay" ; :grain :TripCost ; :universe :TripCost .
+
+:handlerCostTotal a owl:DatatypeProperty ;
+    :aggregate "sum" ; :formula "handler_cost" ; :grain :TripCost ; :universe :TripCost .
+
+:externalFeeTotal a owl:DatatypeProperty ;
+    :aggregate "sum" ; :formula "external_fee" ; :grain :TripCost ; :universe :TripCost .
+
+:costItemSum a owl:DatatypeProperty ;
+    :aggregate "sum" ; :formula "fuel_cost + toll_cost + driver_pay + handler_cost + external_fee" ;
+    :grain :TripCost ; :universe :TripCost ;
+    rdfs:comment "不含 other_cost（全 NULL）。与 :totalCostSum 必须相等；不等就是数据问题，不是口径问题。" .
+
+:fuelCostShareByChannel a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :TripCost ; :universe :TripCost ;
+    :numerator :fuelCostTotal ; :denominator :costItemSum ;
+    :groupBy :isExternal ; :scale "100.0" .
+
+# ═══════════════════════════════════════════ 客诉粒度 / grain :Complaint
+:complaintCount a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :Complaint ; :universe :Complaint .
+
+:judgedComplaints a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :JudgedComplaint ; :grain :Complaint ; :universe :Complaint .
+
+:unjudgedComplaints a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :UnjudgedComplaint ; :grain :Complaint ; :universe :Complaint .
+
+:compensationJudgeableTotal a owl:DatatypeProperty ;
+    :aggregate "sum" ; :formula "amount" ; :where :JudgedComplaint ;
+    :grain :Complaint ; :universe :Complaint .
+
+:unjudgedComplaintShare a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Complaint ; :universe :Complaint ;
+    :numerator :unjudgedComplaints ; :denominator :complaintCount ; :scale "100.0" .
+
+# ═══════════════════════════════════════════ 拒单粒度 / grain :Refusal
+:refusalCount a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :Refusal ; :universe :Refusal .
+
+:unreasonedRefusals a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :UnreasonedRefusal ; :grain :Refusal ; :universe :Refusal .
+
+:unreasonedRefusalShare a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :Refusal ; :universe :Refusal ;
+    :numerator :unreasonedRefusals ; :denominator :refusalCount ; :scale "100.0" .
+
+:refusalCountByReason a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :Refusal ; :universe :Refusal ;
+    :groupBy :refusalReason .
+
+:refusalCountByRoute a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :Refusal ; :universe :Refusal ;
+    :groupBy :routeCode .
+
+# ═══════════════════════════════════════════ 派车决策粒度 / grain :DispatchDecision
+# 这张表是阴影期唯一的证据来源：调度采纳了多少次建议、覆盖时写了什么原因。
+:decisionCount a owl:DatatypeProperty ;
+    :aggregate "count" ; :grain :DispatchDecision ; :universe :DispatchDecision .
+
+:adoptedDecisions a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :AdoptedDecision ; :grain :DispatchDecision ; :universe :DispatchDecision .
+
+:overriddenDecisions a owl:DatatypeProperty ;
+    :aggregate "count" ; :where :OverriddenDecision ; :grain :DispatchDecision ; :universe :DispatchDecision ;
+    rdfs:label "填写了覆盖原因的决策数" ;
+    :unit "count" ; :additivity "additive" ;
+    :askedAs "调度覆盖建议时写了多少条原因" ;
+    :businessDescription "override_reason 非空的决策数。measured: 584 = 2,620 − 2,036，与『未采纳』逐条对齐。口径来自 answers:Q12（覆盖必须留原因）。" .
+
+:recommendationAdoptionRate a owl:DatatypeProperty ;
+    :aggregate "ratio_of_sums" ; :grain :DispatchDecision ; :universe :DispatchDecision ;
+    :numerator :adoptedDecisions ; :denominator :decisionCount ; :scale "100.0" .

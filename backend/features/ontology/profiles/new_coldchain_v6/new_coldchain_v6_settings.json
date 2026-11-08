@@ -1,0 +1,78 @@
+{
+  "title": "ABC 冷链运输本体（v6）",
+  "ns": "https://cube.local/ontology/new_coldchain_v6#",
+  "ontology_dir": "ontology",
+  "overlay": "metrics_ext.ttl",
+  "dsn": {
+    "host": "${ONTOLOGY_DB_HOST:-127.0.0.1}",
+    "port": "${ONTOLOGY_DB_PORT:-5432}",
+    "dbname": "new_coldchain",
+    "user": "${ONTOLOGY_DB_USER:-weiping}",
+    "password": ""
+  },
+  "guard": {
+    "enabled": true,
+    "max_rows": 500,
+    "default_window_days": 0,
+    "statement_timeout_ms": 8000,
+    "max_plan_rows": 5000000,
+    "big_tables": {
+      "trips": "trip_date",
+      "telemetry": "ts",
+      "complaints": "opened_at"
+    },
+    "large_tables": [
+      "stops"
+    ]
+  },
+  "features": {
+    "actions": true,
+    "lane_b": false,
+    "tutorial": true,
+    "tutorial_style": "auto"
+  },
+  "aliases": {
+    "高峰": "peak",
+    "峰": "peak",
+    "平日": "day",
+    "版本": "version",
+    "线路": "route",
+    "外车": "external",
+    "超载": "overload",
+    "申诉结果": "outcome",
+    "结果": "outcome",
+    "申诉": "appeal",
+    "车辆": "vehicle",
+    "车牌": "plate"
+  },
+  "samples": [
+    "准点率（站点级）是多少？",
+    "整趟全准点率",
+    "超载率",
+    "按线路版本看超载率",
+    "外车占比",
+    "按高峰/平日看外车占比",
+    "毛利率",
+    "每趟平均运费",
+    "每趟平均站数",
+    "平均耗时（分钟）",
+    "每千站破损箱",
+    "按车辆看每千站破损箱数",
+    "赔付成本（已判定）",
+    "拒单次数",
+    "原因未记录的拒单数",
+    "拒单原因缺失率",
+    "客诉数",
+    "责任未判定客诉数",
+    "高峰日趟次",
+    "司机申诉数",
+    "按结果看申诉数",
+    "温度趋势怎么样？",
+    "停车记录有多少天？",
+    "改派记录里覆盖原因填了吗？",
+    "谁因为还款压力被保护性安排？",
+    "司机的贷款压力分布",
+    "按线路版本看超载",
+    "所有赔付成本（含未判定）是多少？"
+  ]
+}

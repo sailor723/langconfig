@@ -1,0 +1,307 @@
+{
+ "_doc": "new_coldchain_v2 的看板声明：面板只是『哪个已编译指标、按什么切』，这里没有一行 SQL、也没有一个手打数字。正文里的每个数都是 {metric} / {metric:key} 占位符，由编译结果填。policy 故意为空：红线（准点率多少算差、破损多少算不能接受）是业务的政策，本库没有声明它，所以这块看板只报数、不判红绿 —— 判红绿要有人给出阈值并确认，见 cannot_see。",
+ "version": 1,
+ "ontology": "new_coldchain_v2",
+ "title": "ABC 冷链 · 并线之后的运输看板（v2）",
+ "subtitle": "50,832 站 / 4,120 趟；同一个词只有一个数，每个数都有一条手写 SQL 的第二路线",
+ "events": [
+  {
+   "id": "merge",
+   "at": "2026-09-22",
+   "label": "并线生效：线路版本 v1 → v2",
+   "kind": "regime",
+   "metric": "tripCountByWeek",
+   "note": "routes.effective_from = 2026-09-22 且 v2 的第一趟 trip_date 也是 2026-09-22（从数据里读出来的事实，不是文档里的说法）。"
+  }
+ ],
+ "policy": [],
+ "briefing": {
+  "_doc": "开场评价：正文只允许出现占位符，D7 会把占位符剥掉后检查有没有裸数字。版本号一律写成占位符的 key，不写进正文。",
+  "headline": "站点级准点率 {onTimeRate}，整趟全准点 {fullOnTimeTripRate}；并线之后整体超载率 {overloadRate}，其中 {overloadRateByRouteVersion:v2#key} 那一侧是 {overloadRateByRouteVersion:v2}。",
+  "claims": [
+   {
+    "id": "quality_split",
+    "text": "准点率按线路版本切开：并线前 {onTimeRateByRouteVersion:v1}，并线后 {onTimeRateByRouteVersion:v2}；整趟级同时看 {fullOnTimeTripRateByRouteVersion:v1} → {fullOnTimeTripRateByRouteVersion:v2}。",
+    "note": "站点级与趟级是两个分母，不能互相代替：站点级高而趟级低，说明迟到集中在少数趟里。"
+   },
+   {
+    "id": "damage_worst_vehicle",
+    "text": "破损最多的一台车是 {damagedBoxesPer1kStopsByVehicle:沪A**#050#key}，每千站 {damagedBoxesPer1kStopsByVehicle:沪A**#050} 箱；最好的一台是 {damagedBoxesPer1kStopsByVehicle:沪A**#010#key}，{damagedBoxesPer1kStopsByVehicle:沪A**#010} 箱。车队整体 {damagedBoxesPer1kStops}。",
+    "note": "每千站的分母写在同一张榜上（size 按站点数），否则一台只跑了几百站的车会凭小分母排到第一。"
+   },
+   {
+    "id": "tenure",
+    "text": "破损按工龄拆：新手站点 {damagedBoxesPer1kNewbieStops}，老手站点 {damagedBoxesPer1kExperiencedStops}，没有工龄记录的那批 {damagedBoxesPer1kUnassignedStops}。",
+    "note": "这不是因果：无记录那一批本身就是数据质量的证据，先补记录再谈工龄。"
+   },
+   {
+    "id": "unjudged",
+    "text": "客诉里责任未判定占 {unjudgedComplaintRate}，拒单里原因未记录占 {unrecordedRefusalRate}；这两根柱子是「未判定」而不是零。",
+    "note": "分母分别是全部客诉与全部拒单；NULL 分组按标签渲染，不是被丢掉的行。"
+   }
+  ],
+  "cannot_see": [
+   "温度趋势：telemetry 表里确实有逐时温度读数（temp_c，挂 trip_id 与 ts，一趟车若干条），但没有一条声明说「多少度算越界」——阈值是业务的，不是我定的。所以这块板能说的是「多少站被打了越界标记」（stops.temp_excursion 是现成布尔列，越界站数见 {tempExcursionStops}），不能说的是「温度在变好还是变坏」：那条曲线需要一个带阈值的温度指标，而它现在按名拒绝。",
+   "红线与赔付规则：准点率多少算差、破损多少算不能接受、赔付条款怎么算，都不是库里的字段，所以这块板不判红绿。",
+   "门店数：stores 表在，:Store 也已声明（名字/区域/收货时间窗/是否带警铃都在），缺的是计数指标本身——没有一条 :aggregate count / :grain :Store 的声明，所以问「多少家门店」会落回类上：类是一份清单，不是一个数。要这个数，补一条声明，不是我在这里替它定口径。",
+   "「最近 N 天」这类相对时间窗：没有任何指标声明 :supportsSlot :TimeWindow——窗口按哪天算（trip_date、门店收货日、还是客诉开立日）、含不含边界，业务没给——所以整类按名拒绝，而不是悄悄塞一个 N 天窗口进去。这块板能答的是声明过的周轴（{tripCountByWeek}），以及区间明确的绝对日期。"
+  ],
+  "next": "先做两件不依赖算法的事：把责任未判定与原因未记录的记录补齐（它们挡住了所有归因），再按站点数加权看破损最高的那几台车是不是同一批人开的。"
+ },
+ "kpis": [
+  {
+   "metric": "stopCount",
+   "note": "一次门店拜访一行；不是门店数"
+  },
+  {
+   "metric": "onTimeRate",
+   "note": "站点级，分母是全部站次"
+  },
+  {
+   "metric": "damagedBoxesPer1kStops",
+   "note": "先算比率再读成每千站，不是先缩放后求和"
+  },
+  {
+   "metric": "tripCount",
+   "note": "趟次；并线后 v2 一侧单独看 tripCountByRouteVersion"
+  },
+  {
+   "metric": "overloadRate",
+   "note": "重量口径"
+  },
+  {
+   "metric": "unjudgedComplaintRate",
+   "note": "责任未判定占比：这是数据缺陷，不是业务指标"
+  },
+  {
+   "metric": "complaintCount",
+   "note": "客诉总数；责任未判定的那部分在下方单列一根柱子"
+  }
+ ],
+ "panels": [
+  {
+   "id": "volume_week",
+   "kind": "series",
+   "title": "运量随周走势",
+   "question": "并线那一周前后，趟次有没有断档？",
+   "metric": "tripCountByWeek",
+   "render": "line",
+   "marks": [
+    {
+     "at": "2026-09-22",
+     "label": "并线生效"
+    }
+   ],
+   "note": "本库唯一声明的时间轴：trip_date 按周截断、升序。各周相加回到 tripCount。"
+  },
+  {
+   "id": "merge_quality",
+   "kind": "slope",
+   "title": "并线前后：准点率（站点级与趟级）",
+   "question": "把两条线并成一条之后，准点变好还是变差？两个分母是不是同一个方向？",
+   "x": {
+    "dimension": "routeVersion",
+    "order": [
+     "v1",
+     "v2"
+    ]
+   },
+   "metrics": [
+    "onTimeRateByRouteVersion",
+    "fullOnTimeTripRateByRouteVersion"
+   ],
+   "note": "两条都是比率，所以能放在同一根版本轴上读；分子分母都还在各自颗粒上，按 volume_versions 的趟次数加权回到车队值。"
+  },
+  {
+   "id": "merge_overload",
+   "kind": "slope",
+   "title": "并线前后：超载率与毛利上限",
+   "question": "并线省下来的车，是不是变成了超载？",
+   "x": {
+    "dimension": "routeVersion",
+    "order": [
+     "v1",
+     "v2"
+    ]
+   },
+   "metrics": [
+    "overloadRateByRouteVersion",
+    "grossMarginRateByRouteVersion"
+   ],
+   "note": "毛利是上限不是终值：other_cost 整列没有记录。"
+  },
+  {
+   "id": "volume_versions",
+   "kind": "series",
+   "title": "并线前后：趟次分布",
+   "question": "两个版本各跑了多少趟？后面所有按版本切的比例都以此加权。",
+   "metric": "tripCountByRouteVersion",
+   "render": "bar",
+   "note": "它是 slope 面板的加权基数：Σ 各版本趟次 = tripCount。",
+   "emit_filter": {
+    "dimension": "tripRouteVersion",
+    "column": "key1"
+   }
+  },
+  {
+   "id": "zone_ontime_matrix",
+   "kind": "matrix",
+   "title": "门店区域 × 线路版本：准点率",
+   "question": "并线是不是某个区域先坏？",
+   "metric": "onTimeRateByZoneVersion",
+   "rows": "storeZone",
+   "cols": "routeVersion",
+   "size_by": "stopCountByZoneVersion",
+   "note": "两个切面同时开；每个格子都带自己的站点数，小格子的比率不当结论读。",
+   "emit_filter": {
+    "dimension": "storeZone",
+    "column": "key1"
+   }
+  },
+  {
+   "id": "zone_damage_matrix",
+   "kind": "matrix",
+   "title": "门店区域 × 线路版本：每千站破损箱",
+   "question": "破损有没有集中在某个区域、并且是在并线之后？",
+   "metric": "damagedBoxesPer1kStopsByZoneVersion",
+   "rows": "storeZone",
+   "cols": "routeVersion",
+   "size_by": "stopCountByZoneVersion",
+   "note": "格子值先算比率再读成每千站。"
+  },
+  {
+   "id": "damage_ranked",
+   "kind": "ranked",
+   "title": "破损最高的车辆",
+   "question": "哪几台车在制造破损？",
+   "metric": "damagedBoxesPer1kStopsByVehicle",
+   "size_by": "stopCountByVehicle",
+   "sort": "desc",
+   "limit": 12,
+   "emit_filter": {
+    "dimension": "vehiclePlate",
+    "column": "key1"
+   },
+   "note": "点一台车就把整块板筛到那台车；点是声明里的维度，不是前端列表。"
+  },
+  {
+   "id": "ontime_ranked",
+   "kind": "ranked",
+   "title": "准点率最低的车辆",
+   "question": "哪几台车最不准点？",
+   "metric": "onTimeRateByVehicle",
+   "size_by": "stopCountByVehicle",
+   "sort": "asc",
+   "client_sort": true,
+   "limit": 12,
+   "accepts_filter": {
+    "dimension": "vehiclePlate"
+   },
+   "note": "分组指标编译出来是 ORDER BY 值 DESC，这张看的是低端，所以必须声明 client_sort，否则渲染出来的是最好的那几台。"
+  },
+  {
+   "id": "handler_tenure",
+   "kind": "parallel",
+   "title": "破损按工龄并排看：新手 / 老手 / 无记录",
+   "question": "工龄能不能解释破损？",
+   "metrics": [
+    "damagedBoxesPer1kNewbieStops",
+    "damagedBoxesPer1kExperiencedStops",
+    "damagedBoxesPer1kUnassignedStops"
+   ],
+   "note": "三根柱子并排，不做减法：三项的分母不同，差值是另一条声明，本层没有。三批站点相加必须回到 stopCount。"
+  },
+  {
+   "id": "complaint_liability",
+   "kind": "composition",
+   "title": "客诉按责任方",
+   "question": "客诉该记在谁头上？有多少根本没判？",
+   "metric": "complaintCountByLiability",
+   "null_label": "未判定",
+   "note": "NULL 是一根柱子：未判定不等于零，也不等于「无责任」。",
+   "emit_filter": {
+    "dimension": "liability",
+    "column": "key1"
+   }
+  },
+  {
+   "id": "refusal_reasons",
+   "kind": "composition",
+   "title": "拒单按原因",
+   "question": "客户为什么拒收？有多少拒单没写原因？",
+   "metric": "refusalCountByReason",
+   "null_label": "未记录",
+   "note": "只报次数，不做归因（原因字段本身有大量未记录）。"
+  }
+ ],
+ "holes": [],
+ "cross_filter": [
+  {
+   "dimension": "vehiclePlate",
+   "label": "车辆",
+   "metric_panel": "damage_ranked",
+   "apply_to": [
+    "ontime_ranked"
+   ]
+  },
+  {
+   "dimension": "tripRouteVersion",
+   "label": "线路版本",
+   "metric_panel": "volume_versions",
+   "apply_to": [
+    "merge_quality",
+    "merge_overload",
+    "damage_ranked",
+    "ontime_ranked",
+    "zone_ontime_matrix",
+    "zone_damage_matrix",
+    "complaint_liability"
+   ]
+  },
+  {
+   "dimension": "storeZone",
+   "label": "门店区域",
+   "metric_panel": "zone_ontime_matrix",
+   "apply_to": [
+    "zone_damage_matrix",
+    "zone_ontime_matrix"
+   ]
+  },
+  {
+   "dimension": "liability",
+   "label": "责任方",
+   "metric_panel": "complaint_liability",
+   "apply_to": [
+    "complaint_liability"
+   ]
+  }
+ ],
+ "independent_sql": [
+  {
+   "_doc": "第二条手写 SQL 路线（base 表直算，不经过编译器）：只按重量这一条口径算超载，和 overloadRateByRouteVersion 的声明逐位对上。gates 自带的 overload_v2 是物流看板的「三种容量取其一」口径，与本库声明的「只算重量」不是同一个词，所以在这里声明本库自己的第二路线。",
+   "label": "overload_weight_v2",
+   "sql": "SELECT 1.0 * count(*) FILTER (WHERE load_weight > weight_capacity_snapshot) / count(*) FROM trips WHERE route_version = 'v2'",
+   "agree_with": {
+    "metric": "overloadRateByRouteVersion",
+    "key": "v2"
+   }
+  },
+  {
+   "_doc": "加权恒等式的手写 SQL：先把每台车的破损箱与站点数各自汇总，再相除——不是「各车比率的平均值」。和声明编译出来的 damagedBoxesPer1kStops 逐位对上，才能说这块板的分母是对的。",
+   "label": "damage_per_1k_stops_weighted_by_vehicle",
+   "sql": "SELECT round(1000.0 * sum(v.dmg) / sum(v.stops), 10) FROM (SELECT t.vehicle_id, sum(s.damaged_boxes) AS dmg, count(*) AS stops FROM stops s JOIN trips t ON t.id = s.trip_id GROUP BY 1) v",
+   "agree_with": {
+    "metric": "damagedBoxesPer1kStops"
+   }
+  },
+  {
+   "_doc": "准点率的同一条恒等式：站点级准点率的车队整体值 = Σ(各车准点站数) / Σ(各车站点数)。这条能抓住「filter 只过滤到分子」那种错——那种错会让各车切面的加权回不到车队值。",
+   "label": "on_time_rate_weighted_by_vehicle",
+   "sql": "SELECT round(1.0 * sum(v.ok) / sum(v.stops), 10) FROM (SELECT t.vehicle_id, count(*) FILTER (WHERE s.on_time) AS ok, count(*) AS stops FROM stops s JOIN trips t ON t.id = s.trip_id GROUP BY 1) v",
+   "agree_with": {
+    "metric": "onTimeRate"
+   }
+  }
+ ],
+ "cross_filter_doc": "维度名必须等于属性的本地名：线路版本是 :tripRouteVersion（物理列 route_version），不是 routeVersion——写成短名 F1a 直接红：「routeVersion is a declared :groupBy」不成立。而且必须有一块面板用 emit_filter 把它发出来，run_dashboard 只认 emit_filter 声明过的维度。"
+}

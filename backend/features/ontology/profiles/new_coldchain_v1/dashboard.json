@@ -1,0 +1,163 @@
+{
+ "title": "ABC 冷链配送经营看板",
+ "subtitle": "每一格数字都由本体编译：面板只按名引用指标，数字不在页面里手写",
+ "kpis": [
+  {
+   "metric": "tripCount",
+   "label": "趟次"
+  },
+  {
+   "metric": "revenueTotal",
+   "label": "总收入"
+  },
+  {
+   "metric": "grossMarginRate",
+   "label": "毛利率"
+  },
+  {
+   "metric": "overloadRateWeight",
+   "label": "重量超载率"
+  },
+  {
+   "metric": "onTimeTripShare",
+   "label": "整趟准时占比"
+  },
+  {
+   "metric": "externalShare",
+   "label": "外车趟次占比"
+  }
+ ],
+ "panels": [
+  {
+   "id": "p_on_time_by_version",
+   "kind": "slope",
+   "title": "并线前后：站点准时率（按线路版本）",
+   "metric": "onTimeRateByRouteVersion",
+   "x": {
+    "dimension": "tripRouteVersion",
+    "order": [
+     "v1",
+     "v2"
+    ]
+   },
+   "note": "v1 = 并线前线路，v2 = 并线后线路；两条线各自整段，不是抽样。",
+   "emit_filter": {
+    "dimension": "tripRouteVersion",
+    "values_from": "onTimeRateByRouteVersion"
+   }
+  },
+  {
+   "id": "p_overload_by_version",
+   "kind": "slope",
+   "title": "并线前后：重量超载率（按线路版本）",
+   "metric": "overloadRateByRouteVersion",
+   "x": {
+    "dimension": "tripRouteVersion",
+    "order": [
+     "v1",
+     "v2"
+    ]
+   },
+   "note": "超载的口径是「装货重量 ≥ 车辆载重」，体积口径另有 :volumeOverRate，两者不可互相替代。",
+   "emit_filter": {
+    "dimension": "tripRouteVersion",
+    "values_from": "overloadRateByRouteVersion"
+   }
+  },
+  {
+   "id": "p_refusal_reason",
+   "kind": "composition",
+   "title": "拒单原因构成（含未记录原因的那一组）",
+   "metric": "refusalCountByReason",
+   "null_label": "未记录原因",
+   "note": "NULL 原因是一个真实分组（本数据里最多的一组），不能显示成 0 或省略。",
+   "emit_filter": {
+    "dimension": "refusalReason",
+    "values_from": "refusalCountByReason"
+   }
+  },
+  {
+   "id": "p_external_peak",
+   "kind": "composition",
+   "title": "高峰日与平日的外车占比",
+   "metric": "externalShareByPeak",
+   "value_labels": {
+    "true": "高峰日",
+    "false": "平日"
+   },
+   "note": "isPeakDay 是趟上的标记（线路高峰日历），不是「今天」。"
+  },
+  {
+   "id": "p_fuel_by_channel",
+   "kind": "composition",
+   "title": "自营车与外车的油费占比",
+   "metric": "fuelCostShareByChannel",
+   "value_labels": {
+    "true": "外车",
+    "false": "自营车"
+   }
+  },
+  {
+   "id": "p_top_refusal_routes",
+   "kind": "ranked",
+   "title": "拒单最多的线路（前 10）",
+   "metric": "refusalCountByRoute",
+   "limit": 10,
+   "sort": "desc",
+   "note": "按拒单数从高到低；线路代码是 routes.code，不是线路版本。"
+  }
+ ],
+ "briefing": {
+  "headline": "本期共 {tripCount} 趟、收入 {revenueTotal}、毛利率 {grossMarginRate}；整趟准时 {onTimeTripShare}，重量超载率 {overloadRateWeight}。",
+  "claims": [
+   {
+    "id": "c_on_time",
+    "text": "并线前线路站点准时率 {onTimeRateByRouteVersion:v1}，并线后线路{onTimeRateByRouteVersion:v2}。",
+    "note": "两个数各自整段统计，没有做同口径加权。"
+   },
+   {
+    "id": "c_overload",
+    "text": "重量超载率并线前 {overloadRateByRouteVersion:v1}、并线后 {overloadRateByRouteVersion:v2}。",
+    "note": "这是重量口径；体积口径是另一个指标，不要把两个数相加或平均。"
+   },
+   {
+    "id": "c_refusal",
+    "text": "拒单共 {refusalCount} 单，其中未记录原因 {refusalCountByReason:null} 单，占 {unreasonedRefusalShare}。",
+    "note": "「未记录原因」是有意义的一组：它代表拒单登记缺失，不是「没有拒单」。"
+   },
+   {
+    "id": "c_complaint",
+    "text": "客诉 {complaintCount} 条，未判定责任 {unjudgedComplaints} 条（{unjudgedComplaintShare}）。",
+    "note": "未判定责任不等于「不是司机责任」——赔款金额指标在那一组是 NULL，不是 0。"
+   }
+  ],
+  "cannot_see": [
+   "红线阈值（准时率、超载率、拒单率的合格线）尚未由业务确认，因此本页不给出任何红/绿判定。",
+   "温度曲线：telemetry 已有读数，但本体没有声明温度趋势指标，问「温度趋势」会被按名拒绝。",
+   "「最近一个月」这类相对窗口不是本数据的窗口：数据是固定历史区间，只有声明的时间范围过滤才有意义。",
+   "线路版本与「并线时点」之间没有按日期切分：并线前/后是按 routes.version 分的，不是按日历分的。"
+  ],
+  "next": "先确认三条红线阈值，再决定本页的红绿判定；要温度趋势需要先声明一个 grain=Telemetry 的指标。"
+ },
+ "independent_sql": [
+  {
+   "label": "weight_overload_v1",
+   "sql": "SELECT (100.0 * count(*) FILTER (WHERE t.load_weight >= t.weight_capacity_snapshot) / count(*))::float8 FROM trips t JOIN routes r ON r.id = t.route_id WHERE r.version = 'v1'",
+   "agree_with": {
+    "metric": "overloadRateByRouteVersion",
+    "key": "v1"
+   },
+   "note": "hand-written: weight only, trips joined to their route version — the declared word is WEIGHT, not any-of-three."
+  },
+  {
+   "label": "weight_overload_v2",
+   "sql": "SELECT (100.0 * count(*) FILTER (WHERE t.load_weight >= t.weight_capacity_snapshot) / count(*))::float8 FROM trips t JOIN routes r ON r.id = t.route_id WHERE r.version = 'v2'",
+   "agree_with": {
+    "metric": "overloadRateByRouteVersion",
+    "key": "v2"
+   },
+   "note": "hand-written second route for the same word as above."
+  }
+ ],
+ "ontology": "new_coldchain_v1"
+}

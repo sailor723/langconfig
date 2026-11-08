@@ -1,0 +1,119 @@
+{
+  "_doc": "本体的前门问题。期望值不是抄编译输出：每条 `route` 是一段手写 SQL，闸门跑的时候才执行，把两条独立推导现场对上。三条 refused_by_names 是被声明的拒绝。行键 \"None\" 是 SQL 的 NULL 分组（未判定 / 原因未记录）—— 它是一根柱子，不是 0，也不是被丢掉的行。",
+  "_route_note": "比例和金额后面都加了 ::float8，理由实测过：闸门的比对是严格 `==`（gates/check_samples.py 的 check()），而 psycopg2 把 numeric 取回成 Decimal('0.94595923827510229777')，管线给出 float 0.9459592382751023 —— 两条路线在 17 位有效数字上一致，却因类型被判 FAIL。cast 成 float8 是让两条独立推导落在同一精度上对表，不是放宽标准：任何真实差异（例如管线把 0.9459 四舍五入）都会得到不同的 double。",
+  "samples": [
+    {
+      "question": "趟次",
+      "expect": {
+        "metric": "tripCount",
+        "route": "select count(*)::float8 from trips"
+      }
+    },
+    {
+      "question": "准点率（站点级）",
+      "expect": {
+        "metric": "onTimeRate",
+        "route": "select (count(*) filter (where on_time) * 1.0 / count(*))::float8 from stops"
+      }
+    },
+    {
+      "question": "整趟全准点率",
+      "expect": {
+        "metric": "fullOnTimeTripRate",
+        "route": "select (count(*) filter (where late_stop_count = 0) * 1.0 / count(*))::float8 from trips"
+      }
+    },
+    {
+      "question": "超载率（重量）",
+      "expect": {
+        "metric": "overloadRate",
+        "route": "select (count(*) filter (where load_weight > weight_capacity_snapshot) * 1.0 / count(*))::float8 from trips"
+      }
+    },
+    {
+      "question": "毛利（上限）",
+      "expect": {
+        "metric": "grossMargin",
+        "route": "select ((select sum(revenue) from trips) - (select sum(fuel_cost + toll_cost + driver_pay + handler_cost + external_fee + coalesce(other_cost, 0)) from trip_costs))::float8"
+      }
+    },
+    {
+      "question": "每千站破损箱",
+      "expect": {
+        "metric": "damagedBoxesPer1kStops",
+        "route": "select (1000.0 * sum(damaged_boxes) / count(*))::float8 from stops"
+      }
+    },
+    {
+      "question": "按线路版本看超载率（重量）",
+      "expect": {
+        "metric": "overloadRateByRouteVersion",
+        "route": "select route_version, (count(*) filter (where load_weight > weight_capacity_snapshot) * 1.0 / count(*))::float8 from trips group by 1"
+      }
+    },
+    {
+      "question": "赔付成本（仅已判定）",
+      "expect": {
+        "metric": "compensationCost",
+        "route": "select sum(amount)::float8 from complaints where amount is not null"
+      }
+    },
+    {
+      "question": "责任未判定客诉率",
+      "expect": {
+        "metric": "unjudgedComplaintRate",
+        "route": "select (count(*) filter (where liability is null) * 1.0 / count(*))::float8 from complaints"
+      }
+    },
+    {
+      "question": "按责任方看客诉数",
+      "expect": {
+        "metric": "complaintCountByLiability",
+        "route": "select liability, count(*)::float8 from complaints group by 1 order by 2 desc"
+      }
+    },
+    {
+      "question": "拒单原因未记录率",
+      "expect": {
+        "metric": "unrecordedRefusalRate",
+        "route": "select (count(*) filter (where reason is null) * 1.0 / count(*))::float8 from refusals"
+      }
+    },
+    {
+      "question": "按原因看拒单数",
+      "expect": {
+        "metric": "refusalCountByReason",
+        "route": "select reason, count(*)::float8 from refusals group by 1 order by 2 desc"
+      }
+    },
+    {
+      "question": "温度趋势怎么样？",
+      "expect": {
+        "refused_by_names": [
+          "I can answer about",
+          "no metric",
+          "refusing"
+        ]
+      }
+    },
+    {
+      "question": "站点超标率",
+      "expect": {
+        "refused_by_names": [
+          "I can answer about",
+          "no metric",
+          "refusing"
+        ]
+      }
+    },
+    {
+      "question": "最近30天的趟次",
+      "expect": {
+        "refused_by_names": [
+          ":Trip does not support the TimeWindow slot",
+          "TimeWindow"
+        ]
+      }
+    }
+  ]
+}

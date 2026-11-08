@@ -1,0 +1,658 @@
+# ABC 冷链 —— 对象与物理列（new_coldchain_v2）
+# 一个对象类型 = 一张表；属性名按业务问法命名，物理列名只出现在 :physicalColumn 里。
+# 每个属性名唯一到类（:tripDate / :driverLeftOn / :parkingStartDate），因为 RDF 里同名即同一属性，
+# 六个类都叫 :id 的话，编译器在任何一处都会因为歧义拒绝。
+# 事实来源：information_schema 直读 + 手写 SQL 实测（行数、NULL、枚举、区间），见 work/new_coldchain_v2/draft.json。
+# 数据是固定历史窗 2026-08-01 → 2026-10-29（90 天，天天有趟次）：「最近 30 天」在这个库里不是一个有用的问法。
+
+@prefix : <https://cube.local/ontology/new_coldchain_v4#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ---------------------------------------------------------------- 对象类
+
+:Vehicle a owl:Class ; rdfs:label "车辆" ; :physicalTable "vehicles" ; :primaryKey "id" ;
+    :businessDescription "司机自带的冷藏货车，60 台（8t 35 / 3t 11 / 5t 6 / 10t 5 / 12t 3）。吨位、排放标准、核心区通行许可、车龄决定它当天能接哪条线；车与司机 1:1 绑定，所以「换司机」在数据上等于「换车」。" .
+
+:Driver a owl:Class ; rdfs:label "司机" ; :physicalTable "drivers" ; :primaryKey "id" ;
+    :businessDescription "带车加盟司机，60 人。status 全是 active，离职只体现在 left_on 上（10 人），所以「在职/离职」必须看 left_on，不能看 status。没有保底收入，闲置时多数选择休息。" .
+
+:Route a owl:Class ; rdfs:label "线路" ; :physicalTable "routes" ; :primaryKey "id" ; :timeColumn "effective_from" ;
+    :businessDescription "品牌方下达的配送线路，按版本存：v1 并线前 50 条（平均 10.46 计划站）、v2 并线后 40 条（平均 15.55 站）。一趟次挂的是当时生效的那一版，所以「按线路看」在事实行上就是按 route_version 看。" .
+
+:RouteStop a owl:Class ; rdfs:label "计划站序" ; :physicalTable "route_stops" ; :primaryKey "route_id, seq" ;
+    :businessDescription "品牌方计划里的一条站序：某线路第几站去哪家门店，1,145 条（平均 12.72 站/线）。这是计划不是执行 —— 与 stops 的实际到店不是同一批门店，不能拿来算计划达成率。" .
+
+:Store a owl:Class ; rdfs:label "门店" ; :physicalTable "stores" ; :primaryKey "id" ;
+    :businessDescription "品牌方连锁餐厅的门店，800 家（core 533 / suburb 267）。收货时间窗（window_from→window_to）与是否带警铃决定这一站难不难送。" .
+
+# 类的 label 与指标 :tripCount 的 label 撞了（两个都叫「趟次」）。撞label 的后果是实测出来的：
+# 问「趟次」时类 :Trip 以更短的词表赢下平局，返回的是一张行程清单而不是一个数字，而且清单查询
+# 在护栏上被判为无界扫描 —— 用户拿到一句内部错误。类是一件东西（一次配送），指标是它的计数，
+# 所以类叫「行程」，指标保留「趟次」。问「行程数」会经 _count_of_class 落到 :tripCount。
+:Trip a owl:Class ; rdfs:label "行程" ; :physicalTable "trips" ; :primaryKey "id" ; :timeColumn "trip_date" ;
+    :businessDescription "一趟配送 = 一天 + 一台车 + 一个司机 + 一条线路，4,120 趟（v1 2,600 / v2 1,520）。装载、运费、外车成本、耗时、迟到站数都在这一行；装载能力是派车当时冻结的快照，事后换车不改历史。" .
+
+:Stop a owl:Class ; rdfs:label "站点执行" ; :physicalTable "stops" ; :primaryKey "id" ;
+    :businessDescription "一趟里的一次门店送货，50,832 行（平均每趟 12.34 站）。准时、破损箱、温度异常、警铃、缺筐、搬运工是否配合都记在这一行 —— 这是质量与服务指标的颗粒度。它自己没有时间列，日期要回到所属趟次上取。" .
+
+:TripCost a owl:Class ; rdfs:label "趟次成本" ; :physicalTable "trip_costs" ; :primaryKey "trip_id, source_type" ; :timeColumn "as_of" ;
+    :businessDescription "向 NASS 追加导出的按趟成本，4,120 行与趟次一一对应。毛利只能算到这里为止：other_cost 整列为空（4,120/4,120），所以算出来的是毛利上限，不是毛利。" .
+
+:CalendarDay a owl:Class ; rdfs:label "日历日" ; :physicalTable "calendar" ; :primaryKey "day" ; :timeColumn "day" ;
+    :businessDescription "2026-08-01 → 2026-10-29 的 90 天，标了 weekday（0-6 的整数）与 is_peak。峰日落在 weekday 4 与 5 上（共 25 天，27.78%）。整数到星期名的对应在本库里没有声明，所以不按「周几」下结论。" .
+
+:Complaint a owl:Class ; rdfs:label "客诉" ; :physicalTable "complaints" ; :primaryKey "id" ; :timeColumn "opened_at" ;
+    :businessDescription "一条客诉对一次到店，1,585 件。liability 与 amount 都可能是空的：731 件（46.12%）责任未判定，这些是「还没判」的状态，不是「无责任」，不能当 0 参与金额合计。" .
+
+:Refusal a owl:Class ; rdfs:label "拒单" ; :physicalTable "refusals" ; :primaryKey "id" ; :timeColumn "refused_date" ;
+    :businessDescription "司机对一条线路的一次拒单，389 次。reason 有 113 次（29.05%）没填；assigned 记录这次拒单是否发生在正式指派之后（144 次 true），是停车规则的唯一事实来源。" .
+
+:ParkingRecord a owl:Class ; rdfs:label "停车记录" ; :physicalTable "parking_list" ; :primaryKey "id" ; :timeColumn "start_date" ;
+    :businessDescription "司机被停车的期间，7 条记录、共 21 天、7 位司机（来源 refusal 5 / manual 2）。样本极小，只能报事实，不能报趋势或处罚是否公平。" .
+
+:DispatchDecision a owl:Class ; rdfs:label "派车决策" ; :physicalTable "dispatch_decisions" ; :primaryKey "id" ; :timeColumn "decision_date" ;
+    :businessDescription "系统对一条线路给出建议司机、人最后选了谁，2,620 条，全部是影子模式（mode=shadow）。adopted 记录是否采纳（77.71%），未采纳的 584 条 override_reason 全部填写。" .
+
+:DriverStat a owl:Class ; rdfs:label "司机统计快照" ; :physicalTable "driver_stats" ; :primaryKey "driver_id, window_days" ;
+    :businessDescription "60 位司机 × 一个滚动窗口（库里只有 window_days=30）的预聚合。它是快照不是事实表：与 stops 现算的数可能不同，指标一律从事实行算，这里只用于对账。" .
+
+:Appeal a owl:Class ; rdfs:label "申诉" ; :physicalTable "appeals" ; :primaryKey "id" ; :timeColumn "filed_on" ;
+    :businessDescription "司机申诉，46 件：驳回 25 / 支持 12 / 待处理 9。它与 complaints、parking_list 之间没有外键，所以「申诉对应哪条客诉/哪次停车」在本库里不可回答。" .
+
+:Handler a owl:Class ; rdfs:label "搬运工" ; :physicalTable "handlers" ; :primaryKey "id" ; :timeColumn "first_day" ;
+    :businessDescription "日结搬运工，420 人，来自 3 家派遣公司（宏图 134 / 安捷 127 / 诚达 159）。平均只干 5.3 天，283 人干不满 5 天；破损集中在刚上岗的头几天，这是「熟练度」唯一能看见的地方。" .
+
+:HandlerSettlement a owl:Class ; rdfs:label "搬运工结算单" ; :physicalTable "handler_settlements" ; :primaryKey "id" ; :timeColumn "period_start" ;
+    :businessDescription "派遣公司按人结算的一张单：天数 × 日单价 = 金额，420 张，币种全部 RMB。这是搬运工成本的可对账来源；trips.cost_total 里的 handler_cost 是分摊值。" .
+
+:Telemetry a owl:Class ; rdfs:label "车厢遥测" ; :physicalTable "telemetry" ; :primaryKey "id" ; :timeColumn "ts" ;
+    :businessDescription "车厢温度读数，12,360 行，只覆盖 1,030 趟，且全部落在 2026-11-06 06:00–08:45 这一天（2.75 小时，且不在趟次窗口内）。所以能回答「有没有越界」，不能回答「趋势」。" .
+
+:NlEvent a owl:Class ; rdfs:label "问答日志" ; :physicalTable "nl_events" ; :primaryKey "id" ; :timeColumn "ts" ;
+    :businessDescription "助手自己的问答日志，15 条（ollama:qwen2.5:3b 3 条 / 规则 12 条）。它是工具的运行记录，不是冷链业务数据；只用于排查某个问句为什么被拒，不出业务指标。" .
+
+# ---------------------------------------------------------------- 车辆
+
+:vehicleId a owl:DatatypeProperty ; rdfs:domain :Vehicle ; :physicalColumn "id" ;
+    :businessDescription "车辆主键" .
+:vehiclePlate a owl:DatatypeProperty ; rdfs:domain :Vehicle ; :physicalColumn "plate" ;
+    :businessDescription "车牌，60 台唯一" .
+:vehicleTonnage a owl:DatatypeProperty ; rdfs:domain :Vehicle ; :physicalColumn "tonnage" ;
+    :businessDescription "额定吨位（3 / 5 / 8 / 10 / 12 吨）" .
+:vehicleEmission a owl:DatatypeProperty ; rdfs:domain :Vehicle ; :physicalColumn "emission" ;
+    :businessDescription "排放标准（国四 27 / 国五 25 / 国六 8）。国四车在核心城区受限，是拒单原因之一" .
+:vehicleAgeYears a owl:DatatypeProperty ; rdfs:domain :Vehicle ; :physicalColumn "age_years" ;
+    :businessDescription "车龄（年），均值 9.0 年" .
+:vehicleCoreZonePermit a owl:DatatypeProperty ; rdfs:domain :Vehicle ; :physicalColumn "core_zone_permit" ;
+    :businessDescription "是否有核心城区通行许可。8t 车里只有 31.7% 有，这决定了它能不能接 core 线路" .
+:vehicleBoxCapacity a owl:DatatypeProperty ; rdfs:domain :Vehicle ; :physicalColumn "box_capacity" ;
+    :businessDescription "额定箱数" .
+:vehicleVolumeCapacity a owl:DatatypeProperty ; rdfs:domain :Vehicle ; :physicalColumn "volume_capacity" ;
+    :businessDescription "额定体积" .
+:vehicleWeightCapacity a owl:DatatypeProperty ; rdfs:domain :Vehicle ; :physicalColumn "weight_capacity" ;
+    :businessDescription "额定载重（吨）。超载判定用趟次上的快照列，不用这一列" .
+:vehicleStatus a owl:DatatypeProperty ; rdfs:domain :Vehicle ; :physicalColumn "status" ;
+    :businessDescription "车辆状态，60 台全部 active" .
+:vehicleTotalKm a owl:DatatypeProperty ; rdfs:domain :Vehicle ; :physicalColumn "total_km" ;
+    :businessDescription "里程表累计里程（公里）。60 台合计 257,872.3 km，与 trips.actual_km 求和逐位相同——单公里成本的分母就是它（运营口径 8.32 元/km、全成本口径 13.41 元/km）。按车取，不要按趟相加" .
+
+# ---------------------------------------------------------------- 司机
+
+:driverId a owl:DatatypeProperty ; rdfs:domain :Driver ; :physicalColumn "id" ;
+    :businessDescription "司机主键" .
+:driverName a owl:DatatypeProperty ; rdfs:domain :Driver ; :physicalColumn "name" ;
+    :businessDescription "司机姓名" .
+:driverAge a owl:DatatypeProperty ; rdfs:domain :Driver ; :physicalColumn "age" ;
+    :businessDescription "年龄" .
+:driverYearsService a owl:DatatypeProperty ; rdfs:domain :Driver ; :physicalColumn "years_service" ;
+    :businessDescription "从业年限" .
+:driverStatus a owl:DatatypeProperty ; rdfs:domain :Driver ; :physicalColumn "status" ;
+    :businessDescription "状态列，60 人全是 active —— 离职不体现在这里，所以不能用它数在职人数" .
+:driverLeftOn a owl:DatatypeProperty ; rdfs:domain :Driver ; :physicalColumn "left_on" ;
+    :businessDescription "离职日期，10 人有值。在职/离职只能从这一列判断" .
+:driverLeaveReason a owl:DatatypeProperty ; rdfs:domain :Driver ; :physicalColumn "leave_reason" ;
+    :businessDescription "离职原因，只有离职的人有值" .
+
+:driverVehicle a owl:ObjectProperty ; rdfs:domain :Driver ; :physicalColumn "vehicle_id" ; :references :Vehicle ;
+    :businessDescription "这位司机开的车。1:1 绑定，所以司机与车辆的指标高度重合" .
+
+# ---------------------------------------------------------------- 线路
+
+:routeId a owl:DatatypeProperty ; rdfs:domain :Route ; :physicalColumn "id" ;
+    :businessDescription "线路主键" .
+:routeCode a owl:DatatypeProperty ; rdfs:domain :Route ; :physicalColumn "code" ;
+    :businessDescription "线路编号（R-v1-028 这种，编号里带版本）" .
+:routeVersion a owl:DatatypeProperty ; rdfs:domain :Route ; :physicalColumn "version" ;
+    :businessDescription "线路版本 v1/v2（v1 50 条 / v2 40 条）。v2 是并线之后的版本，超载几乎都发生在这上面" .
+:routeEffectiveFrom a owl:DatatypeProperty ; rdfs:domain :Route ; :physicalColumn "effective_from" ;
+    :businessDescription "这一版从哪天起生效" .
+:routePlannedStops a owl:DatatypeProperty ; rdfs:domain :Route ; :physicalColumn "planned_stops" ;
+    :businessDescription "计划站数（v1 均值 10.46 / v2 均值 15.55）" .
+:routePlannedKm a owl:DatatypeProperty ; rdfs:domain :Route ; :physicalColumn "planned_km" ;
+    :businessDescription "计划里程（v1 均值 58.8 / v2 57.4 公里）" .
+:routeZone a owl:DatatypeProperty ; rdfs:domain :Route ; :physicalColumn "zone" ;
+    :businessDescription "线路所在区域（core / mixed / suburb）" .
+:routeDifficulty a owl:DatatypeProperty ; rdfs:domain :Route ; :physicalColumn "difficulty" ;
+    :businessDescription "线路难度分（1.00–2.50），由品牌方给定，不是我们算的" .
+
+# ---------------------------------------------------------------- 计划站序
+
+:routeStopSeq a owl:DatatypeProperty ; rdfs:domain :RouteStop ; :physicalColumn "seq" ;
+    :businessDescription "在这条线路上的站序（从 1 开始）" .
+:routeStopRoute a owl:ObjectProperty ; rdfs:domain :RouteStop ; :physicalColumn "route_id" ; :references :Route ;
+    :businessDescription "这一站属于哪条线路" .
+:routeStopStore a owl:ObjectProperty ; rdfs:domain :RouteStop ; :physicalColumn "store_id" ; :references :Store ;
+    :businessDescription "这一站去哪个门店（计划）" .
+
+# ---------------------------------------------------------------- 门店
+
+:storeId a owl:DatatypeProperty ; rdfs:domain :Store ; :physicalColumn "id" ;
+    :businessDescription "门店主键" .
+:storeName a owl:DatatypeProperty ; rdfs:domain :Store ; :physicalColumn "name" ;
+    :businessDescription "门店名" .
+:storeZone a owl:DatatypeProperty ; rdfs:domain :Store ; :physicalColumn "zone" ;
+    :businessDescription "门店区域（core 533 / suburb 267）" .
+:storeDistrict a owl:DatatypeProperty ; rdfs:domain :Store ; :physicalColumn "district" ;
+    :businessDescription "行政区" .
+:storeWindowFrom a owl:DatatypeProperty ; rdfs:domain :Store ; :physicalColumn "window_from" ;
+    :businessDescription "收货时间窗开始" .
+:storeWindowTo a owl:DatatypeProperty ; rdfs:domain :Store ; :physicalColumn "window_to" ;
+    :businessDescription "收货时间窗结束" .
+:storeHasAlarm a owl:DatatypeProperty ; rdfs:domain :Store ; :physicalColumn "has_alarm" ;
+    :businessDescription "门店是否带警铃（true 445 / false 355）。带警铃的门店迟到代价更高" .
+
+# ---------------------------------------------------------------- 趟次
+
+:tripId a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "id" ;
+    :businessDescription "趟次主键" .
+:tripDate a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "trip_date" ;
+    :businessDescription "出车日期，2026-08-01 → 2026-10-29，90 天每天都有趟次。这是趟次级唯一的日期列" .
+:tripIsExternal a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "is_external" ;
+    :businessDescription "是否外车承运（true 417 / false 3,703）。外车占比平日 6.57%、高峰 19.30%" .
+:tripVehicleSource a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "vehicle_source" ;
+    :businessDescription "运力来源文本（own 3,703 / external 417），与 is_external 是同一件事的两种写法，指标只用其中一个" .
+:tripIsPeakDay a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "is_peak_day" ;
+    :businessDescription "是否高峰日（true 1,150 / false 2,970）。外车补位与超载都集中在这几天" .
+:tripPlannedStops a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "planned_stops" ;
+    :businessDescription "计划站数" .
+:tripActualStops a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "actual_stops" ;
+    :businessDescription "实际完成站数（9–17，均值 12.34）。它从不大于计划站数（0.00% 的趟次超计划），所以「站点超计划」在本库里没有发生过" .
+:tripLoadBoxes a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "load_boxes" ;
+    :businessDescription "实际装载箱数" .
+:tripLoadVolume a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "load_volume" ;
+    :businessDescription "实际装载体积" .
+:tripLoadWeight a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "load_weight" ;
+    :businessDescription "实际装载重量（吨）。超载（重量口径）的分子" .
+:tripBoxCapacitySnapshot a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "box_capacity_snapshot" ;
+    :businessDescription "派车当时冻结的额定箱数" .
+:tripVolumeCapacitySnapshot a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "volume_capacity_snapshot" ;
+    :businessDescription "派车当时冻结的额定体积" .
+:tripWeightCapacitySnapshot a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "weight_capacity_snapshot" ;
+    :businessDescription "派车当时冻结的额定载重（吨）。超载（重量口径）的分母，必须用快照而不是车辆现值" .
+:tripRevenue a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "revenue" ;
+    :businessDescription "这一趟的运费收入，合计 4,423,204.39" .
+:tripExternalCost a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "external_cost" ;
+    :businessDescription "外车费用（只有外车趟次有值）。它已计入 cost_total，不要再加一次" .
+:tripStatus a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "status" ;
+    :businessDescription "趟次状态，4,120 趟全部 completed —— 取消/未执行的趟次不在本库里" .
+:tripCostTotal a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "cost_total" ;
+    :businessDescription "已知成本合计 2,144,972.86（油费+路桥+司机工资+搬运+外车费）。它不含 other_cost，所以毛利是上限" .
+:tripLateStopCount a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "late_stop_count" ;
+    :businessDescription "这一趟迟到的站数。=0 即整趟全准点（2,221 趟 / 53.91%）" .
+:tripActualDurationMin a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "actual_duration_min" ;
+    :businessDescription "实际耗时（分钟），均值 178.33" .
+:tripRouteVersion a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "route_version" ;
+    :businessDescription "这一趟用的线路版本（v1 2,600 / v2 1,520）。并线把版本从线路下沉到趟次：按版本分组必须在事实行上有这一列，编译器不跨表" .
+
+:tripRoute a owl:ObjectProperty ; rdfs:domain :Trip ; :physicalColumn "route_id" ; :references :Route ;
+    :businessDescription "这一趟跑的是哪条线路" .
+:tripVehicle a owl:ObjectProperty ; rdfs:domain :Trip ; :physicalColumn "vehicle_id" ; :references :Vehicle ;
+    :businessDescription "这一趟用的车（外车趟次也记了一台车）" .
+:tripDriver a owl:ObjectProperty ; rdfs:domain :Trip ; :physicalColumn "driver_id" ; :references :Driver ;
+    :businessDescription "这一趟实际开车的司机" .
+
+# ---------------------------------------------------------------- 站点执行
+
+:stopId a owl:DatatypeProperty ; rdfs:domain :Stop ; :physicalColumn "id" ;
+    :businessDescription "站点主键" .
+:stopSeq a owl:DatatypeProperty ; rdfs:domain :Stop ; :physicalColumn "seq" ;
+    :businessDescription "这一趟里的第几站" .
+:stopOnTime a owl:DatatypeProperty ; rdfs:domain :Stop ; :physicalColumn "on_time" ;
+    :businessDescription "这一站是否准时（48,085 / 50,832 = 94.60%）。站点级准点率的分子" .
+:stopTempExcursion a owl:DatatypeProperty ; rdfs:domain :Stop ; :physicalColumn "temp_excursion" ;
+    :businessDescription "这一站是否发生温度越界（1,148 站）。它是布尔标记，不是温度读数；温度读数在 Telemetry" .
+:stopDamagedBoxes a owl:DatatypeProperty ; rdfs:domain :Stop ; :physicalColumn "damaged_boxes" ;
+    :businessDescription "这一站破损箱数，合计 8,144 箱。每千站 160.21 箱" .
+:stopAlarmTriggered a owl:DatatypeProperty ; rdfs:domain :Stop ; :physicalColumn "alarm_triggered" ;
+    :businessDescription "这一站是否触发门店警铃（979 站）" .
+:stopBasketsMissing a owl:DatatypeProperty ; rdfs:domain :Stop ; :physicalColumn "baskets_missing" ;
+    :businessDescription "这一站缺筐数（17,059 站有缺失）" .
+:stopHandlerDaysWorked a owl:DatatypeProperty ; rdfs:domain :Stop ; :physicalColumn "handler_days_worked" ;
+    :businessDescription "搬这一站时搬运工累计上岗天数（快照）。≤3 天按「新手」处理，这个阈值是假设，不是任何文件写死的" .
+:stopHandlerCooperated a owl:DatatypeProperty ; rdfs:domain :Stop ; :physicalColumn "handler_cooperated" ;
+    :businessDescription "搬运工是否配合。14,133 站（27.80%）为 NULL，只在有记录的部分可报" .
+
+:stopTrip a owl:ObjectProperty ; rdfs:domain :Stop ; :physicalColumn "trip_id" ; :references :Trip ;
+    :businessDescription "这一站属于哪一趟（站点自己没有日期，日期从这里取）" .
+:stopStore a owl:ObjectProperty ; rdfs:domain :Stop ; :physicalColumn "store_id" ; :references :Store ;
+    :businessDescription "这一站送的是哪家门店" .
+:stopHandler a owl:ObjectProperty ; rdfs:domain :Stop ; :physicalColumn "handler_id" ; :references :Handler ;
+    :businessDescription "这一站的搬运工。14,133 站没有搬运工记录" .
+
+# ---------------------------------------------------------------- 趟次成本
+
+:costTrip a owl:ObjectProperty ; rdfs:domain :TripCost ; :physicalColumn "trip_id" ; :references :Trip ;
+    :businessDescription "这份成本属于哪一趟" .
+:costSourceType a owl:DatatypeProperty ; rdfs:domain :TripCost ; :physicalColumn "source_type" ;
+    :businessDescription "成本来源类型（与 trip_id 组成复合主键）" .
+:costFuel a owl:DatatypeProperty ; rdfs:domain :TripCost ; :physicalColumn "fuel_cost" ;
+    :businessDescription "油费" .
+:costToll a owl:DatatypeProperty ; rdfs:domain :TripCost ; :physicalColumn "toll_cost" ;
+    :businessDescription "路桥费" .
+:costDriverPay a owl:DatatypeProperty ; rdfs:domain :TripCost ; :physicalColumn "driver_pay" ;
+    :businessDescription "司机计件工资" .
+:costHandler a owl:DatatypeProperty ; rdfs:domain :TripCost ; :physicalColumn "handler_cost" ;
+    :businessDescription "搬运工分摊成本（结算值在 HandlerSettlement 上）" .
+:costExternalFee a owl:DatatypeProperty ; rdfs:domain :TripCost ; :physicalColumn "external_fee" ;
+    :businessDescription "外车费" .
+:costOther a owl:DatatypeProperty ; rdfs:domain :TripCost ; :physicalColumn "other_cost" ;
+    :businessDescription "其它成本。4,120 行全部为空 —— 这就是毛利只能叫「上限」的原因" .
+:costCurrency a owl:DatatypeProperty ; rdfs:domain :TripCost ; :physicalColumn "currency" ;
+    :businessDescription "币种，全部 RMB" .
+:costAsOf a owl:DatatypeProperty ; rdfs:domain :TripCost ; :physicalColumn "as_of" ;
+    :businessDescription "这份成本的导出基准日" .
+
+# ---------------------------------------------------------------- 日历日
+
+:dayDate a owl:DatatypeProperty ; rdfs:domain :CalendarDay ; :physicalColumn "day" ;
+    :businessDescription "日期，2026-08-01 → 2026-10-29，90 行" .
+:dayWeekday a owl:DatatypeProperty ; rdfs:domain :CalendarDay ; :physicalColumn "weekday" ;
+    :businessDescription "星期几的整数编码（0–6）。整数到星期名的映射在本库里没有声明，所以不按「周几」下结论，只用 is_peak" .
+:dayIsPeak a owl:DatatypeProperty ; rdfs:domain :CalendarDay ; :physicalColumn "is_peak" ;
+    :businessDescription "是否高峰日（25 天 / 27.78%），落在 weekday 4 与 5 上" .
+
+# ---------------------------------------------------------------- 客诉
+
+:complaintId a owl:DatatypeProperty ; rdfs:domain :Complaint ; :physicalColumn "id" ;
+    :businessDescription "客诉主键" .
+:complaintOpenedAt a owl:DatatypeProperty ; rdfs:domain :Complaint ; :physicalColumn "opened_at" ;
+    :businessDescription "客诉开立时间" .
+# 属性名就叫 :liability，不叫 :complaintLiability：run_dashboard 的维度过滤按「属性本地名」找列
+# （sqlgen._dimension_predicate → class_columns），所以面板要按责任方切，维度名必须等于属性名。
+# 叫 :complaintLiability 的后果是实测出来的：complaintCount 按 liability 过滤直接拒绝
+# （"cannot filter :Complaint by :liability"），面板就只能声明「这块切不了」。
+:liability a owl:DatatypeProperty ; rdfs:domain :Complaint ; :physicalColumn "liability" ;
+    :businessDescription "责任归属（driver 429 / labourer 425），731 件（46.12%）为空 = 尚未判定。NULL 不是「无责任」" .
+:complaintAmount a owl:DatatypeProperty ; rdfs:domain :Complaint ; :physicalColumn "amount" ;
+    :businessDescription "赔付金额，854 件有值，合计 543,309.02。为空的是还没判，不能填 0" .
+:complaintClosedAt a owl:DatatypeProperty ; rdfs:domain :Complaint ; :physicalColumn "closed_at" ;
+    :businessDescription "结案时间" .
+:complaintKind a owl:DatatypeProperty ; rdfs:domain :Complaint ; :physicalColumn "kind" ;
+    :businessDescription "客诉类型（迟到 485 / 货损 309 / 少送错送 229 / 态度 156），406 件（25.62%）为空" .
+
+:complaintStop a owl:ObjectProperty ; rdfs:domain :Complaint ; :physicalColumn "stop_id" ; :references :Stop ;
+    :businessDescription "客诉针对的那一站。客诉的时间、司机、车辆都要经过 Stop→Trip 才能拿到" .
+
+# ---------------------------------------------------------------- 拒单
+
+:refusalId a owl:DatatypeProperty ; rdfs:domain :Refusal ; :physicalColumn "id" ;
+    :businessDescription "拒单主键" .
+:refusalDate a owl:DatatypeProperty ; rdfs:domain :Refusal ; :physicalColumn "refused_date" ;
+    :businessDescription "拒单日期" .
+:refusalReason a owl:DatatypeProperty ; rdfs:domain :Refusal ; :physicalColumn "reason" ;
+    :businessDescription "拒单原因（站点太多 89 / 超载风险 80 / 排放限制 34 / 车辆不适配 31 / 私事 26 / 太远 16），113 件（29.05%）为空" .
+:refusalAssigned a owl:DatatypeProperty ; rdfs:domain :Refusal ; :physicalColumn "assigned" ;
+    :businessDescription "这次拒单是否发生在正式指派之后（true 144 / false 245）。停车规则的判定只认 true" .
+
+:refusalRoute a owl:ObjectProperty ; rdfs:domain :Refusal ; :physicalColumn "route_id" ; :references :Route ;
+    :businessDescription "被拒的那条线路" .
+:refusalDriver a owl:ObjectProperty ; rdfs:domain :Refusal ; :physicalColumn "driver_id" ; :references :Driver ;
+    :businessDescription "拒单的司机" .
+
+# ---------------------------------------------------------------- 停车
+
+:parkingId a owl:DatatypeProperty ; rdfs:domain :ParkingRecord ; :physicalColumn "id" ;
+    :businessDescription "停车记录主键" .
+:parkingStartDate a owl:DatatypeProperty ; rdfs:domain :ParkingRecord ; :physicalColumn "start_date" ;
+    :businessDescription "停车开始日期" .
+:parkingEndDate a owl:DatatypeProperty ; rdfs:domain :ParkingRecord ; :physicalColumn "end_date" ;
+    :businessDescription "停车结束日期" .
+:parkingDays a owl:DatatypeProperty ; rdfs:domain :ParkingRecord ; :physicalColumn "days" ;
+    :businessDescription "停车天数（合计 21 天）" .
+:parkingReason a owl:DatatypeProperty ; rdfs:domain :ParkingRecord ; :physicalColumn "reason" ;
+    :businessDescription "停车原因（正式指派后拒单 2 / 车辆故障 1 / 超载风险 1 / 生病 1 / 站点太多 1 / 车辆不适配 1）" .
+:parkingSource a owl:DatatypeProperty ; rdfs:domain :ParkingRecord ; :physicalColumn "source" ;
+    :businessDescription "记录来源（refusal 5 自动 / manual 2 手工）。自动与手工混在一起，样本只有 7 条" .
+
+:parkingDriver a owl:ObjectProperty ; rdfs:domain :ParkingRecord ; :physicalColumn "driver_id" ; :references :Driver ;
+    :businessDescription "被停车的司机" .
+
+# ---------------------------------------------------------------- 派车决策
+
+:decisionId a owl:DatatypeProperty ; rdfs:domain :DispatchDecision ; :physicalColumn "id" ;
+    :businessDescription "决策主键" .
+:decisionDate a owl:DatatypeProperty ; rdfs:domain :DispatchDecision ; :physicalColumn "decision_date" ;
+    :businessDescription "决策日期" .
+:decisionRecommendedScore a owl:DatatypeProperty ; rdfs:domain :DispatchDecision ; :physicalColumn "recommended_score" ;
+    :businessDescription "系统给建议司机的分。评分口径是草案，所以这个分本身不作为业务指标" .
+:decisionChosenScore a owl:DatatypeProperty ; rdfs:domain :DispatchDecision ; :physicalColumn "chosen_score" ;
+    :businessDescription "系统给实际选定司机的分。与 recommended_score 的差是「人为什么改了主意」的唯一量化线索" .
+:decisionMode a owl:DatatypeProperty ; rdfs:domain :DispatchDecision ; :physicalColumn "mode" ;
+    :businessDescription "运行模式，2,620 条全是 shadow（只看不派）。所以采纳率是「人的选择与建议的重合度」，不是效果" .
+:decisionAdopted a owl:DatatypeProperty ; rdfs:domain :DispatchDecision ; :physicalColumn "adopted" ;
+    :businessDescription "是否采纳建议（true 2,036 / 77.71%）" .
+:decisionOverrideReason a owl:DatatypeProperty ; rdfs:domain :DispatchDecision ; :physicalColumn "override_reason" ;
+    :businessDescription "覆盖原因，未采纳的 584 条全部填写（100%）—— docx 要求的「改派必须留痕」今天成立" .
+
+:decisionRoute a owl:ObjectProperty ; rdfs:domain :DispatchDecision ; :physicalColumn "route_id" ; :references :Route ;
+    :businessDescription "决策针对的线路" .
+:decisionRecommendedDriver a owl:ObjectProperty ; rdfs:domain :DispatchDecision ; :physicalColumn "recommended_driver" ; :references :Driver ;
+    :businessDescription "系统建议的司机" .
+:decisionChosenDriver a owl:ObjectProperty ; rdfs:domain :DispatchDecision ; :physicalColumn "chosen_driver" ; :references :Driver ;
+    :businessDescription "人手选的司机" .
+
+# ---------------------------------------------------------------- 司机统计快照
+
+:statDriver a owl:ObjectProperty ; rdfs:domain :DriverStat ; :physicalColumn "driver_id" ; :references :Driver ;
+    :businessDescription "哪位司机的快照" .
+:statWindowDays a owl:DatatypeProperty ; rdfs:domain :DriverStat ; :physicalColumn "window_days" ;
+    :businessDescription "滚动窗口天数，库里只有 30（与 trip_id 一起构成复合主键的另一半）" .
+:statTrips a owl:DatatypeProperty ; rdfs:domain :DriverStat ; :physicalColumn "trips" ;
+    :businessDescription "窗口内趟次（预聚合值，与 trips 现算可能不同）" .
+:statStops a owl:DatatypeProperty ; rdfs:domain :DriverStat ; :physicalColumn "stops" ;
+    :businessDescription "窗口内站点数（预聚合值）" .
+:statLateStops a owl:DatatypeProperty ; rdfs:domain :DriverStat ; :physicalColumn "late_stops" ;
+    :businessDescription "窗口内迟到站数（预聚合值）" .
+:statOnTimeRate a owl:DatatypeProperty ; rdfs:domain :DriverStat ; :physicalColumn "on_time_rate" ;
+    :businessDescription "窗口内准点率（预聚合值）。对账用，不直接出指标" .
+:statDamagedBoxes a owl:DatatypeProperty ; rdfs:domain :DriverStat ; :physicalColumn "damaged_boxes" ;
+    :businessDescription "窗口内破损箱（预聚合值）" .
+:statOverloadTrips a owl:DatatypeProperty ; rdfs:domain :DriverStat ; :physicalColumn "overload_trips" ;
+    :businessDescription "窗口内超载趟次（预聚合值）" .
+:statComplaints a owl:DatatypeProperty ; rdfs:domain :DriverStat ; :physicalColumn "complaints" ;
+    :businessDescription "窗口内客诉数（预聚合值）" .
+
+# ---------------------------------------------------------------- 申诉
+
+:appealId a owl:DatatypeProperty ; rdfs:domain :Appeal ; :physicalColumn "id" ;
+    :businessDescription "申诉主键" .
+:appealFiledOn a owl:DatatypeProperty ; rdfs:domain :Appeal ; :physicalColumn "filed_on" ;
+    :businessDescription "申诉提交日期" .
+:appealReason a owl:DatatypeProperty ; rdfs:domain :Appeal ; :physicalColumn "reason" ;
+    :businessDescription "申诉理由" .
+:appealOutcome a owl:DatatypeProperty ; rdfs:domain :Appeal ; :physicalColumn "outcome" ;
+    :businessDescription "处理结果（rejected 25 / upheld 12 / pending 9）。46 件全部有结果字段" .
+
+:appealDriver a owl:ObjectProperty ; rdfs:domain :Appeal ; :physicalColumn "driver_id" ; :references :Driver ;
+    :businessDescription "申诉的司机。申诉与客诉、停车之间没有外键，所以「为哪件事申诉」不可回答" .
+
+# ---------------------------------------------------------------- 搬运工
+
+:handlerId a owl:DatatypeProperty ; rdfs:domain :Handler ; :physicalColumn "id" ;
+    :businessDescription "搬运工主键" .
+:handlerName a owl:DatatypeProperty ; rdfs:domain :Handler ; :physicalColumn "name" ;
+    :businessDescription "姓名" .
+:handlerAgency a owl:DatatypeProperty ; rdfs:domain :Handler ; :physicalColumn "agency" ;
+    :businessDescription "派遣公司（宏图 134 / 安捷 127 / 诚达 159）" .
+:handlerFirstDay a owl:DatatypeProperty ; rdfs:domain :Handler ; :physicalColumn "first_day" ;
+    :businessDescription "首次上岗日" .
+:handlerDaysWorked a owl:DatatypeProperty ; rdfs:domain :Handler ; :physicalColumn "days_worked" ;
+    :businessDescription "累计上岗天数，均值 5.3 天，283 人干不满 5 天" .
+:handlerDayRate a owl:DatatypeProperty ; rdfs:domain :Handler ; :physicalColumn "day_rate" ;
+    :businessDescription "日单价，均值 163.7 元，420 人全部有值" .
+
+# ---------------------------------------------------------------- 搬运工结算
+
+:settlementId a owl:DatatypeProperty ; rdfs:domain :HandlerSettlement ; :physicalColumn "id" ;
+    :businessDescription "结算单主键" .
+:settlementAgency a owl:DatatypeProperty ; rdfs:domain :HandlerSettlement ; :physicalColumn "agency" ;
+    :businessDescription "结算的派遣公司" .
+:settlementPeriodStart a owl:DatatypeProperty ; rdfs:domain :HandlerSettlement ; :physicalColumn "period_start" ;
+    :businessDescription "结算期开始" .
+:settlementPeriodEnd a owl:DatatypeProperty ; rdfs:domain :HandlerSettlement ; :physicalColumn "period_end" ;
+    :businessDescription "结算期结束" .
+:settlementDays a owl:DatatypeProperty ; rdfs:domain :HandlerSettlement ; :physicalColumn "days" ;
+    :businessDescription "结算天数" .
+:settlementDayRate a owl:DatatypeProperty ; rdfs:domain :HandlerSettlement ; :physicalColumn "day_rate" ;
+    :businessDescription "结算日单价" .
+:settlementAmount a owl:DatatypeProperty ; rdfs:domain :HandlerSettlement ; :physicalColumn "amount" ;
+    :businessDescription "结算金额 = 天数 × 日单价" .
+:settlementCurrency a owl:DatatypeProperty ; rdfs:domain :HandlerSettlement ; :physicalColumn "currency" ;
+    :businessDescription "币种，全部 RMB" .
+
+:settlementHandler a owl:ObjectProperty ; rdfs:domain :HandlerSettlement ; :physicalColumn "handler_id" ; :references :Handler ;
+    :businessDescription "结算给哪位搬运工" .
+
+# ---------------------------------------------------------------- 遥测
+
+:telemetryId a owl:DatatypeProperty ; rdfs:domain :Telemetry ; :physicalColumn "id" ;
+    :businessDescription "读数主键" .
+:telemetryTs a owl:DatatypeProperty ; rdfs:domain :Telemetry ; :physicalColumn "ts" ;
+    :businessDescription "读数时间。全部落在 2026-11-06 06:00–08:45 这 2.75 小时里" .
+:telemetryTempC a owl:DatatypeProperty ; rdfs:domain :Telemetry ; :physicalColumn "temp_c" ;
+    :businessDescription "车厢温度（℃），区间 −19.5 至 −12.0，均值 −15.76" .
+
+:telemetryTrip a owl:ObjectProperty ; rdfs:domain :Telemetry ; :physicalColumn "trip_id" ; :references :Trip ;
+    :businessDescription "读数属于哪一趟（只覆盖 1,030 趟 / 4,120）" .
+
+# ---------------------------------------------------------------- 问答日志
+
+:nlId a owl:DatatypeProperty ; rdfs:domain :NlEvent ; :physicalColumn "id" ;
+    :businessDescription "日志主键" .
+:nlTs a owl:DatatypeProperty ; rdfs:domain :NlEvent ; :physicalColumn "ts" ;
+    :businessDescription "问句时间" .
+:nlQuestion a owl:DatatypeProperty ; rdfs:domain :NlEvent ; :physicalColumn "question" ;
+    :businessDescription "用户原话" .
+:nlOk a owl:DatatypeProperty ; rdfs:domain :NlEvent ; :physicalColumn "ok" ;
+    :businessDescription "是否成功解析并回答" .
+:nlRefused a owl:DatatypeProperty ; rdfs:domain :NlEvent ; :physicalColumn "refused" ;
+    :businessDescription "拒绝时的说明文本" .
+:nlRefusalKind a owl:DatatypeProperty ; rdfs:domain :NlEvent ; :physicalColumn "refusal_kind" ;
+    :businessDescription "拒绝类别" .
+:nlIntent a owl:DatatypeProperty ; rdfs:domain :NlEvent ; :physicalColumn "intent" ;
+    :businessDescription "解析意图（jsonb）" .
+:nlBackend a owl:DatatypeProperty ; rdfs:domain :NlEvent ; :physicalColumn "backend" ;
+    :businessDescription "解析后端（ollama:qwen2.5:3b 3 / 规则 12）" .
+
+# ================================================================ v4 delta：KPI 卡 1–6 需要的 9 张表
+# 这一节是 2026 版 KPI 口径（Book1 + 口径字典）落地时补的对象：合规（轴/地磅/通行证/限行）、
+# 出勤与线路执行、异常工单、油耗台账、维修工单、固定成本台账、违章台账。
+# 规则不变：一个对象 = 一张表；每个物理列只在 :physicalColumn 里出现一次；属性名全库唯一。
+
+# ---------------------------------------------------------------- 趟次上被 KPI 直接引用的列
+:tripActualKm a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "actual_km" ;
+    :businessDescription "本趟实际里程（GPS 清洗后累计）。百公里油耗、单公里成本的分母。" .
+:tripFuelLiters a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "fuel_liters" ;
+    :businessDescription "本趟油耗（升）。与 fuel_logs.liters 合计一致（32,378.1 L），但一条是趟次分摊、一条是加油记录，两者不能互相替代。" .
+:tripMaintenanceCost a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "maintenance_cost" ;
+    :businessDescription "本趟分摊的维修成本（元）。" .
+:tripFixedCost a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "fixed_cost" ;
+    :businessDescription "本趟分摊的固定成本（保险+折旧+车船税+年检）。与 vehicle_fixed_costs 台账合计差 0.26 元（四舍五入），本体一律用这一列，因为 TCO 的三条腿必须同源。" .
+:tripStopsDelivered a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "stops_delivered" ;
+    :businessDescription "本趟实际送达站点数。与 stops.service_status='delivered' 的合计一致（49,927），是线路完成率的分母/分子来源。" .
+:tripWeighbridgeWeight a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "weighbridge_weight" ;
+    :businessDescription "地磅/动态称重读数。列里既非吨也非公斤统一单位（口径未确认），所以超载幅度按称重口径按名拒绝。" .
+:tripAxleOverload a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "axle_overload" ;
+    :businessDescription "本趟是否轴荷超限（布尔）。轴型档案在 vehicle_axles（128 条，含 rated_kg），但库里没有逐轴实测轴荷，所以只能判「超/不超」，判不了每根轴超多少。" .
+:tripCoreRestricted a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "core_restricted" ;
+    :businessDescription "本趟是否进核心限行区（布尔）。" .
+:tripPermitValid a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "permit_valid" ;
+    :businessDescription "本趟车辆通行证是否有效（布尔）。与 zone_permits 台账的 12/20 张有效证互为第二路线。" .
+:stopServiceStatus a owl:DatatypeProperty ; rdfs:domain :Stop ; :physicalColumn "service_status" ;
+    :businessDescription "这一站的配送结果：delivered 49,927 / refused 412 / closed_store 274 / not_delivered 219。它是「站送没送到」的唯一判据，不是异常工单。" .
+
+# ---------------------------------------------------------------- 异常工单
+:IncidentTicket a owl:Class ; rdfs:label "异常工单" ; :physicalTable "incident_tickets" ; :primaryKey "id" ;
+    :businessDescription "107 张异常工单，一张一趟（trip_id 无重复、stop_id 无重复），其中 23 张被标为主异常。类型只有 4 个：破损 74 / 倒温 16 / 超时 13 / 拒收 4。它记的是「这趟出了什么事」，不是「这站送到了没有」——后者在 stops.service_status。" .
+:ticketId a owl:DatatypeProperty ; rdfs:domain :IncidentTicket ; :physicalColumn "id" ;
+    :businessDescription "工单号" .
+:ticketTrip a owl:ObjectProperty ; rdfs:domain :IncidentTicket ; :physicalColumn "trip_id" ; :references :Trip ;
+    :businessDescription "这张工单属于哪一趟（107 趟不重复，因为一单多异常在本库里已经合并成一张）" .
+:ticketStop a owl:ObjectProperty ; rdfs:domain :IncidentTicket ; :physicalColumn "stop_id" ; :references :Stop ;
+    :businessDescription "这张工单发生在哪一站" .
+:ticketType a owl:DatatypeProperty ; rdfs:domain :IncidentTicket ; :physicalColumn "type" ;
+    :businessDescription "异常类型：破损/倒温/超时/拒收" .
+:ticketRaisedAt a owl:DatatypeProperty ; rdfs:domain :IncidentTicket ; :physicalColumn "raised_at" ;
+    :businessDescription "上报时间" .
+:ticketChannel a owl:DatatypeProperty ; rdfs:domain :IncidentTicket ; :physicalColumn "channel" ;
+    :businessDescription "上报渠道：客服工单 37 / 司机APP上报 39 / POD签收 31" .
+:ticketResponsibleParty a owl:DatatypeProperty ; rdfs:domain :IncidentTicket ; :physicalColumn "responsible_party" ;
+    :businessDescription "责任方：承运 70 / 不可抗力 19 / 客户 18" .
+:ticketStatus a owl:DatatypeProperty ; rdfs:domain :IncidentTicket ; :physicalColumn "status" ;
+    :businessDescription "处理状态：已处理 76 / 处理中 31" .
+:ticketIsPrimary a owl:DatatypeProperty ; rdfs:domain :IncidentTicket ; :physicalColumn "is_primary" ;
+    :businessDescription "是否主异常（一单多异常去重计 1 单的口径就落在这张标记上，23 张）" .
+:ticketDetail a owl:DatatypeProperty ; rdfs:domain :IncidentTicket ; :physicalColumn "detail" ;
+    :businessDescription "工单正文" .
+
+# ---------------------------------------------------------------- 出勤与班次
+:DriverSchedule a owl:Class ; rdfs:label "司机排班日" ; :physicalTable "driver_schedule" ; :primaryKey "driver_id, day" ;
+    :businessDescription "5,400 行 = 司机 × 日期。4 个状态：attended 2,894 / absent 1,480 / leave 662 / not_scheduled 364。scheduled 为 true 的只有 5,036 行，所以出勤率的分母是 5,036 而不是 5,400——「没排班」既不是出勤也不是缺勤。" .
+:scheduleDriver a owl:ObjectProperty ; rdfs:domain :DriverSchedule ; :physicalColumn "driver_id" ; :references :Driver ;
+    :businessDescription "这一班是谁的" .
+:scheduleDay a owl:DatatypeProperty ; rdfs:domain :DriverSchedule ; :physicalColumn "day" ;
+    :businessDescription "排班日期" .
+:scheduleStatus a owl:DatatypeProperty ; rdfs:domain :DriverSchedule ; :physicalColumn "status" ;
+    :businessDescription "attended/absent/leave/not_scheduled" .
+:scheduleScheduled a owl:DatatypeProperty ; rdfs:domain :DriverSchedule ; :physicalColumn "scheduled" ;
+    :businessDescription "这一天是否排了班（布尔）。364 行 false 全是 not_scheduled。" .
+:scheduleHours a owl:DatatypeProperty ; rdfs:domain :DriverSchedule ; :physicalColumn "hours" ;
+    :businessDescription "计划工时" .
+:scheduleReason a owl:DatatypeProperty ; rdfs:domain :DriverSchedule ; :physicalColumn "reason" ;
+    :businessDescription "缺勤/请假原因" .
+
+# ---------------------------------------------------------------- 轴荷档案
+:VehicleAxle a owl:Class ; rdfs:label "车辆轴" ; :physicalTable "vehicle_axles" ; :primaryKey "vehicle_id, axle_seq" ;
+    :businessDescription "128 条轴档案 = 60 台车的前桥 + 60 台车的后桥 + 8 台的第三轴。额定轴荷合计 244,500 kg。只有「轴能承多重」，没有「当天每根轴实际多重」，所以轴荷级超载只能复述 trips.axle_overload 这个判定，不能自己算幅度。" .
+:axleVehicle a owl:ObjectProperty ; rdfs:domain :VehicleAxle ; :physicalColumn "vehicle_id" ; :references :Vehicle ;
+    :businessDescription "这根轴属于哪台车" .
+:axleSeq a owl:DatatypeProperty ; rdfs:domain :VehicleAxle ; :physicalColumn "axle_seq" ;
+    :businessDescription "轴序（1 前桥 / 2 后桥 / 3 第三轴）" .
+:axleType a owl:DatatypeProperty ; rdfs:domain :VehicleAxle ; :physicalColumn "axle_type" ;
+    :businessDescription "轴型：前桥/后桥/第3轴" .
+:axleRatedKg a owl:DatatypeProperty ; rdfs:domain :VehicleAxle ; :physicalColumn "rated_kg" ;
+    :businessDescription "该轴额定载荷（kg）" .
+:axleLoadShare a owl:DatatypeProperty ; rdfs:domain :VehicleAxle ; :physicalColumn "load_share" ;
+    :businessDescription "厂商标定的该轴承载分担比例" .
+
+# ---------------------------------------------------------------- 加油台账
+:FuelLog a owl:Class ; rdfs:label "加油记录" ; :physicalTable "fuel_logs" ; :primaryKey "id" ;
+    :businessDescription "3,000 条加油记录，合计 32,378.1 L / 372,009.39 元，均价 11.490 元/L。它与 trips.fuel_liters 的合计一致，但一个是加油动作、一个是趟次分摊：趟次成本只能用趟次那一条。" .
+:fuelLogId a owl:DatatypeProperty ; rdfs:domain :FuelLog ; :physicalColumn "id" ;
+    :businessDescription "加油记录号" .
+:fuelLogVehicle a owl:ObjectProperty ; rdfs:domain :FuelLog ; :physicalColumn "vehicle_id" ; :references :Vehicle ;
+    :businessDescription "哪台车加的油" .
+:fuelLogFilledAt a owl:DatatypeProperty ; rdfs:domain :FuelLog ; :physicalColumn "filled_at" ;
+    :businessDescription "加油时间" .
+:fuelLogLiters a owl:DatatypeProperty ; rdfs:domain :FuelLog ; :physicalColumn "liters" ;
+    :businessDescription "加油量（升）" .
+:fuelLogUnitPrice a owl:DatatypeProperty ; rdfs:domain :FuelLog ; :physicalColumn "unit_price" ;
+    :businessDescription "单价（元/升）" .
+:fuelLogAmount a owl:DatatypeProperty ; rdfs:domain :FuelLog ; :physicalColumn "amount" ;
+    :businessDescription "金额（元）" .
+:fuelLogOdometerKm a owl:DatatypeProperty ; rdfs:domain :FuelLog ; :physicalColumn "odometer_km" ;
+    :businessDescription "加油时里程表读数（km）" .
+:fuelLogStation a owl:DatatypeProperty ; rdfs:domain :FuelLog ; :physicalColumn "station" ;
+    :businessDescription "加油站" .
+
+# ---------------------------------------------------------------- 维修工单
+:MaintenanceOrder a owl:Class ; rdfs:label "维修工单" ; :physicalTable "maintenance_orders" ; :primaryKey "id" ;
+    :businessDescription "250 张维修工单，合计 443,109.53 元、4,038.1 小时停机，均单 1,772.44 元。7 个科目里制冷机组最贵（171,449.87 元），轮胎次之（89,905.60）——冷链的成本痛点不在发动机。" .
+:maintenanceId a owl:DatatypeProperty ; rdfs:domain :MaintenanceOrder ; :physicalColumn "id" ;
+    :businessDescription "工单号" .
+:maintenanceVehicle a owl:ObjectProperty ; rdfs:domain :MaintenanceOrder ; :physicalColumn "vehicle_id" ; :references :Vehicle ;
+    :businessDescription "哪台车进厂" .
+:maintenanceOpenedAt a owl:DatatypeProperty ; rdfs:domain :MaintenanceOrder ; :physicalColumn "opened_at" ;
+    :businessDescription "进厂日期" .
+:maintenanceClosedAt a owl:DatatypeProperty ; rdfs:domain :MaintenanceOrder ; :physicalColumn "closed_at" ;
+    :businessDescription "出厂日期" .
+:maintenanceCategory a owl:DatatypeProperty ; rdfs:domain :MaintenanceOrder ; :physicalColumn "category" ;
+    :businessDescription "科目：刹车/保养/轮胎/制冷机组/车厢/电瓶" .
+:maintenanceSpend a owl:DatatypeProperty ; rdfs:domain :MaintenanceOrder ; :physicalColumn "cost" ;
+    :businessDescription "工单金额（元）" .
+:maintenanceOdometerKm a owl:DatatypeProperty ; rdfs:domain :MaintenanceOrder ; :physicalColumn "odometer_km" ;
+    :businessDescription "进厂里程表读数（km）" .
+:maintenanceDowntimeHours a owl:DatatypeProperty ; rdfs:domain :MaintenanceOrder ; :physicalColumn "downtime_hours" ;
+    :businessDescription "停机工时（小时）" .
+:maintenanceVendor a owl:DatatypeProperty ; rdfs:domain :MaintenanceOrder ; :physicalColumn "vendor" ;
+    :businessDescription "维修厂" .
+:maintenanceNote a owl:DatatypeProperty ; rdfs:domain :MaintenanceOrder ; :physicalColumn "note" ;
+    :businessDescription "工单备注" .
+
+# ---------------------------------------------------------------- 固定成本台账
+:VehicleFixedCost a owl:Class ; rdfs:label "车辆固定成本期" ; :physicalTable "vehicle_fixed_costs" ; :primaryKey "id" ;
+    :businessDescription "180 行 = 60 台车 × 3 期，合计 3,014,690.57 元（保险+折旧+车船税+年检）。trips.fixed_cost 的分摊合计是 3,014,690.83，差 0.26 元——两条路线互为核对，口径以 trips 为准。" .
+:fixedCostId a owl:DatatypeProperty ; rdfs:domain :VehicleFixedCost ; :physicalColumn "id" ;
+    :businessDescription "台账行号" .
+:fixedCostVehicle a owl:ObjectProperty ; rdfs:domain :VehicleFixedCost ; :physicalColumn "vehicle_id" ; :references :Vehicle ;
+    :businessDescription "哪台车的固定成本" .
+:fixedCostPeriod a owl:DatatypeProperty ; rdfs:domain :VehicleFixedCost ; :physicalColumn "period" ;
+    :businessDescription "期间（月）" .
+:fixedInsurance a owl:DatatypeProperty ; rdfs:domain :VehicleFixedCost ; :physicalColumn "insurance" ;
+    :businessDescription "保险（元）" .
+:fixedDepreciation a owl:DatatypeProperty ; rdfs:domain :VehicleFixedCost ; :physicalColumn "depreciation" ;
+    :businessDescription "折旧（元）" .
+:fixedRoadTax a owl:DatatypeProperty ; rdfs:domain :VehicleFixedCost ; :physicalColumn "road_tax" ;
+    :businessDescription "车船税（元）" .
+:fixedInspection a owl:DatatypeProperty ; rdfs:domain :VehicleFixedCost ; :physicalColumn "inspection" ;
+    :businessDescription "年检（元）" .
+:fixedCurrency a owl:DatatypeProperty ; rdfs:domain :VehicleFixedCost ; :physicalColumn "currency" ;
+    :businessDescription "币种" .
+
+# ---------------------------------------------------------------- 违章台账
+:Violation a owl:Class ; rdfs:label "违章记录" ; :physicalTable "violations" ; :primaryKey "id" ;
+    :businessDescription "245 条违章，61,200 元罚款 / 705 分，涉及 59 台车。4 个类别（超速 66 / 违停 64 / 闯禁行 61 / 疲劳驾驶 54）。没有「一起违章对应哪一趟」的列，所以违章率（每万公里、百车）在本库里是跨颗粒的，按名拒绝。" .
+:violationId a owl:DatatypeProperty ; rdfs:domain :Violation ; :physicalColumn "id" ;
+    :businessDescription "违章记录号" .
+:violationVehicle a owl:ObjectProperty ; rdfs:domain :Violation ; :physicalColumn "vehicle_id" ; :references :Vehicle ;
+    :businessDescription "哪台车" .
+:violationDriver a owl:ObjectProperty ; rdfs:domain :Violation ; :physicalColumn "driver_id" ; :references :Driver ;
+    :businessDescription "哪位司机" .
+:violationOccurredAt a owl:DatatypeProperty ; rdfs:domain :Violation ; :physicalColumn "occurred_at" ;
+    :businessDescription "违章时间" .
+:violationCode a owl:DatatypeProperty ; rdfs:domain :Violation ; :physicalColumn "code" ;
+    :businessDescription "违章代码" .
+:violationCategory a owl:DatatypeProperty ; rdfs:domain :Violation ; :physicalColumn "category" ;
+    :businessDescription "类别：超速/违停/闯禁行/疲劳驾驶" .
+:violationPoints a owl:DatatypeProperty ; rdfs:domain :Violation ; :physicalColumn "points" ;
+    :businessDescription "扣分" .
+:violationFineAmount a owl:DatatypeProperty ; rdfs:domain :Violation ; :physicalColumn "fine_amount" ;
+    :businessDescription "罚款金额（元）" .
+:violationStatus a owl:DatatypeProperty ; rdfs:domain :Violation ; :physicalColumn "status" ;
+    :businessDescription "处理状态：已处理 107 / 处理中 72 / 未处理 66" .
+:violationRoadZone a owl:DatatypeProperty ; rdfs:domain :Violation ; :physicalColumn "road_zone" ;
+    :businessDescription "发生路权区域：highway 120 / suburb 64 / core 61" .
+
+# ---------------------------------------------------------------- 通行证台账
+:ZonePermit a owl:Class ; rdfs:label "城区通行证" ; :physicalTable "zone_permits" ; :primaryKey "id" ;
+    :businessDescription "20 张证（全部是核心区证），状态是中文枚举：有效 12 / 已失效 8。60 台车里只有 20 台有证，所以「有证才敢进核心区」这件事要按车看，不按趟看。" .
+:permitId a owl:DatatypeProperty ; rdfs:domain :ZonePermit ; :physicalColumn "id" ;
+    :businessDescription "证号行号" .
+:permitVehicle a owl:ObjectProperty ; rdfs:domain :ZonePermit ; :physicalColumn "vehicle_id" ; :references :Vehicle ;
+    :businessDescription "证挂在哪台车上" .
+:permitZone a owl:DatatypeProperty ; rdfs:domain :ZonePermit ; :physicalColumn "zone" ;
+    :businessDescription "通行区域（core）" .
+:permitNo a owl:DatatypeProperty ; rdfs:domain :ZonePermit ; :physicalColumn "permit_no" ;
+    :businessDescription "证号" .
+:permitValidFrom a owl:DatatypeProperty ; rdfs:domain :ZonePermit ; :physicalColumn "valid_from" ;
+    :businessDescription "生效日" .
+:permitValidTo a owl:DatatypeProperty ; rdfs:domain :ZonePermit ; :physicalColumn "valid_to" ;
+    :businessDescription "到期日" .
+:permitStatus a owl:DatatypeProperty ; rdfs:domain :ZonePermit ; :physicalColumn "status" ;
+    :businessDescription "状态：有效/已失效" .
+
+# ---------------------------------------------------------------- 限行日历
+:RestrictionDay a owl:Class ; rdfs:label "限行日（按区域）" ; :physicalTable "restriction_calendar" ; :primaryKey "day, zone" ;
+    :businessDescription "180 行 = 90 天 × 2 个区，其中 43 行限行（core 40 / suburb 3）。类型：尾号限行 22 / 黄标限行 14 / 临时管制 7。它是「哪天哪个区限」，不是「哪趟被限」——后者在 trips.core_restricted。" .
+:calendarDay a owl:ObjectProperty ; rdfs:domain :RestrictionDay ; :physicalColumn "day" ; :references :CalendarDay ;
+    :businessDescription "哪一天（指向 :CalendarDay 的 day 列；本表 day 是主键的一部分）" .
+:restrictionZone a owl:DatatypeProperty ; rdfs:domain :RestrictionDay ; :physicalColumn "zone" ;
+    :businessDescription "哪个区：core/suburb" .
+:calendarRestricted a owl:DatatypeProperty ; rdfs:domain :RestrictionDay ; :physicalColumn "restricted" ;
+    :businessDescription "当天该区是否限行（布尔）" .
+:restrictionType a owl:DatatypeProperty ; rdfs:domain :RestrictionDay ; :physicalColumn "restriction_type" ;
+    :businessDescription "限行类型" .
+:restrictionNote a owl:DatatypeProperty ; rdfs:domain :RestrictionDay ; :physicalColumn "note" ;
+    :businessDescription "限行说明" .
