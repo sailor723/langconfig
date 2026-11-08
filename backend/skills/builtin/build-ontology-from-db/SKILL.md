@@ -6,7 +6,7 @@ triggers:
   - When asked to build or extend an ontology / semantic layer for a database
   - When a KPI or metric must be defined once and compiled, not hand-written per report
   - When "the same metric gives two different numbers" and the definitions must be settled
-version: 2.9
+version: 3.0
 author: weiping
 
 params:
@@ -487,6 +487,23 @@ is today and the panel says where it comes from.
 ---
 
 ## S7. Tutorial — an ontology nobody can read is a database with extra steps
+
+**The step kinds are PLURAL and there are exactly five.** Measured on the v5 build: it wrote
+`kind: "structure" / "definition" / "metric" / "refusal"` — all four singular — and T3/T4 went red on
+`{'metric','refusal','definition','structure'}` while the teaching material itself was fine. The gate
+matches strings, so the spellings are part of the contract:
+
+| kind | items name | what the pane shows |
+|---|---|---|
+| `objects` | classes | tables and columns |
+| `definitions` | classes (defined) | the compiled predicate |
+| `metrics` | metrics | the compiled SQL **and its number** |
+| `refusals` | classes or metrics | the refusal, by name |
+| `guard` | (none) | the profile's guard table |
+
+`T3` requires at least one `refusals` step; `T4` requires at least one `metrics` step whose items both
+compile **and run**. A tutorial whose steps are all singular kinds looks complete and fails both.
+
 
 `tutorial.json` next to the profile: 6–10 steps ordered by the reader's question, in the user's language. Every
 `items` name must be **declared**. At least one metric step must actually run (`…/tutorial/run?metric=…`), and at
