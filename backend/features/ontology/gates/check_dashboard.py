@@ -87,6 +87,33 @@ def check(label: str, got, want) -> None:
         FAILS.append(label)
 
 
+def close_scaled(label: str, got, want, scale=None, tol: float = 1e-9) -> None:
+    """Agree in EITHER unit — the declared one or the raw ratio.
+
+    A `:scale "100.0"` turns 0.7539 (a ratio, what the second route's hand-written SQL returns) into
+    75.39 (what the board shows). Comparing those two numbers as if they were the same is comparing
+    two units, so the check accepts the value as declared or divided by its own scale, and says which.
+    """
+    global CHECKS
+    CHECKS += 1
+    if got is None or want is None:
+        print(f"  FAIL  {label}\n          got  {got!r}\n          want {want!r}")
+        FAILS.append(label)
+        return
+    cands = [("as declared", float(got))]
+    if scale:
+        try:
+            cands.append((f"÷{scale}", float(got) / float(scale)))
+        except (TypeError, ValueError, ZeroDivisionError):
+            pass
+    for how, cand in cands:
+        if abs(cand - float(want)) <= tol * max(1.0, abs(float(want))):
+            print(f"  PASS  {label}" + ("" if how == "as declared" else f"  ({how})"))
+            return
+    print(f"  FAIL  {label}\n          got  {got!r}\n          want {want!r}")
+    FAILS.append(label)
+
+
 def close(label: str, got, want, tol: float = 1e-9) -> None:
     """Float comparison that reports the numbers, not just 'not equal'."""
     global CHECKS
@@ -183,6 +210,16 @@ def main() -> int:
                 continue
             check(f"D1 kpi {kpi['metric']} is a single number", res.get("keys"), 0)
             check(f"D1 kpi {kpi['metric']} has exactly one row", len(res.get("rows") or []), 1)
+            # A card is read by a person, not multiplied by anything: 0.9459 on a card labelled
+            # 站次准时率 reads as "0.95 %". Measured on v5 (19 rate metrics with `:unit "ratio"` and no
+            # `:scale`) and on v4 (17) — both boards showed raw ratios while v3 showed 94.60%.
+            # The declaration fix is `:scale "100.0"` + `:unit "percent"`; a real ratio must say so
+            # in its own unit ("count_per_10000km", "money_per_km") instead of borrowing "ratio".
+            unit = res.get("unit")
+            check(f"D1 kpi {kpi['metric']} carries a unit a reader can interpret (not a bare ratio) "
+                  f"— unit={unit!r}; declare :scale \"100.0\" + :unit \"percent\", or a unit that "
+                  f"names what it is",
+                  unit not in (None, "", "ratio"), True)
 
         for panel in dash.get("panels") or []:
             # `render` is the same field as `kind`; a declaration written with `render` +
@@ -211,10 +248,12 @@ def main() -> int:
                     check(f"D1 {pid}/{name} single number", keys, 0)
                 elif kind == "slope":
                     check(f"D1 {pid}/{name} cut by exactly one dimension", keys, 1)
-                    order = (panel.get("x") or {}).get("order") or []
+                    xspec = panel.get("x")
+                    order = (xspec.get("order") if isinstance(xspec, dict) else None) or []
                     got_keys = [str(r[0]) for r in res.get("rows") or []]
-                    check(f"D1 {pid}/{name} covers the declared axis {order}",
-                          sorted(got_keys), sorted(order))
+                    if order:
+                        check(f"D1 {pid}/{name} covers the declared axis {order}",
+                              sorted(got_keys), sorted(order))
                 elif kind in ("series", "ranked", "composition"):
                     check(f"D1 {pid}/{name} cut by exactly one dimension", keys, 1)
                 elif kind == "matrix":
@@ -458,12 +497,15 @@ def main() -> int:
                                   == "overloadRateByRouteVersion")
                                  for e in dash.get("independent_sql") or [])
             if "overload_v2" in truth and not declared_route:
-                close("D5 overload rate v2", o.get(("v2",)), truth["overload_v2"], tol=1e-9)
+                close_scaled("D5 overload rate v2", o.get(("v2",)), truth["overload_v2"],
+                             scale=(data.get("overloadRateByRouteVersion") or {}).get("scale"), tol=1e-9)
             for entry in dash.get("independent_sql") or []:
                 agree = (entry.get("agree_with") or {})
                 if agree.get("metric") == "overloadRateByRouteVersion" and entry.get("label") in truth:
-                    close(f"D5 {entry['label']}", o.get((agree.get("key"),)), truth[entry["label"]],
-                          tol=1e-9)
+                    close_scaled(f"D5 {entry['label']}", o.get((agree.get("key"),)),
+                                 truth[entry["label"]],
+                                 scale=(data.get("overloadRateByRouteVersion") or {}).get("scale"),
+                                 tol=1e-9)
 
         # ── D7: the opening assessment ─────────────────────────────────────
         print("\nD7  the briefing quotes nothing it did not compile")
@@ -476,10 +518,18 @@ def main() -> int:
             # very numbers the placeholders exist to supply — the first version of this check did
             # exactly that and failed on all seven sentences.
             src = dash.get("briefing") or {}
-            texts = ([("headline", src.get("headline") or "")]
-                     + [(f"claim {c.get('id')}", c.get("text") or "") for c in src.get("claims") or []]
-                     + [(f"cannot_see[{i}]", t) for i, t in enumerate(src.get("cannot_see") or [])]
-                     + [("next", src.get("next") or "")])
+            # A briefing may be prose with placeholders OR a structured index (`headline: [names…]`).
+            # Flatten whatever shape it is to (where, text) pairs and skip anything that is not a
+            # string: the check is about hand-typed DIGITS, not about the declaration's layout.
+            def _texts(value, where):
+                for t in run_dashboard._strings(value):
+                    if isinstance(t, str):
+                        yield (where, t)
+            texts = (list(_texts(src.get("headline"), "headline"))
+                     + [(f"claim {c.get('id')}", c.get("text") or "")
+                        for c in src.get("claims") or [] if isinstance(c, dict)]
+                     + [("cannot_see", t) for t in (src.get("cannot_see") or []) if isinstance(t, str)]
+                     + list(_texts(src.get("next"), "next")))
             # a hand-typed "81%" is a lie the moment the data moves: every number must be a
             # placeholder that this run filled from a compiled value.
             bare = [(where, re.sub(r"\d", "#", t)[:60]) for where, t in texts
@@ -488,7 +538,7 @@ def main() -> int:
                   [w for w, _ in bare], [])
             check("D7 every claim resolved", [c["id"] for c in brief["claims"] if not c["resolvable"]], [])
             check("D7 the headline resolved", brief["headline_problems"], [])
-            for pol in brief["policy"]:
+            for pol in brief["policy"] or []:
                 check(f"D7 policy {pol['id']} says whether it is a confirmed decision",
                       bool(pol.get("assumed") or pol.get("confirmed")), True)
                 # re-run the comparison HERE: a payload that says "not breached" is a claim too
@@ -499,10 +549,10 @@ def main() -> int:
                     "<": float(value) < float(threshold), "<=": float(value) <= float(threshold),
                     "==": float(value) == float(threshold)}.get(op, False)
                 check(f"D7 policy {pol['id']} verdict is the comparison, recomputed", pol["breached"], expected)
-            ids = {pol["id"] for pol in brief["policy"]}
+            ids = {pol["id"] for pol in brief["policy"] or []}
             unknown = [c["id"] for c in brief["claims"] if c.get("verdict_by") and c["verdict_by"] not in ids]
             check("D7 every claim is judged against a declared policy", unknown, [])
-            worst = "red" if any(p["breached"] for p in brief["policy"]) else "green"
+            worst = "red" if any(p["breached"] for p in brief["policy"] or []) else "green"
             check("D7 the overall verdict is the worst policy", brief["verdict"]["level"], worst)
             print(f"       verdict {brief['verdict']['level']} · breaches {brief['verdict']['breaches']}"
                   f" · assumed {brief['verdict']['unconfirmed']}")

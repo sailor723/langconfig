@@ -601,7 +601,14 @@ def _execute(profile, path, dash, g, wanted, dim_filters, *, since=None, until=N
         "events": dash.get("events") or [],
         "kpis": [{"metric": k.get("metric"), "note": k.get("note"),
                   "result": results.get(k.get("metric"))} for k in dash.get("kpis") or []],
-        "panels": [{**p, "resultset": None,
+        # `kind` is what every renderer keys off; `render` is the same field under another name.
+        # Without this normalisation a board declared with `render: "slope"` arrived as
+        # `kind: None` and the page drew six empty frames — the numbers were there, the chart was not.
+        "panels": [{**p,
+                    "resultset": None,
+                    "kind": p.get("kind") or p.get("render"),
+                    "render": p.get("render") or p.get("kind"),
+                    "metrics": [n for n in panel_metric_refs(p)],
                     "results": {n: results[n] for n in panel_metric_refs(p) if n in results}}
                    for p in dash.get("panels") or []],
         "briefing": resolve_briefing(dash, results),

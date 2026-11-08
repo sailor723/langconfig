@@ -314,3 +314,24 @@
     :numerator :fullyOnTimeTripCount ; :denominator :tripCount ;
     :groupBy :tripRouteVersion ;
     :askedAs "整趟准时率按线路版本" .
+
+# 百分比：数值本身是 0–1 的比率，:scale 让编译出的 SQL 直接给出百分数（94.59 而不是 0.9459）。
+:anomalyRateAll :scale "100.0" .
+:anomalyTripRate :scale "100.0" .
+:attendanceRate :scale "100.0" .
+:attendanceRateByWeek :scale "100.0" .
+:axleOverloadRate :scale "100.0" .
+:axleOverloadRateByVersion :scale "100.0" .
+:coreZoneNoPermitTripRate :scale "100.0" .
+:damagedStopRate :scale "100.0" .
+:lateStopShare :scale "100.0" .
+:overStationTripRate :scale "100.0" .
+:overloadedTripRateWeight :scale "100.0" .
+:overloadedTripRateWeightByVersion :scale "100.0" .
+:routeCompletionRate :scale "100.0" .
+:stopOnTimeRate :scale "100.0" .
+:stopOnTimeRateByVersion :scale "100.0" .
+:tempExcursionStopRate :scale "100.0" .
+:tripFullyOnTimeRate :scale "100.0" .
+:tripOnTimeRateByVersion :scale "100.0" .
+:tripOnTimeRateByWeek :scale "100.0" .

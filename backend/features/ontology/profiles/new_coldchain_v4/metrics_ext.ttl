@@ -49,7 +49,7 @@
 
 :grossMarginRateByRouteVersion a owl:DatatypeProperty ; rdfs:label "按线路版本看毛利率" ; :askedAs "按线路版本看毛利率" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ; :groupBy :tripRouteVersion ;
-    :numerator :grossMargin ; :denominator :tripRevenue ; :unit "ratio" ;
+    :numerator :grossMargin ; :denominator :tripRevenue ; :unit "percent" ;
     :businessDescription "同一条毛利率，按并线前后切开：每组的分子分母各自求和再相除。口径来自 answers:Q1。" .
 
 :avgActualStopsPerTrip a owl:DatatypeProperty ; rdfs:label "每趟平均实际停靠站数" ; :askedAs "每趟平均实际停靠站数" ; rdfs:domain :Trip ;
@@ -71,12 +71,12 @@
 
 :overloadRate a owl:DatatypeProperty ; rdfs:label "超载率（重量）" ; :askedAs "超载率（重量）" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
-    :numerator :overloadedTrips ; :denominator :tripCount ; :unit "ratio" ;
+    :numerator :overloadedTrips ; :denominator :tripCount ; :unit "percent" ;
     :businessDescription "重量口径 = 29.49%。问「超载率」而不指明维度时，默认就是这个；另两个口径必须点名。口径来自 answers:Q2。" .
 
 :overloadRateByRouteVersion a owl:DatatypeProperty ; rdfs:label "按线路版本看超载率（重量）" ; :askedAs "按线路版本看超载率（重量）" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ; :groupBy :tripRouteVersion ;
-    :numerator :overloadedTrips ; :denominator :tripCount ; :unit "ratio" ;
+    :numerator :overloadedTrips ; :denominator :tripCount ; :unit "percent" ;
     :businessDescription "并线把两条线路的站并到一条上，载重没跟上——这是故事里最尖锐的一处变化。口径来自 answers:Q2。" .
 
 :overloadedTripsByBoxes a owl:DatatypeProperty ; rdfs:label "超载趟次（箱数）" ; :askedAs "超载趟次（箱数）" ; rdfs:domain :Trip ;
@@ -133,7 +133,7 @@
 
 :fullOnTimeTripRateByRouteVersion a owl:DatatypeProperty ; rdfs:label "按线路版本看整趟全准点率" ; :askedAs "按线路版本看整趟全准点率" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ; :groupBy :tripRouteVersion ;
-    :numerator :fullOnTimeTrips ; :denominator :tripCount ; :unit "ratio" ;
+    :numerator :fullOnTimeTrips ; :denominator :tripCount ; :unit "percent" ;
     :businessDescription "并线后单趟站数变多，整趟一站不差必然更难——这一层把两个版本分开看。口径来自 answers:Q1。" .
 
 # ===================================================================== 颗粒 = :Stop
@@ -147,12 +147,12 @@
 
 :onTimeRate a owl:DatatypeProperty ; rdfs:label "准点率（站点级）" ; :askedAs "准点率（站点级）" ; rdfs:domain :Stop ;
     :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ;
-    :numerator :onTimeStops ; :denominator :stopCount ; :unit "ratio" ;
+    :numerator :onTimeStops ; :denominator :stopCount ; :unit "percent" ;
     :businessDescription "站点级 94.60%，分母是全部站点。这是主指标；整趟级是另一条，见 :fullOnTimeTripRate。口径来自 answers:Q1。" .
 
 :onTimeRateByRouteVersion a owl:DatatypeProperty ; rdfs:label "按线路版本看准点率（站点级）" ; :askedAs "按线路版本看准点率（站点级）" ; rdfs:domain :Stop ;
     :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ; :groupBy :tripRouteVersion ;
-    :numerator :onTimeStops ; :denominator :stopCount ; :unit "ratio" ;
+    :numerator :onTimeStops ; :denominator :stopCount ; :unit "percent" ;
     :businessDescription "沿 站点→趟次 的声明式关联取 route_version，按并线前后切开；分子分母仍在站点颗粒上。口径来自 answers:Q1。" .
 
 :onTimeRateByPeak a owl:DatatypeProperty ; rdfs:label "按高峰/平日看准点率（站点级）" ; :askedAs "按高峰/平日看准点率（站点级）" ; rdfs:domain :Stop ;
@@ -170,7 +170,7 @@
 
 :damagedStopRate a owl:DatatypeProperty ; rdfs:label "破损站点率" ; :askedAs "破损站点率" ; rdfs:domain :Stop ;
     :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ;
-    :numerator :damagedStops ; :denominator :stopCount ; :unit "ratio" ;
+    :numerator :damagedStops ; :denominator :stopCount ; :unit "percent" ;
     :businessDescription "11.35%。少数站点承担了全部破损箱数，所以这个数比「每千站破损箱」更能指出该复查谁。口径来自 docx。" .
 
 :damagedBoxesTotal a owl:DatatypeProperty ; rdfs:label "破损箱数" ; :askedAs "破损箱数" ; rdfs:domain :Stop ;
@@ -259,7 +259,7 @@
 
 :unjudgedComplaintRate a owl:DatatypeProperty ; rdfs:label "责任未判定客诉率" ; :askedAs "责任未判定客诉率" ; rdfs:domain :Complaint ;
     :aggregate "ratio_of_sums" ; :grain :Complaint ; :universe :Complaint ;
-    :numerator :unjudgedComplaints ; :denominator :complaintCount ; :unit "ratio" ;
+    :numerator :unjudgedComplaints ; :denominator :complaintCount ; :unit "percent" ;
     :businessDescription "46.12%。这个数一高，任何按责任归因的结论都要打折扣。口径来自 answers:Q3。" .
 
 :compensationCost a owl:DatatypeProperty ; rdfs:label "赔付成本（仅已判定）" ; :askedAs "赔付成本（仅已判定）" ; rdfs:domain :Complaint ;
@@ -367,7 +367,7 @@
 
 :onTimeRateByVehicle a owl:DatatypeProperty ; rdfs:label "按车辆看准点率（站点级）" ; :askedAs "按车辆看准点率（站点级）" ; rdfs:domain :Stop ;
     :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ; :groupBy :vehiclePlate ;
-    :numerator :onTimeStops ; :denominator :stopCount ; :unit "ratio" ;
+    :numerator :onTimeStops ; :denominator :stopCount ; :unit "percent" ;
     :businessDescription "分子分母都还在站点颗粒上，只是按车牌切开；按站点数加权后必须回到车队 94.60%。口径来自 answers:Q1。" .
 
 :damagedBoxesPer1kStopsByVehicle a owl:DatatypeProperty ; rdfs:label "按车辆看每千站破损箱" ; :askedAs "按车辆看每千站破损箱" ; rdfs:domain :Stop ;
@@ -381,7 +381,7 @@
 
 :onTimeRateByZoneVersion a owl:DatatypeProperty ; rdfs:label "按门店区域和线路版本看准点率（站点级）" ; :askedAs "按门店区域和线路版本看准点率（站点级）" ; rdfs:domain :Stop ;
     :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ; :groupBy :storeZone, :tripRouteVersion ;
-    :numerator :onTimeStops ; :denominator :stopCount ; :unit "ratio" ;
+    :numerator :onTimeStops ; :denominator :stopCount ; :unit "percent" ;
     :businessDescription "并线是否让某个区域先坏：按 :stopCountByZoneVersion 加权后必须回到车队值。口径来自 answers:Q2。" .
 
 :damagedBoxesPer1kStopsByZoneVersion a owl:DatatypeProperty ; rdfs:label "按门店区域和线路版本看每千站破损箱" ; :askedAs "按门店区域和线路版本看每千站破损箱" ; rdfs:domain :Stop ;
@@ -424,7 +424,7 @@
 
 :axleOverloadRate a owl:DatatypeProperty ; rdfs:label "轴荷超限率" ; :askedAs "轴荷超限率" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
-    :numerator :axleOverloadTrips ; :denominator :tripCount ; :unit "ratio" ;
+    :numerator :axleOverloadTrips ; :denominator :tripCount ; :unit "percent" ;
     :businessDescription "1,632 / 4,120 = 39.61%。口径来自 Book1 合规卡。 口径来自 doc#Book1-KPI2；数值 measured: trips。" .
 
 :overPlannedStopTrips a owl:DatatypeProperty ; rdfs:label "超规划站数趟次" ; :askedAs "超规划站数趟次" ; rdfs:domain :Trip ;
@@ -433,7 +433,7 @@
 
 :overPlannedStopRate a owl:DatatypeProperty ; rdfs:label "超规划站数率" ; :askedAs "超规划站数率" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
-    :numerator :overPlannedStopTrips ; :denominator :tripCount ; :unit "ratio" ;
+    :numerator :overPlannedStopTrips ; :denominator :tripCount ; :unit "percent" ;
     :businessDescription "760 / 4,120 = 18.45%。与 axleOverloadRate 不能相加：两者重叠 631 趟，真要「任一越界」必须用 eitherBreachRate。 口径来自 doc#Book1-KPI2；数值 measured: trips。" .
 
 :eitherBreachTrips a owl:DatatypeProperty ; rdfs:label "合规越界趟次" ; :askedAs "合规越界趟次" ; rdfs:domain :Trip ;
@@ -442,7 +442,7 @@
 
 :eitherBreachRate a owl:DatatypeProperty ; rdfs:label "合规越界率" ; :askedAs "合规越界率" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
-    :numerator :eitherBreachTrips ; :denominator :tripCount ; :unit "ratio" ;
+    :numerator :eitherBreachTrips ; :denominator :tripCount ; :unit "percent" ;
     :businessDescription "1,761 / 4,120 = 42.74%。口径来自 Book1 合规卡。 口径来自 doc#Book1-KPI2；数值 measured: trips。" .
 
 :loadUtilizationRate a owl:DatatypeProperty ; rdfs:label "装载利用率" ; :askedAs "装载利用率" ; rdfs:domain :Trip ;
@@ -468,7 +468,7 @@
 
 :coreUnpermittedTripRate a owl:DatatypeProperty ; rdfs:label "核心区无有效通行证趟次率" ; :askedAs "核心区无有效通行证趟次率" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
-    :numerator :coreUnpermittedTrips ; :denominator :coreRestrictedTrips ; :unit "ratio" ;
+    :numerator :coreUnpermittedTrips ; :denominator :coreRestrictedTrips ; :unit "percent" ;
     :businessDescription "1,432 / 1,850 = 77.41%。分母只能是进核心区的趟次，用全部 4,120 会把违规率稀释到 34.76%——那是把「没进核心区」算成合规。 口径来自 doc#Book1-KPI2；数值 measured: trips。" .
 
 :zonePermitCount a owl:DatatypeProperty ; rdfs:label "通行证数" ; :askedAs "通行证数" ; rdfs:domain :ZonePermit ;
@@ -516,7 +516,7 @@
 
 :attendanceRate a owl:DatatypeProperty ; rdfs:label "出勤率" ; :askedAs "出勤率" ; rdfs:domain :DriverSchedule ;
     :aggregate "ratio_of_sums" ; :grain :DriverSchedule ; :universe :DriverSchedule ;
-    :numerator :attendedShiftCount ; :denominator :scheduledShiftCount ; :unit "ratio" ;
+    :numerator :attendedShiftCount ; :denominator :scheduledShiftCount ; :unit "percent" ;
     :businessDescription "2,894 / 5,036 = 57.47%。口径来自 Book1 人力卡。分母含请假的 662——请假算「没出勤」，但不算「缺勤」，要分开看请用 shiftCountByScheduleStatus。 口径来自 doc#Book1-KPI3；数值 measured: driver_schedule。" .
 
 :shiftCountByScheduleStatus a owl:DatatypeProperty ; rdfs:label "按排班状态看行数" ; :askedAs "按排班状态看行数" ; rdfs:domain :DriverSchedule ;
@@ -529,7 +529,7 @@
 
 :routeCompletionRate a owl:DatatypeProperty ; rdfs:label "线路完成率" ; :askedAs "线路完成率" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
-    :numerator :routeCompletedTripCount ; :denominator :tripCount ; :unit "ratio" ;
+    :numerator :routeCompletedTripCount ; :denominator :tripCount ; :unit "percent" ;
     :businessDescription "3,329 / 4,120 = 80.80%。口径来自 Book1 执行卡。这是「整趟跑完」的比例，不是「站送到了」的比例。 口径来自 doc#Book1-KPI3；数值 measured: trips。" .
 
 :routeCompletionRateByRouteVersion a owl:DatatypeProperty ; rdfs:label "按线路版本看线路完成率" ; :askedAs "按线路版本看线路完成率" ; rdfs:domain :Trip ;
@@ -547,7 +547,7 @@
 
 :stopDeliveryCompletionRate a owl:DatatypeProperty ; rdfs:label "站点送达完成率" ; :askedAs "站点送达完成率" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
-    :numerator :deliveredStopsTotal ; :denominator :plannedStopsTotal ; :unit "ratio" ;
+    :numerator :deliveredStopsTotal ; :denominator :plannedStopsTotal ; :unit "percent" ;
     :businessDescription "49,927 / 50,832 = 98.22%（趟次颗粒上的两个求和对相除）。与站点颗粒的 98.22% 一致，与「线路完成率 80.80%」是两个词：前者数站，后者数趟。 口径来自 doc#Book1-KPI3；数值 measured: trips。" .
 
 :stopDeliveryCompletionRateByRouteVersion a owl:DatatypeProperty ; rdfs:label "按线路版本看站点送达完成率" ; :askedAs "按线路版本看站点送达完成率" ; rdfs:domain :Trip ;
@@ -710,3 +710,21 @@
     :askedAs "每万公里多少起违章" ;
     :businessDescription "违章起数 ÷ 总里程 × 10,000 = 245 / 25.7872 = 9.50 起/万公里。**车队级口径**：violations 没有 trip_id，所以只能对整队算，不能摊到某一趟——分摊到趟就是发明数据。口径来自 doc#口径字典-K5；数值 measured: violations / trips。" .
 
+# 百分比：声明里是 0–1 的比率，:scale 让 SQL 直接给出百分数。
+:attendanceRate :scale "100.0" .
+:axleOverloadRate :scale "100.0" .
+:coreUnpermittedTripRate :scale "100.0" .
+:damagedStopRate :scale "100.0" .
+:eitherBreachRate :scale "100.0" .
+:fullOnTimeTripRateByRouteVersion :scale "100.0" .
+:grossMarginRateByRouteVersion :scale "100.0" .
+:onTimeRate :scale "100.0" .
+:onTimeRateByRouteVersion :scale "100.0" .
+:onTimeRateByVehicle :scale "100.0" .
+:onTimeRateByZoneVersion :scale "100.0" .
+:overPlannedStopRate :scale "100.0" .
+:overloadRate :scale "100.0" .
+:overloadRateByRouteVersion :scale "100.0" .
+:routeCompletionRate :scale "100.0" .
+:stopDeliveryCompletionRate :scale "100.0" .
+:unjudgedComplaintRate :scale "100.0" .

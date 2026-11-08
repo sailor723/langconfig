@@ -1,214 +1,214 @@
 {
-  "_doc": "每个面板、每张卡片都只画 metrics_ext.ttl 里声明、且编译器编译通过的指标；面板上的数字由编译 SQL 现场产出，不在这里写死。画不出来的东西写在 cannot_see 里。",
-  "policy": {
-    "stopOnTimeRate": {
-      "threshold": 0.85,
-      "kind": "floor",
-      "source": "refused: 客户政策未给线；此值是按 v2 现状（75.3%）反推的占位线，业务确权前只用于着色，不作 KPI 判定"
-    },
-    "axleOverloadRate": {
-      "threshold": 0.02,
-      "kind": "ceiling",
-      "source": "refused: 法规按轴限值判定而非比例；此比例线是按 v1（0%）与 v2（1.65%）之间取的占位线，业务确权前只用于着色"
-    },
-    "fuelPer100km": {
-      "threshold": 30.0,
-      "kind": "ceiling",
-      "source": "refused: 油耗基线由客户设定；30 L/100km 为占位线"
-    }
+ "_doc": "每个面板、每张卡片都只画 metrics_ext.ttl 里声明、且编译器编译通过的指标；面板上的数字由编译 SQL 现场产出，不在这里写死。画不出来的东西写在 cannot_see 里。",
+ "policy": {
+  "stopOnTimeRate": {
+   "threshold": 0.85,
+   "kind": "floor",
+   "source": "refused: 客户政策未给线；此值是按 v2 现状（75.3%）反推的占位线，业务确权前只用于着色，不作 KPI 判定"
   },
-  "briefing": {
-    "headline": [
-      "stopOnTimeRate",
-      "tripFullyOnTimeRate"
-    ],
-    "version_split": [
-      {
-        "metric": "tripOnTimeRateByVersion",
-        "groups": {
-          "v1": {
-            "label": "并线前"
-          },
-          "v2": {
-            "label": "并线后"
-          }
-        }
-      },
-      {
-        "metric": "axleOverloadRateByVersion",
-        "groups": {
-          "v1": {
-            "label": "并线前"
-          },
-          "v2": {
-            "label": "并线后"
-          }
-        }
-      }
-    ],
-    "volume": [
-      "stopsPerTrip",
-      "tripCount"
-    ],
-    "notes": [
-      "站次准时率与整趟准时率是两个口径，整趟口径恒低（一趟一站迟到即整趟不算），不可互换",
-      "并线后计划站数由 10.46 涨到 15.55，准时率与轴荷超载同时恶化——两个面板并排放，不画因果箭头"
-    ]
+  "axleOverloadRate": {
+   "threshold": 0.02,
+   "kind": "ceiling",
+   "source": "refused: 法规按轴限值判定而非比例；此比例线是按 v1（0%）与 v2（1.65%）之间取的占位线，业务确权前只用于着色"
   },
-  "kpis": [
-    {
-      "metric": "stopOnTimeRate",
-      "label": "站次准时率"
-    },
-    {
-      "metric": "tripFullyOnTimeRate",
-      "label": "整趟准时率"
-    },
-    {
-      "metric": "axleOverloadRate",
-      "label": "轴荷超载率"
-    },
-    {
-      "metric": "routeCompletionRate",
-      "label": "线路完成率（已送站次）"
-    },
-    {
-      "metric": "violationRatePer10kKm",
-      "label": "违章率（次/万公里）"
-    },
-    {
-      "metric": "fuelPer100km",
-      "label": "油耗（L/100km）"
-    },
-    {
-      "metric": "operatingCostPerKm",
-      "label": "变动成本（元/公里）"
-    },
-    {
-      "metric": "fullCostPerKm",
-      "label": "全成本（元/公里）"
-    },
-    {
-      "metric": "attendanceRate",
-      "label": "出勤率（排班口径）"
-    },
-    {
-      "metric": "anomalyTripRate",
-      "label": "异常行程率"
-    }
+  "fuelPer100km": {
+   "threshold": 30.0,
+   "kind": "ceiling",
+   "source": "refused: 油耗基线由客户设定；30 L/100km 为占位线"
+  }
+ },
+ "briefing": {
+  "headline": [
+   "stopOnTimeRate",
+   "tripFullyOnTimeRate"
   ],
-  "panels": [
-    {
-      "id": "p_ontime_slope",
-      "title": "准时率随并线版本的变化（两个口径）",
-      "render": "slope",
-      "x": "version",
-      "series": [
-        {
-          "metric": "tripOnTimeRateByVersion",
-          "label": "整趟准时率"
-        },
-        {
-          "metric": "stopOnTimeRateByVersion",
-          "label": "站次准时率"
-        }
-      ],
-      "note": "两条线起点不同、斜率都向下；用同一版本轴才看得见口径差与并线代价是两件事。"
-    },
-    {
-      "id": "p_overload_slope",
-      "title": "超载率随并线版本的变化（轴荷 vs 装载重量）",
-      "render": "slope",
-      "x": "version",
-      "series": [
-        {
-          "metric": "axleOverloadRateByVersion",
-          "label": "轴荷超载率"
-        },
-        {
-          "metric": "overloadedTripRateWeightByVersion",
-          "label": "装载重量超载率"
-        }
-      ],
-      "note": "两个超载口径不可互换：轴荷按轴限值判定，重量按总重判定。"
-    },
-    {
-      "id": "p_attendance_week",
-      "title": "出勤率按周（排班口径）",
-      "render": "bar",
-      "x": "week",
-      "series": [
-        {
-          "metric": "attendanceRateByWeek",
-          "label": "出勤率"
-        }
-      ],
-      "note": "周键来自 driver_schedule.date 的 ISO 周；样本周内排班人天很少，比例会抖，读趋势不读单周。"
-    },
-    {
-      "id": "p_anomaly_mix",
-      "title": "异常工单构成",
-      "render": "treemap",
-      "x": "anomalyType",
-      "series": [
-        {
-          "metric": "anomalyTypeMix",
-          "label": "各类异常占比"
-        }
-      ],
-      "note": "构成型指标：各项相加为 100%，不与异常率相加。"
-    },
-    {
-      "id": "p_violation_mix",
-      "title": "违章类型构成",
-      "render": "treemap",
-      "x": "violationType",
-      "series": [
-        {
-          "metric": "violationTypeMix",
-          "label": "各类违章占比"
-        }
-      ],
-      "note": "违章表按 occurred_at 声明时间列，无时间过滤的扫描由护栏加页上限并在报告里写明。"
-    },
-    {
-      "id": "p_cost_parallel",
-      "title": "成本与油耗：三个口径并排，不做减法",
-      "render": "bar",
-      "x": "metric",
-      "series": [
-        {
-          "metric": "operatingCostPerKm",
-          "label": "变动成本/公里"
-        },
-        {
-          "metric": "fullCostPerKm",
-          "label": "全成本/公里"
-        },
-        {
-          "metric": "fuelPer100km",
-          "label": "油耗 L/100km"
-        }
-      ],
-      "note": "跨口径相减没有被声明，所以并排不画差额条。"
+  "version_split": [
+   {
+    "metric": "tripOnTimeRateByVersion",
+    "groups": {
+     "v1": {
+      "label": "并线前"
+     },
+     "v2": {
+      "label": "并线后"
+     }
     }
-  ],
-  "cannot_see": [
-    "未判定客诉率（unjudgedComplaintRate）：库里没有该口径的指标声明，客诉族只声明了件数、金额合计与每趟件数",
-    "毛利率（grossMarginRate）：本库没有收入列，只有成本与赔付",
-    "站次送达率（stopDeliveryRate）：送货口径由 routeCompletionRate 承担，不另设同义指标",
-    "按缺勤原因切分的出勤率：driver_schedule 有 leave/absent 状态枚举但未声明按原因的比率指标",
-    "高风险线路数：routes 无 risk 字段，「高风险」是客户政策，进拒绝清单"
-  ],
-  "holes": [],
-  "cross_filter": [
-    {
-      "dimension": "version",
-      "label": "并线版本",
-      "metric_panel": "p_ontime_slope",
-      "apply_to": [
-        "p_overload_slope"
-      ]
+   },
+   {
+    "metric": "axleOverloadRateByVersion",
+    "groups": {
+     "v1": {
+      "label": "并线前"
+     },
+     "v2": {
+      "label": "并线后"
+     }
     }
+   }
+  ],
+  "volume": [
+   "stopsPerTrip",
+   "tripCount"
+  ],
+  "notes": [
+   "站次准时率与整趟准时率是两个口径，整趟口径恒低（一趟一站迟到即整趟不算），不可互换",
+   "并线后计划站数由 10.46 涨到 15.55，准时率与轴荷超载同时恶化——两个面板并排放，不画因果箭头"
   ]
+ },
+ "kpis": [
+  {
+   "metric": "stopOnTimeRate",
+   "label": "站次准时率"
+  },
+  {
+   "metric": "tripFullyOnTimeRate",
+   "label": "整趟准时率"
+  },
+  {
+   "metric": "axleOverloadRate",
+   "label": "轴荷超载率"
+  },
+  {
+   "metric": "routeCompletionRate",
+   "label": "线路完成率（已送站次）"
+  },
+  {
+   "metric": "violationRatePer10kKm",
+   "label": "违章率（次/万公里）"
+  },
+  {
+   "metric": "fuelPer100km",
+   "label": "油耗（L/100km）"
+  },
+  {
+   "metric": "operatingCostPerKm",
+   "label": "变动成本（元/公里）"
+  },
+  {
+   "metric": "fullCostPerKm",
+   "label": "全成本（元/公里）"
+  },
+  {
+   "metric": "attendanceRate",
+   "label": "出勤率（排班口径）"
+  },
+  {
+   "metric": "anomalyTripRate",
+   "label": "异常行程率"
+  }
+ ],
+ "panels": [
+  {
+   "id": "p_ontime_slope",
+   "title": "准时率随并线版本的变化（两个口径）",
+   "render": "slope",
+   "x": "version",
+   "series": [
+    {
+     "metric": "tripOnTimeRateByVersion",
+     "label": "整趟准时率"
+    },
+    {
+     "metric": "stopOnTimeRateByVersion",
+     "label": "站次准时率"
+    }
+   ],
+   "note": "两条线起点不同、斜率都向下；用同一版本轴才看得见口径差与并线代价是两件事。"
+  },
+  {
+   "id": "p_overload_slope",
+   "title": "超载率随并线版本的变化（轴荷 vs 装载重量）",
+   "render": "slope",
+   "x": "version",
+   "series": [
+    {
+     "metric": "axleOverloadRateByVersion",
+     "label": "轴荷超载率"
+    },
+    {
+     "metric": "overloadedTripRateWeightByVersion",
+     "label": "装载重量超载率"
+    }
+   ],
+   "note": "两个超载口径不可互换：轴荷按轴限值判定，重量按总重判定。"
+  },
+  {
+   "id": "p_attendance_week",
+   "title": "出勤率按周（排班口径）",
+   "x": "week",
+   "series": [
+    {
+     "metric": "attendanceRateByWeek",
+     "label": "出勤率"
+    }
+   ],
+   "note": "周键来自 driver_schedule.date 的 ISO 周；样本周内排班人天很少，比例会抖，读趋势不读单周。",
+   "kind": "series"
+  },
+  {
+   "id": "p_anomaly_mix",
+   "title": "异常工单构成",
+   "x": "anomalyType",
+   "series": [
+    {
+     "metric": "anomalyTypeMix",
+     "label": "各类异常占比"
+    }
+   ],
+   "note": "构成型指标：各项相加为 100%，不与异常率相加。",
+   "kind": "composition"
+  },
+  {
+   "id": "p_violation_mix",
+   "title": "违章类型构成",
+   "x": "violationType",
+   "series": [
+    {
+     "metric": "violationTypeMix",
+     "label": "各类违章占比"
+    }
+   ],
+   "note": "违章表按 occurred_at 声明时间列，无时间过滤的扫描由护栏加页上限并在报告里写明。",
+   "kind": "composition"
+  },
+  {
+   "id": "p_cost_parallel",
+   "title": "成本与油耗：三个口径并排，不做减法",
+   "x": "metric",
+   "series": [
+    {
+     "metric": "operatingCostPerKm",
+     "label": "变动成本/公里"
+    },
+    {
+     "metric": "fullCostPerKm",
+     "label": "全成本/公里"
+    },
+    {
+     "metric": "fuelPer100km",
+     "label": "油耗 L/100km"
+    }
+   ],
+   "note": "跨口径相减没有被声明，所以并排不画差额条。",
+   "kind": "parallel"
+  }
+ ],
+ "cannot_see": [
+  "未判定客诉率（unjudgedComplaintRate）：库里没有该口径的指标声明，客诉族只声明了件数、金额合计与每趟件数",
+  "毛利率（grossMarginRate）：本库没有收入列，只有成本与赔付",
+  "站次送达率（stopDeliveryRate）：送货口径由 routeCompletionRate 承担，不另设同义指标",
+  "按缺勤原因切分的出勤率：driver_schedule 有 leave/absent 状态枚举但未声明按原因的比率指标",
+  "高风险线路数：routes 无 risk 字段，「高风险」是客户政策，进拒绝清单"
+ ],
+ "holes": [],
+ "cross_filter": [
+  {
+   "dimension": "version",
+   "label": "并线版本",
+   "metric_panel": "p_ontime_slope",
+   "apply_to": [
+    "p_overload_slope"
+   ]
+  }
+ ]
 }

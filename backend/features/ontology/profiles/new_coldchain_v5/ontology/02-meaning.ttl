@@ -105,7 +105,7 @@
     :businessDescription "晚于窗口到达的站次 2,747。口径来自 answers:Q1。" .
 
 :stopOnTimeRate a owl:DatatypeProperty ; rdfs:label "站点准时率" ; rdfs:domain :Stop ;
-    :unit "ratio" ; :additivity "non-additive" ;
+    :unit "percent" ; :additivity "non-additive" ;
     :businessDescription "站点级 headline：48,085 / 50,832 = 94.60%（与口径字典 OTA 一致）。站点级做不出周趋势——stops 没有日期列，只能按整体或按线路版本看。口径来自 answers:Q1、Q2。" .
 
 :fullyOnTimeTripCount a owl:DatatypeProperty ; rdfs:label "整趟零迟到趟次" ; rdfs:domain :Trip ;
@@ -114,18 +114,18 @@
 
 :tripFullyOnTimeRate a owl:DatatypeProperty ; rdfs:label "整趟准时的比例" ; rdfs:domain :Trip ;
     :askedAs "整趟准时的比例" ;
-    :unit "ratio" ; :additivity "non-additive" ;
+    :unit "percent" ; :additivity "non-additive" ;
     :businessDescription "整趟级补口径：2,221 / 4,120 = 53.91%。与站点级 94.60% 不是同一个词，两个都出、不合并。口径来自 answers:Q1。" .
 
 :tripOnTimeRateByVersion a owl:DatatypeProperty ; rdfs:label "整趟准时率（按线路版本）" ; rdfs:domain :Trip ;
-    :unit "ratio" ; :additivity "non-additive" ;
+    :unit "percent" ; :additivity "non-additive" ;
     :businessDescription "trips.route_version 切分：并线前 66.35%（1,725 / 2,600 趟）/ 并线后 32.63%（496 / 1,520 趟）。v2 计划站数从 10.46 涨到 15.55，同样的时间窗塞更多站，整趟全准点到几乎不可能；这是并线的真实代价，不是司机变差。只能按版本切，不能按周（周键在 trips 上另有 tripOnTimeRateByWeek）。口径来自 answers:Q2、Q10 与 trips 直查：SELECT route_version, count(*) FILTER (WHERE late_stop_count=0), count(*) FROM trips GROUP BY 1。" .
 :damagedStopCount a owl:DatatypeProperty ; rdfs:label "破损站次" ; rdfs:domain :Stop ;
     :unit "count" ; :additivity "additive" ;
     :businessDescription "至少破 1 箱的站次 5,769。口径来自 answers:Q10。" .
 
 :damagedStopRate a owl:DatatypeProperty ; rdfs:label "破损站次率" ; rdfs:domain :Stop ;
-    :unit "ratio" ; :additivity "non-additive" ;
+    :unit "percent" ; :additivity "non-additive" ;
     :businessDescription "5,769 / 50,832 = 11.35%；破损箱合计 8,144 箱（每千站 160.21 箱）。口径来自 answers:Q10。" .
 
 :tempExcursionStopCount a owl:DatatypeProperty ; rdfs:label "温度越界站次" ; rdfs:domain :Stop ;
@@ -133,7 +133,7 @@
     :businessDescription "发生过温度越界的站次 1,148。只有「发生过」，没有时长与峰值。口径来自 answers:Q10。" .
 
 :tempExcursionStopRate a owl:DatatypeProperty ; rdfs:label "温度越界站次率" ; rdfs:domain :Stop ;
-    :unit "ratio" ; :additivity "non-additive" ;
+    :unit "percent" ; :additivity "non-additive" ;
     :businessDescription "1,148 / 50,832 = 2.26%。冷链最关键的一个质量数。口径来自 answers:Q10。" .
 
 :deliveredStopCount a owl:DatatypeProperty ; rdfs:label "已送站次" ; rdfs:domain :Stop ;
@@ -145,11 +145,11 @@
     :businessDescription "实载重量超核定载质量的趟次 1,215。装载口径，与轴荷口径不合并。口径来自 answers:Q4。" .
 
 :overloadedTripRateWeight a owl:DatatypeProperty ; rdfs:label "重量超载率（装载口径）" ; rdfs:domain :Trip ;
-    :unit "ratio" ; :additivity "non-additive" ;
+    :unit "percent" ; :additivity "non-additive" ;
     :businessDescription "1,215 / 4,120 = 29.49%。装载口径：只看总重，不代表合规。口径来自 answers:Q4。" .
 
 :overloadedTripRateWeightByVersion a owl:DatatypeProperty ; rdfs:label "重量超载率（按线路版本）" ; rdfs:domain :Trip ;
-    :unit "ratio" ; :additivity "non-additive" ;
+    :unit "percent" ; :additivity "non-additive" ;
     :businessDescription "并线前 2.65% / 并线后 75.39%：并线把站点从 10.46 加到 15.55，装载口径先崩。口径来自 answers:Q4。" .
 
 :axleOverloadTripCount a owl:DatatypeProperty ; rdfs:label "轴荷超限趟次" ; rdfs:domain :Trip ;
@@ -157,11 +157,11 @@
     :businessDescription "任一根轴超轴限的趟次 1,632。合规主口径。口径来自 answers:Q4。" .
 
 :axleOverloadRate a owl:DatatypeProperty ; rdfs:label "轴荷超载率（合规主口径）" ; rdfs:domain :Trip ;
-    :unit "ratio" ; :additivity "non-additive" ;
+    :unit "percent" ; :additivity "non-additive" ;
     :businessDescription "1,632 / 4,120 = 39.61%。合规主口径，与装载口径 29.49% 分开报。口径来自 answers:Q4。" .
 
 :axleOverloadRateByVersion a owl:DatatypeProperty ; rdfs:label "轴荷超载率·并线前后对比（按线路版本）" ; rdfs:domain :Trip ;
-    :unit "ratio" ; :additivity "non-additive" ;
+    :unit "percent" ; :additivity "non-additive" ;
     :businessDescription "并线前 14.42% / 并线后 82.70%。合规风险是并线的主要代价。口径来自 answers:Q4。" .
 
 :overStationTripCount a owl:DatatypeProperty ; rdfs:label "站点超标趟次" ; rdfs:domain :Trip ;
@@ -169,7 +169,7 @@
     :businessDescription "实际站点数超过 15 的趟次 760。阈值 15 只在 :OverStationTrip 的谓词里出现一次。口径来自 answers:Q7。" .
 
 :overStationTripRate a owl:DatatypeProperty ; rdfs:label "站点超标率" ; rdfs:domain :Trip ;
-    :unit "ratio" ; :additivity "non-additive" ;
+    :unit "percent" ; :additivity "non-additive" ;
     :businessDescription "760 / 4,120 = 18.45%。口径来自 answers:Q7。" .
 
 :sumActualStops a owl:DatatypeProperty ; rdfs:label "实际站点数合计" ; rdfs:domain :Trip ;
@@ -182,7 +182,7 @@
     :businessDescription "实际站点数均值 12.34（计划与实际逐趟相同，actual/planned 一致）。口径来自 answers:Q7。" .
 
 :routeCompletionRate a owl:DatatypeProperty ; rdfs:label "线路完成率（趟次口径）" ; rdfs:domain :Trip ;
-    :unit "ratio" ; :additivity "non-additive" ;
+    :unit "percent" ; :additivity "non-additive" ;
     :businessDescription "已送站次 / 应送站次 = 49,927 / 50,832 = 98.22%（draft.json KPI 17 的口径：已送站次÷计划站次；本库 actual/planned 逐趟相同，故分母用站次行数）。它不是「整趟送完率」：整趟送完 3,329 / 4,120 = 80.81% 是另一个口径，本次未单列。口径来自 answers:Q2。" .
 
 :scheduledDriverDayCount a owl:DatatypeProperty ; rdfs:label "排班人天" ; rdfs:domain :DriverSchedule ;
@@ -194,7 +194,7 @@
     :businessDescription "真的出车的人天 2,894。口径来自 answers:Q5。" .
 
 :attendanceRate a owl:DatatypeProperty ; rdfs:label "出勤率（排班口径）" ; rdfs:domain :DriverSchedule ;
-    :unit "ratio" ; :additivity "non-additive" ;
+    :unit "percent" ; :additivity "non-additive" ;
     :businessDescription "2,894 / 5,036 = 57.47%。45.5% 的排班人天没出车：没出车的 2,142 天 = absent 1,480 + 已批离岗 leave 662，恰好等于 5,036 排班人天减 2,894 出勤人天（answers:Q5 的分母口径），构成完备、无未解释余量；未排班（not_scheduled 364）不计入缺勤。口径来自 answers:Q5。" .
 
 :complaintCount a owl:DatatypeProperty ; rdfs:label "客诉件数" ; rdfs:domain :Complaint ;
@@ -268,7 +268,7 @@
     :businessDescription "进核心区但没有有效通行证的趟次 1,432。口径来自 answers:Q8。" .
 
 :coreZoneNoPermitTripRate a owl:DatatypeProperty ; rdfs:label "核心区无证占比（合规风险口径）" ; rdfs:domain :Trip ;
-    :unit "ratio" ; :additivity "non-additive" ;
+    :unit "percent" ; :additivity "non-additive" ;
     :businessDescription "1,432 / 1,850 = 77.41%：每四趟进核心区的车有三趟没有通行证。合规风险口径，不是执法口径。口径来自 answers:Q8。" .
 
 :incidentTicketCount a owl:DatatypeProperty ; rdfs:label "异常工单数" ; rdfs:domain :IncidentTicket ;
@@ -280,7 +280,7 @@
     :businessDescription "剔除不可抗力（19 张）后的 88 张。口径来自 answers:Q3。" .
 
 :anomalyTripRate a owl:DatatypeProperty ; rdfs:label "配送异常率（剔除不可抗力）" ; rdfs:domain :IncidentTicket ;
-    :unit "ratio" ; :additivity "non-additive" ;
+    :unit "percent" ; :additivity "non-additive" ;
     :businessDescription "88 / 4,120 = 2.14%：口径字典的剔除规则，不人工挑主次。主异常 23 张只做分布不做率。口径来自 answers:Q3。" .
 
 :anomalyTypeMix a owl:DatatypeProperty ; rdfs:label "异常工单类型构成" ; rdfs:domain :IncidentTicket ;
@@ -288,15 +288,15 @@
     :businessDescription "按工单类型计数：破损 74 / 倒温 16 / 超时 13 / 拒收 4。口径来自 answers:Q3。" .
 
 :lateStopShare a owl:DatatypeProperty ; rdfs:label "迟到站次占比" ; rdfs:domain :Stop ;
-    :unit "ratio" ; :additivity "non-additive" ;
+    :unit "percent" ; :additivity "non-additive" ;
     :businessDescription "迟到站次 / 应到站次 = 2,747 / 50,832 = 5.40%。站点级 headline 94.60% 的补数：94.60% + 5.40% = 100%，两者是同一口径的两面。口径来自 answers:Q1、Q2。" .
 
 :stopOnTimeRateByVersion a owl:DatatypeProperty ; rdfs:label "站点准时率·并线前后对比（按线路版本）" ; rdfs:domain :Stop ;
-    :unit "ratio" ; :additivity "non-additive" ;
+    :unit "percent" ; :additivity "non-additive" ;
     :businessDescription "并线前 96.16%（27,196 站）/ 并线后 92.79%（23,636 站）：并线（route_version v1→v2，2026-09-22）之后站点级准时率掉了 3.37 个点。站点级只能整体与按版本切，不能按周——stops 没有时间列（answers:Q2、Q10）。" .
 
 :tripOnTimeRateByWeek a owl:DatatypeProperty ; rdfs:label "整趟准时率（按 ISO 周）" ; rdfs:domain :Trip ;
-    :unit "ratio" ; :additivity "non-additive" ;
+    :unit "percent" ; :additivity "non-additive" ;
     :businessDescription "按 trips.trip_date 的 ISO 周切整趟准时率：09-21 周之前每周 64.6%–69.0%，09-21 周起 29.3%–38.1%，断点正好落在并线（09-22）。首尾两周是残周（07-27 周 100 趟、10-26 周 160 趟），读趋势时看中段。桶只来自数据窗（2026-08-01..10-29），不注入 now()（answers:Q9）。口径来自 answers:Q2。" .
 
 :lateStopCountByWeek a owl:DatatypeProperty ; rdfs:label "迟到站次（按周汇总）" ; rdfs:domain :Trip ;
@@ -305,11 +305,11 @@
     :businessDescription "每周迟到站次 = 该周各趟 trips.late_stop_count 之和：并线前每周 128–152 站，并线后 294–326 站（约翻一倍）。用趟次表汇总而不是 stops：站点表没有日期列，无法按周分组（answers:Q2、Q10）。" .
 
 :anomalyRateAll a owl:DatatypeProperty ; rdfs:label "配送异常率（全部工单口径）" ; rdfs:domain :IncidentTicket ;
-    :unit "ratio" ; :additivity "non-additive" ;
+    :unit "percent" ; :additivity "non-additive" ;
     :businessDescription "107 / 4,120 = 2.60%：不剔除不可抗力的全部异常工单率。与 2.14%（剔除 19 张不可抗力）成对报，两个数不合并——口径字典的剔除规则只在 anomalyTripRate 上生效。口径来自 answers:Q3。" .
 
 :attendanceRateByWeek a owl:DatatypeProperty ; rdfs:label "出勤率（按 ISO 周）" ; rdfs:domain :DriverSchedule ;
-    :unit "ratio" ; :additivity "non-additive" ;
+    :unit "percent" ; :additivity "non-additive" ;
     :businessDescription "按 driver_schedule.day 的 ISO 周切：08-03..09-14 每周 58.1%–63.7%，09-21 周起 49.6%–54.2%，掉约 8 个点，与并线和维修停机（4,038.1 小时）同期。首尾两周是残周。分母始终是排班人天，不是 60 人×90 天（answers:Q5、Q9）。" .
 
 :forbiddenZoneViolationCount a owl:DatatypeProperty ; rdfs:label "闯禁行多少起" ; rdfs:domain :Violation ;
