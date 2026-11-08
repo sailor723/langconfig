@@ -425,6 +425,85 @@ async def ontology_tutorial_definition(key: str, cls: str = Query(default="", al
         raise HTTPException(404, str(exc)) from exc
 
 
+# ── the conversational build: same builder agent as the job, but a chat ─────────────────────
+class BuildChatRequest(BaseModel):
+    message: str = ""
+    session_id: Optional[str] = None
+    project_id: Optional[int] = None
+
+
+@router.get("/{key}/build/state")
+async def build_chat_state(key: str):
+    """What a build conversation starts from: installed facts, documents, artifacts, proposals."""
+    from db.database import SessionLocal
+    from services import ontology_build_chat
+
+    db = SessionLocal()
+    try:
+        return ontology_build_chat.state(db, key)
+    except ontology_build_chat.BuildChatUnavailable as exc:
+        raise HTTPException(409, str(exc)) from exc
+    finally:
+        db.close()
+
+
+@router.post("/{key}/build/ask")
+async def build_chat_ask(key: str, req: BuildChatRequest):
+    """One builder turn, non-streaming (the CLI and the smoke tests use this)."""
+    from db.database import SessionLocal
+    from services import ontology_build_chat
+
+    db = SessionLocal()
+    try:
+        return await ontology_build_chat.ask(db, key, req.message, session_id=req.session_id,
+                                             project_id=req.project_id)
+    except ontology_build_chat.BuildChatUnavailable as exc:
+        raise HTTPException(409, str(exc)) from exc
+    finally:
+        db.close()
+
+
+@router.post("/{key}/build/ask/stream")
+async def build_chat_stream(key: str, req: BuildChatRequest):
+    """One builder turn, STREAMED — the chat panel's endpoint (same events as the global chat)."""
+    import json as _json
+
+    from fastapi.responses import StreamingResponse
+
+    from api.chat.messages import send_message_stream
+    from api.chat.schemas import SendMessageRequest
+    from db.database import SessionLocal
+    from services import ontology_build_chat
+
+    prep_db = SessionLocal()
+    try:
+        prompt = await ontology_build_chat.prepare(prep_db, key, req.message,
+                                                   session_id=req.session_id,
+                                                   project_id=req.project_id)
+    except ontology_build_chat.BuildChatUnavailable as exc:
+        raise HTTPException(409, str(exc)) from exc
+    finally:
+        prep_db.close()
+
+    stream_db = SessionLocal()
+    inner = await send_message_stream(
+        SendMessageRequest(session_id=prompt["session_id"], message=prompt["message"],
+                           project_id=req.project_id), stream_db)
+
+    async def with_session():
+        head = {"type": "session", "session_id": prompt["session_id"], "key": prompt["key"],
+                "seeded": prompt["seeded"],
+                "agent": {"id": prompt["agent_id"], "name": prompt["agent_name"]}}
+        yield f"data: {_json.dumps(head, ensure_ascii=False)}\n\n"
+        try:
+            async for chunk in inner.body_iterator:
+                yield chunk
+        finally:
+            stream_db.close()
+
+    return StreamingResponse(with_session(), media_type="text/event-stream")
+
+
 @router.get("/{key}/page/{name}")
 async def ontology_page(key: str, name: str):
     """Serve one of this profile's OWN HTML pages, from this origin.
