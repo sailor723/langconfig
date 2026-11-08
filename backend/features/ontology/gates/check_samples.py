@@ -142,6 +142,13 @@ def main() -> int:
     # failed on another (measured: a box with qwen2.5:3b pulled vs one without). The gate
     # measures the RULES path; the model path is measured where it belongs.
     os.environ["NL_ANSWER_LLM"] = "0"
+    # …and the INTERPRETATION too: with only the answer pinned, a local model still decided
+    # the intent, answered prose where JSON was required, and a by-name refusal the ontology
+    # declares became "the model did not return a JSON intent" — the gate then failed on the
+    # engine instead of on the declaration. Measured on new_coldchain_v2 (83-metric menu,
+    # Ollama qwen2.5:3b): two refusal samples flipped red only in the interpreter that had
+    # langchain installed.
+    os.environ["NL_INTENT_LLM"] = "0"
     global nl
     import nl as _nl                                       # noqa: PLC0415
     nl = _nl

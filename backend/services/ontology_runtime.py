@@ -124,6 +124,9 @@ def ask(key: str, question: str, *, polish: bool = False) -> dict:
     # the deterministic template answers unless a caller asks for polished prose: an answer here is
     # the number and the SQL behind it, not a paragraph about them
     os.environ.setdefault("NL_ANSWER_LLM", "1" if polish else "0")
+    # The answer and its interpretation must agree: rules-answer + model-intent is how a
+    # refusal became an engine error in the first place.
+    os.environ.setdefault("NL_INTENT_LLM", "1" if polish else "0")
     with _LOCK:
         prof = _compiler()
         prof.use(profile)

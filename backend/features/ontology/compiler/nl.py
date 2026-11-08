@@ -22,6 +22,8 @@ Entry points:
 """
 from __future__ import annotations
 
+import logging
+
 import json
 import os
 import re
@@ -47,6 +49,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import actions  # noqa: E402
 import capability  # noqa: E402
 import sqlgen   # noqa: E402
+
+logger = logging.getLogger(__name__)
 
 P = sqlgen.P
 
@@ -901,11 +905,29 @@ def _fallback_intent(question: str, menu_: dict) -> dict | None:
 
 
 def _raw_intent(question: str, menu_: dict) -> dict:
-    """The model call (or fallback): returns an unvalidated intent."""
-    llm = _llm()
-    if llm is not None:
-        text = llm.invoke(_intent_prompt(question, menu_)).content
-        return _parse_intent(text)
+    """The model call (or fallback): returns an unvalidated intent.
+
+    `NL_INTENT_LLM=0` keeps INTERPRETATION on the rules path, exactly as `NL_ANSWER_LLM=0` keeps
+    the ANSWER on it. Both switches exist because a gate must test the rules, not whatever local
+    model happens to be running: measured on the deployment, a 3B Ollama model answered
+    「温度趋势怎么样？」 with Chinese prose where an intent was required, `_parse_intent` raised
+    "the model did not return a JSON intent", and a by-name refusal the ontology had declared
+    turned into an engine error — the gate then failed on the ENGINE, not on the declaration.
+
+    The same reasoning applies to the app path: when the model IS consulted and answers prose,
+    fall back to the rules rather than raise, so a user asking an unanswerable question gets the
+    refusal by name that the ontology wrote instead of an engine message.
+    """
+    # The switch is checked BEFORE _llm(): with the rules pinned we must not even build the
+    # client, so that "rules only" is provable rather than merely likely.
+    if os.getenv("NL_INTENT_LLM", "1") != "0":
+        llm = _llm()
+        if llm is not None:
+            try:
+                return _parse_intent(llm.invoke(_intent_prompt(question, menu_)).content)
+            except NlRefusal:
+                logger.warning("intent model answered prose for %r — falling back to the rules",
+                               question[:60])
     return _fallback_intent(question, menu_) or {"kind": "none", "name": None}
 
 
