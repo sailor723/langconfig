@@ -63,6 +63,10 @@ interface Props {
   onSelectMetric: (name: string) => void;
   onApplied?: () => void;
   onClose?: () => void;
+  /** Which tab to open when an OPENER outside the panel asks for one. */
+  startAt?: Tab;
+  /** Bump to re-apply `startAt` (clicking "+ 新增指标" twice must work twice). */
+  startAtToken?: number;
 }
 
 /** The business fields of one metric, and how to restate them for the user. */
@@ -91,10 +95,21 @@ const BUSINESS_FIELDS: Array<{
 ];
 
 export default function MetricEditorPanel({
+  // An opener OUTSIDE the panel ("+ 新增指标" in the page header) must be able to land on the
+  // 新增 tab. `startAt` names the tab, `startAtToken` makes the same request twice in a row work —
+  // a value that only changes is not enough when the user clicks the same button again.
+  startAt,
+  startAtToken,
   ontologyKey, cards, metricName, onSelectMetric, onApplied, onClose,
 }: Props) {
   const t = useLayoutTokens();
   const [tab, setTab] = useState<Tab>('new');
+
+  // the panel has its own tabs; an outside opener names one, and a token makes repeats land
+  useEffect(() => {
+    if (startAt) setTab(startAt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startAtToken]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [chatReady, setChatReady] = useState<{ send: (s: string) => void; busy: () => boolean } | null>(null);
   const [chatStatus, setChatStatus] = useState<{ busy: boolean; queued: number }>({ busy: false, queued: 0 });

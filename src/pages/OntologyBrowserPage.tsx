@@ -44,6 +44,15 @@ export default function OntologyBrowserPage() {
   // The metric editor's chat is docked on the right of the Metrics tab. Applying a proposal
   // changes what the numbers ARE, so the grid behind it has to re-read them.
   const [editorOpen, setEditorOpen] = useState(true);
+  // "+ 新增指标" lives in the header, because the panel's own 新增 tab disappears with the panel
+  // (collapsed, or on any tab that is not Metrics) and a user reported it as "add metric is gone".
+  const [newMetricAt, setNewMetricAt] = useState(0);
+  const openNewMetric = () => {
+    setTab('metrics');
+    setEditorOpen(true);
+    setMetricName(null);
+    setNewMetricAt(n => n + 1);
+  };
   // Generation is step one and it runs as a job — the entry point lives here because this is the
   // page where a person reads what an ontology declares and decides it is missing something.
   const [buildOpen, setBuildOpen] = useState(false);
@@ -220,6 +229,10 @@ export default function OntologyBrowserPage() {
           {/* Applying a staged publish is a SETTINGS action (a number's meaning changes for everyone),
               but deciding to do it happens while reading the ontology. One click from here, not a
               hunt through Settings. */}
+          <button style={btn(true)} onClick={openNewMetric}
+                  title="按业务口径描述一个新指标：agent 把它翻成声明、试跑、暂存，你 apply 之后它才进入本体">
+            + 新增指标
+          </button>
           <button style={btn()} onClick={() => navigate('/settings?section=ontology')}
                   title="Settings → Ontology: the pending publishes an agent staged, at the top of that page">
             <Settings2 size={11} /> apply…
@@ -296,6 +309,8 @@ export default function OntologyBrowserPage() {
           </div>
           {editorOpen ? (
             <MetricEditorPanel
+              startAt={newMetricAt > 0 ? 'new' : undefined}
+              startAtToken={newMetricAt}
               ontologyKey={s.preset || ''}
               cards={cards}
               metricName={metricName}
