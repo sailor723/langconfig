@@ -81,6 +81,7 @@
       "check_ontology_generic",
       "check_samples",
       "check_dashboard"
-    ]
+    ],
+    "pending_install": "staged 1794148197-5a9db2 — publish was refused at stage time on the ENGINE, not on the declaration (check_samples pinned the answer but not the intent; fixed by NL_INTENT_LLM). Re-run the publish; once the profile is installed, DELETE this field so the suite gates it."
   }
 }
