@@ -72,5 +72,14 @@
       "check_samples",
       "check_dashboard"
     ]
+  },
+  "new_coldchain_v5": {
+    "why": "v5：同一个库上的合并重建，61 个指标（六家族各一张主图 + 一组卡），首次带上 policy 阈值（标了 assumed/refused）、cannot_see 5 条、定义类双路线对照。结构 319 checks 绿。",
+    "profile": [
+      "check_structure",
+      "check_ontology_generic",
+      "check_samples",
+      "check_dashboard"
+    ]
   }
 }

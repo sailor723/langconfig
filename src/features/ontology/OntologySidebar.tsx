@@ -58,6 +58,11 @@ export default function OntologySidebar() {
   };
   const refreshAll = async () => {
     setRefreshed(null);
+    // The ROSTER first: an ontology installed after this page loaded (a publish that was applied,
+    // a folder that appeared) is in `/api/ontology/installed` but not in the list this rail read at
+    // mount — so a reader who had just installed v5 saw eight rows and no v5, and the ↻ next to it
+    // re-compiled the seven it already knew about. Reading the list is part of refreshing it.
+    await ontology.loadProfiles().catch(() => {});
     await ontology.probeAll();
     const st = ontology.get();
     setRefreshed({
