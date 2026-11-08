@@ -1,0 +1,82 @@
+{
+  "title": "ABC 冷链配送经营本体（v3）",
+  "ns": "https://cube.local/ontology/new_coldchain_v3#",
+  "ontology_dir": ".",
+  "overlay": "metrics_ext.ttl",
+  "dsn": {
+    "host": "${ONTOLOGY_DB_HOST:-127.0.0.1}",
+    "port": "${ONTOLOGY_DB_PORT:-5432}",
+    "dbname": "new_coldchain",
+    "user": "${ONTOLOGY_DB_USER:-weiping}",
+    "password": ""
+  },
+  "guard": {
+    "enabled": true,
+    "max_rows": 500,
+    "default_window_days": 0,
+    "statement_timeout_ms": 8000,
+    "max_plan_rows": 5000000,
+    "big_tables": {
+      "trips": "trip_date",
+      "telemetry": "ts",
+      "complaints": "opened_at",
+      "dispatch_decisions": "decision_date",
+      "refusals": "refused_date"
+    },
+    "large_tables": {
+      "stops": 200000,
+      "route_stops": 50000
+    }
+  },
+  "features": {
+    "actions": true,
+    "lane_b": false,
+    "tutorial": true
+  },
+  "samples": [
+    "趟次数",
+    "总收入",
+    "总成本",
+    "毛利率是多少",
+    "有多少客诉",
+    "拒单数",
+    "拒单原因分布是怎样的",
+    "建议采纳率是多少"
+  ],
+  "aliases": {
+    "超载率": "overloadRate",
+    "超载": "overload",
+    "并线": "routeVersion",
+    "准时率": "onTimeRate",
+    "准时": "onTime",
+    "异常": "incident",
+    "上报": "incident",
+    "责任方": "ticketResponsibleParty",
+    "倒温": "tempExcursionStops",
+    "货损": "damagedStopRate",
+    "破损率": "damagedStopRate",
+    "轴荷": "axleOverloadRate",
+    "体积超载": "overloadRate",
+    "箱数超载": "overloadRate",
+    "出勤": "attendance",
+    "排班": "attendance",
+    "线路完成": "deliveryCompletion",
+    "违章": "violation",
+    "罚款": "violationFineTotal",
+    "扣分": "violationPointsTotal",
+    "路权": "roadRightViolationRate",
+    "通行证": "permitViolationTrips",
+    "无证": "permitViolationTrips",
+    "油耗": "fuelPer100km",
+    "百公里": "fuelPer100km",
+    "每公里": "tcoPerKm",
+    "全成本": "tcoPerKm",
+    "维修": "maintenanceCostTotal",
+    "维修费": "maintenanceCostTotal",
+    "类型": "ticketType",
+    "类别": "violationCategory",
+    "车牌": "plate",
+    "异常上报": "incidentTicketCount",
+    "工单": "incidentTicketCount"
+  }
+}

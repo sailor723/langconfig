@@ -46,44 +46,6 @@
       "check_actions_run"
     ]
   },
-  "new_coldchain": {
-    "why": "built by the Ontology Builder from a business brief + docx answers over the NASS cold-chain export: the full build track (structure → samples), a dashboard declared with its own second route, two grouped metrics and three UNRESOLVED items named in samples.json",
-    "profile": [
-      "check_structure",
-      "check_ontology_generic",
-      "check_samples",
-      "check_dashboard"
-    ],
-    "installed": "applied 1794087430-aa145f · commit b258eda · 28/28 compiled, 0 new refusals. The two publishes before it were refused at stage time (P2 page checks) and are kept in the ledger as refusals."
-  },
-  "new_coldchain_v6": {
-    "why": "Ontology Builder 从 new_coldchain 库重建的 v6：Trip/Stop 双粒度、48 个编译指标、零拒绝，dashboard 自带独立 SQL 副线，truth.json 用第二条路线对照定义",
-    "profile": [
-      "check_structure",
-      "check_ontology_generic",
-      "check_samples",
-      "check_dashboard"
-    ]
-  },
-  "new_coldchain_v1": {
-    "why": "Ontology Builder 在同一个 new_coldchain 库上跑出的 v1 迭代：54 个编译指标、8 个样例，自带 dashboard.json（6 个 KPI + 6 个面板），结构层 221 项全过。声明了 8 个 :state \"action\" 属性但没有 actions 文件，所以 check_actions_run 缺席而不是静默跳过。",
-    "profile": [
-      "check_structure",
-      "check_ontology_generic",
-      "check_samples",
-      "check_dashboard"
-    ]
-  },
-  "new_coldchain_v2": {
-    "why": "v2：83 个指标全部编译、0 按名拒绝；dashboard 111 checks；samples 15 条里有 3 条是「按名拒绝」的期望——这是第一个把「拒绝也是结果」写进前门的本体，也正是它暴露了 check_samples 只钉住答案、意图仍交给本地模型的问题（已由 nl.py 的 NL_INTENT_LLM 修掉）。",
-    "profile": [
-      "check_structure",
-      "check_ontology_generic",
-      "check_samples",
-      "check_dashboard"
-    ],
-    "pending_install": "staged 1794148197-5a9db2 — publish was refused at stage time on the ENGINE, not on the declaration (check_samples pinned the answer but not the intent; fixed by NL_INTENT_LLM). Re-run the publish; once the profile is installed, DELETE this field so the suite gates it."
-  },
   "new_coldchain_v3": {
     "why": "v3：由 v1 重建，数据层补齐 9 张表 + 10 个列之后，六类 Excel KPI 全部落地。91 个指标编译、0 按名拒绝；17 张面板（六类各至少一图：异常类型/责任方、按车轴荷、出勤按周、按车违章、违章类别、油耗按周、线路完成率、成本构成、实际异常、三条超载口径）+ 17 个 KPI 卡；19 条样例含 8 条 KPI 真值（手写 SQL 第二条路线）与 3 条按名拒绝。",
     "profile": [

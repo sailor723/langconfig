@@ -1,0 +1,324 @@
+{
+ "title": "ABC 冷链配送经营看板（v3）",
+ "subtitle": "每一格数字都由本体编译：面板只按名引用指标，数字不在页面里手写",
+ "kpis": [
+  {
+   "metric": "tripCount",
+   "label": "趟次"
+  },
+  {
+   "metric": "revenueTotal",
+   "label": "总收入"
+  },
+  {
+   "metric": "grossMarginRate",
+   "label": "毛利率"
+  },
+  {
+   "metric": "overloadRateWeight",
+   "label": "重量超载率"
+  },
+  {
+   "metric": "onTimeTripShare",
+   "label": "整趟准时占比"
+  },
+  {
+   "metric": "externalShare",
+   "label": "外车趟次占比"
+  },
+  {
+   "metric": "incidentTicketCount",
+   "note": "上报口径；实际异常见倒温/破损率"
+  },
+  {
+   "metric": "attendanceRate",
+   "note": "attended ÷ scheduled，分母不含周日无车"
+  },
+  {
+   "metric": "axleOverloadRate",
+   "note": "任一轴 实际轴荷 > 额定轴荷的趟次占比"
+  },
+  {
+   "metric": "roadRightViolationRate",
+   "note": "受限日进核心区且无有效通行证的占比"
+  },
+  {
+   "metric": "fuelPer100km",
+   "note": "牵引口径；含冷机约 24 L/100km"
+  },
+  {
+   "metric": "tcoPerKm",
+   "note": "变动成本 + 固定成本摊到公里；分母只含可核成本的趟次"
+  },
+  {
+   "metric": "violationCount",
+   "note": "交管口径，含已处理与未处理"
+  },
+  {
+   "metric": "routeCompletionRate",
+   "note": "送全的趟次 ÷ 总趟次；Excel 目标 ≥98%"
+  },
+  {
+   "metric": "violationFineTotal",
+   "note": "交管罚款合计，与扣分分开记"
+  },
+  {
+   "metric": "maintenanceCostTotal",
+   "note": "维修成本（按趟分摊，可对账）"
+  },
+  {
+   "metric": "fixedCostTripTotal",
+   "note": "保险/折旧/车船税/年检摊到趟次"
+  }
+ ],
+ "panels": [
+  {
+   "id": "p_on_time_by_version",
+   "kind": "slope",
+   "title": "并线前后：站点准时率（按线路版本）",
+   "metric": "onTimeRateByRouteVersion",
+   "x": {
+    "dimension": "tripRouteVersion",
+    "order": [
+     "v1",
+     "v2"
+    ]
+   },
+   "note": "v1 = 并线前线路，v2 = 并线后线路；两条线各自整段，不是抽样。",
+   "emit_filter": {
+    "dimension": "tripRouteVersion",
+    "values_from": "onTimeRateByRouteVersion"
+   }
+  },
+  {
+   "id": "p_overload_by_version",
+   "kind": "slope",
+   "title": "并线前后：重量超载率（按线路版本）",
+   "metric": "overloadRateByRouteVersion",
+   "x": {
+    "dimension": "tripRouteVersion",
+    "order": [
+     "v1",
+     "v2"
+    ]
+   },
+   "note": "超载的口径是「装货重量 > 车辆载重」（严格大于；本期没有恰好相等的趟，所以与 ≥ 同值，但声明取严格大于），体积口径另有 :volumeOverRate，两者不可互相替代。",
+   "emit_filter": {
+    "dimension": "tripRouteVersion",
+    "values_from": "overloadRateByRouteVersion"
+   }
+  },
+  {
+   "id": "p_refusal_reason",
+   "kind": "composition",
+   "title": "拒单原因构成（含未记录原因的那一组）",
+   "metric": "refusalCountByReason",
+   "null_label": "未记录原因",
+   "note": "NULL 原因是一个真实分组（本数据里最多的一组），不能显示成 0 或省略。",
+   "emit_filter": {
+    "dimension": "refusalReason",
+    "values_from": "refusalCountByReason"
+   }
+  },
+  {
+   "id": "p_external_peak",
+   "kind": "composition",
+   "title": "高峰日与平日的外车占比",
+   "metric": "externalShareByPeak",
+   "value_labels": {
+    "true": "高峰日",
+    "false": "平日"
+   },
+   "note": "isPeakDay 是趟上的标记（线路高峰日历），不是「今天」。"
+  },
+  {
+   "id": "p_fuel_by_channel",
+   "kind": "composition",
+   "title": "自营车与外车的油费占比",
+   "metric": "fuelCostShareByChannel",
+   "value_labels": {
+    "true": "外车",
+    "false": "自营车"
+   }
+  },
+  {
+   "id": "p_top_refusal_routes",
+   "kind": "ranked",
+   "title": "拒单最多的线路（前 10）",
+   "metric": "refusalCountByRoute",
+   "limit": 10,
+   "sort": "desc",
+   "note": "按拒单数从高到低；线路代码是 routes.code，不是线路版本。"
+  },
+  {
+   "id": "kpi_incident_type",
+   "kind": "composition",
+   "title": "异常类型构成",
+   "question": "上报的异常都集中在哪些类型？",
+   "metric": "incidentCountByType",
+   "render": "stacked",
+   "note": "按 type 分组；各类型相加回到 incidentTicketCount（D3 验）。"
+  },
+  {
+   "id": "kpi_incident_party",
+   "kind": "composition",
+   "title": "异常责任方构成",
+   "question": "异常的责任主要落在承运方还是客户？",
+   "metric": "incidentCountByResponsibleParty",
+   "render": "stacked",
+   "note": "按 responsible_party 分组；三类相加回到工单总数。"
+  },
+  {
+   "id": "kpi_axle_by_vehicle",
+   "kind": "ranked",
+   "title": "轴荷超限率（按车）",
+   "question": "哪些车的轴荷最吃紧？",
+   "metric": "axleOverloadRateByVehicle",
+   "note": "每车一趟一个值再取比率；按超载率降序。"
+  },
+  {
+   "id": "kpi_attendance_week",
+   "kind": "series",
+   "title": "出勤率按周",
+   "question": "并线之后出勤有没有掉？",
+   "metric": "attendanceRateByWeek",
+   "render": "line",
+   "marks": [
+    {
+     "at": "2026-09-22",
+     "label": "并线生效"
+    }
+   ],
+   "note": "按 day 周截断；各周出勤日相加回到 attendedDays。"
+  },
+  {
+   "id": "kpi_violation_by_vehicle",
+   "kind": "ranked",
+   "title": "违章次数（按车）",
+   "question": "哪台车违章最多？",
+   "metric": "violationCountByVehicle",
+   "note": "交管记录按车牌归集；各车相加回到 violationCount。"
+  },
+  {
+   "id": "kpi_violation_category",
+   "kind": "composition",
+   "title": "违章类别构成",
+   "question": "违章主要是超速还是路权？",
+   "metric": "violationCountByCategory",
+   "render": "stacked",
+   "note": "闯禁行属路权问题，超速/疲劳属驾驶行为，两类处置不同。"
+  },
+  {
+   "id": "kpi_fuel_week",
+   "kind": "series",
+   "title": "百公里油耗按周",
+   "question": "油耗有没有随并线变差？",
+   "metric": "fuelPer100kmByWeek",
+   "render": "line",
+   "marks": [
+    {
+     "at": "2026-09-22",
+     "label": "并线生效"
+    }
+   ],
+   "note": "分子升数×100、分母里程，都按周加总后再相除（不是各周比率的平均）。"
+  },
+  {
+   "id": "kpi_line_completion",
+   "kind": "ranked",
+   "title": "线路完成率（按线路版本）",
+   "question": "并线之后有多少趟没能把站送完？",
+   "metric": "routeCompletionRateByVersion",
+   "note": "送全的趟次 ÷ 总趟次，按并线版本切开；Excel 的 K4 目标是 ≥98%。"
+  },
+  {
+   "id": "kpi_cost_parallel",
+   "kind": "parallel",
+   "title": "成本构成：燃油 / 司机 / 装卸",
+   "question": "钱主要花在哪一块？",
+   "metrics": [
+    "fuelCostTotal",
+    "driverPayTotal",
+    "handlerCostTotal"
+   ],
+   "note": "三个桶同一单位（RMB）、同一粒度；装卸工结算另有 handler_settlements 可对账。"
+  },
+  {
+   "id": "kpi_anomaly_actual",
+   "kind": "parallel",
+   "title": "实际异常（实测站点，不是上报）",
+   "question": "实际发生的异常比上报的多多少？",
+   "metrics": [
+    "tempExcursionStops",
+    "damagedStops",
+    "alarmStops"
+   ],
+   "note": "三类实测站点数并列；与 kpi_incident_type（上报 107 张）对照看缺口。"
+  },
+  {
+   "id": "kpi_overload_three",
+   "kind": "parallel",
+   "title": "三条超载口径并列",
+   "question": "重量、体积、箱数，哪一条先到极限？",
+   "metrics": [
+    "overloadRateWeight",
+    "volumeOverRate",
+    "boxesOverRate"
+   ],
+   "note": "Excel 明确三条分别比；箱数通常先到极限。"
+  }
+ ],
+ "briefing": {
+  "headline": "本期共 {tripCount} 趟、收入 {revenueTotal}、毛利率 {grossMarginRate}；整趟准时 {onTimeTripShare}，重量超载率 {overloadRateWeight}。",
+  "claims": [
+   {
+    "id": "c_on_time",
+    "text": "并线前线路站点准时率 {onTimeRateByRouteVersion:v1}，并线后线路{onTimeRateByRouteVersion:v2}。",
+    "note": "两个数各自整段统计，没有做同口径加权。"
+   },
+   {
+    "id": "c_overload",
+    "text": "重量超载率并线前 {overloadRateByRouteVersion:v1}、并线后 {overloadRateByRouteVersion:v2}。",
+    "note": "这是重量口径；体积口径是另一个指标，不要把两个数相加或平均。"
+   },
+   {
+    "id": "c_refusal",
+    "text": "拒单共 {refusalCount} 单，其中未记录原因 {refusalCountByReason:null} 单，占 {unreasonedRefusalShare}。",
+    "note": "「未记录原因」是有意义的一组：它代表拒单登记缺失，不是「没有拒单」。"
+   },
+   {
+    "id": "c_complaint",
+    "text": "客诉 {complaintCount} 条，未判定责任 {unjudgedComplaints} 条（{unjudgedComplaintShare}）。",
+    "note": "未判定责任不等于「不是司机责任」——赔款金额指标在那一组是 NULL，不是 0。"
+   }
+  ],
+  "cannot_see": [
+   "红线阈值（准时率、超载率、拒单率的合格线）尚未由业务确认，因此本页不给出任何红/绿判定。",
+   "温度曲线：telemetry 已有读数，但本体没有声明温度趋势指标，问「温度趋势」会被按名拒绝。",
+   "「最近一个月」这类相对窗口不是本数据的窗口：数据是固定历史区间，只有声明的时间范围过滤才有意义。",
+   "线路版本与「并线时点」之间没有按日期切分：并线前/后是按 routes.version 分的，不是按日历分的。"
+  ],
+  "next": "先确认三条红线阈值，再决定本页的红绿判定；要温度趋势需要先声明一个 grain=Telemetry 的指标。"
+ },
+ "independent_sql": [
+  {
+   "label": "weight_overload_v1",
+   "sql": "SELECT (100.0 * count(*) FILTER (WHERE t.weight_capacity_snapshot < t.load_weight) / count(*))::float8 FROM trips t JOIN routes r ON r.id = t.route_id WHERE r.version = 'v1'",
+   "agree_with": {
+    "metric": "overloadRateByRouteVersion",
+    "key": "v1"
+   },
+   "note": "hand-written: weight only, trips joined to their route version — the declared word is WEIGHT, not any-of-three."
+  },
+  {
+   "label": "weight_overload_v2",
+   "sql": "SELECT (100.0 * count(*) FILTER (WHERE t.weight_capacity_snapshot < t.load_weight) / count(*))::float8 FROM trips t JOIN routes r ON r.id = t.route_id WHERE r.version = 'v2'",
+   "agree_with": {
+    "metric": "overloadRateByRouteVersion",
+    "key": "v2"
+   },
+   "note": "hand-written second route for the same word as above."
+  }
+ ],
+ "ontology": "new_coldchain_v3"
+}

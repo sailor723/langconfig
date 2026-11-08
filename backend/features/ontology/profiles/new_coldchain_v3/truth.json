@@ -1,0 +1,91 @@
+{
+  "_doc": "两条第二路线都写在这一个文件里。§指标：每个标量指标的值由 tools/verify_metrics.sql 手写算出（psql 直接跑，别名/子查询/join 故意与编译出的 SQL 不同），由 ontology_inspect 得到编译值，两边 round(,2) 必须相等；非标量（分组、周序列）写返回行数，闸门比行数。§定义：_definitions 为每个定义类配一条手写的列级谓词，闸门比 SELECT count(*) FROM <table> WHERE <pred> 与编译出的 concept_sql 行数是否相等。",
+  "_route": "tools/verify_metrics.sql §A–§D（手写）× ontology_inspect（编译）；_definitions × 编译出的 concept_sql（行数）",
+  "_definitions": {
+    "OnTimeStop": [
+      "stops",
+      "on_time"
+    ],
+    "LateStop": [
+      "stops",
+      "NOT on_time"
+    ],
+    "DamagedStop": [
+      "stops",
+      "damaged_boxes > 0"
+    ],
+    "TempExcursionStop": [
+      "stops",
+      "temp_excursion"
+    ],
+    "AlarmStop": [
+      "stops",
+      "alarm_triggered"
+    ],
+    "FailedStop": [
+      "stops",
+      "damaged_boxes > 0 OR temp_excursion"
+    ],
+    "OverloadedTripWeight": [
+      "trips",
+      "load_weight - weight_capacity_snapshot > 0"
+    ],
+    "ExternalTrip": [
+      "trips",
+      "is_external"
+    ],
+    "OwnTrip": [
+      "trips",
+      "NOT is_external"
+    ],
+    "PeakDayTrip": [
+      "trips",
+      "is_peak_day"
+    ],
+    "RouteV1Trip": [
+      "trips",
+      "route_version = 'v1'"
+    ],
+    "RouteV2Trip": [
+      "trips",
+      "route_version = 'v2'"
+    ],
+    "JudgedComplaint": [
+      "complaints",
+      "liability IS NOT NULL"
+    ],
+    "UnjudgedComplaint": [
+      "complaints",
+      "liability IS NULL"
+    ],
+    "AdoptedDecision": [
+      "dispatch_decisions",
+      "adopted"
+    ]
+  },
+  "tripCount": 4120,
+  "revenueTotal": 4423204.39,
+  "totalCostSum": 2144972.86,
+  "grossProfit": 2278231.53,
+  "grossMarginRate": 51.51,
+  "onTimeTripShare": 53.91,
+  "externalShare": 10.12,
+  "overloadRateWeight": 29.49,
+  "axleOverloadRate": 39.61,
+  "routeCompletionRate": 80.8,
+  "fuelPer100km": 12.56,
+  "tcoPerKm": 21.7,
+  "onTimeRateByStop": 94.6,
+  "damagedStopRate": 11.35,
+  "attendanceRate": 57.47,
+  "recommendationAdoptionRate": 77.71,
+  "refusalCount": 389,
+  "complaintCount": 1585,
+  "unjudgedComplaints": 731,
+  "violationCount": 245,
+  "incidentTicketCount": 107,
+  "primaryIncidentCount": 23,
+  "maintenanceOrderCostTotal": 443109.53,
+  "fixedCostDeclaredTotal": 3014690.57,
+  "attendanceRateByWeek": 14
+}

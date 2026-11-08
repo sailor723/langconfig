@@ -1,0 +1,155 @@
+{
+ "_note": "Every sample below declares its expectation as a SECOND hand-written SQL route, not as a frozen number: check_samples.py runs that SQL at gate time and compares it to the pipeline's own compiled answer. Two independent derivations, no copied values.",
+ "samples": [
+  {
+   "question": "趟次数",
+   "expect": {
+    "metric": "tripCount",
+    "route": "SELECT count(1)::numeric FROM trips"
+   }
+  },
+  {
+   "question": "总收入",
+   "expect": {
+    "metric": "revenueTotal",
+    "route": "SELECT sum(t.revenue)::float8 FROM trips AS t"
+   }
+  },
+  {
+   "question": "总成本",
+   "expect": {
+    "metric": "totalCostSum",
+    "route": "SELECT sum(t.cost_total)::float8 FROM trips AS t"
+   }
+  },
+  {
+   "question": "毛利率是多少",
+   "expect": {
+    "metric": "grossMarginRate",
+    "route": "SELECT (100.0 * sum(revenue - cost_total)::numeric / nullif(sum(revenue),0)::numeric)::float8 FROM trips"
+   }
+  },
+  {
+   "question": "有多少客诉",
+   "expect": {
+    "metric": "complaintCount",
+    "route": "SELECT count(1)::numeric FROM complaints"
+   }
+  },
+  {
+   "question": "拒单数",
+   "expect": {
+    "metric": "refusalCount",
+    "route": "SELECT count(1)::numeric FROM refusals"
+   }
+  },
+  {
+   "question": "拒单原因分布是怎样的",
+   "expect": {
+    "metric": "refusalCountByReason",
+    "route": "SELECT r.reason, count(DISTINCT r.id)::numeric FROM refusals AS r GROUP BY r.reason ORDER BY 2 DESC"
+   }
+  },
+  {
+   "question": "建议采纳率是多少",
+   "expect": {
+    "metric": "recommendationAdoptionRate",
+    "route": "SELECT (100.0 * sum(CASE WHEN d.adopted::text = 'true' THEN 1 ELSE 0 END)::numeric / nullif(count(*),0)::numeric)::float8 FROM dispatch_decisions AS d"
+   }
+  },
+  {
+   "question": "异常上报工单数是多少",
+   "expect": {
+    "metric": "incidentTicketCount",
+    "value": 107,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "倒温站点数是多少",
+   "expect": {
+    "metric": "tempExcursionStops",
+    "value": 1148,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "货损站占比是多少",
+   "expect": {
+    "metric": "damagedStopRate",
+    "value": 11.34915014164306,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "轴荷超限率是多少",
+   "expect": {
+    "metric": "axleOverloadRate",
+    "value": 39.6116504854369,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "司机出勤率是多少",
+   "expect": {
+    "metric": "attendanceRate",
+    "value": 57.4662430500397,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "违章多少条",
+   "expect": {
+    "metric": "violationCount",
+    "value": 245,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "路权违规率是多少",
+   "expect": {
+    "metric": "roadRightViolationRate",
+    "value": 77.4054054054054,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "百公里油耗是多少",
+   "expect": {
+    "metric": "fuelPer100km",
+    "value": 12.555865829714941,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "温度趋势怎么样？",
+   "expect": {
+    "refused_by_names": [
+     "refusing",
+     "no metric",
+     "I can answer about"
+    ]
+   }
+  },
+  {
+   "question": "每万公里违章率是多少",
+   "expect": {
+    "refused_by_names": [
+     "no metric",
+     "I can answer about",
+     "best declaration is the CLASS"
+    ]
+   }
+  },
+  {
+   "question": "冷链断链率是多少",
+   "expect": {
+    "refused_by_names": [
+     "I can answer about",
+     "no metric",
+     "nothing declares"
+    ]
+   }
+  }
+ ]
+}

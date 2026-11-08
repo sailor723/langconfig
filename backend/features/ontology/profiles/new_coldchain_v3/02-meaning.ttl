@@ -1,0 +1,1050 @@
+# 02-meaning.ttl — what each number MEANS for new_coldchain (ABC 冷链配送).
+# Every metric here carries :askedAs (the menu) and a :businessDescription that names its
+# source: `answers:Qx` (the 12 questions of this build), `measured:` (a number read off the
+# database by hand) or `refused:` (a capability the data does not have).
+# Thresholds are NOT declared here: no document in the brief confirms them (see refusals.json R-T).
+@prefix :     <https://cube.local/ontology/new_coldchain_v3#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+# ══════════════════════════════════════════════════ CONCEPTS (definitions, not filters)
+# A concept is a CLASS whose axiom compiles into the WHERE predicate. The literal 'true' /
+# 'v1' / '1' exists in exactly one place — here — so a report cannot re-type it in SQL.
+
+:OnTimeStop
+    a owl:Class ;
+    rdfs:subClassOf :Stop ;
+    rdfs:label "准时站点" ;
+    rdfs:comment "on_time 为真的站点：该门店在收货窗口内完成交接。" ;
+    :businessDescription "口径来自 answers:Q1：准时率按站点点数，on_time 为真即准时。" ;
+    owl:equivalentClass [
+        a owl:Class ;
+        owl:intersectionOf (
+            :Stop
+            [ a owl:Restriction ; owl:onProperty :stopOnTime ; owl:hasValue true ]
+        )
+    ] .
+
+:LateStop
+    a owl:Class ;
+    rdfs:subClassOf :Stop ;
+    rdfs:label "迟到站点" ;
+    rdfs:comment "on_time 为假的站点。" ;
+    owl:equivalentClass [
+        a owl:Class ;
+        owl:intersectionOf (
+            :Stop
+            [ a owl:Restriction ; owl:onProperty :stopOnTime ; owl:hasValue false ]
+        )
+    ] .
+
+:DamagedStop
+    a owl:Class ;
+    rdfs:subClassOf :Stop ;
+    rdfs:label "货损站点" ;
+    rdfs:comment "damaged_boxes >= 1 的站点：该站至少一箱破损。" ;
+    owl:equivalentClass [
+        a owl:Class ;
+        owl:intersectionOf (
+            :Stop
+            [ a owl:Restriction ; owl:onProperty :stopDamagedBoxes ;
+              owl:withRestrictions ( [ xsd:minInclusive 1 ] ) ]
+        )
+    ] .
+
+:TempExcursionStop
+    a owl:Class ;
+    rdfs:subClassOf :Stop ;
+    rdfs:label "倒温站点" ;
+    rdfs:comment "temp_excursion 为真的站点。" ;
+    owl:equivalentClass [
+        a owl:Class ;
+        owl:intersectionOf (
+            :Stop
+            [ a owl:Restriction ; owl:onProperty :stopTempExcursion ; owl:hasValue true ]
+        )
+    ] .
+
+:AlarmStop
+    a owl:Class ;
+    rdfs:subClassOf :Stop ;
+    rdfs:label "触发报警站点" ;
+    rdfs:comment "alarm_triggered 为真的站点（冷链报警被触发）。" ;
+    owl:equivalentClass [
+        a owl:Class ;
+        owl:intersectionOf (
+            :Stop
+            [ a owl:Restriction ; owl:onProperty :stopAlarmTriggered ; owl:hasValue true ]
+        )
+    ] .
+
+# K2 的口径（answers:Q8「任一站货损或倒温即整趟异常」）在站点层就是 OR：这个 union 是
+# 唯一写 'damaged OR temp_excursion' 的地方。
+:FailedStop
+    a owl:Class ;
+    rdfs:subClassOf :Stop ;
+    rdfs:label "异常站点" ;
+    rdfs:comment "货损站点 或 倒温站点 —— K2 的分子，OR 而非 AND。" ;
+    :businessDescription "口径来自 answers:Q8 / 口径字典#三：货损或倒温，任一发生即该站异常。" ;
+    owl:equivalentClass [ a owl:Class ; owl:unionOf ( :DamagedStop :TempExcursionStop ) ] .
+
+# ══════════════════════════════════════════════════ TRIP-side concepts
+:ExternalTrip
+    a owl:Class ;
+    rdfs:subClassOf :Trip ;
+    rdfs:label "外包的趟" ;
+    rdfs:comment "is_external 为真：这趟货由外车承运。" ;
+    owl:equivalentClass [
+        a owl:Class ;
+        owl:intersectionOf (
+            :Trip
+            [ a owl:Restriction ; owl:onProperty :isExternal ; owl:hasValue true ]
+        )
+    ] .
+
+:OwnTrip
+    a owl:Class ;
+    rdfs:subClassOf :Trip ;
+    rdfs:label "自有的趟" ;
+    rdfs:comment "is_external 为假：自有车辆 + 自有司机承运。" ;
+    owl:equivalentClass [
+        a owl:Class ;
+        owl:intersectionOf (
+            :Trip
+            [ a owl:Restriction ; owl:onProperty :isExternal ; owl:hasValue false ]
+        )
+    ] .
+
+:PeakDayTrip
+    a owl:Class ;
+    rdfs:subClassOf :Trip ;
+    rdfs:label "高峰日的趟" ;
+    rdfs:comment "is_peak_day 为真（日历表 calendar.is_peak 的标记，非阈值）。" ;
+    owl:equivalentClass [
+        a owl:Class ;
+        owl:intersectionOf (
+            :Trip
+            [ a owl:Restriction ; owl:onProperty :isPeakDay ; owl:hasValue true ]
+        )
+    ] .
+
+:RouteV1Trip
+    a owl:Class ;
+    rdfs:subClassOf :Trip ;
+    rdfs:label "并线前的趟（路线版本 v1）" ;
+    rdfs:comment "route_version = 'v1'：并线前的线路版本（answers:Q11）。" ;
+    owl:equivalentClass [
+        a owl:Class ;
+        owl:intersectionOf (
+            :Trip
+            [ a owl:Restriction ; owl:onProperty :tripRouteVersion ; owl:hasValue "v1" ]
+        )
+    ] .
+
+:RouteV2Trip
+    a owl:Class ;
+    rdfs:subClassOf :Trip ;
+    rdfs:label "并线后的趟（路线版本 v2）" ;
+    rdfs:comment "route_version = 'v2'：并线后的线路版本（answers:Q11）。" ;
+    owl:equivalentClass [
+        a owl:Class ;
+        owl:intersectionOf (
+            :Trip
+            [ a owl:Restriction ; owl:onProperty :tripRouteVersion ; owl:hasValue "v2" ]
+        )
+    ] .
+
+# ── THE ONE ESCAPE HATCH: OWL cannot compare two COLUMNS of the same row.
+# `load_weight > weight_capacity_snapshot` is not a facet (there is no literal on the right
+# side), so the predicate is declared by hand with :physicalPredicate, and the compiler reports
+# that this definition is declared rather than derived. Used exactly three times, once per
+# overload criterion — the criteria themselves come from answers:Q3 (重量是超载，体积/箱数是
+# 「装载利用率」，不进 K3 红线). Columns are UNQUALIFIED here on purpose: the compiler emits the
+# FROM itself.
+:OverloadedTripWeight
+    a owl:Class ;
+    rdfs:subClassOf :Trip ;
+    rdfs:label "重量超载的趟" ;
+    rdfs:comment "实际装载重量 > 该趟核定的车辆载质量（快照列）。" ;
+    :businessDescription "口径来自 answers:Q3 + 口径字典#三：超载 = 实载重量超过行驶证核定载质量。" ;
+    :physicalPredicate "load_weight > weight_capacity_snapshot" .
+
+:VolumeOverTrip
+    a owl:Class ;
+    rdfs:subClassOf :Trip ;
+    rdfs:label "体积超容的趟" ;
+    rdfs:comment "实际装载体积 > 核定容积。按 answers:Q3 这是「装载利用率」的一种，不是法定超载。" ;
+    :physicalPredicate "load_volume > volume_capacity_snapshot" .
+
+:CleanTrip
+    a owl:Class ;
+    rdfs:subClassOf :Trip ;
+    rdfs:label "整趟无迟到" ;
+    rdfs:comment "late_stop_count = 0：这趟每一个站都在窗口内。与站点准时率是两个口径（一站点数、一趟次数），answers:Q1 选定前者，后者只作诊断。" ;
+    :businessDescription "口径来自 answers:Q1 的第二口径（趟次级诊断，不作 KPI）。" ;
+    :physicalPredicate "late_stop_count = 0" .
+
+:BoxesOverTrip
+    a owl:Class ;
+    rdfs:subClassOf :Trip ;
+    rdfs:label "箱数超容的趟" ;
+    rdfs:comment "实际装载箱数 > 核定箱数。按 answers:Q3 这是「装载利用率」的一种，不是法定超载。" ;
+    :physicalPredicate "load_boxes > box_capacity_snapshot" .
+
+# ══════════════════════════════════════════════════ COMPLAINT / REFUSAL / DISPATCH concepts
+:JudgedComplaint
+    a owl:Class ;
+    rdfs:subClassOf :Complaint ;
+    rdfs:label "已判定责任客诉" ;
+    rdfs:comment "liability 非空的客诉：责任方已经判定。" ;
+    :physicalPredicate "liability IS NOT NULL" .
+
+:UnjudgedComplaint
+    a owl:Class ;
+    rdfs:subClassOf :Complaint ;
+    rdfs:label "未判定责任客诉" ;
+    rdfs:comment "liability 为空的客诉。measured: 1,585 条客诉中 731 条（46.1%）未判定。" ;
+    :physicalPredicate "liability IS NULL" .
+
+:UnreasonedRefusal
+    a owl:Class ;
+    rdfs:subClassOf :Refusal ;
+    rdfs:label "未记录原因拒单" ;
+    rdfs:comment "reason 为空的拒单。measured: 389 条拒单中 113 条原因空白（answers:Q10：单列「未记录」，不进原因分布）。" ;
+    :physicalPredicate "reason IS NULL" .
+
+:AdoptedDecision
+    a owl:Class ;
+    rdfs:subClassOf :DispatchDecision ;
+    rdfs:label "被采纳的派车决策" ;
+    rdfs:comment "adopted 为真：调度实际选了系统推荐的司机。" ;
+    owl:equivalentClass [
+        a owl:Class ;
+        owl:intersectionOf (
+            :DispatchDecision
+            [ a owl:Restriction ; owl:onProperty :adopted ; owl:hasValue true ]
+        )
+    ] .
+
+:OverriddenDecision
+    a owl:Class ;
+    rdfs:subClassOf :DispatchDecision ;
+    rdfs:label "有覆盖原因的决策" ;
+    rdfs:comment "override_reason 非空：调度没采纳推荐并写了原因。" ;
+    :physicalPredicate "override_reason IS NOT NULL" .
+
+# ══════════════════════════════════════════════════ DEFERRED concepts — declared refusals
+# A class with neither an axiom nor a table is legal ONLY with a :refusalReason that says what
+# is missing. These two carry the two refusals that a user WILL ask for; naming them here is
+# what makes the refusal visible on the menu instead of a silent hole.
+# v3 撤回的一条拒绝：answers:Q4 当时没有阈值，所以「站点超标」只能按名拒绝。新的《KPI 与口径字典》
+# 给出了 K3 的阈值（15 站/趟），阈值一落地这条就变成可算的——拒绝撤掉，改成带谓词的定义。
+# 阈值只写在这一处；分子分母都引用这个类，免得两个指标各写一个 15。
+:OverThresholdStopTrip
+    a owl:Class ;
+    rdfs:subClassOf :Trip ;
+    rdfs:label "站点超标的趟（计划站点数 > 15 站/趟）" ;
+    rdfs:comment "planned_stops > 15。measured: 760/4,120 趟（18.45%）。planned_stops 与 actual_stops 在 4,120/4,120 趟完全相等，所以用哪一列都不会改变结果；这里用 planned_stops（它是站点数的来源列）。" ;
+    :businessDescription "口径来自 口径字典#K3：单趟站点阈值 15 站/趟（超载与站点超标是 K3 的硬红线）。" ;
+    :physicalPredicate "planned_stops > 15" .
+
+:AbnormalTrip
+    a owl:Class ;
+    rdfs:subClassOf :Trip ;
+    rdfs:label "异常趟次（任一站货损或倒温）" ;
+    :refusalReason "refused: trips 上没有趟级异常标志列；'任一站异常即整趟异常'是把 stops 汇总回 trips（COUNT(DISTINCT trip_id)），而编译器只生成单表单粒度的聚合。measured 手算: 3,334/4,120 趟（80.90%）——这个数可以作为文本引用，但不能作为可编译指标（answers:Q8）。站点粒度请用 abnormalStopRate（6,774/50,832）。" .
+
+:TemperatureTrend
+    a owl:Class ;
+    rdfs:subClassOf :Telemetry ;
+    rdfs:label "温度趋势" ;
+    :refusalReason "refused: telemetry 只覆盖 1,030/4,120 趟，且全部时间戳落在 2026-11-06 06:00–08:45 这 2 小时 45 分 —— 是快照不是趋势，画趋势等于把快照拉长。" .
+
+:DriverScore
+    a owl:Class ;
+    rdfs:subClassOf :Driver ;
+    rdfs:label "司机综合评分（100 分）" ;
+    :refusalReason "refused: md 里的权重 25/20/20/15/10/10 与「近 30 天准点率<85% 或货损≥2 次扣 15 分」是设计提案，没有任何文档确认过；声明它等于我自己定阈值（refusals.json R-T）。" .
+
+# ══════════════════════════════════════════════════ METRIC MEANINGS
+# :aggregate / :grain / :universe live in metrics_ext.ttl. Here: what the number MEANS.
+# 顺序说明：趟次粒度在前、站点粒度在后。这是本体里粒度最大的表（trips 4,120 行，stops 50,832 行）
+# 对应的两种问法都必须在同一份声明里能答；排在前面的块是本体的主语料（trips 是 big_table，
+# 站点粒度靠 trips 的外键挂上去，stops 没有日期列所以只能是 large_table）。
+
+# ══════════════════════════════════════════════════ 趟次粒度 (grain :Trip)
+:tripCount a owl:DatatypeProperty ;
+    rdfs:label "趟次数" ;
+    rdfs:domain :Trip ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "发了多少趟车" ;
+    :askedAs "趟次数" ;
+    :businessDescription "trips 行数：一个车次一趟。measured: 4,120 趟（2026-08-01..2026-10-29，90 天）。口径来自 answers:Q9：全部数据，不注入相对窗口。" .
+
+:revenueTotal a owl:DatatypeProperty ;
+    rdfs:label "总收入" ;
+    rdfs:domain :Trip ;
+    :additivity "additive" ;
+    :unit "money" ;
+    :askedAs "收入是多少" ;
+    :askedAs "总收入" ;
+    :businessDescription "trips.revenue 求和。口径来自 answers:Q5：收入列已是该趟的应计收入，不另加外车成本。" .
+
+:totalCostSum a owl:DatatypeProperty ;
+    rdfs:label "总成本" ;
+    rdfs:domain :Trip ;
+    :additivity "additive" ;
+    :unit "money" ;
+    :askedAs "成本是多少" ;
+    :askedAs "总成本" ;
+    :businessDescription "trips.cost_total 求和（燃油+路桥+司机运费+搬运工+外车费）。measured: other_cost 100% 为空 —— 未知成本按 0 计，所以这是成本的下界、毛利的==上界==。口径来自 answers:Q5。" .
+
+:grossProfit a owl:DatatypeProperty ;
+    rdfs:label "毛利额" ;
+    rdfs:domain :Trip ;
+    :additivity "additive" ;
+    :unit "money" ;
+    :askedAs "毛利是多少钱" ;
+    :businessDescription "收入 − 全成本（trips.revenue − trips.cost_total）。成员公式，不是独立口径。口径来自 answers:Q5。" .
+
+:grossMarginRate a owl:DatatypeProperty ;
+    rdfs:label "毛利率" ;
+    rdfs:domain :Trip ;
+    :additivity "non-additive" ;
+    :unit "percent" ;
+    :askedAs "毛利率是多少" ;
+    :askedAs "赚钱吗" ;
+    :businessDescription "毛利额 ÷ 收入 × 100，是 ratio of sums 不是每趟毛利率的平均。==这是上界==：other_cost 100% 为空、未知成本按 0 计。measured: 51.51%。口径来自 answers:Q5。" .
+
+:avgStopsPerTrip a owl:DatatypeProperty ;
+    rdfs:label "站点密度（每趟平均站点数）" ;
+    rdfs:domain :Trip ;
+    :additivity "non-additive" ;
+    :unit "count" ;
+    :askedAs "每趟平均送几个站" ;
+    :askedAs "站点密度" ;
+    :businessDescription "trips.actual_stops 的平均值。口径来自 answers:Q4：v3 起站点超标率已由 :OverThresholdStopTrip（>15 站/趟）定义并可算，本指标退化为诊断量。measured: 12.34 站/趟。" .
+
+:externalTrips a owl:DatatypeProperty ;
+    rdfs:label "外包趟次" ;
+    rdfs:domain :Trip ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "外包了多少趟" ;
+    :businessDescription "is_external 为真的趟次。measured: 417 趟外包 / 3,703 趟自有。口径来自 answers:Q6：自营与外包必须分开核算。" .
+
+:externalShare a owl:DatatypeProperty ;
+    rdfs:label "外包趟次占比" ;
+    rdfs:domain :Trip ;
+    :additivity "non-additive" ;
+    :unit "percent" ;
+    :askedAs "外包占比" ;
+    :businessDescription "外包趟次 ÷ 趟次总数 × 100。measured: 417/4,120 = 10.12%。口径来自 answers:Q6。" .
+
+:overloadedTrips a owl:DatatypeProperty ;
+    rdfs:label "重量超载趟次" ;
+    rdfs:domain :Trip ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "有多少趟超载" ;
+    :businessDescription "K3 的分子：实载重量 > 核定载质量的趟次。谓词由 :OverloadedTripWeight 声明（两列比较，OWL 表达不了）。口径来自 answers:Q3。" .
+
+:overloadRateWeight a owl:DatatypeProperty ;
+    rdfs:label "超载率（按重量）" ;
+    rdfs:domain :Trip ;
+    :additivity "non-additive" ;
+    :unit "percent" ;
+    :askedAs "超载率是多少" ;
+    :askedAs "K3 超载率" ;
+    :businessDescription "重量超载趟次 ÷ 趟次总数 × 100。超载的判据是 load_weight > weight_capacity_snapshot（严格大于；本期 0 趟恰好等于载重，所以在本数据里 > 与 ≥ 同值，但声明取严格大于）。口径来自 answers:Q3 / 口径字典#三：超载只按重量，体积与箱数另立「装载利用率」。库里没有轴荷列，所以只能按总重判定 —— 这一点必须在报告里写明。" .
+
+:volumeOverRate a owl:DatatypeProperty ;
+    rdfs:label "装载利用率超容率（体积）" ;
+    rdfs:domain :Trip ;
+    :additivity "non-additive" ;
+    :unit "percent" ;
+    :askedAs "体积装不装得下" ;
+    :askedAs "装载利用率" ;
+    :businessDescription "体积超过核定容积的趟次 ÷ 趟次总数 × 100。==不是超载==：口径字典#三 的法定超载只看重量（answers:Q3）。" .
+
+:onTimeTripShare a owl:DatatypeProperty ;
+    rdfs:label "整趟准时占比（诊断用）" ;
+    rdfs:domain :Trip ;
+    :additivity "non-additive" ;
+    :unit "percent" ;
+    :askedAs "按趟算的准时率" ;
+    :businessDescription "late_stop_count = 0 的趟次 ÷ 趟次总数 × 100。measured: 53.91%。==诊断用，不是主口径==：口径来自 answers:Q1，主口径是按站点的 94.60%；两者差 40 个点是因为一趟里只有一站迟到整趟就记晚。" .
+
+# ══════════════════════════════════════════════════ 站点粒度 (grain :Stop)
+:stopCount a owl:DatatypeProperty ;
+    rdfs:label "配送站点数" ;
+    rdfs:domain :Stop ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "一共配送了多少个站点" ;
+    :askedAs "站点总数" ;
+    :businessDescription "全部配送站点的点数（stops 行数）。measured: 50,832 行。口径来自 answers:Q1：任何比率的分母都按站点点数算。" .
+
+:onTimeStops a owl:DatatypeProperty ;
+    rdfs:label "准时站点数" ;
+    rdfs:domain :Stop ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "有多少站点准时到货" ;
+    :businessDescription "on_time 为真的站点点数。谓词由 :OnTimeStop 公理编译，'准时'只在一处定义。measured: 48,085 行（50,832 的 94.60%）。" .
+
+:damagedStops a owl:DatatypeProperty ;
+    rdfs:label "货损站点数" ;
+    rdfs:domain :Stop ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "有多少站点发生货损" ;
+    :businessDescription "damaged_boxes >= 1 的站点数。谓词由 :DamagedStop 公理编译（xsd:minInclusive 1）。" .
+
+:tempExcursionStops a owl:DatatypeProperty ;
+    rdfs:label "倒温站点数" ;
+    rdfs:domain :Stop ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "有多少站点发生倒温" ;
+    :businessDescription "temp_excursion 为真的站点数。谓词由 :TempExcursionStop 公理编译。" .
+
+:failedStops a owl:DatatypeProperty ;
+    rdfs:label "异常站点数（货损或倒温）" ;
+    rdfs:domain :Stop ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "有多少站点异常" ;
+    :askedAs "货损或倒温的站点有多少" ;
+    :businessDescription "K2 的分子：货损 或 倒温（OR）。谓词由 :FailedStop 的 owl:unionOf 编译，OR 与 AND 的差别只在这一处。口径来自 answers:Q8。" .
+
+:onTimeRateByStop a owl:DatatypeProperty ;
+    rdfs:label "准时率（按站点）" ;
+    rdfs:domain :Stop ;
+    :additivity "non-additive" ;
+    :unit "percent" ;
+    :askedAs "准时率是多少" ;
+    :askedAs "按时到货的比例" ;
+    :businessDescription "准时站点数 ÷ 站点总数 × 100。口径来自 answers:Q1：按站点，不按趟次（按趟次另有 :onTimeTripShare，53.91%，只作诊断）。measured: 94.60% = 48,085/50,832。" .
+
+:damagedStopRate a owl:DatatypeProperty ;
+    rdfs:label "货损站占比" ;
+    rdfs:domain :Stop ;
+    :additivity "non-additive" ;
+    :unit "percent" ;
+    :askedAs "货损比例" ;
+    :businessDescription "货损站点数 ÷ 站点总数 × 100。measured: 5,769/50,832 = 11.35%。口径来自 answers:Q8（K2 的一端）。" .
+
+:abnormalStopRate a owl:DatatypeProperty ;
+    rdfs:label "异常站占比（货损或倒温）" ;
+    rdfs:domain :Stop ;
+    :additivity "non-additive" ;
+    :unit "percent" ;
+    :askedAs "异常率是多少" ;
+    :askedAs "K2 异常率" ;
+    :businessDescription "异常站点数 ÷ 站点总数 × 100（货损 OR 倒温）。这是 K2 在库里唯一能编译的粒度：趟级版本 :abnormalTripRate 按名拒绝（trips 无趟级异常标志）。口径来自 answers:Q8。" .
+
+# ══════════════════════════════════════════════════ 成本明细粒度 (grain :TripCost)
+:fuelCostTotal a owl:DatatypeProperty ;
+    rdfs:label "燃油费合计" ;
+    rdfs:domain :TripCost ;
+    :additivity "additive" ;
+    :unit "money" ;
+    :askedAs "油费多少" ;
+    :askedAs "燃油成本" ;
+    :businessDescription "trip_costs.fuel_cost 求和。只有金额没有升数、没有里程 —— 所以 L/100km 与单公里成本按名拒绝。口径来自 answers:Q6。" .
+
+:tollCostTotal a owl:DatatypeProperty ;
+    rdfs:label "路桥费合计" ;
+    rdfs:domain :TripCost ;
+    :additivity "additive" ;
+    :unit "money" ;
+    :askedAs "过路费多少" ;
+    :businessDescription "trip_costs.toll_fee 求和。口径来自 answers:Q6。" .
+
+:driverPayTotal a owl:DatatypeProperty ;
+    rdfs:label "司机运费合计" ;
+    rdfs:domain :TripCost ;
+    :additivity "additive" ;
+    :unit "money" ;
+    :askedAs "司机运费多少" ;
+    :businessDescription "trip_costs.driver_pay 求和。口径来自 answers:Q6。" .
+
+:handlerCostTotal a owl:DatatypeProperty ;
+    rdfs:label "搬运工费用合计" ;
+    rdfs:domain :TripCost ;
+    :additivity "additive" ;
+    :unit "money" ;
+    :askedAs "搬运费多少" ;
+    :businessDescription "trip_costs.handler_cost 求和。口径来自 answers:Q6。" .
+
+:externalFeeTotal a owl:DatatypeProperty ;
+    rdfs:label "外车费合计" ;
+    rdfs:domain :TripCost ;
+    :additivity "additive" ;
+    :unit "money" ;
+    :askedAs "外车费多少" ;
+    :businessDescription "trip_costs.external_fee 求和。measured: 只有外包趟次非零。口径来自 answers:Q6：外包成本单列，不与自有成本混算。" .
+
+:costItemSum a owl:DatatypeProperty ;
+    rdfs:label "五项成本合计" ;
+    rdfs:domain :TripCost ;
+    :additivity "additive" ;
+    :unit "money" ;
+    :askedAs "五项成本加起来多少" ;
+    :businessDescription "燃油+路桥+司机+搬运+外车。成员公式，用来和 trips.cost_total 对账（两者必须相等，见 truth.json 的 costReconciliation）。口径来自 answers:Q6。" .
+
+:fuelCostShareByChannel a owl:DatatypeProperty ;
+    rdfs:label "燃油费占比（按自营/外包）" ;
+    rdfs:domain :TripCost ;
+    :additivity "non-additive" ;
+    :unit "percent" ;
+    :askedAs "自营和外包的油费占比" ;
+    :askedAs "成本结构" ;
+    :businessDescription "燃油费 ÷ 五项成本合计 × 100，分自营/外包两组。口径来自 answers:Q6：自营与外包的成本结构必须分开看。" .
+
+# ══════════════════════════════════════════════════ 客诉粒度 (grain :Complaint)
+:complaintCount a owl:DatatypeProperty ;
+    rdfs:label "客诉数" ;
+    rdfs:domain :Complaint ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "有多少客诉" ;
+    :askedAs "客诉总数" ;
+    :businessDescription "complaints 行数。measured: 1,585 条。口径来自 answers:Q2：客诉只能报总数与按站点/责任方；按趟次归一的客诉率（每千趟客诉数）不成立——complaints 没有声明通到 trips 的路径，也只有一个 opened_at 日期，所以本体不声明这个比率，而不是用一个近似分母凑出来。" .
+
+:judgedComplaints a owl:DatatypeProperty ;
+    rdfs:label "已判定责任客诉数" ;
+    rdfs:domain :Complaint ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "多少客诉判了责任" ;
+    :businessDescription "liability 非空的客诉数。谓词由 :JudgedComplaint 声明。measured: 854 条（53.9%）。口径来自 answers:Q2。" .
+
+:unjudgedComplaints a owl:DatatypeProperty ;
+    rdfs:label "未判定责任客诉数" ;
+    rdfs:domain :Complaint ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "多少客诉没判责任" ;
+    :businessDescription "liability 为空的客诉数。谓词由 :UnjudgedComplaint 声明。measured: 731 条（46.1%）。口径来自 answers:Q2。" .
+
+:unjudgedComplaintShare a owl:DatatypeProperty ;
+    rdfs:label "未判定责任客诉占比" ;
+    rdfs:domain :Complaint ;
+    :additivity "non-additive" ;
+    :unit "percent" ;
+    :askedAs "未判定责任的比例" ;
+    :businessDescription "未判定客诉数 ÷ 客诉数 × 100。measured: 46.1% —— 责任分布只能在剩下的 53.9% 上解释，报告必须写这句。口径来自 answers:Q2。" .
+
+:compensationJudgeableTotal a owl:DatatypeProperty ;
+    rdfs:label "已判定客诉的赔付额" ;
+    rdfs:domain :Complaint ;
+    :additivity "additive" ;
+    :unit "money" ;
+    :askedAs "赔了多少钱" ;
+    :businessDescription "已判定责任客诉的 amount 求和。measured: 543,309.02 元；未判定客诉的 amount 100% 为空 → 赔付总额必然低估，只报『已判定部分』。口径来自 answers:Q2。" .
+
+# ══════════════════════════════════════════════════ 拒单粒度 (grain :Refusal)
+:refusalCount a owl:DatatypeProperty ;
+    rdfs:label "拒单数" ;
+    rdfs:domain :Refusal ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "拒了多少单" ;
+    :askedAs "拒单数" ;
+    :businessDescription "refusals 行数。measured: 389 条。口径来自 answers:Q10。" .
+
+:unreasonedRefusals a owl:DatatypeProperty ;
+    rdfs:label "未记录原因的拒单数" ;
+    rdfs:domain :Refusal ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "多少拒单没写原因" ;
+    :businessDescription "reason 为空的拒单数。谓词由 :UnreasonedRefusal 声明。measured: 113/389（29.05%）。口径来自 answers:Q10：空白单列一组，不能混进原因分布。" .
+
+:unreasonedRefusalShare a owl:DatatypeProperty ;
+    rdfs:label "未记录原因拒单占比" ;
+    rdfs:domain :Refusal ;
+    :additivity "non-additive" ;
+    :unit "percent" ;
+    :askedAs "拒单原因缺失率" ;
+    :businessDescription "未记录原因拒单 ÷ 拒单总数 × 100。measured: 29.05%。口径来自 answers:Q10。" .
+
+:refusalCountByReason a owl:DatatypeProperty ;
+    rdfs:label "拒单原因分布" ;
+    rdfs:domain :Refusal ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "拒单原因分布是怎样的" ;
+    :askedAs "司机为什么拒单" ;
+    :businessDescription "按 reason 分组的拒单数。空原因自成一组（:UnreasonedRefusal = 113 条），报告里必须与真实原因分开列。注意：引擎没有给 NULL 分组键贴标签的机制，这一组在结果里显示为字面 None —— 读的时候把 None 读作『未记录』，不要当成某个原因。口径来自 answers:Q10。" .
+
+:refusalCountByRoute a owl:DatatypeProperty ;
+    rdfs:label "按线路的拒单数" ;
+    rdfs:domain :Refusal ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "哪条线拒单最多" ;
+    :businessDescription "按被拒线路（refusals.route_id → routes.code）分组的拒单数。口径来自 answers:Q10。" .
+
+# ══════════════════════════════════════════════════ 派车决策粒度 (grain :DispatchDecision)
+:decisionCount a owl:DatatypeProperty ;
+    rdfs:label "派车决策数" ;
+    rdfs:domain :DispatchDecision ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "系统给了多少派车建议" ;
+    :businessDescription "dispatch_decisions 行数。measured: 2,620 条，全部 mode = 'shadow'（docx Q18 的两个月影子模式）。口径来自 answers:Q7。" .
+
+:adoptedDecisions a owl:DatatypeProperty ;
+    rdfs:label "采纳建议的决策数" ;
+    rdfs:domain :DispatchDecision ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "多少建议被采纳" ;
+    :businessDescription "adopted 为真的决策数。谓词由 :AdoptedDecision 公理编译。measured: 2,036/2,620。口径来自 answers:Q7。" .
+
+:recommendationAdoptionRate a owl:DatatypeProperty ;
+    rdfs:label "建议采纳率" ;
+    rdfs:domain :DispatchDecision ;
+    :additivity "non-additive" ;
+    :unit "percent" ;
+    :askedAs "建议采纳率是多少" ;
+    :askedAs "K1 采纳率" ;
+    :businessDescription "采纳决策 ÷ 决策总数 × 100。measured: 77.71%。==这是影子模式下的采纳率==：没有一条真正影响派车（mode 全为 shadow），报告不能写成「AI 派车准确率」。口径来自 answers:Q7。" .
+
+# ══════════════════════════════════════════════════ v3 新增：K2/K3/K4/K5 的定义类
+# 这一批定义全部来自库里的真实列；唯一两次用到 :physicalPredicate 的地方是「同行两列比较」和
+# 「字符串字面量」——OWL 的 facet 表达不了，所以按手写谓词声明，并在 :businessDescription 里写明
+# 它来自哪份文档、阈值写在哪一行。
+:AxleOverloadedTrip
+    a owl:Class ;
+    rdfs:subClassOf :Trip ;
+    rdfs:label "轴荷超限的趟" ;
+    rdfs:comment "axle_overload 为真。这是数据源给出的判定结果（库里有布尔标记，没有逐轴实测值）。measured: 1,632/4,120 趟（39.61%）。" ;
+    owl:equivalentClass [
+        a owl:Class ;
+        owl:intersectionOf (
+            :Trip
+            [ a owl:Restriction ; owl:onProperty :axleOverload ; owl:hasValue true ]
+        )
+    ] .
+
+:CoreRestrictedTrip
+    a owl:Class ;
+    rdfs:subClassOf :Trip ;
+    rdfs:label "涉及核心区限行的趟" ;
+    rdfs:comment "core_restricted 为真：这趟的线路进入限行区。measured: 1,850/4,120 趟（44.90%）。" ;
+    owl:equivalentClass [
+        a owl:Class ;
+        owl:intersectionOf (
+            :Trip
+            [ a owl:Restriction ; owl:onProperty :coreRestricted ; owl:hasValue true ]
+        )
+    ] .
+
+# 手写谓词的第二次使用：同一行两列（core_restricted 与 permit_valid）的布尔比较。
+:PermitViolationTrip
+    a owl:Class ;
+    rdfs:subClassOf :Trip ;
+    rdfs:label "无有效通行证进核心区的趟（路权违规）" ;
+    rdfs:comment "core_restricted 为真且 permit_valid 为假。measured: 1,432/1,850 条核心区趟次（77.41%）。这是 K5 的「证过期还在跑」。" ;
+    :businessDescription "口径来自 口径字典#K5：路权违规 = 进限行区且当日无有效通行证。谓词两列都在 trips 上，不跨表。" ;
+    :physicalPredicate "core_restricted AND NOT permit_valid" .
+
+# 手写谓词的第三次使用：同行两列比较（已交付站点数 vs 计划站点数）。
+:RouteCompletedTrip
+    a owl:Class ;
+    rdfs:subClassOf :Trip ;
+    rdfs:label "计划跑完的趟（线路完成）" ;
+    rdfs:comment "stops_delivered >= planned_stops。measured: 3,329/4,120 趟（80.80%）。注意 stops_delivered 可以和 planned_stops 不等，站点表行数只等于 planned_stops 之和——所以「跑完了吗」只能看这两列，不能数 stops 行。" ;
+    :businessDescription "口径来自 口径字典#K4：线路完成率 = 计划站点数被交付完的趟次占比。" ;
+    :physicalPredicate "stops_delivered >= planned_stops" .
+
+# 手写谓词的第四次使用：字符串字面量（OWL facet 上没有「等于某个字符串」的布尔公理写法时用它）。
+:AttendedDay
+    a owl:Class ;
+    rdfs:subClassOf :DriverSchedule ;
+    rdfs:label "出勤日" ;
+    rdfs:comment "status = 'attended'。measured: 2,894 天。只认这一个状态值——'leave'（请假 662 天）不是出勤。" ;
+    :businessDescription "口径来自 口径字典#K4：出勤率的分子是 attended，分母是有排班的日子（scheduled 为真），不含 not_scheduled。" ;
+    :physicalPredicate "status = 'attended'" .
+
+:ScheduledDay
+    a owl:Class ;
+    rdfs:subClassOf :DriverSchedule ;
+    rdfs:label "有排班的日子" ;
+    rdfs:comment "scheduled 为真。measured: 5,036 天（5,400 − 364 条 not_scheduled）。这是出勤率的分母。" ;
+    owl:equivalentClass [
+        a owl:Class ;
+        owl:intersectionOf (
+            :DriverSchedule
+            [ a owl:Restriction ; owl:onProperty :scheduleScheduled ; owl:hasValue true ]
+        )
+    ] .
+
+:PrimaryIncidentTicket
+    a owl:Class ;
+    rdfs:subClassOf :IncidentTicket ;
+    rdfs:label "主单（同一次异常的主记录）" ;
+    rdfs:comment "is_primary 为真。measured: 23/107 条。重复上报去重后才等于「发生了几次」，所以工单数与主单数必须并报。" ;
+    owl:equivalentClass [
+        a owl:Class ;
+        owl:intersectionOf (
+            :IncidentTicket
+            [ a owl:Restriction ; owl:onProperty :ticketIsPrimary ; owl:hasValue true ]
+        )
+    ] .
+
+# 手写谓词的第五次使用：三列 NOT NULL 判定。TCO 的分子要把三项相加，而行式相加遇到 NULL 会丢掉整行，
+# 编译器又不接受 coalesce()；所以把「三项都有值」的三趟显式声明成一个类，分子分母都用它限定。
+:FullCostTrip
+    a owl:Class ;
+    rdfs:subClassOf :Trip ;
+    rdfs:label "三项成本齐全的趟（TCO 可算的趟）" ;
+    rdfs:comment "cost_total、maintenance_cost、fixed_cost 三列都非空。measured: 4,055/4,120 趟（65 趟 maintenance_cost 为空，其中 57 趟自有车、8 趟外车），覆盖 254,074.8 km。这三列里没有任何一个 0 值，所以「空」不能想当然当 0。" ;
+    :businessDescription "口径来自 口径字典#K6 + 库里的空值事实：缺失的维保列不做 0 猜测，改为把这三趟排除并声明覆盖范围。" ;
+    :physicalPredicate "cost_total IS NOT NULL AND maintenance_cost IS NOT NULL AND fixed_cost IS NOT NULL" .
+
+# ══════════════════════════════════════════════════ v3 新增的拒绝（每条按名给缺哪条声明）
+:ArrivalWindowStop
+    a owl:Class ;
+    rdfs:subClassOf :Stop ;
+    rdfs:label "到达时间窗判定（±5 分钟）" ;
+    :refusalReason "refused: 口径字典#K1 要求「到站时间与约定窗口相差 ±5 分钟」的准时判定，但 stops 只有布尔 on_time，没有到站时间戳；telemetry 有 ts 却只覆盖 1,030/4,120 趟且全部落在 2 小时 45 分内，不是到站时刻。所以 ±5 分钟这条口径在库里没有字段可算——已有的准时率用的是数据源给好的 on_time，不是我们按时间戳判的。" .
+
+:ViolationRatePer10kKm
+    a owl:Class ;
+    rdfs:subClassOf :Violation ;
+    rdfs:label "每万公里违章率" ;
+    :refusalReason "refused: 分子是 violations 行数（245），分母是 trips.actual_km 求和（257,872.3 km），两个数在不同表、不同粒度；编译器只生成单表单粒度的聚合，跨表的比率只能手算不能声明。只能并报 violationCount 与 actualKmTotal，让读者自己除。" .
+
+:FuelLedgerGap
+    a owl:Class ;
+    rdfs:subClassOf :FuelLog ;
+    rdfs:label "加油台账与趟次分摊的差值（>2% 报警）" ;
+    :refusalReason "refused: 口径字典#K6 要的是 fuel_logs.amount（按次实付）与 trips.fuel_liters 折算金额（按趟分摊）的差值与 2% 阈值，两者分属两张表、两种粒度，差值指标无法由单表聚合表达。measured 手算：台账 32,378.10 升 / 372,009.39 元，趟次侧 32,378.10 升 —— 两侧升数完全一致，差值 0；这个「一致」本身只在文本里，不在可编译指标里。可编译的替代是两个数并报，见 logAmountTotal 与 fuelLitersTotal。" .
+
+:TemperatureExcursionDuration
+    a owl:Class ;
+    rdfs:subClassOf :Telemetry ;
+    rdfs:label "超温持续时长" ;
+    :refusalReason "refused: 时长需要首末两条读数之差，telemetry 是 1,030 趟的两小时快照、且只有 temperature 一列没有「超标区间」标记；按名拒绝，站点级倒温请用 tempExcursionStops / abnormalStopRate（站点粒度）。" .
+
+
+# ══════════════════════════════════════════════════ K2 异常与货损 (grain :IncidentTicket)
+# 口径字典#K2 要求「上报口径 vs 实际口径」并报：上报用 incident_tickets，实际用 stops 的货损/倒温。
+# 这两块粒度不同（工单 vs 站点），所以是两个指标块，不是一个减法。
+:incidentTicketCount a owl:DatatypeProperty ;
+    rdfs:label "异常上报工单数（全部渠道）" ;
+    rdfs:domain :IncidentTicket ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "异常上报了多少条" ;
+    :askedAs "K2 上报异常数" ;
+    :businessDescription "incident_tickets 行数（含重复渠道上报）。measured: 107 条，其中主单 23 条 —— 一条异常可能被多个渠道重复报。口径来自 口径字典#K2 / Excel Book1 K2 行。" .
+
+:primaryIncidentCount a owl:DatatypeProperty ;
+    rdfs:label "异常主单数（去重后）" ;
+    rdfs:domain :IncidentTicket ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "去重后异常有多少次" ;
+    :businessDescription "is_primary 为真的工单数。measured: 23 条。与 incidentTicketCount 并报：单报 107 会把重复上报算成多次异常。口径来自 口径字典#K2（is_primary 主单标记）。" .
+
+:incidentCountByType a owl:DatatypeProperty ;
+    rdfs:label "异常类型构成" ;
+    rdfs:domain :IncidentTicket ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "异常都是什么类型" ;
+    :businessDescription "按 type 分组计数。measured: 破损 74、倒温 16、超时 13、拒收 4（合计 107）。口径来自 口径字典#K2 的异常分类。" .
+
+:incidentCountByResponsibleParty a owl:DatatypeProperty ;
+    rdfs:label "异常责任方构成" ;
+    rdfs:domain :IncidentTicket ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "异常是谁的责任" ;
+    :businessDescription "按 responsible_party 分组计数。measured: 承运 70、不可抗力 19、客户 18。注意所有 107 条都已判定责任方，没有 NULL 组。口径来自 口径字典#K2。" .
+
+# ══════════════════════════════════════════════════ K3 超载与站点超标 (grain :Trip)
+:axleOverloadedTrips a owl:DatatypeProperty ;
+    rdfs:label "轴荷超限趟次" ;
+    rdfs:domain :Trip ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "轴荷超限多少趟" ;
+    :businessDescription "axle_overload 为真的趟数（谓词由 :AxleOverloadedTrip 公理编译）。measured: 1,632 趟。这是 K3 的硬红线之一。口径来自 口径字典#K3。" .
+
+:axleOverloadRate a owl:DatatypeProperty ;
+    rdfs:label "轴荷超限率" ;
+    rdfs:domain :Trip ;
+    :additivity "non-additive" ;
+    :unit "percent" ;
+    :askedAs "轴荷超限率是多少" ;
+    :askedAs "K3 超载率" ;
+    :businessDescription "轴荷超限趟次 ÷ 趟次数 × 100。measured: 39.61%。==红线是 0%==（口径字典#K3 硬红线），所以这个数已经是违规状态。注意它和重量超载率（overloadRateWeight）是两个判定，不可互相替代。" .
+
+:axleOverloadRateByVehicle a owl:DatatypeProperty ;
+    rdfs:label "轴荷超限率（按车牌）" ;
+    rdfs:domain :Trip ;
+    :additivity "non-additive" ;
+    :unit "percent" ;
+    :askedAs "哪些车轴荷超限最严重" ;
+    :businessDescription "同一比率的车辆分组视图（trips 经 vehicle_id 挂到 vehicles.plate）。measured: 60 台车全部有超限趟次，单台超限率 19.72%–96.05%，最高 沪A**#004（76 趟里 73 趟超限，96.05%）；用于定位该停驶整备的车。口径来自 口径字典#K3。" .
+
+:overThresholdStopTrips a owl:DatatypeProperty ;
+    rdfs:label "站点超标趟次（>15 站/趟）" ;
+    rdfs:domain :Trip ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "站点超标的趟有多少" ;
+    :businessDescription "planned_stops > 15 的趟数（谓词在 :OverThresholdStopTrip 里，只写一次）。measured: 760 趟。口径来自 口径字典#K3 的站点阈值 15 站/趟。" .
+
+:overThresholdStopRate a owl:DatatypeProperty ;
+    rdfs:label "站点超标率" ;
+    rdfs:domain :Trip ;
+    :additivity "non-additive" ;
+    :unit "percent" ;
+    :askedAs "站点超标率是多少" ;
+    :askedAs "K3 站点超标率" ;
+    :businessDescription "站点超标趟次 ÷ 趟次数 × 100。measured: 18.45%。红线 0%（口径字典#K3）。这一条是 v3 新撤掉旧拒绝后才有的：旧口径没有阈值，15 站/趟一落地它就变成可算的。" .
+
+# ══════════════════════════════════════════════════ K4 出勤与线路完成
+:attendedDays a owl:DatatypeProperty ;
+    rdfs:label "出勤日数" ;
+    rdfs:domain :DriverSchedule ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "司机出了多少天勤" ;
+    :businessDescription "driver_schedule 中 status = 'attended' 的行数（谓词在 :AttendedDay）。measured: 2,894 天。请假 662 天不算出勤。口径来自 口径字典#K4。" .
+
+:scheduledDays a owl:DatatypeProperty ;
+    rdfs:label "有排班的日子（出勤率分母）" ;
+    rdfs:domain :DriverSchedule ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "排了多少个班" ;
+    :businessDescription "scheduled 为真的行数（公理 :ScheduledDay）。measured: 5,036 天 = 5,400 − 364 条 not_scheduled。分母不含没排班的日子，这是口径字典#K4 明确要求的。" .
+
+:attendanceRate a owl:DatatypeProperty ;
+    rdfs:label "出勤率" ;
+    rdfs:domain :DriverSchedule ;
+    :additivity "non-additive" ;
+    :unit "percent" ;
+    :askedAs "司机出勤率是多少" ;
+    :askedAs "K4 出勤率" ;
+    :businessDescription "attended 天数 ÷ 有排班天数 × 100。measured: 57.47%（2,894/5,036）。口径字典#K4 的目标是 ≥98% —— 实测值比目标低 40 个百分点，这是本期最刺眼的一个数，不要在报告里四舍五入掉。" .
+
+:attendanceRateByWeek a owl:DatatypeProperty ;
+    rdfs:label "出勤率（按周）" ;
+    rdfs:domain :DriverSchedule ;
+    :additivity "non-additive" ;
+    :unit "percent" ;
+    :askedAs "每周出勤率怎么走" ;
+    :businessDescription "同一出勤率按 driver_schedule.day 的 ISO 周分桶。measured: 14 个日历周桶（2026-08-01..2026-10-29；第一桶从 2026-07-27 起，因为 8/1 是周六，首末两桶不是整周）。周是日历周，不是「最近 7 天」。口径来自 口径字典#K4。" .
+
+:routeCompletedTrips a owl:DatatypeProperty ;
+    rdfs:label "计划跑完的趟次" ;
+    rdfs:domain :Trip ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "多少趟把站送完了" ;
+    :businessDescription "stops_delivered >= planned_stops 的趟数（谓词在 :RouteCompletedTrip）。measured: 3,329 趟。口径来自 口径字典#K4 的线路完成率。" .
+
+:routeCompletionRate a owl:DatatypeProperty ;
+    rdfs:label "线路完成率" ;
+    rdfs:domain :Trip ;
+    :additivity "non-additive" ;
+    :unit "percent" ;
+    :askedAs "线路完成率是多少" ;
+    :askedAs "K4 线路完成率" ;
+    :businessDescription "跑完的趟次 ÷ 趟次数 × 100。measured: 80.80%。口径字典#K4 目标 ≥98%。分母是趟次不是站点：站点总数 50,832 = planned_stops 之和，跑完的趟次里也可能少送单站。" .
+
+:routeCompletionRateByVersion a owl:DatatypeProperty ;
+    rdfs:label "线路完成率（按线路版本）" ;
+    rdfs:domain :Trip ;
+    :additivity "non-additive" ;
+    :unit "percent" ;
+    :askedAs "并线前后线路完成率差多少" ;
+    :businessDescription "同一完成率按 routes.version（v1 并线前 / v2 并线后）分组。口径来自 口径字典#K4 + answers:Q2 的版本切分。" .
+
+# ══════════════════════════════════════════════════ K5 违章与路权 (grain :Violation / :Trip)
+:violationCount a owl:DatatypeProperty ;
+    rdfs:label "交通违章条数" ;
+    rdfs:domain :Violation ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "违章多少条" ;
+    :askedAs "K5 违章数" ;
+    :businessDescription "violations 行数。measured: 245 条，涉及 59 台车。口径来自 口径字典#K5 / Excel Book1 K5 行。" .
+
+:violationCountByCategory a owl:DatatypeProperty ;
+    rdfs:label "违章类别构成" ;
+    rdfs:domain :Violation ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "违章都是哪一类" ;
+    :businessDescription "按 category 分组计数。measured: 超速 66、违停 64、闯禁行 61、疲劳驾驶 54。注意 road_zone 与限行区划不是同一套取值，所以类别是唯一的可靠切分。口径来自 口径字典#K5。" .
+
+:violationCountByVehicle a owl:DatatypeProperty ;
+    rdfs:label "违章条数（按车牌）" ;
+    rdfs:domain :Violation ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "哪台车违章最多" ;
+    :businessDescription "同一计数按 vehicles.plate 分组（violations 经 vehicle_id 挂车）。measured: 分布到 59 台车。口径来自 口径字典#K5。" .
+
+:violationFineTotal a owl:DatatypeProperty ;
+    rdfs:label "违章罚款总额" ;
+    rdfs:domain :Violation ;
+    :additivity "additive" ;
+    :unit "money" ;
+    :askedAs "罚款交了多少钱" ;
+    :businessDescription "fine_amount 求和。measured: 62,000 元（含未处理 66 条的应缴额）。口径来自 口径字典#K5。" .
+
+:coreRestrictedTrips a owl:DatatypeProperty ;
+    rdfs:label "涉及核心区限行的趟次" ;
+    rdfs:domain :Trip ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "多少趟进核心区" ;
+    :businessDescription "core_restricted 为真的趟数（公理 :CoreRestrictedTrip）。measured: 1,850 趟。这是路权违规率的分母。口径来自 口径字典#K5。" .
+
+:permitViolationTrips a owl:DatatypeProperty ;
+    rdfs:label "无有效通行证进核心区的趟次" ;
+    rdfs:domain :Trip ;
+    :additivity "additive" ;
+    :unit "count" ;
+    :askedAs "多少趟是无证进核心区" ;
+    :businessDescription "core_restricted 且 NOT permit_valid 的趟数（谓词在 :PermitViolationTrip）。measured: 1,432 趟。口径来自 口径字典#K5。" .
+
+:roadRightViolationRate a owl:DatatypeProperty ;
+    rdfs:label "路权违规率（核心区趟次中无证占比）" ;
+    rdfs:domain :Trip ;
+    :additivity "non-additive" ;
+    :unit "percent" ;
+    :askedAs "路权违规率是多少" ;
+    :askedAs "K5 路权违规率" ;
+    :businessDescription "无证进核心区趟次 ÷ 核心区趟次 × 100。measured: 77.41%（1,432/1,850）。口径字典#K5 红线 0%。分母是核心区趟次不是全部趟次——拿 1,432/4,120 会得到另一个数，那是错的。" .
+
+# ══════════════════════════════════════════════════ K6 油耗 / 维修 / TCO
+:fuelLitersTotal a owl:DatatypeProperty ;
+    rdfs:label "总油耗（升，按趟分摊）" ;
+    rdfs:domain :Trip ;
+    :additivity "additive" ;
+    :unit "liter" ;
+    :askedAs "一共烧了多少油" ;
+    :businessDescription "trips.fuel_liters 求和。measured: 32,378.10 升。它是按趟分摊的那一侧；台账一侧是 logLitersTotal，两者本期正好相等。口径来自 口径字典#K6。" .
+
+:actualKmTotal a owl:DatatypeProperty ;
+    rdfs:label "总实际里程" ;
+    rdfs:domain :Trip ;
+    :additivity "additive" ;
+    :unit "km" ;
+    :askedAs "一共跑了多少公里" ;
+    :businessDescription "trips.actual_km 求和。measured: 257,872.3 km。是每百公里油耗与每公里成本唯一的分母——不用 vehicles.total_km（含非配送里程）。口径来自 口径字典#K6。" .
+
+:fuelPer100km a owl:DatatypeProperty ;
+    rdfs:label "百公里油耗（升/100km）" ;
+    rdfs:domain :Trip ;
+    :additivity "non-additive" ;
+    :unit "liter_per_100km" ;
+    :askedAs "百公里油耗是多少" ;
+    :askedAs "K6 百公里油耗" ;
+    :businessDescription "（fuel_liters × 100）之和 ÷ actual_km 之和。measured: 12.56 升/100km。比率不是逐趟油耗的平均（重载趟与空返趟不能等权）。口径来自 口径字典#K6。" .
+
+:fuelPer100kmByWeek a owl:DatatypeProperty ;
+    rdfs:label "百公里油耗（按周）" ;
+    rdfs:domain :Trip ;
+    :additivity "non-additive" ;
+    :unit "liter_per_100km" ;
+    :askedAs "每周百公里油耗怎么走" ;
+    :businessDescription "同一比率按 trips.trip_date 的 ISO 周分桶。measured: 13 周。口径来自 口径字典#K6。" .
+
+:logLitersTotal a owl:DatatypeProperty ;
+    rdfs:label "加油台账升数" ;
+    rdfs:domain :FuelLog ;
+    :additivity "additive" ;
+    :unit "liter" ;
+    :askedAs "油卡记了多少升" ;
+    :businessDescription "fuel_logs.liters 求和。measured: 32,378.10 升（289 次加油）。与 fuelLitersTotal 是两条独立来源，两数并报才能看出对账是否成立。口径来自 口径字典#K6。" .
+
+:logAmountTotal a owl:DatatypeProperty ;
+    rdfs:label "加油台账金额" ;
+    rdfs:domain :FuelLog ;
+    :additivity "additive" ;
+    :unit "money" ;
+    :askedAs "油钱花了多少" ;
+    :businessDescription "fuel_logs.amount 求和。measured: 372,009.39 元。这是按次实付，不是按趟分摊——不要拿它去减 trips 的成本项。口径来自 口径字典#K6。" .
+
+:maintenanceCostTotal a owl:DatatypeProperty ;
+    rdfs:label "维保分摊总额（按趟）" ;
+    rdfs:domain :Trip ;
+    :additivity "additive" ;
+    :unit "money" ;
+    :askedAs "维保分摊了多少钱" ;
+    :businessDescription "trips.maintenance_cost 求和。measured: 443,109.53 元。这是分摊口径，与工单实付 maintenanceOrderCostTotal 是两个口径，本期数值相同纯属分摊按实付回填。" .
+
+:maintenanceOrderCostTotal a owl:DatatypeProperty ;
+    rdfs:label "维保工单实付总额" ;
+    rdfs:domain :MaintenanceOrder ;
+    :additivity "additive" ;
+    :unit "money" ;
+    :askedAs "维修工单花了多少钱" ;
+    :businessDescription "maintenance_orders.cost 求和。measured: 443,109.53 元（250 张工单）。对外付款的那一笔；与分摊侧并报用于对账。口径来自 口径字典#K6。" .
+
+:fixedCostTripTotal a owl:DatatypeProperty ;
+    rdfs:label "固定成本分摊总额（按趟）" ;
+    rdfs:domain :Trip ;
+    :additivity "additive" ;
+    :unit "money" ;
+    :askedAs "固定成本分摊了多少" ;
+    :businessDescription "trips.fixed_cost 求和。measured: 3,014,690.83 元。TCO 的分子用这一侧（按趟分摊）。口径来自 口径字典#K6。" .
+
+:fixedCostDeclaredTotal a owl:DatatypeProperty ;
+    rdfs:label "固定成本年度申报总额" ;
+    rdfs:domain :VehicleFixedCost ;
+    :additivity "additive" ;
+    :unit "money" ;
+    :askedAs "车辆固定成本一年多少" ;
+    :businessDescription "vehicle_fixed_costs 四项（insurance + depreciation + road_tax + inspection）求和。measured: 3,014,690.57 元（180 条车辆年度记录）。与 fixedCostTripTotal 差 0.26 元 —— 分摊侧的舍入差，不是缺数。口径来自 口径字典#K6。" .
+
+:tcoPerKm a owl:DatatypeProperty ;
+    rdfs:label "每公里全成本（TCO/公里）" ;
+    rdfs:domain :Trip ;
+    :additivity "non-additive" ;
+    :unit "money_per_km" ;
+    :askedAs "每公里成本多少" ;
+    :askedAs "K6 每公里成本" ;
+    :businessDescription "（cost_total + maintenance_cost + fixed_cost）之和 ÷ 同一批趟的 actual_km 之和，范围限 :FullCostTrip。measured: 21.70 元/km（5,513,421.06 ÷ 254,074.8，覆盖 4,055/4,120 趟）。==这不是全车队口径==：65 趟的 maintenance_cost 为空被排除，把它们当 0 计入会得到 21.38，那是把一个未记录的维保费用当成「没有维修」。三项都必须来自 trips 的按趟分摊列，不能拿工单实付或年度申报值混进来。口径来自 口径字典#K6。" .
+
+# 比率分子（助手指标）：声明出来是为了让「百公里油耗」只有一个分母口径，不让每一页各写一遍。
+:fuelHundredLitersKm a owl:DatatypeProperty ;
+    rdfs:label "油耗×100 求和（百公里油耗的分子）" ;
+    rdfs:domain :Trip ;
+    :additivity "additive" ;
+    :unit "liter" ;
+    :askedAs "百公里油耗的分子是多少" ;
+    :businessDescription "Sum(fuel_liters × 100)，只作为 fuelPer100km 的分子存在，不能单独展示成业务量。measured: 3,237,810.00（升×100）。口径来自 口径字典#K6。" .
+
+:tcoCostSum a owl:DatatypeProperty ;
+    rdfs:label "趟次三项成本之和（TCO 的分子）" ;
+    rdfs:domain :Trip ;
+    :additivity "additive" ;
+    :unit "money" ;
+    :askedAs "每公里成本的分子是多少" ;
+    :businessDescription "Sum(cost_total + maintenance_cost + fixed_cost)。三项都是 trips 上的按趟分摊列；只作为 tcoPerKm 的分子存在。measured: 5,602,773.22 元。口径来自 口径字典#K6。" .
+
+:actualKmCosted a owl:DatatypeProperty ;
+    rdfs:label "可算 TCO 的趟次里程" ;
+    rdfs:domain :Trip ;
+    :additivity "additive" ;
+    :unit "km" ;
+    :askedAs "TCO 覆盖了多少公里" ;
+    :businessDescription "Sum(actual_km) 限 :FullCostTrip（三项成本都非空的那批趟）。measured: 254,074.8 km，覆盖 4,055/4,120 趟。与 actualKmTotal（257,872.3 km）不是同一个分母，不可互换。口径来自 口径字典#K6。" .
+
