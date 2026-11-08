@@ -1,0 +1,9 @@
+{
+ "_doc": "the numbers new_coldchain had BEFORE gen_kpi_extension; --check asserts they still hold. Measured 2026-11-08, before the 7 tables and 6 columns were added.",
+ "stops": {"n": 50832, "on_time": 48085, "damaged_boxes": 8144},
+ "trips": {"n": 4120, "revenue": 4423204.39, "cost_total": 2144972.86},
+ "trip_costs": {"n": 4120, "fuel": 372009.39, "toll": 100700.56, "driver_pay": 649560.0, "handler": 396744.0, "external": 625958.91},
+ "complaints": {"n": 1585, "unjudged": 731, "amount": 543309.02},
+ "dispatch": {"n": 2620, "adopted": 2036},
+ "refusals": 389
+}

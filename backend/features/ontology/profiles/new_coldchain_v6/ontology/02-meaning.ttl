@@ -72,3 +72,16 @@
     owl:equivalentClass [ owl:intersectionOf ( :Trip [ a owl:Restriction ;
         owl:onProperty :tripIsExternal ; owl:hasValue false ] ) ] ;
     :businessDescription "自有司机承运的趟次；与外车趟次互斥且相加为全部趟次。" .
+
+# ─────────────────────────────────────────────────────────── KPI 扩展的口径（03-kpi-extension）
+# 只有这一个概念需要 join：其它阈值的判断都写在指标的 :formula 里（CASE WHEN …），
+# 因为 :physicalPredicate 靠列的归属类去挑表，而 planned_stops / status 这类列名在两张表上都有，
+# 一个「看起来能编译」的谓词会挑错表。列名含糊时，写在 formula 里比写成谓词安全。
+
+:TripsWithIncident a owl:Class ; rdfs:label "有上报异常工单的趟次" ;
+    owl:equivalentClass [ owl:intersectionOf (
+        :Trip
+        [ a owl:Restriction ;
+          owl:onProperty :ticketsOf ;
+          owl:someValuesFrom :IncidentTicket ] ) ] ;
+    :businessDescription "∃:ticketsOf.(:IncidentTicket) 且是 :Trip —— 谓词由公理编译成 EXISTS (SELECT 1 FROM incident_tickets WHERE trip_id = trips.id)，不是手写 SQL。口径来自 DEMO案例.xlsx K2（异常率 = 异常趟次 ÷ 总趟次），但这张表只记「上报了的」，所以它算出的 2.6% 是上报口径，不是实际异常率（实际约 80.9%，见 :tempExcursionRate 与 :damagedStopRate）。两个数必须同时报，否则「异常率 2.6%」会把人骗过去。" .

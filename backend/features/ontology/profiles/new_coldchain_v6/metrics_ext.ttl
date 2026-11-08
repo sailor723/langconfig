@@ -201,3 +201,190 @@
     :aggregate "sum" ; :formula "revenue" ; :grain :Trip ; :universe :Trip ;
     :groupBy :tripRouteVersion ; :groupBy :tripIsPeakDay ; :unit "RMB" ;
     :businessDescription "运费收入按并线版本 × 高峰/平日切成四块，树图每块面积就是这一格的钱。（refused: 平台历史声明，业务出处待补）" .
+
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+# KPI 扩展：三份 Excel 的六类指标（运输运营核心指标口径字典 / Book1 / DEMO案例 K1–K6）
+#
+# 口径来源一律写在 :businessDescription 里（C5b），每个指标都有 :askedAs（C5a）。
+# 阈值的判断写成 :formula 的 CASE WHEN，而不是 :physicalPredicate —— 谓词按列名归属类挑表，
+# 而 planned_stops（trips 与 routes 都有）、status（trips/vehicles/drivers 都有）会挑错表。
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+
+# ── K2 异常率（上报口径 + 实际口径，两个数）─────────────────────────────────────────────
+:incidentCount a owl:DatatypeProperty ; rdfs:label "异常工单数" ; :askedAs "异常工单数" ; rdfs:domain :IncidentTicket ;
+    :aggregate "count" ; :grain :IncidentTicket ; :universe :IncidentTicket ; :unit "count" ;
+    :businessDescription "上报了的异常工单条数（107）。口径来自 DEMO案例.xlsx K2 与 口径字典『配送异常率』。它是「被记录的」，不等于「发生的」。" .
+
+:incidentTrips a owl:DatatypeProperty ; rdfs:label "有上报异常的趟次" ; :askedAs "有上报异常的趟次" ; rdfs:domain :Trip ;
+    :aggregate "count" ; :grain :Trip ; :universe :Trip ; :where :TripsWithIncident ; :unit "count" ;
+    :businessDescription "至少有一张异常工单的趟次（107/4,120）。口径来自 DEMO案例.xlsx K2 的分子。" .
+
+:incidentRate a owl:DatatypeProperty ; rdfs:label "异常率（上报口径）" ; :askedAs "异常率（上报口径）" ; rdfs:domain :Trip ;
+    :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
+    :numerator :incidentTrips ; :denominator :tripCount ; :unit "ratio" ;
+    :businessDescription "上报异常趟次 ÷ 总趟次 = 2.60%。口径来自 DEMO案例.xlsx K2（目标 ≤3%），所以它「达标」——而同样的数据里 80.9% 的趟次至少有一个站点倒温或破损。达标是上报口径的达标，不是服务的达标。" .
+
+:incidentCountByType a owl:DatatypeProperty ; rdfs:label "按类型看异常工单数" ; :askedAs "按类型看异常工单数" ; rdfs:domain :IncidentTicket ;
+    :aggregate "count" ; :grain :IncidentTicket ; :universe :IncidentTicket ; :groupBy :ticketType ; :unit "count" ;
+    :businessDescription "破损 74 / 倒温 16 / 超时 13 / 拒收 4。口径来自 口径字典『异常类型分拆成分项率』与 Book1『分类异常率』。" .
+
+:incidentCountByResponsibleParty a owl:DatatypeProperty ; rdfs:label "按责任方看异常工单数" ; :askedAs "按责任方看异常工单数" ; rdfs:domain :IncidentTicket ;
+    :aggregate "count" ; :grain :IncidentTicket ; :universe :IncidentTicket ; :groupBy :ticketResponsibleParty ; :unit "count" ;
+    :businessDescription "承运 70 / 不可抗力 19 / 客户 18。口径来自 口径字典『责任方(enum: 承运/客户/不可抗力)』。" .
+
+:tempExcursionStops a owl:DatatypeProperty ; rdfs:label "倒温站点数" ; :askedAs "倒温站点数" ; rdfs:domain :Stop ;
+    :aggregate "sum" ; :formula "CASE WHEN temp_excursion THEN 1 ELSE 0 END" ; :grain :Stop ; :universe :Stop ; :unit "count" ;
+    :businessDescription "温度越限的站点（1,148）。口径来自 DEMO案例.xlsx K2 的『倒温』一项（实测口径，不是上报口径）。" .
+
+:tempExcursionRate a owl:DatatypeProperty ; rdfs:label "倒温站点率" ; :askedAs "倒温站点率" ; rdfs:domain :Stop ;
+    :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ;
+    :numerator :tempExcursionStops ; :denominator :stopCount ; :unit "ratio" ;
+    :businessDescription "倒温站点 ÷ 全部站点 = 2.26%。与 :incidentRate 的 2.60% 恰好接近是巧合：一个是站点级的实测，一个是趟级的上报，两者没有换算关系。" .
+
+:damagedStops a owl:DatatypeProperty ; rdfs:label "破损站点数" ; :askedAs "破损站点数" ; rdfs:domain :Stop ;
+    :aggregate "sum" ; :formula "CASE WHEN damaged_boxes > 0 THEN 1 ELSE 0 END" ; :grain :Stop ; :universe :Stop ; :unit "count" ;
+    :businessDescription "至少一箱破损的站点。口径来自 Book1『货损的发生比例』与 口径字典『破损』。" .
+
+:damagedStopRate a owl:DatatypeProperty ; rdfs:label "破损站点率" ; :askedAs "破损站点率" ; :domain :Stop ;
+    :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ;
+    :numerator :damagedStops ; :denominator :stopCount ; :unit "ratio" ;
+    :businessDescription "破损站点 ÷ 全部站点。分子分母同在 Stop 粒度，分组后仍可加权回到整体。口径来自 Book1『分类异常率 = 某类异常数 ÷ 总站次数』。" .
+
+# ── K3 超载与站点超标 ────────────────────────────────────────────────────────────────
+:overloadedByVolumeTrips a owl:DatatypeProperty ; rdfs:label "体积超载趟次" ; :askedAs "体积超载趟次" ; rdfs:domain :Trip ;
+    :aggregate "sum" ; :formula "CASE WHEN load_volume > volume_capacity_snapshot THEN 1 ELSE 0 END" ;
+    :grain :Trip ; :universe :Trip ; :unit "count" ;
+    :businessDescription "装载体积超过派车快照的趟次（1,229）。口径来自 Book1『单趟超载（重量/体积/箱数超限）』：三条口径分别比，任一条超了就是超载。" .
+
+:overloadRateByVolume a owl:DatatypeProperty ; rdfs:label "体积超载率" ; :askedAs "体积超载率" ; rdfs:domain :Trip ;
+    :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
+    :numerator :overloadedByVolumeTrips ; :denominator :tripCount ; :unit "ratio" ;
+    :businessDescription "体积超载趟次 ÷ 总趟次 = 29.83%。重量口径是 29.49%（:overloadRate）—— 两条口径差 0.3 个百分点，说明「哪条口径为准」不是学术问题。口径来自 Book1。" .
+
+:overloadedByBoxesTrips a owl:DatatypeProperty ; rdfs:label "箱数超载趟次" ; :askedAs "箱数超载趟次" ; rdfs:domain :Trip ;
+    :aggregate "sum" ; :formula "CASE WHEN load_boxes > box_capacity_snapshot THEN 1 ELSE 0 END" ;
+    :grain :Trip ; :universe :Trip ; :unit "count" ;
+    :businessDescription "装载筐数超过派车快照的趟次（1,253）。口径来自 Book1 的箱数口径。" .
+
+:overloadRateByBoxes a owl:DatatypeProperty ; rdfs:label "箱数超载率" ; :askedAs "箱数超载率" ; rdfs:domain :Trip ;
+    :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
+    :numerator :overloadedByBoxesTrips ; :denominator :tripCount ; :unit "ratio" ;
+    :businessDescription "箱数超载趟次 ÷ 总趟次 = 30.41%。三条口径里它最高 —— 周转筐先到极限，是装载能力最紧的那一条。口径来自 Book1。" .
+
+:overStopTrips a owl:DatatypeProperty ; rdfs:label "站点超阈值趟次" ; :askedAs "站点超阈值趟次" ; rdfs:domain :Trip ;
+    :aggregate "sum" ; :formula "CASE WHEN planned_stops > 15 THEN 1 ELSE 0 END" ;
+    :grain :Trip ; :universe :Trip ; :unit "count" ;
+    :businessDescription "计划站数 > 15 的趟次（760）。阈值取 15 是声明，不是数据：并线前 v1 平均 10.46 站、并线后 v2 平均 15.55 站，15 站正是「并线后的一趟」的门槛。口径来自 口径字典『站点数超过阈值』（阈值由本声明给出，业务可改）。" .
+
+:overStopRate a owl:DatatypeProperty ; rdfs:label "站点超标率" ; :askedAs "站点超标率" ; rdfs:domain :Trip ;
+    :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
+    :numerator :overStopTrips ; :denominator :tripCount ; :unit "ratio" ;
+    :businessDescription "站点超阈值趟次 ÷ 总趟次 = 18.45%。改阈值只需改 :overStopTrips 的 formula，不用改数据。口径来自 口径字典。" .
+
+:weightUtilizationAvg a owl:DatatypeProperty ; rdfs:label "平均载重利用率" ; :askedAs "平均载重利用率" ; rdfs:domain :Trip ;
+    :aggregate "avg" ; :formula "load_weight::numeric / weight_capacity_snapshot" ; :grain :Trip ; :universe :Trip ; :unit "ratio" ;
+    :businessDescription "每趟载重 ÷ 该趟冻结的载重能力，再对趟次平均。超载幅度 =（实载 − 额定）÷ 额定，就是它减 1 —— 但它对欠载与超载一视同仁，所以超载率仍要单独报。口径来自 口径字典『超载幅度』。" .
+
+# ── K4 出勤与线路完成率 ──────────────────────────────────────────────────────────────
+:attendedDays a owl:DatatypeProperty ; rdfs:label "实际出勤日" ; :askedAs "实际出勤日" ; rdfs:domain :DriverSchedule ;
+    :aggregate "sum" ; :formula "CASE WHEN status = 'attended' THEN 1 ELSE 0 END" ;
+    :grain :DriverSchedule ; :universe :DriverSchedule ; :unit "days" ;
+    :businessDescription "司机真的出车的司机日（2,894）。口径来自 口径字典『出勤率 = 实际出勤天数 ÷ 应出勤天数』与 DEMO案例.xlsx K4。" .
+
+:scheduledDays a owl:DatatypeProperty ; rdfs:label "应出勤日" ; :askedAs "应出勤日" ; rdfs:domain :DriverSchedule ;
+    :aggregate "sum" ; :formula "CASE WHEN scheduled THEN 1 ELSE 0 END" ;
+    :grain :DriverSchedule ; :universe :DriverSchedule ; :unit "days" ;
+    :businessDescription "排班表认定的应出勤司机日（5,036 = 5,400 − 364 个无人出车的周日）。这个分母不在趟次里 —— 趟次只能证明「出了」，证明不了「该出」。口径来自 口径字典。" .
+
+:attendanceRate a owl:DatatypeProperty ; rdfs:label "出勤率" ; :askedAs "出勤率" ; rdfs:domain :DriverSchedule ;
+    :aggregate "ratio_of_sums" ; :grain :DriverSchedule ; :universe :DriverSchedule ;
+    :numerator :attendedDays ; :denominator :scheduledDays ; :unit "ratio" ;
+    :businessDescription "实际出勤 ÷ 应出勤 = 57.47%。这个数远低于 DEMO案例.xlsx K4 的 ≥98% 目标：本库的带车加盟司机没有保底收入，闲置时多数选择休息，所以 29% 的应出勤日记为『休息/私人事务』。它是这条业务上一个真实的缺口，不是数据缺陷。" .
+
+:completedTrips a owl:DatatypeProperty ; rdfs:label "送全的趟次" ; :askedAs "送全的趟次" ; rdfs:domain :Trip ;
+    :aggregate "sum" ; :formula "CASE WHEN stops_delivered >= planned_stops THEN 1 ELSE 0 END" ;
+    :grain :Trip ; :universe :Trip ; :unit "count" ;
+    :businessDescription "所有计划站点都送达的趟次（3,330）。判定靠 trips.stops_delivered（冻结的送达站数，I9 保证它等于 stops 里 delivered 的站数），所以不跨表计数。口径来自 Book1『线路完成率 = 实际完成站点数 ÷ 计划站点数』的趟次级写法。" .
+
+:lineCompletionRate a owl:DatatypeProperty ; rdfs:label "线路完成率" ; :askedAs "线路完成率" ; rdfs:domain :Trip ;
+    :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
+    :numerator :completedTrips ; :denominator :tripCount ; :unit "ratio" ;
+    :businessDescription "送全的趟次 ÷ 总趟次 = 80.83%，对 DEMO案例.xlsx K4 的 ≥98% 是红灯。这个指标在扩展之前恒等于 100%（actual_stops 每趟都等于 planned_stops），是一个「永远不会失败」的假 KPI；把它做成能红的能力，来自 stops.service_status 这一列。" .
+
+:deliveredStops a owl:DatatypeProperty ; rdfs:label "送达站点数" ; :askedAs "送达站点数" ; rdfs:domain :Stop ;
+    :aggregate "sum" ; :formula "CASE WHEN service_status = 'delivered' THEN 1 ELSE 0 END" ;
+    :grain :Stop ; :universe :Stop ; :unit "count" ;
+    :businessDescription "真正送达的站点（49,927/50,832）。与 :stopCount 的差 = 拒收 412 + 门店关门 274 + 未送 219。口径来自 Book1 的站点级写法。" .
+
+:deliveredStopRate a owl:DatatypeProperty ; rdfs:label "站点送达率" ; :askedAs "站点送达率" ; rdfs:domain :Stop ;
+    :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ;
+    :numerator :deliveredStops ; :denominator :stopCount ; :unit "ratio" ;
+    :businessDescription "送达站点 ÷ 全部站点 = 98.22%。站点级 98.2% 与趟级 80.8% 并不矛盾：一趟挂了 12 个站，只要错 1 站，这趟就算没完成，站点率却只掉 1/12 —— 这正是「按趟看」与「按站看」必须并列的原因。口径来自 Book1。" .
+
+# ── K5 违章与路权 ────────────────────────────────────────────────────────────────────
+:violationCount a owl:DatatypeProperty ; rdfs:label "违章次数" ; :askedAs "违章次数" ; rdfs:domain :Violation ;
+    :aggregate "count" ; :grain :Violation ; :universe :Violation ; :unit "count" ;
+    :businessDescription "交管违章记录条数（245）。口径来自 Book1『违章次数（按司机/车辆）』与 口径字典『交通违章率』。" .
+
+:violationCountByCategory a owl:DatatypeProperty ; rdfs:label "按类型看违章次数" ; :askedAs "按类型看违章次数" ; rdfs:domain :Violation ;
+    :aggregate "count" ; :grain :Violation ; :universe :Violation ; :groupBy :violationCategory ; :unit "count" ;
+    :businessDescription "超速 66 / 违停 64 / 闯禁行 61 / 疲劳驾驶 54。闯禁行和路权相关，超速与疲劳是驾驶行为 —— 两类的整改手段不同。口径来自 口径字典。" .
+
+:violationPointsTotal a owl:DatatypeProperty ; rdfs:label "违章扣分合计" ; :askedAs "违章扣分合计" ; rdfs:domain :Violation ;
+    :aggregate "sum" ; :formula "points" ; :grain :Violation ; :universe :Violation ; :unit "points" ;
+    :businessDescription "扣分合计 705。扣分记在司机身上、罚款记在车队身上，不能相加也不能互换。口径来自 口径字典『扣分(int)』。" .
+
+:violationFineTotal a owl:DatatypeProperty ; rdfs:label "违章罚款合计" ; :askedAs "违章罚款合计" ; :domain :Violation ;
+    :aggregate "sum" ; :formula "fine_amount" ; :grain :Violation ; :universe :Violation ; :unit "RMB" ;
+    :businessDescription "罚款合计 62,000 元。口径来自 口径字典『罚款金额(currency)』。" .
+
+:violationsPerTenThousandKm a owl:DatatypeProperty ; rdfs:label "每万公里违章率" ; :askedAs "每万公里违章率" ; rdfs:domain :Violation ;
+    :aggregate "ratio_of_sums" ; :grain :Violation ; :universe :Violation ;
+    :numerator :violationCount ; :denominator :kmTotal ; :unit "per 10,000 km" ;
+    :businessDescription "**这条会拒绝**：分子在 Violation 粒度，分母 :kmTotal 在 Trip 粒度，跨粒度相除会得到一个假数（一趟违章的车和一公里都不开的车会混在一起）。缺的声明是「违章粒度上的里程列」。两个半边都已声明（:violationCount 与 :kmTotal），所以这个数在报表层可以算，但在本体里必须拒绝而不是猜。口径来自 口径字典『违章率 = 违章起数 ÷ 总行驶里程（万公里）』。" .
+
+:kmTotal a owl:DatatypeProperty ; rdfs:label "行驶里程合计" ; :askedAs "行驶里程合计" ; rdfs:domain :Trip ;
+    :aggregate "sum" ; :formula "actual_km" ; :grain :Trip ; :universe :Trip ; :unit "km" ;
+    :businessDescription "实际行驶里程合计 257,872 km（均值 62.6 km/趟）。百公里油耗、每万公里违章率、单公里成本三者共同的分母。口径来自 口径字典『行驶里程(km)』。" .
+
+:permitExpiredCount a owl:DatatypeProperty ; rdfs:label "已失效通行证数" ; :askedAs "已失效通行证数" ; rdfs:domain :ZonePermit ;
+    :aggregate "sum" ; :formula "CASE WHEN valid_to < DATE '2026-10-29' THEN 1 ELSE 0 END" ;
+    :grain :ZonePermit ; :universe :ZonePermit ; :unit "count" ;
+    :businessDescription "在观察窗结束前就失效的通行证（8/20：2 张并线日到期未续、6 张是更早的旧证）。口径来自 口径字典『路权合规率 = 有有效通行证车辆数 ÷ 进入限行区车辆数』里的有效性一半；按日期判定是这一列存在的全部理由。" .
+
+# ── K6 油耗、维修与 TCO ──────────────────────────────────────────────────────────────
+:fuelLitersX100 a owl:DatatypeProperty ; rdfs:label "燃油升数×100" ; :askedAs "燃油升数×100" ; rdfs:domain :Trip ;
+    :aggregate "sum" ; :formula "fuel_liters * 100" ; :grain :Trip ; :universe :Trip ; :unit "L" ;
+    :businessDescription "比率的分子；乘 100 是为了把「每百公里」做成一个可编译的比率，而不是在被除以后移小数点。口径来自 口径字典『百公里油耗 = 加油量 ÷ 行驶里程 × 100』。" .
+
+:fuelLitersPer100km a owl:DatatypeProperty ; rdfs:label "百公里油耗" ; :askedAs "百公里油耗" ; rdfs:domain :Trip ;
+    :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
+    :numerator :fuelLitersX100 ; :denominator :kmTotal ; :unit "L/100km" ;
+    :businessDescription "燃油升数 ÷ 里程 × 100 = 12.56 L/100km。它是**牵引油耗**：本库的 fuel_cost 桶含冷机用油，折算单价 11.49 元/L 高于油枪价，所以含冷机的全口径油耗约 24 L/100km。对照 DEMO案例.xlsx K6 的 11–13 L/100km（8T 城配）与 ≤22.5（12T），必须说清比的是哪一半。" .
+
+:maintenanceCostTotal a owl:DatatypeProperty ; rdfs:label "维修成本合计（分摊）" ; :askedAs "维修成本合计（分摊）" ; rdfs:domain :Trip ;
+    :aggregate "sum" ; :formula "maintenance_cost" ; :grain :Trip ; :universe :Trip ; :unit "RMB" ;
+    :businessDescription "按公里分摊到趟次的维修成本（443,110 元）。按车合计与 :maintenanceOrderCost 相等（I5），所以它是可对账的分摊值。口径来自 DEMO案例.xlsx K6『单趟燃油/电耗+维修保养费用』。" .
+
+:maintenanceOrderCost a owl:DatatypeProperty ; rdfs:label "维修工单金额" ; :askedAs "维修工单金额" ; rdfs:domain :MaintenanceOrder ;
+    :aggregate "sum" ; :formula "cost" ; :grain :MaintenanceOrder ; :universe :MaintenanceOrder ; :unit "RMB" ;
+    :businessDescription "维修工单原始金额（443,110 元，250 张）。与分摊值是两个粒度：一个是会计的事实，一个是趟次的分母。口径来自 口径字典『维修总费用』。" .
+
+:variableCostTotal a owl:DatatypeProperty ; rdfs:label "变动成本合计" ; :askedAs "变动成本合计" ; rdfs:domain :Trip ;
+    :aggregate "sum" ; :formula "cost_total + maintenance_cost" ; :grain :Trip ; :universe :Trip ; :unit "RMB" ;
+    :businessDescription "已知趟次成本 + 分摊维修成本（2,588,083 元）。trip_costs.other_cost 整列为空，所以这仍是下限。口径来自 口径字典『期间总成本』的变动部分。" .
+
+:variableCostPerKm a owl:DatatypeProperty ; rdfs:label "单公里变动成本" ; :askedAs "单公里变动成本" ; rdfs:domain :Trip ;
+    :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
+    :numerator :variableCostTotal ; :denominator :kmTotal ; :unit "RMB/km" ;
+    :businessDescription "变动成本 ÷ 里程 = 10.04 元/km。折合每公里收入 17.15 元（:tripRevenue ÷ :kmTotal），毛利空间 7.11 元/km。**它不是 TCO**：保险、折旧、车船税、年检不在这个数里（见 :fixedCostMonthly），所以不要在报价场合把它当全成本。口径来自 口径字典『单公里总运营成本』的变动部分。" .
+
+:fixedCostMonthly a owl:DatatypeProperty ; rdfs:label "固定成本合计（月）" ; :askedAs "固定成本合计（月）" ; rdfs:domain :VehicleFixedCost ;
+    :aggregate "sum" ; :formula "insurance + depreciation + road_tax + inspection" ;
+    :grain :VehicleFixedCost ; :universe :VehicleFixedCost ; :unit "RMB" ;
+    :businessDescription "保险 + 折旧 + 车船税 + 年检，3 个月合计 3,014,691 元（约 16,748 元/车·月）。停驶也照付，所以它是「不敢换车」的成本来源。口径来自 口径字典『折旧/保险/人工分摊』与 DEMO案例.xlsx K6。" .
+
+:fixedCostByPeriod a owl:DatatypeProperty ; rdfs:label "按期间看固定成本" ; :askedAs "按期间看固定成本" ; rdfs:domain :VehicleFixedCost ;
+    :aggregate "sum" ; :formula "insurance + depreciation + road_tax + inspection" ;
+    :grain :VehicleFixedCost ; :universe :VehicleFixedCost ; :groupBy :fixedCostPeriod ; :unit "RMB" ;
+    :businessDescription "同一条固定成本按 2026-08 / 09 / 10 三个月切开，用来验证分摊不随期间跳变。口径来自 口径字典『同一指标跨周期对比时须保持周期一致』。" .
