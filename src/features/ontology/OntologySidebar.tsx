@@ -87,28 +87,32 @@ export default function OntologySidebar() {
           // the KEY decides the open row (see profileIsActive): comparing urls highlighted every row
           // that shared one, which after same-origin serving was most of them.
           const active = profileIsActive(p, s);
+          // HOVER IS NOT "OPEN", and it is now the smallest thing that can still be read: the NAME
+          // underlines and takes the accent colour, nothing else moves.
+          //
+          // Reported from the deployment: hovering looked like a second selection, because a hovered
+          // row got the same tint, the same expansion and the same word ("sections") as the open one.
+          // The open row keeps the whole signal — accent bar, selected background, bold accent name, a
+          // filled marker and the section list; a hovered row changes ONE property of ONE element.
+          const preview = !active && peek === p.key;
           const up = probe?.status === 'up';
           return (
             <div
               key={p.key}
-              // data-* so the hover expansion can be asserted from a test without guessing
-              // at DOM shape: data-peek flips while the pointer is on the row.
+              // data-* so the difference can be asserted from a test without guessing at DOM shape:
+              // data-open is "this is the ontology that is open", data-peek flips while hovered.
               data-ontology-row={p.key}
-              data-peek={peek === p.key ? '1' : '0'}
+              data-open={active ? '1' : '0'}
+              data-peek={preview ? '1' : '0'}
               style={{
                 padding: '6px 10px',
+                // no hover tint: only the open row is filled, so "filled" means exactly one thing
                 background: active ? t.bgSelected : 'transparent',
                 borderLeft: `2px solid ${active ? t.accent : 'transparent'}`,
                 cursor: 'pointer',
               }}
-              onMouseEnter={e => {
-                if (!active) e.currentTarget.style.background = t.bgHover;
-                setPeek(p.key);
-              }}
-              onMouseLeave={e => {
-                if (!active) e.currentTarget.style.background = 'transparent';
-                setPeek(null);
-              }}
+              onMouseEnter={() => setPeek(p.key)}
+              onMouseLeave={() => setPeek(null)}
               onFocus={() => setPeek(p.key)}
               onBlur={() => setPeek(null)}
               onClick={async () => {
@@ -124,23 +128,43 @@ export default function OntologySidebar() {
                     background: up ? '#12805c' : probe?.status === 'down' ? '#c2410c' : t.textDim,
                   }}
                 />
-                <span style={{ fontSize: 12.5, fontWeight: active ? 600 : 500, color: t.textPrimary }}>
+                <span style={{
+                  fontSize: 12.5,
+                  fontWeight: active ? 700 : 500,
+                  // the accent colour is legible on both the dark and the light theme's selected tint
+                  // (white text is not: the light themes select onto a pale background)
+                  color: (active || preview) ? t.accent : t.textPrimary,
+                  // hover = under the pointer: the name underlines. The open row is bold and filled, so
+                  // the two never read as the same state.
+                  textDecoration: preview ? 'underline' : 'none',
+                  textUnderlineOffset: 2,
+                }}>
                   {p.label}
                 </span>
                 {probe?.status === 'unknown' && <Loader2 size={10} className="animate-spin" />}
-                <span style={{ marginLeft: 'auto', fontSize: 11, color: t.textDim }}>
-                  {up && probe?.counts ? `${probe.counts.metrics} m · ${probe.counts.objects} o` : ''}
+                <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  {active && <span title="this is the open ontology"
+                                  style={{ width: 5, height: 5, borderRadius: 999, background: t.accent }} />}
+                  <span style={{ fontSize: 11, color: t.textDim }}>
+                    {up && probe?.counts ? `${probe.counts.metrics} m · ${probe.counts.objects} o` : ''}
+                  </span>
                 </span>
               </div>
               <div style={{ fontSize: 11, color: t.textDim, marginTop: 2, lineHeight: 1.45 }}>
                 {p.profile || p.key}
               </div>
-              {/* The sections of the selected ontology. The framed page carries no rail of its own;
-                  this list is the navigation, and it lives under the ontology it belongs to. */}
-              {(active || peek === p.key) && up && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginTop: 5, paddingLeft: 12 }}>
+              {/* The sections of the OPEN ontology. The framed page carries no rail of its own; this
+                  list is the navigation, and it lives under the ontology it belongs to. A hovered row
+                  does NOT expand it: expanding was what made hovering read as a selection. */}
+              {active && up && (
+                <div style={{
+                  display: 'flex', flexDirection: 'column', gap: 1, marginTop: 5, paddingLeft: 12,
+                  borderLeft: `1px solid ${t.border}`,
+                }}>
                   <span style={{ fontSize: 9.5, letterSpacing: 0.5, textTransform: 'uppercase',
-                                 color: t.textDim, marginTop: 2 }}>sections</span>
+                                 color: t.textDim, marginTop: 2 }}>
+                    sections
+                  </span>
                   <button
                     onClick={async e => {
                       e.stopPropagation();
