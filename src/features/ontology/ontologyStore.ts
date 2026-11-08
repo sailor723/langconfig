@@ -494,6 +494,13 @@ export const ontology = {
         ? served.map((x: any) => ({
             key: String(x.key), label: String(x.label), path: String(x.path),
             hint: String(x.hint || ''), enabled: x.enabled !== false,
+            // KEEP the kind. Dropping it made the server's own dashboard entry arrive as
+            // `undefined`, mergeSections turned that into 'workbench', and because the server
+            // already lists key 'dashboard' the app's `kind: 'app'` entry was never merged back.
+            // Symptom: clicking Dashboard navigated to /ontology/app?view=dashboard, which
+            // frames /api/ontology/{key}/page/dashboard and 404s ("no page 'dashboard'") —
+            // while the route /ontology/dashboard worked.
+            kind: (x.kind === 'app' ? 'app' : 'workbench') as 'app' | 'workbench',
           }))
         : SECTIONS.map(x => ({ ...x, enabled: true }));
       const with_app = mergeSections(emit_sections);
