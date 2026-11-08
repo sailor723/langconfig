@@ -103,6 +103,7 @@ CONFIG = {
     # a build writes several TTL files plus a profile; truncation here loses a declaration, not prose
     "max_tokens": 16384,
     "reasoning_effort": "medium",
+    "recursion_limit": 1000,   # a build is many supersteps; LangGraph defaults to 150 and a v6 build hit it mid-ladder
     "system_prompt": SYSTEM_PROMPT,
     # `read_any_file` so a user-supplied brief/spec (PDF/DOCX/PPTX) can be read from upload/, not guessed at.
     # `execute` runs the skill's scripts (introspect_db.py / scaffold_ttl.py / check_ontology.py) and psql.

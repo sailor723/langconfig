@@ -61,6 +61,7 @@ export default function BuildChatPanel({ ontologyKey, onClose }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [refreshedAt, setRefreshedAt] = useState<string>('');
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [values, setValues] = useState<Record<string, any>>({});
   const [armed, setArmed] = useState<string | null>(null);
@@ -75,12 +76,19 @@ export default function BuildChatPanel({ ontologyKey, onClose }: {
       const res: any = await apiClient.get(`/api/ontology/${encodeURIComponent(ontologyKey)}/build/state`);
       setInfo(res?.data as Pinned);
       setProposals(((res?.data as any)?.staged || []) as Proposal[]);
+      setRefreshedAt(new Date().toLocaleTimeString());
       setInfoError(null);
     } catch (e: any) {
       setInfoError(String(e?.response?.data?.detail || e?.message || e));
     }
   }, [ontologyKey]);
   useEffect(() => { void loadState(); }, [loadState]);
+  // A build writes artifacts BETWEEN turns, so a panel that only refreshes after its own turn sits
+  // there looking frozen while the agent works. Poll the state file every 15 s; it is two cheap GETs.
+  useEffect(() => {
+    const timer = window.setInterval(() => { void loadState(); }, 15_000);
+    return () => window.clearInterval(timer);
+  }, [loadState]);
 
   /** Which numbers would move — the reviewer's question before an apply, so it travels with it. */
   const showValues = async (id: string) => {
@@ -199,7 +207,15 @@ export default function BuildChatPanel({ ontologyKey, onClose }: {
             <span style={{ color: t.textDim }}> · {info.agent.name}</span>
           </span>
         )}
-        <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: t.textDim }}>
+        {refreshedAt && (
+          <span style={{ ...mono, fontSize: 10.5, color: t.textDim }}>刷新于 {refreshedAt}</span>
+        )}
+        <button onClick={() => void loadState()} title="重新读一遍产物 / 提案 / 文档清单"
+                style={{ marginLeft: 'auto', background: 'none', border: `1px solid ${t.border}`, borderRadius: 6,
+                         padding: '2px 7px', cursor: 'pointer', color: t.textDim, fontSize: 10.5 }}>
+          刷新
+        </button>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textDim }}>
           <X size={15} />
         </button>
       </div>
