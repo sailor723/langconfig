@@ -418,7 +418,15 @@ def builders(db: Optional[Session] = None) -> list[dict]:
                 continue                       # the editor edits; it does not build a dataset
             workbench = cfg.get("workbench") or {}
             profile_file = workbench.get("profile_file") or ""
-            key = profile_file.replace("_settings.json", "") if profile_file else str(datasource)
+            # Which ONTOLOGY this agent builds is declared by the agent, not inferred from its
+            # datasource: a second builder on the SAME database is the normal way to start a fresh
+            # ontology ("new_coldchain_v2") without touching the installed one. Measured: a seeded
+            # v2 builder was offered in the dialog as `new_coldchain`, so clicking it would have
+            # rebuilt the installed ontology instead of starting the fresh one.
+            skill_params = (cfg.get("skill_params") or {}).get("build-ontology-from-db") or {}
+            key = (skill_params.get("ontology_key") or cfg.get("ontology_key")
+                   or (profile_file.replace("_settings.json", "") if profile_file else "")
+                   or str(datasource))
             profile = workbench.get("profile") or {}
             dsn = profile.get("dsn") or {}
             # `has_ontology` decides two things a person sees — "首次生成" vs "重建", and whether
