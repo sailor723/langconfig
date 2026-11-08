@@ -228,6 +228,48 @@ def owner_user(db: Session) -> Optional[User]:
 
 # ── writes ───────────────────────────────────────────────────────────────────
 
+def ensure_userrole_enum() -> list[str]:
+    """Make sure every role the CODE declares exists in the DB's `userrole` enum.
+
+    Measured on the ECS deploy: the users table had been created when the enum had two values
+    (admin, member), so `ontology_editor` — a role this code declares and the publish route checks —
+    could not be granted at all: `ALTER TYPE` was missing, and every attempt failed with
+    `invalid input value for enum userrole: "ontology_editor"`. `create_all` does not alter an enum,
+    so an existing install needs this once. Returns the values that had to be added.
+    """
+    import logging
+
+    from sqlalchemy import text
+
+    from db.database import SessionLocal
+    from models.user import UserRole
+
+    log = logging.getLogger(__name__)
+    added: list[str] = []
+    db = SessionLocal()
+    try:
+        for role in UserRole:
+            value = role.value
+            exists = db.execute(
+                text("select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid "
+                     "where t.typname = 'userrole' and e.enumlabel = :v"), {"v": value}
+            ).first()
+            if exists:
+                continue
+            try:
+                db.execute(text(f"ALTER TYPE userrole ADD VALUE IF NOT EXISTS '{value}'"))
+                db.commit()
+                added.append(value)
+            except Exception as exc:                             # noqa: BLE001
+                db.rollback()
+                log.warning("could not add userrole value %r: %s", value, exc)
+    except Exception as exc:                                     # noqa: BLE001
+        log.warning("userrole enum ensure skipped: %s", exc)
+    finally:
+        db.close()
+    return added
+
+
 def create_user(
     db: Session,
     username: str,

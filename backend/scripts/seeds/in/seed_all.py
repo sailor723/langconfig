@@ -672,6 +672,18 @@ def step_chinook() -> None:
 
 
 def summary() -> None:
+    try:
+        print("\n[10.5/10] ontology editors  (every account may publish declarations)")
+        import subprocess, sys as _sys
+        _p = subprocess.run([_sys.executable, str(pathlib.Path(__file__).with_name("ensure_ontology_editors.py"))],
+                            capture_output=True, text=True, timeout=120)
+        for _line in (_p.stdout or "").strip().splitlines():
+            print("  -> " + _line)
+        if _p.returncode != 0:
+            print("  !! ensure_ontology_editors failed: " + (_p.stderr or "")[-300:])
+    except Exception as _exc:  # noqa: BLE001
+        print(f"  -> skipped: {_exc}")
+
     print("\n=== Summary ===")
     for table, label in (
         ("models", "LLM providers"),

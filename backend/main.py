@@ -201,6 +201,15 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"MCP Manager initialization failed: {e}. MCP tools may not be available.")
 
+    # An existing install may predate a role the code declares (create_all does not alter enums).
+    try:
+        from services.user_service import ensure_userrole_enum
+        _added = ensure_userrole_enum()
+        if _added:
+            logger.info("userrole enum: added %s", ", ".join(_added))
+    except Exception as e:
+        logger.warning(f"userrole enum ensure failed: {e}")
+
     # Skills FS → DB sync (Option A: DB primary, FS git-tracked materialized view)
     # On startup, scan FS SKILL.md files and upsert DB rows whose mtime is newer.
     try:
