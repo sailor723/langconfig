@@ -156,12 +156,22 @@ def proposals(db: Session, key: str) -> list[dict]:
     from services import ontology_publish
 
     out: list[dict] = []
+    staging_root = ontology_publish._staging_dir(key)
     for row in ontology_publish.history(key=key, limit=50):
         # filter by key AND status here as well: `history(key=…)` already does the key, but a
         # panel that showed another ontology's staged publish would offer a diff for a file the
         # reader never opened — the cheap double check is worth more than trusting the ledger.
         if row.get("key") != key or row.get("status") != "staged":
             continue
+        # A staging tree that is gone cannot be applied; the ledger row is then a leftover, not a
+        # proposal (measured: a published tree leaves rows behind and the panel offered every one).
+        if not (staging_root / str(row.get("id"))).is_dir():
+            continue
+        # Only the NEWEST staged publish is the candidate. An older one would overlay a tree that
+        # has already moved past it, and listing it as "waiting to be applied" is how the settings
+        # panel ended up showing ten pending publishes across three ontologies, every one stale.
+        if out:
+            break
         report = row.get("report") or {}
         out.append({
             "id": row["id"],

@@ -381,6 +381,15 @@ def apply(staged_id: str, *, actor: str | None = None, confirmed: bool = False,
                git_commit=sha)
     shutil.rmtree(staging, ignore_errors=True)
 
+    # Older staged publishes for THIS key are superseded the moment this one installs: they would
+    # overlay an ALREADY INSTALLED tree with an old candidate, and until now nothing said so — the
+    # settings panel kept offering every staging ever made as "waiting to be applied" (measured on
+    # the deployment: 10 such rows across three ontologies, all of them stale). Record the decision
+    # and drop the trees, so "pending" means exactly one thing.
+    superseded = _supersede_older(key, staged_id)
+    if superseded:
+        logger.info("superseded %d older staged publish(es) for %s: %s", len(superseded), key, superseded)
+
     # 4. the running workbench keeps serving old code until it reloads
     reload_note = reload_workbench(key)
     return {"ok": True, "staged_id": staged_id, "key": key, "git_commit": sha,
@@ -388,6 +397,25 @@ def apply(staged_id: str, *, actor: str | None = None, confirmed: bool = False,
             "report": {"compile": final_compile, "gates_ok": final_gates.get("ok"),
                        "gates_fails": final_gates.get("fails", []),
                        "gates_not_run": final_gates.get("not_run", [])}}
+
+
+def _supersede_older(key: str, keep: str) -> list[str]:
+    """Mark every staged publish for `key` older than `keep` as superseded and drop its tree.
+
+    The ledger is the record, the tree is the candidate: both have to move together, or a stale
+    candidate outlives the decision that made it stale.
+    """
+    done: list[str] = []
+    staging = _staging_dir(key)
+    for row in history(key=key, limit=200):
+        sid = row.get("id")
+        if not sid or sid == keep or row.get("status") != "staged":
+            continue
+        shutil.rmtree(staging / sid, ignore_errors=True)
+        _audit_row(sid, key, row.get("actor"), "superseded", note="superseded by a newer publish",
+                   report=row.get("report") or {})
+        done.append(sid)
+    return done
 
 
 def discard(staged_id: str, *, actor: str | None = None) -> dict:
