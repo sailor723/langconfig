@@ -412,7 +412,7 @@ export default function OntologyChatPanel() {
             );
           })}
           <Link
-            to="/settings?section=apply"
+            to="/settings?section=ontology"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 4, fontSize: 11.5, color: INFO }}
           >
             review and apply in Settings → Ontology <ArrowUpRight size={11} />

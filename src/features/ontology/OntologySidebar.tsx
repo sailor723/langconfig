@@ -87,12 +87,13 @@ export default function OntologySidebar() {
           <RefreshCw size={12} className={s.starting ? 'animate-spin' : undefined} />
         </button>
         <button
-          // The gear goes to Settings → Apply: the publishes an agent staged and a person has to
-          // install. It used to open Settings on General, so the apply surface — the whole reason to
-          // leave this page — was one unmarked click further away. Which profiles EXIST is on the
-          // Ontology section next door; what to DO about them is here.
-          onClick={() => navigate('/settings?section=apply')}
-          title="Settings → Apply: the publishes an agent staged, waiting for you to apply them"
+          // The gear goes to Settings → ONTOLOGY, where the publish panel is the FIRST thing on the
+          // page: profiles you can open, and the publishes an agent staged that a person has to apply.
+          // It used to open Settings on General, so that panel — the whole reason to leave this page —
+          // was one unmarked click further away. (There was briefly a separate Apply section; it only
+          // repeated the top of Ontology, so it is gone.)
+          onClick={() => navigate('/settings?section=ontology')}
+          title="Settings → Ontology: the pending publishes an agent staged, waiting for you to apply them (top of the page)"
           style={{ ...rowTitle, color: t.textDim }}
         >
           <Settings2 size={12} />

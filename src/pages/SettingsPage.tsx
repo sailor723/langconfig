@@ -24,7 +24,7 @@ import ImportFolderPanel from '../components/layout2/ImportFolderPanel'
 import DocChatSettingsPanel from '../components/layout2/DocChatSettingsPanel'
 import { useProject } from '../contexts/ProjectContext'
 
-type SectionId = 'general' | 'models' | 'ontology' | 'apply' | 'databases' | 'webapi' | 'localmodels' | 'workspace' | 'storage' | 'runtime' | 'agents' | 'knowledge' | 'about'
+type SectionId = 'general' | 'models' | 'ontology' | 'databases' | 'webapi' | 'localmodels' | 'workspace' | 'storage' | 'runtime' | 'agents' | 'knowledge' | 'about'
 
 const SECTIONS: { id: SectionId; labelKey: string; icon: string }[] = [
   { id: 'general', labelKey: 'settings_general', icon: 'tune' },
@@ -32,10 +32,6 @@ const SECTIONS: { id: SectionId; labelKey: string; icon: string }[] = [
   // Which databases the SQL tools may point at (admin-only).
   // Which ontology workbench profiles this account can open (the Ontology activity's list).
   { id: 'ontology', labelKey: 'Ontology', icon: 'account_tree' },
-  // The publish channel's human half: what an agent staged, and the one click that installs it.
-  // It is its own section because applying is a decision about what a NUMBER MEANS for everyone —
-  // it deserves a page, not a panel three scrolls down inside another page.
-  { id: 'apply', labelKey: 'Apply', icon: 'publish' },
   { id: 'databases', labelKey: 'settings_databases', icon: 'database' },
   { id: 'webapi', labelKey: 'settings_search_providers', icon: 'travel_explore' },
   { id: 'localmodels', labelKey: 'settings_local_models', icon: 'terminal' },
@@ -268,9 +264,14 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   // Read in an EFFECT rather than in the initialiser: the modal is mounted by the route, and a mount
   // initialiser only sees the URL of the render that happened to mount it — the very bug being fixed,
   // one layer down. The effect follows every navigation, so the deep link wins whenever it changes.
-  const KNOWN_SECTIONS: SectionId[] = ['general', 'models', 'ontology', 'apply', 'databases', 'webapi', 'localmodels', 'workspace', 'storage', 'runtime', 'agents', 'knowledge', 'about']
-  const askedSection = (raw: string | null | undefined): SectionId | null =>
-    (KNOWN_SECTIONS as string[]).includes(raw || '') ? (raw as SectionId) : null
+  const KNOWN_SECTIONS: SectionId[] = ['general', 'models', 'ontology', 'databases', 'webapi', 'localmodels', 'workspace', 'storage', 'runtime', 'agents', 'knowledge', 'about']
+  // `apply` was briefly its own section and links to it may be in a history or a bookmark. It names
+  // the panel that applies a staged publish, and that panel lives at the TOP of the Ontology section
+  // — so the old name resolves there instead of silently landing on General.
+  const askedSection = (raw: string | null | undefined): SectionId | null => {
+    if (raw === 'apply') return 'ontology'
+    return (KNOWN_SECTIONS as string[]).includes(raw || '') ? (raw as SectionId) : null
+  }
   // THIS APP IS A HashRouter: the address is `/#/settings?section=apply`, so the query lives in the
   // HASH and `window.location.search` is always empty. Reading it there made every deep link land on
   // General — the fix was invisible for exactly the reason the bug was. `useLocation` knows both.
@@ -291,7 +292,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
       // `location.search`) is the whole lesson of this file: the app is a HashRouter.
       const hashPath = window.location.hash.replace(/^#/, '').split('?')[0] || '/'
       const want = askedSection((e as CustomEvent<{ section?: string }>).detail?.section)
-        || (hashPath.startsWith('/ontology') || hashPath.startsWith('/workbench') ? 'apply' as SectionId : null)
+        || (hashPath.startsWith('/ontology') || hashPath.startsWith('/workbench') ? 'ontology' as SectionId : null)
       if (want) setSection(want)
     }
     window.addEventListener('settings:open', fromEvent)
@@ -354,7 +355,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                 section is indistinguishable from a working one until you can read the answer. */}
             <span data-settings-section={section}
                   style={{ marginRight: 'auto', fontSize: 12, color: tok.labelTertiary, lineHeight: '28px' }}>
-              {t('settings_title')} · {section === 'apply' ? 'Apply' : t(SECTIONS.find(x => x.id === section)?.labelKey || '')}
+              {t('settings_title')} · {t(SECTIONS.find(x => x.id === section)?.labelKey || '')}
             </span>
             <button
               type="button" onClick={onClose}
@@ -369,7 +370,6 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               {section === 'general' && <GeneralSection i18n={i18n} activeTheme={activeTheme.name} setTheme={setTheme} />}
               {section === 'models' && <ModelsSection />}
               {section === 'ontology' && <OntologySection />}
-              {section === 'apply' && <ApplySection />}
               {section === 'databases' && <DatabasesSection />}
               {section === 'webapi' && <SearchSection />}
               {section === 'localmodels' && <LocalModelsSection />}
@@ -1708,7 +1708,7 @@ function OntologySection() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%' }}>
       <SectionTitle
         title="Ontology"
-        desc="The workbench profiles the Ontology activity can open. Each one is a server that loads one ontology folder and serves its numbers; the ontology's own content lives in TTL files in the ontology repo, not here."
+        desc="The ontologies this account can open, compiled by this app from their own declarations. The FIRST thing on this page is the publish decision: what an agent staged, and the apply that installs it — the ontology's content itself lives in TTL files, not here."
       />
 
       {/* The decision goes FIRST. It used to sit under a long profile editor, so a human looking for
@@ -1800,26 +1800,6 @@ interface PublishRow {
   report: any
   git_commit: string | null
   created_at: string | null
-}
-
-/**
- * The Apply page — the deploy step of the ontology pipeline, by itself.
- *
- * An agent builds and STAGES; a person applies. That decision used to live as the first panel of
- * Settings → Ontology, which meant "where do I install the thing the agent made?" had no answer a
- * reader could point at. Staging is visible here, the diff and the numbers each candidate moves are
- * one click deeper, and apply is armed before it fires.
- */
-function ApplySection() {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%' }}>
-      <SectionTitle
-        title="Apply"
-        desc="An agent stages; a person installs. Every candidate below already compiled and passed the gates against a staging copy — applying re-runs the suite on the installed path, commits with the gate summary, and reloads the workbench. A failure reverts byte for byte."
-      />
-      <PublishPanel />
-    </div>
-  )
 }
 
 /**

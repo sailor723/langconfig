@@ -217,8 +217,8 @@ export default function OntologyBrowserPage() {
           {/* Applying a staged publish is a SETTINGS action (a number's meaning changes for everyone),
               but deciding to do it happens while reading the ontology. One click from here, not a
               hunt through Settings. */}
-          <button style={btn()} onClick={() => navigate('/settings?section=apply')}
-                  title="Settings → Ontology: the publishes an agent staged, waiting for a person to apply">
+          <button style={btn()} onClick={() => navigate('/settings?section=ontology')}
+                  title="Settings → Ontology: the pending publishes an agent staged, at the top of that page">
             <Settings2 size={11} /> apply…
           </button>
           <button style={btn(true)} onClick={() => navigate('/ontology/app')}

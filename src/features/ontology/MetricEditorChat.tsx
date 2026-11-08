@@ -572,7 +572,7 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose, hide
                     discard
                   </button>
                   <a
-                    href="/settings?section=apply"
+                    href="/settings?section=ontology"
                     style={{ fontSize: 10.5, color: t.textDim, marginLeft: 'auto', display: 'inline-flex', gap: 2, alignItems: 'center' }}
                   >
                     diff <ArrowUpRight size={10} />

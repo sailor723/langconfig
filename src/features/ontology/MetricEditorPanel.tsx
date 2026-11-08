@@ -671,7 +671,7 @@ function ProposalCard({ proposal, onApplied }: { proposal: Proposal; onApplied: 
           </button>
         )}
         <a
-          href="/settings?section=apply"
+          href="/settings?section=ontology"
           style={{ fontSize: 10.5, color: t.textDim, marginLeft: 'auto', display: 'inline-flex', gap: 2, alignItems: 'center' }}
         >
           详细对比 <ArrowUpRight size={10} />

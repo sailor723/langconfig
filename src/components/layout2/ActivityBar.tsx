@@ -276,7 +276,7 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
           icon={Settings}
           label={tr('ab_settings')}
           onClick={() => window.dispatchEvent(new CustomEvent('settings:open', {
-            detail: { section: activeActivity === 'ontology' ? 'apply' : undefined },
+            detail: { section: activeActivity === 'ontology' ? 'ontology' : undefined },
           }))}
         />
 
