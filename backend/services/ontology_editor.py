@@ -157,7 +157,20 @@ def proposals(db: Session, key: str) -> list[dict]:
 
     out: list[dict] = []
     staging_root = ontology_publish._staging_dir(key)
-    for row in ontology_publish.history(key=key, limit=50):
+    rows = ontology_publish.history(key=key, limit=50)
+
+    # WHEN the last install happened, from the ledger alone. A staged publish older than the last
+    # applied one is SUPERSEDED: its tree would overlay an already-installed version. File mtimes
+    # cannot answer this (a `git stash pop` rewrites them; measured on the deployment: five v2
+    # stagings all carried the same mtime), but every staged id starts with the epoch it was made.
+    def _epoch(sid: str) -> int:
+        head = str(sid).split("-")[0]
+        return int(head) if head.isdigit() else 0
+
+    applied_epoch = max((_epoch(r.get("id") or "") for r in rows
+                         if r.get("status") == "applied"), default=0)
+
+    for row in rows:
         # filter by key AND status here as well: `history(key=…)` already does the key, but a
         # panel that showed another ontology's staged publish would offer a diff for a file the
         # reader never opened — the cheap double check is worth more than trusting the ledger.
@@ -170,6 +183,8 @@ def proposals(db: Session, key: str) -> list[dict]:
         # Only the NEWEST staged publish is the candidate. An older one would overlay a tree that
         # has already moved past it, and listing it as "waiting to be applied" is how the settings
         # panel ended up showing ten pending publishes across three ontologies, every one stale.
+        if applied_epoch and _epoch(str(row.get("id"))) < applied_epoch:
+            continue                      # an install happened after this was staged
         if out:
             break
         report = row.get("report") or {}
