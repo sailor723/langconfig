@@ -14,6 +14,7 @@ Bidirectional sync rules:
 This matches the Phase 5 GraphIndex pattern (DB primary, FS for git tracking).
 """
 
+import pathlib
 import logging
 import os
 from datetime import datetime
@@ -287,6 +288,26 @@ def fs_to_db_dict(skill_md: Path) -> Dict[str, Any]:
         "owner_id": owner_id_for(skill_md),
         "file_modified_at": mtime,
     }
+
+
+def resolve_skill_dir(skill_id: str, source_type: str = "builtin") -> pathlib.Path | None:
+    """Where this skill's FILES are, resolved from the id — never from the stored path.
+
+    A skill row carries ``source_path``: an absolute path from whichever machine last synced it. Measured
+    on the ECS box: every row still said ``/root/lc.new/backend/skills/builtin/…`` — the temporary clone
+    directory of the migration, renamed away afterwards — so the asset mirror found no directory, staged
+    only the rendered SKILL.md, and every builder discovered ``references/`` and ``scripts/`` empty. The
+    id is stable; the path is not.
+    """
+    root = PERSONAL_SKILLS_ROOT if source_type == "personal" else DEFAULT_BUILTIN_SKILLS_ROOT
+    candidate = pathlib.Path(root) / skill_id
+    if candidate.is_dir():
+        return candidate
+    for extra in (pathlib.Path(root), DEFAULT_BUILTIN_SKILLS_ROOT, PERSONAL_SKILLS_ROOT):
+        cand = pathlib.Path(extra) / skill_id
+        if cand.is_dir():
+            return cand
+    return None
 
 
 def scan_builtin_skills(root: Optional[Path] = None) -> List[Path]:

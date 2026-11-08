@@ -124,9 +124,17 @@ def _stage_skill_catalog(
                 assets_root = Path(workspace_root).resolve()
             assets_staged = 0
             mirrored_types: set[str] = set()
+            from core.skills.sync import resolve_skill_dir
+
             for s in skill_records:
-                src = Path(getattr(s, "source_path", "") or "")
                 source_type = normalize_source_type(getattr(s, "source_type", "builtin"))
+                src = resolve_skill_dir(s.skill_id, source_type) or Path(
+                    getattr(s, "source_path", "") or "")
+                if not src.is_dir() and getattr(s, "source_path", ""):
+                    logger.warning(
+                        "skill %r has no directory at %r — its references/scripts/examples "
+                        "cannot be mirrored (only SKILL.md will be visible to the agent)",
+                        s.skill_id, s.source_path)
                 prefix = skill_storage_key(s)[: -len("SKILL.md")]
                 if assets_root is not None:
                     # A sandbox cannot see DbBackend paths, and the SDK exposes no

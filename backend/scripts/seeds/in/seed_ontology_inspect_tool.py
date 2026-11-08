@@ -129,8 +129,12 @@ def _profile(folder):
 
 
 def _repo_root():
+    # The ontology feature root (it holds profiles/ and compiler/). `REPO` was the old
+    # outside-the-app mirror and no longer exists — measured as
+    # "module 'services.ontology_publish' has no attribute 'REPO'" on every ontology_inspect call,
+    # which left the builder without a compiled/refused list and counting TTL by hand.
     from services import ontology_publish
-    return _pl.Path(ontology_publish.REPO)
+    return _pl.Path(ontology_publish.FEATURE)
 
 
 def _python():
