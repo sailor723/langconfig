@@ -1626,8 +1626,13 @@ def nl_cli(question: str, timeout=90, confirm: bool = False) -> tuple[int, dict 
                    LANGSMITH_TRACING_V2="false", LANGCHAIN_TRACING="false")
         env["APP_SETTINGS"] = str(SETTINGS)      # the child compiles the SAME profile
         prof = load_settings()
-        env["APP_ACTIONS"] = str((PROFILE / prof["actions_file"]).resolve()) \
-            if prof.get("actions_file") else ""
+        # The actions file belongs to the ACTIVE profile, resolved the same way the action runner
+        # resolves it. `PROFILE / ...` is the retail directory the workbench was written for, so
+        # asking logistics a question compiled RETAIL's actions against logistics' graph and nl.py
+        # refused with "PromoteCustomer: :Customer has no :physicalTable" — a write from another
+        # ontology. `declared_actions_file` never crosses into another profile.
+        declared = declared_actions_file(prof)
+        env["APP_ACTIONS"] = str(declared) if declared else ""
         nlset = (load_settings().get("nl") or {})
         env["NL_BACKEND"] = (nlset.get("backend") or "auto").lower()
         model = (nlset.get("model") or "").strip()
