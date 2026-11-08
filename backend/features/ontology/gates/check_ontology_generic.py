@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import os
 import pathlib
 import re
 import sys
@@ -708,6 +709,32 @@ def window_gates(profile, g, cur) -> None:
               f"the subset rule does not apply)", changed, True)
 
 
+def _load_deployment_env() -> None:
+    """Give a CLI gate the environment the SERVICE has (the same rule `scripts/ontology_gates.py` uses).
+
+    Measured on the ECS deploy: retail's profile defaults its dsn to port 15432 (the local Docker port),
+    and the service's `/root/langconfig/.env` sets ONTOLOGY_DB_PORT=5432 — so `--family X` here died with
+    "port 15432 refused" while the served ontology answered. A gate that measures a different environment
+    than the app is measuring the wrong machine.
+    """
+    # this file is features/ontology/gates/check_ontology_generic.py: parents[3] = backend, parents[4] = repo
+    here = pathlib.Path(__file__).resolve()
+    env = next((p / ".env" for p in (here.parents[4], here.parents[3]) if (p / ".env").is_file()), None)
+    if env is None:
+        return
+    try:
+        for raw in env.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            if key and key not in os.environ:
+                os.environ[key] = value.strip().strip('"').strip("'")
+    except Exception:                                            # noqa: BLE001
+        pass
+
+
 def portability_gates(profile, g, cur) -> None:
     """X1/X1b: a declaration may not name a machine path.
 
@@ -771,6 +798,7 @@ def main() -> int:
                          "T tutorial · N nl · S samples · W window · X portability); repeatable. "
                          "Default: every family")
     args = ap.parse_args()
+    _load_deployment_env()          # before load(): the dsn is resolved against it
     path = pathlib.Path(args.profile).expanduser().resolve()
     if not path.exists():
         print(f"no profile at {path}")
