@@ -407,8 +407,33 @@ def resolve_briefing(dash: dict, results: dict) -> dict:
                         "status": res.get("status") or "missing",
                         "confirmed": bool(pol.get("confirmed")), "assumed": bool(pol.get("assumed"))})
 
-    def fill(text: str) -> tuple[str, list[str]]:
+    def as_text(value) -> str:
+        """A briefing field as prose — accepting the structured form too.
+
+        A declaration may open with SENTENCES (`"headline": "{stopOnTimeRate} 的站次准时率…"`) or with an
+        INDEX of the numbers it opens with (`"headline": ["stopOnTimeRate", "tripFullyOnTimeRate"]`).
+        The index renders as `label: value · label: value`, every piece of it from the compiled
+        results — nothing is invented, and a list no longer takes the whole page down.
+        """
+        if isinstance(value, str):
+            return value
+        parts = []
+        for name in _strings(value):
+            res = results.get(name) or {}
+            if res.get("status") != "ok":
+                continue
+            label = res.get("label") or name
+            if res.get("keys"):
+                parts.append(f"{label}（{len(res.get('rows') or [])} 组）")
+            else:
+                rows = res.get("rows") or []
+                value_ = rows[0][0] if rows and rows[0] else None
+                parts.append(f"{label} {_fmt(value_, res.get('unit'))}")
+        return " · ".join(parts)
+
+    def fill(text) -> tuple[str, list[str]]:
         problems: list[str] = []
+        text = as_text(text)
 
         def sub(m):
             metric, key, echo = m.group(1), m.group(2), m.group(3)
@@ -424,6 +449,8 @@ def resolve_briefing(dash: dict, results: dict) -> dict:
 
     claims = []
     for claim in brief.get("claims") or []:
+        if not isinstance(claim, dict):
+            continue
         text, problems = fill(claim.get("text") or "")
         by = claim.get("verdict_by")
         pol = next((x for x in pol_out if x["id"] == by), None) if by else None
