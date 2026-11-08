@@ -1,0 +1,226 @@
+{
+ "_doc": "每个问题的期望值来自 truth.json（手写 SQL 的第二条路线），不是本流水线的输出。",
+ "samples": [
+  {
+   "question": "准点率（站点级）是多少？",
+   "expect": {
+    "metric": "onTimeRate",
+    "value": 0.9459592382751023,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "整趟全准点率",
+   "expect": {
+    "metric": "fullOnTimeTripRate",
+    "value": 0.5390776699029126,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "超载率",
+   "expect": {
+    "metric": "overloadRate",
+    "value": 0.2949029126213592,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "按线路版本看超载率",
+   "expect": {
+    "metric": "overloadRateByRouteVersion",
+    "rows": {
+     "v1": 0.02653846153846154,
+     "v2": 0.7539473684210526
+    },
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "外车占比",
+   "expect": {
+    "metric": "externalShare",
+    "value": 0.10121359223300971,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "按高峰/平日看外车占比",
+   "expect": {
+    "metric": "externalShareByPeak",
+    "rows": {
+     "False": 0.06565656565656566,
+     "True": 0.19304347826086957
+    },
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "毛利率",
+   "expect": {
+    "metric": "grossMarginRate",
+    "value": 0.5150635894535274,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "每趟平均运费",
+   "expect": {
+    "metric": "avgRevenuePerTrip",
+    "value": 1073.5932985436893,
+    "tolerance": 1e-06
+   }
+  },
+  {
+   "question": "每趟平均站数",
+   "expect": {
+    "metric": "avgStopsPerTrip",
+    "value": 12.337864077669902,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "平均耗时（分钟）",
+   "expect": {
+    "metric": "avgTripDuration",
+    "value": 178.32888349514562,
+    "tolerance": 1e-06
+   }
+  },
+  {
+   "question": "每千站破损箱",
+   "expect": {
+    "metric": "damagedBoxesPer1kStops",
+    "value": 160.21403840100723,
+    "tolerance": 1e-06
+   }
+  },
+  {
+   "question": "赔付成本（已判定）",
+   "expect": {
+    "metric": "compensationCost",
+    "value": 543309.02,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "拒单次数",
+   "expect": {
+    "metric": "refusalCount",
+    "value": 389.0,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "原因未记录的拒单数",
+   "expect": {
+    "metric": "unrecordedRefusals",
+    "value": 113,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "拒单原因缺失率",
+   "expect": {
+    "metric": "unrecordedRefusalRate",
+    "value": 0.29048843187660667,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "客诉数",
+   "expect": {
+    "metric": "complaintCount",
+    "value": 1585.0,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "责任未判定客诉数",
+   "expect": {
+    "metric": "unjudgedComplaints",
+    "value": 731.0,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "高峰日趟次",
+   "expect": {
+    "metric": "peakDayTrips",
+    "value": 1150.0,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "司机申诉数",
+   "expect": {
+    "metric": "appealCount",
+    "value": 46,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "按结果看申诉数",
+   "expect": {
+    "metric": "appealCountByOutcome",
+    "rows": {
+     "pending": 9,
+     "rejected": 25,
+     "upheld": 12
+    },
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "温度趋势怎么样？",
+   "expect": {
+    "refused_by_names": [
+     "not on the menu",
+     "I can answer about"
+    ]
+   }
+  },
+  {
+   "question": "停车记录有多少天？",
+   "expect": {
+    "refused_by_names": [
+     "A class is a list, not a number",
+     "I can answer about"
+    ]
+   }
+  },
+  {
+   "question": "改派记录里覆盖原因填了吗？",
+   "expect": {
+    "unresolved": "这是个读问题，却被写动词抢走：规则路径下落到 AssignComplaintToLabourer（缺 complaint_id → 拒绝，什么都没写），关掉模型后落到 RecordParkingEntry（缺六个参数 → 拒绝）。两种都是按名拒绝、都没写入，但句子不稳定，所以不能当 refused_by_name 钉住。缺的声明：没有一条 :assignComplaint 覆盖原因是否回填的指标。第二条路线的数字：refusals 里 reason IS NULL 的是 113 条（已声明为 unrecordedRefusals）。"
+   }
+  },
+  {
+   "question": "谁因为还款压力被保护性安排？",
+   "expect": {
+    "refused_by_names": [
+     "I can answer about",
+     "not on the menu"
+    ]
+   }
+  },
+  {
+   "question": "司机的贷款压力分布",
+   "expect": {
+    "unresolved": "答了 Driver 的头数（60），把「贷款压力」这个限定词整个丢掉：平台按 docx Q14 不采这项数据，所以正确行为是拒绝。缺的声明：没有 :Driver 之外的压力口径。第二条路线的数字：drivers 60 行。"
+   }
+  },
+  {
+   "question": "按线路版本看超载",
+   "expect": {
+    "unresolved": "答了 Route 的条数（90），把「超载」当成维度词：不带「率」时最佳匹配成了类 :Route。正确的问法是「按线路版本看超载率」。第二条路线的数字：routes 90 行 / v2 超载率 0.7539。"
+   }
+  },
+  {
+   "question": "所有赔付成本（含未判定）是多少？",
+   "expect": {
+    "unresolved": "答了已判定的 543309.02，而「含未判定」在数据里根本不存在：731 条未判定客诉的 amount 是 NULL，没有金额可含。缺的声明：未判定的赔付金额不在库里，只能报缺口，不能给一个更大的数。"
+   }
+  }
+ ]
+}
