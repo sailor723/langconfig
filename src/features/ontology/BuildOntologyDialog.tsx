@@ -291,7 +291,7 @@ export default function BuildOntologyDialog({ ontologyKey, onClose, onLanded }: 
                     <option value="">— 先选择一份数据 —</option>
                     {options.map(o => (
                       <option key={o.ontology_key} value={o.ontology_key}>
-                        {o.business_label} · {o.has_ontology ? '已有本体（重建）' : '尚无本体（首次生成）'}
+                        {o.business_label} · <b>{o.ontology_key}</b> · {o.has_ontology ? '已有本体（重建）' : '尚无本体（首次生成）'}
                       </option>
                     ))}
                   </select>
