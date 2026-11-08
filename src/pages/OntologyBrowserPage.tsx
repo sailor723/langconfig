@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ListTree, Table2, Link2, Sigma, AlertTriangle, Play, RefreshCw, Copy, Check, Boxes, Search,
-  Sparkles,
+  Sparkles, Settings2,
 } from 'lucide-react';
 import { useLayoutTokens } from '../components/layout2/tokens';
 import { Card, Chip, Btn, mono, SUCCESS, DANGER, WARN } from '../features/ontology/ui';
@@ -174,14 +174,23 @@ export default function OntologyBrowserPage() {
           {String(guard.default_window_days ?? '?')}d
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button style={btn()} onClick={() => {
-            // `select(url, undefined)` was a no-op whenever the store had no preset (it then has no
-            // key to load), so the button looked dead. Name the key when we have one; without one,
-            // a full reload is the only thing that can re-read the ontology.
-            if (s.preset) void ontology.select(s.url, s.preset);
-            else window.location.reload();
+          <button style={btn()} onClick={async () => {
+            // Refresh means BOTH lists: the roster (a publish applied since this tab opened adds an
+            // ontology) and this ontology's document. `select(url, undefined)` was a no-op whenever the
+            // store had no preset — it then has no key to load — so the button looked dead; with no key
+            // at all, a full reload is the only thing that can re-read anything.
+            if (!s.preset) { window.location.reload(); return; }
+            await ontology.loadProfiles().catch(() => {});
+            await ontology.select(s.url, s.preset);
           }}>
             <RefreshCw size={11} /> reload
+          </button>
+          {/* Applying a staged publish is a SETTINGS action (a number's meaning changes for everyone),
+              but deciding to do it happens while reading the ontology. One click from here, not a
+              hunt through Settings. */}
+          <button style={btn()} onClick={() => navigate('/settings?section=ontology')}
+                  title="Settings → Ontology: the publishes an agent staged, waiting for a person to apply">
+            <Settings2 size={11} /> apply…
           </button>
           <button style={btn(true)} onClick={() => navigate('/ontology/app')}
                   title="this ontology's sections — graph view, query console, actions, tutorial">

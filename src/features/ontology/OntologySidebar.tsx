@@ -73,8 +73,11 @@ export default function OntologySidebar() {
           <RefreshCw size={12} />
         </button>
         <button
-          onClick={() => navigate('/settings')}
-          title="Settings → Ontology (which profiles exist)"
+          // The ontology section of Settings is where two things live that a reader of this rail needs:
+          // which profiles exist, and the publishes an agent staged and a person has to APPLY. The gear
+          // used to open Settings on General, so the apply surface was one unmarked click further away.
+          onClick={() => navigate('/settings?section=ontology')}
+          title="Settings → Ontology: which profiles exist, and the publishes waiting to be applied"
           style={{ ...rowTitle, color: t.textDim }}
         >
           <Settings2 size={12} />

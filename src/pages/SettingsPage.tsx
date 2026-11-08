@@ -256,7 +256,14 @@ function Dot({ state }: { state: 'configured' | 'missing' | 'invalid' }) {
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const { i18n, t } = useTranslation('chat')
   const { theme: activeTheme, setTheme } = useTheme()
-  const [section, setSection] = useState<SectionId>('general')
+  // The section is a place, so it can be LINKED: `/settings?section=ontology` opens on the ontology
+  // section, whose first control is the surface that applies a staged publish. Without this the gear
+  // in the ontology browser landed on General and the pending publishes sat behind a click nobody made.
+  const [section, setSection] = useState<SectionId>(() => {
+    const asked = new URLSearchParams(window.location.search).get('section')
+    const known: SectionId[] = ['general', 'models', 'ontology', 'databases', 'webapi', 'localmodels', 'workspace', 'storage', 'runtime', 'agents', 'knowledge', 'about']
+    return (known as string[]).includes(asked || '') ? (asked as SectionId) : 'general'
+  })
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
