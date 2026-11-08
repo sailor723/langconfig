@@ -14,6 +14,7 @@ import apiClient from '../../lib/api-client';
 import { useProject } from '../../contexts/ProjectContext';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { mono, Quiet, SUCCESS, WARN, INFO } from './ui';
+import BuildChatPanel from './BuildChatPanel';
 import RunningLight, { RunningBar } from './RunningLight';
 
 /**
@@ -104,6 +105,7 @@ export default function BuildOntologyDialog({ ontologyKey, onClose, onLanded }: 
   // auto-land is the FIRST-GENERATION rule. Defaulting it to true for a key that already has an
   // installed ontology would let a rebuild replace verified declarations with a fresh generation
   // nobody read — so the default follows `has_ontology`, and the checkbox says which case you are in.
+  const [mode, setMode] = useState<'job' | 'chat'>('chat');
   const [autoLand, setAutoLand] = useState(true);
   const [autoLandTouched, setAutoLandTouched] = useState(false);
   // The business material is usually a DOCUMENT (a brief, a decisions list, a KPI sheet), not three
@@ -269,7 +271,30 @@ export default function BuildOntologyDialog({ ontologyKey, onClose, onLanded }: 
           (that is the “first generation” case); anything that fails a gate stays staged for a person.
         </div>
 
+        {/* Two modes, both needed: the job answers "generate it now"; the conversation carries S0 and
+            the delta, which a single turn cannot (measured: such a turn ends with questions, nothing
+            staged). Both use the same builder agent. */}
         {taskId == null && (
+          <div style={{ display: 'flex', gap: 6 }}>
+            {([['job', '一次性构建'], ['chat', '对话式构建（推荐）']] as const).map(([m, label]) => (
+              <button key={m} onClick={() => setMode(m)}
+                style={{ fontSize: 11.5, padding: '4px 10px', borderRadius: 7, cursor: 'pointer',
+                         border: `1px solid ${mode === m ? t.accent : t.border}`,
+                         background: mode === m ? `${t.accent}14` : 'transparent',
+                         color: mode === m ? t.accent : t.textDim }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {mode === 'chat' && chosen && (
+          <div style={{ height: 520, border: `1px solid ${t.border}`, borderRadius: 10, overflow: 'hidden' }}>
+            <BuildChatPanel ontologyKey={chosen.ontology_key} onClose={() => setMode('job')} />
+          </div>
+        )}
+
+        {mode === 'job' && taskId == null && (
           <>
             {options.length === 0 ? (
               <div style={{ fontSize: 12, color: WARN, lineHeight: 1.6 }}>
