@@ -105,13 +105,19 @@
   {
    "question": "温度趋势怎么样？",
    "expect": {
-    "refused_by_name": "is not on the menu"
+    "refused_by_names": [
+     "is not on the menu",
+     "I can answer about"
+    ]
    }
   },
   {
    "question": "谁因为还款压力被保护性安排？",
    "expect": {
-    "refused_by_name": "I can answer about"
+    "refused_by_names": [
+     "I can answer about",
+     "is not on the menu"
+    ]
    }
   },
   {

@@ -115,7 +115,12 @@ def main() -> int:
 
     # Point the process at THIS ontology before anything imports the compiler.
     os.environ["APP_SETTINGS"] = str(profile)
-    os.environ.setdefault("NL_ANSWER_LLM", "0")     # a gate measures the pipeline, not the prose
+    # FORCED, not setdefault: a gate must be deterministic. "温度趋势怎么样？" is a question the
+    # ontology refuses by name, but with a local model reachable the pipeline asked the model
+    # instead and the refusal turned into prose — so the same gate passed on one machine and
+    # failed on another (measured: a box with qwen2.5:3b pulled vs one without). The gate
+    # measures the RULES path; the model path is measured where it belongs.
+    os.environ["NL_ANSWER_LLM"] = "0"
     global nl
     import nl as _nl                                       # noqa: PLC0415
     nl = _nl
@@ -161,9 +166,17 @@ def main() -> int:
                   f"{expect['unresolved'].splitlines()[0][:150]}")
             continue
 
-        if expect.get("refused_by_name"):
-            want = expect["refused_by_name"]
-            check(f"{question!r} refused BY NAME ({want[:44]})", want in refusal, True)
+        wants = expect.get("refused_by_names") or (
+            [expect["refused_by_name"]] if expect.get("refused_by_name") else [])
+        if wants:
+            # ANY of the declared sentences is a refusal BY NAME. Measured: the same question,
+            # against the same declarations, refuses as "metric 'telemetryTrend' is not on the menu"
+            # on one machine and as "I can answer about: …" on another — the sentence depends on
+            # which detection path fired, and pinning one machine's wording made the gate
+            # environment-dependent. A refusal is a refusal; the set says which ones are acceptable.
+            hit = next((w for w in wants if w in refusal), None)
+            check(f"{question!r} refused BY NAME ({' | '.join(w[:28] for w in wants)})",
+                  bool(hit), True)
             continue
         if not resolved:
             check(f"{question!r} answers", f"REFUSED: {refusal.splitlines()[0][:90]}", "answered")

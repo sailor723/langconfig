@@ -115,3 +115,8 @@
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
     :numerator :fullOnTimeTrips ; :denominator :tripCount ; :unit "ratio" ;
     :businessDescription "第二口径：这趟跑干净了吗。口径来自 answers:Q2。" .
+
+:avgRevenuePerTrip a owl:DatatypeProperty ; rdfs:label "每趟平均运费" ; rdfs:domain :Trip ;
+    :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
+    :numerator :tripRevenue ; :denominator :tripCount ; :unit "RMB/trip" ;
+    :businessDescription "运费总额除以趟次；分子分母都在 Trip 粒度上。口径来自 answers:Q1。" .
