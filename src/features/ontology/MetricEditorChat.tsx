@@ -363,7 +363,9 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose, hide
       if (err?.name === 'AbortError') {
         patchLast(turn => ({ ...turn, content: turn.content + '\n\n(stopped)' }));
       } else {
-        setError(String(err?.message || err));
+        // A key that is being BUILT answers 404 with the builder's name — show that sentence, not
+      // a bare 'load failed': it is the difference between a bug and an unfinished build.
+      setError(String(err?.response?.data?.detail || err?.message || err));
       }
     } finally {
       abortRef.current = null;
