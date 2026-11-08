@@ -103,6 +103,28 @@ class Schema:
         return c in (self.tables.get(t) or set())
 
 
+def _platform_tables() -> set[str]:
+    """Tables the FEATURE itself creates in the ontology's database (read from the compiler's DDL).
+
+    `nl.py` keeps refusal telemetry in `nl_events` and `actions.py` keeps the write trail in
+    `audit_events`; both live in whatever database the profile names. Deriving the set from
+    `CREATE TABLE IF NOT EXISTS <name>` in the compiler is why this list cannot rot: a new platform
+    table is covered by the code that creates it, and the gate prints the set on every run.
+    """
+    import re as _re
+    compiler = pathlib.Path(__file__).resolve().parents[1] / "compiler"
+    found: set[str] = set()
+    for path in sorted(compiler.glob("*.py")):
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:                                     # noqa: BLE001
+            continue
+        found.update(m.group(1).lower()
+                     for m in _re.finditer(r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w\".]+)",
+                                           text, _re.I))
+    return found
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--profile", required=True, help="the profile json (dsn + ontology_dir + overlay)")
@@ -278,7 +300,17 @@ def main() -> int:
 
     # ── S1f  coverage
     print("\n=== S1f every table in the database is modelled ===")
-    covered = set(table_of.values()) | set(args.allow_uncovered)
+    # Telemetry tables the FEATURE creates in the ontology's own database (nl_events from nl.py,
+    # audit_events from actions.py) are not business tables: asking a question must not make the
+    # ontology look incomplete. They are read from the compiler's own DDL rather than listed here,
+    # so a new platform table is covered the day it is written — and they are PRINTED, never
+    # silently dropped. Measured on ECS: one question through the Query page created nl_events in
+    # new_coldchain, and this gate then reported "1 uncovered: ['nl_events']" against an ontology
+    # whose mapping was complete.
+    platform_tables = _platform_tables()
+    print(f"platform tables (created by the feature, not by the operation): "
+          f"{sorted(platform_tables) or 'none'}")
+    covered = set(table_of.values()) | set(args.allow_uncovered) | platform_tables
     uncovered = sorted(t for t in schema.tables if t not in covered)
     check_true("no table is silently left out", not uncovered,
                f"{len(uncovered)} uncovered: {uncovered}")

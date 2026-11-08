@@ -165,3 +165,19 @@ engine), and the compiler must be *askable* — if a tool is missing, add the to
 cases the class won on a tiebreak and the salient-noun check could not see it (it skips CJK). **Rule:**
 a measure cue (数/多少/率/最多/最高/排名 …) with a class match refuses by name; a *declared* count finds
 its metric even when the class name is shorter.
+
+### Asking a question made the structure gate red
+
+**Symptom:** `check_structure` → `[FAIL] no table is silently left out — 1 uncovered: ['nl_events']`,
+on an ontology whose mapping was complete and whose numbers were all right.
+**Cause:** `nl.py` writes refusal telemetry into the *ontology's own database* (`CREATE TABLE IF NOT
+EXISTS nl_events`) and `actions.py` does the same for `audit_events`. The first question asked through
+the Query page creates one business-looking table, and the coverage gate then reports the ontology as
+incomplete — so a member who asks a question after building sees a red gate that has nothing to do with
+their work.
+**Fix:** the gate reads the compiler's own DDL (`CREATE TABLE IF NOT EXISTS <name>`) and treats those as
+**platform tables**, printed on every run (`platform tables (created by the feature, not by the
+operation): ['audit_events', 'nl_events']`). Derived from the code, so a new platform table is covered
+the day it is written; a genuinely unmapped business table still fails the gate.
+**Detect:** run `check_structure` AFTER asking one question through the Query page, not only before.
+
