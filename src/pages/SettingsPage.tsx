@@ -286,7 +286,12 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   }, [route.search])
   useEffect(() => {
     const fromEvent = (e: Event) => {
+      // An opener may name the section; if it does not, an ontology screen still means Apply —
+      // that is the settings surface those screens exist to reach. Reading the HASH here (not
+      // `location.search`) is the whole lesson of this file: the app is a HashRouter.
+      const hashPath = window.location.hash.replace(/^#/, '').split('?')[0] || '/'
       const want = askedSection((e as CustomEvent<{ section?: string }>).detail?.section)
+        || (hashPath.startsWith('/ontology') || hashPath.startsWith('/workbench') ? 'apply' as SectionId : null)
       if (want) setSection(want)
     }
     window.addEventListener('settings:open', fromEvent)

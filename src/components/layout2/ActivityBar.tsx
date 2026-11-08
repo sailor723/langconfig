@@ -267,11 +267,17 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
           icon={UserRound}
         />
 
-        {/* Settings — opens the DSH-style settings modal (centered panel) */}
+        {/* Settings — opens the DSH-style settings modal (centered panel).
+            In the Ontology activity the settings anyone actually wants are the publish DECISIONS:
+            what an agent staged and what a person has to apply. The rail's gear used to open
+            General from anywhere, so the apply page had no door you could reach from the ontology
+            screens — the gear you see while browsing ontologies is this one. */}
         <RailItem
           icon={Settings}
           label={tr('ab_settings')}
-          onClick={() => window.dispatchEvent(new CustomEvent('settings:open'))}
+          onClick={() => window.dispatchEvent(new CustomEvent('settings:open', {
+            detail: { section: activeActivity === 'ontology' ? 'apply' : undefined },
+          }))}
         />
 
         {/* Toggle right panel (Chat) — a dedicated window at almost the full screen. */}
