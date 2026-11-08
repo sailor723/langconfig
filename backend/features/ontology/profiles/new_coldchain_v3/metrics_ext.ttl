@@ -332,7 +332,7 @@
     :numerator :violationCount ; :denominator :fleetKmPer10k ;
     rdfs:label "违章率（每万公里）" ; :unit "起/万公里" ;
     :askedAs "每万公里多少起违章" ;
-    :businessDescription "违章起数 ÷ 总里程 × 10,000 = 245 / 25.7872 = 9.50 起/万公里。**车队级口径**：violations 没有 trip_id，只能对整队算，摊到某一趟就是发明数据。口径来自 口径字典#K5。" .
+    :businessDescription "违章起数 ÷ 总里程 × 10,000 = 245 / 25.7872 = 9.50 起/万公里。**车队级口径**：violations 没有 trip_id，只能对整队算，摊到某一趟就是发明数据。口径来自 doc#口径字典-K5；数值 measured: violations / trips。" .
 
 :overThresholdStopRate a owl:DatatypeProperty ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
