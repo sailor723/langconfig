@@ -1,0 +1,124 @@
+{
+ "_doc": "new_coldchain 的看板声明。每个 panel 引用的指标都必须是已声明的；分组面板的数字要能加权回到未分组的值（D3）。口径来自 answers:Q2/Q5/Q6 与 docx。 independent_sql 是这份看板的第二条路线：每条都用手写 SQL 量同一个词（不是本流水线的输出），并由 D5 与编译结果对照。",
+ "version": 1,
+ "ontology": "new_coldchain",
+ "title": "ABC 冷链 · 并线之后的运输看板",
+ "subtitle": "4,120 趟 / 50,832 站：同一个词只有一个数",
+ "events": [],
+ "kpis": [
+  {
+   "metric": "tripCount",
+   "note": "90 天 4,120 趟（并线后 v2 1,520 趟）"
+  },
+  {
+   "metric": "onTimeRate",
+   "note": "站点级；分母是全部 50,832 站"
+  },
+  {
+   "metric": "fullOnTimeTripRate",
+   "note": "趟级：整趟所有站都准点才算"
+  },
+  {
+   "metric": "overloadRate",
+   "note": "重量口径（answers:Q5）"
+  },
+  {
+   "metric": "externalShare",
+   "note": "分母是全部趟次（answers:Q6）"
+  },
+  {
+   "metric": "grossMarginRate",
+   "note": "收入 − 已知成本；other_cost 整列没记录，所以是上限"
+  },
+  {
+   "metric": "compensationCost",
+   "note": "只算已判定赔付；46.1% 未判定不在里面"
+  },
+  {
+   "metric": "refusalCount",
+   "note": "只报次数，不做归因（answers:Q8）"
+  }
+ ],
+ "cross_filter": {
+  "dimension": "routeVersion",
+  "column": "route_version"
+ },
+ "policy": [
+  {
+   "id": "ontime",
+   "label": "准点率红线",
+   "metric": "onTimeRate",
+   "op": "<",
+   "value": 0.95,
+   "assumed": true,
+   "why": "按站点算的准点率。95% 是常见合同门槛，本项目未取得合同原文，仍是假设。"
+  },
+  {
+   "id": "overload",
+   "label": "超载率红线",
+   "metric": "overloadRate",
+   "op": ">",
+   "value": 0.1,
+   "assumed": true,
+   "why": "重量口径。10% 是初始红线，业务未确认。"
+  }
+ ],
+ "briefing": {
+  "_doc": "开场评价：正文里的数字必须写成 {metric} 占位符，渲染时由编译结果填。",
+  "title": "先说一句实话",
+  "body": "这 90 天里准点率是 {onTimeRate}（站点级），但整趟全准点只有 {fullOnTimeTripRate}；并线之后按重量算的超载率是 {overloadRate}，其中 v2 一侧单独看是 {overloadRateByRouteVersion:v2}。毛利 {grossMarginRate} 是上限而不是终值：其它成本桶整列没有记录。"
+ },
+ "panels": [
+  {
+   "id": "merge_slope",
+   "kind": "slope",
+   "title": "并线前后：超载率",
+   "question": "把两条线并成一条之后，超载是变多还是变少？",
+   "x": {
+    "dimension": "routeVersion",
+    "order": [
+     "v1",
+     "v2"
+    ]
+   },
+   "metrics": [
+    "overloadRateByRouteVersion"
+   ],
+   "why_custom": "斜率图要在同一个版本轴上读两把尺子；通用渲染会把它拆成两个面板，就看不出是同一件事。"
+  },
+  {
+   "id": "external_by_peak",
+   "kind": "composition",
+   "title": "外车运力：高峰 vs 平日",
+   "question": "外车是高峰日的补位，还是常态？",
+   "metric": "externalShareByPeak",
+   "render": "stacked",
+   "note": "分组键是 is_peak_day 的布尔值；两组按趟次加权回 externalShare（D3）。"
+  }
+ ],
+ "holes": [],
+ "independent_sql": [
+  {
+   "label": "trips_rowcount",
+   "sql": "select count(*) from trips",
+   "agree_with": {
+    "metric": "tripCount"
+   }
+  },
+  {
+   "label": "overload_v2_weight",
+   "sql": "select round(1.0*count(*) filter (where load_weight > weight_capacity_snapshot)/count(*), 9) from trips where route_version = 'v2'",
+   "agree_with": {
+    "metric": "overloadRateByRouteVersion",
+    "key": "v2"
+   }
+  },
+  {
+   "label": "ontime_stops",
+   "sql": "select round(1.0*count(*) filter (where on_time)/count(*), 9) from stops",
+   "agree_with": {
+    "metric": "onTimeRate"
+   }
+  }
+ ]
+}

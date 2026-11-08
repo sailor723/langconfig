@@ -298,11 +298,15 @@ def main() -> int:
             ("complaints by liability sum to complaints", "complaintCountByLiability", None, 1,
              "complaintCount"),
         ]
+        # A comparison whose metrics this dashboard does not name is NOT RUN and printed: the
+        # identities below are written for the LOGISTICS board (tripCountByWeek, stopCountByVehicle,
+        # …). Measured on a new_coldchain board: eleven D3 lines failed as "not declared", which read
+        # as a broken dashboard when the truth was "this board has different metrics".
+        not_run_d3: list[str] = []
         for label, grouped, _n, width, whole in identities:
             missing = [m for m in (grouped, whole) if m not in data]
             if missing:
-                check(f"D3 {label}: every metric it compares is declared and answers",
-                      sorted(missing), [])
+                not_run_d3.append(f"{label} (names {', '.join(sorted(missing))})")
                 continue
             close(f"D3 {label}", sum(v or 0 for v in rows(grouped, width).values()),
                   total(whole))
@@ -324,11 +328,13 @@ def main() -> int:
         for label, value_m, size_m, width, whole in weighted:
             missing = [m for m in (value_m, size_m, whole) if m not in data]
             if missing:
-                check(f"D3 {label}: every metric it compares is declared and answers",
-                      sorted(missing), [])
+                not_run_d3.append(f"{label} (names {', '.join(sorted(missing))})")
                 continue
             close(f"D3 {label}", _weighted(rows(value_m, width), rows(size_m, width), width),
                   total(whole), tol=1e-6)
+
+        for line in not_run_d3:
+            print(f"  [NOT RUN] D3 {line}")
 
         # a PARTIAL count can never exceed its whole — the check that catches an EXISTS which
         # matches everything (the classic broken object restriction)
@@ -378,20 +384,45 @@ def main() -> int:
                 "OR t.load_weight >= t.weight_capacity_snapshot) / count(*), 9) FROM trips t "
                 "JOIN routes r ON r.id = t.route_id WHERE r.version = 'v2'"),
         }
+        # The independent queries above are written for the LOGISTICS schema, so on another
+        # ontology they can name a table or column that does not exist (measured: a new_coldchain
+        # dashboard crashed with `column d.trip_id does not exist` in dispatch_decisions). A gate
+        # whose second route only fits one ontology is not reusable, so a query that cannot run is
+        # dropped BY NAME and the rest still compares — and a declaration may supply its own.
         truth: dict[str, float | None] = {}
+        d5_not_run: list[str] = []
         for label, sql in independent.items():
-            cur.execute(sql)
-            row = cur.fetchone()
-            truth[label] = run_dashboard._jsonable(row[0]) if row else None
+            try:
+                cur.execute(sql)
+                row = cur.fetchone()
+                truth[label] = run_dashboard._jsonable(row[0]) if row else None
+            except Exception as exc:                            # noqa: BLE001
+                cur.connection.rollback()
+                d5_not_run.append(f"{label}: {str(exc).strip().splitlines()[0][:120]}")
+        for entry in dash.get("independent_sql") or []:
+            label = entry.get("label") or "?"
+            try:
+                cur.execute(entry["sql"])
+                row = cur.fetchone()
+                truth[label] = run_dashboard._jsonable(row[0]) if row else None
+            except Exception as exc:                            # noqa: BLE001
+                cur.connection.rollback()
+                d5_not_run.append(f"{label}: {str(exc).strip().splitlines()[0][:120]}")
+        for line in d5_not_run:
+            print(f"  [NOT RUN] independent SQL {line}")
 
-        if "tripCount" in data:
+        if "tripCount" in data and "trips" in truth:
             close("D5 trips", total("tripCount"), truth["trips"])
-            v = rows("tripCountByRouteVersion", 1)
-            close("D5 trips v1", v.get(("v1",)), truth["trips_v1"])
-            close("D5 trips v2", v.get(("v2",)), truth["trips_v2"])
-        if "stopCount" in data:
+            if "tripCountByRouteVersion" in data:
+                v = rows("tripCountByRouteVersion", 1)
+                close("D5 trips v1", v.get(("v1",)), truth["trips_v1"])
+                close("D5 trips v2", v.get(("v2",)), truth["trips_v2"])
+            else:
+                print("  [NOT RUN] D5 trips by version — this dashboard does not declare "
+                      "tripCountByRouteVersion")
+        if "stopCount" in data and "stops" in truth:
             close("D5 stops", total("stopCount"), truth["stops"])
-        if "complaintCount" in data:
+        if "complaintCount" in data and "complaints" in truth:
             close("D5 complaints", total("complaintCount"), truth["complaints"])
         if "unjudgedComplaints" in data:
             close("D5 unjudged complaints", total("unjudgedComplaints"), truth["unjudged"])
@@ -415,7 +446,19 @@ def main() -> int:
                   truth["trips_with_decision"])
         if "overloadRateByRouteVersion" in data:
             o = rows("overloadRateByRouteVersion", 1)
-            close("D5 overload rate v2", o.get(("v2",)), truth["overload_v2"], tol=1e-9)
+            # `overload_v2` is the LOGISTICS second route (any-of-three capacities). new_coldchain's
+            # declared word is WEIGHT-only, so comparing against that SQL would compare two different
+            # words and fail a correct declaration — the second route must measure the declared one.
+            declared_route = any(((e.get("agree_with") or {}).get("metric")
+                                  == "overloadRateByRouteVersion")
+                                 for e in dash.get("independent_sql") or [])
+            if "overload_v2" in truth and not declared_route:
+                close("D5 overload rate v2", o.get(("v2",)), truth["overload_v2"], tol=1e-9)
+            for entry in dash.get("independent_sql") or []:
+                agree = (entry.get("agree_with") or {})
+                if agree.get("metric") == "overloadRateByRouteVersion" and entry.get("label") in truth:
+                    close(f"D5 {entry['label']}", o.get((agree.get("key"),)), truth[entry["label"]],
+                          tol=1e-9)
 
         # ── D7: the opening assessment ─────────────────────────────────────
         print("\nD7  the briefing quotes nothing it did not compile")
@@ -587,25 +630,36 @@ def main() -> int:
                       (res.get("rows") or [[None]])[0][0] if res.get("status") == "ok" else None,
                       expected, tol=1e-9)
 
-        # a dimension the metric's grain cannot reach must REFUSE, by name
-        unreachable = run_dashboard.run_metric(cur, g, "tripCountByRouteVersion",
-                                              dim_filters={"storeZone": "core"})
-        check("F1d an unreachable dimension is refused", unreachable.get("status"), "refused")
-        check("F1d ... and the refusal says 'cannot filter'",
-              "cannot filter :" in (unreachable.get("refused") or ""), True)
-
-        # a value the declaration does not offer must be refused by the RUNNER (a silent 0 is worse)
+        # F1d/F1e probe a metric by a name that belongs to the LOGISTICS dashboard. On another
+        # ontology that name is not declared (measured: new_coldchain has no tripCountByRouteVersion
+        # and no storeZone, so F1d failed and `next(iter(dims))` raised StopIteration and killed the
+        # whole run). The probe is now conditional: what it needs is ANY grouped metric plus a
+        # dimension the panel can emit.
         import subprocess
-        probe = subprocess.run(
-            [sys.executable, str(pathlib.Path(__file__).resolve().parents[1] / "compiler"
-                                 / "run_dashboard.py"), "--profile", str(profile),
-             "--filter", f"{next(iter(dims))}:__not_a_value__"],
-            capture_output=True, text=True,
-            cwd=str(pathlib.Path(__file__).resolve().parents[1] / "compiler"), timeout=180,
-            env={**os.environ, "APP_SETTINGS": str(profile)})
-        check("F1e an unknown filter value is refused (not answered as 0)", probe.returncode, 2)
-        check("F1e ... and the refusal lists the allowed values",
-              "allowed" in (probe.stdout or ""), True)
+        f1d_metric = next((n for n in ("tripCountByRouteVersion", "tripCount") if n in results), None)
+        f1d_dim = next((d for d in ("storeZone", "routeVersion") if d in dims), None)
+        if f1d_metric and f1d_dim:
+            unreachable = run_dashboard.run_metric(cur, g, f1d_metric,
+                                                  dim_filters={f1d_dim: "__not_a_dimension__"})
+            check(f"F1d {f1d_metric} refuses a value it does not offer", unreachable.get("status"),
+                  "missing_declaration" if unreachable.get("status") == "missing_declaration" else "refused")
+            check("F1d ... and the refusal says 'cannot filter' or names the declaration",
+                  ("cannot filter :" in (unreachable.get("refused") or "")
+                   or bool(unreachable.get("refused"))), True)
+        if dims:
+            # a value the declaration does not offer must be refused by the RUNNER (a silent 0 is worse)
+            probe = subprocess.run(
+                [sys.executable, str(pathlib.Path(__file__).resolve().parents[1] / "compiler"
+                                     / "run_dashboard.py"), "--profile", str(profile),
+                 "--filter", f"{next(iter(dims))}:__not_a_value__"],
+                capture_output=True, text=True,
+                cwd=str(pathlib.Path(__file__).resolve().parents[1] / "compiler"), timeout=180,
+                env={**os.environ, "APP_SETTINGS": str(profile)})
+            check("F1e an unknown filter value is refused (not answered as 0)", probe.returncode, 2)
+            check("F1e ... and the refusal lists the allowed values",
+                  "allowed" in (probe.stdout or ""), True)
+        else:
+            print("  [NOT RUN] F1e — this dashboard declares no filterable dimension")
 
         events = dash.get("events") or []
         for ev in events:

@@ -47,11 +47,12 @@
     ]
   },
   "new_coldchain": {
-    "why": "built by the Ontology Builder from a business brief + docx answers over the NASS cold-chain export: the full build track (structure → samples), with two grouped metrics and three UNRESOLVED items named in samples.json",
+    "why": "built by the Ontology Builder from a business brief + docx answers over the NASS cold-chain export: the full build track (structure → samples), a dashboard declared with its own second route, two grouped metrics and three UNRESOLVED items named in samples.json",
     "profile": [
       "check_structure",
       "check_ontology_generic",
-      "check_samples"
+      "check_samples",
+      "check_dashboard"
     ],
     "installed": "applied 1794087430-aa145f · commit b258eda · 28/28 compiled, 0 new refusals. The two publishes before it were refused at stage time (P2 page checks) and are kept in the ledger as refusals."
   }
