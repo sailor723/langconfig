@@ -6,7 +6,7 @@ triggers:
   - When asked to build or extend an ontology / semantic layer for a database
   - When a KPI or metric must be defined once and compiled, not hand-written per report
   - When "the same metric gives two different numbers" and the definitions must be settled
-version: 2.7
+version: 2.8
 author: weiping
 
 params:
@@ -560,6 +560,22 @@ Stage runs the whole build track against the staging copy, and two checks bite a
   red line there is a real defect in the TTL, not a formatting nit.
 - `P2 the page's title is this profile's title` — the page title must equal `settings.title`. A profile whose
   `title` is its own key (`"new_coldchain"`) gets a page titled `new_coldchain`; give it the business title.
+
+### A number you read may be a cached number — say `refresh=true`
+
+Two caches sit between your build and what you read back:
+
+| what | cached on | how long |
+|---|---|---|
+| the compiled document (`/api/ontology/{key}/document`) | a signature of the DECLARATION files (path, mtime, size) — a TTL rewrite invalidates it by itself | until a file changes |
+| the metric cards (`/metrics/cards`) — every value, one query each | the same signature | 30 s |
+
+So verifying right after you rewrote a TTL is safe, and verifying right after you changed the DATA
+(or ran a mock refresh) can read a value up to 30 s old and look green against a number you think
+you just fixed. Append `?refresh=true` to any check that runs after a data change; it is the same
+switch the browser's reload button sends. Measured on one worker: `document` 0.88 s cold → 0.005 s
+warm, `cards` 0.84 s → 0.003 s — the cache is why reopening an ontology is free, and why a stale
+read is possible at all.
 
 ### Staged is not installed
 
