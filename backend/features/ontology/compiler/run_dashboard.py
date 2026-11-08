@@ -205,11 +205,22 @@ def panel_metric_refs(panel: dict) -> list[str]:
     out = list(panel.get("metrics") or [])
     if panel.get("metric"):
         out.append(panel["metric"])
-    for key in ("size_by", "x", "y", "size", "color"):
-        # `x` is an AXIS spec on a slope panel ({"dimension": …}) and a METRIC on a bubble chart:
-        # a dict is not a metric name, and treating it as one raised "unhashable type: 'dict'".
+    # `series: [{metric, label}]` is the multi-line shape: ONE axis, N metrics. Before this the
+    # series were invisible and `x` was read as a metric name, so v5's six panels asked the compiler
+    # for a metric called "version" and every panel came back empty on a board the gate had passed.
+    series = panel.get("series")
+    if series:
+        for point in series:
+            if isinstance(point, dict) and point.get("metric"):
+                out.append(str(point["metric"]))
+            elif isinstance(point, str):
+                out.append(point)
+    for key in ("size_by", "y", "size", "color"):
         if isinstance(panel.get(key), str):
             out.append(panel[key])
+    # `x` is an AXIS name on a panel with `series`/a dimension object, and a METRIC on a bubble chart.
+    if not series and isinstance(panel.get("x"), str):
+        out.append(panel["x"])
     for link in panel.get("links") or []:
         if link.get("metric"):
             out.append(link["metric"])

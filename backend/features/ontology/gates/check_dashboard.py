@@ -185,11 +185,16 @@ def main() -> int:
             check(f"D1 kpi {kpi['metric']} has exactly one row", len(res.get("rows") or []), 1)
 
         for panel in dash.get("panels") or []:
-            pid, kind = panel["id"], panel["kind"]
-            refs = list(panel.get("metrics")
-                        or ([panel["metric"]] if panel.get("metric") else []))
-            if panel.get("size_by"):
-                refs.append(panel["size_by"])
+            # `render` is the same field as `kind`; a declaration written with `render` +
+            # `series: [{metric}]` used to KeyError here or be silently unchecked, so a board with
+            # six panels and no references passed this gate and then rendered empty.
+            pid = panel.get("id")
+            kind = panel.get("kind") or panel.get("render")
+            try:
+                from run_dashboard import panel_metric_refs   # noqa: PLC0415
+                refs = panel_metric_refs(panel)
+            except Exception:                                 # noqa: BLE001
+                refs = list(panel.get("metrics") or ([panel["metric"]] if panel.get("metric") else []))
             if kind == "hole":
                 for cls in panel.get("requires") or []:
                     check(f"D1 {pid}: {cls} is still undeclared", cls.lstrip(":") in classes, False)
