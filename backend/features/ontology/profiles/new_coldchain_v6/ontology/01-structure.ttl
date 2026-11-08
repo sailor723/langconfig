@@ -80,7 +80,7 @@
 # ---------------------------------------------------------------- 属性：Vehicle（vehicles，10 列）
 # 车与司机 1:1 绑定（drivers.vehicle_id 唯一），所以「换司机」实际等于「换车」。
 
-:plate a owl:DatatypeProperty ; rdfs:domain :Vehicle ; :physicalColumn "plate" ;
+:vehiclePlate a owl:DatatypeProperty ; rdfs:label "车牌" ; :askedAs "车牌" ; rdfs:domain :Vehicle ; :physicalColumn "plate" ;
     :businessDescription "脱敏后的车牌（保留省市+字母，后缀为序号）" .
 
 :vehicleTonnage a owl:DatatypeProperty ; rdfs:domain :Vehicle ; :physicalColumn "tonnage" ;

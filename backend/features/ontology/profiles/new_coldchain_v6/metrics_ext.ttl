@@ -81,6 +81,16 @@
     :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ;
     :numerator :damagedBoxesX1000 ; :denominator :stopCount ; :unit "boxes/1k stops" ;
     :businessDescription "把破损放到每千站上比，否则站点多的线路看着更差。口径来自 docx。" .
+:tripCountByVehicle a owl:DatatypeProperty ; rdfs:label "按车辆看趟次" ; :askedAs "按车辆看趟次" ; rdfs:domain :Trip ;
+    :aggregate "count" ; :grain :Trip ; :universe :Trip ; :groupBy :vehiclePlate ; :unit "count" ;
+    :businessDescription "车与司机 1:1，按车看趟次就是按司机看；分组后各车趟次之和应回到总趟次（D3 用它验证分组不丢行）。口径来自 docx 的派车痛点。" .
+:stopCountByVehicle a owl:DatatypeProperty ; rdfs:label "按车辆看站点数" ; :askedAs "按车辆看站点数" ; rdfs:domain :Stop ;
+    :aggregate "count" ; :grain :Stop ; :universe :Stop ; :groupBy :vehiclePlate ; :unit "count" ;
+    :businessDescription "按出车车辆数站点；经 stops→trips→vehicles 的声明式连接，各车站点数之和应回到总站点数。口径来自 docx。" .
+:damagedBoxesPer1kStopsByVehicle a owl:DatatypeProperty ; rdfs:label "按车辆看每千站破损箱数" ; :askedAs "按车辆看每千站破损箱数" ; rdfs:domain :Stop ;
+    :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ; :groupBy :vehiclePlate ;
+    :numerator :damagedBoxesX1000 ; :denominator :stopCount ; :unit "boxes/1k stops" ;
+    :businessDescription "车与司机 1:1 绑定，所以按车看破损等于按司机看；分子分母同在 Stop 粒度，分组后的比率仍是加权回整体。口径来自 docx 的破损痛点。" .
 :damagedBoxesX1000 a owl:DatatypeProperty ; rdfs:label "破损箱×1000" ; :askedAs "破损箱×1000" ; rdfs:domain :Stop ;
     :aggregate "sum" ; :formula "damaged_boxes * 1000" ; :grain :Stop ; :universe :Stop ; :unit "boxes" ;
     :businessDescription "比率的分子；乘以 1000 是为了把『每千站』做成一个可编译的比率。口径来自 docx。" .
