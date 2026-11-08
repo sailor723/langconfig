@@ -138,3 +138,44 @@
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
     :numerator :tripCostTotal ; :denominator :tripCount ; :unit "RMB/trip" ;
     :businessDescription "已知成本合计除以趟次；分子分母都在 Trip 粒度上。加指标的自检样例。" .
+
+# ── 演示用：加指标的三条路（都是 Trip 自己的列，不需要新结构）────────────────────────
+# (1) 分组计数：一条 1 维指标，让"按版本"的斜率/排名/桑基都能画
+:tripCountByRouteVersion a owl:DatatypeProperty ; rdfs:label "按线路版本看趟次" ; rdfs:domain :Trip ;
+    :aggregate "count" ; :grain :Trip ; :universe :Trip ; :groupBy :tripRouteVersion ; :unit "count" ;
+    :businessDescription "同一个计数按并线版本切开。分组键是 Trip 自己的列（不是 routes 表），所以能编译。" .
+
+:externalTripsByRouteVersion a owl:DatatypeProperty ; rdfs:label "按线路版本看外车趟次" ; rdfs:domain :Trip ;
+    :aggregate "count" ; :grain :Trip ; :universe :Trip ; :where :ExternalTrip ;
+    :groupBy :tripRouteVersion ; :unit "count" ;
+    :businessDescription "外车趟次按版本切开：外车补位是不是集中在并线之后。" .
+
+# (2) 两个维度：矩阵/桑基需要的"二维计数"
+:tripsByVersionPeak a owl:DatatypeProperty ; rdfs:label "按线路版本×高峰看趟次" ; rdfs:domain :Trip ;
+    :aggregate "count" ; :grain :Trip ; :universe :Trip ;
+    :groupBy :tripRouteVersion ; :groupBy :tripIsPeakDay ; :unit "count" ;
+    :businessDescription "二维计数：并线版本 × 高峰/平日。矩阵与桑基都吃这个形状。" .
+
+# (3) 一对面孔：平均的比率 ≠ 比率的平均（分母的选择就是这个指标的语义）
+:loadUtilization a owl:DatatypeProperty ; rdfs:label "平均装载利用率" ; rdfs:domain :Trip ;
+    :aggregate "avg" ; :formula "load_boxes::numeric / box_capacity_snapshot" ;
+    :grain :Trip ; :universe :Trip ; :unit "ratio" ;
+    :businessDescription "每趟装载箱数 / 该趟发车时冻结的箱容量，再对趟次取平均：它回答「典型的一趟装得多满」。数据缺失的趟不计入分母。" .
+
+:capacityUseRate a owl:DatatypeProperty ; rdfs:label "容量利用率（总量比）" ; rdfs:domain :Trip ;
+    :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
+    :numerator :loadedBoxes ; :denominator :boxCapacitySum ; :unit "ratio" ;
+    :businessDescription "总装载箱数 / 总容量：回答「整体运力用了多少」。与平均装载利用率是两个问题，永远不该相等。" .
+
+:loadedBoxes a owl:DatatypeProperty ; rdfs:label "装载箱数合计" ; rdfs:domain :Trip ;
+    :aggregate "sum" ; :formula "load_boxes" ; :grain :Trip ; :universe :Trip ; :unit "boxes" ;
+    :businessDescription "分母/分子之一：装载箱数合计。" .
+
+:boxCapacitySum a owl:DatatypeProperty ; rdfs:label "箱容量合计" ; rdfs:domain :Trip ;
+    :aggregate "sum" ; :formula "box_capacity_snapshot" ; :grain :Trip ; :universe :Trip ; :unit "boxes" ;
+    :businessDescription "分母/分子之一：派车时冻结的箱容量合计。" .
+
+:ownTripsByRouteVersion a owl:DatatypeProperty ; rdfs:label "按线路版本看自有车趟次" ; rdfs:domain :Trip ;
+    :aggregate "count" ; :grain :Trip ; :universe :Trip ; :where :OwnTrip ;
+    :groupBy :tripRouteVersion ; :unit "count" ;
+    :businessDescription "自有车趟次按版本切开；与外车趟次互补（两者相加 = 该版本总趟次）。" .

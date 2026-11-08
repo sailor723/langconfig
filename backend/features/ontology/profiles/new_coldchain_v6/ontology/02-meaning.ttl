@@ -66,3 +66,9 @@
 
 # 备注（写给自己）：:physicalPredicate 里的列名**不带表别名** —— 编译器自己拼 FROM，别名会让它拼不出来。
 # 这一条是被 R 门抓出来的（"missing FROM-clause entry for table c"）。
+
+# 自有车是外车的另一半：同一个 is_external 轴，声明成互补的两个类，桑基图两端才闭合。
+:OwnTrip a owl:Class ; rdfs:label "自有车趟次" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Trip [ a owl:Restriction ;
+        owl:onProperty :tripIsExternal ; owl:hasValue false ] ) ] ;
+    :businessDescription "自有司机承运的趟次；与外车趟次互斥且相加为全部趟次。" .
