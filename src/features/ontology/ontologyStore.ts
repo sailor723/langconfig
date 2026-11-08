@@ -361,8 +361,10 @@ export interface MetricCard {
 
 /** Every metric as a card — one call, because the values come from
  *  the database under the guardrails and a card without its number is half a card. */
-export async function fetchMetricCards(key: string): Promise<MetricCard[]> {
-  const body = await getAppJson(key, '/metrics/cards', 120000);
+export async function fetchMetricCards(key: string, refresh = false): Promise<MetricCard[]> {
+  // The app caches cards for half a minute; `refresh` is how a person says "I changed something,
+  // run it again" — the same switch the dashboard's panel cache has always had.
+  const body = await getAppJson(key, refresh ? '/metrics/cards?refresh=true' : '/metrics/cards', 120000);
   if (!body?.ok) throw new Error(body?.error || body?.detail || 'the card list was refused');
   return (body.cards || []) as MetricCard[];
 }
@@ -459,7 +461,7 @@ export const ontology = {
   },
 
   /** Select an ontology, remember it, and load what it declares. */
-  async select(url: string, presetKey?: string) {
+  async select(url: string, presetKey?: string, opts: { refresh?: boolean } = {}) {
     const clean = normalizeUrl(url);
     // the KEY decides which ontology this is. A url is only consulted when the caller did not name a
     // key, and only when it is not empty — every installed ontology has `url: ''`, so matching on
@@ -485,7 +487,9 @@ export const ontology = {
     }
     try {
       const [doc, secs] = await Promise.all([
-        getAppJson(preset, '/document', 20000),
+        // `refresh` bypasses the app's compile cache: the document is compiled on the declaration
+        // files' signature, so anything written outside the app (a publish, a hand edit) needs this.
+        getAppJson(preset, opts.refresh ? '/document?refresh=true' : '/document', 60000),
         getAppJson(preset, '/sections', 8000).catch(() => null),
       ]);
       if (!doc.ok) throw new Error(doc.error || 'the app refused to compile this ontology');

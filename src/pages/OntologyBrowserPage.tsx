@@ -75,15 +75,17 @@ export default function OntologyBrowserPage() {
   // `profiles.find(p => p.url === s.url)` returned the first row whenever urls were equal —
   // which they are now (every ontology is same-origin), so it showed another ontology's cards.
   const cardKey = s.preset || '';
+  // Counts reloads: every one asks the cards for fresh values (the app caches them for 30 s).
+  const [cardsEpoch, setCardsEpoch] = useState(0);
   useEffect(() => {
     if (tab !== 'metrics' || cards || !cardKey) return;
     let cancelled = false;
     setCardsError(null);
-    fetchMetricCards(cardKey)
+    fetchMetricCards(cardKey, cardsEpoch > 0)
       .then(list => { if (!cancelled) setCards(list); })
       .catch(err => { if (!cancelled) setCardsError(String(err?.message || err)); });
     return () => { cancelled = true; };
-  }, [tab, cards, cardKey]);
+  }, [tab, cards, cardKey, cardsEpoch]);
 
   const doc = s.ontology;
   const needle = q.trim().toLowerCase();
@@ -188,9 +190,10 @@ export default function OntologyBrowserPage() {
             if (!s.preset) { window.location.reload(); return; }
             setReload({ busy: true, at: null, note: null });
             refreshCards();
+            setCardsEpoch(n => n + 1);
             try {
               await ontology.loadProfiles().catch(() => {});
-              await ontology.select(s.url, s.preset);
+              await ontology.select(s.url, s.preset, { refresh: true });
               const d: any = ontology.get().ontology;
               setReload({
                 busy: false,

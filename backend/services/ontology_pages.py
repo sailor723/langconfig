@@ -26,6 +26,8 @@ from __future__ import annotations
 import json
 import logging
 import pathlib
+import threading
+import time
 
 from services import ontology_runtime
 
@@ -37,6 +39,52 @@ WORKBENCH = FEATURE / "workbench"
 
 class PageError(Exception):
     """The page or declaration asked for does not exist for this ontology."""
+
+
+# ── two caches, and what makes them safe ───────────────────────────────────
+# Opening new_coldchain_v3 costs ~0.8 s to compile 91 metrics and ~0.9 s to run them, on every
+# request, for every reader — the browser page asks for the document AND the cards, so a click
+# cost ~1.7 s of work that had not changed since the last click. Parsing the TTL is not the cost
+# (measured: 47 ms); the compile and the queries are.
+#
+# Both caches are keyed by a SIGNATURE of the declaration files (path, mtime, size), so a publish
+# that rewrites a TTL invalidates them with no invalidation call to forget — the files are the
+# state. `refresh=true` ignores the cache and recomputes, which is what the page's reload button
+# sends: "I changed something outside your knowledge, look again".
+_CACHE_LOCK = threading.Lock()
+_DOC_CACHE: dict[str, tuple[tuple, dict]] = {}
+_CARDS_CACHE: dict[str, tuple[float, tuple, list]] = {}
+# How long a metric VALUE may be reused. Same 30 s the dashboard's panel cache uses: long enough to
+# make clicking around one ontology free, short enough that a number is still "now".
+CARDS_TTL_SECONDS = 30.0
+
+
+def _signature(profile: pathlib.Path) -> tuple:
+    """(path, mtime_ns, size) of every file this profile compiles from.
+
+    The declaration files ARE the cache key: point the profile at different TTL, or let a publish
+    rewrite one, and the signature changes by itself. No `invalidate(key)` anyone can forget to call.
+    """
+    try:
+        settings = json.loads(profile.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        settings = {}
+    base = profile.parent
+    files = [profile]
+    ontology_dir = base / str(settings.get("ontology_dir") or "ontology")
+    if ontology_dir.is_dir():
+        files += sorted(ontology_dir.glob("*.ttl"))
+    overlay = base / str(settings.get("overlay") or "")
+    if str(settings.get("overlay") or "") and overlay.is_file():
+        files.append(overlay)
+    out = []
+    for f in files:
+        try:
+            st = f.stat()
+        except OSError:
+            continue
+        out.append((str(f), st.st_mtime_ns, st.st_size))
+    return tuple(out)
 
 
 def _profile(key: str) -> pathlib.Path:
@@ -82,26 +130,54 @@ def _settings(key: str) -> dict:
 
 
 # ── JSON: the three documents ───────────────────────────────────────────────
-def document(key: str) -> dict:
-    """Objects, definitions, links and metrics of one ontology (the browser page's whole input)."""
+def document(key: str, refresh: bool = False) -> dict:
+    """Objects, definitions, links and metrics of one ontology (the browser page's whole input).
+
+    Cached on the declaration signature (see `_signature`): the compiled document only changes when
+    a TTL does, and compiling 91 metrics for a reader who read them a minute ago is wasted work.
+    The dict is returned as-is and must not be mutated by callers.
+    """
     profile = _profile(key)
+    sig = _signature(profile)
+    if not refresh:
+        with _CACHE_LOCK:
+            hit = _DOC_CACHE.get(key)
+        if hit is not None and hit[0] == sig:
+            return hit[1]
     with ontology_runtime._LOCK:
         _compiler().use(profile)
         import ontology_api  # noqa: PLC0415
 
-        return ontology_api.build(profile)
+        doc = ontology_api.build(profile)
+    with _CACHE_LOCK:
+        _DOC_CACHE[key] = (sig, doc)
+    return doc
 
 
-def cards(key: str) -> list[dict]:
-    """Every metric as a card: declaration, compiled SQL, value under the guard, or the refusal."""
+def cards(key: str, refresh: bool = False) -> list[dict]:
+    """Every metric as a card: declaration, compiled SQL, value under the guard, or the refusal.
+
+    This is the expensive read — one SQL query per metric, run live. Cached for `CARDS_TTL_SECONDS`
+    on the declaration signature, so the values are at most half a minute old and `refresh=true`
+    always tells the truth immediately.
+    """
     profile = _profile(key)
+    sig = _signature(profile)
+    if not refresh:
+        with _CACHE_LOCK:
+            hit = _CARDS_CACHE.get(key)
+        if hit is not None and hit[1] == sig and (time.time() - hit[0]) < CARDS_TTL_SECONDS:
+            return hit[2]
     with ontology_runtime._LOCK:
         prof = _compiler()
         prof.use(profile)
         import sqlgen  # noqa: PLC0415
         import tutorial_api  # noqa: PLC0415
 
-        return tutorial_api.metric_cards(_settings(key), sqlgen.load())
+        out = tutorial_api.metric_cards(_settings(key), sqlgen.load())
+    with _CACHE_LOCK:
+        _CARDS_CACHE[key] = (time.time(), sig, out)
+    return out
 
 
 def _has_dashboard(key: str) -> bool:

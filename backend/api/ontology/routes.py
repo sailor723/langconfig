@@ -420,19 +420,27 @@ async def dashboard_panels(key: str, refresh: bool = False, filter: Optional[str
 # no ports, and no second resolver to disagree about which ontology a page belongs to.
 
 @router.get("/{key}/document")
-async def ontology_document(key: str):
-    """Objects, definitions, links and metrics of one ontology (the browser page's whole input)."""
+async def ontology_document(key: str, refresh: bool = False):
+    """Objects, definitions, links and metrics of one ontology (the browser page's whole input).
+
+    Cached on the declaration files; `refresh=true` recompiles now (the browser's reload button).
+    """
     try:
-        return {"ok": True, **ontology_pages.document(key)}
+        doc = await asyncio.to_thread(ontology_pages.document, key, refresh)
+        return {"ok": True, **doc}
     except ontology_pages.PageError as exc:
         raise HTTPException(404, str(exc)) from exc
 
 
 @router.get("/{key}/metrics/cards")
-async def ontology_metric_cards(key: str):
-    """Every metric as a card: declaration, compiled SQL, value under the guard — or the refusal."""
+async def ontology_metric_cards(key: str, refresh: bool = False):
+    """Every metric as a card: declaration, compiled SQL, value under the guard — or the refusal.
+
+    One query per metric, cached for half a minute; `refresh=true` re-runs them all.
+    """
     try:
-        return {"ok": True, "cards": ontology_pages.cards(key)}
+        cards = await asyncio.to_thread(ontology_pages.cards, key, refresh)
+        return {"ok": True, "cards": cards}
     except ontology_pages.PageError as exc:
         raise HTTPException(404, str(exc)) from exc
 
