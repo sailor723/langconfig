@@ -6,7 +6,7 @@ triggers:
   - When asked to build or extend an ontology / semantic layer for a database
   - When a KPI or metric must be defined once and compiled, not hand-written per report
   - When "the same metric gives two different numbers" and the definitions must be settled
-version: 2.2
+version: 2.3
 author: weiping
 
 params:
@@ -110,6 +110,25 @@ is green, which is red, and continue from the red one.
 
 **Never skip a step, and never "fix it later".** A red S1 makes every later step meaningless: the compiler will
 refuse every metric for the same structural reason, and the time is spent twice.
+
+### The ladder ends at S8 — there is no S9, S10 or S11
+
+Asked "are S1 … S11 in the skill?", the honest answer is the table above: **S-1, S0, S1, S2, S3, S4, S5, S6, S7,
+S8**, and nothing after S8. Measured: a builder asked exactly that question spent **213 tool calls** (69 shell,
+68 python, 29 psql, 15 writes) re-deriving its own history from the artifacts to answer it — a self-audit with no
+cheap answer, because the skill never said where the ladder stops.
+
+What happens AFTER S8 is not a ladder step, and it has its own names:
+
+| after S8 | who | what |
+|---|---|---|
+| **apply** | a human with `ontology_editor` | re-runs the whole suite on the INSTALLED path, commits, reverts byte-for-byte on failure |
+| **appears** | nobody | an installed profile shows up in the Ontology activity on its own (existence comes from `profiles/<key>/`, not from a roster) |
+| **operate** | anyone | pages, Query, Dashboard, tutorial — every number compiled on request; `scripts/ontology_gates.py --key …` re-proves the whole key |
+| **change again** | a builder | that is a **rebuild**: back to **S-1**, prove the delta, touch only what the delta names |
+
+So when someone asks whether a step is "in the skill", **quote the ladder table** (ten rows) instead of
+reconstructing what you did from the workspace: the table is the answer, and re-deriving it costs a turn.
 
 ---
 
