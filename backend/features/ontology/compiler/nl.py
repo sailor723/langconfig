@@ -276,14 +276,51 @@ def _llm():
     return None
 
 
+def _profile_path():
+    """Which profile's aliases to install: the one the caller pointed us at.
+
+    Precedence matters. The CLI and the gates set `$APP_SETTINGS`; the APP does not — it switches
+    profiles in-process (`ontology_profile.use()` sets `actions.ACTIVE_PROFILE`), because the env var
+    is process-wide and would outlive the request. Reading only the env var meant the app's own
+    Query/ask path ran with **no aliases at all** while the same question worked in the `nl.py`
+    subprocess: measured on new_coldchain_v6, 「按车辆看每千站破损箱数」 answered with 60 rows through
+    the workbench and refused through `/api/ontology/{key}/ask` with "nothing declares a grouping by
+    ['车辆']" — the alias 车辆→vehicle had never been installed in that process.
+    """
+    raw = os.environ.get("APP_SETTINGS")
+    if not raw:
+        try:
+            import actions  # noqa: PLC0415 — the compiler's own profile marker
+            raw = getattr(actions, "ACTIVE_PROFILE", None)
+        except Exception:                                        # noqa: BLE001
+            raw = None
+    return pathlib.Path(raw) if raw else pathlib.Path(__file__).with_name("settings.json")
+
+
+#: The compiled-in aliases, re-installed before each profile's own (an alias from the previous
+#: profile must not leak into the next: two ontologies in one process is the app's normal case).
+_DEFAULT_ALIASES: dict[str, str] = {}
+
+
+def use_profile(path) -> None:
+    """Install ONE profile's aliases, dropping the previous profile's. Called by `use()`."""
+    ALIASES.clear()
+    ALIASES.update(_DEFAULT_ALIASES)
+    try:
+        prof = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+    except Exception:                                            # noqa: BLE001
+        return
+    for src, canon in (prof.get("aliases") or {}).items():
+        ALIASES[str(src).lower()] = str(canon)
+
+
 def _apply_profile_aliases() -> None:
     """A profile may rename a dimension: in TPCH "region" is a real object, and retail's
     "region -> city" alias would be wrong there. Declared per profile, never global."""
+    _DEFAULT_ALIASES.update(ALIASES)
     try:
-        prof = json.loads(pathlib.Path(os.environ.get("APP_SETTINGS")
-                                       or pathlib.Path(__file__).with_name("settings.json")
-                                       ).read_text(encoding="utf-8"))
-    except Exception:  # noqa: BLE001
+        prof = json.loads(_profile_path().read_text(encoding="utf-8"))
+    except Exception:                                            # noqa: BLE001
         return
     for src, canon in (prof.get("aliases") or {}).items():
         # Keep the canonical's case: a camelCase target ("noShow") must stay splittable into

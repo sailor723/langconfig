@@ -61,6 +61,17 @@ def use(profile_path: str | pathlib.Path) -> dict:
     actions.SCHEMA = ((base / prof["actions_file"]).resolve() if prof.get("actions_file")
                       else conventional.resolve() if conventional.is_file() else None)
 
+    # The NL layer's ALIASES are per profile too (区域→zone, 车辆→vehicle …). It used to install them
+    # only from `$APP_SETTINGS`, which the app never sets — so switching profiles in-process left the
+    # app answering dimension questions with no aliases while the subprocess path had them. `use()` is
+    # the one place that knows which profile is active, so it installs them here.
+    try:
+        import nl  # noqa: PLC0415
+        nl.use_profile(path)
+    except Exception as exc:                                     # noqa: BLE001
+        import logging
+        logging.getLogger(__name__).debug("nl aliases not installed for %s: %s", path, exc)
+
     return {"profile": str(path), "ns": sqlgen.NS, "ontology_dir": ontology_dir,
             "overlay": overlay or None, "actions_file": str(actions.SCHEMA),
             "dsn": actions.dsn()}
