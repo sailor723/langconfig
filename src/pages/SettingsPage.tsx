@@ -350,6 +350,12 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         {/* Content column */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           <div style={{ flex: 'none', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', gap: 8, height: 54, padding: '10px 14px 8px 10px', boxSizing: 'border-box' }}>
+            {/* Which section this panel is showing, named. A deep link that silently loses its
+                section is indistinguishable from a working one until you can read the answer. */}
+            <span data-settings-section={section}
+                  style={{ marginRight: 'auto', fontSize: 12, color: tok.labelTertiary, lineHeight: '28px' }}>
+              {t('settings_title')} · {section === 'apply' ? 'Apply' : t(SECTIONS.find(x => x.id === section)?.labelKey || '')}
+            </span>
             <button
               type="button" onClick={onClose}
               style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, padding: 0, border: 'none', borderRadius: '50%', background: 'transparent', cursor: 'pointer', color: tok.labelPrimary, fontSize: 14 }}

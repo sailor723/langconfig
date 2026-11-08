@@ -764,6 +764,9 @@ function AppContent() {
     {/* Settings modal (DSH-style centered panel) — over the app */}
     {(settingsOpen || currentView === 'settings') && (
       <SettingsModal
+        // The query decides WHICH section opens, so it is part of the modal's identity: a new
+        // `?section=` remounts the panel instead of asking an already-mounted instance to notice.
+        key={location.search}
         onClose={() => {
           setSettingsOpen(false);
           if (currentView === 'settings') navigate('/');
