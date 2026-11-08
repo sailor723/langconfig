@@ -6,7 +6,7 @@ triggers:
   - When asked to build or extend an ontology / semantic layer for a database
   - When a KPI or metric must be defined once and compiled, not hand-written per report
   - When "the same metric gives two different numbers" and the definitions must be settled
-version: 3.0
+version: 3.1
 author: weiping
 
 params:
@@ -456,6 +456,44 @@ label until the declaration exists.
 ---
 
 ## S6. Dashboard (only if the business asked for a board)
+
+### Two board species — pick one and say why
+
+| | **reference board** (v3, v4) | **reporting board** (v5) |
+|---|---|---|
+| size | 19 panels · 17–21 cards · 90–153 metrics | **6 panels · 10 cards · 61 metrics** |
+| for | a reader who will interrogate the business: every decomposition, every caliber, by vehicle / week / zone / version | a reader who reports six KPI families once a week |
+| shape | `slope` + `matrix` + `ranked` + `composition` + `series` + `parallel` | one chart per family: `slope` (trend/regime), `series` (weekly), `composition` (mix), `parallel` (calibers side by side) |
+| numbers | 19 independent panels | the red lines are declared (`policy`), with `assumed` / `refused:` marking a threshold the business has NOT confirmed |
+
+Both are correct, and neither is a demotion: **v3/v4 remain the reference for "what can this database
+answer"**, and v5 is the same database cut down to what a person reports. A rebuild must not
+collapse a reference board into six panels unless the brief asks for a reporting board.
+
+### A rate that reads as a percentage says so in its declaration
+
+`:unit "ratio"` with no `:scale` makes the card print `0.9459` where the business reads 站次准时率.
+Measured: 19 metrics in v5 and 17 in v4 did exactly that, and only v3 (which always carried
+`:scale "100.0"` + `:unit "percent"`) looked right.
+
+```
+:stopOnTimeRate :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ;
+    :numerator :onTimeStopCount ; :denominator :stopCount ;
+    :scale "100.0" ; :unit "percent" ; :askedAs "准时率是多少" .
+```
+
+`check_dashboard` now FAILS a KPI card whose unit is missing or a bare `ratio`. Units that legitimately
+are not percentages say what they are: `money_per_km`, `liter_per_100km`, `count_per_10000km`.
+
+### The kinds this app can draw (a `render` it does not know is a blank frame)
+
+`slope · series · composition · ranked · matrix · parallel · treemap · bubble · sankey · hole`
+
+`bar` is **not** one of them, and a `treemap` needs TWO dimensions — a one-dimension mix is
+`composition`. A panel declared `render: "bar"` renders as an empty frame with `kind: null` in the
+payload, which is what "all charts in v5 can't be seen" was: the data was there, the renderer never ran.
+`kind` and `render` are the same field; the payload normalises both, and `series: [{metric, label}]`
+supplies the metrics.
 
 `dashboard.json` names which **declared** metric each panel shows, by what it is cut, and what a missing one
 costs. A panel that cannot answer ships as a refusal card.
