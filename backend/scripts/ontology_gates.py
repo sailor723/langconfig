@@ -150,6 +150,30 @@ def _run(script: pathlib.Path, args: list[str], timeout: int = 900) -> dict:
             "reason": "" if verdict != "fail" else (failures[0] if failures else summary[-300:])}
 
 
+def _load_deployment_env() -> None:
+    """Give the gates the same environment the SERVICE has.
+
+    Measured on the ECS deploy: `check_tpch` compared against retail's database and failed with
+    "port 15432 refused" while the running app was fine — because the app's systemd unit loads
+    `/root/langconfig/.env` (which sets ONTOLOGY_DB_PORT=5432) and a CLI gate did not. A suite that
+    measures a different environment than the app is measuring the wrong thing.
+    """
+    env = GATES.parents[3] / ".env"          # backend/features/ontology/gates → <repo>/.env
+    if not env.is_file():
+        return
+    try:
+        for raw in env.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            if key and key not in os.environ:
+                os.environ[key] = value.strip().strip('"').strip("'")
+    except Exception:                                            # noqa: BLE001
+        pass
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--key", action="append", help="only these ontologies (repeatable)")
@@ -166,6 +190,7 @@ def main() -> int:
         print(f"no ontology profiles under {PROFILES}", file=sys.stderr)
         return 2
 
+    _load_deployment_env()
     declaration = _declaration()
     runs: list[dict] = []
     for key in keys:
