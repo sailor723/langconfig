@@ -22,10 +22,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
-import { AlertTriangle, ArrowRight, BarChart3, Boxes, Copy, RefreshCw, Route, Sigma, Sparkles } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BarChart3, Boxes, Copy, MessageSquare, RefreshCw, Route, Sigma, Sparkles } from 'lucide-react';
 import { useLayoutTokens } from '../components/layout2/tokens';
 import { Btn, Card, Chip, Hero, PageShell, Section, mono, CYAN, DANGER, INFO, SUCCESS, VIOLET, WARN } from '../features/ontology/ui';
 import { ontology, useOntology } from '../features/ontology/ontologyStore';
+import { useChat } from '../features/chat/state/ChatContext';
 import DashboardChat from '../features/ontology/DashboardChat';
 import { BubblePanel, ParallelPanel, SankeyPanel, TreemapPanel } from '../features/ontology/dashboardCharts';
 import apiClient from '../lib/api-client';
@@ -613,6 +614,9 @@ export default function OntologyDashboardPage() {
   const t = useLayoutTokens();
   const navigate = useNavigate();
   const s = useOntology();
+  // The chat window is the app's own (`GlobalChatModal`), opened from here: one chat, one history,
+  // no second copy of the chat UI living inside the ontology feature.
+  const { openChat } = useChat();
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -690,6 +694,12 @@ export default function OntologyDashboardPage() {
         subtitle={data?.subtitle || `声明式看板 —— 每个面板都是 ${key || '本体'} 的一项已声明指标`}
         actions={
           <>
+            {/* Chat is a WINDOW, not a page: reading a board and asking a question about it are the
+                same sitting, and navigating away to ask loses the board you were reading. */}
+            <Btn onClick={() => openChat()} title="打开对话窗口：就这张板问一句，板不动">
+              <MessageSquare size={13} style={{ marginRight: 4 }} />
+              对话
+            </Btn>
             <Btn onClick={() => load(true)} disabled={loading}>
               <RefreshCw size={13} style={{ animation: loading ? 'lc-spin 1s linear infinite' : undefined, marginRight: 4 }} />
               重算
