@@ -54,6 +54,11 @@ export default function OntologyBrowserPage() {
     setCards(null);
     setCardsError(null);
   }, []);
+  // A reload that leaves the screen looking identical is indistinguishable from a dead button — which
+  // is exactly how it was reported. So it says what it did: when, and the counts it read back.
+  const [reload, setReload] = useState<{ busy: boolean; at: string | null; note: string | null }>(
+    { busy: false, at: null, note: null },
+  );
 
   useEffect(() => {
     void (async () => {
@@ -174,21 +179,41 @@ export default function OntologyBrowserPage() {
           {String(guard.default_window_days ?? '?')}d
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button style={btn()} onClick={async () => {
-            // Refresh means BOTH lists: the roster (a publish applied since this tab opened adds an
-            // ontology) and this ontology's document. `select(url, undefined)` was a no-op whenever the
-            // store had no preset — it then has no key to load — so the button looked dead; with no key
-            // at all, a full reload is the only thing that can re-read anything.
+          <button style={{ ...btn(), opacity: reload.busy ? 0.6 : 1 }} disabled={reload.busy} onClick={async () => {
+            // Refresh means THREE reads: the roster (a publish applied since this tab opened adds an
+            // ontology), this ontology's document, and the cards (the numbers are a second request kept
+            // in page state, so a publish that moved a number used to look like nothing happened).
+            // `select(url, undefined)` was a no-op whenever the store had no preset — it then has no key
+            // to load — so the button looked dead; with no key at all, a full reload is the only option.
             if (!s.preset) { window.location.reload(); return; }
-            // The numbers are a SEPARATE read (`fetchMetricCards`), kept in this page's state: reloading
-            // only the document re-rendered the same cards with the same values, so a publish that moved
-            // a number looked like nothing happened. Drop the cards too, and the effect fetches them again.
+            setReload({ busy: true, at: null, note: null });
             refreshCards();
-            await ontology.loadProfiles().catch(() => {});
-            await ontology.select(s.url, s.preset);
+            try {
+              await ontology.loadProfiles().catch(() => {});
+              await ontology.select(s.url, s.preset);
+              const d: any = ontology.get().ontology;
+              setReload({
+                busy: false,
+                at: new Date().toLocaleTimeString(),
+                note: d
+                  ? `${d.counts?.objects ?? (d.objects || []).length} objects · ${d.counts?.metrics ?? (d.metrics || []).length} metrics`
+                  : 'nothing compiled',
+              });
+            } catch (err: any) {
+              setReload({ busy: false, at: null, note: `failed: ${err?.message || err}` });
+            }
           }}>
-            <RefreshCw size={11} /> reload
+            <RefreshCw size={11} className={reload.busy ? 'animate-spin' : undefined} />
+            {reload.busy ? 'reloading…' : 'reload'}
           </button>
+          {reload.at && (
+            <span style={{ ...chip, color: t.textMuted }} title="what the last reload read from the server">
+              reloaded {reload.at} · {reload.note}
+            </span>
+          )}
+          {!reload.at && reload.note && (
+            <span style={{ ...chip, color: '#b3261e' }}>{reload.note}</span>
+          )}
           {/* Applying a staged publish is a SETTINGS action (a number's meaning changes for everyone),
               but deciding to do it happens while reading the ontology. One click from here, not a
               hunt through Settings. */}
