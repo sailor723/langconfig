@@ -75,23 +75,32 @@ PREFIXES = {"http://www.w3.org/1999/02/22-rdf-syntax-ns#": "rdf",
             "http://www.w3.org/2002/07/owl#": "owl",
             "http://www.w3.org/2001/XMLSchema#": "xsd"}
 GLOSS = {
-    "domain": "domain — the class this property belongs to", "range": "range",
-    "subClassOf": "subclass of", "inverseOf": "inverse of",
-    "equivalentClass": "equivalent class", "propertyChainAxiom": "property chain",
-    "physicalTable": "physical table", "physicalColumn": "physical column",
-    "physicalPredicate": "physical predicate", "primaryKey": "primary key",
-    "columnCount": "column count", "sqlType": "sql type", "referencesColumn": "references",
-    "businessAlias": "business alias", "businessDescription": "business description",
-    "thresholdSource": "threshold source", "formulaSource": "formula source",
-    "additivity": "additivity", "formula": "formula", "unit": "unit",
-    "aggregate": "aggregate", "grain": "grain", "universe": "universe",
-    "concept": "concept", "counts": "counts", "memberAlias": "member alias (migration debt)",
-    "labelProperty": "label property", "pendingModelling": "pending modelling",
+    "domain": "域 —— 这个属性属于哪个类", "range": "值域",
+    "subClassOf": "子类于", "inverseOf": "互逆于",
+    "equivalentClass": "等价类", "propertyChainAxiom": "属性链",
+    "physicalTable": "物理表", "physicalColumn": "物理列",
+    "physicalPredicate": "手写谓词", "primaryKey": "主键",
+    "columnCount": "列数", "sqlType": "SQL 类型", "referencesColumn": "引用的列",
+    "businessAlias": "业务别名", "businessDescription": "业务描述",
+    "thresholdSource": "阈值来源", "formulaSource": "公式来源",
+    "additivity": "可加性", "formula": "公式", "unit": "单位",
+    "aggregate": "聚合", "grain": "粒度", "universe": "范围",
+    "concept": "概念", "counts": "计数", "memberAlias": "成员别名（迁移遗留）",
+    "labelProperty": "标签属性", "pendingModelling": "待建模",
 }
 
 
 def ttl_files() -> list[pathlib.Path]:
-    return [OVERLAY] + sorted(sqlgen.CUBE.glob("*.ttl"))
+    """Every file this page documents: the overlay if this profile has one, then the ontology dir.
+
+    The overlay is OPTIONAL — a profile may declare no computation layer at all (abc does not), and the
+    generator used to crash on it with `FileNotFoundError: …/compiler/metrics_ext.ttl`, because the
+    default overlay path was unconditionally put in the list.
+    """
+    files = sorted(sqlgen.CUBE.glob("*.ttl"))
+    if OVERLAY and pathlib.Path(OVERLAY).is_file():
+        files = [pathlib.Path(OVERLAY)] + files
+    return files
 
 
 def block_at(lines: list[str], start: int, limit: int = 20) -> str:
@@ -548,8 +557,8 @@ def build_payload(sample_limit: int = SAMPLE) -> dict:
 
 
 HTML = """<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<title>Retail ontology — graph and documentation from the TTL</title>
+<html lang="zh"><head><meta charset="utf-8">
+<title>__TITLE__ —— 图谱与文档（由 TTL 生成）</title>
 <style>
   :root { --ink:#1b1b1b; --dim:#777; --faint:#999; --line:#c9c9c9; --pick:#ffe9a8; }
   * { box-sizing:border-box }
@@ -643,48 +652,47 @@ HTML = """<!doctype html>
   #bar .dbchip { font-size:10px; color:#4a6f9c; white-space:nowrap }
 </style></head>
 <body>
-<div id="index"><div class="head">Entities</div><div id="idx"></div></div>
+<div id="index"><div class="head">实体</div><div id="idx"></div></div>
 <div id="stage">
   <div id="bar">
-    <input id="q" placeholder="search…">
-    <button data-k="structure" class="on">classes</button>
-    <button data-k="meaning" class="on">defined</button>
-    <button data-k="metric" class="on">properties</button>
-    <button id="reset">fit</button>
+    <input id="q" placeholder="搜索…">
+    <button data-k="structure" class="on">类</button>
+    <button data-k="meaning" class="on">定义</button>
+    <button data-k="metric" class="on">属性</button>
+    <button id="reset">适配</button>
     <span class="sp"></span>
     <span class="dbchip" id="scope"></span>
-    <span class="dbchip">■ blue = measured in Postgres</span>
+    <span class="dbchip">■ 蓝色 = 在 Postgres 里实测</span>
     <span class="meta" id="meta"></span>
   </div>
   <svg id="svg"><g id="view"></g></svg>
   <div id="controls">
     <div class="row">
-      <button id="c-fit" title="fit to window — key 0">⤢</button>
-      <button id="c-zin" title="zoom in — key +">＋</button>
-      <button id="c-zout" title="zoom out — key −">−</button>
+      <button id="c-fit" title="适配窗口 — 快捷键 0">⤢</button>
+      <button id="c-zin" title="放大 — 快捷键 +">＋</button>
+      <button id="c-zout" title="缩小 — 快捷键 −">−</button>
     </div>
     <div class="row">
-      <button data-mode="domain" title="what this term's properties point at — key d">domain→</button>
-      <button data-mode="range" title="what points at this term — key r">←range</button>
-      <button data-mode="both" title="both directions — key b">both</button>
+      <button data-mode="domain" title="这个词的属性指向谁 — 快捷键 d">域→</button>
+      <button data-mode="range" title="谁指向这个词 — 快捷键 r">←值域</button>
+      <button data-mode="both" title="两个方向都看 — 快捷键 b">双向</button>
     </div>
     <div class="row">
-      <button data-pan="left" title="pan left — key ←">←</button>
-      <button data-pan="up" title="pan up — key ↑">↑</button>
-      <button data-pan="down" title="pan down — key ↓">↓</button>
-      <button data-pan="right" title="pan right — key →">→</button>
+      <button data-pan="left" title="左移 — 快捷键 ←">←</button>
+      <button data-pan="up" title="上移 — 快捷键 ↑">↑</button>
+      <button data-pan="down" title="下移 — 快捷键 ↓">↓</button>
+      <button data-pan="right" title="右移 — 快捷键 →">→</button>
     </div>
   </div>
-  <div id="hint">click an entity · <b>domain→ / ←range</b> hides everything else · drag nodes · wheel to zoom · pan with arrows · keys + − 0 ← ↑ ↓ → d r b</div>
+  <div id="hint">点一个实体 · <b>域→ / ←值域</b> 只留与它相关的 · 拖动节点 · 滚轮缩放 · 方向键平移 · 快捷键 + − 0 ← ↑ ↓ → d r b</div>
 </div>
 <div id="panel">
-  <h1>Retail ontology</h1>
-  <div class="kind">__GENERATED__ · __TRIPLES__ triples from __FILES__ files</div>
-  <p class="muted">Pick a <b>c</b> class or a <b>dp</b> datatype property on the left or in
-  the graph. This pane is its documentation, generated from the <code>.ttl</code>, using the
-  same terms as <code>ontology-doc.html</code>: Description, Equivalent Class, Annotation
-  Properties, Axioms, IRI. The <b>Domain</b>/<b>Range</b> lists are what that page calls
-  <i>In Domain Of</i> and <i>In Range Of</i>.</p>
+  <h1>__TITLE__</h1>
+  <div class="kind">__GENERATED__ · 由 __FILES__ 个文件里的 __TRIPLES__ 条三元组生成</div>
+  <p class="muted">在左侧或图里点一个 <b>c</b> 类或一个 <b>dp</b> 数据属性。这一栏是它的文档，
+  由 <code>.ttl</code> 生成，用词与 <code>ontology-doc.html</code> 一致：描述、等价类、注解属性、
+  公理、IRI。<b>域</b>/<b>值域</b> 两个列表就是那一页里说的 <i>In Domain Of</i> 与
+  <i>In Range Of</i>。</p>
   <p class="muted" id="note">__NOTE__</p>
 </div>
 <script>
@@ -876,7 +884,7 @@ const esc = s => String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"
 const num = v => typeof v === "number" ? v.toLocaleString(undefined, {maximumFractionDigits: 4}) : v;
 const section = (title, body, cls) =>
   body ? `<h2>${title}</h2><div class="${cls || ""}">${body}</div>` : "";
-const dbSrc = () => `<div class="src">from Postgres · ${DATA.dsn} · measured ${DATA.generated}</div>`;
+const dbSrc = () => `<div class="src">来自 Postgres · ${DATA.dsn} · 实测于 ${DATA.generated}</div>`;
 function propTable(rows) {
   if (!rows || !rows.length) return "";
   const tr = rows.map(r => {
@@ -947,9 +955,9 @@ function show(id) {
 
   let html = `<h1>${esc(n.label)}</h1><div class="kind"><b>${esc(n.badge)}</b> · ` +
     `${esc(n.term || n.kind)} · <code>:${esc(n.name)}</code></div>`;
-  if (n.description) html += section("Description", `<p class="desc">${esc(n.description)}</p>`);
+  if (n.description) html += section("描述", `<p class="desc">${esc(n.description)}</p>`);
   if (n.definedBy) {
-    const title = n.definedVia === "physicalPredicate" ? "Physical Predicate" : "Equivalent Class";
+    const title = n.definedVia === "physicalPredicate" ? "手写谓词" : "等价类";
     html += section(title, `<pre>${esc(n.definedBy)}</pre>`);
   }
   if (n.refusal) html += section("Definition", `<p class="why">${esc(n.refusal)}</p>`);
@@ -972,13 +980,13 @@ function show(id) {
   // r_regionkey". pyLODE calls the same list "In Domain Of" — the count is there so the
   // claim can be checked at a glance against the rows underneath.
   if ((n.inDomain || []).length)
-    html += section(`In Domain Of :${esc(n.name)} — ${n.inDomain.length} properties`,
+    html += section(`域 :${esc(n.name)} — ${n.inDomain.length} 个属性,
                     propTable(n.inDomain));
   if ((n.inRange || []).length)
-    html += section(`In Range Of :${esc(n.name)} — ${n.inRange.length} properties`,
+    html += section(`值域 :${esc(n.name)} — ${n.inRange.length} 个属性,
                     rangeTable(n.inRange));
-  html += section("Annotation Properties", annTable(n.annotations));
-  html += section("Axioms", annTable(n.structural));
+  html += section("注解属性", annTable(n.annotations));
+  html += section("公理", annTable(n.structural));
   const src = n.sources || {};
   for (const s of src.self || [])
     html += section(`TTL · <span class="file">${esc(s.file)}:${s.line}</span>`,
@@ -1161,8 +1169,12 @@ def main() -> int:
                 .replace("__TRIPLES__", str(payload["triples"]))
                 .replace("__FILES__", str(payload["files"]))
                 .replace("__NOTE__", payload["note"] or
-                         "Numbers were measured when this file was written."))
-    html = html.replace("Retail ontology", args.title)
+                         "这个文件写出时实测的数字。"))
+    # `__TITLE__` explicitly, instead of the old string surgery: the page used to hardcode
+    # "Retail ontology" in two places and be fixed up with `html.replace("Retail ontology", title)`,
+    # which silently did nothing for any profile whose title differed (and would have rewritten the
+    # phrase anywhere else it appeared).
+    html = html.replace("__TITLE__", args.title)
     out = pathlib.Path(args.out)
     out.write_text(html)
 
