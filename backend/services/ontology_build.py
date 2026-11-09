@@ -123,6 +123,36 @@ def _note(task_id: int, note: str) -> None:
         db.close()
 
 
+def _record_session(task_id: int, session_id: str) -> None:
+    """Pin the session id onto the task's payload the moment it exists.
+
+    `result` is written once, at the end of the turn. So a build that was still running (or that was
+    cancelled) had no session anywhere — which is exactly why "resume task 12" was unanswerable: the id
+    lived in a dict that only appeared after the thing you wanted to resume had already finished.
+    """
+    if not session_id:
+        return
+    db = _db()
+    try:
+        from models.background_task import BackgroundTask
+        from sqlalchemy.orm.attributes import flag_modified
+
+        task = db.query(BackgroundTask).filter(BackgroundTask.id == task_id).first()
+        if task is None:
+            return
+        payload = dict(task.payload or {})
+        if payload.get("session_id") == session_id:
+            return
+        payload["session_id"] = session_id
+        task.payload = payload
+        flag_modified(task, "payload")
+        db.commit()
+    except Exception as exc:                                    # noqa: BLE001
+        logger.warning("could not record the session for task %s: %s", task_id, exc)
+    finally:
+        db.close()
+
+
 # ── the rebuild seed, and the delta verdict ─────────────────────────────────────────────────────
 def _installed_dir(key: str):
     root = getattr(_pub, "ONTOLOGIES", None)
@@ -251,6 +281,181 @@ def _delta_of(workspace: pathlib.Path | None, key: str) -> dict | None:
             "unchanged": sum(1 for i in items if isinstance(i, dict) and i.get("kind") == "unchanged")}
 
 
+def _agent_workspace(agent_id: int, project_id) -> pathlib.Path | None:
+    """Where this agent writes — the same resolution the runner uses, so a reader sees the same files."""
+    try:
+        from services.workspace_manager import get_workspace_manager
+        from models.deep_agent import DeepAgentTemplate as _T
+
+        db = _db()
+        try:
+            agent = db.query(_T).filter(_T.id == agent_id).first()
+            if agent is None:
+                return None
+            ws = get_workspace_manager()
+            return ws.resolve_agent_workspace(
+                agent, project_id,
+                vault_key=ws.project_vault_key(db, project_id) or None,
+                agent_key=ws.agent_vault_key(db, agent),
+            )
+        finally:
+            db.close()
+    except Exception as exc:                                     # noqa: BLE001
+        logger.warning("could not resolve the workspace for agent %s: %s", agent_id, exc)
+        return None
+
+
+def _tasks_needing_answers(limit: int = 8, include_answered: bool = False) -> list[dict]:
+    """Builds that STOPPED on questions — the ones a person can still answer.
+
+    A build's `questions.json` is written into the agent's workspace and then nothing reads it: the
+    agent's prose says "I have nine questions", the UI shows that prose, and the answers have to be
+    retyped into a fresh brief that starts a NEW session — losing the measurements it took. This turns
+    the file into the list a panel can render, together with the session that must be continued.
+    """
+    out: list[dict] = []
+    seen: set[tuple[int, str]] = set()
+    db = _db()
+    try:
+        from models.background_task import BackgroundTask
+
+        rows = (db.query(BackgroundTask)
+                  .filter(BackgroundTask.task_type == TASK_TYPE)
+                  .order_by(BackgroundTask.id.desc())
+                  .limit(40).all())
+        for row in rows:
+            payload = row.payload if isinstance(row.payload, dict) else {}
+            key = str(payload.get("ontology_key") or "")
+            agent_id = int(payload.get("agent_id") or 0)
+            if not key or not agent_id:
+                continue
+            if (agent_id, key) in seen:
+                continue                     # a newer task for this key already answers for it
+            seen.add((agent_id, key))
+            workspace = _agent_workspace(agent_id, payload.get("project_id"))
+            if workspace is None:
+                continue
+            base = pathlib.Path(workspace) / "work" / key
+            qpath = base / "questions.json"
+            if not qpath.is_file():
+                continue
+            try:
+                qdoc = json.loads(qpath.read_text(encoding="utf-8"))
+            except Exception:                                    # noqa: BLE001
+                continue
+            # two shapes are legal: `{"questions": [...]}` and a bare list of questions
+            raw = qdoc.get("questions") if isinstance(qdoc, dict) else qdoc
+            questions = [q for q in (raw or []) if isinstance(q, dict)]
+            if not questions:
+                continue
+            answered = _answers_recorded(base, questions)
+            if not include_answered and answered >= len(questions):
+                continue                     # nothing left to answer here
+            out.append({
+                "task_id": row.id,
+                "agent_id": agent_id,
+                "ontology_key": key,
+                "status": row.status,
+                # payload first: it exists while the turn is still running (see _record_session)
+                "session_id": (payload.get("session_id")
+                               or (row.result.get("session_id")
+                                   if isinstance(row.result, dict) else None)),
+                "created_at": row.created_at.isoformat() if getattr(row, "created_at", None) else None,
+                "questions": questions,
+                "answered": answered,
+                "missing_documents": _missing_documents(questions),
+            })
+            if len(out) >= limit:
+                break
+        return out
+    finally:
+        db.close()
+
+
+def _recent_builds(limit_per_key: int = 3) -> list[dict]:
+    """The last few builds per (agent, key) WITH the session each one owns.
+
+    A build is one agent turn: it ends when the turn ends, and continuing means sending a new brief
+    into the SAME session. The task list is the only place that session id exists — the dialog starts a
+    fresh one every time — so "resume task 12" had no clickable path at all. This is that path.
+    """
+    out: list[dict] = []
+    per_key: dict[tuple[int, str], int] = {}
+    db = _db()
+    try:
+        from models.background_task import BackgroundTask
+
+        rows = (db.query(BackgroundTask)
+                  .filter(BackgroundTask.task_type == TASK_TYPE)
+                  .order_by(BackgroundTask.id.desc())
+                  .limit(60).all())
+        for row in rows:
+            payload = row.payload if isinstance(row.payload, dict) else {}
+            key = str(payload.get("ontology_key") or "")
+            agent_id = int(payload.get("agent_id") or 0)
+            if not key or not agent_id:
+                continue
+            slot = (agent_id, key)
+            if per_key.get(slot, 0) >= limit_per_key:
+                continue
+            per_key[slot] = per_key.get(slot, 0) + 1
+            result = row.result if isinstance(row.result, dict) else {}
+            out.append({
+                "task_id": row.id,
+                "agent_id": agent_id,
+                "ontology_key": key,
+                "status": row.status,
+                "session_id": payload.get("session_id") or result.get("session_id"),
+                "landed": bool(result.get("landed")),
+                "reason": (str(result.get("reason") or "")[:160] or None),
+                "created_at": row.created_at.isoformat() if getattr(row, "created_at", None) else None,
+            })
+        return out
+    finally:
+        db.close()
+
+
+def _answers_recorded(base: pathlib.Path, questions: list[dict]) -> int:
+    """How many of these questions already have an answer recorded (`answers.json` / an answer brief)."""
+    path = base / "answers.json"
+    if not path.is_file():
+        return 0
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:                                            # noqa: BLE001
+        return 0
+    have = {str(a.get("id")) for a in (data.get("answers") or []) if isinstance(a, dict)}
+    return sum(1 for q in questions if str(q.get("id")) in have)
+
+
+def _missing_documents(questions: list[dict]) -> list[str]:
+    """Documents a question says it CANNOT read — named, so the panel can ask for them by name.
+
+    Read sentence by sentence, because the sentence that names them also names the one that arrived:
+    measured — "只到了 DEMO案例.xlsx；X.docx 和 Y.md 不在我的工作区" listed all three as missing, and
+    the panel then asked the reader to upload a file the agent already had.
+    """
+    import re
+    HAVE = ("只到", "已在", "收到", "读到了", "在工作区里", "in my workspace")
+    MISSING = ("不在", "读不到", "没有", "missing", "cannot read", "缺")
+    found: list[str] = []
+    present: set[str] = set()
+    for q in questions:
+        text = " ".join(str(q.get(k) or "") for k in ("ask", "default", "evidence"))
+        for sentence in re.split(r"[。；;！？\n]", text):
+            names = re.findall(r"[\w\u4e00-\u9fff.\-]+\.(?:docx|xlsx|md|pdf|csv)", sentence)
+            if not names:
+                continue
+            if any(h in sentence for h in HAVE) and not any(m in sentence for m in MISSING):
+                present.update(names)
+                continue
+            if any(m in sentence for m in MISSING):
+                for name in names:
+                    if name not in found:
+                        found.append(name)
+    return [n for n in found if n not in present]
+
+
 async def _run_build(payload: dict, task_id: int) -> dict:
     """The worker body: one agent turn, then the landing decision. Returns the task result."""
     from api.chat.messages import send_message
@@ -277,6 +482,7 @@ async def _run_build(payload: dict, task_id: int) -> dict:
                 StartChatRequest(agent_id=agent_id, project_id=project_id), db)
             session_id = getattr(started, "session_id", None) or started["session_id"]
             _note(task_id, f"opened chat session {session_id} with {agent.name}")
+        _record_session(task_id, str(session_id))
 
         # A REBUILD gets the installed facts IN the prompt. Measured: without this the turn explored the
         # installed TTL and the documents for 285 s / 188 tool calls and wrote nothing; with it, 12 s /
@@ -439,9 +645,58 @@ async def _run_build(payload: dict, task_id: int) -> dict:
     }
 
 
+def sweep_orphans() -> int:
+    """A restart ends every running turn, so every RUNNING build row is now a lie.
+
+    Measured: a `systemctl restart` during a build left task 13 RUNNING with 1 progress note and no
+    process behind it. A row that claims to be running is not cosmetic — the UI disables 续跑 on it, so
+    the build became unresumable precisely because it was stuck. One process serves the turns
+    (UVICORN_WORKERS=1), therefore at startup any unfinished row belongs to a turn that no longer
+    exists and must be marked CANCELLED with the reason written down.
+    """
+    db = _db()
+    try:
+        from models.background_task import BackgroundTask
+        from sqlalchemy.orm.attributes import flag_modified
+
+        rows = (db.query(BackgroundTask)
+                  .filter(BackgroundTask.task_type == TASK_TYPE,
+                          BackgroundTask.status.in_(["RUNNING", "PENDING"]))
+                  .all())
+        for row in rows:
+            payload = dict(row.payload or {})
+            payload["progress"] = list(payload.get("progress") or []) + [
+                "cancelled: the API restarted while this turn was running, so the turn is gone — "
+                "resume it (its workspace and session are intact)"]
+            row.payload = payload
+            flag_modified(row, "payload")
+            row.status = "CANCELLED"
+        if rows:
+            db.commit()
+            logger.warning("swept %d orphaned build task(s) at startup: %s",
+                           len(rows), [r.id for r in rows])
+        return len(rows)
+    except Exception as exc:                                    # noqa: BLE001
+        logger.warning("could not sweep orphaned build tasks: %s", exc)
+        return 0
+    finally:
+        db.close()
+
+
+_SWEPT = False
+
+
 def register() -> None:
     """Register the handler (idempotent; the decorator would double-register on re-import)."""
     from core.task_queue import register_handler
+
+    # ONCE per process. `enqueue_build` calls register() on every build, so an unguarded sweep here
+    # would cancel the build that is already running — the sweeping tool cannot tell an orphan from a
+    # live turn, it can only know that no turn survived the process that wrote the row.
+    global _SWEPT
+    if not _SWEPT:
+        _SWEPT = True
+        sweep_orphans()
 
     if TASK_TYPE in {h for h in _known_types()}:
         return
@@ -526,6 +781,36 @@ def builders(db: Optional[Session] = None) -> list[dict]:
 
 
 # ────────────────────────────────────────────────────────── API helpers
+def active_build(agent_id: int, ontology_key: str) -> Optional[dict]:
+    """The unfinished build for this exact (agent, key), if there is one.
+
+    Two people on one instance is the normal case now, and one agent+key is ONE workspace and ONE
+    conversation: a second build started on top of a running one writes into the same `work/<key>/`
+    and answers the same session twice, which produces a half-merged ontology and no error anywhere.
+    The busy state is checked here, at the moment a build is asked for, not in the UI.
+    """
+    db = _db()
+    try:
+        from models.background_task import BackgroundTask
+
+        rows = (db.query(BackgroundTask)
+                  .filter(BackgroundTask.task_type == TASK_TYPE,
+                          BackgroundTask.status.in_(["RUNNING", "PENDING"]))
+                  .order_by(BackgroundTask.id.desc()).limit(50).all())
+        for row in rows:
+            payload = row.payload if isinstance(row.payload, dict) else {}
+            if int(payload.get("agent_id") or 0) != int(agent_id):
+                continue
+            if str(payload.get("ontology_key") or "") != str(ontology_key):
+                continue
+            return {"task_id": row.id, "status": row.status,
+                    "session_id": payload.get("session_id"),
+                    "since": row.created_at.isoformat() if getattr(row, "created_at", None) else None}
+        return None
+    finally:
+        db.close()
+
+
 async def enqueue_build(agent_id: int, ontology_key: str, brief: str, *, project_id: Optional[int] = None,
                         auto_land: bool = True,
                         session_id: Optional[str] = None) -> dict:
@@ -540,6 +825,12 @@ async def enqueue_build(agent_id: int, ontology_key: str, brief: str, *, project
         raise BuildError("a build needs a brief: objects, the questions users ask, the decisions "
                          "the numbers support")
     register()
+    busy = active_build(int(agent_id), key)
+    if busy is not None:
+        raise BuildError(
+            f"{key} is already building on this agent (task {busy['task_id']}, {busy['status']}). "
+            f"One agent+key is one workspace and one conversation, so a second build would answer the "
+            f"same session twice. Wait for it, or continue that task instead of starting another.")
     task_id = await task_queue.enqueue(TASK_TYPE, {
         "agent_id": int(agent_id),
         "ontology_key": key,

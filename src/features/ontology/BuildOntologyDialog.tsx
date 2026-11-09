@@ -15,6 +15,7 @@ import { useProject } from '../../contexts/ProjectContext';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { mono, Quiet, SUCCESS, WARN, INFO } from './ui';
 import BuildChatPanel from './BuildChatPanel';
+import BuildQuestionsPanel from './BuildQuestionsPanel';
 import RunningLight, { RunningBar } from './RunningLight';
 
 /**
@@ -270,6 +271,10 @@ export default function BuildOntologyDialog({ ontologyKey, onClose, onLanded }: 
           cancelled. With <b>auto-land</b> on, a build whose gates are all green installs itself
           (that is the “first generation” case); anything that fails a gate stays staged for a person.
         </div>
+
+        {/* A build that STOPPED on questions is answered here, not by retyping its questions into a
+            new brief: this panel submits through `/api/ontology/build` with the original session. */}
+        <BuildQuestionsPanel />
 
         {/* Two modes, both needed: the job answers "generate it now"; the conversation carries S0 and
             the delta, which a single turn cannot (measured: such a turn ends with questions, nothing

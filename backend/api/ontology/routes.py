@@ -78,6 +78,24 @@ async def list_installed():
                          "installed": True,
                          "modified_at": datetime.datetime.fromtimestamp(newest, datetime.timezone.utc).isoformat()
                                         if newest else None})
+    # WHEN each one was PUBLISHED, from the ledger — not from a file mtime. A publish rewrites the
+    # TTLs, so `modified_at` moves for it and for a hand edit alike, and a reader asking "when did v4
+    # last go out?" was answered with "whenever somebody touched a file". One extra read for the
+    # whole list, because the answer belongs next to the ontology's name.
+    published: dict[str, dict] = {}
+    try:
+        for rec in ontology_publish.history(limit=400):
+            if rec.get("status") != "applied":
+                continue
+            published.setdefault(rec["key"], rec)           # newest first: keep the first
+    except Exception as exc:                                 # noqa: BLE001
+        logger.warning("could not read the publish ledger for /installed: %s", exc)
+    for row in rows:
+        rec = published.get(row["key"])
+        row["published_at"] = rec.get("applied_at") if rec else None
+        row["published_by"] = rec.get("actor") if rec else None
+        row["published_id"] = rec.get("id") if rec else None
+        row["published_commit"] = (rec.get("git_commit") if rec else None)
     return {"ok": True, "installed": rows}
 
 
@@ -268,6 +286,25 @@ async def start_build(req: BuildRequest):
             auto_land=req.auto_land, session_id=req.session_id)
     except ontology_build.BuildError as exc:
         raise HTTPException(409, str(exc)) from exc
+
+
+@router.get("/build/pending-answers")
+async def build_pending_answers():
+    """Builds that stopped on questions — what a person can still answer, and where.
+
+    Read from each agent's `work/<key>/questions.json` (the artifact the skill writes), not from the
+    prose: the panel needs the ids, the defaults and the session to continue.
+    """
+    try:
+        builds, recent = await asyncio.gather(
+            asyncio.to_thread(ontology_build._tasks_needing_answers),
+            asyncio.to_thread(ontology_build._recent_builds),
+        )
+        # `recent` is the "which task, which session" list: every build is one turn, and continuing one
+        # means sending a brief into ITS session — the id nobody could find before.
+        return {"ok": True, "builds": builds, "recent": recent}
+    except Exception as exc:                                      # noqa: BLE001
+        raise HTTPException(500, f"could not read the pending builds: {exc}") from exc
 
 
 @router.get("/build/{task_id}")
