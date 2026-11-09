@@ -416,6 +416,9 @@ cd backend
 
 ## 7. Execution log — what was actually done
 
+> **Commit hashes in §7 changed on 2026-11-09**: the history was rewritten (§7.7), so every hash that
+> existed before it is gone. Identify commits by their message, not their sha.
+
 Three batches, each verified before moving on. Nothing here is a proposal; it is what ran.
 
 ### 7.1 The fixes and the guards (commit `d65ae5c`)
@@ -513,7 +516,48 @@ was kept. Two other "dead" items were left alone for the same reason: `POST
 `import main` now builds **390 routes**; the backend suite still reports exactly the 20 pre-existing
 failures.
 
-### 7.6 Still open
+### 7.6 The history rewrite (2026-11-09)
+
+`backend/data/**` had been committed before it was gitignored, so `.git` carried **414 MB of PDFs that
+no longer exist in any working tree**. Rehearsed on a bare mirror first, then done for real:
+
+```
+git clone --mirror --no-hardlinks . /tmp/rehearsal.git     # 482 MB, 1 882 commits
+python -m git_filter_repo --path backend/data --invert-paths \
+                          --path "backend/notebooks/module-4/Arial Unicode.ttf" --invert-paths
+```
+
+| | before | after |
+|---|---|---|
+| `.git` (object store) | 460 MB pack / 482 MB dir | **39.6 MiB pack** |
+| commits | 1 622 on `main` | 1 581 (43 became empty and were pruned) |
+| **HEAD tree** | `cc5005d2…` | **`cc5005d2…` — identical** |
+| `git fsck` | — | clean |
+
+The HEAD tree hashing the same is the proof that **no working file changed**: only history did.
+Safety net: `.git/backups/pre-rewrite-20261109.bundle` (461 MB, a full `--all` bundle; restore with
+`git clone <bundle>`). Delete it once you are satisfied — it is the only thing keeping the old bytes on
+this disk. All 20 branches and the `main-history-backup` tag were force-pushed (the tag deleted, since it
+was the one ref that kept the old commits alive on the remote), and the deployment was moved onto the
+rewritten history with `git reset --hard github/main`.
+
+**A close call worth recording.** That `reset --hard` deleted the `new_coldchain_v5` profile on the
+deployment: it had been published at 16:25 but never committed — the publish's own `git commit` had
+failed with "Author identity unknown" (§ the publish-commit fix), so its 9 files existed **only in that
+checkout**, staged-but-uncommitted, and a hard reset removes exactly that. It was recovered
+byte-for-byte from the publish ledger: `ontology_publishes.files` (jsonb) holds the full text of every
+staged file, so the applied publish id `1794212541-6afcb2` still contained all nine. After restoring
+them the gates re-ran green (84 metrics compiled, 0 refused) and `/api/ontology/installed` lists v5
+again with its publish time.
+
+Two lessons, both actionable:
+
+1. **A published ontology that is not committed exists in exactly one checkout.** The ledger can rebuild
+   it, but only because `stage()` records the file bodies — that is a backup, not a plan.
+2. **Before any `git reset --hard` on a deployment, ask what is untracked there.** Untracked survives;
+   staged-and-uncommitted does not.
+
+### 7.7 Still open
 
 - **ECS** has the code (`d65ae5c` + `e647b5e`); its **document store is untouched** — run the same two
   script commands there when convenient (report first).
