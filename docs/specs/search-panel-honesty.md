@@ -51,6 +51,7 @@ TTL (the ontology workbench has its own query surface), result ranking, and sear
 | AC3 | A search does **one** HTTP request, not one per workflow | grep `SearchPanel.tsx` for `getWorkflowCode(` → 0 hits; the panel calls the search endpoint once per query |
 | AC4 | A failed request shows the HTTP status in the panel | a test or a temporary forced 500 shows the message, not an empty list |
 | AC5 | The replace control is gone and no comment still says "Mock search results" | `grep -c "replaceText" src/components/layout2/SearchPanel.tsx` → 0; `grep -c "Mock search results" → 0` |
+| AC7 | Clicking a match opens the source at that line (cursor on it, scrolled into view, `line N` shown) | `lineSelection` unit checks pass; the toolbar chip renders when `tab.data.highlightLine` is set; the visible landing is a browser check (marked PARTIAL in the report) |
 | AC6 | Component docstring matches behaviour | `grep -n "search-in-files" src/components/layout2/SearchPanel.tsx` shows the file+workflow wording, not a claim of file contents only |
 
 ## Risks and reversibility

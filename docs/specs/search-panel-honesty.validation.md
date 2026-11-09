@@ -4,7 +4,7 @@ Criterion source: `docs/specs/search-panel-honesty.md` (AC1–AC6, **agreed** af
 `search-panel-honesty.grill.md` round 1).
 Validated: 2026-11-09, against the working tree and the running app on `:8765` (local and the deployment).
 
-**Now: run 3 — PASS 6 · FAIL 0.** The table is always the current run; the per-run delta is at the bottom,
+**Now: run 4 — PASS 6 · PARTIAL 1 · FAIL 0.** The table is always the current run; the per-run delta is at the bottom,
 because a validator that shows only its final state cannot show that progress was checked rather than
 declared.
 
@@ -15,9 +15,14 @@ declared.
 | AC3 | one request per search, no per-workflow fan-out | **PASS** | `grep -c 'getWorkflowCode(' src/components/layout2/SearchPanel.tsx` → **0**; the panel makes **one** call — `apiClient.get('/api/workspace/search', { params: { q } })` — behind a 300 ms debounce |
 | AC4 | a failed request shows the HTTP status | **PASS** | both `catch` paths now set an error block rendered with `HTTP <status>` + the server's `detail`; a no-response failure reads "the backend did not answer". `grep -c 'No results on error\|Skip workflows'` → **0** |
 | AC5 | replace control gone; no "Mock search results" comment | **PASS** | `grep -c replaceText` → **0**; `grep -c 'Mock search results'` → **0** |
+| AC7 | clicking a match opens the source at that line | **PARTIAL** | the pure arithmetic passes 5 checks (line 1/2/3 select the right text; line 0 and past-the-end return `null`), `FileEditor` consumes `tab.data.highlightLine`, the `line N` chip renders, and tabs without it behave as before — **but the visible landing is a browser check**, and this repo has no browser automation. Settles it: click a deep match (`tool_call`) and see the chip + caret |
 | AC6 | docstring matches behaviour | **PASS** | the header names workspace files + workflow definitions ("workspace files" ×3, "search-in-files" → **0**), and states the rule the bug violated: the panel asks once, the server answers |
 
-**PASS 6 · FAIL 0 · PARTIAL 0 · UNVERIFIABLE 0**
+**PASS 6 · FAIL 0 · PARTIAL 1 · UNVERIFIABLE 0**
+
+The one PARTIAL is deliberate: "the cursor visibly lands on line 137" cannot be proven by a grep or a
+`curl`, and calling it PASS because the code *looks* right is the exact failure this skill exists to
+prevent. It says what would settle it instead.
 
 ## Delta per run
 
@@ -25,10 +30,11 @@ declared.
 |---|---|---|---|---|
 | 1 | before any ticket — the baseline | 0 | 6 | nothing implemented; **a validator that passes an unimplemented spec would be broken**, which is why this run exists |
 | 2 | after ticket 001 | 2 | 4 | AC1 404 → 200 with matches; AC2 404 → 400/413 |
+| 4 | after ticket 003 | 6 | 0 | AC7 added and marked **PARTIAL** (browser check outstanding) |
 | 3 | after ticket 002 | **6** | **0** | AC3 fan-out → one request; AC4 silent → visible status; AC5 dead replace control → gone; AC6 docstring → true |
 
-Tickets: `001` (endpoint, 10 tests) and `002` (panel) are done; `003` (jump to the matched line) is still
-blocked-by-002 and now unblocked. Its criterion is not in this table yet, so nothing here claims it.
+Tickets `001` (endpoint, 10 tests), `002` (panel) and `003` (jump to line) are done. The spec's AC7 is
+the only criterion with an outstanding check, and the report says so rather than rounding it up.
 
 ## Baseline that makes a later PASS meaningful
 

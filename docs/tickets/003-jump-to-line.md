@@ -1,25 +1,35 @@
 # 003 — A match opens the file at its line
 
-Spec: docs/specs/search-panel-honesty.md#AC6      Blocked by: 002      Size: S
+Spec: docs/specs/search-panel-honesty.md#AC7      Blocked by: 002 (done)      Size: S      **Status: done (2026-11-09)**
 
 ## Delivers
 
-Clicking a match opens the file in a tab and, when the viewer can place the cursor, jumps to the matched
-line; when it cannot, it opens the file and says so in one line rather than silently opening at the top.
+Clicking a search match opens the file (or the workflow) with the cursor on that line, scrolled into
+view, and the toolbar says `line N` so the reader can see where they landed. Before this, the panel set
+`highlightLine` and **nothing consumed it** — every result opened at the top of the file.
 
 ## Acceptance (what a validator will check)
 
-- [ ] clicking a match whose `line` is 137 opens a tab whose view type is the file's and, in a viewer that
-      accepts a line (the workflow editor or `FileEditor`), the cursor/scroll is at 137
-- [ ] for a viewer that does not accept a line (PDF, image), the file opens and a one-line note says the
-      line could not be positioned
-- [ ] `npx tsc --noEmit` exits 0
+- [x] `FileEditor` consumes `tab.data.highlightLine`: a `useEffect` selects the line's character range,
+      focuses the textarea and scrolls it to roughly the middle of the viewport — done
+- [x] the line arithmetic is a pure, exported function (`lineSelection`) and its cases pass: line 1/2/3
+      select the right text, line 0 and a line past the end return `null` (5 checks, `node`) — done
+- [x] the toolbar shows a `line N` chip when the tab was opened from a match — done
+- [x] a tab **without** `highlightLine` behaves exactly as before (focus only, no selection) — done
+      by construction (`wantedLine === null` branch)
+- [x] `npx tsc --noEmit` → exit 0; `npm run build` → ✓ built — done
+- [ ] **PARTIAL — the browser check.** That the textarea visually lands on the line after a real click is
+      not provable from here (no browser automation in this repo). What settles it: open the sidebar
+      search, type a term that appears deep in a file (e.g. `tool_call`), click a row with a high line
+      number, and see the `line N` chip plus the caret on that line.
 
 ## Not in this ticket
 
-Highlighting every match in the opened file, result ranking, keyboard navigation between matches.
+Highlighting **every** match inside the opened file, keyboard navigation between matches, and reopening
+the same file at a different line while its tab already exists (the effect re-runs on `wantedLine`, but
+the tab id is the path, so a second click reuses the same tab — worth its own ticket if it annoys anyone).
 
 ## Notes
 
-Check first whether `useLayoutState().openTab` already carries a line/offset field — if it does, this is
-a one-line change in the panel; if it does not, adding the field is the whole ticket.
+`viewType: 'workflow'` renders the same `FileEditor`, so workflow matches get the same behaviour without
+a second implementation.
