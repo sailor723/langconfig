@@ -1524,6 +1524,11 @@ version (§7 lists the only two exceptions).
 
 ### 5.1 A clone made before 2026-11-09 needs a forced refresh
 
+> **A fresh install needs nothing.** If this machine was installed from the team zip, it has no git
+> history and the 2026-11-09 rewrite does not touch it — do not re-install. The one-page notice, with a
+> one-command self-check and the symptom table, is
+> [`history-rewrite-2026-11-09.md`](history-rewrite-2026-11-09.md).
+
 The repository's history was rewritten on **2026-11-09**: 414 MB of `backend/data/**` PDFs had been
 committed before the ignore rule existed, so every earlier commit was re-cut without them. **Every
 commit hash from before that date changed**, which means:
