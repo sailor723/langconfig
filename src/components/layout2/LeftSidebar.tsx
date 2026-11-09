@@ -16,7 +16,7 @@ import { useSidebarData } from './useSidebarData';
 import { IconButton } from './ui-system';
 import SearchPanel from './SearchPanel';
 import apiClient from '../../lib/api-client';
-import { Plus, RefreshCw, Search, Loader } from 'lucide-react';
+import { ChevronLeft, Loader, Plus, RefreshCw, Search } from 'lucide-react';
 import ToolBrowserSidebar from './ToolBrowserSidebar';
 import KnowledgeSidebar from './KnowledgeSidebar';
 import SkillBrowserSidebar from './SkillBrowserSidebar';
@@ -271,6 +271,32 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
               </div>
             </div>
           )}
+        </div>
+
+        {/* ── Bottom entry: search ───────────────────────
+            A permanent row at the bottom, because the header icon was a 14px glyph in a 35px bar that
+            nobody finds — and the panel it opens was routinely mistaken for the tree's own filter box.
+            Two entries now (header icon + this row) open the same view; in search mode this row turns
+            into the way back, so the panel never traps the reader. */}
+        <div style={{ borderTop: `1px solid ${t.border}`, flexShrink: 0 }}>
+          <button
+            onClick={() => setSidebarView(isSearch ? 'explorer' : 'search')}
+            title={isSearch ? tr('sb_search_back') : tr('sb_search_entry')}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: 6,
+              padding: '7px 10px', background: 'transparent', border: 'none',
+              cursor: 'pointer', textAlign: 'left',
+              color: isSearch ? t.accent : t.textMuted,
+              fontSize: 11.5,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = t.bgHover; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+          >
+            {isSearch ? <ChevronLeft size={13} /> : <Search size={13} />}
+            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {isSearch ? tr('sb_search_back') : tr('sb_search_entry')}
+            </span>
+          </button>
         </div>
 
         {/* ── Status bar ───────────────────────────────── */}
