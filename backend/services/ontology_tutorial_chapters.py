@@ -134,12 +134,56 @@ def _activate(key: str):
 # ── the pages ───────────────────────────────────────────────────────────────
 def _rewrite(html: str, key: str) -> str:
     """Make a page's absolute paths belong to THIS ontology on the app's own origin."""
-    return (
+    html = (
         html.replace('"/api/', f'"/api/ontology/{key}/wb/')
         .replace("'/api/", f"'/api/ontology/{key}/wb/")
         .replace('"/abctutorial/', f'"/api/ontology/{key}/abct/')
         .replace("'/abctutorial/", f"'/api/ontology/{key}/abct/")
     )
+    # …and say it in the language the profile declares, when it declares a translation.
+    return ontology_pages.translate_page(key, html)
+
+
+def _step_graph(key: str, step: int) -> dict:
+    """One step's picture — the profile's own `tutorial/graph.json` first, retail's table as fallback.
+
+    Retail's eight pictures are hand-placed coordinates in `serve_ui.TUTORIAL_GRAPHS`, which is fine for
+    one ontology and wrong for the second: a cold-chain chapter about trip-vs-stop grain has nothing to
+    do with retail's Product. A profile that ships authored chapters ships its pictures as DATA:
+    `{"steps": {"1": {"nodes": [...], "edges": [...]}}}` — same shape the page already draws.
+    """
+    try:
+        path = ontology_pages._profile(key).parent / "tutorial" / "graph.json"
+        if path.is_file():
+            doc = json.loads(path.read_text(encoding="utf-8"))
+            g = ((doc.get("steps") or {}).get(str(step))
+                 or (doc.get("steps") or {}).get(step))
+            if g:
+                return {"ok": True, "step": step, "nodes": g.get("nodes") or [],
+                        "edges": g.get("edges") or [], "source": "profile"}
+    except (OSError, ValueError, ontology_pages.PageError):
+        pass
+    ui, _ = _activate(key)
+    return ui.tutorial_graph(step)
+
+
+def _guard_config(key: str) -> dict:
+    """The profile's guardrails, read-only: the numbers the chapter prints plus why each is there."""
+    settings = ontology_pages._settings(key) or {}
+    g = dict(settings.get("guard") or {})
+    big = g.get("big_tables") or {}
+    return {
+        "ok": True,
+        "guard": g,
+        "big_tables": [{"table": t, "time_column": c} for t, c in big.items()],
+        "limits": {
+            "max_rows": g.get("max_rows"),
+            "statement_timeout_ms": g.get("statement_timeout_ms"),
+            "max_plan_rows": g.get("max_plan_rows"),
+            "default_window_days": g.get("default_window_days"),
+        },
+        "note": g.get("_big_tables_note"),
+    }
 
 
 def chapter(key: str, number: int) -> str:
@@ -153,7 +197,9 @@ def chapter(key: str, number: int) -> str:
         # missing graph page resolving to another ontology's. This profile gets the generated tutorial.
         raise ChapterError(f"{key} has no authored tutorial chapters (tutorial_style is not 'authored')")
     _activate(key)
-    asset = WORKBENCH / name
+    # The profile's own chapters first (`profiles/<key>/tutorial/stepN.html`), then retail's shared ones.
+    own = ontology_pages._profile(key).parent / "tutorial" / f"step{number}.html"
+    asset = own if own.is_file() else WORKBENCH / name
     if not asset.is_file():
         raise ChapterError(f"this ontology has no tutorial chapter {number} ({asset.name} is not installed)")
     return _rewrite(asset.read_text(encoding="utf-8"), key)
@@ -220,7 +266,11 @@ def call(key: str, rest: str, query: dict[str, list[str]], payload: dict | None 
             # whatever it gets back. That endpoint lived on the workbench server; when the pages moved
             # onto this app the route was never carried over, so the graph rendered as the literal text
             # "graph unavailable" while the eight authored step pictures sat unused in `TUTORIAL_GRAPHS`.
-            "/graph": lambda: ui.tutorial_graph(arg("step", 1, int)),
+            "/graph": lambda: _step_graph(key, arg("step", 1, int)),
+            # The guardrails AS DECLARED. Retail's chapter 4 has always asked for this and got a 404
+            # ("no chapter endpoint /guard (GET)") because only the POST form — dry-run a write verb —
+            # existed. A tutorial that teaches limits must be able to show the limits.
+            "/guard": lambda: _guard_config(key),
             "/tutorial1/table": ui.tutorial1_table,
             "/tutorial2/table": ui.tutorial2_table,
             "/tutorial3/table": ui.tutorial3_table,

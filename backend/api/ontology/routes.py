@@ -587,7 +587,12 @@ async def ontology_page(key: str, name: str):
     """
     try:
         html, content_type = ontology_pages.page(key, name)
-        return Response(content=html, media_type=content_type)
+        # A tutorial page is DECLARATION-DERIVED (labels, translated strings, the generated graph), so a
+        # browser copy is always potentially stale: measured — a shell whose step names had just been
+        # translated still showed English until a hard reload, because the response carried no cache
+        # directive at all. The numbers beside these pages are live; the page must be too.
+        return Response(content=html, media_type=content_type,
+                        headers={"Cache-Control": "no-store, max-age=0"})
     except ontology_pages.PageError as exc:
         raise HTTPException(404, str(exc)) from exc
 
@@ -599,7 +604,8 @@ async def ontology_page_asset(key: str, name: str):
         body, content_type = ontology_pages.asset(key, name)
     except ontology_pages.PageError as exc:
         raise HTTPException(404, str(exc)) from exc
-    return Response(content=body, media_type=content_type)
+    return Response(content=body, media_type=content_type,
+                    headers={"Cache-Control": "no-store, max-age=0"})
 
 
 # ── the authored tutorial chapters ──────────────────────────────────────────
@@ -614,7 +620,8 @@ async def ontology_tutorial_chapter(key: str, number: int):
         html = ontology_tutorial_chapters.chapter(key, number)
     except ontology_tutorial_chapters.ChapterError as exc:
         raise HTTPException(404, str(exc)) from exc
-    return Response(content=html, media_type="text/html; charset=utf-8")
+    return Response(content=html, media_type="text/html; charset=utf-8",
+                    headers={"Cache-Control": "no-store, max-age=0"})
 
 
 @router.get("/{key}/abct")

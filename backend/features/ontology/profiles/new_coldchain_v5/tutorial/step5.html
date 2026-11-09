@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>第 5 步 —— 三条口径不能相加</title>
+<style>
+  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei","Segoe UI",Roboto,sans-serif;
+         background:#f6f7f9; margin:0; color:#1c1e21; font-size:13px; }
+  main { max-width:1080px; margin:16px auto 40px; padding:0 20px; }
+  h1 { font-size:16px; margin:0 0 4px; }
+  .lede { color:#52616f; line-height:1.75; margin:6px 0 14px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .cols3 { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  @media (max-width:900px) { .cols, .cols3 { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:14px 16px; }
+  .card.click { cursor:pointer; }
+  .card.on { border-color:#0f3d2e; box-shadow:0 0 0 1px #0f3d2e inset; }
+  h2 { margin:0 0 10px; font-size:11.5px; letter-spacing:.4px; color:#334e68; text-transform:uppercase; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th { text-align:left; font-size:10.5px; text-transform:uppercase; color:#687b8f; padding:5px 7px;
+       border-bottom:1px solid #e3e6ea; font-weight:600; }
+  td { padding:5px 7px; border-bottom:1px solid #f0f3f6; vertical-align:top; line-height:1.6; }
+  code, pre { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  pre { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:10px 12px; font-size:10.5px;
+        line-height:1.55; white-space:pre-wrap; word-break:break-word; max-height:220px; overflow:auto; margin:8px 0 0; }
+  .big { font-size:26px; font-weight:700; color:#0f3d2e; line-height:1.15; }
+  .muted { color:#687b8f; font-size:11.5px; line-height:1.65; }
+  .pill { display:inline-block; font-size:10.5px; padding:1px 7px; border-radius:999px;
+          border:1px solid #cfd8e0; color:#52616f; margin-left:6px; }
+  .pill.red { border-color:#e0a9a2; color:#8c2f24; background:#fdf3f2; }
+  .ask { display:flex; gap:6px; margin-top:10px; }
+  input[type=text] { flex:1; padding:6px 9px; border:1px solid #cfd8e0; border-radius:7px; font:inherit; }
+  button { padding:6px 12px; border-radius:7px; border:1px solid #0f3d2e; background:#0f3d2e; color:#fff;
+           font:inherit; cursor:pointer; }
+  .ans { margin-top:10px; padding:10px 12px; border-radius:8px; background:#f2f7f4; border:1px solid #cfe3d7;
+         line-height:1.7; font-size:12.5px; display:none; }
+  .ans.bad { background:#fdf3f2; border-color:#f0c7c2; }
+  ul { margin:6px 0 0; padding-left:19px; line-height:1.85; }
+
+</style>
+</head>
+<body>
+<main>
+  <h1>第 5 步 —— 三条口径不能相加</h1>
+  <p class="lede">「超载」在这份数据里有三种判定依据：<strong>轴限</strong>、<strong>核定载重</strong>、<strong>计划站数</strong>。
+三个比率都对，但它们的分母相同、分子不同——相加得到的数不存在。点一张卡看它自己的 SQL。</p>
+  <div class="cols3" id="cards"></div>
+  <div class="card" style="margin-top:14px">
+    <h2>这个数的 SQL <span class="pill" id="which">—</span></h2>
+    <pre id="sql">…</pre>
+    <p class="muted">三条都来自同一份 <code>trips</code>，只是 WHERE 里的判定不同；所以它们并排看，不做减法、不做加总。</p>
+  </div>
+</main>
+<script>
+const KEY = location.pathname.split('/')[3];
+const api = (p) => `${location.origin}/api/ontology/${KEY}${p}`;
+const fmt = (v) => (v === null || v === undefined) ? '—'
+  : (typeof v === 'number' ? v.toLocaleString('zh-CN', { maximumFractionDigits: 2 }) : String(v));
+const pct = (v) => (v === null || v === undefined) ? '—' : `${Number(v).toFixed(2)}%`;
+async function j(url, opts) {
+  const r = await fetch(url, opts);
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.detail || body.error || `HTTP ${r.status}`);
+  return body;
+}
+function askSetup() {
+  const go = document.getElementById('go');
+  if (!go) return;
+  go.addEventListener('click', async () => {
+    const q = document.getElementById('q').value.trim();
+    if (!q) return;
+    const box = document.getElementById('ans');
+    box.style.display = 'block'; box.className = 'ans'; box.textContent = '正在问…';
+    try {
+      const r = await j(api('/ask'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ question: q, polish: false }) });
+      if (r.refused || r.ok === false) {
+        box.className = 'ans bad';
+        box.innerHTML = `<b>按名拒绝：</b>${r.refused || r.answer || ''}`;
+        return;
+      }
+      box.innerHTML = `<b>${fmt(Number(r.value))}</b>${r.unit ? ' ' + r.unit : ''}
+        ${r.metric ? `<span class="pill">${r.metric}</span>` : ''}
+        ${r.sql ? `<pre>${r.sql}</pre>` : ''}`;
+    } catch (e) {
+      box.className = 'ans bad';
+      box.textContent = '问不出来：' + String(e.message || e);
+    }
+  });
+}
+</script>
+<script>
+const PICK = [
+  ['axleOverloadRate', '轴荷超限趟占比', '任一根轴超过轴限（合规主口径）'],
+  ['overloadedTripRateWeight', '重量超载趟占比', '装货重量 > 核定载重（装载口径）'],
+  ['overStationTripRate', '站点超标趟占比', '一趟超过 15 站（排程口径）'],
+];
+(async () => {
+  const cards = await j(api('/metrics/cards'));
+  const by = Object.fromEntries((cards.cards || []).map(c => [c.name, c]));
+  const host = document.getElementById('cards');
+  PICK.forEach(([name, title, hint], i) => {
+    const c = by[name] || {};
+    const el = document.createElement('div');
+    el.className = 'card click' + (i === 0 ? ' on' : '');
+    el.dataset.metric = name;
+    el.innerHTML = `<h2>${title}</h2><div class="big">${pct(c.value)}</div>
+      <p class="muted">${hint}</p><p class="muted"><code>${name}</code></p>`;
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.card.click').forEach(x => x.classList.remove('on'));
+      el.classList.add('on');
+      document.getElementById('which').textContent = name;
+      document.getElementById('sql').textContent = c.sql || '—';
+    });
+    host.appendChild(el);
+  });
+  document.getElementById('which').textContent = PICK[0][0];
+  document.getElementById('sql').textContent = (by[PICK[0][0]] || {}).sql || '—';
+})().catch(e => { document.getElementById('sql').textContent = '读取失败：' + e.message; });
+</script>
+</body>
+</html>

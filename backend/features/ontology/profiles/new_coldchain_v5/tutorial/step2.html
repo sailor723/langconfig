@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>第 2 步 —— 粒度：一趟 vs 一个站次</title>
+<style>
+  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei","Segoe UI",Roboto,sans-serif;
+         background:#f6f7f9; margin:0; color:#1c1e21; font-size:13px; }
+  main { max-width:1080px; margin:16px auto 40px; padding:0 20px; }
+  h1 { font-size:16px; margin:0 0 4px; }
+  .lede { color:#52616f; line-height:1.75; margin:6px 0 14px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:900px) { .cols { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:14px 16px; cursor:pointer; }
+  .card.on { border-color:#0f3d2e; box-shadow:0 0 0 1px #0f3d2e inset; }
+  h2 { margin:0 0 6px; font-size:11.5px; letter-spacing:.4px; color:#334e68; text-transform:uppercase; }
+  .big { font-size:30px; font-weight:700; color:#0f3d2e; line-height:1.15; }
+  .frac { font-size:12px; color:#52616f; margin-top:4px; }
+  code, pre { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  pre { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:10px 12px; font-size:10.5px;
+        line-height:1.55; white-space:pre-wrap; word-break:break-word; max-height:210px; overflow:auto; margin:8px 0 0; }
+  .muted { color:#687b8f; font-size:11.5px; line-height:1.65; }
+  .pill { display:inline-block; font-size:10.5px; padding:1px 7px; border-radius:999px;
+          border:1px solid #cfd8e0; color:#52616f; margin-left:6px; }
+  .ask { display:flex; gap:6px; margin-top:10px; }
+  input[type=text] { flex:1; padding:6px 9px; border:1px solid #cfd8e0; border-radius:7px; font:inherit; }
+  button { padding:6px 12px; border-radius:7px; border:1px solid #0f3d2e; background:#0f3d2e; color:#fff;
+           font:inherit; cursor:pointer; }
+  .ans { margin-top:10px; padding:10px 12px; border-radius:8px; background:#f2f7f4; border:1px solid #cfe3d7;
+         line-height:1.7; font-size:12.5px; display:none; }
+  .ans.bad { background:#fdf3f2; border-color:#f0c7c2; }
+</style>
+</head>
+<body>
+<main>
+  <h1>第 2 步 —— 粒度：一趟 vs 一个站次</h1>
+  <p class="lede">
+    同一个词「准时」，换一个分母就差出 40 个点。左卡按<strong>站次</strong>算：到货窗口内到达的站占全部站次；
+    右卡按<strong>整趟</strong>算：一趟里只要有一站迟到，这一趟就不算全准点。两个数都对，但它们不是同一个问题。
+  </p>
+
+  <div class="cols">
+    <div class="card on" id="card-stop">
+      <h2>按站次 · <code id="m1name">stopOnTimeRate</code></h2>
+      <div class="big" id="m1value">…</div>
+      <div class="frac" id="m1frac"></div>
+      <p class="muted" id="m1note"></p>
+    </div>
+    <div class="card" id="card-trip">
+      <h2>按整趟 · <code id="m2name">tripFullyOnTimeRate</code></h2>
+      <div class="big" id="m2value">…</div>
+      <div class="frac" id="m2frac"></div>
+      <p class="muted" id="m2note"></p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px; cursor:default">
+    <h2>这个数是编译出来的 <span class="pill" id="which">stopOnTimeRate</span></h2>
+    <pre id="sql">…</pre>
+    <p class="muted">点上面两张卡切换 SQL。没有任何一行 SQL 是手写的：它是声明 → 编译的产物。</p>
+  </div>
+
+  <div class="card" style="margin-top:14px; cursor:default">
+    <h2>自己问一句</h2>
+    <p class="muted">同一个词，两种问法，答案不一样 —— 这正是本体存在的理由。</p>
+    <div class="ask">
+      <input type="text" id="q" value="站点准时率是多少">
+      <button id="go">提问</button>
+    </div>
+    <div class="ans" id="ans"></div>
+  </div>
+</main>
+<script>
+const KEY = location.pathname.split('/')[3];
+const api = (p) => `${location.origin}/api/ontology/${KEY}${p}`;
+const fmt = (v) => (v === null || v === undefined) ? '—'
+  : (typeof v === 'number' ? v.toLocaleString('zh-CN', { maximumFractionDigits: 2 }) : String(v));
+const pct = (v) => (v === null || v === undefined) ? '—' : `${Number(v).toFixed(2)}%`;
+
+async function j(url, opts) {
+  const r = await fetch(url, opts);
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.detail || body.error || `HTTP ${r.status}`);
+  return body;
+}
+
+const cards = {
+  stop: { ids: ['m1value', 'm1frac', 'm1note', 'm1name'], metric: 'stopOnTimeRate' },
+  trip: { ids: ['m2value', 'm2frac', 'm2note', 'm2name'], metric: 'tripFullyOnTimeRate' },
+};
+
+(async () => {
+  const cardsData = await j(api('/metrics/cards'));
+  const byName = Object.fromEntries((cardsData.cards || []).map(c => [c.name, c]));
+
+  for (const [slot, cfg] of Object.entries(cards)) {
+    const c = byName[cfg.metric];
+    const valueEl = document.getElementById(cfg.ids[0]);
+    if (!c) { valueEl.textContent = '未声明'; continue; }
+    document.getElementById(cfg.ids[3]).textContent = c.name;
+    valueEl.textContent = pct(c.value);
+    document.getElementById(cfg.ids[1]).innerHTML =
+      `<code>${c.numerator || '—'}</code> ÷ <code>${c.denominator || '—'}</code>
+       <span class="pill">grain :${c.grain}</span>${c.scale ? `<span class="pill">×${c.scale}</span>` : ''}`;
+    document.getElementById(cfg.ids[2]).textContent = (c.description || c.error || '').slice(0, 190);
+    c._sql = c.sql;
+  }
+
+  const show = (slot) => {
+    const cfg = cards[slot];
+    const c = byName[cfg.metric] || {};
+    document.getElementById('which').textContent = cfg.metric;
+    document.getElementById('sql').textContent = c.sql || c.error || '（这条指标没有编译出 SQL）';
+    document.getElementById('card-stop').classList.toggle('on', slot === 'stop');
+    document.getElementById('card-trip').classList.toggle('on', slot === 'trip');
+  };
+  document.getElementById('card-stop').addEventListener('click', () => show('stop'));
+  document.getElementById('card-trip').addEventListener('click', () => show('trip'));
+  show('stop');
+})().catch(e => {
+  document.getElementById('m1value').textContent = '读取失败';
+  document.getElementById('m1note').textContent = String(e.message || e);
+});
+
+document.getElementById('go').addEventListener('click', async () => {
+  const q = document.getElementById('q').value.trim();
+  if (!q) return;
+  const box = document.getElementById('ans');
+  box.style.display = 'block'; box.className = 'ans'; box.textContent = '正在问…';
+  try {
+    const r = await j(api('/ask'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q, polish: false }),
+    });
+    if (r.refused || r.ok === false) {
+      box.className = 'ans bad';
+      box.innerHTML = `<b>按名拒绝：</b>${r.refused || r.answer || ''}`;
+      return;
+    }
+    box.innerHTML = `<b>${fmt(Number(r.value))}</b>${r.unit ? ' ' + r.unit : ''}
+      ${r.metric ? `<span class="pill">${r.metric}</span>` : ''}
+      ${r.sql ? `<pre>${r.sql}</pre>` : ''}`;
+  } catch (e) {
+    box.className = 'ans bad';
+    box.textContent = '问不出来：' + String(e.message || e);
+  }
+});
+</script>
+</body>
+</html>

@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import logging
 import pathlib
+import re
 import threading
 import time
 
@@ -130,6 +131,58 @@ def _settings(key: str) -> dict:
 
 
 # ── JSON: the three documents ───────────────────────────────────────────────
+def tutorial_i18n(key: str) -> dict[str, str]:
+    """The profile's declared translation for its own pages, in the language it declares.
+
+    An authored page is hand-written HTML, so `ui.language: "zh"` used to change nothing at all —
+    measured: 13 Chinese characters across retail's nine pages, and the `lang` the app appends to the
+    frame was read by nobody. The pages cannot be re-authored per language, so the translation is
+    DECLARED beside them:
+
+        profiles/<key>/tutorial/i18n.json
+        {"zh": {"Step 1 — one object, plain SQL": "第 1 步 —— 一个对象，纯 SQL"}}
+
+    Only declared strings are replaced; anything missing stays as the page wrote it. A half-translated
+    page is honest — a silently blank one is not.
+    """
+    try:
+        base = _profile(key).parent
+        lang = str((_settings(key).get("ui") or {}).get("language") or "").lower()
+    except PageError:
+        return {}
+    path = base / "tutorial" / "i18n.json"
+    if not lang or not path.is_file():
+        return {}
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    table = doc.get(lang) or {}
+    return {str(k): str(v) for k, v in table.items() if k and v}
+
+
+def translate_page(key: str, html: str) -> str:
+    """Apply the declared translation, longest source string first, IGNORING whitespace differences.
+
+    A dictionary key is written as one line of prose; the page has the same prose broken across lines
+    with indentation. Exact matching therefore missed a lot of it — measured: 52 of 310 retail entries
+    never fired because the source had a newline where the key had a space, and the page stayed English
+    while the dictionary looked complete. Runs of whitespace in the key match runs in the HTML, which is
+    what "the same sentence" means in HTML.
+    """
+    table = tutorial_i18n(key)
+    if not table:
+        return html
+    for source in sorted(table, key=len, reverse=True):
+        parts = [re.escape(part) for part in source.split()]
+        if not parts:
+            continue
+        pattern = re.compile(r"\s+".join(parts))
+        if pattern.search(html):
+            html = pattern.sub(lambda _m, text=table[source]: text, html)
+    return html
+
+
 def document(key: str, refresh: bool = False) -> dict:
     """Objects, definitions, links and metrics of one ontology (the browser page's whole input).
 
@@ -303,7 +356,14 @@ def page(key: str, name: str) -> tuple[str, str]:
     feats = _settings(key).get("features") or {}
     authored = str(feats.get("tutorial_style") or "").lower() == "authored"
     if name == "tutorial":
-        asset = WORKBENCH / ("tutorial.html" if authored else "tutorial_auto.html")
+        # A profile that ships its OWN tutorial owns its shell too: `profiles/<key>/tutorial/shell.html`.
+        # Retail's eight chapters live in the workbench because retail was the only authored one; a
+        # second authored tutorial (cold chain) must not have to overwrite retail's shell to exist.
+        own_shell = profile.parent / "tutorial" / "shell.html"
+        if authored and own_shell.is_file():
+            asset = own_shell
+        else:
+            asset = WORKBENCH / ("tutorial.html" if authored else "tutorial_auto.html")
     else:
         entry = PAGES.get(name)
         if entry is None:
@@ -335,6 +395,8 @@ def page(key: str, name: str) -> tuple[str, str]:
                     .replace('"/api/metrics/cards', f'"/api/ontology/{key}/metrics/cards'))
         # the shell loads its own drawing script by an absolute path
         html = html.replace('"/tutorial_graph.js"', f'"/api/ontology/{key}/asset/tutorial_graph.js"')
+        # …and say it in the language the profile declares (see `tutorial_i18n`).
+        html = translate_page(key, html)
         html = html.replace('"/architecture.svg"', f'"/api/ontology/{key}/asset/architecture.svg"')
         if authored:
             # the authored shell frames its own eight chapters (`/tutorial/1` … `/tutorial/8`); those pages

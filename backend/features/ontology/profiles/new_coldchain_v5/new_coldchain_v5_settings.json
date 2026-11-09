@@ -37,7 +37,7 @@
   "actions": false,
   "lane_b": false,
   "tutorial": true,
-  "tutorial_style": "auto"
+  "tutorial_style": "authored"
  },
  "aliases": {
   "高峰": "peak",
