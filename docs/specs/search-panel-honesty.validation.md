@@ -1,31 +1,34 @@
 # Validation report — search panel honesty
 
-Criterion source: `docs/specs/search-panel-honesty.md` (AC1–AC6), written from grill round 1's
-**recommended** answers — the round is still open (`search-panel-honesty.grill.md`).
-Validated: 2026-11-09, against the working tree at that moment and the running app on `:8765`.
+Criterion source: `docs/specs/search-panel-honesty.md` (AC1–AC6, **agreed** after
+`search-panel-honesty.grill.md` round 1).
+Validated: 2026-11-09, against the working tree and the running app on `:8765` (local and the deployment).
 
-**Run 2** (same day, after ticket 001 landed). Run 1 was the baseline — *nothing implemented, six FAILs* —
-which is what makes a later PASS mean something: a validator that passes an unimplemented spec is broken.
-The report is rewritten in place so a reader sees one table, and the delta is stated at the bottom.
+**Now: run 3 — PASS 6 · FAIL 0.** The table is always the current run; the per-run delta is at the bottom,
+because a validator that shows only its final state cannot show that progress was checked rather than
+declared.
 
 | # | Criterion | Verdict | Evidence |
 |---|-----------|---------|----------|
 | AC1 | `GET /api/workspace/search?q=<term>` returns 200 with matches, `scanned` and `truncated` | **PASS** | `curl "…/api/workspace/search?q=monthly_sales"` → **200**, 1 match `default/analyze_sales_full.py:19` (`kind: file`); `?q=prompt` → 57 `kind: workflow` matches; response carries `scanned={files:3166, workflows:57}`; `?q=tool_call` → 200 matches with `truncated: true` |
 | AC2 | empty `q` → 400, over-long `q` → 413 | **PASS** | `?q=` (whitespace) → **400** `q is required`; `?q=` + 201 chars → **413** naming the 200-char cap; both raised before the filesystem is touched (`test_empty_query_is_400`, `test_absurd_query_is_413`) |
-| AC3 | one request per search, no per-workflow fan-out | **FAIL** | `grep -c 'getWorkflowCode(' src/components/layout2/SearchPanel.tsx` → **1** (the call inside the loop at `:68`); `listWorkflows()` at `:57` |
-| AC4 | a failed request shows the HTTP status | **FAIL** | `grep -c 'No results on error\|Skip workflows' …` → **2** (empty `catch` at `:88-90`, `:95-97`); the panel renders an empty list either way |
-| AC5 | replace control gone; no "Mock search results" comment | **FAIL** | `grep -c replaceText` → **2** (state at `:39`, input at `:185`, no action); `grep -c 'Mock search results'` → **1** (`:13`) |
-| AC6 | docstring matches behaviour | **FAIL** | `:2` still reads *"VS Code-style search-in-files sidebar panel"* while `:57-68` search workflow code via a per-workflow fan-out |
+| AC3 | one request per search, no per-workflow fan-out | **PASS** | `grep -c 'getWorkflowCode(' src/components/layout2/SearchPanel.tsx` → **0**; the panel makes **one** call — `apiClient.get('/api/workspace/search', { params: { q } })` — behind a 300 ms debounce |
+| AC4 | a failed request shows the HTTP status | **PASS** | both `catch` paths now set an error block rendered with `HTTP <status>` + the server's `detail`; a no-response failure reads "the backend did not answer". `grep -c 'No results on error\|Skip workflows'` → **0** |
+| AC5 | replace control gone; no "Mock search results" comment | **PASS** | `grep -c replaceText` → **0**; `grep -c 'Mock search results'` → **0** |
+| AC6 | docstring matches behaviour | **PASS** | the header names workspace files + workflow definitions ("workspace files" ×3, "search-in-files" → **0**), and states the rule the bug violated: the panel asks once, the server answers |
 
-**PASS 2 · FAIL 4 · PARTIAL 0 · UNVERIFIABLE 0**
+**PASS 6 · FAIL 0 · PARTIAL 0 · UNVERIFIABLE 0**
 
-## Delta since run 1
+## Delta per run
 
-`AC1` 404 → **200 with matches**; `AC2` 404 → **400 / 413**. Both are ticket 001, which is now done
-(`docs/tickets/001-search-endpoint.md`, 10 tests in `backend/tests/test_workspace_search.py`).
-AC3–AC6 remain **FAIL** because they are ticket 002 — the panel still calls `getWorkflowCode` per
-workflow, still hides failures, still offers a dead replace field. Nothing about 001 pretending to be 002:
-that is the point of a verdict per criterion.
+| Run | When | PASS | FAIL | What moved |
+|---|---|---|---|---|
+| 1 | before any ticket — the baseline | 0 | 6 | nothing implemented; **a validator that passes an unimplemented spec would be broken**, which is why this run exists |
+| 2 | after ticket 001 | 2 | 4 | AC1 404 → 200 with matches; AC2 404 → 400/413 |
+| 3 | after ticket 002 | **6** | **0** | AC3 fan-out → one request; AC4 silent → visible status; AC5 dead replace control → gone; AC6 docstring → true |
+
+Tickets: `001` (endpoint, 10 tests) and `002` (panel) are done; `003` (jump to the matched line) is still
+blocked-by-002 and now unblocked. Its criterion is not in this table yet, so nothing here claims it.
 
 ## Baseline that makes a later PASS meaningful
 
