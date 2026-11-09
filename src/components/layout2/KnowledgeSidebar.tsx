@@ -11,11 +11,15 @@ import { useLayoutTokens } from './tokens';
 import { useLayoutState } from './useLayout';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../../lib/api-client';
+import { useToast } from '../../hooks/useToast';
 import { splitScope } from '../../features/knowledge/knowledgeScope';
 import {
   Folder, FileText, CheckCircle, Loader, RefreshCw, Plus, FileUp, FolderUp, MessagesSquare,
 } from 'lucide-react';
 import UploadFilesDialog from './UploadFilesDialog';
+
+// injected by vite (`define`) — see vite.config.ts
+declare const __BUILD_STAMP__: string;
 
 /* ── Types ────────────────────────────────────────────── */
 
@@ -192,13 +196,22 @@ export default function KnowledgeSidebar() {
   // Folder upload state
   const folderInputRef = useRef<HTMLInputElement>(null);
   const [folderUploading, setFolderUploading] = useState(false);
-  useEffect(() => {
-    const el = folderInputRef.current;
-    if (el) {
-      el.setAttribute('webkitdirectory', '');
-      el.setAttribute('directory', '');
-    }
+  // A folder upload that fails used to end in `console.error` — silence on screen, and therefore
+  // "the button does not work" with no request in the server log. Failures and outcomes are SAID.
+  const { showToast } = useToast();
+  /** Tell the server what the browser saw — the only way to diagnose a handler that returns early. */
+  const report = useCallback((event: string, detail: Record<string, any>) => {
+    try {
+      void apiClient.post('/api/debug/client-log', { event, detail });
+    } catch { /* the diagnostic must never be the failure */ }
   }, []);
+  const [folderProgress, setFolderProgress] = useState<string | null>(null);
+  // 「刚建好的那个库」：上传完成后列表会自己刷新并切过去，但"列表里多了一条"很容易没被看见，
+  // 所以把结果写在面板上，并给出文件数与库名。
+  const [justCreated, setJustCreated] = useState<{ kb: string; count: number; at: number } | null>(null);
+  // (the folder-mode attributes are declared in JSX — patching them from an effect lost them on the
+  // first re-render, and a folder picker that silently becomes a file picker is indistinguishable from
+  // a broken button.)
 
   // The knowledge bases under the knowledge root, straight from the filesystem. This is what
   // the panel shows: knowledge is not scoped to a project, so the list is the knowledge folders
@@ -355,7 +368,18 @@ export default function KnowledgeSidebar() {
   /** Upload folder via webkitdirectory picker */
   const handleFolderPick = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || files.length === 0) return;
+    report('folder_pick', {
+      count: files ? files.length : 0,
+      first: files && files[0] ? (files[0] as any).webkitRelativePath || files[0].name : '',
+      hasDir: !!(folderInputRef.current && folderInputRef.current.hasAttribute('webkitdirectory')),
+    });
+    if (!files || files.length === 0) {
+      // Silence here is indistinguishable from a broken button (and produces no request, so the
+      // server log cannot tell you anything either). Say what happened.
+      showToast('没有选中任何文件——文件夹是空的，或者浏览器不允许读取它', 'error');
+      if (folderInputRef.current) folderInputRef.current.value = '';
+      return;
+    }
 
     const fileArray = Array.from(files);
     const relPaths = fileArray.map((f) => (f as any).webkitRelativePath || '');
@@ -371,6 +395,7 @@ export default function KnowledgeSidebar() {
     if (!relPaths.every((rel) => rel.includes('/'))) {
       setUploadSeed(fileArray);
       setUploadOpen(true);
+      showToast(`已选中 ${fileArray.length} 个文件，请在对话框里给知识库起个名字`, 'info');
       if (folderInputRef.current) folderInputRef.current.value = '';
       return;
     }
@@ -380,9 +405,16 @@ export default function KnowledgeSidebar() {
     // somebody else's — picking `business_model` gives you a knowledge base called
     // `business_model`, sitting directly under the knowledge root.
     const kb = relPaths[0].split('/').filter(Boolean)[0];
-    if (!kb) return;      // a path with no leading segment has no folder name to make a base from
+    if (!kb) {
+      showToast('读不到文件夹名（浏览器没有给出相对路径），这批文件需要走上传对话框', 'error');
+      setUploadSeed(fileArray);
+      setUploadOpen(true);
+      if (folderInputRef.current) folderInputRef.current.value = '';
+      return;
+    }
 
     setFolderUploading(true);
+    setFolderProgress(`正在上传 ${fileArray.length} 个文件到「${kb}」…`);
     try {
       // Everything BELOW the picked folder is the path inside the knowledge base, so
       // `business_model/a/b.md` lands at `a/b.md` in `business_model` — the same shape a folder
@@ -398,8 +430,17 @@ export default function KnowledgeSidebar() {
         return meta;
       });
 
-      await apiClient.uploadKVDocumentsBulk(kb, fileArray, fileMetadata);
+      const res: any = await apiClient.uploadKVDocumentsBulk(kb, fileArray, fileMetadata);
+      const rows = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      const failed = rows.filter((r: any) => r && r.message && !/success/i.test(String(r.message)));
       await loadBases();      // the knowledge base may be brand new; show it in the selector
+      if (failed.length) {
+        showToast(`${failed.length} 个文件没有上传成功：${String(failed[0]?.message || '').slice(0, 80)}`, 'error');
+      } else if (rows.length) {
+        showToast(`已上传 ${rows.length} 个文件到「${kb}」`, 'success');
+        setJustCreated({ kb, count: rows.length, at: Date.now() });
+        report('folder_uploaded', { kb, count: rows.length });
+      }
       if (kb === knowledge) {
         loadDocuments();
       } else {
@@ -409,9 +450,18 @@ export default function KnowledgeSidebar() {
         setKnowledgeFolder('');
       }
     } catch (err: any) {
+      // Say it on screen. `console.error` is where a failure goes to be forgotten — and the person
+      // clicking has no console open, so the only symptom was "the button does not work".
+      const status = err?.response?.status;
+      const detail = err?.response?.data?.detail || err?.message || String(err);
+      showToast(status === 413
+        ? '文件夹太大，被服务器拒绝了（413）。改为把这批文件放到服务器上，用「从路径导入」建库。'
+        : `上传失败：${String(detail).slice(0, 160)}`, 'error');
+      report('folder_error', { status, message: String(detail).slice(0, 300) });
       console.error('Folder upload failed:', err);
     } finally {
       setFolderUploading(false);
+      setFolderProgress(null);
       if (folderInputRef.current) folderInputRef.current.value = '';
     }
   }, [knowledge, loadDocuments, loadBases, setKnowledgeBase, setKnowledgeFolder]);
@@ -519,7 +569,7 @@ export default function KnowledgeSidebar() {
         <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: t.textMuted }}>
           {tr('kb_knowledge_base')}
         </span>
-        <div style={{ display: 'flex', gap: 2 }}>
+        <div style={{ display: 'flex', gap: 2, position: 'relative' }}>
           <button
             onClick={handleOpenDocPlayground}
             title={tr('kb_doc_playground')}
@@ -548,8 +598,16 @@ export default function KnowledgeSidebar() {
           >
             <Plus size={14} />
           </button>
+          {/* The button is BACK as a button, with its icon: the label version put the input on top of
+              the whole 22×22 box and hid the FolderUp glyph, which read as "the folder upload is gone".
+              The two things that were actually broken stay fixed: `webkitdirectory` is DECLARED in the
+              JSX (an effect could not keep it), and the input is off-screen rather than `display:none`
+              (Safari refuses a programmatic click on an input it considers hidden). */}
           <button
-            onClick={() => folderInputRef.current?.click()}
+            onClick={() => {
+              report('folder_button_click', { uploading: folderUploading, ua: navigator.userAgent.slice(0, 120) });
+              folderInputRef.current?.click();
+            }}
             title={tr('kb_upload_folder_hint')}
             disabled={folderUploading}
             style={{
@@ -564,7 +622,37 @@ export default function KnowledgeSidebar() {
           >
             {folderUploading ? <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <FolderUp size={14} />}
           </button>
-          <input ref={folderInputRef} type="file" onChange={handleFolderPick} style={{ display: 'none' }} />
+          <input
+            ref={folderInputRef}
+            type="file"
+            onChange={handleFolderPick}
+            {...({ webkitdirectory: '', directory: '' } as any)}
+            style={{ position: 'fixed', left: -9999, top: 0, width: 1, height: 1, opacity: 0 }}
+          />
+          {/* Which front-end is this tab running? A stale bundle looks exactly like a broken button, and
+          asking someone to open the Network tab to find out is not a diagnostic they can run. */}
+      <div style={{ padding: '2px 10px 6px', fontSize: 9.5, color: t.textDim, flexShrink: 0 }}>
+        build {String(typeof __BUILD_STAMP__ !== 'undefined' ? __BUILD_STAMP__ : 'dev')}
+      </div>
+      {justCreated && (
+        <div style={{
+          padding: '5px 10px', fontSize: 11, lineHeight: 1.6, flexShrink: 0,
+          background: 'var(--color-success-bg, #f2f7f4)', borderBottom: `1px solid ${t.border}`,
+          color: t.textPrimary, display: 'flex', gap: 6, alignItems: 'center',
+        }}>
+          <FolderUp size={12} />
+          <span>已新建知识库「<b>{justCreated.kb}</b>」· {justCreated.count} 个文件 ·
+            左侧列表已刷新并切到它</span>
+          <button onClick={() => setJustCreated(null)} title="知道了"
+                  style={{ marginLeft: 'auto', border: 'none', background: 'transparent',
+                           cursor: 'pointer', color: t.textMuted }}>✕</button>
+        </div>
+      )}
+      {folderProgress && (
+            <div style={{ padding: '4px 10px', fontSize: 10.5, color: 'var(--color-text-muted, #687b8f)' }}>
+              {folderProgress}
+            </div>
+          )}
           <button
             onClick={loadDocuments}
             title={tr('kb_refresh')}

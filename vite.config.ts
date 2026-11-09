@@ -16,6 +16,16 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(async () => ({
   plugins: [react()],
 
+  // One string, baked in at build time and shown in the UI (Knowledge rail, bottom): on a LAN
+  // deployment "which bundle is this tab running?" has to be answerable from the screen. A stale
+  // bundle behaves exactly like a broken button, and asking someone to open the Network tab to find
+  // out is not a check they can run.
+  define: {
+    __BUILD_STAMP__: JSON.stringify(
+      new Date().toISOString().slice(0, 16).replace('T', ' '),
+    ),
+  },
+
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

@@ -52,14 +52,9 @@ export default function ImportFolderPanel({ onImported, existingBases, t }: Prop
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
-  // `webkitdirectory` is not in the TS types and must be set on the element itself.
-  useEffect(() => {
-    const el = inputRef.current;
-    if (el) {
-      el.setAttribute('webkitdirectory', '');
-      el.setAttribute('directory', '');
-    }
-  }, []);
+  // `webkitdirectory` is declared in JSX on the input below: setting it from an effect meant the
+  // first re-render could drop it, and the folder picker then silently became a FILE picker — the
+  // exact report "folder 按钮让我选文件".
 
   const trimmed = knowledge.trim();
   const existing = useMemo(
@@ -182,7 +177,8 @@ export default function ImportFolderPanel({ onImported, existingBases, t }: Prop
         ref={inputRef}
         type="file"
         onChange={handlePick}
-        style={{ display: 'none' }}
+        {...({ webkitdirectory: '', directory: '' } as any)}
+        style={{ position: 'fixed', left: -9999, top: 0, width: 1, height: 1, opacity: 0 }}
       />
 
       <div>
