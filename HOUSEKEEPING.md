@@ -550,12 +550,19 @@ staged file, so the applied publish id `1794212541-6afcb2` still contained all n
 them the gates re-ran green (84 metrics compiled, 0 refused) and `/api/ontology/installed` lists v5
 again with its publish time.
 
-Two lessons, both actionable:
+Two lessons, both actionable — and both acted on:
 
-1. **A published ontology that is not committed exists in exactly one checkout.** The ledger can rebuild
-   it, but only because `stage()` records the file bodies — that is a backup, not a plan.
+1. **A published ontology that is not committed exists in exactly one checkout.** v5's nine files are
+   now a commit (`ontology(new_coldchain_v5): publish 1794212541-6afcb2`, 10 files / 2 628 lines), so
+   the repository can reproduce the published ontology without the ledger.
 2. **Before any `git reset --hard` on a deployment, ask what is untracked there.** Untracked survives;
    staged-and-uncommitted does not.
+
+And the recovery is now a tool rather than a one-off: `scripts/ontology_restore.py` rebuilds a profile
+from a publish row (`--key`, or `--publish-id` for a specific staged/applied publish), refuses paths that
+escape the profile directory or come from `.staging`, refuses to overwrite a non-empty profile without
+`--force`, and with `--verify` compiles and gates what it wrote. Tested in
+`backend/tests/test_ontology_restore.py` (7 cases, no database).
 
 ### 7.7 Still open
 
