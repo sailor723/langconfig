@@ -19,7 +19,7 @@
  *   2. dispatch_review — the panel whose declaration does not exist yet: it shows what IS measurable
  *                        (on-time vs overload per vehicle) next to what is missing (:DispatchDecision).
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { AlertTriangle, ArrowRight, BarChart3, Boxes, Copy, MessageSquare, RefreshCw, Route, Sigma, Sparkles } from 'lucide-react';
@@ -609,6 +609,34 @@ function DispatchPanel({ panel, verbs }: {
 }
 
 // ── the page ────────────────────────────────────────────────────────────────────────────────
+/**
+ * How many charts fit on one line — 1, 2 or 3, never more.
+ *
+ * A `minmax(420px, 1fr)` grid answers "how many fit", not "how many should": on a laptop with the
+ * question dock open it dropped to ONE chart per line, and on a wide screen it could run to four,
+ * where each panel is too narrow to read its axis. Two or three is the range a board is read in, so
+ * the count is measured from the grid's own width and capped.
+ */
+function useChartColumns(min = 1, max = 3) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [cols, setCols] = useState(2);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.clientWidth;
+      // ~420 px is where a slope/matrix panel stops being readable; below ~820 px one column.
+      const want = w < 820 ? 1 : w < 1240 ? 2 : 3;
+      setCols(Math.max(min, Math.min(max, want)));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [min, max]);
+  return { ref, cols };
+}
+
 export default function OntologyDashboardPage() {
   const t = useLayoutTokens();
   const navigate = useNavigate();
@@ -616,6 +644,7 @@ export default function OntologyDashboardPage() {
   // The dock on the right is this ontology's OWN question pipeline; it is closed until asked for,
   // so a reader who only wants the numbers gets the full width for panels.
   const [chatOpen, setChatOpen] = useState(false);
+  const grid = useChartColumns(1, 3);
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -802,9 +831,10 @@ export default function OntologyDashboardPage() {
           </Section>
 
           <Section title="面板" hint="交叉高亮：点一个值，全页标出它；不会在浏览器里重算任何数">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: 14 }}>
+            <div ref={grid.ref}
+                 style={{ display: 'grid', gridTemplateColumns: `repeat(${grid.cols}, minmax(0, 1fr))`, gap: 14 }}>
               {panels.map(p => (
-                <div key={p.id} style={{ gridColumn: ['slope', 'sankey', 'treemap', 'bubble'].includes(p.kind) ? 'span 2' : undefined }}>
+                <div key={p.id} style={{ gridColumn: ['slope', 'sankey', 'treemap', 'bubble'].includes(p.kind) && grid.cols > 1 ? 'span 2' : undefined }}>
                   <PanelFrame panel={p} tone={p.kind === 'hole' ? DANGER : undefined}>
                     {p.kind === 'slope' && <SlopePanel panel={p} />}
                     {p.kind === 'series' && <SeriesPanel panel={p} events={events} />}
