@@ -40,8 +40,11 @@ if ! "$PY" "$CHECK" --check; then
       echo ""
       echo "seed guard: snapshot was stale — regenerating and staging it"
       "$PY" "$CHECK" || exit 1
-      git add "$ROOT/backend/scripts/seeds/deep_agents_merge.sql" \
-              "$ROOT/backend/scripts/seeds/custom_tools_merge.sql" || exit 1
+      # The artefacts live in seeds/in/ since the seeds split; the flat paths here stopped matching,
+      # so auto-mode failed on a `git add` of files that no longer exist there.
+      git add "$ROOT/backend/scripts/seeds/in/deep_agents_merge.sql" \
+              "$ROOT/backend/scripts/seeds/in/custom_tools_merge.sql" \
+              "$ROOT/backend/scripts/seeds/in/settings_seed.json" || exit 1
       echo "seed guard: staged the refreshed snapshots into this commit"
       exit 0
       ;;
@@ -51,12 +54,12 @@ if ! "$PY" "$CHECK" --check; then
 ────────────────────────────────────────────────────────────────────────
 seed guard: refusing this commit.
 
-The agents/tools snapshot in backend/scripts/seeds/ no longer matches your
+The agents/tools snapshot in backend/scripts/seeds/in/ no longer matches your
 database — so committing now would send teammates a stale picture, and they
 would receive none of your recent agents or tools.
 
     cd backend && .venv/bin/python scripts/seeds/out/export_baseline.py
-    git add backend/scripts/seeds/*.sql
+    git add backend/scripts/seeds/in/*.sql backend/scripts/seeds/in/settings_seed.json
 
 To have the guard do it for you:
     git config langconfig.seedGuardMode auto
