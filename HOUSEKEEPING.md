@@ -535,9 +535,13 @@ python -m git_filter_repo --path backend/data --invert-paths \
 | `git fsck` | — | clean |
 
 The HEAD tree hashing the same is the proof that **no working file changed**: only history did.
-Safety net: `.git/backups/pre-rewrite-20261109.bundle` (461 MB, a full `--all` bundle; restore with
-`git clone <bundle>`). Delete it once you are satisfied — it is the only thing keeping the old bytes on
-this disk. All 20 branches and the `main-history-backup` tag were force-pushed (the tag deleted, since it
+Safety net: `backups/pre-rewrite-20261109.bundle` (461 MB, a full `--all` bundle). It was first written
+to `.git/backups/` and then MOVED out, because inside `.git` it made the repository look 506 MB:
+`du -sm .git` was 506 MB with the bundle in it and **41 MB** without, while the object store itself is
+39.55 MiB either way. It now sits in `backups/`, which `.gitignore` excludes (`/backups/`), so it
+can never be committed. Verified after the move: `git bundle verify` reports a complete history and a
+test clone yields the pre-rewrite tree (1 622 commits at `ff4587a5`, PDFs present). Delete it once you
+are satisfied — it is the only thing keeping the old bytes on this disk. All 20 branches and the `main-history-backup` tag were force-pushed (the tag deleted, since it
 was the one ref that kept the old commits alive on the remote), and the deployment was moved onto the
 rewritten history with `git reset --hard github/main`.
 

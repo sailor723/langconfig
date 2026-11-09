@@ -100,9 +100,12 @@ No database reseed is needed: `scripts/seeds/in/seed_all.py` was not changed by 
 - **The ledger can rebuild any published ontology**: `scripts/ontology_restore.py --key <key>` reports
   what a publish contained, `--apply` writes it, `--verify` compiles and gates it. That path has tests
   (`backend/tests/test_ontology_restore.py`).
-- **The pre-rewrite history is still recoverable** from
-  `.git/backups/pre-rewrite-20261109.bundle` on the maintainer's machine (a full `--all` bundle:
-  `git clone <bundle>` restores everything). Nobody needs it unless we decide to undo the rewrite.
+- **The pre-rewrite history is still recoverable** from `backups/pre-rewrite-20261109.bundle` on the
+  maintainer's machine — a full `--all` bundle, 461 MB, kept **outside `.git`** and ignored by
+  `.gitignore` (`/backups/`), so it neither inflates the repository nor can be committed:
+  `git clone backups/pre-rewrite-20261109.bundle` restores the entire pre-rewrite history (1 622
+  commits at `ff4587a5`, PDFs included). Verified after moving it. Nobody needs it unless we decide to
+  undo the rewrite.
 
 ## If something looks wrong
 
