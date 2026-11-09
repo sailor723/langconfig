@@ -244,6 +244,31 @@ For visual workflow building with full control over agent interactions, LangConf
     }
 
 
+@router.post("/client-log")
+async def client_log(payload: dict):
+    """A BROWSER-side event, written into the same log the server writes.
+
+    The folder-upload failure is invisible from here: the handler's own guards return before any
+    request is made, so the server log shows nothing and every remedy is a guess. A client that can
+    say "I was clicked, I saw 0 files, here is the exception" turns that into a fact. Bodies are
+    capped and flattened; this is a diagnostic channel, not a general-purpose log sink.
+    """
+    from services.log_stream import hub, attach_log_stream
+    import logging as _logging
+
+    attach_log_stream()
+    event = str(payload.get("event") or "?")[:80]
+    detail = {k: (str(v)[:200] if not isinstance(v, (int, float, bool, type(None))) else v)
+              for k, v in (payload.get("detail") or {}).items() if k}
+    line = f"[client] {event} {json.dumps(detail, ensure_ascii=False)}"
+    _logging.getLogger("client").warning(line)
+    try:
+        hub.publish(line)                      # show it in the Terminal tab the user already has open
+    except Exception:                                            # noqa: BLE001
+        pass
+    return {"ok": True}
+
+
 @router.get("/logs/stream")
 async def stream_logs(request: Request):
     """SSE stream of backend system logs for the bottom-panel Terminal tab.
