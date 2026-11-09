@@ -101,7 +101,7 @@ workspaces** (`user 12/agent_355` 12 MB, `user 1/agent_355` 0.8 MB) left behind 
 
 | Path | Size | Note |
 |---|---|---|
-| `backend/notebooks/module-4/Arial` | **22 MB** | a font with no extension, so `.gitignore`'s `*.ttf` rule misses it. The processed `Arial Unicode*.pkl` forms are tracked next to it — the raw font is not needed |
+| `backend/notebooks/module-4/Arial Unicode.ttf` | **23 MB** | tracked before `.gitignore` learned `backend/notebooks/**/*.ttf`, and a tracked file is not affected by an ignore rule — so it stayed. Untracked now (still on disk). The processed `Arial Unicode*.pkl` forms stay tracked: they are what the notebook loads |
 | `backend/notebooks/module-1/.langgraph_api/*.pckl` | 7 files | **langgraph runtime state** committed as source |
 | `backend/notebooks/**/.ipynb_checkpoints/` | 25 files | editor scratch |
 | `backend/static/plotly.min.js` + `backend/skills/personal/1/erp-analyst/plotly.min.js` | 4.6 + 3.4 MB | the same library twice |
@@ -412,3 +412,71 @@ cd backend
 .venv/bin/python ../scripts/housekeeping_documents.py --prune-refs --apply
 # to undo:  mv data/documents/.quarantine/<stamp>/* data/documents/
 ```
+
+
+## 7. Execution log — what was actually done
+
+Three batches, each verified before moving on. Nothing here is a proposal; it is what ran.
+
+### 7.1 The fixes and the guards (commit `d65ae5c`)
+
+`api/chat/documents.py` de-duplicated (route pair + two helper pairs) · `case 'learning'` added with
+`LearningHomePage` · `AGENTS.md`/`CLAUDE.md`/`README.md`/`docs/usage.md` endpoints and counts corrected
+· `DownloadProvider` mounted in `WorkflowCanvas`, fallback counter fixed · both hardcoded
+`http://localhost:8765` replaced by `API_BASE_URL` · guards + document classifier + verify script added.
+
+Proven by: `./scripts/housekeeping_verify.sh` → **842 guards pass, tsc clean, build clean**, and the
+backend suite at exactly the 20-failure baseline.
+
+### 7.2 The deletions (commit `e647b5e`, 162 files, −40 469 lines)
+
+| Batch | Removed | Verified by |
+|---|---|---|
+| backend modules | `workflow_exporter_old.py` (3 043 L), `api/schemas.py` (shadowed), `api/mcp/config.py` (never mounted), `api/workflows/checkpoints.py` (5 endpoints, 0 callers) **and its `include_router`**, `backend/orchestration/` (broken package), 6 zero-reference modules | `import main` builds 423 routes; full suite unchanged at 20 failures |
+| backend root | 15 loose one-off scripts, 2 loose `test_*.py`, `titanic_analysis.png`, `langconfig.db`, two parallel example trees, the directory literally named `db:` | same |
+| frontend | 44 files: memory UI, execution-history panels, canvas barrel + hooks + dialog, old `components/layout` shell, 2 page-shaped orphans, plus the 5 files that only those referenced | `tsc` + `vite build` clean |
+| untracked (kept on disk) | `Arial Unicode.ttf` (23 MB), 7 langgraph `.pckl` blobs, 25 `.ipynb_checkpoints` files, `backend/skills/personal/` | `git ls-files` counts to 0; `.gitignore` extended so they cannot come back |
+| deleted assets | 6 unreferenced images, the dangling `my-deep-agent-fe` symlink | grep for each basename |
+
+### 7.3 The document store (no commit — it is gitignored runtime data)
+
+```
+cd backend
+.venv/bin/python ../scripts/housekeeping_documents.py --db --quarantine --prune-refs --apply
+```
+
+Result, measured by the same script immediately afterwards:
+
+| | before | after |
+|---|---|---|
+| files in the store | 1 491 | **1 032** |
+| distinct references | 1 847 | **1 032** |
+| healthy pairs | 1 032 | **1 032** |
+| unreferenced files | 459 (535 MB) | **0** |
+| dangling references | 815 | **0** |
+
+The 459 files were **moved**, not deleted: `backend/data/documents/.quarantine/20261109-213814/` keeps
+their original relative paths plus a `MANIFEST.txt`, and the pruned catalog files were copied to
+`kvmeta-backup/` beside it. To undo:
+
+```bash
+mv backend/data/documents/.quarantine/20261109-213814/project_* backend/data/documents/
+cp backend/data/documents/.quarantine/20261109-213814/kvmeta-backup/*.json backend/data/documents/.kvmeta/
+```
+
+Nothing was reclaimed on disk yet — the quarantine sits inside the store (537 MB) so the move stays a
+one-liner. To actually free the space, move it off the checkout:
+
+```bash
+mv backend/data/documents/.quarantine/20261109-213814 ~/langconfig-quarantine-2026-11-09
+```
+
+### 7.4 Still open
+
+- **ECS** has the code (`d65ae5c` + `e647b5e`); its **document store is untouched** — run the same two
+  script commands there when convenient (report first).
+- **git history** (414 MB of `backend/data` PDFs) — untouched by design: it needs a rewrite and a
+  re-clone on every machine.
+- **Mock `SearchPanel`** — needs a real search endpoint; a feature, not housekeeping.
+- **Dead endpoints inside live routers** (18 groups, §2.3) and **the doc link rot** (33 + 17 links).
+- **`scripts/manual_migrations/`** — still needs a human decision (§2.4).
