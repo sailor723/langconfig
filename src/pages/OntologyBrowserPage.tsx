@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ListTree, Table2, Link2, Sigma, AlertTriangle, Play, RefreshCw, Copy, Check, Boxes, Search,
-  Sparkles, Settings2,
+  Sparkles, Settings2, X,
 } from 'lucide-react';
 import { useLayoutTokens } from '../components/layout2/tokens';
 import { Card, Chip, Btn, mono, SUCCESS, DANGER, WARN } from '../features/ontology/ui';
@@ -27,6 +27,30 @@ const TAB_META: Array<{ id: Tab; label: string; icon: typeof Table2 }> = [
   { id: 'links', label: 'Links', icon: Link2 },
   { id: 'metrics', label: 'Metrics', icon: Sigma },
 ];
+
+/**
+ * What a search term matches in a METRIC — the whole declaration, not just its name.
+ *
+ * The old filter compared `name` and `label`, so "载重" found nothing on a metric whose SQL says
+ * `weight_capacity_snapshot`, and a reader who thinks in columns or units could not search at all.
+ * Terms are ANDed (space separates) and compared case-insensitively against every field a
+ * declaration has: name, label, aggregate, grain, universe, where, groupBy, formula, numerator /
+ * denominator, unit, scale, notes, the compiled SQL, and a refusal's own words.
+ */
+function metricHaystack(card: any): string {
+  return [
+    card?.name, card?.label, card?.aggregate, card?.grain, card?.universe, card?.where,
+    card?.formula, card?.numerator, card?.denominator, card?.unit, card?.scale, card?.sql,
+    card?.error, card?.refused, card?.run_error,
+    ...(card?.groupBy || []), ...(card?.notes || []), ...(card?.guard_notes || []),
+  ].filter(Boolean).join(' ').toLowerCase();
+}
+
+/** AND over whitespace-separated terms; an empty query matches everything. */
+function matchesTerms(haystack: string, needle: string): boolean {
+  const terms = needle.split(/\s+/).filter(Boolean);
+  return terms.every(t => haystack.includes(t));
+}
 
 export default function OntologyBrowserPage() {
   const t = useLayoutTokens();
@@ -282,12 +306,21 @@ export default function OntologyBrowserPage() {
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="filter…"
+            onKeyDown={e => { if (e.key === 'Escape') { setQ(''); e.currentTarget.blur(); } }}
+            title="按名字、口径、单位或编译出的 SQL 搜；空格分隔多个条件，Esc 清空"
+            placeholder={tab === 'metrics' ? '搜指标：名字 / 口径 / SQL / 单位…' : 'filter…'}
             style={{
-              width: 180, fontSize: 11.5, padding: '3px 8px', borderRadius: 6,
-              border: `1px solid ${t.border}`, background: t.bgInput, color: t.textPrimary,
+              width: tab === 'metrics' ? 260 : 180, fontSize: 11.5, padding: '3px 8px', borderRadius: 6,
+              border: `1px solid ${q ? t.accent : t.border}`, background: t.bgInput, color: t.textPrimary,
             }}
           />
+          {q && (
+            <button onClick={() => setQ('')} title="清空搜索（Esc）"
+                    style={{ border: 'none', background: 'transparent', cursor: 'pointer',
+                             color: t.textDim, display: 'inline-flex', padding: 2 }}>
+              <X size={12} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -478,7 +511,7 @@ function MetricsGrid({ cards, error, needle, doc, selected, onSelect }: {
     // instance). Showing "nothing" there is the worst answer; show what /api/ontology
     // already knows — every declaration and its SQL — and say the numbers are missing.
     const fallback: any[] = (doc?.metrics || []).filter(
-      (m: any) => !needle || m.name.toLowerCase().includes(needle) || (m.label || '').toLowerCase().includes(needle),
+      (m: any) => !needle || matchesTerms(metricHaystack(m), needle),
     );
     return (
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px 16px 40px' }}>
@@ -551,6 +584,15 @@ function MetricsGrid({ cards, error, needle, doc, selected, onSelect }: {
 
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px 16px 40px' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10, fontSize: 11.5, color: t.textMuted }}>
+        <Sigma size={12} color={t.textDim} />
+        <span><b style={{ color: t.textPrimary }}>{shown.length}</b> / {cards.length} 个指标</span>
+        {needle && (
+          <span style={{ color: t.textDim }}>
+            · 搜索命中名字、口径（aggregate / grain / where / 分子分母）、单位、编译出的 SQL 与拒绝理由
+          </span>
+        )}
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 12 }}>
         {shown.map(c => (
           <Card
