@@ -610,14 +610,15 @@ function DispatchPanel({ panel, verbs }: {
 
 // ── the page ────────────────────────────────────────────────────────────────────────────────
 /**
- * How many charts fit on one line — 1, 2 or 3, never more.
+ * Two charts on a line — one when the window is too narrow for two readable panels.
  *
- * A `minmax(420px, 1fr)` grid answers "how many fit", not "how many should": on a laptop with the
- * question dock open it dropped to ONE chart per line, and on a wide screen it could run to four,
- * where each panel is too narrow to read its axis. Two or three is the range a board is read in, so
- * the count is measured from the grid's own width and capped.
+ * A `minmax(420px, 1fr)` grid answers "how many fit", not "how many should": on a wide screen it ran
+ * to four, where each panel is too narrow to read its axis, and with the question dock open it
+ * dropped to one. TWO is the shape a board is read in (a pair of panels is a comparison); the only
+ * question left is whether there is room for two, so the answer is measured from the grid's own
+ * width and never exceeds two.
  */
-function useChartColumns(min = 1, max = 3) {
+function useChartColumns(min = 1, max = 2) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [cols, setCols] = useState(2);
   useEffect(() => {
@@ -626,7 +627,9 @@ function useChartColumns(min = 1, max = 3) {
     const measure = () => {
       const w = el.clientWidth;
       // ~420 px is where a slope/matrix panel stops being readable; below ~820 px one column.
-      const want = w < 820 ? 1 : w < 1240 ? 2 : 3;
+      // ~820 px is where two panels stop being readable side by side (a slope's date axis needs
+      // roughly 400 px). Above it: two. Never three, never four.
+      const want = w < 820 ? 1 : 2;
       setCols(Math.max(min, Math.min(max, want)));
     };
     measure();
@@ -644,7 +647,7 @@ export default function OntologyDashboardPage() {
   // The dock on the right is this ontology's OWN question pipeline; it is closed until asked for,
   // so a reader who only wants the numbers gets the full width for panels.
   const [chatOpen, setChatOpen] = useState(false);
-  const grid = useChartColumns(1, 3);
+  const grid = useChartColumns(1, 2);
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
