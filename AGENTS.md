@@ -90,6 +90,7 @@ See `docs/` for architecture and design documentation:
 | `docs/tutorial/` | Training material: the 12-case run book, its HTML build, and the deep-research report template |
 | `docs/installation/` | Install/update, Google OAuth, LAN access |
 | `docs/assets/` | Diagrams for the run book (`.dot` sources + rendered `.svg/.png/.pdf`) |
+| `docs/system-architecture/skills-and-tools-review-2026-11-09.md` | Skills and tools review: the honest-skill test, and what to adopt / install next |
 | `docs/system-architecture/sunhing-dashboards.md` | Sun Hing dashboard generation (deterministic generator, producer map, 28-KPI coverage, UI wiring) |
 | `docs/installation/lan-access.md` | Letting other people use this instance over the network: the LAN gate, the /signin page and its sessions, what stays shared, and why per-user data is a rebuild |
 | `REFACTORING.md` | Backend refactor status (god-module splits, verification methodology) |
