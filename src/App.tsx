@@ -28,6 +28,7 @@ import ToolHomePage from './components/layout2/ToolHomePage';
 import PromptHomePage from './components/layout2/PromptHomePage';
 import SkillHomePage from './components/layout2/SkillHomePage';
 import KnowledgeHomePage from './components/layout2/KnowledgeHomePage';
+import LearningHomePage from './components/layout2/LearningHomePage';
 // The Ontology activity: home (what an ontology is), browser (what this profile declares) and
 // ask (the ontology's own sections, framed). It sits above Knowledge because one is the ask
 // surface and the other the ingest surface over the same data.
@@ -664,6 +665,12 @@ function AppContent() {
       case 'analysis': return <AnalysisPage />;
       case 'playground': return <PlaygroundPage />;
       case 'deepagent-studio': return <DeepAgentStudioPage />;
+      // The Learning activity had a sidebar and nothing else: this view is routable, the ActivityBar
+      // offers it, and the switch fell through to <HomePage/> — so clicking Learning showed the
+      // product tour. `tests/test_housekeeping_guards.py` asserts no view does that again.
+      case 'learning': return <LearningHomePage />;
+      // `chat` never reaches here (it is rendered as a full page above, without the layout chrome);
+      // `settings` renders as a modal on top of whatever view is current.
       default: return <HomePage />;
     }
   };

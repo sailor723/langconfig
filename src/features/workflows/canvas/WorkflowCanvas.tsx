@@ -47,6 +47,7 @@ import WorkflowResults from './results/WorkflowResults';
 import ArtifactsTab from './results/ArtifactsTab';
 import FilesTab from './results/FilesTab';
 import { SelectionProvider, useSelectionOptional } from './context/SelectionContext';
+import { DownloadProvider } from '../../../contexts/DownloadContext';
 import WorkflowToolbar from './toolbar/WorkflowToolbar';
 import NodeContextMenu from './menus/NodeContextMenu';
 import TaskContextMenu from './menus/TaskContextMenu';
@@ -2507,6 +2508,9 @@ if __name__ == "__main__":
   }, [newWorkflowName, setNodes, setEdges, showSuccess, showWarning]);
 
   return (
+    // Artifact downloads name their file after the workflow they came from. The provider was never
+    // mounted, so every block fell back to the literal name "Generated" — here the name is known.
+    <DownloadProvider workflowName={workflowName}>
     <SelectionProvider>
       <WorkflowCanvasContext.Provider value={{ updateNodeConfig, openNodeContextMenu }}>
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -2951,6 +2955,7 @@ if __name__ == "__main__":
         </div>
       </WorkflowCanvasContext.Provider>
     </SelectionProvider>
+    </DownloadProvider>
   );
 });
 

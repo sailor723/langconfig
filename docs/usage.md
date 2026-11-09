@@ -1,6 +1,6 @@
 # LangConfig — Usage Guide
 
-How to use the app: the shell, the thirteen activities, and two end-to-end walkthroughs
+How to use the app: the shell, the fourteen activities, and two end-to-end walkthroughs
 (first agent, first workflow). For how it works internally see
 [`system-architecture.md`](system-architecture.md); to install it see
 [`installation.md`](installation.md).
@@ -62,7 +62,7 @@ Without a key, every agent and the Playground will fail at the first LLM call.
 
 ---
 
-## 4. The thirteen activities
+## 4. The fourteen activities
 
 ### Vault
 Opens a popover (Obsidian-style vault switcher) rather than navigating. It selects the

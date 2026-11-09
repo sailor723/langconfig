@@ -50,17 +50,23 @@ export function DownloadProvider({ workflowName, children }: DownloadProviderPro
 /**
  * Hook to access download context
  */
+/** Shared by every block that renders outside a provider, so numbering does not restart per call. */
+let fallbackCounter = 0;
+
 export function useDownloadContext(): DownloadContextValue {
   const context = useContext(DownloadContext);
 
-  // Return default values if not in a provider
+  // No provider above this block: name the file after what it is, and keep counting across blocks.
+  // The previous version declared `let counter = 0` INSIDE the hook, so getNextNumber always returned
+  // 1 and every download on the page was called `Generated_1.<ext>` (and "Generated" said nothing
+  // about the artifact). DownloadProvider is mounted in WorkflowCanvas with the real workflow name;
+  // this path only serves blocks rendered outside a workflow (chat attachments).
   if (!context) {
-    let counter = 0;
     return {
-      workflowName: 'Generated',
+      workflowName: 'attachment',
       getNextNumber: () => {
-        counter += 1;
-        return counter;
+        fallbackCounter += 1;
+        return fallbackCounter;
       },
     };
   }

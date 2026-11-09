@@ -32,7 +32,7 @@ npm run build                      # Frontend build check
 | `backend/core/workflows/executor/` | Workflow execution engine (mixin package: `execution.py`, `builder.py`, `nodes.py`) |
 | `backend/core/agents/factory/` | Normal-agent creation (`AgentFactory.create_agent`) |
 | `backend/services/deepagent_factory/` | DeepAgent creation (`DeepAgentFactory.create_deep_agent`) |
-| `backend/api/` | REST API routes (43 routers registered in `main.py`) |
+| `backend/api/` | REST API routes (49 routers registered in `main.py`) |
 | `backend/models/` | SQLAlchemy ORM models |
 | `backend/services/` | Business logic services |
 | `src/features/workflows/` | Workflow canvas UI |
@@ -44,9 +44,9 @@ npm run build                      # Frontend build check
 - Base URL: `http://localhost:8765`
 - Swagger docs: `http://localhost:8765/docs`
 - Key endpoints:
-  - `POST /api/workflows/{id}/execute` - Run workflow (SSE)
-  - `POST /api/agents/{id}/chat` - Chat with agent (SSE)
-  - `POST /api/knowledge/documents` - Upload RAG document
+  - `POST /api/orchestration/execute` - Run workflow (SSE)
+  - `POST /api/chat/message/stream` - Chat with an agent (SSE)
+  - `POST /api/rag/upload` - Upload a document to a RAG collection
   - `GET /signin` - Sign-in page (session cookie); `POST /api/auth/login` / `logout`
   - `GET /api/users/me` - Who is calling (session cookie or Basic via the LAN gate; loopback = owner)
   - `GET /api/users` - Account list and management (admin only)
@@ -85,7 +85,7 @@ See `docs/` for architecture and design documentation:
 |------|----------|
 | `docs/system-architecture/system-architecture.md` | System design, five-layer model, agent landscape, storage strategy |
 | `docs/installation/installation.md` | Install and update: local dev, team zip, and the seed out → push → pull → seed loop |
-| `docs/usage.md` | User guide: the shell, the 13 activities, first-agent / first-workflow walkthroughs |
+| `docs/usage.md` | User guide: the shell, the 14 activities, first-agent / first-workflow walkthroughs |
 | `docs/system-architecture/` | How the system is built: storage map, data taxonomy, skill authoring, settings/tools design, audits, studies |
 | `docs/tutorial/` | Training material: the 12-case run book, its HTML build, and the deep-research report template |
 | `docs/installation/` | Install/update, Google OAuth, LAN access |

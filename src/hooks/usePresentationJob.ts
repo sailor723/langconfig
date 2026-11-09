@@ -7,7 +7,11 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-const API_BASE = 'http://localhost:8765';
+// The backend origin comes from `VITE_API_BASE_URL` (empty = same origin, which is how the app is
+// served in production and through the Vite proxy in dev). It used to be hardcoded to
+// http://localhost:8765, so this component silently talked to the developer's own laptop on every
+// other host — including the deployment and a teammate's machine.
+import { API_BASE_URL as API_BASE } from '../config/api';
 
 /**
  * Presentation job status values
