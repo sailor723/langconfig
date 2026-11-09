@@ -541,6 +541,14 @@ this disk. All 20 branches and the `main-history-backup` tag were force-pushed (
 was the one ref that kept the old commits alive on the remote), and the deployment was moved onto the
 rewritten history with `git reset --hard github/main`.
 
+**Teammates who cloned before the rewrite** need a forced refresh, not a pull: their ancestry is
+different, so `git pull` refuses and a plain `git fetch` changes nothing (the old objects are gone from
+the remote). `scripts/refresh_clone_after_rewrite.sh` does it safely — it patches uncommitted work
+first, fetches `--force`, resets, re-applies the patch, deletes the stale local tag that alone kept
+462 MB alive, then expires the reflog and gc's. Measured on a real clone of the pre-rewrite history:
+**465 MB → 40 MB**, working tree on the new history, the uncommitted edit back in place. Documented for
+the team in `docs/installation/installation.md` §5.1.
+
 **A close call worth recording.** That `reset --hard` deleted the `new_coldchain_v5` profile on the
 deployment: it had been published at 16:25 but never committed — the publish's own `git commit` had
 failed with "Author identity unknown" (§ the publish-commit fix), so its 9 files existed **only in that

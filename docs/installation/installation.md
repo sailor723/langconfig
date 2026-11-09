@@ -1521,6 +1521,51 @@ uv sync                                   # venv to the new uv.lock
 Nothing of theirs is lost: their agents, tools, skills, chat sessions and any setting
 they changed themselves come through, and a name or `tool_id` clash keeps **their**
 version (§7 lists the only two exceptions).
+
+### 5.1 A clone made before 2026-11-09 needs a forced refresh
+
+The repository's history was rewritten on **2026-11-09**: 414 MB of `backend/data/**` PDFs had been
+committed before the ignore rule existed, so every earlier commit was re-cut without them. **Every
+commit hash from before that date changed**, which means:
+
+- `git pull` refuses ("refusing to merge unrelated histories"), and
+- `git fetch` alone changes nothing, because the old objects are no longer on the remote.
+
+A checkout made before the rewrite is refreshed with the script, which is written for exactly this
+case — it saves uncommitted work as a patch first, fetches with `--force`, resets to the remote
+branch, re-applies the patch, deletes tags that still point at the old history, and then reclaims the
+objects:
+
+```bash
+cd /path/to/langconfig
+git status                          # look at what you have uncommitted; it is saved either way
+./scripts/refresh_clone_after_rewrite.sh            # dry run — says what it would do
+./scripts/refresh_clone_after_rewrite.sh --apply    # do it
+```
+
+Measured on a clone of the pre-rewrite history: `.git` 465 MB → **40 MB**, working tree on the new
+history, and the uncommitted edit re-applied. If you would rather not run a script, the equivalent by
+hand is:
+
+```bash
+git diff > /tmp/my-work.patch                 # and stash or copy any untracked files you need
+git fetch --force --prune origin
+git reset --hard origin/main
+git tag -d main-history-backup 2>/dev/null    # a local tag keeps the old objects alive
+git reflog expire --expire=now --all && git gc --prune=now
+git apply /tmp/my-work.patch
+```
+
+Two things that are **not** automatic, on purpose:
+
+- **Your own branches** that are not on the remote are only listed, never deleted — they may hold work.
+  Rebase them onto the new `main`.
+- **Local tags/branches you created yourself** that point at old commits keep the old bytes alive; the
+  script only deletes the tag the rewrite left behind (`main-history-backup`).
+
+The one thing that cannot be recovered by any of this is a **published ontology that was never
+committed** — see `HOUSEKEEPING.md` §7.6, and `scripts/ontology_restore.py` for the ledger-based
+rebuild.
 ---
 
 ## 6. Verify
