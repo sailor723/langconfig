@@ -212,7 +212,7 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
           <div style={{ display: 'flex', gap: 2 }}>
             <IconButton
               onClick={() => setSidebarView(isSearch ? 'explorer' : 'search')}
-              title={isSearch ? 'Close search' : 'Search in files'}
+              title={isSearch ? 'Close search' : 'Search workspace files and workflow definitions (not the list above)'}
               t={t}
               style={isSearch ? { color: t.accent } : undefined}
             >
