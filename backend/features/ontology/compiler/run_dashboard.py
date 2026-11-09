@@ -411,6 +411,19 @@ def resolve_briefing(dash: dict, results: dict) -> dict:
         if res.get("status") == "ok" and not res.get("keys"):
             rows = res.get("rows") or []
             value = rows[0][0] if rows and rows[0] else None
+        # A threshold may be written as a FRACTION (`0.85`) while the metric it guards is a percentage
+        # (`94.59`). Comparing those two numbers as they stand makes the red line unreachable:
+        # measured on v5, `stopOnTimeRate < 0.85` could never fire, because 94.59 is not below 0.85.
+        # The metric's own `:scale` says how its value is expressed, so a threshold ≤ 1 is lifted into
+        # the same unit. A threshold already in that unit (85) is left alone.
+        threshold = pol.get("value")
+        try:
+            scale = float(res.get("scale")) if res.get("scale") else None
+        except (TypeError, ValueError):
+            scale = None
+        if scale and threshold is not None and abs(float(threshold)) <= 1:
+            threshold = float(threshold) * scale
+        pol = {**pol, "value": threshold, "value_declared": pol.get("value")}
         hit = _breached(value, pol.get("op") or ">", pol.get("value"))
         pol_out.append({**pol, "current": value, "unit": res.get("unit"),
                         "current_text": _fmt(value, res.get("unit")),
@@ -477,7 +490,10 @@ def resolve_briefing(dash: dict, results: dict) -> dict:
     return {
         "headline": headline, "headline_problems": head_problems,
         "claims": claims,
-        "cannot_see": brief.get("cannot_see") or [],
+        # v5 declares the "what this board cannot answer" list at the TOP level of dashboard.json, not
+        # inside `briefing`; reading only the nested one made the panel say "nothing is out of reach"
+        # on a board that ships five named refusals.
+        "cannot_see": brief.get("cannot_see") or dash.get("cannot_see") or [],
         "next": fill(brief.get("next") or "")[0],
         "policy": pol_out,
         "verdict": {"level": level,
