@@ -221,3 +221,47 @@ def test_downloads_are_named_after_their_workflow():
     assert "<DownloadProvider" in text, (
         "WorkflowCanvas does not mount DownloadProvider: useDownloadContext falls back to a generic "
         "name, so downloaded images/audio/video are not named after the workflow that produced them")
+
+
+# ────────────── 7. a shell script must not run a file that is not there ─────────────────────────
+# Measured 2026-11-09: the housekeeping pass deleted `backend/langgraph/check_states.py` after checking
+# that no PYTHON module imported it — and `./start.sh` runs it as a pre-flight, so the next start died
+# with "can't open file … check_states.py". A reference check that only reads Python misses the shell
+# scripts, which are exactly where "run this file" is written down.
+PYTHON_INVOCATION = re.compile(r"(?:\.venv/bin/|(?:^|\s))(?:python3?|uv run python)\s+(?:-\S+\s+)*([A-Za-z0-9_./-]+\.py)")
+SHELL_SCRIPTS = ["start.sh", "doctor.sh", ".githooks/pre-commit",
+                 *sorted(str(p.relative_to(REPO)) for p in (REPO / "scripts").glob("*.sh"))]
+
+
+def test_shell_scripts_do_not_run_missing_python_files():
+    missing: list[str] = []
+    for rel in SHELL_SCRIPTS:
+        script = REPO / rel
+        if not script.is_file():
+            continue
+        text = script.read_text(encoding="utf-8", errors="replace")
+        heredoc: str | None = None
+        for n, line in enumerate(text.splitlines(), 1):
+            stripped = line.strip()
+            # A heredoc is text printed to a human ("run this"), not a command the script executes.
+            # The seed-guard hook is a heredoc, and its hint going stale is a different bug — one this
+            # test found and which is fixed in .githooks/pre-commit by pointing at seeds/out/.
+            opened = re.search(r"<<-?['\"]?(\w+)['\"]?", line)
+            if heredoc is None and opened and "<<" in line:
+                heredoc = opened.group(1)
+                continue
+            if heredoc is not None:
+                if stripped == heredoc:
+                    heredoc = None
+                continue
+            if stripped.startswith("#"):
+                continue                      # a comment may name anything, including history
+            for target in PYTHON_INVOCATION.findall(line):
+                if "$" in target or target.startswith("-"):
+                    continue
+                # scripts cd into backend/ or run from the repo root; accept either base
+                if not ((REPO / target).is_file() or (BACKEND / target).is_file()):
+                    missing.append(f"{rel}:{n} runs {target} — no such file under the repo or backend/")
+    assert not missing, (
+        "a shell script invokes a Python file that does not exist (the app will not start):\n  "
+        + "\n  ".join(missing))

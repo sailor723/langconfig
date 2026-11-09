@@ -24,8 +24,13 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 PY="$ROOT/backend/.venv/bin/python"
 [ -x "$PY" ] || PY="$(command -v python3 2>/dev/null)"
 [ -n "$PY" ] && [ -x "$PY" ] || exit 0
-CHECK="$ROOT/backend/scripts/seeds/export_baseline.py"
-[ -f "$CHECK" ] || exit 0
+CHECK="$ROOT/backend/scripts/seeds/out/export_baseline.py"
+if [ ! -f "$CHECK" ]; then
+    # Silence was the problem: the check moved to seeds/out/ in the seeds split and this line kept
+    # pointing at the old path, so the guard exited 0 for months and nobody could tell it was off.
+    echo "seed guard: OFF — $CHECK does not exist (the guard is not protecting this commit)"
+    exit 0
+fi
 
 # Quiet when the database cannot be reached at all (another machine, no
 # Postgres running): the guard is about drift, not about being a DB dependency.
@@ -50,7 +55,7 @@ The agents/tools snapshot in backend/scripts/seeds/ no longer matches your
 database — so committing now would send teammates a stale picture, and they
 would receive none of your recent agents or tools.
 
-    cd backend && .venv/bin/python scripts/seeds/export_baseline.py
+    cd backend && .venv/bin/python scripts/seeds/out/export_baseline.py
     git add backend/scripts/seeds/*.sql
 
 To have the guard do it for you:
