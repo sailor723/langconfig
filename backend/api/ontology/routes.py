@@ -99,20 +99,6 @@ async def list_installed():
     return {"ok": True, "installed": rows}
 
 
-@router.get("/workbenches")
-async def list_workbenches(ensure: bool = False):
-    """The per-ontology workbench servers — a DEVELOPMENT tool, not what serves the app.
-
-    Every page and every number the app shows is compiled in-process; these five ports exist only to
-    look at one profile's raw pages while editing them. `ensure=true` starts what is missing (that is
-    the development flow) and is explicit on purpose: nothing in the UI turns it on any more.
-    """
-    return await ontology_workbench.status(ensure=ensure)
-
-
-@router.post("/workbenches/{key}/stop")
-async def stop_workbench(key: str):
-    return ontology_workbench.stop(key)
 
 
 # ── talking to the editor agent about one ontology ──────────────────────────

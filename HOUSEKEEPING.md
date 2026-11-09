@@ -488,7 +488,32 @@ The five links whose targets are genuinely absent (4 × `plans/*.md`, 1 × `refe
 were unlinked in prose with the reason, rather than pointed at a wrong file. Code comments in
 `backend/tools/native_impl.py` that named `docs/tools-audit.md` now name its real path.
 
-### 7.5 Still open
+### 7.5 Zero-caller endpoints (commit follows)
+
+33 route decorators removed across 14 files; 2 whole routers deregistered (48 → 46), plus the
+`agent_documents` package and `api/knowledge/graphindex_chat.py` (684 lines) deleted outright.
+
+**Every route was re-verified here before deletion**, by grepping a distinctive fragment of its path
+across `src/`, `backend/tests/`, `scripts/` and `docs/` — and the audit was wrong about one of them:
+`GET /api/graph-studio/threads/{id}/runs` **is called** (`src/features/graph-studio/api.ts:397`), so it
+was kept. Two other "dead" items were left alone for the same reason: `POST
+/api/workflows/{id}/export/package` (the only entry point to the live `workflow_exporter.py`) and
+`GET /api/settings/embedding-models` (still described in `settings-refactor.md`).
+
+| Router | Removed |
+|---|---|
+| `api/memory/routes.py` | all 5 `/projects/{id}/memories*` endpoints (the memory UI was deleted in `e647b5e`) |
+| `api/workspace/files_routes.py` | `/files/bulk-delete` + the whole `/default/files*` family (6) |
+| `api/workflows/exports.py` | `/export/config`, `/export/config/preview`, `/import` |
+| `api/analysis/routes.py` | `/data-embedded/{filename}`, `/meta/{hash_id}` (served only by the retired `analysis_server.py`) |
+| `api/ontology/routes.py` | `/workbenches`, `/workbenches/{key}/stop` (the dev-only supervisors; the service stays — `ontology_publish` reloads through it) |
+| `api/knowledge/kv.py`, `api/skills/routes.py`, `api/system/background_tasks.py`, `api/system/debug.py`, `api/webhooks/routes.py` | `/tree`, `/playground/run`, `/stats`, `/emit-test-subagent-events/{workflow_id}`, `/trigger/{id}/test` |
+| whole routers | `api/knowledge/graphindex_chat.py` (684 L, registered but never called), `api/agent_documents/` (3 GETs; the **table** stays — `tools/native_impl.py` writes it) |
+
+`import main` now builds **390 routes**; the backend suite still reports exactly the 20 pre-existing
+failures.
+
+### 7.6 Still open
 
 - **ECS** has the code (`d65ae5c` + `e647b5e`); its **document store is untouched** — run the same two
   script commands there when convenient (report first).

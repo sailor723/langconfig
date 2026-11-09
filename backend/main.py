@@ -702,7 +702,6 @@ from api.workflows import routes as workflows
 from api.projects import routes as projects
 from api.tasks import routes as tasks
 from api.knowledge import rag, store
-from api.knowledge import graphindex_chat  # Phase 9 / Step K
 from api.knowledge import doc_chat  # Simplified doc chat (folder-based, no RAG/Neo4j)
 from api.knowledge import kv  # Simple KV document store (no DB dependencies)
 from api.system import settings, health, debug, background_tasks, search_providers
@@ -731,7 +730,6 @@ from api.schedules import router as schedules
 from api.triggers import router as triggers
 from api.webhooks import router as webhooks
 from api.notebooks import routes as notebooks
-from api.agent_documents import routes as agent_documents
 from api.classic_graph import routes as classic_graph
 from api.graph_studio import routes as graph_studio
 from api.semantics import routes as semantics
@@ -750,14 +748,12 @@ app.include_router(agents_md_router.router)  # AGENTS.md (MemoryMiddleware) mana
 app.include_router(projects.router)
 app.include_router(tasks.router)
 app.include_router(rag.router)
-app.include_router(graphindex_chat.router)  # Phase 9 / Step K — graphindex_chat agent API
 app.include_router(doc_chat.router)  # Simplified doc-chat — folder-based context, no RAG/Neo4j
 app.include_router(kv.router)  # KV document store — no DB dependencies
 app.include_router(background_tasks.router)  # Background task queue management
 app.include_router(auth_signin)  # Sign-in page, login/logout, sessions (public)
 app.include_router(users.router)  # User accounts (who is asking)
 app.include_router(workspace.router)  # Workspace file management
-app.include_router(agent_documents.router)  # DB-mode document library
 app.include_router(settings.router)
 app.include_router(settings_documents.router)  # describe/mutate (new settings wire API)
 app.include_router(search_providers.router)  # Search provider cards + API key mgmt

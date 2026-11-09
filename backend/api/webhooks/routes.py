@@ -292,37 +292,3 @@ def extract_value(data: dict, path: str) -> any:
 
     return current
 
-
-@router.get("/trigger/{trigger_id}/test")
-async def test_webhook_endpoint(
-    trigger_id: int,
-    db: Session = Depends(get_db)
-):
-    """
-    Test that a webhook trigger exists and is configured.
-
-    Returns the webhook URL and configuration (without secrets).
-    Useful for testing connectivity.
-    """
-    from models.workflow_trigger import WorkflowTrigger, TriggerType
-
-    trigger = db.query(WorkflowTrigger).filter(
-        WorkflowTrigger.id == trigger_id,
-        WorkflowTrigger.trigger_type == TriggerType.WEBHOOK.value
-    ).first()
-
-    if not trigger:
-        raise HTTPException(status_code=404, detail="Webhook trigger not found")
-
-    config = trigger.config or {}
-
-    return {
-        "status": "ok",
-        "trigger_id": trigger.id,
-        "workflow_id": trigger.workflow_id,
-        "enabled": trigger.enabled,
-        "requires_signature": config.get("require_signature", False),
-        "has_ip_whitelist": bool(config.get("allowed_ips")),
-        "trigger_count": trigger.trigger_count,
-        "last_triggered_at": trigger.last_triggered_at.isoformat() if trigger.last_triggered_at else None
-    }

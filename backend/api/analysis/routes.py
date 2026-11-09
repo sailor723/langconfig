@@ -1368,22 +1368,6 @@ def _extract_embedded_data_from_html(filename_or_hash: str) -> dict:
         return {}
 
 
-@router.get("/data-embedded/{filename}")
-async def get_embedded_data(filename: str):
-    """Return the `EMBEDDED_DATA` JSON object from a dashboard's HTML.
-
-    Used by the Data panel to show the actual rows the dashboard renders
-    (the most useful "data view" since it matches what the user sees in
-    the charts). Filename must be a basename, no path separators.
-    """
-    from fastapi import HTTPException
-    if "/" in filename or "\\" in filename or ".." in filename:
-        raise HTTPException(400, "Invalid filename")
-    data = _extract_embedded_data_from_html(filename)
-    if not data:
-        raise HTTPException(404, "No EMBEDDED_DATA in dashboard")
-    return data
-
 
 @router.get("/skill-content/{filename}")
 async def get_skill_content(filename: str):
@@ -1406,15 +1390,6 @@ async def get_skill_content(filename: str):
         raise HTTPException(404, "No skill content found")
     return {"skills": skills, "content": "\n---\n\n".join(parts)}
 
-
-@router.get("/meta/{hash_id}")
-async def get_analysis_meta(hash_id: str):
-    """Return column metadata for a dashboard."""
-    meta = _load_dashboard_meta(hash_id)
-    if not meta:
-        from fastapi import HTTPException
-        raise HTTPException(404, "Dashboard not found")
-    return meta
 
 
 def _load_dashboard_meta(hash_id: str) -> dict:

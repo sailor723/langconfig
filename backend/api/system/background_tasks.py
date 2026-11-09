@@ -263,24 +263,6 @@ async def retry_task(
     return task
 
 
-@router.get("/stats", response_model=QueueStatsResponse)
-async def get_queue_stats():
-    """
-    Get background task queue statistics.
-
-    Returns current queue metrics including:
-    - Number of tasks in each status
-    - Number of active workers
-    - Worker running status
-
-    Useful for monitoring queue health and worker activity.
-
-    Returns:
-        QueueStatsResponse with queue metrics
-    """
-    stats = await task_queue.get_queue_stats()
-    return QueueStatsResponse(**stats)
-
 
 # =============================================================================
 # Exports
