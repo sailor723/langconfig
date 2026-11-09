@@ -338,7 +338,7 @@ The fix is not code, it is topology: the TLS terminator must reach the backend o
 address. Put nginx in the compose network (`proxy_pass http://backend:8765`) and publish nothing
 but nginx. A worked Aliyun single-ECS configuration — compose services, nginx config, the SSE and
 WebSocket settings that setups usually miss, and the checks that prove authentication is still
-active — is in [`../installation.md`](../installation.md) §2, "If other people (or the internet)
+active — is in [`../installation.md`](installation.md) §2, "If other people (or the internet)
 will reach this machine".
 
 If you cannot change the topology, the proxy *is* the gate: treat `LANGCONFIG_LAN_ACCESS` as off
@@ -407,15 +407,15 @@ chat history, the work is a rebuild:
   table.
 - ~39 tables have no ownership column; every query would need a tenancy key and a read-path guard.
 - Storage is local directories with **absolute paths** in the database (see
-  [`storage-map.md`](storage-map.md)) — per-user isolation means re-rooting the filesystem layout.
+  [`storage-map.md`](../system-architecture/storage-map.md)) — per-user isolation means re-rooting the filesystem layout.
 - Process-global caches already carry the caller in their keys (`chat_session_manager` uses
   `u<id>:<session>:<agent>:<version>`, so a cached agent built with one person's credentials can
   never be served to another) — but the *content* they read is still shared.
 
-[`plans/2026-10-17-multiuser-design.md`](plans/2026-10-17-multiuser-design.md) is the plan for the
+`plans/2026-10-17-multiuser-design.md` (local-only, not in this repository) is the plan for the
 rest: per-user provider keys, private custom tools/skills/prompts and per-user workspaces, on top
 of the identity layer this document describes; its §2 lists what already exists to build on.
-[`plans/2026-02-12-langconfig-saas-design.md`](plans/2026-02-12-langconfig-saas-design.md) reached
+`plans/2026-02-12-langconfig-saas-design.md` (local-only, not in this repository) reached
 the same conclusion for the full multi-tenant product — *"Current LangConfig has zero
 multi-tenancy; retrofitting is harder than rebuilding"* — and designs a separate
 `langconfig-cloud` codebase with Better Auth, orgs, RLS and Stripe instead.

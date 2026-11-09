@@ -221,7 +221,7 @@ curl -sS -X DELETE http://localhost:8765/api/settings/models/deepseek-flash   # 
 
 - Added `deepseek-flash` (vision) as the `deepseek-flash` preset in
   `backend/scripts/seeds/in/upsert_model.py` (originally to `CLOUD_MODELS` in the
-  now-removed hardcoded `backend/scripts/seed_models.py`).
+  now-removed hardcoded `backend/scripts/seeds/in/seed_models.py`).
 - `deepseek-v4-pro`: removed the incorrect `vision: true` **and** `audio: true`
   flags (vendor docs: text-only), refreshed prices.
 - `deepseek-v4-flash`: kept (exports and skills reference it) but relabelled as a

@@ -133,7 +133,7 @@ Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspire
 | Feature | Status | Description |
 |---------|--------|-------------|
 | Theme selector | ✅ | Three color dots in StatusBar — Dark, Warm (Claude), Light (LangConfig) |
-| Persistence | ✅ | Uses existing `ThemeProvider`/`setTheme` from `lib/themes` |
+| Persistence | ✅ | Uses existing `ThemeProvider`/`setTheme` from `src/lib/themes.tsx` |
 | Obsidian-style | ✅ | Click dots to instantly switch between 3 themes |
 
 ### ✅ Phase 15: Models Sidebar (Out of Settings)

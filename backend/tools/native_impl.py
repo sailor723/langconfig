@@ -2589,7 +2589,7 @@ def grep(pattern: str, path: str = ".", file_pattern: str = None) -> str:
 # =============================================================================
 # File management (delete / rename / move / mkdir) — sandbox-contained
 # =============================================================================
-# Added in the tools audit (docs/tools-audit.md §4): agents previously had no
+# Added in the tools audit (docs/system-architecture/tools-audit.md §4): agents previously had no
 # way to delete/rename/move/create files — only read/write/edit. All four
 # respect _resolve_sandbox_path (the same containment as read/write/edit).
 
@@ -2683,7 +2683,7 @@ def mkdir(directory_path: str) -> str:
 
 
 # =============================================================================
-# read_image (OCR) — docs/tools-audit.md ADD #2
+# read_image (OCR) — docs/system-architecture/tools-audit.md ADD #2
 # =============================================================================
 @tool
 def read_image(file_path: str) -> str:
@@ -2733,7 +2733,7 @@ Read an image file: return its dimensions/format plus OCR-extracted text.
 
 
 # =============================================================================
-# Bash shell (sandbox-contained, bounded) — docs/tools-audit.md ADD #1
+# Bash shell (sandbox-contained, bounded) — docs/system-architecture/tools-audit.md ADD #1
 # =============================================================================
 # The biggest capability gap: agents had no way to run commands. The command
 # runs with a sandbox root as its working directory, a bounded timeout, and a
@@ -2794,7 +2794,7 @@ def bash(command: str, timeout: int = 30, cwd: str = None) -> str:
 
 
 # =============================================================================
-# skill (progressive disclosure on demand) — docs/tools-audit.md ADD #5
+# skill (progressive disclosure on demand) — docs/system-architecture/tools-audit.md ADD #5
 # =============================================================================
 @tool
 def _skill_support_files(base: Path, limit: int = 40) -> list:

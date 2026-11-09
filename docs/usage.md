@@ -2,8 +2,8 @@
 
 How to use the app: the shell, the fourteen activities, and two end-to-end walkthroughs
 (first agent, first workflow). For how it works internally see
-[`system-architecture.md`](system-architecture.md); to install it see
-[`installation.md`](installation.md).
+[`system-architecture.md`](system-architecture/system-architecture.md); to install it see
+[`installation.md`](installation/installation.md).
 
 Open **http://localhost:1421** after starting the stack.
 
@@ -145,7 +145,7 @@ and revision-guarded, so two tabs cannot silently clobber each other.
 
 ---
 
-> **After your first agent exists, read [`reference/agent-practice.md`](reference/agent-practice.md).**
+> **After your first agent exists, read the agent-practice notes (local-only, not in this repository).**
 > Configuration is the easy half; the eight exercises there are about what to say, what to
 > expect back, and how to tell a real deliverable from a confident sentence.
 
@@ -231,7 +231,7 @@ has been idle is reclaimed, and its checkpoints are deleted when you end it.
 | Change a setting | the `settings_documents` row for that namespace, revision +1 |
 
 Storage mode is a runtime setting: `local` (disk) or `db` (PostgreSQL BYTEA). See
-[`reference/storage-map.md`](reference/storage-map.md) for the full layout.
+[`reference/storage-map.md`](system-architecture/storage-map.md) for the full layout.
 
 ---
 
@@ -252,8 +252,8 @@ Honest list of what is built but not reachable, or reachable but not finished:
 ## 10. Next steps
 
 - **Learning** activity — the guided notebook curriculum, starts at module 0.
-- [`system-architecture.md`](system-architecture.md) — why the pieces are shaped this way.
-- [`reference/skill-authoring.md`](reference/skill-authoring.md) — turn a working agent
+- [`system-architecture.md`](system-architecture/system-architecture.md) — why the pieces are shaped this way.
+- [`reference/skill-authoring.md`](system-architecture/skill-authoring.md) — turn a working agent
   into a reusable skill.
-- [`reference/data-taxonomy.md`](reference/data-taxonomy.md) — registry vs knowledge vs
+- [`reference/data-taxonomy.md`](system-architecture/data-taxonomy.md) — registry vs knowledge vs
   workspace, and which one to use when.

@@ -264,6 +264,86 @@ def prune_dangling_refs(root: pathlib.Path, dangling: list[str], stamp: str) -> 
     return {"changed": changed, "backup": str(backup), "removed": removed}
 
 
+DB_TABLES = ("context_documents", "session_documents", "workspace_files")
+
+
+def dangling_db_rows(root: pathlib.Path) -> dict[str, list[dict]]:
+    """DB rows whose `file_path` no longer exists — the rows the catalog prune cannot see.
+
+    Measured on the deployment: after the catalog prune the store still reported 6 dangling
+    references, because those six lived in `context_documents` / `session_documents` and not in any
+    `.kvmeta` file. A dangling reference is a dangling reference wherever it is recorded.
+    """
+    out: dict[str, list[dict]] = {}
+    try:
+        sys.path.insert(0, str(docs_root(root)))
+        from db.database import SessionLocal                            # noqa: PLC0415
+        from sqlalchemy import text                                     # noqa: PLC0415
+
+        db = SessionLocal()
+        try:
+            for table in DB_TABLES:
+                try:
+                    rows = db.execute(text(f"select * from {table}")).mappings().all()
+                except Exception:                                       # noqa: BLE001
+                    continue
+                missing = []
+                for row in rows:
+                    path = row.get("file_path")
+                    if not path:
+                        continue
+                    if not pathlib.Path(str(path)).is_file():
+                        missing.append({k: (str(v) if v is not None else None)
+                                        for k, v in dict(row).items()})
+                if missing:
+                    out[table] = missing
+        finally:
+            db.close()
+    except Exception as exc:                                            # noqa: BLE001
+        out.setdefault("_error", []).append({"error": str(exc)})
+    return out
+
+
+def prune_db_refs(root: pathlib.Path, stamp: str) -> dict:
+    """Dump the dangling rows to the quarantine, then delete them."""
+    root = docs_root(root)
+    rows = dangling_db_rows(root)
+    errors = [r["error"] for r in rows.pop("_error", [])]
+    if not rows:
+        return {"tables": {}, "backup": None, "errors": errors}
+    backup_dir = root / QUARANTINE / stamp / "db-rows"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    (backup_dir / "README.txt").write_text(
+        "Rows removed because their file_path no longer exists. Restore by inserting these rows again.\n",
+        encoding="utf-8")
+    for table, missing in rows.items():
+        (backup_dir / f"{table}.json").write_text(
+            json.dumps(missing, ensure_ascii=False, indent=1), encoding="utf-8")
+    try:
+        sys.path.insert(0, str(root))
+        from db.database import SessionLocal                            # noqa: PLC0415
+        from sqlalchemy import text                                     # noqa: PLC0415
+
+        db = SessionLocal()
+        try:
+            for table, missing in rows.items():
+                ids = [r.get("id") for r in missing if r.get("id") is not None]
+                if not ids:
+                    continue
+                # `id` is text in some tables and uuid/integer in others: compare as text so one
+                # statement works for all of them (measured: the raw form raised asyncpg/psycopg
+                # "operator does not exist" and deleted nothing).
+                db.execute(text(f"delete from {table} where id::text = any(:ids)"),
+                           {"ids": [str(i) for i in ids]})
+            db.commit()
+        finally:
+            db.close()
+    except Exception as exc:                                            # noqa: BLE001
+        errors.append(f"delete failed: {exc}")
+    return {"tables": {t: len(v) for t, v in rows.items()}, "backup": str(backup_dir),
+            "errors": errors}
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Find unreferenced / dangling document records.")
     ap.add_argument("--root", default=None, help="repository root (default: the script's parent)")
@@ -308,6 +388,14 @@ def main(argv: list[str] | None = None) -> int:
         res = prune_dangling_refs(root, verdict.dangling, stamp)
         print(f"\npruned {len(res['removed'])} catalog entr(ies) across {res['changed']} file(s); "
               f"backup -> {res['backup']}")
+    if args.prune_refs:
+        res = prune_db_refs(root, stamp)
+        if res["tables"]:
+            print("pruned DB rows with a missing file: "
+                  + ", ".join(f"{t} {n}" for t, n in res["tables"].items())
+                  + f" (dumped to {res['backup']})")
+        for err in res["errors"]:
+            print(f"  ! {err}")
     return 0
 
 

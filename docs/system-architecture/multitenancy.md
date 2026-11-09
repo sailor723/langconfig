@@ -2,8 +2,8 @@
 
 **Date:** 2026-10-22
 **Applies to:** the five-group (one instance per group) deployment
-**Companion to:** [`plans/2026-10-17-multiuser-design.md`](plans/2026-10-17-multiuser-design.md) (same
-repository, covers *users inside* one instance) and [`lan-access.md`](lan-access.md) (the gate).
+**Companion to:** `plans/2026-10-17-multiuser-design.md` (local-only, not in this repository; same
+repository, covers *users inside* one instance) and [`lan-access.md`](../installation/lan-access.md) (the gate).
 
 ---
 
@@ -192,7 +192,7 @@ Prove the restore once, into a scratch database and a scratch directory, before 
 
 Instance-per-tenant answers "how do groups stay apart". It does not answer "how do four people in
 one group share an instance". That is the other axis, and its design is in
-[`plans/2026-10-17-multiuser-design.md`](plans/2026-10-17-multiuser-design.md).
+`plans/2026-10-17-multiuser-design.md` (local-only, not in this repository).
 
 The deciding question, in one line:
 

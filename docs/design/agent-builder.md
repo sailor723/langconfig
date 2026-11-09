@@ -76,7 +76,7 @@ lengthens the approval chain that today's bug showed to be unreliable.
 
 ## Where the knowledge lives
 
-`backend/skills/builtin/agent-builder/` — `SKILL.md` plus `references/templates/T1–T6.md`
+`backend/skills/builtin/agent-builder/` — `SKILL.md` plus `references/templates/T1-single-agent.md` … `T6-data-qa.md`
 and `references/facts/case-facts.md`, laid out per the Agent Skills spec
 (`references/`, `scripts/`, `assets/`; frontmatter `name` = directory name).
 

@@ -40,6 +40,7 @@ bad()  { printf '   \033[31mFAIL\033[0m %s\n' "$1"; fail=$((fail+1)); }
 step "backend guards (tests/test_housekeeping_guards.py + test_housekeeping_documents.py)"
 if out=$("$PY" -m pytest "$BACKEND/tests/test_housekeeping_guards.py" \
                          "$BACKEND/tests/test_housekeeping_documents.py" \
+                         "$BACKEND/tests/test_docs_links.py" \
                          -q --no-header -p no:cacheprovider 2>&1); then
   ok "$(echo "$out" | tail -1)"
 else

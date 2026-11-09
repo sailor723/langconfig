@@ -183,7 +183,7 @@ Phases 0–1 carry most of the value; 2 makes the database portable; 3 is cleanu
   Reclaim with `backend/scripts/prune_chat_checkpoints.py` (dry-run by default; deletes
   only threads that join to a `chat_sessions` row, so workflow `task_*`/`run_*` runs are
   never touched), then `VACUUM FULL checkpoint_blobs` to return the disk. See
-  [`../installation.md`](../installation.md) §7 "Checkpoint growth".
+  [`../installation.md`](../installation/installation.md) §7 "Checkpoint growth".
 
 ### Surface area
 

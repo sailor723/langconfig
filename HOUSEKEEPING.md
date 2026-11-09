@@ -471,7 +471,24 @@ one-liner. To actually free the space, move it off the checkout:
 mv backend/data/documents/.quarantine/20261109-213814 ~/langconfig-quarantine-2026-11-09
 ```
 
-### 7.4 Still open
+### 7.4 The docs link rot (commit follows 7.3)
+
+`docs/` was reorganised and the links inside it were not. New tool: `scripts/docs_link_check.py`
+(report / `--fix` / `--check`), guarded by `backend/tests/test_docs_links.py`.
+
+| | before | after |
+|---|---|---|
+| broken relative links between our own docs | 32 | **0** |
+| stale source paths quoted in docs | 8 | **0** |
+
+The fixer only rewrites a link when **exactly one file in the repository** has the target's basename —
+a rename is followed, a deletion is not guessed at. It ignores anything inside fenced code blocks (an
+illustrative directory tree in a design note is not a link) and skips external URLs and anchors.
+The five links whose targets are genuinely absent (4 × `plans/*.md`, 1 × `reference/agent-practice.md`)
+were unlinked in prose with the reason, rather than pointed at a wrong file. Code comments in
+`backend/tools/native_impl.py` that named `docs/tools-audit.md` now name its real path.
+
+### 7.5 Still open
 
 - **ECS** has the code (`d65ae5c` + `e647b5e`); its **document store is untouched** — run the same two
   script commands there when convenient (report first).

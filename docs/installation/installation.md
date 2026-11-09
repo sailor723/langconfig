@@ -276,7 +276,7 @@ cd backend && uv run python langgraph/test_neo4j_agent.py unit
 ```
 
 **Team seed — enterprise HR graph** (ships with this package:
-`backend/scripts/seeds/neo4j-hr/neo4j.dump`, ≈19 MB — the knowledge graph the
+`backend/scripts/seeds/in/neo4j-hr/neo4j.dump`, ≈19 MB — the knowledge graph the
 `neo4j_agent` demos use: Person / Skill / Job / Domain / WorkType + KNOWS /
 BUILT / LED …). Restore it into a fresh Neo4j container:
 
@@ -292,7 +292,7 @@ docker run -d --name langconfig-neo4j-hr \
 # 2. stop it, load the dump over the default database, start again:
 docker stop langconfig-neo4j-hr
 docker run --rm -e NEO4J_ACCEPT_LICENSE_AGREEMENT=yes \
-  -v neo4j-hr-data:/data -v "$(pwd)/backend/scripts/seeds/neo4j-hr":/dumps \
+  -v neo4j-hr-data:/data -v "$(pwd)/backend/scripts/seeds/in/neo4j-hr":/dumps \
   neo4j:2025.10.1-enterprise \
   neo4j-admin database load neo4j --from-path=/dumps --overwrite-destination=true
 docker start langconfig-neo4j-hr
@@ -1005,7 +1005,7 @@ Two shapes to get right, and one of them can silently remove *all* authenticatio
 `npm run build` (LAN users load the built bundle from `:8765`, not the Vite dev
 server), create accounts, and hand out `http://<this-ip>:8765`. Nothing else is
 needed; the sign-in page and the gate are documented in
-[`reference/lan-access.md`](reference/lan-access.md).
+[`reference/lan-access.md`](lan-access.md).
 
 **Shape 2 — one server, e.g. a single Aliyun ECS with a domain and HTTPS.** The
 trap: the LAN gate treats a request **from 127.0.0.1 as this machine's owner and

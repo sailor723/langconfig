@@ -795,7 +795,7 @@ Analysis 活动（ActivityBar 中的柱状图图标 → `/analysis` → `src/pag
 | 方式 | 代码 | 是否用 LLM | 示例 |
 |---|---|---|---|
 | **上传 / 演示** | `services/dashboard_generator.py`（`generate_dashboard`）＋ `api/analysis/routes.py` 中的提示词（`_auto_generate_dashboard` → `_run_analysis_agent`） | ✅ 是（可选 companion `.skill.md`） | `business_dashboard`、`sales_dashboard*`、`dashboard_<hash>` |
-| **ERP 研究案例** | `backend/skills/erp-analyst/9_erp_dashboard.py` | ❌ 确定性（`Mode: static-embed`） | `erp_dashboard_*.html` |
+| **ERP 研究案例** | `backend/skills/personal/1/erp-analyst/9_erp_dashboard.py` | ❌ 确定性（`Mode: static-embed`） | `erp_dashboard_*.html` |
 | **Sun Hing 研究案例** | `data/analysis_dbs/gen_sunhing_kpi_dashboard.py` —— 一个脚本生成 hub + 5 个因子子看板（外加 gantt/data），并复制 ERD/intro/employees/liability 母版 | ❌ 确定性（除时间戳外逐字节稳定） | `sunhing_dashboard*.html` |
 
 详见 **[docs/system-architecture/sunhing-dashboards.md](sunhing-dashboards.md)**：Sun Hing 的生产者映射、

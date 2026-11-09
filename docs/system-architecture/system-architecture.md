@@ -832,7 +832,7 @@ Three generation regimes feed it:
 | Regime | Code | LLM? | Examples |
 |---|---|---|---|
 | **Upload / demo** | `services/dashboard_generator.py` (`generate_dashboard`) + the prompt in `api/analysis/routes.py` (`_auto_generate_dashboard` → `_run_analysis_agent`) | ✅ yes (optional companion `.skill.md`) | `business_dashboard`, `sales_dashboard*`, `dashboard_<hash>` |
-| **ERP study case** | `backend/skills/erp-analyst/9_erp_dashboard.py` | ❌ deterministic (`Mode: static-embed`) | `erp_dashboard_*.html` |
+| **ERP study case** | `backend/skills/personal/1/erp-analyst/9_erp_dashboard.py` | ❌ deterministic (`Mode: static-embed`) | `erp_dashboard_*.html` |
 | **Sun Hing study case** | `data/analysis_dbs/gen_sunhing_kpi_dashboard.py` — one script builds the hub + 5 factor sub-dashboards (+ gantt/data) and copies the ERD/intro/employees/liability masters | ❌ deterministic (byte-stable modulo a timestamp) | `sunhing_dashboard*.html` |
 
 See **[docs/system-architecture/sunhing-dashboards.md](sunhing-dashboards.md)** for the Sun Hing

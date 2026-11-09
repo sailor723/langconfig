@@ -5,7 +5,7 @@ LangGraph workflows. Python **3.13**, PostgreSQL **16 + pgvector**, LangChain v1
 LangGraph, `deepagents` 0.7.1.
 
 The project-wide overview lives in [`../README.md`](../README.md); the full design is in
-[`../docs/system-architecture.md`](../docs/system-architecture.md).
+[`../docs/system-architecture.md`](../docs/system-architecture/system-architecture.md).
 
 ## Run
 

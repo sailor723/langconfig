@@ -4,7 +4,7 @@ How the Sun Hing executive dashboards (the "Analysis" activity, port 1421) are
 produced, where every page comes from, and what the determinism guarantees are.
 
 > Scope: the **Sun Hing Vision Group** study case only. The ERP demo dashboards
-> (`backend/skills/erp-analyst/9_erp_dashboard.py`) and the LLM upload path
+> (`backend/skills/personal/1/erp-analyst/9_erp_dashboard.py`) and the LLM upload path
 > (`backend/services/dashboard_generator.py`) are separate regimes and are
 > covered at the end for contrast.
 
@@ -150,7 +150,7 @@ arrive via a separate sync step — which is why they can drift from the DB.
    - agent-workspace `…/dashboard/db/sunhing_kpi.db` — 24 tables (11 raw + **9** dim + 2 fact; `dim_*_monthly` aggregates + detail `raw_*`)
    Dashboards point at whichever copy their `db:` meta names — the hub/profit use
    the agent-workspace copy, the ERD/gantt use the LangConfig copy.
-2. **The skill documents the older schema** — `backend/skills/sunhing-analyst/SKILL.md`
+2. **The skill documents the older schema** — `backend/skills/personal/1/sunhing-analyst/SKILL.md`
    has 0 mentions of `dim_*_monthly` (and 0 of the new detail `raw_*` tables), so
    Chat answers can query tables that no longer exist in the DB the page uses.
 3. **Copy-propagated static pages** — `sunhing_erd.html` and friends are copied,
@@ -207,7 +207,7 @@ cp <dir>/html/sunhing_*.html langconfig/data/analysis_dbs/
 
 | | Sun Hing cockpit | ERP demo | Upload dashboards |
 |---|---|---|---|
-| Code | `gen_sunhing_kpi_dashboard.py` | `backend/skills/erp-analyst/9_erp_dashboard.py` | LLM: `services/dashboard_generator.py` + `api/analysis/routes.py` prompt |
+| Code | `gen_sunhing_kpi_dashboard.py` | `backend/skills/personal/1/erp-analyst/9_erp_dashboard.py` | LLM: `services/dashboard_generator.py` + `api/analysis/routes.py` prompt |
 | LLM | ❌ none | ❌ none | ✅ yes (+ optional companion `.skill.md`) |
 | Determinism | byte-stable (modulo timestamp) | byte-stable (`Mode: static-embed`) | varies run-to-run — same CSV+skill can yield 0 charts or 12 |
 | Business flavour | hard-coded in the script (`FACTOR_META`, `<h3>ROE 修复趋势</h3>`, 管理层结论 f-strings) | in the ERP script | in the companion skill's 4 injected sections |

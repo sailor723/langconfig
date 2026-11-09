@@ -171,7 +171,7 @@ cd backend && uv run python langgraph/test_neo4j_agent.py unit
 ```
 
 **团队种子 —— 企业 HR 图谱**（随本包分发：
-`backend/scripts/seeds/neo4j-hr/neo4j.dump`，约 19 MB——`neo4j_agent` 演示用的
+`backend/scripts/seeds/in/neo4j-hr/neo4j.dump`，约 19 MB——`neo4j_agent` 演示用的
 知识图谱：Person / Skill / Job / Domain / WorkType + KNOWS / BUILT / LED …）。
 把它恢复到全新的 Neo4j 容器：
 
@@ -187,7 +187,7 @@ docker run -d --name langconfig-neo4j-hr \
 # 2. 停止 → 用 dump 覆盖默认数据库 → 重新启动：
 docker stop langconfig-neo4j-hr
 docker run --rm -e NEO4J_ACCEPT_LICENSE_AGREEMENT=yes \
-  -v neo4j-hr-data:/data -v "$(pwd)/backend/scripts/seeds/neo4j-hr":/dumps \
+  -v neo4j-hr-data:/data -v "$(pwd)/backend/scripts/seeds/in/neo4j-hr":/dumps \
   neo4j:2025.10.1-enterprise \
   neo4j-admin database load neo4j --from-path=/dumps --overwrite-destination=true
 docker start langconfig-neo4j-hr
