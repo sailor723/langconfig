@@ -843,13 +843,20 @@ if lan_access_enabled():
             if full_path.startswith(("api/", "static/")):
                 raise HTTPException(status_code=404, detail="Not Found")
 
+            # A rebuilt frontend must be what the next request gets. Measured: index.html went out with
+            # only `etag` + `last-modified` and no Cache-Control, so browsers applied heuristic freshness
+            # and kept serving an old shell that pointed at a bundle which no longer existed — "I still see
+            # the original version" after a deploy, with the new files sitting right there on disk.
+            # The shell is never cached; the hashed files under /assets may be (their name changes).
             if full_path:
                 candidate = (_DIST_DIR / full_path).resolve()
                 # Refuse anything that escapes dist/ (../ in the URL).
                 if candidate.is_file() and candidate.is_relative_to(_DIST_DIR):
-                    return FileResponse(str(candidate))
+                    headers = {"Cache-Control": "no-store"} if candidate.suffix == ".html" else {}
+                    return FileResponse(str(candidate), headers=headers)
 
-            return FileResponse(str(_DIST_DIR / "index.html"))
+            return FileResponse(str(_DIST_DIR / "index.html"),
+                                headers={"Cache-Control": "no-store"})
 
         logger.info("Serving built frontend from %s for LAN users", _DIST_DIR)
 
