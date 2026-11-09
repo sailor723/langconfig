@@ -66,6 +66,43 @@ integration branch. It also quizzes the user on the breakdown before publishing 
 
 Both are MIT. Both are ~20-line bodies with one reference file. That is the quality bar.
 
+## 2b. Where "validation" lives — `to-validation` checked against the sources
+
+You remembered a `to-validation` skill. It is **not** in `mattpocock/skills`: that repo's `main` has
+39 `SKILL.md` files (I listed the tree, not the plugin manifest — 21 engineering, 3 misc, 6 in-progress,
+8 productivity) and there is no `to-spec → to-tickets → to-validation` family. In Matt's flow validation
+is **folded into three other skills**, and it is worth knowing which:
+
+| His skill | What validation is there |
+|---|---|
+| `tdd` | the red → green loop *is* the check: "Red before green", a good test reads like a specification, behaviour through public interfaces, and the anti-patterns list ("implementation-coupled", "horizontal slicing → you verify *imagined* behaviour") |
+| `implement-spec` | a **task graph** with a frontier of ready tickets, each in its own worktree, integrated on a branch; validation is "the tracker closes work", not a per-criterion verdict |
+| `triage` | *"Verify the claim"* — for a bug, reproduce from the reporter's steps; for a PR, check it out and run the commands. The output is confirmed / failed / needs-info, and "a confirmed verification makes a much stronger agent brief" |
+
+So the family you remember comes from **other** collections, and two of them are worth reading:
+
+| Source | Idea worth taking | What it gets right |
+|---|---|---|
+| [`giladresisi/ai-dev-env` → `acceptance-criteria-validate`](https://github.com/giladresisi/ai-dev-env/blob/main/skills/acceptance-criteria-validate/SKILL.md) | locate criteria in a fixed order (plan → `acceptance_criteria.md` → the request → **ask**), then a verdict per criterion: **PASS / FAIL / PARTIAL / UNVERIFIABLE**, each with evidence; a report table with counts | it refuses to start without criteria, and it names the trap that costs most: a **new HTTP URL that 404s is a FAIL, not "unverifiable"**; and deferring an executable surface needs a *structural probe* (import it, run it to its first external dependency, check the wiring) — "covered at unit level" never excuses a CLI nobody ran |
+| [`pixeloven/crew` → `plan-validation`](https://github.com/pixeloven/crew) | a **validation gate** is a boolean, stated explicitly ("exit code 0", "PR state is OPEN"), and *"a criterion that can't be verified is a criterion that doesn't exist"* | it turns "looks good" into an exit code, and it treats an uncheckable criterion as an open question rather than a soft pass |
+
+What both lack is any knowledge of *this* repository's evidence — which is where ours differs. Adopted
+as `backend/skills/builtin/to-validation/SKILL.md` (v1.0), with:
+
+- the same verdict vocabulary and the same refusal to start without criteria;
+- **our** evidence table instead of theirs: `scripts/ontology_gates.py`, `./scripts/housekeeping_verify.sh`,
+  `pytest tests/…`, `curl` against the running app, `pg_query`, `tsc`/`npm run build`, `git log` lines;
+- the **baseline discipline** this repo actually needs (`pytest` has 20 pre-existing failures, so
+  "not worse than the list captured before the change" is a verdict and "the suite fails" is not);
+- two hard rules from experience: a green suite is evidence only for the criterion the test *names*, and
+  the implementer's own summary is never evidence;
+- a stop rule: any FAIL means not done, and the report ends in ship / do not ship / ship with N
+  follow-ups.
+
+Companion: `grilling` (§2) settles the criteria; `to-validation` proves them. Both were added in the
+same pass and both parse through the real loader (`core/skills/loader.py::load_skill`) and are live in
+`/api/skills`.
+
 ## 3. What this repository already covers (so we do not copy twice)
 
 42 builtin skills, and the substantial ones are substantial — `build-ontology-from-db` 725 lines,
