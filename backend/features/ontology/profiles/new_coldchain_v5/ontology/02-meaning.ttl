@@ -1,0 +1,233 @@
+# new_coldchain_v5 — 含义层：业务词的定义（不是列、不是筛选器）
+# 每个定义编译成一个 WHERE 谓词，阈值/代码值只在这里出现一次。
+# 来源标注：answers:Qn = questions.json 里 weiping 确认的默认口径；table: = 库内实测；measured: = 本会话量出来的事实。
+@prefix :     <https://cube.local/ontology/new_coldchain_v5#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+# ======================================================================
+# 站点（stops）：一次门店送货的履约事实
+# ======================================================================
+
+:OnTimeStop a owl:Class ; rdfs:label "准时站点" ;
+    rdfs:subClassOf :Stop ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [
+        a owl:Restriction ; owl:onProperty :stopOnTime ; owl:hasValue true ] ) ] ;
+    :businessDescription "在门店收货窗口内到货的站点。K1 的分子；口径来自 answers:Q1（分母=全部站点）。" .
+
+:LateStop a owl:Class ; rdfs:label "迟到站点" ;
+    rdfs:subClassOf :Stop ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [
+        a owl:Restriction ; owl:onProperty :stopOnTime ; owl:hasValue false ] ) ] ;
+    :businessDescription "到货晚于收货窗口的站点。口径来自 answers:Q1。" .
+
+:TempExcursionStop a owl:Class ; rdfs:label "倒温站点" ;
+    rdfs:subClassOf :Stop ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [
+        a owl:Restriction ; owl:onProperty :stopTempExcursion ; owl:hasValue true ] ) ] ;
+    :businessDescription "在途温度越界的站点：冷链的核心失效形态。口径来自 answers:Q4（站点事实口径的一个来源）。" .
+
+:DamagedStop a owl:Class ; rdfs:label "破损站点" ;
+    rdfs:subClassOf :Stop ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [
+        a owl:Restriction ; owl:onProperty :stopDamagedBoxes ;
+        owl:withRestrictions ( [ xsd:minInclusive 1 ] ) ] ) ] ;
+    :businessDescription "至少一箱货损的站点。口径来自 answers:Q4。" .
+
+:AlarmStop a owl:Class ; rdfs:label "告警站点" ;
+    rdfs:subClassOf :Stop ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [
+        a owl:Restriction ; owl:onProperty :stopAlarmTriggered ; owl:hasValue true ] ) ] ;
+    :businessDescription "触发了温度/门磁告警的站点。口径来自 answers:Q4。" .
+
+# 并集（OR）：站点事实口径的异常 = 倒温 或 破损 或 告警
+:AbnormalStop a owl:Class ; rdfs:label "异常站点" ;
+    rdfs:subClassOf :Stop ;
+    owl:equivalentClass [ owl:unionOf (
+        [ a owl:Restriction ; owl:onProperty :stopTempExcursion ; owl:hasValue true ]
+        [ a owl:Restriction ; owl:onProperty :stopDamagedBoxes ;
+          owl:withRestrictions ( [ xsd:minInclusive 1 ] ) ]
+        [ a owl:Restriction ; owl:onProperty :stopAlarmTriggered ; owl:hasValue true ] ) ] ;
+    :businessDescription "倒温、破损、告警任一发生即算异常站点 —— answers:Q4 选项 B 的口径（站点事实，不是工单口径）。" .
+
+:BasketShortageStop a owl:Class ; rdfs:label "少送筐站点" ;
+    rdfs:subClassOf :Stop ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [
+        a owl:Restriction ; owl:onProperty :stopBasketsMissing ;
+        owl:withRestrictions ( [ xsd:minInclusive 1 ] ) ] ) ] ;
+    :businessDescription "筐数少于应送的站点（少送/错送的实物证据）。table:stops.baskets_missing。" .
+
+:HandlerNoShowStop a owl:Class ; rdfs:label "装卸工未配合站点" ;
+    rdfs:subClassOf :Stop ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [
+        a owl:Restriction ; owl:onProperty :stopHandlerCooperated ; owl:hasValue false ] ) ] ;
+    :businessDescription "门店方判定装卸工没有配合的站点；只对有装卸工记录的站点有意义（14133 站为空）。table:stops.handler_cooperated。" .
+
+:DeliveredStop a owl:Class ; rdfs:label "已送达站点" ;
+    rdfs:subClassOf :Stop ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [
+        a owl:Restriction ; owl:onProperty :stopServiceStatus ; owl:hasValue "delivered" ] ) ] ;
+    :businessDescription "service_status = delivered 的站点。answers:Q1 选项 B 的分母。" .
+
+# 跨列/IS NULL 比较：service_status 的三个非送达代码合成一个词
+:UndeliveredStop a owl:Class ; rdfs:label "未送达站点" ;
+    rdfs:subClassOf :Stop ;
+    :physicalTable "stops" ;
+    :physicalPredicate "service_status <> 'delivered'" ;
+    :businessDescription "拒收/门店关门/未送达三种结局的合集。用声明式谓词（逃生口）表达：OWL 无法对一列做三值取反。table:stops.service_status。" .
+
+# ======================================================================
+# 趟次（trips）：一天 × 一车 × 一司机 × 一条线路
+# ======================================================================
+
+# 跨列比较：装车单三合一 ≥ 派遣时冻结的装载能力
+:OverloadedTrip a owl:Class ; rdfs:label "超载趟次" ;
+    rdfs:subClassOf :Trip ;
+    :physicalTable "trips" ;
+    :physicalPredicate "load_boxes >= box_capacity_snapshot OR load_volume >= volume_capacity_snapshot OR load_weight >= weight_capacity_snapshot" ;
+    :businessDescription "载重、体积、箱数任一达到或超过派车时冻结的能力快照即算超载。跨列比较 OWL 表达不了，所以这条是声明式谓词（全库唯一一类例外，已注释）。口径来自 answers:Q2 选项 A。" .
+
+:WeightOverloadedTrip a owl:Class ; rdfs:label "载重超限趟次" ;
+    rdfs:subClassOf :Trip ;
+    :physicalTable "trips" ;
+    :physicalPredicate "load_weight >= weight_capacity_snapshot" ;
+    :businessDescription "只看载重一个维度是否达到能力快照。声明式谓词（跨列比较）。answers:Q2 选项 A 的单维度分解，用于解释三合一的差额。" .
+
+:AxleOverloadedTrip a owl:Class ; rdfs:label "轴荷超限趟次" ;
+    rdfs:subClassOf :Trip ;
+    owl:equivalentClass [ owl:intersectionOf ( :Trip [
+        a owl:Restriction ; owl:onProperty :tripAxleOverload ; owl:hasValue true ] ) ] ;
+    :businessDescription "轴荷标志为真的趟次：车轴分摊载荷超限。answers:Q2 选项 C 的口径，与装车单口径并列展示。" .
+
+:WeighedTrip a owl:Class ; rdfs:label "过磅趟次" ;
+    rdfs:subClassOf :Trip ;
+    :physicalTable "trips" ;
+    :physicalPredicate "weighbridge_weight IS NOT NULL" ;
+    :businessDescription "有地磅读数的趟次（4120 趟中 3481 趟）。IS NULL 判断是声明式谓词的第二个用途。answers:Q2 选项 B 的分母。" .
+
+:ExternalTrip a owl:Class ; rdfs:label "外车趟次" ;
+    rdfs:subClassOf :Trip ;
+    owl:equivalentClass [ owl:intersectionOf ( :Trip [
+        a owl:Restriction ; owl:onProperty :tripIsExternal ; owl:hasValue true ] ) ] ;
+    :businessDescription "由外协车辆执行的趟次，按趟结算运费。table:trips.is_external。" .
+
+:PeakDayTrip a owl:Class ; rdfs:label "高峰日趟次" ;
+    rdfs:subClassOf :Trip ;
+    owl:equivalentClass [ owl:intersectionOf ( :Trip [
+        a owl:Restriction ; owl:onProperty :tripIsPeakDay ; owl:hasValue true ] ) ] ;
+    :businessDescription "发生在高峰日的趟次。table:calendar.is_peak 冗余到 trips.is_peak_day。" .
+
+:CoreRestrictedTrip a owl:Class ; rdfs:label "进入核心限行区趟次" ;
+    rdfs:subClassOf :Trip ;
+    owl:equivalentClass [ owl:intersectionOf ( :Trip [
+        a owl:Restriction ; owl:onProperty :tripCoreRestricted ; owl:hasValue true ] ) ] ;
+    :businessDescription "按线路片区判定进入核心限行区的趟次。table:trips.core_restricted；判定来源 restriction_calendar。" .
+
+:UnpermittedRestrictedTrip a owl:Class ; rdfs:label "无路权进限行区趟次" ;
+    rdfs:subClassOf :Trip ;
+    :physicalTable "trips" ;
+    :physicalPredicate "core_restricted AND NOT permit_valid" ;
+    :businessDescription "进了核心限行区、而当时没有有效通行证的趟次 —— K5 的硬红线。两列取反是 OWL 表达不了的，用声明式谓词。answers:Q2/Q9 同源的判定链。" .
+
+:OnTimeTrip a owl:Class ; rdfs:label "整趟全准点趟次" ;
+    rdfs:subClassOf :Trip ;
+    :physicalTable "trips" ;
+    :physicalPredicate "late_stop_count = 0" ;
+    :businessDescription "一趟里没有任何站点迟到的趟次（整趟全准点率 53.91%，与站点级准时率 94.60% 是两个不同的问法）。table:trips.late_stop_count。" .
+
+:LateTrip a owl:Class ; rdfs:label "有迟到站点的趟次" ;
+    rdfs:subClassOf :Trip ;
+    :physicalTable "trips" ;
+    :physicalPredicate "late_stop_count > 0" ;
+    :businessDescription "至少一个站点迟到的趟次。table:trips.late_stop_count。" .
+
+:RouteV1Trip a owl:Class ; rdfs:label "并线前（v1）趟次" ;
+    rdfs:subClassOf :Trip ;
+    owl:equivalentClass [ owl:intersectionOf ( :Trip [
+        a owl:Restriction ; owl:onProperty :tripRouteVersion ; owl:hasValue "v1" ] ) ] ;
+    :businessDescription "线路版本 v1（2026-08-01 起，50 条线）执行的趟次。并线对比的基准组。answers:Q3/Q5 同批确认的并线日 2026-09-22。" .
+
+:RouteV2Trip a owl:Class ; rdfs:label "并线后（v2）趟次" ;
+    rdfs:subClassOf :Trip ;
+    owl:equivalentClass [ owl:intersectionOf ( :Trip [
+        a owl:Restriction ; owl:onProperty :tripRouteVersion ; owl:hasValue "v2" ] ) ] ;
+    :businessDescription "线路版本 v2（2026-09-22 起，40 条线）执行的趟次。并线对比的处理组。" .
+
+# ======================================================================
+# 客诉（complaints）：1 站最多 1 条
+# ======================================================================
+
+:JudgedComplaint a owl:Class ; rdfs:label "已判定责任客诉" ;
+    rdfs:subClassOf :Complaint ;
+    :physicalTable "complaints" ;
+    :physicalPredicate "liability IS NOT NULL AND liability <> ''" ;
+    :businessDescription "责任方已填写的客诉（1585 条中 854 条；其余 731 条为空未判定）。空串与 NULL 两种写法都要挡，所以用声明式谓词。table:complaints.liability。" .
+
+:DriverLiableComplaint a owl:Class ; rdfs:label "司机责任客诉" ;
+    rdfs:subClassOf :Complaint ;
+    owl:equivalentClass [ owl:intersectionOf ( :Complaint [
+        a owl:Restriction ; owl:onProperty :complaintLiability ; owl:hasValue "driver" ] ) ] ;
+    :businessDescription "责任方判给司机的客诉。table:complaints.liability。" .
+
+:LabourerLiableComplaint a owl:Class ; rdfs:label "装卸责任客诉" ;
+    rdfs:subClassOf :Complaint ;
+    owl:equivalentClass [ owl:intersectionOf ( :Complaint [
+        a owl:Restriction ; owl:onProperty :complaintLiability ; owl:hasValue "labourer" ] ) ] ;
+    :businessDescription "责任方判给装卸工（临时工）的客诉。table:complaints.liability。" .
+
+# ======================================================================
+# 排班（driver_schedule）：一名司机 × 一天
+# ======================================================================
+
+:ScheduledDay a owl:Class ; rdfs:label "一个应出勤司机日" ;
+    rdfs:subClassOf :DriverSchedule ;
+    owl:equivalentClass [ owl:intersectionOf ( :DriverSchedule [
+        a owl:Restriction ; owl:onProperty :scheduleScheduled ; owl:hasValue true ] ) ] ;
+    :businessDescription "排班表里被排上的司机日（5400 行中 5036 行）。K4 出勤率的分母：没排班的日子不算缺勤。table:driver_schedule.scheduled。" .
+
+:AttendedDay a owl:Class ; rdfs:label "实际出勤司机日" ;
+    rdfs:subClassOf :DriverSchedule ;
+    owl:equivalentClass [ owl:intersectionOf ( :DriverSchedule [
+        a owl:Restriction ; owl:onProperty :scheduleStatus ; owl:hasValue "attended" ] ) ] ;
+    :businessDescription "状态为 attended 的司机日。K4 的分子。table:driver_schedule.status。" .
+
+:AbsentDay a owl:Class ; rdfs:label "缺勤司机日" ;
+    rdfs:subClassOf :DriverSchedule ;
+    owl:equivalentClass [ owl:intersectionOf ( :DriverSchedule [
+        a owl:Restriction ; owl:onProperty :scheduleStatus ; owl:hasValue "absent" ] ) ] ;
+    :businessDescription "排了班但没来的司机日。table:driver_schedule.status。" .
+
+:LeaveDay a owl:Class ; rdfs:label "请假司机日" ;
+    rdfs:subClassOf :DriverSchedule ;
+    owl:equivalentClass [ owl:intersectionOf ( :DriverSchedule [
+        a owl:Restriction ; owl:onProperty :scheduleStatus ; owl:hasValue "leave" ] ) ] ;
+    :businessDescription "请假（含病假）的司机日：与缺勤分开，因为它不是纪律问题。table:driver_schedule.status。" .
+
+# ======================================================================
+# 派车建议 / 申诉 / 路权 / 车辆
+# ======================================================================
+
+:AdoptedDecision a owl:Class ; rdfs:label "一条被采纳的派车建议" ;
+    rdfs:subClassOf :DispatchDecision ;
+    owl:equivalentClass [ owl:intersectionOf ( :DispatchDecision [
+        a owl:Restriction ; owl:onProperty :decisionAdopted ; owl:hasValue true ] ) ] ;
+    :businessDescription "调度采纳了系统推荐司机的建议（2620 条中 2036 条）。mode 全部是 shadow，所以采纳率测的是影子运行的一致性，不是真实收益。table:dispatch_decisions.adopted。" .
+
+:UpheldAppeal a owl:Class ; rdfs:label "申诉成立" ;
+    rdfs:subClassOf :Appeal ;
+    owl:equivalentClass [ owl:intersectionOf ( :Appeal [
+        a owl:Restriction ; owl:onProperty :appealOutcome ; owl:hasValue "upheld" ] ) ] ;
+    :businessDescription "司机申诉被支持（46 条中 12 条）。table:appeals.outcome。" .
+
+:ValidPermit a owl:Class ; rdfs:label "有效通行证" ;
+    rdfs:subClassOf :ZonePermit ;
+    owl:equivalentClass [ owl:intersectionOf ( :ZonePermit [
+        a owl:Restriction ; owl:onProperty :permitStatus ; owl:hasValue "有效" ] ) ] ;
+    :businessDescription "台账状态为有效的路权凭证（20 张中 12 张）。answers:Q9 选项 A：与车辆标记 core_zone_permit 并列声明，两个来源不一致时让矛盾可见。" .
+
+:CorePermitVehicle a owl:Class ; rdfs:label "一辆带核心区路权标记的车" ;
+    rdfs:subClassOf :Vehicle ;
+    owl:equivalentClass [ owl:intersectionOf ( :Vehicle [
+        a owl:Restriction ; owl:onProperty :vehicleCoreZonePermit ; owl:hasValue true ] ) ] ;
+    :businessDescription "车辆档案上标了 core_zone_permit 的车辆（60 台中 14 台）。answers:Q9：与 zone_permits 台账并列，不合并。" .

@@ -1,0 +1,67 @@
+{
+  "_doc": "阶段 9：教程。与 new_coldchain_v5_settings.json 同目录（tutorial_api 读 profile 旁的 tutorial.json）。每个 items 里的名字都必须是图里已声明的类或指标（T2 逐个核对）；正文里出现的数字全部来自本次编译结果（generated/verification/compile_report.json 的口径），不是我手算的。",
+  "title": "冷链配送经营本体 v5 · 教程",
+  "intro": "这份本体把每个数写成一条声明，再编译成 SQL：先定一行是什么（颗粒），把「准时」「超载」「异常」写成公理，再把答不了的口径按名拒绝。它不猜业务没给的东西——阈值、责任划分、时间窗口径，一条都没有替业务定。84 个指标全部编译通过，0 个按名拒绝：拒绝的不是指标，是这张库没有字段的问题。",
+  "steps": [
+    {
+      "kind": "objects",
+      "title": "一行是什么：先定颗粒",
+      "body": "每个数字都挂在某个颗粒上。一次配送是一行 Trip（4,120 行），一次门店卸货是一行 Stop（50,832 行），一家门店是一行 Store（800 行），一条客诉、一次拒单、一条派车建议、一条维修工单各是一行。最容易混的是 Stop 与 Trip：一趟车要停十几家店（趟均 12.34 站），站点数和趟次差了一个量级，所以「准时」按站算和按趟算本来就是两个数。点开任一对象，能看到它的物理表、主键和可分组列。",
+      "items": ["Trip", "Stop", "Store", "Route", "RouteStop", "Vehicle", "Driver", "Handler", "Complaint", "Refusal", "DispatchDecision", "TripCost", "FuelLog", "MaintenanceOrder", "Violation", "ZonePermit", "Telemetry"]
+    },
+    {
+      "kind": "definitions",
+      "title": "「准时」「整趟全准点」「超载」到底指哪些行",
+      "body": "这几个词不是形容词，是公理：每条编译成一个 WHERE 条件，所以同一份报表里同一个词永远选中同一批行。准点站与迟到站是现成布尔列 on_time 的互斥两半；整趟全准点是「这趟一趟都没晚」（late_stop_count 不为正），不是「站点级平均值高」——所以站点级 94.60% 与整趟级 53.91% 同时为真，不矛盾。异常也一样：倒温、破损、告警是站点上的三个事实列，能叠在一站上（异常站 7,614 站不等于三者相加）。",
+      "items": ["OnTimeStop", "LateStop", "OnTimeTrip", "LateTrip", "DamagedStop", "TempExcursionStop", "AlarmStop", "AbnormalStop", "DeliveredStop", "UndeliveredStop"]
+    },
+    {
+      "kind": "definitions",
+      "title": "「超载」必须说清是哪一种：三合一、载重、地磅",
+      "body": "库里有三种互相不重合的容量证据。装车单三合一（箱数、体积、载重任一达到派车时冻结的能力快照）算出来的超载率是 33.06%（1,362 趟）；只看载重是 29.49%（1,215 趟）；而过了地磅的 3,481 趟里，按地磅结果判超载的是 0 趟。三个数都不等于彼此，所以本体把它们拆成三条独立声明，而不是合成一个含糊的「超载」。跨列比较 OWL 表达不了，这三条用的是 :physicalPredicate（全库唯一一类例外，已注释）。",
+      "items": ["OverloadedTrip", "WeightOverloadedTrip", "AxleOverloadedTrip", "WeighedTrip"]
+    },
+    {
+      "kind": "definitions",
+      "title": "「未判定」是一根柱子，不是零",
+      "body": "客诉里责任方为 NULL 的有 731 条，占全部 1,585 条的一部分；已判定责任的占 53.88%（司机责任 429 条、装卸责任 425 条）。本体把「已判定」「司机责任」「装卸责任」各自写成类，把 NULL 留给分组本身（按责任方分组时 NULL 是一根独立的柱子，标签叫「未判定」）。拒单同理：389 条拒单里，原因未记录的是 113 条。",
+      "items": ["Complaint", "JudgedComplaint", "DriverLiableComplaint", "LabourerLiableComplaint", "Refusal"]
+    },
+    {
+      "kind": "metrics",
+      "title": "两个分母：站点级准时率与整趟全准点率",
+      "body": "onTimeRate 的声明是 ratio_of_sums：准点站 ÷ 全部站次 = 94.60%，:unit \"percent\"、:scale \"100.0\"，所以卡上印的是 94.60 而不是 0.9459。wholeTripOnTimeRate 换分母：整趟全准点的趟 ÷ 全部趟次 = 53.91%。两条都编译出 SQL、都跑得出数；下面这条是编译器生成的，第二条手写路线在 dashboard.json 的 independent_sql 里逐位核对过。",
+      "items": ["onTimeRate", "wholeTripOnTimeRate", "onTimeRateOfDelivered"]
+    },
+    {
+      "kind": "metrics",
+      "title": "超载与异常：一个词一个数",
+      "body": "overloadRate = 33.06%（分子 1,362 趟），weightOverloadRate = 29.49%（分子 1,215 趟），axleOverloadRate 是轴荷那一列的口径。异常侧：站点事实口径的 abnormalStopRate 把倒温 1,148 站、破损 5,769 站、告警 979 站各自声明，再声明它们的并集 7,614 站；工单口径是另一条（incidentTicketCount 107 张，覆盖 2.60% 的趟次）——这与站点事实口径不是同一个词，不能相加。",
+      "items": ["overloadRate", "weightOverloadRate", "axleOverloadRate", "abnormalStopRate", "incidentTripRate"]
+    },
+    {
+      "kind": "metrics",
+      "title": "钱、油、人、派车建议",
+      "body": "贡献毛利率 51.51%（贡献毛利 2,278,231.53 元 ÷ 收入），固定成本 3,014,690.83 元不参与这个比率；百公里油耗 12.56 升（分子分母都在趟粒度）；出勤率 57.47%（分母是排了班的司机日）；派车建议采纳率 77.71%（2,036 / 2,620，shadow 模式下测的是调度与系统的重合度，不是节省）。",
+      "items": ["grossMarginRate", "contributionProfit", "fixedCostTotal", "fuelPer100Km", "attendanceRate", "adoptionRate"]
+    },
+    {
+      "kind": "metrics",
+      "title": "并线前后：按线路版本切",
+      "body": "这是本库唯一声明的时间/版本切面。v1 跑了 2,600 趟、v2 跑了 1,520 趟；站点级准时率从 96.16% 掉到 92.79%，而超载率从 5.58% 涨到 80.07%。两个版本的分母不同，所以按版本切的比例要按 tripCountByRouteVersion 加权才回到车队值（33.06%），这一条由 dashboard 闸门 D3 每次重算。",
+      "items": ["tripCountByRouteVersion", "onTimeRateByRouteVersion", "overloadRateByRouteVersion", "overloadRateByWeek"]
+    },
+    {
+      "kind": "refusals",
+      "title": "答不了的，按名拒绝——不是给个看起来对的数",
+      "body": "有五个口径这张库答不了，本体不发明代理列：(1)「温度一路往上」这类趋势——遥测（telemetry）只覆盖行驶中的一部分时间，没有趋势声明；(2)「按城市/片区看准时率」——库里没有区域字段，分组名会被按名拒绝（nothing declares a grouping by ['城市']）；(3)「最近 30 天」——相对时间窗不自动锚定：引擎会把「最近30天」解成 today-30d…today，而本库的数据止于 2026-10-29，所以这类问题按名拒绝，要求写出绝对日期；(4)「责任方未判定的赔付金额」——NULL 责任方那一组没有金额，返回的是 NULL 不是 0；(5)「准时率低于 95% 算不算不合格」——阈值是业务政策，本库没有确认过任何一条，所以看板只报数、不判红绿。",
+      "items": ["Telemetry", "Store", "Complaint", "onTimeRate"]
+    },
+    {
+      "kind": "guard",
+      "title": "护栏：每个查询都先被拦住一次",
+      "body": "所有指标都过同一条护栏：只读、行数上限、超时、必须带颗粒、禁止无分组的神奇聚合。护栏的每一条都写在 profile 的 guard 表里，闸门会打印它，越界的查询直接拒绝而不是跑一半。",
+      "items": []
+    }
+  ]
+}

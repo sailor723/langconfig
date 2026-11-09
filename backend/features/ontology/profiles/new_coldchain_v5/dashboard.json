@@ -1,0 +1,268 @@
+{
+  "_doc": "new_coldchain_v5 的看板声明：面板只说『哪个已编译指标、按哪条已声明维度切』，这里没有一行 SQL、也没有一个手打数字；正文里的每个数都是 {metric} / {metric:key} 占位符，由本次编译结果填。policy 故意为空：准点率多少算差、超载多少算不可接受是业务政策，本库没有确认过任何一条阈值，所以这块板只报数、不判红绿（见 briefing.cannot_see）。",
+  "version": 1,
+  "ontology": "new_coldchain_v5",
+  "title": "ABC 冷链 · 运输执行看板（v5）",
+  "subtitle": "站点级与趟级是两个分母；超载是装车单三合一一个口径；每个数都有一条手写 SQL 的第二路线",
+  "events": [
+    {
+      "id": "merge",
+      "at": "2026-09-22",
+      "label": "并线生效：线路版本 v1 → v2",
+      "kind": "regime",
+      "metric": "wholeTripOnTimeRateByWeek",
+      "note": "routes.effective_from = 2026-09-22，v2 的第一趟 trip_date 也是这一天；这是从数据里读出来的事实，不是文档里的说法。"
+    }
+  ],
+  "policy": [],
+  "briefing": {
+    "_doc": "开场评价：正文只允许出现占位符，D7 会把占位符剥掉后检查有没有裸数字。版本号一律写成占位符的 key。",
+    "headline": "站点级准点率 {onTimeRate}，整趟全准点 {wholeTripOnTimeRate}；超载率（装车单三合一）{overloadRate}，贡献毛利率 {grossMarginRate}。",
+    "claims": [
+      {
+        "id": "two_denominators",
+        "text": "同一个「准时」有两个分母：按站点算是 {onTimeRate}（{onTimeStopCount} / {stopCount}），按趟算整趟全准点只有 {wholeTripOnTimeRate}（{onTimeTripCount} / {tripCount}）。",
+        "note": "站点级高而趟级低，说明迟到集中在少数趟里；这两个数不能互相代替，也不能取平均。"
+      },
+      {
+        "id": "merge_effect",
+        "text": "并线前准时率 {onTimeRateByRouteVersion:v1}，并线后 {onTimeRateByRouteVersion:v2}；同一条轴上超载率从 {overloadRateByRouteVersion:v1} 到 {overloadRateByRouteVersion:v2}，趟次从 {tripCountByRouteVersion:v1} 到 {tripCountByRouteVersion:v2}。",
+        "note": "两个版本的分母不同（趟次差一个量级），所以各版本的比例要按 tripCountByRouteVersion 加权才回到车队值。"
+      },
+      {
+        "id": "overload_three_ways",
+        "text": "装车单三合一超载 {overloadRate}（{overloadedTripCount} 趟），只看载重是 {weightOverloadRate}（{weightOverloadedTripCount} 趟），地磅口径是 {weighbridgeOverloadedTripCount} 趟；三个数都不等于彼此，所以「超载率」必须说清是哪一种。",
+        "note": "这是本库最容易被合成一个含糊词的地方：口径不同，答案不同，本体把它们拆成三条独立声明。"
+      },
+      {
+        "id": "unjudged",
+        "text": "客诉按责任方切开是 {complaintCountByLiability:driver} 条司机责任、{complaintCountByLiability:labourer} 条装卸责任，还有一整根「未判定」的柱子；已经判定责任的占 {judgedComplaintShare}。",
+        "note": "NULL 分组是一根柱子，不是零，也不是「无责任」；它本身就是数据质量的证据。"
+      },
+      {
+        "id": "money",
+        "text": "收入 {tripRevenue}、变动成本 {variableCostTotal}，贡献毛利 {contributionProfit}（{grossMarginRate}）；扣掉固定成本 {fixedCostTotal} 之后是 {profitAfterFixed}。",
+        "note": "贡献毛利是「这趟值不值得跑」的判据，固定成本不参与；单公里收入是 {revenuePerKm}。"
+      },
+      {
+        "id": "compliance",
+        "text": "进入核心限行区的趟次 {coreRestrictedTripCount}，其中没有有效路权的 {unpermittedRestrictedTripCount}，占进区趟次的 {unpermittedTripRateOfRestricted}；带核心区路权标记的车 {corePermitVehicleCount} 台。",
+        "note": "两个合规分母不同：一个是趟次，一个是车辆台账；并排看是为了互相核对，不是相加。"
+      }
+    ],
+    "cannot_see": [
+      "这是只读的执行看板：没有阈值，所以不判红绿——「准时率低于多少算不合格」是业务政策，本库没有确认过。",
+      "超载的三个口径（装车单三合一、载重、地磅）都在报数，但没有一条被宣布为『对外的那个超载率』。",
+      "破损、倒温、告警是站点事实，不是工单事实；工单口径是另一条声明，两者不能相加。",
+      "温度趋势（\"温度一路往上\"）答不了：遥测只覆盖行驶中的一部分时间，没有趋势口径的声明。",
+      "客诉责任方未判定的那部分是『未判定』，不是『无责任』；要判责需要业务补记录。"
+    ]
+  },
+  "kpis": [
+    {
+      "metric": "onTimeRate",
+      "note": "站点级，分母是全部站次；唯一进 KPI 卡的准时口径"
+    },
+    {
+      "metric": "wholeTripOnTimeRate",
+      "note": "趟级，分母是全部趟次；与上一条并排是为了防止把站点级当趟级读"
+    },
+    {
+      "metric": "overloadRate",
+      "note": "装车单三合一 ≥ 能力快照，分母是全部趟次"
+    },
+    {
+      "metric": "grossMarginRate",
+      "note": "贡献毛利 / 收入，固定成本不参与"
+    },
+    {
+      "metric": "fuelPer100Km",
+      "note": "升/百公里，分子分母都在趟粒度"
+    },
+    {
+      "metric": "contributionProfit",
+      "note": "元；加法指标，可按任何维度切后相加"
+    }
+  ],
+  "panels": [
+    {
+      "id": "volume_versions",
+      "kind": "composition",
+      "title": "并线前后：趟次分布",
+      "question": "两个版本各跑了多少趟？后面所有按版本切的比例都以此加权。",
+      "metric": "tripCountByRouteVersion",
+      "note": "它是 slope 面板的加权基数：Σ 各版本趟次 = tripCount。",
+      "emit_filter": {
+        "dimension": "tripRouteVersion",
+        "column": "key1"
+      }
+    },
+    {
+      "id": "ontime_week",
+      "kind": "series",
+      "title": "整趟全准点率随周走势",
+      "question": "并线那一周前后，整趟全准点有没有断档？",
+      "metric": "wholeTripOnTimeRateByWeek",
+      "note": "本库声明的时间轴：trip_date 按周截断、升序；周与周之间不可相加（比率）。"
+    },
+    {
+      "id": "overload_week",
+      "kind": "series",
+      "title": "超载率随周走势（装车单三合一）",
+      "question": "超载是并线那一下变坏，还是一直在变坏？",
+      "metric": "overloadRateByWeek",
+      "note": "与 ontime_week 同一根时间轴，可以并排读；仍是比率，周与周不加。"
+    },
+    {
+      "id": "merge_ontime",
+      "kind": "slope",
+      "title": "并线前后：站点级准时率",
+      "question": "把两条线并成一条之后，准点变好还是变差？",
+      "x": {
+        "dimension": "tripRouteVersion",
+        "order": [
+          "v1",
+          "v2"
+        ]
+      },
+      "metrics": [
+        "onTimeRateByRouteVersion"
+      ],
+      "note": "两个点各带自己的分母（站点数），按 volume_versions 的趟次加权回到车队值。"
+    },
+    {
+      "id": "merge_overload",
+      "kind": "slope",
+      "title": "并线前后：超载率（装车单三合一）",
+      "question": "并线省下来的车，是不是变成了超载？",
+      "x": {
+        "dimension": "tripRouteVersion",
+        "order": [
+          "v1",
+          "v2"
+        ]
+      },
+      "metrics": [
+        "overloadRateByRouteVersion"
+      ],
+      "note": "口径只有一条：三合一 ≥ 能力快照；载重、地磅两个单维口径是另外的声明，不混在这条线上。"
+    },
+    {
+      "id": "refusal_reasons",
+      "kind": "ranked",
+      "title": "拒单原因排行",
+      "question": "门店拒收的理由里，哪几条最常见？",
+      "metric": "refusalCountByReason",
+      "sort": "desc",
+      "limit": 3,
+      "note": "条数本身就是大小：这个榜没有第二个分母可以并挂，所以不声明 size_by——读的时候要知道它按条数排，不是按金额或影响排。",
+      "emit_filter": {
+        "dimension": "refusalReason",
+        "column": "key1"
+      }
+    },
+    {
+      "id": "complaint_liability",
+      "kind": "composition",
+      "title": "客诉按责任方",
+      "question": "客诉该记在谁头上？有多少根本没判？",
+      "metric": "complaintCountByLiability",
+      "null_label": "未判定",
+      "note": "NULL 是一根柱子：未判定不等于零，也不等于「无责任」。",
+      "emit_filter": {
+        "dimension": "complaintLiability",
+        "column": "key1"
+      }
+    },
+    {
+      "id": "violation_categories",
+      "kind": "ranked",
+      "title": "违章类别排行",
+      "question": "罚金主要花在哪种违章上？",
+      "metric": "violationCountByCategory",
+      "sort": "desc",
+      "limit": 3,
+      "note": "条数本身就是大小：这个榜没有第二个分母可以并挂，所以不声明 size_by——读的时候要知道它按条数排，不是按金额或影响排。"
+    },
+    {
+      "id": "maintenance_categories",
+      "kind": "composition",
+      "title": "维修成本按类别",
+      "question": "维修的钱花在哪一类上？",
+      "metric": "maintenanceCostByCategory",
+      "null_label": "未分类",
+      "note": "金额可加；类别为 NULL 的那一块单独立柱，不并进最大类。"
+    },
+    {
+      "id": "money_parallel",
+      "kind": "parallel",
+      "title": "钱去哪了：收入 / 变动成本 / 贡献毛利 / 扣固定成本后利润",
+      "question": "一条收入曲线，经过哪几刀之后剩下多少？",
+      "metrics": [
+        "tripRevenue",
+        "variableCostTotal",
+        "contributionProfit",
+        "profitAfterFixed"
+      ],
+      "note": "四个都是元、都是趟粒度上的加法指标，所以能放在同一根轴上比长度；它不是瀑布图，差额要自己按声明读。"
+    }
+  ],
+  "holes": [],
+  "cross_filter": [
+    {
+      "dimension": "tripRouteVersion",
+      "label": "线路版本",
+      "metric_panel": "volume_versions",
+      "apply_to": [
+        "ontime_week",
+        "overload_week",
+        "merge_ontime",
+        "merge_overload"
+      ]
+    },
+    {
+      "dimension": "complaintLiability",
+      "label": "责任方",
+      "metric_panel": "complaint_liability",
+      "apply_to": [
+        "complaint_liability"
+      ]
+    },
+    {
+      "dimension": "refusalReason",
+      "label": "拒单原因",
+      "metric_panel": "refusal_reasons",
+      "apply_to": [
+        "refusal_reasons"
+      ]
+    }
+  ],
+  "cross_filter_doc": "维度名必须等于属性的本地名：线路版本是 :tripRouteVersion（物理列 route_version），责任方是 :complaintLiability，拒单原因是 :refusalReason。而且必须有一块面板用 emit_filter 把它发出来，run_dashboard 只认 emit_filter 声明过的维度。",
+  "independent_sql": [
+    {
+      "_doc": "第二条手写 SQL 路线（base 表直算，不经过编译器）：按本库声明的『装车单三合一』口径重算 v2 的超载率，与 overloadRateByRouteVersion 的 v2 那一格逐位对上。gates 自带的 overload_v2 是『三种容量取其一』的旧物流口径，与本库声明的词不是同一个，所以这里声明本库自己的第二路线。",
+      "label": "overload_three_way_v2",
+      "sql": "SELECT 1.0 * count(*) FILTER (WHERE t.load_boxes >= t.box_capacity_snapshot OR t.load_volume >= t.volume_capacity_snapshot OR t.load_weight >= t.weight_capacity_snapshot) / count(*) FROM trips t JOIN routes r ON r.id = t.route_id WHERE r.version = 'v2'",
+      "agree_with": {
+        "metric": "overloadRateByRouteVersion",
+        "key": "v2"
+      }
+    },
+    {
+      "_doc": "加权恒等式的手写 SQL：先把每趟的准点站与站点数汇总，再相除——不是『各趟比率的平均值』。和声明编译出来的 onTimeRate 逐位对上，才敢说这块板的站点级分母是对的。",
+      "label": "on_time_rate_weighted_by_trip",
+      "sql": "SELECT round(1.0 * sum(x.ok) / sum(x.stops), 12) FROM (SELECT s.trip_id, count(*) FILTER (WHERE s.on_time) AS ok, count(*) AS stops FROM stops s GROUP BY 1) x",
+      "agree_with": {
+        "metric": "onTimeRate"
+      }
+    },
+    {
+      "_doc": "整趟全准点率的第二条路线：不是『站点级准点的趟』（trip.stop_count - late_stop_count 的平均），而是 late_stop_count <= 0 的趟数 ÷ 全部趟数。这条能抓住把整趟口径误写成站点口径的那种错。",
+      "label": "whole_trip_on_time_rate",
+      "sql": "SELECT round(100.0 * count(*) FILTER (WHERE late_stop_count <= 0) / count(*), 6) FROM trips",
+      "agree_with": {
+        "metric": "wholeTripOnTimeRate"
+      }
+    }
+  ]
+}

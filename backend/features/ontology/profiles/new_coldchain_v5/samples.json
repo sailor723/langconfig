@@ -1,0 +1,187 @@
+{
+  "_doc": [
+    "问题→必答。每个 expect 的数字都来自第二条手写 SQL 路线（psql 直查 new_coldchain；见 generated/verification/truth_route.sql）。",
+    "带 route 的样本在闸门里现场跑第二遍 SQL（不是比上月冻结的数字）；只有无法一次写清的多行比较才用 rows。",
+    "比率指标 :scale \"100.0\" 只改呈现，闸门用 _same_unit 两种单位都接受，所以这里写原始比率（0.9459 而不是 94.59）。",
+    "refused_by_name：本体按名拒绝（分组没有声明）。unresolved：profile 还挂着、但本体其实答不了或答得不诚实的样本 —— 每条写着缺哪条声明、以及第二路线给出的数字。"
+  ],
+  "samples": [
+    {
+      "question": "站点准时率是多少",
+      "expect": {
+        "metric": "onTimeRate",
+        "value": 0.9459592382751023,
+        "route": "SELECT 1.0*count(*) FILTER (WHERE on_time)/count(*) FROM stops"
+      },
+      "tolerance": 1e-06
+    },
+    {
+      "question": "2026-08-01 到 2026-10-29 的准时率是多少",
+      "expect": {
+        "metric": "onTimeRate",
+        "value": 0.9459592382751023,
+        "route": "SELECT 1.0*count(*) FILTER (WHERE s.on_time)/count(*) FROM stops s JOIN trips t ON s.trip_id=t.id WHERE t.trip_date BETWEEN '2026-08-01' AND '2026-10-29'"
+      },
+      "tolerance": 1e-06
+    },
+    {
+      "question": "整趟全准点率是多少",
+      "expect": {
+        "metric": "wholeTripOnTimeRate",
+        "value": 0.5390776699029126,
+        "route": "SELECT 1.0*count(*) FILTER (WHERE late_stop_count = 0)/count(*) FROM trips"
+      },
+      "tolerance": 1e-06
+    },
+    {
+      "question": "超载率是多少",
+      "expect": {
+        "metric": "overloadRate",
+        "value": 0.33058252427184465,
+        "route": "SELECT 1.0*count(*) FILTER (WHERE load_boxes >= box_capacity_snapshot OR load_volume >= volume_capacity_snapshot OR load_weight >= weight_capacity_snapshot)/count(*) FROM trips"
+      },
+      "tolerance": 1e-06
+    },
+    {
+      "question": "载重超限率是多少",
+      "expect": {
+        "metric": "weightOverloadRate",
+        "value": 0.2949029126213592,
+        "route": "SELECT 1.0*count(*) FILTER (WHERE load_weight >= weight_capacity_snapshot)/count(*) FROM trips"
+      },
+      "tolerance": 1e-06
+    },
+    {
+      "question": "轴荷超限率是多少",
+      "expect": {
+        "metric": "axleOverloadRate",
+        "value": 0.39611650485436894,
+        "route": "SELECT 1.0*count(*) FILTER (WHERE axle_overload)/count(*) FROM trips"
+      },
+      "tolerance": 1e-06
+    },
+    {
+      "question": "异常率是多少",
+      "expect": {
+        "metric": "incidentTripRate",
+        "value": 0.025970873786407767,
+        "route": "SELECT 1.0*(SELECT count(DISTINCT trip_id) FROM incident_tickets)/(SELECT count(*) FROM trips)"
+      },
+      "tolerance": 1e-06
+    },
+    {
+      "question": "出勤率是多少",
+      "expect": {
+        "metric": "attendanceRate",
+        "value": 0.5746624305003971,
+        "route": "SELECT 1.0*count(*) FILTER (WHERE status = 'attended')/count(*) FILTER (WHERE scheduled) FROM driver_schedule"
+      },
+      "tolerance": 1e-06
+    },
+    {
+      "question": "百公里油耗是多少",
+      "expect": {
+        "metric": "fuelPer100Km",
+        "value": 12.555865829714941,
+        "route": "SELECT 100.0*sum(fuel_liters)/sum(actual_km) FROM trips"
+      },
+      "tolerance": 1e-06
+    },
+    {
+      "question": "贡献毛利是多少",
+      "expect": {
+        "metric": "contributionProfit",
+        "value": 2278231.53,
+        "route": "SELECT round(sum(revenue - cost_total), 2) FROM trips"
+      },
+      "tolerance": 0.01
+    },
+    {
+      "question": "贡献毛利率是多少",
+      "expect": {
+        "metric": "grossMarginRate",
+        "value": 0.5150635894535274,
+        "route": "SELECT sum(revenue - cost_total)/sum(revenue) FROM trips"
+      },
+      "tolerance": 1e-05
+    },
+    {
+      "question": "固定成本合计是多少",
+      "expect": {
+        "metric": "fixedCostTotal",
+        "value": 3014690.83,
+        "route": "SELECT round(sum(fixed_cost), 2) FROM trips"
+      },
+      "tolerance": 0.01
+    },
+    {
+      "question": "外车贡献毛利是多少",
+      "expect": {
+        "metric": "externalContribution",
+        "value": -181853.14,
+        "route": "SELECT round(sum(revenue - cost_total), 2) FROM trips WHERE is_external"
+      },
+      "tolerance": 0.01
+    },
+    {
+      "question": "派车建议采纳率是多少",
+      "expect": {
+        "metric": "adoptionRate",
+        "value": 0.7770992366412214,
+        "route": "SELECT 1.0*count(*) FILTER (WHERE adopted)/count(*) FROM dispatch_decisions"
+      },
+      "tolerance": 1e-06
+    },
+    {
+      "question": "客诉赔付金额合计是多少",
+      "expect": {
+        "metric": "complaintAmountTotal",
+        "value": 543309.02,
+        "route": "SELECT round(sum(amount), 2) FROM complaints"
+      },
+      "tolerance": 0.01
+    },
+    {
+      "question": "按版本看准时率",
+      "expect": {
+        "metric": "onTimeRateByRouteVersion",
+        "route": "SELECT t.route_version, 1.0*count(*) FILTER (WHERE s.on_time)/count(*) FROM stops s JOIN trips t ON s.trip_id = t.id GROUP BY 1 ORDER BY 1"
+      },
+      "tolerance": 1e-06
+    },
+    {
+      "question": "按版本看超载率",
+      "expect": {
+        "metric": "overloadRateByRouteVersion",
+        "route": "SELECT route_version, 1.0*count(*) FILTER (WHERE load_boxes >= box_capacity_snapshot OR load_volume >= volume_capacity_snapshot OR load_weight >= weight_capacity_snapshot)/count(*) FROM trips GROUP BY 1 ORDER BY 1"
+      },
+      "tolerance": 1e-06
+    },
+    {
+      "question": "按版本看站点数",
+      "expect": {
+        "metric": "stopCountByRouteVersion",
+        "route": "SELECT t.route_version, count(*) FROM stops s JOIN trips t ON s.trip_id = t.id GROUP BY 1 ORDER BY 1"
+      },
+      "tolerance": 0
+    },
+    {
+      "question": "按城市看准时率",
+      "expect": {
+        "refused_by_name": "nothing declares a grouping by ['城市']"
+      }
+    },
+    {
+      "question": "按片区看准时率",
+      "expect": {
+        "refused_by_name": "nothing declares a grouping by ['片区']"
+      }
+    },
+    {
+      "question": "最近30天有多少趟",
+      "expect": {
+        "unresolved": "缺一条「相对时间窗必须拒绝或先锚定」的声明。:TimeWindow 只在 grain 自带 :timeColumn 时生效，引擎把「最近30天」解成 today-30d…today（今天是 2026-11-09 → 2026-10-10…2026-11-09），而本库数据止于 2026-10-29，于是答案 800 趟其实是「最近20天」；按数据末日锚定的真值是 1200 趟（trip_date > max(trip_date)-30d）。要么把这个问法写进拒绝清单，要么声明一个 anchor=max(trip_date) 的窗口解析 —— 需要业务确认，不由我定。"
+      }
+    }
+  ]
+}

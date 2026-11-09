@@ -1,0 +1,116 @@
+{
+  "_doc": "第二条手写 SQL 路线。`_definitions` 是『公理 == 一段我不依赖 OWL 手写的谓词』的对照（R2 逐条比较计数）；`_metrics` 是 samples.json 里每条样本的第二条路线（手写 SQL，不经过编译器）。数字不是从编译器抄的：每条都写在这里，闸门/样本重跑时用它核对编译结果。",
+  "_definitions": {
+    "OnTimeStop": [
+      "stops",
+      "on_time"
+    ],
+    "LateStop": [
+      "stops",
+      "NOT on_time"
+    ],
+    "TempExcursionStop": [
+      "stops",
+      "temp_excursion = true"
+    ],
+    "DamagedStop": [
+      "stops",
+      "damaged_boxes > 0"
+    ],
+    "AlarmStop": [
+      "stops",
+      "alarm_triggered"
+    ],
+    "AbnormalStop": [
+      "stops",
+      "temp_excursion OR damaged_boxes > 0 OR alarm_triggered"
+    ],
+    "DeliveredStop": [
+      "stops",
+      "service_status = 'delivered'"
+    ],
+    "OnTimeTrip": [
+      "trips",
+      "late_stop_count = 0"
+    ],
+    "OverloadedTrip": [
+      "trips",
+      "load_boxes >= box_capacity_snapshot OR load_volume >= volume_capacity_snapshot OR load_weight >= weight_capacity_snapshot"
+    ],
+    "WeightOverloadedTrip": [
+      "trips",
+      "load_weight >= weight_capacity_snapshot"
+    ],
+    "WeighedTrip": [
+      "trips",
+      "weighbridge_weight IS NOT NULL"
+    ],
+    "JudgedComplaint": [
+      "complaints",
+      "liability IS NOT NULL AND liability <> ''"
+    ],
+    "DriverLiableComplaint": [
+      "complaints",
+      "liability = 'driver'"
+    ],
+    "LabourerLiableComplaint": [
+      "complaints",
+      "liability = 'labourer'"
+    ],
+    "ScheduledDay": [
+      "driver_schedule",
+      "scheduled"
+    ],
+    "AttendedDay": [
+      "driver_schedule",
+      "status = 'attended'"
+    ],
+    "AdoptedDecision": [
+      "dispatch_decisions",
+      "adopted"
+    ]
+  },
+  "_metrics": {
+    "_doc": "手写 SQL 的第二条路线；值就是 samples.json 里 expect.value 的那个数（比例原样，未乘 100）。",
+    "onTimeRate": {
+      "value": 0.9459592382751023,
+      "route": "SELECT 1.0*count(*) FILTER (WHERE on_time)/count(*) FROM stops"
+    },
+    "wholeTripOnTimeRate": {
+      "value": 0.5390776699029126,
+      "route": "SELECT 1.0*count(*) FILTER (WHERE late_stop_count = 0)/count(*) FROM trips"
+    },
+    "overloadRate": {
+      "value": 0.33058252427184465,
+      "route": "SELECT 1.0*count(*) FILTER (WHERE load_boxes >= box_capacity_snapshot OR load_volume >= volume_capacity_snapshot OR load_weight >= weight_capacity_snapshot)/count(*) FROM trips"
+    },
+    "weightOverloadRate": {
+      "value": 0.2949029126213592,
+      "route": "SELECT 1.0*count(*) FILTER (WHERE load_weight >= weight_capacity_snapshot)/count(*) FROM trips"
+    },
+    "abnormalStopRate": {
+      "value": 0.14978753541076487,
+      "route": "SELECT 1.0*count(*) FILTER (WHERE temp_excursion OR damaged_boxes > 0 OR alarm_triggered)/count(*) FROM stops"
+    },
+    "contributionProfit": {
+      "value": 2278231.53,
+      "route": "SELECT round(sum(revenue - cost_total), 2) FROM trips"
+    },
+    "grossMarginRate": {
+      "value": 0.5150635894535274,
+      "route": "SELECT sum(revenue - cost_total)/sum(revenue) FROM trips"
+    },
+    "fuelPer100Km": {
+      "value": 12.555865829714941,
+      "route": "SELECT 100.0*sum(fuel_liters)/sum(actual_km) FROM trips"
+    },
+    "attendanceRate": {
+      "value": 0.5746624305003971,
+      "route": "SELECT 1.0*count(*) FILTER (WHERE status = 'attended')/count(*) FILTER (WHERE scheduled) FROM driver_schedule"
+    },
+    "adoptionRate": {
+      "value": 0.7770992366412214,
+      "route": "SELECT 1.0*count(*) FILTER (WHERE adopted)/count(*) FROM dispatch_decisions"
+    }
+  }
+}
