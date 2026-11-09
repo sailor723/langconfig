@@ -261,3 +261,4 @@ backend/scripts/backups/
 
 # uv cache redirected here when ~/.cache is not writable (sandboxed runs)
 .uv-cache/
+.team_deploy/
