@@ -1,8 +1,7 @@
 # Search panel: make it do what it says
 
-Status: **draft** — written from the *recommended* answers in grill round 1 (`work/search-panel/grill.md`
-is not written yet; the round is still open). Decisions flip to `agreed` when the user answers.
-Decisions from: grill round 1 (in conversation, 2026-11-09). Author: agent.
+Status: **agreed** (2026-11-09 — the five recommendations were accepted).
+Decisions from: [`search-panel-honesty.grill.md`](search-panel-honesty.grill.md) round 1. Author: agent.
 
 ## Problem
 
@@ -28,7 +27,7 @@ docstring calls it a **"VS Code-style search-in-files sidebar panel"**
 | # | Decision | Why | Source |
 |---|---|---|---|
 | D1 | Keep the panel; fix the behaviour instead of removing it | a sidebar search is used; removing it loses a feature people reach for | grill Q1 → recommended (a) |
-| D2 | Search **workflow code + workspace text files**, server-side, in **one** request | the N+1 fan-out is the actual cost, and "search-in-files" is the promise in the docstring | grill Q2 → recommended (b) |
+| D2 | Search **workspace text files + workflow definitions**, server-side, in **one** request | the N+1 fan-out is the actual cost, and "search-in-files" is the promise in the docstring | grill Q2 → answered (b) + amendment A1 |
 | D3 | Drop the replace field entirely | it never worked; a control that does nothing is worse than an absent one | grill Q3 → recommended (a) |
 | D4 | Show a one-line error with the HTTP status instead of an empty list | "no matches" and "backend down" must not look the same | grill Q4 → recommended (a) |
 | D5 | Clicking a match opens the file and jumps to the line if the viewer can; otherwise opens it | jumping is the reason to search rather than browse | grill Q5 → recommended (a) |
@@ -47,7 +46,7 @@ TTL (the ontology workbench has its own query surface), result ranking, and sear
 
 | # | Criterion | How it will be checked |
 |---|---|---|
-| AC1 | `GET /api/workspace/search?q=<term>` returns `{matches: [...]}` with file, line, column and a snippet, capped and ordered | `curl` against the running app returns 200 and a non-empty `matches` for a term known to exist |
+| AC1 | `GET /api/workspace/search?q=<term>` returns `{matches: [...]}` with file, line, column, snippet and `kind`, plus `scanned` counts and a `truncated` flag | `curl` against the running app: a term present in this account's workspace returns 200 with matches (`kind:"file"` or `kind:"workflow"`); the response carries `scanned.files`/`scanned.workflows` |
 | AC2 | The endpoint refuses an empty `q` with 400 and an over-long `q` with 413, without scanning | `curl` with `q=` → 400; with a 5 000-char query → 413 |
 | AC3 | A search does **one** HTTP request, not one per workflow | grep `SearchPanel.tsx` for `getWorkflowCode(` → 0 hits; the panel calls the search endpoint once per query |
 | AC4 | A failed request shows the HTTP status in the panel | a test or a temporary forced 500 shows the message, not an empty list |
@@ -59,6 +58,18 @@ TTL (the ontology workbench has its own query surface), result ranking, and sear
 The endpoint reads files: it must stay inside the workspace roots (the same guard `files_routes.py` uses
 for `/by-path`), cap the bytes it scans, and cap returned matches. Reversibility is cheap — the panel is
 one component and the endpoint is one route; reverting is a `git revert` with no data migration.
+
+## Amendments
+
+**A1 — 2026-11-09, found while implementing ticket 001.** D2 says "workflow code"; the honest source is
+the workflow **definition** (`blueprint` + `configuration`), because `GET /api/workflows/{id}/code` runs
+the LangGraph code generator — calling it once per workflow per keystroke is precisely the N+1 cost this
+ticket exists to remove. The endpoint therefore scans the definition JSON, tagged `kind: "workflow"`, and
+says so here rather than silently searching something narrower than the spec promised.
+
+**A2 — 2026-11-09.** "Files" means the **account's workspace** (`user_base()`), not the application's own
+source tree. A search for a symbol in `src/` therefore finds nothing, by design: the panel searches the
+files the user can open, and the app's source is not one of them.
 
 ## What would change this spec
 

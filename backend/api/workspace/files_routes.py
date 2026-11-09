@@ -1,3 +1,4 @@
+import json
 import logging
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import FileResponse
@@ -27,6 +28,160 @@ logger = logging.getLogger(__name__)
 # No prefix here: this router is included into routes.router, which already
 # carries the "/api/workspace" prefix (FastAPI would otherwise stack prefixes).
 router = APIRouter(tags=["workspace"])
+
+
+# ── search ───────────────────────────────────────────────────────────────────
+# Why this exists: the sidebar's SearchPanel claimed "search-in-files" while it
+# called /api/workflows/{id}/code once per workflow and grepped the answers in the
+# browser — an N+1 fan-out whose per-workflow cost is a full code generation. One
+# request, one scan, capped, is both faster and the thing the panel promised.
+# Spec: docs/specs/search-panel-honesty.md (AC1, AC2).
+
+#: Extensions worth scanning. Anything else is binary or noise: a match inside a
+#: PNG is not a search result, and every byte read is time the reader waits.
+SEARCH_TEXT_EXTENSIONS = {
+    ".py", ".ts", ".tsx", ".js", ".jsx", ".json", ".md", ".sql", ".yml", ".yaml",
+    ".toml", ".css", ".html", ".txt", ".cfg", ".ini", ".sh",
+}
+SEARCH_SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "dist", ".pytest_cache"}
+#: Caps. Unbounded search is how a sidebar freezes the UI worker.
+MAX_QUERY_CHARS = 200
+MAX_FILES_SCANNED = 5_000
+MAX_FILE_BYTES = 256 * 1024
+MAX_MATCHES = 200
+MAX_WORKFLOWS_SCANNED = 300
+SNIPPET_CHARS = 200
+
+
+def search_text_files(base: Path, q: str, *, max_files: int = MAX_FILES_SCANNED,
+                      max_file_bytes: int = MAX_FILE_BYTES,
+                      max_matches: int = MAX_MATCHES) -> dict:
+    """Case-insensitive substring search over the text files under `base`.
+
+    Pure filesystem work so it can be tested without a database or an app: the
+    caller owns the request, this owns the scan. Returns the same shape the route
+    returns so the HTTP layer adds nothing but validation.
+    """
+    needle = q.strip().lower()
+    matches: list[dict] = []
+    scanned = 0
+    truncated = False
+    if not needle:
+        return {"matches": [], "scanned": 0, "truncated": False}
+    for path in sorted(base.rglob("*")):
+        if truncated:
+            break
+        if not path.is_file():
+            continue
+        if any(part in SEARCH_SKIP_DIRS for part in path.relative_to(base).parts[:-1]):
+            continue
+        if path.suffix.lower() not in SEARCH_TEXT_EXTENSIONS:
+            continue
+        if scanned >= max_files:
+            truncated = True
+            break
+        try:
+            if path.stat().st_size > max_file_bytes:
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        scanned += 1
+        for lineno, line in enumerate(text.splitlines(), 1):
+            lowered = line.lower()
+            col = lowered.find(needle)
+            if col == -1:
+                continue
+            matches.append({
+                "file": path.relative_to(base).as_posix(),
+                "kind": "file",
+                "line": lineno,
+                "column": col + 1,
+                "snippet": line.strip()[:SNIPPET_CHARS],
+            })
+            if len(matches) >= max_matches:
+                truncated = True
+                break
+    return {"matches": matches, "scanned": scanned, "truncated": truncated}
+
+
+def search_workflow_definitions(db, q: str, *, max_workflows: int = MAX_WORKFLOWS_SCANNED,
+                                max_matches: int = MAX_MATCHES) -> dict:
+    """Search the workflow DEFINITIONS, not their generated code.
+
+    `GET /api/workflows/{id}/code` runs the LangGraph code generator; calling it
+    per workflow per keystroke is the cost this endpoint exists to remove. The
+    blueprint + configuration is what that code is generated *from*, so a term
+    there is the honest place to look, and the scan is a JSON dump instead of a
+    codegen run.
+    """
+    from models.workflow import WorkflowProfile  # local: keeps module import cheap
+
+    needle = q.strip().lower()
+    matches: list[dict] = []
+    scanned = 0
+    truncated = False
+    if not needle:
+        return {"matches": [], "scanned": 0, "truncated": False}
+    rows = (db.query(WorkflowProfile)
+              .order_by(WorkflowProfile.id)
+              .limit(max_workflows).all())
+    for wf in rows:
+        scanned += 1
+        payload = {"id": wf.id, "name": wf.name,
+                   "blueprint": wf.blueprint or {}, "configuration": wf.configuration or {}}
+        try:
+            text = json.dumps(payload, ensure_ascii=False, indent=2, default=str)
+        except (TypeError, ValueError):
+            continue
+        for lineno, line in enumerate(text.splitlines(), 1):
+            col = line.lower().find(needle)
+            if col == -1:
+                continue
+            matches.append({
+                "file": f"workflow:{wf.name or wf.id}",
+                "kind": "workflow",
+                "line": lineno,
+                "column": col + 1,
+                "snippet": line.strip()[:SNIPPET_CHARS],
+            })
+            if len(matches) >= max_matches:
+                truncated = True
+                break
+        if truncated:
+            break
+    if len(rows) >= max_workflows:
+        truncated = True
+    return {"matches": matches, "scanned": scanned, "truncated": truncated}
+
+
+@router.get("/search")
+async def search_workspace(q: str = "", include_workflows: bool = True,
+                           db: Session = Depends(get_db)):
+    """One request, one scan: text files under this account's workspace, plus workflow
+    definitions. Refuses an empty query (400) and an absurd one (413) *before* touching
+    the filesystem — a scan that cannot succeed should cost nothing."""
+    query = (q or "").strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="q is required (a term to search for)")
+    if len(query) > MAX_QUERY_CHARS:
+        raise HTTPException(
+            status_code=413,
+            detail=f"q is longer than {MAX_QUERY_CHARS} characters: this searches text, not documents")
+    from services.workspace_manager import get_workspace_manager
+
+    base = get_workspace_manager().user_base()
+    files = search_text_files(base, query)
+    workflows = (search_workflow_definitions(db, query) if include_workflows
+                 else {"matches": [], "scanned": 0, "truncated": False})
+    matches = files["matches"] + workflows["matches"]
+    return {
+        "ok": True,
+        "q": query,
+        "matches": matches,
+        "scanned": {"files": files["scanned"], "workflows": workflows["scanned"]},
+        "truncated": bool(files["truncated"] or workflows["truncated"]),
+    }
 
 
 def _validate_path_in_workspace(file_path: str, workspace_mgr) -> Path:
