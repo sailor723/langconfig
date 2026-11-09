@@ -107,9 +107,7 @@ def test_onboarding_key_detection_ignores_the_environment(monkeypatch):
 # Generated code emitted for *exported* standalone apps legitimately reads env:
 # it runs outside LangConfig, where a .env file IS the credential store. The
 # codegen package exists to emit exactly that, so it is exempt by nature.
-EXEMPT = {
-    "core/codegen/workflow_exporter_old.py",   # retired exporter, unused
-}
+EXEMPT: set[str] = set()   # the retired exporter that used to be exempt here is deleted
 EXEMPT_DIRS = {
     "core/codegen",                            # generates exported apps
 }

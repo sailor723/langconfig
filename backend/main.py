@@ -710,7 +710,7 @@ from api.system import settings_documents  # DSH-style describe/mutate wire API
 from api.models import local as local_models
 from api.models import capabilities as model_capabilities
 from api.models import routes as model_routes
-from api.workflows import execution as orchestration, checkpoints
+from api.workflows import execution as orchestration
 from api.agents import deep_agents as deepagents, routes as agents, generator as agent_generator
 from api.chat import routes as chat
 from api.chat import skill_review as chat_skill_review
@@ -744,7 +744,6 @@ app.include_router(health.router)
 app.include_router(workflows.router)
 app.include_router(orchestration.router)  # ✓ Simplified orchestration enabled
 app.include_router(hitl.router)  # Human-in-the-loop approval endpoints
-app.include_router(checkpoints.router)  # Checkpoint management endpoints
 app.include_router(store.router)  # Store (long-term memory) management endpoints
 app.include_router(memory.router)  # Agent memory management and viewing
 app.include_router(agents_md_router.router)  # AGENTS.md (MemoryMiddleware) management

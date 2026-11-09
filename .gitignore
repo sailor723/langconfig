@@ -262,3 +262,12 @@ backend/scripts/backups/
 # uv cache redirected here when ~/.cache is not writable (sandboxed runs)
 .uv-cache/
 .team_deploy/
+
+# ── housekeeping 2026-11-09 ───────────────────────────────────────────────────────────────────────
+# Committed runtime state: langgraph keeps its checkpoint/store cache in a hidden dir next to the
+# notebook that produced it, and pickles are not source.
+**/.langgraph_api/
+*.pckl
+# One user's personal skills (backend/skills/personal/<user>/): they are installed per user, so they
+# are data, not source — every install creates its own.
+backend/skills/personal/
