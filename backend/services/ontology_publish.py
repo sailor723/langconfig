@@ -37,6 +37,7 @@ import os
 import pathlib
 import shutil
 import subprocess
+import datetime
 import time
 import uuid
 
@@ -375,9 +376,15 @@ def apply(staged_id: str, *, actor: str | None = None, confirmed: bool = False,
                 + (f"; not run: {len(final_gates.get('not_run', []))}" if final_gates.get('not_run') else ""))
         sha = _git(key, body)
 
+    # WHEN it landed. `created_at` is when it was STAGED, and the two are hours apart in practice
+    # (v5 was staged twice before a working apply), so a reader asking "when did this ontology
+    # publish?" cannot answer it from created_at. `updated_at` moves on every status change and would
+    # be overwritten the moment the row is superseded, so the moment is written into the report too.
+    applied_at = datetime.datetime.now(datetime.timezone.utc)
     _audit_row(staged_id, key, actor, "applied", note="installed",
                report={"compile": final_compile, "gates_ok": final_gates.get("ok"),
-                       "git_commit": sha, "gates_text": final_gates.get("text", "")[-6000:]},
+                       "git_commit": sha, "applied_at": applied_at.isoformat(),
+                       "gates_text": final_gates.get("text", "")[-6000:]},
                git_commit=sha)
     shutil.rmtree(staging, ignore_errors=True)
 
@@ -393,6 +400,7 @@ def apply(staged_id: str, *, actor: str | None = None, confirmed: bool = False,
     # 4. the running workbench keeps serving old code until it reloads
     reload_note = reload_workbench(key)
     return {"ok": True, "staged_id": staged_id, "key": key, "git_commit": sha,
+            "applied_at": applied_at.isoformat(),
             "workbench_reloaded": reload_note == "", "reload_note": reload_note,
             "report": {"compile": final_compile, "gates_ok": final_gates.get("ok"),
                        "gates_fails": final_gates.get("fails", []),
@@ -718,7 +726,8 @@ def _audit_list(staged_id: str | None = None, limit: int = 50) -> list[dict]:
         try:
             from sqlalchemy import text
 
-            sql = "SELECT id, key, actor, status, note, report, git_commit, created_at FROM ontology_publishes"
+            sql = ("SELECT id, key, actor, status, note, report, git_commit, created_at, updated_at "
+                   "FROM ontology_publishes")
             params: dict = {}
             if staged_id:
                 sql += " WHERE id = :id"
@@ -728,9 +737,16 @@ def _audit_list(staged_id: str | None = None, limit: int = 50) -> list[dict]:
             rows = db.execute(text(sql), params).fetchall()
             out = []
             for r in rows:
+                rep = r[5] if isinstance(r[5], dict) else {}
+                staged_at = r[7].isoformat() if r[7] else None
+                updated_at = r[8].isoformat() if r[8] else None
+                # an apply is the only status change that means "this is now what readers get"
+                # only a landed publish has an apply time: a reverted one never became what readers get
+                applied_at = (rep.get("applied_at") or updated_at) if r[3] == "applied" else None
                 out.append({"id": r[0], "key": r[1], "actor": r[2], "status": r[3],
-                            "note": r[4], "report": r[5], "git_commit": r[6],
-                            "created_at": r[7].isoformat() if r[7] else None})
+                            "note": r[4], "report": rep, "git_commit": r[6],
+                            "created_at": staged_at, "staged_at": staged_at,
+                            "updated_at": updated_at, "applied_at": applied_at})
             return out
         finally:
             db.close()

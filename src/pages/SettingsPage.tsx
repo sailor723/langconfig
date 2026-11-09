@@ -1800,6 +1800,19 @@ interface PublishRow {
   report: any
   git_commit: string | null
   created_at: string | null
+  /** when it was STAGED (== created_at) and when it was INSTALLED — hours apart in practice */
+  staged_at?: string | null
+  applied_at?: string | null
+  updated_at?: string | null
+}
+
+/** `11-09 14:32` — a publish time is read at a glance, so the year is noise and seconds are not. */
+function stamp(iso?: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const p2 = (n: number) => String(n).padStart(2, '0')
+  return `${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`
 }
 
 /**
@@ -1847,7 +1860,7 @@ function PublishPanel() {
       const d = res.data || {}
       setMsg({
         ok: true,
-        text: `installed ${id} · commit ${d.git_commit || '(none)'} · workbench ${d.workbench_reloaded ? 'reloaded' : `NOT reloaded (${d.reload_note || 'unknown'})`}`,
+        text: `installed ${id} at ${stamp(d.applied_at) || 'now'} · commit ${d.git_commit || '(none)'} · workbench ${d.workbench_reloaded ? 'reloaded' : `NOT reloaded (${d.reload_note || 'unknown'})`}`,
       })
       setArmed(null)
     } catch (e: any) {
@@ -1953,7 +1966,7 @@ function PublishPanel() {
 
             {row.note && <div style={{ fontSize: 12, lineHeight: '18px', color: tok.labelSecondary ?? tok.labelPrimary }}>{row.note}</div>}
             <div style={{ fontSize: 11.5, color: tok.labelTertiary }}>
-              {row.actor || 'unknown'} · {row.created_at ? new Date(row.created_at).toLocaleString() : ''}
+              {row.actor || 'unknown'} · staged {row.staged_at || row.created_at ? new Date(row.staged_at || row.created_at!).toLocaleString() : '?'}
               {(rep.files || []).length ? ` · ${(rep.files || []).length} file(s)` : ''}
             </div>
 
@@ -2086,7 +2099,11 @@ function PublishPanel() {
           </span>
           {showHistory && past.map(r => (
             <div key={r.id} style={{ fontSize: 11.5, fontFamily: mono, color: tok.labelTertiary }}>
-              {r.status} · {r.key} · {r.id}{r.git_commit ? ` · ${r.git_commit.slice(0, 7)}` : ''} · {r.actor || '?'}
+              {r.status} · {r.key} · {stamp(r.status === 'applied' ? r.applied_at : r.updated_at || r.created_at)}
+              {' · '}{r.id}{r.git_commit ? ` · ${r.git_commit.slice(0, 7)}` : ''} · {r.actor || '?'}
+              {r.status === 'applied' && r.staged_at && r.applied_at && (
+                <span style={{ opacity: 0.75 }}>{`  (staged ${stamp(r.staged_at)})`}</span>
+              )}
             </div>
           ))}
         </div>

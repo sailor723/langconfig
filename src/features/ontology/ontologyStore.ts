@@ -66,6 +66,9 @@ export interface OntologyProfile {
   enabled?: boolean;
   /** ISO time of the newest declaration file — what "sort by time" means. */
   modifiedAt?: string | null;
+  /** ISO time this ontology was last PUBLISHED (from the ledger), and by whom. */
+  publishedAt?: string | null;
+  publishedBy?: string | null;
 }
 
 /**
@@ -308,9 +311,19 @@ function mergeInstalled(decided: OntologyProfile[], installed: any[]): OntologyP
   const when = new Map<string, string | null>(
     (installed || []).map(row => [String(row?.key || ''), row?.modified_at ?? null]),
   );
+  // The publish time is a DIFFERENT fact from a file mtime: a hand edit moves the mtime, a publish
+  // moves both. "When did this ontology go out?" is the ledger's answer, so it is carried separately.
+  const published = new Map<string, { at: string | null; by: string | null }>(
+    (installed || []).map(row => [String(row?.key || ''),
+                                  { at: row?.published_at ?? null, by: row?.published_by ?? null }]),
+  );
   const merged: OntologyProfile[] = [];
   // A roster row is a DECISION about an installed ontology; its time still comes from the files.
-  for (const p of decided) merged.push({ ...p, modifiedAt: when.get(p.key) ?? p.modifiedAt ?? null });
+  for (const p of decided) {
+    const pub = published.get(p.key);
+    merged.push({ ...p, modifiedAt: when.get(p.key) ?? p.modifiedAt ?? null,
+                  publishedAt: pub?.at ?? null, publishedBy: pub?.by ?? null });
+  }
   for (const row of installed || []) {
     const key = String(row?.key || '');
     if (!key || byKey.has(key)) continue;                      // already listed (and possibly relabelled)
@@ -322,6 +335,8 @@ function mergeInstalled(decided: OntologyProfile[], installed: any[]): OntologyP
       note: row.installed ? 'installed · appears automatically (no roster entry)' : null,
       enabled: true,
       modifiedAt: row.modified_at ?? null,
+      publishedAt: row.published_at ?? null,
+      publishedBy: row.published_by ?? null,
     });
   }
   return merged;

@@ -183,6 +183,13 @@ export default function OntologyHomePage() {
               <div style={{ fontSize: 11.5, color: t.textDim, fontFamily: 'ui-monospace, Menlo, monospace' }}>
                 {p.profile || p.key}
               </div>
+              {/* WHEN this ontology last published — from the ledger, not from a file mtime: the file
+                  moves on any edit, the publish is the event a reader is actually asking about. */}
+              <div style={{ fontSize: 11.5, color: t.textMuted }}>
+                {p.publishedAt
+                  ? `发布 ${new Date(p.publishedAt).toLocaleString()}${p.publishedBy ? ` · ${p.publishedBy}` : ''}`
+                  : '未发布（还没有一次 apply 落到这个本体上）'}
+              </div>
               <div style={{ fontSize: 12.5, color: t.textMuted, lineHeight: 1.6 }}>{p.note}</div>
 
               {up && c ? (

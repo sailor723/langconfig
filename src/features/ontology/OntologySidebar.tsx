@@ -28,6 +28,15 @@ const SECTION_ICON: Record<string, any> = {
 
 const ORDER_KEY = 'langconfig.ontology.order';
 
+/** `11-09 14:32` — when this ontology last went out. Seconds are noise; the date is not. */
+function shortStamp(iso?: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const p2 = (n: number) => String(n).padStart(2, '0');
+  return `${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+}
+
 /** Newest declared change first; an ontology with no timestamp sorts last, never first. */
 function byTime(a: { modifiedAt?: string | null }, b: { modifiedAt?: string | null }) {
   const ta = a.modifiedAt ? Date.parse(a.modifiedAt) : -Infinity;
@@ -221,6 +230,14 @@ export default function OntologySidebar() {
               </div>
               <div style={{ fontSize: 11, color: t.textDim, marginTop: 2, lineHeight: 1.45 }}>
                 {p.profile || p.key}
+              </div>
+              {/* WHEN it last published. The line above moves whenever a file is touched (a build
+                  writes, a hand edit saves), so it cannot answer "when did this go out?" — the ledger
+                  can, and that is what a reader comparing two ontologies wants next to the name. */}
+              <div style={{ fontSize: 10.5, marginTop: 1, lineHeight: 1.4, color: t.textDim }}>
+                {p.publishedAt
+                  ? <>发布 {shortStamp(p.publishedAt)}{p.publishedBy ? ` · ${p.publishedBy}` : ''}</>
+                  : <span style={{ opacity: 0.75 }}>未发布</span>}
               </div>
               {/* The sections of the OPEN ontology. The framed page carries no rail of its own; this
                   list is the navigation, and it lives under the ontology it belongs to. A hovered row
