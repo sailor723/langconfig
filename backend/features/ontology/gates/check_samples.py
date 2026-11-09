@@ -52,6 +52,38 @@ nl = None  # imported in main()
 OK = True
 
 
+def _same_unit(got, want, tol: float = 1e-9, scale=None) -> bool:
+    """Equal in the declared unit OR in the raw one — `:scale` is presentation, not arithmetic."""
+    if _same(got, want, tol):
+        return True
+    if not scale or got is None:
+        return False
+    try:
+        return _same(float(got) / float(scale), want, tol)
+    except (TypeError, ValueError):
+        return False
+
+
+def _declared_scale(metric_name: str):
+    """The `:scale` the declaration gives a metric, or None.
+
+    The ask payload does not carry it (it carries the scaled VALUE and a note), so the frozen
+    expectation in `samples.json` — written in the raw unit — could never match a metric that declares
+    `:scale "100.0"` for presentation. Measured on v5: adding `:scale` to four rate metrics (the fix
+    that made its board print percentages) turned four samples red with `got 94.59, want 0.9459`.
+    """
+    if not metric_name:
+        return None
+    try:
+        import sqlgen  # noqa: PLC0415  (already imported by the time samples run)
+        g = sqlgen.load()
+        raw = g.value(sqlgen.P(metric_name), sqlgen.P("scale"))
+        return float(raw) if raw is not None else None
+    except Exception:                                            # noqa: BLE001
+        return None
+
+
+
 def check(label: str, got, want) -> None:
     global OK
     state = "PASS" if got == want else "FAIL"
@@ -215,9 +247,20 @@ def main() -> int:
             check(f"{question!r} resolves to :{expect['metric']}", intent_name, expect["metric"])
         result = out.get("result") or {}
         if "value" in expect:
+            # A frozen expectation may be written in the RAW unit while the metric declares a `:scale`
+            # that presents it in another (0.9459 vs 94.59 %). Both are the same number; failing the
+            # declaration for it measures the units, not the arithmetic. Measured on v5: adding
+            # `:scale "100.0"` to four rate metrics — the fix that made its board print percentages —
+            # turned four samples red with `got 94.59, want 0.9459`.
             got = result.get("value")
-            check(f"{question!r} value", expect["value"] if _same(got, expect["value"], tol) else got,
-                  expect["value"])
+            scale = result.get("scale") or _declared_scale(out.get("metric") or intent_name)
+            ok = _same(got, expect["value"], tol)
+            if not ok and scale:
+                try:
+                    ok = _same(float(got) / float(scale), expect["value"], tol) if got is not None else False
+                except (TypeError, ValueError):
+                    ok = False
+            check(f"{question!r} value", expect["value"] if ok else got, expect["value"])
         if expect.get("route"):
             # the SECOND route is run NOW, not remembered
             try:
@@ -228,21 +271,29 @@ def main() -> int:
             if len(route_rows) == 1 and len(route_rows[0]) == 1:
                 want = route_rows[0][0]
                 got = result.get("value")
-                check(f"{question!r} value == the hand SQL", got if _same(got, want, tol) else got,
-                      want)
+                scale = result.get("scale") or _declared_scale(out.get("metric") or intent_name)
+                ok = _same(got, want, tol)
+                if not ok and scale:
+                    try:
+                        ok = _same(float(got) / float(scale), want, tol) if got is not None else False
+                    except (TypeError, ValueError):
+                        ok = False
+                check(f"{question!r} value == the hand SQL", want if ok else got, want)
             else:
                 want_rows = {str(r[0]): "" if r[1] is None else str(r[1]) for r in route_rows}
                 got_rows = _rows_of(result)
+                scale = result.get("scale") or _declared_scale(out.get("metric") or intent_name)
                 same = set(got_rows) == set(want_rows) and all(
-                    _same(got_rows[k], want_rows[k], tol) for k in want_rows)
+                    _same_unit(got_rows[k], want_rows[k], tol, scale) for k in want_rows)
                 check(f"{question!r} rows == the hand SQL ({len(want_rows)} group(s))",
                       "match" if same else got_rows, "match")
             continue
         if "rows" in expect:
             got_rows = _rows_of(result)
             want_rows = {str(k): str(v) for k, v in (expect["rows"] or {}).items()}
+            scale = _declared_scale(out.get("metric") or intent_name)
             same = set(got_rows) == set(want_rows) and all(
-                _same(got_rows[k], want_rows[k], tol) for k in want_rows)
+                _same_unit(got_rows[k], want_rows[k], tol, scale) for k in want_rows)
             check(f"{question!r} rows ({len(want_rows)} group(s))", "match" if same else got_rows, "match")
             print(f"        [WARN] this expectation is a FROZEN number map — declare a \"route\" SQL "
                   f"instead so the gate compares two derivations at run time, not to last month's number")
