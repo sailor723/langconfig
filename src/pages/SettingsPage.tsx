@@ -1858,9 +1858,13 @@ function PublishPanel() {
     try {
       const res = await apiClient.post(`/api/ontology/publish/${id}/apply`, { confirmed: true })
       const d = res.data || {}
+      // A commit that FAILED used to read as "commit (none)" — indistinguishable from git switched off.
+      // Measured on the deployment: every apply since v4 failed with "Author identity unknown" and the
+      // ontology's files just piled up staged in the repo. Say it out loud instead.
+      const git = d.git_commit ? `commit ${d.git_commit}` : `NOT committed${d.git_error ? `: ${d.git_error}` : ''}`
       setMsg({
-        ok: true,
-        text: `installed ${id} at ${stamp(d.applied_at) || 'now'} · commit ${d.git_commit || '(none)'} · workbench ${d.workbench_reloaded ? 'reloaded' : `NOT reloaded (${d.reload_note || 'unknown'})`}`,
+        ok: !d.git_error,
+        text: `installed ${id} at ${stamp(d.applied_at) || 'now'} · ${git} · workbench ${d.workbench_reloaded ? 'reloaded' : `NOT reloaded (${d.reload_note || 'unknown'})`}`,
       })
       setArmed(null)
     } catch (e: any) {
@@ -2103,6 +2107,11 @@ function PublishPanel() {
               {' · '}{r.id}{r.git_commit ? ` · ${r.git_commit.slice(0, 7)}` : ''} · {r.actor || '?'}
               {r.status === 'applied' && r.staged_at && r.applied_at && (
                 <span style={{ opacity: 0.75 }}>{`  (staged ${stamp(r.staged_at)})`}</span>
+              )}
+              {r.status === 'applied' && !r.git_commit && (
+                <span style={{ color: tok.error }} title={r.report?.git_error || 'git commit did not run'}>
+                  {'  · not committed'}
+                </span>
               )}
             </div>
           ))}

@@ -193,8 +193,14 @@ def _compile_report(profile_path: pathlib.Path) -> dict:
         return {"error": f"{type(exc).__name__}: {exc}"}
 
 
-def _git(key: str, message: str) -> str | None:
-    """Commit the ontology directory. Returns the short sha, or None when git is off."""
+def _git(key: str, message: str) -> tuple[str | None, str | None]:
+    """Commit the ontology directory. Returns (short sha, error) — one of them is always None.
+
+    It used to return a bare sha/None, so a commit that FAILED looked exactly like a publish made
+    with git switched off. Measured on the deployment: every apply since v4 logged "Author identity
+    unknown" in the journal, recorded `git_commit: null`, and still read as a clean publish — while
+    the ontology's files piled up STAGED in the repo. The error now travels with the result.
+    """
     try:
         # A publish keeps its staging and backup under the ontology dir; committing those
         # would put a second copy of every file in history (measured on the first publish:
@@ -211,14 +217,15 @@ def _git(key: str, message: str) -> str | None:
         p = subprocess.run(["git", "-C", str(app_repo), "commit", "-m", message],
                            capture_output=True, text=True, timeout=120)
         if p.returncode != 0:
-            logger.warning("git commit for %s failed: %s", key, (p.stderr or "").strip()[:200])
-            return None
+            err = " ".join(((p.stdout or "") + " " + (p.stderr or "")).split())[:300]
+            logger.warning("git commit for %s failed: %s", key, err)
+            return None, (err or f"git commit exited {p.returncode}")
         sha = subprocess.run(["git", "-C", str(app_repo), "rev-parse", "--short", "HEAD"],
                              capture_output=True, text=True, timeout=30).stdout.strip()
-        return sha or None
+        return (sha or None), None
     except Exception as exc:                                    # noqa: BLE001
         logger.warning("git commit for %s failed: %s", key, exc)
-        return None
+        return None, str(exc)
 
 
 # ─────────────────────────────────────────────────────────────── stage
@@ -367,23 +374,26 @@ def apply(staged_id: str, *, actor: str | None = None, confirmed: bool = False,
         return {"ok": False, "error": "post-install gates failed; reverted byte-for-byte",
                 "report": final_gates}
 
-    sha = None
+    sha, git_error = None, None
     if git_commit:
         body = (f"ontology({key}): publish {staged_id}\n\n"
                 f"metrics {final_compile.get('compiled', 0)} compiled, "
                 f"{len(final_compile.get('refused', []))} refused by name; gates: "
                 f"{'PASS' if final_gates.get('ok') else 'FAIL'}"
                 + (f"; not run: {len(final_gates.get('not_run', []))}" if final_gates.get('not_run') else ""))
-        sha = _git(key, body)
+        sha, git_error = _git(key, body)
 
     # WHEN it landed. `created_at` is when it was STAGED, and the two are hours apart in practice
     # (v5 was staged twice before a working apply), so a reader asking "when did this ontology
     # publish?" cannot answer it from created_at. `updated_at` moves on every status change and would
     # be overwritten the moment the row is superseded, so the moment is written into the report too.
     applied_at = datetime.datetime.now(datetime.timezone.utc)
-    _audit_row(staged_id, key, actor, "applied", note="installed",
+    _audit_row(staged_id, key, actor, "applied",
+               note=("installed" if not git_error
+                     else f"installed, NOT committed: {git_error}"),
                report={"compile": final_compile, "gates_ok": final_gates.get("ok"),
-                       "git_commit": sha, "applied_at": applied_at.isoformat(),
+                       "git_commit": sha, "git_error": git_error,
+                       "applied_at": applied_at.isoformat(),
                        "gates_text": final_gates.get("text", "")[-6000:]},
                git_commit=sha)
     shutil.rmtree(staging, ignore_errors=True)
@@ -400,6 +410,7 @@ def apply(staged_id: str, *, actor: str | None = None, confirmed: bool = False,
     # 4. the running workbench keeps serving old code until it reloads
     reload_note = reload_workbench(key)
     return {"ok": True, "staged_id": staged_id, "key": key, "git_commit": sha,
+            "git_error": git_error,
             "applied_at": applied_at.isoformat(),
             "workbench_reloaded": reload_note == "", "reload_note": reload_note,
             "report": {"compile": final_compile, "gates_ok": final_gates.get("ok"),
