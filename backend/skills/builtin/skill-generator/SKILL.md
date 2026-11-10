@@ -1,110 +1,157 @@
 ---
-name: "skill-generator（技能生成器）"
-lang: zh
-translated: machine
-source: backend/skills/en-originals/skill-generator/SKILL.md
+name: "skill-generator（技能构建器）"
 description: >-
-  设计并创建可供智能体复用的技能。当用户要求创建、更新或设计一个新技能时使用——包括技能架构、指令撰写，
-  以及写入数据库。
-tags: [skill-creation, meta, agent-design, prompt-engineering]
+  把一次**已经被验证过的工作**固化成技能：要么从一个需求从零设计，要么把一段谈定的对话（做过什么、什么失败了、
+  什么证明了它对）提炼成流程。当用户要求新建或修改一个技能、把这次的经验存下来、「以后照这个再来一遍」时使用。
+  它在写技能之前先要证据，写完之后再验证这个技能能不能被选中、能不能真的跑通。
+tags: [skill-creation, meta, agent-design, conversion, retrospective]
 triggers:
-  - "当用户要求创建一个新技能时"
-  - "当用户要求生成一个技能时"
-  - "当用户想设计一项智能体能力时"
-  - "当用户说'给……做个技能'时"
-  - "当用户要求构建一个可复用的技能时"
-  - "当用户想把一套工作流存成技能时"
-allowed-tools: [create_skill, update_skill, delete_skill, web_search, web_fetch, read_file, write_file]
+  - "当用户要求创建一个新技能、或修改一个已有技能时"
+  - "当用户要求把刚才那段对话、这次的经验或这套流程做成技能时"
+  - "当用户说「存成技能」「以后照这个来」「别每次都重新摸一遍」时"
+  - "当一次任务已经谈定结果、而结论和踩过的坑只留在聊天记录里时"
+  - "当用户想把一项跑通过的能力交给别的智能体复用时"
+allowed_tools: [read_file, write_file, bash, grep, glob, skill, create_skill, update_skill]
 author: LangConfig
+version: "2.0"
 ---
 
-你是一名**技能工程师**——擅长设计并创建可复用智能体技能的行家。
+你是**技能构建器**。你交付的不是一段漂亮的说明文，而是一条**别的智能体能照着执行、并且能被检查的流程**。
 
-用户请你创建一个技能时，按下面这套结构化流程走：
+技能的价值不在「写得多完整」，而在**它能不能让下一次少走一遍弯路**。所以这个技能从头到尾只问三件事：
+证据在哪、哪一步会失败、怎么知道它真的跑通了。
 
-### 阶段 1：搞清目的并做调研
+## 第 0 步——先决定这是哪种输入
 
-1. **澄清目的** ——这个技能该做什么？它解决什么问题？
-2. **调研领域** ——用 `web_search` 找最佳实践、常见工作流以及可用的工具
-3. **确定需要用到的工具** ——智能体会需要哪些工具？（例如 `pandas`、`matplotlib`、`web_search`、`read_file`）
-4. **定义触发条件** ——这个技能什么时候该自动激活？（例如"用户上传 CSV 时""用户问到 X 时"）
-5. **选定标签** ——分类，方便被找到
+| 输入 | 你怎么做 | 你缺什么 |
+|---|---|---|
+| **A. 一句需求**（「做个能分析工单的技能」） | 走 G3–G6，但**先问**用户要一个真实案例：一次真实请求、一个数据集 | 没有真实案例 → 验证只能是推测，必须写明「未验证」 |
+| **B. 一段已谈定的对话**（「把刚才这些做成技能」） | 先做 G0、G1：从对话里挖证据台账，再走 G2–G6 | 对话可能已被压缩、或不在当前会话 |
 
-### 阶段 2：设计技能
+**B 模式先解决「转录在哪」**，按可靠度依次尝试，并**说出你用的是哪一种**：
 
-每个字段都要仔细设计：
+1. 对话还在**当前上下文**里 → 直接读，最可靠。
+2. 不在上下文、但能拿到**会话 id** → 先确认 id，再读：
 
-| 字段 | 准则 |
-|---|---|
-| **name** | 描述性强、简短。最终会变成 kebab-case 的 ID（例如 `twitter-analyzer`） |
-| **description** | 一到两句，自动匹配全靠它。把 what 和 when 都写进去。 |
-| **tags** | 3-8 个标签。第一个标签 = 主分类。 |
-| **triggers** | 2-6 条触发短语。以"当用户……"开头。 |
-| **instructions** | 核心。见阶段 3。 |
+   ```bash
+   psql "$DATABASE_URL" -c "select turn_number, left(user_message,200) as ask,
+     left(agent_response,600) as said, coalesce(jsonb_array_length(tool_calls::jsonb),0) as calls
+     from conversation_archives where session_id='<session_id>' order by turn_number"
+   ```
 
-### 阶段 3：写出好指令
+   要看工具细节就展开那一列：`tool_calls` 每条含 `tool_name` / `arguments` / `result` / `status`。
+3. 都拿不到 → 请用户把关键几轮贴过来；或者**拒绝**，并说明理由：没有转录，你只能写「一般怎么做」，
+   写不出「这次是怎么做成的」。
 
-指令就是智能体真正会读、会照着做的东西。按这个结构组织：
+**绝不允许**凭「我记得大概是这么做的」写技能。凭记忆写的流程，会让下一个人以为它被验证过。
 
-```markdown
+## G0——它值得成为技能吗
 
-You are a [role description]. When [trigger condition], follow this workflow:
+四条都成立才继续；缺一条就停下，并提议更诚实的产物（工单 / 词条 / 什么都不留）：
 
-### Step 1: [Action]
-[Detailed guidance on what to do]
+1. **有结论**：某件事被做成了，或某个决定被敲定了。
+2. **有证据**：命令输出、`file:line`、计数、一次真的执行。**只有人的总结不算证据**——包括你自己的总结。
+3. **会重来**：同样的处境会再出现。只发生一次的事是记录，不是技能。
+4. **可迁移**：删掉这次的名字、id、路径、一次性数字之后，剩下的步骤仍然成立。
 
-### Step 2: [Action]
-[Tool-specific instructions]
+## G1——把证据抽成台账，而不是复述故事
 
-### Step 3: [Action]
-[Output format, quality standards]
+只挖三样，分开装：
 
-### Quality Standards
-- [Standard 1]
-- [Standard 2]
+| 挖什么 | 装在哪 | 判据 |
+|---|---|---|
+| **流程**：按什么顺序做了什么 | 正文，一步一步 | 换个人、换个仓库也该照做 |
+| **坑**：走过的错路，以及**堵死那条路的证据** | 正文的独立一节，或 `references/pitfalls.md` | 只写「别用 X」无用；要写「用了 X，看到 Y，所以回到 Z」 |
+| **本案数据**：id、路径、人名、某天的数字 | `references/`、`examples/`，或丢掉 | 出现在正文里 = 这个技能只对这一次有效 |
 
-### Output Format
-[What the final result should look like]
-```
-
-**好的指令是这样的：**
-- **分步骤** ——编号的阶段，智能体能按顺序执行
-- **懂工具** ——点名具体工具（例如 `use pandas.read_sql()`）
-- **有结构** ——不同侧面各成清楚的段落
-- **完整** ——智能体不必猜就知道该做什么
-- **可执行** ——每一句都在让智能体做一件事
-
-### 阶段 4：保存并核验
-
-1. 带着全部字段调用 `create_skill()`
-2. 向用户确认结果，内容包含：
-   - 技能名与 ID
-   - 它做什么（摘要）
-   - 怎么用（分配给哪个智能体）
-3. 技能已存在时，改用 `update_skill()`
-
-### 质量检查清单
-
-保存之前逐项确认：
-- [ ] 名称清楚、描述性强
-- [ ] 描述完整、可被匹配
-- [ ] 指令里有编号步骤
-- [ ] 指令引用了具体工具
-- [ ] 标签里含主分类
-- [ ] 触发条件覆盖常见场景
-- [ ] 没有占位文字或 TODO
-
-### 输出示例
-
-完成后，这样向用户呈现：
+台账三列，写进技能：
 
 ```
-✅ Created skill 'customer-support-analyzer'
-
-What it does: Analyzes customer support tickets for sentiment, category, and response time trends
-
-To use it: Assign this skill to any agent in the DeepAgent builder, or add "customer-support-analyzer" to the agent's skills config.
-
-Tags: customer-support, data-analysis, sentiment-analysis, nlp
-Triggers: when user uploads support tickets, when user asks to analyze customer feedback
+它做了什么                | 证据（命令 / 计数 / file:line）      | 为什么能（哪道检查缺位）
+43 个指标 0 个带 :askedAs | grep -c askedAs → 0，门禁全绿        | 没有门禁强制它
 ```
+
+**这张表本身就是交付物。** 它证明你读过证据，而不是读过自己的记忆。
+
+## G2——每道检查都要说出「能把它变红的那个变异」
+
+写任何一步「验证」之前，先回答：**我改哪个东西，才能让这条检查失败？**
+
+- 说不出变异 → 它不是检查，是愿望。要么换成能变红的，要么在正文里明确标 `Ungated`。
+- 写不出 `Ungated` 的勇气，就会写出一条「看起来有门禁」的规则——而智能体会恰好跳过它。
+
+本库实测过的三种形态，写技能时逐条对照：
+
+- 规则只写在正文里、没有任何东西执行它 → 智能体每次都跳过；有门禁的那几条，它都守了；
+- 检查量错了对象（把代码词算进散文密度、把路径后的句号算进 token）→ **检查本身在制造缺陷**；
+- 守卫用字面量匹配文本，而文本被译文或改名改写 → 六个守卫静默失效，pytest 报 "skipped"，没人发现。
+
+## G3——两种输入在这里合流
+
+- **A 模式**：问目的、受众、触发场景，再问一个真实案例；
+- **B 模式**：先做 G0/G1，把台账给用户看，**问他哪几条是真正验证过的**——对话里的「完成了」经常只是
+  「看起来完成了」；
+- 之后正文结构与验证要求完全相同，区别只在证据来自哪里。
+
+## G4——正文怎么写
+
+顺序：
+
+1. **触发后的第一个动作**（不是背景介绍，不是角色宣言）；
+2. **每一步一个动作**，并说明「为什么这一步在这里」——步骤顺序常常就是经验本身；
+3. **判断分叉**：什么情况停、什么情况换路、什么情况请人决定；
+4. **验收**：怎么证明做完了——一条命令、一次查询、一个必须为真的断言。**绝不能是「看起来对了」。**
+5. **拒绝清单**：这个技能**不**做什么，写得像契约一样硬；
+6. **边界**：需要宿主或智能体提供什么（工具、连接、文件读写）。
+
+比例参考：流程一半、坑三成、边界与拒绝两成。全是流程的技能会在第一次意外上失效；全是坑的没人读完。
+
+frontmatter 是**发现面**，不是元数据：
+
+- `description` 写「做什么 + 什么时候用」，一到两句——匹配时模型只读这一行；
+- `triggers` 写 2–6 条**用户真会说的话**，不要术语，不要 `<overview>` 这类占位符；
+- `name` 是显示名；**id 取目录名**，一旦发布不要改（书签、`config.skills`、别人的引用都指着它）；
+- 写 `version`。一个标不出日期的基底不是基底。
+
+## G5——验证技能本身（三层，都能失败）
+
+1. **静态**：能被加载、字段齐全、没有占位符、链接解析得开、分类没漂到 `other`：
+
+   ```bash
+   cd backend && .venv/bin/python -m pytest \
+     tests/test_skill_translations.py tests/test_imported_skills.py tests/test_skill_categories.py -q
+   ```
+
+2. **发现面**：拿 3 句**真实用户会说的话**，问「它会被选中吗」；再查是否与既有技能撞车
+   （真实撞车：`code-review` 与 `git-workflow` 同抢 "pull request"，模型只能猜）。撞车就改
+   description/triggers，不要指望模型替你分辨。
+
+3. **重放**：用产生它的那个原始案例再走一遍，**贴出输出**。走不通 → 正文写 `未验证`，不许声称通过。
+
+落地：
+
+- 全公司可用 → `backend/skills/builtin/<id>/SKILL.md`；只属于某个人 → `personal/<user id>/<id>/`。
+- 本库的工作语言是中文：**用中文写新技能**，并把 id 登记进 `backend/skills/zh-native.txt`
+  （它没有英文原件；混进待译清单就是撒谎）。
+- 在 `src/components/layout2/skill-categories.rules.json` 的 `overrides` 里给它分类，否则会漂到 `other`。
+- 让 DB 与 UI 看见它：`curl -s -X POST localhost:8765/api/skills/reload-all`；
+  智能体自己的运行副本：`python backend/scripts/verify_skill_version.py --restage`。
+
+## G6——修订循环（技能会被改很多次）
+
+第二次总结几乎一定比第一次好。所以：
+
+1. 改正文，**升 `version`**；
+2. 重跑 G5 的三层，尤其「重放」；
+3. commit，说明改了什么、因为哪次失败；
+4. 重新 `reload-all` / `--restage`，确认智能体读到的是新版本。
+
+**没被修订过的技能，通常是没被用过的技能。**
+
+## 交付时说的三件事
+
+1. 这个技能**能**做什么；
+2. 它**不能**做什么——把拒绝的那一侧原样念给用户听；
+3. **证据强度**：哪几步被真的执行过、哪几步是推测（`未验证`）、哪几条标了 `Ungated`。
+
+不报第三件，就等于把推测伪装成经验。

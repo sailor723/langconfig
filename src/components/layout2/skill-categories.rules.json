@@ -1,143 +1,143 @@
 {
- "version": 1,
- "note": "Single source of truth for the Skills activity's taxonomy; backend/tests/test_skill_categories.py loads this file and maps every SKILL.md through the same rule order, so a new skill without a category fails a test instead of appearing under 'other'.",
- "categories": [
-  {
-   "id": "requirements",
-   "label": "Requirements & planning",
-   "blurb": "settle what is being built before building it: grill, spec, tickets, implement, hand off"
+  "version": 1,
+  "note": "Single source of truth for the Skills activity's taxonomy; backend/tests/test_skill_categories.py loads this file and maps every SKILL.md through the same rule order, so a new skill without a category fails a test instead of appearing under 'other'.",
+  "categories": [
+    {
+      "id": "requirements",
+      "label": "Requirements & planning",
+      "blurb": "settle what is being built before building it: grill, spec, tickets, implement, hand off"
+    },
+    {
+      "id": "quality",
+      "label": "Review & verification",
+      "blurb": "prove the work: code review, tests, debugging, validation, security"
+    },
+    {
+      "id": "code",
+      "label": "Codebase & setup",
+      "blurb": "how the repository is shaped and kept: architecture, git, scaffolding, migrations"
+    },
+    {
+      "id": "agents",
+      "label": "Agent building",
+      "blurb": "agents, skills, tools, graph workflows and the LangConfig builder itself"
+    },
+    {
+      "id": "ontology",
+      "label": "Ontology",
+      "blurb": "declare, edit and answer from the semantic layer — metrics with gates"
+    },
+    {
+      "id": "data",
+      "label": "Data & SQL",
+      "blurb": "profiling, querying, analysis mechanics"
+    },
+    {
+      "id": "research",
+      "label": "Research & intake",
+      "blurb": "gather and triage material: web, documents, tickets, reports"
+    },
+    {
+      "id": "documents",
+      "label": "Writing & deliverables",
+      "blurb": "turn findings into something a reader can hold: decks, docs, reports, prose"
+    },
+    {
+      "id": "ecosystem",
+      "label": "LangChain ecosystem",
+      "blurb": "the vendor's own skills: LangChain, LangGraph, Deep Agents, evaluation"
+    },
+    {
+      "id": "other",
+      "label": "Other",
+      "blurb": "kept, but outside these groups"
+    }
+  ],
+  "rules": {
+    "prefix": {
+      "lc-": "ecosystem"
+    }
   },
-  {
-   "id": "quality",
-   "label": "Review & verification",
-   "blurb": "prove the work: code review, tests, debugging, validation, security"
-  },
-  {
-   "id": "code",
-   "label": "Codebase & setup",
-   "blurb": "how the repository is shaped and kept: architecture, git, scaffolding, migrations"
-  },
-  {
-   "id": "agents",
-   "label": "Agent building",
-   "blurb": "agents, skills, tools, graph workflows and the LangConfig builder itself"
-  },
-  {
-   "id": "ontology",
-   "label": "Ontology",
-   "blurb": "declare, edit and answer from the semantic layer — metrics with gates"
-  },
-  {
-   "id": "data",
-   "label": "Data & SQL",
-   "blurb": "profiling, querying, analysis mechanics"
-  },
-  {
-   "id": "research",
-   "label": "Research & intake",
-   "blurb": "gather and triage material: web, documents, tickets, reports"
-  },
-  {
-   "id": "documents",
-   "label": "Writing & deliverables",
-   "blurb": "turn findings into something a reader can hold: decks, docs, reports, prose"
-  },
-  {
-   "id": "ecosystem",
-   "label": "LangChain ecosystem",
-   "blurb": "the vendor's own skills: LangChain, LangGraph, Deep Agents, evaluation"
-  },
-  {
-   "id": "other",
-   "label": "Other",
-   "blurb": "kept, but outside these groups"
+  "overrides": {
+    "agent-builder": "agents",
+    "agent-to-skill": "agents",
+    "answer-ontology-question": "ontology",
+    "ask-matt": "requirements",
+    "bug-report-analyzer": "research",
+    "build-ontology-dashboard": "ontology",
+    "build-ontology-from-db": "ontology",
+    "changelog-generator": "documents",
+    "chief-of-staff": "code",
+    "claude-handoff": "requirements",
+    "code-review": "quality",
+    "codebase-design": "code",
+    "data-analysis": "data",
+    "data-analysis-llm": "data",
+    "debugging": "quality",
+    "diagnosing-bugs": "quality",
+    "document-deliverables": "documents",
+    "documentation": "documents",
+    "domain-modeling": "requirements",
+    "edit-ontology-metrics": "ontology",
+    "friendly-weather-greeter": "other",
+    "frontend-design": "code",
+    "generate-mock-dataset": "data",
+    "git-guardrails-claude-code": "code",
+    "git-workflow": "code",
+    "grill-me": "requirements",
+    "grill-with-docs": "requirements",
+    "grilling": "requirements",
+    "handoff": "requirements",
+    "implement": "requirements",
+    "implement-spec": "requirements",
+    "improve-codebase-architecture": "code",
+    "langchain-agents": "agents",
+    "langconfig-builder": "agents",
+    "langgraph-workflows": "agents",
+    "loop-me": "requirements",
+    "market-wizard": "research",
+    "mcp-builder": "agents",
+    "migrate-to-shoehorn": "code",
+    "pdf-chat-assistant": "documents",
+    "pr": "quality",
+    "presentation-pipeline-builder": "agents",
+    "presentation-skills": "documents",
+    "prototype": "code",
+    "python-testing": "quality",
+    "report-generator": "documents",
+    "research": "research",
+    "research-execution": "research",
+    "research-pipeline-builder": "agents",
+    "research-planner": "research",
+    "research-skills": "agents",
+    "retro": "requirements",
+    "scaffold-exercises": "code",
+    "security-review": "quality",
+    "setup-matt-pocock-skills": "code",
+    "setup-pre-commit": "code",
+    "setup-ts-deep-modules": "code",
+    "skill-generator": "agents",
+    "software-factory": "code",
+    "sql-analyst": "data",
+    "tdd": "quality",
+    "teach": "documents",
+    "text-summarizer": "data",
+    "ticket-classifier": "research",
+    "to-questionnaire": "requirements",
+    "to-spec": "requirements",
+    "to-tickets": "requirements",
+    "to-validation": "quality",
+    "tool-analyzer": "research",
+    "triage": "requirements",
+    "wait-what": "requirements",
+    "wayfinder": "requirements",
+    "web-content-analyzer": "research",
+    "web-search": "research",
+    "webapp-testing": "quality",
+    "wizard": "code",
+    "writing-beats": "documents",
+    "writing-for-agents": "documents",
+    "writing-fragments": "documents",
+    "writing-shape": "documents"
   }
- ],
- "rules": {
-  "prefix": {
-   "lc-": "ecosystem"
-  }
- },
- "overrides": {
-  "agent-builder": "agents",
-  "agent-to-skill": "agents",
-  "answer-ontology-question": "ontology",
-  "ask-matt": "requirements",
-  "bug-report-analyzer": "research",
-  "build-ontology-dashboard": "ontology",
-  "build-ontology-from-db": "ontology",
-  "changelog-generator": "documents",
-  "chief-of-staff": "code",
-  "claude-handoff": "requirements",
-  "code-review": "quality",
-  "codebase-design": "code",
-  "data-analysis": "data",
-  "data-analysis-llm": "data",
-  "debugging": "quality",
-  "diagnosing-bugs": "quality",
-  "document-deliverables": "documents",
-  "documentation": "documents",
-  "domain-modeling": "requirements",
-  "edit-ontology-metrics": "ontology",
-  "friendly-weather-greeter": "other",
-  "frontend-design": "code",
-  "generate-mock-dataset": "data",
-  "git-guardrails-claude-code": "code",
-  "git-workflow": "code",
-  "grill-me": "requirements",
-  "grill-with-docs": "requirements",
-  "grilling": "requirements",
-  "handoff": "requirements",
-  "implement": "requirements",
-  "implement-spec": "requirements",
-  "improve-codebase-architecture": "code",
-  "langchain-agents": "agents",
-  "langconfig-builder": "agents",
-  "langgraph-workflows": "agents",
-  "loop-me": "requirements",
-  "market-wizard": "research",
-  "mcp-builder": "agents",
-  "migrate-to-shoehorn": "code",
-  "pdf-chat-assistant": "documents",
-  "pr": "quality",
-  "presentation-pipeline-builder": "agents",
-  "presentation-skills": "documents",
-  "prototype": "code",
-  "python-testing": "quality",
-  "report-generator": "documents",
-  "research": "research",
-  "research-execution": "research",
-  "research-pipeline-builder": "agents",
-  "research-planner": "research",
-  "research-skills": "agents",
-  "retro": "requirements",
-  "scaffold-exercises": "code",
-  "security-review": "quality",
-  "setup-matt-pocock-skills": "code",
-  "setup-pre-commit": "code",
-  "setup-ts-deep-modules": "code",
-  "skill-generator": "agents",
-  "software-factory": "code",
-  "sql-analyst": "data",
-  "tdd": "quality",
-  "teach": "documents",
-  "text-summarizer": "data",
-  "ticket-classifier": "research",
-  "to-questionnaire": "requirements",
-  "to-spec": "requirements",
-  "to-tickets": "requirements",
-  "to-validation": "quality",
-  "tool-analyzer": "research",
-  "triage": "requirements",
-  "wait-what": "requirements",
-  "wayfinder": "requirements",
-  "web-content-analyzer": "research",
-  "web-search": "research",
-  "webapp-testing": "quality",
-  "wizard": "code",
-  "writing-beats": "documents",
-  "writing-for-agents": "documents",
-  "writing-fragments": "documents",
-  "writing-shape": "documents"
- }
 }
