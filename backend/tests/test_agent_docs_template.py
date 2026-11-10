@@ -258,6 +258,28 @@ def test_the_boundary_rule_is_absent_only_without_a_workspace():
     assert "workspace boundary" not in build_identity_system_prompt("BASE", 7, "", {})
 
 
+def test_the_boundary_rule_allows_only_a_named_exception():
+    """The rule says "only tree", and a coding agent legitimately needs the host repo.
+
+    Rewriting the rule to "you may reach outside when you need to" would hand every
+    agent a wider default; instead the block acknowledges exactly one kind of
+    exception — one named in the agent's own AGENTS.md — and keeps the account rule
+    absolute. Guards the two halves so neither can be dropped quietly.
+    """
+    from core.agents.identity import workspace_boundary_block
+
+    block = workspace_boundary_block("/tmp/ws/users/1/agents/agent_372")
+
+    # The default stays narrow: workspace only.
+    assert "It is the **only** tree you may read" in block
+    # The sanctioned escape hatch exists, and it is narrow by construction.
+    assert "your AGENTS.md) name an exception explicitly" in block
+    assert "Silence is not an" in block
+    # The account rule is not an "exception"; it survives every wording change.
+    assert "belongs to someone else" in block
+    assert "refuse" in block.lower()
+
+
 def test_the_caller_block_points_at_the_concrete_tree():
     """A rule with no path in it is advice; the person's own tree makes it checkable."""
     from core.agents.identity import caller_block

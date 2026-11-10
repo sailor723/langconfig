@@ -32,6 +32,26 @@ logger = logging.getLogger(__name__)
 # carries the "/api/chat" prefix (FastAPI would otherwise stack prefixes).
 router = APIRouter(tags=["chat"])
 
+# Workspace top-level folders that the platform stages on every run, so their
+# contents are not something the agent "generated". `skills/` holds one directory
+# per enabled skill (a SKILL.md plus support files), and listing it buried the
+# user's own output: measured on a coding-agent session, 246 of the 249 rows in
+# `GET /{session_id}/generated-files` were staged skill files and the report the
+# user asked for was the third row. The Files panel is the only place a
+# non-technical user sees what an agent produced, so it must not be a mirror of
+# the skill library.
+EXCLUDED_WORKSPACE_FOLDERS = frozenset({"skills"})
+
+
+def _is_excluded_workspace_path(rel_parts) -> bool:
+    """True when a workspace-relative path lives under a platform-staged folder.
+
+    ``rel_parts`` is the sequence of path components *below* its scan root, so the
+    last component (the file itself) is not considered — a user's own file named
+    ``skills-report.md`` stays visible, while everything under ``skills/`` goes.
+    """
+    return any(part in EXCLUDED_WORKSPACE_FOLDERS for part in rel_parts[:-1])
+
 
 def _resolve_agent_workspace(session, db, ws_mgr):
     """Resolve the agent workspace root from the DB, scoped to the vault.
@@ -618,6 +638,9 @@ async def list_session_generated_files(
     where all of the agent's files — uploads and generated output — now
     live. Legacy roots (standalone chat workspace + default) are scanned
     for sessions created before this workspace layout existed.
+
+    Platform-staged folders (``EXCLUDED_WORKSPACE_FOLDERS``) are never
+    listed: the skill library is an installation, not an output.
     """
     from datetime import datetime
     from pathlib import Path
@@ -660,9 +683,10 @@ async def list_session_generated_files(
     # ── Primary root: the agent's own workspace. No time-window heuristic
     #    needed — every file here belongs to this agent. Instruction docs
     #    (AGENTS.md / CLAUDE.md) are not generated output, so they are
-    #    excluded. Each file is tagged with its top-level workspace folder
-    #    (generated/ · upload/ · skills/ · other/) so the UI can render a
-    #    cascading (nested) view instead of one flat list.
+    #    excluded, and so is the staged skill library (`skills/`, see
+    #    EXCLUDED_WORKSPACE_FOLDERS). Each file is tagged with its top-level
+    #    workspace folder (generated/ · upload/ · other/) so the UI can render
+    #    a cascading (nested) view instead of one flat list.
     if session.agent_id:
         agent_workspace = _resolve_agent_workspace(session, db, workspace_mgr)
         if agent_workspace.is_dir():
@@ -672,6 +696,8 @@ async def list_session_generated_files(
                 if p.name in ("AGENTS.md", "CLAUDE.md", ".gitkeep"):
                     continue
                 rel = p.relative_to(agent_workspace)
+                if _is_excluded_workspace_path(rel.parts):
+                    continue
                 # Top-level folder of the workspace (relative path first part,
                 # falling back to the workspace root itself).
                 folder = rel.parts[0] if len(rel.parts) > 1 else "workspace"
@@ -709,8 +735,10 @@ async def list_session_generated_files(
             candidate = file_path if file_path.is_absolute() else root / file_path
             candidate = candidate.resolve()
             try:
-                candidate.relative_to(root.resolve())
+                rel = candidate.relative_to(root.resolve())
             except ValueError:
+                continue
+            if _is_excluded_workspace_path(rel.parts):
                 continue
             if candidate.is_file():
                 add_file(candidate)
@@ -725,6 +753,12 @@ async def list_session_generated_files(
             try:
                 for p in root.rglob("*"):
                     if not p.is_file() or "__pycache__" in p.parts:
+                        continue
+                    try:
+                        rel = p.relative_to(root)
+                    except ValueError:
+                        continue
+                    if _is_excluded_workspace_path(rel.parts):
                         continue
                     try:
                         mtime = datetime.fromtimestamp(p.stat().st_mtime, tz=timezone.utc)

@@ -164,8 +164,9 @@ def test_legacy_roots_still_scoped_to_session(tmp_path):
 
 def test_folder_separation_uploads_excluded_generated_included(tmp_path):
     """Files are tagged with their workspace folder (generated/ · upload/ ·
-    skills/ · other/ · workspace root) for the cascading view; the instruction
-    docs (AGENTS.md / CLAUDE.md) are not listed."""
+    other/ · workspace root) for the cascading view; the instruction docs
+    (AGENTS.md / CLAUDE.md) are not listed, and neither is the staged skill
+    library (`skills/`)."""
     agent_dir = tmp_path / "agents" / "agent_9"
     gen_dir = agent_dir / "generated"
     kb_dir = agent_dir / "upload"
@@ -204,11 +205,75 @@ def test_folder_separation_uploads_excluded_generated_included(tmp_path):
         "legacy_note.md",
         "upload.pdf",
         "data.csv",
-        "SKILL.md",
     }
     by_name = {f["filename"]: f for f in result["files"]}
     assert by_name["industry_report.md"]["folder"] == "generated"
     assert by_name["upload.pdf"]["folder"] == "upload"
     assert by_name["data.csv"]["folder"] == "upload"
-    assert by_name["SKILL.md"]["folder"] == "skills"
     assert by_name["legacy_note.md"]["folder"] == "workspace"
+
+
+def test_staged_skill_library_never_listed(tmp_path):
+    """`skills/` is installed with the platform, not produced by the agent.
+
+    Measured on the coding-agent session that motivated this: 246 of 249 rows
+    were staged skill files (113 SKILL.md + 133 support files) and the report
+    the user asked for was the third row, so the panel was unreadable. No path
+    under a staged folder may ever come back, at any depth.
+    """
+    agent_dir = tmp_path / "agents" / "agent_11"
+    generated = agent_dir / "generated" / "nested"
+    generated.mkdir(parents=True)
+    (generated / "real_deliverable.md").write_text("the actual answer", encoding="utf-8")
+
+    # A realistic slice of the staging layout: builtin + personal sources, each
+    # skill a directory with a manifest and support files.
+    for source in ("builtin", "personal"):
+        for i in range(3):
+            skill_dir = agent_dir / "skills" / source / f"skill-{i}"
+            (skill_dir / "references").mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text("# skill", encoding="utf-8")
+            (skill_dir / "references" / "notes.md").write_text("notes", encoding="utf-8")
+            (skill_dir / "run.py").write_text("print(1)", encoding="utf-8")
+
+    session = _make_session(agent_id=11)
+    db = _FakeDB(session)
+    manager = _FakeWorkspaceManager(tmp_path)
+
+    async def run():
+        with patch(
+            "services.workspace_manager.get_workspace_manager",
+            return_value=manager,
+        ):
+            return await list_session_generated_files("session-1", db)
+
+    result = asyncio.run(run())
+
+    # The guard: not one returned path may sit under a staged folder.
+    assert [f for f in result["files"] if "skills/" in f["path"] + "/"] == []
+    assert {f["filename"] for f in result["files"]} == {"real_deliverable.md"}
+    assert result["total_files"] == 1
+
+
+def test_file_named_like_a_staged_folder_stays_visible(tmp_path):
+    """Only the *folder* is staged — a user file whose name merely starts with
+    `skills` is still the agent's own output and must not vanish."""
+    agent_dir = tmp_path / "agents" / "agent_12"
+    agent_dir.mkdir(parents=True)
+    (agent_dir / "skills-report.md").write_text("mine", encoding="utf-8")
+    (agent_dir / "skills").mkdir(parents=True, exist_ok=True)
+    (agent_dir / "skills" / "readme.md").write_text("staged", encoding="utf-8")
+
+    session = _make_session(agent_id=12)
+    db = _FakeDB(session)
+    manager = _FakeWorkspaceManager(tmp_path)
+
+    async def run():
+        with patch(
+            "services.workspace_manager.get_workspace_manager",
+            return_value=manager,
+        ):
+            return await list_session_generated_files("session-1", db)
+
+    result = asyncio.run(run())
+    assert {f["filename"] for f in result["files"]} == {"skills-report.md"}

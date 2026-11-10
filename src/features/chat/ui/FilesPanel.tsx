@@ -93,8 +93,11 @@ export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
     }
     try {
       const response = await apiClient.get(`/api/chat/${sessionId}/generated-files`);
-      const files = Array.isArray(response.data?.files) ? response.data.files : [];
-      setGeneratedFiles(files);
+      const files: GeneratedFile[] = Array.isArray(response.data?.files) ? response.data.files : [];
+      // `skills/` is the platform-staged skill library, not the agent's output —
+      // the backend drops it too. This filter keeps it out if an older API
+      // build answers, so the panel never becomes a mirror of the catalogue.
+      setGeneratedFiles(files.filter(f => f.folder !== 'skills'));
     } catch (error) {
       console.error('Failed to load generated files:', error);
     }
@@ -116,9 +119,10 @@ export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
   };
 
   // Cascading (nested) view: group files by their workspace folder
-  // (generated/ · upload/ · skills/ · other/ · workspace).
+  // (generated/ · upload/ · other/ · workspace). The staged skill library
+  // (`skills/`) is not an agent output, so it never reaches this list.
   const folders = useMemo(() => {
-    const order = ['generated', 'upload', 'skills', 'other', 'workspace'];
+    const order = ['generated', 'upload', 'other', 'workspace'];
     const map = new Map<string, GeneratedFile[]>();
     for (const f of generatedFiles) {
       const key = f.folder || 'workspace';

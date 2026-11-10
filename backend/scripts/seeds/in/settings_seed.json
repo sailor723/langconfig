@@ -182,9 +182,16 @@
   },
   "models": {},
   "ontology": {
-    "_note": "url is vestigial: every page is served by this app at /api/ontology/{key}/page/…, so a row's identity is its key. It was the workbench port when each ontology ran on its own process — left cleared so the roster cannot claim a port that no longer exists (see scripts/seeds/in/normalize_ontology_roster_urls.py).",
-    "default_key": "clinic",
+    "default_key": "new_coldchain_v6",
     "items": [
+      {
+        "enabled": true,
+        "key": "new_coldchain_v6",
+        "label": "ABC 冷链运输本体（v6）",
+        "note": null,
+        "profile": "new_coldchain_v6/new_coldchain_v6_settings.json",
+        "url": ""
+      },
       {
         "enabled": true,
         "key": "clinic",
@@ -223,14 +230,6 @@
         "label": "Logistics (cold chain)",
         "note": "built by DeepAgent 349 from abc_coldchain — 配送/站点/理赔 11 tables",
         "profile": "logistics/logistics_settings.json",
-        "url": ""
-      },
-      {
-        "enabled": true,
-        "key": "new_coldchain",
-        "label": "ABC 冷链 · new_coldchain",
-        "note": "built by the Ontology Builder from the brief — 18 objects / 28 metrics, 并线前后对比（v1 2.7% / v2 75.4% 按重量超载）",
-        "profile": "new_coldchain/new_coldchain_settings.json",
         "url": ""
       }
     ],
