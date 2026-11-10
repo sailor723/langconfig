@@ -1,18 +1,24 @@
 ---
-name: "build-ontology-dashboard（搭建本体仪表盘）"
+name: build-ontology-dashboard（搭建本体仪表盘）
 lang: zh
 translated: machine
 source: backend/skills/en-originals/build-ontology-dashboard/SKILL.md
-description: "本体需要一个仪表盘时使用——一份声明（dashboard.json）说明每个面板展示哪一个编译出的指标，一段只引用编译数字的开场评估，需要排版能力的图表（sankey/bubble/treemap），以及在服务端重新编译的交叉筛选；本技能走的是让看板保持诚实的那个顺序（声明 → 编译 → 护栏 → 门禁 → 之后才轮到页面），并且拒绝让面板发明一个本体没有声明的数字。"
-tags: [ontology, dashboard, semantic-layer, metrics, sql, gating]
+description: 本体需要一个仪表盘时使用——一份声明（dashboard.json）说明每个面板展示哪一个编译出的指标，一段只引用编译数字的开场评估，需要排版能力的图表（sankey/bubble/treemap），以及在服务端重新编译的交叉筛选；本技能走的是让看板保持诚实的那个顺序（声明
+  → 编译 → 护栏 → 门禁 → 之后才轮到页面），并且拒绝让面板发明一个本体没有声明的数字。
+tags:
+- ontology
+- dashboard
+- semantic-layer
+- metrics
+- sql
+- gating
 triggers:
-  - "本体需要一个仪表盘或经营看板时"
-  - "面板上的数字追溯不到编译结果时"
-version: 1.0
+- 本体需要一个仪表盘或经营看板、或要扩建一个既有看板时
+- 面板上的数字追溯不到它引用的那条声明时
+- 面板之间需要交叉筛选、而这个筛选不能由前端猜出来时
+- 开场评估里的数字不能和它谈到的数字走偏时
 author: weiping
-
-# 把技能对准一个本体。仪表盘就是 `<profile dir>/dashboard.json`；不需要别的信息就能知道它在哪，
-# 所以文件缺失本身就是一个真实的答案（"这个本体没有仪表盘"）。
+version: 1.0
 params:
   ontology_key:
     label: 本体
@@ -22,7 +28,7 @@ params:
     label: profile 文件名
     description: 该文件夹里的工作台 profile
     required: false
-    default: "{ontology_key}_settings.json"
+    default: '{ontology_key}_settings.json'
 ---
 
 # 搭建本体仪表盘

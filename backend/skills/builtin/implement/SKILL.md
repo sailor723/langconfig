@@ -1,11 +1,26 @@
 ---
 name: Implement（按规格实现）
 lang: zh
-translated: human
+translated: machine
 source: backend/skills/en-originals/implement/SKILL.md
-description: >-
-  按规格或一组工单实现一块工作：先读规格与工单图，能测试就先测试，反复跑类型检查与单文件测试，收尾跑一次全量，
-  然后调 code-review 评审，最后提交到当前分支。
+description: 按规格或一组工单实现一块工作：先读规格与工单图，能测试就先测试，反复跑类型检查与单文件测试，收尾跑一次全量， 然后调 code-review 评审，最后提交到当前分支。
+tags:
+- implement
+- mattpocock
+- requirements
+- planning
+triggers:
+- 被要求实现用户所说、写在规格或工单里的那块工作时
+allowed_tools:
+- read_file
+- grep
+- glob
+- write_file
+- edit_file
+- bash
+- skill
+author: mattpocock (MIT), adapted for LangConfig
+version: '1.0'
 ---
 
 ## Instructions（指令）

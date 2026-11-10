@@ -263,3 +263,27 @@ def test_a_pending_skill_really_is_english(skill_id: str):
     assert cjk < 200 or cjk < latin * 0.15, (
         f"{skill_id} reads as Chinese ({cjk} CJK against {latin} English words) but is listed as pending — "
         "move it out of pending-zh.txt so the structure and parity checks start applying to it")
+
+
+@pytest.mark.parametrize("skill_id", sorted(_archived()), ids=str)
+def test_the_frontmatter_keeps_every_key_the_original_had(skill_id: str):
+    """A translation may rewrite prose; it may not drop a field other code reads.
+
+    Found by an independent reviewer, in five skills: the hand-translated frontmatters kept only
+    `name`/`lang`/`translated`/`source`/`description`. What went missing was `tags` (the taxonomy),
+    `triggers` (the discovery cues the matcher reads), `allowed_tools` (the `**Allowed Tools:**` line in the
+    agent prompt), `author`/`version` (the MIT attribution), and `params` — and `params` is not decorative:
+    `core/skills/params.py` binds its values and renders "these are the values your skills are pointed at, do
+    not re-derive them". `to-tickets` was telling the reader to read `spec_path` while nothing declared it, so
+    the one input the whole skill gates on had no value and no default.
+
+    The three keys a translation adds are excluded from the comparison.
+    """
+    added = {"lang", "translated", "source"}
+    en = _frontmatter(ARCHIVE / skill_id / "SKILL.md")
+    zh = _frontmatter(BUILTIN / skill_id / "SKILL.md")
+    missing = sorted(set(en) - set(zh) - added)
+    assert not missing, (
+        f"{skill_id}: the original frontmatter has {missing} and the Chinese does not — those fields are read "
+        "by code (tags by the taxonomy, triggers by the matcher, allowed_tools by the prompt, params by "
+        "core/skills/params.py), not by readers")

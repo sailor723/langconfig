@@ -1,23 +1,28 @@
 ---
-name: "Git Guardrails Claude Code"
-description: "Set up Claude Code hooks to block dangerous git commands (push, reset --hard, clean, branch -D, etc.) before they execute. Use when user wants to prevent destructive git operations, add git safety hooks, or block git push/reset in Claude Code."
+name: Git Guardrails Claude Code
+description: Set up Claude Code hooks to block dangerous git commands (push, reset --hard, clean, branch
+  -D, etc.) before they execute. Use when user wants to prevent destructive git operations, add git safety
+  hooks, or block git push/reset in Claude Code.
 tags:
-  - "git"
-  - "guardrails"
-  - "claude"
-  - "code"
-  - "mattpocock"
+- git
+- guardrails
+- claude
+- code
+- mattpocock
 triggers:
-  - "User wants to prevent destructive git operations, add git safety hooks, or block git push/reset in claude code"
+- User wants to prevent destructive git operations, add git safety hooks, or block git push/reset in claude
+  code
+- User wants to prevent destructive git operations, add git safety hooks, or block git push/reset in Claude
+  Code
 allowed_tools:
-  - "read_file"
-  - "grep"
-  - "glob"
-  - "write_file"
-  - "edit_file"
-  - "bash"
-author: "mattpocock (MIT), adapted for LangConfig"
-version: "1.0"
+- read_file
+- grep
+- glob
+- write_file
+- edit_file
+- bash
+author: mattpocock (MIT), adapted for LangConfig
+version: '1.0'
 ---
 
 ## Instructions

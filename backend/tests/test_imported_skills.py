@@ -203,7 +203,9 @@ def test_allowed_tools_is_a_list_of_tool_names(path: pathlib.Path):
             assert isinstance(item, str) and re.fullmatch(r"[a-z][a-z0-9_]*", item), (
                 f"{path.parent.name}: `{key}` contains {item!r}, which is not a tool name — a serialisation "
                 "slip turns the prompt line into noise")
-        fragments = [s for s in value if s in {"[", '"', ","} or len(s) <= 2]
+        # `ls` is a two-letter tool name, so the length test that catches a per-character split also
+        # convicted a real tool. Only punctuation that no tool name contains is a fragment.
+        fragments = [s for s in value if s in {"[", "]", '"', ",", " ", "w", "e", "b"}]
         assert not fragments, (
             f"{path.parent.name}: `{key}` looks like a serialised string split per character: {value[:8]}")
 

@@ -1,27 +1,27 @@
 ---
-name: "Tdd（测试驱动开发）"
+name: Tdd（测试驱动开发）
 lang: zh
 translated: machine
 source: backend/skills/en-originals/tdd/SKILL.md
-description: >-
-  测试驱动开发。当用户想以测试先行的方式构建功能或修 bug、提到“red-green-refactor”，或想要集成测试时使用。
+description: 测试驱动开发。当用户想以测试先行的方式构建功能或修 bug、提到“red-green-refactor”，或想要集成测试时使用。
 tags:
-  - "tdd"
-  - "mattpocock"
-  - "testing"
-  - "debugging"
+- tdd
+- mattpocock
+- testing
+- debugging
 triggers:
-  - "用户想以测试先行的方式构建功能或修 bug、提到“red-green-refactor”，或想要集成测试"
+- 用户想以测试先行的方式构建功能或修 bug 时
+- 用户提到 red-green-refactor，或想要一个**先失败**的集成测试时
 allowed_tools:
-  - "read_file"
-  - "grep"
-  - "glob"
-  - "write_file"
-  - "edit_file"
-  - "bash"
-  - "skill"
-author: "mattpocock (MIT), adapted for LangConfig"
-version: "1.0"
+- read_file
+- grep
+- glob
+- write_file
+- edit_file
+- bash
+- skill
+author: mattpocock (MIT), adapted for LangConfig
+version: '1.0'
 ---
 
 ## Instructions（指令）

@@ -3,23 +3,24 @@ name: Claude Handoff（移交给 Claude 后台智能体）
 lang: zh
 translated: machine
 source: backend/skills/en-originals/claude-handoff/SKILL.md
-description: "把当前对话移交给一个全新的后台智能体，由它立刻接手这项工作。"
+description: 把当前对话移交给一个全新的后台智能体，由它立刻接手这项工作。
 tags:
-  - "claude"
-  - "handoff"
-  - "mattpocock"
+- claude
+- handoff
+- mattpocock
 triggers:
-  - "当被要求写一份当前对话的移交文档，好让一个全新的后台智能体接着干时；文档要存到临时目录"
+- 当被要求写一份当前对话的移交文档，好让一个全新的后台智能体接着干时
+- 当这份移交需要存到临时目录时
 allowed_tools:
-  - "read_file"
-  - "grep"
-  - "glob"
-  - "write_file"
-  - "edit_file"
-  - "task"
-  - "skill"
-author: "mattpocock (MIT), adapted for LangConfig"
-version: "1.0"
+- read_file
+- grep
+- glob
+- write_file
+- edit_file
+- task
+- skill
+author: mattpocock (MIT), adapted for LangConfig
+version: '1.0'
 ---
 
 > **出处。** 改编自 `mattpocock/skills → skills/in-progress/claude-handoff`（MIT，收录于

@@ -1,23 +1,26 @@
 ---
-name: "Loop Me"
-description: "Grill me about specs for the workflows I want to build, within this workspace."
+name: Loop Me
+description: Grill me about specs for the workflows I want to build, within this workspace.
 tags:
-  - "loop"
-  - "me"
-  - "mattpocock"
-  - "requirements"
+- loop
+- me
+- mattpocock
+- requirements
 triggers:
-  - "When asked to run a stateful the `grilling` skill session whose only output is **workflow** specs. Use the gri"
+- When asked to run a stateful the `grilling` skill session whose only output is **workflow** specs. Use
+  the gri
+- When a workflow idea is vague and should be interrogated into a **workflow** spec, the only output being
+  that spec
 allowed_tools:
-  - "read_file"
-  - "grep"
-  - "glob"
-  - "write_file"
-  - "edit_file"
-  - "bash"
-  - "skill"
-author: "mattpocock (MIT), adapted for LangConfig"
-version: "1.0"
+- read_file
+- grep
+- glob
+- write_file
+- edit_file
+- bash
+- skill
+author: mattpocock (MIT), adapted for LangConfig
+version: '1.0'
 ---
 
 ## Instructions

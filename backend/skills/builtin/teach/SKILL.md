@@ -1,25 +1,26 @@
 ---
-name: "Teach（教学）"
+name: Teach（教学）
 lang: zh
 translated: machine
 source: backend/skills/en-originals/teach/SKILL.md
-description: "在本工作区里，教用户一项新技能或一个新概念。"
+description: 在本工作区里，教用户一项新技能或一个新概念。
 tags:
-  - "teach"
-  - "mattpocock"
-  - "skills"
+- teach
+- mattpocock
+- skills
 triggers:
-  - "用户请你教他们某样东西时。这是一个有状态的请求——他们打算跨多次会话一直学下去"
+- 用户请你教他们某样东西时
+- 这个请求是有状态的——他们打算跨多次会话一直学下去时
 allowed_tools:
-  - "read_file"
-  - "grep"
-  - "glob"
-  - "write_file"
-  - "edit_file"
-  - "bash"
-  - "skill"
-author: "mattpocock (MIT), adapted for LangConfig"
-version: "1.0"
+- read_file
+- grep
+- glob
+- write_file
+- edit_file
+- bash
+- skill
+author: mattpocock (MIT), adapted for LangConfig
+version: '1.0'
 ---
 
 ## Instructions（指令）

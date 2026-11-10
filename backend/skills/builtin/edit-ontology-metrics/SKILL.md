@@ -1,17 +1,24 @@
 ---
-name: "edit-ontology-metrics（修改本体指标）"
+name: edit-ontology-metrics（修改本体指标）
 lang: zh
 translated: machine
 source: backend/skills/en-originals/edit-ontology-metrics/SKILL.md
-description: "被要求改动一个已经存在的本体时使用——新增或修正一个指标、改变某个数字的含义、重命名一个属性、调整护栏配置或样例——而不是从数据库搭一个新的。它打开已安装本体的一个副本，只改拥有这次变更的那一个文件，用第二条 SQL 路径验证数字，然后通过发布通道交回来（只做暂存；由人来应用）。"
-tags: [ontology, semantic-layer, metrics, edit, gates, publish]
+description: 被要求改动一个已经存在的本体时使用——新增或修正一个指标、改变某个数字的含义、重命名一个属性、调整护栏配置或样例——而不是从数据库搭一个新的。它打开已安装本体的一个副本，只改拥有这次变更的那一个文件，用第二条
+  SQL 路径验证数字，然后通过发布通道交回来（只做暂存；由人来应用）。
+tags:
+- ontology
+- semantic-layer
+- metrics
+- edit
+- gates
+- publish
 triggers:
-  - "被要求新增、修改、修正或删除一个既有本体里的指标时"
-  - "「这个数字不对 / 没有 / 不是我们要的」而它是本体定义的指标时"
-  - "要调整护栏配置、样例或属性名时"
-version: 1.0
+- 被要求新增、修改、修正或删除一个既有本体里的指标时
+- 「这个数字不对 / 没有 / 不是我们要的」而它是本体定义的指标时
+- 一个问题本该答得出来、编译器却拒绝时
+- 要给本体换标签、加别名或重新教它（labels、样例、教程）时
 author: weiping
-
+version: 1.0
 params:
   ontology_key:
     label: 本体
@@ -19,10 +26,9 @@ params:
     required: true
   repo:
     label: 本体仓库
-    description: 可选——本体学习用镜像所在的位置。不设置表示使用本应用自己的
-      feature（backend/features/ontology），编译器、门禁和 profile 都在那里。
+    description: 可选——本体学习用镜像所在的位置。不设置表示使用本应用自己的 feature（backend/features/ontology），编译器、门禁和 profile 都在那里。
     required: false
-    default: ""
+    default: ''
 ---
 
 # 修改一个已经存在的本体

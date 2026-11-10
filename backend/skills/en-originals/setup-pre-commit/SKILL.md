@@ -1,23 +1,26 @@
 ---
-name: "Setup Pre Commit"
-description: "Set up Husky pre-commit hooks with lint-staged (Prettier), type checking, and tests in the current repo. Use when user wants to add pre-commit hooks, set up Husky, configure lint-staged, or add commit-time formatting/typechecking/testing."
+name: Setup Pre Commit
+description: Set up Husky pre-commit hooks with lint-staged (Prettier), type checking, and tests in the
+  current repo. Use when user wants to add pre-commit hooks, set up Husky, configure lint-staged, or add
+  commit-time formatting/typechecking/testing.
 tags:
-  - "setup"
-  - "pre"
-  - "commit"
-  - "mattpocock"
-  - "testing"
+- setup
+- pre
+- commit
+- mattpocock
+- testing
 triggers:
-  - "User wants to add pre-commit hooks, set up husky, configure lint-staged, or add commit-time formatting/typeche"
+- User wants to add pre-commit hooks, set up husky, configure lint-staged, or add commit-time formatting/typeche
+- User wants commit-time formatting, type-checking or tests to run automatically on commit
 allowed_tools:
-  - "read_file"
-  - "grep"
-  - "glob"
-  - "write_file"
-  - "edit_file"
-  - "bash"
-author: "mattpocock (MIT), adapted for LangConfig"
-version: "1.0"
+- read_file
+- grep
+- glob
+- write_file
+- edit_file
+- bash
+author: mattpocock (MIT), adapted for LangConfig
+version: '1.0'
 ---
 
 ## Instructions

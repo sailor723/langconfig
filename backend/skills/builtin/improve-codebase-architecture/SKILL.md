@@ -1,27 +1,28 @@
 ---
-name: "Improve Codebase Architecture（改进代码库架构）"
+name: Improve Codebase Architecture（改进代码库架构）
 lang: zh
 translated: machine
 source: backend/skills/en-originals/improve-codebase-architecture/SKILL.md
-description: "扫描代码库，找出加深机会，把它们做成一份可视化的 HTML 报告，然后把你选中的那一个反复推敲到底。"
+description: 扫描代码库，找出加深机会，把它们做成一份可视化的 HTML 报告，然后把你选中的那一个反复推敲到底。
 tags:
-  - "improve"
-  - "codebase"
-  - "architecture"
-  - "mattpocock"
+- improve
+- codebase
+- architecture
+- mattpocock
 triggers:
-  - "当被要求暴露架构摩擦并提出**加深机会**——也就是把浅模块变成深模块的重构——时"
+- 当被要求暴露架构摩擦并提出**加深机会**时
+- 当浅模块应该变成深模块时
 allowed_tools:
-  - "read_file"
-  - "grep"
-  - "glob"
-  - "write_file"
-  - "edit_file"
-  - "bash"
-  - "task"
-  - "skill"
-author: "mattpocock (MIT), adapted for LangConfig"
-version: "1.0"
+- read_file
+- grep
+- glob
+- write_file
+- edit_file
+- bash
+- task
+- skill
+author: mattpocock (MIT), adapted for LangConfig
+version: '1.0'
 ---
 
 ## Instructions（指令）

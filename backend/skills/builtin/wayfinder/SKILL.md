@@ -1,28 +1,27 @@
 ---
-name: "Wayfinder（探路者）"
+name: Wayfinder（探路者）
 lang: zh
 translated: machine
 source: backend/skills/en-originals/wayfinder/SKILL.md
-description: >-
-  把一大块工作（大到超过一个智能体会话所能容纳的量）规划成问题追踪器上的一张共享地图，地图由决策工单组成，
-  然后一次解掉一张，直到通往目的地的路已经清楚。
+description: 把一大块工作（大到超过一个智能体会话所能容纳的量）规划成问题追踪器上的一张共享地图，地图由决策工单组成， 然后一次解掉一张，直到通往目的地的路已经清楚。
 tags:
-  - "wayfinder"
-  - "mattpocock"
-  - "planning"
+- wayfinder
+- mattpocock
+- planning
 triggers:
-  - "当上来的是一个松散的想法、它大到单个智能体会话装不下、还裹在迷雾里时：从这里到目的地的路还看不见"
+- 当上来的是一个松散的想法、它大到单个智能体会话装不下、还裹在迷雾里时
+- 当从这里到目的地的路还看不见时
 allowed_tools:
-  - "read_file"
-  - "grep"
-  - "glob"
-  - "write_file"
-  - "edit_file"
-  - "bash"
-  - "task"
-  - "skill"
-author: "mattpocock (MIT), adapted for LangConfig"
-version: "1.0"
+- read_file
+- grep
+- glob
+- write_file
+- edit_file
+- bash
+- task
+- skill
+author: mattpocock (MIT), adapted for LangConfig
+version: '1.0'
 ---
 
 ## Instructions（指令）

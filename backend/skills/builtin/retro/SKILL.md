@@ -1,25 +1,26 @@
 ---
-name: "Retro（复盘）"
+name: Retro（复盘）
 lang: zh
 translated: machine
 source: backend/skills/en-originals/retro/SKILL.md
-description: "对一次编码会话做复盘。"
+description: 对一次编码会话做复盘。
 tags:
-  - "retro"
-  - "mattpocock"
-  - "requirements"
+- retro
+- mattpocock
+- requirements
 triggers:
-  - "当被要求做一次**复盘**：你在为编码智能体的运行环境提出改进，让以后的运行更好"
+- 当被要求做一次**复盘**时
+- 当在为编码智能体的运行环境提改进、让以后的运行更好时
 allowed_tools:
-  - "read_file"
-  - "grep"
-  - "glob"
-  - "write_file"
-  - "edit_file"
-  - "bash"
-  - "skill"
-author: "mattpocock (MIT), adapted for LangConfig"
-version: "1.0"
+- read_file
+- grep
+- glob
+- write_file
+- edit_file
+- bash
+- skill
+author: mattpocock (MIT), adapted for LangConfig
+version: '1.0'
 ---
 
 ## Instructions（指令）

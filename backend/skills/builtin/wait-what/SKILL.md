@@ -1,21 +1,22 @@
 ---
-name: "Wait What（等等，什么？）"
-description: "停。上一条消息没传达到：重新讲一遍。"
-tags:
-  - "wait"
-  - "what"
-  - "mattpocock"
-triggers:
-  - "当被告知等一等——我不明白你这里说到哪儿了，要求重新讲一遍、先给一点上文的背景时"
-allowed_tools:
-  - "read_file"
-  - "grep"
-  - "glob"
-author: "mattpocock (MIT), adapted for LangConfig"
-version: "1.0"
+name: Wait What（等等，什么？）
 lang: zh
 translated: machine
 source: backend/skills/en-originals/wait-what/SKILL.md
+description: 停。上一条消息没传达到：重新讲一遍。
+tags:
+- wait
+- what
+- mattpocock
+triggers:
+- 当被告知等一等——听的人跟丢了，需要把上下文重新讲一遍时
+- 当重新解释应该从稍早一点的背景讲起时
+allowed_tools:
+- read_file
+- grep
+- glob
+author: mattpocock (MIT), adapted for LangConfig
+version: '1.0'
 ---
 
 > **来源。** 改编自 `mattpocock/skills → skills/productivity/wait-what`（MIT，取自 `vendor/upstream-skills/mattpocock/skills/productivity/wait-what/SKILL.md`）。

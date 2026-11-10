@@ -1,29 +1,28 @@
 ---
-name: "Git Guardrails Claude Code（Git 安全护栏 · Claude Code）"
+name: Git Guardrails Claude Code（Git 安全护栏 · Claude Code）
 lang: zh
 translated: machine
 source: backend/skills/en-originals/git-guardrails-claude-code/SKILL.md
-description: >-
-  在 Claude Code 里配好 hooks，让危险的 git 命令（push、reset --hard、clean、branch -D 等）在执行之前就被拦住。
-  当用户想禁止破坏性的 git 操作、想加一层 git 安全 hook、或想在 Claude Code 里挡住 git push / reset 时使用。
+description: 在 Claude Code 里配好 hooks，让危险的 git 命令（push、reset --hard、clean、branch -D 等）在执行之前就被拦住。 当用户想禁止破坏性的
+  git 操作、想加一层 git 安全 hook、或想在 Claude Code 里挡住 git push / reset 时使用。
 tags:
-  - "git"
-  - "guardrails"
-  - "claude"
-  - "code"
-  - "mattpocock"
+- git
+- guardrails
+- claude
+- code
+- mattpocock
 triggers:
-  - "用户想禁止破坏性的 git 操作时"
-  - "想在 Claude Code 里加一层 git 安全 hook 时"
+- 用户想禁止破坏性的 git 操作时
+- 想在 Claude Code 里加一层 git 安全 hook、或挡住 git push / reset 时
 allowed_tools:
-  - "read_file"
-  - "grep"
-  - "glob"
-  - "write_file"
-  - "edit_file"
-  - "bash"
-author: "mattpocock (MIT), adapted for LangConfig"
-version: "1.0"
+- read_file
+- grep
+- glob
+- write_file
+- edit_file
+- bash
+author: mattpocock (MIT), adapted for LangConfig
+version: '1.0'
 ---
 
 ## Instructions（指令）

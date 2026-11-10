@@ -1,29 +1,28 @@
 ---
-name: "Setup Pre Commit（配置 pre-commit 钩子）"
+name: Setup Pre Commit（配置 pre-commit 钩子）
 lang: zh
 translated: machine
 source: backend/skills/en-originals/setup-pre-commit/SKILL.md
-description: >-
-  在当前仓库里配好 Husky pre-commit 钩子：lint-staged（Prettier）、类型检查与测试。当用户想加 pre-commit 钩子、
-  想装 Husky、想配 lint-staged、或想在提交时自动格式化 / 类型检查 / 跑测试时使用。
+description: 在当前仓库里配好 Husky pre-commit 钩子：lint-staged（Prettier）、类型检查与测试。当用户想加 pre-commit 钩子、 想装 Husky、想配
+  lint-staged、或想在提交时自动格式化 / 类型检查 / 跑测试时使用。
 tags:
-  - "setup"
-  - "pre"
-  - "commit"
-  - "mattpocock"
-  - "testing"
+- setup
+- pre
+- commit
+- mattpocock
+- testing
 triggers:
-  - "用户想加 pre-commit 钩子、装 husky 或配 lint-staged 时"
-  - "想在提交时自动格式化、类型检查或跑测试时"
+- 用户想加 pre-commit 钩子、装 husky 或配 lint-staged 时
+- 想在提交时自动格式化、类型检查或跑测试时
 allowed_tools:
-  - "read_file"
-  - "grep"
-  - "glob"
-  - "write_file"
-  - "edit_file"
-  - "bash"
-author: "mattpocock (MIT), adapted for LangConfig"
-version: "1.0"
+- read_file
+- grep
+- glob
+- write_file
+- edit_file
+- bash
+author: mattpocock (MIT), adapted for LangConfig
+version: '1.0'
 ---
 
 ## Instructions（指令）

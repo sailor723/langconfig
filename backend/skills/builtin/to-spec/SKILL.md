@@ -1,12 +1,34 @@
 ---
 name: To Spec（写成规格）
 lang: zh
-translated: human
+translated: machine
 source: backend/skills/en-originals/to-spec/SKILL.md
-description: >-
-  把已定的决定写成一份规格：问题是什么、做了哪些决定由谁做的、范围之内与范围之外、以及验证者之后要逐条检查的
-  验收标准。在一轮 grill 之后使用，或当请求已经清楚到可以写下来但没人写的时候使用。只要还有决定未定，它就拒绝写
+description: 把已定的决定写成一份规格：问题是什么、做了哪些决定由谁做的、范围之内与范围之外、以及验证者之后要逐条检查的 验收标准。在一轮 grill 之后使用，或当请求已经清楚到可以写下来但没人写的时候使用。只要还有决定未定，它就拒绝写
   规格——那是 Grilling 的活。
+tags:
+- spec
+- requirements
+- design
+- decisions
+- plan
+- acceptance-criteria
+triggers:
+- 一轮 grill 之后，前沿已空、该把决定集中记在一处时
+- 请求已经清楚，但没人写下「完成」是什么意思时
+- 切工单之前，好让每张工单都有一个可引用的父文档时
+- 两个人对同一条需求记得不一样时
+allowed_tools:
+- read_file
+- write_file
+- grep
+- glob
+- ls
+- skill
+author: weiping
+version: 1.0
+params:
+  spec_dir: 'where specs live (default: docs/specs)'
+  grill_path: 'the grill.md this spec came from, if any (default: work/<scope>/grill.md)'
 ---
 
 ## Instructions（指令）

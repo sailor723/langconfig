@@ -1,12 +1,39 @@
 ---
 name: Validate Acceptance（逐条验收）
 lang: zh
-translated: human
+translated: machine
 source: backend/skills/en-originals/to-validation/SKILL.md
-description: >-
-  证明完成的工作真的满足了它的验收标准：一条一条来，用本仓库里的证据（命令、file:line、查询结果）。
-  当有人说"做完了""好了""验证一下""to-validation"，或一个构建/重构/修复声称完成却没人跑过检查时使用。
+description: 证明完成的工作真的满足了它的验收标准：一条一条来，用本仓库里的证据（命令、file:line、查询结果）。 当有人说"做完了""好了""验证一下""to-validation"，或一个构建/重构/修复声称完成却没人跑过检查时使用。
   它逐条给出 PASS / FAIL / PARTIAL / UNVERIFIABLE，每格都有证据——绝不用实现者自己的总结当证据。
+tags:
+- validation
+- acceptance-criteria
+- verification
+- evidence
+- gates
+- review
+- quality
+triggers:
+- 有人声称做完了，而验收标准存在于某处（一份 grill.md、一份计划、一个请求）时
+- 用户说「验证一下」「to-validation」「证明给我看」「真的做完了吗」时
+- 本体发布之前、合并之前，或把工作交给另一个人之前
+- 一次构建或智能体报告成功，而它的回答里看不到证据时
+- 某条标准是「因为环境不允许而推迟」时
+allowed_tools:
+- read_file
+- write_file
+- grep
+- glob
+- ls
+- bash
+- python_execute
+- pg_query
+- sqlite_execute
+author: weiping
+version: 1.0
+params:
+  report_path: 'where the report goes (default: work/<scope>/validation.md)'
+  baseline: a command whose output is the PRE-CHANGE state, when 'not worse' is the criterion
 ---
 
 ## Instructions（指令）

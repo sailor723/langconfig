@@ -1,27 +1,27 @@
 ---
-name: "Loop Me（盘问我的循环）"
+name: Loop Me（盘问我的循环）
 lang: zh
 translated: machine
 source: backend/skills/en-originals/loop-me/SKILL.md
-description: "就我想构建的工作流，在这个工作区里把我盘问出规格来。"
+description: 就我想构建的工作流，在这个工作区里把我盘问出规格来。
 tags:
-  - "loop"
-  - "me"
-  - "mattpocock"
-  - "requirements"
+- loop
+- me
+- mattpocock
+- requirements
 triggers:
-  - "要就某条工作流被盘问出规格、且唯一产出是规格时"
-  - "想把一个模糊的工作流想法逼成可执行规格时"
+- 要就某条工作流被盘问出规格、且唯一产出是规格时
+- 想把一个模糊的工作流想法逼成可执行规格时
 allowed_tools:
-  - "read_file"
-  - "grep"
-  - "glob"
-  - "write_file"
-  - "edit_file"
-  - "bash"
-  - "skill"
-author: "mattpocock (MIT), adapted for LangConfig"
-version: "1.0"
+- read_file
+- grep
+- glob
+- write_file
+- edit_file
+- bash
+- skill
+author: mattpocock (MIT), adapted for LangConfig
+version: '1.0'
 ---
 
 ## Instructions（指令）

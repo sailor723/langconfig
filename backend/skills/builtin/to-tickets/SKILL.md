@@ -1,12 +1,34 @@
 ---
 name: To Tickets（切成工单）
 lang: zh
-translated: human
+translated: machine
 source: backend/skills/en-originals/to-tickets/SKILL.md
-description: >-
-  把一份规格切成曳光弹式的工单：纵向切片，每一片都能单独演示，大小刚好放进一个全新的上下文窗口，并声明它被谁
-  阻塞、将由什么来检查。在规格之后使用，让多个智能体（或多个回合）按同一份计划工作而不必猜顺序。它会拒绝一张
+description: 把一份规格切成曳光弹式的工单：纵向切片，每一片都能单独演示，大小刚好放进一个全新的上下文窗口，并声明它被谁 阻塞、将由什么来检查。在规格之后使用，让多个智能体（或多个回合）按同一份计划工作而不必猜顺序。它会拒绝一张
   验收无法检查的工单。
+tags:
+- tickets
+- breakdown
+- planning
+- tracer-bullet
+- dependencies
+- work-graph
+triggers:
+- 规格已经谈定，工作需要一个先后顺序时
+- 多个智能体或多个回合会碰到同一份计划时
+- 一份计划是一串层（「先加列，再做接口，最后做 UI」）、永远没法演示时
+- 工作老是卡住，因为没人知道哪些已经解除阻塞时
+allowed_tools:
+- read_file
+- write_file
+- grep
+- glob
+- ls
+- skill
+author: weiping
+version: 1.0
+params:
+  ticket_dir: 'where tickets live (default: docs/tickets)'
+  spec_path: 'the spec these tickets implement (default: docs/specs/<slug>.md)'
 ---
 
 ## Instructions（指令）

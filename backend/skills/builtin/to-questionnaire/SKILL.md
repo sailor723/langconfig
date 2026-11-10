@@ -1,23 +1,24 @@
 ---
-name: "To Questionnaire（转成问卷）"
+name: To Questionnaire（转成问卷）
 lang: zh
 translated: machine
 source: backend/skills/en-originals/to-questionnaire/SKILL.md
-description: "把一件你自己答不完的事，转成一份交给别人填写的问卷。"
+description: 把一件你自己答不完的事，转成一份交给别人填写的问卷。
 tags:
-  - "to"
-  - "questionnaire"
-  - "mattpocock"
+- to
+- questionnaire
+- mattpocock
 triggers:
-  - "当被要求把用户无法独自回答的事情转成一份**问卷**时：一份 Markdown 文档，用户把它交给一个人异步填写"
+- 当被要求把用户无法独自回答的事情转成一份**问卷**时
+- 当答案必须由一个人异步填写一份 Markdown 文档给出时
 allowed_tools:
-  - "read_file"
-  - "grep"
-  - "glob"
-  - "write_file"
-  - "edit_file"
-author: "mattpocock (MIT), adapted for LangConfig"
-version: "1.0"
+- read_file
+- grep
+- glob
+- write_file
+- edit_file
+author: mattpocock (MIT), adapted for LangConfig
+version: '1.0'
 ---
 
 ## Instructions（指令）
