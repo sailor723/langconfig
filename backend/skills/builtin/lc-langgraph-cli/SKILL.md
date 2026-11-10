@@ -37,10 +37,10 @@ source: backend/skills/en-originals/lc-langgraph-cli/SKILL.md
 
 
 <overview>
-`langgraph` CLI 负责 LangGraph 应用的整个生命周期——从脚手架出一个新项目，一直到把它部署到 LangGraph Platform（LangSmith Deployments）。
+`langgraph` CLI 负责 LangGraph 应用的整个生命周期——从生成一个新项目的骨架，一直到把它部署到 LangGraph Platform（LangSmith Deployments）。
 
 核心命令：
-- **`langgraph new`** — 按模板脚手架出一个项目
+- **`langgraph new`** — 按模板生成一个项目的骨架
 - **`langgraph dev`** — 本地运行，支持热重载（不需要 Docker）
 - **`langgraph build`** — 构建 Docker 镜像
 - **`langgraph up`** — 用 Docker Compose 在本地起服务
@@ -54,7 +54,7 @@ source: backend/skills/en-originals/lc-langgraph-cli/SKILL.md
 
 用户想做下面这些事时，用这个技能：
 - 脚手架出一个新的 LangGraph 项目
-- 起一个本地开发服务器，或一个像生产的环境
+- 起一个本地开发服务器，或一个像生产的服务器
 - 构建或部署一个 LangGraph 应用
 - 看懂或修改 `langgraph.json` 配置
 - 管理 LangSmith Deployments（列出、删除、看日志）
@@ -79,7 +79,7 @@ npm install -g @langchain/langgraph-cli  # install globally (available as langgr
 
 ### `langgraph new [PATH]`
 
-按模板脚手架出一个新项目。
+按模板生成一个新项目的骨架。
 
 ```bash
 langgraph new                          # interactive template selection
@@ -269,7 +269,7 @@ langgraph dockerfile ./Dockerfile --add-docker-compose # also generate compose +
 | 资源占用 | 轻 | 重（服务器、Postgres、Redis 各要起容器） |
 | IDE 调试 | 内置 DAP 支持（`--debug-port`） | 容器内调试 |
 
-## Gotchas（坑）
+## Gotchas（注意事项）
 
 - **`langgraph deploy` 需要 Docker** — 在 Apple Silicon（M1/M2/M3）上，交叉编译到 `linux/amd64` 还需要 Docker Buildx。
 - **`langgraph deploy` 只能更新它自己创建的部署** — 通过 LangSmith UI 或 GitHub 集成创建的部署，不能用 `langgraph deploy` 更新，那些要在 UI 里改。

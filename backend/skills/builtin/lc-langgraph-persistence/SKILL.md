@@ -40,7 +40,7 @@ source: backend/skills/en-originals/lc-langgraph-persistence/SKILL.md
 LangGraph 的持久化层给图状态做检查点，靠它实现可持久执行：
 
 - **检查点（Checkpointer）**：在每个 super-step 保存、加载图状态
-- **线程 ID（Thread ID）**：标识一条条互不相干的检查点序列，也就是一次次对话
+- **线程 ID（Thread ID）**：标识彼此独立的检查点序列（即对话）
 - **Store**：跨线程记忆，存用户偏好与事实
 
 **两类记忆：**
@@ -64,7 +64,7 @@ LangGraph 的持久化层给图状态做检查点，靠它实现可持久执行�
 
 <ex-basic-persistence>
 <python>
-搭一张最基础的图，用内存检查点，并按线程持久化状态。
+创建一张最基础的图，用内存检查点，并按线程持久化状态。
 
 ```python
 from langgraph.checkpoint.memory import InMemorySaver
@@ -99,7 +99,7 @@ print(len(result2["messages"]))  # 4 (previous + new)
 ```
 </python>
 <typescript>
-搭一张最基础的图，用内存检查点，并按线程持久化状态。
+创建一张最基础的图，用内存检查点，并按线程持久化状态。
 
 ```typescript
 import { MemorySaver, StateGraph, StateSchema, MessagesValue, START, END } from "@langchain/langgraph";
@@ -310,7 +310,7 @@ const result = await graph.invoke(null, config);
 
 <ex-subgraph-checkpointer-modes>
 <python>
-为子图挑对检查点模式。
+为子图选对检查点模式。
 
 ```python
 # No interrupts needed — opt out of checkpointing
@@ -324,7 +324,7 @@ subgraph = subgraph_builder.compile(checkpointer=True)
 ```
 </python>
 <typescript>
-为子图挑对检查点模式。
+为子图选对检查点模式。
 
 ```typescript
 // No interrupts needed — opt out of checkpointing
@@ -473,11 +473,11 @@ store.delete(("user-123", "facts"), "location")  # Delete
 
 ---
 
-## Fixes（常见修法）
+## Fixes（修复）
 
 <fix-thread-id-required>
 <python>
-一定要在 config 里始终提供 thread_id，状态持久化才会生效。
+始终在 config 里提供 thread_id，状态持久化才会生效。
 
 ```python
 # WRONG: No thread_id - state NOT persisted!
@@ -491,7 +491,7 @@ graph.invoke({"messages": ["What did I say?"]}, config)  # Remembers!
 ```
 </python>
 <typescript>
-一定要在 config 里始终提供 thread_id，状态持久化才会生效。
+始终在 config 里提供 thread_id，状态持久化才会生效。
 
 ```typescript
 // WRONG: No thread_id - state NOT persisted!
@@ -540,7 +540,7 @@ await checkpointer.setup(); // only needed on first use to create tables
 
 <fix-update-state-with-reducers>
 <python>
-要替换状态值，就用 Overwrite 直接盖掉，而不是让它从归约器里过一遍。
+要替换状态值，就用 Overwrite 直接覆盖，而不是让它从归约器里过一遍。
 
 ```python
 from langgraph.types import Overwrite
@@ -556,7 +556,7 @@ graph.update_state(config, {"items": Overwrite(["C"])})  # Result: ["C"] - Repla
 ```
 </python>
 <typescript>
-要替换状态值，就用 Overwrite 直接盖掉，而不是让它从归约器里过一遍。
+要替换状态值，就用 Overwrite 直接覆盖，而不是让它从归约器里过一遍。
 
 ```typescript
 import { Overwrite } from "@langchain/langgraph";
@@ -609,11 +609,11 @@ const myNode = async (state, runtime) => {
 <boundaries>
 ### What You Should NOT Do（不该做的事）
 
-- 生产环境别用 `InMemorySaver`——进程重启数据就没了；用 `PostgresSaver`
-- 别忘 `thread_id`——没有它，状态不会持久化
-- 别指望 `update_state` 绕过归约器——它就是会穿过归约器；要替换请用 `Overwrite`
-- 别在一个节点里并行跑同一个有状态子图（`checkpointer=True`）——命名空间会冲突
-- 别在节点里直接访问 store——通过 `Runtime` 参数拿 `runtime.store`
+- 生产环境不要用 `InMemorySaver`——进程重启数据就没了；用 `PostgresSaver`
+- 不要忘记 `thread_id`——没有它，状态不会持久化
+- 不要指望 `update_state` 绕过归约器——它就是会穿过归约器；要替换请用 `Overwrite`
+- 不要在一个节点里并行跑同一个有状态子图（`checkpointer=True`）——命名空间会冲突
+- 不要在节点里直接访问 store——通过 `Runtime` 参数拿 `runtime.store`
 </boundaries>
 
 ## This repository's floor（本仓库的底线）

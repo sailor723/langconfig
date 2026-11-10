@@ -47,7 +47,7 @@ version: "1.0"
 - **`Choice(instructions=..., criteria={...})`** —— 选一个标签，返回完整分布加置信度
 - **`Score(instructions=..., criteria=[...])`** —— 按有序的评分档打分，返回期望值加置信度
 
-`TypeSafeClassifier` 是一个 LangChain `Runnable[ClassifierRequest, ClassifierResponse]`，所以它像任何其他可运行对象一样直接放进节点。一次请求最多共享 32 个问题，各问题独立作答——把它们组合起来是你代码的事。
+`TypeSafeClassifier` 是一个 LangChain `Runnable[ClassifierRequest, ClassifierResponse]`，所以它像任何其他可运行对象一样直接放进节点。一次请求最多可携带 32 个问题，各问题独立作答——合并结果由你的代码负责。
 
 **该动用它的时候**：某个节点生成文字，只是为了让你从中解析出一个决策——路由、分诊、过滤、护栏，或对一批数据逐项分类。
 
@@ -144,7 +144,7 @@ def route(state: State) -> str:
 
 ---
 
-## Three traps when reading answers（读答案时的三个坑）
+## Three traps when reading answers（读答案时的三个陷阱）
 
 这些坑造成的是静默的错误路由，而不是异常。
 
@@ -173,7 +173,7 @@ return "handle"
 
 问题问得松，得到的就是自信的错答案，而且没有任何阈值能救回来。用 `criteria` 说清每种结果的含义，包括什么*不该*算在内。
 
-在一个实测案例里，“这是不是一份与律师之间的保密通信？”给一份例行财务备忘录打了 **0.798**。改写成点名真正的检验标准——由律师撰写或写给律师，并对财务与会计内容显式排除——同一页就落到 **0.005**，而一份真正受特权保护的文件稳在 **0.991**。
+在一个实测案例里，“这是不是一份与律师之间的保密通信？”给一份例行财务备忘录打了 **0.798**。改写成点名真正的检验标准——由律师撰写或写给律师，并对财务与会计内容显式设为例外——同一页就落到 **0.005**，而一份真正受特权保护的文件稳在 **0.991**。
 
 ```python
 Noul(
@@ -219,7 +219,7 @@ Noul(
 | SemIf 4B | 0.49s | 未上报 | 托管在 Gateway 上 |
 | Claude Sonnet 5 | 2.87s | 7,930 in / 864 out | 走结构化输出 |
 
-各引擎在 6 个条目中的 4–5 个上路由一致；分歧集中在真正处于边界上的条目。请把这些当作形状、而不是基准——在你自己的工作负载上量。
+各引擎在 6 个条目中的 4–5 个上路由一致；分歧集中在真正处于边界上的条目。请把这些当作量级参考、而不是基准——在你自己的工作负载上量。
 
 **如果你要和 LLM 基线做对比**，用 `method="json_schema"`，这样对比才公平。LangChain 的 `with_structured_output` 默认是 `method="function_calling"`，它会给每个请求注入一份工具 schema——在同一个单字段探针上，是 556/35 tokens 对原生 `output_config.format` 路径的 228/12。
 
@@ -242,7 +242,7 @@ builder.add_conditional_edges(START, fan_out, ["classify_item"])
 </python>
 </ex-fan-out>
 
-扇出掩盖了延迟，所以它最抬举慢的分类器：在上面那次运行里，Sonnet 靠并发拿到 8 倍提升，Jev 只有 1.4 倍——可先跑完的仍然是 Jev。比吞吐量，别比加速倍数。
+扇出掩盖了延迟，所以它最有利慢的分类器：在上面那次运行里，Sonnet 靠并发拿到 8 倍提升，Jev 只有 1.4 倍——可先跑完的仍然是 Jev。比吞吐量，不要比加速倍数。
 
 ---
 

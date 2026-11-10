@@ -51,7 +51,7 @@ class CleanedSalesRow(BaseModel):
 
 ## Data Cleaning Rules（清洗规则）
 
-实际的转换规则住在 `rules.yaml` 里：
+实际的转换规则位于 `rules.yaml` 里：
 
 ```yaml
 schema: CleanedSalesRow

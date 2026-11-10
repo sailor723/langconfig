@@ -64,7 +64,7 @@ Deep Agents 内置三项编排能力：
 </when-to-use-subagents>
 
 <how-subagents-work>
-主智能体持有 `task` 工具 -> 派生一个全新的子智能体 -> 子智能体自主执行 -> 返回最终报告。
+主智能体持有 `task` 工具 -> 创建一个全新的子智能体 -> 子智能体自主执行 -> 返回最终报告。
 
 **默认子智能体**：“general-purpose”——自动可用，工具与配置和主智能体相同。
 </how-subagents-work>
@@ -455,7 +455,7 @@ result = agent.invoke(
 - 工具名（`task`、`write_todos`）
 - HITL 协议（approve/edit/reject 的结构）
 - 跳过「中断必须有检查点」这条要求（做不到——它是硬性的）
-- 把子智能体变成有状态的（它们都是瞬时的）
+- 把子智能体变成有状态的（它们都是临时性的）
 </boundaries>
 
 <fix-checkpointer-required>

@@ -3,7 +3,7 @@ name: "web-content-analyzer（网页内容分析）"
 lang: zh
 translated: machine
 source: backend/skills/en-originals/web-content-analyzer/SKILL.md
-description: "分析网页内容——文章、博客、文档与新闻——提取关键洞见、生成摘要、识别结构并评估质量。当用户提供一个 URL 并要求分析、总结或评估该页面时使用。"
+description: "分析网页内容——文章、博客、文档与新闻——提取关键洞察、生成摘要、识别结构并评估质量。当用户提供一个 URL 并要求分析、总结或评估该页面时使用。"
 tags: [web-analysis, content-summarization, information-extraction, research]
 triggers:
   - "用户提供一个 URL 并要求分析它"

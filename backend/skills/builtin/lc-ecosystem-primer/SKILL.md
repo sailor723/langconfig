@@ -43,13 +43,13 @@ version: "1.0"
 <overview>
 LangChain 公司维护着用于构建智能体的三层开源工具，外加 LangSmith 负责可观测性。整个栈自上而下是这样：
 
-- **Deep Agents**（顶层，*脚手架*）——建在 LangChain + LangGraph 之上的开箱即用工具箱。规划、文件管理、子智能体派生与记忆，全都随箱自带。
+- **Deep Agents**（顶层，*脚手架*）——建在 LangChain + LangGraph 之上的开箱即用工具箱。规划、文件管理、子智能体创建与记忆，全都随箱自带。
 - **LangGraph**（中层，*运行时*）——面向持久化执行、自定义控制流与有状态工作流的底层编排。LangChain 智能体就跑在 LangGraph 之上。
 - **LangChain**（底层，*框架*）——模型、工具与智能体循环的抽象。与模型提供方无关，最容易上手。
 - **LangSmith**（横切）——可观测性与评测平台。与框架无关；无论用上面哪一层，都建议一并配上。
 
 上层依赖下层，但你并不需要直接使用下层。Deep Agents 让你不必写图代码，也能拿到 LangGraph 的持久化执行；
-LangChain 让你不必打理图的边，也能拿到模型和工具。
+LangChain 让你不必管理图的边，也能拿到模型和工具。
 </overview>
 
 ---
@@ -99,11 +99,11 @@ LangChain 让你不必打理图的边，也能拿到模型和工具。
 - 自定义控制流——确定性循环、反思循环、并行扇出
 - 确定性步骤与智能体步骤混在一起的复杂工作流
 - 带精确中断点与恢复点的人在回路
-- 必须扛过故障、或跨长会话存活的状态
+- 必须能在故障后存活、或能跨长会话保留的状态
 
 **不适合：**
 - 你想要开箱即用的规划、文件管理与子智能体委派（那就用 Deep Agents）
-- 工作流简单到一条直白的工具循环就够
+- 工作流简单到一条简单线性的工具循环就够
 
 所有 LangGraph 图都用 `StateGraph(State)`，配上显式的节点、边与条件边。
 
@@ -170,9 +170,9 @@ LANGSMITH_PROJECT=<project-name>
 
 每个产品都有自己的页面树：概览 → 快速入门 → 操作指南 → 参考。
 
-### 权威入口页
+### 规范入口页
 
-从这里起步，别从根目录一路翻树（TypeScript 把 `python` 换成 `javascript`）：
+从这里起步，不要从根目录逐层检索（TypeScript 把 `python` 换成 `javascript`）：
 
 - **LangChain**——`/oss/python/langchain/overview`
 - **LangGraph**——`/oss/python/langgraph/overview`
@@ -223,7 +223,7 @@ rg -il "checkpointer" /oss/python/langgraph/ # search by keyword
 
 - **`lc-langgraph-fundamentals`**——任何 LangGraph 图
 - **`lc-langgraph-human-in-the-loop`**——人在回路或审批工作流
-- **`lc-langgraph-persistence`**——必须扛过重启的状态，或跨线程记忆
+- **`lc-langgraph-persistence`**——必须能跨重启保留的状态，或跨线程记忆
 
 ### Deep Agents
 

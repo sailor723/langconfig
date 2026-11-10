@@ -6,13 +6,13 @@ source: backend/skills/en-originals/presentation-pipeline-builder/SKILL.md
 description: >-
   构建由 presentation-skills 流水线驱动的演示文稿智能体：生成薄编排者系统提示词、3 个角色子智能体
   （outline_designer、deck_writer、qa_reviewer）及其工具集与角色文件指针，固定 presentation-skills，
-  并通过 create_deepagent 保存。新建演示文稿/讲稿智能体时使用。
+  并通过 create_deepagent 保存。新建演示文稿/演示文稿智能体时使用。
 version: 1.0.0
 author: LangConfig (derived from agent 165 + research-pipeline-builder)
 tags: [meta, agent-creation, presentation, pptx, pipeline, builder]
 triggers:
   - "用户要求创建一个演示文稿智能体时"
-  - "构建能产出 PowerPoint 讲稿的智能体时"
+  - "构建能产出 PowerPoint 演示文稿的智能体时"
   - "用户想要一个 演示文稿 / PPT 智能体时"
 allowed_tools: [create_deepagent, create_agent, create_skill, read_file, web_search]
 ---
@@ -23,22 +23,22 @@ allowed_tools: [create_deepagent, create_agent, create_skill, read_file, web_sea
 
 1. 一份**薄的编排者系统提示词**（身份 + 不可协商的约定 + 硬性限制 + 指向 `presentation-skills` 的指针）；
 2. **3 个角色子智能体**（outline_designer、deck_writer、qa_reviewer），每个 = 名字 + 描述 + 薄提示词
-   （指向它自己的角色文件）+ 工具——deck_writer **必须**持有讲稿工具 `gen_pptx`、`gen_html_deck`、
+   （指向它自己的角色文件）+ 工具——deck_writer **必须**持有演示文稿工具 `gen_pptx`、`gen_html_deck`、
    `gen_pdf_deck`（工具优先，**不是**手写 python-pptx/HTML 脚本）；
 3. **`config.skills: ["presentation-skills"]`**。
 
 ## 参考（已验证）：工具优先的设计
 
 平台上更早的 Deep Presentation Generator（agent 165）是同一套架构，但走的是脚本路线（子智能体写
-`generate_pptx.py`，每份讲稿要跑约 30 次 `python_execute`）。新智能体**必须**工具优先：deck_writer 调用
-感知主题的讲稿工具（`gen_pptx`、`gen_html_deck`、`gen_pdf_deck`；6 个主题：
+`generate_pptx.py`，每份演示文稿要跑约 30 次 `python_execute`）。新智能体**必须**工具优先：deck_writer 调用
+感知主题的演示文稿工具（`gen_pptx`、`gen_html_deck`、`gen_pdf_deck`；6 个主题：
 business/fashion/tech/health/education/minimal）——结果确定，每种格式一次调用。
 
 ## 工作流
 
 ### 第 1 步——厘清范围
 问出来或推断出来：演示文稿的领域/主题、偏好的主题（business / fashion / tech / health /
-education / minimal）、源文档的输入方式。如果还需要第 4 个专门角色（例如图表密集的讲稿需要
+education / minimal）、源文档的输入方式。如果还需要第 4 个专门角色（例如图表密集的演示文稿需要
 `data_analyst`），记下来留给第 4 步。
 
 ### 第 2 步——生成薄的编排者系统提示词
@@ -75,12 +75,12 @@ roles/qa-reviewer.md.
 
 | 名字 | 描述 | system_prompt（薄） | 工具 |
 |---|---|---|---|
-| `outline_designer` | "把源文档变成一份 12–15 页的幻灯片大纲 JSON（封面 → 议程 → 内容 → 数据 → 结论 → 结尾），供主题化讲稿使用。" | "你是一个身处「隔离」上下文窗口的大纲设计师。用 read_file 读 skills/presentation-skills/roles/outline-designer.md，并严格照它执行。把大纲 JSON 写到简报里给出的路径，然后只返回大纲路径 + 两行摘要。" | `["read_file", "ls", "glob", "write_file", "think_tool", "reasoning_chain"]` |
-| `deck_writer` | "用感知主题的 gen_pptx / gen_html_deck / gen_pdf_deck 工具，根据大纲 JSON 生成讲稿（pptx/html/pdf）。" | "你是一个身处隔离上下文窗口的讲稿撰写者。用 read_file 读 skills/presentation-skills/roles/deck-writer.md，并严格照它执行。对每种请求的格式，用大纲 JSON（以字符串传入）+ 主题调用讲稿工具（gen_pptx / gen_html_deck / gen_pdf_deck），然后只返回输出路径 + 一行摘要。" | `["read_file", "ls", "glob", "gen_pptx", "gen_html_deck", "gen_pdf_deck", "think_tool", "reasoning_chain"]` |
-| `qa_reviewer` | "对照大纲审查生成的 .pptx（页数、标题、要点、主题、备注），返回 PASS/CHANGES。" | "你是一个身处隔离上下文窗口的质检评审。用 read_file 读 skills/presentation-skills/roles/qa-reviewer.md，并严格照它执行。对照大纲审查讲稿，只返回你的结构化结论。绝不修改讲稿。" | `["read_file", "ls", "glob", "think_tool", "reasoning_chain"]` |
+| `outline_designer` | "把源文档变成一份 12–15 页的幻灯片大纲 JSON（封面 → 议程 → 内容 → 数据 → 结论 → 结尾），供主题化演示文稿使用。" | "你是一个身处「隔离」上下文窗口的大纲设计师。用 read_file 读 skills/presentation-skills/roles/outline-designer.md，并严格照它执行。把大纲 JSON 写到简报里给出的路径，然后只返回大纲路径 + 两行摘要。" | `["read_file", "ls", "glob", "write_file", "think_tool", "reasoning_chain"]` |
+| `deck_writer` | "用感知主题的 gen_pptx / gen_html_deck / gen_pdf_deck 工具，根据大纲 JSON 生成演示文稿（pptx/html/pdf）。" | "你是一个身处隔离上下文窗口的演示文稿撰写者。用 read_file 读 skills/presentation-skills/roles/deck-writer.md，并严格照它执行。对每种请求的格式，用大纲 JSON（以字符串传入）+ 主题调用演示文稿工具（gen_pptx / gen_html_deck / gen_pdf_deck），然后只返回输出路径 + 一行摘要。" | `["read_file", "ls", "glob", "gen_pptx", "gen_html_deck", "gen_pdf_deck", "think_tool", "reasoning_chain"]` |
+| `qa_reviewer` | "对照大纲审查生成的 .pptx（幻灯片页数、标题、要点、主题、备注），返回 PASS/CHANGES。" | "你是一个身处隔离上下文窗口的质检评审。用 read_file 读 skills/presentation-skills/roles/qa-reviewer.md，并严格照它执行。对照大纲审查演示文稿，只返回你的结构化结论。绝不修改演示文稿。" | `["read_file", "ls", "glob", "think_tool", "reasoning_chain"]` |
 
 ### 第 4 步——可选：领域专用变体
-如果需要一条不同的流水线（多一个角色、不同的讲稿规则），把
+如果需要一条不同的流水线（多一个角色、不同的演示文稿规则），把
 `backend/skills/personal/presentation-skills/` 复制到
 `backend/skills/personal/<domain>-presentation-pipeline/`，改写 SKILL.md、加上
 `roles/<new-role>.md`、同步，然后改为固定那个技能 id。
@@ -108,7 +108,7 @@ roles/qa-reviewer.md.
 先用 `pg_get_agent` 确认智能体 id，然后跑一次简短的测试对话（"make a SHORT
 5-slide deck on <topic> from <doc>, follow your full workflow"），并在流式输出里确认：
 编排者读了 `skills/presentation-skills/SKILL.md`，每个子智能体读了自己的角色
-文件，deck_writer 调用了讲稿工具，`.pptx`/`.html`/`.pdf` 落到了工作区里。
+文件，deck_writer 调用了演示文稿工具，`.pptx`/`.html`/`.pdf` 落到了工作区里。
 
 ## 质量清单
 - [ ] 系统提示词带有完整的不可协商的约定 + 硬性限制（绝不缩短）
@@ -116,4 +116,4 @@ roles/qa-reviewer.md.
 - [ ] `deck_writer` 持有 `gen_pptx` + `gen_html_deck` + `gen_pdf_deck`（工具优先，不是脚本优先）
 - [ ] `skills` 固定了 `presentation-skills`（或领域变体）
 - [ ] `create_deepagent` 返回了带智能体 id 的成功消息（已持久化！）
-- [ ] 一次测试对话跑完，并产出了讲稿交付物（pptx / html / pdf）
+- [ ] 一次测试对话跑完，并产出了演示文稿交付物（pptx / html / pdf）

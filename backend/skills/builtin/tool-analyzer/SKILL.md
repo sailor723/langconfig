@@ -30,8 +30,8 @@ source: backend/skills/en-originals/tool-analyzer/SKILL.md
 - 所有用 @tool 装饰的异步/同步函数
 - 所有用 StructuredTool.from_function() 创建的 StructuredTool 对象
 - 排除纯辅助/工具性函数（例如 _init_sync_playwright、_yahoo_search_fallback、_record_file_version、_record_file_metadata、_write_file_error_handler —— 这些不是工具）
-- 排除向后兼容的别名字变量（file_read、file_write、file_list）—— 它们只是引用
-- 用一个纯整数给出数量
+- 排除向后兼容的别名变量（file_read、file_write、file_list）—— 它们只是引用
+- 用一个普通整数给出数量
 
 ### tool_categories（工具分类）
 

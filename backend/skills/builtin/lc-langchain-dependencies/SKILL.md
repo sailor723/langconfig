@@ -68,14 +68,14 @@ LangChain 生态被拆成多个职责单一、各自独立定版本的包。弄�
 ## 框架选择
 
 <framework-choice>
-只挑**一层**智能体编排。你不需要两个都要。
+只挑**一层**智能体编排。两层不必都上。
 
 | 框架 | 什么时候用 | 核心附加包 |
 |-----------|-------------|--------------------|
 | **LangGraph** | 需要对图做细粒度控制、自定义工作流、循环或分支 | `langgraph` / `@langchain/langgraph` |
 | **Deep Agents** | 想要开箱即用的规划、记忆、文件上下文和技能 | `deepagents`（依赖 LangGraph，作为传递依赖一并装上） |
 
-两者都坐在 `langchain` + `langchain-core` + `langsmith` 之上。
+两者都建立在 `langchain` + `langchain-core` + `langsmith` 之上。
 </framework-choice>
 
 ---
@@ -372,7 +372,7 @@ langchain>=1.0,<2.0
 </fix-legacy-version>
 
 <fix-community-unpinned>
-`langchain-community` 在次版本升级时就可能坏掉——它不遵循 semver。
+`langchain-community` 在次版本升级时就可能失效——它不遵循 semver。
 
 ```
 # WRONG: allows minor-version updates that may be breaking
@@ -385,7 +385,7 @@ langchain-community>=0.4.0,<0.5.0
 </fix-community-unpinned>
 
 <fix-community-tool-outdated>
-`langchain-tavily` 这类社区工具包和向量库集成，会跟着 LangChain 的更新一起发布兼容性修复。用一个旧的钉死版本，可能导致导入报错或工具 schema 坏掉。
+`langchain-tavily` 这类社区工具包和向量库集成，会跟着 LangChain 的更新一起发布兼容性修复。用一个旧的钉死版本，可能导致导入报错或工具 schema 失效。
 
 ```
 # RISKY: old pin may be incompatible with LangChain 1.0
@@ -397,7 +397,7 @@ langchain-tavily>=0.1
 </fix-community-tool-outdated>
 
 <fix-community-import-deprecated>
-许多原先住在 `langchain-community` 里的工具，现在有了专用包和更新过的导入路径。始终优先用专用包的导入。
+许多原先位于 `langchain-community` 里的工具，现在有了专用包和更新过的导入路径。始终优先用专用包的导入。
 
 ```python
 # WRONG — deprecated community import path

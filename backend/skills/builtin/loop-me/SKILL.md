@@ -10,8 +10,8 @@ tags:
 - mattpocock
 - requirements
 triggers:
-- 要就某条工作流被盘问出规格、且唯一产出是规格时
-- 想把一个模糊的工作流想法逼成可执行规格时
+- 要跑一场有状态的 `grilling` 技能会话、且唯一产出是**工作流**规格时
+- 想把一个模糊的工作流想法盘问成**工作流**规格、唯一产出就是那份规格时
 allowed_tools:
 - read_file
 - grep
