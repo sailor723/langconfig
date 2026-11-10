@@ -7,7 +7,8 @@ tags:
   - "architecture"
   - "mattpocock"
 triggers:
-  - "When asked to surface architectural friction and propose **deepening opportunities**: refactors that turn shal"
+  - "When asked to surface architectural friction and propose deepening opportunities"
+  - "When shallow modules should become deep ones"
 allowed_tools:
   - "read_file"
   - "grep"

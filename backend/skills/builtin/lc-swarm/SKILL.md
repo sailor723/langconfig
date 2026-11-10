@@ -9,7 +9,8 @@ tags:
   - "swarm"
   - "langchain-skills"
 triggers:
-  - "被要求并行处理许多彼此独立的条目时。`create` 构建一个表句柄；"
+  - "被要求并行处理许多彼此独立的条目时"
+  - "要把每个条目扇出成一行、挂到同一个表句柄上时"
 allowed_tools:
   - "read_file"
   - "grep"

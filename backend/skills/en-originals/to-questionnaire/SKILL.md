@@ -6,7 +6,8 @@ tags:
   - "questionnaire"
   - "mattpocock"
 triggers:
-  - "When asked to turn something the user can't answer alone into a **questionnaire**: a Markdown document they ha"
+  - "When asked to turn something the user cannot answer alone into a questionnaire"
+  - "When the answer has to come from a person filling a Markdown document in asynchronously"
 allowed_tools:
   - "read_file"
   - "grep"

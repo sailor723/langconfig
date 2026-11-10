@@ -5,7 +5,7 @@ tags:
   - "handoff"
   - "mattpocock"
 triggers:
-  - "When asked to write a handoff document summarising the current conversation so a fresh agent can continue the"
+  - "When asked to write a handoff document summarising the current conversation so a fresh agent can continue"
 allowed_tools:
   - "read_file"
   - "grep"

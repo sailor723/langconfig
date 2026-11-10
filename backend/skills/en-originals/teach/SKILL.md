@@ -6,7 +6,8 @@ tags:
   - "mattpocock"
   - "skills"
 triggers:
-  - "When asked to the user has asked you to teach them something. This is a stateful request - they intend to lear"
+  - "When the user asks you to teach them something"
+  - "When the request is stateful — they intend to keep learning across several sessions"
 allowed_tools:
   - "read_file"
   - "grep"

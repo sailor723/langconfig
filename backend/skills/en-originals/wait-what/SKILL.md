@@ -6,7 +6,8 @@ tags:
   - "what"
   - "mattpocock"
 triggers:
-  - "When asked to wait, I don't understand where you've got to here. Re-pitch that: give me a little bit of contex"
+  - "When told to wait — the listener lost the thread and wants the context re-pitched"
+  - "When a re-explanation should start from a little earlier context"
 allowed_tools:
   - "read_file"
   - "grep"

@@ -5,7 +5,8 @@ tags:
   - "swarm"
   - "langchain-skills"
 triggers:
-  - "When asked to process many independent items in parallel. `create` builds a table handle;"
+  - "When asked to process many independent items in parallel"
+  - "When fanning out one row per item across a table handle"
 allowed_tools:
   - "read_file"
   - "grep"

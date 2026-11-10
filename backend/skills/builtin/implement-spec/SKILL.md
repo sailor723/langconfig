@@ -12,7 +12,8 @@ tags:
   - "planning"
   - "skills"
 triggers:
-  - "有人给了你一份规格时。这份规格应当配着工单，描述如何"
+  - "有人给了你一份规格时"
+  - "这份规格应当配着工单，描述如何实现它"
 allowed_tools:
   - "read_file"
   - "grep"

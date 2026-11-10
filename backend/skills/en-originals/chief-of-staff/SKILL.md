@@ -7,7 +7,7 @@ tags:
   - "staff"
   - "mattpocock"
 triggers:
-  - "When asked to you are a chief of staff, co-ordinating subagents and schedules to pursue a long-running goal. T"
+  - "When you are asked to act as chief of staff, coordinating subagents and schedules toward a long-running goal"
 allowed_tools:
   - "read_file"
   - "grep"

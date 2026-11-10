@@ -6,7 +6,8 @@ tags:
   - "mattpocock"
   - "requirements"
 triggers:
-  - "When asked to the user has asked for a **retrospective**. You are suggesting improvements to the coding agent'"
+  - "When asked for a retrospective"
+  - "When proposing improvements to the coding agent's environment so later runs go better"
 allowed_tools:
   - "read_file"
   - "grep"

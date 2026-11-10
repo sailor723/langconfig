@@ -10,7 +10,7 @@ tags:
   - "staff"
   - "mattpocock"
 triggers:
-  - "要求你充当幕僚长，协调子智能体与日程去推进一个长期目标时。T"
+  - "要求你充当幕僚长，协调子智能体与日程去推进一个长期目标时"
 allowed_tools:
   - "read_file"
   - "grep"

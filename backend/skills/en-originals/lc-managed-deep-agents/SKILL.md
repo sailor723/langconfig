@@ -9,7 +9,8 @@ tags:
   - "testing"
   - "skills"
 triggers:
-  - "When asked to managed Deep Agents (MDA) is a hosted runtime for code-first Deep Agents in LangSmith. You autho"
+  - "When asked to build, test or deploy Managed Deep Agents in LangSmith"
+  - "When using define_deep_agent, the mda CLI, GitHub deploys or Context Hub"
 allowed_tools:
   - "read_file"
   - "grep"

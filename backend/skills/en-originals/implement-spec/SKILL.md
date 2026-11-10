@@ -9,7 +9,8 @@ tags:
   - "planning"
   - "skills"
 triggers:
-  - "When asked to you have been provided a spec. This spec should have tickets associated with it, describing how"
+  - "When you have been provided a spec"
+  - "When that spec should come with tickets describing how to implement it"
 allowed_tools:
   - "read_file"
   - "grep"

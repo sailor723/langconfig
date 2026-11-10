@@ -6,7 +6,8 @@ tags:
   - "handoff"
   - "mattpocock"
 triggers:
-  - "When asked to write a handoff summary of the current conversation so a fresh agent can continue the work. Save"
+  - "When asked to write a handoff document for the current conversation so a fresh background agent can continue"
+  - "When that handoff should be saved to a scratch directory"
 allowed_tools:
   - "read_file"
   - "grep"
