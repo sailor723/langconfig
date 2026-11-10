@@ -272,3 +272,31 @@ def test_a_referenced_skill_id_is_the_id_that_exists(path: pathlib.Path):
                 if m.group(1) in bare]
     assert not dangling, (
         f"{path.parent.name}: references {dangling} as a skill id, but the installed id is lc-<name>")
+
+
+def _slug(heading: str) -> str:
+    """Approximate GitHub's heading anchor: lowercase, drop markup and punctuation, spaces to dashes.
+
+    CJK is kept — GitHub keeps it too, which is why `#工单类型` resolves against `## 工单类型`.
+    """
+    text = re.sub(r"[`*_\[\]()<>]", "", heading.strip().lower())
+    text = re.sub(r"[^\w\u4e00-\u9fff\- ]", "", text)
+    return text.replace(" ", "-")
+
+
+@pytest.mark.parametrize("path", _skill_files(), ids=lambda p: p.parent.name)
+def test_every_in_document_anchor_resolves(path: pathlib.Path):
+    """A translated heading moves its anchor, and a translated heading's anchor cannot be guessed.
+
+    Found in `lc-managed-deep-agents`: the body links `[MDA 做不到的事](#what-mda-cannot-do)` while the heading
+    had become `## What MDA cannot do（MDA 做不到的事）`, whose slug nobody can predict without a browser. Two
+    translators solved the same problem by writing the cross-reference as plain text. This asserts the link
+    resolves against a heading, using the same shape of slug the translated-CJK headings in this library rely on
+    (`#工单类型` for `## 工单类型`).
+    """
+    text = path.read_text(encoding="utf-8")
+    headings = {_slug(m.group(1)) for m in re.finditer(r"^#{1,4}\s+(.*)$", text, re.M)}
+    dangling = [target for target in re.findall(r"\]\(#([^)\s]+)\)", text) if target not in headings]
+    assert not dangling, (
+        f"{path.parent.name}: these anchors match no heading: {dangling} — translate the heading and retarget the "
+        "link, or say the section name in prose instead")

@@ -97,7 +97,7 @@ ask what they want to build -> check it against the limits -> confirm the shape
 
 ## 2. 用限制清单校验这个答案
 
-在承诺任何事之前，先拿需求对一遍下面的 **[MDA 做不到的事](#what-mda-cannot-do)**。如果需求里有一部分超出范围，
+在承诺任何事之前，先拿需求对一遍下面的 **MDA 做不到的事**。如果需求里有一部分超出范围，
 用一句话说明，给出最接近的受支持做法，剩下的继续往下走。不要悄悄做一个缩水版的智能体，然后把它说成就是用户
 要的那个。
 
