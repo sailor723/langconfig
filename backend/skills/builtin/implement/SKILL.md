@@ -31,6 +31,6 @@ description: >-
   把 `FAILED` 行与记录的基线做 diff。
 - **规格、票据与笔记都落在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
   写在聊天里的结论，下一个回合就丢了。
-- **生态层级**：agent 代码是 LangChain（`create_agent`）跑在 LangGraph 运行时里，通常外面套一层 Deep Agents
+- **生态层级**：智能体代码是 LangChain（`create_agent`）跑在 LangGraph 运行时里，通常外面套一层 Deep Agents
   harness（`deepagents`）。动手前先决定这次改动属于哪一层——`ecosystem-primer` 的规则——并优先用能完成任务的
   最高那一层。

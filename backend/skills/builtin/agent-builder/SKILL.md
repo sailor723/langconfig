@@ -1,6 +1,11 @@
 ---
-name: Agent Builder
-description: 建 agent 的规程与六种结构模板。当用户要"做一个 agent""把这个活做成 agent""agent 建得对不对"时读我：先选 T1–T6 模板，写 rubric，填空建出来，跑探针逐条判，最后给证据。
+name: "Agent Builder（智能体构建器）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/agent-builder/SKILL.md
+description: >-
+  构建智能体的规程与六种结构模板。用户要"做一个智能体""把这个活做成智能体"，或问"智能体建得对不对"时读本技能：
+  先选 T1–T6 模板，写 rubric，填空建出来，跑探针逐条判定，最后给证据。
 version: 1.0.0
 author: langconfig
 tags:
@@ -9,9 +14,9 @@ tags:
 - rubric
 - verification
 triggers:
-- 用户要新建一个 agent
-- 用户问某个 agent 的结构对不对
-- 需要把需求变成 agent 配置
+- 用户要新建一个智能体
+- 用户问某个智能体的结构对不对
+- 需要把需求变成智能体配置
 allowed_tools:
 - create_agent
 - update_agent
@@ -21,62 +26,55 @@ allowed_tools:
 - skill
 ---
 
-# Agent Builder — how to build an agent that actually works
+# Agent Builder —— 如何建出一个真的能用的智能体
 
-Read this before you `create_agent`. It is the long version; the short version is in
-your system prompt.
+在调用 `create_agent` 之前先读本文。这里是长版本，短版本在你的系统提示词里。
 
-## Pick a template before you think
+## 先选模板，再动手想
 
-Six structures cover everything we have built so far. Read the one that matches,
-then fill in its JSON skeleton — do not invent a structure from scratch.
+到目前为止我们建过的东西，六种结构全都覆盖了。读最匹配的那一种，然后填它的 JSON 骨架——不要从零发明结构。
 
-| template | structure | pick when |
+| 模板 | 结构 | 选用时机 |
 |---|---|---|
-| `references/templates/T1-single-agent.md` | one agent, 2–4 tools, no middleware | one job, one tool set, answer or file out |
-| `references/templates/T2-supervisor-experts.md` | `task` only + N experts | work spans distinct domains, each expert answers in ~3 lines |
-| `references/templates/T3-handoff-machine.md` | one agent + `handoff` middleware, per-step prompt/tools | one conversation, several stages, role changes mid-flow |
-| `references/templates/T4-skills-driven.md` | agent + `skills` list + `skill` tool | long, rarely used, must stay editable knowledge |
-| `references/templates/T5-research-pipeline.md` | deep agent + `todo_list` + research subagent | open question, deliverable is a cited file |
-| `references/templates/T6-data-qa.md` | upload → sqlite → SQL | a table goes in, questions come after |
+| `references/templates/T1-single-agent.md` | 一个智能体，2–4 个工具，无中间件 | 单一任务、单一工具集，产出答案或文件 |
+| `references/templates/T2-supervisor-experts.md` | 只有 `task` + N 个专家 | 工作横跨互不相同的领域，每个专家用约 3 行作答 |
+| `references/templates/T3-handoff-machine.md` | 一个智能体 + `handoff` 中间件，每步各自的提示词/工具 | 一段对话、多个阶段，流程中途换角色 |
+| `references/templates/T4-skills-driven.md` | 智能体 + `skills` 列表 + `skill` 工具 | 长期存在、很少用到、又必须保持可编辑的知识 |
+| `references/templates/T5-research-pipeline.md` | deep agent + `todo_list` + 研究子智能体 | 开放性问题，交付物是一份带引用的文件 |
+| `references/templates/T6-data-qa.md` | 上传 → sqlite → SQL | 一张表放进去，问题随后才来 |
 
-Every template has the same seven sections: when to use it, the JSON skeleton
-(with `{{placeholders}}`), the prompt skeleton, tools/middleware, a rubric
-template, a measured baseline, and the failure table. Copy the skeleton, replace
-the placeholders, then verify every tool id against `pg_list_custom_tools`.
+每个模板都同样有七节：何时使用、JSON 骨架（含 `{{placeholders}}`）、提示词骨架、工具/中间件、rubric 模板、
+实测基线、失败对照表。照抄骨架，替换占位符，然后逐个拿工具 id 去 `pg_list_custom_tools` 核对。
 
-`references/facts/case-facts.md` holds the ground truth for the twelve training agents —
-what they actually are, and where they disagree with the run book. Read it when
-a template and a real agent disagree; quote the conflict instead of hiding it.
+`references/facts/case-facts.md` 记录十二个训练智能体的事实真相——它们实际是什么，以及哪些地方与运行手册
+不符。模板与真实智能体冲突时读它；把冲突引出来，而不是藏起来。
 
-## The order is not negotiable
+## 顺序不可协商
 
 ```
 rubric  →  build  →  test  →  judge  →  (fix ≤2)  →  deliver
 ```
 
-A rubric written after the build is a rationalisation, not a standard. Write it first,
-show it to the person, and only build once they approve.
+建完再写的 rubric 是事后合理化，不是标准。先写 rubric，拿给对方看，等他点头同意再动手建。
 
-### Rubric rules
+### Rubric 的规矩
 
-- 3–5 criteria. Each one must be decidable by looking at a test run.
+- 3–5 条标准。每条都必须看一眼测试运行就能判定。
 - Bad: 「回答质量好」 · Good: 「调用 web_search 取到当天天气，且温度数字来自工具返回」
 - Bad: 「能处理 CSV」 · Good: 「上传 3 行 CSV 后，回答里的行数与文件一致」
-- Each criterion gets one probe. A probe like `hi` tests nothing — write the message a
-  real user would send for that criterion.
-- Save it: `generated/<slug>.rubric.md`, one line per criterion, numbered (`R1`–`R5`).
+- 每条标准配一个探针。像 `hi` 这样的探针什么都测不出来——要写出真实用户为这条标准会发的那句话。
+- 存下来：`generated/<slug>.rubric.md`，一条标准一行，编号（`R1`–`R5`）。
 
-## Choosing the kind
+## 选 kind
 
-| kind | harness gives | you must add | pick when |
+| kind | harness 提供 | 你必须补上 | 选用时机 |
 |---|---|---|---|
-| `deep` | `ls`, `read_file`, `write_file`, `edit_file`, `glob`, `grep`, `execute`; subagents; skills; MCP | tools beyond files, middleware if you want HITL | multi-step work, files as output, expert split |
-| `normal` | platform-assembled prompt (guardrails + tool enforcement); **no file tools** | `write_file` explicitly if it must save files | one job, rules the platform should enforce for you |
+| `deep` | `ls`、`read_file`、`write_file`、`edit_file`、`glob`、`grep`、`execute`；子智能体；技能；MCP | 文件之外的工具，想要 HITL 就加中间件 | 多步工作、产出是文件、需要专家分工 |
+| `normal` | 平台装配的提示词（护栏 + 工具强制）；**没有文件工具** | 需要存文件时显式加 `write_file` | 单一任务、规则应交由平台替你执行 |
 
-Default to `deep` unless the person asks for platform-enforced rules.
+除非对方要求平台强制执行的规则，否则默认用 `deep`。
 
-## Reading the catalog — never guess a tool id
+## 查目录——绝不猜工具 id
 
 ```
 pg_list_custom_tools()      # the real 66 ids with descriptions
@@ -87,33 +85,29 @@ pg_list_agents()            # what already exists, so you do not duplicate
 pg_get_agent(<id>)          # the full config of one agent, before you update it
 ```
 
-Tool names in a prompt that do not exist in the catalog fail silently — the agent
-simply never calls them. That is the single most common way a build looks fine and
-does nothing.
+提示词里写了目录中并不存在的工具名，会静默失败——智能体干脆永远不会去调用它。这是"看着挺像那么回事、实际
+什么都没做"最常见的一种成因。
 
-## Subagents
+## 子智能体
 
-Add one only when the split is real:
+只有分工是真的，才加子智能体：
 
-- the sub-problem needs **a different tool set** (security analyst reading code, not
-  writing it), or
-- the sub-problem's output is **a summary**, not a file.
+- 子问题需要**另一套工具集**（安全分析师只读代码、不写代码），或者
+- 子问题的产出是**一份摘要**，而不是一个文件。
 
-If everything needs the same tools and the same context, one agent is better. Each
-subagent costs a hand-off and its result comes back as text.
+如果一切都用同一套工具、同一份上下文，一个智能体更好。每个子智能体都要付一次交接成本，而它的结果是以文本
+形式回来的。
 
-`interrupt_on` on a subagent gates its own tools; a parent's policy does **not** reach
-into it (measured 2026-11-01: an event was created inside a `task` with the parent's
-approval list set).
+子智能体上的 `interrupt_on` 只拦它自己的工具；父级的策略**进不去**（2026-11-01 实测：父级的审批清单已经设
+好，事件仍然在 `task` 内部被创建出来）。
 
-## MCP servers
+## MCP 服务器
 
-`mcp_servers={"calendar": {"url": "http://127.0.0.1:3000"}}` — the tools arrive as
-`calendar_list_events`, `calendar_create_event`, … at build time. A server that is down
-is skipped with a warning; the agent still runs. Approval for those tools comes from the
-agent's HITL policy and is enforced inside each tool.
+`mcp_servers={"calendar": {"url": "http://127.0.0.1:3000"}}`——建的时候工具就以
+`calendar_list_events`、`calendar_create_event`、……的名字到位。挂掉的服务器会被跳过并给一条警告；智能体照常
+运行。这些工具的审批来自智能体自己的 HITL 策略，并在每个工具内部执行。
 
-## Skill format (the spec the LangChain docs follow)
+## 技能目录格式（LangChain 文档遵循的规格）
 
 ```
 <skills-root>/<skill-id>/
@@ -123,85 +117,71 @@ agent's HITL policy and is enforced inside each tool.
 └── assets/             # files used in output (templates, images)
 ```
 
-- `name` **equals the directory name** (kebab-case id). The human label belongs in
-  the body heading and the DB row, not in frontmatter.
-- Only `references/`, `scripts/`, `assets/` are spec directories. A file under
-  `templates/` or `facts/` is invisible to a spec-following reader — `create_skill`
-  refuses those paths and says why.
-- The instructions must **name every support file** and say when to read it. Files
-  nobody mentions are files nobody loads (progressive disclosure level 3).
-- Load order is fixed: metadata (name + description) at startup → full `SKILL.md`
-  on invocation → support files only when the instructions ask for them.
+- `name` **等于目录名**（kebab-case 的 id）。给人看的名字属于正文标题和数据库那一行，不属于 frontmatter。
+- 只有 `references/`、`scripts/`、`assets/` 是规格目录。`templates/` 或 `facts/` 下的文件，对遵循规格的读取方
+  是不可见的——`create_skill` 会拒绝这些路径，并说明原因。
+- 指令必须**点名每一个支撑文件**，并说清何时去读它。没人提到的文件，就是没人加载的文件（渐进披露第 3 层）。
+- 加载顺序是固定的：启动时元数据（name + description）→ 调用时完整的 `SKILL.md` → 只有指令要求时才读支撑
+  文件。
 
-## Disk and DB drift
+## 磁盘与数据库漂移
 
-`SKILL.md` on disk is the source a teammate edits and commits; the DB row is what
-`skill()` serves. Editing the file alone does not reach an agent — run
-`sync_skills()` (dry-run first) to pull newer files into the DB. The reverse
-direction has always worked: `create_skill` and `update_skill` write both.
+磁盘上的 `SKILL.md` 是同事编辑并提交的源；数据库那一行才是 `skill()` 提供出去的内容。只改文件到不了智能体
+那里——跑 `sync_skills()`（先 dry-run）把更新的文件拉进数据库。反方向一直是通的：`create_skill` 与
+`update_skill` 两边都写。
 
-## Creating a skill
+## 创建技能
 
-A skill on this platform is two things: a row in `skills` and a git-tracked
-`SKILL.md` under `backend/skills/personal/<owner>/<skill_id>/`. `create_skill`
-writes both and returns the path; `update_skill` writes the file back. Never write
-only the row — a skill without its folder has no support files and no way to reach
-a teammate.
+这个平台上的一个技能是两样东西：`skills` 表里的一行，以及 `backend/skills/personal/<owner>/<skill_id>/` 下
+一个纳入 git 的 `SKILL.md`。`create_skill` 两样都写，并返回路径；`update_skill` 把文件写回去。绝不要只写那一
+行——没有自己文件夹的技能既没有支撑文件，也没有任何途径到达同事手里。
 
-`create_skill(files={...})` writes the supporting files in the same call —
-`references/`, `scripts/`, `assets/` — the directories the Agent Skills spec defines.
-Paths are checked: anything that escapes the skill folder is refused and
-reported. They are read on demand with `skill("<id>", file="<relative path>")`
-and never loaded together with the instructions.
+`create_skill(files={...})` 在同一次调用里写支撑文件——`references/`、`scripts/`、`assets/`，也就是 Agent
+Skills 规格定义的那几个目录。路径会被检查：任何逃出技能文件夹的东西都会被拒绝并报告出来。它们按需用
+`skill("<id>", file="<relative path>")` 读取，永远不与指令一起加载。
 
-The tool answers with a **disk listing and byte sizes** (`SKILL.md (4.0 KB)`,
-`references/checklist.md (… B)`), because you cannot `ls` that folder yourself —
-it lives under `backend/skills/`, outside your workspace. Quote that listing when
-you report what you built; do not claim a file exists without it.
+工具的回复是一份**磁盘清单加字节数**（`SKILL.md (4.0 KB)`、`references/checklist.md (… B)`），因为你自己
+`ls` 不到那个文件夹——它在 `backend/skills/` 下，在你的工作区之外。汇报你建了什么时，把这份清单引出来；不要
+在没有它的情况下声称某个文件存在。
 
-## Testing
+## 测试
 
-`test_agent(agent_id, probe)` returns: tool sequence, elapsed time, answer text, timeout
-flag. Judge with evidence:
+`test_agent(agent_id, probe)` 返回：工具序列、耗时、答案文本、超时标志。用证据判定：
 
 ```
 R1 PASS — 工具序列里有 web_search；回答「上海 24–25℃」与工具返回一致
 R2 FAIL — 没有写文件；工具序列只有 web_search、ls
 ```
 
-Fix one thing per round, then retest the same probes. Two rounds of the same failure =
-report blocked with the evidence, do not keep looping.
+每轮只修一件事，然后用同一批探针重测。同一个失败连着出现两轮 = 带证据报告 blocked，不要继续死循环。
 
-## Naming and delivery
+## 命名与交付
 
-- Name: `case-N-<topic>` when it is course material, `<topic>-assistant` otherwise.
-  Lowercase, hyphens, no spaces.
-- Deliver three files: `generated/<slug>.rubric.md`, `<slug>.config.json` (the exact
-  create_agent input), `<slug>.test.md` (probe, tools, elapsed, R# verdicts).
-- Chat reply ≤15 lines: id, kind, tool/skill counts, rubric pass count, three paths.
+- 名字：课程材料用 `case-N-<topic>`，其余用 `<topic>-assistant`。小写，连字符，不含空格。
+- 交付三个文件：`generated/<slug>.rubric.md`、`<slug>.config.json`（原样的 create_agent 输入）、
+  `<slug>.test.md`（探针、工具、耗时、R# 判词）。
+- 聊天回复 ≤15 行：id、kind、工具/技能数量、rubric 通过条数、三个路径。
 
-## Failure patterns worth recognising
+## 值得认出来的失败模式
 
-| symptom | likely cause | fix |
+| 症状 | 可能原因 | 修法 |
 |---|---|---|
-| answers without calling any tool | tool id typo, or the prompt never says what the output must contain | read the catalog again; state the deliverable in the prompt |
-| calls the right tool but ignores the result | two tools with overlapping descriptions | remove the weaker one |
-| normal agent cannot save files | `write_file` not in `native_tools` | add it, or use `deep` |
-| works in test, breaks in use | probe was narrower than real input | widen the probe |
-| approval card never appears | the call happened inside a subagent | gate at the tool, or drop the subagent |
-| a rubric names a specific read tool | the tool may legitimately be absent from that agent's catalogue — `read_file` showed up in one deep agent and not another | select `read_any_file` explicitly, or write the criterion as "read back with any read tool and quote it" |
+| 不调用任何工具就作答 | 工具 id 拼错，或提示词从没说清产出必须包含什么 | 重新查目录；在提示词里写明交付物 |
+| 调了正确的工具却无视结果 | 两个工具的描述互相重叠 | 删掉较弱的那一个 |
+| normal 智能体存不了文件 | `native_tools` 里没有 `write_file` | 加上它，或改用 `deep` |
+| 测试里能用，实际一用就坏 | 探针比真实输入窄 | 把探针放宽 |
+| 审批卡始终不出现 | 调用发生在子智能体内部 | 在工具层拦截，或去掉子智能体 |
+| rubric 里点名了某个具体的读取工具 | 那个工具在这类智能体的目录里可能合法地不存在——`read_file` 在一个 deep agent 里有、在另一个里没有 | 显式选上 `read_any_file`，或把标准写成"用任意读取工具读回来并引用" |
 
-## Are the templates on disk for you?
+## 模板在不在你的磁盘上？
 
-They live under `references/` next to this file (`references/templates/`, `references/facts/`). If a deep agent's workspace
-shows only `SKILL.md` under `skills/agent-builder/`, the staging step did not copy
-the supporting files — say so and ask for them instead of inventing the structure
-from the index table alone. (Seen on 2026-11-01: `skills/` staged empty for the
-builder itself, so it rebuilt T2 from a library agent rather than the template.)
+它们就在本文件旁边的 `references/` 下（`references/templates/`、`references/facts/`）。如果某个 deep agent 的
+工作区里 `skills/agent-builder/` 只剩下 `SKILL.md`，说明暂存那一步没有拷支撑文件——那就如实说出来、去要这些
+文件，而不是只凭索引表把结构凭空发明出来。（2026-11-01 见过一次：builder 自己的 `skills/` 被暂存成空的，于是
+它照着库里的某个智能体重建了 T2，而没用模板。）
 
-## When template and reality disagree
+## 模板与现实冲突时
 
-`references/facts/case-facts.md` records known bad examples on purpose (agent 319 is the
-skills case with zero skills; agent 328 lists skill names as zero-tool
-subagents; agent 159 carries 27 tools). Do not copy them. Say which template
-rule the real agent breaks, and build the corrected version.
+`references/facts/case-facts.md` 是刻意记录了已知的坏例子的（智能体 319 是那个技能案例，却一个技能都没有；
+智能体 328 把技能名列成零工具的子智能体；智能体 159 背了 27 个工具）。不要照抄它们。说清真实智能体破坏了哪
+一条模板规则，然后建修正后的版本。

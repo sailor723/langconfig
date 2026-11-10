@@ -12,7 +12,6 @@
 # Move a skill with `python scripts/skill_zh.py promote <id>`, never by hand: promote refuses a translation
 # whose structure or frontmatter disagrees with the archived English.
 
-agent-builder
 agent-to-skill
 answer-ontology-question
 ask-matt
@@ -33,7 +32,6 @@ git-workflow
 implement-spec
 improve-codebase-architecture
 langchain-agents
-langconfig-builder
 langgraph-workflows
 lc-deep-agents-core
 lc-deep-agents-orchestration
@@ -41,7 +39,6 @@ lc-ecosystem-primer
 lc-eval-engineering
 lc-langchain-fundamentals
 lc-langgraph-cli
-lc-langgraph-decision-models
 lc-langgraph-fundamentals
 lc-langgraph-human-in-the-loop
 lc-langgraph-persistence

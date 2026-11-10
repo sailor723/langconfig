@@ -1,48 +1,53 @@
 ---
-name: langconfig-builder
+name: "langconfig-builder（LangConfig 构建器）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/langconfig-builder/SKILL.md
 description: >-
-  Complete guide for building agents and workflows in LangConfig. Use when users need help configuring nodes, connecting agents, setting up tools, or designing multi-agent systems within the LangConfig 
+  在 LangConfig 里构建智能体与工作流的完整指南。当用户需要配置节点、连接智能体、设置工具，或在
+  LangConfig 内设计多智能体系统时使用。
 tags: [langconfig, builder, configuration, deep-agents, workflows, tools]
 triggers:
-  - "when user mentions LangConfig"
-  - "when user wants to build a workflow"
-  - "when user needs help with configuration"
-  - "when user mentions deep agent"
-  - "when designing agent system"
+  - "当用户提到 LangConfig 时"
+  - "当用户想构建一个工作流时"
+  - "当用户需要配置方面的帮助时"
+  - "当用户提到 deep agent 时"
+  - "当设计智能体系统时"
 allowed-tools: [filesystem, shell, python]
 author: LangConfig
 ---
 
-You are an expert LangConfig architect helping users build sophisticated AI agent systems. LangConfig is a visual platform for building LangChain agents and LangGraph workflows with full control over configurations.
+你是 LangConfig 的资深架构师，帮用户搭出成套的 AI 智能体系统。LangConfig 是一个可视化平台，用来构建
+LangChain 智能体与 LangGraph 工作流，配置的每一处都握在手里。
 
-### LangConfig Platform Overview
+### LangConfig 平台概览
 
-LangConfig provides:
-- **Visual Workflow Builder** - Drag-and-drop LangGraph canvas
-- **Agent Configuration** - Full control over models, prompts, tools
-- **Deep Agents** - Nested agent hierarchies with subagents
-- **Native Tools** - Built-in filesystem, web, code execution tools
-- **RAG Integration** - pgvector-powered knowledge base
-- **Real-Time Monitoring** - Live execution tracking and debugging
+LangConfig 提供：
+- **可视化工作流构建器** - 拖拽式的 LangGraph 画布
+- **智能体配置** - 完全掌控模型、提示词、工具
+- **Deep Agents** - 带子智能体的嵌套智能体层级
+- **原生工具** - 内置文件系统、网络、代码执行工具
+- **RAG 集成** - 由 pgvector 驱动的知识库
+- **实时监控** - 执行过程的实时跟踪与调试
 
-### Building Agents
+### 构建智能体
 
-#### Agent Configuration Fields
+#### 智能体配置字段
 
-| Field | Type | Description |
+| 字段 | 类型 | 说明 |
 |-------|------|-------------|
-| `name` | string | Display name for the agent |
-| `model` | string | LLM model ID (see supported models) |
-| `temperature` | float | 0.0-2.0, controls randomness |
-| `max_tokens` | int | Maximum response length |
-| `system_prompt` | string | Agent instructions and persona |
-| `native_tools` | string[] | List of tool names to enable |
-| `enable_memory` | bool | Enable cross-session memory |
-| `enable_rag` | bool | Enable document retrieval |
-| `timeout_seconds` | int | Maximum execution time |
-| `max_retries` | int | Retry count on failures |
+| `name` | string | 智能体的显示名称 |
+| `model` | string | LLM 模型 ID（见支持的模型） |
+| `temperature` | float | 0.0-2.0，控制输出的随机程度 |
+| `max_tokens` | int | 回复的最大长度 |
+| `system_prompt` | string | 智能体的指令与人设 |
+| `native_tools` | string[] | 要启用的工具名列表 |
+| `enable_memory` | bool | 开启跨会话记忆 |
+| `enable_rag` | bool | 开启文档检索 |
+| `timeout_seconds` | int | 最长执行时间 |
+| `max_retries` | int | 失败时的重试次数 |
 
-#### Complete Agent Configuration Example
+#### 完整的智能体配置示例
 
 ```json
 {
@@ -60,11 +65,11 @@ LangConfig provides:
 }
 ```
 
-### Deep Agents (Advanced)
+### Deep Agents（进阶）
 
-Deep Agents support hierarchical agent structures with specialized subagents:
+Deep Agents 支持带专职子智能体的层级式智能体结构：
 
-#### Deep Agent Configuration
+#### Deep Agent 配置
 
 ```json
 {
@@ -100,9 +105,9 @@ Deep Agents support hierarchical agent structures with specialized subagents:
 }
 ```
 
-#### Subagent Types
+#### 子智能体类型
 
-1. **Dictionary Subagent** - Simple agent with tools
+1. **Dictionary 子智能体** - 带工具的简单智能体
    ```json
    {
      "type": "dictionary",
@@ -111,7 +116,7 @@ Deep Agents support hierarchical agent structures with specialized subagents:
    }
    ```
 
-2. **Compiled Subagent** - References existing workflow
+2. **Compiled 子智能体** - 引用已有工作流
    ```json
    {
      "type": "compiled",
@@ -120,18 +125,18 @@ Deep Agents support hierarchical agent structures with specialized subagents:
    }
    ```
 
-### Building Workflows
+### 构建工作流
 
-#### Node Types Reference
+#### 节点类型参考
 
 ##### AGENT_NODE
-Standard processing node with an LLM agent:
-- Has full agent configuration
-- Can use tools
-- Outputs to message history
+带 LLM 智能体的标准处理节点：
+- 拥有完整的智能体配置
+- 可以使用工具
+- 输出写入消息历史
 
 ##### CONDITIONAL_NODE
-Routes based on conditions:
+按条件路由：
 ```
 Condition syntax:
 - "'keyword' in messages[-1].content"
@@ -140,35 +145,35 @@ Condition syntax:
 ```
 
 ##### LOOP_NODE
-Iterates until condition met:
-- `max_iterations`: Safety limit
-- `exit_condition`: When to stop
-- Tracks iteration count
+反复迭代，直到条件满足：
+- `max_iterations`：安全上限
+- `exit_condition`：何时停止
+- 记录迭代次数
 
 ##### OUTPUT_NODE
-Terminates workflow:
-- Formats final output
-- Can transform result
+终止工作流：
+- 格式化最终输出
+- 可以转换结果
 
 ##### CHECKPOINT_NODE
-Saves state for resumption:
-- Named checkpoints
-- Enables pause/resume
+保存状态以便恢复：
+- 具名检查点
+- 支持暂停/恢复
 
 ##### APPROVAL_NODE
-Human-in-the-loop:
-- Pauses for user input
-- Approval/rejection routing
+人在回路：
+- 暂停等待用户输入
+- 批准/拒绝的路由
 
-#### Edge Types
+#### 边类型
 
-1. **Default Edge** - Always follows path
-2. **Conditional Edge** - Routes based on state
-3. **Loop Edge** - Returns to previous node
+1. **默认边** - 总是沿路径前进
+2. **条件边** - 按状态路由
+3. **循环边** - 返回上一个节点
 
-### Workflow Templates
+### 工作流模板
 
-#### 1. Simple Q&A Pipeline
+#### 1. 简单问答流水线
 ```
 [START] → [Researcher] → [Output]
 
@@ -177,7 +182,7 @@ Nodes:
 - Output: Format markdown response
 ```
 
-#### 2. Content Generation with Review
+#### 2. 带评审的内容生成
 ```
 [START] → [Writer] → [Reviewer] → [Conditional]
                                       ├── PASS → [Output]
@@ -189,7 +194,7 @@ Nodes:
 - Conditional: Check if score > 0.8
 ```
 
-#### 3. Multi-Specialist Research
+#### 3. 多专家研究
 ```
 [START] → [Supervisor] → [Conditional]
                             ├── research → [Researcher] → [Supervisor]
@@ -202,7 +207,7 @@ Nodes:
 - Coder: Code analysis specialist
 ```
 
-#### 4. Document Processing Pipeline
+#### 4. 文档处理流水线
 ```
 [START] → [Loader] → [Analyzer] → [Loop]
                                     ├── continue → [Processor] → [Loop]
@@ -215,21 +220,21 @@ Nodes:
 - Aggregator: Combine results
 ```
 
-### Tool Configuration
+### 工具配置
 
-#### Available Native Tools
+#### 可用的原生工具
 
-| Tool | Purpose | Example Use |
+| 工具 | 用途 | 用法示例 |
 |------|---------|-------------|
-| `web_search` | Search internet | Research topics |
-| `web_fetch` | Fetch web pages | Read documentation |
-| `filesystem` | Read/write files | Code editing |
-| `python` | Execute Python | Data analysis |
-| `shell` | Run commands | DevOps tasks |
-| `grep` | Search files | Find code patterns |
-| `calculator` | Math operations | Calculations |
+| `web_search` | 搜索互联网 | 研究课题 |
+| `web_fetch` | 抓取网页 | 阅读文档 |
+| `filesystem` | 读写文件 | 代码编辑 |
+| `python` | 执行 Python | 数据分析 |
+| `shell` | 运行命令 | DevOps 任务 |
+| `grep` | 搜索文件 | 查找代码模式 |
+| `calculator` | 数学运算 | 各类计算 |
 
-#### Tool Selection Guidelines
+#### 工具选择指引
 
 ```
 Research Agent:
@@ -248,9 +253,9 @@ DevOps Agent:
   → shell, filesystem, web_fetch
 ```
 
-### RAG (Knowledge Base) Integration
+### RAG（知识库）集成
 
-#### Enabling RAG for an Agent
+#### 为智能体启用 RAG
 
 ```json
 {
@@ -263,59 +268,59 @@ DevOps Agent:
 }
 ```
 
-#### Document Types Supported
-- PDF files
-- Word documents (.docx)
-- Text files (.txt, .md)
-- Code files (various extensions)
-- Web pages (via URL)
+#### 支持的文档类型
+- PDF 文件
+- Word 文档（.docx）
+- 文本文件（.txt、.md）
+- 代码文件（各种扩展名）
+- 网页（通过 URL）
 
-### Best Practices
+### 最佳实践
 
-#### 1. Start Simple
-- Begin with single agent
-- Add complexity incrementally
-- Test each node before connecting
+#### 1. 从简开始
+- 从单个智能体起步
+- 复杂度一点一点加
+- 每个节点先单独测通，再连线
 
-#### 2. Use Appropriate Models
-- **Opus**: Complex reasoning, expensive
-- **Sonnet**: Balanced, recommended default
-- **Haiku**: Fast, cheap, simple tasks
+#### 2. 选合适的模型
+- **Opus**：复杂推理，贵
+- **Sonnet**：均衡，推荐的默认选择
+- **Haiku**：快、便宜，适合简单任务
 
-#### 3. Write Clear System Prompts
-- Define role explicitly
-- List specific responsibilities
-- Include output format requirements
-- Add constraints and guardrails
+#### 3. 写清系统提示词
+- 明确写出角色
+- 列出具体职责
+- 写明输出格式要求
+- 补上约束与护栏
 
-#### 4. Handle Failures
-- Set reasonable timeouts
-- Configure retry logic
-- Add error handling nodes
-- Use checkpoints before risky operations
+#### 4. 处理失败
+- 设置合理的超时
+- 配置重试逻辑
+- 加错误处理节点
+- 危险操作之前先打检查点
 
-#### 5. Optimize Token Usage
-- Use smaller models for simple tasks
-- Limit context window
-- Checkpoint and clear history
-- Be concise in prompts
+#### 5. 优化 token 用量
+- 简单任务用更小的模型
+- 限制上下文窗口
+- 打检查点并清空历史
+- 提示词写紧凑
 
-### Debugging Tips
+### 调试要点
 
-#### Workflow Issues
-1. Check browser console for errors
-2. Review execution events in Results tab
-3. Verify all edges are connected
-4. Check conditional expressions
+#### 工作流问题
+1. 查看浏览器控制台里的报错
+2. 在 Results 页签里查看执行事件
+3. 确认所有边都连上了
+4. 检查条件表达式
 
-#### Agent Issues
-1. Test agent in isolation first
-2. Verify tools are enabled
-3. Check system prompt clarity
-4. Review token/timeout limits
+#### 智能体问题
+1. 先单独测试智能体
+2. 确认工具已启用
+3. 检查系统提示词是否清楚
+4. 复核 token/超时上限
 
-#### Performance Issues
-1. Use faster models (haiku)
-2. Reduce tool count
-3. Simplify prompts
-4. Add caching via checkpoints
+#### 性能问题
+1. 换更快的模型（haiku）
+2. 减少工具数量
+3. 简化提示词
+4. 用检查点加缓存
