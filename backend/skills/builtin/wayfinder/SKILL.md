@@ -1,12 +1,17 @@
 ---
-name: "Wayfinder"
-description: "Plan a huge chunk of work (more than one agent session can hold) as a shared map of decision tickets on your issue tracker, and resolve them one at a time until the way to the destination is clear."
+name: "Wayfinder（探路者）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/wayfinder/SKILL.md
+description: >-
+  把一大块工作（大到超过一个智能体会话所能容纳的量）规划成问题追踪器上的一张共享地图，地图由决策工单组成，
+  然后一次解掉一张，直到通往目的地的路已经清楚。
 tags:
   - "wayfinder"
   - "mattpocock"
   - "planning"
 triggers:
-  - "When asked to a loose idea has arrived, too big for one agent session, and wrapped in fog: the way from here t"
+  - "当上来的是一个松散的想法、它大到单个智能体会话装不下、还裹在迷雾里时：从这里到目的地的路还看不见"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -20,148 +25,147 @@ author: "mattpocock (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
-> **Provenance.** Adapted from `mattpocock/skills → skills/engineering/wayfinder` (MIT, vendored at `vendor/upstream-skills/mattpocock/skills/engineering/wayfinder/SKILL.md`).
-> Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
-> `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
-> (`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`), and a verification floor
-> section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
-> through the `skill` tool, so it is dropped rather than emulated.
+> **来源说明。** 改编自 `mattpocock/skills → skills/engineering/wayfinder`（MIT，原样收录于
+> `vendor/upstream-skills/mattpocock/skills/engineering/wayfinder/SKILL.md`）。
+> 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
+> `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
+> （`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`），以及一节验证底线。
+> 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
+> 所以直接去掉，而不做模拟。
 
-## Instructions
+## Instructions（指令）
 
-A loose idea has arrived, too big for one agent session, and wrapped in fog: the way from here to the **destination** isn't visible yet. Wayfinding is about finding that way, not charging at the destination. This skill charts the way as a **shared map** on the repo's `docs/tickets/`, then works its **decision tickets** (questions whose resolution is a decision, not slices of a build to execute) one at a time until the route is clear.
+一个松散的想法到了，大到单个智能体会话装不下，还裹在迷雾里：从这里到**目的地**的路还看不见。探路要的是找到那条路，不是朝着目的地硬冲。这个技能把那条路画成一张**共享地图**，落在本仓库的 `docs/tickets/` 上，然后一张一张地解它的**决策工单**（解法是一个决定、而不是一段要执行的施工切片的问题），直到路线清楚。
 
-The destination varies per effort, and naming it is the first act of charting: it shapes every ticket. It might be a spec to hand off and iterate on, a decision to lock before planning starts, or a change made in place like a data-structure migration. The map is domain-agnostic: engineering work, course content, whatever fits the shape.
+目的地因事而异，而给它命名是画图的第一件事：它塑造每一张工单。它可能是一份要交出去、反复迭代的规格，一个要在规划开始前钉死的决定，或者一处就地完成的改动，比如一次数据结构迁移。地图与领域无关：工程工作、课程内容，只要形状对得上都行。
 
-## Plan, don't do
+## 规划，不是动手
 
-Wayfinder is **planning** by default: each ticket resolves a decision, and the map is done when the way is clear, with nothing left to decide before someone goes and does the thing. The pull to just do the work is usually the signal you've reached the edge of the map and it's time to hand off. An effort can override this in its **Notes**, carrying execution into the map itself, but absent that, produce decisions, not deliverables.
+Wayfinder 默认只做**规划**：每张工单解掉一个决定，等路都清楚了、在有人动手去做那件事之前已经没有东西可决定，地图就算完成。想直接开工的那股冲动，通常正是你已经走到地图边缘、该交接出去的信号。某次工作可以在自己的 **备注** 里推翻这一点，把执行也搬进地图本身；但没有这一条时，产出决定，不产出交付物。
 
-## Refer by name
+## 用名字称呼
 
-Every map and ticket is an issue, so it has a **name**: its title. In everything the human reads (narration, the map's Decisions-so-far), refer to it by that name, never by a bare id, number, or slug. A wall of `#42, #43, #44` is illegible; names read at a glance. The id and URL don't vanish; a name wraps its link, but they ride _inside_ the name, never stand in for it.
+每张地图、每张工单都是一个 issue，因此它有一个**名字**：它的标题。在人要读的一切里（叙述、地图的"已定的决定"），都用这个名字称呼它，绝不用裸 id、编号或 slug。一墙的 `#42, #43, #44` 没法读；名字一眼就懂。id 和 URL 不会消失：名字把链接包在里面，它们跟着名字走，但绝不代替名字。
 
-## The Map
+## 地图
 
-The map is a single issue on this repo's `docs/tickets/`, labelled `wayfinder:map`, the canonical artifact. Its tickets are child issues of the map.
+地图是本仓库 `docs/tickets/` 上的单个 issue，打 `wayfinder:map` 标签，是正式产物。它的工单是这张地图的子 issue。
 
-The map is an **index**, not a store. It lists the decisions made and points at the tickets that hold their detail; a decision lives in exactly one place, its ticket, so the map never restates it, only gists it and links.
+地图是**索引**，不是仓库。它列出已经做出的决定，并指向持有细节的工单；一个决定只活在一个地方——它自己的工单——所以地图从不复述它，只给摘要和链接。
 
-**Where the map, its child tickets, blocking, and frontier queries physically live is tracker-specific.** The tickets for this work live in `docs/tickets/`; if there are none, say so and ask for the spec rather than inventing one. Consult the tracker doc's "Wayfinding operations" section for how _this_ repo expresses them. If no tracker has been provided, default to the local-markdown tracker.
+**地图、它的子工单、阻塞关系、前沿查询物理上放在哪儿，取决于追踪器。** 这项工作的工单放在 `docs/tickets/`；那里一份都没有，就如实说出来并索要规格，而不是自己编一个。查该追踪器文档里的"探路操作"（Wayfinding operations）一节，看_本_仓库怎么表达它们。没有提供追踪器时，默认用本地 markdown 追踪器。
 
-### The map body
+### 地图正文
 
-The whole map at low resolution, loaded once per session. Open tickets are **not** listed: they are open child issues, found by query.
-
-```markdown
-## Destination
-
-<what reaching the end of this map looks like: the spec, decision, or change this effort is finding its way to. One or two lines; every session orients to it before choosing a ticket.>
-
-## Notes
-
-<domain; skills every session should consult; standing preferences for this effort>
-
-## Decisions so far
-
-<!-- the index: one line per closed ticket, enough to judge relevance, then zoom the link for the detail the ticket holds -->
-
-- [<closed ticket title>](link): <one-line gist of the answer>
-
-## Not yet specified
-
-<!-- see "Fog of war": in-scope fog you can't ticket yet; graduates as the frontier advances -->
-
-## Out of scope
-
-<!-- see "Out of scope": work ruled beyond the destination; closed, never graduates -->
-```
-
-### Tickets
-
-Each ticket is a **child issue** of the map; the tracker's issue id is its identity. Its body is the question, sized to one 100K token agent session:
+整张地图的低分辨率视图，每个会话载入一次。开着的工单**不**列在这里：它们是开着的子 issue，靠查询找到。
 
 ```markdown
-## Question
+## 目的地
 
-<the decision or investigation this ticket resolves>
+<走到这张地图的尽头是什么样子：这次工作正在找路的那个规格、决定或改动。一两行；每个会话在挑工单之前都要先对齐到它。>
+
+## 备注
+
+<领域；每个会话都该查阅的技能；这次工作的常设偏好>
+
+## 已定的决定
+
+<!-- 索引：每张已关闭的工单一行，够判断相关性即可，细节去点开链接看 -->
+
+- [<已关闭工单的标题>](link): <答案的一行摘要>
+
+## 尚未说清
+
+<!-- 见"战争迷雾"一节：在范围内、但还开不出工单的迷雾；随着前沿推进而毕业 -->
+
+## 范围之外
+
+<!-- 见"范围之外"一节：被判定在目的地之外的工作；关闭，永不毕业 -->
 ```
 
-Each ticket carries a `wayfinder:<type>` label, one of `research`, `prototype`, `grilling`, `task` (see [Ticket Types](#ticket-types)). `wayfinder:` labels are the only labels a map and its tickets carry, never a triage label like `ready-for-agent`: they are decisions, not implementation work.
+### 工单
 
-A session **claims** a ticket by assigning it to the dev driving the map, **first**, before any work, so concurrent sessions skip it. That assignee _is_ the claim: an open, unassigned ticket is unclaimed.
+每张工单都是地图的**子 issue**；追踪器的 issue id 就是它的身份。它的正文就是那个问题，体量按一个 100K token 的智能体会话来定：
 
-Blocking uses the tracker's **native** dependency relationship: essential because it renders the frontier _visually_ in the tracker's own UI, so the human sees what's takeable without opening the map. Only a tracker that lacks native blocking falls back to a body convention. A ticket is **unblocked** when every ticket blocking it is closed; the **frontier** is the open, unblocked, unclaimed children, the edge of the known.
+```markdown
+## 问题
 
-The answer isn't part of the body; it's recorded on resolution (see [Work through the map](#work-through-the-map)). Assets created while resolving a ticket are linked from the issue, not pasted in.
+<这张工单要解掉的决定或调查>
+```
 
-## Ticket Types
+每张工单带一个 `wayfinder:<type>` 标签，取值是 `research`、`prototype`、`grilling`、`task` 之一（见[工单类型](#工单类型)）。`wayfinder:` 标签是地图和它的工单唯一携带的标签，绝不打 `ready-for-agent` 那样的 triage 标签：它们是决定，不是实现工作。
 
-Every ticket is either **HITL** (human in the loop, worked _with_ a human who speaks for themselves) or **AFK**, driven by the agent alone. A HITL ticket only resolves through that live exchange; the agent never stands in for the human's side of it (a grilling agent that answers its own questions has broken this).
+一个会话**认领**一张工单的方式，是在动任何手之前**先**把它指派给开这张地图的那个开发者，这样并发的会话就会跳过它。那个被指派人_就是_认领本身：一张开着、没人指派的工单就是没被认领的。
 
-- **Research** (AFK): Reading documentation, third-party APIs, or local resources like knowledge bases to surface a fact a decision waits on. Resolved by a subagent that calls the `skill` tool with "research". Use when knowledge outside the current working directory is required.
-- **Prototype** (HITL): Raise the fidelity of the discussion by making a cheap, rough, concrete artifact to react to (an outline, a rough take, a stub, or UI/logic code) by calling the `skill` tool with "prototype". Links the prototype as an asset. Use when "how should it look" or "how should it behave" is the key question.
-- **Grilling** (HITL): Conversation. The default case. Always call the `skill` tool twice, for "grilling" and "domain-modeling".
-- **Task** (HITL or AFK): Manual work that must happen before a _decision_ can be made: nothing to decide, prototype, or research, but the discussion is blocked until it's done. Signing up for a service so its API can be judged, provisioning access, moving data so its shape can be seen. This is the one type that _does_ rather than decides, and it earns its place by unblocking a decision, not by delivering the destination. The agent drives it alone where it can (AFK); otherwise it hands the human a precise checklist (HITL). Resolved when the work is done; the answer records what was done and any resulting facts (credentials location, new URLs, row counts) later tickets depend on.
+阻塞用追踪器**原生**的依赖关系：这一点关键，因为它能在追踪器自己的界面里把前沿_可视化_地画出来，人不用打开地图就知道哪些能拿。只有不支持原生阻塞的追踪器，才退回到在正文里写约定。一张工单的每一张阻塞者都关闭之后，它就是**未阻塞**的；**前沿**是那些开着、未阻塞、未被认领的子工单，是已知世界的边缘。
 
-## Fog of war
+答案不是正文的一部分，它在解掉工单时才记录（见[走完地图](#走完地图)）。解工单过程中产生的资产从 issue 里链接出去，不要粘进来。
 
-The map is _deliberately_ incomplete: don't chart what you can't yet see. Beyond the live tickets lies the **fog of war**: the dim view of decisions and investigations you can tell are coming but can't yet pin down, because they hang on questions still open. Resolving a ticket clears the fog ahead of it, graduating whatever's now specifiable into fresh tickets, one at a time, until the way to the destination is clear and no tickets remain.
+## 工单类型
 
-The map's **Not yet specified** section is where that dim view is written down: the suspected question, the area to revisit later. It's the undiscovered frontier _toward_ the destination: everything here is in scope, just not sharp enough to ticket. Write as loosely or as fully as the view allows; it doubles as a signpost for collaborators reading where the effort is headed.
+每张工单要么是 **HITL**（human in the loop，_和_一个能替自己说话的人一起做），要么是 **AFK**，由智能体单独驱动。HITL 工单只能通过那场实时对话解掉；智能体绝不替人回答它这一边的问题（一个自问自答的追问型智能体，已经把这条破了）。
 
-**Fog or ticket?** The test is whether you can state the question precisely now, _not_ whether you can answer it now.
+- **研究 research**（AFK）：读文档、第三方 API，或本地资源（比如知识库），把某个决定正等着的一个事实挖出来。由一个调用 `skill` 工具、传入 "research" 的子智能体解掉。需要当前工作目录之外的知识时使用。
+- **原型 prototype**（HITL）：做一个便宜、粗糙、具体的产物（一份提纲、一个粗略版本、一个桩，或者 UI/逻辑代码），让讨论有东西可反应，从而提高讨论的保真度——调用 `skill` 工具，传入 "prototype"。把原型作为资产链接出去。当"它看起来该是什么样"或"它该怎么表现"是关键问题时使用。
+- **追问 grilling**（HITL）：对话。默认情况。永远调用 `skill` 工具两次，分别用于 "grilling" 和 "domain-modeling"。
+- **任务 task**（HITL 或 AFK）：一个_决定_做出来之前必须发生的手工活：没有什么可决定、可原型、可研究的，但讨论卡在它没做完上。注册一个服务，好让它的 API 能被评判；开通权限；搬数据，好让它的形状能被看见。这是唯一一种_做_而不是_决定_的类型，它靠解开一个决定来挣得自己的位置，而不是靠交付目的地。智能体能单独干的就自己干（AFK）；否则交给一个人一份精确的清单（HITL）。活干完就算解掉；答案记录做了什么，以及后面工单要依赖的事实（凭据放在哪、新的 URL、行数）。
 
-- **Ticket when** the question is already sharp, even if it's blocked and you can't act on it yet.
-- **Not yet specified when** you can't yet phrase it that sharply. Don't pre-slice the fog into ticket-sized pieces: it's coarser than a ticket, and one patch may graduate into several tickets, or none, once the frontier reaches it.
+## 战争迷雾
 
-**Not yet specified** excludes what's already decided (Decisions so far), what's already a live ticket, and what's out of scope (the next section).
+地图是_故意_不完整的：看不见的东西就不要画。活工单之外是**战争迷雾**：那些你能看出要来、却还钉不住的决定和调查，因为它们挂在还没解的问题上，那是一片模糊的视野。解掉一张工单，就清掉它前方的一片雾，把现在能说清的东西一张一张地毕业成新工单，直到通往目的地的路清楚、一张工单都不剩。
 
-## Out of scope
+地图的 **尚未说清** 一节就是写下那片模糊视野的地方：怀疑有问题的地方、以后要回头看的区域。它是_朝向_目的地、尚未被发现的前沿：这里的一切都在范围内，只是还不够锐利，开不出工单。视野允许多松就写多松、允许多全就写多全；它同时也是给协作者的指路牌，让人读到这次工作要往哪走。
 
-Fog only ever gathers _toward_ the destination. The destination fixes the scope, so work beyond it is **out of scope**: it isn't fog, and it doesn't belong in **Not yet specified**. It gets its own **Out of scope** section on the map: work you've consciously ruled out of _this_ effort. Scope, not sharpness, lands it here.
+**是雾还是工单？** 判据是你现在能不能把问题精确地说出来，_而不是_你现在能不能答上来。
 
-Out-of-scope work never graduates (the frontier stops at the destination), so it returns only if the destination is redrawn, and then as a fresh effort, not a resumption.
+- **该开工单**：问题已经锐利，哪怕它被阻塞、你还动不了它。
+- **该写进"尚未说清"**：你还不能把问题说得那么锐利。不要把雾预切成工单大小的块：它比一张工单更粗，等前沿推进到那里，一片雾可能毕业成好几张工单，也可能一张都不毕业。
 
-Ruling something out of scope is a scoping act, not a step on the route. When a ticket that already exists turns out to sit past the destination (mis-scoped in while charting, or exposed by a resolution), **close it** (a closed ticket is unambiguously off the frontier) and leave one line in the **Out of scope** section: the gist plus why it's out of scope, linking the closed ticket. It stays out of **Decisions so far**, which records the route actually walked; a scope boundary isn't a step on it.
+**尚未说清** 不包括已经定下来的（已定的决定）、已经是活工单的，以及范围之外的（下一节）。
 
-## Invocation
+## 范围之外
 
-Two modes. Either way, **never resolve more than one ticket per session**, with the exception of research tickets.
+迷雾只会_朝着_目的地聚拢。目的地定下范围，所以它之外的工作是**范围之外**：那不是雾，也不该进 **尚未说清**。它在地图上有自己的一节 **范围之外**：你自觉地把它们从_这次_工作里排除掉的东西。把它放到这里的依据是范围，不是锐利度。
 
-### Chart the map
+范围之外的工作永不毕业（前沿在目的地停下），所以它只有在目的地被重画之后才会回来，而且是以一次新工作的形式回来，不是接着做。
 
-User invokes with a loose idea.
+判定某事在范围之外是一个划范围的动作，不是路上的一个步骤。当一张已经存在的工单被发现坐在目的地之外时（画图时错误地划了进来，或被某次解答暴露出来），**关掉它**（已关闭的工单明确不在前沿上），并在 **范围之外** 一节留一行：摘要，加上它为什么在范围之外，链接到那张已关闭的工单。它不进 **已定的决定**——那里记录的是真正走过的路线，而范围边界不是路上的一个步骤。
 
-1. **Name the destination.** Call the `skill` tool twice, for "grilling" and "domain-modeling", to pin down what this map is finding its way to: the spec, decision, or change. The destination fixes the scope, so it's settled first.
-2. **Map the frontier.** Grill again, **breadth-first** this time: fan out across the whole space rather than deep on any one thread, surfacing the open decisions and the first steps takeable now. **If this surfaces no fog** (the way to the destination is already clear, the whole journey small enough for one session), you don't need a map. Stop and ask the user how they'd like to proceed.
-3. **Create the map** (label `wayfinder:map`): Destination and Notes filled in, Decisions-so-far empty, the fog sketched into **Not yet specified**.
-4. **Create the tickets you can specify now** as child issues of the map, then wire blocking edges in a **second pass** (issues need ids before they can reference each other). Write cross-references in that pass too, with real ids: a placeholder `#<n>` auto-links to an unrelated issue. Wiring sorts them into the frontier and the blocked; everything you can't yet specify stays in the fog: the **Not yet specified** section.
-5. **Fire the research subagents.** For each `research` ticket you just created, spin up a subagent with a fresh context window that calls the `skill` tool with "research" to resolve it in parallel, capturing its findings on a throwaway `research/<name>` branch with a context pointer from the ticket. Push the branch but open no PR: it is never merged.
-6. Stop: charting is one session's work; it hand-resolves nothing.
+## 调用
 
-### Work through the map
+两种模式。无论哪种，**一个会话绝不解超过一张工单**，研究工单除外。
 
-User invokes with a map (URL or number). A ticket is **optional**: without one, you pick the next decision, not the user.
+### 画地图
 
-1. Load the **map**: the low-res view, not every ticket body.
-2. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order. **Claim it**: assign it to yourself before any work.
-3. Resolve it as the type its `wayfinder:<type>` label names (see [Ticket Types](#ticket-types)). Read the label, not just the body: the body never states the type. **Zoom as needed**: fetch the full body of any related or closed ticket on demand; call the `skill` tool for whichever skills the `## Notes` block names. If in doubt, call the `skill` tool twice, for "grilling" and "domain-modeling".
-4. Record the resolution: post the answer as a **resolution comment**, **close** the issue, and **append a context pointer** to the map's Decisions-so-far.
-5. Add newly-surfaced tickets (create-then-wire); graduate any fog the answer has made specifiable, clearing each graduated patch from **Not yet specified** so it lives only as its new ticket. If the answer reveals that a ticket (this one or another) sits beyond the destination, **rule it out of scope** rather than resolving it on the route. If the decision invalidates other parts of the map, update or delete those tickets.
+用户带着一个松散的想法发起。
 
-The user may run unblocked tickets in parallel, so expect other sessions to be editing the tracker concurrently.
+1. **给目的地命名。** 调用 `skill` 工具两次，分别用于 "grilling" 和 "domain-modeling"，钉住这张地图要通向什么：规格、决定，还是改动。目的地定下范围，所以先定它。
+2. **给前沿画地图。** 再追问一轮，这次**广度优先**：在整片空间里铺开，而不是在任何一条线上钻深，把还开着的决定和现在就能走的第一步挖出来。**如果这一轮挖不出迷雾**（到目的地的路已经清楚，整趟旅程小到一个会话就够），你不需要地图。停下，问用户想怎么走。
+3. **建地图**（标签 `wayfinder:map`）：填好 目的地 和 备注，已定的决定留空，把雾勾进 **尚未说清**。
+4. **把现在能说清的工单建出来**，作为地图的子 issue，然后在**第二遍**里接上阻塞边（issue 得先有 id 才能互相引用）。交叉引用也在这一遍里写，用真实的 id：占位的 `#<n>` 会自动链到一张无关的 issue。接边把它们分成前沿和被阻塞的两堆；你还说不清的一切留在雾里：**尚未说清** 一节。
+5. **放研究子智能体。** 对你刚建的每一张 `research` 工单，起一个带全新上下文窗口的子智能体，它调用 `skill` 工具、传入 "research"，并行地把工单解掉；结论落到一个用完即弃的 `research/<name>` 分支上，并从工单里留一个上下文指针指向它。把分支推上去，但不开 PR：它永远不会被合并。
+6. 停下：画图就是一个会话的活；它一张工单都不亲手解。
 
-## This repository's floor
+### 走完地图
 
-- **Verify with the real commands**, not by eye: `./scripts/housekeeping_verify.sh` (guards + `tsc` +
-  `vite build` + a document-store report). Add `--full-suite` for the backend suite.
-- **The backend suite has 20 pre-existing failures.** "Not worse than that baseline" is the honest
-  criterion; "the tests are green" is not a claim you can make here. Compare with
+用户带着一张地图（URL 或编号）发起。工单是**可选的**：不给工单，就由你来挑下一个决定，而不是用户。
+
+1. 载入**地图**：低分辨率视图，不是每张工单的正文。
+2. 挑工单。用户点了名就用它。否则按顺序取前沿里的第一张。**认领它**：动手之前先把它指派给自己。
+3. 按它的 `wayfinder:<type>` 标签点名的类型去解（见[工单类型](#工单类型)）。读标签，别只读正文：正文从不写类型。**按需拉近**：随时取任何相关工单或已关闭工单的完整正文；地图 `备注` 块里点名的技能，用 `skill` 工具去调。拿不准时，调用 `skill` 工具两次，分别用于 "grilling" 和 "domain-modeling"。
+4. 记录解答：把答案作为**解答评论**发出去，**关闭** issue，并往地图的已定决定里**追加一个上下文指针**。
+5. 把新冒出来的工单加上（先建后接边）；把答案变得能说清的那些雾毕业掉，每毕业一片就从 **尚未说清** 里清掉，让它只以新工单的形式存在。如果答案显示出某张工单（这张或别的）坐在目的地之外，就**判定它在范围之外**，而不是把它当作路上的一步解掉。如果这个决定让地图的其他部分失效，就更新或删掉那些工单。
+
+用户可能并行地跑未阻塞的工单，所以要预期别的会话正在同时编辑追踪器。
+
+## 本仓库的底线
+
+- **用真实命令验证**，不要靠眼看：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` + 一份文档库报告）。后端测试套件加 `--full-suite`。
+- **后端套件有 20 个既有的失败。**"不比那个基线更差"是诚实的判据；"测试是绿的"在这里不是一个你能做出的宣称。用
   `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
-  and diff the `FAILED` lines against the recorded baseline.
-- **Specs, tickets and notes live in files**: `docs/specs/<slug>.md`, `docs/tickets/NNN-<slug>.md`,
-  `work/<scope>/`. A verdict in a chat message is lost by the next turn.
-- **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
-  by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+  对照，并把 `FAILED` 行与记录的基线做 diff。
+- **规格、工单和笔记活在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
+  写在聊天消息里的一句判词，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 框架
+  （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `ecosystem-primer` 规则——并优先选
+  能胜任的最高层。

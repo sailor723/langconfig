@@ -61,17 +61,14 @@ scaffold-exercises
 security-review
 setup-pre-commit
 setup-ts-deep-modules
-skill-generator
 software-factory
 tdd
 teach
 to-questionnaire
 triage
-wayfinder
 web-content-analyzer
 webapp-testing
 wizard
 writing-beats
-writing-for-agents
 writing-fragments
 writing-shape

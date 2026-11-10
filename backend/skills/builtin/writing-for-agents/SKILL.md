@@ -1,6 +1,10 @@
 ---
-name: "Writing for Agents"
-description: "Writing documents for agents. Use when creating or editing skills, or modifying AGENTS.md or CLAUDE.md."
+name: "Writing for Agents（为智能体写作）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/writing-for-agents/SKILL.md
+description: >-
+  为智能体撰写文档。创建或编辑技能，或修改 AGENTS.md / CLAUDE.md 时使用。
 tags:
   - "writing"
   - "for"
@@ -8,7 +12,7 @@ tags:
   - "mattpocock"
   - "skills"
 triggers:
-  - "Creating or editing skills, or modifying agents"
+  - "创建或编辑技能，或修改智能体相关文档时"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -22,102 +26,96 @@ author: "mattpocock (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
-> **Provenance.** Adapted from `mattpocock/skills → skills/productivity/writing-for-agents` (MIT, vendored at `vendor/upstream-skills/mattpocock/skills/productivity/writing-for-agents/SKILL.md`).
-> Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
-> `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
-> (`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`), and a verification floor
-> section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
-> through the `skill` tool, so it is dropped rather than emulated.
+> **来源说明。** 改编自 `mattpocock/skills → skills/productivity/writing-for-agents`（MIT，原样收录于
+> `vendor/upstream-skills/mattpocock/skills/productivity/writing-for-agents/SKILL.md`）。
+> 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
+> `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
+> （`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`），以及一节验证底线。
+> 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
+> 所以直接去掉，不做仿真。
 
-## Instructions
+## Instructions（指令）
 
-Reference for writing any document an agent consumes: a skill, an `AGENTS.md` / `CLAUDE.md`, a doc reached by a pointer. The packaging differs; the writing does not: the same levers make each one predictable, since the agent takes the same _process_ every run rather than producing the same output.
+这是一份参考，讲怎么写任何一份被智能体取用的文档：一个技能、一份 `AGENTS.md` / `CLAUDE.md`、一份只能通过指针才够得到的文档。包装不同，写法不变：同一批杠杆让每一份都变得可预测——因为智能体每一次跑的是同一个*过程*，而不是产出同一份结果。
 
-When the document you're writing is a skill, read [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md) for frontmatter, invocation choice, and router skills.
+你写的文档是技能时，去读 [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md)，那里讲 frontmatter、调用方式的选择，以及路由型技能。
 
-## Context pointers
+## 上下文指针
 
-A **context pointer** is a reference held in the agent's context that names some out-of-context material and encodes the condition for reaching it. A skill's description is one; a line in `AGENTS.md` naming a doc is the same object. The pointer's _wording_, not its target, decides when the agent reaches the material, and how reliably. A must-have target behind a weakly worded pointer is a variance bug: sharpen the wording first, and inline the material only if sharpening fails.
+**上下文指针**是留在智能体上下文里的一个引用：它点名某份不在上下文里的材料，并编码了够到它的条件。技能的 description 就是一个指针；`AGENTS.md` 里点名一份文档的一行，是同一个东西。决定智能体何时去够那份材料、够得多可靠的，是指针的*措辞*，不是它指向的目标。一个必须拿到的目标，若其指针措辞软弱，那就是一个方差缺陷：先把措辞磨利，只有磨利失败才把材料内联进来。
 
-A pointer does two jobs: state what the material is, and list the **branches** that should trigger reaching it (a branch is a distinct case the document handles, so different runs take different paths through it). Every word of an always-loaded pointer costs on every turn, so it earns even harder pruning than the body:
+指针干两件事：说明材料是什么，并列出应当触发去够它的那些**分支**（分支是文档要处理的一种独立情形，于是不同的运行走不同路径）。常驻加载的指针，每个字每一轮都在花钱，所以它比正文更该被狠命修剪：
 
-- **Front-load the leading word**: the pointer is where it does its triggering work.
-- **One trigger per branch.** Synonyms that rename a single branch are one branch written twice; collapse them and keep only genuinely distinct branches.
-- **Cut identity the body already carries.**
+- **把引导词提到最前**：引导词发挥触发作用的地方，正是指针。
+- **一个分支一条触发。** 给同一个分支换个名字的近义词，是一个分支写了两遍；把它们合并，只留真正独立的分支。
+- **删掉正文已经承载的身份说明。**
 
-## The two loads
+## 两种负载
 
-Every document and pointer you add spends one of two budgets:
+你加的每一份文档、每一个指针，花的都是两种预算之一：
 
-- **Context load** is the cost of always-loaded material on the agent's window: an `AGENTS.md` line, a skill description, anything sitting in context every turn, spending tokens and attention whether or not it fires.
-- **Cognitive load** is the cost on the human: which documents exist and when to reach for each. The human is the index. Not a cost to minimise: it is the price of human agency; spend it where human judgement matters, remove it where it does not.
+- **上下文负载**是常驻材料压在智能体窗口上的开销：`AGENTS.md` 的一行、一条技能 description、任何每一轮都待在上下文里的东西，不管有没有触发，都在消耗 token 和注意力。
+- **认知负载**是压在人身上的开销：有哪些文档存在、什么时候该去取哪一份。人就是索引。这不是要压到最小的成本：它是人的主动性的价钱；在人判断真正要紧的地方花掉它，在不要紧的地方去掉它。
 
-Material reached only through a pointer escapes context load at the price of the pointer's own line; material with no pointer at all rides entirely on cognitive load.
+只能通过指针才够到的材料，逃开了上下文负载，代价是指针自己那一行；根本没有指针的材料，整个挂在认知负载上。
 
-## Information hierarchy
+## 信息层级
 
-A document is built from two content types: **steps** (the ordered actions the agent performs) and **reference** (definitions, rules, facts consulted on demand). The two mix freely: all steps (a recipe), all reference (a review's rules, this skill), or both. The core decision is where each piece sits on the **information hierarchy**, a ladder ranked by how immediately the agent needs the material:
+文档由两类内容搭成：**步骤**（智能体按序执行的动作）和**参考**（按需查阅的定义、规则、事实）。两者自由混排：全是步骤（一份配方）、全是参考（一次评审的规则、本技能），或者两者兼有。核心决策是每一块内容坐在**信息层级**的哪一级——这是一把梯子，按"智能体眼下有多需要这份材料"排序：
 
-1. **In-file step** is the primary tier: what the agent does, in order.
-2. **In-file reference** is consulted on demand. Often a legitimately flat peer-set (every rule of a review on one rung), which is a fine arrangement, not a smell.
-3. **Disclosed reference** is pushed out into a separate file, reached by a context pointer, loaded only when the pointer fires. Spans a sibling file in the same folder through fully external reference that lives anywhere and any document can point at.
+1. **文件内步骤**是主层级：智能体按序做什么。
+2. **文件内参考**按需查阅。它常常是一组合法平铺的同级项（一次评审的每条规则都在同一级），这是合适的安排，不是坏味道。
+3. **外置参考**被推到单独的文件里，靠上下文指针够到，只在指针触发时加载。范围从同目录的兄弟文件，一直到存放在任何地方、任何文档都能指向的完全外部参考。
 
-Push too little down and the top bloats; push too much and you hide material the agent actually needs. That tension is the whole decision.
+往下推得太少，顶层就发胀；推得太多，你就把智能体真正需要的材料藏了起来。整个决策就是这处张力。
 
-**Progressive disclosure** is the move down the ladder (out of the main file and behind a pointer) so the top stays legible. Not primarily a token optimisation: it is how the hierarchy is protected. Branching is the cleanest disclosure test: inline what every branch needs, and push behind a pointer what only some branches reach. When a document has steps, in-file reference that should be disclosed buries them and turns attending to them into a coin-flip: a variance lever, not just a legibility one.
+**渐进式披露**是沿梯子往下走一步（移出主文件、藏到指针后面），好让顶层保持可读。它首先不是省 token 的优化：它是层级被保护下来的方式。分支是检验披露最干净的一道题：每个分支都要用的，内联；只有部分分支才够到的，推到指针后面。文档里有步骤时，本该外置的文件内参考会把步骤埋掉，并把"留意这些步骤"变成抛硬币：这是方差杠杆，不只是可读性问题。
 
-**Co-location** is the within-file companion: where the ladder decides _how far down_ a piece sits, co-location decides _what sits beside it_ once there. Keep a concept's definition, rules, and caveats under one heading rather than scattered, so reading one part brings its neighbours with it. The test: the document should read like documentation written for the agent. Grouped material reads that way; scattered material does not. (Distinct from duplication: that repeats one meaning in two places; scattering fragments one meaning across many.)
+**就近放置**是文件内的搭档：梯子决定一块内容坐在*往下多深*，就近放置决定它坐下之后*旁边是谁*。把一个概念的定义、规则和注意事项放在同一个标题下，而不是散开，这样读到其中一部分，邻居也跟着来了。检验方法：这份文档读起来该像为智能体写的文档。成组的内容读起来就是那样；散开的内容不是。（它不同于重复：重复是把一个意思在两个地方各写一遍；散开是把一个意思碎到许多地方。）
 
-**Sprawl** is the failure mode here: a document simply too long, even when every line is live and unique. Attention thins across the excess, and every extra line is one more to keep relevant. The cure is the ladder: disclose reference behind pointers, and split by branch or sequence so each path carries only what it needs.
+**蔓延**是这里的失败模式：文档就是太长了，哪怕每一行都活着、都独一无二。注意力被摊薄到多出来的部分上，而每多一行，就多一行要维持其相关性。解药是那把梯子：把参考外置到指针后面，按分支或按序切分，让每条路径只携带它需要的。
 
-## Steps and completion criteria
+## 步骤与完成判据
 
-Every step ends on a **completion criterion**, the condition that tells the agent the work is done. Two properties make it a lever:
+每个步骤都以一条**完成判据**收尾，即告诉智能体活干完了的那个条件。两个属性让它成为杠杆：
 
-- **Clarity**: can the agent tell done from not-done? A vague bound ("understanding reached") invites **premature completion**: ending the step before it is genuinely done, attention slipping to _being done_. The visible steps still ahead (the **post-completion steps**) supply the pull; the criterion's clarity is the resistance. Defend in order: **sharpen the bound first** (local and cheap); only if it is irreducibly fuzzy _and_ you observe the rush, hide the later steps by splitting the sequence. Hiding only works across a real context boundary (a hand-off or a subagent dispatch; an inline call leaves the later steps in context and clears nothing).
-- **Demand**: how much it requires. "Every modified model accounted for" forces thorough work where "produce a change list" does not. Demand drives **legwork** (the digging the agent does within the work, latent in the wording rather than written as its own step), and it is not step-bound: "every rule applied" binds a body of flat reference just as "every step done" binds a sequence, which is how an all-reference document still carries an exhaustiveness bar.
+- **清晰度**：智能体能不能分清"做完了"和"没做完"？模糊的边界（"达成理解"）会招来**提前收工**：在这一步真的做完之前就结束它，注意力滑向*已经做完*这件事。前面仍然看得见的步骤（**后续步骤**）提供拉力，判据的清晰度就是阻力。按顺序防守：**先把边界磨利**（局部、便宜）；只有边界模糊到无法再磨*并且*你确实观察到抢工，才靠切分序列把后边的步骤藏起来。藏起来只在跨真实上下文边界时才管用（一次交接，或派发子智能体；内联调用会把后续步骤留在上下文里，什么也没清掉）。
+- **要求强度**：它要求多少。"每个改过的模型都要有交代"逼出细致的工作，"产出一份改动清单"不会。要求强度驱动**功夫**（智能体在活里刨出来的那份挖掘，它潜伏在措辞里，而不是写成一个独立步骤），而且它不绑在步骤上："每条规则都已应用"约束一整套平铺的参考，正如"每一步都做完"约束一个序列——全参考的文档正是这样仍然带着一道穷尽性门槛。
 
-The strongest criteria are both checkable and exhaustive.
+最强的判据既可核对，又穷尽。
 
-## When to split
+## 什么时候拆
 
-Splitting one document into two spends one of the two loads, so split only when the cut earns it:
+把一份文档拆成两份，花的是那两种负载之一，所以只有这一刀划得来时才拆：
 
-- **By sequence**: split a run of steps where the post-completion steps tempt the agent to rush the one in front of it. Keeping them out of view drives more legwork on the current task. Beware the reverse: merging sequences exposes each step's later steps to what follows, inviting premature completion.
-- **By invocation**, skill-specific: see [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md).
+- **按序拆**：把一串步骤切开，条件是后续步骤在诱惑智能体抢它眼前那一步。把它们挡在视野之外，智能体在当前任务上就下更多功夫。反过来要当心：合并序列会让每一步的后续步骤暴露在下一步面前，招来提前收工。
+- **按调用方式拆**，技能专用：见 [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md)。
 
-## Leading words
+## 引导词
 
-A **leading word** is a compact concept already living in the model's pretraining that the agent thinks with while running the document (_lesson_, _fog of war_, _tracer bullets_). Repeated as a token, never as a sentence, it accumulates a distributed definition and anchors a whole region of behaviour in the fewest tokens, by recruiting priors the model already holds. Coining your own works if you define it clearly, but a made-up word recruits no priors: you pay in definition tokens what a pretrained word gives free; reach for an existing word first.
+**引导词**是一个早已活在模型预训练里的紧凑概念，智能体跑这份文档时用它来思考（*lesson*（教训）、*fog of war*（战争迷雾）、*曳光弹*）。它作为一个词（token）反复出现，从不作为一句话出现，于是积累出一个分布式的定义，用最少的 token 锚定一整片行为区域——靠的是征用模型本来就有的先验。自己造一个也行，前提是你把它定义清楚；但造出来的词征不到任何先验：预训练里现成的词免费给你的东西，你得用定义它的 token 去付。先去借一个现成的词。
 
-It anchors twice. In the body, _execution_: the agent reaches for the same behaviour every time the word appears, and inside flat reference it focuses attention on a class of thing to look for. In a pointer, _invocation_: when the same word lives in your prompts, your docs, and your codebase, the agent links that shared language to the material and reaches it more reliably.
+它锚定两次。在正文里锚*执行*：这个词每次出现，智能体就伸手去拿同一套行为；在平铺的参考里，它把注意力收拢到"该找哪一类东西"上。在指针里锚*调用*：同一个词同时活在你的提示词、你的文档和你的代码库里时，智能体就把这套共享语言和那份材料挂上钩，更可靠地够到它。
 
-Hunt for opportunities to refactor with leading words. A triad spelled out at three sites, a pointer spending a sentence to gesture at one idea. Each is a passage begging to collapse into a single token:
+主动去找可以用引导词重构的地方。一个三元组在三个地方各摊开写一遍，一个指针花一整句去指一个想法。每一处都是一段求着要坍缩成单个词的文字：
 
-- "fast, deterministic, low-overhead" → _tight_ (a _tight_ loop).
-- "a loop you believe in" → _red_, turning a fuzzy gate into a binary observable state (the loop goes _red_ on the bug, or it doesn't).
+- "快、确定、低开销" → *紧凑*（一个*紧凑*的循环）。
+- "一个你信得过的循环" → *红*，把一个模糊的门禁变成二值可观察状态（这个循环在 bug 上变*红*，或者没有）。
 
-You win twice: fewer tokens, and a sharper hook for the agent to hang its thinking on. Assume every document is carrying restatements that leading words retire. Go find them.
+你赢两次：更少的 token，以及一个更锋利的钩子让智能体挂它的思考。假定每份文档都带着一些能被引导词退役掉的重述。去把它们找出来。
 
-**Negation** is the failure mode beside this lever: steering by prohibition drags the forbidden behaviour into context and makes it _more_ available, not less. _Don't think of an elephant_, and the elephant is all there is; the negation is a weak modifier the strongly-activated concept overruns, so the ban half-reads as an instruction to do the thing. Prompt the **positive**: state the target behaviour ("write one-line comments") so the banned one is never spoken. A prohibition earns its place only as a hard guardrail you cannot phrase positively; even then, pair it with the positive target so attention lands on what to do.
+**否定式**是这把杠杆旁边的失败模式：靠禁止来驾驶，会把被禁的行为拖进上下文，让它变得*更*可用，而不是更不可用。*别想大象*，结果满脑子只有大象；否定是个软弱的修饰词，被强烈激活的概念会碾过去，于是禁令有一半被读成了"去做那件事"的指令。要提示**正向**：把目标行为说出来（"写单行注释"），被禁的那种就从不被提起。禁止只有在实在没法正向表述时才值得留下，当作硬护栏；即便如此也要配上正向目标，让注意力落在该做什么上。
 
-## Pruning
+## 修剪
 
-- Keep each meaning in a **single source of truth**: one authoritative place, so changing the behaviour is a one-place edit. **Duplication** (the same meaning in more than one place) costs maintenance and tokens, and inflates a meaning's prominence on the ladder past its real rank. (The accidental inverse of a leading word, which repeats a token on purpose, never the meaning.)
-- The **environment** is a source of truth too (`package.json` scripts, config files, the directory layout, `--help` output), and a document that restates it is a **cache**: a copy of a lookup, earning its load only when the lookup is expensive. Cache what the agent cannot find by looking: the unwritten convention, the reason behind a choice, the gotcha no config confesses. Leave the one-file, one-command lookups to the environment, where they cannot go stale.
-- Check every line for **relevance**: does it still bear on what the document does? A line loses relevance by never bearing on the task (mere exposition, or a branch that should be disclosed) or by going stale as the behaviour or world it describes changes. Shorter documents are easier to keep relevant. Without a pruning discipline the default fate is **sediment**: stale layers that settle because adding feels safe and removing feels risky, until you must core down through them to find what is still live.
-- Hunt **no-ops** sentence by sentence: an instruction the model already obeys by default pays load to say nothing. The test (does it change behaviour versus the default?) is model-relative, not reader-relative: two people disagreeing about a no-op disagree about the default, and settle it by running the document, not by debate. When a sentence fails, delete the whole sentence rather than trim words from it. The test also grades leading words: a word too weak to beat the default (_be thorough_ when the agent is already thorough-ish) is a no-op, and the fix is a stronger word (_relentless_), not a different technique.
+- 让每个意思只有一个**单一事实源**：一个权威位置，于是改行为就是改一处。**重复**（同一个意思出现在不止一个地方）既耗维护又耗 token，还会把一个意思在梯子上的显眼度抬过它真实的等级。（它是引导词的意外反面，引导词故意重复一个词，从不重复意思。）
+- **环境**也是一个事实源（`package.json` 的脚本、配置文件、目录结构、`--help` 的输出），一份把它重述一遍的文档就是一层**缓存**：一次查询的副本，只有当这次查询很贵时才配得上它的负载。缓存智能体翻不到的东西：没写下来的约定、某个选择背后的理由、没有任何配置会招认的坑。看一眼一个文件、跑一条命令就能查到的，留给环境——放在那儿不会过时。
+- 逐行检查**相关性**：它是否仍然支撑这份文档要做的事？一行失去相关性，要么因为从来不落在任务上（纯粹的说文解字，或者一个本该外置的分支），要么因为它描述的行为或世界变了，它跟着过期。更短的文档更容易保持相关。没有修剪纪律，默认的结局是**沉积层**：陈旧的层越积越牢，因为加东西感觉安全、删东西感觉冒险，直到你必须穿过它们钻芯取样，才找得到还活着的部分。
+- 一句一句地猎**空指令**：一条模型本来默认就遵守的指令，花了负载却什么也没说。这道检验（它相对默认行为真的改变了什么吗？）是相对于模型的，不是相对于读者的：两个人为一句空指令争吵，其实是在为"默认是什么"争吵，解决办法是跑一遍这份文档，不是辩论。一句被判失败时，整句删掉，而不是从里面抠字。这道检验同样给引导词打分：弱到打不过默认的词（智能体本来就比较细致时，你说*要细致*）就是空指令，修法是换一个更强的词（*死磕*），不是换一套手法。
 
-## This repository's floor
+## This repository's floor（本仓库的底线）
 
-- **Verify with the real commands**, not by eye: `./scripts/housekeeping_verify.sh` (guards + `tsc` +
-  `vite build` + a document-store report). Add `--full-suite` for the backend suite.
-- **The backend suite has 20 pre-existing failures.** "Not worse than that baseline" is the honest
-  criterion; "the tests are green" is not a claim you can make here. Compare with
-  `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
-  and diff the `FAILED` lines against the recorded baseline.
-- **Specs, tickets and notes live in files**: `docs/specs/<slug>.md`, `docs/tickets/NNN-<slug>.md`,
-  `work/<scope>/`. A verdict in a chat message is lost by the next turn.
-- **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
-  by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+- **用真命令验证**，不靠眼睛：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` + 一份文档库报告）。加 `--full-suite` 跑后端套件。
+- **后端套件有 20 个既有失败。**"不比那个基线更差"才是诚实的判据；"测试是绿的"这句话在这里你说不出口。用 `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py` 做对比，把 `FAILED` 行和记录的基线做 diff。
+- **规格、工单和笔记都落在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。一条写在聊天消息里的裁决，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常外面套着一层 Deep Agents 骨架（`deepagents`）。动手之前先定下这处改动属于哪一层——`ecosystem-primer` 规则——并优先选能干成这件事的最高层。
