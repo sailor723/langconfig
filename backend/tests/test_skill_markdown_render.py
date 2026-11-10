@@ -77,18 +77,27 @@ def test_the_prompt_tab_renders_behind_a_boundary():
         "like a blank page")
 
 
-def test_the_usage_boxes_sit_on_the_tags_row():
-    """The two stat boxes belong on the metadata row, next to the tags they describe — not in a block of their own.
+def test_the_view_puts_triggers_under_the_description_and_keeps_the_numbers_by_the_tags():
+    """Reading order in the skill view: description → triggers → the chip row (tags, runs, rate, tools).
 
-    They were the only numbers in the view that were both wrong and buried (elsewhere than the thing they describe),
-    so the layout is asserted: Tags, then the usage box, then the success-rate box, then Triggers.
+    Triggers are the sentences the matcher reads, so they sit where the reading starts, full width. The numbers belong
+    with the chips they describe. Both were full-width rows somewhere below the fold before they were moved.
     """
     view = (REPO / "src" / "components" / "layout2" / "SkillView.tsx").read_text(encoding="utf-8")
-    chips_row = view.split("Metadata chips", 1)[1].split("{/* Triggers */}", 1)[0]
-    assert "<Tag size={11} /> Tags" in chips_row, "the tags card is no longer in the metadata row"
+
+    desc_at = view.index("{/* Description")
+    triggers_at = view.index("{/* Triggers")
+    chips_at = view.index("{/* Metadata chips")
+    assert desc_at < triggers_at < chips_at, "expected description → triggers → metadata chips"
+
+    triggers_block = view[triggers_at:chips_at]
+    assert "skill.triggers.map" in triggers_block, "the triggers card is not the one under the description"
+    assert "runs" not in triggers_block, "the numbers do not belong in the triggers block"
+
+    chips_row = view[chips_at:].split("{/* Instructions", 1)[0]
+    assert "<Tag size={11} /> Tags" in chips_row, "the tags card left the chip row"
     assert "runs" in chips_row and "served without error" in chips_row, (
-        "the usage and success-rate boxes are not on the tags row")
+        "the usage and success-rate boxes left the chip row")
     assert chips_row.index("Tags") < chips_row.index("runs") < chips_row.index("served without error"), (
-        "order should be Tags → runs → success rate")
-    tail = view.split("{/* Required context", 1)[1]
-    assert "runs" not in tail, "a second copy of the usage box is still in the lower block"
+        "order inside the chip row should be Tags → runs → success rate")
+    assert "skill.triggers.map" not in chips_row, "a second copy of the triggers card is still in the chip row"

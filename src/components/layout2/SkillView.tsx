@@ -128,6 +128,23 @@ export default function SkillView({ tab }: SkillViewProps) {
         </div>
       )}
 
+      {/* Triggers — full width, directly under the description: they are the sentences the matcher reads, so
+          they belong where the reading starts rather than in the metadata row with the chips. */}
+      {(skill.triggers || []).length > 0 && (
+        <div style={cardStyle}>
+          <div style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Zap size={11} /> Triggers
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {skill.triggers.map((tr, i) => (
+              <div key={i} style={{ fontSize: 12, color: t.textPrimary }}>
+                {tr}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Metadata chips */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 10 }}>
         {(skill.tags || []).length > 0 && (
@@ -173,22 +190,6 @@ export default function SkillView({ tab }: SkillViewProps) {
             </span>
           </div>
         </div>
-
-        {/* Triggers */}
-        {(skill.triggers || []).length > 0 && (
-          <div style={cardStyle}>
-            <div style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Zap size={11} /> Triggers
-            </div>
-            <div>
-              {skill.triggers.map((tr, i) => (
-                <div key={i} style={{ fontSize: 12, color: t.textPrimary, marginBottom: 2 }}>
-                  {tr}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Allowed Tools */}
         {skill.allowed_tools && skill.allowed_tools.length > 0 && (
