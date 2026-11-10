@@ -14,7 +14,8 @@ tags:
   - "loop"
   - "langchain-skills"
 triggers:
-  - "被要求处理 <overview> 时"
+  - "要实现人在回路、为审批而暂停，或处理 LangGraph 里的错误时"
+  - "要用 interrupt() 与 Command(resume=...) 时"
 allowed_tools:
   - "read_file"
   - "grep"

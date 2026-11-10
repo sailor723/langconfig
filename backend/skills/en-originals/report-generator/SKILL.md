@@ -1,7 +1,6 @@
 ---
 name: report-generator
-description: >-
-  A versatile report generator that transforms research data and analysis results into well-structured Markdown reports. Supports multiple templates including financial market reports, technical analysi
+description: "A versatile report generator that transforms research data and analysis results into well-structured Markdown reports. Supports multiple templates including financial market reports, technical analysis and industry summaries."
 tags: [report-generation, markdown, data-analysis, documentation, research, financial-analysis]
 triggers:
   - "when user asks to generate a report"

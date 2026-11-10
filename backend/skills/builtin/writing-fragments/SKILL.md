@@ -10,7 +10,8 @@ tags:
   - "fragments"
   - "mattpocock"
 triggers:
-  - "被要求 <what-to-do> 时"
+  - "要开采原始片段、先不碰结构时"
+  - "还没想好结构，只想先把料翻出来时"
 allowed_tools:
   - "read_file"
   - "grep"

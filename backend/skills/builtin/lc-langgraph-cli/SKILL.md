@@ -9,7 +9,8 @@ tags:
   - "langchain-skills"
   - "skills"
 triggers:
-  - "被要求处理 <overview> 时"
+  - "要用 langgraph CLI 脚手架、开发、构建或部署应用时"
+  - "需要写或改 langgraph.json 时"
 allowed_tools:
   - "read_file"
   - "grep"

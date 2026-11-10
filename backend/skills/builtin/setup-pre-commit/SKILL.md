@@ -13,7 +13,8 @@ tags:
   - "mattpocock"
   - "testing"
 triggers:
-  - "用户想加 pre-commit 钩子、想装 husky、想配 lint-staged，或想在提交时自动格式化 / 类型检查"
+  - "用户想加 pre-commit 钩子、装 husky 或配 lint-staged 时"
+  - "想在提交时自动格式化、类型检查或跑测试时"
 allowed_tools:
   - "read_file"
   - "grep"

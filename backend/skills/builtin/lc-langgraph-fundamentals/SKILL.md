@@ -12,7 +12,8 @@ tags:
   - "langchain-skills"
   - "skills"
 triggers:
-  - "被要求处理 <overview> 时"
+  - "要写任何 LangGraph 代码时"
+  - "需要 StateGraph、状态模式、节点、边或流式输出时"
 allowed_tools:
   - "read_file"
   - "grep"

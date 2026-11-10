@@ -12,7 +12,8 @@ tags:
   - "langchain-skills"
   - "skills"
 triggers:
-  - "被要求处理 <overview> 时"
+  - "需要人在回路审批、自定义中间件或结构化输出时"
+  - "要用 HumanInTheLoopMiddleware 或 Command 恢复流程时"
 allowed_tools:
   - "read_file"
   - "grep"

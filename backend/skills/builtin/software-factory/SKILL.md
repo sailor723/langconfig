@@ -10,7 +10,8 @@ tags:
   - "mattpocock"
   - "design"
 triggers:
-  - "当被要求设计一个 **software factory** 时：**software factory** 是一套智能体系统，把工单、PR 与排期变成已合并 c…"
+  - "要设计一个 software factory（把工单、PR 与排期变成已合并代码的智能体系统）时"
+  - "要确定工厂里任务与服务共用的那套语言时"
 allowed_tools:
   - "read_file"
   - "grep"

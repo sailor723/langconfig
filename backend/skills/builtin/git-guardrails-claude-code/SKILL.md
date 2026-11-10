@@ -13,7 +13,8 @@ tags:
   - "code"
   - "mattpocock"
 triggers:
-  - "用户想禁止破坏性的 git 操作、想加一层 git 安全 hook、或想在 Claude Code 里挡住 git push / reset"
+  - "用户想禁止破坏性的 git 操作时"
+  - "想在 Claude Code 里加一层 git 安全 hook 时"
 allowed_tools:
   - "read_file"
   - "grep"

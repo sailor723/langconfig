@@ -14,7 +14,8 @@ tags:
   - "skills"
   - "deepagents"
 triggers:
-  - "被要求处理 <overview> 时"
+  - "要用 create_deep_agent() 构建 Deep Agents 应用时"
+  - "需要配置 Deep Agents 脚手架（harness）、SKILL.md 格式或选项时"
 allowed_tools:
   - "read_file"
   - "grep"

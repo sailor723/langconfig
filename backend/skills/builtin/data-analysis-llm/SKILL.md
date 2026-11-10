@@ -3,8 +3,7 @@ name: data-analysis-llm（数据分析·LLM 驱动）
 lang: zh
 translated: machine
 source: backend/skills/en-originals/data-analysis-llm/SKILL.md
-description: >-
-  灵活的数据分析：由智能体依据用户的问题现场写 Python 代码。当用户的分析请求是定制的、新颖的、不符合任何预定义模式时使用。较慢，但更灵
+description: "灵活的数据分析：由智能体依据用户的问题现场写 Python 代码。当用户的分析请求是定制的、新颖的、不符合任何预定义模式时使用。较慢，但更灵活。"
 tags: [data-analysis, csv, sql, python, flexible, custom-analysis]
 triggers:
   - "用户提出定制或新颖的数据问题时"

@@ -10,7 +10,8 @@ tags:
   - "shape"
   - "mattpocock"
 triggers:
-  - "被要求 <what-to-do> 时"
+  - "要把素材塑成一篇文章、一段一段地写时"
+  - "已经有一堆片段，需要决定文章的骨架时"
 allowed_tools:
   - "read_file"
   - "grep"

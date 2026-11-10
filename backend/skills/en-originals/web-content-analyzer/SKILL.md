@@ -1,7 +1,6 @@
 ---
 name: web-content-analyzer
-description: >-
-  Analyzes web page content — articles, blog posts, documentation, and news — extracting key insights, summarizing, identifying structure, and assessing quality. Use when the user provides a URL and ask
+description: "Analyzes web page content — articles, blog posts, documentation, and news — extracting key insights, summarizing, identifying structure, and assessing quality. Use when the user provides a URL and asks to analyze, summarize or evaluate that page."
 tags: [web-analysis, content-summarization, information-extraction, research]
 triggers:
   - "when user provides a URL and asks to analyze it"

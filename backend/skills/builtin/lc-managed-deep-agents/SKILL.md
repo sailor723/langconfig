@@ -16,7 +16,8 @@ tags:
   - "testing"
   - "skills"
 triggers:
-  - "当被要求（处理）Managed Deep Agents（MDA）——LangSmith 里为 code-first Deep Agents 提供的托管运行时。你 autho"
+  - "要在 LangSmith 里构建、测试或部署 Managed Deep Agents 时"
+  - "需要 define_deep_agent、mda CLI、GitHub 部署或 Context Hub 时"
 allowed_tools:
   - "read_file"
   - "grep"

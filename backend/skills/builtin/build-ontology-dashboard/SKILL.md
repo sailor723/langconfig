@@ -3,16 +3,11 @@ name: "build-ontology-dashboard（搭建本体仪表盘）"
 lang: zh
 translated: machine
 source: backend/skills/en-originals/build-ontology-dashboard/SKILL.md
-description: >-
-  本体需要一个仪表盘时使用——一份声明（dashboard.json）说明每个面板展示哪一个编译出的指标，一段只引用编译数字的
-  开场评估，需要排版能力的图表（sankey/bubble/treemap），以及在服务端重新编译的交叉筛选；本技能走的是让看板保持
-  诚实的那个顺序（声明 → 编译 → 护栏 → 门禁 → 之后才轮到页面），并且拒绝让面板发明一个本体没有声明的数字
+description: "本体需要一个仪表盘时使用——一份声明（dashboard.json）说明每个面板展示哪一个编译出的指标，一段只引用编译数字的开场评估，需要排版能力的图表（sankey/bubble/treemap），以及在服务端重新编译的交叉筛选；本技能走的是让看板保持诚实的那个顺序（声明 → 编译 → 护栏 → 门禁 → 之后才轮到页面），并且拒绝让面板发明一个本体没有声明的数字。"
 tags: [ontology, dashboard, semantic-layer, metrics, sql, gating]
 triggers:
-  - "被要求在某个本体之上搭一个仪表盘 / 看板 / 经营看板，或对它做扩展时"
-  - "仪表盘上出现了一个没人能追溯到声明的数字时"
-  - "面板之间必须交叉筛选、而这个筛选不可能是浏览器里的猜测时"
-  - "一段开场评估不能偏离它所谈论的那些数字时"
+  - "本体需要一个仪表盘或经营看板时"
+  - "面板上的数字追溯不到编译结果时"
 version: 1.0
 author: weiping
 

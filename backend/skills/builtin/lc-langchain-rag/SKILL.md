@@ -12,7 +12,8 @@ tags:
   - "langchain-skills"
   - "skills"
 triggers:
-  - "被要求 <overview> 时"
+  - "要构建检索增强生成（RAG）系统时"
+  - "需要选文档加载器、文本分割器、嵌入或向量库时"
 allowed_tools:
   - "read_file"
   - "grep"

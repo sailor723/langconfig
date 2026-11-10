@@ -15,7 +15,8 @@ tags:
   - "skills"
   - "design"
 triggers:
-  - "被要求处理 <overview> 时"
+  - "要用决策模型而不是 LLM 给 LangGraph 智能体做路由时"
+  - "要审计一个智能体里只为产出一个路由决策而发起的 LLM 调用时"
 allowed_tools:
   - "read_file"
   - "grep"

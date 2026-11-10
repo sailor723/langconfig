@@ -10,7 +10,8 @@ tags:
   - "fundamentals"
   - "langchain-skills"
 triggers:
-  - "当被要求 <oneliner> 时"
+  - "要用 create_agent 创建 LangChain 智能体时"
+  - "需要定义工具，或为该智能体加中间件时"
 allowed_tools:
   - "read_file"
   - "grep"

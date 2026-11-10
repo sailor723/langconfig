@@ -15,7 +15,8 @@ tags:
   - "langgraph"
   - "deepagents"
 triggers:
-  - "被要求 <overview> 时"
+  - "新建 LangChain、LangGraph、LangSmith 或 Deep Agents 项目时"
+  - "被问到包版本、安装方式或依赖管理时"
 allowed_tools:
   - "read_file"
   - "grep"

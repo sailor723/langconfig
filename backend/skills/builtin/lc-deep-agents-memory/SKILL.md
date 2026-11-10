@@ -13,7 +13,8 @@ tags:
   - "langchain-skills"
   - "skills"
 triggers:
-  - "被要求处理 <overview> 时"
+  - "Deep Agent 需要记忆、持久化或文件系统访问时"
+  - "要在 StateBackend、StoreBackend 或 CompositeBackend 之间选后端时"
 allowed_tools:
   - "read_file"
   - "grep"

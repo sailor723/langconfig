@@ -10,7 +10,8 @@ tags:
   - "mattpocock"
   - "requirements"
 triggers:
-  - "被要求跑一场有状态的 `grilling` 技能会话，且唯一产出是**工作流**规格时，用 grilling 的纪律来盘问"
+  - "要就某条工作流被盘问出规格、且唯一产出是规格时"
+  - "想把一个模糊的工作流想法逼成可执行规格时"
 allowed_tools:
   - "read_file"
   - "grep"

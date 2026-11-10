@@ -15,7 +15,8 @@ tags:
   - "langgraph"
   - "langchain"
 triggers:
-  - "被要求处理 <overview> 时"
+  - "在 LangChain、LangGraph 或 Deep Agents 项目里动笔写第一行智能体代码之前"
+  - "需要判断该用 LangChain、LangGraph、Deep Agents 还是混合组合时"
 allowed_tools:
   - "read_file"
   - "grep"

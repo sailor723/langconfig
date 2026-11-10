@@ -3,7 +3,8 @@ name: sql-analyst
 description: Analyzes SQLite/CSV data. Understands user's data, business context, and chart preferences — then writes SQL, runs queries, and generates charts or interactive dashboards automatically.
 tags: [sql, data-analysis, visualization, dashboard, csv, sqlite]
 triggers:
-  - When user says "analyze", "chart", "report", "dashboard", "visualize", "top N", "trend", or "breakdown" with data
+  - "用户说「分析」「出图」「报告」「看板」「可视化」「Top N」「趋势」时"
+  - "需要连数据库跑查询并直接出图或看板时"
 allowed-tools: [sqlite_execute, python_execute, web_search]
 version: 2.0
 author: system

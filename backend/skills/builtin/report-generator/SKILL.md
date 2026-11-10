@@ -3,9 +3,7 @@ name: "report-generator（报告生成器）"
 lang: zh
 translated: machine
 source: backend/skills/en-originals/report-generator/SKILL.md
-description: >-
-  一个通用的报告生成器，把研究数据与分析结果整理成结构良好的 Markdown 报告。支持多种模板，包括金融市场报告、
-  技术分析……
+description: "一个通用的报告生成器，把研究数据与分析结果整理成结构良好的 Markdown 报告。支持多种模板，包括金融市场报告、技术分析与行业综述。"
 tags: [report-generation, markdown, data-analysis, documentation, research, financial-analysis]
 triggers:
   - "用户要求生成报告时"

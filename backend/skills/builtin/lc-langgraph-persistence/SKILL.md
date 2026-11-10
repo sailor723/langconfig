@@ -9,7 +9,8 @@ tags:
   - "langchain-skills"
   - "skills"
 triggers:
-  - "被要求处理 <overview> 时"
+  - "LangGraph 需要持久化状态、记住对话或回溯历史时"
+  - "需要配置检查点（checkpointer）、thread_id、Store 或子图检查点作用域时"
 allowed_tools:
   - "read_file"
   - "grep"

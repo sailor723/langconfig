@@ -14,7 +14,8 @@ tags:
   - "skills"
   - "deepagents"
 triggers:
-  - "被要求处理 <overview> 时"
+  - "在 Deep Agents 里要用子智能体、任务规划或人工审批时"
+  - "需要接 SubAgentMiddleware、TodoList 或 HITL 中断时"
 allowed_tools:
   - "read_file"
   - "grep"

@@ -10,7 +10,8 @@ tags:
   - "beats"
   - "mattpocock"
 triggers:
-  - "被要求 <what-to-do> 时"
+  - "要把素材按节拍组装成一段旅程时"
+  - "需要把片段排出节奏、让每个术语在靠上去之前先落地时"
 allowed_tools:
   - "read_file"
   - "grep"
