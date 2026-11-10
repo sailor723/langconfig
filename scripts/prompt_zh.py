@@ -141,6 +141,22 @@ def prose(text: str) -> str:
     return "\n".join(out)
 
 
+# The tail of a stored prompt is machine-managed: `core/agents/identity.py` re-bakes it on every turn and finds it
+# by the literal `## Identity` marker. A translated tail does not merely sit there — the runtime fails to strip it
+# (it looks for the English marker) and appends a fresh English block, so one live prompt carries the identity and
+# the workspace rules twice, once per language. Measured on prompt 161: 2 270 → 3 271 characters, three `## 身份`.
+MACHINE_TAIL = ("## Identity", "## 身份")
+
+
+def split_machine_tail(text: str) -> tuple[str, str]:
+    """Split a stored prompt into (translatable body, generated tail)."""
+    found = [text.find(m) for m in MACHINE_TAIL if text.find(m) != -1]
+    if not found:
+        return text, ""
+    idx = min(found)
+    return text[:idx].rstrip(), text[idx:]
+
+
 def reads_as_chinese(text: str) -> bool:
     """Is the prose of this prompt Chinese?
 
@@ -149,7 +165,11 @@ def reads_as_chinese(text: str) -> bool:
     a prompt can legitimately be one line — `case-5-support` is 17 characters — while the density ratio is what
     separates a Chinese prompt from an English one that happens to quote a Chinese label.
     """
-    body = prose(text)
+    # Only the body: the tail is generated in English by `identity.py` and stays English by design, so counting it
+    # would call every repaired prompt English — measured: nine prompts flipped back to "pending" the moment their
+    # English tail was restored.
+    body_text, _tail = split_machine_tail(text)
+    body = prose(body_text)
     cjk, latin = cjk_count(body), latin_words(body)
     return cjk >= 8 and cjk >= latin * CJK_VS_LATIN_MIN
 
@@ -203,8 +223,10 @@ def validate(prompt_id: str, en: str, zh: str) -> None:
     if not zh.strip():
         raise Rejected("staged translation is empty")
 
-    en_prose, en_blocks = split_fences(en)
-    zh_prose, zh_blocks = split_fences(zh)
+    en_body, _en_tail = split_machine_tail(en)
+    zh_body, _zh_tail = split_machine_tail(zh)
+    en_prose, en_blocks = split_fences(en_body)
+    zh_prose, zh_blocks = split_fences(zh_body)
 
     if len(zh_blocks) != len(en_blocks):
         raise Rejected(f"{len(zh_blocks)} fenced block(s) against {len(en_blocks)} in the original — a prompt's "
@@ -222,13 +244,13 @@ def validate(prompt_id: str, en: str, zh: str) -> None:
         raise Rejected(f"these identifiers, numbers, URLs or paths are in the English and not in the Chinese: "
                        f"{lost[:8]}")
 
-    floor = max(3, round(latin_words(prose(en)) * CJK_PER_EN_WORD_MIN))
-    if cjk_count(zh) < floor:
-        raise Rejected(f"{cjk_count(zh)} CJK characters against {latin_words(prose(en))} English prose words "
+    floor = max(3, round(latin_words(prose(en_body)) * CJK_PER_EN_WORD_MIN))
+    if cjk_count(zh_body) < floor:
+        raise Rejected(f"{cjk_count(zh_body)} CJK characters against {latin_words(prose(en_body))} English prose "
                        f"(floor {floor}) — the prompt would still be English at the top level")
-    if cjk_count(zh) < latin_words(zh) * CJK_VS_LATIN_MIN:
-        raise Rejected(f"{latin_words(zh)} English words against {cjk_count(zh)} CJK characters — mostly "
-                       "untranslated")
+    if cjk_count(zh_body) < latin_words(zh_body) * CJK_VS_LATIN_MIN:
+        raise Rejected(f"{latin_words(zh_body)} English words against {cjk_count(zh_body)} CJK characters — "
+                       "mostly untranslated")
 
 
 def cmd_status() -> int:
@@ -291,8 +313,13 @@ def cmd_promote(ids: list[str]) -> int:
                 archive.write_text(current, encoding="utf-8")
                 print(f"  archived {prompt_id} → {archive.relative_to(REPO)}")
             zh = staged.read_text(encoding="utf-8")
-            validate(prompt_id, archive.read_text(encoding="utf-8"), zh)
-            run(_write_prompt(prompt_id, zh))
+            en = archive.read_text(encoding="utf-8")
+            validate(prompt_id, en, zh)
+            zh_body, _zh_tail = split_machine_tail(zh)
+            _en_body, en_tail = split_machine_tail(en)
+            # The tail is generated in English by `identity.py` on every turn; store it that way and only the body
+            # is Chinese, or the live prompt carries the identity block twice in two languages.
+            run(_write_prompt(prompt_id, zh_body + ("\n\n" + en_tail if en_tail else "")))
             staged.unlink()
             done.append(prompt_id)
             print(f"  promoted {prompt_id}  {rows.get(prompt_id, {}).get('name', '')}")

@@ -86,9 +86,14 @@ def test_a_translated_prompt_is_actually_chinese(prompt_id: str):
     assert prompt_zh.reads_as_chinese(zh), (
         f"{prompt_id}: the DB row is still English — the archive exists, so `promote` was not the thing that "
         "wrote it")
-    floor = max(3, round(prompt_zh.latin_words(prompt_zh.prose(en)) * prompt_zh.CJK_PER_EN_WORD_MIN))
-    assert prompt_zh.cjk_count(zh) >= floor, (
-        f"{prompt_id}: {prompt_zh.cjk_count(zh)} CJK characters against a floor of {floor} from the English prose")
+    # Measured on the bodies: a stored prompt is (Chinese body) + (machine-generated tail), and the tail is English
+    # by design — `core/agents/identity.py` re-bakes it every turn and finds it by the literal `## Identity`.
+    en_body, _en_tail = prompt_zh.split_machine_tail(en)
+    zh_body, _zh_tail = prompt_zh.split_machine_tail(zh)
+    floor = max(3, round(prompt_zh.latin_words(prompt_zh.prose(en_body)) * prompt_zh.CJK_PER_EN_WORD_MIN))
+    assert prompt_zh.cjk_count(zh_body) >= floor, (
+        f"{prompt_id}: {prompt_zh.cjk_count(zh_body)} CJK characters against a floor of {floor} from the English "
+        "body")
 
 
 @pytest.mark.parametrize("prompt_id", sorted(_archived(), key=int))
@@ -134,3 +139,24 @@ def test_no_staged_translation_is_left_behind():
     """A staged file is a translation nobody promoted — the DB does not serve it, so it is invisible work."""
     left = sorted(p.stem for p in STAGING.glob("*.md") if not p.name.startswith(".")) if STAGING.is_dir() else []
     assert not left, f"staged but never promoted: {left}"
+
+
+@pytest.mark.parametrize("prompt_id", sorted(_archived(), key=int))
+def test_the_generated_tail_stays_english(prompt_id: str):
+    """The last block of a stored prompt is machine-managed, and a translated one is worse than useless.
+
+    `core/agents/identity.py` re-bakes that block on every turn and locates it by the literal `## Identity`. When
+    35 translations rendered it as `## 身份`, the runtime no longer recognised it: it appended a second, English
+    identity block, and the agent's live prompt carried its identity and workspace rules twice, in two languages —
+    measured on prompt 161, 2 270 → 3 271 characters. `promote` now keeps the English tail; this asserts it.
+    """
+    rows = _rows()
+    if prompt_id not in rows:
+        pytest.skip("archived prompt is no longer in the DB")
+    en_body, en_tail = prompt_zh.split_machine_tail((ARCHIVE / f"{prompt_id}.md").read_text(encoding="utf-8"))
+    if not en_tail:
+        pytest.skip("this prompt has no generated tail")
+    _zh_body, zh_tail = prompt_zh.split_machine_tail(rows[prompt_id]["prompt"])
+    assert zh_tail.strip() == en_tail.strip(), (
+        f"{prompt_id}: the generated tail was translated — `identity.py` will not recognise it and will append a "
+        "second identity block")
