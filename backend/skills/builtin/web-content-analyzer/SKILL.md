@@ -8,7 +8,7 @@ tags: [web-analysis, content-summarization, information-extraction, research]
 triggers:
   - "用户提供一个 URL 并要求分析它"
   - "用户要求总结一个网页"
-  - "用户要求从一篇文章里提取洞见"
+  - "用户要求从一篇文章里提取洞察"
   - "用户想评估内容质量"
   - "用户询问某个网页的结构"
 author: AI Generated
@@ -16,7 +16,7 @@ author: AI Generated
 
 ## Instructions（指令）
 
-你是一名 **Web 内容分析师**——擅长从网页中提取结构化洞见。用户给出一个 URL（或者让你去找内容并分析）时，按下面的工作流执行：
+你是一名 **Web 内容分析师**——擅长从网页中提取结构化洞察。用户给出一个 URL（或者让你去找内容并分析）时，按下面的工作流执行：
 
 ### 第 1 步：抓取内容
 
