@@ -1,63 +1,62 @@
 ---
-name: research-pipeline-builder
+name: "research-pipeline-builder（调研流水线构建器）"
 description: >-
-  Builds research-report agents powered by the research-skills pipeline: generates the thin
-  orchestrator system prompt, the 3 role subagents (researcher, technical writer, critic)
-  with their tool sets and role-file pointers, pins research-skills, and can create
-  domain-specialized pipeline variants. Use when creating a new research/report agent.
+  构建由 research-skills 流水线驱动的调研报告智能体：生成精简的编排者系统提示词、3 个角色子智能体（调研员、
+  技术写手、评审）及各自的工具集和角色文件指针，钉住 research-skills，并且可以创建按领域特化的流水线变体。
+  创建新的调研 / 报告智能体时使用。
 version: 1.0.0
 author: LangConfig (derived from agent 175)
 tags: [meta, agent-creation, research, pipeline, builder, skill-generation]
 triggers:
-  - "when the user asks to create a research agent"
-  - "when building an agent that produces research reports"
-  - "when the user wants a report-writing agent"
-  - "when asked to generate a research skill or pipeline"
-  - "when the user wants a domain-specialized research agent (e.g. market, tech, medical)"
+  - "用户要求创建一个调研智能体时"
+  - "构建一个产出调研报告的智能体时"
+  - "用户想要一个写报告的智能体时"
+  - "被要求生成一个调研技能或一条流水线时"
+  - "用户想要一个按领域特化的调研智能体（例如市场、技术、医疗）时"
 allowed_tools: [create_deepagent, create_agent, create_skill, read_file, web_search]
+lang: zh
+translated: machine
+source: backend/skills/en-originals/research-pipeline-builder/SKILL.md
 ---
 
-# Research Pipeline Builder
+# 调研流水线构建器
 
-You build research-report agents on the **research-skills** pipeline. The pipeline is one
-deployable unit — `research-skills` (a SKILL.md orchestration playbook + three role files
-under `roles/`) — and every research agent is exactly **three pieces** plus the skill pin:
+你在 **research-skills** 流水线上构建调研报告智能体。这条流水线是一个可部署的整体——`research-skills`
+（一份 SKILL.md 编排手册 + `roles/` 下的三个角色文件）——每个调研智能体都恰好是**三块东西**，再加一个技能钉：
 
-1. a **thin orchestrator system prompt** (identity + non-negotiable contract + hard limits
-   + pointer to `research-skills`);
-2. **3 role subagents**, each = name + description + thin prompt (pointing at its role
-   file) + tools;
-3. **`config.skills: ["research-skills"]`** (pins the pipeline).
+1. 一份**精简的编排者系统提示词**（身份 + 不可让步的契约 + 硬性限制 + 指向 `research-skills` 的指针）；
+2. **3 个角色子智能体**，每个 = 名字 + 描述 + 精简提示词（指向它自己的角色文件）+ 工具；
+3. **`config.skills: ["research-skills"]`**（钉住这条流水线）。
 
-## The reference implementation (agent 175, proven live)
+## 参考实现（agent 175，线上验证过）
 
-The working agent that this builder reproduces (Research Report Writer, id 175):
+这个构建器复刻的那个跑通过的真智能体（Research Report Writer，id 175）：
 
-- **Model**: `deepseek-v4-flash`, temperature 0.3, max_tokens 393216, reasoning_effort low
-- **Middleware**: `todo_list` + `filesystem` (both enabled)
-- **Guardrails**: max_total_tokens 1_000_000 / summarization 800_000 / eviction 900_000,
-  auto-eviction + summarization + long-term memory on
-- **Main tools** (35): `think_tool`, `reasoning_chain`, `write_todos`, `read_todos`,
-  `memory_store`, `memory_recall`, `web_search`, `web_fetch`, filesystem
-  (`ls read_file read_image write_file edit_file glob grep delete_file rename_file
-  move_file mkdir`), `bash`, `skill`, `save_document`, Postgres
-  (`pg_list_tables pg_describe_table pg_query pg_list_agents pg_get_agent
-  pg_list_projects`), `sqlite_execute`, `sqlite_load_csv`, `python_execute`,
-  `save_analysis_result`, `graphindex_search`, `graphindex_load`, `doc_index_list`
-  (`native_tools` additionally: `tavily_search`, `serpapi_search`)
-- **Subagents**: `web_researcher` [web_search, web_fetch, tavily_search, serpapi_search, think_tool, reasoning_chain],
-  `technical_writer` [write_todos, read_todos, think_tool, reasoning_chain],
+- **模型**：`deepseek-v4-flash`，temperature 0.3，max_tokens 393216，reasoning_effort low
+- **中间件**：`todo_list` + `filesystem`（两者都启用）
+- **护栏**：max_total_tokens 1_000_000 / summarization 800_000 / eviction 900_000，自动驱逐 + 摘要 + 长期记忆
+  全开
+- **主工具**（35 个）：`think_tool`、`reasoning_chain`、`write_todos`、`read_todos`、`memory_store`、
+  `memory_recall`、`web_search`、`web_fetch`、filesystem
+  （`ls read_file read_image write_file edit_file glob grep delete_file rename_file
+  move_file mkdir`）、`bash`、`skill`、`save_document`、Postgres
+  （`pg_list_tables pg_describe_table pg_query pg_list_agents pg_get_agent
+  pg_list_projects`）、`sqlite_execute`、`sqlite_load_csv`、`python_execute`、
+  `save_analysis_result`、`graphindex_search`、`graphindex_load`、`doc_index_list`
+  （`native_tools` 另加：`tavily_search`、`serpapi_search`）
+- **子智能体**：`web_researcher` [web_search, web_fetch, tavily_search, serpapi_search, think_tool,
+  reasoning_chain]、`technical_writer` [write_todos, read_todos, think_tool, reasoning_chain]、
   `critic` [think_tool, reasoning_chain, read_todos]
 
-## Workflow
+## 工作流
 
-### Step 1 — Clarify the scope
-Ask or infer: research domain/topic focus, audience, output formats (default `.md` + `.docx`),
-language, and whether the standard 3 roles suffice. If the domain needs a 4th specialized
-role (e.g. `data_analyst`, `legal_reviewer`, `domain_expert`), note it for Step 4.
+### 第 1 步——把范围问清楚
+问出来，或者推断出来：调研的领域 / 主题侧重、受众、输出格式（默认 `.md` + `.docx`）、语言，以及标准的 3 个角色
+够不够。如果这个领域需要第 4 个专职角色（例如 `data_analyst`、`legal_reviewer`、`domain_expert`），记下来留给
+第 4 步。
 
-### Step 2 — Generate the thin orchestrator system prompt
-Use this template (fill the placeholders; keep the contract and hard limits verbatim):
+### 第 2 步——生成精简的编排者系统提示词
+用这个模板（填掉占位符；契约和硬性限制那两节原样逐字保留）：
 
 ```
 You are the <ROLE_NAME>. You coordinate three specialized subagents — web_researcher,
@@ -86,44 +85,42 @@ roles/writer.md, roles/critic.md.
   search fails, rephrase the query or move on — never retry the identical query a 4th time.
 ```
 
-### Step 3 — Generate the 3 subagents
-For each role, emit exactly (tools verbatim):
+### 第 3 步——生成 3 个子智能体
+每个角色都严格照下面这样发出（工具列表一字不改）：
 
-| name | description | system_prompt (thin) | tools |
+| 名字 | 描述 | system_prompt（精简） | 工具 |
 |---|---|---|---|
-| `web_researcher` | "Searches the web, gathers facts, and returns sourced findings with URLs for a given research topic." | "You are a web research specialist in an ISOLATED context window: your searches, fetched pages, and reasoning stay here; the orchestrator only sees your final report. Read skills/research-skills/roles/researcher.md (via read_file) and follow it exactly. Write your verified findings to findings.md, then RETURN ONLY the file path + a 3-line summary." | `["web_search", "web_fetch", "tavily_search", "serpapi_search", "think_tool", "reasoning_chain"]` |
-| `technical_writer` | "Turns research findings into a clear, well-structured technical report or document." | "You are a technical writer in an ISOLATED context window: you receive the research as a FILE, and you produce the report as FILES. Read skills/research-skills/roles/writer.md (via read_file) and follow it exactly. Produce <title>.docx AND <title>.md, then RETURN ONLY the paths + a 2-line summary." | `["write_todos", "read_todos", "think_tool", "reasoning_chain"]` |
-| `critic` | "Reviews a draft report for factual accuracy, structure, clarity, and completeness; returns actionable feedback." | "You are a rigorous report critic in an ISOLATED context window: you review the report as a FILE and return your critique as text. Read skills/research-skills/roles/critic.md (via read_file) and follow it exactly. Audit the report and RETURN ONLY your structured critique. Never modify the report." | `["think_tool", "reasoning_chain", "read_todos"]` |
+| `web_researcher` | "检索网页、收集事实，并针对给定的调研主题交回带来源 URL 的发现。" | "你是一个运行在**隔离**上下文窗口里的网页调研专家：你的检索、抓取的页面和推理都留在这里；编排者只看得到你的最终报告。读 skills/research-skills/roles/researcher.md（用 read_file）并严格照做。把你核实过的发现写进 findings.md，然后**只返回**文件路径 + 3 行摘要。" | `["web_search", "web_fetch", "tavily_search", "serpapi_search", "think_tool", "reasoning_chain"]` |
+| `technical_writer` | "把调研发现变成一份清晰、结构良好的技术报告或文档。" | "你是一个运行在**隔离**上下文窗口里的技术写手：你以**文件**的形式收到调研材料，也以**文件**的形式产出报告。读 skills/research-skills/roles/writer.md（用 read_file）并严格照做。产出 <title>.docx **和** <title>.md，然后**只返回**路径 + 2 行摘要。" | `["write_todos", "read_todos", "think_tool", "reasoning_chain"]` |
+| `critic` | "评审报告草稿的事实准确性、结构、清晰度与完整度；返回可以照着改的意见。" | "你是一个运行在**隔离**上下文窗口里的严格报告评审员：你以**文件**的形式评审报告，并以文本形式交回意见。读 skills/research-skills/roles/critic.md（用 read_file）并严格照做。审计这份报告，**只返回**你的结构化评审意见。绝不修改报告。" | `["think_tool", "reasoning_chain", "read_todos"]` |
 
-### Step 4 — Optional: domain-specialized variant
-If the user needs a distinct pipeline (different role set or domain rules), create a NEW
-skill rather than mutating `research-skills`:
-1. Copy `backend/skills/personal/research-skills/` to
-   `backend/skills/personal/<domain>-research-pipeline/` (e.g. `market-research-pipeline`).
-2. Edit the copy's `SKILL.md`: pipeline map + delegation contract for the new roles;
-   keep the context-isolation principle and iteration discipline.
-3. Add `roles/<new-role>.md` for any 4th role (self-contained, like the existing ones).
-4. Sync the new skill to the DB (FS→DB sync, `source_type=personal`) and pin it in the
-   agent's `config.skills` instead of `research-skills`.
-5. Update the orchestrator prompt's role-file pointers to the new skill path.
+### 第 4 步——可选：按领域特化的变体
+如果用户需要一条不一样的流水线（角色集合或领域规则不同），就新建一个技能，而不要去改 `research-skills`：
+1. 把 `backend/skills/personal/research-skills/` 复制成
+   `backend/skills/personal/<domain>-research-pipeline/`（例如 `market-research-pipeline`）。
+2. 改副本的 `SKILL.md`：为新角色写流水线地图 + 委派契约；保留上下文隔离原则和迭代纪律。
+3. 为第 4 个角色加上 `roles/<new-role>.md`（自足，和现有的几个一样）。
+4. 把新技能同步进数据库（FS→DB 同步，`source_type=personal`），并在智能体的 `config.skills` 里钉住它，
+   替代 `research-skills`。
+5. 把编排者提示词里的角色文件指针改成新技能的路径。
 
-### Step 5 — Save the agent (self-persist)
-Call the **`create_deepagent`** tool with the FULL configuration so the agent is persisted
-to the database and appears in the DeepAgent Studio. Pass every field:
+### 第 5 步——保存智能体（自己落库）
+用**完整配置**调用 **`create_deepagent`** 工具，让智能体落进数据库并出现在 DeepAgent Studio 里。每个字段都要
+传：
 
-- `name`, `description`, `category`, `model` (use `deepseek-v4-flash`), `temperature` (0.3)
-- `system_prompt` — the Step 2 output, verbatim
-- `tools` — the full 35-tool list from the reference implementation
-- `native_tools` — the native subset (incl. `tavily_search`, `serpapi_search`)
-- `skills` — `["research-skills"]` (or the domain-variant skill id from Step 4)
-- `subagents` — the Step 3 table as a JSON array: each `{name, description, type: "dictionary", system_prompt, tools}`
-- `middleware` — `[{"type": "todo_list", "enabled": true, "config": {}}, {"type": "filesystem", "enabled": true, "config": {}}]`
-- `guardrails` — `{"token_limits": {"max_total_tokens": 1000000, "summarization_threshold": 800000, "eviction_threshold": 900000}, "enable_auto_eviction": true, "enable_summarization": true, "long_term_memory": true}`
-- `max_tokens` — 393216, `reasoning_effort` — `"low"`
+- `name`、`description`、`category`、`model`（用 `deepseek-v4-flash`）、`temperature`（0.3）
+- `system_prompt`——第 2 步的产出，原样
+- `tools`——参考实现里那份完整的 35 个工具清单
+- `native_tools`——其中的原生子集（含 `tavily_search`、`serpapi_search`）
+- `skills`——`["research-skills"]`（或第 4 步得出的领域变体技能 id）
+- `subagents`——把第 3 步那张表变成 JSON 数组：每项 `{name, description, type: "dictionary", system_prompt, tools}`
+- `middleware`——`[{"type": "todo_list", "enabled": true, "config": {}}, {"type": "filesystem", "enabled": true, "config": {}}]`
+- `guardrails`——`{"token_limits": {"max_total_tokens": 1000000, "summarization_threshold": 800000, "eviction_threshold": 900000}, "enable_auto_eviction": true, "enable_summarization": true, "long_term_memory": true}`
+- `max_tokens`——393216，`reasoning_effort`——`"low"`
 
-List/dict arguments may be passed as JSON strings (e.g. `'["web_search", "web_fetch"]'`).
-Confirm the tool returns `✅ Agent '<name>' (id=<n>) created successfully` — that id is
-the persisted agent. Reference template (argument map, not a separate API call):
+列表 / 字典类参数可以传成 JSON 字符串（例如 `'["web_search", "web_fetch"]'`）。确认工具返回
+`✅ Agent '<name>' (id=<n>) created successfully`——那个 id 就是落库后的智能体。参考模板（一张参数表，不是
+另一次 API 调用）：
 
 ```json
 {
@@ -151,21 +148,19 @@ the persisted agent. Reference template (argument map, not a separate API call):
 }
 ```
 
-If the `create_deepagent` tool is NOT available to you, fall back to emitting the same
-JSON for the operator to create via `POST /api/deepagents/` (CreateDeepAgentRequest).
+如果你手上没有 `create_deepagent` 工具，就退回到把同一份 JSON 发出来，让操作者通过 `POST /api/deepagents/`
+（CreateDeepAgentRequest）自己去创建。
 
-### Step 6 — Verify
-The agent is persisted the moment `create_deepagent` returns its id. Confirm it via
-`pg_get_agent` / the DeepAgent Studio, then run one short test chat ("write a SHORT
-2-section report on <topic>, follow your full workflow") and confirm in the stream: the
-orchestrator reads `skills/research-skills/SKILL.md`, each subagent reads its
-`roles/<role>.md`, a `task` delegation fires for each stage, and the final files land in
-the agent workspace.
+### 第 6 步——验收
+`create_deepagent` 一返回 id，智能体就已经落库了。用 `pg_get_agent` / DeepAgent Studio 确认它，然后跑一次
+简短的测试对话（"就 <topic> 写一份**短的**、两节的报告，走完你完整的流程"），并在流里确认：编排者读了
+`skills/research-skills/SKILL.md`，每个子智能体读了它自己的 `roles/<role>.md`，每个阶段都触发了 `task` 委派，
+最终文件落进了智能体的工作区。
 
-## Quality checklist
-- [ ] System prompt has the full non-negotiable contract + hard limits (never shortened)
-- [ ] All 3 subagents have their role-file pointer + exact tool lists
-- [ ] `skills` pins the right pipeline skill (`research-skills` or the domain variant)
-- [ ] Domain variant (if any) is a separate skill dir, synced, with its own SKILL.md map
-- [ ] `create_deepagent` returned a success message with an agent id (persisted!)
-- [ ] A test chat completes with files produced
+## 质量清单
+- [ ] 系统提示词里那份不可让步的契约 + 硬性限制是完整的（绝不删减）
+- [ ] 3 个子智能体都带着自己的角色文件指针 + 准确的工具清单
+- [ ] `skills` 钉住的是正确的流水线技能（`research-skills` 或领域变体）
+- [ ] 领域变体（如果有）是一个独立的技能目录，已同步，有自己的 SKILL.md 地图
+- [ ] `create_deepagent` 返回了带 agent id 的成功消息（落库了！）
+- [ ] 一次测试对话跑完并产出了文件

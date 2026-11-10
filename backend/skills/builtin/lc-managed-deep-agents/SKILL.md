@@ -43,7 +43,7 @@ version: "1.0"
 
 ## 概述
 
-Managed Deep Agents（MDA）是 LangSmith 里面向 code-first Deep Agents 的托管运行时。你用 Python 或
+Managed Deep Agents（MDA）是 LangSmith 中面向 code-first Deep Agents 的托管运行时。你用 Python 或
 TypeScript 编写智能体，在本地用 `mda dev` 测试，再用 `mda deploy` 部署，或者直接从 LangSmith 里已连接的
 GitHub 仓库部署。它把开源的 Deep Agents 运行框架（harness，见 [[deep-agents-core]]）和托管基础设施配成一套：
 持久化运行、沙箱、由 Context Hub 托底的 instructions 与 skills、记忆、链路追踪（traces），以及托管的
@@ -91,7 +91,7 @@ ask what they want to build -> check it against the limits -> confirm the shape
 - 有没有哪个动作必须先由人批准才能发生？
 - 需要写文件或运行代码吗？
 
-一旦你能把能力点名列出来，就停下来别问了。两三个问题通常够了。
+一旦你能把要用的能力一条条点出来，就停下来别问了。两三个问题通常够了。
 
 ## 2. 用限制清单校验这个答案
 
@@ -232,7 +232,7 @@ my-agent/
 
 只有智能体入口是必需的。`tools/` 和 `middleware/` 只是单纯的约定——MDA 原样复制项目文件，所以智能体 import
 的任何本地模块都能用。其余的路径只在存在时才具备托管含义。TypeScript 的智能体入口可以是 `agent.ts`，也可以
-是 `agent.tsx`；被发现的托管辅助声明同样接受 `.mts` 和 `.cts`。
+是 `agent.tsx`；托管辅助声明被发现时同样接受 `.mts` 和 `.cts`。
 
 ## 定义智能体
 
@@ -303,10 +303,11 @@ concise answers with citations.
 ## Skills
 
 把随部署走的流程放在 `skills/<name>/SKILL.md` 下，每份都带 `name` 和 `description` frontmatter。启动时智能体
-只看到名字和描述，任务对上了才去读整个文件——所以详细的流程在用到之前不占上下文。一个 skill 目录里还可以
-放脚本、参考资料和模板，从 `SKILL.md` 里引用它们。
+只看到名字和描述，任务对上了才去读整个文件——所以详细的流程在用到之前不占上下文。一个技能目录里还可以
+放脚本、参考资料和模板，并从 `SKILL.md` 里引用它们。
 
-部署时会把 `skills/` 下每个 UTF-8 文件同步到 Context Hub，并删掉本地已经不存在的那些。智能体不能修改 skill。
+部署时会把 `skills/` 下每个 UTF-8 文件同步到 Context Hub，并删掉本地已经不存在的那些技能文件。智能体不能
+修改技能。
 
 **instructions** 用来放始终生效的行为，**skills** 放按需加载的流程，**memory** 放智能体自己更新的知识。
 
@@ -377,8 +378,8 @@ identity = define_identity(auth=auth.supabase(project_ref="your-project-ref"))
 identity = define_identity(auth="backend")
 ```
 
-把 `MDA_INGRESS_SECRET` 留在后端，连同已认证用户的 ID 一起，分别作为 `X-MDA-Ingress-Secret` 和
-`X-MDA-User-Id` 转发。绝不要把这些设置 header 的能力暴露给浏览器。
+把 `MDA_INGRESS_SECRET` 留在后端，转发时作为 `X-MDA-Ingress-Secret`，同时把已认证用户的 ID 放进
+`X-MDA-User-Id`。绝不要把这些设置 header 的能力暴露给浏览器。
 
 ## Tools
 
@@ -486,7 +487,7 @@ mda connections create github --oauth github --client-id "$GITHUB_CLIENT_ID" --s
 mda connections list
 ```
 
-用户所有的 OAuth 要省略 `--authorize`；运行时会在需要时索取每个调用方自己的授权。`--authorize` 是替
+用户所有的 OAuth 要省略 `--authorize`；运行时会在需要时索取每个调用方自己的授权。`--authorize` 是为
 智能体所有的授权登录一次，要用它，connection 声明必须选 `{ type: "agent" }`。当恰好只有一个服务器引用某个
 slug 时，`mda deploy` 能推断并创建缺失的用户所有 MCP OAuth 注册。在 `mda dev` 里，用户所有的授权经由
 Agent Auth 解析，Studio 需要个人的 LangSmith key 或浏览器登录；其他 service principal 无法拥有用户 OAuth
@@ -717,8 +718,8 @@ LangGraph API 恢复；`mda deploy` 会打印 Agent Server 的 URL。
 - **`name=` 是必填的**，在 `define_deep_agent` / `defineDeepAgent` 里都是。少了它的定义会失败。
 - **模型 ID 必须带 provider 前缀**：`anthropic:claude-sonnet-4-6`，而不是裸的模型名。Python 用 `google_genai:`，
   TypeScript 用 `google-genai:`，Gateway 用 `provider/model`。
-- **不要设托管字段**（`backend`、`store`、`checkpointer`、`memory`、`skills`、system prompt）——在智能体定义里。
-- **记忆通过 `memory.py` 选择启用**，不是构造参数。`disable_memory` 是遗留写法——声明或删除 `memory.py`。
+- **不要在智能体定义里设托管字段**（`backend`、`store`、`checkpointer`、`memory`、`skills`、system prompt）。
+- **记忆靠 `memory.py` 选择启用**，不是一个构造参数。`disable_memory` 是遗留写法——改成声明或删除 `memory.py`。
 - **MCP 声明在 `tools/mcp.*`。** 从 `defineMcp({ servers: ... })` / `define_mcp(servers=...)` 导出 `mcp`。
   `connectors.mcp`、`connectors/mcp.*` 和 `mcpServers` 是 0.7.x 已弃用的兼容面，不是新代码的写法。
 - **connection 是工作区范围的。** 一个 connection slug 不是某个智能体私有的，`mda connections list` 列的是

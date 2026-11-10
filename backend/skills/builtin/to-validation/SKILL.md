@@ -21,7 +21,7 @@ description: >-
 ### 第 1 步——按这个顺序找标准
 
 1. **`work/<scope>/grill.md`** —— 一轮 grill 敲定的决定。这是最强的一种：已经有人同意它们就是"完成"的定义。
-2. **计划/规格/票据文件** —— 找 `## Acceptance Criteria`、`## Success Criteria`、`## Done when`、
+2. **计划/规格/工单文件** —— 找 `## Acceptance Criteria`、`## Success Criteria`、`## Done when`、
    `## Validation gate`，以及任何条目写成"结果"形态的清单。
 3. **请求本身** —— 明确的"它应该…""完成时…"、编号的需求。
 4. **哪里都没有** → 跨这些维度（正确性、错误路径、集成、数据、非功能、明确不在范围内）提出 5–8 条标准，

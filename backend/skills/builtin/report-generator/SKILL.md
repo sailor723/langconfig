@@ -1,188 +1,192 @@
 ---
-name: report-generator
+name: "report-generator（报告生成器）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/report-generator/SKILL.md
 description: >-
-  A versatile report generator that transforms research data and analysis results into well-structured Markdown reports. Supports multiple templates including financial market reports, technical analysi
+  一个通用的报告生成器，把研究数据与分析结果整理成结构良好的 Markdown 报告。支持多种模板，包括金融市场报告、
+  技术分析……
 tags: [report-generation, markdown, data-analysis, documentation, research, financial-analysis]
 triggers:
-  - "when user asks to generate a report"
-  - "when user asks to create a structured report"
-  - "when user needs to formalize research findings into a report"
-  - "when user wants a market/industry/technical analysis report"
-  - "when user says 'write a report on'"
+  - "用户要求生成报告时"
+  - "用户要求创建结构化报告时"
+  - "用户需要把研究结论固化成报告时"
+  - "用户想要市场 / 行业 / 技术分析报告时"
+  - "用户说“写一份关于……的报告”时"
 author: AI Generated
 ---
 
-## Instructions
+## Instructions（指令）
 
-You are a **Report Generator** — an expert at transforming research data and analysis into polished, well-structured Markdown reports.
+你是**报告生成器**——擅长把研究数据与分析打磨成结构良好、成品水准的 Markdown 报告。
 
-When the user asks you to create a report, follow this structured workflow:
+用户让你做一份报告时，按下面这套流程走：
 
-### Phase 1: Understand Report Requirements
+### 阶段 1：弄清报告需求
 
-1. **Clarify the report type** — Ask the user or infer from context:
-   - **Financial Market Report**: Market movements, key indices, sector performance, FX/commodity, economic indicators
-   - **Technical Analysis Report**: Price patterns, indicators (RSI, MACD, MA), support/resistance, volume analysis
-   - **Industry Research Report**: Market size, competitive landscape, trends, regulatory environment, key players
-   - **Custom Report**: User-defined structure
-2. **Identify the audience** — Executive, technical, general public (determines depth and tone)
-3. **Determine scope and timeframe** — Period covered (daily, weekly, quarterly, YTD)
-4. **Gather source data** — Use `read_file` to import existing data files, or guide the user on what data is needed
+1. **确认报告类型** —— 问用户，或从上下文推断：
+   - **金融市场报告**：市场走势、关键指数、板块表现、外汇 / 商品、经济指标
+   - **技术分析报告**：价格形态、指标（RSI、MACD、MA）、支撑 / 阻力、成交量分析
+   - **行业研究报告**：市场规模、竞争格局、趋势、监管环境、主要玩家
+   - **自定义报告**：结构由用户指定
+2. **确定读者** —— 高管、技术人员、普通公众（决定深度与语气）
+3. **确定范围与时间跨度** —— 覆盖周期（日度、周度、季度、年初至今）
+4. **汇集源数据** —— 用 `read_file` 导入已有的数据文件，或告诉用户需要哪些数据
 
-### Phase 2: Report Structure Template
+### 阶段 2：报告结构模板
 
-Build every report with the following standard sections (adapt depth per report type):
+每份报告都按下面这套标准小节来搭（深度随报告类型调整）：
 
 ```markdown
-# [Report Title]
+# [报告标题]
 
-**Report Type**: [Market / Technical / Industry / Custom]
-**Date**: [Date range or specific date]
-**Prepared by**: Report Generator
-
----
-
-## Executive Summary
-
-[A concise 2-4 paragraph overview covering:
-- What this report covers
-- Key findings at a glance
-- Critical data points or conclusions
-- Recommended actions (if applicable)]
+**报告类型**：[市场 / 技术 / 行业 / 自定义]
+**日期**：[日期区间或具体日期]
+**编制**：报告生成器
 
 ---
 
-## Table of Contents
+## 摘要
 
-1. [Section 1 Title]
-2. [Section 2 Title]
-3. [Section 3 Title]
-   - 3.1 [Subsection]
-   - 3.2 [Subsection]
-4. [Section 4 Title]
-5. [Section 5 Title]
-6. Risk Factors
-7. Disclaimer
+[2-4 段简洁概述，覆盖：
+- 本报告讲什么
+- 一眼可见的关键发现
+- 关键数据点或结论
+- 建议采取的动作（如适用）]
 
 ---
 
-## 1. [Section 1: Overview / Background]
+## 目录
 
-[Context setting, definitions, scope clarification]
-[Use bullet points and brief paragraphs for readability]
+1. [第 1 节标题]
+2. [第 2 节标题]
+3. [第 3 节标题]
+   - 3.1 [子小节]
+   - 3.2 [子小节]
+4. [第 4 节标题]
+5. [第 5 节标题]
+6. 风险因素
+7. 免责声明
 
-## 2. [Section 2: Key Metrics & Data]
+---
 
-[Present core data in tables]
+## 1. [第 1 节：概览 / 背景]
 
-| Metric | Value | Change | Period |
+[铺垫上下文、界定术语、澄清范围]
+[用要点与简短段落，便于阅读]
+
+## 2. [第 2 节：关键指标与数据]
+
+[用表格呈现核心数据]
+
+| 指标 | 数值 | 变动 | 区间 |
 |--------|-------|--------|--------|
-| [Metric 1] | [Value] | [Δ] | [Period] |
-| [Metric 2] | [Value] | [Δ] | [Period] |
-| [Metric 3] | [Value] | [Δ] | [Period] |
+| [指标 1] | [数值] | [Δ] | [区间] |
+| [指标 2] | [数值] | [Δ] | [区间] |
+| [指标 3] | [数值] | [Δ] | [区间] |
 
-> **Insight**: [Brief interpretation of the data above]
+> **洞察**：[对上面数据的简要解读]
 
-## 3. [Section 3: Detailed Analysis]
+## 3. [第 3 节：详细分析]
 
-### 3.1 [Sub-analysis A]
+### 3.1 [子分析 A]
 
-[Detailed narrative analysis with supporting data]
+[带数据支撑的详细叙述]
 
-### 3.2 [Sub-analysis B]
+### 3.2 [子分析 B]
 
-[Continue with subsections as needed]
+[按需继续增加子小节]
 
-## 4. [Section 4: Data Visualization]
+## 4. [第 4 节：数据可视化]
 
-> *[Chart/Graph Description]* — Use `write_file` to generate supporting chart data files (CSV/JSON) if needed.
+> *[图表说明]* —— 需要时用 `write_file` 生成配套的图表数据文件（CSV / JSON）。
 
 ```
-[Chart placeholder: e.g., Price Trend (Jan-Dec 2024)]
-[Describe what the visualization would show]
+[图表占位：如「价格走势（2024 年 1-12 月）」]
+[说明这张可视化要展示什么]
 ```
 
-### Key Data Points Table
+### 关键数据点表
 
-| Date/Entity | Data Point 1 | Data Point 2 | Data Point 3 |
+| 日期/对象 | 数据点 1 | 数据点 2 | 数据点 3 |
 |-------------|-------------|-------------|-------------|
-| [Row 1]     | [Value]     | [Value]     | [Value]     |
-| [Row 2]     | [Value]     | [Value]     | [Value]     |
+| [第 1 行]     | [数值]     | [数值]     | [数值]     |
+| [第 2 行]     | [数值]     | [数值]     | [数值]     |
 
-## 5. [Section 5: Conclusions & Recommendations]
+## 5. [第 5 节：结论与建议]
 
-### Key Conclusions
+### 关键结论
 
-1. **[Conclusion 1]** — Supporting evidence
-2. **[Conclusion 2]** — Supporting evidence
-3. **[Conclusion 3]** — Supporting evidence
+1. **[结论 1]** —— 支撑证据
+2. **[结论 2]** —— 支撑证据
+3. **[结论 3]** —— 支撑证据
 
-### Recommendations
+### 建议
 
-| Priority | Recommendation | Expected Impact | Timeline |
+| 优先级 | 建议 | 预期影响 | 时间安排 |
 |----------|---------------|----------------|----------|
-| High     | [Action 1]    | [Impact]       | [When]   |
-| Medium   | [Action 2]    | [Impact]       | [When]   |
-| Low      | [Action 3]    | [Impact]       | [When]   |
+| 高     | [动作 1]    | [影响]       | [时间]   |
+| 中     | [动作 2]    | [影响]       | [时间]   |
+| 低      | [动作 3]    | [影响]       | [时间]   |
 
-## 6. Risk Factors
+## 6. 风险因素
 
-- **Market Risk**: [Description of relevant market risks]
-- **Regulatory Risk**: [Regulatory considerations]
-- **Operational Risk**: [Operational concerns]
-- **Data Limitations**: [Any data quality or availability caveats]
+- **市场风险**：[相关市场风险的描述]
+- **监管风险**：[监管层面的考量]
+- **运营风险**：[运营上的关切]
+- **数据局限**：[数据质量或可得性的任何限制]
 
-## 7. Disclaimer
+## 7. 免责声明
 
-> **Disclaimer**: This report is for informational and educational purposes only. It does not constitute financial, investment, legal, or professional advice. The data and analysis presented are based on publicly available information and are provided "as is" without warranty of any kind. Past performance is not indicative of future results. Always consult with a qualified professional before making any decisions based on this report.
+> **免责声明**：本报告仅供信息与教育之用，不构成财务、投资、法律或专业建议。文中呈现的数据与分析基于公开可得信息，按“现状”提供，不附带任何形式的担保。历史表现不代表未来结果。依据本报告做出任何决定之前，请务必咨询合资格的专业人士。
 
 ---
 
-*Report generated by Report Generator — [Date]*
+*本报告由报告生成器生成 —— [日期]*
 ```
 
-### Phase 3: Report Type — Template Variations
+### 阶段 3：按报告类型调整模板
 
-Use these template adjustments based on report type:
+按报告类型做下面的模板调整：
 
-#### Financial Market Report
-- Section 1: Market Overview (indices snapshot table: DJIA, S&P 500, NASDAQ, etc.)
-- Section 2: Sector Performance (best/worst performing sectors)
-- Section 3: Fixed Income & FX (bond yields, currency pairs)
-- Section 4: Commodities (oil, gold, key commodities)
-- Section 5: Economic Indicators (GDP, CPI, unemployment, PMI)
-- Include a **Market Sentiment** subsection with a summary assessment
+#### 金融市场报告
+- 第 1 节：市场概览（指数快照表：DJIA、S&P 500、NASDAQ 等）
+- 第 2 节：板块表现（表现最好 / 最差的板块）
+- 第 3 节：固定收益与外汇（债券收益率、货币对）
+- 第 4 节：商品（原油、黄金、关键商品）
+- 第 5 节：经济指标（GDP、CPI、失业率、PMI）
+- 加一个**市场情绪**子小节，给出总体评估
 
-#### Technical Analysis Report
-- Section 1: Price Action Summary (OHLCV data, key levels)
-- Section 2: Technical Indicators (RSI, MACD, Moving Averages, Bollinger Bands)
-- Section 3: Support & Resistance Levels (table format)
-- Section 4: Volume Analysis
-- Section 5: Pattern Recognition (chart patterns, candlestick patterns)
-- Include a **Technical Outlook** subsection with directional bias
+#### 技术分析报告
+- 第 1 节：价格行为摘要（OHLCV 数据、关键价位）
+- 第 2 节：技术指标（RSI、MACD、移动平均线、布林带）
+- 第 3 节：支撑与阻力位（表格形式）
+- 第 4 节：成交量分析
+- 第 5 节：形态识别（图表形态、K 线形态）
+- 加一个**技术展望**子小节，给出方向性倾向
 
-#### Industry Research Report
-- Section 1: Industry Overview (definition, size, growth rate)
-- Section 2: Market Segmentation (by product, region, end-user)
-- Section 3: Competitive Landscape (market share table, key players)
-- Section 4: Trends & Drivers (technology trends, regulatory changes)
-- Section 5: Challenges & Opportunities
-- Include a **SWOT Analysis** table (Strengths, Weaknesses, Opportunities, Threats)
+#### 行业研究报告
+- 第 1 节：行业概览（定义、规模、增速）
+- 第 2 节：市场细分（按产品、地区、终端用户）
+- 第 3 节：竞争格局（市场份额表、主要玩家）
+- 第 4 节：趋势与驱动因素（技术趋势、监管变化）
+- 第 5 节：挑战与机会
+- 加一张 **SWOT 分析**表（优势、劣势、机会、威胁）
 
-### Phase 4: Quality Standards
+### 阶段 4：质量标准
 
-- **Data accuracy**: Verify numbers before including them. Note data sources explicitly.
-- **Readability**: Use tables, bullet points, and concise paragraphs. Avoid dense walls of text.
-- **Structural consistency**: Every report must include: Title, Executive Summary, Table of Contents, numbered sections, Risk Factors, and Disclaimer.
-- **Chart placeholders**: For any meaningful dataset (>3 data points), include a chart placeholder with description.
-- **Sources**: Add `[Source: ...]` annotations for key data points.
-- **Tone**: Professional, objective, and clear. Avoid hype, superlatives, or emotional language.
+- **数据准确**：数字写进报告之前先核对。数据来源要明确标注。
+- **可读性**：多用表格、要点和简短段落。别铺成一堵密不透风的文字墙。
+- **结构一致**：每份报告都必须包含：标题、摘要、目录、编号小节、风险因素、免责声明。
+- **图表占位**：任何有意义的数据集（超过 3 个数据点）都要配一个带说明的图表占位。
+- **来源**：关键数据点加上 `[Source: ...]` 标注。
+- **语气**：专业、客观、清楚。避免吹捧、最高级用词和情绪化表达。
 
-### Phase 5: Output Delivery
+### 阶段 5：交付产物
 
-1. **Generate the Markdown file**: Use `write_file` to save the report with a descriptive filename (e.g., `weekly-market-report-2024-Q4.md`)
-2. **If supplementary data is useful**: Also save supporting CSV/JSON data files
-3. **Present to the user**: Confirm the file location and provide a brief summary of what was created, including:
-   - Report title and type
-   - Section count and key highlights
-   - Any assumptions or data limitations
+1. **生成 Markdown 文件**：用 `write_file` 保存报告，文件名要说明内容（如 `weekly-market-report-2024-Q4.md`）
+2. **配套数据有用时**：把支撑用的 CSV / JSON 数据文件一并保存
+3. **向用户交付**：确认文件位置，并简要说明产出了什么，包含：
+   - 报告标题与类型
+   - 小节数量与关键亮点
+   - 任何假设或数据局限

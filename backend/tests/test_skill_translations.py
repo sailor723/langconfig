@@ -91,6 +91,31 @@ def _cjk(text: str) -> int:
     return len(re.findall(r"[\u4e00-\u9fff]", text))
 
 
+def _prose(text: str) -> str:
+    """The parts of a body that get translated: fenced blocks are code or templates, not prose.
+
+    The floor is derived from these words only. Counting code words as if they needed Chinese set a floor that
+    no honest translation could reach — measured on `debugging`, 679 English words of which ~208 are prose.
+    """
+    out, inside = [], False
+    for line in text.splitlines():
+        if line.lstrip().startswith("```"):
+            inside = not inside
+            continue
+        if not inside:
+            out.append(line)
+    return "\n".join(out)
+
+
+def _floor(english_text: str) -> int:
+    """How much Chinese this English earns: 0.6 CJK characters per English prose word, minimum 3.
+
+    Measured across the hand translations: 1.14-1.91 CJK per English word. A translation cannot be larger
+    than its source, so the floor has to scale with it rather than being a fixed number.
+    """
+    return max(3, round(len(re.findall(r"\b[A-Za-z]{3,}\b", _prose(english_text))) * 0.6))
+
+
 def _shape(text: str) -> tuple[int, int]:
     headings = sum(1 for ln in text.splitlines() if re.match(r"^##\s+", ln))
     fences = sum(1 for ln in text.splitlines() if ln.startswith("```"))
@@ -121,10 +146,10 @@ def test_a_translated_skill_is_actually_chinese(skill_id: str):
     word, so 0.6 is a floor that a real translation clears and a half-translated one does not.
     """
     body = _body(BUILTIN / skill_id / "SKILL.md")
-    en_words = len(re.findall(r"\b[A-Za-z]{3,}\b", _body(ARCHIVE / skill_id / "SKILL.md")))
+    en_words = len(re.findall(r"\b[A-Za-z]{3,}\b", _prose(_body(ARCHIVE / skill_id / "SKILL.md"))))
     cjk = _cjk(body)
     latin = len(re.findall(r"\b[A-Za-z]{3,}\b", body))
-    floor = max(3, round(en_words * 0.6))
+    floor = _floor(_body(ARCHIVE / skill_id / "SKILL.md"))
     assert cjk >= floor, (
         f"{skill_id}: {cjk} CJK characters against {en_words} English words in the original (floor "
         f"{floor}) — agents are reading English")
@@ -186,8 +211,7 @@ def test_the_loader_still_parses_the_chinese_skill(skill_id: str):
     # the loaded body is only that section, so a body-derived floor would demand more Chinese than the
     # source contains and reject honest work (it did — and padding is the wrong way out).
     english = SkillLoader().load_skill(str(ARCHIVE / skill_id))
-    en_instruction_words = len(re.findall(r"\b[A-Za-z]{3,}\b", english.instructions if english else ""))
-    assert _cjk(parsed.instructions) >= max(3, round(en_instruction_words * 0.6)), (
+    assert _cjk(parsed.instructions) >= _floor(english.instructions if english else ""), (
         f"{skill_id}: the parsed instructions are not Chinese — the `## Instructions` line may have been "
         "translated, which silently turns the whole body into the instructions section")
 
@@ -210,14 +234,32 @@ def test_every_skill_is_in_exactly_one_language_state():
 
 @pytest.mark.parametrize("skill_id", sorted(_zh_native()))
 def test_an_authored_in_chinese_skill_really_is_chinese(skill_id: str):
+    """`zh-native.txt` is a claim that the skill was written in Chinese, so it needs a density check.
+
+    Found: `build-ontology-from-db` was listed as "authored in Chinese" while holding 502 CJK characters
+    against 5 481 English words (ratio 0.09) — a 45 KB English document with Chinese headings. The old check
+    only asked for "more than 200 CJK characters", which any long English file passes by accident.
+    """
     body = _body(BUILTIN / skill_id / "SKILL.md")
-    assert _cjk(body) > 200, (
-        f"{skill_id} is listed in zh-native.txt but {_cjk(body)} CJK characters is not Chinese text")
+    cjk = _cjk(body)
+    latin = len(re.findall(r"\b[A-Za-z]{3,}\b", body))
+    assert cjk > 200, f"{skill_id} is listed in zh-native.txt but has only {cjk} CJK characters"
+    assert cjk >= latin * 0.15, (
+        f"{skill_id} is listed as authored in Chinese but runs {latin} English words against {cjk} CJK "
+        "characters — if it is a translation, it belongs in pending-zh.txt until it is translated")
 
 
 @pytest.mark.parametrize("skill_id", sorted(_pending()))
 def test_a_pending_skill_really_is_english(skill_id: str):
+    """Pending means "what agents read is English" — the same density test the other two states get.
+
+    A flat `< 200 CJK characters` was the wrong shape: `build-ontology-from-db` is a 45 KB English document
+    that happens to carry 502 CJK characters in its headings, and the old rule therefore called it
+    "translated". Density is what matters: prose that is mostly Chinese is Chinese, whatever its length.
+    """
     body = _body(BUILTIN / skill_id / "SKILL.md")
-    assert _cjk(body) < 200, (
-        f"{skill_id} looks translated but is listed as pending — move it out of pending-zh.txt so the "
-        "structure checks start applying to it")
+    cjk = _cjk(body)
+    latin = len(re.findall(r"\b[A-Za-z]{3,}\b", body))
+    assert cjk < 200 or cjk < latin * 0.15, (
+        f"{skill_id} reads as Chinese ({cjk} CJK against {latin} English words) but is listed as pending — "
+        "move it out of pending-zh.txt so the structure and parity checks start applying to it")

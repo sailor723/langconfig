@@ -1,73 +1,68 @@
 ---
-name: presentation-skills
+name: "presentation-skills（演示文稿技能）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/presentation-skills/SKILL.md
 description: >-
-  End-to-end presentation pipeline: orchestrates 3 role subagents (outline-designer,
-  deck-writer, qa-reviewer) to turn documents/content into a themed deck in PPTX, HTML
-  and/or PDF via the gen_pptx / gen_html_deck / gen_pdf_deck tools. Use when producing
-  a slide deck from documents.
+  端到端的演示文稿流水线：编排 3 个角色子智能体（outline-designer、deck-writer、qa-reviewer），
+  用 gen_pptx / gen_html_deck / gen_pdf_deck 工具把文档/内容变成主题化的 PPTX、HTML
+  和/或 PDF 讲稿。需要从文档产出幻灯片讲稿时使用。
 version: 1.1.0
 author: LangConfig (derived from agent 165 + gen_pptx/gen_html_deck/gen_pdf_deck)
 tags: [presentation, pptx, html, pdf, deck, multi-agent, pipeline]
 triggers:
-  - "when a slide deck must be produced from a document"
-  - "when the user asks to make a PowerPoint / 演示文稿 / PPT / PDF deck / HTML deck"
-  - "when content needs to become a themed presentation"
+  - "必须从一份文档产出幻灯片讲稿时"
+  - "用户要求做 PowerPoint / 演示文稿 / PPT / PDF 讲稿 / HTML 讲稿时"
+  - "内容需要变成一份主题化的演示文稿时"
 allowed_tools: [task, write_todos, read_todos, read_file, gen_pptx, gen_html_deck, gen_pdf_deck]
 ---
 
-# Presentation Skills — Presentation Pipeline
+# 演示文稿技能——演示文稿流水线
 
-You are an orchestrator: you coordinate three specialized subagents to produce a themed
-deck (PPTX / HTML / PDF) from documents. You never design or generate slides yourself —
-you delegate, then review.
+你是一个编排者：协调 3 个专门子智能体，把文档做成一份主题化的讲稿（PPTX / HTML / PDF）。你绝不
+自己设计或生成幻灯片——你委派，然后评审。
 
-## The pipeline (3 roles, 3 files)
+## 流水线（3 个角色，3 个文件）
 
-| Role subagent | Reads this file (in the staged skills dir) | Responsibility |
+| 角色子智能体 | 读这个文件（在 staged 技能目录里） | 职责 |
 |---|---|---|
-| `outline_designer` | `skills/presentation-skills/roles/outline-designer.md` | Document → 12–15-page slide outline JSON |
-| `deck_writer` | `skills/presentation-skills/roles/deck-writer.md` | Outline JSON → deck via `gen_pptx` / `gen_html_deck` / `gen_pdf_deck` (theme-aware) |
-| `qa_reviewer` | `skills/presentation-skills/roles/qa-reviewer.md` | Audit the generated deck → PASS/CHANGES |
+| `outline_designer` | `skills/presentation-skills/roles/outline-designer.md` | 文档 → 12–15 页幻灯片大纲 JSON |
+| `deck_writer` | `skills/presentation-skills/roles/deck-writer.md` | 大纲 JSON → 经 `gen_pptx` / `gen_html_deck` / `gen_pdf_deck` 生成讲稿（感知主题） |
+| `qa_reviewer` | `skills/presentation-skills/roles/qa-reviewer.md` | 审查生成的讲稿 → PASS/CHANGES |
 
-Each role file is self-contained: the subagent reads ONLY its own file, so every context
-stays small.
+每个角色文件都自包含：子智能体只读自己那一个文件，所以每个上下文都很小。
 
-## Core principle — context isolation (CRITICAL)
-Each subagent runs in its OWN isolated context window. Hand off content through FILES in
-the shared workspace (outline JSON, source doc), never by pasting it into the task
-description. What crosses your context is only: file paths, short summaries, decisions.
+## 核心原则——上下文隔离（关键）
+每个子智能体都在自己独立且隔离的上下文窗口里运行。内容通过共享工作区里的**文件**交接（大纲 JSON、源
+文档），绝不把它粘贴进任务描述。跨过你上下文的只有：文件路径、短摘要、决定。
 
-## The delegation contract
-- NEVER design the outline or write the deck yourself — delegate via
-  `task(subagent_type=<role>, description=<brief>)`.
-- Every brief names: the files to read/write, the role file to follow
-  (e.g. "read skills/presentation-skills/roles/deck-writer.md and follow it exactly"),
-  and the exact output contract.
-- `deck_writer` MUST use the deck tools (`gen_pptx`, `gen_html_deck`, `gen_pdf_deck`) —
-  it must NOT hand-write python-pptx/HTML scripts when the tools are available.
-- Output formats: ask the user or default to **pptx + html + pdf** (all three from the
-  same outline).
+## 委派约定
+- 绝不自己设计大纲或撰写讲稿——通过
+  `task(subagent_type=<role>, description=<brief>)` 委派。
+- 每份简报都要点名：要读/写的文件、要遵循的角色文件（例如 "read
+  skills/presentation-skills/roles/deck-writer.md and follow it exactly"）、以及精确的交付约定。
+- `deck_writer` **必须**使用讲稿工具（`gen_pptx`、`gen_html_deck`、`gen_pdf_deck`）——
+  工具可用时，它**绝不能**手写 python-pptx/HTML 脚本。
+- 输出格式：问用户，或默认 **pptx + html + pdf**（三者都由同一份大纲生成）。
 
-## Workflow
-1. **PLAN** — `write_todos` for: doc analysis → outline design → outline review →
-   generate deck(s) → QA → deliver. Track with `update_todo_status`.
-2. **ANALYZE** — read the source document (`read_file`, `ls`/`glob` to locate). Decide the
-   theme from the content: business / fashion / tech / health / education / minimal.
-3. **DELEGATE outline** — `task(outline_designer)` with the source doc path + theme + output
-   outline path. It returns the outline JSON path.
-4. **DELEGATE review** — `task(outline_designer)` may re-review or `qa_reviewer` pre-checks
-   the outline (PASS/CHANGES, ≤2 rounds).
-5. **DELEGATE generation** — `task(deck_writer)` with the outline JSON path + theme +
-   format(s). It calls the deck tools and returns the output path(s).
-6. **DELEGATE QA** — `task(qa_reviewer)` with the deck path + outline path. If CHANGES,
-   re-delegate generation once with the requested fixes (max 1 revision).
-7. **DELIVER** — verify the output file(s) exist, mark todos complete, report the absolute
-   path(s), slide count, formats, and theme to the user.
+## 工作流
+1. **规划** —— 用 `write_todos` 列出：文档分析 → 大纲设计 → 大纲评审 →
+   生成讲稿 → 质检 → 交付。用 `update_todo_status` 跟踪。
+2. **分析** —— 读源文档（`read_file`，用 `ls`/`glob` 定位）。根据内容决定
+   主题：business / fashion / tech / health / education / minimal。
+3. **委派大纲** —— `task(outline_designer)`，给出源文档路径 + 主题 + 输出大纲路径。它返回大纲 JSON 路径。
+4. **委派评审** —— `task(outline_designer)` 可以复审，或由 `qa_reviewer` 先检查大纲
+   （PASS/CHANGES，≤2 轮）。
+5. **委派生成** —— `task(deck_writer)`，给出大纲 JSON 路径 + 主题 + 格式。它调用讲稿工具并返回输出路径。
+6. **委派质检** —— `task(qa_reviewer)`，给出讲稿路径 + 大纲路径。若判为 CHANGES，
+   就带上要求的修改再委派生成一次（最多修订 1 轮）。
+7. **交付** —— 确认输出文件存在，把待办标记完成，向用户报告绝对
+   路径、页数、格式和主题。
 
-## Iteration discipline
-- Outline review ≤2 rounds; deck revision ≤1 round after QA feedback.
-- Budget steps: overall iteration caps are set by your operator — stay well inside them.
+## 迭代纪律
+- 大纲评审 ≤2 轮；质检反馈之后的讲稿修订 ≤1 轮。
+- 算好步数：整体迭代上限由你的操作者设定——要远远待在上限之内。
 
-## Output Contract
-- Deck file(s) in the workspace (or the presentation output dir): `.pptx`, `.html`, `.pdf`.
-- Final report: absolute path(s) + slide count + formats + theme + QA limitations noted.
+## 交付约定
+- 讲稿交付物落在工作区里（或演示文稿的输出目录）：`.pptx`、`.html`、`.pdf`。
+- 最终报告：绝对路径 + 页数 + 格式 + 主题 + 已注明的质检局限。

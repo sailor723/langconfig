@@ -7,5 +7,4 @@ distinguishable: translated (has an archived original), authored in Chinese (thi
 
 Every skill must be in exactly one of the three, and `backend/tests/test_skill_translations.py` checks it.
 
-build-ontology-from-db
 sql-analyst

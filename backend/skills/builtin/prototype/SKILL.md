@@ -1,12 +1,17 @@
 ---
-name: "Prototype"
-description: "Build a throwaway prototype to answer a design question. Use when the user wants to sanity-check whether a state model or logic feels right, or explore what a UI should look like."
+name: "Prototype（原型）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/prototype/SKILL.md
+description: >-
+  写一个用完即弃的原型，用来回答一个设计问题。适用于用户想快速验证某个状态模型或业务逻辑是否
+  感觉对路，或者想探一探某个 UI 该长什么样。
 tags:
   - "prototype"
   - "mattpocock"
   - "design"
 triggers:
-  - "The user wants to sanity-check whether a state model or logic feels right, or explore what a ui should look li"
+  - "用户想快速验证某个状态模型或逻辑是否感觉对路，或想探一探某个 UI 该长什么样"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -16,47 +21,48 @@ author: "mattpocock (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
-> **Provenance.** Adapted from `mattpocock/skills → skills/engineering/prototype` (MIT, vendored at `vendor/upstream-skills/mattpocock/skills/engineering/prototype/SKILL.md`).
-> Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
-> `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
-> (`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`), and a verification floor
-> section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
-> through the `skill` tool, so it is dropped rather than emulated.
+> **来源说明。** 改编自 `mattpocock/skills → skills/engineering/prototype`（MIT，原样收录于
+> `vendor/upstream-skills/mattpocock/skills/engineering/prototype/SKILL.md`）。
+> 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
+> `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
+> （`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`），以及一节验证底线。
+> 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
+> 所以直接去掉，而不做模拟。
 
-## Instructions
+## Instructions（指令）
 
-# Prototype
+# 原型
 
-A prototype is **throwaway code that answers a question**. The question decides the shape.
+原型是**用完即弃、只为回答一个问题而写的代码**。问题决定它的形状。
 
-## Pick a branch
+## Pick a branch（选一条分支）
 
-Identify which question is being answered, using the user's prompt, the surrounding code, or by asking if the user is around:
+先确定要回答的是哪个问题——依据用户的提示词、周围的代码，或者干脆问用户（如果人在）：
 
-- **"Does this logic / state model feel right?"** → [LOGIC.md](LOGIC.md). Build a single shareable HTML file (free-play buttons plus tabbed guided walkthroughs) that pushes the state machine through cases that are hard to reason about on paper, and that a non-developer can drive.
-- **"What should this look like?"** → [UI.md](UI.md). Generate several radically different UI variations on a single route, switchable via a URL search param and a floating bottom bar.
+- **“这套逻辑 / 状态模型感觉对吗？”** → [LOGIC.md](LOGIC.md)。产出一个可分享的单页 HTML 文件（自由操作按钮 + 分标签的引导式走查），把状态机推进到那些在纸上很难推理的情形，并且让非开发者也能自己驾驶。
+- **“它该长什么样？”** → [UI.md](UI.md)。在同一个路由上生成几个差异极大的 UI 变体，靠 URL 查询参数和一个浮动底栏切换。
 
-The two branches produce very different artifacts, so getting this wrong wastes the whole prototype. If the question is genuinely ambiguous and the user isn't reachable, default to whichever branch better matches the surrounding code (a backend module → logic; a page or component → UI) and state the assumption at the top of the prototype.
+两条分支产出的东西截然不同，选错就浪费了整个原型。如果问题确实模糊、又联系不上用户，就默认选与周围代码更匹配的那条（后端模块 → 逻辑；页面或组件 → UI），并把这一假设写在原型顶部。
 
-## Rules that apply to both
+## Rules that apply to both（两条分支都适用的规则）
 
-1. **Throwaway from day one, and clearly marked as such.** Locate the prototype code close to where it will actually be used (next to the module or page it's prototyping for) so context is obvious, but name it so a casual reader can see it's a prototype, not production. For throwaway UI routes, obey whatever routing convention the project already uses; don't invent a new top-level structure.
-2. **Trivial to run.** A UI prototype starts from one command in the project's task runner: `pnpm <name>`, `python <path>`, `bun <path>`, etc. A logic demo is a single HTML file the user double-clicks. Either way, no thinking required to start it.
-3. **No persistence by default.** State lives in memory. Persistence is the thing the prototype is _checking_, not something it should depend on. If the question explicitly involves a database, hit a scratch DB or a local file with a clear "PROTOTYPE, wipe me" name.
-4. **Skip the polish.** No tests, no error handling beyond what makes the prototype _runnable_, no abstractions. The point is to learn something fast.
-5. **Surface the state.** After every action (logic) or on every variant switch (UI), print or render the full relevant state so the user can see what changed.
-6. **Capture it when done.** Fold any validated decision into the real code, then capture the prototype itself as a **primary source**: commit it to a throwaway branch, out of main, and leave a context pointer to that branch on the implementation issue. Capture the answer too (the verdict and the question it settled) in the issue or a commit. The main branch keeps only the validated decision.
+1. **从第一天起就是用完即弃，并明确标注。** 把原型代码放在它真正会被使用的地方附近（紧挨着它所原型化的模块或页面），上下文才明显；但命名要能让随便一个读者看出这是原型，不是生产代码。用完即弃的 UI 路由，照项目既有的路由约定来，不要另造一套顶层结构。
+2. **运行成本要低到可以忽略。** UI 原型用项目任务运行器里的一条命令就能起：`pnpm <name>`、`python <path>`、`bun <path>` 等。逻辑演示是一个双击就能打开的 HTML 文件。总之，启动它不需要动脑。
+3. **默认不做持久化。** 状态放在内存里。持久化正是原型要_验证_的东西，而不是它该依赖的东西。如果问题本身明确涉及数据库，就打一个草稿库或一个本地文件，名字写得清清楚楚：“PROTOTYPE, wipe me”。
+4. **跳过打磨。** 不写测试，错误处理只做到让原型_跑得起来_为止，不做抽象。要点是快速学到东西。
+5. **把状态亮出来。** 每个动作之后（逻辑），或每次切换变体时（UI），把相关的完整状态打印或渲染出来，让用户看见到底变了什么。
+6. **做完就把它留档。** 把经过验证的决定并进真实代码，然后把原型本身当作**一手资料**保存：提交到一个用完即弃的分支，从 `main` 上拿出去，并在实现工单里留一条指向该分支的上下文指针。答案（那个判词，以及它解决掉的问题）也一并记进工单或提交里。主分支只保留经过验证的决定。
 
-## This repository's floor
+## This repository's floor（本仓库的底线）
 
-- **Verify with the real commands**, not by eye: `./scripts/housekeeping_verify.sh` (guards + `tsc` +
-  `vite build` + a document-store report). Add `--full-suite` for the backend suite.
-- **The backend suite has 20 pre-existing failures.** "Not worse than that baseline" is the honest
-  criterion; "the tests are green" is not a claim you can make here. Compare with
+- **用真实命令验证**，不要靠眼看：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` +
+  一份文档库报告）。后端套件加 `--full-suite`。
+- **后端套件有 20 个既有的失败。**“不比那个基线更差”是诚实的判据；“测试是绿的”在这里不是一个你能
+  做出的宣称。用
   `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
-  and diff the `FAILED` lines against the recorded baseline.
-- **Specs, tickets and notes live in files**: `docs/specs/<slug>.md`, `docs/tickets/NNN-<slug>.md`,
-  `work/<scope>/`. A verdict in a chat message is lost by the next turn.
-- **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
-  by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+  对照，并把 `FAILED` 行与记录的基线做 diff。
+- **规格、工单和笔记活在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
+  写在聊天消息里的一句判词，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 框架
+  （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `ecosystem-primer` 规则——并优先选
+  能胜任的最高层。

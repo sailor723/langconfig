@@ -93,6 +93,24 @@ def latin_words(text: str) -> int:
     return len(re.findall(r"\b[A-Za-z]{3,}\b", text))
 
 
+def prose(text: str) -> str:
+    """Drop fenced blocks: they are code or templates and are not translated, so they set no floor.
+
+    Measured — `debugging` is 679 English words but only ~208 of them sit outside fences, so a floor that
+    counted the code asked for 407 CJK characters from 208 words of prose. The translator's way out was to
+    translate five *unlabelled* fences (question lists), which is defensible but not what the rule says; the
+    floor was the thing that was wrong.
+    """
+    out, inside = [], False
+    for line in text.splitlines():
+        if line.lstrip().startswith("```"):
+            inside = not inside
+            continue
+        if not inside:
+            out.append(line)
+    return "\n".join(out)
+
+
 def shape(text: str) -> tuple[int, int]:
     lines = text.splitlines()
     headings = sum(1 for ln in lines if re.match(r"^##\s+", ln))
@@ -198,10 +216,10 @@ def validate(skill_id: str) -> str:
                        "gets executed")
 
     cjk, latin = cjk_count(zh_body), latin_words(zh_body)
-    floor = max(3, round(latin_words(en_body) * CJK_PER_EN_WORD_MIN))
+    floor = max(3, round(latin_words(prose(en_body)) * CJK_PER_EN_WORD_MIN))
     if cjk < floor:
-        raise Rejected(f"{cjk} CJK characters against {latin_words(en_body)} English words in the original "
-                       f"(floor {floor}) — agents would still be reading English")
+        raise Rejected(f"{cjk} CJK characters against {latin_words(prose(en_body))} English prose words in "
+                       f"the original (floor {floor}) — agents would still be reading English")
     if cjk < latin * CJK_VS_LATIN_MIN:
         raise Rejected(f"{latin} English words against {cjk} CJK characters — mostly untranslated")
 
@@ -232,10 +250,11 @@ def validate(skill_id: str) -> str:
     if parsed is None:
         raise Rejected("SkillLoader refused the staged file")
     en_instructions = english.instructions if english else ""
-    instructions_floor = max(3, round(latin_words(en_instructions) * CJK_PER_EN_WORD_MIN))
+    instructions_floor = max(3, round(latin_words(prose(en_instructions)) * CJK_PER_EN_WORD_MIN))
     if cjk_count(parsed.instructions) < instructions_floor:
         raise Rejected(f"the parsed instructions hold {cjk_count(parsed.instructions)} CJK characters (floor "
-                       f"{instructions_floor}, from {latin_words(en_instructions)} English words in the "
+                       f"{instructions_floor}, from {latin_words(prose(en_instructions))} English prose "
+                       f"words in the "
                        "original instructions) — check that the `## Instructions` line was not translated")
     if parsed.examples is not None and cjk_count(parsed.examples) == 0:
         raise Rejected("`## Examples` section parsed but is not Chinese")
