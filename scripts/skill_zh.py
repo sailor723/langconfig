@@ -89,6 +89,16 @@ def cjk_count(text: str) -> int:
     return len(re.findall(r"[\u4e00-\u9fff]", text))
 
 
+def reads_as_chinese(text: str) -> bool:
+    """The same predicate the tests use for "this skill's text is Chinese": enough CJK, and not drowned in it.
+
+    A plain `> 200 CJK characters` calls any long English file Chinese by accident — `build-ontology-from-db`
+    carries 502 CJK characters in its headings against 5 481 English words and read as "already translated".
+    """
+    cjk, latin = cjk_count(text), latin_words(text)
+    return cjk >= 200 and cjk >= latin * CJK_VS_LATIN_MIN
+
+
 def latin_words(text: str) -> int:
     return len(re.findall(r"\b[A-Za-z]{3,}\b", text))
 
@@ -188,7 +198,7 @@ def validate(skill_id: str) -> str:
     kept = english_source(skill_id)
     if not kept.is_file():
         raise Rejected(f"no English original to compare against ({kept.relative_to(REPO)} missing)")
-    if cjk_count(body_of(kept.read_text(encoding="utf-8"))) > 200:
+    if reads_as_chinese(body_of(kept.read_text(encoding="utf-8"))):
         raise Rejected(f"{kept.relative_to(REPO)} is already Chinese — this skill was promoted already, "
                        "or its English original was overwritten; restore the English first")
 
@@ -284,7 +294,7 @@ def promote(ids: list[str]) -> int:
             # beside an English body is a claim the test rejects, so the two writes belong together.
             kept = ARCHIVE / skill_id / "SKILL.md"
             english = english_source(skill_id)
-            if cjk_count(body_of(english.read_text(encoding="utf-8"))) > 200:
+            if reads_as_chinese(body_of(english.read_text(encoding="utf-8"))):
                 print(f"  REFUSE  {skill_id}: the live file is not English, so there is nothing to archive",
                       file=sys.stderr)
                 rc = 1
