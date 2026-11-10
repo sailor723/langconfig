@@ -1,34 +1,36 @@
 ---
-name: git-workflow
+name: "git-workflow（Git 工作流）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/git-workflow/SKILL.md
 description: >-
-  Expert guidance for Git workflows, branching strategies, and version control best practices. Use when managing repositories, resolving conflicts, or establishing team workflows.
+  Git 工作流、分支策略与版本控制最佳实践方面的专家指导。凡是在管理仓库、解决冲突、或为团队立下一套工作规矩时，
+  都该用它。
 tags: [git, version-control, branching, workflow, collaboration]
 triggers:
-  - "when user mentions git"
-  - "when user mentions branching"
-  - "when user mentions merge conflict"
-  - "when user mentions version control"
-  - "when user mentions commits, tags, rebases or releases"
-  - "when the user asks how to open or land a pull request"
-# `pull request` used to be a bare trigger here and in code-review, so a request to
-# *review* a PR matched both and the catalogue made the model guess. Review is
-# code-review's job; this skill owns the mechanics around the PR (branch, merge,
-# conflicts, release), which is what the wording above now says.
+  - "用户提到 git"
+  - "用户提到分支"
+  - "用户提到合并冲突"
+  - "用户提到版本控制"
+  - "用户提到提交、tag、变基或发布"
+  - "用户询问如何开一个 pull request，或如何把它合入主干"
+# `pull request` 以前在这里和 `code-review` 里都是一个裸触发词，于是“评审某个 PR”的请求会同时命中两者，
+# 目录只能让模型自己去猜。评审是 code-review 的职责；本技能管的是 PR 外围的机制
+# （分支、合并、冲突、发布），也就是上面这行措辞现在所表达的范围。
 allowed-tools: [filesystem, shell]
 author: LangConfig
 ---
 
-You are an expert in Git workflows and version control. Help users establish and maintain effective Git practices.
+你是 Git 工作流与版本控制方面的专家。帮助用户建立并维持有效的 Git 实践。
 
-> **Boundary with `code-review`.** This skill covers the mechanics: branching, merging,
-> rebasing, conflicts, commits, tags, releases, and how to open or land a pull request.
-> The *content* of a review — what to look for in the diff, security, performance,
-> maintainability — belongs to `code-review`. When a user asks "review this PR", use
-> `code-review`; when they ask "how do I get this merged", use this one.
+> **与 `code-review` 的分界。** 本技能讲的是机制：分支、合并、变基、冲突、提交、标签、发布，
+> 以及如何开一个 pull request、如何把它合入主干。评审的*内容*——在 diff 里看什么、安全、性能、
+> 可维护性——归 `code-review`。用户说“评审这个 PR”，用 `code-review`；用户问“我该怎么把它并进去”，
+> 用本技能。
 
-### Branching Strategies
+### 分支策略
 
-#### 1. GitHub Flow (Recommended for Most Teams)
+#### 1. GitHub Flow（多数团队推荐）
 ```
 main (protected)
   └── feature/add-user-auth
@@ -36,16 +38,16 @@ main (protected)
   └── fix/login-bug
 ```
 
-**Rules:**
-- `main` is always deployable
-- Create feature branches from `main`
-- Open PR when ready for review
-- Merge to `main` after approval
-- Deploy immediately after merge
+**规则：**
+- `main` 始终处于可部署状态
+- 从 `main` 切出特性分支
+- 准备好被评审时开 PR
+- 批准后合并回 `main`
+- 合并之后立即部署
 
-**When to Use:** Small teams, continuous deployment, web apps
+**适用场景：** 小团队、持续部署、Web 应用
 
-#### 2. GitFlow (Complex Release Cycles)
+#### 2. GitFlow（发布周期复杂）
 ```
 main (production)
   └── develop (integration)
@@ -54,17 +56,17 @@ main (production)
               └── hotfix/critical-bug
 ```
 
-**When to Use:** Scheduled releases, multiple versions in production
+**适用场景：** 按计划发布、生产环境同时跑多个版本
 
-#### 3. Trunk-Based Development (High-Velocity Teams)
+#### 3. 主干开发（Trunk-Based Development，高节奏团队）
 ```
 main (trunk)
   └── short-lived feature branches (< 2 days)
 ```
 
-**When to Use:** Experienced teams, strong CI/CD, feature flags
+**适用场景：** 有经验的团队、CI/CD 过硬、用功能开关控制上线
 
-### Branch Naming Conventions
+### 分支命名约定
 
 ```bash
 # Feature branches
@@ -88,9 +90,9 @@ experiment/new-algorithm
 spike/performance-testing
 ```
 
-### Commit Message Standards
+### 提交信息规范
 
-#### Conventional Commits Format
+#### Conventional Commits 格式
 ```
 <type>(<scope>): <subject>
 
@@ -99,18 +101,18 @@ spike/performance-testing
 <footer>
 ```
 
-**Types:**
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation only
-- `style`: Code style (formatting, semicolons)
-- `refactor`: Code change that neither fixes nor adds
-- `perf`: Performance improvement
-- `test`: Adding/updating tests
-- `chore`: Maintenance tasks
-- `ci`: CI/CD changes
+**类型（type）：**
+- `feat`：新功能
+- `fix`：缺陷修复
+- `docs`：仅文档改动
+- `style`：代码风格（格式化、分号等）
+- `refactor`：既不修缺陷也不加功能的代码改动
+- `perf`：性能优化
+- `test`：新增或更新测试
+- `chore`：维护性杂务
+- `ci`：CI/CD 相关改动
 
-**Examples:**
+**示例：**
 ```bash
 feat(auth): add OAuth2 Google login
 
@@ -131,9 +133,9 @@ Added defensive null checks throughout the auth flow.
 Fixes #456
 ```
 
-### Common Git Operations
+### 常见 Git 操作
 
-#### Rebasing vs Merging
+#### 变基与合并
 ```bash
 # Rebase: Clean, linear history (use for feature branches)
 git checkout feature/my-feature
@@ -145,7 +147,7 @@ git checkout main
 git merge --no-ff feature/my-feature
 ```
 
-#### Interactive Rebase (Cleaning History)
+#### 交互式变基（清理历史）
 ```bash
 # Squash last 3 commits
 git rebase -i HEAD~3
@@ -156,7 +158,7 @@ squash def5678 Second commit
 squash ghi9012 Third commit
 ```
 
-#### Stashing Work
+#### 暂存工作现场
 ```bash
 # Save current changes
 git stash push -m "WIP: user auth"
@@ -171,7 +173,7 @@ git stash pop
 git stash apply stash@{2}
 ```
 
-#### Cherry-Picking
+#### 拣选提交（cherry-pick）
 ```bash
 # Apply specific commit to current branch
 git cherry-pick abc1234
@@ -180,9 +182,9 @@ git cherry-pick abc1234
 git cherry-pick --no-commit abc1234
 ```
 
-### Resolving Merge Conflicts
+### 解决合并冲突
 
-#### Step-by-Step Process
+#### 逐步流程
 ```bash
 # 1. Start merge/rebase
 git merge feature-branch
@@ -210,7 +212,7 @@ git merge --continue
 git commit
 ```
 
-#### Using Merge Tools
+#### 使用合并工具
 ```bash
 # Configure merge tool
 git config --global merge.tool vscode
@@ -220,7 +222,7 @@ git config --global mergetool.vscode.cmd 'code --wait $MERGED'
 git mergetool
 ```
 
-### Undoing Changes
+### 撤销改动
 
 ```bash
 # Undo last commit, keep changes staged
@@ -242,14 +244,14 @@ git checkout -- .
 git checkout HEAD~1 -- path/to/file
 ```
 
-### Pull Request Best Practices
+### Pull Request 最佳实践
 
-1. **Keep PRs Small**
-   - Aim for < 400 lines changed
-   - Single responsibility
-   - Easier to review and revert
+1. **保持 PR 小**
+   - 改动控制在 400 行以内
+   - 单一职责
+   - 既好评审，也好回滚
 
-2. **Write Good PR Descriptions**
+2. **写好 PR 描述**
    ```markdown
    ## Summary
    Brief description of changes
@@ -268,12 +270,12 @@ git checkout HEAD~1 -- path/to/file
    (if UI changes)
    ```
 
-3. **Request Reviews Thoughtfully**
-   - Tag relevant reviewers
-   - Provide context for complex changes
-   - Respond to feedback promptly
+3. **有分寸地请求评审**
+   - 圈上真正相关的评审者
+   - 为复杂改动补足上下文
+   - 及时回应反馈
 
-### Git Aliases (Productivity)
+### Git 别名（提效）
 
 ```bash
 # Add to ~/.gitconfig

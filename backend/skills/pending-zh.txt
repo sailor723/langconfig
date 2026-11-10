@@ -26,7 +26,6 @@ edit-ontology-metrics
 frontend-design
 generate-mock-dataset
 git-guardrails-claude-code
-git-workflow
 implement-spec
 improve-codebase-architecture
 langchain-agents
@@ -35,7 +34,6 @@ lc-deep-agents-core
 lc-deep-agents-orchestration
 lc-ecosystem-primer
 lc-eval-engineering
-lc-langchain-fundamentals
 lc-langgraph-cli
 lc-langgraph-fundamentals
 lc-langgraph-human-in-the-loop
@@ -62,4 +60,3 @@ teach
 web-content-analyzer
 webapp-testing
 wizard
-writing-fragments

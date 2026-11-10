@@ -1,12 +1,16 @@
 ---
-name: "Langchain Fundamentals"
-description: "Create LangChain agents with create_agent, define tools, and use middleware for human-in-the-loop and error handling."
+name: "Langchain Fundamentals（LangChain 基础）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/lc-langchain-fundamentals/SKILL.md
+description: >-
+  用 create_agent 创建 LangChain 智能体、定义工具，并用中间件实现人在回路与错误处理。
 tags:
   - "langchain"
   - "fundamentals"
   - "langchain-skills"
 triggers:
-  - "When asked to <oneliner>"
+  - "当被要求 <oneliner> 时"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -16,33 +20,33 @@ author: "langchain-skills (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
-> **Provenance.** Adapted from `langchain-ai/langchain-skills → config/skills/langchain-fundamentals` (MIT, vendored at `vendor/upstream-skills/langchain-skills/skills/langchain-fundamentals/SKILL.md`).
-> Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
-> `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
-> (`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`), and a verification floor
-> section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
-> through the `skill` tool, so it is dropped rather than emulated.
+> **来源说明。** 改编自 `langchain-ai/langchain-skills → config/skills/langchain-fundamentals`（MIT，原样收录于 `vendor/upstream-skills/langchain-skills/skills/langchain-fundamentals/SKILL.md`）。
+> 为本仓库所做的改动：frontmatter（元数据）字段（`tags` / `triggers` / `allowed_tools` / `author` /
+> `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
+> （`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`），以及一节验证底线。
+> 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
+> 所以直接去掉，而不做模拟。
 
-## Instructions
+## Instructions（指令）
 
 <oneliner>
-Build production agents using `create_agent()`, middleware patterns, and the `@tool` decorator / `tool()` function. When creating LangChain agents, you MUST use create_agent(), with middleware for custom flows. All other alternatives are outdated.
+用 `create_agent()`、中间件（middleware）模式，以及 `@tool` 装饰器 / `tool()` 函数来构建生产级智能体。凡是要创建 LangChain 智能体，你**必须**用 create_agent()，自定义流程一律通过中间件实现。除此之外的其他写法都已经过时。
 </oneliner>
 
 <create_agent>
-## Creating Agents with create_agent
+## 用 create_agent 创建智能体
 
-`create_agent()` is the recommended way to build agents. It handles the agent loop, tool execution, and state management.
+`create_agent()` 是构建智能体的推荐方式。智能体循环、工具执行与状态管理这三件事，都由它负责打理。
 
-### Agent Configuration Options
+### 智能体配置项
 
-| Parameter | Purpose | Example |
+| 参数 | 用途 | 示例 |
 |-----------|---------|---------|
-| `model` | LLM to use | `"anthropic:claude-sonnet-4-5"` or model instance |
-| `tools` | List of tools | `[search, calculator]` |
-| `system_prompt` / `systemPrompt` | Agent instructions | `"You are a helpful assistant"` |
-| `checkpointer` | State persistence | `MemorySaver()` |
-| `middleware` | Processing hooks | `[HumanInTheLoopMiddleware]` (Python) / `[humanInTheLoopMiddleware({...})]` (TypeScript) |
+| `model` | 要使用的 LLM 模型 | `"anthropic:claude-sonnet-4-5"` 或模型实例 |
+| `tools` | 智能体可以调用的工具列表 | `[search, calculator]` |
+| `system_prompt` / `systemPrompt` | 发给智能体的系统指令 | `"You are a helpful assistant"` |
+| `checkpointer` | 负责状态持久化保存的检查点 | `MemorySaver()` |
+| `middleware` | 拦截智能体循环各处节点的处理钩子 | `[HumanInTheLoopMiddleware]`（Python）/ `[humanInTheLoopMiddleware({...})]`（TypeScript） |
 </create_agent>
 
 <ex-basic-agent>
@@ -105,7 +109,7 @@ console.log(result.messages[result.messages.length - 1].content);
 
 <ex-agent-with-persistence>
 <python>
-Add MemorySaver checkpointer to maintain conversation state across invocations.
+给它配上 MemorySaver 检查点（checkpointer），让整个会话的状态在多次调用之间留存下来、不丢失。
 
 ```python
 from langchain.agents import create_agent
@@ -126,7 +130,7 @@ result = agent.invoke({"messages": [{"role": "user", "content": "What's my name?
 ```
 </python>
 <typescript>
-Add MemorySaver checkpointer to maintain conversation state across invocations.
+给它配上 MemorySaver 检查点（checkpointer），让整个会话的状态在多次调用之间留存下来、不丢失。
 
 ```typescript
 import { createAgent } from "langchain";
@@ -149,9 +153,9 @@ const result = await agent.invoke({ messages: [{ role: "user", content: "What's 
 </ex-agent-with-persistence>
 
 <tools>
-## Defining Tools
+## 定义工具
 
-Tools are functions that agents can call. Use the `@tool` decorator (Python) or `tool()` function (TypeScript).
+工具（tool）就是交给智能体去调用的那些函数。定义时 Python 里用 `@tool` 装饰器，TypeScript 里用 `tool()` 函数。
 </tools>
 
 <ex-basic-tool>
@@ -193,11 +197,11 @@ const add = tool(
 </ex-basic-tool>
 
 <middleware>
-## Middleware for Agent Control
+## 用中间件控制智能体
 
-Middleware intercepts the agent loop to add human approval, error handling, logging, and more. A deep understanding of middleware is essential for production agents — use `HumanInTheLoopMiddleware` (Python) / `humanInTheLoopMiddleware` (TypeScript) for approval workflows, and `@wrap_tool_call` (Python) / `createMiddleware` (TypeScript) for custom hooks.
+中间件（middleware）会拦截智能体循环，用来加上人工审批、错误处理、日志记录等等能力。做生产级智能体，必须把中间件的机制吃透——审批工作流用 `HumanInTheLoopMiddleware`（Python）/ `humanInTheLoopMiddleware`（TypeScript），自定义钩子用 `@wrap_tool_call`（Python）/ `createMiddleware`（TypeScript）。
 
-Key imports:
+下面这些是关键的 import 语句：
 
 ```python
 from langchain.agents.middleware import HumanInTheLoopMiddleware, wrap_tool_call
@@ -207,16 +211,16 @@ from langchain.agents.middleware import HumanInTheLoopMiddleware, wrap_tool_call
 import { humanInTheLoopMiddleware, createMiddleware } from "langchain";
 ```
 
-Key patterns:
-- **HITL**: `middleware=[HumanInTheLoopMiddleware(interrupt_on={"dangerous_tool": True})]` — requires `checkpointer` + `thread_id`
-- **Resume after interrupt**: `agent.invoke(Command(resume={"decisions": [{"type": "approve"}]}), config=config)`
-- **Custom middleware**: `@wrap_tool_call` decorator (Python) or `createMiddleware({ wrapToolCall: ... })` (TypeScript)
+这几种关键模式值得记住：
+- **人在回路（HITL）**：`middleware=[HumanInTheLoopMiddleware(interrupt_on={"dangerous_tool": True})]` —— 需要同时配好 `checkpointer` 与 `thread_id`
+- **中断之后恢复执行**：`agent.invoke(Command(resume={"decisions": [{"type": "approve"}]}), config=config)`
+- **自定义中间件**：用 `@wrap_tool_call` 装饰器（Python）或 `createMiddleware({ wrapToolCall: ... })`（TypeScript）挂自定义钩子
 </middleware>
 
 <structured_output>
-## Structured Output
+## 结构化输出
 
-Get typed, validated responses from agents using `response_format` or `with_structured_output()`.
+用 `response_format` 或 `with_structured_output()`，从智能体那里拿到带类型、并且经过校验的响应结构。
 
 <python>
 
@@ -264,9 +268,9 @@ const response = await structuredModel.invoke("Extract: John, john@example.com, 
 </structured_output>
 
 <model_config>
-## Model Configuration
+## 模型配置
 
-`create_agent` accepts model strings (`"anthropic:claude-sonnet-4-5"`, `"openai:gpt-4.1"`) or model instances for custom settings:
+`create_agent` 既接受模型字符串（`"anthropic:claude-sonnet-4-5"`、`"openai:gpt-4.1"`），也接受模型实例，后者用来做自定义设置：
 
 ```python
 from langchain_anthropic import ChatAnthropic
@@ -277,7 +281,7 @@ agent = create_agent(model=ChatAnthropic(model="claude-sonnet-4-5", temperature=
 
 <fix-missing-tool-description>
 <python>
-Clear descriptions help the agent know when to use each tool.
+把工具的描述写清楚，智能体才能判断在什么情况下该调用哪一个工具。
 
 ```python
 # WRONG: Vague or missing description
@@ -300,7 +304,7 @@ def search(query: str) -> str:
 ```
 </python>
 <typescript>
-Clear descriptions help the agent know when to use each tool.
+把工具的描述写清楚，智能体才能判断在什么情况下该调用哪一个工具。
 
 ```typescript
 // WRONG: Vague description
@@ -324,7 +328,7 @@ const search = tool(async ({ query }) => webSearch(query), {
 
 <fix-no-checkpointer>
 <python>
-Add checkpointer and thread_id for conversation memory across invocations.
+加上检查点（checkpointer）与 thread_id，让对话记忆在多轮调用之间留存下来不丢。
 
 ```python
 # WRONG: No persistence - agent forgets between calls
@@ -348,7 +352,7 @@ agent.invoke({"messages": [{"role": "user", "content": "What's my name?"}]}, con
 ```
 </python>
 <typescript>
-Add checkpointer and thread_id for conversation memory across invocations.
+加上检查点（checkpointer）与 thread_id，让对话记忆在多轮调用之间留存下来不丢。
 
 ```typescript
 // WRONG: No persistence
@@ -375,7 +379,7 @@ await agent.invoke({ messages: [{ role: "user", content: "What's my name?" }] },
 
 <fix-infinite-loop>
 <python>
-Set recursion_limit in the invoke config to prevent runaway agent loops.
+在 invoke 的配置里设置 `recursion_limit`，防止智能体循环失控、一直停不下来。
 
 ```python
 # WRONG: No iteration limit - could loop forever
@@ -389,7 +393,7 @@ result = agent.invoke(
 ```
 </python>
 <typescript>
-Set recursionLimit in the invoke config to prevent runaway agent loops.
+在 invoke 的配置里设置 `recursionLimit`，防止智能体循环失控、一直停不下来。
 
 ```typescript
 // WRONG: No iteration limit
@@ -406,7 +410,7 @@ const result = await agent.invoke(
 
 <fix-accessing-result-wrong>
 <python>
-Access the messages array from the result, not result.content directly.
+从结果里的 messages 数组里取内容，不要直接去访问 result.content 属性。
 
 ```python
 # WRONG: Trying to access result.content directly
@@ -419,7 +423,7 @@ print(result["messages"][-1].content)  # Last message content
 ```
 </python>
 <typescript>
-Access the messages array from the result, not result.content directly.
+从结果里的 messages 数组里取内容，不要直接去访问 result.content 属性。
 
 ```typescript
 // WRONG: Trying to access result.content directly
@@ -433,16 +437,16 @@ console.log(result.messages[result.messages.length - 1].content); // Last messag
 </typescript>
 </fix-accessing-result-wrong>
 
-## This repository's floor
+## This repository's floor（本仓库的底线）
 
-- **Verify with the real commands**, not by eye: `./scripts/housekeeping_verify.sh` (guards + `tsc` +
-  `vite build` + a document-store report). Add `--full-suite` for the backend suite.
-- **The backend suite has 20 pre-existing failures.** "Not worse than that baseline" is the honest
-  criterion; "the tests are green" is not a claim you can make here. Compare with
+- **用真实命令验证**，不要靠眼看：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` +
+  一份文档库报告）。后端测试套件加 `--full-suite`。
+- **后端套件有 20 个既有的失败。**“不比那个基线更差”是诚实的判据；“测试是绿的”在这里不是一个你能做出的宣称。
+  用
   `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
-  and diff the `FAILED` lines against the recorded baseline.
-- **Specs, tickets and notes live in files**: `docs/specs/<slug>.md`, `docs/tickets/NNN-<slug>.md`,
-  `work/<scope>/`. A verdict in a chat message is lost by the next turn.
-- **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
-  by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+  对照，并把 `FAILED` 行与记录的基线做 diff。
+- **规格、工单和笔记活在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
+  写在聊天消息里的一句判词，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 脚手架
+  （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `ecosystem-primer` 规则——并优先选
+  能胜任的最高层。

@@ -1,12 +1,16 @@
 ---
-name: "Writing Fragments"
-description: "Writing, explore: mine raw fragments, no structure yet."
+name: "Writing Fragments（写作·片段）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/writing-fragments/SKILL.md
+description: >-
+  写作·探索：开采原始片段，先不碰结构。
 tags:
   - "writing"
   - "fragments"
   - "mattpocock"
 triggers:
-  - "When asked to <what-to-do>"
+  - "被要求 <what-to-do> 时"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -19,51 +23,52 @@ author: "mattpocock (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
-> **Provenance.** Adapted from `mattpocock/skills → skills/in-progress/writing-fragments` (MIT, vendored at `vendor/upstream-skills/mattpocock/skills/in-progress/writing-fragments/SKILL.md`).
-> Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
-> `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
-> (`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`), and a verification floor
-> section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
-> through the `skill` tool, so it is dropped rather than emulated.
+> **来源说明。** 改编自 `mattpocock/skills → skills/in-progress/writing-fragments`（MIT，原样收录于
+> `vendor/upstream-skills/mattpocock/skills/in-progress/writing-fragments/SKILL.md`）。
+> 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
+> `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
+> （`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`），以及一节验证底线。
+> 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
+> 所以直接去掉，不做仿真。
 
-## Instructions
+## Instructions（指令）
 
 <what-to-do>
 
-This is pure **explore**: widen the space of what could be written without committing to structure. Committing is _exploit_, a separate skill's job. Run a grilling session that produces fragments, interviewing the user relentlessly about whatever they want to write about. Imposing phases, outlines, or article structure is out of scope here.
+这是纯粹的**探索**（explore）：把"可能写成什么"的空间撑大，不向结构做任何承诺。承诺是*利用*（exploit）的事，是另一个技能的活。主持一场产出片段的追问会，就用户想写的任何东西不依不饶地追问。排阶段、列大纲、定文章结构，在这里都在范围之外。
 
-As fragments emerge from either side of the conversation, append them to a single markdown file.
+片段从对话的任何一边冒出来，就追加到同一个 markdown 文件里。
 
-If the user did not pass a path, ask once where to save the document, then remember it for the rest of the session.
+用户没给出路径，就问一次文档存到哪儿，然后在这次会话余下时间里记住它。
 
-Capture fragments from the very first thing the user says, including the initial prompt.
+从用户说的第一句话起就开始捕获片段，包括最初那条提示词。
 
-On first write, put a single H1 at the top with a working title (it can change later) and nothing else: no metadata, no TOC, no date.
+第一次写入时，在顶部放一个 H1 作暂定标题（之后还能改），别的什么都不要：不要元数据、不要目录、不要日期。
 
 </what-to-do>
 
 <supporting-info>
 
-## What is a fragment
+## 什么是片段
 
-A fragment is any piece of text that might survive into the final article. It must be _readable by the author_ (the author can tell what it means), but it does not need to define its terms or be comprehensible to a cold reader. The bar is "is this a piece of good writing?", not "is this a self-contained argument?"
+片段是任何一段有可能活到最终文章里的文字。它必须*作者自己能读*（作者能看出它是什么意思），但不需要定义自己的术语，也不需要让一个毫无背景的读者看懂。门槛是"这是一段好文字吗？"，不是"这是一段自足的论证吗？"
 
-Fragments are deliberately heterogeneous. Examples of what could be a fragment:
+片段是刻意异质的。可能是片段的东西，比如：
 
-- A sharp sentence you'd want to deploy somewhere but don't yet know where.
-- A claim with a one-line justification.
-- A vignette: a thing that happened, a code snippet, a scenario, an analogy.
-- A half-thought: "something about how X feels like Y, work this out later."
-- A quote, a piece of dialogue, an overheard line.
-- A list of related observations that hang together by feel.
-- A complaint, a confession, a punchline.
-- A **leading word**: a compact metaphor or coinage the whole piece can hang on (one term that names the idea, the way _tracer bullets_ or _fog of war_ names a whole pattern).
+- 一句锋利的话，你想在某个地方派上用场，但还不知道在哪儿。
+- 一个断言，带一行论证。
+- 一则小景：发生过的一件事、一段代码、一个场景、一个类比。
+- 半截想法："大概是 X 用起来像 Y 这样的意思，以后再理清楚。"
+- 一段引文、一句对白、一句偶然听见的话。
+- 一串相关的观察，靠手感凑在一起。
+- 一句抱怨、一句自白、一个包袱。
+- 一个**引导词**：一个紧凑的比喻或自造词，整篇东西可以挂在它上面（用一个词命名这个想法，就像 *tracer bullets*（曳光弹）或 *fog of war*（战争迷雾）命名了一整套模式）。
 
-Of these, the leading word is the most valuable fragment to land. It is load-bearing: name the right one in explore and it shapes the structure, the transitions, and the title later, paying dividends through the entire exploit phase. When the conversation circles a recurring idea, push to coin a word for it.
+这些里面，引导词是最值钱的一块要落下的片段。它是承重的：在探索阶段把它命名对了，它后面会塑造结构、过渡和标题，在整个利用阶段一路分红。对话围着某个反复出现的想法打转时，就推着去为它造一个词。
 
-The novelist's diary is the model: years of unstructured noticings that later get mined for raw material. Fragments are noticings.
+小说家的日记就是范本：多年里没有结构的观察记录，后来被开采成原始素材。片段就是观察记录。
 
-## File format
+## 文件格式
 
 ```markdown
 # Working title
@@ -90,28 +95,21 @@ A reaction to it.
 - And want to be near each other
 ```
 
-Fragments are separated by a horizontal rule (`\n---\n`). No headings inside the body. No tags. No order beyond the order they were added.
+片段之间用一条水平分割线（`\n---\n`）隔开。正文里不放标题。不打标签。除了加入的先后顺序，不排别的顺序。
 
-## Writing rhythm
+## 写作节奏
 
-Append silently. Don't ask permission for each fragment. Mention what you added in passing ("adding that"), but don't interrupt the conversation with save dialogs.
+悄悄追加。不要为每一块片段都申请许可。顺口提一句你加了什么（"这条加上了"），但不要用保存对话框打断对话。
 
-Before every write: re-read the file from disk. The user may have edited, reordered, or deleted fragments between turns, so preserve their changes. Never overwrite the file; only append (or, if the user asks, edit a specific fragment in place).
+每次写之前：从磁盘重新读一遍文件。用户可能在你两轮之间改过、重排过、删过片段，所以要保住他们的改动。绝不覆盖文件；只追加（或者，用户要求时，在原处改某一块片段）。
 
-The user can say "cut the last one", "rewrite that one sharper", "merge those two" at any time. Treat those as first-class instructions.
+用户随时可以说"把最后那条砍掉""那条改得更锋利些""那两条合并"。把这些当成头等指令。
 
 </supporting-info>
 
-## This repository's floor
+## This repository's floor（本仓库的底线）
 
-- **Verify with the real commands**, not by eye: `./scripts/housekeeping_verify.sh` (guards + `tsc` +
-  `vite build` + a document-store report). Add `--full-suite` for the backend suite.
-- **The backend suite has 20 pre-existing failures.** "Not worse than that baseline" is the honest
-  criterion; "the tests are green" is not a claim you can make here. Compare with
-  `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
-  and diff the `FAILED` lines against the recorded baseline.
-- **Specs, tickets and notes live in files**: `docs/specs/<slug>.md`, `docs/tickets/NNN-<slug>.md`,
-  `work/<scope>/`. A verdict in a chat message is lost by the next turn.
-- **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
-  by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+- **用真命令验证**，不靠眼睛：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` + 一份文档库报告）。加 `--full-suite` 跑后端套件。
+- **后端套件有 20 个既有失败。**"不比那个基线更差"才是诚实的判据；"测试是绿的"这句话在这里你说不出口。用 `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py` 做对比，把 `FAILED` 行和记录的基线做 diff。
+- **规格、工单和笔记都落在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。一条写在聊天消息里的裁决，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常外面套着一层 Deep Agents 骨架（`deepagents`）。动手之前先定下这处改动属于哪一层——`ecosystem-primer` 规则——并优先选能干成这件事的最高层。
