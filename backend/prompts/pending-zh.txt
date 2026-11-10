@@ -10,14 +10,4 @@
 #
 # Move a prompt with `python scripts/prompt_zh.py promote <id>`, never by hand.
 
-69
-103
-125
-162
-163
-175
-178
-179
-182
-214
-215
+

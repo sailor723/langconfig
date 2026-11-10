@@ -121,6 +121,15 @@ def test_a_pending_prompt_really_is_english(prompt_id: str):
         f"{prompt_id} reads as Chinese but is listed as pending — move it out of pending-zh.txt")
 
 
+def test_no_validator_leftovers_in_the_staging_directory():
+    """The validator writes the English it compares against to a temp file — never into the staging directory,
+    where it would look like an untranslated draft to anyone reading the folder."""
+    if not STAGING.is_dir():
+        return
+    junk = sorted(p.name for p in STAGING.iterdir() if p.suffix != ".md" or not p.stem.isdigit())
+    assert not junk, f"the staging directory holds files that are not drafts: {junk}"
+
+
 def test_no_staged_translation_is_left_behind():
     """A staged file is a translation nobody promoted — the DB does not serve it, so it is invisible work."""
     left = sorted(p.stem for p in STAGING.glob("*.md") if not p.name.startswith(".")) if STAGING.is_dir() else []

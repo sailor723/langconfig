@@ -37,6 +37,7 @@ import json
 import pathlib
 import re
 import sys
+import tempfile
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 BACKEND = REPO / "backend"
@@ -178,8 +179,7 @@ def english_source(prompt_id: str, rows: dict[str, dict]) -> pathlib.Path:
         return archived
     if prompt_id not in rows:
         raise Rejected(f"prompt {prompt_id} is not in the DB")
-    STAGING.mkdir(parents=True, exist_ok=True)
-    src = STAGING / f".en-{prompt_id}.txt"
+    src = pathlib.Path(tempfile.gettempdir()) / f"prompt_zh_en_{prompt_id}.txt"
     src.write_text(rows[prompt_id]["prompt"], encoding="utf-8")
     return src
 
