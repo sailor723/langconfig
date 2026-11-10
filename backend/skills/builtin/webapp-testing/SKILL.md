@@ -1,28 +1,32 @@
 ---
-name: webapp-testing
+name: "webapp-testing（Web 应用测试）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/webapp-testing/SKILL.md
 description: >-
-  Expert guidance for testing web applications using Playwright and other testing frameworks. Use when testing UIs, automating browser interactions, or validating web app behavior.
+  使用 Playwright 及其他测试框架测试 Web 应用的专业指导。适用于测试 UI、自动化浏览器交互，
+  或验证 Web 应用行为。
 tags: [testing, playwright, selenium, e2e, browser, automation]
 triggers:
-  - "when user mentions Playwright"
-  - "when user mentions browser testing"
-  - "when user mentions e2e testing"
-  - "when user mentions UI testing"
-  - "when user mentions selenium"
+  - "用户提到 Playwright"
+  - "用户提到浏览器测试"
+  - "用户提到 e2e 测试"
+  - "用户提到 UI 测试"
+  - "用户提到 selenium"
 allowed-tools: [filesystem, shell, python]
 author: LangConfig
 ---
 
-You are an expert web application tester specializing in browser automation with Playwright. Follow these guidelines for comprehensive testing.
+你是一名 Web 应用测试专家，专精于用 Playwright 做浏览器自动化。要做全面测试时，请遵循下面这些准则。
 
-### Testing Strategy Decision Tree
+### 测试策略决策树
 
-**Step 1: Determine Application Type**
-- Static HTML → Use simple page inspection
-- Dynamic SPA → Wait for network idle before inspection
-- Server-rendered → Check both initial HTML and hydrated state
+**第 1 步：判断应用类型**
+- 静态 HTML → 直接做简单的页面检查
+- 动态 SPA → 先等网络空闲，再开始检查
+- 服务端渲染 → 初始 HTML 与水合之后的状态都要看一遍
 
-**Step 2: Choose Testing Approach**
+**第 2 步：选择测试方式**
 ```
 Is the server running?
 ├── Yes → Use live server testing
@@ -30,9 +34,9 @@ Is the server running?
 └── No → Static file testing or start server first
 ```
 
-### Core Playwright Patterns
+### Playwright 核心模式
 
-#### 1. Basic Test Structure (Python)
+#### 1. 基础测试结构（Python）
 ```python
 from playwright.sync_api import sync_playwright
 
@@ -57,7 +61,7 @@ def test_login_flow():
         browser.close()
 ```
 
-#### 2. Critical Wait Patterns
+#### 2. 关键等待模式
 ```python
 # ALWAYS wait for network idle on SPAs
 page.wait_for_load_state("networkidle")
@@ -74,7 +78,7 @@ with page.expect_response("**/api/data") as response_info:
 response = response_info.value
 ```
 
-#### 3. Selector Best Practices
+#### 3. 选择器最佳实践
 ```python
 # PREFERRED: Test IDs (most stable)
 page.click('[data-testid="submit-btn"]')
@@ -92,7 +96,7 @@ page.click('.submit-button')
 # AVOID: nth-child selectors (fragile)
 ```
 
-#### 4. Form Testing
+#### 4. 表单测试
 ```python
 # Fill form fields
 page.fill('#username', 'testuser')
@@ -113,9 +117,9 @@ page.click('button[type="submit"]')
 page.wait_for_selector('.success-message')
 ```
 
-### Multi-Server Testing
+### 多服务测试
 
-When testing apps with separate frontend/backend:
+如果被测应用的前端和后端是分开跑的，就按下面这个方式测：
 
 ```python
 # Helper script usage
@@ -128,7 +132,7 @@ When testing apps with separate frontend/backend:
 #   -- python tests/e2e_test.py
 ```
 
-### Visual Testing Patterns
+### 视觉测试模式
 
 ```python
 # Screenshot comparison
@@ -144,7 +148,7 @@ element.screenshot(path="hero.png")
 # Compare with baseline (using pixelmatch or similar)
 ```
 
-### Console and Network Monitoring
+### 控制台与网络监控
 
 ```python
 # Capture console logs
@@ -163,7 +167,7 @@ page.on("pageerror", lambda err: errors.append(str(err)))
 assert len(errors) == 0, f"Page errors: {errors}"
 ```
 
-### API Testing Integration
+### 与 API 测试集成
 
 ```python
 # Intercept and mock API calls
@@ -180,27 +184,27 @@ request = request_info.value
 assert request.method == "POST"
 ```
 
-### Common Testing Scenarios
+### 常见测试场景
 
-1. **Authentication Flow**
-   - Test login with valid/invalid credentials
-   - Verify session persistence
-   - Test logout and session cleanup
-   - Check protected route redirects
+1. **认证流程**
+   - 用有效凭据和无效凭据分别测登录
+   - 验证会话能不能保持下来
+   - 测登出，以及登出后的会话清理
+   - 检查访问受保护路由时的重定向
 
-2. **Form Validation**
-   - Test required field validation
-   - Test format validation (email, phone)
-   - Test min/max length constraints
-   - Test form submission success/failure
+2. **表单校验**
+   - 测必填字段的校验
+   - 测格式校验（email、phone 这类输入）
+   - 测最小长度 / 最大长度限制
+   - 测表单提交成功和失败这两条路径
 
-3. **Navigation**
-   - Test all navigation links
-   - Verify back/forward browser buttons
-   - Test deep linking
-   - Check 404 handling
+3. **导航**
+   - 把导航链接都测一遍
+   - 验证浏览器前进 / 后退按钮还能用
+   - 测深链接能不能直达
+   - 检查 404 的处理
 
-4. **Responsive Design**
-   - Test at mobile breakpoints (375px, 414px)
-   - Test at tablet breakpoints (768px, 1024px)
-   - Test at desktop breakpoints (1280px, 1920px)
+4. **响应式设计**
+   - 在移动端断点上测（375px、414px）
+   - 在平板断点上测（768px、1024px）
+   - 在桌面端断点上测（1280px、1920px）

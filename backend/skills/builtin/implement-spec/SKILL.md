@@ -1,6 +1,9 @@
 ---
-name: "Implement Spec"
-description: "Implement the result of the `to-spec` skill and the `to-tickets` skill in code."
+name: "Implement Spec（实现规格）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/implement-spec/SKILL.md
+description: "把 `to-spec` 技能与 `to-tickets` 技能产出的结果实现成代码。"
 tags:
   - "implement"
   - "spec"
@@ -9,7 +12,7 @@ tags:
   - "planning"
   - "skills"
 triggers:
-  - "When asked to you have been provided a spec. This spec should have tickets associated with it, describing how"
+  - "有人给了你一份规格时。这份规格应当配着工单，描述如何"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -23,62 +26,63 @@ author: "mattpocock (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
-> **Provenance.** Adapted from `mattpocock/skills → skills/engineering/implement-spec` (MIT, vendored at `vendor/upstream-skills/mattpocock/skills/engineering/implement-spec/SKILL.md`).
-> Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
-> `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
-> (`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`), and a verification floor
-> section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
-> through the `skill` tool, so it is dropped rather than emulated.
+> **来源说明。** 改编自 `mattpocock/skills → skills/engineering/implement-spec`（MIT，原样收录于
+> `vendor/upstream-skills/mattpocock/skills/engineering/implement-spec/SKILL.md`）。
+> 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
+> `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
+> （`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`），以及一节验证底线。
+> 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
+> 所以直接去掉，而不做模拟。
 
-## Instructions
+## Instructions（指令）
 
-You have been provided a spec. This spec should have tickets associated with it, describing how to implement the spec.
+有人给了你一份规格。这份规格应当配着一批工单，工单描述这份规格要怎么实现。
 
-The tickets for this work live in `docs/tickets/`; if there are none, say so and ask for the spec rather than inventing one.
+这项工作的工单放在 `docs/tickets/`；如果那里一份都没有，就如实说出来并索要规格，而不是自己编一个。
 
-The goal is the entire spec implemented on a single **integration branch**, with every ticket resolved the way `docs/tickets/` closes work.
+目标是整份规格都落在**一条集成分支**上实现完，每张工单都按 `docs/tickets/` 收尾工作的方式结清。
 
-The tickets are not a list of steps. They are a **task graph** with blocking relationships between them. This means there is always a **frontier** of tickets which are ready to be grabbed.
+工单不是一份步骤清单。它们是一张带阻塞关系的**任务图**。这意味着永远存在一个**前沿**，上面是随时可以领走的工单。
 
-Start every subagent with a fresh context window.
+每个子智能体都从全新的上下文窗口开始。
 
-Communication to and from subagents should be sparse. Communicate primarily through **context pointers**: to the spec, tickets, research notes, and previous commits. Don't duplicate information already available via pointers.
+与子智能体之间的通信应当稀疏。主要通过**上下文指针**沟通：指向规格、工单、调研笔记和之前的提交。已经能靠指针取到的信息，不要再复述一遍。
 
-**Implementer subagents** should be run in the background where possible for maximum concurrency.
+**实现者子智能体**在可能的情况下应当放到后台跑，以求最大并发。
 
-## Steps
+## Steps（步骤）
 
-1. Read the spec and tickets to understand the task graph.
+1. 读规格与工单，弄清这张任务图。
 
-2. (optional) Use an **exploration subagent** to conduct any exploration required by the tickets - relevant codebase files or external documentation. Ensure the exploration subagent can save files - it should save its markdown notes in a directory outside the repo, accessible by all future subagents. This lets **implementer subagents** focus on implementation rather than exploration.
+2. （可选）用一个**探索子智能体**去做工单要求的探索——相关的代码库文件或外部文档。确认探索子智能体能够保存文件：它应当把自己的 markdown 笔记存到仓库之外的一个目录，让之后所有子智能体都能取到。这样**实现者子智能体**就能专心实现，而不必再做探索。
 
-3. Create the integration branch. If `docs/tickets/` closes work through PRs, or the user asks for one, open a draft PR after the first merge in step 5 (a branch with no commits ahead of main can't open one), marked as closing the spec and tickets.
+3. 建集成分支。如果 `docs/tickets/` 是通过 PR 收尾工作的，或者用户要求了，就在第 5 步第一次合并之后开一个草稿 PR（一个还没有超出 main 的提交的分支开不了 PR），标注它会关闭这份规格与这些工单。
 
-4. Use a fresh **implementer subagent** for each ticket, each in its own worktree on its own branch. Each implementer subagent:
-   - confirms its worktree is based on the integration branch before starting, and resets onto it if not;
-   - calls the `skill` tool with `tdd` to build the ticket;
-   - merges the integration branch tip into its own branch before reporting done
+4. 每张工单用一个全新的**实现者子智能体**，各自在自己的 worktree、自己的分支上。每个实现者子智能体：
+   - 动手之前先确认自己的 worktree 是基于集成分支的，若不是就 reset 到它上面；
+   - 调用 `skill` 工具并传入 `tdd` 来建这张工单；
+   - 报告完成之前，把集成分支的最新提交合并进自己的分支
 
-5. Once an **implementer subagent** completes, merge its work to the integration branch with a **merger subagent**.
+5. 一个**实现者子智能体**完成后，用一个**合并子智能体**把它的成果合进集成分支。
 
-6. If this changes the **frontier** of available tickets, kick off more **implementer subagents** to work on the new tickets. This allows for maximum concurrency.
+6. 如果这改变了可领工单的**前沿**，就再放出一些**实现者子智能体**去做新出现的工单。这样才能拿到最大并发。
 
-7. Once all tickets are complete, call the `skill` tool with `code-review` on the integration branch. Fix all issues raised by the code review in a single fresh **implementer subagent**.
+7. 所有工单都完成后，在集成分支上调用 `skill` 工具并传入 `code-review`。用一个全新的**实现者子智能体**把代码评审提出的问题一次修完。
 
-8. If a draft PR exists, mark it ready for review. Otherwise, resolve each ticket the way `docs/tickets/` closes work, and report the integration branch.
+8. 如果存在草稿 PR，就把它标记为可以评审。否则，按 `docs/tickets/` 收尾工作的方式逐张结清工单，并汇报集成分支。
 
-9. Clean up all **implementer subagent** worktrees.
+9. 清理所有**实现者子智能体**的 worktree。
 
-## This repository's floor
+## This repository's floor（本仓库的底线）
 
-- **Verify with the real commands**, not by eye: `./scripts/housekeeping_verify.sh` (guards + `tsc` +
-  `vite build` + a document-store report). Add `--full-suite` for the backend suite.
-- **The backend suite has 20 pre-existing failures.** "Not worse than that baseline" is the honest
-  criterion; "the tests are green" is not a claim you can make here. Compare with
+- **用真实命令验证**，不要靠眼看：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` +
+  一份文档库报告）。后端测试套件加 `--full-suite`。
+- **后端套件有 20 个既有的失败。**“不比那个基线更差”是诚实的判据；“测试是绿的”在这里不是一个你能做出的宣称。
+  用
   `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
-  and diff the `FAILED` lines against the recorded baseline.
-- **Specs, tickets and notes live in files**: `docs/specs/<slug>.md`, `docs/tickets/NNN-<slug>.md`,
-  `work/<scope>/`. A verdict in a chat message is lost by the next turn.
-- **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
-  by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+  对照，并把 `FAILED` 行与记录的基线做 diff。
+- **规格、工单和笔记活在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
+  写在聊天消息里的一句判词，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 框架
+  （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `ecosystem-primer` 规则——并优先选
+  能胜任的最高层。
