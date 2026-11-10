@@ -88,6 +88,7 @@ SEEDABLE_TOOL_META = {
     "pg_list_tables": ("PG - List Tables", "database", None),
     "pg_describe_table": ("PG - Describe Table", "database", None),
     "pg_query": ("PG - Query (SELECT)", "database", None),
+    "databricks_query": ("Databricks - Query (read-only SQL warehouse)", "database", None),
     "pg_execute": ("PG - Execute (INSERT/UPDATE/DELETE)", "database", None),
     "pg_list_agents": ("PG - List Agents", "database", None),
     "pg_get_agent": ("PG - Get Agent Config", "database", None),

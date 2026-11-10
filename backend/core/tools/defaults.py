@@ -68,6 +68,7 @@ DEFAULT_NATIVE_TOOLS: List[str] = [
     "pg_list_tables",
     "pg_describe_table",
     "pg_query",
+    "databricks_query",
     "pg_list_agents",
     "pg_get_agent",
     "pg_list_projects",

@@ -4397,6 +4397,91 @@ def pg_describe_table(table_name: str, schema_name: str = "public") -> str:
 
 
 @tool
+def databricks_query(sql: str, limit: int = 200) -> str:
+    """用我：查 Databricks 的 SQL warehouse（只读）。适合湖仓上的大表：samples.tpch.*、自己的 catalog。
+    别用我：查平台自己的库用 pg_query；查本地文件/CSV 用 sqlite_execute。
+
+    Run a **read-only** SQL query against a Databricks SQL warehouse and return the rows as a table.
+
+    Connection comes from the environment, never from the prompt:
+    `DATABRICKS_HOST`, `DATABRICKS_HTTP_PATH`, `DATABRICKS_TOKEN` (optional
+    `DATABRICKS_CATALOG`, `DATABRICKS_SCHEMA`). The token is a secret — it belongs in `.env`,
+    and it must not appear in a tool argument or a chat message.
+
+    SAFETY: only one statement, and only `SELECT` / `WITH` / `SHOW` / `DESCRIBE` / `EXPLAIN`.
+    Rows are capped (`limit`, default 200, max 1000) and the reply says when it capped, so a
+    `SELECT *` on a large table cannot quietly fill the context.
+
+    Args:
+        sql: The statement to run, e.g. 'SELECT * FROM samples.tpch.orders LIMIT 10'
+        limit: Maximum rows to return (default 200)
+
+    Example:
+        >>> databricks_query("SELECT count(*) AS n FROM samples.tpch.orders")
+        >>> databricks_query("SHOW CATALOGS")
+    """
+    import os as _os
+    import re as _re
+
+    host = (_os.getenv("DATABRICKS_HOST") or "").strip()
+    http_path = (_os.getenv("DATABRICKS_HTTP_PATH") or "").strip()
+    token = (_os.getenv("DATABRICKS_TOKEN") or "").strip()
+    if not (host and http_path and token):
+        missing = [n for n, v in (("DATABRICKS_HOST", host),
+                                  ("DATABRICKS_HTTP_PATH", http_path),
+                                  ("DATABRICKS_TOKEN", token)) if not v]
+        return ("❌ Databricks is not configured: missing " + ", ".join(missing) +
+                ". Settings → Databases has no entry for it yet — put them in `.env` and restart, "
+                "and never paste the token into a chat message.")
+
+    # Read-only guard, same shape as pg_query: one statement, no leading comment to hide behind.
+    stripped = sql.strip()
+    if stripped.endswith(";"):
+        stripped = stripped[:-1].rstrip()
+    if ";" in stripped:
+        return "❌ Multiple statements are not allowed. Send a single read-only statement."
+    head = _re.sub(r"^\s*(--[^\n]*\n|/\*.*?\*/|#.*?\n)*\s*", "", stripped, flags=_re.DOTALL).lower()
+    if not head.startswith(("select", "with", "show", "describe", "desc ", "explain")):
+        return ("❌ Only SELECT / WITH / SHOW / DESCRIBE / EXPLAIN are allowed. Writes go through "
+                "Databricks itself, not through an agent's tool call.")
+    sql = stripped
+
+    rows_wanted = max(1, min(int(limit or 200), 1000))
+    try:
+        from databricks import sql as dbsql
+
+        catalog = (_os.getenv("DATABRICKS_CATALOG") or "").strip() or None
+        schema = (_os.getenv("DATABRICKS_SCHEMA") or "").strip() or None
+        with dbsql.connect(server_hostname=host.replace("https://", "").rstrip("/"),
+                           http_path=http_path, access_token=token,
+                           catalog=catalog, schema=schema) as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql)
+                cols = [d[0] for d in (cur.description or [])]
+                rows = cur.fetchmany(rows_wanted + 1)
+    except Exception as e:                       # noqa: BLE001 — a warehouse error is a message, not a crash
+        return f"❌ Databricks query error: {type(e).__name__}: {e}"
+
+    if not cols:
+        return "The statement returned no result set (it may have been a DDL/DML no-op)."
+    capped = len(rows) > rows_wanted
+    rows = rows[:rows_wanted]
+    if not rows:
+        return f"Query returned no rows (columns: {', '.join(cols)})."
+
+    def cell(v):
+        if v is None:
+            return "NULL"
+        s = str(v)
+        return s[:200] + "…" if len(s) > 200 else s
+
+    lines = ["| " + " | ".join(cols) + " |", "| " + " | ".join("---" for _ in cols) + " |"]
+    lines += ["| " + " | ".join(cell(v) for v in row) + " |" for row in rows]
+    lines.append(f"\n*{len(rows)} row(s){' — capped at the limit, refine the query for more' if capped else ''}*")
+    return "\n".join(lines)
+
+
+@tool
 def pg_query(sql: str) -> str:
     """
     用我：查平台自己的 PostgreSQL（只读 SELECT），例如 deep_agent_templates。
