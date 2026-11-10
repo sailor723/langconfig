@@ -9,7 +9,7 @@
  */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import MarkdownText from './MarkdownText';
+import MarkdownText, { MarkdownBoundary } from './MarkdownText';
 import { useLayoutTokens } from './tokens';
 import type { Tab } from './useLayout';
 
@@ -20,11 +20,14 @@ export default function PromptDetailTab({ tab }: Props) {
   const t = useLayoutTokens();
   const [view, setView] = useState<'rendered' | 'source'>('rendered');
 
-  const { promptText, agentName, promptName } = (tab.data ?? {}) as {
-    promptText: string;
+  const { promptText: rawText, agentName, promptName } = (tab.data ?? {}) as {
+    promptText?: string;
     agentName?: string;
-    promptName: string;
+    promptName?: string;
   };
+  // A restored tab or an agent with no prompt can arrive without the field, and `promptText.length` below would
+  // throw — which is indistinguishable from a blank page.
+  const promptText = typeof rawText === 'string' ? rawText : '';
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -42,7 +45,7 @@ export default function PromptDetailTab({ tab }: Props) {
         <span style={{ fontSize: 16 }}>📝</span>
         <div>
           <h2 style={{ fontSize: 16, fontWeight: 600, color: t.textPrimary, margin: 0 }}>
-            {promptName}
+            {promptName || '(untitled prompt)'}
           </h2>
           <p style={{ fontSize: 11, color: t.textMuted, margin: '2px 0 0 0' }}>
             {agentName || 'Standalone Prompt'}
@@ -83,7 +86,9 @@ export default function PromptDetailTab({ tab }: Props) {
                 ))}
               </div>
               {view === 'rendered' ? (
-                <MarkdownText text={promptText} tokens={t} />
+                <MarkdownBoundary text={promptText} fallbackStyle={{ color: t.textPrimary }}>
+                  <MarkdownText text={promptText} tokens={t} />
+                </MarkdownBoundary>
               ) : (
                 <pre
                   style={{

@@ -59,3 +59,19 @@ def test_cards_strip_markdown_instead_of_showing_asterisks():
     assert "stripMarkdown(" in home, "the skill card still prints raw markdown in a three-line clamp"
     md = MD.read_text(encoding="utf-8")
     assert re.search(r"export function stripMarkdown", md), "stripMarkdown is not exported"
+
+
+def test_the_prompt_tab_renders_behind_a_boundary():
+    """A prompt is database text, and one pathological document must not blank the tab.
+
+    The renderer is behind `MarkdownBoundary`, which falls back to the raw text and logs why. Without it a throw
+    inside react-markdown unmounts the view: the user sees a blank page with nothing to act on, and the only trace
+    is a console error they have no reason to open.
+    """
+    view = (REPO / "src" / "components" / "layout2" / "PromptDetailTab.tsx").read_text(encoding="utf-8")
+    assert "<MarkdownBoundary" in view, "the prompt body renders without a boundary"
+    md = (REPO / "src" / "components" / "layout2" / "MarkdownText.tsx").read_text(encoding="utf-8")
+    assert "componentDidCatch" in md and "getDerivedStateFromError" in md
+    assert "typeof rawText === 'string'" in view, (
+        "a restored tab can arrive without promptText, and `promptText.length` then throws — which looks exactly "
+        "like a blank page")

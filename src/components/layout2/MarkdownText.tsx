@@ -16,7 +16,7 @@
  *  - Styling is inline from `LayoutTokens` rather than a stylesheet, because this has to look right in every
  *    theme and inside panels of very different widths.
  */
-import { useMemo } from 'react';
+import { Component, useMemo, type ReactNode } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { LayoutTokens } from './tokens';
@@ -43,6 +43,46 @@ export function stripMarkdown(text: string): string {
     .replace(/^\s{0,3}(-{3,}|\*{3,})\s*$/gm, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/**
+ * MarkdownTextSafe — render markdown, and fall back to the raw text if the renderer throws.
+ *
+ * A prompt or a skill body is data from the database, not code under our control: one pathological document must
+ * not take the whole tab down. Without this, a throw inside `react-markdown` unmounts the view and reads as a blank
+ * page with nothing to go on.
+ */
+export class MarkdownBoundary extends Component<
+  { text: string; children: ReactNode; fallbackStyle?: React.CSSProperties },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: unknown) {
+    // Keep the reason discoverable: the tab shows the source, the console says why.
+    console.error('MarkdownText failed to render; falling back to source', error);
+  }
+
+  render() {
+    if (this.state.failed) {
+      return (
+        <pre
+          style={{
+            margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            fontFamily: '"SF Mono", "Fira Code", monospace', fontSize: 12, lineHeight: 1.55,
+            ...this.props.fallbackStyle,
+          }}
+        >
+          {this.props.text}
+        </pre>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 export default function MarkdownText({ text, tokens, compact = false }: MarkdownTextProps) {
