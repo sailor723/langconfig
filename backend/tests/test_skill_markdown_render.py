@@ -75,3 +75,20 @@ def test_the_prompt_tab_renders_behind_a_boundary():
     assert "typeof rawText === 'string'" in view, (
         "a restored tab can arrive without promptText, and `promptText.length` then throws — which looks exactly "
         "like a blank page")
+
+
+def test_the_usage_boxes_sit_on_the_tags_row():
+    """The two stat boxes belong on the metadata row, next to the tags they describe — not in a block of their own.
+
+    They were the only numbers in the view that were both wrong and buried (elsewhere than the thing they describe),
+    so the layout is asserted: Tags, then the usage box, then the success-rate box, then Triggers.
+    """
+    view = (REPO / "src" / "components" / "layout2" / "SkillView.tsx").read_text(encoding="utf-8")
+    chips_row = view.split("Metadata chips", 1)[1].split("{/* Triggers */}", 1)[0]
+    assert "<Tag size={11} /> Tags" in chips_row, "the tags card is no longer in the metadata row"
+    assert "runs" in chips_row and "served without error" in chips_row, (
+        "the usage and success-rate boxes are not on the tags row")
+    assert chips_row.index("Tags") < chips_row.index("runs") < chips_row.index("served without error"), (
+        "order should be Tags → runs → success rate")
+    tail = view.split("{/* Required context", 1)[1]
+    assert "runs" not in tail, "a second copy of the usage box is still in the lower block"
