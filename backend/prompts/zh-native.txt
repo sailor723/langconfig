@@ -1,0 +1,34 @@
+# Prompts that were written in Chinese from the start.
+#
+# There is nothing in `en-originals/` to be a translation of, and inventing an English source would be a lie.
+# These are listed so the three states stay distinguishable: translated (has an archived original), authored in
+# Chinese (this file), still English (`pending-zh.txt`).
+#
+# Every prompt must be in exactly one, and `backend/tests/test_prompt_translations.py` checks it.
+
+1
+37
+82
+115
+124
+159
+165
+210
+211
+213
+278
+314
+325
+326
+327
+328
+329
+332
+333
+350
+351
+352
+353
+355
+356
+357

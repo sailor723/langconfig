@@ -1,0 +1,47 @@
+# Prompts that are still English.
+#
+# A prompt is `deep_agent_templates.config->>'system_prompt'` — the text an agent is handed and the text the
+# Prompts activity shows. Every prompt is in exactly one state, and `tests/test_prompt_translations.py` checks
+# this file in both directions:
+#
+#   translated      Chinese in the DB, English frozen at backend/prompts/en-originals/<id>.md
+#   zh-native.txt   written in Chinese from the start; there is no English original
+#   pending         this file — English is what agents are being sent
+#
+# Move a prompt with `python scripts/prompt_zh.py promote <id>`, never by hand.
+
+2
+3
+4
+38
+69
+73
+103
+119
+125
+161
+162
+163
+164
+172
+175
+178
+179
+181
+182
+183
+199
+203
+209
+214
+215
+281
+301
+319
+320
+321
+323
+343
+344
+348
+349

@@ -6,6 +6,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { stripMarkdown } from './MarkdownText';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState } from './useLayout';
 import apiClient from '../../lib/api-client';
@@ -228,7 +229,7 @@ export default function PromptBrowserSidebar() {
                       paddingLeft: 20,
                     }}
                   >
-                    {truncate(entry.content, 160)}
+                    {truncate(stripMarkdown(entry.content), 160)}
                   </div>
                 </button>
               );

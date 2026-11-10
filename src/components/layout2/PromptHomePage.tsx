@@ -11,6 +11,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { stripMarkdown } from './MarkdownText';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState } from './useLayout';
 import apiClient from '../../lib/api-client';
@@ -305,7 +306,7 @@ function PromptCard({ entry, onClick }: { entry: PromptEntry; onClick: () => voi
         fontSize: 11, color: t.textDim, margin: 0, lineHeight: 1.5,
         display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
       }}>
-        {truncate(entry.content, 220)}
+        {truncate(stripMarkdown(entry.content), 220)}
       </p>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: t.textMuted, marginTop: 2 }}>
