@@ -95,11 +95,73 @@ a `file:line`, and do not edit anything.
 session itself used, the two indexes that tell an agent which skill to load, the official LangChain set, and the
 ontology family where a softened refusal would cost money.
 
-**Status: in progress.** Verdicts are appended below as each review reports; §4 stays open until they are in.
+**All four reported.** 29 skills read in full: **12 PASS, 17 PARTIAL, 0 FAIL.**
 
-### Reviewer verdicts
+| Reviewer | Skills | PASS | PARTIAL | FAIL |
+|---|---|---|---|---|
+| A — development loop | grilling, to-spec, to-tickets, to-validation, implement, tdd, triage, retro | triage | 7 | 0 |
+| B — indexes and research | code-review, setup-matt-pocock-skills, ask-matt, wayfinder, handoff, claude-handoff, research, research-planner | code-review, setup-matt, ask-matt, handoff, research, research-planner | wayfinder, claude-handoff | 0 |
+| C — LangChain official | lc-langchain-fundamentals, lc-langgraph-fundamentals, lc-deep-agents-core, lc-langchain-rag, lc-eval-engineering, lc-langchain-middleware | — | 6 (all register/terminology; no technical statement changed) | 0 |
+| D — ontology and data | build-ontology-from-db, answer-ontology-question, build-ontology-dashboard, edit-ontology-metrics, data-analysis, software-factory, chief-of-staff | 5 | 2 | 0 |
 
-_Pending: a report is appended here for each of A–D, with the verdicts and every `file:line` defect verbatim._
+No `FAIL`: nothing a reviewer read would make an agent do something wrong or unsafe. Notably, D confirmed that
+every measured claim in the 45 KB `build-ontology-from-db` survived as a measurement — 213 calls split 69/68/29/15,
+0.94596, 46.1 %, `columns_missing` 104→77→66→56→46→37→0 — and that no refusal was softened. C confirmed the
+parameter-level facts in the LangChain set: `allowed_decisions`, the `yield`/`NotImplementedError` warning, the
+FAISS/pickle warning, "interrupts must precede execution", "same embedding model for index and query".
+
+### What the reviews found — and what was done
+
+**The one that mattered most: five skills had lost the frontmatter that code reads.** `grilling`, `to-spec`,
+`to-tickets`, `to-validation` and `implement` — the five translated by hand — kept only
+`name`/`lang`/`translated`/`source`/`description`. Missing: `tags` (the sidebar taxonomy), `triggers` (the cues
+`core/skills/matcher.py` reads), `allowed_tools` (the `**Allowed Tools:**` prompt line), `author`/`version` (the
+MIT attribution), and `params` — which `core/skills/params.py` binds and renders as "do not re-derive these".
+`to-tickets` was telling the reader to read `spec_path` while nothing declared it. All five frontmatters are
+rebuilt from the archive; guard: `test_the_frontmatter_keeps_every_key_the_original_had`.
+
+**Trigger lists collapsed 18 times.** Two English cues merged into one Chinese string narrows when a skill
+fires; `tdd` had lost "or wants an integration test **that fails before the fix**" — the red half of
+red-green-refactor. Every skill now carries as many triggers as its original, and going the other way three
+archives gained the cue their Chinese already had.
+
+**Words that carried the wrong meaning:** the map is an index "不是仓库" in a file where 仓库 means *repository*
+(now 不是存储) · `to-spec` pointing at "Decisions 表 / Acceptance criteria" when its own template says `## 决定` /
+`## 验收标准` · "追溯不到编译结果" where the English says *declaration* · "技能不会被传入子智能体" for "not
+**inherited**" · 嵌入 as the object of 搜索 (now 嵌入向量).
+
+**Vocabulary the family disagreed on:** `harness` was 框架 in 37 files and 脚手架 in the lc- set, colliding with
+the LangChain framework named one clause earlier — all 37 now say 脚手架. 判词 → 结论 and 宣称 → 断言 everywhere
+(判词 is a court's verdict; 宣称 is "proclaim", in a document about evidence). `ask-matt` called the `triage` skill
+分流 while the skill, and `setup-matt-pocock-skills`, call it 分诊.
+
+**Three things presented as skills that are not skills:** `ask-matt` offered "`clear` 技能" and "`compact` 技能"
+as phase-boundary options, and `handoff` / `improve-codebase-architecture` named a "`tmp` 技能". The first two are
+Claude Code commands, the third is the OS temp directory; they now say so, because an agent following the index
+was calling `skill` for something that is not installed.
+
+**Register:** 干活 / 吃透 / 打理 / 切出 / 造出 / 有名有姓 / 飘忽 / 挡在…之外 replaced with the plain technical
+verb, and two calques of "X is how Y gets written down as Z" rewritten as Chinese.
+
+### C8 verdict
+
+**PARTIAL**, and the reason is worth stating precisely. On the 29 skills four reviewers read, meaning was
+preserved: no `FAIL`, no reversed condition, no dropped caveat, no softened refusal, no invented advice, every
+measured number still a measurement. The defects they found were field loss, narrowed triggers, vocabulary
+drift and register — all now fixed, and the fixed set re-checked by the mechanical layers (1636 skill tests,
+202 fidelity cases, 101/101 pairs clean).
+
+The verdict is not PASS because **72 of 101 translations have had no independent read**. Nothing known is
+broken; the claim that would be broken is "the whole library is reviewed", and that is not true yet.
+
+### Unfixed, and why
+
+| Item | State |
+|---|---|
+| Companion documents beside a skill (`ask-matt/PHASE-BOUNDARIES.md`, `code-review/STANDARDS-CHECKLIST.md`) are still English and have no archived original | recorded, not translated — they are level-3 references, not `SKILL.md`, and translating them means deciding whether they join the archive too |
+| Word limits read "400 字以内" for "under 400 words" — ~half the budget in Chinese | consistent across the library, so no per-file defect; a one-line convention change if the tighter budget is unwanted |
+| `to-tickets` keeps file header labels English (`Spec:` / `Blocked by:` / `Size:`) while its presented graph uses 被…阻塞 | a formatting convention to pick, not a mistranslation |
+| Comments inside code fences are mixed (see §4 below) | allowed by the convention, untidy in practice |
 
 ## 4. What is known and not fixed
 
