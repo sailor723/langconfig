@@ -1,13 +1,15 @@
 ---
-name: "Langgraph Persistence"
-description: "INVOKE THIS SKILL when your LangGraph needs to persist state, remember conversations, travel through history, or configure subgraph checkpointer scoping. Covers checkpointers, thread_id, time travel, Store, and subgraph persistence modes."
+name: "Langgraph Persistence（LangGraph 持久化）"
+description: >-
+  LangGraph 需要持久化状态、记住对话、回溯历史，或配置子图检查点作用域时，调用本技能。涵盖检查点
+  （checkpointer）、thread_id、时间旅行、Store 与子图持久化模式。
 tags:
   - "langgraph"
   - "persistence"
   - "langchain-skills"
   - "skills"
 triggers:
-  - "When asked to <overview>"
+  - "被要求处理 <overview> 时"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -18,46 +20,49 @@ allowed_tools:
   - "task"
 author: "langchain-skills (MIT), adapted for LangConfig"
 version: "1.0"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/lc-langgraph-persistence/SKILL.md
 ---
 
-> **Provenance.** Adapted from `langchain-ai/langchain-skills → config/skills/langgraph-persistence` (MIT, vendored at `vendor/upstream-skills/langchain-skills/skills/langgraph-persistence/SKILL.md`).
-> Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
-> `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
-> (`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`), and a verification floor
-> section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
-> through the `skill` tool, so it is dropped rather than emulated.
+> **来源说明。** 改编自 `langchain-ai/langchain-skills → config/skills/langgraph-persistence`（MIT，原样收录于 `vendor/upstream-skills/langchain-skills/skills/langgraph-persistence/SKILL.md`）。
+> 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
+> `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
+> （`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`），以及一节验证底线。
+> 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
+> 所以直接去掉，而不做模拟。
 
-## Instructions
+## Instructions（指令）
 
 <overview>
-LangGraph's persistence layer enables durable execution by checkpointing graph state:
+LangGraph 的持久化层给图状态做检查点，靠它实现可持久执行：
 
-- **Checkpointer**: Saves/loads graph state at every super-step
-- **Thread ID**: Identifies separate checkpoint sequences (conversations)
-- **Store**: Cross-thread memory for user preferences, facts
+- **检查点（Checkpointer）**：在每个 super-step 保存、加载图状态
+- **线程 ID（Thread ID）**：标识一条条互不相干的检查点序列，也就是一次次对话
+- **Store**：跨线程记忆，存用户偏好与事实
 
-**Two memory types:**
-- **Short-term** (checkpointer): Thread-scoped conversation history
-- **Long-term** (store): Cross-thread user preferences, facts
+**两类记忆：**
+- **短期**（checkpointer）：线程范围内的对话历史
+- **长期**（store）：跨线程的用户偏好、事实
 </overview>
 
 <checkpointer-selection>
 
-| Checkpointer | Use Case | Production Ready |
+| 检查点 | 适用场景 | 可用于生产 |
 |--------------|----------|------------------|
-| `InMemorySaver` | Testing, development | No |
-| `SqliteSaver` | Local development | Partial |
-| `PostgresSaver` | Production | Yes |
+| `InMemorySaver` | 测试、开发 | 否 |
+| `SqliteSaver` | 本地开发 | 部分 |
+| `PostgresSaver` | 生产 | 是 |
 
 </checkpointer-selection>
 
 ---
 
-## Checkpointer Setup
+## Checkpointer Setup（检查点配置）
 
 <ex-basic-persistence>
 <python>
-Set up a basic graph with in-memory checkpointing and thread-based state persistence.
+搭一张最基础的图，用内存检查点，并按线程持久化状态。
 
 ```python
 from langgraph.checkpoint.memory import InMemorySaver
@@ -92,7 +97,7 @@ print(len(result2["messages"]))  # 4 (previous + new)
 ```
 </python>
 <typescript>
-Set up a basic graph with in-memory checkpointing and thread-based state persistence.
+搭一张最基础的图，用内存检查点，并按线程持久化状态。
 
 ```typescript
 import { MemorySaver, StateGraph, StateSchema, MessagesValue, START, END } from "@langchain/langgraph";
@@ -126,7 +131,7 @@ console.log(result2.messages.length);  // 4 (previous + new)
 
 <ex-production-postgres>
 <python>
-Configure PostgreSQL-backed checkpointing for production deployments.
+为生产部署配置由 PostgreSQL 支撑的检查点。
 
 ```python
 import os
@@ -140,7 +145,7 @@ with PostgresSaver.from_conn_string(os.environ["DATABASE_URL"]) as checkpointer:
 ```
 </python>
 <typescript>
-Configure PostgreSQL-backed checkpointing for production deployments.
+为生产部署配置由 PostgreSQL 支撑的检查点。
 
 ```typescript
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
@@ -156,11 +161,11 @@ const graph = builder.compile({ checkpointer });
 
 ---
 
-## Thread Management
+## Thread Management（线程管理）
 
 <ex-separate-threads>
 <python>
-Demonstrate isolated state between different thread IDs.
+演示不同 thread ID 之间彼此隔离的状态。
 
 ```python
 # Different threads maintain separate state
@@ -174,7 +179,7 @@ graph.invoke({"messages": ["Hi from Bob"]}, bob_config)
 ```
 </python>
 <typescript>
-Demonstrate isolated state between different thread IDs.
+演示不同 thread ID 之间彼此隔离的状态。
 
 ```typescript
 // Different threads maintain separate state
@@ -191,11 +196,11 @@ await graph.invoke({ messages: [new HumanMessage("Hi from Bob")] }, bobConfig);
 
 ---
 
-## State History & Time Travel
+## State History & Time Travel（状态历史与时间旅行）
 
 <ex-resume-from-checkpoint>
 <python>
-Time travel: browse checkpoint history and replay or fork from a past state.
+时间旅行：浏览检查点历史，并从过去某个状态重放或分叉。
 
 ```python
 config = {"configurable": {"thread_id": "session-1"}}
@@ -215,7 +220,7 @@ result = graph.invoke(None, fork_config)
 ```
 </python>
 <typescript>
-Time travel: browse checkpoint history and replay or fork from a past state.
+时间旅行：浏览检查点历史，并从过去某个状态重放或分叉。
 
 ```typescript
 const config = { configurable: { thread_id: "session-1" } };
@@ -241,7 +246,7 @@ const forked = await graph.invoke(null, forkConfig);
 
 <ex-update-state>
 <python>
-Manually update graph state before resuming execution.
+在恢复执行之前，手动更新图状态。
 
 ```python
 config = {"configurable": {"thread_id": "session-1"}}
@@ -254,7 +259,7 @@ result = graph.invoke(None, config)
 ```
 </python>
 <typescript>
-Manually update graph state before resuming execution.
+在恢复执行之前，手动更新图状态。
 
 ```typescript
 const config = { configurable: { thread_id: "session-1" } };
@@ -267,44 +272,43 @@ const result = await graph.invoke(null, config);
 ```
 </typescript>
 </ex-update-state>
-
 ---
 
-## Subgraph Checkpointer Scoping
+## Subgraph Checkpointer Scoping（子图检查点作用域）
 
-When compiling a subgraph, the `checkpointer` parameter controls persistence behavior. This is critical for subgraphs that use interrupts, need multi-turn memory, or run in parallel.
+编译子图时，`checkpointer` 参数决定持久化行为。对于要用到中断、需要多轮记忆，或者会并行运行的子图，这一点至关重要。
 
 <subgraph-checkpointer-scoping-table>
 
-| Feature | `checkpointer=False` | `None` (default) | `True` |
+| 特性 | `checkpointer=False` | `None`（默认） | `True` |
 |---|---|---|---|
-| Interrupts (HITL) | No | Yes | Yes |
-| Multi-turn memory | No | No | Yes |
-| Multiple calls (different subgraphs) | Yes | Yes | Warning (namespace conflicts possible) |
-| Multiple calls (same subgraph) | Yes | Yes | No |
-| State inspection | No | Warning (current invocation only) | Yes |
+| 中断（HITL） | 否 | 是 | 是 |
+| 多轮记忆 | 否 | 否 | 是 |
+| 多次调用（不同子图） | 是 | 是 | 警告（可能出现命名空间冲突） |
+| 多次调用（同一子图） | 是 | 是 | 否 |
+| 状态查看 | 否 | 警告（只看得到当前这次调用） | 是 |
 
 </subgraph-checkpointer-scoping-table>
 
 <subgraph-checkpointer-when-to-use>
 
-### When to use each mode
+### When to use each mode（各模式何时使用）
 
-- **`checkpointer=False`** — Subgraph doesn't need interrupts or persistence. Simplest option, no checkpoint overhead.
-- **`None` (default / omit `checkpointer`)** — Subgraph needs `interrupt()` but not multi-turn memory. Each invocation starts fresh but can pause/resume. Parallel execution works because each invocation gets a unique namespace.
-- **`checkpointer=True`** — Subgraph needs to remember state across invocations (multi-turn conversations). Each call picks up where the last left off.
+- **`checkpointer=False`** — 子图不需要中断，也不需要持久化。这是最省事的选择，没有检查点开销。
+- **`None`（默认 / 不传 `checkpointer`）** — 子图需要 `interrupt()`，但不需要多轮记忆。每次调用都从头开始，不过可以暂停、恢复。并行执行照常可行，因为每次调用都会拿到自己的命名空间。
+- **`checkpointer=True`** — 子图需要跨调用记住状态（多轮对话）。每次调用都从上次停下的地方接着走。
 
 </subgraph-checkpointer-when-to-use>
 
 <warning-stateful-subgraphs-parallel>
 
-**Warning**: Stateful subgraphs (`checkpointer=True`) do NOT support calling the same subgraph instance multiple times within a single node — the calls write to the same checkpoint namespace and conflict.
+**警告**：有状态的子图（`checkpointer=True`）不支持在单个节点内多次调用同一个子图实例——这些调用会写进同一份检查点命名空间，从而互相冲突。
 
 </warning-stateful-subgraphs-parallel>
 
 <ex-subgraph-checkpointer-modes>
 <python>
-Choose the right checkpointer mode for your subgraph.
+为子图挑对检查点模式。
 
 ```python
 # No interrupts needed — opt out of checkpointing
@@ -318,7 +322,7 @@ subgraph = subgraph_builder.compile(checkpointer=True)
 ```
 </python>
 <typescript>
-Choose the right checkpointer mode for your subgraph.
+为子图挑对检查点模式。
 
 ```typescript
 // No interrupts needed — opt out of checkpointing
@@ -335,9 +339,9 @@ const subgraph = subgraphBuilder.compile({ checkpointer: true });
 
 <parallel-subgraph-namespacing>
 
-### Parallel subgraph namespacing
+### Parallel subgraph namespacing（并行子图的命名空间）
 
-When multiple **different** stateful subgraphs run in parallel, wrap each in its own `StateGraph` with a unique node name for stable namespace isolation:
+多个**不同**的有状态子图并行运行时，把每个子图都包进各自的 `StateGraph`，再配一个唯一的节点名，命名空间隔离才能稳定：
 
 <python>
 
@@ -386,17 +390,17 @@ const veggieAgent = createSubAgent("gpt-4.1-mini", {
 ```
 </typescript>
 
-Note: Subgraphs added as nodes (via `add_node`) already get name-based namespaces automatically and don't need this wrapper.
+注：以节点形式（通过 `add_node`）加进去的子图，本来就会按名字自动获得命名空间，不需要再套这一层包装。
 
 </parallel-subgraph-namespacing>
 
 ---
 
-## Long-Term Memory (Store)
+## Long-Term Memory (Store)（长期记忆：Store）
 
 <ex-long-term-memory-store>
 <python>
-Use a Store for cross-thread memory to share user preferences across conversations.
+用 Store 做跨线程记忆，让用户偏好在多个对话之间共享。
 
 ```python
 from langgraph.store.memory import InMemoryStore
@@ -422,7 +426,7 @@ graph.invoke({"user_id": "alice"}, {"configurable": {"thread_id": "thread-2"}}) 
 ```
 </python>
 <typescript>
-Use a Store for cross-thread memory to share user preferences across conversations.
+用 Store 做跨线程记忆，让用户偏好在多个对话之间共享。
 
 ```typescript
 import { MemoryStore } from "@langchain/langgraph";
@@ -450,7 +454,7 @@ await graph.invoke({ userId: "alice" }, { configurable: { thread_id: "thread-2" 
 
 <ex-store-operations>
 <python>
-Basic store operations: put, get, search, and delete.
+Store 的基本操作：put、get、search、delete。
 
 ```python
 from langgraph.store.memory import InMemoryStore
@@ -467,11 +471,11 @@ store.delete(("user-123", "facts"), "location")  # Delete
 
 ---
 
-## Fixes
+## Fixes（常见修法）
 
 <fix-thread-id-required>
 <python>
-Always provide thread_id in config to enable state persistence.
+一定要在 config 里始终提供 thread_id，状态持久化才会生效。
 
 ```python
 # WRONG: No thread_id - state NOT persisted!
@@ -485,7 +489,7 @@ graph.invoke({"messages": ["What did I say?"]}, config)  # Remembers!
 ```
 </python>
 <typescript>
-Always provide thread_id in config to enable state persistence.
+一定要在 config 里始终提供 thread_id，状态持久化才会生效。
 
 ```typescript
 // WRONG: No thread_id - state NOT persisted!
@@ -503,7 +507,7 @@ await graph.invoke({ messages: [new HumanMessage("What did I say?")] }, config);
 
 <fix-inmemory-not-for-production>
 <python>
-Use PostgresSaver instead of InMemorySaver for production persistence.
+生产环境的持久化要用 PostgresSaver，而不是 InMemorySaver。
 
 ```python
 # WRONG: Data lost on process restart
@@ -517,7 +521,7 @@ with PostgresSaver.from_conn_string("postgresql://...") as checkpointer:
 ```
 </python>
 <typescript>
-Use PostgresSaver instead of MemorySaver for production persistence.
+生产环境的持久化要用 PostgresSaver，而不是 MemorySaver。
 
 ```typescript
 // WRONG: Data lost on process restart
@@ -534,7 +538,7 @@ await checkpointer.setup(); // only needed on first use to create tables
 
 <fix-update-state-with-reducers>
 <python>
-Use Overwrite to replace state values instead of passing through reducers.
+要替换状态值，就用 Overwrite 直接盖掉，而不是让它从归约器里过一遍。
 
 ```python
 from langgraph.types import Overwrite
@@ -550,7 +554,7 @@ graph.update_state(config, {"items": Overwrite(["C"])})  # Result: ["C"] - Repla
 ```
 </python>
 <typescript>
-Use Overwrite to replace state values instead of passing through reducers.
+要替换状态值，就用 Overwrite 直接盖掉，而不是让它从归约器里过一遍。
 
 ```typescript
 import { Overwrite } from "@langchain/langgraph";
@@ -569,7 +573,7 @@ await graph.updateState(config, { items: new Overwrite(["C"]) });  // Result: ["
 
 <fix-store-injection>
 <python>
-Access store via the Runtime object in graph nodes.
+在图节点里通过 Runtime 对象访问 store。
 
 ```python
 # WRONG: Store not available in node
@@ -584,7 +588,7 @@ def my_node(state, runtime: Runtime):
 ```
 </python>
 <typescript>
-Access store via runtime parameter in graph nodes.
+在图节点里通过 runtime 参数访问 store。
 
 ```typescript
 // WRONG: Store not available in node
@@ -601,25 +605,25 @@ const myNode = async (state, runtime) => {
 </fix-store-injection>
 
 <boundaries>
-### What You Should NOT Do
+### What You Should NOT Do（不该做的事）
 
-- Use `InMemorySaver` in production — data lost on restart; use `PostgresSaver`
-- Forget `thread_id` — state won't persist without it
-- Expect `update_state` to bypass reducers — it passes through them; use `Overwrite` to replace
-- Run the same stateful subgraph (`checkpointer=True`) in parallel within one node — namespace conflict
-- Access store directly in a node — use `runtime.store` via the `Runtime` param
+- 生产环境别用 `InMemorySaver`——进程重启数据就没了；用 `PostgresSaver`
+- 别忘 `thread_id`——没有它，状态不会持久化
+- 别指望 `update_state` 绕过归约器——它就是会穿过归约器；要替换请用 `Overwrite`
+- 别在一个节点里并行跑同一个有状态子图（`checkpointer=True`）——命名空间会冲突
+- 别在节点里直接访问 store——通过 `Runtime` 参数拿 `runtime.store`
 </boundaries>
 
-## This repository's floor
+## This repository's floor（本仓库的底线）
 
-- **Verify with the real commands**, not by eye: `./scripts/housekeeping_verify.sh` (guards + `tsc` +
-  `vite build` + a document-store report). Add `--full-suite` for the backend suite.
-- **The backend suite has 20 pre-existing failures.** "Not worse than that baseline" is the honest
-  criterion; "the tests are green" is not a claim you can make here. Compare with
+- **用真实命令验证**，不要靠眼看：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` +
+  一份文档库报告）。后端测试套件加 `--full-suite`。
+- **后端套件有 20 个既有的失败。**“不比那个基线更差”是诚实的判据；“测试是绿的”在这里不是一个你能做出的宣称。
+  用
   `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
-  and diff the `FAILED` lines against the recorded baseline.
-- **Specs, tickets and notes live in files**: `docs/specs/<slug>.md`, `docs/tickets/NNN-<slug>.md`,
-  `work/<scope>/`. A verdict in a chat message is lost by the next turn.
-- **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
-  by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+  对照，并把 `FAILED` 行与记录的基线做 diff。
+- **规格、工单和笔记活在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
+  写在聊天消息里的一句判词，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 脚手架
+  （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `ecosystem-primer` 规则——并优先选
+  能胜任的最高层。

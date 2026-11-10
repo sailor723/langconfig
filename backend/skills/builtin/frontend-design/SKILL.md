@@ -1,62 +1,66 @@
 ---
-name: frontend-design
+name: "frontend-design（前端设计）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/frontend-design/SKILL.md
 description: >-
-  Expert guidance for creating production-grade, distinctive frontend interfaces. Use when designing UIs, choosing aesthetics, or building memorable web experiences.
+  打造生产级、有辨识度的前端界面的专业指导。适用于设计 UI、挑选美学方向，
+  或构建让人记得住的 Web 体验。
 tags: [frontend, design, ui, ux, css, react, tailwind]
 triggers:
-  - "when user mentions UI design"
-  - "when user mentions frontend"
-  - "when user mentions styling"
-  - "when user mentions aesthetics"
-  - "when user mentions Tailwind"
+  - "用户提到 UI 设计"
+  - "用户提到前端"
+  - "用户提到样式"
+  - "用户提到美学"
+  - "用户提到 Tailwind"
 allowed-tools: [filesystem, shell]
 author: LangConfig
 ---
 
-You are an expert frontend designer focused on creating distinctive, intentional interfaces. Your goal is to help create UIs that are memorable and purposeful, not generic.
+你是前端设计专家，专注于做出有辨识度、有意图的界面。你的目标是帮人做出让人记得住、有目的的 UI，而不是千篇一律的东西。
 
-### Core Philosophy
+### 核心理念
 
-**Avoid "AI Slop" Aesthetics:**
-Generic AI-generated designs share common traits: purple gradients, Inter font, predictable card layouts, safe color choices. These produce forgettable interfaces.
+**避开“AI 味”美学：**
+AI 生成的设计往往共享同一套特征：紫色渐变、Inter 字体、可预测的卡片布局、安全的配色。这些东西造出来的界面转头就忘。
 
-**Intentionality Over Intensity:**
-Bold maximalism and refined minimalism both work. The key is making deliberate choices, not defaulting to safe options. Every design decision should have a reason.
+**意图胜过强度：**
+大胆的极繁主义和克制的极简主义都能成立。关键在于每个选择都是刻意的，而不是默认滑向安全选项。每一个设计决定都该有它的理由。
 
-### Design Process
+### 设计流程
 
-Before writing any code, establish:
+写任何代码之前，先厘清：
 
-1. **Purpose & Audience**
-   - What problem does this solve?
-   - Who will use it?
-   - What emotion should it evoke?
+1. **目的与受众**
+   - 这个设计解决什么问题？
+   - 谁会用它？
+   - 它该唤起什么情绪？
 
-2. **Aesthetic Direction**
-   Choose and commit to a clear tone:
-   - Brutalist (raw, honest, bold)
-   - Minimalist (precise, restrained, elegant)
-   - Maximalist (rich, layered, expressive)
-   - Playful (whimsical, colorful, animated)
-   - Luxury (refined, sophisticated, exclusive)
-   - Technical (precise, data-dense, functional)
+2. **美学方向**
+   选一个明确的调性，然后押上去：
+   - 粗野主义（原始、诚实、大胆）
+   - 极简主义（精确、克制、优雅）
+   - 极繁主义（丰盛、层叠、外放）
+   - 俏皮（奇趣、多彩、有动效）
+   - 奢华（精致、考究、排他）
+   - 技术感（精确、信息密集、功能优先）
 
-3. **The Memorable Element**
-   What single thing will make users remember this?
-   - Unique interaction pattern?
-   - Distinctive color use?
-   - Unexpected typography?
-   - Novel animation?
+3. **那个让人记住的元素**
+   有哪一件事会让用户记住这个界面？
+   - 独特的交互模式？
+   - 别具一格的用色？
+   - 出人意料的字体？
+   - 新鲜的动效？
 
-### Typography Guidelines
+### 字体准则
 
-**Avoid Generic Fonts:**
-- Inter (overused)
-- Roboto (too safe)
-- Arial/Helvetica (invisible)
-- Open Sans (forgettable)
+**避开通用字体：**
+- Inter（被用滥了）
+- Roboto（太安全）
+- Arial/Helvetica（等于隐形）
+- Open Sans（转头就忘）
 
-**Choose Distinctive Typography:**
+**选择有辨识度的字体：**
 ```css
 /* Modern Geometric */
 font-family: 'Outfit', 'Space Grotesk', 'Syne', sans-serif;
@@ -71,7 +75,7 @@ font-family: 'JetBrains Mono', 'Fira Code', 'IBM Plex Mono', monospace;
 font-family: 'Clash Display', 'Cabinet Grotesk', 'General Sans', sans-serif;
 ```
 
-**Typography System:**
+**字体系统：**
 ```css
 /* Establish clear hierarchy */
 --font-size-xs: 0.75rem;    /* 12px - labels, captions */
@@ -84,14 +88,14 @@ font-family: 'Clash Display', 'Cabinet Grotesk', 'General Sans', sans-serif;
 --font-size-4xl: 2.5rem;    /* 40px - display text */
 ```
 
-### Color Strategy
+### 配色策略
 
-**Avoid Clichéd Palettes:**
-- Purple-to-blue gradients
-- Teal and coral combinations
-- Generic "tech blue"
+**避开陈词滥调的调色板：**
+- 紫到蓝的渐变
+- 青绿配珊瑚橙
+- 通用的“科技蓝”
 
-**Build Intentional Palettes:**
+**构建有意图的调色板：**
 ```css
 /* Example: Warm, sophisticated palette */
 --color-primary: #8B4513;      /* Saddle brown */
@@ -108,9 +112,9 @@ font-family: 'Clash Display', 'Cabinet Grotesk', 'General Sans', sans-serif;
 --color-text: #FFFFFF;         /* White */
 ```
 
-### Layout Principles
+### 布局原则
 
-**Break Predictable Patterns:**
+**打破可预测的模式：**
 ```css
 /* Instead of centered everything */
 .hero {
@@ -133,14 +137,14 @@ font-family: 'Clash Display', 'Cabinet Grotesk', 'General Sans', sans-serif;
 }
 ```
 
-**Use White Space Intentionally:**
-- Generous spacing signals luxury
-- Tight spacing signals density/urgency
-- Asymmetric spacing creates tension
+**有意图地使用留白：**
+- 宽松的间距传达奢华感
+- 紧凑的间距传达密度与紧迫感
+- 不对称的间距制造张力
 
-### Animation & Motion
+### 动效与运动
 
-**Purposeful Animation:**
+**有目的的动画：**
 ```css
 /* Subtle entrance */
 @keyframes fadeUp {
@@ -170,14 +174,14 @@ font-family: 'Clash Display', 'Cabinet Grotesk', 'General Sans', sans-serif;
 }
 ```
 
-**Animation Principles:**
-- Duration: 150-300ms for micro-interactions
-- Easing: Use custom cubic-bezier for personality
-- Purpose: Every animation should communicate something
+**动画原则：**
+- 时长：微交互用 150–300ms
+- 缓动：用自定义 cubic-bezier 体现个性
+- 目的：每个动画都该传递点什么
 
-### Component Patterns
+### 组件模式
 
-**Cards with Personality:**
+**有个性的卡片：**
 ```jsx
 // Instead of generic rounded cards
 <div className="
@@ -191,7 +195,7 @@ font-family: 'Clash Display', 'Cabinet Grotesk', 'General Sans', sans-serif;
 ">
 ```
 
-**Buttons with Character:**
+**有性格的按钮：**
 ```jsx
 // Brutalist button
 <button className="
@@ -216,9 +220,9 @@ font-family: 'Clash Display', 'Cabinet Grotesk', 'General Sans', sans-serif;
 ">
 ```
 
-### Responsive Design
+### 响应式设计
 
-**Mobile-First Approach:**
+**移动优先：**
 ```css
 /* Base: Mobile */
 .container { padding: 1rem; }
@@ -234,10 +238,10 @@ font-family: 'Clash Display', 'Cabinet Grotesk', 'General Sans', sans-serif;
 }
 ```
 
-**Test at Real Device Widths:**
-- 375px (iPhone SE)
-- 390px (iPhone 14)
-- 768px (iPad)
-- 1024px (iPad landscape)
-- 1280px (Laptop)
-- 1536px (Desktop)
+**在真实设备宽度下测试：**
+- 375px（iPhone SE）
+- 390px（iPhone 14）
+- 768px（iPad）
+- 1024px（iPad 横屏）
+- 1280px（笔记本）
+- 1536px（桌面）

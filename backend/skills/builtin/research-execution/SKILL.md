@@ -1,198 +1,184 @@
 ---
-name: research-execution
+name: "research-execution（调研执行）"
 description: >-
-  Execute web research for a question or a list of sub-questions: climb the tool ladder (web_search →
-  tavily_search → web_fetch), reflect with think_tool after every search round, self-count against a hard
-  cap of 5 searches, prefer primary sources, cross-check key facts, and return findings with source URLs —
-  never fabricate. Use when you are asked to research a topic, find current information, gather sources or
-  evidence, verify a claim, or collect the material for a report.
+  为一个问题或一列子问题执行网页调研：顺着工具阶梯往上爬（web_search → tavily_search → web_fetch），每轮检索
+  之后用 think_tool 反思，自己对着 5 次检索的硬上限记数，优先采用一手来源，交叉核对关键事实，并带着来源 URL
+  交回发现——绝不编造。被要求调研一个主题、查找当前信息、收集来源或证据、核实一条论断，或为一份报告收集材料时
+  使用。
 tags: [research, web-search, evidence, citations, fact-checking, sources, think-tool, budget, anti-loop]
 triggers:
-  - "when the user asks to research a topic or find current information"
-  - "when you need sources or evidence for a claim"
-  - "when a planning step produced sub-questions to answer"
-  - "when gathering material before writing a report"
-  - "before stating any fact you have not verified with a tool"
+  - "用户要求调研一个主题或查找当前信息时"
+  - "需要为一条论断找到来源或证据时"
+  - "某个规划步骤已经产出了待回答的子问题时"
+  - "写报告之前收集材料时"
+  - "在说出任何尚未用工具核实过的事实之前"
 compatibility: >-
-  Requires a host agent carrying web_search / tavily_search / web_fetch. think_tool is strongly
-  recommended (it is how you count the budget and avoid looping) and the graphindex tools are needed
-  only for internal documents. This skill itself enables no tools.
+  需要一个携带 web_search / tavily_search / web_fetch 的宿主智能体。强烈建议有 think_tool（记预算、避免打转
+  靠的就是它），graphindex 系列工具只在处理内部文档时才需要。本技能自身不启用任何工具。
 author: LangConfig
+lang: zh
+translated: machine
+source: backend/skills/en-originals/research-execution/SKILL.md
 ---
 
-This skill is **know-how, not capability**: it enables no tools. The host agent must already carry the
-search tools listed under [Requirements](#requirements-provided-by-the-agent-not-by-this-skill) — an agent
-without them can follow the discipline but cannot gather anything.
+本技能提供的是**门道，不是能力**：它不启用任何工具。宿主智能体必须已经带着
+[Requirements](#requirements由智能体提供本技能不提供) 一节列出的那些检索工具——没有它们的智能体可以遵守纪律，
+但什么也采集不到。
 
-## Tool ladder — climb it in order
+## 工具阶梯——按顺序往上爬
 
-Do not reach for the most expensive tool first. Work down the ladder and only climb further when the rung
-you are on cannot answer the question.
+不要一上来就去够最贵的工具。顺着阶梯一级一级推进，只有当所在这一级回答不了问题时，才继续往上爬。
 
-1. **web_search**:
-   - **STRATEGY**: USE THIS FIRST FOR BROAD RESEARCH.
-   - Use for: initial topic overview, key facts, latest developments, names, dates.
-   - Why: the cheapest entry point — batch 2-4 query variants in ONE round instead of one at a time.
-2. **tavily_search**:
-   - **STRATEGY**: USE FOR DEPTH AND TO VERIFY, AFTER THE FIRST PASS.
-   - Use for: multi-source summaries, comparisons, "current state of X", and verifying what web_search claimed.
-   - Why: blends several sources, so it is the right rung for ground truth on a specific point.
-3. **web_fetch**:
-   - **STRATEGY**: USE SPARINGLY — at most 2 pages per task.
-   - Use for: reading one promising page in full when a snippet is not enough — exact figures, tables,
-     methodology, dates, wording.
-   - Why: it resolves the "I only saw the snippet" risk, but it is the most expensive call.
-4. **think_tool**:
-   - **STRATEGY**: USE AFTER EVERY SEARCH ROUND.
-   - Use for: reflection, planning the next step, and counting the budget.
-5. **graphindex_search** / **graphindex_load**:
-   - **STRATEGY**: USE BEFORE THE OPEN WEB when the question concerns the organisation's own documents.
-   - Why: internal sources outrank public ones for internal questions.
+1. **web_search**：
+   - **策略**：宽泛调研先用它。
+   - 用于：主题初览、关键事实、最新进展、人名、日期。
+   - 为什么：最便宜的入口——把 2-4 个查询变体在**同一轮**里批量发出去，而不是一次一个。
+2. **tavily_search**：
+   - **策略**：第一遍之后，用它求深度、做核实。
+   - 用于：多来源综述、对比、"X 的现状"，以及核实 web_search 的说法。
+   - 为什么：它调和多个来源，所以要在某个具体点上拿到基准真相，这一级正合适。
+3. **web_fetch**：
+   - **策略**：省着用——每个任务最多 2 个页面。
+   - 用于：片段不够时，把某一个有戏的页面整篇读完——精确数字、表格、方法、日期、措辞。
+   - 为什么：它能消掉"我只看到过片段"这个风险，但它是最贵的一次调用。
+4. **think_tool**：
+   - **策略**：每一轮检索之后都用。
+   - 用于：反思、规划下一步，以及记预算。
+5. **graphindex_search** / **graphindex_load**：
+   - **策略**：问题涉及组织自己的文档时，在开放网络之前先用它。
+   - 为什么：对内部问题，内部来源压过公开来源。
 
-**CRITICAL: Use think_tool after each search to reflect on results and plan the next step.**
-Do not open a new search round without having called think_tool since the previous one.
+**关键：每次检索之后都用 think_tool 反思结果并规划下一步。** 上一轮之后没调用过 think_tool，就不要开新一轮
+检索。
 
-Never claim a precise detail you only saw in a snippet if the page is fetchable — fetch it, or mark it
-unverified.
+页面抓得到的时候，绝不要宣称一个你只在片段里见过的精确细节——去把它抓下来，或者标记为未核实。
 
-## Reflect after every search round (`think_tool`)
+## 每轮检索之后都要反思（`think_tool`）
 
-After each search tool call, use `think_tool` to analyze the results:
+每调用一次检索工具，就用 `think_tool` 分析结果：
 
-- **Count**: state it explicitly — `searches used: n/5` (see the cap below).
-- What key information did I find?
-- What's missing?
-- Do I have enough to answer the task comprehensively?
-- Should I search more or provide my findings?
-- **Budget Consideration**: am I using the budget efficiently (n/5 used)? Should I switch to the other
-  search tool for the remaining queries?
-- **Source Quality**: are the sources reliable and authoritative? Do I need to verify information with
-  additional sources?
-- **Search Strategy**: what should my next search focus on to fill remaining gaps?
+- **计数**：明确说出来——`searches used: n/5`（见下方的硬上限）。
+- 我找到了哪些关键信息？
+- 还缺什么？
+- 手上的东西够不够全面回答这个任务？
+- 该继续检索，还是把发现交出去？
+- **预算考量**：预算用得高效吗（已用 n/5）？剩下的查询是不是该换另一个检索工具？
+- **来源质量**：来源可靠、权威吗？需不需要再用额外来源核实一遍？
+- **检索策略**：下一次检索该聚焦什么，才能补上剩下的缺口？
 
-If you cannot name a next search focus, you are looping, not researching — stop and write up what you have.
+如果说不清下一次检索该聚焦什么，你就是在打转，不是在调研——停下来，把已有的写成文。
 
-## Budget — self-tracked, hard cap
+## 预算——自己记数，硬性上限
 
-The tools report no remaining budget, so **you** are the counter, and the cap is absolute:
+工具不会报告剩余预算，所以**你**就是计数器，而上限是绝对的：
 
-- **HARD CAP: 5 search calls per task** (`web_search` + `tavily_search` combined). This is a ceiling, not a
-  target — 2-3 is the normal case, 5 is the maximum.
-- **Never exceed 5, and never state a budget other than 5.** Do not invent a larger number.
-- **Self-count (MANDATORY)**: the tools report no remaining budget, so YOU are the counter. Every
-  `think_tool` call must state the count against 5, e.g. `searches used: 3/5`.
-- `web_fetch` draws on the same budget: at most 2 pages.
-- **At the cap:** if you reach 5 and gaps remain, stop searching, write up what you have, and list the
-  remaining gaps. An explicit gap beats one more search.
+- **硬上限：每个任务 5 次检索调用**（`web_search` + `tavily_search` 合计）。这是天花板，不是目标——正常情况
+  是 2-3 次，5 次是最大值。
+- **绝不超过 5，也绝不报出 5 以外的预算。** 不要自己编一个更大的数字。
+- **自己记数（强制）**：工具不报剩余预算，所以计数器就是你。每次 `think_tool` 调用都必须报出相对 5 的计数，
+  例如 `searches used: 3/5`。
+- `web_fetch` 也算在这份额度里：最多 2 个页面。
+- **撞到上限时**：如果用满 5 次还有缺口，就停手，把已有的写出来，并列出剩下的缺口。一条明说的缺口，胜过再多
+  一次检索。
 
-**Stop Immediately When**:
-- You have comprehensive information covering what the question asked
-- You have 3+ relevant high-authority sources for the key facts
-- Your last 2 searches returned similar information
+**出现下列情况立即停手**：
 
-**ANTI-LOOP RULE (MANDATORY — do not skip)**:
-- NEVER call a search tool with the exact same query twice in one research session. Repeating an identical
-  query is FORBIDDEN — it wastes budget and never returns new information.
-- If a search returns no usable content (empty result, fetch error, or irrelevant pages), do NOT retry the
-  same query. Change the keywords, try a different search tool, or move on and use the best source you
-  already have.
-- Maximum 2 attempts per individual fact. If still not found, record the gap in your findings and continue —
-  never loop.
-- If your last 2 searches returned nothing new, STOP searching and write up your findings from what you have.
-- If the primary search tool returns a rate-limit or "temporarily unavailable" message, switch to the other
-  search tool for the remaining queries — do not retry the same one.
+- 你已经拿到覆盖问题所问的全部信息
+- 关键事实已经有 3 个以上相关的高权威来源
+- 最近 2 次检索返回的是相似信息
 
-## Procedure
+**防打转规则（强制——不许跳过）**：
 
-Think like a human researcher with limited time. Follow these steps:
+- 一次调研会话里，绝不用一模一样的查询调用两次检索工具。重复同一条查询是被禁止的——它浪费预算，而且永远
+  带不回新信息。
+- 如果一次检索没有可用的内容（结果为空、抓取报错，或页面不相关），不要重试同一条查询。改关键词、换另一个检索
+  工具，或者往前走，用你手上最好的那个来源。
+- 单个事实最多尝试 2 次。还是找不到，就在发现里记下这个缺口然后继续——绝不打转。
+- 最近 2 次检索没带回任何新东西，就停止检索，用手上的材料把发现写出来。
+- 如果主检索工具返回限流或"暂时不可用"的消息，剩下的查询换另一个检索工具——不要重试同一个。
 
-1. **Read the question carefully** — what specific information does the user need?
-2. **Start with `web_search`** — batch 2-4 query variants in ONE round for broad coverage.
-3. **Follow with `tavily_search`** — deep dive on specific points and verify what you found.
-4. **Use `web_fetch` as needed** — only when a snippet is not enough.
-5. **After each search, pause and assess** — do I have enough to answer? What's still missing?
-6. **Execute narrower searches as you gather information** — fill in the gaps.
-7. **Stop when you can answer confidently** — don't keep searching for perfection.
+## 过程
 
-## Query craft
+像一个时间有限的人类调研员那样思考。按下面这些步骤走：
 
-- Write **2-4 variants**, not one. Include the topic's own language *plus* English when the subject is
-  regional (e.g. Chinese + English for a China-market question) — coverage differs significantly.
-- Reformulate after a weak pass: entity + year, the primary source's own vocabulary ("10-K", "annual
-  report", "guideline", "standard"), or a narrower sub-question.
-- **Check dates.** For "current", "latest" or year-scoped questions, discard stale material and state the
-  period your findings cover.
-- When a plan produced sub-questions, answer each one explicitly and in order. Do not silently drop the
-  hard ones.
+1. **仔细读问题**——用户究竟需要哪些具体信息？
+2. **从 `web_search` 开始**——在一轮里批量发出 2-4 个查询变体，先把覆盖面铺开。
+3. **接着用 `tavily_search`**——对具体点深挖，并核实你已经找到的东西。
+4. **按需用 `web_fetch`**——只在片段不够的时候。
+5. **每次检索之后停一下，评估**——够回答了吗？还缺什么？
+6. **随着信息积累把检索收窄**——逐一补上缺口。
+7. **能自信回答时就停**——不要为了完美一直检索下去。
 
-## Preferred sources, ranked
+## 查询构造
 
-1. **Primary/official** — the organisation's own filings, annual and interim reports, investor
-   presentations, standards, official documentation, press releases.
-2. **Regulatory & statistical** — regulators, statistical agencies, central banks, courts.
-3. **Peer-reviewed & institutional** — journals, IEA/IRENA-class institutions, universities.
-4. **Reputable financial/business press** — Reuters, Bloomberg, FT, WSJ, CNBC, Nikkei.
-5. **Wire/aggregator/listicle** — a *lead*, never evidence. Trace it back to the primary source before
-   citing it.
+- 写 **2-4 个变体**，不要只写一个。主题带地域性时，用它本地的语言**加上**英文（例如中国市场的问题用中文 +
+  英文）——两者的覆盖范围差别很大。
+- 一轮检索不力就改写：实体 + 年份、一手来源自己的用词（"10-K"、"annual report"、"guideline"、"standard"），
+  或者换一个更窄的子问题。
+- **核对日期。** 对"当前""最新"或限定年份的问题，丢掉过期材料，并说明你的发现覆盖哪个时间段。
+- 规划产出了子问题时，按顺序逐个明确回答。不要悄悄把难的那些丢掉。
 
-## Verification — the non-negotiable
+## 优先来源（分级）
 
-- **Never fabricate.** Every factual claim must trace to a result you actually retrieved. If a tool returned
-  nothing, write "not found" rather than filling the gap from memory.
-- **Cross-check** any number, date, name or price against at least two independent sources.
-- **When sources conflict**, present both and flag the disagreement — do not silently pick one.
-- Separate *what the source says* from *what you infer*. Mark estimates as estimates.
-- Quote sparingly and exactly; a mis-quoted source is worse than no quote.
+1. **一手 / 官方**——机构自己的申报文件、年报与中报、投资者演示材料、标准、官方文档、新闻稿。
+2. **监管与统计**——监管机构、统计部门、央行、法院。
+3. **同行评审与机构**——期刊、IEA/IRENA 一类机构、大学。
+4. **有声望的财经 / 商业媒体**——Reuters、Bloomberg、FT、WSJ、CNBC、Nikkei。
+5. **通稿 / 聚合站 / 清单文**——只能当*线索*，永远不能当证据。引用之前先回溯到一手来源。
 
-## Output shape
+## 核实——不可让步
 
-Return findings, not an essay:
+- **绝不编造。** 每条事实性论断都必须追溯到你真正取回的结果。工具什么都没返回，就写"未找到"，而不是凭记忆
+  把缺口填上。
+- 任何数字、日期、人名或价格，都要**交叉核对**至少两个独立来源。
+- **来源冲突时**，两个都摆出来并标出分歧——不要悄悄挑一个。
+- 把*来源说了什么*和*你推断出什么*分开。估计值就标成估计值。
+- 引用要少而准；引错一个来源，比不引用更糟。
 
-- **Every fact and figure carries its source URL inline.**
-- **`### Sources`** at the end: the URLs you actually used (not merely searched).
-- **`Unverified: ...`** as the last line for anything you could not confirm (or `Unverified: none`).
-- Keep each finding to one or two sentences; the writer step expands them, not you.
-- **No process narration.** Do not write "I will now search…", "Let me reflect…", or "I have strong
-  information from N searches" — no commentary about your own steps, and no restating these instructions.
-- If you saved a file, report its **exact** path and name, copied from the tool result.
-- Hand this structure to a writer step unchanged so the citations survive into the final document.
+## 输出的形状
 
-## Stopping rule
+交回来的是发现，不是一篇作文：
 
-Stop when every sub-question has at least one credible source, or at the 5-search cap, or after roughly
-**three** reformulation attempts on the same question — then report the gap. Searching beyond that costs
-tokens without improving the answer. "Confidently incomplete" beats "endlessly thorough".
+- **每一条事实和数字都就地带上来源 URL。**
+- 结尾一个 **`### Sources`**：你真正用过的那些 URL（不是仅仅搜过的）。
+- 最后一行是 **`Unverified: ...`**，列出你没能确认的东西（没有就写 `Unverified: none`）。
+- 每条发现控制在一两句话内；把它们展开是写作那一步的事，不是你的事。
+- **不要叙述过程。** 不要写"接下来我去搜索…""让我反思一下…""我从 N 次检索里得到了很强的信息"——不要评论
+  自己的步骤，也不要复述这些指令。
+- 如果存了文件，报告它**确切**的路径和文件名，照抄工具结果。
+- 把这个结构原样交给写作那一步，让引用活着走进最终文档。
 
-## Not this skill's job
+## 停止规则
 
-- **Decomposing** a broad topic into sub-questions → use the `research-planner` skill first.
-- **Emitting** the finished document as a file → use the `document-deliverables` skill.
+每个子问题都至少有一个可信来源时停；或者到了 5 次检索上限时停；或者同一个问题改写尝试约 **三轮** 之后就停——
+然后报告缺口。越过这个点继续检索，只烧 token，不会让答案更好。"心里有数的残缺"胜过"没完没了的详尽"。
 
-This skill covers the middle: gathering and verifying the material.
+## 不归这个技能管的事
 
-## Requirements (provided by the agent, not by this skill)
+- 把宽泛主题**拆解**成子问题 → 先用 `research-planner` 技能。
+- 把完成的文档**输出**成文件 → 用 `document-deliverables` 技能。
 
-| Tool | Needed for |
+这个技能管的是中间那一段：采集材料并核实。
+
+## Requirements（由智能体提供，本技能不提供）
+
+| 工具 | 用来做什么 |
 |---|---|
-| `web_search` | discovery and quick facts (rung 1) |
-| `tavily_search` | multi-source summaries and verification (rung 2, recommended) |
-| `web_fetch` | reading full pages (rung 3) |
-| `think_tool` | the post-search reflection + budget count (strongly recommended) |
-| `graphindex_search` / `graphindex_load` | internal documents, when the question concerns them |
+| `web_search` | 发现与快速事实（第 1 级） |
+| `tavily_search` | 多来源综述与核实（第 2 级，推荐） |
+| `web_fetch` | 整页阅读（第 3 级） |
+| `think_tool` | 检索之后的反思 + 预算计数（强烈建议） |
+| `graphindex_search` / `graphindex_load` | 内部文档，当问题涉及它们时 |
 
-Tools are selected on the **agent**, so this skill attaches unchanged to a research agent, a fact-checking
-agent, or an orchestrator that only delegates.
+工具是在**智能体**上选的，所以这个技能可以原样挂到调研智能体、事实核查智能体，或者一个只做委派的编排者身上。
 
 ---
 
-*Origin: LangConfig **hello** agent (id 159, category `general`) — three research rules (search with
-`web_search`/`web_fetch`, verify with real tool results instead of fabricating, plan long tasks with
-`write_todos`). Reconverted and reconfirmed against agent **212** (`origin_research_execution`), whose prompt
-is the validated pattern: the tool ladder, the 7-step Procedure, the Hard Limits (including the self-counted
-5-search cap and the ANTI-LOOP RULE), the `think_tool` requirement and the output contract are ported from it
-— the guardrails verbatim, because when the cap was uncounted and loosely worded the agent invented a larger
-budget ("4/8") and overshot, while the exact wording produced consistent "searches used: n/5" compliance.
-This skill adds what no single agent prompt carried: ranked source tiers, a verification section, a stopping
-rule and the requirements table. Deliberately left agent-side: role, language, workspace, and the choice of
-file tool (`write_file` on 212 / `save_document` on 211). Its document/file-output half lives in the
-`document-deliverables` skill.*
+*出处：LangConfig 的 **hello** 智能体（id 159，分类 `general`）——三条调研规则（用 `web_search`/`web_fetch`
+检索，用真实的工具结果核实而不是编造，用 `write_todos` 规划长任务）。之后对照智能体 **212**
+（`origin_research_execution`）重新转换并重新确认，它的提示词就是那个已验证的模式：工具阶梯、7 步过程、硬性限制
+（包括自己记数的 5 次检索上限和防打转规则）、`think_tool` 要求和输出契约都移植自它——护栏是逐字照搬的，因为在
+上限不记数、措辞松的时候，智能体自己编了一个更大的预算（"4/8"）并且超支，而确切的措辞让 "searches used: n/5"
+的遵守变得稳定。本技能补上了任何单个智能体提示词都没带的东西：来源分级、核实一节、停止规则和需求表。刻意留在
+智能体侧的是：角色、语言、工作区，以及文件工具的选择（在 212 上是 `write_file`，在 211 上是 `save_document`）。
+它的文档 / 文件输出那一半活在 `document-deliverables` 技能里。*
