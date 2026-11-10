@@ -191,6 +191,32 @@ Grounded in what the app renders today (`chart.js`, `d3-sankey`, `d3-hierarchy`,
   a second thing to keep in sync.
 - **`plotly` + `chart.js` together**, **`streamlit`-style second app**, **another deck generator**.
 
+## 6b. Defects in the sources we vendored — found while translating, and what was done
+
+Translating 102 skills to Chinese (see §5e of `skill-authoring.md`) put every line of every skill under a
+reader's eye, which is the only audit this library has ever had. The defects below were inherited from the
+upstream sets or from the generators that imported them. Each is either **fixed in both languages** or
+**recorded here as still broken**, so nobody has to rediscover it:
+
+| Defect | Where | State |
+|---|---|---|
+| `allowed_tools` split into one list item per character, rendering `**Allowed Tools:** [, ", w, e, b, …` into every prompt | `web-search` | fixed; guard: `test_allowed_tools_is_a_list_of_tool_names` |
+| `allowed-tools` (Anthropic spelling) ignored by the loader, so 16 skills' tool lists never reached a prompt | 16 skills | fixed in `SkillLoader`; guard: `test_the_loader_sees_a_declared_tool_list` |
+| A link target rewritten into a sentence: `(.the \`triage\` skill-labels.md)` | `setup-matt-pocock-skills` | fixed; the importer's slash rule no longer reaches inside a path; guard: `test_no_markdown_link_target_is_reworded` |
+| Triggers that were a scrape of the description's first line, or an unfilled `When asked to <overview>` | 24 skills (both languages) | fixed; no placeholder tokens remain |
+| Descriptions cut mid-word by the generator (`…technical analysi`, `…Slower but more fl`) | 5 skills | completed in both languages |
+| Skills addressed by an id that does not exist (`\`ecosystem-primer\`` instead of `lc-ecosystem-primer`) | 58 skills | fixed; guard: `test_a_referenced_skill_id_is_the_id_that_exists` |
+| A second frontmatter block in the body, served to the model as instructions | `web-search` | removed |
+| `ask-matt` said "two on-ramps" and listed three | `ask-matt` | count corrected |
+| `writing-beats` step 5 said "Loop steps 3–5" from inside step 5 | `writing-beats` | range corrected to 3–4 |
+| The `## Examples` section counted as a heading but the examples themselves were untranslated templates | `document-deliverables` | translated as examples |
+| **TypeScript approval example does not compile** — undefined `EmailAgentState`, and `state.emailContent` / `state.responseText` do not match the Python node's `email_content` / `draft_response` | `lc-langgraph-human-in-the-loop` | **still broken** — left byte-identical on purpose: it is upstream's code, and inventing a fix inside a translated fence would hide the defect instead of recording it |
+| `## This repository's floor` appended to skills where it is irrelevant (it describes *this* repo's backend suite and its 20 pre-existing failures) | the six `lc-*-quickstart` skills | **still there** — the floor is inert advice in a scaffold-a-new-project skill; trimming it per skill is a separate pass |
+| The whole library's floor section referenced `ecosystem-primer`, which never existed under that id | 58 skills | fixed (see the row above) |
+
+The general lesson, which is why this table exists: **a translation is an audit.** Every defect above was
+invisible to the loader, the tests, the UI and every earlier review — none of them read the body line by line.
+
 ## 7. Where each item lands
 
 | Change | File / path | Effort |
