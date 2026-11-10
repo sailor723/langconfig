@@ -181,6 +181,55 @@ Two things the build proved about gate ids: naming them in the contract makes th
 **report numbers** instead of claiming success, and an agent that cannot run a gate says so
 (the compiler lived in another repository, so it said "not run" — the honest answer).
 
+## 5e. Which language a skill is written in
+
+**The text an agent reads is Chinese.** `backend/skills/builtin/<id>/SKILL.md` holds the Chinese body;
+the English it came from is archived to `backend/skills/en-originals/<id>/SKILL.md`, which sits *outside*
+both scanned roots (`builtin/`, `personal/`) so nothing stages it, indexes it, or puts it in a context
+unless a caller asks for `skill(id, lang="en")` by name.
+
+| State | Where it is declared | What the test asserts |
+|---|---|---|
+| translated | an archive exists at `en-originals/<id>/SKILL.md` | the body is Chinese, its structure matches the original, `lang: zh` and `source:` are in the frontmatter |
+| authored in Chinese | `backend/skills/zh-native.txt` | there is no English original; the body is Chinese |
+| still English | `backend/skills/pending-zh.txt` | the body really is English — the list cannot drift into a wish-list |
+
+Every skill is in exactly one state, checked in both directions
+(`backend/tests/test_skill_translations.py`): a skill in two lists fails, a skill in none fails, and a
+skill listed as pending whose body is already Chinese fails.
+
+**Three things a translation can silently break**, all now guarded:
+
+1. **`## Instructions` and `## Examples` are delimiters, not prose.** `SkillLoader._parse_body_sections`
+   and `skill_row_to_markdown` match those words by prefix. Translating the heading to `## 指令` does not
+   raise — it switches the file to "the whole body is the instructions", `examples` becomes `None`, and the
+   DB round-trip writes a second English heading back. Write `## Instructions（指令）`: the word stays, the
+   Chinese sits beside it. 66 of 102 skills carry that heading.
+2. **A dropped step is a different procedure under the same name.** Heading count and code-fence count must
+   match the archived original; a loader cannot see the difference, so the test does.
+3. **A translation that gave up.** Measured across the hand translations, Chinese runs 1.14–1.91 CJK
+   characters per English word, so the floor is `max(3, 0.6 × English words)` — proportional, because a
+   translation cannot be larger than its source. A fixed floor of 200 failed the two-line demo skills, which
+   is the wrong direction for a guard to fail.
+
+Move a skill with the script, never by hand:
+
+```bash
+python scripts/skill_zh.py archive <id>      # freeze the English (only needed when translating from a
+                                             # file whose archive is missing)
+python scripts/skill_zh.py check   <id>      # validate the staged translation, change nothing
+python scripts/skill_zh.py promote <id>      # archive, install, drop from pending-zh.txt
+python scripts/skill_zh.py status            # how many skills are in which language
+```
+
+`check` and `promote` run *the same checks as the test* before the file can become the version agents read:
+structure parity, delimiter preservation, CJK density, frontmatter provenance, and a real `SkillLoader`
+parse of the staged text. After promoting, `POST /api/skills/reload-all` (or a restart) re-syncs the DB —
+the catalog is what agents actually see.
+
+Translations stay in `backend/skills/.zh-staging/<id>.md` while in flight; that directory is gitignored,
+because a half-checked translation must never look like a language the library has.
+
 ## 6. Measuring — use the checkpointer, not the chat log
 
 `chat_sessions.tool_calls` **double-counts batched tool calls** (observed: 16 recorded vs 12 real; 10

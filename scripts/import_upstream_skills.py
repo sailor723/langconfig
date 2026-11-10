@@ -67,6 +67,7 @@ PATH_REWRITES: list[tuple[str, str]] = [
     (".agents/execution-reports/", "docs/tickets/"),
     ("docs/adr/", "docs/adr/"),
     ("/setup-matt-pocock-skills", "`Skills` activity (or this file's Setup section)"),
+    ("issue trackers", "`docs/tickets/` directories"),
     ("the issue tracker", "`docs/tickets/`"),
     ("issue tracker", "`docs/tickets/`"),
     ("your issue tracker", "`docs/tickets/`"),
@@ -115,8 +116,12 @@ FLOOR = """\
   `ecosystem-primer` rule — and prefer the highest layer that does the job.
 """
 
+# The lookbehind excludes `.` and `/` because a slash command is never part of a relative link
+# target: `- [triage-labels.md](./triage-labels.md)` was rewritten into
+# `(.the \`triage\` skill-labels.md)`, a link that resolves to nothing. The lookahead excludes `-` for the
+# same reason — `/triage-labels.md` is a filename, not a command.
 SKILL_SLASH = re.compile(
-    r'(?<![`\w])/(to-spec|to-tickets|to-validation|grill-me|grilling|tdd|code-review|implement|implement-spec|triage|pr|retro|teach|handoff|wizard|ask-matt|prototype|wayfinder|setup-matt-pocock-skills)(?![\w`])')
+    r'(?<![`\w./-])/(to-spec|to-tickets|to-validation|grill-me|grilling|tdd|code-review|implement|implement-spec|triage|pr|retro|teach|handoff|wizard|ask-matt|prototype|wayfinder|setup-matt-pocock-skills)(?![\w`-])')
 
 PROVENANCE_TEMPLATE = """\
 > **Provenance.** Adapted from `{upstream}` (MIT, vendored at `{vendor_path}`).
@@ -328,6 +333,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Regenerate our skills from the vendored upstream sets.")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--only", default=None)
+    ap.add_argument("--force", action="store_true",
+                    help="overwrite skills that are already Chinese (undoes a translation — rarely wanted)")
     args = ap.parse_args(argv)
 
     written, skipped, collisions = [], [], []
@@ -358,6 +365,14 @@ def main(argv: list[str] | None = None) -> int:
                     + old, encoding="utf-8")
                 print(f"  preserved ours as {target_id}/{REPLACE_KEEPING_OURS_AS[target_id]}")
             text, meta = transform(skill_md, collection)
+            chinese = dest_dir / "SKILL.md"
+            if chinese.exists() and len(re.findall(r"[\u4e00-\u9fff]", chinese.read_text(encoding="utf-8",
+                                                                                     errors="replace"))) > 200 \
+                    and not getattr(args, "force", False):
+                # Regenerating English over a translated skill would silently undo the translation: the
+                # archive beside it would then describe a text that is no longer there.
+                skipped.append((target_id, "already Chinese — translated skills are not regenerated"))
+                continue
             if not args.dry_run:
                 dest_dir.mkdir(parents=True, exist_ok=True)
                 (dest_dir / "SKILL.md").write_text(text, encoding="utf-8")

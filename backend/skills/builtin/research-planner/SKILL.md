@@ -1,45 +1,42 @@
 ---
-name: research-planner
+name: research-planner（调研规划）
+lang: zh
+translated: machine
+source: backend/skills/en-originals/research-planner/SKILL.md
 description: >-
-  Decompose a broad research topic into 4-8 focused, independent sub-queries that can be
-  researched in parallel, covering concepts, entities, timelines, relationships and
-  perspectives. Use when planning research, scoping a topic, breaking a question into
-  searchable sub-questions, or before a multi-step web-research run.
+  把一个宽泛的调研主题拆成 4-8 个聚焦、独立、可以并行调研的子查询，覆盖概念、实体、时间线、关系与视角。当你在
+  规划调研、圈定一个主题的范围、把一个问句拆成可搜索的子问题，或在一次多步网页调研之前，使用它。
 tags: [research, planning, decomposition, sub-queries, methodology]
 triggers:
-  - "when user asks to research a topic or plan a study"
-  - "when a broad question needs breaking into sub-questions"
-  - "when user says 'research plan', 'sub-queries' or 'decompose this topic'"
-  - "before multi-step web research"
+  - "当用户要求调研某个主题或规划一项研究时"
+  - "当一个宽泛的问题需要拆成子问题时"
+  - "当用户说'调研计划''子查询'或'把这个主题拆开'时"
+  - "在多步网页调研之前"
 allowed-tools: []
 author: LangConfig
 ---
 
-Decompose a research topic into a comprehensive set of focused, independent sub-queries. The expertise
-this encodes is information architecture, research methodology and query formulation.
+把一个调研主题拆成一组完整、聚焦、彼此独立的子查询。这里固化的专业能力是信息架构、调研方法与查询构造。
 
-**This skill needs no tool calls.** It is pure reasoning: read the topic, return the plan. Do not
-search, fetch or write files as part of producing the decomposition.
+**这个技能不需要任何工具调用。** 它是纯推理：读主题，返回计划。在产出拆解的过程中，不要搜索、抓取或写文件。
 
-## Process
+## 过程
 
-1. Understand the scope and depth the main topic requires.
-2. Identify key concepts, entities, timelines, relationships and perspectives.
-3. Formulate **4-8** specific questions that, answered collectively, give complete coverage.
-4. Ensure the questions are independent and can be researched **in parallel**.
+1. 理解主主题所需要的范围与深度。
+2. 找出关键概念、实体、时间线、关系与视角。
+3. 拟出 **4-8** 个具体问题，把它们合起来回答，就构成完整覆盖。
+4. 确保这些问题彼此独立，可以**并行**调研。
 
-## Constraints
+## 约束
 
-- Questions must be specific and answerable through web research.
-- Avoid overlap between questions — two questions that return the same sources are one question.
-- Cover all essential aspects of the topic; do not stop at the first obvious angle.
-- When the topic has a time dimension, scope it explicitly (e.g. "as of 2026") rather than leaving
-  it open.
+- 问题必须具体，并且能通过网页调研回答。
+- 避免问题之间重叠——两个返回同样来源的问题，其实是同一个问题。
+- 覆盖主题所有本质的方面；不要停在第一个显而易见的视角上。
+- 当主题带有时间维度时，明确限定它（例如"截至 2026 年"），而不是把它留成开放式。
 
-## Output
+## 输出
 
-Return **only** a JSON array of strings — no prose, no headings, no code fence, no commentary
-before or after:
+**只**返回一个 JSON 字符串数组——不要散文、不要标题、不要代码围栏、前后不要任何评注：
 
 ```json
 [
@@ -49,30 +46,26 @@ before or after:
 ]
 ```
 
-**CRITICAL: the response must be ONLY the JSON array — nothing else.** No preamble, no explanation, no
-summary of the plan in prose.
+**关键：回复必须只有那个 JSON 数组——别无其他。** 不要前言、不要解释、不要在散文里复述这个计划。
 
-If the host agent supports structured output, enforce this shape with a schema rather than relying
-on the instruction alone — for example
-`response_format={"type": "array", "items": {"type": "string"}}`.
-Prompt-only contracts are reliable on a fresh turn and drift on follow-ups; the schema is not.
+如果宿主智能体支持结构化输出，用 schema 强制这个形状，而不是只靠这句指令——例如
+`response_format={"type": "array", "items": {"type": "string"}}`。
+只靠提示词的契约在全新的回合上可靠，在多轮追问中会漂移；schema 不会。
 
-## Using the result
+## 使用结果
 
-The sub-queries are deliberately independent, so the caller can:
+这些子查询是刻意保持独立的，所以调用方可以：
 
-- run them as a **parallel fan-out** (LangGraph `Send`, or one subagent per query), or
-- issue them as separate searches and synthesise afterwards, or
-- hand them to a writer/critic step as a research checklist.
+- 把它们当成一次**并行扇出**来跑（LangGraph `Send`，或者每个查询一个子智能体），或
+- 把它们作为彼此独立的搜索发出去，之后再综合，或
+- 交给写手/评审那一步，当作一份调研清单。
 
-For a single-topic question that one search would answer, skip this skill — decomposition is
-overhead when the answer is not multi-hop.
+对于一个搜索就能回答的单主题问题，跳过这个技能——当答案不是多跳的时候，拆解只是额外开销。
 
 ---
 
-*Reconverted from the LangConfig **Research Planner** agent (id 161, category `system`, authored base 944
-chars). Ported from it: the process, the constraints and the JSON-only output contract with its CRITICAL
-emphasis. Added during conversion: the description in what+when form for skill discovery, the
-structured-output recommendation, the parallel-fan-out note, and the "skip this skill when the answer is not
-multi-hop" guard. Left agent-side: the role/identity framing, the model, the language preference and the
-baked workspace blocks. This skill needs no tools — it is pure reasoning and enables nothing.*
+*从 LangConfig 的 **Research Planner** 智能体重新转换而来（id 161，分类 `system`，作者基底 944
+字符）。从它移植过来的是：过程、约束，以及只输出 JSON 的输出契约和它对"关键"的强调。转换时新增的：采用
+what+when 形式、便于技能发现的 description，结构化输出建议，并行扇出说明，以及"当答案不是多跳时就跳过
+这个技能"的守卫。留在智能体侧的是：角色/身份框架、模型、语言偏好，以及烘进其中的工作区块。这个技能不需要
+工具——它是纯推理，不启用任何东西。*

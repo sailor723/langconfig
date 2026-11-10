@@ -1,8 +1,7 @@
 ---
-name: Web Search
-description: Search the web for the latest news, current events, and recent information.
-  Use when the user asks about today's news, current events, breaking news, recent
-  updates, latest developments, or any external facts not in their training data.
+name: Web Search（网络搜索）
+description: >-
+  在网络上检索最新新闻、时事与近期信息。当用户询问今日新闻、时事、突发新闻、最新更新、最新进展，或询问任何不在其训练数据中的外部事实时使用。
 version: 1.0.0
 author: User
 tags:
@@ -12,78 +11,27 @@ tags:
 - research
 - search
 triggers:
-- when user asks about the latest news
-- when user asks about current events or breaking news
-- when user asks what's new or what's happening today
-- when user needs the most recent information on a topic
-- when user asks about recent events or current news
-- when user needs external facts not in their training data
-- when user asks to search the web for information
-- when user wants to find URLs related to a specific topic
-- when user asks to look up something online
-- when user asks to verify a fact or claim
+- 当用户询问最新新闻时
+- 当用户询问时事或突发新闻时
+- 当用户问有什么新鲜事、今天发生了什么时
+- 当用户需要某个主题的最新信息时
+- 当用户询问近期事件或当前新闻时
+- 当用户需要其训练数据之外的外部事实时
+- 当用户要求在网上搜索信息时
+- 当用户想找与某个主题相关的 URL 时
+- 当用户要求上网查点东西时
+- 当用户要求核实某个事实或说法时
 allowed_tools:
-- '['
-- '"'
-- w
-- e
-- b
-- _
-- s
-- e
-- a
-- r
-- c
-- h
-- '"'
-- ','
-- ' '
-- '"'
-- f
-- e
-- t
-- c
-- h
-- _
-- u
-- r
-- l
-- '"'
-- ','
-- ' '
-- '"'
-- w
-- r
-- i
-- t
-- e
-- _
-- f
-- i
-- l
-- e
-- '"'
-- ','
-- ' '
-- '"'
-- r
-- e
-- a
-- d
-- _
-- f
-- i
-- l
-- e
-- '"'
-- ']'
----
-
-## Instructions
+- web_search
+- fetch_url
+- write_file
+- read_file
+lang: zh
+translated: machine
+source: backend/skills/en-originals/web-search/SKILL.md
 
 ---
-name: web-research
-description: Searches multiple web sources, synthesizes findings, and produces cited research reports using delegated subagents. Use when the user asks to research a topic online, search the web, look something up, find current information, compare options, or produce a research report.
----
 
-# Web Research Skill
+## Instructions（指令）
+
+# 网络调研技能

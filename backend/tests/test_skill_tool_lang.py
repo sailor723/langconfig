@@ -58,13 +58,25 @@ def test_no_private_helper_is_decorated_as_a_tool():
 
 
 def test_the_default_language_is_chinese():
-    translated = [d.name for d in (REPO / "backend" / "skills" / "en-originals").iterdir()
-                  if d.is_dir()] if (REPO / "backend" / "skills" / "en-originals").is_dir() else []
+    """Serve the biggest translated skill: the point is the language, not which id sorts first.
+
+    Picking `sorted(...)[0]` made this test a function of naming — it passed while `bug-report-analyzer`
+    was pending and failed the moment it was translated, because that skill's whole body is five steps and
+    never reaches 200 CJK characters. Ranking by English word count keeps the assertion meaningful.
+    """
+    archive = REPO / "backend" / "skills" / "en-originals"
+    translated = [d.name for d in archive.iterdir() if (d / "SKILL.md").is_file()] if archive.is_dir() else []
     if not translated:
         pytest.skip("no translated skill yet")
-    body = _call(skill_id=sorted(translated)[0])
+
+    def english_words(skill_id: str) -> int:
+        return len(re.findall(r"\b[A-Za-z]{3,}\b", (archive / skill_id / "SKILL.md").read_text(encoding="utf-8")))
+
+    skill_id = max(translated, key=english_words)
+    body = _call(skill_id=skill_id)
     assert len(re.findall(r"[\u4e00-\u9fff]", body)) > 200, (
-        "the default body must be the Chinese working text — that is the decision this repository made")
+        f"the default body of {skill_id} must be the Chinese working text — that is the decision this "
+        "repository made")
 
 
 @pytest.mark.parametrize("skill_id", ["grilling"])

@@ -23,6 +23,7 @@ import pathlib
 import re
 
 import pytest
+import yaml
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 SKILLS = REPO / "backend" / "skills" / "builtin"
@@ -155,3 +156,54 @@ def test_ids_are_unique_and_kebab_case():
     assert len(ids) == len(set(ids)), "two directories claim the same skill id"
     bad = [i for i in ids if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", i)]
     assert not bad, f"the skill tool addresses skills by id; these are not kebab-case: {bad}"
+
+
+@pytest.mark.parametrize("path", _skill_files(), ids=lambda p: p.parent.name)
+def test_allowed_tools_is_a_list_of_tool_names(path: pathlib.Path):
+    """`allowed_tools` is printed into the prompt, so a broken list is text the model reads.
+
+    Found in `web-search`: the frontmatter carried the literal string `["web_search", "fetch_url",
+    "write_file", "read_file"]` exploded into one list item per character, so
+    `core/agents/factory/prompting.py` rendered `**Allowed Tools:** [, ", w, e, b, _, s, e, a, r, …` into
+    every prompt that used the skill. Nothing failed — a list of characters is still a list — which is why
+    the shape has to be asserted rather than the presence.
+    """
+    text = path.read_text(encoding="utf-8")
+    if not text.startswith("---"):
+        pytest.skip("no frontmatter")
+    end = text.find("\n---", 3)
+    frontmatter = yaml.safe_load(text[3:end]) or {}
+    for key in ("allowed_tools", "allowed-tools"):
+        value = frontmatter.get(key)
+        if value is None:
+            continue
+        assert isinstance(value, list), (
+            f"{path.parent.name}: `{key}` is {type(value).__name__}, but the prompt code joins it as a list")
+        for item in value:
+            assert isinstance(item, str) and re.fullmatch(r"[a-z][a-z0-9_]*", item), (
+                f"{path.parent.name}: `{key}` contains {item!r}, which is not a tool name — a serialisation "
+                "slip turns the prompt line into noise")
+        fragments = [s for s in value if s in {"[", '"', ","} or len(s) <= 2]
+        assert not fragments, (
+            f"{path.parent.name}: `{key}` looks like a serialised string split per character: {value[:8]}")
+
+
+def test_no_markdown_link_target_is_reworded():
+    """A link target is a path, not prose — the importer's prose rewrites must not reach inside one.
+
+    Measured: `- [triage-labels.md](./triage-labels.md)` became `(.the \\`triage\\` skill-labels.md)` when the
+    `/triage` slash-command rule matched the tail of the relative path, and the same pass turned
+    `For "other" issue trackers` into `For "other" \\`docs/tickets/\\`s`. A link with a sentence in it resolves
+    to nothing, and nothing fails at load time, so this asserts the shape instead.
+    """
+    offenders = []
+    for path in _skill_files():
+        for match in re.finditer(r"\]\(([^)]*)\)", path.read_text(encoding="utf-8")):
+            target = match.group(1)
+            if target.startswith(("data:", "#", "mailto:")):      # inline payload / anchor: not a path
+                continue
+            if "`" in target or " " in target.strip():
+                offenders.append((path.parent.name, target))
+    assert not offenders, (
+        f"a link target contains prose rather than a path: {offenders[:5]} — a rewrite pass reached inside "
+        "the brackets")

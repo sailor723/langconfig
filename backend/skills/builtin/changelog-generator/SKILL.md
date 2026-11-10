@@ -1,6 +1,6 @@
 ---
-name: Changelog Generator
-description: Generates formatted changelogs from git commit messages or release notes.
+name: Changelog Generator（变更日志生成器）
+description: 根据 git 提交信息或发布说明生成格式化的变更日志。
 version: 1.0.0
 author: AI Generated
 tags:
@@ -8,11 +8,14 @@ tags:
 - release
 - git
 triggers:
-- generate changelog
-- create release notes
-- what changed
+- 生成变更日志
+- 撰写发布说明
+- 都有哪些改动
+lang: zh
+translated: machine
+source: backend/skills/en-originals/changelog-generator/SKILL.md
 ---
 
-## Instructions
+## Instructions（指令）
 
-Step 1: Read the input. Step 2: Categorize entries (Features, Bug Fixes, Improvements, Deprecations). Step 3: Deduplicate and group. Step 4: Format as markdown. Step 5: Output.
+步骤 1：读取输入。步骤 2：对条目分类（Features、Bug Fixes、Improvements、Deprecations）。步骤 3：去重并分组。步骤 4：格式化为 markdown。步骤 5：输出。
