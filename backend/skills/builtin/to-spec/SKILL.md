@@ -1,103 +1,82 @@
 ---
-name: To Spec
+name: To Spec（写成规格）
+lang: zh
+translated: human
+source: backend/skills/en-originals/to-spec/SKILL.md
 description: >-
-  Turn settled decisions into one written specification: the problem, the decisions that were made and
-  by whom, what is in and out of scope, and the acceptance criteria a validator will later check. Use
-  after a grill round, or when a request is clear enough to write down but nobody has. It refuses to
-  write a spec while a decision is still open — that is what Grilling is for.
-tags: [spec, requirements, design, decisions, plan, acceptance-criteria]
-triggers:
-  - After a grill round, when the frontier is empty and the decisions should be recorded in one place
-  - When a request is clear but nobody has written down what "done" means
-  - Before cutting tickets, so the tickets have one parent they can cite
-  - When two people remember the same requirement differently
-allowed_tools: [read_file, write_file, grep, glob, ls, skill]
-author: weiping
-version: 1.0
-params:
-  spec_dir: "where specs live (default: docs/specs)"
-  grill_path: "the grill.md this spec came from, if any (default: work/<scope>/grill.md)"
+  把已定的决定写成一份规格：问题是什么、做了哪些决定由谁做的、范围之内与范围之外、以及验证者之后要逐条检查的
+  验收标准。在一轮 grill 之后使用，或当请求已经清楚到可以写下来但没人写的时候使用。只要还有决定未定，它就拒绝写
+  规格——那是 Grilling 的活。
 ---
 
-## Instructions
+## 指令
 
-A spec is the one document a ticket, an implementer and a validator can all cite. It records decisions,
-not intentions: if a sentence could be true after any implementation, it does not belong here.
+规格是票据、实现者和验证者三方都能引用的那一份文档。它记录的是**决定**，不是意图：一句话如果在任何实现之后
+都成立，它就不属于这里。
 
-### Step 0 — Is it specifiable yet?
+### 第 0 步——现在可以写规格了吗？
 
-List the decisions the work depends on. For each, is it **settled** (a grill answer, a prior doc, the
-user said so) or **open**? If anything material is open, stop and say: *"N decisions are still open:
-…; run Grilling first."* Writing a spec on top of open decisions produces a document that reads
-confidently and is wrong.
+列出这项工作依赖的决定。逐个判断：它是**已定的**（grill 的答案、先前的文档、用户说过），还是**开着的**？
+只要有实质性的还开着，就停下来并说：*"还有 N 个决定未定：…；先跑 Grilling。"* 在未定决定之上写出的规格，
+读起来自信，但它是错的。
 
-### Step 1 — Gather what is already decided
+### 第 1 步——把已经定下的收集起来
 
-- `grill_path` (default `work/<scope>/grill.md`) — the decisions, verbatim, with their reasons.
-- `GLOSSARY.md`, `docs/adr/` — terminology and architecture decisions this work must not contradict.
-- The code and declarations the work touches — a spec that proposes something the repository already
-  does is worse than no spec.
-- The request/ticket that started this — the words the person actually used.
+- `grill_path`（默认 `work/<scope>/grill.md`）——那些决定，逐字保留，连同理由。
+- `GLOSSARY.md`、`docs/adr/`——本工作不得与之矛盾的术语与架构决定。
+- 会被触及的代码与声明——一份提议"仓库已经做到的事"的规格，比没有规格更糟。
+- 引出这项工作的请求/票据——那个人**实际用过的措辞**。
 
-### Step 2 — Write the spec
+### 第 2 步——写规格
 
-Path: `params.spec_dir/<slug>.md`. Sections, in this order (the order is the argument):
+路径：`params.spec_dir/<slug>.md`。章节按这个顺序（顺序本身就是在论证）：
 
 ```
-# <title>
+# <标题>
 
-Status: draft | agreed (<date>)   ·   Decisions from: <grill.md / conversation / ADR n>   ·   Author: <agent|person>
+状态：draft | agreed（<日期>）   ·   决定来源：<grill.md / 对话 / ADR n>   ·   作者：<agent|人>
 
-## Problem
-What is wrong today, in one paragraph, with the evidence that it is wrong (a file:line, a number, a
-user's sentence). Not "we want a better X".
+## 问题
+今天哪里不对，一段话，附上"它确实不对"的证据（一个 file:line、一个数字、用户的一句话）。不要写"我们想要更好的 X"。
 
-## Decisions
-| # | Decision | Why | Source |
+## 决定
+| # | 决定 | 为什么 | 来源 |
 |---|---|---|---|
-| D1 | <decision> | <one line of reasoning> | grill Q3 / ADR 0002 |
+| D1 | <决定> | <一行理由> | grill Q3 / ADR 0002 |
 
-## Scope
-In: <the smallest thing that delivers the decisions>.
-Out: <what this deliberately does not do, named so nobody assumes it was covered>.
+## 范围
+之内：<交付这些决定的最小集合>。
+之外：<本工作有意不做的事，点名写出，使任何人都不会以为它被覆盖了>。
 
-## Acceptance criteria
-Numbered, each checkable by a command, a query, or a file:line. Each one is what `to-validation` will
-later judge PASS/FAIL. If you cannot say how it will be checked, it is not a criterion.
+## 验收标准
+逐条编号，每条都能被一条命令、一个查询或一个 file:line 检查。每一条就是之后 `to-validation` 要判 PASS/FAIL
+的东西。如果你说不出它将如何被检查，它就不是一条标准。
 
-| # | Criterion | How it will be checked |
+| # | 标准 | 将如何检查 |
 |---|---|---|
-| AC1 | … | `pytest tests/test_x.py::test_y` exits 0 |
-| AC2 | … | `curl -s -o /dev/null -w '%{http_code}' …/api/x` prints 200 |
+| AC1 | … | `pytest tests/test_x.py::test_y` 退出码 0 |
+| AC2 | … | `curl -s -o /dev/null -w '%{http_code}' …/api/x` 输出 200 |
 
-## Risks and reversibility
-What breaks if this is wrong, and how it is undone. If undo is expensive, say so here, not in review.
+## 风险与可逆性
+如果判断错了会破坏什么，以及怎么撤销。撤销代价高就写在这里，而不是留到评审时。
 
-## What would change this spec
-The evidence that would move a decision. This is what turns a spec into something a reader can argue
-with rather than obey.
+## 什么会改变这份规格
+能够改变某个决定的证据。正是这一段，把规格变成读者可以**与之争辩**的东西，而不是必须遵守的东西。
 ```
 
-Rules:
+规则：
 
-- **Every decision cites its source.** A decision with no source is your invention, and should be an
-  open question instead.
-- **Acceptance criteria are outcome-shaped and few.** Five that a machine can check beat fifteen that
-  sound thorough. "Better UX" is not a criterion; "the panel shows 0 rows and a reason when the endpoint
-  returns 412" is.
-- **Scope out is a list, not a vibe.** Name the tempting adjacent thing you are not doing.
-- **No implementation.** No file paths to create beyond what the criteria need, no function names unless
-  a decision fixed them. The implementer owns the how; the spec owns the what and the why.
+- **每个决定都引用来源。** 没有来源的决定是你的发明，它应该是一个待问的问题。
+- **验收标准是结果形态的，而且很少。** 五条机器可查的，胜过十五条听起来周全的。"更好的 UX"不是标准；
+  "端点返回 412 时，面板显示 0 行并给出原因"是。
+- **"范围之外"是一份清单，不是一种感觉。** 把那个诱人的相邻事项点名写出来，说明你不做它。
+- **不写实现。** 除了标准所需要的文件路径之外不指定任何路径，除非某个决定已经确定了函数名，否则不写函数名。
+  实现者拥有"怎么做"，规格拥有"做什么"与"为什么"。
 
-### Step 3 — Read it back before confirming
+### 第 3 步——确认之前先读回一遍
 
-Present the Decisions table and the Acceptance criteria to the user, and ask two questions only:
-*"Are these the decisions you agreed?"* and *"Would you check any of these criteria differently?"*
-Then set `Status: agreed` when they answer. One round, not an interview — if it turns into an interview,
-the grill was incomplete and you should say so.
+把 Decisions 表和 Acceptance criteria 摆给用户，只问两个问题：*"这些就是你同意的决定吗？"* 和
+*"其中哪一条标准你会用不同的方式检查？"* 他们回答之后，把状态设为 `agreed`。**一轮，不是一场访谈**——
+如果它变成了访谈，说明 grill 没做完，你应该这样说出来。
 
-### When NOT to use this
-
-- The work is a one-line fix with an obvious check: write the criterion in the ticket and move on.
-- The decisions are open: grill first.
-- The user wants a plan of steps: that is `to-tickets`, and it needs this spec as its parent.
+### 什么时候不要用

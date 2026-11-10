@@ -1,129 +1,107 @@
 ---
-name: Validate Acceptance
+name: Validate Acceptance（逐条验收）
+lang: zh
+translated: human
+source: backend/skills/en-originals/to-validation/SKILL.md
 description: >-
-  Prove that finished work actually met its acceptance criteria, one criterion at a time, with evidence
-  from this repository. Use when someone says "done", "finished", "is it working", "validate this",
-  "to-validation", or when a build/refactor/fix claims completion and nobody has run the checks. It
-  produces PASS / FAIL / PARTIAL / UNVERIFIABLE per criterion, each backed by a command, a file:line or
-  a query result — never by the implementer's own summary.
-tags: [validation, acceptance-criteria, verification, evidence, gates, review, quality]
-triggers:
-  - When work is claimed complete and acceptance criteria exist somewhere (a grill.md, a plan, a request)
-  - When the user says validate / to-validation / "prove it" / "is it really done"
-  - Before an ontology publish, a merge, or a hand-off to another person
-  - When a build or agent reports success and you cannot see the evidence in its answer
-  - When a criterion was "deferred because the environment does not allow it"
-allowed_tools: [read_file, write_file, grep, glob, ls, bash, python_execute, pg_query, sqlite_execute]
-author: weiping
-version: 1.0
-params:
-  report_path: "where the report goes (default: work/<scope>/validation.md)"
-  baseline: "a command whose output is the PRE-CHANGE state, when 'not worse' is the criterion"
+  证明完成的工作真的满足了它的验收标准：一条一条来，用本仓库里的证据（命令、file:line、查询结果）。
+  当有人说"做完了""好了""验证一下""to-validation"，或一个构建/重构/修复声称完成却没人跑过检查时使用。
+  它逐条给出 PASS / FAIL / PARTIAL / UNVERIFIABLE，每格都有证据——绝不用实现者自己的总结当证据。
 ---
 
-## Instructions
+## 指令
 
-You are the check, not the author. Report what the evidence shows; **do not fix anything** in this
-skill — a fixer and a validator in one pass is how "looks right" gets written down as "verified".
+**你是检查者，不是作者。** 只报告证据显示的东西；**这个技能里不修任何东西**——让一个人既修又验，就是把
+"看起来对"写成"已验证"的方式。
 
-### Step 0 — Refuse to validate nothing
+### 第 0 步——拒绝验证"没有东西"
 
-Validation needs criteria. If the conversation holds no request, plan, spec or `grill.md`, say so and
-stop: *"I need the request, the plan file, or the criteria to validate against."* Deriving criteria from
-a vague memory of what was asked is guessing with a table around it.
+验证需要标准。如果对话里没有请求、计划、规格或 `grill.md`，就说出来并停下：*"我需要请求、计划文件，或要
+验证的标准。"* 从对"当初问了什么"的模糊记忆里推导标准，是给猜测套了一张表。
 
-### Step 1 — Find the criteria, in this order
+### 第 1 步——按这个顺序找标准
 
-1. **`work/<scope>/grill.md`** — the settled decisions from a grill round. These are the strongest
-   kind: somebody already agreed they are the definition of done.
-2. **A plan/spec/ticket file** — look for `## Acceptance Criteria`, `## Success Criteria`,
-   `## Done when`, `## Validation gate`, and any checklist whose items are phrased as outcomes.
-3. **The request itself** — explicit "it should…", "done when…", numbered requirements.
-4. **Nowhere** → propose 5–8 criteria across the dimensions (correctness, error paths, integration,
-   data, non-functional, explicitly out of scope) and ask the user to accept or edit them. **Do not
-   proceed until they answer** — an unaccepted criterion is not a criterion.
+1. **`work/<scope>/grill.md`** —— 一轮 grill 敲定的决定。这是最强的一种：已经有人同意它们就是"完成"的定义。
+2. **计划/规格/票据文件** —— 找 `## Acceptance Criteria`、`## Success Criteria`、`## Done when`、
+   `## Validation gate`，以及任何条目写成"结果"形态的清单。
+3. **请求本身** —— 明确的"它应该…""完成时…"、编号的需求。
+4. **哪里都没有** → 跨这些维度（正确性、错误路径、集成、数据、非功能、明确不在范围内）提出 5–8 条标准，
+   请用户接受或修改。**在他们回答之前不要往下走**——没被接受的标准不是标准。
 
-Write the criteria down before evaluating anything. A criterion you invent *after* seeing the code is
-shaped by the code.
+**在评估任何东西之前先把标准写下来。** 你在看过代码**之后**发明的标准，是被代码塑造过的。
 
-### Step 2 — Evidence that counts, in this repository
+### 第 2 步——在本仓库里，什么算证据
 
-Prefer the strongest available, and say which one you used:
+优先用现有的最强证据，并说明你用了哪一种：
 
-| Kind | How, here |
+| 种类 | 在这里怎么做 |
 |---|---|
-| **A failing-first test** | `backend/tests/test_<name>.py` — the test must *name* the behaviour, not merely pass |
-| **A gate** | `scripts/ontology_gates.py` / `features/ontology/gates.json` output: `N checks, 0 failed` |
-| **The housekeeping verify bundle** | `./scripts/housekeeping_verify.sh` (guards + tsc + build + store report) |
-| **A live HTTP check** | `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8765/api/...` against the **running** app |
-| **A query** | `pg_query` / `.venv/bin/python -c "…"` returning the row count or the value the criterion names |
-| **Type/build** | `npx tsc --noEmit`, `npm run build` — exit status, not "no errors seen" |
-| **The artefact** | the file exists, contains the declaration, and its `git log` line says when |
-| **A baseline diff** | run the suite now and `comm` it against the recorded pre-change failures |
+| **先红的测试** | `backend/tests/test_<name>.py`——测试必须**点名**那个行为，而不只是通过 |
+| **一道门禁** | `scripts/ontology_gates.py` / `features/ontology/gates.json` 的输出：`N checks, 0 failed` |
+| **housekeeping 验证包** | `./scripts/housekeeping_verify.sh`（守卫 + tsc + build + 文档库报告） |
+| **活的 HTTP 检查** | 对**运行中的**应用 `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8765/api/...` |
+| **一次查询** | `pg_query` / `.venv/bin/python -c "…"`，返回标准里点名的行数或那个值 |
+| **类型/构建** | `npx tsc --noEmit`、`npm run build`——看退出码，不是"没看到错误" |
+| **产物** | 文件存在、包含那条声明，且它的 `git log` 一行说明是什么时候 |
+| **基线 diff** | 现在跑一遍套件，把 `FAILED` 与记录的改动前失败做 `comm` |
 
-Rules that keep this honest:
+让这件事保持诚实的规则：
 
-- **A command or a citation per criterion.** `file.py:123`, an exit code, a row count, a gate line.
-  "Reviewed the code" is not evidence; "read `x.py:40-70`, the branch returns 409 when `busy is not
-  None`" is.
-- **"Tests pass" is only evidence for the criterion the test names.** A green suite says nothing about
-  a behaviour no test exercises — check the test's name and assertion, or mark PARTIAL.
-- **Not worse than baseline** is a legitimate verdict — but only with the baseline captured *before*
-  the change and the two lists diffed. This repo has 20 pre-existing backend failures; "the suite fails"
-  and "the change broke something" are different claims.
-- **404 is a FAIL, not UNVERIFIABLE.** A newly introduced endpoint URL that does not resolve is the
-  single most expensive "looks fine" there is: the tool call fails silently at runtime.
-- **Deferring an executable surface needs a structural probe.** If a criterion is deferred because it
-  needs a live service or a human step, still (a) import/compile it, (b) run it up to its first external
-  dependency, (c) check the wiring (route registered? env var read? path exists?). Skipping those makes
-  the verdict PARTIAL, never UNVERIFIABLE — and "covered at unit level" never excuses a CLI or endpoint
-  that has never been executed once.
-- **Never accept the implementer's own summary as the evidence.** Its "done" is a claim about its own
-  work; that is exactly what you were asked to check.
+- **每条标准都要有命令或引用。** `file.py:123`、一个退出码、一个行数、一行门禁输出。"审阅了代码"不是证据；
+  "读了 `x.py:40-70`，`busy` 不为 None 时该分支返回 409"是。
+- **"测试通过"只对测试点名的那个标准构成证据。** 绿的套件对没有测试覆盖的行为什么都没说——去检查测试的名字
+  与断言，否则判 PARTIAL。
+- **"不比基线更差"是合法判词**——但前提是基线在改动**之前**就采下、且两份清单做过 diff。本仓库有 20 个既有
+  失败；"套件是红的"和"这次改动弄坏了东西"是两个不同的断言。
+- **404 是 FAIL，不是 UNVERIFIABLE。** 新引入的端点 URL 解析不了，是最贵的一种"看起来没问题"：工具调用会在
+  运行时静默失败。
+- **推迟一个可执行表面，必须做结构性探针。** 如果某条标准因为需要活服务或人工步骤而被推迟，仍然要：
+  (a) import/编译它；(b) 跑到它的第一个外部依赖为止；(c) 检查接线（路由注册了吗？环境变量读了吗？路径存在吗？）。
+  跳过这些，判词只能是 PARTIAL，绝不是 UNVERIFIABLE——而且**"单元层面已覆盖"永远不能为一次都没执行过的
+  CLI 或端点开脱。**
+- **永远不要把实现者自己的总结当作证据。** 它的"做完了"是关于它自己工作的一个声明；而那恰好就是被请来检查
+  的东西。
 
-### Step 3 — One verdict per criterion
+### 第 3 步——每条标准一个判词
 
-- **PASS** — evidence shows it is met; cite it.
-- **FAIL** — evidence shows it is not met, or was skipped; say what is missing.
-- **PARTIAL** — some of it is there; say precisely which part.
-- **UNVERIFIABLE** — the artefacts cannot answer it; say what *would* answer it. A criterion that can
-  never be verified is a criterion that does not exist: surface it instead of hiding it here.
+- **PASS** —— 证据显示它被满足；把证据引出来。
+- **FAIL** —— 证据显示它没被满足，或被跳过了；说清缺什么。
+- **PARTIAL** —— 有一部分；精确地说出是哪一部分。
+- **UNVERIFIABLE** —— 现有产物回答不了它；说清**什么**能回答。一条永远无法验证的标准，是一条不存在的标准：
+  把它抬到台面上，而不是藏在这一栏里。
 
-### Step 4 — The report
+### 第 4 步——报告
 
-Write to `params.report_path` (default `work/<scope>/validation.md`) and show the same table in the
-answer:
+写到 `params.report_path`（默认 `work/<scope>/validation.md`），并在回答里展示同一张表：
 
 ```
-## Validation report
-Feature: <one line>   Criteria source: <grill.md | plan | request | user-confirmed>   Date: <date>
+## 验证报告
+功能：<一行>   标准来源：<grill.md | 计划 | 请求 | 用户确认>   日期：<日期>
 
-| # | Criterion | Verdict | Evidence |
-|---|-----------|---------|----------|
-| 1 | <verbatim criterion> | PASS | `pytest tests/test_x.py::test_y` → 1 passed; asserts 409 on busy build |
-| 2 | <verbatim criterion> | FAIL | `api/chat/documents.py:337` declares /upload twice; second handler unreachable |
+| # | 标准 | 判词 | 证据 |
+|---|------|------|------|
+| 1 | <逐字标准> | PASS | `pytest tests/test_x.py::test_y` → 1 passed；断言 busy 构建返回 409 |
+| 2 | <逐字标准> | FAIL | `api/chat/documents.py:337` 把 /upload 声明了两次；第二个处理器永远不可达 |
 
 PASS n · FAIL n · PARTIAL n · UNVERIFIABLE n
-Open questions: <criteria that cannot be verified, and what would settle them>
-Not checked (on purpose): <anything out of scope, named so nobody assumes it was covered>
+待解问题：<无法验证的标准，以及什么能把它settle>
+未检查（有意）：<任何范围之外的东西，点名写出，避免别人以为它被覆盖了>
 ```
 
-Then one sentence a human can act on: **ship / do not ship / ship and file N follow-ups** — with the
-FAILs named. If any criterion is FAIL, the work is not done; do not soften it into "mostly complete".
+然后用一句人能据此行动的话收尾：**可以发 / 不要发 / 可以发并登记 N 个后续项**——把 FAIL 点名。只要有任何一条
+标准是 FAIL，工作就没完成；不要把它软化成一个"基本完成"。
 
-### Refuse to do these
+### 拒绝做这些
 
-- Validate against criteria you invented after reading the code.
-- Write PASS for anything you only read rather than ran, when running it was possible.
-- Treat a green suite as coverage of a specific behaviour.
-- Fold several criteria into one row so the FAIL disappears in an average.
-- Fix the code and then validate it in the same breath.
-- Say "verified" without the command, file:line, or query that produced the verdict.
+- 用你读过代码之后才发明的标准去验证。
+- 对只需要读、而本来可以跑的东西，写 PASS。
+- 把绿的套件当成某个具体行为已被覆盖。
+- 把好几条标准折进一行，让 FAIL 在一堆平均里消失。
+- 一边修代码、一边在同一个呼吸里验证它。
+- 在没有给出命令、file:line 或查询的情况下说"已验证"。
 
-### When NOT to use this
+### 什么时候不要用
 
-- Nobody has claimed completion yet — validate at the end, not continuously.
-- The work has no criteria and the user explicitly says "just make it work" — then criteria are the
-  first thing to produce (use `Grilling`), not the last.
-- You are the implementer being asked to check your own work in the same turn: say that the independent
-  pass is missing rather than blessing yourself.
+- 还没有人声称完成——验证在最后做，不是持续做。
+- 工作没有标准，而用户明确说"能跑就行"——那么标准是第一件要产出的东西（用 `Grilling`），不是最后一件。
+- 你就是实现者，却被要求在同一个回合里检查自己的工作：说出"独立的那一遍是缺的"，而不是给自己祝福。

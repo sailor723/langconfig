@@ -1,118 +1,97 @@
 ---
-name: Grilling
+name: Grilling（追问到底）
+lang: zh
+translated: human
+source: backend/skills/en-originals/grilling/SKILL.md
 description: >-
-  Interrogate a plan, design, metric definition or decision until nothing is silently assumed. Use when
-  the user says "grill me", "stress-test this", "poke holes in it", or when a request is about to become
-  expensive work (a build, a schema change, a metric everyone will quote) and the definitions are not
-  settled yet. It asks numbered questions in rounds, each with a recommended answer, and does not start
-  implementing until the frontier is empty.
-tags: [grilling, requirements, design, decisions, review, clarification]
-triggers:
-  - When the user asks to be grilled, stress-tested, or to have a plan challenged
-  - When a request would turn into hours of agent work and its definitions are still vague
-  - When two people (or two documents) use one word for different things
-  - Before a metric, threshold or policy is written into a declaration other people will quote
-  - When a build/refactor/bug-fix request arrives with no acceptance criterion
-allowed_tools: [read_file, write_file, ls, glob, grep, skill, task]
-author: weiping
-version: 1.0
-params:
-  output_path: "where to record settled decisions (default: work/<scope>/grill.md, or docs/adr/<n>-<slug>.md when the answer is an architecture decision)"
+  盘问一个计划、设计、指标定义或决定，直到没有东西是被默默假设的。当用户说"grill 我""压力测试一下""挑挑毛病"，
+  或一个请求即将变成昂贵的工作（一次构建、一次 schema 变更、一个人人都会引用的指标）而定义还没定下来时使用。
+  它分轮次提出编号问题，每题附推荐答案，并且在"前沿"清空之前不动手实现。
 ---
 
-## Instructions
+## 指令
 
-Interview the user until you reach a shared understanding. Do not implement, plan, or "get started
-while they answer" — this skill produces **settled decisions**, and acting early is how a run burns
-hours on a definition nobody agreed to.
+访谈用户，直到你们对同一件事有同一个理解。**不要**实现、不要做计划、也不要"他们回答的时候先动起来"——
+这个技能产出的是**已定的决定**，提前动手正是一次运行在一个没人同意过的定义上烧掉几个小时的方式。
 
-### Map the decision as a tree, then work it in rounds
+### 把决定画成一棵树，然后按轮次推进
 
-Everything you need to settle is a **design tree**: each decision branches into the decisions that
-depend on it. The **frontier** is every decision whose prerequisites are already settled — the questions
-you can ask *now* without guessing at answers you have not heard.
+你需要敲定的一切是一棵**决策树**：每个决定都分叉出依赖它的决定。**前沿（frontier）**是那些前置条件已经
+定下来、现在就能问的问题——不必猜测你还没听到的答案。
 
-Ask the whole frontier in one round. Then stop and wait. Each answer reshapes the tree: settled
-decisions push the frontier outward and unblock the questions behind them. Recompute and ask the next
-round.
+**一轮把整个前沿问完**，然后停下来等。每个答案都会重塑这棵树：已定的决定把前沿向外推，解锁挂在后面的
+问题。重新计算，再问下一轮。
 
-A question whose answer depends on another question still open in this round belongs to a **later**
-round. Asking it now is how rounds turn into a questionnaire.
+如果某个问题的答案依赖本轮仍开着的另一个问题，它属于**后面**的轮次。现在就问它，是把"轮次"变成"问卷"
+的方式。
 
-### The round format
+### 轮次的格式
 
 ```
-❓ Q1 — <question title>: <question body. Multiple paragraphs are fine; state the options>
-➡️ <your recommended answer, and the one-line reason>
+❓ Q1 —— <问题标题>：<问题正文，可以多段；把选项摆出来>
+➡️ <你的推荐答案，以及一行的理由>
 
-❓ Q2 — …
+❓ Q2 —— …
 ➡️ …
 ```
 
-Rules for the questions:
+提问的规则：
 
-- **Word each one so "yes" accepts your recommendation.** Then a user who agrees can answer
-  "1 yes, 2 yes, except Q3: use 5%" instead of writing essays.
-- **One decision per question.** If it takes "and", it is two questions.
-- **Every question carries a recommendation.** A question without a recommendation is you shifting your
-  job onto the user.
+- **每题的措辞要让"是"就等于接受你的推荐。** 这样同意的用户可以用"1 是，2 是，除了 Q3 用 5%"回答，
+  而不必写小作文。
+- **一个问题只装一个决定。** 如果需要"以及"，它就是两个问题。
+- **每个问题都必须带推荐答案。** 没有推荐的问题，是把你的活推给用户。
 
-### Finding facts is your job, never the user's
+### 找事实是你的活，永远不是用户的
 
-If a frontier question needs something from the environment — a schema, a column's null rate, whether
-the file exists, what the previous build decided — go and find it (`read_file`, `grep`, the skill for
-that domain, or a subagent for a long lookup). Never ask a person what you could look up.
+如果某个前沿问题需要环境里的事实——schema、某列的空值率、文件在不在、上一次构建定了什么——**你自己去查**
+（`read_file`、`grep`、对应的领域技能，或为一个较长的查找派子 agent）。**永远不要问你本可以自己查到的东西。**
 
-A fact you dispatched someone to find is an unsettled prerequisite: only the questions *downstream* of
-it wait for the answer. Ask the rest of the frontier now.
+你派出去查的事实是一个"未定的前置条件"：只有依赖它的问题等它，前沿其余部分现在就问。
 
-**The decisions are the user's.** Put each to them and wait.
+**决定是用户的。** 一条一条摆给他们，然后等。
 
-### Before you ask, mine what is already written
+### 提问之前，先把已经写下的挖出来
 
-Read in this order, and use what you find to *delete* questions rather than ask them:
+按这个顺序读，并用你的发现**删掉问题**而不是提出它们：
 
-1. `GLOSSARY.md` and `docs/adr/` (if they exist) — a term is usually already defined, or already
-   decided the other way.
-2. The declaration itself (TTL, `dashboard.json`, the skill, the doc) — many "questions" are answered by
-   `answers:` entries or a `# refused:` note.
-3. `work/<scope>/` — a previous round's `grill.md`, `questions.json`, `answers.json`.
-4. The code path that would change — read it before proposing anything about it.
+1. `GLOSSARY.md` 与 `docs/adr/`（如果存在）——术语通常已经定义过，或者已经定成了相反的方向。
+2. 声明文件本身（TTL、`dashboard.json`、技能、文档）——很多"问题"已被 `answers:` 条目或 `# refused:` 说明回答。
+3. `work/<scope>/`——上一轮的 `grill.md`、`questions.json`、`answers.json`。
+4. 将会被改动的代码路径——先读它，再对它提出任何建议。
 
-A question whose answer is in the repository is a research failure, not a question.
+**答案已经躺在仓库里的问题，是研究失败，不是问题。**
 
-### Domains where grilling is mandatory
+### 必须追问的领域
 
-- **A metric or KPI**: what exactly is counted, over what grain, excluding what, unit and scale, and
-  what number the business expects to see. Then: does the data support it at all?
-- **A threshold or policy**: who acts on it, and what happens at the boundary.
-- **A schema or storage change**: what already exists, what breaks when it moves, who reads it.
-- **A build or refactor**: the acceptance criterion — the red test, the gate, or the number that must
-  move. "It works" is not one.
+- **一个指标或 KPI**：到底数什么、什么粒度、排除什么、单位与缩放、以及业务方预期看到的数字。然后：
+  数据到底支不支持它？
+- **一个阈值或策略**：谁会照着它行动，边界上会发生什么。
+- **一次 schema 或存储变更**：现在已有什么、移动会破坏什么、谁在读它。
+- **一次构建或重构**：验收标准——那条先红的测试、那道门禁、或者必须移动的那个数字。"能跑"不是一条。
 
-### Close the round: write it down
+### 收尾：写下来
 
-When the frontier is empty, do **not** start the work. Instead:
+前沿清空之后，**不要**开始工作，而是：
 
-1. Write the settled decisions to `params.output_path` (default `work/<scope>/grill.md`; use
-   `docs/adr/<n>-<slug>.md` when the answer is an architecture decision):
-   each decision, its answer, and the one line of reasoning that will let a future reader know **why**.
-2. List what was **not** decided on purpose, and what would change your mind.
-3. State plainly: *"Frontier empty. Nothing implemented yet. Confirm and I will proceed."*
+1. 把敲定的决定写进 `params.output_path`（默认 `work/<scope>/grill.md`；若是架构决定，用
+   `docs/adr/<n>-<slug>.md`）：每个决定、它的答案，以及能让未来的读者明白**为什么**的那一行理由。
+2. 列出**有意未定**的事，以及什么会改变你的想法。
+3. 明确地说：*"前沿已空。尚未实现任何东西。确认后我再继续。"*
 
-If the user answers "go ahead", then — and only then — act, and follow the decisions you recorded. If
-later work contradicts a recorded decision, stop and grill that delta rather than silently overriding it.
+如果用户答复"开始吧"，**这时**——也只有这时——才动手，并遵循你记录下的决定。如果后续工作与某个已记录的
+决定冲突，停下来就这个差异再追问一轮，而不是默默覆盖它。
 
-### Refuse to do these
+### 拒绝做这些
 
-- Ask a question you could have answered by reading the repository.
-- Ask more than ~9 questions in one round (that is not a round, it is a form; split the frontier).
-- Recommend something you would not defend if asked why.
-- Treat a polite "sounds good" on one question as approval of the whole tree.
-- Produce a "plan" instead of questions: a plan is what you write *after* the frontier is empty.
+- 问一个你本可以读仓库回答的问题。
+- 一轮问超过约 9 个问题（那不是一轮，那是一张表单；把前沿拆开）。
+- 推荐一个被问"为什么"时你不愿为之辩护的东西。
+- 把对某一题礼貌的"听起来不错"当作对整棵树的批准。
+- 产出"计划"而不是问题：计划是你**在前沿清空之后**才写的东西。
 
-### When NOT to use this
+### 什么时候不要用
 
-- The decision is reversible and cheap: make it, state the assumption, move on.
-- The user has already settled the frontier in this conversation: skip to recording it, do not re-ask.
-- The task is mechanical and unambiguous ("rename this column in these 4 files").
+- 决定可逆且便宜：直接做，说明假设，往下走。
+- 用户已在本次对话中敲定了前沿：跳到记录，不要重问。
+- 任务是机械且无歧义的（"把这 4 个文件里的列名改掉"）。

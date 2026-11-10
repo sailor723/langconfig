@@ -1,56 +1,37 @@
 ---
-name: "Implement"
-description: "Implement a piece of work based on a spec or set of tickets."
-tags:
-  - "implement"
-  - "mattpocock"
-  - "requirements"
-  - "planning"
-triggers:
-  - "When asked to implement the work described by the user in the spec or tickets"
-allowed_tools:
-  - "read_file"
-  - "grep"
-  - "glob"
-  - "write_file"
-  - "edit_file"
-  - "bash"
-  - "skill"
-author: "mattpocock (MIT), adapted for LangConfig"
-version: "1.0"
+name: Implement（按规格实现）
+lang: zh
+translated: human
+source: backend/skills/en-originals/implement/SKILL.md
+description: >-
+  按规格或一组票据实现一块工作：先读规格与票据图，能测试就先测试，反复跑类型检查与单文件测试，收尾跑一次全量，
+  然后调 code-review 评审，最后提交到当前分支。
 ---
 
-> **Provenance.** Adapted from `mattpocock/skills → skills/engineering/implement` (MIT, vendored at `vendor/upstream-skills/mattpocock/skills/engineering/implement/SKILL.md`).
-> Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
-> `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
-> (`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`), and a verification floor
-> section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
-> through the `skill` tool, so it is dropped rather than emulated.
+## 指令
 
-## Instructions
+实现用户所说的、规格或票据里描述的那块工作。
 
-Implement the work described by the user in the spec or tickets.
+如果用户给了票据引用，从 `docs/tickets/` 取出它，并在动手前报出它的标题。**引用有歧义就先问。**
 
-If the user passes a ticket reference, fetch it from `docs/tickets/` and state its title before starting. If the reference is ambiguous, ask.
+在预先约定的接缝上，尽量用 `skill` 工具读 `tdd` 那个技能（id: `tdd`）。
 
-Read the skill with the `skill` tool (id: `tdd`) where possible, at pre-agreed seams.
+**经常跑类型检查，经常跑单个测试文件，全量测试只在收尾跑一次。**
 
-Run typechecking regularly, single test files regularly, and the full test suite once at the end.
+完成后，用 `skill` 工具读 `code-review` 那个技能（id: `code-review`）评审这项工作。
 
-Once done, Read the skill with the `skill` tool (id: `code-review`) to review the work.
+**把工作提交到当前分支。**
 
-Commit your work to the current branch.
+## 本仓库的地板
 
-## This repository's floor
-
-- **Verify with the real commands**, not by eye: `./scripts/housekeeping_verify.sh` (guards + `tsc` +
-  `vite build` + a document-store report). Add `--full-suite` for the backend suite.
-- **The backend suite has 20 pre-existing failures.** "Not worse than that baseline" is the honest
-  criterion; "the tests are green" is not a claim you can make here. Compare with
-  `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
-  and diff the `FAILED` lines against the recorded baseline.
-- **Specs, tickets and notes live in files**: `docs/specs/<slug>.md`, `docs/tickets/NNN-<slug>.md`,
-  `work/<scope>/`. A verdict in a chat message is lost by the next turn.
-- **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
-  by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+- **用真实命令验证，而不是靠眼睛看**：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` +
+  文档库报告）。后端全套加 `--full-suite`。
+- **后端测试套件有 20 个既有失败。** "不比那个基线更差"才是这里诚实的判据；"测试是绿的"这句话在本仓库你
+  说不出口。对照方式：
+  `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`，
+  把 `FAILED` 行与记录的基线做 diff。
+- **规格、票据与笔记都落在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
+  写在聊天里的结论，下一个回合就丢了。
+- **生态层级**：agent 代码是 LangChain（`create_agent`）跑在 LangGraph 运行时里，通常外面套一层 Deep Agents
+  harness（`deepagents`）。动手前先决定这次改动属于哪一层——`ecosystem-primer` 的规则——并优先用能完成任务的
+  最高那一层。

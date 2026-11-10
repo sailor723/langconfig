@@ -1,107 +1,90 @@
 ---
-name: To Tickets
+name: To Tickets（切成票据）
+lang: zh
+translated: human
+source: backend/skills/en-originals/to-tickets/SKILL.md
 description: >-
-  Cut a spec into tracer-bullet tickets: vertical slices that each deliver something demoable, sized to
-  one fresh context window, each declaring what blocks it and what will be checked. Use after a spec,
-  so several agents (or several turns) can work the same plan without guessing the order. It refuses a
-  ticket whose acceptance cannot be checked.
-tags: [tickets, breakdown, planning, tracer-bullet, dependencies, work-graph]
-triggers:
-  - After a spec is agreed and the work needs an order
-  - When several agents or turns will touch one plan
-  - When a plan is a list of layers ("add the column, then the API, then the UI") that can never be demoed
-  - When the work keeps stalling because nobody knows what is unblocked
-allowed_tools: [read_file, write_file, grep, glob, ls, skill]
-author: weiping
-version: 1.0
-params:
-  ticket_dir: "where tickets live (default: docs/tickets)"
-  spec_path: "the spec these tickets implement (default: docs/specs/<slug>.md)"
+  把一份规格切成曳光弹式的票据：纵向切片，每一片都能单独演示，大小刚好放进一个全新的上下文窗口，并声明它被谁
+  阻塞、将由什么来检查。在规格之后使用，让多个 agent（或多个回合）按同一份计划工作而不必猜顺序。它会拒绝一张
+  验收无法检查的票据。
 ---
 
-## Instructions
+## 指令
 
-The unit is a **tracer bullet**: a narrow but *complete* path through every layer, demoable on its own,
-small enough to finish in one fresh context window. The tickets are not a list of steps — they are a
-**task graph**, and the useful output is the *frontier*: which tickets are ready now.
+单位是**曳光弹**：一条穿过每一层、窄但**完整**的路径，能单独演示，小到可以放进一个全新的上下文窗口。
+票据不是一份步骤清单——它们是一张**任务图**，而有用的输出是**前沿**：现在就可以开工的那些票据。
 
-### Step 0 — Refuse to cut without a parent
+### 第 0 步——没有父文档就拒绝切票
 
-Read `spec_path`. No agreed spec → stop: *"there is no agreed spec; run to-spec first"*. A ticket whose
-acceptance criteria were invented during the cutting is a ticket nobody can validate.
+读 `spec_path`。没有已同意的规格 → 停下：*"没有已同意的规格；先跑 to-spec"*。切票过程中才发明出验收标准的票据，
+是没人能验证的票据。
 
-### Step 1 — Explore before slicing
+### 第 1 步——先探索再切片
 
-Read the code the spec touches. Look for **prefactoring** that makes every later ticket smaller ("make
-the change easy, then make the easy change"): a seam, an extracted function, a missing test harness.
-Prefactoring gets its own ticket, first, and everything else is blocked by it.
+读规格会触及的代码。寻找能**让之后每张票都更小**的**预重构**（"先把改动变容易，再去做容易的改动"）：一个接缝、
+一个被抽出来的函数、一个缺失的测试装置。预重构单独占一张票，排在最前，其余票据全部被它阻塞。
 
-### Step 2 — Slice vertically, and name the blockers
+### 第 2 步——纵向切，并写清阻塞
 
-For each slice:
+对每一片：
 
-- it cuts through schema → service → API → UI → test where those exist, rather than filling one layer;
-- it is **demoable or verifiable on its own** — 4 of 4 criteria from the spec, not "half of each";
-- it fits a fresh context window; if it does not, split it, do not stretch it.
+- 它在 schema → service → API → UI → 测试 这些层里**穿过去**（存在哪层就穿哪层），而不是只填一层；
+- 它**能单独演示或验证**——规格里的 4 条标准满足 4 条，不是"每条做一半"；
+- 它放得进一个全新的上下文窗口；放不进就拆，不要拉长。
 
-Give each ticket its **blocking edges** — the tickets that must land first. A ticket with no blockers is
-on the frontier and can start immediately.
+给每张票写清它的**阻塞边**——必须先落地的票据。没有阻塞的票就在前沿上，可以立刻开始。
 
-**Wide refactors are the exception.** One mechanical change (a rename, a type change) whose blast radius
-covers the codebase cannot be a tracer bullet — nothing lands green mid-way. Sequence it
-**expand → migrate in batches → contract**:
+**宽重构是例外。** 一次机械改动（重命名、类型变更）如果爆炸半径覆盖整个代码库，它不可能是一个曳光弹——
+中途没有任何东西是绿的。把它排成 **expand → 分批 migrate → contract**：
 
-1. *expand*: add the new form beside the old, so nothing breaks;
-2. *migrate*: one ticket per batch (per package, per directory), each blocked by the expand;
-3. *contract*: delete the old form, blocked by every migrate batch.
+1. *expand*：把新形态加在旧形态旁边，什么都不破；
+2. *migrate*：每批一张票（每个包、每个目录），各自被 expand 阻塞；
+3. *contract*：删掉旧形态，被所有 migrate 批次阻塞。
 
-If even the batches cannot stay green alone, keep the sequence but let them share an integration branch
-that all block a final integrate-and-verify ticket — green is promised only there.
+如果连批次都无法单独保持绿，保留这个序列，但让它们共享一条集成分支，并全部阻塞一张最终"集成并验证"票——
+**只在那一张票上承诺绿。**
 
-### Step 3 — Write one file per ticket
+### 第 3 步——一张票一个文件
 
-`params.ticket_dir/NNN-<slug>.md`, three digits, numbered in dependency order (not necessarily execution
-order):
+`params.ticket_dir/NNN-<slug>.md`，三位数编号，按**依赖顺序**编（不必是执行顺序）：
 
 ```
-# 003 — <title>
+# 003 —— <标题>
 
-Spec: docs/specs/<slug>.md#AC2, AC3      Blocked by: 001, 002      Size: S | M | L (one context window)
+Spec: docs/specs/<slug>.md#AC2, AC3      Blocked by: 001, 002      Size: S | M | L（一个上下文窗口）
 
-## Delivers
-The end-to-end behaviour this ticket makes true, in one paragraph, in the user's terms. If you cannot
-write this paragraph without listing layers, the slice is horizontal — cut again.
+## 交付
+这张票让什么端到端行为变真，一段话，用用户的语言。如果你非要列举"层"才能写出这段话，这个切片就是横向的——重切。
 
-## Acceptance (what a validator will check)
-- [ ] <checkable criterion, copied or narrowed from the spec's AC table>
-- [ ] <and the test/command that will prove it>
+## 验收（验证者会检查什么）
+- [ ] <可检查的标准，抄自或收窄自规格的 AC 表>
+- [ ] <以及将要证明它的测试/命令>
 
-## Not in this ticket
-What it deliberately leaves to a later ticket, so two agents do not both do it.
+## 不在这张票里
+它有意留给后面票据的东西，避免两个 agent 都去做。
 
-## Notes
-Seams found while exploring, and anything that would change the split.
+## 备注
+探索时发现的接缝，以及任何会改变切法的东西。
 ```
 
-Rules:
+规则：
 
-- **Every ticket has at least one checkable acceptance line.** If the best you can write is "works
-  properly", the ticket is not ready — that is the same failure `to-validation` exists to catch.
-- **Acceptance lines trace to spec AC ids.** A ticket that satisfies none of the spec's criteria is scope
-  creep; either it is in the spec or it is a new spec.
-- **Blockers are stated as ticket numbers**, not as prose. "After the API" is not an edge.
-- **One ticket, one why-to-be-alive.** Two reasons → two tickets.
-- Do not put estimates of hours on them. "Fits one context window" is the only size that matters here.
+- **每张票至少有一条可检查的验收行。** 如果你能写的最好的一句是"能正常工作"，这张票就没准备好——那正是
+  `to-validation` 存在的理由。
+- **验收行要能回溯到规格的 AC 编号。** 一张票据不满足规格中任何一条标准，就是范围蔓延；要么它属于规格，
+  要么它是一份新规格。
+- **阻塞要用票号写**，不要写成散文。"在 API 之后"不是一条边。
+- **一张票只为一个理由存在。** 两个理由 → 两张票。
+- 不要在票上写小时数预估。这里唯一有意义的尺寸是"放得进一个上下文窗口"。
 
-### Step 4 — Quiz, then stop
+### 第 4 步——过一遍，然后停下
 
-Present the graph as a list — `NNN title · blocked by … · delivers …` — plus the current **frontier**
-(the unblocked ones), and ask: *"Does this cut the work the way you want, and is the frontier what you
-expected?"* Fix what they object to before anyone starts. Do not begin implementing in this skill.
+把这张图摆成一份清单——`NNN 标题 · 被 … 阻塞 · 交付 …`——并附上当前的**前沿**（没有阻塞的那些），然后问：
+*"这样切符合你想要的吗，前沿是你预期的吗？"* 在任何人开工之前，把他们反对的地方改掉。**不要在这个技能里
+开始实现。**
 
-### When NOT to use this
+### 什么时候不要用
 
-- One ticket's worth of work: write it and go.
-- No agreed spec: run `to-spec` (and `Grilling` behind it) first.
-- The "plan" is really an investigation: use `research` or `diagnosing-bugs`, which produce findings, not
-  tickets.
+- 只有一张票的工作量：写完直接做。
+- 没有已同意的规格：先跑 `to-spec`（它背后是 `Grilling`）。
+- 这个"计划"其实是一次调查：用 `research` 或 `diagnosing-bugs`，它们产出发现，不是票据。

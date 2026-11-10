@@ -2796,7 +2796,6 @@ def bash(command: str, timeout: int = 30, cwd: str = None) -> str:
 # =============================================================================
 # skill (progressive disclosure on demand) — docs/system-architecture/tools-audit.md ADD #5
 # =============================================================================
-@tool
 def _skill_support_files(base: Path, limit: int = 40) -> list:
     """Files next to SKILL.md, as skill-relative paths (sorted, capped).
 
@@ -2817,7 +2816,7 @@ def _skill_support_files(base: Path, limit: int = 40) -> list:
     return out
 
 
-async def skill(skill_id: str, file: str = "") -> str:
+async def skill(skill_id: str, file: str = "", lang: str = "") -> str:
     """Fetch a skill's full instructions by its id — or one of its support files.
 
     Use when the user asks about a topic that a skill covers but the skill was
@@ -2833,6 +2832,11 @@ async def skill(skill_id: str, file: str = "") -> str:
         file: Optional path inside the skill directory, e.g.
               "templates/T2-supervisor-experts.md". Leave empty for the
               instructions. Must stay inside the skill.
+        lang: Which language to serve. Empty (the default) serves `SKILL.md` — the working text, which is
+              Chinese for every skill that has been translated. `lang="en"` serves the archived English
+              original from `backend/skills/en-originals/<id>/SKILL.md`, which nothing else reads: it is a
+              backup and a source for checking a translation, and it enters a context only when asked for
+              by name.
     """
     try:
         from core.skills.registry import get_skill_registry
@@ -2860,11 +2864,27 @@ async def skill(skill_id: str, file: str = "") -> str:
             text = target.read_text(encoding="utf-8", errors="replace")
             return f"# Skill file: {skill_id}/{file}\n\n{text}"
 
+        # The working text is Chinese: `SKILL.md` is what an agent reads, and the English original lives
+        # outside the skill library (`backend/skills/en-originals/<id>/`) as a backup. Nothing loads it
+        # unless the caller asks for it explicitly by language — which is why the default below is the
+        # canonical file and not a sibling.
+        body_text, body_lang = found.instructions, "zh"
+        if lang and lang.split("-")[0].lower() == "en":
+            # base is .../skills/builtin/<id>; the archive sits beside the library root
+            archived = (Path(base).parents[1] / "en-originals" / found.skill_id / "SKILL.md"
+                        if base is not None else None)
+            if archived is not None and archived.is_file():
+                raw = archived.read_text(encoding="utf-8", errors="replace")
+                if raw.startswith("---"):
+                    end = raw.find("\n---", 3)
+                    if end != -1:
+                        raw = raw[end + 4:].lstrip("\n")
+                body_text, body_lang = raw, "en"
         parts = [
-            f"# Skill: {found.name}",
+            f"# Skill: {found.name}" + (f"  (instructions: {body_lang})" if body_lang != "zh" else ""),
             f"**Description:** {found.description}",
             "",
-            found.instructions,
+            body_text,
         ]
         if found.examples:
             parts += ["", "**Examples:**", found.examples]

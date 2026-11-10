@@ -1,0 +1,11 @@
+# Skills that were WRITTEN in Chinese — no English original exists.
+
+These are not translations: there is nothing in `backend/skills/en-originals/` to be a translation of, and
+pretending otherwise would mean inventing an English source. They are listed so the three states stay
+distinguishable: translated (has an archived original), authored in Chinese (this file), still English
+(`pending-zh.txt`).
+
+Every skill must be in exactly one of the three, and `backend/tests/test_skill_translations.py` checks it.
+
+build-ontology-from-db
+sql-analyst
