@@ -162,6 +162,7 @@ docs/system-architecture/*
 !docs/system-architecture/tools-audit.md
 !docs/system-architecture/tools-refactor.md
 !docs/system-architecture/skills-and-tools-review-2026-11-09.md
+!docs/system-architecture/ecosystem-skills-plan-2026-11-09.md
 # Specs and tickets written by the to-spec / to-tickets skills
 !docs/specs/
 !docs/specs/**

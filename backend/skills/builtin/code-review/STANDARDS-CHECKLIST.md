@@ -120,6 +120,12 @@ A change can pass one axis and fail the other:
 
 Reporting them separately stops one axis from masking the other.
 
+## Standards reference
+
+This repository's own review checklist lives beside this file as `STANDARDS-CHECKLIST.md`
+(what we consider clean, safe and maintainable). Read it as the **Standards** axis below —
+the axis that asks *does this meet what we decided*, not *does this match a general ideal*.
+
 ## This repository's floor
 
 - **Verify with the real commands**, not by eye: `./scripts/housekeeping_verify.sh` (guards + `tsc` +

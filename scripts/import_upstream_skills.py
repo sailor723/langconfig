@@ -265,6 +265,15 @@ def transform(skill_md: pathlib.Path, collection: str) -> tuple[str, dict]:
         body if body.lstrip().startswith("## Instructions") else "## Instructions\n\n" + body
     )
     out = out.rstrip("\n") + "\n\n" + FLOOR
+    if skill_id == "code-review":
+        # this repository already had a review checklist; it is now the Standards axis' reference
+        out = out.replace(
+            FLOOR,
+            "## Standards reference\n\n"
+            "This repository's own review checklist lives beside this file as `STANDARDS-CHECKLIST.md`\n"
+            "(what we consider clean, safe and maintainable). Read it as the **Standards** axis below —\n"
+            "the axis that asks *does this meet what we decided*, not *does this match a general ideal*.\n\n"
+            + FLOOR)
     return out, {"id": skill_id, "collection": collection, "upstream": upstream}
 
 
@@ -305,14 +314,23 @@ def main(argv: list[str] | None = None) -> int:
             if not args.dry_run:
                 dest_dir.mkdir(parents=True, exist_ok=True)
                 (dest_dir / "SKILL.md").write_text(text, encoding="utf-8")
-                # copy support files verbatim: they are reference material, not instructions
-                for extra in skill_md.parent.rglob("*.md"):
-                    if extra.name == "SKILL.md":
+                # Copy support files verbatim: they are reference material, not instructions. Non-markdown
+                # ones matter too — `scripts/hitl-loop.template.sh`, `wizard/template.sh` and the
+                # dependency-cruiser config are referenced by their skills, so a skill without them sends
+                # the agent looking for a file it was told exists. `agents/*.yaml` is Claude-client
+                # configuration and is skipped on purpose.
+                for extra in skill_md.parent.rglob("*"):
+                    if not extra.is_file() or extra.name == "SKILL.md":
+                        continue
+                    if "agents" in extra.relative_to(skill_md.parent).parts:
                         continue
                     rel = extra.relative_to(skill_md.parent)
                     dst = dest_dir / rel
                     dst.parent.mkdir(parents=True, exist_ok=True)
-                    dst.write_text(extra.read_text(encoding="utf-8"), encoding="utf-8")
+                    try:
+                        dst.write_text(extra.read_text(encoding="utf-8"), encoding="utf-8")
+                    except UnicodeDecodeError:                      # a real binary asset: copy the bytes
+                        dst.write_bytes(extra.read_bytes())
             written.append(target_id)
 
     print(f"{'would write' if args.dry_run else 'wrote'} {len(written)} skill(s)")
