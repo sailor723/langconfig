@@ -210,7 +210,10 @@ skill listed as pending whose body is already Chinese fails.
 3. **Code stays, templates translate.** A fence holding code, a command, a tree, a diff or a query is
    byte-identical to the source; a fence holding a document template an agent will fill in and show a person —
    a PR body, a ticket body, a report skeleton — is prose in a box, and translating it is the point. When in
-   doubt: will a human read this text, or a machine run it?
+   doubt: will a human read this text, or a machine run it? Inside a fence the line is finer still: a command,
+   identifier, path or flag is data and never changes; a `#` comment is a sentence for a person and may be
+   translated. (The library is mixed on this today — `debugging` translated the comments around its
+   `git bisect` lines while most skills left theirs English — which is allowed but not tidy.)
 4. **A translation that gave up.** Measured across the hand translations, Chinese runs 1.14–1.91 CJK
    characters per English word, so the floor is `max(3, 0.6 × English words)` — proportional, because a
    translation cannot be larger than its source. A fixed floor of 200 failed the two-line demo skills, which
