@@ -7,7 +7,7 @@
  *   - My Skills section: editable — "+" in the header, pencil per row
  *     (both open the skill editor tab)
  */
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import { SKILL_CATEGORIES, categoryForSkill } from './skillCategories';
@@ -37,7 +37,7 @@ interface SkillSummary {
 export default function SkillBrowserSidebar() {
   const t = useLayoutTokens();
   const { t: tr } = useTranslation('chat');
-  const { openTab } = useLayoutState();
+  const { openTab, tabs, activeTabId } = useLayoutState();
 
   const [skills, setSkills] = useState<SkillSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -182,24 +182,58 @@ export default function SkillBrowserSidebar() {
     });
   }, [openTab]);
 
-  const renderCategoryGroupRow = (category: string, label: string, items: SkillSummary[]) => (
-    <div
-      key={category}
-      onClick={() => openCategory(category, items)}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px',
-        cursor: 'pointer', fontSize: 12, color: t.textPrimary,
-      }}
-      onMouseEnter={e => { e.currentTarget.style.background = t.bgHover; }}
-      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-    >
-      <Award size={12} style={{ opacity: 0.6 }} />
-      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {label}
-      </span>
-      <span style={{ fontSize: 10.5, color: t.textMuted }}>{items.length}</span>
-    </div>
-  );
+  /**
+   * Which category the reader is currently inside.
+   *
+   * The tab id carries it: `skill-<id>` and `skill-edit-<id>` are one skill (its category comes from the
+   * taxonomy), `skill-cat-<category>` IS a category. Highlighting only the row you clicked would lose the
+   * signal as soon as the editor is reached from anywhere else — the picker, the home page badge, a search
+   * result — which is exactly when a reader wants to know where they are.
+   */
+  const activeCategory = useMemo(() => {
+    const active = tabs.find(t => t.id === activeTabId);
+    if (!active) return null;
+    const id = String(active.id);
+    if (id.startsWith('skill-cat-')) return id.slice('skill-cat-'.length);
+    const m = /^skill-(?:edit-)?(.+)$/.exec(id);
+    if (!m) return null;
+    const skillId = m[1];
+    const known = skills.find(x => x.skill_id === skillId);
+    return categoryForSkill(known ?? { skill_id: skillId, tags: [] });
+  }, [tabs, activeTabId, skills]);
+
+  const renderCategoryGroupRow = (category: string, label: string, items: SkillSummary[]) => {
+    const isActive = activeCategory === category;
+    return (
+      <div
+        key={category}
+        onClick={() => openCategory(category, items)}
+        title={isActive ? `${label} — the skill you have open belongs here` : `open ${label}`}
+        data-skill-category={category}
+        data-active={isActive ? '1' : '0'}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px',
+          cursor: 'pointer', fontSize: 12,
+          // The open skill's category stays filled (bgSelected + an accent bar), the same two signals the
+          // other rails in this shell use for "this is where you are" — not a hover tint, which reads as
+          // a second selection.
+          background: isActive ? t.bgSelected : 'transparent',
+          borderLeft: `2px solid ${isActive ? t.accent : 'transparent'}`,
+          color: isActive ? t.accent : t.textPrimary,
+          fontWeight: isActive ? 600 : 400,
+        }}
+        onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = t.bgHover; }}
+        onMouseLeave={e => { e.currentTarget.style.background = isActive ? t.bgSelected : 'transparent'; }}
+      >
+        <Award size={12} style={{ opacity: isActive ? 1 : 0.6 }} />
+        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {label}
+        </span>
+        {isActive && <span style={{ fontSize: 9.5, color: t.accent, opacity: 0.9 }}>open</span>}
+        <span style={{ fontSize: 10.5, color: t.textMuted }}>{items.length}</span>
+      </div>
+    );
+  };
 
   const renderCategory = (label: string, items: SkillSummary[], editable: boolean, headerExtra?: React.ReactNode) => {
     if (items.length === 0 && !headerExtra) return null;
