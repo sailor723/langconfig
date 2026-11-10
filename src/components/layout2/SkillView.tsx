@@ -110,13 +110,37 @@ export default function SkillView({ tab }: SkillViewProps) {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
         <Award size={24} style={{ color: t.accent }} />
-        <div>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontSize: 20, fontWeight: 700, color: t.textPrimary }}>
             {skill.name || skill.skill_id}
           </div>
           <div style={{ fontSize: 12, color: t.textMuted }}>
             {skill.skill_id} · v{skill.version || '?'} · {skill.source_type}
           </div>
+        </div>
+        {/* Copy / download act on the whole skill, so they sit at the top: reaching them used to mean scrolling to
+            the end of a body that can be 45 KB. */}
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            <button onClick={async () => {
+              const text = `# ${skill.name || skill.skill_id}\n\n${skill.description || ''}\n\n## Instructions\n\n${skill.instructions}`;
+              await navigator.clipboard.writeText(text);
+            }} style={{
+              fontSize: 11, height: 24, padding: '0 8px',
+              background: t.bgHover, border: `1px solid ${t.border}`,
+              borderRadius: 3, color: t.textPrimary, cursor: 'pointer',
+            }}>{tr('c_copy')}</button>
+            <button onClick={() => {
+              const text = `# ${skill.name || skill.skill_id}\n\n${skill.description || ''}\n\n## Tags\n${(skill.tags || []).join(', ')}\n\n## Instructions\n\n${skill.instructions}`;
+              const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a'); a.href = url;
+              a.download = `${skill.skill_id}.md`; a.click();
+              URL.revokeObjectURL(url);
+            }} style={{
+              fontSize: 11, height: 24, padding: '0 8px',
+              background: t.bgHover, border: `1px solid ${t.border}`,
+              borderRadius: 3, color: t.textPrimary, cursor: 'pointer',
+            }}>{tr('c_download')}</button>
         </div>
       </div>
 
@@ -259,29 +283,6 @@ export default function SkillView({ tab }: SkillViewProps) {
               )}
             </div>
           )}
-          {/* Copy / Download row */}
-          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-            <button onClick={async () => {
-              const text = `# ${skill.name || skill.skill_id}\n\n${skill.description || ''}\n\n## Instructions\n\n${skill.instructions}`;
-              await navigator.clipboard.writeText(text);
-            }} style={{
-              fontSize: 11, height: 24, padding: '0 8px',
-              background: t.bgHover, border: `1px solid ${t.border}`,
-              borderRadius: 3, color: t.textPrimary, cursor: 'pointer',
-            }}>{tr('c_copy')}</button>
-            <button onClick={() => {
-              const text = `# ${skill.name || skill.skill_id}\n\n${skill.description || ''}\n\n## Tags\n${(skill.tags || []).join(', ')}\n\n## Instructions\n\n${skill.instructions}`;
-              const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a'); a.href = url;
-              a.download = `${skill.skill_id}.md`; a.click();
-              URL.revokeObjectURL(url);
-            }} style={{
-              fontSize: 11, height: 24, padding: '0 8px',
-              background: t.bgHover, border: `1px solid ${t.border}`,
-              borderRadius: 3, color: t.textPrimary, cursor: 'pointer',
-            }}>{tr('c_download')}</button>
-          </div>
         </div>
       )}
 

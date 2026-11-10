@@ -77,6 +77,22 @@ def test_the_prompt_tab_renders_behind_a_boundary():
         "like a blank page")
 
 
+def test_copy_and_download_sit_in_the_header():
+    """Both act on the whole skill, so they belong at the top — not at the end of a body that can be 45 KB.
+
+    They used to live inside the Instructions card, after the rendered body: reaching them meant scrolling past
+    everything you had just decided to copy.
+    """
+    view = (REPO / "src" / "components" / "layout2" / "SkillView.tsx").read_text(encoding="utf-8")
+    header = view.split("{/* Header */}", 1)[1].split("{/* Description", 1)[0]
+    assert "tr('c_copy')" in header and "tr('c_download')" in header, "the buttons left the header"
+    assert header.index("tr('c_copy')") < header.index("tr('c_download')"), "order should be copy → download"
+    assert "navigator.clipboard.writeText" in header, "the copy handler did not move with the button"
+    rest = view.split("{/* Description", 1)[1]
+    assert "tr('c_copy')" not in rest and "tr('c_download')" not in rest, (
+        "a second copy of the buttons survived below the fold")
+
+
 def test_the_view_puts_triggers_under_the_description_and_keeps_the_numbers_by_the_tags():
     """Reading order in the skill view: description → triggers → the chip row (tags, runs, rate, tools).
 
