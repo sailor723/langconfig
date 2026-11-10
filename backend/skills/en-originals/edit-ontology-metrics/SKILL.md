@@ -1,6 +1,6 @@
 ---
 name: edit-ontology-metrics
-description: Use when asked to change an ontology that already exists — add or fix a metric, change what a number means, rename a property, adjust the guard profile or the samples — rather than build one from a database. Opens a copy of the installed ontology, edits the one file that owns the change, verifies the number against a second SQL route, and hands it back through the publish channel (stage only; a human applies)
+description: Use when asked to change an ontology that already exists — add or fix a metric, change what a number means, rename a property, adjust the guard profile or the samples — rather than build one from a database. Opens a copy of the installed ontology, edits the one file that owns the change, verifies the number against a second SQL route, and hands it back through the publish channel (stage only; a human applies).
 tags: [ontology, semantic-layer, metrics, edit, gates, publish]
 triggers:
   - When asked to add, change, fix or remove a metric in an existing ontology

@@ -1,6 +1,6 @@
 ---
 name: Ticket Classifier
-description: Classifies customer support tickets by priority, category, and sentiment
+description: Classifies customer support tickets by priority, category, and sentiment.
 version: 1.0.0
 tags:
 - support

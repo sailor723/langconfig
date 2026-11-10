@@ -1,6 +1,6 @@
 ---
 name: generate-mock-dataset
-description: Use when a business story (a customer call, a written brief, a slide) has to become a PostgreSQL dataset that can be DEMONSTRATED on — deterministic, volume-consistent, with the failures planted where the story says they come from and the data pathologies (constant columns, unjudged rows, a missing record) present on purpose; every claim it makes is a query in a spec file, and the spec is the gate
+description: Use when a business story (a customer call, a written brief, a slide) has to become a PostgreSQL dataset that can be DEMONSTRATED on — deterministic, volume-consistent, with the failures planted where the story says they come from and the data pathologies (constant columns, unjudged rows, a missing record) present on purpose; every claim it makes is a query in a spec file, and the spec is the gate.
 tags: [mock-data, synthetic-data, postgres, dataset, demo, gating]
 triggers:
   - When asked to create mock / synthetic / demo data from a described business

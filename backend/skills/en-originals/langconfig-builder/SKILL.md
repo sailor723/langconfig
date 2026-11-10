@@ -1,7 +1,7 @@
 ---
 name: langconfig-builder
 description: >-
-  Complete guide for building agents and workflows in LangConfig. Use when users need help configuring nodes, connecting agents, setting up tools, or designing multi-agent systems within the LangConfig 
+  Complete guide for building agents and workflows in LangConfig. Use when users need help configuring nodes, connecting agents, setting up tools, or designing multi-agent systems within the LangConfig platform.
 tags: [langconfig, builder, configuration, deep-agents, workflows, tools]
 triggers:
   - "when user mentions LangConfig"
