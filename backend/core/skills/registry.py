@@ -459,6 +459,59 @@ class SkillRegistry:
             logger.info(f"Created new skill '{skill_id}'")
             return skill
 
+    def record_usage(self, skill_id: str, invocation_type: str = "explicit",
+                     status: str = "success", source: str = "") -> None:
+        """Count one use of a skill — the synchronous twin of ``record_execution``.
+
+        Why it exists: `record_execution` is async and **nothing ever called it**, so `skills.usage_count`,
+        `last_used_at` and `avg_success_rate` stayed at their defaults forever — the UI showed "0 uses, 0 %" for a
+        library that had been read hundreds of times. The two paths that actually serve a skill (`skill(...)` and a
+        `read_file` of a skill file) are async and sync respectively, so the counter needs a form both can call.
+
+        What `success` means here: **the skill was served** — found, parsed, and returned to the agent. It is not a
+        claim about whether the task the agent was doing worked out, and the API/UI label says so. Recording a
+        task-level outcome would need a signal this platform does not have.
+
+        Never raises: a metrics write must not be able to fail the tool call that is being measured.
+        """
+        try:
+            from db.database import SessionLocal
+            from models.skill import Skill, SkillExecution, SkillInvocationType
+            from sqlalchemy import select as _select
+
+            with SessionLocal() as session:
+                skill_obj = session.execute(
+                    _select(Skill).where(Skill.skill_id == skill_id)
+                ).scalar_one_or_none()
+                if skill_obj is None:
+                    logger.debug("record_usage: unknown skill %r", skill_id)
+                    return
+                session.add(SkillExecution(
+                    skill_id=skill_obj.id,
+                    invocation_type=SkillInvocationType(invocation_type),
+                    status=status,
+                    trigger_context={"source": source} if source else None,
+                ))
+                first_use = not (skill_obj.usage_count or 0)
+                skill_obj.usage_count = (skill_obj.usage_count or 0) + 1
+                skill_obj.last_used_at = datetime.utcnow()
+                # The column defaults to 1.0, which reads as "100 % success, never used". Seed the rolling average
+                # from the first real outcome instead, so the number means what it says from use #1 onwards.
+                rate = 1.0 if skill_obj.avg_success_rate is None else skill_obj.avg_success_rate
+                if first_use:
+                    skill_obj.avg_success_rate = 1.0 if status == "success" else 0.0
+                elif status == "success":
+                    skill_obj.avg_success_rate = rate * 0.9 + 0.1
+                elif status == "failed":
+                    skill_obj.avg_success_rate = rate * 0.9
+                session.commit()
+                if skill_id in self._skills:
+                    self._skills[skill_id].usage_count = skill_obj.usage_count
+                    self._skills[skill_id].last_used_at = skill_obj.last_used_at
+                    self._skills[skill_id].avg_success_rate = skill_obj.avg_success_rate
+        except Exception:                      # metrics are a side effect, never a failure
+            logger.debug("record_usage failed for %r", skill_id, exc_info=True)
+
     async def record_execution(
         self,
         skill_id: str,

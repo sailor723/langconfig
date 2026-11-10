@@ -980,6 +980,19 @@ def _resolve_sandbox_path(path_str: str):
                   f"data, uploaded documents, and presentation output.")
 
 
+_SKILL_PATH = re.compile(r"(?:^|/)skills/(?:builtin|personal(?:/[^/]+)?)/([a-z0-9][a-z0-9-]*)/SKILL\.md$")
+
+
+def _skill_id_from_path(path: str) -> str | None:
+    """The skill id if this path is a skill's SKILL.md, else None.
+
+    Deliberately narrow: `skills/<builtin|personal>/<id>/SKILL.md`, with the personal root allowed one extra
+    segment for the account. A file that merely lives under a folder called `skills` is not a skill read.
+    """
+    match = _SKILL_PATH.search(path.replace("\\", "/"))
+    return match.group(1) if match else None
+
+
 @tool
 def read_file(file_path: str, offset: int = 0, limit: int = None, max_chars: int = 500_000) -> str:
     """
@@ -1026,6 +1039,17 @@ def read_file(file_path: str, offset: int = 0, limit: int = None, max_chars: int
 
         if not path.is_file():
             return f"Error: Path is not a file: {file_path}"
+
+        # A skill's SKILL.md is read as a plain file in the sandbox mirror (`skills/<type>/<id>/SKILL.md`), so
+        # counting only the `skill` tool left the common path uncounted — the reason the UI read "0 uses" for a
+        # library that agents had been reading all along.
+        _skill_id = _skill_id_from_path(str(path))
+        if _skill_id:
+            try:
+                from core.skills.registry import get_skill_registry
+                get_skill_registry().record_usage(_skill_id, "automatic", "success", source="read_file")
+            except Exception:               # counting must never fail a read
+                pass
 
         # Binary document formats are converted to plain text first; the
         # line-numbering / offset / limit logic below applies to all formats.
@@ -2845,6 +2869,7 @@ async def skill(skill_id: str, file: str = "", lang: str = "") -> str:
             await registry.initialize()
         found = registry.get_skill(skill_id)
         if found is None:
+            registry.record_usage(skill_id, "explicit", "failed", source="skill tool: not found")
             available = ", ".join(sorted(s.skill_id for s in registry.list_all())) or "none"
             return f"Error: skill '{skill_id}' not found. Available skills: {available}"
         base = Path(found.source_path) if getattr(found, "source_path", None) else None
@@ -2898,6 +2923,9 @@ async def skill(skill_id: str, file: str = "", lang: str = "") -> str:
                 f"skill(\"{found.skill_id}\", file=\"<path>\")):",
                 *[f"- {f}" for f in support],
             ]
+        # Count the use. Until this existed, `usage_count`/`avg_success_rate` were read by the UI and written by
+        # nobody: the library showed "0 uses" for skills that had been served hundreds of times.
+        registry.record_usage(found.skill_id, "explicit", "success", source="skill tool")
         return "\n".join(parts)
     except Exception as e:
         return f"Error loading skill '{skill_id}': {e}"

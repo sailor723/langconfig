@@ -30,6 +30,7 @@ interface SkillDetail {
   required_context: string[];
   usage_count: number;
   avg_success_rate: number;
+  last_used_at?: string | null;
 }
 
 interface SkillViewProps {
@@ -275,16 +276,30 @@ export default function SkillView({ tab }: SkillViewProps) {
         </div>
       )}
 
-      {/* Stats */}
+      {/* Stats — counted by the two paths that actually serve a skill (`skill(...)` and a read of its SKILL.md),
+          so "runs" means "handed to an agent". The rate is the share of those that were served without error; it
+          is not a claim about whether the agent's task worked out, and the label says so. */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <div style={cardStyle}>
           <div style={labelStyle}>{tr('sv_usage')}</div>
-          <div style={valueStyle}>{skill.usage_count ?? 0} runs</div>
+          <div style={valueStyle}>
+            {skill.usage_count ?? 0} runs
+            {skill.last_used_at && (
+              <span style={{ fontSize: 10, color: t.textDim, marginLeft: 6 }}>
+                last {new Date(skill.last_used_at).toLocaleDateString()}
+              </span>
+            )}
+          </div>
         </div>
-        <div style={cardStyle}>
+        <div style={cardStyle} title="Share of uses where the skill was served without error — not the outcome of the task">
           <div style={labelStyle}>{tr('sv_success_rate')}</div>
           <div style={valueStyle}>
-            {skill.avg_success_rate != null ? `${(skill.avg_success_rate * 100).toFixed(0)}%` : '—'}
+            {skill.usage_count
+              ? `${((skill.avg_success_rate ?? 1) * 100).toFixed(0)}%`
+              : '—'}
+            <span style={{ fontSize: 10, color: t.textDim, marginLeft: 6 }}>
+              served without error
+            </span>
           </div>
         </div>
         {(skill.required_context || []).length > 0 && (
