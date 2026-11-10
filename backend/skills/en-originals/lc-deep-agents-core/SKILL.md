@@ -9,7 +9,8 @@ tags:
   - "skills"
   - "deepagents"
 triggers:
-  - "When asked to <overview>"
+  - "When asked to build any Deep Agents application with create_deep_agent()"
+  - "When configuring the Deep Agents harness, SKILL.md format or its options"
 allowed_tools:
   - "read_file"
   - "grep"

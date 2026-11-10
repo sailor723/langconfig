@@ -6,7 +6,8 @@ tags:
   - "shape"
   - "mattpocock"
 triggers:
-  - "When asked to <what-to-do>"
+  - "When shaping raw material into an article, paragraph by paragraph"
+  - "When there is already a pile of fragments and the skeleton has to be decided"
 allowed_tools:
   - "read_file"
   - "grep"

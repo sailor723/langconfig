@@ -7,7 +7,8 @@ tags:
   - "langchain-skills"
   - "skills"
 triggers:
-  - "When asked to <overview>"
+  - "When LangGraph needs persistent state, conversation memory or history replay"
+  - "When configuring a checkpointer, thread_id, the Store or subgraph checkpoint scopes"
 allowed_tools:
   - "read_file"
   - "grep"

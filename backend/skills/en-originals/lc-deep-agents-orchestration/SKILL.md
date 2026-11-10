@@ -9,7 +9,8 @@ tags:
   - "skills"
   - "deepagents"
 triggers:
-  - "When asked to <overview>"
+  - "When using subagents, task planning or human approval in Deep Agents"
+  - "When wiring SubAgentMiddleware, TodoList or HITL interrupts"
 allowed_tools:
   - "read_file"
   - "grep"

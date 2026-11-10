@@ -7,7 +7,8 @@ tags:
   - "langchain-skills"
   - "skills"
 triggers:
-  - "When asked to <overview>"
+  - "When scaffolding, developing, building or deploying with the langgraph CLI"
+  - "When writing or changing langgraph.json"
 allowed_tools:
   - "read_file"
   - "grep"

@@ -9,7 +9,8 @@ tags:
   - "loop"
   - "langchain-skills"
 triggers:
-  - "When asked to <overview>"
+  - "When implementing human-in-the-loop, pausing for approval, or handling LangGraph errors"
+  - "When using interrupt() and Command(resume=...)"
 allowed_tools:
   - "read_file"
   - "grep"

@@ -7,7 +7,8 @@ tags:
   - "langchain-skills"
   - "skills"
 triggers:
-  - "When asked to <overview>"
+  - "When writing any LangGraph code"
+  - "When working with StateGraph, state schemas, nodes, edges or streaming"
 allowed_tools:
   - "read_file"
   - "grep"

@@ -7,7 +7,8 @@ tags:
   - "mattpocock"
   - "design"
 triggers:
-  - "When asked to a **software factory** is a system of agents that turns tickets, PRs and schedules into merged c"
+  - "When asked to design a software factory — a system of agents that turns tickets, PRs and schedules into merged code"
+  - "When settling the shared vocabulary of tasks and services the factory runs on"
 allowed_tools:
   - "read_file"
   - "grep"

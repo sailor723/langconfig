@@ -7,7 +7,8 @@ tags:
   - "testing"
   - "debugging"
 triggers:
-  - "The user wants to build features or fix bugs test-first, mentions \"red-green-refactor\", or wants integration t"
+  - "When the user wants to build features or fix bugs test-first"
+  - "When the user mentions red-green-refactor, or wants an integration test that fails before the fix"
 allowed_tools:
   - "read_file"
   - "grep"

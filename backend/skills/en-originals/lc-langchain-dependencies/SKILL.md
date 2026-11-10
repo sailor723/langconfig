@@ -9,7 +9,8 @@ tags:
   - "langgraph"
   - "deepagents"
 triggers:
-  - "When asked to <overview>"
+  - "When starting a LangChain, LangGraph, LangSmith or Deep Agents project"
+  - "When asked about package versions, installation or dependency management"
 allowed_tools:
   - "read_file"
   - "grep"

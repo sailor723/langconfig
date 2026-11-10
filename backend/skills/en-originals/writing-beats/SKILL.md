@@ -6,7 +6,8 @@ tags:
   - "beats"
   - "mattpocock"
 triggers:
-  - "When asked to <what-to-do>"
+  - "When assembling raw material into a journey of beats"
+  - "When shaping fragments into a sequence where each term is grounded before a later beat leans on it"
 allowed_tools:
   - "read_file"
   - "grep"

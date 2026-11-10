@@ -6,7 +6,8 @@ tags:
   - "fundamentals"
   - "langchain-skills"
 triggers:
-  - "When asked to <oneliner>"
+  - "When creating a LangChain agent with create_agent"
+  - "When defining tools for that agent, or adding middleware to it"
 allowed_tools:
   - "read_file"
   - "grep"

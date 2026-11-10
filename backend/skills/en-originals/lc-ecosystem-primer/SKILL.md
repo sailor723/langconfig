@@ -9,7 +9,8 @@ tags:
   - "langgraph"
   - "langchain"
 triggers:
-  - "When asked to <overview>"
+  - "Before writing the first line of agent code in a LangChain, LangGraph or Deep Agents project"
+  - "When deciding between LangChain, LangGraph, Deep Agents or a hybrid"
 allowed_tools:
   - "read_file"
   - "grep"

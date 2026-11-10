@@ -6,7 +6,8 @@ tags:
   - "mattpocock"
   - "planning"
 triggers:
-  - "When asked to a loose idea has arrived, too big for one agent session, and wrapped in fog: the way from here t"
+  - "When a loose idea has arrived that is too big for one agent session and wrapped in fog"
+  - "When the way from here to the destination is not visible yet"
 allowed_tools:
   - "read_file"
   - "grep"

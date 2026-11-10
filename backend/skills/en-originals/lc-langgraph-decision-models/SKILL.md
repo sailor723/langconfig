@@ -9,7 +9,8 @@ tags:
   - "skills"
   - "design"
 triggers:
-  - "When asked to <overview>"
+  - "When routing a LangGraph agent with a decision model instead of an LLM"
+  - "When auditing an agent for LLM calls that exist only to produce a routing decision"
 allowed_tools:
   - "read_file"
   - "grep"

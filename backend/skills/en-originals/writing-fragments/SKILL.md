@@ -6,7 +6,8 @@ tags:
   - "fragments"
   - "mattpocock"
 triggers:
-  - "When asked to <what-to-do>"
+  - "When mining raw fragments before touching structure"
+  - "When the structure is not decided yet and the pile needs working through first"
 allowed_tools:
   - "read_file"
   - "grep"

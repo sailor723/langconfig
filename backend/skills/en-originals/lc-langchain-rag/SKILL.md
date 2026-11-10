@@ -7,7 +7,8 @@ tags:
   - "langchain-skills"
   - "skills"
 triggers:
-  - "When asked to <overview>"
+  - "When building a retrieval-augmented generation (RAG) system"
+  - "When choosing document loaders, text splitters, embeddings or a vector store"
 allowed_tools:
   - "read_file"
   - "grep"

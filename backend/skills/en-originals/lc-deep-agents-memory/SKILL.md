@@ -8,7 +8,8 @@ tags:
   - "langchain-skills"
   - "skills"
 triggers:
-  - "When asked to <overview>"
+  - "When a Deep Agent needs memory, persistence or filesystem access"
+  - "When choosing between StateBackend, StoreBackend and CompositeBackend"
 allowed_tools:
   - "read_file"
   - "grep"

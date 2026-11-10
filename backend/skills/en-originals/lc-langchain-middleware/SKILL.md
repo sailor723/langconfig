@@ -7,7 +7,8 @@ tags:
   - "langchain-skills"
   - "skills"
 triggers:
-  - "When asked to <overview>"
+  - "When human-in-the-loop approval, custom middleware or structured output is needed"
+  - "When using HumanInTheLoopMiddleware or the Command resume pattern"
 allowed_tools:
   - "read_file"
   - "grep"
