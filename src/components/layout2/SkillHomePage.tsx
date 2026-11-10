@@ -10,6 +10,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState } from './useLayout';
+import { SKILL_CATEGORIES, categoryForSkill } from './skillCategories';
 import apiClient from '../../lib/api-client';
 import {
   Award, Search, Plus, Loader, RefreshCw, Brain, Sparkles,
@@ -266,9 +267,11 @@ function StepCard({ num, title, desc }: { num: number; title: string; desc: stri
 
 // ── Skill card ───────────────────────────────────────────────
 
-function SkillCard({ skill, onClick, footer }: {
+function SkillCard({ skill, onClick, onCategory, categoryLabel, footer }: {
   skill: SkillSummary;
   onClick: () => void;
+  onCategory?: () => void;
+  categoryLabel?: string;
   footer?: React.ReactNode;
 }) {
   const t = useLayoutTokens();
@@ -308,6 +311,19 @@ function SkillCard({ skill, onClick, footer }: {
       </p>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: t.textMuted, marginTop: 2 }}>
+        {categoryLabel && (
+          <span
+            onClick={e => { e.stopPropagation(); onCategory?.(); }}
+            title={`open the ${categoryLabel} category`}
+            style={{
+              padding: '1px 6px', borderRadius: 4, cursor: 'pointer',
+              background: `${t.accent}15`, color: t.accent, fontSize: 9, fontWeight: 600,
+              textTransform: 'uppercase', letterSpacing: 0.3,
+            }}
+          >
+            {categoryLabel}
+          </span>
+        )}
         <span style={{
           padding: '1px 6px', borderRadius: 4,
           background: t.bgHover, color: t.textMuted, fontSize: 9,
@@ -387,6 +403,14 @@ export default function SkillHomePage() {
       label: `Edit: ${skill.name || skill.skill_id}`,
       viewType: 'skill-editor',
       data: { skill },
+    });
+  }, [openTab]);
+
+  /** Open every skill in one category (same tab the sidebar's category rows open). */
+  const openCategory = useCallback((category: string, items: SkillSummary[]) => {
+    openTab({
+      id: `skill-cat-${category}`, label: category, viewType: 'skill-category',
+      data: { category, skills: items },
     });
   }, [openTab]);
 
@@ -623,6 +647,10 @@ export default function SkillHomePage() {
                       skill={skill}
                       // Builtin → view details; personal → open the editor (same as the tools arrangement)
                       onClick={() => isBuiltin ? openSkill(skill) : openEdit(skill)}
+                      onCategory={() => openCategory(categoryForSkill(skill),
+                        filtered.filter(x => categoryForSkill(x) === categoryForSkill(skill)))}
+                      categoryLabel={SKILL_CATEGORIES.find(c => c.id === categoryForSkill(skill))?.label
+                        ?? categoryForSkill(skill)}
                       footer={isBuiltin ? undefined : (<>{c.edit} →</>)}
                     />
                   );

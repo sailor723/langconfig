@@ -10,6 +10,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
+import { SKILL_CATEGORIES, categoryForSkill } from './skillCategories';
 import { useLayoutState, type Tab } from './useLayout';
 import apiClient from '../../lib/api-client';
 import {
@@ -115,6 +116,14 @@ export default function SkillBrowserSidebar() {
   // Split: builtin (view only) vs the rest (editable "My Skills")
   const builtinSkills = skills.filter(s => s.source_type === 'builtin' && matches(s));
   const mySkills = skills.filter(s => s.source_type !== 'builtin' && matches(s));
+  // Group the builtin skills the way the Tools sidebar groups tools: one row per category, with a count,
+  // that opens the category. Empty categories are dropped, and the order is the taxonomy's order.
+  const byCategory = SKILL_CATEGORIES
+    .map(c => ({
+      ...c,
+      skills: builtinSkills.filter(s => categoryForSkill(s) === c.id),
+    }))
+    .filter(g => g.skills.length > 0);
 
   const renderSkillRow = (skill: SkillSummary, editable: boolean) => (
     <div
@@ -160,6 +169,35 @@ export default function SkillBrowserSidebar() {
           <Pencil size={12} />
         </button>
       )}
+    </div>
+  );
+
+  /** Open every skill in one category as a tab (the Tools sidebar's behaviour, same tab id shape). */
+  const openCategory = useCallback((category: string, items: SkillSummary[]) => {
+    openTab({
+      id: `skill-cat-${category}`,
+      label: category,
+      viewType: 'skill-category',
+      data: { category, skills: items },
+    });
+  }, [openTab]);
+
+  const renderCategoryGroupRow = (category: string, label: string, items: SkillSummary[]) => (
+    <div
+      key={category}
+      onClick={() => openCategory(category, items)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px',
+        cursor: 'pointer', fontSize: 12, color: t.textPrimary,
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = t.bgHover; }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+    >
+      <Award size={12} style={{ opacity: 0.6 }} />
+      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {label}
+      </span>
+      <span style={{ fontSize: 10.5, color: t.textMuted }}>{items.length}</span>
     </div>
   );
 
@@ -257,8 +295,15 @@ export default function SkillBrowserSidebar() {
           </div>
         ) : (
           <>
-            {/* Builtin — system skills, view only */}
-            {renderCategory('Builtin', builtinSkills, false)}
+            {/* Builtin — grouped by category, the way tools are. Clicking a row opens that category. */}
+            <div style={{
+              padding: '6px 12px 2px', fontSize: 11, fontWeight: 600, color: t.textMuted,
+              textTransform: 'uppercase', letterSpacing: 0.3,
+            }}>
+              Builtin · {builtinSkills.length} in {byCategory.length} categories
+            </div>
+            {byCategory.map(g => renderCategoryGroupRow(g.id, g.label, g.skills))}
+            {q ? renderCategory('Matching builtin skills', builtinSkills, false) : null}
 
             {/* My Skills — editable, "+" creates a new skill */}
             {renderCategory('My Skills', mySkills, true, (

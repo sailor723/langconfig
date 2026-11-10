@@ -14,6 +14,7 @@ import FileEditor from './FileEditor';
 import DeepAgentEditor from './DeepAgentEditor';
 import AgentEditor from './AgentEditor';
 import ToolCategoryTab from './ToolCategoryTab';
+import SkillCategoryTab from './SkillCategoryTab';
 import ToolEditor from './ToolEditor';
 import CustomToolBuilderTab from './CustomToolBuilderTab';
 import SearchProviderDetailTab from './SearchProviderDetailTab';
@@ -31,6 +32,7 @@ const VIEW_ICONS: Record<string, React.ReactNode> = {
   'template-picker':   <LayoutGrid size={13} />,
   agent:               <User size={13} />,
   'tool-category':      <Wrench size={13} />,
+  'skill-category':     <Award size={13} />,
   'tool-editor':          <Wrench size={13} />,
   'custom-tool-builder':  <Wrench size={13} />,
   'search-provider-detail': <Globe size={13} />,
@@ -56,6 +58,7 @@ const VIEWS: Record<string, React.FC<ViewComponentProps>> = {
   'template-picker':   TemplatePicker,
   agent:               AgentEditor,
   'tool-category':      ToolCategoryTab,
+  'skill-category':     SkillCategoryTab,
   'tool-editor':          ToolEditor,
   'custom-tool-builder':  CustomToolBuilderTab,
   'search-provider-detail': SearchProviderDetailTab,
