@@ -253,21 +253,21 @@ git checkout HEAD~1 -- path/to/file
 
 2. **写好 PR 描述**
    ```markdown
-   ## Summary
-   Brief description of changes
+   ## 概述
+   改动的简要说明
 
-   ## Changes
-   - Added user authentication
-   - Updated database schema
-   - Added unit tests
+   ## 变更
+   - 新增用户认证
+   - 更新数据库 schema
+   - 补充单元测试
 
-   ## Testing
-   - [ ] Unit tests pass
-   - [ ] Manual testing completed
-   - [ ] No console errors
+   ## 测试
+   - [ ] 单元测试通过
+   - [ ] 手动验证完成
+   - [ ] 控制台无报错
 
-   ## Screenshots
-   (if UI changes)
+   ## 截图
+   （UI 有改动时）
    ```
 
 3. **有分寸地请求评审**

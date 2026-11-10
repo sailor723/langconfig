@@ -207,7 +207,11 @@ skill listed as pending whose body is already Chinese fails.
    Chinese sits beside it. 66 of 102 skills carry that heading.
 2. **A dropped step is a different procedure under the same name.** Heading count and code-fence count must
    match the archived original; a loader cannot see the difference, so the test does.
-3. **A translation that gave up.** Measured across the hand translations, Chinese runs 1.14–1.91 CJK
+3. **Code stays, templates translate.** A fence holding code, a command, a tree, a diff or a query is
+   byte-identical to the source; a fence holding a document template an agent will fill in and show a person —
+   a PR body, a ticket body, a report skeleton — is prose in a box, and translating it is the point. When in
+   doubt: will a human read this text, or a machine run it?
+4. **A translation that gave up.** Measured across the hand translations, Chinese runs 1.14–1.91 CJK
    characters per English word, so the floor is `max(3, 0.6 × English words)` — proportional, because a
    translation cannot be larger than its source. A fixed floor of 200 failed the two-line demo skills, which
    is the wrong direction for a guard to fail.
