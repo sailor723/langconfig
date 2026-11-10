@@ -1,12 +1,14 @@
 ---
-name: market-wizard
-description: 通用 CSV 数据清洗技能。基于 YAML 规则将脏数据规范化为标准 schema,供下游分析技能使用。引擎通用、内容无关,规则写在 rules.yaml。
+name: "market-wizard（通用 CSV 清洗向导）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/market-wizard/SKILL.md
+description: 通用 CSV 数据清洗技能。基于 YAML 规则把脏数据规范化为标准 schema，供下游分析技能使用。引擎通用、内容无关，规则写在 rules.yaml。
 ---
 
-# Market Wizard — Generic CSV Cleaning
+# Market Wizard（通用 CSV 清洗）
 
-This skill cleans messy CSV files into a canonical schema using a **content-free
-wizard engine** (`backend/core/data_prep/wizard.py`) driven by a **YAML rules file**.
+本技能用一个**内容无关的向导引擎**（`backend/core/data_prep/wizard.py`），由一份 **YAML 规则文件**驱动，把杂乱的 CSV 文件清洗成规范 schema。
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -17,21 +19,21 @@ wizard engine** (`backend/core/data_prep/wizard.py`) driven by a **YAML rules fi
 └──────────────────────────────────────────────────────────────┘
 ```
 
-## Data Source
+## Data Source（数据来源）
 
-**Input**: Any CSV with column names matching the aliases in `rules.yaml`.
+**输入**：任意 CSV，其列名能对上 `rules.yaml` 中的别名。
 
-**Output**: A cleaned CSV conforming to the schema specified in `rules.yaml`
-(currently `CleanedSalesRow` from `backend/schemas/sales.py`).
+**输出**：一份清洗后的 CSV，符合 `rules.yaml` 指定的 schema
+（当前是 `backend/schemas/sales.py` 里的 `CleanedSalesRow`）。
 
-**Files**:
-- Rules: `skills/market-wizard/rules.yaml` (THIS skill's content)
-- Engine: `core/data_prep/wizard.py` (generic, reusable for other skills)
-- Schema: `schemas/sales.py` (shared with `finance_pro`)
+**文件**：
+- 规则：`skills/market-wizard/rules.yaml`（本技能的内容）
+- 引擎：`core/data_prep/wizard.py`（通用，其他技能可复用）
+- Schema：`schemas/sales.py`（与 `finance_pro` 共用）
 
-## Column Metadata
+## Column Metadata（列元数据）
 
-The **canonical output schema** is defined in code (Pydantic), not in this doc.
+**规范输出 schema** 定义在代码里（Pydantic），不在这份文档里。
 
 ```python
 # backend/schemas/sales.py
@@ -44,12 +46,12 @@ class CleanedSalesRow(BaseModel):
     discount: float = Field(ge=0, default=0.0)
 ```
 
-> 💡 To change the schema: edit `backend/schemas/sales.py`. This affects
-> BOTH this skill (output) and `finance_pro` (input) — single source of truth.
+> 💡 要改 schema：编辑 `backend/schemas/sales.py`。这会同时影响
+> 本技能（输出）和 `finance_pro`（输入）——单一事实来源。
 
-## Data Cleaning Rules
+## Data Cleaning Rules（清洗规则）
 
-The actual transformation rules live in `rules.yaml`:
+实际的转换规则住在 `rules.yaml` 里：
 
 ```yaml
 schema: CleanedSalesRow
@@ -74,9 +76,9 @@ mapping:
     default: 0.0
 ```
 
-### Supported transforms (whitelist)
+### 支持的变换（白名单）
 
-| Transform | Example | Effect |
+| 变换 | 示例 | 效果 |
 |---|---|---|
 | `upper` | `"us"` | `"US"` |
 | `lower` | `"US"` | `"us"` |
@@ -87,17 +89,17 @@ mapping:
 | `to_int` | `"20"` | `20` |
 | `to_float` | `"500"` | `500.0` |
 
-### Adding a new data source
+### 新增一个数据源
 
-1. Add a new `rules.yaml` for that source (or extend existing one)
-2. Define the schema in `schemas/` (or reuse existing)
-3. Run: `python -m core.data_prep.wizard path/to/rules.yaml`
+1. 为该数据源新增一份 `rules.yaml`（或扩展现有那份）
+2. 在 `schemas/` 里定义 schema（或复用已有的）
+3. 运行：`python -m core.data_prep.wizard path/to/rules.yaml`
 
-No code changes needed in the wizard itself.
+向导本身不需要改任何代码。
 
-## Few-shot Examples
+## Few-shot Examples（少样本示例）
 
-### Example 1: Run the wizard
+### 示例 1：运行向导
 
 ```bash
 cd backend
@@ -106,7 +108,7 @@ python -m core.data_prep.wizard \
     notebooks/module-5/enterprise_data/modern_marketing.csv
 ```
 
-Output:
+输出：
 ```json
 {
   "status": "ok",
@@ -118,7 +120,7 @@ Output:
 }
 ```
 
-### Example 2: Use the wizard programmatically
+### 示例 2：在代码里调用向导
 
 ```python
 from pathlib import Path
@@ -131,7 +133,7 @@ result = run(
 assert result["status"] == "ok"
 ```
 
-### Example 3: Validate output against schema
+### 示例 3：用 schema 校验输出
 
 ```python
 import pandas as pd
@@ -142,37 +144,37 @@ for _, row in df.iterrows():
     CleanedSalesRow.model_validate(row.to_dict())  # raises on invalid
 ```
 
-## Edge Cases & Pitfalls
+## Edge Cases & Pitfalls（边界情况与坑）
 
-### 1. Schema mismatch
-❌ Adding a column to rules.yaml that's NOT in `CleanedSalesRow`
-✅ Always match the schema defined in `backend/schemas/sales.py`
+### 1. schema 不匹配
+❌ 往 rules.yaml 里加一个 `CleanedSalesRow` 里没有的列
+✅ 永远对齐 `backend/schemas/sales.py` 里定义的 schema
 
-### 2. Missing source column
-❌ Wizard silently skips the rule (just logs warning)
-✅ Use the `default:` field in YAML for required-but-missing columns
-✅ Or fix the input CSV to have the expected column
+### 2. 源列缺失
+❌ 向导静默跳过该规则（只记一条警告）
+✅ 对必需但可能缺失的列，用 YAML 的 `default:` 字段
+✅ 或者修好输入 CSV，让它带上预期的列
 
-### 3. Invalid enum values
-❌ `region: "USA"` (not in Literal["US", "EMEA", "APAC", "LATAM"])
-✅ Pydantic validation catches this; wizard reports `validation_failed`
+### 3. 枚举值非法
+❌ `region: "USA"`（不在 Literal["US", "EMEA", "APAC", "LATAM"] 里）
+✅ Pydantic 校验会抓住它；向导报告 `validation_failed`
 
-### 4. Negative quantity or price
-❌ `-5` quantity or `0.0` price passes cleaning
-✅ Caught by `Field(ge=0)` / `Field(gt=0)` in CleanedSalesRow
+### 4. 数量或单价为负
+❌ 数量 `-5` 或单价 `0.0` 通过了清洗
+✅ 由 `CleanedSalesRow` 里的 `Field(ge=0)` / `Field(gt=0)` 抓住
 
-### 5. String concatenation instead of enum
-❌ `region: "US,EMEA"` (multiple values in one cell)
-✅ Each row should have ONE region; split rows if needed
+### 5. 用拼接字符串代替枚举
+❌ `region: "US,EMEA"`（一个单元格里塞多个值）
+✅ 每行只应有一个地区；需要时把行拆开
 
-### 6. Currency in discount
-❌ `discount: "$50"` (string with $)
-✅ Use `transform: strip_dollar_comma` in rules.yaml
+### 6. 折扣里带货币符号
+❌ `discount: "$50"`（带有 $ 的字符串）
+✅ 在 rules.yaml 里用 `transform: strip_dollar_comma`
 
-### 7. Empty CSV
-❌ Crashes or unclear error
-✅ Wizard returns `rows_in: 0, rows_valid: 0` (no crash)
+### 7. 空 CSV
+❌ 崩溃，或报一个看不懂的错
+✅ 向导返回 `rows_in: 0, rows_valid: 0`（不崩溃）
 
-### 8. Special characters in column names
-❌ `"Unit Price"` with space — YAML string literal
-✅ Quote it: `from: ["Unit Price"]` or `from: 'Unit Price'`
+### 8. 列名里有特殊字符
+❌ `"Unit Price"` 带空格——这是 YAML 字符串字面量
+✅ 加引号：`from: ["Unit Price"]` 或 `from: 'Unit Price'`

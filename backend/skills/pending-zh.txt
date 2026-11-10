@@ -13,7 +13,6 @@
 # whose structure or frontmatter disagrees with the archived English.
 
 chief-of-staff
-codebase-design
 domain-modeling
 edit-ontology-metrics
 frontend-design
@@ -26,7 +25,6 @@ lc-langgraph-persistence
 lc-managed-deep-agents
 lc-swarm
 loop-me
-market-wizard
 presentation-pipeline-builder
 presentation-skills
 prototype
