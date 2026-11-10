@@ -11,7 +11,7 @@ tags:
   - "mattpocock"
 triggers:
   - "要开采原始片段、先不碰结构时"
-  - "还没想好结构，只想先把料翻出来时"
+  - "还没想好结构，素材需要先过一遍时"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -111,7 +111,7 @@ A reaction to it.
 
 ## This repository's floor（本仓库的底线）
 
-- **用真命令验证**，不靠眼睛：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` + 一份文档库报告）。加 `--full-suite` 跑后端套件。
+- **用真命令验证**，不靠肉眼：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` + 一份文档库报告）。加 `--full-suite` 跑后端套件。
 - **后端套件有 20 个既有失败。**"不比那个基线更差"才是诚实的判据；"测试是绿的"这句话在这里你说不出口。用 `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py` 做对比，把 `FAILED` 行和记录的基线做 diff。
 - **规格、工单和笔记都落在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。一条写在聊天消息里的裁决，下一轮就丢了。
 - **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常外面套着一层 Deep Agents 骨架（`deepagents`）。动手之前先定下这处改动属于哪一层——`lc-ecosystem-primer` 规则——并优先选能干成这件事的最高层。

@@ -10,7 +10,7 @@ tags:
 - architecture
 - mattpocock
 triggers:
-- 当被要求暴露架构摩擦并提出**加深机会**时
+- 当被要求暴露架构摩擦并提出加深机会时
 - 当浅模块应该变成深模块时
 allowed_tools:
 - read_file

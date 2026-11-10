@@ -4,7 +4,7 @@ lang: zh
 translated: machine
 source: backend/skills/en-originals/git-workflow/SKILL.md
 description: >-
-  Git 工作流、分支策略与版本控制最佳实践方面的专家指导。凡是在管理仓库、解决冲突、或为团队立下一套工作规矩时，
+  Git 工作流、分支策略与版本控制最佳实践方面的专家指导。凡是在管理仓库、解决冲突、或为团队建立工作流时，
   都该用它。
 tags: [git, version-control, branching, workflow, collaboration]
 triggers:
@@ -25,7 +25,7 @@ author: LangConfig
 
 > **与 `code-review` 的分界。** 本技能讲的是机制：分支、合并、变基、冲突、提交、标签、发布，
 > 以及如何开一个 pull request、如何把它合入主干。评审的*内容*——在 diff 里看什么、安全、性能、
-> 可维护性——归 `code-review`。用户说“评审这个 PR”，用 `code-review`；用户问“我该怎么把它并进去”，
+> 可维护性——归 `code-review`。用户说“评审这个 PR”，用 `code-review`；用户问“我该怎么把它合入”，
 > 用本技能。
 
 ### 分支策略
@@ -271,7 +271,7 @@ git checkout HEAD~1 -- path/to/file
    ```
 
 3. **有分寸地请求评审**
-   - 圈上真正相关的评审者
+   - 圈出相关的评审者
    - 为复杂改动补足上下文
    - 及时回应反馈
 

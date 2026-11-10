@@ -454,7 +454,7 @@ result = agent.invoke(
 
 - 工具名（`task`、`write_todos`）
 - HITL 协议（approve/edit/reject 的结构）
-- 中断时跳过检查点的要求
+- 跳过「中断必须有检查点」这条要求（做不到——它是硬性的）
 - 把子智能体变成有状态的（它们都是瞬时的）
 </boundaries>
 

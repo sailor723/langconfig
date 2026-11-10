@@ -97,7 +97,7 @@ LangChain 生态被拆成多个职责单一、各自独立定版本的包。弄�
 | 包 | 什么时候用 | 最低版本 |
 |---------|----------|-------------|
 | `langgraph` | 直接构建自定义图 | 1.0 |
-| `deepagents` | 使用 Deep Agents 脚手架 | 最新 |
+| `deepagents` | 使用 Deep Agents 框架 | 最新 |
 
 ### Python——模型提供方（用哪个装哪个）
 
@@ -151,7 +151,7 @@ LangChain 生态被拆成多个职责单一、各自独立定版本的包。弄�
 | 包 | 什么时候用 | 最低版本 |
 |---------|----------|-------------|
 | `@langchain/langgraph` | 直接构建自定义图 | 1.0 |
-| `deepagents` | 使用 Deep Agents 脚手架 | 最新 |
+| `deepagents` | 使用 Deep Agents 框架 | 最新 |
 
 ### TypeScript——模型提供方（用哪个装哪个）
 

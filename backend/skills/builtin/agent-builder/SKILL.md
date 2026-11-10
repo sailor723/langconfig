@@ -117,7 +117,7 @@ pg_get_agent(<id>)          # the full config of one agent, before you update it
 └── assets/             # files used in output (templates, images)
 ```
 
-- `name` **等于目录名**（kebab-case 的 id）。给人看的名字属于正文标题和数据库那一行，不属于 frontmatter。
+- `name` 是**给人看的显示名**；技能的 id 取自**目录名**（kebab-case）。显示名可以是中文（本库的约定是 `id（中文标签）`），id 不能。
 - 只有 `references/`、`scripts/`、`assets/` 是规格目录。`templates/` 或 `facts/` 下的文件，对遵循规格的读取方
   是不可见的——`create_skill` 会拒绝这些路径，并说明原因。
 - 指令必须**点名每一个支撑文件**，并说清何时去读它。没人提到的文件，就是没人加载的文件（渐进披露第 3 层）。

@@ -42,7 +42,7 @@ version: "1.0"
 子目录里的一切都是隐藏的。本技能装上 [dependency-cruiser](https://github.com/sverweij/dependency-cruiser)，
 以及让入口成为唯一进门的那套规则，然后证明这些规则真的会咬人。
 
-关于术语（deep module、interface、seam、depth），用 `skill` 工具读取技能（id 为 `codebase-design`），
+关于术语（深模块、接口、接缝、深度），用 `skill` 工具读取技能（id 为 `codebase-design`），
 并全程沿用它的说法。
 
 ## 这套配置强制的形状

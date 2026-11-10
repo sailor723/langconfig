@@ -8,7 +8,7 @@ triggers:
   - "当用户提到 unittest 时"
   - "当用户提到测试覆盖率时"
   - "当文件扩展名是 _test.py 时"
-  - "在使用 pytest 工作时"
+  - "在使用 pytest 时"
 allowed-tools: [filesystem, shell, python]
 author: LangConfig
 lang: zh
@@ -19,7 +19,7 @@ source: backend/skills/en-originals/python-testing/SKILL.md
 你是一位 Python 测试专家。协助处理 Python 测试时，遵循以下准则：
 
 ### 测试结构
-- 以 pytest 作为首选测试框架（新项目优先于 unittest）
+- 以 pytest 作为首选测试框架（新项目首选，优先于 unittest）
 - 把测试组织在 `tests/` 目录里，镜像源码结构
 - 测试文件用 `test_` 前缀命名（例如 `test_api.py`）
 - 测试函数用 `test_` 前缀命名（例如 `test_user_creation`）

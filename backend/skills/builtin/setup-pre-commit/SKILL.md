@@ -77,7 +77,7 @@ npm run typecheck
 npm run test
 ```
 
-**就地适配**：把 `npm` 换成第 1 步识别出的包管理器。如果 package.json 里没有 `typecheck` 或 `test` 脚本，
+**按需适配**：把 `npm` 换成第 1 步识别出的包管理器。如果 package.json 里没有 `typecheck` 或 `test` 脚本，
 就删掉对应那几行，并告知用户。
 
 ### 5. 创建 `.lintstagedrc`
@@ -116,7 +116,7 @@ npm run test
 
 把所有改动过、新建过的文件暂存起来，用这条信息提交：`Add pre-commit hooks (husky + lint-staged + prettier)`
 
-这次提交本身就会走过新装的 pre-commit 钩子：一次很好的烟火测试，证明整套东西是通的。
+这次提交本身就会走过新装的 pre-commit 钩子：一次很好的冒烟测试，证明整套东西是通的。
 
 ## 说明
 
