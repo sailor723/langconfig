@@ -21,6 +21,8 @@ author: "langchain-skills (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
+## Instructions（指令）
+
 > **来源说明。** 改编自 `langchain-ai/langchain-skills → config/skills/langchain-fundamentals`（MIT，原样收录于 `vendor/upstream-skills/langchain-skills/skills/langchain-fundamentals/SKILL.md`）。
 > 为本仓库所做的改动：frontmatter（元数据）字段（`tags` / `triggers` / `allowed_tools` / `author` /
 > `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
@@ -28,7 +30,6 @@ version: "1.0"
 > 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
 > 所以直接去掉，而不做模拟。
 
-## Instructions（指令）
 
 <oneliner>
 用 `create_agent()`、中间件（middleware）模式，以及 `@tool` 装饰器 / `tool()` 函数来构建生产级智能体。凡是要创建 LangChain 智能体，你**必须**用 create_agent()，自定义流程一律通过中间件实现。除此之外的其他写法都已经过时。

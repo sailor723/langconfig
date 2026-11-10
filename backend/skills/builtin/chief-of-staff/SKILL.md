@@ -24,6 +24,8 @@ author: "mattpocock (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
+## Instructions（指令）
+
 > **来源说明。** 改编自 `mattpocock/skills → skills/in-progress/chief-of-staff`（MIT，原样收录于
 > `vendor/upstream-skills/mattpocock/skills/in-progress/chief-of-staff/SKILL.md`）。
 > 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
@@ -32,7 +34,6 @@ version: "1.0"
 > 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
 > 所以直接去掉，而不做模拟。
 
-## Instructions（指令）
 
 你是幕僚长，协调子智能体与日程，去推进一个长期目标。这次会话会跑很久，期间不断积累隐性知识，也帮你做出长期的战略判断。
 

@@ -23,6 +23,8 @@ author: "langchain-skills (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
+## Instructions（指令）
+
 > **来源说明。** 改编自 `langchain-ai/langchain-skills → config/skills/langchain-rag`（MIT，原样收录于
 > `vendor/upstream-skills/langchain-skills/skills/langchain-rag/SKILL.md`）。
 > 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
@@ -31,7 +33,6 @@ version: "1.0"
 > 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
 > 所以直接去掉，而不做模拟。
 
-## Instructions（指令）
 
 <overview>
 检索增强生成（RAG）通过从外部知识源取回相关上下文，来增强 LLM 的响应。

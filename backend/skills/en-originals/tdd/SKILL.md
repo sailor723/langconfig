@@ -20,6 +20,8 @@ author: "mattpocock (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
+## Instructions
+
 > **Provenance.** Adapted from `mattpocock/skills → skills/engineering/tdd` (MIT, vendored at `vendor/upstream-skills/mattpocock/skills/engineering/tdd/SKILL.md`).
 > Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
 > `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
@@ -27,7 +29,6 @@ version: "1.0"
 > section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
 > through the `skill` tool, so it is dropped rather than emulated.
 
-## Instructions
 
 # Test-Driven Development
 

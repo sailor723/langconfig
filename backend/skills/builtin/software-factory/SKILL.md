@@ -24,6 +24,8 @@ author: "mattpocock (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
+## Instructions（指令）
+
 > **来源说明。** 改编自 `mattpocock/skills → skills/in-progress/software-factory`（MIT，原样收录于 `vendor/upstream-skills/mattpocock/skills/in-progress/software-factory/SKILL.md`）。
 > 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
 > `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
@@ -31,7 +33,6 @@ version: "1.0"
 > 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
 > 所以直接去掉，而不做模拟。
 
-## Instructions（指令）
 
 **software factory（软件工厂）** 是一套智能体系统，把工单、PR 与排期变成已合并的代码，跑在用户选定的远程基础设施上。本技能就是设计它时用的那套语言。讨论或白板画一个工厂时，只用下面这些术语，别的不用；用户如果伸手去用 _避免_ 里的词，就把规范词点出来。
 

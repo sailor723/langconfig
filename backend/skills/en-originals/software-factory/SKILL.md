@@ -20,6 +20,8 @@ author: "mattpocock (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
+## Instructions
+
 > **Provenance.** Adapted from `mattpocock/skills → skills/in-progress/software-factory` (MIT, vendored at `vendor/upstream-skills/mattpocock/skills/in-progress/software-factory/SKILL.md`).
 > Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
 > `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
@@ -27,7 +29,6 @@ version: "1.0"
 > section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
 > through the `skill` tool, so it is dropped rather than emulated.
 
-## Instructions
 
 A **software factory** is a system of agents that turns tickets, PRs and schedules into merged code, deployed on remote infrastructure the user chooses. This skill is the language for designing one. Use these terms, and only these, when discussing or whiteboarding a factory; when the user reaches for a word under _Avoid_, name the canonical term.
 

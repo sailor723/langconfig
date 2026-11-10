@@ -22,6 +22,8 @@ author: "mattpocock (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
+## Instructions
+
 > **Provenance.** Adapted from `mattpocock/skills → skills/productivity/writing-for-agents` (MIT, vendored at `vendor/upstream-skills/mattpocock/skills/productivity/writing-for-agents/SKILL.md`).
 > Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
 > `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
@@ -29,7 +31,6 @@ version: "1.0"
 > section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
 > through the `skill` tool, so it is dropped rather than emulated.
 
-## Instructions
 
 Reference for writing any document an agent consumes: a skill, an `AGENTS.md` / `CLAUDE.md`, a doc reached by a pointer. The packaging differs; the writing does not: the same levers make each one predictable, since the agent takes the same _process_ every run rather than producing the same output.
 

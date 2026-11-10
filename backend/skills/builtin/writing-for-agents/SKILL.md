@@ -26,6 +26,8 @@ author: "mattpocock (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
+## Instructions（指令）
+
 > **来源说明。** 改编自 `mattpocock/skills → skills/productivity/writing-for-agents`（MIT，原样收录于
 > `vendor/upstream-skills/mattpocock/skills/productivity/writing-for-agents/SKILL.md`）。
 > 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
@@ -34,7 +36,6 @@ version: "1.0"
 > 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
 > 所以直接去掉，不做仿真。
 
-## Instructions（指令）
 
 这是一份参考，讲怎么写任何一份被智能体取用的文档：一个技能、一份 `AGENTS.md` / `CLAUDE.md`、一份只能通过指针才够得到的文档。包装不同，写法不变：同一批杠杆让每一份都变得可预测——因为智能体每一次跑的是同一个*过程*，而不是产出同一份结果。
 

@@ -26,6 +26,8 @@ translated: machine
 source: backend/skills/en-originals/lc-langgraph-cli/SKILL.md
 ---
 
+## Instructions（指令）
+
 > **来源说明。** 改编自 `langchain-ai/langchain-skills → config/skills/langgraph-cli`（MIT，原样收录于 `vendor/upstream-skills/langchain-skills/skills/langgraph-cli/SKILL.md`）。
 > 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
 > `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
@@ -33,7 +35,6 @@ source: backend/skills/en-originals/lc-langgraph-cli/SKILL.md
 > 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
 > 所以直接去掉，而不做模拟。
 
-## Instructions（指令）
 
 <overview>
 `langgraph` CLI 负责 LangGraph 应用的整个生命周期——从脚手架出一个新项目，一直到把它部署到 LangGraph Platform（LangSmith Deployments）。

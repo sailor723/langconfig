@@ -22,6 +22,8 @@ author: "mattpocock (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
+## Instructions（指令）
+
 > **来源说明。** 改编自 `mattpocock/skills → skills/engineering/retro`（MIT，原样收录于
 > `vendor/upstream-skills/mattpocock/skills/engineering/retro/SKILL.md`）。
 > 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
@@ -30,7 +32,6 @@ version: "1.0"
 > 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
 > 所以直接去掉，而不做模拟。
 
-## Instructions（指令）
 
 用户要求做一次**复盘**。你要为编码智能体的**环境**提出改进，让以后的运行更好。
 

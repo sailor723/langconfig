@@ -25,6 +25,8 @@ author: "mattpocock (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
+## Instructions（指令）
+
 > **来源说明。** 改编自 `mattpocock/skills → skills/engineering/wayfinder`（MIT，原样收录于
 > `vendor/upstream-skills/mattpocock/skills/engineering/wayfinder/SKILL.md`）。
 > 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
@@ -33,7 +35,6 @@ version: "1.0"
 > 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
 > 所以直接去掉，而不做模拟。
 
-## Instructions（指令）
 
 一个松散的想法到了，大到单个智能体会话装不下，还裹在迷雾里：从这里到**目的地**的路还看不见。探路要的是找到那条路，不是朝着目的地硬冲。这个技能把那条路画成一张**共享地图**，落在本仓库的 `docs/tickets/` 上，然后一张一张地解它的**决策工单**（解法是一个决定、而不是一段要执行的施工切片的问题），直到路线清楚。
 

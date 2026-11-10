@@ -20,6 +20,8 @@ author: "mattpocock (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
+## Instructions
+
 > **Provenance.** Adapted from `mattpocock/skills → skills/engineering/wayfinder` (MIT, vendored at `vendor/upstream-skills/mattpocock/skills/engineering/wayfinder/SKILL.md`).
 > Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
 > `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
@@ -27,7 +29,6 @@ version: "1.0"
 > section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
 > through the `skill` tool, so it is dropped rather than emulated.
 
-## Instructions
 
 A loose idea has arrived, too big for one agent session, and wrapped in fog: the way from here to the **destination** isn't visible yet. Wayfinding is about finding that way, not charging at the destination. This skill charts the way as a **shared map** on the repo's `docs/tickets/`, then works its **decision tickets** (questions whose resolution is a decision, not slices of a build to execute) one at a time until the route is clear.
 

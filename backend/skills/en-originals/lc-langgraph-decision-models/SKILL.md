@@ -22,6 +22,8 @@ author: "langchain-skills (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
+## Instructions
+
 > **Provenance.** Adapted from `langchain-ai/langchain-skills → config/skills/langgraph-decision-models` (MIT, vendored at `vendor/upstream-skills/langchain-skills/skills/langgraph-decision-models/SKILL.md`).
 > Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
 > `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
@@ -29,7 +31,6 @@ version: "1.0"
 > section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
 > through the `skill` tool, so it is dropped rather than emulated.
 
-## Instructions
 
 <overview>
 A **decision model** answers typed questions about state and returns probabilities instead of prose. It replaces the common pattern of prompting an LLM, parsing its text, and branching on the result.

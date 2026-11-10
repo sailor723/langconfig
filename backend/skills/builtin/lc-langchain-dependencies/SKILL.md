@@ -27,6 +27,8 @@ author: "langchain-skills (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
+## Instructions（指令）
+
 > **来源说明。** 改编自 `langchain-ai/langchain-skills → config/skills/langchain-dependencies`（MIT，原样收录于
 > `vendor/upstream-skills/langchain-skills/skills/langchain-dependencies/SKILL.md`）。
 > 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
@@ -35,7 +37,6 @@ version: "1.0"
 > 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
 > 所以直接去掉，而不做模拟。
 
-## Instructions（指令）
 
 <overview>
 LangChain 生态被拆成多个职责单一、各自独立定版本的包。弄清楚你需要哪些包、以及它们的版本约束，可以避开不兼容，并让升级变得可预期。

@@ -23,6 +23,8 @@ author: "langchain-skills (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
+## Instructions
+
 > **Provenance.** Adapted from `langchain-ai/langchain-skills → config/skills/ecosystem-primer` (MIT, vendored at `vendor/upstream-skills/langchain-skills/skills/ecosystem-primer/SKILL.md`).
 > Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
 > `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
@@ -30,7 +32,6 @@ version: "1.0"
 > section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
 > through the `skill` tool, so it is dropped rather than emulated.
 
-## Instructions
 
 <overview>
 LangChain Inc. maintains three layered open-source tools for building agents, plus LangSmith for observability. The stack, top-down:

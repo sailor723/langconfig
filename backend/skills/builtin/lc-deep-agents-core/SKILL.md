@@ -29,6 +29,8 @@ author: "langchain-skills (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
+## Instructions（指令）
+
 > **来源说明。** 改编自 `langchain-ai/langchain-skills → config/skills/deep-agents-core`（MIT，原样收录于 `vendor/upstream-skills/langchain-skills/skills/deep-agents-core/SKILL.md`）。
 > 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
 > `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
@@ -36,7 +38,6 @@ version: "1.0"
 > 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
 > 所以直接去掉，而不做模拟。
 
-## Instructions（指令）
 
 <overview>
 Deep Agents 是一个构建在 LangChain/LangGraph 之上、带内置中间件的、有主见的智能体框架：

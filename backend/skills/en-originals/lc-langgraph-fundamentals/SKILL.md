@@ -20,6 +20,8 @@ author: "langchain-skills (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
+## Instructions
+
 > **Provenance.** Adapted from `langchain-ai/langchain-skills → config/skills/langgraph-fundamentals` (MIT, vendored at `vendor/upstream-skills/langchain-skills/skills/langgraph-fundamentals/SKILL.md`).
 > Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
 > `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
@@ -27,7 +29,6 @@ version: "1.0"
 > section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
 > through the `skill` tool, so it is dropped rather than emulated.
 
-## Instructions
 
 <overview>
 LangGraph models agent workflows as **directed graphs**:

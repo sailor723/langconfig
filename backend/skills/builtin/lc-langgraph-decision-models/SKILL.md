@@ -29,6 +29,8 @@ author: "langchain-skills (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
+## Instructions（指令）
+
 > **来源说明。** 改编自 `langchain-ai/langchain-skills → config/skills/langgraph-decision-models`（MIT，原样收录于
 > `vendor/upstream-skills/langchain-skills/skills/langgraph-decision-models/SKILL.md`）。
 > 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
@@ -37,7 +39,6 @@ version: "1.0"
 > 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
 > 所以直接去掉，而不做模拟。
 
-## Instructions（指令）
 
 <overview>
 **决策模型（decision model）**针对状态提出带类型的问题，返回概率而不是一段文字。它替代了那个常见做法：提示一个 LLM、解析它吐出的文本、再按结果分支。
