@@ -25,7 +25,6 @@ domain-modeling
 edit-ontology-metrics
 frontend-design
 generate-mock-dataset
-git-guardrails-claude-code
 implement-spec
 improve-codebase-architecture
 langchain-agents
@@ -35,14 +34,12 @@ lc-deep-agents-orchestration
 lc-ecosystem-primer
 lc-eval-engineering
 lc-langgraph-cli
-lc-langgraph-fundamentals
 lc-langgraph-human-in-the-loop
 lc-langgraph-persistence
 lc-managed-deep-agents
 lc-swarm
 loop-me
 market-wizard
-mcp-builder
 migrate-to-shoehorn
 presentation-pipeline-builder
 presentation-skills
@@ -52,7 +49,6 @@ research-execution
 research-pipeline-builder
 research-skills
 scaffold-exercises
-security-review
 setup-pre-commit
 setup-ts-deep-modules
 software-factory

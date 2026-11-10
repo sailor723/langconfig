@@ -1,42 +1,46 @@
 ---
-name: mcp-builder
+name: "mcp-builder（MCP 服务器构建）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/mcp-builder/SKILL.md
 description: >-
-  Comprehensive guide for creating Model Context Protocol (MCP) servers. Use when building MCP servers, integrating external APIs, or creating tool interfaces for LLMs.
+  创建 Model Context Protocol（MCP）服务器的完整指南。构建 MCP 服务器、集成外部 API，
+  或为 LLM 编写工具接口时使用。
 tags: [mcp, api, typescript, python, tools, integration]
 triggers:
-  - "when user mentions MCP"
-  - "when user mentions Model Context Protocol"
-  - "when user wants to create tools"
-  - "when user mentions server integration"
+  - "用户提到 MCP"
+  - "用户提到 Model Context Protocol"
+  - "用户想创建工具"
+  - "用户提到服务器集成"
 allowed-tools: [filesystem, shell, python]
 author: LangConfig
 ---
 
-You are an expert MCP server developer. Follow this four-phase process when creating MCP servers:
+你是一名 MCP 服务器开发专家。创建 MCP 服务器时，按下面这套四阶段流程走：
 
-### Phase 1: Research and Planning
+### 阶段 1：调研与规划
 
-Before writing code, thoroughly understand:
+写代码之前，先彻底搞清楚这些：
 
-1. **API Analysis**
-   - Study the target API documentation completely
-   - Identify authentication methods (OAuth, API keys, tokens)
-   - Map out rate limits and pagination patterns
-   - Note any webhooks or real-time features
+1. **API 分析**
+   - 完整读一遍目标 API 的文档
+   - 确认认证方式（OAuth、API key、token）
+   - 摸清速率限制与分页模式
+   - 记下有没有 webhook 或实时特性
 
-2. **Tool Design Principles**
-   - Balance comprehensive endpoint coverage with specialized workflow tools
-   - Use action-oriented naming: `get_`, `create_`, `update_`, `delete_`, `list_`, `search_`
-   - Group related operations logically
-   - Design for agent flexibility, not just human convenience
+2. **工具设计原则**
+   - 在覆盖全部端点与做专用工作流工具之间取得平衡
+   - 用动作导向的命名：`get_`、`create_`、`update_`、`delete_`、`list_`、`search_`
+   - 把相关操作按逻辑分组
+   - 为智能体的灵活性设计，而不只是图人用着方便
 
-3. **Framework Selection**
-   - **TypeScript** (Recommended): Superior SDK support, better type safety
-   - **Python**: Good for data-heavy integrations, familiar to ML engineers
+3. **框架选型**
+   - **TypeScript**（推荐）：SDK 支持更好，类型安全更强
+   - **Python**：适合数据密集的集成，ML 工程师也熟悉
 
-### Phase 2: Implementation
+### 阶段 2：实现
 
-#### TypeScript Project Structure
+#### TypeScript 项目结构
 ```
 my-mcp-server/
 ├── src/
@@ -50,9 +54,9 @@ my-mcp-server/
 └── tsconfig.json
 ```
 
-#### Core Implementation Patterns
+#### 核心实现模式
 
-**1. Tool Definition with Zod Schema:**
+**1. 用 Zod schema 定义工具：**
 ```typescript
 import { z } from "zod";
 
@@ -71,7 +75,7 @@ server.tool(
 );
 ```
 
-**2. Error Handling:**
+**2. 错误处理：**
 ```typescript
 try {
   const response = await api.request(endpoint);
@@ -84,7 +88,7 @@ try {
 }
 ```
 
-**3. Pagination Helper:**
+**3. 分页辅助函数：**
 ```typescript
 async function* paginate<T>(fetcher: (cursor?: string) => Promise<PageResponse<T>>) {
   let cursor: string | undefined;
@@ -96,7 +100,7 @@ async function* paginate<T>(fetcher: (cursor?: string) => Promise<PageResponse<T
 }
 ```
 
-**4. Tool Annotations:**
+**4. 工具注解：**
 ```typescript
 server.tool("delete_resource", "Permanently delete a resource", schema, handler, {
   annotations: {
@@ -107,7 +111,7 @@ server.tool("delete_resource", "Permanently delete a resource", schema, handler,
 });
 ```
 
-#### Python Project Structure
+#### Python 项目结构
 ```
 my-mcp-server/
 ├── src/
@@ -119,7 +123,7 @@ my-mcp-server/
 └── README.md
 ```
 
-**Python Tool Definition:**
+**Python 工具定义：**
 ```python
 from mcp.server import Server
 from pydantic import BaseModel, Field
@@ -134,9 +138,9 @@ async def get_user(input: GetUserInput) -> str:
     return json.dumps(user)
 ```
 
-### Phase 3: Testing and Validation
+### 阶段 3：测试与验证
 
-1. **Build Verification:**
+1. **构建验证：**
    ```bash
    # TypeScript
    npm run build
@@ -145,28 +149,28 @@ async def get_user(input: GetUserInput) -> str:
    python -m py_compile src/**/*.py
    ```
 
-2. **MCP Inspector Testing:**
+2. **MCP Inspector 测试：**
    ```bash
    npx @anthropic/mcp-inspector
    ```
 
-3. **Integration Testing:**
-   - Test each tool with valid inputs
-   - Test error cases (invalid IDs, auth failures)
-   - Verify pagination works correctly
-   - Check rate limit handling
+3. **集成测试：**
+   - 用合法输入逐个测每个工具
+   - 测错误路径（非法 ID、认证失败）
+   - 确认分页工作正常
+   - 检查速率限制的处理
 
-### Phase 4: Documentation and Evaluation
+### 阶段 4：文档与评测
 
-1. **README Requirements:**
-   - Clear installation instructions
-   - Environment variable documentation
-   - Example usage for each tool
-   - Troubleshooting section
+1. **README 要求：**
+   - 清晰的安装说明
+   - 环境变量的文档
+   - 每个工具的用法示例
+   - 故障排查一节
 
-2. **Evaluation Questions:**
-   Create 10 complex, realistic questions that verify LLM effectiveness:
-   - Questions must be read-only (no mutations)
-   - Answers must be verifiable
-   - Cover different tool combinations
-   - Test edge cases
+2. **评测问题：**
+   造 10 个复杂、贴近真实的问题，用来检验 LLM 的效果：
+   - 问题必须只读（不做变更）
+   - 答案必须可核验
+   - 覆盖不同的工具组合
+   - 测边界情况
