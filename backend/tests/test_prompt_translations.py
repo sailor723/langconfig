@@ -123,5 +123,5 @@ def test_a_pending_prompt_really_is_english(prompt_id: str):
 
 def test_no_staged_translation_is_left_behind():
     """A staged file is a translation nobody promoted — the DB does not serve it, so it is invisible work."""
-    left = sorted(p.stem for p in STAGING.glob("*.md")) if STAGING.is_dir() else []
+    left = sorted(p.stem for p in STAGING.glob("*.md") if not p.name.startswith(".")) if STAGING.is_dir() else []
     assert not left, f"staged but never promoted: {left}"

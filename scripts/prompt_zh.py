@@ -61,7 +61,23 @@ class Rejected(Exception):
 
 
 # ── database ─────────────────────────────────────────────────────────────────────────────────────
+_FETCH_CACHE: dict[tuple[str, ...] | None, list[dict]] = {}
+
+
 async def _fetch(ids: list[str] | None = None) -> list[dict]:
+    """Read the prompts once per process.
+
+    asyncpg's pool belongs to the event loop that created it, so a second `asyncio.run()` in the same process
+    dies with "attached to a different loop" — measured, in both the CLI (`check` fetching twice) and the test
+    suite. Caching also makes the verbs cheap: they all read the same 61 rows.
+    """
+    key = None if ids is None else tuple(sorted(ids, key=int))
+    if key not in _FETCH_CACHE:
+        _FETCH_CACHE[key] = await _fetch_uncached(ids)
+    return _FETCH_CACHE[key]
+
+
+async def _fetch_uncached(ids: list[str] | None = None) -> list[dict]:
     from db.database import AsyncSessionLocal
     from sqlalchemy import text as sql
 
@@ -73,6 +89,17 @@ async def _fetch(ids: list[str] | None = None) -> list[dict]:
     return [r for r in out if ids is None or r["id"] in ids]
 
 
+_LOOP: asyncio.AbstractEventLoop | None = None
+
+
+def run(coro):
+    """Run a coroutine on one process-wide loop (asyncpg's pool is bound to the loop that created it)."""
+    global _LOOP
+    if _LOOP is None or _LOOP.is_closed():
+        _LOOP = asyncio.new_event_loop()
+    return _LOOP.run_until_complete(coro)
+
+
 async def _write_prompt(prompt_id: str, text: str) -> None:
     from db.database import AsyncSessionLocal
     from sqlalchemy import text as sql
@@ -80,7 +107,8 @@ async def _write_prompt(prompt_id: str, text: str) -> None:
     async with AsyncSessionLocal() as session:
         await session.execute(
             sql("update deep_agent_templates "
-                "set config = jsonb_set(coalesce(config,'{}'::jsonb), '{system_prompt}', to_jsonb(:t)), "
+                "set config = jsonb_set(coalesce(config::jsonb, '{}'::jsonb), '{system_prompt}', "
+                "                to_jsonb(cast(:t as text))), "
                 "    updated_at = now() where id = :i"),
             {"t": text, "i": int(prompt_id)},
         )
@@ -138,6 +166,24 @@ def write_ids(path: pathlib.Path, ids: list[str], header: str) -> None:
     path.write_text(body, encoding="utf-8")
 
 
+def english_source(prompt_id: str, rows: dict[str, dict]) -> pathlib.Path:
+    """The English to compare against: the archive once translated, else the DB row written to a temp file.
+
+    Before promotion the DB *is* the English for that prompt, so checking a staged draft reads it from `rows`
+    (fetched once by the caller — a second `asyncio.run()` would hand asyncpg a dead event loop). Writing it to a
+    temp file keeps `validate` a pure text-to-text function.
+    """
+    archived = archive_path(prompt_id)
+    if archived.is_file():
+        return archived
+    if prompt_id not in rows:
+        raise Rejected(f"prompt {prompt_id} is not in the DB")
+    STAGING.mkdir(parents=True, exist_ok=True)
+    src = STAGING / f".en-{prompt_id}.txt"
+    src.write_text(rows[prompt_id]["prompt"], encoding="utf-8")
+    return src
+
+
 def archive_path(prompt_id: str) -> pathlib.Path:
     return ARCHIVE / f"{prompt_id}.md"
 
@@ -186,10 +232,10 @@ def validate(prompt_id: str, en: str, zh: str) -> None:
 
 
 def cmd_status() -> int:
-    rows = asyncio.run(_fetch())
+    rows = run(_fetch())
     archived = {p.stem for p in ARCHIVE.glob("*.md")} if ARCHIVE.is_dir() else set()
     zh_native, pending = set(list_file(ZH_NATIVE)), set(list_file(PENDING))
-    staged = {p.stem for p in STAGING.glob("*.md")} if STAGING.is_dir() else set()
+    staged = {p.stem for p in STAGING.glob("*.md") if not p.name.startswith(".")} if STAGING.is_dir() else set()
     ids = {r["id"] for r in rows}
     print(f"  prompts in the DB        {len(rows)}")
     print(f"  translated (archived)    {len(archived & ids)}")
@@ -208,17 +254,15 @@ def cmd_status() -> int:
 def cmd_check(ids: list[str]) -> int:
     if not ids:
         ids = sorted({p.stem for p in STAGING.glob("*.md")}, key=int)
-    rows = {r["id"]: r for r in asyncio.run(_fetch())}
+    rows = {r["id"]: r for r in run(_fetch())}
     rc = 0
     for prompt_id in ids:
         try:
             staged = staged_path(prompt_id)
             if not staged.is_file():
                 raise Rejected(f"nothing staged at {staged.relative_to(REPO)}")
-            if not archive_path(prompt_id).is_file():
-                raise Rejected("no archived English — run `archive` first")
-            validate(prompt_id, archive_path(prompt_id).read_text(encoding="utf-8"),
-                     staged.read_text(encoding="utf-8"))
+            english = english_source(prompt_id, rows)
+            validate(prompt_id, english.read_text(encoding="utf-8"), staged.read_text(encoding="utf-8"))
             print(f"  ok      {prompt_id}  {rows.get(prompt_id, {}).get('name', '')}")
         except Rejected as exc:
             print(f"  REJECT  {prompt_id}: {exc}", file=sys.stderr)
@@ -227,7 +271,7 @@ def cmd_check(ids: list[str]) -> int:
 
 
 def cmd_promote(ids: list[str]) -> int:
-    rows = {r["id"]: r for r in asyncio.run(_fetch())}
+    rows = {r["id"]: r for r in run(_fetch())}
     pending = list_file(PENDING)
     zh_native = set(list_file(ZH_NATIVE))
     rc, done = 0, []
@@ -248,7 +292,7 @@ def cmd_promote(ids: list[str]) -> int:
                 print(f"  archived {prompt_id} → {archive.relative_to(REPO)}")
             zh = staged.read_text(encoding="utf-8")
             validate(prompt_id, archive.read_text(encoding="utf-8"), zh)
-            asyncio.run(_write_prompt(prompt_id, zh))
+            run(_write_prompt(prompt_id, zh))
             staged.unlink()
             done.append(prompt_id)
             print(f"  promoted {prompt_id}  {rows.get(prompt_id, {}).get('name', '')}")
@@ -263,7 +307,7 @@ def cmd_promote(ids: list[str]) -> int:
 
 def cmd_show(prompt_id: str, source: str) -> int:
     if source == "db":
-        rows = asyncio.run(_fetch([prompt_id]))
+        rows = run(_fetch([prompt_id]))
         print(rows[0]["prompt"] if rows else f"(no prompt {prompt_id} in the DB)")
     else:
         path = archive_path(prompt_id) if source == "archive" else staged_path(prompt_id)
@@ -294,6 +338,8 @@ def main(argv: list[str]) -> int:
     if args.command == "status":
         return cmd_status()
     ids = [i for i in args.ids if i.isdigit()]
+    if args.command == "check" and not args.ids:
+        return cmd_check([])                 # every staged prompt
     if not ids:
         ap.error("name at least one prompt id (a deep_agent_templates id)")
     if args.command == "check":
