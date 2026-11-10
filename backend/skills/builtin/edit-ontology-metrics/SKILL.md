@@ -163,7 +163,7 @@ $PY scripts/check_metric.py --profile ... --metric totalRevenue \
 
 ```
 compile: 21 of 24 metric(s) compiled, 3 refused by name
-  REFUSED atRiskDrivers: :AtRiskDriver has no owl::equivalentClass axiom — nothing to compile
+  REFUSED atRiskDrivers: :AtRiskDriver has no owl:equivalentClass axiom — nothing to compile
 carried refusals (already refused in the installed ontology): atRiskDrivers, …
 gates: PASS
 gates NOT RUN (named, not passed): [NOT RUN] R2 …

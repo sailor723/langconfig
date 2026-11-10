@@ -125,7 +125,7 @@ Say no, and say why — these are the requests that destroy an ontology's value:
 
 - **"Change the number to X"** with no rule behind it. A number is an output of a definition. Ask
   which rows are in scope, at what grain, with which threshold.
-- **Invent a threshold or a grain.** (`atRiskDriver`, "good route", "recent") — ask. This is why
+- **Invent a threshold or a grain.** (`atRiskDrivers`, "good route", "recent") — ask. This is why
   some metrics in every build are *refused by name*: the refusal is the honest answer until the
   business decides.
 - **Hand-write SQL for a metric**, or add a code path that bypasses the compiler. The compiler is
@@ -183,7 +183,7 @@ Read the returned report in this shape, and put it in your answer:
 
 ```
 compile: 21 of 24 metric(s) compiled, 3 refused by name
-  REFUSED atRiskDrivers: :AtRiskDriver has no owl::equivalentClass axiom — nothing to compile
+  REFUSED atRiskDrivers: :AtRiskDriver has no owl:equivalentClass axiom — nothing to compile
 carried refusals (already refused in the installed ontology): atRiskDrivers, …
 gates: PASS
 gates NOT RUN (named, not passed): [NOT RUN] R2 …

@@ -58,7 +58,7 @@ what defines them), actions (name, parameters, the guard they compile to). Then,
 
 - **rules first** (~0 ms): token overlap on camelCase names, the author's `rdfs:label`, the profile's
   `aliases`, plus aggregate hints taken from the compiled SQL (`count(`, `sum(`, `max(`). Actions need an
-  explicit VERB (`promote`/`promote`/`record`) — a noun must never select an action.
+  explicit VERB (`promote`/`record`) — a noun must never select an action.
 - **a number is answered by a metric or refused by name** — never by a class listing. Measure cues:
   数 / 多少 / 几条 / 率 / 占比 / 金额 / 最多 / 最高 / 排名, and count / sum / rate / how many. A *declared*
   count must find its metric (`订单数` → `orderCount`) even when the class name is shorter; a Chinese noun

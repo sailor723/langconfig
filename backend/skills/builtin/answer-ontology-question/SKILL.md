@@ -57,7 +57,7 @@ params:
 护栏）。然后按这个顺序来：
 
 - **规则优先**（~0 ms）：camelCase 名字上的 token 重叠、作者写的 `rdfs:label`、profile 的 `aliases`，再加上从
-  编译出的 SQL 里取的聚合提示（`count(`、`sum(`、`max(`）。动作需要一个显式的**动词**（`promote`/`promote`/
+  编译出的 SQL 里取的聚合提示（`count(`、`sum(`、`max(`）。动作需要一个显式的**动词**（`promote`/
   `record`）——名词绝不能选中一个动作。
 - **一个数字只能由指标回答，否则按名拒绝**——绝不用一串类清单作答。度量线索：数 / 多少 / 几条 / 率 / 占比 / 金额 /
   最多 / 最高 / 排名，以及 count / sum / rate / how many。*已声明*的计数必须找到它自己的指标（`订单数` →
