@@ -58,7 +58,7 @@ from deepagents import create_deep_agent
 
 agent = create_deep_agent()  # Default: StateBackend
 result = agent.invoke({
-    "messages": [{"role": "user", "content": "write_file notes to /draft.txt"}]
+    "messages": [{"role": "user", "content": "Write notes to /draft.txt"}]
 }, config={"configurable": {"thread_id": "thread-1"}})
 # /draft.txt is lost when thread ends
 ```
@@ -71,7 +71,7 @@ import { createDeepAgent } from "deepagents";
 
 const agent = await createDeepAgent();  // Default: StateBackend
 const result = await agent.invoke({
-  messages: [{ role: "user", content: "write_file notes to /draft.txt" }]
+  messages: [{ role: "user", content: "Write notes to /draft.txt" }]
 }, { configurable: { thread_id: "thread-1" } });
 // /draft.txt is lost when thread ends
 ```
@@ -133,7 +133,7 @@ config1 = {"configurable": {"thread_id": "thread-1"}}
 agent.invoke({"messages": [{"role": "user", "content": "Save to /memories/style.txt"}]}, config=config1)
 
 config2 = {"configurable": {"thread_id": "thread-2"}}
-agent.invoke({"messages": [{"role": "user", "content": "read_file /memories/style.txt"}]}, config=config2)
+agent.invoke({"messages": [{"role": "user", "content": "Read /memories/style.txt"}]}, config=config2)
 # Thread 2 can read file saved by Thread 1
 ```
 </python>
@@ -146,7 +146,7 @@ const config1 = { configurable: { thread_id: "thread-1" } };
 await agent.invoke({ messages: [{ role: "user", content: "Save to /memories/style.txt" }] }, config1);
 
 const config2 = { configurable: { thread_id: "thread-2" } };
-await agent.invoke({ messages: [{ role: "user", content: "read_file /memories/style.txt" }] }, config2);
+await agent.invoke({ messages: [{ role: "user", content: "Read /memories/style.txt" }] }, config2);
 // Thread 2 can read file saved by Thread 1
 ```
 </typescript>

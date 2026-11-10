@@ -72,17 +72,24 @@ PATH_REWRITES: list[tuple[str, str]] = [
     ("your issue tracker", "`docs/tickets/`"),
 ]
 
-#: Claude Code tool names → ours (word-boundary, applied to the body).
-TOOL_REWRITES: list[tuple[str, str]] = [
-    (r"\bRead\b(?=[ (])", "read_file"),
-    (r"\bWrite\b(?=[ (])", "write_file"),
-    (r"\bEdit\b(?=[ (])", "edit_file"),
-    (r"\bBash\b(?=[ (])", "bash"),
-    (r"\bGrep\b(?=[ (])", "grep"),
-    (r"\bGlob\b(?=[ (])", "glob"),
-    (r"\bTask\b(?=[ (])", "task"),
-    (r"\bWebFetch\b", "web_fetch"),
-    (r"\bWebSearch\b", "web_search"),
+#: Claude Code tool names → ours.
+#:
+#: Measured: a plain word-boundary rewrite turned the imperative *verb* into a tool name — "Read the spec
+#: and tickets" became "read_file the spec and tickets" in 26 places, which is not a sentence. A tool is
+#: named only when the text is talking ABOUT it: inside backticks, after "the", or before "tool".
+TOOL_REFERENCE = [
+    (re.compile(r"`Read`"), "`read_file`"),
+    (re.compile(r"`Write`"), "`write_file`"),
+    (re.compile(r"`Edit`"), "`edit_file`"),
+    (re.compile(r"`Bash`"), "`bash`"),
+    (re.compile(r"`Grep`"), "`grep`"),
+    (re.compile(r"`Glob`"), "`glob`"),
+    (re.compile(r"`Task`"), "`task`"),
+    (re.compile(r"\bthe (Read|Write|Edit|Bash|Grep|Glob|Task) tool\b"),
+     lambda m: "the `" + {"Read": "read_file", "Write": "write_file", "Edit": "edit_file", "Bash": "bash",
+                          "Grep": "grep", "Glob": "glob", "Task": "task"}[m.group(1)] + "` tool"),
+    (re.compile(r"\bWebFetch\b"), "web_fetch"),
+    (re.compile(r"\bWebSearch\b"), "web_search"),
 ]
 
 #: Which of our tool ids a skill may be expected to use, by keyword. Only a hint for `allowed_tools`.
@@ -225,13 +232,24 @@ def _rewrite_body(body: str, skill_id: str) -> str:
     body = re.sub(r"tell the user to run `?`?/?setup-matt-pocock-skills`?`?",
                   "say that the tracker, label and doc-layout vocabulary must be configured first "
                   "(Skills activity \u2192 setup notes)", body)
+    # "The issue tracker should have been provided to you. If not, tell the user to run …" — the whole
+    # sentence, because patching only its tail left an awkward lead-in behind ("The `docs/tickets/`
+    # should have been provided to you. If not, say that …").
+    body = re.sub(
+        r"[Tt]he (?:issue tracker|`?docs/tickets/`?)[^.]{0,60}should have been provided to you\.?[^.]*\.",
+        "The tickets for this work live in `docs/tickets/`; if there are none, say so and ask for the spec "
+        "rather than inventing one.", body)
+    body = re.sub(
+        r"The mapping should have been provided to you\.\s*If not,[^.]*\.",
+        "The label mapping lives in `docs/tickets/`; if the tickets carry no labels, ask for the mapping "
+        "before triaging anything.", body)
     body = SETUP_SENTENCE.sub(
         "The tickets for this work live in `docs/tickets/`; if there are none, say so and ask for the spec "
         "rather than inventing one.", body)
     for old, new in PATH_REWRITES:
         body = body.replace(old, new)
-    for pattern, new in TOOL_REWRITES:
-        body = re.sub(pattern, new, body)
+    for pattern, new in TOOL_REFERENCE:
+        body = pattern.sub(new, body)
     # Upstream's own skill invocation, in every form it appears in the vendored files. A plain string
     # replace left `id `tdd"` behind (measured on the first generation), so this is a regex per shape.
     body = re.sub(r'[Cc]all the Skill tool with\s*[\"\']([^\"\']+)[\"\']',

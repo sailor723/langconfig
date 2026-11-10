@@ -588,7 +588,7 @@ Context Hub holds `/instructions.md` and `/skills/**` (deploy-owned, resynced ea
 
 LangSmith can deploy an MDA project from a connected GitHub repository. Select the repository, branch or tag, and the repo-relative project directory containing `agent.py` or `agent.ts`; `langgraph.json` is generated and should not be committed. The platform runs the hidden `mda prepare` build step to compile the project, sync instructions and skills to Context Hub, bake `sandbox/setup.sh`, and reconcile schedules and channels. Enable build-on-push when revisions should rebuild automatically.
 
-For GitHub-sourced deployments, the repository is authoritative for deploy-owned Context Hub content. edit_file `instructions.md` and `skills/**` in Git and rebuild rather than treating the Hub copy as independently editable. Supply runtime credentials through the deployment's secrets or secret references; the build does not consume a repository `.env`. Preview builds compile and bake but do not reconcile schedules or channels.
+For GitHub-sourced deployments, the repository is authoritative for deploy-owned Context Hub content. Edit `instructions.md` and `skills/**` in Git and rebuild rather than treating the Hub copy as independently editable. Supply runtime credentials through the deployment's secrets or secret references; the build does not consume a repository `.env`. Preview builds compile and bake but do not reconcile schedules or channels.
 
 `mda prepare` is platform-internal and hidden from CLI help. Never ask a user to run it manually.
 

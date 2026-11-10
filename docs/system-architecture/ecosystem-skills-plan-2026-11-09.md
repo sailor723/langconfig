@@ -87,6 +87,76 @@ the Skills list and they cannot collide with ours: `lc-ecosystem-primer`, `lc-la
 - a **verification-floor** section naming `./scripts/housekeeping_verify.sh` and the 20-failure baseline, so
   a ported skill cannot invent its own definition of "done".
 
+## 4b. The mapping table (generated from the vendor tree, not from memory)
+
+Every upstream skill and what became of it. Regenerate with
+`python3 - <<'PY'`-style script in this file's history, or simply compare the vendor tree against
+`backend/skills/builtin/`: a row that says `MISSING` is a port that failed.
+
+| collection | upstream id | ours | status | support files |
+|---|---|---|---|---|
+| engineering | `ask-matt` | `ask-matt` | generated | 1 |
+| engineering | `code-review` | `code-review` | replaced — two-axis version; our checklist kept as STANDARDS-CHECKLIST.md | — |
+| engineering | `codebase-design` | `codebase-design` | generated | 2 |
+| engineering | `diagnosing-bugs` | `diagnosing-bugs` | generated | 1 |
+| engineering | `domain-modeling` | `domain-modeling` | generated | 2 |
+| engineering | `grill-with-docs` | `grill-with-docs` | generated | — |
+| engineering | `implement` | `implement` | generated | — |
+| engineering | `implement-spec` | `implement-spec` | generated | — |
+| engineering | `improve-codebase-architecture` | `improve-codebase-architecture` | generated | 1 |
+| engineering | `pr` | `pr` | generated | 1 |
+| engineering | `prototype` | `prototype` | generated | 2 |
+| engineering | `research` | `research` | generated | — |
+| engineering | `retro` | `retro` | generated | — |
+| engineering | `setup-matt-pocock-skills` | `setup-matt-pocock-skills` | generated | 5 |
+| engineering | `tdd` | `tdd` | generated | 2 |
+| engineering | `to-spec` | `to-spec` | skipped — we wrote the adapted version by hand | — |
+| engineering | `to-tickets` | `to-tickets` | skipped — we wrote the adapted version by hand | — |
+| engineering | `triage` | `triage` | generated | 2 |
+| engineering | `wayfinder` | `wayfinder` | generated | — |
+| engineering | `wizard` | `wizard` | generated | 1 |
+| in-progress | `chief-of-staff` | `chief-of-staff` | generated | — |
+| in-progress | `claude-handoff` | `claude-handoff` | generated | — |
+| in-progress | `loop-me` | `loop-me` | generated | — |
+| in-progress | `setup-ts-deep-modules` | `setup-ts-deep-modules` | generated | 1 |
+| in-progress | `software-factory` | `software-factory` | generated | 5 |
+| in-progress | `writing-beats` | `writing-beats` | generated | — |
+| in-progress | `writing-fragments` | `writing-fragments` | generated | — |
+| in-progress | `writing-shape` | `writing-shape` | generated | — |
+| misc | `git-guardrails-claude-code` | `git-guardrails-claude-code` | generated | 1 |
+| misc | `migrate-to-shoehorn` | `migrate-to-shoehorn` | generated | — |
+| misc | `scaffold-exercises` | `scaffold-exercises` | generated | — |
+| misc | `setup-pre-commit` | `setup-pre-commit` | generated | — |
+| productivity | `grill-me` | `grill-me` | generated | — |
+| productivity | `grilling` | `grilling` | skipped — we wrote the adapted version by hand | — |
+| productivity | `handoff` | `handoff` | generated | — |
+| productivity | `teach` | `teach` | generated | 4 |
+| productivity | `to-questionnaire` | `to-questionnaire` | generated | — |
+| productivity | `wait-what` | `wait-what` | generated | — |
+| productivity | `writing-for-agents` | `writing-for-agents` | generated | 1 |
+| langchain-skills | `deep-agents-core` | `lc-deep-agents-core` | generated | — |
+| langchain-skills | `deep-agents-memory` | `lc-deep-agents-memory` | generated | — |
+| langchain-skills | `deep-agents-orchestration` | `lc-deep-agents-orchestration` | generated | — |
+| langchain-skills | `deepagents-python-quickstart` | `lc-deepagents-python-quickstart` | generated | — |
+| langchain-skills | `deepagents-typescript-quickstart` | `lc-deepagents-typescript-quickstart` | generated | — |
+| langchain-skills | `ecosystem-primer` | `lc-ecosystem-primer` | generated | — |
+| langchain-skills | `eval-engineering` | `lc-eval-engineering` | generated | — |
+| langchain-skills | `langchain-dependencies` | `lc-langchain-dependencies` | generated | — |
+| langchain-skills | `langchain-fundamentals` | `lc-langchain-fundamentals` | generated | — |
+| langchain-skills | `langchain-middleware` | `lc-langchain-middleware` | generated | — |
+| langchain-skills | `langchain-python-quickstart` | `lc-langchain-python-quickstart` | generated | — |
+| langchain-skills | `langchain-rag` | `lc-langchain-rag` | generated | — |
+| langchain-skills | `langchain-typescript-quickstart` | `lc-langchain-typescript-quickstart` | generated | — |
+| langchain-skills | `langgraph-cli` | `lc-langgraph-cli` | generated | — |
+| langchain-skills | `langgraph-decision-models` | `lc-langgraph-decision-models` | generated | — |
+| langchain-skills | `langgraph-fundamentals` | `lc-langgraph-fundamentals` | generated | — |
+| langchain-skills | `langgraph-human-in-the-loop` | `lc-langgraph-human-in-the-loop` | generated | — |
+| langchain-skills | `langgraph-persistence` | `lc-langgraph-persistence` | generated | — |
+| langchain-skills | `langgraph-python-quickstart` | `lc-langgraph-python-quickstart` | generated | — |
+| langchain-skills | `langgraph-typescript-quickstart` | `lc-langgraph-typescript-quickstart` | generated | — |
+| langchain-skills | `managed-deep-agents` | `lc-managed-deep-agents` | generated | — |
+| langchain-skills | `swarm` | `lc-swarm` | generated | — |
+
 ## 5. What is still open
 
 - **Body quality, not just plumbing.** The transform fixes paths and tool names; it cannot rewrite prose.

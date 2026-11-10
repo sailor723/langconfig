@@ -6,7 +6,7 @@ tags:
   - "handoff"
   - "mattpocock"
 triggers:
-  - "When asked to write_file a handoff summary of the current conversation so a fresh agent can continue the work."
+  - "When asked to write a handoff summary of the current conversation so a fresh agent can continue the work. Save"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -28,7 +28,7 @@ version: "1.0"
 
 ## Instructions
 
-write_file a handoff summary of the current conversation so a fresh agent can continue the work. Save it to the temporary directory of the user's OS, then launch a background agent seeded with it as its prompt: `claude --bg --name "<descriptive name>" -- "$(cat <summary file>)"`. Passing the file keeps the shell from running backticks or expanding `$` in the summary. It starts in the current working directory and returns immediately; the user manages it with `claude agents`.
+Write a handoff summary of the current conversation so a fresh agent can continue the work. Save it to the temporary directory of the user's OS, then launch a background agent seeded with it as its prompt: `claude --bg --name "<descriptive name>" -- "$(cat <summary file>)"`. Passing the file keeps the shell from running backticks or expanding `$` in the summary. It starts in the current working directory and returns immediately; the user manages it with `claude agents`.
 
 Always pass `-n`/`--name` with a descriptive name (e.g. `--name "Fix login bug"`); it sets the display name shown in the job list, session picker, and terminal title.
 

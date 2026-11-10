@@ -5,7 +5,7 @@ tags:
   - "handoff"
   - "mattpocock"
 triggers:
-  - "When asked to write_file a handoff document summarising the current conversation so a fresh agent can continue"
+  - "When asked to write a handoff document summarising the current conversation so a fresh agent can continue the"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -26,7 +26,7 @@ version: "1.0"
 
 ## Instructions
 
-write_file a handoff document summarising the current conversation so a fresh agent can continue the work. Save to the temporary directory of the user's OS (`$TMPDIR`, else the `tmp` skill; `%TEMP%` on Windows) - not the current workspace.
+Write a handoff document summarising the current conversation so a fresh agent can continue the work. Save to the temporary directory of the user's OS (`$TMPDIR`, else the `tmp` skill; `%TEMP%` on Windows) - not the current workspace.
 
 Include a "suggested skills" section in the document, naming which skills the next agent should call the `skill` tool for.
 

@@ -119,6 +119,37 @@ def test_no_rewrite_artefacts(path: pathlib.Path):
             "a code span")
 
 
+@pytest.mark.parametrize("path", [p for p in _skill_files() if _generated(p)], ids=lambda p: p.parent.name)
+def test_a_tool_name_is_never_used_as_a_verb(path: pathlib.Path):
+    """Rewriting Claude's tool names into ours turned the imperative verb into a tool name.
+
+    Measured: "Read the spec and tickets" became "read_file the spec and tickets" in 26 places, which is not
+    a sentence in any language. A tool is named only where the text talks *about* it (in backticks, after
+    "the", before "tool"); the prose verb stays a verb.
+    """
+    text = path.read_text(encoding="utf-8")
+    hits = [m.group(0) for m in
+            re.finditer(r"\b(read_file|write_file|edit_file|bash|grep|glob|task)\s+(?:the|a|an|this|your|all)\s", text)]
+    assert not hits, (f"{path.parent.name}: a tool name is used as a verb ({hits[:3]}) — the rewrite hit prose "
+                      "instead of a tool reference")
+
+
+@pytest.mark.parametrize("path", [p for p in _skill_files() if _generated(p)], ids=lambda p: p.parent.name)
+def test_no_sentence_still_addresses_an_upstream_setup_skill(path: pathlib.Path):
+    text = path.read_text(encoding="utf-8")
+    body = text.split(FLOOR)[0].split("---", 2)[-1]
+    body = "\n".join(ln for ln in body.splitlines() if not ln.lstrip().startswith(">"))
+    leftovers = [phrase for phrase in (
+        "should have been provided to you",
+        "tell the user to run",
+        "must be configured first (Skills activity",
+    ) if phrase in body]
+    # the second and third are OUR replacement wording; only the upstream one is a defect
+    assert "should have been provided to you" not in body, (
+        f"{path.parent.name}: an upstream sentence about a tracker that does not exist here survived "
+        f"({leftovers})")
+
+
 def test_ids_are_unique_and_kebab_case():
     ids = [p.parent.name for p in _skill_files()]
     assert len(ids) == len(set(ids)), "two directories claim the same skill id"

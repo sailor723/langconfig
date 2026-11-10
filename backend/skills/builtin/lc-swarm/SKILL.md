@@ -52,7 +52,7 @@ independent unit of work. Each row gets `{ id, file }`; the subagent reads
 the file itself via the `{file}` placeholder.
 
 **`tasks`** — pass pre-built records directly. Use when the data lives inside
-a file (JSONL, CSV, JSON array). read_file and parse the file first inside
+a file (JSONL, CSV, JSON array). Read and parse the file first inside
 `eval`, then pass the records. One record = one row — do not group
 multiple items into a single row.
 

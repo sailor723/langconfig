@@ -63,7 +63,7 @@ Three operations keep it alive:
 - **Query.** Before a decision, read `index.md` and the pages it points to. If the answer you build is worth keeping, file it as a page.
 - **Lint.** Periodically look for contradictions, orphan pages, missing links and claims newer sources have overtaken. Suggest this as a schedule.
 
-### write_file history, not the present
+### Write history, not the present
 
 The wiki is a historical record. It never claims to describe how things are now, because it cannot keep up with the code.
 

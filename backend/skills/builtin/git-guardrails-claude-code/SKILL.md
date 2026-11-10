@@ -108,7 +108,7 @@ If the settings file already exists, merge the hook into the existing `hooks.Pre
 
 ### 4. Ask about customization
 
-Ask if user wants to add or remove any patterns from the blocked list. edit_file the copied script accordingly.
+Ask if user wants to add or remove any patterns from the blocked list. Edit the copied script accordingly.
 
 ### 5. Verify
 

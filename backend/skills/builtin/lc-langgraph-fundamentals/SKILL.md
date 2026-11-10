@@ -187,7 +187,7 @@ If writing, modifying, or debugging LangGraph code, determine the project's lang
 - For Python, read [references/python.md](references/python.md).
 - For TypeScript, read [references/typescript.md](references/typescript.md).
 
-read_file both only when the task covers both languages. For conceptual questions that require no code, do not load either reference.
+Read both only when the task covers both languages. For conceptual questions that require no code, do not load either reference.
 
 ## This repository's floor
 

@@ -62,7 +62,7 @@ This creates `.husky/` dir and adds `prepare: "husky"` to package.json.
 
 ### 4. Create `.husky/pre-commit`
 
-write_file this file (no shebang needed for Husky v9+):
+Write this file (no shebang needed for Husky v9+):
 
 ```
 npx lint-staged

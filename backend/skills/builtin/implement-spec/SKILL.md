@@ -34,7 +34,7 @@ version: "1.0"
 
 You have been provided a spec. This spec should have tickets associated with it, describing how to implement the spec.
 
-The `docs/tickets/` should have been provided to you. If not, say that the tracker, label and doc-layout vocabulary must be configured first (Skills activity → setup notes).
+The tickets for this work live in `docs/tickets/`; if there are none, say so and ask for the spec rather than inventing one.
 
 The goal is the entire spec implemented on a single **integration branch**, with every ticket resolved the way `docs/tickets/` closes work.
 
@@ -48,7 +48,7 @@ Communication to and from subagents should be sparse. Communicate primarily thro
 
 ## Steps
 
-1. read_file the spec and tickets to understand the task graph.
+1. Read the spec and tickets to understand the task graph.
 
 2. (optional) Use an **exploration subagent** to conduct any exploration required by the tickets - relevant codebase files or external documentation. Ensure the exploration subagent can save files - it should save its markdown notes in a directory outside the repo, accessible by all future subagents. This lets **implementer subagents** focus on implementation rather than exploration.
 

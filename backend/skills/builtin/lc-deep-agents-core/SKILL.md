@@ -35,9 +35,9 @@ version: "1.0"
 <overview>
 Deep Agents are an opinionated agent framework built on LangChain/LangGraph with built-in middleware:
 
-- **task Planning**: TodoListMiddleware for breaking down complex tasks
+- **Task Planning**: TodoListMiddleware for breaking down complex tasks
 - **Context Management**: Filesystem tools with pluggable backends
-- **task Delegation**: SubAgent middleware for spawning specialized agents
+- **Task Delegation**: SubAgent middleware for spawning specialized agents
 - **Long-term Memory**: Persistent storage across threads via Store
 - **Human-in-the-loop**: Approval workflows for sensitive operations
 - **Skills**: On-demand loading of specialized capabilities

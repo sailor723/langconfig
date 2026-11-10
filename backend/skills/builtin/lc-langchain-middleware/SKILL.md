@@ -157,7 +157,7 @@ const result2 = await agent.invoke(
 
 <ex-editing-tool-arguments>
 <python>
-edit_file the tool arguments before approving when the original values need correction.
+Edit the tool arguments before approving when the original values need correction.
 
 ```python
 # Human edits the arguments — edited_action must include name + args
@@ -180,7 +180,7 @@ result2 = agent.invoke(
 ```
 </python>
 <typescript>
-edit_file the tool arguments before approving when the original values need correction.
+Edit the tool arguments before approving when the original values need correction.
 
 ```typescript
 // Human edits the arguments — editedAction must include name + args

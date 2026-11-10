@@ -40,8 +40,8 @@ version: "1.0"
   source files and skill references that apply before proposing work.
 - Create or update the small project World Knowledge Skill from reusable facts
   in those inputs. Use it to propose one grounded Task.
-- Draft the task Spec and World Skill together. Show both to the user, keep exact
-  task truth only in `Task.md`, and refine both until the user approves them.
+- Draft the Task Spec and World Skill together. Show both to the user, keep exact
+  Task truth only in `Task.md`, and refine both until the user approves them.
 - Implement the approved Task, validate its Environment and Verifier, run the
   real Harness, inspect the full evidence, and fix only non-agent failures.
 - Reconcile the World Skill with what the run proved, then repeat this flow for
@@ -49,7 +49,7 @@ version: "1.0"
 
 ## Terms
 
-- **task Spec:** `Task.md`, which describes the input, relevant agent
+- **Task Spec:** `Task.md`, which describes the input, relevant agent
   conditions, Environment, scoring, fairness, and open decisions for one Task.
 - **Task:** the runnable instruction, Environment, and Verifier.
 - **Harness:** the complete agent Harbor runs, including prompts, model loop,
@@ -59,24 +59,24 @@ version: "1.0"
 - **Verifier:** independent checks that score the result or mark a run invalid.
 - **World Knowledge Skill:** a repository-local skill with reusable
   project-specific knowledge, references, scripts, assets, and tests that help
-  generate task Specs and build future Tasks.
-- **Spec2Task:** the full loop that turns a reviewed task Spec into an audited
-  runnable Task. Follow [task implementation](references/task-implementation.md)
+  generate Task Specs and build future Tasks.
+- **Spec2Task:** the full loop that turns a reviewed Task Spec into an audited
+  runnable Task. Follow [Task implementation](references/task-implementation.md)
   for its concrete build order and reference routing.
 
 ## Reference routing
 
-read_file each reference when its decision appears:
+Read each reference when its decision appears:
 
-| Need | read_file |
+| Need | Read |
 |---|---|
 | Inspect source, traces, the Harness, dependencies, access, and existing evals | [Discovery](references/discovery.md) |
 | Bootstrap or update reusable project knowledge | [World knowledge](references/world-knowledge.md) |
-| Propose Tasks and write the single task Spec | [task design](references/task-design.md) |
+| Propose Tasks and write the single Task Spec | [Task design](references/task-design.md) |
 | Build data, services, access, state, and reset | [Environment building](references/environment-building.md) |
 | Create structured or natural-language data | [Synthetic data](references/synthetic-data.md) |
 | Define independent evidence and scoring | [Verifier design](references/verifier-design.md) |
-| Apply Spec2Task to turn a reviewed Spec into an audited task | [task implementation](references/task-implementation.md) |
+| Apply Spec2Task to turn a reviewed Spec into an audited Task | [Task implementation](references/task-implementation.md) |
 | Compare model runs and classify failures | [Calibration](references/calibration.md) |
 | Package and run Harbor tasks | [Harbor](references/harbor.md) |
 | Adapt a known benchmark design | [Benchmark patterns](references/patterns.md) |
@@ -105,13 +105,13 @@ that matches each available input:
   [World knowledge](references/world-knowledge.md), then check the sources and
   reusable methods that affect the new Task.
 - For human goals and constraints, read
-  [task design](references/task-design.md).
+  [Task design](references/task-design.md).
 - For relevant benchmark examples, use the domain index and source callouts in
   [Benchmark patterns](references/patterns.md).
 
 Inspect the repository before asking questions that source and tests can
 answer. Follow the active Harness through prompts, models, tools, services,
-state, effects, and focused tests. Inspect existing task instructions, parsers,
+state, effects, and focused tests. Inspect existing Task instructions, parsers,
 Verifiers, reward paths, and run evidence.
 
 If the user supplies traces, review complete runs or threads. Use traces to
@@ -124,9 +124,9 @@ commands, and scripts when their accuracy affects the design.
 
 ## 2. Propose and select a Task
 
-read_file [task design](references/task-design.md) and use the index in
+Read [Task design](references/task-design.md) and use the index in
 [Benchmark patterns](references/patterns.md) to find the relevant domain and
-source callouts. Focus on that domain unless the task crosses another one.
+source callouts. Focus on that domain unless the Task crosses another one.
 In the first user-facing design response after inspection, propose one Task
 grounded in repository evidence, supplied traces, existing coverage, or a
 human priority. State:
@@ -139,18 +139,18 @@ human priority. State:
 - the main open decision.
 
 In the same response, show the relevant current World Skill content and the
-specific additions or corrections this task suggests. If no World Skill
-exists, show the small initial contents that will help create this task and
+specific additions or corrections this Task suggests. If no World Skill
+exists, show the small initial contents that will help create this Task and
 future Tasks. Keep the Task's exact request, focal records, expected result,
 hidden truth, and exact scoring rules out of the World Skill.
 
-Let the user revise the task proposal and World knowledge together before
+Let the user revise the Task proposal and World knowledge together before
 implementation. Offer alternatives only when a real user choice changes the
 design.
 
-## 3. write_file and review the task Spec and World Skill
+## 3. Write and review the Task Spec and World Skill
 
-Copy [the task template](assets/task/Task.md.template) to
+Copy [the Task template](assets/task/Task.md.template) to
 `evals/<suite>/tasks/<task-id>/Task.md`. Put all Task-specific design in this
 one file. At the same time, create or update the project World Skill by
 following [World knowledge](references/world-knowledge.md). Determine the
@@ -195,8 +195,8 @@ Include:
 - fairness, leakage risks, and invalid-run conditions; and
 - open decisions and assumptions.
 
-Show the full task Spec and the World Skill changes to the user. Explain what
-is already in the World Skill, what this task adds or corrects, and what stays
+Show the full Task Spec and the World Skill changes to the user. Explain what
+is already in the World Skill, what this Task adds or corrects, and what stays
 only in `Task.md`. Revise both through the same back-and-forth. Mark the Task
 Spec approved only after explicit approval. Treat World Skill changes as
 accepted only after the user reviews them. If the user requests an end-to-end
@@ -210,7 +210,7 @@ reapproval before setting it to `Approved` again.
 
 ## 4. Apply Spec2Task
 
-Follow [task implementation](references/task-implementation.md). It gives the
+Follow [Task implementation](references/task-implementation.md). It gives the
 build order and routes each decision to the Environment, synthetic-data,
 Verifier, Harbor, and calibration references.
 
@@ -225,14 +225,14 @@ Before a scored model run:
    with the user unless the user already authorized that run plan.
 2. Complete the package audit in [Harbor](references/harbor.md). Confirm every
    required file, entry point, path, permission, configuration value, mount,
-   service, and reward output needed for this exact task is present and works
+   service, and reward output needed for this exact Task is present and works
    through Harbor. Confirm hidden Task, Verifier, solution, and secret material
    is absent from the agent-visible image and workspace.
 3. Check setup and trial isolation in the way that fits the Environment. A
    fresh container or worktree can provide isolation by replacement. A reused
    mutable service needs a checked reset. Immutable frozen data needs only a
-   checked load. See [task implementation](references/task-implementation.md).
-4. Exercise every operation the task depends on.
+   checked load. See [Task implementation](references/task-implementation.md).
+4. Exercise every operation the Task depends on.
 5. Run the reference path when one exists.
 6. Test the Verifier with a clear valid result, a valid alternative, a
    realistic wrong result, a shortcut, a prohibited collateral change, and
@@ -242,7 +242,7 @@ Before a scored model run:
 
 ## 5. Run and audit
 
-Run the actual Harness through Harbor. read_file the complete trajectory, not only
+Run the actual Harness through Harbor. Read the complete trajectory, not only
 the reward. Inspect:
 
 - messages, model calls, tool calls, results, retries, and errors;
@@ -261,28 +261,28 @@ When it would answer a real uncertainty, compare a weaker model, the target
 model, or a stronger model and repeat trials when behavior is variable. Read
 every selected trace. Contrast can expose unclear inputs, brittle setup,
 leakage, shortcuts, or reward hacks. Pass rates and model ordering do not prove
-task quality.
+Task quality.
 
-read_file [Calibration](references/calibration.md) for the complete audit method.
+Read [Calibration](references/calibration.md) for the complete audit method.
 
 ## 6. Reconcile project World knowledge
 
-Use [World knowledge](references/world-knowledge.md) throughout task design,
+Use [World knowledge](references/world-knowledge.md) throughout Task design,
 implementation, and audit. Add or correct project-specific knowledge when the
 work supplies evidence that would help another Task. This can include Task
 patterns, Environment methods, data creation, Verifier evidence, run
 procedures, scripts, assets, and examples.
 
-After the audit, reconcile the World Skill with what the completed task proved.
+After the audit, reconcile the World Skill with what the completed Task proved.
 Show the user:
 
 - the proposed reusable knowledge;
 - the evidence supporting it;
-- how another task would use it;
+- how another Task would use it;
 - where it should live; and
 - what remains specific to the completed Task.
 
-Remove or narrow ideas that the task disproved. If the user asked for
+Remove or narrow ideas that the Task disproved. If the user asked for
 autonomous end-to-end updates without a pause, make the smallest supported
 update, show it in the final review, and do not imply that the human approved
 the generalization.
@@ -297,19 +297,19 @@ clear in this skill. Record the project-specific adaptation of that guidance.
 ## 7. Repeat
 
 Use Tasks two and three to test the World Skill. Check whether it reduces
-rediscovery, improves task Specs, preserves important relationships, reuses a
+rediscovery, improves Task Specs, preserves important relationships, reuses a
 proven operation, or prevents a known Verifier defect. Correct rules that are
 missing, stale, or too broad.
 
 When several materially different Tasks have exercised the shared knowledge
 and the construction and verification methods are clear, the next cycle can
-propose several independent task Specs:
+propose several independent Task Specs:
 
 1. Mine new repository, trace, and human evidence.
-2. Use the World Skill to generate distinct task Specs.
+2. Use the World Skill to generate distinct Task Specs.
 3. Have the human review the specs.
 4. Build independent approved Tasks in parallel.
-5. Audit every task individually.
+5. Audit every Task individually.
 6. Update World knowledge only with reusable corrections.
 
 Continue this loop as production behavior, user priorities, agents, and models
@@ -328,7 +328,7 @@ work.
 ## Complete only when
 
 - `Task.md` matches the built instruction, Environment, and Verifier.
-- The task is solvable from agent-visible or normally discoverable information.
+- The Task is solvable from agent-visible or normally discoverable information.
 - The Environment starts reliably and isolates trials by replacement, reset,
   or immutable state as appropriate, without leaking hidden truth.
 - Valid and invalid Verifier cases behave as intended.
@@ -336,9 +336,9 @@ work.
 - Non-agent failures were repaired or reported as unresolved limits.
 - Model comparison, when used, includes trace review rather than pass rates
   alone.
-- The project World Skill was created or updated with the task Spec, reviewed
+- The project World Skill was created or updated with the Task Spec, reviewed
   during the work, and reconciled with the final evidence.
-- The user receives the task path, run command, results, evidence, and remaining
+- The user receives the Task path, run command, results, evidence, and remaining
   limits.
 
 ## This repository's floor

@@ -243,7 +243,7 @@ The configuration file used by all CLI commands (`dev`, `build`, `up`, `deploy`)
 ## Typical workflow
 
 1. **Scaffold** — `langgraph new` to create a project from a template.
-2. **Configure** — edit_file `langgraph.json`: set dependencies, point `graphs` at your compiled graph(s), add `.env`.
+2. **Configure** — Edit `langgraph.json`: set dependencies, point `graphs` at your compiled graph(s), add `.env`.
 3. **Develop** — `langgraph dev` for rapid local iteration with hot reload (no Docker, port 2024).
 4. **Validate** — `langgraph up --recreate` to test in a production-like Docker stack (port 8123, includes Postgres).
 5. **Deploy** — `langgraph deploy` to ship to LangGraph Platform (LangSmith Deployments).

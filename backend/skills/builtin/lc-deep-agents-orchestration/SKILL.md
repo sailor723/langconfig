@@ -44,13 +44,13 @@ All three are automatically included in `create_deep_agent()`.
 
 ---
 
-## Subagents (task Delegation)
+## Subagents (Task Delegation)
 
 <when-to-use-subagents>
 
 | Use Subagents When | Use Main Agent When |
 |-------------------|-------------------|
-| task needs specialized tools | General-purpose tools sufficient |
+| Task needs specialized tools | General-purpose tools sufficient |
 | Want to isolate complex work | Single-step operation |
 | Need clean context for main agent | Context bloat acceptable |
 
@@ -191,7 +191,7 @@ agent = create_deep_agent(
 
 ---
 
-## TodoList (task Planning)
+## TodoList (Task Planning)
 
 <when-to-use-todolist>
 
@@ -231,7 +231,7 @@ result = agent.invoke({
 #   {"content": "Design data models", "status": "in_progress"},
 #   {"content": "Implement CRUD endpoints", "status": "pending"},
 #   {"content": "Add authentication", "status": "pending"},
-#   {"content": "write_file tests", "status": "pending"}
+#   {"content": "Write tests", "status": "pending"}
 # ]
 ```
 </python>
@@ -348,7 +348,7 @@ config = {"configurable": {"thread_id": "session-1"}}
 
 # Step 1: Agent proposes write_file - execution pauses
 result = agent.invoke({
-    "messages": [{"role": "user", "content": "write_file config to /prod.yaml"}]
+    "messages": [{"role": "user", "content": "Write config to /prod.yaml"}]
 }, config=config)
 
 # Step 2: Check for interrupts
@@ -376,7 +376,7 @@ const config = { configurable: { thread_id: "session-1" } };
 
 // Step 1: Agent proposes write_file - execution pauses
 let result = await agent.invoke({
-  messages: [{ role: "user", content: "write_file config to /prod.yaml" }]
+  messages: [{ role: "user", content: "Write config to /prod.yaml" }]
 }, config);
 
 // Step 2: Check for interrupts
@@ -418,7 +418,7 @@ const result = await agent.invoke(
 
 <ex-edit-before-execution>
 <python>
-edit_file the proposed action arguments before allowing execution.
+Edit the proposed action arguments before allowing execution.
 
 ```python
 result = agent.invoke(
