@@ -1,11 +1,15 @@
 ---
-name: "Swarm"
-description: ">- Dispatches many independent items in parallel: create a table, fan out to subagents, aggregate results. One row = one unit of work."
+name: "Swarm（蜂群）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/lc-swarm/SKILL.md
+description: >-
+  并行分发大量彼此独立的条目：建一张表，扇出到各子智能体，再汇总结果。一行 = 一个工作单元。
 tags:
   - "swarm"
   - "langchain-skills"
 triggers:
-  - "When asked to process many independent items in parallel. `create` builds a table handle;"
+  - "被要求并行处理许多彼此独立的条目时。`create` 构建一个表句柄；"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -19,44 +23,38 @@ author: "langchain-skills (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
-> **Provenance.** Adapted from `langchain-ai/langchain-skills → config/skills/swarm` (MIT, vendored at `vendor/upstream-skills/langchain-skills/skills/swarm/SKILL.md`).
-> Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
-> `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
-> (`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`), and a verification floor
-> section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
-> through the `skill` tool, so it is dropped rather than emulated.
+> **来源说明。** 改编自 `langchain-ai/langchain-skills → config/skills/swarm`（MIT，原样收录于 `vendor/upstream-skills/langchain-skills/skills/swarm/SKILL.md`）。
+> 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
+> `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
+> （`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`），以及一节验证底线。
+> 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
+> 所以直接去掉，而不做模拟。
 
-## Instructions
+## Instructions（指令）
 
-# Swarm
+# Swarm（蜂群）
 
-Process many independent items in parallel. `create` builds a table handle;
-`run` fans work out across rows and merges results back. One row = one unit
-of work — swarm handles batching automatically.
+并行处理许多彼此独立的条目。`create` 建一个表句柄；`run` 把工作扇出到各行，再把结果合并回来。
+一行 = 一个工作单元——分批由蜂群自动处理。
 
-## Flow
+## Flow（流程）
 
-1. **Create.** Build a table from a source — files, a glob pattern, or
-   pre-parsed records. One row per item. Returns a handle.
-2. **Run.** Dispatch an `instruction` template across rows. Results are merged
-   back into the table. Returns `{ completed, failed, skipped, failures }`.
-3. **Aggregate.** Use `rows()` and plain JS to count, filter, or summarize.
-   Do not spawn additional subagents for aggregation.
-4. **Retry.** Re-run with `filter: { column: "<col>", exists: false }` to
-   reprocess only failed rows.
+1. **Create（建表）。** 从一个来源建表——文件、glob 模式，或预先解析好的记录。每个条目一行。
+   返回一个句柄。
+2. **Run（运行）。** 把一个 `instruction` 模板分发到各行。结果合并回表里。返回
+   `{ completed, failed, skipped, failures }`。
+3. **Aggregate（汇总）。** 用 `rows()` 加普通 JS 来计数、过滤或归纳。不要为了汇总再起子智能体。
+4. **Retry（重试）。** 用 `filter: { column: "<col>", exists: false }` 重跑，只重新处理失败的行。
 
-## Choosing a source
+## Choosing a source（选择来源）
 
-**`glob` / `filePaths`** — one file = one row. Use when each file is an
-independent unit of work. Each row gets `{ id, file }`; the subagent reads
-the file itself via the `{file}` placeholder.
+**`glob` / `filePaths`** —— 一个文件 = 一行。每个文件都是一个独立工作单元时用它。每一行拿到
+`{ id, file }`；子智能体自己通过 `{file}` 占位符去读那个文件。
 
-**`tasks`** — pass pre-built records directly. Use when the data lives inside
-a file (JSONL, CSV, JSON array). Read and parse the file first inside
-`eval`, then pass the records. One record = one row — do not group
-multiple items into a single row.
+**`tasks`** —— 直接传预先构造好的记录。数据住在某个文件里（JSONL、CSV、JSON 数组）时用它。先在
+`eval` 里读取并解析该文件，再传记录。一条记录 = 一行——不要把多个条目并进单行。
 
-For small files (under ~500 lines), parse and create in one block:
+小文件（约 500 行以内）在一块里解析并建表：
 
 ```javascript
 const { create } = await import("@/skills/swarm");
@@ -66,7 +64,7 @@ const table = await create({ tasks: records });
 console.log(table);
 ```
 
-For large files, read in chunks of 500 lines to avoid truncation:
+大文件按 500 行分块读，避免被截断：
 
 ```javascript
 const { create } = await import("@/skills/swarm");
@@ -83,8 +81,7 @@ const table = await create({ tasks: records });
 console.log(table);
 ```
 
-When the file is too large to parse and dispatch in one `eval` call, split
-across two blocks. Only the block that calls swarm functions needs the import:
+文件大到无法在一次 `eval` 调用里解析并分发时，拆成两块。只有调用蜂群函数的那一块需要 import：
 
 ```javascript
 // eval 1: parse only — no swarm import needed
@@ -108,18 +105,15 @@ const result = await run(table.id, {
 console.log(result);
 ```
 
-Passing `filePaths: ["/data.jsonl"]` would produce a table with **one row**
-pointing at the file — not one row per record inside it.
+传 `filePaths: ["/data.jsonl"]` 得到的是**只有一行**、指向该文件的表——而不是文件里每条记录一行。
 
-## When to use `subagentType`
+## When to use `subagentType`（何时使用 `subagentType`）
 
-Omit `subagentType` for classification, extraction, labeling, and any task
-where a single model call with structured output is sufficient. This is the
-default and is significantly cheaper and faster — each dispatch is a direct
-model call, no tools, no iteration.
+分类、抽取、打标，以及任何一次带结构化输出的模型调用就足够的任务，都省略 `subagentType`。这是默认
+做法，明显更便宜也更快——每次分发都是一次直接的模型调用，没有工具，没有迭代。
 
-Set `subagentType` when the task requires tools, file access, or multi-step
-reasoning. Each dispatch runs a full agentic loop with the named subagent.
+任务需要工具、文件访问或多步推理时，才设 `subagentType`。每次分发都会跑一个带着指定子智能体的完整
+智能体循环。
 
 ```javascript
 // Direct model call — classification, no tools needed
@@ -136,16 +130,13 @@ await run(table.id, {
 });
 ```
 
-## Instruction + context
+## Instruction + context（指令与上下文）
 
-`instruction` is a per-item template with `{column}` placeholders.
-Placeholders are resolved by the framework — your column names appear in
-prompts as references to the values listed alongside, never as raw
-template syntax. Subagents do the work — do not process items yourself in
-JS and write the results into rows.
+`instruction` 是逐条目的模板，带 `{column}` 占位符。占位符由框架解析——你的列名会以“与列出的取值
+并列的引用”的形式出现在提示词里，而绝不是原始的模板语法。活由子智能体干——不要自己在 JS 里处理
+条目、再把结果写进行里。
 
-`context` is free-form prose prepended to every subagent prompt. Use it for
-shared background: domain terms, classification rules, examples, etc.
+`context` 是自由散文，前置到每一个子智能体提示词前面。用它放共享背景：领域术语、分类规则、示例等。
 
 ```javascript
 const { create, run } = await import("@/skills/swarm");
@@ -165,10 +156,9 @@ console.log(r);
 // → { completed: 45, failed: 2, skipped: 0, failures: [...] }
 ```
 
-## Structured output
+## Structured output（结构化输出）
 
-`responseSchema` is required. Schema properties become top-level columns on
-each row and constrain what subagents can return.
+`responseSchema` 是必填的。schema 的属性会成为每一行的顶层列，并约束子智能体能返回什么。
 
 ```javascript
 const { run } = await import("@/skills/swarm");
@@ -185,19 +175,16 @@ await run(table.id, {
 // Row after: { id: "r1", text: "...", sentiment: "positive" }
 ```
 
-## Batching
+## Batching（分批）
 
-By default, swarm auto-batches to keep total dispatches under 10. For small
-tables (≤10 rows) each row gets its own subagent call. For larger tables,
-rows are grouped automatically.
+默认情况下，蜂群自动分批，把总分发数压在 10 以内。小表（≤10 行）每行各拿一次子智能体调用。更大的
+表，行会被自动分组。
 
-Set `batchSize` to control grouping:
+用 `batchSize` 控制分组：
 
-- **Number** — uniform batch size for all rows. `batchSize: 1` forces per-row
-  dispatch; `batchSize: 20` groups in twenties.
-- **Function** — `(row, rowCount) => number`. Returns the desired batch size
-  for each row. Rows with the same batch size are grouped together, then
-  chunked. Allows mixed dispatch where some rows go solo and others batch.
+- **数字** —— 所有行用统一的批大小。`batchSize: 1` 强制逐行分发；`batchSize: 20` 每二十个一组。
+- **函数** —— `(row, rowCount) => number`。为每一行返回想要的批大小。批大小相同的行先聚在一起，
+  再切块。这样允许混发：有的行单跑，有的行成批。
 
 ```javascript
 const { create, run } = await import("@/skills/swarm");
@@ -215,11 +202,11 @@ await run(table.id, {
 });
 ```
 
-Batch sizes are clamped to [1, 50] after evaluation.
+批大小在求值之后会被夹到 [1, 50]。
 
-## Aggregation
+## Aggregation（汇总）
 
-After `run()`, use `rows()` and plain JS — no additional subagents needed.
+`run()` 之后，用 `rows()` 加普通 JS——不需要额外的子智能体。
 
 ```javascript
 const { rows } = await import("@/skills/swarm");
@@ -230,9 +217,9 @@ console.log(counts);
 // → { positive: 120, negative: 45, neutral: 35 }
 ```
 
-## Chaining passes
+## Chaining passes（串联多趟）
 
-`run` updates the table in place — chain calls to accumulate columns.
+`run` 就地更新表——串联调用即可累积列。
 
 ```javascript
 const { create, run } = await import("@/skills/swarm");
@@ -256,11 +243,10 @@ await run(table.id, {
 });
 ```
 
-## Action-only tasks
+## Action-only tasks（只出动作的任务）
 
-When subagents perform actions (write a file, apply a fix) rather than return
-data, use a simple schema with a status or marker field. The `exists: false`
-filter still works for retries.
+当子智能体做的是动作（写文件、打补丁）而不是返回数据时，用一个带状态或标记字段的简单 schema。
+`exists: false` 过滤器照样能用于重试。
 
 ```javascript
 const { create, run } = await import("@/skills/swarm");
@@ -284,7 +270,7 @@ await run(table.id, {
 });
 ```
 
-## Filtering
+## Filtering（过滤）
 
 ```javascript
 { column: "status", equals: "done" }
@@ -295,75 +281,67 @@ await run(table.id, {
 { or: [filter1, filter2] }
 ```
 
-## Technical notes
+## Technical notes（技术备注）
 
-- **Only import `@/skills/swarm` in blocks where you call swarm functions.**
-  Data preparation (reading files, parsing, storing in `globalThis`) does not
-  need the import. Destructure only what you use: `{ create }`, `{ run }`,
-  `{ create, run }`, etc.
-- **Console output is capped at ~5 KB.** Never log raw file contents —
-  log only counts and short samples.
-- **`readFile` inside `eval` returns raw content — no line-number
-  prefixes.** Request at most 500 lines per call. For files with more
-  than 500 lines, loop with incrementing `offset`.
-- **When building a table from a file, read it inside `eval`.** Data read
-  inside the sandbox stays there; it never enters the agent's context window.
-- **Never write to `.swarm/` directly.** Always use `create()`.
-- **Everything the subagent needs must be in `instruction` + `context`.**
-  Subagents can't see the agent's context.
-- **Row ids must be unique.** `create()` rejects sources that produce
-  duplicate ids. For `tasks`, that's a caller-side responsibility; for
-  `glob` / `filePaths`, ids are auto-disambiguated by parent directory.
-- **Unknown columns fail fast.** If `instruction` references `{foo}` and
-  no matched row provides `foo`, `run()` throws before any subagent is
-  dispatched.
+- **只在调用蜂群函数的块里 import `@/skills/swarm`。** 数据准备（读文件、解析、存进
+  `globalThis`）不需要这个 import。只解构你要用的：`{ create }`、`{ run }`、`{ create, run }` 等。
+- **控制台输出上限约 5 KB。** 绝不打印原始文件内容——只打印计数和短样本。
+- **`eval` 里的 `readFile` 返回原始内容——没有行号前缀。** 每次调用最多请求 500 行。超过 500 行的
+  文件，用递增的 `offset` 循环。
+- **从文件建表时，在 `eval` 里读它。** 在沙箱里读到的数据留在沙箱里；它从不进入智能体的上下文窗口。
+- **绝不直接写 `.swarm/`。** 始终用 `create()`。
+- **子智能体需要的一切都必须在 `instruction` + `context` 里。** 子智能体看不见智能体的上下文。
+- **行 id 必须唯一。** `create()` 会拒绝产生重复 id 的来源。对 `tasks` 而言这是调用方的责任；
+  对 `glob` / `filePaths` 而言，id 由父目录自动区分开。
+- **未知列立即失败。** 如果 `instruction` 引用了 `{foo}`，而没有任何匹配的行提供 `foo`，
+  `run()` 会在分发任何子智能体之前抛出错误。
 
-## API Reference
+## API Reference（API 参考）
 
 ### `create(source)`
 
-Create a table. Returns a handle `{ id, count, columns }`.
+建表。返回句柄 `{ id, count, columns }`。
 
-| Source | Description |
+| 来源 | 说明 |
 |--------|------------|
-| `{ glob: "src/**/*.ts" }` or `{ glob: ["src/**/*.ts", "lib/**/*.ts"] }` | Match files by one or more patterns. Columns: `id`, `file` |
-| `{ filePaths: ["a.ts", "b.ts"] }` | Explicit file list. Columns: `id`, `file` |
-| `{ tasks: [{ id: "t1", text: "..." }] }` | Custom rows. Each must have `id` |
+| `{ glob: "src/**/*.ts" }` 或 `{ glob: ["src/**/*.ts", "lib/**/*.ts"] }` | 按一个或多个模式匹配文件。列：`id`、`file` |
+| `{ filePaths: ["a.ts", "b.ts"] }` | 显式的文件清单。列：`id`、`file` |
+| `{ tasks: [{ id: "t1", text: "..." }] }` | 自定义行。每一行都必须带 `id` |
 
 ### `run(tableId, options)`
 
-Dispatch work across rows. Returns `{ completed, failed, skipped, failures }`.
+把工作分发到各行。返回 `{ completed, failed, skipped, failures }`。
 
-| Option | Default | Description |
+| 选项 | 默认 | 说明 |
 |--------|---------|------------|
-| `instruction` | (required) | Template with `{column}` placeholders |
-| `responseSchema` | (required) | JSON Schema (`type: "object"`) — properties become row columns |
-| `context` | — | Prose prepended to every subagent prompt |
-| `filter` | — | Only dispatch matching rows |
-| `subagentType` | — | Name of subagent to dispatch to. When set, runs a full agentic loop. When omitted, runs a direct model call |
-| `batchSize` | auto | Number or `(row, rowCount) => number`. Auto caps dispatches at 10; `1` = per-row; function = per-row sizing |
-| `concurrency` | `10` | Max concurrent subagent dispatches (clamped to 1–10) |
+| `instruction` | （必填） | 带 `{column}` 占位符的模板 |
+| `responseSchema` | （必填） | JSON Schema（`type: "object"`）——属性成为行的列 |
+| `context` | — | 前置到每个子智能体提示词前的散文 |
+| `filter` | — | 只分发匹配的行 |
+| `subagentType` | — | 要分发到的子智能体名。设置时跑完整智能体循环；省略时跑一次直接的模型调用 |
+| `batchSize` | 自动 | 数字，或 `(row, rowCount) => number`。自动模式把分发数压到 10；`1` = 逐行；函数 = 逐行定量 |
+| `concurrency` | `10` | 最大并发子智能体分发数（夹到 1–10） |
 
 ### `rows(tableId, options?)`
 
-Retrieve rows. Use for inspection and JS-based aggregation.
+取回行。用于检视，以及基于 JS 的汇总。
 
-| Option | Description |
+| 选项 | 说明 |
 |--------|------------|
-| `filter` | Only return matching rows |
-| `columns` | Project to specific columns |
-| `limit` | Max rows returned |
+| `filter` | 只返回匹配的行 |
+| `columns` | 只投影到指定列 |
+| `limit` | 返回的最大行数 |
 
-## This repository's floor
+## This repository's floor（本仓库的底线）
 
-- **Verify with the real commands**, not by eye: `./scripts/housekeeping_verify.sh` (guards + `tsc` +
-  `vite build` + a document-store report). Add `--full-suite` for the backend suite.
-- **The backend suite has 20 pre-existing failures.** "Not worse than that baseline" is the honest
-  criterion; "the tests are green" is not a claim you can make here. Compare with
+- **用真实命令验证**，不要靠眼看：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` +
+  一份文档库报告）。后端测试套件加 `--full-suite`。
+- **后端套件有 20 个既有的失败。**“不比那个基线更差”是诚实的判据；“测试是绿的”在这里不是一个你能
+  做出的宣称。用
   `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
-  and diff the `FAILED` lines against the recorded baseline.
-- **Specs, tickets and notes live in files**: `docs/specs/<slug>.md`, `docs/tickets/NNN-<slug>.md`,
-  `work/<scope>/`. A verdict in a chat message is lost by the next turn.
-- **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
-  by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+  对照，并把 `FAILED` 行与记录的基线做 diff。
+- **规格、工单和笔记活在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
+  写在聊天消息里的一句判词，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 框架
+  （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `ecosystem-primer` 规则——并优先
+  选能胜任的最高一层。

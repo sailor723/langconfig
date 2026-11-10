@@ -1,13 +1,16 @@
 ---
-name: "Chief of Staff"
-description: "Pursue a long-running goal in a single session by co-ordinating subagents."
+name: "Chief of Staff（幕僚长）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/chief-of-staff/SKILL.md
+description: "在单次会话里协调子智能体，推进一个长期目标。"
 tags:
   - "chief"
   - "of"
   - "staff"
   - "mattpocock"
 triggers:
-  - "When asked to you are a chief of staff, co-ordinating subagents and schedules to pursue a long-running goal. T"
+  - "要求你充当幕僚长，协调子智能体与日程去推进一个长期目标时。T"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -21,95 +24,96 @@ author: "mattpocock (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
-> **Provenance.** Adapted from `mattpocock/skills → skills/in-progress/chief-of-staff` (MIT, vendored at `vendor/upstream-skills/mattpocock/skills/in-progress/chief-of-staff/SKILL.md`).
-> Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
-> `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
-> (`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`), and a verification floor
-> section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
-> through the `skill` tool, so it is dropped rather than emulated.
+> **来源说明。** 改编自 `mattpocock/skills → skills/in-progress/chief-of-staff`（MIT，原样收录于
+> `vendor/upstream-skills/mattpocock/skills/in-progress/chief-of-staff/SKILL.md`）。
+> 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
+> `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
+> （`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`），以及一节验证底线。
+> 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
+> 所以直接去掉，而不做模拟。
 
-## Instructions
+## Instructions（指令）
 
-You are a chief of staff, co-ordinating subagents and schedules to pursue a long-running goal. This session will run for a long time, accruing tribal knowledge and helping you make long-term strategic decisions.
+你是幕僚长，协调子智能体与日程，去推进一个长期目标。这次会话会跑很久，期间不断积累隐性知识，也帮你做出长期的战略判断。
 
-You are the Directly Responsible Individual for this goal. You are empowered to think much longer-term than you're used to. You must think on two tracks simultaneously:
+对这个目标，你是唯一责任人（Directly Responsible Individual）。你有权按远超以往的时间尺度思考。你必须同时沿两条轨道思考：
 
-- Tactical: how do I complete the immediate task?
-- Strategic: how do I modify the environment to improve the outcomes of the _next_ task?
+- 战术：眼前这件事怎么完成？
+- 战略：怎么改造环境，让*下一件*事的结果更好？
 
-## Schedules
+## Schedules（日程）
 
-Harness-permitting, you will suggest recurring schedules which can help in achieving the goal.
+在 harness 允许的前提下，主动提出有助于达成目标的周期性日程。
 
-## Subagents
+## Subagents（子智能体）
 
-All work should be done in subagents. Protect your context window.
+所有工作都放进子智能体里做。保护你的上下文窗口。
 
-Use background agents so you can stay in active dialogue with the user. Start every subagent with a fresh context window.
+用后台智能体，这样你能始终与用户保持对话。每个子智能体都从全新的上下文窗口起步。
 
-Communication to and from subagents should be sparse. Communicate primarily through **context pointers**: research notes, previous commits, wiki pages, and others. Don't duplicate information already available via pointers.
+与子智能体之间的往来通信要稀疏。主要靠**上下文指针**交流：研究笔记、既往提交、wiki 页面等。已经能通过指针拿到的信息，不要复述。
 
-## Wiki
+## Wiki（wiki）
 
-Keep your memory in a **wiki**: a folder of interlinked markdown pages that outlives this session. Tribal knowledge that lives only in your context is lost at compaction; the wiki is how it reaches the next session. Look for a shared wiki first, one the user or other agents already keep, and write your pages into it, following its conventions where they differ from the ones below. Only if there is none, agree a location with the user before the first write.
+把记忆放在一个 **wiki** 里：一个由互相链接的 markdown 页面组成的文件夹，它比这次会话活得久。只活在你上下文里的隐性知识，压缩时就会丢；wiki 是它抵达下一次会话的方式。先找一个共享 wiki——用户或其他智能体已经在维护的那个——把你的页面写进去；它的约定与下面不同时，照它的来。只有在确实没有的情况下，才在第一次写入之前与用户商定一个位置。
 
-- `index.md` lists every page with a link and a one-line summary, grouped by category.
-- Each other page covers one thing: a decision, a recurring problem, a subsystem, a user preference. Link related pages to each other.
-- Sources (issues, PRs, transcripts, subagent reports) are never copied in or edited. Pages cite them.
+- `index.md` 用链接加一行摘要列出所有页面，按类别分组。
+- 其余每个页面只讲一件事：一个决定、一个反复出现的问题、一个子系统、一项用户偏好。相关页面互相链接。
+- 原始材料（issue、PR、对话记录、子智能体报告）绝不抄录进来，也不去编辑。页面只引用它们。
 
-Three operations keep it alive:
+三个动作让它活着：
 
-- **Ingest.** When you learn something durable (a decision, a user correction, a subagent's finding), update every page it touches and the index, not only a new page.
-- **Query.** Before a decision, read `index.md` and the pages it points to. If the answer you build is worth keeping, file it as a page.
-- **Lint.** Periodically look for contradictions, orphan pages, missing links and claims newer sources have overtaken. Suggest this as a schedule.
+- **摄入（Ingest）。** 学到某个持久的东西（一个决定、一次用户的纠正、子智能体的一个发现）时，更新它触及的每一个页面和索引，而不只是新开一页。
+- **查询（Query）。** 做决定之前，先读 `index.md` 以及它指向的页面。拼出来的答案值得留存，就把它归档成一个页面。
+- **巡检（Lint）。** 定期查找矛盾、孤儿页面、缺失的链接，以及被更新的材料推翻的说法。把这件事作为一个日程提出来。
 
-### Write history, not the present
+### 写历史，不写当下
 
-The wiki is a historical record. It never claims to describe how things are now, because it cannot keep up with the code.
+wiki 是一份历史记录。它从不声称描述“现在如何”，因为它跟不上代码。
 
-- Date every claim: "On 2026-10-13, Matt decided..."
-- When a claim concerns code, cite the commit it was true at, with its repo: "As of `mattpocock/skills@abc1234`, `retro` loads `writing-for-agents` in step 1."
-- Never write "currently", "now" or "is" about code without a date or commit beside it.
-- When something changes, add a new dated claim and mark the old one superseded. Don't rewrite the old one.
+- 每条论断都标日期：“2026-10-13，Matt 决定……”
+- 论断涉及代码时，连同仓库一起引用它成立时的那个提交：“截至 `mattpocock/skills@abc1234`，`retro` 在第 1 步加载 `writing-for-agents`。”
+- 关于代码，绝不在旁边没有日期或提交的情况下写 "currently"、"now" 或 "is"。
+- 事情变了，就新增一条带日期的论断，并把旧的标为已被取代。不要改写旧的那条。
 
-## Procedures
+## Procedures（流程）
 
-Some procedures you run live in other skills, installed beside this one. To run one, read its `SKILL.md` at the path below, relative to this skill's directory, and follow it.
+你要跑的一些流程写在别的技能里，就装在本技能旁边。要跑其中一个时，按下面给出的路径（相对本技能目录）读它的 `SKILL.md`，照它执行。
 
-- **Retro** (`..the `retro` skill/SKILL.md`): run a retro on about one in five of your subagents' sessions, including those an `implement-spec` run dispatches. Pick first the ones where something went wrong. In place of retro's last step, decide yourself which candidates are worth pursuing, then pursue them.
-- **Large chunks of work**: write a spec with `..the `to-spec` skill/SKILL.md`, break it into tickets with `..the `to-tickets` skill/SKILL.md`, publish both to `docs/tickets/`, then implement them with `..the `implement` skill-spec/SKILL.md`.
+- **复盘（Retro）**（`..the `retro` skill/SKILL.md`）：大约每五个子智能体会话做一次复盘，包括某次 `implement-spec` 运行派发出去的那些。优先挑出过问题的。把复盘的最后一步换掉：由你自己判断哪些候选值得追，然后去追。
+- **大块工作**：用 `..the `to-spec` skill/SKILL.md` 写规格，用 `..the `to-tickets` skill/SKILL.md` 拆成工单，两者都发布到 `docs/tickets/`，再用 `..the `implement` skill-spec/SKILL.md` 实现它们。
 
-## Strategic View
+## Strategic View（战略视角）
 
-As part of any and all work, FIRST consider how the environment the agents operate in might be improved. Agents thrive in the **pit of success**:
+在任何一切工作里，都**先**考虑智能体运行的环境可以怎样改进。智能体在**成功之坑**里长得最好：
 
-- API's and functions which are extremely constrained and limited
-- Lint rules which force correctness
-- CODING_STANDARDS.md files which let code reviewers enforce best practices
+- 约束极强、边界极窄的 API 与函数
+- 强制正确性的 lint 规则
+- 让代码评审者能落实最佳实践的 CODING_STANDARDS.md 文件
 
-They also need relevant **data sources** to succeed:
+它们同样需要相关的**数据源**才能成事：
 
-- Logs from critical running processes, like dev servers (or production logs)
-- Access to test environment databases
-- Access to the browser (when necessary) for clicking around and taking screenshots
+- 关键运行进程的日志，比如 dev server（或生产日志）
+- 对测试环境数据库的访问
+- 对浏览器的访问（必要时），用来点来点去、截图
 
-Finally, create environments (and codebases) that obey the **"no workarounds"** rule:
+最后，造出遵守**“不走变通”**规则的环境（与代码库）：
 
-- No one-off workarounds, or hacks that bypass established processes
-- Any deviations from conventions must be fixed proactively, before feature work is done
+- 不要一次性变通，也不要绕过既定流程的 hack
+- 任何偏离约定的地方，都必须在功能开发完成之前主动修掉
 
-Be relentless in improving the environment. Use every user message as an excuse to search for these improvements.
+改进环境要锲而不舍。每一条用户消息，都可以当成寻找这类改进的借口。
 
-## This repository's floor
+## This repository's floor（本仓库的底线）
 
-- **Verify with the real commands**, not by eye: `./scripts/housekeeping_verify.sh` (guards + `tsc` +
-  `vite build` + a document-store report). Add `--full-suite` for the backend suite.
-- **The backend suite has 20 pre-existing failures.** "Not worse than that baseline" is the honest
-  criterion; "the tests are green" is not a claim you can make here. Compare with
+- **用真实命令验证**，不要靠眼看：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` +
+  一份文档库报告）。后端测试套件加 `--full-suite`。
+- **后端套件有 20 个既有的失败。**“不比那个基线更差”是诚实的判据；“测试是绿的”在这里不是一个你能做出的宣称。
+  用
   `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
-  and diff the `FAILED` lines against the recorded baseline.
-- **Specs, tickets and notes live in files**: `docs/specs/<slug>.md`, `docs/tickets/NNN-<slug>.md`,
-  `work/<scope>/`. A verdict in a chat message is lost by the next turn.
-- **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
-  by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+  对照，并把 `FAILED` 行与记录的基线做 diff。
+- **规格、工单和笔记活在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
+  写在聊天消息里的一句判词，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 框架
+  （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `ecosystem-primer` 规则——并优先选
+  能胜任的最高层。

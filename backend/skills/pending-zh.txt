@@ -12,8 +12,6 @@
 # Move a skill with `python scripts/skill_zh.py promote <id>`, never by hand: promote refuses a translation
 # whose structure or frontmatter disagrees with the archived English.
 
-chief-of-staff
-domain-modeling
 edit-ontology-metrics
 frontend-design
 generate-mock-dataset
@@ -22,8 +20,6 @@ improve-codebase-architecture
 lc-deep-agents-orchestration
 lc-langgraph-cli
 lc-langgraph-persistence
-lc-managed-deep-agents
-lc-swarm
 loop-me
 presentation-pipeline-builder
 presentation-skills
@@ -31,7 +27,5 @@ prototype
 report-generator
 research-execution
 research-pipeline-builder
-research-skills
-teach
 web-content-analyzer
 webapp-testing
