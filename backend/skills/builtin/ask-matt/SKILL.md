@@ -120,7 +120,7 @@ Off the main flow entirely.
 
 ## Precondition
 
-**``Skills` activity (or this file's Setup section)`**: run before your first engineering flow to configure `docs/tickets/`, triage labels, and doc layout the other skills assume. Custom `docs/tickets/`s also work.
+**Skills activity → setup notes**: run before your first engineering flow to configure `docs/tickets/`, triage labels, and doc layout the other skills assume. Custom `docs/tickets/`s also work.
 
 ## This repository's floor
 

@@ -1,12 +1,13 @@
 ---
 name: "Implement Spec"
-description: "Implement the result of /to-spec and /to-tickets in code."
+description: "Implement the result of the `to-spec` skill and the `to-tickets` skill in code."
 tags:
   - "implement"
   - "spec"
   - "mattpocock"
   - "requirements"
   - "planning"
+  - "skills"
 triggers:
   - "When asked to you have been provided a spec. This spec should have tickets associated with it, describing how"
 allowed_tools:
@@ -33,7 +34,7 @@ version: "1.0"
 
 You have been provided a spec. This spec should have tickets associated with it, describing how to implement the spec.
 
-The `docs/tickets/` should have been provided to you. If not, tell the user to run ``Skills` activity (or this file's Setup section)`.
+The `docs/tickets/` should have been provided to you. If not, say that the tracker, label and doc-layout vocabulary must be configured first (Skills activity → setup notes).
 
 The goal is the entire spec implemented on a single **integration branch**, with every ticket resolved the way `docs/tickets/` closes work.
 

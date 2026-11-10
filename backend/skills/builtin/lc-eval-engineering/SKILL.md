@@ -118,7 +118,7 @@ If the user supplies traces, review complete runs or threads. Use traces to
 learn real requests, dependency behavior, state shapes, errors, and failure
 conditions. Do not treat a trace answer as independent truth.
 
-If `.agents/skills/<project>-world/SKILL.md` exists, read it. Follow its routing
+If `backend/skills/builtin/<project>-world/SKILL.md` exists, read it. Follow its routing
 only for knowledge relevant to the current Task. Check cited repository paths,
 commands, and scripts when their accuracy affects the design.
 
@@ -155,7 +155,7 @@ Copy [the task template](assets/task/Task.md.template) to
 one file. At the same time, create or update the project World Skill by
 following [World knowledge](references/world-knowledge.md). Determine the
 project skill location supported by the active agent and repository.
-`.agents/skills/<project>-world/SKILL.md` and
+`backend/skills/builtin/<project>-world/SKILL.md` and
 `.claude/skills/<project>-world/SKILL.md` are common landing spots. Follow an
 established project convention when one exists. Otherwise, explain the proposed
 location and get user confirmation before creating the skill. Start from

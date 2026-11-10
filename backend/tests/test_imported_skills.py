@@ -94,6 +94,31 @@ def test_generated_skills_have_no_upstream_isms(path: pathlib.Path):
     assert not problems, f"{path.parent.name}: " + "; ".join(problems)
 
 
+@pytest.mark.parametrize("path", [p for p in _skill_files() if _generated(p)], ids=lambda p: p.parent.name)
+def test_no_rewrite_artefacts(path: pathlib.Path):
+    """The port rewrites text programmatically, which can leave its own debris.
+
+    Two classes were produced for real while generating: doubled backticks where a rewrite landed inside an
+    existing code span (``Skills` activity …``), and — worse — a "normalisation" regex that rewrote every
+    fenced code block (```lang → ``lang) in 311 places. Both are invisible to a loader; both make the skill
+    worse than the upstream it came from.
+    """
+    text = path.read_text(encoding="utf-8")
+    assert text.count("```") % 2 == 0, (
+        f"{path.parent.name}: an odd number of ``` fences — a rewrite ate one, and everything after it now "
+        "renders as code")
+    in_fence = False
+    for n, line in enumerate(text.splitlines(), 1):
+        if line.startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        assert not re.search(r"``[^`]+`", line), (
+            f"{path.parent.name}:{n} has doubled backticks ({line.strip()[:60]!r}) — a rewrite landed inside "
+            "a code span")
+
+
 def test_ids_are_unique_and_kebab_case():
     ids = [p.parent.name for p in _skill_files()]
     assert len(ids) == len(set(ids)), "two directories claim the same skill id"

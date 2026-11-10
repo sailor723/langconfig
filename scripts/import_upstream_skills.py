@@ -108,6 +108,9 @@ FLOOR = """\
   `ecosystem-primer` rule — and prefer the highest layer that does the job.
 """
 
+SKILL_SLASH = re.compile(
+    r'(?<![`\w])/(to-spec|to-tickets|to-validation|grill-me|grilling|tdd|code-review|implement|implement-spec|triage|pr|retro|teach|handoff|wizard|ask-matt|prototype|wayfinder|setup-matt-pocock-skills)(?![\w`])')
+
 PROVENANCE_TEMPLATE = """\
 > **Provenance.** Adapted from `{upstream}` (MIT, vendored at `{vendor_path}`).
 > Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
@@ -209,7 +212,22 @@ def _allowed_tools(body: str) -> list[str]:
     return list(dict.fromkeys(tools))[:8]
 
 
+SETUP_SENTENCE = re.compile(
+    r"[Tt]he (?:issue tracker|`?docs/tickets/`?) should have been provided to you\.?\s*"
+    r"If not, tell the user to run `*/?setup-matt-pocock-skills`*\.?",
+)
+
+
 def _rewrite_body(body: str, skill_id: str) -> str:
+    # One sentence, handled before anything else touches it (see the note in SETUP_SENTENCE's spellings).
+    body = re.sub(r"\*\*`?`?/?setup-matt-pocock-skills`?`?\*\*",
+                  "**Skills activity → setup notes**", body)
+    body = re.sub(r"tell the user to run `?`?/?setup-matt-pocock-skills`?`?",
+                  "say that the tracker, label and doc-layout vocabulary must be configured first "
+                  "(Skills activity \u2192 setup notes)", body)
+    body = SETUP_SENTENCE.sub(
+        "The tickets for this work live in `docs/tickets/`; if there are none, say so and ask for the spec "
+        "rather than inventing one.", body)
     for old, new in PATH_REWRITES:
         body = body.replace(old, new)
     for pattern, new in TOOL_REWRITES:
@@ -221,9 +239,16 @@ def _rewrite_body(body: str, skill_id: str) -> str:
     body = re.sub(r'the Skill tool', "the `skill` tool", body)
     # slash commands name upstream skills; ours are read by id
     body = re.sub(r'`/([a-z][a-z0-9-]+)`', r"the `\1` skill", body)
-    body = re.sub(r'(?<![`\w])/(to-spec|to-tickets|to-validation|grill-me|grilling|tdd|code-review|implement|implement-spec|triage|pr|retro|teach|handoff|wizard|ask-matt|prototype|wayfinder)(?![\w`])',
-                  r"the `\1` skill", body)
+    body = SKILL_SLASH.sub(r"the `\1` skill", body)
+    # `.agents/skills/<name>/SKILL.md` is upstream's skill location; ours is backend/skills/builtin/<id>/
+    body = body.replace(".agents/skills/", "backend/skills/builtin/")
+    # upstream tells the agent to run its own setup skill; that skill does not exist here
+    body = re.sub(r"tell the user to run `*(the )?`*setup-matt-pocock-skills`*( skill)?`*",
+                  "say that the tracker vocabulary and triage labels must be configured first "
+                  "(Skills activity \u2192 this skill's setup notes)", body)
     body = body.replace("setup-matt-pocock-skills skill", "Skills activity's setup notes")
+    # NOTE: do NOT normalise doubled backticks with a regex here. A first attempt did, and it rewrote
+    # every fenced code block (```lang → ``lang) in 311 places — the fences are part of the content.
     # MCP tool naming: upstream writes Claude's `mcp__server__tool`; our bridge prefixes `server_tool`
     body = re.sub(r"`mcp__([a-zA-Z0-9-]+)__\*` tools", r"the `\1_*` tools added by the MCP server", body)
     body = re.sub(r"mcp__([a-zA-Z0-9-]+)__", r"\1_", body)
@@ -234,6 +259,10 @@ def transform(skill_md: pathlib.Path, collection: str) -> tuple[str, dict]:
     fields, body = _split_frontmatter(skill_md.read_text(encoding="utf-8"))
     skill_id = skill_md.parent.name
     desc = fields.get("description", "").strip()
+    # descriptions carry upstream references as well (`/to-spec`, `.agents/…`); the frontmatter must not
+    # point at a location or command that does not exist here.
+    desc = SKILL_SLASH.sub(r"the `\1` skill", desc)
+    desc = desc.replace(".agents/skills/", "backend/skills/builtin/").replace(".agents/plans", "docs/specs")
     body = _rewrite_body(body, skill_id)
     vendor_path = str(skill_md.relative_to(REPO))
     # Computed one branch at a time: a dict literal would evaluate both f-strings and the mattpocock
