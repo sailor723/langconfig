@@ -1,0 +1,61 @@
+"""The skill viewer renders markdown — the checks that keep it honest.
+
+A skill's `description` and its `instructions` are markdown: `## Instructions（指令）`, gates in bold, tables of
+gates, fenced commands. Both were shown as plain text, so an agent's own documentation read as source code and
+the work of reading a skill — the one thing this activity exists for — was half spent re-assembling the markup.
+
+These checks assert the four things a reviewer of that change would want:
+
+1. **The view uses the renderer** for both fields, and the raw text is still reachable (a dev may need to copy
+   the source, and "rendered" must not be the only option).
+2. **No raw HTML executes.** A SKILL.md is third-party text — 58 of the 102 skills are vendored MIT work — so the
+   renderer must not be a `dangerouslySetInnerHTML` sink.
+3. **A card stays plain text.** Cards clamp to three lines; markdown in them shows as literal backticks, which is
+   the bug this file exists to prevent, one level down.
+4. **`#`-links do nothing**, because the shell is a HashRouter and a hash change unmounts the view.
+"""
+from __future__ import annotations
+
+import pathlib
+import re
+
+REPO = pathlib.Path(__file__).resolve().parents[2]
+VIEW = REPO / "src" / "components" / "layout2" / "SkillView.tsx"
+MD = REPO / "src" / "components" / "layout2" / "MarkdownText.tsx"
+HOME = REPO / "src" / "components" / "layout2" / "SkillHomePage.tsx"
+
+
+def test_the_renderer_is_wired_into_the_skill_view():
+    view = VIEW.read_text(encoding="utf-8")
+    assert "import MarkdownText" in view, "SkillView does not import the markdown renderer"
+    assert "<MarkdownText text={skill.description}" in view, "the description still renders as plain text"
+    assert "<MarkdownText text={skill.instructions}" in view, "the instructions body still renders as plain text"
+
+
+def test_the_raw_markdown_is_still_reachable():
+    view = VIEW.read_text(encoding="utf-8")
+    assert "setView('source')" in view or "setView(mode)" in view, (
+        "there is no way to switch back to the source — a skill's markdown is what an agent reads, and a reader "
+        "comparing the two needs it")
+    assert "sv_rendered" in view and "sv_source" in view, "the rendered/source switch has no labels"
+
+
+def test_the_renderer_cannot_execute_html():
+    md = MD.read_text(encoding="utf-8")
+    assert "dangerouslySetInnerHTML" not in md, (
+        "a SKILL.md is third-party text (58 of 102 skills are vendored MIT work) — it may not execute here")
+    assert "react-markdown" in md, "the renderer should be react-markdown, which ignores raw HTML by default"
+    assert "rehype-raw" not in md, "rehype-raw would enable exactly the raw HTML this view must not allow"
+
+
+def test_hash_links_do_not_navigate():
+    md = MD.read_text(encoding="utf-8")
+    assert "startsWith('#')" in md, (
+        "an in-document `#anchor` must not change the hash: the shell is a HashRouter and the view would unmount")
+
+
+def test_cards_strip_markdown_instead_of_showing_asterisks():
+    home = HOME.read_text(encoding="utf-8")
+    assert "stripMarkdown(" in home, "the skill card still prints raw markdown in a three-line clamp"
+    md = MD.read_text(encoding="utf-8")
+    assert re.search(r"export function stripMarkdown", md), "stripMarkdown is not exported"

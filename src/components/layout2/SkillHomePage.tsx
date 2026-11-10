@@ -8,6 +8,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { stripMarkdown } from './MarkdownText';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState } from './useLayout';
 import { SKILL_CATEGORIES, categoryForSkill } from './skillCategories';
@@ -307,7 +308,7 @@ function SkillCard({ skill, onClick, onCategory, categoryLabel, footer }: {
         fontSize: 11, color: t.textDim, margin: 0, lineHeight: 1.5,
         display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
       }}>
-        {truncate(skill.description || '(no description)', 220)}
+        {truncate(stripMarkdown(skill.description || '') || '(no description)', 220)}
       </p>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: t.textMuted, marginTop: 2 }}>

@@ -7,6 +7,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
+import MarkdownText from './MarkdownText';
 import type { Tab } from './useLayout';
 import apiClient from '../../lib/api-client';
 import {
@@ -45,6 +46,9 @@ export default function SkillView({ tab }: SkillViewProps) {
   const [loading, setLoading] = useState(!initial);
   const [error, setError] = useState<string | null>(null);
   const [showInstructions, setShowInstructions] = useState(true);
+  // The body is markdown (headings, gates in bold, tables, fenced commands). Rendered is the
+  // default because reading a skill is what this view is for; source stays one click away.
+  const [view, setView] = useState<'rendered' | 'source'>('rendered');
 
   useEffect(() => {
     if (!skillId) return;
@@ -119,7 +123,7 @@ export default function SkillView({ tab }: SkillViewProps) {
       {skill.description && (
         <div style={cardStyle}>
           <div style={labelStyle}>{tr('ti_description')}</div>
-          <div style={valueStyle}>{skill.description}</div>
+          <MarkdownText text={skill.description} tokens={t} compact />
         </div>
       )}
 
@@ -195,14 +199,38 @@ export default function SkillView({ tab }: SkillViewProps) {
             <BookOpen size={11} /> Instructions
           </div>
           {showInstructions && (
-            <pre style={{
-              whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-              fontFamily: '"SF Mono", "Fira Code", monospace',
-              fontSize: 12, color: t.textPrimary,
-              lineHeight: 1.5, margin: '8px 0 0 0',
-            }}>
-              {skill.instructions}
-            </pre>
+            <div style={{ marginTop: 8 }}>
+              <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
+                {(['rendered', 'source'] as const).map(mode => (
+                  <button
+                    key={mode}
+                    onClick={() => setView(mode)}
+                    data-active={view === mode}
+                    style={{
+                      fontSize: 10, height: 20, padding: '0 7px', cursor: 'pointer',
+                      borderRadius: 3,
+                      border: `1px solid ${view === mode ? t.accent : t.border}`,
+                      background: view === mode ? `${t.accent}18` : 'transparent',
+                      color: view === mode ? t.accent : t.textMuted,
+                    }}
+                  >
+                    {mode === 'rendered' ? tr('sv_rendered') : tr('sv_source')}
+                  </button>
+                ))}
+              </div>
+              {view === 'rendered' ? (
+                <MarkdownText text={skill.instructions} tokens={t} />
+              ) : (
+                <pre style={{
+                  whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                  fontFamily: '"SF Mono", "Fira Code", monospace',
+                  fontSize: 12, color: t.textPrimary,
+                  lineHeight: 1.5, margin: 0,
+                }}>
+                  {skill.instructions}
+                </pre>
+              )}
+            </div>
           )}
           {/* Copy / Download row */}
           <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
