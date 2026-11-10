@@ -30,7 +30,7 @@ source: backend/skills/en-originals/research-pipeline-builder/SKILL.md
 
 ## 参考实现（agent 175，线上验证过）
 
-这个构建器复刻的那个跑通过的真智能体（Research Report Writer，id 175）：
+这个构建器所复刻的那个已跑通的智能体（Research Report Writer，id 175）：
 
 - **模型**：`deepseek-v4-flash`，temperature 0.3，max_tokens 393216，reasoning_effort low
 - **中间件**：`todo_list` + `filesystem`（两者都启用）
@@ -99,7 +99,7 @@ roles/writer.md, roles/critic.md.
 1. 把 `backend/skills/personal/research-skills/` 复制成
    `backend/skills/personal/<domain>-research-pipeline/`（例如 `market-research-pipeline`）。
 2. 改副本的 `SKILL.md`：为新角色写流水线地图 + 委派契约；保留上下文隔离原则和迭代纪律。
-3. 为第 4 个角色加上 `roles/<new-role>.md`（自足，和现有的几个一样）。
+3. 为第 4 个角色加上 `roles/<new-role>.md`（自包含，和现有的几个一样）。
 4. 把新技能同步进数据库（FS→DB 同步，`source_type=personal`），并在智能体的 `config.skills` 里钉住它，
    替代 `research-skills`。
 5. 把编排者提示词里的角色文件指针改成新技能的路径。
