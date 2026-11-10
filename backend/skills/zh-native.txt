@@ -1,4 +1,5 @@
 # Skills that were WRITTEN in Chinese — no English original exists.
 
+evidence-first-delivery
 skill-generator
 sql-analyst
