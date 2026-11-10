@@ -272,6 +272,10 @@ def test_a_referenced_skill_id_is_the_id_that_exists(path: pathlib.Path):
     dangling = [m.group(1) for m in
                 re.finditer(r"(?<![\w/`-])`([a-z][a-z0-9]*(?:-[a-z0-9]+)*)`(?![\w`-])", body)
                 if m.group(1) in bare]
+    # `[[skill-id]]` cross-references too: the lc- set arrived with `[[deep-agents-core]]` links that address
+    # nothing, because the installed id carries the prefix.
+    dangling += [f"[[{m.group(1)}]]" for m in re.finditer(r"\[\[([a-z0-9][a-z0-9-]*)\]\]", body)
+                 if m.group(1) in bare]
     assert not dangling, (
         f"{path.parent.name}: references {dangling} as a skill id, but the installed id is lc-<name>")
 

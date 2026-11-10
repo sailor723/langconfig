@@ -38,7 +38,7 @@ version: "1.0"
 
 ## Overview
 
-Managed Deep Agents (MDA) is a hosted runtime for code-first Deep Agents in LangSmith. You author an agent in Python or TypeScript, test it locally with `mda dev`, and deploy it with `mda deploy` or from a connected GitHub repository in LangSmith. It pairs the open-source Deep Agents harness (see [[deep-agents-core]]) with managed infrastructure: durable runs, sandboxes, Context Hub-backed instructions and skills, memory, traces, and hosted LangGraph deployment.
+Managed Deep Agents (MDA) is a hosted runtime for code-first Deep Agents in LangSmith. You author an agent in Python or TypeScript, test it locally with `mda dev`, and deploy it with `mda deploy` or from a connected GitHub repository in LangSmith. It pairs the open-source Deep Agents harness (see [[lc-deep-agents-core]]) with managed infrastructure: durable runs, sandboxes, Context Hub-backed instructions and skills, memory, traces, and hosted LangGraph deployment.
 
 The core idea is that **an agent is a directory**. A file's location determines its role, and the CLI compiles that directory into a managed LangGraph app.
 
@@ -48,7 +48,7 @@ MDA is in **public beta** and runs on **US LangSmith Cloud only**.
 
 Use this skill when the user wants to build a Deep Agent in code and run it on LangSmith without operating their own server, or to add tools, MCP servers, connections, middleware, memory, identity, schedules, channels, skills, sandboxes, or evals to one.
 
-Use a standard LangSmith Deployment instead (see [[langgraph-cli]], `langgraph deploy`) when the user needs custom server routes or runtime wiring inside the agent deployment, stronger isolation, maximum scalability, or a region other than US. MDA can still sit behind a separately operated backend that authenticates callers and proxies trusted identity headers.
+Use a standard LangSmith Deployment instead (see [[lc-langgraph-cli]], `langgraph deploy`) when the user needs custom server routes or runtime wiring inside the agent deployment, stronger isolation, maximum scalability, or a region other than US. MDA can still sit behind a separately operated backend that authenticates callers and proxies trusted identity headers.
 
 # Guide the user through their first agent
 
@@ -81,7 +81,7 @@ Stop asking once you can name the capabilities. Two or three questions is usuall
 
 Before you promise anything, check the request against **[What MDA cannot do](#what-mda-cannot-do)** below. If part of the request is out of scope, say so in one sentence, offer the nearest supported thing, and keep going with the rest. Do not quietly build a smaller agent and present it as what they asked for.
 
-The common redirect: if they need custom HTTP routes, their own auth, or non-US hosting, tell them MDA is the wrong layer and point at `langgraph deploy` ([[langgraph-cli]]).
+The common redirect: if they need custom HTTP routes, their own auth, or non-US hosting, tell them MDA is the wrong layer and point at `langgraph deploy` ([[lc-langgraph-cli]]).
 
 ## 3. Map the answer onto capabilities
 
@@ -439,7 +439,7 @@ The OAuth catalog supplies provider endpoints, methods, default scopes, and auth
 
 ## Middleware
 
-Middleware wraps model calls, tool calls, and lifecycle hooks. Order is explicit in the list; MDA never infers it. Use prebuilt LangChain middleware or author your own (see [[langchain-middleware]]).
+Middleware wraps model calls, tool calls, and lifecycle hooks. Order is explicit in the list; MDA never infers it. Use prebuilt LangChain middleware or author your own (see [[lc-langchain-middleware]]).
 
 ```python
 from langchain.agents.middleware import ModelCallLimitMiddleware, PIIMiddleware
@@ -539,7 +539,7 @@ MDA evals are [Harbor](https://www.harborframework.com/docs/tasks) evals. `evals
 mda evals init -i
 ```
 
-`mda evals init` initializes the workspace and prints the pinned `harbor run` handoff; it does not run trials. `mda evals compile` is now an internal Harbor plugin entrypoint, so do not tell users to invoke it. Harbor needs Docker for its default environment and **does not read `.env`** — export the LangSmith, model, and tool variables in the shell that runs Harbor. Verifiers write a numeric reward to `/logs/verifier/reward.txt` or metrics to `/logs/verifier/reward.json`. For deeper eval design, see [[eval-engineering]].
+`mda evals init` initializes the workspace and prints the pinned `harbor run` handoff; it does not run trials. `mda evals compile` is now an internal Harbor plugin entrypoint, so do not tell users to invoke it. Harbor needs Docker for its default environment and **does not read `.env`** — export the LangSmith, model, and tool variables in the shell that runs Harbor. Verifiers write a numeric reward to `/logs/verifier/reward.txt` or metrics to `/logs/verifier/reward.json`. For deeper eval design, see [[lc-eval-engineering]].
 
 ## CLI reference
 
@@ -609,7 +609,7 @@ agent = define_deep_agent(
 )
 ```
 
-`interrupt_on` applies the same behavior as LangChain's human-in-the-loop middleware; see [[langgraph-human-in-the-loop]] for approve/edit/reject semantics. Interrupts need durable thread state, and the managed runtime owns the checkpointer, so no extra setup is required.
+`interrupt_on` applies the same behavior as LangChain's human-in-the-loop middleware; see [[lc-langgraph-human-in-the-loop]] for approve/edit/reject semantics. Interrupts need durable thread state, and the managed runtime owns the checkpointer, so no extra setup is required.
 
 Respond to interrupts in Studio during `mda dev`. On a deployed agent, resume through the Agent Server/LangGraph API with a `Command(resume=...)` payload; `mda deploy` prints the Agent Server URL.
 

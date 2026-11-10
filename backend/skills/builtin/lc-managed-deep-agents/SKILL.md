@@ -47,7 +47,7 @@ version: "1.0"
 
 Managed Deep Agents（MDA）是 LangSmith 中面向 code-first Deep Agents 的托管运行时。你用 Python 或
 TypeScript 编写智能体，在本地用 `mda dev` 测试，再用 `mda deploy` 部署，或者直接从 LangSmith 里已连接的
-GitHub 仓库部署。它把开源的 Deep Agents 运行框架（harness，见 [[deep-agents-core]]）和托管基础设施配成一套：
+GitHub 仓库部署。它把开源的 Deep Agents 脚手架（harness，见 [[lc-deep-agents-core]]）和托管基础设施配成一套：
 持久化运行、沙箱、由 Context Hub 托底的 instructions 与 skills、记忆、链路追踪（traces），以及托管的
 LangGraph 部署。
 
@@ -63,7 +63,7 @@ MDA 处于 **public beta**，且**只在 US LangSmith Cloud 上运行**。
 sandboxes、evals 时，也用本技能。
 
 如果用户需要自定义的服务端路由、需要在智能体部署内部接运行时（runtime wiring）、需要更强的隔离、极致的
-可扩展性，或者需要一个 US 以外的区域，就该改用标准的 LangSmith Deployment（见 [[langgraph-cli]]、
+可扩展性，或者需要一个 US 以外的区域，就该改用标准的 LangSmith Deployment（见 [[lc-langgraph-cli]]、
 `langgraph deploy`）。MDA 仍然可以坐在你自运维的后端后面，由那个后端认证调用方并转发可信的身份头。
 
 # 带用户走完第一个智能体
@@ -102,7 +102,7 @@ ask what they want to build -> check it against the limits -> confirm the shape
 要的那个。
 
 常见的改道：如果用户需要自定义 HTTP 路由、自己的认证，或者 US 以外的托管，直接告诉他 MDA 是错的那一层，
-指向 `langgraph deploy`（[[langgraph-cli]]）。
+指向 `langgraph deploy`（[[lc-langgraph-cli]]）。
 
 ## 3. 把答案映射到能力上
 
@@ -502,7 +502,7 @@ OAuth 目录提供的是 provider 的端点、方法、默认 scope 和授权参
 ## Middleware
 
 中间件包裹模型调用、工具调用和生命周期钩子。顺序由列表显式给出；MDA 从不推断顺序。用 LangChain 预置的
-中间件，或者自己写（见 [[langchain-middleware]]）。
+中间件，或者自己写（见 [[lc-langchain-middleware]]）。
 
 ```python
 from langchain.agents.middleware import ModelCallLimitMiddleware, PIIMiddleware
@@ -624,7 +624,7 @@ mda evals init -i
 `mda evals compile` 现在是 Harbor 的内部插件入口，所以不要叫用户去调它。Harbor 的默认环境需要 Docker，并且
 **不读 `.env`**——在运行 Harbor 的那个 shell 里导出 LangSmith、模型和工具相关的变量。校验器（verifiers）把
 数值形式的 reward 写到 `/logs/verifier/reward.txt`，或者把指标写到 `/logs/verifier/reward.json`。更深入的
-评测设计见 [[eval-engineering]]。
+评测设计见 [[lc-eval-engineering]]。
 
 ## CLI reference（CLI 参考）
 
@@ -710,7 +710,7 @@ agent = define_deep_agent(
 ```
 
 `interrupt_on` 的行为和 LangChain 的人在回路中间件一致；批准 / 编辑 / 拒绝的语义见
-[[langgraph-human-in-the-loop]]。中断需要持久化的线程状态，而托管运行时管着 checkpointer，所以不需要额外配置。
+[[lc-langgraph-human-in-the-loop]]。中断需要持久化的线程状态，而托管运行时管着 checkpointer，所以不需要额外配置。
 
 `mda dev` 期间在 Studio 里回应中断。对已部署的智能体，用 `Command(resume=...)` 负载通过 Agent Server /
 LangGraph API 恢复；`mda deploy` 会打印 Agent Server 的 URL。
@@ -748,5 +748,5 @@ LangGraph API 恢复；`mda deploy` 会打印 Agent Server 的 URL。
 - **规格、工单和笔记都落在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
   写在聊天消息里的结论，下一个回合就丢了。
 - **生态分层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），外面通常再包一层 Deep Agents
-  运行框架（`deepagents`）。动手之前先定这次改动属于哪一层——见 `lc-ecosystem-primer` 规则——并优先选能解决
+  脚手架（`deepagents`）。动手之前先定这次改动属于哪一层——见 `lc-ecosystem-primer` 规则——并优先选能解决
   问题的最高层。
