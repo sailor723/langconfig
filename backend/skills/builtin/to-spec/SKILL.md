@@ -27,8 +27,8 @@ allowed_tools:
 author: weiping
 version: 1.0
 params:
-  spec_dir: 'where specs live (default: docs/specs)'
-  grill_path: 'the grill.md this spec came from, if any (default: work/<scope>/grill.md)'
+  spec_dir: 规格放在哪里（默认：docs/specs）
+  grill_path: 这份规格来自哪一份 grill.md（默认：work/<scope>/grill.md）
 ---
 
 ## Instructions（指令）

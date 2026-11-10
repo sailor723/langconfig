@@ -32,8 +32,8 @@ allowed_tools:
 author: weiping
 version: 1.0
 params:
-  report_path: 'where the report goes (default: work/<scope>/validation.md)'
-  baseline: a command whose output is the PRE-CHANGE state, when 'not worse' is the criterion
+  report_path: 验证报告写在哪里（默认：work/<scope>/validation.md）
+  baseline: 当判据是「不比改动前更差」时，输出改动前状态的那条命令
 ---
 
 ## Instructions（指令）

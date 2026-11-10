@@ -27,8 +27,8 @@ allowed_tools:
 author: weiping
 version: 1.0
 params:
-  ticket_dir: 'where tickets live (default: docs/tickets)'
-  spec_path: 'the spec these tickets implement (default: docs/specs/<slug>.md)'
+  ticket_dir: 工单放在哪里（默认：docs/tickets）
+  spec_path: 这些工单实现的是哪份规格（默认：docs/specs/<slug>.md）
 ---
 
 ## Instructions（指令）

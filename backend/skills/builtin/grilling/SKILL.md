@@ -3,29 +3,33 @@ name: Grilling（追问到底）
 lang: zh
 translated: machine
 source: backend/skills/en-originals/grilling/SKILL.md
-description: >-
-  盘问一个计划、设计、指标定义或决定，直到没有东西是被默默假设的。当用户说"grill 我""压力测试一下""挑挑毛病"，
-  或一个请求即将变成昂贵的工作（一次构建、一次 schema 变更、一个人人都会引用的指标）而定义还没定下来时使用。
-  它分轮次提出编号问题，每题附推荐答案，并且在"前沿"清空之前不动手实现。
+description: 盘问一个计划、设计、指标定义或决定，直到没有东西是被默默假设的。当用户说"grill 我""压力测试一下""挑挑毛病"， 或一个请求即将变成昂贵的工作（一次构建、一次 schema
+  变更、一个人人都会引用的指标）而定义还没定下来时使用。 它分轮次提出编号问题，每题附推荐答案，并且在"前沿"清空之前不动手实现。
 tags:
-  - "grilling"
-  - "requirements"
-  - "design"
-  - "decisions"
-  - "review"
-  - "clarification"
+- grilling
+- requirements
+- design
+- decisions
+- review
+- clarification
 triggers:
-  - "用户要求被追问、被压力测试，或要求挑战一个计划时"
-  - "一个请求会变成数小时的智能体工作、而它的定义仍然含糊时"
-  - "两个人（或两份文档）用同一个词指不同的事情时"
-  - "在一个指标、阈值或策略被写进别人会引用的声明之前"
-  - "一个构建/重构/修缺陷的请求到来，却没有验收标准时"
-allowed_tools: [read_file, write_file, ls, glob, grep, skill, task]
+- 用户要求被追问、被压力测试，或要求挑战一个计划时
+- 一个请求会变成数小时的智能体工作、而它的定义仍然含糊时
+- 两个人（或两份文档）用同一个词指不同的事情时
+- 在一个指标、阈值或策略被写进别人会引用的声明之前
+- 一个构建/重构/修缺陷的请求到来，却没有验收标准时
+allowed_tools:
+- read_file
+- write_file
+- ls
+- glob
+- grep
+- skill
+- task
 author: weiping
 version: 1.0
-
 params:
-  output_path: "where to record settled decisions (default: work/<scope>/grill.md, or docs/adr/<n>-<slug>.md when the answer is an architecture decision)"
+  output_path: 把敲定的决定记在哪里（默认：work/<scope>/grill.md；当答案是一个架构决策时是 docs/adr/<n>-<slug>.md）
 ---
 
 ## Instructions（指令）
