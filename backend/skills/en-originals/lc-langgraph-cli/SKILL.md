@@ -284,4 +284,4 @@ The configuration file used by all CLI commands (`dev`, `build`, `up`, `deploy`)
   `work/<scope>/`. A verdict in a chat message is lost by the next turn.
 - **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
   by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+  `lc-ecosystem-primer` rule — and prefer the highest layer that does the job.

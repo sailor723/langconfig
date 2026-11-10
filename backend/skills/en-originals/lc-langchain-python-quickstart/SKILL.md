@@ -53,7 +53,7 @@ Apply these on top of the quickstart (they keep setup minimal and model-agnostic
 
 4. Install the provider package needed for their model if the quickstart's base install isn't enough.
 
-5. Run the example, show output, then stop. Point to `langchain-fundamentals` for next steps.
+5. Run the example, show output, then stop. Point to `lc-langchain-fundamentals` for next steps.
 
 ## This repository's floor
 
@@ -67,4 +67,4 @@ Apply these on top of the quickstart (they keep setup minimal and model-agnostic
   `work/<scope>/`. A verdict in a chat message is lost by the next turn.
 - **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
   by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+  `lc-ecosystem-primer` rule — and prefer the highest layer that does the job.

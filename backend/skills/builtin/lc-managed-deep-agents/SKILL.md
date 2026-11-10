@@ -748,5 +748,5 @@ LangGraph API 恢复；`mda deploy` 会打印 Agent Server 的 URL。
 - **规格、工单和笔记都落在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
   写在聊天消息里的结论，下一个回合就丢了。
 - **生态分层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），外面通常再包一层 Deep Agents
-  运行框架（`deepagents`）。动手之前先定这次改动属于哪一层——见 `ecosystem-primer` 规则——并优先选能解决
+  运行框架（`deepagents`）。动手之前先定这次改动属于哪一层——见 `lc-ecosystem-primer` 规则——并优先选能解决
   问题的最高层。

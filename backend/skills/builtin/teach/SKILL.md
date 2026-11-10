@@ -176,5 +176,5 @@ version: "1.0"
 - **规格、工单和笔记都落在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、
   `work/<scope>/`。写在聊天消息里的判词，下一回合就丢了。
 - **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常被 Deep Agents 外壳
-  （`deepagents`）包住。写改动之前先判断它属于哪一层——`ecosystem-primer` 规则——并优先用能完成任务的最高的
+  （`deepagents`）包住。写改动之前先判断它属于哪一层——`lc-ecosystem-primer` 规则——并优先用能完成任务的最高的
   那一层。

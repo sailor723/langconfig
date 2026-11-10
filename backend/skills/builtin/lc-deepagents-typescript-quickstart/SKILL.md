@@ -64,7 +64,7 @@ version: "1.0"
 
 4. 装快速入门里的包，但**去掉** Tavily；再加上他们所用模型对应的 provider 包。
 
-5. 跑通研究示例，展示输出，然后停下。下一步指向 `deep-agents-core` / customization / Managed Deep Agents。
+5. 跑通研究示例，展示输出，然后停下。下一步指向 `lc-deep-agents-core` / customization / Managed Deep Agents。
 
 ## This repository's floor（本仓库的底线）
 
@@ -77,5 +77,5 @@ version: "1.0"
 - **规格、工单和笔记活在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
   写在聊天消息里的一句判词，下一轮就丢了。
 - **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 框架
-  （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `ecosystem-primer` 规则——并优先选
+  （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `lc-ecosystem-primer` 规则——并优先选
   能胜任的最高层。

@@ -196,9 +196,9 @@ rg -il "checkpointer" /oss/python/langgraph/ # search by keyword
 
 If the user only wants a minimal local working agent (new project, stub tool, provider key), load the matching quickstart first:
 
-- LangChain → `langchain-python-quickstart` or `langchain-typescript-quickstart`
-- LangGraph → `langgraph-python-quickstart` or `langgraph-typescript-quickstart`
-- Deep Agents → `deepagents-python-quickstart` or `deepagents-typescript-quickstart`
+- LangChain → `lc-langchain-python-quickstart` or `lc-langchain-typescript-quickstart`
+- LangGraph → `lc-langgraph-python-quickstart` or `lc-langgraph-typescript-quickstart`
+- Deep Agents → `lc-deepagents-python-quickstart` or `lc-deepagents-typescript-quickstart`
 
 Otherwise load the skill below that matches your layer from Step 1. This is required — the layer-specific skill carries the current API; the primer alone does not.
 
@@ -206,23 +206,23 @@ Otherwise load the skill below that matches your layer from Step 1. This is requ
 
 ### LangChain
 
-- **`langchain-fundamentals`** — building any LangChain agent
-- **`langchain-rag`** — adding RAG / vector store retrieval
-- **`langchain-middleware`** — structured output with Pydantic
-- **`langchain-dependencies`** — package versions, installs, or dependency management questions
+- **`lc-langchain-fundamentals`** — building any LangChain agent
+- **`lc-langchain-rag`** — adding RAG / vector store retrieval
+- **`lc-langchain-middleware`** — structured output with Pydantic
+- **`lc-langchain-dependencies`** — package versions, installs, or dependency management questions
 
 ### LangGraph
 
-- **`langgraph-fundamentals`** — any LangGraph graph
-- **`langgraph-human-in-the-loop`** — human-in-the-loop or approval workflows
-- **`langgraph-persistence`** — state that must survive restarts, or cross-thread memory
+- **`lc-langgraph-fundamentals`** — any LangGraph graph
+- **`lc-langgraph-human-in-the-loop`** — human-in-the-loop or approval workflows
+- **`lc-langgraph-persistence`** — state that must survive restarts, or cross-thread memory
 
 ### Deep Agents
 
-**Always load `deep-agents-core` first.** Then, as needed:
+**Always load `lc-deep-agents-core` first.** Then, as needed:
 
-- **`deep-agents-orchestration`** — subagent delegation or orchestration
-- **`deep-agents-memory`** — cross-session persistent memory
+- **`lc-deep-agents-orchestration`** — subagent delegation or orchestration
+- **`lc-deep-agents-memory`** — cross-session persistent memory
 
 </next-skills>
 
@@ -238,4 +238,4 @@ Otherwise load the skill below that matches your layer from Step 1. This is requ
   `work/<scope>/`. A verdict in a chat message is lost by the next turn.
 - **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
   by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+  `lc-ecosystem-primer` rule — and prefer the highest layer that does the job.

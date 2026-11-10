@@ -44,4 +44,4 @@ source: backend/skills/en-originals/grill-with-docs/SKILL.md
   `work/<scope>/`。写在聊天消息里的结论，下一轮就丢了。
 - **生态层**：智能体代码是跑在 LangGraph 运行时里的 LangChain（`create_agent`），通常再由
   Deep Agents 脚手架（`deepagents`）包一层。动手之前先定下这个改动属于哪一层 —— 这就是
-  `ecosystem-primer` 规则 —— 并且优先选能解决问题的最高层。
+  `lc-ecosystem-primer` 规则 —— 并且优先选能解决问题的最高层。

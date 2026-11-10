@@ -252,3 +252,23 @@ def test_the_loader_sees_a_declared_tool_list(path: pathlib.Path):
     else:
         assert list(parsed.allowed_tools or []) == list(declared), (
             f"{path.parent.name}: declared {declared} but the loader has {parsed.allowed_tools}")
+
+
+@pytest.mark.parametrize("path", _skill_files(), ids=lambda p: p.parent.name)
+def test_a_referenced_skill_id_is_the_id_that_exists(path: pathlib.Path):
+    """A skill that names another skill must name it the way the `skill` tool addresses it.
+
+    The `lc-` prefix was added so LangChain's official skills are visible as such — and every skill's shared
+    floor section went on saying "the `ecosystem-primer` rule", which addresses nothing: an agent that follows
+    the advice cannot load it. 58 skills carried that dangling reference, in both languages.
+    """
+    ids = {p.parent.name for p in pathlib.Path(__file__).resolve().parents[1].joinpath("skills/builtin").glob("*/SKILL.md")}
+    bare = {i[3:] for i in ids if i.startswith("lc-")}
+    text = path.read_text(encoding="utf-8")
+    end = text.find("\n---", 3)
+    body = text[end + 4:] if text.startswith("---") and end != -1 else text
+    dangling = [m.group(1) for m in
+                re.finditer(r"(?<![\w/`-])`([a-z][a-z0-9]*(?:-[a-z0-9]+)*)`(?![\w`-])", body)
+                if m.group(1) in bare]
+    assert not dangling, (
+        f"{path.parent.name}: references {dangling} as a skill id, but the installed id is lc-<name>")

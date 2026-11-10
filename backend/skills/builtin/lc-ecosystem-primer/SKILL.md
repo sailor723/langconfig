@@ -204,9 +204,9 @@ rg -il "checkpointer" /oss/python/langgraph/ # search by keyword
 
 如果用户只想要一个能在本地跑起来的最小智能体（新项目、桩工具、提供方 key），先加载对应的快速入门：
 
-- LangChain → `langchain-python-quickstart` 或 `langchain-typescript-quickstart`
-- LangGraph → `langgraph-python-quickstart` 或 `langgraph-typescript-quickstart`
-- Deep Agents → `deepagents-python-quickstart` 或 `deepagents-typescript-quickstart`
+- LangChain → `lc-langchain-python-quickstart` 或 `lc-langchain-typescript-quickstart`
+- LangGraph → `lc-langgraph-python-quickstart` 或 `lc-langgraph-typescript-quickstart`
+- Deep Agents → `lc-deepagents-python-quickstart` 或 `lc-deepagents-typescript-quickstart`
 
 否则，就加载下面与你第 1 步选定的层相匹配的那个技能。这一步是必须的——该层专属的技能才带着当前 API；光靠本入门指南是不够的。
 
@@ -214,23 +214,23 @@ rg -il "checkpointer" /oss/python/langgraph/ # search by keyword
 
 ### LangChain
 
-- **`langchain-fundamentals`**——构建任何 LangChain 智能体
-- **`langchain-rag`**——要加 RAG / 向量库检索
-- **`langchain-middleware`**——要用 Pydantic 做结构化输出
-- **`langchain-dependencies`**——包版本、安装或依赖管理方面的问题
+- **`lc-langchain-fundamentals`**——构建任何 LangChain 智能体
+- **`lc-langchain-rag`**——要加 RAG / 向量库检索
+- **`lc-langchain-middleware`**——要用 Pydantic 做结构化输出
+- **`lc-langchain-dependencies`**——包版本、安装或依赖管理方面的问题
 
 ### LangGraph
 
-- **`langgraph-fundamentals`**——任何 LangGraph 图
-- **`langgraph-human-in-the-loop`**——人在回路或审批工作流
-- **`langgraph-persistence`**——必须扛过重启的状态，或跨线程记忆
+- **`lc-langgraph-fundamentals`**——任何 LangGraph 图
+- **`lc-langgraph-human-in-the-loop`**——人在回路或审批工作流
+- **`lc-langgraph-persistence`**——必须扛过重启的状态，或跨线程记忆
 
 ### Deep Agents
 
-**先加载 `deep-agents-core`。** 然后按需加载：
+**先加载 `lc-deep-agents-core`。** 然后按需加载：
 
-- **`deep-agents-orchestration`**——子智能体委派或编排
-- **`deep-agents-memory`**——跨会话的持久记忆
+- **`lc-deep-agents-orchestration`**——子智能体委派或编排
+- **`lc-deep-agents-memory`**——跨会话的持久记忆
 
 </next-skills>
 
@@ -245,5 +245,5 @@ rg -il "checkpointer" /oss/python/langgraph/ # search by keyword
 - **规格、工单和笔记活在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
   写在聊天消息里的一句判词，下一轮就丢了。
 - **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 脚手架
-  （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `ecosystem-primer` 规则——并优先选
+  （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `lc-ecosystem-primer` 规则——并优先选
   能胜任的最高层。
