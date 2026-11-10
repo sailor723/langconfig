@@ -77,3 +77,21 @@ def test_the_500_character_clip_is_gone_from_the_persistence_path():
         "evidence")
     assert source.count("clip_tool_result(") >= 2, "both persistence sites should record results the same way"
     assert "derive_tool_status(" in source, "status still comes straight from the harness"
+
+
+def test_a_probe_command_that_finds_nothing_missing_is_not_a_failure():
+    """Measured on the coding agent's first recon run.
+
+    `ls -d backend docs start.sh` exists to find out what is *absent*; it prints `No such file or directory` on stderr
+    and still exits 0. The heuristic alone marked three of eighteen calls `failed` for doing exactly what was asked,
+    so an explicit success marker now wins over the markers below it.
+    """
+    probe = ("ls: cannot access 'backend': No such file or directory\n"
+             "[stderr] ls: cannot access 'docs': No such file or directory\n"
+             "[Command succeeded with exit code 0]")
+    assert derive_tool_status(probe) == "completed"
+
+
+def test_an_explicit_failure_marker_still_wins():
+    out = "[stderr] psql: error: connection refused\n[Command failed with exit code 2]"
+    assert derive_tool_status(out) == "failed"

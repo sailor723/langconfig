@@ -139,6 +139,7 @@
     "writing-for-agents": "documents",
     "writing-fragments": "documents",
     "writing-shape": "documents",
-    "evidence-first-delivery": "quality"
+    "evidence-first-delivery": "quality",
+    "codebase-recon": "code"
   }
 }

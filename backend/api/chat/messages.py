@@ -2115,13 +2115,26 @@ def clip_tool_result(text: str) -> dict:
     }
 
 
+#: The sandbox's own verdict, when it survives the clip. Preferred over every heuristic below.
+_SUCCEEDED_MARKERS = ("[Command succeeded with exit code 0]", "Command succeeded with exit code 0")
+
+
 def derive_tool_status(text: str) -> str:
     """Failed or completed, decided from the text rather than from the harness.
 
-    The harness reports every call as `completed`; the transcript has to carry what actually happened, because
-    the next reader (a person, or an agent turning the session into a skill) relies on it.
+    The harness reports every call as `completed`; the transcript has to carry what actually happened, because the
+    next reader (a person, or an agent turning a session into a skill) relies on it.
+
+    Order matters, and it was learned the hard way: a *probe* command legitimately prints
+    `No such file or directory` while succeeding (`ls -d backend docs start.sh` to find out what is missing). When
+    the sandbox states the outcome explicitly, that statement wins; the heuristics only serve results that were
+    clipped before the marker.
     """
     lowered = str(text or "")
+    if any(marker in lowered for marker in _SUCCEEDED_MARKERS):
+        return "completed"
+    if "[Command failed" in lowered or "Command failed with exit code" in lowered:
+        return "failed"
     return "failed" if any(marker in lowered for marker in _FAILED_MARKERS) else "completed"
 
 
