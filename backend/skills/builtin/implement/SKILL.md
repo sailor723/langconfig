@@ -9,6 +9,14 @@ description: >-
 ---
 
 ## Instructions（指令）
+
+> **来源说明。** 改编自 `mattpocock/skills → skills/engineering/implement`（MIT，原样收录于
+> `vendor/upstream-skills/mattpocock/skills/engineering/implement/SKILL.md`）。
+> 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` / `version`）、
+> 路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名（`read_file` / `write_file` /
+> `edit_file` / `bash` / `grep` / `glob` / `task`），以及一节验证底线。上游的 `disable-model-invocation`
+> 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，所以直接去掉，而不做模拟。
+
 实现用户所说的、规格或工单里描述的那块工作。
 
 如果用户给了工单引用，从 `docs/tickets/` 取出它，并在动手前报出它的标题。**引用有歧义就先问。**
@@ -21,7 +29,7 @@ description: >-
 
 **把工作提交到当前分支。**
 
-## 本仓库的地板
+## 本仓库的底线
 
 - **用真实命令验证，而不是靠眼睛看**：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` +
   文档库报告）。后端全套加 `--full-suite`。
