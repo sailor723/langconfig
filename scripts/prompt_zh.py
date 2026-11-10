@@ -300,8 +300,9 @@ def cmd_promote(ids: list[str]) -> int:
             print(f"  REJECT  {prompt_id}: {exc}", file=sys.stderr)
             rc = 1
     if done:
-        write_ids(PENDING, [i for i in pending if i not in set(done)], PENDING_HEADER)
-        print(f"\n  pending-zh.txt: {len(pending)} → {len(pending) - len(done)}")
+        remaining = [i for i in pending if i not in set(done)]
+        write_ids(PENDING, remaining, PENDING_HEADER)
+        print(f"\n  pending-zh.txt: {len(pending)} → {len(remaining)}")
     return rc
 
 

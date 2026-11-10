@@ -113,8 +113,11 @@ def normalise(text: str) -> str:
 
 def tokens_in(prose: str) -> set[str]:
     found = {m.group(1).strip() for m in TOKEN.finditer(prose)}
-    found |= {m.group(0) for m in URL.finditer(prose)}
-    found |= {m.group(0) for m in PATHISH.finditer(prose)}
+    # A path at the end of an English sentence arrives with the full stop attached (`…/SEMANTICS.md.`), which
+    # then cannot be reproduced in Chinese without an ASCII period after a path — measured, three translators
+    # kept the dot because dropping it "lost the token". The punctuation belongs to the sentence, not the path.
+    found |= {m.group(0).rstrip(".,;:") for m in URL.finditer(prose)}
+    found |= {m.group(0).rstrip(".,;:") for m in PATHISH.finditer(prose)}
     found |= {m.group(0) for m in NUMBER.finditer(prose)}
     return {t for t in found if len(t) >= 2}
 
