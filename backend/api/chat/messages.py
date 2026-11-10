@@ -935,7 +935,8 @@ async def send_message(
                         )
                     for tc in reversed(tool_calls):
                         if not tc["result"]:
-                            tc["result"] = str(content)[:500]
+                            tc.update(clip_tool_result(content))
+                            tc["status"] = derive_tool_status(content)
                             break
 
         # Save session — persist tool call names so MetricsPanel shows them
@@ -1719,13 +1720,10 @@ async def send_message_stream(
                                                 spawn["status"] = "completed"
                                                 break
                                     output = make_json_safe(tool_data.get("output", ""))
-                                    if isinstance(output, str):
-                                        tc["result"] = output[:500]
-                                    elif isinstance(output, (dict, list)):
-                                        tc["result"] = json.dumps(output, ensure_ascii=False)[:500]
-                                    elif tool_data.get("output") is not None:
-                                        tc["result"] = str(tool_data.get("output"))[:500]
-                                    tc["status"] = "completed"
+                                    if isinstance(output, (dict, list)):
+                                        output = json.dumps(output, ensure_ascii=False)
+                                    tc.update(clip_tool_result(output if output is not None else ""))
+                                    tc["status"] = derive_tool_status(tc["result"])
                                     break
                             # Filter out non-serializable objects
                             safe_data = make_json_safe(tool_data)
@@ -2083,6 +2081,50 @@ async def send_message_stream(
 # =============================================================================
 
 
+#: How much of a tool result is persisted with the transcript.
+#:
+#: It was 500, and that silently cut 190 of 260 results in one real ontology build mid-sentence — the evidence
+#: needed to explain why a number changed was frequently past the cut. Storing the whole thing is not the answer
+#: either (one `find /` can emit megabytes into a jsonb column), so: keep a generous slice, and say so when it was
+#: cut, so a reader knows the difference between "the output ended here" and "the record ended here".
+TOOL_RESULT_MAX_CHARS = 20_000
+
+#: Markers the sandbox puts in a result when the command failed. `status` alone cannot be trusted: measured on the
+#: same session, all 260 calls were recorded `completed`, including eight real failures (`No such file`,
+#: `timed out after 120 seconds`, `ModuleNotFoundError`, `ERROR: column … does not exist`).
+_FAILED_MARKERS = (
+    "[Command failed",                 # the sandbox's own verdict, when it survives the clip
+    "Command timed out",               # a timeout is a failure the harness still calls "completed"
+    "ModuleNotFoundError",
+    "Traceback (most recent call last)",
+    "command not found",
+    "[stderr] ERROR",                  # psql/psycopg errors land here, not in an exit code the caller sees
+    "[stderr] bash:",
+    "No such file or directory",
+)
+
+
+def clip_tool_result(text: str) -> dict:
+    """The persisted form of a tool result: a bounded slice plus what was cut."""
+    full = str(text or "")
+    clipped = full[:TOOL_RESULT_MAX_CHARS]
+    return {
+        "result": clipped,
+        "result_length": len(full),
+        "result_truncated": len(full) > len(clipped),
+    }
+
+
+def derive_tool_status(text: str) -> str:
+    """Failed or completed, decided from the text rather than from the harness.
+
+    The harness reports every call as `completed`; the transcript has to carry what actually happened, because
+    the next reader (a person, or an agent turning the session into a skill) relies on it.
+    """
+    lowered = str(text or "")
+    return "failed" if any(marker in lowered for marker in _FAILED_MARKERS) else "completed"
+
+
 @router.get("/{session_id}/history", response_model=ChatHistoryResponse)
 async def get_chat_history(
     session_id: str,
@@ -2098,7 +2140,9 @@ async def get_chat_history(
     return ChatHistoryResponse(
         session_id=session.session_id,
         messages=[ChatMessage(**msg) for msg in session.messages],
-        metrics=session.metrics
+        metrics=session.metrics,
+        # The evidence half of the record: name, arguments, result and status per call, oldest first.
+        tool_calls=list(session.tool_calls or []),
     )
 
 

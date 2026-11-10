@@ -178,9 +178,11 @@ def caller_block(db, user_id, session_id: str | None = None) -> str:
                 "",
                 f"- **This session**: `{session_id}`",
                 "- **The transcript**: `curl -s 'http://127.0.0.1:8765/api/chat/"
-                f"{session_id}/history'` returns every turn of this conversation, including the "
-                "ones trimmed out of your visible window. That is the record of what was actually "
-                "asked and answered; your own summary of it is not.",
+                f"{session_id}/history'` returns `messages` (every turn, including the ones trimmed "
+                "out of your visible window) and `tool_calls` (each call's `tool_name`, `arguments`, "
+                "`result`, `status`, plus `result_length`/`result_truncated` — read those two before "
+                "treating a result as complete). That is the record of what was actually asked and "
+                "run; your own summary of it is not.",
                 "- Use it when a task needs the real sequence — re-deriving a decision, turning a "
                 "session into a skill, checking what was tried and what failed. Do not paraphrase "
                 "it from memory when the file will answer.",

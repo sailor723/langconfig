@@ -92,10 +92,16 @@ class ChatSessionResponse(BaseModel):
 
 
 class ChatHistoryResponse(BaseModel):
-    """Response with chat history."""
+    """Response with chat history.
+
+    ``tool_calls`` is part of the record, not a debug field: `chat_sessions.tool_calls` keeps every call with its
+    `result`, and a caller that only receives the turns has the narrative without the evidence. Turning a finished
+    session into a skill needs both, so the transcript endpoint serves both.
+    """
     session_id: str
     messages: List[ChatMessage]
     metrics: Dict[str, Any]
+    tool_calls: List[Dict[str, Any]] = []
 
 
 class ContextPreviewResponse(BaseModel):
