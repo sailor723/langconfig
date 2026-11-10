@@ -1,12 +1,16 @@
 ---
-name: "Writing Shape"
-description: "Writing, exploit: shape raw material into an article, paragraph by paragraph."
+name: "Writing Shape（写作·骨架）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/writing-shape/SKILL.md
+description: >-
+  写作·利用：把原始素材塑成一篇文章，一段一段地来。
 tags:
   - "writing"
   - "shape"
   - "mattpocock"
 triggers:
-  - "When asked to <what-to-do>"
+  - "被要求 <what-to-do> 时"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -19,99 +23,93 @@ author: "mattpocock (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
-> **Provenance.** Adapted from `mattpocock/skills → skills/in-progress/writing-shape` (MIT, vendored at `vendor/upstream-skills/mattpocock/skills/in-progress/writing-shape/SKILL.md`).
-> Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
-> `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
-> (`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`), and a verification floor
-> section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
-> through the `skill` tool, so it is dropped rather than emulated.
+> **来源说明。** 改编自 `mattpocock/skills → skills/in-progress/writing-shape`（MIT，原样收录于
+> `vendor/upstream-skills/mattpocock/skills/in-progress/writing-shape/SKILL.md`）。
+> 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
+> `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
+> （`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`），以及一节验证底线。
+> 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
+> 所以直接去掉，不做仿真。
 
-## Instructions
+## Instructions（指令）
 
 <what-to-do>
 
-The user has passed (or will pass) a markdown file of raw material. Treat it as the input pile: anything from a tidy list of fragments to a wall of unstructured prose to a transcript. The format does not matter. Read it end-to-end before doing anything else.
+用户已经给了（或将要给）一个 markdown 文件，里面是原始素材。把它当成输入堆料：内容可能是一份整齐的片段清单，可能是满满一整屏没有结构的散文，也可能是一场对话的转写。格式无关紧要。在做其他任何事之前，先从头到尾把它读完。
 
-Then run a shaping session that produces a separate article document. This is **exploit**: the exploring is done, the pile is fixed: commit to a structure and mine the pile to fill it. Do not edit the raw material file: it is read-only to this skill.
+然后主持一次搭骨架的会话，产出一份独立的文章文档。这是**利用**（exploit）：探索已经做完，堆料是固定的：认定一个结构，再从堆料里开采来填满它。不要编辑原始素材文件：对本技能来说它是只读的。
 
-If the user did not say where to save the article, ask once and remember the path.
+用户没说文章存到哪儿，就问一次，然后记住这个路径。
 
 </what-to-do>
 
 <supporting-info>
 
-## The loop
+## 循环
 
-1. **Read the pile.** Read the input file in full. Form a sense of what's in it.
-2. **Establish the prerequisites.** Settle with the user what the reader knows walking in: the concepts that are **grounded** from the start. Everything else must be grounded by a block before a later block can lean on it. See [Grounding](#grounding).
-3. **Draft 2–3 candidate openings.** Each opening should imply a different thesis or angle for the article. Show all of them. Force the user to pick or compose a hybrid. The chosen opening defines what the rest of the article must do.
-4. **Grow paragraph by paragraph.** After the opening lands, ask "given this opening, what does the reader need to hear next?" Pull material from the pile to answer. The next block may only lean on grounded concepts, and grounds new ones as it lands. Argue about the form the next block takes: a paragraph, a list, a table, a callout, a quote, a code block. Each format choice should be deliberate and defensible.
-5. **Append to the article file as you go.** Don't batch. Write each agreed paragraph or block immediately so the user can see the article taking shape.
-6. **Loop step 4 until the article is done.** The user decides when it's done.
+1. **读堆料。** 完整读一遍输入文件。对里面有什么形成一个感觉。
+2. **确立前置概念。** 和用户敲定读者是带着什么走进来的：哪些概念一开始就是**已扎根**的。其余概念都必须由某个段落先扎根，后面的段落才能靠上去。见下文「扎根」。
+3. **起草 2–3 个候选开头。** 每个开头都该暗示文章一个不同的论点或角度。把它们全部摆出来。逼用户挑一个，或者拼一个混合体。选定的开头定义了文章其余部分必须做成什么。
+4. **一段一段地长。** 开头落定之后，问："有了这个开头，读者接下来需要听到什么？"从堆料里取材料来回答。下一段只能靠在已扎根的概念上，并在它落地时把新概念扎根。就下一段采用的形式争论：一段话、一个列表、一张表、一个提示框、一段引文、一个代码块。每个格式选择都该是有意的、站得住脚的。
+5. **边谈边往文章文件里追加。** 不要攒着。每谈定一段或一块，立刻写进去，好让用户看到文章正在长成。
+6. **重复第 4 步，直到文章写完。** 什么时候算写完，由用户决定。
 
-## Grounding
+## 扎根
 
-Every **concept** has to be **grounded** before a block can lean on it: the reader either walked in knowing it or met it in an earlier block. A block that reaches for an ungrounded concept loses the reader. The unit is the concept, not the word for it: a block can lean on an idea the reader lacks even with no jargon in sight. Where a concept has a name (a **term**), grounding it means landing the idea and the term together.
+每个**概念**都必须先**扎根**，段落才能靠上去：读者要么走进来时就知道它，要么在前面的段落里遇见过它。一个段落去够没扎根的概念，就会把读者弄丢。单位是概念，不是叫它的那个词：哪怕满篇看不见一个术语，段落也可能靠着一个读者没有的想法。概念有名字时（一个**术语**），把想法和术语一起落地，才叫扎根。
 
-A concept gets grounded one of two ways:
+概念落地有两条路：
 
-- **Prerequisite**: grounded before the opening. The reader brings it. Fixed at the start.
-- **Introduced**: a block establishes it, and from then on it's grounded for the rest of the article.
+- **前置**：在开头之前就落地。读者自己把它带进来。开局即固定。
+- **引入**：由某个段落把它立起来，从那时起，它在文章余下部分一直是已扎根的。
 
-Keep a running list of what's grounded. When you ask "what does the reader need to hear next?", an ungrounded concept the next move needs is itself the answer: ground it first (here or in an earlier block) or you can't make the move. This is the gap-naming of [Pulling from the pile](#pulling-from-the-pile) one level up: there the pile is missing material; here the article is missing a foundation.
+随时维护一份"已扎根"清单。当你问"读者接下来需要听到什么"时，下一步要用的某个还没扎根的概念本身就是答案：先把它扎根（在这里，或者回到前面某一段），否则你走不出这一步。这是把「从堆料里取材」那节的点名缺料升高一级：那里是堆料缺材料，这里是文章缺地基。
 
-The lever is what you make a prerequisite versus what you ground inside the article. Demand too much up front and you shut readers out; ground too much inside and the opening drowns in definitions. Settle it with the user when you establish prerequisites.
+杠杆在于：哪些你设为前置，哪些你在文章里扎根。开局要求太多，就把读者关在门外；在文中扎根太多，开头就淹死在定义里。在确立前置概念时和用户把这件敲定。
 
-## Conversational feel
+## 对话的手感
 
-This is a grilling session inverted. In ideation, the question was "what are you actually noticing?" Here it's "what is this article actually arguing, and in what order does the reader need to hear it?" Push back. Refuse to let weak transitions slide. If a paragraph doesn't earn its place, cut it.
+这是一场反转过来的追问会。构思阶段问的是"你到底注意到了什么？"这里问的是"这篇文章到底在论证什么，读者需要按什么顺序听到它？"要顶回去。不让软弱的过渡滑过去。一个段落挣不到自己的位置，就砍掉。
 
-Specific moves to keep using:
+这些问法要反复用：
 
-- "What does this paragraph do for the reader that the previous one didn't?"
-- "If I cut this, what breaks?"
-- "Is this prose, or should it be a list? Why prose?"
-- "This sentence is doing two jobs: split it or pick one."
-- "The opening promised X. We've drifted to Y. Either re-thread it or change the opening."
+- "这一段为读者做了什么，是上一段没做的？"
+- "如果我把这删了，什么会塌？"
+- "这是散文，还是该做成列表？为什么非散文不可？"
+- "这句话在干两件活：拆开，或者只留一件。"
+- "开头许诺了 X。我们已经飘到 Y 了。要么把线接回去，要么改开头。"
 
-## Pulling from the pile
+## 从堆料里取材
 
-Treat the raw material as a quarry, not a script. Pull a fragment, rework it to fit the surrounding paragraph, and place it. A fragment may be split across multiple paragraphs, merged with another, or paraphrased. The pile's job is to be mined; the article's job is to read as one voice.
+把原始素材当成采石场，不是剧本。取一块片段出来，改造它去贴合周围的段落，然后放进去。一块片段可以被拆到多个段落里，可以和另一块合并，也可以转述。堆料的职责是被开采；文章的职责是读起来像一个声音。
 
-If the pile lacks something the article needs, name the gap explicitly: "We need an example here and the pile doesn't have one. Give me one now or we cut this section."
+堆料缺了文章需要的东西，就明确点名这处缺口："这里需要一个例子，而堆料里没有。现在给我一个，否则这一节我们砍掉。"
 
-## Format arguments to actually have
+## 真该吵起来的格式争论
 
-When choosing how to render a block, weigh these tradeoffs out loud with the user, not silently:
+选一个块怎么呈现时，把这些权衡当着用户的面说出来，不要在心里默默做：
 
-- **Prose vs. list.** Prose carries argument; lists carry parallel items. If items aren't truly parallel, prose is better. If they are, a list is faster to scan.
-- **Inline vs. callout.** Tips, warnings, and asides go in callouts (`> [!TIP]`, `> [!NOTE]`), but only if they'd genuinely derail the main argument inline. Otherwise leave them inline.
-- **Table vs. repeated structure.** If the same shape repeats 3+ times with the same fields, a table. Otherwise prose with bold leads.
-- **Quote vs. paraphrase.** Quote when the original wording is the point. Paraphrase when only the idea matters.
-- **Code block vs. inline code.** Multi-line, runnable, or illustrative → block. Single token or identifier → inline.
+- **散文 vs. 列表。** 散文承载论证；列表承载并列项。各项不是真的并列，散文更好；是并列的，列表扫得更快。
+- **内联 vs. 提示框。** 提示、警告和题外话放进提示框（`> [!TIP]`、`> [!NOTE]`），但只有当它们内联着确实会把主论证带偏时才这么做。否则就留在正文里。
+- **表格 vs. 重复结构。** 同一个骨架带同样的字段重复 3 次以上，就用表格。否则用加粗引导词起头的散文。
+- **引用 vs. 转述。** 原文的措辞本身就是重点时，引用。只有想法要紧时，转述。
+- **代码块 vs. 行内代码。** 多行的、可运行的、或用作示例的 → 代码块。单个 token 或标识符 → 行内代码。
 
-## Writing rhythm
+## 写作节奏
 
-Append to the article file as each block is agreed. Re-read the file from disk before every write: the user may have edited between turns. Never overwrite blindly. If the user wants a paragraph rewritten, edit that specific paragraph in place; leave the rest alone.
+每块谈定就追加进文章文件。每次写之前，从磁盘重新读一遍文件：用户可能在你两轮之间改过。绝不盲写覆盖。用户想要某一段重写，就在原处改那一段，其余不碰。
 
-## Out of scope
+## 不在范围内
 
-- Mining for new fragments that aren't in the pile (handle gaps as in "Pulling from the pile").
-- Editing the raw material file.
-- Publishing, formatting for a specific platform, or adding frontmatter the user didn't ask for.
+- 去开采堆料里没有的新片段（缺口按「从堆料里取材」处理）。
+- 编辑原始素材文件。
+- 发布、按某个平台排版，或者添加用户没要求的 frontmatter。
 
 </supporting-info>
 
-## This repository's floor
+## This repository's floor（本仓库的底线）
 
-- **Verify with the real commands**, not by eye: `./scripts/housekeeping_verify.sh` (guards + `tsc` +
-  `vite build` + a document-store report). Add `--full-suite` for the backend suite.
-- **The backend suite has 20 pre-existing failures.** "Not worse than that baseline" is the honest
-  criterion; "the tests are green" is not a claim you can make here. Compare with
-  `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
-  and diff the `FAILED` lines against the recorded baseline.
-- **Specs, tickets and notes live in files**: `docs/specs/<slug>.md`, `docs/tickets/NNN-<slug>.md`,
-  `work/<scope>/`. A verdict in a chat message is lost by the next turn.
-- **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
-  by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+- **用真命令验证**，不靠眼睛：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` + 一份文档库报告）。加 `--full-suite` 跑后端套件。
+- **后端套件有 20 个既有失败。**"不比那个基线更差"才是诚实的判据；"测试是绿的"这句话在这里你说不出口。用 `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py` 做对比，把 `FAILED` 行和记录的基线做 diff。
+- **规格、工单和笔记都落在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。一条写在聊天消息里的裁决，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常外面套着一层 Deep Agents 骨架（`deepagents`）。动手之前先定下这处改动属于哪一层——`ecosystem-primer` 规则——并优先选能干成这件事的最高层。

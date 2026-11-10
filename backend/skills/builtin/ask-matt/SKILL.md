@@ -1,13 +1,16 @@
 ---
-name: "Ask Matt"
-description: "Ask which skill or flow fits your situation. A router over the skills in this repo."
+name: "Ask Matt（问 Matt）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/ask-matt/SKILL.md
+description: "问清楚哪个技能或哪条流程适合你眼下的处境。一份覆盖本仓库全部技能的路由表。"
 tags:
   - "ask"
   - "matt"
   - "mattpocock"
   - "skills"
 triggers:
-  - "When asked to you don't remember every skill, so ask"
+  - "当你记不住每一个技能、需要知道眼下该用哪个时：问它"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -21,117 +24,116 @@ author: "mattpocock (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
-> **Provenance.** Adapted from `mattpocock/skills → skills/engineering/ask-matt` (MIT, vendored at `vendor/upstream-skills/mattpocock/skills/engineering/ask-matt/SKILL.md`).
-> Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
-> `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
-> (`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`), and a verification floor
-> section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
-> through the `skill` tool, so it is dropped rather than emulated.
+> **来源说明。** 改编自 `mattpocock/skills → skills/engineering/ask-matt`（MIT，原样收录于
+> `vendor/upstream-skills/mattpocock/skills/engineering/ask-matt/SKILL.md`）。
+> 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
+> `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
+> （`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`），以及一节验证底线。
+> 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
+> 所以直接去掉，而不做模拟。
 
-## Instructions
+## Instructions（指令）
 
-# Ask Matt
+# Ask Matt（问 Matt）
 
-You don't remember every skill, so ask.
+你记不住每一个技能，所以问。
 
-Before stating what a skill does or recommending a step be skipped, read that skill's SKILL.md: the summaries here are for orientation only.
+在说出某个技能是干什么的、或建议跳过某个步骤之前，先读那个技能的 SKILL.md：这里的摘要只用来定位。
 
-A **flow** is a path through the skills. Most paths run along one **main flow**, and two **on-ramps** merge onto it. Everything else is standalone, or a vocabulary layer that runs underneath.
+一条**流程**是穿过这些技能的一条路径。大多数路径沿着同一条**主流程**走，有两条**入口匝道**汇入它。其余的都是独立技能，或者跑在下面的词汇层。
 
-## The main flow: idea → ship
+## 主流程：想法 → 上线
 
-The route most work travels. You have an idea and want it built.
+大多数工作走的那条路线。你有一个想法，想把它建出来。
 
-1. **the `grill-with-docs` skill** sharpens the idea by interview. Start here whenever you are **working in a working directory**: it's stateful, retaining what it learns in `GLOSSARY.md` and ADRs. (No working directory? Use the `grill-me` skill instead, covered under Standalone. Both run the same the `grilling` skill primitive; `grill-with-docs` is the one that leaves a paper trail, which makes it the better of the two whenever a repo is there to leave it in.)
-2. **Branch: can you settle every question in conversation?** If a question needs a runnable answer (state, business logic, a UI you have to see), detour through a prototype, bridged by **the `handoff` skill** in both directions (a prototype lives in its own directory, which is exactly what the `handoff` skill is for; see Phase boundaries):
-   - **the `handoff` skill** out, then open a fresh session against that file,
-   - **the `prototype` skill** to answer the question with throwaway code,
-   - **the `handoff` skill** back what you learned, and reference it from the original idea thread.
-3. **Branch: is this a multi-session build?**
-   - **Yes** → **the `to-spec` skill** (turn the thread into a spec), then **the `to-tickets` skill** to split it into tracer-bullet tickets, each declaring its **blocking edges**. Then work the tickets one of two ways:
-     - **the `implement` skill** per ticket, **the `clear` skilling context between each one**. On a local tracker that's one file per ticket under `.scratch/<feature>/issues/`, worked blockers-first by hand; on a real tracker the edges become native blocking links, so any ticket whose blockers are done can be grabbed. Each ticket is self-contained, so the last one's context is disposable.
-     - **the `implement-spec` skill** for the whole spec in one run. It reads the tickets as a **task graph**, runs implementer subagents across the ready **frontier** in parallel, and lands everything on one **integration branch**. Reach for it when you'd rather orchestrate the build than drive each ticket yourself.
-   - **No** → **the `implement` skill** right here, in the same context window.
+1. **`grill-with-docs` 技能**用访谈把想法磨锐。只要你**在一个工作目录里干活**，就从这里开始：它是有状态的，把它学到的东西留在 `GLOSSARY.md` 和 ADR 里。（没有工作目录？改用 `grill-me` 技能，见"独立技能"一节。两个跑的是同一个 `grilling` 技能基元；`grill-with-docs` 是留下纸面记录的那一个，只要有仓库能把记录留在里面，它就是两者中更好的选择。）
+2. **分支：所有问题都能在对话里敲定吗？** 如果某个问题需要一个能跑起来的答案（状态、业务逻辑、一个你必须亲眼看到的界面），就绕道做一个原型，来回两个方向都用 **`handoff` 技能**搭桥（原型活在自己的目录里，这正是 `handoff` 技能的用途；见"阶段边界"）：
+   - 用 **`handoff` 技能**移交出去，再针对那份文件开一个全新的会话，
+   - 用 **`prototype` 技能**写用完即弃的代码回答那个问题，
+   - 再用 **`handoff` 技能**把学到的东西带回来，并从原来的想法线索里引用它。
+3. **分支：这次构建要跨多个会话吗？**
+   - **要** → 用 **`to-spec` 技能**（把线索变成一份规格），再用 **`to-tickets` 技能**把它切成曳光弹式的工单，每张都声明自己的**阻塞边**。然后按两种方式之一推进工单：
+     - 每张工单跑一次 **`implement` 技能**，**每张之间用 `clear` 技能清掉上下文**。在本地追踪器上，那就是 `.scratch/<feature>/issues/` 下一张工单一个文件，由人按"先清阻塞者"的顺序手工推进；在真实追踪器上，边变成原生的阻塞链接，于是任何阻塞者都已完成的工单都可以被拿去干。每张工单都是自足的，所以上一张的上下文可以丢掉。
+     - 用 **`implement-spec` 技能**一次跑完整份规格。它把工单读成一张**任务图**，让实现者子智能体并行跑过所有就绪的**前沿**，并把一切落到同一条**集成分支**上。当你更想编排整场构建、而不是自己一张张驱动工单时，就用它。
+   - **不要** → 就在这里、在同一个上下文窗口里用 **`implement` 技能**。
 
-   Either way, the code gets built by driving **the `tdd` skill** (one red-green slice at a time) and closes out with **the `code-review` skill**, a two-axis review (Standards + Spec) of the diff. the `implement` skill runs both per ticket; the `implement-spec` skill's implementers each drive the `tdd` skill, and it runs one the `code-review` skill over the integration branch. Reach for **the `tdd` skill** on its own when you just want to build a concrete behaviour test-first without a full spec, and **the `code-review` skill** on its own whenever you want to review a branch or PR against a fixed point.
+   无论走哪条，代码都是靠驱动 **`tdd` 技能**（一次一个红-绿切片）建出来的，收尾用 **`code-review` 技能**——对 diff 做两条轴的评审（标准 + 规格）。`implement` 技能对每张工单都跑这两样；`implement-spec` 技能的实现者各自驱动 `tdd`，而它对整条集成分支跑一次 `code-review`。当你只想测试先行地做一个具体行为、并没有完整规格时，单独用 **`tdd` 技能**；当你只想对某个分支或 PR 相对一个固定点做评审时，随时单独用 **`code-review` 技能**。
 
-   When the work goes up as a pull request, **the `pr` skill** shapes the body: the smallest visual that shows the change, before/after evidence that it works, and a one-way or two-way door call. It's model-invoked, so the agent reaches for it whenever it writes a PR.
+   当工作以 pull request 的形式提交时，**`pr` 技能**塑造它的正文：能展示这次改动的最小可视化，证明它确实有效的改前/改后证据，以及一个单向门还是双向门的判断。它由模型自主调用，所以智能体每次写 PR 时都会去用它。
 
-4. **the `retro` skill** closes the loop. After a build, and especially one that went sideways, it looks back over the session and suggests changes to the agent's **environment**, not the code: navigation pointers, automated checks, the coding standards the `code-review` skill enforces, steering files, tooling. Mechanical mistakes become deterministic checks; judgement calls become coding standards. The next build then starts from a better environment.
+4. **`retro` 技能**把环闭上。一次构建之后，尤其是走得歪了的那次，它回看这个会话，建议改的是智能体的**环境**，不是代码：导航指针、自动化检查、`code-review` 技能所执行的编码标准、引导文件、工具链。机械性的失误变成确定性的检查；需要判断的地方变成编码标准。下一次构建于是从一个更好的环境起步。
 
-### Context hygiene
+### 上下文卫生
 
-Keep steps 1–3 in **one unbroken context window** (don't compact or clear until after the `to-tickets` skill) so the grilling, spec, and tickets all build on the same thinking. Each the `implement` skill then starts fresh, working from the ticket. Run the `retro` skill in the session it's looking back on, before you clear; after clearing, point it at that session's log instead.
+把第 1–3 步留在**同一个不中断的上下文窗口**里（在 `to-tickets` 技能跑完之前不要压缩、不要清空），这样追问、规格和工单都建在同一份思考上。之后每张工单的 `implement` 技能都从零开始，拿着工单干活。`retro` 技能要在它回看的那个会话里跑，在你清空之前；如果已经清空，就让它去读那个会话的日志。
 
-The limit on this is the **[smart zone](https://www.aihero.dev/ai-coding-dictionary/smart-zone)**: the window (~150k tokens on state-of-the-art models) within which the model still reasons sharply. If a session approaches it before the `to-tickets` skill, don't push on degraded; the `compact` skill at the nearest phase boundary and carry on (see Phase boundaries).
+这件事的上限是**[智能区 smart zone](https://www.aihero.dev/ai-coding-dictionary/smart-zone)**：模型还能保持锐利推理的那个窗口（在最先进的模型上约 150k token）。如果会话在 `to-tickets` 技能之前就逼近它，不要在降级的脑子上一路推下去；在最近的阶段边界用 `compact` 技能压缩，再接着走（见"阶段边界"）。
 
-## On-ramps
+## 入口匝道
 
-A starting situation that generates work, then merges onto the main flow.
+一种会产生工作的起始处境，之后汇入主流程。
 
-- **Bugs and requests piling up** → **the `triage` skill**. It moves issues through triage roles and produces agent-ready issues, which **the `implement` skill** later picks up.
+- **缺陷和需求越堆越多** → **`triage` 技能**。它让 issue 流过各个分流角色，产出智能体可以直接开工的 issue，之后由 **`implement` 技能**接走。
 
-  Triage is only for issues **you didn't create**: bug reports, incoming feature requests, anything that arrives raw. Tickets that the `to-tickets` skill produced are already agent-ready, so **don't triage them**.
+  分流只处理**不是你创建的** issue：缺陷报告、外面提来的功能需求，任何原样到达的东西。`to-tickets` 技能产出的工单已经是智能体可直接开工的，所以**不要分流它们**。
 
-- **Something's broken** → **the `diagnosing-bugs` skill**. For the hard ones: the bug that resists a first glance, the intermittent flake, the regression that crept in between two known-good states. It refuses to theorise until it has a **tight feedback loop** (one command that already goes red on *this* bug), then fixes with a regression test. Once the fix is in, run **the `retro` skill** in the same session to ask what would have prevented the bug; where the real finding is that there's no good seam to lock it down, that's a job for **the `improve-codebase-architecture` skill**.
+- **有东西坏了** → **`diagnosing-bugs` 技能**。给难的那些用：第一眼看不透的缺陷、时有时无的抖动、悄悄夹进两个已知良好状态之间的回归。在有**紧的反馈回路**（一条已经*对这个*缺陷变红的命令）之前，它拒绝建立理论；有了之后，用一个回归测试修掉。修好之后，在同一个会话里跑 **`retro` 技能**，问是什么本来能防住这个缺陷；如果真正的发现是"没有好的接缝把它锁住"，那就是 **`improve-codebase-architecture` 技能**的活。
 
-- **A huge, foggy effort: a greenfield project or a huge feature build, too big for one session** → **the `wayfinder` skill**, the most cognitively demanding flow here. When the way from here to the destination isn't visible yet, it charts a **shared map** of **decision tickets** on `docs/tickets/` and resolves them one at a time, producing **decisions, not deliverables**, until the fog is pushed back and the way is clear. Where **the `grill-with-docs` skill** sharpens an idea you can hold in one session, wayfinder is for the idea you can't, and it's slower and denser, so save it for exactly that, never a well-scoped feature.
+- **一件巨大、迷雾重重的工作：一个从零开始的项目，或者一次大特性构建，大到单个会话装不下** → **`wayfinder` 技能**，这里是认知负担最重的一条流程。当从这里到目的地的路还看不见时，它在 `docs/tickets/` 上画出由**决策工单**组成的**共享地图**，然后一张一张地解，产出**决定，不是交付物**，直到雾被推回去、路清楚了。**`grill-with-docs` 技能**磨的是你能在一个会话里握得住的想法，wayfinder 磨的是你握不住的那个；它更慢、更密，所以只留给这种情形，绝不要用在范围已经清楚的特性上。
 
-  When the map clears, **it hands off, it doesn't build**: merge onto the main flow at **the `to-spec` skill**, which collapses the map's linked decisions into a buildable plan, then the `to-tickets` skill and the `implement` skill as usual. Looping the map straight into the `implement` skill skips that collapse and throws the linked detail away, so go straight to the `implement` skill only when the effort turned out genuinely small.
+  地图清空之后，**它交接出去，不自己建**：在 **`to-spec` 技能**处汇入主流程，由它把地图里那些相互链接的决定收拢成一份可构建的计划，然后照常走 `to-tickets` 技能和 `implement` 技能。把地图直接绕开这次收拢塞进 `implement` 技能，会把那些链接的细节扔掉，所以只有在这件工作其实很小的时候，才直接跳到 `implement` 技能。
 
-## Codebase health
+## 代码库健康
 
-Not feature work, just upkeep.
+不是做特性，只是维护。
 
-- **the `improve-codebase-architecture` skill** runs whenever you have a spare moment to keep the codebase good for agents to operate in. It surfaces **deepening opportunities**; picking one _generates an idea_ you can take into the main flow at the `grill-with-docs` skill. It's the survey that finds the candidates; **the `codebase-design` skill** (below) is the bench you design the chosen one on.
+- **`improve-codebase-architecture` 技能**，只要有余暇让代码库保持好到智能体能进去干活，就跑它。它挖出**加深机会**；挑中一个，就*生成一个想法*，可以带进主流程、交给 `grill-with-docs` 技能。它是找出候选者的那份普查；**`codebase-design` 技能**（见下）则是你用来设计选中那个的工作台。
 
-## Vocabulary underneath
+## 底下的词汇层
 
-Two model-invoked references that run *beneath* the other skills, each the single source of truth for its vocabulary. Reach for them directly when the **words**, not the process, are the problem; or let the skills above pull them in.
+两份由模型自主调用的参考，跑在其他技能*下面*，各自是自己那套词汇的唯一真源。当出问题的是**词**、不是流程时，直接调它们；或者让上面的技能把它们带进来。
 
-- **the `domain-modeling` skill**: sharpen the project's *domain* language: challenge a fuzzy term, resolve an overloaded word ("account" doing three jobs), record a hard-to-reverse decision as an ADR. It's the active discipline the `grill-with-docs` skill drives to keep `GLOSSARY.md` a clean glossary.
-- **the `codebase-design` skill** is the deep-module vocabulary (module, interface, depth, seam, adapter, leverage, locality) for designing a module's *shape*: a lot of behaviour behind a small interface at a clean seam. the `tdd` skill and the `improve-codebase-architecture` skill both speak it.
+- **`domain-modeling` 技能**：磨锐项目的*领域*语言：挑一个模糊词，拆掉一个超载的词（"account" 同时干三份活），把一个难以回退的决定记成 ADR。它是 `grill-with-docs` 技能为了让 `GLOSSARY.md` 保持一份干净术语表而驱动的主动纪律。
+- **`codebase-design` 技能**是设计模块*形状*用的深模块词汇（module、interface、depth、seam、adapter、leverage、locality）：在一个干净的接缝后面、用小接口挡住大量行为。`tdd` 技能和 `improve-codebase-architecture` 技能说的都是这套话。
 
-## Phase boundaries
+## 阶段边界
 
-A **phase** is a chunk of work inside a session: the grilling, the implementation, the QA. At the **boundary** between two of them you have five options, and picking between them is the fuzziest decision in this whole map:
+一个**阶段**是会话里的一块工作：追问、实现、QA。在两个阶段的**边界**上你有五个选项，而在它们之间挑，是整张图里最模糊的一个决定：
 
-- **Continue**: stay put. Costs nothing, loses nothing.
-- **the `clear` skill**: empty the window, when nothing here matters to what's next.
-- **the `handoff` skill** writes a portable markdown file. Narrow: only for a **new harness**, a **new directory**, a **colleague**, or forking a side task **mid-phase**. What it buys is portability.
-- **Subagent**: send a tightly-scoped task to its own window and get a report back.
-- **the `compact` skill** compresses this context and seeds a fresh session with it. The **default**, at the bottom of the tree rather than the first reach.
+- **继续**：原地不动。不花成本，也不丢东西。
+- **`clear` 技能**：清空窗口，用于这里的东西对接下来无关的时候。
+- **`handoff` 技能**写一份可移植的 markdown 文件。用途窄：只用于**新的 harness**、**新的目录**、**同事**，或者在**阶段中间**把一条支线任务分出去。它买到的是可移植性。
+- **子智能体**：把一个范围很窄的任务送到它自己的窗口，再拿回一份报告。
+- **`compact` 技能**压缩这段上下文，并用它起一个全新的会话。它是**默认项**，在决策树的底部，而不是第一个就伸手去拿的。
 
-Read [PHASE-BOUNDARIES.md](PHASE-BOUNDARIES.md) for the ordered tree: the five questions, the reasoning behind each branch, and why the primary-source cost makes **Continue** the one to rule out first. Make the decision **at** a boundary; mid-phase, continue or split the rest into subagents.
+读 [PHASE-BOUNDARIES.md](PHASE-BOUNDARIES.md) 看那棵有序的决策树：五个问题、每个分支背后的道理，以及为什么一手来源的成本让**继续**成为最先该被排除的那个。决定要在边界**上**做；在阶段中间，要么继续，要么把剩下的拆成子智能体。
 
-## Standalone
+## 独立技能
 
-Off the main flow entirely.
+完全在主流程之外。
 
-- **the `grill-me` skill**: the same relentless interview as the `grill-with-docs` skill, but **stateless**: it saves nothing locally and builds no `GLOSSARY.md`. Reach for it when you are **not working in a working directory** (sharpening a plan, a design, a piece of writing, anything with no repo under it). If you are in a working directory, use the `grill-with-docs` skill instead: it runs the same interview and leaves a paper trail, so it is strictly the better one.
-- **the `grilling` skill** is the interview primitive itself: rounds, the frontier, facts are the agent's job and decisions are yours. the `grill-me` skill and the `grill-with-docs` skill are the two named ways in, and the `triage` skill, the `wayfinder` skill and the `improve-codebase-architecture` skill all run it internally. Reach for it directly only when you want the interview with no wrapper around it.
-- **the `prototype` skill** is a small, throwaway program that answers one design question: does this state model feel right, or what should this UI look like. Throwaway is a constraint on how the code is written, not a promise to destroy it: the answer folds into the real code, and the prototype itself is kept as a **primary source** on a `prototype/<name>` branch out of main, pointed at from the implementation issue. It's the detour in step 2 of the main flow, but reach for it any time a design question is hard to settle on paper.
-- **the `research` skill**: delegate reading legwork to a **background agent**: it investigates a question against **primary sources**, then leaves a cited Markdown file in the repo. Keep working while it reads. The file it produces is something to take *into* the main flow at the `grill-with-docs` skill, since research feeds the thinking rather than replacing it.
-- **the `to-questionnaire` skill** comes in when the thing blocking you isn't in your head or the codebase but in **someone else's**, and it writes them a questionnaire to fill in. It's the inverse of the `grill-me` skill: instead of interviewing you about the subject, it interviews you about the **send** (who it's going to, what you need back) and aims the questions at the gap. What comes back is material for the `grill-with-docs` skill or the `to-spec` skill.
-- **the `wizard` skill** is for the steps only a **human** can take: provisioning infrastructure, setting up credentials or CI secrets, clicking through an unfamiliar third-party dashboard, running a one-off migration or cutover. It generates an interactive bash script that opens each URL, captures each value, and writes it into `.env` and GitHub secrets, so the procedure stops being something you re-explain to an agent every time. Model-invoked, so the agent reaches for it the moment it hits a wall only you can pass. If the agent could just do it itself, it should; this is for where a human is genuinely in the loop.
-- **the `wait-what` skill** is the corrective for a message that didn't land. Use it mid-conversation, inside any other skill, and the agent re-pitches what it just said with the context you were missing, in plain English, using the `GLOSSARY.md` vocabulary. It works after the fact; the `grill-with-docs` skill is the upfront cure, because a shared language agreed early is what stops the jargon arriving at all.
-- **the `teach` skill**: learn a concept over multiple sessions, using the current directory as a stateful workspace.
-- **the `writing-for-agents` skill** is the reference for writing documents agents consume: skills, AGENTS.md, pointed-at docs.
+- **`grill-me` 技能**：和 `grill-with-docs` 技能同样不留情面的访谈，但是**无状态**的：本地什么都不存，也不建 `GLOSSARY.md`。当你**不在一个工作目录里干活**时用它（磨一份计划、一个设计、一篇文字，任何底下没有仓库的东西）。如果你在工作目录里，改用 `grill-with-docs` 技能：它跑同一场访谈，还留下纸面记录，所以严格来说它更好。
+- **`grilling` 技能**是访谈基元本身：一轮一轮、前沿，事实是智能体的活，决定是你的。`grill-me` 技能和 `grill-with-docs` 技能是两个有名字的入口，而 `triage` 技能、`wayfinder` 技能和 `improve-codebase-architecture` 技能都在内部跑它。只有当你想要一场没有任何包装的访谈时，才直接调它。
+- **`prototype` 技能**是一个小的、用完即弃的程序，回答一个设计问题：这个状态模型手感对不对，或者这个界面该长什么样。用完即弃是对代码怎么写的一个约束，不是要销毁它的承诺：答案会折进真正的代码，而原型本身作为**一手来源**留在一条从 main 出来的 `prototype/<name>` 分支上，由实现 issue 指过去。它就是主流程第 2 步里的那个绕道，但任何时候一个设计问题在纸上敲不定，都可以用它。
+- **`research` 技能**：把读材料的跑腿活交给一个**后台智能体**：它对着**一手来源**调查一个问题，然后在仓库里留下一个带引用的 Markdown 文件。它读的时候你继续干活。它产出的文件是要*带进*主流程、交给 `grill-with-docs` 技能的东西，因为调研是喂给思考的，不是替代思考的。
+- **`to-questionnaire` 技能**用在卡住你的东西既不在你脑子里、也不在代码库里，而在**别人脑子里**的时候：它写一份问卷让人去填。它是 `grill-me` 技能的反面：不问你要研究的那个题目，而是问你这次**发送**（发给谁、你要拿回什么），再把问题对准那个缺口。拿回来的东西是 `grill-with-docs` 技能或 `to-spec` 技能的素材。
+- **`wizard` 技能**用来办只有**人**能办的步骤：开通基础设施、配置凭据或 CI secret、在一个陌生的第三方面板里点来点去、跑一次性的迁移或切换。它生成一个交互式 bash 脚本，逐个打开 URL、接收每个值，写进 `.env` 和 GitHub secrets，于是这套流程不再是你每次都得向智能体重新解释的东西。它由模型自主调用，所以智能体一撞上只有你能过的那堵墙就去用它。如果智能体自己就能办，它就该自己办；这个技能用在人真正在环里的地方。
+- **`wait-what` 技能**是给"话没落地"的消息用的纠正器。在对话中间、在任何别的技能里用它，智能体就会把刚说过的话，带着你缺的那部分上下文、用大白话、用 `GLOSSARY.md` 里的词汇重讲一遍。它是事后补救；`grill-with-docs` 技能是事前的药，因为早点谈妥一套共同语言，正是让行话压根不出现的原因。
+- **`teach` 技能**：跨多个会话学一个概念，把当前目录当作有状态的工作区。
+- **`writing-for-agents` 技能**是写"给智能体读的文档"的参考：技能、AGENTS.md、被指到的文档。
 
-## Precondition
+## 前置条件
 
-**Skills activity → setup notes**: run before your first engineering flow to configure `docs/tickets/`, triage labels, and doc layout the other skills assume. Custom `docs/tickets/` directories also work.
+**技能活动 → 配置说明**：在第一次工程流程之前跑，配置好其他技能所假定的 `docs/tickets/` 目录、分流标签和文档布局。自定义的 `docs/tickets/` 目录同样可用。
 
-## This repository's floor
+## 本仓库的底线
 
-- **Verify with the real commands**, not by eye: `./scripts/housekeeping_verify.sh` (guards + `tsc` +
-  `vite build` + a document-store report). Add `--full-suite` for the backend suite.
-- **The backend suite has 20 pre-existing failures.** "Not worse than that baseline" is the honest
-  criterion; "the tests are green" is not a claim you can make here. Compare with
+- **用真实命令验证**，不要靠眼看：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` + 一份文档库报告）。后端测试套件加 `--full-suite`。
+- **后端套件有 20 个既有的失败。**"不比那个基线更差"是诚实的判据；"测试是绿的"在这里不是一个你能做出的宣称。用
   `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
-  and diff the `FAILED` lines against the recorded baseline.
-- **Specs, tickets and notes live in files**: `docs/specs/<slug>.md`, `docs/tickets/NNN-<slug>.md`,
-  `work/<scope>/`. A verdict in a chat message is lost by the next turn.
-- **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
-  by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+  对照，并把 `FAILED` 行与记录的基线做 diff。
+- **规格、工单和笔记活在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
+  写在聊天消息里的一句判词，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 框架
+  （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `ecosystem-primer` 规则——并优先选
+  能胜任的最高层。

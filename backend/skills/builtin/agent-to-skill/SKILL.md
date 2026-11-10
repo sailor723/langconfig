@@ -1,144 +1,134 @@
 ---
-name: agent-to-skill
+name: "agent-to-skill（智能体转技能）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/agent-to-skill/SKILL.md
 description: >-
-  Convert an existing agent into a reusable skill: read the agent's prompt, derive name / description / tags / triggers, move the authored body into instructions verbatim, and leave every tool decision to the host agent. Use when the user asks to turn an agent into a skill, extract a skill from an agent, reuse a working agent's prompt as a skill, or migrate an agent's know-how into the skill library.
+  把一个现成的智能体转成可复用的技能：读该智能体的提示词，推导出 name / description / tags / triggers，
+  把手写正文原样搬进 instructions，而工具上的每一个决定都留给宿主智能体。当用户要求把智能体变成技能、
+  从智能体里抽出一个技能、把跑得通的智能体提示词复用为技能，或把智能体的经验搬进技能库时使用。
 tags: [skill-creation, meta, conversion, agent-design]
 triggers:
-  - "when the user asks to convert an agent into a skill"
-  - "when the user asks to extract a skill from an agent"
-  - "when the user asks to reuse an agent prompt as a skill"
-  - "when the user says 'make a skill from agent X'"
+  - "当用户要求把一个智能体转换成技能时"
+  - "当用户要求从智能体中提取一个技能时"
+  - "当用户要求把智能体的提示词复用为技能时"
+  - "当用户说'用智能体 X 做个技能'时"
 author: LangConfig
 ---
 
-You convert **agents into skills**. One conversion = one agent in, one skill out.
+你把**智能体转成技能**。一次转换 = 一个智能体进，一个技能出。
 
-A skill is **portable know-how, not a capability**: it enables no tools and selects no model. The
-host agent keeps its own identity, tools, model, language and workspace; the skill only carries what
-is true for every agent that could load it. That distinction is the whole job — the conversion is a
-**transcription with a header**, not a rewrite and not an optimisation.
+技能是**可移植的手艺，不是一项能力**：它不启用任何工具，也不选模型。宿主智能体保留自己的身份、工具、
+模型、语言和工作区；技能只带那些对每一个可能加载它的智能体都成立的东西。这条界线就是全部工作——转换是一
+次**带表头的誊写**，不是重写，也不是优化。
 
-## The four steps
+## 四步
 
-### Step 1 — Read the source agent's prompt
+### 第 1 步——读源智能体的提示词
 
-Read the agent's stored system prompt. In this platform the stored prompt is **three concatenated
-parts**, and only the first is portable:
+读这个智能体存下来的系统提示词。在本平台上，存下来的提示词是**三段拼起来的**，只有第一段可移植：
 
-| Part | Where it starts | Verdict |
+| 部分 | 从哪里开始 | 判定 |
 |---|---|---|
-| The authored instruction body | the top of the prompt, before the identity block | **this is the conversion source** |
-| The baked `## Identity` block | at the `## Identity` heading (agent id, workspace path, "you are agent N…") | drop |
-| The embedded instruction docs | at `## AGENTS.md (embedded)` (`AGENTS.md` + `CLAUDE.md` mirrors, path map, working conventions) | drop |
+| 作者手写的指令正文 | 提示词开头，身份块之前 | **这就是转换的源** |
+| 烘焙进去的 `## Identity` 块 | 从 `## Identity` 标题开始（智能体 id、工作区路径、"you are agent N…"） | 丢掉 |
+| 内嵌的指令文档 | 从 `## AGENTS.md (embedded)` 开始（`AGENTS.md` + `CLAUDE.md` 镜像、路径映射表、工作约定） | 丢掉 |
 
-**Cut at `## Identity` and ignore the embedded docs.** They are regenerated per install and per
-project, so copying them produces a skill that is wrong on every other agent, and stale on the next
-rebake. Also ignore the separate `agent_docs` field for the same reason.
+**在 `## Identity` 处切断，内嵌文档一概不管。** 它们是按每次安装、每个项目重新生成的，照抄出来的技能换到
+别的智能体上就是错的，下一次重新烘焙就过期。同理，单独的 `agent_docs` 字段也一并忽略。
 
-Expect the authored body to be a small fraction of what you read — that is normal, not a signal that
-the agent is thin.
+手写正文只占你读到的很小一份——这是正常的，不是这个智能体很单薄的信号。
 
-### Step 2 — Derive the header fields
+### 第 2 步——推导表头字段
 
-An agent prompt carries no frontmatter, so these fields are **derived**, not extracted. Four of them:
+智能体的提示词没有 frontmatter，所以这些字段是**推导**出来的，不是提取出来的。一共四个：
 
-| Field | Rule | Why it matters |
+| 字段 | 规则 | 为什么重要 |
 |---|---|---|
-| `name` / id | Short and descriptive. The id is the name lowercased with spaces and underscores turned into dashes — so **choose the name to get the id you want**, you cannot set the id directly | The id must match the skill's directory name; it is also how the skill is invoked by name |
-| `description` | **what + when**, one or two sentences, within 1024 characters | This single line is the *entire* discovery surface — it is all the model sees when deciding whether to load the skill. Write it for the agent that will *find* it, not for the human who wrote the source prompt |
-| `tags` | 3-8, first is the primary category | Library metadata and filtering only; nothing at runtime reads them |
-| `triggers` | 2-6 phrases shaped "when the user …" | Library metadata only, same as tags |
+| `name` / id | 简短、描述性强。id 是把 name 转小写、把空格和下划线换成连字符得来的——所以**想要哪个 id 就去取哪个 name**，你没法直接指定 id | id 必须与技能目录名一致；按名字调用技能时用的也是它 |
+| `description` | **what + when**，一到两句，1024 字符以内 | 这一行就是*整个*发现面——模型判断要不要加载技能时，看到的只有它。写它的对象是那个会*找到*技能的使用方，不是写源提示词的人 |
+| `tags` | 3-8 个，第一个是主分类 | 只用于库的元数据与筛选；运行时没有任何东西读它 |
+| `triggers` | 2-6 条，"当用户……"这种形制 | 只是库的元数据，和 tags 一样 |
 
-Derive the description from the source agent's task and from the body's own first lines — but write
-the *when*, which an agent description usually lacks (an agent is invoked deliberately; a skill is
-discovered by description). Never exceed 1024 characters: overlong descriptions are truncated
-silently, and the tail is where the "when" usually lives.
+description 从源智能体的任务、以及正文自己的头几句推导出来——但要把 *when* 写进去，智能体的描述通常缺这一
+半（智能体是被特意调用的；技能是靠描述被发现的）。绝不要超过 1024 字符：超长的描述会被静默截断，而"何时
+用"恰恰通常住在尾巴上。
 
-### Step 3 — Body → `instructions`
+### 第 3 步——正文 → `instructions`
 
-Take the authored body from step 1 and move it into `instructions` **verbatim**:
+拿第 1 步拿到的手写正文，搬进 `instructions`，**原文照搬**：
 
-- No frontmatter block — the writer supplies the header; a pasted `---` block becomes literal text.
-- No `## Instructions` heading — the stored body is served wrapped in that heading already.
-- No condensing, no re-ordering, no "cleaning up" the voice. Enforcement wording (caps, stop
-  conditions, anti-loop rules, output contracts) is exact text: rewording it changes behaviour. If
-  you must touch anything, leave the guardrails alone.
+- 不要 frontmatter 块——表头由写入方提供；粘进去的 `---` 块会变成字面文本。
+- 不要 `## Instructions` 标题——存下来的正文在提供出去时已经包在这个标题里了。
+- 不压缩、不重排、不"清理"语气。执行类措辞（上限、停止条件、防死循环规则、输出契约）是精确文本：换一种
+  说法就换了一种行为。非动不可的话，护栏一个字都别碰。
 
-The body is loaded on demand, in full, into the host agent's context. Before you paste it, confirm
-that everything in it is genuinely portable; anything you would not want a different agent to obey
-belongs in the host's prompt, not in the skill.
+正文是按需整篇加载进宿主智能体上下文的。粘之前先确认里面每样东西都真正可移植；凡是你不希望别的智能体也照
+着做的，都属于宿主的提示词，不属于技能。
 
-### Step 4 — Tools: leave them alone
+### 第 4 步——工具：一概别动
 
-Do **not** rewrite tool references, strip them out, or emit a tool list, a permission list or a
-requirements table. The skill states the work; the host agent decides what it carries.
+**不要**改写工具引用，不要把工具剥掉，也不要输出工具清单、权限清单或依赖表。技能只陈述工作；带什么由宿主
+智能体自己决定。
 
-Tool mentions inside the body travel with the body, unchanged, exactly like any other sentence. This
-is deliberate: the tool text is part of the know-how, and the field that would otherwise hold a tool
-list is metadata that nothing enforces.
+正文里提到的工具跟着正文一起走，原样不动，和别的句子没有区别。这是有意的：工具那部分文字本身就是手艺的一
+部分，而本来用来装工具清单的那个字段，是没人执行的元数据。
 
-The accepted consequence: a converted skill can name a tool the host does not carry. That is a host
-configuration matter — fix it on the agent, not in the skill. A skill is loaded by many agents; it
-must never assume one agent's toolbox.
+接受这个后果：转换后的技能可能点名一个宿主身上没有的工具。那是宿主配置的事——到智能体上去修，别改技能。一
+个技能会被许多智能体加载，它永远不能假定某一个智能体的工具箱。
 
-## What never travels into a skill
+## 绝不跟着进技能的东西
 
-Everything here stays on the host agent:
+下面这些一律留在宿主智能体身上：
 
-- identity, agent id, workspace path, project or vault names;
-- the model, temperature, iteration or token limits;
-- the user's language preference and tone instructions;
-- install-specific file, folder and panel rules;
-- the tool selection itself;
-- anything already covered by the skill library's global discovery.
+- 身份、智能体 id、工作区路径、项目或 vault 名称；
+- 模型、temperature、迭代或 token 上限；
+- 用户的语言偏好与语气指令；
+- 特定安装环境的文件、文件夹与面板规则；
+- 工具选择本身；
+- 技能库的全局发现已经覆盖的任何内容。
 
-If the conversion leaves you holding text that fits one of those buckets, it belongs to the agent.
-If it fits none of them and still cannot be obeyed by a different agent, it is not know-how — say so
-and hand it back to the user instead of writing it into the skill.
+转换完你手上还剩的文字，只要落进上面任何一格，它就属于智能体。如果一格都落不进，而换个智能体照样做不到，
+那它就不是手艺——说出来，交还给用户，别写进技能里。
 
-## Verify before reporting
+## 汇报之前先核验
 
-1. **Read the skill back** the way an agent would, as a file, and confirm the body arrived intact —
-   no lost headings, no duplicated title, no leftover frontmatter.
-2. **Confirm the derived fields** survived: the description within 1024 characters, the name equal
-   to the id, tags and triggers present.
-3. **Check the discovery line** the model will actually see, and ask whether a different agent, given
-   only that line and its own task, would know to load this skill.
-4. Remember the catalogue is read **once per conversation**: a skill created mid-session is not
-   visible in that session. Verification in a fresh conversation is the only honest test.
+1. **把技能读回来**，按智能体的方式、当成一个文件读，确认正文完整到手——没丢标题、没有重复的标题、没有残留
+   的 frontmatter。
+2. **确认推导出来的字段**都还在：description 在 1024 字符以内，name 与 id 相等，tags 与 triggers 都在。
+3. **检查模型真正会看到的那一行发现信息**，然后自问：只把这一行和它自己的任务交给另一个智能体，它知不知
+   道该加载这个技能。
+4. 记住目录是**每段对话读一次**：会话中途创建的技能在那段会话里看不见。到一段新对话里核验，才是唯一诚实的
+   测法。
 
-## Worked example — why the strip rule is the whole conversion
+## 实例——为什么剥离规则就是整个转换
 
-| Source agent prompt | Authored body | Converted skill body |
+| 源智能体提示词 | 手写正文 | 转换后的技能正文 |
 |---|---|---|
-| 4,000 characters, 59 lines | **4 numbered lines** of approach | 45 lines (the 4 lines plus an output contract) |
-| 5,265 characters, 79 lines | tool ladder, reflection rule, hard cap, anti-loop rule, output contract | 140 lines, ~30% of the source's lines carried verbatim |
-| 3,340 characters | **one sentence** | 21 lines |
+| 4,000 字符，59 行 | 做法一共 **4 行编号** | 45 行（那 4 行，外加一份输出契约） |
+| 5,265 字符，79 行 | 工具阶梯、反思规则、硬上限、防死循环规则、输出契约 | 140 行，约 30% 的源行原样带过来 |
+| 3,340 字符 | **一句话** | 21 行 |
 
-Most of what a stored prompt contains is identity and embedded docs generated by the platform. The
-conversion quality shows up in what you *left out*, and the guardrails are the part that must survive
-character-for-character.
+存下来的提示词里，绝大部分是平台生成的身份块和内嵌文档。转换的质量体现在你**剔掉了什么**上，而护栏是必须
+逐字活下来的那一部分。
 
-## Report the result as
+## 这样汇报结果
 
-1. The skill id and its description (the discovery line).
-2. The authored body's size in, versus the skill body's size out — the strip ratio.
-3. Anything you deliberately did **not** carry, and where it stayed.
-4. Confirmation that the body was pasted verbatim and that the guardrails are unchanged.
+1. 技能 id 与它的 description（那行发现信息）。
+2. 手写正文进来时的体量，对比技能正文出去时的体量——剥离比。
+3. 你有意**没有**带过来的东西，以及它留在了哪里。
+4. 确认正文是原样粘贴的、护栏没有改动。
 
-## Not this skill's job
+## 不归本技能管的事
 
-- **Authoring a skill with no source agent** (a new capability, or one learned from a run rather
-  than from a prompt) — that is skill authoring, not conversion.
-- **Choosing or changing the host agent's tools.**
-- **Fixing an agent that does not follow its own prompt.** Conversion preserves behaviour; it does
-  not repair it. Diagnose the agent first, then convert.
+- **没有源智能体时撰写技能**（一项新能力，或从一次运行而不是从提示词里学来的东西）——那是技能撰写，不是
+  转换。
+- **挑选或改动宿主智能体的工具。**
+- **修一个不照自己提示词办事的智能体。** 转换保留行为，不修复行为。先把智能体诊断清楚，再转。
 
 ---
 
-*Origin: the LangConfig agent → skill conversions (agents 161, 212, 210 → `research-planner`,
-`research-execution`, `document-deliverables`). Ported from that work: the four-step procedure, the
-cut-at-identity strip rule, the derived-header rules, the verbatim-body rule and the verification
-catalogue. The tool rule is deliberately narrower than the earlier conversions, which rewrote tool
-ladders and emitted requirements tables — per the agreed policy, tools are now left exactly where the
-source body put them. This skill enables nothing: it is procedure only.*
+*来源：LangConfig 的智能体 → 技能转换（智能体 161、212、210 → `research-planner`、`research-execution`、
+`document-deliverables`）。从那次工作搬过来的有：四步流程、在身份块处切断的剥离规则、推导表头的规则、正文
+原样照搬的规则，以及核验清单。工具那条规则刻意比早先的转换更窄——那些转换重写了工具阶梯、还输出了依赖表；
+按商定的方针，工具现在原封不动留在源正文放它们的地方。本技能不启用任何东西：它只是流程。*

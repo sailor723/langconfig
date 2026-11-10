@@ -1,12 +1,16 @@
 ---
-name: "Writing Beats"
-description: "Writing, exploit; assemble raw material into a journey of beats, grounding each term before a beat leans on it."
+name: "Writing Beats（写作·节拍）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/writing-beats/SKILL.md
+description: >-
+  写作·利用：把原始素材组装成一段由节拍组成的旅程，每个术语都在某个节拍靠上去之前先落地。
 tags:
   - "writing"
   - "beats"
   - "mattpocock"
 triggers:
-  - "When asked to <what-to-do>"
+  - "被要求 <what-to-do> 时"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -18,87 +22,81 @@ author: "mattpocock (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
-> **Provenance.** Adapted from `mattpocock/skills → skills/in-progress/writing-beats` (MIT, vendored at `vendor/upstream-skills/mattpocock/skills/in-progress/writing-beats/SKILL.md`).
-> Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
-> `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
-> (`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`), and a verification floor
-> section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
-> through the `skill` tool, so it is dropped rather than emulated.
+> **来源说明。** 改编自 `mattpocock/skills → skills/in-progress/writing-beats`（MIT，原样收录于
+> `vendor/upstream-skills/mattpocock/skills/in-progress/writing-beats/SKILL.md`）。
+> 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
+> `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
+> （`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`），以及一节验证底线。
+> 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
+> 所以直接去掉，不做仿真。
 
-## Instructions
+## Instructions（指令）
 
 <what-to-do>
 
-The user has passed (or will pass) a markdown file of raw material. This is **exploit**: the exploring is done, the pile is fixed. Commit to a path through it and mine the pile to fill each beat.
+用户已经给了（或将要给）一个 markdown 文件，里面是原始素材。这是**利用**（exploit）：探索已经做完，堆料是固定的。认定一条穿过它的路径，再从堆料里开采来填满每一个节拍。
 
-If the user did not say where to save the article, ask once and remember the path.
+用户没说文章存到哪儿，就问一次，然后记住这个路径。
 
-Then run a beat-by-beat journey, choose-your-own-adventure style:
+然后主持一段一节拍接一节拍的旅程，像自选结局的冒险书那样：
 
-1. **Establish the prerequisites.** Before any beats, settle with the user what the audience already knows walking in: the concepts that are **grounded** from the start. Everything else must be grounded by a beat before a later beat can use it. See [Grounding](#grounding).
-2. Write 2–3 candidate **starting beats**, drawn from the raw material. Each is a different entry point into the article. Each may only lean on grounded concepts; note what new concepts each one grounds. Show the user the beats before writing to the article file. The user picks one. Preview what beats that pick unlocks, as if the user is seeing a little way down the path.
-3. Once the user picks a starting beat, write **only that beat** to the article file. A beat may be one sentence or several paragraphs, whatever that beat naturally is. Stop there.
-4. Re-read the article file from disk. Then offer 2–3 candidate **next beats**: different directions the journey could pivot to from where the article now stands. Each must be reachable from the current grounded set; note what each one grounds.
-5. Loop steps 3–5 until the article reaches a natural end.
+1. **确立前置概念。** 在任何节拍之前，和用户敲定读者是带着什么走进来的：哪些概念一开始就是**已扎根**的。其余概念都必须由某个节拍先扎根，后面的节拍才能用它。见下文「扎根」。
+2. 写 2–3 个候选**起始节拍**，从原始素材里取。每一个都是进入文章的不同入口。每个都只能靠在已扎根的概念上；标注每个节拍扎根了哪些新概念。先把节拍给用户看，再往文章文件里写。由用户挑一个。预告这个选择打开了哪些节拍，就像让用户先看见前路的一小段。
+3. 用户选定起始节拍之后，**只写那一个节拍**进文章文件。一个节拍可能是一句话，也可能是几段话，看这个节拍天然是什么样。就此停住。
+4. 从磁盘重新读一遍文章文件。然后给出 2–3 个候选**下一个节拍**：从文章现在所处的位置，旅程可以拐向的不同方向。每个都必须能从当前已扎根的集合走得到；标注每个节拍扎根了什么。
+5. 重复第 3–5 步，直到文章走到一个自然的结尾。
 
 </what-to-do>
 
 <supporting-info>
 
-## Grounding
+## 扎根
 
-Every **concept** has to be **grounded** before a beat can lean on it: the audience either walked in knowing it or met it in an earlier beat. A beat that reaches for an ungrounded concept loses the reader; that is the one move the journey can't make. The unit is the concept, not the word for it: a beat can lean on an idea the reader lacks even with no jargon in sight. Where a concept has a name (a **term**), grounding it means landing the idea and the term together.
+每个**概念**都必须先**扎根**，节拍才能靠上去：读者要么走进来时就知道它，要么在更早的节拍里遇见过它。一个节拍去够没扎根的概念，就会把读者弄丢；那是这段旅程唯一走不出的一步。单位是概念，不是叫它的那个词：哪怕满篇看不见一个术语，节拍也可能靠着一个读者没有的想法。概念有名字时（一个**术语**），把想法和术语一起落地，才叫扎根。
 
-A concept gets grounded one of two ways:
+概念落地有两条路：
 
-- **Prerequisite**: grounded before the first beat. The audience brings it. Fixed at the start.
-- **Introduced**: a beat establishes it, and from then on it's grounded for every later beat.
+- **前置**：在第一个节拍之前就落地。读者自己把它带进来。开局即固定。
+- **引入**：由某个节拍把它立起来，从那时起，它在后面每一个节拍里都是已扎根的。
 
-So each beat does two jobs: it **requires** concepts that are already grounded, and it **grounds** new ones. Keep a running list of what's grounded so far, and update it each time a beat lands.
+所以每个节拍干两件事：它**需要**已经扎根的概念，也把新概念**扎根**。随时维护一份到目前为止的"已扎根"清单，每落下一个节拍就更新它。
 
-This is what shapes the choose-your-own-adventure. A candidate beat is only reachable if everything it requires is already grounded; picking a beat that grounds concept X unlocks every beat that was waiting on X. When you offer next beats, they must all be reachable from the current grounded set, and say what each one grounds, so the user can see which paths it opens.
+自选结局的冒险书正是这样成形的。一个候选节拍只有在它需要的东西全部已扎根时才走得到；挑一个扎根了概念 X 的节拍，就打开了所有在等 X 的节拍。你给出下一个节拍时，它们必须全都能从当前已扎根的集合走得到，并且要说明每个节拍扎根了什么，好让用户看见它打开了哪几条路。
 
-The big lever is what you make a prerequisite versus what you ground inside the piece. Demand too much up front and you shut out readers who don't have it; ground too much inside and the early beats drown in definitions. Settle this with the user when you establish prerequisites, and revisit it whenever a tempting beat turns out to require a concept nothing has grounded yet: the fix is either a grounding beat before it, or promoting the concept to a prerequisite.
+最大的杠杆在于：哪些你设为前置，哪些你在文章里扎根。开局要求太多，就把没有这些概念的读者关在门外；在文中扎根太多，开头的节拍就淹死在定义里。在确立前置概念时和用户把这件敲定；每当一个诱人的节拍发现它需要一个至今没人扎根的概念时，就重新掂量一次：修法要么是在它前面补一个扎根的节拍，要么把这个概念提升为前置。
 
-## What is a beat
+## 什么是节拍
 
-A beat is one move in the journey. It does one thing: sets a scene, lands a point, asks a question, drops an aside, twists the angle. Then it stops, leaving the reader at a place where the next beat can pivot.
+节拍是旅程里的一个动作。它只做一件事：铺一个场景、落一个论点、提一个问题、插一句闲笔、把角度拧一下。然后就停住，把读者留在一个下一个节拍可以拐弯的位置。
 
-A beat is sized by what it needs:
+节拍的大小取决于它需要什么：
 
-- A single sentence if that's all the move is ("And then nothing happened for three weeks.").
-- A short paragraph if the move needs setup.
-- Multiple paragraphs if the beat is a self-contained vignette, argument, or example.
+- 一个单句，如果这个动作就这么多（"然后三周什么都没发生。"）。
+- 一个短段落，如果这个动作需要铺垫。
+- 多个段落，如果这个节拍是一则自足的小景、一段论证，或者一个例子。
 
-If a "beat" needs five paragraphs and three subheadings, it's not a beat; it's two beats glued together. Split it.
+如果一个"节拍"需要五段话加三个小标题，它就不是一个节拍；它是两个节拍粘在一起。拆开。
 
-## Pulling from the pile
+## 从堆料里取材
 
-Pull material from the raw pile to populate each beat. You can paraphrase, split, recombine, or quote. The pile is a quarry.
+从原始堆料里取材料来填充每个节拍。你可以转述、拆开、重新组合，或者引用。堆料是采石场。
 
-## Ending the journey
+## 结束旅程
 
-The article ends when the journey is complete, not when the pile is empty. Most piles will have leftover fragments that don't make it in. That is fine; that is the point of having more raw material than you need.
+文章的结束是旅程走完的时候，不是堆料用完的时候。多数堆料都会剩下一些没进文章的片段。这没关系；原始素材备得比需要的多，意义就在这里。
 
-## Writing rhythm
+## 写作节奏
 
-- Append one beat at a time. Never write ahead.
-- Re-read the article file from disk before every write. Preserve user edits absolutely.
-- If the user edits a previous beat substantially, let it change what comes next.
-- If the user says "rewrite that beat" or "go back and try a different beat 3", do it: edit in place, leave the rest alone.
+- 一次追加一个节拍。绝不提前写。
+- 每次写之前，从磁盘重新读一遍文章文件。用户的编辑绝对要保留。
+- 用户大幅改动了前面的节拍，就让那处改动影响后面写什么。
+- 用户说"那个节拍重写"或"回去换个第 3 节拍"，就照做：在原处改，其余不碰。
 
 </supporting-info>
 
-## This repository's floor
+## This repository's floor（本仓库的底线）
 
-- **Verify with the real commands**, not by eye: `./scripts/housekeeping_verify.sh` (guards + `tsc` +
-  `vite build` + a document-store report). Add `--full-suite` for the backend suite.
-- **The backend suite has 20 pre-existing failures.** "Not worse than that baseline" is the honest
-  criterion; "the tests are green" is not a claim you can make here. Compare with
-  `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
-  and diff the `FAILED` lines against the recorded baseline.
-- **Specs, tickets and notes live in files**: `docs/specs/<slug>.md`, `docs/tickets/NNN-<slug>.md`,
-  `work/<scope>/`. A verdict in a chat message is lost by the next turn.
-- **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
-  by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+- **用真命令验证**，不靠眼睛：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` + 一份文档库报告）。加 `--full-suite` 跑后端套件。
+- **后端套件有 20 个既有失败。**"不比那个基线更差"才是诚实的判据；"测试是绿的"这句话在这里你说不出口。用 `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py` 做对比，把 `FAILED` 行和记录的基线做 diff。
+- **规格、工单和笔记都落在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。一条写在聊天消息里的裁决，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常外面套着一层 Deep Agents 骨架（`deepagents`）。动手之前先定下这处改动属于哪一层——`ecosystem-primer` 规则——并优先选能干成这件事的最高层。
