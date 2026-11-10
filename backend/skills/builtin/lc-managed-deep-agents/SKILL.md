@@ -97,11 +97,11 @@ ask what they want to build -> check it against the limits -> confirm the shape
 
 ## 2. 用限制清单校验这个答案
 
-在承诺任何事之前，先拿需求对一遍下面的 **MDA 做不到的事**。如果需求里有一部分超出范围，
+在承诺任何事之前，先拿需求对一遍下面的 **[What MDA cannot do](#what-mda-cannot-do)**（MDA 做不到的事）。如果需求里有一部分超出范围，
 用一句话说明，给出最接近的受支持做法，剩下的继续往下走。不要悄悄做一个缩水版的智能体，然后把它说成就是用户
 要的那个。
 
-常见的改道：如果用户需要自定义 HTTP 路由、自己的认证，或者 US 以外的托管，直接告诉他 MDA 是错的那一层，
+常见做法是换一条路：如果用户需要自定义 HTTP 路由、自己的认证，或者 US 以外的托管，直接告诉他 MDA 是错的那一层，
 指向 `langgraph deploy`（[[lc-langgraph-cli]]）。
 
 ## 3. 把答案映射到能力上
@@ -119,7 +119,7 @@ ask what they want to build -> check it against the limits -> confirm the shape
 | 写文件、跑代码或 shell 命令 | 沙箱 | `sandbox/__init__.py` |
 | 做 X 之前先问我 | 人在回路 | `interrupt_on=` |
 | 用户之间不能看到彼此的对话 | Supabase 身份 | `identity.py` |
-| 必须返回结构化数据，而不是散文 | 结构化输出 | `response_format=` |
+| 必须返回结构化数据，而不是自由文本 | 结构化输出 | `response_format=` |
 | 把专门的工作分出去 | 子智能体 | `subagents=` |
 | PII 脱敏、调用次数上限、重试、日志 | 中间件 | `middleware/` |
 | 证明改动之后它还能正常工作 | Harbor 评测 | `evals/<task>/` |
@@ -174,7 +174,7 @@ mda deploy .    # syncs Context Hub, uploads, waits for DEPLOYED
 让用户真的在 Studio 里发一条消息，确认智能体确实调用了工具，然后再部署。`mda deploy` 会打印部署仪表盘的
 URL；打开它就能看构建、修订（revisions）和追踪。
 
-## What MDA cannot do（MDA 做不到的事）
+## What MDA cannot do
 
 在答应要做之前，先拿需求对一遍这张清单。早点把限制说直，比在部署时才发现便宜得多。
 
@@ -570,7 +570,7 @@ schedule = define_schedule(
 )
 ```
 
-`prompt`（会变成一条用户消息）和 `input`（结构化的 LangGraph 输入）**只能定义其中一个**。`cron` 必须是标准
+`prompt`（会变成一条用户消息）和 `input`（结构化的 LangGraph 输入）**必须定义且只能定义一个**。`cron` 必须是标准
 的五字段表达式；不写 `timezone` 时，cron 按 UTC 跑。
 
 schedule 默认用临时线程——每次运行一个新线程，跑完就删。只有运行之间需要累积持久化线程状态时，才传
@@ -740,13 +740,14 @@ LangGraph API 恢复；`mda deploy` 会打印 Agent Server 的 URL。
 
 ## This repository's floor（本仓库的底线）
 
-- **用真命令验证**，别靠眼过：`./scripts/housekeeping_verify.sh`（守卫脚本 + `tsc` + `vite build` + 一份文档
-  存储报告）。加 `--full-suite` 连后端测试套件一起跑。
-- **后端套件里有 20 个既存的失败。**“不比这个基线更差”才是诚实的标准；“测试是绿的”在这里是你说不出口的话。
-  用 `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
-  做对比，把 `FAILED` 行与记录下来的基线做 diff。
-- **规格、工单和笔记都落在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
-  写在聊天消息里的结论，下一个回合就丢了。
-- **生态分层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），外面通常再包一层 Deep Agents
-  脚手架（`deepagents`）。动手之前先定这次改动属于哪一层——见 `lc-ecosystem-primer` 规则——并优先选能解决
-  问题的最高层。
+- **用真实命令验证**，不要靠眼看：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` +
+  一份文档库报告）。后端测试套件加 `--full-suite`。
+- **后端套件有 20 个既有的失败。**“不比那个基线更差”是诚实的判据；“测试是绿的”在这里不是一个你能
+  做出的断言。用
+  `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
+  对照，并把 `FAILED` 行与记录的基线做 diff。
+- **规格、工单和笔记活在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
+  写在聊天消息里的一句结论，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 脚手架
+  （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `lc-ecosystem-primer` 规则——并优先
+  选能胜任的最高一层。

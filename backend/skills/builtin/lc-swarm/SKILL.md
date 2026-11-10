@@ -45,7 +45,7 @@ version: "1.0"
    返回一个句柄。
 2. **Run（运行）。** 把一个 `instruction` 模板分发到各行。结果合并回表里。返回
    `{ completed, failed, skipped, failures }`。
-3. **Aggregate（汇总）。** 用 `rows()` 加普通 JS 来计数、过滤或归纳。不要为了汇总再起子智能体。
+3. **Aggregate（汇总）。** 用 `rows()` 加普通 JS 来计数、过滤或归纳。不要为了汇总再派一个子智能体。
 4. **Retry（重试）。** 用 `filter: { column: "<col>", exists: false }` 重跑，只重新处理失败的行。
 
 ## Choosing a source（选择来源）
@@ -134,11 +134,11 @@ await run(table.id, {
 
 ## Instruction + context（指令与上下文）
 
-`instruction` 是逐条目的模板，带 `{column}` 占位符。占位符由框架解析——你的列名会以“与列出的取值
-并列的引用”的形式出现在提示词里，而绝不是原始的模板语法。活由子智能体干——不要自己在 JS 里处理
+`instruction` 是逐条目的模板，带 `{column}` 占位符。占位符由框架解析——你的列名在提示词里会以
+“引用旁边列出的取值”的形式出现，而绝不是原始模板语法。活由子智能体干——不要自己在 JS 里处理
 条目、再把结果写进行里。
 
-`context` 是自由散文，前置到每一个子智能体提示词前面。用它放共享背景：领域术语、分类规则、示例等。
+`context` 是自由文本，会被加到每一个子智能体提示词的最前面。用它放共享背景：领域术语、分类规则、示例等。
 
 ```javascript
 const { create, run } = await import("@/skills/swarm");
@@ -204,7 +204,7 @@ await run(table.id, {
 });
 ```
 
-批大小在求值之后会被夹到 [1, 50]。
+批大小在求值之后会被限制在 [1, 50]。
 
 ## Aggregation（汇总）
 
@@ -318,11 +318,11 @@ await run(table.id, {
 |--------|---------|------------|
 | `instruction` | （必填） | 带 `{column}` 占位符的模板 |
 | `responseSchema` | （必填） | JSON Schema（`type: "object"`）——属性成为行的列 |
-| `context` | — | 前置到每个子智能体提示词前的散文 |
+| `context` | — | 加在每个子智能体提示词前面的自由文本 |
 | `filter` | — | 只分发匹配的行 |
 | `subagentType` | — | 要分发到的子智能体名。设置时跑完整智能体循环；省略时跑一次直接的模型调用 |
 | `batchSize` | 自动 | 数字，或 `(row, rowCount) => number`。自动模式把分发数压到 10；`1` = 逐行；函数 = 逐行定量 |
-| `concurrency` | `10` | 最大并发子智能体分发数（夹到 1–10） |
+| `concurrency` | `10` | 最大并发子智能体分发数（限制在 1–10） |
 
 ### `rows(tableId, options?)`
 
