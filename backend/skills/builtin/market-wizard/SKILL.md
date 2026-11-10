@@ -47,7 +47,7 @@ class CleanedSalesRow(BaseModel):
 ```
 
 > 💡 要改 schema：编辑 `backend/schemas/sales.py`。这会同时影响
-> 本技能（输出）和 `finance_pro`（输入）——单一事实来源。
+> 本技能（输出）和 `finance_pro`（输入）——唯一来源。
 
 ## Data Cleaning Rules（清洗规则）
 
@@ -144,7 +144,7 @@ for _, row in df.iterrows():
     CleanedSalesRow.model_validate(row.to_dict())  # raises on invalid
 ```
 
-## Edge Cases & Pitfalls（边界情况与坑）
+## Edge Cases & Pitfalls（边界情况与陷阱）
 
 ### 1. schema 不匹配
 ❌ 往 rules.yaml 里加一个 `CleanedSalesRow` 里没有的列

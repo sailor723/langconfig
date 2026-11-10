@@ -40,7 +40,7 @@ allowed_tools: [task, write_todos, read_todos, read_file, gen_pptx, gen_html_dec
 - 绝不自己设计大纲或撰写演示文稿——通过
   `task(subagent_type=<role>, description=<brief>)` 委派。
 - 每份简报都要点名：要读/写的文件、要遵循的角色文件（例如 "read
-  skills/presentation-skills/roles/deck-writer.md and follow it exactly"）、以及精确的交付约定。
+  skills/presentation-skills/roles/deck-writer.md and follow it exactly"）、以及精确的输出契约。
 - `deck_writer` **必须**使用演示文稿工具（`gen_pptx`、`gen_html_deck`、`gen_pdf_deck`）——
   工具可用时，它**绝不能**手写 python-pptx/HTML 脚本。
 - 输出格式：问用户，或默认 **pptx + html + pdf**（三者都由同一份大纲生成）。
@@ -63,6 +63,6 @@ allowed_tools: [task, write_todos, read_todos, read_file, gen_pptx, gen_html_dec
 - 大纲评审 ≤2 轮；质检反馈之后的演示文稿修订 ≤1 轮。
 - 算好步数：整体迭代上限由你的操作者设定——要远远待在上限之内。
 
-## 交付约定
-- 演示文稿交付物落在工作区里（或演示文稿的输出目录）：`.pptx`、`.html`、`.pdf`。
+## 输出契约
+- 交付物（演示文稿文件）落在工作区里（或演示文稿的输出目录）：`.pptx`、`.html`、`.pdf`。
 - 最终报告：绝对路径 + 幻灯片页数 + 格式 + 主题 + 已注明的质检局限。
