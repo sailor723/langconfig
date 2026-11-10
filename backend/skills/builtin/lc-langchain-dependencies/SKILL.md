@@ -1,6 +1,12 @@
 ---
-name: "Langchain Dependencies"
-description: "INVOKE THIS SKILL when setting up a new project or when asked about package versions, installation, or dependency management for LangChain, LangGraph, LangSmith, or Deep Agents. Covers required packages, minimum versions, environment requirements, versioning best practices, and common community tool packages for both Python and TypeScript."
+name: "Langchain Dependencies（LangChain 依赖）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/lc-langchain-dependencies/SKILL.md
+description: >-
+  新建项目时、或被问到 LangChain、LangGraph、LangSmith、Deep Agents 的包版本、安装与依赖管理时，
+  都要调用本技能。覆盖所需包、最低版本、环境要求、版本管理最佳实践，以及 Python 与 TypeScript
+  两侧常用的社区工具包。
 tags:
   - "langchain"
   - "dependencies"
@@ -9,7 +15,7 @@ tags:
   - "langgraph"
   - "deepagents"
 triggers:
-  - "When asked to <overview>"
+  - "被要求 <overview> 时"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -20,79 +26,80 @@ author: "langchain-skills (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
-> **Provenance.** Adapted from `langchain-ai/langchain-skills → config/skills/langchain-dependencies` (MIT, vendored at `vendor/upstream-skills/langchain-skills/skills/langchain-dependencies/SKILL.md`).
-> Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
-> `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
-> (`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`), and a verification floor
-> section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
-> through the `skill` tool, so it is dropped rather than emulated.
+> **来源说明。** 改编自 `langchain-ai/langchain-skills → config/skills/langchain-dependencies`（MIT，原样收录于
+> `vendor/upstream-skills/langchain-skills/skills/langchain-dependencies/SKILL.md`）。
+> 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
+> `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
+> （`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`），以及一节验证底线。
+> 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
+> 所以直接去掉，而不做模拟。
 
-## Instructions
+## Instructions（指令）
 
 <overview>
-The LangChain ecosystem is split into focused, independently-versioned packages. Understanding which packages you need — and their version constraints — prevents incompatibilities and keeps upgrades predictable.
+LangChain 生态被拆成多个职责单一、各自独立定版本的包。弄清楚你需要哪些包、以及它们的版本约束，可以避开不兼容，并让升级变得可预期。
 
-**Key principles:**
-- **LangChain 1.0 is the current LTS release.** Always start new projects on 1.0+. LangChain 0.3 is legacy maintenance-only — do not use it for new work.
-- **langchain-core** is the shared foundation: always install it explicitly alongside any other package.
-- **langchain-community** (Python only) does NOT follow semantic versioning; pin it conservatively.
-- **LangGraph vs Deep Agents:** choose one orchestration approach based on your use case — they are alternatives, not a required stack (see [Framework Choice](#framework-choice) below).
-- Provider integrations (model, vector store, tools) are installed separately so you only pull in what you use.
+**关键原则：**
+- **LangChain 1.0 是当前的 LTS 版本。** 新项目一律从 1.0+ 起。LangChain 0.3 是遗留维护版——新工作不要用它。
+- **langchain-core** 是共享的地基：永远把它和其他任何包一起显式安装。
+- **langchain-community**（仅 Python）不遵循语义化版本；要保守地钉住版本。
+- **LangGraph 还是 Deep Agents：** 按你的使用场景选**一种**编排方式——它们是二选一的替代品，不是必须叠起来的栈（见下文[框架选择](#框架选择)）。
+- 模型提供方、向量库、工具这些集成是分开安装的，所以只引入你实际用到的部分。
 </overview>
 
 ---
 
-## Environment Requirements
+## 环境要求
 
 <environment-requirements>
 
-| Requirement | Python | TypeScript / Node |
+| 要求 | Python | TypeScript / Node |
 |-------------|--------|-------------------|
-| Runtime minimum | **Python 3.10+** | **Node.js 20+** |
-| LangChain | **1.0+ (LTS)** | **1.0+ (LTS)** |
+| 运行时最低版本 | **Python 3.10+** | **Node.js 20+** |
+| LangChain | **1.0+（LTS）** | **1.0+（LTS）** |
 | LangSmith SDK | >= 0.3.0 | >= 0.3.0 |
 
 </environment-requirements>
 
 ---
 
-## Framework Choice
+## 框架选择
 
 <framework-choice>
-Pick **one** agent orchestration layer. You do not need both.
+只挑**一层**智能体编排。你不需要两个都要。
 
-| Framework | When to use | Core extra package |
+| 框架 | 什么时候用 | 核心附加包 |
 |-----------|-------------|--------------------|
-| **LangGraph** | Need fine-grained graph control, custom workflows, loops, or branching | `langgraph` / `@langchain/langgraph` |
-| **Deep Agents** | Want batteries-included planning, memory, file context, and skills out of the box | `deepagents` (depends on LangGraph; installs it as a transitive dep) |
+| **LangGraph** | 需要对图做细粒度控制、自定义工作流、循环或分支 | `langgraph` / `@langchain/langgraph` |
+| **Deep Agents** | 想要开箱即用的规划、记忆、文件上下文和技能 | `deepagents`（依赖 LangGraph，作为传递依赖一并装上） |
 
-Both sit on top of `langchain` + `langchain-core` + `langsmith`.
+两者都坐在 `langchain` + `langchain-core` + `langsmith` 之上。
 </framework-choice>
 
 ---
 
-## Core Packages
+## 核心包
 
 <python-packages>
 
-### Python — always required
+### Python——始终必需
 
-| Package | Role | Min version |
+| 包 | 作用 | 最低版本 |
 |---------|------|-------------|
-| `langchain` | Agents, chains, retrieval | 1.0 |
-| `langchain-core` | Base types & interfaces (peer dep) | 1.0 |
-| `langsmith` | Tracing, evaluation, datasets | 0.3.0 |
+| `langchain` | 智能体、链、检索 | 1.0 |
+| `langchain-core` | 基础类型与接口（对等依赖） | 1.0 |
+| `langsmith` | 追踪、评测、数据集 | 0.3.0 |
 
-### Python — orchestration (pick one)
+### Python——编排（选一个）
 
-| Package | Use when | Min version |
+| 包 | 什么时候用 | 最低版本 |
 |---------|----------|-------------|
-| `langgraph` | Building custom graphs directly | 1.0 |
-| `deepagents` | Using the Deep Agents framework | latest |
+| `langgraph` | 直接构建自定义图 | 1.0 |
+| `deepagents` | 使用 Deep Agents 框架 | 最新 |
 
-### Python — model providers (pick the one(s) you use)
+### Python——模型提供方（用哪个装哪个）
 
-| Package | Provider |
+| 包 | 提供方 |
 |---------|----------|
 | `langchain-openai` | OpenAI (GPT-4o, o3, …) |
 | `langchain-anthropic` | Anthropic (Claude) |
@@ -107,46 +114,46 @@ Both sit on top of `langchain` + `langchain-core` + `langsmith`.
 | `langchain-aws` | AWS Bedrock |
 | `langchain-azure-ai` | Azure AI Foundry |
 
-### Python — common tool & retrieval packages
+### Python——常用工具与检索包
 
-These packages have tighter compatibility requirements — use the latest available version unless you have a specific reason not to.
+这些包的兼容性要求更紧——除非有明确理由，否则用当前可用的最新版本。
 
-| Package | Adds | Notes |
+| 包 | 增加什么 | 说明 |
 |---------|------|-------|
-| `langchain-tavily` | Tavily web search (`TavilySearch`) | Dedicated integration package; prefer latest |
-| `langchain-text-splitters` | Text chunking utilities | Semver, keep current |
-| `langchain-community` | 1000+ integrations (fallback) | **NOT semver — pin to minor series** |
-| `faiss-cpu` | FAISS vector store (local) | Via `langchain-community`; use latest |
-| `langchain-chroma` | Chroma vector store | Dedicated integration package; prefer latest |
-| `langchain-pinecone` | Pinecone vector store | Dedicated integration package; prefer latest |
-| `langchain-qdrant` | Qdrant vector store | Dedicated integration package; prefer latest |
-| `langchain-weaviate` | Weaviate vector store | Dedicated integration package; prefer latest |
-| `langsmith[pytest]` | pytest plugin for LangSmith | Requires langsmith >= 0.3.4 |
+| `langchain-tavily` | Tavily 网页搜索（`TavilySearch`） | 专用集成包；优先用最新版 |
+| `langchain-text-splitters` | 文本分块工具 | 走 semver，保持较新 |
+| `langchain-community` | 1000+ 集成（兜底） | **不是 semver——钉到次版本系列** |
+| `faiss-cpu` | FAISS 向量库（本地） | 经由 `langchain-community`；用最新版 |
+| `langchain-chroma` | Chroma 向量库 | 专用集成包；优先用最新版 |
+| `langchain-pinecone` | Pinecone 向量库 | 专用集成包；优先用最新版 |
+| `langchain-qdrant` | Qdrant 向量库 | 专用集成包；优先用最新版 |
+| `langchain-weaviate` | Weaviate 向量库 | 专用集成包；优先用最新版 |
+| `langsmith[pytest]` | LangSmith 的 pytest 插件 | 要求 langsmith >= 0.3.4 |
 
-> **langchain-community stability note:** This package is NOT on semantic versioning. Minor releases can contain breaking changes. Prefer dedicated integration packages (e.g. `langchain-chroma`, `langchain-tavily`) when they exist — they are independently versioned and more stable.
+> **langchain-community 的稳定性提醒：** 这个包不走语义化版本。次版本发布就可能带破坏性改动。只要有专用集成包（例如 `langchain-chroma`、`langchain-tavily`）就用它——那些包独立定版本，也更稳定。
 
 </python-packages>
 
 <typescript-packages>
 
-### TypeScript — always required
+### TypeScript——始终必需
 
-| Package | Role | Min version |
+| 包 | 作用 | 最低版本 |
 |---------|------|-------------|
-| `@langchain/core` | Base types & interfaces (peer dep) | 1.0 |
-| `langchain` | Agents, chains, retrieval | 1.0 |
-| `langsmith` | Tracing, evaluation, datasets | 0.3.0 |
+| `@langchain/core` | 基础类型与接口（对等依赖） | 1.0 |
+| `langchain` | 智能体、链、检索 | 1.0 |
+| `langsmith` | 追踪、评测、数据集 | 0.3.0 |
 
-### TypeScript — orchestration (pick one)
+### TypeScript——编排（选一个）
 
-| Package | Use when | Min version |
+| 包 | 什么时候用 | 最低版本 |
 |---------|----------|-------------|
-| `@langchain/langgraph` | Building custom graphs directly | 1.0 |
-| `deepagents` | Using the Deep Agents framework | latest |
+| `@langchain/langgraph` | 直接构建自定义图 | 1.0 |
+| `deepagents` | 使用 Deep Agents 框架 | 最新 |
 
-### TypeScript — model providers (pick the one(s) you use)
+### TypeScript——模型提供方（用哪个装哪个）
 
-| Package | Provider |
+| 包 | 提供方 |
 |---------|----------|
 | `@langchain/openai` | OpenAI (GPT-4o, o3, …) |
 | `@langchain/anthropic` | Anthropic (Claude) |
@@ -158,27 +165,27 @@ These packages have tighter compatibility requirements — use the latest availa
 | `@langchain/azure-openai` | Azure OpenAI |
 | `@langchain/ollama` | Ollama (local models) |
 
-### TypeScript — common tool & retrieval packages
+### TypeScript——常用工具与检索包
 
-| Package | Adds | Notes |
+| 包 | 增加什么 | 说明 |
 |---------|------|-------|
-| `@langchain/tavily` | Tavily web search (`TavilySearch`) | Dedicated integration package; prefer latest |
-| `@langchain/community` | Broad set of community integrations | Use sparingly; prefer dedicated packages |
-| `@langchain/pinecone` | Pinecone vector store | Dedicated integration package; prefer latest |
-| `@langchain/qdrant` | Qdrant vector store | Dedicated integration package; prefer latest |
-| `@langchain/weaviate` | Weaviate vector store | Dedicated integration package; prefer latest |
+| `@langchain/tavily` | Tavily 网页搜索（`TavilySearch`） | 专用集成包；优先用最新版 |
+| `@langchain/community` | 覆盖面很广的社区集成 | 少用；优先专用包 |
+| `@langchain/pinecone` | Pinecone 向量库 | 专用集成包；优先用最新版 |
+| `@langchain/qdrant` | Qdrant 向量库 | 专用集成包；优先用最新版 |
+| `@langchain/weaviate` | Weaviate 向量库 | 专用集成包；优先用最新版 |
 
-> **`@langchain/core` must be installed explicitly** in yarn workspaces and monorepos — it is a peer dependency and will not always be hoisted automatically.
+> **在 yarn workspaces 和 monorepo 里，`@langchain/core` 必须显式安装**——它是对等依赖，不一定总会被自动提升。
 
 </typescript-packages>
 
 ---
 
-## Minimal Project Templates
+## 最小项目模板
 
 <ex-langgraph-python>
 <python>
-Minimal dependency set for a LangGraph project (provider-agnostic).
+LangGraph 项目的最小依赖集（不绑定模型提供方）。
 
 ```
 # requirements.txt
@@ -197,7 +204,7 @@ langsmith>=0.3.0
 
 <ex-langgraph-typescript>
 <typescript>
-Minimal package.json dependencies for a LangGraph project (provider-agnostic).
+LangGraph 项目的最小 package.json 依赖（不绑定模型提供方）。
 
 ```json
 {
@@ -214,7 +221,7 @@ Minimal package.json dependencies for a LangGraph project (provider-agnostic).
 
 <ex-deepagents-python>
 <python>
-Minimal dependency set for a Deep Agents project (provider-agnostic).
+Deep Agents 项目的最小依赖集（不绑定模型提供方）。
 
 ```
 # requirements.txt
@@ -232,7 +239,7 @@ langsmith>=0.3.0
 
 <ex-deepagents-typescript>
 <typescript>
-Minimal package.json dependencies for a Deep Agents project (provider-agnostic).
+Deep Agents 项目的最小 package.json 依赖（不绑定模型提供方）。
 
 ```json
 {
@@ -249,7 +256,7 @@ Minimal package.json dependencies for a Deep Agents project (provider-agnostic).
 
 <ex-with-tools-python>
 <python>
-Adding Tavily search and a vector store to a LangGraph project.
+给 LangGraph 项目加上 Tavily 搜索和向量库。
 
 ```
 # requirements.txt
@@ -277,7 +284,7 @@ langchain-text-splitters  # use latest; semver
 
 <ex-with-tools-typescript>
 <typescript>
-Adding Tavily search and a vector store to a LangGraph project.
+给 LangGraph 项目加上 Tavily 搜索和向量库。
 
 ```json
 {
@@ -296,33 +303,33 @@ Adding Tavily search and a vector store to a LangGraph project.
 
 ---
 
-## Versioning Policy & Upgrade Strategy
+## 版本策略与升级策略
 
 <versioning-policy>
 
-| Package group | Versioning | Safe upgrade strategy |
+| 包分组 | 版本方式 | 安全的升级策略 |
 |---------------|------------|-----------------------|
-| `langchain`, `langchain-core` | Strict semver (1.0 LTS) | Allow minor: `>=1.0,<2.0` |
-| `langgraph` / `@langchain/langgraph` | Strict semver (v1 LTS) | Allow minor: `>=1.0,<2.0` |
-| `langsmith` | Strict semver | Allow minor: `>=0.3.0` |
-| Dedicated integration packages (e.g. `langchain-tavily`, `langchain-chroma`) | Independently versioned | Allow minor updates; use latest |
-| `langchain-community` | **NOT semver** | Pin exact minor: `>=0.4.0,<0.5.0` |
-| `deepagents` | Follow project releases | Pin to tested version in production |
+| `langchain`、`langchain-core` | 严格 semver（1.0 LTS） | 放开次版本：`>=1.0,<2.0` |
+| `langgraph` / `@langchain/langgraph` | 严格 semver（v1 LTS） | 放开次版本：`>=1.0,<2.0` |
+| `langsmith` | 严格 semver | 放开次版本：`>=0.3.0` |
+| 专用集成包（例如 `langchain-tavily`、`langchain-chroma`） | 独立定版本 | 允许次版本更新；用最新版 |
+| `langchain-community` | **不是 semver** | 钉死次版本：`>=0.4.0,<0.5.0` |
+| `deepagents` | 跟随项目发布节奏 | 生产环境钉到已测试的版本 |
 
-**Breaking changes only happen in major versions** (1.x → 2.x) for all semver-compliant packages. Deprecated features remain functional across the entire 1.x series with warnings.
+**破坏性改动只发生在主版本里**（1.x → 2.x），所有遵循 semver 的包都是如此。已废弃的功能在整个 1.x 系列里仍然可用，只是会给出警告。
 
-**Prefer dedicated integration packages over langchain-community.** When a dedicated package exists (e.g. `langchain-chroma` instead of `langchain-community`'s Chroma integration), use it — dedicated packages are independently versioned and better tested.
+**优先用专用集成包，而不是 langchain-community。** 只要存在专用包（例如用 `langchain-chroma` 而不是 `langchain-community` 里的 Chroma 集成），就用它——专用包独立定版本，测试也更充分。
 
-**Community tool packages (Tavily, vector stores, etc.) should be kept at latest** unless your project requires a locked environment. These packages frequently release compatibility fixes alongside LangChain/LangGraph updates.
+**社区工具包（Tavily、各类向量库等）应保持在最新版**，除非你的项目需要一个锁死的环境。这些包经常跟着 LangChain/LangGraph 的更新一起发布兼容性修复。
 
 </versioning-policy>
 
 ---
 
-## Environment Variables
+## 环境变量
 
 <environment-variables>
-All keys are read from the environment at runtime. Set only the keys for services you actually use.
+所有 key 都在运行时从环境里读取。只设置你真正用到的那些服务的 key。
 
 ```bash
 # LangSmith (always recommended for observability)
@@ -348,10 +355,10 @@ PINECONE_API_KEY=<your-key>        # for Pinecone
 
 ---
 
-## Common Mistakes
+## 常见错误
 
 <fix-legacy-version>
-Never start a new project on LangChain 0.3. It is maintenance-only until December 2026.
+永远不要用 LangChain 0.3 起新项目。它只做维护，直到 2026 年 12 月。
 
 ```
 # WRONG: legacy, no new features, security patches only
@@ -363,7 +370,7 @@ langchain>=1.0,<2.0
 </fix-legacy-version>
 
 <fix-community-unpinned>
-`langchain-community` can break on minor version bumps — it does not follow semver.
+`langchain-community` 在次版本升级时就可能坏掉——它不遵循 semver。
 
 ```
 # WRONG: allows minor-version updates that may be breaking
@@ -372,11 +379,11 @@ langchain-community>=0.4
 # CORRECT: pin to exact minor series
 langchain-community>=0.4.0,<0.5.0
 ```
-Also consider switching to the equivalent dedicated integration package if one exists (e.g. `langchain-chroma` instead of the community Chroma integration).
+另外，如果存在等价的专用集成包，可以考虑切过去（例如用 `langchain-chroma` 而不是社区版的 Chroma 集成）。
 </fix-community-unpinned>
 
 <fix-community-tool-outdated>
-Community tool packages like `langchain-tavily` and vector store integrations release compatibility fixes alongside LangChain updates. Using an old pinned version can cause import errors or broken tool schemas.
+`langchain-tavily` 这类社区工具包和向量库集成，会跟着 LangChain 的更新一起发布兼容性修复。用一个旧的钉死版本，可能导致导入报错或工具 schema 坏掉。
 
 ```
 # RISKY: old pin may be incompatible with LangChain 1.0
@@ -388,7 +395,7 @@ langchain-tavily>=0.1
 </fix-community-tool-outdated>
 
 <fix-community-import-deprecated>
-Many tools that used to live in `langchain-community` now have dedicated packages with updated import paths. Always prefer the dedicated package import.
+许多原先住在 `langchain-community` 里的工具，现在有了专用包和更新过的导入路径。始终优先用专用包的导入。
 
 ```python
 # WRONG — deprecated community import path
@@ -404,15 +411,15 @@ from langchain_chroma import Chroma                       # pip: langchain-chrom
 from langchain_pinecone import PineconeVectorStore        # pip: langchain-pinecone
 ```
 
-To find the current canonical import for any integration, search the integrations directory:
+要查任何集成当前的标准导入，去搜集成目录：
 https://python.langchain.com/docs/integrations/tools/
 
-Each entry shows the correct package and import path. If a dedicated package exists, use it — the community path may still work but is considered legacy.
+每个条目都写明正确的包和导入路径。只要有专用包就用它——社区路径也许还能用，但已算遗留写法。
 </fix-community-import-deprecated>
 
 <fix-core-not-installed>
 <typescript>
-`@langchain/core` is a peer dependency — it must be in your package.json, especially in monorepos.
+`@langchain/core` 是对等依赖——它必须出现在你的 package.json 里，在 monorepo 里尤其如此。
 
 ```json
 // WRONG: missing @langchain/core (breaks in yarn workspaces / strict hoisting)
@@ -435,7 +442,7 @@ Each entry shows the correct package and import path. If a dedicated package exi
 
 <fix-python-version>
 <python>
-Python 3.9 and below are not supported by LangChain 1.0.
+LangChain 1.0 不支持 Python 3.9 及更低版本。
 
 ```python
 # Verify before installing
@@ -447,7 +454,7 @@ assert sys.version_info >= (3, 10), "Python 3.10+ required for LangChain 1.0"
 
 <fix-node-version>
 <typescript>
-Node.js below 20 is not officially supported.
+Node.js 20 以下不在官方支持范围内。
 
 ```bash
 # Verify before installing
@@ -456,16 +463,16 @@ node --version   # must be v20.x or higher
 </typescript>
 </fix-node-version>
 
-## This repository's floor
+## This repository's floor（本仓库的底线）
 
-- **Verify with the real commands**, not by eye: `./scripts/housekeeping_verify.sh` (guards + `tsc` +
-  `vite build` + a document-store report). Add `--full-suite` for the backend suite.
-- **The backend suite has 20 pre-existing failures.** "Not worse than that baseline" is the honest
-  criterion; "the tests are green" is not a claim you can make here. Compare with
+- **用真实命令验证**，不要靠眼看：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` +
+  一份文档库报告）。后端测试套件加 `--full-suite`。
+- **后端套件有 20 个既有的失败。**“不比那个基线更差”是诚实的判据；“测试是绿的”在这里不是一个你能做出的宣称。
+  用
   `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
-  and diff the `FAILED` lines against the recorded baseline.
-- **Specs, tickets and notes live in files**: `docs/specs/<slug>.md`, `docs/tickets/NNN-<slug>.md`,
-  `work/<scope>/`. A verdict in a chat message is lost by the next turn.
-- **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
-  by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+  对照，并把 `FAILED` 行与记录的基线做 diff。
+- **规格、工单和笔记活在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
+  写在聊天消息里的一句判词，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 框架
+  （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `ecosystem-primer` 规则——并优先选
+  能胜任的最高层。

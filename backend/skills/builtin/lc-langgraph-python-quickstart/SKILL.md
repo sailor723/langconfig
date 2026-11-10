@@ -1,13 +1,18 @@
 ---
-name: "Langgraph Python Quickstart"
-description: "Scaffold a minimal local LangGraph agent in Python by following the official quickstart. Use when the user wants to quickly build or try a LangGraph agent locally."
+name: "Langgraph Python Quickstart（LangGraph Python 快速入门）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/lc-langgraph-python-quickstart/SKILL.md
+description: >-
+  沿官方快速入门，在本地搭建一个最小的 LangGraph Python 智能体。
+  当用户想在本地快速构建或试用 LangGraph 智能体时使用。
 tags:
   - "langgraph"
   - "python"
   - "quickstart"
   - "langchain-skills"
 triggers:
-  - "The user wants to quickly build or try a langgraph agent locally"
+  - "用户想在本地快速构建或试用 LangGraph 智能体"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -19,51 +24,52 @@ author: "langchain-skills (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
-> **Provenance.** Adapted from `langchain-ai/langchain-skills → config/skills/langgraph-python-quickstart` (MIT, vendored at `vendor/upstream-skills/langchain-skills/skills/langgraph-python-quickstart/SKILL.md`).
-> Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
-> `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
-> (`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`), and a verification floor
-> section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
-> through the `skill` tool, so it is dropped rather than emulated.
+> **来源说明。** 改编自 `langchain-ai/langchain-skills → config/skills/langgraph-python-quickstart`（MIT，原样收录于
+> `vendor/upstream-skills/langchain-skills/skills/langgraph-python-quickstart/SKILL.md`）。
+> 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
+> `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
+> （`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`），以及一节验证底线。
+> 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
+> 所以直接去掉，而不做模拟。
 
-## Instructions
+## Instructions（指令）
 
-# LangGraph Python quickstart
+# LangGraph Python 快速入门
 
-Follow the live docs — do not invent an alternate API from memory:
+跟着官方在线文档走——不要凭记忆另造一套 API：
 
 **https://docs.langchain.com/oss/python/langgraph/quickstart**
 
-Fetch that page (Docs MCP or HTTP) and implement what it shows (calculator / math agent with the Graph API). Prefer the Graph API path over the Functional API unless the user asks otherwise. Skip IPython graph visualization.
+抓取那个页面（Docs MCP 或 HTTP），照着它演示的内容实现（用 Graph API 的 calculator / 数学智能体）。除非用户另有要求，走 Graph API 这条路而不是 Functional API。跳过 IPython 的图可视化。
 
-## Local setup constraints
+## 本地环境约束
 
-Apply these on top of the quickstart (they keep setup minimal and model-agnostic):
+在快速入门之上再叠加这几条（它们让搭建保持最小，且与模型无关）：
 
-1. **Ask** which provider/model to use. Showcase that LangGraph works with any LangChain chat model. Suggested prompt:
+1. **先问**用户用哪个 provider/model。顺带展示 LangGraph 能搭配任意 LangChain chat model。建议的提示词：
 
-   > Which model should this agent use? Pass a `provider:model` string — e.g. `openai:gpt-5.5`, `anthropic:claude-sonnet-5`, `google_genai:gemini-2.5-flash-lite`. Default if you're unsure: **`anthropic:claude-sonnet-5`**.
+   > 这个智能体该用哪个模型？传一个 `provider:model` 字符串——例如 `openai:gpt-5.5`、`anthropic:claude-sonnet-5`、`google_genai:gemini-2.5-flash-lite`。拿不准就用默认值：**`anthropic:claude-sonnet-5`**。
 
-   The docs often hardcode Anthropic — replace with `init_chat_model("<MODEL>")` (or equivalent) using their choice. If using Claude Sonnet 5+, omit `temperature` / `top_p` / `top_k` (unsupported).
+   文档里常把 Anthropic 写死——换成 `init_chat_model("<MODEL>")`（或等价写法），填入他们的选择。如果用 Claude Sonnet 5+，省略 `temperature` / `top_p` / `top_k`（不支持）。
 
-2. Create a **new** directory (e.g. `langgraph-agent/`) and do all work there — do not pollute the open project.
+2. 建一个**新**目录（例如 `langgraph-agent/`），所有工作都在那里做——不要弄脏当前打开的项目。
 
-3. Only secret: the provider API key in `.env` (gitignored). No LangSmith / Tavily unless they ask. Prefer they edit `.env` themselves — don't paste keys into chat.
+3. 唯一的机密：`.env` 里的 provider API key（已被 gitignore）。除非用户开口，否则不要 LangSmith / Tavily。尽量让用户自己改 `.env`——不要把密钥贴进对话。
 
-4. Install packages from the quickstart plus the provider package for their model.
+4. 装快速入门里的包，再加上他们所用模型对应的 provider 包。
 
-5. Run the example (e.g. “Add 3 and 4.”), show output, then stop. Point to `langgraph-fundamentals` for next steps. For a higher-level agent API, use LangChain `create_agent` instead.
+5. 跑通示例（例如“Add 3 and 4.”），展示输出，然后停下。下一步指向 `langgraph-fundamentals`。若要更高层的 agent API，改用 LangChain 的 `create_agent`。
 
-## This repository's floor
+## This repository's floor（本仓库的底线）
 
-- **Verify with the real commands**, not by eye: `./scripts/housekeeping_verify.sh` (guards + `tsc` +
-  `vite build` + a document-store report). Add `--full-suite` for the backend suite.
-- **The backend suite has 20 pre-existing failures.** "Not worse than that baseline" is the honest
-  criterion; "the tests are green" is not a claim you can make here. Compare with
+- **用真实命令验证**，不要靠眼看：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` +
+  一份文档库报告）。后端测试套件加 `--full-suite`。
+- **后端套件有 20 个既有的失败。**“不比那个基线更差”是诚实的判据；“测试是绿的”在这里不是一个你能做出的宣称。
+  用
   `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
-  and diff the `FAILED` lines against the recorded baseline.
-- **Specs, tickets and notes live in files**: `docs/specs/<slug>.md`, `docs/tickets/NNN-<slug>.md`,
-  `work/<scope>/`. A verdict in a chat message is lost by the next turn.
-- **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
-  by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+  对照，并把 `FAILED` 行与记录的基线做 diff。
+- **规格、工单和笔记活在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
+  写在聊天消息里的一句判词，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 框架
+  （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `ecosystem-primer` 规则——并优先选
+  能胜任的最高层。

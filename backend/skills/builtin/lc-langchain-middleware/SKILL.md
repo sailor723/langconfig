@@ -1,13 +1,18 @@
 ---
-name: "Langchain Middleware"
-description: "INVOKE THIS SKILL when you need human-in-the-loop approval, custom middleware, or structured output. Covers HumanInTheLoopMiddleware for human approval of dangerous tool calls, creating custom middleware with hooks, Command resume patterns, and structured output with Pydantic/Zod."
+name: "Langchain Middleware（LangChain 中间件）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/lc-langchain-middleware/SKILL.md
+description: >-
+  当需要人在回路审批、自定义中间件或结构化输出时调用本技能。涵盖：用 HumanInTheLoopMiddleware 为危险的工具
+  调用请求人工审批；用钩子编写自定义中间件；Command 恢复模式；以及用 Pydantic/Zod 做结构化输出。
 tags:
   - "langchain"
   - "middleware"
   - "langchain-skills"
   - "skills"
 triggers:
-  - "When asked to <overview>"
+  - "被要求处理 <overview> 时"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -19,32 +24,33 @@ author: "langchain-skills (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
-> **Provenance.** Adapted from `langchain-ai/langchain-skills → config/skills/langchain-middleware` (MIT, vendored at `vendor/upstream-skills/langchain-skills/skills/langchain-middleware/SKILL.md`).
-> Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
-> `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
-> (`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`), and a verification floor
-> section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
-> through the `skill` tool, so it is dropped rather than emulated.
+> **来源说明。** 改编自 `langchain-ai/langchain-skills → config/skills/langchain-middleware`（MIT，原样收录于
+> `vendor/upstream-skills/langchain-skills/skills/langchain-middleware/SKILL.md`）。
+> 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
+> `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
+> （`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`），以及一节验证底线。
+> 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
+> 所以直接去掉，而不做模拟。
 
-## Instructions
+## Instructions（指令）
 
 <overview>
-Middleware patterns for production LangChain agents:
+生产级 LangChain 智能体的中间件模式：
 
-- **HumanInTheLoopMiddleware** / **humanInTheLoopMiddleware**: Pause before dangerous tool calls for human approval
-- **Custom middleware**: Intercept tool calls for error handling, logging, retry logic
-- **Command resume**: Continue execution after human decisions (approve, edit, reject)
+- **HumanInTheLoopMiddleware** / **humanInTheLoopMiddleware**：在危险工具调用之前暂停，等待人工审批
+- **自定义中间件**：拦截工具调用，做错误处理、日志、重试
+- **Command 恢复**：在人工做出决定（批准、编辑、拒绝）之后继续执行
 
-**Requirements:** Checkpointer + thread_id config for all HITL workflows.
+**要求：** 所有 HITL 工作流都需要检查点（checkpointer）与 thread_id 配置。
 </overview>
 
 ---
 
-## Human-in-the-Loop
+## Human-in-the-Loop（人在回路）
 
 <ex-basic-hitl-setup>
 <python>
-Set up an agent with HITL middleware that pauses before sending emails for approval.
+搭一个带 HITL 中间件的智能体，在发出邮件之前暂停等待审批。
 
 ```python
 from langchain.agents import create_agent
@@ -72,7 +78,7 @@ agent = create_agent(
 ```
 </python>
 <typescript>
-Set up an agent with HITL that pauses before sending emails for human approval.
+搭一个带 HITL 的智能体，在发出邮件之前暂停等待人工审批。
 
 ```typescript
 import { createAgent, humanInTheLoopMiddleware } from "langchain";
@@ -105,7 +111,7 @@ const agent = createAgent({
 
 <ex-running-with-interrupts>
 <python>
-Run the agent, detect an interrupt, then resume execution after human approval.
+运行智能体，检测中断，然后在人工批准之后恢复执行。
 
 ```python
 from langgraph.types import Command
@@ -129,7 +135,7 @@ result2 = agent.invoke(
 ```
 </python>
 <typescript>
-Run the agent, detect an interrupt, then resume execution after human approval.
+运行智能体，检测中断，然后在人工批准之后恢复执行。
 
 ```typescript
 import { Command } from "@langchain/langgraph";
@@ -157,7 +163,7 @@ const result2 = await agent.invoke(
 
 <ex-editing-tool-arguments>
 <python>
-Edit the tool arguments before approving when the original values need correction.
+原始参数需要更正时，在批准之前编辑工具参数。
 
 ```python
 # Human edits the arguments — edited_action must include name + args
@@ -180,7 +186,7 @@ result2 = agent.invoke(
 ```
 </python>
 <typescript>
-Edit the tool arguments before approving when the original values need correction.
+原始参数需要更正时，在批准之前编辑工具参数。
 
 ```typescript
 // Human edits the arguments — editedAction must include name + args
@@ -208,7 +214,7 @@ const result2 = await agent.invoke(
 
 <ex-rejecting-with-feedback>
 <python>
-Reject a tool call and provide feedback explaining why it was rejected.
+拒绝一次工具调用，并给出说明拒绝原因的反馈。
 
 ```python
 # Human rejects
@@ -227,7 +233,7 @@ result2 = agent.invoke(
 
 <ex-multiple-tools-different-policies>
 <python>
-Configure different HITL policies for each tool based on risk level.
+按风险等级为每个工具配置不同的 HITL 策略。
 
 ```python
 agent = create_agent(
@@ -249,26 +255,28 @@ agent = create_agent(
 </ex-multiple-tools-different-policies>
 
 <boundaries>
-### What You CAN Configure
+### 你可以配置什么
 
-- Which tools require approval (per-tool policies)
-- Allowed decisions per tool (approve, edit, reject)
-- Custom middleware hooks: `before_model`, `after_model`, `wrap_tool_call`, `before_agent`, `after_agent`
-- Tool-specific middleware (apply only to certain tools)
+- 哪些工具需要审批（按工具的策略）
+- 每个工具允许的决定（approve、edit、reject）
+- 自定义中间件钩子：`before_model`、`after_model`、`wrap_tool_call`、`before_agent`、`after_agent`
+- 只作用于个别工具的中间件（tool-specific middleware）
 </boundaries>
 
 ---
 
-## Custom Middleware Hooks
+## Custom Middleware Hooks（自定义中间件钩子）
 
-Six decorator hooks are available. Two patterns:
+可用的装饰器钩子有六个，分成两种模式：
 
-- **Wrap hooks** (`wrap_tool_call`, `wrap_model_call`): `(request, handler)` — call `handler(request)` to proceed, or return early to short-circuit.
-- **Before/after hooks** (`before_model`, `after_model`, `before_agent`, `after_agent`): `(state, runtime)` — inspect or modify state. Return `None` or a dict of state updates.
+- **包装钩子**（`wrap_tool_call`、`wrap_model_call`）：`(request, handler)`——调用 `handler(request)` 继续往下走，
+  或者提前返回以短路。
+- **前/后钩子**（`before_model`、`after_model`、`before_agent`、`after_agent`）：`(state, runtime)`——检查或修改
+  状态。返回 `None`，或返回一个装着状态更新的 dict。
 
 <ex-wrap-tool-call>
 <python>
-`@wrap_tool_call` intercepts tool execution. **Do NOT use `yield`** — it creates a generator and causes `NotImplementedError`.
+`@wrap_tool_call` 拦截工具执行。**不要用 `yield`**——它会造出一个生成器，导致 `NotImplementedError`。
 
 ```python
 from langchain.agents.middleware import wrap_tool_call
@@ -290,7 +298,7 @@ def guard_middleware(request, handler):
 ```
 </python>
 <typescript>
-`createMiddleware({ wrapToolCall })` intercepts tool execution.
+`createMiddleware({ wrapToolCall })` 拦截工具执行。
 
 ```typescript
 import { createMiddleware } from "langchain";
@@ -309,7 +317,7 @@ const retryMiddleware = createMiddleware({
 
 <ex-before-after-hooks>
 <python>
-`before_model` / `after_model` / `before_agent` / `after_agent` all share `(state, runtime)` signature.
+`before_model` / `after_model` / `before_agent` / `after_agent` 共用 `(state, runtime)` 签名。
 
 ```python
 from langchain.agents.middleware import before_model, after_model
@@ -324,7 +332,7 @@ def check_output(state, runtime):
 ```
 </python>
 <typescript>
-All before/after hooks share the same `(state, runtime)` signature via `createMiddleware`.
+所有前/后钩子经 `createMiddleware` 共用同一个 `(state, runtime)` 签名。
 
 ```typescript
 import { createMiddleware } from "langchain";
@@ -342,15 +350,15 @@ const loggingMiddleware = createMiddleware({
 </ex-before-after-hooks>
 
 <boundaries>
-### What You CANNOT Configure
+### 你不能配置什么
 
-- Interrupt after tool execution (must be before)
-- Skip checkpointer requirement for HITL
+- 在工具执行之后中断（中断只能发生在执行之前）
+- 跳过 HITL 对检查点的要求
 </boundaries>
 
 <fix-missing-checkpointer>
 <python>
-HITL middleware requires a checkpointer to persist state.
+HITL 中间件需要检查点（checkpointer）来持久化状态。
 
 ```python
 # WRONG
@@ -365,7 +373,7 @@ agent = create_agent(
 ```
 </python>
 <typescript>
-HITL requires a checkpointer to persist state.
+HITL 需要检查点来持久化状态。
 
 ```typescript
 // WRONG: No checkpointer
@@ -386,7 +394,7 @@ const agent = createAgent({
 
 <fix-no-thread-id>
 <python>
-Always provide thread_id when using HITL to track conversation state.
+用 HITL 时始终提供 thread_id，以便追踪会话状态。
 
 ```python
 # WRONG
@@ -400,7 +408,7 @@ agent.invoke(input, config={"configurable": {"thread_id": "user-123"}})
 
 <fix-wrong-resume-syntax>
 <python>
-Use Command class to resume execution after an interrupt.
+用 `Command` 类在中断之后恢复执行。
 
 ```python
 # WRONG
@@ -412,7 +420,7 @@ agent.invoke(Command(resume={"decisions": [{"type": "approve"}]}), config=config
 ```
 </python>
 <typescript>
-Use Command class to resume execution after an interrupt.
+用 `Command` 类在中断之后恢复执行。
 
 ```typescript
 // WRONG
@@ -425,16 +433,16 @@ await agent.invoke(new Command({ resume: { decisions: [{ type: "approve" }] } })
 </typescript>
 </fix-wrong-resume-syntax>
 
-## This repository's floor
+## This repository's floor（本仓库的底线）
 
-- **Verify with the real commands**, not by eye: `./scripts/housekeeping_verify.sh` (guards + `tsc` +
-  `vite build` + a document-store report). Add `--full-suite` for the backend suite.
-- **The backend suite has 20 pre-existing failures.** "Not worse than that baseline" is the honest
-  criterion; "the tests are green" is not a claim you can make here. Compare with
+- **用真实命令验证**，不要靠眼看：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` +
+  一份文档库报告）。后端测试套件加 `--full-suite`。
+- **后端套件有 20 个既有的失败。**“不比那个基线更差”是诚实的判据；“测试是绿的”在这里不是一个你能做出的宣称。
+  用
   `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
-  and diff the `FAILED` lines against the recorded baseline.
-- **Specs, tickets and notes live in files**: `docs/specs/<slug>.md`, `docs/tickets/NNN-<slug>.md`,
-  `work/<scope>/`. A verdict in a chat message is lost by the next turn.
-- **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
-  by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+  对照，并把 `FAILED` 行与记录的基线做 diff。
+- **规格、工单和笔记活在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
+  写在聊天消息里的一句判词，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 框架
+  （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `ecosystem-primer` 规则——并优先选
+  能胜任的最高层。

@@ -316,10 +316,17 @@ def main(argv: list[str]) -> int:
         return status()
     if not args.skills:
         parser.error("name at least one skill id")
+    ids = []
     for skill_id in args.skills:
-        if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", skill_id):
-            parser.error(f"{skill_id!r} is not a kebab-case skill id")
-    return {"archive": archive, "check": check, "promote": promote}[args.command](args.skills)
+        if re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", skill_id):
+            ids.append(skill_id)
+        else:
+            # `.zh-staging/` also holds the translation brief; a shell glob over it must not abort the run
+            # with "not a kebab-case skill id" half way through a batch.
+            print(f"  ignore  {skill_id}: not a skill id", file=sys.stderr)
+    if not ids:
+        parser.error("none of the given names is a skill id")
+    return {"archive": archive, "check": check, "promote": promote}[args.command](ids)
 
 
 if __name__ == "__main__":
