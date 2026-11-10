@@ -642,7 +642,7 @@ async def send_message(
                     _re_base, agent.id, _re_ws_root, agent.agent_docs or {},
                     # Who is asking, for this turn only — the stored prompt is shared
                     # between accounts, so the person cannot live in the DB.
-                    caller=caller_block(db, getattr(session, "user_id", None)),
+                    caller=caller_block(db, getattr(session, "user_id", None), session.session_id),
                 )
             config = DeepAgentConfig(**_safe_config)
             if lang_instruction:
@@ -1393,7 +1393,7 @@ async def send_message_stream(
                             agent.id,
                             agent_workspace_root,
                             agent.agent_docs or {},
-                            caller=caller_block(db, getattr(fresh_session, "user_id", None)),
+                            caller=caller_block(db, getattr(fresh_session, "user_id", None), fresh_session.session_id),
                         )
                     _materialize_agent_docs(agent, agent_workspace_root, db=db)
                     # First message of a fresh session: ask the agent to

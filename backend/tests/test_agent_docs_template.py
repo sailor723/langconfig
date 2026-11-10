@@ -360,3 +360,31 @@ def test_the_prompt_lab_starter_agent_is_creatable_and_idempotent(db_session):
         assert f"agent {first}" in prompt
     finally:
         module.delete(db_session, test_name)
+
+
+def test_the_caller_block_names_chat_memory():
+    """The agent must be able to find the transcript of the conversation it is in.
+
+    Measured need: turning a finished session into a skill requires re-reading what was actually asked and
+    answered, and the turns that carry the evidence are exactly the ones a long conversation trims out of the
+    visible window. Without the session id in the prompt an agent asked to "read the chat" can only paraphrase its
+    own summary — which is how a guess gets written down as experience.
+    """
+    from core.agents.identity import caller_block
+    from db.database import SessionLocal
+    from models.user import User
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).first()
+        if user is None:
+            import pytest
+            pytest.skip("no user row in this database")
+        block = caller_block(db, user.id, "8f90e40e-e459-4265-967a-4a77047b1c1a")
+        assert "## Chat memory" in block
+        assert "8f90e40e-e459-4265-967a-4a77047b1c1a" in block, "the session id is missing"
+        assert "/api/chat/8f90e40e-e459-4265-967a-4a77047b1c1a/history" in block, "the transcript endpoint is missing"
+        # and without a session, the block stays what it was (workflow runs have no chat session)
+        assert "## Chat memory" not in caller_block(db, user.id)
+    finally:
+        db.close()

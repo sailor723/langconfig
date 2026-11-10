@@ -99,7 +99,7 @@ def workspace_boundary_block(workspace_root: str) -> str:
     ])
 
 
-def caller_block(db, user_id) -> str:
+def caller_block(db, user_id, session_id: str | None = None) -> str:
     """Who the agent is working for, for THIS turn.
 
     Why it is built per turn and never baked into the stored prompt: agents are shared
@@ -116,6 +116,12 @@ def caller_block(db, user_id) -> str:
     * the warning exists because an agent that cannot find the account reaches for
       ``whoami`` and reports the server's shell account as if it were the user's. It
       did exactly that once.
+
+    When ``session_id`` is given, the block also names **chat memory**: the session id and the
+    endpoint that returns the conversation it belongs to. Without it an agent asked to re-read
+    "what actually happened in this thread" invents the transcript from its own summary — the
+    turns trimmed out of the visible window are the ones that carry the evidence, and they are
+    still in ``chat_sessions.messages``.
 
     Returns "" when there is no caller, so a background run adds nothing rather than
     inventing a person.
@@ -165,6 +171,20 @@ def caller_block(db, user_id) -> str:
             f"`{user_roots.install_root()}/users/{user.id}/` — the workspace boundary "
             f"above names it, and it is the only tree you may touch.",
         ]
+        if session_id:
+            lines += [
+                "",
+                "## Chat memory",
+                "",
+                f"- **This session**: `{session_id}`",
+                "- **The transcript**: `curl -s 'http://127.0.0.1:8765/api/chat/"
+                f"{session_id}/history'` returns every turn of this conversation, including the "
+                "ones trimmed out of your visible window. That is the record of what was actually "
+                "asked and answered; your own summary of it is not.",
+                "- Use it when a task needs the real sequence — re-deriving a decision, turning a "
+                "session into a skill, checking what was tried and what failed. Do not paraphrase "
+                "it from memory when the file will answer.",
+            ]
         return "\n".join(lines)
     except Exception:
         logger.warning("Could not build the caller block", exc_info=True)
