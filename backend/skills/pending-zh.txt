@@ -14,17 +14,13 @@
 
 chief-of-staff
 codebase-design
-data-analysis-llm
 domain-modeling
 edit-ontology-metrics
 frontend-design
 generate-mock-dataset
 implement-spec
 improve-codebase-architecture
-langchain-agents
-lc-deep-agents-core
 lc-deep-agents-orchestration
-lc-eval-engineering
 lc-langgraph-cli
 lc-langgraph-persistence
 lc-managed-deep-agents
@@ -38,8 +34,6 @@ report-generator
 research-execution
 research-pipeline-builder
 research-skills
-software-factory
 teach
 web-content-analyzer
 webapp-testing
-wizard

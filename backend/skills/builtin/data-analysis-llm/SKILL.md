@@ -1,58 +1,61 @@
 ---
-name: data-analysis-llm
+name: data-analysis-llm（数据分析·LLM 驱动）
+lang: zh
+translated: machine
+source: backend/skills/en-originals/data-analysis-llm/SKILL.md
 description: >-
-  Flexible data analysis where the agent writes Python code based on the user's question. Use when the user's analysis request is custom or novel and doesn't fit a predefined pattern. Slower but more fl
+  灵活的数据分析：由智能体依据用户的问题现场写 Python 代码。当用户的分析请求是定制的、新颖的、不符合任何预定义模式时使用。较慢，但更灵
 tags: [data-analysis, csv, sql, python, flexible, custom-analysis]
 triggers:
-  - "when user asks a custom or novel data question"
-  - "when user asks for an analysis not covered by data-analysis"
-  - "when user wants custom visualization"
-  - "when user wants exploratory data analysis"
-  - "when the analysis question is open-ended"
+  - "用户提出定制或新颖的数据问题时"
+  - "用户要求的分析不在 data-analysis 覆盖范围内时"
+  - "用户想要定制的可视化时"
+  - "用户想做探索性数据分析时"
+  - "分析问题是开放式的时候"
 allowed-tools: [execute, filesystem]
 author: LangConfig
 ---
 
-# Data Analysis (LLM-Driven) Skill
+# 数据分析（LLM 驱动）技能
 
-You are a flexible data analyst. When the user asks a custom, novel, or open-ended data analysis question (one that doesn't fit `data-analysis`'s fixed schema), you write Python code based on their question, then run it via the `execute` tool.
+你是一名灵活的数据分析师。当用户提出定制的、新颖的或开放式的数据分析问题（也就是不符合 `data-analysis` 那套固定 schema 的问题）时，你依据问题现场写 Python 代码，然后用 `execute` 工具跑它。
 
-## Data Source
+## Data Source（数据源）
 
-### Accepted inputs
-- **CSV files**: any tabular CSV (path passed via `UPLOADED_FILE` env var or user-specified)
-- **SQL queries**: any `SELECT` against PostgreSQL (via `DATABASE_URL`)
-- **In-memory data**: anything the user supplies as context
+### 接受的输入
+- **CSV 文件**：任何表格型 CSV（路径经 `UPLOADED_FILE` 环境变量传入，或由用户指定）
+- **SQL 查询**：任何针对 PostgreSQL 的 `SELECT`（经 `DATABASE_URL`）
+- **内存中的数据**：用户作为上下文提供的任何东西
 
-### Runtime environment
-- **Sandbox**: ephemeral Python process via `execute` tool
-- **Available libraries**: pandas, numpy, sqlalchemy, psycopg2-binary, matplotlib, scipy
-- **Output channels**: stdout (text) and `/uploads/charts/*.png` (visualizations)
+### 运行时环境
+- **沙箱**：经 `execute` 工具启动的临时 Python 进程
+- **可用库**：pandas、numpy、sqlalchemy、psycopg2-binary、matplotlib、scipy
+- **输出通道**：stdout（文本）与 `/uploads/charts/*.png`（可视化）
 
-## Column Metadata
+## Column Metadata（列元数据）
 
-| Field | Required | Data Type | Semantic | Usage |
+| 字段 | 必填 | 数据类型 | 语义 | 用法 |
 |---|---|---|---|---|
-| `source_type` | yes | enum (`csv` / `sql` / `inline`) | Input format | Determines loader |
-| `source_path` | if csv | string (absolute path) | CSV location | Read by pandas |
-| `query` | if sql | string (SQL SELECT) | Query text | Run via SQLAlchemy |
-| `intent` | yes | string (natural language) | User's analysis question | Drives code generation |
-| `output_format` | no | enum (`text` / `json` / `chart`) | Result format | Default `text` |
+| `source_type` | 是 | enum（`csv` / `sql` / `inline`） | 输入格式 | 决定用哪个加载器 |
+| `source_path` | csv 时 | string（绝对路径） | CSV 位置 | 由 pandas 读取 |
+| `query` | sql 时 | string（SQL SELECT） | 查询文本 | 经 SQLAlchemy 执行 |
+| `intent` | 是 | string（自然语言） | 用户的分析问题 | 驱动代码生成 |
+| `output_format` | 否 | enum（`text` / `json` / `chart`） | 结果格式 | 默认 `text` |
 
-**Note**: Unlike `data-analysis`, this skill has NO fixed schema for what to compute. The agent generates code from the user's intent.
+**注意**：与 `data-analysis` 不同，本技能对"要算什么"没有任何固定 schema。智能体从用户的意图出发生成代码。
 
-## Business Logic
+## Business Logic（业务逻辑）
 
-### When to use this vs. `data-analysis`
+### 什么时候用本技能，什么时候用 `data-analysis`
 
-| Use `data-analysis` (deterministic) | Use `data-analysis-llm` (flexible, this skill) |
+| 用 `data-analysis`（确定性） | 用 `data-analysis-llm`（灵活，也就是本技能） |
 |---|---|
-| Standard profile/aggregate/chart | Custom calculations |
-| Predefined input schema | Free-form user question |
-| Fast, deterministic, predictable | Flexible, slower, can handle novel queries |
-| Same answer every run | Answer varies with model |
+| 标准的画像/聚合/画图 | 定制计算 |
+| 预定义的输入 schema | 自由形式的用户问题 |
+| 快、确定性、可预期 | 灵活、较慢、能处理新颖查询 |
+| 每次跑出来答案一样 | 答案随模型而变 |
 
-### Workflow
+### 工作流
 
 ```
 1. Understand the user's question
@@ -62,32 +65,32 @@ You are a flexible data analyst. When the user asks a custom, novel, or open-end
 5. Interpret the output and explain findings
 ```
 
-### Conventions
+### 约定
 
-- Save charts to `/uploads/charts/<name>.png` (or user-specified path)
-- Print results as text — the `execute` tool returns stdout
-- For JSON output, use `json.dumps(result)` and capture via stdout
-- For large results, write to a file and reference the path
-- Always include `matplotlib.use("Agg")` for headless chart generation
+- 图表存到 `/uploads/charts/<name>.png`（或用户指定的路径）
+- 结果以文本打印——`execute` 工具返回的就是 stdout
+- 要 JSON 输出，用 `json.dumps(result)` 再经 stdout 取回
+- 结果很大就写进文件，然后引用那个路径
+- 无头生成图表时，永远带上 `matplotlib.use("Agg")`
 
-### Output format (after running)
+### 输出格式（跑完之后）
 
-Present in this order:
-1. **What you computed** (brief description)
-2. **Key findings** (insights from the output)
-3. **Visualization** (if a chart was generated, link to it)
-4. **Recommendation** (next steps or caveats)
+按这个顺序呈现：
+1. **你算了什么**（简要描述）
+2. **关键结论**（从输出里读出的洞察）
+3. **可视化**（如果生成了图表，就链接到它）
+4. **建议**（下一步，或需要提醒的坑）
 
-### Retry strategy
+### 重试策略
 
-- Code fails → read the error, fix, retry (max 3 attempts)
-- After 3 attempts → surface the error to the user and ask for guidance
+- 代码失败 → 读错误，改，重试（最多 3 次）
+- 3 次之后 → 把错误摊给用户，请他给方向
 
-## Few-shot Examples
+## Few-shot Examples（少样本示例）
 
-### Example 1: Custom correlation analysis (price vs time)
+### 示例 1：自定义相关性分析（价格与时间）
 
-User asks: *"Are there any unusual correlations between the price and the date?"*
+用户问：*"价格和日期之间有没有什么不寻常的相关性？"*
 
 ```python
 import pandas as pd
@@ -104,9 +107,9 @@ corr = df[["price", "price_lag7", "price_rolling"]].corr()
 print(corr.to_string())
 ```
 
-### Example 2: Custom statistical test (is this distribution normal?)
+### 示例 2：自定义统计检验（这个分布是正态的吗？）
 
-User asks: *"Is the 'fare' column normally distributed?"*
+用户问：*"`fare` 列是正态分布吗？"*
 
 ```python
 import pandas as pd
@@ -122,9 +125,9 @@ else:
     print("Cannot reject normality — distribution may be normal")
 ```
 
-### Example 3: Custom prediction (linear regression)
+### 示例 3：自定义预测（线性回归）
 
-User asks: *"Predict fare from age and pclass"*
+用户问：*"用年龄和舱位预测票价"*
 
 ```python
 import pandas as pd
@@ -139,54 +142,54 @@ print(f"Coefficients: age={model.coef_[0]:.2f}, pclass={model.coef_[1]:.2f}")
 print(f"R²: {model.score(X, y):.3f}")
 ```
 
-## Edge Cases & Pitfalls
+## Edge Cases & Pitfalls（边界情况与坑）
 
-### 1. Ambiguous user question
-❌ Write code based on guessing the intent
-✅ Ask for clarification on data source and intent BEFORE coding
+### 1. 用户的问题有歧义
+❌ 靠猜意图去写代码
+✅ 写代码之前，先就数据源与意图问清楚
 
-### 2. Code fails repeatedly
-❌ Keep retrying the same broken code
-✅ After 3 attempts, surface the error and ask for guidance
+### 2. 代码反复失败
+❌ 拿着同一份坏代码一直重试
+✅ 3 次之后，把错误摊出来并请对方给方向
 
-### 3. Unexpected results
-❌ Just report them
-✅ Double-check the data, run `data-analysis` profile first, then retry
+### 3. 结果出乎意料
+❌ 就这么报出去
+✅ 复核数据，先跑一遍 `data-analysis` 的画像，再重试
 
-### 4. Charts not displayed
-❌ Forget `matplotlib.use("Agg")` — script hangs on display
-✅ Always set `Agg` backend for headless rendering
+### 4. 图表显示不出来
+❌ 忘了 `matplotlib.use("Agg")`——脚本会卡在显示上
+✅ 无头渲染永远设 `Agg` 后端
 
-### 5. Large dataset exceeds memory
-❌ Load entire CSV into pandas
-✅ Use `pd.read_csv(chunksize=10000)` or filter upstream
+### 5. 数据集太大，内存装不下
+❌ 把整个 CSV 读进 pandas
+✅ 用 `pd.read_csv(chunksize=10000)`，或在上游先过滤
 
-### 6. Secret leakage
-❌ Hardcode API keys, DB credentials in script
-✅ Use env vars only (`os.environ["DATABASE_URL"]`, etc.)
+### 6. 密钥泄漏
+❌ 在脚本里硬编码 API key、数据库凭据
+✅ 只用环境变量（`os.environ["DATABASE_URL"]` 等）
 
-### 7. SQL injection risk
-❌ Concatenate user input into query strings
-✅ Use parameterized queries: `text("SELECT * FROM x WHERE id = :id")`
+### 7. SQL 注入风险
+❌ 把用户输入拼进查询字符串
+✅ 用参数化查询：`text("SELECT * FROM x WHERE id = :id")`
 
-### 8. Importing unavailable libraries
-❌ `import tensorflow as tf` — likely not installed in sandbox
-✅ Stick to the documented library set: pandas, numpy, sqlalchemy, psycopg2-binary, matplotlib, scipy
+### 8. 导入了不可用的库
+❌ `import tensorflow as tf`——沙箱里多半没装
+✅ 只用文档列明的这套库：pandas、numpy、sqlalchemy、psycopg2-binary、matplotlib、scipy
 
-## Decision criteria
+## Decision criteria（判定标准）
 
-When the user's question DOESN'T fit `data-analysis`'s fixed patterns:
-- Novel statistical tests (e.g., "is this distribution normal?")
-- Custom ML models (e.g., "predict X from Y")
-- Complex multi-step analyses
-- Domain-specific calculations
-- Anything requiring interpretation
+当用户的问题不符合 `data-analysis` 的固定模式时：
+- 新颖的统计检验（例如"这个分布是正态的吗？"）
+- 定制的 ML 模型（例如"从 Y 预测 X"）
+- 复杂的多步分析
+- 领域专用计算
+- 任何需要解读的问题
 
-→ Use **THIS skill** (write Python, execute it)
+→ 用**本技能**（写 Python，执行它）
 
-When the user asks for standard profile/aggregate/chart:
-- "Show me summary stats"
-- "Group by category and sum"
-- "Make a bar chart"
+当用户要的是标准的画像/聚合/画图时：
+- "给我看摘要统计"
+- "按类别分组求和"
+- "画个柱状图"
 
-→ Use `data-analysis` (the deterministic skill)
+→ 用 `data-analysis`（那个确定性技能）

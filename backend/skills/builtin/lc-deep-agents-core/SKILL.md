@@ -1,6 +1,11 @@
 ---
-name: "Deep Agents Core"
-description: "INVOKE THIS SKILL when building ANY Deep Agents application. Covers create_deep_agent(), harness architecture, SKILL.md format, and configuration options."
+name: "Deep Agents Core（Deep Agents 核心）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/lc-deep-agents-core/SKILL.md
+description: >-
+  构建任何 Deep Agents 应用时都要调用本技能。涵盖 create_deep_agent()、脚手架（harness）架构、
+  SKILL.md 格式，以及各项配置选项。
 tags:
   - "deep"
   - "agents"
@@ -9,7 +14,7 @@ tags:
   - "skills"
   - "deepagents"
 triggers:
-  - "When asked to <overview>"
+  - "被要求处理 <overview> 时"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -23,55 +28,55 @@ author: "langchain-skills (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
-> **Provenance.** Adapted from `langchain-ai/langchain-skills → config/skills/deep-agents-core` (MIT, vendored at `vendor/upstream-skills/langchain-skills/skills/deep-agents-core/SKILL.md`).
-> Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
-> `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
-> (`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`), and a verification floor
-> section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
-> through the `skill` tool, so it is dropped rather than emulated.
+> **来源说明。** 改编自 `langchain-ai/langchain-skills → config/skills/deep-agents-core`（MIT，原样收录于 `vendor/upstream-skills/langchain-skills/skills/deep-agents-core/SKILL.md`）。
+> 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
+> `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
+> （`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`），以及一节验证底线。
+> 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
+> 所以直接去掉，而不做模拟。
 
-## Instructions
+## Instructions（指令）
 
 <overview>
-Deep Agents are an opinionated agent framework built on LangChain/LangGraph with built-in middleware:
+Deep Agents 是一个构建在 LangChain/LangGraph 之上、带内置中间件的、有主见的智能体框架：
 
-- **Task Planning**: TodoListMiddleware for breaking down complex tasks
-- **Context Management**: Filesystem tools with pluggable backends
-- **Task Delegation**: SubAgent middleware for spawning specialized agents
-- **Long-term Memory**: Persistent storage across threads via Store
-- **Human-in-the-loop**: Approval workflows for sensitive operations
-- **Skills**: On-demand loading of specialized capabilities
+- **任务规划**：TodoListMiddleware，用于拆解复杂任务
+- **上下文管理**：带可插拔后端的文件系统工具
+- **任务委派**：SubAgent 中间件，用于派生专用智能体
+- **长期记忆**：通过 Store 跨线程持久化存储
+- **人在回路**：敏感操作的审批工作流
+- **技能**：按需加载的专用能力
 
-The agent harness provides these capabilities automatically - you configure, not implement.
+智能体脚手架自动提供这些能力——你只做配置，不做实现。
 </overview>
 
 <when-to-use>
 
-| Use Deep Agents When | Use LangChain's create_agent When |
+| 什么时候用 Deep Agents | 什么时候用 LangChain 的 create_agent |
 |---------------------|-----------------------------------|
-| Multi-step tasks requiring planning | Simple, single-purpose tasks |
-| Large context requiring file management | Context fits in a single prompt |
-| Need for specialized subagents | Single agent is sufficient |
-| Persistent memory across sessions | Ephemeral, single-session work |
+| 需要规划的多步任务 | 简单的单一用途任务 |
+| 上下文很大、需要文件管理 | 上下文能塞进单个提示词 |
+| 需要专用的子智能体 | 单个智能体就够 |
+| 需要跨会话的持久记忆 | 短暂的单次会话工作 |
 
 </when-to-use>
 
 <middleware-selection>
 
-| If you need to... | Middleware | Notes |
+| 如果你需要…… | 中间件 | 说明 |
 |------------------|------------|-------|
-| Track complex tasks | TodoListMiddleware | Default enabled |
-| Manage file context | FilesystemMiddleware | Configure backend |
-| Delegate work | SubAgentMiddleware | Add custom subagents |
-| Add human approval | HumanInTheLoopMiddleware | Requires checkpointer |
-| Load skills | SkillsMiddleware | Provide skill directories |
-| Access memory | MemoryMiddleware | Requires Store instance |
+| 跟踪复杂任务 | TodoListMiddleware | 默认启用 |
+| 管理文件上下文 | FilesystemMiddleware | 配置后端 |
+| 委派工作 | SubAgentMiddleware | 添加自定义子智能体 |
+| 加入人工审批 | HumanInTheLoopMiddleware | 需要检查点 |
+| 加载技能 | SkillsMiddleware | 提供技能目录 |
+| 访问记忆 | MemoryMiddleware | 需要 Store 实例 |
 
 </middleware-selection>
 
 <ex-basic-agent>
 <python>
-Create a basic deep agent with a custom tool and invoke it with a user message.
+创建一个带自定义工具的基础 deep agent，并用一条用户消息调用它。
 
 ```python
 from deepagents import create_deep_agent
@@ -95,7 +100,7 @@ result = agent.invoke({
 ```
 </python>
 <typescript>
-Create a basic deep agent with a custom tool and invoke it with a user message.
+创建一个带自定义工具的基础 deep agent，并用一条用户消息调用它。
 
 ```typescript
 import { createDeepAgent } from "deepagents";
@@ -123,7 +128,7 @@ const result = await agent.invoke({
 
 <ex-full-configuration>
 <python>
-Configure a deep agent with all available options including subagents, skills, and persistence.
+配置一个把所有可用选项都用上的 deep agent，包括子智能体、技能与持久化。
 
 ```python
 from deepagents import create_deep_agent
@@ -146,7 +151,7 @@ agent = create_deep_agent(
 ```
 </python>
 <typescript>
-Configure a deep agent with all available options including subagents, skills, and persistence.
+配置一个把所有可用选项都用上的 deep agent，包括子智能体、技能与持久化。
 
 ```typescript
 import { createDeepAgent, FilesystemBackend } from "deepagents";
@@ -169,21 +174,21 @@ const agent = await createDeepAgent({
 </ex-full-configuration>
 
 <built-in-tools>
-Every deep agent has access to:
+每个 deep agent 都能访问：
 
-1. **Planning**: `write_todos` - Track multi-step tasks
-2. **Filesystem**: `ls`, `read_file`, `write_file`, `edit_file`, `glob`, `grep`
-3. **Delegation**: `task` - Spawn specialized subagents
+1. **规划**：`write_todos` —— 跟踪多步任务
+2. **文件系统**：`ls`、`read_file`、`write_file`、`edit_file`、`glob`、`grep`
+3. **委派**：`task` —— 派生专用的子智能体
 </built-in-tools>
 
 ---
 
-## SKILL.md Format
+## SKILL.md 格式
 
 <skill-md-format>
-Skills use **progressive disclosure** - agents only load content when relevant.
+技能使用**渐进式披露**——智能体只在相关时加载内容。
 
-### Directory Structure
+### 目录结构
 
 ```
 skills/
@@ -193,7 +198,7 @@ skills/
     └── templates/      # Optional: templates
 ```
 
-### SKILL.md Format
+### SKILL.md 格式
 
 ```markdown
 ---
@@ -216,18 +221,18 @@ Step-by-step guidance for the agent.
 
 <skills-vs-memory>
 
-| Skills | Memory (AGENTS.md) |
+| 技能 | 记忆（AGENTS.md） |
 |--------|-------------------|
-| On-demand loading | Always loaded at startup |
-| Task-specific instructions | General preferences |
-| Large documentation | Compact context |
-| SKILL.md in directories | Single AGENTS.md file |
+| 按需加载 | 启动时总是加载 |
+| 任务专用的说明 | 通用偏好 |
+| 大篇幅文档 | 紧凑的上下文 |
+| 目录里的 SKILL.md | 单个 AGENTS.md 文件 |
 
 </skills-vs-memory>
 
 <ex-skills-with-filesystem-backend>
 <python>
-Set up an agent with skills directory and filesystem backend for on-demand skill loading.
+为一个智能体配好技能目录与文件系统后端，实现技能的按需加载。
 
 ```python
 from deepagents import create_deep_agent
@@ -246,7 +251,7 @@ result = agent.invoke({
 ```
 </python>
 <typescript>
-Set up an agent with skills directory and filesystem backend for on-demand skill loading.
+为一个智能体配好技能目录与文件系统后端，实现技能的按需加载。
 
 ```typescript
 import { createDeepAgent, FilesystemBackend } from "deepagents";
@@ -267,7 +272,7 @@ const result = await agent.invoke({
 
 <ex-skills-with-store-backend>
 <python>
-Load skill content into a Store backend for environments without filesystem access.
+在没有文件系统访问的环境里，把技能内容加载进 Store 后端。
 
 ```python
 from deepagents import create_deep_agent
@@ -302,25 +307,25 @@ agent = create_deep_agent(
 
 <boundaries>
 
-### What Agents CAN Configure
+### 智能体可以配置什么
 
-- Model selection and parameters
-- Additional custom tools
-- System prompt customization
-- Backend storage strategy
-- Which tools require approval
-- Custom subagents with specialized tools
+- 模型选择与参数
+- 额外的自定义工具
+- 系统提示词定制
+- 后端存储策略
+- 哪些工具需要审批
+- 带专用工具的自定义子智能体
 
-### What Agents CANNOT Configure
+### 智能体不能配置什么
 
-- Core middleware removal (TodoList, Filesystem, SubAgent always present)
-- The write_todos, task, or filesystem tool names
-- The SKILL.md frontmatter format
+- 移除核心中间件（TodoList、Filesystem、SubAgent 始终存在）
+- `write_todos`、`task` 或文件系统工具的名字
+- SKILL.md 的 frontmatter 格式
 </boundaries>
 
 <fix-checkpointer-for-interrupts>
 <python>
-Interrupts require a checkpointer.
+interrupt 需要检查点。
 
 ```python
 # WRONG
@@ -331,7 +336,7 @@ agent = create_deep_agent(interrupt_on={"write_file": True}, checkpointer=Memory
 ```
 </python>
 <typescript>
-Interrupts require a checkpointer.
+interrupt 需要检查点。
 
 ```typescript
 // WRONG
@@ -345,7 +350,7 @@ const agent = await createDeepAgent({ interruptOn: { write_file: true }, checkpo
 
 <fix-store-for-memory>
 <python>
-StoreBackend requires a Store instance for persistent memory across threads.
+StoreBackend 需要 Store 实例，才能在跨线程时保持持久记忆。
 
 ```python
 # WRONG
@@ -356,7 +361,7 @@ agent = create_deep_agent(backend=lambda rt: StoreBackend(rt), store=InMemorySto
 ```
 </python>
 <typescript>
-StoreBackend requires a Store instance for persistent memory across threads.
+StoreBackend 需要 Store 实例，才能在跨线程时保持持久记忆。
 
 ```typescript
 // WRONG
@@ -370,7 +375,7 @@ const agent = await createDeepAgent({ backend: (config) => new StoreBackend(conf
 
 <fix-thread-id-for-conversations>
 <python>
-Use consistent thread_id to maintain conversation context across invocations.
+用一致的 thread_id，让对话上下文在多次调用之间延续。
 
 ```python
 # WRONG: Each invocation is isolated
@@ -384,7 +389,7 @@ agent.invoke({"messages": [...]}, config=config)
 ```
 </python>
 <typescript>
-Use consistent thread_id to maintain conversation context across invocations.
+用一致的 thread_id，让对话上下文在多次调用之间延续。
 
 ```typescript
 // WRONG: Each invocation is isolated
@@ -418,7 +423,7 @@ This is my skill...
 
 <fix-backend-for-skills>
 <python>
-Skills require a proper backend to load from the filesystem.
+技能需要一个合适的后端，才能从文件系统加载。
 
 ```python
 # WRONG: Skills won't load without proper backend
@@ -434,7 +439,7 @@ agent = create_deep_agent(
 </fix-backend-for-skills>
 
 <fix-specific-skill-descriptions>
-Use specific descriptions to help agents decide when to use a skill.
+用具体的描述，帮助智能体判断什么时候该用某个技能。
 
 ```markdown
 # WRONG: Vague description
@@ -453,7 +458,7 @@ description: Python testing best practices with pytest fixtures, mocking, and as
 
 <fix-subagent-skills>
 <python>
-Skills are not inherited by subagents - provide them explicitly.
+技能不会被传入子智能体——要显式提供。
 
 ```python
 # WRONG: Custom subagents don't inherit skills
@@ -471,16 +476,16 @@ agent = create_deep_agent(
 </python>
 </fix-subagent-skills>
 
-## This repository's floor
+## This repository's floor（本仓库的底线）
 
-- **Verify with the real commands**, not by eye: `./scripts/housekeeping_verify.sh` (guards + `tsc` +
-  `vite build` + a document-store report). Add `--full-suite` for the backend suite.
-- **The backend suite has 20 pre-existing failures.** "Not worse than that baseline" is the honest
-  criterion; "the tests are green" is not a claim you can make here. Compare with
+- **用真实命令验证**，不要靠眼看：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` +
+  一份文档库报告）。后端测试套件加 `--full-suite`。
+- **后端套件有 20 个既有的失败。**“不比那个基线更差”是诚实的判据；“测试是绿的”在这里不是一个你能做出的宣称。
+  用
   `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
-  and diff the `FAILED` lines against the recorded baseline.
-- **Specs, tickets and notes live in files**: `docs/specs/<slug>.md`, `docs/tickets/NNN-<slug>.md`,
-  `work/<scope>/`. A verdict in a chat message is lost by the next turn.
-- **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
-  by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+  对照，并把 `FAILED` 行与记录的基线做 diff。
+- **规格、工单和笔记活在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
+  写在聊天消息里的一句判词，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 脚手架
+  （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `ecosystem-primer` 规则——并优先选
+  能胜任的最高层。
