@@ -8,6 +8,9 @@
 # a listed skill must actually still be English. That is what stops the backlog from becoming decoration.
 #
 # States: translated (archived original) · authored in Chinese (zh-native.txt) · still English (here).
+#
+# Move a skill with `python scripts/skill_zh.py promote <id>`, never by hand: promote refuses a translation
+# whose structure or frontmatter disagrees with the archived English.
 
 agent-builder
 agent-to-skill
@@ -90,7 +93,6 @@ software-factory
 tdd
 teach
 text-summarizer
-ticket-classifier
 to-questionnaire
 tool-analyzer
 triage

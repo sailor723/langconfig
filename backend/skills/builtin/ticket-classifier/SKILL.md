@@ -1,6 +1,9 @@
 ---
-name: Ticket Classifier
-description: Classifies customer support tickets by priority, category, and sentiment
+name: Ticket Classifier（工单分类）
+lang: zh
+translated: machine
+source: backend/skills/en-originals/ticket-classifier/SKILL.md
+description: 按优先级、类别与情绪对客户支持工单进行分类。
 version: 1.0.0
 tags:
 - support
@@ -10,4 +13,4 @@ tags:
 
 ## Instructions
 
-# Ticket Classifier
+# 工单分类器

@@ -112,10 +112,22 @@ def test_there_is_at_least_one_translated_skill():
 
 @pytest.mark.parametrize("skill_id", sorted(_archived()), ids=str)
 def test_a_translated_skill_is_actually_chinese(skill_id: str):
+    """Chinese enough *for this original* — the size floor scales, the density check does not.
+
+    A fixed floor of 200 CJK characters was wrong for one honest reason: a translation cannot be larger
+    than its source. `ticket-classifier` is a two-line SKILL.md whose whole body is a title, so no faithful
+    translation of it reaches 200 characters, and the old rule made an honest job look like a failure.
+    Measured across the first five hand translations, Chinese runs 1.14-1.91 CJK characters per English
+    word, so 0.6 is a floor that a real translation clears and a half-translated one does not.
+    """
     body = _body(BUILTIN / skill_id / "SKILL.md")
+    en_words = len(re.findall(r"\b[A-Za-z]{3,}\b", _body(ARCHIVE / skill_id / "SKILL.md")))
     cjk = _cjk(body)
     latin = len(re.findall(r"\b[A-Za-z]{3,}\b", body))
-    assert cjk > 200, f"{skill_id}: SKILL.md has only {cjk} CJK characters — agents are reading English"
+    floor = max(3, round(en_words * 0.6))
+    assert cjk >= floor, (
+        f"{skill_id}: {cjk} CJK characters against {en_words} English words in the original (floor "
+        f"{floor}) — agents are reading English")
     assert cjk >= latin * 0.15, (
         f"{skill_id}: {latin} English words against {cjk} CJK characters — the body is mostly untranslated")
 
@@ -140,6 +152,40 @@ def test_the_frontmatter_records_where_english_lives(skill_id: str):
         f"{skill_id}: frontmatter must point at the archived original, so a reader can find the English")
     assert fm.get("translated") in {"human", "machine"}, (
         f"{skill_id}: say whether a human or a machine produced this text")
+
+
+@pytest.mark.parametrize("skill_id", sorted(_archived()), ids=str)
+def test_the_loader_delimiters_survive_translation(skill_id: str):
+    """`## Instructions` and `## Examples` are delimiters, not prose — the loader and the DB round-trip
+    both match them by prefix.
+
+    Found the hard way: the first five translations rendered the heading as `## 指令`, which stopped
+    `SkillLoader._parse_body_sections` recognising the structured format. It did not fail, it silently
+    switched to "the whole body is the instructions" — so `examples` became None and the examples block
+    was no longer presented as examples. 66 of the 102 skills use that heading, so the convention is:
+    keep the English word that starts the line and put the Chinese in parentheses after it.
+    """
+    for heading in ("## Instructions", "## Examples"):
+        en_body, zh_body = _body(_archived()[skill_id]), _body(BUILTIN / skill_id / "SKILL.md")
+        en_has = any(ln.startswith(heading) for ln in en_body.splitlines())
+        zh_has = any(ln.startswith(heading) for ln in zh_body.splitlines())
+        assert not (en_has and not zh_has), (
+            f"{skill_id}: the English original has a `{heading}` line and the Chinese does not. Do not "
+            f"translate that word — write `{heading}（…）` so the loader still finds it")
+
+
+@pytest.mark.parametrize("skill_id", sorted(_archived()), ids=str)
+def test_the_loader_still_parses_the_chinese_skill(skill_id: str):
+    """A skill that parses is the minimum: name, description and instructions all non-empty."""
+    from core.skills.loader import SkillLoader
+
+    parsed = SkillLoader().load_skill(str(BUILTIN / skill_id))
+    assert parsed is not None, f"{skill_id}: SkillLoader refused the Chinese SKILL.md"
+    assert parsed.name and parsed.description, f"{skill_id}: name/description did not survive"
+    en_words = len(re.findall(r"\b[A-Za-z]{3,}\b", _body(ARCHIVE / skill_id / "SKILL.md")))
+    assert _cjk(parsed.instructions) >= max(3, round(en_words * 0.6)), (
+        f"{skill_id}: the parsed instructions are not Chinese — the `## Instructions` line may have been "
+        "translated, which silently turns the whole body into the instructions section")
 
 
 def test_every_skill_is_in_exactly_one_language_state():
