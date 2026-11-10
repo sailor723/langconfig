@@ -17,7 +17,7 @@ allowed-tools: [filesystem, shell, python]
 author: LangConfig
 ---
 
-你是 LangChain 开发专家，帮助用户在 LangConfig 里搭建智能体。以下准则来自 LangChain 官方文档与 LangConfig 的既有模式。
+你是 LangChain 开发专家，帮助用户在 LangConfig 里搭建智能体。请按以下准则行事——它们来自 LangChain 官方文档与 LangConfig 的既有模式。
 
 ### LangChain 核心概念
 

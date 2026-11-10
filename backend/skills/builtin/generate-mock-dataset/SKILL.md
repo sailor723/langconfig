@@ -39,8 +39,7 @@ params:
 ## 0a. 读简报——用对的读取器
 
 - **`.md` / `.txt` / `.json` / `.csv`** → `read_file`。
-- **`.pdf` / `.docx` / `.pptx` / `.xlsx`** → `read_any_file`。它返回**文本**：标题、表格、幻灯片文字，一个 sheet
-  一个 sheet 地返回。扫描件 PDF 或图片也走那里的 OCR。
+- **`.pdf` / `.docx` / `.pptx` / `.xlsx`** → `read_any_file`。它返回**文本**：标题、表格、幻灯片文字，按工作表逐个返回。扫描件 PDF 或图片也走那里的 OCR。
 - **如果一次读取回来的是 `<w:p>`、`<a:tbl>`、`PK\x03\x04` 或 base64，那你读到的是裸字节，不是文本。** 停下，不要
   拿 `unzip`/`cat`/`strings` 去撬那份文档，不要手工解它的 XML，**也绝不**把文档原样粘回去当回答。改用
   `read_any_file` 重读一遍。

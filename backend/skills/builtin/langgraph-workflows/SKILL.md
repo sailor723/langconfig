@@ -220,7 +220,7 @@ class WorkflowState(TypedDict):
     error_message: Optional[str]
 ```
 
-#### 状态归并器
+#### 归约器（reducer）
 自动合并状态的增量更新：
 ```python
 # Messages accumulate (don't overwrite)

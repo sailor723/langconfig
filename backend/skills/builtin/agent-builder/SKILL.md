@@ -67,7 +67,7 @@ rubric  →  build  →  test  →  judge  →  (fix ≤2)  →  deliver
 
 ## 选 kind
 
-| kind | harness 提供 | 你必须补上 | 选用时机 |
+| kind | 脚手架（harness）提供 | 你必须补上 | 选用时机 |
 |---|---|---|---|
 | `deep` | `ls`、`read_file`、`write_file`、`edit_file`、`glob`、`grep`、`execute`；子智能体；技能；MCP | 文件之外的工具，想要 HITL 就加中间件 | 多步工作、产出是文件、需要专家分工 |
 | `normal` | 平台装配的提示词（护栏 + 工具强制）；**没有文件工具** | 需要存文件时显式加 `write_file` | 单一任务、规则应交由平台替你执行 |
@@ -85,7 +85,7 @@ pg_list_agents()            # what already exists, so you do not duplicate
 pg_get_agent(<id>)          # the full config of one agent, before you update it
 ```
 
-提示词里写了目录中并不存在的工具名，会静默失败——智能体干脆永远不会去调用它。这是"看着挺像那么回事、实际
+提示词里写了目录中并不存在的工具名，会静默失败——智能体干脆永远不会去调用它。这是"看起来像那么回事、实际
 什么都没做"最常见的一种成因。
 
 ## 子智能体
