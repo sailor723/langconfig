@@ -5,9 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Activity, Copy, CheckCircle, AlertCircle, X, Brain, User, ChevronDown, ChevronRight, Wrench, Download } from 'lucide-react';
+import { Activity, Copy, CheckCircle, AlertCircle, X, Brain, User, ChevronDown, ChevronRight, Wrench, Download, ArrowDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -136,14 +136,105 @@ export default function MessagesPanel({
     return () => clearInterval(interval);
   }, [isStreaming]);
 
-  // Auto-scroll to bottom as new content arrives. During streaming the
-  // assistant's message grows one chunk at a time, so we follow it live with an
-  // instant jump (`auto`) instead of a smooth scroll — smooth scrolling on every
-  // token queues up animations and lags behind the output. Once the run
-  // finishes, the final message settles in with a smooth scroll.
+  // Auto-scroll follows the stream — but only for a reader who is already at the
+  // bottom. The unconditional version was measured: with the content growing, a
+  // scroll-up to re-read an earlier paragraph was undone by the very next chunk
+  // (scrollTop went 0 → 311 within 120 ms). "Follow the output" and "hold still
+  // while I read" are both correct, so the panel has to know which one is wanted.
+  const scrollBoxRef = useRef<HTMLDivElement>(null);
+  const stickToBottomRef = useRef(true);
+  const [awayFromBottom, setAwayFromBottom] = useState(false);
+  const lastScrollTopRef = useRef(0);
+  const NEAR_BOTTOM_PX = 80;
+
+  const scrollToBottom = useCallback((smooth: boolean) => {
+    const box = scrollBoxRef.current;
+    if (!box) return;
+    // Set the scroller's own scrollTop rather than scrollIntoView on a sentinel:
+    // scrollIntoView also scrolls ancestors, so it can move the whole page.
+    box.scrollTo({ top: box.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+    // Track where we actually landed, not where we asked to go: the scroll event
+    // this triggers would otherwise read as a large upward move (scrollTop drops
+    // from scrollHeight to scrollHeight - clientHeight) and switch following off.
+    lastScrollTopRef.current = box.scrollTop;
+  }, []);
+
+  /** Read the reader's intent off the scroller, and say whether it is still pinned. */
+  const readIntent = useCallback((): boolean => {
+    const box = scrollBoxRef.current;
+    if (!box) return false;
+    const gap = box.scrollHeight - box.clientHeight - box.scrollTop;
+    // "The reader scrolled up" is a *direction*, not a distance. Judging it by
+    // distance alone was wrong: content grows between React's render and the
+    // effect that follows it, so a growing transcript briefly looks like someone
+    // who left the bottom — the panel then stopped following for the rest of the
+    // run (measured: 10 s at scrollTop 0 while the answer streamed past).
+    const wentUp = box.scrollTop < lastScrollTopRef.current - 4;
+    lastScrollTopRef.current = box.scrollTop;
+    if (wentUp) stickToBottomRef.current = false;
+    else if (gap <= NEAR_BOTTOM_PX) stickToBottomRef.current = true;
+    // Only offer the jump button when there is something to jump over.
+    setAwayFromBottom(!stickToBottomRef.current && gap > NEAR_BOTTOM_PX
+      && box.scrollHeight > box.clientHeight + 8);
+    return stickToBottomRef.current;
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    readIntent();
+  }, [readIntent]);
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: isStreaming ? 'auto' : 'smooth' });
-  }, [messages, isStreaming]);
+    // Read the intent here too: this effect runs on the same render as the
+    // reader's scroll, and a stale `true` in the ref let one more chunk drag them
+    // back to the bottom (measured: scroll-up at 13.8 s, scrollTop 0 → 802 px).
+    if (!readIntent()) return;
+    // During streaming the message grows one chunk at a time, so follow it with an
+    // instant jump; smooth scrolling on every chunk queues animations and lags.
+    scrollToBottom(isStreaming);
+  }, [messages, isStreaming, readIntent, scrollToBottom]);
+
+  // …and follow growth that is NOT a `messages` update: the thinking block, the
+  // tool-call cards and the streaming text all change the transcript's height
+  // without changing the `messages` array. Measured: 15 s of content growth
+  // (642 → 1147 px) with scrollTop pinned at 0, because nothing re-ran the effect.
+  // A MutationObserver on the transcript catches every one of those, coalesced
+  // into one scroll per frame.
+  useEffect(() => {
+    const box = scrollBoxRef.current;
+    if (!box || typeof MutationObserver === 'undefined') return;
+    let raf = 0;
+    const follow = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        // Re-read intent here, not only on scroll events: the reader's scroll and
+        // the mutation that follows it can land in the same frame, and a scroll
+        // event that has not fired yet must not let one more chunk drag them back.
+        if (readIntent()) scrollToBottom(false);
+      });
+    };
+    const observer = new MutationObserver(follow);
+    observer.observe(box, { childList: true, subtree: true, characterData: true });
+    return () => {
+      observer.disconnect();
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [readIntent, scrollToBottom]);
+
+  // A run starting is a fresh question: put the reader back at the bottom and
+  // resume following, even if they had scrolled away to read something.
+  useEffect(() => {
+    if (!isStreaming) return;
+    stickToBottomRef.current = true;
+    setAwayFromBottom(false);
+    scrollToBottom(false);
+  }, [isStreaming, scrollToBottom]);
+
+  const jumpToBottom = useCallback(() => {
+    stickToBottomRef.current = true;
+    setAwayFromBottom(false);
+    scrollToBottom(true);
+  }, [scrollToBottom]);
 
   const copyToClipboard = (text: string, index: number) => {
     navigator.clipboard.writeText(text);
@@ -182,8 +273,14 @@ export default function MessagesPanel({
 
   return (
     <div className="flex-1 flex flex-col min-w-0" style={{ backgroundColor: 'var(--color-background-light)' }}>
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto px-6 pt-4 pb-2">
+      {/* Messages Area — wrapped so the "jump to latest" affordance can sit over
+          it without scrolling away with the content. */}
+      <div className="relative flex-1 min-h-0 flex flex-col">
+      <div
+        ref={scrollBoxRef}
+        onScroll={handleScroll}
+        className="flex-1 min-h-0 overflow-y-auto px-6 pt-4 pb-2"
+      >
         {messages.length === 0 && !disabled && useCodexLayout ? (
           // Codex-style empty state: centered heading + composer
           <div className="flex flex-col items-center justify-center h-full min-h-full">
@@ -721,6 +818,25 @@ export default function MessagesPanel({
 
           <div ref={messagesEndRef} />
           </div>
+        )}
+      </div>
+
+        {/* Shown only while the reader is away from the bottom, so streaming does
+            not have to choose between following the output and letting them read. */}
+        {awayFromBottom && (
+          <button
+            onClick={jumpToBottom}
+            className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs shadow-lg transition-opacity hover:opacity-90"
+            style={{
+              backgroundColor: 'var(--color-background-dark)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border-dark)',
+            }}
+            title="回到底部"
+          >
+            <ArrowDown className="w-3.5 h-3.5" />
+            回到底部
+          </button>
         )}
       </div>
 

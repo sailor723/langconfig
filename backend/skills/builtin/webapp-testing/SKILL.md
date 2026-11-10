@@ -208,3 +208,55 @@ assert request.method == "POST"
    - 在移动端断点上测（375px、414px）
    - 在平板断点上测（768px、1024px）
    - 在桌面端断点上测（1280px、1920px）
+
+### 在本仓库/本机上验证（实测配方，照抄比猜快）
+
+上面的写法是通用的。真正在这个应用里开浏览器时，下面这些是**实测**出来的，每一条都省掉一次失败重试。
+
+**先认清自己在哪**：你是被 `:8765` 的后端调用起来的。**不要重启这个栈**——`./start.sh` 的第一步就是杀掉
+`:8765` 上的监听进程，也就是正在跑你这轮对话的那个进程（脚本现在有祖先守卫会拒绝，但别把它当许可）。实测后果：
+回合在工具执行中途消失，用户看到转圈、然后 "Load failed"，而 LangGraph 会在下一轮重跑那个没跑完的工具调用。
+需要重启就把命令原样交给用户。
+
+| 事实 | 值 |
+|---|---|
+| 前端 | `http://localhost:1421`（vite） |
+| 路由形式 | `HashRouter`：`http://localhost:1421/#/chat?agentId=<id>` —— 不是 `/chat?…` |
+| 后端 | `http://127.0.0.1:8765` |
+| 聊天页 | 输入框 `textarea[placeholder="Do anything"]`，发送按钮 `button[title="Send message"]` |
+| 消息滚动容器 | `div.overflow-y-auto`，取 `scrollHeight - clientHeight`（可滚动高度）最大的那个 |
+| 模型 key | 在数据库里，不在 `.env`——`.env` 为空不代表没配 |
+
+**Playwright 在这台机器上是"半装"状态**：项目里没有；系统 python 是 externally-managed，`pip3 install` 会被拒
+（PEP 668）；但 `~/Library/Caches/ms-playwright/chromium-1223/` 里有现成浏览器。所以：新建 venv 装库、复用缓存里的
+浏览器，**不要 `playwright install` 重新下载**。
+
+```bash
+python3 -m venv /tmp/pwenv && /tmp/pwenv/bin/pip install -q playwright
+```
+
+```python
+CHROME = ("/Users/<you>/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/"
+          "Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing")
+browser = p.chromium.launch(headless=True, executable_path=CHROME)
+```
+
+版本不匹配（新 playwright 想找 1254，缓存里是 1223）时同样走 `executable_path`，不要去下新的浏览器。
+
+**测流式/滚动这类行为：采样，不要截图判读。** 判据写在数字上，例如"内容长高时视口还在底部"：
+
+```python
+snap = page.evaluate("""() => {
+  const el = [...document.querySelectorAll('div.overflow-y-auto')]
+    .filter(e => e.clientHeight > 200)
+    .sort((a, b) => (b.scrollHeight - b.clientHeight) - (a.scrollHeight - a.clientHeight))[0];
+  return {top: Math.round(el.scrollTop), sh: el.scrollHeight, ch: el.clientHeight,
+          gap: Math.round(el.scrollHeight - el.clientHeight - el.scrollTop)};
+}""")
+```
+
+判据示例（一次真实验证用过）：内容增长 `> 300px`；**内容增长期间**的采样点里 `gap <= 40` 的比例 `>= 80%`。
+这一个判据同时否掉两种假绿：根本没跟（`gap` 一直很大）和测错了容器（`sh` 不变化）。
+
+**SPA 的两个坑**：用 `wait_until="domcontentloaded"` 而不是 `networkidle`（这个应用常驻 ws/SSE 长连接，
+`networkidle` 可能永远不返回）；页面上不止一个 `textarea`，按 `placeholder` 选，别按位置选。
