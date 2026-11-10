@@ -6,6 +6,7 @@
  */
 
 import type { ContentBlock } from '@/types/content-blocks';
+import type { AssistantBlock } from '../utils/assistantBlocks';
 
 export interface ChatMessage {
   /** 'handoff' marks a step transition: the speaker changes for what follows. */
@@ -24,6 +25,12 @@ export interface ChatMessage {
   artifacts?: ContentBlock[];
   /** Whether the message contains multimodal content */
   has_multimodal?: boolean;
+  /**
+   * What this assistant turn did, in arrival order (reasoning / text / tool-call).
+   * The turn's state lives HERE, on the message, not in session-wide component
+   * state — the DSH model. See `utils/assistantBlocks.ts` for why.
+   */
+  blocks?: AssistantBlock[];
 }
 
 export interface ChatSession {

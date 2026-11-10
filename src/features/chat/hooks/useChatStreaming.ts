@@ -21,8 +21,8 @@ interface UseChatStreamingResult {
     onHandoff?: (event: ChatStreamEvent) => void,
     onCustomEvent?: (event: ChatStreamEvent) => void,
     onInterrupt?: (event: ChatStreamEvent) => void,
-    /** Called with thinking content (pre-tool-call text) during streaming */
-    onThinkingUpdate?: (content: string) => void,
+    /** Called with a reasoning DELTA (provider <think> text), not a buffer. */
+    onThinkingUpdate?: (delta: string) => void,
     /** Optional doc scope — when provided (and non-empty), the backend
         chat agent will only consider / read these docs (by name). */
     scope?: string[] | null,
@@ -169,13 +169,10 @@ export function useChatStreaming(
             // content to display. For the no-tool case, the
             // thinking equals the answer (which is fine — the
             // toggle is just a no-op visual element).
+            // The answer text goes to the message body ONLY. It used to be copied
+            // into thinkingBufferRef as well, so the Thinking panel printed the
+            // answer a second time (and outlived its turn).
             accumulatedContent += data.content;
-            if (!toolPhaseSeenRef.current) {
-              thinkingBufferRef.current += data.content;
-              if (onThinkingUpdate) {
-                onThinkingUpdate(thinkingBufferRef.current);
-              }
-            }
             if (!assistantMessageAdded) {
               ensureAssistantMessage();
             } else {
@@ -196,10 +193,12 @@ export function useChatStreaming(
             // Backend emits this for <think>...</think> blocks
             // (e.g., Minimax M3's reasoning) — separate from
             // the final answer text.
+            // Delta, not the running buffer: the caller appends it to the
+            // message's own `reasoning` block (see utils/assistantBlocks.ts).
             ensureAssistantMessage();
             thinkingBufferRef.current += data.content;
             if (onThinkingUpdate) {
-              onThinkingUpdate(thinkingBufferRef.current);
+              onThinkingUpdate(data.content || '');
             }
           } else if (data.type === 'error') {
             setError(data.message || 'An error occurred during streaming');

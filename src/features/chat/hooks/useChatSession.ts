@@ -17,6 +17,8 @@ interface UseChatSessionResult {
   loadHistory: (sessionId: string) => Promise<void>;
   addMessage: (message: ChatMessage) => void;
   updateLastMessage: (content: string) => void;
+  /** Mutate the last message in place of a value (used for its `blocks`). */
+  updateLastMessageWith: (mutate: (message: ChatMessage) => ChatMessage) => void;
   clearHistory: () => void;
   setError: (error: string | null) => void;
 }
@@ -92,6 +94,16 @@ export function useChatSession(currentSessionId: string | null): UseChatSessionR
     });
   }, []);
 
+  /** Replace the last message with the result of `mutate` (used to append blocks). */
+  const updateLastMessageWith = useCallback((mutate: (message: ChatMessage) => ChatMessage) => {
+    setMessages(prev => {
+      if (prev.length === 0) return prev;
+      const next = [...prev];
+      next[next.length - 1] = mutate(next[next.length - 1]);
+      return next;
+    });
+  }, []);
+
   const clearHistory = useCallback(() => {
     setMessages([]);
     setError(null);
@@ -105,6 +117,7 @@ export function useChatSession(currentSessionId: string | null): UseChatSessionR
     loadHistory,
     addMessage,
     updateLastMessage,
+    updateLastMessageWith,
     clearHistory,
     setError,
   };

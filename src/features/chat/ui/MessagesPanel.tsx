@@ -566,8 +566,13 @@ export default function MessagesPanel({
                         )}
                       </div>
 
-                      {/* Thinking & Tool Calls toggle */}
-                      {message.role === 'assistant' && index === messages.length - 1 && isStreaming && (
+                      {/* Thinking & Tool Calls toggle — driven by THIS message's own
+                          blocks (the turn's record), not by session-wide state. That
+                          is the DSH shape: a turn's steps belong to its message, so a
+                          later turn cannot show them (the "thinking appended to all
+                          thinking" report). */}
+                      {message.role === 'assistant' && (message.blocks?.length || 0) > 0
+                        && (isStreaming ? index === messages.length - 1 : true) && (
                         <div className="mt-2">
                           {/* Toggle button */}
                           <button
@@ -578,9 +583,12 @@ export default function MessagesPanel({
                             {showThinking ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                             <Brain className="w-3 h-3" />
                             <span>
-                              {activeToolCalls.length > 0
-                                ? `Thinking (${activeToolCalls.length} step${activeToolCalls.length !== 1 ? 's' : ''})`
-                                : tr('mg_thinking')}
+                              {(() => {
+                                const toolBlocks = (message.blocks || []).filter(b => b.kind === 'tool-call');
+                                return toolBlocks.length > 0
+                                  ? `Thinking (${toolBlocks.length} step${toolBlocks.length !== 1 ? 's' : ''})`
+                                  : tr('mg_thinking');
+                              })()}
                             </span>
                             <span className="text-[10px] ml-0.5">{(elapsedMs / 1000).toFixed(1)}s</span>
                             {!showThinking && activeToolCalls.some(t => t.status === 'running') && (
@@ -597,13 +605,15 @@ export default function MessagesPanel({
                                 backgroundColor: 'var(--color-input-background, #f9fafb)',
                               }}
                             >
-                              {/* Thinking buffer (current work) */}
-                              {thinkingBuffer && (
-                                <div className="flex items-start gap-1.5">
+                              {/* Reasoning — the message's own reasoning block(s). */}
+                              {(message.blocks || []).filter(b => b.kind === 'reasoning').map((b, i) => (
+                                <div key={`reasoning-${i}`} className="flex items-start gap-1.5">
                                   <span className="text-muted flex-shrink-0 mt-0.5">💡</span>
-                                  <div style={{ color: 'var(--color-text-muted)' }} className="text-[11px] leading-relaxed">{thinkingBuffer}</div>
+                                  <div style={{ color: 'var(--color-text-muted)' }} className="text-[11px] leading-relaxed">
+                                    {b.kind === 'reasoning' ? b.text : null}
+                                  </div>
                                 </div>
-                              )}
+                              ))}
                               {/* Todo steps from planning */}
                               {(() => {
                                 const steps = Array.from(customEvents.entries())
@@ -643,27 +653,34 @@ export default function MessagesPanel({
                                   </div>
                                 );
                               })()}
-                              {/* Tool calls (action steps) */}
-                              {activeToolCalls.map((tc, i) => (
-                                <div key={i} className="flex items-start gap-1.5">
-                                  <span className="flex-shrink-0 mt-0.5">{tc.status === 'running' ? '🔧' : '✅'}</span>
+                              {/* Tool calls — from this message's blocks, in the order
+                                  the agent called them. */}
+                              {(message.blocks || []).filter(b => b.kind === 'tool-call').map((b, i) => (
+                                <div key={`tool-${i}`} className="flex items-start gap-1.5">
+                                  <span className="flex-shrink-0 mt-0.5">
+                                    {b.kind === 'tool-call' && b.status === 'running' ? '🔧' : (b.kind === 'tool-call' && b.status === 'failed' ? '❌' : '✅')}
+                                  </span>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
                                       <span className="font-mono font-medium text-xs" style={{ color: 'var(--color-text-primary)' }}>
-                                        {tc.tool_name}
+                                        {b.kind === 'tool-call' ? b.name : null}
                                       </span>
-                                      {tc.status === 'running' ? (
+                                      {b.kind === 'tool-call' && b.status === 'running' ? (
                                         <span className="text-blue-500 text-[10px] animate-pulse">{tr('mg_running')}</span>
                                       ) : (
-                                        <span style={{ color: '#10b981' }} className="text-[10px]">{tr('mg_done')}</span>
+                                        <span style={{ color: b.kind === 'tool-call' && b.status === 'failed' ? '#ef4444' : '#10b981' }} className="text-[10px]">
+                                          {b.kind === 'tool-call' && b.status === 'failed' ? '失败' : tr('mg_done')}
+                                        </span>
                                       )}
-                                      <span className="text-[10px] ml-auto" style={{ color: 'var(--color-text-muted)' }}>
-                                        {tc.timestamp ? ((Date.now() - new Date(tc.timestamp).getTime()) / 1000).toFixed(1) + 's' : ''}
-                                      </span>
                                     </div>
-                                    {tc.arguments && Object.keys(tc.arguments).length > 0 && Object.values(tc.arguments).some(v => v) && (
+                                    {b.kind === 'tool-call' && b.argsRaw && (
                                       <div className="text-[10px] truncate mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                                        {JSON.stringify(tc.arguments).slice(0, 120)}
+                                        {b.argsRaw.slice(0, 120)}
+                                      </div>
+                                    )}
+                                    {b.kind === 'tool-call' && b.result && (
+                                      <div className="text-[10px] truncate mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                                        {b.result.slice(0, 160)}
                                       </div>
                                     )}
                                   </div>

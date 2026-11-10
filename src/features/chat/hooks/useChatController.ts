@@ -18,6 +18,7 @@ import { useChat } from '../state/ChatContext';
 import { useChatSession } from './useChatSession';
 import { useChatStreaming } from './useChatStreaming';
 import { useChatMetrics } from './useChatMetrics';
+import { appendReasoning, finishToolCall, startToolCall } from '../utils/assistantBlocks';
 import type { ChatSession, ChatStreamEvent, CustomEventPayload, InterruptData, ToolCall } from '../types/chat';
 import type { ThinkingStep } from '../ui/ThinkingBlock';
 
@@ -168,6 +169,7 @@ export function useChatController(options: UseChatControllerOptions = {}) {
     error: sessionError,
     addMessage,
     updateLastMessage,
+    updateLastMessageWith,
     loadHistory,
     clearHistory,
     setError: setSessionError,
@@ -265,6 +267,14 @@ export function useChatController(options: UseChatControllerOptions = {}) {
   const handleSendMessage = async (message: string) => {
     if (!currentSessionId) return;
     setPendingInterrupt(null);
+    // Per-turn state starts empty. It used to be cleared only on `complete`, so a
+    // turn that ended any other way (interrupt, error, stop) kept its tool calls
+    // and custom events, and the next turn's pass appended to them — the
+    // "thinking appended to all thinking" report.
+    setActiveToolCalls([]);
+    setCustomEvents(new Map());
+    setThinkingBuffer('');
+    tracesRef.current = [];
     await sendMessage(
       message,
       addMessage,
@@ -303,6 +313,13 @@ export function useChatController(options: UseChatControllerOptions = {}) {
         // Tool events
         if (event.type === 'tool_start' && event.tool_name) {
           const skill_name = event.skill_name || null;
+          const callId = (event as any).tool_call_id || event.tool_name;
+          const args = event.data?.input || event.data?.args || {};
+          // The turn's own record: a block, on the message that made the call.
+          updateLastMessageWith(m => ({
+            ...m,
+            blocks: startToolCall(m.blocks || [], { name: event.tool_name!, args, callId }),
+          }));
           setActiveToolCalls(prev => [...prev, {
             tool_name: event.tool_name!,
             skill_name,
@@ -314,6 +331,16 @@ export function useChatController(options: UseChatControllerOptions = {}) {
           tracesRef.current = [...tracesRef.current, { type: 'tool_start', tool_name: event.tool_name, data: event.data }];
         } else if (event.type === 'tool_end' && event.tool_name) {
           const result = event.data?.output || '';
+          const callId = (event as any).tool_call_id || event.tool_name;
+          updateLastMessageWith(m => ({
+            ...m,
+            blocks: finishToolCall(m.blocks || [], {
+              name: event.tool_name!,
+              callId,
+              output: typeof result === 'string' ? result : JSON.stringify(result),
+              status: event.data?.status === 'failed' || event.data?.error ? 'failed' : 'completed',
+            }),
+          }));
           setActiveToolCalls(prev => prev.map(t =>
             t.tool_name === event.tool_name && t.status === 'running'
               ? { ...t, status: 'completed', result }
@@ -349,9 +376,11 @@ export function useChatController(options: UseChatControllerOptions = {}) {
           setPendingInterrupt(event.data as InterruptData);
         }
       },
-      (content: string) => {
-        // Thinking content (pre-tool-call text, not the final answer)
-        setThinkingBuffer(content);
+      (delta: string) => {
+        // A reasoning delta belongs to this turn's message, as its own block —
+        // not to a session-wide buffer that outlives the turn.
+        setThinkingBuffer(prev => (prev + delta).slice(-4000));
+        updateLastMessageWith(m => ({ ...m, blocks: appendReasoning(m.blocks || [], delta) }));
       }
     );
   };
