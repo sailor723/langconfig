@@ -62,29 +62,53 @@ def split_fences(text: str) -> tuple[str, list[tuple[str, str]]]:
     return "\n".join(prose), blocks
 
 
-WORD_PAIR = re.compile(r"^[A-Za-z][A-Za-z-]*(?:/[A-Za-z][A-Za-z-]*)+$")
-IDENTIFIER = re.compile(r"[_\d]|[a-z][A-Z]|[A-Z]{2,}")
+CODE_EXT = (".py", ".md", ".json", ".yml", ".yaml", ".txt", ".ts", ".tsx", ".toml", ".sh", ".sql", ".html")
 
 
 def severity(token: str) -> str:
     """How much a missing token matters.
 
-    `hard` is data: a URL, a number, a file path, or an identifier (anything with an underscore, a digit, an
-    inner capital or an ALLCAPS run). Losing one of those changes what a reader types or what a number means.
+    `hard` is data: a URL, a code filename, or a token with a digit, an underscore, an inner capital or an
+    ALLCAPS acronym — anything a reader would type, or a number whose value is the point.
 
-    `soft` is English prose that happened to sit in backticks — `back/forward`, `async/sync`, `Article/Blog`.
-    A translator rendering those as 前进/后退 is doing the job, not losing it, and calling that a defect would
-    make the report useless by burying the real ones.
+    `soft` is English that sat in backticks because of how the source was written: slash-joined word pairs
+    (`back/forward`, `async/sync`, `FX/commodity`, `IEA/IRENA-class`), phrases with spaces, and an English plural
+    (`404s`). A translator rendering those as 前进/后退, 外汇/大宗商品 or 五个 404 is doing the job, not losing it —
+    and calling that a defect would bury the real ones. Two rules matter more than they look: a **single** word in
+    capitals is hard (`PASS`, `REFUSED` are contract values), and a single camelCase word is hard
+    (`atRiskDrivers` was the real find) — only a *slash-joined* letter group counts as prose.
     """
-    if "://" in token:
+    stripped = token.rstrip(".,;:）) ")
+    if "://" in stripped:
         return "hard"
-    if re.fullmatch(r"[\d.,%xms/ ]+", token):
+    if stripped.endswith(CODE_EXT):
         return "hard"
-    if IDENTIFIER.search(token) or token.endswith((".py", ".md", ".json", ".yml", ".yaml", ".txt", ".ts", ".tsx")):
+    if " " in stripped:                     # a phrase, not an identifier
+        return "soft"
+    if "/" in stripped:
+        segments = [s for s in stripped.split("/") if s]
+        if any(any(ch.isdigit() for ch in s) for s in segments):
+            return "hard"
+        if all(re.fullmatch(r"[A-Za-z][A-Za-z-]*", s) for s in segments):
+            return "soft"
         return "hard"
-    if "/" in token and not WORD_PAIR.match(token):
+    if any(ch.isdigit() for ch in stripped) or "_" in stripped:
+        return "hard"
+    if re.search(r"[a-z][A-Z]", stripped):  # camelCase
+        return "hard"
+    if re.fullmatch(r"[A-Z]{2,}", stripped):  # a bare acronym: PASS, REFUSED, ADMITTED
         return "hard"
     return "soft"
+
+
+def normalise(text: str) -> str:
+    """Credit the two renderings that are translations of a token rather than losses of one.
+
+    `8x` becomes 8 倍 — same claim, Chinese unit. `404s` becomes 五个 404 — same code, English plural dropped.
+    """
+    text = re.sub(r"(\d+(?:[.,]\d+)?)\s*倍", r"\1x", text)
+    text = re.sub(r"(\d+)s\b", r"\1", text)
+    return text
 
 
 def tokens_in(prose: str) -> set[str]:
@@ -106,8 +130,8 @@ def check(skill_id: str, show_fences: bool) -> tuple[list[str], list[str], list[
     zh_prose, zh_blocks = split_fences(body_of(zh_path.read_text(encoding="utf-8")))
     en_prose, en_blocks = split_fences(body_of(en_path.read_text(encoding="utf-8")))
 
-    zh_squashed = squash(zh_prose)
-    missing = sorted((t for t in tokens_in(en_prose) if squash(t) not in zh_squashed),
+    zh_squashed = squash(normalise(zh_prose))
+    missing = sorted((t for t in tokens_in(en_prose) if squash(normalise(t)) not in zh_squashed),
                      key=lambda tok: (severity(tok) != "hard", tok))
 
     changed = [(info, block) for (info, block), (zh_info, zh_block)
