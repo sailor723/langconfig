@@ -1,32 +1,36 @@
 ---
-name: langgraph-workflows
+name: "langgraph-workflows（LangGraph 工作流）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/langgraph-workflows/SKILL.md
 description: >-
-  Expert guidance for designing LangGraph state machines and multi-agent workflows. Use when building workflows, connecting agents, or implementing complex control flow in LangConfig.
+  设计与搭建 LangGraph 状态机、多智能体工作流的专家指南。在 LangConfig 里搭建工作流、连接智能体，
+  或实现复杂控制流时使用。
 tags: [langgraph, workflows, state-machine, multi-agent, orchestration]
 triggers:
-  - "when user mentions LangGraph"
-  - "when user mentions workflow"
-  - "when user mentions state machine"
-  - "when user mentions multi-agent"
-  - "when connecting agents"
+  - "用户提到 LangGraph 时"
+  - "用户提到工作流时"
+  - "用户提到状态机时"
+  - "用户提到多智能体时"
+  - "连接智能体时"
 allowed-tools: [filesystem, shell, python]
 author: LangConfig
 ---
 
-You are an expert LangGraph architect helping users design and build workflows in LangConfig. LangGraph enables stateful, cyclic, multi-agent workflows with automatic state management.
+你是 LangGraph 架构专家，帮助用户在 LangConfig 里设计和搭建工作流。LangGraph 支持有状态、可循环的多智能体工作流，并自带状态管理。
 
-### LangGraph Core Concepts
+### LangGraph 核心概念
 
-Based on official LangGraph documentation:
+依据 LangGraph 官方文档：
 
 #### StateGraph
-A specialized graph that maintains and updates shared state throughout execution:
-- Each node receives current state and returns updated state
-- State is automatically passed between nodes
-- Enables context-aware decision-making and persistent memory
+一种专门的图，在整个执行过程中维护并更新共享状态：
+- 每个节点接收当前状态，并返回更新后的状态
+- 状态在节点之间自动传递
+- 支持上下文感知的决策与持久记忆
 
-#### Nodes
-Represent processing steps in the workflow:
+#### 节点
+表示工作流中的处理步骤：
 ```python
 # Each node is a function that takes state and returns updates
 def research_node(state: WorkflowState) -> dict:
@@ -36,15 +40,15 @@ def research_node(state: WorkflowState) -> dict:
     return {"research_results": result}
 ```
 
-#### Edges
-Define transitions between nodes:
-- **Static edges**: Fixed transitions (A → B)
-- **Conditional edges**: Dynamic routing based on state
+#### 边
+定义节点之间的跳转：
+- **静态边**：固定的跳转（A → B）
+- **条件边**：依据状态做动态路由
 
-### LangConfig Node Types
+### LangConfig 节点类型
 
 #### AGENT_NODE
-Standard LLM agent that processes input and can use tools:
+标准的 LLM 智能体，处理输入并能使用工具：
 ```json
 {
   "id": "researcher",
@@ -61,7 +65,7 @@ Standard LLM agent that processes input and can use tools:
 ```
 
 #### CONDITIONAL_NODE
-Routes workflow based on evaluated conditions:
+按求值后的条件对工作流做路由：
 ```json
 {
   "id": "router",
@@ -76,7 +80,7 @@ Routes workflow based on evaluated conditions:
 ```
 
 #### LOOP_NODE
-Implements iteration with exit conditions:
+实现带退出条件的迭代：
 ```json
 {
   "id": "refinement_loop",
@@ -90,7 +94,7 @@ Implements iteration with exit conditions:
 ```
 
 #### OUTPUT_NODE
-Terminates workflow and formats final output:
+终止工作流并格式化最终输出：
 ```json
 {
   "id": "output",
@@ -103,7 +107,7 @@ Terminates workflow and formats final output:
 ```
 
 #### CHECKPOINT_NODE
-Saves workflow state for resumption:
+保存工作流状态，供之后恢复：
 ```json
 {
   "id": "checkpoint",
@@ -116,7 +120,7 @@ Saves workflow state for resumption:
 ```
 
 #### APPROVAL_NODE
-Human-in-the-loop checkpoint:
+人在回路中的检查点：
 ```json
 {
   "id": "human_review",
@@ -128,10 +132,10 @@ Human-in-the-loop checkpoint:
 }
 ```
 
-### Workflow Patterns
+### 工作流模式
 
-#### 1. Sequential Pipeline
-Simple linear flow of agents:
+#### 1. 顺序流水线
+智能体的简单线性流程：
 ```
 START → Agent A → Agent B → Agent C → END
 
@@ -139,8 +143,8 @@ Use case: Content generation pipeline
 - Research → Outline → Write → Edit
 ```
 
-#### 2. Conditional Branching
-Route based on output:
+#### 2. 条件分支
+按输出做路由：
 ```
 START → Classifier → [Condition]
                         ├── Route A → Handler A → END
@@ -150,8 +154,8 @@ Use case: Intent classification
 - Classify query → Route to appropriate specialist
 ```
 
-#### 3. Reflection/Critique Loop
-Self-improvement cycle:
+#### 3. 反思 / 评审循环
+自我改进的闭环：
 ```
 START → Generator → Critic → [Condition]
                                ├── PASS → END
@@ -161,8 +165,8 @@ Use case: Code review, content quality
 - Generate → Critique → Revise until approved
 ```
 
-#### 4. Supervisor Pattern
-Central coordinator managing specialists:
+#### 4. 主管模式
+中心协调者管理各专家：
 ```
 START → Supervisor → [Delegate]
                         ├── Specialist A → Supervisor
@@ -174,7 +178,7 @@ Use case: Complex research tasks
 ```
 
 #### 5. Map-Reduce
-Parallel processing with aggregation:
+并行处理并聚合结果：
 ```
 START → Splitter → [Parallel]
                       ├── Worker A ─┐
@@ -185,9 +189,9 @@ Use case: Document analysis
 - Split document → Analyze sections → Combine insights
 ```
 
-### State Management
+### 状态管理
 
-#### Workflow State Schema
+#### 工作流状态结构
 ```python
 class WorkflowState(TypedDict):
     # Core identifiers
@@ -216,8 +220,8 @@ class WorkflowState(TypedDict):
     error_message: Optional[str]
 ```
 
-#### State Reducers
-Automatically combine state updates:
+#### 状态归并器
+自动合并状态的增量更新：
 ```python
 # Messages accumulate (don't overwrite)
 messages: Annotated[List[BaseMessage], operator.add]
@@ -226,10 +230,10 @@ messages: Annotated[List[BaseMessage], operator.add]
 step_history: Annotated[List[Dict], operator.add]
 ```
 
-### Edge Configuration
+### 边配置
 
-#### Static Edge
-Always routes to specified node:
+#### 静态边
+始终路由到指定节点：
 ```json
 {
   "source": "researcher",
@@ -238,8 +242,8 @@ Always routes to specified node:
 }
 ```
 
-#### Conditional Edge
-Routes based on state:
+#### 条件边
+按状态做路由：
 ```json
 {
   "source": "classifier",
@@ -256,29 +260,29 @@ Routes based on state:
 }
 ```
 
-### Best Practices
+### 最佳实践
 
-#### 1. Keep Nodes Focused
-Each node should do ONE thing well:
-- ❌ "Research and write and edit"
-- ✅ "Research" → "Write" → "Edit"
+#### 1. 让节点职责单一
+每个节点只应把一件事做好：
+- ❌ “研究、编写并编辑”
+- ✅ “研究” → “编写” → “编辑”
 
-#### 2. Use Checkpoints Strategically
-Save state at expensive operations:
-- After long LLM calls
-- Before human approval
-- At natural breakpoints
+#### 2. 有的放矢地打检查点
+在高开销操作处保存状态：
+- 长时间 LLM 调用之后
+- 人工审批之前
+- 在自然的断点处
 
-#### 3. Handle Errors Gracefully
-Add error handling paths:
+#### 3. 优雅地处理错误
+补上错误处理路径：
 ```
 Agent → [Error?]
           ├── No → Continue
           └── Yes → Error Handler → Retry/Exit
 ```
 
-#### 4. Limit Loop Iterations
-Always set `max_iterations` to prevent infinite loops:
+#### 4. 限制循环次数
+始终设置 `max_iterations` 以防死循环：
 ```json
 {
   "max_iterations": 5,
@@ -286,32 +290,32 @@ Always set `max_iterations` to prevent infinite loops:
 }
 ```
 
-#### 5. Design for Observability
-Include meaningful names and step history:
-- Name nodes descriptively
-- Log state transitions
-- Track timing metrics
+#### 5. 为可观测性而设计
+带上能说明问题的命名与步骤历史：
+- 节点命名要描述用途
+- 记录状态转移
+- 跟踪耗时指标
 
-### Debugging Workflows
+### 调试工作流
 
-#### Common Issues
+#### 常见问题
 
-1. **Workflow hangs**
-   - Check for missing edges
-   - Verify conditional logic
-   - Look for infinite loops
+1. **工作流挂起**
+   - 检查是否缺少边
+   - 验证条件逻辑
+   - 排查无限循环
 
-2. **Wrong routing**
-   - Debug condition expressions
-   - Check state values
-   - Verify edge labels match
+2. **路由错误**
+   - 调试条件表达式
+   - 检查状态的取值
+   - 确认边标签是否匹配
 
-3. **State not updating**
-   - Ensure nodes return dict updates
-   - Check reducer configuration
-   - Verify key names match
+3. **状态没有更新**
+   - 确认节点返回 dict 形式的更新
+   - 检查 reducer 配置
+   - 确认键名一致
 
-4. **Memory issues**
-   - Limit message history
-   - Checkpoint and clear old state
-   - Use streaming for large outputs
+4. **内存问题**
+   - 限制消息历史长度
+   - 打检查点并清理旧状态
+   - 大输出改用流式

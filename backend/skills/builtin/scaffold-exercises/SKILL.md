@@ -1,12 +1,15 @@
 ---
-name: "Scaffold Exercises"
-description: "Create exercise directory structures with sections, problems, solutions, and explainers that pass linting. Use when user wants to scaffold exercises, create exercise stubs, or set up a new course section."
+name: "Scaffold Exercises（练习脚手架）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/scaffold-exercises/SKILL.md
+description: "创建能通过 lint 的练习目录结构，含小节、题目、答案与讲解。用户想搭练习脚手架、建练习桩，或开一个新的课程小节时使用。"
 tags:
   - "scaffold"
   - "exercises"
   - "mattpocock"
 triggers:
-  - "User wants to scaffold exercises, create exercise stubs, or set up a new course section"
+  - "用户想搭练习脚手架、建练习桩，或开一个新的课程小节"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -17,44 +20,44 @@ author: "mattpocock (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
-> **Provenance.** Adapted from `mattpocock/skills → skills/misc/scaffold-exercises` (MIT, vendored at `vendor/upstream-skills/mattpocock/skills/misc/scaffold-exercises/SKILL.md`).
-> Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
-> `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
-> (`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`), and a verification floor
-> section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
-> through the `skill` tool, so it is dropped rather than emulated.
+> **来源说明。** 改编自 `mattpocock/skills → skills/misc/scaffold-exercises`（MIT，原样收录于 `vendor/upstream-skills/mattpocock/skills/misc/scaffold-exercises/SKILL.md`）。
+> 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
+> `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
+> （`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`），以及一节验证底线。
+> 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
+> 所以直接去掉，而不做模拟。
 
-## Instructions
+## Instructions（指令）
 
-# Scaffold Exercises
+# 练习脚手架
 
-Create exercise directory structures that pass `pnpm ai-hero-cli internal lint`, then commit with `git commit`.
+创建能通过 `pnpm ai-hero-cli internal lint` 的练习目录结构，然后用 `git commit` 提交。
 
-## Directory naming
+## 目录命名
 
-- **Sections**: `XX-section-name/` inside `exercises/` (e.g., `01-retrieval-skill-building`)
-- **Exercises**: `XX.YY-exercise-name/` inside a section (e.g., `01.03-retrieval-with-bm25`)
-- Section number = `XX`, exercise number = `XX.YY`
-- Names are dash-case (lowercase, hyphens)
+- **小节**：`exercises/` 里的 `XX-section-name/`（例如 `01-retrieval-skill-building`）
+- **练习**：小节里的 `XX.YY-exercise-name/`（例如 `01.03-retrieval-with-bm25`）
+- 小节编号 = `XX`，练习编号 = `XX.YY`
+- 名字用连字符小写（dash-case）
 
-## Exercise variants
+## 练习变体
 
-Each exercise needs at least one of these subfolders:
+每个练习至少要有下面这些子目录之一：
 
-- `problem/` - student workspace with TODOs
-- `solution/` - reference implementation
-- `explainer/` - conceptual material, no TODOs
+- `problem/` - 带 TODO 的学员工作区
+- `solution/` - 参考实现
+- `explainer/` - 概念材料，没有 TODO
 
-When stubbing, default to `explainer/` unless the plan specifies otherwise.
+搭桩时默认用 `explainer/`，除非计划另有规定。
 
-## Required files
+## 必需文件
 
-Each subfolder (`problem/`, `solution/`, `explainer/`) needs a `readme.md` that:
+每个子目录（`problem/`、`solution/`、`explainer/`）都需要一个 `readme.md`，它要：
 
-- Is **not empty** (must have real content, even a single title line works)
-- Has no broken links
+- **不为空**（必须有真实内容，哪怕只有一行标题也行）
+- 没有坏链
 
-When stubbing, create a minimal readme with a title and a description:
+搭桩时，建一个只含标题和描述的极简 readme：
 
 ```md
 # Exercise Title
@@ -62,46 +65,46 @@ When stubbing, create a minimal readme with a title and a description:
 Description here
 ```
 
-If the subfolder has code, it also needs a `main.ts` (>1 line). But for stubs, a readme-only exercise is fine.
+如果子目录里有代码，它还需要一个 `main.ts`（超过 1 行）。不过搭桩阶段，只有 readme 的练习是可以的。
 
-## Workflow
+## 工作流
 
-1. **Parse the plan** - extract section names, exercise names, and variant types
-2. **Create directories** - `mkdir -p` for each path
-3. **Create stub readmes** - one `readme.md` per variant folder with a title
-4. **Run lint** - `pnpm ai-hero-cli internal lint` to validate
-5. **Fix any errors** - iterate until lint passes
+1. **解析计划** —— 抽出小节名、练习名和变体类型
+2. **创建目录** —— 每个路径 `mkdir -p`
+3. **创建桩 readme** —— 每个变体目录一个带标题的 `readme.md`
+4. **跑 lint** —— 用 `pnpm ai-hero-cli internal lint` 校验
+5. **修掉所有错误** —— 反复迭代，直到 lint 通过
 
-## Lint rules summary
+## Lint 规则概要
 
-The linter (`pnpm ai-hero-cli internal lint`) checks:
+linter（`pnpm ai-hero-cli internal lint`）检查：
 
-- Each exercise has subfolders (`problem/`, `solution/`, `explainer/`)
-- At least one of `problem/`, `explainer/`, or `explainer.1/` exists
-- `readme.md` exists and is non-empty in the primary subfolder
-- No `.gitkeep` files
-- No `speaker-notes.md` files
-- No broken links in readmes
-- No `pnpm run exercise` commands in readmes
-- `main.ts` required per subfolder unless it's readme-only
+- 每个练习都有子目录（`problem/`、`solution/`、`explainer/`）
+- `problem/`、`explainer/`、`explainer.1/` 至少存在一个
+- 主目录里的 `readme.md` 存在且不为空
+- 没有 `.gitkeep` 文件
+- 没有 `speaker-notes.md` 文件
+- readme 里没有坏链
+- readme 里没有 `pnpm run exercise` 命令
+- 每个子目录都需要 `main.ts`，除非只有 readme
 
-## Moving/renaming exercises
+## 移动与重命名练习
 
-When renumbering or moving exercises:
+重新编号或移动练习时：
 
-1. Use `git mv` (not `mv`) to rename directories - preserves git history
-2. Update the numeric prefix to maintain order
-3. Re-run lint after moves
+1. 用 `git mv`（不是 `mv`）重命名目录——这样能保住 git 历史
+2. 更新数字前缀，维持顺序
+3. 移动之后重跑 lint
 
-Example:
+例如：
 
 ```bash
 git mv exercises/01-retrieval/01.03-embeddings exercises/01-retrieval/01.04-embeddings
 ```
 
-## Example: stubbing from a plan
+## 示例：从计划搭桩
 
-Given a plan like:
+给定这样一份计划：
 
 ```
 Section 05: Memory Skill Building
@@ -110,7 +113,7 @@ Section 05: Memory Skill Building
 - 05.03 Long-term Memory
 ```
 
-Create:
+创建：
 
 ```bash
 mkdir -p exercises/05-memory-skill-building/05.01-introduction-to-memory/explainer
@@ -118,7 +121,7 @@ mkdir -p exercises/05-memory-skill-building/05.02-short-term-memory/{explainer,p
 mkdir -p exercises/05-memory-skill-building/05.03-long-term-memory/explainer
 ```
 
-Then create readme stubs:
+然后创建 readme 桩：
 
 ```
 exercises/05-memory-skill-building/05.01-introduction-to-memory/explainer/readme.md -> "# Introduction to Memory"
@@ -128,16 +131,16 @@ exercises/05-memory-skill-building/05.02-short-term-memory/solution/readme.md ->
 exercises/05-memory-skill-building/05.03-long-term-memory/explainer/readme.md -> "# Long-term Memory"
 ```
 
-## This repository's floor
+## 本仓库的底线
 
-- **Verify with the real commands**, not by eye: `./scripts/housekeeping_verify.sh` (guards + `tsc` +
-  `vite build` + a document-store report). Add `--full-suite` for the backend suite.
-- **The backend suite has 20 pre-existing failures.** "Not worse than that baseline" is the honest
-  criterion; "the tests are green" is not a claim you can make here. Compare with
+- **用真实命令验证**，不要靠眼看：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` +
+  一份文档库报告）。后端测试套件加 `--full-suite`。
+- **后端套件有 20 个既有的失败。**“不比那个基线更差”是诚实的判据；“测试是绿的”在这里不是一个你能做出的宣称。
+  用
   `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
-  and diff the `FAILED` lines against the recorded baseline.
-- **Specs, tickets and notes live in files**: `docs/specs/<slug>.md`, `docs/tickets/NNN-<slug>.md`,
-  `work/<scope>/`. A verdict in a chat message is lost by the next turn.
-- **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
-  by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+  对照，并把 `FAILED` 行与记录的基线做 diff。
+- **规格、工单和笔记活在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
+  写在聊天消息里的一句判词，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 框架
+  （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `ecosystem-primer` 规则——并优先选
+  能胜任的最高层。

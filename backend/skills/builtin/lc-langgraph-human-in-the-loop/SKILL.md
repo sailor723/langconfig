@@ -1,6 +1,11 @@
 ---
-name: "Langgraph Human in the Loop"
-description: "INVOKE THIS SKILL when implementing human-in-the-loop patterns, pausing for approval, or handling errors in LangGraph. Covers interrupt(), Command(resume=...), approval/validation workflows, and the 4-tier error handling strategy."
+name: "Langgraph Human in the Loop（LangGraph 人在回路）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/lc-langgraph-human-in-the-loop/SKILL.md
+description: >-
+  实现人在回路模式、为审批而暂停、或处理 LangGraph 里的错误时，调用本技能。
+  涵盖 interrupt()、Command(resume=...)、审批/校验工作流，以及四层错误处理策略。
 tags:
   - "langgraph"
   - "human"
@@ -9,7 +14,7 @@ tags:
   - "loop"
   - "langchain-skills"
 triggers:
-  - "When asked to <overview>"
+  - "被要求处理 <overview> 时"
 allowed_tools:
   - "read_file"
   - "grep"
@@ -22,45 +27,45 @@ author: "langchain-skills (MIT), adapted for LangConfig"
 version: "1.0"
 ---
 
-> **Provenance.** Adapted from `langchain-ai/langchain-skills → config/skills/langgraph-human-in-the-loop` (MIT, vendored at `vendor/upstream-skills/langchain-skills/skills/langgraph-human-in-the-loop/SKILL.md`).
-> Changed for this repository: frontmatter fields (`tags` / `triggers` / `allowed_tools` / `author` /
-> `version`), path conventions (`docs/specs`, `docs/tickets`, `work/<scope>`), tool names
-> (`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`), and a verification floor
-> section. Upstream's `disable-model-invocation` has no equivalent here — every skill is discoverable
-> through the `skill` tool, so it is dropped rather than emulated.
+> **来源说明。** 改编自 `langchain-ai/langchain-skills → config/skills/langgraph-human-in-the-loop`（MIT，原样收录于 `vendor/upstream-skills/langchain-skills/skills/langgraph-human-in-the-loop/SKILL.md`）。
+> 为本仓库所做的改动：frontmatter 字段（`tags` / `triggers` / `allowed_tools` / `author` /
+> `version`）、路径约定（`docs/specs`、`docs/tickets`、`work/<scope>`）、工具名
+> （`read_file` / `write_file` / `edit_file` / `bash` / `grep` / `glob` / `task`），以及一节验证底线。
+> 上游的 `disable-model-invocation` 在这里没有对应物——每个技能都可以通过 `skill` 工具发现，
+> 所以直接去掉，而不做模拟。
 
-## Instructions
+## Instructions（指令）
 
 <overview>
-LangGraph's human-in-the-loop patterns let you pause graph execution, surface data to users, and resume with their input:
+LangGraph 的人在回路模式让你暂停图的执行、把数据呈现给用户，再带着用户的输入恢复：
 
-- **`interrupt(value)`** — pauses execution, surfaces a value to the caller
-- **`Command(resume=value)`** — resumes execution, providing the value back to `interrupt()`
-- **Checkpointer** — required to save state while paused
-- **Thread ID** — required to identify which paused execution to resume
+- **`interrupt(value)`** —— 暂停执行，把一个值呈现给调用方
+- **`Command(resume=value)`** —— 恢复执行，把这个值交回给 `interrupt()`
+- **检查点（checkpointer）** —— 暂停期间保存状态所必需
+- **线程 ID** —— 标识要恢复哪一次暂停执行所必需
 </overview>
 
 ---
 
-## Requirements
+## 前置条件
 
-Three things are required for interrupts to work:
+要让人在回路生效，需要三件东西：
 
-1. **Checkpointer** — compile with `checkpointer=InMemorySaver()` (dev) or `PostgresSaver` (prod)
-2. **Thread ID** — pass `{"configurable": {"thread_id": "..."}}` to every `invoke`/`stream` call
-3. **JSON-serializable payload** — the value passed to `interrupt()` must be JSON-serializable
+1. **检查点** —— 编译时传 `checkpointer=InMemorySaver()`（开发）或 `PostgresSaver`（生产）
+2. **线程 ID** —— 每次 `invoke`/`stream` 调用都传 `{"configurable": {"thread_id": "..."}}`
+3. **可 JSON 序列化的载荷** —— 传给 `interrupt()` 的值必须能被 JSON 序列化
 
 ---
 
-## Basic Interrupt + Resume
+## 基础用法：interrupt 与恢复
 
-`interrupt(value)` pauses the graph. The value surfaces in the result under `__interrupt__`. `Command(resume=value)` resumes — the resume value becomes the return value of `interrupt()`.
+`interrupt(value)` 暂停图。这个值会以 `__interrupt__` 为键出现在结果里。`Command(resume=value)` 恢复执行——恢复值成为 `interrupt()` 的返回值。
 
-**Critical**: when the graph resumes, the node restarts from the **beginning** — all code before `interrupt()` re-runs.
+**关键**：图恢复时，节点从**开头**重新开始——`interrupt()` 之前的所有代码都会重跑一遍。
 
 <ex-basic-interrupt-resume>
 <python>
-Pause execution for human review and resume with Command.
+暂停执行，交给人工评审，再用 Command 恢复。
 
 ```python
 from langgraph.types import interrupt, Command
@@ -99,7 +104,7 @@ print(result["approved"])  # True
 ```
 </python>
 <typescript>
-Pause execution for human review and resume with Command.
+暂停执行，交给人工评审，再用 Command 恢复。
 
 ```typescript
 import { interrupt, Command, MemorySaver, StateGraph, StateSchema, START, END } from "@langchain/langgraph";
@@ -139,13 +144,13 @@ console.log(result.approved);  // true
 
 ---
 
-## Approval Workflow
+## 审批工作流
 
-A common pattern: interrupt to show a draft, then route based on the human's decision.
+一个常见模式：用 interrupt 展示一份草稿，再按人的决定做路由。
 
 <ex-approval-workflow>
 <python>
-Interrupt for human review, then route to send or end based on the decision.
+插入人工评审，再按决定路由到发送或结束。
 
 ```python
 from langgraph.types import interrupt, Command
@@ -182,7 +187,7 @@ def human_review(state: EmailAgentState) -> Command[Literal["send_reply", "__end
 ```
 </python>
 <typescript>
-Interrupt for human review, then route to send or end based on the decision.
+插入人工评审，再按决定路由到发送或结束。
 
 ```typescript
 import { interrupt, Command, END, GraphNode } from "@langchain/langgraph";
@@ -214,13 +219,13 @@ const humanReview: GraphNode<typeof EmailAgentState> = async (state) => {
 
 ---
 
-## Validation Loop
+## 校验循环
 
-Use `interrupt()` in a loop to validate human input and re-prompt if invalid.
+在循环里用 `interrupt()` 校验人工输入，无效就重新提示。
 
 <ex-validation-loop>
 <python>
-Validate human input in a loop, re-prompting until valid.
+在循环里校验人工输入，无效则一直重新提示，直到有效为止。
 
 ```python
 from langgraph.types import interrupt
@@ -241,7 +246,7 @@ def get_age_node(state):
     return {"age": answer}
 ```
 
-Each `Command(resume=...)` call provides the next answer. If invalid, the loop re-interrupts with a clearer message.
+每次 `Command(resume=...)` 调用都会提供下一个答案。如果无效，循环会带着更清楚的提示信息再次 interrupt。
 
 ```python
 config = {"configurable": {"thread_id": "form-1"}}
@@ -256,7 +261,7 @@ print(final["age"])  # 30
 ```
 </python>
 <typescript>
-Validate human input in a loop, re-prompting until valid.
+在循环里校验人工输入，无效则一直重新提示，直到有效为止。
 
 ```typescript
 import { interrupt } from "@langchain/langgraph";
@@ -282,13 +287,13 @@ const getAgeNode = (state: typeof State.State) => {
 
 ---
 
-## Multiple Interrupts
+## 多个 interrupt
 
-When parallel branches each call `interrupt()`, resume all of them in a single invocation by mapping each interrupt ID to its resume value.
+当并行分支各自调用 `interrupt()` 时，把每个 interrupt 的 ID 映射到它的恢复值，在一次调用里把它们全部恢复。
 
 <ex-multiple-interrupts>
 <python>
-Resume multiple parallel interrupts by mapping interrupt IDs to values.
+把 interrupt ID 映射到对应的值，恢复多个并行的 interrupt。
 
 ```python
 from typing import Annotated, TypedDict
@@ -335,7 +340,7 @@ result = graph.invoke(Command(resume=resume_map), config)
 ```
 </python>
 <typescript>
-Resume multiple parallel interrupts by mapping interrupt IDs to values.
+把 interrupt ID 映射到对应的值，恢复多个并行的 interrupt。
 
 ```typescript
 import { Command, END, MemorySaver, START, StateGraph, interrupt, isInterrupted, INTERRUPT, Annotation } from "@langchain/langgraph";
@@ -385,31 +390,31 @@ const result = await graph.invoke(new Command({ resume: resumeMap }), config);
 </typescript>
 </ex-multiple-interrupts>
 
-User-fixable errors use `interrupt()` to pause and collect missing data — that's the pattern covered by this skill. For the full 4-tier error handling strategy (RetryPolicy, Command error loops, etc.), see the **fundamentals** skill.
+用户能修的错误用 `interrupt()` 暂停并收集缺失的数据——这就是本技能覆盖的模式。完整的四层错误处理策略（RetryPolicy、Command 错误循环等），见 **fundamentals** 技能。
 
 ---
 
-## Side Effects Before Interrupt Must Be Idempotent
+## interrupt 之前的副作用必须是幂等的
 
-When the graph resumes, the node restarts from the **beginning** — ALL code before `interrupt()` re-runs. In subgraphs, BOTH the parent node and the subgraph node re-execute.
+图恢复时，节点从**开头**重新开始——`interrupt()` 之前的**所有**代码都会重跑。在子图里，父节点和子图节点**两者**都会重新执行。
 
 <idempotency-rules>
 
-**Do:**
-- Use **upsert** (not insert) operations before `interrupt()`
-- Use **check-before-create** patterns
-- Place side effects **after** `interrupt()` when possible
-- Separate side effects into their own nodes
+**要做：**
+- 在 `interrupt()` 之前用 **upsert**（而非 insert）操作
+- 用**先查后建**（check-before-create）的模式
+- 尽可能把副作用放在 `interrupt()` **之后**
+- 把副作用拆到它们自己的节点里
 
-**Don't:**
-- Create new records before `interrupt()` — duplicates on each resume
-- Append to lists before `interrupt()` — duplicate entries on each resume
+**不要做：**
+- 在 `interrupt()` 之前创建新记录——每次恢复都会多出一条
+- 在 `interrupt()` 之前往列表里追加——每次恢复都会多出条目
 
 </idempotency-rules>
 
 <ex-idempotent-patterns>
 <python>
-Idempotent operations before interrupt vs non-idempotent (wrong).
+interrupt 之前的幂等操作，与非幂等的错误做法。
 
 ```python
 # GOOD: Upsert is idempotent — safe before interrupt
@@ -436,7 +441,7 @@ def node_a(state: State):
 ```
 </python>
 <typescript>
-Idempotent operations before interrupt vs non-idempotent (wrong).
+interrupt 之前的幂等操作，与非幂等的错误做法。
 
 ```typescript
 // GOOD: Upsert is idempotent — safe before interrupt
@@ -470,9 +475,9 @@ const nodeA = async (state: typeof State.State) => {
 
 <subgraph-interrupt-re-execution>
 
-### Subgraph re-execution on resume
+### 恢复时子图的重新执行
 
-When a subgraph contains an `interrupt()`, resuming re-executes BOTH the parent node (that invoked the subgraph) AND the subgraph node (that called `interrupt()`):
+子图里含有 `interrupt()` 时，恢复会**同时**重新执行父节点（调用子图的那个）和子图节点（调用 `interrupt()` 的那个）：
 
 <python>
 
@@ -508,17 +513,17 @@ async function nodeInSubgraph(state: State) {
 
 ---
 
-## Command(resume) Warning
+## Command(resume) 的警告
 
-`Command(resume=...)` is the **only** Command pattern intended as input to `invoke()`/`stream()`. Do NOT pass `Command(update=...)` as input — it resumes from the latest checkpoint and the graph appears stuck. See the fundamentals skill for the full antipattern explanation.
+`Command(resume=...)` 是**唯一**一种适合作为 `invoke()`/`stream()` 输入的 Command 用法。不要把 `Command(update=...)` 当输入传进去——它会从最新的检查点恢复，图看起来就像卡住了。完整的反模式解释见 fundamentals 技能。
 
 ---
 
-## Fixes
+## 修复
 
 <fix-checkpointer-required-for-interrupts>
 <python>
-Checkpointer required for interrupt functionality.
+interrupt 功能需要检查点。
 
 ```python
 # WRONG
@@ -529,7 +534,7 @@ graph = builder.compile(checkpointer=InMemorySaver())
 ```
 </python>
 <typescript>
-Checkpointer required for interrupt functionality.
+interrupt 功能需要检查点。
 
 ```typescript
 // WRONG
@@ -543,7 +548,7 @@ const graph = builder.compile({ checkpointer: new MemorySaver() });
 
 <fix-resume-with-command>
 <python>
-Use Command to resume from an interrupt (regular dict restarts graph).
+用 Command 从 interrupt 恢复（传普通 dict 会重启整个图）。
 
 ```python
 # WRONG
@@ -554,7 +559,7 @@ graph.invoke(Command(resume="approve"), config)
 ```
 </python>
 <typescript>
-Use Command to resume from an interrupt (regular object restarts graph).
+用 Command 从 interrupt 恢复（传普通对象会重启整个图）。
 
 ```typescript
 // WRONG
@@ -567,25 +572,25 @@ await graph.invoke(new Command({ resume: "approve" }), config);
 </fix-resume-with-command>
 
 <boundaries>
-### What You Should NOT Do
+### 不该做的事
 
-- Use interrupts without a checkpointer — will fail
-- Resume without the same thread_id — creates a new thread instead of resuming
-- Pass `Command(update=...)` as invoke input — graph appears stuck (use plain dict)
-- Perform non-idempotent side effects before `interrupt()` — creates duplicates on resume
-- Assume code before `interrupt()` only runs once — it re-runs every resume
+- 没有检查点就用 interrupt —— 会失败
+- 用不同的 thread_id 恢复 —— 会新建一个线程，而不是恢复
+- 把 `Command(update=...)` 当 invoke 的输入 —— 图看起来卡住（要用普通 dict）
+- 在 `interrupt()` 之前做非幂等的副作用 —— 恢复时会产生重复
+- 以为 `interrupt()` 之前的代码只跑一次 —— 每次恢复它都会重跑
 </boundaries>
 
-## This repository's floor
+## This repository's floor（本仓库的底线）
 
-- **Verify with the real commands**, not by eye: `./scripts/housekeeping_verify.sh` (guards + `tsc` +
-  `vite build` + a document-store report). Add `--full-suite` for the backend suite.
-- **The backend suite has 20 pre-existing failures.** "Not worse than that baseline" is the honest
-  criterion; "the tests are green" is not a claim you can make here. Compare with
+- **用真实命令验证**，不要靠眼看：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` +
+  一份文档库报告）。后端测试套件加 `--full-suite`。
+- **后端套件有 20 个既有的失败。**“不比那个基线更差”是诚实的判据；“测试是绿的”在这里不是一个你能做出的宣称。
+  用
   `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
-  and diff the `FAILED` lines against the recorded baseline.
-- **Specs, tickets and notes live in files**: `docs/specs/<slug>.md`, `docs/tickets/NNN-<slug>.md`,
-  `work/<scope>/`. A verdict in a chat message is lost by the next turn.
-- **Ecosystem layer**: agent code is LangChain (`create_agent`) inside a LangGraph runtime, usually wrapped
-  by a Deep Agents harness (`deepagents`). Decide which layer the change belongs to before writing it — the
-  `ecosystem-primer` rule — and prefer the highest layer that does the job.
+  对照，并把 `FAILED` 行与记录的基线做 diff。
+- **规格、工单和笔记活在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
+  写在聊天消息里的一句判词，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 脚手架
+  （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `ecosystem-primer` 规则——并优先选
+  能胜任的最高层。

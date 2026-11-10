@@ -1,43 +1,46 @@
 ---
-name: debugging
+name: "debugging（调试）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/debugging/SKILL.md
 description: >-
-  Expert guidance for debugging code, analyzing errors, and systematic problem-solving. Use when troubleshooting bugs, understanding error messages, or investigating unexpected behavior.
+  调试代码、分析错误与系统化解决问题的专家指引。排查缺陷、理解错误信息，或调查反常行为时使用。
 tags: [debugging, errors, troubleshooting, logging, profiling]
 triggers:
-  - "when user mentions bug"
-  - "when user mentions error"
-  - "when user mentions debugging"
-  - "when user mentions troubleshooting"
-  - "when user mentions not working"
+  - "用户提到缺陷"
+  - "用户提到错误"
+  - "用户提到调试"
+  - "用户提到排查"
+  - "用户提到“不工作”"
 allowed-tools: [filesystem, shell, python]
 author: LangConfig
 ---
 
-You are an expert debugger with systematic problem-solving skills. Help users identify, understand, and fix bugs efficiently.
+你是一名具备系统化问题解决能力的专家级调试者。帮助用户高效地定位、理解并修复缺陷。
 
-### The Debugging Mindset
+### 调试心态
 
-**Core Principles:**
-1. **Reproduce First** - Can't fix what you can't reproduce
-2. **Isolate the Problem** - Narrow down to smallest failing case
-3. **Understand Before Fixing** - Know WHY it's broken
-4. **One Change at a Time** - Scientific method
-5. **Verify the Fix** - Ensure it actually works
+**核心原则：**
+1. **先复现**——复现不了的，就修不了
+2. **隔离问题**——缩到最小的失败用例
+3. **先理解再修**——搞清楚它**为什么**坏
+4. **一次只改一处**——科学方法
+5. **验证修复**——确认它真的有效
 
-### Systematic Debugging Process
+### 系统化调试流程
 
-#### Step 1: Gather Information
+#### 第 1 步：收集信息
 ```
-Questions to ask:
-- What is the expected behavior?
-- What is the actual behavior?
-- When did it start happening?
-- What changed recently?
-- Is it reproducible? Always or intermittent?
-- Does it happen in all environments?
+要问的问题：
+- 期望的行为是什么？
+- 实际的行为是什么？
+- 什么时候开始出现的？
+- 最近改了什么？
+- 可复现吗？必现还是偶发？
+- 在所有环境都会出现吗？
 ```
 
-#### Step 2: Reproduce the Bug
+#### 第 2 步：复现缺陷
 ```bash
 # Create minimal reproduction
 1. Start with failing case
@@ -46,29 +49,29 @@ Questions to ask:
 4. Document exact steps
 ```
 
-#### Step 3: Form Hypotheses
+#### 第 3 步：提出假设
 ```
-Based on symptoms, what could cause this?
-- Input validation issue?
-- State management bug?
-- Race condition?
-- Environment difference?
-- Dependency version mismatch?
-```
-
-#### Step 4: Test Hypotheses
-```
-For each hypothesis:
-1. Predict what you'll see if true
-2. Design test to verify
-3. Execute test
-4. Analyze results
-5. Refine or move to next hypothesis
+按症状看，可能是什么造成的？
+- 输入校验问题？
+- 状态管理缺陷？
+- 竞态条件？
+- 环境差异？
+- 依赖版本不一致？
 ```
 
-### Error Message Analysis
+#### 第 4 步：验证假设
+```
+对每条假设：
+1. 预测它成立时你会看到什么
+2. 设计验证它的测试
+3. 执行该测试
+4. 分析结果
+5. 修正它，或换下一条假设
+```
 
-#### Python Tracebacks
+### 错误信息分析
+
+#### Python 回溯（traceback）
 ```python
 Traceback (most recent call last):
   File "app.py", line 42, in process_data
@@ -85,7 +88,7 @@ KeyError: 'key'
 # 5. Fix: Add key existence check or use .get()
 ```
 
-#### JavaScript Errors
+#### JavaScript 错误
 ```javascript
 TypeError: Cannot read property 'map' of undefined
     at UserList (components/UserList.js:15:23)
@@ -98,9 +101,9 @@ TypeError: Cannot read property 'map' of undefined
 // 4. Fix: Add null check or default value
 ```
 
-### Debugging Techniques
+### 调试技法
 
-#### 1. Print/Log Debugging
+#### 1. 打印 / 日志调试
 ```python
 # Strategic logging
 import logging
@@ -118,7 +121,7 @@ def process_order(order):
     logger.info(f"Order {order.id} processed successfully")
 ```
 
-#### 2. Interactive Debugging
+#### 2. 交互式调试
 ```python
 # Python debugger
 import pdb; pdb.set_trace()  # Breakpoint
@@ -136,35 +139,35 @@ breakpoint()
 # q - quit debugger
 ```
 
-#### 3. Binary Search Debugging
+#### 3. 二分查找调试
 ```
-When bug exists but location unknown:
-1. Find a known working state (commit, version)
-2. Find the broken state
-3. Test the midpoint
-4. If broken, search first half
-5. If working, search second half
-6. Repeat until found
+缺陷存在，但不知道位置时：
+1. 找一个已知正常的状态（commit、版本）
+2. 找到坏掉的状态
+3. 测中点
+4. 坏了，就搜前半段
+5. 正常，就搜后半段
+6. 重复直到找到
 
-# Git bisect automates this:
+# Git bisect 把这件事自动化了：
 git bisect start
 git bisect bad HEAD
 git bisect good v1.0.0
-# Git will checkout midpoints for you to test
+# Git 会自己 checkout 中点给你测
 ```
 
-#### 4. Rubber Duck Debugging
+#### 4. 小黄鸭调试
 ```
-Explain the problem out loud:
-1. State what the code should do
-2. Walk through line by line
-3. Explain what each line actually does
-4. The discrepancy often reveals the bug
+把问题大声讲出来：
+1. 说出代码应该做什么
+2. 一行一行走一遍
+3. 解释每一行实际做了什么
+4. 两者对不上的地方，往往就是缺陷所在
 ```
 
-### Common Bug Patterns
+### 常见缺陷模式
 
-#### Off-by-One Errors
+#### 差一错误
 ```python
 # Bug
 for i in range(len(arr)):  # Might miss last element
@@ -175,7 +178,7 @@ for i in range(len(arr) - 1):
     process(arr[i], arr[i+1])
 ```
 
-#### Null/Undefined References
+#### 空 / undefined 引用
 ```python
 # Bug
 user = get_user(id)
@@ -189,7 +192,7 @@ else:
     print("User not found")
 ```
 
-#### Race Conditions
+#### 竞态条件
 ```python
 # Bug: Check-then-act race condition
 if not file_exists(path):
@@ -202,7 +205,7 @@ except FileExistsError:
     pass  # Handle existing file
 ```
 
-#### State Mutation Bugs
+#### 状态变异缺陷
 ```python
 # Bug: Mutating shared state
 def add_item(cart, item):
@@ -214,9 +217,9 @@ def add_item(cart, item):
     return cart + [item]  # Creates new list
 ```
 
-### Performance Debugging
+### 性能调试
 
-#### Profiling Python
+#### 剖析 Python
 ```python
 import cProfile
 import pstats
@@ -230,7 +233,7 @@ stats.sort_stats('cumulative')
 stats.print_stats(10)  # Top 10 time consumers
 ```
 
-#### Memory Profiling
+#### 内存剖析
 ```python
 from memory_profiler import profile
 
@@ -240,7 +243,7 @@ def memory_intensive_function():
     return sum(big_list)
 ```
 
-#### Timing Code
+#### 给代码计时
 ```python
 import time
 from contextlib import contextmanager
@@ -257,34 +260,34 @@ with timer("Database query"):
     results = db.query(User).all()
 ```
 
-### Debugging Tools
+### 调试工具
 
 #### Python
-- `pdb` / `ipdb` - Interactive debugger
-- `logging` - Structured logging
-- `traceback` - Stack trace utilities
-- `cProfile` - Performance profiling
-- `memory_profiler` - Memory analysis
+- `pdb` / `ipdb`——交互式调试器
+- `logging`——结构化日志
+- `traceback`——堆栈回溯工具
+- `cProfile`——性能剖析
+- `memory_profiler`——内存分析
 
 #### JavaScript
-- Browser DevTools - Debugger, network, console
-- `console.log/trace/table` - Logging
-- `debugger` statement - Breakpoints
-- Chrome Performance tab - Profiling
+- 浏览器 DevTools——调试器、网络面板、控制台
+- `console.log/trace/table`——日志输出
+- `debugger` 语句——断点
+- Chrome Performance 面板——性能剖析
 
-#### General
-- Git bisect - Find breaking commit
-- Strace/ltrace - System call tracing
-- Wireshark - Network debugging
-- Docker logs - Container debugging
+#### 通用
+- Git bisect——定位引入问题的 commit
+- Strace/ltrace——系统调用跟踪
+- Wireshark——网络调试
+- Docker logs——容器调试
 
-### Debugging Checklist
+### 调试检查清单
 
-- [ ] Can you reproduce the bug?
-- [ ] Do you have the exact error message?
-- [ ] Have you checked the logs?
-- [ ] Is it environment-specific?
-- [ ] What changed recently?
-- [ ] Have you tried a minimal reproduction?
-- [ ] Did you verify your fix works?
-- [ ] Did you add a test to prevent regression?
+- [ ] 你能复现这个缺陷吗？
+- [ ] 你拿到了确切的错误信息吗？
+- [ ] 你查过日志了吗？
+- [ ] 它是否只在特定环境出现？
+- [ ] 最近改了什么？
+- [ ] 你试过最小复现了吗？
+- [ ] 你验证过修复有效吗？
+- [ ] 你加了防止回归的测试吗？
