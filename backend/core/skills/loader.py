@@ -257,7 +257,11 @@ class SkillLoader:
                 # SKILL.md is user-authored — tolerate a scalar `triggers:`
                 # by wrapping it, instead of letting a str fail List[str].
                 triggers=([frontmatter['triggers']] if isinstance(frontmatter.get('triggers'), str) else frontmatter.get('triggers', [])),
-                allowed_tools=frontmatter.get('allowed_tools'),
+                # `allowed-tools` is the spelling the Anthropic Agent Skills spec (and therefore the
+                # vendored upstream sets) use; `allowed_tools` is this app's. Sixteen skills in this
+                # library declare the hyphenated key, and reading only the snake_case one silently dropped
+                # their tool list from the prompt. Accept both.
+                allowed_tools=frontmatter.get('allowed_tools') or frontmatter.get('allowed-tools'),
                 required_context=frontmatter.get('required_context', []),
                 instructions=instructions,
                 examples=examples,

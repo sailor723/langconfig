@@ -13,5 +13,3 @@
 # whose structure or frontmatter disagrees with the archived English.
 
 build-ontology-from-db
-generate-mock-dataset
-lc-deep-agents-orchestration

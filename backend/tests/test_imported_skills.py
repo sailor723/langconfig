@@ -27,8 +27,26 @@ import yaml
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 SKILLS = REPO / "backend" / "skills" / "builtin"
-PROVENANCE = "**Provenance.** Adapted from"
-FLOOR = "## This repository's floor"
+#: The provenance block and the verification floor are written in the language of the file, so a marker that
+#: only knows the English spelling silently stops recognising 58 of the 102 skills the moment they are
+#: translated — which is exactly what happened: six tests in this file ran on an empty parameter set and
+#: reported "skipped" instead of failing. Both markers therefore match either language.
+PROVENANCE_MARKERS = ("**Provenance.** Adapted from", "**来源说明。**", "**来源说明.**")
+FLOOR_MARKERS = ("## This repository's floor", "## 本仓库的底线")
+
+
+def _has_marker(text: str, markers: tuple[str, ...]) -> bool:
+    return any(marker in text for marker in markers)
+
+
+def _cut_at_floor(text: str) -> str:
+    """Everything before the verification floor, whichever language its heading is written in."""
+    cut = len(text)
+    for marker in FLOOR_MARKERS:
+        found = text.find(marker)
+        if found != -1:
+            cut = min(cut, found)
+    return text[:cut]
 
 #: Tools that exist in this app (native + SDK). A generated skill may only name these.
 KNOWN_TOOLS = {
@@ -52,7 +70,7 @@ def _skill_files() -> list[pathlib.Path]:
 
 
 def _generated(path: pathlib.Path) -> bool:
-    return PROVENANCE in path.read_text(encoding="utf-8", errors="replace")
+    return _has_marker(path.read_text(encoding="utf-8", errors="replace"), PROVENANCE_MARKERS)
 
 
 @pytest.mark.parametrize("path", _skill_files(), ids=lambda p: p.parent.name)
@@ -70,7 +88,9 @@ def test_every_skill_loads_through_the_app_loader(path: pathlib.Path):
 @pytest.mark.parametrize("path", [p for p in _skill_files() if _generated(p)], ids=lambda p: p.parent.name)
 def test_generated_skills_name_their_upstream(path: pathlib.Path):
     text = path.read_text(encoding="utf-8")
-    assert re.search(r"Adapted from `[a-z-]+/[\w-]+ → ", text), (
+    # The verb is prose and gets translated (改编自 / 源自 / 取自); the `repo → path` form is the part that
+    # carries attribution, so that is what is asserted.
+    assert re.search(r"(?:Adapted from|改编自|源自|取自) `[a-z-]+/[\w-]+ → ", text), (
         f"{path.parent.name}: the provenance block does not name the upstream path "
         "(repo → path), which is how attribution is lost")
 
@@ -78,7 +98,7 @@ def test_generated_skills_name_their_upstream(path: pathlib.Path):
 @pytest.mark.parametrize("path", [p for p in _skill_files() if _generated(p)], ids=lambda p: p.parent.name)
 def test_generated_skills_point_at_our_verification_floor(path: pathlib.Path):
     text = path.read_text(encoding="utf-8")
-    assert FLOOR in text, (
+    assert _has_marker(text, FLOOR_MARKERS), (
         f"{path.parent.name}: a generated skill must end with the verification-floor section — otherwise it "
         "invents its own idea of 'done' instead of using ./scripts/housekeeping_verify.sh and the baseline")
     assert "scripts/housekeeping_verify.sh" in text or "pytest" in text, (
@@ -89,7 +109,7 @@ def test_generated_skills_point_at_our_verification_floor(path: pathlib.Path):
 def test_generated_skills_have_no_upstream_isms(path: pathlib.Path):
     text = path.read_text(encoding="utf-8")
     # the provenance block explains what was dropped; scanning the body, not the attribution, is the point
-    body = text.split(FLOOR)[0].split("---", 2)[-1]
+    body = _cut_at_floor(text).split("---", 2)[-1]
     body = "\n".join(ln for ln in body.splitlines() if not ln.lstrip().startswith(">"))
     problems = [f"{why} ({pattern})" for pattern, why in FORBIDDEN if re.search(pattern, body)]
     assert not problems, f"{path.parent.name}: " + "; ".join(problems)
@@ -138,7 +158,7 @@ def test_a_tool_name_is_never_used_as_a_verb(path: pathlib.Path):
 @pytest.mark.parametrize("path", [p for p in _skill_files() if _generated(p)], ids=lambda p: p.parent.name)
 def test_no_sentence_still_addresses_an_upstream_setup_skill(path: pathlib.Path):
     text = path.read_text(encoding="utf-8")
-    body = text.split(FLOOR)[0].split("---", 2)[-1]
+    body = _cut_at_floor(text).split("---", 2)[-1]
     body = "\n".join(ln for ln in body.splitlines() if not ln.lstrip().startswith(">"))
     leftovers = [phrase for phrase in (
         "should have been provided to you",
@@ -207,3 +227,28 @@ def test_no_markdown_link_target_is_reworded():
     assert not offenders, (
         f"a link target contains prose rather than a path: {offenders[:5]} — a rewrite pass reached inside "
         "the brackets")
+
+
+@pytest.mark.parametrize("path", _skill_files(), ids=lambda p: p.parent.name)
+def test_the_loader_sees_a_declared_tool_list(path: pathlib.Path):
+    """Whichever spelling a skill uses, `SkillLoader` must end up holding the list.
+
+    Sixteen skills declare `allowed-tools:` — the spelling the Anthropic Agent Skills spec uses, which is what
+    the vendored upstream sets ship — while this app's loader read only `allowed_tools`. Nothing failed: the
+    key was simply ignored, so `**Allowed Tools:**` never appeared in those prompts. The loader now accepts
+    both, and this asserts it against every skill in the library rather than the one that was noticed.
+    """
+    from core.skills.loader import SkillLoader
+
+    text = path.read_text(encoding="utf-8")
+    if not text.startswith("---"):
+        pytest.skip("no frontmatter")
+    frontmatter = yaml.safe_load(text[3:text.find("\n---", 3)]) or {}
+    declared = frontmatter.get("allowed_tools") or frontmatter.get("allowed-tools")
+    parsed = SkillLoader().load_skill(str(path.parent))
+    assert parsed is not None, f"{path.parent.name}: the loader refused the skill"
+    if declared is None:
+        assert not parsed.allowed_tools, f"{path.parent.name}: the loader invented a tool list"
+    else:
+        assert list(parsed.allowed_tools or []) == list(declared), (
+            f"{path.parent.name}: declared {declared} but the loader has {parsed.allowed_tools}")

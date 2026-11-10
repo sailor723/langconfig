@@ -1,84 +1,86 @@
 ---
-name: generate-mock-dataset
-description: Use when a business story (a customer call, a written brief, a slide) has to become a PostgreSQL dataset that can be DEMONSTRATED on — deterministic, volume-consistent, with the failures planted where the story says they come from and the data pathologies (constant columns, unjudged rows, a missing record) present on purpose; every claim it makes is a query in a spec file, and the spec is the gate
+name: "generate-mock-dataset（生成模拟数据集）"
+lang: zh
+translated: machine
+source: backend/skills/en-originals/generate-mock-dataset/SKILL.md
+description: >-
+  当一段业务故事（一通客户电话、一份书面简报、一页幻灯片）必须变成一个可以拿来演示的 PostgreSQL 数据集时使用：
+  确定性、体量与故事一致，把失败点栽在故事所说它们来自的地方，并有意带上数据病理（恒定列、未判定行、一条缺失记录）；
+  它做出的每一条断言都是规格文件里的一条查询，而规格就是那道门禁。
 tags: [mock-data, synthetic-data, postgres, dataset, demo, gating]
 triggers:
-  - When asked to create mock / synthetic / demo data from a described business
-  - When a demo needs the pain points to be VISIBLE in the numbers, not asserted in a slide
-  - When an ontology build needs a database whose story it can prove
-  - When "make up some data" would otherwise produce data that answers different questions
+  - "被要求根据描述出来的业务创建 mock / 合成 / 演示数据时"
+  - "演示需要痛点**在数字里看得见**，而不是在幻灯片里被断言时"
+  - "本体构建需要一个能证明自己故事的数据库时"
+  - "「随便编点数据」否则就会产出回答另一些问题的那批数据时"
 version: 1.0
 author: weiping
 
-# What the dataset is for decides how it is shaped: an ontology build needs dimensions and pathologies,
-# a demo needs the pain points, a benchmark needs volume. Say which, because it changes the design.
+# 数据集的用途决定它的形状：本体构建要维度与病理，演示要痛点，基准测试要体量。说清是哪一种，因为它会改变设计。
 params:
   dataset_name:
     label: 数据集（建议名）
     description: >-
-      A SUGGESTION, not an order: the database the data lands in. Confirm the final name with the user before
-      creating anything (step 0c). The agent's copy of this parameter is what makes it propose one instead of
-      inventing one silently.
+      一个**建议**，不是命令：数据最终落到的那个数据库。创建任何东西之前先跟用户确认最终名字（步骤 0c）。
+      正是智能体手里的这一份参数，让它去提议一个名字，而不是悄悄发明一个。
   generator:
     label: 生成器路径
-    description: where the deterministic generator script lives (e.g. backend/skills/builtin/generate-mock-dataset/scripts/gen_abc.py)
+    description: 确定性生成器脚本所在的位置（例如 backend/skills/builtin/generate-mock-dataset/scripts/gen_abc.py）
     required: false
     default: "backend/skills/builtin/generate-mock-dataset/scripts/gen_{dataset_name}.py"
 ---
 
-# Generate a mock dataset from a business story
+# 从一段业务故事生成模拟数据集
 
-The difference between mock data and a mock *dataset*: mock data fills tables, a mock dataset makes the
-story's claims true and **checkable**. Every claim becomes a query in `<dataset>.dataset.json`, so a green
-run means "the data still says what the brief says" — and a red one names the claim that rotted.
+模拟数据与模拟**数据集**的区别：模拟数据把表填满，模拟数据集让故事的断言成真、而且**可核查**。每条断言都变成
+`<dataset>.dataset.json` 里的一条查询，于是一次绿的运行意味着「数据仍然说着简报说过的话」，一次红的运行则点名那条
+烂掉的断言。
 
-## 0a. Read the brief — with the right reader
+## 0a. 读简报——用对的读取器
 
-- **`.md` / `.txt` / `.json` / `.csv`** → `read_file`.
-- **`.pdf` / `.docx` / `.pptx` / `.xlsx`** → `read_any_file`. It returns the *text*: headings, tables, slide
-  text, sheet by sheet. A scanned PDF or an image goes through OCR there too.
-- **If a read comes back as `<w:p>`, `<a:tbl>`, `PK\x03\x04`, or base64, you read raw bytes — not text.**
-  Stop, do not `unzip`/`cat`/`strings` the document, do not decode its XML by hand, and **never** paste the
-  document back as your answer. Switch to `read_any_file` and read it again.
+- **`.md` / `.txt` / `.json` / `.csv`** → `read_file`。
+- **`.pdf` / `.docx` / `.pptx` / `.xlsx`** → `read_any_file`。它返回**文本**：标题、表格、幻灯片文字，一个 sheet
+  一个 sheet 地返回。扫描件 PDF 或图片也走那里的 OCR。
+- **如果一次读取回来的是 `<w:p>`、`<a:tbl>`、`PK\x03\x04` 或 base64，那你读到的是裸字节，不是文本。** 停下，不要
+  拿 `unzip`/`cat`/`strings` 去撬那份文档，不要手工解它的 XML，**也绝不**把文档原样粘回去当回答。改用
+  `read_any_file` 重读一遍。
 
-That failure is measured, not hypothetical: an agent given a 16 KB Word brief got the raw OOXML, worked
-around it with `unzip … word/document.xml`, and returned 143 KB of tag soup as the "deliverable" — no
-generator, no tables, no dataset. Reading the input is step zero; everything after it depends on the text.
+这个失败是实测出来的，不是假设：一个智能体拿到 16 KB 的 Word 简报，拿到的是裸 OOXML，用 `unzip … word/document.xml`
+绕过去，最后把 143 KB 的标签汤当成「交付物」返回——没有生成器，没有表，没有数据集。读输入是第零步；它之后的每一步
+都依赖那份文本。
 
-**A document is not a schema.** The brief gives entities, grain, volumes and relationships; the columns are
-yours to design. Never answer a data-generation request by restating the brief.
+**文档不等于 schema。** 简报给出实体、粒度、体量与关系；列是你的设计。绝不要用复述简报来回答一个数据生成请求。
 
-## 0b. Read the story for STRUCTURE, not adjectives
+## 0b. 从故事里读结构，不读形容词
 
-From the brief, extract only what becomes a column, a row count or a relationship:
+从简报里只抽取会变成一列、一个行数或一条关系的东西：
 
-| sentence in the brief | becomes |
+| 简报里的句子 | 变成 |
 |---|---|
-| 「约60台司机自有的冷藏车队（12吨3台、10吨5台、8吨35台、5吨6台、3吨11台）」 | `vehicles(60)` with `tonnage` distribution EXACTLY as stated (it is a fact the customer will check) |
-| 「一车一人，司机按月扣还购车贷款」 | `drivers.vehicle_id` 1:1, and the missing `loan_*` column is itself a finding |
-| 「把原本每天约50条固定配送路线强行压缩至40条」 | `routes.version` v1/v2 + `effective_from` → a REGIME the data can be split on |
-| 「几乎每趟车都在挑战超载极限」 | `load_*` vs `*_capacity_snapshot` at dispatch time (a snapshot, not a join to today's capacity) |
-| 「日结临时工，几乎每天都在换新面孔」 | `handlers(first_day, days_worked, agency)` → turnover is measurable |
-| 「司机和日结工互相推诿」 | `complaints.liability` with a large NULL group — the adjudication gap |
-| 「调度凭同情心排轻松线」 | **not representable today** → the dataset must NOT pretend: record the outcome (trips) and let the ontology refuse the intent |
+| 「约60台司机自有的冷藏车队（12吨3台、10吨5台、8吨35台、5吨6台、3吨11台）」 | `vehicles(60)`，`tonnage` 分布与所述**完全**一致（这是客户会去核对的事实） |
+| 「一车一人，司机按月扣还购车贷款」 | `drivers.vehicle_id` 1:1，而缺失的 `loan_*` 列本身就是一条发现 |
+| 「把原本每天约50条固定配送路线强行压缩至40条」 | `routes.version` v1/v2 + `effective_from` → 一个数据可以被切开的**制度（regime）** |
+| 「几乎每趟车都在挑战超载极限」 | 发车时刻的 `load_*` 对 `*_capacity_snapshot`（是快照，不是连到今日载重的那次 join） |
+| 「日结临时工，几乎每天都在换新面孔」 | `handlers(first_day, days_worked, agency)` → 人员流失变得可测量 |
+| 「司机和日结工互相推诿」 | `complaints.liability` 带一个大 NULL 组——即判定缺口 |
+| 「调度凭同情心排轻松线」 | **今天无法表示** → 数据集**不得**假装：记录结果（trips），让本体去拒绝这个意图 |
 
-If a pain point has no column, that is the finding to keep: the ontology will refuse it by name, and the
-dashboard will show the hole. Do not invent a proxy column to make the demo look complete.
+如果某个痛点没有对应的列，那条发现就该留着：本体将按名字拒绝它，看板会显出那个洞。不要为了把演示做得看起来完整
+而发明一个代理列。
 
-## 0c. Draft the dataset MANIFEST — the name, the units, the caveats — and confirm it
+## 0c. 先起草数据集 MANIFEST——名字、单位、caveat——并确认它
 
-A database name is one field of the dataset's identity, not the whole question. Writing the manifest FIRST is
-what makes the rest answerable: the ontology builder reads `schema`, `units` and `nulls` to write its profile and
-its axioms, the dashboard reads `units` for its labels, and an operator reads `checks` to know whether the numbers
-in front of them are the numbers that were verified.
+库名只是数据集身份的一个字段，不是问题的全部。先把 manifest 写出来，才让其余问题变得可回答：本体构建器读
+`schema`、`units` 和 `nulls` 去写它的 profile 和公理，看板读 `units` 写标签，运维者读 `checks` 来判断眼前的数字
+是不是被验证过的那批数字。
 
-Write `generated/<slug>/manifest.json` (before creating anything) with this shape — fill what the brief answers,
-leave the rest as `null` with a `questions` entry, and **mark the status `proposed`**:
+在创建任何东西之前，按下面这个形状写 `generated/<slug>/manifest.json`——简报能回答的填上，其余留 `null` 并配一条
+`questions` 条目，并**把状态标成 `proposed`**：
 
 ```json
 {
   "dataset":  {"name": "<proposed name>", "schema": "nass", "status": "proposed",
-               "purpose": "one sentence: what演示 this dataset exists for",
+               "purpose": "one sentence: what this dataset exists for",
                "confirmed_by": null, "confirmed_at": null},
   "source":   {"system": "the exporting system the brief names (or 'synthesised')",
                "files": [{"name": "upload/x.docx", "sha256": "…"}],
@@ -99,132 +101,118 @@ leave the rest as `null` with a `questions` entry, and **mark the status `propos
 }
 ```
 
-**Four things only the user can settle** — ask them in the confirmation turn, in business terms, and put the
-answer in the manifest (not only in the chat):
+**只有用户能定的四件事**——在确认回合里用业务语言问，并把答案写进 manifest（不要只留在对话里）：
 
-1. **currency** — money columns are numbers until someone says HKD / RMB / other.
-2. **units** — `tonnage` t, `load_weight` kg, `load_volume` m3, `box_capacity` boxes: confirm or correct.
-3. **PII** — driver names and plates: mask them, or keep readable names because the data is synthetic?
-4. **time** — the timezone, and the window length (which decides whether a `now()`-relative guard window is
-   meaningful at all; a fixed historical window means `default_window_days: 0`).
+1. **币种**——在有人说出 HKD / RMB / 其他之前，金额列只是数字。
+2. **单位**——`tonnage` 用 t、`load_weight` 用 kg、`load_volume` 用 m3、`box_capacity` 用 boxes：确认或纠正。
+3. **PII**——司机姓名与车牌：打码，还是因为数据是合成的而保留可读的名字？
+4. **时间**——时区，以及窗口长度（它决定了一个相对 `now()` 的护栏窗口到底还有没有意义；固定的历史窗口意味着
+   `default_window_days: 0`）。
 
-Then, and only then:
+然后，也只有到那时：
 
-1. `psql -l` — say what already exists on this server.
-2. Ask, in one line: **"数据集库名用 `<name>` 可以吗？"** plus what you will do:
-   - does not exist → you `CREATE DATABASE` it and build there;
-   - exists and is NOT yours → say what is in it, and do **not** overwrite without an explicit yes;
-   - exists and is a previous build of yours → offer `--reset` (rebuild) or a new name.
-3. **Nothing is created before the answers**: no database, no schema, no tables. Reading the brief and writing
-   `ANALYSIS.md` + the manifest draft in that same turn is expected — that is how the user sees you understood
-   before a database exists.
-4. After the answers: set `dataset.status = "confirmed"`, `confirmed_by`, `confirmed_at`, fill `units`/`nulls`/
-   `pii`/`time`, then build. Update the manifest at the end (`status: "built"`, `checks`, `rows`).
+1. `psql -l`——说出这台服务器上已经有什么。
+2. 用一行问：**「数据集库名用 `<name>` 可以吗？」** 并说明你接下来会做什么：
+   - 不存在 → 你 `CREATE DATABASE` 建它，并在那里构建；
+   - 存在但**不是**你的 → 说清里面有什么，没有明确的同意就**不要**覆盖；
+   - 存在且是你之前构建的 → 提供 `--reset`（重建）或换一个新名字。
+3. **在拿到回答之前不创建任何东西**：没有库、没有 schema、没有表。同一个回合里读完简报、写出 `ANALYSIS.md` 加
+   manifest 草稿是被期待的——用户就是这样在数据库还不存在的时候看见你确实读懂了。
+4. 拿到回答之后：设 `dataset.status = "confirmed"`、`confirmed_by`、`confirmed_at`，填好 `units`/`nulls`/`pii`/`time`，
+   然后构建。结束时更新 manifest（`status: "built"`、`checks`、`rows`）。
 
-Why this step exists: the name used to be baked into the agent's configuration, so a second brief would have
-landed in the first brief's database and nobody had agreed to that; the units and the currency were never written
-down anywhere, so every downstream label had to guess.
+这一步为什么存在：名字过去被焊死在智能体配置里，于是第二份简报会落到第一份简报的库里，而没人同意过这件事；单位和
+币种从来没写下来过，于是下游每一个标签都只能靠猜。
 
-## 1. Design: entities → grain → volumes → invariants
+## 1. 设计：实体 → 粒度 → 体量 → 不变量
 
-1. **entities** — one row per thing the business names, with a real primary key.
-2. **grain** — the fact you will count: a stop is one store visit, a trip is one vehicle-day-route. Write
-   it down; it decides every metric later.
-3. **volumes** — derive from the story ("90 天 × 45 趟/天 = 4,050"), never from a round number that makes
-   the story false. Keep a helper that prints the totals the brief implies.
-4. **invariants** — the claims, as SQL (see `check_dataset.py`). Include at least one claim per pain point
-   the customer mentioned, and at least one identity (child rows per parent, sums that must hold).
+1. **实体**——业务点名的每样东西一行，带一个真正的主键。
+2. **粒度**——你要去数的那个事实：一个 stop 是一次门店拜访，一趟 trip 是一个「车-日-线路」。把它写下来；之后每个
+   指标都由它决定。
+3. **体量**——从故事推出来（「90 天 × 45 趟/天 = 4,050」），绝不取一个让故事变假的整数。留一个 helper，把简报
+   蕴含的合计数打出来。
+4. **不变量**——那些断言，写成 SQL（见 `check_dataset.py`）。客户提到的每个痛点至少一条断言，另外至少一条恒等式
+   （每个父行有几个子行、必须成立的求和）。
 
-## 2. Plant the failures where the story puts them
+## 2. 把失败栽在故事说它们来自的地方
 
-Random failures make a demo that proves nothing. Measured on ABC:
+随机的失败造出一个什么都证明不了的演示。在 ABC 上实测：
 
-| planted | mechanism | what becomes visible |
+| 栽进去的 | 机制 | 变得可见的东西 |
 |---|---|---|
-| 超载 2% → 80% after 并线 | capacity snapshot fixed per vehicle; route stops 10.2 → 15.7 | `overloadRateByRouteVersion` |
-| 倒温 mostly on old vehicles | excursion probability keyed to `age_years` | `tempExcursionStops` per vehicle |
-| 破损 on day-labourers in their first week | damage keyed to `handlers.days_worked` | damage 4.5 vs 1.7 boxes / 1k stops |
-| 客诉 follows late + excursion | complaints generated per failed stop | `complaintCountByLiability` |
-| 路权 conflict | `emission` + `core_zone_permit` set so 国四 36 台 have none | `permitCoverage` 23.3% |
+| 超载 2% → 并线后 80% | 每车的载重快照固定；线路停靠点 10.2 → 15.7 | `overloadRateByRouteVersion` |
+| 倒温主要发生在老车上 | 温偏概率绑定到 `age_years` | 每车的 `tempExcursionStops` |
+| 破损落在入职第一周的日结工身上 | 破损绑定到 `handlers.days_worked` | 破损 4.5 对 1.7 箱 / 千次停靠 |
+| 客诉跟着迟到 + 温偏来 | 每个失败停靠点生成一条客诉 | `complaintCountByLiability` |
+| 路权冲突 | `emission` + `core_zone_permit` 设成让国四 36 台没有许可 | `permitCoverage` 23.3% |
 
-## 3. Include the pathologies ON PURPOSE
+## 3. 有意把数据病理放进去
 
-A dataset that is clean teaches the wrong lessons. Each of these exists in ABC and each turned into an
-ontology gate:
+干净的数据集教会错误的课。下面每一条都存在于 ABC，每一条都变成了一道本体门禁：
 
-- **a constant column** (`complaints.kind` = only `late`) → "cannot do a complaint-type breakdown" is a
-  finding, not a bug;
-- **a single timestamp for all rows** (`opened_at` identical) → the trend chart has ONE bar, and that bar is
-  the evidence the timestamps were batch-backfilled;
-- **a large NULL group** (`liability` NULL 46.1%) → unjudged liability is a real group; its amount is NULL,
-  not 0;
-- **a table that is too small for the question** (3 hours of telemetry) → temperature trends must be refused;
-- **plan vs actual that do not join** (`route_stops` vs `stops`: 75 of 51,210 stops share a store) → the
-  achievement rate is unrepeatable and stays a declared refusal.
+- **一个恒定列**（`complaints.kind` 只有 `late`）→「做不了客诉类型拆分」是一条发现，不是 bug；
+- **所有行共用一个时间戳**（`opened_at` 完全相同）→ 趋势图只有**一根**柱子，而那根柱子正是时间戳被批量回填的证据；
+- **一个大 NULL 组**（`liability` NULL 占 46.1%）→ 未判定的责任是一个真实的组；它的金额是 NULL，不是 0；
+- **一张对这个问题来说太小的表**（3 小时的遥测）→ 温度趋势必须被拒绝；
+- **计划与实际对不上**（`route_stops` 对 `stops`：51,210 个停靠点里只有 75 个共享同一门店）→ 达成率不可复现，
+  继续作为一条声明出来的拒绝。
 
-## 3b. Write files in BOUNDED chunks (a 700-line tool call stalls)
+## 3b. 分块写文件，每一块都有界（一次 700 行的工具调用会卡死）
 
-A single `write_file` that carries the whole generator is one enormous tool-call argument stream. Measured twice
-on this provider: the request streamed 28 chunks and then went silent for **600 s**, the turn was lost and the
-user saw a spinner. So:
+一个 `write_file` 扛下整个生成器，就是一条巨大的工具调用参数流。在这家 provider 上实测两次：请求流式发出 28 个分块，
+然后静默了 **600 秒**，回合丢掉，用户只看到一个转圈。所以：
 
-- write the generator in **sections of ≤ ~120 lines**: skeleton + helpers first, then one `edit_file` (or append)
-  per table group, then `main()`;
-- same for the spec: write the flat parts (`dataset`/`source`/`time`) first, then `invariants` in two or three
-  passes;
-- after each write, `wc -l` the file so you know it is really growing (a truncated write that "succeeded" is the
-  failure mode this prevents);
-- a huge single response is not a virtue: nobody reviews it in one go, and the provider may just stop.
+- 按**每段 ≤ ~120 行**写生成器：先骨架加 helper，然后每组表一次 `edit_file`（或追加），最后 `main()`；
+- spec 同理：先写平铺的部分（`dataset`/`source`/`time`），再分两三趟写 `invariants`；
+- 每次写完都对文件 `wc -l`，这样你知道它真的在变长（一次「成功」了的截断写入，正是这条要防的失败模式）；
+- 一次巨大的响应不是美德：没人会一口气评审它，而 provider 可能干脆停住。
 
-## 3c. Measure with ONE query, not N queries
+## 3c. 用一条查询量，而不是 N 条
 
-A number is a query, but N numbers are not N queries. Measured (2026-11-07, `new_coldchain`): the agent wanted trips
-per day after the merge, so it issued `select count(*) … trip_date >= '2026-09-22' and trip_date < X` for X =
-09-23, then again with a second `-c`, then a third … each call repeating every earlier query and adding one more.
-After ten turns the command was thousands of characters of duplicated SQL, no number had been reported, and the
-turn eventually died on a stalled stream.
+一个数字就是一条查询，但 N 个数字不等于 N 条查询。实测（2026-11-07，`new_coldchain`）：智能体想知道并线之后每天的
+趟数，于是为 X = 09-23 发出 `select count(*) … trip_date >= '2026-09-22' and trip_date < X`，然后又用第二个 `-c`
+发一遍，再来第三次……每次调用都重复前面每一条查询，再加一条。十个回合之后，命令已经是几千字符的重复 SQL，一个数字
+也没报出来，回合最后死于停滞的流。
 
-Rules:
+规则：
 
-- **one aggregate, one statement**: `select trip_date, count(*) from trips group by 1 order by 1` answers the whole
-  question; `select version, avg(planned_stops), … group by 1` answers the signal table;
-- if a value must be measured, measure it in the SAME query that prints the label, and print all of them at once;
-- never re-send a query you already sent; if you need it again, re-read the previous tool result instead;
-- if two consecutive tool calls are ≥80 % identical, stop and change the approach — that is the loop, not progress.
+- **一个聚合，一条语句**：`select trip_date, count(*) from trips group by 1 order by 1` 回答整个问题；
+  `select version, avg(planned_stops), … group by 1` 回答那张信号表；
+- 某个值必须量，就在**打印标签的同一条**查询里量它，并且一次全打出来；
+- 永远不要重发已经发过的查询；需要再用它，就重读上一条工具结果；
+- 如果连续两次工具调用有 ≥80 % 相同，停下换方法——那是循环，不是进展。
 
-## 4. Determinism and reset
+## 4. 确定性与重置
 
-- **SEED constant at the top.** A number in a gate or a screenshot must never move on its own; measured
-  lesson: a gate comparing a `now()`-relative number to a constant decays into a false alarm.
-- `--reset` drops and recreates (idempotent), because a demo is re-run often.
-- Generated ids are stable across runs; never rely on `serial` ordering for anything a query compares.
-- Time: put the data in a **fixed historical window** and say so (`2026-08-08 → 2026-11`). Then
-  `guard.default_window_days` must be `0` (refuse a now-relative window) or every metric silently returns
-  nothing.
+- **`SEED` 常量放在顶部。** 门禁或截图里的数字绝不能自己动；实测到的教训：一道拿相对 `now()` 的数字去比常量的
+  门禁，会退化成误报。
+- `--reset` 丢弃并重建（幂等），因为演示会被反复重跑。
+- 生成的 id 跨运行稳定；任何会被查询比较的东西，都不要依赖 `serial` 的顺序。
+- 时间：把数据放进一个**固定的历史窗口**并把它说出来（`2026-08-08 → 2026-11`）。这样
+  `guard.default_window_days` 必须是 `0`（拒绝相对当前时间的窗口），否则每个指标都会静默地返回空。
 
-## 4b. Delivery self-check — every line, before you answer
+## 4b. 交付自检——逐条过一遍，在回答之前
 
-| must be true | how it is checked |
+| 必须为真 | 怎么查 |
 |---|---|
-| the generator file exists at `generated/<dataset>/gen.py` | `ls` it |
-| `SEED` is a constant at the top, `--reset` drops and recreates | `grep` for both |
-| the spec exists at `generated/<dataset>/<dataset>.dataset.json` | `ls` it |
-| `check_dataset.py --spec …` printed **`N checks, 0 failed`** | run it; quote the line |
-| every hard fact in the brief is an assertion (counts, distributions, the 50→40 split) | open the spec and count them |
-| every planted signal is asserted with a number | same |
-| every deliberate pathology is asserted (a constant column, a NULL group, a table too small) | same |
-| each pain point with no column is in `cannot_see` | `grep` it |
-| **a rebuild changes nothing**: `gen.py --reset` twice gives identical numbers | compare the totals before/after, or a checksum of a key aggregate |
-| **the spec can FAIL**: change one expectation by hand → it goes red, change it back → green | do this once, and say so; a spec nobody has ever seen fail is decoration |
-| the manifest exists at `generated/<slug>/manifest.json` and its `dataset.status` is `built` | `cat` it |
-| the manifest's `rows` equals what the database actually holds | `select count(*)` per table, compare |
-| the manifest's `checks` equals what `check_dataset.py` printed | same run, same numbers |
-| `units`, `nulls`, `pii`, `time.timezone` are filled — not `null` | a manifest with null units is a dataset nobody can label |
+| 生成器文件在 `generated/<dataset>/gen.py` 处存在 | `ls` 它 |
+| `SEED` 是顶部的常量，`--reset` 会丢弃并重建 | 两样都 `grep` |
+| spec 在 `generated/<dataset>/<dataset>.dataset.json` 处存在 | `ls` 它 |
+| `check_dataset.py --spec …` 打印了 **`N checks, 0 failed`** | 跑它；把那一行引出来 |
+| 简报里每个硬事实都是一条断言（计数、分布、50→40 的切分） | 打开 spec 数一遍 |
+| 每个栽进去的信号都用数字断言了 | 同上 |
+| 每条有意为之的病理都被断言了（恒定列、NULL 组、一张太小的表） | 同上 |
+| 每个没有对应列的痛点都在 `cannot_see` 里 | `grep` 它 |
+| **重建不改变任何东西**：`gen.py --reset` 跑两遍给出完全相同的数字 | 比前后的总数，或对一个关键聚合取校验和 |
+| **spec 能失败**：手工改掉一条期望 → 它变红，改回来 → 变绿 | 做一次，并且说出来；一份从没人见过它失败的 spec 只是装饰 |
+| manifest 在 `generated/<slug>/manifest.json` 处存在，且它的 `dataset.status` 是 `built` | `cat` 它 |
+| manifest 的 `rows` 等于库里实际存的行数 | 每张表 `select count(*)`，比对 |
+| manifest 的 `checks` 等于 `check_dataset.py` 打印的东西 | 同一次运行，同一批数字 |
+| `units`、`nulls`、`pii`、`time.timezone` 都填了——不是 `null` | 一份 units 为 null 的 manifest，就是一个没人能给它打标签的数据集 |
 
-**A reply that answers without those artifacts is not a partial delivery; it is a failed run.** Say so
-plainly rather than dressing it up.
+**一个没有这些产物却在作答的回复，不是部分交付，而是一次失败的运行。** 直说，不要把它包装起来。
 
-## 5. Verify with the spec, then hand off
+## 5. 用 spec 验证，然后交接
 
 ```bash
 PY=<the app's own .venv: the interpreter that runs the backend>
@@ -232,28 +220,25 @@ $PY <this skill>/scripts/check_dataset.py --spec <this skill>/fixtures/abc_coldc
 #   → 53 checks, 0 failed   (volume, FK, planted invariants, constant columns, NULL rates)
 ```
 
-Then the dataset feeds the normal path: `build-ontology-from-db` (introspect → declarations → gates →
-dashboard). The spec file is the contract between the two skills: the ontology's `:businessDescription`
-should quote the same numbers the spec asserts.
+之后数据集进入正常路径：`build-ontology-from-db`（内省 → 声明 → 门禁 → 看板）。spec 文件是两个技能之间的契约：
+本体的 `:businessDescription` 应当引用 spec 所断言的同一批数字。
 
-## Anti-patterns
+## 反模式
 
-- **answering with the document itself** — the brief (or its XML) restated as the "result". The deliverable
-  is a generator, a spec and a check count, or it is a failure with a reason;
-- **reading a binary document through a text path** (`unzip`/`cat`/XML parsing) instead of `read_any_file`;
-- **building into a database the user did not confirm** (or overwriting one without asking): the name is a
-  business decision, and a silent build is how the second brief lands in the first brief's database;
-- random data with a story pasted over it (nothing proves anything);
-- a "clean" dataset with no NULLs and no constant columns (the demo then claims a competence the real data
-  does not support);
-- volumes chosen for roundness so `4,050` becomes `4,000`;
-- a pain point represented by a proxy column the business never had (write it in `cannot_see` instead);
-- `now()`-relative dates in a fixed historical dataset — every window then returns nothing.
+- **拿文档本身当回答**——把简报（或它的 XML）复述一遍当成「结果」。交付物是一个生成器、一份 spec 和一个检查计数，
+  否则就是一次带原因的失败；
+- **用文本路径去读二进制文档**（`unzip`/`cat`/解析 XML）而不是 `read_any_file`；
+- **构建进一个用户没有确认的库**（或问都不问就覆盖一个）：名字是业务决定，而一次安静的构建，就是第二份简报落进第一份
+  简报库里的方式；
+- 把故事糊在随机数据上面（什么都证明不了）；
+- 一个「干净」的数据集，没有 NULL、没有恒定列（演示于是声称了一种真实数据支撑不了的能力）；
+- 为了凑整而选的体量，让 `4,050` 变成 `4,000`；
+- 用业务从来没有过的代理列去表示一个痛点（改为写进 `cannot_see`）；
+- 在固定的历史数据集里用相对 `now()` 的日期——那样每个窗口都返回空。
 
-## References
+## 参考资料
 
-- `references/design-checklist.md` — the checklist, each item with its verification query and the ontology
-  consequence of omitting it.
-- `references/abc-case.md` — the full worked example (schema, volumes, planted signals, measured numbers).
-- `scripts/check_dataset.py` — the spec checker (this skill's gate).
-- The generator it was distilled from: `<this skill>/scripts/gen_abc.py` (SEED 20251106, `--reset`).
+- `references/design-checklist.md`——清单，每一项带它的验证查询，以及漏掉它在本体上的后果。
+- `references/abc-case.md`——完整的实例（schema、体量、栽进去的信号、实测数字）。
+- `scripts/check_dataset.py`——spec 检查器（本技能的门禁）。
+- 它提炼自的那个生成器：`<this skill>/scripts/gen_abc.py`（SEED 20251106，`--reset`）。
