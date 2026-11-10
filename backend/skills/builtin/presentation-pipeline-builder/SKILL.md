@@ -77,7 +77,7 @@ roles/qa-reviewer.md.
 |---|---|---|---|
 | `outline_designer` | "把源文档变成一份 12–15 页的幻灯片大纲 JSON（封面 → 议程 → 内容 → 数据 → 结论 → 结尾），供主题化讲稿使用。" | "你是一个身处「隔离」上下文窗口的大纲设计师。用 read_file 读 skills/presentation-skills/roles/outline-designer.md，并严格照它执行。把大纲 JSON 写到简报里给出的路径，然后只返回大纲路径 + 两行摘要。" | `["read_file", "ls", "glob", "write_file", "think_tool", "reasoning_chain"]` |
 | `deck_writer` | "用感知主题的 gen_pptx / gen_html_deck / gen_pdf_deck 工具，根据大纲 JSON 生成讲稿（pptx/html/pdf）。" | "你是一个身处隔离上下文窗口的讲稿撰写者。用 read_file 读 skills/presentation-skills/roles/deck-writer.md，并严格照它执行。对每种请求的格式，用大纲 JSON（以字符串传入）+ 主题调用讲稿工具（gen_pptx / gen_html_deck / gen_pdf_deck），然后只返回输出路径 + 一行摘要。" | `["read_file", "ls", "glob", "gen_pptx", "gen_html_deck", "gen_pdf_deck", "think_tool", "reasoning_chain"]` |
-| `qa_reviewer` | "对照大纲审查生成的 .pptx（页数、标题、要点、主题、备注），返回 PASS/CHANGES。" | "你是一个身处隔离上下文窗口的质检评审。用 read_file 读 skills/presentation-skills/roles/qa-reviewer.md，并严格照它执行。对照大纲审查讲稿，只返回你的结构化判词。绝不修改讲稿。" | `["read_file", "ls", "glob", "think_tool", "reasoning_chain"]` |
+| `qa_reviewer` | "对照大纲审查生成的 .pptx（页数、标题、要点、主题、备注），返回 PASS/CHANGES。" | "你是一个身处隔离上下文窗口的质检评审。用 read_file 读 skills/presentation-skills/roles/qa-reviewer.md，并严格照它执行。对照大纲审查讲稿，只返回你的结构化结论。绝不修改讲稿。" | `["read_file", "ls", "glob", "think_tool", "reasoning_chain"]` |
 
 ### 第 4 步——可选：领域专用变体
 如果需要一条不同的流水线（多一个角色、不同的讲稿规则），把

@@ -74,7 +74,7 @@ version: '1.0'
 ### 2. 把候选做成一份 HTML 报告
 
 把一份自包含的 HTML 文件写到操作系统临时目录，这样仓库里不会落东西。临时目录从 `$TMPDIR` 解析，取不到就退回
-到 `tmp` 技能（Windows 上是 `%TEMP%`），写到 `<tmpdir>/architecture-review-<timestamp>.html`，让每次运行都
+到系统的 `tmp` 目录（Windows 上是 `%TEMP%`），写到 `<tmpdir>/architecture-review-<timestamp>.html`，让每次运行都
 得到一个全新的文件。替用户把它打开（Linux 上 `xdg-open <path>`，macOS 上 `open <path>`，Windows 上
 `start <path>`），并告诉他们绝对路径。
 
@@ -124,11 +124,11 @@ version: '1.0'
 - **用真实命令验证**，不要靠眼看：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` +
   一份文档库报告）。后端测试套件加 `--full-suite`。
 - **后端套件有 20 个既有的失败。**“不比那个基线更差”是诚实的判据；“测试是绿的”在这里不是一个你能做出的
-  宣称。用
+  断言。用
   `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
   对照，并把 `FAILED` 行与记录的基线做 diff。
 - **规格、工单和笔记活在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
-  写在聊天消息里的一句判词，下一轮就丢了。
-- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 框架
+  写在聊天消息里的一句结论，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 脚手架
   （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `lc-ecosystem-primer` 规则——并优先选
   能胜任的最高层。

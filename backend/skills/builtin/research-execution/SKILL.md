@@ -51,7 +51,7 @@ source: backend/skills/en-originals/research-execution/SKILL.md
 **关键：每次检索之后都用 think_tool 反思结果并规划下一步。** 上一轮之后没调用过 think_tool，就不要开新一轮
 检索。
 
-页面抓得到的时候，绝不要宣称一个你只在片段里见过的精确细节——去把它抓下来，或者标记为未核实。
+页面抓得到的时候，绝不要断言一个你只在片段里见过的精确细节——去把它抓下来，或者标记为未核实。
 
 ## 每轮检索之后都要反思（`think_tool`）
 

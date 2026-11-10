@@ -212,7 +212,7 @@ Environment、合成数据、Verifier、Harbor 与校准这几份参考。
 - 初始与最终的 Environment 状态，以及外部副作用；
 - 服务、初始化、就绪、重置与清理的证据；
 - 每一条 Verifier 判据、它的证据、判定与错误；以及
-- 解析出来的 Harness、模型、Environment 与裁判配置。
+- 解析出来的 Harness、模型、Environment 与裁判模型配置。
 
 把每一次不成功的运行归类为：智能体能力不足、信息缺失、Harness 缺陷、Environment 缺陷、Verifier
 误拒、Verifier 误受、泄漏，或基础设施故障。在使用分数之前，先修掉非智能体的失败。
@@ -288,11 +288,11 @@ Environment、合成数据、Verifier、Harbor 与校准这几份参考。
 - **用真实命令验证**，不要靠眼看：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` +
   一份文档库报告）。后端测试套件加 `--full-suite`。
 - **后端套件有 20 个既有的失败。**“不比那个基线更差”是诚实的判据；“测试是绿的”在这里不是一个你能
-  做出的宣称。用
+  做出的断言。用
   `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
   对照，并把 `FAILED` 行与记录的基线做 diff。
 - **规格、工单和笔记活在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
-  写在聊天消息里的一句判词，下一轮就丢了。
-- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 框架
+  写在聊天消息里的一句结论，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 脚手架
   （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `lc-ecosystem-primer` 规则——并优先
   选能胜任的最高一层。

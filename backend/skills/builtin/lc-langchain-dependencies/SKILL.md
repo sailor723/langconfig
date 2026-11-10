@@ -97,7 +97,7 @@ LangChain 生态被拆成多个职责单一、各自独立定版本的包。弄�
 | 包 | 什么时候用 | 最低版本 |
 |---------|----------|-------------|
 | `langgraph` | 直接构建自定义图 | 1.0 |
-| `deepagents` | 使用 Deep Agents 框架 | 最新 |
+| `deepagents` | 使用 Deep Agents 脚手架 | 最新 |
 
 ### Python——模型提供方（用哪个装哪个）
 
@@ -151,7 +151,7 @@ LangChain 生态被拆成多个职责单一、各自独立定版本的包。弄�
 | 包 | 什么时候用 | 最低版本 |
 |---------|----------|-------------|
 | `@langchain/langgraph` | 直接构建自定义图 | 1.0 |
-| `deepagents` | 使用 Deep Agents 框架 | 最新 |
+| `deepagents` | 使用 Deep Agents 脚手架 | 最新 |
 
 ### TypeScript——模型提供方（用哪个装哪个）
 
@@ -469,12 +469,12 @@ node --version   # must be v20.x or higher
 
 - **用真实命令验证**，不要靠眼看：`./scripts/housekeeping_verify.sh`（守卫 + `tsc` + `vite build` +
   一份文档库报告）。后端测试套件加 `--full-suite`。
-- **后端套件有 20 个既有的失败。**“不比那个基线更差”是诚实的判据；“测试是绿的”在这里不是一个你能做出的宣称。
+- **后端套件有 20 个既有的失败。**“不比那个基线更差”是诚实的判据；“测试是绿的”在这里不是一个你能做出的断言。
   用
   `pytest tests -q --ignore=tests/test_neo4j_document_enrichment.py --ignore=tests/test_pageindex_full_content_loader.py`
   对照，并把 `FAILED` 行与记录的基线做 diff。
 - **规格、工单和笔记活在文件里**：`docs/specs/<slug>.md`、`docs/tickets/NNN-<slug>.md`、`work/<scope>/`。
-  写在聊天消息里的一句判词，下一轮就丢了。
-- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 框架
+  写在聊天消息里的一句结论，下一轮就丢了。
+- **生态层**：智能体代码是 LangGraph 运行时里的 LangChain（`create_agent`），通常由 Deep Agents 脚手架
   （`deepagents`）包一层。动笔之前先决定这次改动属于哪一层——这就是 `lc-ecosystem-primer` 规则——并优先选
   能胜任的最高层。

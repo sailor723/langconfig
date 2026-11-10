@@ -1,7 +1,7 @@
 ---
 name: Grilling（追问到底）
 lang: zh
-translated: human
+translated: machine
 source: backend/skills/en-originals/grilling/SKILL.md
 description: >-
   盘问一个计划、设计、指标定义或决定，直到没有东西是被默默假设的。当用户说"grill 我""压力测试一下""挑挑毛病"，
@@ -30,7 +30,7 @@ params:
 
 ## Instructions（指令）
 访谈用户，直到你们对同一件事有同一个理解。**不要**实现、不要做计划、也不要"他们回答的时候先动起来"——
-这个技能产出的是**已定的决定**，提前动手正是一次运行在一个没人同意过的定义上烧掉几个小时的方式。
+这个技能产出的是**已定的决定**，提前动手，就会把几个小时烧在一个没人同意过的定义上。
 
 ### 把决定画成一棵树，然后按轮次推进
 

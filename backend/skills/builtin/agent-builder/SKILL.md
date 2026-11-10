@@ -159,7 +159,7 @@ R2 FAIL — 没有写文件；工具序列只有 web_search、ls
 
 - 名字：课程材料用 `case-N-<topic>`，其余用 `<topic>-assistant`。小写，连字符，不含空格。
 - 交付三个文件：`generated/<slug>.rubric.md`、`<slug>.config.json`（原样的 create_agent 输入）、
-  `<slug>.test.md`（探针、工具、耗时、R# 判词）。
+  `<slug>.test.md`（探针、工具、耗时、R# 结论）。
 - 聊天回复 ≤15 行：id、kind、工具/技能数量、rubric 通过条数、三个路径。
 
 ## 值得认出来的失败模式
