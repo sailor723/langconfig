@@ -182,8 +182,12 @@ def test_the_loader_still_parses_the_chinese_skill(skill_id: str):
     parsed = SkillLoader().load_skill(str(BUILTIN / skill_id))
     assert parsed is not None, f"{skill_id}: SkillLoader refused the Chinese SKILL.md"
     assert parsed.name and parsed.description, f"{skill_id}: name/description did not survive"
-    en_words = len(re.findall(r"\b[A-Za-z]{3,}\b", _body(ARCHIVE / skill_id / "SKILL.md")))
-    assert _cjk(parsed.instructions) >= max(3, round(en_words * 0.6)), (
+    # The floor comes from the ENGLISH instructions, not the English body: when `## Instructions` is present
+    # the loaded body is only that section, so a body-derived floor would demand more Chinese than the
+    # source contains and reject honest work (it did — and padding is the wrong way out).
+    english = SkillLoader().load_skill(str(ARCHIVE / skill_id))
+    en_instruction_words = len(re.findall(r"\b[A-Za-z]{3,}\b", english.instructions if english else ""))
+    assert _cjk(parsed.instructions) >= max(3, round(en_instruction_words * 0.6)), (
         f"{skill_id}: the parsed instructions are not Chinese — the `## Instructions` line may have been "
         "translated, which silently turns the whole body into the instructions section")
 

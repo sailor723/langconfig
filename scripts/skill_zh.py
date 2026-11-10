@@ -212,20 +212,31 @@ def validate(skill_id: str) -> str:
             raise Rejected(f"the English has a `{delimiter}` line and the Chinese does not — keep that word "
                            f"and add the Chinese in parentheses: `{delimiter}（…）`")
 
-    # The real loader, on a real directory: frontmatter plus sections must survive.
+    # The real loader, on a real directory: frontmatter plus sections must survive. Two probes, because the
+    # instructions floor has to come from the ENGLISH instructions: when `## Instructions` is present the
+    # loaded body is only that section, and measuring it against a floor derived from the whole English body
+    # asks for more Chinese than the source contains. Measured — `lc-deep-agents-memory` was rejected at 730
+    # CJK against 679 until this was fixed, and the "fix" the translator reached for was padding.
     with tempfile.TemporaryDirectory() as tmp:
-        probe = Path(tmp) / skill_id
-        probe.mkdir()
-        (probe / "SKILL.md").write_text(zh_text, encoding="utf-8")
         sys.path.insert(0, str(BACKEND))
         from core.skills.loader import SkillLoader
 
-        parsed = SkillLoader().load_skill(str(probe))
+        loader = SkillLoader()
+        probes = {}
+        for label, source in (("zh", zh_text), ("en", en_text)):
+            probe = Path(tmp) / label / skill_id
+            probe.mkdir(parents=True)
+            (probe / "SKILL.md").write_text(source, encoding="utf-8")
+            probes[label] = loader.load_skill(str(probe))
+    parsed, english = probes["zh"], probes["en"]
     if parsed is None:
         raise Rejected("SkillLoader refused the staged file")
-    if cjk_count(parsed.instructions) < floor:
+    en_instructions = english.instructions if english else ""
+    instructions_floor = max(3, round(latin_words(en_instructions) * CJK_PER_EN_WORD_MIN))
+    if cjk_count(parsed.instructions) < instructions_floor:
         raise Rejected(f"the parsed instructions hold {cjk_count(parsed.instructions)} CJK characters (floor "
-                       f"{floor}) — check the `## Instructions` line, it may have been translated")
+                       f"{instructions_floor}, from {latin_words(en_instructions)} English words in the "
+                       "original instructions) — check that the `## Instructions` line was not translated")
     if parsed.examples is not None and cjk_count(parsed.examples) == 0:
         raise Rejected("`## Examples` section parsed but is not Chinese")
     return zh_text
