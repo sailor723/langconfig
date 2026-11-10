@@ -81,8 +81,8 @@ wiki 是一份历史记录。它从不声称描述“现在如何”，因为它
 
 你要跑的一些流程写在别的技能里，就装在本技能旁边。要跑其中一个时，按下面给出的路径（相对本技能目录）读它的 `SKILL.md`，照它执行。
 
-- **复盘（Retro）**（`..the `retro` skill/SKILL.md`）：大约每五个子智能体会话做一次复盘，包括某次 `implement-spec` 运行派发出去的那些。优先挑出过问题的。把复盘的最后一步换掉：由你自己判断哪些候选值得追，然后去追。
-- **大块工作**：用 `..the `to-spec` skill/SKILL.md` 写规格，用 `..the `to-tickets` skill/SKILL.md` 拆成工单，两者都发布到 `docs/tickets/`，再用 `..the `implement` skill-spec/SKILL.md` 实现它们。
+- **复盘（Retro）**（`../retro/SKILL.md`）：大约每五个子智能体会话做一次复盘，包括某次 `implement-spec` 运行派发出去的那些。优先挑出过问题的。把复盘的最后一步换掉：由你自己判断哪些候选值得追，然后去追。
+- **大块工作**：用 `../to-spec/SKILL.md` 写规格，用 `../to-tickets/SKILL.md` 拆成工单，两者都发布到 `docs/tickets/`，再用 `../implement-spec/SKILL.md` 实现它们。
 
 ## Strategic View（战略视角）
 
