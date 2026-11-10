@@ -136,10 +136,13 @@ export default function MessagesPanel({
     return () => clearInterval(interval);
   }, [isStreaming]);
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom as new content arrives. During streaming the
+  // assistant's message grows one chunk at a time, so we follow it live with an
+  // instant jump (`auto`) instead of a smooth scroll — smooth scrolling on every
+  // token queues up animations and lags behind the output. Once the run
+  // finishes, the final message settles in with a smooth scroll.
   useEffect(() => {
-    if (isStreaming) return;
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: isStreaming ? 'auto' : 'smooth' });
   }, [messages, isStreaming]);
 
   const copyToClipboard = (text: string, index: number) => {

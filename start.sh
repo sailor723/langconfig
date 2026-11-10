@@ -28,6 +28,73 @@ SELF_PID=$$
 BE_PIDFILE="/tmp/langconfig-be.pid"
 FE_PIDFILE="/tmp/langconfig-fe.pid"
 
+# ── ancestor guard ───────────────────────────────────────────────────────────
+# A restart can be requested from *inside* the app: an agent whose tool is a
+# real shell runs `./start.sh` during a chat turn, and the listener on :8765 —
+# the backend hosting that very turn — became the first thing this script
+# killed. Measured twice: the turn vanished mid-tool (the UI spun, then said
+# "Load failed"), and because LangGraph re-runs an unfinished tool call when the
+# thread resumes, the next message killed the freshly started backend again.
+#
+# SELF_PID already protected the script from killing itself. This extends that
+# to the script's ancestors: a process that sits *above* us in the tree (the
+# backend, the shell that called us) is hosting this command and must not be
+# terminated by it.
+# Parent of a PID, whatever this machine offers. `ps` is the obvious tool but it
+# is not always usable (a stripped container, or a sandbox that denies it), and a
+# guard that silently degrades to nothing is the failure this whole block exists
+# to prevent — so fall back to /proc (Linux) and then to `lsof` (already required
+# for the port lookups, and able to report a parent PID with -F R).
+parent_of_pid() {
+    local p="$1" ppid=""
+    ppid=$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ')
+    if [ -n "$ppid" ]; then
+        printf '%s\n' "$ppid"; return 0
+    fi
+    if [ -r "/proc/$p/stat" ]; then
+        # Field 4 is the parent PID; the command name (field 2) may contain
+        # spaces and parentheses, so cut everything through the last ")" first.
+        ppid=$(awk '{ sub(/.*\) /, ""); print $2 }' "/proc/$p/stat" 2>/dev/null)
+        if [ -n "$ppid" ]; then
+            printf '%s\n' "$ppid"; return 0
+        fi
+    fi
+    if command -v lsof >/dev/null 2>&1; then
+        ppid=$(lsof -p "$p" -F pR 2>/dev/null | sed -n 's/^R//p' | head -1)
+        if [ -n "$ppid" ]; then
+            printf '%s\n' "$ppid"; return 0
+        fi
+    fi
+    return 1
+}
+
+ancestor_pids() {
+    local p="$1" guard=0 ppid
+    while [ "${p:-0}" -gt 1 ] 2>/dev/null && [ "$guard" -lt 64 ]; do
+        ppid=$(parent_of_pid "$p") || break
+        [ -z "$ppid" ] && break
+        printf '%s\n' "$ppid"
+        p="$ppid"
+        guard=$((guard + 1))
+    done
+}
+
+PROTECTED_PIDS=" $(ancestor_pids "$SELF_PID" | tr '\n' ' ')$SELF_PID "
+
+# Nothing could name a single parent: the guard can still protect this script,
+# but not the process that called it. Recorded so kill_old can say so, instead
+# of the reader assuming ancestry was checked.
+if ! parent_of_pid "$SELF_PID" >/dev/null 2>&1; then
+    PS_BLOCKED=1
+fi
+
+is_protected_pid() {
+    case "$PROTECTED_PIDS" in
+        *" $1 "*) return 0 ;;
+    esac
+    return 1
+}
+
 # ── port helpers ─────────────────────────────────────────────────────────────
 # Which tool can name the process LISTENING on a port?
 #
@@ -118,9 +185,14 @@ kill_old() {
 
     # 1) Stop via PID file first. SIGTERM lets the uvicorn reloader shut down
     #    its worker cleanly (SIGKILL is only the last resort).
+    #    A PID that is one of our ancestors is the process running this very
+    #    command (see the ancestor guard above): leave it alone and say so,
+    #    rather than killing the run that asked for the restart.
     if [ -f "$pidfile" ]; then
         old_pid=$(cat "$pidfile")
-        if kill -0 "$old_pid" 2>/dev/null && [ "$old_pid" != "$SELF_PID" ]; then
+        if is_protected_pid "$old_pid"; then
+            echo "  ⏭️  Not stopping $name (PID $old_pid): it is running this command."
+        elif kill -0 "$old_pid" 2>/dev/null; then
             echo "  Stopping previous $name (PID $old_pid)..."
             kill "$old_pid" 2>/dev/null || true
             for _ in 1 2 3 4 5; do
@@ -140,9 +212,15 @@ kill_old() {
     pids=$(listeners_on_port "$port")
     if [ -n "$pids" ]; then
         for p in $pids; do
-            if [ "$p" != "$SELF_PID" ]; then
+            if is_protected_pid "$p"; then
+                echo "  ⏭️  Not stopping the listener on port $port (PID $p): it is running this command."
+            else
                 echo "  Stopping process on port $port (PID $p)..."
                 kill -9 "$p" 2>/dev/null || true
+                if [ -n "${PS_BLOCKED:-}" ]; then
+                    echo "      (ps is unavailable, so start.sh could not check whether PID $p is an"
+                    echo "       ancestor of this script — it only knows it is not itself.)"
+                fi
             fi
         done
     fi
@@ -159,6 +237,14 @@ kill_old() {
         sleep 1
     done
     echo "  ⚠️  Port $port is still busy after 5s"
+    local holder
+    holder=$(listeners_on_port "$port" | head -1)
+    if [ -n "$holder" ] && is_protected_pid "$holder"; then
+        echo "      The holder (PID $holder) is running this command — this start.sh was"
+        echo "      invoked from inside the app. Do not restart the stack from a chat"
+        echo "      turn: it would kill the turn that asked for it. Run start.sh from a"
+        echo "      terminal instead, then continue the conversation."
+    fi
     return 1
 }
 
