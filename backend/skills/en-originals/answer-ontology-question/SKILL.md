@@ -197,7 +197,7 @@ NOT RUN  lane B parity: no R2RML mapping for this dataset
 | the ontology repo's compiler (`sqlgen.py`, `capability.py`, `guard.py`, `nl.py`) | the pipeline *is* those modules; this skill is their order |
 | a PostgreSQL connection for the profile | the number comes from the database, not from a description of it |
 | a model backend (DeepSeek or local Ollama) — **optional** | rules answer 0 ms; the model is for unsure interpretations and for prose, never for SQL or arithmetic |
-| `scripts/ask.py` | runs one question through all five stages and prints the trace (exit 2 = refused) |
+| `scripts/ask.py` | runs one question through all four stages and prints the trace (exit 2 = refused) |
 
 ```bash
 PY=<the app's own .venv: the interpreter that runs the backend>

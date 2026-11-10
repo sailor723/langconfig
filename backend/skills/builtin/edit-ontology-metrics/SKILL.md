@@ -37,7 +37,7 @@ params:
 **它**，然后证明它产出的那个数字。其余的一切——工作台、报表、以后每一个问题——都跟着走。
 
 **动一条声明之前，先读
-[../build-ontology-from-db/references/rules.md](../build-ontology-from-db/references/rules.md)。** 它是那十五条
+[../build-ontology-from-db/references/rules.md](../build-ontology-from-db/references/rules.md)。** 它是那二十六条
 配置规则以及每条规则防住哪种失败的唯一出处。本技能不重复它们。
 [references/metric-recipes.md](references/metric-recipes.md) 收录了真正需要声明的那三种形状——分母落在另一个
 对象上的跨粒度比率、维度隔着两跳的分组指标、两个维度四张表的分组——每种都带 TTL、编译器推出的 SQL，以及在一个

@@ -1,20 +1,24 @@
 ---
-name: "build-ontology-from-db（从数据库搭建本体）"
+name: build-ontology-from-db（从数据库搭建本体）
 lang: zh
 translated: machine
 source: backend/skills/en-originals/build-ontology-from-db/SKILL.md
-description: >-
-  在已有 PostgreSQL 数据库之上搭建本体（或语义层，或"从数据库编译指标"）时使用——这是一架台阶梯，每一级都是一个产
-  物加一道会失败的门禁，所以"完成"意味着全绿，而绝不意味着"看起来做完了"；它拒绝猜测只有业务方才能决定的事，也拒绝
+description: 在已有 PostgreSQL 数据库之上搭建本体（或语义层，或"从数据库编译指标"）时使用——这是一架台阶梯，每一级都是一个产 物加一道会失败的门禁，所以"完成"意味着全绿，而绝不意味着"看起来做完了"；它拒绝猜测只有业务方才能决定的事，也拒绝
   发明一个数据支撑不了的数字
-tags: [ontology, semantic-layer, postgres, metrics, data-modeling, sql, gated-build]
+tags:
+- ontology
+- semantic-layer
+- postgres
+- metrics
+- data-modeling
+- sql
+- gated-build
 triggers:
-  - "被要求为一个数据库搭建或扩展本体 / 语义层时"
-  - "某个 KPI 或指标必须只定义一次并编译出来、而不是每张报表手写一遍时"
-  - '"同一个指标给出两个不同数字"，而口径必须定下来时'
+- 被要求为一个数据库搭建或扩展本体 / 语义层时
+- 某个 KPI 或指标必须只定义一次并编译出来、而不是每张报表手写一遍时
+- '"同一个指标给出两个不同数字"，而定义必须定下来时'
 version: 3.1
 author: weiping
-
 params:
   datasource:
     label: 数据库
@@ -29,7 +33,7 @@ params:
     label: profile 文件名
     description: 该文件夹里的 profile
     required: false
-    default: "{ontology_key}_settings.json"
+    default: '{ontology_key}_settings.json'
 ---
 
 # 从数据库搭建本体——一架每一步都带门禁的台阶梯
@@ -40,7 +44,7 @@ params:
 **让本技能成立的那条规则：一步的完成，看的是它的门禁全绿——不是它看起来做完了。** 下面每一步都有一个产物、一条命令
 和一行"绿"的定义。没有门禁的步骤是 `ungated`，而没有门禁的步骤永远不许被报告为完成。
 
-**写 TTL 之前先读 [references/rules.md](references/rules.md)**（二十四条编号规则，每一条都声明了强制它的那道 GATE，
+**写 TTL 之前先读 [references/rules.md](references/rules.md)**（二十六条编号规则，每一条都声明了强制它的那道 GATE，
 或者干脆说出 `Ungated`）。[references/pitfalls.md](references/pitfalls.md) 是真实失败案例的目录；
 [references/tuning-log.md](references/tuning-log.md) 记的是智能体*自身*行为的同类账本；
 [references/gates.md](references/gates.md) 是门禁矩阵，以及怎么证明每道门禁真的咬得住；
@@ -107,7 +111,7 @@ params:
 | S3 | 计算层 | `metrics_ext.ttl` | `--family C` | 每个指标编译成功，或**按名拒绝**并进拒绝清单 |
 | S4 | 护栏 | profile `guard` | `--family G` | G0–G6 全过（含 G1c：声明的窗口列必须存在） |
 | S5 | 菜单/样例 | `samples.json`（格式抄 `check_samples.py` 的 docstring）+ profile `samples` 前门清单 | `gates/check_samples.py --profile …` | 每个样例答出或按名拒绝；`unresolved`/`[WARN] offered but not gated` 逐个点名 |
-| S6 | 看板（若声明） | `dashboard.json` | `gates/check_dashboard.py --profile …` | 每个面板引用已声明指标或声明过的洞 |
+| S6 | 仪表盘（若声明） | `dashboard.json` | `gates/check_dashboard.py --profile …` | 每个面板引用已声明指标或声明过的洞 |
 | S7 | 教程 | `tutorial.json` + 本 profile 自己的 `ontology.html` | `--family T` + 现场 `tutorial/run?metric=…` + `graph_view.py` 末行的自检 | 每个 items 名字已声明；至少一个指标步真跑出数；页面自检 PASS、标题 == profile `title` |
 | S8 | 发布 | staged 报告（记 staged id 到 `gates.json` 的 `pending_install`） | `ontology_publish` → `scripts/ontology_gates.py` | stage 编译 0 新拒绝、门全过；整套 suite `0 failed`，未安装的 key 点名 NOT RUN 而不是红 |
 
@@ -413,9 +417,9 @@ spec。
 
 ---
 
-## S6. 看板（仅当业务方要了一块板）
+## S6. 仪表盘（仅当业务方要了一块板）
 
-### 两种看板物种——选一种，并说明为什么
+### 两种仪表盘物种——选一种，并说明为什么
 
 | | **参考板**（v3、v4） | **汇报板**（v5） |
 |---|---|---|
@@ -455,10 +459,10 @@ spec。
 门禁 `gates/check_dashboard.py --profile …`：每个被引用的指标要么已声明、要么是一个已声明的洞；每个指标具备它面板所需的
 形状；独立 SQL 结果一致；分组的比率能加权回未分组的值。
 
-### 看板是交付物，不是副产品
+### 仪表盘是交付物，不是副产品
 
 那道门禁验证的是**存在**的面板。它不知道材料点名了哪些家族，所以**一块一个家族都没展示的板也是绿的**——v3 搭建实测：
-业务要求的六个家族共 36 个 KPI 指标，每道门禁全绿，而看板仍然只带着从 v1 继承的六个面板。那次搭建做完了 S1–S3 就停了。
+业务要求的六个家族共 36 个 KPI 指标，每道门禁全绿，而仪表盘仍然只带着从 v1 继承的六个面板。那次搭建做完了 S1–S3 就停了。
 
 所以 S6 的完成线是一次**覆盖检查，写进 profile 自己的话里**，靠的是样例形状的习惯，而不是运气：
 
@@ -512,17 +516,15 @@ KPI 卡片同理：一个头条数字既属于 `kpis`，**也**属于某个面�
 `ontology_publish` 之前把这四个数字写下来：
 
 ```
-1. 指标 → 去处：each metric is referenced by a panel, a KPI card, a sample, the tutorial, or a
-   `:numerator`/`:denominator`. The rest are orphans — delete them or give them a reader.
-2. 家族 → 面板：one line per family the material names (`family → metric → panel id → kind`).
-   A family with no panel is absent on purpose and says why.
-3. 消费方一致：after ANY metric is removed, `tutorial.json`, `samples.json` and `dashboard.json`
-   must not name it — measured: deleting six orphans turned T2 red ("every tutorial item is
-   declared") and nobody had looked at the tutorial.
-4. 预算：the mechanics (numerator/denominator) are not redundancy — 6 KPI families need ~50 of them
-   for the ratios to compile. If a budget is set (today: ~60 metrics), it can only be met by
-   trimming the CONSUMERS (tutorial, samples, panels, cards) as well; say which ones, with numbers,
-   instead of deleting the machinery and breaking the ratios.
+1. 指标 → 读者：每个指标都要被某个面板、KPI 卡片、样例、教程，或某个 `:numerator`/`:denominator`
+   引用。其余的孤儿——删掉，或者给它一个读者。
+2. 家族 → 面板：素材里点名的每个家族一行（`家族 → 指标 → 面板 id → kind`）。
+   没有面板的家族是有意缺席，并且要说明为什么。
+3. 消费方一致：任何一个指标被删除之后，`tutorial.json`、`samples.json` 与 `dashboard.json`
+   都不能再点它的名字——实测：删掉六个孤儿就把 T2 变红了（"每一条教程条目都已声明"），而没人看过那份教程。
+4. 预算：机制件（numerator/denominator）不是冗余——6 个 KPI 家族需要约 50 个，比率才算得出来。
+   如果设了预算（今天：约 60 个指标），只能同时裁剪**消费方**（教程、样例、面板、卡片）来满足它；
+   说出裁哪些、用数字说，而不是删掉机制件、把比率弄坏。
 ```
 
 ### 生成之前：清空货架

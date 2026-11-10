@@ -36,7 +36,7 @@ dashboard with extra steps.
 Every step below has an artifact, a command, and a "green" line. A step with no gate is `ungated`, and an ungated
 step may never be reported as done.
 
-**Read [references/rules.md](references/rules.md) before writing TTL** (twenty-four numbered rules, each one
+**Read [references/rules.md](references/rules.md) before writing TTL** (twenty-six numbered rules, each one
 declaring the GATE that enforces it or saying `Ungated` out loud). [references/pitfalls.md](references/pitfalls.md)
 is the catalogue of real failures; [references/tuning-log.md](references/tuning-log.md) is the same for the
 agent's *own* behaviour; [references/gates.md](references/gates.md) is the gate matrix and how to prove each gate
@@ -569,14 +569,14 @@ deleted. Every one of those stayed green in some gate, because the gates check t
 coverage. Write these four numbers down before `ontology_publish`:
 
 ```
-1. 指标 → 去处：each metric is referenced by a panel, a KPI card, a sample, the tutorial, or a
+1. Metrics → readers: each metric is referenced by a panel, a KPI card, a sample, the tutorial, or a
    `:numerator`/`:denominator`. The rest are orphans — delete them or give them a reader.
-2. 家族 → 面板：one line per family the material names (`family → metric → panel id → kind`).
+2. Families → panels: one line per family the material names (`family → metric → panel id → kind`).
    A family with no panel is absent on purpose and says why.
-3. 消费方一致：after ANY metric is removed, `tutorial.json`, `samples.json` and `dashboard.json`
+3. Consumers agree: after ANY metric is removed, `tutorial.json`, `samples.json` and `dashboard.json`
    must not name it — measured: deleting six orphans turned T2 red ("every tutorial item is
    declared") and nobody had looked at the tutorial.
-4. 预算：the mechanics (numerator/denominator) are not redundancy — 6 KPI families need ~50 of them
+4. Budget: the mechanics (numerator/denominator) are not redundancy — 6 KPI families need ~50 of them
    for the ratios to compile. If a budget is set (today: ~60 metrics), it can only be met by
    trimming the CONSUMERS (tutorial, samples, panels, cards) as well; say which ones, with numbers,
    instead of deleting the machinery and breaking the ratios.

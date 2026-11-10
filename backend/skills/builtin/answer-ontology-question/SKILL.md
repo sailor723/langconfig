@@ -183,7 +183,7 @@ NOT RUN  lane B parity: no R2RML mapping for this dataset
 | 本体仓库的编译器（`sqlgen.py`、`capability.py`、`guard.py`、`nl.py`） | 流水线*就是*这些模块；本技能只是它们的顺序 |
 | 该 profile 的 PostgreSQL 连接 | 数字来自数据库，而不是关于数据库的描述 |
 | 一个模型后端（DeepSeek 或本地 Ollama）——**可选** | 规则 0 ms 就能答；模型只用于拿不准的解析和写文字，绝不用于 SQL 或算术 |
-| `scripts/ask.py` | 把一个问题的五个阶段全跑一遍并打印追踪（退出码 2 = 拒绝） |
+| `scripts/ask.py` | 把一个问题的四个阶段全跑一遍并打印追踪（退出码 2 = 拒绝） |
 
 ```bash
 PY=<the app's own .venv: the interpreter that runs the backend>
