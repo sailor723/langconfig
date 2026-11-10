@@ -75,7 +75,36 @@ export default function TemplatePicker({ tab }: { tab: Tab }) {
   }, [templates, search]);
 
   // ── Handlers ────────────────────────────────────────────────────────
+  //
+  // For skills the picker is a LIST OF SKILLS, not a list of templates: the cards are the same skills
+  // the left sidebar lists. Clicking one therefore has to open THAT skill — a builtin opens its detail
+  // view, a personal one opens its editor — which is what the sidebar does. It used to run every click
+  // through the clone path (`skill_id: undefined`), so selecting a skill opened a blank "new skill"
+  // editor and the real definition was nowhere to be seen. Cloning is still available, as its own
+  // action on the card.
+  const openSkillCard = (tmpl: Template) => {
+    const skill = (tmpl.config ?? {}) as { skill_id?: string; source_type?: string; name?: string };
+    if (!skill.skill_id) {
+      setError('this card has no skill id — refusing to open an editor for nothing');
+      return;
+    }
+    closeTab(tab.id);
+    openTab(skill.source_type === 'builtin'
+      ? { id: `skill-${skill.skill_id}`, label: skill.name || skill.skill_id, viewType: 'skill',
+          data: { skillId: skill.skill_id, skill } }
+      : { id: `skill-edit-${skill.skill_id}`, label: `Edit: ${skill.name || skill.skill_id}`,
+          viewType: 'skill-editor', data: { skill } });
+  };
+
   const handlePick = (tmpl: Template) => {
+    if (activity === 'skills') { openSkillCard(tmpl); return; }
+    closeTab(tab.id);
+    const next = openEditorTabFor(activity, tmpl, /* fromBlank */ false);
+    if (next) openTab(next);
+  };
+
+  /** Clone a skill into a new one (the picker's old behaviour, kept as an explicit action). */
+  const handleClone = (tmpl: Template) => {
     closeTab(tab.id);
     const next = openEditorTabFor(activity, tmpl, /* fromBlank */ false);
     if (next) openTab(next);
@@ -158,6 +187,8 @@ export default function TemplatePicker({ tab }: { tab: Tab }) {
           }}>
             Loading templates...
           </div>
+        ) : error ? (
+          <div style={{ padding: 16, fontSize: 12, color: '#e5484d' }}>{error}</div>
         ) : filtered.length === 0 ? (
           <div style={{
             padding: 32, textAlign: 'center', borderRadius: 10,
@@ -195,6 +226,9 @@ export default function TemplatePicker({ tab }: { tab: Tab }) {
                 key={String(tmpl.id)}
                 template={tmpl}
                 onPick={() => handlePick(tmpl)}
+                {...(activity === 'skills'
+                  ? { onSecondary: () => handleClone(tmpl), secondaryLabel: tr('tp_clone_skill') }
+                  : {})}
                 t={t}
               />
             ))}
@@ -209,14 +243,18 @@ export default function TemplatePicker({ tab }: { tab: Tab }) {
 // Card
 // ────────────────────────────────────────────────────────────────────────────
 
-function TemplateCard({ template, onPick, t }: {
+function TemplateCard({ template, onPick, onSecondary, secondaryLabel, t }: {
   template: Template;
   onPick: () => void;
+  onSecondary?: () => void;
+  secondaryLabel?: string;
   t: ReturnType<typeof useLayoutTokens>;
 }) {
   return (
-    <button
+    <div
       onClick={onPick}
+      role="button"
+      tabIndex={0}
       style={{
         padding: 14, borderRadius: 10,
         background: t.bgContent, border: `1px solid ${t.border}`,
@@ -259,7 +297,19 @@ function TemplateCard({ template, onPick, t }: {
           }}>{tag}</span>
         ))}
       </div>
-    </button>
+      {onSecondary && secondaryLabel && (
+        <span
+          // Stop the card's own click: "clone" is a different intent from "open".
+          onClick={(e) => { e.stopPropagation(); onSecondary(); }}
+          style={{
+            alignSelf: 'flex-start', marginTop: 2, fontSize: 10.5,
+            color: t.textMuted, border: `1px solid ${t.border}`,
+            padding: '1px 7px', borderRadius: 999, cursor: 'pointer',
+          }}
+          title="copy this skill into a new one"
+        >{secondaryLabel}</span>
+      )}
+    </div>
   );
 }
 
@@ -383,7 +433,7 @@ function activitySubtitle(activity: PickerActivity): string {
   switch (activity) {
     case 'deepagents': return 'Pick a starting template — the editor opens pre-filled. Or start from scratch.';
     case 'agents':     return 'Pick an agent template or one of your own agents to clone. Or start from scratch.';
-    case 'skills':     return 'Pick an existing skill to clone. Or start from scratch.';
+    case 'skills':     return 'Click a skill to open it; Clone copies it into a new one. Or start from scratch.';
     case 'prompt':     return 'Pick an agent template as a starting point for the prompt. Or start from scratch.';
   }
 }
