@@ -205,9 +205,10 @@
   {
    "question": "生态伙伴战略协同指数是多少",
    "expect": {
-    "refused_by_names": [
-     "I can answer about"
-    ]
+    "metric": "ecoPartnerSynergyIndex",
+    "tolerance": 0.0001,
+    "route": "SELECT 60.0 + 5.0 * (SELECT count(*) FROM raw_crm WHERE is_eco_partner_order = 1)::numeric / NULLIF((SELECT count(*) FROM raw_crm), 0) + 2.0 * (SELECT count(*) FROM raw_entity WHERE entity_type = 'eco_partner')",
+    "note": "第 3 批由拒绝改为已声明：源公式三项全部落进路线（第三项 2×count(entity_type='eco_partner') 实测 0 行），编译器那条是 avg(is_eco_partner_order*5.0+60.0)；两条路径同为 61.271186，与 fact_kpi_monthly 六期恒值 61.27 一致。"
    }
   },
   {

@@ -72,7 +72,8 @@
   "architectureSeparationRate": 83.333333,
   "sentSeveranceSatisfaction": 5.12,
   "groupLaborRiskIndex": 0.0,
-  "majorRiskEventCount": 0.0
+  "majorRiskEventCount": 0.0,
+  "ecoPartnerSynergyIndex": 61.271186
  },
  "_second_route": {
   "file": "verify/second_route.sql",
@@ -100,8 +101,11 @@
    "fact_roe_summary.net_profit_margin（66.09%）与 dim_finance_monthly 的 net_profit_wan/revenue_mfg_wan（39.55%）不是同一口径，两者不做交叉验算。"
   ],
   "still_refused": [
-   "技术骨干留任率（dim_kpi #18）：公式形状已用 raw_hr_event 反证实（4/8/11/11/9/7 代入即落地值），缺的是 dim_hr_monthly 上的 severance_lead_events 列。",
-   "客户订单转移流失率（#11）、生态伙伴战略协同指数（#14）、员工价值交换落地率（#17）在 dim_kpi 里没有可落地的期间列，仍按名拒绝。"
+   "技术骨干留任率（dim_kpi #18）：公式形状已反证（六期分子 4/8/11/11/9/7，代入得 98.80/97.22/94.36/89.91/81.63/46.15，fact 落地为 空/97.22/94.36/89.91/81.63/46.15 —— 2026-09 因源公式 0×N/0 得 NULL 而差一期，属口径差），缺的是 dim_hr_monthly 上的 severance_lead_events 列，不是定义。编译器替代不了：探针实测 :formula 只许引用所连类的列（原话 formula mentions 'count', not a column of the joined classes ['HrMonth']）。",
+   "客户订单转移流失率（#15）：库里没有转移/流失列也没有基线期键，且 dim_kpi 与 fact_kpi_monthly 两个定义方向相反。"
+  ],
+  "batch3_2026_08": [
+   "生态伙伴战略协同指数（dim_kpi #17）由「按名拒绝」改为已声明：avg(is_eco_partner_order*5.0+60.0) over raw_crm = 61.2711864406779661；第二条路线（三项全写，2.0*count(entity_type='eco_partner') 实测 0 行）同为 61.2711864406779661；fact_kpi_monthly 六期恒 61.27。逐月占比 61.25(五期)/61.39(2027-02)，与落地值不符，故声明为快照而非月度序列。"
   ]
  }
 }

@@ -668,20 +668,20 @@ rdfs:label "客户订单转移流失率" ;
     :businessDescription "table: (无物理表) — 拒绝：库里根本没有「转移」这个事实。raw_order 的 12 列里没有 transferred/churned 标记，raw_crm 也没有客户流失标记；「流失」还需要一个基线期（上期下单、本期不下单），库里没有声明任何基线期键。两个矛盾的定义见 :formulaSource，两个都无法落地，所以不给数。" .
 
 :ecoPartnerSynergyIndex a owl:DatatypeProperty ;
-    rdfs:domain :Entity ;
+    rdfs:domain :CrmOrder ;
 rdfs:label "生态伙伴战略协同指数" ;
-    :unit "score_0_100" ;
+    :unit "score_0_100" ; :additivity "non-additive" ;
     :askedAs "生态伙伴战略协同指数是多少" ;
-    :formulaSource "dim_kpi #17 的存储公式：三项分别来自 raw_order(订单占比)、raw_entity(伙伴数)、raw_crm(客户数)，并把三张表拼成一个数；系数 60/5/2 是构造出来的常数，没有任何业务来源。" ;
-    :businessDescription "table: (无物理表) — 拒绝：跨表(3 张) + 系数无人确认。缺的声明：一个把三张表按同一期间与同一实体键对齐的口径，以及 60/5/2 三个系数的业务依据。:formula 由 metrics_ext.ttl 声明，故意保留缺失的输入名，让编译器按名拒绝。" .
+    :formulaSource "dim_kpi #17 的存储公式，逐字：60 + [生态伙伴订单占比]*5 + [伙伴实体数]*2（含 60/5/2 三个常数，无业务来源，照抄未改）。" ;
+    :businessDescription "table: raw_crm — 全表快照：每条原始订单记 60 分，生态伙伴订单(is_eco_partner_order=1)再加 5 分，对全部订单取均值 = 60 + 5×生态伙伴订单占比(30/118=25.42%) = 61.2712。对应 dim_kpi #17（目标 85 分，fact_kpi_monthly 六期恒为 61.27）。第三项 2×count(raw_entity WHERE entity_type='eco_partner') 在本库实测为 0（raw_entity 只有 core/partner 两类，没有 eco_partner），所以不改变数值；它是实测为 0 的项，不是被省略的项——库里一旦出现 eco_partner 实体，本条声明即失效，需要重新声明。声明为快照而非月度：按月算出来的占比是 61.25(2026-09..2027-01)/61.39(2027-02)，与落地值不符。" .
 
 :techTalentRetentionRate a owl:DatatypeProperty ;
     rdfs:domain :HrMonth ;
 rdfs:label "技术骨干留任率" ;
     :unit "percent" ;
     :askedAs "技术骨干留任率是多少" ;
-    :formulaSource "dim_kpi #18 的存储公式要 raw_hr_event(本月骨干离职事件)÷ dim_hr_monthly(骨干人数)；两张表没有任何键约束把它们连起来。" ;
-    :businessDescription "table: (无物理表) — 拒绝：跨表 + 无关联键。分母是 dim_hr_monthly 的列，分子「本月骨干离职事件数」只能从 raw_hr_event 数出来，两张表之间没有键约束。缺的声明：骨干离职计数物化成一列，或声明两表按同期同部门的关联。:formula 由 metrics_ext.ttl 声明，故意保留缺失的输入名，让编译器按名拒绝。" .
+    :formulaSource "dim_kpi #18 的存储公式，逐字：((tech_lead_headcount - (severance_completed_cumulative * (SELECT count(*) FROM raw_hr_event WHERE event_type='severance' AND position_category IN ('Tech Lead','Team Lead') AND month = ?) / NULLIF(severance_completed_cumulative,1))) * 100.0 / NULLIF(tech_lead_headcount,0))，h.period = ?。" ;
+    :businessDescription "table: (无物理表) — 拒绝（2026/8 第 3 批复核，理由收窄为「缺字段」，不是「缺定义」）：① 公式形状已被反证——分子(本月骨干离职事件数)在六期上是 4/8/11/11/9/7，逐期代入 (tech_lead_headcount-分子)/tech_lead_headcount 得 98.80/97.22/94.36/89.91/81.63/46.15，与 fact_kpi_monthly 的 空/97.22/94.36/89.91/81.63/46.15 只差 2026-09；差因是源公式那一项 0×N/0 得 NULL（口径差，不是数据差，2026-09 该给 NULL 还是 98.80 需人定）。② 缺的只有一列：dim_hr_monthly 上没有 severance_lead_events。③ 编译器替代不了：探针实测 :formula 里出现子查询/函数即刻按名拒绝（编译器原话 formula mentions 'count', not a column of the joined classes ['HrMonth']），即公式只能引用所声明类自身的列，跨表必须由对象属性连行，而 raw_hr_event 与 dim_hr_monthly 之间没有键。缺的声明：把骨干离职计数物化成 dim_hr_monthly 的一列（ETL/运维），或由业务方声明两表按「同期」关联的键。在此之前，任何「骨干留任率」的数都不该被回答。" .
 
 :pmoOnTimeMilestones a owl:DatatypeProperty ;
     rdfs:domain :PmoMilestone ;

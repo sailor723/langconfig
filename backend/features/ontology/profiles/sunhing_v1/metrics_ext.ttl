@@ -216,20 +216,42 @@
 # :rs07CustomerOrderChurn :aggregate "ratio_of_sums" ; :grain :Order ; :universe :Order ;
 #     :formula "churned_order_count * 100.0 / prior_period_order_count" ;
 #     :businessDescription "table: (无物理表) — 拒绝：库里没有任何「订单转移/流失」的标记列（raw_order 12 列里没有 transferred/churned，raw_crm 没有客户流失标记），也没有基线期键（上一个观察期与本期必须能对上）。而且两处声明互相矛盾：dim_kpi 的 target=3.0（流失率，越低越好），fact_kpi_monthly 同一个指标 target=100 且取值 60–100 —— 后者只有把它读成「未转移占比/保留率」才讲得通。两个定义都没有声明归属，所以不给数。" .
-#  ↓ 未声明为指标（第一次发布不能带新的按名拒绝：发布通道把「新拒绝」当作不可应用的变更）。
-#    下面是原本的拒绝声明，为可读性保留；缺的输入见每条的 businessDescription。
-#    用户问到时，NL 会按菜单拒绝（"I can answer about: …"），samples.json 把这一点钉住。
-# :ecoPartnerSynergyIndex :aggregate "avg" ; :grain :Entity ; :universe :Entity ;
-#     :formula "60.0 + eco_partner_order_share * 5.0 + signing_coefficient * 2.0" ;
-#     :businessDescription "table: (无物理表) — 拒绝：目录公式把三张表（raw_order 的伙伴订单占比、raw_entity 的伙伴实体数、raw_crm 的客户数）拼成一个数，且 60/5/2 三个系数没有业务来源。raw_order 有 is_eco_partner，但没有「伙伴订单占全部订单的比例」这一列。缺的声明：三张表按同一期间与同一实体键对齐的口径 + 三个系数的业务依据。" .
-#  ↓ 未声明为指标（第一次发布不能带新的按名拒绝：发布通道把「新拒绝」当作不可应用的变更）。
-#    下面是原本的拒绝声明，为可读性保留；缺的输入见每条的 businessDescription。
-#    用户问到时，NL 会按菜单拒绝（"I can answer about: …"），samples.json 把这一点钉住。
-# 2026/8 复核（第 2 批）：用 raw_hr_event 反推，分子「本月骨干离职事件数」在六期上是
-#   4 / 8 / 11 / 11 / 9 / 7，把它代入 (tech_lead_headcount - 该数)/tech_lead_headcount 恰好得到
-#   dim_kpi #18 在六期上的落地值——公式形状已被证实，缺的**只是那一列**（dim_hr_monthly 里没有
-#   severance_lead_events），所以这条拒绝是"缺字段"，不是"缺定义"。物化一列即可解除；
-#   在此之前，任何"骨干留任率"的数都不该被回答。
+# ============================================================ 第 3 批（2026/8 复核）
+# #17 生态伙伴战略协同指数：已声明（原为拒绝）。dim_kpi #17 的存储公式，逐字：
+#   SELECT 60.0 + (SELECT COUNT(*) FROM raw_crm WHERE is_eco_partner_order=1) * 5.0
+#                  / NULLIF((SELECT COUNT(*) FROM raw_crm), 0)
+#                + (SELECT COUNT(*) FROM raw_entity WHERE entity_type='eco_partner') * 2.0
+#   落进本体的写法与源公式等值：60 + 5×(30/118) = 61.271186（源公式第三项实测为 0）。
+#   为什么第三项不出现：raw_entity 只有 core(4 行)/partner(8 行)，没有 entity_type='eco_partner'
+#     的行，2×0 不改变数值；若按 'partner' 读（8 行）值是 77.27，与 fact 落地 61.27 不符，
+#     所以库里落地用的就是字面 'eco_partner'。这不是「省略一项」，是「一项实测为 0」：
+#     哪天库里出现 'eco_partner' 实体，这条声明就不再生效，需要重新声明。
+#   为什么是快照不是月度：raw_crm 有 month 列，但按期间算出来是 61.25(2026-09..2027-01)/61.39(2027-02)，
+#     而 fact_kpi_monthly 六期恒为 61.27 —— 落地用的是全表一次快照。声明成 :groupBy 月度序列
+#     就不复现落地值，所以按快照声明，不为凑序列编一个期间维度。
+#   系数 60/5/2：dim_kpi 目录公式自带的常数，没有业务来源，本条逐字照抄、未改（见 02-meaning 的 :formulaSource）。
+:ecoPartnerSynergyIndex :aggregate "avg" ; :grain :CrmOrder ; :universe :CrmOrder ;
+    :formula "is_eco_partner_order * 5.0 + 60.0" ;
+    :businessDescription "table: raw_crm — 全表快照：每条原始订单记 60 分，生态伙伴订单再加 5 分，取均值 = 60 + 5×生态伙伴订单占比。对应 dim_kpi #17（目标 85 分，本库 61.27）。" .
+# #18 技术骨干留任率：仍是拒绝（第 3 批复核：理由收窄到「缺字段」，并再次实测了编译器替代不了）。
+#   dim_kpi #18 的存储公式，逐字：
+#   SELECT (h.tech_lead_headcount - (h.severance_completed_cumulative
+#              * (SELECT COUNT(*) FROM raw_hr_event WHERE event_type='severance'
+#                   AND position_category IN ('Tech Lead','Team Lead') AND month = ?)
+#              / NULLIF(h.severance_completed_cumulative, 1)))
+#          * 100.0 / NULLIF(h.tech_lead_headcount, 0) FROM dim_hr_monthly h WHERE h.period = ?
+#   公式形状已被反证：分子在六期上是 4/8/11/11/9/7，逐期代入得
+#     2026-09 98.80 · 2026-10 97.22 · 2026-11 94.36 · 2026-12 89.91 · 2027-01 81.63 · 2027-02 46.15。
+#   fact_kpi_monthly 的落地值是 空 / 97.22 / 94.36 / 89.91 / 81.63 / 46.15 —— 只有 2026-09 不同：
+#   源公式那一项是 0×N/0，0/0 得 NULL，所以 2026-09 落地为空而不是 98.80。这是**口径差**不是数据差：
+#   哪天要物化这一列，2026-09 给 NULL 还是 98.80 得由人来定（见 02-meaning 的 businessDescription）。
+#   编译器为什么替代不了：第 3 批探针实测（probe18，未发布）——:formula 里出现子查询/函数即刻按名拒绝，
+#   编译器原话 "formula mentions 'count', not a column of the joined classes ['HrMonth']"。
+#   即 :formula 只能引用所声明类自身的列；跨表必须由对象属性把行连起来，而 raw_hr_event 与
+#   dim_hr_monthly 之间没有键，也就没有可声明的对象属性。缺的声明只有一条：
+#   把 severance_lead_events 物化成 dim_hr_monthly 的一列（ETL/运维），或由业务方声明两表按「同期」关联的键。
+#   ↓ 未声明为指标（发布通道把「新拒绝」当作不可应用的变更）。下面是拒绝记录，为可读性保留；
+#     用户问到时 NL 按菜单拒绝，samples.json 钉住这一点。
 # :techTalentRetentionRate :aggregate "avg" ; :grain :HrMonth ; :universe :HrMonth ;
 #     :where :AsOfHrPeriod ;
 #     :formula "(tech_lead_headcount - severance_lead_events) * 100.0 / tech_lead_headcount" ;
@@ -400,3 +422,4 @@
     :where :AsOfRoePeriod ;
     :formula "asset_turnover" ;
     :businessDescription "table: fact_roe_summary — 2027-02 的 asset_turnover = 61.55%。" .
+
