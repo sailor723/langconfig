@@ -32,6 +32,7 @@ Exit codes
 from __future__ import annotations
 
 import argparse
+import datetime
 import html
 import json
 import pathlib
@@ -434,9 +435,37 @@ def build_payload(onto: Ontology, mapping: dict, *, verbose: bool = True) -> dic
 
 # --------------------------------------------------------------------------- HTML
 
-def _doc(title: str, css: pathlib.Path, body: str, script: str = "") -> str:
+def _meta_block(entry: str, title: str, payload: dict | None = None) -> str:
+    """The `LangConfig Dashboard Meta` comment the Analysis panel reads.
+
+    Without it the page is an orphan: `api/analysis/dashboards` reports no db/skills/entry, the
+    panel groups it by filename prefix, and `_pick_home` cannot see it as a hub — which is why the
+    curated registry kept opening the 2026-09 hub and the new cockpit looked like "one more page".
+    The format is matched by regex in `api/analysis/routes.py`; keep `db:` identical to the pages it
+    lives beside so both generations stay in ONE database card.
+    """
+    stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     return (
-        "<!DOCTYPE html>\n<html lang=\"zh-CN\">\n<head>\n<meta charset=\"utf-8\">\n"
+        "<!--\n"
+        f"  Generated: {stamp} | Source: sunhing_kpi | Mode: static-embed\n"
+        "  LangConfig Dashboard Meta\n"
+        "  db: data/analysis_dbs/sunhing_kpi.db\n"
+        "  skills: sunhing-analyst\n"
+        "  mode: static-embed\n"
+        f"  entry: {entry}\n"
+        f"  title: {title}\n"
+        "  study: sunhing-transformation\n"
+        f"  ontology: {(payload or {}).get('profile') or 'sunhing_v1'}\n"
+        "-->\n"
+    )
+
+
+def _doc(title: str, css: pathlib.Path, body: str, script: str = "", *,
+         meta: str = "") -> str:
+    return (
+        "<!DOCTYPE html>\n<html lang=\"zh-CN\">\n<head>\n"
+        + meta
+        + "<meta charset=\"utf-8\">\n"
         f"<title>{esc(title)}</title>\n<script src=\"{PLOTLY}\"></script>\n<style>\n"
         + css.read_text(encoding="utf-8")
         + "</style>\n</head>\n<body>\n"
@@ -446,15 +475,39 @@ def _doc(title: str, css: pathlib.Path, body: str, script: str = "") -> str:
     )
 
 
-def _nav(pages: list[dict], current: str | None, extra: list[tuple[str, str]] | None = None) -> str:
-    """The original nav listed absolute /api/files/... links; these are relative so the folder
-    works from disk as well as through the API."""
+#: Pages from the 2026-09 generation that this renderer does not produce. They are linked from the
+#: hub under a labelled group so the app's one entry page still reaches them — and the label says
+#: which data generation they show, because their numbers are the other dataset.
+LEGACY_PAGES = [
+    ("员工明细（2026-09 数据）", "sunhing_dashboard_employees.html"),
+    ("历史负债追缴（2026-09 数据）", "sunhing_dashboard_liability.html"),
+    ("原始数据表（2026-09 数据）", "sunhing_dashboard_data.html"),
+    ("PMO 甘特（2026-09 数据）", "sunhing_gantt.html"),
+    ("ERD（2026-09 数据）", "sunhing_erd.html"),
+    ("研究介绍（2026-09 数据）", "sunhing_intro_cn.html"),
+]
+
+
+def _nav(pages: list[dict], current: str | None, extra: list[tuple[str, str]] | None = None,
+         *, legacy: bool = False) -> str:
+    """Absolute /api/files/... hrefs, as the original pages used.
+
+    Relative hrefs also work when the file is opened straight off disk, but the Analysis panel
+    frames these pages at `<API>/api/files/...` and the panel's own comment records the day a
+    relative link resolved against the wrong origin. Absolute is the convention every other
+    dashboard in this folder follows.
+    """
     items = []
     for page in pages:
         cls = ' class="active"' if page["id"] == current else ""
-        items.append(f'<a href="{esc(page["file"])}"{cls}>{esc(page["nav"])}</a>')
+        items.append(f'<a href="/api/files/{esc(page["file"])}"{cls}>{esc(page["nav"])}</a>')
     for label, href in (extra or []):
+        href = href if href.startswith("/") else f"/api/files/{href}"
         items.append(f'<a href="{esc(href)}">{esc(label)}</a>')
+    if legacy:
+        items.append('<span style="opacity:.6;padding:6px 10px">|</span>')
+        for label, href in LEGACY_PAGES:
+            items.append(f'<a href="/api/files/{esc(href)}" style="opacity:.75">{esc(label)}</a>')
     return '  <div class="nav-links">\n    ' + "\n    ".join(items) + "\n  </div>\n"
 
 
@@ -620,7 +673,7 @@ def render_hub(payload: dict, css: pathlib.Path, mapping: dict) -> str:
         '  </div>\n'
     )
     body.append('<div class="container">\n')
-    body.append(_nav(pages, None))
+    body.append(_nav(pages, None, legacy=True))
 
     # .dashboard — the three DuPont factor cards, exactly as the original
     dupont = [p for p in pages if p.get("dupont")]
@@ -810,7 +863,8 @@ Plotly.newPlot('factor-score', [{{
   textposition: 'outside'
 }}], {{ margin: {{ t: 30, b: 60, l: 50, r: 20 }}, yaxis: {{ range: [0, 110] }} }});
 """
-    return _doc("Sun Hing Vision Group ROE Executive Dashboard", css, "".join(body), script)
+    return _doc("Sun Hing Vision Group ROE Executive Dashboard", css, "".join(body), script,
+                meta=_meta_block("hub", "Sun Hing 新溢眼镜 · ROE 转型驾驶舱（本体渲染）", payload))
 
 
 def render_factor_page(payload: dict, page: dict, css: pathlib.Path) -> str:
@@ -864,7 +918,8 @@ def render_factor_page(payload: dict, page: dict, css: pathlib.Path) -> str:
         f'观察月 {esc(period)} · 由 backend/scripts/sunhing_dashboard_from_ontology.py 生成</div>\n'
     )
     body.append("</div>\n")
-    return _doc(page["title"], css, "".join(body), "".join(calls))
+    return _doc(page["title"], css, "".join(body), "".join(calls),
+                meta=_meta_block("detail", page["title"], payload))
 
 
 def render_all(payload: dict, out: pathlib.Path) -> list[pathlib.Path]:

@@ -385,3 +385,32 @@ The three remaining differences from G1 are *not* data:
 3. **#17** — `61.0` vs `61.3`: the same number at different display precision.
 
 Rows G1 never had (RS05/RS06/RS07 — its join dropped the sanitised ids) are in G2 and G3.
+
+### 10.6 Making the cockpit the app's entry page (2026-11-11)
+
+The Analysis panel lists **databases, not files** ("一个数据库 = 一个入口页 + 若干子页").
+`GET /api/analysis/databases` groups pages with `services/dashboard_keys.family_key_of`
+(meta `db:` basename, else the filename prefix, plus the curated `databases.json` match
+prefixes), and `_pick_home` chooses the page a click opens in this order:
+
+1. the registry's `home` for that key,
+2. the first page whose meta says `entry: hub`,
+3. `<key>_dashboard.html`,
+4. the newest page.
+
+Three things were missing, and each one alone was enough for the new pages to look like
+"just one more file" instead of the cockpit:
+
+| Missing | Symptom | Fix |
+|---|---|---|
+| no `LangConfig Dashboard Meta` block | the API reported `db: None, entry: None` for all six pages, so `_pick_home` could not see a hub | `_meta_block()` writes the same block the 2026-09 pages carry (`db:` identical, so both generations stay in ONE card) |
+| relative nav hrefs | fine from disk, wrong inside the panel's iframe (the panel's own comment records a relative asset resolving against the wrong origin) | absolute `/api/files/…`, the convention the rest of the folder follows |
+| registry `home` still `sunhing_dashboard.html` | rule 1 beat rule 2: clicking the Sun Hing card opened the **2026-09** hub — the eight new pages were listed but unreachable from the entry | `databases.json` → `home: sunhing_ontology_hub.html` |
+
+The hub's nav also lists the six pages this renderer does not produce (employees, liability,
+raw data, Gantt, ERD, intro) under a labelled group — they are the 2026-09 data generation, and
+the label says so, so nothing became unreachable and no page silently mixes generations.
+
+Verified in the running app (headless, through the panel's iframe): card → hub (`28 项 KPI`
+line present) → each of the five factor pages renders (kpi cards / charts / table rows /
+insight box present) → 11 nav links on the hub.
