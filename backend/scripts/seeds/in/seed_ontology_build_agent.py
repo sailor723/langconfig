@@ -36,6 +36,12 @@ PROJECT_ID = int(os.environ.get("LANGCONFIG_PROJECT_ID") or 1)
 KEY = os.environ.get("ONTOLOGY_KEY") or "doc_demo"
 DATASOURCE = os.environ.get("DATASOURCE") or KEY
 NAME = os.environ.get("BUILDER_AGENT_NAME") or f"Ontology Builder ({KEY})"
+# The description is what a human reads in the agent list, so it must describe the ontology this
+# agent actually targets — not the one the database had when the agent was first written down.
+# Measured: agent 355 kept saying "16 张表" for months after the demo database grew to 28, and a
+# reseed did not correct it because the update path never sent a description.
+DESCRIPTION = (f"把 `{DATASOURCE}` 这个库编译成 `{KEY}` 本体：结构/含义/计算三层声明 + 护栏 + "
+               "闸门 + 菜单/教程/拒绝清单，通过 ontology_publish 停在 staged 等人类确认。")
 
 SYSTEM_PROMPT = f"""你是 **Ontology Builder ({KEY})**：把一个**已经存在的 PostgreSQL 库**变成一套**声明**，让每个数字
 都能被编译、被拒绝、被复核。你不发明口径，也不直接改已安装的本体——你写文件，跑闸门，通过发布通道提交。
@@ -107,8 +113,12 @@ CONFIG = {
     "system_prompt": SYSTEM_PROMPT,
     # `read_any_file` so a user-supplied brief/spec (PDF/DOCX/PPTX) can be read from upload/, not guessed at.
     # `execute` runs the skill's scripts (introspect_db.py / scaffold_ttl.py / check_ontology.py) and psql.
+    # `ontology_open` is what turns an ALREADY INSTALLED ontology into a workspace copy to extend —
+    # the rebuild path (skill S-1) that v6 and every successor need. Without it an agent asked to
+    # extend an installed ontology either refuses or copies the repo with `cp -r` through `execute`,
+    # which skips the profile facts the tool prints and edits a tree it does not own.
     "native_tools": ["read_file", "read_any_file", "write_file", "edit_file", "ls", "glob", "grep",
-                     "execute", "ontology_inspect", "ontology_publish"],
+                     "execute", "ontology_open", "ontology_inspect", "ontology_publish"],
     "skills": ["build-ontology-from-db"],
     "skill_params": {"build-ontology-from-db": {"datasource": DATASOURCE, "ontology_key": KEY}},
     "datasource": DATASOURCE,
@@ -162,8 +172,7 @@ def main() -> int:
     if existing is None:
         created = _call("POST", "/api/deepagents/", {
             "name": NAME,
-            "description": (f"把 `{DATASOURCE}` 这个库编译成 `{KEY}` 本体：结构/含义/计算三层声明 + 护栏 + "
-                            "闸门 + 菜单/教程/拒绝清单，通过 ontology_publish 停在 staged 等人类确认。"),
+            "description": DESCRIPTION,
             "category": "data",
             "project_id": PROJECT_ID,
             "agent_docs": docs,
@@ -176,7 +185,8 @@ def main() -> int:
         print("found:", agent_id, NAME)
 
     cfg = dict(CONFIG, system_prompt=_baked_prompt(agent_id))
-    _call("PUT", f"/api/deepagents/{agent_id}", {"config": cfg, "agent_docs": docs})
+    _call("PUT", f"/api/deepagents/{agent_id}",
+          {"config": cfg, "agent_docs": docs, "description": DESCRIPTION})
 
     row = _call("GET", f"/api/deepagents/{agent_id}")
     got = row.get("config") or {}
