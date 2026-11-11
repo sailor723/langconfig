@@ -66,8 +66,11 @@ function RailItem({
   style,
   children,
   btnRef,
+  emphasis,
 }: {
   icon?: LucideIcon;
+  /** Make this row read as an action rather than a section: tinted, bold, accent icon. */
+  emphasis?: boolean;
   label: string;
   title?: string;
   active?: boolean;
@@ -92,18 +95,23 @@ function RailItem({
         alignItems: 'center',
         gap: 12,
         padding: '0 12px 0 14px',
-        background: 'transparent',
+        background: emphasis && !active ? 'rgba(0,109,221,0.10)' : 'transparent',
         border: 'none',
         cursor: 'pointer',
-        color: active ? t.activityBarActive : t.activityBarInactive,
+        color: active ? t.activityBarActive : (emphasis ? t.activityBarActive : t.activityBarInactive),
+        fontWeight: emphasis ? 600 : undefined,
+        boxShadow: emphasis && !active ? 'inset 0 0 0 1px rgba(0,109,221,0.35)' : undefined,
+        borderRadius: emphasis ? 8 : undefined,
+        margin: emphasis ? '6px 8px' : undefined,
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         fontFamily: 'inherit',
         textAlign: 'left',
+        ...(emphasis ? { width: 'calc(100% - 16px)' } : null),
         ...style,
       }}
-      onMouseEnter={e => { if (!active) e.currentTarget.style.background = t.activityBarHover; }}
-      onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.background = emphasis ? 'rgba(0,109,221,0.18)' : t.activityBarHover; }}
+      onMouseLeave={e => { if (!active) e.currentTarget.style.background = emphasis ? 'rgba(0,109,221,0.10)' : 'transparent'; }}
     >
       {active && (
         <span
@@ -284,6 +292,7 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
         <RailItem
           icon={MessageSquare}
           label={tr('ab_open_chat')}
+          emphasis
           onClick={() => {
             // Which agent? The one this browser was last talking to — localStorage keeps it across
             // the window boundary (a new window has its own session store, so it cannot read the
