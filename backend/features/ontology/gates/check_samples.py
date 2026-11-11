@@ -84,6 +84,27 @@ def _declared_scale(metric_name: str):
 
 
 
+def _declares_time_window_slot() -> bool:
+    """Does any metric in this profile declare `:supportsSlot :TimeWindow`?
+
+    Used by the diagnostic below: an expectation that names the "TimeWindow slot" refusal is only
+    meaningful when something declares that slot. Measured on a v6 publish — the sample asserted that
+    sentence, the profile declared no slot, and the reader spent a round hunting a declaration gap that
+    was in the sample's expectation. Unknown → True (say nothing rather than mislabel a failure).
+    """
+    try:
+        import sqlgen as _sqlgen  # noqa: PLC0415
+
+        graph = _sqlgen.load()
+        for name in _sqlgen.metrics(graph):
+            for slot in graph.objects(_sqlgen.P(name), _sqlgen.P("supportsSlot")):
+                if "TimeWindow" in _sqlgen._local(slot):
+                    return True
+    except Exception:                                         # noqa: BLE001
+        return True
+    return False
+
+
 def check(label: str, got, want) -> None:
     global OK
     state = "PASS" if got == want else "FAIL"
@@ -237,6 +258,14 @@ def main() -> int:
             hit = next((w for w in wants if w in refusal), None)
             check(f"{question!r} refused BY NAME ({' | '.join(w[:28] for w in wants)})",
                   bool(hit), True)
+            if not hit and any("TimeWindow" in w for w in wants) \
+                    and not _declares_time_window_slot():
+                # The expectation names a refusal that CANNOT happen in this profile: nothing declares
+                # `:supportsSlot :TimeWindow`, so no question can be refused "for the TimeWindow slot".
+                # Measured on a v6 publish: a sample asserted that sentence, the profile declared no
+                # slot, and the reader spent a round hunting a declaration gap that was in the sample.
+                print("  [WARN] this profile declares no :supportsSlot :TimeWindow — a refusal "
+                      "'TimeWindow slot' cannot be produced; the expectation is stale, not the engine")
             continue
         if not resolved:
             check(f"{question!r} answers", f"REFUSED: {refusal.splitlines()[0][:90]}", "answered")
