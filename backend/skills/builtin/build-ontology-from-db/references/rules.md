@@ -421,9 +421,16 @@ serves it.** Every path a declaration or its runner uses is either derived from 
 origin-relative URL (`/api/...`) is the page's own address, not a file. A profile whose settings name
 `/Users/...` or `C:\...` is a profile that has not been tested where it will run.
 
+A **credential** is the same disease with a worse prognosis: it travels in git, it is in every clone, and
+nothing else in this platform looks at it. Measured on `retail`, whose `settings.json` said
+`"password": "postgres"` in plain text while every gate stayed green — and the gate that read that profile
+printed the password back into its own output, which is the build report.
+
 **Gate:** `check_ontology_generic.py --family X` — X1 scans the files a profile travels with and names every
 machine path; X1b proves the scanner fails on a synthetic declaration (`/Users/someone/...`), so a green X1
-means "looked and found nothing", not "looked at nothing".
+means "looked and found nothing", not "looked at nothing". **X2** does the same for a literal password (the
+allowed forms are `${VAR}`, `${VAR:-…}` and nothing), X2b proves that scanner fails on a synthetic
+`"password": "hunter2"`, and the gate prints `password=<set>` rather than whatever the dsn holds.
 
 ## 27. A rebuild measures the database before it compares the documents
 

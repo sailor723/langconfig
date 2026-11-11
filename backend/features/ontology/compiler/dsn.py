@@ -17,9 +17,40 @@ on a laptop (`${ONTOLOGY_DB_HOST:-127.0.0.1}`) and on a box where the database i
 from __future__ import annotations
 
 import os
+import pathlib
 import re
 
 _VAR = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}|([A-Za-z_][A-Za-z0-9_]*))")
+
+
+#: The repo's single `.env`, filled into `os.environ` once. The APP gets it from config.py and the
+#: gate runner loads it explicitly, but a gate script run by hand (or by a test) did not — so a
+#: declaration that legitimately names `${ONTOLOGY_DB_PASSWORD}` failed for "deployment does not set
+#: it" while the deployment clearly did. One loader, in the module whose job is to turn a declaration
+#: into a connection.
+_ENV_LOADED = False
+
+
+def _load_deployment_env() -> None:
+    """Fill os.environ from <repo>/.env, without overriding anything already set."""
+    global _ENV_LOADED
+    if _ENV_LOADED:
+        return
+    _ENV_LOADED = True
+    env = pathlib.Path(__file__).resolve().parents[4] / ".env"
+    if not env.is_file():
+        return
+    try:
+        for raw in env.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            if key and key not in os.environ:
+                os.environ[key] = value.strip().strip('"').strip("'")
+    except Exception:                                          # noqa: BLE001
+        pass
 
 
 class DsnError(Exception):
@@ -48,6 +79,7 @@ def _expand(value):
 
 def resolved(settings: dict) -> dict:
     """The connection arguments for `psycopg2.connect(**…)`: expanded, with a password key."""
+    _load_deployment_env()
     raw = dict((settings or {}).get("dsn") or {})
     out = {k: _expand(v) for k, v in raw.items()}
     out.setdefault("password", "")

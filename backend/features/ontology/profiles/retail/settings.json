@@ -7,7 +7,7 @@
   "port": "${ONTOLOGY_DB_PORT:-15432}",
   "dbname": "retail_db",
   "user": "postgres",
-  "password": "postgres"
+  "password": "${ONTOLOGY_DB_PASSWORD}"
  },
  "title": "Retail ontology",
  "sample": 20,

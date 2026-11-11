@@ -14,7 +14,7 @@ before anybody builds a dashboard on it:
                         timeout, a declared metric is never windowed, an empty window is reported
   T  tutorial           `tutorial.json` names only declared things, a metric step runs, and the
                         set teaches at least one refusal
-  X  portability        no declaration names a machine path (/Users/…, C:\…): the profile has to
+  X  portability        no declaration names a machine path or a literal password (/Users/…, C:\…): the profile has to
                         compile and answer on the machine that serves it, not only on the laptop it
                         was written on — and the scanner proves it can fail (X1b)
 
@@ -103,6 +103,20 @@ def load(profile_path: pathlib.Path):
     dsn = " ".join(f"{k}={v}" for k, v in _dsn.resolved(profile).items()
                    if v not in (None, ""))
     return profile, g, dsn
+
+
+_PASSWORD_PAIR = re.compile(r"\bpassword=\S+")
+
+
+def masked_dsn(dsn: str) -> str:
+    """The connection string with the password replaced — for OUTPUT only.
+
+    A gate's own words end up in build reports, journals and agent transcripts, and it used to print
+    the whole dsn: measured on retail, whose profile ALSO carried the password literally
+    (`"password": "postgres"`). X2 now refuses that form; this stops leaking whichever form a
+    deployment uses. The real string is still what connects.
+    """
+    return _PASSWORD_PAIR.sub("password=<set>" if "password=" in dsn else "", dsn)
 
 
 def P(local: str):
@@ -786,6 +800,51 @@ def portability_gates(profile, g, cur) -> None:
                bool(caught), "the scanner found nothing in a file that names /Users/someone/... — "
                "then a green X1 would be decoration")
 
+    # ── X2  a declaration may not carry a CREDENTIAL either
+    #
+    # X1 refuses a machine path because a declaration has to work where it is installed. A literal
+    # password is the same disease with a worse prognosis: it travels in git, it is in every clone,
+    # and nothing else in this platform looks at it — measured on `retail`, whose settings.json said
+    # "password": "postgres" in plain text while every gate stayed green.
+    #
+    # The allowed forms are what the resolver supports: an environment reference (`${VAR}`,
+    # `${VAR:-…}`) or nothing at all.
+    def literal_passwords(base: pathlib.Path) -> list[str]:
+        found: list[str] = []
+        for pattern in ("*_settings.json", "settings.json", "dashboard.json", "truth.json"):
+            for path in sorted(base.glob(pattern)):
+                if not path.is_file():
+                    continue
+                try:
+                    doc = json.loads(path.read_text(encoding="utf-8"))
+                except Exception:                              # noqa: BLE001
+                    continue
+                stack = [doc]
+                while stack:
+                    node = stack.pop()
+                    if isinstance(node, dict):
+                        for key, value in node.items():
+                            if key == "password" and isinstance(value, str) and value.strip() \
+                                    and not value.strip().startswith("$"):
+                                where = path.relative_to(base) if base in path.parents else path.name
+                                found.append(f"{where} names a literal password under {key!r}")
+                            stack.append(value)
+                    elif isinstance(node, list):
+                        stack.extend(node)
+        return found
+
+    cred_hits = literal_passwords(root)
+    check_true("X2 no declaration carries a literal password (a credential is deployment state, "
+               "not a declaration)", not cred_hits, "; ".join(cred_hits[:6]))
+    with tempfile.TemporaryDirectory() as tmp:
+        (pathlib.Path(tmp) / "probe_settings.json").write_text(
+            '{"dsn": {"host": "127.0.0.1", "dbname": "x", "password": "hunter2"}}',
+            encoding="utf-8")
+        cred_caught = literal_passwords(pathlib.Path(tmp))
+    check_true("X2b the credential scanner fails on a literal (synthetic: password=hunter2)",
+               bool(cred_caught), "the scanner found nothing in a file that spells out a password — "
+               "then a green X2 would be decoration")
+
 
 def main() -> int:
     ap = argparse.ArgumentParser()
@@ -821,7 +880,10 @@ def main() -> int:
         print(f"truth:   {truth_path} does not exist — R2 stays NOT RUN")
     print(f"profile: {path}")
     print(f"ns:      {sqlgen.NS}")
-    print(f"dsn:     {dsn}")
+    # A gate's own output ends up in build reports, journals and agent transcripts. Printing the
+    # connection arguments verbatim put the password there: measured on retail, whose profile then
+    # carried it literally — X2 now refuses that, and this line stops leaking whatever form it has.
+    print(f"dsn:     {masked_dsn(dsn)}")
     conn = psycopg2.connect(dsn)
     conn.autocommit = True
     cur = conn.cursor()
