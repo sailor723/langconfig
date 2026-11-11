@@ -141,6 +141,25 @@ def build_docs(spec: dict) -> dict:
     return docs
 
 
+def _norm_docs(d) -> dict:
+    """Docs compared by content: writing a doc to a file and reading it back adds a newline."""
+    return {k: (v or "").strip() for k, v in (d or {}).items()}
+
+
+def text_differs(stored_prompt: str, prompt_body: str, stored_docs, docs) -> list:
+    """The changes that are NOT config: prompt body and instruction docs.
+
+    Missing these made the trainer report "nothing to change" for a prompt-only edit — i.e. it
+    would silently skip exactly the kind of change a training session usually makes.
+    """
+    out = []
+    if (stored_prompt or "").strip() != (prompt_body or "").strip():
+        out.append(f"  prompt: {len((stored_prompt or '').strip())} -> {len((prompt_body or '').strip())} chars")
+    if _norm_docs(stored_docs) != _norm_docs(docs):
+        out.append(f"  docs: {sorted(_norm_docs(stored_docs))} -> {sorted(_norm_docs(docs))}")
+    return out
+
+
 def summarise(config: dict, previous: dict | None) -> list:
     """Human-readable diff against the previous row (empty list = nothing changed)."""
     lines = []
@@ -206,34 +225,27 @@ def main() -> int:
             workspace = args.workspace or ""
             agent_id = None
 
+        stored_prompt = _strip_identity_block((previous or {}).get("system_prompt", "")).strip()
+        text_changes = text_differs(stored_prompt, prompt_body,
+                                    (agent.agent_docs if agent is not None else {}), docs)
+
         if args.check:
             if agent is None:
                 print(f"MISSING: no agent named {spec['name']!r}", file=sys.stderr)
                 return 1
-            stored_prompt = _strip_identity_block((previous or {}).get("system_prompt", "")).strip()
-            prompt_differs = stored_prompt != prompt_body
-            # Compare docs by content, not by trailing whitespace: exporting a doc to a file and
-            # reading it back adds a newline, which is not drift.
-            def _norm(d: dict) -> dict:
-                return {k: (v or "").strip() for k, v in (d or {}).items()}
-            docs_differ = _norm(agent.agent_docs) != _norm(docs)
-            if changes or prompt_differs or docs_differ:
+            if changes or text_changes:
                 print(f"DRIFT: {spec['name']} does not match {args.spec}")
-                for line in changes:
+                for line in changes + text_changes:
                     print(line)
-                if prompt_differs:
-                    print(f"  prompt: {len(stored_prompt)} chars stored vs {len(prompt_body)} in the spec")
-                if docs_differ:
-                    print(f"  docs: stored {sorted((agent.agent_docs or {}))} vs spec {sorted(docs)}")
                 return 1
             print(f"OK: {spec['name']} (id {agent.id}) matches {args.spec.name}")
             return 0
 
-        if not changes and not (previous is None):
+        if not changes and not text_changes and previous is not None:
             print(f"nothing to change for {spec['name']} (id {agent.id})")
             return 0
         print(f"{'would update' if previous is not None else 'would create'} {spec['name']}:")
-        for line in changes or ["  (no config change)"]:
+        for line in (changes + text_changes) or ["  (no change)"]:
             print(line)
 
         if args.dry_run:

@@ -150,3 +150,17 @@ class _FakeDB:
 
     def all(self):
         return self._tools
+
+
+# ── a prompt-only edit is a change ──────────────────────────────────────────
+
+def test_a_prompt_edit_is_not_reported_as_nothing_to_change(trainer):
+    """The first version compared only config keys, so `--dry-run` said "nothing to change" for the
+    one edit a training session usually makes."""
+    lines = trainer.text_differs("old body", "a longer new body", {"AGENTS.md": "x"}, {"AGENTS.md": "x"})
+    assert lines and "prompt:" in lines[0]
+
+
+def test_a_docs_edit_is_a_change_and_trailing_newlines_are_not(trainer):
+    assert trainer.text_differs("same", "same", {"AGENTS.md": "a"}, {"AGENTS.md": "a\n"}) == []
+    assert trainer.text_differs("same", "same", {"AGENTS.md": "a"}, {"AGENTS.md": "b"})
