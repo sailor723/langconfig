@@ -150,10 +150,16 @@ export function BubblePanel({
   const sz = asName(panel.size) ? results[asName(panel.size) as string] : undefined;
   const col = asName(panel.color) ? results[asName(panel.color) as string] : undefined;
 
+  // A colour channel is a declared metric keyed by the bubble's own key; its VALUE says which side of
+  // the legend an object is on. `true` is what a boolean axiom yields, but a flag declared as a
+  // count (`sum(cast(core_zone_permit as int))`, the shape that compiles on postgres) yields 1 — so
+  // reading only the literal "true" left every bubble the same default colour while the legend
+  // claimed two groups. Measured on logistics' vehicle_bubble.
+  const isTrue = (v: unknown) => ['true', '1', 'yes'].includes(String(v).toLowerCase());
   const colourOf = (key: string): string | null => {
     if (!col) return null;
     for (const row of col.rows || []) {
-      if (String(row[0]) === key) return String(row[1]).toLowerCase() === 'true' ? INFO : VIOLET;
+      if (String(row[0]) === key) return isTrue(row[1]) ? INFO : VIOLET;
     }
     return null;
   };
@@ -211,7 +217,7 @@ export function BubblePanel({
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 10, color: t.textMuted }}>
         {panel.color_labels && Object.entries(panel.color_labels).map(([k, label]) => (
           <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 7, height: 7, borderRadius: 4, background: k.toLowerCase() === 'true' ? INFO : VIOLET }} />
+            <span style={{ width: 7, height: 7, borderRadius: 4, background: isTrue(k) ? INFO : VIOLET }} />
             {label}
           </span>
         ))}
