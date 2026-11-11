@@ -84,17 +84,6 @@
         "enabled": true,
         "host": null,
         "kind": "dashboard",
-        "label": "Sun Hing 新溢眼镜 · ROE 转型",
-        "name": "sunhing",
-        "password": null,
-        "port": null,
-        "user": null
-      },
-      {
-        "dbname": null,
-        "enabled": true,
-        "host": null,
-        "kind": "dashboard",
         "label": "AcmeCloud · ERP 财务",
         "name": "erp",
         "password": null,
@@ -177,6 +166,17 @@
         "password": "",
         "port": 5432,
         "user": "weiping"
+      },
+      {
+        "dbname": "sunhing_kpi",
+        "enabled": true,
+        "host": "127.0.0.1",
+        "kind": "target",
+        "label": "新溢眼镜 KPI (sunhing_kpi)",
+        "name": "sunhing",
+        "password": "gAAAAABq9FEyLqfhGx2nNCDn3-rZmYaMhOPkWP3m5VltJ9znlmNcWUxC2vigla_jGlW3nzSwXGTjfKJKm3a1faOlgZC8y5xb7w==",
+        "port": 5433,
+        "user": "langconfig"
       }
     ]
   },
