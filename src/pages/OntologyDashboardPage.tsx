@@ -89,8 +89,15 @@ interface Panel {
   measurable_now?: { note?: string; metrics?: string[] };
   results: Record<string, MetricResult>;
 }
+interface CockpitPage {
+  label: string;
+  file: string;
+  note?: string;
+}
 interface DashboardPayload {
   ok: boolean;
+  /** Fixed-layout pages this declaration promises (`dashboard.json` → pages). */
+  pages?: CockpitPage[];
   title?: string;
   subtitle?: string;
   events?: Array<{ id: string; at: string; label: string; note?: string; metric?: string }>;
@@ -751,6 +758,37 @@ export default function OntologyDashboardPage() {
           ))}
         </div>
       </Hero>
+
+      {/* The cockpit: this board is rendered generically from the same declaration, but the SAME
+          declaration also promises a fixed-layout set of pages (`dashboard.json` → `pages`). They are
+          listed here, not auto-discovered: a page list the UI invented could point at files nobody
+          promised. Opened in a new tab so the panel and the cockpit can sit side by side. */}
+      {(data?.pages?.length || 0) > 0 && (
+        <Card style={{ marginBottom: 16, padding: 12 }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 11, color: t.textDim, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              驾驶舱页面
+            </span>
+            {(data?.pages || []).map((p, i) => (
+              <a key={p.file} href={`/api/files/${encodeURIComponent(p.file)}`} target="_blank" rel="noreferrer"
+                 title={p.note ? `${p.file} — ${p.note}` : p.file}
+                 style={{
+                   display: 'inline-flex', alignItems: 'center', gap: 6,
+                   padding: '5px 10px', borderRadius: 8, textDecoration: 'none',
+                   border: `1px solid ${i === 0 ? CYAN : t.border}`,
+                   background: i === 0 ? `${CYAN}14` : 'transparent',
+                   color: i === 0 ? CYAN : t.textPrimary, fontSize: 12, fontWeight: 600,
+                 }}>
+                {i === 0 ? <BarChart3 size={13} /> : <Route size={13} />}
+                {p.label}
+              </a>
+            ))}
+            <span style={{ fontSize: 11, color: t.textDim }}>
+              固定版面，与原版 HTML 一致；数字同样编译自本声明
+            </span>
+          </div>
+        </Card>
+      )}
 
       {/* the filter bar: the values are the DECLARED groups of the emitting panels, so a choice can
           only ever be one the ontology can answer; the count next to each is that group's row count. */}

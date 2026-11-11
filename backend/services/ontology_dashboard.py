@@ -96,6 +96,33 @@ def installed() -> list[dict]:
     return out
 
 
+
+def _declared_pages(key: str) -> list[dict]:
+    """`dashboard.json` → `pages`: [{label, file, note?}] or [] when the declaration has none.
+
+    A page entry is a promise that `/api/files/<file>` renders; the frontend lists what is here and
+    says nothing about pages this ontology does not declare.
+    """
+    path = dashboard_path(key)
+    if path is None:
+        return []
+    try:
+        declared = json.loads(path.read_text(encoding="utf-8")).get("pages") or []
+    except Exception as exc:                                    # noqa: BLE001
+        logger.warning("dashboard.json for %s unreadable (%s) — no pages listed", key, exc)
+        return []
+    out = []
+    for entry in declared:
+        if not isinstance(entry, dict):
+            continue
+        file = str(entry.get("file") or "").strip()
+        if not file:
+            continue
+        out.append({"label": str(entry.get("label") or file), "file": file,
+                    "note": entry.get("note")})
+    return out
+
+
 def panels(key: str, *, refresh: bool = False, filter: str | None = None) -> dict:
     """Every panel of this ontology's dashboard, with its data or its refusal.
 
@@ -122,6 +149,10 @@ def panels(key: str, *, refresh: bool = False, filter: str | None = None) -> dic
 
     payload["key"] = key
     payload["elapsed_ms"] = round((time.time() - started) * 1000)
+    # The SAME declaration may also have a rendered, fixed-layout cockpit (a home page plus one page
+    # per dimension) that lives outside this generic renderer. It is declared, not discovered: a page
+    # list invented by the UI would point at files nobody promised exist.
+    payload["pages"] = _declared_pages(key)
     # a payload whose every hole still refuses is complete; one with a LIVE refusal is stale
     payload["declaration_stale"] = not payload.get("ok", True)
     CACHE[cache_key] = (time.time(), payload)

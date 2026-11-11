@@ -452,5 +452,38 @@
       "metric": "assetTurnoverPctByMonth",
       "note": "45.87–61.55（%），锯齿形，与利润率上升不同向；两者叠加才托住 ROE 的上行。"
     }
-  ]
+  ],
+  "pages": [
+    {
+      "label": "入口页",
+      "file": "sunhing_dashboard.html",
+      "note": "驾驶舱主页面：ROE 五个因子卡、达标进度、28 条 KPI 逐行、关键洞察"
+    },
+    {
+      "label": "净利润率",
+      "file": "sunhing_dashboard_profit.html",
+      "note": "KPI 01-09"
+    },
+    {
+      "label": "资产周转率",
+      "file": "sunhing_dashboard_turnover.html",
+      "note": "KPI 10-13"
+    },
+    {
+      "label": "权益乘数",
+      "file": "sunhing_dashboard_leverage.html",
+      "note": "KPI 14-17"
+    },
+    {
+      "label": "支撑层",
+      "file": "sunhing_dashboard_support.html",
+      "note": "KPI 18-21"
+    },
+    {
+      "label": "风险监控",
+      "file": "sunhing_dashboard_risk.html",
+      "note": "RS01-RS07"
+    }
+  ],
+  "pages_why": "上面这 6 页由 backend/scripts/sunhing_dashboard_from_ontology.py 从本声明渲染（固定版面，与原版 HTML 一致）；本文件的面板是同一份声明的通用渲染。页面文件名写在这里，是因为页面不是「发现的」而是「承诺的」。"
 }
