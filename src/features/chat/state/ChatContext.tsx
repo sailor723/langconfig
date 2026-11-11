@@ -110,6 +110,13 @@ export function ChatProvider({ children }: ChatProviderProps) {
 
   const startSession = useCallback(async (agentId: number): Promise<string> => {
     try {
+      // The rail's chat window is a separate window with its own session store, so the agent has to
+      // travel through localStorage or that window opens with no conversation.
+      localStorage.setItem('chat_lastAgentId', String(agentId));
+    } catch {
+      /* storage may be unavailable; the window then opens the plain chat page */
+    }
+    try {
       // Bind the active vault (project) so the agent workspace is vault-scoped
       const projectId = localStorage.getItem('activeProjectId');
       const response = await apiClient.startChatSession(

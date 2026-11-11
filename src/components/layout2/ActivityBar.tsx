@@ -285,10 +285,20 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
           icon={MessageSquare}
           label={tr('ab_open_chat')}
           onClick={() => {
+            // Which agent? The one this browser was last talking to — localStorage keeps it across
+            // the window boundary (a new window has its own session store, so it cannot read the
+            // modal's React state). Without it the chat page opens with an empty conversation.
+            const lastAgent = (() => {
+              try {
+                return localStorage.getItem('chat_lastAgentId') || '';
+              } catch {
+                return '';
+              }
+            })();
             const w = Math.round(window.screen.availWidth * 0.95);
             const h = Math.round(window.screen.availHeight * 0.95);
             window.open(
-              window.location.origin + '/#/chat',
+              window.location.origin + '/#/chat' + (lastAgent ? `?agentId=${lastAgent}` : ''),
               'langconfig-chat',
               `width=${w},height=${h},`
                 + `left=${Math.round((window.screen.availWidth - w) / 2)},`
