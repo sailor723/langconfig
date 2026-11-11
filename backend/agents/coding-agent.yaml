@@ -1,0 +1,36 @@
+# Trained with: backend/.venv/bin/python scripts/agent_train.py --spec backend/agents/coding-agent.yaml
+name: Coding Agent（编码智能体）
+description: 在仓库里按证据工作的编码智能体：先勘察地图与接缝，再小步实现、测试先行，交付时附上可复现的证据。
+category: code
+version: 1.0.0
+model: deepseek-v4-pro
+temperature: 0.2
+reasoning_effort: low
+recursion_limit: 80
+use_deepagents: true
+use_local_sandbox: true
+prompt_file: coding-agent.prompt.md
+agents_md_file: coding-agent.AGENTS.md
+claude_md_file: coding-agent.CLAUDE.md
+native_tools:
+- bash
+- skill
+- python_execute
+- read_file
+- write_file
+- edit_file
+- grep
+- glob
+- sql_agent_tool
+skills:
+- codebase-recon
+- tdd
+- implement
+- code-review
+- debugging
+- git-workflow
+- evidence-first-delivery
+- codebase-design
+interrupts:
+  write_file: true
+  edit_file: true
