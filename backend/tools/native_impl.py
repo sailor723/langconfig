@@ -6241,6 +6241,97 @@ def _format_plan(path, db_name: str, tables: list, warnings: list) -> str:
 
 
 @tool
+def db_rename_column(db_name: str, table: str, column: str, new_name: str, confirm: bool = False,
+                     host: str = "", port: int = 0, user: str = "", password: str = "",
+                     schema_name: str = "public") -> str:
+    """
+    用我：把一列改成能表达它真实含义的名字（例如 `sold_at` 其实是门店 id → `store_id`），改完再 `db_review(apply=true)`
+          就能自动建出那条外键，仪表盘的维度链也会多一层。
+    别用我：改名之外的结构变更（改类型、拆表）——那属于迁移，不属于这里。
+
+    Rename a column, so a misnamed reference becomes a discoverable one. Two phases like the rest:
+
+      * `confirm=False` → reports what the rename touches: the column's type, null count, whether
+        it is part of the primary key or a foreign key, how many distinct values it holds, and
+        whether the new name follows the `*_id` convention that lets `db_review` infer the FK.
+      * `confirm=True` → runs `ALTER TABLE … RENAME COLUMN …` (one statement, same type, no data
+        movement) and tells you to re-run `db_review(apply=true)`.
+
+    Refuses a non-ASCII new name, a name that already exists, and a rename of a primary-key or
+    foreign-key column (those are referenced elsewhere; renaming them is a migration, not a fix).
+
+    Args:
+        db_name: database
+        table: table holding the column
+        column: current name
+        new_name: lower_snake_case ASCII target name (prefer `<target_table>_id`)
+        confirm: set true only after the user agreed to the preview
+        host/port/user/password: target server (empty = the platform's own server)
+        schema_name: schema (default public)
+    """
+    import re
+
+    import psycopg2
+
+    if not re.fullmatch(r"[a-z_][a-z0-9_]{0,58}", new_name or ""):
+        return f"Error: new_name {new_name!r} must be lower_snake_case ASCII"
+
+    target = _pg_conn_kwargs(host, port, user, password, dbname=db_name)
+    try:
+        conn = psycopg2.connect(**target)
+    except Exception as exc:                                   # noqa: BLE001
+        return f"Error: cannot connect to {db_name}: {exc}"
+    try:
+        conn.autocommit = True
+        cur = conn.cursor()
+        cur.execute("""select data_type, is_nullable from information_schema.columns
+                        where table_schema=%s and table_name=%s and column_name=%s""",
+                    (schema_name, table, column))
+        row = cur.fetchone()
+        if not row:
+            return f"Error: {schema_name}.{table}.{column} does not exist"
+        dtype, nullable = row
+        cur.execute(f'select count(*) from "{schema_name}"."{table}"')
+        total = cur.fetchone()[0]
+        cur.execute(f'select count(*) from "{schema_name}"."{table}" where "{column}" is null')
+        nulls = cur.fetchone()[0]
+        cur.execute(f'select count(distinct "{column}") from "{schema_name}"."{table}"')
+        distinct = cur.fetchone()[0]
+        cur.execute("""select count(*) from information_schema.columns
+                        where table_schema=%s and table_name=%s and column_name=%s""",
+                    (schema_name, table, new_name))
+        if cur.fetchone()[0]:
+            return f"Error: {table}.{new_name} already exists"
+        cur.execute("""select conname, contype from pg_constraint
+                        where conrelid = (%s)::regclass
+                          and (contype in ('p','f'))
+                          and (%s) = any (
+                              select a.attname from pg_attribute a
+                               where a.attrelid = conrelid and a.attnum = any(conkey))""",
+                    (f'"{schema_name}"."{table}"', column))
+        keyed = cur.fetchall()
+
+        preview = [
+            f"改名预览：{schema_name}.{table}.{column} → {new_name}",
+            f"  类型 {dtype}，可空={nullable}；{total} 行，{nulls} 行为空，{distinct} 个不同值",
+            f"  新名字符合 *_id 约定：{'是' if new_name.endswith('_id') else '否（外键推不出来，建议 <目标表>_id）'}",
+        ]
+        if keyed:
+            preview.append("  该列参与主键/外键：" + "、".join(f"{n}({t})" for n, t in keyed)
+                           + " —— 改名属于迁移，这里拒绝")
+            return "\n".join(preview)
+        if not confirm:
+            preview.append("确认后调用 db_rename_column(..., confirm=true)；然后再跑 db_review(apply=true) 建外键。")
+            return "\n".join(preview)
+
+        cur.execute(f'ALTER TABLE "{schema_name}"."{table}" RENAME COLUMN "{column}" TO "{new_name}"')
+        preview.append(f"  已改名。下一步：db_review(db_name='{db_name}', apply=true) —— 新名字能让外键自动建上。")
+        return "\n".join(preview)
+    finally:
+        conn.close()
+
+
+@tool
 def db_dashboard(db_name: str, confirm: bool = False, title: str = "", host: str = "", port: int = 0,
                  user: str = "", password: str = "") -> str:
     """

@@ -53,10 +53,17 @@ def test_build_refuses_without_confirm_and_points_at_the_plan(native, tmp_path):
     """`confirm=false` is an error, not a plan dump: the two phases have two entry points."""
     from openpyxl import Workbook
 
+    # The db_* tools sandbox their file argument now, so the fixture must live under a sandbox
+    # root — pytest's tmp_path is outside every root and was refused before reaching confirm=false.
+    root = Path(__file__).resolve().parents[1] / "data"
+    root.mkdir(parents=True, exist_ok=True)
     wb = Workbook(); ws = wb.active; ws.title = "t"
     ws.append(["a", "b"]); ws.append([1, 2])
-    path = tmp_path / "x.xlsx"; wb.save(path)
-    result = native.db_build_from_file.func(file=str(path), db_name="should_not_exist_xlsx")
+    path = root / "confirm_gate_probe.xlsx"; wb.save(path)
+    try:
+        result = native.db_build_from_file.func(file=str(path), db_name="should_not_exist_xlsx")
+    finally:
+        path.unlink(missing_ok=True)
     assert result.startswith("Error:") and "confirm=false" in result
     assert "db_plan_from_file" in result, "the refusal must say which tool to call first"
 

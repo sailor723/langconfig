@@ -23,6 +23,7 @@ native_tools:
 - db_review
 - db_query
 - db_dashboard
+- db_rename_column
 - write_file
 - skill
 skills:
