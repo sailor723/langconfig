@@ -95,23 +95,20 @@ function RailItem({
         alignItems: 'center',
         gap: 12,
         padding: '0 12px 0 14px',
-        background: emphasis && !active ? 'rgba(0,109,221,0.10)' : 'transparent',
+        // A literal brand fill: the theme token resolved to white on this surface, which
+        // painted white-on-white for the one row that is supposed to stand out.
+        background: emphasis ? '#006DDD' : 'transparent',
         border: 'none',
         cursor: 'pointer',
-        color: active ? t.activityBarActive : (emphasis ? t.activityBarActive : t.activityBarInactive),
-        fontWeight: emphasis ? 600 : undefined,
-        boxShadow: emphasis && !active ? 'inset 0 0 0 1px rgba(0,109,221,0.35)' : undefined,
-        borderRadius: emphasis ? 8 : undefined,
-        margin: emphasis ? '6px 8px' : undefined,
+        color: emphasis ? '#fff' : (active ? t.activityBarActive : t.activityBarInactive),
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         fontFamily: 'inherit',
         textAlign: 'left',
-        ...(emphasis ? { width: 'calc(100% - 16px)' } : null),
         ...style,
       }}
-      onMouseEnter={e => { if (!active) e.currentTarget.style.background = emphasis ? 'rgba(0,109,221,0.18)' : t.activityBarHover; }}
-      onMouseLeave={e => { if (!active) e.currentTarget.style.background = emphasis ? 'rgba(0,109,221,0.10)' : 'transparent'; }}
+      onMouseEnter={e => { if (!active && !emphasis) e.currentTarget.style.background = t.activityBarHover; }}
+      onMouseLeave={e => { if (!active && !emphasis) e.currentTarget.style.background = 'transparent'; }}
     >
       {active && (
         <span
