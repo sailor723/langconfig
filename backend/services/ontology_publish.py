@@ -191,13 +191,17 @@ def _run_gates(profile_path: pathlib.Path, truth: pathlib.Path | None = None,
             continue
         text_out = (p.stdout or "") + (p.stderr or "")
         ran.append(name)
-        this_fails = [ln.strip() for ln in text_out.splitlines() if "[FAIL]" in ln]
+        # Two output styles: most gates print "[FAIL] …", check_dashboard prints "  FAIL  …" (no
+        # brackets). Matching only the bracketed form reported a bare "exited 1" and lost the name.
+        this_fails = [ln.strip() for ln in text_out.splitlines()
+                      if "[FAIL]" in ln or ln.lstrip().startswith("FAIL ")]
         if p.returncode != 0 and not this_fails:
             # a crash or a bare non-zero exit is still a failure, quoted so it cannot hide
             tail = next((ln.strip() for ln in reversed(text_out.splitlines()) if ln.strip()), "")
             this_fails = [f"[FAIL] {name} exited {p.returncode}: {tail[:200]}"]
         fails += this_fails
-        notrun += [f"{name}: {ln.strip()}" for ln in text_out.splitlines() if "[NOT RUN]" in ln]
+        notrun += [f"{name}: {ln.strip()}" for ln in text_out.splitlines()
+                   if "[NOT RUN]" in ln or ln.lstrip().startswith("NOT RUN ")]
         texts.append(f"=== {name} ===\n{text_out}")
     return {"ok": not fails, "fails": fails, "not_run": notrun, "families": ran,
             "text": "\n".join(texts)[-12000:]}
@@ -335,12 +339,15 @@ def stage(key: str, files: dict[str, str], *, actor: str | None = None, note: st
         live_refused = {r.get("name") for r in live_compile.get("refused") or []}
     staged_refused = {r.get("name") for r in compile_report.get("refused") or []}
     new_refusals = sorted(staged_refused - live_refused)
-    gates = _run_gates(staged_profile)
+    # the SAME families apply will demand: a stage that reports "gates: PASS" while the
+    # dashboard gate is red teaches the agent a false green (measured 2026-11-11).
+    gates = _run_gates(staged_profile, key=key)
     report = {
         "compile": compile_report,
         "new_refusals": new_refusals,
         "carried_refusals": sorted(staged_refused & live_refused),
         "gates_ok": gates.get("ok"),
+        "gates_families": gates.get("families") or [],
         "gates_fails": gates.get("fails", []),
         "gates_not_run": gates.get("not_run", []),
         "gates_text": gates.get("text", "")[-6000:],
