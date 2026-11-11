@@ -594,14 +594,25 @@ async def serve_sample_data(table: str):
 
 
 def _swap_plotly_cdn_to_local(html: str) -> str:
-    """Replace cdn.plot.ly with /static/plotly.min.js so the page works
-    without internet access (corporate proxy / sandboxed browser)."""
+    """Point third-party chart bundles at /static/ so a page works offline.
+
+    The name is historical: it now covers every library a generated dashboard may load. A page
+    that silently 404s its chart library inside a proxy-only browser renders as blank boxes, which
+    reads as "the numbers failed" — so a swapped URL is a correctness fix, not a nicety.
+    """
     import re as _re
-    return _re.sub(
-        r'https?://cdn\.plot\.ly/plotly-[\d.]+\.min\.js',
-        '/static/plotly.min.js',
-        html,
+    swaps = (
+        (r'https?://cdn\.plot\.ly/plotly-[\d.]+\.min\.js', '/static/plotly.min.js'),
+        (r'https?://cdn\.jsdelivr\.net/npm/d3@[\d.]+/dist/d3\.min\.js', '/static/d3.min.js'),
+        (r'https?://d3js\.org/d3\.v[\d.]+\.min\.js', '/static/d3.min.js'),
+        (r'https?://cdn\.jsdelivr\.net/npm/d3-sankey@[\d.]+/dist/d3-sankey\.min\.js',
+         '/static/d3-sankey.min.js'),
+        (r'https?://unpkg\.com/d3-sankey@[\d.]+/dist/d3-sankey\.min\.js',
+         '/static/d3-sankey.min.js'),
     )
+    for pattern, local in swaps:
+        html = _re.sub(pattern, local, html)
+    return html
 
 
 def _is_safe_filename(filename: str) -> bool:

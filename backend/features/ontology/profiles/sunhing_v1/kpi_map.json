@@ -301,6 +301,14 @@
         "liabResolvedWan"
       ],
       "label": "剩余"
+    },
+    "severance_budget": {
+      "metric": "hrSeveranceBudgetWan",
+      "label": "赔偿预算"
+    },
+    "liab_total": {
+      "metric": "liabTotalWan",
+      "label": "应追缴总额"
     }
   },
   "accepted_issues": {

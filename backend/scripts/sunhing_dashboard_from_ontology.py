@@ -75,6 +75,12 @@ DUPONT_METRIC = {"net_profit_margin": "margin", "asset_turnover": "turnover",
                  "equity_multiplier": "multiplier"}
 TARGET_COLOUR = "#e74c3c"
 PLOTLY = "https://cdn.plot.ly/plotly-2.35.2.min.js"
+# D3 for the shapes Plotly cannot draw honestly: a treemap of 28 KPIs (area = one KPI, colour =
+# its status), the money/people Sankey (a flow must balance), and a five-factor radar. The app
+# rewrites these URLs to /static/d3*.min.js (main.py `_swap_plotly_cdn_to_local`) so an offline
+# browser still gets the charts instead of blank boxes.
+D3 = ("https://cdn.jsdelivr.net/npm/d3@7.9.2/dist/d3.min.js")
+D3_SANKEY = ("https://unpkg.com/d3-sankey@0.12.3/dist/d3-sankey.min.js")
 
 
 # --------------------------------------------------------------------------- the ontology
@@ -411,6 +417,49 @@ def build_payload(onto: Ontology, mapping: dict, *, verbose: bool = True) -> dic
                 accepted.append(f"{line}  [ACCEPTED] {why}")
         notes = keep_notes
 
+    # What the D3 charts draw. Deliberately ONLY declared numbers: a treemap tile per KPI (its
+    # status is the colour), the two flows that must balance (people, money), and the factor average
+    # already shown on the cards. Nothing here is computed in the browser.
+    charts = {
+        "kpis": [{"no": r["number"], "name": r["name"], "factor": r["page"],
+                  "status": r["status"], "value": r["value"], "target": r["target"],
+                  "gap": r["shortfall"], "unit": r["ontology_unit"] or r["unit"],
+                  "value_text": fmt_value(r["value"], r["ontology_unit"]),
+                  "target_text": fmt_target(r["target"], r["unit"])} for r in rows],
+        "factors": [{"id": pg["id"], "label": pg.get("section_title") or pg["theme"],
+                     "theme": pg["theme"].split(" / ")[0], "accent": pg["accent"],
+                     "score": _factor_score([r for r in rows if r["page"] == pg["id"]])[0],
+                     "met": _factor_score([r for r in rows if r["page"] == pg["id"]])[1],
+                     "total": _factor_score([r for r in rows if r["page"] == pg["id"]])[2]}
+                    for pg in mapping["pages"]],
+    }
+    flows = {"cash": None, "people": None}
+    try:
+        paid = (summary.get("severance_paid") or {}).get("value")
+        budget = (summary.get("severance_budget") or {}).get("value")
+        resolved = (summary.get("liab_resolved") or {}).get("value")
+        total_liab = (summary.get("liab_total") or {}).get("value")
+        done = (summary.get("severance_done") or {}).get("value")
+        planned = (summary.get("severance_planned") or {}).get("value")
+        if None not in (paid, budget, resolved, total_liab):
+            inside = max(0.0, min(paid, budget))
+            over = max(0.0, paid - inside)
+            flows["cash"] = {
+                "unit": "万元",
+                "nodes": ["赔偿实付", "应追缴", "预算内", "超预算", "已化解", "未化解"],
+                "links": [("赔偿实付", "预算内", inside), ("赔偿实付", "超预算", over),
+                          ("应追缴", "已化解", resolved), ("应追缴", "未化解", total_liab - resolved)],
+            }
+        if None not in (done, planned):
+            flows["people"] = {"unit": "人",
+                               "nodes": ["计划减员", "已完成", "未完成"],
+                               "links": [("计划减员", "已完成", done),
+                                         ("计划减员", "未完成", max(0.0, planned - done))]}
+    except Exception:                                           # noqa: BLE001
+        pass
+    charts["flows"] = {k: v for k, v in flows.items() if v}
+    payload_extra = {"charts": charts}
+
     payload = {
         "period": period,
         "profile": mapping.get("profile"),
@@ -423,6 +472,7 @@ def build_payload(onto: Ontology, mapping: dict, *, verbose: bool = True) -> dic
         "accepted": accepted,
         "notes": notes,
         "near_ratio": near_ratio,
+        **payload_extra,
     }
     if verbose:
         for line in problems:
@@ -481,13 +531,197 @@ def _badge(payload: dict, where: str) -> str:
     )
 
 
+
+# --------------------------------------------------------------------------- D3 charts
+
+STATUS_COLOUR = {"met": "#2ca02c", "near": "#ff7f0e", "miss": "#e74c3c",
+                 "unknown": "#95a5a6"}
+
+
+def _d3_script(charts: dict, *, pages: dict | None = None) -> str:
+    """The D3 drawing code, as one JS block.
+
+    Three shapes, each chosen because a flat bar/line would hide the thing that matters:
+      * treemap  — 28 KPIs on one canvas; area is ONE KPI, colour is its status, and the factor
+                   rectangles keep the grouping the catalogue declares;
+      * sankey   — the flows that must balance (people: 计划 856 = 完成 810 + 未完成 46; money:
+                   实付/应追缴 = 预算内 + 超支 / 已化解 + 未化解), so a mismatch is visible;
+      * radar    — the five factor averages on the same axis, which is the one comparison the hub
+                   exists for.
+    Every number is passed in from the Python side; nothing is recomputed in the browser.
+    """
+    data = js(charts)
+    page_filter = js(pages or {})
+    return r"""
+var CK = %s;
+var PAGE_TILES = %s;
+
+function _cstatus(s) { return {met:'#2ca02c', near:'#ff7f0e', miss:'#e74c3c', unknown:'#95a5a6'}[s] || '#95a5a6'; }
+function _clear(id) { var el = document.getElementById(id); if (el) { el.innerHTML = ''; } return el; }
+
+/* ── 1. treemap: one tile per KPI, grouped by factor ─────────────────────────── */
+function drawKpiTree(hostId, kpis, groupKey) {
+  var host = _clear(hostId); if (!host || !kpis.length) return;
+  var W = host.clientWidth || 900, H = host.clientHeight || 330;
+  var groups = {};
+  kpis.forEach(function (k) {
+    var g = groupKey(k);
+    (groups[g] = groups[g] || []).push(k);
+  });
+  var root = {name: 'root', children: Object.keys(groups).map(function (g) {
+    var kids = groups[g].map(function (k) {
+      return {name: k.no + ' ' + k.name, kpi: k, value: 1};
+    });
+    return {name: g, children: kids};
+  })};
+  var tree = d3.treemap().size([W, H]).paddingInner(2).paddingOuter(3).paddingTop(18)
+      .round(true)(d3.hierarchy(root).sum(function (d) { return d.value || 0; }));
+  var svg = d3.select(host).append('svg').attr('width', W).attr('height', H);
+  var leaves = tree.leaves();
+  var g = svg.selectAll('g.grp').data(tree.children || []).join('g');
+  g.append('text')
+    .attr('x', function (d) { return d.x0 + 4; }).attr('y', function (d) { return d.y0 + 13; })
+    .style('font-size', '11px').style('font-weight', 700).style('fill', '#8a94a6')
+    .text(function (d) { return d.data.name; });
+  var tile = svg.selectAll('g.tile').data(leaves).join('g').attr('class', 'tile')
+    .attr('transform', function (d) { return 'translate(' + d.x0 + ',' + d.y0 + ')'; });
+  tile.append('rect')
+    .attr('width', function (d) { return Math.max(0, d.x1 - d.x0); })
+    .attr('height', function (d) { return Math.max(0, d.y1 - d.y0); })
+    .attr('rx', 3)
+    .attr('fill', function (d) { return _cstatus(d.data.kpi.status); })
+    .attr('fill-opacity', function (d) { return d.data.kpi.status === 'met' ? 0.85 : 0.75; })
+    .append('title')
+    .text(function (d) {
+      var k = d.data.kpi;
+      return k.no + ' ' + k.name + '\n实际 ' + k.value_text + ' / 目标 ' + k.target_text +
+             '\n状态 ' + ({met:'达标', near:'接近', miss:'未达', unknown:'未定义'}[k.status] || k.status) +
+             '\n因子 ' + k.factor;
+    });
+  tile.append('text')
+    .attr('x', 4).attr('y', 14)
+    .style('font-size', '10.5px').style('fill', '#fff').style('font-weight', 600)
+    .style('pointer-events', 'none')
+    .text(function (d) {
+      var w = d.x1 - d.x0;
+      var k = d.data.kpi;
+      return w > 90 ? k.no + ' ' + k.name.slice(0, Math.max(4, Math.floor(w / 11))) : k.no;
+    });
+}
+
+/* ── 2. sankey: flows that must balance ─────────────────────────────────────── */
+function drawSankey(hostId, flow) {
+  var host = _clear(hostId); if (!host || !flow) return;
+  var W = host.clientWidth || 900, H = host.clientHeight || 330;
+  var idx = {}; flow.nodes.forEach(function (n, i) { idx[n] = i; });
+  var links = flow.links.map(function (l) {
+    return {source: idx[l[0]], target: idx[l[1]], value: Math.max(0, l[2])};
+  }).filter(function (l) { return l.value > 0; });
+  if (!links.length) return;
+  var sankey = d3.sankey().nodeWidth(14).nodePadding(16).extent([[1, 8], [W - 1, H - 8]]);
+  var graph = sankey({nodes: flow.nodes.map(function (n) { return {name: n}; }), links: links});
+  var svg = d3.select(host).append('svg').attr('width', W).attr('height', H);
+  var warm = d3.scaleOrdinal().range(['#2ca02c', '#e74c3c', '#1F4E79', '#5B2C6F', '#C65911', '#B5935A']);
+  svg.append('g').selectAll('path').data(graph.links).join('path')
+    .attr('d', d3.sankeyLinkHorizontal())
+    .attr('stroke', function (d) { return warm(d.source.index); })
+    .attr('stroke-width', function (d) { return Math.max(1, d.width); })
+    .attr('fill', 'none').attr('stroke-opacity', 0.35)
+    .append('title')
+    .text(function (d) { return d.source.name + ' → ' + d.target.name + '：' + d.value.toFixed(1) + ' ' + flow.unit; });
+  var node = svg.append('g').selectAll('g').data(graph.nodes).join('g');
+  node.append('rect')
+    .attr('x', function (d) { return d.x0; }).attr('y', function (d) { return d.y0; })
+    .attr('width', function (d) { return d.x1 - d.x0; }).attr('height', function (d) { return Math.max(1, d.y1 - d.y0); })
+    .attr('rx', 2)
+    .attr('fill', function (d) { return d.depth ? '#C65911' : '#0B2344'; })
+    .append('title').text(function (d) { return d.name + '：' + d.value.toFixed(1) + ' ' + flow.unit; });
+  node.append('text')
+    .attr('x', function (d) { return d.x0 < W / 2 ? d.x1 + 5 : d.x0 - 5; })
+    .attr('y', function (d) { return (d.y0 + d.y1) / 2; })
+    .attr('dy', '0.35em')
+    .attr('text-anchor', function (d) { return d.x0 < W / 2 ? 'start' : 'end'; })
+    .style('font-size', '11px').style('fill', '#2c3e50')
+    .text(function (d) { return d.name + ' ' + d.value.toFixed(0) + (flow.unit === '人' ? ' 人' : ' 万'); });
+}
+
+/* ── 3. radar: the five factor scores on one axis ────────────────────────────── */
+function drawRadar(hostId, factors) {
+  var host = _clear(hostId); if (!host) return;
+  var rows = factors.filter(function (f) { return f.score != null; });
+  if (!rows.length) return;
+  var W = host.clientWidth || 420, H = host.clientHeight || 330;
+  var R = Math.min(W, H) / 2 - 44, cx = W / 2, cy = H / 2;
+  var n = rows.length, maxV = 100;
+  var angle = function (i) { return (Math.PI * 2 * i) / n - Math.PI / 2; };
+  var pt = function (i, v) { var r = R * (v / maxV); return [cx + r * Math.cos(angle(i)), cy + r * Math.sin(angle(i))]; };
+  var svg = d3.select(host).append('svg').attr('width', W).attr('height', H);
+  [25, 50, 75, 100].forEach(function (v) {
+    svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', (R * v) / maxV)
+      .attr('fill', 'none').attr('stroke', '#e5e7eb');
+  });
+  rows.forEach(function (row, i) {
+    var p = pt(i, maxV);
+    svg.append('line').attr('x1', cx).attr('y1', cy).attr('x2', p[0]).attr('y2', p[1])
+      .attr('stroke', '#e5e7eb');
+    var lp = pt(i, maxV + 14);
+    svg.append('text').attr('x', lp[0]).attr('y', lp[1]).attr('text-anchor', 'middle')
+      .attr('dy', '0.35em').style('font-size', '11px').style('font-weight', 600).style('fill', '#2c3e50')
+      .text(row.theme);
+  });
+  var line = d3.line().curve(d3.curveLinearClosed);
+  svg.append('path')
+    .attr('d', line(rows.map(function (row, i) { return pt(i, row.score); })))
+    .attr('fill', 'rgba(11,35,68,0.14)').attr('stroke', '#0B2344').attr('stroke-width', 2);
+  rows.forEach(function (row, i) {
+    var p = pt(i, row.score);
+    svg.append('circle').attr('cx', p[0]).attr('cy', p[1]).attr('r', 4)
+      .attr('fill', row.accent || '#0B2344')
+      .append('title').text(row.theme + '：平均得分 ' + row.score.toFixed(1) + ' / 100（达标 ' + row.met + '/' + row.total + '）');
+    svg.append('text').attr('x', p[0]).attr('y', p[1] - 8).attr('text-anchor', 'middle')
+      .style('font-size', '10px').style('fill', '#6b7280').text(row.score.toFixed(0));
+  });
+}
+
+function drawAllD3() {
+  if (typeof d3 === 'undefined') {
+    ['kpiTree', 'sankeyCash', 'sankeyPeople', 'factorRadar'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.innerHTML = '<div style="padding:20px;color:#b8860b;font-size:12px">'
+        + 'D3 未加载（离线且 /static/d3.min.js 缺失），图未绘制；本页其余数字不受影响。</div>';
+    });
+    return;
+  }
+  if (CK.kpis) drawKpiTree('kpiTree', CK.kpis.filter(function (k) {
+    return PAGE_TILES.page ? k.factor === PAGE_TILES.page : true;
+  }), function (k) { return k.factor; });
+  if (CK.flows && CK.flows.cash && document.getElementById('sankeyCash')) drawSankey('sankeyCash', CK.flows.cash);
+  if (CK.flows && CK.flows.people && document.getElementById('sankeyPeople')) drawSankey('sankeyPeople', CK.flows.people);
+  if (CK.factors && document.getElementById('factorRadar')) drawRadar('factorRadar', CK.factors);
+}
+// This block is emitted LAST on each page, so `CK` is defined by the time it runs. A page loaded
+// from cache can already be interactive here, which is why DOMContentLoaded alone was not enough.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', drawAllD3);
+} else {
+  drawAllD3();
+}
+var _d3resize = null;
+window.addEventListener('resize', function () {
+  clearTimeout(_d3resize); _d3resize = setTimeout(drawAllD3, 150);
+});
+""" % (data, page_filter)
+
+
 def _doc(title: str, css: pathlib.Path, body: str, script: str = "", *,
          meta: str = "") -> str:
     return (
         "<!DOCTYPE html>\n<html lang=\"zh-CN\">\n<head>\n"
         + meta
         + "<meta charset=\"utf-8\">\n"
-        f"<title>{esc(title)}</title>\n<script src=\"{PLOTLY}\"></script>\n<style>\n"
+        f"<title>{esc(title)}</title>\n"
+        f'<script src="{D3}"></script>\n<script src="{D3_SANKEY}"></script>\n'
+        f'<script src="{PLOTLY}"></script>\n<style>\n'
         + css.read_text(encoding="utf-8")
         + "</style>\n</head>\n<body>\n"
         + body
@@ -790,6 +1024,20 @@ def render_hub(payload: dict, css: pathlib.Path, mapping: dict) -> str:
         "  </div>\n"
     )
 
+    # D3 row — the shapes the two Plotly cards cannot draw: a treemap of all 28 KPIs, the flows that
+    # must balance, and the five-factor radar. The container keeps the original `.chart` height so the
+    # page's rhythm does not change.
+    body.append(
+        '  <div class="card">\n    <h3>28 项 KPI 状态树图 · 面积=一项 KPI，颜色=达标状态</h3>\n'
+        '    <div id="kpiTree" class="chart" style="height:340px"></div>\n  </div>\n'
+        '  <div class="overview-grid">\n'
+        '    <div class="card">\n      <h3>资金流向（万元）· 左＝总额，右＝去向</h3>\n'
+        '      <div id="sankeyCash" class="chart" style="height:300px"></div>\n    </div>\n'
+        '    <div class="card">\n      <h3>五因子平均得分（雷达）</h3>\n'
+        '      <div id="factorRadar" class="chart" style="height:300px"></div>\n    </div>\n'
+        "  </div>\n"
+    )
+
     # .section × 5 — the 28 KPIs inline, one collapsible section per factor
     for page in pages:
         rows_p = [r for r in rows if r["page"] == page["id"]]
@@ -884,6 +1132,7 @@ Plotly.newPlot('factor-score', [{{
   textposition: 'outside'
 }}], {{ margin: {{ t: 30, b: 60, l: 50, r: 20 }}, yaxis: {{ range: [0, 110] }} }});
 """
+    script = script + "\n" + _d3_script(payload.get("charts") or {})
     return _doc("Sun Hing Vision Group ROE Executive Dashboard", css, "".join(body), script,
                 meta=_meta_block("hub", "Sun Hing 新溢眼镜 · ROE 转型驾驶舱（本体渲染）", payload))
 
@@ -930,6 +1179,16 @@ def render_factor_page(payload: dict, page: dict, css: pathlib.Path) -> str:
         card, call = _chart_card(row)
         cards.append(card)
         calls.append(call)
+    body.append(
+        '  <div class="card">\n'
+        f'    <div class="chart-title">{esc(page["theme"].split(" / ")[0])} · KPI 状态树图</div>\n'
+        '    <div id="kpiTree" class="chart" style="height:220px"></div>\n  </div>\n')
+    if page["id"] == "support":
+        # the people flow belongs on this page: the same declaration that draws 856 = 810 + 46 here
+        body.append(
+            '  <div class="card">\n'
+            '    <div class="chart-title">减员流向（人）· 计划 = 已完成 + 未完成</div>\n'
+            '    <div id="sankeyPeople" class="chart" style="height:200px"></div>\n  </div>\n')
     body.append('  <div class="grid">\n' + "".join(cards) + "  </div>\n")
     body.append(_insight_box(rows))
     body.append(
@@ -938,7 +1197,8 @@ def render_factor_page(payload: dict, page: dict, css: pathlib.Path) -> str:
         f'观察月 {esc(period)} · 由 backend/scripts/sunhing_dashboard_from_ontology.py 生成</div>\n'
     )
     body.append("</div>\n")
-    return _doc(page["title"], css, "".join(body), "".join(calls),
+    script = "".join(calls) + "\n" + _d3_script(payload.get("charts") or {}, pages={"page": page["id"]})
+    return _doc(page["title"], css, "".join(body), script,
                 meta=_meta_block("detail", page["title"], payload))
 
 

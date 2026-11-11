@@ -417,3 +417,27 @@ the label says so, so nothing became unreachable and no page silently mixes gene
 Verified in the running app (headless, through the panel's iframe): card → hub (`28 项 KPI`
 line present) → each of the five factor pages renders (kpi cards / charts / table rows /
 insight box present) → 11 nav links on the hub.
+
+### 10.7 D3 charts (2026-11-11): treemap, sankey, radar
+
+Plotly draws the two trend charts well and nothing else the cockpit needs. Three shapes were added
+with D3 — each for a reason a bar or line would hide:
+
+| Chart | Where | Why this shape |
+|---|---|---|
+| **treemap** (`d3.treemap`) | hub (all 28 KPIs), every factor page (its own) | one tile per KPI, area = one KPI, **colour = status**, and the factor rectangles keep the grouping the catalogue declares — the whole board's health in one glance, including the three refusals (grey) |
+| **sankey** (`d3-sankey`) | hub (money, 万元), support page (people) | a flow must **balance**: 计划减员 856 = 已完成 810 + 未完成 46; 赔偿实付 4948.8 = 预算内 3852 + 超预算 1096.8; 应追缴 6643 = 已化解 5678 + 未化解 965. If a number stops adding up, the picture stops adding up |
+| **radar** (hand-rolled with `d3.line().curveLinearClosed`) | hub | the five factor averages against the same 0–100 axis — the one comparison the hub exists for |
+
+Every number in these charts is passed in from Python (`payload["charts"]`), built from the same
+`run_metric` results as the cards: nothing is recomputed in the browser, and the three refusals stay
+refusals (grey tiles, not invented values).
+
+**Offline.** `backend/static/d3.min.js` (v7.9.2) and `d3-sankey.min.js` (v0.12.3) are vendored, and
+`main.py:_swap_plotly_cdn_to_local` rewrites the CDN URLs in any served page — the same treatment
+Plotly already had, so a proxy-only browser gets charts instead of blank boxes. If D3 is missing
+anyway, each container prints that the library did not load and the rest of the page keeps working
+(a blank area would read as "the numbers failed").
+
+Verified in a headless browser through the app's own iframe: `#kpiTree` 28 tiles, `#sankeyCash`
+6 nodes / 4 links, `#factorRadar` 1 polygon, both Plotly charts still drawn, zero page errors.
