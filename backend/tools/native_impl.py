@@ -962,6 +962,20 @@ def _resolve_sandbox_path(path_str: str):
             return path, None
         except ValueError:
             continue
+    # A RELATIVE path ("upload/orders.xlsx") is how an agent names a file in ITS OWN workspace, but
+    # `Path(...).resolve()` resolves against the server's cwd (`backend/`), which is not in any
+    # sandbox root — so the check above refused the most natural path there is. Measured on the
+    # table-building agent: it could not find its own uploaded workbook with glob/read_any_file
+    # and burned a whole turn asking for the file path. Try each root, first existing wins.
+    if not Path(path_str).is_absolute():
+        for root in _sandbox_roots():
+            candidate = (root / path_str).resolve()
+            try:
+                candidate.relative_to(root)
+            except ValueError:
+                continue
+            if candidate.exists():
+                return candidate, None
     # A VIRTUAL path ("/upload/brief.docx") is how the agent's own file tools display its workspace, so it is
     # the form an agent naturally passes to a reader. `/upload/brief.docx` is not a real absolute path, so the
     # check above refuses it — measured: three refusals in one turn while the file sat in the workspace the

@@ -1527,8 +1527,14 @@ async def send_message_stream(
                 # identity into tool execution.
                 from tools.native_impl import bind_run_root as _bind_root, clear_run_root as _clear_root
                 from services import user_roots as _user_roots
+                # Bind the AGENT's workspace, not just the person's tree: `_sandbox_roots()` uses
+                # the bound root to resolve RELATIVE tool paths, and an agent names its own files
+                # relatively (`upload/orders.xlsx`). Measured: with the person's tree bound, that
+                # path resolved against the server's cwd and was refused as "outside the allowed
+                # workspace", so the agent spent a turn asking where its own upload was.
                 _run_root_token = _bind_root(
-                    _user_roots.root_for(getattr(fresh_session, "user_id", None))
+                    agent_workspace_root
+                    or _user_roots.root_for(getattr(fresh_session, "user_id", None))
                 )
                 try:
                     # A HEARTBEAT is the difference between "working" and "hung" from the user's chair. Measured
