@@ -115,9 +115,8 @@ export default function GlobalChatModal() {
                   </button>
                   <button
                     onClick={() => c.openDashboard()}
-                    disabled={!c.dashboardCount}
-                    className={`p-2 rounded-lg transition-colors ${c.dashboardCount ? 'hover:bg-gray-100 dark:hover:bg-gray-800' : 'opacity-40 cursor-default'}`}
-                    title={c.dashboardCount ? `打开仪表盘（${c.dashboardCount} 个，最新一个）` : '还没有仪表盘——让 agent 做一张'}
+                      className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+                    title={c.dashboardCount ? `打开仪表盘（${c.dashboardCount} 个，最新一个）` : '打开仪表盘（还没有——点了会说明怎么生成）'}
                   >
                     <Gauge className="w-4 h-4" style={{ color: c.dashboardCount ? 'var(--color-primary)' : 'var(--color-text-muted)' }} />
                   </button>

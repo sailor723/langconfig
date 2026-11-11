@@ -279,7 +279,18 @@ export function useChatController(options: UseChatControllerOptions = {}) {
       const list = res.data?.dashboards || [];
       setDashboardCount(list.length);
       const first = list[0];
-      if (!first) return;
+      if (!first) {
+        // A dead grey button tells nobody why. If there is nothing to open, say it in the one place
+        // the click actually was — and never block the click on a cached count.
+        const html = encodeURIComponent(
+          '<!doctype html><meta charset="utf-8"><body style="font:15px/1.6 -apple-system,PingFang SC,sans-serif;'
+          + 'padding:28px;background:#0f1419;color:#e6edf3">'
+          + '<h2 style="margin:0 0 10px">这个会话还没有仪表盘</h2>'
+          + '<p style="color:#8b98a5">在聊天里说一句「给这个库做张仪表盘」，agent 会先给方案、你确认后渲染，'
+          + '生成后这个按钮就会直接打开它。</p></body>');
+        window.open('data:text/html;charset=utf-8,' + html, '_blank', 'noopener');
+        return;
+      }
       const isNew = first.modified_at !== lastDashboardRef.current;
       if (open) {
         // An explicit click always opens; the automatic path only opens what is new.
