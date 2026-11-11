@@ -654,6 +654,8 @@ export default function OntologyDashboardPage() {
   // The dock on the right is this ontology's OWN question pipeline; it is closed until asked for,
   // so a reader who only wants the numbers gets the full width for panels.
   const [chatOpen, setChatOpen] = useState(false);
+  /** Which declared cockpit page the embedded iframe shows (null = the declaration's first). */
+  const [cockpitPage, setCockpitPage] = useState<string | null>(null);
   const grid = useChartColumns(1, 2);
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -764,29 +766,46 @@ export default function OntologyDashboardPage() {
           listed here, not auto-discovered: a page list the UI invented could point at files nobody
           promised. Opened in a new tab so the panel and the cockpit can sit side by side. */}
       {(data?.pages?.length || 0) > 0 && (
-        <Card style={{ marginBottom: 16, padding: 12 }}>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Card style={{ marginBottom: 16, padding: 0, overflow: 'hidden' }}>
+          {/* The cockpit is EMBEDDED, not linked out: a new tab drops the app's chrome and reads as
+              "another site". The tabs switch the iframe's src, so the pages feel like part of this
+              board. Everything inside is the rendered HTML — the same numbers this page compiles. */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
+                        padding: '10px 12px', borderBottom: `1px solid ${t.border}` }}>
             <span style={{ fontSize: 11, color: t.textDim, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              驾驶舱页面
+              驾驶舱
             </span>
-            {(data?.pages || []).map((p, i) => (
-              <a key={p.file} href={`/api/files/${encodeURIComponent(p.file)}`} target="_blank" rel="noreferrer"
-                 title={p.note ? `${p.file} — ${p.note}` : p.file}
-                 style={{
-                   display: 'inline-flex', alignItems: 'center', gap: 6,
-                   padding: '5px 10px', borderRadius: 8, textDecoration: 'none',
-                   border: `1px solid ${i === 0 ? CYAN : t.border}`,
-                   background: i === 0 ? `${CYAN}14` : 'transparent',
-                   color: i === 0 ? CYAN : t.textPrimary, fontSize: 12, fontWeight: 600,
-                 }}>
-                {i === 0 ? <BarChart3 size={13} /> : <Route size={13} />}
-                {p.label}
-              </a>
-            ))}
-            <span style={{ fontSize: 11, color: t.textDim }}>
-              固定版面，与原版 HTML 一致；数字同样编译自本声明
-            </span>
+            {(data?.pages || []).map((p, i) => {
+              const activePage = cockpitPage ?? data?.pages?.[0]?.file;
+              const on = activePage === p.file;
+              return (
+                <button key={p.file} onClick={() => setCockpitPage(p.file)}
+                        title={p.note ? `${p.file} — ${p.note}` : p.file}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+                          padding: '5px 10px', borderRadius: 8,
+                          border: `1px solid ${on ? CYAN : t.border}`,
+                          background: on ? `${CYAN}14` : 'transparent',
+                          color: on ? CYAN : t.textPrimary, fontSize: 12, fontWeight: 600,
+                        }}>
+                  {i === 0 ? <BarChart3 size={13} /> : <Route size={13} />}
+                  {p.label}
+                </button>
+              );
+            })}
+            <span style={{ flex: 1 }} />
+            <a href={`/api/files/${encodeURIComponent(cockpitPage ?? data?.pages?.[0]?.file ?? '')}`}
+               target="_blank" rel="noreferrer"
+               style={{ fontSize: 11, color: t.textDim, textDecoration: 'none' }}>
+              在新标签页打开 ↗
+            </a>
           </div>
+          <iframe
+            key={cockpitPage ?? data?.pages?.[0]?.file}
+            src={`/api/files/${encodeURIComponent(cockpitPage ?? data?.pages?.[0]?.file ?? '')}`}
+            title={cockpitPage ?? '驾驶舱'}
+            style={{ width: '100%', height: '82vh', border: 'none', display: 'block', background: '#0b1220' }}
+          />
         </Card>
       )}
 

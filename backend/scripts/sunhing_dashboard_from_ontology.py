@@ -461,6 +461,26 @@ def _meta_block(entry: str, title: str, payload: dict | None = None) -> str:
     )
 
 
+BADGE_STYLE = ("display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;"
+               "font-weight:600;letter-spacing:.02em;")
+
+
+def _badge(payload: dict, where: str) -> str:
+    """A one-line provenance chip: generation, ontology key, metric count, observation month."""
+    profile = payload.get("profile") or "sunhing_v1"
+    rows = payload.get("payload_rows") or []
+    metrics = len({r["metric"] for r in rows if r.get("metric")})
+    series = len({r["series_metric"] for r in rows if r.get("series")})
+    return (
+        f'<span style="{BADGE_STYLE}background:#0B2344;color:#D4AF70;margin-left:8px">'
+        f'本体渲染 · {esc(profile)}</span>'
+        f'<span style="{BADGE_STYLE}background:#1F4E79;color:#fff;margin-left:6px">'
+        f'{metrics} 指标 / {series} 条月度序列</span>'
+        f'<span style="{BADGE_STYLE}background:#5B2C6F;color:#fff;margin-left:6px">'
+        f'观察月 {esc(payload.get("period"))}</span>'
+    )
+
+
 def _doc(title: str, css: pathlib.Path, body: str, script: str = "", *,
          meta: str = "") -> str:
     return (
@@ -658,8 +678,8 @@ def render_hub(payload: dict, css: pathlib.Path, mapping: dict) -> str:
         "      <h1>Sun Hing Vision Group ROE Executive Dashboard</h1>\n"
         f'      <div class="sub">一分为多重组执行驾驶舱 · 主仪表盘以 ROE 因子组织 {len(rows)} 项 KPI · 只读管理视图 · '
         f'数值来自本体 <code>{esc(payload.get("profile") or "")}</code></div>\n    </div>\n'
-        '    <div style="font-size:13px;color:var(--gold-light)">'
-        "ROE = 净利润率 × 资产周转率 × 权益乘数 · 观察月 " + esc(period) + "</div>\n  </div>\n"
+        '    <div style="font-size:13px;color:var(--gold-light);text-align:right">'
+        "ROE = 净利润率 × 资产周转率 × 权益乘数<br>" + _badge(payload, "hub") + "</div>\n  </div>\n"
     )
     recovered = headline.get("recovered") or {}
     recovered_label = recovered.get("label") or "追缴已化解"
@@ -877,8 +897,7 @@ def render_factor_page(payload: dict, page: dict, css: pathlib.Path) -> str:
     body = ['<div class="container">\n', _nav(payload["pages"], page["id"])]
     body.append(
         f'  <div class="page-title">{esc(page["title"])}</div>\n'
-        f'  <div class="page-subtitle">{esc(page["subtitle"])} · 目标/进度读数在本体 <code>'
-        f'{esc(payload.get("profile") or "")}</code></div>\n'
+        f'  <div class="page-subtitle">{esc(page["subtitle"])}{_badge(payload, page["id"])}</div>\n'
     )
     body.append(
         '  <div class="baseline-bar">\n'
