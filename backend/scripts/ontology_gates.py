@@ -60,8 +60,19 @@ def _profile_of(key: str) -> pathlib.Path | None:
 
 
 def _keys() -> list[str]:
-    return sorted(d.name for d in PROFILES.iterdir()
-                  if d.is_dir() and _profile_of(d.name) is not None)
+    """Every key the suite has to speak about: the installed ones, plus the DECLARED ones.
+
+    A declaration claims that a key is covered, so a declared key with no profile must not be
+    silently absent from the run — that is the same failure as an installed key with no
+    declaration, seen from the other side. Measured on `new_coldchain_v7` (declared, no profile yet):
+    the suite printed nothing about it at all, which also made the `pending_install` branch below
+    unreachable and therefore dead.
+    """
+    installed = {d.name for d in PROFILES.iterdir()
+                 if d.is_dir() and _profile_of(d.name) is not None}
+    declared = {k for k, v in _declaration().items()
+                if not k.startswith("_") and isinstance(v, dict)}
+    return sorted(installed | declared)
 
 
 def _script(name: str) -> pathlib.Path | None:

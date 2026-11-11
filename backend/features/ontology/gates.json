@@ -82,5 +82,15 @@
       "check_samples",
       "check_dashboard"
     ]
+  },
+  "new_coldchain_v7": {
+    "why": "v7：还没建。它的建造者是 agent 355（`Ontology Builder (new_coldchain_v7)`，datasource `new_coldchain`）；本条目先声明它，是为了让 suite 把「没有 profile」说成一个具名的 NOT RUN，而不是让发布之后才发现这个 key 没有声明（v5 那条红就是这么来的）。一旦 `profiles/new_coldchain_v7/` 落地（`ontology_publish` → 人 apply），把 pending_install 改成本次的 staged id 与门禁结论。",
+    "pending_install": "not started yet — agent 355 will build it; nothing is staged",
+    "profile": [
+      "check_structure",
+      "check_ontology_generic",
+      "check_samples",
+      "check_dashboard"
+    ]
   }
 }
