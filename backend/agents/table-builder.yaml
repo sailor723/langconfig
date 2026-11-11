@@ -29,7 +29,7 @@ native_tools:
 skills:
 - excel-csv-to-postgres
 - evidence-first-delivery
-- sql-analyst
+- db-query
 interrupts:
   db_build_from_file:
     allowed_decisions:
