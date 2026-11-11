@@ -1,6 +1,6 @@
 # The configuration rules
 
-Twenty-four rules (the count is checked by `scripts/check_skill.py`, which is how this line went stale at "Fifteen" while the file held nineteen). Each one exists because skipping it produced a wrong number, a silent empty page, or
+Twenty-eight rules (the count is checked by `scripts/check_skill.py`, which is how this line went stale at "Fifteen" while the file held nineteen). Each one exists because skipping it produced a wrong number, a silent empty page, or
 a claim nobody could defend. The "if you skip it" line is what actually happened, not a warning.
 
 ## 1. An object is not a table
@@ -386,6 +386,12 @@ Removing a metric is a **consumer edit**, not a one-line delete: `tutorial.json`
 `dashboard.json` all name metrics, and T2 ("every tutorial item is declared") is exactly the gate
 that caught a trim which had not looked at the tutorial.
 
+**Gate:** none — "does anything read this number" is a coverage question over five consumers (panels, KPI cards, samples, tutorial, ratio parts), and no gate counts them; the S7·5 self-check names
+the four numbers, and a trim is re-gated by `--family T` (T2) plus `check_samples.py` and
+`check_dashboard.py` for the consumers it touches.
+
+**Ungated (advisory)**
+
 ## 25. Every KPI the material names reaches a panel, or the step is not done
 
 A metric compiles, appears in the menu, answers correctly — and is still invisible, because nothing draws it. The
@@ -418,4 +424,31 @@ origin-relative URL (`/api/...`) is the page's own address, not a file. A profil
 **Gate:** `check_ontology_generic.py --family X` — X1 scans the files a profile travels with and names every
 machine path; X1b proves the scanner fails on a synthetic declaration (`/Users/someone/...`), so a green X1
 means "looked and found nothing", not "looked at nothing".
+
+## 27. A rebuild measures the database before it compares the documents
+
+The first build enters at S0 and reads the database. A rebuild enters at S-1 and reads the documents — so a
+database that grew is invisible to the one path that claims to be cheaper. Measured on a 2026-11-08 build
+reviewed on 2026-11-11: its ledger said
+
+    {"step": "S1", "why": "结构未变（无新增/删除对象与列）"}
+
+while `check_structure` against the same database reported nine tables the ontology never modelled
+(`driver_schedule, fuel_logs, incident_tickets, maintenance_orders, restriction_calendar, vehicle_axles,
+vehicle_fixed_costs, violations, zone_permits`). It published anyway. "Structure unchanged" was an
+assumption wearing the clothes of a measurement.
+
+So S-1 opens with the gate, against the declarations that are installed:
+
+    ontology_open(ontology_key="<key>", dest="work/<key>")          # a copy, never `cp -r` of the repo
+    python backend/features/ontology/gates/check_structure.py --profile work/<key>/<key>_settings.json
+
+Green → `skip: S1` is legal, and the entry carries the gate's last line (`NNN checks · 0 failed · green`) as its
+evidence. Red → the database moved, not the document: S1 is not skippable, and the red line names the tables and
+columns to add.
+
+**Gate:** `check_structure.py` — 类→表/主键、属性→本表列、**每张表都被建模**、**每一列都可达**、无孤儿、无空类
+
+*If you skip it:* the delta says "nothing changed" about a database that changed a lot, every later step is
+built on that sentence, and the gate that would have caught it is the one nobody was told to run.
 

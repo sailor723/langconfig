@@ -17,7 +17,7 @@ triggers:
 - 被要求为一个数据库搭建或扩展本体 / 语义层时
 - 某个 KPI 或指标必须只定义一次并编译出来、而不是每张报表手写一遍时
 - '"同一个指标给出两个不同数字"，而定义必须定下来时'
-version: 3.1
+version: 3.2
 author: weiping
 params:
   datasource:
@@ -44,7 +44,7 @@ params:
 **让本技能成立的那条规则：一步的完成，看的是它的门禁全绿——不是它看起来做完了。** 下面每一步都有一个产物、一条命令
 和一行"绿"的定义。没有门禁的步骤是 `ungated`，而没有门禁的步骤永远不许被报告为完成。
 
-**写 TTL 之前先读 [references/rules.md](references/rules.md)**（二十六条编号规则，每一条都声明了强制它的那道 GATE，
+**写 TTL 之前先读 [references/rules.md](references/rules.md)**（二十八条编号规则，每一条都声明了强制它的那道 GATE，
 或者干脆说出 `Ungated`）。[references/pitfalls.md](references/pitfalls.md) 是真实失败案例的目录；
 [references/tuning-log.md](references/tuning-log.md) 记的是智能体*自身*行为的同类账本；
 [references/gates.md](references/gates.md) 是门禁矩阵，以及怎么证明每道门禁真的咬得住；
@@ -134,6 +134,7 @@ params:
 | 从没跑过变异，把 `exit 0` 叫作"通过" | `steps.json` 里没有变异记录 | 这份记录从来不是必需的（规则 15） |
 | SKILL.md 读了 **8 次**，参考读了 **0 次** | 同一次会话的工具日志 | 参考只在"写 TTL 之前"被排进日程 |
 | 一个没人点名的 **TimeWindow / timeBucket** 缺口 | `grep -c` → 0 条声明；按月/按周的问题答不出来 | 没有规则说声明了 `:timeColumn` 就必须有分桶（规则 16、18） |
+| 重建时写下 `skip S1 — 结构未变`，而库多了 9 张表 | 同一份 `delta.json` 的 `skip` 行 vs 当天 `check_structure` 的 9 条 uncovered | 门禁只在首建被排进日程：没有规则说重建也要先量库（规则 27） |
 | **Query 页面**在笔记本上能答，在 ECS 上被拒 | `nl.py failed: [Errno 2] … '/Users/weiping/dev/Learn/ontology/.venv/bin/python'`——七个本体全一样 | 运行器 spawn 的是写死的 venv（规则 24）；没有任何东西去扫 profile 里的机器路径 |
 | 物流/ABC 的问题以 `PromoteCustomer: :Customer has no :physicalTable` 死掉 | retail 的 `actions.yml` 编译到了它们的图上 | actions 路径取的是 `PROFILE / actions_file`（retail 的目录），而不是当前活动 profile 的 |
 
@@ -183,14 +184,44 @@ S8 之后发生的事不是台阶梯的一步，它们有自己的名字：
  "skip": [{"step": "S1", "why": "structure unchanged"}]}
 ```
 
+### S-1 的第一个动作是量库，不是读文档
+
+**库的当下 schema 是第四份输入，而且要先于另外三份去量。** 首建从 S0 进（先内省数据库），重建从 S-1 进（先比文档）——
+**这就是盲区**：库变了、文档没变，重建这条路看不见。实测（2026-11-11 复查一个 11-08 的搭建）：账本里写着
+`{"step": "S1", "why": "结构未变（无新增/删除对象与列）"}`，而当天 `check_structure` 对同一个库报
+
+```
+[FAIL] no table is silently left out — 9 uncovered:
+  driver_schedule, fuel_logs, incident_tickets, maintenance_orders,
+  restriction_calendar, vehicle_axles, vehicle_fixed_costs, violations, zone_permits
+```
+
+那 9 张表是后来补进库里的，本体没跟。**"结构未变"在被测出来之前不是结论，是一个假设。**
+
+所以：
+
+```
+# 1. 先拿一份已安装本体（不要用 cp -r 拷仓库）
+ontology_open(ontology_key="<key>", dest="work/<key>")
+# 2. 量的这一步，读的仍是「已装声明 × 库里真实 schema」
+python backend/features/ontology/gates/check_structure.py --profile work/<key>/<key>_settings.json
+```
+
+- **绿** → `"结构未变"` 这句话现在可以写进 `skip`，并且**必须附上那道门禁的最后一行**（`NNN checks · 0 failed · green`）。
+- **红** → 库动了，不是文档动了：`skip: S1` 不成立，把红行点出来的表和列补进 S1，从那一级重新往上走。
+
+这条不是"多跑一道门禁"，它决定后面所有步骤是否还有意义：结构不对时编译器会用同一个结构性理由拒绝每一个指标，时间花两遍。
+
 规则，按顺序：
 
+- **先量库**（上一节）：`check_structure` 的绿行是"结构未变"的**唯一**凭据；
 - **对照已安装的声明，而不是对照一张白纸**——已安装的本体、已经给出的答案（`answers.json`）、新到的材料，这是三份输入；
 - **`changed=added=removed=0` 且没有 `questions` → 停下，说 `NO DELTA`。** 不要重编译、不要重跑 S1..S8、不要发布。
   没有东西要建是一个结果，不是失败——为一份与声明一致的文档去重写那些已经绿的声明，正是把 12 秒的重建拖成十分钟的方式；
 - **冲突 → 提一个问题，而不是做一个决定。** 文档要求的东西只要与已安装声明不同，就进 `questions`，带上默认值和它阻塞
   什么；
-- **`skip` 点出你不跑的步骤和理由**（"结构未变"、"样例未变"）。有理由跳过的步骤是一个决定；悄悄跳过的步骤是一句谎话；
+- **`skip` 点出你不跑的步骤和理由**（"结构未变"、"样例未变"）。有理由跳过的步骤是一个决定；悄悄跳过的步骤是一句谎话。
+  **跳过 S1 而没有 `check_structure` 的绿行，就是那句谎话**（规则 27）；
 - **`delta.json` 必须能解析。** 写 JSON，把摘要行放进 ANSWER，不要追加在文件里——实测：文件里多出一行
   `DELTA done=…` 让它无法解析，而一个解析不了的账本产物不算产物。
 

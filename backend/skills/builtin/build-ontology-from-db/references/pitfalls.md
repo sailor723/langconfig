@@ -296,3 +296,29 @@ And one more, from the same afternoon: a build that starts on a shelf holding si
 same database inherits six gate runs, six roster rows and six pictures. Archive all but the two most
 recent **before** generating, and remove their `gates.json` entries in the same edit.
 
+## The rebuild that said "structure unchanged" without looking
+
+A cold-chain build finished its ladder and a delta rebuild was run later from the same documents. The ledger's
+skip list read:
+
+```json
+"skip": [{"step": "S1", "why": "结构未变（无新增/删除对象与列）"}]
+```
+
+Measured three days later, `check_structure` against that ontology's own profile:
+
+```
+[FAIL] no table is silently left out — 9 uncovered: driver_schedule, fuel_logs,
+  incident_tickets, maintenance_orders, restriction_calendar, vehicle_axles,
+  vehicle_fixed_costs, violations, zone_permits
+212 checks · FAILED · red
+```
+
+The nine tables had been added to the demo database between the build and the rebuild; the ontology was never
+extended, and nobody found out because the rebuild path never touched the database. The claim was in the ledger,
+the evidence was nowhere, and the gate that would have produced it was scheduled for the first build only.
+
+**What changed because of it:** rule 27 and S-1's first action. A rebuild now opens with
+`check_structure` against the installed declarations; a green line is what makes `skip: S1` a decision, and a red
+one means the database moved, not the document.
+
