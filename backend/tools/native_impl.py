@@ -6080,14 +6080,25 @@ def sqlite_execute(sql: str, db_path: str = ":memory:") -> str:
 # self-contained (the seeder bakes this source into a DB row), so the helpers are small and
 # module-level, and heavy dependencies are imported inside the function that needs them.
 
-def _pg_conn_kwargs(host: str = "", port: int = 0, user: str = "", password: str = "",
-                    dbname: str = "") -> dict:
-    """Connection kwargs: explicit argument → env (POSTGRES_*) → platform default.
+def _pg_conn_kwargs(host: str = "", port: int = 0, user: str = "", dbname: str = "",
+                    *, password: str = "") -> dict:
+    """Connection kwargs: the agent's own connection → explicit argument → env → platform default.
 
-    Defaults to the platform's own server, so "no arguments" means "the server this app runs
-    on"; pass host/port to build or inspect a database beside it.
+    A password is NOT a tool argument. A tool call's arguments are the transcript, the tool log and the
+    build report, so accepting one here was a second, leaky way to configure a database — the agent's
+    Database section (or Settings → Databases for a shared one) is the authority, and it reaches the
+    shell as PGPASSWORD. This raises rather than ignoring it, because silently dropping it would look
+    like "wrong password" instead of "wrong place".
+
+    Everything else keeps its old precedence so scripts and gates that pass host/port still work.
     """
     import os
+
+    if password not in ("", None):
+        raise ValueError(
+            "a database password is not a tool argument: it would be written into the transcript. "
+            "Configure it on the agent (agent editor → Database) or in Settings → Databases; the "
+            "connection settings arrive in the shell as PGUSER / PGPASSWORD.")
 
     def pick(value, env_name, fallback):
         if value not in ("", None) and value != 0:
@@ -6098,7 +6109,9 @@ def _pg_conn_kwargs(host: str = "", port: int = 0, user: str = "", password: str
         "host": pick(host, "POSTGRES_HOST", "localhost"),
         "port": int(pick(port, "POSTGRES_PORT", 5432)),
         "user": pick(user, "POSTGRES_USER", "postgres"),
-        "password": pick(password, "POSTGRES_PASSWORD", ""),
+        # PGPASSWORD is what the sandbox exports from the agent's database (services/agent_database.py);
+        # POSTGRES_PASSWORD is the platform's own server.
+        "password": os.environ.get("PGPASSWORD") or os.environ.get("POSTGRES_PASSWORD") or "",
     }
     if dbname:
         kwargs["dbname"] = dbname
@@ -6242,7 +6255,7 @@ def _format_plan(path, db_name: str, tables: list, warnings: list) -> str:
 
 @tool
 def db_rename_column(db_name: str, table: str, column: str, new_name: str, confirm: bool = False,
-                     host: str = "", port: int = 0, user: str = "", password: str = "",
+                     host: str = "", port: int = 0, user: str = "",
                      schema_name: str = "public") -> str:
     """
     用我：把一列改成能表达它真实含义的名字（例如 `sold_at` 其实是门店 id → `store_id`），改完再 `db_review(apply=true)`
@@ -6266,7 +6279,7 @@ def db_rename_column(db_name: str, table: str, column: str, new_name: str, confi
         column: current name
         new_name: lower_snake_case ASCII target name (prefer `<target_table>_id`)
         confirm: set true only after the user agreed to the preview
-        host/port/user/password: target server (empty = the platform's own server)
+        host/port/user: target server (empty = the platform's own server). A credential is NOT an argument — it arrives as PGPASSWORD from the agent's own Database configuration
         schema_name: schema (default public)
     """
     import re
@@ -6276,7 +6289,7 @@ def db_rename_column(db_name: str, table: str, column: str, new_name: str, confi
     if not re.fullmatch(r"[a-z_][a-z0-9_]{0,58}", new_name or ""):
         return f"Error: new_name {new_name!r} must be lower_snake_case ASCII"
 
-    target = _pg_conn_kwargs(host, port, user, password, dbname=db_name)
+    target = _pg_conn_kwargs(host, port, user, dbname=db_name)
     try:
         conn = psycopg2.connect(**target)
     except Exception as exc:                                   # noqa: BLE001
@@ -6333,7 +6346,7 @@ def db_rename_column(db_name: str, table: str, column: str, new_name: str, confi
 
 @tool
 def db_dashboard(db_name: str, confirm: bool = False, title: str = "", host: str = "", port: int = 0,
-                 user: str = "", password: str = "") -> str:
+                 user: str = "") -> str:
     """
     用我：给一个库做**交互式 HTML 仪表盘**（KPI + 业务综述 + 桑基/气泡/树/条形/趋势），两段式：先出方案给人确认。
     别用我：只要几个数字用 db_query；只想看结构用 db_review。
@@ -6356,7 +6369,7 @@ def db_dashboard(db_name: str, confirm: bool = False, title: str = "", host: str
         db_name: database to visualise
         confirm: set true only after the user agreed to the plan
         title: page title (default: "<db> · dashboard")
-        host/port/user/password: target server (empty = the platform's own server)
+        host/port/user: target server (empty = the platform's own server). A credential is NOT an argument — it arrives as PGPASSWORD from the agent's own Database configuration
 
     Returns:
         Without confirm: the plan (structure, chain, cube SQL, what each panel shows).
@@ -6364,7 +6377,7 @@ def db_dashboard(db_name: str, confirm: bool = False, title: str = "", host: str
     """
     from services import db_dashboard as dash
 
-    conn = dict(host=host, port=port, user=user, password=password)
+    conn = _pg_conn_kwargs(host, port, user, dbname=db_name)
     try:
         if not confirm:
             return dash.plan(db_name, **conn)
@@ -6531,7 +6544,7 @@ def db_plan_from_file(file: str, db_name: str) -> str:
 
 @tool
 def db_build_from_file(file: str, db_name: str, confirm: bool = False, host: str = "", port: int = 0,
-                       user: str = "", password: str = "", recreate: bool = False) -> str:
+                       user: str = "", recreate: bool = False) -> str:
     """
     用我：把一个上传的 Excel(.xlsx) 或 .csv 建成一个真的 PostgreSQL 库 —— **两段式**：先出方案，用户确认后才建。
     别用我：只想读文件内容用 read_any_file；查已有业务库用 sql_agent_tool。
@@ -6552,7 +6565,7 @@ def db_build_from_file(file: str, db_name: str, confirm: bool = False, host: str
         file: path to the .xlsx / .csv (inside the workspace, e.g. upload/orders.xlsx)
         db_name: target database name, lower_snake_case, e.g. "orders_xlsx"
         confirm: set true ONLY after the user has agreed to the plan from the first call
-        host/port/user/password: target server (empty = the platform's own server)
+        host/port/user: target server (empty = the platform's own server). A credential is NOT an argument — it arrives as PGPASSWORD from the agent's own Database configuration
         recreate: drop and rebuild an existing target. Allowed for a database this tool
             built from a file (it carries a build stamp) or one named *_xlsx/_csv/_test;
             it is never a way to overwrite a hand-built business database
@@ -6584,14 +6597,14 @@ def db_build_from_file(file: str, db_name: str, confirm: bool = False, host: str
                 "1) db_plan_from_file(file=..., db_name=...)   ← show that to the user\n"
                 "2) db_build_from_file(file=..., db_name=..., confirm=true)   ← only after they say yes")
 
-    admin = _pg_conn_kwargs(host, port, user, password)
+    admin = _pg_conn_kwargs(host, port, user)
     try:
         conn = psycopg2.connect(**admin)
     except Exception as exc:
         return f"Error: cannot connect to {admin['host']}:{admin['port']} as {admin['user']}: {exc}"
 
     conn.autocommit = True
-    target = _pg_conn_kwargs(host, port, user, password, dbname=db_name)
+    target = _pg_conn_kwargs(host, port, user, dbname=db_name)
     with conn.cursor() as cur:
         cur.execute("select 1 from pg_database where datname = %s", (db_name,))
         exists = cur.fetchone() is not None
@@ -6633,7 +6646,7 @@ def db_build_from_file(file: str, db_name: str, confirm: bool = False, host: str
             stamp = ""
     conn.close()
 
-    target = _pg_conn_kwargs(host, port, user, password, dbname=db_name)
+    target = _pg_conn_kwargs(host, port, user, dbname=db_name)
     conn = psycopg2.connect(**target)
     conn.autocommit = False
     out = [f"Database: {db_name} @ {target['host']}:{target['port']}"]
@@ -6675,7 +6688,7 @@ def db_build_from_file(file: str, db_name: str, confirm: bool = False, host: str
 
 
 @tool
-def db_review(db_name: str, host: str = "", port: int = 0, user: str = "", password: str = "",
+def db_review(db_name: str, host: str = "", port: int = 0, user: str = "",
               apply: bool = False, schema_name: str = "public") -> str:
     """
     用我：体检一个库（行数/空值/主键候选/外键候选），并可以把主键外键建上。
@@ -6692,7 +6705,7 @@ def db_review(db_name: str, host: str = "", port: int = 0, user: str = "", passw
 
     Args:
         db_name: database to review
-        host/port/user/password: target server (empty = the platform's own server)
+        host/port/user: target server (empty = the platform's own server). A credential is NOT an argument — it arrives as PGPASSWORD from the agent's own Database configuration
         apply: create the primary and foreign keys — only after the user agreed to the review
         schema_name: schema to inspect (default: public)
 
@@ -6701,7 +6714,7 @@ def db_review(db_name: str, host: str = "", port: int = 0, user: str = "", passw
     """
     import psycopg2
 
-    target = _pg_conn_kwargs(host, port, user, password, dbname=db_name)
+    target = _pg_conn_kwargs(host, port, user, dbname=db_name)
     try:
         conn = psycopg2.connect(**target)
     except Exception as exc:
@@ -6865,7 +6878,7 @@ def db_review(db_name: str, host: str = "", port: int = 0, user: str = "", passw
 
 @tool
 def db_query(db_name: str, sql: str, limit: int = 200, host: str = "", port: int = 0,
-             user: str = "", password: str = "") -> str:
+             user: str = "") -> str:
     """
     用我：对**任意**数据库跑只读 SELECT（包括你用 db_build_from_file 刚建的那个）。
     别用我：查平台库可以用 pg_query；写操作不该发生在报表里；自然语言问 chinook 用 sql_agent_tool。
@@ -6880,7 +6893,7 @@ def db_query(db_name: str, sql: str, limit: int = 200, host: str = "", port: int
         db_name: database to query, e.g. "orders_xlsx"
         sql: one SELECT (or WITH … SELECT) statement
         limit: row cap (default 200, max 2000)
-        host/port/user/password: target server (empty = the platform's own server)
+        host/port/user: target server (empty = the platform's own server). A credential is NOT an argument — it arrives as PGPASSWORD from the agent's own Database configuration
 
     Returns:
         A markdown table, or a refusal explaining why the statement was not executed.
@@ -6899,7 +6912,7 @@ def db_query(db_name: str, sql: str, limit: int = 200, host: str = "", port: int
         return "Error: multiple statements are not allowed — send one SELECT."
     cap = max(1, min(int(limit or 200), 2000))
 
-    target = _pg_conn_kwargs(host, port, user, password, dbname=db_name)
+    target = _pg_conn_kwargs(host, port, user, dbname=db_name)
     try:
         conn = psycopg2.connect(**target)
     except Exception as exc:
@@ -7036,7 +7049,7 @@ def _multiset(rows) -> dict:
 
 @tool
 def db_verify_against_file(file: str, db_name: str, host: str = "", port: int = 0,
-                           user: str = "", password: str = "", max_examples: int = 5,
+                           user: str = "", max_examples: int = 5,
                            renames: str = "") -> str:
     """
     用我：建库之后核对"库里真的是这个文件吗"——行数、列名、每一行的值、数值合计，逐 sheet 对账。
@@ -7062,7 +7075,7 @@ def db_verify_against_file(file: str, db_name: str, host: str = "", port: int = 
     Args:
         file: the .xlsx / .csv that was loaded (inside the workspace)
         db_name: the database to verify, e.g. "orders_xlsx"
-        host/port/user/password: target server (empty = the platform's own server)
+        host/port/user: target server (empty = the platform's own server). A credential is NOT an argument — it arrives as PGPASSWORD from the agent's own Database configuration
         max_examples: how many differing rows to show per table (default 5)
         renames: a rename you made on purpose after the build, so it is not reported as a
             mismatch — "orders.sold_at=store_id,customers.status=tier"
@@ -7089,7 +7102,7 @@ def db_verify_against_file(file: str, db_name: str, host: str = "", port: int = 
     if error:
         return error
 
-    target = _pg_conn_kwargs(host, port, user, password, dbname=db_name)
+    target = _pg_conn_kwargs(host, port, user, dbname=db_name)
     try:
         conn = psycopg2.connect(**target)
     except Exception as exc:

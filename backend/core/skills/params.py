@@ -82,6 +82,22 @@ def _fill_defaults(spec: Dict[str, Dict[str, Any]], values: Dict[str, Any]) -> D
     return out
 
 
+
+def _agent_database_name(cfg: Dict[str, Any]) -> str:
+    """The database this agent is pointed at, as a NAME — from config.database, then datasource.
+
+    The single source, in the same order `services/agent_database.resolve` uses, so a skill never has to
+    be told a database the agent is not actually connected to.
+    """
+    block = cfg.get("database") or {}
+    if isinstance(block, dict):
+        if str(block.get("mode") or "catalog") == "custom":
+            return str(block.get("dbname") or "").strip()
+        name = str(block.get("name") or "").strip()
+        if name:
+            return name
+    return str(cfg.get("datasource") or "").strip()
+
 def resolve(agent_id: Optional[int], pins: list[str], skill_params: Optional[Dict[str, Any]],
             agent_config: Optional[Dict[str, Any]] = None) -> tuple[Dict[str, Dict[str, Any]], list[str]]:
     """Values per pinned skill, plus the list of problems (missing required parameters).
@@ -100,7 +116,12 @@ def resolve(agent_id: Optional[int], pins: list[str], skill_params: Optional[Dic
         if not spec:
             continue
         values = dict(supplied.get(pin) or {})
-        # a parameter may default from the agent's own config (datasource is the obvious one)
+        # A parameter may default from the agent's own config (datasource is the obvious one), and the
+        # agent's DATABASE is now the authority for what that name means: `config.database` (custom or
+        # catalogue) decides the connection, so a skill param that disagrees with it is a second place
+        # to configure the same thing. `datasource` therefore resolves from the agent's database first,
+        # and a stale value in skill_params is reported rather than silently used.
+        db_name = _agent_database_name(cfg)
         for name, declared_spec in spec.items():
             if values.get(name) in (None, "") and declared_spec.get("default_from"):
                 source = str(declared_spec["default_from"])
@@ -108,6 +129,14 @@ def resolve(agent_id: Optional[int], pins: list[str], skill_params: Optional[Dic
                     fallback = cfg.get(source.split(".", 1)[1])
                     if fallback not in (None, ""):
                         values[name] = fallback
+            if name == "datasource" and db_name:
+                stale = values.get(name)
+                if stale not in (None, "", db_name):
+                    problems.append(
+                        f"skill {pin!r}: datasource={stale!r} disagrees with this agent's database "
+                        f"({db_name!r}) — the agent's Database section is the authority; clear the "
+                        f"skill param (agent {agent_id})")
+                values[name] = db_name
         values = _fill_defaults(spec, values)
         missing = [n for n, s in spec.items() if s.get("required") and values.get(n) in (None, "")]
         if missing:
