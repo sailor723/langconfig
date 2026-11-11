@@ -743,18 +743,29 @@ class _DeepAgentAssemblyMixin:
                     )
                     sandbox_path.mkdir(parents=True, exist_ok=True)
 
-                # Target database (agent config `datasource`) → PG* environment for the
-                # sandbox. The credential stays in the settings store and never in the
-                # prompt or the transcript; the agent gets a working `psql`/psycopg2
-                # without ever being handed a DSN containing a password.
-                if datasource_name:
+                # Target database → PG* environment for the sandbox. Resolution order lives in
+                # services/agent_database.py: the agent's OWN `config.database` (custom fields or a
+                # catalogue name), then the legacy `config.datasource` name. The credential stays
+                # out of the prompt and out of the transcript either way; the shell gets it as
+                # PGPASSWORD, and `ONTOLOGY_DB_*` is seeded from the same values so an ontology
+                # profile's `${ONTOLOGY_DB_PASSWORD}` resolves to THIS agent's database without the
+                # profile ever carrying a secret (gate X2 forbids one).
+                if datasource_name or getattr(config, "database", None):
                     try:
-                        datasource_env, datasource_dsn = _datasource_env(datasource_name)
-                        logger.info(f"Datasource '{datasource_name}' bound to sandbox env "
-                                    f"(PGDATABASE={datasource_env.get('PGDATABASE')}, "
-                                    f"credential={'yes' if datasource_env.get('PGPASSWORD') else 'none'})")
-                    except Exception as e:  # noqa: BLE001 — a bad datasource must be loud
-                        logger.warning(f"Datasource '{datasource_name}' could not be resolved: {e}")
+                        from services import agent_database as _agent_db  # noqa: PLC0415
+
+                        datasource_env, datasource_dsn = _agent_db.resolve(config)
+                        datasource_env = {**datasource_env,
+                                          **_agent_db.ontology_env(datasource_env)}
+                        logger.info("Agent database bound to sandbox env "
+                                    "(PGDATABASE=%s, source=%s, credential=%s)",
+                                    datasource_env.get("PGDATABASE"),
+                                    "agent.database" if getattr(config, "database", None)
+                                    else "datasource",
+                                    "yes" if datasource_env.get("PGPASSWORD") else "none")
+                    except Exception as e:  # noqa: BLE001 — a bad database must be loud
+                        logger.warning("Agent database could not be resolved: %s", e)
+                        datasource_env, datasource_dsn = {}, {}
 
                 # WorkspaceShellBackend, not the bare LocalShellBackend: the sandbox's file tools must accept
                 # the absolute workspace path the agent's identity block gives it, or every write lands in a
@@ -806,11 +817,13 @@ class _DeepAgentAssemblyMixin:
         # agent is pointed at and how to reach it, and stops there. The password lives in
         # the settings store and reaches the shell as PGPASSWORD — never in this text,
         # never in a tool call, never in the transcript.
-        if datasource_name and datasource_dsn:
+        if datasource_dsn:
             dsn_text = " ".join(f"{k}={v}" for k, v in datasource_dsn.items() if v)
+            _label = (getattr(getattr(config, "database", None), "name", None)
+                      or datasource_env.get("PGDATABASE") or datasource_name or "this agent")
             final_system_prompt += (
                 "\n\n# Target database\n"
-                f"- The database for this task is `{datasource_name}`: {dsn_text}.\n"
+                f"- The database for this task is `{_label}`: {dsn_text}.\n"
                 "- Its connection settings are already exported in the shell as "
                 "PGHOST / PGPORT / PGDATABASE / PGUSER (and PGPASSWORD when a credential "
                 "is configured), so `psql -c 'select 1'` and psycopg2 connect with no "
@@ -820,11 +833,11 @@ class _DeepAgentAssemblyMixin:
                 "- Never print, echo or write the password anywhere, and do not ask the "
                 "user for one."
             )
-        elif datasource_name:
+        elif datasource_name or getattr(config, "database", None):
             final_system_prompt += (
-                f"\n\n# Target database\n- `{datasource_name}` is configured for this "
-                "agent but its connection settings could not be read. Say so instead of "
-                "guessing a host or a credential."
+                "\n\n# Target database\n- A database is configured for this agent but its "
+                "connection settings could not be read. Say so instead of guessing a host or a "
+                "credential, and ask the user to check the agent's Database section."
             )
 
         # The workbench contract. A skill that produces artifacts somebody else has to

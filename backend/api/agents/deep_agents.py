@@ -329,6 +329,15 @@ def _ensure_deep_agent_config(config: dict, db: Session = None) -> dict:
     Also injects dynamic skill subagents into config.subagents when db is provided.
     """
     config = dict(config)  # Make a copy to avoid mutating
+    # The agent's own database password never leaves the server. `password_set` travels instead, which
+    # is what a write-only field needs — the same contract the settings catalogue uses for its
+    # credentials (core/settings/secrets.redact).
+    try:
+        from services.agent_database import redact_config as _redact_db  # noqa: PLC0415
+
+        config = _redact_db(config)
+    except Exception as exc:                                   # noqa: BLE001
+        logger.warning("could not redact the agent's database block: %s", exc)
     # Respect the stored value if set; default to True only when absent
     # (backward compat with agents created before the framework toggle existed).
     if "use_deepagents" not in config:
@@ -476,6 +485,10 @@ async def create_deepagent(
     try:
         config_dict = request.config.dict()
         config_dict["model"] = config_dict.get("model") or _resolve_model(request.config, db)
+        # `database.password` is a secret: encrypt at rest, exactly like a catalogue credential.
+        from services.agent_database import encrypt_config_secrets as _seal_db  # noqa: PLC0415
+
+        config_dict = _seal_db(config_dict)
         # `native_tools` is stored exactly as the editor sent it: [] means no
         # tools. "Start with the universal base" is the editor pre-ticking the
         # defaults, not a server-side fill-in — a fill-in here made the row disagree
@@ -689,6 +702,60 @@ async def get_deepagent(
     )
 
 
+class DatabaseTestRequest(BaseModel):
+    """Test a database configuration WITHOUT saving it (the editor's 测试连接 button).
+
+    `database` is the candidate block; omit it to test what the agent already has. A candidate may
+    carry a plain password (the user just typed it) — it is used for this one connection and never
+    stored or echoed.
+    """
+
+    database: Optional[Dict[str, Any]] = None
+
+
+@router.post("/{agent_id}/database/test")
+async def test_agent_database(
+    agent_id: int,
+    request: Optional[DatabaseTestRequest] = None,
+    db: Session = Depends(get_db),
+):
+    """Open a real connection from this agent's database configuration.
+
+    Why a button and not a belief: a host that does not resolve, a role without rights and a password
+    the server rejects all look identical in a form. This returns the server's own words, plus the
+    database / role / version / table count when it works.
+
+    A failed test is a RESULT (HTTP 200, ``ok: false``), not a server error — the same rule the
+    catalogue's own test endpoint follows. The password is never in the answer.
+    """
+    agent = db.query(DeepAgentTemplate).filter(DeepAgentTemplate.id == agent_id).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="DeepAgent not found")
+
+    from services import agent_database as _agent_db  # noqa: PLC0415
+
+    candidate = (request.database if request and request.database else None)
+    if candidate:
+        config = {"database": candidate}
+        # A candidate typed in the editor may name a catalogue entry instead of carrying fields.
+        if str(candidate.get("mode") or "catalog") == "catalog" and not candidate.get("name"):
+            return {"ok": False, "detail": "pick a database from the catalogue, or switch to 'custom'",
+                    "target": "unresolved"}
+        configured = config
+    else:
+        configured = dict(agent.config or {})
+        if not configured.get("database") and configured.get("datasource"):
+            configured["database"] = {"mode": "catalog", "name": configured["datasource"]}
+        if not configured.get("database"):
+            return {"ok": False, "detail": "this agent has no database configured",
+                    "target": "none"}
+
+    result = _agent_db.test_connection(configured)
+    logger.info("database test for agent %s: ok=%s target=%s", agent_id, result.get("ok"),
+                result.get("target"))
+    return result
+
+
 @router.put("/{agent_id}", response_model=DeepAgentResponse)
 async def update_deepagent(
     agent_id: int,
@@ -725,6 +792,22 @@ async def update_deepagent(
 
         # Only overwrite fields that were explicitly provided in the request
         new_config = request.config.model_dump(exclude_unset=True)
+
+        # A write-only password field: the editor sends the block back with `password_set: true` and
+        # no `password` when the user did not retype it. Merging that verbatim would silently delete a
+        # working credential — so an absent password inherits the stored one, and `password_set` (a
+        # response-only marker) is dropped before it is written.
+        from services.agent_database import encrypt_config_secrets as _seal_db  # noqa: PLC0415
+
+        incoming_db = new_config.get("database")
+        if isinstance(incoming_db, dict):
+            incoming_db = dict(incoming_db)
+            stored_db = ((old_config or {}).get("database") or {})
+            incoming_db.pop("password_set", None)
+            if not incoming_db.get("password") and stored_db.get("password") \
+                    and incoming_db.get("mode", stored_db.get("mode")) != "catalog":
+                incoming_db["password"] = stored_db["password"]
+            new_config["database"] = _seal_db({"database": incoming_db})["database"]
 
         # Resolve model: respect explicit request, fall back to DB settings or existing config
         if "model" in new_config and new_config["model"] is not None:

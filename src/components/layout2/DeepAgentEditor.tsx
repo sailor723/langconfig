@@ -13,6 +13,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
+import DatabaseSection, { type AgentDatabaseBlock } from './editorDatabaseSection';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { Tab } from './useLayout';
 import { useLayoutState } from './useLayout';
@@ -239,6 +240,47 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         if (!parsed.config) parsed.config = {};
         if (graphId) parsed.config.graph_id = graphId;
         else delete parsed.config.graph_id;
+        return JSON.stringify(parsed, null, 2);
+      } catch {
+        return prev;
+      }
+    });
+  }, []);
+
+  // ── Agent-level database ──────────────────────────────────────────────
+  //
+  // The block lives in config.database and follows the same path as every other field: patch the JSON
+  // draft, and Save persists it. `null` removes the block, which is how an agent goes back to "no
+  // database" instead of keeping a stale connection nobody looks at.
+  const [catalogDbs, setCatalogDbs] = useState<
+    { name: string; dbname?: string | null; host?: string | null; port?: number | string | null; kind?: string }[]
+  >([]);
+  useEffect(() => {
+    let cancelled = false;
+    // The same endpoint the tool inspector uses: `sql` is the list of names the SQL tools may point
+    // at, `sql_targets` says which of them live on their own server.
+    apiClient.get('/api/graph-studio/databases')
+      .then((res: any) => {
+        if (cancelled) return;
+        const d = res?.data ?? res ?? {};
+        const names: string[] = Array.isArray(d.sql) ? d.sql.map(String) : [];
+        const targets: Record<string, string> = d.sql_targets ?? {};
+        setCatalogDbs(names.map(name => {
+          const [host, port] = String(targets[name] ?? '').split(':');
+          return { name, host: host || null, port: port || null };
+        }));
+      })
+      .catch(() => { /* the picker degrades to "custom only" */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleDatabaseChange = useCallback((next: AgentDatabaseBlock | null) => {
+    setJsonEdit(prev => {
+      try {
+        const parsed = JSON.parse(prev);
+        if (!parsed.config) parsed.config = {};
+        if (next) parsed.config.database = next;
+        else delete parsed.config.database;
         return JSON.stringify(parsed, null, 2);
       } catch {
         return prev;
@@ -1271,6 +1313,16 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     subagents:  renderSubagents,
     middleware: renderMiddleware,
     guardrails: renderGuardrails,
+    database:   () => (
+      <DatabaseSection
+        agentId={Number.isFinite(Number(agent.id)) && Number(agent.id) > 0 ? Number(agent.id) : null}
+        value={(liveConfig as any).database ?? null}
+        onChange={handleDatabaseChange}
+        catalog={catalogDbs}
+        apiBase={(apiClient as any).baseURL ?? ''}
+        t={t}
+      />
+    ),
     docs:       renderDocs,
     json:       () => <JsonEditorSection value={jsonEdit} onChange={setJsonEdit} t={t} />,
   };

@@ -117,6 +117,33 @@ def scrub_prefixes() -> list[tuple[str, str]]:
     return out
 
 
+#: Config keys whose VALUE is a credential. An agent's own database block can now carry a password
+#: (`config.database.password`, Fernet-encrypted, redacted from the API), and a seed artefact is a
+#: public file: the row must travel WITHOUT it, because the credential is deployment state, not part of
+#: what the agent is. Measured: the first export after that feature existed was refused by the secret
+#: scanner — correctly — because the ciphertext (and, in a test, a plaintext value) was in the file.
+_CREDENTIAL_KEYS = {"password", "api_key", "apikey", "access_token", "secret", "token"}
+
+
+def strip_credentials(value):
+    """Drop credential values out of a config document, keeping the shape around them."""
+    if isinstance(value, dict):
+        out = {}
+        for key, item in value.items():
+            if str(key).lower() in _CREDENTIAL_KEYS and item:
+                # Keep the field, empty: an importing instance re-enters it in the editor, and a
+                # silently missing key would read as "this agent has no such setting".
+                out[key] = None
+                if str(key).lower() == "password":
+                    out["password_set"] = False
+                continue
+            out[key] = strip_credentials(item)
+        return out
+    if isinstance(value, list):
+        return [strip_credentials(v) for v in value]
+    return value
+
+
 def scrub(value, prefixes: list[tuple[str, str]]):
     """Replace machine prefixes in every string, including inside JSON."""
     if isinstance(value, str):
@@ -160,6 +187,12 @@ def main(argv: list[str] | None = None) -> int:
         rows = [scrub(dict(r._mapping), prefixes) for r in db.execute(text(
             f"SELECT {', '.join(COLUMNS)} FROM deep_agent_templates ORDER BY name"
         ))]
+        # A credential is deployment state, not part of what the agent IS: the seed ships the row with
+        # the field empty and the importing instance fills it in (Settings → Databases, or the editor's
+        # Database section). See _CREDENTIAL_KEYS.
+        for row in rows:
+            if isinstance(row.get("config"), dict):
+                row["config"] = strip_credentials(row["config"])
     finally:
         db.close()
 

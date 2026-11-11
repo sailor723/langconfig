@@ -10,11 +10,11 @@ Extends the agent template system with DeepAgents-specific configuration.
 Supports middleware, subagents, backends, and advanced context management.
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Literal, Optional
 from sqlalchemy import Column, Integer, String, JSON, Boolean, ForeignKey, DateTime, Text, Float, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from pydantic import BaseModel, Field, model_validator, field_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator, field_validator
 from db.database import Base
 from core.versioning import OptimisticLockMixin
 from models.enums import SubAgentType, MiddlewareType, BackendType, ReasoningEffort
@@ -241,6 +241,49 @@ class GuardrailsConfig(BaseModel):
         return self
 
 
+class AgentDatabase(BaseModel):
+    """Where THIS agent's database is — agent-level configuration, not the global catalogue.
+
+    Two modes, deliberately explicit:
+
+      mode="catalog"  `name` refers to an entry in Settings → Databases. That namespace is
+                      admin-managed and validated there (its own "test" button), which makes it the
+                      right place for a database several agents share.
+      mode="custom"   the fields below ARE the connection. Nothing global is consulted, so an agent
+                      can be pointed at a database an admin never listed — the case that made this
+                      field necessary.
+
+    `password` is a secret in the same sense as `DatabaseEntry.password`: Fernet-encrypted at rest
+    (`services/agent_database.py`), stripped from every API response (only "set" travels), and never
+    in the prompt — a run receives it as PGPASSWORD.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["catalog", "custom"] = Field(
+        default="catalog",
+        description="catalog = use the named entry from Settings → Databases; custom = use these fields",
+    )
+    name: Optional[str] = Field(default=None, description="Catalogue entry name (mode='catalog')")
+    host: Optional[str] = Field(default=None, description="Host (mode='custom')")
+    port: Optional[int] = Field(default=None, ge=1, le=65535)
+    dbname: Optional[str] = Field(default=None, description="Database name (mode='custom')")
+    user: Optional[str] = None
+    password: Optional[str] = Field(default=None, json_schema_extra={"role": "secret"})
+    sslmode: Optional[str] = Field(default=None, description="libpq sslmode, e.g. 'require'")
+    #: Response-only: a password is stored. The editor sends the block back unchanged, so the field has
+    #: to be accepted here — and dropped on write (`services.agent_database.encrypt_config_secrets`).
+    password_set: Optional[bool] = Field(
+        default=None, description="response-only marker: a stored password exists")
+
+    def missing(self) -> list[str]:
+        """What still has to be filled in for this block to be usable — named, not guessed."""
+        if self.mode == "catalog":
+            return [] if (self.name or "").strip() else ["name"]
+        gaps = [f for f in ("host", "dbname") if not str(getattr(self, f) or "").strip()]
+        return gaps
+
+
 class DeepAgentConfig(BaseModel):
     """Complete DeepAgent configuration (Pydantic model for validation)."""
     # Base agent settings
@@ -355,6 +398,15 @@ class DeepAgentConfig(BaseModel):
             "variables in the sandbox, and the prompt names the target — never the secret. "
             "So an agent builds an ontology against a real database without a DSN or a "
             "password appearing in the chat."
+        )
+    )
+    database: Optional[AgentDatabase] = Field(
+        default=None,
+        description=(
+            "Where this agent's database is. Set it here for a real per-agent configuration "
+            "(mode='custom' carries host/port/dbname/user/password); leave it None and the agent "
+            "falls back to `datasource`, which names an admin-managed entry in Settings → Databases. "
+            "Resolution order and secret handling live in services/agent_database.py."
         )
     )
     middleware: List[MiddlewareConfig] = Field(
