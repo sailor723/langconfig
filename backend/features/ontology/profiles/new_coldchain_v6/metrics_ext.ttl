@@ -20,7 +20,7 @@
 
 :grossMarginRate a owl:DatatypeProperty ; rdfs:label "毛利率" ; :askedAs "毛利率" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
-    :numerator :grossMargin ; :denominator :tripRevenue ; :unit "ratio" ;
+    :numerator :grossMargin ; :denominator :tripRevenue ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "分子分母都是 Trip 粒度上同口径的量。口径来自 answers:Q1。" .
 
 :overloadedTrips a owl:DatatypeProperty ; rdfs:label "超载趟次" ; :askedAs "超载趟次" ; rdfs:domain :Trip ;
@@ -29,12 +29,12 @@
 
 :overloadRate a owl:DatatypeProperty ; rdfs:label "超载率" ; :askedAs "超载率" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
-    :numerator :overloadedTrips ; :denominator :tripCount ; :unit "ratio" ;
+    :numerator :overloadedTrips ; :denominator :tripCount ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "重量口径。口径来自 answers:Q5。" .
 
 :overloadRateByRouteVersion a owl:DatatypeProperty ; rdfs:label "按线路版本看超载率" ; :askedAs "按线路版本看超载率" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
-    :numerator :overloadedTrips ; :denominator :tripCount ; :groupBy :tripRouteVersion ; :unit "ratio" ;
+    :numerator :overloadedTrips ; :denominator :tripCount ; :groupBy :tripRouteVersion ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "同一条超载率，按并线前后切开：v1 2.65% / v2 75.39%（本库实测）。并线把两条线路的站并到一条上，装载没跟上，这是最尖锐的那个变化。口径来自 answers:Q2。" .
 
 :externalTrips a owl:DatatypeProperty ; rdfs:label "外车趟次" ; :askedAs "外车趟次" ; rdfs:domain :Trip ;
@@ -43,12 +43,12 @@
 
 :externalShare a owl:DatatypeProperty ; rdfs:label "外车占比" ; :askedAs "外车占比" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
-    :numerator :externalTrips ; :denominator :tripCount ; :unit "ratio" ;
+    :numerator :externalTrips ; :denominator :tripCount ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "分母是全部趟次。按高峰/平日分组见 :externalShareByPeak。口径来自 answers:Q6。" .
 
 :externalShareByPeak a owl:DatatypeProperty ; rdfs:label "按高峰/平日看外车占比" ; :askedAs "按高峰/平日看外车占比" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
-    :numerator :externalTrips ; :denominator :tripCount ; :groupBy :tripIsPeakDay ; :unit "ratio" ;
+    :numerator :externalTrips ; :denominator :tripCount ; :groupBy :tripIsPeakDay ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "同一条比率，按高峰日切开：平日 <10%、高峰 15–20% 是业务给的期望。口径来自 answers:Q6。" .
 
 :peakDayTrips a owl:DatatypeProperty ; rdfs:label "高峰日趟次" ; :askedAs "高峰日趟次" ; rdfs:domain :Trip ;
@@ -72,7 +72,7 @@
     :businessDescription "站点级准时口径：按站点数，不是按趟。口径来自 answers:Q2。" .
 :onTimeRate a owl:DatatypeProperty ; rdfs:label "准点率（站点级）" ; :askedAs "准点率（站点级）" ; rdfs:domain :Stop ;
     :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ;
-    :numerator :onTimeStops ; :denominator :stopCount ; :unit "ratio" ;
+    :numerator :onTimeStops ; :denominator :stopCount ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "站点级：每个收货点是否在窗口内。口径来自 answers:Q2。" .
 :damagedBoxes a owl:DatatypeProperty ; rdfs:label "破损箱数" ; :askedAs "破损箱数" ; rdfs:domain :Stop ;
     :aggregate "sum" ; :formula "damaged_boxes" ; :grain :Stop ; :universe :Stop ; :unit "boxes" ;
@@ -123,7 +123,7 @@
     :businessDescription "整趟没有任何迟到站点；与站点级准点率是两个问题。口径来自 answers:Q2。" .
 :fullOnTimeTripRate a owl:DatatypeProperty ; rdfs:label "整趟全准点率" ; :askedAs "整趟全准点率" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
-    :numerator :fullOnTimeTrips ; :denominator :tripCount ; :unit "ratio" ;
+    :numerator :fullOnTimeTrips ; :denominator :tripCount ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "第二口径：这趟跑干净了吗。口径来自 answers:Q2。" .
 
 :avgRevenuePerTrip a owl:DatatypeProperty ; rdfs:label "每趟平均运费" ; :askedAs "每趟平均运费" ; rdfs:domain :Trip ;
@@ -133,7 +133,7 @@
 
 :unrecordedRefusalRate a owl:DatatypeProperty ; rdfs:label "拒单原因缺失率" ; :askedAs "拒单原因缺失率" ; rdfs:domain :Refusal ;
     :aggregate "ratio_of_sums" ; :grain :Refusal ; :universe :Refusal ;
-    :numerator :unrecordedRefusals ; :denominator :refusalCount ; :unit "ratio" ;
+    :numerator :unrecordedRefusals ; :denominator :refusalCount ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "分子分母都在 Refusal 粒度上：原因没填的那部分占全部拒单的比例（实测 113/389 = 29.0%）。不归因，只报缺口。口径来自 answers:Q8。" .
 
 # ---- Appeal 粒度（docx 任务9：司机申诉；outcome 是写入的 pending，不是判定）
@@ -169,12 +169,12 @@
 # (3) 一对面孔：平均的比率 ≠ 比率的平均（分母的选择就是这个指标的语义）
 :loadUtilization a owl:DatatypeProperty ; rdfs:label "平均装载利用率" ; :askedAs "平均装载利用率" ; rdfs:domain :Trip ;
     :aggregate "avg" ; :formula "load_boxes::numeric / box_capacity_snapshot" ;
-    :grain :Trip ; :universe :Trip ; :unit "ratio" ;
+    :grain :Trip ; :universe :Trip ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "每趟装载箱数 / 该趟发车时冻结的箱容量，再对趟次取平均：它回答「典型的一趟装得多满」。数据缺失的趟不计入分母。（refused: 平台历史声明，业务出处待补）" .
 
 :capacityUseRate a owl:DatatypeProperty ; rdfs:label "容量利用率（总量比）" ; :askedAs "容量利用率（总量比）" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
-    :numerator :loadedBoxes ; :denominator :boxCapacitySum ; :unit "ratio" ;
+    :numerator :loadedBoxes ; :denominator :boxCapacitySum ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "总装载箱数 / 总容量：回答「整体运力用了多少」。与平均装载利用率是两个问题，永远不该相等。（refused: 平台历史声明，业务出处待补）" .
 
 :loadedBoxes a owl:DatatypeProperty ; rdfs:label "装载箱数合计" ; :askedAs "装载箱数合计" ; rdfs:domain :Trip ;
@@ -193,7 +193,7 @@
 # (4) 给气泡图：每个版本上的两把尺子（都是 Trip 自己的列，且都是比率）
 :externalShareByRouteVersion a owl:DatatypeProperty ; rdfs:label "按线路版本看外车占比" ; :askedAs "按线路版本看外车占比" ; rdfs:domain :Trip ;
     :aggregate "ratio_of_sums" ; :grain :Trip ; :universe :Trip ;
-    :numerator :externalTrips ; :denominator :tripCount ; :groupBy :tripRouteVersion ; :unit "ratio" ;
+    :numerator :externalTrips ; :denominator :tripCount ; :groupBy :tripRouteVersion ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "外车占比按并线版本切开：外车补位是不是并线之后才变多。（refused: 平台历史声明，业务出处待补）" .
 
 # (5) 给树图：二维金额（版本 × 高峰），格子面积就是钱
@@ -209,7 +209,7 @@
 
 :excursionStopRate a owl:DatatypeProperty ; rdfs:label "温度越界率（站点级）" ; :askedAs "温度越界率（站点级）" ; rdfs:domain :Stop ;
     :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ;
-    :numerator :excursionStops ; :denominator :stopCount ; :unit "ratio" ;
+    :numerator :excursionStops ; :denominator :stopCount ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "越界站点 / 全部站点（本库实测 1,148/50,832 = 2.26%）。分母是全部到店，含未送达的站——与准时率的分母口径一致。；分子来自 table:stops.temp_excursion，分母是 stops 全部到店行" .
 
 :alarmTriggeredStops a owl:DatatypeProperty ; rdfs:label "触发报警站点数" ; :askedAs "触发报警站点数" ; rdfs:domain :Stop ;
@@ -222,7 +222,7 @@
 
 :alarmCaptureRate a owl:DatatypeProperty ; rdfs:label "报警捕捉率" ; :askedAs "报警捕捉率" ; rdfs:domain :Stop ;
     :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ;
-    :numerator :alarmCaptureStops ; :denominator :excursionStops ; :unit "ratio" ;
+    :numerator :alarmCaptureStops ; :denominator :excursionStops ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "分母是越界站点数、不是全部站点：回答「越界的时候警铃响了吗」（本库实测 21/1,148 = 1.83%）。别与越界率混为一谈。；来源 table:stops.temp_excursion / alarm_triggered 的同行交集" .
 
 :falseAlarmStops a owl:DatatypeProperty ; rdfs:label "误报站点数" ; :askedAs "误报站点数" ; rdfs:domain :Stop ;
@@ -231,5 +231,5 @@
 
 :falseAlarmRate a owl:DatatypeProperty ; rdfs:label "报警误报率" ; :askedAs "报警误报率" ; rdfs:domain :Stop ;
     :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ;
-    :numerator :falseAlarmStops ; :denominator :alarmTriggeredStops ; :unit "ratio" ;
+    :numerator :falseAlarmStops ; :denominator :alarmTriggeredStops ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "分母是全部报警次数：回答「警铃响的时候，其实有没有事」（本库实测 958/979 = 97.9%）。与捕捉率互为反面，但分母不同，两者相加不等于 1。；来源 table:stops.alarm_triggered 与 table:stops.temp_excursion" .

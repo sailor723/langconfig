@@ -38,6 +38,7 @@ import pathlib
 import shutil
 import subprocess
 import datetime
+import threading
 import time
 import uuid
 
@@ -105,12 +106,18 @@ def _audit_row(pid: str, key: str, actor: str | None, status: str, note: str = "
         try:
             from sqlalchemy import text
 
+            # `applied` is FINAL. A late writer (a double-click's second apply, whose gate run saw a
+            # staging tree the first call was deleting) used to overwrite the outcome with "refused",
+            # so a successful install read as a failure in the ledger while its commit sat in git.
+            # Measured on new_coldchain_v6: commit baaa1a88 at 19:07:26, status "refused" four seconds
+            # later. History may be appended to, never rewritten.
             db.execute(text("""
                 INSERT INTO ontology_publishes (id, key, actor, status, note, files, report, git_commit)
                 VALUES (:id, :key, :actor, :status, :note, CAST(:files AS jsonb),
                         CAST(:report AS jsonb), :sha)
                 ON CONFLICT (id) DO UPDATE SET status = :status, note = :note,
                     report = CAST(:report AS jsonb), git_commit = :sha, updated_at = now()
+                WHERE ontology_publishes.status <> 'applied'
             """), {"id": pid, "key": key, "actor": actor, "status": status, "note": note,
                    "files": json.dumps(files or {}), "report": json.dumps(report or {}),
                    "sha": git_commit})
@@ -302,23 +309,65 @@ def stage(key: str, files: dict[str, str], *, actor: str | None = None, note: st
           and not gates.get("fails"))
     status = "staged" if ok else "refused"
     _audit_row(staged_id, key, actor, status, note=note, files=files, report=report)
+    if not ok:
+        # A refused staging can never be applied, so its tree is only disk: keep `.staging/` meaning
+        # "waiting for a human" (measured on this instance: 9 trees from refusals sat next to the one
+        # real pending publish, and the pending list is built from the ledger, so nothing told the two
+        # apart). The report above already carries the text a reader needs.
+        shutil.rmtree(staging, ignore_errors=True)
     return {"ok": ok, "staged_id": staged_id, "key": key, "report": report,
             "profile": str(staged_profile)}
 
 
 # ─────────────────────────────────────────────────────────────── apply
+#: One apply at a time, per staged id. A double-click used to run two of them: the second's gate
+#: re-check read a staging tree the first was already deleting, produced 20 "empty menu" refusals, and
+#: recorded the publish as refused AFTER it had installed and committed. Serialising also makes the
+#: status re-read meaningful (see the second check inside the lock).
+_APPLY_LOCKS: dict[str, "threading.Lock"] = {}
+_APPLY_LOCKS_GUARD = None
+
+
+def _apply_lock(staged_id: str):
+    global _APPLY_LOCKS_GUARD
+    if _APPLY_LOCKS_GUARD is None:
+        _APPLY_LOCKS_GUARD = threading.Lock()
+    with _APPLY_LOCKS_GUARD:
+        lock = _APPLY_LOCKS.get(staged_id)
+        if lock is None:
+            lock = _APPLY_LOCKS[staged_id] = threading.Lock()
+        return lock
+
+
 def apply(staged_id: str, *, actor: str | None = None, confirmed: bool = False,
           git_commit: bool = True) -> dict:
-    """Install a staged publish. Requires confirmation; reverts on any failure."""
+    """Install a staged publish. Requires confirmation; reverts on any failure.
+
+    Serialised per staged id: the second caller waits, then finds the row no longer `staged` and is told
+    what it became ("already applied at …"), instead of racing the first one's cleanup.
+    """
     if not confirmed:
         return {"ok": False, "error": "not confirmed: a publish lands only after a human says so"}
 
+    with _apply_lock(staged_id):
+        return _apply_locked(staged_id, actor=actor, git_commit=git_commit)
+
+
+def _apply_locked(staged_id: str, *, actor: str | None, git_commit: bool) -> dict:
+    """The body of `apply`, under the per-id lock. Reads the row ITSELF, so a queued second caller
+    sees the state the first one left."""
     rows = _audit_list(staged_id)
     if not rows:
         return {"ok": False, "error": f"no staged publish {staged_id!r}"}
     row = rows[0]
     if row.get("status") != "staged":
-        why = "refused at stage time (see its report)" if row.get("status") == "refused" else row.get("status")
+        status = row.get("status")
+        if status == "applied":
+            return {"ok": False, "already_applied": True,
+                    "error": (f"publish {staged_id} was already applied"
+                              + (f" at {row.get('updated_at')}" if row.get("updated_at") else "")
+                              + " — nothing to do (a second click does not reinstall it)")}
+        why = "refused at stage time (see its report)" if status == "refused" else status
         return {"ok": False, "error": f"publish {staged_id} is {why}"}
     key = row["key"]
     staging = _staging_dir(key) / staged_id

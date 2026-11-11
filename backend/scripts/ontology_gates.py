@@ -22,6 +22,7 @@ Exit: 0 everything that ran held; 1 something failed; 2 the runner itself could 
 from __future__ import annotations
 
 import argparse
+import re
 import json
 import os
 import pathlib
@@ -96,6 +97,12 @@ def _verdict(text: str, code: int) -> str:
     ignore the runner.
     """
     if "SOME CHECKS FAILED" in text or "GATES FAILED" in text or code not in (0, 1):
+        return "fail"
+    # A gate that reports its own score can fail WITHOUT that sentence: `check_dashboard` prints
+    # "98 checks, 8 failed" and nothing else, so "NOT RUN" anywhere in its output used to decide the
+    # verdict — a gate with eight real failures was filed as `notrun` and the suite exited 0. Measured
+    # on new_coldchain_v6 after a publish added KPI cards for bare-ratio metrics.
+    if re.search(r"\b[1-9][0-9]* failed\b", text):
         return "fail"
     if "NOT RUN" in text:
         return "notrun"
