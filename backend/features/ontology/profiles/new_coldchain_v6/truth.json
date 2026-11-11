@@ -35,7 +35,14 @@
   "unrecordedRefusals": "113",
   "unrecordedRefusalRate": "0.29048843187660668380",
   "fullOnTimeTrips": "2221",
-  "fullOnTimeTripRate": "0.53907766990291262136"
+  "fullOnTimeTripRate": "0.53907766990291262136",
+  "excursionStops": "1148",
+  "excursionStopRate": "0.022584198929807995",
+  "alarmTriggeredStops": "979",
+  "alarmCaptureStops": "21",
+  "alarmCaptureRate": "0.018292682926829268",
+  "falseAlarmStops": "958",
+  "falseAlarmRate": "0.978549540347293156"
  },
  "_definitions": {
   "UnjudgedComplaint": [
@@ -77,7 +84,23 @@
   "NewbieHandlerStop": [
    "stops",
    "handler_days_worked <= 3"
+  ],
+  "ExcursionStop": [
+   "stops",
+   "temp_excursion = true"
+  ],
+  "AlarmCaptureStop": [
+   "stops",
+   "temp_excursion = true AND alarm_triggered = true"
+  ],
+  "AlarmTriggeredStop": [
+   "stops",
+   "alarm_triggered = true"
+  ],
+  "FalseAlarmStop": [
+   "stops",
+   "temp_excursion = false AND alarm_triggered = true"
   ]
  },
- "_definitions_doc": "每个定义类一条手写谓词：R2 用它证明「声明的定义」与「编译出的 FROM/WHERE」数出同一批行。"
+ "_definitions_doc": "每个定义类一条手写谓词：R2 用它证明「声明的定义」与「编译出的 FROM/WHERE」数出同一批行。另有一条闭合校验：AlarmCaptureStop(21) + FalseAlarmStop(958) = AlarmTriggeredStop(979)。"
 }

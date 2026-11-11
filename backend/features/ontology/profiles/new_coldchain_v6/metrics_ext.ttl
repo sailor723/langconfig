@@ -201,3 +201,35 @@
     :aggregate "sum" ; :formula "revenue" ; :grain :Trip ; :universe :Trip ;
     :groupBy :tripRouteVersion ; :groupBy :tripIsPeakDay ; :unit "RMB" ;
     :businessDescription "运费收入按并线版本 × 高峰/平日切成四块，树图每块面积就是这一格的钱。（refused: 平台历史声明，业务出处待补）" .
+
+# ── 冷链温控（Stop 粒度，全部单表；2026-11-11 增补）──────────────────────────
+:excursionStops a owl:DatatypeProperty ; rdfs:label "温度越界站点数" ; :askedAs "温度越界站点数" ; rdfs:domain :Stop ;
+    :aggregate "count" ; :grain :Stop ; :universe :Stop ; :where :ExcursionStop ; :unit "count" ;
+    :businessDescription "table: stops.temp_excursion —— 越界发生在站上，库里已有布尔判定；「几度算越界」的阈值不在本库，所以本体重不声明阈值。" .
+
+:excursionStopRate a owl:DatatypeProperty ; rdfs:label "温度越界率（站点级）" ; :askedAs "温度越界率（站点级）" ; rdfs:domain :Stop ;
+    :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ;
+    :numerator :excursionStops ; :denominator :stopCount ; :unit "ratio" ;
+    :businessDescription "measured: 越界站点 / 全部站点 = 1,148/50,832 = 2.26%（手写 SQL，见 truth.json）。分母是全部到店，含未送达的站——与准时率的分母口径一致。" .
+
+:alarmTriggeredStops a owl:DatatypeProperty ; rdfs:label "触发报警站点数" ; :askedAs "触发报警站点数" ; rdfs:domain :Stop ;
+    :aggregate "count" ; :grain :Stop ; :universe :Stop ; :where :AlarmTriggeredStop ; :unit "count" ;
+    :businessDescription "table: stops.alarm_triggered —— 报警次数（站点级），不论当时是否越界；误报率的分母。" .
+
+:alarmCaptureStops a owl:DatatypeProperty ; rdfs:label "越界且报警站点数" ; :askedAs "越界且报警站点数" ; rdfs:domain :Stop ;
+    :aggregate "count" ; :grain :Stop ; :universe :Stop ; :where :AlarmCaptureStop ; :unit "count" ;
+    :businessDescription "measured: stops.temp_excursion AND stops.alarm_triggered —— 报警系统真正捕捉到的越界（21 站）。" .
+
+:alarmCaptureRate a owl:DatatypeProperty ; rdfs:label "报警捕捉率" ; :askedAs "报警捕捉率" ; rdfs:domain :Stop ;
+    :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ;
+    :numerator :alarmCaptureStops ; :denominator :excursionStops ; :unit "ratio" ;
+    :businessDescription "measured: 21/1,148 = 1.83%（手写 SQL，见 truth.json）。分母是越界站点数、不是全部站点：回答「越界的时候警铃响了吗」。别与越界率混为一谈。" .
+
+:falseAlarmStops a owl:DatatypeProperty ; rdfs:label "误报站点数" ; :askedAs "误报站点数" ; rdfs:domain :Stop ;
+    :aggregate "count" ; :grain :Stop ; :universe :Stop ; :where :FalseAlarmStop ; :unit "count" ;
+    :businessDescription "table: stops.alarm_triggered = true AND stops.temp_excursion = false —— 没越界却报警的站点数（958 站）。" .
+
+:falseAlarmRate a owl:DatatypeProperty ; rdfs:label "报警误报率" ; :askedAs "报警误报率" ; rdfs:domain :Stop ;
+    :aggregate "ratio_of_sums" ; :grain :Stop ; :universe :Stop ;
+    :numerator :falseAlarmStops ; :denominator :alarmTriggeredStops ; :unit "ratio" ;
+    :businessDescription "measured: 958/979 = 97.9%（手写 SQL，见 truth.json）。分母是全部报警次数：回答「警铃响的时候，其实有没有事」。与捕捉率互为反面，但分母不同，两者相加不等于 1；21 + 958 = 979 是本体自带的闭合校验。" .

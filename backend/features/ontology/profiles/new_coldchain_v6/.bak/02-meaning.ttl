@@ -1,0 +1,74 @@
+@prefix : <https://cube.local/ontology/new_coldchain_v6#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# 口径来自 answers:Q2（准点：站点级为主）
+:LateStop a owl:Class ; rdfs:label "迟到站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :stopOnTime ; owl:hasValue false ] ) ] ;
+    :businessDescription "on_time = false 的站点：按站点看的迟到。" .
+
+# 口径来自 docx（破损痛点）
+:DamagedStop a owl:Class ; rdfs:label "破损站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :stopDamagedBoxes ; owl:withRestrictions ( [ xsd:minInclusive 1 ] ) ] ) ] ;
+    :businessDescription "至少一箱破损的站点。" .
+
+# 口径来自 answers:Q5（超载以重量为准；跨列比较 → 声明式谓词，全仓唯一例外）
+:OverloadedTrip a owl:Class ; rdfs:label "超载趟次（重量）" ;
+    :physicalPredicate "load_weight > weight_capacity_snapshot" ;
+    :businessDescription "装载重量超过派车时的载重快照。一列比一列，OWL 的 facet 表达不了，因此是声明式谓词。" .
+
+:ExternalTrip a owl:Class ; rdfs:label "外车趟次" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Trip [ a owl:Restriction ;
+        owl:onProperty :tripIsExternal ; owl:hasValue true ] ) ] ;
+    :businessDescription "司机不接单时由外部车队补位的趟次。" .
+
+:PeakDayTrip a owl:Class ; rdfs:label "高峰日趟次" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Trip [ a owl:Restriction ;
+        owl:onProperty :tripIsPeakDay ; owl:hasValue true ] ) ] ;
+    :businessDescription "周五／周六（高峰日）的趟次。" .
+
+# 口径来自 answers:Q4（NULL 是「未判定」这个状态，不是 0）
+:UnjudgedComplaint a owl:Class ; rdfs:label "责任未判定客诉" ;
+    :physicalPredicate "liability IS NULL" ;
+    :businessDescription "责任未判定的客诉：系统保留这个状态，而不是替业务做判断。" .
+
+# 口径来自 docx（破损 vs 工龄）。NASS 导出补了 stops.handler_days_worked（工龄快照），
+# 于是这条从跨表谓词降级为单表 facet：不再需要 EXISTS 子查询。
+:NewbieHandlerStop a owl:Class ; rdfs:label "新手搬运工的站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :stopHandlerDaysWorked ; owl:withRestrictions ( [ xsd:maxInclusive 3 ] ) ] ) ] ;
+    :businessDescription "该站搬运工上岗 ≤3 天。口径来自 docx（破损 vs 工龄）。" .
+
+# 口径来自 answers:Q8（拒单不归因，只报次数与缺失率）
+:UnrecordedRefusalReason a owl:Class ; rdfs:label "拒单原因未记录" ;
+    :physicalPredicate "reason IS NULL" ;
+    :businessDescription "拒单记录里没有填原因的那些（约 29%）：归因不可靠，这一层只报缺口。" .
+
+# 口径来自 answers:Q2（趟级第二指标）。NASS 导出补了 trips.late_stop_count，
+# 于是从跨表 NOT EXISTS 降级为单表 facet。
+:FullOnTimeTrip a owl:Class ; rdfs:label "整趟全准点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Trip [ a owl:Restriction ;
+        owl:onProperty :tripLateStopCount ; owl:withRestrictions ( [ xsd:maxInclusive 0 ] ) ] ) ] ;
+    :businessDescription "该趟迟到站点数为 0。口径来自 answers:Q2（趟级第二指标）。" .
+
+# 定义类的表归属：只覆盖一张表的定义也把表写上，C1b 才能自洽（否则要在 gates.json 登记已知失败）
+# facet 定义有基类（:Trip / :Stop），不再需要 :physicalTable；
+# 下面两行是 :physicalPredicate 类，保留。
+:UnjudgedComplaint :physicalTable "complaints" .
+:UnrecordedRefusalReason :physicalTable "refusals" .
+
+:JudgedComplaint a owl:Class ; rdfs:label "已判定责任的客诉" ;
+    :physicalPredicate "amount IS NOT NULL" ; :physicalTable "complaints" ;
+    :businessDescription "已判定责任、有赔付金额的客诉；未判定的那 46% 不在里面。口径来自 answers:Q4。" .
+
+# 备注（写给自己）：:physicalPredicate 里的列名**不带表别名** —— 编译器自己拼 FROM，别名会让它拼不出来。
+# 这一条是被 R 门抓出来的（"missing FROM-clause entry for table c"）。
+
+# 自有车是外车的另一半：同一个 is_external 轴，声明成互补的两个类，桑基图两端才闭合。
+:OwnTrip a owl:Class ; rdfs:label "自有车趟次" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Trip [ a owl:Restriction ;
+        owl:onProperty :tripIsExternal ; owl:hasValue false ] ) ] ;
+    :businessDescription "自有司机承运的趟次；与外车趟次互斥且相加为全部趟次。" .

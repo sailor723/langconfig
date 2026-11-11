@@ -1,232 +1,254 @@
 {
- "_doc": "new_coldchain 的看板声明。每个 panel 引用的指标都必须是已声明的；分组面板的数字要能加权回到未分组的值（D3）。口径来自 answers:Q2/Q5/Q6 与 docx。 independent_sql 是这份看板的第二条路线：每条都用手写 SQL 量同一个词（不是本流水线的输出），并由 D5 与编译结果对照。",
- "version": 1,
- "ontology": "new_coldchain_v6",
- "title": "ABC 冷链 · 并线之后的运输看板",
- "subtitle": "4,120 趟 / 50,832 站：同一个词只有一个数",
- "events": [],
- "kpis": [
-  {
-   "metric": "tripCount",
-   "note": "90 天 4,120 趟"
-  },
-  {
-   "metric": "onTimeRate",
-   "note": "站点级，分母是全部站点"
-  },
-  {
-   "metric": "overloadRate",
-   "note": "重量口径"
-  },
-  {
-   "metric": "externalShare",
-   "note": "分母是全部趟次"
-  },
-  {
-   "metric": "loadUtilization",
-   "note": "平均装载利用率（每趟先算比率再平均）"
-  },
-  {
-   "metric": "capacityUseRate",
-   "note": "容量利用率（总量比）—— 和上一个是两个问题"
-  },
-  {
-   "metric": "grossMarginRate",
-   "note": "收入 − 已知成本；other_cost 缺，所以是上限"
-  },
-  {
-   "metric": "compensationCost",
-   "note": "只算已判定赔付"
-  }
- ],
- "cross_filter": {
-  "dimension": "routeVersion",
-  "column": "route_version"
- },
- "policy": [
-  {
-   "id": "ontime",
-   "label": "准点率红线",
-   "metric": "onTimeRate",
-   "op": "<",
-   "value": 0.95,
-   "assumed": true,
-   "why": "按站点算的准点率。95% 是常见合同门槛，本项目未取得合同原文，仍是假设。"
-  },
-  {
-   "id": "overload",
-   "label": "超载率红线",
-   "metric": "overloadRate",
-   "op": ">",
-   "value": 0.1,
-   "assumed": true,
-   "why": "重量口径。10% 是初始红线，业务未确认。"
-  }
- ],
- "briefing": {
-  "title": "先说一句实话",
-  "body": "这 90 天准点率 {onTimeRate}，整趟全准点只有 {fullOnTimeTripRate}；并线后按重量的超载率 {overloadRate}（v2 一侧单独看 {overloadRateByRouteVersion:v2}）。装载利用率两个口径分别是 {loadUtilization} 和 {capacityUseRate}——几乎相等但含义不同，一个说「典型的一趟」，一个说「整体运力」。"
- },
- "panels": [
-  {
-   "id": "merge_slope",
-   "kind": "slope",
-   "title": "并线前后：趟次与超载率",
-   "question": "把两条线并成一条之后，量涨了多少、超载涨了多少？",
-   "x": {
+  "_doc": "new_coldchain 的看板声明。每个 panel 引用的指标都必须是已声明的；分组面板的数字要能加权回到未分组的值（D3）。口径来自 answers:Q2/Q5/Q6 与 docx。 independent_sql 是这份看板的第二条路线：每条都用手写 SQL 量同一个词（不是本流水线的输出），并由 D5 与编译结果对照。",
+  "version": 1,
+  "ontology": "new_coldchain_v6",
+  "title": "ABC 冷链 · 并线之后的运输看板",
+  "subtitle": "4,120 趟 / 50,832 站：同一个词只有一个数",
+  "events": [],
+  "kpis": [
+    {
+      "metric": "tripCount",
+      "note": "90 天 4,120 趟"
+    },
+    {
+      "metric": "onTimeRate",
+      "note": "站点级，分母是全部站点"
+    },
+    {
+      "metric": "overloadRate",
+      "note": "重量口径"
+    },
+    {
+      "metric": "externalShare",
+      "note": "分母是全部趟次"
+    },
+    {
+      "metric": "loadUtilization",
+      "note": "平均装载利用率（每趟先算比率再平均）"
+    },
+    {
+      "metric": "capacityUseRate",
+      "note": "容量利用率（总量比）—— 和上一个是两个问题"
+    },
+    {
+      "metric": "grossMarginRate",
+      "note": "收入 − 已知成本；other_cost 缺，所以是上限"
+    },
+    {
+      "metric": "excursionStopRate",
+      "note": "越界站点 / 全部站点；越界是库里的状态列，不是阈值"
+    },
+    {
+      "metric": "alarmCaptureRate",
+      "note": "越界且响铃 / 越界 —— 报警覆盖率，不是准点率的亲戚"
+    },
+    {
+      "metric": "compensationCost",
+      "note": "只算已判定赔付"
+    }
+  ],
+  "cross_filter": {
     "dimension": "routeVersion",
-    "order": [
-     "v1",
-     "v2"
-    ]
-   },
-   "metrics": [
-    "tripCountByRouteVersion",
-    "overloadRateByRouteVersion"
-   ],
-   "why_custom": "斜率图要在同一个版本轴上读绝对量与比率；拆成两个面板就看不出是同一件事。"
+    "column": "route_version"
   },
-  {
-   "id": "version_peak_matrix",
-   "kind": "matrix",
-   "title": "趟次矩阵：并线版本 × 高峰/平日",
-   "question": "并线之后增量是落在高峰日还是平日？",
-   "metric": "tripsByVersionPeak",
-   "rows": "key1",
-   "cols": "key2",
-   "row_label": "线路版本",
-   "col_label": "是否高峰日",
-   "hovertip": "同一版本的两格相加 = 该版本总趟次（D3 会验）"
-  },
-  {
-   "id": "capacity_flow",
-   "kind": "sankey",
-   "title": "运力流向：全部趟次 → 版本 → 自有/外车",
-   "question": "外车补位集中在哪个版本？",
-   "nodes": [
+  "policy": [
     {
-     "id": "all",
-     "label": "全部趟次"
+      "id": "ontime",
+      "label": "准点率红线",
+      "metric": "onTimeRate",
+      "op": "<",
+      "value": 0.95,
+      "assumed": true,
+      "why": "按站点算的准点率。95% 是常见合同门槛，本项目未取得合同原文，仍是假设。"
     },
     {
-     "id": "v1",
-     "label": "并线前 v1"
-    },
-    {
-     "id": "v2",
-     "label": "并线后 v2"
-    },
-    {
-     "id": "own",
-     "label": "自有车"
-    },
-    {
-     "id": "ext",
-     "label": "外车"
+      "id": "overload",
+      "label": "超载率红线",
+      "metric": "overloadRate",
+      "op": ">",
+      "value": 0.1,
+      "assumed": true,
+      "why": "重量口径。10% 是初始红线，业务未确认。"
     }
-   ],
-   "links": [
+  ],
+  "briefing": {
+    "title": "先说一句实话",
+    "body": "这 90 天准点率 {onTimeRate}，整趟全准点只有 {fullOnTimeTripRate}；并线后按重量的超载率 {overloadRate}（v2 一侧单独看 {overloadRateByRouteVersion:v2}）。装载利用率两个口径分别是 {loadUtilization} 和 {capacityUseRate}——几乎相等但含义不同，一个说「典型的一趟」，一个说「整体运力」。"
+  },
+  "panels": [
     {
-     "from": "all",
-     "to": "v1",
-     "metric": "tripCountByRouteVersion",
-     "key": "v1"
+      "id": "merge_slope",
+      "kind": "slope",
+      "title": "并线前后：趟次与超载率",
+      "question": "把两条线并成一条之后，量涨了多少、超载涨了多少？",
+      "x": {
+        "dimension": "routeVersion",
+        "order": [
+          "v1",
+          "v2"
+        ]
+      },
+      "metrics": [
+        "tripCountByRouteVersion",
+        "overloadRateByRouteVersion"
+      ],
+      "why_custom": "斜率图要在同一个版本轴上读绝对量与比率；拆成两个面板就看不出是同一件事。"
     },
     {
-     "from": "all",
-     "to": "v2",
-     "metric": "tripCountByRouteVersion",
-     "key": "v2"
+      "id": "version_peak_matrix",
+      "kind": "matrix",
+      "title": "趟次矩阵：并线版本 × 高峰/平日",
+      "question": "并线之后增量是落在高峰日还是平日？",
+      "metric": "tripsByVersionPeak",
+      "rows": "key1",
+      "cols": "key2",
+      "row_label": "线路版本",
+      "col_label": "是否高峰日",
+      "hovertip": "同一版本的两格相加 = 该版本总趟次（D3 会验）"
     },
     {
-     "from": "v1",
-     "to": "own",
-     "metric": "ownTripsByRouteVersion",
-     "key": "v1"
+      "id": "capacity_flow",
+      "kind": "sankey",
+      "title": "运力流向：全部趟次 → 版本 → 自有/外车",
+      "question": "外车补位集中在哪个版本？",
+      "nodes": [
+        {
+          "id": "all",
+          "label": "全部趟次"
+        },
+        {
+          "id": "v1",
+          "label": "并线前 v1"
+        },
+        {
+          "id": "v2",
+          "label": "并线后 v2"
+        },
+        {
+          "id": "own",
+          "label": "自有车"
+        },
+        {
+          "id": "ext",
+          "label": "外车"
+        }
+      ],
+      "links": [
+        {
+          "from": "all",
+          "to": "v1",
+          "metric": "tripCountByRouteVersion",
+          "key": "v1"
+        },
+        {
+          "from": "all",
+          "to": "v2",
+          "metric": "tripCountByRouteVersion",
+          "key": "v2"
+        },
+        {
+          "from": "v1",
+          "to": "own",
+          "metric": "ownTripsByRouteVersion",
+          "key": "v1"
+        },
+        {
+          "from": "v1",
+          "to": "ext",
+          "metric": "externalTripsByRouteVersion",
+          "key": "v1"
+        },
+        {
+          "from": "v2",
+          "to": "own",
+          "metric": "ownTripsByRouteVersion",
+          "key": "v2"
+        },
+        {
+          "from": "v2",
+          "to": "ext",
+          "metric": "externalTripsByRouteVersion",
+          "key": "v2"
+        }
+      ],
+      "note": "每个中间节点进=出（D8 验）：v1/v2 的入流是版本总趟次，出流拆成自有+外车两半。"
     },
     {
-     "from": "v1",
-     "to": "ext",
-     "metric": "externalTripsByRouteVersion",
-     "key": "v1"
+      "id": "external_by_peak",
+      "kind": "composition",
+      "title": "外车运力：高峰 vs 平日",
+      "question": "外车是高峰日的补位，还是常态？",
+      "metric": "externalShareByPeak",
+      "render": "stacked",
+      "note": "分组键是 is_peak_day；两组按趟次加权回 externalShare（D3）。"
     },
     {
-     "from": "v2",
-     "to": "own",
-     "metric": "ownTripsByRouteVersion",
-     "key": "v2"
+      "id": "version_bubble",
+      "kind": "bubble",
+      "title": "版本画像：超载 × 外车 × 规模",
+      "question": "并线之后，超载和外车补位是不是一起上去了？",
+      "x": "overloadRateByRouteVersion",
+      "y": "externalShareByRouteVersion",
+      "size": "tripCountByRouteVersion",
+      "note": "三个通道都是已声明指标，且都是 Trip 自己的列；缺任何一条的版本不画（D9 会报缺口）。"
     },
     {
-     "from": "v2",
-     "to": "ext",
-     "metric": "externalTripsByRouteVersion",
-     "key": "v2"
+      "id": "revenue_treemap",
+      "kind": "treemap",
+      "title": "收入树图：并线版本 × 高峰/平日",
+      "question": "钱主要落在哪一块：高峰还是平日、并线前还是并线后？",
+      "metric": "revenueByVersionPeak",
+      "rows": "key1",
+      "cols": "key2",
+      "row_label": "线路版本",
+      "col_label": "是否高峰日",
+      "note": "四块面积之和应等于 tripRevenue（D3 验分组能加回总量）。"
     }
-   ],
-   "note": "每个中间节点进=出（D8 验）：v1/v2 的入流是版本总趟次，出流拆成自有+外车两半。"
-  },
-  {
-   "id": "external_by_peak",
-   "kind": "composition",
-   "title": "外车运力：高峰 vs 平日",
-   "question": "外车是高峰日的补位，还是常态？",
-   "metric": "externalShareByPeak",
-   "render": "stacked",
-   "note": "分组键是 is_peak_day；两组按趟次加权回 externalShare（D3）。"
-  },
-  {
-   "id": "version_bubble",
-   "kind": "bubble",
-   "title": "版本画像：超载 × 外车 × 规模",
-   "question": "并线之后，超载和外车补位是不是一起上去了？",
-   "x": "overloadRateByRouteVersion",
-   "y": "externalShareByRouteVersion",
-   "size": "tripCountByRouteVersion",
-   "note": "三个通道都是已声明指标，且都是 Trip 自己的列；缺任何一条的版本不画（D9 会报缺口）。"
-  },
-  {
-   "id": "revenue_treemap",
-   "kind": "treemap",
-   "title": "收入树图：并线版本 × 高峰/平日",
-   "question": "钱主要落在哪一块：高峰还是平日、并线前还是并线后？",
-   "metric": "revenueByVersionPeak",
-   "rows": "key1",
-   "cols": "key2",
-   "row_label": "线路版本",
-   "col_label": "是否高峰日",
-   "note": "四块面积之和应等于 tripRevenue（D3 验分组能加回总量）。"
-  }
- ],
- "holes": [],
- "independent_sql": [
-  {
-   "label": "trips_rowcount",
-   "sql": "select count(*) from trips",
-   "agree_with": {
-    "metric": "tripCount"
-   }
-  },
-  {
-   "label": "load_utilization_avg",
-   "sql": "select round(avg(load_boxes::numeric/box_capacity_snapshot), 9) from trips",
-   "agree_with": {
-    "metric": "loadUtilization"
-   }
-  },
-  {
-   "label": "capacity_use_ratio",
-   "sql": "select round(sum(load_boxes)::numeric/sum(box_capacity_snapshot), 9) from trips",
-   "agree_with": {
-    "metric": "capacityUseRate"
-   }
-  },
-  {
-   "label": "overload_v2_weight",
-   "sql": "select round(1.0*count(*) filter (where load_weight > weight_capacity_snapshot)/count(*), 9) from trips where route_version = 'v2'",
-   "agree_with": {
-    "metric": "overloadRateByRouteVersion",
-    "key": "v2"
-   }
-  }
- ]
+  ],
+  "holes": [],
+  "independent_sql": [
+    {
+      "label": "trips_rowcount",
+      "sql": "select count(*) from trips",
+      "agree_with": {
+        "metric": "tripCount"
+      }
+    },
+    {
+      "label": "load_utilization_avg",
+      "sql": "select round(avg(load_boxes::numeric/box_capacity_snapshot), 9) from trips",
+      "agree_with": {
+        "metric": "loadUtilization"
+      }
+    },
+    {
+      "label": "capacity_use_ratio",
+      "sql": "select round(sum(load_boxes)::numeric/sum(box_capacity_snapshot), 9) from trips",
+      "agree_with": {
+        "metric": "capacityUseRate"
+      }
+    },
+    {
+      "label": "overload_v2_weight",
+      "sql": "select round(1.0*count(*) filter (where load_weight > weight_capacity_snapshot)/count(*), 9) from trips where route_version = 'v2'",
+      "agree_with": {
+        "metric": "overloadRateByRouteVersion",
+        "key": "v2"
+      }
+    },
+    {
+      "label": "excursion_rate_hand",
+      "sql": "select round(1.0*count(*) filter (where temp_excursion)/count(*), 9) from stops",
+      "agree_with": {
+        "metric": "excursionStopRate"
+      }
+    },
+    {
+      "label": "alarm_capture_hand",
+      "sql": "select round(1.0*count(*) filter (where temp_excursion and alarm_triggered)/nullif(count(*) filter (where temp_excursion),0), 9) from stops",
+      "agree_with": {
+        "metric": "alarmCaptureRate"
+      }
+    }
+  ]
 }

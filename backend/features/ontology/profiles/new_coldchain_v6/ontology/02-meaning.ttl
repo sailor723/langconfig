@@ -72,3 +72,30 @@
     owl:equivalentClass [ owl:intersectionOf ( :Trip [ a owl:Restriction ;
         owl:onProperty :tripIsExternal ; owl:hasValue false ] ) ] ;
     :businessDescription "自有司机承运的趟次；与外车趟次互斥且相加为全部趟次。" .
+
+# ── 冷链温控：温度越界与警铃捕捉（2026-11-11 增补）────────────────────────────
+# 口径来源：库里已经判定好的布尔列 temp_excursion / alarm_triggered。
+# 本体不定义「几度算越界」——阈值不在本库，声明只引用库已做好的判定。
+:ExcursionStop a owl:Class ; rdfs:label "温度越界站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :stopTempExcursion ; owl:hasValue true ] ) ] ;
+    :businessDescription "本次到店发生了冷链温度越界。越界阈值不在本库，本声明只引用库已做好的布尔判定。" .
+
+# 「被捕捉」= 同一行上越界为真且警铃为真 → 两条 restriction 的交集。
+:AlarmCaptureStop a owl:Class ; rdfs:label "越界且警铃响（被捕捉）" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop
+        [ a owl:Restriction ; owl:onProperty :stopTempExcursion ; owl:hasValue true ]
+        [ a owl:Restriction ; owl:onProperty :stopAlarmTriggered ; owl:hasValue true ] ) ] ;
+    :businessDescription "温度越界且本次到店触发报警：报警系统真正捕捉到的那部分越界。" .
+
+:AlarmTriggeredStop a owl:Class ; rdfs:label "触发报警站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop [ a owl:Restriction ;
+        owl:onProperty :stopAlarmTriggered ; owl:hasValue true ] ) ] ;
+    :businessDescription "本次到店触发报警，不论当时是否真的越界。" .
+
+# 误报 = 没越界但警铃响了。与 :AlarmCaptureStop 互斥，两者相加 = :AlarmTriggeredStop。
+:FalseAlarmStop a owl:Class ; rdfs:label "误报站点" ;
+    owl:equivalentClass [ owl:intersectionOf ( :Stop
+        [ a owl:Restriction ; owl:onProperty :stopTempExcursion ; owl:hasValue false ]
+        [ a owl:Restriction ; owl:onProperty :stopAlarmTriggered ; owl:hasValue true ] ) ] ;
+    :businessDescription "没有越界却触发报警。与「被捕捉」互斥，两者相加等于全部报警站点。" .

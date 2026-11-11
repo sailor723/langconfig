@@ -180,11 +180,49 @@
    }
   },
   {
+   "question": "温度越界率（站点级）是多少？",
+   "expect": {
+    "metric": "excursionStopRate",
+    "value": 0.022584198929807994,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "报警捕捉率",
+   "expect": {
+    "metric": "alarmCaptureRate",
+    "value": 0.018292682926829267,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "报警误报率",
+   "expect": {
+    "metric": "falseAlarmRate",
+    "value": 0.9785495403472931,
+    "tolerance": 1e-09
+   }
+  },
+  {
+   "question": "触发报警站点数",
+   "expect": {
+    "metric": "alarmTriggeredStops",
+    "value": 979.0,
+    "tolerance": 1e-09
+   }
+  },
+  {
    "question": "温度趋势怎么样？",
    "expect": {
+    "unresolved": "仍然是拒绝，不是答案，但两句几乎同义的问法落点不同：带「怎么样？」时命中了 :excursionStops，随后被 TimeWindow 槽位挡住（REFUSED: :excursionStops does not support the TimeWindow slot (declared slots: none)）；只问「温度趋势」时是 REFUSED: I can answer about [...菜单...]。两种都是按名拒绝、都没编趋势，但句子不稳定，所以不能当 refused_by_name 钉住——稳定的那句单独钉在下面。变化原因：新增温控族之后「温度」会命中 excursion 指标，而「趋势」里的时间窗没有一条温度指标声明。"
+   }
+  },
+  {
+   "question": "温度趋势",
+   "expect": {
     "refused_by_names": [
-     "not on the menu",
-     "I can answer about"
+     "I can answer about",
+     "not on the menu"
     ]
    }
   },
