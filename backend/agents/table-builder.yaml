@@ -1,0 +1,37 @@
+# Trained with: backend/.venv/bin/python scripts/agent_train.py --spec backend/agents/table-builder.yaml
+name: 表格建库智能体（Excel/CSV → Postgres）
+description: 把上传的 Excel/CSV 建成 PostgreSQL 库：先出方案给人确认，建完对账，然后才用 SQL 回答。
+category: Analysis
+version: 1.0.0
+model: deepseek-v4-pro
+temperature: 0.2
+reasoning_effort: low
+max_tokens: 4000
+recursion_limit: 60
+use_deepagents: true
+use_local_sandbox: false
+prompt_file: table-builder.prompt.md
+agents_md_file: table-builder.AGENTS.md
+claude_md_file: table-builder.CLAUDE.md
+native_tools:
+- list_files
+- read_any_file
+- glob
+- db_plan_from_file
+- db_build_from_file
+- db_verify_against_file
+- db_review
+- db_query
+- write_file
+- skill
+skills:
+- excel-csv-to-postgres
+- evidence-first-delivery
+- sql-analyst
+interrupts:
+  db_build_from_file:
+    allowed_decisions:
+    - approve
+    - reject
+    description: 建库会创建一个新的 PostgreSQL 数据库（写操作）
+
