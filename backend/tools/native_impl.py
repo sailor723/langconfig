@@ -6241,6 +6241,57 @@ def _format_plan(path, db_name: str, tables: list, warnings: list) -> str:
 
 
 @tool
+def db_dashboard(db_name: str, confirm: bool = False, title: str = "", host: str = "", port: int = 0,
+                 user: str = "", password: str = "") -> str:
+    """
+    用我：给一个库做**交互式 HTML 仪表盘**（KPI + 业务综述 + 桑基/气泡/树/条形/趋势），两段式：先出方案给人确认。
+    别用我：只要几个数字用 db_query；只想看结构用 db_review。
+
+    Build an interactive dashboard for a database. **Two phases**, like the build tool:
+
+      1. `confirm=False` (default) → profiles the schema and returns the PLAN: which tables are
+         facts/dimensions/logs (logs never reach a chart), the measure, the time column, the
+         dimension chain (2–4 levels, taken from the schema's FK graph, so depth follows the data),
+         the ONE cube query every figure is derived from, and what the panels will show. Nothing is
+         written.
+      2. `confirm=true` → renders a self-contained HTML (D3 inlined, no network) into the agent
+         workspace's `generated/<db>_dashboard.html`, then re-runs the cube and refuses to ship if
+         the page's totals disagree with the database.
+
+    The page opens itself: the chat client asks `/api/chat/<id>/dashboards` when the turn ends and
+    opens the newest entry in a tab.
+
+    Args:
+        db_name: database to visualise
+        confirm: set true only after the user agreed to the plan
+        title: page title (default: "<db> · dashboard")
+        host/port/user/password: target server (empty = the platform's own server)
+
+    Returns:
+        Without confirm: the plan (structure, chain, cube SQL, what each panel shows).
+        With confirm: where the file was written, plus the plan and the verification result.
+    """
+    from services import db_dashboard as dash
+
+    conn = dict(host=host, port=port, user=user, password=password)
+    try:
+        if not confirm:
+            return dash.plan(db_name, **conn)
+    except Exception as exc:                                  # noqa: BLE001 — report, do not raise
+        return f"Error: cannot profile {db_name}: {exc}"
+
+    # Write beside the agent's own deliverables so the Files panel and the dashboards route see it.
+    roots = _sandbox_roots()
+    target_dir = Path(roots[0]) / "generated"
+    try:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        out = target_dir / f"{_ident(db_name, fallback='dashboard')}_dashboard.html"
+        return dash.render(db_name, out, title=title or f"{db_name} · dashboard", **conn)
+    except Exception as exc:                                   # noqa: BLE001
+        return f"Error: could not render the dashboard: {exc}"
+
+
+@tool
 def list_files(path: str = "", pattern: str = "*") -> str:
     """
     用我：看工作区里有什么——列目录（文件 + 子目录 + 大小）。找用户刚上传的文件就用它。

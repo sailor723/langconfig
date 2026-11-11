@@ -129,6 +129,7 @@ SEEDABLE_TOOL_META = {
     "db_review": ("DB - Review Schema + Build PK/FK", "database", None),
     "db_query": ("DB - Query Any Database (SELECT)", "database", None),
     "db_verify_against_file": ("DB - Verify against Excel/CSV", "database", None),
+    "db_dashboard": ("DB - Interactive dashboard (plan, then confirm)", "database", None),
     "sqlite_execute": ("SQLite Execute", "data", None),
     "sqlite_load_csv": ("SQLite Load CSV", "data", None),
     "python_execute": ("Python Execute", "data", None),

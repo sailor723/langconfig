@@ -22,6 +22,7 @@ native_tools:
 - db_verify_against_file
 - db_review
 - db_query
+- db_dashboard
 - write_file
 - skill
 skills:
