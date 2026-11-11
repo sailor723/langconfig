@@ -953,15 +953,27 @@ def _compile_grouped_metric(g: Graph, m: Metric) -> Compiled:
     # 'from'" in one process and "mentions 'epoch'" in another. A refusal message that changes between
     # runs cannot be gated on, and cannot be quoted in a backlog.
     def _qualify_formula(label: str, body: str) -> str:
+        # WHERE "THE GRAIN WINS" APPLIES, AND WHERE IT DOES NOT.
+        #
+        # A formula that is NOTHING BUT a column name is a value OF THIS GRAIN's row — there is no
+        # second table in the expression, so the grain's own column is the only reading and picking
+        # it is not a guess. Measured: new_coldchain's `:plannedStopsTotal` / `:avgStopsPerTrip` are
+        # `:formula "planned_stops"` on grain Trip, while `routes` carries a column of the same name;
+        # refusing those would refuse correct declarations that pass today.
+        #
+        # In an expression with more than one identifier the compiler cannot know which table a
+        # shared name means, and guessing silently changes the number: retail's
+        # `premiumProductRevenue` (`qty * price` over order_lines JOIN products) compiled
+        # `qty * order_lines.price` for a `price` declared on BOTH sides. check_metrics' J6 mutation
+        # asserts that refusal, so the rule is gated, not stylistic.
+        bare = len(_idents(body)) == 1
         for ident in sorted(_idents(body)):
-            if ident in {c for c in class_columns(g, grain).values()}:
-                body = re.sub(rf"(?<![A-Za-z0-9_.]){re.escape(ident)}(?![A-Za-z0-9_])",
-                              f"{grain_table}.{ident}", body)
-                continue
             owners_id = [cls for cls in tables if ident in class_columns(g, cls).values()]
             if not owners_id:
                 raise Refusal(f":{label} formula mentions {ident!r}, not a column of the joined "
                               f"classes {sorted(tables)} — refusing")
+            if len(owners_id) > 1 and bare and grain in owners_id:
+                owners_id = [grain]
             if len(owners_id) > 1:
                 raise Refusal(f":{label} formula column {ident!r} is ambiguous across "
                               f"{owners_id} — refusing")
@@ -1124,9 +1136,14 @@ def _compile_cross_metric(g: Graph, m: Metric) -> Compiled:
     if where_class:
         add_joins_for(where_class)
     formula_owners: dict[str, str] = {}
+    # Same rule as `_compile_grouped_metric`'s `_qualify_formula`: a ONE-TOKEN formula is a value of
+    # the grain's own row (the grain's column wins, because there is no second table in the
+    # expression); a MULTI-TOKEN formula has to have every column unambiguous, because picking one
+    # of two joined tables silently changes the number.
+    bare = len(_idents(m.formula)) == 1
     for ident in _idents(m.formula):
         owners = _owners(g, paths, ident)
-        if grain in owners:                     # the grain's own column wins (see _compile_grouped_metric)
+        if len(owners) > 1 and bare and grain in owners:
             owners = [grain]
         if not owners:
             raise Refusal(f":{name} formula mentions {ident!r}, which is not a column of "
