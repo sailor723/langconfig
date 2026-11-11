@@ -7,7 +7,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, GripVertical, BarChart3, FolderOpen } from 'lucide-react';
+import { X, GripVertical, BarChart3, FolderOpen, Gauge } from 'lucide-react';
 import { useChat } from '../state/ChatContext';
 import { useProject } from '../../../contexts/ProjectContext';
 import { useChatController } from '../hooks/useChatController';
@@ -112,6 +112,14 @@ export default function GlobalChatModal() {
                     title={c.showMetrics ? tr('gc_hide_metrics') : tr('gc_show_metrics')}
                   >
                     <BarChart3 className="w-4 h-4" style={{ color: c.showMetrics ? 'var(--color-primary)' : 'var(--color-text-muted)' }} />
+                  </button>
+                  <button
+                    onClick={() => c.openDashboard()}
+                    disabled={!c.dashboardCount}
+                    className={`p-2 rounded-lg transition-colors ${c.dashboardCount ? 'hover:bg-gray-100 dark:hover:bg-gray-800' : 'opacity-40 cursor-default'}`}
+                    title={c.dashboardCount ? `打开仪表盘（${c.dashboardCount} 个，最新一个）` : '还没有仪表盘——让 agent 做一张'}
+                  >
+                    <Gauge className="w-4 h-4" style={{ color: c.dashboardCount ? 'var(--color-primary)' : 'var(--color-text-muted)' }} />
                   </button>
                   <button
                     onClick={() => c.togglePanel('files')}

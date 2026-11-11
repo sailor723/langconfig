@@ -270,19 +270,41 @@ export function useChatController(options: UseChatControllerOptions = {}) {
   // navigate to file://, so the backend serves it inline and this opens that URL. Only files
   // newer than the last one opened are auto-opened, so finishing an unrelated turn does not
   // pop a tab every time.
+  const [dashboardCount, setDashboardCount] = useState(0);
   const lastDashboardRef = useRef<string>("");
-  const openNewestDashboard = useCallback(async () => {
+  const openNewestDashboard = useCallback(async (open: boolean = true) => {
     if (!currentSessionId) return;
     try {
       const res = await apiClient.get(`/api/chat/${currentSessionId}/dashboards`);
-      const first = (res.data?.dashboards || [])[0];
-      if (!first || first.modified_at === lastDashboardRef.current) return;
-      lastDashboardRef.current = first.modified_at;
-      window.open(`${apiClient.baseURL}${first.url}`, "_blank", "noopener");
+      const list = res.data?.dashboards || [];
+      setDashboardCount(list.length);
+      const first = list[0];
+      if (!first) return;
+      const isNew = first.modified_at !== lastDashboardRef.current;
+      if (open) {
+        // An explicit click always opens; the automatic path only opens what is new.
+        lastDashboardRef.current = first.modified_at;
+        window.open(`${apiClient.baseURL}${first.url}`, "_blank", "noopener");
+      } else if (isNew) {
+        lastDashboardRef.current = first.modified_at;
+        window.open(`${apiClient.baseURL}${first.url}`, "_blank", "noopener");
+      }
     } catch {
       /* a missing dashboard list must never fail a turn */
     }
   }, [currentSessionId]);
+
+  /** The header's 仪表盘 button: open the newest dashboard, or explain why there is none. */
+  const openDashboard = useCallback(async () => {
+    if (!currentSessionId) return;
+    await openNewestDashboard(true);
+  }, [currentSessionId, openNewestDashboard]);
+
+  // Refresh the badge whenever a turn ends, so the button appears as soon as a dashboard exists.
+  useEffect(() => {
+    if (!currentSessionId) { setDashboardCount(0); return; }
+    void openNewestDashboard(false);
+  }, [currentSessionId, openNewestDashboard]);
 
   const handleSendMessage = async (message: string) => {
     if (!currentSessionId) return;
@@ -536,6 +558,8 @@ export function useChatController(options: UseChatControllerOptions = {}) {
     showFiles,
     showCalendar,
     togglePanel,
+    openDashboard,
+    dashboardCount,
     // sidebar resize
     sidebarWidth,
     isResizing,
