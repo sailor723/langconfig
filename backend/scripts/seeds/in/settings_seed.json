@@ -20,6 +20,18 @@
       "models.api_keys.minimax_api_key",
       "models.api_keys (emptied)",
       "workspace.workspace_path",
+      "databases.items.0.password",
+      "databases.items.1.password",
+      "databases.items.2.password",
+      "databases.items.3.password",
+      "databases.items.4.password",
+      "databases.items.5.password",
+      "databases.items.6.password",
+      "databases.items.7.password",
+      "databases.items.8.password",
+      "databases.items.9.password",
+      "databases.items.10.password",
+      "databases.items.11.password",
       "ontology.repo_path",
       "ontology.python"
     ]
@@ -53,7 +65,6 @@
         "kind": "platform",
         "label": "Chinook 音乐商店",
         "name": "chinook",
-        "password": null,
         "port": null,
         "user": null
       },
@@ -64,7 +75,6 @@
         "kind": "platform",
         "label": "制造样例",
         "name": "manufacturing",
-        "password": null,
         "port": null,
         "user": null
       },
@@ -75,7 +85,6 @@
         "kind": "target",
         "label": "TPC-H 基准库",
         "name": "tpch",
-        "password": null,
         "port": 5432,
         "user": "weiping"
       },
@@ -86,7 +95,6 @@
         "kind": "dashboard",
         "label": "AcmeCloud · ERP 财务",
         "name": "erp",
-        "password": null,
         "port": null,
         "user": null
       },
@@ -97,7 +105,6 @@
         "kind": "dashboard",
         "label": "AcmeCloud / 样例销售",
         "name": "sales",
-        "password": null,
         "port": null,
         "user": null
       },
@@ -108,7 +115,6 @@
         "kind": "dashboard",
         "label": "AcmeCloud · 客户经营",
         "name": "business",
-        "password": null,
         "port": null,
         "user": null
       },
@@ -119,7 +125,6 @@
         "kind": "dashboard",
         "label": "特斯拉 · 战略分析",
         "name": "tesla",
-        "password": null,
         "port": null,
         "user": null
       },
@@ -130,7 +135,6 @@
         "kind": "target",
         "label": "Clinic 诊所 (clinic_db)",
         "name": "clinic",
-        "password": "",
         "port": 5432,
         "user": "weiping"
       },
@@ -141,7 +145,6 @@
         "kind": "target",
         "label": "ABC 冷链物流 (abc_coldchain)",
         "name": "logistics",
-        "password": "",
         "port": 5432,
         "user": "weiping"
       },
@@ -152,7 +155,6 @@
         "kind": "target",
         "label": "文档演示库 (doc_demo)",
         "name": "doc_demo",
-        "password": "",
         "port": 5432,
         "user": "weiping"
       },
@@ -163,7 +165,6 @@
         "kind": "target",
         "label": "ABC 调度副驾演示库 (new_coldchain)",
         "name": "new_coldchain",
-        "password": "",
         "port": 5432,
         "user": "weiping"
       },
@@ -174,7 +175,6 @@
         "kind": "target",
         "label": "新溢眼镜 KPI (sunhing_kpi)",
         "name": "sunhing",
-        "password": "gAAAAABq9FEyLqfhGx2nNCDn3-rZmYaMhOPkWP3m5VltJ9znlmNcWUxC2vigla_jGlW3nzSwXGTjfKJKm3a1faOlgZC8y5xb7w==",
         "port": 5433,
         "user": "langconfig"
       }

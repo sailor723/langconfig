@@ -83,9 +83,16 @@ def scrub(ns: str, doc: dict) -> tuple[dict, list[str]]:
         from core.settings.secrets import delete_at_path, secret_paths
 
         spec = registry.get(ns)
+        from core.settings.secrets import expand_path  # noqa: PLC0415
+
         for path in secret_paths(spec.schema):
-            if delete_at_path(out, path):
-                dropped.append(f"{ns}." + ".".join(path))
+            # A declared path is SCHEMA-shaped (`items.*.password`); a document has however many rows
+            # exist. `delete_at_path` on the schema path matches nothing, which is how a datasource
+            # password shipped as Fernet ciphertext inside the seed — caught by the seed guard's own
+            # secret scanner, not by this exporter. Expand first, then delete each concrete path.
+            for concrete in expand_path(out, path):
+                if delete_at_path(out, concrete):
+                    dropped.append(f"{ns}." + ".".join(str(s) for s in concrete))
     except Exception as exc:                     # noqa: BLE001 — never ship on doubt
         # Fail closed: an unreadable schema must not turn into an unsanitised
         # export. Drop the whole document rather than risk a credential.
