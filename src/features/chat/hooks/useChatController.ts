@@ -300,10 +300,16 @@ export function useChatController(options: UseChatControllerOptions = {}) {
     await openNewestDashboard(true);
   }, [currentSessionId, openNewestDashboard]);
 
-  // Refresh the badge whenever a turn ends, so the button appears as soon as a dashboard exists.
+  // Keep the badge honest without a reload: a dashboard written outside this tab (a CLI run, a
+  // tool call in another window) would otherwise leave the button greyed until F5 — measured, that
+  // is exactly what a user reported ("it's gray, I can't click").
   useEffect(() => {
     if (!currentSessionId) { setDashboardCount(0); return; }
     void openNewestDashboard(false);
+    const timer = setInterval(() => { void openNewestDashboard(false); }, 15000);
+    const onFocus = () => { void openNewestDashboard(false); };
+    window.addEventListener('focus', onFocus);
+    return () => { clearInterval(timer); window.removeEventListener('focus', onFocus); };
   }, [currentSessionId, openNewestDashboard]);
 
   const handleSendMessage = async (message: string) => {
@@ -323,7 +329,7 @@ export function useChatController(options: UseChatControllerOptions = {}) {
       updateLastMessage,
       async () => {
         // On complete: refresh metrics, save traces, clear active tools and custom events
-        void openNewestDashboard();
+        void openNewestDashboard(false);
         await refreshMetrics();
         setThinkingTraces(prev => [...prev, [...tracesRef.current]]);
         tracesRef.current = [];
