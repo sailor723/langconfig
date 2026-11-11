@@ -342,22 +342,46 @@ an unapplied declaration is never silent.
 | 21 员工价值交换制度落地率 | value `5.06` (0–10) vs target `80%` | `dim_sentiment_monthly` stores a 0–10 score; `dim_kpi.unit` says `%`. The KPI can never be met — the page shows both numbers so the contradiction is visible. |
 | RS05 海关违规/罚款金额 | no `fact` row | `fact_kpi_monthly.kpi_id` was sanitised to `RS05_海关违规_罚款金额` and `unit` written as `%`; the ontology computes 24.6 万元 from the raw side. |
 
-### 10.5 The original pages' numbers do not come from either DB copy
+### 10.5 There are THREE generations, and the ontology reproduces the older one
 
-Comparing the 2026-11 factor page against `fact_kpi_monthly` @ 2027-02 (identical
-in both SQLite copies):
+Corrected 2026-11-11 after the cross-check the reader asked for. The first version of this
+section claimed the old pages' numbers "match no month in either DB copy". That was **wrong**:
+it had compared them against the 23-table copy only. They match the *other* copy exactly, and
+the two copies are two different data generations:
 
-| KPI | original HTML | both DB copies | catalogue formula recomputed |
+| Generation | Pages | Database | Shapes |
 |---|---|---|---|
-| 02 追缴化解率 | 84.5% | 85.47 | 85.47 |
-| 03 预算控制率 | 93.5% | 128.47 | 128.47 |
-| 05 工序保留率 | 98.0% | 40.0 | 40.0 |
-| 06 生产人员占比 | 21.4% | 71.74 | 71.74 |
-| 07 核心厂区利润贡献 | 38.5% | 71.06 | 71.06 |
-| 09 数字资产转化 | 7.2% | 70.47 | 70.47 |
+| **G1** 2026-07-25 | `agent-workspace/…/dashboard/html/` (14 pages) | `…/dashboard/sunhing_kpi.db` — **23 tables** (`dim_*_monthly` + detail `raw_*`), produced by `deepresearch-custom-workflow/phase7_dashboard_generation/src/kpi_db.py` | 25 KPI rows (the join drops the 3 sanitised ids) |
+| **G2** 2026-09-28 | `data/analysis_dbs/sunhing_dashboard*.html` (11 pages) | `data/analysis_dbs/sunhing_kpi.db` — **16 tables**, produced by the dashboard package's own `codes/sunhing_kpi_db.py` | 28 KPI rows |
+| **G3** 2026-11-11 | `data/analysis_dbs/sunhing_ontology_*.html` (6 pages) | PostgreSQL `sunhing_kpi`, migrated from **G1's** 23-table copy | 28 KPI rows |
 
-No month in either copy yields the HTML's values, so those pages were produced
-from an earlier dataset generation. Consequence for this work: "same as the
-original" is honoured for **layout and wording**, never for the numbers — the
-numbers come from the ontology, which reproduces the database and the catalogue
-formula exactly.
+The two SQLite copies disagree on the data, not on the catalogue: `dim_kpi` has identical
+names / factors / units / **targets** in both (0 differences), while **137 of the 149 shared
+`fact_kpi_monthly` cells differ** and `fact_roe_summary` tells two different stories
+(G1: ROE −9.4% → 4.3%, margin −4.3 → 2.1; G2: ROE 21.5% → 50.0%, margin 34.1 → 66.1).
+G2 also keeps the raw `RS05_海关违规/罚款金额` ids; G1 sanitised them to `_`.
+
+**Which is newer is not what file dates say.** G2's file is dated later (Nov 3 vs Oct 8) but
+its *content* is the September build: its 28 values match the Sep-28 pages 28/28, and G1's
+values match the Jul-25 pages. The Sept regeneration ran the older 16-table generator; the
+Phase-7 pipeline's 23-table database is the one the ontology was built on.
+
+Consequence, measured by the same cross-check:
+
+| comparison | agreement |
+|---|---|
+| G3 (ontology) vs G2 (Sep-28 pages) | **2 / 28** (only #01 and #20, which coincide in both) |
+| G3 (ontology) vs G1 (Jul-25 pages) | **22 / 25** (+#17 equal up to display rounding) |
+
+The three remaining differences from G1 are *not* data:
+
+1. **#11 生态伙伴轻资产化指数 — the one number this renderer deliberately changes.** G1 shows
+   `0.0` (its formula filters `entity_type='eco_partner'`, a value the column never takes);
+   the ontology filters `partner` and shows `37.5%` (3 of 8 partners profitable). That flips
+   the KPI from "miss" to "met" against the 25% target. It is declared in
+   `accepted_issues` with the reason, but it is a *judgement*, so it is listed here.
+2. **#18 技术骨干留任率** — G1 shows `46.1%`; the ontology refuses (the formula needs two
+   tables joined on the period, and `:formula` may only use its own class's columns).
+3. **#17** — `61.0` vs `61.3`: the same number at different display precision.
+
+Rows G1 never had (RS05/RS06/RS07 — its join dropped the sanitised ids) are in G2 and G3.
