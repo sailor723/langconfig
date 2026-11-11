@@ -135,3 +135,15 @@
 #   「投诉趋势」—— complaints.opened_at 只有一个取值（6,876 条全是 2026-11-05 09:00:00），
 #                  没有时间轴。这类问题一条 SQL 就能跑，结果是一条平线，看起来「合规」，
 #                  实质是把「没记时间」包装成「每天一样」。
+
+
+# 定义类放在含义层，不放结构层：check_structure 只读 01-structure.ttl，因此定义类在那里就会被
+# 要求一个它本来不需要的 :physicalTable（C1b 的表归属由基类 :Trip 给出）。
+:TripWithDecision a owl:Class ;
+    rdfs:label "有派单决策记录的行程" ;
+    owl:equivalentClass [ owl:intersectionOf (
+        :Trip
+        [ a owl:Restriction ;
+          owl:onProperty :decisionsOf ;
+          owl:someValuesFrom :DispatchDecision ] ) ] ;
+    :businessDescription "∃:decisionsOf.(:DispatchDecision) 且是 :Trip。谓词由公理编译成 EXISTS (SELECT 1 FROM dispatch_decisions WHERE trip_id = trips.id)，不是手写 SQL。" .

@@ -250,8 +250,27 @@ def main() -> int:
         col = one(prop, PC)
         target = one(prop, REF)
         if col is None or target is None:
+            # A LINK MAY BE DECLARED ON ITS INVERSE EDGE. When the foreign key lives on the other
+            # table — `dispatch_decisions.trip_id` rather than a column on `trips` — the readable
+            # object property is the inverse (`:decisionsOf owl:inverseOf :decidedTripOf`) and it can
+            # correctly name no column of its own domain's table. The rule this gate enforces is
+            # "a link is declared, never inferred", so the inverse's full declaration satisfies it:
+            # measured on logistics, where refusing this turned a true declaration red while the
+            # column it needs cannot exist on `trips` at all.
+            partner = one(prop, OWL.inverseOf)
+            pcol = one(partner, PC) if partner is not None else None
+            pref = one(partner, REF) if partner is not None else None
+            if partner is not None and pcol is not None and pref is not None:
+                ptable = table_of.get(local(partner)) or (
+                    table_of.get(local(one(partner, RDFS.domain)))
+                    if one(partner, RDFS.domain) is not None else None)
+                check_true(f":{name} is declared on its inverse edge (:{local(partner)} → {ptable}.{pcol})",
+                           bool(ptable) and schema.has_column(str(ptable), str(pcol)),
+                           f"inverse :{local(partner)} names {pcol} on {ptable}")
+                continue
             check_true(f":{name} names :physicalColumn and :references", False,
-                       f"column={col} references={target}")
+                       f"column={col} references={target}"
+                       + ("" if partner is None else f"; its inverse :{local(partner)} is incomplete too"))
             continue
         tname = local(target)
         ttable = table_of.get(tname)

@@ -356,11 +356,32 @@
 
 # 存在性公理的两种写法里，这条是「读」用的那一种。**必须与 :Trip 取交集**：只写一个裸 restriction
 # 的公理没有说出「这是哪个对象的定义」，概念就落不到表上（C1b/R1 会把它当成未解析的定义）。
-:TripWithDecision a owl:Class ;
-    rdfs:label "有派单决策记录的行程" ;
-    owl:equivalentClass [ owl:intersectionOf (
-        :Trip
-        [ a owl:Restriction ;
-          owl:onProperty :decisionsOf ;
-          owl:someValuesFrom :DispatchDecision ] ) ] ;
-    :businessDescription "∃:decisionsOf.(:DispatchDecision) 且是 :Trip。谓词由公理编译成 EXISTS (SELECT 1 FROM dispatch_decisions WHERE trip_id = trips.id)，不是手写 SQL。" .
+# ---------------------------------------------------------------- 主键属性
+# 上面每个类的 :primaryKey 已经声明了键列；这里再给「一列一个属性」，
+# 让 S1b2「每一列都可达」成立 —— 主键只用于连接与定位，不参与任何聚合。
+# （实测：缺这 10 个属性时 check_structure 报 "11 columns over 10 classes"，全是各表的 id。）
+:tripId a owl:DatatypeProperty ; rdfs:domain :Trip ; :physicalColumn "id" ;
+    rdfs:label "Trip 主键" ; :businessDescription "行程主键。只用于连接与定位，不参与任何聚合。" .
+:stopId a owl:DatatypeProperty ; rdfs:domain :Stop ; :physicalColumn "id" ;
+    rdfs:label "Stop 主键" ; :businessDescription "站点执行主键。同上：连接用，不聚合。" .
+:routeId a owl:DatatypeProperty ; rdfs:domain :Route ; :physicalColumn "id" ;
+    rdfs:label "Route 主键" ; :businessDescription "线路主键。" .
+:vehicleId a owl:DatatypeProperty ; rdfs:domain :Vehicle ; :physicalColumn "id" ;
+    rdfs:label "Vehicle 主键" ; :businessDescription "车辆主键。" .
+:driverId a owl:DatatypeProperty ; rdfs:domain :Driver ; :physicalColumn "id" ;
+    rdfs:label "Driver 主键" ; :businessDescription "司机主键。" .
+:storeId a owl:DatatypeProperty ; rdfs:domain :Store ; :physicalColumn "id" ;
+    rdfs:label "Store 主键" ; :businessDescription "门店主键。" .
+:handlerId a owl:DatatypeProperty ; rdfs:domain :Handler ; :physicalColumn "id" ;
+    rdfs:label "Handler 主键" ; :businessDescription "装卸工主键。" .
+:telemetryId a owl:DatatypeProperty ; rdfs:domain :Telemetry ; :physicalColumn "id" ;
+    rdfs:label "Telemetry 主键" ; :businessDescription "遥测行主键。" .
+:complaintId a owl:DatatypeProperty ; rdfs:domain :Complaint ; :physicalColumn "id" ;
+    rdfs:label "Complaint 主键" ; :businessDescription "客诉主键。" .
+:dispatchDecisionId a owl:DatatypeProperty ; rdfs:domain :DispatchDecision ; :physicalColumn "id" ;
+    rdfs:label "DispatchDecision 主键" ; :businessDescription "派单决策记录主键（RecordDispatchDecision 写入，action-owned）。" .
+
+:dispatchDecisionNote a owl:DatatypeProperty ; rdfs:domain :DispatchDecision ;
+    :physicalColumn "note" ;
+    rdfs:label "派单备注" ;
+    :businessDescription "录入时附带的说明（多为空）。不参与任何指标：它只解释这条决策为什么发生。" .

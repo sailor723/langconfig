@@ -38,8 +38,9 @@
     ]
   },
   "logistics": {
-    "why": "built by a DeepAgent, with a dashboard declaration and an action fixture: the full build track",
+    "why": "built by a DeepAgent, with a dashboard declaration and an action fixture: the full build track 结构族自 2026-11-11 起也在声明里：此前它不在，于是 11 列未建模（各表 id + dispatch_decisions.note）与一个定义类缺 :physicalTable 一直红着而套件看不见 —— 「没声明的家族不算没通过」。",
     "profile": [
+      "check_structure",
       "check_ontology_generic",
       "check_samples",
       "check_dashboard",
