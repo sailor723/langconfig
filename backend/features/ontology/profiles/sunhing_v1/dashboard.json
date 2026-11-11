@@ -1,0 +1,237 @@
+{
+  "_doc": "sunhing_v1 的看板声明。每个 panel 引用的指标都必须在 metrics_ext.ttl 里已声明；开场评估（briefing）只由花括号里的编译数字组成，散文里不出现一个字面数字。policy 的每条红线都抄自 dim_kpi 的目标列并标 assumed（本会话未再向业务确认）。independent_sql 是第二条手写 SQL 路线，由 truth.json 与编译结果逐条对照。",
+  "version": 1,
+  "ontology": "sunhing_v1",
+  "title": "新鸿基集团 · 转型与协商减员看板",
+  "subtitle": "2027-02 月度快照：减员在推进，赔偿已经花超预算",
+  "events": [],
+  "kpis": [
+    {
+      "metric": "severanceCompletionRate",
+      "note": "累计已协商完成 / 计划协商人数"
+    },
+    {
+      "metric": "severanceBudgetControlRate",
+      "note": "已发赔偿 / 预算；越低越好"
+    },
+    {
+      "metric": "coreFactoryProfitShare",
+      "note": "核心厂区净利润 / 制造板块合计"
+    },
+    {
+      "metric": "ecoPartnerProfitShare",
+      "note": "生态伙伴净利润 / 制造板块合计"
+    },
+    {
+      "metric": "lightAssetIndex",
+      "note": "生态伙伴轻资产化指数"
+    },
+    {
+      "metric": "architectureSeparationRate",
+      "note": "已分立实体 / 实体总数"
+    },
+    {
+      "metric": "processRetentionRate",
+      "note": "在跑关键工序 / 计划保留工序"
+    },
+    {
+      "metric": "historicalLiabilityResolutionRate",
+      "note": "历史人力成本已化解 / 应化解"
+    }
+  ],
+  "cross_filter": {
+    "dimension": "empDepartment",
+    "column": "department"
+  },
+  "policy": [
+    {
+      "id": "sev_budget",
+      "label": "赔偿预算控制率红线",
+      "metric": "severanceBudgetControlRate",
+      "op": ">",
+      "value": 100,
+      "assumed": true,
+      "why": "目标 100%（即不超过预算）抄自 dim_kpi #03 的谈判目标列，lower_is_better=1。本会话未再向业务确认。"
+    },
+    {
+      "id": "sev_complete",
+      "label": "协商减员完成率",
+      "metric": "severanceCompletionRate",
+      "op": "<",
+      "value": 100,
+      "assumed": true,
+      "why": "目标 100% 抄自 dim_kpi #01。"
+    },
+    {
+      "id": "process_retention",
+      "label": "工序保留完成率",
+      "metric": "processRetentionRate",
+      "op": "<",
+      "value": 95,
+      "assumed": true,
+      "why": "目标 95% 抄自 dim_kpi #05。"
+    },
+    {
+      "id": "architecture",
+      "label": "股权分立架构完成率",
+      "metric": "architectureSeparationRate",
+      "op": "<",
+      "value": 100,
+      "assumed": true,
+      "why": "目标 100% 抄自 dim_kpi #14。"
+    },
+    {
+      "id": "satisfaction",
+      "label": "被减员工满意度",
+      "metric": "sentSeveranceSatisfaction",
+      "op": "<",
+      "value": 7,
+      "assumed": true,
+      "why": "目标 7（十分制）抄自 dim_kpi RS02。"
+    },
+    {
+      "id": "core_share",
+      "label": "核心厂区利润贡献率",
+      "metric": "coreFactoryProfitShare",
+      "op": "<",
+      "value": 40,
+      "assumed": true,
+      "why": "目标 40% 抄自 dim_kpi #07。"
+    },
+    {
+      "id": "major_risk",
+      "label": "重大风险事件零容忍",
+      "metric": "majorRiskEventCount",
+      "op": ">",
+      "value": 0,
+      "assumed": true,
+      "why": "目标 0 抄自 dim_kpi #20。"
+    }
+  ],
+  "briefing": {
+    "headline": "最近一个快照月（{severanceCompletionRateByMonth:2027-02#key}）：协商减员完成率 {severanceCompletionRate}，赔偿金额预算控制率 {severanceBudgetControlRate}——人减得差不多，钱已经超出预算。",
+    "claims": [
+      {
+        "id": "budget",
+        "verdict_by": "sev_budget",
+        "text": "已发赔偿 {hrSeverancePaidCumulativeWan} 万元，预算 {hrSeveranceBudgetWan} 万元，控制率 {severanceBudgetControlRate}：超支的部分是真实支出，不是口径差。"
+      },
+      {
+        "id": "severance",
+        "verdict_by": "sev_complete",
+        "text": "协商已完成 {hrSeveranceCompletedCumulative} 人，计划 {hrSeverancePlanned} 人，完成率 {severanceCompletionRate}；同时还有 {hrSeveranceDisputeCount} 条减员争议在走。"
+      },
+      {
+        "id": "retention",
+        "verdict_by": "process_retention",
+        "text": "关键工序只在跑 {prodCriticalProcessesRunning} 道，占计划 {prodTotalProcesses} 道，保留完成率 {processRetentionRate}——这是「转型没转完」最直接的一个数。"
+      },
+      {
+        "id": "architecture",
+        "verdict_by": "architecture",
+        "text": "股权分立完成率 {architectureSeparationRate}：{separateArchitectureEntityCount} 个实体已分立，台账里一共 {entityCount} 个。"
+      },
+      {
+        "id": "satisfaction",
+        "verdict_by": "satisfaction",
+        "text": "被减员工的协商满意度 {sentSeveranceSatisfaction}（十分制），低于目标；同一批人的问卷调查口径是另一张表，不能和这个数混用。"
+      },
+      {
+        "id": "profit",
+        "verdict_by": "core_share",
+        "text": "核心厂区贡献净利润 {finCoreFactoryNetProfitWan} 万元，生态伙伴 {finEcoPartnerNetProfitWan} 万元，制造板块合计 {finTotalMfgNetProfitWan} 万元——三者是并列陈述，本体没有声明跨粒度的「差」，所以这里不做减法。"
+      },
+      {
+        "id": "risk",
+        "verdict_by": "major_risk",
+        "text": "重大风险事件 {majorRiskEventCount} 件，群体性劳动风险指数 {groupLaborRiskIndex}（目标不超过六十），劳动争议事件 {laborDisputeEventCount} 件。"
+      },
+      {
+        "id": "pmo_sample",
+        "text": "PMO 里程碑达成率 {milestoneOnTimeRate} 只建立在 {pmoCompletedMilestones} 条里程碑上——样本量不足，别把它当趋势读。"
+      }
+    ],
+    "cannot_see": [
+      "「最近三十天」在本库里没有意义：所有事实表都是月度快照，最小时间粒度是月，看板只能按快照月读。",
+      "客户订单转移率、生态伙伴战略协同指数、核心技术骨干流失率：目录里有公式，但库里没有对应的列，所以本看板不给数。",
+      "员工股权／合伙转化率：分子是累计已转化人数、分母是当期在册人数，两者量纲不同（算出来是百分之六百多），而目录里它的目标写成百分比。分母该取哪一期的人数需要业务回答，在那之前这个数不进任何结论。",
+      "厂区维度只在生产与问卷两张表上有值；人力与订单只有一个厂区标签，所以「按厂区看人力结构」这个问题本库答不了。",
+      "海关罚款金额只有一个来源记录，不能当年度口径读，也不进任何红线。",
+      "工序保留率的分母只统计了工艺台账里登记过的工序，停线工序不在其中——它衡量的是「台账内的保留」，不是全部历史工序。"
+    ],
+    "next": "先定赔偿预算超支的处理口径（是追加预算还是调低后续方案），再问「哪个部门的减员最伤留任」——部门维度只对已离人员有值，在职侧没有部门数据。"
+  },
+  "panels": [
+    {
+      "id": "sev_progress",
+      "kind": "series",
+      "render": "line",
+      "title": "协商减员完成率按月",
+      "question": "减员是按月推进的，还是一次性推完的？",
+      "metric": "severanceCompletionRateByMonth",
+      "note": "每个点是该月快照的累计完成率（累计已完成 / 计划），不是当月增量。最后一个月与未分组的完成率相等，说明最后一个月没有新增完成。"
+    },
+    {
+      "id": "sev_by_dept",
+      "kind": "composition",
+      "metric": "severedCountByDepartment",
+      "render": "bar",
+      "title": "已协商减员员工的部门分布",
+      "question": "减员集中在哪几个部门？",
+      "emit_filter": {
+        "dimension": "empDepartment"
+      },
+      "note": "分母是全部已协商减员员工；在职员工没有部门数据，所以这个分布不能反推「哪个部门现在缺人」。"
+    },
+    {
+      "id": "profit_split",
+      "kind": "parallel",
+      "metrics": [
+        "finCoreFactoryNetProfitWan",
+        "finEcoPartnerNetProfitWan",
+        "finTotalMfgNetProfitWan"
+      ],
+      "title": "核心厂区 / 生态伙伴 / 制造板块合计净利润",
+      "question": "利润现在是谁在挣？",
+      "why_custom": "三条并列柱，不是瀑布：本体没有声明「合计 − 核心 = 伙伴」这个算式，也没有声明跨粒度的差，所以既不做减法也不画瀑布。"
+    },
+    {
+      "id": "lot_defect_factory",
+      "kind": "ranked",
+      "metric": "lotDefectRateByFactory",
+      "sort": "desc",
+      "limit": 2,
+      "title": "按厂区的车架不良率",
+      "question": "哪个厂的不良率更高？",
+      "note": "只排名不给面积：不良率不是一个可加的总量，本库也没有与它同分组的件数指标，所以这个面板不带 size 通道，避免用「率」冒充「量」。"
+    },
+    {
+      "id": "risk_by_month",
+      "kind": "series",
+      "render": "bar",
+      "title": "重大风险事件按月",
+      "question": "重大风险事件是零星发生还是集中在某几个月？",
+      "metric": "majorRiskEventCountByMonth",
+      "note": "计的是事件行数，不是涉及人数。"
+    },
+    {
+      "id": "satisfaction_factory",
+      "kind": "ranked",
+      "metric": "surveySatisfactionByFactory",
+      "sort": "desc",
+      "limit": 3,
+      "title": "被减员工协商满意度（按问卷标注的厂区）",
+      "question": "哪个厂区的协商过程最伤人？",
+      "note": "空字符串那一组是问卷没填厂区的回答，单独成一组；它与有厂区的组不能合并平均，因为合并会把「未标注」变成一个厂区。"
+    },
+    {
+      "id": "headcount_bucket",
+      "kind": "composition",
+      "metric": "headcountByFactory",
+      "render": "bar",
+      "title": "在职人力的厂区标签",
+      "question": "人力是不是分布在多个厂区？",
+      "note": "只有一个桶：dim_employee 的厂区只有一个取值。这一格说明的是数据能力边界，不是「人力高度集中」这个业务结论。"
+    }
+  ]
+}

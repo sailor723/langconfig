@@ -1,0 +1,231 @@
+@prefix : <https://cube.local/ontology/sunhing#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+:aggregate a owl:AnnotationProperty .
+:grain a owl:AnnotationProperty .
+:universe a owl:AnnotationProperty .
+:where a owl:AnnotationProperty .
+:groupBy a owl:AnnotationProperty .
+:scale a owl:AnnotationProperty .
+:counts a owl:AnnotationProperty .
+
+# 计算层：只有 selector + aggregate。没有任何业务解释放这里（那在 02-meaning.ttl）。
+# :grain 是必填——一个带 :aggregate 而缺 :grain 的指标按设计被拒绝，而不是被猜一个粒度。
+
+# ---------------------------------------------------------------- 人力：时点快照行
+:hrTotalHeadcount :aggregate "sum" ; :grain :HrMonth ; :universe :HrMonth ; :where :AsOfHrPeriod .
+:hrProductionHeadcount :aggregate "sum" ; :grain :HrMonth ; :universe :HrMonth ; :where :AsOfHrPeriod .
+:hrSeveranceCompletedCumulative :aggregate "sum" ; :grain :HrMonth ; :universe :HrMonth ; :where :AsOfHrPeriod .
+:hrSeverancePlanned :aggregate "sum" ; :grain :HrMonth ; :universe :HrMonth ; :where :AsOfHrPeriod .
+:hrSeverancePaidCumulativeWan :aggregate "sum" ; :grain :HrMonth ; :universe :HrMonth ; :where :AsOfHrPeriod .
+:hrPartnerConverted :aggregate "sum" ; :grain :HrMonth ; :universe :HrMonth ; :where :AsOfHrPeriod .
+:hrSeveranceDisputeCount :aggregate "sum" ; :grain :HrMonth ; :universe :HrMonth ; :where :AsOfHrPeriod .
+:hrSeveranceBudgetWan :aggregate "sum" ; :grain :HrMonth ; :universe :HrMonth ; :where :AsOfHrPeriod ;
+    :businessDescription "table: dim_hr_monthly — 计划补偿预算 = severance_planned × 4.5（万元/人）。4.5 是 dim_kpi #03 存储公式里的常数，不是本库的列，也不是本会话的假设；口径与 02-meaning 的 :formulaSource 同源。" .
+
+:severanceCompletionRate :aggregate "ratio_of_sums" ; :numerator :hrSeveranceCompletedCumulative ;
+    :denominator :hrSeverancePlanned ; :scale "100.0" ;
+    :grain :HrMonth ; :universe :HrMonth ; :where :AsOfHrPeriod ;
+    :businessDescription "table: dim_hr_monthly — 已完成协商减员(累计) ÷ 计划协商减员 × 100。" .
+
+:severanceBudgetControlRate :aggregate "ratio_of_sums" ; :numerator :hrSeverancePaidCumulativeWan ;
+    :denominator :hrSeveranceBudgetWan ; :scale "100.0" ;
+    :grain :HrMonth ; :universe :HrMonth ; :where :AsOfHrPeriod ;
+    :businessDescription "table: dim_hr_monthly — 已支付补偿(累计) ÷ 计划补偿预算 × 100；目标 100%，越低越好(dim_kpi.lower_is_better=1)。" .
+
+:productionHeadcountShare :aggregate "ratio_of_sums" ; :numerator :hrProductionHeadcount ;
+    :denominator :hrTotalHeadcount ; :scale "100.0" ;
+    :grain :HrMonth ; :universe :HrMonth ; :where :AsOfHrPeriod ;
+    :businessDescription "table: dim_hr_monthly — 期末生产人员数 ÷ 期末总人数 × 100。" .
+
+:employeePartnerConversionRate :aggregate "ratio_of_sums" ; :numerator :hrPartnerConverted ;
+    :denominator :hrTotalHeadcount ; :scale "100.0" ;
+    :grain :HrMonth ; :universe :HrMonth ; :where :AsOfHrPeriod ;
+    :businessDescription "table: dim_hr_monthly — 已转合伙人/持股员工数 ÷ 期末总人数 × 100。数据病理（照实报）：2027-02 分子 317（累计口径）> 分母 46（快照人数），所以值 = 689.13%，不是 6.89%。分子是累计转化人数，分母是最后一个月在册人数，两者不是同一总体——只能读成『累计转化相对当前在册』，不能读成转化比例。" .
+
+:severanceDisputeRate :aggregate "ratio_of_sums" ; :numerator :hrSeveranceDisputeCount ;
+    :denominator :hrSeveranceCompletedCumulative ; :scale "100.0" ;
+    :grain :HrMonth ; :universe :HrMonth ; :where :AsOfHrPeriod ;
+    :businessDescription "table: dim_hr_monthly — 协商减员纠纷件数 ÷ 已完成协商减员(累计) × 100；对应 dim_kpi RS01，目标 2.0。" .
+
+# 按月趋势：同一口径，换分组，不加期间过滤（每个期间各一行）
+# 不能写成 ratio_of_sums(:hrSeveranceCompletedCumulative, :hrSeverancePlanned)：那两个基础指标
+# 各自带 :where :AsOfHrPeriod，分组之后每一行都被钉在 2027-02 上，六行全等于 94.63%，
+# 曲线是平的。要的是"每个月各自的完成率"，所以在这里写成一个只在本月行内运算的比值。
+:severanceCompletionRateByMonth :aggregate "avg" ; :grain :HrMonth ; :universe :HrMonth ;
+    :groupBy :hrPeriod ;
+    :formula "severance_completed_cumulative * 100.0 / severance_planned" ;
+    :businessDescription "table: dim_hr_monthly — 每个月各自的『已完成 ÷ 计划』× 100，分母为 0 时该行为空。真趋势（手算核对过）：2026-09 0.00 → 2026-10 14.02 → 2026-11 39.72 → 2026-12 65.42 → 2027-01 84.11 → 2027-02 94.63。" .
+
+# ---------------------------------------------------------------- 财务
+:finCoreFactoryNetProfitWan :aggregate "sum" ; :grain :FinanceMonth ; :universe :FinanceMonth ; :where :AsOfFinancePeriod .
+:finEcoPartnerNetProfitWan :aggregate "sum" ; :grain :FinanceMonth ; :universe :FinanceMonth ; :where :AsOfFinancePeriod .
+:finTotalMfgNetProfitWan :aggregate "sum" ; :grain :FinanceMonth ; :universe :FinanceMonth ; :where :AsOfFinancePeriod .
+:finReinvestedWan :aggregate "sum" ; :grain :FinanceMonth ; :universe :FinanceMonth ; :where :AsOfFinancePeriod .
+:finCashReleasedWan :aggregate "sum" ; :grain :FinanceMonth ; :universe :FinanceMonth ; :where :AsOfFinancePeriod .
+:equityMultiplier :aggregate "avg" ; :grain :FinanceMonth ; :universe :FinanceMonth ; :where :AsOfFinancePeriod ;
+    :formula "1.0 + liability_total_wan / (net_profit_wan * 10.0)" ;
+    :businessDescription "table: dim_finance_monthly — 复述源系统口径（dim_kpi #16）：1 + 负债合计 ÷ (净利润 × 10)，取快照月那一行。× 10 是源口径自带的量纲归一（分母不是股东权益，库里没有权益列）——这是**源系统的定义**，不是本体的解释。复核：2027-02 算出 1.22944，与 fact_kpi_monthly 落地值 1.23 一致（落地值只留 2 位）。" .
+
+:coreFactoryProfitShare :aggregate "ratio_of_sums" ; :numerator :finCoreFactoryNetProfitWan ;
+    :denominator :finTotalMfgNetProfitWan ; :scale "100.0" ;
+    :grain :FinanceMonth ; :universe :FinanceMonth ; :where :AsOfFinancePeriod ;
+    :businessDescription "table: dim_finance_monthly — 核心厂区净利润 ÷ 制造业净利润合计 × 100。" .
+
+:ecoPartnerProfitShare :aggregate "ratio_of_sums" ; :numerator :finEcoPartnerNetProfitWan ;
+    :denominator :finTotalMfgNetProfitWan ; :scale "100.0" ;
+    :grain :FinanceMonth ; :universe :FinanceMonth ; :where :AsOfFinancePeriod ;
+    :businessDescription "table: dim_finance_monthly — 生态伙伴厂净利润 ÷ 制造业净利润合计 × 100。" .
+
+:capitalReinvestmentRate :aggregate "ratio_of_sums" ; :numerator :finReinvestedWan ;
+    :denominator :finCashReleasedWan ; :scale "100.0" ;
+    :grain :FinanceMonth ; :universe :FinanceMonth ; :where :AsOfFinancePeriod ;
+    :businessDescription "table: dim_finance_monthly — 再投资 ÷ 释放现金 × 100。" .
+
+# ---------------------------------------------------------------- 生产
+:prodCriticalProcessesRunning :aggregate "sum" ; :grain :ProductionMonth ; :universe :ProductionMonth ; :where :AsOfProductionPeriod .
+:prodTotalProcesses :aggregate "sum" ; :grain :ProductionMonth ; :universe :ProductionMonth ; :where :AsOfProductionPeriod .
+:prodOeePct :aggregate "avg" ; :grain :ProductionMonth ; :universe :ProductionMonth ; :where :AsOfProductionPeriod ;
+    :businessDescription "table: dim_production_monthly.critical_processes_running。" .
+
+:processRetentionRate :aggregate "ratio_of_sums" ; :numerator :prodCriticalProcessesRunning ;
+    :denominator :prodTotalProcesses ; :scale "100.0" ;
+    :grain :ProductionMonth ; :universe :ProductionMonth ; :where :AsOfProductionPeriod ;
+    :businessDescription "table: dim_production_monthly — 保留运行的关键工序数 ÷ 工序总数 × 100。" .
+
+# ---------------------------------------------------------------- 法务合规
+:legalNewLaborArbitrationCases :aggregate "sum" ; :grain :LegalMonth ; :universe :LegalMonth ; :where :AsOfLegalPeriod .
+:legalPendingLaborCases :aggregate "sum" ; :grain :LegalMonth ; :universe :LegalMonth ; :where :AsOfLegalPeriod .
+:legalMajorGroupIncidents :aggregate "sum" ; :grain :LegalMonth ; :universe :LegalMonth ; :where :AsOfLegalPeriod .
+:legalNearMissGroupIncidents :aggregate "sum" ; :grain :LegalMonth ; :universe :LegalMonth ; :where :AsOfLegalPeriod .
+:legalCustomsCompliancePct :aggregate "avg" ; :grain :LegalMonth ; :universe :LegalMonth ; :where :AsOfLegalPeriod ;
+    :businessDescription "table: dim_legal_monthly.new_labor_arbitration_cases。" .
+
+:laborDisputeEventCount :aggregate "sum" ; :grain :LegalMonth ; :universe :LegalMonth ; :where :AsOfLegalPeriod .
+:majorRiskEventCount :aggregate "sum" ; :grain :LegalMonth ; :universe :LegalMonth ; :where :AsOfLegalPeriod .
+:groupLaborRiskIndex :aggregate "sum" ; :grain :LegalMonth ; :universe :LegalMonth ; :where :AsOfLegalPeriod ;
+    :businessDescription "table: dim_legal_monthly — 群体性劳动争议风险指数，0–100 分，越高越危险：重大事件 × 10 + 苗头事件 × 3。两个权重是 dim_kpi RS03 存储构造里的常数，不是件数；它和 dim_kpi #04（仲裁 + 在办案件）是两个不同的数，别互相替代。" .
+
+# 按月趋势，同一表达式，只换分组
+:majorRiskEventCountByMonth :aggregate "sum" ; :grain :LegalMonth ; :universe :LegalMonth ;
+    :groupBy :legalPeriod ;
+    :formula "major_group_incidents + near_miss_group_incidents" ;
+    :businessDescription "table: dim_legal_monthly — 与 :majorRiskEventCount 同一口径，按 period 分组。" .
+
+# ---------------------------------------------------------------- 数字化
+:digReuseRatePct :aggregate "avg" ; :grain :DigitalMonth ; :universe :DigitalMonth ; :where :AsOfDigitalPeriod .
+:digitalValueConversion :aggregate "avg" ; :grain :DigitalMonth ; :universe :DigitalMonth ; :where :AsOfDigitalPeriod ;
+    :businessDescription "table: dim_digital_monthly.reuse_rate_pct；已是百分数。对应 dim_kpi #12。" .
+
+# ---------------------------------------------------------------- 组织舆情
+:sentSeveranceSatisfaction :aggregate "avg" ; :grain :SentimentMonth ; :universe :SentimentMonth ; :where :AsOfSentimentPeriod .
+:valueExchangeLanding :aggregate "avg" ; :grain :SentimentMonth ; :universe :SentimentMonth ; :where :AsOfSentimentPeriod ;
+    :businessDescription "table: dim_sentiment_monthly.severance_satisfaction；1–10 分。对应 dim_kpi RS02(目标 7.0)。" .
+
+# ---------------------------------------------------------------- 历史责任（无期间列：全量）
+:liabResolvedWan :aggregate "sum" ; :grain :LiabilityItem ; :universe :LiabilityItem .
+:liabTotalWan :aggregate "sum" ; :grain :LiabilityItem ; :universe :LiabilityItem ;
+    :businessDescription "table: raw_liability.resolved_wan，按责任项求和。该表没有期间列，所以是**全量到现在**，不是某个月的数字——问「某月化解了多少」会被拒绝。" .
+
+:historicalLiabilityResolutionRate :aggregate "ratio_of_sums" ; :numerator :liabResolvedWan ;
+    :denominator :liabTotalWan ; :scale "100.0" ;
+    :grain :LiabilityItem ; :universe :LiabilityItem ;
+    :businessDescription "table: raw_liability — 已化解 ÷ 应追缴总额 × 100。对应 dim_kpi #02(目标 40%)。" .
+
+# ---------------------------------------------------------------- 法人实体架构
+:ecoPartnerCount :aggregate "count" ; :grain :Entity ; :universe :Entity ; :where :EcoPartner ; :counts :Entity .
+:profitableEcoPartnerCount :aggregate "count" ; :grain :Entity ; :universe :Entity ; :where :ProfitableEcoPartner ; :counts :Entity .
+:entityCount :aggregate "count" ; :grain :Entity ; :universe :Entity ; :counts :Entity .
+:separateArchitectureEntityCount :aggregate "count" ; :grain :Entity ; :universe :Entity ;
+    :where :SeparatedArchitectureEntity ; :counts :Entity ;
+    :businessDescription "table: raw_entity — entity_type='partner' 的实体个数。" .
+
+:lightAssetIndex :aggregate "ratio_of_sums" ; :numerator :profitableEcoPartnerCount ;
+    :denominator :ecoPartnerCount ; :scale "100.0" ;
+    :grain :Entity ; :universe :Entity ;
+    :businessDescription "table: raw_entity — 已盈利生态伙伴实体数 ÷ 生态伙伴实体数 × 100。对应 dim_kpi #11(目标 70%)。" .
+
+:architectureSeparationRate :aggregate "ratio_of_sums" ; :numerator :separateArchitectureEntityCount ;
+    :denominator :entityCount ; :scale "100.0" ;
+    :grain :Entity ; :universe :Entity ;
+    :businessDescription "table: raw_entity — 已独立核算实体数 ÷ 法人实体总数 × 100。对应 dim_kpi #14。" .
+
+# ---------------------------------------------------------------- PMO 里程碑
+:pmoCompletedMilestones :aggregate "count" ; :grain :PmoMilestone ; :universe :PmoMilestone ;
+    :where :CompletedMilestone ; :counts :PmoMilestone .
+:pmoOnTimeMilestones :aggregate "sum" ; :grain :PmoMilestone ; :universe :PmoMilestone ;
+    :where :CompletedMilestone ;
+    :businessDescription "table: raw_pmo 中 month='2027-02' 且 status='completed' 的行数。" .
+
+:milestoneOnTimeRate :aggregate "ratio_of_sums" ; :numerator :pmoOnTimeMilestones ;
+    :denominator :pmoCompletedMilestones ; :scale "100.0" ;
+    :grain :PmoMilestone ; :universe :PmoMilestone ; :where :CompletedMilestone ;
+    :businessDescription "table: raw_pmo — 按期完成里程碑数 ÷ 已完成里程碑数 × 100。对应 dim_kpi #19(目标 90%)。" .
+
+# ---------------------------------------------------------------- 按维度切开
+:headcountByFactory :aggregate "count" ; :grain :Employee ; :universe :Employee ;
+    :where :ActiveEmployee ; :counts :Employee ; :groupBy :empFactory ;
+    :businessDescription "table: raw_employee — 按 raw_employee.factory 分组的在职员工计数。" .
+
+:severedCountByDepartment :aggregate "count" ; :grain :Employee ; :universe :Employee ;
+    :where :SeveredEmployee ; :counts :Employee ; :groupBy :empDepartment ;
+    :businessDescription "table: raw_employee — 按 raw_employee.department 分组的已协商减员员工计数。" .
+
+:surveySatisfactionByFactory :aggregate "avg" ; :grain :SurveyResponse ; :universe :SurveyResponse ;
+    :groupBy :srFactory ;
+    :businessDescription "table: raw_survey_response.satisfaction_score 按 factory 分组求平均。" .
+
+:orderValueByCoreFactory :aggregate "sum" ; :grain :Order ; :universe :Order ;
+    :groupBy :ordIsCoreFactory ;
+    :businessDescription "table: raw_order.order_value_wan 按 is_core_factory 分组求和。" .
+
+:lotDefectCount :aggregate "sum" ; :grain :ProductionLot ; :universe :ProductionLot ;
+    :businessDescription "table: raw_production_lot.defect_count 求和（车架不良件数）。" .
+:lotFramesProduced :aggregate "sum" ; :grain :ProductionLot ; :universe :ProductionLot ;
+    :businessDescription "table: raw_production_lot.frames_produced 求和（产出车架数）。" .
+
+:lotDefectRateByFactory :aggregate "ratio_of_sums" ; :numerator :lotDefectCount ;
+    :denominator :lotFramesProduced ; :scale "100.0" ;
+    :grain :ProductionLot ; :universe :ProductionLot ; :groupBy :lotFactory ;
+    :businessDescription "table: raw_production_lot — 不良件数 ÷ 产出车架数 × 100，按 factory 分组。" .
+
+:rs05CustomsPenaltyAmount :aggregate "sum" ; :grain :LegalMonth ; :universe :LegalMonth ;
+    :where :AsOfLegalPeriod ; :formula "customs_penalties_wan" ;
+    :businessDescription "table: dim_legal_monthly — 当月海关违规/罚款金额（万元），目标 0（lower_is_better=0）。口径 = dim_legal_monthly.customs_penalties_wan 在快照月的那一行。" .
+
+# ---------------------------------------------------------------- 拒绝清单
+# 这些节点声明了 grain + aggregate，所以它们出现在菜单里、并按名字被拒——不悄悄消失，也不拿代理列凑数。
+# :formula 故意写成它真正需要、而本库没有的那个输入，编译器于是拒绝这条公式并点出缺的标识符
+# ("formula mentions '<缺失输入>'")，而不是造一个看起来合理的数。
+#
+# 四条拒绝对应一个共同根因：本体的聚合只有 sum / count / avg / min / max / ratio_of_sums，
+# 而 ratio_of_sums 的分子分母必须是**同一粒度下已声明的指标**。于是「A 表的计数」无法与
+# 「B 表的列」相加减或相除——这不是配置问题，是表达式代数缺一档。
+# 补法（择一，属 Ops/ETL 决定，不在本体里猜）：
+#   ① 一次 ETL 把该指标物化成一列，本体只需 sum 这一列（最便宜，推荐）；
+#   ② 声明 A、B 两表按同期同键的关联，把分子也变成同粒度指标，再用 ratio_of_sums。
+#
+# 退役（不再提供，见 02-meaning 的 deferred 类）：
+#   :rs06TechTalentAttrition —— 目录公式为空 + 目标自相矛盾（dim_kpi.target=5% vs 落地 target=100）。
+
+#  ↓ 未声明为指标（第一次发布不能带新的按名拒绝：发布通道把「新拒绝」当作不可应用的变更）。
+#    下面是原本的拒绝声明，为可读性保留；缺的输入见每条的 businessDescription。
+#    用户问到时，NL 会按菜单拒绝（"I can answer about: …"），samples.json 把这一点钉住。
+# :rs07CustomerOrderChurn :aggregate "ratio_of_sums" ; :grain :Order ; :universe :Order ;
+#     :formula "churned_order_count * 100.0 / prior_period_order_count" ;
+#     :businessDescription "table: (无物理表) — 拒绝：库里没有任何「订单转移/流失」的标记列（raw_order 12 列里没有 transferred/churned，raw_crm 没有客户流失标记），也没有基线期键（上一个观察期与本期必须能对上）。而且两处声明互相矛盾：dim_kpi 的 target=3.0（流失率，越低越好），fact_kpi_monthly 同一个指标 target=100 且取值 60–100 —— 后者只有把它读成「未转移占比/保留率」才讲得通。两个定义都没有声明归属，所以不给数。" .
+#  ↓ 未声明为指标（第一次发布不能带新的按名拒绝：发布通道把「新拒绝」当作不可应用的变更）。
+#    下面是原本的拒绝声明，为可读性保留；缺的输入见每条的 businessDescription。
+#    用户问到时，NL 会按菜单拒绝（"I can answer about: …"），samples.json 把这一点钉住。
+# :ecoPartnerSynergyIndex :aggregate "avg" ; :grain :Entity ; :universe :Entity ;
+#     :formula "60.0 + eco_partner_order_share * 5.0 + signing_coefficient * 2.0" ;
+#     :businessDescription "table: (无物理表) — 拒绝：目录公式把三张表（raw_order 的伙伴订单占比、raw_entity 的伙伴实体数、raw_crm 的客户数）拼成一个数，且 60/5/2 三个系数没有业务来源。raw_order 有 is_eco_partner，但没有「伙伴订单占全部订单的比例」这一列。缺的声明：三张表按同一期间与同一实体键对齐的口径 + 三个系数的业务依据。" .
+#  ↓ 未声明为指标（第一次发布不能带新的按名拒绝：发布通道把「新拒绝」当作不可应用的变更）。
+#    下面是原本的拒绝声明，为可读性保留；缺的输入见每条的 businessDescription。
+#    用户问到时，NL 会按菜单拒绝（"I can answer about: …"），samples.json 把这一点钉住。
+# :techTalentRetentionRate :aggregate "avg" ; :grain :HrMonth ; :universe :HrMonth ;
+#     :where :AsOfHrPeriod ;
+#     :formula "(tech_lead_headcount - severance_lead_events) * 100.0 / tech_lead_headcount" ;
+#     :businessDescription "table: dim_hr_monthly — 拒绝：分母 tech_lead_headcount 是 dim_hr_monthly 的列，分子「本月骨干离职事件数」却只能从 raw_hr_event 数出来（event_type='severance' 且 position_category in Tech Lead/Team Lead），而 dim_hr_monthly 里没有这一列，两张表之间也没有键约束。缺的声明：骨干离职计数的归属（物化成一列，或声明关联）。" .
