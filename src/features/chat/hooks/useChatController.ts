@@ -414,27 +414,11 @@ export function useChatController(options: UseChatControllerOptions = {}) {
         }
         throw new Error(`HTTP ${response.status} ${detail || response.statusText}`);
       }
-      // What was decided, named before the panel goes away: the review card is
-      // about to be replaced by the run, and without this line the transcript
-      // shows a turn that continues with no record of anyone approving anything.
-      const decided = pendingInterrupt;
-      const pendingTool = decided?.action_requests?.[0]?.name
-        || decided?.tool_calls?.[0]?.name
-        || null;
       setPendingInterrupt(null);
-      // Reload messages to show the resumed response
+      // Reload messages to show the resumed response. The decision note and the tool calls the
+      // resumed run executed are persisted by the endpoint, so they arrive with this reload —
+      // the client used to add its own note, which vanished on reload and would now duplicate.
       await loadHistory(currentSessionId);
-      // AFTER the reload: loadHistory replaces the list from the server, so a note
-      // added before it would be thrown away with the rest of the local state.
-      const label = action === 'approve' ? '已批准'
-        : action === 'reject' ? '已拒绝'
-        : action === 'edit' ? '已改写后执行'
-        : '已回复';
-      addMessage({
-        role: 'system',
-        content: `${label}${pendingTool ? `：\`${pendingTool}\`` : ''}${value ? ` — ${value}` : ''}`,
-        timestamp: new Date().toISOString(),
-      });
       await refreshMetrics();
     } catch (err: any) {
       // Never fail silently: a failed resume leaves the review card on screen, and

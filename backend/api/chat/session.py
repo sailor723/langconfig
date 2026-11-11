@@ -645,6 +645,14 @@ async def resume_chat(
 
         resume_value = {"decisions": decisions}
         logger.info(f"Resuming {session_id} with decisions={decisions}")
+        # How many messages the thread already had: everything after this index was
+        # produced by the resumed run, and those are the tool calls that never made it
+        # into `tool_calls` (measured: a resume built a database and the transcript showed
+        # no db_build_from_file at all — the approved step was invisible afterwards).
+        try:
+            _before_n = len((snapshot.values or {}).get("messages") or [])
+        except Exception:                                      # noqa: BLE001 — shape may differ
+            _before_n = 0
         result = await agent_instance.ainvoke(
             Command(resume=resume_value),
             config={"configurable": {"thread_id": session_id}},
@@ -687,20 +695,119 @@ async def resume_chat(
 
         logger.info(f"Chat resumed for session {session_id}: {response_text[:100]}")
 
+        # ── record what the resumed run actually did ────────────────────────
+        # The streaming path records tool calls as they happen; the resume path did not,
+        # so an approval could execute a write and leave no trace beyond its effect.
+        _new_calls = []
+        _decision_label = {"approve": "已批准", "reject": "已拒绝",
+                           "edit": "已改写后执行", "respond": "已回复"}.get(
+            (decisions[0].get("type") if decisions else "") or
+            ((resume_data or {}).get("action") or ""), "已决定")
+        _asked = [req.get("name") for req in
+                  (getattr(pending[0], "value", {}) or {}).get("action_requests", [])] if pending else []
+        try:
+            if result and "messages" in result:
+                from api.chat.messages import clip_tool_result, derive_tool_status  # circular otherwise
+
+                def _role(msg):
+                    if isinstance(msg, dict):
+                        return str(msg.get("type") or msg.get("role") or "")
+                    return str(getattr(msg, "type", "") or "")
+
+                def _calls(msg):
+                    return (msg.get("tool_calls") if isinstance(msg, dict)
+                            else getattr(msg, "tool_calls", None)) or []
+
+                _tail = result["messages"][_before_n:]
+                _by_id = {}
+                # The approved call is NOT in the tail: the model emitted it before the guardrail
+                # paused the run, so its AIMessage sits in the history and only its *result*
+                # appears afterwards. Seed the entries from the pending review, then let the tail
+                # fill in the results — otherwise the one step a human authorised is the one step
+                # missing from the record.
+                for _req in ((getattr(pending[0], "value", {}) or {}).get("action_requests", []) or []) \
+                        if pending else []:
+                    _name = (_req or {}).get("name")
+                    if not _name:
+                        continue
+                    _entry = {
+                        "tool_name": _name,
+                        "arguments": (_req or {}).get("args") or {},
+                        "result": "",
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "status": "running",
+                        "decided_by_human": True,
+                    }
+                    _by_id[str((_req or {}).get("id") or _name)] = _entry
+                    _new_calls.append(_entry)
+
+                for msg in _tail:
+                    if _role(msg) == "ai":
+                        for call in _calls(msg):
+                            name = (call or {}).get("name") or ""
+                            if not name:
+                                continue
+                            entry = {
+                                "tool_name": name,
+                                "arguments": (call or {}).get("args") or {},
+                                "result": "",
+                                "timestamp": datetime.utcnow().isoformat(),
+                                "status": "running",
+                                "decided_by_human": bool(_asked) and name in _asked,
+                            }
+                            _by_id[str((call or {}).get("id") or name)] = entry
+                            _new_calls.append(entry)
+                    elif _role(msg) in ("tool", "function"):
+                        key = str((msg.get("tool_call_id") if isinstance(msg, dict)
+                                   else getattr(msg, "tool_call_id", "")) or "")
+                        text = (msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", ""))
+                        entry = _by_id.get(key)
+                        if entry is None:
+                            # tool_call_id may be absent in the checkpoint: fall back to the only
+                            # still-running entry with this name (the approved call).
+                            _name = (msg.get("name") if isinstance(msg, dict)
+                                     else getattr(msg, "name", "")) or ""
+                            entry = next((e for e in _new_calls
+                                          if e["status"] == "running" and e["tool_name"] == _name), None)
+                        if entry is None:
+                            continue
+                        entry.update(clip_tool_result(text))
+                        entry["status"] = derive_tool_status(str(text or ""))
+                for entry in _new_calls:
+                    if entry["status"] == "running":
+                        entry["status"] = "completed"
+        except Exception as rec_err:                           # noqa: BLE001 — never block a resume
+            logger.warning(f"could not record resumed tool calls for {session_id}: {rec_err}")
+
         # Save the response to the database
-        if response_text:
+        if response_text or _new_calls:
             try:
                 saved_session = db.query(ChatSession).filter(
                     ChatSession.session_id == session_id
                 ).first()
                 if saved_session:
+                    # The decision itself belongs in the transcript, persisted: the client used to
+                    # add this note locally, which vanished on reload and duplicated the history
+                    # once the server started recording it.
                     saved_session.messages.append({
-                        "role": "assistant",
-                        "content": response_text
+                        "role": "system",
+                        "content": _decision_label + ("：" + "、".join(f"`{n}`" for n in _asked if n)
+                                                     if _asked else ""),
+                        "timestamp": datetime.utcnow().isoformat(),
                     })
+                    if _new_calls:
+                        saved_session.tool_calls = list(saved_session.tool_calls or []) + _new_calls
+                        flag_modified(saved_session, "tool_calls")
+                    if response_text:
+                        saved_session.messages.append({
+                            "role": "assistant",
+                            "content": response_text
+                        })
                     flag_modified(saved_session, "messages")
                     db.commit()
-                    logger.info(f"Resume response saved to session {session_id}")
+                    logger.info(
+                        f"Resume saved for session {session_id}: {len(_new_calls)} tool call(s), "
+                        f"{'with' if response_text else 'without'} prose")
             except Exception as db_err:
                 logger.warning(f"Failed to save resume response: {db_err}")
                 db.rollback()
