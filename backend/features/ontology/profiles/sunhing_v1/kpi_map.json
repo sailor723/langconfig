@@ -25,6 +25,16 @@
       "series": "equityMultiplierByMonth",
       "label": "权益乘数（DuPont）",
       "why": "杜邦的权益乘数与 KPI #16 是同一个数：本体 :equityMultiplier 算 1.22944，fact_roe_summary.equity_multiplier @2027-02 是 1.23。这里直接引用已声明的 KPI 指标，不另造一个。"
+    },
+    "margin": {
+      "metric": "netProfitMarginPct",
+      "series": "netProfitMarginPctByMonth",
+      "label": "净利润率（DuPont）"
+    },
+    "turnover": {
+      "metric": "assetTurnoverPct",
+      "series": "assetTurnoverPctByMonth",
+      "label": "资产周转率（DuPont）"
     }
   },
   "pages": [
@@ -133,13 +143,17 @@
     {
       "kpi_id": "09_数字资产价值转化率",
       "page": "profit",
-      "metric": "digitalValueConversion"
+      "metric": "digitalValueConversion",
+      "series": "digitalValueConversionRateByMonth",
+      "series_why": "本体里这条按月序列与快照指标不同名（按它的语义命名），这里显式声明映射。"
     },
     {
       "kpi_id": "10_核心厂区固定资产利用率",
       "page": "turnover",
       "metric": "prodOeePct",
-      "note": "dim_kpi 公式是 oee_pct（源系统存值，恒 100），不是重新算的稼动率；目标 120 与源口径不在同一量纲，页面上会显示为永远不达标。"
+      "note": "dim_kpi 公式是 oee_pct（源系统存值，恒 100），不是重新算的稼动率；目标 120 与源口径不在同一量纲，页面上会显示为永远不达标。",
+      "series": "oeePctByMonth",
+      "series_why": "本体里这条按月序列与快照指标不同名（按它的语义命名），这里显式声明映射。"
     },
     {
       "kpi_id": "11_生态伙伴轻资产化指数",
@@ -150,7 +164,9 @@
     {
       "kpi_id": "12_数字资产归集与复用率",
       "page": "turnover",
-      "metric": "digReuseRatePct"
+      "metric": "digReuseRatePct",
+      "series": "digitalReuseRateByMonth",
+      "series_why": "本体里这条按月序列与快照指标不同名（按它的语义命名），这里显式声明映射。"
     },
     {
       "kpi_id": "13_变革资本再投资率",
@@ -198,7 +214,9 @@
       "kpi_id": "21_员工价值交换制度落地率",
       "page": "support",
       "metric": "valueExchangeLanding",
-      "note": "量纲不一致：本体按 0–10 分（dim_sentiment_monthly 存值 5.06），dim_kpi 的目标是 80%，fact 里也是 5.06 —— 这条 KPI 在任何月份都不可能达标。这是数据缺陷，不是看板错误。"
+      "note": "量纲不一致：本体按 0–10 分（dim_sentiment_monthly 存值 5.06），dim_kpi 的目标是 80%，fact 里也是 5.06 —— 这条 KPI 在任何月份都不可能达标。这是数据缺陷，不是看板错误。",
+      "series": "valueExchangeLandingRateByMonth",
+      "series_why": "本体里这条按月序列与快照指标不同名（按它的语义命名），这里显式声明映射。"
     },
     {
       "kpi_id": "RS01_协商减员纠纷发生率",
@@ -208,7 +226,9 @@
     {
       "kpi_id": "RS02_历史追缴协商满意度",
       "page": "risk",
-      "metric": "sentSeveranceSatisfaction"
+      "metric": "sentSeveranceSatisfaction",
+      "series": "severanceSatisfactionByMonth",
+      "series_why": "本体里这条按月序列与快照指标不同名（按它的语义命名），这里显式声明映射。"
     },
     {
       "kpi_id": "RS03_群体性劳动争议风险指数",
@@ -218,14 +238,18 @@
     {
       "kpi_id": "RS04_保税物料合规处理完成率",
       "page": "risk",
-      "metric": "legalCustomsCompliancePct"
+      "metric": "legalCustomsCompliancePct",
+      "series": "customsComplianceRateByMonth",
+      "series_why": "本体里这条按月序列与快照指标不同名（按它的语义命名），这里显式声明映射。"
     },
     {
       "kpi_id": "RS05_海关违规/罚款金额",
       "page": "risk",
       "metric": "rs05CustomsPenaltyAmount",
       "direction": "lower",
-      "direction_note": "dim_kpi.lower_is_better 在 RS05/RS06/RS07 上是 0（越高越好），但口径是越低越好（目标 0 万元/0 件）。按 dim_kpi 原值渲染会把 24.6 万罚款判成「达标」——这里按口径声明为越低越好，并在页脚注明这是对 dim_kpi 的有意覆盖。"
+      "direction_note": "dim_kpi.lower_is_better 在 RS05/RS06/RS07 上是 0（越高越好），但口径是越低越好（目标 0 万元/0 件）。按 dim_kpi 原值渲染会把 24.6 万罚款判成「达标」——这里按口径声明为越低越好，并在页脚注明这是对 dim_kpi 的有意覆盖。",
+      "series": "customsPenaltyAmountByMonth",
+      "series_why": "本体里这条按月序列与快照指标不同名（按它的语义命名），这里显式声明映射。"
     },
     {
       "kpi_id": "RS06_核心技术骨干流失率(变革期)",
@@ -292,5 +316,6 @@
     }
   },
   "hub_file": "sunhing_ontology_hub.html",
-  "why_these_names": "文件名带 ontology_ 前缀，是因为 /api/files/{name} 只接受裸文件名并 rglob 整个 data/analysis_dbs —— 沿用原文件名会和 2026-11 的原始页面撞名，从而悄悄覆盖对比基线。"
+  "why_these_names": "文件名带 ontology_ 前缀，是因为 /api/files/{name} 只接受裸文件名并 rglob 整个 data/analysis_dbs —— 沿用原文件名会和 2026-11 的原始页面撞名，从而悄悄覆盖对比基线。",
+  "ordering_rule": "apply 会用暂存树覆盖盘上同名文件，包括这个 kpi_map.json —— 先改声明再 stage，或者 apply 之后重做这里的编辑（2026-11-11 实测：apply 把 21:45 的 series 映射冲回了 21:33 版）。"
 }

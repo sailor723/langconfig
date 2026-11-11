@@ -866,13 +866,18 @@ def publish_state(profile: pathlib.Path, key: str | None) -> dict:
         db = SessionLocal()
         try:
             rows = db.execute(text(
-                "SELECT id, status, to_char(updated_at, 'YYYY-MM-DD HH24:MI') "
+                # EXTRACT(EPOCH) — not to_char: the column is timestamptz and the session renders
+                # it in UTC, so a formatted string compared against a local file mtime is off by the
+                # UTC offset (measured: a file written at 21:38 "newer" than an apply at 13:45).
+                "SELECT id, status, to_char(updated_at, 'YYYY-MM-DD HH24:MI'), "
+                "       EXTRACT(EPOCH FROM updated_at) "
                 "FROM ontology_publishes WHERE key = :k ORDER BY updated_at DESC LIMIT 20"
             ), {"k": key}).all()
         finally:
             db.close()
         for row in rows:
-            entry = {"id": row[0], "status": row[1], "updated_at": row[2]}
+            entry = {"id": row[0], "status": row[1], "updated_at": row[2],
+                     "epoch": float(row[3]) if row[3] is not None else None}
             state["newest"] = state["newest"] or entry
             if entry["status"] == "applied" and not state["applied"]:
                 state["applied"] = entry
@@ -931,11 +936,12 @@ def main() -> int:
         print(f"[PROFILE] 台账读不到：{state['error']}（不影响渲染，但无法判断盘上声明是否已应用）")
     # The declaration on disk is what these pages read. If it is newer than the last apply, the page
     # would show a number the served ontology does not have yet — say so, loudly, every run.
-    if applied and state.get("files"):
+    if applied and state.get("files") and applied.get("epoch"):
         import datetime as _dt
         newest_mtime = max(state["files"].values())
-        applied_at = _dt.datetime.strptime(applied["updated_at"], "%Y-%m-%d %H:%M").timestamp()
-        if newest_mtime > applied_at:
+        applied_at = applied["epoch"]
+        if newest_mtime > applied_at + 1:
+
             stamp = _dt.datetime.fromtimestamp(newest_mtime).strftime("%Y-%m-%d %H:%M")
             print(f"[PROFILE] [STAGED-ONLY] 盘上声明（{stamp}）比已应用的那一版（{applied['updated_at']}）新"
                   "  ← 页面渲染的是未应用的声明；要么 apply，要么把声明回退到已应用的状态")

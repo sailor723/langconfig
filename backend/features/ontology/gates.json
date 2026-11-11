@@ -95,12 +95,12 @@
   },
   "sunhing_v1": {
     "why": "sunhing_v1：新溢眼镜（新溢眼镜, HKEX:00125）的 28 个 ROE/变革 KPI 第一次以**声明**的形式落地，源库是从 SQLite 忠实迁过来的 PostgreSQL `sunhing_kpi`（23 表 / 2 361 行，迁移核对全过）。这条路线的目的就是消灭原地那套 ad hoc：原来公式与目标值同时存在于 dim_kpi、技能脚本、生成器三处，现在指标必须编译、按名拒绝，门禁替你查覆盖。",
-    "pending_install": "staged 1794402734-79a486: compile 60/60, gates PASS (0 failed, 0 not_run), 0 new refusals — waiting for a human to apply",
     "profile": [
       "check_structure",
       "check_ontology_generic",
       "check_samples",
       "check_dashboard"
-    ]
+    ],
+    "installed": "1794404310-52eb0f @ 2026-11-11 21:45 CST：86/86 指标编译、0 按名拒绝；apply 后 4 个声明家族里 structure/generic/samples 绿，check_dashboard 149 项 1 红（D7：briefing 的 cannot_see 句子里写死了数字，没走占位符）——这一条由 378 第 3 批修掉。"
   }
 }

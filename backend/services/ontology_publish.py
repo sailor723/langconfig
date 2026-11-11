@@ -144,22 +144,63 @@ def _profile_for(key: str) -> pathlib.Path | None:
     return candidate if candidate.exists() else None
 
 
-def _run_gates(profile_path: pathlib.Path, truth: pathlib.Path | None = None) -> dict:
-    """Run the generic gate suite against a profile. Never raises: a gate failure is a result."""
-    args = [PYTHON, str(GATES / "check_ontology_generic.py"),
-            "--profile", str(profile_path)]
-    if truth and truth.exists():
-        args += ["--truth", str(truth)]
+#: Which gate FAMILIES hold for which ontology — the same declaration `scripts/ontology_gates.py` reads.
+DECLARATION = FEATURE / "gates.json"
+
+
+def declared_families(key: str | None) -> list[str]:
+    """The gate families `gates.json` declares for this key (empty when the key declares none)."""
+    if not key:
+        return []
     try:
-        p = subprocess.run(args, capture_output=True, text=True, timeout=600,
-                           cwd=str(GATES))
+        spec = json.loads(DECLARATION.read_text(encoding="utf-8")).get(key) or {}
     except Exception as exc:                                    # noqa: BLE001
-        return {"ok": False, "error": f"{type(exc).__name__}: {exc}", "text": ""}
-    text_out = (p.stdout or "") + (p.stderr or "")
-    fails = [ln.strip() for ln in text_out.splitlines() if "[FAIL]" in ln]
-    notrun = [ln.strip() for ln in text_out.splitlines() if "[NOT RUN]" in ln]
-    return {"ok": p.returncode == 0 and not fails, "fails": fails, "not_run": notrun,
-            "text": text_out[-8000:]}
+        logger.warning("gates.json unreadable (%s); falling back to the generic gate", exc)
+        return []
+    return [name for name in (spec.get("profile") or []) if isinstance(name, str)]
+
+
+def _run_gates(profile_path: pathlib.Path, truth: pathlib.Path | None = None,
+               key: str | None = None) -> dict:
+    """Run EVERY gate family `gates.json` declares for this key. Never raises: a failure is a result.
+
+    This used to run `check_ontology_generic` only, and the omission was invisible: the declaration
+    said `sunhing_v1` also holds check_structure / check_samples / check_dashboard, the runner showed
+    check_dashboard red, and a publish still reported "gates: PASS" — a gate that does not run is not
+    a gate that passed. The families come from the declaration, so an ontology that declares fewer
+    families is not silently held to more.
+    """
+    families = declared_families(key) or ["check_ontology_generic"]
+    fails: list[str] = []
+    notrun: list[str] = []
+    texts: list[str] = []
+    ran: list[str] = []
+    for name in families:
+        script = GATES / f"{name}.py"
+        if not script.is_file():
+            fails.append(f"[FAIL] declared gate script missing: {script.name}")
+            continue
+        args = [PYTHON, str(script), "--profile", str(profile_path)]
+        if name == "check_ontology_generic" and truth and truth.exists():
+            args += ["--truth", str(truth)]
+        try:
+            p = subprocess.run(args, capture_output=True, text=True, timeout=900,
+                               cwd=str(GATES))
+        except Exception as exc:                                # noqa: BLE001
+            fails.append(f"[FAIL] {name}: {type(exc).__name__}: {exc}")
+            continue
+        text_out = (p.stdout or "") + (p.stderr or "")
+        ran.append(name)
+        this_fails = [ln.strip() for ln in text_out.splitlines() if "[FAIL]" in ln]
+        if p.returncode != 0 and not this_fails:
+            # a crash or a bare non-zero exit is still a failure, quoted so it cannot hide
+            tail = next((ln.strip() for ln in reversed(text_out.splitlines()) if ln.strip()), "")
+            this_fails = [f"[FAIL] {name} exited {p.returncode}: {tail[:200]}"]
+        fails += this_fails
+        notrun += [f"{name}: {ln.strip()}" for ln in text_out.splitlines() if "[NOT RUN]" in ln]
+        texts.append(f"=== {name} ===\n{text_out}")
+    return {"ok": not fails, "fails": fails, "not_run": notrun, "families": ran,
+            "text": "\n".join(texts)[-12000:]}
 
 
 def _compile_report(profile_path: pathlib.Path) -> dict:
@@ -380,7 +421,7 @@ def _apply_locked(staged_id: str, *, actor: str | None, git_commit: bool) -> dic
     if staged_profile is None:
         return {"ok": False, "error": "staged profile missing"}
     recheck = _compile_report(staged_profile)
-    gates = _run_gates(staged_profile)
+    gates = _run_gates(staged_profile, key=key)
     if gates.get("fails"):
         _audit_row(staged_id, key, actor, "refused", note="gates failed on re-check",
                    report={"compile": recheck, "gates_fails": gates.get("fails", []),
@@ -414,7 +455,7 @@ def _apply_locked(staged_id: str, *, actor: str | None, git_commit: bool) -> dic
         _restore(live, backup, existed)
         return {"ok": False, "error": "the installed ontology has no profile, reverted"}
     final_compile = _compile_report(installed_profile)
-    final_gates = _run_gates(installed_profile)
+    final_gates = _run_gates(installed_profile, key=key)
     if final_gates.get("fails") or not final_compile.get("compiled"):
         _restore(live, backup, existed)
         _audit_row(staged_id, key, actor, "reverted", note="post-install gates failed",

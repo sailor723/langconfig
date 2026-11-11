@@ -301,12 +301,28 @@ own `:unit`; a disagreement is a `[UNIT]` problem, not a silent format choice.
 | `[ACCEPTED]` | a known defect declared in `accepted_issues` **with its reason**; still printed |
 | `[STAGED-ONLY]` | the `.ttl` on disk is newer than the applied publish — the pages would show unapplied numbers |
 
-**Coverage today: 26 of 28 KPIs have a metric; 2 are refusals.** #17
+**Coverage today: 24 of 28 KPIs answer (22 of them with a 6-point monthly series), 2 are
+declared and pending (`1794404310-52eb0f` applied 86 metrics; #17/#18 are re-checked and
+reproduce exactly — see below), 2 are refusals.** #17
 `生态伙伴战略协同指数` and #18 `技术骨干留任率` were re-checked against the raw
 tables and *do* reproduce exactly (`61.2711864` and `46.1538`, matching
 `fact_kpi_monthly`), so they are declared in the map and become live metrics once
 the profile declares them. RS06/RS07 stay refused because `dim_kpi.formula` is
 the empty string — there is no definition to compile.
+
+Monthly series arrived with publish `1794404310-52eb0f` (23 `…ByMonth` metrics). Seven of
+them are named for their semantics rather than after the snapshot metric
+(`oeePctByMonth`, `digitalReuseRateByMonth`, `severanceSatisfactionByMonth`,
+`customsComplianceRateByMonth`, …), so `kpi_map.json` declares those seven mappings
+explicitly with `series` + `series_why` instead of renaming the ontology's metrics. #11 and
+#14 have no month grain at all and stay snapshot-only (the page says so in the card).
+
+**Ordering trap:** `apply` copies the staging tree over the live profile — *including
+`kpi_map.json`*. Editing the map between `stage` and `apply` loses the edit (measured: the
+seven `series` mappings written at 21:45 came back as the 21:33 staged version). Edit the
+declaration first, stage second, or redo the edit after an apply. The generator prints
+`[STAGED-ONLY]` when the `.ttl` on disk is newer than the applied publish, so a render from
+an unapplied declaration is never silent.
 
 ### 10.4 Accepted divergences (written down, not hidden)
 
