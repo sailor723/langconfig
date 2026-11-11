@@ -96,9 +96,12 @@ export default function ChatPage() {
       }}
     >
       {/* Left Sidebar + Resize Handle */}
-      <div className="flex flex-shrink-0" style={{ width: c.sidebarWidth }}>
+      {/* No width on the wrapper: the sidebar sizes itself (48 px collapsed, c.sidebarWidth
+          expanded), so collapsing hands the difference to the flex-1 chat column. */}
+      <div className="flex flex-shrink-0">
         <ChatHistorySidebar
           onNewSession={c.handleNewSession}
+          width={c.sidebarWidth}
           footer={
             // Settings + copyright, at the foot of the LEFT column and on ONE
             // line. DSH pins its `sidebar.settings` slot at the foot of the left

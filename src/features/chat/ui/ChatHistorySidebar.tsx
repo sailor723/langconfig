@@ -52,6 +52,8 @@ interface ChatHistorySidebarProps {
   footerCompact?: React.ReactNode;
   /** Told when the rail collapses, so the container can hand 48 px back to the chat area. */
   onCollapsedChange?: (collapsed: boolean) => void;
+  /** Width of the expanded column. The rail has its own (48 px); the parent should not set one. */
+  width?: number;
 }
 
 /**
@@ -109,7 +111,7 @@ function viewToggle(opts: {
  */
 const SIDEBAR_BG = 'var(--color-panel-dark, var(--color-panel, #f9fafb))';
 
-export default function ChatHistorySidebar({ onNewSession, footer, footerCompact, onCollapsedChange }: ChatHistorySidebarProps) {
+export default function ChatHistorySidebar({ onNewSession, footer, footerCompact, onCollapsedChange, width }: ChatHistorySidebarProps) {
   const { t: tr } = useTranslation('chat');
   const { sessions, currentSessionId, switchSession, deleteSession } = useChat();
   // The heading says "Projects", so the value has to be the project (vault).
@@ -304,7 +306,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
       <div key={session.session_id} className="relative group/row">
       <button
         onClick={() => switchSession(session.session_id)}
-        className="w-full text-left px-2 py-1.5 rounded-lg transition-all group"
+        className="w-full text-left pl-2 pr-7 py-1.5 rounded-lg transition-all group"
         // Everything the row leaves out (agent, exact timestamp, length) lives
         // here, so trimming the visible line loses nothing.
         title={[
@@ -379,7 +381,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
               void deleteSession(session.session_id);
             }
           }}
-          className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover/row:opacity-100 transition-opacity hover:bg-red-500/20"
+          className="absolute right-0.5 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover/row:opacity-100 transition-opacity hover:bg-red-500/20"
           title="删除这段对话"
         >
           <Trash2 className="w-3 h-3" style={{ color: '#ef4444' }} />
@@ -522,7 +524,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
     <div
       className="flex flex-col transition-all duration-200"
       style={{
-        width: '100%',
+        width: width ? `${width}px` : '100%',
         backgroundColor: SIDEBAR_BG,
       }}
     >

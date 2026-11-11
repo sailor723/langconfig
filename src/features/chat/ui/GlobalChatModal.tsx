@@ -79,10 +79,14 @@ export default function GlobalChatModal() {
         }}
       >
         {/* Left Sidebar + Resize Handle */}
-        <div className="flex flex-shrink-0" style={{ width: sidebarCollapsed ? 48 : c.sidebarWidth }}>
+        {/* No width here: the sidebar sizes itself (48 px collapsed, c.sidebarWidth expanded), so
+            collapsing genuinely hands the difference to the flex-1 chat column. Setting a width on
+            this wrapper left a blank strip when the rail collapsed. */}
+        <div className="flex flex-shrink-0">
           <ChatHistorySidebar
             onNewSession={c.handleNewSession}
             onCollapsedChange={setSidebarCollapsed}
+            width={c.sidebarWidth}
           />
           {/* Resize Handle */}
           <div
