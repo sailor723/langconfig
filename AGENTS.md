@@ -77,6 +77,40 @@ Or with uv: `cd backend && uv run python -c "import module"`
 
 All API keys and infrastructure config live in the root `.env`. The previous `backend/.env` has been removed — any secrets that used to live there must be moved to the root file.
 
+## DSH trains, Carrier runs
+
+This repository is both a product (Carrier / LangConfig) and the thing an outside
+harness authorises. The division is deliberate and was learned the hard way:
+
+- **DSH (the harness) is where agents, skills, tools and prompts are built and
+  validated.** It has the repository, a shell, the database, the browser and the test
+  suite — i.e. every piece of evidence needed to decide whether a change is real.
+- **Carrier is where those artefacts run.** An in-app agent sees only its own tool
+  results: when a tool is not bound, a path is refused or a skill is stale, all it can
+  report is "this failed". It cannot read `services/deepagent_factory/assembly.py`,
+  restart the process, or reseed a tool row.
+
+So the loop is: **an in-app agent reports what is missing → DSH fixes the platform →
+refresh → verify with a real turn.** An agent that starts working around a platform
+gap is a signal that the gap belongs to DSH, not that the agent needs more prompting.
+
+What "train" means here, concretely:
+
+| Artefact | Where it lives | How a change becomes visible |
+|---|---|---|
+| agent (prompt, tools, skills, guardrails) | `deep_agent_templates` | rewrite the row, then prove it with a real streaming turn |
+| prompt body | same row, plus `backend/scripts/set_agent_prompt.py` | the machine tail is rebuilt from the row, never hand-edited |
+| skill | `backend/skills/builtin/<id>/SKILL.md` | `POST /api/skills/reload-all` — a running registry does not notice a new file |
+| native tool | `backend/tools/native_impl.py` + `SEEDABLE_TOOL_META` | `scripts/seeds/in/seed_builtin_tools.py --refresh`, then restart |
+| behaviour that must not regress | `backend/tests/` | a guard test, because a prompt is not a gate |
+
+Worked example (2026-11-11, the table-building agent): it reported 「我没有列目录的工具」 —
+true, `glob` was in its config but the platform drops native fs tools when a disk backend is
+active, and the SDK's set had no listing either. The fix was a `list_files` tool named so
+that rule cannot remove it, a sandbox resolver for relative paths, and a reseed — none of
+which the agent could do from inside a conversation. The handoff, not the prompting, was the
+work.
+
 ## Detailed Docs
 
 See `docs/` for architecture and design documentation:
