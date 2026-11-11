@@ -279,6 +279,11 @@ def summary_text(prof: dict, cub: dict, findings: list) -> list:
         out.append("口径先定死：本页是**订单粒度**，一单多行明细时，明细口径（Σ 数量×单价）"
                    "算出来的数会比这里小/大，两者不能互相印证；换口径，结论也要跟着换。")
 
+    # 3b) period movement, if the cube has the periods to speak of it
+    mov = next((f for f in findings if f["title"].startswith("环比")), None)
+    if mov:
+        out.append(mov["title"] + "。" + mov["detail"])
+
     # 4) one next step, not five
     if "结构" in kinds or len(prof["chain"]) < 2:
         out.append(f"下一步建议：先把下钻层级补到 3 层（{ '、'.join(l['label'] for l in prof['chain']) or '目前只有一层' }），"
@@ -365,6 +370,32 @@ def insights(prof: dict, cub: dict) -> list:
     else:
         out.append({"kind": "结构", "title": "可下钻层级：" + " → ".join(l["label"] for l in prof["chain"]),
                     "detail": "桑基/树按这个顺序自上而下；层级越多，越能回答“哪一层在拖后腿”。"})
+
+
+    # 7) period-over-period: only when the cube carries a time column with ≥2 periods
+    if cub.get("time") and rows:
+        per = {}
+        for r in rows:
+            if r[-3] if len(r) > 3 else None:      # period sits before amount/n in the cube
+                per[r[-3]] = per.get(r[-3], 0) + r[-2]
+        periods = sorted(per)
+        if len(periods) >= 2:
+            last, prev = periods[-1], periods[-2]
+            cur, before = per[last], per[prev]
+            if before:
+                delta = (cur - before) / abs(before) * 100
+                direction = "增长" if delta > 0 else ("下滑" if delta < 0 else "持平")
+                n_last = sum(r[-1] for r in rows if len(r) > 3 and r[-3] == last)
+                out.append({"kind": "指标", "title": f"环比：{last} {direction} {abs(delta):.0f}%（{before:,.1f} → {cur:,.1f}）",
+                            "detail": (f"最近两个周期各只有 {n_last} 笔，单笔波动就能造成两位数的百分比变化 —— "
+                                       f"看方向可以，当目标不行。" if n_last < 5 else
+                                       f"{prev} → {last} 的环比；确认这两期的口径与覆盖客户是否可比。")})
+            else:
+                out.append({"kind": "注意", "title": f"上一期（{prev}）为 0，环比无法计算",
+                            "detail": "0 作分母会让百分比失去意义；先确认那一期是不是漏采。"})
+        elif cub.get("time"):
+            out.append({"kind": "注意", "title": "只有一个时间周期，无法做环比/同比",
+                        "detail": f"时间列是 `{cub['time']}`，但数据只覆盖 1 个周期。"})
 
     return out
 
