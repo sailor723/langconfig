@@ -1532,8 +1532,24 @@ async def send_message_stream(
                 # relatively (`upload/orders.xlsx`). Measured: with the person's tree bound, that
                 # path resolved against the server's cwd and was refused as "outside the allowed
                 # workspace", so the agent spent a turn asking where its own upload was.
+                # `agent_workspace_root` is only assigned when this turn had to CREATE the agent
+                # (the reuse path skips that branch), so referencing it here raised
+                # `cannot access local variable 'agent_workspace_root'` on every reused turn —
+                # measured as a 500 on upload. Resolve it here instead, guarded.
+                try:
+                    from services.workspace_manager import get_workspace_manager as _gwm
+                    _root_mgr = _gwm()
+                    _root_project = getattr(fresh_session, "project_id", None) or project_id
+                    _bind_target = str(_root_mgr.resolve_agent_workspace(
+                        agent, _root_project,
+                        vault_key=_root_mgr.project_vault_key(db, _root_project) or None,
+                        agent_key=_root_mgr.agent_vault_key(db, agent),
+                    ))
+                except Exception as _root_exc:                  # noqa: BLE001 — never block a chat
+                    logger.warning("could not resolve the agent workspace for this run: %s", _root_exc)
+                    _bind_target = ""
                 _run_root_token = _bind_root(
-                    agent_workspace_root
+                    _bind_target
                     or _user_roots.root_for(getattr(fresh_session, "user_id", None))
                 )
                 try:
