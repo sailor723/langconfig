@@ -11,7 +11,7 @@ triggers:
   - "当用户说「把这个表建成数据库」或「能不能用 SQL 查这个文件」时"
   - "当用户要跨 sheet / 跨文件对比，而手工核对不现实时"
   - "当数据要被反复查询（同一份数据问超过两个问题时）"
-allowed_tools: [list_files, read_any_file, glob, read_file, db_plan_from_file, db_build_from_file, db_verify_against_file, db_review, db_query, write_file, skill]
+allowed_tools: [list_files, read_any_file, glob, read_file, db_plan_from_file, db_build_from_file, db_verify_against_file, db_review, db_query, db_rename_column, db_dashboard, write_file, skill]
 author: LangConfig
 version: "1.0"
 ---
@@ -35,20 +35,18 @@ list_files(path="upload", pattern="*.xlsx") → 只要 xlsx
 一起丢掉**——`state` 后端 + 不开 sandbox 的组合下，`glob` 在配置里写着、实际并没有绑上。
 `list_files` 这个名字就是为了不被那条规则摘掉而起的。**列一次目录，比猜十次文件名便宜。**
 
-```bash
-python3 - <<'PY'
-from openpyxl import load_workbook
-wb = load_workbook("<路径>", read_only=True, data_only=True)
-for ws in wb.worksheets:
-    rows = ws.iter_rows(values_only=True, max_row=3)
-    print(ws.title, ws.max_row, ws.max_column, list(rows)[:2])
-PY
-```
-
 要拿到的是：**几个 sheet、每个多少行多少列、第一行是不是表头**。合并单元格、标题行在表头之上、多 sheet 口径不同
 ——这三件事只要差一处，后面所有 SQL 都是错的。
 
-**别用 `read_file` 读 `.xlsx`**（它读不到），用 `read_any_file`：它按 `[Sheet: <名>]` 分块给你，块内用 ` | ` 分隔。
+**结构直接问 `db_plan_from_file(file=..., db_name=...)`**：它一次给出每个 sheet 的表名、每列类型、行数、两行样例，
+**只读、不建库**，等于上面那张清单的现成版本。这个 agent 没有 shell，别指望 `python3` 那套。
+
+`read_any_file` 能读，但**一份多 sheet 的工作簿会吐出十几万字符**，被平台 spool 到 `large_tool_results/`，
+然后你得用 `read_file` 分段读四五次才拼得出全貌（实测就是这么浪费的）。顺序应该是：`list_files` 摸底 →
+`db_plan_from_file` 拿结构 → **只有需要看具体某格的值时才 `read_any_file`**。
+
+**文件里常见的"元数据 sheet"**（`00_index`、`catalog`、`README`）不是数据表：导出工具会把源库的列清单、外键定义
+写在这些页里。建库工具会自动跳过它们，但**你要先读它们**——那里的 `类型`、`外键` 是真正 schema，比从值推断可靠。
 
 ## 第 1 步——决定表名和列名的规则，先说给人听
 
@@ -87,6 +85,15 @@ db_build_from_file(file="upload/orders.xlsx", db_name="orders_xlsx", confirm=tru
 两个工具分开是有意的：只读的提案不该被"建库这件事要审批"的守卫拦住。
 
 它会跳过导出工具的元数据 sheet（`00_index`、`catalog`），逐表建并回报行数。**行数必须和工作簿一致**，不一致就停。
+建完它会给这个库打一个**建库标记**（`COMMENT ON DATABASE`），记着是从哪个文件建的。
+
+**库名已被占用时，别再猜、也别硬撞**（实测踩过）：
+
+| 情况 | 工具的回答 | 你该做什么 |
+|---|---|---|
+| 已存在且表名/列名/行数都和文件一致 | 「已存在，且与文件完全一致」，**什么都没写** | 直接用：接着 `db_verify_against_file` → `db_review` → 出图。**不要**报「建库成功」——你这次没建 |
+| 已存在但对不上（列不同/行数不同）且有建库标记 | 报出差异，提示可 `recreate=true` | 告诉用户「这个库是之前从文件建的，现在和文件不一致，要重建吗」，**点头了才** `recreate=true` |
+| 已存在、对不上、也没有建库标记，名字又不是 `_xlsx/_csv/_test` 结尾 | 明确拒绝重建 | **换库名**（`..._xlsx`/`..._csv`），不要试图绕过 |
 
 用户说"某几列不对"或"跳过某个 sheet"时：先改映射（改文件、或让他确认丢列），**不要**先建再 ALTER。
 
@@ -104,13 +111,22 @@ db_build_from_file(file="upload/orders.xlsx", db_name="orders_xlsx", confirm=tru
 db_verify_against_file(file="upload/orders.xlsx", db_name="orders_xlsx")
 ```
 
-逐 sheet 对：表在不在、行数、列数、**每一行的值**、以及每个数值列的 SUM/MIN/MAX。判据只能三选一：
+逐 sheet 对：表在不在、行数、**列名**、**每一行的值**、以及每个数值列的 SUM/MIN/MAX。判据只能三选一：
 
-- `PASS` —— 行数、列、值全对上；
+- `PASS` —— 行数、列名、值全对上；
 - `PARTIAL` —— 行数对，但某些值不一致（先查清，不要报数）；
-- `FAIL` —— 行数或列数对不上，这个库不能用。
+- `FAIL` —— 行数或列名对不上，这个库不能用。
 
 三个刻意的设计，别当成啰嗦：**比对用"行的多重集"**（数据库返回顺序不可信），**数值先规范化**（`120` 与 `Decimal('120.000')` 算相等，`120` 与 `180` 绝不相等），**数值列的合计也要比**（行数对、列错位是只有合计能抓到的错）。另外它会把"库里多出来的表"单独列出来——上一次建库的残留，正是以后会被人误查的东西。
+
+**列是按名字比的，不是按位置比**——这一点是修出来的：某个库把 `orders.sold_at` 改名成 `store_id`（名字错、存的是门店 id），
+老版本仍在报 `PASS`，因为它只数"5 列 vs 5 列"，而那 4 行值恰好对得上。改名之后要么如实看到 `FAIL`，要么**把改名声明出来**：
+
+```
+db_verify_against_file(file=..., db_name=..., renames="orders.sold_at=store_id")
+```
+
+**改过名就必须声明**，否则对账的 `PASS` 是假的，用户拿着一个"跟文件不一致"的库去报数。
 
 对账不通过就回到第 3 步，不要在这上面写 SQL 报数。
 
@@ -129,8 +145,9 @@ db_review(db_name="orders_xlsx", apply=true)   # 用户确认后再建约束
   金额和时间戳排最后，因为那是"碰巧唯一"。
 - **值能对上 ≠ 外键。** `customer_id` 的 4 个值恰好都出现在 `order_lines.id` 里，但它指的是 `customers`。
   引用是「列名 + 取值」两件事，只有列名能说清指向哪张表。
-- **名字承若的是时间、取值却是小整数** → 命名 bug（例如 `sold_at` 其实存的是门店 id）。**报告，不要硬建外键**，
-  建议改名后再补。
+- **名字承若的是时间、取值却是小整数** → 命名 bug（例如 `sold_at` 其实存的是门店 id）。**报告，不要硬建外键**；
+  用户同意后用 `db_rename_column(db_name=..., table="orders", column="sold_at", new_name="store_id")` 改名，
+  **然后把这次改名记下来**——下一步对账要写 `renames="orders.sold_at=store_id"`，否则对账会（正确地）报 `FAIL`。
 
 建完立刻跑一遍空值/孤儿检查，把 `0` 贴出来；建不上就说明为什么，不要沉默。
 
@@ -151,6 +168,27 @@ db_review(db_name="orders_xlsx", apply=true)   # 用户确认后再建约束
 三件事一起给：**库名与连接串**（`postgresql://<user>@<host>:<port>/<db>`，**服务器地址必须写出来**——
 默认建在平台自己的库服务器上，用户不会知道是 `5433` 还是别的）、**表/列对照 + 行数 + 对账结论（PASS）**、
 **这次查询用到的口径**。实测过的教训：agent 建库成功了，但摘要里只写库名，用户在另一台服务器上找不到它。用户下次要自己查，凭这三样就够。
+
+## 第 8 步——出图：先方案，再渲染；算出来的度量要自己写页
+
+```
+db_dashboard(db_name="orders_xlsx")                  # 只出方案：事实表/度量/维度链/页面结构/管理层视角
+db_dashboard(db_name="orders_xlsx", confirm=true)     # 用户确认后写 HTML
+```
+
+`db_dashboard` 只做一件事：**在一张事实表上按"真实存在的列"聚合**（`sum(金额列)`、`count(*)`、按维度列分组）。
+它挑事实表/度量/时间列的规则是确定的，方案里会写明是哪张表、哪一列 —— **方案要原样给用户看**。
+
+它做不到的两件事，别硬试（实测浪费了 4 次查询才想明白）：
+
+1. **算出来的度量**（明细口径 `Σ(qty × price)` 需要 join 商品表）：工具不会生成这种立方体。
+   → 用 `db_query` 把数算清，然后 **`write_file` 手写一个自包含 HTML** 放到 `generated/`。
+2. **两个不同粒度的度量放一张图**（订单级金额 + 明细级合计）：会把多行订单的金额重复计一次。
+
+**文件名必须包含 `dashboard`**（`retail_db_export_line_dashboard.html`）——平台的"这次生成了新页面就自动打开"
+是按 `*dashboard*.html` 找文件的，`write_file` 写的页面和 `db_dashboard` 写的一样会被列出、一样会打开
+（所以别跟用户说"手写的打不开"，那是错的；打不开通常是浏览器拦了自动弹出的第二个标签页，
+让用户从 Files 面板点 Open 即可）。
 
 ## 找不到文件时：停下来问，不要猜
 
@@ -178,7 +216,9 @@ db_review(db_name="orders_xlsx", apply=true)   # 用户确认后再建约束
 - **不在用户确认方案之前建库、加约束**——"先建了不好再删"是本技能禁止的做法；
 - 不把「读了文件」当成「建好了库」；
 - **不在摘要里省略服务器地址**——只说库名等于没说建在哪；
+- **不把「库早就存在」说成「我建好了」**——那一次你什么都没写；
 - **不在 `db_verify_against_file` 不是 PASS 的情况下报数**——PARTIAL 也要先说清楚哪里不一致；
+- **改过列名就必须在 `renames=` 里声明**，不让对账拿一个假的 PASS 收尾；
 - 不在没核对行数的情况下宣布装载完成；
 - 不因为 `✅ Loaded` 就相信查询能读到（见 `:memory:` 坑）；
 - 不用"唯一的列"当主键、不因为"取值能对上"就建外键；
@@ -188,6 +228,5 @@ db_review(db_name="orders_xlsx", apply=true)   # 用户确认后再建约束
 
 ## 与其它技能的接线
 
-- 数据要出图/看板 → 交给 `sql-analyst`（它面向 SQLite/CSV，口径用本技能第 5 步的结论）；
-- 已经有钱库、只是写错 SQL → 不用本技能，走 `sql-analyst` 的自检清单（NULL、`UNION ALL`、边界、类型、引号、JOIN 列）；
+- 建好的库里写 SQL、查现成的钱库 → `db-query`（三条通道：`db_query` / `sql_agent_tool` / `psql` 兜底，含「别猜表名」）；
 - 交付前要自证 → `evidence-first-delivery`（行数、孤儿数、口径差都属于"要贴出来的证据"）。

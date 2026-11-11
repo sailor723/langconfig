@@ -40,7 +40,13 @@ router = APIRouter(tags=["chat"])
 # user asked for was the third row. The Files panel is the only place a
 # non-technical user sees what an agent produced, so it must not be a mirror of
 # the skill library.
-EXCLUDED_WORKSPACE_FOLDERS = frozenset({"skills"})
+#
+# `large_tool_results/` is the spill directory the runtime writes when one tool
+# result is too big for the transcript (a 128 KB spreadsheet dump became
+# `large_tool_results/call_00_ET_…`, a file with no extension, no readable name
+# and nothing the user can do with it, sitting between their upload and their
+# report).
+EXCLUDED_WORKSPACE_FOLDERS = frozenset({"skills", "large_tool_results"})
 
 
 def _is_excluded_workspace_path(rel_parts) -> bool:

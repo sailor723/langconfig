@@ -6438,6 +6438,69 @@ def list_files(path: str = "", pattern: str = "*") -> str:
     return "\n".join(lines)
 
 
+_BUILD_MARKER_PREFIX = "langconfig:built-from="
+
+
+def _db_build_marker(conn, db_name: str) -> str:
+    """The build stamp this tool writes on the databases it creates ('' when absent).
+
+    A COMMENT on the database is the cheapest honest record of provenance: it survives a
+    restart, adds no table to the user's database, and reads back in one catalog query.
+    Without it a rerun cannot tell "my own earlier build" from "somebody's curated data".
+    """
+    try:
+        with conn.cursor() as cur:
+            cur.execute("select shobj_description(oid, 'pg_database') from pg_database "
+                        "where datname = %s", (db_name,))
+            row = cur.fetchone()
+        return (row[0] or "") if row else ""
+    except Exception:                                         # noqa: BLE001
+        return ""
+
+
+def _existing_db_matches_file(target: dict, tables, sheets) -> tuple:
+    """Would building this file change anything? → (in_sync, notes).
+
+    Compares the plan the file produces (table names, column names, row counts) with what
+    the database already holds. It answers the question a rerun actually has: "is this
+    database already the thing I was about to create?" — cheap, and it never writes.
+    """
+    import psycopg2
+
+    notes = []
+    in_sync = True
+    try:
+        conn = psycopg2.connect(**target)
+    except Exception as exc:                                  # noqa: BLE001
+        return False, [f"连不上：{exc}"]
+    try:
+        conn.set_session(readonly=True, autocommit=True)
+        with conn.cursor() as cur:
+            for plan in tables:
+                table = plan["table"]
+                body = sheets[plan["sheet"]][1]
+                cur.execute("""select column_name from information_schema.columns
+                               where table_schema='public' and table_name=%s
+                               order by ordinal_position""", (table,))
+                cols = [r[0] for r in cur.fetchall()]
+                if not cols:
+                    in_sync = False
+                    notes.append(f"{table}: 表不存在")
+                    continue
+                if [c.lower() for c in cols] != [c.lower() for c in plan["cols"]]:
+                    in_sync = False
+                    notes.append(f"{table}: 列不同（库里是 {', '.join(cols)}）")
+                    continue
+                cur.execute('select count(*) from "' + table + '"')
+                actual = cur.fetchone()[0]
+                if actual != len(body):
+                    in_sync = False
+                    notes.append(f"{table}: 行数 {actual} vs 文件 {len(body)}")
+    finally:
+        conn.close()
+    return in_sync, notes
+
+
 @tool
 def db_plan_from_file(file: str, db_name: str) -> str:
     """
@@ -6490,7 +6553,9 @@ def db_build_from_file(file: str, db_name: str, confirm: bool = False, host: str
         db_name: target database name, lower_snake_case, e.g. "orders_xlsx"
         confirm: set true ONLY after the user has agreed to the plan from the first call
         host/port/user/password: target server (empty = the platform's own server)
-        recreate: drop the target first — refused unless db_name ends in _xlsx/_csv/_test
+        recreate: drop and rebuild an existing target. Allowed for a database this tool
+            built from a file (it carries a build stamp) or one named *_xlsx/_csv/_test;
+            it is never a way to overwrite a hand-built business database
 
     Returns:
         Without confirm: the proposed mapping + the questions to settle.
@@ -6507,8 +6572,6 @@ def db_build_from_file(file: str, db_name: str, confirm: bool = False, host: str
         return path_error
     if not re.fullmatch(r"[a-z_][a-z0-9_]{0,60}", db_name or ""):
         return f"Error: db_name {db_name!r} must be lower_snake_case ASCII"
-    if recreate and not re.search(r"_(xlsx|csv|test)$", db_name):
-        return f"Error: refusing recreate on {db_name!r} — the name must end in _xlsx/_csv/_test"
 
     sheets, error = _read_source_sheets(path)
     if error:
@@ -6528,14 +6591,46 @@ def db_build_from_file(file: str, db_name: str, confirm: bool = False, host: str
         return f"Error: cannot connect to {admin['host']}:{admin['port']} as {admin['user']}: {exc}"
 
     conn.autocommit = True
+    target = _pg_conn_kwargs(host, port, user, password, dbname=db_name)
     with conn.cursor() as cur:
         cur.execute("select 1 from pg_database where datname = %s", (db_name,))
-        if cur.fetchone() is not None:
-            if not recreate:
-                return (f"Error: database {db_name!r} already exists. Pass recreate=true to replace it "
-                        f"(only names ending _xlsx/_csv/_test may be recreated).")
+        exists = cur.fetchone() is not None
+
+    # "already exists" used to be a dead end: the agent could not tell an earlier build of
+    # its own file (carry on, nothing to do) from a stale one (rebuild), and the name rule
+    # refused recreate for anything not ending _xlsx/_csv/_test — so `retail_db_export`
+    # could never be rebuilt. Ask the database instead of guessing from the name.
+    if exists:
+        reproducible = (_db_build_marker(conn, db_name).startswith(_BUILD_MARKER_PREFIX)
+                        or bool(re.search(r"_(xlsx|csv|test)$", db_name)))
+        if not recreate:
+            in_sync, notes = _existing_db_matches_file(target, tables, sheets)
+            conn.close()
+            if in_sync:
+                return (f"数据库 {db_name} 已存在，且与文件完全一致"
+                        f"（{len(tables)} 张表的表名、列名、行数都对得上）。\n"
+                        "本次没有建库、也没有写入任何东西 —— 直接用它就行。\n"
+                        f"下一步：db_verify_against_file(file=..., db_name={db_name}) 做逐值对账；"
+                        f"db_review(db_name={db_name}, apply=true) 补主外键；"
+                        f"db_dashboard(db_name={db_name}) 出看板。")
+            return (f"Error: 数据库 {db_name!r} 已存在，但和文件对不上：{'; '.join(notes)}\n"
+                    + ("这个库是本工具从文件建出来的（带建库标记），确认后可以 recreate=true 重建。"
+                       if reproducible else
+                       "它不是本工具建的，名字也不以 _xlsx/_csv/_test 结尾，不能重建 —— 换一个库名。"))
+        if not reproducible:
+            conn.close()
+            return (f"Error: refusing recreate on {db_name!r} — it was not built from a file by "
+                    f"this tool, and the name does not end in _xlsx/_csv/_test")
+
+    with conn.cursor() as cur:
+        if exists:
             cur.execute('DROP DATABASE "' + db_name + '" with (force)')
         cur.execute('CREATE DATABASE "' + db_name + '"')
+        try:
+            stamp = f"{_BUILD_MARKER_PREFIX}{path.name}|{path.stat().st_size}B"
+            cur.execute('COMMENT ON DATABASE "' + db_name + '" IS %s', (stamp,))
+        except Exception:                                     # noqa: BLE001
+            stamp = ""
     conn.close()
 
     target = _pg_conn_kwargs(host, port, user, password, dbname=db_name)
@@ -6570,7 +6665,12 @@ def db_build_from_file(file: str, db_name: str, confirm: bool = False, host: str
         out.append("\n建库时仍带着这些待确认点：" + "；".join(warnings))
     out.append("\nRow counts " + ("MISMATCH — " + "; ".join(mismatches) if mismatches
                                   else "match the workbook."))
-    out.append("Next: db_review(db_name) to check the schema and build primary/foreign keys.")
+    if stamp:
+        # The stamp is what makes a rerun safe: recreate only ever touches a database that
+        # this tool produced from a file.
+        out.append(f"建库标记：{stamp}（带标记的库可以直接 recreate=true 重建）")
+    out.append("Next: db_verify_against_file(file=..., db_name=...) to prove every row landed, "
+               "then db_review(db_name) for primary/foreign keys.")
     return "\n".join(out)
 
 
@@ -6936,21 +7036,25 @@ def _multiset(rows) -> dict:
 
 @tool
 def db_verify_against_file(file: str, db_name: str, host: str = "", port: int = 0,
-                           user: str = "", password: str = "", max_examples: int = 5) -> str:
+                           user: str = "", password: str = "", max_examples: int = 5,
+                           renames: str = "") -> str:
     """
-    用我：建库之后核对"库里真的是这个文件吗"——行数、列、每一行的值、数值合计，逐 sheet 对账。
+    用我：建库之后核对"库里真的是这个文件吗"——行数、列名、每一行的值、数值合计，逐 sheet 对账。
     别用我：只看结构用 db_review；只想读文件用 read_any_file。
 
     Cross-check a loaded database against the spreadsheet it came from.
 
     For every sheet in the file it finds the matching table (same naming rules the build
-    used), then compares: the table exists, the row count, the column count, and the full
-    row multiset — values normalised so that `120` from the sheet and `Decimal('120.000')`
-    from Postgres count as equal, but `120` and `180` never do. Numeric columns also get
-    their SUM/MIN/MAX compared, because that catches "right number of rows, wrong column
-    order" which a count alone cannot. Any table in the database that the file did not
-    produce is reported too — a leftover from an earlier build is exactly the kind of thing
-    a user will later query by accident.
+    used), then compares: the table exists, the row count, the **column names**, and the
+    full row multiset — values normalised so that `120` from the sheet and
+    `Decimal('120.000')` from Postgres count as equal, but `120` and `180` never do.
+    Columns are matched BY NAME, not by position: a rename (`sold_at` → `store_id`) used to
+    pass as "5 columns vs 5 columns" and the row values happened to line up, which made the
+    one check that proves the load a false PASS. Numeric columns also get their SUM/MIN/MAX
+    compared, because that catches "right number of rows, wrong column content" which a
+    count alone cannot. Any table in the database that the file did not produce is reported
+    too — a leftover from an earlier build is exactly the kind of thing a user will later
+    query by accident.
 
     Returns PASS only when every sheet matches on all of those checks. PARTIAL means the
     counts match but values do not; FAIL names the first differences, with row indexes.
@@ -6960,10 +7064,20 @@ def db_verify_against_file(file: str, db_name: str, host: str = "", port: int = 
         db_name: the database to verify, e.g. "orders_xlsx"
         host/port/user/password: target server (empty = the platform's own server)
         max_examples: how many differing rows to show per table (default 5)
+        renames: a rename you made on purpose after the build, so it is not reported as a
+            mismatch — "orders.sold_at=store_id,customers.status=tier"
 
     Returns:
         A per-table verdict table plus a final PASS / PARTIAL / FAIL line.
     """
+    declared = {}
+    for item in (renames or "").split(","):
+        if "=" not in item:
+            continue
+        left, new = item.split("=", 1)
+        if "." in left:
+            tbl, old = left.rsplit(".", 1)
+            declared[(tbl.strip().lower(), old.strip().lower())] = new.strip().lower()
     from pathlib import Path
 
     import psycopg2
@@ -7006,7 +7120,25 @@ def db_verify_against_file(file: str, db_name: str, host: str = "", port: int = 
 
         file_rows = len(body)
         db_count = len(db_rows)
-        col_ok = len(db_cols) == len(headers)
+
+        # Names, not positions. The build names columns after the sheet's header, so a
+        # column the file calls X must be a column the database calls X — unless the caller
+        # declares the rename it made on purpose (`renames="orders.sold_at=store_id"`).
+        want = [declared.get((table, (h or "").strip().lower()), (h or "").strip().lower())
+                for h in headers]
+        have = [(c or "").strip().lower() for c in db_cols]
+        missing_cols = [h for h in want if h not in have]
+        extra_cols = [c for c in have if c not in want]
+        col_ok = not missing_cols and not extra_cols and len(have) == len(want)
+        reordered = False
+        if col_ok and have != want:
+            # Same names, different order (a rename applied, or the table was rebuilt by
+            # hand): reorder the database rows to the file's order once, and every
+            # positional comparison below stays meaningful.
+            order = [have.index(w) for w in want]
+            db_rows = [tuple(r[i] for i in order) for r in db_rows]
+            db_cols = [db_cols[i] for i in order]
+            reordered = True
 
         same_rows = 0
         diff_examples = []
@@ -7056,7 +7188,14 @@ def db_verify_against_file(file: str, db_name: str, host: str = "", port: int = 
 
         verdict = "PASS"
         problems = []
-        if not col_ok:
+        if missing_cols or extra_cols:
+            bit = []
+            if missing_cols:
+                bit.append("文件有库里没有：" + ", ".join(missing_cols))
+            if extra_cols:
+                bit.append("库里有文件没有：" + ", ".join(extra_cols))
+            problems.append("列名不一致（" + "；".join(bit) + "）—— 改名/加删列后用 renames 声明")
+        elif not col_ok:
             problems.append(f"列数 {len(headers)} vs {len(db_cols)}")
         if file_rows != db_count:
             problems.append(f"行数 {file_rows} vs {db_count}")
@@ -7070,6 +7209,10 @@ def db_verify_against_file(file: str, db_name: str, host: str = "", port: int = 
         out.append(f"\n## [{sheet_name}] -> {table}: {verdict}")
         out.append(f"  行数 {file_rows} vs {db_count} | 列数 {len(headers)} vs {len(db_cols)} | "
                    f"一致的整行 {same_rows}/{file_rows}")
+        if reordered:
+            out.append("  列顺序不同（已按列名对齐后比较）")
+        for problem in problems:
+            out.append(f"  ✗ {problem}")
         out.extend(agg_lines[:8])
         # Both kinds of difference end up in the same list; unpacking was assuming 3 fields
         # for row diffs and 4 for aggregate diffs (`too many values to unpack`).
