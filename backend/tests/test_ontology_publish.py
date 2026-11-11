@@ -111,7 +111,9 @@ def repo(tmp_path, monkeypatch):
     # surfaced as "IndexError: list index out of range" instead of "the compiler is missing".
     monkeypatch.setattr(op, "_audit_row", fake_audit_row)
     monkeypatch.setattr(op, "_audit_list", fake_audit_list)
-    monkeypatch.setattr(op, "_git", lambda key, message: None)
+    # `_git` returns (sha, error) since 14a06c15 — a bare None here unpacks as a crash
+    # inside apply(), which is exactly the failure these two tests are supposed to cover.
+    monkeypatch.setattr(op, "_git", lambda key, message: (None, "git disabled in this test"))
     monkeypatch.setattr(op, "reload_workbench", lambda key: "")
 
     # The gate suite (retail_graph/check_ontology_generic.py) opens the profile's DATABASE, so
@@ -301,7 +303,9 @@ def test_real_gates_on_the_installed_logistics_ontology(monkeypatch, tmp_path):
                "created_at": "2026-01-01T00:00:00"}}))
     monkeypatch.setattr(op, "_audit_list",
                         lambda staged_id=None, limit=50: [ledger[staged_id]] if staged_id else [])
-    monkeypatch.setattr(op, "_git", lambda key, message: None)
+    # `_git` returns (sha, error) since 14a06c15 — a bare None here unpacks as a crash
+    # inside apply(), which is exactly the failure these two tests are supposed to cover.
+    monkeypatch.setattr(op, "_git", lambda key, message: (None, "git disabled in this test"))
 
     live = repo_root / "logistics"
     files = {str(p.relative_to(live)): p.read_text(encoding="utf-8")

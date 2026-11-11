@@ -46,7 +46,7 @@
     rdfs:label "超载率" ;
     :askedAs "超载率是多少？" ;
     :grain :Trip ; :universe :Trip ; :aggregate "ratio_of_sums" ;
-    :numerator :overloadedTrips ; :denominator :tripCount ; :unit "ratio" ;
+    :numerator :overloadedTrips ; :denominator :tripCount ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "分母是行程数而不是行数：比率的两端都必须是同一颗粒度上的指标。1,489/4,050 = 36.8%。（refused: 平台历史声明，业务出处待补）" .
 
 :overloadsByRouteVersion a owl:DatatypeProperty ;
@@ -79,7 +79,7 @@
     rdfs:label "站点准时率" ;
     :askedAs "准时率是多少？" ;
     :grain :Stop ; :universe :Stop ; :aggregate "ratio_of_sums" ;
-    :numerator :onTimeStops ; :denominator :stopCount ; :unit "ratio" ;
+    :numerator :onTimeStops ; :denominator :stopCount ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "按站点算（不是按趟）。分母是站点数：47,920/51,210 = 93.6%。口径写在这里，避免「按趟算」的另一半自己长出来——两边都叫准时率，数会差几个点。（refused: 平台历史声明，业务出处待补）" .
 
 :tempExcursionStops a owl:DatatypeProperty ;
@@ -190,7 +190,7 @@
     rdfs:label "通行证覆盖率" ;
     :askedAs "核心区通行证覆盖率是多少？" ;
     :grain :Vehicle ; :universe :Vehicle ; :aggregate "ratio_of_sums" ;
-    :numerator :permitVehicles ; :denominator :vehicleCount ; :unit "ratio" ;
+    :numerator :permitVehicles ; :denominator :vehicleCount ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "14/60 = 23.3%。分母是车辆总数（60 台）；实测 status 全为 active，所以此刻「含不含停用车」不影响数，但口径仍写明是整车队。（refused: 平台历史声明，业务出处待补）" .
 
 # =============================================================================
@@ -216,7 +216,7 @@
     rdfs:label "司机近30天准时率" ;
     :askedAs "司机最近30天的准时率怎么样？" ;
     :domain :DriverStat ; :aggregate "avg" ; :formula "on_time_rate" ;
-    :grain :DriverWindow ; :universe :DriverWindow ; :unit "ratio" ;
+    :grain :DriverWindow ; :universe :DriverWindow ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "拒绝：颗粒度 :DriverWindow 这个对象根本不存在（driver_stats 每行一个司机，window_days 恒为 30——「近30天」是这一行的标签，不是一个可选的窗口，问我「近 7 天」就没有数据）。:grain 指向未声明的对象，编译器按名字拒绝。（refused: 平台历史声明，业务出处待补）" .
 
 
@@ -252,7 +252,7 @@
     :askedAs "并线前后超载率各是多少？" ;
     :grain :Trip ; :universe :Trip ; :aggregate "ratio_of_sums" ;
     :numerator :overloadedTrips ; :denominator :tripCount ;
-    :groupBy :routeVersion ; :unit "ratio" ;
+    :groupBy :routeVersion ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "分子分母都在 :Trip 颗粒度上，所以可以按版本分组：每个版本自己的超载趟数 / 自己的总趟数。（refused: 平台历史声明，业务出处待补）" .
 
 :stopOnTimeRateByRouteVersion a owl:DatatypeProperty ;
@@ -260,7 +260,7 @@
     :askedAs "并线前后准时率各是多少？" ;
     :grain :Stop ; :universe :Stop ; :aggregate "ratio_of_sums" ;
     :numerator :onTimeStops ; :denominator :stopCount ;
-    :groupBy :routeVersion ; :unit "ratio" ;
+    :groupBy :routeVersion ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "站点颗粒度的比率，按 站点→行程→线路 取版本；每组的分子分母都是该组自己的站点。（refused: 平台历史声明，业务出处待补）" .
 
 :damagePer1kStopsByRouteVersion a owl:DatatypeProperty ;
@@ -292,7 +292,7 @@
     :askedAs "哪台车准时率最低？" ;
     :grain :Stop ; :universe :Stop ; :aggregate "ratio_of_sums" ;
     :numerator :onTimeStops ; :denominator :stopCount ;
-    :groupBy :plate ; :unit "ratio" ;
+    :groupBy :plate ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "与 :permitCoverage 一起看：没路权的车是否准点更差，是一个可检验的问题，不是一句结论。（refused: 平台历史声明，业务出处待补）" .
 
 :overloadRateByVehicle a owl:DatatypeProperty ;
@@ -300,7 +300,7 @@
     :askedAs "哪台车总超载？" ;
     :grain :Trip ; :universe :Trip ; :aggregate "ratio_of_sums" ;
     :numerator :overloadedTrips ; :denominator :tripCount ;
-    :groupBy :plate ; :unit "ratio" ;
+    :groupBy :plate ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "载重/容积/箱数三个上限里任一触顶即超载，口径来自 02 的 :OverloadedTrip。（refused: 平台历史声明，业务出处待补）" .
 
 :tripCountByWeek a owl:DatatypeProperty ;
@@ -316,7 +316,7 @@
     :askedAs "超载率这一周一变吗？" ;
     :grain :Trip ; :universe :Trip ; :aggregate "ratio_of_sums" ;
     :numerator :overloadedTrips ; :denominator :tripCount ;
-    :timeBucket "week" ; :unit "ratio" ;
+    :timeBucket "week" ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "时间轴与分组比率叠在一起：每周自己的超载趟数 / 自己的总趟数。（refused: 平台历史声明，业务出处待补）" .
 
 :complaintCountByWeek a owl:DatatypeProperty ;
@@ -332,7 +332,7 @@
     :askedAs "并线后是不是某些区域更差？" ;
     :grain :Stop ; :universe :Stop ; :aggregate "ratio_of_sums" ;
     :numerator :onTimeStops ; :denominator :stopCount ;
-    :groupBy :storeZone ; :groupBy :routeVersion ; :unit "ratio" ;
+    :groupBy :storeZone ; :groupBy :routeVersion ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "两个分组键：门店区域（站点→门店）与线路版本（站点→行程→线路），两个 join 都由声明式关联推导。（refused: 平台历史声明，业务出处待补）" .
 
 :damagePer1kStopsByZoneVersion a owl:DatatypeProperty ;
@@ -391,14 +391,14 @@
     rdfs:label "派单决策记录覆盖率" ;
     :askedAs "派单决策记录覆盖了多少行程？" ;
     :grain :Trip ; :universe :Trip ; :aggregate "ratio_of_sums" ;
-    :numerator :tripsWithDecisionRecord ; :denominator :tripCount ; :unit "ratio" ;
+    :numerator :tripsWithDecisionRecord ; :denominator :tripCount ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "分子分母同在 :Trip 颗粒度：有决策记录的趟数 / 总趟数。要复核「人情调度」，这个数必须先离开 0。（refused: 平台历史声明，业务出处待补）" .
 
 :unjudgedComplaintShare a owl:DatatypeProperty ;
     rdfs:label "责任未判定投诉占比" ;
     :askedAs "有多少投诉还没判定责任？" ;
     :grain :Complaint ; :universe :Complaint ; :aggregate "ratio_of_sums" ;
-    :numerator :unjudgedComplaints ; :denominator :complaintCount ; :unit "ratio" ;
+    :numerator :unjudgedComplaints ; :denominator :complaintCount ; :scale "100.0" ; :unit "percent" ;
     :businessDescription "分子分母都在 :Complaint 颗粒度。3,167/6,876 = 46.1%：将近一半的投诉没有人负责，赔付只在已判定的一侧产生。（refused: 平台历史声明，业务出处待补）" .
 
 :routeCount a owl:DatatypeProperty ;
@@ -460,3 +460,10 @@
     :universe :Complaint ; :groupBy :liability ; :groupBy :storeZone ;
     :unit "money" ; :additivity "additive" ;
     :businessDescription "Treemap 的格子：投诉→站点→门店 的关联由 :aboutStopOf 推导。未判定组金额为 NULL（不是 0），格子要标灰而不是画成零。（refused: 平台历史声明，业务出处待补）" .
+
+:permitFlagByVehicle a owl:DatatypeProperty ;
+    rdfs:label "每台车是否有核心区通行证" ;
+    :askedAs "这台车能不能进核心区？" ;
+    :domain :Vehicle ; :aggregate "sum" ; :grain :Vehicle ; :universe :Vehicle ;
+    :groupBy :plate ; :formula "cast(core_zone_permit as int)" ; :unit "flag" ; :additivity "additive" ;
+    :businessDescription "气泡图的颜色通道：按车牌一行，取值就是路权本身（1/0，前端映射成 有/无），前端不做「车→路权」的推断。来源 table:vehicles.core_zone_permit（:VehicleWithPermit 定义用的是同一列）；原先用 :stopCountByVehicleAndPermit（车牌 × 路权两个维度）当颜色通道，闸门 D1 判它「不是一维切分」，两个维度也无法一一对应到气泡的键。" .

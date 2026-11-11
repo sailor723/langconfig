@@ -1,499 +1,499 @@
 {
-  "_doc": "看板是一份声明，不是一份前端代码。这里只写「哪个指标、按什么看、失败时怎么说」；SQL 由编译器生成，数值由 guard 兜住，前端不做任何算术。任何一块取不到数，它就作为一块空洞显示，而不是消失——包括还没声明的对象（见 panels.dispatch.*）。",
-  "version": 1,
-  "ontology": "logistics",
-  "title": "ABC 冷链 · 经营看板",
-  "subtitle": "口径来自 ontologies/logistics/metrics_ext.ttl；每个面板都是那层声明的一个查询。",
-  "events": [
-    {
-      "id": "merge",
-      "at": "2026-09-22",
-      "label": "并线生效：50 → 40 条线路",
-      "kind": "regime",
-      "metric": "tripCountByWeek",
-      "note": "routes.version v2 的 effective_from。这是一条从数据里读出来的事实（routes 表），不是写死的注释。"
-    }
-  ],
-  "kpis": [
-    {
-      "metric": "tripCount",
-      "note": "90 天 4,050 趟"
-    },
-    {
-      "metric": "totalRevenue",
-      "note": "运费收入，按行程加总"
-    },
-    {
-      "metric": "overloadRate",
-      "note": "载重/容积/箱数任一触顶"
-    },
-    {
-      "metric": "stopOnTimeRate",
-      "note": "按站点算，不是按趟"
-    },
-    {
-      "metric": "damagePer1kStops",
-      "note": "每千站破损箱数"
-    },
-    {
-      "metric": "complaintCount",
-      "note": "6,876 条，一站一单"
-    },
-    {
-      "metric": "unjudgedComplaints",
-      "note": "责任未判定——分母要用它"
-    },
-    {
-      "metric": "permitCoverage",
-      "note": "核心区通行证覆盖率"
-    },
-    {
-      "metric": "dispatchDecisionCount",
-      "note": "派单决策记录数 · 表已建、口径已声明，还没有写回方"
-    },
-    {
-      "metric": "tripsWithDecisionRecord",
-      "note": "有派单决策记录的行程数 · 0 / 4,050"
-    },
-    {
-      "metric": "decisionCoverage",
-      "note": "派单决策覆盖率 · 写动词已声明，等真实派单入口"
-    }
-  ],
-  "panels": [
-    {
-      "id": "merge_slope",
-      "kind": "slope",
-      "view": "custom",
-      "title": "并线前后：四条口径一起看",
-      "question": "把 50 条线压成 40 条之后，哪些数动了、动了多少？",
-      "x": {
-        "dimension": "routeVersion",
-        "order": [
-          "v1",
-          "v2"
-        ]
-      },
-      "metrics": [
-        "tripCountByRouteVersion",
-        "overloadRateByRouteVersion",
-        "stopOnTimeRateByRouteVersion",
-        "damagePer1kStopsByRouteVersion"
-      ],
-      "why_custom": "斜率图要同时读「绝对量」与「比率」两把尺子，且两条线是同一个版本轴——通用渲染会把它拆成四个面板，反而看不到同一件事。",
-      "emit_filter": {
-        "dimension": "routeVersion",
-        "column": "key1"
-      }
-    },
-    {
-      "id": "overload_weekly",
-      "kind": "series",
-      "title": "超载率 · 按周",
-      "question": "超载是并线那一刻跳上去的，还是慢慢爬上去的？",
-      "metric": "overloadRateByWeek",
-      "render": "strip",
-      "marks": [
-        "merge"
-      ]
-    },
-    {
-      "id": "trips_weekly",
-      "kind": "series",
-      "title": "行程数 · 按周",
-      "question": "并线后每周的趟数是变多还是变少？",
-      "metric": "tripCountByWeek",
-      "render": "bar",
-      "marks": [
-        "merge"
-      ]
-    },
-    {
-      "id": "damage_ranked",
-      "kind": "ranked",
-      "title": "每千站破损箱数 · 按车辆",
-      "question": "车队整体 159，哪几台车在拉高这个数？",
-      "metric": "damagePer1kStopsByVehicle",
-      "size_by": "stopCountByVehicle",
-      "sort": "desc",
-      "limit": 20,
-      "emit_filter": {
-        "dimension": "plate",
-        "column": "key1"
-      },
-      "ask_with": "「{key}」的每千站破损箱数是多少？"
-    },
-    {
-      "id": "ontime_ranked",
-      "kind": "ranked",
-      "title": "准时率 · 按车辆",
-      "question": "准时最差的 20 台车，是否和破损最重的是同一批？",
-      "metric": "stopOnTimeRateByVehicle",
-      "size_by": "stopCountByVehicle",
-      "sort": "asc",
-      "limit": 20,
-      "emit_filter": {
-        "dimension": "plate",
-        "column": "key1"
-      },
-      "ask_with": "「{key}」的准时率是多少？",
-      "client_sort": true,
-      "sort_note": "编译器统一 ORDER BY 值 DESC；这张图要看最低端，所以由前端重排——声明里写出来，D2 才会放行。"
-    },
-    {
-      "id": "overload_ranked",
-      "kind": "ranked",
-      "title": "超载率 · 按车辆",
-      "question": "并线之后，是不是每台车都在超载？谁超得最多？",
-      "metric": "overloadRateByVehicle",
-      "size_by": "tripCountByVehicle",
-      "sort": "desc",
-      "limit": 20,
-      "emit_filter": {
-        "dimension": "plate",
-        "column": "key1"
-      },
-      "ask_with": "「{key}」的超载率是多少？"
-    },
-    {
-      "id": "zone_version_heat",
-      "kind": "matrix",
-      "title": "每千站破损箱数 · 区域 × 版本",
-      "question": "破损是区域问题还是并线问题？",
-      "metric": "damagePer1kStopsByZoneVersion",
-      "rows": "key1",
-      "cols": "key2",
-      "row_label": "门店区域",
-      "col_label": "线路版本",
-      "hovertip": "区域差 < 版本差 ⇒ 不是区域问题",
-      "size_by": "stopCountByZoneVersion",
-      "emit_filter": {
-        "dimension": "storeZone",
-        "column": "key1"
-      }
-    },
-    {
-      "id": "zone_version_ontime",
-      "kind": "matrix",
-      "title": "准时率 · 区域 × 版本",
-      "question": "并线后是不是某些区域更差？",
-      "metric": "stopOnTimeRateByZoneVersion",
-      "rows": "key1",
-      "cols": "key2",
-      "row_label": "门店区域",
-      "col_label": "线路版本",
-      "size_by": "stopCountByZoneVersion"
-    },
-    {
-      "id": "quality_flow",
-      "kind": "sankey",
-      "title": "站点质量流向：区域 → 准时/迟到",
-      "question": "并线之后，迟到集中在哪个区域？",
-      "nodes": [
-        {
-          "id": "stops",
-          "label": "站点"
-        },
-        {
-          "id": "core",
-          "label": "核心区"
-        },
-        {
-          "id": "suburb",
-          "label": "郊区"
-        },
-        {
-          "id": "ontime",
-          "label": "准时"
-        },
-        {
-          "id": "late",
-          "label": "迟到"
-        }
-      ],
-      "links": [
-        {
-          "from": "stops",
-          "to": "core",
-          "metric": "stopCountByZone",
-          "key": "core"
-        },
-        {
-          "from": "stops",
-          "to": "suburb",
-          "metric": "stopCountByZone",
-          "key": "suburb"
-        },
-        {
-          "from": "core",
-          "to": "ontime",
-          "metric": "stopCountByZoneAndOnTime",
-          "key": "core|true"
-        },
-        {
-          "from": "core",
-          "to": "late",
-          "metric": "stopCountByZoneAndOnTime",
-          "key": "core|false"
-        },
-        {
-          "from": "suburb",
-          "to": "ontime",
-          "metric": "stopCountByZoneAndOnTime",
-          "key": "suburb|true"
-        },
-        {
-          "from": "suburb",
-          "to": "late",
-          "metric": "stopCountByZoneAndOnTime",
-          "key": "suburb|false"
-        }
-      ],
-      "conservation": [
-        {
-          "node": "stops",
-          "whole": "stopCount",
-          "why": "第一层两股流量必须等于全部站点"
-        },
-        {
-          "node": "core",
-          "why": "核心区流入 = 核心区准时 + 核心区迟到（同一批站点）"
-        },
-        {
-          "node": "suburb",
-          "why": "郊区同理"
-        }
-      ],
-      "note": "每一股的宽度都是一个已声明指标的一个分组值；没有任何一段是图上相加得来的（D8 验证守恒）。"
-    },
-    {
-      "id": "vehicle_bubble",
-      "kind": "bubble",
-      "title": "车辆画像：超载 × 准时 × 规模 × 路权",
-      "question": "没路权的车，是不是同时更超载、更不准时？",
-      "x": "overloadRateByVehicle",
-      "y": "stopOnTimeRateByVehicle",
-      "size": "stopCountByVehicle",
-      "color": "stopCountByVehicleAndPermit",
-      "color_labels": {
-        "true": "有核心区通行证",
-        "false": "无核心区通行证"
-      },
-      "note": "四个通道都是已声明指标；缺任何一条的车不画，并报出缺口数量（D9）。"
-    },
-    {
-      "id": "claim_treemap",
-      "kind": "treemap",
-      "title": "赔付金额：责任方 × 区域",
-      "question": "钱赔在谁身上、赔在哪个区域？",
-      "metric": "claimAmountByLiabilityAndZone",
-      "rows": "key1",
-      "cols": "key2",
-      "row_label": "责任方",
-      "col_label": "门店区域",
-      "null_label": "未判定（无金额）",
-      "note": "未判定组金额是 NULL：画成灰块并标「无金额」，不画成零。"
-    },
-    {
-      "id": "claim_scale",
-      "kind": "parallel",
-      "title": "收入与已判定赔付（并列，不画差值）",
-      "question": "赔付相对运费是什么量级？",
-      "metrics": [
-        "totalRevenue",
-        "totalClaimAmount"
-      ],
-      "note": "两块都是声明值。差值需要一种跨颗粒度四则运算，本体还没有——所以不画，也不在浏览器里减。"
-    },
-    {
-      "id": "liability_split",
-      "kind": "composition",
-      "title": "投诉责任结构",
-      "question": "投诉都判给谁了？没判的有多少？",
-      "metric": "complaintCountByLiability",
-      "render": "bar",
-      "null_label": "未判定",
-      "note": "liability IS NULL 是独立一格，不是缺失值——它就是「责任推诿」这块体积。",
-      "emit_filter": {
-        "dimension": "liability",
-        "column": "key1"
-      }
-    },
-    {
-      "id": "claim_split",
-      "kind": "composition",
-      "title": "赔付金额 · 按责任方",
-      "question": "赔的钱是谁出的？",
-      "metric": "claimAmountByLiability",
-      "render": "bar",
-      "null_label": "未判定（无金额）",
-      "note": "未判定组 sum 为 NULL 而非 0：没有金额不等于零元赔付。",
-      "emit_filter": {
-        "dimension": "liability",
-        "column": "key1"
-      }
-    },
-    {
-      "id": "complaints_weekly",
-      "kind": "series",
-      "title": "投诉数 · 按周",
-      "question": "投诉是不是在恶化？",
-      "metric": "complaintCountByWeek",
-      "render": "bar",
-      "expect": "9 周以前的所有投诉都落在同一根柱子里 —— 时间戳是批量回填的，这张图本身就是证据。"
-    },
-    {
-      "id": "dispatch_review",
-      "kind": "hole",
-      "view": "custom",
-      "title": "派单复盘：好司机是否被排到差线",
-      "question": "现行排线是否在惩罚表现好的司机？",
-      "missing": "决策本身不会被自动记录：trips 只记结果（谁跑了哪条线），不记谁派的、为什么、当时那名司机月供多少。通道已经建好（表 :DispatchDecision、∃ 公理 :TripWithDecision、写动词 RecordDispatchDecision、audit_events 审计行），覆盖率仍是 0/4,050——缺的是调度把它当日常动作，不是缺声明。",
-      "measurable_now": {
-        "note": "现在能测的替代量：司机绩效 × 线路难度。实测 corr(准时率, 趟数) ≈ 0，差 10 名与好 10 名的线路同质（55.5 vs 54.4 km，同 15.7 站）。结论是「数据里看不到偏袒」，不是「没有偏袒」——右图把每台车的超载率 × 准时率画成散点，看得见的就是全部能看见的。",
-        "metrics": [
-          "stopOnTimeRateByVehicle",
-          "overloadRateByVehicle"
-        ]
-      },
-      "blocked_on": [
-        "真实派单入口：写动词 RecordDispatchDecision 已声明并可审计执行，但还没有调度页把它当日常动作",
-        "记录量：0/4,050 趟 —— 覆盖率这一格是 0，因为还没有人往里写"
-      ],
-      "filter_not_applicable": "这一格度量的是「记录缺失」，不受筛选影响：筛掉了行程也不会让决策记录出现。"
-    }
-  ],
-  "holes": [
-    {
-      "metric": "atRiskDrivers",
-      "expect_refusal": ":AtRiskDriver has no owl:equivalentClass axiom",
-      "why": "「高风险」的判定线是客户政策，库里没有。要么在 02 里声明公理，要么这个问题永远拒绝。"
-    },
-    {
-      "metric": "driverRecentOnTimeRate",
-      "expect_refusal": "class :DriverWindow declares no :physicalTable",
-      "why": "driver_stats 每行一个司机、window_days 恒为 30：「近 30 天」是标签，不是可选窗口。"
-    },
-    {
-      "metric": "plannedStopsVisited",
-      "expect_refusal": ":PlannedStopVisited has no owl:equivalentClass axiom",
-      "why": "计划（route_stops）与实际（stops）对不上：51,210 站里只有 75 站与计划同店。计划达成率的两侧都不可信。"
-    }
-  ],
-  "cross_filter": [
-    {
-      "dimension": "version",
-      "label": "线路版本",
-      "metric_panel": "merge_slope",
-      "apply_to": [
-        "overload_weekly",
-        "trips_weekly",
-        "damage_ranked"
-      ]
-    },
-    {
-      "dimension": "plate",
-      "label": "车辆",
-      "metric_panel": "damage_ranked",
-      "apply_to": [
-        "ontime_ranked"
-      ]
-    }
-  ],
-  "policy": [
-    {
-      "id": "overload",
-      "label": "超载率红线",
-      "metric": "overloadRate",
-      "op": ">",
-      "value": 0.05,
-      "assumed": true,
-      "why": "载重/容积/箱数任一触顶即超载。5% 是我们给的初始红线，业务未确认。"
-    },
-    {
-      "id": "ontime",
-      "label": "准时率红线",
-      "metric": "stopOnTimeRate",
-      "op": "<",
-      "value": 0.95,
-      "assumed": true,
-      "why": "按站点算的准时率。95% 是甲方合同里的常见门槛，本项目未取得合同原文。"
-    },
-    {
-      "id": "damage",
-      "label": "破损红线",
-      "metric": "damagePer1kStops",
-      "op": ">",
-      "value": 180,
-      "assumed": true,
-      "why": "每千站破损箱数。180 箱/千站的初始红线，业务未确认。"
-    },
-    {
-      "id": "liability",
-      "label": "责任未判定红线",
-      "metric": "unjudgedComplaintShare",
-      "op": ">",
-      "value": 0.3,
-      "assumed": true,
-      "why": "判定不了就没人赔，履约质量无从收敛。30% 的初始红线，业务未确认。"
-    },
-    {
-      "id": "coverage",
-      "label": "决策覆盖率红线",
-      "metric": "decisionCoverage",
-      "op": "<",
-      "value": 1.0,
-      "assumed": true,
-      "why": "派单决策记录覆盖率。100% 表示每趟的派单都有记录；低于它就是「查不了」。业务未确认。"
-    }
-  ],
-  "briefing": {
-    "_doc": "开场评价：每条结论里的数字都必须写成 {metric} 或 {metric:key} 占位符，渲染时由编译结果填。闸门 D7 不允许正文出现任何裸数字——手写的「81%」在数据变化后就是谎。",
-    "headline": "{overloadRate} 的行程在超载，而并线之后它变成 {overloadRateByRouteVersion:v2}；准时率掉到 {stopOnTimeRateByRouteVersion:v2}，每千站破损升到 {damagePer1kStopsByRouteVersion:v2} 箱。",
-    "claims": [
-      {
-        "id": "merge",
-        "verdict_by": null,
-        "text": "并线把线路从 {routeCountByVersion:v1} 条压成 {routeCountByVersion:v2} 条，每条线路的计划站数从 {stopsPerRouteByVersion:v1} 站涨到 {stopsPerRouteByVersion:v2} 站，超载率随之从 {overloadRateByRouteVersion:v1} 跳到 {overloadRateByRouteVersion:v2}。",
-        "note": "超载是「载重/容积/箱数任一触顶」，不是司机自愿。"
-      },
-      {
-        "id": "ontime",
-        "verdict_by": "ontime",
-        "text": "准时率从 {stopOnTimeRateByRouteVersion:v1} 降到 {stopOnTimeRateByRouteVersion:v2}；车队整体 {stopOnTimeRate}。",
-        "note": "按站点计，不按趟计。"
-      },
-      {
-        "id": "damage",
-        "verdict_by": "damage",
-        "text": "每千站破损 {damagePer1kStops} 箱；最差的一台车（{damagePer1kStopsByVehicle:沪A35091#key}）是 {damagePer1kStopsByVehicle:沪A35091} 箱。",
-        "note": "车队一个数、每台车一个数，都由编译器算。"
-      },
-      {
-        "id": "liability",
-        "verdict_by": "liability",
-        "text": "投诉 {complaintCount} 单里，责任未判定 {unjudgedComplaints} 单（占 {unjudgedComplaintShare}）；赔付只发生在已判定的一侧——临时工 {claimAmountByLiability:labourer}、司机 {claimAmountByLiability:driver}。",
-        "note": "未判定那一组没有金额，不是零元赔付。"
-      },
-      {
-        "id": "coverage",
-        "verdict_by": "coverage",
-        "text": "派单决策记录覆盖率 {decisionCoverage}——它的意思是「谁派的、为什么、当时他月供多少」这件事，在库里完全没有记录。",
-        "note": "表 :DispatchDecision 与写动词 RecordDispatchDecision 已就位，缺的是调度把它当日常动作。"
-      },
-      {
-        "id": "permit",
-        "verdict_by": null,
-        "text": "核心区通行证覆盖 {permitCoverage}：没有路权的车被挤到郊区线路，这是资产置换问题，不是调度能补的。",
-        "note": "区域差异在数据里不成立（核心区与郊区准时率接近），所以不把它写成结论。"
-      }
-    ],
-    "cannot_see": [
-      "并线补偿条款与运价：库里只有 revenue，没有单价/合同 → 「该赔多少」算不出来，只能算我方后果。",
-      "「人情调度」本身：派单决策未记录，还款压力未采集。实测 corr(准时率, 趟数) 近似为零，只能说数据里看不到偏袒。",
-      "客诉趋势：全部投诉的时间戳由同一次批量回填写下，时间维度不可信（见「投诉数 · 按周」只有一根柱子）。",
-      "温控曲线：遥测只覆盖一小段出车时间，只能报「温控超标站点数」，不能画温度走势。"
-    ],
-    "next": "先做两件不依赖算法的事：一、让调度把每一趟的派单决策经 RecordDispatchDecision 记进库（覆盖率离开零）；二、用「线路难度 × 司机画像」复盘一轮，而不是按关系。自动排线要等这两件有数据之后才谈得上公平。"
+ "_doc": "看板是一份声明，不是一份前端代码。这里只写「哪个指标、按什么看、失败时怎么说」；SQL 由编译器生成，数值由 guard 兜住，前端不做任何算术。任何一块取不到数，它就作为一块空洞显示，而不是消失——包括还没声明的对象（见 panels.dispatch.*）。",
+ "version": 1,
+ "ontology": "logistics",
+ "title": "ABC 冷链 · 经营看板",
+ "subtitle": "口径来自 ontologies/logistics/metrics_ext.ttl；每个面板都是那层声明的一个查询。",
+ "events": [
+  {
+   "id": "merge",
+   "at": "2026-09-22",
+   "label": "并线生效：50 → 40 条线路",
+   "kind": "regime",
+   "metric": "tripCountByWeek",
+   "note": "routes.version v2 的 effective_from。这是一条从数据里读出来的事实（routes 表），不是写死的注释。"
   }
+ ],
+ "kpis": [
+  {
+   "metric": "tripCount",
+   "note": "90 天 4,050 趟"
+  },
+  {
+   "metric": "totalRevenue",
+   "note": "运费收入，按行程加总"
+  },
+  {
+   "metric": "overloadRate",
+   "note": "载重/容积/箱数任一触顶"
+  },
+  {
+   "metric": "stopOnTimeRate",
+   "note": "按站点算，不是按趟"
+  },
+  {
+   "metric": "damagePer1kStops",
+   "note": "每千站破损箱数"
+  },
+  {
+   "metric": "complaintCount",
+   "note": "6,876 条，一站一单"
+  },
+  {
+   "metric": "unjudgedComplaints",
+   "note": "责任未判定——分母要用它"
+  },
+  {
+   "metric": "permitCoverage",
+   "note": "核心区通行证覆盖率"
+  },
+  {
+   "metric": "dispatchDecisionCount",
+   "note": "派单决策记录数 · 表已建、口径已声明，还没有写回方"
+  },
+  {
+   "metric": "tripsWithDecisionRecord",
+   "note": "有派单决策记录的行程数 · 0 / 4,050"
+  },
+  {
+   "metric": "decisionCoverage",
+   "note": "派单决策覆盖率 · 写动词已声明，等真实派单入口"
+  }
+ ],
+ "panels": [
+  {
+   "id": "merge_slope",
+   "kind": "slope",
+   "view": "custom",
+   "title": "并线前后：四条口径一起看",
+   "question": "把 50 条线压成 40 条之后，哪些数动了、动了多少？",
+   "x": {
+    "dimension": "routeVersion",
+    "order": [
+     "v1",
+     "v2"
+    ]
+   },
+   "metrics": [
+    "tripCountByRouteVersion",
+    "overloadRateByRouteVersion",
+    "stopOnTimeRateByRouteVersion",
+    "damagePer1kStopsByRouteVersion"
+   ],
+   "why_custom": "斜率图要同时读「绝对量」与「比率」两把尺子，且两条线是同一个版本轴——通用渲染会把它拆成四个面板，反而看不到同一件事。",
+   "emit_filter": {
+    "dimension": "routeVersion",
+    "column": "key1"
+   }
+  },
+  {
+   "id": "overload_weekly",
+   "kind": "series",
+   "title": "超载率 · 按周",
+   "question": "超载是并线那一刻跳上去的，还是慢慢爬上去的？",
+   "metric": "overloadRateByWeek",
+   "render": "strip",
+   "marks": [
+    "merge"
+   ]
+  },
+  {
+   "id": "trips_weekly",
+   "kind": "series",
+   "title": "行程数 · 按周",
+   "question": "并线后每周的趟数是变多还是变少？",
+   "metric": "tripCountByWeek",
+   "render": "bar",
+   "marks": [
+    "merge"
+   ]
+  },
+  {
+   "id": "damage_ranked",
+   "kind": "ranked",
+   "title": "每千站破损箱数 · 按车辆",
+   "question": "车队整体 159，哪几台车在拉高这个数？",
+   "metric": "damagePer1kStopsByVehicle",
+   "size_by": "stopCountByVehicle",
+   "sort": "desc",
+   "limit": 20,
+   "emit_filter": {
+    "dimension": "plate",
+    "column": "key1"
+   },
+   "ask_with": "「{key}」的每千站破损箱数是多少？"
+  },
+  {
+   "id": "ontime_ranked",
+   "kind": "ranked",
+   "title": "准时率 · 按车辆",
+   "question": "准时最差的 20 台车，是否和破损最重的是同一批？",
+   "metric": "stopOnTimeRateByVehicle",
+   "size_by": "stopCountByVehicle",
+   "sort": "asc",
+   "limit": 20,
+   "emit_filter": {
+    "dimension": "plate",
+    "column": "key1"
+   },
+   "ask_with": "「{key}」的准时率是多少？",
+   "client_sort": true,
+   "sort_note": "编译器统一 ORDER BY 值 DESC；这张图要看最低端，所以由前端重排——声明里写出来，D2 才会放行。"
+  },
+  {
+   "id": "overload_ranked",
+   "kind": "ranked",
+   "title": "超载率 · 按车辆",
+   "question": "并线之后，是不是每台车都在超载？谁超得最多？",
+   "metric": "overloadRateByVehicle",
+   "size_by": "tripCountByVehicle",
+   "sort": "desc",
+   "limit": 20,
+   "emit_filter": {
+    "dimension": "plate",
+    "column": "key1"
+   },
+   "ask_with": "「{key}」的超载率是多少？"
+  },
+  {
+   "id": "zone_version_heat",
+   "kind": "matrix",
+   "title": "每千站破损箱数 · 区域 × 版本",
+   "question": "破损是区域问题还是并线问题？",
+   "metric": "damagePer1kStopsByZoneVersion",
+   "rows": "key1",
+   "cols": "key2",
+   "row_label": "门店区域",
+   "col_label": "线路版本",
+   "hovertip": "区域差 < 版本差 ⇒ 不是区域问题",
+   "size_by": "stopCountByZoneVersion",
+   "emit_filter": {
+    "dimension": "storeZone",
+    "column": "key1"
+   }
+  },
+  {
+   "id": "zone_version_ontime",
+   "kind": "matrix",
+   "title": "准时率 · 区域 × 版本",
+   "question": "并线后是不是某些区域更差？",
+   "metric": "stopOnTimeRateByZoneVersion",
+   "rows": "key1",
+   "cols": "key2",
+   "row_label": "门店区域",
+   "col_label": "线路版本",
+   "size_by": "stopCountByZoneVersion"
+  },
+  {
+   "id": "quality_flow",
+   "kind": "sankey",
+   "title": "站点质量流向：区域 → 准时/迟到",
+   "question": "并线之后，迟到集中在哪个区域？",
+   "nodes": [
+    {
+     "id": "stops",
+     "label": "站点"
+    },
+    {
+     "id": "core",
+     "label": "核心区"
+    },
+    {
+     "id": "suburb",
+     "label": "郊区"
+    },
+    {
+     "id": "ontime",
+     "label": "准时"
+    },
+    {
+     "id": "late",
+     "label": "迟到"
+    }
+   ],
+   "links": [
+    {
+     "from": "stops",
+     "to": "core",
+     "metric": "stopCountByZone",
+     "key": "core"
+    },
+    {
+     "from": "stops",
+     "to": "suburb",
+     "metric": "stopCountByZone",
+     "key": "suburb"
+    },
+    {
+     "from": "core",
+     "to": "ontime",
+     "metric": "stopCountByZoneAndOnTime",
+     "key": "core|true"
+    },
+    {
+     "from": "core",
+     "to": "late",
+     "metric": "stopCountByZoneAndOnTime",
+     "key": "core|false"
+    },
+    {
+     "from": "suburb",
+     "to": "ontime",
+     "metric": "stopCountByZoneAndOnTime",
+     "key": "suburb|true"
+    },
+    {
+     "from": "suburb",
+     "to": "late",
+     "metric": "stopCountByZoneAndOnTime",
+     "key": "suburb|false"
+    }
+   ],
+   "conservation": [
+    {
+     "node": "stops",
+     "whole": "stopCount",
+     "why": "第一层两股流量必须等于全部站点"
+    },
+    {
+     "node": "core",
+     "why": "核心区流入 = 核心区准时 + 核心区迟到（同一批站点）"
+    },
+    {
+     "node": "suburb",
+     "why": "郊区同理"
+    }
+   ],
+   "note": "每一股的宽度都是一个已声明指标的一个分组值；没有任何一段是图上相加得来的（D8 验证守恒）。"
+  },
+  {
+   "id": "vehicle_bubble",
+   "kind": "bubble",
+   "title": "车辆画像：超载 × 准时 × 规模 × 路权",
+   "question": "没路权的车，是不是同时更超载、更不准时？",
+   "x": "overloadRateByVehicle",
+   "y": "stopOnTimeRateByVehicle",
+   "size": "stopCountByVehicle",
+   "color": "permitFlagByVehicle",
+   "color_labels": {
+    "true": "有核心区通行证",
+    "false": "无核心区通行证"
+   },
+   "note": "四个通道都是已声明指标；路权由 :permitFlagByVehicle 直接给出（一维：按车牌），缺任何一条的车不画，并报出缺口数量（D9）。"
+  },
+  {
+   "id": "claim_treemap",
+   "kind": "treemap",
+   "title": "赔付金额：责任方 × 区域",
+   "question": "钱赔在谁身上、赔在哪个区域？",
+   "metric": "claimAmountByLiabilityAndZone",
+   "rows": "key1",
+   "cols": "key2",
+   "row_label": "责任方",
+   "col_label": "门店区域",
+   "null_label": "未判定（无金额）",
+   "note": "未判定组金额是 NULL：画成灰块并标「无金额」，不画成零。"
+  },
+  {
+   "id": "claim_scale",
+   "kind": "parallel",
+   "title": "收入与已判定赔付（并列，不画差值）",
+   "question": "赔付相对运费是什么量级？",
+   "metrics": [
+    "totalRevenue",
+    "totalClaimAmount"
+   ],
+   "note": "两块都是声明值。差值需要一种跨颗粒度四则运算，本体还没有——所以不画，也不在浏览器里减。"
+  },
+  {
+   "id": "liability_split",
+   "kind": "composition",
+   "title": "投诉责任结构",
+   "question": "投诉都判给谁了？没判的有多少？",
+   "metric": "complaintCountByLiability",
+   "render": "bar",
+   "null_label": "未判定",
+   "note": "liability IS NULL 是独立一格，不是缺失值——它就是「责任推诿」这块体积。",
+   "emit_filter": {
+    "dimension": "liability",
+    "column": "key1"
+   }
+  },
+  {
+   "id": "claim_split",
+   "kind": "composition",
+   "title": "赔付金额 · 按责任方",
+   "question": "赔的钱是谁出的？",
+   "metric": "claimAmountByLiability",
+   "render": "bar",
+   "null_label": "未判定（无金额）",
+   "note": "未判定组 sum 为 NULL 而非 0：没有金额不等于零元赔付。",
+   "emit_filter": {
+    "dimension": "liability",
+    "column": "key1"
+   }
+  },
+  {
+   "id": "complaints_weekly",
+   "kind": "series",
+   "title": "投诉数 · 按周",
+   "question": "投诉是不是在恶化？",
+   "metric": "complaintCountByWeek",
+   "render": "bar",
+   "expect": "9 周以前的所有投诉都落在同一根柱子里 —— 时间戳是批量回填的，这张图本身就是证据。"
+  },
+  {
+   "id": "dispatch_review",
+   "kind": "hole",
+   "view": "custom",
+   "title": "派单复盘：好司机是否被排到差线",
+   "question": "现行排线是否在惩罚表现好的司机？",
+   "missing": "决策本身不会被自动记录：trips 只记结果（谁跑了哪条线），不记谁派的、为什么、当时那名司机月供多少。通道已经建好（表 :DispatchDecision、∃ 公理 :TripWithDecision、写动词 RecordDispatchDecision、audit_events 审计行），覆盖率仍是 0/4,050——缺的是调度把它当日常动作，不是缺声明。",
+   "measurable_now": {
+    "note": "现在能测的替代量：司机绩效 × 线路难度。实测 corr(准时率, 趟数) ≈ 0，差 10 名与好 10 名的线路同质（55.5 vs 54.4 km，同 15.7 站）。结论是「数据里看不到偏袒」，不是「没有偏袒」——右图把每台车的超载率 × 准时率画成散点，看得见的就是全部能看见的。",
+    "metrics": [
+     "stopOnTimeRateByVehicle",
+     "overloadRateByVehicle"
+    ]
+   },
+   "blocked_on": [
+    "真实派单入口：写动词 RecordDispatchDecision 已声明并可审计执行，但还没有调度页把它当日常动作",
+    "记录量：0/4,050 趟 —— 覆盖率这一格是 0，因为还没有人往里写"
+   ],
+   "filter_not_applicable": "这一格度量的是「记录缺失」，不受筛选影响：筛掉了行程也不会让决策记录出现。"
+  }
+ ],
+ "holes": [
+  {
+   "metric": "atRiskDrivers",
+   "expect_refusal": ":AtRiskDriver has no owl:equivalentClass axiom",
+   "why": "「高风险」的判定线是客户政策，库里没有。要么在 02 里声明公理，要么这个问题永远拒绝。"
+  },
+  {
+   "metric": "driverRecentOnTimeRate",
+   "expect_refusal": "class :DriverWindow declares no :physicalTable",
+   "why": "driver_stats 每行一个司机、window_days 恒为 30：「近 30 天」是标签，不是可选窗口。"
+  },
+  {
+   "metric": "plannedStopsVisited",
+   "expect_refusal": ":PlannedStopVisited has no owl:equivalentClass axiom",
+   "why": "计划（route_stops）与实际（stops）对不上：51,210 站里只有 75 站与计划同店。计划达成率的两侧都不可信。"
+  }
+ ],
+ "cross_filter": [
+  {
+   "dimension": "version",
+   "label": "线路版本",
+   "metric_panel": "merge_slope",
+   "apply_to": [
+    "overload_weekly",
+    "trips_weekly",
+    "damage_ranked"
+   ]
+  },
+  {
+   "dimension": "plate",
+   "label": "车辆",
+   "metric_panel": "damage_ranked",
+   "apply_to": [
+    "ontime_ranked"
+   ]
+  }
+ ],
+ "policy": [
+  {
+   "id": "overload",
+   "label": "超载率红线",
+   "metric": "overloadRate",
+   "op": ">",
+   "value": 0.05,
+   "assumed": true,
+   "why": "载重/容积/箱数任一触顶即超载。5% 是我们给的初始红线，业务未确认。"
+  },
+  {
+   "id": "ontime",
+   "label": "准时率红线",
+   "metric": "stopOnTimeRate",
+   "op": "<",
+   "value": 0.95,
+   "assumed": true,
+   "why": "按站点算的准时率。95% 是甲方合同里的常见门槛，本项目未取得合同原文。"
+  },
+  {
+   "id": "damage",
+   "label": "破损红线",
+   "metric": "damagePer1kStops",
+   "op": ">",
+   "value": 180,
+   "assumed": true,
+   "why": "每千站破损箱数。180 箱/千站的初始红线，业务未确认。"
+  },
+  {
+   "id": "liability",
+   "label": "责任未判定红线",
+   "metric": "unjudgedComplaintShare",
+   "op": ">",
+   "value": 0.3,
+   "assumed": true,
+   "why": "判定不了就没人赔，履约质量无从收敛。30% 的初始红线，业务未确认。"
+  },
+  {
+   "id": "coverage",
+   "label": "决策覆盖率红线",
+   "metric": "decisionCoverage",
+   "op": "<",
+   "value": 1.0,
+   "assumed": true,
+   "why": "派单决策记录覆盖率。100% 表示每趟的派单都有记录；低于它就是「查不了」。业务未确认。"
+  }
+ ],
+ "briefing": {
+  "_doc": "开场评价：每条结论里的数字都必须写成 {metric} 或 {metric:key} 占位符，渲染时由编译结果填。闸门 D7 不允许正文出现任何裸数字——手写的「81%」在数据变化后就是谎。",
+  "headline": "{overloadRate} 的行程在超载，而并线之后它变成 {overloadRateByRouteVersion:v2}；准时率掉到 {stopOnTimeRateByRouteVersion:v2}，每千站破损升到 {damagePer1kStopsByRouteVersion:v2} 箱。",
+  "claims": [
+   {
+    "id": "merge",
+    "verdict_by": null,
+    "text": "并线把线路从 {routeCountByVersion:v1} 条压成 {routeCountByVersion:v2} 条，每条线路的计划站数从 {stopsPerRouteByVersion:v1} 站涨到 {stopsPerRouteByVersion:v2} 站，超载率随之从 {overloadRateByRouteVersion:v1} 跳到 {overloadRateByRouteVersion:v2}。",
+    "note": "超载是「载重/容积/箱数任一触顶」，不是司机自愿。"
+   },
+   {
+    "id": "ontime",
+    "verdict_by": "ontime",
+    "text": "准时率从 {stopOnTimeRateByRouteVersion:v1} 降到 {stopOnTimeRateByRouteVersion:v2}；车队整体 {stopOnTimeRate}。",
+    "note": "按站点计，不按趟计。"
+   },
+   {
+    "id": "damage",
+    "verdict_by": "damage",
+    "text": "每千站破损 {damagePer1kStops} 箱；最差的一台车（{damagePer1kStopsByVehicle:沪A35091#key}）是 {damagePer1kStopsByVehicle:沪A35091} 箱。",
+    "note": "车队一个数、每台车一个数，都由编译器算。"
+   },
+   {
+    "id": "liability",
+    "verdict_by": "liability",
+    "text": "投诉 {complaintCount} 单里，责任未判定 {unjudgedComplaints} 单（占 {unjudgedComplaintShare}）；赔付只发生在已判定的一侧——临时工 {claimAmountByLiability:labourer}、司机 {claimAmountByLiability:driver}。",
+    "note": "未判定那一组没有金额，不是零元赔付。"
+   },
+   {
+    "id": "coverage",
+    "verdict_by": "coverage",
+    "text": "派单决策记录覆盖率 {decisionCoverage}——它的意思是「谁派的、为什么、当时他月供多少」这件事，在库里完全没有记录。",
+    "note": "表 :DispatchDecision 与写动词 RecordDispatchDecision 已就位，缺的是调度把它当日常动作。"
+   },
+   {
+    "id": "permit",
+    "verdict_by": null,
+    "text": "核心区通行证覆盖 {permitCoverage}：没有路权的车被挤到郊区线路，这是资产置换问题，不是调度能补的。",
+    "note": "区域差异在数据里不成立（核心区与郊区准时率接近），所以不把它写成结论。"
+   }
+  ],
+  "cannot_see": [
+   "并线补偿条款与运价：库里只有 revenue，没有单价/合同 → 「该赔多少」算不出来，只能算我方后果。",
+   "「人情调度」本身：派单决策未记录，还款压力未采集。实测 corr(准时率, 趟数) 近似为零，只能说数据里看不到偏袒。",
+   "客诉趋势：全部投诉的时间戳由同一次批量回填写下，时间维度不可信（见「投诉数 · 按周」只有一根柱子）。",
+   "温控曲线：遥测只覆盖一小段出车时间，只能报「温控超标站点数」，不能画温度走势。"
+  ],
+  "next": "先做两件不依赖算法的事：一、让调度把每一趟的派单决策经 RecordDispatchDecision 记进库（覆盖率离开零）；二、用「线路难度 × 司机画像」复盘一轮，而不是按关系。自动排线要等这两件有数据之后才谈得上公平。"
+ }
 }

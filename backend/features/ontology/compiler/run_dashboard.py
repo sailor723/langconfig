@@ -322,16 +322,41 @@ def _strings(value, depth: int = 0):
             yield from _strings(v, depth + 1)
 
 
+def _documentation_shapes(value, depth: int = 0):
+    """Every string inside a declared value, but not inside a `_doc` (documentation) entry.
+
+    `_doc` is the repo's convention for "this key explains the declaration" — its prose is for the
+    author, not for the compiler. Walking it made the gate ask for a metric literally named
+    `metric`: logistics' briefing carries `"_doc": "…必须写成 {metric} 或 {metric:key} 占位符…"`,
+    and D0 reported `metric (briefing) → missing_declaration` on a board whose numbers were fine.
+    """
+    if isinstance(value, str):
+        yield value
+        return
+    if depth > 6:
+        return
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if isinstance(key, str) and key.startswith("_"):
+                continue
+            yield from _documentation_shapes(item, depth + 1)
+        return
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            yield from _documentation_shapes(item, depth + 1)
+
+
 def briefing_refs(dash: dict) -> list[tuple[str, str | None]]:
     """Every metric a briefing references — as a `{metric}` placeholder, or as a bare declared name.
 
     Both forms appear in real declarations: prose with placeholders, and `"headline": [names…]`
     (an index of the numbers the board opens with). A bare name that is not a declared metric is
-    ignored here and reported by the gate, not by the renderer.
+    ignored here and reported by the gate, not by the renderer. Documentation (`_doc`) is skipped:
+    a placeholder shown as an EXAMPLE is not a claim about this board.
     """
     out: list[tuple[str, str | None]] = []
     names = set(metrics_by_name) if isinstance(metrics_by_name, dict) else set()
-    for text in _strings(dash.get("briefing")):
+    for text in _documentation_shapes(dash.get("briefing")):
         for metric, key, _echo in PLACEHOLDER.findall(text):
             if (metric, key) not in out:
                 out.append((metric, key))
