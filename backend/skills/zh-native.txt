@@ -6,3 +6,4 @@ skill-generator
 sql-analyst
 excel-csv-to-postgres
 db-query
+sqlite-to-postgres

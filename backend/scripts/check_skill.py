@@ -50,7 +50,10 @@ def lint(skill_dir: pathlib.Path, warns: list[str] | None = None) -> list[str]:
     text = skill_md.read_text(encoding="utf-8")
 
     # L1 version
-    if not re.search(r"^version:\s*'?[0-9]", text, re.M):
+    # Either quote: 52 of the 88 skills in this library write `version: "1.0"`, so accepting only the
+    # single quote made L1 red for the majority of a healthy library — and a lint that is always red is
+    # a lint nobody reads.
+    if not re.search(r"^version:\s*[\"']?[0-9]", text, re.M):
         problems.append("L1 SKILL.md declares no `version:`")
 
     # L2 links resolve (relative links only: references/…, scripts/…, examples/…)
@@ -119,7 +122,7 @@ def main() -> int:
     for d in dirs:
         warns: list[str] = []
         problems = lint(d, warns)
-        version = re.search(r"^version:\s*'?([0-9.]+)'?", (d / "SKILL.md").read_text(encoding="utf-8"), re.M)
+        version = re.search(r"^version:\s*[\"']?([0-9.]+)[\"']?", (d / "SKILL.md").read_text(encoding="utf-8"), re.M)
         print(f"\n=== {d.name}  v{version.group(1) if version else '?'}")
         if not problems:
             print("  ok — every rule is gated or advisory, every file reachable, every reference scheduled")
