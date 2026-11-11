@@ -280,6 +280,8 @@ def build_payload(onto: Ontology, mapping: dict, *, verbose: bool = True) -> dic
             "direction": direction,
             "direction_overridden": bool(overrides.get(kpi_id)),
             "metric": metric,
+            "no_series": bool(entry.get("no_series")),
+            "no_series_why": entry.get("no_series_why") if entry.get("no_series") else None,
             "note": entry.get("note"),
             "refusal": entry.get("refusal"),
             "value": None,
@@ -500,12 +502,16 @@ def _chart_card(row: dict) -> tuple[str, str]:
             "",
         )
     if not row["series"]:
+        why_snapshot = (
+            f'这条 KPI 只有快照，没有月度序列：{row["no_series_why"]}'
+            if row.get("no_series_why") else
+            f'本体尚未声明 <code>:{esc(row["series_metric"])}</code>（快照只有一期读数）')
         return (
             f'    <div class="card"><div class="chart-title">{esc(title)}</div>'
             f'<div class="chart" style="display:flex;align-items:center;justify-content:center;'
             f'color:#999;font-size:13px;line-height:1.7;text-align:left;padding:0 28px">'
             f'<div><strong style="color:#b8860b">只有快照值，没有按月序列。</strong><br>'
-            f'本体尚未声明 <code>:{esc(row["series_metric"])}</code>；当前月 {esc(fmt_value(row["value"], row["ontology_unit"]))} 是可用读数。</div>'
+            f'{why_snapshot}；当前月 {esc(fmt_value(row["value"], row["ontology_unit"]))} 是可用读数。</div>'
             f'</div></div>\n',
             "",
         )

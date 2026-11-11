@@ -159,7 +159,9 @@
       "kpi_id": "11_生态伙伴轻资产化指数",
       "page": "turnover",
       "metric": "lightAssetIndex",
-      "note": "库里 entity_type 实际取值是 core/partner，公式过滤的 eco_partner 一行都匹配不到，所以该指标恒为 0。"
+      "note": "库里 entity_type 实际取值是 core/partner，公式过滤的 eco_partner 一行都匹配不到，所以该指标恒为 0。",
+      "no_series": true,
+      "no_series_why": "源表是「当前有几个伙伴、其中几个盈利」的计数比，没有期间列，按月看需要一个伙伴状态历史表，库里没有"
     },
     {
       "kpi_id": "12_数字资产归集与复用率",
@@ -176,7 +178,10 @@
     {
       "kpi_id": "14_股权分立架构完成率",
       "page": "leverage",
-      "metric": "architectureSeparationRate"
+      "metric": "architectureSeparationRate",
+      "no_series": true,
+      "note": "源表是实体清单的当前状态（12 个实体里 10 个完成分立），没有「哪个月完成」的列，所以只有快照。",
+      "no_series_why": "源表是实体清单的当前状态，没有「哪个月完成分立」的列"
     },
     {
       "kpi_id": "15_员工股权/合伙转化率",
@@ -192,13 +197,16 @@
       "kpi_id": "17_生态伙伴战略协同指数",
       "page": "leverage",
       "metric": "ecoPartnerSynergyIndex",
-      "note": "已复核可从库里复算：60.0 + 伙伴订单行占比×5 + 伙伴实体数×2 = 61.2711864，与 fact 61.27 一致。60 这个基数是 dim_kpi 存储公式里的常数，属于源口径，不是本体的判断。"
+      "note": "已声明（快照 {v}）：raw_crm 上「每条订单基数分 + 生态伙伴订单加成」的均值，公式第三项（伙伴实体计数 × 系数）在本库实测 0 行，所以它没有贡献；系数 60/5/2 是目录里存着的常数，没有业务出处。没有期间列，所以只有快照，没有月度序列。",
+      "no_series": true,
+      "no_series_why": "源表（raw_crm / raw_entity）没有期间列，它是当前状态的快照"
     },
     {
       "kpi_id": "18_技术骨干留任率",
       "page": "support",
-      "metric": "techLeadRetentionRate",
-      "note": "已复核可复算：(tech_lead_headcount − 当月 Tech/Team Lead 减员数) × 100 / tech_lead_headcount = 46.1538，与 fact 46.15 一致。源公式里 severance_completed_cumulative 在分子上自己约掉了，真正进入分子的是 raw_hr_event 的当月减员件数。"
+      "metric": null,
+      "note": "已复核可复算：(tech_lead_headcount − 当月 Tech/Team Lead 减员数) × 100 / tech_lead_headcount = 46.1538，与 fact 46.15 一致。源公式里 severance_completed_cumulative 在分子上自己约掉了，真正进入分子的是 raw_hr_event 的当月减员件数。",
+      "refusal": "库里算得出这个数（化简后 = (tech_lead_headcount − 当月 Tech/Team Lead 减员件数) × 100 ÷ tech_lead_headcount，2027-02 = 46.1538，与 fact 46.15 一致），但编译器表达不了：:formula 只能引用所声明类自身的列，而分子要的 raw_hr_event 与分母的 dim_hr_monthly 之间没有键（探针实测：REFUSED 'formula mentions count, not a column of the joined classes'）。补法只有两条：把 severance_lead_events 物化成 dim_hr_monthly 的一列，或者由业务声明两表按「同期」关联的键。另外 2026-09 那一期源公式是 0×N/0 → NULL，fact 也是空；按定义应是 98.80，这一期要业务定。"
     },
     {
       "kpi_id": "19_PMO执行里程碑达成率",

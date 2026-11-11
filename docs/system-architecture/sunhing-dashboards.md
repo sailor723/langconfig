@@ -301,14 +301,24 @@ own `:unit`; a disagreement is a `[UNIT]` problem, not a silent format choice.
 | `[ACCEPTED]` | a known defect declared in `accepted_issues` **with its reason**; still printed |
 | `[STAGED-ONLY]` | the `.ttl` on disk is newer than the applied publish — the pages would show unapplied numbers |
 
-**Coverage today: 24 of 28 KPIs answer (22 of them with a 6-point monthly series), 2 are
-declared and pending (`1794404310-52eb0f` applied 86 metrics; #17/#18 are re-checked and
-reproduce exactly — see below), 2 are refusals.** #17
-`生态伙伴战略协同指数` and #18 `技术骨干留任率` were re-checked against the raw
-tables and *do* reproduce exactly (`61.2711864` and `46.1538`, matching
-`fact_kpi_monthly`), so they are declared in the map and become live metrics once
-the profile declares them. RS06/RS07 stay refused because `dim_kpi.formula` is
-the empty string — there is no definition to compile.
+**Coverage today (publish `1794405491-7e4275`, 87 metrics): 25 of 28 KPIs answer — 22 with a
+6-point monthly series, 3 snapshot-only (#11 / #14 / #17 have no period column, and the card
+says so) — and 3 are declared refusals (RS06, RS07, #18).** #17
+`生态伙伴战略协同指数` is now a declared metric (`ecoPartnerSynergyIndex`, snapshot
+`61.2712`, matching `fact_kpi_monthly` × 6) — its formula is
+`60 + 伙伴订单占比×5 + 伙伴实体数×2`, where the third term is 0 because the column holds
+`core`/`partner`, and the 60/5/2 constants are the catalogue's, not an interpretation.
+RS06/RS07 stay refused because `dim_kpi.formula` is the empty string.
+
+**#18 `技术骨干留任率` is refused for a compiler reason, not a data one** — and the page
+says which. The value is computable (the source formula's cumulative term cancels
+algebraically, leaving `(tech_lead_headcount − 当月 Tech/Team Lead 减员件数) × 100 ÷
+tech_lead_headcount` = `46.1538`, matching `fact`), but `:formula` may only reference
+columns of its own declared class, and `raw_hr_event` (the numerator's month) has no key to
+`dim_hr_monthly` (the denominator). Probed: `REFUSED … 'count', not a column of the joined
+classes`. Two ways in: materialise `severance_lead_events` as a `dim_hr_monthly` column, or
+declare a same-period join key between the two tables. Open question for the business: in
+2026-09 the source formula is `0×N/0` → NULL while the definition gives `98.80%`.
 
 Monthly series arrived with publish `1794404310-52eb0f` (23 `…ByMonth` metrics). Seven of
 them are named for their semantics rather than after the snapshot metric

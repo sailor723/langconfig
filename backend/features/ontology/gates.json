@@ -101,6 +101,6 @@
       "check_samples",
       "check_dashboard"
     ],
-    "installed": "1794404310-52eb0f @ 2026-11-11 21:45 CST：86/86 指标编译、0 按名拒绝；apply 后 4 个声明家族里 structure/generic/samples 绿，check_dashboard 149 项 1 红（D7：briefing 的 cannot_see 句子里写死了数字，没走占位符）——这一条由 378 第 3 批修掉。"
+    "installed": "1794405491-7e4275 @ 2026-11-11 22:08 CST：87/87 指标编译、0 按名拒绝；apply 时四族全跑（structure / generic / samples / dashboard）全绿，dashboard 152 项 0 红；commit b3271cbd。覆盖 25/28：22 条有 6 期序列、3 条只有快照（11/14/17 无期间列）、3 条按名拒绝（RS06/RS07 无公式、#18 编译器表达不了跨表同期——缺 severance_lead_events 列或同期关联键）。"
   }
 }

@@ -518,7 +518,14 @@ def resolve_briefing(dash: dict, results: dict) -> dict:
         # v5 declares the "what this board cannot answer" list at the TOP level of dashboard.json, not
         # inside `briefing`; reading only the nested one made the panel say "nothing is out of reach"
         # on a board that ships five named refusals.
-        "cannot_see": brief.get("cannot_see") or dash.get("cannot_see") or [],
+        # The "what this board cannot answer" list quotes numbers too, so it goes through the SAME
+        # placeholder machinery: a caveat that hand-types "61.2712" becomes a lie the moment the data
+        # moves — and this list is exactly where such a number is most tempting. Filling it keeps the
+        # evidence and lets D7's "no digit outside a placeholder" rule hold for the whole briefing.
+        "cannot_see": [fill(t)[0] for t in (brief.get("cannot_see") or dash.get("cannot_see") or [])
+                       if isinstance(t, str)],
+        "cannot_see_problems": [p for t in (brief.get("cannot_see") or dash.get("cannot_see") or [])
+                                if isinstance(t, str) for p in fill(t)[1]],
         "next": fill(brief.get("next") or "")[0],
         "policy": pol_out,
         "verdict": {"level": level,
