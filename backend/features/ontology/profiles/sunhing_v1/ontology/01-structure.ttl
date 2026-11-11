@@ -576,7 +576,8 @@
 :RoeMonthSummary a owl:Class ;
     rdfs:label "ROE 月度汇总" ;
     :physicalTable "fact_roe_summary" ;
-    :primaryKey "id" .
+    :primaryKey "id" ;
+    :timeColumn "period" .
 
 :roeCompanyId a owl:DatatypeProperty ;
     rdfs:label "公司编号" ;

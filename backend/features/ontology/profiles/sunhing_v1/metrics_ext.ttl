@@ -225,7 +225,178 @@
 #  ↓ 未声明为指标（第一次发布不能带新的按名拒绝：发布通道把「新拒绝」当作不可应用的变更）。
 #    下面是原本的拒绝声明，为可读性保留；缺的输入见每条的 businessDescription。
 #    用户问到时，NL 会按菜单拒绝（"I can answer about: …"），samples.json 把这一点钉住。
+# 2026/8 复核（第 2 批）：用 raw_hr_event 反推，分子「本月骨干离职事件数」在六期上是
+#   4 / 8 / 11 / 11 / 9 / 7，把它代入 (tech_lead_headcount - 该数)/tech_lead_headcount 恰好得到
+#   dim_kpi #18 在六期上的落地值——公式形状已被证实，缺的**只是那一列**（dim_hr_monthly 里没有
+#   severance_lead_events），所以这条拒绝是"缺字段"，不是"缺定义"。物化一列即可解除；
+#   在此之前，任何"骨干留任率"的数都不该被回答。
 # :techTalentRetentionRate :aggregate "avg" ; :grain :HrMonth ; :universe :HrMonth ;
 #     :where :AsOfHrPeriod ;
 #     :formula "(tech_lead_headcount - severance_lead_events) * 100.0 / tech_lead_headcount" ;
 #     :businessDescription "table: dim_hr_monthly — 拒绝：分母 tech_lead_headcount 是 dim_hr_monthly 的列，分子「本月骨干离职事件数」却只能从 raw_hr_event 数出来（event_type='severance' 且 position_category in Tech Lead/Team Lead），而 dim_hr_monthly 里没有这一列，两张表之间也没有键约束。缺的声明：骨干离职计数的归属（物化成一列，或声明关联）。" .
+# ============================================================ 月度序列（第 2 批，2026-11 追加）
+# 口径来源：dim_kpi.formula（26 个编号 KPI 的公式列，逐字抄，未加任何阈值）+ 这些公式在库里
+# 逐期跑出来的值。22 个 KPI + 3 条 ROE 的每一个数，都由 sunhing_v1/truth_monthly.sql 这条
+# 独立手写 SQL 在六期上算过，与 fact_kpi_monthly / fact_roe_summary 的落地值逐期相等（见 truth.json
+# 的 _monthly_series）。
+# 统一写法：:aggregate "avg" + :groupBy :<x>Period + 行内 :formula。
+#   为什么不是 ratio_of_sums：dim_*_monthly 与 fact_roe_summary 都是 primaryKey = period
+#   （实测六期各六行），所以"行内公式再按期间取 avg"与"分子分母分别求和再相除"在该粒度上恒等；
+#   而 ratio_of_sums + :where 会把每一期都钉在 2027-02 上（实测六期同一个数，趋势是假的），
+#   这正是 :severanceCompletionRateByMonth 选择行内公式的原因。
+
+# ---------------------------------------------------------------- 02 历史人力成本追缴化解率
+:historicalLiabilityResolutionRateByMonth :aggregate "avg" ; :grain :FinanceMonth ; :universe :FinanceMonth ;
+    :groupBy :finPeriod ;
+    :formula "liability_resolved_cumulative_wan * 100.0 / (liability_resolved_cumulative_wan + liability_remaining_wan)" ;
+    :businessDescription "table: dim_finance_monthly — 已化解 ÷ (已化解 + 未化解) × 100。dim_kpi #02 的公式走的是 raw_liability 两列求和，两者在六期上都得 85.47；不是巧合而是因为 liability_remaining_wan 从 2026-09 起就没动过——这条曲线是平的，别当趋势读。" .
+
+# ---------------------------------------------------------------- 03 赔偿金额预算控制率
+:severanceBudgetControlRateByMonth :aggregate "avg" ; :grain :HrMonth ; :universe :HrMonth ;
+    :groupBy :hrPeriod ;
+    :formula "severance_paid_cumulative_wan * 100.0 / (severance_planned * 4.5)" ;
+    :businessDescription "table: dim_hr_monthly — 已支付补偿(累计) ÷ (计划人数 856 × 4.5 万元/人) × 100。4.5 万元/人是 dim_kpi #03 公式里写死的单位成本，不是本会话定的假设。真趋势：0 → 19.22 → 55.29 → 89.82 → 114.83 → 128.47（十二月的预算已经花完，后面全是超支）。" .
+
+# ---------------------------------------------------------------- 04 劳动仲裁与诉讼事件数
+:laborDisputeEventCountByMonth :aggregate "sum" ; :grain :LegalMonth ; :universe :LegalMonth ;
+    :groupBy :legalPeriod ;
+    :formula "new_labor_arbitration_cases + pending_labor_cases" ;
+    :businessDescription "table: dim_legal_monthly — 本月新立仲裁 + 在办案件，同一期间的存量与增量相加（这是 dim_kpi #04 的写法，不是我们发明的「一个口径」）。趋势 1 → 2 → 2 → 3 → 4 → 4。" .
+
+# ---------------------------------------------------------------- 05 工序保留完成率
+:processRetentionRateByMonth :aggregate "avg" ; :grain :ProductionMonth ; :universe :ProductionMonth ;
+    :groupBy :prodPeriod ;
+    :formula "critical_processes_running * 100.0 / total_processes" ;
+    :businessDescription "table: dim_production_monthly — 在跑关键工序 ÷ 工序总数 × 100。六期：40 → 40 → 40 → 33.33 → 45.45 → 40；分母在 9/10/11 之间从 10 变成 9 再回到 10，所以 33.33 不等于「少做了一道工序」，要看分子。" .
+
+# ---------------------------------------------------------------- 06 生产人员占比优化率
+:productionHeadcountShareByMonth :aggregate "avg" ; :grain :HrMonth ; :universe :HrMonth ;
+    :groupBy :hrPeriod ;
+    :formula "production_headcount * 100.0 / total_headcount" ;
+    :businessDescription "table: dim_hr_monthly — 生产人员 ÷ 总人数 × 100。比例从 61.21 一路升到 71.74：总人数掉得比生产人员更快，所以「占比优化」在这份数据里是反着的（dim_kpi #06 的 target=55，方向是 lower_is_better=0，即越高越好——两者矛盾，以业务确认前的现状记录在此）。" .
+
+# ---------------------------------------------------------------- 07 / 08 利润贡献率
+:coreFactoryProfitShareByMonth :aggregate "avg" ; :grain :FinanceMonth ; :universe :FinanceMonth ;
+    :groupBy :finPeriod ;
+    :formula "core_factory_net_profit_wan * 100.0 / total_mfg_net_profit_wan" ;
+    :businessDescription "table: dim_finance_monthly — 核心厂区净利润 ÷ 制造板块合计 × 100（dim_kpi #07）。趋势 84.99 → 77.26 → 87.60 → 84.95 → 86.22 → 71.06。" .
+
+:ecoPartnerProfitShareByMonth :aggregate "avg" ; :grain :FinanceMonth ; :universe :FinanceMonth ;
+    :groupBy :finPeriod ;
+    :formula "eco_partner_net_profit_wan * 100.0 / total_mfg_net_profit_wan" ;
+    :businessDescription "table: dim_finance_monthly — 生态伙伴净利润 ÷ 制造板块合计 × 100（dim_kpi #08）。与 :coreFactoryProfitShareByMonth 同分母，两者相加在每期都等于 100（实测 100.00/100.00/100.00/100.00/100.00/100.00），所以这两条线不能各自解读。" .
+
+# ---------------------------------------------------------------- 09 数字资产价值转化率
+:digitalValueConversionRateByMonth :aggregate "avg" ; :grain :DigitalMonth ; :universe :DigitalMonth ;
+    :groupBy :digPeriod ;
+    :formula "reuse_rate_pct * digital_maturity_score / 100.0" ;
+    :businessDescription "table: dim_digital_monthly — 复用率(%) × 数字成熟度分 / 100（dim_kpi #09）。这是「两个百分数相乘再除一百」，量纲上仍是百分数，但它是可乘的指数不是占比，所以 :unit 记 percent 而 :additivity 记 non-additive。" .
+
+# ---------------------------------------------------------------- 10 核心厂区固定资产利用率(OEE)
+:oeePctByMonth :aggregate "avg" ; :grain :ProductionMonth ; :universe :ProductionMonth ;
+    :groupBy :prodPeriod ;
+    :formula "oee_pct" ;
+    :businessDescription "table: dim_production_monthly.oee_pct — dim_kpi #10 的公式就是这一列。**六个期间全部 = 100.0**：这一列是常数，画出来是一条平线。它证明的是「库里这个数没有信息量」，不是「设备利用率完美」；本体照实声明它，好让这条平线被看见。" .
+
+# ---------------------------------------------------------------- 12 数字资产归集与复用率
+:digitalReuseRateByMonth :aggregate "avg" ; :grain :DigitalMonth ; :universe :DigitalMonth ;
+    :groupBy :digPeriod ;
+    :formula "reuse_rate_pct" ;
+    :businessDescription "table: dim_digital_monthly.reuse_rate_pct（dim_kpi #12 原文就是这一列）。六期 76.70 → 37.30 → 56.90 → 78.40 → 44.30 → 83.00：锯齿形，没有趋势方向，任何「在改善」的说法都靠不住。" .
+
+# ---------------------------------------------------------------- 13 变革资本再投资率
+:capitalReinvestmentRateByMonth :aggregate "avg" ; :grain :FinanceMonth ; :universe :FinanceMonth ;
+    :groupBy :finPeriod ;
+    :formula "reinvested_wan * 100.0 / cash_released_wan" ;
+    :businessDescription "table: dim_finance_monthly — 再投资 ÷ 释放现金 × 100（dim_kpi #13）。趋势 33.74 → 46.17 → 35.16 → 39.97 → 48.15 → 63.20。" .
+
+# ---------------------------------------------------------------- 15 员工股权/合伙转化率
+:employeePartnerConversionRateByMonth :aggregate "avg" ; :grain :HrMonth ; :universe :HrMonth ;
+    :groupBy :hrPeriod ;
+    :formula "employee_partner_converted * 100.0 / total_headcount" ;
+    :businessDescription "table: dim_hr_monthly — 累计已转化人数 ÷ 当期在册人数 × 100（dim_kpi #15 原文）。**这个定义本身有问题**：分子是累计、分母是当期，2027-02 算出来 689.13%，2027-01 已经 203.68%。图上六期从 0 冲到 689，不是因为转化加速，是因为分母在缩。数与 fact_kpi_monthly 一致，但**不进任何结论**；要修口径需要业务回答「分母该取哪一期的人数」。" .
+
+# ---------------------------------------------------------------- 16 新架构集团权益乘数
+:equityMultiplierByMonth :aggregate "avg" ; :grain :FinanceMonth ; :universe :FinanceMonth ;
+    :groupBy :finPeriod ;
+    :formula "1.0 + liability_total_wan / (net_profit_wan * 10.0)" ;
+    :businessDescription "table: dim_finance_monthly — 1 + 负债合计 ÷ (净利润 × 10)（dim_kpi #16）。六期 1.20/1.16/1.13/1.13/1.19/1.23，与 fact_roe_summary.equity_multiplier 逐期完全相等——这是两条独立路线在同一个数上对上了。" .
+
+# ---------------------------------------------------------------- 19 PMO 执行里程碑达成率
+:milestoneOnTimeRateByMonth :aggregate "avg" ; :grain :PmoMonth ; :universe :PmoMonth ;
+    :groupBy :pmoMonthPeriod ;
+    :formula "on_time_completions * 100.0 / milestones_completed" ;
+    :businessDescription "table: dim_pmo_monthly — 按期完成 ÷ 完成里程碑数 × 100。六期都是 100.00，与 raw_pmo 逐单汇总（4/4,5/5,5/5,5/5,7/7,1/1）完全一致：每一条完成的里程碑都是按期完成的，所以这条线也没有信息量。2027-02 只有 1 条里程碑，「100%」是 1/1。" .
+
+# ---------------------------------------------------------------- 21 员工价值交换制度落地率
+:valueExchangeLandingRateByMonth :aggregate "avg" ; :grain :SentimentMonth ; :universe :SentimentMonth ;
+    :groupBy :sentPeriod ;
+    :formula "change_readiness_score * employee_satisfaction / 10.0" ;
+    :businessDescription "table: dim_sentiment_monthly — 变革准备度分 × 员工满意度(十分制) ÷ 10（dim_kpi #21）。dim_kpi 把它的单位写成 %、目标 80，但实测值只有 2.59–5.06，量纲对不上（0–100 分的乘积除 10 最大是 1000）。本体照实声明数值与 :unit score_0_10（与既有的 :valueExchangeLanding 一致），并把「目标 80 在这个量纲上不可比」记在这里，不改目标、不换算。" .
+
+# ---------------------------------------------------------------- RS01 协商减员纠纷发生率
+:severanceDisputeRateByMonth :aggregate "avg" ; :grain :HrMonth ; :universe :HrMonth ;
+    :groupBy :hrPeriod ;
+    :formula "CASE WHEN severance_completed_cumulative = 0 THEN NULL ELSE severance_dispute_count * 100.0 / severance_completed_cumulative END" ;
+    :businessDescription "table: dim_hr_monthly — 本月纠纷数 ÷ 累计已完成协商人数 × 100（dim_kpi RS01）。2026-09 为 NULL（分母 0，累计还没开始减人），这是空值不是 0：那一期没有已完成的减员可以「发生率」。其余 1.67 → 1.47 → 1.61 → 1.81 → 1.85。" .
+
+# ---------------------------------------------------------------- RS02 历史追缴协商满意度
+:severanceSatisfactionByMonth :aggregate "avg" ; :grain :SentimentMonth ; :universe :SentimentMonth ;
+    :groupBy :sentPeriod ;
+    :formula "severance_satisfaction" ;
+    :businessDescription "table: dim_sentiment_monthly.severance_satisfaction（十分制，dim_kpi RS02）。六期 5.23/5.56/5.75/5.41/5.69/5.12，全期低于目标 7。与 raw_survey_response 的员工级问卷是两张表，不能混算。" .
+
+# ---------------------------------------------------------------- RS03 群体性劳动争议风险指数
+:groupLaborRiskIndexByMonth :aggregate "avg" ; :grain :LegalMonth ; :universe :LegalMonth ;
+    :groupBy :legalPeriod ;
+    :formula "major_group_incidents * 10 + near_miss_group_incidents * 3" ;
+    :businessDescription "table: dim_legal_monthly — 重大群体事件 × 10 + 苗头事件 × 3（dim_kpi RS03，权重 10/3 抄自目录公式）。六期 20/0/3/0/0/0：风险集中在 2026-09–11，之后归零。" .
+
+# ---------------------------------------------------------------- RS04 保税物料合规处理完成率
+:customsComplianceRateByMonth :aggregate "avg" ; :grain :LegalMonth ; :universe :LegalMonth ;
+    :groupBy :legalPeriod ;
+    :formula "customs_compliance_pct" ;
+    :businessDescription "table: dim_legal_monthly.customs_compliance_pct（dim_kpi RS04）。六期 70.5/89.3/93.1/71.5/92.5/100.0，波动大且没有单调方向；2027-02 的 100% 只是当期一期的值。" .
+
+# ---------------------------------------------------------------- RS05 海关违规/罚款金额
+:customsPenaltyAmountByMonth :aggregate "avg" ; :grain :LegalMonth ; :universe :LegalMonth ;
+    :groupBy :legalPeriod ;
+    :formula "customs_penalties_wan" ;
+    :businessDescription "table: dim_legal_monthly.customs_penalties_wan（dim_kpi RS05 的 formula 列是空的，但这个数与 fact_kpi_monthly.RS05 六期逐期相等：0/33.9/9.1/0/46.6/24.6，所以口径由落地值钉住，而不是由目录公式描述）。单月金额，不是年度累计。" .
+
+# ================================================================ ROE 三条趋势（fact_roe_summary）
+# fact_roe_summary 是月度汇总表（一期一行，company_id 恒为 1）。这三个数是**源表照抄**，
+# 不是我们自己算的 ROE 分解：表里的 roe 列与它自己的三个因子满足
+# roe = net_profit_margin × asset_turnover × equity_multiplier / 100（六期全对到分），
+# 而常规杜邦恒等式是**除以**权益乘数。所以这三条曲线各看各的，不做互相换算，也不宣称杜邦恒等式成立。
+
+:roePctByMonth :aggregate "avg" ; :grain :RoeMonthSummary ; :universe :RoeMonthSummary ;
+    :groupBy :roePeriod ;
+    :formula "roe" ;
+    :businessDescription "table: fact_roe_summary.roe — 源表照抄。六期 21.50 → 19.91 → 24.99 → 33.68 → 33.85 → 50.03（%）。与 dim_finance_monthly 无法对上：该表按 net_profit/revenue 算出的净利率是 39.55%，而本表 66.09%，所以 **不要拿两个表的净利润率互相验算**。" .
+
+:netProfitMarginPctByMonth :aggregate "avg" ; :grain :RoeMonthSummary ; :universe :RoeMonthSummary ;
+    :groupBy :roePeriod ;
+    :formula "net_profit_margin" ;
+    :businessDescription "table: fact_roe_summary.net_profit_margin。六期 34.06/37.43/46.06/54.60/59.13/66.09（%）。它是本表 ROE 的因子之一，与 dim_finance_monthly 的 net_profit_wan/revenue_mfg_wan（39.55% 等）**不是同一个数**：两张表的利润率口径不同，用途也不同，不能交叉验证。" .
+
+:assetTurnoverPctByMonth :aggregate "avg" ; :grain :RoeMonthSummary ; :universe :RoeMonthSummary ;
+    :groupBy :roePeriod ;
+    :formula "asset_turnover" ;
+    :businessDescription "table: fact_roe_summary.asset_turnover。六期 52.61/45.87/48.02/54.59/48.11/61.55（%）。同样是本表 ROE 的因子，不是 dim_finance_monthly 能复算出来的那个周转率。" .
+
+# ---------------------------------------------------------------- ROE 三个时点快照（2027-02）
+:roePct :aggregate "avg" ; :grain :RoeMonthSummary ; :universe :RoeMonthSummary ;
+    :where :AsOfRoePeriod ;
+    :formula "roe" ;
+    :businessDescription "table: fact_roe_summary — 2027-02 那一行的 roe = 50.03%。注意本表 roe 与自身三因子的关系是乘上权益乘数（见 :roePctByMonth），所以这个 50.03 不能按常规杜邦解读成「股东回报率」。" .
+
+:netProfitMarginPct :aggregate "avg" ; :grain :RoeMonthSummary ; :universe :RoeMonthSummary ;
+    :where :AsOfRoePeriod ;
+    :formula "net_profit_margin" ;
+    :businessDescription "table: fact_roe_summary — 2027-02 的 net_profit_margin = 66.09%。" .
+
+:assetTurnoverPct :aggregate "avg" ; :grain :RoeMonthSummary ; :universe :RoeMonthSummary ;
+    :where :AsOfRoePeriod ;
+    :formula "asset_turnover" ;
+    :businessDescription "table: fact_roe_summary — 2027-02 的 asset_turnover = 61.55%。" .

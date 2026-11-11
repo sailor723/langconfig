@@ -705,3 +705,200 @@ rdfs:label "订单金额" ;
 :formula "order_value_wan" ;
     :formulaSource "raw_order.order_value_wan（万元）。" ;
     :businessDescription "table: raw_order.order_value_wan 按 is_core_factory 分组求和。" .
+# ---------------------------------------------------------------------------
+# fact_roe_summary 的快照锚点。这张表也有一期一行，所以「最新一期」要有一条
+# 真正落在 roePeriod 上的交集类，而不是把 '2027-02' 写在指标里。
+# ---------------------------------------------------------------------------
+:AsOfRoePeriod a owl:Class ;
+    rdfs:label "最新期间快照(2027-02) — RoeMonthSummary" ;
+    skos:definition "RoeMonthSummary 在 period = '2027-02' 上的那一行；2027-02 是 fact_roe_summary 实测的最后一个期间（六期：2026-09 … 2027-02）。" ;
+    :businessDescription "快照锚点。写成真正的 OWL 交集（基类 RoeMonthSummary + roePeriod 限制），与 :AsOfHrPeriod 等七条同一写法；这样换期间＝改这一类，不散落在指标里。company_id 恒为 1，所以本表无需按公司再切一次。" ;
+    owl:equivalentClass [ a owl:Class ; owl:intersectionOf (
+        :RoeMonthSummary
+        [ a owl:Restriction ; owl:onProperty :roePeriod ; owl:hasValue "2027-02" ] ) ] .
+
+# ---------------------------------------------------------------------------
+# 第 2 批指标的含义（26 条）：20 个 KPI 的按月序列 + 3 条 ROE 趋势 + 3 个 ROE 时点。
+# 公式与口径推导写在 metrics_ext.ttl，这里放单位、可加性与用户会怎么问。
+# ---------------------------------------------------------------------------
+:historicalLiabilityResolutionRateByMonth a owl:DatatypeProperty ;
+    rdfs:domain :FinanceMonth ;
+    rdfs:label "每个月历史人力成本追缴化解率" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "每个月历史人力成本追缴化解率是多少" ;
+    :businessDescription "已化解 ÷ (已化解+未化解) × 100，按期。六期都是 85.47：未化解那一列从 2026-09 起没动过，曲线是平的。" .
+
+:severanceBudgetControlRateByMonth a owl:DatatypeProperty ;
+    rdfs:domain :HrMonth ;
+    rdfs:label "每个月赔偿金额预算控制率" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "每个月赔偿金额预算控制率是多少" ;
+    :businessDescription "累计已支付补偿 ÷ (计划 856 人 × 4.5 万元/人) × 100，按期。至 2027-02 已到 128.47%，即预算超支 28%。" .
+
+:laborDisputeEventCountByMonth a owl:DatatypeProperty ;
+    rdfs:domain :LegalMonth ;
+    rdfs:label "每个月劳动仲裁与诉讼事件数" ;
+    :unit "count" ; :additivity "additive" ;
+    :askedAs "每个月劳动仲裁与诉讼事件数是多少" ;
+    :businessDescription "本月新立仲裁 + 在办案件（存量加增量，照 dim_kpi #04 的写法）。趋势 1→2→2→3→4→4。" .
+
+:processRetentionRateByMonth a owl:DatatypeProperty ;
+    rdfs:domain :ProductionMonth ;
+    rdfs:label "每个月工序保留完成率" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "每个月工序保留完成率是多少" ;
+    :businessDescription "在跑关键工序 ÷ 工序总数 × 100，按期。33.33% 那一期是分母从 10 变成 9，不是掉了工序。" .
+
+:productionHeadcountShareByMonth a owl:DatatypeProperty ;
+    rdfs:domain :HrMonth ;
+    rdfs:label "每个月生产人员占比" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "每个月生产人员占比是多少" ;
+    :businessDescription "生产人员 ÷ 总人数 × 100，按期。61.21 一路上升到 71.74：总人数掉得比生产人员快，占比升高不等于产线在扩。" .
+
+:coreFactoryProfitShareByMonth a owl:DatatypeProperty ;
+    rdfs:domain :FinanceMonth ;
+    rdfs:label "每个月核心厂区利润贡献率" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "每个月核心厂区利润贡献率是多少" ;
+    :businessDescription "核心厂区净利润 ÷ 制造板块合计 × 100，按期。" .
+
+:ecoPartnerProfitShareByMonth a owl:DatatypeProperty ;
+    rdfs:domain :FinanceMonth ;
+    rdfs:label "每个月生态伙伴利润贡献率" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "每个月生态伙伴利润贡献率是多少" ;
+    :businessDescription "生态伙伴净利润 ÷ 制造板块合计 × 100，按期。与核心厂区那条同分母，每期两者相加 = 100，不能各自解读。" .
+
+:digitalValueConversionRateByMonth a owl:DatatypeProperty ;
+    rdfs:domain :DigitalMonth ;
+    rdfs:label "每个月数字资产价值转化率" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "每个月数字资产价值转化率是多少" ;
+    :businessDescription "复用率 × 数字成熟度分 ÷ 100，按期。它是两个因子的乘积，不是占比。" .
+
+:oeePctByMonth a owl:DatatypeProperty ;
+    rdfs:domain :ProductionMonth ;
+    rdfs:label "每个月核心厂区固定资产利用率" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "每个月核心厂区固定资产利用率是多少" ;
+    :businessDescription "dim_production_monthly.oee_pct 照抄，按期。六期全部 100.0 —— 常数，说明库里这个数没有信息量，不是设备满负荷。" .
+
+:digitalReuseRateByMonth a owl:DatatypeProperty ;
+    rdfs:domain :DigitalMonth ;
+    rdfs:label "每个月数字资产归集与复用率" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "每个月数字资产归集与复用率是多少" ;
+    :businessDescription "dim_digital_monthly.reuse_rate_pct 照抄，按期。76.70/37.30/56.90/78.40/44.30/83.00 锯齿波动，没有趋势方向。" .
+
+:capitalReinvestmentRateByMonth a owl:DatatypeProperty ;
+    rdfs:domain :FinanceMonth ;
+    rdfs:label "每个月变革资本再投资率" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "每个月变革资本再投资率是多少" ;
+    :businessDescription "再投资 ÷ 释放现金 × 100，按期。33.74 起，2027-02 到 63.20。" .
+
+:employeePartnerConversionRateByMonth a owl:DatatypeProperty ;
+    rdfs:domain :HrMonth ;
+    rdfs:label "每个月员工合伙转化率" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "每个月员工合伙转化率是多少" ;
+    :businessDescription "累计已转化 ÷ 当期在册人数 × 100，按期。2027-02 = 689.13% —— 分子累计、分母当期，这个定义本身有量纲缺陷；数与库里一致，但不要拿它做结论。" .
+
+:equityMultiplierByMonth a owl:DatatypeProperty ;
+    rdfs:domain :FinanceMonth ;
+    rdfs:label "每个月新架构集团权益乘数" ;
+    :unit "ratio" ; :additivity "non-additive" ;
+    :askedAs "每个月新架构集团权益乘数是多少" ;
+    :businessDescription "1 + 负债合计 ÷ (净利润 × 10)，按期。1.13–1.23，与 fact_roe_summary.equity_multiplier 逐期相等。" .
+
+:milestoneOnTimeRateByMonth a owl:DatatypeProperty ;
+    rdfs:domain :PmoMonth ;
+    rdfs:label "每个月 PMO 里程碑准时达成率" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "每个月 PMO 里程碑准时达成率是多少" ;
+    :businessDescription "按期完成 ÷ 完成里程碑数 × 100，按期。六期都 100%（每期完成的都按期），与 raw_pmo 逐单汇总一致；2027-02 的 100% 是 1/1。" .
+
+:valueExchangeLandingRateByMonth a owl:DatatypeProperty ;
+    rdfs:domain :SentimentMonth ;
+    rdfs:label "每个月员工价值交换制度落地度" ;
+    :unit "score_0_10" ; :additivity "non-additive" ;
+    :askedAs "每个月员工价值交换制度落地度是多少" ;
+    :businessDescription "变革准备度 × 员工满意度 ÷ 10，按期。实测 2.59–5.06；dim_kpi 的目标 80 在这个量纲上不可比（记在 metrics_ext 里，不在此处换算）。" .
+
+:severanceDisputeRateByMonth a owl:DatatypeProperty ;
+    rdfs:domain :HrMonth ;
+    rdfs:label "每个月协商减员纠纷发生率" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "每个月协商减员纠纷发生率是多少" ;
+    :businessDescription "本月纠纷数 ÷ 累计已完成协商人数 × 100，按期。2026-09 分母为 0 → 空值（不是 0）。" .
+
+:severanceSatisfactionByMonth a owl:DatatypeProperty ;
+    rdfs:domain :SentimentMonth ;
+    rdfs:label "每个月历史追缴协商满意度" ;
+    :unit "score_1_10" ; :additivity "non-additive" ;
+    :askedAs "每个月历史追缴协商满意度是多少" ;
+    :businessDescription "dim_sentiment_monthly.severance_satisfaction 照抄（十分制），按期。六期 5.12–5.75，全期低于目标 7。" .
+
+:groupLaborRiskIndexByMonth a owl:DatatypeProperty ;
+    rdfs:domain :LegalMonth ;
+    rdfs:label "每个月群体性劳动争议风险指数" ;
+    :unit "score_0_100" ; :additivity "additive" ;
+    :askedAs "每个月群体性劳动争议风险指数是多少" ;
+    :businessDescription "重大群体事件 × 10 + 苗头事件 × 3，按期。20/0/3/0/0/0：风险集中在 2026-09–11。" .
+
+:customsComplianceRateByMonth a owl:DatatypeProperty ;
+    rdfs:domain :LegalMonth ;
+    rdfs:label "每个月保税物料合规处理完成率" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "每个月保税物料合规处理完成率是多少" ;
+    :businessDescription "dim_legal_monthly.customs_compliance_pct 照抄，按期。70.5/89.3/93.1/71.5/92.5/100.0，波动无单调方向。" .
+
+:customsPenaltyAmountByMonth a owl:DatatypeProperty ;
+    rdfs:domain :LegalMonth ;
+    rdfs:label "每个月海关违规罚款金额" ;
+    :unit "money_wan" ; :additivity "additive" ;
+    :askedAs "每个月海关违规罚款金额是多少" ;
+    :businessDescription "dim_legal_monthly.customs_penalties_wan 照抄，按期。0/33.9/9.1/0/46.6/24.6 万元；单月额，不是累计。" .
+
+:roePctByMonth a owl:DatatypeProperty ;
+    rdfs:domain :RoeMonthSummary ;
+    rdfs:label "每个月 ROE" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "每个月 ROE是多少" ;
+    :businessDescription "fact_roe_summary.roe 照抄，按期。21.50 → 50.03（%）。本表 roe 与自身三因子的关系是乘上权益乘数，不是常规杜邦除法；不要用它和 dim_finance_monthly 的净利率互相验算。" .
+
+:netProfitMarginPctByMonth a owl:DatatypeProperty ;
+    rdfs:domain :RoeMonthSummary ;
+    rdfs:label "每个月净利润率" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "每个月净利润率是多少" ;
+    :businessDescription "fact_roe_summary.net_profit_margin 照抄，按期。34.06 → 66.09（%）。与 dim_finance_monthly 按 net_profit/revenue 算的 39.55% 不是同一个口径。" .
+
+:assetTurnoverPctByMonth a owl:DatatypeProperty ;
+    rdfs:domain :RoeMonthSummary ;
+    rdfs:label "每个月资产周转率" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "每个月资产周转率是多少" ;
+    :businessDescription "fact_roe_summary.asset_turnover 照抄，按期。45.87–61.55（%）。" .
+
+:roePct a owl:DatatypeProperty ;
+    rdfs:domain :RoeMonthSummary ;
+    rdfs:label "ROE" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "ROE是多少" ;
+    :businessDescription "fact_roe_summary 2027-02 那一行的 roe = 50.03%。" .
+
+:netProfitMarginPct a owl:DatatypeProperty ;
+    rdfs:domain :RoeMonthSummary ;
+    rdfs:label "净利润率" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "净利润率是多少" ;
+    :businessDescription "fact_roe_summary 2027-02 的 net_profit_margin = 66.09%。" .
+
+:assetTurnoverPct a owl:DatatypeProperty ;
+    rdfs:domain :RoeMonthSummary ;
+    rdfs:label "资产周转率" ;
+    :unit "percent" ; :additivity "non-additive" ;
+    :askedAs "资产周转率是多少" ;
+    :businessDescription "fact_roe_summary 2027-02 的 asset_turnover = 61.55%。" .

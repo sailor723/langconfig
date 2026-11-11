@@ -79,5 +79,29 @@
   "agreement": "9/9（两位小数）",
   "caveat": "groupLaborRiskIndex 与 majorRiskEventCount 编译值与手写值同为 0，数值一致不构成验证：这两条改由编译 SQL 文本与声明 :formula 逐字比对确认（一致）。",
   "compiled_side": "ontology_inspect 逐条取编译 SQL 与值，人工贴入 verify/compare.txt"
+ },
+ "_monthly_series": {
+  "file": "truth_monthly.sql → truth_monthly.out",
+  "note": "第 2 批 26 个指标的独立路线：一条 psql 一把算完六期 × 26 列，写法与编译器不同（100.0*x/y 的乘法顺序、相关子查询取上期人数、fact_roe_summary 直接按 company_id=1 排序）。逐期与 fact_kpi_monthly / fact_roe_summary 的落地值相等。",
+  "periods": [
+   "2026-09",
+   "2026-10",
+   "2026-11",
+   "2026-12",
+   "2027-01",
+   "2027-02"
+  ],
+  "agreement": "26/26 指标 × 6 期逐期相等；roe_identity_check 列显示源表 roe 与 net_profit_margin*asset_turnover*equity_multiplier/100 在各期相差 ≤0.01，即源表用的是乘权益乘数那一支恒等式（不是杜邦除法）。",
+  "known_anomalies": [
+   "oee_pct 六期恒为 100.0，milestoneOnTimeRate 六期恒为 100.00：常数列，数值一致不等于指标有信息量。",
+   "employeePartnerConversionRate 2027-02 = 689.13%（2027-01 已 203.68%）：累计分子 / 当期分母的定义缺陷，数与库里一致但不可用于结论。",
+   "severanceBudgetControlRate 2027-02 = 128.47%：预算 856×4.5 万元，2026-12 已用 89.82%。",
+   "severanceDisputeRate 2026-09 为空值（分母 0），不是 0。",
+   "fact_roe_summary.net_profit_margin（66.09%）与 dim_finance_monthly 的 net_profit_wan/revenue_mfg_wan（39.55%）不是同一口径，两者不做交叉验算。"
+  ],
+  "still_refused": [
+   "技术骨干留任率（dim_kpi #18）：公式形状已用 raw_hr_event 反证实（4/8/11/11/9/7 代入即落地值），缺的是 dim_hr_monthly 上的 severance_lead_events 列。",
+   "客户订单转移流失率（#11）、生态伙伴战略协同指数（#14）、员工价值交换落地率（#17）在 dim_kpi 里没有可落地的期间列，仍按名拒绝。"
+  ]
  }
 }
