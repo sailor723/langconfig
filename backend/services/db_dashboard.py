@@ -228,6 +228,91 @@ def _plain(v):
     return v
 
 
+
+
+# ── management view: findings a decision-maker can act on ───────────────────
+
+def insights(prof: dict, cub: dict) -> list:
+    """Rule-derived findings, each with the number that produced it.
+
+    A dashboard that only shows totals leaves the reader to do the thinking. These rules say what
+    the numbers mean for a manager — and they are rules, not a model, so every line is reproducible
+    from the cube and can be argued with. Nothing here invents a cause: a finding states the
+    observation, the figure behind it, and what to check next.
+    """
+    out = []
+    rows = cub.get("rows") or []
+    if not rows:
+        return [{"kind": "问题", "title": "没有可分析的分组", "detail": "立方体返回 0 行，先查数据是否装载。"}]
+
+    amounts = [r[-2] for r in rows]
+    counts = [r[-1] for r in rows]
+    total = sum(amounts) or 0
+    total_n = sum(counts) or 0
+    groups = len(rows)
+    business = [t for t in prof["tables"] if not prof["is_log"][t]]
+    logs = [t for t in prof["tables"] if prof["is_log"][t]]
+    log_rows = sum(prof["info"][t]["rows"] for t in logs)
+    biz_rows = sum(prof["info"][t]["rows"] for t in business) or 1
+
+    # 1) scale: say plainly when the sample cannot support a decision
+    if total_n < 30:
+        out.append({"kind": "风险", "title": f"样本量不足以支撑经营判断",
+                    "detail": f"只有 {total_n} 笔、{groups} 个分组。任何“增长/占比/趋势”都是噪音；"
+                              f"本页只用于验证口径与看板结构，不要据此定目标。"})
+    elif total_n < 200:
+        out.append({"kind": "注意", "title": "样本偏小", "detail": f"{total_n} 笔、{groups} 组：趋势判断需要更长窗口。"})
+
+    # 2) concentration: the risk a manager actually cares about
+    by_first = {}
+    for r in rows:
+        by_first[r[0]] = by_first.get(r[0], 0) + r[-2]
+    if by_first:
+        top_label, top_amount = max(by_first.items(), key=lambda kv: kv[1])
+        share = top_amount / total * 100 if total else 0
+        if share >= 50:
+            out.append({"kind": "风险", "title": f"收入高度集中：{top_label} 占 {share:.0f}%",
+                        "detail": f"{top_label} 贡献 {top_amount:,.1f}（合计 {total:,.1f}）。"
+                                  f"单一分组过半意味着这一项丢了，整体就掉一半 —— 需要备份/分散动作。"})
+        elif share >= 30:
+            out.append({"kind": "注意", "title": f"头部集中 {share:.0f}%：{top_label}",
+                        "detail": f"{top_label} 贡献 {top_amount:,.1f}，占比已过三成，值得单独盯。"})
+        else:
+            out.append({"kind": "良好", "title": f"分布较均衡，最大分组仅 {share:.0f}%",
+                        "detail": f"{top_label} 贡献 {top_amount:,.1f}，未见单点依赖。"})
+
+    # 3) unit economics
+    if total_n:
+        out.append({"kind": "指标", "title": f"单均 {total / total_n:,.1f}",
+                    "detail": f"{total:,.1f} ÷ {total_n} 笔。这是唯一能跨期比较的“体量”指标；"
+                              f"总额同时受单量与单价影响，单看总额会误判。"})
+
+    # 4) telemetry vs business data — a classic misread
+    if log_rows:
+        ratio = log_rows / biz_rows
+        if ratio >= 1:
+            out.append({"kind": "注意", "title": f"日志/遥测是业务数据的 {ratio:.0f} 倍（{log_rows} vs {biz_rows} 行）",
+                        "detail": "按行数看，这份库主要是运行记录。回答业务问题时不要用 "
+                                  + "、".join(logs) + "，否则会把“系统发生了什么”当成“生意怎么样”。"})
+
+    # 5) grain / measure mixing — the trap that inflates totals
+    if prof.get("bridge"):
+        out.append({"kind": "方法", "title": f"明细表 `{prof['bridge']}` 不能与订单级金额同立方体",
+                    "detail": "一张订单多行明细，混着 join 会把金额重复计一次（实测 4 单被算成 1589.5，真值 969.5）。"
+                              "要按商品看收入，用明细口径 Σ(qty×price)。"})
+
+    # 6) depth of the hierarchy
+    if len(prof["chain"]) < 2:
+        out.append({"kind": "建议", "title": "维度链只有一层，看板只能看单维分布",
+                    "detail": "补一条外键（例如把 `sold_at` 改名 `store_id` 再 db_review(apply=true)）"
+                              "就能按“门店 → 客户 → 层级”下钻。"})
+    else:
+        out.append({"kind": "结构", "title": "可下钻层级：" + " → ".join(l["label"] for l in prof["chain"]),
+                    "detail": "桑基/树按这个顺序自上而下；层级越多，越能回答“哪一层在拖后腿”。"})
+
+    return out
+
+
 def _plan_text(prof: dict, cub: dict) -> str:
     fact = prof["fact"]
     lines = [f"# 仪表盘方案：{prof['db']}", ""]
@@ -262,6 +347,10 @@ def _plan_text(prof: dict, cub: dict) -> str:
     lines.append(cub["sql"])
     lines.append("```")
     lines.append(f"该查询返回 {len(cub['rows'])} 组。样本不足（每组 <3）的面板会打「样本不足」标记。")
+    lines.append("")
+    lines.append("## 管理层视角（页面右侧「管理层视角」面板会逐条列这些）")
+    for f in insights(prof, cub):
+        lines.append(f"- **{f['kind']}｜{f['title']}** —— {f['detail']}")
     return "\n".join(lines)
 
 
@@ -279,7 +368,8 @@ def render(db_name: str, out_path: str | Path, title: str = "", **conn) -> str:
             "generated": dt.datetime.now().isoformat(timespec="seconds"),
             "levels": cub.get("level_names") or [], "measure": cub.get("measure"),
             "time": cub.get("time"), "rows": cub.get("rows") or [], "columns": cub.get("columns") or [],
-            "sql": cub.get("sql") or ""}
+            "sql": cub.get("sql") or "",
+            "insights": insights(prof, cub)}
     d3 = ASSET.read_text(encoding="utf-8") if ASSET.is_file() else ""
     html = (_HTML.replace("/*__D3__*/", d3)
                  .replace("/*__DATA__*/", json.dumps(data, ensure_ascii=False))
@@ -292,7 +382,9 @@ def render(db_name: str, out_path: str | Path, title: str = "", **conn) -> str:
     problems = verify(db_name, data)
     if problems:
         return f"Error: rendered, but the numbers do not match the database:\n" + "\n".join(problems)
-    return f"wrote {out} ({len(html) // 1024} KB, {len(data['rows'])} cube rows)\n" + _plan_text(prof, cub)
+    findings = "\n".join(f"- {f['kind']}｜{f['title']}" for f in data["insights"])
+    return (f"wrote {out} ({len(html) // 1024} KB, {len(data['rows'])} cube rows, "
+            f"{len(data['insights'])} management findings)\n### 管理层视角\n{findings}\n" + _plan_text(prof, cub))
 
 
 def verify(db_name: str, data: dict) -> list:
@@ -349,6 +441,9 @@ svg{display:block;width:100%;height:300px}.tip{position:fixed;pointer-events:non
     <div class="panel"><h2>树 · 自顶向下</h2><div class="hint" id="hint-tree"></div><svg id="tree"></svg></div>
     <div class="panel"><h2>分组 · 度量对比</h2><div class="hint" id="hint-bars"></div><svg id="bars"></svg></div>
     <div class="panel" style="grid-column:1/-1"><h2>趋势</h2><div class="hint" id="hint-line"></div><svg id="line"></svg></div>
+    <div class="panel" style="grid-column:1/-1"><h2>管理层视角</h2>
+      <div class="hint">规则推导，每条都带产生它的数字；不分因果，只给结论 + 下一步查什么</div>
+      <div id="insights"></div></div>
   </div>
 </div>
 </main>
@@ -586,7 +681,21 @@ function drawLine() {
     + (g.length < 3 ? ' · 样本不足，不要当趋势看' : '');
 }
 
+// ── management view: findings, not charts ─────────────────────────────────
+function renderInsights() {
+  const box = document.getElementById('insights');
+  const tone = {风险: '#f03e3e', 注意: '#f59f00', 良好: '#2f9e44', 建议: '#4dabf7',
+                方法: '#8b98a5', 指标: '#8b98a5', 结构: '#8b98a5', 问题: '#f03e3e'};
+  box.innerHTML = (D.insights || []).map(f => `
+    <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #232c37">
+      <span style="flex:0 0 52px;font-size:11px;color:${tone[f.kind] || '#8b98a5'}">${f.kind}</span>
+      <span style="flex:1"><b>${f.title}</b>
+        <div style="color:#8b98a5;font-size:12px;margin-top:2px">${f.detail}</div></span>
+    </div>`).join('');
+}
+
 function drawAll() {
+  renderInsights();
   renderFilterBar();
   renderSummary();
   drawSankey(); drawBubble(); drawTree(); drawBars(); drawLine();
