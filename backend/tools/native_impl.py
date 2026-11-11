@@ -6227,6 +6227,34 @@ def _format_plan(path, db_name: str, tables: list, warnings: list) -> str:
 
 
 @tool
+def db_plan_from_file(file: str, db_name: str) -> str:
+    """
+    用我：建库**之前**先出方案给用户看——sheet → 表、每列的类型、行数、样例、以及只有人能拍板的问题。
+    别用我：用户已经确认过映射了，就直接 db_build_from_file(confirm=true)。
+
+    Propose the mapping for a spreadsheet, without creating anything.
+
+    Returns sheet → table, every column with its inferred type, row counts, two sample rows,
+    and the questions only a human can settle (a missing header, a duplicate header, a
+    column mostly empty, a "money" guess, a 0/1 column read as boolean). Show it to the
+    user; only after they agree does `db_build_from_file(confirm=true)` create anything.
+
+    This is a separate tool from the build on purpose: the plan is read-only, and a
+    guardrail that interrupts the build must not interrupt a review.
+    """
+    from pathlib import Path as _Path
+
+    path = _Path(file).expanduser()
+    if not path.is_file():
+        return f"Error: no such file: {file}"
+    sheets, error = _read_source_sheets(path)
+    if error:
+        return error
+    tables, warnings = _plan_from_file(path, sheets)
+    return _format_plan(path, db_name, tables, warnings)
+
+
+@tool
 def db_build_from_file(file: str, db_name: str, confirm: bool = False, host: str = "", port: int = 0,
                        user: str = "", password: str = "", recreate: bool = False) -> str:
     """
@@ -6276,7 +6304,10 @@ def db_build_from_file(file: str, db_name: str, confirm: bool = False, host: str
 
     tables, warnings = _plan_from_file(path, sheets)
     if not confirm:
-        return _format_plan(path, db_name, tables, warnings)
+        return ("Error: confirm=false — nothing was created. This call is the one that writes a "
+                "database, so it only runs after the user agreed to a plan.\n"
+                "1) db_plan_from_file(file=..., db_name=...)   ← show that to the user\n"
+                "2) db_build_from_file(file=..., db_name=..., confirm=true)   ← only after they say yes")
 
     admin = _pg_conn_kwargs(host, port, user, password)
     try:

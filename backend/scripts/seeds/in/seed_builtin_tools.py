@@ -123,7 +123,8 @@ SEEDABLE_TOOL_META = {
     # Excel/CSV → PostgreSQL, the in-conversation form of scripts/load_workbook_to_postgres.py
     # and scripts/review_db_constraints.py. `pg_*` tools are bound to the platform database,
     # so without these an agent could only build a database by shelling out.
-    "db_build_from_file": ("DB - Build from Excel/CSV (plan, then confirm)", "database", None),
+    "db_plan_from_file": ("DB - Plan from Excel/CSV (read-only proposal)", "database", None),
+    "db_build_from_file": ("DB - Build from Excel/CSV (writes; needs confirm)", "database", None),
     "db_review": ("DB - Review Schema + Build PK/FK", "database", None),
     "db_query": ("DB - Query Any Database (SELECT)", "database", None),
     "db_verify_against_file": ("DB - Verify against Excel/CSV", "database", None),

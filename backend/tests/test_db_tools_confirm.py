@@ -14,7 +14,8 @@ NATIVE = REPO / "backend" / "tools" / "native_impl.py"
 SEED = REPO / "backend" / "scripts" / "seeds" / "in" / "seed_builtin_tools.py"
 SKILL = REPO / "backend" / "skills" / "builtin" / "excel-csv-to-postgres" / "SKILL.md"
 
-NEW_TOOLS = ("db_build_from_file", "db_review", "db_query", "db_verify_against_file")
+NEW_TOOLS = ("db_plan_from_file", "db_build_from_file", "db_review", "db_query",
+             "db_verify_against_file")
 
 
 @pytest.fixture(scope="module")
@@ -36,6 +37,28 @@ def test_the_tool_is_both_defined_and_seedable(name, native):
     assert hasattr(native, name), f"{name} is not defined in tools/native_impl.py"
     seed = SEED.read_text(encoding="utf-8")
     assert f'"{name}":' in seed, f"{name} is not in SEEDABLE_TOOL_META, so it never reaches the catalogue"
+
+
+def test_plan_is_a_separate_read_only_tool(native):
+    """The plan and the build are different actions: a guardrail on the build must not fire
+    on a review, so the read-only proposal is its own tool with no write path."""
+    assert hasattr(native, "db_plan_from_file")
+    text = NATIVE.read_text(encoding="utf-8")
+    plan = text[text.index("def db_plan_from_file"):text.index("def db_build_from_file")]
+    for forbidden in ("CREATE DATABASE", "psycopg2.connect", "INSERT INTO", "DROP DATABASE"):
+        assert forbidden not in plan, f"the plan tool must not contain {forbidden!r}"
+
+
+def test_build_refuses_without_confirm_and_points_at_the_plan(native, tmp_path):
+    """`confirm=false` is an error, not a plan dump: the two phases have two entry points."""
+    from openpyxl import Workbook
+
+    wb = Workbook(); ws = wb.active; ws.title = "t"
+    ws.append(["a", "b"]); ws.append([1, 2])
+    path = tmp_path / "x.xlsx"; wb.save(path)
+    result = native.db_build_from_file.func(file=str(path), db_name="should_not_exist_xlsx")
+    assert result.startswith("Error:") and "confirm=false" in result
+    assert "db_plan_from_file" in result, "the refusal must say which tool to call first"
 
 
 def test_build_takes_a_confirm_flag_and_defaults_to_off(native):
