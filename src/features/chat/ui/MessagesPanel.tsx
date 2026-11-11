@@ -114,6 +114,9 @@ export default function MessagesPanel({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [showThinking, setShowThinking] = useState(true);
+  // Which messages have their tool list expanded. Keyed per message so opening one
+  // turn's tools does not open every turn's.
+  const [openTools, setOpenTools] = useState<Record<number, boolean>>({});
   const streamingStartRef = useRef<number>(0);
   const [elapsedMs, setElapsedMs] = useState(0);
   // Analysis panel state — dashboard auto-generated after CSV upload
@@ -654,8 +657,33 @@ export default function MessagesPanel({
                                 );
                               })()}
                               {/* Tool calls — from this message's blocks, in the order
-                                  the agent called them. */}
-                              {(message.blocks || []).filter(b => b.kind === 'tool-call').map((b, i) => (
+                                  the agent called them. Collapsed by default behind
+                                  their own toggle: the reasoning is what you read, the
+                                  tool list is what you open when you want the evidence. */}
+                              {(() => {
+                                const toolBlocks = (message.blocks || []).filter(b => b.kind === 'tool-call');
+                                if (toolBlocks.length === 0) return null;
+                                const isOpen = Boolean(openTools[index]);
+                                const running = toolBlocks.filter(b => b.kind === 'tool-call' && b.status === 'running').length;
+                                return (
+                                  <button
+                                    onClick={() => setOpenTools(prev => ({ ...prev, [index]: !prev[index] }))}
+                                    className="flex items-center gap-1.5 text-[11px] font-medium transition-colors rounded-md px-1.5 py-0.5 hover:bg-black/5 w-full text-left"
+                                    style={{ color: 'var(--color-text-muted)' }}
+                                    title={isOpen ? '收起工具调用' : '展开工具调用'}
+                                  >
+                                    {isOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                                    <Wrench className="w-3 h-3" />
+                                    <span>
+                                      工具调用 ({toolBlocks.length})
+                                      {running > 0 && (
+                                        <span className="text-blue-500 ml-1 animate-pulse">{running} 运行中</span>
+                                      )}
+                                    </span>
+                                  </button>
+                                );
+                              })()}
+                              {openTools[index] && (message.blocks || []).filter(b => b.kind === 'tool-call').map((b, i) => (
                                 <div key={`tool-${i}`} className="flex items-start gap-1.5">
                                   <span className="flex-shrink-0 mt-0.5">
                                     {b.kind === 'tool-call' && b.status === 'running' ? '🔧' : (b.kind === 'tool-call' && b.status === 'failed' ? '❌' : '✅')}
