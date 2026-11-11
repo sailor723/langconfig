@@ -123,7 +123,9 @@ function RailItem({
           // A solid glyph, not a solid row: the fill belongs to the icon's own shape, so the
           // rail keeps its uniform look and the chat entry is still the one you spot.
           fill={solidIcon ? 'currentColor' : 'none'}
-          style={{ flex: 'none' }}
+          // A solid glyph reads darker than the same colour as a 1.5px stroke, so the fill is
+          // brightened back to the weight of its neighbours instead of sitting there as a dark blob.
+          style={{ flex: 'none', filter: solidIcon ? 'brightness(1.6)' : undefined }}
         />
       )}
       {children}
