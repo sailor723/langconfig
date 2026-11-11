@@ -36,6 +36,7 @@ import datetime
 import html
 import json
 import pathlib
+import shutil
 import sys
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
@@ -922,17 +923,63 @@ def render_factor_page(payload: dict, page: dict, css: pathlib.Path) -> str:
                 meta=_meta_block("detail", page["title"], payload))
 
 
-def render_all(payload: dict, out: pathlib.Path) -> list[pathlib.Path]:
+#: The names the 2026-09 generation used. The cockpit is written under BOTH names: the Analysis
+#: panel, a bookmark and a hand-typed /api/files/sunhing_dashboard.html all have to land on the
+#: same numbers, otherwise "I opened it and nothing changed" is a true statement about a stale file.
+LEGACY_NAMES = {
+    "hub": "sunhing_dashboard.html",
+    "profit": "sunhing_dashboard_profit.html",
+    "turnover": "sunhing_dashboard_turnover.html",
+    "leverage": "sunhing_dashboard_leverage.html",
+    "support": "sunhing_dashboard_support.html",
+    "risk": "sunhing_dashboard_risk.html",
+}
+ARCHIVE = "archive-2026-09-28"
+
+
+def _archive_once(out: pathlib.Path, name: str) -> pathlib.Path | None:
+    """Keep the replaced page before the first overwrite — once, never over an archive.
+
+    A page already rendered by this script carries `ontology:` in its meta; copying that over the
+    archive on the second run would replace the only copy of the 2026-09 page.
+    """
+    target = out / name
+    if not target.is_file():
+        return None
+    if "ontology: sunhing_v1" in target.read_text(encoding="utf-8")[:1200]:
+        return None
+    keep = out / ARCHIVE
+    keep.mkdir(exist_ok=True)
+    dst = keep / name
+    if dst.exists():
+        return None
+    shutil.copy2(target, dst)
+    return dst
+
+
+def render_all(payload: dict, out: pathlib.Path, *,
+               names: dict[str, str] | None = None, hub_name: str | None = None,
+               archive: bool = False) -> list[pathlib.Path]:
+    """Render the six pages. `names`/`hub_name` let one payload be written under two naming
+    schemes (ontology_* and the 2026-09 legacy names) without duplicating the render."""
     out.mkdir(parents=True, exist_ok=True)
     hub_css = TEMPLATES / "hub.css"
     factor_css = TEMPLATES / "factor.css"
+    names = names or {}
+    local = dict(payload)
+    local["pages"] = [{**page, "file": names.get(page["id"], page["file"])} for page in payload["pages"]]
+    local["hub_file"] = hub_name or payload.get("hub_file") or "sunhing_ontology_hub.html"
     written = []
-    hub = out / (payload.get("hub_file") or "sunhing_ontology_hub.html")
-    hub.write_text(render_hub(payload, hub_css, {}), encoding="utf-8")
-    written.append(hub)
-    for page in payload["pages"]:
+    hub_path = out / local["hub_file"]
+    if archive:
+        _archive_once(out, local["hub_file"])
+    hub_path.write_text(render_hub(local, hub_css, {}), encoding="utf-8")
+    written.append(hub_path)
+    for page in local["pages"]:
         path = out / page["file"]
-        path.write_text(render_factor_page(payload, page, factor_css), encoding="utf-8")
+        if archive:
+            _archive_once(out, page["file"])
+        path.write_text(render_factor_page(local, page, factor_css), encoding="utf-8")
         written.append(path)
     return written
 
@@ -993,6 +1040,8 @@ def main() -> int:
     ap.add_argument("--period", default=None, help="override kpi_map.json observation_period")
     ap.add_argument("--check", action="store_true", help="check the values, write no files")
     ap.add_argument("--json", action="store_true", help="print the payload as JSON")
+    ap.add_argument("--also-ontology-names", action="store_true",
+                    help="also write the sunhing_ontology_*.html alias set (default: canonical names only)")
     args = ap.parse_args()
 
     profile = pathlib.Path(args.profile).expanduser().resolve()
@@ -1058,7 +1107,16 @@ def main() -> int:
         print(f"\n达标 {met}/{known}（另有 {len(payload['payload_rows']) - known} 条本体不回答）"
               f" · problems {len(payload['problems'])} · notes {len(payload['notes'])}")
     else:
-        written = render_all(payload, pathlib.Path(args.out).expanduser().resolve())
+        target = pathlib.Path(args.out).expanduser().resolve()
+        # CANONICAL names, not prettier ones: the Analysis panel, the registry, every 2026-09
+        # cross-link and every bookmark point at `sunhing_dashboard*.html`. A second set under a
+        # nicer name doubles the family in the panel and leaves the old URLs serving stale bytes —
+        # which is exactly how "I opened it and nothing changed" happened. The replaced pages are
+        # archived under archive-2026-09-28/ instead of kept alive under the live names.
+        written = render_all(payload, target, names=LEGACY_NAMES,
+                             hub_name=LEGACY_NAMES["hub"], archive=True)
+        if args.also_ontology_names:
+            written += render_all(payload, target)
         for path in written:
             print(f"[WROTE] {path}  ({path.stat().st_size} bytes)")
         print(f"[OK] {len(written)} pages · problems {len(payload['problems'])} · notes {len(payload['notes'])}")

@@ -234,14 +234,17 @@ backend/.venv/bin/python backend/scripts/sunhing_dashboard_from_ontology.py     
 | renderer | `backend/scripts/sunhing_dashboard_from_ontology.py` |
 | KPI ↔ metric declaration | `backend/features/ontology/profiles/sunhing_v1/kpi_map.json` |
 | layout (original CSS, verbatim) | `backend/scripts/templates/sunhing/{hub,factor}.css` |
-| output | `data/analysis_dbs/sunhing_ontology_{hub,profit,turnover,leverage,support,risk}.html` |
+| output | `data/analysis_dbs/sunhing_dashboard{,_profit,_turnover,_leverage,_support,_risk}.html` — the SAME canonical names the app, the registry and every 2026-09 cross-link already use |
 
-**Why the `ontology_` prefix:** `/api/files/{name}` only accepts a bare filename
-and `rglob`s the whole `data/analysis_dbs` tree, so reusing
-`sunhing_dashboard_profit.html` would overwrite the 2026-11 originals — the only
-comparison baseline there is. The prefix keeps both and still serves through
-`/api/files/sunhing_ontology_hub.html` (HTTP 200, Plotly swapped to
-`/static/plotly.min.js`, so it works offline).
+**Naming (settled 2026-11-11, after getting it wrong once):** the pages were first written
+under an `ontology_` prefix to keep the 2026-09 originals as a comparison baseline. That was the
+wrong trade: the Analysis panel, the registry's `home`, every cross-link and every bookmark point
+at `sunhing_dashboard*.html`, so those URLs kept serving the September numbers — the cockpit
+existed and "I opened it and nothing changed" stayed true. The renderer now writes the
+**canonical names** and archives the replaced pages to
+`data/analysis_dbs/archive-2026-09-28/` (written once, never over an existing archive).
+`--also-ontology-names` still produces the alias set; it is off by default because a second set
+doubles the family in the panel.
 
 ### 10.1 Layout is copied, not re-imagined
 
