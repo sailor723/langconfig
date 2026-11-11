@@ -232,6 +232,62 @@ def _plain(v):
 
 # ── management view: findings a decision-maker can act on ───────────────────
 
+def summary_text(prof: dict, cub: dict, findings: list) -> list:
+    """The 业务综述 as prose a manager can act on — not a restatement of the schema.
+
+    The first version printed "共 969.5，覆盖 4 笔，4 个分组，层级 … 时间列 …", which is the
+    *scope* of the page wearing the label "业务综述". Three sentences that say what the number
+    means, what is fragile about it, and what to do next is the same information doing its job.
+    """
+    rows = cub.get("rows") or []
+    if not rows:
+        return ["立方体没有返回任何分组，先确认数据是否装载完整。"]
+    total = sum(r[-2] for r in rows) or 0
+    total_n = sum(r[-1] for r in rows) or 0
+    by_first = {}
+    for r in rows:
+        by_first[r[0]] = by_first.get(r[0], 0) + r[-2]
+    top_label, top_amount = max(by_first.items(), key=lambda kv: kv[1]) if by_first else ("—", 0)
+    share = top_amount / total * 100 if total else 0
+    kinds = {f["kind"]: f for f in findings}
+    titles = " ".join(f["title"] for f in findings)
+    grain = next((f for f in findings if f["kind"] == "方法"), None)
+
+    out = []
+    # 1) the business fact, in decision terms
+    lead = f"{total_n} 笔带来 {total:,.1f}，单均 {total / max(total_n, 1):,.1f}"
+    if share >= 50:
+        lead += (f"，但其中 {top_label} 一个分组就占 {share:.0f}% —— 收入高度依赖单点，"
+                 f"这一项出问题整体就掉一半")
+    elif share >= 30:
+        lead += f"，头部 {top_label} 占 {share:.0f}%，已过三成，需要单独盯"
+    else:
+        lead += f"，最大分组 {top_label} 仅占 {share:.0f}%，分布较均衡"
+    out.append(lead + "。")
+
+    # 2) what cannot be concluded, stated up front
+    if "样本量" in titles:
+        out.append(f"但只有 {total_n} 笔，任何“增长/趋势/占比变化”都还只是噪音——"
+                   f"这份数据现在能支撑“结构长什么样”，不能支撑“要不要投”。")
+    elif "样本偏小" in titles:
+        out.append("样本仍然偏小，趋势判断需要更长的时间窗。")
+
+    # 3) the measurement caveat, because it changes what the number means
+    if grain:
+        # no invented number here: the cube is order-grain, so it cannot state the line-level
+        # total. Say what is true instead — the grain differs — and let the caller decide.
+        out.append("口径先定死：本页是**订单粒度**，一单多行明细时，明细口径（Σ 数量×单价）"
+                   "算出来的数会比这里小/大，两者不能互相印证；换口径，结论也要跟着换。")
+
+    # 4) one next step, not five
+    if "结构" in kinds or len(prof["chain"]) < 2:
+        out.append(f"下一步建议：先把下钻层级补到 3 层（{ '、'.join(l['label'] for l in prof['chain']) or '目前只有一层' }），"
+                   f"才能回答“哪一层在拖后腿”。")
+    else:
+        out.append("下一步建议：先查头部分组的来源（是客户大、还是单价高），再决定是保它还是分散它。")
+    return out
+
+
 def insights(prof: dict, cub: dict) -> list:
     """Rule-derived findings, each with the number that produced it.
 
@@ -369,7 +425,11 @@ def render(db_name: str, out_path: str | Path, title: str = "", **conn) -> str:
             "levels": cub.get("level_names") or [], "measure": cub.get("measure"),
             "time": cub.get("time"), "rows": cub.get("rows") or [], "columns": cub.get("columns") or [],
             "sql": cub.get("sql") or "",
-            "insights": insights(prof, cub)}
+            "insights": insights(prof, cub),
+            "summary": summary_text(prof, cub, insights(prof, cub)),
+            "scope": (f"口径 {cub.get('measure') or '—'}"
+                      + (f" · 层级 {' → '.join(l['label'] for l in prof['chain'])}" if prof["chain"] else "")
+                      + (f" · 时间列 {prof['time']}" if prof.get("time") else ""))}
     d3 = ASSET.read_text(encoding="utf-8") if ASSET.is_file() else ""
     html = (_HTML.replace("/*__D3__*/", d3)
                  .replace("/*__DATA__*/", json.dumps(data, ensure_ascii=False))
@@ -516,12 +576,11 @@ function renderSummary() {
   holder.selectAll('div').data(kpis).join('div').attr('class', 'kpi')
     .html(d => `<div class="v">${d.v}</div><div class="l">${d.l}</div><div class="m">${d.m}</div>`);
 
+  const lines = (D.summary || []).map(t => `<p style="margin:6px 0">${t}</p>`).join('');
   document.getElementById('summary').innerHTML =
-    `<b>业务综述</b><div class="hint">口径：\`${D.measure||'—'}\`（只统计立方体里出现的分组）</div>`
-    + `<p>共 <b>${fmt(total)}</b>，覆盖 <b>${totalN}</b> 笔，<b>${v.length}</b> 个分组`
-    + (D.levels.length ? `，层级 ${D.levels.map(l => '`' + l + '`').join(' → ')}` : '')
-    + (D.time ? `，时间列 \`${D.time}\`` : '，无时间列') + `。</p>`
-    + (topL0 ? `<p>头部 <b>${topL0[0]}</b> 占 ${(topL0[1]/Math.max(total,1)*100).toFixed(1)}%。</p>` : '');
+    `<b>业务综述</b>` + lines
+    + `<div style="color:#8b98a5;font-size:11px;margin-top:8px">技术口径：${D.scope || '—'}`
+    + `　（本页 ${rows.length} 组，筛选后 ${v.length} 组）</div>`;
 }
 
 // ── sankey: consecutive levels, nodes clickable ────────────────────────────
