@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { File, FolderOpen, Folder, Download, X, Loader2, CheckCircle, AlertCircle, Clock, RefreshCw, ChevronRight, ChevronDown, Trash2 } from 'lucide-react';
+import { File, FolderOpen, Folder, Download, X, Loader2, CheckCircle, AlertCircle, Clock, RefreshCw, ChevronRight, ChevronDown, Trash2, ExternalLink } from 'lucide-react';
 import type { SessionDocument } from '../types/chat';
 import apiClient from '../../../lib/api-client';
 import { downloadFile } from '../utils/downloadFile';
@@ -18,6 +18,8 @@ interface GeneratedFile {
   size_human?: string;
   modified_at?: string;
   folder?: string;
+  /** Present for HTML deliverables: a URL that opens the file in a tab. */
+  open_url?: string;
 }
 
 export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
@@ -269,6 +271,15 @@ export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
                             <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
                               {file.size_human || `${(file.size_bytes / 1024).toFixed(0)}KB`}
                             </span>
+                            {file.open_url && (
+                              <button
+                                onClick={() => window.open(`${apiClient.baseURL}${file.open_url}`, '_blank', 'noopener')}
+                                className="p-1 rounded hover:bg-white/10"
+                                title="在新标签页打开"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                              </button>
+                            )}
                             <button
                               onClick={() => downloadFile(
                                 '/api/workspace/by-path/download',

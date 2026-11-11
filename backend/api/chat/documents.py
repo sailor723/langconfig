@@ -653,7 +653,7 @@ async def list_session_generated_files(
     seen = set()
     generated = []
 
-    def _collect_file_info(path: Path) -> Optional[dict]:
+    def _collect_file_info(path: Path, workspace_root: Optional[Path] = None) -> Optional[dict]:
         """Build the file-info dict for a path (None if already seen)."""
         key = str(path.resolve())
         if key in seen:
@@ -664,13 +664,24 @@ async def list_session_generated_files(
             f"{stat.st_size / 1024:.1f} KB" if stat.st_size >= 1024
             else f"{stat.st_size} B"
         )
-        return {
+        info = {
             "filename": path.name,
             "path": str(path.resolve().relative_to(workspace_mgr.user_base())),
             "size_bytes": stat.st_size,
             "size_human": size_human,
             "modified_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
         }
+        # An HTML deliverable is meant to be opened, and the Files panel is where a person looks.
+        # `path` above is relative to the PERSON's tree; this route wants it relative to the agent
+        # workspace, so compute and hand back a ready-made URL instead of making the client guess.
+        if workspace_root is not None and path.suffix.lower() in (".html", ".htm"):
+            try:
+                rel = path.resolve().relative_to(workspace_root.resolve())
+                info["open_url"] = (f"/api/chat/{session.session_id}/workspace/file"
+                                    f"?path={rel.as_posix()}")
+            except ValueError:
+                pass
+        return info
 
     def add_file(path: Path, folder: Optional[str] = None):
         """Record a file into the result set (dedup by resolved path)."""
@@ -701,7 +712,7 @@ async def list_session_generated_files(
                 # Top-level folder of the workspace (relative path first part,
                 # falling back to the workspace root itself).
                 folder = rel.parts[0] if len(rel.parts) > 1 else "workspace"
-                _file = _collect_file_info(p)
+                _file = _collect_file_info(p, agent_workspace)
                 if _file is not None:
                     _file["folder"] = folder
                     generated.append(_file)
