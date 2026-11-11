@@ -150,6 +150,17 @@ class Ontology:
         names = [d[0] for d in self.cur.description]
         return {row[0]: dict(zip(names, row)) for row in self.cur.fetchall()}
 
+    def fact_series(self) -> dict[str, dict[str, float]]:
+        """{kpi_id: {period: actual}} — the landed monthly values, for CHECKING a series."""
+        self.cur.execute(
+            "SELECT kpi_id, period, actual FROM fact_kpi_monthly"
+        )
+        out: dict[str, dict[str, float]] = {}
+        for kpi, period, actual in self.cur.fetchall():
+            out.setdefault(kpi, {})[str(period)] = (
+                float(actual) if actual is not None else None)
+        return out
+
     def fact(self, period: str) -> dict[str, float]:
         """The landed values, ONLY to check the ontology against them."""
         self.cur.execute(
@@ -242,6 +253,7 @@ def build_payload(onto: Ontology, mapping: dict, *, verbose: bool = True) -> dic
 
     catalogue = onto.catalogue()
     fact = onto.fact(period)
+    fact_series = onto.fact_series()
     problems: list[str] = []
     notes: list[str] = []
 
@@ -313,6 +325,23 @@ def build_payload(onto: Ontology, mapping: dict, *, verbose: bool = True) -> dic
                              f"(snapshot only; the page prints that instead of a chart)")
             row["status"], row["shortfall"], row["score"] = judge(
                 value, row["target"], direction, near_ratio)
+            # A 6-point line whose six points are equal is not a trend. Say WHY with evidence: if
+            # the landed fact column is equally flat, the source has no monthly grain for this KPI
+            # and the series is a snapshot tiled across periods — the reader must not read it as
+            # "unchanged performance".
+            values = [v for _, v in row["series"]]
+            if len(values) >= 2 and len({round(v, 4) for v in values}) == 1:
+                landed = [fact_series.get(kpi_id, {}).get(p) for p, _ in row["series"]]
+                landed = [v for v in landed if v is not None]
+                same_as_fact = landed and len({round(v, 4) for v in landed}) == 1
+                row["series_flat"] = {
+                    "value": values[0],
+                    "why": ("六期同值，且库里 fact_kpi_monthly 也是同一个值平铺 6 期 —— 源表没有这条 KPI 的期间粒度，"
+                            "曲线不是趋势，是快照按期间平铺" if same_as_fact else
+                            "六期同值；库里 fact_kpi_monthly 的六期并不是同一个值，这条需要人来看"),
+                }
+                if not same_as_fact:
+                    notes.append(f"[SERIES-FLAT] {kpi_id} → :{series_metric} 六期同值，但 fact 六期不同 —— 需要判断是口径还是数据")
 
         rows.append(row)
 
@@ -493,8 +522,12 @@ Plotly.newPlot('{cid}', [
      line: {{ color: '{TARGET_COLOUR}', width: 1, dash: 'dash' }} }}""" if target_line else ''}
 ], {{ margin: {{ t: 36, b: 30, l: 40, r: 10 }}, hovermode: 'x unified', showlegend: false }});
 """
+    flat = row.get("series_flat")
+    caption = (f'<div style="font-size:11px;color:#b8860b;margin-top:-4px">{esc(flat["why"])}</div>'
+               if flat else "")
     return (
-        f'    <div class="card"><div class="chart-title">{esc(title)}</div><div id="{cid}" class="chart"></div></div>\n',
+        f'    <div class="card"><div class="chart-title">{esc(title)}</div>'
+        f'<div id="{cid}" class="chart"></div>{caption}</div>\n',
         call,
     )
 
