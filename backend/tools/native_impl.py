@@ -6058,6 +6058,564 @@ def sqlite_execute(sql: str, db_path: str = ":memory:") -> str:
             conn.close()
 
 
+# ── Excel/CSV → PostgreSQL, for the table-building agents ────────────────────
+# The three tools below are the in-conversation form of `scripts/load_workbook_to_postgres.py`
+# and `scripts/review_db_constraints.py`. They exist because `pg_query` / `pg_list_tables` /
+# `pg_execute` are bound to the PLATFORM database: before this, building a new database from
+# an upload meant shelling out, which not every agent has. Each tool here must be
+# self-contained (the seeder bakes this source into a DB row), so the helpers are small and
+# module-level, and heavy dependencies are imported inside the function that needs them.
+
+def _pg_conn_kwargs(host: str = "", port: int = 0, user: str = "", password: str = "",
+                    dbname: str = "") -> dict:
+    """Connection kwargs: explicit argument → env (POSTGRES_*) → platform default.
+
+    Defaults to the platform's own server, so "no arguments" means "the server this app runs
+    on"; pass host/port to build or inspect a database beside it.
+    """
+    import os
+
+    def pick(value, env_name, fallback):
+        if value not in ("", None) and value != 0:
+            return value
+        return os.environ.get(env_name) or fallback
+
+    kwargs = {
+        "host": pick(host, "POSTGRES_HOST", "localhost"),
+        "port": int(pick(port, "POSTGRES_PORT", 5432)),
+        "user": pick(user, "POSTGRES_USER", "postgres"),
+        "password": pick(password, "POSTGRES_PASSWORD", ""),
+    }
+    if dbname:
+        kwargs["dbname"] = dbname
+    return kwargs
+
+
+def _ident(name: str, fallback: str = "c") -> str:
+    """ASCII snake_case identifier from an arbitrary header / sheet name."""
+    import re
+    cleaned = re.sub(r"[^0-9A-Za-z]+", "_", str(name or "").strip()).strip("_").lower()
+    if not cleaned:
+        return fallback
+    if cleaned[0].isdigit():
+        cleaned = fallback + "_" + cleaned
+    return cleaned[:60]
+
+
+def _infer_pg_type(values: list, name: str = "") -> str:
+    """Postgres type from the values, plus the two exceptions that are silent when skipped.
+
+    A money-named column stays NUMERIC even when every value is whole (`price` = 120, 80,
+    180 is still money), and booleans stay BOOLEAN — Excel hands them over as Python bools,
+    which a value-only classifier files under TEXT and turns into "True"/"False" strings.
+    """
+    import datetime as _dt
+    import json as _json
+    import re as _re
+    from decimal import Decimal as _Decimal
+
+    money = _re.compile(r"(amount|price|total|cost|revenue|fee|balance|tax|discount|salary|budget)")
+    iso = _re.compile(r"^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$")
+    vals = [v for v in values if v is not None and not (isinstance(v, str) and v.strip() == "")]
+    if not vals:
+        return "TEXT"
+    if all(isinstance(v, bool) for v in vals):
+        return "BOOLEAN"
+    nums = [v for v in vals if isinstance(v, (int, float, _Decimal)) and not isinstance(v, bool)]
+    if len(nums) == len(vals):
+        if money.search(name or ""):
+            return "NUMERIC"
+        whole = all(isinstance(v, int) or float(v).is_integer() for v in nums)
+        return "BIGINT" if whole else "NUMERIC"
+    if all(isinstance(v, _dt.datetime) for v in vals):
+        return "TIMESTAMPTZ"
+    if all(isinstance(v, _dt.date) for v in vals):
+        return "DATE"
+    if all(isinstance(v, str) for v in vals):
+        if all(iso.match(v.strip()) for v in vals):
+            return "TIMESTAMPTZ"
+        if all(v.strip().startswith(("{", "[")) for v in vals):
+            try:
+                for v in vals[:50]:
+                    _json.loads(v)
+                return "JSONB"
+            except Exception:
+                return "TEXT"
+    return "TEXT"
+
+
+def _coerce_pg_value(value, pg_type: str):
+    """Cell → value psycopg2 accepts for `pg_type`; a value that does not fit becomes NULL."""
+    import datetime as _dt
+    import json as _json
+    from decimal import Decimal as _Decimal, InvalidOperation
+
+    if value is None or (isinstance(value, str) and value.strip() == ""):
+        return None
+    try:
+        if pg_type == "TEXT":
+            return value if isinstance(value, str) else str(value)
+        if pg_type == "BOOLEAN":
+            if isinstance(value, bool):
+                return value
+            text = str(value).strip().lower()
+            if text in ("true", "t", "1", "yes", "y"):
+                return True
+            if text in ("false", "f", "0", "no", "n"):
+                return False
+            return None
+        if pg_type == "BIGINT":
+            return int(_Decimal(str(value).strip()))
+        if pg_type == "NUMERIC":
+            return _Decimal(str(value).strip())
+        if pg_type == "TIMESTAMPTZ":
+            return value if isinstance(value, _dt.datetime) else str(value).strip()
+        if pg_type == "JSONB":
+            return value if isinstance(value, str) else _json.dumps(value, ensure_ascii=False)
+        return value
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+
+
+def _plan_from_file(path, sheets: dict) -> tuple[list, list]:
+    """(tables, warnings) — what WOULD be built, in the order a human should read it."""
+    tables, warnings = [], []
+    for sheet_name, (headers, body) in sheets.items():
+        cols, seen = [], {}
+        for i, header in enumerate(headers, start=1):
+            base = _ident(header, fallback=f"c{i}")
+            if not str(header).strip():
+                warnings.append(f"[{sheet_name}] 第 {i} 列没有表头，已命名为 {base} —— 请确认这是不是该丢的列")
+            if base in seen:
+                warnings.append(f"[{sheet_name}] 表头 {header!r} 重复，第二列起加后缀（{base}_2 …）")
+            seen[base] = seen.get(base, 0) + 1
+            cols.append(base if seen[base] == 1 else f"{base}_{seen[base]}")
+        types = [_infer_pg_type([r[i] if i < len(r) else None for r in body], name=cols[i])
+                 for i in range(len(cols))]
+        table = _ident(sheet_name, fallback="sheet")
+        tables.append({"sheet": sheet_name, "table": table, "cols": cols, "types": types,
+                       "rows": len(body), "sample": body[:2]})
+        if len(body) <= 1:
+            warnings.append(f"[{sheet_name}] 只有 {len(body)} 行数据 —— 是不是表头/口径搞错了？")
+        for col, pg in zip(cols, types):
+            if pg == "NUMERIC":
+                warnings.append(f"[{sheet_name}] {col} 推断成 NUMERIC（看起来是金额/汇总额）—— 确认它确实是数值")
+            if pg == "BOOLEAN":
+                warnings.append(f"[{sheet_name}] {col} 推断成 BOOLEAN —— 确认它不是 0/1 编码的分类")
+            if pg == "TEXT":
+                filled = sum(1 for r in body for i, c in enumerate(r) if cols[i] == col and c not in (None, ""))
+                if filled and filled < len(body) * 0.5:
+                    warnings.append(f"[{sheet_name}] {col} 一半以上是空 —— 可能选错了列或表头错位")
+    return tables, warnings
+
+
+def _format_plan(path, db_name: str, tables: list, warnings: list) -> str:
+    out = [f"# 方案（还没有建库）：{path.name} → {db_name}"]
+    for t in tables:
+        out.append(f"\n## sheet「{t['sheet']}」→ 表 {t['table']}   ({t['rows']} 行)")
+        out += [f"  - {c:<22} {pg}" for c, pg in zip(t["cols"], t["types"])]
+        if t["sample"]:
+            out.append(f"  样例: {t['sample'][0]}")
+    if warnings:
+        out.append("\n## 需要你确认的点")
+        out += [f"  ! {w}" for w in warnings]
+    else:
+        out.append("\n## 结构上没有发现问题（表头完整、列名唯一、类型明确）")
+    out.append("\n确认以上映射后再建库：用同样的参数再调用一次，带 confirm=true。"
+               "如果映射不对，先改文件或告诉我要跳过哪些 sheet —— 不要建了再删。")
+    return "\n".join(out)
+
+
+@tool
+def db_build_from_file(file: str, db_name: str, confirm: bool = False, host: str = "", port: int = 0,
+                       user: str = "", password: str = "", recreate: bool = False) -> str:
+    """
+    用我：把一个上传的 Excel(.xlsx) 或 .csv 建成一个真的 PostgreSQL 库 —— **两段式**：先出方案，用户确认后才建。
+    别用我：只想读文件内容用 read_any_file；查已有业务库用 sql_agent_tool。
+
+    Build a PostgreSQL database from a spreadsheet. **Two phases, and phase two is not
+    optional:** the first call (confirm omitted/false) inspects the workbook and returns the
+    mapping it WOULD create — sheet → table, every column and its inferred type, row counts,
+    two sample rows, and a list of things only a human can settle (a missing header, a
+    duplicate header, a column mostly empty, a "money" guess, a 0/1 column read as boolean).
+    Nothing is created. The caller shows that to the user; only after they agree does a
+    second call with `confirm=true` actually create the database.
+
+    A schema guessed wrong is expensive to undo — the rows are already loaded and the user
+    has already asked questions against them — so the guess is confirmed before it exists,
+    not after. Money stays NUMERIC and booleans stay BOOLEAN when built (see `_infer_pg_type`).
+
+    Args:
+        file: path to the .xlsx / .csv (inside the workspace, e.g. upload/orders.xlsx)
+        db_name: target database name, lower_snake_case, e.g. "orders_xlsx"
+        confirm: set true ONLY after the user has agreed to the plan from the first call
+        host/port/user/password: target server (empty = the platform's own server)
+        recreate: drop the target first — refused unless db_name ends in _xlsx/_csv/_test
+
+    Returns:
+        Without confirm: the proposed mapping + the questions to settle.
+        With confirm: per-table column types, rows loaded, and whether counts match.
+    """
+    import re
+    from pathlib import Path
+
+    import psycopg2
+    from psycopg2.extras import execute_values
+
+    path = Path(file).expanduser()
+    if not path.is_file():
+        return f"Error: no such file: {file}"
+    if not re.fullmatch(r"[a-z_][a-z0-9_]{0,60}", db_name or ""):
+        return f"Error: db_name {db_name!r} must be lower_snake_case ASCII"
+    if recreate and not re.search(r"_(xlsx|csv|test)$", db_name):
+        return f"Error: refusing recreate on {db_name!r} — the name must end in _xlsx/_csv/_test"
+
+    sheets: dict = {}
+    suffix = path.suffix.lower()
+    if suffix in (".xlsx", ".xlsm"):
+        from openpyxl import load_workbook
+        wb = load_workbook(path, data_only=True, read_only=True)
+        for sheet in wb.sheetnames:
+            if sheet in ("00_index", "catalog"):
+                continue  # exporter metadata, not tables
+            data = list(wb[sheet].iter_rows(values_only=True))
+            if not data or not data[0]:
+                continue
+            headers = ["" if c is None else str(c) for c in data[0]]
+            body = [list(r) for r in data[1:]
+                    if any(c is not None and str(c).strip() != "" for c in r)]
+            if body:
+                sheets[sheet] = (headers, body)
+        wb.close()
+    elif suffix == ".csv":
+        import csv as _csv
+        with path.open(newline="", encoding="utf-8-sig", errors="replace") as fh:
+            reader = list(_csv.reader(fh))
+        if not reader:
+            return f"Error: {file} is empty"
+        sheets[path.stem] = (reader[0], [r for r in reader[1:] if any(str(c).strip() for c in r)])
+    else:
+        return f"Error: unsupported file type {suffix!r} (use .xlsx / .xlsm / .csv)"
+
+    if not sheets:
+        return "Error: nothing to load — every sheet was empty"
+
+    tables, warnings = _plan_from_file(path, sheets)
+    if not confirm:
+        return _format_plan(path, db_name, tables, warnings)
+
+    admin = _pg_conn_kwargs(host, port, user, password)
+    try:
+        conn = psycopg2.connect(**admin)
+    except Exception as exc:
+        return f"Error: cannot connect to {admin['host']}:{admin['port']} as {admin['user']}: {exc}"
+
+    conn.autocommit = True
+    with conn.cursor() as cur:
+        cur.execute("select 1 from pg_database where datname = %s", (db_name,))
+        if cur.fetchone() is not None:
+            if not recreate:
+                return (f"Error: database {db_name!r} already exists. Pass recreate=true to replace it "
+                        f"(only names ending _xlsx/_csv/_test may be recreated).")
+            cur.execute('DROP DATABASE "' + db_name + '" with (force)')
+        cur.execute('CREATE DATABASE "' + db_name + '"')
+    conn.close()
+
+    target = _pg_conn_kwargs(host, port, user, password, dbname=db_name)
+    conn = psycopg2.connect(**target)
+    conn.autocommit = False
+    out = [f"Database: {db_name} @ {target['host']}:{target['port']}"]
+    mismatches = []
+    with conn.cursor() as cur:
+        for plan in tables:
+            sheet_name, table = plan["sheet"], plan["table"]
+            cols, types = plan["cols"], plan["types"]
+            body = sheets[sheet_name][1]
+            ddl = ", ".join('"' + c + '" ' + t for c, t in zip(cols, types))
+            cur.execute('DROP TABLE IF EXISTS "' + table + '"')
+            cur.execute('CREATE TABLE "' + table + '" (' + ddl + ')')
+            payload = [[_coerce_pg_value(r[i] if i < len(r) else None, t)
+                        for i, t in enumerate(types)] for r in body]
+            cols_sql = ", ".join('"' + c + '"' for c in cols)
+            if payload:
+                execute_values(cur, 'INSERT INTO "' + table + '" (' + cols_sql + ') VALUES %s',
+                               payload, page_size=500)
+            cur.execute('SELECT count(*) FROM "' + table + '"')
+            actual = cur.fetchone()[0]
+            if actual != len(body):
+                mismatches.append(f"{table}: loaded {actual} of {len(body)}")
+            out.append(f"\n[{sheet_name}] -> {table}  ({actual} rows)")
+            out.extend(f"   {c:<22} {t}" for c, t in zip(cols, types))
+    conn.commit()
+    conn.close()
+
+    if warnings:
+        out.append("\n建库时仍带着这些待确认点：" + "；".join(warnings))
+    out.append("\nRow counts " + ("MISMATCH — " + "; ".join(mismatches) if mismatches
+                                  else "match the workbook."))
+    out.append("Next: db_review(db_name) to check the schema and build primary/foreign keys.")
+    return "\n".join(out)
+
+
+@tool
+def db_review(db_name: str, host: str = "", port: int = 0, user: str = "", password: str = "",
+              apply: bool = False, schema_name: str = "public") -> str:
+    """
+    用我：体检一个库（行数/空值/主键候选/外键候选），并可以把主键外键建上。
+    别用我：只想看平台库的表用 pg_list_tables。
+
+    Review a database's tables and keys, and optionally create them.
+
+    Primary keys are chosen by name ranking (`id`, then `<table>_id`, then other `*_id`;
+    money and timestamp columns last, because they are unique by accident in small tables).
+    A foreign key needs BOTH a `*_id` name and values that all exist in the target's key —
+    a value that merely fits another table's id range is not a reference. A column whose
+    name promises a timestamp while holding small integers is reported as a naming problem
+    and left unconstrained.
+
+    Args:
+        db_name: database to review
+        host/port/user/password: target server (empty = the platform's own server)
+        apply: create the primary and foreign keys — only after the user agreed to the review
+        schema_name: schema to inspect (default: public)
+
+    Returns:
+        The review, plus — with apply=True — the constraints created and what was skipped.
+    """
+    import psycopg2
+
+    target = _pg_conn_kwargs(host, port, user, password, dbname=db_name)
+    try:
+        conn = psycopg2.connect(**target)
+    except Exception as exc:
+        return f"Error: cannot connect to {db_name}: {exc}"
+    cur = conn.cursor()
+    cur.execute("""select table_name from information_schema.tables
+                    where table_schema=%s and table_type='BASE TABLE' order by 1""", (schema_name,))
+    tables = [r[0] for r in cur.fetchall()]
+    if not tables:
+        conn.close()
+        return f"No tables in {db_name}.{schema_name}"
+
+    out = [f"# Review of {db_name}.{schema_name} — {len(tables)} tables"]
+    pk_existing: dict = {}
+    cur.execute("""select c.relname, a.attname from pg_index i
+                     join pg_class c on c.oid=i.indrelid
+                     join pg_namespace n on n.oid=c.relnamespace
+                     join pg_attribute a on a.attrelid=c.oid and a.attnum = any(i.indkey)
+                    where i.indisprimary and n.nspname=%s order by 1, a.attnum""", (schema_name,))
+    for table, col in cur.fetchall():
+        pk_existing.setdefault(table, []).append(col)
+
+    stats: dict = {}
+    pk_cands: dict = {}
+    for table in tables:
+        cur.execute('select count(*) from "' + schema_name + '"."' + table + '"')
+        total = cur.fetchone()[0]
+        cur.execute("""select column_name, data_type from information_schema.columns
+                        where table_schema=%s and table_name=%s order by ordinal_position""",
+                    (schema_name, table))
+        rows = []
+        for col, dtype in cur.fetchall():
+            cur.execute('select count(*) filter (where "' + col + '" is null), count(distinct "'
+                        + col + '") from "' + schema_name + '"."' + table + '"')
+            nulls, distinct = cur.fetchone()
+            rows.append({"column": col, "type": dtype, "nulls": nulls,
+                         "distinct": distinct, "total": total})
+        stats[table] = rows
+
+        def rank(column: str) -> int:
+            """Sort key for a candidate column NAME (not a stats dict — sorting names with a
+            dict-keyed function raised `string indices must be integers`)."""
+            name = column.lower()
+            if name == "id":
+                return 0
+            if name == table.rstrip("s") + "_id":
+                return 1
+            if name.endswith("_id"):
+                return 2
+            if name.endswith("_at") or name.endswith("_ts") or name in ("ts", "date"):
+                return 8
+            if any(k in name for k in ("amount", "price", "total", "cost", "revenue", "qty")):
+                return 9
+            return 5
+
+        cands = sorted([c["column"] for c in rows
+                        if total > 0 and c["nulls"] == 0 and c["distinct"] == total], key=rank)
+        pk_cands[table] = cands   # kept OUT of `stats`: those dicts are columns only
+        out.append(f"\n## {table}  ({total} rows)")
+        out.extend(f"  - {c['column']:<22} {c['type']:<24} null={c['nulls']} distinct={c['distinct']}"
+                   for c in rows)
+        out.append(f"  PK 候选: {', '.join(cands) if cands else '（无）'}")
+
+    def chosen_pk(table: str):
+        key = pk_existing.get(table)
+        if key and len(key) == 1:
+            dtype = next((c["type"] for c in stats[table] if c["column"] == key[0]), "")
+            return key[0], dtype
+        cands = pk_cands.get(table) or []
+        if not cands:
+            return None
+        best = cands[0]
+        dtype = next(c["type"] for c in stats[table] if c["column"] == best)
+        return best, dtype
+
+    fam = {"smallint": "int", "integer": "int", "bigint": "int", "numeric": "num",
+           "text": "txt", "character varying": "txt", "timestamp with time zone": "ts",
+           "boolean": "bool", "date": "date", "jsonb": "json"}
+    named_fks: list = []
+    hints: list = []
+    out.append("\n## 外键候选")
+    for table in tables:
+        for c in stats[table]:
+            col, dtype = c["column"], c["type"]
+            if not col.lower().endswith("_id") or col.lower() == "id" or c["distinct"] == 0:
+                continue
+            base = col.lower()[:-3]
+            targets = [t for t in tables
+                       if t.lower() in (base, base + "s", base + "es") or t.lower().rstrip("s") == base]
+            for ref in targets:
+                if ref == table:
+                    continue
+                key = chosen_pk(ref)
+                if not key:
+                    continue
+                ref_col, ref_type = key
+                if fam.get(dtype) != fam.get(ref_type):
+                    continue
+                cur.execute('select count(*) from "' + schema_name + '"."' + table + '" t where t."'
+                            + col + '" is not null and not exists (select 1 from "'
+                            + schema_name + '"."' + ref + '" r where r."' + ref_col
+                            + '" = t."' + col + '")')
+                orphans = cur.fetchone()[0]
+                if orphans == 0:
+                    out.append(f"  {table}.{col} -> {ref}.{ref_col}  (0 orphans, {c['distinct']} values)")
+                    named_fks.append((table, col, ref, ref_col))
+                else:
+                    out.append(f"  {table}.{col} -> {ref}.{ref_col}  x {orphans} orphans (not built)")
+        for c in stats[table]:
+            name = c["column"].lower()
+            if fam.get(c["type"]) == "int" and name.endswith(("_at", "_code", "_no", "_key")) \
+                    and c["distinct"]:
+                hints.append(f"  {table}.{c['column']} — 名字像时间/编码，取值却是小整数，可能是命名 bug"
+                             f"（例如 sold_at 实际存门店 id）")
+
+    if not named_fks:
+        out.append("  （无）")
+    if hints:
+        out.append("\n## 命名提示（不建约束，建议改名后再建）")
+        out.extend(hints)
+
+    if not apply:
+        conn.close()
+        out.append("\n报告模式：没有改动数据库。要建约束请再调用一次 apply=true。")
+        return "\n".join(out)
+
+    out.append("\n## 应用约束")
+    for table in tables:
+        if pk_existing.get(table):
+            out.append(f"  {table}: 已有主键，跳过")
+            continue
+        key = chosen_pk(table)
+        if not key:
+            out.append(f"  {table}: 无主键候选，跳过")
+            continue
+        try:
+            cur.execute('ALTER TABLE "' + schema_name + '"."' + table
+                        + '" ADD CONSTRAINT "' + table + '_pkey" PRIMARY KEY ("' + key[0] + '")')
+            conn.commit()
+            out.append(f"  {table}: PK ({key[0]}) ok")
+        except Exception as exc:
+            conn.rollback()
+            out.append(f"  {table}: PK 失败 — {exc}")
+
+    cur.execute("""select conrelid::regclass::text from pg_constraint
+                    where contype='f' and connamespace=(select oid from pg_namespace where nspname=%s)""",
+                (schema_name,))
+    for table, col, ref, ref_col in named_fks:
+        try:
+            cur.execute('ALTER TABLE "' + schema_name + '"."' + table + '" ADD CONSTRAINT "'
+                        + table + "_" + col + '_fkey" FOREIGN KEY ("' + col + '") REFERENCES "'
+                        + schema_name + '"."' + ref + '" ("' + ref_col + '")')
+            conn.commit()
+            out.append(f"  {table}.{col} -> {ref}.{ref_col}: FK ok")
+        except Exception as exc:
+            conn.rollback()
+            out.append(f"  {table}.{col}: FK 失败 — {exc}")
+    conn.close()
+    return "\n".join(out)
+
+
+@tool
+def db_query(db_name: str, sql: str, limit: int = 200, host: str = "", port: int = 0,
+             user: str = "", password: str = "") -> str:
+    """
+    用我：对**任意**数据库跑只读 SELECT（包括你用 db_build_from_file 刚建的那个）。
+    别用我：查平台库可以用 pg_query；写操作不该发生在报表里；自然语言问 chinook 用 sql_agent_tool。
+
+    Run a read-only SELECT against a named PostgreSQL database and return a markdown table.
+
+    Unlike `pg_query` (bound to the platform's own database), this takes the database name,
+    so an agent that built `orders_xlsx` can query it directly. Only SELECT / WITH is
+    allowed, multiple statements are rejected, and results are capped at `limit`.
+
+    Args:
+        db_name: database to query, e.g. "orders_xlsx"
+        sql: one SELECT (or WITH … SELECT) statement
+        limit: row cap (default 200, max 2000)
+        host/port/user/password: target server (empty = the platform's own server)
+
+    Returns:
+        A markdown table, or a refusal explaining why the statement was not executed.
+    """
+    import re
+
+    import psycopg2
+
+    statement = (sql or "").strip().rstrip(";").strip()
+    if not statement:
+        return "Error: empty SQL"
+    if not re.match(r"(?is)^(select|with)\b", statement):
+        return ("Error: only SELECT/WITH is allowed (got " + repr(statement[:60])
+                + "). Use db_review or db_build_from_file for schema work.")
+    if ";" in statement:
+        return "Error: multiple statements are not allowed — send one SELECT."
+    cap = max(1, min(int(limit or 200), 2000))
+
+    target = _pg_conn_kwargs(host, port, user, password, dbname=db_name)
+    try:
+        conn = psycopg2.connect(**target)
+    except Exception as exc:
+        return f"Error: cannot connect to {db_name}: {exc}"
+    try:
+        conn.set_session(readonly=True, autocommit=True)
+        cur = conn.cursor()
+        cur.execute("select * from (" + statement + ") q limit " + str(cap + 1))
+        rows = cur.fetchall()
+        cols = [d[0] for d in cur.description]
+    except Exception as exc:
+        conn.close()
+        return f"Error: {exc}"
+    conn.close()
+
+    if not rows:
+        return f"Query returned no rows (columns: {', '.join(cols)})."
+    capped = len(rows) > cap
+    rows = rows[:cap]
+
+    def cell(v):
+        if v is None:
+            return "NULL"
+        s = str(v)
+        return s[:200] + "…" if len(s) > 200 else s
+
+    lines = ["| " + " | ".join(cols) + " |", "| " + " | ".join("---" for _ in cols) + " |"]
+    lines += ["| " + " | ".join(cell(v) for v in row) + " |" for row in rows]
+    lines.append("\n*" + str(len(rows)) + " row(s)"
+                 + (" — capped, refine the query for more" if capped else "") + "*")
+    return "\n".join(lines)
+
+@tool
 def sqlite_load_csv(csv_content: str, table_name: str, db_path: str = ":memory:") -> str:
     """
     Load CSV data into a SQLite database.

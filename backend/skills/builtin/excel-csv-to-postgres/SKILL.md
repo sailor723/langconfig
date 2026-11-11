@@ -11,7 +11,7 @@ triggers:
   - "当用户说「把这个表建成数据库」或「能不能用 SQL 查这个文件」时"
   - "当用户要跨 sheet / 跨文件对比，而手工核对不现实时"
   - "当数据要被反复查询（同一份数据问超过两个问题时）"
-allowed_tools: [bash, python_execute, read_any_file, read_file, glob, write_file, skill]
+allowed_tools: [read_any_file, glob, read_file, db_build_from_file, db_review, db_query, write_file, skill]
 author: LangConfig
 version: "1.0"
 ---
@@ -57,15 +57,23 @@ PY
 其余照常推断：整数 → `BIGINT`，小数 → `NUMERIC`，ISO 时间串 → `TIMESTAMPTZ`，全是 JSON 对象/数组 → `JSONB`，
 混合 → `TEXT`。**推断结果逐列打印出来**——猜错了要能被人一眼看见。
 
-## 第 3 步——建库（路径是这里最容易翻车的地方）
+## 第 3 步——先出方案，用户确认后才建（**这一步不许自动过**）
 
-```bash
-python3 scripts/load_workbook_to_postgres.py --file <xlsx> --db <name>_xlsx --dry-run   # 先看 DDL
-python3 scripts/load_workbook_to_postgres.py --file <xlsx> --db <name>_xlsx            # 再建
+`db_build_from_file(file=..., db_name=...)` **默认只出方案，不建任何东西**。它返回：sheet → 表名、每一列的推断类型、
+行数、两行样例，以及**只有人能拍板的问题**（表头缺失、表头重复、某列一半以上为空、"金额"的推断、0/1 被读成布尔）。
+
+**把这些原样交给用户，等他明确说"可以/建吧"再继续。** 不要自己替他决定，也不要"先建了不好再删"——
+库建错的代价不是 DDL，而是他已经在上面问过问题、数字已经进了报告。
+
+用户确认后，用**同样的参数**再调一次，带 `confirm=true`：
+
+```
+db_build_from_file(file="upload/orders.xlsx", db_name="orders_xlsx", confirm=true)
 ```
 
-它会跳过导出工具的元数据 sheet（`00_index`、`catalog`），逐表建并回报行数。**行数必须和工作簿一致**，不一致就停，
-不要"先查着看"。
+它会跳过导出工具的元数据 sheet（`00_index`、`catalog`），逐表建并回报行数。**行数必须和工作簿一致**，不一致就停。
+
+用户说"某几列不对"或"跳过某个 sheet"时：先改映射（改文件、或让他确认丢列），**不要**先建再 ALTER。
 
 **两个实测过的坑，别重复踩：**
 
@@ -77,10 +85,12 @@ python3 scripts/load_workbook_to_postgres.py --file <xlsx> --db <name>_xlsx     
 
 ## 第 4 步——体检：主键和外键从数据里判出来，不是凭列名
 
-```bash
-python3 scripts/review_db_constraints.py --db <name>_xlsx          # 只报告
-python3 scripts/review_db_constraints.py --db <name>_xlsx --apply  # 建约束
 ```
+db_review(db_name="orders_xlsx")               # 只报告：行数/空值/主键候选/外键候选
+db_review(db_name="orders_xlsx", apply=true)   # 用户确认后再建约束
+```
+
+**主键外键同样是"先报后建"**：报告里会写"我打算选哪一列当主键、哪几条算外键"，用户点头再 `apply=true`。
 
 三个判据（第一版都做错过）：
 
@@ -95,6 +105,9 @@ python3 scripts/review_db_constraints.py --db <name>_xlsx --apply  # 建约束
 
 ## 第 5 步——回答用 SQL，并说明口径
 
+用 `db_query(db_name=..., sql="SELECT …")` 查这个库（`pg_query` 只能查平台自己的库，查不到你刚建的）。
+
+
 - 先给表名/列名对照（第 1 步那张），再给结论表，数字带单位与千分位。
 - **同一个指标若有两种算法，先摊开**：实测过的例子是 `orders.amount` 与 `Σ(order_lines.qty × products.price)`
   四单里三单不一致（+300 / +70 / −140.5）。这说明 `amount` 还含了折扣/运费之类，**不是明细合计**。
@@ -108,6 +121,7 @@ python3 scripts/review_db_constraints.py --db <name>_xlsx --apply  # 建约束
 
 ## 拒绝清单（硬契约）
 
+- **不在用户确认方案之前建库、加约束**——"先建了不好再删"是本技能禁止的做法；
 - 不把「读了文件」当成「建好了库」；
 - 不在没核对行数的情况下宣布装载完成；
 - 不因为 `✅ Loaded` 就相信查询能读到（见 `:memory:` 坑）；

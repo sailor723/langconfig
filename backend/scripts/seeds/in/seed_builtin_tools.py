@@ -120,6 +120,12 @@ SEEDABLE_TOOL_META = {
     # path (it prints the chunk-count report), the tool is the in-conversation one.
     "rag_search": ("RAG - Search Documents", "retrieval", None),
     "rag_index": ("RAG - Index Documents", "retrieval", None),
+    # Excel/CSV → PostgreSQL, the in-conversation form of scripts/load_workbook_to_postgres.py
+    # and scripts/review_db_constraints.py. `pg_*` tools are bound to the platform database,
+    # so without these an agent could only build a database by shelling out.
+    "db_build_from_file": ("DB - Build from Excel/CSV (plan, then confirm)", "database", None),
+    "db_review": ("DB - Review Schema + Build PK/FK", "database", None),
+    "db_query": ("DB - Query Any Database (SELECT)", "database", None),
     "sqlite_execute": ("SQLite Execute", "data", None),
     "sqlite_load_csv": ("SQLite Load CSV", "data", None),
     "python_execute": ("Python Execute", "data", None),

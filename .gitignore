@@ -283,3 +283,6 @@ backend/skills/personal/
 # In-flight Chinese translations: staged, checked, not yet the version agents read.
 # `python scripts/skill_zh.py promote <id>` installs them and clears the file.
 backend/skills/.zh-staging/
+
+# Data exports (spreadsheets are produced, not source)
+/*.xlsx
