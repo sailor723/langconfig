@@ -35,6 +35,12 @@ PROJECT_ID = int(os.environ.get("LANGCONFIG_PROJECT_ID") or 1)
 
 KEY = os.environ.get("ONTOLOGY_KEY") or "doc_demo"
 DATASOURCE = os.environ.get("DATASOURCE") or KEY
+#: The deployment's connection defaults, so the profile a builder writes RESOLVES on this host instead of
+#: pointing at 5432/weiping out of habit. A password is never written: the variable name travels, the
+#: value stays in the deployment's .env (gate X2 refuses a literal in a declaration).
+DSN_PORT = os.environ.get("DSN_PORT") or "5432"
+DSN_USER = os.environ.get("DSN_USER") or "weiping"
+DSN_PASSWORD_VAR = os.environ.get("DSN_PASSWORD_VAR") or "ONTOLOGY_DB_PASSWORD"
 NAME = os.environ.get("BUILDER_AGENT_NAME") or f"Ontology Builder ({KEY})"
 # The description is what a human reads in the agent list, so it must describe the ontology this
 # agent actually targets — not the one the database had when the agent was first written down.
@@ -51,8 +57,9 @@ SYSTEM_PROMPT = f"""你是 **Ontology Builder ({KEY})**：把一个**已经存�
 - **ontology_key**：`{KEY}`（`{KEY}/01-structure.ttl`、`02-meaning.ttl`、`metrics_ext.ttl`、`{KEY}_settings.json`、
   `samples.json`、`tutorial.json`、`dashboard.json`）
 - **datasource**：`{DATASOURCE}` —— 已经绑进沙箱的 `PG*` 环境变量，`psql` 与 psycopg2 不用参数就能连。
-- `{KEY}_settings.json` 里的 dsn 请写成可部署的形式：
-  `"dsn": {{"host": "${{ONTOLOGY_DB_HOST:-127.0.0.1}}", "port": "${{ONTOLOGY_DB_PORT:-5432}}", "dbname": "{DATASOURCE}", "user": "${{ONTOLOGY_DB_USER:-weiping}}", "password": ""}}`
+- `{KEY}_settings.json` 里的 dsn 请写成可部署的形式（下面这些默认值就是**这个部署**的真实值，
+  照抄；端口/用户/口令变量名由宿主注入，声明里不许出现字面量口令 —— 门禁 X2 会拒）：
+  `"dsn": {{"host": "${{ONTOLOGY_DB_HOST:-127.0.0.1}}", "port": "${{ONTOLOGY_DB_PORT:-{DSN_PORT}}}", "dbname": "{DATASOURCE}", "user": "${{ONTOLOGY_DB_USER:-{DSN_USER}}}", "password": "${{{DSN_PASSWORD_VAR}}}"}}`
 
 ## 先读技能，再动手
 

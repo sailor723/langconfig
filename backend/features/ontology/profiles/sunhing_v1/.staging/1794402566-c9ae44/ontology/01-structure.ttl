@@ -1,0 +1,1577 @@
+# sunhing_v1 — 结构层（对象与属性）。由 information_schema 机械生成，不含任何判断。
+# 本库 foreign key 约束数量 = 0（information_schema.table_constraints 实测），
+# 因此这里 **不声明任何 ObjectProperty**：没有任何一条连接是被数据库保证的，
+# 声明一条就等于猜一条。需要跨表的数字都在拒绝清单里点名，不在这一层假装。
+@prefix : <https://cube.local/ontology/sunhing#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+:Company a owl:Class ;
+    rdfs:label "公司" ;
+    :physicalTable "company" ;
+    :primaryKey "id" .
+
+:coName a owl:DatatypeProperty ;
+    rdfs:label "英文名" ;
+    rdfs:domain :Company ;
+    :physicalColumn "name" ;
+    :valueType xsd:string .
+
+:coNameCn a owl:DatatypeProperty ;
+    rdfs:label "中文名" ;
+    rdfs:domain :Company ;
+    :physicalColumn "name_cn" ;
+    :valueType xsd:string .
+
+:coIndustry a owl:DatatypeProperty ;
+    rdfs:label "行业" ;
+    rdfs:domain :Company ;
+    :physicalColumn "industry" ;
+    :valueType xsd:string .
+
+:coFounded a owl:DatatypeProperty ;
+    rdfs:label "成立年份" ;
+    rdfs:domain :Company ;
+    :physicalColumn "founded" ;
+    :valueType xsd:string .
+
+:coHkexCode a owl:DatatypeProperty ;
+    rdfs:label "港交所代码" ;
+    rdfs:domain :Company ;
+    :physicalColumn "hkex_code" ;
+    :valueType xsd:string .
+
+:coCurrency a owl:DatatypeProperty ;
+    rdfs:label "记账币种" ;
+    rdfs:domain :Company ;
+    :physicalColumn "currency" ;
+    :valueType xsd:string .
+
+:coFiscalYearStart a owl:DatatypeProperty ;
+    rdfs:label "财年起始月" ;
+    rdfs:domain :Company ;
+    :physicalColumn "fiscal_year_start" ;
+    :valueType xsd:string .
+
+:DigitalMonth a owl:Class ;
+    rdfs:label "数字化月度快照" ;
+    :physicalTable "dim_digital_monthly" ;
+    :primaryKey "period" ;
+    :timeColumn "period" .
+
+:digTotalDataItemsCollected a owl:DatatypeProperty ;
+    rdfs:label "归集数据项总数" ;
+    rdfs:domain :DigitalMonth ;
+    :physicalColumn "total_data_items_collected" ;
+    :valueType xsd:integer .
+
+:digDataItemsReused a owl:DatatypeProperty ;
+    rdfs:label "复用数据项数" ;
+    rdfs:domain :DigitalMonth ;
+    :physicalColumn "data_items_reused" ;
+    :valueType xsd:integer .
+
+:digReuseRatePct a owl:DatatypeProperty ;
+    rdfs:label "数据复用率" ;
+    rdfs:domain :DigitalMonth ;
+    :physicalColumn "reuse_rate_pct" ;
+    :valueType xsd:decimal .
+
+:digOdaiModelsDeployed a owl:DatatypeProperty ;
+    rdfs:label "已部署 ODAI 模型数" ;
+    rdfs:domain :DigitalMonth ;
+    :physicalColumn "odai_models_deployed" ;
+    :valueType xsd:integer .
+
+:digKddKnowledgeDensityScore a owl:DatatypeProperty ;
+    rdfs:label "知识密度分" ;
+    rdfs:domain :DigitalMonth ;
+    :physicalColumn "kdd_knowledge_density_score" ;
+    :valueType xsd:decimal .
+
+:digDigitalPlatformUsers a owl:DatatypeProperty ;
+    rdfs:label "数字平台用户数" ;
+    rdfs:domain :DigitalMonth ;
+    :physicalColumn "digital_platform_users" ;
+    :valueType xsd:integer .
+
+:digDigitalCostSavingsWan a owl:DatatypeProperty ;
+    rdfs:label "数字降本(万元)" ;
+    rdfs:domain :DigitalMonth ;
+    :physicalColumn "digital_cost_savings_wan" ;
+    :valueType xsd:decimal .
+
+:digDigitalMaturityScore a owl:DatatypeProperty ;
+    rdfs:label "成熟度分" ;
+    rdfs:domain :DigitalMonth ;
+    :physicalColumn "digital_maturity_score" ;
+    :valueType xsd:decimal .
+
+:digModulesLaunched a owl:DatatypeProperty ;
+    rdfs:label "上线模块数" ;
+    rdfs:domain :DigitalMonth ;
+    :physicalColumn "modules_launched" ;
+    :valueType xsd:integer .
+
+:digAiAdoptionPct a owl:DatatypeProperty ;
+    rdfs:label "AI 采用率(%)" ;
+    rdfs:domain :DigitalMonth ;
+    :physicalColumn "ai_adoption_pct" ;
+    :valueType xsd:decimal .
+
+:FinanceMonth a owl:Class ;
+    rdfs:label "财务月度快照" ;
+    :physicalTable "dim_finance_monthly" ;
+    :primaryKey "period" ;
+    :timeColumn "period" .
+
+:finGrossMarginPct a owl:DatatypeProperty ;
+    rdfs:label "订单毛利率(%)" ;
+    rdfs:domain :FinanceMonth ;
+    :physicalColumn "gross_margin_pct" ;
+    :valueType xsd:decimal .
+
+:finNetProfitWan a owl:DatatypeProperty ;
+    rdfs:label "净利润(万元)" ;
+    rdfs:domain :FinanceMonth ;
+    :physicalColumn "net_profit_wan" ;
+    :valueType xsd:decimal .
+
+:finSeveranceCostActualWan a owl:DatatypeProperty ;
+    rdfs:label "实际减员成本(万元)" ;
+    rdfs:domain :FinanceMonth ;
+    :physicalColumn "severance_cost_actual_wan" ;
+    :valueType xsd:decimal .
+
+:finLiabilityResolvedCumulativeWan a owl:DatatypeProperty ;
+    rdfs:label "已化解历史责任(累计万元)" ;
+    rdfs:domain :FinanceMonth ;
+    :physicalColumn "liability_resolved_cumulative_wan" ;
+    :valueType xsd:decimal .
+
+:finLiabilityRemainingWan a owl:DatatypeProperty ;
+    rdfs:label "未化解历史责任(万元)" ;
+    rdfs:domain :FinanceMonth ;
+    :physicalColumn "liability_remaining_wan" ;
+    :valueType xsd:decimal .
+
+:finCoreFactoryNetProfitWan a owl:DatatypeProperty ;
+    rdfs:label "核心厂区净利润" ;
+    rdfs:domain :FinanceMonth ;
+    :physicalColumn "core_factory_net_profit_wan" ;
+    :valueType xsd:decimal .
+
+:finEcoPartnerNetProfitWan a owl:DatatypeProperty ;
+    rdfs:label "生态伙伴厂净利润" ;
+    rdfs:domain :FinanceMonth ;
+    :physicalColumn "eco_partner_net_profit_wan" ;
+    :valueType xsd:decimal .
+
+:finTotalMfgNetProfitWan a owl:DatatypeProperty ;
+    rdfs:label "制造业务净利润合计" ;
+    rdfs:domain :FinanceMonth ;
+    :physicalColumn "total_mfg_net_profit_wan" ;
+    :valueType xsd:decimal .
+
+:finCashReleasedWan a owl:DatatypeProperty ;
+    rdfs:label "释放现金" ;
+    rdfs:domain :FinanceMonth ;
+    :physicalColumn "cash_released_wan" ;
+    :valueType xsd:decimal .
+
+:finReinvestedWan a owl:DatatypeProperty ;
+    rdfs:label "再投资金额" ;
+    rdfs:domain :FinanceMonth ;
+    :physicalColumn "reinvested_wan" ;
+    :valueType xsd:decimal .
+
+:finRevenueMfgWan a owl:DatatypeProperty ;
+    rdfs:label "制造业收入(万元)" ;
+    rdfs:domain :FinanceMonth ;
+    :physicalColumn "revenue_mfg_wan" ;
+    :valueType xsd:decimal .
+
+:finLiabilityTotalWan a owl:DatatypeProperty ;
+    rdfs:label "历史责任合计(万元)" ;
+    rdfs:domain :FinanceMonth ;
+    :physicalColumn "liability_total_wan" ;
+    :valueType xsd:decimal .
+
+:HrMonth a owl:Class ;
+    rdfs:label "人力月度快照" ;
+    :physicalTable "dim_hr_monthly" ;
+    :primaryKey "period" ;
+    :timeColumn "period" .
+
+:hrTotalHeadcount a owl:DatatypeProperty ;
+    rdfs:label "员工总人数" ;
+    rdfs:domain :HrMonth ;
+    :physicalColumn "total_headcount" ;
+    :valueType xsd:integer .
+
+:hrProductionHeadcount a owl:DatatypeProperty ;
+    rdfs:label "生产人员人数" ;
+    rdfs:domain :HrMonth ;
+    :physicalColumn "production_headcount" ;
+    :valueType xsd:integer .
+
+:hrProdRatioPct a owl:DatatypeProperty ;
+    rdfs:label "生产人员占比(%)" ;
+    rdfs:domain :HrMonth ;
+    :physicalColumn "prod_ratio_pct" ;
+    :valueType xsd:decimal .
+
+:hrSeverancePlanned a owl:DatatypeProperty ;
+    rdfs:label "协商减员计划人数" ;
+    rdfs:domain :HrMonth ;
+    :physicalColumn "severance_planned" ;
+    :valueType xsd:integer .
+
+:hrSeveranceCompletedCumulative a owl:DatatypeProperty ;
+    rdfs:label "协商减员完成人数" ;
+    rdfs:domain :HrMonth ;
+    :physicalColumn "severance_completed_cumulative" ;
+    :valueType xsd:integer .
+
+:hrSeverancePaidCumulativeWan a owl:DatatypeProperty ;
+    rdfs:label "已支付补偿金额" ;
+    rdfs:domain :HrMonth ;
+    :physicalColumn "severance_paid_cumulative_wan" ;
+    :valueType xsd:decimal .
+
+:hrALevelTalentEnd a owl:DatatypeProperty ;
+    rdfs:label "期末 A 级人才数" ;
+    rdfs:domain :HrMonth ;
+    :physicalColumn "a_level_talent_end" ;
+    :valueType xsd:integer .
+
+:hrBLevelTalentEnd a owl:DatatypeProperty ;
+    rdfs:label "期末 B 级人才数" ;
+    rdfs:domain :HrMonth ;
+    :physicalColumn "b_level_talent_end" ;
+    :valueType xsd:integer .
+
+:hrEmployeePartnerConverted a owl:DatatypeProperty ;
+    rdfs:label "已转合伙人/持股员工数" ;
+    rdfs:domain :HrMonth ;
+    :physicalColumn "employee_partner_converted" ;
+    :valueType xsd:integer .
+
+:hrTechLeadHeadcount a owl:DatatypeProperty ;
+    rdfs:label "技术骨干人数" ;
+    rdfs:domain :HrMonth ;
+    :physicalColumn "tech_lead_headcount" ;
+    :valueType xsd:integer .
+
+:hrAvgTenureYears a owl:DatatypeProperty ;
+    rdfs:label "平均司龄(年)" ;
+    rdfs:domain :HrMonth ;
+    :physicalColumn "avg_tenure_years" ;
+    :valueType xsd:decimal .
+
+:hrSeveranceDisputeCount a owl:DatatypeProperty ;
+    rdfs:label "协商减员纠纷件数" ;
+    rdfs:domain :HrMonth ;
+    :physicalColumn "severance_dispute_count" ;
+    :valueType xsd:integer .
+
+:KpiDefinition a owl:Class ;
+    rdfs:label "KPI 定义" ;
+    :physicalTable "dim_kpi" ;
+    :primaryKey "kpi_id" .
+
+:kpiKpiName a owl:DatatypeProperty ;
+    rdfs:label "KPI 名称" ;
+    rdfs:domain :KpiDefinition ;
+    :physicalColumn "kpi_name" ;
+    :valueType xsd:string .
+
+:kpiRoeFactor a owl:DatatypeProperty ;
+    rdfs:label "ROE 因子" ;
+    rdfs:domain :KpiDefinition ;
+    :physicalColumn "roe_factor" ;
+    :valueType xsd:string .
+
+:kpiUnit a owl:DatatypeProperty ;
+    rdfs:label "单位" ;
+    rdfs:domain :KpiDefinition ;
+    :physicalColumn "unit" ;
+    :valueType xsd:string .
+
+:kpiTarget a owl:DatatypeProperty ;
+    rdfs:label "目标值" ;
+    rdfs:domain :KpiDefinition ;
+    :physicalColumn "target" ;
+    :valueType xsd:decimal .
+
+:kpiLowerIsBetter a owl:DatatypeProperty ;
+    rdfs:label "越低越好(1=是)" ;
+    rdfs:domain :KpiDefinition ;
+    :physicalColumn "lower_is_better" ;
+    :valueType xsd:integer .
+
+:kpiFormula a owl:DatatypeProperty ;
+    rdfs:label "口径公式" ;
+    rdfs:domain :KpiDefinition ;
+    :physicalColumn "formula" ;
+    :valueType xsd:string .
+
+:kpiDataSource a owl:DatatypeProperty ;
+    rdfs:label "数据来源" ;
+    rdfs:domain :KpiDefinition ;
+    :physicalColumn "data_source" ;
+    :valueType xsd:string .
+
+:kpiKpiType a owl:DatatypeProperty ;
+    rdfs:label "KPI 类别" ;
+    rdfs:domain :KpiDefinition ;
+    :physicalColumn "kpi_type" ;
+    :valueType xsd:string .
+
+:LegalMonth a owl:Class ;
+    rdfs:label "法务月度快照" ;
+    :physicalTable "dim_legal_monthly" ;
+    :primaryKey "period" ;
+    :timeColumn "period" .
+
+:legalNewLaborArbitrationCases a owl:DatatypeProperty ;
+    rdfs:label "新增劳动仲裁案件数" ;
+    rdfs:domain :LegalMonth ;
+    :physicalColumn "new_labor_arbitration_cases" ;
+    :valueType xsd:integer .
+
+:legalPendingLaborCases a owl:DatatypeProperty ;
+    rdfs:label "待处理劳动争议案件数" ;
+    rdfs:domain :LegalMonth ;
+    :physicalColumn "pending_labor_cases" ;
+    :valueType xsd:integer .
+
+:legalMajorGroupIncidents a owl:DatatypeProperty ;
+    rdfs:label "重大群体性事件数" ;
+    rdfs:domain :LegalMonth ;
+    :physicalColumn "major_group_incidents" ;
+    :valueType xsd:integer .
+
+:legalNearMissGroupIncidents a owl:DatatypeProperty ;
+    rdfs:label "群体性事件苗头数" ;
+    rdfs:domain :LegalMonth ;
+    :physicalColumn "near_miss_group_incidents" ;
+    :valueType xsd:integer .
+
+:legalCustomsPenaltiesWan a owl:DatatypeProperty ;
+    rdfs:label "海关罚款(万元)" ;
+    rdfs:domain :LegalMonth ;
+    :physicalColumn "customs_penalties_wan" ;
+    :valueType xsd:decimal .
+
+:legalCustomsCompliancePct a owl:DatatypeProperty ;
+    rdfs:label "保税物料合规处理完成率" ;
+    rdfs:domain :LegalMonth ;
+    :physicalColumn "customs_compliance_pct" ;
+    :valueType xsd:decimal .
+
+:PmoMonth a owl:Class ;
+    rdfs:label "PMO 月度快照" ;
+    :physicalTable "dim_pmo_monthly" ;
+    :primaryKey "period" ;
+    :timeColumn "period" .
+
+:pmomMilestonesCompleted a owl:DatatypeProperty ;
+    rdfs:label "已完成里程碑数" ;
+    rdfs:domain :PmoMonth ;
+    :physicalColumn "milestones_completed" ;
+    :valueType xsd:integer .
+
+:pmomOnTimeCompletions a owl:DatatypeProperty ;
+    rdfs:label "按期完成数" ;
+    rdfs:domain :PmoMonth ;
+    :physicalColumn "on_time_completions" ;
+    :valueType xsd:integer .
+
+:pmomCumulativeCompleted a owl:DatatypeProperty ;
+    rdfs:label "累计完成数" ;
+    rdfs:domain :PmoMonth ;
+    :physicalColumn "cumulative_completed" ;
+    :valueType xsd:integer .
+
+:PmoPhase a owl:Class ;
+    rdfs:label "PMO 阶段" ;
+    :physicalTable "dim_pmo_phase" ;
+    :primaryKey "phase_id" .
+
+:phPhaseName a owl:DatatypeProperty ;
+    rdfs:label "阶段英文名" ;
+    rdfs:domain :PmoPhase ;
+    :physicalColumn "phase_name" ;
+    :valueType xsd:string .
+
+:phPhaseNameCn a owl:DatatypeProperty ;
+    rdfs:label "阶段中文名" ;
+    rdfs:domain :PmoPhase ;
+    :physicalColumn "phase_name_cn" ;
+    :valueType xsd:string .
+
+:phStartMonth a owl:DatatypeProperty ;
+    rdfs:label "开始月份" ;
+    rdfs:domain :PmoPhase ;
+    :physicalColumn "start_month" ;
+    :valueType xsd:string .
+
+:phEndMonth a owl:DatatypeProperty ;
+    rdfs:label "结束月份" ;
+    rdfs:domain :PmoPhase ;
+    :physicalColumn "end_month" ;
+    :valueType xsd:string .
+
+:phPhaseOwner a owl:DatatypeProperty ;
+    rdfs:label "阶段负责人" ;
+    rdfs:domain :PmoPhase ;
+    :physicalColumn "phase_owner" ;
+    :valueType xsd:string .
+
+:phMilestoneCount a owl:DatatypeProperty ;
+    rdfs:label "里程碑数" ;
+    rdfs:domain :PmoPhase ;
+    :physicalColumn "milestone_count" ;
+    :valueType xsd:integer .
+
+:phBudgetAllocatedWan a owl:DatatypeProperty ;
+    rdfs:label "阶段预算(万元)" ;
+    rdfs:domain :PmoPhase ;
+    :physicalColumn "budget_allocated_wan" ;
+    :valueType xsd:decimal .
+
+:ProductionMonth a owl:Class ;
+    rdfs:label "生产月度快照" ;
+    :physicalTable "dim_production_monthly" ;
+    :primaryKey "period" ;
+    :timeColumn "period" .
+
+:prodCriticalProcessesRunning a owl:DatatypeProperty ;
+    rdfs:label "在运行的关键工序数" ;
+    rdfs:domain :ProductionMonth ;
+    :physicalColumn "critical_processes_running" ;
+    :valueType xsd:integer .
+
+:prodOeePct a owl:DatatypeProperty ;
+    rdfs:label "OEE" ;
+    rdfs:domain :ProductionMonth ;
+    :physicalColumn "oee_pct" ;
+    :valueType xsd:decimal .
+
+:prodOutputFramesMonthly a owl:DatatypeProperty ;
+    rdfs:label "月度车架产量" ;
+    rdfs:domain :ProductionMonth ;
+    :physicalColumn "output_frames_monthly" ;
+    :valueType xsd:integer .
+
+:prodDefectRatePct a owl:DatatypeProperty ;
+    rdfs:label "不良率(%)" ;
+    rdfs:domain :ProductionMonth ;
+    :physicalColumn "defect_rate_pct" ;
+    :valueType xsd:decimal .
+
+:prodMachineDowntimeHours a owl:DatatypeProperty ;
+    rdfs:label "停机小时数" ;
+    rdfs:domain :ProductionMonth ;
+    :physicalColumn "machine_downtime_hours" ;
+    :valueType xsd:decimal .
+
+:prodTotalProcesses a owl:DatatypeProperty ;
+    rdfs:label "关键工序总数" ;
+    rdfs:domain :ProductionMonth ;
+    :physicalColumn "total_processes" ;
+    :valueType xsd:integer .
+
+:SentimentMonth a owl:Class ;
+    rdfs:label "舆情月度快照" ;
+    :physicalTable "dim_sentiment_monthly" ;
+    :primaryKey "period" ;
+    :timeColumn "period" .
+
+:sentEmployeeSatisfaction a owl:DatatypeProperty ;
+    rdfs:label "员工满意度(1-10)" ;
+    rdfs:domain :SentimentMonth ;
+    :physicalColumn "employee_satisfaction" ;
+    :valueType xsd:decimal .
+
+:sentSeveranceSatisfaction a owl:DatatypeProperty ;
+    rdfs:label "历史追缴协商满意度" ;
+    rdfs:domain :SentimentMonth ;
+    :physicalColumn "severance_satisfaction" ;
+    :valueType xsd:decimal .
+
+:sentChangeReadinessScore a owl:DatatypeProperty ;
+    rdfs:label "变革准备度分" ;
+    rdfs:domain :SentimentMonth ;
+    :physicalColumn "change_readiness_score" ;
+    :valueType xsd:decimal .
+
+:sentNegativeSocialMedia a owl:DatatypeProperty ;
+    rdfs:label "负面舆情条数" ;
+    rdfs:domain :SentimentMonth ;
+    :physicalColumn "negative_social_media" ;
+    :valueType xsd:integer .
+
+:sentPositiveNewsCoverage a owl:DatatypeProperty ;
+    rdfs:label "正面报道条数" ;
+    rdfs:domain :SentimentMonth ;
+    :physicalColumn "positive_news_coverage" ;
+    :valueType xsd:integer .
+
+:sentCompetitorPoachingIntensity a owl:DatatypeProperty ;
+    rdfs:label "对手挖角强度" ;
+    rdfs:domain :SentimentMonth ;
+    :physicalColumn "competitor_poaching_intensity" ;
+    :valueType xsd:integer .
+
+:KpiMonthFact a owl:Class ;
+    rdfs:label "KPI 月度事实" ;
+    :physicalTable "fact_kpi_monthly" ;
+    :primaryKey "id" .
+
+:factCompanyId a owl:DatatypeProperty ;
+    rdfs:label "公司编号" ;
+    rdfs:domain :KpiMonthFact ;
+    :physicalColumn "company_id" ;
+    :valueType xsd:integer .
+
+:factKpiId a owl:DatatypeProperty ;
+    rdfs:label "KPI 编号" ;
+    rdfs:domain :KpiMonthFact ;
+    :physicalColumn "kpi_id" ;
+    :valueType xsd:string .
+
+:factPeriod a owl:DatatypeProperty ;
+    rdfs:label "期间(YYYY-MM)" ;
+    rdfs:domain :KpiMonthFact ;
+    :physicalColumn "period" ;
+    :valueType xsd:string .
+
+:factActual a owl:DatatypeProperty ;
+    rdfs:label "实际值" ;
+    rdfs:domain :KpiMonthFact ;
+    :physicalColumn "actual" ;
+    :valueType xsd:decimal .
+
+:factTarget a owl:DatatypeProperty ;
+    rdfs:label "目标值" ;
+    rdfs:domain :KpiMonthFact ;
+    :physicalColumn "target" ;
+    :valueType xsd:decimal .
+
+:factUnit a owl:DatatypeProperty ;
+    rdfs:label "单位" ;
+    rdfs:domain :KpiMonthFact ;
+    :physicalColumn "unit" ;
+    :valueType xsd:string .
+
+:factMonthIndex a owl:DatatypeProperty ;
+    rdfs:label "月份序号" ;
+    rdfs:domain :KpiMonthFact ;
+    :physicalColumn "month_index" ;
+    :valueType xsd:integer .
+
+:RoeMonthSummary a owl:Class ;
+    rdfs:label "ROE 月度汇总" ;
+    :physicalTable "fact_roe_summary" ;
+    :primaryKey "id" .
+
+:roeCompanyId a owl:DatatypeProperty ;
+    rdfs:label "公司编号" ;
+    rdfs:domain :RoeMonthSummary ;
+    :physicalColumn "company_id" ;
+    :valueType xsd:integer .
+
+:roePeriod a owl:DatatypeProperty ;
+    rdfs:label "期间(YYYY-MM)" ;
+    rdfs:domain :RoeMonthSummary ;
+    :physicalColumn "period" ;
+    :valueType xsd:string .
+
+:roeNetProfitMargin a owl:DatatypeProperty ;
+    rdfs:label "净利润率" ;
+    rdfs:domain :RoeMonthSummary ;
+    :physicalColumn "net_profit_margin" ;
+    :valueType xsd:decimal .
+
+:roeAssetTurnover a owl:DatatypeProperty ;
+    rdfs:label "资产周转率" ;
+    rdfs:domain :RoeMonthSummary ;
+    :physicalColumn "asset_turnover" ;
+    :valueType xsd:decimal .
+
+:roeEquityMultiplier a owl:DatatypeProperty ;
+    rdfs:label "权益乘数" ;
+    rdfs:domain :RoeMonthSummary ;
+    :physicalColumn "equity_multiplier" ;
+    :valueType xsd:decimal .
+
+:roeRoe a owl:DatatypeProperty ;
+    rdfs:label "ROE" ;
+    rdfs:domain :RoeMonthSummary ;
+    :physicalColumn "roe" ;
+    :valueType xsd:decimal .
+
+:roeMonthIndex a owl:DatatypeProperty ;
+    rdfs:label "月份序号" ;
+    rdfs:domain :RoeMonthSummary ;
+    :physicalColumn "month_index" ;
+    :valueType xsd:integer .
+
+:CrmOrder a owl:Class ;
+    rdfs:label "CRM 订单记录" ;
+    :physicalTable "raw_crm" ;
+    :primaryKey "id" ;
+    :timeColumn "month" .
+
+:crmCompanyId a owl:DatatypeProperty ;
+    rdfs:label "公司编号" ;
+    rdfs:domain :CrmOrder ;
+    :physicalColumn "company_id" ;
+    :valueType xsd:integer .
+
+:crmOrderId a owl:DatatypeProperty ;
+    rdfs:label "订单号" ;
+    rdfs:domain :CrmOrder ;
+    :physicalColumn "order_id" ;
+    :valueType xsd:string .
+
+:crmCustomerName a owl:DatatypeProperty ;
+    rdfs:label "客户名称" ;
+    rdfs:domain :CrmOrder ;
+    :physicalColumn "customer_name" ;
+    :valueType xsd:string .
+
+:crmOrderDate a owl:DatatypeProperty ;
+    rdfs:label "订单日期" ;
+    rdfs:domain :CrmOrder ;
+    :physicalColumn "order_date" ;
+    :valueType xsd:string .
+
+:crmOrderValueWan a owl:DatatypeProperty ;
+    rdfs:label "订单金额(万元)" ;
+    rdfs:domain :CrmOrder ;
+    :physicalColumn "order_value_wan" ;
+    :valueType xsd:decimal .
+
+:crmStatus a owl:DatatypeProperty ;
+    rdfs:label "状态" ;
+    rdfs:domain :CrmOrder ;
+    :physicalColumn "status" ;
+    :valueType xsd:string .
+
+:crmDeliveredOnTime a owl:DatatypeProperty ;
+    rdfs:label "是否按期交付(1=是)" ;
+    rdfs:domain :CrmOrder ;
+    :physicalColumn "delivered_on_time" ;
+    :valueType xsd:integer .
+
+:crmClientComplaint a owl:DatatypeProperty ;
+    rdfs:label "客户投诉(1=有)" ;
+    rdfs:domain :CrmOrder ;
+    :physicalColumn "client_complaint" ;
+    :valueType xsd:integer .
+
+:crmIsEcoPartnerOrder a owl:DatatypeProperty ;
+    rdfs:label "是否生态伙伴订单(1=是)" ;
+    rdfs:domain :CrmOrder ;
+    :physicalColumn "is_eco_partner_order" ;
+    :valueType xsd:integer .
+
+:crmEcoPartnerDeliveryOnTime a owl:DatatypeProperty ;
+    rdfs:label "生态伙伴订单按期交付(1=是)" ;
+    rdfs:domain :CrmOrder ;
+    :physicalColumn "eco_partner_delivery_on_time" ;
+    :valueType xsd:integer .
+
+:crmMonth a owl:DatatypeProperty ;
+    rdfs:label "所属月份" ;
+    rdfs:domain :CrmOrder ;
+    :physicalColumn "month" ;
+    :valueType xsd:string .
+
+:DigitalAsset a owl:Class ;
+    rdfs:label "数字资产条目" ;
+    :physicalTable "raw_digital_asset" ;
+    :primaryKey "id" ;
+    :timeColumn "month" .
+
+:daAssetId a owl:DatatypeProperty ;
+    rdfs:label "资产编号" ;
+    rdfs:domain :DigitalAsset ;
+    :physicalColumn "asset_id" ;
+    :valueType xsd:string .
+
+:daActivationDate a owl:DatatypeProperty ;
+    rdfs:label "激活日期" ;
+    rdfs:domain :DigitalAsset ;
+    :physicalColumn "activation_date" ;
+    :valueType xsd:string .
+
+:daMonth a owl:DatatypeProperty ;
+    rdfs:label "所属月份" ;
+    rdfs:domain :DigitalAsset ;
+    :physicalColumn "month" ;
+    :valueType xsd:string .
+
+:daAssetType a owl:DatatypeProperty ;
+    rdfs:label "资产类型" ;
+    rdfs:domain :DigitalAsset ;
+    :physicalColumn "asset_type" ;
+    :valueType xsd:string .
+
+:daDataItemsIncluded a owl:DatatypeProperty ;
+    rdfs:label "包含数据项数" ;
+    rdfs:domain :DigitalAsset ;
+    :physicalColumn "data_items_included" ;
+    :valueType xsd:integer .
+
+:daDataItemsReused a owl:DatatypeProperty ;
+    rdfs:label "复用数据项数" ;
+    rdfs:domain :DigitalAsset ;
+    :physicalColumn "data_items_reused" ;
+    :valueType xsd:integer .
+
+:daIsDeployed a owl:DatatypeProperty ;
+    rdfs:label "是否已部署(1=是)" ;
+    rdfs:domain :DigitalAsset ;
+    :physicalColumn "is_deployed" ;
+    :valueType xsd:integer .
+
+:daPlatformUsers a owl:DatatypeProperty ;
+    rdfs:label "平台用户数" ;
+    rdfs:domain :DigitalAsset ;
+    :physicalColumn "platform_users" ;
+    :valueType xsd:integer .
+
+:daCostSavingsWan a owl:DatatypeProperty ;
+    rdfs:label "节约成本(万元)" ;
+    rdfs:domain :DigitalAsset ;
+    :physicalColumn "cost_savings_wan" ;
+    :valueType xsd:decimal .
+
+:daKnowledgeDensity a owl:DatatypeProperty ;
+    rdfs:label "知识密度分" ;
+    rdfs:domain :DigitalAsset ;
+    :physicalColumn "knowledge_density" ;
+    :valueType xsd:integer .
+
+:daDigitalMaturityScore a owl:DatatypeProperty ;
+    rdfs:label "成熟度分" ;
+    rdfs:domain :DigitalAsset ;
+    :physicalColumn "digital_maturity_score" ;
+    :valueType xsd:decimal .
+
+:daAiAdoptionPct a owl:DatatypeProperty ;
+    rdfs:label "AI 采用率(%)" ;
+    rdfs:domain :DigitalAsset ;
+    :physicalColumn "ai_adoption_pct" ;
+    :valueType xsd:decimal .
+
+:Employee a owl:Class ;
+    rdfs:label "员工" ;
+    :physicalTable "raw_employee" ;
+    :primaryKey "id" .
+
+:empCompanyId a owl:DatatypeProperty ;
+    rdfs:label "公司编号" ;
+    rdfs:domain :Employee ;
+    :physicalColumn "company_id" ;
+    :valueType xsd:integer .
+
+:empEmployeeCode a owl:DatatypeProperty ;
+    rdfs:label "员工工号" ;
+    rdfs:domain :Employee ;
+    :physicalColumn "employee_code" ;
+    :valueType xsd:string .
+
+:empNameCn a owl:DatatypeProperty ;
+    rdfs:label "中文名" ;
+    rdfs:domain :Employee ;
+    :physicalColumn "name_cn" ;
+    :valueType xsd:string .
+
+:empDepartment a owl:DatatypeProperty ;
+    rdfs:label "部门" ;
+    rdfs:domain :Employee ;
+    :physicalColumn "department" ;
+    :valueType xsd:string .
+
+:empFactory a owl:DatatypeProperty ;
+    rdfs:label "厂区" ;
+    rdfs:domain :Employee ;
+    :physicalColumn "factory" ;
+    :valueType xsd:string .
+
+:empPositionCategory a owl:DatatypeProperty ;
+    rdfs:label "岗位类别" ;
+    rdfs:domain :Employee ;
+    :physicalColumn "position_category" ;
+    :valueType xsd:string .
+
+:empSkillLevel a owl:DatatypeProperty ;
+    rdfs:label "技能等级" ;
+    rdfs:domain :Employee ;
+    :physicalColumn "skill_level" ;
+    :valueType xsd:string .
+
+:empTenureYears a owl:DatatypeProperty ;
+    rdfs:label "司龄(年)" ;
+    rdfs:domain :Employee ;
+    :physicalColumn "tenure_years" ;
+    :valueType xsd:integer .
+
+:empIsSevered a owl:DatatypeProperty ;
+    rdfs:label "是否已协商减员(1=是)" ;
+    rdfs:domain :Employee ;
+    :physicalColumn "is_severed" ;
+    :valueType xsd:integer .
+
+:empSeveranceMonth a owl:DatatypeProperty ;
+    rdfs:label "协商减员月份" ;
+    rdfs:domain :Employee ;
+    :physicalColumn "severance_month" ;
+    :valueType xsd:string .
+
+:empCompensationWan a owl:DatatypeProperty ;
+    rdfs:label "赔偿金额(万元)" ;
+    rdfs:domain :Employee ;
+    :physicalColumn "compensation_wan" ;
+    :valueType xsd:decimal .
+
+:empHasDispute a owl:DatatypeProperty ;
+    rdfs:label "是否发生纠纷(1=是)" ;
+    rdfs:domain :Employee ;
+    :physicalColumn "has_dispute" ;
+    :valueType xsd:integer .
+
+:empSatisfactionScore a owl:DatatypeProperty ;
+    rdfs:label "满意度分" ;
+    rdfs:domain :Employee ;
+    :physicalColumn "satisfaction_score" ;
+    :valueType xsd:decimal .
+
+:empConvertedToPartner a owl:DatatypeProperty ;
+    rdfs:label "是否转合伙人(1=是)" ;
+    rdfs:domain :Employee ;
+    :physicalColumn "converted_to_partner" ;
+    :valueType xsd:integer .
+
+:empNotes a owl:DatatypeProperty ;
+    rdfs:label "备注" ;
+    rdfs:domain :Employee ;
+    :physicalColumn "notes" ;
+    :valueType xsd:string .
+
+:Entity a owl:Class ;
+    rdfs:label "法人实体" ;
+    :physicalTable "raw_entity" ;
+    :primaryKey "id" .
+
+:entCompanyId a owl:DatatypeProperty ;
+    rdfs:label "公司编号" ;
+    rdfs:domain :Entity ;
+    :physicalColumn "company_id" ;
+    :valueType xsd:integer .
+
+:entEntityCode a owl:DatatypeProperty ;
+    rdfs:label "实体编号" ;
+    rdfs:domain :Entity ;
+    :physicalColumn "entity_code" ;
+    :valueType xsd:string .
+
+:entEntityName a owl:DatatypeProperty ;
+    rdfs:label "实体名称" ;
+    rdfs:domain :Entity ;
+    :physicalColumn "entity_name" ;
+    :valueType xsd:string .
+
+:entEntityType a owl:DatatypeProperty ;
+    rdfs:label "实体类型(core/partner)" ;
+    rdfs:domain :Entity ;
+    :physicalColumn "entity_type" ;
+    :valueType xsd:string .
+
+:entLegalType a owl:DatatypeProperty ;
+    rdfs:label "法律形态" ;
+    rdfs:domain :Entity ;
+    :physicalColumn "legal_type" ;
+    :valueType xsd:string .
+
+:entBusinessFocus a owl:DatatypeProperty ;
+    rdfs:label "业务定位" ;
+    rdfs:domain :Entity ;
+    :physicalColumn "business_focus" ;
+    :valueType xsd:string .
+
+:entRegistrationMonth a owl:DatatypeProperty ;
+    rdfs:label "登记月份" ;
+    rdfs:domain :Entity ;
+    :physicalColumn "registration_month" ;
+    :valueType xsd:string .
+
+:entRegistrationDate a owl:DatatypeProperty ;
+    rdfs:label "登记日期" ;
+    rdfs:domain :Entity ;
+    :physicalColumn "registration_date" ;
+    :valueType xsd:string .
+
+:entBoardApproved a owl:DatatypeProperty ;
+    rdfs:label "董事会已批准(1=是)" ;
+    rdfs:domain :Entity ;
+    :physicalColumn "board_approved" ;
+    :valueType xsd:integer .
+
+:entHasSeparateAccounting a owl:DatatypeProperty ;
+    rdfs:label "是否独立核算(1=是)" ;
+    rdfs:domain :Entity ;
+    :physicalColumn "has_separate_accounting" ;
+    :valueType xsd:integer .
+
+:entIsProfitable a owl:DatatypeProperty ;
+    rdfs:label "是否盈利(1=是)" ;
+    rdfs:domain :Entity ;
+    :physicalColumn "is_profitable" ;
+    :valueType xsd:integer .
+
+:entTotalSetupCostWan a owl:DatatypeProperty ;
+    rdfs:label "设立成本合计(万元)" ;
+    rdfs:domain :Entity ;
+    :physicalColumn "total_setup_cost_wan" ;
+    :valueType xsd:decimal .
+
+:HrEvent a owl:Class ;
+    rdfs:label "人事事件" ;
+    :physicalTable "raw_hr_event" ;
+    :primaryKey "id" ;
+    :timeColumn "month" .
+
+:hreEmployeeCode a owl:DatatypeProperty ;
+    rdfs:label "员工工号" ;
+    rdfs:domain :HrEvent ;
+    :physicalColumn "employee_code" ;
+    :valueType xsd:string .
+
+:hreEventDate a owl:DatatypeProperty ;
+    rdfs:label "事件日期" ;
+    rdfs:domain :HrEvent ;
+    :physicalColumn "event_date" ;
+    :valueType xsd:string .
+
+:hreMonth a owl:DatatypeProperty ;
+    rdfs:label "所属月份" ;
+    rdfs:domain :HrEvent ;
+    :physicalColumn "month" ;
+    :valueType xsd:string .
+
+:hreEventType a owl:DatatypeProperty ;
+    rdfs:label "事件类型" ;
+    rdfs:domain :HrEvent ;
+    :physicalColumn "event_type" ;
+    :valueType xsd:string .
+
+:hreDepartment a owl:DatatypeProperty ;
+    rdfs:label "部门" ;
+    rdfs:domain :HrEvent ;
+    :physicalColumn "department" ;
+    :valueType xsd:string .
+
+:hreFactory a owl:DatatypeProperty ;
+    rdfs:label "厂区" ;
+    rdfs:domain :HrEvent ;
+    :physicalColumn "factory" ;
+    :valueType xsd:string .
+
+:hrePositionCategory a owl:DatatypeProperty ;
+    rdfs:label "岗位类别" ;
+    rdfs:domain :HrEvent ;
+    :physicalColumn "position_category" ;
+    :valueType xsd:string .
+
+:hreSkillLevel a owl:DatatypeProperty ;
+    rdfs:label "技能等级" ;
+    rdfs:domain :HrEvent ;
+    :physicalColumn "skill_level" ;
+    :valueType xsd:string .
+
+:hreTenureAtEvent a owl:DatatypeProperty ;
+    rdfs:label "事件时司龄(年)" ;
+    rdfs:domain :HrEvent ;
+    :physicalColumn "tenure_at_event" ;
+    :valueType xsd:integer .
+
+:hreCompensationWan a owl:DatatypeProperty ;
+    rdfs:label "赔偿金额(万元)" ;
+    rdfs:domain :HrEvent ;
+    :physicalColumn "compensation_wan" ;
+    :valueType xsd:decimal .
+
+:hreConvertedToPartner a owl:DatatypeProperty ;
+    rdfs:label "是否转合伙人(1=是)" ;
+    rdfs:domain :HrEvent ;
+    :physicalColumn "converted_to_partner" ;
+    :valueType xsd:integer .
+
+:LegalCase a owl:Class ;
+    rdfs:label "法务案件" ;
+    :physicalTable "raw_legal_case" ;
+    :primaryKey "id" ;
+    :timeColumn "month" .
+
+:lcCaseId a owl:DatatypeProperty ;
+    rdfs:label "案件编号" ;
+    rdfs:domain :LegalCase ;
+    :physicalColumn "case_id" ;
+    :valueType xsd:string .
+
+:lcCaseDate a owl:DatatypeProperty ;
+    rdfs:label "案件日期" ;
+    rdfs:domain :LegalCase ;
+    :physicalColumn "case_date" ;
+    :valueType xsd:string .
+
+:lcMonth a owl:DatatypeProperty ;
+    rdfs:label "所属月份" ;
+    rdfs:domain :LegalCase ;
+    :physicalColumn "month" ;
+    :valueType xsd:string .
+
+:lcCaseType a owl:DatatypeProperty ;
+    rdfs:label "案件类型" ;
+    rdfs:domain :LegalCase ;
+    :physicalColumn "case_type" ;
+    :valueType xsd:string .
+
+:lcCaseStatus a owl:DatatypeProperty ;
+    rdfs:label "案件状态" ;
+    rdfs:domain :LegalCase ;
+    :physicalColumn "case_status" ;
+    :valueType xsd:string .
+
+:lcIsGroupIncident a owl:DatatypeProperty ;
+    rdfs:label "是否群体性事件(1=是)" ;
+    rdfs:domain :LegalCase ;
+    :physicalColumn "is_group_incident" ;
+    :valueType xsd:integer .
+
+:lcIsNearMiss a owl:DatatypeProperty ;
+    rdfs:label "是否苗头事件(1=是)" ;
+    rdfs:domain :LegalCase ;
+    :physicalColumn "is_near_miss" ;
+    :valueType xsd:integer .
+
+:lcPenaltyAmountWan a owl:DatatypeProperty ;
+    rdfs:label "罚款金额(万元)" ;
+    rdfs:domain :LegalCase ;
+    :physicalColumn "penalty_amount_wan" ;
+    :valueType xsd:decimal .
+
+:lcCompliancePct a owl:DatatypeProperty ;
+    rdfs:label "合规完成率(%)" ;
+    rdfs:domain :LegalCase ;
+    :physicalColumn "compliance_pct" ;
+    :valueType xsd:decimal .
+
+:LiabilityItem a owl:Class ;
+    rdfs:label "历史责任项" ;
+    :physicalTable "raw_liability" ;
+    :primaryKey "id" .
+
+:liabCompanyId a owl:DatatypeProperty ;
+    rdfs:label "公司编号" ;
+    rdfs:domain :LiabilityItem ;
+    :physicalColumn "company_id" ;
+    :valueType xsd:integer .
+
+:liabItemCode a owl:DatatypeProperty ;
+    rdfs:label "责任项编号" ;
+    rdfs:domain :LiabilityItem ;
+    :physicalColumn "item_code" ;
+    :valueType xsd:string .
+
+:liabCategory a owl:DatatypeProperty ;
+    rdfs:label "类别" ;
+    rdfs:domain :LiabilityItem ;
+    :physicalColumn "category" ;
+    :valueType xsd:string .
+
+:liabDescription a owl:DatatypeProperty ;
+    rdfs:label "说明" ;
+    rdfs:domain :LiabilityItem ;
+    :physicalColumn "description" ;
+    :valueType xsd:string .
+
+:liabAuthority a owl:DatatypeProperty ;
+    rdfs:label "主管机关" ;
+    rdfs:domain :LiabilityItem ;
+    :physicalColumn "authority" ;
+    :valueType xsd:string .
+
+:liabTotalAmountWan a owl:DatatypeProperty ;
+    rdfs:label "应追缴总额(万元)" ;
+    rdfs:domain :LiabilityItem ;
+    :physicalColumn "total_amount_wan" ;
+    :valueType xsd:decimal .
+
+:liabResolvedWan a owl:DatatypeProperty ;
+    rdfs:label "已化解历史责任金额" ;
+    rdfs:domain :LiabilityItem ;
+    :physicalColumn "resolved_wan" ;
+    :valueType xsd:decimal .
+
+:liabRemainingWan a owl:DatatypeProperty ;
+    rdfs:label "未化解金额(万元)" ;
+    rdfs:domain :LiabilityItem ;
+    :physicalColumn "remaining_wan" ;
+    :valueType xsd:decimal .
+
+:liabResolutionMethod a owl:DatatypeProperty ;
+    rdfs:label "化解方式" ;
+    rdfs:domain :LiabilityItem ;
+    :physicalColumn "resolution_method" ;
+    :valueType xsd:string .
+
+:liabResolutionMonth a owl:DatatypeProperty ;
+    rdfs:label "化解月份" ;
+    rdfs:domain :LiabilityItem ;
+    :physicalColumn "resolution_month" ;
+    :valueType xsd:string .
+
+:liabStatus a owl:DatatypeProperty ;
+    rdfs:label "状态" ;
+    rdfs:domain :LiabilityItem ;
+    :physicalColumn "status" ;
+    :valueType xsd:string .
+
+:liabPriority a owl:DatatypeProperty ;
+    rdfs:label "优先级" ;
+    rdfs:domain :LiabilityItem ;
+    :physicalColumn "priority" ;
+    :valueType xsd:string .
+
+:Order a owl:Class ;
+    rdfs:label "订单" ;
+    :physicalTable "raw_order" ;
+    :primaryKey "id" ;
+    :timeColumn "month" .
+
+:ordOrderId a owl:DatatypeProperty ;
+    rdfs:label "订单号" ;
+    rdfs:domain :Order ;
+    :physicalColumn "order_id" ;
+    :valueType xsd:string .
+
+:ordOrderDate a owl:DatatypeProperty ;
+    rdfs:label "订单日期" ;
+    rdfs:domain :Order ;
+    :physicalColumn "order_date" ;
+    :valueType xsd:string .
+
+:ordMonth a owl:DatatypeProperty ;
+    rdfs:label "所属月份" ;
+    rdfs:domain :Order ;
+    :physicalColumn "month" ;
+    :valueType xsd:string .
+
+:ordOrderValueWan a owl:DatatypeProperty ;
+    rdfs:label "订单金额(万元)" ;
+    rdfs:domain :Order ;
+    :physicalColumn "order_value_wan" ;
+    :valueType xsd:decimal .
+
+:ordCostWan a owl:DatatypeProperty ;
+    rdfs:label "订单成本(万元)" ;
+    rdfs:domain :Order ;
+    :physicalColumn "cost_wan" ;
+    :valueType xsd:decimal .
+
+:ordGrossMarginPct a owl:DatatypeProperty ;
+    rdfs:label "订单毛利率(%)" ;
+    rdfs:domain :Order ;
+    :physicalColumn "gross_margin_pct" ;
+    :valueType xsd:decimal .
+
+:ordIsSeveranceCost a owl:DatatypeProperty ;
+    rdfs:label "是否减员成本订单(1=是)" ;
+    rdfs:domain :Order ;
+    :physicalColumn "is_severance_cost" ;
+    :valueType xsd:integer .
+
+:ordIsLiabilityResolution a owl:DatatypeProperty ;
+    rdfs:label "是否历史责任化解订单(1=是)" ;
+    rdfs:domain :Order ;
+    :physicalColumn "is_liability_resolution" ;
+    :valueType xsd:integer .
+
+:ordIsCoreFactory a owl:DatatypeProperty ;
+    rdfs:label "是否核心厂区(1=是)" ;
+    rdfs:domain :Order ;
+    :physicalColumn "is_core_factory" ;
+    :valueType xsd:integer .
+
+:ordIsEcoPartner a owl:DatatypeProperty ;
+    rdfs:label "是否生态伙伴(1=是)" ;
+    rdfs:domain :Order ;
+    :physicalColumn "is_eco_partner" ;
+    :valueType xsd:integer .
+
+:ordCashReleasedWan a owl:DatatypeProperty ;
+    rdfs:label "释放现金(万元)" ;
+    rdfs:domain :Order ;
+    :physicalColumn "cash_released_wan" ;
+    :valueType xsd:decimal .
+
+:ordReinvestedWan a owl:DatatypeProperty ;
+    rdfs:label "再投资(万元)" ;
+    rdfs:domain :Order ;
+    :physicalColumn "reinvested_wan" ;
+    :valueType xsd:decimal .
+
+:ordCustomerId a owl:DatatypeProperty ;
+    rdfs:label "客户编号" ;
+    rdfs:domain :Order ;
+    :physicalColumn "customer_id" ;
+    :valueType xsd:string .
+
+:PmoMilestone a owl:Class ;
+    rdfs:label "PMO 里程碑" ;
+    :physicalTable "raw_pmo" ;
+    :primaryKey "id" ;
+    :timeColumn "month" .
+
+:pmoCompanyId a owl:DatatypeProperty ;
+    rdfs:label "公司编号" ;
+    rdfs:domain :PmoMilestone ;
+    :physicalColumn "company_id" ;
+    :valueType xsd:integer .
+
+:pmoMilestoneId a owl:DatatypeProperty ;
+    rdfs:label "里程碑编号" ;
+    rdfs:domain :PmoMilestone ;
+    :physicalColumn "milestone_id" ;
+    :valueType xsd:string .
+
+:pmoPhaseId a owl:DatatypeProperty ;
+    rdfs:label "阶段编号" ;
+    rdfs:domain :PmoMilestone ;
+    :physicalColumn "phase_id" ;
+    :valueType xsd:string .
+
+:pmoMilestoneDescription a owl:DatatypeProperty ;
+    rdfs:label "里程碑描述" ;
+    rdfs:domain :PmoMilestone ;
+    :physicalColumn "milestone_description" ;
+    :valueType xsd:string .
+
+:pmoPlannedDate a owl:DatatypeProperty ;
+    rdfs:label "计划完成日" ;
+    rdfs:domain :PmoMilestone ;
+    :physicalColumn "planned_date" ;
+    :valueType xsd:string .
+
+:pmoActualDate a owl:DatatypeProperty ;
+    rdfs:label "实际完成日" ;
+    rdfs:domain :PmoMilestone ;
+    :physicalColumn "actual_date" ;
+    :valueType xsd:string .
+
+:pmoStatus a owl:DatatypeProperty ;
+    rdfs:label "状态" ;
+    rdfs:domain :PmoMilestone ;
+    :physicalColumn "status" ;
+    :valueType xsd:string .
+
+:pmoCompletedOnTime a owl:DatatypeProperty ;
+    rdfs:label "是否按期完成(1=是)" ;
+    rdfs:domain :PmoMilestone ;
+    :physicalColumn "completed_on_time" ;
+    :valueType xsd:integer .
+
+:pmoMonth a owl:DatatypeProperty ;
+    rdfs:label "所属月份" ;
+    rdfs:domain :PmoMilestone ;
+    :physicalColumn "month" ;
+    :valueType xsd:string .
+
+:ProductionLot a owl:Class ;
+    rdfs:label "生产批次" ;
+    :physicalTable "raw_production_lot" ;
+    :primaryKey "id" ;
+    :timeColumn "month" .
+
+:lotLotId a owl:DatatypeProperty ;
+    rdfs:label "批次号" ;
+    rdfs:domain :ProductionLot ;
+    :physicalColumn "lot_id" ;
+    :valueType xsd:string .
+
+:lotProductionDate a owl:DatatypeProperty ;
+    rdfs:label "生产日期" ;
+    rdfs:domain :ProductionLot ;
+    :physicalColumn "production_date" ;
+    :valueType xsd:string .
+
+:lotMonth a owl:DatatypeProperty ;
+    rdfs:label "所属月份" ;
+    rdfs:domain :ProductionLot ;
+    :physicalColumn "month" ;
+    :valueType xsd:string .
+
+:lotFactory a owl:DatatypeProperty ;
+    rdfs:label "厂区" ;
+    rdfs:domain :ProductionLot ;
+    :physicalColumn "factory" ;
+    :valueType xsd:string .
+
+:lotDepartment a owl:DatatypeProperty ;
+    rdfs:label "部门" ;
+    rdfs:domain :ProductionLot ;
+    :physicalColumn "department" ;
+    :valueType xsd:string .
+
+:lotFramesProduced a owl:DatatypeProperty ;
+    rdfs:label "产出车架数" ;
+    rdfs:domain :ProductionLot ;
+    :physicalColumn "frames_produced" ;
+    :valueType xsd:integer .
+
+:lotDefectCount a owl:DatatypeProperty ;
+    rdfs:label "不良件数" ;
+    rdfs:domain :ProductionLot ;
+    :physicalColumn "defect_count" ;
+    :valueType xsd:integer .
+
+:lotMachineHours a owl:DatatypeProperty ;
+    rdfs:label "机时" ;
+    rdfs:domain :ProductionLot ;
+    :physicalColumn "machine_hours" ;
+    :valueType xsd:decimal .
+
+:lotScheduledHours a owl:DatatypeProperty ;
+    rdfs:label "计划机时" ;
+    rdfs:domain :ProductionLot ;
+    :physicalColumn "scheduled_hours" ;
+    :valueType xsd:decimal .
+
+:lotCriticalProcess a owl:DatatypeProperty ;
+    rdfs:label "关键工序" ;
+    rdfs:domain :ProductionLot ;
+    :physicalColumn "critical_process" ;
+    :valueType xsd:integer .
+
+:lotProcessName a owl:DatatypeProperty ;
+    rdfs:label "工序名称" ;
+    rdfs:domain :ProductionLot ;
+    :physicalColumn "process_name" ;
+    :valueType xsd:string .
+
+:SurveyResponse a owl:Class ;
+    rdfs:label "员工问卷回复" ;
+    :physicalTable "raw_survey_response" ;
+    :primaryKey "id" ;
+    :timeColumn "month" .
+
+:srResponseId a owl:DatatypeProperty ;
+    rdfs:label "回复编号" ;
+    rdfs:domain :SurveyResponse ;
+    :physicalColumn "response_id" ;
+    :valueType xsd:string .
+
+:srResponseDate a owl:DatatypeProperty ;
+    rdfs:label "回复日期" ;
+    rdfs:domain :SurveyResponse ;
+    :physicalColumn "response_date" ;
+    :valueType xsd:string .
+
+:srMonth a owl:DatatypeProperty ;
+    rdfs:label "所属月份" ;
+    rdfs:domain :SurveyResponse ;
+    :physicalColumn "month" ;
+    :valueType xsd:string .
+
+:srRespondentType a owl:DatatypeProperty ;
+    rdfs:label "受访者类型" ;
+    rdfs:domain :SurveyResponse ;
+    :physicalColumn "respondent_type" ;
+    :valueType xsd:string .
+
+:srSatisfactionScore a owl:DatatypeProperty ;
+    rdfs:label "满意度分" ;
+    rdfs:domain :SurveyResponse ;
+    :physicalColumn "satisfaction_score" ;
+    :valueType xsd:decimal .
+
+:srReadinessScore a owl:DatatypeProperty ;
+    rdfs:label "准备度分" ;
+    rdfs:domain :SurveyResponse ;
+    :physicalColumn "readiness_score" ;
+    :valueType xsd:decimal .
+
+:srSentimentType a owl:DatatypeProperty ;
+    rdfs:label "情绪类型" ;
+    rdfs:domain :SurveyResponse ;
+    :physicalColumn "sentiment_type" ;
+    :valueType xsd:string .
+
+:srIsSeveranceRelated a owl:DatatypeProperty ;
+    rdfs:label "是否与协商减员相关(1=是)" ;
+    rdfs:domain :SurveyResponse ;
+    :physicalColumn "is_severance_related" ;
+    :valueType xsd:integer .
+
+:srFactory a owl:DatatypeProperty ;
+    rdfs:label "厂区" ;
+    rdfs:domain :SurveyResponse ;
+    :physicalColumn "factory" ;
+    :valueType xsd:string .
+
+:srDepartment a owl:DatatypeProperty ;
+    rdfs:label "部门" ;
+    rdfs:domain :SurveyResponse ;
+    :physicalColumn "department" ;
+    :valueType xsd:string .
+
+:hrPeriod a owl:DatatypeProperty ;
+    rdfs:label "期间(YYYY-MM)" ;
+    rdfs:domain :HrMonth ;
+    :physicalColumn "period" ;
+    :valueType xsd:string .
+
+:legalPeriod a owl:DatatypeProperty ;
+    rdfs:label "期间(YYYY-MM)" ;
+    rdfs:domain :LegalMonth ;
+    :physicalColumn "period" ;
+    :valueType xsd:string .
+
+# ---- 各月度快照表的期间列属性（primaryKey 只说明它是键，不说明它是可分组的值）
+:finPeriod a owl:DatatypeProperty ;
+    rdfs:label "期间(YYYY-MM)" ;
+    rdfs:domain :FinanceMonth ;
+    :physicalColumn "period" ;
+    :valueType xsd:string .
+
+:prodPeriod a owl:DatatypeProperty ;
+    rdfs:label "期间(YYYY-MM)" ;
+    rdfs:domain :ProductionMonth ;
+    :physicalColumn "period" ;
+    :valueType xsd:string .
+
+:digPeriod a owl:DatatypeProperty ;
+    rdfs:label "期间(YYYY-MM)" ;
+    rdfs:domain :DigitalMonth ;
+    :physicalColumn "period" ;
+    :valueType xsd:string .
+
+:sentPeriod a owl:DatatypeProperty ;
+    rdfs:label "期间(YYYY-MM)" ;
+    rdfs:domain :SentimentMonth ;
+    :physicalColumn "period" ;
+    :valueType xsd:string .
+
+:pmoMonthPeriod a owl:DatatypeProperty ;
+    rdfs:label "期间(YYYY-MM)" ;
+    rdfs:domain :PmoMonth ;
+    :physicalColumn "period" ;
+    :valueType xsd:string .
+
+# ---------------------------------------------------------------- 行身份（主键列）
+# S1b2 要求每个已建模表的每一列都能通过某个属性到达；主键列此前只写在 :primaryKey 上、
+# 没有属性承载它，于是 16 个类各差一列。这些属性只声明「这一行的键是哪一列」，不参与任何计算。
+:companyId a owl:DatatypeProperty ;
+    rdfs:label "公司行主键" ;
+    rdfs:domain :Company ;
+    :physicalColumn "id" ;
+    :valueType xsd:integer .
+
+:crmId a owl:DatatypeProperty ;
+    rdfs:label "CRM 订单行主键" ;
+    rdfs:domain :CrmOrder ;
+    :physicalColumn "id" ;
+    :valueType xsd:integer .
+
+:daId a owl:DatatypeProperty ;
+    rdfs:label "数字化资产行主键" ;
+    rdfs:domain :DigitalAsset ;
+    :physicalColumn "id" ;
+    :valueType xsd:integer .
+
+:empId a owl:DatatypeProperty ;
+    rdfs:label "员工行主键" ;
+    rdfs:domain :Employee ;
+    :physicalColumn "id" ;
+    :valueType xsd:integer .
+
+:entId a owl:DatatypeProperty ;
+    rdfs:label "法人实体行主键" ;
+    rdfs:domain :Entity ;
+    :physicalColumn "id" ;
+    :valueType xsd:integer .
+
+:hrEventId a owl:DatatypeProperty ;
+    rdfs:label "人事事件行主键" ;
+    rdfs:domain :HrEvent ;
+    :physicalColumn "id" ;
+    :valueType xsd:integer .
+
+:kpiKey a owl:DatatypeProperty ;
+    rdfs:label "KPI 目录主键" ;
+    rdfs:domain :KpiDefinition ;
+    :physicalColumn "kpi_id" ;
+    :valueType xsd:string .
+
+:factKpiRowId a owl:DatatypeProperty ;
+    rdfs:label "KPI 月度落地行主键" ;
+    rdfs:domain :KpiMonthFact ;
+    :physicalColumn "id" ;
+    :valueType xsd:integer .
+
+:lcId a owl:DatatypeProperty ;
+    rdfs:label "法务案件行主键" ;
+    rdfs:domain :LegalCase ;
+    :physicalColumn "id" ;
+    :valueType xsd:integer .
+
+:liabId a owl:DatatypeProperty ;
+    rdfs:label "历史责任行主键" ;
+    rdfs:domain :LiabilityItem ;
+    :physicalColumn "id" ;
+    :valueType xsd:integer .
+
+:ordId a owl:DatatypeProperty ;
+    rdfs:label "订单行主键" ;
+    rdfs:domain :Order ;
+    :physicalColumn "id" ;
+    :valueType xsd:integer .
+
+:pmoId a owl:DatatypeProperty ;
+    rdfs:label "里程碑行主键" ;
+    rdfs:domain :PmoMilestone ;
+    :physicalColumn "id" ;
+    :valueType xsd:integer .
+
+:pmoPhaseKey a owl:DatatypeProperty ;
+    rdfs:label "PMO 阶段主键" ;
+    rdfs:domain :PmoPhase ;
+    :physicalColumn "phase_id" ;
+    :valueType xsd:string .
+
+:lotId a owl:DatatypeProperty ;
+    rdfs:label "生产批次行主键" ;
+    rdfs:domain :ProductionLot ;
+    :physicalColumn "id" ;
+    :valueType xsd:integer .
+
+:roeId a owl:DatatypeProperty ;
+    rdfs:label "ROE 月度汇总行主键" ;
+    rdfs:domain :RoeMonthSummary ;
+    :physicalColumn "id" ;
+    :valueType xsd:integer .
+
+:srId a owl:DatatypeProperty ;
+    rdfs:label "满意度问卷行主键" ;
+    rdfs:domain :SurveyResponse ;
+    :physicalColumn "id" ;
+    :valueType xsd:integer .
+

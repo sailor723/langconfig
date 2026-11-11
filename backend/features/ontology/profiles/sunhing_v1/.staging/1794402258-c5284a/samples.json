@@ -1,0 +1,250 @@
+{
+ "_doc": [
+  "sunhing_v1 samples — 每个被提供的问题要么回答，要么按名拒绝。",
+  "数字不写死：每条 sample 用 expect.route 声明一条手写 SQL（第二条路线），闸门在运行时把",
+  "编译器算出来的数和这条 SQL 算出来的数对比，所以数据一动它照样咬人。",
+  "快照月固定 2027-02（库里的最新期）。tolerance 1e-4 是因为路线用的是 double 除法而",
+  "库里部分列是 numeric；1e-9 会去测‘两条路线的浮点最后一位’，不是测定义。"
+ ],
+ "samples": [
+  {
+   "question": "协商减员完成率是多少",
+   "expect": {
+    "metric": "severanceCompletionRate",
+    "tolerance": 0.0001,
+    "route": "SELECT severance_completed_cumulative*100.0/nullif(severance_planned,0) FROM dim_hr_monthly WHERE period='2027-02'"
+   }
+  },
+  {
+   "question": "赔偿金额预算控制率是多少",
+   "expect": {
+    "metric": "severanceBudgetControlRate",
+    "tolerance": 0.0001,
+    "route": "SELECT severance_paid_cumulative_wan*100.0/nullif(severance_planned*4.5,0) FROM dim_hr_monthly WHERE period='2027-02'"
+   }
+  },
+  {
+   "question": "核心厂区利润贡献率是多少",
+   "expect": {
+    "metric": "coreFactoryProfitShare",
+    "tolerance": 0.0001,
+    "route": "SELECT core_factory_net_profit_wan*100.0/nullif(total_mfg_net_profit_wan,0) FROM dim_finance_monthly WHERE period='2027-02'"
+   }
+  },
+  {
+   "question": "历史责任化解率是多少",
+   "expect": {
+    "metric": "historicalLiabilityResolutionRate",
+    "tolerance": 0.0001,
+    "route": "SELECT sum(resolved_wan)*100.0/nullif(sum(total_amount_wan),0) FROM raw_liability"
+   }
+  },
+  {
+   "question": "历史责任总额是多少",
+   "expect": {
+    "metric": "liabTotalWan",
+    "tolerance": 0.0001,
+    "route": "SELECT sum(total_amount_wan) FROM raw_liability"
+   }
+  },
+  {
+   "question": "轻资产化指数是多少",
+   "expect": {
+    "metric": "lightAssetIndex",
+    "tolerance": 0.0001,
+    "route": "SELECT count(*) FILTER (WHERE is_profitable=1)*100.0/nullif(count(*),0) FROM raw_entity WHERE entity_type='partner'"
+   }
+  },
+  {
+   "question": "股权分立架构完成率是多少",
+   "expect": {
+    "metric": "architectureSeparationRate",
+    "tolerance": 0.0001,
+    "route": "SELECT count(*) FILTER (WHERE has_separate_accounting=1)*100.0/nullif(count(*),0) FROM raw_entity"
+   }
+  },
+  {
+   "question": "法人实体总数是多少",
+   "expect": {
+    "metric": "entityCount",
+    "route": "SELECT count(*) FROM raw_entity"
+   }
+  },
+  {
+   "question": "生态伙伴实体数是多少",
+   "expect": {
+    "metric": "ecoPartnerCount",
+    "route": "SELECT count(*) FROM raw_entity WHERE entity_type='partner'"
+   }
+  },
+  {
+   "question": "已盈利生态伙伴实体数是多少",
+   "expect": {
+    "metric": "profitableEcoPartnerCount",
+    "route": "SELECT count(*) FROM raw_entity WHERE entity_type='partner' AND is_profitable=1"
+   }
+  },
+  {
+   "question": "重大风险事件数是多少",
+   "expect": {
+    "metric": "majorRiskEventCount",
+    "tolerance": 0.0001,
+    "route": "SELECT (major_group_incidents+near_miss_group_incidents) FROM dim_legal_monthly WHERE period='2027-02'"
+   }
+  },
+  {
+   "question": "海关违规罚款金额是多少",
+   "expect": {
+    "metric": "rs05CustomsPenaltyAmount",
+    "tolerance": 0.0001,
+    "route": "SELECT customs_penalties_wan FROM dim_legal_monthly WHERE period='2027-02'"
+   }
+  },
+  {
+   "question": "劳动仲裁与诉讼事件数是多少",
+   "expect": {
+    "metric": "laborDisputeEventCount",
+    "tolerance": 0.0001,
+    "route": "SELECT (new_labor_arbitration_cases+pending_labor_cases) FROM dim_legal_monthly WHERE period='2027-02'"
+   }
+  },
+  {
+   "question": "OEE 是多少",
+   "expect": {
+    "metric": "prodOeePct",
+    "tolerance": 0.0001,
+    "route": "SELECT oee_pct FROM dim_production_monthly WHERE period='2027-02'"
+   }
+  },
+  {
+   "question": "工序保留完成率是多少",
+   "expect": {
+    "metric": "processRetentionRate",
+    "tolerance": 0.0001,
+    "route": "SELECT critical_processes_running*100.0/nullif(total_processes,0) FROM dim_production_monthly WHERE period='2027-02'"
+   }
+  },
+  {
+   "question": "生产人员占比是多少",
+   "expect": {
+    "metric": "productionHeadcountShare",
+    "tolerance": 0.0001,
+    "route": "SELECT production_headcount*100.0/nullif(total_headcount,0) FROM dim_hr_monthly WHERE period='2027-02'"
+   }
+  },
+  {
+   "question": "里程碑准时完成率是多少",
+   "expect": {
+    "metric": "milestoneOnTimeRate",
+    "tolerance": 0.0001,
+    "route": "SELECT sum(completed_on_time)*100.0/nullif(count(*),0) FROM raw_pmo WHERE month='2027-02' AND status='completed'"
+   }
+  },
+  {
+   "question": "数据复用率是多少",
+   "expect": {
+    "metric": "digReuseRatePct",
+    "tolerance": 0.0001,
+    "route": "SELECT reuse_rate_pct FROM dim_digital_monthly WHERE period='2027-02'"
+   }
+  },
+  {
+   "question": "价值交换落地度是多少",
+   "expect": {
+    "metric": "valueExchangeLanding",
+    "tolerance": 0.0001,
+    "route": "SELECT change_readiness_score*employee_satisfaction/10.0 FROM dim_sentiment_monthly WHERE period='2027-02'"
+   }
+  },
+  {
+   "question": "各厂区不良率是多少",
+   "expect": {
+    "metric": "lotDefectRateByFactory",
+    "tolerance": 0.0001,
+    "route": "SELECT factory, sum(defect_count)*100.0/nullif(sum(frames_produced),0) FROM raw_production_lot GROUP BY factory"
+   }
+  },
+  {
+   "question": "各部门协商减员人数是多少",
+   "expect": {
+    "metric": "severedCountByDepartment",
+    "route": "SELECT department, count(*) FROM raw_employee WHERE is_severed=1 GROUP BY department"
+   }
+  },
+  {
+   "question": "各厂区员工满意度是多少",
+   "expect": {
+    "metric": "surveySatisfactionByFactory",
+    "tolerance": 0.0001,
+    "route": "SELECT factory, avg(satisfaction_score) FROM raw_survey_response GROUP BY factory"
+   }
+  },
+  {
+   "question": "订单金额是多少",
+   "expect": {
+    "metric": "orderValueByCoreFactory",
+    "tolerance": 0.0001,
+    "route": "SELECT is_core_factory::text, sum(order_value_wan) FROM raw_order GROUP BY 1"
+   }
+  },
+  {
+   "question": "每个月重大风险事件数是多少",
+   "expect": {
+    "metric": "majorRiskEventCountByMonth",
+    "route": "SELECT period, (major_group_incidents+near_miss_group_incidents) FROM dim_legal_monthly ORDER BY period"
+   }
+  },
+  {
+   "question": "每个月协商减员完成率是多少",
+   "expect": {
+    "metric": "severanceCompletionRateByMonth",
+    "tolerance": 0.0001,
+    "route": "SELECT period, severance_completed_cumulative*100.0/nullif(severance_planned,0) FROM dim_hr_monthly ORDER BY period"
+   }
+  },
+  {
+   "question": "生态伙伴战略协同指数是多少",
+   "expect": {
+    "refused_by_names": [
+     "I can answer about"
+    ]
+   }
+  },
+  {
+   "question": "核心技术骨干流失率是多少",
+   "expect": {
+    "refused_by_names": [
+     "I can answer about"
+    ]
+   },
+   "question_note": "2026/8 复核：该 KPI 已退役（口径矛盾，见 02-meaning 的 :rs06TechTalentAttritionRetired）。问题仍留在样本里，用来钉住「问它也不会编一个数」。"
+  },
+  {
+   "question": "客户订单转移流失率是多少",
+   "expect": {
+    "refused_by_names": [
+     "asks for a number",
+     "no metric declares that count",
+     "I can answer about"
+    ]
+   }
+  },
+  {
+   "question": "技术骨干留任率是多少",
+   "expect": {
+    "refused_by_names": [
+     "I can answer about"
+    ]
+   }
+  },
+  {
+   "question": "新架构集团权益乘数是多少",
+   "expect": {
+    "metric": "equityMultiplier",
+    "tolerance": 0.0001,
+    "route": "SELECT avg(1.0 + liability_total_wan/(net_profit_wan*10.0)) FROM dim_finance_monthly WHERE period='2027-02'",
+    "note": "源口径就是 1 + 负债÷(净利润×10)，不是杜邦杠杆率；复核值 1.22944，与 fact_kpi_monthly 落地 1.23 一致。"
+   }
+  }
+ ]
+}

@@ -1,0 +1,69 @@
+{
+  "_note": "每一条都是第二条手写 SQL 路线，与编译器的写法不同（<>, NOT IN, ::int, 子查询取 max(period)），由 psql 直接跑出来。R2 用 _definitions 把声明与手写谓词对齐；_metrics 是头条指标的独立数值。 _metrics 的值全部由本文件同一轮的手写 SQL 跑出，并与编译结果逐条比对一致（10/10）。",
+  "_definitions": {
+    "ActiveEmployee": [
+      "raw_employee",
+      "is_severed <> '1'"
+    ],
+    "SeveredEmployee": [
+      "raw_employee",
+      "is_severed::int = 1"
+    ],
+    "AsOfHrPeriod": [
+      "dim_hr_monthly",
+      "period = (select max(period) from dim_hr_monthly)"
+    ],
+    "AsOfDigitalPeriod": [
+      "dim_digital_monthly",
+      "period = (select max(period) from dim_digital_monthly)"
+    ],
+    "AsOfFinancePeriod": [
+      "dim_finance_monthly",
+      "period = (select max(period) from dim_finance_monthly)"
+    ],
+    "AsOfLegalPeriod": [
+      "dim_legal_monthly",
+      "period = (select max(period) from dim_legal_monthly)"
+    ],
+    "AsOfProductionPeriod": [
+      "dim_production_monthly",
+      "period = (select max(period) from dim_production_monthly)"
+    ],
+    "AsOfSentimentPeriod": [
+      "dim_sentiment_monthly",
+      "period = (select max(period) from dim_sentiment_monthly)"
+    ],
+    "AsOfPmoPeriod": [
+      "dim_pmo_monthly",
+      "period = (select max(period) from dim_pmo_monthly)"
+    ],
+    "CompletedMilestone": [
+      "raw_pmo",
+      "status = 'completed' and month = (select max(month) from raw_pmo)"
+    ],
+    "EcoPartner": [
+      "raw_entity",
+      "entity_type in ('partner')"
+    ],
+    "ProfitableEcoPartner": [
+      "raw_entity",
+      "entity_type = 'partner' and is_profitable::int = 1"
+    ],
+    "SeparatedArchitectureEntity": [
+      "raw_entity",
+      "has_separate_accounting::int = 1"
+    ]
+  },
+  "_metrics": {
+    "digReuseRatePct": 83.0,
+    "finTotalMfgNetProfitWan": 2895.3,
+    "hrTotalHeadcount": 46.0,
+    "hrSeveranceCompletedCumulative": 810.0,
+    "hrSeverancePaidCumulativeWan": 4948.8,
+    "legalNewLaborArbitrationCases": 0.0,
+    "prodOeePct": 100.0,
+    "hrPartnerConverted": 317.0,
+    "severanceCompletionRate": 94.62616822429906,
+    "milestoneOnTimeRate": 100.0
+  }
+}

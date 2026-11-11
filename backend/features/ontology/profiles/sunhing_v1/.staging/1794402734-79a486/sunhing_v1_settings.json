@@ -1,0 +1,68 @@
+{
+  "title": "Sun Hing Vision — ROE 与变革 KPI 本体 (sunhing_v1)",
+  "ns": "https://cube.local/ontology/sunhing#",
+  "ontology_dir": "ontology",
+  "overlay": "metrics_ext.ttl",
+  "dsn": {
+    "host": "${ONTOLOGY_DB_HOST:-127.0.0.1}",
+    "port": "${ONTOLOGY_DB_PORT:-5433}",
+    "dbname": "sunhing_kpi",
+    "user": "${ONTOLOGY_DB_USER:-langconfig}",
+    "password": "${SUNHING_DB_PASSWORD}"
+  },
+  "guard": {
+    "enabled": true,
+    "max_rows": 500,
+    "default_window_days": 0,
+    "statement_timeout_ms": 8000,
+    "max_plan_rows": 5000000,
+    "big_tables": {
+      "dim_digital_monthly": "period"
+    },
+    "large_tables": [
+      "raw_employee",
+      "raw_order",
+      "raw_hr_event",
+      "raw_survey_response",
+      "raw_liability",
+      "fact_kpi_monthly",
+      "fact_roe_summary"
+    ]
+  },
+  "features": {
+    "actions": false,
+    "lane_b": false,
+    "tutorial": true
+  },
+  "samples": [
+    "协商减员完成率是多少",
+    "赔偿金额预算控制率是多少",
+    "核心厂区利润贡献率是多少",
+    "历史责任化解率是多少",
+    "历史责任总额是多少",
+    "轻资产化指数是多少",
+    "股权分立架构完成率是多少",
+    "法人实体总数是多少",
+    "生态伙伴实体数是多少",
+    "已盈利生态伙伴实体数是多少",
+    "重大风险事件数是多少",
+    "海关违规罚款金额是多少",
+    "劳动仲裁与诉讼事件数是多少",
+    "OEE 是多少",
+    "工序保留完成率是多少",
+    "生产人员占比是多少",
+    "里程碑准时完成率是多少",
+    "数据复用率是多少",
+    "价值交换落地度是多少",
+    "各厂区不良率是多少",
+    "各部门协商减员人数是多少",
+    "各厂区员工满意度是多少",
+    "订单金额是多少",
+    "每个月重大风险事件数是多少",
+    "每个月协商减员完成率是多少",
+    "生态伙伴战略协同指数是多少",
+    "客户订单转移流失率是多少",
+    "技术骨干留任率是多少",
+    "新架构集团权益乘数是多少"
+  ]
+}
