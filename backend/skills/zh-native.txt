@@ -5,3 +5,4 @@ evidence-first-delivery
 skill-generator
 sql-analyst
 excel-csv-to-postgres
+db-query

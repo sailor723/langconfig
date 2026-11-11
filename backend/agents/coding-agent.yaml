@@ -31,6 +31,7 @@ skills:
 - git-workflow
 - evidence-first-delivery
 - codebase-design
+- db-query
 interrupts:
   write_file: true
   edit_file: true
