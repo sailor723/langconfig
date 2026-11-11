@@ -1,0 +1,296 @@
+{
+  "version": "1.0",
+  "what": "The catalogue (dim_kpi 28 rows) mapped onto ontology metrics — one row per KPI. This file is a DECLARATION: the dashboard generator renders what is written here and refuses to guess a mapping. A null `metric` is a refusal that is part of the answer (the page shows the reason); a `metric` the ontology does not declare is a BUG in this file, and the generator fails on it by name.",
+  "source": "dim_kpi.formula / fact_kpi_monthly (sunhing_kpi @ 127.0.0.1:5433)",
+  "profile": "sunhing_v1",
+  "observation_period": "2027-02",
+  "series_suffix": "ByMonth",
+  "headline": {
+    "roe": {
+      "metric": "roePct",
+      "series": "roePctByMonth",
+      "label": "当前 ROE"
+    },
+    "baseline_roe": {
+      "period": "2026-09",
+      "label": "基准 ROE"
+    },
+    "recovered": {
+      "metric": "liabResolvedWan",
+      "label": "追缴已化解",
+      "unit": "万元"
+    },
+    "multiplier": {
+      "metric": "equityMultiplier",
+      "series": "equityMultiplierByMonth",
+      "label": "权益乘数（DuPont）",
+      "why": "杜邦的权益乘数与 KPI #16 是同一个数：本体 :equityMultiplier 算 1.22944，fact_roe_summary.equity_multiplier @2027-02 是 1.23。这里直接引用已声明的 KPI 指标，不另造一个。"
+    }
+  },
+  "pages": [
+    {
+      "id": "profit",
+      "file": "sunhing_ontology_profit.html",
+      "title": "📈 净利润率 Factor Dashboard",
+      "subtitle": "净利润率因子看板 · KPI 01-09 执行与盈利修复",
+      "theme": "净利润率 / 利润修复",
+      "accent": "#006600",
+      "card_class": "npm",
+      "nav": "Profit (KPI 01-09)",
+      "dupont": "net_profit_margin",
+      "section_title": "净利润率 · 成本与盈利修复"
+    },
+    {
+      "id": "turnover",
+      "file": "sunhing_ontology_turnover.html",
+      "title": "🔄 资产周转率 Factor Dashboard",
+      "subtitle": "资产周转率因子看板 · KPI 10-13 轻资产与周转效率",
+      "theme": "资产周转率 / 轻资产化",
+      "accent": "#1F4E79",
+      "card_class": "at",
+      "nav": "Turnover (10-13)",
+      "dupont": "asset_turnover",
+      "section_title": "资产周转率 · 轻资产与数字化周转"
+    },
+    {
+      "id": "leverage",
+      "file": "sunhing_ontology_leverage.html",
+      "title": "🏗️ 权益乘数 Factor Dashboard",
+      "subtitle": "权益乘数因子看板 · KPI 14-17 资本结构与协同放大",
+      "theme": "权益乘数 / 架构重组",
+      "accent": "#5B2C6F",
+      "card_class": "em",
+      "nav": "Leverage (14-17)",
+      "dupont": "equity_multiplier",
+      "section_title": "权益乘数 · 股权重组与协同放大"
+    },
+    {
+      "id": "support",
+      "file": "sunhing_ontology_support.html",
+      "title": "🛡️ 支撑层 Factor Dashboard",
+      "subtitle": "支撑层看板 · KPI 18-21 人才、PMO 与制度落地",
+      "theme": "支撑层 / 执行保障",
+      "accent": "#C65911",
+      "card_class": "sup",
+      "nav": "Support (18-21)",
+      "dupont": null,
+      "section_title": "支撑层 · 人才、PMO 与落地保障"
+    },
+    {
+      "id": "risk",
+      "file": "sunhing_ontology_risk.html",
+      "title": "⚠️ 风险监控 Dashboard",
+      "subtitle": "风险监控看板 · RS01-RS07 预警阈值与收口动作",
+      "theme": "风险监控 / 预警",
+      "accent": "#7B241C",
+      "card_class": "risk",
+      "nav": "Risk (RS01-07)",
+      "dupont": null,
+      "section_title": "风险监控 · 关键预警与收口风险"
+    }
+  ],
+  "kpis": [
+    {
+      "kpi_id": "01_协商减员完成率",
+      "page": "profit",
+      "metric": "severanceCompletionRate"
+    },
+    {
+      "kpi_id": "02_历史人力成本追缴化解率",
+      "page": "profit",
+      "metric": "historicalLiabilityResolutionRate"
+    },
+    {
+      "kpi_id": "03_赔偿金额预算控制率",
+      "page": "profit",
+      "metric": "severanceBudgetControlRate"
+    },
+    {
+      "kpi_id": "04_劳动仲裁与诉讼事件数",
+      "page": "profit",
+      "metric": "laborDisputeEventCount"
+    },
+    {
+      "kpi_id": "05_工序保留完成率",
+      "page": "profit",
+      "metric": "processRetentionRate"
+    },
+    {
+      "kpi_id": "06_生产人员占比优化率",
+      "page": "profit",
+      "metric": "productionHeadcountShare"
+    },
+    {
+      "kpi_id": "07_核心厂区利润贡献率",
+      "page": "profit",
+      "metric": "coreFactoryProfitShare"
+    },
+    {
+      "kpi_id": "08_生态伙伴厂利润贡献率",
+      "page": "profit",
+      "metric": "ecoPartnerProfitShare"
+    },
+    {
+      "kpi_id": "09_数字资产价值转化率",
+      "page": "profit",
+      "metric": "digitalValueConversion"
+    },
+    {
+      "kpi_id": "10_核心厂区固定资产利用率",
+      "page": "turnover",
+      "metric": "prodOeePct",
+      "note": "dim_kpi 公式是 oee_pct（源系统存值，恒 100），不是重新算的稼动率；目标 120 与源口径不在同一量纲，页面上会显示为永远不达标。"
+    },
+    {
+      "kpi_id": "11_生态伙伴轻资产化指数",
+      "page": "turnover",
+      "metric": "lightAssetIndex",
+      "note": "库里 entity_type 实际取值是 core/partner，公式过滤的 eco_partner 一行都匹配不到，所以该指标恒为 0。"
+    },
+    {
+      "kpi_id": "12_数字资产归集与复用率",
+      "page": "turnover",
+      "metric": "digReuseRatePct"
+    },
+    {
+      "kpi_id": "13_变革资本再投资率",
+      "page": "turnover",
+      "metric": "capitalReinvestmentRate"
+    },
+    {
+      "kpi_id": "14_股权分立架构完成率",
+      "page": "leverage",
+      "metric": "architectureSeparationRate"
+    },
+    {
+      "kpi_id": "15_员工股权/合伙转化率",
+      "page": "leverage",
+      "metric": "employeePartnerConversionRate"
+    },
+    {
+      "kpi_id": "16_新架构集团权益乘数",
+      "page": "leverage",
+      "metric": "equityMultiplier"
+    },
+    {
+      "kpi_id": "17_生态伙伴战略协同指数",
+      "page": "leverage",
+      "metric": "ecoPartnerSynergyIndex",
+      "note": "已复核可从库里复算：60.0 + 伙伴订单行占比×5 + 伙伴实体数×2 = 61.2711864，与 fact 61.27 一致。60 这个基数是 dim_kpi 存储公式里的常数，属于源口径，不是本体的判断。"
+    },
+    {
+      "kpi_id": "18_技术骨干留任率",
+      "page": "support",
+      "metric": "techLeadRetentionRate",
+      "note": "已复核可复算：(tech_lead_headcount − 当月 Tech/Team Lead 减员数) × 100 / tech_lead_headcount = 46.1538，与 fact 46.15 一致。源公式里 severance_completed_cumulative 在分子上自己约掉了，真正进入分子的是 raw_hr_event 的当月减员件数。"
+    },
+    {
+      "kpi_id": "19_PMO执行里程碑达成率",
+      "page": "support",
+      "metric": "milestoneOnTimeRate"
+    },
+    {
+      "kpi_id": "20_重大风险事件发生率",
+      "page": "support",
+      "metric": "majorRiskEventCount"
+    },
+    {
+      "kpi_id": "21_员工价值交换制度落地率",
+      "page": "support",
+      "metric": "valueExchangeLanding",
+      "note": "量纲不一致：本体按 0–10 分（dim_sentiment_monthly 存值 5.06），dim_kpi 的目标是 80%，fact 里也是 5.06 —— 这条 KPI 在任何月份都不可能达标。这是数据缺陷，不是看板错误。"
+    },
+    {
+      "kpi_id": "RS01_协商减员纠纷发生率",
+      "page": "risk",
+      "metric": "severanceDisputeRate"
+    },
+    {
+      "kpi_id": "RS02_历史追缴协商满意度",
+      "page": "risk",
+      "metric": "sentSeveranceSatisfaction"
+    },
+    {
+      "kpi_id": "RS03_群体性劳动争议风险指数",
+      "page": "risk",
+      "metric": "groupLaborRiskIndex"
+    },
+    {
+      "kpi_id": "RS04_保税物料合规处理完成率",
+      "page": "risk",
+      "metric": "legalCustomsCompliancePct"
+    },
+    {
+      "kpi_id": "RS05_海关违规/罚款金额",
+      "page": "risk",
+      "metric": "rs05CustomsPenaltyAmount",
+      "direction": "lower",
+      "direction_note": "dim_kpi.lower_is_better 在 RS05/RS06/RS07 上是 0（越高越好），但口径是越低越好（目标 0 万元/0 件）。按 dim_kpi 原值渲染会把 24.6 万罚款判成「达标」——这里按口径声明为越低越好，并在页脚注明这是对 dim_kpi 的有意覆盖。"
+    },
+    {
+      "kpi_id": "RS06_核心技术骨干流失率(变革期)",
+      "page": "risk",
+      "metric": null,
+      "refusal": "dim_kpi.formula 是空串——目录没有给出定义，fact_kpi_monthly 里的 53.85 无从复算（而 dim_kpi.target 是 5%、fact 里的 target 是 100，两份口径都不一致）。没有定义就不画。"
+    },
+    {
+      "kpi_id": "RS07_客户订单转移/流失率",
+      "page": "risk",
+      "metric": null,
+      "refusal": "dim_kpi.formula 是空串；库里既没有「转移/流失客户」列，也没有基期列，fact 里的 100.0 是直接填进去的。没有定义就不画。"
+    }
+  ],
+  "direction_overrides": {
+    "RS05_海关违规/罚款金额": "lower",
+    "RS06_核心技术骨干流失率(变革期)": "lower",
+    "RS07_客户订单转移/流失率": "lower"
+  },
+  "near_miss_ratio": 0.1,
+  "summary": {
+    "severance_done": {
+      "metric": "hrSeveranceCompletedCumulative",
+      "label": "减员完成"
+    },
+    "severance_planned": {
+      "metric": "hrSeverancePlanned",
+      "label": "计划减员"
+    },
+    "severance_paid": {
+      "metric": "hrSeverancePaidCumulativeWan",
+      "label": "赔偿已支出"
+    },
+    "liab_resolved": {
+      "metric": "liabResolvedWan",
+      "label": "追缴已化解"
+    },
+    "liab_remaining": {
+      "derive": [
+        "liabTotalWan",
+        "liabResolvedWan"
+      ],
+      "label": "剩余"
+    }
+  },
+  "accepted_issues": {
+    "11_生态伙伴轻资产化指数": {
+      "kinds": [
+        "VALUE"
+      ],
+      "why": "本体算 37.5%（3 个盈利伙伴 / 8 个伙伴），fact_kpi_monthly 落的是 0。fact 那一列是旧生成器留下的：它的公式过滤 entity_type='eco_partner'，而库里实际取值是 core/partner，所以恒为 0。本体按 partner 过滤后与 25% 的目标同量纲。页面按本体渲染，这条差异留在 --check 里，不静默抹掉。"
+    },
+    "21_员工价值交换制度落地率": {
+      "kinds": [
+        "UNIT"
+      ],
+      "why": "本体按 0–10 分（dim_sentiment_monthly 存值 5.06），dim_kpi 的目标是 80%，fact 里也是 5.06。量纲不一致属于数据缺陷：该 KPI 在任何月份都不可能达标。页面同时显示 5.06 和 80.0%，读者能看到矛盾本身。"
+    },
+    "RS05_海关违规/罚款金额": {
+      "kinds": [
+        "VALUE"
+      ],
+      "why": "fact_kpi_monthly 里这一行的 kpi_id 被清洗成了 RS05_海关违规_罚款金额（斜杠变下划线），unit 也被写成 %，所以按 kpi_id 连接找不到它。本体直接从 raw 侧算，24.6 万与 dim_kpi 的「万元」一致。"
+    }
+  },
+  "hub_file": "sunhing_ontology_hub.html",
+  "why_these_names": "文件名带 ontology_ 前缀，是因为 /api/files/{name} 只接受裸文件名并 rglob 整个 data/analysis_dbs —— 沿用原文件名会和 2026-11 的原始页面撞名，从而悄悄覆盖对比基线。"
+}

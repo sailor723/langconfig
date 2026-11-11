@@ -215,3 +215,123 @@ cp <dir>/html/sunhing_*.html langconfig/data/analysis_dbs/
 That last row is the key mental model: **the deterministic paths keep the business
 story in code/config; the LLM path keeps it in the companion skill, and the prompt
 only supplies process rules.**
+
+## 10. The ontology renderer (2026-11-11, `sunhing_v1`)
+
+The generator in §1 renders from the SQLite copy and knows the schema. A second,
+narrower producer renders the SAME six-page cockpit from the **ontology
+declaration**, so the numbers come from a declaration a gate can check rather than
+from a script:
+
+```bash
+cd langconfig
+backend/.venv/bin/python backend/scripts/sunhing_dashboard_from_ontology.py --check   # values only
+backend/.venv/bin/python backend/scripts/sunhing_dashboard_from_ontology.py           # write the 6 pages
+```
+
+| Artefact | Path |
+|---|---|
+| renderer | `backend/scripts/sunhing_dashboard_from_ontology.py` |
+| KPI ↔ metric declaration | `backend/features/ontology/profiles/sunhing_v1/kpi_map.json` |
+| layout (original CSS, verbatim) | `backend/scripts/templates/sunhing/{hub,factor}.css` |
+| output | `data/analysis_dbs/sunhing_ontology_{hub,profit,turnover,leverage,support,risk}.html` |
+
+**Why the `ontology_` prefix:** `/api/files/{name}` only accepts a bare filename
+and `rglob`s the whole `data/analysis_dbs` tree, so reusing
+`sunhing_dashboard_profit.html` would overwrite the 2026-11 originals — the only
+comparison baseline there is. The prefix keeps both and still serves through
+`/api/files/sunhing_ontology_hub.html` (HTTP 200, Plotly swapped to
+`/static/plotly.min.js`, so it works offline).
+
+### 10.1 Layout is copied, not re-imagined
+
+The two `<style>` blocks in the original pages are *different* (hub 8 620 B with
+`.factor-card`/`.section`; factor pages 4 396 B with `.kpi-card`/`.kpi-table`), so
+both were copied verbatim into `templates/sunhing/`. The element vocabulary:
+
+| Original hub | Renderer |
+|---|---|
+| `.header` h1 + `.sub` + ROE formula line | same, plus the profile name |
+| `.baseline-bar` 5 cells | same 5 cells (时间范围/当前观察月/基准 ROE/当前 ROE/追缴已化解) |
+| `.nav-links` → `/api/files/…` | same labels, **relative** hrefs (works from disk too) |
+| `.dashboard` 3 `.factor-card {npm,at,em}` | same 3 cards (`sup`/`risk` were sections, not cards, in the original) |
+| `.result-bar` ROE + 3 slider rows | ROE reading + the three factor scores, **no sliders** (see 10.2) |
+| `.summary-bar` 达标 n/28 · 减员 · 追缴 | same, every number a declared metric (`liab_remaining` is `liabTotalWan − liabResolvedWan`) |
+| `.overview-grid`: `#roe-trend`, `#factor-score` | same two chart ids and trace styling |
+| 5 × `.section` with `kpi-head` + `kpi-row`/`kpi-note` | same, nested identically |
+| `.insight-box` 关键洞察 | same box, bullets derived from the computed statuses |
+
+| Original factor page | Renderer |
+|---|---|
+| `.page-title` + `.page-subtitle` | same strings |
+| `.baseline-bar` (当前主题/观察期/当前月) | same 3 cells + 达标 + 平均得分 |
+| `.kpi-row` of `.kpi-card {ok,warn}` "Target 100.0% △ 5.4 gap" | same, plus `danger` (the original had no third state) |
+| `table.kpi-table` #/KPI/月/Target/Gap/Status | same columns, same 达标/⚠️ Near Miss/❌ Miss wording |
+| `.grid` of `.card` + `.chart-title` + `div#cNN.chart` | same ids (`c01`…), 6-point line + dashed target |
+| `.insight-box` | same |
+
+### 10.2 What the renderer deliberately does NOT reproduce
+
+1. **The ROE slider simulation.** The original `.result-bar` multiplied three
+   factors by hand-picked weights (`npmWeight`, …) whose provenance is not
+   declared anywhere. Reproducing it would mean inventing a model, so the band
+   shows the measured reading and says so in the caption.
+2. **The 追缴总额 / 2430 万-era numbers.** They belong to the earlier dataset (§10.5).
+3. **A chart for a KPI with no series.** The card stays in the grid and states
+   which `:…ByMonth` metric is missing and what the snapshot reading is, instead
+   of drawing a one-point line that looks like a trend.
+4. **A number for a KPI the ontology refuses.** Same: the card carries the
+   refusal reason.
+
+### 10.3 `kpi_map.json` — the declaration, and how it fails
+
+One row per catalogue KPI (`dim_kpi`, 28 rows): `kpi_id` → ontology `metric`
+(or `null` + `refusal`), the page it belongs to, and notes. Grouping/target/
+direction/unit are read from `dim_kpi` and cross-checked against the ontology's
+own `:unit`; a disagreement is a `[UNIT]` problem, not a silent format choice.
+
+`--check` prints one line per finding and exits non-zero when anything is wrong:
+
+| Line | Meaning |
+|---|---|
+| `[METRIC]` | the map names a metric the ontology does not declare — a map bug |
+| `[VALUE]` | the metric's number differs from `fact_kpi_monthly` for the observation period |
+| `[UNIT]` | value unit and target unit are different kinds of number |
+| `[NO-SERIES]` | metric has no `:…ByMonth` variant (snapshot only — the page says so) |
+| `[ACCEPTED]` | a known defect declared in `accepted_issues` **with its reason**; still printed |
+| `[STAGED-ONLY]` | the `.ttl` on disk is newer than the applied publish — the pages would show unapplied numbers |
+
+**Coverage today: 26 of 28 KPIs have a metric; 2 are refusals.** #17
+`生态伙伴战略协同指数` and #18 `技术骨干留任率` were re-checked against the raw
+tables and *do* reproduce exactly (`61.2711864` and `46.1538`, matching
+`fact_kpi_monthly`), so they are declared in the map and become live metrics once
+the profile declares them. RS06/RS07 stay refused because `dim_kpi.formula` is
+the empty string — there is no definition to compile.
+
+### 10.4 Accepted divergences (written down, not hidden)
+
+| KPI | Divergence | Reason |
+|---|---|---|
+| 11 生态伙伴轻资产化指数 | ontology `37.5%` vs fact `0` | the old formula filtered `entity_type='eco_partner'`; the column holds `core`/`partner`, so it was always 0. `3/8 = 37.5%` is on the same scale as the 25% target. |
+| 21 员工价值交换制度落地率 | value `5.06` (0–10) vs target `80%` | `dim_sentiment_monthly` stores a 0–10 score; `dim_kpi.unit` says `%`. The KPI can never be met — the page shows both numbers so the contradiction is visible. |
+| RS05 海关违规/罚款金额 | no `fact` row | `fact_kpi_monthly.kpi_id` was sanitised to `RS05_海关违规_罚款金额` and `unit` written as `%`; the ontology computes 24.6 万元 from the raw side. |
+
+### 10.5 The original pages' numbers do not come from either DB copy
+
+Comparing the 2026-11 factor page against `fact_kpi_monthly` @ 2027-02 (identical
+in both SQLite copies):
+
+| KPI | original HTML | both DB copies | catalogue formula recomputed |
+|---|---|---|---|
+| 02 追缴化解率 | 84.5% | 85.47 | 85.47 |
+| 03 预算控制率 | 93.5% | 128.47 | 128.47 |
+| 05 工序保留率 | 98.0% | 40.0 | 40.0 |
+| 06 生产人员占比 | 21.4% | 71.74 | 71.74 |
+| 07 核心厂区利润贡献 | 38.5% | 71.06 | 71.06 |
+| 09 数字资产转化 | 7.2% | 70.47 | 70.47 |
+
+No month in either copy yields the HTML's values, so those pages were produced
+from an earlier dataset generation. Consequence for this work: "same as the
+original" is honoured for **layout and wording**, never for the numbers — the
+numbers come from the ontology, which reproduces the database and the catalogue
+formula exactly.
