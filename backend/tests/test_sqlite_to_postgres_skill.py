@@ -58,6 +58,15 @@ def test_the_refusals_are_explicit(text):
         assert forbidden in text, f"missing refusal: {forbidden}"
 
 
+def test_the_skill_forbids_a_password_on_the_command_line(text):
+    """Measured on the agent's first real run: it exported PGPASSWORD in a shell command, which puts the
+    credential in the transcript the tool log and the delivered report. The script reads the deployment's
+    .env itself, so there is no reason to type one."""
+    assert "export PGPASSWORD" in text, "the skill must name the exact command shape it forbids"
+    assert "--password" in text
+    assert "POSTGRES_PASSWORD" in text, "and it must say where the connection actually comes from"
+
+
 def test_the_rules_file_is_scheduled_and_gated():
     text = SKILL.read_text(encoding="utf-8")
     assert "references/rules.md" in text, "a reference nothing links is a reference nobody reads"

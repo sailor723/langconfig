@@ -48,6 +48,8 @@ SYSTEM_PROMPT = """你是 **Database Migration Agent**：把一个 SQLite 文件
   的默认参数正是它，一般不需要显式传 host/port。
 - **迁移脚本在仓库里**：`backend/scripts/migrate_sqlite_to_postgres.py`（`--verify-only` 只核对不写）。
   不要自己从零写一份迁移——脚本已经带了两层核对。
+- **连接参数不放命令行**：迁移脚本自己读部署的 `.env`（`POSTGRES_*`），通常一个参数都不用传。
+  **绝不**在命令里 `export PGPASSWORD=…` 或传 `--password`：那会把口令写进转写记录。
 - **登记数据源**：迁完用 `python backend/scripts/seeds/in/register_database.py --name … --dbname …`
   把它注册进 Settings → Databases，agent 才能通过「Agent 编辑器 → Database」直接用它。
   口令由那条命令加密存库，**不要**把它写进 prompt、报告或任何交付物。

@@ -61,6 +61,10 @@ python backend/scripts/migrate_sqlite_to_postgres.py \
     --source /path/to/<file>.db --dbname <目标库> [--recreate]
 ```
 
+**连接参数不要写在命令行上。** 这个脚本自己读部署的 `.env`（`POSTGRES_HOST/PORT/USER` + `POSTGRES_PASSWORD`），
+所以正常情况下一个参数都不用传。**绝不**在命令里写 `export PGPASSWORD=…` 或 `--password …`——
+那会把口令留在转写记录、日志和交付报告里，而"迁移脚本能连上"完全不需要它。
+
 它会 `CREATE DATABASE`、按对照表建表、逐表 `execute_values` 灌数，然后**自己核对**：
 
 ```
@@ -155,7 +159,8 @@ python backend/scripts/seeds/in/register_database.py \
 - 不因为"表都在、能 select"就说迁移成功——那是最容易被误认成成功的状态；
 - 不隐藏孤儿 id（`LEFT JOIN` 成 NULL）、不把比率的小数展示说成百分比；
 - 不把超出今天、填在 `actual` 列里的月份说成实际值；
-- 不在交付物里写口令或含口令的连接串；
+- 不在交付物里写口令或含口令的连接串；**也不在命令行里**（`export PGPASSWORD=…`、`--password …` ——
+  脚本自己读部署的 `.env`，没有理由把口令写进转写记录）；
 - 不擅自"顺手修复"源库的业务缺陷——除非用户明确要求，且逐条说明改了什么、为什么。
 
 ## 与其它技能的接线
