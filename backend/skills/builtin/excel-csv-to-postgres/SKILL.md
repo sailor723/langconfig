@@ -11,7 +11,7 @@ triggers:
   - "当用户说「把这个表建成数据库」或「能不能用 SQL 查这个文件」时"
   - "当用户要跨 sheet / 跨文件对比，而手工核对不现实时"
   - "当数据要被反复查询（同一份数据问超过两个问题时）"
-allowed_tools: [read_any_file, glob, read_file, db_build_from_file, db_review, db_query, write_file, skill]
+allowed_tools: [read_any_file, glob, read_file, db_build_from_file, db_verify_against_file, db_review, db_query, write_file, skill]
 author: LangConfig
 version: "1.0"
 ---
@@ -83,7 +83,23 @@ db_build_from_file(file="upload/orders.xlsx", db_name="orders_xlsx", confirm=tru
 2. **`:memory:` 是陷阱，不是默认值。** 装载进内存会 `✅ Loaded N rows`，随后查询是**另一个**内存库 →
    `No rows returned (empty result)`。"装载成功 + 查询为空"这个组合，八成是库没共享，不是数据没有。
 
-## 第 4 步——体检：主键和外键从数据里判出来，不是凭列名
+## 第 4 步——先对账：库里真的是这个文件吗
+
+```
+db_verify_against_file(file="upload/orders.xlsx", db_name="orders_xlsx")
+```
+
+逐 sheet 对：表在不在、行数、列数、**每一行的值**、以及每个数值列的 SUM/MIN/MAX。判据只能三选一：
+
+- `PASS` —— 行数、列、值全对上；
+- `PARTIAL` —— 行数对，但某些值不一致（先查清，不要报数）；
+- `FAIL` —— 行数或列数对不上，这个库不能用。
+
+三个刻意的设计，别当成啰嗦：**比对用"行的多重集"**（数据库返回顺序不可信），**数值先规范化**（`120` 与 `Decimal('120.000')` 算相等，`120` 与 `180` 绝不相等），**数值列的合计也要比**（行数对、列错位是只有合计能抓到的错）。另外它会把"库里多出来的表"单独列出来——上一次建库的残留，正是以后会被人误查的东西。
+
+对账不通过就回到第 3 步，不要在这上面写 SQL 报数。
+
+## 第 5 步——体检：主键和外键从数据里判出来，不是凭列名
 
 ```
 db_review(db_name="orders_xlsx")               # 只报告：行数/空值/主键候选/外键候选
@@ -103,7 +119,7 @@ db_review(db_name="orders_xlsx", apply=true)   # 用户确认后再建约束
 
 建完立刻跑一遍空值/孤儿检查，把 `0` 贴出来；建不上就说明为什么，不要沉默。
 
-## 第 5 步——回答用 SQL，并说明口径
+## 第 6 步——回答用 SQL，并说明口径
 
 用 `db_query(db_name=..., sql="SELECT …")` 查这个库（`pg_query` 只能查平台自己的库，查不到你刚建的）。
 
@@ -115,14 +131,15 @@ db_review(db_name="orders_xlsx", apply=true)   # 用户确认后再建约束
 - 表里的遥测/日志表（`*_events`、`audit_*`）不要当业务表用；它们通常比业务数据大两个数量级，
   会诱导你去查"操作记录"回答业务问题。
 
-## 第 6 步——交付
+## 第 7 步——交付
 
-三件事一起给：**库名与连接串**、**表/列对照 + 行数**、**这次查询用到的口径**。用户下次要自己查，凭这三样就够。
+三件事一起给：**库名与连接串**、**表/列对照 + 行数 + 对账结论（PASS）**、**这次查询用到的口径**。用户下次要自己查，凭这三样就够。
 
 ## 拒绝清单（硬契约）
 
 - **不在用户确认方案之前建库、加约束**——"先建了不好再删"是本技能禁止的做法；
 - 不把「读了文件」当成「建好了库」；
+- **不在 `db_verify_against_file` 不是 PASS 的情况下报数**——PARTIAL 也要先说清楚哪里不一致；
 - 不在没核对行数的情况下宣布装载完成；
 - 不因为 `✅ Loaded` 就相信查询能读到（见 `:memory:` 坑）；
 - 不用"唯一的列"当主键、不因为"取值能对上"就建外键；

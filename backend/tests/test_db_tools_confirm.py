@@ -14,7 +14,7 @@ NATIVE = REPO / "backend" / "tools" / "native_impl.py"
 SEED = REPO / "backend" / "scripts" / "seeds" / "in" / "seed_builtin_tools.py"
 SKILL = REPO / "backend" / "skills" / "builtin" / "excel-csv-to-postgres" / "SKILL.md"
 
-NEW_TOOLS = ("db_build_from_file", "db_review", "db_query")
+NEW_TOOLS = ("db_build_from_file", "db_review", "db_query", "db_verify_against_file")
 
 
 @pytest.fixture(scope="module")
@@ -121,3 +121,46 @@ def _plan_or_skip(path):
     wb.close()
     tables, warnings = module._plan_from_file(path, sheets)
     return module._format_plan(path, "messy_xlsx", tables, warnings)
+
+
+# ── the verifier compares values, not formatting ────────────────────────────
+
+def test_canonical_form_ignores_how_a_number_was_written():
+    """The sheet says 120, Postgres says Decimal('120.000') — that is not a difference."""
+    from decimal import Decimal
+
+    canon = _native()._canon
+    assert canon(120) == canon(Decimal("120.000")) == "120"
+    assert canon(Decimal("99.5")) == "99.5"
+    assert canon(True) == "t" and canon(False) == "f"
+    assert canon(None) == "∅"
+    assert canon({"b": 1, "a": 2}) == canon({"a": 2, "b": 1}), "jsonb key order must not matter"
+
+
+def test_120_and_180_are_still_different():
+    canon = _native()._canon
+    assert canon(120) != canon(180)
+
+
+def test_verifier_and_builder_share_one_file_reader():
+    """A verifier with its own parser would confirm its own parsing bug."""
+    text = NATIVE.read_text(encoding="utf-8")
+    builder = text[text.index("def db_build_from_file"):text.index("def db_review")]
+    verifier = text[text.index("def db_verify_against_file"):]
+    assert "_read_source_sheets(path)" in builder
+    assert "_read_source_sheets(path)" in verifier
+
+
+def test_the_skill_forbids_reporting_numbers_before_a_pass():
+    text = SKILL.read_text(encoding="utf-8")
+    assert "db_verify_against_file" in text
+    assert "PASS" in text and "PARTIAL" in text and "FAIL" in text
+    assert "不是 PASS 的情况下报数" in text
+
+
+def _native():
+    spec = importlib.util.spec_from_file_location("native_impl_for_canon", NATIVE)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module

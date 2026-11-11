@@ -6270,35 +6270,9 @@ def db_build_from_file(file: str, db_name: str, confirm: bool = False, host: str
     if recreate and not re.search(r"_(xlsx|csv|test)$", db_name):
         return f"Error: refusing recreate on {db_name!r} — the name must end in _xlsx/_csv/_test"
 
-    sheets: dict = {}
-    suffix = path.suffix.lower()
-    if suffix in (".xlsx", ".xlsm"):
-        from openpyxl import load_workbook
-        wb = load_workbook(path, data_only=True, read_only=True)
-        for sheet in wb.sheetnames:
-            if sheet in ("00_index", "catalog"):
-                continue  # exporter metadata, not tables
-            data = list(wb[sheet].iter_rows(values_only=True))
-            if not data or not data[0]:
-                continue
-            headers = ["" if c is None else str(c) for c in data[0]]
-            body = [list(r) for r in data[1:]
-                    if any(c is not None and str(c).strip() != "" for c in r)]
-            if body:
-                sheets[sheet] = (headers, body)
-        wb.close()
-    elif suffix == ".csv":
-        import csv as _csv
-        with path.open(newline="", encoding="utf-8-sig", errors="replace") as fh:
-            reader = list(_csv.reader(fh))
-        if not reader:
-            return f"Error: {file} is empty"
-        sheets[path.stem] = (reader[0], [r for r in reader[1:] if any(str(c).strip() for c in r)])
-    else:
-        return f"Error: unsupported file type {suffix!r} (use .xlsx / .xlsm / .csv)"
-
-    if not sheets:
-        return "Error: nothing to load — every sheet was empty"
+    sheets, error = _read_source_sheets(path)
+    if error:
+        return error
 
     tables, warnings = _plan_from_file(path, sheets)
     if not confirm:
@@ -6614,6 +6588,244 @@ def db_query(db_name: str, sql: str, limit: int = 200, host: str = "", port: int
     lines.append("\n*" + str(len(rows)) + " row(s)"
                  + (" — capped, refine the query for more" if capped else "") + "*")
     return "\n".join(lines)
+
+def _read_source_sheets(path):
+    """(sheets, error) — {sheet: (headers, body)} from an .xlsx/.xlsm/.csv, same rules as the build.
+
+    Shared by `db_build_from_file` and `db_verify_against_file` on purpose: a verifier that
+    parses the file differently from the builder would "confirm" its own parsing bug.
+    """
+    sheets: dict = {}
+    suffix = path.suffix.lower()
+    if suffix in (".xlsx", ".xlsm"):
+        from openpyxl import load_workbook
+        wb = load_workbook(path, data_only=True, read_only=True)
+        try:
+            for sheet in wb.sheetnames:
+                if sheet in ("00_index", "catalog"):
+                    continue  # exporter metadata, not tables
+                data = list(wb[sheet].iter_rows(values_only=True))
+                if not data or not data[0]:
+                    continue
+                headers = ["" if c is None else str(c) for c in data[0]]
+                body = [list(r) for r in data[1:]
+                        if any(c is not None and str(c).strip() != "" for c in r)]
+                if body:
+                    sheets[sheet] = (headers, body)
+        finally:
+            wb.close()
+    elif suffix == ".csv":
+        import csv as _csv
+        with path.open(newline="", encoding="utf-8-sig", errors="replace") as fh:
+            reader = list(_csv.reader(fh))
+        if reader:
+            sheets[path.stem] = (reader[0], [r for r in reader[1:] if any(str(c).strip() for c in r)])
+    else:
+        return {}, f"Error: unsupported file type {suffix!r} (use .xlsx / .xlsm / .csv)"
+    if not sheets:
+        return {}, "Error: nothing to read — every sheet was empty"
+    return sheets, None
+
+
+def _canon(value) -> str:
+    """Canonical string for comparing one cell across two representations.
+
+    The same value arrives differently on each side: the file gives `120` (int) where the
+    database returns `Decimal('120.000')`; a timestamp is a `str` in the sheet and a
+    `datetime` from psql; a JSONB column comes back as a dict. Comparing `str()` on both
+    sides would report thousands of "differences" that are formatting.
+    """
+    import datetime as _dt
+    import json as _json
+    from decimal import Decimal as _Decimal
+
+    if value is None:
+        return "∅"
+    if isinstance(value, bool):
+        return "t" if value else "f"
+    if isinstance(value, _Decimal):
+        if value == value.to_integral_value():
+            return str(value.to_integral_value())
+        return format(value.normalize(), "f")
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return _canon(_Decimal(str(value)))
+    if isinstance(value, _dt.datetime):
+        return value.isoformat(sep=" ")
+    if isinstance(value, _dt.date):
+        return value.isoformat()
+    if isinstance(value, (dict, list)):
+        return _json.dumps(value, ensure_ascii=False, sort_keys=True)
+    return str(value).strip()
+
+
+def _multiset(rows) -> dict:
+    """Row → count, so comparison survives a different physical order."""
+    from collections import Counter
+    return Counter(tuple(_canon(v) for v in row) for row in rows)
+
+
+@tool
+def db_verify_against_file(file: str, db_name: str, host: str = "", port: int = 0,
+                           user: str = "", password: str = "", max_examples: int = 5) -> str:
+    """
+    用我：建库之后核对"库里真的是这个文件吗"——行数、列、每一行的值、数值合计，逐 sheet 对账。
+    别用我：只看结构用 db_review；只想读文件用 read_any_file。
+
+    Cross-check a loaded database against the spreadsheet it came from.
+
+    For every sheet in the file it finds the matching table (same naming rules the build
+    used), then compares: the table exists, the row count, the column count, and the full
+    row multiset — values normalised so that `120` from the sheet and `Decimal('120.000')`
+    from Postgres count as equal, but `120` and `180` never do. Numeric columns also get
+    their SUM/MIN/MAX compared, because that catches "right number of rows, wrong column
+    order" which a count alone cannot. Any table in the database that the file did not
+    produce is reported too — a leftover from an earlier build is exactly the kind of thing
+    a user will later query by accident.
+
+    Returns PASS only when every sheet matches on all of those checks. PARTIAL means the
+    counts match but values do not; FAIL names the first differences, with row indexes.
+
+    Args:
+        file: the .xlsx / .csv that was loaded (inside the workspace)
+        db_name: the database to verify, e.g. "orders_xlsx"
+        host/port/user/password: target server (empty = the platform's own server)
+        max_examples: how many differing rows to show per table (default 5)
+
+    Returns:
+        A per-table verdict table plus a final PASS / PARTIAL / FAIL line.
+    """
+    from pathlib import Path
+
+    import psycopg2
+
+    path = Path(file).expanduser()
+    if not path.is_file():
+        return f"Error: no such file: {file}"
+    sheets, error = _read_source_sheets(path)
+    if error:
+        return error
+
+    target = _pg_conn_kwargs(host, port, user, password, dbname=db_name)
+    try:
+        conn = psycopg2.connect(**target)
+    except Exception as exc:
+        return f"Error: cannot connect to {db_name}: {exc}"
+    conn.set_session(readonly=True, autocommit=True)
+    cur = conn.cursor()
+
+    cur.execute("""select table_name from information_schema.columns
+                    where table_schema='public' group by 1 order by 1""")
+    db_tables = {r[0] for r in cur.fetchall()}
+
+    out = [f"# 核对：{path.name} → {db_name} @ {target['host']}:{target['port']}"]
+    failures = 0
+    partials = 0
+    seen = set()
+
+    for sheet_name, (headers, body) in sheets.items():
+        table = _ident(sheet_name, fallback="sheet")
+        seen.add(table)
+        if table not in db_tables:
+            out.append(f"\n## [{sheet_name}] -> {table}: ✗ 表不存在")
+            failures += 1
+            continue
+
+        cur.execute('select * from "' + table + '"')
+        db_rows = cur.fetchall()
+        db_cols = [d[0] for d in cur.description]
+
+        file_rows = len(body)
+        db_count = len(db_rows)
+        col_ok = len(db_cols) == len(headers)
+
+        same_rows = 0
+        diff_examples = []
+        if col_ok and file_rows == db_count:
+            file_ms = _multiset(body)
+            db_ms = _multiset(db_rows)
+            same_rows = sum((file_ms & db_ms).values())
+            if same_rows != file_rows:
+                for i, row in enumerate(body):
+                    key = tuple(_canon(v) for v in row)
+                    if db_ms.get(key, 0) == 0 and len(diff_examples) < max_examples:
+                        # Pair by the first column, not by index: the database returns rows in
+                        # whatever order it likes, so index-pairing showed a *different* row as
+                        # the neighbour ("file row 0 vs db row 0" was two unrelated products).
+                        head = _canon(row[0]) if row else None
+                        db_row = next((r for r in db_rows if r and _canon(r[0]) == head), None)
+                        diff_examples.append(("row", i, row, db_row if db_row is not None else "（库里没有对应行）"))
+
+        # numeric aggregates — a count can match while every value sits in the wrong column
+        agg_lines = []
+        if col_ok:
+            for i, col in enumerate(db_cols):
+                numbers = []
+                for row in body:
+                    raw = row[i] if i < len(row) else None
+                    try:
+                        from decimal import Decimal as _D
+                        if raw not in (None, ""):
+                            numbers.append(_D(str(raw)))
+                    except Exception:
+                        numbers = []
+                        break
+                if not numbers or len(numbers) != file_rows:
+                    continue
+                cur.execute('select sum("' + col + '"), min("' + col + '"), max("' + col + '") from "'
+                            + table + '"')
+                dsum, dmin, dmax = cur.fetchone()
+                fsum, fmin, fmax = sum(numbers), min(numbers), max(numbers)
+                if dsum is None:
+                    continue
+                ok = (_canon(dsum) == _canon(fsum) and _canon(dmin) == _canon(fmin)
+                      and _canon(dmax) == _canon(fmax))
+                agg_lines.append(f"    {col}: sum {_canon(fsum)} vs {_canon(dsum)}"
+                                 + ("" if ok else "  ✗"))
+                if not ok:
+                    diff_examples.append(("sum", col, _canon(fsum), _canon(dsum)))
+
+        verdict = "PASS"
+        problems = []
+        if not col_ok:
+            problems.append(f"列数 {len(headers)} vs {len(db_cols)}")
+        if file_rows != db_count:
+            problems.append(f"行数 {file_rows} vs {db_count}")
+        if col_ok and file_rows == db_count and same_rows != file_rows:
+            problems.append(f"{file_rows - same_rows} 行的值不一致")
+        if problems:
+            verdict = "FAIL" if (not col_ok or file_rows != db_count) else "PARTIAL"
+            failures += 1 if verdict == "FAIL" else 0
+            partials += 1 if verdict == "PARTIAL" else 0
+
+        out.append(f"\n## [{sheet_name}] -> {table}: {verdict}")
+        out.append(f"  行数 {file_rows} vs {db_count} | 列数 {len(headers)} vs {len(db_cols)} | "
+                   f"一致的整行 {same_rows}/{file_rows}")
+        out.extend(agg_lines[:8])
+        # Both kinds of difference end up in the same list; unpacking was assuming 3 fields
+        # for row diffs and 4 for aggregate diffs (`too many values to unpack`).
+        for kind, where, left, right in diff_examples[:max_examples]:
+            if kind == "sum":
+                out.append(f"  ✗ 合计不符 {where}: 文件 {left} ≠ 库 {right}")
+            else:
+                out.append(f"  ✗ 第 {where} 行: 文件 {left} ≠ 库 {right}")
+
+    extra = sorted(db_tables - seen)
+    if extra:
+        out.append("\n## 库里多出来的表（文件没有）")
+        out.append("  " + ", ".join(extra) + "  ← 可能是上一次建库的残留")
+
+    conn.close()
+    if failures:
+        out.append(f"\nFAIL — {failures} 张表对不上，别拿这个库回答业务问题。")
+        return "\n".join(out)
+    if partials:
+        out.append(f"\nPARTIAL — 行数都对，但 {partials} 张表里有值对不上；先查清再报数。")
+        return "\n".join(out)
+    out.append("\nPASS — 每张表的行数、列和值都与文件一致。")
+    return "\n".join(out)
+
 
 @tool
 def sqlite_load_csv(csv_content: str, table_name: str, db_path: str = ":memory:") -> str:
