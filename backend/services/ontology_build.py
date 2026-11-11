@@ -759,6 +759,18 @@ def builders(db: Optional[Session] = None) -> list[dict]:
                    or str(datasource))
             profile = workbench.get("profile") or {}
             dsn = profile.get("dsn") or {}
+            # `database` is what the build dialog shows as "which data is this about". It used to come
+            # from the agent's `workbench.profile` block alone, so an agent seeded WITHOUT that block
+            # (355, 376 — the newer seed writes `datasource` instead) advertised no database at all
+            # while its datasource named one. The datasource is the connection the agent actually
+            # gets, so it is the fallback that cannot disagree with the run.
+            if not dsn.get("dbname"):
+                try:
+                    from services.deepagent_factory.assembly import _datasource_env  # noqa: PLC0415
+                    _env, _dsn = _datasource_env(str(datasource))
+                    dsn = {**(dsn or {}), **({"dbname": _env.get("PGDATABASE")} if _env.get("PGDATABASE") else {})}
+                except Exception as exc:                        # noqa: BLE001
+                    logger.debug("datasource %s has no resolvable dbname: %s", datasource, exc)
             # `has_ontology` decides two things a person sees — "首次生成" vs "重建", and whether
             # auto-land may default on — so it must answer "is this installed", not "does this agent's
             # config happen to carry a workbench block". Measured: agent 355's config has no workbench
