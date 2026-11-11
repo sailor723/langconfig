@@ -403,7 +403,16 @@ export function useChatController(options: UseChatControllerOptions = {}) {
         body: JSON.stringify({ action, value, edited_action: editedAction }),
       });
       if (!response.ok) {
-        throw new Error(`Resume failed: ${response.statusText}`);
+        // Carry the server's reason: a 400 here means the graph was not parked the
+        // way the resume expects (stale/orphan tool call), and the only symptom the
+        // user sees otherwise is a review card that will not go away.
+        let detail = '';
+        try {
+          detail = (await response.text()).slice(0, 300);
+        } catch {
+          /* body is a bonus */
+        }
+        throw new Error(`HTTP ${response.status} ${detail || response.statusText}`);
       }
       // What was decided, named before the panel goes away: the review card is
       // about to be replaced by the run, and without this line the transcript
@@ -428,7 +437,10 @@ export function useChatController(options: UseChatControllerOptions = {}) {
       });
       await refreshMetrics();
     } catch (err: any) {
+      // Never fail silently: a failed resume leaves the review card on screen, and
+      // "the box is still there" with no explanation is what that looks like.
       console.error('Failed to resume:', err);
+      setSessionError(`审批没有生效：${err?.message || '请重试'}（卡片保持打开，可直接再试一次）`);
     } finally {
       setIsResuming(false);
     }
