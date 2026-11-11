@@ -297,6 +297,42 @@ async def set_session_favorite(
     }
 
 
+@router.delete("/{session_id}")
+async def delete_chat_session(session_id: str, db: Session = Depends(get_db)):
+    """Delete a conversation for good: its row, its uploaded-document rows, its checkpoints.
+
+    `POST /{id}/end` only marks a session inactive, so a chat deleted from the sidebar kept
+    coming back on the next list — the history browser had no way to remove anything. This
+    removes the conversation itself, and the LangGraph checkpoints under the same thread id so a
+    later session with a recycled id cannot inherit this one's state.
+    """
+    session = load_session_for_caller(db, session_id)
+
+    from models.deep_agent import SessionDocument
+
+    docs = db.query(SessionDocument).filter(SessionDocument.session_id == session_id).all()
+    removed_docs = len(docs)
+    for doc in docs:
+        db.delete(doc)
+
+    removed_checkpoints = 0
+    try:
+        from sqlalchemy import text as _text
+
+        for table in ("checkpoint_writes", "checkpoint_blobs", "checkpoints"):
+            res = db.execute(_text(f'delete from {table} where thread_id = :tid'), {"tid": session_id})
+            removed_checkpoints += res.rowcount or 0
+    except Exception as exc:                                   # noqa: BLE001 — never block a delete
+        logger.warning(f"could not clear checkpoints for {session_id}: {exc}")
+
+    db.delete(session)
+    db.commit()
+    logger.info(f"deleted chat session {session_id} ({removed_docs} document row(s), "
+                f"{removed_checkpoints} checkpoint row(s))")
+    return {"status": "deleted", "session_id": session_id,
+            "removed_documents": removed_docs, "removed_checkpoints": removed_checkpoints}
+
+
 @router.get("/health")
 async def get_chat_health(db: Session = Depends(get_db)):
     """

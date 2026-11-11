@@ -18,7 +18,7 @@
  */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, MessageSquare, MessageSquarePlus, Search, ChevronDown, ChevronRight, Calendar, Folder, FolderOpen, Package, Users, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Plus, MessageSquare, MessageSquarePlus, Search, ChevronDown, ChevronRight, Calendar, Folder, FolderOpen, Package, Users, X, PanelLeftClose, PanelLeftOpen , Trash2 } from 'lucide-react';
 import type { ChatSession } from '../types/chat';
 import { useChat } from '../state/ChatContext';
 import { useProject } from '../../../contexts/ProjectContext';
@@ -50,6 +50,8 @@ interface ChatHistorySidebarProps {
    * the collapsed state gets the settings control alone.
    */
   footerCompact?: React.ReactNode;
+  /** Told when the rail collapses, so the container can hand 48 px back to the chat area. */
+  onCollapsedChange?: (collapsed: boolean) => void;
 }
 
 /**
@@ -107,9 +109,9 @@ function viewToggle(opts: {
  */
 const SIDEBAR_BG = 'var(--color-panel-dark, var(--color-panel, #f9fafb))';
 
-export default function ChatHistorySidebar({ onNewSession, footer, footerCompact }: ChatHistorySidebarProps) {
+export default function ChatHistorySidebar({ onNewSession, footer, footerCompact, onCollapsedChange }: ChatHistorySidebarProps) {
   const { t: tr } = useTranslation('chat');
-  const { sessions, currentSessionId, switchSession } = useChat();
+  const { sessions, currentSessionId, switchSession, deleteSession } = useChat();
   // The heading says "Projects", so the value has to be the project (vault).
   // It used to render the current session's agent name — an agent shown under a
   // project heading, which is simply the wrong thing.
@@ -299,8 +301,8 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
     const label = isFavoriteRow ? (session.title || tr('ch_untitled')) : sessionLabel(session);
 
     return (
+      <div key={session.session_id} className="relative group/row">
       <button
-        key={session.session_id}
         onClick={() => switchSession(session.session_id)}
         className="w-full text-left px-2 py-1.5 rounded-lg transition-all group"
         // Everything the row leaves out (agent, exact timestamp, length) lives
@@ -367,6 +369,22 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
           </div>
         )}
       </button>
+        {/* Delete: a conversation that was never really wanted otherwise stays in the list for good.
+            Hover-only so it cannot be hit by accident while scrolling; confirm because there is no undo. */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const name = session.title || sessionLabel(session);
+            if (window.confirm(`删除这段对话？\n\n${name}\n\n聊天记录、上传件行和该会话的检查点都会被删除，无法恢复。`)) {
+              void deleteSession(session.session_id);
+            }
+          }}
+          className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover/row:opacity-100 transition-opacity hover:bg-red-500/20"
+          title="删除这段对话"
+        >
+          <Trash2 className="w-3 h-3" style={{ color: '#ef4444' }} />
+        </button>
+      </div>
     );
   };
 
@@ -441,7 +459,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
         }}
       >
         <button
-          onClick={() => setCollapsed(false)}
+          onClick={() => { setCollapsed(false); onCollapsedChange?.(false); }}
           className="p-2 rounded-lg hover:bg-[rgba(128,128,128,0.18)] transition-colors mb-4"
           title={tr('ch_expand_sidebar')}
         >
@@ -540,7 +558,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
         {/* Panel toggle, not a chevron: the affordance is "collapse this
             column", which is what DSH's panel icon says. */}
         <button
-          onClick={() => setCollapsed(true)}
+          onClick={() => { setCollapsed(true); onCollapsedChange?.(true); }}
           className="p-1.5 rounded-lg hover:bg-[rgba(128,128,128,0.18)] transition-colors flex-shrink-0"
           title={tr('ch_collapse_sidebar')}
           aria-label={tr('ch_collapse_sidebar')}

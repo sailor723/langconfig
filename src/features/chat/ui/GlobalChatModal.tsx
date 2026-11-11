@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, GripVertical, BarChart3, FolderOpen } from 'lucide-react';
 import { useChat } from '../state/ChatContext';
@@ -19,6 +19,8 @@ import AgentSelector from './AgentSelector';
 import SidePanel from './SidePanel';
 
 export default function GlobalChatModal() {
+  // 48 px is what the collapsed rail needs; the rest is handed to the chat area.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { t: tr } = useTranslation('chat');
   const { isOpen, closeChat } = useChat();
   // Shared chat controller (same logic as ChatPage) — modal shell only
@@ -77,9 +79,10 @@ export default function GlobalChatModal() {
         }}
       >
         {/* Left Sidebar + Resize Handle */}
-        <div className="flex flex-shrink-0" style={{ width: c.sidebarWidth }}>
+        <div className="flex flex-shrink-0" style={{ width: sidebarCollapsed ? 48 : c.sidebarWidth }}>
           <ChatHistorySidebar
             onNewSession={c.handleNewSession}
+            onCollapsedChange={setSidebarCollapsed}
           />
           {/* Resize Handle */}
           <div

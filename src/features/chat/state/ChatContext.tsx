@@ -92,7 +92,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
   // Fetch all sessions on mount
   useEffect(() => {
     refreshSessions();
-  }, [refreshSessions]);
+  }, [refreshSessions, currentSessionId]);
 
   const openChat = useCallback((agentId?: number) => {
     if (agentId !== undefined) {
@@ -154,6 +154,20 @@ export function ChatProvider({ children }: ChatProviderProps) {
       throw error;
     }
   }, []);
+
+  /** Remove a conversation for good (the sidebar's trash button). */
+  const deleteSession = useCallback(async (sessionId: string) => {
+    try {
+      await apiClient.delete(`/api/chat/${sessionId}`);
+      if (sessionId === currentSessionId) {
+        // Guarded by the caller's confirm; closing after a delete beats leaving a dead view open.
+        closeChat?.();
+      }
+      await refreshSessions();
+    } catch (err) {
+      console.error('Failed to delete session:', err);
+    }
+  }, [refreshSessions]);
 
   const toggleHitl = useCallback(() => {
     setHitlEnabled(prev => !prev);
@@ -233,6 +247,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
     endSession,
     toggleFavorite,
     renameSession,
+    deleteSession,
     setSelectedAgent: setSelectedAgentId,
     toggleHitl,
     refreshSessions,

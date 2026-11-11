@@ -203,6 +203,8 @@ export interface ChatContextValue extends ChatContextState {
   toggleFavorite: (sessionId: string) => Promise<void>;
   /** Rename a conversation (empty string clears it back to the fallback). */
   renameSession: (sessionId: string, title: string) => Promise<void>;
+  /** Delete a conversation (row + its documents + its checkpoints). */
+  deleteSession: (sessionId: string) => Promise<void>;
   setSelectedAgent: (agentId: number | null) => void;
   toggleHitl: () => void;
   refreshSessions: () => Promise<void>;
