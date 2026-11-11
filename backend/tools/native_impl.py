@@ -6241,6 +6241,62 @@ def _format_plan(path, db_name: str, tables: list, warnings: list) -> str:
 
 
 @tool
+def list_files(path: str = "", pattern: str = "*") -> str:
+    """
+    用我：看工作区里有什么——列目录（文件 + 子目录 + 大小）。找用户刚上传的文件就用它。
+    别用我：找文件内容里的字符串用 grep；读文件内容用 read_file / read_any_file。
+
+    List the files in a workspace directory, newest first.
+
+    Why this exists: the deepagents filesystem toolset is provided by the SDK for the agent's
+    backend, and an agent whose backend is `state` had no directory listing at all — asked to
+    find its uploaded workbook, it answered 「我没有列目录的工具」 and guessed names for a dozen
+    turns. This tool is deliberately named `list_files` (not `ls`) so the platform's
+    "drop native fs tools when a disk backend is active" rule cannot remove it.
+
+    Args:
+        path: directory inside the workspace (default: the workspace root; "upload" works)
+        pattern: glob filter for names, e.g. "*.xlsx" (default: everything)
+
+    Returns:
+        One line per entry (`<name>` and size, directories marked), plus the resolved directory.
+    """
+    import fnmatch
+    from pathlib import Path as _P
+
+    target, error = _resolve_agent_file(path or ".")
+    if error:
+        return error
+    if not target.is_dir():
+        return f"Error: {path or '.'} is not a directory (resolved to {target})"
+    try:
+        entries = sorted(target.iterdir(), key=lambda e: e.stat().st_mtime, reverse=True)
+    except OSError as exc:
+        return f"Error: cannot list {target}: {exc}"
+
+    lines = [f"Directory: {target}"]
+    shown = 0
+    for entry in entries:
+        if not fnmatch.fnmatch(entry.name, pattern):
+            continue
+        try:
+            size = entry.stat().st_size
+        except OSError:
+            size = 0
+        if entry.is_dir():
+            lines.append(f"  {entry.name}/")
+        else:
+            lines.append(f"  {entry.name}  ({size:,} bytes)")
+        shown += 1
+        if shown >= 200:
+            lines.append("  … (truncated at 200 entries)")
+            break
+    if shown == 0:
+        lines.append(f"  (empty{' for pattern ' + pattern if pattern != '*' else ''})")
+    return "\n".join(lines)
+
+
+@tool
 def db_plan_from_file(file: str, db_name: str) -> str:
     """
     用我：建库**之前**先出方案给用户看——sheet → 表、每列的类型、行数、样例、以及只有人能拍板的问题。
@@ -6258,9 +6314,9 @@ def db_plan_from_file(file: str, db_name: str) -> str:
     """
     from pathlib import Path as _Path
 
-    path = _Path(file).expanduser()
-    if not path.is_file():
-        return f"Error: no such file: {file}"
+    path, path_error = _resolve_agent_file(file)
+    if path_error:
+        return path_error
     sheets, error = _read_source_sheets(path)
     if error:
         return error
@@ -6304,9 +6360,9 @@ def db_build_from_file(file: str, db_name: str, confirm: bool = False, host: str
     import psycopg2
     from psycopg2.extras import execute_values
 
-    path = Path(file).expanduser()
-    if not path.is_file():
-        return f"Error: no such file: {file}"
+    path, path_error = _resolve_agent_file(file)
+    if path_error:
+        return path_error
     if not re.fullmatch(r"[a-z_][a-z0-9_]{0,60}", db_name or ""):
         return f"Error: db_name {db_name!r} must be lower_snake_case ASCII"
     if recreate and not re.search(r"_(xlsx|csv|test)$", db_name):
@@ -6634,6 +6690,31 @@ def db_query(db_name: str, sql: str, limit: int = 200, host: str = "", port: int
                  + (" — capped, refine the query for more" if capped else "") + "*")
     return "\n".join(lines)
 
+def _resolve_agent_file(value: str):
+    """(path, error) for a spreadsheet argument: sandbox-checked, and relative to the run workspace.
+
+    Two things a plain `Path(value).resolve()` gets wrong here: a RELATIVE path resolves against
+    the server's cwd (`backend/`) so an agent cannot open `upload/orders.xlsx`, and an ABSOLUTE
+    path outside the sandbox (`/etc/passwd`) was accepted. The first is why the table-building
+    agent could not read its own upload; the second is why that argument needed a sandbox.
+    """
+    if not Path(value).expanduser().is_absolute():
+        for root in _sandbox_roots():
+            candidate = (root / Path(value).expanduser()).resolve()
+            try:
+                candidate.relative_to(root)
+            except ValueError:
+                continue
+            if candidate.exists():
+                return candidate, None
+        looked = ", ".join(str(r) for r in _sandbox_roots()[:2])
+        return None, f"Error: no such file: {value} (looked under {looked})"
+    resolved, error = _resolve_sandbox_path(value)
+    if error:
+        return None, error
+    return resolved, None
+
+
 def _read_source_sheets(path):
     """(sheets, error) — {sheet: (headers, body)} from an .xlsx/.xlsm/.csv, same rules as the build.
 
@@ -6745,9 +6826,9 @@ def db_verify_against_file(file: str, db_name: str, host: str = "", port: int = 
 
     import psycopg2
 
-    path = Path(file).expanduser()
-    if not path.is_file():
-        return f"Error: no such file: {file}"
+    path, path_error = _resolve_agent_file(file)
+    if path_error:
+        return path_error
     sheets, error = _read_source_sheets(path)
     if error:
         return error

@@ -11,7 +11,7 @@ triggers:
   - "当用户说「把这个表建成数据库」或「能不能用 SQL 查这个文件」时"
   - "当用户要跨 sheet / 跨文件对比，而手工核对不现实时"
   - "当数据要被反复查询（同一份数据问超过两个问题时）"
-allowed_tools: [read_any_file, glob, read_file, db_build_from_file, db_verify_against_file, db_review, db_query, write_file, skill]
+allowed_tools: [list_files, read_any_file, glob, read_file, db_plan_from_file, db_build_from_file, db_verify_against_file, db_review, db_query, write_file, skill]
 author: LangConfig
 version: "1.0"
 ---
@@ -22,8 +22,20 @@ version: "1.0"
 
 ## 第 0 步——先摸清手里是什么（不猜）
 
+**用 `list_files(path="upload")` 列目录**，不要用 `read_file` 读目录（一定失败），也不要假设文件名。
+
+```
+list_files(path="upload")                  → 目录 + 文件 + 字节数（按修改时间倒序）
+list_files(path="upload", pattern="*.xlsx") → 只要 xlsx
+```
+
+为什么强调这一步：实测过一个 agent 在这个平台上说「我没有列目录的工具」，然后连续十几轮猜文件名、
+查历史、探测目录。原因是 deepagents 的文件工具来自 SDK 的 middleware，而**平台的
+`assembly.py` 在启用 disk backend 时会把原生的 `ls/read_file/write_file/edit_file/glob/grep`
+一起丢掉**——`state` 后端 + 不开 sandbox 的组合下，`glob` 在配置里写着、实际并没有绑上。
+`list_files` 这个名字就是为了不被那条规则摘掉而起的。**列一次目录，比猜十次文件名便宜。**
+
 ```bash
-ls -la <工作区>/upload/                     # 谁真的在
 python3 - <<'PY'
 from openpyxl import load_workbook
 wb = load_workbook("<路径>", read_only=True, data_only=True)
