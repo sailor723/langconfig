@@ -774,6 +774,102 @@ async def list_session_generated_files(
     return {"files": generated, "total_files": len(generated)}
 
 
+@router.get("/{session_id}/workspace/file")
+async def get_session_workspace_file(
+    session_id: str,
+    path: str = Query(..., description="workspace-relative path, e.g. generated/x_dashboard.html"),
+    db: Session = Depends(get_db),
+):
+    """Serve one file from this conversation's agent workspace, inline.
+
+    Why a route instead of letting the client open `file://`: a page served over http cannot
+    navigate to file:// (every browser blocks it), so a generated dashboard had to be found on
+    disk by hand. This serves it with `content-disposition: inline`, which is what lets the UI
+    open a dashboard in a tab the moment it is generated.
+
+    Containment is explicit: the resolved path must sit inside the agent workspace for THIS
+    conversation, so `../..` cannot reach another account's tree.
+    """
+    from services.workspace_manager import get_workspace_manager
+
+    session = load_session_for_caller(db, session_id)
+    if not session.agent_id:
+        raise HTTPException(status_code=400, detail="This conversation has no agent workspace")
+    root = _resolve_agent_workspace(session, db, get_workspace_manager())
+
+    candidate = (root / path).resolve()
+    try:
+        candidate.relative_to(root.resolve())
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Path is outside the agent workspace")
+
+    if not candidate.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return FileResponse(path=str(candidate), media_type=_guess_media(candidate.name),
+                        headers={"Content-Disposition": f'inline; filename="{candidate.name}"',
+                                 # a regenerated dashboard must not come back from cache
+                                 "Cache-Control": "no-store"})
+
+
+def _guess_media(name: str) -> str:
+    low = name.lower()
+    if low.endswith(".html") or low.endswith(".htm"):
+        return "text/html; charset=utf-8"
+    if low.endswith(".md"):
+        return "text/markdown; charset=utf-8"
+    if low.endswith(".csv"):
+        return "text/csv; charset=utf-8"
+    if low.endswith(".json"):
+        return "application/json"
+    if low.endswith((".png", ".jpg", ".jpeg", ".webp", ".gif")):
+        return f"image/{low.rsplit('.', 1)[-1].replace('jpg', 'jpeg')}"
+    if low.endswith(".svg"):
+        return "image/svg+xml"
+    return "application/octet-stream"
+
+
+@router.get("/{session_id}/dashboards")
+async def list_session_dashboards(session_id: str, db: Session = Depends(get_db)):
+    """Dashboards generated in this conversation, newest first — what the UI auto-opens.
+
+    Kept separate from `generated-files` on purpose: that list is for a person browsing, this
+    one is for the client's "did a new dashboard just appear?" check, so it is small and says
+    exactly how to open each entry.
+    """
+    from services.workspace_manager import get_workspace_manager
+
+    session = load_session_for_caller(db, session_id)
+    if not session.agent_id:
+        return {"dashboards": []}
+    root = _resolve_agent_workspace(session, db, get_workspace_manager())
+    if not root.is_dir():
+        return {"dashboards": []}
+
+    found = []
+    for path in root.rglob("*dashboard*.html"):
+        if not path.is_file():
+            continue
+        # Platform-staged skill copies live here; they are not this conversation's dashboards
+        # (same rule the Files panel uses — 246 of 249 rows were staged skill files once).
+        if EXCLUDED_WORKSPACE_FOLDERS.intersection(path.relative_to(root).parts[:-1]):
+            continue
+        try:
+            rel = path.relative_to(root)
+            stat = path.stat()
+        except (ValueError, OSError):
+            continue
+        found.append({
+            "name": path.name,
+            "path": str(rel),
+            "size_bytes": stat.st_size,
+            "modified_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+            "url": f"/api/chat/{session_id}/workspace/file?path={rel.as_posix()}",
+        })
+    found.sort(key=lambda f: f["modified_at"], reverse=True)
+    return {"dashboards": found}
+
+
 @router.post("/{session_id}/workspace/clear")
 async def clear_session_workspace(session_id: str, db: Session = Depends(get_db)):
     """Empty the agent workspace this conversation runs in.

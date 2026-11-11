@@ -264,6 +264,26 @@ export function useChatController(options: UseChatControllerOptions = {}) {
     }
   };
 
+
+  // ── dashboards: open one the moment it is generated ──────────────────────
+  // The dashboard tool writes `generated/*dashboard*.html`; a page served over http cannot
+  // navigate to file://, so the backend serves it inline and this opens that URL. Only files
+  // newer than the last one opened are auto-opened, so finishing an unrelated turn does not
+  // pop a tab every time.
+  const lastDashboardRef = useRef<string>("");
+  const openNewestDashboard = useCallback(async () => {
+    if (!currentSessionId) return;
+    try {
+      const res = await apiClient.get(`/api/chat/${currentSessionId}/dashboards`);
+      const first = (res.data?.dashboards || [])[0];
+      if (!first || first.modified_at === lastDashboardRef.current) return;
+      lastDashboardRef.current = first.modified_at;
+      window.open(`${apiClient.baseURL}${first.url}`, "_blank", "noopener");
+    } catch {
+      /* a missing dashboard list must never fail a turn */
+    }
+  }, [currentSessionId]);
+
   const handleSendMessage = async (message: string) => {
     if (!currentSessionId) return;
     setPendingInterrupt(null);
@@ -281,6 +301,7 @@ export function useChatController(options: UseChatControllerOptions = {}) {
       updateLastMessage,
       async () => {
         // On complete: refresh metrics, save traces, clear active tools and custom events
+        void openNewestDashboard();
         await refreshMetrics();
         setThinkingTraces(prev => [...prev, [...tracesRef.current]]);
         tracesRef.current = [];
