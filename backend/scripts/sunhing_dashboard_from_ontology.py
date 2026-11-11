@@ -425,7 +425,13 @@ def build_payload(onto: Ontology, mapping: dict, *, verbose: bool = True) -> dic
                   "status": r["status"], "value": r["value"], "target": r["target"],
                   "gap": r["shortfall"], "unit": r["ontology_unit"] or r["unit"],
                   "value_text": fmt_value(r["value"], r["ontology_unit"]),
-                  "target_text": fmt_target(r["target"], r["unit"])} for r in rows],
+                  "target_text": fmt_target(r["target"], r["unit"]),
+                  # The monthly points with the SAME judge() the cards use, so a ring of the
+                  # sunburst is green/orange/red for exactly the reason a card is.
+                  "series": [{"period": period_, "value": round(v, 4),
+                              "text": fmt_value(v, r["ontology_unit"]),
+                              "status": judge(v, r["target"], r["direction"], near_ratio)[0]}
+                             for period_, v in r["series"]]} for r in rows],
         "factors": [{"id": pg["id"], "label": pg.get("section_title") or pg["theme"],
                      "theme": pg["theme"].split(" / ")[0], "accent": pg["accent"],
                      "score": _factor_score([r for r in rows if r["page"] == pg["id"]])[0],
@@ -451,10 +457,34 @@ def build_payload(onto: Ontology, mapping: dict, *, verbose: bool = True) -> dic
                           ("应追缴", "已化解", resolved), ("应追缴", "未化解", total_liab - resolved)],
             }
         if None not in (done, planned):
-            flows["people"] = {"unit": "人",
-                               "nodes": ["计划减员", "已完成", "未完成"],
-                               "links": [("计划减员", "已完成", done),
-                                         ("计划减员", "未完成", max(0.0, planned - done))]}
+            nodes = ["计划减员", "已完成", "未完成"]
+            links = [("计划减员", "已完成", done),
+                     ("计划减员", "未完成", max(0.0, planned - done))]
+            # Third layer: the declared department split. It is added only when the declaration
+            # actually answers it AND the parts add up to the whole — otherwise the flow would be
+            # drawing a distribution nobody declared.
+            dept_metric = (mapping.get("charts") or {}).get("dept_flow")
+            if dept_metric:
+                dept_rows, problem, _ = onto.series(dept_metric) if False else ([], None, {})
+                res = onto.run(dept_metric)
+                if res.get("ok"):
+                    dept_rows = [(str(r[0]), float(r[1])) for r in (res.get("rows") or [])
+                                 if r[1] is not None]
+                    total_dept = sum(v for _, v in dept_rows)
+                    if dept_rows and abs(total_dept - done) <= max(1.0, 0.001 * done):
+                        for name, value in dept_rows:
+                            if value <= 0:
+                                continue
+                            nodes.append(name)
+                            links.append(("已完成", name, value))
+                    else:
+                        notes.append(
+                            f"[FLOW] {dept_metric} 合计 {total_dept:.0f} ≠ 已减员 {done:.0f}，"
+                            "第三层不加（否则那张桑基图会画出一个没人声明过的分布）")
+                else:
+                    notes.append(f"[FLOW] {dept_metric} 拒绝：{res.get('refused')}")
+            flows["people"] = {"unit": "人", "nodes": nodes, "links": links,
+                               "layers": 3 if len(nodes) > 3 else 2}
     except Exception:                                           # noqa: BLE001
         pass
     charts["flows"] = {k: v for k, v in flows.items() if v}
@@ -585,6 +615,17 @@ function drawKpiTree(hostId, kpis, groupKey) {
     .text(function (d) { return d.data.name; });
   var tile = svg.selectAll('g.tile').data(leaves).join('g').attr('class', 'tile')
     .attr('transform', function (d) { return 'translate(' + d.x0 + ',' + d.y0 + ')'; });
+  tile.style('cursor', 'pointer').on('click', function (ev, d) {
+    // Drill-down: every tile has a destination on this page — the hub's KPI row, or the factor
+    // page's chart card. Nothing is opened elsewhere; the board stays where the reader is.
+    var no = d.data.kpi.no;
+    var target = document.getElementById('kpi-' + no) || document.getElementById('c' + no);
+    if (!target) return;
+    target.scrollIntoView({behavior: 'smooth', block: 'center'});
+    target.style.transition = 'box-shadow .15s';
+    target.style.boxShadow = '0 0 0 3px #B8860B';
+    setTimeout(function () { target.style.boxShadow = ''; }, 1600);
+  });
   tile.append('rect')
     .attr('width', function (d) { return Math.max(0, d.x1 - d.x0); })
     .attr('height', function (d) { return Math.max(0, d.y1 - d.y0); })
@@ -683,6 +724,59 @@ function drawRadar(hostId, factors) {
   });
 }
 
+
+/* ── 4. sunburst: factor → KPI → the six declared months ────────────────────── */
+function drawSunburst(hostId, kpis, factorLabel) {
+  var host = _clear(hostId); if (!host || !kpis.length) return;
+  var W = host.clientWidth || 520, H = host.clientHeight || 360;
+  var R = Math.min(W, H) / 2 - 10, cx = W / 2, cy = H / 2;
+  var withSeries = kpis.filter(function (k) { return (k.series || []).length; });
+  if (!withSeries.length) {
+    host.innerHTML = '<div style="padding:20px;color:#b8860b;font-size:12px">'
+      + '本页的 KPI 都没有月度序列，旭日图没有第三环可画。</div>';
+    return;
+  }
+  var root = {name: factorLabel || 'factor', children: withSeries.map(function (k) {
+    return {name: k.no + ' ' + k.name, kpi: k, children: k.series.map(function (pt) {
+      return {name: pt.period, point: pt, value: 1};
+    })};
+  })};
+  var tree = d3.hierarchy(root).sum(function (d) { return d.value || 0; });
+  d3.partition().size([2 * Math.PI, R])(tree);
+  var svg = d3.select(host).append('svg').attr('width', W).attr('height', H)
+    .append('g').attr('transform', 'translate(' + cx + ',' + cy + ')');
+  var arc = d3.arc().startAngle(function (d) { return d.x0; })
+    .endAngle(function (d) { return d.x1; })
+    .innerRadius(function (d) { return d.y0; })
+    .outerRadius(function (d) { return d.y1; });
+  svg.selectAll('path').data(tree.descendants().filter(function (d) { return d.depth; })).join('path')
+    .attr('d', arc)
+    .attr('fill', function (d) {
+      if (d.depth === 1) return _cstatus(d.data.kpi.status);
+      return _cstatus(d.data.point.status);
+    })
+    .attr('fill-opacity', function (d) { return d.depth === 1 ? 0.9 : 0.65; })
+    .attr('stroke', '#fff').attr('stroke-width', 0.6)
+    .append('title')
+    .text(function (d) {
+      if (d.depth === 1) return d.data.kpi.no + ' ' + d.data.kpi.name;
+      var p = d.data.point;
+      return d.parent.data.kpi.no + ' ' + d.parent.data.kpi.name + ' · ' + p.period +
+             '：' + p.text + '（' + ({met:'达标', near:'接近', miss:'未达', unknown:'未定义'}[p.status] || p.status) + '）';
+    });
+  // a label per KPI, placed at the middle of its ring
+  svg.selectAll('text.k').data(tree.descendants().filter(function (d) { return d.depth === 1; }))
+    .join('text').attr('class', 'k')
+    .attr('transform', function (d) {
+      var a = (d.x0 + d.x1) / 2, mid = (d.y0 + d.y1) / 2;
+      return 'rotate(' + (a * 180 / Math.PI - 90) + ') translate(' + mid + ',0)'
+        + (a > Math.PI ? ' rotate(180)' : '');
+    })
+    .attr('text-anchor', 'middle').attr('dy', '0.32em')
+    .style('font-size', '9px').style('fill', '#fff').style('pointer-events', 'none')
+    .text(function (d) { return d.x1 - d.x0 > 0.16 ? d.data.kpi.no : ''; });
+}
+
 function drawAllD3() {
   if (typeof d3 === 'undefined') {
     ['kpiTree', 'sankeyCash', 'sankeyPeople', 'factorRadar'].forEach(function (id) {
@@ -698,6 +792,11 @@ function drawAllD3() {
   if (CK.flows && CK.flows.cash && document.getElementById('sankeyCash')) drawSankey('sankeyCash', CK.flows.cash);
   if (CK.flows && CK.flows.people && document.getElementById('sankeyPeople')) drawSankey('sankeyPeople', CK.flows.people);
   if (CK.factors && document.getElementById('factorRadar')) drawRadar('factorRadar', CK.factors);
+  if (document.getElementById('kpiSunburst')) {
+    drawSunburst('kpiSunburst', CK.kpis.filter(function (k) {
+      return PAGE_TILES.page ? k.factor === PAGE_TILES.page : true;
+    }), PAGE_TILES.label || '');
+  }
 }
 // This block is emitted LAST on each page, so `CK` is defined by the time it runs. A page loaded
 // from cache can already be interactive here, which is why DOMContentLoaded alone was not enough.
@@ -1067,7 +1166,7 @@ def render_hub(payload: dict, css: pathlib.Path, mapping: dict) -> str:
                 elif row["shortfall"] is not None:
                     note = f'低于目标 {fmt_gap(row["shortfall"], row["unit"]).lstrip("+")}'
             body.append(
-                '      <div class="kpi-row">\n'
+                f'      <div class="kpi-row" id="kpi-{esc(row["number"])}">\n'
                 f'        <div class="kpi-id">{esc(row["number"])}</div>\n'
                 f'        <div class="kpi-name">{esc(row["name"])}</div>\n'
                 f'        <div class="kpi-value">{esc(fmt_value(row["value"], row["ontology_unit"]))}</div>\n'
@@ -1187,8 +1286,14 @@ def render_factor_page(payload: dict, page: dict, css: pathlib.Path) -> str:
         # the people flow belongs on this page: the same declaration that draws 856 = 810 + 46 here
         body.append(
             '  <div class="card">\n'
-            '    <div class="chart-title">减员流向（人）· 计划 = 已完成 + 未完成</div>\n'
-            '    <div id="sankeyPeople" class="chart" style="height:200px"></div>\n  </div>\n')
+            '    <div class="chart-title">减员流向（人）· 计划 = 已完成 + 未完成 → 部门</div>\n'
+            '    <div id="sankeyPeople" class="chart" style="height:260px"></div>\n  </div>\n')
+    # sunburst: this factor's KPIs, third ring = the six declared months of each one
+    body.append(
+        '  <div class="card">\n'
+        f'    <div class="chart-title">{esc(page["theme"].split(" / ")[0])} · 六期达标旭日图'
+        '（内环＝KPI，外环＝六个月的达标状态）</div>\n'
+        '    <div id="kpiSunburst" class="chart" style="height:300px"></div>\n  </div>\n')
     body.append('  <div class="grid">\n' + "".join(cards) + "  </div>\n")
     body.append(_insight_box(rows))
     body.append(

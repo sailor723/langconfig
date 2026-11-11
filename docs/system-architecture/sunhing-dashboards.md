@@ -441,3 +441,23 @@ anyway, each container prints that the library did not load and the rest of the 
 
 Verified in a headless browser through the app's own iframe: `#kpiTree` 28 tiles, `#sankeyCash`
 6 nodes / 4 links, `#factorRadar` 1 polygon, both Plotly charts still drawn, zero page errors.
+
+### 10.8 Drill-down, the third flow layer, and the sunburst
+
+1. **Treemap tile → the KPI it stands for.** Each tile carries the KPI's number and scrolls to
+   `#kpi-<no>` on the hub (its row in the factor section) or `#c<no>` on a factor page (its chart
+   card), flashing a ring for 1.6 s. The board stays put — nothing opens elsewhere.
+2. **Sankey third layer = 部门.** `severedCountByDepartment` is the only declaration that splits
+   people by department, and it is used **only when the parts add up to the whole**: 13 departments
+   sum to exactly 810 = `hrSeveranceCompletedCumulative`, so 计划减员 856 → 已完成 810 → 13 部门,
+   with 未完成 46 as the other leaf. When the sum does not match, the layer is dropped and `--check`
+   prints `[FLOW] <metric> 合计 X ≠ 已减员 Y`, because a distribution nobody declared is worse than
+   a missing one. **Money has no declared department split** — the cash Sankey stays two layers on
+   purpose; adding a third would mean inventing the allocation.
+3. **Sunburst on every factor page:** inner ring = one KPI (coloured by its snapshot status), outer
+   ring = its six declared months (coloured by *that month's* status against the same target). The
+   monthly verdict uses the same `judge()` the cards use, so a red slice and a red card always mean
+   the same thing.
+
+Verified headless: hub 28 tiles, a tile click scrolled 0 → 697 px and ringed row `kpi-06`; support
+Sankey 16 nodes / 15 links with the department labels; profit sunburst 63 arcs; zero page errors.

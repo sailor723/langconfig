@@ -333,5 +333,9 @@
   },
   "hub_file": "sunhing_ontology_hub.html",
   "why_these_names": "文件名带 ontology_ 前缀，是因为 /api/files/{name} 只接受裸文件名并 rglob 整个 data/analysis_dbs —— 沿用原文件名会和 2026-11 的原始页面撞名，从而悄悄覆盖对比基线。",
-  "ordering_rule": "apply 会用暂存树覆盖盘上同名文件，包括这个 kpi_map.json —— 先改声明再 stage，或者 apply 之后重做这里的编辑（2026-11-11 实测：apply 把 21:45 的 series 映射冲回了 21:33 版）。"
+  "ordering_rule": "apply 会用暂存树覆盖盘上同名文件，包括这个 kpi_map.json —— 先改声明再 stage，或者 apply 之后重做这里的编辑（2026-11-11 实测：apply 把 21:45 的 series 映射冲回了 21:33 版）。",
+  "charts": {
+    "dept_flow": "severedCountByDepartment",
+    "why": "桑基图第三层的唯一来源：已减员按部门拆分。声明里只有它给出部门分布，且它必须与 hrSeveranceCompletedCumulative 合计相等才画——不等就不画（渲染器会报 [FLOW]）。"
+  }
 }
