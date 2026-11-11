@@ -115,7 +115,12 @@ def main() -> int:
         return 0 if not FAILS else 1
     fixture = json.loads(fixture_path.read_text()).get("actions") or {}
 
-    conn = psycopg2.connect(**{**actions.dsn(), "password": ""})
+    # The DSN carries the password because the profile resolves it from the environment
+    # (`${SUNHING_DB_PASSWORD}`). Do NOT blank it and hope libpq reads PGPASSWORD: an explicit
+    # `password=""` in the kwargs SUPPRESSES that fallback — measured 2026-11-11, `fe_sendauth: no
+    # password supplied` on a database the same DSN connects to fine. Passing it as a driver
+    # keyword is not passing it on a command line; nothing here prints the dsn.
+    conn = psycopg2.connect(**actions.dsn())
     try:
         for name, spec in fixture.items():
             if name not in compiled:
