@@ -204,3 +204,62 @@ assert request.method == "POST"
    - Test at mobile breakpoints (375px, 414px)
    - Test at tablet breakpoints (768px, 1024px)
    - Test at desktop breakpoints (1280px, 1920px)
+### Verifying in THIS repository / on THIS machine (measured recipe)
+
+The patterns above are generic. These were measured while driving this app, and each one
+saves a failed attempt.
+
+**Know where you are running.** You are invoked by the backend on `:8765`. **Do not restart
+that stack** — `./start.sh`'s first act is to kill the listener on `:8765`, which is the
+process running your own turn (the script now refuses via an ancestor guard; do not treat
+that as permission). Measured consequence: the turn disappears mid-tool, the user sees a
+spinner then "Load failed", and LangGraph re-runs the unfinished tool call on the next
+message. Hand the restart command to the user instead.
+
+| Fact | Value |
+|---|---|
+| Frontend | `http://localhost:1421` (vite) |
+| Routing | `HashRouter`: `http://localhost:1421/#/chat?agentId=<id>` — not `/chat?…` |
+| Backend | `http://127.0.0.1:8765` |
+| Chat page | input `textarea[placeholder="Do anything"]`, send button `button[title="Send message"]` |
+| Message scroller | `div.overflow-y-auto` — pick the one with the largest `scrollHeight - clientHeight` |
+| Model keys | live in the database, not `.env` |
+
+**Playwright is half-installed here**: absent from the project; the system python is
+externally managed, so `pip3 install` is refused (PEP 668); but
+`~/Library/Caches/ms-playwright/chromium-1223/` already holds a browser. So: make a venv,
+install the library, reuse the cached browser — never `playwright install`.
+
+```bash
+python3 -m venv /tmp/pwenv && /tmp/pwenv/bin/pip install -q playwright
+```
+
+```python
+CHROME = ("/Users/<you>/Library/Caches/ms-playwright/chromium-1223/chrome-mac-arm64/"
+          "Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing")
+browser = p.chromium.launch(headless=True, executable_path=CHROME)
+```
+
+When the versions disagree (a newer playwright looks for 1254, the cache has 1223) pass
+`executable_path` instead of downloading a new browser.
+
+**For streaming/scrolling behaviour: sample, do not read screenshots.** Put the criterion in
+numbers, e.g. "while the content grows, the viewport stays at the bottom":
+
+```python
+snap = page.evaluate("""() => {
+  const el = [...document.querySelectorAll('div.overflow-y-auto')]
+    .filter(e => e.clientHeight > 200)
+    .sort((a, b) => (b.scrollHeight - b.clientHeight) - (a.scrollHeight - a.clientHeight))[0];
+  return {top: Math.round(el.scrollTop), sh: el.scrollHeight, ch: el.clientHeight,
+          gap: Math.round(el.scrollHeight - el.clientHeight - el.scrollTop)};
+}""")
+```
+
+A worked criterion: content grows by `> 300px`, and of the samples taken *while it grows*,
+at least 80% must have `gap <= 40`. That single check rejects both false greens — never
+following (`gap` stays large) and measuring the wrong container (`sh` never changes).
+
+**Two SPA traps**: use `wait_until="domcontentloaded"`, not `networkidle` (this app holds
+long-lived ws/SSE connections, so `networkidle` may never fire); and there is more than one
+`textarea`, so select by `placeholder`, not by position.

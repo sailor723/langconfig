@@ -4,3 +4,4 @@ codebase-recon
 evidence-first-delivery
 skill-generator
 sql-analyst
+excel-csv-to-postgres
