@@ -341,6 +341,7 @@ svg{display:block;width:100%;height:300px}.tip{position:fixed;pointer-events:non
 <main>
   <div class="summary" id="summary"></div>
   <div class="kpis" id="kpis"></div>
+<div id="filterbar" style="margin:0 0 10px;font-size:12px;color:#8b98a5"></div>
   <div class="grid">
     <div class="panel"><h2>桑基 · 钱的流向<span class="tag" id="tag-sankey" style="display:none">样本不足</span></h2>
       <div class="hint" id="hint-sankey"></div><svg id="sankey"></svg></div>
@@ -376,141 +377,223 @@ const periodIdx = D.time ? D.columns.indexOf('period') : -1;
 const rows = D.rows.map(r => ({levels: r.slice(0, nLevels).map(v => v==null? '(空)' : v),
                                period: periodIdx>=0 ? r[periodIdx] : null,
                                amount: r[valIdx], n: r[nIdx]}));
-const total = sum(rows, r=>r.amount) || 0;
-const totalN = sum(rows, r=>r.n) || 0;
+
+// ── shared state: one filter, everything else follows ──────────────────────
+// A click sets {level, value}; every panel draws from view() instead of rows, so a filtered
+// panel cannot disagree with the KPI that says what is filtered.
+const state = {level: null, value: null};
+const view = () => state.value == null ? rows
+  : rows.filter(r => r.levels[state.level] === state.value);
+
+function setFilter(level, value) {
+  if (state.level === level && state.value === value) { state.level = null; state.value = null; }
+  else { state.level = level; state.value = value; }
+  drawAll();
+}
+function clearFilter() { state.level = null; state.value = null; drawAll(); }
+
+function renderFilterBar() {
+  const bar = document.getElementById('filterbar');
+  if (state.value == null) { bar.innerHTML = ''; return; }
+  bar.innerHTML = `筛选：<b>${D.levels[state.level]}</b> = <b>${state.value}</b>`
+    + ` <button id="clearfilter" style="margin-left:8px;background:#232c37;color:#e6edf3;`
+    + `border:1px solid #2b3542;border-radius:6px;padding:2px 8px;cursor:pointer">清除</button>`;
+  document.getElementById('clearfilter').onclick = clearFilter;
+}
 
 // ── KPIs + summary ─────────────────────────────────────────────────────────
-const byL0 = rollup(rows, v=>sum(v, r=>r.amount), r=>r.levels[0]);
-const topL0 = [...byL0].sort((a,b)=>b[1]-a[1])[0];
-const kpis = [
-  {l:`${D.measure||'合计'}`, v:fmt(total), m:`${rows.length} 组`},
-  {l:'笔数', v:fmt(totalN), m:'count(*)'},
-  {l:'均值', v:fmt(total/Math.max(totalN,1)), m:'合计 ÷ 笔数'},
-  topL0 ? {l:`头部 ${D.levels[0]||'分组'}`, v:String(topL0[0]), m:`${fmt(topL0[1])} · 占比 ${(topL0[1]/Math.max(total,1)*100).toFixed(1)}%`} : null,
-].filter(Boolean);
-sel('#kpis').selectAll('div').data(kpis).join('div').attr('class','kpi')
-  .html(d=>`<div class="v">${d.v}</div><div class="l">${d.l}</div><div class="m">${d.m}</div>`);
-document.getElementById('summary').innerHTML =
-  `<b>业务综述</b><div class="hint">口径：\`${D.measure||'—'}\`（只统计立方体里出现的分组）</div>`
-  + `<p>共 <b>${fmt(total)}</b>，覆盖 <b>${totalN}</b> 笔，<b>${rows.length}</b> 个分组`
-  + (D.levels.length ? `，层级 ${D.levels.map(l=>'`'+l+'`').join(' → ')}` : '')
-  + (D.time ? `，时间列 \`${D.time}\`` : '，无时间列')
-  + `。</p>`
-  + (topL0 ? `<p>头部 <b>${topL0[0]}</b> 占 ${(topL0[1]/Math.max(total,1)*100).toFixed(1)}%。</p>` : '');
-document.getElementById('banner').style.display = 'block';
-document.getElementById('banner').textContent = '提示：本页所有数字均由一条 SQL 立方体派生并已复核；数据量很小，不要据此下"趋势/占比"结论。';
+function renderSummary() {
+  const v = view();
+  const total = sum(v, r => r.amount) || 0;
+  const totalN = sum(v, r => r.n) || 0;
+  const byL0 = rollup(v, x => sum(x, r => r.amount), r => r.levels[0]);
+  const topL0 = [...byL0].sort((a, b) => b[1] - a[1])[0];
+  const kpis = [
+    {l: `${D.measure||'合计'}`, v: fmt(total), m: `${v.length} 组`},
+    {l: '笔数', v: fmt(totalN), m: 'count(*)'},
+    {l: '均值', v: fmt(total / Math.max(totalN, 1)), m: '合计 ÷ 笔数'},
+    topL0 ? {l: `头部 ${D.levels[0]||'分组'}`, v: String(topL0[0]),
+             m: `${fmt(topL0[1])} · 占比 ${(topL0[1]/Math.max(total,1)*100).toFixed(1)}%`} : null,
+  ].filter(Boolean);
+  const box = document.getElementById('kpis');
+  box.innerHTML = '';
+  const holder = sel(box);
+  holder.selectAll('div').data(kpis).join('div').attr('class', 'kpi')
+    .html(d => `<div class="v">${d.v}</div><div class="l">${d.l}</div><div class="m">${d.m}</div>`);
 
-// ── sankey: consecutive levels ─────────────────────────────────────────────
-if (nLevels >= 2) {
-  const nodes = [...new Set(rows.flatMap(r=>r.levels))].map(id=>({id}));
-  const idx = new Map(nodes.map((n,i)=>[n.id,i]));
-  const links = [];
-  for (const r of rows) for (let i=0;i<nLevels-1;i++) {
-    const s=r.levels[i], t=r.levels[i+1];
-    if (s===t) continue;
-    links.push({source: idx.get(s), target: idx.get(t), value: Math.max(r.amount,0)});
+  document.getElementById('summary').innerHTML =
+    `<b>业务综述</b><div class="hint">口径：\`${D.measure||'—'}\`（只统计立方体里出现的分组）</div>`
+    + `<p>共 <b>${fmt(total)}</b>，覆盖 <b>${totalN}</b> 笔，<b>${v.length}</b> 个分组`
+    + (D.levels.length ? `，层级 ${D.levels.map(l => '`' + l + '`').join(' → ')}` : '')
+    + (D.time ? `，时间列 \`${D.time}\`` : '，无时间列') + `。</p>`
+    + (topL0 ? `<p>头部 <b>${topL0[0]}</b> 占 ${(topL0[1]/Math.max(total,1)*100).toFixed(1)}%。</p>` : '');
+}
+
+// ── sankey: consecutive levels, nodes clickable ────────────────────────────
+function drawSankey() {
+  const svg = sel('#sankey');
+  svg.selectAll('*').remove();
+  const v = view();
+  if (nLevels < 2) {
+    document.getElementById('hint-sankey').textContent = '这个库没有可用的维度链（至少需要两层维度）';
+    return;
   }
-  const agg = rollup(links, v=>sum(v, l=>l.value), l=>l.source+'>'+l.target);
-  const merged = [...agg].map(([k,v])=>{const [s,t]=k.split('>').map(Number);return {source:s,target:t,value:v};});
-  const svg = sel('#sankey'), W = svg.node().clientWidth||620, H = 300;
+  const nodes = [...new Set(v.flatMap(r => r.levels))].map(id => ({id}));
+  const idx = new Map(nodes.map((n, i) => [n.id, i]));
+  const pairs = new Map();
+  for (const r of v) for (let i = 0; i < nLevels - 1; i++) {
+    const s = r.levels[i], t = r.levels[i+1];
+    if (s === t) continue;
+    const key = idx.get(s) + '>' + idx.get(t);
+    pairs.set(key, (pairs.get(key) || 0) + Math.max(r.amount, 0));
+  }
+  const links = [...pairs].map(([k, value]) => { const [source, target] = k.split('>').map(Number); return {source, target, value}; });
+  const W = svg.node().clientWidth || 620, H = 300;
   svg.attr('viewBox', `0 0 ${W} ${H}`);
-  const g = sankeyLayout().nodeWidth(12).nodePadding(14).extent([[8,8],[W-8,H-8]])({nodes: nodes.map(n=>({...n})), links: merged});
+  const g = sankeyLayout().nodeWidth(12).nodePadding(14).extent([[8, 8], [W - 8, H - 8]])({nodes: nodes.map(n => ({...n})), links});
   const col = id => `hsl(${(id*47)%360} 62% 58%)`;
   svg.append('g').selectAll('path').data(g.links).join('path')
-    .attr('d', sankeyLink()).attr('fill','none')
-    .attr('stroke', d=>col(d.source.index)).attr('stroke-opacity',0.35).attr('stroke-width',d=>Math.max(1,d.width))
-    .each(function(d){hover(sel(this), `${d.source.name||d.source.id} → ${d.target.name||d.target.id}<br>${fmt(d.value)}`);});
+    .attr('d', sankeyLink()).attr('fill', 'none')
+    .attr('stroke', d => col(d.source.index)).attr('stroke-opacity', 0.35)
+    .attr('stroke-width', d => Math.max(1, d.width))
+    .each(function (d) { hover(sel(this), `${d.source.id} → ${d.target.id}<br>${fmt(d.value)}`); });
   svg.append('g').selectAll('rect').data(g.nodes).join('rect')
-    .attr('x',d=>d.x0).attr('y',d=>d.y0).attr('width',d=>d.x1-d.x0).attr('height',d=>Math.max(2,d.y1-d.y0))
-    .attr('fill',d=>col(d.index)).attr('rx',2);
+    .attr('x', d => d.x0).attr('y', d => d.y0)
+    .attr('width', d => d.x1 - d.x0).attr('height', d => Math.max(2, d.y1 - d.y0))
+    .attr('fill', d => col(d.index)).attr('rx', 2)
+    .style('cursor', 'pointer')
+    .each(function (d) { hover(sel(this), `${d.id}<br>点击筛选`); })
+    .on('click', (event, d) => setFilter(0, d.id));
   svg.append('g').selectAll('text').data(g.nodes).join('text')
-    .attr('x',d=>d.x0-4).attr('y',d=>(d.y0+d.y1)/2).attr('text-anchor','end').attr('fill','#8b98a5').attr('font-size',10)
-    .text(d=>d.id);
-  document.getElementById('hint-sankey').textContent = `${D.levels.join(' → ')} · ${merged.length} 条流`;
-  if (new Set(rows.map(r=>r.levels[0])).size < 3) document.getElementById('tag-sankey').style.display='inline-block';
-} else { document.getElementById('hint-sankey').textContent = '这个库没有可用的维度链（至少需要一层外键维度）'; }
+    .attr('x', d => d.x0 - 4).attr('y', d => (d.y0 + d.y1) / 2)
+    .attr('text-anchor', 'end').attr('fill', '#8b98a5').attr('font-size', 10)
+    .style('cursor', 'pointer').text(d => d.id)
+    .on('click', (event, d) => setFilter(0, d.id));
+  document.getElementById('hint-sankey').textContent =
+    `${D.levels.join(' → ')} · ${links.length} 条流 · 点节点筛选`;
+  document.getElementById('tag-sankey').style.display =
+    new Set(v.map(r => r.levels[0])).size < 3 ? 'inline-block' : 'none';
+}
 
 // ── bubble: level0 × amount/n ──────────────────────────────────────────────
-(function(){
-  const g = [...rollup(rows, v=>({amount:sum(v,r=>r.amount), n:sum(v,r=>r.n)}), r=>r.levels[0])]
-    .map(([k,v])=>({label:k, ...v}));
-  const svg = sel('#bubble'), W=svg.node().clientWidth||620, H=300;
-  svg.attr('viewBox',`0 0 ${W} ${H}`);
-  if (!g.length) { document.getElementById('hint-bubble').textContent='无数据'; return; }
-  const maxR = Math.max(...g.map(d=>d.amount))||1, rMax=38;
-  const x = i => 60 + (i+0.5)*((W-100)/g.length), y = d => H-40 - (d.n/Math.max(...g.map(z=>z.n),1))*(H-90);
+function drawBubble() {
+  const svg = sel('#bubble');
+  svg.selectAll('*').remove();
+  const v = view();
+  const g = [...rollup(v, x => ({amount: sum(x, r => r.amount), n: sum(x, r => r.n)}), r => r.levels[0])]
+    .map(([k, x]) => ({label: k, ...x}));
+  const W = svg.node().clientWidth || 620, H = 300;
+  svg.attr('viewBox', `0 0 ${W} ${H}`);
+  if (!g.length) { document.getElementById('hint-bubble').textContent = '（当前筛选下没有数据）'; return; }
+  const maxR = Math.max(...g.map(d => d.amount)) || 1, rMax = 38;
+  const maxN = Math.max(...g.map(d => d.n)) || 1;
+  const x = i => 60 + (i + 0.5) * ((W - 100) / g.length);
+  const y = d => H - 40 - (d.n / maxN) * (H - 90);
   svg.selectAll('circle').data(g).join('circle')
-    .attr('cx',(d,i)=>x(i)).attr('cy',d=>y(d)).attr('r',d=>Math.max(8, Math.sqrt(d.amount/maxR)*rMax))
-    .attr('fill','#4dabf7').attr('fill-opacity',.55).attr('stroke','#4dabf7')
-    .each(function(d){hover(sel(this), `${d.label}<br>${fmt(d.amount)} · ${d.n} 笔`);});
-  svg.selectAll('text').data(g).join('text').attr('x',(d,i)=>x(i)).attr('y',H-16)
-    .attr('text-anchor','middle').attr('fill','#8b98a5').attr('font-size',10).text(d=>String(d.label).slice(0,14));
-  document.getElementById('hint-bubble').textContent = `x=分组 · y=笔数 · r=${D.measure||'合计'}（${g.length} 组）`;
-})();
+    .attr('cx', (d, i) => x(i)).attr('cy', d => y(d))
+    .attr('r', d => Math.max(8, Math.sqrt(d.amount / maxR) * rMax))
+    .attr('fill', '#4dabf7').attr('fill-opacity', .55).attr('stroke', '#4dabf7')
+    .style('cursor', 'pointer')
+    .each(function (d) { hover(sel(this), `${d.label}<br>${fmt(d.amount)} · ${d.n} 笔<br>点击筛选`); })
+    .on('click', (event, d) => setFilter(0, d.label));
+  svg.selectAll('text').data(g).join('text')
+    .attr('x', (d, i) => x(i)).attr('y', H - 16).attr('text-anchor', 'middle')
+    .attr('fill', '#8b98a5').attr('font-size', 10).text(d => String(d.label).slice(0, 14));
+  document.getElementById('hint-bubble').textContent =
+    `x=分组 · y=笔数 · r=${D.measure||'合计'}（${g.length} 组）`;
+}
 
 // ── tree: top-down hierarchy ───────────────────────────────────────────────
-(function(){
-  const svg = sel('#tree'), W=svg.node().clientWidth||620, H=300;
-  svg.attr('viewBox',`0 0 ${W} ${H}`);
-  if (nLevels < 2) { document.getElementById('hint-tree').textContent='层级不足'; return; }
-  const rootData = {name:'全部', children:[]};
-  for (const r of rows) {
+function drawTree() {
+  const svg = sel('#tree');
+  svg.selectAll('*').remove();
+  const v = view();
+  const W = svg.node().clientWidth || 620, H = 300;
+  svg.attr('viewBox', `0 0 ${W} ${H}`);
+  if (nLevels < 2) { document.getElementById('hint-tree').textContent = '层级不足（需要一个维度以上的链）'; return; }
+  const rootData = {name: '全部', children: []};
+  for (const r of v) {
     let cur = rootData;
-    for (let i=0;i<nLevels;i++){
+    for (let i = 0; i < nLevels; i++) {
       const nm = String(r.levels[i]);
-      let child = cur.children.find(c=>c.name===nm);
-      if (!child){ child={name:nm, children:[]}; cur.children.push(child); }
-      if (i===nLevels-1) child.value=(child.value||0)+r.amount;
+      let child = cur.children.find(c => c.name === nm);
+      if (!child) { child = {name: nm, children: []}; cur.children.push(child); }
+      if (i === nLevels - 1) child.value = (child.value || 0) + r.amount;
       cur = child;
     }
   }
-  const root = hierarchy(rootData).sum(d=>d.value||0).sort((a,b)=>b.value-a.value);
-  treeLayout().size([W-40, H-40])(root);
-  const g = svg.append('g').attr('transform','translate(20,20)');
+  const root = hierarchy(rootData).sum(d => d.value || 0).sort((a, b) => b.value - a.value);
+  treeLayout().size([W - 40, H - 40])(root);
+  const g = svg.append('g').attr('transform', 'translate(20,20)');
   g.selectAll('path').data(root.links()).join('path')
-    .attr('d', d3link()).attr('fill','none').attr('stroke','#2b3542');
+    .attr('d', linkVert()).attr('fill', 'none').attr('stroke', '#2b3542');
   g.selectAll('circle').data(root.descendants()).join('circle')
-    .attr('cx',d=>d.x).attr('cy',d=>d.y).attr('r',d=>Math.sqrt(d.value||1)/2+3)
-    .attr('fill',d=>d.depth===0?'#f59f00':'#4dabf7').attr('fill-opacity',.8)
-    .each(function(d){hover(sel(this), `${d.data.name}<br>${fmt(d.value)}`);});
-  g.selectAll('text').data(root.descendants().filter(d=>d.depth<=2)).join('text')
-    .attr('x',d=>d.x).attr('y',d=>d.y-8).attr('text-anchor','middle')
-    .attr('fill','#8b98a5').attr('font-size',9).text(d=>String(d.data.name).slice(0,12));
-  function d3link(){ return linkVert(); }
-  document.getElementById('hint-tree').textContent = D.levels.slice(0,nLevels).join(' → ') + '（自顶向下）';
-})();
+    .attr('cx', d => d.x).attr('cy', d => d.y)
+    .attr('r', d => Math.sqrt(d.value || 1) / 2 + 3)
+    .attr('fill', d => d.depth === 0 ? '#f59f00' : '#4dabf7').attr('fill-opacity', .8)
+    .each(function (d) { hover(sel(this), `${d.data.name}<br>${fmt(d.value)}`); });
+  g.selectAll('text').data(root.descendants().filter(d => d.depth <= 2)).join('text')
+    .attr('x', d => d.x).attr('y', d => d.y - 8).attr('text-anchor', 'middle')
+    .attr('fill', '#8b98a5').attr('font-size', 9).text(d => String(d.data.name).slice(0, 12));
+  document.getElementById('hint-tree').textContent = D.levels.slice(0, nLevels).join(' → ') + '（自顶向下）';
+}
 
-// ── bars: level0 totals ────────────────────────────────────────────────────
-(function(){
-  const g = [...rollup(rows, v=>sum(v,r=>r.amount), r=>r.levels[0])].sort((a,b)=>b[1]-a[1]);
-  const svg = sel('#bars'), W=svg.node().clientWidth||620, H=300;
-  svg.attr('viewBox',`0 0 ${W} ${H}`);
-  if (!g.length){document.getElementById('hint-bars').textContent='无数据';return;}
-  const max=Math.max(...g.map(z=>z[1]))||1, bh=Math.min(26,(H-40)/g.length);
+// ── bars: level0 totals, clickable ─────────────────────────────────────────
+function drawBars() {
+  const svg = sel('#bars');
+  svg.selectAll('*').remove();
+  const g = [...rollup(view(), x => sum(x, r => r.amount), r => r.levels[0])].sort((a, b) => b[1] - a[1]);
+  const W = svg.node().clientWidth || 620, H = 300;
+  svg.attr('viewBox', `0 0 ${W} ${H}`);
+  if (!g.length) { document.getElementById('hint-bars').textContent = '（当前筛选下没有数据）'; return; }
+  const max = Math.max(...g.map(z => z[1])) || 1, bh = Math.min(26, (H - 40) / g.length);
   svg.selectAll('rect').data(g).join('rect')
-    .attr('x',90).attr('y',(d,i)=>20+i*bh).attr('height',bh-6)
-    .attr('width',d=>Math.max(2,(d[1]/max)*(W-120))).attr('fill','#4dabf7').attr('fill-opacity',.75)
-    .each(function(d){hover(sel(this), `${d[0]}<br>${fmt(d[1])}`);});
-  svg.selectAll('text').data(g).join('text').attr('x',84).attr('y',(d,i)=>20+i*bh+12)
-    .attr('text-anchor','end').attr('fill','#8b98a5').attr('font-size',10).text(d=>String(d[0]).slice(0,12));
-  document.getElementById('hint-bars').textContent = `${D.levels[0]||'分组'} × ${D.measure||'合计'}`;
-})();
+    .attr('x', 90).attr('y', (d, i) => 20 + i * bh).attr('height', bh - 6)
+    .attr('width', d => Math.max(2, (d[1] / max) * (W - 120)))
+    .attr('fill', '#4dabf7').attr('fill-opacity', .75)
+    .style('cursor', 'pointer')
+    .each(function (d) { hover(sel(this), `${d[0]}<br>${fmt(d[1])}<br>点击筛选`); })
+    .on('click', (event, d) => setFilter(0, d[0]));
+  svg.selectAll('text').data(g).join('text')
+    .attr('x', 84).attr('y', (d, i) => 20 + i * bh + 12).attr('text-anchor', 'end')
+    .attr('fill', '#8b98a5').attr('font-size', 10).text(d => String(d[0]).slice(0, 12));
+  document.getElementById('hint-bars').textContent =
+    `${D.levels[0]||'分组'} × ${D.measure||'合计'} —— 点柱子筛选其它图`;
+}
 
 // ── line: period × amount ──────────────────────────────────────────────────
-(function(){
-  const svg = sel('#line'), W=svg.node().clientWidth||1100, H=220;
-  svg.attr('viewBox',`0 0 ${W} ${H}`);
-  if (periodIdx < 0) { document.getElementById('hint-line').textContent='没有时间列，不做趋势'; return; }
-  const g = [...rollup(rows, v=>sum(v,r=>r.amount), r=>r.period)].sort((a,b)=>a[0]<b[0]?-1:1);
-  const max=Math.max(...g.map(z=>z[1]))||1;
-  const px=i=>40+i*((W-80)/Math.max(g.length-1,1)), py=v=>H-30-(v/max)*(H-60);
-  svg.append('path').attr('d', linePath().x((d,i)=>px(i)).y(d=>py(d[1]))(g))
-    .attr('fill','none').attr('stroke','#4dabf7').attr('stroke-width',2);
-  svg.selectAll('circle').data(g).join('circle').attr('cx',(d,i)=>px(i)).attr('cy',d=>py(d[1])).attr('r',4)
-    .attr('fill','#4dabf7').each(function(d){hover(sel(this), `${d[0]}<br>${fmt(d[1])}`);});
-  svg.selectAll('text').data(g).join('text').attr('x',(d,i)=>px(i)).attr('y',H-10)
-    .attr('text-anchor','middle').attr('fill','#8b98a5').attr('font-size',10).text(d=>d[0]);
-  document.getElementById('hint-line').textContent = `${D.time} × ${D.measure||'合计'}（${g.length} 个周期）`;
-  if (g.length < 3) document.getElementById('hint-line').textContent += ' · 样本不足，不要当趋势看';
-})();
+function drawLine() {
+  const svg = sel('#line');
+  svg.selectAll('*').remove();
+  const W = svg.node().clientWidth || 1100, H = 220;
+  svg.attr('viewBox', `0 0 ${W} ${H}`);
+  if (periodIdx < 0) { document.getElementById('hint-line').textContent = '没有时间列，不做趋势'; return; }
+  const g = [...rollup(view(), x => sum(x, r => r.amount), r => r.period)].sort((a, b) => a[0] < b[0] ? -1 : 1);
+  if (!g.length) { document.getElementById('hint-line').textContent = '（当前筛选下没有数据）'; return; }
+  const max = Math.max(...g.map(z => z[1])) || 1;
+  const px = i => 40 + i * ((W - 80) / Math.max(g.length - 1, 1));
+  const py = val => H - 30 - (val / max) * (H - 60);
+  svg.append('path').attr('d', linePath().x((d, i) => px(i)).y(d => py(d[1]))(g))
+    .attr('fill', 'none').attr('stroke', '#4dabf7').attr('stroke-width', 2);
+  svg.selectAll('circle').data(g).join('circle')
+    .attr('cx', (d, i) => px(i)).attr('cy', d => py(d[1])).attr('r', 4).attr('fill', '#4dabf7')
+    .each(function (d) { hover(sel(this), `${d[0]}<br>${fmt(d[1])}`); });
+  svg.selectAll('text').data(g).join('text')
+    .attr('x', (d, i) => px(i)).attr('y', H - 10).attr('text-anchor', 'middle')
+    .attr('fill', '#8b98a5').attr('font-size', 10).text(d => d[0]);
+  document.getElementById('hint-line').textContent =
+    `${D.time} × ${D.measure||'合计'}（${g.length} 个周期）`
+    + (g.length < 3 ? ' · 样本不足，不要当趋势看' : '');
+}
+
+function drawAll() {
+  renderFilterBar();
+  renderSummary();
+  drawSankey(); drawBubble(); drawTree(); drawBars(); drawLine();
+}
+
+document.getElementById('banner').style.display = 'block';
+document.getElementById('banner').textContent =
+  '提示：本页所有数字均由一条 SQL 立方体派生并已复核；点任意柱子/节点/气泡可筛选，KPI 会跟着变。';
+drawAll();
 </script></body></html>"""
