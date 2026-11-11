@@ -66,8 +66,11 @@ function RailItem({
   style,
   children,
   btnRef,
+  solidIcon,
 }: {
   icon?: LucideIcon;
+  /** Fill the glyph itself (not the row): one solid icon among outline ones. */
+  solidIcon?: boolean;
   label: string;
   title?: string;
   active?: boolean;
@@ -113,7 +116,16 @@ function RailItem({
           }}
         />
       )}
-      {Icon && <Icon size={20} strokeWidth={active ? 2 : 1.5} style={{ flex: 'none' }} />}
+      {Icon && (
+        <Icon
+          size={20}
+          strokeWidth={active ? 2 : 1.5}
+          // A solid glyph, not a solid row: the fill belongs to the icon's own shape, so the
+          // rail keeps its uniform look and the chat entry is still the one you spot.
+          fill={solidIcon ? 'currentColor' : 'none'}
+          style={{ flex: 'none' }}
+        />
+      )}
       {children}
       <span
         className="lc-rail-label"
@@ -284,6 +296,7 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
         <RailItem
           icon={MessageSquare}
           label={tr('ab_open_chat')}
+          solidIcon
           onClick={() => {
             // Which agent? The one this browser was last talking to — localStorage keeps it across
             // the window boundary (a new window has its own session store, so it cannot read the
