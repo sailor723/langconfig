@@ -11,7 +11,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import { X, GripVertical, BarChart3, FolderOpen, CalendarDays, Gauge } from 'lucide-react';
+import { X, GripVertical, BarChart3, FolderOpen, CalendarDays } from 'lucide-react';
 import { useChat } from '../state/ChatContext';
 import { useProject } from '../../../contexts/ProjectContext';
 import { themes, type ThemeName } from '../../../lib/themes';
@@ -217,13 +217,6 @@ export default function ChatPage() {
                   title={c.showFiles ? tr('gc_hide_files') : tr('gc_show_files')}
                 >
                   <FolderOpen className="w-4 h-4" style={{ color: c.showFiles ? 'var(--color-primary)' : 'var(--color-text-muted)' }} />
-                </button>
-                <button
-                  onClick={() => c.openDashboard()}
-                  className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
-                  title={c.dashboardCount ? `打开仪表盘（${c.dashboardCount} 个，最新一个）` : '打开仪表盘（还没有——点了会说明怎么生成）'}
-                >
-                  <Gauge className="w-4 h-4" style={{ color: c.dashboardCount ? 'var(--color-primary)' : 'var(--color-text-muted)' }} />
                 </button>
                 <button
                   onClick={() => c.togglePanel('calendar')}

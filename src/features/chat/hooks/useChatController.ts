@@ -270,15 +270,12 @@ export function useChatController(options: UseChatControllerOptions = {}) {
   // navigate to file://, so the backend serves it inline and this opens that URL. Only files
   // newer than the last one opened are auto-opened, so finishing an unrelated turn does not
   // pop a tab every time.
-  const [dashboardCount, setDashboardCount] = useState(0);
   const lastDashboardRef = useRef<string>("");
   const openNewestDashboard = useCallback(async (open: boolean = true) => {
     if (!currentSessionId) return;
     try {
       const res = await apiClient.get(`/api/chat/${currentSessionId}/dashboards`);
-      const list = res.data?.dashboards || [];
-      setDashboardCount(list.length);
-      const first = list[0];
+      const first = (res.data?.dashboards || [])[0];
       if (!first) {
         // A dead grey button tells nobody why. If there is nothing to open, say it in the one place
         // the click actually was — and never block the click on a cached count.
@@ -305,22 +302,13 @@ export function useChatController(options: UseChatControllerOptions = {}) {
     }
   }, [currentSessionId]);
 
-  /** The header's 仪表盘 button: open the newest dashboard, or explain why there is none. */
-  const openDashboard = useCallback(async () => {
-    if (!currentSessionId) return;
-    await openNewestDashboard(true);
-  }, [currentSessionId, openNewestDashboard]);
-
-  // Keep the badge honest without a reload: a dashboard written outside this tab (a CLI run, a
-  // tool call in another window) would otherwise leave the button greyed until F5 — measured, that
-  // is exactly what a user reported ("it's gray, I can't click").
+  // Auto-open stays: a dashboard this turn generated opens itself. The header button that used to
+  // live next to Files is gone — the Files panel's Open button is where people actually look.
   useEffect(() => {
-    if (!currentSessionId) { setDashboardCount(0); return; }
-    void openNewestDashboard(false);
-    const timer = setInterval(() => { void openNewestDashboard(false); }, 15000);
+    if (!currentSessionId) return;
     const onFocus = () => { void openNewestDashboard(false); };
     window.addEventListener('focus', onFocus);
-    return () => { clearInterval(timer); window.removeEventListener('focus', onFocus); };
+    return () => { window.removeEventListener('focus', onFocus); };
   }, [currentSessionId, openNewestDashboard]);
 
   const handleSendMessage = async (message: string) => {
@@ -575,8 +563,6 @@ export function useChatController(options: UseChatControllerOptions = {}) {
     showFiles,
     showCalendar,
     togglePanel,
-    openDashboard,
-    dashboardCount,
     // sidebar resize
     sidebarWidth,
     isResizing,
