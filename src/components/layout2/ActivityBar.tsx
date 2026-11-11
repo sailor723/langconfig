@@ -66,11 +66,8 @@ function RailItem({
   style,
   children,
   btnRef,
-  emphasis,
 }: {
   icon?: LucideIcon;
-  /** Make this row read as an action rather than a section: tinted, bold, accent icon. */
-  emphasis?: boolean;
   label: string;
   title?: string;
   active?: boolean;
@@ -95,20 +92,18 @@ function RailItem({
         alignItems: 'center',
         gap: 12,
         padding: '0 12px 0 14px',
-        // A literal brand fill: the theme token resolved to white on this surface, which
-        // painted white-on-white for the one row that is supposed to stand out.
-        background: emphasis ? '#006DDD' : 'transparent',
+        background: 'transparent',
         border: 'none',
         cursor: 'pointer',
-        color: emphasis ? '#fff' : (active ? t.activityBarActive : t.activityBarInactive),
+        color: active ? t.activityBarActive : t.activityBarInactive,
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         fontFamily: 'inherit',
         textAlign: 'left',
         ...style,
       }}
-      onMouseEnter={e => { if (!active && !emphasis) e.currentTarget.style.background = t.activityBarHover; }}
-      onMouseLeave={e => { if (!active && !emphasis) e.currentTarget.style.background = 'transparent'; }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.background = t.activityBarHover; }}
+      onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
     >
       {active && (
         <span
@@ -289,7 +284,6 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
         <RailItem
           icon={MessageSquare}
           label={tr('ab_open_chat')}
-          emphasis
           onClick={() => {
             // Which agent? The one this browser was last talking to — localStorage keeps it across
             // the window boundary (a new window has its own session store, so it cannot read the
