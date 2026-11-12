@@ -73,6 +73,12 @@ migrate_*.py
 # ...except the storage migration tool and the vault/agent folder renamer
 !backend/tools/migrate_storage.py
 !backend/tools/migrate_project_folders.py
+# ...and the SQLite -> PostgreSQL migration tool: it has a test
+# (backend/tests/test_migrate_sqlite_to_postgres.py) and a skill that tells an agent
+# how to use it, so it is a deliverable, not a one-off fix script. It stayed out of the
+# repo once purely because of this pattern, and the deployment cloned from GitHub did
+# not have it while its own test sat in the tree.
+!backend/scripts/migrate_sqlite_to_postgres.py
 update_*.ts
 update_*.py
 
