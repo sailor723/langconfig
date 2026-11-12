@@ -40,6 +40,25 @@ tail of `backend/main.py`:
    This is why local development, the Vite dev-server proxy and the test suite needed no changes.
    It is *not* keyed on `Host:` or `X-Forwarded-For`, because both are trivially forged by exactly
    the attacker the gate exists to stop.
+
+   **Behind a reverse proxy (TLS in front, e.g. Caddy on 443):** the socket peer is the proxy
+   itself (`127.0.0.1`), so every remote visitor would look like the local owner and the gate
+   would wave them through. Declare the proxy instead of trusting headers blindly:
+
+   ```bash
+   LANGCONFIG_TRUSTED_PROXIES=127.0.0.1     # comma-separated ADDRESSES, not a boolean
+   ```
+
+   With a peer listed there, the client address is read from the **last** `X-Forwarded-For` hop
+   — the one our proxy appended. Everything to its left is whatever the client sent, and is
+   ignored: a request that arrives with `X-Forwarded-For: 127.0.0.1` from a peer that is *not*
+   listed is still a remote request (measured: `client_host` returns the real peer). With the
+   variable unset nothing changes — XFF is never read.
+
+   Consequence: with the proxy trusted, **the app's own `/signin` becomes the door** for remote
+   visitors (per-user accounts, session cookies, `user_id` on audit rows), instead of an upstream
+   `basic_auth` with one shared password that the app never sees. The proxy must still set
+   `X-Forwarded-For` (`reverse_proxy` does by default) and must not strip it.
 2. **Signing in happens on a page, and the browser gets a cookie.** `/signin` is a
    self-contained page (not an SPA route — the bundle is behind the gate); the form posts to
    `/api/auth/login`, which verifies the password against the `users` table (scrypt) and sets an

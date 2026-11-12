@@ -51,18 +51,54 @@ _LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 _LOOPBACK_PREFIXES = ("127.",)
 
 
+def _trusted_proxies() -> set[str]:
+    """Peers allowed to tell us who the client really is (``LANGCONFIG_TRUSTED_PROXIES``).
+
+    Off by default — empty means "trust nobody", which is the pre-existing behaviour. It is a list
+    of ADDRESSES, not a boolean, because the whole safety of reading ``X-Forwarded-For`` rests on
+    the peer being our own reverse proxy: a header from anyone else is a number the caller chose.
+    """
+    import os
+
+    raw = os.getenv("LANGCONFIG_TRUSTED_PROXIES", "")
+    return {item.strip() for item in raw.split(",") if item.strip()}
+
+
+def client_host(scope: Scope) -> str:
+    """The address the request really came from.
+
+    ``scope["client"]`` is the socket peer. Behind a reverse proxy that peer is the proxy itself
+    (Caddy → 127.0.0.1), so every team member would look like the local owner and the gate would
+    wave them through — that is why this function exists. ``X-Forwarded-For`` is honoured ONLY
+    when the peer is one of ``LANGCONFIG_TRUSTED_PROXIES``, and then the LAST hop is used: our
+    proxy appends the real client address, so everything to its left is whatever the client sent
+    and is ignored (deliberately — it is forgeable).
+    """
+    client = scope.get("client")
+    peer = (client[0] if client else "") or ""
+    trusted = _trusted_proxies()
+    if peer and peer in trusted:
+        for name, value in scope.get("headers") or []:
+            if name == b"x-forwarded-for":
+                hops = [h.strip() for h in value.decode("latin-1").split(",") if h.strip()]
+                if hops:
+                    return hops[-1]
+    return peer
+
+
 def is_loopback_scope(scope: Scope) -> bool:
     """True when the request came from this machine.
 
-    Keyed on the source address, never on ``Host``/``X-Forwarded-For``: both are
-    client-controlled, and trusting them would hand the loopback exemption to
-    anyone who can reach the port.
+    Keyed on the source address, never on ``Host``: a Host header is client-controlled, and
+    trusting it would hand the loopback exemption to anyone who can reach the port.
+    ``X-Forwarded-For`` is read through ``client_host``, and only for a peer listed in
+    ``LANGCONFIG_TRUSTED_PROXIES`` — with nothing configured, this is exactly the old behaviour.
     """
     client = scope.get("client")
     if not client:
         # No client address at all (in-process ASGI calls, test clients).
         return True
-    host = client[0] or ""
+    host = client_host(scope)
     if host in _LOOPBACK_HOSTS:
         return True
     return any(host.startswith(prefix) for prefix in _LOOPBACK_PREFIXES)
