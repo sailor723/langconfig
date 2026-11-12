@@ -1,0 +1,65 @@
+#!/bin/bash
+# LangConfig — bring an ECS instance created from the 2026-11-04 image up to HEAD.
+# Idempotent-ish: stages into /root/langconfig.new, verifies, then swaps with a dated backup.
+set -uo pipefail
+export LC_ALL=C
+LIVE=/root/langconfig
+NEW=/root/langconfig.new
+STAMP=$(date +%Y%m%d-%H%M)
+log() { echo "[$(date +%H:%M:%S)] $*"; }
+
+cd /root || exit 1
+log "1/8 clone HEAD"
+rm -rf "$NEW"
+git clone --depth 1 https://github.com/sailor723/langconfig.git "$NEW" 2>&1 | tail -2 || exit 1
+cd "$NEW" && git log --oneline -1 || exit 1
+
+log "2/8 carry local-only state (.env / data / outputs)"
+cp -a "$LIVE/.env" "$NEW/.env"
+rsync -a "$LIVE/data/" "$NEW/data/"
+mkdir -p "$NEW/backend/outputs" && rsync -a "$LIVE/backend/outputs/" "$NEW/backend/outputs/"
+
+log "3/8 python deps (uv sync)"
+cd "$NEW/backend" && export PATH=/root/.local/bin:$PATH && uv sync 2>&1 | tail -3 || exit 1
+
+log "4/8 frontend (npm ci + build)"
+cd "$NEW" && npm ci --no-audit --no-fund 2>&1 | tail -2 && npm run build 2>&1 | tail -2 || exit 1
+
+log "5/8 seed (idempotent, no --replace)"
+cd "$NEW/backend" && set -a && . "$NEW/.env" && set +a
+.venv/bin/python scripts/seeds/in/seed_all.py 2>&1 | tail -12
+
+log "6/8 swap the tree (+ backup $STAMP)"
+pkill -f "port 8766" 2>/dev/null
+systemctl stop langconfig
+sleep 3
+mv "$LIVE" "/root/langconfig.bak-$STAMP" && mv "$NEW" "$LIVE" || { echo "SWAP FAILED"; exit 1; }
+systemctl daemon-reload
+systemctl start langconfig
+sleep 10
+systemctl is-active langconfig
+
+log "7/8 sunhing_kpi database"
+cd "$LIVE"
+set -a && . "$LIVE/.env" && set +a
+export PGPASSWORD="$POSTGRES_PASSWORD"
+if [ -f data/analysis_dbs/sunhing_kpi_pipeline.db ]; then
+  .venv_placeholder=1
+  backend/.venv/bin/python backend/scripts/migrate_sqlite_to_postgres.py \
+    --source data/analysis_dbs/sunhing_kpi_pipeline.db --dbname sunhing_kpi \
+    --host 127.0.0.1 --port "${POSTGRES_PORT:-5432}" --user "$POSTGRES_USER" --recreate 2>&1 | tail -6
+else
+  log "   no sqlite source on the box — skipping (copy sunhing_kpi_pipeline.db first)"
+fi
+
+log "8/8 ontology env + restart + verify"
+grep -q '^ONTOLOGY_DB_HOST=' .env || echo "ONTOLOGY_DB_HOST=127.0.0.1" >> .env
+grep -q '^ONTOLOGY_DB_PORT=' .env || echo "ONTOLOGY_DB_PORT=${POSTGRES_PORT:-5432}" >> .env
+grep -q '^ONTOLOGY_DB_USER=' .env || echo "ONTOLOGY_DB_USER=${POSTGRES_USER}" >> .env
+grep -q '^SUNHING_DB_PASSWORD=' .env || echo "SUNHING_DB_PASSWORD=${POSTGRES_PASSWORD}" >> .env
+systemctl restart langconfig && sleep 10
+for p in / /api/analysis/databases /api/skills /api/ontology/sunhing_v1/document /api/ontology/sunhing_v1/dashboard/panels /api/files/sunhing_dashboard.html; do
+  printf "  %-46s " "$p"; curl -s -m 60 -o /dev/null -w "%{http_code} %{size_download}B\n" "http://127.0.0.1:8765$p"
+done
+log "git: $(git -C $LIVE log --oneline -1)"
+log "DONE"

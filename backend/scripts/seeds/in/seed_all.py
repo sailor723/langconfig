@@ -675,7 +675,10 @@ def summary() -> None:
     try:
         print("\n[10.5/10] ontology editors  (every account may publish declarations)")
         import subprocess, sys as _sys
-        _p = subprocess.run([_sys.executable, str(pathlib.Path(__file__).with_name("ensure_ontology_editors.py"))],
+        # `Path`, not `pathlib.Path`: this module imports `from pathlib import Path`, so the
+        # module name is not bound and the step silently degraded to "skipped: name 'pathlib'
+        # is not defined" on every run (measured on the ECS deployment).
+        _p = subprocess.run([_sys.executable, str(Path(__file__).with_name("ensure_ontology_editors.py"))],
                             capture_output=True, text=True, timeout=120)
         for _line in (_p.stdout or "").strip().splitlines():
             print("  -> " + _line)
