@@ -461,3 +461,30 @@ Verified in a headless browser through the app's own iframe: `#kpiTree` 28 tiles
 
 Verified headless: hub 28 tiles, a tile click scrolled 0 → 697 px and ringed row `kpi-06`; support
 Sankey 16 nodes / 15 links with the department labels; profit sunburst 63 arcs; zero page errors.
+
+### 10.9 Two ways to do analysis — and they stay apart
+
+The app has **two different routes to a dashboard**, and mixing them is what made the Sun Hing
+cockpit appear in the wrong place:
+
+| | **Ontology route** | **Analysis route** |
+|---|---|---|
+| What it is | a declaration: `profiles/<key>/` + `dashboard.json` + `metrics_ext.ttl`; every number compiled from it, refusals by name | generated HTML: a script or the dashboard generator reads a database and writes a page |
+| Where it lives in the UI | **Ontology** activity → a key → `#/ontology/dashboard` (the generic panel renderer) + the fixed-layout cockpit pages declared in `dashboard.json` → `pages` | **Analysis** activity → the *Dashboards* bar, grouped **per database** (`databases.json` registry + the `databases` settings document's `enabled` flag) |
+| Visibility rule | the ontology key is installed or it is not; a page is listed only if `dashboard.json` declares it | a database is *published* only when its `enabled` flag is on — `false` hides every page of that family from every account |
+| Authoring | edit the declaration, run the gates, publish/apply | regenerate the HTML |
+
+Sun Hing therefore belongs to the **ontology** route only:
+
+* `data/analysis_dbs/databases.json` no longer carries a `sunhing` entry (this registry is the
+  Analysis route's curation);
+* the `databases` settings document has `sunhing.enabled = false`, so the family cannot leak back
+  into the Dashboards bar (measured: it did exactly that — the flag arrived `false` in the ECS
+  image, I switched it on while debugging and the Sun Hing card appeared in Analysis, which was
+  the wrong route);
+* the cockpit stays reachable through `#/ontology/dashboard` → the 驾驶舱 tabs, and the six HTML
+  files remain served at `/api/files/sunhing_dashboard*.html` because that is where the file route
+  looks — the files' location is not the route, the registration is.
+
+The rule in one line: **a cockpit is reached from the activity that can author it.** The Analysis
+bar lists what a generator produced; the Ontology board lists what a declaration compiled.
