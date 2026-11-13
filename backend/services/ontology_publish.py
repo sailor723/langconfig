@@ -266,7 +266,14 @@ def _git(key: str, message: str) -> tuple[str | None, str | None]:
         rel = (ONTOLOGIES / key).relative_to(app_repo)
         subprocess.run(["git", "-C", str(app_repo), "add", "-A", str(rel)],
                        capture_output=True, text=True, timeout=60, check=True)
-        p = subprocess.run(["git", "-C", str(app_repo), "commit", "-m", message],
+        # An apply is the COMMITTER, so it must not depend on the checkout having a person's
+        # identity configured. Measured on the fresh ECS deployment: the profile installed, the
+        # publish row said "applied", and every apply still logged `Author identity unknown` — the
+        # files then sat staged in the repo with no commit, and the UI showed an error for a step
+        # that had already succeeded. `-c` supplies the platform's identity for THIS commit only.
+        identity = ["-c", "user.name=langconfig-ontology",
+                    "-c", "user.email=ontology@langconfig.local"]
+        p = subprocess.run(["git", "-C", str(app_repo), *identity, "commit", "-m", message],
                            capture_output=True, text=True, timeout=120)
         if p.returncode != 0:
             err = " ".join(((p.stdout or "") + " " + (p.stderr or "")).split())[:300]
