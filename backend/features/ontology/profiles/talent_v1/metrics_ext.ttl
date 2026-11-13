@@ -1,0 +1,223 @@
+# talent_v1 · 计算叠加层（S3）
+# 只放"怎么算"：:aggregate / :grain / :universe / :counts / :where / :groupBy / :formula / :unit。
+# "是什么意思"在每个指标的 :businessDescription（点名出处 answers:S3-x）、
+# reasoning.ttl（7 个定义类的阈值）与 steps.json（S0–S8 分级记录）；物理列在 ontology/01-structure.ttl。
+#
+# 这一层只用了已声明的表：candidate / candidate_role_fit / candidate_match / role_required_skill。
+# 每个指标的 :businessDescription 都点名了它的来源；没有来源的不声明，进拒绝清单。
+@prefix : <https://cube.local/ontology/talent_v1#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+#
+# 出处记号：answers:S3-1 … answers:S3-7 = admin 在 S3 轮指令里的第 1…7 条（每个指标对应一条）。
+# 没有出处的指标不声明——它进拒绝清单。
+
+:aggregate a owl:AnnotationProperty .
+:grain     a owl:AnnotationProperty .
+:universe  a owl:AnnotationProperty .
+:counts    a owl:AnnotationProperty .
+:groupBy   a owl:AnnotationProperty .
+:memberAlias a owl:AnnotationProperty .
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 0. 这一层的分母先说清楚：为什么用 candidate_role_fit（207）而不是 candidate_match（221）
+#
+# 两张表都是"谁合乎哪个岗位"的结论，但 fit 表是**推荐清单**（带 rank_in_role 与分数），
+# match 表还留着 14 行属于重复简历（candidate.duplicate_of 非空）的结论。
+# 实测：match 221 − fit 207 = 14，且这 14 行全部落在 duplicate_of 非空的 7 个人身上
+#       （双向 EXCEPT：only_in_match = 14，only_in_fit = 0）。
+# 所以**推荐类指标一律以 :CandidateRoleFit 为 grain/universe**：问"推荐谁"时不能把重复简历
+# 再算一遍。这个选择写在每个指标的 :businessDescription 里，不靠读者猜。
+# ─────────────────────────────────────────────────────────────────────────────
+
+# 1. 每个岗位有多少人过线（按岗位类分组）
+# ─────────────────────────────────────────────────────────────────────────────
+# 6. 运行日志（reasoning_run）：一个运维数字，不是招聘数字
+#
+# 为什么本体里要有它：本库里**唯一带时间列**的表是 reasoning_run(run_at)（全库其它表没有任何
+# date/timestamp 列）。护栏的 declared 模式承诺"已声明指标不加时间窗，无界扫描被报告，由 plan
+# budget 决定能否跑"（guard.py 的四条承诺之 3）——这条承诺只有在**有指标真的读这张表**时才可被
+# 检验。没有它，本库的护栏在最坏情况下也只能证明 rows 模式的行为。
+# 所以这不是为了凑数：`:auditRunCount` 回答的是"本体自检跑了几次"，一个运维会问的真问题。
+
+:auditRunCount
+    a owl:DatatypeProperty ;
+    rdfs:label "本体自检运行次数" ;
+    :askedAs "本体自检跑了几次" ;
+    :askedAs "推理引擎运行了多少次" ;
+    :aggregate "count" ;
+    :grain     :ReasoningRun ;
+    :universe  :ReasoningRun ;
+    :counts    :ReasoningRun ;
+    :unit      "count" ;
+    :businessDescription "数的是 table: reasoning_run 的行数：一次 reasoner 运行一行（本快照 1 行，run_at 2026-11-14）。这是本体的运行日志，不是业务数字——问『招了多少人』『多少过线』不要用它。它在护栏上的作用是可检验的：run_at 是全库唯一的 time 列，本定义**不含** run_at 过滤，declared 模式下护栏因此报 unbounded scan on reasoning_run 而不是偷偷加时间窗（加窗就会答成另一个问题），能不能跑由 max_plan_rows 决定。分页上限 2000 行，超出的行不在这个数里。" .
+
+:matchCountByRole
+    a owl:DatatypeProperty ;
+    rdfs:label "各岗位过线人数" ;
+    :askedAs "每个岗位有多少人过线" ;
+    :askedAs "各岗位匹配人数" ;
+    :aggregate "count" ;
+    :grain     :CandidateRoleFit ;
+    :universe  :CandidateRoleFit ;
+    :counts    :CandidateRoleFit ;
+    :groupBy   :fitRoleClass ;
+    :unit      "count" ;
+    :businessDescription "口径来自 answers:S3-1 —— admin 的 S3 指令第 1 条：candidate_role_fit 按 role 计数。grain/universe 都是 :CandidateRoleFit（推荐清单 207 行），不含重复简历的 14 行结论。分母是『已证明过线并有推荐名次的行』，不是 277 份简历。分页上限 2000 行，超出的行不在这个数里。" .
+
+# 2. 每岗位推荐名单的规模：top-N 窗口里有多少条
+#    N = 10，来自 admin 的 S3 指令第 7 条（top-10）；这是一个**业务给的**上限，不是我从分布里挑的。
+# ── 拒绝的补足：让"前 10 席"成为一个**声明的类**，指标才用得上它 ──────────────
+# :where 只接受 owl:equivalentClass 声明过的类（编译器原话："… has no owl:equivalentClass
+# axiom — nothing to compile"），所以名额这个数不能靠 :formula 里的 case when 混过去：
+# 那会让声明写的条件与编译出的 SQL 不一致（samples 门禁正是这样抓到的）。
+# admin 给的 N=10（answers:S3-7）在这里第一次成为**类型层**的东西：名单席位。
+:CandidateRoleFitTop10 a owl:Class ;
+    rdfs:label "推荐名单前 10 席" ;
+    owl:equivalentClass [ owl:intersectionOf (
+        :CandidateRoleFit
+        [ a owl:Restriction ; owl:onProperty :fitRankInRole ;
+          owl:someValuesFrom [ a rdfs:Datatype ;
+                               owl:onDatatype xsd:integer ;
+                               owl:withRestrictions ( [ xsd:maxInclusive 10 ] ) ] ]
+    ) ] .
+
+:recommendedCountByRole
+    a owl:DatatypeProperty ;
+    rdfs:label "各岗位 top-10 推荐条数" ;
+    :askedAs "每个岗位推荐几个人" ;
+    :aggregate "count" ;
+    :grain     :CandidateRoleFit ;
+    :universe  :CandidateRoleFit ;
+    :counts    :CandidateRoleFit ;
+    :groupBy   :fitRoleClass ;
+    :where     :CandidateRoleFitTop10 ;
+    :unit      "count" ;
+    :businessDescription "口径来自 answers:S3-2 —— admin 的 S3 指令第 2 条（top-10 的上限见 answers:S3-7）：名单按 rank_in_role 取前 10。这里只报**名单有多长**（min(10, 过线人数)），名单里是谁由 rank_in_role 取行回答——『名单本身』按名拒绝（见 talent_v1_settings.json 的 refusals 项『fitListByRole（岗位推荐名单本身）』）：计算词表没有 :orderBy/:limit，所以它不是指标。名次 rank_in_role 由 fit_score 在该岗位内排序生成（structure 里 :fitRankInRole 已声明）。分页上限 2000 行，超出的行不在这个数里。" .
+
+# 3. 岗位维度的分数上沿
+:maxFitScoreByRole
+    a owl:DatatypeProperty ;
+    rdfs:label "各岗位最高合成分" ;
+    :askedAs "每个岗位最高分是多少" ;
+    :aggregate "max" ;
+    :grain     :CandidateRoleFit ;
+    :universe  :CandidateRoleFit ;
+    :groupBy   :fitRoleClass ;
+    :formula   "fit_score" ;
+    :unit      "score" ;
+    :businessDescription "口径来自 answers:S3-3 —— admin 的 S3 指令第 3 条（最高/均值）。取值是 candidate_role_fit.fit_score：客户产出里的**排序分**，不是门槛——合格与否由 reasoning.ttl 的 7 个定义类决定，不看这个分。实测（evidence/truth_route.md）：fit_score 全库只有 5 个取值（55/60/70/80/85/100），专案工程师(24 行)、业务助理(19 行)、品质经理(22 行) 三个岗位只有一个取值——这三行的 max 是常量，不能用来说岗位之间谁更强。分页上限 2000 行，超出的行不在这个数里。" .
+
+# 4. 岗位维度的分数均值
+:avgFitScoreByRole
+    a owl:DatatypeProperty ;
+    rdfs:label "各岗位平均合成分" ;
+    :askedAs "每个岗位平均分是多少" ;
+    :aggregate "avg" ;
+    :grain     :CandidateRoleFit ;
+    :universe  :CandidateRoleFit ;
+    :groupBy   :fitRoleClass ;
+    :formula   "fit_score" ;
+    :unit      "score" ;
+    :businessDescription "口径来自 answers:S3-3 —— admin 的 S3 指令第 3 条。分母 = 该岗位在 candidate_role_fit 的行数（过线人数），NULL 的 fit_score 不参与平均（库上 0 行为 NULL）。实测同 :maxFitScoreByRole：3/7 岗位的均分等于该岗位唯一的那个取值（常量），另 4 个岗位的均分才随分数分布变化。分页上限 2000 行，超出的行不在这个数里。" .
+
+# 5. top-10 覆盖的分数段：第 10 名的分数就是这段的下沿
+:top10CutoffScoreByRole
+    a owl:DatatypeProperty ;
+    rdfs:label "各岗位 top-10 分数线" ;
+    :askedAs "每个岗位推荐名单的分数线" ;
+    :aggregate "min" ;
+    :grain     :CandidateRoleFit ;
+    :universe  :CandidateRoleFit ;
+    :groupBy   :fitRoleClass ;
+    :formula   "case when rank_in_role <= 10 then fit_score end" ;
+    :unit      "score" ;
+    :businessDescription "口径来自 answers:S3-7 —— admin 的 S3 指令第 7 条（top-10 覆盖的分数段）。取 rank_in_role <= 10 的行的最小 fit_score = 第 10 名的分数；过线人数不足 10 的岗位，它就是最后一名（此时名单长度见 :recommendedCountByRole）。实测 warning：专案工程师 24 行的 fit_score 全为 100（业务助理、品质经理同样只有一个取值），并列下 rank_in_role 的截断位置不可辩护——这些岗位的『分数线』等于全岗位分数，前 10 名与第 11-24 名没有分数差别；并列排名规则（tie-break）未声明，任何指标也不报它。分页上限 2000 行，超出的行不在这个数里。" .
+
+# 6-8. 数据缺口：未读到 ≠ 0
+#     structure 里已声明 missing_* 是布尔标记；这里用条件表达式把它们数成人数。
+#     禁止的写法：coalesce(years_experience, 0) —— 那会把这 131 人变成"0 年经验"，改变口径。
+:candidatesMissingYears
+    a owl:DatatypeProperty ;
+    rdfs:label "年限未读到人数" ;
+    :askedAs "有多少人没读到工作年限" ;
+    :aggregate "sum" ;
+    :grain     :Candidate ;
+    :universe  :Candidate ;
+    :counts    :Candidate ;
+    :formula   "case when missing_years then 1 else 0 end" ;
+    :unit      "count" ;
+    :businessDescription "口径来自 answers:S3-5 —— admin 的 S3 指令第 5 条。人数 = candidate 里 missing_years 为真的行。这些人**不合乎**任何带年限门槛的定义类（不是被判不合格），所以各岗位过线人数是下界；此数越大，下界离真实越远。分页上限 2000 行，超出的行不在这个数里。" .
+
+:candidatesMissingEducation
+    a owl:DatatypeProperty ;
+    rdfs:label "学历未读到人数" ;
+    :askedAs "有多少人没读到学历" ;
+    :aggregate "sum" ;
+    :grain     :Candidate ;
+    :universe  :Candidate ;
+    :counts    :Candidate ;
+    :formula   "case when missing_education then 1 else 0 end" ;
+    :unit      "count" ;
+    :businessDescription "口径来自 answers:S3-5 —— admin 的 S3 指令第 5 条；语义同 :candidatesMissingYears（缺失 ≠ 低学历）。分页上限 2000 行，超出的行不在这个数里。" .
+
+:candidatesMissingSkills
+    a owl:DatatypeProperty ;
+    rdfs:label "技能未读到人数" ;
+    :askedAs "有多少人没读到技能" ;
+    :aggregate "sum" ;
+    :grain     :Candidate ;
+    :universe  :Candidate ;
+    :counts    :Candidate ;
+    :formula   "case when missing_skills then 1 else 0 end" ;
+    :unit      "count" ;
+    :businessDescription "口径来自 answers:S3-5 —— admin 的 S3 指令第 5 条；语义同 :candidatesMissingYears（缺失 ≠ 无技能）。分页上限 2000 行，超出的行不在这个数里。" .
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 按名拒绝：这些词在这个库里没有可编译的计算。保持"有含义声明、无 :grain"，
+# 让门禁**按名**把它们拒掉——那正是语义层以前替我们兜住的东西。
+# ─────────────────────────────────────────────────────────────────────────────
+
+# 拒绝 1（不在 TTL 里声明成指标）：推荐名单本身（一个排行榜，不是一个总数）
+#   :fitListByRole 曾在这里写成一个『有含义声明、无 :grain』的指标，好让编译器按名拒掉它。
+#   但本 profile 已安装的版本里没有这个指标名，发布通道把这条拒绝判成『新增拒绝』并据此拒绝发布；
+#   而这个 gap 本身已经写在 talent_v1_settings.json 的 refusals 里（kind=missing_compute_vocabulary，
+#   含 action=拒绝 与缺的声明 :orderBy/:limit/:topN），tutorial 的『按名被拒绝的问题』一步也教它。
+#   所以声明留在拒绝清单里，不再作为一个永远编不出来的指标挂在指标表上。
+
+# 9. JD 要求技能里没有任何候选人命中的条数（v_skill_gap 上的条件求和）
+#    为什么能编译：负存在量词已经被客户视图 v_skill_gap 算成了 candidates_with_skill 一列，
+#    所以这里只剩一个条件表达式，不需要编译器支持 NOT EXISTS。
+:skillGapCount
+    a owl:DatatypeProperty ;
+    rdfs:label "岗位技能要求没人会的条数" ;
+    :askedAs "有多少条岗位技能要求没人会" ;
+    :aggregate "sum" ;
+    :grain     :RoleSkillGap ;
+    :universe  :RoleSkillGap ;
+    :counts    :RoleSkillGap ;
+    :formula   "case when candidates_with_skill = 0 then 1 else 0 end" ;
+    :unit      "count" ;
+    :businessDescription "口径来自 answers:S3-4，admin 的 S4 指令把它从拒绝改成可编译：要数的是 role_required_skill 里没有任何 candidate_skill 命中的技能条数。视图 v_skill_gap 已经把这件事算成 candidates_with_skill = 0，指标层只做条件求和。第二条 SQL 路线测得当前值是 0（28 条要求技能全部有人命中）——0 是测量结果，不是空值：它说的是这批候选人里人人有人会每一条要求技能。分页上限 2000 行，超出的行不在这个数里。" .
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 按名拒绝：这个词在这个库里没有可编译的计算。保持"有含义声明、无 :grain"，
+# 让门禁**按名**把它拒掉——那正是语义层以前替我们兜住的东西。
+# ─────────────────────────────────────────────────────────────────────────────
+
+:crossRoleCandidateCount
+    a owl:DatatypeProperty ;
+    rdfs:label "有多少人同时过了两个以上岗位" ;
+    :askedAs "同时过了两个以上岗位的人数" ;
+    :askedAs "跨岗位过线人数" ;
+    :aggregate "count" ;
+    :grain     :CrossRoleCandidate ;
+    :universe  :CrossRoleCandidate ;
+    :counts    :CrossRoleCandidate ;
+    :unit      "count" ;
+    :businessDescription "口径来自 answers:S3-6，S5 由 admin 解封：基数约束（≥2 个岗位）由物化视图承担，指标只对它计数。来源 = v_cross_role_candidate（54 行）。分母是『过线至少两次的人』，不是 277 份简历——问『占多少比例』是另一个指标（分母 :Candidate），本指标不报比例。第二条 SQL 路线 = 54。分页上限 2000 行，超出的行不在这个数里。" .
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 按名拒绝：这个词在这个库里没有可编译的计算。保持"有含义声明、无 :grain"，
+# 让门禁**按名**把它拒掉——那正是语义层以前替我们兜住的东西。

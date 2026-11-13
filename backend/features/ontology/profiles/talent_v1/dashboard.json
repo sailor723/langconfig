@@ -1,0 +1,79 @@
+{
+ "_doc": "talent_v1 看板声明：只点名 metrics_ext.ttl 里已编译的指标，本文件不含 SQL，句子里不打任何字面数字（D7：数字只能来自占位符）。KPI 卡片取自未分组指标，面板取自按岗位分组的指标。holes 为空是测量结果：面板点名的每个指标都能编译。",
+ "version": 1,
+ "ontology": "talent_v1",
+ "title": "人才匹配 · 过线与缺口看板",
+ "subtitle": "口径来自 talent_v1/metrics_ext.ttl；数据是一份招聘季快照——业务表没有时间列，因此不声明任何相对窗口",
+ "briefing": {
+  "headline": "{candidatesMissingYears} 人没读到工作年限、{candidatesMissingEducation} 人没读到学历、{candidatesMissingSkills} 人没读到技能：每一个“够不够格”的判定都带着这几块空白。",
+  "claims": [],
+  "cannot_see": [
+   "简历里有人求职、但没有职务说明书的岗位：匹配判定按名拒绝（见 settings 的 refusals：行政专员、技术经理主管、设计工程师、实验室技术员）",
+   "“最近一个月投了多少人”：库里没有投递时间列，任何相对窗口都会安静返回空",
+   "跨岗位过线的人**是谁**、按合成分排出先后：指标层给得出人数（{crossRoleCandidateCount}），给不出有序名单（缺 :orderBy/:limit 词表）",
+   "人资专员的年限门槛：职务说明书写了技能和学历，没写年限"
+  ],
+  "next": "先补齐缺失的职务说明书与年限口径，再谈提高匹配准确率；在那之前这些数字只能当盘点读：各岗位过线人数、名单分数线，以及无人命中的技能要求条数（{skillGapCount}）。"
+ },
+ "kpis": [
+  {
+   "metric": "crossRoleCandidateCount",
+   "note": "跨岗位过线人数：基数约束（两个以上岗位）由视图 v_cross_role_candidate 承担，指标只计数；不能与各岗位过线人数相加"
+  },
+  {
+   "metric": "candidatesMissingYears",
+   "note": "年限未读到的人数：门槛判定对它只能给“未判定”，不能给零分"
+  },
+  {
+   "metric": "candidatesMissingEducation",
+   "note": "学历未读到的人数"
+  },
+  {
+   "metric": "candidatesMissingSkills",
+   "note": "技能未读到的人数"
+  },
+  {
+   "metric": "skillGapCount",
+   "note": "岗位技能要求里没有任何候选人命中的条数；零是测量结果，不是空值"
+  }
+ ],
+ "panels": [
+  {
+   "id": "matches_ranked",
+   "kind": "ranked",
+   "metric": "matchCountByRole",
+   "title": "各岗位过线人数",
+   "question": "哪个岗位的合格候选人最多？"
+  },
+  {
+   "id": "recommended_ranked",
+   "kind": "ranked",
+   "metric": "recommendedCountByRole",
+   "title": "各岗位推荐名单名额",
+   "question": "每个岗位实际能推几个名额？"
+  },
+  {
+   "id": "max_score_ranked",
+   "kind": "ranked",
+   "metric": "maxFitScoreByRole",
+   "title": "各岗位最高合成分",
+   "question": "每个岗位的天花板在哪？"
+  },
+  {
+   "id": "avg_score_ranked",
+   "kind": "ranked",
+   "metric": "avgFitScoreByRole",
+   "title": "各岗位平均合成分",
+   "question": "过线那批人的整体水平如何？"
+  },
+  {
+   "id": "cutoff_ranked",
+   "kind": "ranked",
+   "metric": "top10CutoffScoreByRole",
+   "title": "各岗位名单分数线",
+   "question": "进推荐名单要多少分？"
+  }
+ ],
+ "holes": [],
+ "cross_filter": []
+}

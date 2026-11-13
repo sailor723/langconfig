@@ -1,0 +1,78 @@
+{
+ "note": "每个样本都带一条手写 route SQL：闸门在运行时跑第二条路线，不对比上月冻住的数字。当前 10 条样本全部落到已编译指标上，没有一条标 unresolved——S5 之后『名额』与『跨岗位人数』都进了指标层，各自的第二条路线逐字写在本文件里。",
+ "samples": [
+  {
+   "question": "每个岗位有多少人过线",
+   "expect": {
+    "metric": "matchCountByRole",
+    "route": "select role_class, count(distinct candidate) from candidate_role_fit group by 1"
+   }
+  },
+  {
+   "question": "每个岗位推荐名单有几个名额",
+   "expect": {
+    "metric": "recommendedCountByRole",
+    "route": "select role_class, least(10, count(*)) from candidate_role_fit group by 1"
+   },
+   "why": "业务答案是 min(10, 过线人数)：admin 给的 top-10 上限（answers:S3-7）。指标侧的 SQL 是 count(distinct …) where rank_in_role <= 10，两条路线逐岗位都是 10。曾经这里写着 unresolved（formula 里的名次条件被 count 聚合丢掉，指标报 54/34/34/24/22/20/19）——S5 把『前 10 席』声明成类型 :CandidateRoleFitTop10 并用 :where 引用，名次条件这才真进了 SQL。"
+  },
+  {
+   "question": "各岗位最高合成分",
+   "expect": {
+    "metric": "maxFitScoreByRole",
+    "route": "select role_class, max(fit_score) from candidate_role_fit group by 1"
+   }
+  },
+  {
+   "question": "每个岗位的平均合成分是多少",
+   "expect": {
+    "metric": "avgFitScoreByRole",
+    "tolerance": 0.01,
+    "route": "select role_class, round(avg(fit_score),4) from candidate_role_fit group by 1"
+   }
+  },
+  {
+   "question": "每个岗位推荐名单的分数线是多少",
+   "expect": {
+    "metric": "top10CutoffScoreByRole",
+    "route": "select role_class, min(fit_score) from candidate_role_fit where rank_in_role <= 10 group by 1"
+   }
+  },
+  {
+   "question": "有多少份简历没读到工作年限",
+   "expect": {
+    "metric": "candidatesMissingYears",
+    "route": "select count(*) from candidate where missing_years"
+   }
+  },
+  {
+   "question": "有多少份简历没读到学历",
+   "expect": {
+    "metric": "candidatesMissingEducation",
+    "route": "select count(*) from candidate where missing_education"
+   }
+  },
+  {
+   "question": "有多少份简历没读到技能",
+   "expect": {
+    "metric": "candidatesMissingSkills",
+    "route": "select count(*) from candidate where missing_skills"
+   }
+  },
+  {
+   "question": "有多少条岗位技能要求没人会",
+   "expect": {
+    "metric": "skillGapCount",
+    "route": "select count(*) from role_required_skill r where not exists (select 1 from candidate_skill c where c.skill = r.skill)"
+   }
+  },
+  {
+   "question": "有多少人同时过了两个以上岗位",
+   "expect": {
+    "metric": "crossRoleCandidateCount",
+    "route": "select count(distinct a.candidate) from candidate_role_fit a join candidate_role_fit b on a.candidate = b.candidate and a.role_class < b.role_class"
+   },
+   "why": "口径的基数约束（≥2 个岗位）落在物化视图 v_cross_role_candidate 上（S5，admin 建），指标只对它计数。第二条路线**不用那个视图**：在 candidate_role_fit 上自连接数『至少两个不同岗位都过线的人』，同样 54；对 v_candidate_roles 做 having count(*)>=2 也是 54。原来这里写着 refused_by_names —— 拒绝已按名撤回。"
+  }
+ ]
+}

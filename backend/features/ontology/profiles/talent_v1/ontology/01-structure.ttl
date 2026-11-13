@@ -1,0 +1,270 @@
+# talent_v1 · 结构层（物理库 talent_db 的唯一真相）
+# 每条 :physicalTable 对应一张真实存在的表，每条 :physicalColumn 对应一列真实存在的列。
+# 属性名尽量复用 TBox（reasoning.ttl）里已有的 IRI：同一个概念不出现两个名字。
+@prefix : <https://cube.local/ontology/talent_v1#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ── candidate：277 份简历各一行，粒度 = 一个候选人（源文件） ─────────────
+:Candidate a owl:Class ;
+    rdfs:label "候选人" ;
+    :physicalTable "candidate" ;
+    :primaryKey "id" ;
+    :rowCount 277 ;
+    :businessDescription "一行 = 一份被解析的简历（candidate 表 277 行 = 277 个源文件）。粒度是候选人，不是投递；同一个人出现两次会另起一行并用 duplicate_of 指回，当前 0 行。" .
+
+:candidateId a owl:DatatypeProperty ; rdfs:label "候选人键" ; rdfs:domain :Candidate ; :physicalColumn "id" ;
+    :businessDescription "候选人唯一键，形如 cand_业务跟单_东莞_6-10K_J___10年，由源文件名解析而来。" .
+:appliedFor a owl:ObjectProperty ; rdfs:label "求职岗位" ; rdfs:domain :Candidate ; rdfs:range :Role ; :physicalColumn "role" ; :references :Role ;
+    :businessDescription "简历上写的求职岗位，值形如 role_业务跟单，指向 role.role。库上没有外键约束：277 行里有 54 行指向 role 表不存在的岗位（行政专员/技术经理主管/设计工程师/实验室技术员），这些岗位按名拒绝，见 profile.refusals。" .
+:yearsExperience a owl:DatatypeProperty ; rdfs:label "工作年限" ; rdfs:domain :Candidate ; :physicalColumn "years_experience" ;
+    :businessDescription "从简历正文读到的总工作年限（整数年）。读到 '10年以上' 记为 10。未读到记 NULL，同时 missing_years=true。" .
+:educationRank a owl:DatatypeProperty ; rdfs:label "学历序" ; rdfs:domain :Candidate ; :physicalColumn "education_rank" ;
+    :businessDescription "学历被压成有序整数便于比较门槛：1=初中及以下 2=中专/高中 3=大专 4=本科 5=硕士及以上。未读到记 NULL，同时 missing_education=true。" .
+:salaryMinK a owl:DatatypeProperty ; rdfs:label "期望薪资下限(K)" ; rdfs:domain :Candidate ; :physicalColumn "salary_min_k" ;
+    :businessDescription "简历上期望月薪的下限，单位千元。仅作展示，不参与任何匹配门槛。" .
+:salaryMaxK a owl:DatatypeProperty ; rdfs:label "期望薪资上限(K)" ; rdfs:domain :Candidate ; :physicalColumn "salary_max_k" ;
+    :businessDescription "简历上期望月薪的上限，单位千元。仅作展示，不参与任何匹配门槛。" .
+:age a owl:DatatypeProperty ; rdfs:label "年龄" ; rdfs:domain :Candidate ; :physicalColumn "age" ;
+    :businessDescription "简历上写的年龄（岁）。缺失较多，不参与匹配判定。" .
+:sourceFile a owl:DatatypeProperty ; rdfs:label "源文件" ; rdfs:domain :Candidate ; :physicalColumn "source_file" ;
+    :businessDescription "该候选人记录来自哪个 .txt/.pdf 简历文件；不可为空，是『一行 = 一个文件』的凭据。" .
+:duplicateOf a owl:DatatypeProperty ; rdfs:label "重复于" ; rdfs:domain :Candidate ; :physicalColumn "duplicate_of" ;
+    :businessDescription "重复简历指回保留行的 candidate.id。当前全部为 NULL（0 条重复）——列存在但没有数据支撑任何去重口径。" .
+:missingYears a owl:DatatypeProperty ; rdfs:label "年限缺失标记" ; rdfs:domain :Candidate ; :physicalColumn "missing_years" ;
+    :businessDescription "true 表示 years_experience 未读到。这些人对任何带年限门槛的定义**不合乎**（不是被判不合格），所以匹配人数是下界。" .
+:missingEducation a owl:DatatypeProperty ; rdfs:label "学历缺失标记" ; rdfs:domain :Candidate ; :physicalColumn "missing_education" ;
+    :businessDescription "true 表示 education_rank 未读到，语义同 missing_years。" .
+:missingSkills a owl:DatatypeProperty ; rdfs:label "技能缺失标记" ; rdfs:domain :Candidate ; :physicalColumn "missing_skills" ;
+    :businessDescription "true 表示该简历没有任何技能可读（candidate_skill 无行）。ABox 用 :UnknownSkills 记号标出。" .
+
+# ── role：10 份职务说明书各一行，粒度 = 一个岗位 ────────────────────────
+:Role a owl:Class ;
+    rdfs:label "岗位（职务说明书）" ;
+    :physicalTable "role" ;
+    :primaryKey "role" ;
+    :rowCount 10 ;
+    :businessDescription "一行 = 一份职务说明书（10 份 JD → 10 行）。值形如 role_品质经理。其中 7 份的要求足以定义匹配类，3 份缺年限（人资专员/关务报关员/工程文员）按名拒绝。" .
+
+:roleKey a owl:DatatypeProperty ; rdfs:label "岗位键" ; rdfs:domain :Role ; :physicalColumn "role" ;
+    :businessDescription "岗位唯一键，等于 candidate.role 的取值域；'role_' 前缀是数据清洗留下的，不是命名约定。" .
+:requiredYears a owl:DatatypeProperty ; rdfs:label "年限门槛" ; rdfs:domain :Role ; :physicalColumn "required_years" ;
+    :businessDescription "JD 明写的年限门槛（整数年）。JD 没写则为 NULL 且 not_stated 含 'min_years'——NULL 不读作 0。" .
+:requiredEducationRank a owl:DatatypeProperty ; rdfs:label "学历门槛" ; rdfs:domain :Role ; :physicalColumn "required_education_rank" ;
+    :businessDescription "JD 明写的学历下限在 educationRank 同一序上。没写则为 NULL 且 not_stated 含 'education_floor'。" .
+:notStated a owl:DatatypeProperty ; rdfs:label "未声明项" ; rdfs:domain :Role ; :physicalColumn "not_stated" ;
+    :businessDescription "逗号分隔的空洞清单（min_years / education_floor），标出 JD 里**没有**的那些门槛。空洞不是默认值。" .
+
+# ── skill：28 个技能，粒度 = 一个技能标签 ───────────────────────────────
+:SkillTag a owl:Class ;
+    rdfs:label "技能标签" ;
+    :physicalTable "skill" ;
+    :primaryKey "skill" ;
+    :rowCount 28 ;
+    :businessDescription "一行 = 一个技能标签（28 个）。category 给出它所属的技能族，与 ABox 里 :CAD 等 :SkillTag 子类同名。" .
+
+:skillName a owl:DatatypeProperty ; rdfs:label "技能名" ; rdfs:domain :SkillTag ; :physicalColumn "skill" ;
+    :businessDescription "技能唯一名，如 AutoCAD / ISO/TS16949 / 英语。与 ABox 个体同名。" .
+:skillCategory a owl:DatatypeProperty ; rdfs:label "技能族" ; rdfs:domain :SkillTag ; :physicalColumn "category" ;
+    :businessDescription "技能所属族，如 CAD / QualitySystem / LanguageSkill，对应 ABox 里 :SkillTag 的一个子类。族是超类不是另一张表，所以这里存文本。" .
+
+# ── candidate_skill：候选人 × 技能，粒度 = 一条『此人会此技能』的断言 ─────
+:CandidateSkill a owl:Class ;
+    rdfs:label "候选人技能" ;
+    :physicalTable "candidate_skill" ;
+    :primaryKey "candidate, skill" ;
+    :rowCount 1000 ;
+    :businessDescription "一行 = 候选人会某个技能（1000 行）。关联表：粒度不是候选人也不是技能，是那一条断言，所以单独建类而不是挂成单值属性。" .
+
+:candidateSkillCandidate a owl:ObjectProperty ; rdfs:label "技能断言-候选人" ; rdfs:domain :CandidateSkill ; rdfs:range :Candidate ; :physicalColumn "candidate" ; :references :Candidate ;
+    :businessDescription "这条技能断言属于哪个候选人。" .
+:candidateSkillSkill a owl:ObjectProperty ; rdfs:label "技能断言-技能" ; rdfs:domain :CandidateSkill ; rdfs:range :SkillTag ; :physicalColumn "skill" ; :references :SkillTag ;
+    :businessDescription "这条技能断言说的是哪个技能。" .
+
+# ── role_required_skill：岗位 × 必需技能，粒度 = 一条『此岗要求此技能』────
+:RoleSkill a owl:Class ;
+    rdfs:label "岗位要求技能" ;
+    :physicalTable "role_required_skill" ;
+    :primaryKey "role, skill" ;
+    :rowCount 28 ;
+    :businessDescription "一行 = 某岗位的 JD 要求某个技能（28 行）。JD 里的技能清单被拆成多行，粒度是要求本身。" .
+
+:roleSkillRole a owl:ObjectProperty ; rdfs:label "要求-岗位" ; rdfs:domain :RoleSkill ; rdfs:range :Role ; :physicalColumn "role" ; :references :Role ;
+    :businessDescription "这条技能要求属于哪个岗位。" .
+:roleSkillSkill a owl:ObjectProperty ; rdfs:label "要求-技能" ; rdfs:domain :RoleSkill ; rdfs:range :SkillTag ; :physicalColumn "skill" ; :references :SkillTag ;
+    :businessDescription "这条要求说的是哪个技能。" .
+
+# ── candidate_match：推理结果（谁合乎哪个岗位），粒度 = 候选人 × 岗位类 ───
+:CandidateMatch a owl:Class ;
+    rdfs:label "匹配结论" ;
+    :physicalTable "candidate_match" ;
+    :primaryKey "candidate, role_class" ;
+    :rowCount 221 ;
+    :businessDescription "一行 = 某个候选人被蕴含为某个岗位定义类的成员（221 行 / 7 个类）。这是 reasoner 的结论表，不是评分表：有行就是合乎，没行就是不（或无法）合乎。" .
+
+:matchCandidate a owl:ObjectProperty ; rdfs:label "结论-候选人" ; rdfs:domain :CandidateMatch ; rdfs:range :Candidate ; :physicalColumn "candidate" ; :references :Candidate ;
+    :businessDescription "这条匹配结论说的人是哪个候选人。" .
+:matchRoleClass a owl:DatatypeProperty ; rdfs:label "结论-岗位类" ; rdfs:domain :CandidateMatch ; :physicalColumn "role_class" ;
+    :businessDescription "被蕴含的岗位定义类名，如 matches_专案工程师。它指向 OWL 类而不是 role 表的一行（类名不是表键），所以这里是文本而不是对象属性。" .
+:matchRole a owl:ObjectProperty ; rdfs:label "结论-岗位" ; rdfs:domain :CandidateMatch ; rdfs:range :Role ; :physicalColumn "role" ; :references :Role ;
+    :businessDescription "同一条结论对应的岗位行，值形如 专案工程师（无 role_ 前缀），可与 role.role 对齐时用。库上无外键约束。" .
+
+# ── candidate_role_fit：同一批结论的明细/分数，粒度 = 候选人 × 岗位类 ────
+:CandidateRoleFit a owl:Class ;
+    rdfs:label "匹配明细" ;
+    :physicalTable "candidate_role_fit" ;
+    :primaryKey "candidate, role_class" ;
+    :rowCount 221 ;
+    :businessDescription "一行 = 某候选人对某岗位的逐项明细（221 行，与 candidate_match 逐行对应）。它记录**为什么**合乎：命中几个技能、年限差多少、学历差多少。fit_score 是排序用的合成分，不是合格线。" .
+
+:fitCandidate a owl:ObjectProperty ; rdfs:label "明细-候选人" ; rdfs:domain :CandidateRoleFit ; rdfs:range :Candidate ; :physicalColumn "candidate" ; :references :Candidate ;
+    :businessDescription "这份明细属于哪个候选人。" .
+:fitRoleClass a owl:DatatypeProperty ; rdfs:label "明细-岗位类" ; rdfs:domain :CandidateRoleFit ; :physicalColumn "role_class" ;
+    :businessDescription "对应的岗位定义类名，如 matches_管理课长；与 candidate_match.role_class 同一取值域。" .
+:fitRole a owl:ObjectProperty ; rdfs:label "明细-岗位" ; rdfs:domain :CandidateRoleFit ; rdfs:range :Role ; :physicalColumn "role" ; :references :Role ;
+    :businessDescription "对应的岗位行（值形如 管理课长）。库上无外键约束。" .
+:fitMatchedSkills a owl:DatatypeProperty ; rdfs:label "命中技能数" ; rdfs:domain :CandidateRoleFit ; :physicalColumn "matched_skills" ;
+    :businessDescription "此人命中的 JD 技能条数。注意定义类用的是『命中任一族』，所以这个数不参与合格判定，只用于排序与解释。" .
+:fitRequiredSkills a owl:DatatypeProperty ; rdfs:label "要求技能数" ; rdfs:domain :CandidateRoleFit ; :physicalColumn "required_skills" ;
+    :businessDescription "该岗位 JD 列出的技能条数（分母），来自 role_required_skill 计数。" .
+:fitYearsExperience a owl:DatatypeProperty ; rdfs:label "此人的年限" ; rdfs:domain :CandidateRoleFit ; :physicalColumn "years_experience" ;
+    :businessDescription "判定时用的此人年限，快照自 candidate.years_experience。" .
+:fitRequiredYears a owl:DatatypeProperty ; rdfs:label "该岗年限门槛" ; rdfs:domain :CandidateRoleFit ; :physicalColumn "required_years" ;
+    :businessDescription "判定时用的年限门槛，快照自 role.required_years。" .
+:fitYearsMargin a owl:DatatypeProperty ; rdfs:label "年限余量" ; rdfs:domain :CandidateRoleFit ; :physicalColumn "years_margin" ;
+    :businessDescription "此人年限减去门槛（年）。>=0 才通过年限这一条；因缺失而未读到的年限在这里会是 NULL 而不是 0。" .
+:fitEducationRank a owl:DatatypeProperty ; rdfs:label "此人的学历序" ; rdfs:domain :CandidateRoleFit ; :physicalColumn "education_rank" ;
+    :businessDescription "判定时用的此人学历序（1=初中及以下 … 5=硕士及以上）。" .
+:fitRequiredEducationRank a owl:DatatypeProperty ; rdfs:label "该岗学历门槛" ; rdfs:domain :CandidateRoleFit ; :physicalColumn "required_education_rank" ;
+    :businessDescription "判定时用的学历门槛，快照自 role.required_education_rank。" .
+:fitScore a owl:DatatypeProperty ; rdfs:label "合成分" ; rdfs:domain :CandidateRoleFit ; :physicalColumn "fit_score" ;
+    :businessDescription "排序用的合成分（把技能命中率、年限余量、学历序加权）。**不是门槛**：合格与否由定义类决定，这个分只决定『先看谁』。" .
+:fitRankInRole a owl:DatatypeProperty ; rdfs:label "岗位内名次" ; rdfs:domain :CandidateRoleFit ; :physicalColumn "rank_in_role" ;
+    :businessDescription "按 fit_score 在该岗位内的名次，1 = 最靠前。荐才清单的排序依据。" .
+
+# ── v_skill_gap：JD 要求技能 × 有多少候选人命中，粒度 = 岗位 × 要求技能 ─────
+:RoleSkillGap a owl:Class ;
+    rdfs:label "岗位要求技能覆盖率" ;
+    :physicalTable "v_skill_gap" ;
+    :primaryKey "role, skill" ;
+    :rowCount 28 ;
+    :businessDescription "一行 = 某岗位 JD 里的一条要求技能，以及全库有多少候选人会它（28 行 = 各岗位要求技能去重后相加）。这是**视图**，不是基表：它由 role_required_skill 与 candidate_skill 现算，因此它的 0 是测量结果而不是空值。" .
+
+:gapRole a owl:DatatypeProperty ; rdfs:label "要求-岗位" ; rdfs:domain :RoleSkillGap ; :physicalColumn "role" ;
+    :businessDescription "这条要求属于哪个岗位，值形如 role_专案工程师（带 role_ 前缀，与 role.role 对齐需去掉前缀）。" .
+:gapSkill a owl:DatatypeProperty ; rdfs:label "要求-技能" ; rdfs:domain :RoleSkillGap ; :physicalColumn "skill" ;
+    :businessDescription "技能名，值形如 skill_AutoCAD。" .
+:gapCategory a owl:DatatypeProperty ; rdfs:label "技能类目" ; rdfs:domain :RoleSkillGap ; :physicalColumn "category" ;
+    :businessDescription "技能所属类目（如 CAD、SpreadsheetSoftware）。" .
+:gapCandidatesWithSkill a owl:DatatypeProperty ; rdfs:label "会此技能的候选人数" ; rdfs:domain :RoleSkillGap ; :physicalColumn "candidates_with_skill" ;
+    :businessDescription "全库有多少候选人会这条技能。0 = 没有任何候选人会它（技能缺口），不是未读到。" .
+
+# ── v_cross_role_candidate：在 ≥2 个岗位都过线的人（视图，S5）──────────────────
+# 口径形状是"按人分组 having count(*) >= 2"——一条 GROUP BY 之外的**基数量词**，
+# 编译器不写它。按平台的既有做法（同 v_skill_gap）：物化侧定义口径，指标只负责计数。
+:CrossRoleCandidate a owl:Class ;
+    rdfs:label "跨岗位过线候选人" ;
+    :physicalTable "v_cross_role_candidate" ;
+    :primaryKey "candidate" ;
+    :rowCount 54 ;
+    :businessDescription "一行 = 一个在 ≥2 个岗位的推荐名单里都过线的候选人（54 行）。这是**视图**，不是基表：视图定义是 select candidate, count(*) as role_count from candidate_role_fit group by candidate having count(*) >= 2。第二条 SQL 路线（同一 having 打在 v_candidate_roles 上）同样得 54，逐行一致。" .
+
+:crcCandidate a owl:DatatypeProperty ; rdfs:label "跨岗-候选人" ; rdfs:domain :CrossRoleCandidate ; :physicalColumn "candidate" ;
+    :businessDescription "候选人 id（主键，54 个不同的人）。" .
+:crcRoleCount a owl:DatatypeProperty ; rdfs:label "跨岗-过线岗位数" ; rdfs:domain :CrossRoleCandidate ; :physicalColumn "role_count" ;
+    :businessDescription "此人在几个岗位的名单里过线：最小 2、最大 6。≥2 是**视图定义**里的门槛，指标里不再筛一次，所以指标报的数就是视图的行数。" .
+
+# ── 客户视图（v_candidate_roles / v_role_shortlist / v_missing_data）：库上是视图，不是基表，在此显式声明（不声明就是"静默漏掉一张表"）──
+:CandidateRoleRow a owl:Class ;
+    rdfs:label "候选人-岗位明细视图" ;
+    :physicalTable "v_candidate_roles" ;
+    :primaryKey "candidate, matched_role" ;
+    :rowCount 207 ;
+    :businessDescription "一行 = 某候选人 × 某岗位的一条匹配明细（207 行）。视图，由 candidate_role_fit 直接展开；同一个人可能在多行里出现，所以按人计数必须先去重。" .
+
+:crCandidate a owl:DatatypeProperty ; rdfs:label "视图-候选人" ; rdfs:domain :CandidateRoleRow ; :physicalColumn "candidate" ;
+    :businessDescription "这份明细的候选人。" .
+:crMatchedRole a owl:DatatypeProperty ; rdfs:label "视图-命中岗位" ; rdfs:domain :CandidateRoleRow ; :physicalColumn "matched_role" ;
+    :businessDescription "被命中的岗位名（不带 role_ 前缀）。" .
+:crAppliedRole a owl:DatatypeProperty ; rdfs:label "视图-求职岗位" ; rdfs:domain :CandidateRoleRow ; :physicalColumn "applied_role" ;
+    :businessDescription "候选人自己填的求职岗位，值形如 role_专案工程师。" .
+:crRankInRole a owl:DatatypeProperty ; rdfs:label "视图-岗位内名次" ; rdfs:domain :CandidateRoleRow ; :physicalColumn "rank_in_role" ;
+    :businessDescription "按合成分在该岗位内的名次，1 = 最靠前。" .
+:crFitScore a owl:DatatypeProperty ; rdfs:label "视图-合成分" ; rdfs:domain :CandidateRoleRow ; :physicalColumn "fit_score" ;
+    :businessDescription "排序用合成分（numeric(6,2)），不是门槛。" .
+
+:MissingDataRow a owl:Class ;
+    rdfs:label "缺失数据盘点" ;
+    :physicalTable "v_missing_data" ;
+    :primaryKey "field" ;
+    :rowCount 3 ;
+    :businessDescription "一行 = candidate 上某个字段的缺失盘点（3 行：年限、学历、技能），给出 missing 与 total。视图。这是「未读到」这件事的横切视角，指标里对应的三个数是 candidatesMissing*。" .
+
+:mdField a owl:DatatypeProperty ; rdfs:label "盘点-字段" ; rdfs:domain :MissingDataRow ; :physicalColumn "field" ;
+    :businessDescription "被盘点的字段/标记名。" .
+:mdMissing a owl:DatatypeProperty ; rdfs:label "盘点-缺失数" ; rdfs:domain :MissingDataRow ; :physicalColumn "missing" ;
+    :businessDescription "该字段未读到的人数。" .
+:mdTotal a owl:DatatypeProperty ; rdfs:label "盘点-总数" ; rdfs:domain :MissingDataRow ; :physicalColumn "total" ;
+    :businessDescription "分母（候选人总数）。" .
+
+:RoleShortlistRow a owl:Class ;
+    rdfs:label "推荐名单行" ;
+    :physicalTable "v_role_shortlist" ;
+    :primaryKey "role, rank_in_role" ;
+    :rowCount 207 ;
+    :businessDescription "一行 = 某个岗位推荐名单里的一席（207 行 = 各岗位名单席位相加）。视图，把名单排序与逐项判定依据一起摊开；「名单本身」不是一个指标，它的长度由 recommendedCountByRole 现算。" .
+
+:rsRole a owl:DatatypeProperty ; rdfs:label "名单-岗位" ; rdfs:domain :RoleShortlistRow ; :physicalColumn "role" ;
+    :businessDescription "名单属于哪个岗位（不带 role_ 前缀）。" .
+:rsRankInRole a owl:DatatypeProperty ; rdfs:label "名单-名次" ; rdfs:domain :RoleShortlistRow ; :physicalColumn "rank_in_role" ;
+    :businessDescription "岗位内名次，1 = 最靠前。" .
+:rsCandidate a owl:DatatypeProperty ; rdfs:label "名单-候选人" ; rdfs:domain :RoleShortlistRow ; :physicalColumn "candidate" ;
+    :businessDescription "这一席是谁。" .
+:rsAllSkillsMet a owl:DatatypeProperty ; rdfs:label "名单-技能全中" ; rdfs:domain :RoleShortlistRow ; :physicalColumn "all_skills_met" ;
+    :businessDescription "此人是否命中该岗位全部要求技能。" .
+:rsYearsMet a owl:DatatypeProperty ; rdfs:label "名单-年限达标" ; rdfs:domain :RoleShortlistRow ; :physicalColumn "years_met" ;
+    :businessDescription "此人年限是否达到门槛；缺失时这里是 NULL，不是 false。" .
+
+# v_role_shortlist 的其余列（不建模就是"有一列没被声明"，门禁会点出来）
+:rsSourceFile a owl:DatatypeProperty ; rdfs:label "名单-简历来源文件" ; rdfs:domain :RoleShortlistRow ; :physicalColumn "source_file" ;
+    :businessDescription "这条明细来自哪一份简历文件（原始文件名，便于回溯重复投递）。" .
+:rsAppliedRole a owl:DatatypeProperty ; rdfs:label "名单-求职岗位" ; rdfs:domain :RoleShortlistRow ; :physicalColumn "applied_role" ;
+    :businessDescription "候选人自己填的求职岗位，值形如 role_专案工程师。" .
+:rsFitScore a owl:DatatypeProperty ; rdfs:label "名单-合成分" ; rdfs:domain :RoleShortlistRow ; :physicalColumn "fit_score" ;
+    :businessDescription "排序用合成分（numeric(6,2)）；不是门槛，只决定先看谁。" .
+:rsMatchedSkills a owl:DatatypeProperty ; rdfs:label "名单-命中技能数" ; rdfs:domain :RoleShortlistRow ; :physicalColumn "matched_skills" ;
+    :businessDescription "命中的 JD 技能条数。" .
+:rsRequiredSkills a owl:DatatypeProperty ; rdfs:label "名单-要求技能数" ; rdfs:domain :RoleShortlistRow ; :physicalColumn "required_skills" ;
+    :businessDescription "该岗位要求的技能条数（命中率的分母）。" .
+:rsYearsExperience a owl:DatatypeProperty ; rdfs:label "名单-此人年限" ; rdfs:domain :RoleShortlistRow ; :physicalColumn "years_experience" ;
+    :businessDescription "判定时使用的此人年限；未读到时是 NULL。" .
+:rsRequiredYears a owl:DatatypeProperty ; rdfs:label "名单-年限门槛" ; rdfs:domain :RoleShortlistRow ; :physicalColumn "required_years" ;
+    :businessDescription "该岗位的年限门槛；JD 未写时是 NULL（空洞，不是 0）。" .
+:rsYearsMargin a owl:DatatypeProperty ; rdfs:label "名单-年限余量" ; rdfs:domain :RoleShortlistRow ; :physicalColumn "years_margin" ;
+    :businessDescription "此人年限减门槛；任一侧缺失则为 NULL。" .
+:rsEducationRank a owl:DatatypeProperty ; rdfs:label "名单-此人学历序" ; rdfs:domain :RoleShortlistRow ; :physicalColumn "education_rank" ;
+    :businessDescription "1 = 初中及以下 … 5 = 硕士及以上。" .
+:rsRequiredEducationRank a owl:DatatypeProperty ; rdfs:label "名单-学历门槛" ; rdfs:domain :RoleShortlistRow ; :physicalColumn "required_education_rank" ;
+    :businessDescription "该岗位学历门槛；JD 未写时是 NULL（空洞）。" .
+
+# ── reasoning_run：一次推理运行的体检记录，粒度 = 一次运行 ───────────────
+:ReasoningRun a owl:Class ;
+    rdfs:label "推理运行" ;
+    :physicalTable "reasoning_run" ;
+    :primaryKey "run_at" ;
+    :rowCount 1 ;
+    :businessDescription "一行 = 一次 reasoner 运行（当前 1 行）。表上没有主键约束；run_at 是运行时刻，在现有数据里唯一，用它当键并在此声明这一事实，而不是假称库上有约束。" .
+
+:runAt a owl:DatatypeProperty ; rdfs:label "运行时刻" ; rdfs:domain :ReasoningRun ; :physicalColumn "run_at" ;
+    :businessDescription "本次推理的运行时间戳（带时区）。" .
+:runEngine a owl:DatatypeProperty ; rdfs:label "推理引擎" ; rdfs:domain :ReasoningRun ; :physicalColumn "engine" ;
+    :businessDescription "使用的 reasoner 名称，如 hermit。" .
+:runElapsedMs a owl:DatatypeProperty ; rdfs:label "耗时(ms)" ; rdfs:domain :ReasoningRun ; :physicalColumn "elapsed_ms" ;
+    :businessDescription "本次推理耗时，毫秒。" .
+:runCandidates a owl:DatatypeProperty ; rdfs:label "参与候选人数" ; rdfs:domain :ReasoningRun ; :physicalColumn "candidates" ;
+    :businessDescription "本次推理装载的候选人数（277）。" .
+:runMembers a owl:DatatypeProperty ; rdfs:label "各岗位类成员" ; rdfs:domain :ReasoningRun ; :physicalColumn "members" ;
+    :businessDescription "jsonb：类名 → 成员列表。是 candidate_match 的上游快照，用于核对两表是否一致。" .
+:runConsistent a owl:DatatypeProperty ; rdfs:label "自检一致" ; rdfs:domain :ReasoningRun ; :physicalColumn "consistent" ;
+    :businessDescription "本次运行的自检结论（与 candidate_match 是否逐行一致）。它只说『这次运行没打架』，不等于口径正确。" .

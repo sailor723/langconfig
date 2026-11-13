@@ -186,80 +186,73 @@ def _check_fit(profile: pathlib.Path, settings: dict, graph, result, ns: str, db
 
 
 def _dsn_from_profile(settings: dict, dbname_hint: str = "") -> dict:
-    """Connection parameters from the profile's own `dsn`, with ${VAR:-default} substituted.
+    """Connection parameters for this profile: its `dsn`, with ${VAR:-default} resolved honestly.
 
     A gate must not depend on someone having exported PGPASSWORD by hand: measured on talent_v1
-    (2026-11-14), the builder ran this gate inside its own sandbox, `fe_sendauth: no password supplied`
-    came back, and the publish refused with a NOT RUN gate the agent had no way to satisfy. The profile
-    already declares where its database is; that declaration is the authority, and the environment is
-    only the fallback.
+    (2026-11-14), the builder ran this gate in its own sandbox, got `fe_sendauth: no password supplied`,
+    and the publish refused on a NOT RUN gate it had no way to satisfy.
+
+    Order for every field: the profile's `${VAR}` from the live environment → the same VAR from the
+    repo's `.env` (a subprocess does not inherit the service's dotenv) → the platform's `PG*` →
+    ONLY THEN the `${VAR:-default}` default. That last step is the one that bit: the seed templates
+    carry `user: ${ONTOLOGY_DB_USER:-weiping}` for a developer machine, so a run without the env fell
+    back to `weiping` and the gate reported "password authentication failed for user weiping" against a
+    database that was perfectly healthy.
+
+    Deliberately NOT "any *_DB_PASSWORD the file defines": that picked a per-ontology password for a
+    different database and produced the same confusing failure. A credential guessing game is worse than
+    a NOT RUN that says so.
     """
     import os
     import re
 
+    env_file = pathlib.Path(__file__).resolve().parents[4] / ".env"
+    file_values: dict[str, str] = {}
+    if env_file.is_file():
+        for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
+            if "=" in line and not line.lstrip().startswith("#"):
+                key, _, value = line.partition("=")
+                file_values[key.strip()] = value.strip()
+
+    def lookup(var: str) -> str:
+        return os.environ.get(var) or file_values.get(var) or ""
+
+    #: which platform variable backs which dsn field, when the profile's own variable is unset
+    platform = {"host": ("PGHOST", "POSTGRES_HOST"), "port": ("PGPORT", "POSTGRES_PORT"),
+                "user": ("PGUSER", "POSTGRES_USER"), "password": ("PGPASSWORD", "POSTGRES_PASSWORD")}
+
     dsn = settings.get("dsn") or {}
-    out = {}
-    wanted_var = ""
+    out: dict[str, str] = {}
+    weak: dict[str, str] = {}
     for key in ("host", "port", "dbname", "user", "password", "sslmode"):
         raw = dsn.get(key)
         if raw is None:
             continue
-        text = str(raw)
-        m = re.fullmatch(r"\$\{([A-Z0-9_]+)(?::-([^}]*))?\}", text.strip())
-        if m:
-            if key == "password":
-                wanted_var = m.group(1)
-            value = os.environ.get(m.group(1), m.group(2) or "")
+        text = str(raw).strip()
+        m = re.fullmatch(r"\$\{([A-Z0-9_]+)(?::-(.*))?\}", text)
+        if not m:
+            if text:  # an empty string is "not declared", not "empty credential"
+                out[key] = text
+            continue
+        var, default = m.group(1), (m.group(2) or "")
+        from_env = lookup(var)
+        if from_env:
+            out[key] = from_env
+            continue
+        # the variable is unset here — prefer the platform's own credentials over a baked default
+        for platform_var in platform.get(key, ()):
+            value = lookup(platform_var)
+            if value:
+                out[key] = value
+                break
         else:
-            value = text
-        if value not in ("", None):
-            out[key] = value
-    # …then the repo's own `.env`, because a gate that runs inside an agent sandbox does not inherit
-    # the app's dotenv (the service loads it; a subprocess does not). Still never the first choice, and
-    # the value never printed.
-    if not out.get("password"):
-        # HERE is backend/features/ontology/gates, so parents[4] is the repo root
-        env_file = pathlib.Path(__file__).resolve().parents[4] / ".env"
-        if env_file.is_file():
-            wanted = (dbname_hint or "").upper().replace("-", "_")
-            values = {}
-            for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
-                if "=" in line and not line.lstrip().startswith("#"):
-                    k, _, v = line.partition("=")
-                    values[k.strip()] = v.strip()
-            stems = [wanted]
-            if wanted.endswith("_DB"):
-                stems.append(wanted[:-3])
-            # the variable the profile NAMES comes first: `${TALENT_V1_DB_PASSWORD}` unset in the
-            # environment is not permission to guess somebody else's password
-            candidates = ([wanted_var] if wanted_var else []) + [
-                f"{stem}{suffix}" for stem in stems
-                          for suffix in ("_DB_PASSWORD", "_PASSWORD")]
-            # POSTGRES_PASSWORD is the PLATFORM server's own credential (see tools/native_impl
-            # _pg_conn_kwargs) and most profiles point at that server; a per-ontology variable is only
-            # right when the dsn names it. Measured: a generic `<something>_DB_PASSWORD` picked first
-            # produced "password authentication failed for user langconfig".
-            # PGPASSWORD / POSTGRES_PASSWORD before ONTOLOGY_DB_PASSWORD: the latter is a legacy
-            # alias that this box still defines with a stale 8-char value, and preferring it produced
-            # "password authentication failed for user langconfig" (measured today).
-            candidates += ["PGPASSWORD", "POSTGRES_PASSWORD", "ONTOLOGY_DB_PASSWORD"]
-            # NO "any *_DB_PASSWORD" fallback: this box defines one per ontology, and picking one at
-            # random produced "password authentication failed for user langconfig" (measured today).
-            # A credential guessing game is worse than a NOT RUN that says so.
-            # the live environment wins over the file: a caller that exported a credential means it,
-            # and a test that monkeypatches one must see its own value (measured while pinning this).
-            for key in candidates:
-                if os.environ.get(key):
-                    out["password"] = os.environ[key]
-                    break
-                if values.get(key):
-                    out["password"] = values[key]
-                    break
-    # the deployment's own credentials are the last resort, never the first
-    out.setdefault("host", os.environ.get("PGHOST", "127.0.0.1"))
-    out.setdefault("port", os.environ.get("PGPORT", "5432"))
-    out.setdefault("user", os.environ.get("PGUSER", "langconfig"))
-    out.setdefault("password", os.environ.get("PGPASSWORD") or os.environ.get("POSTGRES_PASSWORD", ""))
+            if default:
+                weak[key] = default
+    out.setdefault("host", lookup("PGHOST") or lookup("POSTGRES_HOST") or "127.0.0.1")
+    out.setdefault("port", lookup("PGPORT") or lookup("POSTGRES_PORT") or "5432")
+    out.setdefault("user", lookup("PGUSER") or lookup("POSTGRES_USER") or "langconfig")
+    out.setdefault("password", lookup("PGPASSWORD") or lookup("POSTGRES_PASSWORD") or "")
+    out.update(weak)  # declared defaults only fill what nothing else could
     return out
 
 

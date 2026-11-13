@@ -1,0 +1,334 @@
+{
+ "reasoner": "hermit",
+ "inferred": [
+  {
+   "class": "matches_品质经理",
+   "members": [
+    "cand_专案工程师_东莞_12_16K_何___5年",
+    "cand_专案工程师_东莞_12_16K_孙___10年以上",
+    "cand_业务助理_东莞_7_9K_郑___3年",
+    "cand_业务跟单_东莞_6_10K_J___10年",
+    "cand_业务跟单_东莞_6_10K_Jessie郭___10年"
+   ],
+   "why": "second route: skills ['ISO/TS16949', '英语'] + years >= 3 + education rank >= 3 gives 23 of 277 candidates"
+  },
+  {
+   "class": "matches_业务跟单",
+   "members": [
+    "cand_业务助理_东莞_7_9K_郑___3年",
+    "cand_业务跟单_东莞_6_10K_J___10年",
+    "cand_业务跟单_东莞_6_10K_Jessie郭___10年",
+    "cand_业务跟单_东莞_6_10K_刘___3年",
+    "cand_业务跟单_东莞_6_10K_和___10年以上"
+   ],
+   "why": "second route: skills ['Excel', '行政', '跟单'] + years >= 2 + education rank >= 2 gives 57 of 277 candidates"
+  },
+  {
+   "class": "matches_副总助理",
+   "members": [
+    "cand_业务助理_东莞_7_9K_郑___3年",
+    "cand_业务跟单_东莞_6_10K_最近只线上_2年",
+    "cand_业务跟单_东莞_6_10K_江___3年",
+    "cand_业务跟单_东莞_6_10K_王___10年以上",
+    "cand_业务跟单_东莞_6_10K_钟___2年"
+   ],
+   "why": "second route: skills ['Excel', 'Illustrator', 'PowerPoint', 'Word', '薪酬绩效'] + years >= 2 + education rank >= 3 gives 37 of 277 candidates"
+  },
+  {
+   "class": "matches_业务助理",
+   "members": [
+    "cand_专案工程师_东莞_12_16K_张___5年",
+    "cand_业务跟单_东莞_6_10K_J___10年",
+    "cand_业务跟单_东莞_6_10K_Jessie郭___10年",
+    "cand_业务跟单_东莞_6_10K_L___10年以上",
+    "cand_业务跟单_东莞_6_10K_Lily_10年以上"
+   ],
+   "why": "second route: skills ['外贸业务'] + years >= 2 + education rank >= 2 gives 21 of 277 candidates"
+  },
+  {
+   "class": "matches_专案工程师",
+   "members": [
+    "cand_专案工程师_东莞_10_15K_黄___7年",
+    "cand_专案工程师_东莞_12_16K_l___10年以上",
+    "cand_专案工程师_东莞_12_16K_lizw_10年以上",
+    "cand_专案工程师_东莞_12_16K_何___5年",
+    "cand_专案工程师_东莞_12_16K_刘___10年以上"
+   ],
+   "why": "second route: skills ['AutoCAD'] + years >= 3 gives 24 of 277 candidates"
+  },
+  {
+   "class": "matches_招聘专员",
+   "members": [
+    "cand_业务助理_东莞_7_9K_郑___3年",
+    "cand_业务跟单_东莞_6_10K_吴___1年",
+    "cand_业务跟单_东莞_6_10K_和___10年以上",
+    "cand_业务跟单_东莞_6_10K_杨___8年",
+    "cand_业务跟单_东莞_6_10K_王___10年以上"
+   ],
+   "why": "second route: skills ['招聘', '薪酬绩效', '行政'] + years >= 1 + education rank >= 2 gives 37 of 277 candidates"
+  },
+  {
+   "class": "matches_管理课长",
+   "members": [
+    "cand_业务跟单_东莞_6_10K_王___10年以上",
+    "cand_业务跟单_东莞_6_10K_陈___9年",
+    "cand_业务跟单_东莞_6_8K_蒙___10年以上",
+    "cand_人事经理_东莞_12_17K_张___10年以上",
+    "cand_人事经理_东莞_12_17K_钟___10年以上"
+   ],
+   "why": "second route: skills ['招聘', '薪酬绩效', '行政'] + years >= 5 + education rank >= 3 gives 22 of 277 candidates"
+  }
+ ],
+ "excluded": [
+  {
+   "class": "matches_品质经理",
+   "individuals": [
+    "cand_人资专员_东莞_5_6K_何___5年",
+    "cand_人资专员_东莞_5_6K_黄___6年",
+    "cand_人资专员_东莞_5_6K_黄___6年_1"
+   ],
+   "why": "the second route says these miss a skill, a year or the floor"
+  },
+  {
+   "class": "matches_业务跟单",
+   "individuals": [
+    "cand_人资专员_东莞_5_6K_何___5年",
+    "cand_副总助理_东莞_10_15K_任___10年以上",
+    "cand_副总助理_东莞_8_12K_雷___10年以上"
+   ],
+   "why": "the second route says these miss a skill, a year or the floor"
+  },
+  {
+   "class": "matches_副总助理",
+   "individuals": [
+    "cand_人资专员_东莞_5_6K_何___5年",
+    "cand_副总助理_东莞_10_15K_任___10年以上",
+    "cand_副总助理_东莞_8_12K_雷___10年以上"
+   ],
+   "why": "the second route says these miss a skill, a year or the floor"
+  },
+  {
+   "class": "matches_业务助理",
+   "individuals": [
+    "cand_人资专员_东莞_5_6K_何___5年",
+    "cand_人资专员_东莞_5_6K_黄___6年",
+    "cand_人资专员_东莞_5_6K_黄___6年_1"
+   ],
+   "why": "the second route says these miss a skill, a year or the floor"
+  },
+  {
+   "class": "matches_专案工程师",
+   "individuals": [
+    "cand_人资专员_东莞_5_6K_何___5年",
+    "cand_人资专员_东莞_5_6K_黄___6年",
+    "cand_人资专员_东莞_5_6K_黄___6年_1"
+   ],
+   "why": "the second route says these miss a skill, a year or the floor"
+  },
+  {
+   "class": "matches_招聘专员",
+   "individuals": [
+    "cand_人资专员_东莞_5_6K_何___5年",
+    "cand_副总助理_东莞_10_15K_任___10年以上",
+    "cand_副总助理_东莞_10_15K_黄___8年"
+   ],
+   "why": "the second route says these miss a skill, a year or the floor"
+  },
+  {
+   "class": "matches_管理课长",
+   "individuals": [
+    "cand_人资专员_东莞_5_6K_何___5年",
+    "cand_副总助理_东莞_10_15K_任___10年以上",
+    "cand_副总助理_东莞_10_15K_黄___8年"
+   ],
+   "why": "the second route says these miss a skill, a year or the floor"
+  }
+ ],
+ "falsify": [
+  {
+   "label": "drop the definition of matches_品质经理",
+   "drop": {
+    "subject": "matches_品质经理",
+    "predicate": "equivalentClass"
+   },
+   "class": "matches_品质经理",
+   "then_excluded": [
+    "cand_专案工程师_东莞_12_16K_何___5年",
+    "cand_专案工程师_东莞_12_16K_孙___10年以上"
+   ]
+  },
+  {
+   "label": "drop 【专案工程师_东莞 12-16K】何__ 5年's skill assertions",
+   "drop": {
+    "subject": "cand_专案工程师_东莞_12_16K_何___5年",
+    "predicate": "hasSkill"
+   },
+   "class": "matches_品质经理",
+   "then_excluded": [
+    "cand_专案工程师_东莞_12_16K_何___5年"
+   ]
+  },
+  {
+   "label": "drop the definition of matches_业务跟单",
+   "drop": {
+    "subject": "matches_业务跟单",
+    "predicate": "equivalentClass"
+   },
+   "class": "matches_业务跟单",
+   "then_excluded": [
+    "cand_业务助理_东莞_7_9K_郑___3年",
+    "cand_业务跟单_东莞_6_10K_J___10年"
+   ]
+  },
+  {
+   "label": "drop 【业务助理_东莞 7-9K】郑__ 3年's skill assertions",
+   "drop": {
+    "subject": "cand_业务助理_东莞_7_9K_郑___3年",
+    "predicate": "hasSkill"
+   },
+   "class": "matches_业务跟单",
+   "then_excluded": [
+    "cand_业务助理_东莞_7_9K_郑___3年"
+   ]
+  },
+  {
+   "label": "drop the definition of matches_副总助理",
+   "drop": {
+    "subject": "matches_副总助理",
+    "predicate": "equivalentClass"
+   },
+   "class": "matches_副总助理",
+   "then_excluded": [
+    "cand_业务助理_东莞_7_9K_郑___3年",
+    "cand_业务跟单_东莞_6_10K_最近只线上_2年"
+   ]
+  },
+  {
+   "label": "drop 【业务助理_东莞 7-9K】郑__ 3年's skill assertions",
+   "drop": {
+    "subject": "cand_业务助理_东莞_7_9K_郑___3年",
+    "predicate": "hasSkill"
+   },
+   "class": "matches_副总助理",
+   "then_excluded": [
+    "cand_业务助理_东莞_7_9K_郑___3年"
+   ]
+  },
+  {
+   "label": "drop the definition of matches_业务助理",
+   "drop": {
+    "subject": "matches_业务助理",
+    "predicate": "equivalentClass"
+   },
+   "class": "matches_业务助理",
+   "then_excluded": [
+    "cand_专案工程师_东莞_12_16K_张___5年",
+    "cand_业务跟单_东莞_6_10K_J___10年"
+   ]
+  },
+  {
+   "label": "drop 【专案工程师_东莞 12-16K】张__ 5年's skill assertions",
+   "drop": {
+    "subject": "cand_专案工程师_东莞_12_16K_张___5年",
+    "predicate": "hasSkill"
+   },
+   "class": "matches_业务助理",
+   "then_excluded": [
+    "cand_专案工程师_东莞_12_16K_张___5年"
+   ]
+  },
+  {
+   "label": "drop the definition of matches_专案工程师",
+   "drop": {
+    "subject": "matches_专案工程师",
+    "predicate": "equivalentClass"
+   },
+   "class": "matches_专案工程师",
+   "then_excluded": [
+    "cand_专案工程师_东莞_10_15K_黄___7年",
+    "cand_专案工程师_东莞_12_16K_l___10年以上"
+   ]
+  },
+  {
+   "label": "drop 【专案工程师_东莞 10-15K】黄__ 7年's skill assertions",
+   "drop": {
+    "subject": "cand_专案工程师_东莞_10_15K_黄___7年",
+    "predicate": "hasSkill"
+   },
+   "class": "matches_专案工程师",
+   "then_excluded": [
+    "cand_专案工程师_东莞_10_15K_黄___7年"
+   ]
+  },
+  {
+   "label": "drop the definition of matches_招聘专员",
+   "drop": {
+    "subject": "matches_招聘专员",
+    "predicate": "equivalentClass"
+   },
+   "class": "matches_招聘专员",
+   "then_excluded": [
+    "cand_业务助理_东莞_7_9K_郑___3年",
+    "cand_业务跟单_东莞_6_10K_吴___1年"
+   ]
+  },
+  {
+   "label": "drop 【业务助理_东莞 7-9K】郑__ 3年's skill assertions",
+   "drop": {
+    "subject": "cand_业务助理_东莞_7_9K_郑___3年",
+    "predicate": "hasSkill"
+   },
+   "class": "matches_招聘专员",
+   "then_excluded": [
+    "cand_业务助理_东莞_7_9K_郑___3年"
+   ]
+  },
+  {
+   "label": "drop the definition of matches_管理课长",
+   "drop": {
+    "subject": "matches_管理课长",
+    "predicate": "equivalentClass"
+   },
+   "class": "matches_管理课长",
+   "then_excluded": [
+    "cand_业务跟单_东莞_6_10K_王___10年以上",
+    "cand_业务跟单_东莞_6_10K_陈___9年"
+   ]
+  },
+  {
+   "label": "drop 【业务跟单_东莞 6-10K】王__ 10年以上's skill assertions",
+   "drop": {
+    "subject": "cand_业务跟单_东莞_6_10K_王___10年以上",
+    "predicate": "hasSkill"
+   },
+   "class": "matches_管理课长",
+   "then_excluded": [
+    "cand_业务跟单_东莞_6_10K_王___10年以上"
+   ]
+  }
+ ],
+ "consistency": {
+  "must_be_consistent": true
+ },
+ "coverage": {
+  "source_files": 277,
+  "loaded_individuals": 277,
+  "required_props": [
+   {
+    "class": "Candidate",
+    "prop": "appliedFor"
+   },
+   {
+    "class": "Candidate",
+    "prop": "hasSkill",
+    "unless_marked": "UnknownSkills"
+   }
+  ]
+ },
+ "pii": {
+  "patterns": [
+   "\\b1[3-9]\\d{9}\\b",
+   "[\\w.+-]+@[\\w-]+\\.[\\w.]+"
+  ]
+ }
+}

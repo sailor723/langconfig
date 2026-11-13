@@ -1,0 +1,78 @@
+{
+ "_doc": "教程声明（T1–T4）：每一步的 items 只能点名已声明的指标 / 定义类 / 对象；正文不打字面数字（数字由编译出的 SQL 现算）；必须有一步专门教“按名拒绝”。",
+ "version": 1,
+ "ontology": "talent_v1",
+ "title": "从一个数字走回它的口径",
+ "intro": "这份数据是一批简历和一批职务说明书算出来的招聘季快照。教程的每一步都指向一条已声明的口径；当你点“运行”，数字由编译出的 SQL 现算，而不是写在正文里。",
+ "steps": [
+  {
+   "kind": "metrics",
+   "title": "一个岗位有多少人过线",
+   "body": "过线人数数的是被蕴含为这个岗位定义类成员的候选人行。它不读合成分、不读名次——合成分只决定先看谁。所以这个数是下界：没读到年限或学历的人不会被判合乎，也就不会出现在这里。",
+   "items": [
+    "matchCountByRole"
+   ]
+  },
+  {
+   "kind": "metrics",
+   "title": "一个人可能同时过线几个岗位",
+   "body": "这个数数的是『按人合并后的卡片』里过线岗位达到两个以上的人。基数约束（having count >= 2）不靠聚合词表硬凑，而是落在物化视图 v_cross_role_candidate 上：视图一行一个人，指标只对它计数。它与各岗位过线人数不可相加——同一个人会被数进多个岗位。",
+   "items": [
+    "crossRoleCandidateCount"
+   ]
+  },
+  {
+   "kind": "metrics",
+   "title": "推荐名单有几个名额",
+   "body": "名额是岗位内名次落在名单长度内的行数。它与过线人数不是同一个数：过线是资格，名额是名单容量，两者相差多少就是这个岗位的候选人富余度。",
+   "items": [
+    "recommendedCountByRole"
+   ]
+  },
+  {
+   "kind": "metrics",
+   "title": "名单的分数线",
+   "body": "分数线取的是名单内最低的合成分。用它跨岗位比较时要记住：合成分是排序分，不是门槛；比较分数线等于比较不同岗位的评分分布。",
+   "items": [
+    "top10CutoffScoreByRole"
+   ]
+  },
+  {
+   "kind": "metrics",
+   "title": "最高分与平均分",
+   "body": "最高分告诉你天花板，平均分告诉你过线这批人的整体位置。两者都由合成分一列聚合而来，不掺任何缺失填补。",
+   "items": [
+    "maxFitScoreByRole",
+    "avgFitScoreByRole"
+   ]
+  },
+  {
+   "kind": "metrics",
+   "title": "三个没读到",
+   "body": "年限、学历、技能三项各有一个未读到标记。未读到既不是零也不是低值：这些人不会通过带相应门槛的岗位判定，所以任何合格率在这里都只能是下界。禁止的写法是把缺失 coalesce 成零——那会把这批人改写成零经验。",
+   "items": [
+    "candidatesMissingYears",
+    "candidatesMissingEducation",
+    "candidatesMissingSkills"
+   ]
+  },
+  {
+   "kind": "metrics",
+   "title": "没人会的要求技能",
+   "body": "每条岗位要求技能都有一个全库会它的人数。这个指标数的是其中为零的条数——零是测量结果，说的是这批候选人里没有人会它，而不是我们没读到技能信息。",
+   "items": [
+    "skillGapCount"
+   ]
+  },
+  {
+   "kind": "refusals",
+   "title": "按名被拒绝的问题",
+   "body": "有些问题这个本体答不了，而它会说出缺哪条声明，而不是给一个看起来对的数。例一：把某个岗位推荐名单前 10 名的**人名与匹配技能列出来**——计算词表只有 aggregate/grain/universe/where/groupBy，没有 orderBy/limit，有序取行不是一个数，缺的是取行词表。例二：某个岗位要什么技能——提交申请的人不少，但职务说明书里没有这一行，定义类无法判真，于是按岗位名拒绝。这两条都不是没想好，是声明边界。",
+   "items": [
+    "Candidate",
+    "CandidateRoleFit",
+    "Role"
+   ]
+  }
+ ]
+}

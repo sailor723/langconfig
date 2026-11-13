@@ -112,3 +112,31 @@ def test_the_sync_gate_finds_its_own_credentials(monkeypatch, tmp_path):
     monkeypatch.delenv("TALENT_V1_DB_PASSWORD", raising=False)
     got = module._dsn_from_profile(settings, "talent_db")
     assert got["password"] in ("from-pgpassword", "from-postgres"), got
+
+
+def test_a_baked_default_never_beats_the_platform_credentials(monkeypatch):
+    """The seed templates carry `user: ${ONTOLOGY_DB_USER:-weiping}` from a developer machine.
+
+    Measured on the deployment: a run whose environment lacked ONTOLOGY_DB_USER fell back to `weiping`
+    and the gate reported "password authentication failed for user weiping" against a healthy database.
+    A `${VAR:-default}` default is the WEAKEST source, not the first.
+    """
+    import importlib.util
+
+    gate_path = REPO / "backend" / "features" / "ontology" / "gates" / "check_abox_sync.py"
+    spec = importlib.util.spec_from_file_location("_sync_gate_defaults", gate_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+
+    for var in ("ONTOLOGY_DB_USER", "ONTOLOGY_DB_HOST", "PGUSER", "POSTGRES_USER",
+                "PGHOST", "POSTGRES_HOST"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("PGUSER", "langconfig")
+    monkeypatch.setenv("PGHOST", "127.0.0.1")
+    settings = {"dsn": {"host": "${ONTOLOGY_DB_HOST:-127.0.0.1}",
+                        "user": "${ONTOLOGY_DB_USER:-weiping}",
+                        "dbname": "talent_db", "password": ""}}
+    got = module._dsn_from_profile(settings, "talent_db")
+    assert got["user"] == "langconfig", got
+    assert "password" in got and got["password"] != "", "an empty dsn password must not shadow the env"

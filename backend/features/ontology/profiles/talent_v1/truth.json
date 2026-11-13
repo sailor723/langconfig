@@ -1,0 +1,54 @@
+{
+ "_note": "第二条路线：由手写 SQL 产出（db_query 记录在 evidence/truth_route.md），不经过编译器。分组指标按 group key -> 数值。skillGapCount / crossRoleCandidateCount / auditRunCount 三条的路线见 metrics_ext.ttl 的 businessDescription。",
+ "candidatesMissingYears": 131,
+ "candidatesMissingEducation": 70,
+ "candidatesMissingSkills": 18,
+ "matchCountByRole": {
+  "matches_业务跟单": 54,
+  "matches_副总助理": 34,
+  "matches_招聘专员": 34,
+  "matches_专案工程师": 24,
+  "matches_品质经理": 22,
+  "matches_管理课长": 20,
+  "matches_业务助理": 19
+ },
+ "recommendedCountByRole": {
+  "matches_业务跟单": 10,
+  "matches_副总助理": 10,
+  "matches_招聘专员": 10,
+  "matches_专案工程师": 10,
+  "matches_品质经理": 10,
+  "matches_管理课长": 10,
+  "matches_业务助理": 10
+ },
+ "maxFitScoreByRole": {
+  "matches_业务跟单": 100.0,
+  "matches_副总助理": 100.0,
+  "matches_招聘专员": 100.0,
+  "matches_专案工程师": 100.0,
+  "matches_品质经理": 70.0,
+  "matches_管理课长": 100.0,
+  "matches_业务助理": 100.0
+ },
+ "avgFitScoreByRole": {
+  "matches_业务跟单": 68.8889,
+  "matches_副总助理": 61.6176,
+  "matches_招聘专员": 80.0,
+  "matches_专案工程师": 100.0,
+  "matches_品质经理": 70.0,
+  "matches_管理课长": 82.0,
+  "matches_业务助理": 100.0
+ },
+ "top10CutoffScoreByRole": {
+  "matches_业务跟单": 80.0,
+  "matches_副总助理": 70.0,
+  "matches_招聘专员": 80.0,
+  "matches_专案工程师": 100.0,
+  "matches_品质经理": 70.0,
+  "matches_管理课长": 80.0,
+  "matches_业务助理": 100.0
+ },
+ "skillGapCount": 0,
+ "crossRoleCandidateCount": 54,
+ "auditRunCount": 1
+}

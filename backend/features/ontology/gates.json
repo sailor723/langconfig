@@ -132,5 +132,17 @@
       "check_dashboard"
     ],
     "installed": "1794595288-86e591 首装 @ 2026-11-14 02:44 CST / git 85cb4a2（55/55 编译）；1794596173-d048d8 补看板 @ 2026-11-14 03:02 CST / git b6bc75a：66/66 编译、0 按名拒绝，panel 从 9 补到 39、policy 从 0 补到 3（毛利全年 17.5 / 低毛利占比 25 / 核心客户流失 2），新增 11 个指标（季度营收、产品档毛利率与收入/毛利额、产能利用率族、2026 标量口径）。check_structure 157/0 failed、check_ontology_generic R 与 C 全 PASS、check_samples ALL SAMPLES PASS、check_dashboard 288/0 failed（D3/D5 的独立 SQL 身份断言 NOT RUN，判的是 logistics 的指标名）。"
+  },
+  "talent_v1": {
+    "why": "talent_v1：招聘匹配与推荐（277 份扫描简历 × 10 份职务说明书）。个体（候选人）不在任何表里，「谁适合这个岗位」哪里都没存——TBox 是推理机（OWL 2 DL / HermiT），ABox 是数据，蕴含出来的匹配物化成 talent_db 的 8 张表 + 5 个视图供指标与面板读取。所以除四道 SQL 族门禁，还必须有 check_abox（A1–A7，含反证）与 check_abox_sync（表与推荐行必须等于重新推理的结果，逐行逐分）。",
+    "installed": "1794613145-508c47 @ 2026-11-14 07:44 CST / git 1fbed3a：11 指标编译、0 按名拒绝；13 类（8 表 + 5 视图）、7 个岗位定义类；ABox 277 个体（OCR 277/277，7 对重复件 owl:sameAs，未读到字段记 :missingData）；推理 221 条蕴含、207 行有序推荐（技能 60 / 年限 25 / 学历 15，同分按年限再按 id）；check_structure 114/0 failed、check_ontology_generic R GATES PASS（R2 NOT RUN：truth.json 无 _definitions）、check_samples ALL SAMPLES PASS、check_dashboard 40/0 failed、check_abox 59/0 failed、check_abox_sync 14/0 failed。拒绝按名：4 个无 JD 岗位（行政专员 28 / 技术经理主管 14 / 设计工程师 10 / 实验室技术员 2）与 3 个 JD 未写年限的岗位（人资专员 / 关务报关员 / 工程文员）。数据缺口照实报：年限未读到 129/277（46.6%）、学历 71（25.6%）、技能 18（6.5%）。",
+    "profile": [
+      "check_structure",
+      "check_ontology_generic",
+      "check_samples",
+      "check_dashboard",
+      "check_abox",
+      "check_abox_sync"
+    ]
   }
 }

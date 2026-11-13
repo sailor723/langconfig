@@ -1,0 +1,86 @@
+{
+  "ontology_key": "talent_v1",
+  "datasource": "talent_db",
+  "note": "S1′ / S2′ / S1 only. Every number below is from a query or a gate run; nothing is hand-waved.",
+  "steps": [
+    {
+      "step": "S1′ 装载 ABox（客户产出原样装入，不造个体）",
+      "artifacts": ["abox.ttl", "reasoning.ttl", "reasoning.json", "talent_v1_settings.json"],
+      "origins": "客户提供的 277 份简历 → ABox 个体 277 个（277 个源文件一一对应）；reasoning.ttl 是 7 个岗位定义类；reasoning.json 是推理契约（inferred / excluded / falsify）。seed 原样复制，一个三元组都没改。",
+      "gate": {"cmd": "check_abox.py --profile work/talent_v1/talent_v1_settings.json", "result": "59 checks · 0 failed · green", "evidence": "evidence/check_abox.txt"},
+      "facts_verified_by_second_route": {
+        "individuals": 277,
+        "source_files": 277,
+        "reasoner": "hermit",
+        "falsification_checks": "14 组：去掉定义/去掉技能断言后蕴含必须消失，全部 PASS"
+      }
+    },
+    {
+      "step": "S2′ 岗位收口：12 个 candidate.role 取值 → 7 个可判定 + 5 个按名拒绝/空洞",
+      "counting_route_1": "select role, count(*) from candidate group by role → 12 行，合计 277",
+      "counting_route_2": "select count(*) from candidate c where not exists (select 1 from role r where r.role=c.role) → 54（=28+14+10+2，四个无 JD 岗位）",
+      "judgeable": {
+        "matches_品质经理": 23, "matches_业务跟单": 57, "matches_副总助理": 37,
+        "matches_业务助理": 21, "matches_专案工程师": 24, "matches_招聘专员": 37, "matches_管理课长": 22
+      },
+      "second_route_check": "对 7 个定义类各写一条独立 SQL（技能族 ∈ union ∧ years>=门槛 ∧ 学历>=门槛，专案工程师不含学历），与 candidate_match 做双向 EXCEPT：7/7 类 only_def=0 且 only_tbl=0。candidate_match ≡ candidate_role_fit（双向 EXCEPT 0 行）。",
+      "refusals_in_profile": [
+        {"name": "行政专员", "candidates": 28, "missing": ["job_description"], "judge": "全缺，不判定"},
+        {"name": "技术经理主管", "candidates": 14, "missing": ["job_description"], "judge": "全缺，不判定"},
+        {"name": "设计工程师", "candidates": 10, "missing": ["job_description"], "judge": "全缺，不判定"},
+        {"name": "实验室技术员", "candidates": 2, "missing": ["job_description"], "judge": "全缺，不判定"},
+        {"name": "人资专员", "candidates": 7, "missing": ["min_years"], "judge": "技能+学历可判，年限不可判 → 不定义类"},
+        {"name": "关务报关员", "candidates": 0, "missing": ["min_years", "education_floor"], "judge": "不可判且分母为 0（报 0 会被误读成没人够格）"},
+        {"name": "工程文员", "candidates": 12, "missing": ["min_years"], "judge": "技能+学历可判，年限不可判 → 不定义类"}
+      ],
+      "declared_hole": {"name": "专案工程师", "facet": "education_floor", "candidates": 59,
+        "why": "JD 未写学历下限 → role.required_education_rank 为 NULL、not_stated='education_floor'，matches_专案工程师 不含学历 restriction。只按 AutoCAD ∧ 年限>=3 判定 = 24/277。"},
+      "correction_made": {
+        "file": "reasoning.json",
+        "what": "两处『第二条路线(gives N of 277)』的散文数字与库里的结论不一致，改成实测值；成员列表一个都没动。",
+        "changes": [
+          {"class": "matches_副总助理", "was": 35, "now": 37},
+          {"class": "matches_专案工程师", "was": 22, "now": 24}
+        ],
+        "reproduced_by": "对 专案工程师 试过 education>=2 得 18、对 副总助理 试过 education>=4 得 18，都复现不出旧值；旧值不是『另一个门槛』，只是过期散文。",
+        "gate_after_change": "check_abox 59/0 仍绿"
+      }
+    },
+    {
+      "step": "S1 结构层：8 张表 / 43 列全部映射到 ontology/01-structure.ttl",
+      "artifacts": ["ontology/01-structure.ttl"],
+      "classes": {
+        "Candidate": {"table": "candidate", "pk": "id", "rows": 277, "props": 12},
+        "Role": {"table": "role", "pk": "role", "rows": 10, "props": 4},
+        "SkillTag": {"table": "skill", "pk": "skill", "rows": 28, "props": 2},
+        "CandidateSkill": {"table": "candidate_skill", "pk": "candidate, skill", "rows": 1000, "props": 2},
+        "RoleSkill": {"table": "role_required_skill", "pk": "role, skill", "rows": 28, "props": 2},
+        "CandidateMatch": {"table": "candidate_match", "pk": "candidate, role_class", "rows": 221, "props": 3},
+        "CandidateRoleFit": {"table": "candidate_role_fit", "pk": "candidate, role_class", "rows": 221, "props": 12},
+        "ReasoningRun": {"table": "reasoning_run", "pk": "run_at", "rows": 1, "props": 6}
+      },
+      "row_counts_route": "pg_stat_user_tables 的 n_live_tup 只是估算 → 全部用 count(*) 复核：277/10/28/1000/28/221/221/1，与 TTL 里 :rowCount 一致。",
+      "modelling_decisions": [
+        "属性名复用 TBox 已有的 IRI（:appliedFor / :yearsExperience / :educationRank / :requiredYears / :notStated / :SkillTag），不为同一列造第二个名字。",
+        "candidate.role → :appliedFor → :Role：库上**没有**外键约束，54/277 行指向 role 表不存在的岗位（四个无 JD 岗位）。已在 :businessDescription 写明，并把四个岗位写进拒绝清单，而不是让下游 join 静默丢掉这 54 人。",
+        "candidate_match.role_class / candidate_role_fit.role_class 存的是 OWL 类名（matches_xxx），不是表键 → 建为 DatatypeProperty，并说明它指类不指行。",
+        "候选技能/岗位要求是关联表，粒度是『那条断言』→ 各自建类，不硬挂成单值属性。",
+        "reasoning_run 表没有主键约束 → 用 run_at 当键并把这个事实写进 :businessDescription（已验 count(*) = count(distinct run_at) = 1），没有假称库上有约束。",
+        "jsonb 列（reasoning_run.members）与布尔标记列（missing_*）都作为 DatatypeProperty 保留，不丢列。"
+      ],
+      "gate": {"cmd": "check_structure.py --profile work/talent_v1/talent_v1_settings.json", "result": "75 checks · 0 failed · green", "evidence": "evidence/check_structure.txt",
+        "highlights": "无遗漏列、无孤儿属性、无一对多域、无重复属性名、每个类至少一条属性、库里每张业务表都被建模"}
+    }
+  ],
+  "not_yet_done": [
+    "02-meaning.ttl（每条属性的业务含义/粒度/口径）— S3",
+    "metrics_ext.ttl + 指标编译 — S3/S4",
+    "samples.json / tutorial.json / dashboard.json — S5/S6",
+    "gates.json 里为 talent_v1 新增声明（运维）— S7"
+  ],
+  "open_questions_for_the_human": [
+    "『最近 30 天』在这份数据里无意义：只有 reasoning_run.run_at 一个时间点，简历与 JD 都没有时间戳 → 任何时间窗指标一律拒绝。",
+    "matches_* 的判定是『命中任一族技能』(union)，不是『命中全部 JD 技能』；role_required_skill 的 28 行只用于计 matched/required 两个数。这是客户 JD 的写法，确认口径无误？",
+    "fit_score 的权重（技能率/年限余量/学历）是客户产出里的排序分，不是门槛；要不要进指标清单请你定。"
+  ]
+}

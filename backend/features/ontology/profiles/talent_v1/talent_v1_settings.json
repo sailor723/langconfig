@@ -1,0 +1,171 @@
+{
+ "title": "talent_v1 · 277 份简历 × 10 份职务说明书的岗位匹配与推荐",
+ "ns": "https://cube.local/ontology/talent_v1#",
+ "ontology_dir": "ontology",
+ "abox": "abox.ttl",
+ "reasoning": "reasoning.ttl",
+ "reasoning_spec": "reasoning.json",
+ "dsn": {
+  "host": "${ONTOLOGY_DB_HOST:-127.0.0.1}",
+  "port": "${ONTOLOGY_DB_PORT:-5432}",
+  "dbname": "talent_db",
+  "user": "${ONTOLOGY_DB_USER:-weiping}",
+  "password": "${ONTOLOGY_DB_PASSWORD}"
+ },
+ "refusals": [
+  {
+   "name": "行政专员",
+   "kind": "missing_source",
+   "candidates": 28,
+   "missing": [
+    "job_description"
+   ],
+   "why": "简历里 28 人的求职岗位是行政专员，但 10 份职务说明书里没有这一份；技能/年限/学历三条要求都没有来源，role 表里也没有这一行。",
+   "cannot_judge": "技能门槛、年限门槛、学历门槛（全缺）",
+   "action": "拒绝：**不做**候选人的岗位匹配判定。补齐职务说明书后才能声明为定义类。"
+  },
+  {
+   "name": "技术经理主管",
+   "kind": "missing_source",
+   "candidates": 14,
+   "missing": [
+    "job_description"
+   ],
+   "why": "简历里 14 人的求职岗位是技术经理主管，无对应职务说明书；role 表无此行。",
+   "cannot_judge": "技能门槛、年限门槛、学历门槛（全缺）",
+   "action": "拒绝：**不做**匹配判定；补齐 JD 后再声明。"
+  },
+  {
+   "name": "设计工程师",
+   "kind": "missing_source",
+   "candidates": 10,
+   "missing": [
+    "job_description"
+   ],
+   "why": "简历里 10 人的求职岗位是设计工程师，无对应职务说明书；role 表无此行。",
+   "cannot_judge": "技能门槛、年限门槛、学历门槛（全缺）",
+   "action": "拒绝：**不做**匹配判定；补齐 JD 后再声明。"
+  },
+  {
+   "name": "实验室技术员",
+   "kind": "missing_source",
+   "candidates": 2,
+   "missing": [
+    "job_description"
+   ],
+   "why": "简历里 2 人的求职岗位是实验室技术员，无对应职务说明书；role 表无此行。",
+   "cannot_judge": "技能门槛、年限门槛、学历门槛（全缺）",
+   "action": "拒绝：**不做**匹配判定；补齐 JD 后再声明。"
+  },
+  {
+   "name": "人资专员",
+   "kind": "missing_requirement",
+   "candidates": 7,
+   "missing": [
+    "min_years"
+   ],
+   "why": "JD 写明了技能（劳动法/薪酬绩效/行政/财务）与学历下限（中专/高中，rank 2），但**没写年限**；role.required_years 为 NULL，role.not_stated='min_years'。7 人里 4 人的年限本身也没读到（missing_years）。",
+   "cannot_judge": "年限门槛（技能与学历可判）",
+   "action": "拒绝：不定义 matches_人资专员。**不**用『0 年』或『任意年限』补足——那等于放宽一条没人声明过的要求。"
+  },
+  {
+   "name": "关务报关员",
+   "kind": "missing_requirement",
+   "candidates": 0,
+   "missing": [
+    "min_years",
+    "education_floor"
+   ],
+   "why": "JD 只有技能『报关』，年限与学历下限均未写（role.required_years/required_education_rank 皆 NULL，not_stated='education_floor,min_years'）；且 277 份简历中没有一个人的求职岗位是关务报关员。",
+   "cannot_judge": "年限门槛、学历门槛；同时分母为 0（无人投该岗）",
+   "action": "拒绝：不定义、不报匹配人数（报 0 会被读成『没人够格』，而真相是『没人投』）。"
+  },
+  {
+   "name": "工程文员",
+   "kind": "missing_requirement",
+   "candidates": 12,
+   "missing": [
+    "min_years"
+   ],
+   "why": "JD 写明了技能（Excel/Word/行政/财务/跟单）与学历下限（中专/高中，rank 2），但没写年限；role.required_years 为 NULL。12 人里 8 人年限未读到。",
+   "cannot_judge": "年限门槛（技能与学历可判）",
+   "action": "拒绝：不定义 matches_工程文员；不造年限门槛。"
+  },
+  {
+   "name": "fitListByRole（岗位推荐名单本身）",
+   "kind": "missing_compute_vocabulary",
+   "missing": [
+    "orderBy",
+    "limit"
+   ],
+   "why": "『按 rank_in_role 取前 N 行、列出候选人/分数/技能』是一次带排序的取行，不是聚合：计算词表只有 :aggregate/:grain/:universe/:where/:groupBy，没有 :orderBy/:limit/:topN。所以它不作为指标声明（声明了也永远编不出来），缺口写在这里与 tutorial 的拒绝一步。",
+   "cannot_judge": "名单里是谁、第几名是谁",
+   "action": "拒绝：不出名单。能给的近似是两个已编译指标——:recommendedCountByRole（名单多长）与 :top10CutoffScoreByRole（分数线）；名单里的人名由 candidate_role_fit.rank_in_role 直接取行，不经指标层。"
+  }
+ ],
+ "declared_holes": [
+  {
+   "name": "专案工程师",
+   "facet": "education_floor",
+   "candidates": 59,
+   "why": "JD 未写学历下限。已声明为空洞而不是门槛：role.required_education_rank 为 NULL、role.not_stated='education_floor'，且 matches_专案工程师 的定义**不含**学历 restriction（reasoning.ttl 第 110 行注释 NOT STATED）。",
+   "becomes": "该岗位只按 技能(AutoCAD) ∧ 年限>=3 判定，24/277 命中（含 2 份重复简历；去重后 22，与推荐清单的 24 行一致）；任何关于『专案工程师要什么学历』的提问按名拒绝。"
+  },
+  {
+   "name": "全库 missing_* 标记",
+   "facet": "years_experience / education_rank / skills",
+   "candidates": 277,
+   "why": "没读到的字段记 NULL + missing_years/missing_education/missing_skills 布尔，ABox 里打 :UnknownYears/:UnknownEducation/:UnknownSkills 记号。未读到 ≠ 0：这些人不被任何定义类蕴含（不是被判定为不合格）。",
+   "becomes": "匹配人数是『已证明合格的人数』的下界；按岗位的未知人数在 steps.json 里逐岗位列出。"
+  }
+ ],
+ "notes": [
+  "10 份 JD 中，品质经理 与 关务报关员 没有求职者投递（candidate.role 里 0 行），其余 8 个岗位有简历。",
+  "12 个 candidate.role 取值 = 8 个有 JD 且有简历的岗位 + 4 个无 JD 的岗位（行政专员/技术经理主管/设计工程师/实验室技术员）。",
+  "交叉核对（S3）：7 个定义类的成员数（剔除 candidate.duplicate_of 非空的行）与 candidate_role_fit 的行数**逐岗位相等**——24/19/54/34/22/34/20，合计 207。即客户推荐清单的每一行都能被我们声明的阈值复现；差额全部来自重复简历（定义类含重复时是 24/21/57/37/23/37/22）。SQL 见 evidence/truth_route.md。",
+  "fit_score 全库只有 5 个取值（55/60/70/80/85/100）。专案工程师(24 行)、业务助理(19 行)、品质经理(22 行) 三个岗位只有一个取值——max/avg/分数线在这 3 个岗位上是常量，不能用来横向比较岗位强弱；并列下 rank_in_role 的 top-10 截断位置亦不可辩护（tie-break 未声明）。",
+  "skillGapCount 的按名拒绝已在 S4 撤回（admin 指令）：客户视图 v_skill_gap 已把负存在量词算成 candidates_with_skill 一列，指标层只做条件求和。撤回后这个数由指标层报（本快照取值 0）。",
+  "aliases 是**整句锚点**（settings.aliases 的唯一形态）：每个键是用户真的会问的一句话，值是它落到的那一个指标 local name。裸词映射（如『最高→maxFitScore』）被证明有害——中文匹配器会把被映射掉的词从问题里消掉，于是 最高/平均、年限/学历/技能 这些唯一的区分词一起消失，问题退化成并列歧义。10 条样例问题全部有锚点；锚定不到的问句走通用匹配，匹配不出唯一指标就按名拒绝。",
+  "crossRoleCandidateCount 的按名拒绝已在 S5 撤回（admin 指令）：口径的基数约束（≥2 个岗位）落在物化视图 v_cross_role_candidate 上，指标只对它计数（来源 = v_cross_role_candidate，54 行）。结论不变但从「拒绝清单里的一个数」变成「指标层报的一个数」；两条 SQL 路线（视图行数 / v_candidate_roles 上同一 having）都是 54。",
+  "auditRunCount（本体自检运行次数）是本次为护栏新增的运维指标，不是招聘数字：它数 reasoning_run 的行数（本快照 1 行，engine=hermit、consistent=true、candidates=277）。加它的理由是可检验性——run_at 是全库唯一的 time 列，只有这条指标读它，护栏对 declared 指标的承诺（不注入时间窗、无界扫描被报告、能否跑由 plan budget 决定）才有一个真实实例；此前 big_tables 只声明了 reasoning_run 而没有指标读它，那条承诺在 talent_v1 上无从检验。它放在 metrics_ext.ttl 的第一个指标块，因为 gate G4b 检验的正是「第一个可编译的聚合指标」的 declared 行为。第二条 SQL 路线：select count(*) from reasoning_run，以及 count(*) over (group by run_at)，都是 1，与编译值一致。",
+  "当前编译状态：11 条指标全部编译、0 条按名拒绝；拒绝清单（settings.refusals，文档层）剩 1 条 「fitListByRole（岗位推荐名单本身）」——计算词表没有 :orderBy/:limit，它不声明成指标，所以编译器不会「按名拒绝」它，拒绝记在这里。"
+ ],
+ "overlay": "metrics_ext.ttl",
+ "guard": {
+  "enabled": true,
+  "max_rows": 2000,
+  "default_window_days": 0,
+  "statement_timeout_ms": 8000,
+  "max_plan_rows": 5000000,
+  "big_tables": {
+   "reasoning_run": "run_at"
+  },
+  "large_tables": {
+   "candidate": 277,
+   "candidate_skill": null,
+   "candidate_match": null,
+   "candidate_role_fit": 207,
+   "v_role_shortlist": 207,
+   "v_candidate_roles": 207,
+   "v_skill_gap": 28,
+   "v_missing_data": 277,
+   "v_cross_role_candidate": 54
+  },
+  "_big_tables_note": "业务表（candidate/role/candidate_role_fit/…）没有任何时间列：这是一份快照，因此 default_window_days=0（拒绝相对窗口，而不是悄悄返回空）。全库唯一自带时间列的表是本体检运行日志 reasoning_run(run_at)——它是 :auditRunCount（本体自检运行次数）的来源，那条指标的定义**不含** run_at 过滤，于是护栏在 declared 模式下会报 unbounded scan on reasoning_run 而不是偷偷加窗（这是 gate G4b 能检验到的东西）；其余 10 条业务指标都不读它，所以业务数字上不会出现被注入的时间窗。large_tables 只给预算、不注入窗口。"
+ },
+ "features": {
+  "tutorial": true
+ },
+ "aliases": {
+  "每个岗位有多少人过线": "matchCountByRole",
+  "每个岗位推荐名单有几个名额": "recommendedCountByRole",
+  "每个岗位的最高合成分是多少": "maxFitScoreByRole",
+  "每个岗位的平均合成分是多少": "avgFitScoreByRole",
+  "每个岗位推荐名单的分数线是多少": "top10CutoffScoreByRole",
+  "有多少份简历没读到工作年限": "candidatesMissingYears",
+  "有多少份简历没读到学历": "candidatesMissingEducation",
+  "有多少份简历没读到技能": "candidatesMissingSkills",
+  "有多少条岗位技能要求没人会": "skillGapCount",
+  "有多少人同时过了两个以上岗位": "crossRoleCandidateCount"
+ }
+}
