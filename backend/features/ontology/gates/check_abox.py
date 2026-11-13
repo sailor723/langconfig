@@ -25,7 +25,8 @@ is nowhere in the data: it has to be entailed.
                    "drop": {"subject": "cand_01", "predicate": "hasSkill"},
                    "class": "matchesDesignEngineer", "then_excluded": ["cand_01"]}],
      "coverage": {"source_files": 277, "loaded_individuals": 277,
-                  "required_props": ["hasSkill", "yearsExperience"],
+                  "required_props": [{"class": "Candidate", "prop": "hasSkill",
+                                      "unless_marked": "UnknownSkills"}],
                   "allow_missing_props": ["yearsExperience"]},
      "pii":      {"patterns": ["\\b1[3-9]\\d{9}\\b", "[\\w.+-]+@[\\w-]+\\.[\\w.]+"],
                   "max_name_chars": 4}}
@@ -235,11 +236,24 @@ def main() -> int:
         if prop in allow_missing:
             not_run(label, "declared as allowed-missing")
             continue
-        lacking = sorted(
-            _local(i) for i, types in individuals.items()
-            if (not cls_local or (ns + cls_local) in types)
-            and not list(graph.objects(URIRef(i), URIRef(ns + prop))))
-        check_true(label, not lacking, f"{len(lacking)} lacking, e.g. {lacking[:5]}")
+        # `unless_marked`: an individual may LACK a property when it carries the named missing-data
+        # marker. Measured on the client's 277: 18 CVs' OCR text named no recognisable skill, and both
+        # "has no skills" and "we could not read it" looked the same to this gate — one is a fact about
+        # a person, the other is a gap in our data, and only the data gap may be excused.
+        marker = entry.get("unless_marked") if isinstance(entry, dict) else None
+        lacking = []
+        for individual, types in individuals.items():
+            if cls_local and (ns + cls_local) not in types:
+                continue
+            if list(graph.objects(URIRef(individual), URIRef(ns + prop))):
+                continue
+            if marker and (URIRef(ns + marker) in
+                           set(graph.objects(URIRef(individual), URIRef(ns + "missingData")))):
+                continue
+            lacking.append(_local(individual))
+        lacking.sort()
+        suffix = f" (a :{marker} marker excuses it)" if marker else ""
+        check_true(label + suffix, not lacking, f"{len(lacking)} lacking, e.g. {lacking[:5]}")
 
     # ── A6  PII
     print("\n=== A6 no PII in the ABox ===")
