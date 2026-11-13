@@ -292,3 +292,6 @@ backend/skills/.zh-staging/
 
 # Data exports (spreadsheets are produced, not source)
 /*.xlsx
+
+# Personal study material (5-day vocabulary training sheets + generated PDFs)
+learning/5days-vocab-training/
