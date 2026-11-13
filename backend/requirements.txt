@@ -4,6 +4,10 @@ uvicorn[standard]==0.31.0
 pydantic>=2.10.0
 pydantic-settings>=2.10.1
 rdflib>=7.6.0                # the ontology compiler reads the TTL declarations (features/ontology/compiler)
+owlready2>=0.51               # ABox reasoning (features/ontology/reasoning): OWL 2 DL via HermiT.
+                              # Needs a JRE at run time — `check_abox` reports NOT RUN (not PASS) without one.
+owlrl>=7.6.2                  # OWL 2 RL forward chaining, used only as the cheap cross-check: it cannot
+                              # decide datatype facets, so it never decides a threshold on its own.
 python-multipart
 
 # Database
