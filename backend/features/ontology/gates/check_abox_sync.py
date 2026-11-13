@@ -246,7 +246,12 @@ def _dsn_from_profile(settings: dict, dbname_hint: str = "") -> dict:
             # NO "any *_DB_PASSWORD" fallback: this box defines one per ontology, and picking one at
             # random produced "password authentication failed for user langconfig" (measured today).
             # A credential guessing game is worse than a NOT RUN that says so.
+            # the live environment wins over the file: a caller that exported a credential means it,
+            # and a test that monkeypatches one must see its own value (measured while pinning this).
             for key in candidates:
+                if os.environ.get(key):
+                    out["password"] = os.environ[key]
+                    break
                 if values.get(key):
                     out["password"] = values[key]
                     break
