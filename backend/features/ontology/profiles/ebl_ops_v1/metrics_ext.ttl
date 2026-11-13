@@ -444,3 +444,97 @@
     :askedAs "低毛利走量有多少落在低利用率产线上？（按今天的快照）" ;
     :assumed true ; :assumedFrom "Q6 默认 A：用当前利用率快照代替下单时点利用率，客户可推翻" ;
     :businessDescription "分子 = 低毛利走量且线 utilization<70 的收入，分母 = 低毛利走量全部收入，两者都按财年分组（同键）。实测 100.00%：目前没有一个低毛利走量行落在 ≥70% 的线上，这是数据事实而非恒等式——谓词仍在，阈值仍是一个可被推翻的假设。它回答「今天」，不回答「下单那天」。口径来自 answers:Q6（默认 A：用当前利用率快照代替下单时点利用率）——按默认值定的口径，已写 assumed true。" .
+
+# ---------------------------------------------------------------- 红线的标量口径（S8）
+# 为什么加这四条：policy 的机判只读**标量**指标。`weightedGrossMargin` / `lowMarginRevenueShare`
+# 按财年分组（两个键值），S8 实测：给分组指标配 op+value，门禁照样报 green——红绿灯是装饰。
+# 所以把「报告年度 = 2026」写进 :where，各拆成「金额」+「比率」两条标量；分子分母与分组指标同源，
+# 没有新增判定、没有新增阈值。
+# 命名坑（实测）：**`ratio_of_sums` 的分子名不能以某个基指标名为前缀**。第一版叫
+# `weightedGrossMarginFy2026`（分子 `grossMarginAmountFy2026`），编译器把分子回退成了基指标
+# `grossMarginAmount`，编出 `GROUP BY orders.fiscal_year` 的两列子查询 → "subquery must return only
+# one column"。改名为 `...Yr2026` 后逐值正确（18.6977050124465）。分母用 `revenueFy2026` 没问题
+# （sum 类指标按名直查）。这条写在这里，是因为它是一分钟就能撞上的坑，不是猜测。
+:gmAmountYr2026 a owl:DatatypeProperty ;
+    rdfs:label "2026年毛利额（红线用标量）" ;
+    :aggregate "sum" ; :formula "revenue - cost" ; :grain :OrderLine ; :universe :OrderLine ;
+    :where :Fy2026OrderLine ; :unit "CNY" ;
+    :askedAs "2026 年的毛利额是多少？" ;
+    :businessDescription "table: order_lines — 2026 财年逐行 (revenue − cost) 求和 = 2.0567 亿（= grossMarginAmount 的 2026 行）。它是 weightedGrossMarginYr2026 的分子。route2: select sum(revenue-cost) from order_lines ⋈ orders where fiscal_year=2026 → 205674755.15。" .
+
+:weightedGrossMarginYr2026 a owl:DatatypeProperty ;
+    rdfs:label "2026年加权毛利率（红线用标量）" ;
+    :aggregate "ratio_of_sums" ; :numerator :gmAmountYr2026 ; :denominator :revenueFy2026 ;
+    :scale "100.0" ; :unit "%" ; :grain :OrderLine ; :universe :OrderLine ;
+    :askedAs "2026 年的加权毛利率是多少？离 17.5% 的硬地板还有多远？" ;
+    :businessDescription "table: order_lines ⋈ orders — 2026 财年 Σ(revenue−cost)/Σrevenue × 100 = 20,567.48 万 / 110,000.00 万 = 18.6977%，与分组指标 weightedGrossMargin 的 2026 行（18.6977050124465）逐位相同。存在的唯一理由：policy gm_floor（业务红线 ≥17.5%）只能判标量。route2: 100*205674755.15/1100000000.07 = 18.6977050124465097。" .
+
+:lowMarginRevenueYr2026 a owl:DatatypeProperty ;
+    rdfs:label "2026年低毛利走量收入（红线用标量）" ;
+    :aggregate "sum" ; :formula "revenue" ; :grain :OrderLine ; :universe :OrderLine ;
+    :where :Fy2026LowMarginTierLine ; :unit "CNY" ;
+    :askedAs "2026 年低毛利走量的收入是多少？" ;
+    :businessDescription "table: order_lines.revenue，2026 财年 tier = '低毛利走量' 的 2,208 行合计 = 2.5300 亿（= lowMarginRevenue 的 2026 行）。route2: → 253000000.13。" .
+
+:lowMarginRevenueShareYr2026 a owl:DatatypeProperty ;
+    rdfs:label "2026年低毛利走量收入占比（红线用标量）" ;
+    :aggregate "ratio_of_sums" ; :numerator :lowMarginRevenueYr2026 ; :denominator :revenueFy2026 ;
+    :scale "100.0" ; :unit "%" ; :grain :OrderLine ; :universe :OrderLine ;
+    :askedAs "2026 年低毛利走量占收入的比重是多少？越过 25% 上限了吗？" ;
+    :businessDescription "table: order_lines ⋈ orders — 2026 财年低毛利走量收入 / 全部收入 × 100 = 25,300.00 万 / 110,000.00 万 = 23.0000%（= lowMarginRevenueShare 的 2026 行）。若分子丢了 tier 条件，这条会变成恒等 100% 的假数——S8 编译后逐值核对过是 23.0，不是 100。route2: 100*253000000.13/1100000000.07 = 23.0000000103545455。" .
+
+# ---------------------------------------------------------------- S6 补充：看板要画、口径缺的 5 条
+# 全部「先量再声明」：每条 businessDescription 里的数都是本轮 db_query 实测值。
+# tierGrossMargin 是 ratio_of_sums，按既有形状（weightedGrossMargin = 同名分子/分母、同 :groupBy）
+# 必须有一对同键的分子分母，所以 revenueByProductTier / grossMarginAmountByProductTier 一并声明——
+# 它们不是新口径，是把 :weightedGrossMargin 的分子分母换成 productTier 这一把键。
+# 报告里点名要的 certificationPremiumRevenue / certificationPremiumShare 编译不过（certification_premium
+# 在 order_lines 与 products 上都有，编译器按名拒绝「ambiguous column」），所以**没有**写进来——见交付清单。
+
+:revenueOrderByQuarter a owl:DatatypeProperty ;
+    rdfs:label "2026 年分季度收入" ;
+    :aggregate "sum" ; :formula "revenue" ; :grain :OrderLine ; :universe :OrderLine ;
+    :where :Fy2026OrderLine ; :groupBy :orderQuarter ;
+    :unit "CNY" ; :askedAs "2026 年四个季度各做了多少收入？离 11 亿的目标走到了哪一步？" ;
+    :businessDescription "table: orders.quarter(1–4) + order_lines.revenue，只取 fiscal_year = 2026。实测 Q1 = 2.5000 亿、Q2 = 2.7000 亿、Q3 = 2.9000 亿、Q4 = 2.9000 亿，合计 11.0000 亿。键是 quarter 的整数 1–4（库里没有 '2026Q1' 这类标签，不造）。它回答「走到了哪一步」，不回答「是否达标」——季度目标值只在报告里，库里没有目标表。route2: quarter_rev_2026。" .
+
+:revenueByProductTier a owl:DatatypeProperty ;
+    rdfs:label "分产品档收入" ;
+    :aggregate "sum" ; :formula "revenue" ; :grain :OrderLine ; :universe :OrderLine ;
+    :groupBy :productTier ; :unit "CNY" ;
+    :askedAs "三档产品各做了多少收入？" ;
+    :businessDescription "table: order_lines.revenue 按 products.tier 分组（order_lines.product_id → products.id）。实测：低毛利走量 4.6000 亿、标准 10.2000 亿、差异化 4.6000 亿、微改良 0.6000 亿。它是 :tierGrossMargin 的分母。注意 products.tier 与 order_lines.tier 取值集合相同（数据里两者一致），但这是两列，不是同一个字段。route2: rev_by_product_tier。" .
+
+:grossMarginAmountByProductTier a owl:DatatypeProperty ;
+    rdfs:label "分产品档毛利额" ;
+    :aggregate "sum" ; :formula "revenue - cost" ; :grain :OrderLine ; :universe :OrderLine ;
+    :groupBy :productTier ; :unit "CNY" ;
+    :askedAs "三档产品各赚了多少毛利？" ;
+    :businessDescription "table: order_lines.(revenue − cost) 按 products.tier 分组。实测：低毛利走量 6,687.49 万、标准 16,851.08 万、差异化 12,196.75 万、微改良 1,593.99 万。它是 :tierGrossMargin 的分子。route2: gm_by_product_tier。" .
+
+:tierGrossMargin a owl:DatatypeProperty ;
+    rdfs:label "分产品档毛利率" ;
+    :aggregate "ratio_of_sums" ; :numerator :grossMarginAmountByProductTier ; :denominator :revenueByProductTier ;
+    :scale "100.0" ; :unit "%" ; :grain :OrderLine ; :universe :OrderLine ;
+    :groupBy :productTier ; :askedAs "三档产品的毛利率各是多少？" ;
+    :businessDescription "table: order_lines + products — 按 products.tier 的 Σ(revenue−cost)/Σrevenue。实测：差异化 26.5147%、微改良 26.5666%、标准 16.5207%、低毛利走量 14.5380%。报告里的「25–28 / 15–18 / 13–16」三条价格带是定价区间，不是毛利率，所以这张图只报测量值、不判达标。route2: tier_gm_pct。" .
+
+:avgUtilization a owl:DatatypeProperty ;
+    rdfs:label "产线利用率（按产线）" ;
+    :aggregate "avg" ; :formula "utilization" ; :grain :ProductionLine ; :universe :ProductionLine ;
+    :groupBy :lineCode ; :unit "%" ;
+    :askedAs "各条产线的利用率是多少？整体多少？" ;
+    :businessDescription "table: production_lines.utilization 按 code 分组。整体均值 76.4666%（32 条线，最低 55.30%，最高 90.53%）。它是**今天的快照**，不是下单时点的产能——时点问题按名拒绝（RefusedLowMarginComplianceAtOrderTime）。route2: util_by_line / util_avg。" .
+
+:underutilizedLineCount a owl:DatatypeProperty ;
+    rdfs:label "低利用率产线数" ;
+    :aggregate "count" ; :formula "*" ; :grain :ProductionLine ; :universe :ProductionLine ;
+    :where :UnderutilizedProductionLine ; :unit "count" ;
+    :askedAs "有多少条产线利用率低于 70%？" ;
+    :businessDescription "table: production_lines — utilization < 70 的产线条数（阈值 70% 来自报告「低毛利仅限利用率<70% 产线」，与 :UnderutilizedProductionLine 同一个谓词）。实测 7 条 / 32 条。route2: under70。" .
+
+:lineCount a owl:DatatypeProperty ;
+    rdfs:label "产线条数" ;
+    :aggregate "count" ; :formula "*" ; :grain :ProductionLine ; :universe :ProductionLine ;
+    :unit "count" ; :askedAs "一共多少条产线？" ;
+    :businessDescription "table: production_lines — 32 条（运行 30、关停 2）。它是 :underutilizedLineCount 的分母，单独声明是为了让分母可被替换。route2: lines_total。" .

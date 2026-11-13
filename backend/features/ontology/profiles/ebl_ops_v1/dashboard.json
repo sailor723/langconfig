@@ -1,197 +1,577 @@
 {
-  "_doc": "这是 ebl_ops_v1 的看板声明。它不含 SQL、不含手打数字：每个面板指向一个已编译的指标或一条已声明的拒绝，开场评估里的数字全部是占位符，由运行器用编译结果填。阈值一条都不声明，因为没有业务方确认过任何红线。",
-  "version": 1,
-  "ontology": "ebl_ops_v1",
-  "title": "新溢 · 经营看板（ebl_ops_v1）",
-  "subtitle": "口径来自 ebl_ops_v1_settings.json 指向的 overlay；数字来自编译器，页面只排版",
-  "events": [],
-  "policy": [],
-  "briefing": {
-    "headline": "两年合计收入 {revenueTotal}，但其中能算作增量的只有 {incrementalRevenueTotal}（{incrementalRevenueShare}）；费用同比 {opexChangeRate}，按时交付率从 {onTimeDeliveryRate:2025} 变成 {onTimeDeliveryRate:2026}。",
-    "claims": [
-      {
-        "id": "mix",
-        "text": "增量收入里 {incrementalRevenue:B 新客户} 来自新客户、{incrementalRevenue:C 微改良} 来自微改良、{incrementalRevenue:A 老客户加购} 来自老客户加购；{growthBucketRevenue:存量基本盘} 仍记在存量基本盘下。",
-        "note": "bucket 是库里 growth_bucket 的取值，不是我们分的类。"
-      },
-      {
-        "id": "margin",
-        "text": "加权毛利率 {weightedGrossMargin:2025} → {weightedGrossMargin:2026}；低毛利走量收入 {lowMarginRevenue:2026}，占当年收入 {lowMarginRevenueShare:2026}。",
-        "note": "低毛利走量的提成系数在库里每行都是 {lowMarginCommissionFactorAvg}，所以这里的「均值」等于政策值。"
-      },
-      {
-        "id": "approvals",
-        "text": "放行单 {approvalCount} 张，已复核 {reviewedApprovalCount} 张（复核率 {approvalReviewRate}），其中到期未复核 {overdueUnreviewedApprovalCount} 张。",
-        "note": "「到期」按声明里的固定报告日算，不随 now() 漂移；基准日归业务确认。"
-      },
-      {
-        "id": "people",
-        "text": "在册 {activeHeadcount} 人；线索 {leadCount} 条，合格率 {leadQualificationRate}；名册内核心客户流失 {coreCustomerChurnCount} 家。",
-        "note": "核心客户名册是业务方给的名单（locked_at 那份），本体只数它。"
-      },
-      {
-        "id": "capability_gap",
-        "text": "本看板不展示「下这张低毛利单那天，这条产线是否低负荷」：production_lines 只有当前 utilization 一个快照，订单行上没有下单时点的产能，这条数在库里不存在。",
-        "note": "不画成面板，也不做代理列。可回答的近似物是 lowMarginOnUnderutilizedLineShare（按今天的快照，已标 assumed:true）；把快照当判定依据是编数据。"
-      }
-    ],
-    "cannot_see": [
-      "线索转化率：converted_customer_id 在库里全为空，声明里按名拒绝——任何「转化率」都回答不了，只能答合格率。",
-      "微改良省了多少钱：micro_improvements 没有任何金额或数量列，只能报进度条数。",
-      "下单当天的产线产能：production_lines 只有当前利用率，没有下单时点的快照，所以「低毛利走量是否压着低产能产线」按名拒绝。",
-      "可冻结但未冻结的费用：freezable 与 frozen_at 的组合没有对应声明，按名拒绝。",
-      "任何时间窗口（今年／去年／最近一个月这类窗口）：本 profile 没有指标声明支持 TimeWindow 槽位，问窗口会被拒绝，而不是猜一个区间。",
-      "客户分级的判定口径：segment 为空的行就记「未分级」，谁该被分到哪一级是业务规则，库里没有。"
-    ],
-    "next": "三件事只能由业务定，定了才能加声明：核心客户与客户分级的判定口径；低毛利走量在下单时点的产能判定；放行单「逾期」以哪一天为基准。在此之前，看板只报测量值，不给红绿灯——本声明里没有任何 policy 阈值，因为没有一条阈值被业务确认过。"
+ "_doc": "新溢经营看板（ebl_ops_v1）的声明。这里没有 SQL、没有一个手打数字：每个值都是 metrics_ext.ttl 里一条已编译的指标，页面只排版。面板按「最小能展示发现的种类」挑：只有一个分组键的指标用 ranked（点 = 值，点大小 = 同一粒度上的另一个已声明计数）或 composition；没有分组键的标量只能进 parallel（并排、不给差）或 kpi（一格一个数）。矩阵（matrix）要求指标本身有两个分组键，本 profile 的 59 个指标没有一个按两个维度分组，所以这里没有 matrix —— 要真矩阵得先在 metrics_ext.ttl 里声明二维指标，那属于下一轮的口径变更，不在本轮 59 个指标之内。",
+ "version": 1,
+ "ontology": "ebl_ops_v1",
+ "title": "新溢 · 经营看板（ebl_ops_v1）",
+ "subtitle": "口径来自 ebl_ops_v1_settings.json 指向的 overlay；数字来自编译器，页面只排版",
+ "events": [],
+ "policy": [
+  {
+   "id": "gm_floor",
+   "label": "加权毛利全年硬地板",
+   "metric": "weightedGrossMarginYr2026",
+   "op": "<",
+   "value": 17.5,
+   "confirmed": true,
+   "why": "业务报告《11 亿营收目标与防御性毛利守护方案》写定的全年硬地板 17.5%（按财年加权，不按订单算术平均）。op 写的是**破线条件**：门禁实测 op/value 的语义是「满足即破线」（S8 把 op 写成 \">=\" 时，18.7% 被判成破线；分组指标配 policy 则根本不产生判定，一律 green）。判的是 2026 标量口径 weightedGrossMarginYr2026，与分组指标同分子分母。季度预警线 17% 语料里有，但没有按季度分组的标量口径能判它，见 cannot_see。"
   },
-  "kpis": [
-    {
-      "metric": "revenueTotal",
-      "note": "两年订单行收入合计（order_lines.revenue）"
-    },
-    {
-      "metric": "incrementalRevenueTotal",
-      "note": "growth_bucket <> '存量基本盘' 的收入合计"
-    },
-    {
-      "metric": "incrementalRevenueShare",
-      "note": "增量收入 / 全部收入"
-    },
-    {
-      "metric": "opexChangeRate",
-      "note": "费用同比变化率（分子分母同为费用行）"
-    },
-    {
-      "metric": "activeHeadcount",
-      "note": "left_at IS NULL 的在册员工"
-    },
-    {
-      "metric": "coreCustomerChurnCount",
-      "note": "名册内已流失客户数 / 名册"
-    },
-    {
-      "metric": "microImprovementVerifiedCount",
-      "note": "已验证微改良条数"
-    },
-    {
-      "metric": "leadQualificationRate",
-      "note": "is_qualified / 全部线索"
-    }
+  {
+   "id": "lowmargin_cap",
+   "label": "低毛利走量收入占比上限",
+   "metric": "lowMarginRevenueShareYr2026",
+   "op": ">",
+   "value": 25,
+   "confirmed": true,
+   "why": "同一份报告：低毛利订单占比不超过 25%，且只允许落在利用率偏低的产线、须双签、提成减半、每六个月复审。op 写破线条件（>25 即破线）。判的是 2026 标量口径 lowMarginRevenueShareYr2026。"
+  },
+  {
+   "id": "core_churn_cap",
+   "label": "核心客户流失上限",
+   "metric": "coreCustomerChurnCount",
+   "op": ">",
+   "value": 2,
+   "confirmed": true,
+   "why": "报告：核心客户流失不超过 2 家，超过即启动止损复盘。op 写破线条件（>2 即破线）。名册（locked_at 那一份）由业务给，本体只数。"
+  }
+ ],
+ "briefing": {
+  "headline": "两年合计收入 {revenueTotal}，其中能算作增量的只有 {incrementalRevenueTotal}（{incrementalRevenueShare}）；费用同比 {opexChangeRate}，加权毛利率 {weightedGrossMargin:2025} → {weightedGrossMargin:2026}。",
+  "claims": [
+   {
+    "id": "margin",
+    "verdict_by": "gm_floor",
+    "text": "加权毛利率从 {weightedGrossMargin:2025} 变成 {weightedGrossMargin:2026}；红线判的是同一口径的标量 {weightedGrossMarginYr2026}，阈值见 policy gm_floor，破线条件由门禁按指标值复算。",
+    "note": "按财年加权（行级收入 − 成本 再相除），不是各订单毛利率的算术平均。"
+   },
+   {
+    "id": "lowmargin",
+    "verdict_by": "lowmargin_cap",
+    "text": "低毛利走量收入 {lowMarginRevenue:2026}，占当年收入 {lowMarginRevenueShare:2026}；落在低利用率产线上的那部分是 {lowMarginRevenueOnUnderutilizedLine:2026}（{lowMarginOnUnderutilizedLineShare:2026}）。",
+    "note": "「低利用率」用的是 production_lines 今天的快照，不是下单时点的产能，所以这一行只作参考，不作判定依据。"
+   },
+   {
+    "id": "churn",
+    "verdict_by": "core_churn_cap",
+    "text": "名册内核心客户 {coreCustomerCount} 家，已流失 {coreCustomerChurnCount} 家；核心客户收入 {coreCustomerRevenue:2026}，占当年收入 {coreCustomerRevenueShare:2026}。",
+    "note": "名册是业务方给的名单（locked_at 那份），本体只数它，不自己认谁是核心客户。"
+   },
+   {
+    "id": "mix",
+    "text": "增量收入里 {incrementalRevenue:B 新客户} 来自新客户、{incrementalRevenue:C 微改良} 来自微改良、{incrementalRevenue:A 老客户加购} 来自老客户加购；{growthBucketRevenue:存量基本盘} 仍记在存量基本盘下。",
+    "note": "bucket 是库里 growth_bucket 的取值，不是我们分的类。"
+   },
+   {
+    "id": "delivery",
+    "text": "准时交付率 {onTimeDeliveryRate:2025} → {onTimeDeliveryRate:2026}，迟到 {lateOrderCount:2026} 单；放行单 {approvalCount} 张，已复核 {reviewedApprovalCount} 张（复核率 {approvalReviewRate}），到期未复核 {overdueUnreviewedApprovalCount} 张。",
+    "note": "「到期」按声明里的固定报告日算，不随 now() 漂移；基准日归业务确认。"
+   },
+   {
+    "id": "cost",
+    "text": "费用 {opexTotalFy2025} → {opexTotalFy2026}（变动额 {opexChangeAmount}，降幅 {opexChangeRate}），其中可冻结未冻 {freezableUnfrozenOpexFy2026}。",
+    "note": "可变费用与固定费用在同一张 opex_items 里，口径是该表全部行。"
+   },
+   {
+    "id": "people",
+    "text": "在册 {activeHeadcount} 人，离职 {leaverCountFy2026} 人（主动 {voluntaryLeaverCountFy2026} 人）；线索 {leadCount} 条，合格率 {leadQualificationRate}；已验证微改良 {microImprovementVerifiedCount} 条。",
+    "note": "离开日为空即为在册；主动离职是离职原因里的一类，不是全部离职。"
+   }
   ],
-  "panels": [
-    {
-      "id": "revenue_ranked",
-      "kind": "ranked",
-      "metric": "revenue",
-      "size_by": "orderCount",
-      "sort": "desc",
-      "limit": 2,
-      "title": "两年收入各多少",
-      "question": "按财年看，收入是多少、各由多少张订单撑起来？",
-      "emit_filter": {
-        "dimension": "orderFiscalYear",
-        "column": "key1"
-      },
-      "note": "点大小 = 同财年订单数；收入单位元，未做任何通胀调整。"
-    },
-    {
-      "id": "margin_ranked",
-      "kind": "ranked",
-      "metric": "weightedGrossMargin",
-      "size_by": "revenue",
-      "sort": "desc",
-      "limit": 2,
-      "title": "两年加权毛利率",
-      "question": "毛利率是升是降？",
-      "note": "row-level (revenue − cost) 加权，不是各订单毛利率的算术平均。"
-    },
-    {
-      "id": "ontime_ranked",
-      "kind": "ranked",
-      "metric": "onTimeDeliveryRate",
-      "size_by": "orderCount",
-      "sort": "desc",
-      "limit": 2,
-      "title": "准时交付率",
-      "question": "准时交付率是多少？分年呢？",
-      "note": "actual_date <= promised_date 计为准时；分母是该财年全部订单。"
-    },
-    {
-      "id": "late_ranked",
-      "kind": "ranked",
-      "metric": "lateOrderCount",
-      "size_by": "orderCount",
-      "sort": "desc",
-      "limit": 2,
-      "title": "迟到订单数",
-      "question": "迟到多少单？",
-      "note": "与准时交付订单数是互补的两个计数，加起来等于订单总数。"
-    },
-    {
-      "id": "growth_mix",
-      "kind": "composition",
-      "metric": "growthBucketRevenue",
-      "null_label": "未判定",
-      "title": "收入按增长来源拆分",
-      "question": "收入里哪块是存量、哪块是增量？",
-      "note": "四个 bucket 之和等于收入合计；「存量基本盘」不是增量。"
-    },
-    {
-      "id": "incremental_mix",
-      "kind": "composition",
-      "metric": "incrementalRevenue",
-      "null_label": "未判定",
-      "title": "增量收入的三类来源",
-      "question": "增量来自哪里：老客户加购、新客户，还是微改良？",
-      "note": "只含 growth_bucket <> '存量基本盘' 的行，合计等于增量收入合计。"
-    },
-    {
-      "id": "segment_mix",
-      "kind": "composition",
-      "metric": "revenueByCustomerSegment",
-      "null_label": "未判定",
-      "title": "收入按客户等级拆分",
-      "question": "收入按客户等级怎么分？未分级占多少？",
-      "note": "NULL 就是「未分级」，它是一块真实收入，不是 0，也不能被丢掉。"
-    },
-    {
-      "id": "lowmargin_share_ranked",
-      "kind": "ranked",
-      "metric": "lowMarginRevenueShare",
-      "size_by": "revenue",
-      "sort": "desc",
-      "limit": 2,
-      "title": "低毛利走量收入占比",
-      "question": "低毛利走量的收入占比是多少？",
-      "note": "分子是 tier = '低毛利走量' 的收入，分母是同年全部收入。"
-    },
-    {
-      "id": "approval_parallel",
-      "kind": "parallel",
-      "metrics": [
-        "approvalCount",
-        "reviewedApprovalCount",
-        "dualSignedApprovalCount",
-        "overdueUnreviewedApprovalCount"
-      ],
-      "title": "放行单的四个数并排",
-      "question": "放行单有多少、复核了多少、双签多少、到期未复核多少？",
-      "note": "四个数各是各的口径，看板不给出它们之间的差——差需要一条未声明的口径（例如「到期但已逾期多久」）。"
-    }
+  "cannot_see": [
+   "回款准时率／回款结构：库里没有应收、账期、回款日期任何一个字段，任何「回款」相关的数都按名拒绝，不给代理值。",
+   "季度营收目标与季度预警：orders 只有 fiscal_year，没有季度声明，也没有季度目标表；报告里的营收目标值和季度预警线有具体数值，但两者都无法从这份库里算，只能在年度粒度上对照硬地板。",
+   "线索转化率：converted_customer_id 在库里全为空，声明里按名拒绝——任何「转化率」都回答不了，只能答合格率。",
+   "微改良省了多少钱：micro_improvements 没有任何金额或数量列，只能报进度条数。",
+   "下单当天的产线产能：production_lines 只有当前利用率，没有下单时点的快照，所以「低毛利走量是否压着低产能产线」只能按今天的快照看，不能当事后判定。",
+   "任何时间窗口（今年／去年／最近一个月这类窗口）：本 profile 没有指标声明支持 TimeWindow 槽位，问窗口会被拒绝，而不是猜一个区间。",
+   "客户分级的判定口径：segment 为空的行就记「未分级」，谁该被分到哪一级是业务规则，库里没有。"
   ],
-  "holes": [],
-  "cross_filter": [
-    {
-      "dimension": "orderFiscalYear",
-      "label": "财年",
-      "metric_panel": "revenue_ranked",
-      "apply_to": [
-        "revenue_ranked",
-        "late_ranked",
-        "ontime_ranked",
-        "lowmargin_share_ranked"
-      ]
-    }
-  ]
+  "next": "两件事只能由业务定：客户分级与核心客户的判定口径、放行单「逾期」以哪一天为基准。定了才能加声明。在此之前看板只报测量值；三条 policy 阈值是业务报告里写明的红线，已标 confirmed，判定由门禁从指标值重算。"
+ },
+ "kpis": [
+  {
+   "metric": "revenueTotal",
+   "note": "两年订单行收入合计（order_lines.revenue）"
+  },
+  {
+   "metric": "incrementalRevenueTotal",
+   "note": "growth_bucket <> '存量基本盘' 的收入合计"
+  },
+  {
+   "metric": "incrementalRevenueShare",
+   "note": "增量收入 / 全部收入"
+  },
+  {
+   "metric": "opexChangeRate",
+   "note": "费用同比变化率（分子分母同为费用行）"
+  },
+  {
+   "metric": "activeHeadcount",
+   "note": "离开日为空即视为在册"
+  },
+  {
+   "metric": "coreCustomerChurnCount",
+   "note": "名册内已流失客户数 / 名册"
+  },
+  {
+   "metric": "microImprovementVerifiedCount",
+   "note": "已验证微改良条数"
+  },
+  {
+   "metric": "leadQualificationRate",
+   "note": "is_qualified / 全部线索"
+  }
+ ],
+ "panels": [
+  {
+   "id": "revenue_ranked",
+   "kind": "ranked",
+   "metric": "revenue",
+   "size_by": "orderCount",
+   "sort": "desc",
+   "limit": 2,
+   "title": "两年收入各多少",
+   "question": "按财年看，收入是多少、各由多少张订单撑起来？",
+   "emit_filter": {
+    "dimension": "orderFiscalYear",
+    "column": "key1"
+   },
+   "note": "点大小 = 同财年订单数；收入单位元，未做任何通胀调整。点击某一年即为整块看板加上该财年筛选。"
+  },
+  {
+   "id": "order_count_ranked",
+   "kind": "ranked",
+   "metric": "orderCount",
+   "size_by": "revenue",
+   "sort": "desc",
+   "limit": 2,
+   "title": "两年订单张数",
+   "question": "订单张数在增还是在减？单张订单在变大还是变小？",
+   "note": "点大小 = 同财年收入；张数与收入的对比就是「单张订单大小」的变化。"
+  },
+  {
+   "id": "margin_amount_ranked",
+   "kind": "ranked",
+   "metric": "grossMarginAmount",
+   "size_by": "revenue",
+   "sort": "desc",
+   "limit": 2,
+   "title": "两年毛利额",
+   "question": "毛利额（收入 − 成本）是升是降？",
+   "note": "点大小 = 同财年收入，所以它是「毛利额 vs 收入」的相对位置。"
+  },
+  {
+   "id": "margin_ranked",
+   "kind": "ranked",
+   "metric": "weightedGrossMargin",
+   "size_by": "revenue",
+   "sort": "desc",
+   "limit": 2,
+   "title": "两年加权毛利率",
+   "question": "毛利率是升是降？离全年硬地板还有多远？",
+   "note": "行级 (revenue − cost) 加权，不是各订单毛利率的算术平均；17.5% 硬地板见 policy。"
+  },
+  {
+   "id": "ontime_ranked",
+   "kind": "ranked",
+   "metric": "onTimeDeliveryRate",
+   "size_by": "orderCount",
+   "sort": "desc",
+   "limit": 2,
+   "title": "准时交付率",
+   "question": "准时交付率是多少？分年呢？",
+   "note": "actual_date <= promised_date 计为准时；分母是该财年全部订单。"
+  },
+  {
+   "id": "ontime_count_ranked",
+   "kind": "ranked",
+   "metric": "onTimeOrderCount",
+   "size_by": "orderCount",
+   "sort": "desc",
+   "limit": 2,
+   "title": "准时交付订单数",
+   "question": "准时交付了多少单？",
+   "note": "与迟到订单数是互补的两个计数，加起来等于订单张数（第三个面板）。"
+  },
+  {
+   "id": "late_ranked",
+   "kind": "ranked",
+   "metric": "lateOrderCount",
+   "size_by": "orderCount",
+   "sort": "desc",
+   "limit": 2,
+   "title": "迟到订单数",
+   "question": "迟到多少单？",
+   "note": "与准时交付订单数是互补的两个计数，加起来等于订单总数；点大小 = 同财年订单张数，所以看到的是「迟到占比」。"
+  },
+  {
+   "id": "lowmargin_share_ranked",
+   "kind": "ranked",
+   "metric": "lowMarginRevenueShare",
+   "size_by": "revenue",
+   "sort": "desc",
+   "limit": 2,
+   "title": "低毛利走量收入占比",
+   "question": "低毛利走量的收入占比是多少？有没有越过 25% 上限？",
+   "note": "分子是 tier = '低毛利走量' 的收入，分母是同年全部收入；25% 上限见 policy。"
+  },
+  {
+   "id": "lowmargin_rev_ranked",
+   "kind": "ranked",
+   "metric": "lowMarginRevenue",
+   "size_by": "revenue",
+   "sort": "desc",
+   "limit": 2,
+   "title": "低毛利走量收入",
+   "question": "低毛利走量带来了多少收入？",
+   "note": "分子口径同上；点大小 = 同财年全部收入。"
+  },
+  {
+   "id": "lowmargin_line_rev_ranked",
+   "kind": "ranked",
+   "metric": "lowMarginRevenueOnUnderutilizedLine",
+   "size_by": "revenue",
+   "sort": "desc",
+   "limit": 2,
+   "title": "低毛利走量落在低利用率产线上的收入",
+   "question": "低毛利走量的收入里，有多少落在今天利用率偏低的产线上？",
+   "note": "利用率是 production_lines 今天的快照，不是下单时点的产能；这一格只能当参考，不能当事后判定依据。"
+  },
+  {
+   "id": "lowmargin_line_share_ranked",
+   "kind": "ranked",
+   "metric": "lowMarginOnUnderutilizedLineShare",
+   "size_by": "revenue",
+   "sort": "desc",
+   "limit": 2,
+   "title": "低毛利走量落在低利用率产线上的占比",
+   "question": "这个占比的口径影响有多大？",
+   "note": "「低利用率」的判定线是假设值（assumed），业务确认之前不要拿它下结论。"
+  },
+  {
+   "id": "core_rev_ranked",
+   "kind": "ranked",
+   "metric": "coreCustomerRevenue",
+   "size_by": "revenue",
+   "sort": "desc",
+   "limit": 2,
+   "title": "核心客户收入",
+   "question": "名册内核心客户贡献了多少收入？",
+   "note": "只算名册（locked_at 那份）里的客户；点大小 = 同财年全部收入。"
+  },
+  {
+   "id": "core_rev_share_ranked",
+   "kind": "ranked",
+   "metric": "coreCustomerRevenueShare",
+   "size_by": "revenue",
+   "sort": "desc",
+   "limit": 2,
+   "title": "核心客户收入占比",
+   "question": "收入有多依赖核心客户？",
+   "note": "分子是名册内客户收入，分母是同年全部收入。"
+  },
+  {
+   "id": "segmentb_rev_ranked",
+   "kind": "ranked",
+   "metric": "segmentBRevenue",
+   "size_by": "revenue",
+   "sort": "desc",
+   "limit": 2,
+   "title": "B 级客户收入",
+   "question": "B 级客户这块收入有多大？",
+   "note": "客户等级取 customers.segment，空值不算 B 级，而是「未分级」（见 composition 面板）。"
+  },
+  {
+   "id": "segmentb_share_ranked",
+   "kind": "ranked",
+   "metric": "segmentBRevenueShare",
+   "size_by": "revenue",
+   "sort": "desc",
+   "limit": 2,
+   "title": "B 级客户收入占比",
+   "question": "B 级客户占收入多少？",
+   "note": "分母是同年全部收入，含未分级那块。"
+  },
+  {
+   "id": "unclassified_rev_ranked",
+   "kind": "ranked",
+   "metric": "unclassifiedCustomerRevenue",
+   "size_by": "revenue",
+   "sort": "desc",
+   "limit": 2,
+   "title": "未分级客户收入",
+   "question": "有多少收入挂在没分级（segment 为空）的客户上？",
+   "note": "这是一块真实收入，不是 0，也不是「其它」；它说明分级规则没覆盖到这些客户。"
+  },
+  {
+   "id": "unclassified_share_ranked",
+   "kind": "ranked",
+   "metric": "unclassifiedCustomerRevenueShare",
+   "size_by": "revenue",
+   "sort": "desc",
+   "limit": 2,
+   "title": "未分级客户收入占比",
+   "question": "分级缺口有多大？",
+   "note": "分子是 segment 为空的客户收入，分母是同年全部收入。"
+  },
+  {
+   "id": "growth_mix",
+   "kind": "composition",
+   "metric": "growthBucketRevenue",
+   "null_label": "未判定",
+   "title": "收入按增长来源拆分",
+   "question": "收入里哪块是存量、哪块是增量？",
+   "note": "四个 bucket 之和等于收入合计（见 revenueTotal）；「存量基本盘」不是增量。NULL bucket 显示为「未判定」，不当 0 处理。"
+  },
+  {
+   "id": "incremental_mix",
+   "kind": "composition",
+   "metric": "incrementalRevenue",
+   "null_label": "未判定",
+   "title": "增量收入的三类来源",
+   "question": "增量来自哪里：老客户加购、新客户，还是微改良？",
+   "note": "只含 growth_bucket <> '存量基本盘' 的行，合计等于增量收入合计（KPI 卡）。"
+  },
+  {
+   "id": "segment_mix",
+   "kind": "composition",
+   "metric": "revenueByCustomerSegment",
+   "null_label": "未分级",
+   "title": "收入按客户等级拆分",
+   "question": "收入按客户等级怎么分？未分级占多少？",
+   "note": "NULL 就是「未分级」，它是一块真实收入，不是 0，也不能被丢掉。"
+  },
+  {
+   "id": "revenue_scale",
+   "kind": "parallel",
+   "metrics": [
+    "revenueTotal",
+    "revenueFy2025",
+    "revenueFy2026"
+   ],
+   "title": "收入：合计与两个财年并排",
+   "question": "两年合计多少、各自多少？",
+   "note": "三个数是三条独立口径（合计 / 2025 / 2026），看板不给它们之间的差——差需要一条未声明的口径。"
+  },
+  {
+   "id": "incremental_headline",
+   "kind": "parallel",
+   "metrics": [
+    "incrementalRevenueTotal",
+    "incrementalRevenueShare"
+   ],
+   "title": "增量收入：金额与占比并排",
+   "question": "增量收入有多少、占全部收入多少？",
+   "note": "占比的分子分母与金额同源，但并排展示，不在页面上相除。"
+  },
+  {
+   "id": "opex_two_years",
+   "kind": "parallel",
+   "metrics": [
+    "opexTotalFy2025",
+    "opexTotalFy2026",
+    "opexChangeAmount",
+    "opexChangeRate",
+    "freezableUnfrozenOpexFy2026"
+   ],
+   "title": "费用：两年、变动额、降幅、可冻结未冻",
+   "question": "费用降了多少？还有多少可冻结没冻结？",
+   "note": "变动额与降幅各是各的口径；可冻结未冻是 2026 年 opex_items 里 freezable 且未冻结的部分。"
+  },
+  {
+   "id": "supplier_spend",
+   "kind": "parallel",
+   "metrics": [
+    "supplierSpendTotal",
+    "supplierSpendTotalFy2025",
+    "top10SupplierSpend",
+    "top10SupplierSpendFy2025",
+    "top10SupplierSpendShare"
+   ],
+   "title": "采购：总额与前十大并排",
+   "question": "采购总额多少？前十大供应商占多少？",
+   "note": "前十大是按采购额排名取十家，占比的分子分母都是采购额。"
+  },
+  {
+   "id": "supplier_pressure",
+   "kind": "parallel",
+   "metrics": [
+    "top10SupplierSpendShare",
+    "top10SupplierUnitPriceChange"
+   ],
+   "title": "供应商集中度与单价压力",
+   "question": "集中度多高？单价在涨还是在跌？",
+   "note": "两个数没有可声明的差值关系，所以并排，不画差。"
+  },
+  {
+   "id": "people_headcount",
+   "kind": "parallel",
+   "metrics": [
+    "activeHeadcount",
+    "leaverCountFy2026",
+    "voluntaryLeaverCountFy2026"
+   ],
+   "title": "人：在册、离职、主动离职",
+   "question": "现在多少人？今年走了多少？其中主动走的多少？",
+   "note": "主动离职是离职原因里的一类，不是全部离职；三个数各自独立，不做相减。"
+  },
+  {
+   "id": "approval_parallel",
+   "kind": "parallel",
+   "metrics": [
+    "approvalCount",
+    "reviewedApprovalCount",
+    "dualSignedApprovalCount",
+    "overdueUnreviewedApprovalCount"
+   ],
+   "title": "放行单的四个数并排",
+   "question": "放行单有多少、复核了多少、双签多少、到期未复核多少？",
+   "note": "四个数各是各的口径，看板不给出它们之间的差——差需要一条未声明的口径（例如「到期但已逾期多久」）。"
+  },
+  {
+   "id": "approval_rates",
+   "kind": "parallel",
+   "metrics": [
+    "approvalReviewRate",
+    "dualSignedApprovalRate"
+   ],
+   "title": "放行单的两个率",
+   "question": "复核率和双签率各是多少？",
+   "note": "两个率的分母都是放行单数，但各自独立编译，页面不做相减。"
+  },
+  {
+   "id": "customer_counts",
+   "kind": "parallel",
+   "metrics": [
+    "coreCustomerCount",
+    "coreCustomerChurnCount",
+    "unclassifiedCustomerCount"
+   ],
+   "title": "客户：名册、流失、未分级",
+   "question": "名册里几家、流失几家、还有几家没分级？",
+   "note": "名册由业务方给（locked_at 那份），未分级是 segment 为空的客户数。"
+  },
+  {
+   "id": "micro_improvement",
+   "kind": "parallel",
+   "metrics": [
+    "microImprovementCount",
+    "microImprovementVerifiedCount"
+   ],
+   "title": "微改良：总数与已验证数",
+   "question": "报了多少条？验证了多少条？",
+   "note": "micro_improvements 只有状态与时间，没有金额也没有数量，所以这里只能报条数，不能报省了多少钱。"
+  },
+  {
+   "id": "lead_funnel",
+   "kind": "parallel",
+   "metrics": [
+    "leadCount",
+    "qualifiedLeadCount",
+    "leadQualificationRate"
+   ],
+   "title": "线索：总数、合格数、合格率",
+   "question": "线索多少条？合格多少？合格率多少？",
+   "note": "转化率回答不了（converted_customer_id 全为空），只能答合格率。"
+  },
+  {
+   "id": "lowmargin_execution",
+   "kind": "parallel",
+   "metrics": [
+    "lowMarginCommissionFactorAvg",
+    "closedLineRevenueAfterClose"
+   ],
+   "title": "低毛利走量的执行痕迹与关停产线的残留",
+   "question": "提成系数实际是多少？关按停的产线还在走多少单子？",
+   "note": "提成系数在库里每行都是同一个值，所谓「均值」就等于政策值本身；关停产线仍有收入说明停机没落到订单流上。"
+  },
+  {
+   "id": "red_line_values",
+   "title": "三条红线的分母与分子（2026 标量口径）",
+   "kind": "parallel",
+   "metrics": [
+    "gmAmountYr2026",
+    "weightedGrossMarginYr2026",
+    "lowMarginRevenueYr2026",
+    "lowMarginRevenueShareYr2026",
+    "revenueFy2026"
+   ],
+   "note": "policy 只能判标量，所以红线的 2026 口径在这里逐值摆开：毛利率 = 毛利额/收入，低毛利占比 = 低毛利收入/收入。"
+  },
+  {
+   "id": "quarterly_revenue_mix",
+   "kind": "composition",
+   "metric": "revenueOrderByQuarter",
+   "null_label": "未判定（quarter 为空）",
+   "title": "2026 年收入按季度拆分：离 11 亿走到了哪一步",
+   "question": "四个季度各做了多少？季度之间在加速还是在走平？",
+   "note": "四个季度之和 = 2026 年收入（revenueFy2026），所以它是「一份整体的四块」。键是 orders.quarter 的整数 1–4——库里没有 '2026Q1' 这种标签，不造标签。季度营收目标只在报告里，库里没有目标表，所以这张图只报测量值、不判达标（见 cannot_see）。"
+  },
+  {
+   "id": "tier_gm_ranked",
+   "kind": "ranked",
+   "metric": "tierGrossMargin",
+   "size_by": "revenueByProductTier",
+   "sort": "desc",
+   "limit": 4,
+   "title": "各产品档的毛利率（按产品档加权）",
+   "question": "分级定价各档的毛利率差多少？低毛利档低到什么程度？",
+   "note": "分子分母都按 products.tier 分组（Σ(revenue−cost)/Σrevenue），点大小 = 同档收入——一个毛利率配一个小收入，和一个毛利率配一个大收入不是同一件事。报告里的三档价区间不是毛利率，所以这里只报测量值、不判达标。"
+  },
+  {
+   "id": "product_tier_mix",
+   "kind": "composition",
+   "metric": "revenueByProductTier",
+   "null_label": "未判定（products.tier 为空）",
+   "title": "收入按产品档拆分",
+   "question": "收入集中在哪一档产品上？",
+   "note": "按 products.tier（订单行的 product_id 指向的产品）拆分，四块之和等于全部订单行收入。它与「按客户等级」「按增长来源」是同一笔收入的三种切法，不是三笔钱。"
+  },
+  {
+   "id": "product_tier_gm_mix",
+   "kind": "composition",
+   "metric": "grossMarginAmountByProductTier",
+   "null_label": "未判定（products.tier 为空）",
+   "title": "毛利额按产品档拆分",
+   "question": "毛利是哪一档产品贡献的？",
+   "note": "与上一个面板同键：收入多的那一档不一定是毛利多的那一档，两块并排就是为了让这件事可被看见。四块之和等于毛利额合计。"
+  },
+  {
+   "id": "utilization_by_line",
+   "kind": "series",
+   "metric": "avgUtilization",
+   "render": "bar",
+   "marks": [],
+   "title": "各条产线的利用率（今天的快照，不是下单那天）",
+   "question": "现在有几条线吃紧、几条线闲？",
+   "note": "production_lines.utilization 只有当前快照，没有历史，所以这张图答「今天」，不答「2026 年 3 月下单那天」——时点问题按名拒绝（RefusedLowMarginComplianceAtOrderTime）。低于 70% 的条数见下一个面板。"
+  },
+  {
+   "id": "capacity_counts",
+   "kind": "parallel",
+   "metrics": [
+    "lineCount",
+    "underutilizedLineCount"
+   ],
+   "title": "产线：总数与低利用率条数",
+   "question": "一共多少条线？其中多少条今天低于 70%？",
+   "note": "70% 是报告写下的判定线（与 :UnderutilizedProductionLine 同一个谓词），不是我们挑的；两个数并排，不在页面上相除。"
+  }
+ ],
+ "holes": [],
+ "cross_filter": [
+  {
+   "dimension": "orderFiscalYear",
+   "label": "财年",
+   "metric_panel": "revenue_ranked",
+   "apply_to": [
+    "revenue_ranked",
+    "order_count_ranked",
+    "margin_ranked",
+    "ontime_ranked",
+    "late_ranked",
+    "lowmargin_share_ranked",
+    "core_rev_ranked"
+   ]
+  }
+ ]
 }

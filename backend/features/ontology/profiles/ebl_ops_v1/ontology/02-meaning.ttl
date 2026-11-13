@@ -405,3 +405,10 @@
 :RefusedBucketShareRatio a owl:Class ; rdfs:label "拒：分组键不一致的占比（各增长来源占收入%）" ;
     rdfs:subClassOf :OrderLine ;
     :refusalReason "refused: ratio_of_sums 用两个操作数各自的分组再相除。分子按 growth_bucket 分组、分母按 fiscal_year 分组时形状不成立：实测 growthBucketRevenueShare 编译出 4 行、每行都等于 100.000%；incrementalRevenueShare 的同形 SQL 直接报 subquery must return only one column。能报的是每桶绝对额（growthBucketRevenue：存量基本盘 18.80 亿 + B 新客户 0.619 亿 + C 微改良 0.330 亿 + A 老客户加购 0.250 亿 = 两年收入 20.00 亿）与按财年的单值增量占比（incrementalRevenueShare）。桶级占比 = 桶额 / revenue，由读者自己除；本体不声明一个算不出来的数。" .
+
+# ---- S8：红线的标量口径需要「2026 且低毛利走量」这个交集，谓词是两个已声明谓词的合取，不是新口径。
+:Fy2026LowMarginTierLine a owl:Class ; rdfs:label "2026 财年低毛利走量订单行" ;
+    rdfs:subClassOf :OrderLine ;
+    :physicalTable "order_lines" ;
+    :physicalPredicate "tier = '低毛利走量' AND order_id IN (SELECT o.id FROM orders o WHERE o.fiscal_year = 2026)" ;
+    :businessDescription "2026 财年且 tier = '低毛利走量' 的订单行，实测 2,208 行 / 2.5300 亿。是两个已声明谓词（:Fy2026OrderLine 与 :LowMarginTierLine）的合取——为了让低毛利占比这条红线有一个标量口径可以机判，没有新增任何业务阈值。" .

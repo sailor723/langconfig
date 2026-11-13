@@ -131,6 +131,6 @@
       "check_samples",
       "check_dashboard"
     ],
-    "installed": "1794595288-86e591 @ 2026-11-14 02:44 CST / git 85cb4a2：55/55 指标编译、0 按名拒绝（lowMarginOnUnderutilizedLineAtOrderTime 落成不带 :aggregate 的法定拒绝：库里没有下单时点的产线利用率，只有一个当前快照）；check_structure 157/0 failed、check_ontology_generic R 与 C 全 PASS、check_samples ALL SAMPLES PASS（41 条断言）、check_dashboard 94/0 failed（D3/D5 的独立 SQL 身份断言 NOT RUN，判的是 logistics 的指标名）。"
+    "installed": "1794595288-86e591 首装 @ 2026-11-14 02:44 CST / git 85cb4a2（55/55 编译）；1794596173-d048d8 补看板 @ 2026-11-14 03:02 CST / git b6bc75a：66/66 编译、0 按名拒绝，panel 从 9 补到 39、policy 从 0 补到 3（毛利全年 17.5 / 低毛利占比 25 / 核心客户流失 2），新增 11 个指标（季度营收、产品档毛利率与收入/毛利额、产能利用率族、2026 标量口径）。check_structure 157/0 failed、check_ontology_generic R 与 C 全 PASS、check_samples ALL SAMPLES PASS、check_dashboard 288/0 failed（D3/D5 的独立 SQL 身份断言 NOT RUN，判的是 logistics 的指标名）。"
   }
 }
