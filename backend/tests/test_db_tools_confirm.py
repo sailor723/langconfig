@@ -163,7 +163,10 @@ def test_canonical_form_ignores_how_a_number_was_written():
     assert canon(120) == canon(Decimal("120.000")) == "120"
     assert canon(Decimal("99.5")) == "99.5"
     assert canon(True) == "t" and canon(False) == "f"
-    assert canon(None) == "∅"
+    # A blank cell and a NULL are the same fact: the build turns an empty cell into NULL, so
+    # splitting them made every blank cell in a client export look like a value difference.
+    assert canon(None) == canon("") == ""
+    assert canon(None) != canon("0"), "an empty cell must never equal a real value"
     assert canon({"b": 1, "a": 2}) == canon({"a": 2, "b": 1}), "jsonb key order must not matter"
 
 

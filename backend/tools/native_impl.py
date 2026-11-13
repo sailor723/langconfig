@@ -6275,21 +6275,36 @@ def _coerce_pg_value(value, pg_type: str):
         return None
 
 
+def _column_names(headers, sheet_name: str = "") -> tuple[list, list]:
+    """(cols, warnings) — the ONE naming rule for a header row.
+
+    Planner, builder and verifier all call this. They used to each have their own copy, and the
+    copies drifted: the build normalised `时长_(分钟)` to `时长_分钟` and gave empty headers the
+    positional names `c2..`, while the verifier compared the file's raw header text — so a
+    byte-perfect load of client/team-1's 3562-row export verified as `0/3562 一致的整行` and the
+    agent had to declare a `renames=` that was not a rename. One function, one behaviour.
+    """
+    cols, seen = [], {}
+    warnings = []
+    for i, header in enumerate(headers, start=1):
+        base = _ident(header, fallback=f"c{i}")
+        if not str(header).strip():
+            warnings.append(f"[{sheet_name}] 第 {i} 列没有表头，已命名为 {base} —— 请确认这是不是该丢的列")
+        elif base.startswith("c") and base[1:].isdigit() and str(header).strip() != base:
+            warnings.append(f"[{sheet_name}] 第 {i} 列表头 {header!r} 无法用作列名，已命名为 {base} —— 名字丢了，请确认")
+        if base in seen:
+            warnings.append(f"[{sheet_name}] 表头 {header!r} 重复，第二列起加后缀（{base}_2 …）")
+        seen[base] = seen.get(base, 0) + 1
+        cols.append(base if seen[base] == 1 else f"{base}_{seen[base]}")
+    return cols, warnings
+
+
 def _plan_from_file(path, sheets: dict) -> tuple[list, list]:
     """(tables, warnings) — what WOULD be built, in the order a human should read it."""
     tables, warnings = [], []
     for sheet_name, (headers, body) in sheets.items():
-        cols, seen = [], {}
-        for i, header in enumerate(headers, start=1):
-            base = _ident(header, fallback=f"c{i}")
-            if not str(header).strip():
-                warnings.append(f"[{sheet_name}] 第 {i} 列没有表头，已命名为 {base} —— 请确认这是不是该丢的列")
-            elif base.startswith("c") and base[1:].isdigit() and str(header).strip() != base:
-                warnings.append(f"[{sheet_name}] 第 {i} 列表头 {header!r} 无法用作列名，已命名为 {base} —— 名字丢了，请确认")
-            if base in seen:
-                warnings.append(f"[{sheet_name}] 表头 {header!r} 重复，第二列起加后缀（{base}_2 …）")
-            seen[base] = seen.get(base, 0) + 1
-            cols.append(base if seen[base] == 1 else f"{base}_{seen[base]}")
+        cols, col_warnings = _column_names(headers, sheet_name)
+        warnings += col_warnings
         types = [_infer_pg_type([r[i] if i < len(r) else None for r in body], name=cols[i])
                  for i in range(len(cols))]
         table = _ident(sheet_name, fallback="sheet")
@@ -7094,7 +7109,12 @@ def _canon(value) -> str:
     from decimal import Decimal as _Decimal
 
     if value is None:
-        return "∅"
+        # An empty cell and a NULL are the same fact: "the file has nothing here". The build
+        # decides which spelling reaches Postgres (it maps an unparsable/blank value to NULL),
+        # so a verifier that separates them reports every blank cell as a difference — measured
+        # on client/team-1's export, where most columns are blank for most rows. A cell that
+        # HAD a value and lost it still differs, because then one side is not empty.
+        return ""
     if isinstance(value, bool):
         return "t" if value else "f"
     if isinstance(value, _Decimal):
@@ -7131,7 +7151,9 @@ def db_verify_against_file(file: str, db_name: str, host: str = "", port: int = 
     Cross-check a loaded database against the spreadsheet it came from.
 
     For every sheet in the file it finds the matching table (same naming rules the build
-    used), then compares: the table exists, the row count, the **column names**, and the
+    used — sheet *and* column names are normalised the way the build normalises them, so
+    `时长_(分钟)` in the file and `时长_分钟` in the database are the same column), then
+    compares: the table exists, the row count, the **column names**, and the
     full row multiset — values normalised so that `120` from the sheet and
     `Decimal('120.000')` from Postgres count as equal, but `120` and `180` never do.
     Columns are matched BY NAME, not by position: a rename (`sold_at` → `store_id`) used to
@@ -7210,8 +7232,14 @@ def db_verify_against_file(file: str, db_name: str, host: str = "", port: int = 
         # Names, not positions. The build names columns after the sheet's header, so a
         # column the file calls X must be a column the database calls X — unless the caller
         # declares the rename it made on purpose (`renames="orders.sold_at=store_id"`).
-        want = [declared.get((table, (h or "").strip().lower()), (h or "").strip().lower())
-                for h in headers]
+        # The file's headers go through `_column_names` — the same function the planner and the
+        # build use — or this check lies in the safe-looking direction: a header like `时长_(分钟)`
+        # is stored as `时长_分钟`, so comparing the raw header verbatim said "0/3562 rows equal"
+        # about a load that was perfect (client/team-1). A `renames=` entry is still honoured
+        # verbatim: it names a database column, which is already in its final spelling.
+        auto_cols, _col_warnings = _column_names(headers, sheet_name)
+        want = [declared.get((table, (h or "").strip().lower()), auto).lower()
+                for h, auto in zip(headers, auto_cols)]
         have = [(c or "").strip().lower() for c in db_cols]
         missing_cols = [h for h in want if h not in have]
         extra_cols = [c for c in have if c not in want]

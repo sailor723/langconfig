@@ -68,6 +68,61 @@ def test_verify_still_refuses_to_claim_pass_on_name_problems():
     assert 'verdict = "FAIL" if (not col_ok' in body
 
 
+def test_verify_normalises_headers_the_way_the_build_did():
+    """The load normalises headers (`_column_names`); the check must use the SAME function.
+
+    Measured on client/team-1's meeting export: the client's header is `时长_(分钟)`, the build
+    stored `时长_分钟`, and the verifier compared the raw header verbatim — `0/3562 一致的整行`
+    on a load that was byte-for-byte correct. The agent then papered over it with
+    `renames="...时长_(分钟)=时长_分钟"`, i.e. an honest tool forced an untruthful argument.
+    """
+    text = NATIVE.read_text(encoding="utf-8")
+    assert "def _column_names(" in text, "the one naming rule is gone again"
+    body = _body(text, "def db_verify_against_file", "def sqlite_load_csv")
+    assert "_column_names(headers" in body, \
+        "the verifier has its own idea of the column names again"
+    planner = _body(text, "def _plan_from_file", "def _format_plan")
+    assert "_column_names(headers" in planner, "the planner has its own idea again"
+
+
+def test_a_header_the_build_rewrites_still_verifies(native, tmp_path):
+    kwargs, _, _ = _live_connection()
+    if kwargs is None:
+        pytest.skip("no PostgreSQL server configured for this checkout")
+    import psycopg2
+
+    root = Path(__file__).resolve().parents[1] / "data"
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / "meeting_hub-clean.csv"
+    # the client's real shape: a title pair of lines, then a header with `(`/`)` in a column name
+    path.write_text(
+        "会议汇总导出,,\n导出时间,2026-11-01,\n"
+        "厂区,时长_(分钟),责任人\n"
+        "001,45,张三\n"
+        "001,30,\n",
+        encoding="utf-8",
+    )
+    target = "zz_verify_header_probe_csv"
+
+    def drop():
+        admin = psycopg2.connect(**kwargs)
+        admin.autocommit = True
+        with admin.cursor() as cur:
+            cur.execute('DROP DATABASE IF EXISTS "' + target + '" with (force)')
+        admin.close()
+
+    drop()
+    try:
+        built = native.db_build_from_file.func(file=str(path), db_name=target, confirm=True)
+        assert "Row counts match the workbook" in built, built[:300]
+        verdict = native.db_verify_against_file.func(file=str(path), db_name=target)
+        assert "PASS" in verdict, f"a header the build only normalised failed the check:\n{verdict}"
+        assert "列名不一致" not in verdict, verdict[:400]
+    finally:
+        drop()
+        path.unlink(missing_ok=True)
+
+
 # ── a rerun is idempotent, and recreate stays narrow ────────────────────────
 
 def test_build_asks_the_database_whether_it_is_already_in_sync():

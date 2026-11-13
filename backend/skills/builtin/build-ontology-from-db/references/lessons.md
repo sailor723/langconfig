@@ -49,6 +49,10 @@ TEXT + 一条口径问题（问客户这些自由文本怎么算），而不是�
 
 **规则**：**建库与对账必须共用同一套名字归一化**（同一个函数），否则对账只会证明"名字不一样"。
 若确实做了改名，用 `renames="table.file_col=db_col"` 显式声明——**纸面 PASS 是可接受的，但不能是默认**。
+**强制者**：`_column_names()`（planner / builder / verifier 三者共用的唯一命名规则）+ `_canon(None) == _canon("")`
+（空单元格与 NULL 是同一件事：建库会把空格转成 NULL，分开算会把客户导出里每一格空白都报成"值不一致"）。
+守卫在 `backend/tests/test_db_verify_columns.py`：一个带标题行、带 `时长_(分钟)` 表头、带空单元格的 CSV
+建库后必须对账 PASS，`renames` 不再是必需品。
 
 ---
 
@@ -117,3 +121,19 @@ staged id），而不是"把整条台阶梯走完"。轮次结束时用 `ls -R <
 
 **现在**：前端补了 `bar`（画柱，复用 series 的柱状路径）与 `table`（画排名列表）两个分支；
 `check_dashboard` 的 D1 仍是"shape 对不对"，**还没有**校验 kind 词汇 —— 这一条仍是无门禁的。
+
+### L10 profile 里声明的 `:physicalTable`，它的数据层必须跟着 profile 一起进仓库
+
+**发生了什么**（2026-11-13，meeting_v1 首次上 ECS）：本机四族门禁全绿，ECS 上 `check_structure` 报
+五条 `meeting_hub_raw / meeting_hub_meeting / meeting_hub_attendance is not a table in this database`，
+`check_samples` 全部 `REFUSED: relation ... does not exist`，`check_dashboard` 133 项里 106 项失败。
+声明没问题——**建视图的那段 SQL 只躺在 agent 的 `generated/meeting_v1_views.sql` 和交付报告里**，
+它既不在 profile 里，也不在任何安装脚本里。也就是说：本体在"有那份 CSV 的那台机器"之外根本装不起来，
+而门禁在源机器上永远是绿的。
+
+**规则**：一个 profile 要在第二台机器上装起来，它声明的**每一张表/视图**都必须能从仓库里创建出来。
+profile 目录里放一个 `datalayer.sql`：建表（或写清底表怎么装载）+ 建视图（`CREATE OR REPLACE`，可反复执行），
+文件头写清"装载命令 + 三个必须对上的行数"。数据行本身不进仓库（那是客户数据），进仓库的是**形状**。
+
+**强制者**：结构门禁天然会拦（关系不存在就是 FAIL），但**只有换机器才会红**——所以上线的验收动作必须是
+"在目标机器上跑一遍四族门禁"，而不是"引用本机的绿灯结果"。ECS 这次就是这么被抓住的。
