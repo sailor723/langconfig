@@ -37,13 +37,20 @@ from features.ontology.reasoning import reasoner as R  # noqa: E402
 from scripts.talent.fit import score as fit_score  # noqa: E402
 
 DDL = """
-drop table if exists candidate_role_fit;
-drop table if exists candidate_match;
-drop table if exists role_required_skill;
-drop table if exists role;
-drop table if exists candidate_skill;
-drop table if exists skill;
-drop table if exists candidate;
+drop view if exists v_role_shortlist cascade;
+drop view if exists v_skill_gap cascade;
+drop view if exists v_candidate_roles cascade;
+drop view if exists v_missing_data cascade;
+drop view if exists v_cross_role_candidate cascade;
+-- CASCADE because the views below read these tables: without it a re-materialise fails with
+-- "cannot drop table candidate_role_fit because other objects depend on it" (measured today).
+drop table if exists candidate_role_fit cascade;
+drop table if exists candidate_match cascade;
+drop table if exists role_required_skill cascade;
+drop table if exists role cascade;
+drop table if exists candidate_skill cascade;
+drop table if exists skill cascade;
+drop table if exists candidate cascade;
 drop table if exists reasoning_run;
 
 create table candidate (
@@ -107,10 +114,6 @@ create table candidate_role_fit (
 );
 
 -- ── the three questions the feature is actually asked, as views the ontology can declare metrics over
-drop view if exists v_role_shortlist;
-drop view if exists v_skill_gap;
-drop view if exists v_candidate_roles;
-drop view if exists v_missing_data;
 
 -- 1. "这个岗位推荐谁" — one row per ranked candidate, with the reason (skills/years/education) attached
 create view v_role_shortlist as
@@ -161,6 +164,16 @@ union all
 select 'education_rank', count(*) filter (where missing_education), count(*) from candidate
 union all
 select 'skills',         count(*) filter (where missing_skills),    count(*) from candidate;
+
+-- 5. "跨岗位" needs a HAVING COUNT(*) >= 2, which a metric over candidate_role_fit cannot express
+--    (the compiler writes one SELECT with GROUP BY, not a HAVING). Materialising the derived set is the
+--    platform's own pattern: the reasoner/materialiser decides, the metric only counts.
+create view v_cross_role_candidate as
+select candidate, count(*) as role_count
+from candidate_role_fit
+group by candidate
+having count(*) >= 2;
+
 
 create table reasoning_run (
     run_at      timestamptz not null default now(),
