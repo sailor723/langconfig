@@ -46,6 +46,34 @@ TRUNCATE_KEEP_TAIL = 1_000
 ALWAYS_KEEP_NEWEST = 6
 
 
+#: deepagents' summarization middleware keeps an ABSOLUTE cutoff index in state
+#: (`SummarizationState._summarization_event`). It is meaningful only against the message list it
+#: was computed on. Measured on ECS (2026-11-14, agent 380): our compaction had dropped the older
+#: messages, the event still said cutoff_index=373 while the list held 74-200 messages, so EVERY
+#: model call reconstructed the effective conversation as "summary message only" — the agent lost
+#: all recent context, re-issued the same `ls` until the loop guard fired, and the same warning
+#: printed every two seconds. Dropping messages and keeping the index is a lie about where the
+#: conversation starts.
+SUMMARIZATION_EVENT_KEY = "_summarization_event"
+
+
+def summarization_event_is_stale(values) -> bool:
+    """True when the stored summarization event points past the end of the message list."""
+    try:
+        event = (values or {}).get(SUMMARIZATION_EVENT_KEY)
+    except AttributeError:
+        return False
+    if not isinstance(event, dict):
+        return False
+    cutoff = event.get("cutoff_index")
+    if not isinstance(cutoff, int):
+        return bool(event)
+    try:
+        return cutoff > len((values or {}).get("messages") or [])
+    except Exception:                                   # noqa: BLE001 — a weird state is not fatal
+        return False
+
+
 @dataclass
 class Compaction:
     """What was done to a thread, in numbers a user can check."""
@@ -222,7 +250,8 @@ async def shrink_thread(graph, thread_id: str,
         if not messages:
             return empty
         plan = plan_compaction(messages, budget_tokens)
-        if not plan.changed:
+        event_stale = summarization_event_is_stale(values)
+        if not plan.changed and not event_stale:
             return plan
 
         from langchain_core.messages import RemoveMessage
@@ -235,8 +264,16 @@ async def shrink_thread(graph, thread_id: str,
                     update={"content": _truncate_text(str(original.content or ""))}
                 ))
         updates += [RemoveMessage(id=message_id) for message_id in plan.dropped_ids]
-        if updates and hasattr(checkpointer, "aupdate_state"):
-            await checkpointer.aupdate_state(config, {"messages": updates})
+        payload: dict = {}
+        if updates:
+            payload["messages"] = updates
+        if plan.dropped_ids or event_stale:
+            # The event's cutoff_index is absolute; after a drop it points past the end. Reset it so
+            # the middleware recomputes from the CURRENT list instead of collapsing the conversation
+            # to "summary only".
+            payload[SUMMARIZATION_EVENT_KEY] = None
+        if payload and hasattr(checkpointer, "aupdate_state"):
+            await checkpointer.aupdate_state(config, payload)
             logger.info(
                 "thread %s compacted: %s → %s tokens (%s truncated, %s dropped)",
                 thread_id, plan.tokens_before, plan.tokens_after,
