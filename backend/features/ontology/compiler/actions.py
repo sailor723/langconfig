@@ -76,11 +76,22 @@ def dsn() -> dict:
     two ontologies" impossible: `actions.py` would connect to whichever database happened to be
     active the first time it was imported.
     """
+    import os
+
     import dsn as _dsn
 
-    return _dsn.resolved({"dsn": _settings().get("dsn") or {
+    resolved = _dsn.resolved({"dsn": _settings().get("dsn") or {
         "host": "127.0.0.1", "port": 15432, "dbname": "retail_db",
         "user": "postgres", "password": "postgres"}})
+    # A profile that declares no password is not asking for "no password": on a host whose
+    # pg_hba demands one, an empty string is a hard "fe_sendauth: no password supplied" — which is
+    # exactly what every ontology except sunhing_v1 did on the ECS deployment (their dsn carries
+    # host/port/dbname only). Fall back to the deployment's own credential, the same one the
+    # platform's Postgres uses, so "the DB is on this box" is enough to make an ontology work.
+    if not (resolved.get("password") or "").strip():
+        resolved["password"] = (os.environ.get("PGPASSWORD")
+                                or os.environ.get("POSTGRES_PASSWORD") or "")
+    return resolved
 
 
 # kept for callers that read the name directly (the CLI, the gates); `connect()` uses dsn()
