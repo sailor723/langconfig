@@ -6964,58 +6964,77 @@ def db_review(db_name: str, host: str = "", port: int = 0, user: str = "",
     return "\n".join(out)
 
 
-@tool
-def db_query(db_name: str, sql: str, limit: int = 200, host: str = "", port: int = 0,
-             user: str = "") -> str:
+#: One call may carry a batch, but a bounded one: a batch is "one step's measurements", not a
+#: script. Measured on the ontology builder (2026-11-14): 1618 separate shell calls spent 6085 s
+#: of wall clock — 4 s per LLM round-trip while each query ran in milliseconds. The cost is the
+#: round-trip, so the fix is to make ONE call able to answer many questions at once.
+_MAX_DB_QUERY_BATCH = 20
+#: Hard cap on the text a batch may return. A 20-statement batch with 200 rows each is ~400k
+#: characters of markdown, which costs more turns (compaction) than it saves.
+_MAX_DB_QUERY_CHARS = 60_000
+
+
+def _split_sql_statements(text: str) -> list[str]:
+    """Split on top-level `;`, leaving string literals and comments alone.
+
+    Not a SQL parser — it exists so a semicolon inside 'a;b', inside a `--` comment or inside a
+    `/* */` block cannot be mistaken for a statement boundary and hand the executor something the
+    caller did not write. Quote escaping doubles the character and is honoured.
     """
-    用我：对**任意**数据库跑只读 SELECT（包括你用 db_build_from_file 刚建的那个）。
-    别用我：查平台库可以用 pg_query；写操作不该发生在报表里；自然语言问 chinook 用 sql_agent_tool。
+    out: list[str] = []
+    buf: list[str] = []
+    quote: str | None = None
+    i, n = 0, len(text or "")
+    while i < n:
+        ch = text[i]
+        if quote is None and text.startswith("--", i):
+            j = text.find("\n", i)
+            j = n if j < 0 else j
+            buf.append(text[i:j])
+            i = j
+            continue
+        if quote is None and text.startswith("/*", i):
+            j = text.find("*/", i + 2)
+            j = n if j < 0 else j + 2
+            buf.append(text[i:j])
+            i = j
+            continue
+        if quote is None and ch in ("'", '"'):
+            quote = ch
+        elif quote is not None and ch == quote:
+            if i + 1 < n and text[i + 1] == quote:
+                buf.append(ch)
+                buf.append(ch)
+                i += 2
+                continue
+            quote = None
+        if ch == ";" and quote is None:
+            statement = "".join(buf).strip()
+            if statement and not _only_comments(statement):
+                out.append(statement)
+            buf = []
+            i += 1
+            continue
+        buf.append(ch)
+        i += 1
+    tail = "".join(buf).strip()
+    if tail and not _only_comments(tail):
+        out.append(tail)
+    return out
 
-    Run a read-only SELECT against a named PostgreSQL database and return a markdown table.
 
-    Unlike `pg_query` (bound to the platform's own database), this takes the database name,
-    so an agent that built `orders_xlsx` can query it directly. Only SELECT / WITH is
-    allowed, multiple statements are rejected, and results are capped at `limit`.
+def _only_comments(statement: str) -> bool:
+    """True when a chunk carries nothing but comments (so it is not worth a round-trip)."""
+    stripped = []
+    for line in (statement or "").splitlines():
+        line = line.split("--", 1)[0].strip()
+        if line:
+            stripped.append(line)
+    return not stripped or all(part.strip() in ("", "/*", "*/") for part in stripped)
 
-    Args:
-        db_name: database to query, e.g. "orders_xlsx"
-        sql: one SELECT (or WITH … SELECT) statement
-        limit: row cap (default 200, max 2000)
-        host/port/user: target server (empty = the platform's own server). A credential is NOT an argument — it arrives as PGPASSWORD from the agent's own Database configuration
 
-    Returns:
-        A markdown table, or a refusal explaining why the statement was not executed.
-    """
-    import re
-
-    import psycopg2
-
-    statement = (sql or "").strip().rstrip(";").strip()
-    if not statement:
-        return "Error: empty SQL"
-    if not re.match(r"(?is)^(select|with)\b", statement):
-        return ("Error: only SELECT/WITH is allowed (got " + repr(statement[:60])
-                + "). Use db_review or db_build_from_file for schema work.")
-    if ";" in statement:
-        return "Error: multiple statements are not allowed — send one SELECT."
-    cap = max(1, min(int(limit or 200), 2000))
-
-    target = _pg_conn_kwargs(host, port, user, dbname=db_name)
-    try:
-        conn = psycopg2.connect(**target)
-    except Exception as exc:
-        return f"Error: cannot connect to {db_name}: {exc}"
-    try:
-        conn.set_session(readonly=True, autocommit=True)
-        cur = conn.cursor()
-        cur.execute("select * from (" + statement + ") q limit " + str(cap + 1))
-        rows = cur.fetchall()
-        cols = [d[0] for d in cur.description]
-    except Exception as exc:
-        conn.close()
-        return f"Error: {exc}"
-    conn.close()
-
+def _render_query_rows(cols: list[str], rows: list, cap: int) -> str:
+    """Markdown table for one result set, capped and with an explicit row count."""
     if not rows:
         return f"Query returned no rows (columns: {', '.join(cols)})."
     capped = len(rows) > cap
@@ -7032,6 +7051,98 @@ def db_query(db_name: str, sql: str, limit: int = 200, host: str = "", port: int
     lines.append("\n*" + str(len(rows)) + " row(s)"
                  + (" — capped, refine the query for more" if capped else "") + "*")
     return "\n".join(lines)
+
+
+@tool
+def db_query(db_name: str, sql: str = "", limit: int = 200, host: str = "", port: int = 0,
+             user: str = "", sqls: Optional[List[str]] = None, timeout_ms: int = 8000) -> str:
+    """
+    用我：对**任意**数据库跑只读 SELECT（包括你用 db_build_from_file 刚建的那个）。**要量很多口径时，一次调用把整批 SELECT 发过来**（`sqls` 列表，或 `sql` 里用 `;` 分隔），一条连接一次往返拿回全部结果——往返才是成本，查询本身是毫秒级。
+    别用我：查平台库可以用 pg_query；写操作不该发生在报表里；DDL/DML（建视图、改表）用 `execute`；自然语言问 chinook 用 sql_agent_tool。
+
+    Run one or MANY read-only SELECTs against a named PostgreSQL database; each returns a markdown table.
+
+    Unlike `pg_query` (bound to the platform's own database), this takes the database name, so an
+    agent that built `orders_xlsx` can query it directly. Only SELECT / WITH is allowed.
+
+    **Batch, deliberately.** `sqls` (or several `;`-separated statements in `sql`) runs in order on
+    ONE read-only connection and comes back as one result: one connection, one tool round-trip,
+    N answers. This is the shape the measurements want — the ontology builder spent 1618 separate
+    shell calls on queries that each ran in milliseconds, and paid 4 s of model round-trip each.
+    A failing statement reports its own error and the rest of the batch still runs; nothing is
+    rolled back, because every statement here is a read.
+
+    Args:
+        db_name: database to query, e.g. "orders_xlsx"
+        sql: one SELECT (or WITH … SELECT); several `;`-separated SELECTs are run as a batch
+        sqls: explicit batch — up to 20 SELECTs, run in order, each result labelled [k/N]
+        limit: per-statement row cap (default 200, max 2000)
+        timeout_ms: per-statement statement_timeout (default 8000, max 60000)
+        host/port/user: target server (empty = the platform's own server). A credential is NOT an argument — it arrives as PGPASSWORD from the agent's own Database configuration
+
+    Returns:
+        One markdown table per statement, or a refusal explaining why nothing was executed.
+    """
+    import re
+
+    import psycopg2
+
+    statements: List[str] = []
+    for item in (sqls or []):
+        statements.extend(_split_sql_statements(str(item or "")))
+    statements.extend(_split_sql_statements(sql or ""))
+    if not statements:
+        return "Error: empty SQL — pass `sql` or `sqls`."
+    if len(statements) > _MAX_DB_QUERY_BATCH:
+        return (f"Error: {len(statements)} statements in one call; the batch cap is "
+                f"{_MAX_DB_QUERY_BATCH}. Nothing ran. A batch is one step's measurements — split it, "
+                "or drop the queries you do not need.")
+    for index, statement in enumerate(statements, 1):
+        if not re.match(r"(?is)^(select|with)\b", statement):
+            return ("Error: only SELECT/WITH is allowed; statement "
+                    f"{index}/{len(statements)} is not read-only (got {statement[:60]!r}). Nothing ran. "
+                    "Use db_review or db_build_from_file for schema work, and `execute` for DDL/DML.")
+    cap = max(1, min(int(limit or 200), 2000))
+    timeout = max(100, min(int(timeout_ms or 8000), 60000))
+
+    target = _pg_conn_kwargs(host, port, user, dbname=db_name)
+    try:
+        conn = psycopg2.connect(**target)
+    except Exception as exc:
+        return f"Error: cannot connect to {db_name}: {exc}"
+
+    chunks: List[str] = []
+    try:
+        conn.set_session(readonly=True, autocommit=True)
+        cur = conn.cursor()
+        try:
+            cur.execute("SET statement_timeout = " + str(timeout))
+        except Exception:
+            pass  # a server that refuses the GUC still runs the queries; the setting is a guard, not a gate
+        for index, statement in enumerate(statements, 1):
+            label = (" ".join(statement.split()))[:120]
+            try:
+                cur.execute("select * from (" + statement + ") q limit " + str(cap + 1))
+                rows = cur.fetchall()
+                cols = [d[0] for d in cur.description]
+                body = _render_query_rows(cols, rows, cap)
+            except Exception as exc:
+                body = f"Error: {exc}"
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+            chunks.append((f"### [{index}/{len(statements)}] {label}\n" if len(statements) > 1 else "")
+                          + body)
+    finally:
+        conn.close()
+
+    text = "\n\n".join(chunks)
+    if len(text) > _MAX_DB_QUERY_CHARS:
+        text = (text[:_MAX_DB_QUERY_CHARS]
+                + f"\n\n… output truncated at {_MAX_DB_QUERY_CHARS} characters "
+                  f"({len(statements)} statement(s) ran; narrow the columns or add GROUP BY).")
+    return text
 
 def _resolve_agent_file(value: str):
     """(path, error) for a spreadsheet argument: sandbox-checked, and relative to the run workspace.

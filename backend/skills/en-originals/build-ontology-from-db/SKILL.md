@@ -86,8 +86,14 @@ afternoon of building one ontology:
   database ONE compact question — not a 40 KB introspection dump.
 - **One turn = 1–3 classes.** Measured: 6 classes stalled twice (5+ minutes); 2–3 classes completed in 30–120 s.
   Append; never rewrite a finished file.
-- **One aggregate, one statement.** Never re-send a query with one more clause appended — that loop produces no
-  number for ten turns. If two consecutive tool calls are ≥80 % identical, stop and change the approach.
+- **One aggregate, one statement; many measurements, ONE batched call.** Never re-send a query with one more clause
+  appended — that loop produces no number for ten turns. If two consecutive tool calls are ≥80 % identical, stop and
+  change the approach.
+  **When you need many numbers at once, use `db_query(sqls=[…])`: up to 20 SELECTs in one call, one connection, one
+  round-trip, every result back together.** Measured (2026-11-14, `ebl_ops_v1`): 1 618 `execute` calls, each running
+  one `psql` statement, burned **6 085 s** — about 4 s of model round-trip per call while the queries themselves ran
+  in milliseconds. **The cost is the round-trip, not the SQL**: a turn's measuring belongs in one list answered by one
+  call, not asked one question at a time.
 - **The gate is the only authority; the engine is not.** When a file's format is unclear, open the **gate** that will
   judge it — its docstring holds a complete example. Measured: a turn asked to write `samples.json` instead went
   looking for the schema in `compiler/*.py` and sent **78** `grep` calls, each appending one more filename to the file
@@ -703,7 +709,8 @@ say that you ran it. If you have not seen a gate fail, you do not know it works.
 
 | capability | why |
 |---|---|
-| **shell execution** (`execute` / `bash`) | the step scripts and every gate run against the real database |
+| **shell execution** (`execute` / `bash`) | the step scripts and every gate run against the real database; DDL/DML (views, altered tables) goes here too |
+| **`db_query` batched read-only queries** | measure with it: `sqls=[…]` takes up to 20 SELECTs and returns every result in one round-trip. Without it, do not fall back to one `psql` per question — that is one model round-trip per question (measured: 1 618 calls = 6 085 s) |
 | **file read + write** | the TTL, profile, samples, tutorial and `steps.json` are files |
 | **a PostgreSQL connection** | introspection and every gate use the real data, never a description of it |
 | **a Python with `psycopg2` + `rdflib`** | scripts and gates import them; the host app's venv has both |

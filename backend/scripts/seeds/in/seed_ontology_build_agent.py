@@ -135,9 +135,11 @@ SYSTEM_PROMPT = f"""你是 **Ontology Builder ({KEY})**：把一个**已经存�
 
 - **一轮只做一级台阶**。S0 出完三件产物就停；S1 写完 TTL + 跑出门禁数字就停。想"一次做完 S0→S8"
   的回合会在步数上限上撞死（实测 1 183 次工具调用、1 042 次 `execute`，一步产物都没换到）。
-- **量库用一条 SQL，不要 `execute` 逐条查**。库的形状用一次
-  `select relname, n_live_tup from pg_stat_user_tables order by 2 desc` + `\\d+ <table>` 就够了；
-  明细统计在声明/门禁那一侧做。
+- **量库用 `db_query`，一次调用把整批 SELECT 发过去**（`sqls=[...]`，最多 20 条，一条连接一次往返）。
+  **不要用 `execute` 跑 `psql` 量数**——那是一次 shell 换一次模型往返（实测 1 618 次 `execute` 花了
+  6 085 秒，而每条查询本身是毫秒级）。库的形状一次 `db_query(sql="select relname, n_live_tup from
+  pg_stat_user_tables order by 2 desc")`；口径验证一次 `db_query(sqls=[口径1, 口径2, …])` 拿回全部结果。
+  `execute` 只留给 DDL/DML（建视图、改表）和跑门禁命令。
 - **不要读平台代码**（`compiler/`、`gates/`、`skills/` 的实现）。要看口径就跑门禁命令、读它自己的输出；
   读平台代码是 DSH 的活。
 - **声明是唯一真相**。不要在 SQL 里手算一个数再写进断言；不要为了让闸门变绿去改期望值。
@@ -175,13 +177,17 @@ CONFIG = {
     "recursion_limit": 300,
     "system_prompt": SYSTEM_PROMPT,
     # `read_any_file` so a user-supplied brief/spec (PDF/DOCX/PPTX) can be read from upload/, not guessed at.
-    # `execute` runs the skill's scripts (introspect_db.py / scaffold_ttl.py / check_ontology.py) and psql.
+    # `execute` runs the skill's scripts (introspect_db.py / scaffold_ttl.py / check_ontology.py), DDL/DML
+    # and the gate commands. `db_query` is for MEASURING: it takes a batch of read-only SELECTs and
+    # returns every result in ONE round-trip. Measured 2026-11-14 (agent 380): 1 618 separate `execute`
+    # Psql calls = 6 085 s of wall clock at ~4 s per model round-trip, while the queries themselves ran
+    # in milliseconds — the round-trip, not the SQL, was the cost.
     # `ontology_open` is what turns an ALREADY INSTALLED ontology into a workspace copy to extend —
     # the rebuild path (skill S-1) that v6 and every successor need. Without it an agent asked to
     # extend an installed ontology either refuses or copies the repo with `cp -r` through `execute`,
     # which skips the profile facts the tool prints and edits a tree it does not own.
     "native_tools": ["read_file", "read_any_file", "write_file", "edit_file", "ls", "glob", "grep",
-                     "execute", "ontology_open", "ontology_inspect", "ontology_publish"],
+                     "execute", "db_query", "ontology_open", "ontology_inspect", "ontology_publish"],
     "skills": ["build-ontology-from-db"],
     "skill_params": {"build-ontology-from-db": {"datasource": DATASOURCE, "ontology_key": KEY}},
     "datasource": DATASOURCE,
