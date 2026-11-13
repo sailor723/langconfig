@@ -356,6 +356,23 @@ def _stage_plugin_skills_to_storage(
         return []
 
 
+def _ensure_pg_identity(env: dict) -> dict:
+    """Make sure the sandbox shell gets PGUSER/PGPASSWORD, not only the ONTOLOGY_DB_* copies.
+
+    Measured on ECS (2026-11-13, agent 379): the sandbox had PGHOST/PGPORT/PGDATABASE and all four
+    `ONTOLOGY_DB_*` values, but no PGUSER/PGPASSWORD — so `psql` fell back to the OS account and died
+    with `Password for user root: ... no password supplied`, while the agent's psycopg2 path (which
+    reads the `ONTOLOGY_DB_*` variables) worked fine. The agent then spent turns concluding "the
+    database is unreachable" about a database it had just queried successfully. libpq reads PGUSER
+    and PGPASSWORD; an agent should never have to discover that its two connection paths disagree.
+    """
+    out = dict(env or {})
+    for libpq, ontology in (("PGUSER", "ONTOLOGY_DB_USER"), ("PGPASSWORD", "ONTOLOGY_DB_PASSWORD")):
+        if not out.get(libpq) and out.get(ontology):
+            out[libpq] = out[ontology]
+    return out
+
+
 def _datasource_env(name: str) -> tuple[dict[str, str], dict[str, str]]:
     """Resolve a named database from the `databases` settings document.
 
@@ -755,8 +772,8 @@ class _DeepAgentAssemblyMixin:
                         from services import agent_database as _agent_db  # noqa: PLC0415
 
                         datasource_env, datasource_dsn = _agent_db.resolve(config)
-                        datasource_env = {**datasource_env,
-                                          **_agent_db.ontology_env(datasource_env)}
+                        datasource_env = _ensure_pg_identity(
+                            {**datasource_env, **_agent_db.ontology_env(datasource_env)})
                         logger.info("Agent database bound to sandbox env "
                                     "(PGDATABASE=%s, source=%s, credential=%s)",
                                     datasource_env.get("PGDATABASE"),
