@@ -36,6 +36,7 @@ from rdflib.namespace import RDF  # noqa: E402
 from features.ontology.reasoning import reasoner as R  # noqa: E402
 
 DDL = """
+drop table if exists candidate_role_fit;
 drop table if exists candidate_match;
 drop table if exists role_required_skill;
 drop table if exists role;
@@ -83,6 +84,24 @@ create table candidate_match (
     candidate text not null references candidate(id),
     role_class text not null,
     role text,
+    primary key (candidate, role_class)
+);
+-- the RECOMMENDATION: who meets the bar (entailment) and how well (deterministic score).
+-- The DL reasoner decides membership; it cannot order candidates, so the ordering is written here and
+-- documented, rather than left to a feeling: 60 % skills, 25 % years, 15 % education floor.
+create table candidate_role_fit (
+    candidate text not null references candidate(id),
+    role_class text not null,
+    role text,
+    matched_skills int not null,
+    required_skills int not null,
+    years_experience int,
+    required_years int,
+    years_margin int,
+    education_rank int,
+    required_education_rank int,
+    fit_score numeric(6,2) not null,
+    rank_in_role int not null,
     primary key (candidate, role_class)
 );
 create table reasoning_run (
@@ -194,11 +213,72 @@ def main() -> int:
             match_rows.append((_local(member), cls_local,
                                _local(_text(graph, URIRef(member), ns + "appliedFor") or "") or None))
 
+    # ── the recommendation table: membership from the reasoner, ordering from a written rule
+    skill_categories_by_candidate: dict[str, set[str]] = {}
+    for cid, skill in css_rows:
+        category = next((cat for s_name, cat in skill_rows if s_name == skill and cat), None)
+        skill_categories_by_candidate.setdefault(cid, set())
+        if category:
+            skill_categories_by_candidate[cid].add(category)
+
+    role_requirements = {}
+    for rid, r_years, r_rank, _not_stated in role_rows:
+        cats = set()
+        for r_role, skill in rrs_rows:
+            if r_role != rid:
+                continue
+            pruned = [cat for s_name, cat in skill_rows if s_name == skill and cat]
+            cats |= set(pruned)
+        role_requirements[rid] = (r_years, r_rank, cats)
+
+    def _fit(cid: str, rid: str) -> tuple | None:
+        r_years, r_rank, required_cats = role_requirements.get(rid, (None, None, set()))
+        cand = next((row for row in cand_rows if row[0] == cid), None)
+        if cand is None:
+            return None
+        years, edu_rank = cand[2], cand[3]
+        held = skill_categories_by_candidate.get(cid, set())
+        matched = len(held & required_cats)
+        total = len(required_cats)
+        skills_ratio = (matched / total) if total else 0.0
+        years_ratio = min(1.0, (years or 0) / r_years) if r_years else 1.0
+        edu_ok = 1.0 if (not r_rank or (edu_rank is not None and edu_rank >= r_rank)) else 0.0
+        score = round(60 * skills_ratio + 25 * years_ratio + 15 * edu_ok, 2)
+        years_margin = (years - r_years) if (years is not None and r_years is not None) else None
+        return (cid, None, rid, matched, total, years, r_years, years_margin, edu_rank, r_rank,
+                score, 0)
+
+    # A duplicate scan is the SAME person (`:sameAs` in the ABox, `duplicate_of` here). Ranking both
+    # would push a real candidate down one rank for every duplicate file — measured on the client's
+    # dossier: 7 such pairs, and 副总助理's top 2 rows were the same person twice.
+    duplicates = {row[0] for row in cand_rows if row[8]}
+    fit_rows = []
+    for iri in classes:
+        cls_local = _local(iri)
+        for member in result.members_of(iri):
+            cid = _local(member)
+            if cid in duplicates:
+                continue
+            # the JD's role: the class name minus its prefix. NOT the candidate's applied role —
+            # ranking a 副总助理 applicant inside the 业务跟单 requirement must still say 业务跟单.
+            jd_role = cls_local[len("matches_"):] if cls_local.startswith("matches_") else cls_local
+            applied = _local(_text(graph, URIRef(member), ns + "appliedFor") or "") or None
+            row = _fit(cid, applied) if applied else None
+            if row is None:
+                continue
+            fit_rows.append((row[0], cls_local, jd_role) + row[3:11])
+    # rank inside each role: fit desc, then years desc, then id — a stated tie-break, not insertion order
+    fit_rows.sort(key=lambda r: (r[1], -float(r[10]), -(r[7] or 0), r[0]))
+    ranked, seen = [], {}
+    for row in fit_rows:
+        seen[row[1]] = seen.get(row[1], 0) + 1
+        ranked.append(row[:11] + (seen[row[1]],))
+
     print(f"reasoner {result.engine} · {result.elapsed_ms:.0f} ms · consistent={result.consistent}")
     for iri in classes:
         print(f"  {_local(iri):26s} {len(result.members_of(iri)):4d} member(s)")
     print(f"  candidates {len(cand_rows)} · skills {len(skill_rows)} · roles {len(role_rows)} · "
-          f"matches {len(match_rows)}")
+          f"matches {len(match_rows)} · ranked {len(ranked)}")
 
     if args.dry_run:
         print("dry run: nothing written")
@@ -230,6 +310,11 @@ def main() -> int:
             if match_rows:
                 execute_values(cur, "insert into candidate_match (candidate, role_class, role) "
                                     "values %s", match_rows)
+            if ranked:
+                execute_values(cur, "insert into candidate_role_fit (candidate, role_class, role, "
+                                    "matched_skills, required_skills, years_experience, required_years, "
+                                    "years_margin, education_rank, required_education_rank, fit_score, "
+                                    "rank_in_role) values %s", ranked)
             cur.execute("insert into reasoning_run (engine, elapsed_ms, candidates, members, "
                         "consistent) values (%s,%s,%s,%s,%s)",
                         (result.engine, round(result.elapsed_ms, 3), len(cand_rows),
