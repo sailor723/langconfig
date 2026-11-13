@@ -84,7 +84,13 @@ def main() -> int:
     spec = json.loads(spec_path.read_text())
     name = spec.get("name") or spec_path.stem
     dsn = dict(spec.get("dsn") or {})
-    dsn.setdefault("password", "")
+    # The credential is NEVER a spec field (a committed spec must not carry a secret), so it comes
+    # from the environment the way every other gate's does. Measured on the local 5433 cluster:
+    # a spec without a password died with "fe_sendauth: no password supplied" while PGPASSWORD was
+    # set in the same shell — the gate was the only reader ignoring it.
+    import os as _os
+
+    dsn.setdefault("password", _os.environ.get("PGPASSWORD", ""))
     only = {x.strip() for x in (args.only or "").split(",") if x.strip()}
 
     try:

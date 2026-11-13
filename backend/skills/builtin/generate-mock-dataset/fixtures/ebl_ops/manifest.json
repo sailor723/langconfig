@@ -1,0 +1,234 @@
+{
+  "dataset": {
+    "name": "ebl_ops",
+    "schema": "public",
+    "status": "built",
+    "purpose": "把 EBL OS 的《11 亿营收目标与防御性毛利守护方案》变成可核查的数据集：营收/毛利红线/客户分级/低毛利订单治理/降本 都能被查询证伪，而不是只写在报告里",
+    "confirmed_by": "weiping (chat 2026-11-13)",
+    "confirmed_at": "2026-11-13T23:55:00+08:00"
+  },
+  "source": {
+    "system": "synthesised",
+    "files": [
+      {
+        "name": "client/team-2/11 亿营收目标与防御性毛利守护方案.MD",
+        "sha256": null
+      }
+    ],
+    "generator": "backend/scripts/mock/gen_ebl_ops.py",
+    "seed": 20260101,
+    "spec": "backend/skills/builtin/generate-mock-dataset/fixtures/ebl_ops/ebl_ops.dataset.json"
+  },
+  "time": {
+    "start": "2025-01-01",
+    "end": "2026-12-31",
+    "days": 730,
+    "timezone": "Asia/Shanghai",
+    "relative_window": false,
+    "as_of": "2026-12-31",
+    "regimes": [
+      {
+        "date": "2026-01-05",
+        "change": "任务 1 启动：数据口径统一（第 1 周）"
+      },
+      {
+        "date": "2026-02-02",
+        "change": "华南大区试点分级（第 2 周）"
+      },
+      {
+        "date": "2026-03-20",
+        "change": "A/B/C 定义文件双签 —— 此前 customers.segment 全部为 NULL（未分级）"
+      },
+      {
+        "date": "2026-04-01",
+        "change": "全公司推开：分级名单与资源重配落地"
+      }
+    ]
+  },
+  "units": {
+    "order_lines.revenue": "RMB 元",
+    "order_lines.cost": "RMB 元",
+    "order_lines.gross_margin": "% (0-100)",
+    "order_lines.qty": "pcs",
+    "orders.revenue_header": "RMB 元",
+    "order_adjustments.amount": "RMB 元（折扣/返利，正负号自带）",
+    "customers.on_time_payment_rate": "% (0-100)",
+    "customers.purchase_amount_2025": "RMB 元",
+    "production_lines.utilization": "% (0-100)",
+    "suppliers.spend_2025": "RMB 元",
+    "suppliers.unit_price_index_2025": "index (2025=100)",
+    "employees.id": "人",
+    "opex_items.amount_2026": "RMB 元"
+  },
+  "nulls": {
+    "customers.segment": "not_judged（2026-03-20 双签前未分级；年底仍有约 18% 客户未完成分级）",
+    "customers.on_time_payment_rate": "not_recorded（新客户/已停止合作客户无回款记录，约 12%）",
+    "customers.price_compare_behavior": "not_recorded（约 9% 无该维度观测）",
+    "suppliers.payment_days": "not_recorded（1 家供应商账期缺失）",
+    "production_lines.closed_at": "not_applicable（仍在运行的产线）",
+    "order_lines.growth_bucket": "not_applicable（FY2025 的行全部记为『存量基本盘』：增长归属是 2026 年才有的口径，跨年比较不可知）"
+  },
+  "pii": [
+    {
+      "column": "customers.name",
+      "kind": "company_name",
+      "handling": "synthetic"
+    },
+    {
+      "column": "suppliers.name",
+      "kind": "company_name",
+      "handling": "synthetic"
+    },
+    {
+      "column": "employees.name",
+      "kind": "person_name",
+      "handling": "synthetic"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "Q1",
+      "text": "库名 ebl_ops",
+      "source": "chat 2026-11-13",
+      "status": "proposed"
+    },
+    {
+      "id": "Q2",
+      "text": "币种 RMB（元）；金额列存元，展示层再转万元",
+      "source": "方案全篇金额单位为亿，无其他币种",
+      "status": "proposed"
+    },
+    {
+      "id": "Q3",
+      "text": "客户/供应商/员工姓名全部合成，不掩码",
+      "source": "chat 2026-11-13",
+      "status": "proposed"
+    },
+    {
+      "id": "Q4",
+      "text": "时间窗 FY2025-01-01 → 2026-12-31，as_of 2026-12-31（事后实际值）",
+      "source": "方案 §一/§四 给的是两个财年的实际与目标",
+      "status": "proposed"
+    },
+    {
+      "id": "Q5",
+      "text": "毛利两个切分都要：按客户分级（§三）与按产品档位（§四）是不同分母",
+      "source": "方案 §三 vs §四",
+      "status": "confirmed"
+    },
+    {
+      "id": "Q6",
+      "text": "低毛利订单必须双签 + 提成减半 + 6 个月复审，因此需要审批表，不能只靠一行 tier",
+      "source": "方案 §四",
+      "status": "confirmed"
+    },
+    {
+      "id": "Q7",
+      "text": "四维分级必须存每一维的档位（dim_*_band），否则『3 项以上落 A 档』无法复算",
+      "source": "方案 §六",
+      "status": "confirmed"
+    },
+    {
+      "id": "Q8",
+      "text": "产能利用率是方案输入口径，库里无班次工时，不可复算 —— 本体须注明",
+      "source": "方案 §七/§八",
+      "status": "confirmed"
+    },
+    {
+      "id": "Q9",
+      "text": "阈值（17.5%/17%/25%/70%/2 家/3–5 个/2–3%）不进库，属于本体 policies",
+      "source": "方案 §一/§四/§九",
+      "status": "confirmed"
+    }
+  ],
+  "refused": [
+    {
+      "name": "引领性产品占比",
+      "why": "方案 §三/§十 明确放弃引领性产品",
+      "missing": "库里没有『引领/跟随』标签，也不需要"
+    },
+    {
+      "name": "议价能力指数",
+      "why": "方案只有结论『议价能力低』，没有可观测代理",
+      "missing": "缺同 SKU 市场基准价（外部数据）"
+    },
+    {
+      "name": "毛利率的成本构成（材料/人工/制造费用）",
+      "why": "order_lines 只有毛利额与率",
+      "missing": "缺 bom_costs 三分结构"
+    },
+    {
+      "name": "个人提成金额 / 绩效奖金",
+      "why": "薪酬不进库；commission_factor 只记录规则是否应用",
+      "missing": "缺薪酬数据（且属敏感域）"
+    }
+  ],
+  "out_of_scope_but_computable": [
+    {
+      "name": "整体交付率（全体客户）",
+      "why": "方案 §十：不追求整体交付率大幅提升，因此可算但不作为考核"
+    },
+    {
+      "name": "新客成交额",
+      "why": "方案 §十：不考核新客成交额；leads/orders 能算，但只用『有效询盘数』考核"
+    },
+    {
+      "name": "产能利用率",
+      "why": "可查询，但不可复算（输入口径）"
+    }
+  ],
+  "handoff": {
+    "ontology_key": null,
+    "profile": null,
+    "guard": {
+      "default_window_days": 0,
+      "big_tables": {
+        "public.order_lines": "order_date"
+      }
+    }
+  },
+  "checks": {
+    "invariants": 21,
+    "result": "60 checks · 0 failed · green",
+    "deterministic": true,
+    "mutation_turns_red": null
+  },
+  "rows": {
+    "public.customers": 180,
+    "public.products": 420,
+    "public.production_lines": 32,
+    "public.suppliers": 40,
+    "public.employees": 2800,
+    "public.core_customers": 12,
+    "public.micro_improvements": 7,
+    "public.opex_items": 28,
+    "public.leads": 900,
+    "public.orders": 4600,
+    "public.order_lines": 18400,
+    "public.low_margin_approvals": 4232,
+    "public.order_adjustments": 4600,
+    "public.rule_regimes": 4
+  },
+  "questions": [
+    {
+      "id": "Q1",
+      "ask": "库名用 ebl_ops 可以吗？",
+      "blocks": "建库"
+    },
+    {
+      "id": "Q2",
+      "ask": "金额一律按 RMB 元理解、库里存元、展示再转万元？",
+      "blocks": "金额列的单位"
+    },
+    {
+      "id": "Q3",
+      "ask": "客户/供应商/员工姓名用合成名字（可读、不对应真实企业）？",
+      "blocks": "PII 处置"
+    },
+    {
+      "id": "Q4",
+      "ask": "时间窗 2025-01-01→2026-12-31 且 as_of=2026-12-31（因此『最近 30 天』类指标应被拒绝）？",
+      "blocks": "护栏 window"
+    }
+  ]
+}

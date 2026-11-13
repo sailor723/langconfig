@@ -1,0 +1,320 @@
+{
+  "_doc": "EBL OS 数据集的事实清单：每一条都是可以被查询证伪的 claim。改数据前先改这里，否则闸门绿着而故事已经变了。来源 client/team-2/11 亿营收目标与防御性毛利守护方案.MD",
+  "name": "ebl_ops",
+  "dsn": {
+    "host": "127.0.0.1",
+    "port": 5433,
+    "dbname": "ebl_ops",
+    "user": "langconfig"
+  },
+  "tables": [
+    {
+      "name": "customers",
+      "rows": 180,
+      "why": "11 亿 / 年均 610 万 ≈ 180 家；客户数少于核心客户流失才可测"
+    },
+    {
+      "name": "products",
+      "rows": 420,
+      "why": "四档 × 镜架/镜片/配件（§四 三档定价 + §三 微改良）"
+    },
+    {
+      "name": "production_lines",
+      "rows": 32,
+      "why": "§八 关停/合并最低效产线需要有可数的产线；7 条利用率 <70%（§四 低毛利订单唯一去处）"
+    },
+    {
+      "name": "suppliers",
+      "rows": 40,
+      "why": "§八 前 10 大供应商集中议价"
+    },
+    {
+      "name": "employees",
+      "rows": 2800,
+      "why": "§二 约 2800 人，6 个部门"
+    },
+    {
+      "name": "core_customers",
+      "rows": 12,
+      "why": "§七 核心客户清单 Q1 锁定；12 家才让『流失 ≤2 家』有区分度"
+    },
+    {
+      "name": "micro_improvements",
+      "rows": 7,
+      "why": "§三 微改良 3–5 个 + §四 认证 1–2 项"
+    },
+    {
+      "name": "opex_items",
+      "rows": 28,
+      "why": "§八 行政部冻结非生产性支出，出清单"
+    },
+    {
+      "name": "leads",
+      "rows": 900,
+      "why": "§七 新客只考核有效询盘数；§三 只走转介绍/展会存量转化"
+    },
+    {
+      "name": "orders",
+      "why": "FY2025 2 200 + FY2026 2 400 单"
+    },
+    {
+      "name": "order_lines",
+      "why": "每单 4 行：营收/毛利/档位/增长来源都落在这层"
+    },
+    {
+      "name": "low_margin_approvals",
+      "why": "§四 双签 + 提成减半 + 6 个月复审的落地凭证"
+    },
+    {
+      "name": "order_adjustments",
+      "why": "折扣/返利：让订单头与行合计差 1.5%（两套营收口径的病理）"
+    },
+    {
+      "name": "rule_regimes",
+      "rows": 4,
+      "why": "§六 第 1/2/3/4 周的制度切换点"
+    }
+  ],
+  "foreign_keys": [
+    {
+      "table": "core_customers",
+      "column": "customer_id",
+      "ref_table": "customers"
+    },
+    {
+      "table": "orders",
+      "column": "customer_id",
+      "ref_table": "customers"
+    },
+    {
+      "table": "order_lines",
+      "column": "order_id",
+      "ref_table": "orders"
+    },
+    {
+      "table": "order_lines",
+      "column": "product_id",
+      "ref_table": "products"
+    },
+    {
+      "table": "order_lines",
+      "column": "production_line_id",
+      "ref_table": "production_lines"
+    },
+    {
+      "table": "order_lines",
+      "column": "approval_id",
+      "ref_table": "low_margin_approvals"
+    },
+    {
+      "table": "order_adjustments",
+      "column": "order_id",
+      "ref_table": "orders"
+    }
+  ],
+  "invariants": [
+    {
+      "id": "fy2026_revenue",
+      "why": "§一 年度营收目标 11 亿",
+      "sql": "SELECT round(sum(ol.revenue)/1e8, 3) FROM order_lines ol JOIN orders o ON o.id = ol.order_id WHERE o.fiscal_year = 2026",
+      "expect_range": [
+        10.945,
+        11.055
+      ]
+    },
+    {
+      "id": "fy2025_revenue",
+      "why": "§一 去年营收 9 亿（增量才有意义）",
+      "sql": "SELECT round(sum(ol.revenue)/1e8, 3) FROM order_lines ol JOIN orders o ON o.id = ol.order_id WHERE o.fiscal_year = 2025",
+      "expect_range": [
+        8.955,
+        9.045
+      ]
+    },
+    {
+      "id": "quarterly_revenue",
+      "why": "§四 季度节奏 2.5 / 2.7 / 2.9 / 2.9 亿",
+      "sql": "SELECT o.quarter, round(sum(ol.revenue)/1e8, 2) FROM order_lines ol JOIN orders o ON o.id = ol.order_id WHERE o.fiscal_year = 2026 GROUP BY 1 ORDER BY 1",
+      "expect": {
+        "1": 2.5,
+        "2": 2.7,
+        "3": 2.9,
+        "4": 2.9
+      }
+    },
+    {
+      "id": "weighted_margin_fy",
+      "why": "§一/§四 加权毛利目标 18–19%（按营收加权，不是行平均）",
+      "sql": "SELECT round(sum(ol.revenue*ol.gross_margin)/sum(ol.revenue), 3) FROM order_lines ol JOIN orders o ON o.id = ol.order_id WHERE o.fiscal_year = 2026",
+      "expect_range": [
+        18.0,
+        19.0
+      ]
+    },
+    {
+      "id": "quarter_margin_floor",
+      "why": "§四 季度预警线 17%：任一季破线即红",
+      "sql": "SELECT min(m) FROM (SELECT sum(ol.revenue*ol.gross_margin)/sum(ol.revenue) AS m FROM order_lines ol JOIN orders o ON o.id = ol.order_id WHERE o.fiscal_year = 2026 GROUP BY o.quarter) s",
+      "expect_range": [
+        17.0,
+        100.0
+      ]
+    },
+    {
+      "id": "tier_margin_差异化",
+      "why": "§四 差异化品 25–28%",
+      "sql": "SELECT round(avg(ol.gross_margin), 2) FROM order_lines ol JOIN orders o ON o.id = ol.order_id WHERE o.fiscal_year = 2026 AND ol.tier = '差异化'",
+      "expect_range": [
+        25.0,
+        28.0
+      ]
+    },
+    {
+      "id": "tier_margin_标准",
+      "why": "§四 标准品 15–18%",
+      "sql": "SELECT round(avg(ol.gross_margin), 2) FROM order_lines ol JOIN orders o ON o.id = ol.order_id WHERE o.fiscal_year = 2026 AND ol.tier = '标准'",
+      "expect_range": [
+        15.0,
+        18.0
+      ]
+    },
+    {
+      "id": "tier_margin_低毛利",
+      "why": "§四 低毛利走量 13–16%",
+      "sql": "SELECT round(avg(ol.gross_margin), 2) FROM order_lines ol JOIN orders o ON o.id = ol.order_id WHERE o.fiscal_year = 2026 AND ol.tier = '低毛利走量'",
+      "expect_range": [
+        13.0,
+        16.0
+      ]
+    },
+    {
+      "id": "tier_margin_微改良",
+      "why": "§三 微改良 25–28%",
+      "sql": "SELECT round(avg(ol.gross_margin), 2) FROM order_lines ol JOIN orders o ON o.id = ol.order_id WHERE o.fiscal_year = 2026 AND ol.tier = '微改良'",
+      "expect_range": [
+        25.0,
+        28.0
+      ]
+    },
+    {
+      "id": "low_margin_share",
+      "why": "§四 低毛利订单占比 ≤25%（约 2.75 亿）",
+      "sql": "SELECT round(100.0*sum(ol.revenue) FILTER (WHERE ol.tier = '低毛利走量')/sum(ol.revenue), 2) FROM order_lines ol JOIN orders o ON o.id = ol.order_id WHERE o.fiscal_year = 2026",
+      "expect_range": [
+        0.0,
+        25.0
+      ]
+    },
+    {
+      "id": "low_margin_only_idle_lines",
+      "why": "§四 低毛利订单只喂利用率 <70% 的产线（违规必须为 0）",
+      "sql": "SELECT count(*) FROM order_lines ol JOIN orders o ON o.id = ol.order_id JOIN production_lines pl ON pl.id = ol.production_line_id WHERE o.fiscal_year = 2026 AND ol.tier = '低毛利走量' AND pl.utilization >= 70",
+      "expect": 0
+    },
+    {
+      "id": "low_margin_approval_coverage",
+      "why": "§四 低毛利订单必须双签（缺一条就是治理失效）",
+      "sql": "SELECT count(*) FROM order_lines ol JOIN orders o ON o.id = ol.order_id LEFT JOIN low_margin_approvals a ON a.id = ol.approval_id WHERE o.fiscal_year = 2026 AND ol.tier = '低毛利走量' AND (a.id IS NULL OR a.signed_by_sales IS NULL OR a.signed_by_finance IS NULL)",
+      "expect": 0
+    },
+    {
+      "id": "certification_premium_only_micro",
+      "why": "§三/§四 认证溢价只挂微改良产品，且 ∈[2,3]%",
+      "sql": "SELECT count(*) FROM order_lines ol JOIN orders o ON o.id = ol.order_id WHERE o.fiscal_year = 2026 AND ol.certification_premium IS NOT NULL AND (ol.tier <> '微改良' OR ol.certification_premium NOT BETWEEN 2 AND 3)",
+      "expect": 0
+    },
+    {
+      "id": "growth_B_new_customers",
+      "why": "§四 B 新客户 0.6–0.8 亿",
+      "sql": "SELECT round(sum(ol.revenue)/1e8, 3) FROM order_lines ol JOIN orders o ON o.id = ol.order_id WHERE o.fiscal_year = 2026 AND ol.growth_bucket = 'B 新客户'",
+      "expect_range": [
+        0.6,
+        0.8
+      ]
+    },
+    {
+      "id": "growth_C_micro_improved",
+      "why": "§四 C 微改良 0.3–0.4 亿",
+      "sql": "SELECT round(sum(ol.revenue)/1e8, 3) FROM order_lines ol JOIN orders o ON o.id = ol.order_id WHERE o.fiscal_year = 2026 AND ol.growth_bucket = 'C 微改良'",
+      "expect_range": [
+        0.3,
+        0.4
+      ]
+    },
+    {
+      "id": "growth_A_old_customer_addon",
+      "why": "§四 A 老客户加购 0.2–0.3 亿",
+      "sql": "SELECT round(sum(ol.revenue)/1e8, 3) FROM order_lines ol JOIN orders o ON o.id = ol.order_id WHERE o.fiscal_year = 2026 AND ol.growth_bucket = 'A 老客户加购'",
+      "expect_range": [
+        0.2,
+        0.3
+      ]
+    },
+    {
+      "id": "core_customer_churn",
+      "why": "§一 核心客户流失 ≤2 家",
+      "sql": "SELECT count(*) FROM core_customers cc WHERE EXISTS (SELECT 1 FROM orders o JOIN order_lines l ON l.order_id = o.id WHERE o.customer_id = cc.customer_id AND o.fiscal_year = 2025) AND NOT EXISTS (SELECT 1 FROM orders o JOIN order_lines l ON l.order_id = o.id WHERE o.customer_id = cc.customer_id AND o.fiscal_year = 2026)",
+      "expect_range": [
+        0,
+        2
+      ]
+    },
+    {
+      "id": "headcount",
+      "why": "§二 约 2800 人",
+      "sql": "SELECT count(*) FROM employees",
+      "expect": 2800
+    },
+    {
+      "id": "no_layoff",
+      "why": "§十 不通过裁员快速降本",
+      "sql": "SELECT count(*) FROM employees WHERE leave_reason = '裁员'",
+      "expect": 0
+    },
+    {
+      "id": "parent_child_revenue",
+      "why": "订单头与行合计只差折扣/返利，不是两个故事（§四 两套口径必须可解释）",
+      "sql": "SELECT round(100.0*abs(sum(o.revenue_header) - sum(l.s)) / sum(l.s), 2) FROM orders o JOIN (SELECT order_id, sum(revenue) AS s FROM order_lines GROUP BY 1) l ON l.order_id = o.id WHERE o.fiscal_year = 2026",
+      "expect_range": [
+        1.0,
+        2.0
+      ]
+    },
+    {
+      "id": "new_customer_channel",
+      "why": "§三 新客只走转介绍和展会存量转化，不做陌拜",
+      "sql": "SELECT count(*) FROM customers WHERE entered_at >= DATE '2026-01-01' AND source_channel NOT IN ('转介绍','展会存量转化')",
+      "expect": 0
+    }
+  ],
+  "constant_columns": [
+    {
+      "table": "orders",
+      "column": "currency",
+      "why": "全部订单同一币种（RMB）：任何『按币种换算/多币种』的口径都不可能在本数据集上成立，本体应按名拒绝"
+    }
+  ],
+  "null_rates": [
+    {
+      "table": "customers",
+      "column": "segment",
+      "min": 0.1,
+      "max": 0.3,
+      "why": "§六 数据质量差：到年底仍有一部分客户未完成分级"
+    },
+    {
+      "table": "customers",
+      "column": "on_time_payment_rate",
+      "min": 0.05,
+      "max": 0.2,
+      "why": "新客户/停止合作客户没有回款记录"
+    },
+    {
+      "table": "suppliers",
+      "column": "payment_days",
+      "min": 0.0,
+      "max": 0.1,
+      "why": "至少一家供应商账期未记录"
+    }
+  ]
+}
