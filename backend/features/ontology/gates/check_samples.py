@@ -158,6 +158,18 @@ def _rows_of(result: dict) -> dict[str, str]:
     out: dict[str, str] = {}
     for row in rows:
         if isinstance(row, dict):
+            # THREE shapes come back from the pipeline, and this normaliser knew two of them.
+            # `compiler/nl.py::_exec_metric` emits `{"keys": ["DG", "配件部"], "value": …}` as soon as a
+            # GROUP BY has more than one key — and the third shape matters exactly when a
+            # dimension is NOT unique across the fact table: measured on eff_ops_v1, 17 department
+            # names produce 18 groups because 「加色部」 exists in both DG and HY, so every metric
+            # there groups by (factory, dept). The gate then found no key at all and reported
+            # "rows comparison: got {}" for 15 correct declarations — the failing thing was this reader,
+            # not the declarations (the same 15 pass with the shape understood).
+            if isinstance(row.get("keys"), list):
+                key = " / ".join("" if c is None else str(c) for c in row["keys"])
+                out[key] = "" if row.get("value") is None else str(row.get("value"))
+                continue
             key = row.get("key")
             if "key2" in row:
                 key = f"{key} / {row.get('key2')}"
