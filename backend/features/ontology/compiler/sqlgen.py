@@ -718,10 +718,11 @@ def _dimension_predicate(g: Graph, grain_cls: str, prop: str, value) -> str:
 
     sql = f"SELECT f0.{grain_pk} FROM {grain_table} f0"
     alias = {grain_cls: "f0"}
-    for i, (dom, rng, fks, refs) in enumerate(paths[owner]["edges"]):
+    for i, (dom, rng, fks, refs, extras) in enumerate(paths[owner]["edges"]):
         here = f"t{i}"
         on = " AND ".join(f"{alias[dom]}.{fk} = {here}.{ref}"
                           for fk, ref in zip(fks, refs))
+        on += _render_join_extra(extras, alias[dom], here)
         sql += f" JOIN {table_of(g, rng)} {here} ON {on}"
         alias[rng] = here
     lit = _literal(value)
@@ -797,6 +798,48 @@ def _idents(text: str | None) -> set[str]:
     return set(re.findall(r"[a-z_][a-z0-9_]*", (text or "").lower())) - SQL_WORDS
 
 
+_JOIN_EXTRA_TOKEN = re.compile(r"\{([a-z_][a-z0-9_]*)\}")
+
+
+def _render_join_extra(extras, dom_table: str, rng_table: str) -> str:
+    """`{d}.col = …` → the real table names, joined with AND. Empty list → empty string."""
+    out = ""
+    for extra in extras or []:
+        rendered = (str(extra)
+                    .replace("{d}", dom_table)
+                    .replace("{r}", rng_table))
+        out += " AND " + rendered
+    return out
+
+
+def _check_join_extra(g: Graph, prop, dom: str, rng: str, fks: list, refs: list, extra: str) -> None:
+    """Refuse a `:joinExtra` that names a column neither side has, or forgets its placeholders.
+
+    A join predicate is SQL, so a typo in it fails at RUN time as "column does not exist" — which
+    reads like a broken database instead of a broken declaration. Checking the identifiers against
+    both sides here keeps the failure at compile time and names the declaration.
+    """
+    seen = set(_JOIN_EXTRA_TOKEN.findall(extra))
+    unknown = seen - {"d", "r"}
+    if unknown:
+        raise Refusal(f":{_local(prop)} :joinExtra uses unknown placeholder(s) {sorted(unknown)} — "
+                      f"only {{d}} (the domain table) and {{r}} (the range table) are available")
+    allowed = set(class_columns(g, dom).values()) | set(class_columns(g, rng).values())
+    # String literals are VALUES, not columns: `side = 'front'` must not look for a column
+    # called `front`. Strip them (SQL-style doubled quotes included) before looking at tokens.
+    bare_sql = re.sub(r"'(?:[^']|'')*'", " ", str(extra))
+    bare_sql = re.sub(r"\{[a-z_][a-z0-9_]*\}", " ", bare_sql)   # {d}/{r} are tables, not columns
+    for ident in sorted(_idents(bare_sql)):
+        if ident in allowed:
+            continue
+        # `case`/`when`/`then`/`else`/`end` and string literals are SQL, not columns.
+        if ident in {"case", "when", "then", "else", "end", "and", "or", "not", "in", "null",
+                     "true", "false", "like", "is", "distinct"}:
+            continue
+        raise Refusal(f":{_local(prop)} :joinExtra mentions {ident!r}, which is a column of "
+                      f"neither :{dom} nor :{rng} ({sorted(allowed)[:8]}…) — refusing")
+
+
 def _closure(g: Graph, cls: str, depth: int = 6) -> dict[str, dict]:
     """Declared-relationship BFS from a class: {class: path-edges-from-start}.
 
@@ -827,16 +870,28 @@ def _closure(g: Graph, cls: str, depth: int = 6) -> dict[str, dict]:
         if len(fks) != len(refs):
             raise Refusal(f":{_local(prop)} declares {len(fks)} FK column(s) but {len(refs)} "
                           f"key column(s) on :{rng} — a join needs both sides to match")
-        edges.append((dom, rng, fks, refs, prop))
+        # `:joinExtra` — an extra predicate ON the join, for relationships a column EQUALITY
+        # cannot express. Measured on eff_ops_v1 (team-3's 產出標工): the standard-hours row is
+        # keyed (part_no, side), and which side a production row needs is decided by its
+        # work-center description — `side = CASE WHEN work_center_desc='前工序' THEN 'front'
+        # ELSE 'back' END`. Declared as a plain equality the join either misses every packaging
+        # row (−29.4% of i) or doubles it (+100%); only the conditional form reproduces the
+        # client's 5,771.679. The predicate is SQL the declaration owns, rendered with {d} = the
+        # domain table and {r} = the range table, and it is validated against both sides'
+        # columns here so a typo is a refusal at compile time, not a number at run time.
+        extras = [str(v).strip() for v in g.objects(prop, P("joinExtra")) if str(v).strip()]
+        for extra in extras:
+            _check_join_extra(g, prop, dom, rng, fks, refs, extra)
+        edges.append((dom, rng, fks, refs, prop, extras))
     paths: dict[str, dict] = {cls: {"edges": []}}
     frontier = [cls]
     for _ in range(depth):
         nxt = []
         for cur in frontier:
-            for dom, rng, fks, refs, prop in edges:
+            for dom, rng, fks, refs, prop, extras in edges:
                 if dom != cur or rng in paths:
                     continue
-                paths[rng] = {"edges": paths[cur]["edges"] + [(dom, rng, fks, refs)]}
+                paths[rng] = {"edges": paths[cur]["edges"] + [(dom, rng, fks, refs, extras)]}
                 nxt.append(rng)
         frontier = nxt
         if not frontier:
@@ -920,16 +975,16 @@ def _compile_grouped_metric(g: Graph, m: Metric) -> Compiled:
         bucket_key = f"date_trunc('{bucket}', {grain_table}.{own_col})"
 
     tables: dict[str, str] = {grain: grain_table}
-    join_edges: list[tuple[str, str, list, list]] = []
+    join_edges: list[tuple[str, str, list, list, list]] = []
 
     def add_joins_for(target: str) -> None:
         if target == grain:
             return
-        for dom, rng, fks, refs in paths[target]["edges"]:
+        for dom, rng, fks, refs, extras in paths[target]["edges"]:
             if rng in tables:
                 continue
             tables[rng] = table_of(g, rng)
-            join_edges.append((dom, rng, fks, refs))
+            join_edges.append((dom, rng, fks, refs, extras))
 
     for _, owner, _ in groups:
         add_joins_for(owner)
@@ -999,11 +1054,12 @@ def _compile_grouped_metric(g: Graph, m: Metric) -> Compiled:
         """
         join_sql = grain_table
         joined = {grain}
-        for dom, rng, fks, refs in join_edges:
+        for dom, rng, fks, refs, extras in join_edges:
             if rng in joined:
                 continue
             on = " AND ".join(f"{tables[dom]}.{fk} = {tables[rng]}.{ref}"
                               for fk, ref in zip(fks, refs))
+            on += _render_join_extra(extras, tables[dom], tables[rng])
             join_sql += f" JOIN {tables[rng]} ON {on}"
             joined.add(rng)
         key_selects = ", ".join(f"{k} AS {_snake(name)}_key{i + 1}" for i, k in enumerate(keys))
@@ -1122,16 +1178,16 @@ def _compile_cross_metric(g: Graph, m: Metric) -> Compiled:
 
     # which tables participate: grain + every formula identifier's owner + the where base
     tables: dict[str, str] = {grain: grain_table}
-    join_edges: list[tuple[str, str, list, list]] = []
+    join_edges: list[tuple[str, str, list, list, list]] = []
 
     def add_joins_for(target: str) -> None:
         if target == grain:
             return
-        for dom, rng, fks, refs in paths[target]["edges"]:
+        for dom, rng, fks, refs, extras in paths[target]["edges"]:
             if rng in tables:
                 continue
             tables[rng] = table_of(g, rng)
-            join_edges.append((dom, rng, fks, refs))
+            join_edges.append((dom, rng, fks, refs, extras))
 
     if where_class:
         add_joins_for(where_class)
@@ -1185,11 +1241,12 @@ def _compile_cross_metric(g: Graph, m: Metric) -> Compiled:
 
     join_sql = grain_table
     joined = {grain}
-    for dom, rng, fks, refs in join_edges:
+    for dom, rng, fks, refs, extras in join_edges:
         if rng in joined:
             continue
         on = " AND ".join(f"{tables[dom]}.{fk} = {tables[rng]}.{ref}"
                           for fk, ref in zip(fks, refs))
+        on += _render_join_extra(extras, tables[dom], tables[rng])
         join_sql += f" JOIN {tables[rng]} ON {on}"
         joined.add(rng)
     where_sql = f" WHERE {pred_q}" if pred_q else ""
