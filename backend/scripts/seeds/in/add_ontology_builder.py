@@ -212,6 +212,51 @@ def step_env(key: str, *, apply: bool) -> bool:
     return True
 
 
+def step_tools(*, apply: bool) -> bool:
+    """The builder's tool rows must exist, or the agent it just created cannot publish.
+
+    Measured on talent_v1 (2026-11-14): the agent row listed `ontology_open / ontology_inspect /
+    ontology_publish`, `custom_tools` held none of them, and the agent reported "ontology_publish 不在我的
+    工具集里" after doing a whole ladder step it could not land. The four ontology tools live in their own
+    seed scripts, not in `SEEDABLE_TOOL_META`, so nothing here ever created them — a sixth artefact that
+    has to agree and had no step of its own.
+    """
+    print("\n[6] the ontology tool rows (agent cannot publish without them)")
+    import importlib.util
+
+    here = pathlib.Path(__file__).resolve().parent
+    wanted = ("seed_ontology_open_tool", "seed_ontology_inspect_tool",
+              "seed_ontology_publish_tool", "seed_ontology_ask_tool")
+    missing = []
+    if not apply:
+        from db.database import SessionLocal                        # noqa: PLC0415
+        from models.custom_tool import CustomTool                   # noqa: PLC0415
+
+        db = SessionLocal()
+        try:
+            for name in wanted:
+                tool_id = name.replace("seed_", "").replace("_tool", "")
+                if db.query(CustomTool).filter(CustomTool.tool_id == tool_id).first() is None:
+                    missing.append(tool_id)
+        finally:
+            db.close()
+        if missing:
+            _todo(f"would seed tool rows: {missing}")
+        else:
+            _ok("all four ontology tool rows exist")
+        return True
+
+    for name in wanted:
+        path = here / f"{name}.py"
+        spec = importlib.util.spec_from_file_location(f"_seed_{name}", path)
+        module = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(module)
+        module.main() if hasattr(module, "main") else module.seed()
+    _ok("ontology tool rows seeded (open / inspect / publish / ask)")
+    return True
+
+
 def step_profile_dir(key: str, *, apply: bool) -> bool:
     print("\n[5] profile directory")
     path = PROFILES / key
@@ -266,6 +311,7 @@ def main() -> int:
                lambda: step_gates(key, apply=args.apply, family_extra=set(args.family or [])),
                lambda: step_settings(key, args.theme, apply=args.apply),
                lambda: step_env(key, apply=args.apply),
+               lambda: step_tools(apply=args.apply),
                lambda: step_profile_dir(key, apply=args.apply)):
         try:
             if not fn():
