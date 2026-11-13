@@ -128,7 +128,7 @@ def step_agent(key: str, datasource: str, theme: str, *, apply: bool) -> bool:
     return True
 
 
-def step_gates(key: str, *, apply: bool) -> bool:
+def step_gates(key: str, *, apply: bool, family_extra: set[str] | None = None) -> bool:
     print("\n[2] gates.json declaration")
     try:
         decl = json.loads(GATES.read_text(encoding="utf-8"))
@@ -144,6 +144,13 @@ def step_gates(key: str, *, apply: bool) -> bool:
         "pending_install": "staged by add_ontology_builder.py — not built yet",
         "profile": ["check_structure", "check_ontology_generic", "check_samples", "check_dashboard"],
     }
+    # A profile built over an ABox needs the two reasoning families too, and forgetting them here is
+    # exactly how a gate goes silently unrun: `publish` runs the families this declaration names, so an
+    # ABox profile declared with four SQL families would stage and apply without any reasoning checked.
+    # The families are added when the profile actually carries `abox.ttl` — decided here by an argument
+    # rather than by looking at a directory the builder has not created yet.
+    if "abox" in family_extra:
+        entry["profile"] = entry["profile"] + ["check_abox", "check_abox_sync"]
     if not apply:
         _todo(f"would add {key} → families {entry['profile']}")
         return True
@@ -221,6 +228,8 @@ def main() -> int:
     ap.add_argument("--key", required=True, help="ontology key, e.g. chinook_v1")
     ap.add_argument("--datasource", required=True, help="database name the builder reads")
     ap.add_argument("--theme", default="", help="human label for Settings → Ontology")
+    ap.add_argument("--family", action="append", default=[], choices=["abox"],
+                    help="extra gate families this profile needs (abox → check_abox + check_abox_sync)")
     ap.add_argument("--apply", action="store_true", help="write the changes (default: dry run)")
     ap.add_argument("--skip-db-probe", action="store_true")
     ap.add_argument("--require-db", action="store_true",
@@ -254,7 +263,7 @@ def main() -> int:
                 print("       (advisory: pass --require-db to make this fatal)")
 
     for fn in (lambda: step_agent(key, ds, args.theme, apply=args.apply),
-               lambda: step_gates(key, apply=args.apply),
+               lambda: step_gates(key, apply=args.apply, family_extra=set(args.family or [])),
                lambda: step_settings(key, args.theme, apply=args.apply),
                lambda: step_env(key, apply=args.apply),
                lambda: step_profile_dir(key, apply=args.apply)):
