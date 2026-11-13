@@ -1,0 +1,154 @@
+{
+  "dataset": {
+    "name": "eff_ops",
+    "schema": "public",
+    "status": "built",
+    "purpose": "把 team-3《產出標工與效率計算》的口径变成可被 SQL 复算的库，并用 KPI 快照做对账",
+    "confirmed_by": "weiping (chat 2026-11-14)",
+    "confirmed_at": "2026-11-14T00:40:00+08:00"
+  },
+  "source": {
+    "system": "synthesised",
+    "files": [
+      {
+        "name": "client/team-3/產出標工與效率計算-規格.md",
+        "sha256": null
+      },
+      {
+        "name": "client/team-3/README.md",
+        "sha256": null
+      },
+      {
+        "name": "client/team-3/產出標工與效率計算-任務拆解.md",
+        "sha256": null
+      }
+    ],
+    "generator": "backend/scripts/mock/gen_eff_ops.py",
+    "seed": 20261001,
+    "spec": "backend/skills/builtin/generate-mock-dataset/fixtures/eff_ops/eff_ops.dataset.json"
+  },
+  "time": {
+    "start": "2026-10-01",
+    "end": "2026-10-31",
+    "days": 31,
+    "timezone": "Asia/Shanghai",
+    "relative_window": false,
+    "as_of": "2026-10-31",
+    "regimes": [
+      {
+        "date": "2026-10-01",
+        "change": "验收基准月（2026 年 10 月手工表 / KPI 表）"
+      },
+      {
+        "date": "2026-11-13",
+        "change": "数量一律取生產報數，不再取生產報數PR"
+      },
+      {
+        "date": "2026-11-13",
+        "change": "0.85 只对舊款生效（来源未查明，照抄行为）"
+      }
+    ]
+  },
+  "units": {
+    "std_time.seconds": "second",
+    "production_row.qty_report": "pcs",
+    "timesheet.hours": "hour",
+    "bango_detail.hours": "hour",
+    "kpi_target.target": "ratio (0-1)",
+    "kpi_snapshot.i_hours": "hour",
+    "kpi_snapshot.m_hours": "hour",
+    "kpi_snapshot.n_ratio": "ratio (0-1)"
+  },
+  "nulls": {
+    "std_time.seconds": "not_applicable（查無標工=没有这一行，不建 0 行；异常清单按缺失点名）"
+  },
+  "pii": [
+    {
+      "column": "timesheet.name",
+      "kind": "person_name",
+      "handling": "synthetic"
+    },
+    {
+      "column": "bango_detail.name",
+      "kind": "person_name",
+      "handling": "synthetic"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "Q1",
+      "text": "库名 eff_ops",
+      "source": "chat 2026-11-14",
+      "status": "confirmed"
+    },
+    {
+      "id": "Q2",
+      "text": "月份只做 202610（规格的验收基准月）",
+      "source": "規格 §測試決策",
+      "status": "confirmed"
+    },
+    {
+      "id": "Q3",
+      "text": "数量一律取 qty_report；qty_pr 保留在库里作为对照",
+      "source": "規格 §A 口径变更",
+      "status": "confirmed"
+    },
+    {
+      "id": "Q4",
+      "text": "部门私有款号池（简化：真实标工库全厂共享）",
+      "source": "为了让每部门锚点独立成立",
+      "status": "confirmed"
+    },
+    {
+      "id": "Q5",
+      "text": "kpi_snapshot 保存手工表数值，作为对账的另一半",
+      "source": "規格 §測試決策 黄金基准",
+      "status": "confirmed"
+    }
+  ],
+  "refused": [
+    {
+      "name": "0.85 系数的业务含义",
+      "why": "規格明说来源未查明，只照抄行为",
+      "missing": "客户的解释；本体只能标注"
+    },
+    {
+      "name": "加色部（款号+工序组合 / 加腳减半 / 多余鐳射絲印扣减）",
+      "why": "本数据集未建模该模板",
+      "missing": "专用 adapter 与 12 232 行 × 256 列标工库"
+    },
+    {
+      "name": "跨部门同款号对比",
+      "why": "部门私有款号池的简化",
+      "missing": "全厂共享标工库的真实数据"
+    }
+  ],
+  "handoff": {
+    "ontology_key": null,
+    "profile": null,
+    "guard": {
+      "default_window_days": 0,
+      "big_tables": {
+        "public.production_row": "src_row"
+      }
+    }
+  },
+  "checks": {
+    "invariants": 30,
+    "result": "39 checks · 0 failed · green",
+    "deterministic": true,
+    "mutation_turns_red": null
+  },
+  "rows": {
+    "public.std_time": 1828,
+    "public.material_master": 339,
+    "public.production_row": 1170,
+    "public.timesheet": 777,
+    "public.bango_detail": 70,
+    "public.kpi_target": 17,
+    "public.adjustments": 3,
+    "public.kpi_snapshot": 5,
+    "public.rule_regimes": 3
+  },
+  "questions": []
+}

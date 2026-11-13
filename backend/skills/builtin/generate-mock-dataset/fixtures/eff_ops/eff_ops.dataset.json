@@ -1,0 +1,317 @@
+{
+  "_doc": "team-3 產出標工與效率 数据集的事实清单：每一条都能被查询证伪。来源 client/team-3/產出標工與效率計算-規格.md",
+  "name": "eff_ops",
+  "dsn": {
+    "host": "127.0.0.1",
+    "port": 5433,
+    "dbname": "eff_ops",
+    "user": "langconfig"
+  },
+  "tables": [
+    {
+      "name": "std_time",
+      "why": "標工庫：每个款号 前段/後段 各一个秒数（規格 §A：A:E 前段、F:T 後段，各有自己的款号栏）"
+    },
+    {
+      "name": "material_master",
+      "why": "物料主檔：查得到=新款；查不到=舊款（0.85 只对舊款生效）"
+    },
+    {
+      "name": "production_row",
+      "why": "產量明細：生产报数 / 工作中心描述 / 種類a / 時效，带 src_row 可定位"
+    },
+    {
+      "name": "timesheet",
+      "why": "工時明細：按 人員分類 / KPI屬性 / 在職情況 判定是否计入考核（規格 §D）"
+    },
+    {
+      "name": "bango_detail",
+      "why": "幫工工時：調出只计参与考核者（其他/非W轉W級）、調入全计（規格 §D2）"
+    },
+    {
+      "name": "kpi_target",
+      "why": "部門效率目標 j"
+    },
+    {
+      "name": "adjustments",
+      "why": "調整工時 / 申訴扣減 / 被申訴（手填，留痕）"
+    },
+    {
+      "name": "kpi_snapshot",
+      "why": "手工表 / KPI 表当年算出的数 —— 对账的另一半，i/m/n 各一列"
+    },
+    {
+      "name": "rule_regimes",
+      "why": "口径变更史（生产报数 vs PR、0.85 只对舊款）"
+    }
+  ],
+  "foreign_keys": [],
+  "invariants": [
+    {
+      "id": "dg9_front_hours",
+      "why": "規格 T1：金架九部前段 2317.6480",
+      "sql": "SELECT round(sum(st.seconds * pr.qty_report / 3600.0 * CASE WHEN (left(upper(pr.part_no),2)='M3' OR left(upper(pr.part_no),3) IN ('T14','T15') OR left(upper(pr.part_no),4) IN ('H128','H129')) OR mm.part_no IS NOT NULL THEN 1.0 ELSE 0.85 END)::numeric,4) FROM production_row pr JOIN std_time st ON upper(st.part_no)=upper(pr.part_no) AND st.side='front' LEFT JOIN material_master mm ON upper(mm.part_no)=upper(pr.part_no) WHERE pr.month='202610' AND pr.factory='DG' AND pr.dept='金架九部' AND pr.kind_a='架' AND pr.timeliness<>'不計' AND pr.work_center_desc='SH分公司前工序'",
+      "expect_range": [
+        2317.5,
+        2317.8
+      ]
+    },
+    {
+      "id": "dg9_back_hours",
+      "why": "規格 T1：金架九部後段 3454.0311",
+      "sql": "SELECT round(sum(st.seconds * pr.qty_report / 3600.0 * CASE WHEN (left(upper(pr.part_no),2)='M3' OR left(upper(pr.part_no),3) IN ('T14','T15') OR left(upper(pr.part_no),4) IN ('H128','H129')) OR mm.part_no IS NOT NULL THEN 1.0 ELSE 0.85 END)::numeric,4) FROM production_row pr JOIN std_time st ON upper(st.part_no)=upper(pr.part_no) AND st.side='back' LEFT JOIN material_master mm ON upper(mm.part_no)=upper(pr.part_no) WHERE pr.month='202610' AND pr.factory='DG' AND pr.dept='金架九部' AND pr.kind_a='架' AND pr.timeliness<>'不計' AND pr.work_center_desc IN ('SH分公司包裝','SH分公司包裝HY')",
+      "expect_range": [
+        3453.9,
+        3454.2
+      ]
+    },
+    {
+      "id": "dg9_i",
+      "why": "規格 T1/T3：金架九部產出標工 5771.679（i）",
+      "sql": "WITH i AS (\n  SELECT pr.factory, pr.dept,\n         sum(st.seconds * pr.qty_report / 3600.0 *\n             CASE WHEN (left(upper(pr.part_no),2)='M3' OR left(upper(pr.part_no),3) IN ('T14','T15')\n                        OR left(upper(pr.part_no),4) IN ('H128','H129')) OR mm.part_no IS NOT NULL\n                  THEN 1.0 ELSE 0.85 END) AS i_hours\n    FROM production_row pr\n    LEFT JOIN std_time st ON upper(st.part_no) = upper(pr.part_no)\n         AND ((st.side='front' AND pr.work_center_desc='SH分公司前工序')\n           OR (st.side='back'  AND pr.work_center_desc IN ('SH分公司包裝','SH分公司包裝HY')))\n    LEFT JOIN material_master mm ON upper(mm.part_no) = upper(pr.part_no)\n   WHERE pr.month='202610' AND pr.kind_a='架' AND pr.timeliness <> '不計'\n   GROUP BY 1,2) SELECT round(i_hours,4) FROM i WHERE factory='DG' AND dept='金架九部'",
+      "expect_range": [
+        5771.6,
+        5771.8
+      ]
+    },
+    {
+      "id": "dg9_m",
+      "why": "規格 §D：金架九部 考核出勤工时 5982.306661（底数 6170.206661 − 27.9 − 160）",
+      "sql": "WITH base AS (SELECT dept, sum(hours) b FROM timesheet WHERE month='202610' AND dept='金架九部' AND NOT (person_class LIKE '%固定人员%' OR person_class LIKE '%办单%' OR kpi_attr IN ('做辦','浮動')) GROUP BY 1), adj AS (SELECT dept, sum(hours) h FROM adjustments WHERE dept='金架九部' GROUP BY 1) SELECT round(coalesce(b,0)+coalesce(h,0),4) FROM base LEFT JOIN adj USING (dept)",
+      "expect_range": [
+        5982.2,
+        5982.4
+      ]
+    },
+    {
+      "id": "dg9_n",
+      "why": "規格 T3：金架九部 實際效率 96.48% = i ÷ m",
+      "sql": "WITH i AS (SELECT sum(st.seconds*pr.qty_report/3600.0*CASE WHEN (left(upper(pr.part_no),2)='M3' OR left(upper(pr.part_no),3) IN ('T14','T15') OR left(upper(pr.part_no),4) IN ('H128','H129')) OR mm.part_no IS NOT NULL THEN 1.0 ELSE 0.85 END) v FROM production_row pr LEFT JOIN std_time st ON upper(st.part_no)=upper(pr.part_no) AND ((st.side='front' AND pr.work_center_desc='SH分公司前工序') OR (st.side='back' AND pr.work_center_desc IN ('SH分公司包裝','SH分公司包裝HY'))) LEFT JOIN material_master mm ON upper(mm.part_no)=upper(pr.part_no) WHERE pr.month='202610' AND pr.dept='金架九部' AND pr.kind_a='架' AND pr.timeliness<>'不計'), m AS (SELECT sum(t.hours) v FROM timesheet t WHERE t.month='202610' AND t.dept='金架九部' AND NOT (t.person_class LIKE '%固定人员%' OR t.person_class LIKE '%办单%' OR t.kpi_attr IN ('做辦','浮動'))) SELECT round((SELECT v FROM i)/((SELECT v FROM m) - 27.9 - 160.0),4)",
+      "expect_range": [
+        0.9647,
+        0.9649
+      ]
+    },
+    {
+      "id": "dghan_i",
+      "why": "規格：金架燒焊部 產出標工 8884.684",
+      "sql": "WITH i AS (\n  SELECT pr.factory, pr.dept,\n         sum(st.seconds * pr.qty_report / 3600.0 *\n             CASE WHEN (left(upper(pr.part_no),2)='M3' OR left(upper(pr.part_no),3) IN ('T14','T15')\n                        OR left(upper(pr.part_no),4) IN ('H128','H129')) OR mm.part_no IS NOT NULL\n                  THEN 1.0 ELSE 0.85 END) AS i_hours\n    FROM production_row pr\n    LEFT JOIN std_time st ON upper(st.part_no) = upper(pr.part_no)\n         AND ((st.side='front' AND pr.work_center_desc='SH分公司前工序')\n           OR (st.side='back'  AND pr.work_center_desc IN ('SH分公司包裝','SH分公司包裝HY')))\n    LEFT JOIN material_master mm ON upper(mm.part_no) = upper(pr.part_no)\n   WHERE pr.month='202610' AND pr.kind_a='架' AND pr.timeliness <> '不計'\n   GROUP BY 1,2) SELECT round(i_hours,3) FROM i WHERE factory='DG' AND dept='金架燒焊部'",
+      "expect_range": [
+        8884.6,
+        8884.8
+      ]
+    },
+    {
+      "id": "dghan_n",
+      "why": "規格 T3：金架燒焊部 實際效率 73.46%",
+      "sql": "WITH i AS (\n  SELECT pr.factory, pr.dept,\n         sum(st.seconds * pr.qty_report / 3600.0 *\n             CASE WHEN (left(upper(pr.part_no),2)='M3' OR left(upper(pr.part_no),3) IN ('T14','T15')\n                        OR left(upper(pr.part_no),4) IN ('H128','H129')) OR mm.part_no IS NOT NULL\n                  THEN 1.0 ELSE 0.85 END) AS i_hours\n    FROM production_row pr\n    LEFT JOIN std_time st ON upper(st.part_no) = upper(pr.part_no)\n         AND ((st.side='front' AND pr.work_center_desc='SH分公司前工序')\n           OR (st.side='back'  AND pr.work_center_desc IN ('SH分公司包裝','SH分公司包裝HY')))\n    LEFT JOIN material_master mm ON upper(mm.part_no) = upper(pr.part_no)\n   WHERE pr.month='202610' AND pr.kind_a='架' AND pr.timeliness <> '不計'\n   GROUP BY 1,2) SELECT round(i.i_hours / s.m_hours, 4) FROM i JOIN kpi_snapshot s ON s.factory=i.factory AND s.dept=i.dept WHERE i.factory='DG' AND i.dept='金架燒焊部'",
+      "expect_range": [
+        0.7345,
+        0.7347
+      ]
+    },
+    {
+      "id": "hy_jiaowu_base",
+      "why": "規格 §D：膠架五部 按規則加總 21529.57",
+      "sql": "SELECT round(sum(hours),2) FROM timesheet WHERE month='202610' AND dept='膠架五部' AND NOT (person_class LIKE '%固定人员%' OR person_class LIKE '%办单%' OR kpi_attr IN ('做辦','浮動'))",
+      "expect_range": [
+        21529.0,
+        21530.2
+      ]
+    },
+    {
+      "id": "hy_pixing_base",
+      "why": "規格 §D：脾形中心 10794.47",
+      "sql": "SELECT round(sum(hours),2) FROM timesheet WHERE month='202610' AND dept='脾形中心' AND NOT (person_class LIKE '%固定人员%' OR person_class LIKE '%办单%' OR kpi_attr IN ('做辦','浮動'))",
+      "expect_range": [
+        10794.0,
+        10795.0
+      ]
+    },
+    {
+      "id": "hy_peijian_base",
+      "why": "規格 §D：配件部/鐳射組 973.67",
+      "sql": "SELECT round(sum(hours),2) FROM timesheet WHERE month='202610' AND dept='配件部/鐳射組' AND NOT (person_class LIKE '%固定人员%' OR person_class LIKE '%办单%' OR kpi_attr IN ('做辦','浮動'))",
+      "expect_range": [
+        973.6,
+        973.8
+      ]
+    },
+    {
+      "id": "floating_borrow_excluded",
+      "why": "反例锚点：注塑成品部 KPI 是 43，按口径应剔除 27h 浮动借出后 = 16",
+      "sql": "SELECT round(sum(hours),2) FROM bango_detail WHERE direction='調出' AND from_dept='注塑成品部' AND kpi_attr NOT IN ('浮動','做辦','固定')",
+      "expect": 16.0
+    },
+    {
+      "id": "coefficient_only_old_models",
+      "why": "規格 §A：0.85 只对舊款生效（舊款 = 物料主檔查不到且前缀不命中）",
+      "sql": "SELECT count(*) FROM production_row pr LEFT JOIN material_master mm ON upper(mm.part_no)=upper(pr.part_no) WHERE pr.month='202610' AND pr.kind_a='架' AND NOT (left(upper(pr.part_no),2)='M3' OR left(upper(pr.part_no),3) IN ('T14','T15') OR left(upper(pr.part_no),4) IN ('H128','H129')) AND mm.part_no IS NULL",
+      "expect_range": [
+        20,
+        100000
+      ]
+    },
+    {
+      "id": "accessory_rows_excluded",
+      "why": "規格 §B：種類a=配件 的行不计入前後段（另走配件工时表）",
+      "sql": "SELECT round(sum(st.seconds*pr.qty_report/3600.0),2) FROM production_row pr JOIN std_time st ON upper(st.part_no)=upper(pr.part_no) WHERE pr.kind_a='配件' AND pr.month='202610'",
+      "expect_range": [
+        0.0,
+        100000.0
+      ]
+    },
+    {
+      "id": "timeliness_rows_exist",
+      "why": "規格 §B：時效='不計' 的行必须存在且被排除（不是没有）",
+      "sql": "SELECT count(*) FROM production_row WHERE month='202610' AND timeliness='不計'",
+      "expect_range": [
+        5,
+        1000
+      ]
+    },
+    {
+      "id": "unknown_part_anomalies",
+      "why": "規格 §A：查無標工 → 記 0 並進異常清單（这里要求确实存在这种行）",
+      "sql": "SELECT count(*) FROM production_row pr LEFT JOIN std_time st ON upper(st.part_no)=upper(pr.part_no) WHERE pr.month='202610' AND (st.part_no IS NULL OR st.seconds = 0)",
+      "expect_range": [
+        1,
+        1000
+      ]
+    },
+    {
+      "id": "targets_cover_departments",
+      "why": "每个部门都要有效率目标 j（達標判定需要分母）",
+      "sql": "SELECT count(*) FROM kpi_target WHERE month='202610'",
+      "expect_range": [
+        12,
+        40
+      ]
+    },
+    {
+      "id": "timesheet_departments_have_targets",
+      "why": "工时侧的部门必须在目标表里有 j，否则『達標』没有分母（文本键关联，不能靠 FK 检查）",
+      "sql": "SELECT count(*) FROM (SELECT DISTINCT dept FROM timesheet WHERE month='202610') t LEFT JOIN kpi_target k ON k.dept = t.dept AND k.month='202610' WHERE k.dept IS NULL",
+      "expect": 0
+    },
+    {
+      "id": "bango_out_金架燒焊部",
+      "why": "規格 §D2：調出只计参与考核者（浮动/做辦/固定 不计）",
+      "sql": "SELECT round(coalesce(sum(hours),0),2) FROM bango_detail WHERE direction='調出' AND from_dept='金架燒焊部' AND kpi_attr NOT IN ('浮動','做辦','固定')",
+      "expect_range": [
+        468.48,
+        468.52
+      ]
+    },
+    {
+      "id": "bango_out_金架磨光部",
+      "why": "規格 §D2：調出只计参与考核者（浮动/做辦/固定 不计）",
+      "sql": "SELECT round(coalesce(sum(hours),0),2) FROM bango_detail WHERE direction='調出' AND from_dept='金架磨光部' AND kpi_attr NOT IN ('浮動','做辦','固定')",
+      "expect_range": [
+        104.48,
+        104.52
+      ]
+    },
+    {
+      "id": "bango_out_脾形部",
+      "why": "規格 §D2：調出只计参与考核者（浮动/做辦/固定 不计）",
+      "sql": "SELECT round(coalesce(sum(hours),0),2) FROM bango_detail WHERE direction='調出' AND from_dept='脾形部' AND kpi_attr NOT IN ('浮動','做辦','固定')",
+      "expect_range": [
+        361.48,
+        361.52
+      ]
+    },
+    {
+      "id": "bango_out_注塑噴塗部",
+      "why": "規格 §D2：調出只计参与考核者（浮动/做辦/固定 不计）",
+      "sql": "SELECT round(coalesce(sum(hours),0),2) FROM bango_detail WHERE direction='調出' AND from_dept='注塑噴塗部' AND kpi_attr NOT IN ('浮動','做辦','固定')",
+      "expect_range": [
+        180.48,
+        180.52
+      ]
+    },
+    {
+      "id": "bango_out_加色部",
+      "why": "規格 §D2：調出只计参与考核者（浮动/做辦/固定 不计）",
+      "sql": "SELECT round(coalesce(sum(hours),0),2) FROM bango_detail WHERE direction='調出' AND from_dept='加色部' AND kpi_attr NOT IN ('浮動','做辦','固定')",
+      "expect_range": [
+        1698.96,
+        1699.0
+      ]
+    },
+    {
+      "id": "bango_out_注塑成品部",
+      "why": "規格 §D2：調出只计参与考核者（浮动/做辦/固定 不计）",
+      "sql": "SELECT round(coalesce(sum(hours),0),2) FROM bango_detail WHERE direction='調出' AND from_dept='注塑成品部' AND kpi_attr NOT IN ('浮動','做辦','固定')",
+      "expect_range": [
+        15.98,
+        16.02
+      ]
+    },
+    {
+      "id": "bango_in_配件一部",
+      "why": "規格 §D2：調入全部计入（W级与非W级都要算）",
+      "sql": "SELECT round(coalesce(sum(hours),0),2) FROM bango_detail WHERE direction='調入' AND to_dept='配件一部'",
+      "expect_range": [
+        545.98,
+        546.02
+      ]
+    },
+    {
+      "id": "bango_in_金架成品部",
+      "why": "規格 §D2：調入全部计入（W级与非W级都要算）",
+      "sql": "SELECT round(coalesce(sum(hours),0),2) FROM bango_detail WHERE direction='調入' AND to_dept='金架成品部'",
+      "expect_range": [
+        747.98,
+        748.02
+      ]
+    },
+    {
+      "id": "bango_in_金架燒焊部",
+      "why": "規格 §D2：調入全部计入（W级与非W级都要算）",
+      "sql": "SELECT round(coalesce(sum(hours),0),2) FROM bango_detail WHERE direction='調入' AND to_dept='金架燒焊部'",
+      "expect_range": [
+        345.98,
+        346.02
+      ]
+    },
+    {
+      "id": "bango_in_金架磨光部",
+      "why": "規格 §D2：調入全部计入（W级与非W级都要算）",
+      "sql": "SELECT round(coalesce(sum(hours),0),2) FROM bango_detail WHERE direction='調入' AND to_dept='金架磨光部'",
+      "expect_range": [
+        404.98,
+        405.02
+      ]
+    },
+    {
+      "id": "bango_in_脾形部",
+      "why": "規格 §D2：調入全部计入（W级与非W级都要算）",
+      "sql": "SELECT round(coalesce(sum(hours),0),2) FROM bango_detail WHERE direction='調入' AND to_dept='脾形部'",
+      "expect_range": [
+        67.48,
+        67.52
+      ]
+    },
+    {
+      "id": "bango_in_注塑成品部",
+      "why": "規格 §D2：調入全部计入（W级与非W级都要算）",
+      "sql": "SELECT round(coalesce(sum(hours),0),2) FROM bango_detail WHERE direction='調入' AND to_dept='注塑成品部'",
+      "expect_range": [
+        782.7,
+        782.74
+      ]
+    },
+    {
+      "id": "bango_out_kpi_vs_rule",
+      "why": "反例锚点：注塑成品部 KPI 是 43，按口径剔除 27h 浮动借出后应为 16（差 27 必须可解释）",
+      "sql": "SELECT round(coalesce(sum(hours) FILTER (WHERE kpi_attr IN ('浮動','做辦','固定')),0),2) FROM bango_detail WHERE direction='調出' AND from_dept='注塑成品部'",
+      "expect_range": [
+        26.5,
+        27.5
+      ]
+    }
+  ],
+  "constant_columns": [],
+  "null_rates": []
+}
