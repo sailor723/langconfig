@@ -1,0 +1,152 @@
+@prefix : <https://cube.local/ontology/eff_ops_v1#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# ---------------- 产出侧 · 工时
+:iFullStdHours a owl:DatatypeProperty ;
+  rdfs:label "产出标工工时（未折旧，按部门）" ;
+  :aggregate "sum" ; :grain :ProductionRow ; :universe :StdHoursRow ; :where :StdHoursRow ;
+  :groupBy :productionFactory ; :groupBy :productionDept ;
+  :formula "CASE WHEN kind_a = '架' AND timeliness <> '不計' THEN seconds * qty_report / 3600.0 ELSE 0 END" ; :unit "hours" ;
+  :askedAs "产出标工工时" ; :askedAs "标工小时" ; :askedAs "i_full" ;
+  :businessDescription "answers:Q2 —— 秒数×报数/3600，只算架且非不計、且能按(part_no,side)命中标工的行。旧款按全价计入（未折旧），折旧后的数见 refused:R1。" .
+
+# 故意不带 :aggregate：一个定义不出来的数字不能被编译，只能被叫出名字（同 sunhing_v1 的拒绝形态）。
+:i a owl:DatatypeProperty ;
+  rdfs:label "产出标工工时（旧款 0.85 折后，按部门）" ;
+  :unit "hours" ;
+  :askedAs "i" ; :askedAs "标工工时" ; :askedAs "产出标工工时（折后）" ;
+  :businessDescription "answers:Q2（admin 2026-11 定 D 口径）—— i = 全价 i − 0.15 × 旧款工时 = 153,255.013 − 0.15×5,944.009 = 152,363.412（本指标当前**按名拒绝**，见 :refusalReason；这三个数由两个已声明指标实测得出，逐部门恒等式成立）。0.85 系数只作用于 :OldModelItem（不在新款清单里的款）；折减额 891.601 h = 全库 i 的 0.58%，就是 Q5 里复现不出的那个 891.601——它从来不是「旧款行数×某值」，而是折减额本身。客户手工表的 5,771.679 / 8,884.684 就是折后数（见 s2_anchors.md 逐部门表）。" ;
+  :refusalReason "缺『聚合之上的算术』这一声明形态：:formula 只能引用已连接表的列，不能引用另一个已声明指标的聚合值，所以 i = iFull − 0.15×旧款 写不成一条声明（编译器原文：:i formula mentions 'iFullStdHours', not a column of the joined classes ['ProductionRow','StdTime'] — refusing）。行内替代写法也都试过并被按名拒绝：内联子查询（mentions 'exists'）、款号前缀 NOT LIKE（mentions 'h128'，ASCII 字面量被当成标识符）。正确口径已量出且可复算：i = iFullStdHours − 0.15 × oldModelStdHours。" .
+
+:iFullStdHoursBySide a owl:DatatypeProperty ;
+  rdfs:label "产出标工工时（前段/后段拆解）" ;
+  :aggregate "sum" ; :grain :ProductionRow ; :universe :StdHoursRow ; :where :StdHoursRow ;
+  :groupBy :productionFactory ; :groupBy :productionDept ; :groupBy :stdTimeSide ;
+  :formula "CASE WHEN kind_a = '架' AND timeliness <> '不計' THEN seconds * qty_report / 3600.0 ELSE 0 END" ; :unit "hours" ;
+  :askedAs "前段后段标工" ; :askedAs "前后段拆解" ;
+  :businessDescription "answers:Q2 —— 与 iFullStdHours 同一口径，多一个 side 键：side 来自 std_time（前工序→front，其余→back）。这是同一个数拆开，合起来必须等于 iFullStdHours。" .
+
+:oldModelStdHours a owl:DatatypeProperty ;
+  rdfs:label "旧款标工工时（按部门）" ;
+  :aggregate "sum" ; :grain :ProductionRow ; :universe :OldModelItem ; :where :OldModelItem ;
+  :groupBy :productionFactory ; :groupBy :productionDept ;
+  :formula "CASE WHEN kind_a = '架' AND timeliness <> '不計' THEN seconds * qty_report / 3600.0 ELSE 0 END" ; :unit "hours" ;
+  :askedAs "旧款标工" ; :askedAs "旧款工时" ; :askedAs "old_h" ;
+  :businessDescription "answers:Q3 —— 旧款判定见 :OldModelItem。实测 5,944.009 h，与客户表的 old_h 合计一致。" .
+
+# ---------------- 产出侧 · 件数
+:bracketPiecesByDept a owl:DatatypeProperty ;
+  rdfs:label "架×計入 报数件数（按部门）" ;
+  :aggregate "sum" ; :grain :ProductionRow ; :universe :BracketRow ; :where :BracketRow ;
+  :groupBy :productionFactory ; :groupBy :productionDept ;
+  :formula "qty_report" ; :unit "count" ;
+  :askedAs "产量" ; :askedAs "架产量" ; :askedAs "报数件数" ;
+  :businessDescription "answers:Q1 —— 架且非不計的报数合计（qty_report，不是 qty_pr）。这是件数口径的产量，不等于工时口径的产出一致性：同时缺标工的行也在内。" .
+
+:oldModelPiecesByDept a owl:DatatypeProperty ;
+  rdfs:label "旧款报数件数（按部门）" ;
+  :aggregate "sum" ; :grain :ProductionRow ; :universe :OldModelRow ; :where :OldModelRow ;
+  :groupBy :productionFactory ; :groupBy :productionDept ;
+  :formula "qty_report" ; :unit "count" ;
+  :askedAs "旧款件数" ; :askedAs "旧款产量" ;
+  :businessDescription "answers:Q3 —— 旧款口径（见 :OldModelRow）的报数合计。" .
+
+:oldModelPieceShareByDept a owl:DatatypeProperty ;
+  rdfs:label "旧款件数占比（%）" ;
+  :aggregate "ratio_of_sums" ; :grain :ProductionRow ; :universe :BracketRow ;
+  :numerator :oldModelPiecesByDept ; :denominator :bracketPiecesByDept ;
+  :scale "100.0" ; :groupBy :productionFactory ; :groupBy :productionDept ;
+  :unit "percent" ;
+  :askedAs "旧款占比" ; :askedAs "旧款件数占比" ;
+  :businessDescription "answers:Q3 —— 分母 = 可判定新旧的架类行；不可判定的行留 NULL，不计入分子也不计入分母。两侧同粒度（都在 production_row 的架×計入行上求和），所以分组比率成立；分子分母都取 sum(qty_report)，不是平均再平均。「0 件」和「没有记录」是两件事：0.85 系数只对能判定为旧款的行生效，判不出来的行既不读作新款、也不读作 0 件；因此该部门本月没有旧款产出时分子是 NULL，输出空白而不是 0，那不是缺数据。" .
+
+:pendingPiecesByDept a owl:DatatypeProperty ;
+  rdfs:label "架×不計 报数件数（被剔除的产量）" ;
+  :aggregate "sum" ; :grain :ProductionRow ; :universe :PendingRow ; :where :PendingRow ;
+  :groupBy :productionFactory ; :groupBy :productionDept ;
+  :formula "qty_report" ; :unit "count" ;
+  :askedAs "不計件数" ; :askedAs "被剔除的产量" ;
+  :businessDescription "answers:Q4 —— 及时性=『不計』的架行报数合计：这些件数不计入效率，单独列出是为了让剔除可见。" .
+
+:accessoryPiecesByDept a owl:DatatypeProperty ;
+  rdfs:label "配件报数件数（不在效率口径内）" ;
+  :aggregate "sum" ; :grain :ProductionRow ; :universe :AccessoryRow ; :where :AccessoryRow ;
+  :groupBy :productionFactory ; :groupBy :productionDept ;
+  :formula "qty_report" ; :unit "count" ;
+  :askedAs "配件产量" ; :askedAs "配件件数" ;
+  :businessDescription "answers:Q1 —— kind_a='配件' 的报数合计。它解释「产量表总量」与「效率口径产量」的差额，本身不进入效率分子。" .
+
+:missingStdPiecesByDept a owl:DatatypeProperty ;
+  rdfs:label "缺标工的报数件数（算不出工时的那部分）" ;
+  :aggregate "sum" ; :grain :ProductionRow ; :universe :MissingStdRow ; :where :MissingStdRow ;
+  :groupBy :productionFactory ; :groupBy :productionDept ;
+  :formula "qty_report" ; :unit "count" ;
+  :askedAs "缺标工件数" ; :askedAs "没有标工的产量" ;
+  :businessDescription "measured: —— 连不上 std_time 的架×計入行报数：这部分产量有件数、无工时，是「产出标工工时」缺口的来源。" .
+
+# ---------------- 工时侧
+:reviewHoursByDept a owl:DatatypeProperty ;
+  rdfs:label "出勤工时（W級調整前，按部门）" ;
+  :aggregate "sum" ; :grain :Timesheet ; :universe :EfficiencyPerson ; :where :EfficiencyPerson ;
+  :groupBy :timesheetFactory ; :groupBy :timesheetDept ;
+  :formula "hours" ; :unit "hours" ;
+  :askedAs "出勤工时" ; :askedAs "分母工时" ; :askedAs "review" ;
+  :businessDescription "answers:Q9 —— 见 :EfficiencyPerson：person_class=『生產-纳入效率计算』且 kpi_attr 不是做辦/浮動，在職離職都算。实测 187,064.314 h。" .
+
+:bangoInHoursByDept a owl:DatatypeProperty ;
+  rdfs:label "搬工借入工时（按接收部门）" ;
+  :aggregate "sum" ; :grain :BangoDetail ; :universe :BangoIn ; :where :BangoIn ;
+  :groupBy :bangoFactory ; :groupBy :bangoToDept ;
+  :formula "hours" ; :unit "hours" ;
+  :askedAs "借入工时" ; :askedAs "调拨入工时" ;
+  :businessDescription "answers:Q8 —— direction='調入'，按 to_dept 归属；它是出勤工时的加项（见 refused:R3：四项合成没有声明能力）。实测 2,895.220 h。" .
+
+:bangoOutHoursByDept a owl:DatatypeProperty ;
+  rdfs:label "搬工借出工时（剔除浮动，按借出部门）" ;
+  :aggregate "sum" ; :grain :BangoDetail ; :universe :BangoOutQualified ; :where :BangoOutQualified ;
+  :groupBy :bangoFactory ; :groupBy :bangoFromDept ;
+  :formula "hours" ; :unit "hours" ;
+  :askedAs "借出工时" ; :askedAs "调拨出工时" ;
+  :businessDescription "answers:Q8 —— direction='調出' 且 kpi_attr<>'浮動'，按 from_dept 归属，是出勤工时的减项。实测 2,829.980 h（調出全额 2,952.900 h 减去浮动 122.920 h）。" .
+
+:bangoFloatOutHoursByDept a owl:DatatypeProperty ;
+  rdfs:label "浮动借出工时（被剔除的部分）" ;
+  :aggregate "sum" ; :grain :BangoDetail ; :universe :BangoFloatOut ; :where :BangoFloatOut ;
+  :groupBy :bangoFactory ; :groupBy :bangoFromDept ;
+  :formula "hours" ; :unit "hours" ;
+  :askedAs "浮动借出" ; :askedAs "被剔除的借出工时" ;
+  :businessDescription "answers:Q8 —— 被借出口径剔除的那 122.920 h，单独声明成一个可核对的数。" .
+
+:adjustmentHoursByDept a owl:DatatypeProperty ;
+  rdfs:label "工时调整合计（按部门）" ;
+  :aggregate "sum" ; :grain :Adjustments ; :universe :AllAdjustments ; :where :AllAdjustments ;
+  :groupBy :adjustFactory ; :groupBy :adjustDept ;
+  :formula "hours" ; :unit "hours" ;
+  :askedAs "工时调整" ; :askedAs "调整合计" ;
+  :businessDescription "answers:Q7 —— adjustments 全类别求和（kind 有正有负，合计实测 14.900 h）。不按 kind 分组，因为那会变成第三个键。" .
+
+:appealDeductHoursByDept a owl:DatatypeProperty ;
+  rdfs:label "申訴扣減工时（按部门）" ;
+  :aggregate "sum" ; :grain :Adjustments ; :universe :AppealDeduct ; :where :AppealDeduct ;
+  :groupBy :adjustFactory ; :groupBy :adjustDept ;
+  :formula "hours" ; :unit "hours" ;
+  :askedAs "申訴扣減" ; :askedAs "申诉扣减工时" ;
+  :businessDescription "answers:Q7 —— kind='申訴扣減' 的小时数（负向调整）。与『被申訴工時』不是一回事：后者库里没有，按名拒绝（R9）。" .
+
+# ---------------- 治理侧（不是事实，是对账锚点与目标）
+:efficiencyTargetByDept a owl:DatatypeProperty ;
+  rdfs:label "效率目标值（按部门，来自 kpi_target）" ;
+  :aggregate "max" ; :grain :KpiTarget ; :universe :AllKpiTarget ; :where :AllKpiTarget ;
+  :groupBy :targetFactory ; :groupBy :targetDept ;
+  :formula "target" ; :unit "ratio" ;
+  :askedAs "效率目标" ; :askedAs "目标值" ; :askedAs "target" ;
+  :businessDescription "answers:Q6 —— 一个月只有一个目标值，所以 max 是「读到那个值」，不是取最大的意思；缺目标的行不存在，聚合后为 NULL 而不是 0。达标率本身按名拒绝（R5）。" .
+
+:snapshotMhoursByDept a owl:DatatypeProperty ;
+  rdfs:label "客户快照的 m 值（对账锚点，按部门）" ;
+  :aggregate "max" ; :grain :KpiSnapshot ; :universe :AllKpiSnapshot ; :where :AllKpiSnapshot ;
+  :groupBy :snapshotFactory ; :groupBy :snapshotDept ;
+  :formula "m_hours" ; :unit "hours" ;
+  :askedAs "快照分母工时" ; :askedAs "客户表的分母" ;
+  :businessDescription "answers:Q10 —— kpi_snapshot 是客户已发布的数，这里只把它读出来当对账锚点（5 行）；它不是本体重算的结果，本体重算的分母合成因为跨表合成而被拒绝（R3）。" .

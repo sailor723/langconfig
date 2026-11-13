@@ -112,5 +112,15 @@
       "check_samples",
       "check_dashboard"
     ]
+  },
+  "eff_ops_v1": {
+    "why": "eff_ops_v1：產出標工與效率計算。源库 eff_ops 是 9 张表的产出/标工/工时明细，客户文档（規格 + 任務拆解 + 效率模型）要求按厂×部门给出标工工时与件数。",
+    "profile": [
+      "check_structure",
+      "check_ontology_generic",
+      "check_samples",
+      "check_dashboard"
+    ],
+    "installed": "1794594091-0bcda2 @ 2026-11-14 02:30 CST / git 5faab52：17/17 指标编译、0 按名拒绝（i 保留为不带 :aggregate 的法定拒绝，带 :refusalReason）；check_structure 92/0 failed、check_ontology_generic R 与 C 全 PASS、check_samples 19 条 / 34 断言 ALL PASS、check_dashboard 38/0 failed（D3/D5 的独立 SQL 身份断言 NOT RUN——它们判的是 logistics 的指标名，未跑不等于通过）。"
   }
 }

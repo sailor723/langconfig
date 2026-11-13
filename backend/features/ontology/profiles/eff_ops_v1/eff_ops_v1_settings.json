@@ -1,0 +1,93 @@
+{
+  "title": "新溢 EFF 效率本体（eff_ops_v1）",
+  "ns": "https://cube.local/ontology/eff_ops_v1#",
+  "ontology_dir": ".",
+  "overlay": "metrics_ext.ttl",
+  "dsn": {
+    "host": "${ONTOLOGY_DB_HOST:-127.0.0.1}",
+    "port": "${ONTOLOGY_DB_PORT:-5432}",
+    "dbname": "eff_ops",
+    "user": "${ONTOLOGY_DB_USER:-weiping}",
+    "password": "${EFF_OPS_V1_DB_PASSWORD}"
+  },
+  "guard": {
+    "enabled": true,
+    "max_rows": 500,
+    "default_window_days": 0,
+    "statement_timeout_ms": 8000,
+    "max_plan_rows": 5000000,
+    "_big_tables_note": "big_tables 只放「自己有真时间列」的三张表：production_row.month、timesheet.month、bango_detail.month（G1c 逐列核对它们真的存在）。这三张是事实表，行数 1,037 / 795 / 48。default_window_days 必须是 0，这是量过的：库里 month 只有 202610 一个值（10 月整月快照），跑门禁的 now() 是 2026-11-14。相对 now() 的 30 天窗口落在 2026-10-15..11-14，会把这一个月里 10/1–10/14 的产量全部静默丢掉——而 202610 是 text 列（YYYYMM），日期算术根本套不上去。所以这里选「拒绝」而不是「收窄」：不带 month 过滤的整表读取会拿到一句按名的拒绝（这是大表、没有 month 过滤），并给出两条出路（自己加 month 条件 / 改 default_window_days）；已声明的指标永远不被窗口改写（mode=declared 只记一条无界扫描备注）——指标的数就是它定义的那个数。",
+    "big_tables": {
+      "production_row": "month",
+      "timesheet": "month",
+      "bango_detail": "month"
+    },
+    "_large_tables_note": "large_tables 只放「没有自己的时间列、但行数值得进计划预算」的表：std_time（1,828 行，库里最大的一张，它的时间只能隔 production_row 拿到，没有自己的时间列）和 material_master（726 行，款号主数据，本身无时间维度）。G1e 明确要求一张表不能同时在 big_tables 和 large_tables 里：big 会注入窗口，large 只计预算。把 std_time 放进 big_tables 会让护栏往一个不存在的列上拼窗口，那张表的每次读取都会死。",
+    "large_tables": [
+      "std_time",
+      "material_master"
+    ]
+  },
+  "features": {
+    "actions": false,
+    "lane_b": false,
+    "tutorial": true,
+    "tutorial_style": "auto"
+  },
+  "_aliases_note": "别名只把现场简称接到已经声明的那条指标上，不改口径、不造数。删掉过两类会让别名互相打架的短词：『标工』单独成词时会把『折后标工』吃成未折旧的 iFullStdHours（方向错），所以 i 现在只认指标名『i』本身；『工时』『件数』这种通用词一律不做别名。别名只放这条指标自己的名字长度够、且不与别的指标共享前缀的词。",
+  "aliases": {
+    "旧款件数占比": "oldModelPieceShareByDept",
+    "旧款占比": "oldModelPieceShareByDept",
+    "旧款标工": "oldModelStdHours",
+    "旧款工时": "oldModelStdHours",
+    "旧款件数": "oldModelPiecesByDept",
+    "旧款产量": "oldModelPiecesByDept",
+    "标工工时": "iFullStdHours",
+    "未折旧标工": "iFullStdHours",
+    "前后段拆解": "iFullStdHoursBySide",
+    "前段后段标工": "iFullStdHoursBySide",
+    "不計件数": "pendingPiecesByDept",
+    "被剔除的产量": "pendingPiecesByDept",
+    "配件件数": "accessoryPiecesByDept",
+    "配件报数": "accessoryPiecesByDept",
+    "缺标工件数": "missingStdPiecesByDept",
+    "没有标工的产量": "missingStdPiecesByDept",
+    "报数件数": "bracketPiecesByDept",
+    "产量件数": "bracketPiecesByDept",
+    "架产量": "bracketPiecesByDept",
+    "出勤工时": "reviewHoursByDept",
+    "出勤": "reviewHoursByDept",
+    "分母工时": "reviewHoursByDept",
+    "借入工时": "bangoInHoursByDept",
+    "搬工借入": "bangoInHoursByDept",
+    "借出工时": "bangoOutHoursByDept",
+    "搬工借出": "bangoOutHoursByDept",
+    "浮动借出": "bangoFloatOutHoursByDept",
+    "被剔除的借出工时": "bangoFloatOutHoursByDept",
+    "工时调整": "adjustmentHoursByDept",
+    "调整合计": "adjustmentHoursByDept",
+    "申诉扣减工时": "appealDeductHoursByDept",
+    "效率目标值": "efficiencyTargetByDept",
+    "效率目标": "efficiencyTargetByDept",
+    "客户快照的 m 值": "snapshotMhoursByDept",
+    "快照的 m 值": "snapshotMhoursByDept"
+  },
+  "samples": [
+    "标工工时是多少",
+    "未折旧标工是多少",
+    "旧款标工是多少",
+    "前后段拆解",
+    "报数件数是多少",
+    "旧款件数是多少",
+    "不計件数是多少",
+    "配件件数是多少",
+    "出勤工时是多少",
+    "借入工时是多少",
+    "借出工时是多少",
+    "浮动借出是多少",
+    "工时调整是多少",
+    "效率目标值是多少",
+    "客户快照的 m 值是多少"
+  ],
+  "_samples_note": "前门只放这 16 个「一定答得出数」的问题（每一个在 samples.json 里都有一条手写 SQL 路线当场复核）。按名拒绝的四个（i、最近30天、達標率、缺标工件数）不进前门，但都被门禁盯着：拒绝也是能力，只是不该让人点进去就撞墙。"
+}

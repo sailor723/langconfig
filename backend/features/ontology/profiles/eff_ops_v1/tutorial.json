@@ -1,0 +1,109 @@
+{
+ "_doc": "S7 教程。与 eff_ops_v1_settings.json 同目录（tutorial_api 固定读 profile 旁的 tutorial.json）。items 只点已声明的类与指标；正文不写死任何数字——数由 /api/tutorial/run 与 /api/tutorial/definition 现场从库里跑出来。五个 kind 只用复数形式：objects / definitions / metrics / refusals / guard。",
+ "title": "新溢 EFF 效率本体 · 教程",
+ "intro": "这个库里最容易被问错的不是「多少工时」，而是「这小时是怎么算出来的」。这份本体把每个数写成一条声明：先定一行是什么（厂×部门×款号×月份的一行报数），再把「旧款」「不計」「浮动借出」写成谓词，最后把答不了的口径（效率 i、达标率、最近多少个时间窗口）按名拒绝，而不是给一个看起来合理的数。",
+ "steps": [
+  {
+   "kind": "objects",
+   "title": "一行是什么：先定颗粒，再谈数字",
+   "body": "报数（ProductionRow）是这本体的事实表：一个厂、一个部门、一个款号、一个月的一行，带报数件数、单位秒数、架/配件分类、是否不計、新旧款标记。出勤（Timesheet）按人-月一行，是打卡工时，跟报数没有行级对应关系——两者只能各自聚合到厂×部门再并列，不能逐行相除。搬工（BangoDetail）按人-月一行，记借入/借出工时与是否浮动。标工（StdTime）是款号×正反面的标准秒数，只能经 (part_no, side) 命中报数，没有自己的时间列。款号主数据（MaterialMaster）、客户快照（KpiSnapshot）、目标值（KpiTarget）、加减（Adjustments）、规则口径（RuleRegimes）都是旁证表。点开任一对象能看到物理表、主键和可分组列。",
+   "items": [
+    "ProductionRow",
+    "Timesheet",
+    "BangoDetail",
+    "StdTime",
+    "MaterialMaster",
+    "KpiSnapshot",
+    "KpiTarget",
+    "Adjustments",
+    "RuleRegimes"
+   ]
+  },
+  {
+   "kind": "definitions",
+   "title": "「算工时的那批行」到底是哪一批",
+   "body": "工时口径不是一个形容词，是三个条件的交集：架类（不是配件）、不是不計、且能按款号与正反面命中标工。每条都写成公理、编译成一个 WHERE，所以同一个词在任何报表里都选中同一批行。BracketRow 是架类行，StdHoursRow 是可折算标工的行，MissingStdRow 是命中不到标工的那批——它不是零工时，是算不出工时，所以单独一个定义、单独一个指标。配件（AccessoryRow）与不計（PendingRow）都在效率口径之外，但件数照样要数：报了数的产量被剔出效率，不等于没发生。",
+   "items": [
+    "BracketRow",
+    "StdHoursRow",
+    "MissingStdRow",
+    "PendingRow",
+    "AccessoryRow"
+   ]
+  },
+  {
+   "kind": "definitions",
+   "title": "「旧款」和「不可判定」：留白是结论，不是零",
+   "body": "旧款判定只活在一条自由 SQL 谓词里（OldModelItem）：它不是库里一列可以直接 group by 的东西，所以它进不了公式，只能进谓词的注释与范围。于是旧款件数占比有一个必须说清的性质：分母只算**可判定**的行，不可判定的行既不在分子也不在分母，那些部门的占比就留空白——空白和「占比为零」是两件不同的事。同理，借出被分成两份：合格借出（BangoOutQualified，已剔除浮动）与浮动借出（BangoFloatOut，被剔除掉的那部分），浮动不是被丢掉，是单独列出来。",
+   "items": [
+    "OldModelItem",
+    "OldModelRow",
+    "BangoOutQualified",
+    "BangoFloatOut",
+    "AllAdjustments",
+    "AllKpiTarget",
+    "AllKpiSnapshot"
+   ]
+  },
+  {
+   "kind": "metrics",
+   "title": "工时侧：标工工时、旧款工时、出勤工时",
+   "body": "标工工时是秒数×报数件数÷3600，只算架且非不計且命中标工的行——这就是全价标工（未折旧）。旧款标工只对属于旧款的架类行计价。出勤工时是打卡工时，口径与标工完全不同源：一个是「按标工秒数折算出来的应花工时」，一个是「人真的在场的小时」。所以板上把它们并排放在同一格，谁都能看出差距从哪来；相除得到效率这件事，本体拒绝（见后面那一步）。点运行，数字是编译器现跑出来的，不是文档里的截图。",
+   "items": [
+    "iFullStdHours",
+    "oldModelStdHours",
+    "reviewHoursByDept",
+    "iFullStdHoursBySide"
+   ]
+  },
+  {
+   "kind": "metrics",
+   "title": "搬工与加减：三份借出，两个调整",
+   "body": "搬工借入按接收部门计；借出分两份：合格借出（剔除浮动）与浮动借出。为什么不做净额？因为「借入与借出之间那点差由谁承担、浮动到底算不算工时」是业务口径，库里没有一列回答它——所以本体给你三个并列的数，让你自己决定，而不是替你决定。工时调整与申诉扣减各自独立，调整可以是负数。",
+   "items": [
+    "bangoInHoursByDept",
+    "bangoOutHoursByDept",
+    "bangoFloatOutHoursByDept",
+    "adjustmentHoursByDept",
+    "appealDeductHoursByDept"
+   ]
+  },
+  {
+   "kind": "metrics",
+   "title": "件数侧：报数、旧款、不計、缺标工、配件",
+   "body": "件数有五种，别混着加：报数件数（全部行）、旧款件数（可判定为旧款的行）、不計件数（报了数但被判成不算效率）、缺标工件数（命中不到标工、因此算不出工时）、配件件数（不在效率口径内）。它们覆盖的是同一个月里的不同子集：架类与配件互斥，不計与缺标工是两个不同的「被剔出」原因。旧款件数占比是唯一一个比率指标，分母是可判定行。",
+   "items": [
+    "bracketPiecesByDept",
+    "oldModelPiecesByDept",
+    "oldModelPieceShareByDept",
+    "pendingPiecesByDept",
+    "missingStdPiecesByDept",
+    "accessoryPiecesByDept"
+   ]
+  },
+  {
+   "kind": "metrics",
+   "title": "目标与锚点：读得到，但不判定",
+   "body": "效率目标值（kpi_target）按部门一行一个比值，是目标本身，不是达标率：要判「达标/未达标」得先聚合再比较，而那一步缺声明形态（见下一步）。客户快照的 m 值按部门一行，与出勤工时同格相等——它是出勤口径的副本，只能做合计核对，不是第二个来源。",
+   "items": [
+    "efficiencyTargetByDept",
+    "snapshotMhoursByDept"
+   ]
+  },
+  {
+   "kind": "refusals",
+   "title": "这些口径本体答不了，而且它按名说出来",
+   "body": "最值钱的一步是拒绝。效率 i（旧款折后标工工时 = 全价标工 − 0.15×旧款标工）被按名拒绝：它的定义是「一个指标的聚合值减去另一个指标的聚合值再乘系数」，而 :formula 只能引用已连接表的列，不能引用另一个指标的聚合值——三种行内改写（内联子查询、款号前缀 LIKE、CASE 里塞子查询）都被编译器按名拒绝，理由各不相同。同样被拒的还有：达标率（同样缺聚合之上的算术）、「最近 30 天」（这个库只有一个月份列、没有行级时间戳，相对时间窗口会把当月大部分数据静默丢掉，所以选拒绝而不是收窄）、以及任何「全厂合计」的单个标量（17 个指标全部按厂×部门分组，整表口径要新增一条不带 :groupBy 的声明，那是待批项）。口径不是不存在，是没被声明——所以拒绝里带着可复算的替代公式。 菜单上仍然留着 i 这个名字（:i 带 :refusalReason、故意不带 :aggregate），但它是「缺口」不是「指标」：本体不会为它编一个数，只会在被问到时说出为什么。所以要复算请用本步列出的两个可编译口径：iFullStdHours − 0.15 × oldModelStdHours = 152,363.412 h。",
+   "items": [
+    "iFullStdHours",
+    "oldModelStdHours",
+    "efficiencyTargetByDept"
+   ]
+  },
+  {
+   "kind": "guard",
+   "title": "护栏：窗口、行数、超时、计划预算",
+   "body": "护栏不是给指标的，是给自由 SQL 的。单次最多返回 max_rows（500）行；语句超时 8 秒；计划行数预算 500 万。关键一条是 default_window_days = 0：库里 month 只有 202610 一个值，是整月快照，而门禁运行时的 now() 已在当月之后——相对 now() 的 30 天窗口会把当月前半段的产量静默丢掉，所以这里选择「拒绝」而不是「收窄」：对三张大表的无界读取会拿到一句按名的拒绝，并给出两条出路（自己加 month 条件，或改 default_window_days）。已声明的指标永远不被窗口改写：指标的数就是它定义的那个数，mode=declared 只记一条无界扫描备注。"
+  }
+ ]
+}

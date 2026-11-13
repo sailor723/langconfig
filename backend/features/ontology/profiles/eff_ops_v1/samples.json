@@ -1,0 +1,140 @@
+{
+ "_note": "expect.route 是每个样例的第二条路线（手写 SQL）：门禁现在就跑它，把编译器的数与它比 —— 文件里不存任何数字。两条路线都按 'factory / dept' 拼 key：部门名在 HY 与 DG 之间不唯一（17 个名字 / 18 个组），key 必须带工厂。旧款件数占比不进样例：4 个没有旧款产出的组上分子是 NULL（编译器 FILTER 求和空集），NULL 该显示成 0 还是空要业务方定，未定之前不进前门。",
+ "samples": [
+  {
+   "question": "标工工时是多少",
+   "expect": {
+    "metric": "iFullStdHours",
+    "route": "SELECT concat_ws(' / ', p.factory, p.dept) , sum(s.seconds * p.qty_report / 3600.0) FROM production_row p JOIN std_time s ON s.part_no = p.part_no AND s.side = CASE WHEN p.work_center_desc = 'SH分公司前工序' THEN 'front' ELSE 'back' END WHERE p.kind_a = '架' AND p.timeliness <> '不計' GROUP BY 1 ORDER BY 1"
+   }
+  },
+  {
+   "question": "未折旧标工是多少",
+   "expect": {
+    "metric": "iFullStdHours",
+    "route": "SELECT concat_ws(' / ', p.factory, p.dept) , sum(s.seconds * p.qty_report / 3600.0) FROM production_row p JOIN std_time s ON s.part_no = p.part_no AND s.side = CASE WHEN p.work_center_desc = 'SH分公司前工序' THEN 'front' ELSE 'back' END WHERE p.kind_a = '架' AND p.timeliness <> '不計' GROUP BY 1 ORDER BY 1"
+   }
+  },
+  {
+   "question": "旧款标工是多少",
+   "expect": {
+    "metric": "oldModelStdHours",
+    "route": "SELECT concat_ws(' / ', p.factory, p.dept) , sum(s.seconds * p.qty_report / 3600.0) FROM production_row p JOIN std_time s ON s.part_no = p.part_no AND s.side = CASE WHEN p.work_center_desc = 'SH分公司前工序' THEN 'front' ELSE 'back' END WHERE p.kind_a = '架' AND p.timeliness <> '不計' AND s.part_no NOT LIKE 'M3%%' AND s.part_no NOT LIKE 'T14%%' AND s.part_no NOT LIKE 'T15%%' AND s.part_no NOT LIKE 'H128%%' AND s.part_no NOT LIKE 'H129%%' AND NOT EXISTS (SELECT 1 FROM material_master mm WHERE mm.part_no = s.part_no) GROUP BY 1 ORDER BY 1"
+   }
+  },
+  {
+   "question": "前后段拆解",
+   "expect": {
+    "metric": "iFullStdHoursBySide",
+    "route": "SELECT concat_ws(' / ', p.factory, p.dept, s.side) , sum(s.seconds * p.qty_report / 3600.0) FROM production_row p JOIN std_time s ON s.part_no = p.part_no AND s.side = CASE WHEN p.work_center_desc = 'SH分公司前工序' THEN 'front' ELSE 'back' END WHERE p.kind_a = '架' AND p.timeliness <> '不計' GROUP BY 1 ORDER BY 1"
+   }
+  },
+  {
+   "question": "报数件数是多少",
+   "expect": {
+    "metric": "bracketPiecesByDept",
+    "route": "SELECT concat_ws(' / ', p.factory, p.dept), sum(p.qty_report)::numeric FROM production_row p WHERE p.kind_a = '架' AND p.timeliness <> '不計' GROUP BY 1 ORDER BY 1"
+   }
+  },
+  {
+   "question": "旧款件数是多少",
+   "expect": {
+    "metric": "oldModelPiecesByDept",
+    "route": "SELECT concat_ws(' / ', p.factory, p.dept), sum(p.qty_report)::numeric FROM production_row p WHERE p.kind_a = '架' AND p.timeliness <> '不計' AND NOT EXISTS (SELECT 1 FROM material_master mm WHERE mm.part_no = p.part_no) AND p.part_no NOT LIKE 'M3%%' AND p.part_no NOT LIKE 'T14%%' AND p.part_no NOT LIKE 'T15%%' AND p.part_no NOT LIKE 'H128%%' AND p.part_no NOT LIKE 'H129%%' GROUP BY 1 ORDER BY 1"
+   }
+  },
+  {
+   "question": "不計件数是多少",
+   "expect": {
+    "metric": "pendingPiecesByDept",
+    "route": "SELECT concat_ws(' / ', p.factory, p.dept), sum(p.qty_report)::numeric FROM production_row p WHERE p.kind_a = '架' AND p.timeliness = '不計' GROUP BY 1 ORDER BY 1"
+   }
+  },
+  {
+   "question": "配件件数是多少",
+   "expect": {
+    "metric": "accessoryPiecesByDept",
+    "route": "SELECT concat_ws(' / ', p.factory, p.dept), sum(p.qty_report)::numeric FROM production_row p WHERE p.kind_a = '配件' GROUP BY 1 ORDER BY 1"
+   }
+  },
+  {
+   "question": "出勤工时是多少",
+   "expect": {
+    "metric": "reviewHoursByDept",
+    "route": "SELECT concat_ws(' / ', factory, dept), sum(hours) FROM timesheet WHERE person_class = '生產-纳入效率计算' AND kpi_attr <> '做辦' AND kpi_attr <> '浮動' GROUP BY 1 ORDER BY 1"
+   }
+  },
+  {
+   "question": "借入工时是多少",
+   "expect": {
+    "metric": "bangoInHoursByDept",
+    "route": "SELECT concat_ws(' / ', factory, to_dept), sum(hours) FROM bango_detail WHERE direction = '調入' GROUP BY 1 ORDER BY 1"
+   }
+  },
+  {
+   "question": "借出工时是多少",
+   "expect": {
+    "metric": "bangoOutHoursByDept",
+    "route": "SELECT concat_ws(' / ', factory, from_dept), sum(hours) FROM bango_detail WHERE direction = '調出' AND kpi_attr <> '浮動' GROUP BY 1 ORDER BY 1"
+   }
+  },
+  {
+   "question": "浮动借出是多少",
+   "expect": {
+    "metric": "bangoFloatOutHoursByDept",
+    "route": "SELECT concat_ws(' / ', factory, from_dept), sum(hours) FROM bango_detail WHERE direction = '調出' AND kpi_attr = '浮動' GROUP BY 1 ORDER BY 1"
+   }
+  },
+  {
+   "question": "工时调整是多少",
+   "expect": {
+    "metric": "adjustmentHoursByDept",
+    "route": "SELECT concat_ws(' / ', factory, dept), sum(hours) FROM adjustments GROUP BY 1 ORDER BY 1"
+   }
+  },
+  {
+   "question": "效率目标值是多少",
+   "expect": {
+    "metric": "efficiencyTargetByDept",
+    "route": "SELECT concat_ws(' / ', factory, dept), max(target) FROM kpi_target GROUP BY 1 ORDER BY 1"
+   }
+  },
+  {
+   "question": "客户快照的 m 值是多少",
+   "expect": {
+    "metric": "snapshotMhoursByDept",
+    "route": "SELECT concat_ws(' / ', factory, dept), max(m_hours) FROM kpi_snapshot GROUP BY 1 ORDER BY 1"
+   }
+  },
+  {
+   "question": "i",
+   "expect": {
+    "refused_by_names": [
+     "I can answer about"
+    ]
+   },
+   "_why": "i 需要「聚合之上的算术」（iFull − 0.15×旧款），这条声明形态平台没有；所以 :i 故意不带 :aggregate —— 不是可编译指标，只是一个被叫得出名字的缺口，口径本身已用两个已声明指标实测（152,363.412 h）。同 sunhing_v1 的退役/拒绝形态。"
+  },
+  {
+   "question": "最近 30 天的标工工时是多少",
+   "expect": {
+    "refused_by_name": "does not support the TimeWindow slot"
+   },
+   "_why": "库里 month 只有 202610 一个值（text），没有指标声明 :supportsSlot :TimeWindow —— 相对 now() 的窗口会静默丢掉半个月。"
+  },
+  {
+   "question": "達標率是多少",
+   "expect": {
+    "refused_by_name": "I can answer about"
+   },
+   "_why": "达标率 = 效率 i/m ≥ 目标，需要在聚合之上做比较与计数，当前声明能力里没有；库里也没有『达标率』这一列。"
+  },
+  {
+   "question": "缺标工件数是多少",
+   "expect": {
+    "refused_by_name": "asks for a number"
+   },
+   "_why": "「缺标工」被解析成类 :MissingStdRow 而不是指标 missingStdPiecesByDept：没有任何指标声明能让这个短语落到件数指标上（按名拒绝）。"
+  }
+ ]
+}

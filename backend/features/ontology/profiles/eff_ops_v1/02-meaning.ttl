@@ -1,0 +1,119 @@
+# eff_ops_v1 / 02-meaning.ttl —— 含义层：每个概念 = 一条可执行的谓词 + 理由
+# 谓词类的唯一逃生口是 :physicalPredicate，且必须带 :businessDescription 说明「为什么这条谓词就是那个业务词」。
+@prefix : <https://cube.local/ontology/eff_ops_v1#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+:physicalPredicate a owl:AnnotationProperty .
+:businessDescription a owl:AnnotationProperty .
+:askedAs a owl:AnnotationProperty .
+:unit a owl:AnnotationProperty .
+:aggregate a owl:AnnotationProperty .
+:grain a owl:AnnotationProperty .
+:universe a owl:AnnotationProperty .
+:where a owl:AnnotationProperty .
+:groupBy a owl:AnnotationProperty .
+:formula a owl:AnnotationProperty .
+:numerator a owl:AnnotationProperty .
+:denominator a owl:AnnotationProperty .
+:scale a owl:AnnotationProperty .
+:counts a owl:AnnotationProperty .
+
+# ---------------------------------------------------------------- 产量侧
+
+:BracketRow a owl:Class ;
+    rdfs:label "架×計入（生产口径行）" ;
+    rdfs:subClassOf :ProductionRow ;
+    :physicalPredicate "kind_a = '架' AND timeliness <> '不計'" ;
+    :businessDescription "answers:Q1/Q4 —— 产出标工的分子只认「架」品类的报数行，且剔除及时性=『不計』的行（admin 确认：不計行不计入任何效率数）。实测 894 行。" .
+
+:StdHoursRow a owl:Class ;
+    rdfs:label "有标工的产量行（前段/后段二分）" ;
+    rdfs:subClassOf :StdTime ;
+    :physicalPredicate "side IN ('front','back')" ;
+    :businessDescription "answers:Q2 —— 标工工时 = 秒数(std_time) × 报数(production_row)，两表按 :prodStdTime 连接（part_no + side，side 由 work_center_desc 派生）。这一类只钉住「该行有这样的标工」：std_time 只有 front/back 两种 side，两者都在内。产量侧的两个条件（架、非不計）不能写进谓词——编译器只把 :physicalPredicate 内联到粒度表 std_time 上，写 kind_a 会在 std_time 上跑不动；所以它们以显式 CASE 写进指标 formula，见 :iFullStdHours。" .
+
+:OldModelItem a owl:Class ;
+    rdfs:label "旧款款号（不在新款清单里的款）" ;
+    rdfs:subClassOf :StdTime ;
+    :physicalPredicate "side IN ('front','back') AND std_time.part_no NOT LIKE 'M3%' AND std_time.part_no NOT LIKE 'T14%' AND std_time.part_no NOT LIKE 'T15%' AND std_time.part_no NOT LIKE 'H128%' AND std_time.part_no NOT LIKE 'H129%' AND NOT EXISTS (SELECT 1 FROM material_master mm WHERE mm.part_no = std_time.part_no)" ;
+    :businessDescription "answers:Q3 —— 旧款 = 款号不在 material_master 里，且不属于 5 个新款前缀（M3/T14/T15/H128/H129）。这五项都是款号属性，放在 std_time 谓词里与连接后等价（款号两表一致，不产生重复计数）；架×計入 仍在指标 formula 的 CASE 里。五种判定法互相验算过，只有这一种能复现客户表的 old_h = 5,944.009。" .
+:OldModelRow a owl:Class ;
+    rdfs:label "旧款产量行（件数口径）" ;
+    rdfs:subClassOf :ProductionRow ;
+    :physicalPredicate "kind_a = '架' AND timeliness <> '不計' AND NOT EXISTS (SELECT 1 FROM material_master mm WHERE mm.part_no = production_row.part_no) AND part_no NOT LIKE 'M3%' AND part_no NOT LIKE 'T14%' AND part_no NOT LIKE 'T15%' AND part_no NOT LIKE 'H128%' AND part_no NOT LIKE 'H129%'" ;
+    :businessDescription "answers:Q3 —— 与 :OldModelItem 同一口径、但落在产量行上：旧款件数不依赖标工表，所以 13 条缺标工的行也计入件数。" .
+
+:PendingRow a owl:Class ;
+    rdfs:label "架×不計（被剔除的行）" ;
+    rdfs:subClassOf :ProductionRow ;
+    :physicalPredicate "kind_a = '架' AND timeliness = '不計'" ;
+    :businessDescription "answers:Q4 —— 及时性=『不計』的架行：报数存在但不计入效率。单独声明是为了让「被剔除了多少」看得见（实测 15 行 / 4,824 件）。" .
+
+:AccessoryRow a owl:Class ;
+    rdfs:label "配件行（不在效率口径内）" ;
+    rdfs:subClassOf :ProductionRow ;
+    :physicalPredicate "kind_a = '配件'" ;
+    :businessDescription "answers:Q1 —— kind_a='配件' 的行是配件的报数（qty_pr 是 qty_report 的一半），不进入效率口径。单独声明是为了解释产量表与效率表的口径差（实测 128 行 / 43,842 件）。" .
+
+:MissingStdRow a owl:Class ;
+    rdfs:label "缺标工的产量行" ;
+    rdfs:subClassOf :ProductionRow ;
+    :physicalPredicate "kind_a = '架' AND timeliness <> '不計' AND NOT EXISTS (SELECT 1 FROM std_time st WHERE st.part_no = production_row.part_no AND st.side = CASE WHEN production_row.work_center_desc = 'SH分公司前工序' THEN 'front' ELSE 'back' END)" ;
+    :businessDescription "measured: —— 按 (part_no, side) 连不上 std_time 的架×計入行：这些行的报数存在但标工工时算不出来（实测 13 行 / 3,967 件）。side 必须按 work_center_desc 映射，否则会把「前工序缺前段标工」误判成命中。" .
+
+# ---------------------------------------------------------------- 工时侧
+
+:EfficiencyPerson a owl:Class ;
+    rdfs:label "纳入效率计算的人员行" ;
+    rdfs:subClassOf :Timesheet ;
+    :physicalPredicate "person_class = '生產-纳入效率计算' AND kpi_attr <> '做辦' AND kpi_attr <> '浮動'" ;
+    :businessDescription "answers:Q9 —— 分母工时的口径：person_class 必须等于『生產-纳入效率计算』（固定人员、办单人员整体剔除），且 kpi_attr 不能是『做辦』或『浮動』。在職与離職都保留（Q9：离职人员的工时仍是这个月发生的工时）。实测 263 行 / 187,064.314 h，与客户快照的 W級調整前出勤工時逐部一致。" .
+
+# ---------------------------------------------------------------- 搬工侧
+
+:BangoIn a owl:Class ;
+    rdfs:label "借入工时行" ;
+    rdfs:subClassOf :BangoDetail ;
+    :physicalPredicate "direction = '調入'" ;
+    :businessDescription "answers:Q8 —— 借入按 to_dept 归属，加进接收部门的出勤工时（实测 2,895.220 h）。" .
+
+:BangoOutQualified a owl:Class ;
+    rdfs:label "借出工时行（剔除浮动）" ;
+    rdfs:subClassOf :BangoDetail ;
+    :physicalPredicate "direction = '調出' AND kpi_attr <> '浮動'" ;
+    :businessDescription "answers:Q8 —— 借出按 from_dept 扣减，但 kpi_attr=『浮動』的借出不计（admin 确认浮动借出已在工时表里以另一种方式体现，再扣一次会重复）。实测 2,952.900 h。" .
+
+:BangoFloatOut a owl:Class ;
+    rdfs:label "浮动借出（被剔除的部分）" ;
+    rdfs:subClassOf :BangoDetail ;
+    :physicalPredicate "direction = '調出' AND kpi_attr = '浮動'" ;
+    :businessDescription "answers:Q8 —— 被上面剔除的那一块，单独声明成一个概念，这样「剔了多少」是一个数而不是一句注释（实测 122.920 h）。" .
+
+# ---------------------------------------------------------------- 工时调整
+
+:AppealDeduct a owl:Class ;
+    rdfs:label "申訴扣減" ;
+    rdfs:subClassOf :Adjustments ;
+    :physicalPredicate "kind = '申訴扣減'" ;
+    :businessDescription "answers:Q7 —— adjustments.kind 的取值之一，负向调整（实测 -160.000 h）。注意：库里没有『被申訴工時』这一类，两者不是同一件事（见拒绝清单 R9）。" .
+
+# ---------------------------------------------------------------- 整表口径类（编译器不接受没有谓词的整表口径）
+
+:AllAdjustments a owl:Class ;
+    rdfs:label "工时调整（整表口径行）" ;
+    rdfs:subClassOf :Adjustments ;
+    :physicalPredicate "1 = 1" ;
+    :businessDescription "answers:Q7 —— adjustments 每一行都是一条调整记录，没有可剔除的行；「1 = 1」是显式的『不筛』声明，不是省略。" .
+
+:AllKpiTarget a owl:Class ;
+    rdfs:label "效率目标（整表口径行）" ;
+    rdfs:subClassOf :KpiTarget ;
+    :physicalPredicate "1 = 1" ;
+    :businessDescription "answers:Q6 —— kpi_target 每行一个部门一月的目标值，整表口径。没有目标的部门没有行，所以聚合出来是 NULL 而不是 0。" .
+
+:AllKpiSnapshot a owl:Class ;
+    rdfs:label "客户快照（整表口径行）" ;
+    rdfs:subClassOf :KpiSnapshot ;
+    :physicalPredicate "1 = 1" ;
+    :businessDescription "answers:Q10 —— kpi_snapshot 是客户已发布数的对账锚点，整表口径（5 行）。" .

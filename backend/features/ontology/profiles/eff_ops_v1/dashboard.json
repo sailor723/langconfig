@@ -1,0 +1,185 @@
+{
+  "_doc": "eff_ops_v1 的看板声明。每个面板只引用一个已编译的指标；没有一个数字是手写的。全部指标都是 (工厂, 部门) 两个键，所以面板形状只能是 matrix —— 本体里没有整表口径的标量指标，因此本板没有 KPI 卡片（见 cannot_see 最后一条）。i 按名拒绝，因此不在板上以任何形式出现（它不是 hole：hole 要求该指标仍被声明且拒绝，而 i 在发布前被摘出声明，见 D-拒绝证据.md）。",
+  "version": 1,
+  "ontology": "eff_ops_v1",
+  "title": "eff_ops_v1 · 工时与件数（厂 × 部门）",
+  "subtitle": "口径全部来自 01-structure.ttl / 02-meaning.ttl / metrics_ext.ttl；格子里的数由编译器现算，第二路线见 samples.json",
+  "events": [],
+  "policy": [],
+  "_policy_doc": "没有任何阈值被声明：本库里唯一像阈值的东西是 kpi_target（效率目标值，按部门），它是一条已声明的指标，不是判断。要不要给借入/借出差额定红线、浮动剔除多少算异常，是业务口径问题，等 admin 确认后再写 assumed 条目。",
+  "kpis": [],
+  "_kpis_doc": "17 个指标全部按 (productionFactory, productionDept) 分组，没有一个是整表标量；要一张“全厂标工工时”卡片必须先新增一条不带 :groupBy 的声明，那是给 admin 的待批项，不是在看板里补一个数。",
+  "briefing": {
+    "_doc": "每条结论里的数字都必须是 {metric:工厂|部门} 占位符；D7 不允许正文出现裸数字。",
+    "headline": "工时盘最重的一格是 {iFullStdHours:HY|膠架五部} 小时标工对 {reviewHoursByDept:HY|膠架五部} 小时出勤；旧款折减集中在 {oldModelStdHours:HY|膠架五部} 与 {oldModelStdHours:DG|金架九部} 两格。搬工借入的落点是 {bangoInHoursByDept:DG|注塑成品部}，最大借出（已剔除浮动）是 {bangoOutHoursByDept:DG|加色部}，被剔除的浮动本身写在 {bangoFloatOutHoursByDept:DG|注塑成品部}。",
+    "claims": [
+      {
+        "id": "std-vs-attendance",
+        "text": "同一格上并排放两个口径：标工 {iFullStdHours:HY|膠架五部} 是秒数×报数折算出来的，出勤 {reviewHoursByDept:HY|膠架五部} 是打卡工时。两者相除才是效率，而那个除法在本体里写不成声明（见 cannot_see），所以板上只并列、不算商。"
+      },
+      {
+        "id": "old-model-discount",
+        "text": "旧款工时集中在 {oldModelStdHours:HY|膠架五部} 与 {oldModelStdHours:DG|金架九部} 两格，只对属于旧款的架类行计价；旧款判定只活在 :OldModelItem 的自由 SQL 谓词里，进不了公式。"
+      },
+      {
+        "id": "old-model-blank",
+        "text": "旧款件数占比在部分部门是空白而不是零：那些部门本期没有可判定的旧款/新款对照行，空白与“占比为零”不是一件事，所以留白。"
+      },
+      {
+        "id": "bango-three-ways",
+        "text": "搬工借入 {bangoInHoursByDept:DG|注塑成品部}、借出（剔除浮动）{bangoOutHoursByDept:DG|加色部}、被剔除的浮动 {bangoFloatOutHoursByDept:DG|注塑成品部} 三者并列显示：差额由谁承担、浮动是否计入，本体没有声明，所以不做净额。"
+      },
+      {
+        "id": "adjustment-small",
+        "text": "工时调整只有两格有值：{adjustmentHoursByDept:HY|配件部} 与 {adjustmentHoursByDept:DG|金架九部}（后者为负），申诉扣减另计一格 {appealDeductHoursByDept:DG|金架九部}。没有第三格不代表没有调整，代表库里没有记录。"
+      },
+      {
+        "id": "pieces-vs-pending",
+        "text": "产量侧：报数件数最大的一格 {bracketPiecesByDept:HY|脾形中心}，其中不計的 {pendingPiecesByDept:HY|脾形中心} 件被剔出效率口径；同一格另有 {missingStdPiecesByDept:HY|膠架三部} 件（另一格）算不出工时——缺标工的行不是零工时，是算不出。"
+      },
+      {
+        "id": "attendance-anchor",
+        "text": "客户快照的 m 值 {snapshotMhoursByDept:HY|膠架五部} 与同格出勤工时相等：快照是出勤口径的副本，只能做合计核对，不能当第二来源。"
+      }
+    ],
+    "cannot_see": [
+      "效率 i（旧款折后标工工时）按名拒绝：缺的是“聚合之上的算术”这一声明形态，:formula 只能引用已连接表的列，不能引用另一个已声明指标的聚合值；折旧系数只作用于旧款行，所以本板只放它的两个组件（全价标工与旧款工时）。",
+      "任何把两个指标相除或相减得到的派生数（效率、达标率、借入借出差额）都同样缺那种声明形态；看板并列显示输入，不显示商或差。",
+      "库里只有一个月份列，没有行级时间戳（报数、调整、借出都是月度快照）：任何“最近多少个时间窗口”的切分在这个库上没有意义，所以没有折线面板，也没有一条 policy 是对时间窗口的判断。",
+      "kpi_target 里的效率目标值本身是一个小于一的比值，要判“达标/未达标”得先聚合再比较，同样缺那种声明形态；板上只显示目标值本身，不做达标判定。",
+      "本体的每一个指标都按厂×部门两个键分组，没有一个整表口径的标量，所以没有 KPI 卡片；全厂合计要新增不带 :groupBy 的声明，等确认。",
+      "客户快照的 m 值只覆盖部分部门，未覆盖的部门这一版没法用它做对账。",
+      "配件件数不在效率（工时）口径内，只是产量旁证；把它和架类件数相加会得到没有意义的合计。",
+      "借入与借出的差额口径（由谁承担平衡差、浮动是否计入）未经业务确认，因此借入/借出/浮动三张面板并列，不做净额。"
+    ],
+    "next": "下一步该由业务定的三件事：一、借入与借出之间那点差要不要设一条红线（设了就能让 policy 去判）；二、效率用哪一年的目标值做分母（现在只有 kpi_target 一个数）；三、旧款占比的空格子显示成空白还是零。"
+  },
+  "panels": [
+    {
+      "id": "std_hours_full",
+      "kind": "matrix",
+      "title": "工时 · 标工工时（旧款按全价，未折旧）",
+      "metric": "iFullStdHours",
+      "rows": "key1",
+      "cols": "key2",
+      "rows_dim": "productionFactory",
+      "cols_dim": "productionDept",
+      "note": "秒数×报数/3600，只算架且非不計、且能按 (part_no, side) 命中标工的行。",
+      "emit_filter": {"dimension": "productionFactory"}
+    },
+    {
+      "id": "attendance_hours",
+      "kind": "matrix",
+      "title": "工时 · 出勤工时（W級調整前）",
+      "metric": "reviewHoursByDept",
+      "rows": "key1",
+      "cols": "key2",
+      "note": "与标工工时同格并列；两者相除是效率，但那需要聚合之上的算术（见 cannot_see）。"
+    },
+    {
+      "id": "bango_in",
+      "kind": "matrix",
+      "title": "搬工 · 借入工时（按接收部门）",
+      "metric": "bangoInHoursByDept",
+      "rows": "key1",
+      "cols": "key2"
+    },
+    {
+      "id": "bango_out",
+      "kind": "matrix",
+      "title": "搬工 · 借出工时（剔除浮动）",
+      "metric": "bangoOutHoursByDept",
+      "rows": "key1",
+      "cols": "key2",
+      "note": "谓词排除浮動行；含浮动的全额不是这个数。"
+    },
+    {
+      "id": "bango_float_out",
+      "kind": "matrix",
+      "title": "搬工 · 浮动借出工时（被剔除的部分）",
+      "metric": "bangoFloatOutHoursByDept",
+      "rows": "key1",
+      "cols": "key2",
+      "note": "上一条剔除掉的那些行，单独列出来，不藏。"
+    },
+    {
+      "id": "old_model_hours",
+      "kind": "matrix",
+      "title": "旧款 · 标工工时",
+      "metric": "oldModelStdHours",
+      "rows": "key1",
+      "cols": "key2",
+      "note": "只有部分部门有旧款行；缺席的格子是“本期没有旧款产出”，不是零工时。"
+    },
+    {
+      "id": "old_model_share",
+      "kind": "matrix",
+      "title": "旧款 · 件数占比（%，空白 = 不可判定）",
+      "metric": "oldModelPieceShareByDept",
+      "rows": "key1",
+      "cols": "key2",
+      "note": "分母是可判定新旧的行；不可判定的行留 NULL，不计入分子也不计入分母。"
+    },
+    {
+      "id": "adjustment_hours",
+      "kind": "matrix",
+      "title": "加减 · 工时调整合计",
+      "metric": "adjustmentHoursByDept",
+      "rows": "key1",
+      "cols": "key2",
+      "note": "可以为负；只有两格有记录。"
+    },
+    {
+      "id": "appeal_deduct",
+      "kind": "matrix",
+      "title": "加减 · 申诉扣减工时",
+      "metric": "appealDeductHoursByDept",
+      "rows": "key1",
+      "cols": "key2"
+    },
+    {
+      "id": "bracket_pieces",
+      "kind": "matrix",
+      "title": "件数 · 架×計入 报数件数",
+      "metric": "bracketPiecesByDept",
+      "rows": "key1",
+      "cols": "key2"
+    },
+    {
+      "id": "pending_pieces",
+      "kind": "matrix",
+      "title": "件数 · 架×不計 报数件数（被剔除的产量）",
+      "metric": "pendingPiecesByDept",
+      "rows": "key1",
+      "cols": "key2",
+      "note": "不进效率口径，但不是零产量：它们是报了数、被判成不計的那部分。"
+    },
+    {
+      "id": "missing_std_pieces",
+      "kind": "matrix",
+      "title": "件数 · 缺标工的报数件数（算不出工时的那部分）",
+      "metric": "missingStdPiecesByDept",
+      "rows": "key1",
+      "cols": "key2",
+      "note": "命中不到标工的行：不是零工时，是算不出。"
+    },
+    {
+      "id": "accessory_pieces",
+      "kind": "matrix",
+      "title": "件数 · 配件报数件数（不在效率口径内）",
+      "metric": "accessoryPiecesByDept",
+      "rows": "key1",
+      "cols": "key2",
+      "note": "只作产量旁证，不与架类件数相加。"
+    },
+    {
+      "id": "target_ratio",
+      "kind": "matrix",
+      "title": "目标 · 效率目标值（按部门，来自 kpi_target）",
+      "metric": "efficiencyTargetByDept",
+      "rows": "key1",
+      "cols": "key2",
+      "note": "是目标值本身，不是达标率：达标要聚合后再比较，那一步缺声明形态。"
+    }
+  ]
+}

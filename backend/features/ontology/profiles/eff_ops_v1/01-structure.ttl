@@ -1,0 +1,325 @@
+# eff_ops_v1 / 01-structure.ttl —— 结构层：只写库里为真的事
+#
+# 事实层的三张表 = 产量明细(pRODUCTION_row)、工时明细(timesheet)、搬工明细(bango_detail)。
+# 其余六张 = 维度与治理：标工(std_time)、款号分类(material_master)、KPI 快照(kpi_snapshot)、
+#            部门目标(kpi_target)、工时调整(adjustments)、规则变更(rule_regimes)。
+#
+# 关于时间：本库只有一个会计月 month='202610'，且它是 text 'YYYYMM' 而不是 date。
+# 所以每张有时间概念的表都把 :timeColumn 指到 "month"，语义是「月结快照」——
+# 本本体不是时间序列：任何「最近 30 天 / 按月趋势」都被按名拒绝（answers:Q10）。
+#
+# 关于外键：本库 pg_constraint 里 contype='f' 的行数是 0（实测），没有任何 FK 约束。
+# 因此这里不声明对象属性「假装有外键」；连接键写在指标层的公式里，由指标自带证据。
+# （生产侧就两条：production_row.part_no → material_master.part_no；
+#   以及 std_time 的 (part_no, side) 映射，side 由 work_center_desc 决定。）
+
+@prefix : <https://cube.local/ontology/eff_ops_v1#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ================================================================ 对象（事实层）
+
+:ProductionRow a owl:Class ;
+    rdfs:label "产量明细行（生产报数）" ;
+    :physicalTable "production_row" ;
+    :primaryKey "id" ;
+    :timeColumn "month" .
+# 业务粒度比主键细：一行 = 某厂某部门某月的一张生产单(order_no) × 一个成品款号(part_no)
+# × 一个工作中心(前工序/包装/包装HY) 的一次报数。1037 行 / 1037 个该组合，组合唯一。
+# id 是代理键；:primaryKey 写 id 是因为它是库里真实的主键约束，不把业务粒度伪装成主键。
+
+:Timesheet a owl:Class ;
+    rdfs:label "工时明细行（人员×月）" ;
+    :physicalTable "timesheet" ;
+    :primaryKey "id" ;
+    :timeColumn "month" .
+# 一行 = 某厂某部门某月一个工号(emp_no) 的一条工时记录：人员分类 + KPI属性 + 在职状态 + 工时。
+# 本库每人每月一条（795 行 / 795 个 (factory,dept,emp_no)），真实文件里同一人可有多行，
+# 所以指标必须按 person 聚合，不能按行数断言人数。
+
+:BangoDetail a owl:Class ;
+    rdfs:label "搬工明细行（部门间借出/借入）" ;
+    :physicalTable "bango_detail" ;
+    :primaryKey "id" ;
+    :timeColumn "month" .
+# 一行 = 某厂某月一名员工从 from_dept 到 to_dept 的搬工记录，direction 区分借出/借入。
+# 口径按 answers:Q8 剔除浮动借出，但差值(VS KPI 表的 27 h)不校正，单独出 kpi_divergence 指标。
+
+# ---------------------------------------------------------------- 属性：ProductionRow
+
+:productionId a owl:DatatypeProperty ; rdfs:label "产量明细行 id" ;
+    rdfs:domain :ProductionRow ; :physicalColumn "id" ; :valueType xsd:integer .
+
+:productionFactory a owl:DatatypeProperty ; rdfs:label "厂区（DG/HY）" ;
+    rdfs:domain :ProductionRow ; :physicalColumn "factory" ; :valueType xsd:string .
+
+:productionDept a owl:DatatypeProperty ; rdfs:label "部门" ;
+    rdfs:domain :ProductionRow ; :physicalColumn "dept" ; :valueType xsd:string .
+
+:productionMonth a owl:DatatypeProperty ; rdfs:label "会计月（YYYYMM，月结快照）" ;
+    rdfs:domain :ProductionRow ; :physicalColumn "month" ; :valueType xsd:string .
+
+:productionOrderNo a owl:DatatypeProperty ; rdfs:label "生产单号" ;
+    rdfs:domain :ProductionRow ; :physicalColumn "order_no" ; :valueType xsd:string .
+
+:productionPartNo a owl:DatatypeProperty ; rdfs:label "成品款号" ;
+    rdfs:domain :ProductionRow ; :physicalColumn "part_no" ; :valueType xsd:string .
+
+:productionModelPrefix a owl:DatatypeProperty ; rdfs:label "款号前缀（旧款判定的依据）" ;
+    rdfs:domain :ProductionRow ; :physicalColumn "model_prefix" ; :valueType xsd:string .
+
+:productionWorkCenter a owl:DatatypeProperty ; rdfs:label "工作中心（前工序/包装/包装HY）" ;
+    rdfs:domain :ProductionRow ; :physicalColumn "work_center_desc" ; :valueType xsd:string .
+
+:productionKindA a owl:DatatypeProperty ; rdfs:label "品类（架/配件）" ;
+    rdfs:domain :ProductionRow ; :physicalColumn "kind_a" ; :valueType xsd:string .
+
+:productionQtyReport a owl:DatatypeProperty ; rdfs:label "生產報數（qty_report）" ;
+    rdfs:domain :ProductionRow ; :physicalColumn "qty_report" ; :valueType xsd:integer .
+
+:productionQtyPr a owl:DatatypeProperty ; rdfs:label "产量（qty_pr，配件行是报数的一半）" ;
+    rdfs:domain :ProductionRow ; :physicalColumn "qty_pr" ; :valueType xsd:integer .
+
+:productionTimeliness a owl:DatatypeProperty ; rdfs:label "及时性（計入/不計）" ;
+    rdfs:domain :ProductionRow ; :physicalColumn "timeliness" ; :valueType xsd:string .
+
+:productionSrcRow a owl:DatatypeProperty ; rdfs:label "来源行号（回溯到手工表用）" ;
+    rdfs:domain :ProductionRow ; :physicalColumn "src_row" ; :valueType xsd:integer .
+
+# ---------------------------------------------------------------- 属性：Timesheet
+
+:timesheetId a owl:DatatypeProperty ; rdfs:label "工时明细行 id" ;
+    rdfs:domain :Timesheet ; :physicalColumn "id" ; :valueType xsd:integer .
+
+:timesheetFactory a owl:DatatypeProperty ; rdfs:label "厂区（DG/HY）" ;
+    rdfs:domain :Timesheet ; :physicalColumn "factory" ; :valueType xsd:string .
+
+:timesheetDept a owl:DatatypeProperty ; rdfs:label "部门" ;
+    rdfs:domain :Timesheet ; :physicalColumn "dept" ; :valueType xsd:string .
+
+:timesheetMonth a owl:DatatypeProperty ; rdfs:label "会计月（YYYYMM，月结快照）" ;
+    rdfs:domain :Timesheet ; :physicalColumn "month" ; :valueType xsd:string .
+
+:timesheetEmpNo a owl:DatatypeProperty ; rdfs:label "工号" ;
+    rdfs:domain :Timesheet ; :physicalColumn "emp_no" ; :valueType xsd:string .
+
+:timesheetName a owl:DatatypeProperty ; rdfs:label "姓名" ;
+    rdfs:domain :Timesheet ; :physicalColumn "name" ; :valueType xsd:string .
+
+:timesheetPersonClass a owl:DatatypeProperty ; rdfs:label "人员分类（生產-纳入效率计算/办单/固定人员）" ;
+    rdfs:domain :Timesheet ; :physicalColumn "person_class" ; :valueType xsd:string .
+
+:timesheetKpiAttr a owl:DatatypeProperty ; rdfs:label "KPI属性（其他/做辦/非W轉W級/浮動）" ;
+    rdfs:domain :Timesheet ; :physicalColumn "kpi_attr" ; :valueType xsd:string .
+
+:timesheetEmployment a owl:DatatypeProperty ; rdfs:label "在职状态（在職/離職）" ;
+    rdfs:domain :Timesheet ; :physicalColumn "employment" ; :valueType xsd:string .
+
+:timesheetHours a owl:DatatypeProperty ; rdfs:label "工时（小时）" ;
+    rdfs:domain :Timesheet ; :physicalColumn "hours" ; :valueType xsd:decimal .
+
+# ---------------------------------------------------------------- 属性：BangoDetail
+
+:bangoId a owl:DatatypeProperty ; rdfs:label "搬工明细行 id" ;
+    rdfs:domain :BangoDetail ; :physicalColumn "id" ; :valueType xsd:integer .
+
+:bangoFactory a owl:DatatypeProperty ; rdfs:label "厂区（DG/HY）" ;
+    rdfs:domain :BangoDetail ; :physicalColumn "factory" ; :valueType xsd:string .
+
+:bangoMonth a owl:DatatypeProperty ; rdfs:label "会计月（YYYYMM，月结快照）" ;
+    rdfs:domain :BangoDetail ; :physicalColumn "month" ; :valueType xsd:string .
+
+:bangoEmpNo a owl:DatatypeProperty ; rdfs:label "工号" ;
+    rdfs:domain :BangoDetail ; :physicalColumn "emp_no" ; :valueType xsd:string .
+
+:bangoName a owl:DatatypeProperty ; rdfs:label "姓名" ;
+    rdfs:domain :BangoDetail ; :physicalColumn "name" ; :valueType xsd:string .
+
+:bangoFromDept a owl:DatatypeProperty ; rdfs:label "借出部门" ;
+    rdfs:domain :BangoDetail ; :physicalColumn "from_dept" ; :valueType xsd:string .
+
+:bangoToDept a owl:DatatypeProperty ; rdfs:label "借入部门" ;
+    rdfs:domain :BangoDetail ; :physicalColumn "to_dept" ; :valueType xsd:string .
+
+:bangoDirection a owl:DatatypeProperty ; rdfs:label "方向（借出/借入）" ;
+    rdfs:domain :BangoDetail ; :physicalColumn "direction" ; :valueType xsd:string .
+
+:bangoHours a owl:DatatypeProperty ; rdfs:label "搬工工时（小时）" ;
+    rdfs:domain :BangoDetail ; :physicalColumn "hours" ; :valueType xsd:decimal .
+
+:bangoLevel1 a owl:DatatypeProperty ; rdfs:label "搬工一级归类" ;
+    rdfs:domain :BangoDetail ; :physicalColumn "level1" ; :valueType xsd:string .
+
+:bangoKpiAttr a owl:DatatypeProperty ; rdfs:label "KPI属性（是否浮动）" ;
+    rdfs:domain :BangoDetail ; :physicalColumn "kpi_attr" ; :valueType xsd:string .
+
+:bangoNote a owl:DatatypeProperty ; rdfs:label "备注" ;
+    rdfs:domain :BangoDetail ; :physicalColumn "note" ; :valueType xsd:string .
+
+# ================================================================ 对象（维度与治理）
+
+:StdTime a owl:Class ;
+    rdfs:label "标工秒数（款号×前后段×工序描述）" ;
+    :physicalTable "std_time" ;
+    :primaryKey "id" .
+# 一行 = 一个款号(part_no) × 一个段(side: front/back) × 一个工序描述 的标准秒数。
+# side 是本表自己的列；production_row 上没有 side，它由 work_center_desc 决定
+# （"前工序"→front，其余→back）。因此连接键是 (part_no, side码)，缺 side 会把前后段算反。
+# 本表没有 month：标工是主数据，不随会计月变化。
+
+:MaterialMaster a owl:Class ;
+    rdfs:label "款号主数据（品类）" ;
+    :physicalTable "material_master" ;
+    :primaryKey "part_no" .
+# 一行 = 一个款号(part_no) 的品类(category)。旧款/新款判定与配件识别都靠它。
+
+:KpiSnapshot a owl:Class ;
+    rdfs:label "KPI 快照（部门×月的 i/m/n/l/p）" ;
+    :physicalTable "kpi_snapshot" ;
+    :primaryKey "factory, dept, month" ;
+    :timeColumn "month" .
+# 一行 = 某厂某部门某月的一份 KPI 快照，由来源文件(source)计算得来：
+# i_hours=产出标工工时、m_hours=分母工时、n_ratio=效率、review_hours=W級調整前出勤工時。
+# 这是本体的「对账锚点」，不是事实来源：i/m/n 的声明口径必须能复现它，否则声明是错的。
+
+:KpiTarget a owl:Class ;
+    rdfs:label "部门 KPI 目标（部门×月）" ;
+    :physicalTable "kpi_target" ;
+    :primaryKey "factory, dept, month" ;
+    :timeColumn "month" .
+# 一行 = 某厂某部门某月的效率目标值。缺目标的行不存在（不是 0）——
+# 按 answers:Q6，缺目标返 NULL，不参与达标判定。
+
+:Adjustments a owl:Class ;
+    rdfs:label "工时调整（部门×月×类别）" ;
+    :physicalTable "adjustments" ;
+    :primaryKey "id" ;
+    :timeColumn "month" .
+# 一行 = 某厂某部门某月一类工时调整（kind）的小时数与说明。
+# 注意：库里没有 kind='被申訴工時' 这类记录（本月为 0），按 answers:Q7 按名拒绝，不造代理列。
+
+:RuleRegimes a owl:Class ;
+    rdfs:label "规则变更台账" ;
+    :physicalTable "rule_regimes" ;
+    :primaryKey "id" ;
+    :timeColumn "at" .
+# 一行 = 某天(at) 发生的一次口径/规则变更(change) 及其来源(source)。
+# 它的时间是 date 而不是 'YYYYMM'，所以它回答的是「哪一版口径」，不参与月结窗口。
+
+# ---------------------------------------------------------------- 属性：StdTime
+
+:stdTimeId a owl:DatatypeProperty ; rdfs:label "标工行 id" ;
+    rdfs:domain :StdTime ; :physicalColumn "id" ; :valueType xsd:integer .
+
+:stdTimePartNo a owl:DatatypeProperty ; rdfs:label "款号" ;
+    rdfs:domain :StdTime ; :physicalColumn "part_no" ; :valueType xsd:string .
+
+:stdTimeSide a owl:DatatypeProperty ; rdfs:label "段（front 前段 / back 后段）" ;
+    rdfs:domain :StdTime ; :physicalColumn "side" ; :valueType xsd:string .
+
+:stdTimeWorkCenter a owl:DatatypeProperty ; rdfs:label "工序描述（标工口径下的工作中心）" ;
+    rdfs:domain :StdTime ; :physicalColumn "work_center_desc" ; :valueType xsd:string .
+
+:stdTimeSeconds a owl:DatatypeProperty ; rdfs:label "单件标准秒数" ;
+    rdfs:domain :StdTime ; :physicalColumn "seconds" ; :valueType xsd:decimal .
+
+# ---------------------------------------------------------------- 属性：MaterialMaster
+
+:materialPartNo a owl:DatatypeProperty ; rdfs:label "款号（主键）" ;
+    rdfs:domain :MaterialMaster ; :physicalColumn "part_no" ; :valueType xsd:string .
+
+:materialCategory a owl:DatatypeProperty ; rdfs:label "品类（旧款/新款/配件）" ;
+    rdfs:domain :MaterialMaster ; :physicalColumn "category" ; :valueType xsd:string .
+
+# ---------------------------------------------------------------- 属性：KpiSnapshot
+
+:snapshotFactory a owl:DatatypeProperty ; rdfs:label "厂区（DG/HY）" ;
+    rdfs:domain :KpiSnapshot ; :physicalColumn "factory" ; :valueType xsd:string .
+
+:snapshotDept a owl:DatatypeProperty ; rdfs:label "部门" ;
+    rdfs:domain :KpiSnapshot ; :physicalColumn "dept" ; :valueType xsd:string .
+
+:snapshotMonth a owl:DatatypeProperty ; rdfs:label "会计月（YYYYMM，月结快照）" ;
+    rdfs:domain :KpiSnapshot ; :physicalColumn "month" ; :valueType xsd:string .
+
+:snapshotIHours a owl:DatatypeProperty ; rdfs:label "i：产出标工工时（快照值）" ;
+    rdfs:domain :KpiSnapshot ; :physicalColumn "i_hours" ; :valueType xsd:decimal .
+
+:snapshotMhours a owl:DatatypeProperty ; rdfs:label "m：分母工时（快照值）" ;
+    rdfs:domain :KpiSnapshot ; :physicalColumn "m_hours" ; :valueType xsd:decimal .
+
+:snapshotNRatio a owl:DatatypeProperty ; rdfs:label "n：效率 i/m（快照值）" ;
+    rdfs:domain :KpiSnapshot ; :physicalColumn "n_ratio" ; :valueType xsd:decimal .
+
+:snapshotReviewHours a owl:DatatypeProperty ; rdfs:label "W級調整前出勤工時（快照值）" ;
+    rdfs:domain :KpiSnapshot ; :physicalColumn "review_hours" ; :valueType xsd:decimal .
+
+:snapshotSource a owl:DatatypeProperty ; rdfs:label "快照来源（文件/口径版本）" ;
+    rdfs:domain :KpiSnapshot ; :physicalColumn "source" ; :valueType xsd:string .
+
+# ---------------------------------------------------------------- 属性：KpiTarget
+
+:targetFactory a owl:DatatypeProperty ; rdfs:label "厂区（DG/HY）" ;
+    rdfs:domain :KpiTarget ; :physicalColumn "factory" ; :valueType xsd:string .
+
+:targetDept a owl:DatatypeProperty ; rdfs:label "部门" ;
+    rdfs:domain :KpiTarget ; :physicalColumn "dept" ; :valueType xsd:string .
+
+:targetMonth a owl:DatatypeProperty ; rdfs:label "会计月（YYYYMM，月结快照）" ;
+    rdfs:domain :KpiTarget ; :physicalColumn "month" ; :valueType xsd:string .
+
+:targetValue a owl:DatatypeProperty ; rdfs:label "效率目标值（n 的目标）" ;
+    rdfs:domain :KpiTarget ; :physicalColumn "target" ; :valueType xsd:decimal .
+
+# ---------------------------------------------------------------- 属性：Adjustments
+
+:adjustId a owl:DatatypeProperty ; rdfs:label "调整行 id" ;
+    rdfs:domain :Adjustments ; :physicalColumn "id" ; :valueType xsd:integer .
+
+:adjustFactory a owl:DatatypeProperty ; rdfs:label "厂区（DG/HY）" ;
+    rdfs:domain :Adjustments ; :physicalColumn "factory" ; :valueType xsd:string .
+
+:adjustDept a owl:DatatypeProperty ; rdfs:label "部门" ;
+    rdfs:domain :Adjustments ; :physicalColumn "dept" ; :valueType xsd:string .
+
+:adjustMonth a owl:DatatypeProperty ; rdfs:label "会计月（YYYYMM，月结快照）" ;
+    rdfs:domain :Adjustments ; :physicalColumn "month" ; :valueType xsd:string .
+
+:adjustKind a owl:DatatypeProperty ; rdfs:label "调整类别" ;
+    rdfs:domain :Adjustments ; :physicalColumn "kind" ; :valueType xsd:string .
+
+:adjustHours a owl:DatatypeProperty ; rdfs:label "调整小时数（可正可负）" ;
+    rdfs:domain :Adjustments ; :physicalColumn "hours" ; :valueType xsd:decimal .
+
+:adjustNote a owl:DatatypeProperty ; rdfs:label "调整说明" ;
+    rdfs:domain :Adjustments ; :physicalColumn "note" ; :valueType xsd:string .
+
+# ---------------------------------------------------------------- 属性：RuleRegimes
+
+:regimeId a owl:DatatypeProperty ; rdfs:label "规则变更行 id" ;
+    rdfs:domain :RuleRegimes ; :physicalColumn "id" ; :valueType xsd:integer .
+
+:regimeAt a owl:DatatypeProperty ; rdfs:label "变更日期" ;
+    rdfs:domain :RuleRegimes ; :physicalColumn "at" ; :valueType xsd:date .
+
+:regimeChange a owl:DatatypeProperty ; rdfs:label "变更内容" ;
+    rdfs:domain :RuleRegimes ; :physicalColumn "change" ; :valueType xsd:string .
+
+:regimeSource a owl:DatatypeProperty ; rdfs:label "变更依据来源" ;
+    rdfs:domain :RuleRegimes ; :physicalColumn "source" ; :valueType xsd:string .
+
+# ================================================================ 关系（唯一的连接边）
+
+:prodStdTime a owl:ObjectProperty ;
+    rdfs:label "产量行 → 该款该段标工" ;
+    rdfs:domain :ProductionRow ;
+    rdfs:range :StdTime ;
+    :physicalColumn "part_no" ;
+    :references :StdTime ;
+    :referencesKey "part_no" ;
+    :joinExtra "{r}.side = CASE WHEN {d}.work_center_desc = 'SH分公司前工序' THEN 'front' ELSE 'back' END" .
+# 连接键是复合的：part_no 相等 + side 由 work_center_desc 派生。
+# :joinExtra 是声明的一部分（不是 SQL 补丁）：它把「前工序=front、其余=back」这条口径
+# 钉在连接上，所以任何跨表指标都必须走这条边，side 不会被猜。
+# measured: 2026-11-13 —— 只按 part_no 连接会把每行乘 2（front+back），i 直接从 153,255 涨到 ~306k。

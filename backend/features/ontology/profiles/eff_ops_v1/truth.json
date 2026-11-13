@@ -1,0 +1,20 @@
+{
+  "_note": "R2 的第二条路线：为 02-meaning.ttl 里的每个 :Definition 手写一条独立的列级谓词（凡能用正则/NOT IN 表达的就换一种写法，避免逐字抄编译产物），再由 check_ontology_generic --truth 逐类比对 count(*)。这张表不是声明的一部分，是证据：如果哪天谓词被改坏，这里会先红。",
+  "_definitions": {
+    "BracketRow": ["production_row", "kind_a = '架' AND timeliness <> '不計'"],
+    "StdHoursRow": ["std_time", "side IN ('front','back')"],
+    "OldModelItem": ["std_time", "side IN ('front','back') AND part_no !~ '^(M3|T14|T15|H128|H129)' AND NOT EXISTS (SELECT 1 FROM material_master mm WHERE mm.part_no = std_time.part_no)"],
+    "OldModelRow": ["production_row", "kind_a = '架' AND timeliness <> '不計' AND part_no !~ '^(M3|T14|T15|H128|H129)' AND NOT EXISTS (SELECT 1 FROM material_master mm WHERE mm.part_no = production_row.part_no)"],
+    "PendingRow": ["production_row", "kind_a = '架' AND timeliness = '不計'"],
+    "AccessoryRow": ["production_row", "kind_a = '配件'"],
+    "MissingStdRow": ["production_row", "kind_a = '架' AND timeliness <> '不計' AND NOT EXISTS (SELECT 1 FROM std_time st WHERE st.part_no = production_row.part_no AND st.side = CASE WHEN production_row.work_center_desc = 'SH分公司前工序' THEN 'front' ELSE 'back' END)"],
+    "EfficiencyPerson": ["timesheet", "person_class = '生產-纳入效率计算' AND kpi_attr NOT IN ('做辦','浮動')"],
+    "BangoIn": ["bango_detail", "direction = '調入'"],
+    "BangoOutQualified": ["bango_detail", "direction = '調出' AND NOT (kpi_attr = '浮動')"],
+    "BangoFloatOut": ["bango_detail", "direction = '調出' AND kpi_attr = '浮動'"],
+    "AppealDeduct": ["adjustments", "kind = '申訴扣減'"],
+    "AllAdjustments": ["adjustments", "1 = 1"],
+    "AllKpiTarget": ["kpi_target", "1 = 1"],
+    "AllKpiSnapshot": ["kpi_snapshot", "1 = 1"]
+  }
+}
