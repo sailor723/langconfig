@@ -163,6 +163,46 @@ def plan_compaction(messages, budget_tokens: int = HISTORY_BUDGET_TOKENS) -> Com
     return result
 
 
+_SKIPPED_TYPES: set[str] = set()
+
+
+def resolve_thread_api(graph):
+    """The object that can read/write a thread's state, from whatever the chat path handed us.
+
+    The chat path's `agent_instance` is not always the compiled graph: the factory returns the
+    deepagents graph, but a cached/wrapped runnable (RunnableBinding, or a loader that wraps) hides
+    `.checkpointer` one level down. Measured on ECS: the first version of this guard looked only at
+    `graph.checkpointer`, found nothing, returned silently — and the very next turn was still
+    1,370,879 message tokens, because a guard that cannot find the checkpointer is a guard that
+    does nothing while looking installed.
+    """
+    seen: set[int] = set()
+    candidates = [graph]
+    for attribute in ("bound", "first", "graph", "_graph", "runnable", "agent"):
+        child = getattr(graph, attribute, None)
+        if child is not None:
+            candidates.append(child)
+    for candidate in candidates:
+        if candidate is None or id(candidate) in seen:
+            continue
+        seen.add(id(candidate))
+        checkpointer = getattr(candidate, "checkpointer", None)
+        if checkpointer is not None and hasattr(checkpointer, "aget_state"):
+            return checkpointer
+        if hasattr(candidate, "aget_state") and hasattr(candidate, "aupdate_state"):
+            return candidate
+    name = type(graph).__name__
+    if name not in _SKIPPED_TYPES:
+        _SKIPPED_TYPES.add(name)
+        logger.warning(
+            "thread compaction cannot find a checkpointer on %s (attributes: %s) — "
+            "long threads will hit the provider's context limit",
+            name,
+            [a for a in dir(graph) if "state" in a or "checkpoint" in a][:12],
+        )
+    return None
+
+
 async def shrink_thread(graph, thread_id: str,
                         budget_tokens: int = HISTORY_BUDGET_TOKENS) -> Compaction:
     """Apply `plan_compaction` to a thread's checkpointed state. Never raises.
@@ -172,8 +212,8 @@ async def shrink_thread(graph, thread_id: str,
     """
     empty = Compaction(tokens_before=0, tokens_after=0)
     try:
-        checkpointer = getattr(graph, "checkpointer", graph)
-        if checkpointer is None or not hasattr(checkpointer, "aget_state"):
+        checkpointer = resolve_thread_api(graph)
+        if checkpointer is None:
             return empty
         config = {"configurable": {"thread_id": thread_id}}
         state = await checkpointer.aget_state(config)
