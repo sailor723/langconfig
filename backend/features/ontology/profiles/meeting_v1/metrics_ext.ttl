@@ -51,7 +51,7 @@
     :askedAs "纪要缺失的决议事项数是多少？" ;
     :aggregate "count" ; :grain :DecisionItem ; :universe :DecisionItem ; :where :NoNoteItem ;
     :additivity "additive" ; :unit "row" ;
-    :businessDescription "口径来源：answers:Q2（纪要缺失的行仍然是事项）+ measured: samples.json；纪要是占位符或空 = 1617。" .
+    :businessDescription "口径来源：answers:Q2（纪要缺失的行仍然是事项）+ measured: samples.json；没有实质纪要 = 1651（占位符 / 空 / 长度 ≤3）。与 notedItemCount 互斥且穷尽 1911 + 1651 = 3562。" .
 
 :meetingItemCount a owl:DatatypeProperty ; rdfs:label "会议类决议事项数" ;
     :askedAs "会议类决议事项数是多少？" ;
@@ -139,7 +139,7 @@
     :aggregate "ratio_of_sums" ; :numerator :noNoteItemCount ; :denominator :itemCount ;
     :scale "100.0" ; :grain :DecisionItem ; :universe :DecisionItem ;
     :additivity "non-additive" ; :unit "percent" ;
-    :businessDescription "口径来源：answers:Q2（分母 = 全部事项）+ measured: samples.json；纪要缺失 1617 ÷ 全部 3562 × 100 = 45.396%。" .
+    :businessDescription "口径来源：answers:Q2（分母 = 全部事项）+ measured: samples.json；没有实质纪要 1651 ÷ 全部 3562 × 100 = 46.350%。分母是全部事项：缺失与「有没有人负责」是两个正交的问题，不共用分母。" .
 
 :closeRate a owl:DatatypeProperty ; rdfs:label "按期完成率" ;
     :askedAs "按期完成率" ;

@@ -32,8 +32,8 @@
 
 :NoNoteItem a owl:Class ; rdfs:label "纪要缺失的决议事项" ; rdfs:subClassOf :DecisionItem ;
     :physicalTable "meeting_hub_raw" ;
-    :physicalPredicate "c10 is null or btrim(c10) in ('', '无', '—', '-')" ;
-    :businessDescription "纪要一栏是占位符或空（1617 行，45.4%）。这些行里 1585 行同时没有责任人——即「没人、也没写内容」的事项，是闭环断裂最集中的一块" .
+    :physicalPredicate "c10 is null or btrim(c10) in ('', '无', '—', '-') or length(btrim(c10)) <= 3" ;
+    :businessDescription "没有实质纪要（1651 行，46.4%）：占位符、空，或长度 ≤3 的「已办 / OK」这类无信息值。它与 :NotedItem 互斥且穷尽（1911 + 1651 = 3562）——上一版谓词漏了长度这一段，34 行短纪要两边都不算，导致「纪要缺失占比」在全部事项上少算 34 行。34 行不是业务决定：:NotedItem 已经把「长度 ≤3 = 无信息值」写成它自己的口径，缺失类只能是它的补集。这些行里 1630 行同时没有责任人——即「没人、也没写内容」的事项，是闭环断裂最集中的一块" .
 
 # --- 会议类型归一化：14 个原始标签 → 规格 §2.5 的 4 个会议类别 + 非会议 --------
 

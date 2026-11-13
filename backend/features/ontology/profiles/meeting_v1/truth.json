@@ -59,6 +59,10 @@
     "AllMeetings": [
       "meeting_hub_meeting",
       "1=1"
+    ],
+    "NoNoteItem": [
+      "meeting_hub_raw",
+      "c10 IS NULL OR btrim(c10) IN ('', '无', '—', '-') OR length(btrim(c10)) <= 3"
     ]
   }
 }

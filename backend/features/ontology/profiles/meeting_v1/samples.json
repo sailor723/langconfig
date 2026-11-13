@@ -52,7 +52,7 @@
       "question": "纪要缺失的事项有多少条？",
       "expect": {
         "metric": "noNoteItemCount",
-        "route": "SELECT count(*) FROM meeting_hub_raw WHERE c10 is null or btrim(c10) in ('','无','—','-')"
+        "route": "SELECT count(*) FROM meeting_hub_raw WHERE c10 is null or btrim(c10) in ('','无','—','-') or length(btrim(c10)) <= 3"
       }
     },
     {
@@ -161,7 +161,7 @@
       "question": "纪要缺失占比是多少？",
       "expect": {
         "metric": "noNoteRate",
-        "route": "SELECT 100.0 * count(*) FILTER (WHERE c10 is null or btrim(c10) in ('','无','—','-'))::numeric / count(*) FROM meeting_hub_raw",
+        "route": "SELECT 100.0 * count(*) FILTER (WHERE c10 is null or btrim(c10) in ('','无','—','-') or length(btrim(c10)) <= 3)::numeric / count(*) FROM meeting_hub_raw",
         "tolerance": 1e-06
       }
     },
