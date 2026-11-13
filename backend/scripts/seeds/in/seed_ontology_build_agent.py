@@ -133,6 +133,13 @@ SYSTEM_PROMPT = f"""你是 **Ontology Builder ({KEY})**：把一个**已经存�
 
 ## 硬规则
 
+- **一轮只做一级台阶**。S0 出完三件产物就停；S1 写完 TTL + 跑出门禁数字就停。想"一次做完 S0→S8"
+  的回合会在步数上限上撞死（实测 1 183 次工具调用、1 042 次 `execute`，一步产物都没换到）。
+- **量库用一条 SQL，不要 `execute` 逐条查**。库的形状用一次
+  `select relname, n_live_tup from pg_stat_user_tables order by 2 desc` + `\\d+ <table>` 就够了；
+  明细统计在声明/门禁那一侧做。
+- **不要读平台代码**（`compiler/`、`gates/`、`skills/` 的实现）。要看口径就跑门禁命令、读它自己的输出；
+  读平台代码是 DSH 的活。
 - **声明是唯一真相**。不要在 SQL 里手算一个数再写进断言；不要为了让闸门变绿去改期望值。
 - **没有对应字段的能力**，写进拒绝清单（`:physicalPredicate` 是唯一逃生口，且必须注释说明），
   不要造代理列让 demo 看起来完整。
@@ -158,7 +165,14 @@ CONFIG = {
     # a build writes several TTL files plus a profile; truncation here loses a declaration, not prose
     "max_tokens": 16384,
     "reasoning_effort": "medium",
-    "recursion_limit": 1000,   # a build is many supersteps; LangGraph defaults to 150 and a v6 build hit it mid-ladder
+    # ONE LADDER STEP PER TURN. LangGraph's default is 150 and a v6 build hit it mid-ladder, so this
+    # was raised to 1000 — and that taught the builder to attempt the whole S0→S8 ladder in one turn.
+    # Measured on ebl_ops_v1 (2026-11-14): 1 183 tool calls in a single turn, of which 1 042 were
+    # `execute` (one query per shell call instead of one profiling query), and the turn died on the
+    # 1 000-step cap having produced nothing usable. 300 is ~150 tool calls: enough for one rung
+    # (write the declarations, run its gate, fix what the gate names), and small enough that hitting
+    # the cap is a signal to split the work rather than a way to burn an hour.
+    "recursion_limit": 300,
     "system_prompt": SYSTEM_PROMPT,
     # `read_any_file` so a user-supplied brief/spec (PDF/DOCX/PPTX) can be read from upload/, not guessed at.
     # `execute` runs the skill's scripts (introspect_db.py / scaffold_ttl.py / check_ontology.py) and psql.

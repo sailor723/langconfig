@@ -1969,7 +1969,19 @@ async def send_message_stream(
                         full_response = (full_response + "\n\n" + _tmsg).strip()
                 else:
                     logger.error(f"Error in stream: {e}")
-                    yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+                    # A recursion-limit error is not a crash, it is a turn that tried to do too much
+                    # at once: LangGraph counts supersteps (model + tool rounds), and the cap is the
+                    # signal to split the work. Measured on ebl_ops_v1 (2026-11-14): 1 183 tool calls
+                    # in one turn, 1 042 of them `execute`, dead on the cap with nothing to show.
+                    # "GraphRecursionError" alone tells the user nothing they can act on.
+                    _msg = str(e)
+                    if "recursion" in _msg.lower():
+                        _limit = _resolve_recursion_limit(agent_config)
+                        _msg = (f"这一轮撞到步数上限（{_limit} 步 ≈ {_limit // 2} 次工具调用）就停了 —— "
+                                "不是出错，是一次想做太多台阶。「继续」会从断点往下走，"
+                                "但更快的做法是**一轮只做一级台阶**（例如这一轮只写 TTL + 跑门禁），"
+                                "或者把量库改成一条聚合 SQL 而不是逐条 execute。原错误：" + _msg[:200])
+                    yield f"data: {json.dumps({'type': 'error', 'message': _msg})}\n\n"
 
             finally:
                 # Save the turn even when it ended in an interrupt: the run has
