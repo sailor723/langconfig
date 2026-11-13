@@ -6171,6 +6171,37 @@ def _infer_pg_type(values: list, name: str = "") -> str:
         return "TIMESTAMPTZ"
     if all(isinstance(v, _dt.date) for v in vals):
         return "DATE"
+    # A column that is ALMOST all dates/numbers is a date/number column with some blanks written
+    # as "—" or "无" (a client export does this: 完成时间 11/3562, 实际完成时间 47/3562). Calling it
+    # TEXT because 1% of cells are placeholders forces every later metric to cast.
+    def _dt_of(text):
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+            try:
+                return _dt.datetime.strptime(str(text).strip(), fmt)
+            except (ValueError, TypeError):
+                return None
+        return None
+
+    parsed_all = [_dt_of(v) for v in vals]
+    hit = [d for d in parsed_all if d]
+    if hit and len(hit) >= 0.95 * len(vals):
+        date_only = all(d.hour == 0 and d.minute == 0 and d.second == 0 for d in hit)
+        return "DATE" if date_only else "TIMESTAMPTZ"
+
+    def _num_of(text):
+        try:
+            return _Decimal(str(text).strip())
+        except Exception:          # InvalidOperation is not in this function's import scope
+            return None
+
+    nums_all = [_num_of(v) for v in vals]
+    num_hit = [n for n in nums_all if n is not None]
+    if num_hit and len(num_hit) >= 0.95 * len(vals):
+        if money.search(name or ""):
+            return "NUMERIC"
+        whole = all(n == n.to_integral_value() for n in num_hit)
+        return "BIGINT" if whole else "NUMERIC"
+
     if all(isinstance(v, str) for v in vals):
         if all(iso.match(v.strip()) for v in vals):
             return "TIMESTAMPTZ"
@@ -6227,8 +6258,16 @@ def _coerce_pg_value(value, pg_type: str):
             return int(_Decimal(str(value).strip()))
         if pg_type == "NUMERIC":
             return _Decimal(str(value).strip())
-        if pg_type == "TIMESTAMPTZ":
-            return value if isinstance(value, _dt.datetime) else str(value).strip()
+        if pg_type in ("TIMESTAMPTZ", "TIMESTAMP", "DATE"):
+            if isinstance(value, _dt.datetime):
+                return value
+            text = str(value).strip()
+            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+                try:
+                    return _dt.datetime.strptime(text, fmt)
+                except ValueError:
+                    continue
+            return None            # "—" / "无" is a blank written by a person, not a date
         if pg_type == "JSONB":
             return value if isinstance(value, str) else _json.dumps(value, ensure_ascii=False)
         return value

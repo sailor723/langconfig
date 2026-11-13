@@ -102,5 +102,15 @@
       "check_dashboard"
     ],
     "installed": "1794405491-7e4275 @ 2026-11-11 22:08 CST：87/87 指标编译、0 按名拒绝；apply 时四族全跑（structure / generic / samples / dashboard）全绿，dashboard 152 项 0 红；commit b3271cbd。覆盖 25/28：22 条有 6 期序列、3 条只有快照（11/14/17 无期间列）、3 条按名拒绝（RS06/RS07 无公式、#18 编译器表达不了跨表同期——缺 severance_lead_events 列或同期关联键）。"
+  },
+  "meeting_v1": {
+    "why": "meeting_v1：会议决议闭环本体（客户 3562 行导出）。构建中的声明不参与仓库门禁；apply 之后清掉 pending_install 并写上门禁实测数字。",
+    "pending_install": "built by agent 379 — not staged yet",
+    "profile": [
+      "check_structure",
+      "check_ontology_generic",
+      "check_samples",
+      "check_dashboard"
+    ]
   }
 }
