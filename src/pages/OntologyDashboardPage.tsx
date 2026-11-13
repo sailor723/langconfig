@@ -53,6 +53,7 @@ interface MetricResult {
 interface Panel {
   id: string;
   kind: 'kpi' | 'slope' | 'series' | 'ranked' | 'matrix' | 'composition' | 'hole'
+      | 'bar' | 'table'   // emitted for a grouped metric declared `render: bar` / `table`
     | 'sankey' | 'bubble' | 'treemap' | 'parallel';
   view?: string;
   title: string;
@@ -922,10 +923,21 @@ export default function OntologyDashboardPage() {
             <div ref={grid.ref}
                  style={{ display: 'grid', gridTemplateColumns: `repeat(${grid.cols}, minmax(0, 1fr))`, gap: 14 }}>
               {panels.map(p => (
-                <div key={p.id} style={{ gridColumn: ['slope', 'sankey', 'treemap', 'bubble'].includes(p.kind) && grid.cols > 1 ? 'span 2' : undefined }}>
+                <div key={p.id} style={{ gridColumn: ['slope', 'sankey', 'treemap', 'bubble', 'bar', 'table'].includes(p.kind) && grid.cols > 1 ? 'span 2' : undefined }}>
                   <PanelFrame panel={p} tone={p.kind === 'hole' ? DANGER : undefined}>
                     {p.kind === 'slope' && <SlopePanel panel={p} />}
-                    {p.kind === 'series' && <SeriesPanel panel={p} events={events} />}
+                    {(p.kind === 'series' || p.kind === 'bar') && <SeriesPanel panel={p} events={events} />}
+                    {/* A grouped metric declared `render: table` is a ranked list, not a chart: 208 owners
+                        would be 208 unreadable bars, and the panel already says `limit`. */}
+                    {p.kind === 'table' && (
+                      <RankedPanel
+                        panel={p}
+                        focus={null}
+                        onFocus={() => undefined}
+                        showAll={!!expanded[p.id]}
+                        onToggleAll={() => setExpanded(e => ({ ...e, [p.id]: !e[p.id] }))}
+                      />
+                    )}
                     {p.kind === 'ranked' && (
                       <RankedPanel
                         panel={p}
