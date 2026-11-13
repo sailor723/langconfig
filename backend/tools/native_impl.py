@@ -6118,10 +6118,23 @@ def _pg_conn_kwargs(host: str = "", port: int = 0, user: str = "", dbname: str =
     return kwargs
 
 
+#: Characters that cannot survive inside a quoted Postgres identifier, plus the punctuation a
+#: spreadsheet header may carry. Everything else is KEPT — including CJK.
+_IDENT_BAD = r"""["'`\s,;(){}[\]<>|&^%$#@!?*=+/\\:：，。、（）【】《》「」\-]+"""
+
+
 def _ident(name: str, fallback: str = "c") -> str:
-    """ASCII snake_case identifier from an arbitrary header / sheet name."""
+    """Identifier from an arbitrary header / sheet name, CJK included.
+
+    This used to be ASCII-only (`re.sub(r"[^0-9A-Za-z]+", "_")`), which silently renamed every
+    Chinese column to `c1..cN`: a 14-column client export reached the builder as c1..c14, all
+    TEXT, and the agent had to report "表头没被识别到" (measured on client/team-1's meeting export).
+    The SQL layer already quotes every identifier ("厂区"), so there was never a reason to drop
+    them. Only characters that would break a quoted identifier are replaced.
+    """
     import re
-    cleaned = re.sub(r"[^0-9A-Za-z]+", "_", str(name or "").strip()).strip("_").lower()
+    cleaned = re.sub(_IDENT_BAD, "_", str(name or "").strip())
+    cleaned = re.sub(r"_+", "_", cleaned).strip("_")
     if not cleaned:
         return fallback
     if cleaned[0].isdigit():
@@ -6161,6 +6174,25 @@ def _infer_pg_type(values: list, name: str = "") -> str:
     if all(isinstance(v, str) for v in vals):
         if all(iso.match(v.strip()) for v in vals):
             return "TIMESTAMPTZ"
+        # A .csv gives EVERY cell as a string, so "all values are str" cannot mean "TEXT": the
+        # 序号 column is '1','2','3' and 日期 is '2026-01-03 00:00:00'. Without parsing, an imported
+        # CSV is all-TEXT and every later metric needs a cast (measured on client/team-1's export).
+        def _as_dt(text: str):
+            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+                try:
+                    return _dt.datetime.strptime(text.strip(), fmt)
+                except ValueError:
+                    continue
+            return None
+
+        parsed = [_as_dt(v) for v in vals]
+        if all(parsed):
+            date_only = all(d.hour == 0 and d.minute == 0 and d.second == 0 for d in parsed)
+            return "DATE" if date_only else "TIMESTAMPTZ"
+        if all(_re.fullmatch(r"[+-]?\d+", v.strip() or "x") for v in vals):
+            return "BIGINT"
+        if all(_re.fullmatch(r"[+-]?\d*\.?\d+", v.strip() or "x") for v in vals):
+            return "NUMERIC" if money.search(name or "") else "NUMERIC"
         if all(v.strip().startswith(("{", "[")) for v in vals):
             try:
                 for v in vals[:50]:
@@ -6213,6 +6245,8 @@ def _plan_from_file(path, sheets: dict) -> tuple[list, list]:
             base = _ident(header, fallback=f"c{i}")
             if not str(header).strip():
                 warnings.append(f"[{sheet_name}] 第 {i} 列没有表头，已命名为 {base} —— 请确认这是不是该丢的列")
+            elif base.startswith("c") and base[1:].isdigit() and str(header).strip() != base:
+                warnings.append(f"[{sheet_name}] 第 {i} 列表头 {header!r} 无法用作列名，已命名为 {base} —— 名字丢了，请确认")
             if base in seen:
                 warnings.append(f"[{sheet_name}] 表头 {header!r} 重复，第二列起加后缀（{base}_2 …）")
             seen[base] = seen.get(base, 0) + 1
