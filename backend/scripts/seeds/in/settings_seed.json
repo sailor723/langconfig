@@ -32,6 +32,7 @@
       "databases.items.9.password",
       "databases.items.10.password",
       "databases.items.11.password",
+      "databases.items.12.password",
       "ontology.repo_path",
       "ontology.python"
     ]
@@ -172,11 +173,21 @@
         "dbname": "sunhing_kpi",
         "enabled": true,
         "host": "127.0.0.1",
-        "kind": "target",
-        "label": "新溢眼镜 KPI (sunhing_kpi)",
+        "kind": "dashboard",
+        "label": "Sun Hing 新溢眼镜 · ROE 转型",
         "name": "sunhing",
         "port": 5433,
         "user": "langconfig"
+      },
+      {
+        "dbname": null,
+        "enabled": true,
+        "host": null,
+        "kind": "platform",
+        "label": "会议决议闭环（客户 CSV）",
+        "name": "meeting_hub",
+        "port": null,
+        "user": null
       }
     ]
   },
@@ -230,6 +241,14 @@
         "label": "Logistics (cold chain)",
         "note": "built by DeepAgent 349 from abc_coldchain — 配送/站点/理赔 11 tables",
         "profile": "logistics/logistics_settings.json",
+        "url": ""
+      },
+      {
+        "enabled": true,
+        "key": "meeting_v1",
+        "label": "集团会议决议闭环",
+        "note": "registered for agent 379",
+        "profile": "meeting_v1/meeting_v1_settings.json",
         "url": ""
       }
     ],
