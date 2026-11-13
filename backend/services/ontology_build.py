@@ -336,12 +336,25 @@ def _tasks_needing_answers(limit: int = 8, include_answered: bool = False) -> li
             if workspace is None:
                 continue
             base = pathlib.Path(workspace) / "work" / key
-            qpath = base / "questions.json"
-            if not qpath.is_file():
-                continue
-            try:
-                qdoc = json.loads(qpath.read_text(encoding="utf-8"))
-            except Exception:                                    # noqa: BLE001
+            # Where an agent actually writes its questions. `work/<key>/questions.json` is the
+            # documented path, and it is not the only one agents reach for: measured twice on
+            # 2026-11-13 — one build wrote `generated/questions.json`, another wrote a markdown
+            # decision list — and in both cases the person was never asked, because this reader
+            # only knew the documented path. The RULE can stay where it is; the READER has to
+            # accept what the runtime produces, or "nobody answered" looks like "nobody asked".
+            qdoc, qpath = None, None
+            for candidate in (base / "questions.json",
+                              pathlib.Path(workspace) / "generated" / "questions.json",
+                              pathlib.Path(workspace) / "questions.json"):
+                if not candidate.is_file():
+                    continue
+                try:
+                    qdoc = json.loads(candidate.read_text(encoding="utf-8"))
+                except Exception:                                # noqa: BLE001
+                    continue
+                qpath = candidate
+                break
+            if qdoc is None:
                 continue
             # two shapes are legal: `{"questions": [...]}` and a bare list of questions
             raw = qdoc.get("questions") if isinstance(qdoc, dict) else qdoc

@@ -71,6 +71,7 @@
     "claude-handoff": "requirements",
     "code-review": "quality",
     "codebase-design": "code",
+    "codebase-recon": "code",
     "data-analysis": "data",
     "data-analysis-llm": "data",
     "debugging": "quality",
@@ -79,6 +80,7 @@
     "documentation": "documents",
     "domain-modeling": "requirements",
     "edit-ontology-metrics": "ontology",
+    "evidence-first-delivery": "quality",
     "friendly-weather-greeter": "other",
     "frontend-design": "code",
     "generate-mock-dataset": "data",
@@ -119,6 +121,8 @@
     "skill-generator": "agents",
     "software-factory": "code",
     "sql-analyst": "data",
+    "sql-query": "data",
+    "sqlite-to-postgres": "data",
     "tdd": "quality",
     "teach": "documents",
     "text-summarizer": "data",
@@ -138,8 +142,6 @@
     "writing-beats": "documents",
     "writing-for-agents": "documents",
     "writing-fragments": "documents",
-    "writing-shape": "documents",
-    "evidence-first-delivery": "quality",
-    "codebase-recon": "code"
+    "writing-shape": "documents"
   }
 }
