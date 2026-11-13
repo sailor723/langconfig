@@ -97,6 +97,27 @@ def installed() -> list[dict]:
 
 
 
+
+def _connection_message(key: str, exc: Exception) -> str:
+    """A DB failure, said in terms of the ontology's own DSN."""
+    reason = str(exc).strip().splitlines()[0][:300] if str(exc).strip() else exc.__class__.__name__
+    target = "?"
+    try:
+        profile = _profile_for(key)
+        if profile is not None:
+            import json as _json
+
+            dsn = (_json.loads(profile.read_text(encoding="utf-8")).get("dsn") or {})
+            host = dsn.get("host") or "?"
+            port = dsn.get("port") or "?"
+            dbname = dsn.get("dbname") or "?"
+            target = f"{host}:{port}/{dbname}"
+    except Exception:                                           # noqa: BLE001
+        pass
+    return (f"{key} 的数据库连不上（{target}）：{reason}。"
+            f"这台机器上没有这个库、或口令变量没配时就是这样——看板本身没有坏，是数据不在。")
+
+
 def _declared_pages(key: str) -> list[dict]:
     """`dashboard.json` → `pages`: [{label, file, note?}] or [] when the declaration has none.
 
@@ -146,6 +167,12 @@ def panels(key: str, *, refresh: bool = False, filter: str | None = None) -> dic
         payload = ontology_runtime.panels(key, filters=dim_filters or None)
     except ontology_runtime.OntologyError as exc:
         raise DashboardError(str(exc)) from exc
+    except Exception as exc:                                    # noqa: BLE001
+        # A database that is not on this host surfaces as psycopg2.OperationalError, which used to
+        # fall through to the catch-all 500 ("see the server log") — useless to whoever clicked.
+        # Name the target and the reason instead: the reader can then tell "the DB is elsewhere"
+        # from "the declaration is wrong", which are two different jobs.
+        raise DashboardError(_connection_message(key, exc)) from exc
 
     payload["key"] = key
     payload["elapsed_ms"] = round((time.time() - started) * 1000)

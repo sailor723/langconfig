@@ -454,7 +454,12 @@ async def dashboard_panels(key: str, refresh: bool = False, filter: Optional[str
                                         refresh=refresh, filter=filter)
         return {"ok": True, **payload}
     except ontology_dashboard.DashboardError as exc:
-        raise HTTPException(404, str(exc)) from exc
+        # 503, not 404: the ontology exists and the declaration was read — its DATABASE did not
+        # answer. A 404 told the browser "no such board", which is the wrong diagnosis and made the
+        # page print the wrong explanation under the message.
+        msg = str(exc)
+        status = 503 if ("连不上" in msg or "OperationalError" in msg) else 404
+        raise HTTPException(status, msg) from exc
 
 
 # ── the pages and documents the app used to fetch from a per-ontology workbench ────────────

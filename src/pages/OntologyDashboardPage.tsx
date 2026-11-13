@@ -896,8 +896,9 @@ export default function OntologyDashboardPage() {
             {error}
           </div>
           <div style={{ fontSize: 11, color: t.textMuted, marginTop: 6, lineHeight: 1.7 }}>
-            看板是一份声明（<span style={mono}>{key || '<ontology>'}/dashboard.json</span>）。没有声明就没有看板——这不是加载失败，
-            也不会借另一个本体的看板来填满这一页。
+            这一页只画 <span style={mono}>{key || '<ontology>'}/dashboard.json</span> 里声明过的面板，也不会借另一个本体的看板
+            来填满它。上面这条是执行/取数时的真实原因：<b>数据库连不上</b>说明这台机器上没有那个库（或口令变量没配）；
+            <b>没有 dashboard.json</b> 说明这个本体还没声明看板——两者是两件不同的事，别当成同一件来修。
           </div>
           <div style={{ marginTop: 10 }}>
             <Btn onClick={() => navigate('/ontology/browse')}>
