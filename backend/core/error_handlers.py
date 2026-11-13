@@ -230,13 +230,19 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
         }
     )
 
+    # `detail` is a STRING on purpose. Every other handler in this file sends one, and a client
+    # that renders `detail` (the ontology dashboard does, in an error card) crashed the whole page
+    # on the object form: React refuses to render an object child (error #31, measured on the
+    # deployment as "open ontology → blank page"). The type stays, as part of the sentence and in
+    # the log's `extra`; the internals stay out of the response.
     return create_error_response(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         error_type="InternalServerError",
         message="An unexpected error occurred",
-        detail={
-            "exception_type": exc.__class__.__name__
-        }
+        detail=(
+            f"InternalServerError ({exc.__class__.__name__}) — see the server log for this "
+            f"request; nothing was changed."
+        )
     )
 
 

@@ -690,7 +690,15 @@ export default function OntologyDashboardPage() {
       setData(payload);
       if (payload?.error) setError(payload.error);
     } catch (err: any) {
-      setError(err?.response?.data?.detail || err?.message || '看板取数失败');
+      // A 500 body can carry `detail` as an OBJECT ({"exception_type": …}); rendering that is a
+      // React crash (error #31) that unmounts the page — the reader sees a blank screen instead of
+      // the error. Coerce here, once, so no shape of `detail` can blank the board.
+      const detail = err?.response?.data?.detail;
+      const message = typeof detail === 'string'
+        ? detail
+        : detail ? JSON.stringify(detail)
+        : (err?.message || '看板取数失败');
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -723,6 +731,25 @@ export default function OntologyDashboardPage() {
   const copy = async (text: string, id: string) => {
     try { await navigator.clipboard.writeText(text); setCopied(id); setTimeout(() => setCopied(null), 1600); } catch { /* clipboard denied */ }
   };
+
+  if (!key) {
+    return (
+      <PageShell>
+        <Hero icon={BarChart3} title="Ontology 看板"
+              subtitle="这个页面属于某一个本体：看板是它的声明（dashboard.json），没有选中的本体就没有看板可取。" />
+        <Card>
+          <div style={{ fontSize: 12.5, color: t.textMuted, lineHeight: 1.7 }}>
+            请先在本体列表里选一个，再回到这里看它的看板。
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <Btn onClick={() => navigate('/ontology')}>
+              <Boxes size={13} style={{ marginRight: 4 }} />打开本体列表
+            </Btn>
+          </div>
+        </Card>
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell>

@@ -415,6 +415,26 @@ export const ontology = {
     // A stored url from BEFORE the app served its own pages names a workbench port that no roster row
     // claims any more. It is not a selection — it is a leftover — so the remembered KEY decides.
     const urlIsKnown = !!state.url && state.profiles.some(p => p.url === state.url);
+    // A REMEMBERED key is not necessarily a WORKING one: it can name an ontology whose database is
+    // not on this deployment (measured: `new_coldchain_v6` on the ECS image, whose panels endpoint
+    // 500s). Probe it once and forget it if it does not answer, so a student's first click lands on
+    // a working ontology instead of an error card about one they never chose.
+    if (state.preset && !state.ontology && state.status !== 'loading') {
+      const remembered = state.preset;
+      try {
+        await ontology.select(state.url || '', remembered);
+      } catch {
+        try { localStorage.removeItem(STORAGE_KEY); } catch { /* private mode */ }
+        emit({ preset: null, ontology: null, status: 'idle', error: null });
+        return this.ensureReady();
+      }
+      if (state.status === 'down') {
+        try { localStorage.removeItem(STORAGE_KEY); } catch { /* private mode */ }
+        emit({ preset: null, ontology: null, status: 'idle', error: null });
+        return this.ensureReady();
+      }
+      return state.url;
+    }
     if (!state.preset && (!state.url || !urlIsKnown)) {
       // the remembered KEY wins (a reload keeps which ontology was open), then the declared default,
       // then the first row — and never `profiles[0]` on its own, which is how a reload landed on
