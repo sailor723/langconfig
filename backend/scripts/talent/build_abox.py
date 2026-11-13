@@ -127,7 +127,10 @@ def build(records: list[dict], requirements: list[dict] | None = None) -> tuple[
                 lines.append(f"    {prop} {int(value)} ;")
         if rec.get("duplicate_of"):
             dup_id = _local_id(pathlib.Path(rec["duplicate_of"]).stem, "cand")
-            lines.append(f"    :sameAs :{dup_id} ;")
+            # `owl:sameAs`, not a local `:sameAs`: the standard predicate is what every consumer
+            # (materialise, the sync gate, a future reasoner run) looks for, and a local one measured
+            # as "0 duplicates" while seven pairs sat in the ABox.
+            lines.append(f"    owl:sameAs :{dup_id} ;")
             stats["duplicates"] += 1
         lines.append(f"    :sourceFile {_lit(rec['source_file'])} .")
         lines.append("")
