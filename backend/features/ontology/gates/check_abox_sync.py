@@ -140,10 +140,9 @@ def _check_fit(profile: pathlib.Path, settings: dict, graph, result, ns: str, db
 
     import psycopg2
 
-    conn = psycopg2.connect(host=os.environ.get("PGHOST", "127.0.0.1"),
-                            port=int(os.environ.get("PGPORT", 5432)), dbname=dbname,
-                            user=os.environ.get("PGUSER", "langconfig"),
-                            password=os.environ.get("PGPASSWORD", ""))
+    conn = psycopg2.connect(host=conn_params["host"], port=int(conn_params["port"]),
+                            dbname=dbname, user=conn_params["user"],
+                            password=conn_params.get("password", ""))
     try:
         with conn.cursor() as cur:
             cur.execute("select candidate, role_class, matched_skills, required_skills, "
@@ -184,6 +183,76 @@ def _check_fit(profile: pathlib.Path, settings: dict, graph, result, ns: str, db
                f"{len(wrong_detail)} differ, e.g. {wrong_detail[:2]}")
 
 
+def _dsn_from_profile(settings: dict, dbname_hint: str = "") -> dict:
+    """Connection parameters from the profile's own `dsn`, with ${VAR:-default} substituted.
+
+    A gate must not depend on someone having exported PGPASSWORD by hand: measured on talent_v1
+    (2026-11-14), the builder ran this gate inside its own sandbox, `fe_sendauth: no password supplied`
+    came back, and the publish refused with a NOT RUN gate the agent had no way to satisfy. The profile
+    already declares where its database is; that declaration is the authority, and the environment is
+    only the fallback.
+    """
+    import os
+    import re
+
+    dsn = settings.get("dsn") or {}
+    out = {}
+    wanted_var = ""
+    for key in ("host", "port", "dbname", "user", "password", "sslmode"):
+        raw = dsn.get(key)
+        if raw is None:
+            continue
+        text = str(raw)
+        m = re.fullmatch(r"\$\{([A-Z0-9_]+)(?::-([^}]*))?\}", text.strip())
+        if m:
+            if key == "password":
+                wanted_var = m.group(1)
+            value = os.environ.get(m.group(1), m.group(2) or "")
+        else:
+            value = text
+        if value not in ("", None):
+            out[key] = value
+    # …then the repo's own `.env`, because a gate that runs inside an agent sandbox does not inherit
+    # the app's dotenv (the service loads it; a subprocess does not). Still never the first choice, and
+    # the value never printed.
+    if not out.get("password"):
+        # HERE is backend/features/ontology/gates, so parents[4] is the repo root
+        env_file = pathlib.Path(__file__).resolve().parents[4] / ".env"
+        if env_file.is_file():
+            wanted = (dbname_hint or "").upper().replace("-", "_")
+            values = {}
+            for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
+                if "=" in line and not line.lstrip().startswith("#"):
+                    k, _, v = line.partition("=")
+                    values[k.strip()] = v.strip()
+            stems = [wanted]
+            if wanted.endswith("_DB"):
+                stems.append(wanted[:-3])
+            # the variable the profile NAMES comes first: `${TALENT_V1_DB_PASSWORD}` unset in the
+            # environment is not permission to guess somebody else's password
+            candidates = ([wanted_var] if wanted_var else []) + [
+                f"{stem}{suffix}" for stem in stems
+                          for suffix in ("_DB_PASSWORD", "_PASSWORD")]
+            # POSTGRES_PASSWORD is the PLATFORM server's own credential (see tools/native_impl
+            # _pg_conn_kwargs) and most profiles point at that server; a per-ontology variable is only
+            # right when the dsn names it. Measured: a generic `<something>_DB_PASSWORD` picked first
+            # produced "password authentication failed for user langconfig".
+            candidates += ["ONTOLOGY_DB_PASSWORD", "POSTGRES_PASSWORD", "PGPASSWORD"]
+            # NO "any *_DB_PASSWORD" fallback: this box defines one per ontology, and picking one at
+            # random produced "password authentication failed for user langconfig" (measured today).
+            # A credential guessing game is worse than a NOT RUN that says so.
+            for key in candidates:
+                if values.get(key):
+                    out["password"] = values[key]
+                    break
+    # the deployment's own credentials are the last resort, never the first
+    out.setdefault("host", os.environ.get("PGHOST", "127.0.0.1"))
+    out.setdefault("port", os.environ.get("PGPORT", "5432"))
+    out.setdefault("user", os.environ.get("PGUSER", "langconfig"))
+    out.setdefault("password", os.environ.get("PGPASSWORD") or os.environ.get("POSTGRES_PASSWORD", ""))
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--profile", required=True)
@@ -200,7 +269,8 @@ def main() -> int:
     abox = (base / (settings.get("abox") or "abox.ttl")).resolve()
     axioms = (base / (settings.get("reasoning") or "reasoning.ttl")).resolve()
     spec_path = (base / (settings.get("reasoning_spec") or "reasoning.json")).resolve()
-    dbname = ((settings.get("dsn") or {}).get("dbname") or settings.get("abox_db") or "").strip()
+    conn_params = _dsn_from_profile(settings, (settings.get("dsn") or {}).get("dbname") or "")
+    dbname = (conn_params.get("dbname") or settings.get("abox_db") or "").strip()
 
     print(f"profile: {profile}")
     print(f"database: {dbname or '(undeclared)'}")
@@ -225,10 +295,9 @@ def main() -> int:
         return 2
 
     try:
-        conn = psycopg2.connect(host=os.environ.get("PGHOST", "127.0.0.1"),
-                                port=int(os.environ.get("PGPORT", 5432)), dbname=dbname,
-                                user=os.environ.get("PGUSER", "langconfig"),
-                                password=os.environ.get("PGPASSWORD", ""))
+        conn = psycopg2.connect(host=conn_params["host"], port=int(conn_params["port"]),
+                                dbname=dbname, user=conn_params["user"],
+                                password=conn_params.get("password", ""))
         conn.close()
     except Exception as exc:
         print(f"\nNOT RUN — cannot reach {dbname}: {exc}")
@@ -241,10 +310,9 @@ def main() -> int:
     result = R.reason(graph, engine=spec.get("reasoner") or "hermit", watch_classes=classes)
 
     print("\n=== S1 the table equals the reasoner's answer ===")
-    conn = psycopg2.connect(host=os.environ.get("PGHOST", "127.0.0.1"),
-                            port=int(os.environ.get("PGPORT", 5432)), dbname=dbname,
-                            user=os.environ.get("PGUSER", "langconfig"),
-                            password=os.environ.get("PGPASSWORD", ""))
+    conn = psycopg2.connect(host=conn_params["host"], port=int(conn_params["port"]),
+                            dbname=dbname, user=conn_params["user"],
+                            password=conn_params.get("password", ""))
     try:
         with conn.cursor() as cur:
             cur.execute("select candidate, role_class from candidate_match")
