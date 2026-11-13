@@ -9,6 +9,9 @@ definition "equivalently" and drifts one clause later. The page would look perfe
 So the gate re-runs the reasoner over the profile's current ABox and demands the table be IDENTICAL:
 
     S1  the table's rows equal the reasoned set, both directions, per role class
+    S1b the RECOMMENDATION table (candidate_role_fit) equals what the written rule derives from the
+        ABox: same rows, same score, same rank. A ranking someone edited by hand to put a favourite
+        first would otherwise look exactly like a good day's shortlist.
     S2  the audit row (`reasoning_run`) is from the same candidate count as the ABox — a table built
         from 120 records while the ABox now holds 277 is stale, however plausible it looks
     S3  the ontology is still consistent (an inconsistent ontology makes every entailment vacuous)
@@ -47,6 +50,138 @@ def check_true(label: str, cond: bool, detail: str = "") -> None:
 
 def not_run(label: str, why: str) -> None:
     print(f"  [NOT RUN] {label} — {why}")
+
+
+
+def _check_fit(profile: pathlib.Path, settings: dict, graph, result, ns: str, dbname: str) -> None:
+    """Re-derive every recommendation row from the ABox + the shared score, and demand equality.
+
+    Everything here comes from the same two sources the materialiser used — the ABox (skills, years,
+    education, applied role) and `scripts/talent/fit.py` (the weights) — so a drift can only mean the
+    table was written by something else.
+    """
+    from rdflib import Literal, URIRef
+    from rdflib.namespace import RDF
+
+    from scripts.talent.fit import rank_rows, score as fit_score
+
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3]))
+
+    def _local(node) -> str:
+        return str(node).rsplit("#", 1)[-1]
+
+    skills_of: dict[str, set[str]] = {}
+    category_of: dict[str, str] = {}
+    for skill_node in graph.subjects(RDF.type, URIRef(ns + "SkillTag")):
+        types = [_local(t) for t in graph.objects(skill_node, RDF.type)]
+        category = next((t for t in types if t not in ("SkillTag", "NamedIndividual")), None)
+        if category:
+            category_of[_local(skill_node)] = category
+
+    candidates: dict[str, dict] = {}
+    for node in graph.subjects(RDF.type, URIRef(ns + "Candidate")):
+        cid = _local(node)
+        skills = {_local(o) for o in graph.objects(node, URIRef(ns + "hasSkill"))}
+        skills_of[cid] = {category_of[s] for s in skills if s in category_of}
+        years = next((int(v) for v in graph.objects(node, URIRef(ns + "yearsExperience"))
+                      if isinstance(v, Literal)), None)
+        rank = next((int(v) for v in graph.objects(node, URIRef(ns + "educationRank"))
+                     if isinstance(v, Literal)), None)
+        applied = next((_local(v) for v in graph.objects(node, URIRef(ns + "appliedFor"))), None)
+        missing = {_local(v) for v in graph.objects(node, URIRef(ns + "missingData"))}
+        candidates[cid] = {"years": years, "education_rank": rank, "applied": applied,
+                           "duplicate": "UnknownYears" in missing and False}
+
+    duplicates = {cid for cid, v in candidates.items()
+                  if (URIRef(ns + cid), URIRef("http://www.w3.org/2002/07/owl#sameAs"), None) in graph}
+
+    roles: dict[str, dict] = {}
+    for node in graph.subjects(RDF.type, URIRef(ns + "Role")):
+        # ABox individuals are named `role_<岗位>`; the match class is `matches_<岗位>`. Key by the bare
+        # role name so the two sides meet (the first version keyed by the prefixed name and compared
+        # 204 real rows against an empty expectation).
+        rid = _local(node)
+        if rid.startswith("role_"):
+            rid = rid[len("role_"):]
+        years = next((int(v) for v in graph.objects(node, URIRef(ns + "requiredYears"))
+                      if isinstance(v, Literal)), None)
+        rank = next((int(v) for v in graph.objects(node, URIRef(ns + "requiredEducationRank"))
+                     if isinstance(v, Literal)), None)
+        required = {category_of.get(_local(s)) for s in
+                    graph.objects(node, URIRef(ns + "requiresSkill"))}
+        roles[rid] = {"years": years, "rank": rank,
+                      "categories": {c for c in required if c}}
+
+    expected: list[dict] = []
+    for iri in result.members:
+        cls_local = _local(iri)
+        jd_role = cls_local[len("matches_"):] if cls_local.startswith("matches_") else cls_local
+        req = roles.get(jd_role)
+        if not req:
+            continue
+        for member in result.members_of(iri):
+            cid = _local(member)
+            cand = candidates.get(cid)
+            if cand is None or cid in duplicates or not cand["applied"]:
+                continue
+            matched = len(skills_of.get(cid, set()) & req["categories"])
+            total = len(req["categories"])
+            expected.append({
+                "candidate": cid, "role_class": cls_local, "role": jd_role,
+                "matched_skills": matched, "required_skills": total,
+                "years_experience": cand["years"], "required_years": req["years"],
+                "education_rank": cand["education_rank"], "required_education_rank": req["rank"],
+                "fit_score": fit_score(matched_skills=matched, required_skills=total,
+                                       years=cand["years"], required_years=req["years"],
+                                       education_rank=cand["education_rank"],
+                                       required_education_rank=req["rank"]),
+            })
+    expected = rank_rows(expected)
+
+    import psycopg2
+
+    conn = psycopg2.connect(host=os.environ.get("PGHOST", "127.0.0.1"),
+                            port=int(os.environ.get("PGPORT", 5432)), dbname=dbname,
+                            user=os.environ.get("PGUSER", "langconfig"),
+                            password=os.environ.get("PGPASSWORD", ""))
+    try:
+        with conn.cursor() as cur:
+            cur.execute("select candidate, role_class, matched_skills, required_skills, "
+                        "years_experience, required_years, education_rank, "
+                        "required_education_rank, fit_score, rank_in_role from candidate_role_fit")
+            have = {(r[0], r[1]): r for r in cur.fetchall()}
+    finally:
+        conn.close()
+
+    want = {(row["candidate"], row["role_class"]): row for row in expected}
+    missing = sorted(set(want) - set(have))
+    extra = sorted(set(have) - set(want))
+    check_true(f"the recommendation table holds exactly the {len(want)} row(s) the rule derives",
+               not missing and not extra,
+               f"missing {len(missing)} e.g. {[m[0][:24] for m in missing[:2]]} · "
+               f"extra {len(extra)} e.g. {[e[0][:24] for e in extra[:2]]}")
+
+    wrong_score, wrong_rank, wrong_detail = [], [], []
+    for key, row in want.items():
+        got = have.get(key)
+        if got is None:
+            continue
+        if abs(float(got[8]) - float(row["fit_score"])) > 0.011:
+            wrong_score.append((key[0][:24], got[8], row["fit_score"]))
+        if int(got[9]) != int(row["rank_in_role"]):
+            wrong_rank.append((key[0][:24], got[9], row["rank_in_role"]))
+        expected_detail = (row["matched_skills"], row["required_skills"],
+                           row["years_experience"], row["required_years"],
+                           row["education_rank"], row["required_education_rank"])
+        if tuple(got[2:8]) != expected_detail:
+            wrong_detail.append((key[0][:24], got[2:8], expected_detail))
+    check_true("every fit score matches the written weights", not wrong_score,
+               f"{len(wrong_score)} differ, e.g. {wrong_score[:2]}")
+    check_true("every rank matches the documented tie-break", not wrong_rank,
+               f"{len(wrong_rank)} differ, e.g. {wrong_rank[:2]} — a hand-edited shortlist looks "
+               "exactly like this")
+    check_true("every row's skill/year/education columns match the ABox", not wrong_detail,
+               f"{len(wrong_detail)} differ, e.g. {wrong_detail[:2]}")
 
 
 def main() -> int:
@@ -133,6 +268,9 @@ def main() -> int:
                    not missing and not extra,
                    f"missing {missing[:3]} · extra {extra[:3]} — re-run scripts/talent/materialize.py, "
                    "and if it still disagrees, the table was not written by the reasoner")
+
+    print("\n=== S1b the recommendation table equals the written rule ===")
+    _check_fit(profile, settings, graph, result, ns, dbname)
 
     print("\n=== S2 the table was built from the ABox that is on disk ===")
     abox_candidates = len(set(graph.subjects(None, None)))

@@ -34,6 +34,7 @@ from rdflib import Graph, Literal, URIRef  # noqa: E402
 from rdflib.namespace import RDF  # noqa: E402
 
 from features.ontology.reasoning import reasoner as R  # noqa: E402
+from scripts.talent.fit import score as fit_score  # noqa: E402
 
 DDL = """
 drop table if exists candidate_role_fit;
@@ -223,9 +224,16 @@ def main() -> int:
 
     role_requirements = {}
     for rid, r_years, r_rank, _not_stated in role_rows:
+        # key by the BARE role name: ABox individuals are `role_<岗位>`, match classes `matches_<岗位>`,
+        # and the two must meet in the same dictionary (first attempt keyed by the prefixed name and
+        # produced 204 entitlements with 0 rows in the recommendation table).
+        if rid.startswith("role_"):
+            rid = rid[len("role_"):]
         cats = set()
         for r_role, skill in rrs_rows:
-            if r_role != rid:
+            # rrs_rows carry the ABox names (`role_<岗位>`); `rid` was stripped above, so compare the
+            # bare names or every role ends up with "0 required skills" and a perfect-looking row.
+            if r_role.removeprefix("role_") != rid:
                 continue
             pruned = [cat for s_name, cat in skill_rows if s_name == skill and cat]
             cats |= set(pruned)
@@ -240,10 +248,9 @@ def main() -> int:
         held = skill_categories_by_candidate.get(cid, set())
         matched = len(held & required_cats)
         total = len(required_cats)
-        skills_ratio = (matched / total) if total else 0.0
-        years_ratio = min(1.0, (years or 0) / r_years) if r_years else 1.0
-        edu_ok = 1.0 if (not r_rank or (edu_rank is not None and edu_rank >= r_rank)) else 0.0
-        score = round(60 * skills_ratio + 25 * years_ratio + 15 * edu_ok, 2)
+        score = fit_score(matched_skills=matched, required_skills=total, years=years,
+                          required_years=r_years, education_rank=edu_rank,
+                          required_education_rank=r_rank)
         years_margin = (years - r_years) if (years is not None and r_years is not None) else None
         return (cid, None, rid, matched, total, years, r_years, years_margin, edu_rank, r_rank,
                 score, 0)
@@ -263,7 +270,11 @@ def main() -> int:
             # ranking a 副总助理 applicant inside the 业务跟单 requirement must still say 业务跟单.
             jd_role = cls_local[len("matches_"):] if cls_local.startswith("matches_") else cls_local
             applied = _local(_text(graph, URIRef(member), ns + "appliedFor") or "") or None
-            row = _fit(cid, applied) if applied else None
+            # The score is against the JD the candidate MATCHED, not the one they applied for: a
+            # 品质经理 applicant who clears the 业务跟单 bar must be scored against 业务跟单's
+            # requirements. Scoring against the applied role left 159 rows with 0/0 skills and no
+            # required years — measured by the sync gate, which re-derived them and disagreed.
+            row = _fit(cid, jd_role) if jd_role in role_requirements else None
             if row is None:
                 continue
             fit_rows.append((row[0], cls_local, jd_role) + row[3:11])

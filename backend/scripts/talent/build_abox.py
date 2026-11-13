@@ -133,6 +133,15 @@ def build(records: list[dict], requirements: list[dict] | None = None) -> tuple[
         lines.append("")
         stats["candidates"] += 1
 
+    # A skill the JOB requires but nobody lists is exactly the gap a shortlist must be able to show,
+    # so requirement-side skills become individuals too. Without this the role's `:requiresSkill`
+    # pointed at an undeclared individual, its category was unknown, and the fit table scored every
+    # such role with "0 of 0 skills" — a perfect-looking row that measured nothing.
+    if requirements:
+        for req in requirements:
+            for skill in req.get("skills") or []:
+                skill_individuals.setdefault(skill, _local_id(skill, "skill"))
+
     lines.append("# ── skills: individuals, each typed into the category the TBox reasons over")
     for skill, skill_id in sorted(skill_individuals.items()):
         category = SKILL_CATEGORY.get(skill)
