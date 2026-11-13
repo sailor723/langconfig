@@ -326,6 +326,26 @@ function AppContent() {
   // Current view from route
   const currentView: View = ROUTE_TO_VIEW[location.pathname] ?? 'home';
 
+  // ── The chosen vault is the DEFAULT on the next visit ────
+  // Selecting a project already remembers it (localStorage `activeProjectId`), but the app kept
+  // landing on the create/select launcher, so the remembered vault was never actually the
+  // default — you re-picked it every session. Apply it ONCE per browser session and only when
+  // the user is on the launcher: an explicit visit to "/" (the 项目面板 button) must not bounce
+  // them straight back into the project.
+  useEffect(() => {
+    if (!activeProjectId) return;
+    if (currentView !== 'home') return;
+    try {
+      if (sessionStorage.getItem('vault_default_applied') === '1') return;
+      sessionStorage.setItem('vault_default_applied', '1');
+    } catch {
+      return;   // no sessionStorage (private mode) → do not guess, stay on the launcher
+    }
+    navigate('/project', { replace: true });
+    // navigate is stable; activeProjectId/currentView are the reactive inputs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProjectId, currentView]);
+
   // ── Direct-mode auto-open ───────────────────────────────
   // When displayMode === 'direct' and the user lands on a catalog
   // activity, skip the HomePage (which renders the "what is X..."

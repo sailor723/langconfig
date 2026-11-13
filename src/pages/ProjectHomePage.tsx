@@ -31,7 +31,7 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default function ProjectHomePage() {
-  const { activeProject, activeProjectId, loading } = useProject();
+  const { activeProject, activeProjectId, loading, refreshProjects } = useProject();
   const navigate = useNavigate();
   const t = useLayoutTokens();
 
@@ -46,27 +46,44 @@ export default function ProjectHomePage() {
   }, [loading, activeProjectId, navigate]);
 
   // Fetch this project's workflows + the global agent count.
+  //
+  // The count is the STAT, not the list: asking for `limit: 6` and then showing
+  // `workflows.length` capped the number at six and never moved again — a metric that reads
+  // 6 forever looks like "the numbers do not update" (measured: it was reported as exactly
+  // that). One request with a high limit feeds both the stat and the six visible rows.
+  const loadProjectData = useCallback(async (projectId: number, isCancelled?: () => boolean) => {
+    setDataLoading(true);
+    try {
+      const [wfRes, agRes] = await Promise.all([
+        apiClient.listWorkflows({ project_id: projectId, limit: 200 }),
+        apiClient.listDeepAgents(),
+      ]);
+      if (isCancelled?.()) return;
+      setWorkflows(Array.isArray(wfRes.data) ? wfRes.data : []);
+      setAgentsCount(Array.isArray(agRes.data) ? agRes.data.length : 0);
+    } catch (err: any) {
+      if (!isCancelled?.()) console.error('Project home load failed:', err?.message);
+    } finally {
+      if (!isCancelled?.()) setDataLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!activeProjectId) return;
     let cancelled = false;
-    setDataLoading(true);
-    (async () => {
-      try {
-        const [wfRes, agRes] = await Promise.all([
-          apiClient.listWorkflows({ project_id: activeProjectId, limit: 6 }),
-          apiClient.listDeepAgents(),
-        ]);
-        if (cancelled) return;
-        setWorkflows(Array.isArray(wfRes.data) ? wfRes.data : []);
-        setAgentsCount(Array.isArray(agRes.data) ? agRes.data.length : 0);
-      } catch (err: any) {
-        if (!cancelled) console.error('Project home load failed:', err?.message);
-      } finally {
-        if (!cancelled) setDataLoading(false);
-      }
-    })();
+    void loadProjectData(activeProjectId, () => cancelled);
     return () => { cancelled = true; };
-  }, [activeProjectId]);
+  }, [activeProjectId, loadProjectData]);
+
+  // Coming back to the tab is the moment the numbers are most likely stale (a workflow was
+  // created in another tab, a chat run finished). Refetch on focus instead of making the
+  // reader guess whether what they see is current.
+  useEffect(() => {
+    if (!activeProjectId) return;
+    const onFocus = () => { void loadProjectData(activeProjectId); };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [activeProjectId, loadProjectData]);
 
   // Open a workflow in the Studio (AppContent listens and routes to /studio
   // with the workflow preloaded — same pattern as da:navigate-skills).
@@ -103,6 +120,36 @@ export default function ProjectHomePage() {
   return (
     <div style={{ height: '100%', overflowY: 'auto', background: t.bgContent }}>
       <div style={{ maxWidth: 960, margin: '0 auto', padding: '40px 32px 64px' }}>
+        {/* Two actions that were missing. Without the first one the launcher was a one-way
+             door — the only way back to create/select was editing the URL; without the second,
+             a number that moved elsewhere stayed on screen until a full reload. */}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginBottom: 12 }}>
+          <button
+            onClick={() => { void loadProjectData(activeProjectId as number); void refreshProjects(); }}
+            disabled={dataLoading}
+            title="重新读取本项目的 workflow / agent 数"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px',
+              borderRadius: 8, border: `1px solid ${t.border}`, background: 'transparent',
+              color: t.textPrimary, fontSize: 12, cursor: dataLoading ? 'default' : 'pointer',
+              opacity: dataLoading ? 0.6 : 1,
+            }}
+          >
+            <Clock size={13} /> {dataLoading ? '读取中…' : '刷新'}
+          </button>
+          <button
+            onClick={() => navigate('/')}
+            title="打开项目面板（创建或选择项目）"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px',
+              borderRadius: 8, border: `1px solid ${t.border}`, background: 'transparent',
+              color: t.textPrimary, fontSize: 12, cursor: 'pointer',
+            }}
+          >
+            <Folder size={13} /> 项目面板
+          </button>
+        </div>
+
         {/* ── Hero: project identity ─────────────────────── */}
         <div
           style={{
@@ -210,7 +257,7 @@ export default function ProjectHomePage() {
         {/* ── Recent workflows ───────────────────────────── */}
         <Section
           title="Recent workflows"
-          subtitle={dataLoading ? undefined : `${workflows.length} workflow${workflows.length === 1 ? '' : 's'} in this project`}
+          subtitle={dataLoading ? undefined : `${workflows.length} workflow${workflows.length === 1 ? '' : 's'} in this project${workflows.length > 6 ? ' · 显示前 6 个' : ''}`}
           t={t}
         >
           {dataLoading ? (
@@ -228,7 +275,7 @@ export default function ProjectHomePage() {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {workflows.map(wf => (
+              {workflows.slice(0, 6).map(wf => (
                 <button
                   key={wf.id}
                   onClick={() => openWorkflow(wf.id)}

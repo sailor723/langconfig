@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import { useProject } from '../../contexts/ProjectContext';
-import { Folder, CheckCircle, Loader, Plus, X } from 'lucide-react';
+import { LayoutGrid, Folder, CheckCircle, Loader, Plus, X } from 'lucide-react';
 import apiClient from '../../lib/api-client';
 
 interface VaultPopoverProps {
@@ -223,6 +223,19 @@ export default function VaultPopover({ anchorRef, onClose }: VaultPopoverProps) 
         {error && (
           <div style={{ fontSize: 10, color: '#ef4444', marginTop: 4 }}>{error}</div>
         )}
+        {/* The launcher (cards: create / open / recent) is a different screen from this
+            switcher, and it had no way back into it. One line here keeps it reachable. */}
+        <button
+          onClick={() => { onClose(); navigate('/'); }}
+          title="打开项目面板（创建 / 打开 / 最近项目）"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, width: '100%', marginTop: 6,
+            padding: '6px 8px', borderRadius: 4, border: 'none', borderTop: `1px solid ${t.border}`,
+            background: 'transparent', color: t.textMuted, cursor: 'pointer', fontSize: 12,
+          }}
+        >
+          <LayoutGrid size={13} /> 项目面板
+        </button>
       </div>
     </div>
   );
