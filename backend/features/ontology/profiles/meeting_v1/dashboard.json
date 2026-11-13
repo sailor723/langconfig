@@ -1,7 +1,7 @@
 {
   "title": "会议决议闭环看板（meeting_v1）",
   "subtitle": "每个数字都由 meeting_v1 的声明现场编译：面板不写 SQL，也不自带数字。一个面板只放一个粒度 —— 场次落会议键、事项落决议行、人时落参会人次、责任落责任人。",
-  "_doc": "面板只能引用 metrics_ext.ttl 里声明过的指标。本看板不声明顶层 holes：库里没有为「平均闭环天数 / 临期预警 / 目标完成率 / 部门成绩」声明过任何可编译的指标（没有完成时刻、没有结案状态词表、没有目标值、没有部门字段），所以它们写成 kind=hole 的面板卡 + briefing.cannot_see，把「答不了」和「要客户补哪一句话」摆在页面上，而不是造三个永远失败的指标。kind=hole 的 requires 是本库尚未声明的类名，它必须一直是未声明状态（D1 会核对）；measurable_now 是同一件事现在能说的部分。本看板不做跨粒度筛选（不写 emit_filter）：siteCode 在事项粒度叫 siteCode、在会议/参会粒度叫 site_code，同一个筛选落到别的粒度上会整块拒绝，与其让七张图变红，不如每张图自己标明粒度。briefing 里每个数字都必须写成 {metric} 占位符 —— 手打数字在数据一动之后就变成谎话。",
+  "_doc": "面板只能引用 metrics_ext.ttl 里声明过的指标，render 只取渲染器支持的 ranked / series / matrix / composition / kpi / hole / sankey / bubble / treemap / parallel。本看板不声明顶层 holes：库里没有为「平均闭环天数 / 临期预警 / 目标完成率 / 部门成绩 / 重复议题率 / 会议成本 / 效能指数」声明过任何可编译的指标，所以它们写成 kind=hole 的面板卡 + briefing.cannot_see，把「答不了」和「要客户补哪一句话」摆在页面上，而不是造七个永远失败的指标。kind=hole 的 requires 是本库尚未声明的类名，它必须一直是未声明状态（D1 会核对）；measurable_now 是同一件事现在能说的部分。本看板不做跨粒度筛选（不写 emit_filter）：siteCode 在事项粒度叫 siteCode、在会议/参会粒度叫 site_code，同一个筛选落到别的粒度上会整块拒绝，与其让七张图变红，不如每张图自己标明粒度。briefing 里每个数字都必须写成 {metric} 占位符 —— 手打数字在数据一动之后就变成谎话。parallel 面板只放「同一个量、两套口径」或「一个分母的几块构成」：它把一个标量摆一排，不做加权、不做指数。",
   "kpis": [
     {
       "metric": "meetingCount",
@@ -10,6 +10,10 @@
     {
       "metric": "manHours",
       "note": "参会人次 × 会议时长；参会粒度，不与场次相加"
+    },
+    {
+      "metric": "attendanceCount",
+      "note": "参会人次 —— manHours 的乘数之一，别把它读成人数"
     },
     {
       "metric": "itemCount",
@@ -40,20 +44,31 @@
     {
       "id": "siteMeetings",
       "kind": "ranked",
+      "section": "分厂",
       "title": "厂区 × 场次",
       "metric": "meetingCountBySite",
       "note": "落点：会议（Meeting，按会议键去重）。厂区之和等于会议类总场次，但和下面的「事项数」不是同一个分母。"
     },
     {
-      "id": "typeMeetings",
+      "id": "siteItems",
       "kind": "ranked",
-      "title": "会议类型 × 场次",
-      "metric": "meetingCountByMeetingType",
-      "note": "落点：会议（Meeting）。类型取会议上的原始标签，归不进任何一类的会单独成组，不强行归类。"
+      "section": "分厂",
+      "title": "厂区 × 事项数",
+      "metric": "itemCountBySite",
+      "note": "落点：事项（DecisionItem，一行一条）。这是厂区成绩表的分母，不要拿去和场次比较。"
+    },
+    {
+      "id": "siteAttendance",
+      "kind": "ranked",
+      "section": "分厂",
+      "title": "厂区 × 参会人次",
+      "metric": "attendanceCountBySite",
+      "note": "落点：参会（Attendance，一人一场一次）。人时是它乘上会议时长，所以人次多的厂区不一定人时最多。"
     },
     {
       "id": "siteManHours",
       "kind": "ranked",
+      "section": "分厂",
       "title": "厂区 × 会议人时（小时）",
       "metric": "manHoursBySite",
       "size_by": "attendanceCountBySite",
@@ -61,30 +76,9 @@
       "note": "落点：参会（Attendance，人次 × 时长）。点的大小是同厂区的参会人次 —— 时间和人在这里是两件事，别用一个数代替另一个。"
     },
     {
-      "id": "typeManHours",
-      "kind": "ranked",
-      "title": "会议类型 × 会议人时（小时）",
-      "metric": "manHoursByMeetingType",
-      "note": "落点：参会（Attendance）。与「会议类型 × 场次」对照着看：场次多的类型不一定吃掉最多人时。"
-    },
-    {
-      "id": "ownerItems",
-      "kind": "ranked",
-      "title": "责任人 × 事项数（前 20）",
-      "metric": "itemCountByOwner",
-      "limit": 20,
-      "note": "落点：责任（责任人文本）。空责任人作为独立一组出现并排在最前 —— 把它藏起来等于把「决议没派人」这个事实从看板上抹掉。"
-    },
-    {
-      "id": "siteNoOwner",
-      "kind": "ranked",
-      "title": "厂区 × 无责任人占比（%）",
-      "metric": "noOwnerRateBySite",
-      "note": "落点：责任（事项行上的责任人列）。分母是全厂区事项行，含不可判定闭环的行。"
-    },
-    {
       "id": "siteClose",
       "kind": "ranked",
+      "section": "分厂",
       "title": "厂区 × 按期完成率（%）",
       "metric": "closeRateBySite",
       "note": "落点：闭环（事项行的两个日期）。分母每个厂区各不相同 —— 可判定行多的厂区，比率才有分量。"
@@ -92,27 +86,136 @@
     {
       "id": "siteOverdue",
       "kind": "ranked",
+      "section": "分厂",
       "title": "厂区 × 超期占比（%）",
       "metric": "overdueRateBySite",
-      "note": "落点：闭环（事项行）。同一条声明编译，阈值只在 policies 里写一次。"
+      "note": "落点：闭环（事项行）。同一条声明编译，阈值只在 policy 里写一次。"
     },
     {
-      "id": "siteItems",
+      "id": "siteNoOwner",
       "kind": "ranked",
-      "title": "厂区 × 事项数",
-      "metric": "itemCountBySite",
-      "note": "落点：事项（DecisionItem，一行一条）。这是厂区成绩表的分母，不要拿去和场次比较。"
+      "section": "分厂",
+      "title": "厂区 × 无责任人占比（%）",
+      "metric": "noOwnerRateBySite",
+      "note": "落点：责任（事项行上的责任人列）。分母是全厂区事项行，含不可判定闭环的行。"
+    },
+    {
+      "id": "typeMeetings",
+      "kind": "ranked",
+      "section": "会议类型",
+      "title": "会议类型 × 场次",
+      "metric": "meetingCountByMeetingType",
+      "note": "落点：会议（Meeting）。类型取会议上的原始标签，归不进任何一类的会单独成组，不强行归类。"
     },
     {
       "id": "typeItems",
       "kind": "ranked",
+      "section": "会议类型",
       "title": "会议类型 × 事项数",
       "metric": "itemCountByMeetingType",
       "note": "落点：事项（DecisionItem）。类型标签存在疑义的行单独成组显示。"
     },
     {
+      "id": "typeManHours",
+      "kind": "ranked",
+      "section": "会议类型",
+      "title": "会议类型 × 会议人时（小时）",
+      "metric": "manHoursByMeetingType",
+      "note": "落点：参会（Attendance）。与「会议类型 × 场次」对照着看：场次多的类型不一定吃掉最多人时。"
+    },
+    {
+      "id": "typeItemMix",
+      "kind": "parallel",
+      "section": "会议类型",
+      "title": "会议类型细分 × 事项数（六块并列）",
+      "metrics": [
+        "topicMeetingItemCount",
+        "trainingMeetingItemCount",
+        "weeklyMeetingItemCount",
+        "adHocMeetingItemCount",
+        "nonMeetingItemCount",
+        "ambiguousTypeItemCount"
+      ],
+      "note": "落点：事项（DecisionItem）。六块是同一个分母（图上「事项数」那一个值）的划分：议题会 / 培训会 / 周会 / 临时会 / 非会议（面试、接待客户）/ 类型标签有疑义。最后一块不是「其它」，是「分类本身不确定」，它不会被摊到前五块里。"
+    },
+    {
+      "id": "closeJudge",
+      "kind": "parallel",
+      "section": "闭环与期次",
+      "title": "闭环判定：可判定的事项分成了几块",
+      "metrics": [
+        "earlyItemCount",
+        "onScheduleItemCount",
+        "overdueItemCount",
+        "datedItemCount",
+        "futureScheduledItemCount"
+      ],
+      "note": "落点：事项（DecisionItem）的日期列。提前 / 按期 / 超期三块相加正好是「可判定」那一块 —— 三块各自的数在图上，注里不背数字。排期还在未来的单独一块，不算任何一边。"
+    },
+    {
+      "id": "notesOwners",
+      "kind": "parallel",
+      "section": "纪要与责任",
+      "title": "纪要与责任人：有 / 无各多少条",
+      "metrics": [
+        "notedItemCount",
+        "noNoteItemCount",
+        "ownedItemCount",
+        "noOwnerItemCount"
+      ],
+      "note": "落点：事项（DecisionItem）上的纪要列与责任人列。两组各自相加都是全部事项 —— 有纪要 + 没纪要、有人接 + 没人接。"
+    },
+    {
+      "id": "ownerItems",
+      "kind": "ranked",
+      "section": "纪要与责任",
+      "title": "责任人 × 事项数（前 20）",
+      "metric": "itemCountByOwner",
+      "limit": 20,
+      "note": "落点：责任（责任人文本）。空责任人作为独立一组出现并排在最前 —— 把它藏起来等于把「决议没派人」这个事实从看板上抹掉。"
+    },
+    {
+      "id": "scopeMeetings",
+      "kind": "parallel",
+      "section": "口径对照",
+      "title": "场次的两个口径：会议类 vs 全部导出记录",
+      "metrics": ["meetingCount", "meetingCountAll"],
+      "note": "落点：会议（Meeting）。两个数都真，分母不同：前者剔掉面试与接待客户，后者是导出里所有带会议键的记录。并排摆是为了让「场次」这个词在页面上永远带着分母。"
+    },
+    {
+      "id": "scopeHours",
+      "kind": "parallel",
+      "section": "口径对照",
+      "title": "人时的两个口径：会议类 vs 全部",
+      "metrics": ["manHours", "manHoursAll"],
+      "note": "落点：参会（Attendance）。与上一张口径一致：人时同样有「会议类」和「全部」两个分母，差值来自非会议类会议的人次时长。"
+    },
+    {
+      "id": "scopeItems",
+      "kind": "parallel",
+      "section": "口径对照",
+      "title": "事项：全部 / 挂在会议上 / 不挂在会议上",
+      "metrics": ["itemCount", "meetingItemCount", "nonMeetingItemCount"],
+      "note": "落点：事项（DecisionItem）。事项行本身没有会议键，前两块按「是否归到会议类」划分。"
+    },
+    {
+      "id": "intensity",
+      "kind": "parallel",
+      "section": "强度与时长",
+      "title": "强度与时长口径",
+      "metrics": [
+        "minutesSum",
+        "avgMeetingMinutes",
+        "attendancePerMeeting",
+        "avgMinutesPerItem",
+        "manHoursPerAttendance"
+      ],
+      "note": "落点：会议时长（分钟）与参会人次。分钟是原始单位，小时是它除以六十 —— 两个单位都在，是为了不让「小时」「分钟」在页面上被悄悄混用。"
+    },
+    {
       "id": "venueItems",
       "kind": "ranked",
+      "section": "场所",
       "title": "场所 × 事项数",
       "metric": "itemCountByVenue",
       "note": "落点：事项（DecisionItem）。场所是原始文本（会议室 1 / 现场 / 副总室…），没有归并过。"
@@ -120,6 +223,7 @@
     {
       "id": "avgCloseDays",
       "kind": "hole",
+      "section": "答不了",
       "title": "平均闭环天数（答不了）",
       "requires": [":CompletionInstant"],
       "missing": "为什么答不了：完成时间在导出里是自由文本，只有部分行的日期能解析出来；平均值只代表那部分行，却会被读成全部。现在能算的只有「按期 / 超期」这个二值判断，没有可加总的时长。要客户补的一句话：从决议发出到关单，以哪个字段的哪个时刻算完成？",
@@ -131,6 +235,7 @@
     {
       "id": "nearDueAlert",
       "kind": "hole",
+      "section": "答不了",
       "title": "临期预警（红 / 黄）（答不了）",
       "requires": [":DueDateThreshold"],
       "missing": "为什么答不了：缺两个只有业务方能定的词 —— 临期还剩几天算临期（红/黄的分界），以及哪些结案写法算「已结案」；库里没有结案状态字段。阈值写死在看板里，就是把一个猜测变成公司标准。要客户补的一句话：剩余天数 ≤ N 天算黄、≤ M 天算红，N 和 M 各是多少？",
@@ -142,6 +247,7 @@
     {
       "id": "targetCompletionRate",
       "kind": "hole",
+      "section": "答不了",
       "title": "目标完成率（答不了）",
       "requires": [":CompletionTarget"],
       "missing": "为什么答不了：没有目标值口径（按厂区？按类型？按人均？），而且本库的「完成」只有「按期完成」这一个定义，没有独立的结案状态字段 —— 把按期完成率改名叫完成率，是偷换分母。要客户补的一句话：完成率的目标值是多少、按哪个维度考核？",
@@ -153,12 +259,49 @@
     {
       "id": "departmentScorecard",
       "kind": "hole",
+      "section": "答不了",
       "title": "部门成绩表（答不了）",
       "requires": [":Department"],
-      "missing": "为什么答不了：本库唯一的组织维度是厂区（siteCode），责任人是原始文本，没有部门字段，也没有效能指数公式。上面六张厂区图就是这张表的厂区版本（场次 / 事项 / 按期完成率 / 无责任人占比 / 超期占比 / 人时），只是不能叫「部门」。要客户补的一句话：责任人和部门怎么对应 —— 给一张人→部门对照表，还是加一列部门编码？",
+      "missing": "为什么答不了：本库唯一的组织维度是厂区（siteCode），责任人是原始文本，没有部门字段，也没有效能指数公式。上面七张厂区图就是这张表的厂区版本（场次 / 事项 / 人次 / 人时 / 按期完成率 / 超期占比 / 无责任人占比），只是不能叫「部门」。要客户补的一句话：责任人和部门怎么对应 —— 给一张人→部门对照表，还是加一列部门编码？",
       "measurable_now": {
         "metrics": ["meetingCountBySite", "itemCountBySite", "closeRateBySite", "noOwnerRateBySite"],
         "note": "同一张表按厂区能出：场次、事项数、按期完成率、无责任人占比。"
+      }
+    },
+    {
+      "id": "repeatTopicRate",
+      "kind": "hole",
+      "section": "答不了",
+      "title": "重复议题率（答不了）",
+      "requires": [":TopicFingerprint"],
+      "missing": "为什么答不了：缺判定键。md 把「同一议题再次出现」定义在问题指纹上（对象类型:对象编号:问题类型），但这张导出里既没有议题编码，也没有问题指纹列；事项只有文本与责任人，而纪要平均只有几个字 —— 用文本相似度算出来的「重复」是算法结论，不是业务事实，而且换一个相似阈值就换一个数。阈值本身也只有业务方能定。要客户回答的一句话：同一议题在不同会议再次出现，用什么认 —— 事项文本相似 / 责任人+议题名 / 客户自己的编码？相似到什么程度算重复？",
+      "measurable_now": {
+        "metrics": ["notedItemCount", "noNoteItemCount"],
+        "note": "现在能说的：有多少条事项带纪要、多少条不带 —— 也就是「能被人工复核」的范围。重复议题必须先有可比的议题文本，这一步现在就缺。"
+      }
+    },
+    {
+      "id": "meetingCost",
+      "kind": "hole",
+      "section": "答不了",
+      "title": "会议成本（答不了）",
+      "requires": [":HourlyCostRate", ":CostAmount"],
+      "missing": "为什么答不了：缺金额。本库有人时（参会人次 × 时长），但没有任何金额列，也没有工时成本单价 —— md 里的「人均小时成本」是一条配置项（写在规格里的参数），不是数据里的一列。拿一个人时乘一个猜的单价，得到的是一个由单价决定的数，不是这场会议的账面成本。要客户补的一句话：这种成本按职级 / 厂区的工时单价表算，还是按财务口径的会议费用科目算？单价表在哪？",
+      "measurable_now": {
+        "metrics": ["manHours", "manHoursBySite", "attendanceCount"],
+        "note": "现在能说的：人时（按厂区拆开也行）与参会人次。金额那一环缺失，所以只能说「用了多少人时」，不能说「花了多少钱」。"
+      }
+    },
+    {
+      "id": "effectivenessIndex",
+      "kind": "hole",
+      "section": "答不了",
+      "title": "效能指数（答不了）",
+      "requires": [":EffectivenessIndex"],
+      "missing": "为什么答不了：md 里没有公式。指数是把几个比率加权成一个数，权重与方向只有业务方能定；权重一换排名就变，而且它会把「按期率高但没人接」和「按期率低但都有人接」压成同一个分数。本看板不发明指数。要客户补的一句话：效能指数由哪几个指标、各占多少权重、方向是越高越好还是越低越好？",
+      "measurable_now": {
+        "metrics": ["closeRate", "overdueRate", "noOwnerRate", "manHoursPerAttendance"],
+        "note": "现在能说的：它的候选输入项各自的值（按期率、超期占比、无责任人占比、人均会议时长）。加权是另一个决定，不在这里做。"
       }
     }
   ],
@@ -185,29 +328,37 @@
     }
   ],
   "briefing": {
-    "headline": "这份导出里 {itemCount} 行事项；会议类 {meetingCount} 场、{attendanceCount} 人次参会、合计 {manHours} 小时，平均每场 {avgMeetingMinutes} 分钟。闭环侧：按期完成率 {closeRate}%，它的分母是 {datedItemCount} 条可判定闭环的事项；超期占比 {overdueRate}%；无责任人占比 {noOwnerRate}%；纪要缺失占比 {noNoteRate}%。",
+    "headline": "这份导出里 {itemCount} 行事项；会议类 {meetingCount} 场（全部导出记录 {meetingCountAll} 场）、{attendanceCount} 人次参会、合计 {manHours} 小时，平均每场 {avgMeetingMinutes} 分钟。闭环侧：按期完成率 {closeRate}%，它的分母是 {datedItemCount} 条可判定闭环的事项；超期占比 {overdueRate}%；无责任人占比 {noOwnerRate}%；纪要缺失占比 {noNoteRate}%。",
     "claims": [
       {
         "id": "denominator",
         "text": "按期完成率 {closeRate}% 的分母不是全部事项，而是两个日期都解析得出来的 {datedItemCount} 条。剩下的行不可判定 —— 既不算按期也不算超期。把不可判定算成按期，这个数就会变成一个没人能复核的假高点。"
       },
       {
+        "id": "closeMix",
+        "text": "那 {datedItemCount} 条可判定的事项被分成三块，相加正好是分母：提前 {earlyItemCount} + 按期 {onScheduleItemCount} + 超期 {overdueItemCount}。排期还在未来的 {futureScheduledItemCount} 条不在里面 —— 它们还没到期，不是按期也不是超期。"
+      },
+      {
         "id": "overdue",
         "verdict_by": "overdueRate",
-        "text": "超期占比 {overdueRate}%，只在那 {datedItemCount} 条可判定的事项上算；阈值在本看板 policies 里，是 assumed，不是业务确认过的。"
+        "text": "超期占比 {overdueRate}%，只在那 {datedItemCount} 条可判定的事项上算；阈值在本看板 policy 里，是 assumed，不是业务确认过的。"
       },
       {
         "id": "noOwner",
         "verdict_by": "noOwnerRate",
-        "text": "无责任人占比 {noOwnerRate}%：决议发出去了、但没人接。它衡量派工，不衡量工作量。"
+        "text": "无责任人占比 {noOwnerRate}%：决议发出去了、但没人接（{noOwnerItemCount} 条里的一条一条都能查）。它衡量派工，不衡量工作量。"
       },
       {
         "id": "grain",
         "text": "每个面板只放一个粒度的数字：场次按会议键去重（{meetingCount} 场），事项按行（{itemCount} 条），人时按参会人次累加（{manHours} 小时）。跨粒度的对照要么把分母写在脸上，要么不做 —— 场次多的类型不等于事项多的类型。"
       },
       {
+        "id": "scope",
+        "text": "「场次」和「人时」各有两个口径，页面上并排摆着：会议类 {meetingCount} 场 / {manHours} 小时，全部导出记录 {meetingCountAll} 场 / {manHoursAll} 小时 —— 差的是面试与接待客户这类不在会议类里的记录。引用其中一个数时必须带上它的分母。"
+      },
+      {
         "id": "notes",
-        "text": "纪要缺失占比 {noNoteRate}%：没有纪要的决议，事后没人能复核它当时为什么这么定。这是这套数据里最大的一个洞，而且它是可测的 —— 不需要新的字段。"
+        "text": "纪要缺失占比 {noNoteRate}%（{noNoteItemCount} 条）：没有纪要的决议，事后没人能复核它当时为什么这么定。这是这套数据里最大的一个洞，而且它是可测的 —— 不需要新的字段。"
       }
     ],
     "cannot_see": [
@@ -215,14 +366,17 @@
       "答不了「临期预警（红 / 黄）」：缺两个业务决定 —— 临期几天算临期，以及哪些结案写法算已结案；库里也没有结案状态字段。",
       "答不了「目标完成率」：缺目标值口径；而且本库的「完成」只有按期完成这一个定义，没有独立的结案状态字段，换个名字叫完成率就是偷换分母。",
       "答不了「部门成绩表」：本库唯一的组织维度是厂区（siteCode），责任人是原始文本，没有部门字段；能画的是厂区版本，不是部门版本。",
-      "答不了「效能指数」：客户模板里没有公式，本看板不发明指数。",
+      "答不了「重复议题率」：缺判定键 —— 没有议题编码，也没有 md 里的问题指纹（对象类型:对象编号:问题类型）；纪要平均只有几个字，用文本相似度冒充「同一议题」，换一个相似阈值就换一个数。",
+      "答不了「会议成本」：有人时（{manHours} 小时），但没有金额列，也没有工时成本单价 —— 单价是规格里的配置项，不是数据列。乘一个猜的单价算出来的不是成本。",
+      "答不了「效能指数」：md 没有公式，权重与方向只有业务方能定；能算的是它的输入项（按期率、超期率、无责任人占比），不是加权后的分数。",
       "答不了任何时间窗问题（上周 / 上月 / 本季度）：没有可靠的记录时间列，也没有声明时间槽。",
-      "答不了「每场会议平均多少条事项」：事项行没有会议键，事项挂不到具体某一场上。"
+      "答不了「每场会议平均多少条事项」：事项行没有会议键，事项挂不到具体某一场上 —— 能算的是「每条事项平均多少分钟」。"
     ],
-    "next": "下一步不是加图，而是三件业务决定：临期天数（N 天黄、M 天红）、结案状态词表、目标值。这三条一定，本看板里三张空洞卡就能变成声明；第四张（部门）需要一张人→部门对照表。"
+    "next": "下一步不是加图，而是四件业务决定：临期天数（N 天黄、M 天红）、结案状态词表、目标值、议题判定键（重复议题怎么认）。这四条一定，本看板里四张空洞卡就能变成声明；第五张（部门）需要一张人→部门对照表，第六张（会议成本）需要一张工时单价表。"
   },
   "cannot_see": [
     "本看板不做同比 / 环比：数据只有一个导出快照，没有第二个时间切片，任何「比上月」都是编的。",
-    "本看板不做跨粒度筛选：siteCode 在事项粒度叫 siteCode、在会议 / 参会粒度叫 site_code，同一个筛选落到别的粒度上会整块拒绝，所以筛选留给它自己的粒度。"
+    "本看板不做跨粒度筛选：siteCode 在事项粒度叫 siteCode、在会议 / 参会粒度叫 site_code，同一个筛选落到别的粒度上会整块拒绝，所以筛选留给它自己的粒度。",
+    "本看板不做加权分数、不做排名修正：所有面板显示的都是声明过的比值或计数，没有一个是几个指标乘权重加出来的。"
   ]
 }
