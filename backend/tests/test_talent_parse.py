@@ -105,3 +105,14 @@ def test_ocr_years_are_used_when_the_name_has_none():
                        "唐__-42岁-智通简历-编号(______)", "工作经验：9年 熟练CAD")
     d = rec.to_dict()
     assert d["years_experience"]["value"] == 9 and d["years_experience"]["source"] == "ocr"
+
+
+def test_appledouble_sidecars_are_not_cvs(tmp_path):
+    """`._name.pdf` is a macOS resource fork, not a résumé."""
+    import subprocess
+
+    import re
+
+    src = (REPO / "backend" / "scripts" / "talent" / "extract.py").read_text(encoding="utf-8")
+    assert 'pdf.name.startswith("._")' in src, "the sidecar filter is gone; the dossier doubles itself"
+    assert '.DS_Store' in src

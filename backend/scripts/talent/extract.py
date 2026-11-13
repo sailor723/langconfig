@@ -126,7 +126,13 @@ def main() -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     cache = pathlib.Path(args.cache).expanduser().resolve() if args.cache else out.parent / "ocr-cache"
 
-    pdfs = sorted([src] if src.is_file() else src.rglob("*.pdf"))
+    # macOS leaves AppleDouble sidecars next to every file: `._【业务跟单…】.pdf`. They end in `.pdf`,
+    # so `rglob("*.pdf")` doubles the dossier (measured on the deployment: 554 "PDFs" for 277 real
+    # ones) and OCR them into garbage that looks like an unreadable CV. Skip them by name.
+    def _is_real(pdf: pathlib.Path) -> bool:
+        return not pdf.name.startswith("._") and pdf.name != ".DS_Store"
+
+    pdfs = sorted([p for p in ([src] if src.is_file() else src.rglob("*.pdf")) if _is_real(p)])
     if args.limit:
         pdfs = pdfs[: args.limit]
     if not pdfs:

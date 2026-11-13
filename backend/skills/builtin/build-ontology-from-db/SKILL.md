@@ -172,6 +172,35 @@ S8 之后发生的事不是台阶梯的一步，它们有自己的名字：
 所以当有人问某一步是否"在技能里"，**引用台阶梯那张表**（十行），而不是从工作区里重建你做过什么：那张表就是答案，重新
 推导一次要花掉一轮。
 
+## ABox 台阶梯（个体不是数据库行时）
+
+有的本体，个体本身就**不在任何表里**：277 份扫描简历、10 份职务说明书，答案「谁适合这个岗位」**哪里都没存**。这时
+TBox 是推理机，ABox 是数据，二者之间靠蕴含。台阶梯不变（S0–S8），只是 S1/S2 多出三份文件，且多两道门：
+
+| # | 步骤 | 产物 | 门禁 | 绿意味着 |
+|---|---|---|---|---|
+| S1' | ABox | `abox.ttl`（个体；由脚本从记录生成，**不许手写数值**） | `gates/check_abox.py`（A1/A5/A6） | 每个个体都已类型化；源文件数 == 个体数；必填属性在，或带 `:missingData` 记号；无 PII |
+| S2' | 公理 | `reasoning.ttl`（岗位写成**定义类**） | `gates/check_abox.py`（A2/A3/A4/A7） | 推理后才有的成员（不许在 ABox 里断言）、声明过的排除项仍然排除、一致、**删掉公理后蕴含消失** |
+| S3' | 契约 | `reasoning.json`（必须推出谁、必须排除谁、删哪条会消失、覆盖率、PII 规则） | 同上 | 每条 `inferred` 都有第二条路线算出来的期望值 |
+| S8' | 物化 | `scripts/talent/materialize.py` → Postgres 表 + `reasoning_run` 审计行 | `gates/check_abox_sync.py` | 表里的匹配行**逐对等于**重新推理的结果 |
+
+**四条只在这条路上才有的硬规矩：**
+
+- **技能是个体，不是类。** `:SolidWorks a :CAD`（个体属于类别）；写成 `:SolidWorks rdfs:subClassOf :CAD` 对数据一言不发，
+  因为没有任何个体被声明成子类 —— 实测：这样写，匹配类永远为空，而推理机没说一句错话。
+- **类别声明要从词汇表生成，不要手写。** 实测：手写六条类别并把 `:CAD` 敲成 `:CAT`，于是所有 AutoCAD 要求一个人都匹配不上，
+  门禁是绿的（它没在找这个错），页面看上去完美。
+- **阈值只有 DL 推理机能判。** `xsd:minInclusive` 不在 OWL 2 RL 规则里：纯 Python 的 `owlrl` 会把含阈值的类判成空集。
+  用 HermiT（本仓库 `features/ontology/reasoning`），并要求 Java 在场；没有 Java 就报 NOT RUN，不许当成通过。
+- **读不到就打记号，不许写 0。** 「这个人没有技能」和「我们没读出来」是两句不同的话。ABox 里未读到的字段写
+  `:missingData :UnknownYears|:UnknownEducation|:UnknownSkills`，门禁只对**带记号**的缺口免责
+  （`coverage.required_props[].unless_marked`）。
+- **每条蕴含都要有反证。** `falsify` 里至少两条：删掉类定义、删掉某个个体的那条事实。一条删不动的变更证明不了任何事 ——
+  门禁会点名「mutation that changes nothing proves nothing」。
+
+`materialize.py` 只把**推理机给出的**匹配写进表，绝不用 SQL 重写一遍定义；`check_abox_sync.py` 才会因此有意义。
+
+
 ---
 
 ## S-1. 重建在碰任何东西之前先证明自己的 DELTA

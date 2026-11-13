@@ -172,6 +172,40 @@ What happens AFTER S8 is not a ladder step, and it has its own names:
 So when someone asks whether a step is "in the skill", **quote the ladder table** (ten rows) instead of
 reconstructing what you did from the workspace: the table is the answer, and re-deriving it costs a turn.
 
+## The ABox ladder (when the individuals are not database rows)
+
+Some ontologies have individuals that live in **no table at all**: 277 scanned CVs and 10 job descriptions, where the answer
+"who fits this role" is stored nowhere. The TBox is then the reasoner and the ABox is the data, joined by entailment. The ladder
+does not change (S0–S8); S1/S2 gain three files and two gates:
+
+| # | step | artefact | gate | green means |
+|---|---|---|---|---|
+| S1' | ABox | `abox.ttl` (individuals, generated from records — never hand-typed values) | `gates/check_abox.py` (A1/A5/A6) | every individual is typed; source files == individuals; required properties present or carrying a `:missingData` marker; no PII |
+| S2' | axioms | `reasoning.ttl` (each role as a **defined class**) | `gates/check_abox.py` (A2/A3/A4/A7) | members exist only after reasoning (never asserted), declared exclusions stay out, the ontology is consistent, and **removing the axiom makes the entailment disappear** |
+| S3' | contract | `reasoning.json` (who must be entailed, who must be excluded, what removal kills what, coverage, PII rules) | same | every `inferred` entry carries an expectation computed by a SECOND route |
+| S8' | materialise | `scripts/talent/materialize.py` → Postgres tables plus a `reasoning_run` audit row | `gates/check_abox_sync.py` | the match rows **equal, pair by pair,** a fresh reasoning run |
+
+**Four hard rules that only exist on this path:**
+
+- **A skill is an individual, not a class.** `:SolidWorks a :CAD` (an individual of a category). Writing
+  `:SolidWorks rdfs:subClassOf :CAD` says nothing about the data, because no individual was ever typed as the subclass — measured:
+  the match class stays empty and the reasoner never says a word wrong.
+- **Generate the category declarations from the vocabulary; do not hand-write them.** Measured: six hand-written categories with
+  `:CAD` typed as `:CAT` left every AutoCAD requirement matching nobody, and the gate was green because it was not looking for
+  that mistake; the page looked perfect.
+- **Only a DL reasoner decides a threshold.** `xsd:minInclusive` is outside OWL 2 RL: a pure-Python `owlrl` chainer turns every
+  threshold class into the empty set. Use HermiT (`features/ontology/reasoning`) and require Java; with no Java, report NOT RUN —
+  never a pass.
+- **Unread data gets a marker, never a zero.** "This person has no skills" and "we could not read it" are different sentences. The
+  ABox writes `:missingData :UnknownYears|:UnknownEducation|:UnknownSkills`, and the gate excuses a gap only when the marker is
+  there (`coverage.required_props[].unless_marked`).
+- **Every entailment needs a falsification.** At least two `falsify` entries: drop the class definition, and drop one individual's
+  fact. A mutation that changes nothing proves nothing — the gate names it in those words.
+
+`materialize.py` writes only what the reasoner concluded, never a SQL rule that re-implements the definition; that is what makes
+`check_abox_sync.py` mean something.
+
+
 ---
 
 ## S-1. A rebuild proves its DELTA before it touches anything
@@ -210,6 +244,32 @@ Rules, in order:
 
 Then the ladder runs **only on the delta**: a changed metric is S2+S3, a new column is S1+S3, a new
 document section with no declaration consequence is nothing at all.
+
+### S-1's first action is to measure the database, not to read the document
+
+**The database's current schema is the fourth input, and it is measured before the other three.** A first build enters at S0
+(introspect the database); a rebuild enters at S-1 (compare the documents first) — **and that is the blind spot**: the database
+changed, the documents did not, and this path cannot see it. Measured (2026-11-11, re-checking an 11-08 build): the ledger said
+`{"step": "S1", "why": "structure unchanged (no objects or columns added/removed)"}`, while the same day's `check_structure`
+reported against the same database
+
+```
+[FAIL] no table is silently left out — 9 uncovered:
+  driver_schedule, fuel_logs, incident_tickets, maintenance_orders,
+  restriction_calendar, vehicle_axles, vehicle_fixed_costs, violations, zone_permits
+```
+
+Those nine tables had been added to the database afterwards; the ontology never followed. **"Structure unchanged" is an
+assumption until something measures it.**
+
+So:
+
+```
+# 1. take a copy of the INSTALLED ontology first (never `cp -r` the repo)
+ontology_open(ontology_key="<key>", dest="work/<key>")
+# 2. measuring still reads "installed declaration × the real schema in the database"
+python backend/features/ontology/gates/check_structure.py --profile work/<key>/<key>_settings.json
+```
 
 ### The platform composes the seed; do not go looking for it
 
