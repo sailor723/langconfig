@@ -104,8 +104,8 @@
     "installed": "1794405491-7e4275 @ 2026-11-11 22:08 CST：87/87 指标编译、0 按名拒绝；apply 时四族全跑（structure / generic / samples / dashboard）全绿，dashboard 152 项 0 红；commit b3271cbd。覆盖 25/28：22 条有 6 期序列、3 条只有快照（11/14/17 无期间列）、3 条按名拒绝（RS06/RS07 无公式、#18 编译器表达不了跨表同期——缺 severance_lead_events 列或同期关联键）。"
   },
   "meeting_v1": {
-    "why": "meeting_v1：会议决议闭环本体（客户 3562 行导出）。构建中的声明不参与仓库门禁；apply 之后清掉 pending_install 并写上门禁实测数字。",
-    "pending_install": "built by agent 379 — not staged yet",
+    "why": "meeting_v1：集团会议决议闭环本体。源库 meeting_hub 是客户 3562 行 × 14 列的会议导出（中文表头、两个粒度混在一张表：会议头 + 决议事项行）。这本体只对「一条决议事项」负责，场次/人时用声明出来的并列口径；缺金额、部门、结案状态、目标值、议题指纹的一律按名拒绝（7 条）。",
+    "installed": "1794578198-3dd05d：43/43 指标编译、0 按名拒绝；check_structure 39/0 failed、check_ontology_generic 103 PASS / 1 NOT RUN(window gate，profile 有意不声明 :TimeWindow)、check_samples 44 条 / 79 断言 ALL PASS、check_dashboard 100 / 0 failed。",
     "profile": [
       "check_structure",
       "check_ontology_generic",
