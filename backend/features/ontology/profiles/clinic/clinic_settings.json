@@ -1,73 +1,73 @@
 {
- "_profile": "clinic —— 门诊/收费/理赔本体的工作台配置（阶段 9 交付物）。固定字段由工作台给定、逐字照抄；guard.default_window_days、guard.big_tables、samples 三项由 introspect 出来的数据决定，理由逐条写在 _evidence 里。",
- "ns": "https://cube.local/ontology/clinic#",
- "ontology_dir": "ontology",
- "overlay": "metrics_ext.ttl",
- "dsn": {
-  "host": "${ONTOLOGY_DB_HOST:-127.0.0.1}",
-  "port": "${ONTOLOGY_DB_PORT:-5432}",
-  "dbname": "clinic_db",
-  "user": "weiping",
-  "password": ""
- },
- "guard": {
-  "enabled": true,
-  "max_rows": 500,
-  "statement_timeout_ms": 8000,
-  "max_plan_rows": 5000000,
-  "default_window_days": 90,
-  "big_tables": {
-   "appointments": "scheduled_at",
-   "invoices": "issued_at",
-   "claims": "filed_at",
-   "payments": "paid_at"
+  "_profile": "clinic —— 门诊/收费/理赔本体的工作台配置（阶段 9 交付物）。固定字段由工作台给定、逐字照抄；guard.default_window_days、guard.big_tables、samples 三项由 introspect 出来的数据决定，理由逐条写在 _evidence 里。",
+  "ns": "https://cube.local/ontology/clinic#",
+  "ontology_dir": "ontology",
+  "overlay": "metrics_ext.ttl",
+  "dsn": {
+    "host": "${ONTOLOGY_DB_HOST:-127.0.0.1}",
+    "port": "${ONTOLOGY_DB_PORT:-5432}",
+    "dbname": "clinic_db",
+    "user": "${ONTOLOGY_DB_USER:-weiping}",
+    "password": ""
   },
-  "large_tables": [
-   "treatment_lines"
-  ]
- },
- "features": {
-  "actions": false,
-  "lane_b": false,
-  "tutorial": true,
-  "tutorial_style": "auto"
- },
- "samples": [
-  "预约数是多少",
-  "爽约率是多少",
-  "按患者城市看诊疗收入",
-  "按诊疗项目看收入",
-  "待决理赔有几笔",
-  "理赔待决率是多少",
-  "回款率是多少",
-  "高额发票有几张",
-  "按专科看预约数",
-  "平均理赔裁决天数是多少",
-  "应收余额是多少",
-  "按险种看拒赔率",
-  "how many completed appointments were there"
- ],
- "_evidence": {
-  "guard.default_window_days": "90。introspect 结果：appointments.scheduled_at 只有 119 天（2026-07-10 ~ 2026-11-06），而库里 now() = 2026-11-06 —— 数据末端就是今天，now 相对的窗口是有意义的，属于 recent，所以取 30/90 而不是 historical 的 0。选 90 不选 30：30 天只覆盖这段历史的 25%，一个默认窗口就把四分之三的库藏静默切掉，那等于拿护栏篡改问题；90 天覆盖约 76%，又短于整段历史，窗口仍然是窗口，而不是伪装成窗口的「没有边界」。180 天大于整段历史，写上等于宣布一条永不生效的护栏 —— 那是装饰不是护栏。如果哪天数据被换成历史快照（末端不再是 now），这个值必须改回 0：0 的意思是按名拒绝，不是静默收窄。",
-  "guard.big_tables": "只收「体量大且有时间列」的表。实测行数：treatment_lines 6,443（最大，但没有时间列，只能靠 max_rows 与 plan 预算兜底，不能给它编一个时间列）、appointments 5,418 → scheduled_at（唯一可用的时间轴；started_at 对 2,182 行恒为 NULL，占 40.3%，拿它当窗口会静默丢掉四成预约）、invoices 3,236 → issued_at、payments 2,339 → paid_at、claims 1,934 → filed_at。patients(600)/doctors(20)/treatments(6) 是维表，不设窗口。",
-  "samples": "13 条，用提问者的原话（中文为主，另留一条英文验证别名匹配），四种答法都覆盖：计数（预约数 / 待决理赔 / 高额发票）、比率（爽约率 / 待决率 / 回款率）、金额与分维度（按城市 / 按项目 / 按专科），以及两条必须按名拒绝的：「应收余额是多少」（:outstandingReceivable 刻意不声明：开票额在 Invoice、回款额在 Payment，相减的数不属于任何颗粒）、「按险种看拒赔率」（:selfPayClaimRate 刻意不声明：insurance_plan 与 claims 自相矛盾，且没有任何指标声明按险种分组 —— 问题里的维度不被覆盖时拒绝，而不是把维度悄悄丢掉）。另有一条「平均理赔裁决天数是多少」是有意留下的活教材：它在菜单上（含义清楚、label 齐全），但编译器拒绝它的公式 —— 拒绝发生在编译期，不在理解期；一个只测理解期的样本集会把它误报成通过，所以通道闸门两处都要测。",
-  "rdfs:label": "28 个指标在 ontology/02-meaning.ttl 第五节逐条给了 rdfs:label（提问会用的词）：:appointments「预约数」、:collectionRate「回款率」、:deepDiscountLineShare「深度折扣行占比」……；概念类另有 label（「已完成就诊」「爽约」「高额发票」）。samples 里每一句都靠这些字面命中，不依赖同义词表；一条命不中就该改 label 或改问法，而不是加一张同义词映射把不确定性藏起来。",
-  "not_decided_here": "ns / ontology_dir / overlay / dsn / guard.enabled / max_rows / statement_timeout_ms / max_plan_rows / features 全部照抄工作台给定值，未重新推导。"
- },
- "aliases": {
-  "患者": "patient",
-  "病人": "patient",
-  "专科": "specialty",
-  "科室": "specialty",
-  "诊疗项目": "treatmentName",
-  "项目": "treatmentName",
-  "险种": "insurancePlan",
-  "医保类型": "insurancePlan",
-  "待决": "pending",
-  "理赔": "claim",
-  "爽约": "noShow",
-  "回款": "collection",
-  "医生": "doctor"
- },
- "title": "Clinic ontology（clinic）"
+  "guard": {
+    "enabled": true,
+    "max_rows": 500,
+    "statement_timeout_ms": 8000,
+    "max_plan_rows": 5000000,
+    "default_window_days": 90,
+    "big_tables": {
+      "appointments": "scheduled_at",
+      "invoices": "issued_at",
+      "claims": "filed_at",
+      "payments": "paid_at"
+    },
+    "large_tables": [
+      "treatment_lines"
+    ]
+  },
+  "features": {
+    "actions": false,
+    "lane_b": false,
+    "tutorial": true,
+    "tutorial_style": "auto"
+  },
+  "samples": [
+    "预约数是多少",
+    "爽约率是多少",
+    "按患者城市看诊疗收入",
+    "按诊疗项目看收入",
+    "待决理赔有几笔",
+    "理赔待决率是多少",
+    "回款率是多少",
+    "高额发票有几张",
+    "按专科看预约数",
+    "平均理赔裁决天数是多少",
+    "应收余额是多少",
+    "按险种看拒赔率",
+    "how many completed appointments were there"
+  ],
+  "_evidence": {
+    "guard.default_window_days": "90。introspect 结果：appointments.scheduled_at 只有 119 天（2026-07-10 ~ 2026-11-06），而库里 now() = 2026-11-06 —— 数据末端就是今天，now 相对的窗口是有意义的，属于 recent，所以取 30/90 而不是 historical 的 0。选 90 不选 30：30 天只覆盖这段历史的 25%，一个默认窗口就把四分之三的库藏静默切掉，那等于拿护栏篡改问题；90 天覆盖约 76%，又短于整段历史，窗口仍然是窗口，而不是伪装成窗口的「没有边界」。180 天大于整段历史，写上等于宣布一条永不生效的护栏 —— 那是装饰不是护栏。如果哪天数据被换成历史快照（末端不再是 now），这个值必须改回 0：0 的意思是按名拒绝，不是静默收窄。",
+    "guard.big_tables": "只收「体量大且有时间列」的表。实测行数：treatment_lines 6,443（最大，但没有时间列，只能靠 max_rows 与 plan 预算兜底，不能给它编一个时间列）、appointments 5,418 → scheduled_at（唯一可用的时间轴；started_at 对 2,182 行恒为 NULL，占 40.3%，拿它当窗口会静默丢掉四成预约）、invoices 3,236 → issued_at、payments 2,339 → paid_at、claims 1,934 → filed_at。patients(600)/doctors(20)/treatments(6) 是维表，不设窗口。",
+    "samples": "13 条，用提问者的原话（中文为主，另留一条英文验证别名匹配），四种答法都覆盖：计数（预约数 / 待决理赔 / 高额发票）、比率（爽约率 / 待决率 / 回款率）、金额与分维度（按城市 / 按项目 / 按专科），以及两条必须按名拒绝的：「应收余额是多少」（:outstandingReceivable 刻意不声明：开票额在 Invoice、回款额在 Payment，相减的数不属于任何颗粒）、「按险种看拒赔率」（:selfPayClaimRate 刻意不声明：insurance_plan 与 claims 自相矛盾，且没有任何指标声明按险种分组 —— 问题里的维度不被覆盖时拒绝，而不是把维度悄悄丢掉）。另有一条「平均理赔裁决天数是多少」是有意留下的活教材：它在菜单上（含义清楚、label 齐全），但编译器拒绝它的公式 —— 拒绝发生在编译期，不在理解期；一个只测理解期的样本集会把它误报成通过，所以通道闸门两处都要测。",
+    "rdfs:label": "28 个指标在 ontology/02-meaning.ttl 第五节逐条给了 rdfs:label（提问会用的词）：:appointments「预约数」、:collectionRate「回款率」、:deepDiscountLineShare「深度折扣行占比」……；概念类另有 label（「已完成就诊」「爽约」「高额发票」）。samples 里每一句都靠这些字面命中，不依赖同义词表；一条命不中就该改 label 或改问法，而不是加一张同义词映射把不确定性藏起来。",
+    "not_decided_here": "ns / ontology_dir / overlay / dsn / guard.enabled / max_rows / statement_timeout_ms / max_plan_rows / features 全部照抄工作台给定值，未重新推导。"
+  },
+  "aliases": {
+    "患者": "patient",
+    "病人": "patient",
+    "专科": "specialty",
+    "科室": "specialty",
+    "诊疗项目": "treatmentName",
+    "项目": "treatmentName",
+    "险种": "insurancePlan",
+    "医保类型": "insurancePlan",
+    "待决": "pending",
+    "理赔": "claim",
+    "爽约": "noShow",
+    "回款": "collection",
+    "医生": "doctor"
+  },
+  "title": "Clinic ontology（clinic）"
 }
