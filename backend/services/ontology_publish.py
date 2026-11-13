@@ -363,6 +363,14 @@ def stage(key: str, files: dict[str, str], *, actor: str | None = None, note: st
     ok = (bool(compile_report.get("compiled", 0)) and not new_refusals
           and not gates.get("fails"))
     status = "staged" if ok else "refused"
+    if not ok:
+        # A refused candidate loses its tree (below), so its DIFF has to be captured first: a
+        # refusal is the publish a reviewer most wants to read, and `diff()` used to answer "the
+        # staging dir is gone" for exactly that case (measured 2026-11-14, a newrefusal stage).
+        try:
+            report["file_diffs"] = _tree_diff(staging, live, 12000)
+        except Exception as exc:  # a diff is a courtesy, never a reason to fail a stage
+            report["file_diffs_error"] = str(exc)
     _audit_row(staged_id, key, actor, status, note=note, files=files, report=report)
     if not ok:
         # A refused staging can never be applied, so its tree is only disk: keep `.staging/` meaning
@@ -418,10 +426,20 @@ def _apply_locked(staged_id: str, *, actor: str | None, git_commit: bool) -> dic
     if row.get("status") != "staged":
         status = row.get("status")
         if status == "applied":
-            return {"ok": False, "already_applied": True,
-                    "error": (f"publish {staged_id} was already applied"
-                              + (f" at {row.get('updated_at')}" if row.get("updated_at") else "")
-                              + " — nothing to do (a second click does not reinstall it)")}
+            # NOT an error. The caller asked for "this publish is installed"; that is the state the
+            # world is already in, so the request was satisfied. It used to come back `ok: False`,
+            # which the route turned into a 409 and the Settings page painted red — measured on
+            # ebl_ops_v1 (2026-11-14): a second click on a publish that HAD installed read as a
+            # failure, and the only way to tell it apart from a real failure was to open the ledger.
+            # The `ok` flag is what the route and the UI key off, so the idempotent case has to carry
+            # `ok: True` plus the flag that says why nothing happened.
+            at = row.get("updated_at")
+            return {"ok": True, "already_applied": True, "staged_id": staged_id,
+                    "key": row.get("key"), "applied_at": at,
+                    "git_commit": row.get("git_commit"),
+                    "message": (f"publish {staged_id} was already applied"
+                                + (f" at {at}" if at else "")
+                                + " — nothing to do (a second click does not reinstall it)")}
         why = "refused at stage time (see its report)" if status == "refused" else status
         return {"ok": False, "error": f"publish {staged_id} is {why}"}
     key = row["key"]
@@ -616,30 +634,17 @@ def reload_workbench(key: str) -> str:
         return f"{type(exc).__name__}: {exc}"
 
 
-def diff(staged_id: str, max_chars: int = 20000) -> dict:
-    """What this publish would CHANGE: a per-file unified diff, installed vs staged.
+def _tree_diff(staging: pathlib.Path, live: pathlib.Path,
+               max_chars: int = 20000) -> dict:
+    """Per-file unified diff of a staging tree against the installed one.
 
-    A publish report says "gates PASS, 20 compiled, 3 carried refusals" — true and useless to a
-    reviewer who has to decide whether a number's meaning changes. The unit is the file, because
-    that is the unit a publish installs; each file comes back with its own diff so a reviewer can
-    read the one that matters and skip the build report that came along.
-
-    Read-only, and it works for refused publishes too (a candidate that will not install is
-    exactly what someone wants to look at). Nothing here runs the compiler or the database.
+    Returned as data so BOTH callers can use it: `diff()` serves it live, and `stage()` stores a
+    bounded copy in the audit row — a refused candidate has its tree deleted on purpose (so
+    `.staging/` keeps meaning "waiting for a human"), yet a refused candidate is exactly what a
+    reviewer opens. Measured 2026-11-14: `diff()` on a refused publish answered "the staging dir is
+    gone", i.e. the one publish a person most wants to read was the one they could not.
     """
     import difflib
-
-    rows = _audit_list(staged_id)
-    if not rows:
-        return {"ok": False, "error": f"no publish {staged_id!r}"}
-    row = rows[0]
-    key = row["key"]
-    staging = _staging_dir(key) / staged_id
-    live = ONTOLOGIES / key
-    if not staging.is_dir():
-        return {"ok": False, "error": f"the staging dir for {staged_id} is gone "
-                                      f"(applied, discarded, or cleaned up)",
-                "files": [], "staged_id": staged_id, "key": key}
 
     files: list[dict] = []
     budget = max_chars
@@ -704,9 +709,45 @@ def diff(staged_id: str, max_chars: int = 20000) -> dict:
             if not (staging / rel).exists():
                 removed_paths.append(str(rel).replace("\\", "/"))
 
-    return {"ok": True, "staged_id": staged_id, "key": key, "status": row.get("status"),
-            "files": files, "not_in_staging": removed_paths,
+    return {"files": files, "not_in_staging": removed_paths,
             "changed": [f["path"] for f in files if f["status"] in ("added", "changed")]}
+
+
+def diff(staged_id: str, max_chars: int = 20000) -> dict:
+    """What this publish would CHANGE: a per-file unified diff, installed vs staged.
+
+    A publish report says "gates PASS, 20 compiled, 3 carried refusals" — true and useless to a
+    reviewer who has to decide whether a number's meaning changes. The unit is the file, because
+    that is the unit a publish installs; each file comes back with its own diff so a reviewer can
+    read the one that matters and skip the build report that came along.
+
+    Read-only, and it works for refused publishes too — from the copy `stage()` stored in the audit
+    row, because a refusal deletes its tree. Nothing here runs the compiler or the database.
+    """
+    rows = _audit_list(staged_id)
+    if not rows:
+        return {"ok": False, "error": f"no publish {staged_id!r}"}
+    row = rows[0]
+    key = row["key"]
+    staging = _staging_dir(key) / staged_id
+    live = ONTOLOGIES / key
+    if not staging.is_dir():
+        stored = (row.get("report") or {}).get("file_diffs")
+        if stored:
+            return {"ok": True, "staged_id": staged_id, "key": key, "status": row.get("status"),
+                    "from": "ledger",
+                    "files": stored.get("files") or [],
+                    "not_in_staging": stored.get("not_in_staging") or [],
+                    "changed": stored.get("changed") or []}
+        return {"ok": False, "error": f"the staging dir for {staged_id} is gone "
+                                      f"(applied, discarded, or cleaned up)",
+                "files": [], "staged_id": staged_id, "key": key}
+
+    payload = _tree_diff(staging, live, max_chars)
+    return {"ok": True, "staged_id": staged_id, "key": key, "status": row.get("status"),
+            "from": "disk",
+            "files": payload["files"], "not_in_staging": payload["not_in_staging"],
+            "changed": payload["changed"]}
 
 
 # ────────────────────────────────────────────── what the numbers do

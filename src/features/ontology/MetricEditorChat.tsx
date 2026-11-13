@@ -393,8 +393,11 @@ export default function MetricEditorChat({ ontologyKey, onApplied, onClose, hide
     setApplying(id);
     setNotice(null);
     try {
-      await apiClient.post(`/api/ontology/publish/${id}/apply`, { confirmed: true });
-      setNotice({ ok: true, text: `applied ${id} — the cards behind this panel now show the new numbers` });
+      const res: any = await apiClient.post(`/api/ontology/publish/${id}/apply`, { confirmed: true });
+      const d = res?.data || {};
+      setNotice(d.already_applied
+        ? { ok: true, text: `already installed ${id} — nothing to do (a second click does not reinstall it)` }
+        : { ok: true, text: `applied ${id} — the cards behind this panel now show the new numbers` });
       setArmed(null);
       await loadProposals();
       onApplied?.();

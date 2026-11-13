@@ -47,6 +47,23 @@ def test_a_second_apply_is_told_what_happened():
     assert "already applied" in text
 
 
+def test_already_applied_is_not_reported_as_a_failure():
+    """`ok` is what the route and the UI key off, so the idempotent case must carry `ok: True`.
+
+    Measured on ebl_ops_v1 (2026-11-14): a second click on a publish that HAD installed came back
+    `ok: False`, the route raised 409, and Settings painted it red as "apply failed" — the operator
+    had to open the ledger to learn the install had worked. The click asked for "this publish is
+    installed"; that was already true, so the answer is success with a flag, not an error.
+    """
+    text = PUBLISH.read_text(encoding="utf-8")
+    block = text[text.index('if status == "applied":'):]
+    block = block[:block.index('why = "refused at stage time')]
+    assert '"ok": True' in block, "already-applied still reports ok False, so the UI paints it red"
+    assert '"ok": False' not in block, "already-applied must not carry an error"
+    assert '"error"' not in block, "already-applied must not carry an error string"
+    assert '"message"' in block, "nothing for the UI to show as the (non-)action it took"
+
+
 def test_applied_cannot_be_overwritten():
     text = PUBLISH.read_text(encoding="utf-8")
     assert "WHERE ontology_publishes.status <> 'applied'" in text, \
@@ -84,8 +101,11 @@ def test_a_double_click_installs_once_and_the_ledger_says_applied(tmp_path, monk
                         lambda pid: [dict(ledger[pid], created_at="now")] if pid in ledger else [])
     monkeypatch.setattr(pub, "_compile_report", lambda profile: {"metrics": 1, "compiled": 1,
                                                                  "refused": []})
-    monkeypatch.setattr(pub, "_run_gates", lambda profile, truth=None: {"ok": True, "fails": [],
-                                                                       "not_run": [], "text": ""})
+    # `_run_gates(profile, key=…)` — the fake has to take the keyword the service actually passes,
+    # otherwise this test dies inside the thread and never exercises the race at all (measured
+    # 2026-11-14: the fake predated `key=` and the whole double-click test was failing on TypeError).
+    monkeypatch.setattr(pub, "_run_gates", lambda profile, key=None, truth=None: {"ok": True, "fails": [],
+                                                                                "not_run": [], "text": ""})
     monkeypatch.setattr(pub, "reload_workbench", lambda key: "")
     monkeypatch.setattr(pub, "_supersede_older", lambda key, keep: [])
 
@@ -116,10 +136,15 @@ def test_a_double_click_installs_once_and_the_ledger_says_applied(tmp_path, monk
     for th in threads:
         th.join()
 
-    ok_runs = [r for r in results if r.get("ok")]
-    assert len(ok_runs) == 1, f"expected exactly one install, got {results}"
-    assert any(r.get("already_applied") for r in results), \
+    installs = [r for r in results if r.get("ok") and not r.get("already_applied")]
+    assert len(installs) == 1, f"expected exactly one install, got {results}"
+    repeat = [r for r in results if r.get("already_applied")]
+    assert len(repeat) == 1, \
         f"the second caller was not told the publish was already applied: {results}"
+    # ... and told it as SUCCESS: the click got what it asked for. A 409 here reads as "apply failed"
+    # on the Settings page, which is the bug this pins.
+    assert repeat[0].get("ok") is True, f"already-applied came back as a failure: {repeat[0]}"
+    assert "error" not in repeat[0], f"already-applied carries an error string: {repeat[0]}"
     assert ledger[staged_id]["status"] == "applied", ledger[staged_id]
 
     import shutil as _shutil

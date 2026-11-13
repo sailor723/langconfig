@@ -587,8 +587,11 @@ function ProposalCard({ proposal, onApplied }: { proposal: Proposal; onApplied: 
   const apply = async () => {
     setBusy(true); setMsg(null);
     try {
-      await apiClient.post(`/api/ontology/publish/${proposal.id}/apply`, { confirmed: true });
-      setMsg({ ok: true, text: `已上线 ${proposal.id}，指标卡片会显示新数字` });
+      const res: any = await apiClient.post(`/api/ontology/publish/${proposal.id}/apply`, { confirmed: true });
+      const d = res?.data || {};
+      setMsg(d.already_applied
+        ? { ok: true, text: `已安装过 ${proposal.id}——没有重复安装（再点一次不会重装）` }
+        : { ok: true, text: `已上线 ${proposal.id}，指标卡片会显示新数字` });
       setArmed(false);
       onApplied();
     } catch (e: any) {

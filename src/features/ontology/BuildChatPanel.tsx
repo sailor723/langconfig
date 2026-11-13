@@ -112,7 +112,11 @@ export default function BuildChatPanel({ ontologyKey, onClose }: {
     try {
       const res: any = await apiClient.post(`/api/ontology/publish/${id}/apply`, { confirmed: true });
       const d = res?.data || {};
-      setApplyMsg({ ok: true, text: `installed ${id}${d.git_commit ? ` · commit ${d.git_commit}` : ''}` });
+      // The idempotent case (already installed) is the state the click asked for; it used to arrive as
+      // a 409 and read as "apply failed". Say what happened.
+      setApplyMsg(d.already_applied
+        ? { ok: true, text: `already installed ${id}${d.git_commit ? ` · commit ${d.git_commit}` : ''} — nothing to do (a second click does not reinstall it)` }
+        : { ok: true, text: `installed ${id}${d.git_commit ? ` · commit ${d.git_commit}` : ''}` });
       setArmed(null);
       await loadState();
     } catch (e: any) {

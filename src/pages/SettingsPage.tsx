@@ -1858,6 +1858,17 @@ function PublishPanel() {
     try {
       const res = await apiClient.post(`/api/ontology/publish/${id}/apply`, { confirmed: true })
       const d = res.data || {}
+      // "Already applied" is the state the click asked for, not a failure. It used to arrive as a 409
+      // and paint red — measured on ebl_ops_v1 (2026-11-14): a second click on a publish that HAD
+      // installed looked like a broken apply. Say what happened instead of pretending to install.
+      if (d.already_applied) {
+        setMsg({
+          ok: true,
+          text: `already installed ${id} at ${stamp(d.applied_at) || 'earlier'}${d.git_commit ? ` · commit ${d.git_commit}` : ''} — nothing to do (a second click does not reinstall it)`,
+        })
+        setArmed(null)
+        return
+      }
       // A commit that FAILED used to read as "commit (none)" — indistinguishable from git switched off.
       // Measured on the deployment: every apply since v4 failed with "Author identity unknown" and the
       // ontology's files just piled up staged in the repo. Say it out loud instead.

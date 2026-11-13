@@ -121,7 +121,7 @@ def repo(tmp_path, monkeypatch):
     # up. The compile stays REAL (it needs only rdflib), and the gate plumbing itself is gated
     # against the installed logistics ontology in the integration test at the bottom of file.
     stub = {"ok": True, "fails": [], "not_run": [], "text": "gates stubbed for the unit test"}
-    monkeypatch.setattr(op, "_run_gates", lambda profile_path, truth=None: dict(stub))
+    monkeypatch.setattr(op, "_run_gates", lambda profile_path, truth=None, key=None: dict(stub))
     yield live
     shutil.rmtree(root, ignore_errors=True)
 
@@ -222,7 +222,7 @@ def test_a_failure_after_install_restores_the_installed_ontology(repo):
 
     calls = {"n": 0}
 
-    def flaky(profile_path, truth=None):
+    def flaky(profile_path, truth=None, key=None):
         calls["n"] += 1
         # stage() ran before this stub was installed: call 1 is apply's re-check, call 2 is
         # the run against the INSTALLED path — the one that must restore from the backup.
@@ -234,7 +234,7 @@ def test_a_failure_after_install_restores_the_installed_ontology(repo):
     try:
         out = op.apply(res["staged_id"], actor="gate", confirmed=True)
     finally:
-        op._run_gates = lambda profile_path, truth=None: {
+        op._run_gates = lambda profile_path, truth=None, key=None: {
             "ok": True, "fails": [], "not_run": [], "text": "ok"}
 
     assert out["ok"] is False and "reverted" in out["error"]
