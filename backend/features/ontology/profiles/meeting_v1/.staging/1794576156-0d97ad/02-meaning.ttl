@@ -1,0 +1,126 @@
+@prefix : <https://cube.local/ontology/meeting_v1#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# =============================================================================
+# S2 含义层：每个口径回答「哪一组行」。
+# 所有定义类都挂在同一张表上（一行一条决议事项），没有跨表连接：
+# 本库只有一张表，也就不存在「同一件事两个口径来自两张表」的错位。
+#
+# 标注来源：Qn = 本次搭建时向业务确认的第 n 个问题；规格 = upload/02-规格.md 与 01-字段契约。
+# =============================================================================
+
+# --- 责任人有无：这是本库最重的一条口径，因为 45.8% 的行「无责任人」 ---------
+
+:OwnedItem a owl:Class ; rdfs:label "有责任人的决议事项" ; rdfs:subClassOf :DecisionItem ;
+    :physicalTable "meeting_hub_raw" ;
+    :physicalPredicate "c11 is not null and btrim(c11) not in ('', '无', '—', '-')" ;
+    :businessDescription "责任人一栏写了具体人的行（1929 行）。这是唯一可以拿来算「人均事项数」「按责任人下钻」的口径。判定用声明式谓词而不是 OWL 公理：OWL 表达不了「不等于这 4 个字面量之一」，空串/「无」/破折号在这里都是缺失占位符，不是人名（Q2：人确认「无」= 没有责任人）" .
+
+:NoOwnerItem a owl:Class ; rdfs:label "无责任人的决议事项" ; rdfs:subClassOf :DecisionItem ;
+    :physicalTable "meeting_hub_raw" ;
+    :physicalPredicate "c11 is null or btrim(c11) in ('', '无', '—', '-')" ;
+    :businessDescription "责任人缺失的行：1630 行写「无」+ 3 行空值 = 1633 行（45.8%）。它不是「一条有效但没人管的事项」，而是「这一格没填」，所以既不能从分母里悄悄剔掉，也不能当成一个叫「无」的责任人参与排名（Q2：人确认分母要说清是哪一种）" .
+
+# --- 纪要正文有无：决定「这条事项有没有可核对的内容」 ------------------------
+
+:NotedItem a owl:Class ; rdfs:label "有实质纪要的决议事项" ; rdfs:subClassOf :DecisionItem ;
+    :physicalTable "meeting_hub_raw" ;
+    :physicalPredicate "btrim(c10) not in ('', '无', '—', '-') and length(btrim(c10)) > 3" ;
+    :businessDescription "纪要里有实质内容（1911 行）：既不是占位符，也不是长度 ≤3 的「已办/OK」这类无信息值。长度阈值 3 是数据侧的观察（占位与短值集中在 ≤3 字符），不是业务阈值；它只用来区分「有内容/没内容」，不用来评价内容好坏" .
+
+:NoNoteItem a owl:Class ; rdfs:label "纪要缺失的决议事项" ; rdfs:subClassOf :DecisionItem ;
+    :physicalTable "meeting_hub_raw" ;
+    :physicalPredicate "c10 is null or btrim(c10) in ('', '无', '—', '-')" ;
+    :businessDescription "纪要一栏是占位符或空（1617 行，45.4%）。这些行里 1585 行同时没有责任人——即「没人、也没写内容」的事项，是闭环断裂最集中的一块" .
+
+# --- 会议类型归一化：14 个原始标签 → 规格 §2.5 的 4 个会议类别 + 非会议 --------
+
+:NonMeetingItem a owl:Class ; rdfs:label "非会议事项（面试/接待客户）" ; rdfs:subClassOf :DecisionItem ;
+    owl:equivalentClass [ owl:unionOf (
+        [ a owl:Restriction ; owl:onProperty :meetingTypeRaw ; owl:hasValue "面试" ]
+        [ a owl:Restriction ; owl:onProperty :meetingTypeRaw ; owl:hasValue "接待客户" ] ) ] ;
+    :businessDescription "会议类型是「面试」(148) 或「接待客户」(39) 的行，共 187 行（5.3%）。规格 §6 明确：非会议不计入会议统计——面试和接待客户不是会议决议，把它们算进「会议时长/会议数」会把 187 条无关事项混进分母（业务确认 Q4）" .
+
+:MeetingItem a owl:Class ; rdfs:label "会议类决议事项" ; rdfs:subClassOf :DecisionItem ;
+    :physicalTable "meeting_hub_raw" ;
+    :physicalPredicate "c3 not in ('面试', '接待客户')" ;
+    :businessDescription "剔除面试与接待客户之后的会议类事项，3375 行。这一条必须用声明式谓词：它的定义是「:NonMeetingItem 的补集」，而补集在本编译器里没有独立公理，写谓词比写一个没人验证的 complementOf 更诚实" .
+
+:WeeklyMeetingItem a owl:Class ; rdfs:label "周会/例会类事项" ; rdfs:subClassOf :DecisionItem ;
+    :physicalTable "meeting_hub_raw" ;
+    :physicalPredicate "c3 in ('例会', '周会')" ;
+    :businessDescription "固定周期的会：例会 369 + 周会 112 = 481 行。规格 §2.5 的行「例会、周会 → 周会」。注意这里**不含**组合标签「例会/工作汇报」257 行——那 257 行是 §2.5 自己前后矛盾的格子，见 :AmbiguousTypeItem（Q5：拿不准的点名，不要自己拍）" .
+
+:TopicMeetingItem a owl:Class ; rdfs:label "专题会类事项" ; rdfs:subClassOf :DecisionItem ;
+    :physicalTable "meeting_hub_raw" ;
+    :physicalPredicate "c3 in ('工作汇报', '专项汇报', '业绩复盘', '风险预警', '方案共创', '项目会议')" ;
+    :businessDescription "非固定周期、有明确议题的会：工作汇报 1384 + 专项汇报 345 + 业绩复盘 42 + 风险预警 35 + 方案共创 88 + 项目会议 8 = 1902 行。规格 §2.5 把它们归成「专题会」。同样不含「例会/工作汇报」（见 :AmbiguousTypeItem）" .
+
+:AdHocMeetingItem a owl:Class ; rdfs:label "临时会类事项" ; rdfs:subClassOf :DecisionItem ;
+    :physicalTable "meeting_hub_raw" ;
+    :physicalPredicate "c3 in ('临时', '例会/临时会议')" ;
+    :businessDescription "临时发起的会：临时 661 + 例会/临时会议 7 = 668 行。规格 §2.5 把组合标签「例会/临时会议」归到临时会（与「例会/工作汇报」的处理方向相反，这是规格里的不对称，已如实照抄）" .
+
+:TrainingMeetingItem a owl:Class ; rdfs:label "培训类事项" ; rdfs:subClassOf :DecisionItem ;
+    :physicalTable "meeting_hub_raw" ;
+    :physicalPredicate "c3 = '培训'" ;
+    :businessDescription "培训 67 行。规格 §2.5 单独成一类（培训的事项是课程/考核，混进专题会会稀释「议题闭环」）" .
+
+:AmbiguousTypeItem a owl:Class ; rdfs:label "类型归一存疑的事项（例会/工作汇报）" ; rdfs:subClassOf :DecisionItem ;
+    :physicalTable "meeting_hub_raw" ;
+    :physicalPredicate "c3 = '例会/工作汇报'" ;
+    :businessDescription "组合标签「例会/工作汇报」257 行。规格 §2.5 自相矛盾：第 163 行写「取第一段 → 周会」，第 164 行又把同一个标签列进「专题会」。两种取值差得很远（周会 481 vs 738；专题会 1902 vs 2159），所以本体**不替业务选**：把这 257 行单独声明成一个类，四个会议类互不重叠、合起来加非会议正好 3562 行，无论业务最后怎么拍，改的只是这一个谓词，其它数字都能对上（Q5）" .
+
+# --- 日期闭环：两列都能解析成日期才有闭环可言 -------------------------------
+
+:DatedItem a owl:Class ; rdfs:label "计划与实际都可解析的决议事项" ; rdfs:subClassOf :DecisionItem ;
+    :physicalTable "meeting_hub_raw" ;
+    :physicalPredicate "c12 ~ '^[0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}' and c13 ~ '^[0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}'" ;
+    :businessDescription "计划完成时间与实际完成时间**都**能解析成日期的行：1678 行。这是闭环类指标唯一合法的分母——剩下 1884 行是「持续进行 117 / 持续执行 28 / 无 1630 / 每周 6 …」这类非日期承诺，把它们算进分母等于把「没承诺日期」当成「没按期」（Q6：业务确认的闭环分母就是这 1678 行，不是 3562）。谓词里必须同时接受 ISO（2026-09-22）与斜杠（2026/9/22 共 8 行）两种写法，少了斜杠那一支分母就掉到 1670，按期数掉到 1601" .
+
+:OnScheduleItem a owl:Class ; rdfs:label "按期（日期）完成的决议事项" ; rdfs:subClassOf :DecisionItem ;
+    :physicalTable "meeting_hub_raw" ;
+    :physicalPredicate "c12 ~ '^[0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}' and c13 ~ '^[0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}' and translate(left(c13, 10), '/', '-')::date = translate(left(c12, 10), '/', '-')::date" ;
+    :businessDescription "实际完成日期 = 计划完成日期：1609 行。两列都是 text，比较大小必须先转成 date（OWL 的 facet 只能在数值/日期上比较，管不了「先解析再比较」），所以这是声明式谓词的正当用处。注意这**只是日期上按期**：本库没有审核与佐证，日期按期不等于业务确认的闭环（Q6）。*编译纪律*：本类是 :DatedItem 的子集（谓词同时包含「两列都可解析」与日期比较两段），OWL 上直接挂 :DecisionItem 是因为 :where 的基类解析只取单层、且这些概念都在同一张物理表上——多挂一层会被判成「需要 join」而按名拒绝。语义上的父子关系在谓词里是显式的，没有丢。" .
+
+:OverdueItem a owl:Class ; rdfs:label "超期完成的决议事项" ; rdfs:subClassOf :DecisionItem ;
+    :physicalTable "meeting_hub_raw" ;
+    :physicalPredicate "c12 ~ '^[0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}' and c13 ~ '^[0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}' and translate(left(c13, 10), '/', '-')::date > translate(left(c12, 10), '/', '-')::date" ;
+    :businessDescription "实际完成日期晚于计划：58 行（占可判定 1678 的 3.5%）。这是「真超期」，与「没有日期承诺的 1884 行」是两件事，不要合成一个「未闭环率」。*编译纪律*：本类是 :DatedItem 的子集（谓词同时包含「两列都可解析」与日期比较两段），OWL 上直接挂 :DecisionItem 是因为 :where 的基类解析只取单层、且这些概念都在同一张物理表上——多挂一层会被判成「需要 join」而按名拒绝。语义上的父子关系在谓词里是显式的，没有丢。" .
+
+:EarlyItem a owl:Class ; rdfs:label "提前完成的决议事项" ; rdfs:subClassOf :DecisionItem ;
+    :physicalTable "meeting_hub_raw" ;
+    :physicalPredicate "c12 ~ '^[0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}' and c13 ~ '^[0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}' and translate(left(c13, 10), '/', '-')::date < translate(left(c12, 10), '/', '-')::date" ;
+    :businessDescription "实际完成日期早于计划：11 行。提前完成不是超期，别把它算进「未按期」（1609+58+11 = 1678，三种状态互斥且穷尽可判定行）。*编译纪律*：本类是 :DatedItem 的子集（谓词同时包含「两列都可解析」与日期比较两段），OWL 上直接挂 :DecisionItem 是因为 :where 的基类解析只取单层、且这些概念都在同一张物理表上——多挂一层会被判成「需要 join」而按名拒绝。语义上的父子关系在谓词里是显式的，没有丢。" .
+
+:FutureScheduledItem a owl:Class ; rdfs:label "会议排期在未来的决议事项" ; rdfs:subClassOf :DecisionItem ;
+    :physicalTable "meeting_hub_raw" ;
+    :physicalPredicate "left(c1, 10)::date > current_date" ;
+    :businessDescription "会议日期晚于今天：7 行（数据截止日附近排的会）。业务确认「看趋势/看闭环时剔除未来期间」（Q10）；单列成一个类是为了让这个剔除**可数**，而不是在 SQL 里悄悄加一个 where" .
+
+# --- 出席记录层的口径：只有一条「哪些出席记录算会议」 -------------------------
+# 这一层（:Attendance / 视图 meeting_hub_attendance）只服务人时口径。四条会议类谓词在事项层已经
+# 声明过（:WeeklyMeetingItem 等），这里不重复：人时要回答的是「会议开掉多少小时」，
+# 它需要的唯一分界是「会议 vs 面试/接待客户」（Q4），而不是四种会议类型。
+
+:MeetingAttendance a owl:Class ; rdfs:label "会议类出席记录" ; rdfs:subClassOf :Attendance ;
+    :physicalTable "meeting_hub_attendance" ;
+    :physicalPredicate "meeting_type not in ('面试', '接待客户')" ;
+    :businessDescription "会议类会议（剔除面试 148 / 接待客户 39 那 187 条事项所属的会）下的出席记录，11515 行。它与事项层的 :MeetingItem 是同一条业务边界，只是落在「会×人」粒度上：事项层说「哪些事项算会议」，这一层说「哪些出席记录算会议」。两处的标签集合必须一致（面试、接待客户），改一处就要改另一处 —— 宁可重复一条 3 个常量的谓词，也不引入跨粒度的 join 让编译器按名拒绝" .
+
+:AllAttendance a owl:Class ; rdfs:label "全部出席记录" ; rdfs:subClassOf :Attendance ;
+    :physicalTable "meeting_hub_attendance" ;
+    :physicalPredicate "1=1" ;
+    :businessDescription "视图的全集（11849 行），不做任何过滤。它存在的理由是让「含非会议的人时」可以被单独取出来对照：两个数一起看才知道 :MeetingAttendance 剔掉了 521.1833 小时 / 334 人次 / 185 个会议键（面试与接待客户）" .
+
+:MeetingClass a owl:Class ; rdfs:label "会议类会议（场次口径）" ; rdfs:subClassOf :Meeting ;
+    :physicalTable "meeting_hub_meeting" ;
+    :physicalPredicate "meeting_type not in ('面试', '接待客户')" ;
+    :businessDescription "会议类会议的场次集合：2085 场。与 :MeetingAttendance（出席记录）、:MeetingItem（事项行）是同一条业务边界（面试/接待客户不算会议统计，Q4），只是落在「会」这个粒度上。三处标签集合必须一致，改一处就要改三处 —— 宁可把这条 3 个常量的谓词写三遍，也不引入跨粒度的 join 让编译器按名拒绝" .
+
+:AllMeetings a owl:Class ; rdfs:label "全部会议（场次）" ; rdfs:subClassOf :Meeting ;
+    :physicalTable "meeting_hub_meeting" ;
+    :physicalPredicate "1=1" ;
+    :businessDescription "全部会议键的集合（2270 场），不做任何过滤。它让「含面试/接待客户的场次」能被单独取出对照：两个数一起看才知道 :MeetingClass 剔掉了 185 场（面试 146 + 接待客户 39）" .

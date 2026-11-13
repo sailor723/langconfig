@@ -1,0 +1,152 @@
+{
+  "title": "会议决议闭环看板（meeting_v1）",
+  "subtitle": "所有数字都由 meeting_v1 的声明现场编译：面板不写 SQL，也不自带数字。数据是 3562 行客户导出，覆盖 2270 场会议（其中会议类 2085 场）。",
+  "_doc": "面板只能引用 metrics_ext.ttl 里声明过的指标。本看板不声明 holes：库里没有为「每场平均事项数 / 按月趋势 / 泛指派占比」声明过指标（它们没有可编译的粒度），所以那三条写在 briefing.cannot_see 里，作为本看板明确的「答不了」，而不是假造三个永远失败的指标。briefing 的每个数字都必须写成 {metric} 或 {metric:key} 占位符 —— 手打数字会在数据变化后变成谎话。",
+  "kpis": [
+    {
+      "metric": "itemCount",
+      "label": "决议事项（行）"
+    },
+    {
+      "metric": "meetingCount",
+      "label": "会议类场次"
+    },
+    {
+      "metric": "attendanceCount",
+      "label": "会议类参会人次"
+    },
+    {
+      "metric": "manHours",
+      "label": "会议类人时（小时）"
+    },
+    {
+      "metric": "avgMeetingMinutes",
+      "label": "平均每场时长（分钟）"
+    },
+    {
+      "metric": "closeRate",
+      "label": "按期完成率（%，可判定闭环口径）"
+    },
+    {
+      "metric": "overdueRate",
+      "label": "超期占比（%）"
+    },
+    {
+      "metric": "noOwnerRate",
+      "label": "无责任人占比（%）"
+    }
+  ],
+  "panels": [
+    {
+      "id": "siteManHours",
+      "kind": "bar",
+      "title": "厂区 × 会议人时（小时）",
+      "metric": "manHoursBySite",
+      "note": "会议类口径：面试/接待客户不算会议。各厂区之和等于总量，这是分组合计门禁核对过的事实。"
+    },
+    {
+      "id": "siteOverdue",
+      "kind": "bar",
+      "title": "厂区 × 超期占比（%）",
+      "metric": "overdueRateBySite",
+      "note": "分母只含两个日期都解析得出来的事项；不可判定的事项不进入比率，也不会被当成按期。"
+    },
+    {
+      "id": "siteNoOwner",
+      "kind": "bar",
+      "title": "厂区 × 无责任人占比（%）",
+      "metric": "noOwnerRateBySite",
+      "note": "「无责任人」= c11 为空或只写了 无/—/- 这类占位符，口径写在 NotedItem/NoOwnerItem 谓词里。"
+    },
+    {
+      "id": "siteClose",
+      "kind": "bar",
+      "title": "厂区 × 按期完成率（%）",
+      "metric": "closeRateBySite"
+    },
+    {
+      "id": "typeItems",
+      "kind": "bar",
+      "title": "会议类型 × 事项数",
+      "metric": "itemCountByMeetingType",
+      "note": "会议类型取的是事项行上的标签；类型存疑的行单独一组显示，不强行归类。"
+    },
+    {
+      "id": "typeMeetings",
+      "kind": "bar",
+      "title": "会议类型 × 场次",
+      "metric": "meetingCountByMeetingType",
+      "note": "场次按会议键（厂区+年份+月日+场所+参会人集合）去重，与事项行数不是同一个分母。"
+    },
+    {
+      "id": "typeManHours",
+      "kind": "bar",
+      "title": "会议类型 × 会议人时（小时）",
+      "metric": "manHoursByMeetingType"
+    },
+    {
+      "id": "ownerItems",
+      "kind": "table",
+      "title": "责任人 × 事项数（前若干名）",
+      "metric": "itemCountByOwner",
+      "note": "空责任人会作为一组出现，不隐藏——隐藏它等于把「没指派」这个事实从看板上抹掉。"
+    },
+    {
+      "id": "venueItems",
+      "kind": "bar",
+      "title": "场所 × 事项数",
+      "metric": "itemCountByVenue"
+    }
+  ],
+  "policy": [
+    {
+      "id": "overdueRate",
+      "metric": "overdueRate",
+      "label": "超期占比红线",
+      "op": ">",
+      "value": 20,
+      "assumed": true,
+      "confirmed": false,
+      "note": "assumed — 构建者写的演示红线，业务方尚未确认：看板必须显示为未确认，不得当成公司标准"
+    },
+    {
+      "id": "noOwnerRate",
+      "metric": "noOwnerRate",
+      "label": "无责任人占比红线",
+      "op": ">",
+      "value": 20,
+      "assumed": true,
+      "confirmed": false,
+      "note": "assumed — 同上；它衡量「决议发出去了但没人接」，不是工作量"
+    }
+  ],
+  "briefing": {
+    "headline": "这份导出里 {itemCount} 行事项，会议类 {meetingCount} 场、{attendanceCount} 人次参会、合计 {manHours} 小时；平均每场 {avgMeetingMinutes} 分钟。闭环侧：按期完成率 {closeRate}%，超期占比 {overdueRate}%，无责任人占比 {noOwnerRate}%。",
+    "claims": [
+      {
+        "id": "overdue",
+        "verdict_by": "overdueRate",
+        "text": "超期占比 {overdueRate}%，对照本看板 policies 里那条演示红线判断——阈值只在 policies 写一次，是 assumed，不是业务确认过的。"
+      },
+      {
+        "id": "noOwner",
+        "verdict_by": "noOwnerRate",
+        "text": "无责任人占比 {noOwnerRate}%，同样是 assumed 红线；它衡量的是「决议发出去了但没人接」，不是工作量。"
+      },
+      {
+        "id": "siteMix",
+        "text": "厂区之间的人时分布请看第一张图：每个厂区的数都由同一条声明编译，加回去等于总量。"
+      }
+    ],
+    "cannot_see": [
+      "答不了「每场会议平均多少条事项」：事项行没有会议键，事项无法挂到某一场上。",
+      "答不了任何时间窗问题（上周 / 上月 / 本季度）：没有可靠记录时间列，也没声明时间槽。",
+      "答不了「泛指派占比」：缺业务词表。",
+      "答不了「会议几点开始」：只有时长字段，没有起止时刻。"
+    ],
+    "next": "下一步该做的不是加更多图，而是两件业务决定：哪些责任人写法算「泛指派」，以及超期占比的红线到底是多少——这两条一定，拒绝清单里就有两条能变成声明。"
+  },
+  "cannot_see": [
+    "本看板不做同比/环比：数据只有一个导出快照，没有第二个时间切片，任何「比上月」都是编的。"
+  ]
+}

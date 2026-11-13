@@ -17,7 +17,7 @@ triggers:
 - 被要求为一个数据库搭建或扩展本体 / 语义层时
 - 某个 KPI 或指标必须只定义一次并编译出来、而不是每张报表手写一遍时
 - '"同一个指标给出两个不同数字"，而定义必须定下来时'
-version: 3.2
+version: 3.3
 author: weiping
 params:
   datasource:
@@ -44,7 +44,11 @@ params:
 **让本技能成立的那条规则：一步的完成，看的是它的门禁全绿——不是它看起来做完了。** 下面每一步都有一个产物、一条命令
 和一行"绿"的定义。没有门禁的步骤是 `ungated`，而没有门禁的步骤永远不许被报告为完成。
 
-**写 TTL 之前先读 [references/rules.md](references/rules.md)**（二十八条编号规则，每一条都声明了强制它的那道 GATE，
+**写 TTL 之前先读 [references/lessons.md](references/lessons.md)**：八条从真实搭建里掉进过的坑（中文表头被改成
+`c1..c14`、别名表把中文映射成中文、CSV 每格都是字符串、建库与对账归一化不一致、本体 builder 擅自重建数据层、
+一张表里两种粒度、一轮跑不完台阶梯、平台缺陷别写进 prompt）。每一条都写了"现在谁强制它"，没有强制者的会明说。
+
+**写 TTL 之前还要读 [references/rules.md](references/rules.md)**（二十八条编号规则，每一条都声明了强制它的那道 GATE，
 或者干脆说出 `Ungated`）。[references/pitfalls.md](references/pitfalls.md) 是真实失败案例的目录；
 [references/tuning-log.md](references/tuning-log.md) 记的是智能体*自身*行为的同类账本；
 [references/gates.md](references/gates.md) 是门禁矩阵，以及怎么证明每道门禁真的咬得住；

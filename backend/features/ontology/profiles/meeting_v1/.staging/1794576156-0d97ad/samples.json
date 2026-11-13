@@ -1,0 +1,332 @@
+{
+  "_comment": [
+    "meeting_v1 的样例闸门: 每条 offered sample 要么编译出一个数并由第二条手写 SQL 现场核对(route),",
+    "要么按名拒绝(refused_by_name)。路由 SQL 只读 meeting_hub_raw,只用于核对,不进入任何声明。",
+    "每场平均事项数 / 每场平均时长 见 _unresolved 说明（缺会议场次键,匹配器会把'每场'吃掉）。",
+    "场次类样例的手写路线都在 raw 上按 Q3 四元组去重，不经过任何视图：视图错了它们也会红。"
+  ],
+  "samples": [
+    {
+      "question": "会议场次（含面试/接待客户）是多少？",
+      "expect": {
+        "metric": "meetingCountAll",
+        "route": "SELECT count(*) FROM (SELECT DISTINCT c0||'|'||c1||'|'||c4||'|'||c5||'|'||coalesce(c7,'') AS k FROM meeting_hub_raw) s"
+      }
+    },
+    {
+      "question": "决议事项数是多少？",
+      "expect": {
+        "metric": "itemCount",
+        "route": "SELECT count(*) FROM meeting_hub_raw"
+      }
+    },
+    {
+      "question": "会议类事项有多少条？",
+      "expect": {
+        "metric": "meetingItemCount",
+        "route": "SELECT count(*) FROM meeting_hub_raw WHERE not (c3 like '面试%' or c3 like '接待%')"
+      }
+    },
+    {
+      "question": "非会议事项有多少条？",
+      "expect": {
+        "metric": "nonMeetingItemCount",
+        "route": "SELECT count(*) FROM meeting_hub_raw WHERE c3 LIKE '面试%' OR c3 LIKE '接待%'"
+      }
+    },
+    {
+      "question": "有责任人的事项有多少条？",
+      "expect": {
+        "metric": "ownedItemCount",
+        "route": "SELECT count(*) FROM meeting_hub_raw WHERE not (c11 is null or btrim(c11) in ('','无','—','-'))"
+      }
+    },
+    {
+      "question": "有实质纪要的事项有多少条？",
+      "expect": {
+        "metric": "notedItemCount",
+        "route": "SELECT count(*) FROM meeting_hub_raw WHERE btrim(c10) not in ('','无','—','-') AND char_length(btrim(c10)) > 3"
+      }
+    },
+    {
+      "question": "纪要缺失的事项有多少条？",
+      "expect": {
+        "metric": "noNoteItemCount",
+        "route": "SELECT count(*) FROM meeting_hub_raw WHERE c10 is null or btrim(c10) in ('','无','—','-')"
+      }
+    },
+    {
+      "question": "可判定闭环的事项有多少条？",
+      "expect": {
+        "metric": "datedItemCount",
+        "route": "SELECT count(*) FROM meeting_hub_raw WHERE translate(left(c12,10),'/','-') ~ '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' and translate(left(c13,10),'/','-') ~ '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}'"
+      }
+    },
+    {
+      "question": "超期事项有多少条？",
+      "expect": {
+        "metric": "overdueItemCount",
+        "route": "SELECT count(*) FROM meeting_hub_raw WHERE translate(left(c12,10),'/','-') ~ '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' and translate(left(c13,10),'/','-') ~ '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' and translate(left(c13,10),'/','-')::date > translate(left(c12,10),'/','-')::date"
+      }
+    },
+    {
+      "question": "提前完成的事项有多少条？",
+      "expect": {
+        "metric": "earlyItemCount",
+        "route": "SELECT count(*) FROM meeting_hub_raw WHERE translate(left(c12,10),'/','-') ~ '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' and translate(left(c13,10),'/','-') ~ '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' and translate(left(c13,10),'/','-')::date < translate(left(c12,10),'/','-')::date"
+      }
+    },
+    {
+      "question": "排期在未来的事项有多少条？",
+      "expect": {
+        "metric": "futureScheduledItemCount",
+        "route": "SELECT count(*) FROM meeting_hub_raw WHERE c1::timestamp::date > CURRENT_DATE"
+      }
+    },
+    {
+      "question": "周会类事项有多少条？",
+      "expect": {
+        "metric": "weeklyMeetingItemCount",
+        "route": "SELECT count(*) FROM meeting_hub_raw WHERE c3 IN ('周会','例会')"
+      }
+    },
+    {
+      "question": "专题会类事项有多少条？",
+      "expect": {
+        "metric": "topicMeetingItemCount",
+        "route": "SELECT count(*) FROM meeting_hub_raw WHERE c3 IN ('工作汇报','专项汇报','业绩复盘','风险预警','方案共创','项目会议')"
+      }
+    },
+    {
+      "question": "临时会类事项有多少条？",
+      "expect": {
+        "metric": "adHocMeetingItemCount",
+        "route": "SELECT count(*) FROM meeting_hub_raw WHERE c3 IN ('临时','例会/临时会议')"
+      }
+    },
+    {
+      "question": "培训类事项有多少条？",
+      "expect": {
+        "metric": "trainingMeetingItemCount",
+        "route": "SELECT count(*) FROM meeting_hub_raw WHERE c3 = '培训'"
+      }
+    },
+    {
+      "question": "类型存疑的事项有多少条？",
+      "expect": {
+        "metric": "ambiguousTypeItemCount",
+        "route": "SELECT count(*) FROM meeting_hub_raw WHERE c3 = '例会/工作汇报'"
+      }
+    },
+    {
+      "question": "会议总时长是多少分钟？",
+      "expect": {
+        "metric": "minutesSum",
+        "route": "SELECT sum(c6::numeric) FROM meeting_hub_raw"
+      }
+    },
+    {
+      "question": "平均每条事项的会议时长",
+      "expect": {
+        "metric": "avgMinutesPerItem",
+        "route": "SELECT avg(c6::numeric) FROM meeting_hub_raw",
+        "tolerance": 1e-06
+      }
+    },
+    {
+      "question": "按期完成率是多少？",
+      "expect": {
+        "metric": "closeRate",
+        "route": "SELECT round(100.0 * (SELECT count(*) FROM meeting_hub_raw WHERE translate(left(c12,10),'/','-') ~ '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' and translate(left(c13,10),'/','-') ~ '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' and translate(left(c12,10),'/','-')::date = translate(left(c13,10),'/','-')::date)::numeric / (SELECT count(*) FROM meeting_hub_raw WHERE translate(left(c12,10),'/','-') ~ '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' and translate(left(c13,10),'/','-') ~ '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}'), 6)",
+        "tolerance": 1e-06
+      }
+    },
+    {
+      "question": "超期占比是多少？",
+      "expect": {
+        "metric": "overdueRate",
+        "route": "SELECT round(100.0 * (SELECT count(*) FROM meeting_hub_raw WHERE translate(left(c12,10),'/','-') ~ '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' and translate(left(c13,10),'/','-') ~ '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' and translate(left(c13,10),'/','-')::date > translate(left(c12,10),'/','-')::date)::numeric / (SELECT count(*) FROM meeting_hub_raw WHERE translate(left(c12,10),'/','-') ~ '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' and translate(left(c13,10),'/','-') ~ '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}'), 6)",
+        "tolerance": 1e-06
+      }
+    },
+    {
+      "question": "无责任人占比是多少？",
+      "expect": {
+        "metric": "noOwnerRate",
+        "route": "SELECT 100.0 * count(*) FILTER (WHERE c11 is null or btrim(c11) in ('','无','—','-'))::numeric / count(*) FROM meeting_hub_raw",
+        "tolerance": 1e-06
+      }
+    },
+    {
+      "question": "纪要缺失占比是多少？",
+      "expect": {
+        "metric": "noNoteRate",
+        "route": "SELECT 100.0 * count(*) FILTER (WHERE c10 is null or btrim(c10) in ('','无','—','-'))::numeric / count(*) FROM meeting_hub_raw",
+        "tolerance": 1e-06
+      }
+    },
+    {
+      "question": "按厂区看事项数",
+      "expect": {
+        "metric": "itemCountBySite",
+        "route": "SELECT c0, count(*) FROM meeting_hub_raw GROUP BY 1"
+      }
+    },
+    {
+      "question": "按场所看事项数",
+      "expect": {
+        "metric": "itemCountByVenue",
+        "route": "SELECT c9, count(*) FROM meeting_hub_raw GROUP BY 1"
+      }
+    },
+    {
+      "question": "按会议类型看事项数",
+      "expect": {
+        "metric": "itemCountByMeetingType",
+        "route": "SELECT c3, count(*) FROM meeting_hub_raw GROUP BY 1"
+      }
+    },
+    {
+      "question": "按责任人看事项数",
+      "expect": {
+        "metric": "itemCountByOwner",
+        "route": "SELECT c11, count(*) FROM meeting_hub_raw GROUP BY 1"
+      }
+    },
+    {
+      "question": "按厂区看无责任人占比",
+      "expect": {
+        "metric": "noOwnerRateBySite",
+        "route": "SELECT c0, round((100.0 * count(*) FILTER (WHERE c11 is null or btrim(c11) in ('','无','—','-'))::numeric / count(*)), 6) FROM meeting_hub_raw GROUP BY 1",
+        "tolerance": 1e-06
+      }
+    },
+    {
+      "question": "按厂区看按期完成率",
+      "expect": {
+        "metric": "closeRateBySite",
+        "route": "SELECT c0, round(100.0 * sum(CASE WHEN translate(left(c12,10),'/','-') ~ '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' and translate(left(c13,10),'/','-') ~ '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' and translate(left(c12,10),'/','-')::date = translate(left(c13,10),'/','-')::date THEN 1 ELSE 0 END)::numeric / nullif(sum(CASE WHEN translate(left(c12,10),'/','-') ~ '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' and translate(left(c13,10),'/','-') ~ '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}' THEN 1 ELSE 0 END), 0), 6) FROM meeting_hub_raw GROUP BY 1",
+        "tolerance": 1e-06
+      }
+    },
+    {
+      "question": "人时是多少？",
+      "expect": {
+        "refused_by_name": "I can answer about"
+      },
+      "_why": "manHours: 库里没有工时/人数明细，只能给事项条数;声明为拒绝而非代理指标"
+    },
+    {
+      "question": "会议场次数是多少？",
+      "expect": {
+        "metric": "meetingCount",
+        "route": "SELECT count(*) FROM (SELECT DISTINCT c0||'|'||c1||'|'||c4||'|'||c5||'|'||coalesce(c7,'') AS k, min(c3) OVER (PARTITION BY c0,c1,c4,c5,coalesce(c7,'')) AS t FROM meeting_hub_raw) s WHERE s.t NOT IN ('面试','接待客户')"
+      },
+      "_why": "旧版这里是拒绝（c2 是行号）；Q3 确认会议键四元组后场次可数：1785 个键的去重计数由本条手写路线钉住"
+    },
+    {
+      "question": "平均参会人数是多少？",
+      "expect": {
+        "refused_by_name": "I can answer about"
+      },
+      "_why": "avgAttendees: 没有参会人数字段"
+    },
+    {
+      "question": "平均偏差天数是多少？",
+      "expect": {
+        "refused_by_name": "I can answer about"
+      },
+      "_why": "avgCloseDelayDays: 需要逐条计划/实际差值聚合，未声明该指标"
+    },
+    {
+      "question": "重复议题率是多少？",
+      "expect": {
+        "refused_by_name": "I can answer about"
+      },
+      "_why": "repeatedTopicRate: 事项文本无法稳定识别“重复议题”，业务未给判定口径"
+    },
+    {
+      "question": "会议成本金额是多少？",
+      "expect": {
+        "refused_by_name": "I can answer about"
+      },
+      "_why": "meetingCostMoney: 库内无金额字段"
+    },
+    {
+      "question": "会议效能指数是多少？",
+      "expect": {
+        "refused_by_name": "I can answer about"
+      },
+      "_why": "efficiencyIndex: 业务未定义指数公式，禁止自造"
+    },
+    {
+      "question": "泛指派占比是多少？",
+      "expect": {
+        "refused_by_name": "I can answer about"
+      },
+      "_why": "vagueOwnerRate: “泛指派”的判定词表未由业务确认，不设阈值"
+    },
+    {
+      "question": "纪要有内容率是多少？",
+      "expect": {
+        "refused_by_name": "I can answer about"
+      },
+      "_why": "noteContentRate: 与 notedItemCount 的重叠口径未确认，避免两个数打架"
+    },
+    {
+      "question": "最近30天有多少条决议事项？",
+      "expect": {
+        "refused_by_name": "does not support the TimeWindow slot"
+      },
+      "_why": "导出是 2025-12-01 起的历史快照，'最近30天' 取决于导出时点，任何窗口数都会随重导漂移;声明 :supportsSlot 之前不答"
+    },
+    {
+      "question": "平均每场会议时长是多少？",
+      "expect": {
+        "metric": "avgMeetingMinutes",
+        "route": "SELECT avg(d) FROM (SELECT max(c6::numeric) AS d, min(c3) AS t FROM meeting_hub_raw GROUP BY c0,c1,c4,c5,coalesce(c7,'')) s WHERE s.t NOT IN ('面试','接待客户')",
+        "tolerance": 1e-06
+      },
+      "_why": "先在 raw 上按会议键聚合出每场时长再取平均，与视图路线独立"
+    },
+    {
+      "question": "每场会议平均参会人次是多少？",
+      "expect": {
+        "metric": "attendancePerMeeting",
+        "route": "SELECT round((SELECT count(*) FROM meeting_hub_attendance WHERE meeting_type NOT IN ('面试','接待客户'))::numeric / (SELECT count(*) FROM (SELECT DISTINCT c0||'|'||c1||'|'||c4||'|'||c5||'|'||coalesce(c7,'') AS k, min(c3) OVER (PARTITION BY c0,c1,c4,c5,coalesce(c7,'')) AS t FROM meeting_hub_raw) s WHERE s.t NOT IN ('面试','接待客户')), 6)",
+        "tolerance": 1e-06
+      }
+    },
+    {
+      "question": "按厂区看会议场次",
+      "expect": {
+        "metric": "meetingCountBySite",
+        "route": "SELECT c0, count(*) FROM (SELECT DISTINCT c0,c1,c4,c5,coalesce(c7,'') AS lead, min(c3) OVER (PARTITION BY c0,c1,c4,c5,coalesce(c7,'')) AS t FROM meeting_hub_raw) s WHERE s.t NOT IN ('面试','接待客户') GROUP BY 1"
+      }
+    },
+    {
+      "question": "按会议类型看会议场次",
+      "expect": {
+        "metric": "meetingCountByMeetingType",
+        "route": "SELECT meeting_type, count(DISTINCT meeting_key) FROM meeting_hub_attendance WHERE meeting_type NOT IN ('面试','接待客户') GROUP BY 1",
+        "tolerance": 1e-06
+      }
+    },
+    {
+      "question": "会议人时是多少？",
+      "expect": {
+        "metric": "manHours",
+        "route": "SELECT round(sum(duration_minutes)::numeric/60, 6) FROM meeting_hub_attendance WHERE meeting_type NOT IN ('面试','接待客户')",
+        "tolerance": 1e-06
+      }
+    },
+    {
+      "question": "按厂区看会议人时",
+      "expect": {
+        "metric": "manHoursBySite",
+        "route": "SELECT site_code, round(sum(duration_minutes)::numeric/60, 6) FROM meeting_hub_attendance WHERE meeting_type NOT IN ('面试','接待客户') GROUP BY 1",
+        "tolerance": 1e-06
+      }
+    }
+  ]
+}
