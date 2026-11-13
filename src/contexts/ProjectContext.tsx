@@ -81,6 +81,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const setActiveProjectId = (id: number) => {
     setActiveProjectIdState(id);
     localStorage.setItem('activeProjectId', id.toString());
+    // A CHOSEN vault, not the one refreshProjects picks for an empty store: App uses this marker
+    // to decide whether "/" should open the remembered project or the create/select panel.
+    try { localStorage.setItem('vaultChosen', '1'); } catch { /* private mode */ }
   };
 
   const updateProject = async (id: number, data: Partial<Project>) => {

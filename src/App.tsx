@@ -333,15 +333,23 @@ function AppContent() {
   // the user is on the launcher: an explicit visit to "/" (the 项目面板 button) must not bounce
   // them straight back into the project.
   useEffect(() => {
-    if (!activeProjectId) return;
-    if (currentView !== 'home') return;
+    // Only a vault the user CHOSE counts as the default: ProjectContext also auto-selects the
+    // first project for an empty store, and redirecting on that would hide the launcher from
+    // every new browser — the opposite of "show me the create/select panel".
+    let chosen: string | null = null;
+    try { chosen = localStorage.getItem('vaultChosen'); } catch { return; }
+    if (chosen !== '1') return;
+    // Applied at most once per browser session — and the flag is consumed HERE, on the first
+    // navigation of the session, not only when that navigation happens to be the launcher.
+    // Consuming it lazily made 项目面板 a one-way door: the first click after login got bounced
+    // straight back into the project.
     try {
       if (sessionStorage.getItem('vault_default_applied') === '1') return;
       sessionStorage.setItem('vault_default_applied', '1');
     } catch {
-      return;   // no sessionStorage (private mode) → do not guess, stay on the launcher
+      return;   // no sessionStorage (private mode) → do not guess
     }
-    navigate('/project', { replace: true });
+    if (currentView === 'home') navigate('/project', { replace: true });
     // navigate is stable; activeProjectId/currentView are the reactive inputs
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProjectId, currentView]);
