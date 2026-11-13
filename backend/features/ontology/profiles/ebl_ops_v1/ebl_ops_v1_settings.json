@@ -1,0 +1,67 @@
+{
+  "title": "新溢经营本体（ebl_ops_v1）",
+  "ns": "https://cube.local/ontology/ebl_ops_v1#",
+  "ontology_dir": "ontology",
+  "overlay": "metrics_ext.ttl",
+  "dsn": {
+    "host": "${ONTOLOGY_DB_HOST:-127.0.0.1}",
+    "port": "${ONTOLOGY_DB_PORT:-5432}",
+    "dbname": "ebl_ops",
+    "user": "${ONTOLOGY_DB_USER:-langconfig}",
+    "password": "${EBL_OPS_V1_DB_PASSWORD}"
+  },
+  "guard": {
+    "enabled": true,
+    "max_rows": 500,
+    "default_window_days": 0,
+    "statement_timeout_ms": 8000,
+    "max_plan_rows": 5000000,
+    "big_tables": {
+      "orders": "order_date",
+      "low_margin_approvals": "signed_at",
+      "leads": "created_at",
+      "employees": "hired_at"
+    },
+    "large_tables": [
+      "order_lines",
+      "order_adjustments",
+      "customers",
+      "core_customers",
+      "products",
+      "production_lines",
+      "opex_items",
+      "suppliers",
+      "micro_improvements",
+      "rule_regimes"
+    ]
+  },
+  "features": {
+    "actions": false,
+    "lane_b": false,
+    "tutorial": true,
+    "tutorial_style": "auto"
+  },
+  "samples": [
+    "收入合计是多少？",
+    "订单数是多少？",
+    "毛利额是多少？",
+    "毛利率是多少？",
+    "迟到订单数是多少？",
+    "准时交付订单数是多少？",
+    "准时交付率是多少？分年呢？",
+    "双签放行单数是多少？",
+    "已复核放行单数是多少？",
+    "到期未复核放行单数是多少？",
+    "在册人数是多少？",
+    "线索数是多少？",
+    "线索合格率是多少？",
+    "已验证微改良数是多少？",
+    "核心客户数是多少？",
+    "增量收入合计是多少？",
+    "增量收入占比是多少？",
+    "各增长来源的收入多少？",
+    "费用降幅是多少？",
+    "低毛利走量提成系数是多少？",
+    "今年（2026）做了多少收入？去年多少？"
+  ]
+}

@@ -1,0 +1,162 @@
+{
+  "_comment": "第二条路线：每个定义类由人（不是编译器）写成 [表, 谓词]，并由 psql 独立数出行数。_definitions 供 R2 对账；_hand_counts 只是给人看的实测底数。",
+  "_definitions": {
+    "LateOrder": [
+      "orders",
+      "actual_date > promised_date"
+    ],
+    "OnTimeOrder": [
+      "orders",
+      "actual_date <= promised_date"
+    ],
+    "DifferentiatedOrderLine": [
+      "order_lines",
+      "tier = '差异化'"
+    ],
+    "StandardOrderLine": [
+      "order_lines",
+      "tier = '标准'"
+    ],
+    "LowMarginVolumeOrderLine": [
+      "order_lines",
+      "tier = '低毛利走量'"
+    ],
+    "MicroImprovedOrderLine": [
+      "order_lines",
+      "tier = '微改良'"
+    ],
+    "BaselineOrderLine": [
+      "order_lines",
+      "growth_bucket = '存量基本盘'"
+    ],
+    "NewCustomerGrowthOrderLine": [
+      "order_lines",
+      "growth_bucket = 'B 新客户'"
+    ],
+    "CProductGrowthOrderLine": [
+      "order_lines",
+      "growth_bucket = 'C 微改良'"
+    ],
+    "ACustomerAddOnOrderLine": [
+      "order_lines",
+      "growth_bucket = 'A 老客户加购'"
+    ],
+    "GradeACustomer": [
+      "customers",
+      "segment = 'A'"
+    ],
+    "GradeBCustomer": [
+      "customers",
+      "segment = 'B'"
+    ],
+    "GradeCCustomer": [
+      "customers",
+      "segment = 'C'"
+    ],
+    "UnclassifiedCustomer": [
+      "customers",
+      "segment is null"
+    ],
+    "BoundaryCustomer": [
+      "customers",
+      "is_boundary = true"
+    ],
+    "ChurnedCustomer": [
+      "customers",
+      "churned_at is not null"
+    ],
+    "UnderutilizedProductionLine": [
+      "production_lines",
+      "utilization < 70"
+    ],
+    "ClosedProductionLine": [
+      "production_lines",
+      "status = '关停'"
+    ],
+    "ReviewedApproval": [
+      "low_margin_approvals",
+      "reviewed_at is not null"
+    ],
+    "UnreviewedApproval": [
+      "low_margin_approvals",
+      "reviewed_at is null"
+    ],
+    "FreezableOpexItem": [
+      "opex_items",
+      "freezable = true"
+    ],
+    "UnfrozenFreezableOpexItem": [
+      "opex_items",
+      "freezable = true and frozen_at is null"
+    ],
+    "Top10Supplier": [
+      "suppliers",
+      "is_top10 = true"
+    ],
+    "ActiveEmployee": [
+      "employees",
+      "left_at is null"
+    ],
+    "VoluntaryLeaver": [
+      "employees",
+      "leave_reason = '主动离职'"
+    ],
+    "QualifiedLead": [
+      "leads",
+      "is_qualified = true"
+    ],
+    "MicroImprovementProject": [
+      "micro_improvements",
+      "kind = '微改良'"
+    ],
+    "CertificationProject": [
+      "micro_improvements",
+      "kind = '认证'"
+    ],
+    "VerifiedMicroImprovement": [
+      "micro_improvements",
+      "verified_at is not null"
+    ],
+    "DiscountAdjustment": [
+      "order_adjustments",
+      "kind = '折扣'"
+    ],
+    "RebateAdjustment": [
+      "order_adjustments",
+      "kind = '返利'"
+    ]
+  },
+  "_hand_counts": {
+    "LateOrder": 558,
+    "OnTimeOrder": 4042,
+    "DifferentiatedOrderLine": 4232,
+    "StandardOrderLine": 9384,
+    "LowMarginVolumeOrderLine": 4232,
+    "MicroImprovedOrderLine": 552,
+    "BaselineOrderLine": 17339,
+    "NewCustomerGrowthOrderLine": 547,
+    "CProductGrowthOrderLine": 288,
+    "ACustomerAddOnOrderLine": 226,
+    "GradeACustomer": 21,
+    "GradeBCustomer": 114,
+    "GradeCCustomer": 6,
+    "UnclassifiedCustomer": 39,
+    "BoundaryCustomer": 9,
+    "ChurnedCustomer": 1,
+    "UnderutilizedProductionLine": 7,
+    "ClosedProductionLine": 2,
+    "ReviewedApproval": 3203,
+    "UnreviewedApproval": 1029,
+    "FreezableOpexItem": 10,
+    "UnfrozenFreezableOpexItem": 1,
+    "Top10Supplier": 10,
+    "ActiveEmployee": 2636,
+    "VoluntaryLeaver": 82,
+    "QualifiedLead": 327,
+    "MicroImprovementProject": 5,
+    "CertificationProject": 2,
+    "VerifiedMicroImprovement": 5,
+    "DiscountAdjustment": 2361,
+    "RebateAdjustment": 2239
+  }
+}

@@ -1,0 +1,446 @@
+@prefix : <https://cube.local/ontology/ebl_ops_v1#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+############################################################
+# ebl_ops_v1 — 指标层（S3）
+#
+# 口径来源：客户对 Q1–Q11 的回答（answers.json）+ 方案文档原文。凡是文档/客户没定的阈值，
+# 本文件不写；阈值只出现在 :businessDescription 里、并注明出自哪一句原文。
+#
+# 三条硬规矩：
+#  1. 金额一律从 order_lines.revenue / cost 算（明细口径为唯一口径，Q1/Q8）。customers.purchase_amount_2025、
+#     customers.gross_margin_2025、orders.revenue_header 一律不进指标——它们各有自己的拒绝理由。
+#  2. 快照类（production_lines.utilization、suppliers.spend_*）没有时点，任何用它们算出来的数都必须
+#     在 :businessDescription 里写「按今天的快照」。
+#  3. 每个指标的数都有一条手写 SQL 对账：truth/route2_metrics.sql，标签名写在 :askedAs 之后。
+#
+# 可编译的聚合只有四种：sum / count / avg / ratio_of_sums（分子分母是同基数的两个指标）。
+# 需要「按某维度分组」时用 :groupBy，它只对该指标所在的对象生效。
+############################################################
+
+:scale a owl:AnnotationProperty .
+:assumed a owl:AnnotationProperty .     # true = 本会话按默认值定的口径，客户可推翻（见 口径确认单 Q1–Q4）
+:assumedFrom a owl:AnnotationProperty . # 那个默认值是从哪条决议来的
+
+# ---------------------------------------------------------------- Q1 收入
+# 声明顺序说明：:revenue 写在最前面，因为它是唯一一条"分组到 orders.fiscal_year"的头部指标 ——
+# 护栏门禁 G4b 取"第一个可编译的指标"来证明「声明型指标不被注入时间窗、无窗扫描被报出来」，
+# 而 :revenueTotal 只读 order_lines（large_table），没有 orders 这个 big_table 可报。
+# 只动顺序，不动任何一个口径或数字。
+:revenue a owl:DatatypeProperty ;
+    rdfs:label "分年收入" ;
+    :aggregate "sum" ; :formula "revenue" ; :grain :OrderLine ; :universe :OrderLine ;
+    :unit "CNY" ; :askedAs "今年（2026）做了多少收入？去年多少？" ;
+    :groupBy :orderFiscalYear ;
+    :businessDescription "table: order_lines.revenue — 明细口径收入，两年合计 19.9999 亿元。按 orders.fiscal_year 分组：2025 = 8.9999 亿，2026 = 11.0000 亿。表头口径 orders.revenue_header 会给出 20.3000 亿 / 11.1590 亿（2026），不采用（差 3,000.00 万，Q1=A：明细为唯一口径）。route2: revenue / revenue_fy2025 / revenue_fy2026。" .
+
+# 不分组的总收入 —— 只作为比值的分母存在。:revenue 带 :groupBy :orderFiscalYear（两列），
+# 塞进标量子查询会报 "subquery must return only one column"，所以分母单独一条标量。
+# 第一个指标是事实表计数（orders）：护栏 G4b 只测「第一个 aggregate 指标」，而 :revenueTotal 只读
+# order_lines（没有日期列、也不在 big_tables 里）——护栏对它无话可说。把 :orderCount 排在前面，是为了让
+# 「大表无窗口扫描被如实报告、不被改写」这条行为由一个真实指标演示，而不是靠改断言让它变绿。
+:orderCount a owl:DatatypeProperty ;
+    rdfs:label "订单张数" ;
+    :aggregate "count" ; :formula "*" ; :grain :Order ; :universe :Order ;
+    :unit "count" ; :askedAs "一共多少张订单？" ; :groupBy :orderFiscalYear ;
+    :businessDescription "table: orders — 订单张数，4,600（2025 与 2026 两年合计）。它是 onTimeDeliveryRate 的分母，单独声明是为了让分母可被替换、可被质疑。route2: orders_total。" .
+
+:revenueTotal a owl:DatatypeProperty ;
+    rdfs:label "收入合计" ;
+    :aggregate "sum" ; :formula "revenue" ; :grain :OrderLine ; :universe :OrderLine ;
+    :unit "CNY" ; :askedAs "两年加起来多少收入？" ;
+    :businessDescription "table: order_lines.revenue — 明细口径收入两年合计 19.9999 亿（2025 = 8.9999 亿 + 2026 = 11.0000 亿）。它与 :revenue 同一个数，差别只在没有 GROUP BY：分组的那条给人看，这条给比值当分母（分子分母必须同为标量）。route2: revenue。" .
+
+:revenueFy2025 a owl:DatatypeProperty ;
+    rdfs:label "2025年收入" ;
+    :aggregate "sum" ; :formula "revenue" ; :grain :OrderLine ; :universe :OrderLine ;
+    :where :Fy2025OrderLine ; :unit "CNY" ;
+    :askedAs "2025 年收入是多少？" ;
+    :businessDescription "table: order_lines.revenue，只取 orders.fiscal_year = 2025 的订单行，合计 8.9999 亿。它和 revenue 按 fiscalYear 分组得到的 2025 格是同一条口径的两种取法，用于让「去年」可以被单独引用。route2: revenue_fy2025。" .
+
+:revenueFy2026 a owl:DatatypeProperty ;
+    rdfs:label "2026年收入" ;
+    :aggregate "sum" ; :formula "revenue" ; :grain :OrderLine ; :universe :OrderLine ;
+    :where :Fy2026OrderLine ; :unit "CNY" ;
+    :askedAs "2026 年收入是多少？" ;
+    :businessDescription "table: order_lines.revenue，只取 orders.fiscal_year = 2026 的订单行，合计 11.0000 亿。route2: revenue_fy2026。" .
+
+# ---------------------------------------------------------------- Q7 毛利
+:grossMarginAmount a owl:DatatypeProperty ;
+    rdfs:label "毛利额" ;
+    :aggregate "sum" ; :formula "revenue - cost" ; :grain :OrderLine ; :universe :OrderLine ;
+    :unit "CNY" ; :askedAs "毛利额是多少？分年看呢？" ; :groupBy :orderFiscalYear ;
+    :businessDescription "table: order_lines（revenue − cost 逐行相减再求和，不是先各自求和再相减之外的近似——两者对减法等价，声明里仍按逐行写）。两年合计 3.7329 亿；2025 = 1.6762 亿，2026 = 2.0567 亿。route2: gm_amount_fy2025 / gm_amount_fy2026。" .
+
+:weightedGrossMargin a owl:DatatypeProperty ;
+    rdfs:label "毛利率" ;
+    :aggregate "ratio_of_sums" ; :numerator :grossMarginAmount ; :denominator :revenue ;
+    :scale "100.0" ; :unit "%" ; :grain :OrderLine ; :universe :OrderLine ;
+    :askedAs "毛利率是多少？今年比去年好吗？" ; :groupBy :orderFiscalYear ;
+    :businessDescription "table: order_lines — Σ(revenue−cost)/Σrevenue。整体 18.6645%；2025 = 18.6243%，2026 = 18.6977%（+0.0734pp）。这是**加权**毛利率（分母是收入），不是 customers.gross_margin_2025 的客户均值 21.02%——后者口径不明且不可下钻，已按名拒绝（RefusedCustomerGrossMargin）。route2: wgm_fy2025_pct / wgm_fy2026_pct。" .
+
+# ---------------------------------------------------------------- Q5 低毛利走量
+:lowMarginRevenueShare a owl:DatatypeProperty ;
+    rdfs:label "低毛利走量占比" ;
+    :aggregate "ratio_of_sums" ; :numerator :lowMarginRevenue ; :denominator :revenue ;
+    :scale "100.0" ; :unit "%" ; :grain :OrderLine ; :universe :OrderLine ;
+    :askedAs "低毛利走量占收入的比重是多少？今年收敛了吗？" ; :groupBy :orderFiscalYear ;
+    :businessDescription "table: order_lines — 订单行 tier = '低毛利走量' 的收入 / 全部收入。两年都是 23.0000%：2025 = 2.0700 亿 / 8.9999 亿，2026 = 2.5300 亿 / 11.0000 亿。**没有收敛**——占比一分不动，绝对额随收入一起涨了 4,600 万。route2: lm_share_fy2025_pct / lm_share_fy2026_pct。" .
+
+:lowMarginRevenue a owl:DatatypeProperty ;
+    rdfs:label "低毛利走量收入" ;
+    :aggregate "sum" ; :formula "revenue" ; :grain :OrderLine ; :universe :OrderLine ;
+    :where :LowMarginTierLine ; :unit "CNY" ; :askedAs "低毛利走量的收入有多少？" ; :groupBy :orderFiscalYear ;
+    :businessDescription "table: order_lines.revenue，tier = '低毛利走量'。2025 = 2.0700 亿，2026 = 2.5300 亿，合计 4.6000 亿。金额和占比分开两条，是为了让「涨了 4,600 万」和「占比没动」两句话都能被单独复核。route2: lm_rev_fy2025 / lm_rev_fy2026。" .
+
+:lowMarginCommissionFactorAvg a owl:DatatypeProperty ;
+    rdfs:label "低毛利走量提成系数" ;
+    :aggregate "avg" ; :formula "commission_factor" ; :grain :OrderLine ; :universe :OrderLine ;
+    :where :LowMarginTierLine ; :unit "ratio" ;
+    :askedAs "低毛利走量的提成系数是多少？" ;
+    :businessDescription "table: order_lines.commission_factor，tier = '低毛利走量' 的行均值 = 0.5000（即提成减半）。系数在库里是逐行值，但所有低毛利走量行都是同一个 0.5——所以「均值」在这里等于「政策值」；如果哪天出现第二个值，这个指标会跟着变，而政策值不会。" .
+
+# ---------------------------------------------------------------- Q4 低毛利 × 低产能：按名拒绝
+# 决议（口径确认单 Q4 / answers:Q10）：库里没有「下单时点的产线利用率」，只有 production_lines.utilization
+# 一列当前快照。按今天的快照算出一个合规率，会被读成「2026 年 3 月下单那天合规」——那是偷换时点。
+# 所以这里不放一条能跑出数的指标，只放一条**拒绝声明**：有 :askedAs（问题匹配得到）、有 :refusalReason
+# （点开就是这句话），并且**故意不注册成指标**——不挂 :aggregate / :formula / :grain，编译器就不会为它
+# 编出一条看着能跑的 SQL，菜单里也就点不到一个凑出来的数字。
+# 实测（不是推断）：给它补上 :aggregate + :formula "revenue * utilization_at_order" + :grain :OrderLine 后，
+# 编译器按名拒绝，原文是「formula mentions 'utilization_at_order', which is not a column of :OrderLine or of
+# any class reachable through declared relationships」——缺的是一列事实，不是一条定义。这次发布没有把那条
+# 声明带上：本通道会因「新增拒绝」把整次暂存判 refused（carried 才放行），所以它以拒绝声明的形式留在文件里，
+# 拒因进交付清单。
+:lowMarginOnUnderutilizedLineAtOrderTime a owl:DatatypeProperty ;
+    rdfs:label "下单时点低毛利走量落在低产能产线的占比" ;
+    :askedAs "低毛利走量有多少落在低产能产线上？下单那天合规吗？" ;
+    :domain :OrderLine ;
+    :assumed false ;
+    :refusalReason "production_lines.utilization 只有当前快照；order_lines 与 orders 都没有记录下单当天的产线吃紧程度。任何「按今天快照算」的数都回答不了「那天下单是否合规」，所以按名拒绝，不给替代数字（Q4 决议）。" ;
+    :businessDescription "table: order_lines + production_lines —— 拒绝声明，不产出数字。缺的字段是「下单时点的产线利用率」：production_lines 只有一列当前 utilization，没有历史快照表，也没有订单行上的 utilization_at_order。有人追问时可引用的参考量（**不是本指标**，不进任何红线判定）：按今天快照算，tier='低毛利走量' 的 4.6000 亿 100% 落在 utilization < 70 的 7 条线上——那是「今天」的合规，不是「下单那天」的合规（见 :LowMarginOnUnderutilizedLineOrderLine）。70 出自方案四节，不是本会话定的。assumed:false——拒绝不依赖假设，它依赖缺字段。" .
+
+# ---------------------------------------------------------------- Q2 未分级客户
+:unclassifiedCustomerRevenueShare a owl:DatatypeProperty ;
+    rdfs:label "未分级客户收入占比" ;
+    :aggregate "ratio_of_sums" ;
+    :numerator :unclassifiedCustomerRevenue ; :denominator :revenue ;
+    :scale "100.0" ; :unit "%" ; :grain :OrderLine ; :universe :OrderLine ;
+    :askedAs "未分级客户占收入多少？" ; :groupBy :orderFiscalYear ;
+    :assumed true ; :assumedFrom "Q3 默认 A：未分级客户单列一行，分母仍是全部收入" ;
+    :businessDescription "table: order_lines + customers — 客户 segment IS NULL 的订单行收入 / 全部收入。2026 = 20.1533%（2.2169 亿 / 11.0000 亿），2025 = 23.5024%（2.1152 亿 / 8.9999 亿）。分母必须跟着分子走同一年，所以按 fiscalYear 分组读，不要拿 2026 的分子除两年合计。未分级客户 39 / 180 户。route2: uncl_share_fy2026_pct / uncl_rev_fy2025 / uncl_rev_fy2026。" .
+
+:unclassifiedCustomerRevenue a owl:DatatypeProperty ;
+    rdfs:label "未分级客户收入" ;
+    :aggregate "sum" ; :formula "revenue" ; :grain :OrderLine ; :universe :UnclassifiedCustomerOrderLine ;
+    :where :UnclassifiedCustomerOrderLine ;
+    :unit "CNY" ; :askedAs "未分级客户带来多少收入？" ; :groupBy :orderFiscalYear ;
+    :businessDescription "table: order_lines — 客户 segment 为空的订单行收入。2025 = 2.1152 亿，2026 = 2.2169 亿。用同表子查询谓词定位（order_id IN (SELECT ... customers WHERE segment IS NULL)），因为编译器不会为跨表条件加 join。route2: uncl_rev_fy2025 / uncl_rev_fy2026。" .
+
+:unclassifiedCustomerCount a owl:DatatypeProperty ;
+    rdfs:label "未分级客户数" ;
+    :aggregate "count" ; :formula "*" ; :grain :Customer ; :universe :Customer ;
+    :where :UnclassifiedCustomer ; :unit "count" ;
+    :askedAs "有多少客户还没分级？" ;
+    :businessDescription "table: customers — segment IS NULL 的客户数，39 / 180 户（21.67%）。客户总数 180：A 21 / B 114 / C 6 / 未分级 39。route2: unclassified_customers。" .
+
+:segmentBRevenueShare a owl:DatatypeProperty ;
+    rdfs:label "B级客户收入占比" ;
+    :aggregate "ratio_of_sums" ; :numerator :segmentBRevenue ; :denominator :revenue ;
+    :scale "100.0" ; :unit "%" ; :grain :OrderLine ; :universe :OrderLine ;
+    :askedAs "B 级客户占收入多少？" ; :groupBy :orderFiscalYear ;
+    :businessDescription "table: order_lines + customers — 客户 segment = 'B' 的订单行收入 / 全部收入。2026 = 65.6008%。它放在这里是为了让「未分级 20%」有参照系：B 级撑着三分之二收入。route2: seg_B_share_fy2026_pct。" .
+
+:segmentBRevenue a owl:DatatypeProperty ;
+    rdfs:label "B级客户收入" ;
+    :aggregate "sum" ; :formula "revenue" ; :grain :OrderLine ; :universe :SegmentBOrderLine ;
+    :where :SegmentBOrderLine ;
+    :unit "CNY" ; :askedAs "B 级客户的收入是多少？" ; :groupBy :orderFiscalYear ;
+    :businessDescription "table: order_lines — 客户 segment = 'B' 的订单行收入，2026 = 7.2161 亿（65.6008% × 11.0000 亿）。" .
+
+# Q3 的「单列一行」在数据里的样子：按等级分组，NULL 自成一桶。
+:revenueByCustomerSegment a owl:DatatypeProperty ;
+    rdfs:label "分客户等级收入" ;
+    :aggregate "sum" ; :formula "revenue" ; :grain :OrderLine ; :universe :OrderLine ;
+    :groupBy :segmentTier ; :unit "CNY" ;
+    :assumed true ; :assumedFrom "Q3 默认 A：未分级客户单列一行，分母仍是全部收入" ;
+    :askedAs "按客户等级看收入，未分级的那块有多大？" ;
+    :businessDescription "table: order_lines → orders → customers.segment — 按客户等级分组的收入。未分级（segment IS NULL）作为独立一行出现，既不并入 A/B/C，也不从分母里剔除：它占 2026 收入 20.1533%，是数据现状不是业务选择，剔掉会让两成收入无声消失（Q3 默认 A，assumed）。GROUP BY 把 NULL 汇成一行是 PostgreSQL 的行为，所以「未分级」那一行就是 NULL 桶，不需要造占位值。route2: seg_rev_fy2026。" .
+
+# ---------------------------------------------------------------- Q4 核心客户
+:coreCustomerRevenueShare a owl:DatatypeProperty ;
+    rdfs:label "核心客户收入占比" ;
+    :aggregate "ratio_of_sums" ; :numerator :coreCustomerRevenue ; :denominator :revenue ;
+    :scale "100.0" ; :unit "%" ; :grain :OrderLine ; :universe :OrderLine ;
+    :askedAs "核心客户占收入多少？" ; :groupBy :orderFiscalYear ;
+    :businessDescription "table: order_lines + core_customers — 下单客户在核心客户名册（12 家）里的订单行收入 / 全部收入。2026 = 6.3528%（0.6988 亿 / 11.0000 亿）。名册 locked_at 2026-03-31，2025 的行也按「后来进名册」回标。route2: core_share_fy2026_pct。" .
+
+:coreCustomerRevenue a owl:DatatypeProperty ;
+    rdfs:label "核心客户收入" ;
+    :aggregate "sum" ; :formula "revenue" ; :grain :OrderLine ; :universe :CoreCustomerOrderLine ;
+    :where :CoreCustomerOrderLine ;
+    :unit "CNY" ; :askedAs "核心客户带来多少收入？" ; :groupBy :orderFiscalYear ;
+    :businessDescription "table: order_lines — 下单客户在 core_customers 名册内的订单行收入。两年合计 1.4393 亿，2026 = 0.6988 亿。route2: core_rev_all / core_rev_fy2026。" .
+
+:coreCustomerCount a owl:DatatypeProperty ;
+    rdfs:label "核心客户数" ;
+    :aggregate "count" ; :formula "*" ; :grain :CoreCustomer ; :universe :CoreCustomer ;
+    :unit "count" ; :askedAs "核心客户有多少家？" ;
+    :businessDescription "table: core_customers — 名册客户数，12 家（locked_at 2026-03-31）。名单本身是业务方给的，本声明只是数它。route2: core_count。" .
+
+:coreCustomerChurnCount a owl:DatatypeProperty ;
+    rdfs:label "核心客户流失数" ;
+    :aggregate "count" ; :formula "*" ; :grain :CoreCustomer ; :universe :CoreCustomer ;
+    :where :ChurnedCoreCustomer ;
+    :unit "count" ; :askedAs "核心客户流失了几家？" ;
+    :assumed true ; :assumedFrom "报告原文的目标条款，未与客户确认判定口径" ;
+    :businessDescription "table: core_customers + customers.churned_at — 名册内已流失的客户数，1 / 12 家（深圳博远实业001号，2026-05-31）。报告原文写了「核心客户流失 ≤2 家」这一条目标，但没有给判定口径与复核责任；本体只产出测量值（当前 1 / 12 家），不判好坏——把它当红线还是当参考是客户的判断，不是本体的（assumed:true 待客户点头）。口是 churned_at 非空，不是「连续 N 月无订单」——后者要 N，已按名拒绝（RefusedCoreCustomerChurnByInactivity）。route2: core_churned。" .
+
+# ---------------------------------------------------------------- Q6 各年毛利/收入对比已在上面；Q3 交付
+:onTimeDeliveryRate a owl:DatatypeProperty ;
+    rdfs:label "准时交付率" ;
+    :aggregate "ratio_of_sums" ; :numerator :onTimeOrderCount ; :denominator :orderCount ;
+    :scale "100.0" ; :unit "%" ; :grain :Order ; :universe :Order ;
+    :askedAs "准时交付率是多少？分年呢？" ; :groupBy :orderFiscalYear ;
+    :businessDescription "table: orders — actual_date <= promised_date 的订单 / 全部订单。整体 87.8696%（4,042 / 4,600，迟到 558 单）；2025 = 88.0000%，2026 = 87.7500%（−0.25pp）。判定用的是两列日期比较，不是库里的某个布尔标记。route2: late_orders / ontime_rate_pct / ontime_rate_fy2025_pct / ontime_rate_fy2026_pct。" .
+
+:onTimeOrderCount a owl:DatatypeProperty ;
+    rdfs:label "准时交付订单数" ;
+    :aggregate "count" ; :formula "*" ; :grain :Order ; :universe :Order ;
+    :where :OnTimeOrder ; :unit "count" ; :askedAs "准时交付的订单有多少？" ; :groupBy :orderFiscalYear ;
+    :businessDescription "table: orders — actual_date <= promised_date 的订单数，4,042 / 4,600。route2: 4,600 − late_orders。" .
+
+:lateOrderCount a owl:DatatypeProperty ;
+    rdfs:label "迟到订单数" ;
+    :aggregate "count" ; :formula "*" ; :grain :Order ; :universe :Order ;
+    :where :LateOrder ; :unit "count" ; :askedAs "迟到订单有多少？" ; :groupBy :orderFiscalYear ;
+    :businessDescription "table: orders — actual_date > promised_date 的订单，558 单。route2: late_orders。" .
+
+# ---------------------------------------------------------------- Q16 增长来源
+:incrementalRevenueShare a owl:DatatypeProperty ;
+    rdfs:label "增量收入占比" ;
+    :aggregate "ratio_of_sums" ; :numerator :incrementalRevenueTotal ; :denominator :revenueTotal ;
+    :scale "100.0" ; :unit "%" ; :grain :OrderLine ; :universe :OrderLine ;
+    :askedAs "增量收入占多少？+2 亿的目标靠什么撑？" ;
+    :businessDescription "table: order_lines — growth_bucket <> '存量基本盘' 的收入 / 全部收入 = 5.9928%（1.1986 亿 / 19.9999 亿）。三类增量：A 老客户加购 2,498.4 万 + B 新客户 6,187.1 万 + C 微改良 3,300.0 万。这两年 94.01% 的收入被归为存量基本盘——即「+2 亿」里真正的增量只有 1.20 亿。route2: incremental_rev / share_pct（存量基本盘 94.0072%）。" .
+
+# 与 :incrementalRevenue 同一个数，只是不分组 —— 分子必须是标量，分组的那条会返回两列。
+:incrementalRevenueTotal a owl:DatatypeProperty ;
+    rdfs:label "增量收入合计" ;
+    :aggregate "sum" ; :formula "revenue" ; :grain :OrderLine ;
+    :universe :IncrementalOrderLine ; :where :IncrementalOrderLine ;
+    :unit "CNY" ; :askedAs "增量收入总共多少？" ;
+    :businessDescription "table: order_lines.revenue，growth_bucket <> '存量基本盘' 的合计，1,061 行 / 1.1986 亿。它是 incrementalRevenueShare 的分子（标量），分解成三类看 :incrementalRevenue（按 growth_bucket 分组）。两条口径逐字相同，差别只在有没有 GROUP BY。route2: incremental_rev。" .
+
+:incrementalRevenue a owl:DatatypeProperty ;
+    rdfs:label "增量收入" ;
+    :aggregate "sum" ; :formula "revenue" ; :grain :OrderLine ; :universe :IncrementalOrderLine ;
+    :where :IncrementalOrderLine ;
+    :unit "CNY" ; :askedAs "增量收入是多少？" ; :groupBy :lineGrowthBucket ;
+    :businessDescription "table: order_lines.revenue，growth_bucket <> '存量基本盘'，1,061 行 / 1.1986 亿；按 growth_bucket 分组即三类增量的分解（B 新客户 6,187.1 万 / C 微改良 3,300.0 万 / A 老客户加购 2,498.4 万）。谓词用 <>，growth_bucket 可空——若出现 NULL 行它们不会进分子，所以另有一条结构性指标（growthBucketNullLines）盯着这件事。route2: incremental_rev。" .
+
+:growthBucketRevenue a owl:DatatypeProperty ;
+    rdfs:label "各增长来源的收入" ;
+    :aggregate "sum" ; :formula "revenue" ; :grain :OrderLine ; :universe :OrderLine ;
+    :unit "CNY" ; :askedAs "各增长来源的收入多少？" ; :groupBy :lineGrowthBucket ;
+    :businessDescription "table: order_lines.revenue，按 growth_bucket 分组：存量基本盘 18.8014 亿 / B 新客户 6,187.1 万 / C 微改良 3,300.0 万 / A 老客户加购 2,498.4 万。" .
+
+# ---------------------------------------------------------------- Q12 费用
+:opexTotalFy2025 a owl:DatatypeProperty ;
+    rdfs:label "2025年费用" ;
+    :aggregate "sum" ; :formula "amount_2025" ; :grain :OpexItem ; :universe :OpexItem ;
+    :unit "CNY" ; :askedAs "2025 年费用多少？" ;
+    :businessDescription "table: opex_items.amount_2025 — 2025 年费用合计 1.1102 亿。费用表把年份放在**两列**里（amount_2025 / amount_2026），所以没有「年份」维度可 group by，只能一年一条指标（RefusedOpexYearOverYearByCategory 说明了为什么）。route2: opex_2025。" .
+
+:opexTotalFy2026 a owl:DatatypeProperty ;
+    rdfs:label "2026年费用" ;
+    :aggregate "sum" ; :formula "amount_2026" ; :grain :OpexItem ; :universe :OpexItem ;
+    :unit "CNY" ; :askedAs "2026 年费用多少？" ;
+    :businessDescription "table: opex_items.amount_2026 — 2026 年费用合计 0.8530 亿。route2: opex_2026。" .
+
+:opexChangeAmount a owl:DatatypeProperty ;
+    rdfs:label "费用变动额" ;
+    :aggregate "sum" ; :formula "amount_2026 - amount_2025" ; :grain :OpexItem ; :universe :OpexItem ;
+    :unit "CNY" ; :askedAs "费用降了多少？" ;
+    :businessDescription "table: opex_items — Σ(amount_2026 − amount_2025) = −2,571.6 万（降）。逐行相减再求和，等价于两年合计之差，但写成逐行是为了让「哪一项降的」可以下钻到行。route2: opex_change。" .
+
+:opexChangeRate a owl:DatatypeProperty ;
+    rdfs:label "费用降幅" ;
+    :aggregate "ratio_of_sums" ; :numerator :opexChangeAmount ; :denominator :opexTotalFy2025 ;
+    :scale "100.0" ; :unit "%" ; :grain :OpexItem ; :universe :OpexItem ;
+    :askedAs "费用降幅是多少？" ;
+    :businessDescription "table: opex_items — −2,571.6 万 / 1.1102 亿 = −23.1637%（费用下降 23.16%）。分子分母都是同基数的指标（同一批费用行），所以 ratio_of_sums 成立；不要把分子换成年内某个子集。route2: opex_change_pct。" .
+
+:freezableUnfrozenOpexFy2026 a owl:DatatypeProperty ;
+    rdfs:label "2026年可冻结未冻费用" ;
+    :aggregate "sum" ; :formula "amount_2026" ; :grain :OpexItem ; :universe :OpexItem ;
+    :where :UnfrozenFreezableOpexItem ; :unit "CNY" ;
+    :askedAs "还能冻结多少费用？" ;
+    :businessDescription "table: opex_items.amount_2026，freezable 且 frozen_at IS NULL —— 2026 年还有 368.8 万可冻未冻（2025 同口径 819.5 万）。这是「降本还有多少空间」的可执行版本：它只数库里 already 标了 freezable 的行，不判断哪些费用「应该」被冻。route2: freezable_unfrozen_2026 / freezable_unfrozen_2025。" .
+
+# ---------------------------------------------------------------- Q13 供应商
+:top10SupplierSpendShare a owl:DatatypeProperty ;
+    rdfs:label "前十大供应商采购占比" ;
+    :aggregate "ratio_of_sums" ; :numerator :top10SupplierSpend ; :denominator :supplierSpendTotal ;
+    :scale "100.0" ; :unit "%" ; :grain :Supplier ; :universe :Supplier ;
+    :askedAs "前十大供应商占采购额多少？" ;
+    :businessDescription "table: suppliers — is_top10 的 spend / 全部 spend。**spend_2025 与 spend_2026 是两列**，不是行，所以「分年」在这里不是一个维度而是一条列：本指标给出 2026 = 77.6947%（12.8339 亿 / 16.5184 亿）、2025 = 72.8443%（12.0734 亿 / 16.5747 亿）。声明里的 groupBy fiscalYear 只在 spend 列本身带年份时成立；两年对比请直接读两个数或看 supplierSpendTotalFy2025/Fy2026。" .
+
+:top10SupplierSpend a owl:DatatypeProperty ;
+    rdfs:label "前十大供应商采购额" ;
+    :aggregate "sum" ; :formula "spend_2026" ; :grain :Supplier ; :universe :Supplier ;
+    :where :Top10Supplier ; :unit "CNY" ; :askedAs "前十大供应商花了多少？" ;
+    :businessDescription "table: suppliers.spend_2026，is_top10 = true：2026 = 12.8339 亿；2025 同口径 12.0734 亿（+760.0 万）。这一条写死 2026 列，2025 的对应指标是 top10SupplierSpendFy2025。route2: top10_spend_2026 / top10_spend_2025。" .
+
+:top10SupplierSpendFy2025 a owl:DatatypeProperty ;
+    rdfs:label "2025年前十大供应商采购额" ;
+    :aggregate "sum" ; :formula "spend_2025" ; :grain :Supplier ; :universe :Supplier ;
+    :where :Top10Supplier ; :unit "CNY" ; :askedAs "前十大供应商去年花了多少？" ;
+    :businessDescription "table: suppliers.spend_2025，is_top10 = true：12.0734 亿。与 top10SupplierSpend（12.8339 亿）配对做同比，是因为 spend 的年份在列上、无法 group by。route2: top10_spend_2025。" .
+
+:supplierSpendTotal a owl:DatatypeProperty ;
+    rdfs:label "采购总额" ;
+    :aggregate "sum" ; :formula "spend_2026" ; :grain :Supplier ; :universe :Supplier ;
+    :unit "CNY" ; :askedAs "总采购额多少？" ;
+    :businessDescription "table: suppliers.spend_2026 — 全部供应商 2026 年采购额 16.5184 亿（2025 = 16.5747 亿，基本持平）。它是 top10SupplierSpendShare 的分母。route2: sup_total_2026。" .
+
+:supplierSpendTotalFy2025 a owl:DatatypeProperty ;
+    rdfs:label "2025年采购总额" ;
+    :aggregate "sum" ; :formula "spend_2025" ; :grain :Supplier ; :universe :Supplier ;
+    :unit "CNY" ; :askedAs "去年总采购额多少？" ;
+    :businessDescription "table: suppliers.spend_2025 — 全部供应商 2025 年采购额 16.5747 亿。" .
+
+:top10SupplierUnitPriceChange a owl:DatatypeProperty ;
+    rdfs:label "前十大供应商单价变动" ;
+    :aggregate "avg" ; :formula "unit_price_index_2026 / unit_price_index_2025 - 1" ;
+    :grain :Supplier ; :universe :Supplier ; :where :Top10Supplier ;
+    :scale "100.0" ; :unit "%" ;
+    :askedAs "前十大供应商的单价涨了还是降了？" ;
+    :assumed true ; :assumedFrom "Q2 默认 A：供应商单价指数用简单平均（不是采购额加权）" ;
+    :businessDescription "table: suppliers — is_top10 的供应商，逐户算 unit_price_index_2026 / unit_price_index_2025 − 1，再取均值 = −4.1190%（单价平均降 4.12%）。**这是简单平均，不是按金额加权**：一家采购量大的供应商和一家小供应商在均值里权重相同。按金额加权会得到一个不同的数，而库里没有单个物料的金额可供加权，所以这里只报简单平均，并把它的局限写在这里。指数比本身的简单平均 = 0.9588（0.9588 − 1 = −4.1190%，两个数是同一个东西的两种写法；口径确认单里写的是 0.9588）。route2: top10_upc_change_pct。" .
+
+# ---------------------------------------------------------------- Q9 放行单
+:approvalReviewRate a owl:DatatypeProperty ;
+    rdfs:label "放行单复核率" ;
+    :aggregate "ratio_of_sums" ; :numerator :reviewedApprovalCount ; :denominator :approvalCount ;
+    :scale "100.0" ; :unit "%" ; :grain :LowMarginApproval ; :universe :LowMarginApproval ;
+    :askedAs "放行单复核率是多少？" ;
+    :businessDescription "table: low_margin_approvals — reviewed_at 非空 / 全部 = 75.6853%（3,203 / 4,232）。未复核 1,029 张，其中 717 张已过复审到期日、312 张到期日未到。route2: review_rate_pct。" .
+
+:reviewedApprovalCount a owl:DatatypeProperty ;
+    rdfs:label "已复核放行单数" ;
+    :aggregate "count" ; :formula "*" ; :grain :LowMarginApproval ; :universe :LowMarginApproval ;
+    :where :ReviewedApproval ; :unit "count" ; :askedAs "复核了多少张放行单？" ;
+    :businessDescription "table: low_margin_approvals — reviewed_at 非空，3,203 张。route2: reviewed。" .
+
+:approvalCount a owl:DatatypeProperty ;
+    rdfs:label "放行单单数" ;
+    :aggregate "count" ; :formula "*" ; :grain :LowMarginApproval ; :universe :LowMarginApproval ;
+    :unit "count" ; :askedAs "一共多少张放行单？" ;
+    :businessDescription "table: low_margin_approvals — 4,232 张（与低毛利走量订单行数相同：一行一单）。route2: approvals_total。" .
+
+:overdueUnreviewedApprovalCount a owl:DatatypeProperty ;
+    rdfs:label "到期未复核放行单数" ;
+    :aggregate "count" ; :formula "*" ;
+    :grain :LowMarginApproval ; :universe :LowMarginApproval ;
+    :where :OverdueUnreviewedApproval ;
+    :unit "count" ; :askedAs "有多少张放行单到期未复核？" ;
+    :assumed true ; :assumedFrom "基准日取报告出具日 DATE '2026-10-27'，而不是数据边界 —— 客户未确认；两个基准差 310 张（见下）" ;
+    :businessDescription "table: low_margin_approvals — review_due_at < DATE '2026-10-27' 且 reviewed_at IS NULL，717 张。**基准日 2026-10-27 不是数据里最晚的 review_due_at**：库里到期日最长到 2027-04-25，若以数据边界为基准则是 1,027 张，两者差 310 张 —— 取报告日是为了让数不随 now() 漂移，但「逾期」按哪天算属于业务决定，已标 assumed 待客户点头。全库未复核 1,029 张（518 + 315 + 196，按到期年分），其中 312 张到期日未到、不算逾期。route2: overdue_unreviewed / pending_review（另一条算法：到期总数 2,877 − 其中已复核 2,160 = 717，与谓词直算同数）。" .
+
+:dualSignedApprovalRate a owl:DatatypeProperty ;
+    rdfs:label "放行单双签率" ;
+    :aggregate "ratio_of_sums" ; :numerator :dualSignedApprovalCount ; :denominator :approvalCount ;
+    :scale "100.0" ; :unit "%" ; :grain :LowMarginApproval ; :universe :LowMarginApproval ;
+    :askedAs "放行单双签率是多少？" ;
+    :businessDescription "table: low_margin_approvals — signed_by_sales 与 signed_by_finance 都非空 / 全部 = 100.00%（4,232 / 4,232）。双签率 100% 意味着「双签」目前不是约束而是既成事实；它在流程崩掉时才会掉下来，所以要留着（谓词写在 DualSignedApproval 上，不是一句文本）。route2: dual_signed。" .
+
+:dualSignedApprovalCount a owl:DatatypeProperty ;
+    rdfs:label "双签放行单数" ;
+    :aggregate "count" ; :formula "*" ;
+    :grain :LowMarginApproval ; :universe :LowMarginApproval ;
+    :where :DualSignedApproval ;
+    :unit "count" ; :askedAs "双签的放行单有多少？" ;
+    :businessDescription "table: low_margin_approvals — 两侧签字都非空，4,232 张。route2: dual_signed。" .
+
+# ---------------------------------------------------------------- Q11 人员
+:activeHeadcount a owl:DatatypeProperty ;
+    rdfs:label "在册人数" ;
+    :aggregate "count" ; :formula "*" ; :grain :Employee ; :universe :Employee ;
+    :where :ActiveEmployee ; :unit "count" ; :askedAs "现在在册多少人？" ;
+    :businessDescription "table: employees — left_at IS NULL 的在册员工 2,636 人（总 2,800）。这是「期末在册」，是离职率分母的候选之一（另两个：期初 2,798、平均 2,717）。route2: active。" .
+
+:leaverCountFy2026 a owl:DatatypeProperty ;
+    rdfs:label "2026年离职人数" ;
+    :aggregate "count" ; :formula "*" ; :grain :Employee ; :universe :Employee ;
+    :where :LeaverFy2026 ;
+    :askedAs "今年离职多少人？" ;
+    :assumed true ; :assumedFrom "Q1 默认 A：主动离职 / 合同到期 / 退休 三类都算离职（164 人）" ;
+    :businessDescription "table: employees — left_at 落在 2026 年的 164 人 = 主动离职 82 + 合同到期 43 + 退休 39（Q11 默认 A：三类都算离职，**这是一个假设**，客户可推翻）。离职率本身不声明（分母基准未定，RefusedLeaverRate）。route2: leavers_2026 / voluntary。" .
+
+:voluntaryLeaverCountFy2026 a owl:DatatypeProperty ;
+    rdfs:label "2026年主动离职人数" ;
+    :aggregate "count" ; :formula "*" ; :grain :Employee ; :universe :Employee ;
+    :where :VoluntaryLeaverFy2026 ;
+    :unit "count" ; :askedAs "主动离职多少人？" ;
+    :businessDescription "table: employees — 2026 年离职且 leave_reason = '主动离职'，82 人（164 人的一半）。主动离职率同样不声明（分母未定）。route2: voluntary。" .
+
+# ---------------------------------------------------------------- Q14 线索
+:leadQualificationRate a owl:DatatypeProperty ;
+    rdfs:label "线索合格率" ;
+    :aggregate "ratio_of_sums" ; :numerator :qualifiedLeadCount ; :denominator :leadCount ;
+    :scale "100.0" ; :unit "%" ; :grain :Lead ; :universe :Lead ;
+    :askedAs "线索合格率是多少？" ;
+    :businessDescription "table: leads — is_qualified / 全部 = 36.3333%（327 / 900）。这是**有效询盘筛选**的合格率，不是转化率：converted_customer_id 在 900 条里全是 NULL（RefusedLeadConversionRate）。把这条数当转化率用是本库最容易犯的错。route2: leads_qualified / leads_total。" .
+
+:qualifiedLeadCount a owl:DatatypeProperty ;
+    rdfs:label "合格线索数" ;
+    :aggregate "count" ; :formula "*" ; :grain :Lead ; :universe :Lead ;
+    :where :QualifiedLead ; :unit "count" ; :askedAs "合格线索有多少？" ;
+    :businessDescription "table: leads — is_qualified = true，327 条。route2: leads_qualified。" .
+
+:leadCount a owl:DatatypeProperty ;
+    rdfs:label "线索总数" ;
+    :aggregate "count" ; :formula "*" ; :grain :Lead ; :universe :Lead ;
+    :unit "count" ; :askedAs "一共多少条线索？" ;
+    :businessDescription "table: leads — 900 条。route2: leads_total。" .
+
+# ---------------------------------------------------------------- 微改良进度（Q16 的第三个来源）
+:microImprovementVerifiedCount a owl:DatatypeProperty ;
+    rdfs:label "已验证微改良数" ;
+    :aggregate "count" ; :formula "*" ;
+    :grain :MicroImprovement ; :universe :MicroImprovement ;
+    :where :VerifiedMicroImprovement ; :unit "count" ; :askedAs "微改良验证了几条？" ;
+    :businessDescription "table: micro_improvements — verified_at 非空的 5 条（/7）。金额侧无法声明：表里没有任何金额或数量列，所以「微改良省了多少钱」按名拒绝（RefusedMicroImprovementSaving），只报进度。" .
+
+:microImprovementCount a owl:DatatypeProperty ;
+    rdfs:label "微改良总数" ;
+    :aggregate "count" ; :formula "*" ; :grain :MicroImprovement ; :universe :MicroImprovement ;
+    :unit "count" ; :askedAs "一共有几条微改良？" ;
+    :businessDescription "table: micro_improvements — 7 条（5 已验证 / 0 回退）。" .
+
+# ---------------------------------------------------------------- 红线二：关停产线之后还在走单的收入
+:closedLineRevenueAfterClose a owl:DatatypeProperty ;
+    rdfs:label "关停产线后仍在走单的收入" ;
+    :aggregate "sum" ; :formula "revenue" ; :grain :OrderLine ; :universe :ClosedLineAfterCloseOrderLine ;
+    :where :ClosedLineAfterCloseOrderLine ;
+    :unit "CNY" ; :askedAs "关停产线之后还在走单的收入有多少？" ;
+    :assumed true ; :assumedFrom "报告原文的目标条款（关停后收入应≈0），未与客户确认判定阈值" ;
+    :businessDescription "table: order_lines + orders + production_lines — 落在已关停产线（L08 / L09，2026-09-30 关停）上、且下单日晚于最早关停日的订单行收入。报告只写了「关停后不应再有收入」这一句方向，没有给阈值和复核口径，所以本体只产出测量值，不判好坏（assumed:true 待客户点头）。锚点用 MIN(closed_at) 取最早关停日，不硬编码 2026-09-30——两条线如果分批关，这个锚点会跟着数据走并在描述里说清楚。**实测量：146 个订单行 / 1,867.16 万（0.1867 亿），首单 2026-10-01，末单 2026-12-31**——关停之后仍然在走单，这正是报告担心的事。route2: closed_rev_yi（手写 SQL，与编译器两条独立路径得同一个数）。" .
+
+:lowMarginRevenueOnUnderutilizedLine a owl:DatatypeProperty ;
+    rdfs:label "低毛利走量落在低利用率产线上的收入" ;
+    :aggregate "sum" ; :formula "revenue" ; :grain :OrderLine ;
+    :universe :LowMarginOnUnderutilizedLineOrderLine ; :where :LowMarginOnUnderutilizedLineOrderLine ;
+    :unit "CNY" ; :groupBy :orderFiscalYear ;
+    :askedAs "落在低利用率产线上的低毛利走量收入是多少？" ;
+    :businessDescription "table: order_lines + production_lines — tier='低毛利走量' 且订单行的 production_line_id 指向 utilization < 70 的产线，按财年合计。**按今天的利用率快照算**：production_lines 只有当前 utilization，订单行上没有下单时点的利用率，所以它答不了「下单那天是否合规」——那个问题按名拒绝（:RefusedLowMarginComplianceAtOrderTime）。70 是方案第四节里的阈值，不是本会话定的。" .
+
+:lowMarginOnUnderutilizedLineShare a owl:DatatypeProperty ;
+    rdfs:label "低毛利走量落在低利用率产线上的占比" ;
+    :aggregate "ratio_of_sums" ; :numerator :lowMarginRevenueOnUnderutilizedLine ; :denominator :lowMarginRevenue ;
+    :scale "100.0" ; :unit "%" ; :grain :OrderLine ; :universe :OrderLine ; :groupBy :orderFiscalYear ;
+    :askedAs "低毛利走量有多少落在低利用率产线上？（按今天的快照）" ;
+    :assumed true ; :assumedFrom "Q6 默认 A：用当前利用率快照代替下单时点利用率，客户可推翻" ;
+    :businessDescription "分子 = 低毛利走量且线 utilization<70 的收入，分母 = 低毛利走量全部收入，两者都按财年分组（同键）。实测 100.00%：目前没有一个低毛利走量行落在 ≥70% 的线上，这是数据事实而非恒等式——谓词仍在，阈值仍是一个可被推翻的假设。它回答「今天」，不回答「下单那天」。口径来自 answers:Q6（默认 A：用当前利用率快照代替下单时点利用率）——按默认值定的口径，已写 assumed true。" .

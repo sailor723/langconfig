@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8">
+<title>新溢经营本体（ebl_ops_v1） —— 图谱与文档（由 TTL 生成）</title>
+<style>
+  :root { --ink:#1b1b1b; --dim:#777; --faint:#999; --line:#c9c9c9; --pick:#ffe9a8; }
+  * { box-sizing:border-box }
+  body { margin:0; font:13px/1.45 -apple-system,Helvetica,Arial,sans-serif; color:var(--ink);
+         display:flex; height:100vh; overflow:hidden; background:#fbfbfb }
+  code, pre, .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace }
+  /* ── index: a documentation table of contents that drives the graph ────── */
+  #index { width:232px; border-right:1px solid #e2e2e2; background:#fff; overflow-y:auto;
+           padding:10px 0 40px; flex:none }
+  #index .head { padding:0 12px 8px; font-size:10px; letter-spacing:.06em;
+                 text-transform:uppercase; color:var(--dim) }
+  #index .grp { padding:12px 12px 3px; font-size:10px; letter-spacing:.06em;
+                text-transform:uppercase; color:var(--dim); border-top:1px solid #f0f0f0 }
+  #index .grp:first-child { border-top:none }
+  #index a { display:block; padding:2px 12px 2px 16px; font-size:12px; color:var(--ink);
+             text-decoration:none; cursor:pointer; white-space:nowrap; overflow:hidden;
+             text-overflow:ellipsis }
+  #index a:hover { background:#f4f4f4 }
+  #index a.on { background:var(--pick); font-weight:600 }
+  #index a.off, #index .grp.off { display:none }
+  /* ── stage ─────────────────────────────────────────────────────────────── */
+  #stage { flex:1; position:relative; overflow:hidden; cursor:grab; min-width:0 }
+  #stage.dragging { cursor:grabbing }
+  svg { width:100%; height:100%; display:block }
+  .node { cursor:pointer }
+  .node rect, .node ellipse { stroke:#333; stroke-width:1; fill:#fff }
+  .node.meaning rect { fill:#efefef }
+  .node.metric ellipse { fill:#f7f7f7 }
+  .node.metric-refused ellipse { fill:#ffe2e2 }
+  .node text { font-size:9px; fill:var(--ink); pointer-events:none }
+  .node .name { font-size:10px; font-weight:600 }
+  .node .sub { font-size:8.5px; fill:#333 }
+  .node .col { font-size:8px; fill:#666; font-family:ui-monospace,Menlo,monospace }
+  .node.dim { opacity:.14 }
+  .node.reach rect, .node.reach ellipse { stroke:#888 }
+  .node.hit rect, .node.hit ellipse { stroke:var(--pick); stroke-width:3 }
+  .node.sel rect, .node.sel ellipse { stroke:#c99a00; stroke-width:4 }
+  .edge { fill:none; stroke:var(--line); stroke-width:1.1 }
+  .edge.measures { stroke-dasharray:3 3; stroke:#bbb }
+  .edge.subclass { stroke-dasharray:1 3 }
+  .edge.dim { opacity:.1 }
+  .edge.hit { stroke:#c99a00; stroke-width:1.8 }
+  .edge-label { font-size:8px; fill:var(--dim); pointer-events:none }
+  #bar { position:absolute; top:10px; left:12px; right:12px; display:flex; gap:6px;
+         align-items:center; font-size:11px; background:rgba(255,255,255,.93);
+         padding:6px 8px; border-radius:4px; border:1px solid #e2e2e2 }
+  #bar input { border:1px solid #ddd; border-radius:3px; padding:3px 6px; font-size:11px;
+               width:140px }
+  #bar button { border:1px solid #ddd; background:#fff; border-radius:3px; padding:3px 7px;
+                font-size:11px; cursor:pointer }
+  #bar button.on { background:#333; color:#fff; border-color:#333 }
+  #bar .sp { flex:1 }
+  #bar .meta { color:var(--dim); font-size:10px; white-space:nowrap; overflow:hidden;
+               text-overflow:ellipsis }
+  #hint { position:absolute; bottom:8px; left:12px; font-size:10px; color:var(--faint) }
+  #controls { position:absolute; right:12px; bottom:12px; user-select:none }
+  #controls .row { display:flex; gap:4px; justify-content:flex-end; margin-top:4px }
+  #controls button { width:26px; height:26px; padding:0; border:1px solid #ddd; background:rgba(255,255,255,.95);
+                     border-radius:3px; cursor:pointer; font-size:13px; line-height:1; color:var(--ink) }
+  #controls button:hover { background:#f1f1f1 }
+  #controls button:active { background:#e8e8e8 }
+  #controls button.on { background:#333; color:#fff; border-color:#333 }
+  #controls button[data-mode] { width:auto; padding:0 6px; font-size:11px }
+  /* ── panel: the documentation ──────────────────────────────────────────── */
+  #panel { width:432px; border-left:1px solid #e2e2e2; background:#fff; overflow-y:auto;
+           padding:14px 16px 60px; flex:none }
+  #panel h1 { font-size:15px; margin:0 0 2px }
+  #panel .kind { color:var(--dim); font-size:11px; margin-bottom:10px }
+  #panel h2 { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim);
+              margin:16px 0 4px; font-weight:600 }
+  #panel pre { margin:0; background:#f5f5f5; border:1px solid #e8e8e8; border-radius:3px;
+               padding:7px 8px; overflow-x:auto; font-size:11px; line-height:1.4;
+               white-space:pre-wrap; word-break:break-word }
+  #panel .desc { margin:0; font-size:12.5px; line-height:1.5 }
+  #panel .big { font:600 20px/1.2 ui-monospace,Menlo,monospace; margin:2px 0 0 }
+  #panel table.ann { width:100%; border-collapse:collapse; font-size:11.5px }
+  #panel table.ann th { text-align:left; vertical-align:top; width:38%; padding:3px 8px 3px 0;
+                        color:#555; font-weight:500 }
+  #panel table.ann td { padding:3px 0; word-break:break-word; vertical-align:top }
+  /* id columns hug their content instead of stealing a third of the row */
+  #panel table.ann th.idcol, #panel table.ann td.idcol { width:1%; white-space:nowrap;
+                                                         padding-right:14px }
+  #panel .why { color:#a11; font-size:11.5px; margin:0 }
+  #panel .file { font-family:ui-monospace,Menlo,monospace; font-size:10px; color:var(--dim) }
+  #panel .muted { color:var(--dim) }
+  #panel .db { background:#eef4fb; border-left:3px solid #7aa7d9; border-radius:3px;
+               padding:8px 10px }
+  #panel .db .src { font-size:10px; color:#4a6f9c; margin-top:5px;
+                    font-family:ui-monospace,Menlo,monospace }
+  #panel .db table.ann th, #panel .db table.ann td { border-color:#d5e3f2 }
+  #bar .dbchip { font-size:10px; color:#4a6f9c; white-space:nowrap }
+</style></head>
+<body>
+<div id="index"><div class="head">实体</div><div id="idx"></div></div>
+<div id="stage">
+  <div id="bar">
+    <input id="q" placeholder="搜索…">
+    <button data-k="structure" class="on">类</button>
+    <button data-k="meaning" class="on">定义</button>
+    <button data-k="metric" class="on">属性</button>
+    <button id="reset">适配</button>
+    <span class="sp"></span>
+    <span class="dbchip" id="scope"></span>
+    <span class="dbchip">■ 蓝色 = 在 Postgres 里实测</span>
+    <span class="meta" id="meta"></span>
+  </div>
+  <svg id="svg"><g id="view"></g></svg>
+  <div id="controls">
+    <div class="row">
+      <button id="c-fit" title="适配窗口 — 快捷键 0">⤢</button>
+      <button id="c-zin" title="放大 — 快捷键 +">＋</button>
+      <button id="c-zout" title="缩小 — 快捷键 −">−</button>
+    </div>
+    <div class="row">
+      <button data-mode="domain" title="这个词的属性指向谁 — 快捷键 d">域→</button>
+      <button data-mode="range" title="谁指向这个词 — 快捷键 r">←值域</button>
+      <button data-mode="both" title="两个方向都看 — 快捷键 b">双向</button>
+    </div>
+    <div class="row">
+      <button data-pan="left" title="左移 — 快捷键 ←">←</button>
+      <button data-pan="up" title="上移 — 快捷键 ↑">↑</button>
+      <button data-pan="down" title="下移 — 快捷键 ↓">↓</button>
+      <button data-pan="right" title="右移 — 快捷键 →">→</button>
+    </div>
+  </div>
+  <div id="hint">点一个实体 · <b>域→ / ←值域</b> 只留与它相关的 · 拖动节点 · 滚轮缩放 · 方向键平移 · 快捷键 + − 0 ← ↑ ↓ → d r b</div>
+</div>
+<div id="panel">
+  <h1>新溢经营本体（ebl_ops_v1）</h1>
+  <div class="kind">2026-11-14 02:25 · 由 4 个文件里的 1735 条三元组生成</div>
+  <p class="muted">在左侧或图里点一个 <b>c</b> 类或一个 <b>dp</b> 数据属性。这一栏是它的文档，
+  由 <code>.ttl</code> 生成，用词与 <code>ontology-doc.html</code> 一致：描述、等价类、注解属性、
+  公理、IRI。<b>域</b>/<b>值域</b> 两个列表就是那一页里说的 <i>In Domain Of</i> 与
+  <i>In Range Of</i>。</p>
+  <p class="muted" id="note">Postgres unavailable (connection to server at "127.0.0.1", port 15432 failed: Conn) — numbers omitted</p>
+</div>
+<script>
+const DATA = {"nodes": [{"id": "DifferentiatedOrderLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "差异化产品订单行", "name": "DifferentiatedOrderLine", "iri": "https://cube.local/ontology/retail#DifferentiatedOrderLine", "inDomain": [], "inRange": [], "sub": "refused: :DifferentiatedOrderLine has no owl:equival…", "lines": ["差异化产品订单行", "refused: :DifferentiatedOrderLine has no owl:equival…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :DifferentiatedOrderLine has no owl:equival…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 45, "text": ":DifferentiatedOrderLine a owl:Class ; rdfs:label \"差异化产品订单行\" ;\n    rdfs:subClassOf :OrderLine ;\n    owl:equivalentClass [ owl:intersectionOf ( :OrderLine [ a owl:Restriction ;\n        owl:onProperty :lineTier ; owl:hasValue \"差异化\" ] ) ] ;\n    :businessDescription \"tier = 差异化的订单行，实测 4,232 行。方案给它的定价带是 25–28% 毛利，是唯一不靠填产能的增长质量来源。\" ."}], "related": [], "comments": []}}, {"id": "StandardOrderLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "标准品订单行", "name": "StandardOrderLine", "iri": "https://cube.local/ontology/retail#StandardOrderLine", "inDomain": [], "inRange": [], "sub": "refused: :StandardOrderLine has no owl:equivalentCla…", "lines": ["标准品订单行", "refused: :StandardOrderLine has no owl:equivalentCla…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :StandardOrderLine has no owl:equivalentCla…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 51, "text": ":StandardOrderLine a owl:Class ; rdfs:label \"标准品订单行\" ;\n    rdfs:subClassOf :OrderLine ;\n    owl:equivalentClass [ owl:intersectionOf ( :OrderLine [ a owl:Restriction ;\n        owl:onProperty :lineTier ; owl:hasValue \"标准\" ] ) ] ;\n    :businessDescription \"tier = 标准的订单行，实测 9,384 行（最大的一档）。方案定价带 15–18%。\" ."}], "related": [], "comments": []}}, {"id": "LowMarginVolumeOrderLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "低毛利走量订单行", "name": "LowMarginVolumeOrderLine", "iri": "https://cube.local/ontology/retail#LowMarginVolumeOrderLine", "inDomain": [], "inRange": [], "sub": "refused: :LowMarginVolumeOrderLine has no owl:equiva…", "lines": ["低毛利走量订单行", "refused: :LowMarginVolumeOrderLine has no owl:equiva…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :LowMarginVolumeOrderLine has no owl:equiva…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 57, "text": ":LowMarginVolumeOrderLine a owl:Class ; rdfs:label \"低毛利走量订单行\" ;\n    rdfs:subClassOf :OrderLine ;\n    owl:equivalentClass [ owl:intersectionOf ( :OrderLine [ a owl:Restriction ;\n        owl:onProperty :lineTier ; owl:hasValue \"低毛利走量\" ] ) ] ;\n    :businessDescription \"tier = 低毛利走量的订单行，实测 4,232 行。这是「低毛利订单占比 ≤25%（约 2.75 亿）」这条红线的分子口径：按产品价格带（13–16%）定，不按事后毛利率反推，因为方案第十节明确不设单品毛利红线。\" ."}], "related": [], "comments": []}}, {"id": "MicroImprovedOrderLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "微改良产品订单行", "name": "MicroImprovedOrderLine", "iri": "https://cube.local/ontology/retail#MicroImprovedOrderLine", "inDomain": [], "inRange": [], "sub": "refused: :MicroImprovedOrderLine has no owl:equivale…", "lines": ["微改良产品订单行", "refused: :MicroImprovedOrderLine has no owl:equivale…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :MicroImprovedOrderLine has no owl:equivale…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 63, "text": ":MicroImprovedOrderLine a owl:Class ; rdfs:label \"微改良产品订单行\" ;\n    rdfs:subClassOf :OrderLine ;\n    owl:equivalentClass [ owl:intersectionOf ( :OrderLine [ a owl:Restriction ;\n        owl:onProperty :lineTier ; owl:hasValue \"微改良\" ] ) ] ;\n    :businessDescription \"tier = 微改良的订单行，实测 552 行。方案给它 25–28% 毛利 + 认证溢价 2–3%，是 C 类增长的落点。\" ."}], "related": [], "comments": []}}, {"id": "BaselineOrderLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "存量基本盘订单行", "name": "BaselineOrderLine", "iri": "https://cube.local/ontology/retail#BaselineOrderLine", "inDomain": [], "inRange": [], "sub": "refused: :BaselineOrderLine has no owl:equivalentCla…", "lines": ["存量基本盘订单行", "refused: :BaselineOrderLine has no owl:equivalentCla…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :BaselineOrderLine has no owl:equivalentCla…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 69, "text": ":BaselineOrderLine a owl:Class ; rdfs:label \"存量基本盘订单行\" ;\n    rdfs:subClassOf :OrderLine ;\n    owl:equivalentClass [ owl:intersectionOf ( :OrderLine [ a owl:Restriction ;\n        owl:onProperty :lineGrowthBucket ; owl:hasValue \"存量基本盘\" ] ) ] ;\n    :businessDescription \"增长来源 = 存量基本盘的订单行，实测 17,339 行。它是分母：增量三类加起来 1,061 行，回答「+2 亿从哪来」时不能把它算成增量。\" ."}], "related": [], "comments": []}}, {"id": "NewCustomerGrowthOrderLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "B 新客户订单行", "name": "NewCustomerGrowthOrderLine", "iri": "https://cube.local/ontology/retail#NewCustomerGrowthOrderLine", "inDomain": [], "inRange": [], "sub": "refused: :NewCustomerGrowthOrderLine has no owl:equi…", "lines": ["B 新客户订单行", "refused: :NewCustomerGrowthOrderLine has no owl:equi…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :NewCustomerGrowthOrderLine has no owl:equi…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 75, "text": ":NewCustomerGrowthOrderLine a owl:Class ; rdfs:label \"B 新客户订单行\" ;\n    rdfs:subClassOf :OrderLine ;\n    owl:equivalentClass [ owl:intersectionOf ( :OrderLine [ a owl:Restriction ;\n        owl:onProperty :lineGrowthBucket ; owl:hasValue \"B 新客户\" ] ) ] ;\n    :businessDescription \"增长来源 = B 新客户的订单行，实测 547 行。方案预期贡献 0.6–0.8 亿，是三条增量里最大的一条。\" ."}], "related": [], "comments": []}}, {"id": "CProductGrowthOrderLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "C 微改良增长订单行", "name": "CProductGrowthOrderLine", "iri": "https://cube.local/ontology/retail#CProductGrowthOrderLine", "inDomain": [], "inRange": [], "sub": "refused: :CProductGrowthOrderLine has no owl:equival…", "lines": ["C 微改良增长订单行", "refused: :CProductGrowthOrderLine has no owl:equival…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :CProductGrowthOrderLine has no owl:equival…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 81, "text": ":CProductGrowthOrderLine a owl:Class ; rdfs:label \"C 微改良增长订单行\" ;\n    rdfs:subClassOf :OrderLine ;\n    owl:equivalentClass [ owl:intersectionOf ( :OrderLine [ a owl:Restriction ;\n        owl:onProperty :lineGrowthBucket ; owl:hasValue \"C 微改良\" ] ) ] ;\n    :businessDescription \"增长来源 = C 微改良的订单行，实测 288 行。方案预期 0.3–0.4 亿。\" ."}], "related": [], "comments": []}}, {"id": "ACustomerAddOnOrderLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "A 老客户加购订单行", "name": "ACustomerAddOnOrderLine", "iri": "https://cube.local/ontology/retail#ACustomerAddOnOrderLine", "inDomain": [], "inRange": [], "sub": "refused: :ACustomerAddOnOrderLine has no owl:equival…", "lines": ["A 老客户加购订单行", "refused: :ACustomerAddOnOrderLine has no owl:equival…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :ACustomerAddOnOrderLine has no owl:equival…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 87, "text": ":ACustomerAddOnOrderLine a owl:Class ; rdfs:label \"A 老客户加购订单行\" ;\n    rdfs:subClassOf :OrderLine ;\n    owl:equivalentClass [ owl:intersectionOf ( :OrderLine [ a owl:Restriction ;\n        owl:onProperty :lineGrowthBucket ; owl:hasValue \"A 老客户加购\" ] ) ] ;\n    :businessDescription \"增长来源 = A 老客户加购的订单行，实测 226 行。方案预期 0.2–0.3 亿，且要求加购部分不低于现有毛利。\" ."}], "related": [], "comments": []}}, {"id": "GradeACustomer", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "A 类客户", "name": "GradeACustomer", "iri": "https://cube.local/ontology/retail#GradeACustomer", "inDomain": [], "inRange": [], "sub": "refused: :GradeACustomer has no owl:equivalentClass…", "lines": ["A 类客户", "refused: :GradeACustomer has no owl:equivalentClass…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :GradeACustomer has no owl:equivalentClass…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 97, "text": ":GradeACustomer a owl:Class ; rdfs:label \"A 类客户\" ;\n    rdfs:subClassOf :Customer ;\n    owl:equivalentClass [ owl:intersectionOf ( :Customer [ a owl:Restriction ;\n        owl:onProperty :segmentTier ; owl:hasValue \"A\" ] ) ] ;\n    :businessDescription \"四维分级落 A 档的客户，实测 21 家。A 类的用法是份额保卫，不是增长来源。\" ."}], "related": [], "comments": []}}, {"id": "GradeBCustomer", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "B 类客户", "name": "GradeBCustomer", "iri": "https://cube.local/ontology/retail#GradeBCustomer", "inDomain": [], "inRange": [], "sub": "refused: :GradeBCustomer has no owl:equivalentClass…", "lines": ["B 类客户", "refused: :GradeBCustomer has no owl:equivalentClass…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :GradeBCustomer has no owl:equivalentClass…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 103, "text": ":GradeBCustomer a owl:Class ; rdfs:label \"B 类客户\" ;\n    rdfs:subClassOf :Customer ;\n    owl:equivalentClass [ owl:intersectionOf ( :Customer [ a owl:Restriction ;\n        owl:onProperty :segmentTier ; owl:hasValue \"B\" ] ) ] ;\n    :businessDescription \"四维分级落 B 档的客户，实测 114 家。\" ."}], "related": [], "comments": []}}, {"id": "GradeCCustomer", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "C 类客户", "name": "GradeCCustomer", "iri": "https://cube.local/ontology/retail#GradeCCustomer", "inDomain": [], "inRange": [], "sub": "refused: :GradeCCustomer has no owl:equivalentClass…", "lines": ["C 类客户", "refused: :GradeCCustomer has no owl:equivalentClass…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :GradeCCustomer has no owl:equivalentClass…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 109, "text": ":GradeCCustomer a owl:Class ; rdfs:label \"C 类客户\" ;\n    rdfs:subClassOf :Customer ;\n    owl:equivalentClass [ owl:intersectionOf ( :Customer [ a owl:Restriction ;\n        owl:onProperty :segmentTier ; owl:hasValue \"C\" ] ) ] ;\n    :businessDescription \"四维分级落 C 档的客户，实测 6 家。注意：这里的 C 是客户四维分级的 C，与方案三节「新客户按毛利分 A/B/C 类接单」的 C 不是同一个词——后者是订单的价格带，在库里没有对应列。\" ."}], "related": [], "comments": []}}, {"id": "BoundaryCustomer", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "边界客户", "name": "BoundaryCustomer", "iri": "https://cube.local/ontology/retail#BoundaryCustomer", "inDomain": [], "inRange": [], "sub": "refused: :BoundaryCustomer has no owl:equivalentClas…", "lines": ["边界客户", "refused: :BoundaryCustomer has no owl:equivalentClas…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :BoundaryCustomer has no owl:equivalentClas…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 121, "text": ":BoundaryCustomer a owl:Class ; rdfs:label \"边界客户\" ;\n    rdfs:subClassOf :Customer ;\n    owl:equivalentClass [ owl:intersectionOf ( :Customer [ a owl:Restriction ;\n        owl:onProperty :customerIsBoundary ; owl:hasValue true ] ) ] ;\n    :businessDescription \"四维打分落在分档边界、需销售副总 + 财务总监联合裁定的客户，实测 9 家。方案要求边界争议控制在总客户数 5% 以内：9/180 = 5.0%，正好压线。\" ."}], "related": [], "comments": []}}, {"id": "UnderutilizedProductionLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "低利用率产线（<70%）", "name": "UnderutilizedProductionLine", "iri": "https://cube.local/ontology/retail#UnderutilizedProductionLine", "inDomain": [], "inRange": [], "sub": "refused: :UnderutilizedProductionLine has no owl:equ…", "lines": ["低利用率产线（<70%）", "refused: :UnderutilizedProductionLine has no owl:equ…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :UnderutilizedProductionLine has no owl:equ…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 136, "text": ":UnderutilizedProductionLine a owl:Class ; rdfs:label \"低利用率产线（<70%）\" ;\n    rdfs:subClassOf :ProductionLine ;\n    owl:equivalentClass [ owl:intersectionOf ( :ProductionLine [ a owl:Restriction ;\n        owl:onProperty :lineUtilization ;\n        owl:withRestrictions ( [ xsd:maxExclusive 70 ] ) ] ) ] ;\n    :businessDescription \"当前利用率 < 70% 的产线，实测 7 / 32 条。70 是方案四节的门槛值，只写在定义里这一处。必须说清楚：utilization 是**当前快照**、没有历史，所以这个类回答的是「今天哪些线允许接低毛利走量」，回答不了「某张 2026 年 3 月的订单下在那天是否合规」——那需要按订单时点的利用率，库里没有。\" ."}], "related": [], "comments": []}}, {"id": "ClosedProductionLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "已关停产线", "name": "ClosedProductionLine", "iri": "https://cube.local/ontology/retail#ClosedProductionLine", "inDomain": [], "inRange": [], "sub": "refused: :ClosedProductionLine has no owl:equivalent…", "lines": ["已关停产线", "refused: :ClosedProductionLine has no owl:equivalent…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :ClosedProductionLine has no owl:equivalent…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 143, "text": ":ClosedProductionLine a owl:Class ; rdfs:label \"已关停产线\" ;\n    rdfs:subClassOf :ProductionLine ;\n    owl:equivalentClass [ owl:intersectionOf ( :ProductionLine [ a owl:Restriction ;\n        owl:onProperty :lineStatus ; owl:hasValue \"关停\" ] ) ] ;\n    :businessDescription \"status = 关停的产线，实测 2 条（L08、L09，2026-09-30）。用 status 而不是 closed_at IS NOT NULL，因为能走公理就不动用谓词逃生口；两者一致（closed_at 非空也是 2 条），可用它互校。\" ."}], "related": [], "comments": []}}, {"id": "FreezableOpexItem", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "可冻结费用科目", "name": "FreezableOpexItem", "iri": "https://cube.local/ontology/retail#FreezableOpexItem", "inDomain": [], "inRange": [], "sub": "refused: :FreezableOpexItem has no owl:equivalentCla…", "lines": ["可冻结费用科目", "refused: :FreezableOpexItem has no owl:equivalentCla…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :FreezableOpexItem has no owl:equivalentCla…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 163, "text": ":FreezableOpexItem a owl:Class ; rdfs:label \"可冻结费用科目\" ;\n    rdfs:subClassOf :OpexItem ;\n    owl:equivalentClass [ owl:intersectionOf ( :OpexItem [ a owl:Restriction ;\n        owl:onProperty :oxFreezable ; owl:hasValue true ] ) ] ;\n    :businessDescription \"标为可冻结的费用科目，实测 10 / 28 项。这是「Q1 冻结非生产性支出」的降本口径来源。\" ."}], "related": [], "comments": []}}, {"id": "Top10Supplier", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "前十大供应商", "name": "Top10Supplier", "iri": "https://cube.local/ontology/retail#Top10Supplier", "inDomain": [], "inRange": [], "sub": "refused: :Top10Supplier has no owl:equivalentClass a…", "lines": ["前十大供应商", "refused: :Top10Supplier has no owl:equivalentClass a…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :Top10Supplier has no owl:equivalentClass a…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 176, "text": ":Top10Supplier a owl:Class ; rdfs:label \"前十大供应商\" ;\n    rdfs:subClassOf :Supplier ;\n    owl:equivalentClass [ owl:intersectionOf ( :Supplier [ a owl:Restriction ;\n        owl:onProperty :supIsTop10 ; owl:hasValue true ] ) ] ;\n    :businessDescription \"is_top10 的供应商，实测 10 / 40 家。方案八节「前 10 大原材料供应商集中议价、采购成本降 3–5%」的计量范围就是它。\" ."}], "related": [], "comments": []}}, {"id": "VoluntaryLeaver", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "主动离职员工", "name": "VoluntaryLeaver", "iri": "https://cube.local/ontology/retail#VoluntaryLeaver", "inDomain": [], "inRange": [], "sub": "refused: :VoluntaryLeaver has no owl:equivalentClass…", "lines": ["主动离职员工", "refused: :VoluntaryLeaver has no owl:equivalentClass…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :VoluntaryLeaver has no owl:equivalentClass…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 189, "text": ":VoluntaryLeaver a owl:Class ; rdfs:label \"主动离职员工\" ;\n    rdfs:subClassOf :Employee ;\n    owl:equivalentClass [ owl:intersectionOf ( :Employee [ a owl:Restriction ;\n        owl:onProperty :empLeaveReason ; owl:hasValue \"主动离职\" ] ) ] ;\n    :businessDescription \"leave_reason = 主动离职的员工，实测 82 人（另有合同到期 43、退休 39，合计 164 离职）。分原因是为了区分「自己要走的」和「合同到期/退休」——只有前者说明留人出了问题。\" ."}], "related": [], "comments": [{"file": "02-meaning.ttl", "line": 396, "text": "# 定义层已有的 :VoluntaryLeaver 只切了 leave_reason，没切年份，两个条件靠组合表达在编译期会被忽略"}]}}, {"id": "QualifiedLead", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "合格线索", "name": "QualifiedLead", "iri": "https://cube.local/ontology/retail#QualifiedLead", "inDomain": [], "inRange": [], "sub": "refused: :QualifiedLead has no owl:equivalentClass a…", "lines": ["合格线索", "refused: :QualifiedLead has no owl:equivalentClass a…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :QualifiedLead has no owl:equivalentClass a…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 196, "text": ":QualifiedLead a owl:Class ; rdfs:label \"合格线索\" ;\n    rdfs:subClassOf :Lead ;\n    owl:equivalentClass [ owl:intersectionOf ( :Lead [ a owl:Restriction ;\n        owl:onProperty :leadIsQualified ; owl:hasValue true ] ) ] ;\n    :businessDescription \"is_qualified 的线索，实测 327 / 900（36.33%）。方案的考核改版里，新客只考核有效询盘数，这个类就是「有效询盘」在库里的形状。\" ."}], "related": [], "comments": []}}, {"id": "MicroImprovementProject", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "微改良项目", "name": "MicroImprovementProject", "iri": "https://cube.local/ontology/retail#MicroImprovementProject", "inDomain": [], "inRange": [], "sub": "refused: :MicroImprovementProject has no owl:equival…", "lines": ["微改良项目", "refused: :MicroImprovementProject has no owl:equival…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :MicroImprovementProject has no owl:equival…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 203, "text": ":MicroImprovementProject a owl:Class ; rdfs:label \"微改良项目\" ;\n    rdfs:subClassOf :MicroImprovement ;\n    owl:equivalentClass [ owl:intersectionOf ( :MicroImprovement [ a owl:Restriction ;\n        owl:onProperty :miKind ; owl:hasValue \"微改良\" ] ) ] ;\n    :businessDescription \"kind = 微改良的项目，实测 5 条。方案要 3–5 个微改良点：5 条已立项，落在区间上沿。\" ."}], "related": [], "comments": []}}, {"id": "CertificationProject", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "认证项目", "name": "CertificationProject", "iri": "https://cube.local/ontology/retail#CertificationProject", "inDomain": [], "inRange": [], "sub": "refused: :CertificationProject has no owl:equivalent…", "lines": ["认证项目", "refused: :CertificationProject has no owl:equivalent…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :CertificationProject has no owl:equivalent…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 209, "text": ":CertificationProject a owl:Class ; rdfs:label \"认证项目\" ;\n    rdfs:subClassOf :MicroImprovement ;\n    owl:equivalentClass [ owl:intersectionOf ( :MicroImprovement [ a owl:Restriction ;\n        owl:onProperty :miKind ; owl:hasValue \"认证\" ] ) ] ;\n    :businessDescription \"kind = 认证的项目，实测 2 条。方案要「出口市场检测认证 1–2 项」：2 条已立项。\" ."}], "related": [], "comments": []}}, {"id": "DiscountAdjustment", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "折扣调整", "name": "DiscountAdjustment", "iri": "https://cube.local/ontology/retail#DiscountAdjustment", "inDomain": [], "inRange": [], "sub": "refused: :DiscountAdjustment has no owl:equivalentCl…", "lines": ["折扣调整", "refused: :DiscountAdjustment has no owl:equivalentCl…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :DiscountAdjustment has no owl:equivalentCl…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 223, "text": ":DiscountAdjustment a owl:Class ; rdfs:label \"折扣调整\" ;\n    rdfs:subClassOf :OrderAdjustment ;\n    owl:equivalentClass [ owl:intersectionOf ( :OrderAdjustment [ a owl:Restriction ;\n        owl:onProperty :adjKind ; owl:hasValue \"折扣\" ] ) ] ;\n    :businessDescription \"kind = 折扣的调整记录，实测 2,361 条（每单恰好一条调整）。金额为负数是让价，合计 −1,535.5 万。\" ."}], "related": [], "comments": []}}, {"id": "RebateAdjustment", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "返利调整", "name": "RebateAdjustment", "iri": "https://cube.local/ontology/retail#RebateAdjustment", "inDomain": [], "inRange": [], "sub": "refused: :RebateAdjustment has no owl:equivalentClas…", "lines": ["返利调整", "refused: :RebateAdjustment has no owl:equivalentClas…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :RebateAdjustment has no owl:equivalentClas…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 229, "text": ":RebateAdjustment a owl:Class ; rdfs:label \"返利调整\" ;\n    rdfs:subClassOf :OrderAdjustment ;\n    owl:equivalentClass [ owl:intersectionOf ( :OrderAdjustment [ a owl:Restriction ;\n        owl:onProperty :adjKind ; owl:hasValue \"返利\" ] ) ] ;\n    :businessDescription \"kind = 返利的调整记录，实测 2,239 条，合计 −694.0 万。折扣 + 返利 = −1,006.1 万，仍与表头明细差 1,350.0 万对不上，所以两者都只能单独报。\" ."}], "related": [], "comments": []}}, {"id": "FY2025Order", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "2025 财年订单", "name": "FY2025Order", "iri": "https://cube.local/ontology/retail#FY2025Order", "inDomain": [], "inRange": [], "sub": "refused: :FY2025Order has no owl:equivalentClass axi…", "lines": ["2025 财年订单", "refused: :FY2025Order has no owl:equivalentClass axi…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :FY2025Order has no owl:equivalentClass axi…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 241, "text": ":FY2025Order a owl:Class ; rdfs:label \"2025 财年订单\" ;\n    rdfs:subClassOf :Order ;\n    owl:equivalentClass [ owl:intersectionOf ( :Order [ a owl:Restriction ;\n        owl:onProperty :orderFiscalYear ; owl:hasValue 2025 ] ) ] ;\n    :businessDescription \"fiscal_year = 2025 的订单，实测 2,200 单。去年基数：明细收入 9.0000 亿（方案一节）。\" ."}], "related": [], "comments": []}}, {"id": "FY2026Order", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "2026 财年订单（今年，11 亿目标年）", "name": "FY2026Order", "iri": "https://cube.local/ontology/retail#FY2026Order", "inDomain": [], "inRange": [], "sub": "refused: :FY2026Order has no owl:equivalentClass axi…", "lines": ["2026 财年订单（今年，11 亿目标年）", "refused: :FY2026Order has no owl:equivalentClass axi…"], "description": null, "definedBy": null, "definedVia": "equivalentClass", "refusal": "refused: :FY2026Order has no owl:equivalentClass axi…", "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 247, "text": ":FY2026Order a owl:Class ; rdfs:label \"2026 财年订单（今年，11 亿目标年）\" ;\n    rdfs:subClassOf :Order ;\n    owl:equivalentClass [ owl:intersectionOf ( :Order [ a owl:Restriction ;\n        owl:onProperty :orderFiscalYear ; owl:hasValue 2026 ] ) ] ;\n    :businessDescription \"fiscal_year = 2026 的订单，实测 2,400 单（每季 600 单）。11 亿营收目标、17.5% 加权毛利地板、25% 低毛利占比三条红线都只在这一年上判。\" ."}], "related": [], "comments": []}}, {"id": "Order", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "订单", "name": "Order", "iri": "https://cube.local/ontology/retail#Order", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["订单", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "01-structure.ttl", "line": 18, "text": ":Order a owl:Class ; rdfs:label \"订单\" ; :physicalTable \"orders\" ; :primaryKey \"id\" ;\n    :timeColumn \"order_date\" ;\n    :businessDescription \"一张订单 = 客户 + 下单日 + 承诺交期 + 实际交期；4,600 张，其中 95 张没有任何明细行、表头金额为 0。收入不记在这一层（revenue_header 是独立口径，2025 年比明细多 1,350.0 万），它只用来做订单数分母与准点率。\" ."}], "related": [], "comments": []}}, {"id": "OrderLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "订单行", "name": "OrderLine", "iri": "https://cube.local/ontology/retail#OrderLine", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["订单行", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "01-structure.ttl", "line": 22, "text": ":OrderLine a owl:Class ; rdfs:label \"订单行\" ; :physicalTable \"order_lines\" ; :primaryKey \"id\" ;\n    :businessDescription \"订单里的一行一个产品：18,400 行，**收入的真相在这一层**（2025 合计 9.0000 亿、2026 合计 11.0000 亿）。gross_margin 是 revenue/cost 的派生百分数列（与重算最大偏差 0.005），所以毛利率一律按 revenue 与 cost 重算。\" ."}], "related": [], "comments": []}}, {"id": "OrderAdjustment", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "订单调整", "name": "OrderAdjustment", "iri": "https://cube.local/ontology/retail#OrderAdjustment", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["订单调整", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "01-structure.ttl", "line": 25, "text": ":OrderAdjustment a owl:Class ; rdfs:label \"订单调整\" ; :physicalTable \"order_adjustments\" ; :primaryKey \"id\" ;\n    :businessDescription \"订单 × 调整类型，4,600 条（折扣 2,361 / 返利 2,239），每单恰好一条。它与表头、与明细都对不上账（2025 表头 − 明细 = 1,350.0 万，而折扣+返利只有 −1,006.1 万），所以只单独报，不做「折扣后收入」。\" ."}], "related": [], "comments": []}}, {"id": "Customer", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "客户", "name": "Customer", "iri": "https://cube.local/ontology/retail#Customer", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["客户", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "01-structure.ttl", "line": 28, "text": ":Customer a owl:Class ; rdfs:label \"客户\" ; :physicalTable \"customers\" ; :primaryKey \"id\" ;\n    :timeColumn \"entered_at\" ;\n    :businessDescription \"180 家客户（A 21 / B 114 / C 6 / 未分级 39，已流失 1）。purchase_amount_2025 合计 113.47 亿 = 同年订单明细收入的 12.61 倍，**不能当收入源**；分级是 2026-03-20 双签、2026-04-01 才推开，之前的「按等级」是回溯标注。\" ."}], "related": [], "comments": []}}, {"id": "CoreCustomer", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "核心客户", "name": "CoreCustomer", "iri": "https://cube.local/ontology/retail#CoreCustomer", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["核心客户", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "01-structure.ttl", "line": 32, "text": ":CoreCustomer a owl:Class ; rdfs:label \"核心客户\" ; :physicalTable \"core_customers\" ; :primaryKey \"customer_id\" ;\n    :timeColumn \"locked_at\" ;\n    :businessDescription \"12 家核心客户名单（seq 1–12，全部 2026-03-31 锁定，单一审批人）。是 Customer 的一对一子集，只回答「谁在名单里」，不重复客户的属性。\" ."}], "related": [], "comments": []}}, {"id": "Product", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "产品", "name": "Product", "iri": "https://cube.local/ontology/retail#Product", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["产品", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "01-structure.ttl", "line": 36, "text": ":Product a owl:Class ; rdfs:label \"产品\" ; :physicalTable \"products\" ; :primaryKey \"id\" ;\n    :businessDescription \"420 个 SKU（标准 200 / 差异化 100 / 低毛利走量 90 / 微改良 30）。认证溢价在这一层可用（只缺 2 个），行级 order_lines.certification_premium 有 99.8% 是 NULL，所以溢价只从这里取。\" ."}], "related": [], "comments": []}}, {"id": "ProductionLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "产线", "name": "ProductionLine", "iri": "https://cube.local/ontology/retail#ProductionLine", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["产线", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "01-structure.ttl", "line": 39, "text": ":ProductionLine a owl:Class ; rdfs:label \"产线\" ; :physicalTable \"production_lines\" ; :primaryKey \"id\" ;\n    :timeColumn \"closed_at\" ;\n    :businessDescription \"32 条产线（运行 30 / 关停 2：L08、L09，均 2026-09-30 关停）。utilization 是**百分数**（55.30–90.53），低毛利走量只允许落在利用率 <70% 的线上，这是那条规则唯一能核的地方。\" ."}], "related": [], "comments": []}}, {"id": "LowMarginApproval", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "低毛利放行单", "name": "LowMarginApproval", "iri": "https://cube.local/ontology/retail#LowMarginApproval", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["低毛利放行单", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "01-structure.ttl", "line": 43, "text": ":LowMarginApproval a owl:Class ; rdfs:label \"低毛利放行单\" ; :physicalTable \"low_margin_approvals\" ; :primaryKey \"id\" ;\n    :timeColumn \"signed_at\" ;\n    :businessDescription \"低毛利订单行的双签放行单，4,232 条与订单行 1:1，双签 0 缺失；到期 3,002 条，其中 744 条从未复核。放行发生在外部流程，库里只有结果。\" ."}], "related": [], "comments": []}}, {"id": "OpexItem", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "费用科目", "name": "OpexItem", "iri": "https://cube.local/ontology/retail#OpexItem", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["费用科目", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "01-structure.ttl", "line": 47, "text": ":OpexItem a owl:Class ; rdfs:label \"费用科目\" ; :physicalTable \"opex_items\" ; :primaryKey \"id\" ;\n    :businessDescription \"28 个费用科目，**宽表**：amount_2025 / amount_2026 同表两列。freezable 10 项、已冻结 9 项。任何「按年」的比较都必须把年度写进条件，不能当成一列。\" ."}], "related": [], "comments": []}}, {"id": "Supplier", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "供应商", "name": "Supplier", "iri": "https://cube.local/ontology/retail#Supplier", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["供应商", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "01-structure.ttl", "line": 50, "text": ":Supplier a owl:Class ; rdfs:label \"供应商\" ; :physicalTable \"suppliers\" ; :primaryKey \"id\" ;\n    :businessDescription \"40 家供应商（is_top10 10 家），同样是宽表：spend 与 unit_price_index 各两年。采购额合计 15.50 亿 / 16.52 亿，是同年营业成本的 2.12 / 1.85 倍，**不能与利润表相加**。\" ."}], "related": [], "comments": []}}, {"id": "Employee", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "员工", "name": "Employee", "iri": "https://cube.local/ontology/retail#Employee", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["员工", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "01-structure.ttl", "line": 53, "text": ":Employee a owl:Class ; rdfs:label \"员工\" ; :physicalTable \"employees\" ; :primaryKey \"id\" ;\n    :timeColumn \"hired_at\" ;\n    :businessDescription \"2,800 条员工记录，在册 2,636：离职 164（主动 82 / 合同到期 43 / 退休 39）。在职与否只能从 left_at 判断，库里没有 status 列。\" ."}], "related": [], "comments": []}}, {"id": "Lead", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "线索", "name": "Lead", "iri": "https://cube.local/ontology/retail#Lead", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["线索", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "01-structure.ttl", "line": 57, "text": ":Lead a owl:Class ; rdfs:label \"线索\" ; :physicalTable \"leads\" ; :primaryKey \"id\" ;\n    :timeColumn \"created_at\" ;\n    :businessDescription \"900 条线索，合格 327（36.33%）。converted_customer_id **整列为 NULL**，所以线索→客户转化率没有字段，本体按名拒绝，而不是拿合格率冒充转化率。\" ."}], "related": [], "comments": []}}, {"id": "MicroImprovement", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "微改良／认证项目", "name": "MicroImprovement", "iri": "https://cube.local/ontology/retail#MicroImprovement", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["微改良／认证项目", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "01-structure.ttl", "line": 61, "text": ":MicroImprovement a owl:Class ; rdfs:label \"微改良／认证项目\" ; :physicalTable \"micro_improvements\" ; :primaryKey \"id\" ;\n    :timeColumn \"started_at\" ;\n    :businessDescription \"7 条微改良与认证项目，只有 kind / status / 三个日期，**没有金额字段**。它支撑进度叙事，不支撑任何「省了多少钱」的数字。\" ."}], "related": [], "comments": []}}, {"id": "RuleRegime", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "口径变更", "name": "RuleRegime", "iri": "https://cube.local/ontology/retail#RuleRegime", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["口径变更", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "01-structure.ttl", "line": 65, "text": ":RuleRegime a owl:Class ; rdfs:label \"口径变更\" ; :physicalTable \"rule_regimes\" ; :primaryKey \"id\" ;\n    :timeColumn \"at\" ;\n    :businessDescription \"4 条口径变更事件（含 2026-03-20 双签定义、2026-04-01 全公司推开）。它是「哪些数字是回溯标注」的证词，不是事实表，也不参与任何金额计算。\" ."}], "related": [], "comments": []}}, {"id": "LateOrder", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "迟到订单", "name": "LateOrder", "iri": "https://cube.local/ontology/retail#LateOrder", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["迟到订单", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 29, "text": ":LateOrder a owl:Class ; rdfs:label \"迟到订单\" ;\n    rdfs:subClassOf :Order ;\n    :physicalTable \"orders\" ;\n    :physicalPredicate \"actual_date > promised_date\" ;\n    :businessDescription \"实际交期晚于承诺交期的订单，实测 558 / 4,600（12.13%）。声明式谓词而非公理：OWL 无法比较两列。全部 4,600 单都有 actual_date，所以分母就是订单总数，不存在未交付的空洞。\" ."}], "related": [], "comments": []}}, {"id": "OnTimeOrder", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "准点订单", "name": "OnTimeOrder", "iri": "https://cube.local/ontology/retail#OnTimeOrder", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["准点订单", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 35, "text": ":OnTimeOrder a owl:Class ; rdfs:label \"准点订单\" ;\n    rdfs:subClassOf :Order ;\n    :physicalTable \"orders\" ;\n    :physicalPredicate \"actual_date <= promised_date\" ;\n    :businessDescription \"实际交期不晚于承诺交期的订单，实测 4,042 / 4,600（87.87%）。与 :LateOrder 互补且不重叠（实测 558 + 4,042 = 4,600）。声明式谓词，理由同上。\" ."}], "related": [], "comments": []}}, {"id": "UnclassifiedCustomer", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "未分级客户", "name": "UnclassifiedCustomer", "iri": "https://cube.local/ontology/retail#UnclassifiedCustomer", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["未分级客户", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 115, "text": ":UnclassifiedCustomer a owl:Class ; rdfs:label \"未分级客户\" ;\n    rdfs:subClassOf :Customer ;\n    :physicalTable \"customers\" ;\n    :physicalPredicate \"segment IS NULL\" ;\n    :businessDescription \"segment 为空的客户，实测 39 家（占 180 家的 21.7%）。声明式谓词：OWL 表达不了 IS NULL。空不是 C——把空并进 C 会让 C 类从 6 家变成 45 家，那条「C 类营收占比」就会被凭空放大。\" ."}], "related": [], "comments": []}}, {"id": "ChurnedCustomer", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "已流失客户", "name": "ChurnedCustomer", "iri": "https://cube.local/ontology/retail#ChurnedCustomer", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["已流失客户", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 127, "text": ":ChurnedCustomer a owl:Class ; rdfs:label \"已流失客户\" ;\n    rdfs:subClassOf :Customer ;\n    :physicalTable \"customers\" ;\n    :physicalPredicate \"churned_at IS NOT NULL\" ;\n    :businessDescription \"churned_at 非空的客户，实测 1 家。声明式谓词：IS NULL 的反面 OWL 也表达不了。全年核心客户流失 ≤2 家这条红线的计量要看 core_customers 名单，本类只覆盖全部客户里的流失，不能替代名单口径。\" ."}], "related": [], "comments": []}}, {"id": "ReviewedApproval", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "已复核放行单", "name": "ReviewedApproval", "iri": "https://cube.local/ontology/retail#ReviewedApproval", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["已复核放行单", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 150, "text": ":ReviewedApproval a owl:Class ; rdfs:label \"已复核放行单\" ;\n    rdfs:subClassOf :LowMarginApproval ;\n    :physicalTable \"low_margin_approvals\" ;\n    :physicalPredicate \"reviewed_at IS NOT NULL\" ;\n    :businessDescription \"已做 6 个月复审的低毛利放行单，实测 3,203 / 4,232（75.69%）。声明式谓词：IS NULL 判不了。\" ."}], "related": [], "comments": []}}, {"id": "UnreviewedApproval", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "未复核放行单", "name": "UnreviewedApproval", "iri": "https://cube.local/ontology/retail#UnreviewedApproval", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["未复核放行单", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 156, "text": ":UnreviewedApproval a owl:Class ; rdfs:label \"未复核放行单\" ;\n    rdfs:subClassOf :LowMarginApproval ;\n    :physicalTable \"low_margin_approvals\" ;\n    :physicalPredicate \"reviewed_at IS NULL\" ;\n    :businessDescription \"尚未复审的放行单，实测 1,029 条。与 :ReviewedApproval 互补（3,203 + 1,029 = 4,232）。注意它不是「到期未复核」：到期要拿 review_due_at 跟一个基准日比，基准日不在数据里，那一条留给 S3 按名拒绝或由人给基准日。\" ."}], "related": [], "comments": []}}, {"id": "UnfrozenFreezableOpexItem", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "可冻结但未冻结科目", "name": "UnfrozenFreezableOpexItem", "iri": "https://cube.local/ontology/retail#UnfrozenFreezableOpexItem", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["可冻结但未冻结科目", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 169, "text": ":UnfrozenFreezableOpexItem a owl:Class ; rdfs:label \"可冻结但未冻结科目\" ;\n    rdfs:subClassOf :OpexItem ;\n    :physicalTable \"opex_items\" ;\n    :physicalPredicate \"freezable = true AND frozen_at IS NULL\" ;\n    :businessDescription \"可冻结却还没冻结的科目，实测 1 项。声明式谓词，因为它同时要一个布尔值和一个 IS NULL，OWL 只能表达前一半。这个类存在的理由：执行缺口是 1 项，不是 10 项——「已冻结 9」与「可冻结 10」的差必须能被点出来。\" ."}], "related": [], "comments": []}}, {"id": "ActiveEmployee", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "在册员工", "name": "ActiveEmployee", "iri": "https://cube.local/ontology/retail#ActiveEmployee", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["在册员工", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 183, "text": ":ActiveEmployee a owl:Class ; rdfs:label \"在册员工\" ;\n    rdfs:subClassOf :Employee ;\n    :physicalTable \"employees\" ;\n    :physicalPredicate \"left_at IS NULL\" ;\n    :businessDescription \"left_at 为空的员工，实测 2,636 / 2,800。库里没有 status 列，在职与否只能这样判。方案第五节「人员不能快速缩减」讲的是这块刚性成本，不是离职数。\" ."}], "related": [], "comments": []}}, {"id": "VerifiedMicroImprovement", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "已通过验证的微改良/认证项目", "name": "VerifiedMicroImprovement", "iri": "https://cube.local/ontology/retail#VerifiedMicroImprovement", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["已通过验证的微改良/认证项目", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 215, "text": ":VerifiedMicroImprovement a owl:Class ; rdfs:label \"已通过验证的微改良/认证项目\" ;\n    rdfs:subClassOf :MicroImprovement ;\n    :physicalTable \"micro_improvements\" ;\n    :physicalPredicate \"verified_at IS NOT NULL\" ;\n    :businessDescription \"verified_at 非空的项目，实测 5 / 7 条。这一层**没有金额列**，所以它只支撑「进度叙事」，不能支撑任何「省了多少钱 / 多赚了多少」的数字——那种数字在 S3 一律拒绝。\" ."}], "related": [], "comments": []}}, {"id": "UnclassifiedCustomerOrderLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "未分级客户的订单行", "name": "UnclassifiedCustomerOrderLine", "iri": "https://cube.local/ontology/retail#UnclassifiedCustomerOrderLine", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["未分级客户的订单行", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 266, "text": ":UnclassifiedCustomerOrderLine a owl:Class ; rdfs:label \"未分级客户的订单行\" ;\n    rdfs:subClassOf :OrderLine ;\n    :physicalTable \"order_lines\" ;\n    :physicalPredicate \"order_id IN (SELECT o.id FROM orders o JOIN customers c ON c.id = o.customer_id WHERE c.segment IS NULL)\" ;\n    :businessDescription \"客户 segment 为空（未分级）的订单行。实测收入 4.3321 亿（两年合计），其中 2026 = 2.2169 亿 / 占 2026 收入 20.1533%（Q2 的分子）。用同表子查询而不是 join：实测把 :where 指向 customers 表的类会让编译器抛 TypeError（Compiled.__init__ missing 'notes'），即跨表 where 不受支持。\" ."}], "related": [], "comments": []}}, {"id": "CoreCustomerOrderLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "核心客户名册内的订单行", "name": "CoreCustomerOrderLine", "iri": "https://cube.local/ontology/retail#CoreCustomerOrderLine", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["核心客户名册内的订单行", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 272, "text": ":CoreCustomerOrderLine a owl:Class ; rdfs:label \"核心客户名册内的订单行\" ;\n    rdfs:subClassOf :OrderLine ;\n    :physicalTable \"order_lines\" ;\n    :physicalPredicate \"order_id IN (SELECT o.id FROM orders o JOIN core_customers cc ON cc.customer_id = o.customer_id)\" ;\n    :businessDescription \"下单客户在 core_customers 名册（12 家，locked_at 2026-03-31）里的订单行。实测收入 1.4393 亿（两年），2026 = 0.6988 亿 / 占 2026 收入 6.3528%。名册是 2026-03-31 锁定的，所以 2025 年的行也按「后来进了名册」回标——这是名单口径，不是当时的认定。\" ."}], "related": [], "comments": []}}, {"id": "LowMarginOnUnderutilizedLineOrderLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "落在低利用率产线上的低毛利走量订单行", "name": "LowMarginOnUnderutilizedLineOrderLine", "iri": "https://cube.local/ontology/retail#LowMarginOnUnderutilizedLineOrderLine", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["落在低利用率产线上的低毛利走量订单行", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 278, "text": ":LowMarginOnUnderutilizedLineOrderLine a owl:Class ; rdfs:label \"落在低利用率产线上的低毛利走量订单行\" ;\n    rdfs:subClassOf :OrderLine ;\n    :physicalTable \"order_lines\" ;\n    :physicalPredicate \"tier = '低毛利走量' AND production_line_id IN (SELECT pl.id FROM production_lines pl WHERE pl.utilization < 70)\" ;\n    :businessDescription \"低毛利走量、且产线当前利用率 < 70% 的订单行，实测 4,232 / 4,232 行（4.6000 亿）——即全部低毛利走量行都落在 7 条低利用率线上，这条红线目前 100% 合规。必须说清时点：utilization 只有当前快照，没有下单时值，所以本类回答「按今天的利用率看是否合规」，回答不了「2026 年 3 月下单那天是否合规」（answers:Q10 的 caveat）。70 这个阈值来自方案四节原文，不在这里重写第二个数。\" ."}], "related": [], "comments": []}}, {"id": "IncrementalOrderLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "增量订单行（非存量基本盘）", "name": "IncrementalOrderLine", "iri": "https://cube.local/ontology/retail#IncrementalOrderLine", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["增量订单行（非存量基本盘）", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 284, "text": ":IncrementalOrderLine a owl:Class ; rdfs:label \"增量订单行（非存量基本盘）\" ;\n    rdfs:subClassOf :OrderLine ;\n    :physicalTable \"order_lines\" ;\n    :physicalPredicate \"growth_bucket <> '存量基本盘'\" ;\n    :businessDescription \"增长来源不是「存量基本盘」的订单行，实测 1,061 行 / 1.1986 亿（占收入 5.9928%）。它是「+2 亿从哪来」这个问题的分子侧：三类增量（B 新客户 5.47 / C 微改良 2.88 / A 老客户加购 2.26 千万级）加起来只有 1.20 亿。谓词而非公理：growth_bucket 可空，取反要处理 NULL 语义（OWL 里没有「不等于某个值且非空」的干净写法）。\" ."}], "related": [], "comments": []}}, {"id": "ChurnedCoreCustomer", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "已流失的核心客户", "name": "ChurnedCoreCustomer", "iri": "https://cube.local/ontology/retail#ChurnedCoreCustomer", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["已流失的核心客户", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 290, "text": ":ChurnedCoreCustomer a owl:Class ; rdfs:label \"已流失的核心客户\" ;\n    rdfs:subClassOf :CoreCustomer ;\n    :physicalTable \"core_customers\" ;\n    :physicalPredicate \"customer_id IN (SELECT c.id FROM customers c WHERE c.churned_at IS NOT NULL)\" ;\n    :businessDescription \"名册内且 customers.churned_at 非空的客户，实测 1 / 12 家（深圳博远实业001号，2026-05-31，Q4）。红线「核心客户流失 ≤2 家」的分子就是它，2 这个阈值来自方案原文。\" ."}], "related": [], "comments": []}}, {"id": "DualSignedApproval", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "双签放行单", "name": "DualSignedApproval", "iri": "https://cube.local/ontology/retail#DualSignedApproval", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["双签放行单", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 296, "text": ":DualSignedApproval a owl:Class ; rdfs:label \"双签放行单\" ;\n    rdfs:subClassOf :LowMarginApproval ;\n    :physicalTable \"low_margin_approvals\" ;\n    :physicalPredicate \"signed_by_sales IS NOT NULL AND signed_by_finance IS NOT NULL\" ;\n    :businessDescription \"销售与财务两侧签字都在的放行单，实测 4,232 / 4,232（100%）。谓词而非公理：要同时判两个 IS NOT NULL。这条之所以要单独声明，是因为「双签率 100%」如果只是文字，没人能复核它到底排除了哪些行。\" ."}], "related": [], "comments": []}}, {"id": "OverdueUnreviewedApproval", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "到期未复核放行单（基准日 2026-10-27）", "name": "OverdueUnreviewedApproval", "iri": "https://cube.local/ontology/retail#OverdueUnreviewedApproval", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["到期未复核放行单（基准日 2026-10-27）", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 302, "text": ":OverdueUnreviewedApproval a owl:Class ; rdfs:label \"到期未复核放行单（基准日 2026-10-27）\" ;\n    rdfs:subClassOf :LowMarginApproval ;\n    :physicalTable \"low_margin_approvals\" ;\n    :physicalPredicate \"review_due_at < DATE '2026-10-27' AND reviewed_at IS NULL\" ;\n    :businessDescription \"过了复审到期日却还没复核的放行单，实测 717 / 4,232。基准日 DATE '2026-10-27' 取的是报告出具日，写进谓词而不是用 now()，是因为 now() 会让这个数天天变大而库里不再变化——那是噪声。**必须点破：它并不是数据里最晚的 review_due_at**——库里到期日最长到 2027-04-25，以数据边界为基准同一口径得 1,027 张，差 310 张；\\\"逾期按哪天算\\\"是业务决定，指标侧已标 :assumed 等客户确认。未复核且到期日未到的 312 张（未复核合计 1,029 = 717 + 312）不算逾期，这个差额同样必须被点出来。\" ."}], "related": [], "comments": []}}, {"id": "LeaverFy2026", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "2026 年离职员工", "name": "LeaverFy2026", "iri": "https://cube.local/ontology/retail#LeaverFy2026", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["2026 年离职员工", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 308, "text": ":LeaverFy2026 a owl:Class ; rdfs:label \"2026 年离职员工\" ;\n    rdfs:subClassOf :Employee ;\n    :physicalTable \"employees\" ;\n    :physicalPredicate \"left_at >= DATE '2026-01-01' AND left_at < DATE '2027-01-01'\" ;\n    :businessDescription \"left_at 落在 2026 年的员工，实测 164 人 = 主动离职 82 + 合同到期 43 + 退休 39（Q11 默认 A：三类都算离职，assumed）。在册 2,636 / 总 2,800。谓词而非公理：区间比较 OWL 表达不了。\" ."}], "related": [], "comments": []}}, {"id": "RefusedCustomerPurchaseAmount", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "拒：客户采购额（customers.purchase_amount_2025）", "name": "RefusedCustomerPurchaseAmount", "iri": "https://cube.local/ontology/retail#RefusedCustomerPurchaseAmount", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["拒：客户采购额（customers.purchase_amount_2025）", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 318, "text": ":RefusedCustomerPurchaseAmount a owl:Class ; rdfs:label \"拒：客户采购额（customers.purchase_amount_2025）\" ;\n    rdfs:subClassOf :Customer ;\n    :refusalReason \"refused: customers.purchase_amount_2025 与订单明细不可对账——逐户比值 min 0.586 / avg 19.083 / max 555.931（180 户），无法判断它是含税、跨事业部还是另一套口径（Q7=A 弃用）。采购额一律从 order_lines 算。若把它做成指标，同一个问题会有两个答案，而其中一个无法下钻到订单行。\" ."}], "related": [], "comments": []}}, {"id": "RefusedCustomerGrossMargin", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "拒：客户级毛利率（customers.gross_margin_2025）", "name": "RefusedCustomerGrossMargin", "iri": "https://cube.local/ontology/retail#RefusedCustomerGrossMargin", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["拒：客户级毛利率（customers.gross_margin_2025）", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 322, "text": ":RefusedCustomerGrossMargin a owl:Class ; rdfs:label \"拒：客户级毛利率（customers.gross_margin_2025）\" ;\n    rdfs:subClassOf :Customer ;\n    :refusalReason \"refused: customers.gross_margin_2025 的客户均值 21.02%，而订单明细加权毛利率 18.62%（2025）——差 2.4pp（Q8=A 弃用明细为唯一口径）。客户字段是事前标注还是事后实测，库里没有一列能判；且它不可下钻、不可复现。毛利率只报 weightedGrossMargin（明细加权）。\" ."}], "related": [], "comments": []}}, {"id": "RefusedRevenueHeader", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "拒：表头口径收入（orders.revenue_header）", "name": "RefusedRevenueHeader", "iri": "https://cube.local/ontology/retail#RefusedRevenueHeader", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["拒：表头口径收入（orders.revenue_header）", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 326, "text": ":RefusedRevenueHeader a owl:Class ; rdfs:label \"拒：表头口径收入（orders.revenue_header）\" ;\n    rdfs:subClassOf :Order ;\n    :refusalReason \"refused: 表头口径 2026 = 11.1590 亿，明细加总 11.0000 亿，差 1,588 万（1.44%）；报告的「今年 11 亿」只在明细口径下逐位成立（Q1=A）。两条口径同时存在时只能声明一条，否则「今年做了多少」会看人下菜。表头收入不声明成指标。\" ."}], "related": [], "comments": []}}, {"id": "RefusedDiscountNetRevenue", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "拒：折扣后净收入（order_adjustments）", "name": "RefusedDiscountNetRevenue", "iri": "https://cube.local/ontology/retail#RefusedDiscountNetRevenue", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["拒：折扣后净收入（order_adjustments）", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 330, "text": ":RefusedDiscountNetRevenue a owl:Class ; rdfs:label \"拒：折扣后净收入（order_adjustments）\" ;\n    rdfs:subClassOf :OrderAdjustment ;\n    :refusalReason \"refused: 折扣 2,361 条合计 −1,535.45 万、返利 2,239 条合计 −694.04 万，两条相加 −2,229.49 万；而表头合计 20.3000 亿与明细合计 19.9999 亿差了 3,000.00 万。两个差对不上（差 770.51 万），说明调整表既不能当成「表头减明细」的解释项，也不能当成折扣后收入的构成项。所以「折扣后收入」这个数在库里没有闭合的定义：能报的只有折扣合计与返利合计两条，且必须各自单独报。\" ."}], "related": [], "comments": []}}, {"id": "RefusedMicroImprovementSaving", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "拒：微改良带来的降本/增收金额", "name": "RefusedMicroImprovementSaving", "iri": "https://cube.local/ontology/retail#RefusedMicroImprovementSaving", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["拒：微改良带来的降本/增收金额", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 334, "text": ":RefusedMicroImprovementSaving a owl:Class ; rdfs:label \"拒：微改良带来的降本/增收金额\" ;\n    rdfs:subClassOf :MicroImprovement ;\n    :refusalReason \"refused: micro_improvements 没有任何金额或数量列（id/kind/title/status/started_at/verified_at/retreated_at/product_id），7 条记录里 5 条已验证、0 条回退。所以「微改良省了多少钱」没有字段可算；能报的只有进度（5/7 已验证、2/7 认证项目），任何金额都是从别处编出来的。\" ."}], "related": [], "comments": []}}, {"id": "RefusedLeadConversionRate", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "拒：线索转化率（converted_customer_id）", "name": "RefusedLeadConversionRate", "iri": "https://cube.local/ontology/retail#RefusedLeadConversionRate", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["拒：线索转化率（converted_customer_id）", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 338, "text": ":RefusedLeadConversionRate a owl:Class ; rdfs:label \"拒：线索转化率（converted_customer_id）\" ;\n    rdfs:subClassOf :Lead ;\n    :refusalReason \"refused: leads.converted_customer_id 在 900 条里 100% 为 NULL（实测 count(converted_customer_id) = 0），转化这条链在库里没有落地。能报的只有合格率 327/900 = 36.33%，它衡量的是「有效询盘」，不是「转化」。\" ."}], "related": [], "comments": []}}, {"id": "RefusedLeaverRate", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "拒：离职率（分母基准未定）", "name": "RefusedLeaverRate", "iri": "https://cube.local/ontology/retail#RefusedLeaverRate", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["拒：离职率（分母基准未定）", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 342, "text": ":RefusedLeaverRate a owl:Class ; rdfs:label \"拒：离职率（分母基准未定）\" ;\n    rdfs:subClassOf :Employee ;\n    :refusalReason \"refused: 分子有共识（164 人，Q11 默认 A），分母没有。期末在册 2,636 → 6.22%；期初在册 2,798 → 5.86%；平均在册 (2798+2636)/2 = 2,717 → 6.04%。三个都能算、都能上会，差 0.36pp。没人给基准之前不声明离职率，只报 activeHeadcount 与 leaverCountFy2026 两个数，让读者自己除。\" ."}], "related": [], "comments": []}}, {"id": "RefusedLowMarginComplianceAtOrderTime", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "拒：下单时点的低毛利合规判定", "name": "RefusedLowMarginComplianceAtOrderTime", "iri": "https://cube.local/ontology/retail#RefusedLowMarginComplianceAtOrderTime", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["拒：下单时点的低毛利合规判定", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 346, "text": ":RefusedLowMarginComplianceAtOrderTime a owl:Class ; rdfs:label \"拒：下单时点的低毛利合规判定\" ;\n    rdfs:subClassOf :OrderLine ;\n    :refusalReason \"refused: production_lines.utilization 只有当前快照，没有历史；订单行上没有下单时点的利用率。所以「2026 年 3 月那笔低毛利下单时，产线利用率是否 <70%」在库里无法回答。能报的是按今天利用率的合规画面（lowMarginOnUnderutilizedLineShare = 100%），它不等于当时的判定，命名与时点说明必须写出来（Q10）。\" ."}], "related": [], "comments": []}}, {"id": "RefusedCoreCustomerChurnByInactivity", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "拒：按「连续 N 月无订单」判核心客户流失", "name": "RefusedCoreCustomerChurnByInactivity", "iri": "https://cube.local/ontology/retail#RefusedCoreCustomerChurnByInactivity", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["拒：按「连续 N 月无订单」判核心客户流失", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 350, "text": ":RefusedCoreCustomerChurnByInactivity a owl:Class ; rdfs:label \"拒：按「连续 N 月无订单」判核心客户流失\" ;\n    rdfs:subClassOf :CoreCustomer ;\n    :refusalReason \"refused: 需要一个人给 N（连续几个月没有订单算流失）。库里也没有「最后一次下单日」这一列，要现算 max(order_date) 再跟数据截止日比；N 一给，分子与分母都要重算。当前声明的是 churned_at 非空口径（coreCustomerChurnCount），它对同一个问题给出 1 家。\" ."}], "related": [], "comments": []}}, {"id": "RefusedOpexYearOverYearByCategory", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "拒：费用按年（行式年份）", "name": "RefusedOpexYearOverYearByCategory", "iri": "https://cube.local/ontology/retail#RefusedOpexYearOverYearByCategory", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["拒：费用按年（行式年份）", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 354, "text": ":RefusedOpexYearOverYearByCategory a owl:Class ; rdfs:label \"拒：费用按年（行式年份）\" ;\n    rdfs:subClassOf :OpexItem ;\n    :refusalReason \"refused: opex_items 的年份是**两列**（amount_2025 / amount_2026），不是行。任何「按年汇总费用」的指标都必须写死列，因此不存在一个「年份」维度可以 group by；如果声明 groupBy year，编译器只能编出一个不存在的列。可编译的形状是 opex2025 / opex2026 两条并列指标，再加 opexChange。\" ."}], "related": [], "comments": []}}, {"id": "Fy2025OrderLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "2025 财年订单行", "name": "Fy2025OrderLine", "iri": "https://cube.local/ontology/retail#Fy2025OrderLine", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["2025 财年订单行", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 359, "text": ":Fy2025OrderLine a owl:Class ; rdfs:label \"2025 财年订单行\" ;\n    rdfs:subClassOf :OrderLine ;\n    :physicalTable \"order_lines\" ;\n    :physicalPredicate \"order_id IN (SELECT o.id FROM orders o WHERE o.fiscal_year = 2025)\" ;\n    :businessDescription \"订单所属财年为 2025 的订单行，实测 9,000 行 / 8.9999 亿。存在理由：按财年分年的指标可以走 :groupBy :orderFiscalYear，但如果编译器不为跨表列加 join，就必须有一条按年份切好的类；两条路线都在真库里跑过，取能编译的那条。\" ."}], "related": [], "comments": []}}, {"id": "Fy2026OrderLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "2026 财年订单行", "name": "Fy2026OrderLine", "iri": "https://cube.local/ontology/retail#Fy2026OrderLine", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["2026 财年订单行", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 365, "text": ":Fy2026OrderLine a owl:Class ; rdfs:label \"2026 财年订单行\" ;\n    rdfs:subClassOf :OrderLine ;\n    :physicalTable \"order_lines\" ;\n    :physicalPredicate \"order_id IN (SELECT o.id FROM orders o WHERE o.fiscal_year = 2026)\" ;\n    :businessDescription \"订单所属财年为 2026 的订单行，实测 9,400 行 / 11.0000 亿。\" ."}], "related": [], "comments": []}}, {"id": "LowMarginTierLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "低毛利走量订单行", "name": "LowMarginTierLine", "iri": "https://cube.local/ontology/retail#LowMarginTierLine", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["低毛利走量订单行", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 371, "text": ":LowMarginTierLine a owl:Class ; rdfs:label \"低毛利走量订单行\" ;\n    rdfs:subClassOf :OrderLine ;\n    :physicalTable \"order_lines\" ;\n    :physicalPredicate \"tier = '低毛利走量'\" ;\n    :businessDescription \"tier = '低毛利走量' 的订单行，实测 4,232 / 18,400 行 / 4.6000 亿。等级是库里给好的三值之一（低毛利走量 / 标准 / 高毛利），不是本会话切的。\" ."}], "related": [], "comments": []}}, {"id": "SegmentBOrderLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "B 级客户的订单行", "name": "SegmentBOrderLine", "iri": "https://cube.local/ontology/retail#SegmentBOrderLine", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["B 级客户的订单行", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 377, "text": ":SegmentBOrderLine a owl:Class ; rdfs:label \"B 级客户的订单行\" ;\n    rdfs:subClassOf :OrderLine ;\n    :physicalTable \"order_lines\" ;\n    :physicalPredicate \"order_id IN (SELECT o.id FROM orders o JOIN customers c ON c.id = o.customer_id WHERE c.segment = 'B')\" ;\n    :businessDescription \"客户 segment = 'B' 的订单行，实测 2026 年占收入 65.6008%（7.2161 亿）。与 UnclassifiedCustomerOrderLine 同一种形状（同表子查询），给未分级那 20% 一个参照系。\" ."}], "related": [], "comments": []}}, {"id": "ClosedLineAfterCloseOrderLine", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "关停产线上、关停日之后下单的订单行", "name": "ClosedLineAfterCloseOrderLine", "iri": "https://cube.local/ontology/retail#ClosedLineAfterCloseOrderLine", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["关停产线上、关停日之后下单的订单行", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 388, "text": ":ClosedLineAfterCloseOrderLine a owl:Class ; rdfs:label \"关停产线上、关停日之后下单的订单行\" ;\n    rdfs:subClassOf :OrderLine ;\n    :physicalTable \"order_lines\" ;\n    :physicalPredicate \"production_line_id IN (SELECT pl.id FROM production_lines pl WHERE pl.closed_at IS NOT NULL) AND order_id IN (SELECT o.id FROM orders o WHERE o.order_date > (SELECT MIN(pl2.closed_at) FROM production_lines pl2 WHERE pl2.closed_at IS NOT NULL))\" ;\n    :businessDescription \"已关停产线（L08 / L09，closed_at = 2026-09-30）上、下单日在该关停日之后的订单行。它是红线二 closedLineRevenueAfterClose 的唯一物理落点，实测量写在指标那一侧。谓词里不出现任何日期字面量：关停日从 production_lines 读，所以「哪天线关的」只有一处真相。两个子查询的源表都写了别名（pl / pl2 / o）：编译器会把谓词里不带别名的裸列限定成主表列（实测把 SELECT id FROM production_lines 改写成 SELECT order_lines.id ...，指标因此返回 NULL）。\" ."}], "related": [], "comments": []}}, {"id": "VoluntaryLeaverFy2026", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "2026 年主动离职的员工", "name": "VoluntaryLeaverFy2026", "iri": "https://cube.local/ontology/retail#VoluntaryLeaverFy2026", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["2026 年主动离职的员工", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 398, "text": ":VoluntaryLeaverFy2026 a owl:Class ; rdfs:label \"2026 年主动离职的员工\" ;\n    rdfs:subClassOf :Employee ;\n    :physicalTable \"employees\" ;\n    :physicalPredicate \"leave_reason = '主动离职' AND left_at >= DATE '2026-01-01' AND left_at < DATE '2027-01-01'\" ;\n    :businessDescription \"2026 财年内、离职原因记为主动离职的员工，实测 82 人（三类离职全算 164 人，Q1 默认 A）。它是 leaverCountFy2026 的子集口径，两个数一起看才知道「走的人里有多少是自己走的」。rdfs:subClassOf 直接挂 :Employee 而不是 :LeaverFy2026：谓词里已经带了 2026 的时间条件，两层继承会让编译器去找 :Employee -> :LeaverFy2026 的 :references 路径并拒绝（实测）。\" ."}], "related": [], "comments": []}}, {"id": "RefusedBucketShareRatio", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "拒：分组键不一致的占比（各增长来源占收入%）", "name": "RefusedBucketShareRatio", "iri": "https://cube.local/ontology/retail#RefusedBucketShareRatio", "inDomain": [], "inRange": [], "sub": "no definition", "lines": ["拒：分组键不一致的占比（各增长来源占收入%）", "no definition"], "description": null, "definedBy": null, "definedVia": null, "refusal": null, "sql": null, "value": null, "sample": null, "objects": null, "labelRule": null, "structural": [], "annotations": [], "sources": {"self": [{"file": "02-meaning.ttl", "line": 405, "text": ":RefusedBucketShareRatio a owl:Class ; rdfs:label \"拒：分组键不一致的占比（各增长来源占收入%）\" ;\n    rdfs:subClassOf :OrderLine ;\n    :refusalReason \"refused: ratio_of_sums 用两个操作数各自的分组再相除。分子按 growth_bucket 分组、分母按 fiscal_year 分组时形状不成立：实测 growthBucketRevenueShare 编译出 4 行、每行都等于 100.000%；incrementalRevenueShare 的同形 SQL 直接报 subquery must return only one column。能报的是每桶绝对额（growthBucketRevenue：存量基本盘 18.80 亿 + B 新客户 0.619 亿 + C 微改良 0.330 亿 + A 老客户加购 0.250 亿 = 两年收入 20.00 亿）与按财年的单值增量占比（incrementalRevenueShare）。桶级占比 = 桶额 / revenue，由读者自己除；本体不声明一个算不出来的数。\" ."}], "related": [], "comments": []}}], "edges": [{"src": "Order", "dst": "LateOrder", "label": "subClassOf", "kind": "subclass"}, {"src": "Order", "dst": "OnTimeOrder", "label": "subClassOf", "kind": "subclass"}, {"src": "Order", "dst": "FY2025Order", "label": "subClassOf", "kind": "subclass"}, {"src": "Order", "dst": "FY2026Order", "label": "subClassOf", "kind": "subclass"}, {"src": "Order", "dst": "RefusedRevenueHeader", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderLine", "dst": "DifferentiatedOrderLine", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderLine", "dst": "StandardOrderLine", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderLine", "dst": "LowMarginVolumeOrderLine", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderLine", "dst": "MicroImprovedOrderLine", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderLine", "dst": "BaselineOrderLine", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderLine", "dst": "NewCustomerGrowthOrderLine", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderLine", "dst": "CProductGrowthOrderLine", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderLine", "dst": "ACustomerAddOnOrderLine", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderLine", "dst": "UnclassifiedCustomerOrderLine", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderLine", "dst": "CoreCustomerOrderLine", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderLine", "dst": "LowMarginOnUnderutilizedLineOrderLine", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderLine", "dst": "IncrementalOrderLine", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderLine", "dst": "RefusedLowMarginComplianceAtOrderTime", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderLine", "dst": "Fy2025OrderLine", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderLine", "dst": "Fy2026OrderLine", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderLine", "dst": "LowMarginTierLine", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderLine", "dst": "SegmentBOrderLine", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderLine", "dst": "ClosedLineAfterCloseOrderLine", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderLine", "dst": "RefusedBucketShareRatio", "label": "subClassOf", "kind": "subclass"}, {"src": "Customer", "dst": "GradeACustomer", "label": "subClassOf", "kind": "subclass"}, {"src": "Customer", "dst": "GradeBCustomer", "label": "subClassOf", "kind": "subclass"}, {"src": "Customer", "dst": "GradeCCustomer", "label": "subClassOf", "kind": "subclass"}, {"src": "Customer", "dst": "UnclassifiedCustomer", "label": "subClassOf", "kind": "subclass"}, {"src": "Customer", "dst": "BoundaryCustomer", "label": "subClassOf", "kind": "subclass"}, {"src": "Customer", "dst": "ChurnedCustomer", "label": "subClassOf", "kind": "subclass"}, {"src": "Customer", "dst": "RefusedCustomerPurchaseAmount", "label": "subClassOf", "kind": "subclass"}, {"src": "Customer", "dst": "RefusedCustomerGrossMargin", "label": "subClassOf", "kind": "subclass"}, {"src": "ProductionLine", "dst": "UnderutilizedProductionLine", "label": "subClassOf", "kind": "subclass"}, {"src": "ProductionLine", "dst": "ClosedProductionLine", "label": "subClassOf", "kind": "subclass"}, {"src": "LowMarginApproval", "dst": "ReviewedApproval", "label": "subClassOf", "kind": "subclass"}, {"src": "LowMarginApproval", "dst": "UnreviewedApproval", "label": "subClassOf", "kind": "subclass"}, {"src": "LowMarginApproval", "dst": "DualSignedApproval", "label": "subClassOf", "kind": "subclass"}, {"src": "LowMarginApproval", "dst": "OverdueUnreviewedApproval", "label": "subClassOf", "kind": "subclass"}, {"src": "OpexItem", "dst": "FreezableOpexItem", "label": "subClassOf", "kind": "subclass"}, {"src": "OpexItem", "dst": "UnfrozenFreezableOpexItem", "label": "subClassOf", "kind": "subclass"}, {"src": "OpexItem", "dst": "RefusedOpexYearOverYearByCategory", "label": "subClassOf", "kind": "subclass"}, {"src": "Supplier", "dst": "Top10Supplier", "label": "subClassOf", "kind": "subclass"}, {"src": "Employee", "dst": "ActiveEmployee", "label": "subClassOf", "kind": "subclass"}, {"src": "Employee", "dst": "VoluntaryLeaver", "label": "subClassOf", "kind": "subclass"}, {"src": "Employee", "dst": "LeaverFy2026", "label": "subClassOf", "kind": "subclass"}, {"src": "Employee", "dst": "RefusedLeaverRate", "label": "subClassOf", "kind": "subclass"}, {"src": "Employee", "dst": "VoluntaryLeaverFy2026", "label": "subClassOf", "kind": "subclass"}, {"src": "Lead", "dst": "QualifiedLead", "label": "subClassOf", "kind": "subclass"}, {"src": "Lead", "dst": "RefusedLeadConversionRate", "label": "subClassOf", "kind": "subclass"}, {"src": "MicroImprovement", "dst": "MicroImprovementProject", "label": "subClassOf", "kind": "subclass"}, {"src": "MicroImprovement", "dst": "CertificationProject", "label": "subClassOf", "kind": "subclass"}, {"src": "MicroImprovement", "dst": "VerifiedMicroImprovement", "label": "subClassOf", "kind": "subclass"}, {"src": "MicroImprovement", "dst": "RefusedMicroImprovementSaving", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderAdjustment", "dst": "DiscountAdjustment", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderAdjustment", "dst": "RebateAdjustment", "label": "subClassOf", "kind": "subclass"}, {"src": "OrderAdjustment", "dst": "RefusedDiscountNetRevenue", "label": "subClassOf", "kind": "subclass"}, {"src": "CoreCustomer", "dst": "ChurnedCoreCustomer", "label": "subClassOf", "kind": "subclass"}, {"src": "CoreCustomer", "dst": "RefusedCoreCustomerChurnByInactivity", "label": "subClassOf", "kind": "subclass"}], "pos": {"DifferentiatedOrderLine": [358.0, 2074.0, 260.0, 36.0], "StandardOrderLine": [358.0, 2134.0, 269.0, 36.0], "LowMarginVolumeOrderLine": [358.0, 2194.0, 278.0, 36.0], "MicroImprovedOrderLine": [358.0, 2254.0, 272.0, 36.0], "BaselineOrderLine": [358.0, 2314.0, 264.0, 36.0], "NewCustomerGrowthOrderLine": [358.0, 2374.0, 282.0, 36.0], "CProductGrowthOrderLine": [358.0, 2434.0, 273.0, 36.0], "ACustomerAddOnOrderLine": [358.0, 2494.0, 279.0, 36.0], "GradeACustomer": [358.0, 1414.0, 269.0, 36.0], "GradeBCustomer": [358.0, 1474.0, 269.0, 36.0], "GradeCCustomer": [358.0, 1534.0, 269.0, 36.0], "BoundaryCustomer": [358.0, 1594.0, 275.0, 36.0], "UnderutilizedProductionLine": [358.0, 1174.0, 267.0, 36.0], "ClosedProductionLine": [358.0, 1234.0, 266.0, 36.0], "FreezableOpexItem": [358.0, 754.0, 269.0, 36.0], "Top10Supplier": [358.0, 694.0, 265.0, 36.0], "VoluntaryLeaver": [358.0, 394.0, 264.0, 36.0], "QualifiedLead": [358.0, 274.0, 261.0, 36.0], "MicroImprovementProject": [358.0, 34.0, 271.0, 36.0], "CertificationProject": [358.0, 94.0, 255.0, 36.0], "DiscountAdjustment": [358.0, 1894.0, 270.0, 36.0], "RebateAdjustment": [358.0, 1954.0, 272.0, 36.0], "FY2025Order": [358.0, 3214.0, 268.0, 36.0], "FY2026Order": [358.0, 3274.0, 268.0, 36.0], "Order": [60.5, 3334.0, 58.0, 36.0], "OrderLine": [60.5, 2614.0, 58.0, 36.0], "OrderAdjustment": [60.5, 1954.0, 58.0, 36.0], "Customer": [60.5, 1621.0, 58.0, 36.0], "CoreCustomer": [60.5, 1322.0, 58.0, 36.0], "Product": [60.5, 1257.0, 58.0, 36.0], "ProductionLine": [60.5, 1186.0, 58.0, 36.0], "LowMarginApproval": [60.5, 1021.0, 71.0, 36.0], "OpexItem": [60.5, 814.0, 58.0, 36.0], "Supplier": [60.5, 694.0, 58.0, 36.0], "Employee": [60.5, 514.0, 58.0, 36.0], "Lead": [60.5, 301.0, 58.0, 36.0], "MicroImprovement": [60.5, 117.0, 89.0, 36.0], "RuleRegime": [60.5, 42.0, 58.0, 36.0], "LateOrder": [358.0, 3334.0, 58.0, 36.0], "OnTimeOrder": [358.0, 3394.0, 58.0, 36.0], "UnclassifiedCustomer": [358.0, 1654.0, 62.0, 36.0], "ChurnedCustomer": [358.0, 1714.0, 62.0, 36.0], "ReviewedApproval": [358.0, 934.0, 71.0, 36.0], "UnreviewedApproval": [358.0, 994.0, 71.0, 36.0], "UnfrozenFreezableOpexItem": [358.0, 814.0, 98.0, 36.0], "ActiveEmployee": [358.0, 454.0, 58.0, 36.0], "VerifiedMicroImprovement": [358.0, 154.0, 137.0, 36.0], "UnclassifiedCustomerOrderLine": [358.0, 2554.0, 98.0, 36.0], "CoreCustomerOrderLine": [358.0, 2614.0, 116.0, 36.0], "LowMarginOnUnderutilizedLineOrderLine": [358.0, 2674.0, 179.0, 36.0], "IncrementalOrderLine": [358.0, 2734.0, 134.0, 36.0], "ChurnedCoreCustomer": [358.0, 1294.0, 89.0, 36.0], "DualSignedApproval": [358.0, 1054.0, 62.0, 36.0], "OverdueUnreviewedApproval": [358.0, 1114.0, 191.0, 36.0], "LeaverFy2026": [358.0, 514.0, 89.0, 36.0], "RefusedCustomerPurchaseAmount": [358.0, 1774.0, 258.0, 36.0], "RefusedCustomerGrossMargin": [358.0, 1834.0, 246.0, 36.0], "RefusedRevenueHeader": [358.0, 3454.0, 211.0, 36.0], "RefusedDiscountNetRevenue": [358.0, 2014.0, 191.0, 36.0], "RefusedMicroImprovementSaving": [358.0, 214.0, 146.0, 36.0], "RefusedLeadConversionRate": [358.0, 334.0, 203.0, 36.0], "RefusedLeaverRate": [358.0, 574.0, 134.0, 36.0], "RefusedLowMarginComplianceAtOrderTime": [358.0, 2794.0, 143.0, 36.0], "RefusedCoreCustomerChurnByInactivity": [358.0, 1354.0, 191.0, 36.0], "RefusedOpexYearOverYearByCategory": [358.0, 874.0, 125.0, 36.0], "Fy2025OrderLine": [358.0, 2854.0, 89.0, 36.0], "Fy2026OrderLine": [358.0, 2914.0, 89.0, 36.0], "LowMarginTierLine": [358.0, 2974.0, 89.0, 36.0], "SegmentBOrderLine": [358.0, 3034.0, 89.0, 36.0], "ClosedLineAfterCloseOrderLine": [358.0, 3094.0, 170.0, 36.0], "VoluntaryLeaverFy2026": [358.0, 634.0, 116.0, 36.0], "RefusedBucketShareRatio": [358.0, 3154.0, 214.0, 36.0]}, "width": 555, "height": 3569, "missing": [], "note": "Postgres unavailable (connection to server at \"127.0.0.1\", port 15432 failed: Conn) — numbers omitted", "triples": 1735, "files": 4, "sample": 20, "dsn": "retail_db @ 127.0.0.1:15432", "doc": null, "generated": "2026-11-14 02:25", "counts": {"structure": 0, "meaning": 72, "metrics": 0, "refused": 0, "links": 0}};
+const NS = "http://www.w3.org/2000/svg";
+const svg = document.getElementById("svg"), view = document.getElementById("view");
+const stage = document.getElementById("stage"), panel = document.getElementById("panel");
+const byId = Object.fromEntries(DATA.nodes.map(n => [n.id, n]));
+let scale = 1, tx = 0, ty = 0, selected = null;
+
+// dot's y grows up, so flip once, here, using the box height
+const pos = {};
+for (const [id, b] of Object.entries(DATA.pos)) {
+  const kind = (byId[id] || {}).kind || "";
+  pos[id] = {x: b[0], y: DATA.height - b[1], w: b[2], h: b[3],
+             shape: kind.startsWith("metric") ? "ellipse" : "rect"};
+}
+const have = id => pos[id] !== undefined;
+const centre = id => ({x: pos[id].x, y: pos[id].y});
+// An arrow that ends in the middle of a box says nothing about direction, so each end is
+// pulled back to the border of the node it touches: rectangle for a class, ellipse for a
+// datatype property.
+function border(center, toward, node) {
+  const dx = toward.x - center.x, dy = toward.y - center.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len, uy = dy / len;
+  const hw = Math.max(node.w / 2, 6), hh = Math.max(node.h / 2, 6);
+  const ellipse = node.shape === "ellipse";
+  const t = ellipse
+    ? 1 / Math.sqrt((ux * ux) / (hw * hw) + (uy * uy) / (hh * hh))
+    : Math.min(Math.abs(ux) > 1e-6 ? hw / Math.abs(ux) : Infinity,
+               Math.abs(uy) > 1e-6 ? hh / Math.abs(uy) : Infinity);
+  return {x: center.x + ux * t, y: center.y + uy * t};
+}
+const edgePoints = e => {
+  const a = centre(e.src), b = centre(e.dst);
+  const A = pos[e.src], B = pos[e.dst];
+  return {start: border(a, b, A), end: border(b, a, B)};
+};
+const edgePath = e => {
+  const {start, end} = edgePoints(e), m = (start.x + end.x) / 2;
+  return `M${start.x},${start.y} C${m},${start.y} ${m},${end.y} ${end.x},${end.y}`;
+};
+
+function draw() {
+  const mk = (t, attrs) => { const el = document.createElementNS(NS, t);
+    for (const k in attrs) el.setAttribute(k, attrs[k]); return el };
+  const defs = mk("defs", {});
+  for (const [id, fill] of [["arrow", "#9a9a9a"], ["arrow-hit", "#c99a00"]]) {
+    const marker = mk("marker", {id, viewBox: "0 0 10 10", refX: "9", refY: "5",
+                                 markerWidth: "6", markerHeight: "6", orient: "auto"});
+    marker.appendChild(mk("path", {d: "M0,0 L10,5 L0,10 z", fill}));
+    defs.appendChild(marker);
+  }
+  svg.appendChild(defs);
+  const gEdges = mk("g", {}), gNodes = mk("g", {});
+  view.appendChild(gEdges); view.appendChild(gNodes);
+
+  for (const e of DATA.edges) {
+    if (!have(e.src) || !have(e.dst)) continue;
+    const p = mk("path", {d: edgePath(e), class: "edge " + e.kind,
+                          "data-src": e.src, "data-dst": e.dst,
+                          "marker-end": "url(#arrow)"});
+    const t = mk("title", {}); t.textContent = e.label || e.kind;
+    p.appendChild(t); gEdges.appendChild(p);
+    if (e.label) {
+      const a = centre(e.src), b = centre(e.dst);
+      const lab = mk("text", {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - 3, class: "edge-label",
+                              "text-anchor": "middle", "data-src": e.src, "data-dst": e.dst});
+      lab.textContent = e.label; gEdges.appendChild(lab);
+    }
+  }
+
+  for (const n of DATA.nodes) {
+    if (!have(n.id)) continue;
+    const p = pos[n.id];
+    const g = mk("g", {class: "node " + n.kind, "data-id": n.id,
+                       transform: `translate(${p.x},${p.y})`});
+    if (n.kind.startsWith("metric")) {
+      g.appendChild(mk("ellipse", {rx: p.w / 2, ry: p.h / 2, cx: 0, cy: 0}));
+    } else {
+      g.appendChild(mk("rect", {x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h, rx: 3}));
+    }
+    const lines = n.lines || [n.label];
+    const step = 11, top = -((lines.length - 1) * step) / 2;
+    lines.forEach((text, i) => {
+      const cls = i === 0 ? "name" : (i === 1 ? "sub" : "col");
+      const el = mk("text", {x: 0, y: top + i * step + 3, "text-anchor": "middle", class: cls});
+      el.textContent = text;
+      g.appendChild(el);
+    });
+    const tip = mk("title", {}); tip.textContent = n.id; g.appendChild(tip);
+    gNodes.appendChild(g);
+  }
+  applyTransform();
+}
+const applyTransform = () => view.setAttribute("transform", `translate(${tx},${ty}) scale(${scale})`);
+function fit() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  scale = Math.min(w / DATA.width, h / DATA.height, 1.3);
+  tx = (w - DATA.width * scale) / 2; ty = (h - DATA.height * scale) / 2;
+  applyTransform();
+}
+
+// ── the index ──────────────────────────────────────────────────────────────
+const GROUPS = [["structure", "Classes"], ["meaning", "Defined classes"],
+                ["metric", "Datatype Properties — compiled"],
+                ["metric-refused", "Datatype Properties — refused"]];
+function buildIndex() {
+  const box = document.getElementById("idx");
+  for (const [kind, title] of GROUPS) {
+    const rows = DATA.nodes.filter(n => n.kind === kind);
+    if (!rows.length) continue;
+    const h = document.createElement("div");
+    h.className = "grp";
+    h.dataset.k = kind === "metric-refused" ? "metric" : kind;
+    h.textContent = `${title} (${rows.length})`; box.appendChild(h);
+    for (const n of rows) {
+      const a = document.createElement("a");
+      a.dataset.id = n.id; a.dataset.k = kind;
+      a.textContent = n.label; a.title = n.id;
+      a.onclick = () => show(n.id);
+      box.appendChild(a);
+    }
+  }
+}
+
+// ── the panel ──────────────────────────────────────────────────────────────
+function clearMarks() {
+  document.querySelectorAll(".node").forEach(el => el.classList.remove("hit", "sel", "dim", "reach"));
+  document.querySelectorAll(".edge, .edge-label").forEach(el => {
+    el.classList.remove("hit", "dim"); el.style.display = "";
+  });
+  const scope = document.getElementById("scope"); if (scope) scope.textContent = "";
+}
+// The radius was the wrong idea: what a reader wants to see is the RELATION, not a hop
+// count. `domain` lights the classes this term's properties point at, `range` lights what
+// points at this term — which is how `Region` reaches `Nation` (n_regionkey) and
+// `Customer` (the customerRegion chain) in one step, instead of a 2-hop walk.
+let mode = "both";
+function litBy(id, how) {
+  const out = new Set([id]);
+  for (const e of DATA.edges) {
+    if (how !== "range" && e.src === id) out.add(e.dst);     // my properties, my metrics
+    if (how !== "domain" && e.dst === id) out.add(e.src);    // properties that point at me
+  }
+  return out;
+}
+function setMode(value) {
+  mode = value;
+  document.querySelectorAll("#controls button[data-mode]").forEach(b =>
+    b.classList.toggle("on", b.dataset.mode === value));
+  if (selected) focus(selected);
+}
+function focus(id) {
+  clearMarks();
+  const near = litBy(id, mode);
+  const el = document.querySelector(`.node[data-id="${id}"]`);
+  document.querySelectorAll(".node").forEach(n => {
+    const lit = near.has(n.dataset.id);
+    n.classList.toggle("dim", n !== el && !lit);
+    if (lit) n.classList.add("reach");
+  });
+  if (!el) return;
+  el.classList.add("sel");
+  // In `domain`/`range` mode the other edges are not dimmed — they are removed from the
+  // picture, so what remains IS the answer to "show me the range relations".
+  let shown = 0, total = 0;
+  document.querySelectorAll(".edge, .edge-label").forEach(edge => {
+    // `range` shows only the edges that END here; `domain` only the ones that LEAVE here.
+    // The lit set is still two-way, but the picture is the relation you asked for.
+    const hit = mode === "range" ? edge.dataset.dst === id
+              : mode === "domain" ? edge.dataset.src === id
+              : (near.has(edge.dataset.src) && near.has(edge.dataset.dst));
+    total += edge.classList.contains("edge") ? 1 : 0;
+    shown += edge.classList.contains("edge") && hit ? 1 : 0;
+    edge.style.display = (mode === "both" || hit) ? "" : "none";
+    edge.classList.toggle("hit", hit);
+    edge.classList.toggle("dim", mode === "both" && !hit);
+    if (edge.classList.contains("edge"))
+      edge.setAttribute("marker-end", hit ? "url(#arrow-hit)" : "url(#arrow)");
+  });
+  const scope = document.getElementById("scope");
+  if (scope) scope.textContent =
+    `${mode} · ${near.size}/${DATA.nodes.length} lit · ` +
+    (mode === "both" ? `${total} edges` : `${shown}/${total} edges shown`);
+}
+const esc = s => String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const num = v => typeof v === "number" ? v.toLocaleString(undefined, {maximumFractionDigits: 4}) : v;
+const section = (title, body, cls) =>
+  body ? `<h2>${title}</h2><div class="${cls || ""}">${body}</div>` : "";
+const dbSrc = () => `<div class="src">来自 Postgres · ${DATA.dsn} · 实测于 ${DATA.generated}</div>`;
+function propTable(rows) {
+  if (!rows || !rows.length) return "";
+  const tr = rows.map(r => {
+    const facts = [r.col, r.sqlType, r.unit, r.additivity, r.aggregate && ("aggregate " + r.aggregate)]
+      .filter(Boolean).join(" · ");
+    const tail = r.kind === "object"
+      ? `<span class="file">→ ${esc(r.to || "?")}${r.refs ? " · references " + esc(r.refs) : ""}</span>`
+      : (facts ? `<span class="file">${esc(facts)}</span>` : "");
+    return `<tr><td class="mono">:${esc(r.n)}</td><td>${tail}` +
+      (r.formula ? `<div class="file">formula: ${esc(r.formula)}</div>` : "") + `</td></tr>`;
+  }).join("");
+  return `<table class="ann">${tr}</table>`;
+}
+function rangeTable(rows) {
+  if (!rows || !rows.length) return "";
+  return `<table class="ann">` + rows.map(r => {
+    // A plain link names its :domain. A derived one has none, so name the chain instead —
+    // and its origin, which is the first hop's :domain, not a guess.
+    let src;
+    if (r.from) src = `from :${esc(r.from)}`;
+    else if (r.chain && r.chain.length)
+      src = `derived: ${r.chain.map(h => ":" + esc(h)).join(" → ")}` +
+            (r.chain_start ? ` · from :${esc(r.chain_start)}` : "");
+    else src = "no :domain declared";
+    return `<tr><td class="mono">:${esc(r.n)}</td><td><span class="file">${src}</span></td></tr>`;
+  }).join("") + `</table>`;
+}
+function indivTable(sample, rule, objects) {
+  // Tabular, like the SQL it came from: one row per object, every column of the physical
+  // row, and a last column with the defined classes the row satisfies (evaluated from the
+  // axiom — the membership is never stored).
+  if (objects && objects.length) {
+    const cols = [];
+    objects.forEach(o => o.props.forEach(([k]) => { if (!cols.includes(k)) cols.push(k); }));
+    const idcol = c => /(^|_)id$/i.test(c);
+    const head = `<tr>${cols.map(c => `<th class="${idcol(c) ? "idcol" : ""}">${esc(c)}</th>`)
+      .join("")}<th>defined classes</th></tr>`;
+    const body = objects.map(o => {
+      const byCol = Object.fromEntries(o.props);
+      const cells = cols.map(c =>
+        `<td class="mono${idcol(c) ? " idcol" : ""}">${esc(byCol[c] ?? "")}</td>`).join("");
+      const cls = o.classes.length
+        ? o.classes.map(c => `<b>:${esc(c)}</b>`).join("<br>") : "—";
+      return `<tr>${cells}<td>${cls}</td></tr>`;
+    }).join("");
+    return `<table class="ann">${head}${body}</table>` +
+      `<div class="file" style="margin-top:4px">rows from ${esc(rule)} · ` +
+      `defined classes evaluated from the axiom, not stored</div>`;
+  }
+  const head = `<tr>${sample.cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr>`;
+  const body = sample.rows.map(r =>
+    `<tr>${r.map(v => `<td class="mono">${esc(v)}</td>`).join("")}</tr>`).join("");
+  return `<table class="ann">${head}${body}</table>` +
+    `<div class="file" style="margin-top:4px">columns from ${esc(rule)}</div>`;
+}
+function annTable(rows) {
+  if (!rows || !rows.length) return "";
+  const tr = rows.map(r =>
+    `<tr><th>${esc(r.label)}${r.iri ? `<br><span class="file">${esc(r.iri)}</span>` : ""}</th>` +
+    `<td>${r.v.map(v => esc(v)).join("<br>")}</td></tr>`).join("");
+  return `<table class="ann">${tr}</table>`;
+}
+function show(id) {
+  const n = byId[id]; if (!n) return;
+  selected = id; focus(id);
+  document.querySelectorAll("#idx a").forEach(a => a.classList.toggle("on", a.dataset.id === id));
+  document.querySelector(`#idx a[data-id="${id}"]`)?.scrollIntoView({block: "nearest"});
+
+  let html = `<h1>${esc(n.label)}</h1><div class="kind"><b>${esc(n.badge)}</b> · ` +
+    `${esc(n.term || n.kind)} · <code>:${esc(n.name)}</code></div>`;
+  if (n.description) html += section("描述", `<p class="desc">${esc(n.description)}</p>`);
+  if (n.definedBy) {
+    const title = n.definedVia === "physicalPredicate" ? "手写谓词" : "等价类";
+    html += section(title, `<pre>${esc(n.definedBy)}</pre>`);
+  }
+  if (n.refusal) html += section("Definition", `<p class="why">${esc(n.refusal)}</p>`);
+  if (n.sql) html += section("SQL", `<pre>${esc(n.sql)}</pre>`);
+  // ONE container for anything that comes out of the database: the count and the values
+  // it belongs to. Two boxes made them look like two different kinds of evidence.
+  if (n.value !== undefined && n.value !== null) {
+    let body = `<div class="big">${num(n.value)}</div>`;
+    if (n.kind.startsWith("metric")) {
+      html += section("Measured now", body + dbSrc(), "db");
+    } else {
+      if (n.sample) body += `<div style="margin-top:9px">${indivTable(n.sample, n.sample.rule, n.objects)}</div>`;
+      else if (n.indivSql && n.value > DATA.sample)
+        body += `<p class="muted" style="margin:6px 0 0">more than ${DATA.sample} — counted, not listed.</p>`;
+      html += section("Individuals", body + dbSrc(), "db");
+    }
+  }
+  if (n.error) html += `<p class="why">${esc(n.error)}</p>`;
+  // Read the way a reader says it out loud: "domain :Region has two properties, r_name and
+  // r_regionkey". pyLODE calls the same list "In Domain Of" — the count is there so the
+  // claim can be checked at a glance against the rows underneath.
+  if ((n.inDomain || []).length)
+    html += section(`域 :${esc(n.name)} — ${n.inDomain.length} 个属性,
+                    propTable(n.inDomain));
+  if ((n.inRange || []).length)
+    html += section(`值域 :${esc(n.name)} — ${n.inRange.length} 个属性,
+                    rangeTable(n.inRange));
+  html += section("注解属性", annTable(n.annotations));
+  html += section("公理", annTable(n.structural));
+  const src = n.sources || {};
+  for (const s of src.self || [])
+    html += section(`TTL · <span class="file">${esc(s.file)}:${s.line}</span>`,
+                    `<pre>${esc(s.text)}</pre>`);
+  if ((src.related || []).length) {
+    const body = src.related.map(s =>
+      `<div class="file" style="margin:0 0 2px">:${esc(s.prop)} names it · ${esc(s.rel)} · ${esc(s.file)}:${s.line}</div>` +
+      `<pre style="margin:0 0 8px">${esc(s.text)}</pre>`).join("");
+    html += section("TTL — statements that name this term", body);
+  }
+  if ((src.comments || []).length) {
+    const body = src.comments.map(c =>
+      `<div class="file">${esc(c.file)}:${c.line}</div>` +
+      `<pre style="margin:0 0 6px">${esc(c.text)}</pre>`).join("");
+    html += section("Mentioned in comments — not data; Protégé deletes these", body);
+  }
+  html += section("IRI", `<p class="file">${esc(n.iri || "")}</p>`);
+  panel.innerHTML = html;
+  panel.scrollTop = 0;
+}
+
+// ── interaction ────────────────────────────────────────────────────────────
+svg.addEventListener("click", ev => {
+  const node = ev.target.closest(".node");
+  if (node) return show(node.dataset.id);
+  if (!ev.target.closest(".edge")) { clearMarks(); selected = null;
+    document.querySelectorAll("#idx a").forEach(a => a.classList.remove("on")); }
+});
+let drag = null;
+svg.addEventListener("mousedown", ev => {
+  const node = ev.target.closest(".node");
+  drag = node ? {id: node.dataset.id, x: ev.clientX, y: ev.clientY}
+              : {pan: true, x: ev.clientX, y: ev.clientY};
+  if (drag.pan) stage.classList.add("dragging");
+});
+window.addEventListener("mousemove", ev => {
+  if (!drag) return;
+  const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
+  if (drag.pan) { tx += dx; ty += dy; drag.x = ev.clientX; drag.y = ev.clientY; applyTransform(); }
+  else {
+    const p = pos[drag.id];
+    p.x += dx / scale; p.y += dy / scale;
+    drag.x = ev.clientX; drag.y = ev.clientY;
+    document.querySelector(`.node[data-id="${drag.id}"]`)
+      ?.setAttribute("transform", `translate(${p.x},${p.y})`);
+    document.querySelectorAll(`.edge[data-src="${drag.id}"], .edge[data-dst="${drag.id}"]`)
+      .forEach(el => el.setAttribute("d", edgePath({src: el.dataset.src, dst: el.dataset.dst})));
+  }
+});
+window.addEventListener("mouseup", () => { drag = null; stage.classList.remove("dragging"); });
+function zoomBy(k, cx, cy) {
+  const r = stage.getBoundingClientRect();
+  const mx = cx === undefined ? r.width / 2 : cx;
+  const my = cy === undefined ? r.height / 2 : cy;
+  const next = Math.min(4, Math.max(0.15, scale * k));
+  tx = mx - (mx - tx) * (next / scale);
+  ty = my - (my - ty) * (next / scale);
+  scale = next; applyTransform();
+}
+function panBy(dx, dy) { tx += dx; ty += dy; applyTransform(); }
+
+svg.addEventListener("wheel", ev => {
+  ev.preventDefault();
+  const r = stage.getBoundingClientRect();
+  zoomBy(ev.deltaY < 0 ? 1.12 : 1 / 1.12, ev.clientX - r.left, ev.clientY - r.top);
+}, {passive: false});
+
+document.getElementById("c-zin").onclick = () => zoomBy(1.25);
+document.getElementById("c-zout").onclick = () => zoomBy(1 / 1.25);
+document.getElementById("c-fit").onclick = () => { fit(); clearMarks(); };
+document.querySelectorAll("#controls button[data-pan]").forEach(b => {
+  b.onclick = () => {
+    const step = 70, dir = b.dataset.pan;
+    panBy(dir === "left" ? step : dir === "right" ? -step : 0,
+          dir === "up" ? step : dir === "down" ? -step : 0);
+  };
+});
+window.addEventListener("keydown", ev => {
+  const tag = (document.activeElement || {}).tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA") return;
+  const k = ev.key;
+  if (k === "+" || k === "=") { zoomBy(1.25); ev.preventDefault(); }
+  else if (k === "-" || k === "_") { zoomBy(1 / 1.25); ev.preventDefault(); }
+  else if (k === "0") { fit(); ev.preventDefault(); }
+  else if (k === "d" || k === "D") { setMode("domain"); ev.preventDefault(); }
+  else if (k === "r" || k === "R") { setMode("range"); ev.preventDefault(); }
+  else if (k === "b" || k === "B") { setMode("both"); ev.preventDefault(); }
+  else if (k === "ArrowLeft") { panBy(60, 0); ev.preventDefault(); }
+  else if (k === "ArrowRight") { panBy(-60, 0); ev.preventDefault(); }
+  else if (k === "ArrowUp") { panBy(0, 60); ev.preventDefault(); }
+  else if (k === "ArrowDown") { panBy(0, -60); ev.preventDefault(); }
+});
+
+const filters = {structure: true, meaning: true, metric: true};
+document.querySelectorAll("#bar button[data-k]").forEach(b => {
+  b.onclick = () => {
+    const k = b.dataset.k; filters[k] = !filters[k]; b.classList.toggle("on", filters[k]);
+    document.querySelectorAll(".node").forEach(el => {
+      const kind = el.dataset.id.startsWith("m_") ? "metric" : byId[el.dataset.id].kind;
+      el.style.display = filters[kind] === false ? "none" : "";
+    });
+    document.querySelectorAll("#idx a").forEach(a => {
+      const kind = a.dataset.k === "metric-refused" ? "metric" : a.dataset.k;
+      a.classList.toggle("off", filters[kind] === false);
+    });
+    document.querySelectorAll("#idx .grp").forEach(g => {
+      const kind = g.dataset.k === "metric-refused" ? "metric" : g.dataset.k;
+      g.classList.toggle("off", filters[kind] === false);
+    });
+  };
+});
+document.getElementById("reset").onclick = () => { fit(); clearMarks(); };
+document.querySelectorAll("#controls button[data-mode]").forEach(b => {
+  b.onclick = () => setMode(b.dataset.mode);
+});
+document.getElementById("q").oninput = ev => {
+  const q = ev.target.value.toLowerCase().trim();
+  clearMarks();
+  document.querySelectorAll("#idx a").forEach(a => {
+    const n = byId[a.dataset.id];
+    const hay = (n.label + " " + a.dataset.id + " " + (n.sub || "") + " " +
+                 (n.description || "")).toLowerCase();
+    a.classList.toggle("off", q !== "" && !hay.includes(q));
+    a.classList.toggle("on", q !== "" && hay.includes(q));
+  });
+  document.querySelectorAll(".node").forEach(el => {
+    const n = byId[el.dataset.id];
+    const hay = (n.label + " " + el.dataset.id + " " + (n.sub || "")).toLowerCase();
+    el.classList.toggle("hit", q !== "" && hay.includes(q));
+    el.classList.toggle("dim", q !== "" && !hay.includes(q));
+  });
+};
+
+document.getElementById("meta").textContent =
+  `${DATA.triples} triples · ${DATA.counts.structure} classes · ` +
+  `${DATA.counts.meaning} defined classes · ${DATA.counts.metrics + DATA.counts.refused} ` +
+  `datatype properties (${DATA.counts.metrics} compiled, ${DATA.counts.refused} refused)` +
+  (DATA.doc ? ` · doc: ${DATA.doc}` : "");
+draw();
+buildIndex();
+fit();
+setMode("both");
+if (DATA.missing.length) document.getElementById("note").textContent =
+  "no layout position for: " + DATA.missing.join(", ");
+</script></body></html>

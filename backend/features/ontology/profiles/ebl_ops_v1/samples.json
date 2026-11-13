@@ -1,0 +1,151 @@
+{
+  "samples": [
+    {
+      "question": "收入合计是多少？",
+      "expect": {
+        "metric": "revenueTotal",
+        "route": "SELECT sum(revenue) FROM order_lines"
+      }
+    },
+    {
+      "question": "订单数是多少？",
+      "expect": {
+        "metric": "orderCount",
+        "route": "SELECT o.fiscal_year, count(*) FROM orders o GROUP BY 1 ORDER BY 1"
+      }
+    },
+    {
+      "question": "毛利额是多少？",
+      "expect": {
+        "metric": "grossMarginAmount",
+        "route": "SELECT o.fiscal_year, sum(ol.revenue - ol.cost) FROM order_lines ol JOIN orders o ON o.id = ol.order_id GROUP BY 1 ORDER BY 1"
+      }
+    },
+    {
+      "question": "毛利率是多少？",
+      "expect": {
+        "metric": "weightedGrossMargin",
+        "route": "SELECT o.fiscal_year, 100.0 * sum(ol.revenue - ol.cost) / sum(ol.revenue) FROM order_lines ol JOIN orders o ON o.id = ol.order_id GROUP BY 1 ORDER BY 1"
+      }
+    },
+    {
+      "question": "迟到订单数是多少？",
+      "expect": {
+        "metric": "lateOrderCount",
+        "route": "SELECT o.fiscal_year, count(*) FROM orders o WHERE o.actual_date > o.promised_date GROUP BY 1 ORDER BY 1"
+      }
+    },
+    {
+      "question": "准时交付订单数是多少？",
+      "expect": {
+        "metric": "onTimeOrderCount",
+        "route": "SELECT o.fiscal_year, count(*) FROM orders o WHERE o.actual_date <= o.promised_date GROUP BY 1 ORDER BY 1"
+      }
+    },
+    {
+      "question": "准时交付率是多少？分年呢？",
+      "expect": {
+        "metric": "onTimeDeliveryRate",
+        "route": "SELECT o.fiscal_year, 100.0 * count(*) FILTER (WHERE o.actual_date <= o.promised_date) / count(*) FROM orders o GROUP BY 1 ORDER BY 1"
+      }
+    },
+    {
+      "question": "双签放行单数是多少？",
+      "expect": {
+        "metric": "dualSignedApprovalCount",
+        "route": "SELECT count(*) FROM low_margin_approvals a WHERE a.signed_by_sales IS NOT NULL AND a.signed_by_finance IS NOT NULL"
+      }
+    },
+    {
+      "question": "已复核放行单数是多少？",
+      "expect": {
+        "metric": "reviewedApprovalCount",
+        "route": "SELECT count(*) FROM low_margin_approvals a WHERE a.reviewed_at IS NOT NULL"
+      }
+    },
+    {
+      "question": "到期未复核放行单数是多少？",
+      "expect": {
+        "metric": "overdueUnreviewedApprovalCount",
+        "route": "SELECT count(*) FROM low_margin_approvals a WHERE a.review_due_at < DATE '2026-10-27' AND a.reviewed_at IS NULL"
+      }
+    },
+    {
+      "question": "在册人数是多少？",
+      "expect": {
+        "metric": "activeHeadcount",
+        "route": "SELECT count(*) FROM employees e WHERE e.left_at IS NULL"
+      }
+    },
+    {
+      "question": "线索数是多少？",
+      "expect": {
+        "metric": "leadCount",
+        "route": "SELECT count(*) FROM leads"
+      }
+    },
+    {
+      "question": "线索合格率是多少？",
+      "expect": {
+        "metric": "leadQualificationRate",
+        "route": "SELECT 100.0 * count(*) FILTER (WHERE l.is_qualified) / count(*) FROM leads l"
+      }
+    },
+    {
+      "question": "已验证微改良数是多少？",
+      "expect": {
+        "metric": "microImprovementVerifiedCount",
+        "route": "SELECT count(*) FROM micro_improvements m WHERE m.verified_at IS NOT NULL"
+      }
+    },
+    {
+      "question": "核心客户数是多少？",
+      "expect": {
+        "metric": "coreCustomerCount",
+        "route": "SELECT count(*) FROM core_customers"
+      }
+    },
+    {
+      "question": "增量收入合计是多少？",
+      "expect": {
+        "metric": "incrementalRevenueTotal",
+        "route": "SELECT sum(revenue) FROM order_lines WHERE growth_bucket <> '存量基本盘'"
+      }
+    },
+    {
+      "question": "增量收入占比是多少？",
+      "expect": {
+        "metric": "incrementalRevenueShare",
+        "route": "SELECT 100.0 * sum(revenue) FILTER (WHERE growth_bucket <> '存量基本盘') / sum(revenue) FROM order_lines"
+      }
+    },
+    {
+      "question": "各增长来源的收入多少？",
+      "expect": {
+        "metric": "growthBucketRevenue",
+        "route": "SELECT growth_bucket, sum(revenue) FROM order_lines GROUP BY 1 ORDER BY 2 DESC"
+      }
+    },
+    {
+      "question": "费用降幅是多少？",
+      "expect": {
+        "metric": "opexChangeRate",
+        "route": "SELECT 100.0 * (sum(coalesce(amount_2026,0)) - sum(amount_2025)) / sum(amount_2025) FROM opex_items"
+      }
+    },
+    {
+      "question": "低毛利走量提成系数是多少？",
+      "expect": {
+        "metric": "lowMarginCommissionFactorAvg",
+        "route": "SELECT avg(commission_factor) FROM order_lines WHERE tier = '低毛利走量'"
+      }
+    },
+    {
+      "question": "今年（2026）做了多少收入？去年多少？",
+      "expect": {
+        "refused_by_name": "does not support the TimeWindow slot"
+      }
+    }
+  ],
+  "_note": "每条期望值都不是冻结数字：expect.route 是一条手写 SQL，门禁在跑的时候现场执行它，和编译出来的数字比。唯一不用 route 的是最后那条：它必须按名拒绝——本 profile 没有任何指标声明 :supportsSlot :TimeWindow，所以「今年/去年」这类窗口约束被拒绝，而不是被悄悄忽略。"
+}

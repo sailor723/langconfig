@@ -1,0 +1,407 @@
+# ebl_ops_v1 —— 含义层：定义（是什么），不含计算（怎么算在 metrics_ext.ttl）
+# 只收两类东西：
+#   1) 单表可分档/可判定的概念 → owl:equivalentClass 公理（编译器翻成 WHERE）
+#   2) OWL 表达不了的（IS NULL、列比列、AND 里带 NULL）→ :physicalPredicate 且自报理由
+# 硬约束：每个类都必须能选出 > 0 行，否则它不是一个定义，是一条没人走的路。
+# 行数全部是 2026-10-27 数据截面的实测值（见文件末尾的核对 SQL 思路），不是估计。
+#
+# 阈值只有一个：70（产线利用率%），来自《11 亿营收目标与防御性毛利守护方案》四节
+# 「低毛利订单仅限利用率 <70% 产线」。17.5% / 17% 是**加权组合**口径的护栏，
+# 不是行级红线（方案第十节：不设单品毛利红线），所以这里没有任何按行判毛利的类——
+# 那会凭空造出一条公司明确说不设的红线。
+#
+# 未在此声明的（按名留待 S3 拒绝，不在这里造代理列）：
+#   - 线索→客户已转化（converted_customer_id 整列 NULL，0 行，定义不出东西）
+#   - 低毛利放行单「到期未复核」（到期与否需要一个基准日，基准日不是数据里的属性）
+#   - 下单时点该产线的利用率（production_lines.utilization 只有当前快照，没有历史）
+#   - 核心客户流失（名单是 customer 层的属性，churn 是另一个层，跨表定义编译器不做）
+
+@prefix : <https://cube.local/ontology/ebl_ops_v1#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ================================================================ 订单层：准点 / 迟到
+# 准点率是「核心客户交付保障」与「交付稳定性换议价条件」两条任务的唯一可核指标。
+# 判据是两列相减（actual_date vs promised_date），OWL 的 facet 只能拿一列跟一个字面量比，
+# 所以这两条走声明式谓词；比较的是同表两列，不涉及任何跨表猜测。
+
+:LateOrder a owl:Class ; rdfs:label "迟到订单" ;
+    rdfs:subClassOf :Order ;
+    :physicalTable "orders" ;
+    :physicalPredicate "actual_date > promised_date" ;
+    :businessDescription "实际交期晚于承诺交期的订单，实测 558 / 4,600（12.13%）。声明式谓词而非公理：OWL 无法比较两列。全部 4,600 单都有 actual_date，所以分母就是订单总数，不存在未交付的空洞。" .
+
+:OnTimeOrder a owl:Class ; rdfs:label "准点订单" ;
+    rdfs:subClassOf :Order ;
+    :physicalTable "orders" ;
+    :physicalPredicate "actual_date <= promised_date" ;
+    :businessDescription "实际交期不晚于承诺交期的订单，实测 4,042 / 4,600（87.87%）。与 :LateOrder 互补且不重叠（实测 558 + 4,042 = 4,600）。声明式谓词，理由同上。" .
+
+# ================================================================ 订单行层：产品分级 / 增长来源
+# 产品四级定价（方案四节：差异化 25–28%、标准 15–18%、低毛利走量 13–16%、微改良 25–28%）
+# 在库里是 order_lines.tier 与 products.tier 两处同值；订单行这一层带金额，所以定义建在这里。
+
+:DifferentiatedOrderLine a owl:Class ; rdfs:label "差异化产品订单行" ;
+    rdfs:subClassOf :OrderLine ;
+    owl:equivalentClass [ owl:intersectionOf ( :OrderLine [ a owl:Restriction ;
+        owl:onProperty :lineTier ; owl:hasValue "差异化" ] ) ] ;
+    :businessDescription "tier = 差异化的订单行，实测 4,232 行。方案给它的定价带是 25–28% 毛利，是唯一不靠填产能的增长质量来源。" .
+
+:StandardOrderLine a owl:Class ; rdfs:label "标准品订单行" ;
+    rdfs:subClassOf :OrderLine ;
+    owl:equivalentClass [ owl:intersectionOf ( :OrderLine [ a owl:Restriction ;
+        owl:onProperty :lineTier ; owl:hasValue "标准" ] ) ] ;
+    :businessDescription "tier = 标准的订单行，实测 9,384 行（最大的一档）。方案定价带 15–18%。" .
+
+:LowMarginVolumeOrderLine a owl:Class ; rdfs:label "低毛利走量订单行" ;
+    rdfs:subClassOf :OrderLine ;
+    owl:equivalentClass [ owl:intersectionOf ( :OrderLine [ a owl:Restriction ;
+        owl:onProperty :lineTier ; owl:hasValue "低毛利走量" ] ) ] ;
+    :businessDescription "tier = 低毛利走量的订单行，实测 4,232 行。这是「低毛利订单占比 ≤25%（约 2.75 亿）」这条红线的分子口径：按产品价格带（13–16%）定，不按事后毛利率反推，因为方案第十节明确不设单品毛利红线。" .
+
+:MicroImprovedOrderLine a owl:Class ; rdfs:label "微改良产品订单行" ;
+    rdfs:subClassOf :OrderLine ;
+    owl:equivalentClass [ owl:intersectionOf ( :OrderLine [ a owl:Restriction ;
+        owl:onProperty :lineTier ; owl:hasValue "微改良" ] ) ] ;
+    :businessDescription "tier = 微改良的订单行，实测 552 行。方案给它 25–28% 毛利 + 认证溢价 2–3%，是 C 类增长的落点。" .
+
+:BaselineOrderLine a owl:Class ; rdfs:label "存量基本盘订单行" ;
+    rdfs:subClassOf :OrderLine ;
+    owl:equivalentClass [ owl:intersectionOf ( :OrderLine [ a owl:Restriction ;
+        owl:onProperty :lineGrowthBucket ; owl:hasValue "存量基本盘" ] ) ] ;
+    :businessDescription "增长来源 = 存量基本盘的订单行，实测 17,339 行。它是分母：增量三类加起来 1,061 行，回答「+2 亿从哪来」时不能把它算成增量。" .
+
+:NewCustomerGrowthOrderLine a owl:Class ; rdfs:label "B 新客户订单行" ;
+    rdfs:subClassOf :OrderLine ;
+    owl:equivalentClass [ owl:intersectionOf ( :OrderLine [ a owl:Restriction ;
+        owl:onProperty :lineGrowthBucket ; owl:hasValue "B 新客户" ] ) ] ;
+    :businessDescription "增长来源 = B 新客户的订单行，实测 547 行。方案预期贡献 0.6–0.8 亿，是三条增量里最大的一条。" .
+
+:CProductGrowthOrderLine a owl:Class ; rdfs:label "C 微改良增长订单行" ;
+    rdfs:subClassOf :OrderLine ;
+    owl:equivalentClass [ owl:intersectionOf ( :OrderLine [ a owl:Restriction ;
+        owl:onProperty :lineGrowthBucket ; owl:hasValue "C 微改良" ] ) ] ;
+    :businessDescription "增长来源 = C 微改良的订单行，实测 288 行。方案预期 0.3–0.4 亿。" .
+
+:ACustomerAddOnOrderLine a owl:Class ; rdfs:label "A 老客户加购订单行" ;
+    rdfs:subClassOf :OrderLine ;
+    owl:equivalentClass [ owl:intersectionOf ( :OrderLine [ a owl:Restriction ;
+        owl:onProperty :lineGrowthBucket ; owl:hasValue "A 老客户加购" ] ) ] ;
+    :businessDescription "增长来源 = A 老客户加购的订单行，实测 226 行。方案预期 0.2–0.3 亿，且要求加购部分不低于现有毛利。" .
+
+# ================================================================ 客户层：分级 / 边界 / 流失
+# 分级是 2026-03-20 双签、2026-04-01 推开（rule_regimes），所以「按等级看历史」是回溯标注；
+# 类本身只描述当前档案里的那个字母，不带时点承诺。
+
+:GradeACustomer a owl:Class ; rdfs:label "A 类客户" ;
+    rdfs:subClassOf :Customer ;
+    owl:equivalentClass [ owl:intersectionOf ( :Customer [ a owl:Restriction ;
+        owl:onProperty :segmentTier ; owl:hasValue "A" ] ) ] ;
+    :businessDescription "四维分级落 A 档的客户，实测 21 家。A 类的用法是份额保卫，不是增长来源。" .
+
+:GradeBCustomer a owl:Class ; rdfs:label "B 类客户" ;
+    rdfs:subClassOf :Customer ;
+    owl:equivalentClass [ owl:intersectionOf ( :Customer [ a owl:Restriction ;
+        owl:onProperty :segmentTier ; owl:hasValue "B" ] ) ] ;
+    :businessDescription "四维分级落 B 档的客户，实测 114 家。" .
+
+:GradeCCustomer a owl:Class ; rdfs:label "C 类客户" ;
+    rdfs:subClassOf :Customer ;
+    owl:equivalentClass [ owl:intersectionOf ( :Customer [ a owl:Restriction ;
+        owl:onProperty :segmentTier ; owl:hasValue "C" ] ) ] ;
+    :businessDescription "四维分级落 C 档的客户，实测 6 家。注意：这里的 C 是客户四维分级的 C，与方案三节「新客户按毛利分 A/B/C 类接单」的 C 不是同一个词——后者是订单的价格带，在库里没有对应列。" .
+
+:UnclassifiedCustomer a owl:Class ; rdfs:label "未分级客户" ;
+    rdfs:subClassOf :Customer ;
+    :physicalTable "customers" ;
+    :physicalPredicate "segment IS NULL" ;
+    :businessDescription "segment 为空的客户，实测 39 家（占 180 家的 21.7%）。声明式谓词：OWL 表达不了 IS NULL。空不是 C——把空并进 C 会让 C 类从 6 家变成 45 家，那条「C 类营收占比」就会被凭空放大。" .
+
+:BoundaryCustomer a owl:Class ; rdfs:label "边界客户" ;
+    rdfs:subClassOf :Customer ;
+    owl:equivalentClass [ owl:intersectionOf ( :Customer [ a owl:Restriction ;
+        owl:onProperty :customerIsBoundary ; owl:hasValue true ] ) ] ;
+    :businessDescription "四维打分落在分档边界、需销售副总 + 财务总监联合裁定的客户，实测 9 家。方案要求边界争议控制在总客户数 5% 以内：9/180 = 5.0%，正好压线。" .
+
+:ChurnedCustomer a owl:Class ; rdfs:label "已流失客户" ;
+    rdfs:subClassOf :Customer ;
+    :physicalTable "customers" ;
+    :physicalPredicate "churned_at IS NOT NULL" ;
+    :businessDescription "churned_at 非空的客户，实测 1 家。声明式谓词：IS NULL 的反面 OWL 也表达不了。全年核心客户流失 ≤2 家这条红线的计量要看 core_customers 名单，本类只覆盖全部客户里的流失，不能替代名单口径。" .
+
+# ================================================================ 产线层：利用率 / 关停
+# 低毛利走量只允许落在利用率 <70% 的线上——这是方案里唯一能用一条产线列核的规则。
+
+:UnderutilizedProductionLine a owl:Class ; rdfs:label "低利用率产线（<70%）" ;
+    rdfs:subClassOf :ProductionLine ;
+    owl:equivalentClass [ owl:intersectionOf ( :ProductionLine [ a owl:Restriction ;
+        owl:onProperty :lineUtilization ;
+        owl:withRestrictions ( [ xsd:maxExclusive 70 ] ) ] ) ] ;
+    :businessDescription "当前利用率 < 70% 的产线，实测 7 / 32 条。70 是方案四节的门槛值，只写在定义里这一处。必须说清楚：utilization 是**当前快照**、没有历史，所以这个类回答的是「今天哪些线允许接低毛利走量」，回答不了「某张 2026 年 3 月的订单下在那天是否合规」——那需要按订单时点的利用率，库里没有。" .
+
+:ClosedProductionLine a owl:Class ; rdfs:label "已关停产线" ;
+    rdfs:subClassOf :ProductionLine ;
+    owl:equivalentClass [ owl:intersectionOf ( :ProductionLine [ a owl:Restriction ;
+        owl:onProperty :lineStatus ; owl:hasValue "关停" ] ) ] ;
+    :businessDescription "status = 关停的产线，实测 2 条（L08、L09，2026-09-30）。用 status 而不是 closed_at IS NOT NULL，因为能走公理就不动用谓词逃生口；两者一致（closed_at 非空也是 2 条），可用它互校。" .
+
+# ================================================================ 放行单层：复核
+:ReviewedApproval a owl:Class ; rdfs:label "已复核放行单" ;
+    rdfs:subClassOf :LowMarginApproval ;
+    :physicalTable "low_margin_approvals" ;
+    :physicalPredicate "reviewed_at IS NOT NULL" ;
+    :businessDescription "已做 6 个月复审的低毛利放行单，实测 3,203 / 4,232（75.69%）。声明式谓词：IS NULL 判不了。" .
+
+:UnreviewedApproval a owl:Class ; rdfs:label "未复核放行单" ;
+    rdfs:subClassOf :LowMarginApproval ;
+    :physicalTable "low_margin_approvals" ;
+    :physicalPredicate "reviewed_at IS NULL" ;
+    :businessDescription "尚未复审的放行单，实测 1,029 条。与 :ReviewedApproval 互补（3,203 + 1,029 = 4,232）。注意它不是「到期未复核」：到期要拿 review_due_at 跟一个基准日比，基准日不在数据里，那一条留给 S3 按名拒绝或由人给基准日。" .
+
+# ================================================================ 费用层：可冻结 / 已冻结
+:FreezableOpexItem a owl:Class ; rdfs:label "可冻结费用科目" ;
+    rdfs:subClassOf :OpexItem ;
+    owl:equivalentClass [ owl:intersectionOf ( :OpexItem [ a owl:Restriction ;
+        owl:onProperty :oxFreezable ; owl:hasValue true ] ) ] ;
+    :businessDescription "标为可冻结的费用科目，实测 10 / 28 项。这是「Q1 冻结非生产性支出」的降本口径来源。" .
+
+:UnfrozenFreezableOpexItem a owl:Class ; rdfs:label "可冻结但未冻结科目" ;
+    rdfs:subClassOf :OpexItem ;
+    :physicalTable "opex_items" ;
+    :physicalPredicate "freezable = true AND frozen_at IS NULL" ;
+    :businessDescription "可冻结却还没冻结的科目，实测 1 项。声明式谓词，因为它同时要一个布尔值和一个 IS NULL，OWL 只能表达前一半。这个类存在的理由：执行缺口是 1 项，不是 10 项——「已冻结 9」与「可冻结 10」的差必须能被点出来。" .
+
+# ================================================================ 供应商层：前十大
+:Top10Supplier a owl:Class ; rdfs:label "前十大供应商" ;
+    rdfs:subClassOf :Supplier ;
+    owl:equivalentClass [ owl:intersectionOf ( :Supplier [ a owl:Restriction ;
+        owl:onProperty :supIsTop10 ; owl:hasValue true ] ) ] ;
+    :businessDescription "is_top10 的供应商，实测 10 / 40 家。方案八节「前 10 大原材料供应商集中议价、采购成本降 3–5%」的计量范围就是它。" .
+
+# ================================================================ 人员层：在册 / 主动离职
+:ActiveEmployee a owl:Class ; rdfs:label "在册员工" ;
+    rdfs:subClassOf :Employee ;
+    :physicalTable "employees" ;
+    :physicalPredicate "left_at IS NULL" ;
+    :businessDescription "left_at 为空的员工，实测 2,636 / 2,800。库里没有 status 列，在职与否只能这样判。方案第五节「人员不能快速缩减」讲的是这块刚性成本，不是离职数。" .
+
+:VoluntaryLeaver a owl:Class ; rdfs:label "主动离职员工" ;
+    rdfs:subClassOf :Employee ;
+    owl:equivalentClass [ owl:intersectionOf ( :Employee [ a owl:Restriction ;
+        owl:onProperty :empLeaveReason ; owl:hasValue "主动离职" ] ) ] ;
+    :businessDescription "leave_reason = 主动离职的员工，实测 82 人（另有合同到期 43、退休 39，合计 164 离职）。分原因是为了区分「自己要走的」和「合同到期/退休」——只有前者说明留人出了问题。" .
+
+# ================================================================ 线索层：合格
+:QualifiedLead a owl:Class ; rdfs:label "合格线索" ;
+    rdfs:subClassOf :Lead ;
+    owl:equivalentClass [ owl:intersectionOf ( :Lead [ a owl:Restriction ;
+        owl:onProperty :leadIsQualified ; owl:hasValue true ] ) ] ;
+    :businessDescription "is_qualified 的线索，实测 327 / 900（36.33%）。方案的考核改版里，新客只考核有效询盘数，这个类就是「有效询盘」在库里的形状。" .
+
+# ================================================================ 微改良 / 认证项目层
+:MicroImprovementProject a owl:Class ; rdfs:label "微改良项目" ;
+    rdfs:subClassOf :MicroImprovement ;
+    owl:equivalentClass [ owl:intersectionOf ( :MicroImprovement [ a owl:Restriction ;
+        owl:onProperty :miKind ; owl:hasValue "微改良" ] ) ] ;
+    :businessDescription "kind = 微改良的项目，实测 5 条。方案要 3–5 个微改良点：5 条已立项，落在区间上沿。" .
+
+:CertificationProject a owl:Class ; rdfs:label "认证项目" ;
+    rdfs:subClassOf :MicroImprovement ;
+    owl:equivalentClass [ owl:intersectionOf ( :MicroImprovement [ a owl:Restriction ;
+        owl:onProperty :miKind ; owl:hasValue "认证" ] ) ] ;
+    :businessDescription "kind = 认证的项目，实测 2 条。方案要「出口市场检测认证 1–2 项」：2 条已立项。" .
+
+:VerifiedMicroImprovement a owl:Class ; rdfs:label "已通过验证的微改良/认证项目" ;
+    rdfs:subClassOf :MicroImprovement ;
+    :physicalTable "micro_improvements" ;
+    :physicalPredicate "verified_at IS NOT NULL" ;
+    :businessDescription "verified_at 非空的项目，实测 5 / 7 条。这一层**没有金额列**，所以它只支撑「进度叙事」，不能支撑任何「省了多少钱 / 多赚了多少」的数字——那种数字在 S3 一律拒绝。" .
+
+# ================================================================ 订单调整层：折扣 / 返利
+# 只单独报，不做「折扣后收入」：它与表头、与明细都对不上账（详见 01-structure 的说明）。
+:DiscountAdjustment a owl:Class ; rdfs:label "折扣调整" ;
+    rdfs:subClassOf :OrderAdjustment ;
+    owl:equivalentClass [ owl:intersectionOf ( :OrderAdjustment [ a owl:Restriction ;
+        owl:onProperty :adjKind ; owl:hasValue "折扣" ] ) ] ;
+    :businessDescription "kind = 折扣的调整记录，实测 2,361 条（每单恰好一条调整）。金额为负数是让价，合计 −1,535.5 万。" .
+
+:RebateAdjustment a owl:Class ; rdfs:label "返利调整" ;
+    rdfs:subClassOf :OrderAdjustment ;
+    owl:equivalentClass [ owl:intersectionOf ( :OrderAdjustment [ a owl:Restriction ;
+        owl:onProperty :adjKind ; owl:hasValue "返利" ] ) ] ;
+    :businessDescription "kind = 返利的调整记录，实测 2,239 条，合计 −694.0 万。折扣 + 返利 = −1,006.1 万，仍与表头明细差 1,350.0 万对不上，所以两者都只能单独报。" .
+
+# ================================================================ 年度切片（S3 需要，不是新口径）
+# 库里的年度只存在于 orders.fiscal_year（2025: 2,200 单 / 2026: 2,400 单，整数列）。
+# 收入、成本、季度节奏、增长结构全部要落到「今年」这一个切片上，所以先把切片声明成类，
+# 而不是让每条指标各自写一个 :physicalPredicate ——阈值/切片只能有一处。
+# 年度切片是对的，因为数据里没有 now() 的位置：事实表含未来行（到 2026-12-31），
+# 相对窗口会悄悄返回空（见 settings 的 default_window_days = 0）。
+:FY2025Order a owl:Class ; rdfs:label "2025 财年订单" ;
+    rdfs:subClassOf :Order ;
+    owl:equivalentClass [ owl:intersectionOf ( :Order [ a owl:Restriction ;
+        owl:onProperty :orderFiscalYear ; owl:hasValue 2025 ] ) ] ;
+    :businessDescription "fiscal_year = 2025 的订单，实测 2,200 单。去年基数：明细收入 9.0000 亿（方案一节）。" .
+
+:FY2026Order a owl:Class ; rdfs:label "2026 财年订单（今年，11 亿目标年）" ;
+    rdfs:subClassOf :Order ;
+    owl:equivalentClass [ owl:intersectionOf ( :Order [ a owl:Restriction ;
+        owl:onProperty :orderFiscalYear ; owl:hasValue 2026 ] ) ] ;
+    :businessDescription "fiscal_year = 2026 的订单，实测 2,400 单（每季 600 单）。11 亿营收目标、17.5% 加权毛利地板、25% 低毛利占比三条红线都只在这一年上判。" .
+
+# ================================================================ 互校用的实测口径（S3 会把这些数字做成指标）
+# 每个类上面的实测行数都可以用一条 count 复核，例如：
+#   select count(*) from order_lines where tier = '低毛利走量';            -- 4232
+#   select count(*) from orders where actual_date > promised_date;        -- 558
+#   select count(*) from production_lines where utilization < 70;          -- 7
+#   select count(*) from customers where segment is null;                  -- 39
+
+# ================================================================ 跨表切片（S3 实测后新增）
+# 编译器把 :where 类当成本表上的谓词用，不会为它加 join——所以要「订单行的客户等级」这种
+# 跨表条件时，唯一能编译的形状是**同表子查询**（order_lines 上按 order_id / production_line_id
+# 反查）。这不是代理列：没有新列、没有预计算、没有第二份真相，谓词本身就是那段 SQL。
+# 每个类的实测量都写在描述里，并有一条手写 SQL 在 truth/route2_metrics.sql 里对账。
+
+:UnclassifiedCustomerOrderLine a owl:Class ; rdfs:label "未分级客户的订单行" ;
+    rdfs:subClassOf :OrderLine ;
+    :physicalTable "order_lines" ;
+    :physicalPredicate "order_id IN (SELECT o.id FROM orders o JOIN customers c ON c.id = o.customer_id WHERE c.segment IS NULL)" ;
+    :businessDescription "客户 segment 为空（未分级）的订单行。实测收入 4.3321 亿（两年合计），其中 2026 = 2.2169 亿 / 占 2026 收入 20.1533%（Q2 的分子）。用同表子查询而不是 join：实测把 :where 指向 customers 表的类会让编译器抛 TypeError（Compiled.__init__ missing 'notes'），即跨表 where 不受支持。" .
+
+:CoreCustomerOrderLine a owl:Class ; rdfs:label "核心客户名册内的订单行" ;
+    rdfs:subClassOf :OrderLine ;
+    :physicalTable "order_lines" ;
+    :physicalPredicate "order_id IN (SELECT o.id FROM orders o JOIN core_customers cc ON cc.customer_id = o.customer_id)" ;
+    :businessDescription "下单客户在 core_customers 名册（12 家，locked_at 2026-03-31）里的订单行。实测收入 1.4393 亿（两年），2026 = 0.6988 亿 / 占 2026 收入 6.3528%。名册是 2026-03-31 锁定的，所以 2025 年的行也按「后来进了名册」回标——这是名单口径，不是当时的认定。" .
+
+:LowMarginOnUnderutilizedLineOrderLine a owl:Class ; rdfs:label "落在低利用率产线上的低毛利走量订单行" ;
+    rdfs:subClassOf :OrderLine ;
+    :physicalTable "order_lines" ;
+    :physicalPredicate "tier = '低毛利走量' AND production_line_id IN (SELECT pl.id FROM production_lines pl WHERE pl.utilization < 70)" ;
+    :businessDescription "低毛利走量、且产线当前利用率 < 70% 的订单行，实测 4,232 / 4,232 行（4.6000 亿）——即全部低毛利走量行都落在 7 条低利用率线上，这条红线目前 100% 合规。必须说清时点：utilization 只有当前快照，没有下单时值，所以本类回答「按今天的利用率看是否合规」，回答不了「2026 年 3 月下单那天是否合规」（answers:Q10 的 caveat）。70 这个阈值来自方案四节原文，不在这里重写第二个数。" .
+
+:IncrementalOrderLine a owl:Class ; rdfs:label "增量订单行（非存量基本盘）" ;
+    rdfs:subClassOf :OrderLine ;
+    :physicalTable "order_lines" ;
+    :physicalPredicate "growth_bucket <> '存量基本盘'" ;
+    :businessDescription "增长来源不是「存量基本盘」的订单行，实测 1,061 行 / 1.1986 亿（占收入 5.9928%）。它是「+2 亿从哪来」这个问题的分子侧：三类增量（B 新客户 5.47 / C 微改良 2.88 / A 老客户加购 2.26 千万级）加起来只有 1.20 亿。谓词而非公理：growth_bucket 可空，取反要处理 NULL 语义（OWL 里没有「不等于某个值且非空」的干净写法）。" .
+
+:ChurnedCoreCustomer a owl:Class ; rdfs:label "已流失的核心客户" ;
+    rdfs:subClassOf :CoreCustomer ;
+    :physicalTable "core_customers" ;
+    :physicalPredicate "customer_id IN (SELECT c.id FROM customers c WHERE c.churned_at IS NOT NULL)" ;
+    :businessDescription "名册内且 customers.churned_at 非空的客户，实测 1 / 12 家（深圳博远实业001号，2026-05-31，Q4）。红线「核心客户流失 ≤2 家」的分子就是它，2 这个阈值来自方案原文。" .
+
+:DualSignedApproval a owl:Class ; rdfs:label "双签放行单" ;
+    rdfs:subClassOf :LowMarginApproval ;
+    :physicalTable "low_margin_approvals" ;
+    :physicalPredicate "signed_by_sales IS NOT NULL AND signed_by_finance IS NOT NULL" ;
+    :businessDescription "销售与财务两侧签字都在的放行单，实测 4,232 / 4,232（100%）。谓词而非公理：要同时判两个 IS NOT NULL。这条之所以要单独声明，是因为「双签率 100%」如果只是文字，没人能复核它到底排除了哪些行。" .
+
+:OverdueUnreviewedApproval a owl:Class ; rdfs:label "到期未复核放行单（基准日 2026-10-27）" ;
+    rdfs:subClassOf :LowMarginApproval ;
+    :physicalTable "low_margin_approvals" ;
+    :physicalPredicate "review_due_at < DATE '2026-10-27' AND reviewed_at IS NULL" ;
+    :businessDescription "过了复审到期日却还没复核的放行单，实测 717 / 4,232。基准日 DATE '2026-10-27' 取的是报告出具日，写进谓词而不是用 now()，是因为 now() 会让这个数天天变大而库里不再变化——那是噪声。**必须点破：它并不是数据里最晚的 review_due_at**——库里到期日最长到 2027-04-25，以数据边界为基准同一口径得 1,027 张，差 310 张；\"逾期按哪天算\"是业务决定，指标侧已标 :assumed 等客户确认。未复核且到期日未到的 312 张（未复核合计 1,029 = 717 + 312）不算逾期，这个差额同样必须被点出来。" .
+
+:LeaverFy2026 a owl:Class ; rdfs:label "2026 年离职员工" ;
+    rdfs:subClassOf :Employee ;
+    :physicalTable "employees" ;
+    :physicalPredicate "left_at >= DATE '2026-01-01' AND left_at < DATE '2027-01-01'" ;
+    :businessDescription "left_at 落在 2026 年的员工，实测 164 人 = 主动离职 82 + 合同到期 43 + 退休 39（Q11 默认 A：三类都算离职，assumed）。在册 2,636 / 总 2,800。谓词而非公理：区间比较 OWL 表达不了。" .
+
+# ---------------------------------------------------------------- 按名拒绝（不是指标，落成类）
+# 一条「按名拒绝」= 一个没有公理、没有表、只带 :refusalReason 的类。编译器不会为它生成 SQL，
+# 菜单里也点不出数——这正是目的：宁可回答「没有这个数」，也不给一个能跑但没出处的数。
+
+:RefusedCustomerPurchaseAmount a owl:Class ; rdfs:label "拒：客户采购额（customers.purchase_amount_2025）" ;
+    rdfs:subClassOf :Customer ;
+    :refusalReason "refused: customers.purchase_amount_2025 与订单明细不可对账——逐户比值 min 0.586 / avg 19.083 / max 555.931（180 户），无法判断它是含税、跨事业部还是另一套口径（Q7=A 弃用）。采购额一律从 order_lines 算。若把它做成指标，同一个问题会有两个答案，而其中一个无法下钻到订单行。" .
+
+:RefusedCustomerGrossMargin a owl:Class ; rdfs:label "拒：客户级毛利率（customers.gross_margin_2025）" ;
+    rdfs:subClassOf :Customer ;
+    :refusalReason "refused: customers.gross_margin_2025 的客户均值 21.02%，而订单明细加权毛利率 18.62%（2025）——差 2.4pp（Q8=A 弃用明细为唯一口径）。客户字段是事前标注还是事后实测，库里没有一列能判；且它不可下钻、不可复现。毛利率只报 weightedGrossMargin（明细加权）。" .
+
+:RefusedRevenueHeader a owl:Class ; rdfs:label "拒：表头口径收入（orders.revenue_header）" ;
+    rdfs:subClassOf :Order ;
+    :refusalReason "refused: 表头口径 2026 = 11.1590 亿，明细加总 11.0000 亿，差 1,588 万（1.44%）；报告的「今年 11 亿」只在明细口径下逐位成立（Q1=A）。两条口径同时存在时只能声明一条，否则「今年做了多少」会看人下菜。表头收入不声明成指标。" .
+
+:RefusedDiscountNetRevenue a owl:Class ; rdfs:label "拒：折扣后净收入（order_adjustments）" ;
+    rdfs:subClassOf :OrderAdjustment ;
+    :refusalReason "refused: 折扣 2,361 条合计 −1,535.45 万、返利 2,239 条合计 −694.04 万，两条相加 −2,229.49 万；而表头合计 20.3000 亿与明细合计 19.9999 亿差了 3,000.00 万。两个差对不上（差 770.51 万），说明调整表既不能当成「表头减明细」的解释项，也不能当成折扣后收入的构成项。所以「折扣后收入」这个数在库里没有闭合的定义：能报的只有折扣合计与返利合计两条，且必须各自单独报。" .
+
+:RefusedMicroImprovementSaving a owl:Class ; rdfs:label "拒：微改良带来的降本/增收金额" ;
+    rdfs:subClassOf :MicroImprovement ;
+    :refusalReason "refused: micro_improvements 没有任何金额或数量列（id/kind/title/status/started_at/verified_at/retreated_at/product_id），7 条记录里 5 条已验证、0 条回退。所以「微改良省了多少钱」没有字段可算；能报的只有进度（5/7 已验证、2/7 认证项目），任何金额都是从别处编出来的。" .
+
+:RefusedLeadConversionRate a owl:Class ; rdfs:label "拒：线索转化率（converted_customer_id）" ;
+    rdfs:subClassOf :Lead ;
+    :refusalReason "refused: leads.converted_customer_id 在 900 条里 100% 为 NULL（实测 count(converted_customer_id) = 0），转化这条链在库里没有落地。能报的只有合格率 327/900 = 36.33%，它衡量的是「有效询盘」，不是「转化」。" .
+
+:RefusedLeaverRate a owl:Class ; rdfs:label "拒：离职率（分母基准未定）" ;
+    rdfs:subClassOf :Employee ;
+    :refusalReason "refused: 分子有共识（164 人，Q11 默认 A），分母没有。期末在册 2,636 → 6.22%；期初在册 2,798 → 5.86%；平均在册 (2798+2636)/2 = 2,717 → 6.04%。三个都能算、都能上会，差 0.36pp。没人给基准之前不声明离职率，只报 activeHeadcount 与 leaverCountFy2026 两个数，让读者自己除。" .
+
+:RefusedLowMarginComplianceAtOrderTime a owl:Class ; rdfs:label "拒：下单时点的低毛利合规判定" ;
+    rdfs:subClassOf :OrderLine ;
+    :refusalReason "refused: production_lines.utilization 只有当前快照，没有历史；订单行上没有下单时点的利用率。所以「2026 年 3 月那笔低毛利下单时，产线利用率是否 <70%」在库里无法回答。能报的是按今天利用率的合规画面（lowMarginOnUnderutilizedLineShare = 100%），它不等于当时的判定，命名与时点说明必须写出来（Q10）。" .
+
+:RefusedCoreCustomerChurnByInactivity a owl:Class ; rdfs:label "拒：按「连续 N 月无订单」判核心客户流失" ;
+    rdfs:subClassOf :CoreCustomer ;
+    :refusalReason "refused: 需要一个人给 N（连续几个月没有订单算流失）。库里也没有「最后一次下单日」这一列，要现算 max(order_date) 再跟数据截止日比；N 一给，分子与分母都要重算。当前声明的是 churned_at 非空口径（coreCustomerChurnCount），它对同一个问题给出 1 家。" .
+
+:RefusedOpexYearOverYearByCategory a owl:Class ; rdfs:label "拒：费用按年（行式年份）" ;
+    rdfs:subClassOf :OpexItem ;
+    :refusalReason "refused: opex_items 的年份是**两列**（amount_2025 / amount_2026），不是行。任何「按年汇总费用」的指标都必须写死列，因此不存在一个「年份」维度可以 group by；如果声明 groupBy year，编译器只能编出一个不存在的列。可编译的形状是 opex2025 / opex2026 两条并列指标，再加 opexChange。" .
+
+# ---------------------------------------------------------------- 年份 / 等级 桶（S3 分组用）
+:Fy2025OrderLine a owl:Class ; rdfs:label "2025 财年订单行" ;
+    rdfs:subClassOf :OrderLine ;
+    :physicalTable "order_lines" ;
+    :physicalPredicate "order_id IN (SELECT o.id FROM orders o WHERE o.fiscal_year = 2025)" ;
+    :businessDescription "订单所属财年为 2025 的订单行，实测 9,000 行 / 8.9999 亿。存在理由：按财年分年的指标可以走 :groupBy :orderFiscalYear，但如果编译器不为跨表列加 join，就必须有一条按年份切好的类；两条路线都在真库里跑过，取能编译的那条。" .
+
+:Fy2026OrderLine a owl:Class ; rdfs:label "2026 财年订单行" ;
+    rdfs:subClassOf :OrderLine ;
+    :physicalTable "order_lines" ;
+    :physicalPredicate "order_id IN (SELECT o.id FROM orders o WHERE o.fiscal_year = 2026)" ;
+    :businessDescription "订单所属财年为 2026 的订单行，实测 9,400 行 / 11.0000 亿。" .
+
+:LowMarginTierLine a owl:Class ; rdfs:label "低毛利走量订单行" ;
+    rdfs:subClassOf :OrderLine ;
+    :physicalTable "order_lines" ;
+    :physicalPredicate "tier = '低毛利走量'" ;
+    :businessDescription "tier = '低毛利走量' 的订单行，实测 4,232 / 18,400 行 / 4.6000 亿。等级是库里给好的三值之一（低毛利走量 / 标准 / 高毛利），不是本会话切的。" .
+
+:SegmentBOrderLine a owl:Class ; rdfs:label "B 级客户的订单行" ;
+    rdfs:subClassOf :OrderLine ;
+    :physicalTable "order_lines" ;
+    :physicalPredicate "order_id IN (SELECT o.id FROM orders o JOIN customers c ON c.id = o.customer_id WHERE c.segment = 'B')" ;
+    :businessDescription "客户 segment = 'B' 的订单行，实测 2026 年占收入 65.6008%（7.2161 亿）。与 UnclassifiedCustomerOrderLine 同一种形状（同表子查询），给未分级那 20% 一个参照系。" .
+
+# ---------------------------------------------------------------- S3 追加（红线二的物理落点）
+# 这条类不是新口径：报告九节写「关停低效产线，关停后不再接单」，要核的就是「关停之后还有没有收入」。
+# 库里有两列可以判：production_lines.closed_at（关停日）与 orders.order_date（下单日）。
+# 关停日不止一个值时取 MIN(closed_at) = 最早关停日，让谓词随数据走，而不是把 2026-09-30 写死在 SQL 里。
+# 用同表子查询（order_id / production_line_id）而不是跨表 where：编译器不会为 :where 加 join（同 S2 的结论）。
+:ClosedLineAfterCloseOrderLine a owl:Class ; rdfs:label "关停产线上、关停日之后下单的订单行" ;
+    rdfs:subClassOf :OrderLine ;
+    :physicalTable "order_lines" ;
+    :physicalPredicate "production_line_id IN (SELECT pl.id FROM production_lines pl WHERE pl.closed_at IS NOT NULL) AND order_id IN (SELECT o.id FROM orders o WHERE o.order_date > (SELECT MIN(pl2.closed_at) FROM production_lines pl2 WHERE pl2.closed_at IS NOT NULL))" ;
+    :businessDescription "已关停产线（L08 / L09，closed_at = 2026-09-30）上、下单日在该关停日之后的订单行。它是红线二 closedLineRevenueAfterClose 的唯一物理落点，实测量写在指标那一侧。谓词里不出现任何日期字面量：关停日从 production_lines 读，所以「哪天线关的」只有一处真相。两个子查询的源表都写了别名（pl / pl2 / o）：编译器会把谓词里不带别名的裸列限定成主表列（实测把 SELECT id FROM production_lines 改写成 SELECT order_lines.id ...，指标因此返回 NULL）。" .
+
+# ---------------------------------------------------------------- S3 补：2026 年主动离职者（Q1 默认 A 里的子集）
+# 为什么单独一条类：voluntaryLeaverCountFy2026 要「主动离职」且「2026 年」两个条件同时成立。
+# 定义层已有的 :VoluntaryLeaver 只切了 leave_reason，没切年份，两个条件靠组合表达在编译期会被忽略
+# （:where 只认一个类），所以这里把两个条件和成一条谓词，让「164 里有 82 个主动」可被单独引用。
+:VoluntaryLeaverFy2026 a owl:Class ; rdfs:label "2026 年主动离职的员工" ;
+    rdfs:subClassOf :Employee ;
+    :physicalTable "employees" ;
+    :physicalPredicate "leave_reason = '主动离职' AND left_at >= DATE '2026-01-01' AND left_at < DATE '2027-01-01'" ;
+    :businessDescription "2026 财年内、离职原因记为主动离职的员工，实测 82 人（三类离职全算 164 人，Q1 默认 A）。它是 leaverCountFy2026 的子集口径，两个数一起看才知道「走的人里有多少是自己走的」。rdfs:subClassOf 直接挂 :Employee 而不是 :LeaverFy2026：谓词里已经带了 2026 的时间条件，两层继承会让编译器去找 :Employee -> :LeaverFy2026 的 :references 路径并拒绝（实测）。" .
+
+# ---------------------------------------------------------------- S3 按名拒绝:D3 测出来的形状
+:RefusedBucketShareRatio a owl:Class ; rdfs:label "拒：分组键不一致的占比（各增长来源占收入%）" ;
+    rdfs:subClassOf :OrderLine ;
+    :refusalReason "refused: ratio_of_sums 用两个操作数各自的分组再相除。分子按 growth_bucket 分组、分母按 fiscal_year 分组时形状不成立：实测 growthBucketRevenueShare 编译出 4 行、每行都等于 100.000%；incrementalRevenueShare 的同形 SQL 直接报 subquery must return only one column。能报的是每桶绝对额（growthBucketRevenue：存量基本盘 18.80 亿 + B 新客户 0.619 亿 + C 微改良 0.330 亿 + A 老客户加购 0.250 亿 = 两年收入 20.00 亿）与按财年的单值增量占比（incrementalRevenueShare）。桶级占比 = 桶额 / revenue，由读者自己除；本体不声明一个算不出来的数。" .

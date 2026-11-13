@@ -1,0 +1,320 @@
+# ebl_ops_v1 —— 对象与物理列（从 ebl_ops 库实测生成，2026-11-14）
+# 一个对象类型 = 一张表；属性名按业务问法命名，物理列名只出现在 :physicalColumn 里。
+# 属性名全局唯一到类（RDF 一个名字只能有一个域）：所以主键列都带类前缀（:orderId / :lineIdPk）。
+# 事实来源：information_schema（列/类型/主键）+ 逐表实测行数、NULL、枚举值（见 01-报告对库核验.md）。
+#
+# 三条结构事实决定了后面所有声明：
+#   1. 收入只在 order_lines.revenue 上；orders.revenue_header 是另一个口径（2025 差 1,350.0 万）。
+#   2. opex_items / suppliers 是宽表（同一金额两年两列）：年度必须进条件，不能当维度分组。
+#   3. 数据含未来行（到 2026-12-31，actual_date 到 2027-03-03）：不允许 now() 相对窗口。
+
+@prefix : <https://cube.local/ontology/ebl_ops_v1#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ---------------------------------------------------------------- 对象类
+
+:Order a owl:Class ; rdfs:label "订单" ; :physicalTable "orders" ; :primaryKey "id" ;
+    :timeColumn "order_date" ;
+    :businessDescription "一张订单 = 客户 + 下单日 + 承诺交期 + 实际交期；4,600 张，其中 95 张没有任何明细行、表头金额为 0。收入不记在这一层（revenue_header 是独立口径，2025 年比明细多 1,350.0 万），它只用来做订单数分母与准点率。" .
+
+:OrderLine a owl:Class ; rdfs:label "订单行" ; :physicalTable "order_lines" ; :primaryKey "id" ;
+    :businessDescription "订单里的一行一个产品：18,400 行，**收入的真相在这一层**（2025 合计 9.0000 亿、2026 合计 11.0000 亿）。gross_margin 是 revenue/cost 的派生百分数列（与重算最大偏差 0.005），所以毛利率一律按 revenue 与 cost 重算。" .
+
+:OrderAdjustment a owl:Class ; rdfs:label "订单调整" ; :physicalTable "order_adjustments" ; :primaryKey "id" ;
+    :businessDescription "订单 × 调整类型，4,600 条（折扣 2,361 / 返利 2,239），每单恰好一条。它与表头、与明细都对不上账（2025 表头 − 明细 = 1,350.0 万，而折扣+返利只有 −1,006.1 万），所以只单独报，不做「折扣后收入」。" .
+
+:Customer a owl:Class ; rdfs:label "客户" ; :physicalTable "customers" ; :primaryKey "id" ;
+    :timeColumn "entered_at" ;
+    :businessDescription "180 家客户（A 21 / B 114 / C 6 / 未分级 39，已流失 1）。purchase_amount_2025 合计 113.47 亿 = 同年订单明细收入的 12.61 倍，**不能当收入源**；分级是 2026-03-20 双签、2026-04-01 才推开，之前的「按等级」是回溯标注。" .
+
+:CoreCustomer a owl:Class ; rdfs:label "核心客户" ; :physicalTable "core_customers" ; :primaryKey "customer_id" ;
+    :timeColumn "locked_at" ;
+    :businessDescription "12 家核心客户名单（seq 1–12，全部 2026-03-31 锁定，单一审批人）。是 Customer 的一对一子集，只回答「谁在名单里」，不重复客户的属性。" .
+
+:Product a owl:Class ; rdfs:label "产品" ; :physicalTable "products" ; :primaryKey "id" ;
+    :businessDescription "420 个 SKU（标准 200 / 差异化 100 / 低毛利走量 90 / 微改良 30）。认证溢价在这一层可用（只缺 2 个），行级 order_lines.certification_premium 有 99.8% 是 NULL，所以溢价只从这里取。" .
+
+:ProductionLine a owl:Class ; rdfs:label "产线" ; :physicalTable "production_lines" ; :primaryKey "id" ;
+    :timeColumn "closed_at" ;
+    :businessDescription "32 条产线（运行 30 / 关停 2：L08、L09，均 2026-09-30 关停）。utilization 是**百分数**（55.30–90.53），低毛利走量只允许落在利用率 <70% 的线上，这是那条规则唯一能核的地方。" .
+
+:LowMarginApproval a owl:Class ; rdfs:label "低毛利放行单" ; :physicalTable "low_margin_approvals" ; :primaryKey "id" ;
+    :timeColumn "signed_at" ;
+    :businessDescription "低毛利订单行的双签放行单，4,232 条与订单行 1:1，双签 0 缺失；到期 3,002 条，其中 744 条从未复核。放行发生在外部流程，库里只有结果。" .
+
+:OpexItem a owl:Class ; rdfs:label "费用科目" ; :physicalTable "opex_items" ; :primaryKey "id" ;
+    :businessDescription "28 个费用科目，**宽表**：amount_2025 / amount_2026 同表两列。freezable 10 项、已冻结 9 项。任何「按年」的比较都必须把年度写进条件，不能当成一列。" .
+
+:Supplier a owl:Class ; rdfs:label "供应商" ; :physicalTable "suppliers" ; :primaryKey "id" ;
+    :businessDescription "40 家供应商（is_top10 10 家），同样是宽表：spend 与 unit_price_index 各两年。采购额合计 15.50 亿 / 16.52 亿，是同年营业成本的 2.12 / 1.85 倍，**不能与利润表相加**。" .
+
+:Employee a owl:Class ; rdfs:label "员工" ; :physicalTable "employees" ; :primaryKey "id" ;
+    :timeColumn "hired_at" ;
+    :businessDescription "2,800 条员工记录，在册 2,636：离职 164（主动 82 / 合同到期 43 / 退休 39）。在职与否只能从 left_at 判断，库里没有 status 列。" .
+
+:Lead a owl:Class ; rdfs:label "线索" ; :physicalTable "leads" ; :primaryKey "id" ;
+    :timeColumn "created_at" ;
+    :businessDescription "900 条线索，合格 327（36.33%）。converted_customer_id **整列为 NULL**，所以线索→客户转化率没有字段，本体按名拒绝，而不是拿合格率冒充转化率。" .
+
+:MicroImprovement a owl:Class ; rdfs:label "微改良／认证项目" ; :physicalTable "micro_improvements" ; :primaryKey "id" ;
+    :timeColumn "started_at" ;
+    :businessDescription "7 条微改良与认证项目，只有 kind / status / 三个日期，**没有金额字段**。它支撑进度叙事，不支撑任何「省了多少钱」的数字。" .
+
+:RuleRegime a owl:Class ; rdfs:label "口径变更" ; :physicalTable "rule_regimes" ; :primaryKey "id" ;
+    :timeColumn "at" ;
+    :businessDescription "4 条口径变更事件（含 2026-03-20 双签定义、2026-04-01 全公司推开）。它是「哪些数字是回溯标注」的证词，不是事实表，也不参与任何金额计算。" .
+
+# ---------------------------------------------------------------- 属性：Order（orders，10 列）
+:orderId a owl:DatatypeProperty ; rdfs:label "订单内部号" ; rdfs:domain :Order ; :physicalColumn "id" ;
+    :businessDescription "自增主键，不可跨表引用；对外用 order_no" .
+:orderNo a owl:DatatypeProperty ; rdfs:label "订单号" ; rdfs:domain :Order ; :physicalColumn "order_no" ;
+    :businessDescription "对外的订单号，客户/工厂都按它对话" .
+:orderCustomer a owl:ObjectProperty ; rdfs:label "下单客户" ; rdfs:domain :Order ; :physicalColumn "customer_id" ;
+    :references :Customer .
+:orderDate a owl:DatatypeProperty ; rdfs:label "下单日期" ; rdfs:domain :Order ; :physicalColumn "order_date" ;
+    :businessDescription "时间轴在这一列；数据 2025-01-01→2026-12-31（未来 47 天已入库）" .
+:orderFiscalYear a owl:DatatypeProperty ; rdfs:label "财年" ; rdfs:domain :Order ; :physicalColumn "fiscal_year" ;
+    :businessDescription "只有 2025 / 2026 两个值，与 order_date 一致；年度口径用它，不用 now()" .
+:orderQuarter a owl:DatatypeProperty ; rdfs:label "财季" ; rdfs:domain :Order ; :physicalColumn "quarter" ;
+    :businessDescription "1–4；季度毛利率护栏按它切" .
+:orderPromisedDate a owl:DatatypeProperty ; rdfs:label "承诺交期" ; rdfs:domain :Order ; :physicalColumn "promised_date" ;
+    :businessDescription "准点率的分母时点：actual_date ≤ promised_date 即准点" .
+:orderActualDate a owl:DatatypeProperty ; rdfs:label "实际交期" ; rdfs:domain :Order ; :physicalColumn "actual_date" ;
+    :businessDescription "最晚到 2027-03-03；与承诺日比出准点/迟到" .
+:orderRevenueHeader a owl:DatatypeProperty ; rdfs:label "表头金额" ; rdfs:domain :Order ; :physicalColumn "revenue_header" ;
+    :businessDescription "独立口径：2025 年比明细多 1,350.0 万，不能当含折扣收入" .
+:orderCurrency a owl:DatatypeProperty ; rdfs:label "币种" ; rdfs:domain :Order ; :physicalColumn "currency" ;
+    :businessDescription "整列 RMB，没有第二个币种；不做汇率折算" .
+
+# ---------------------------------------------------------------- 属性：OrderLine（order_lines，14 列）
+:lineId a owl:DatatypeProperty ; rdfs:label "订单行号" ; rdfs:domain :OrderLine ; :physicalColumn "id" ;
+    :businessDescription "自增主键" .
+:lineOrder a owl:ObjectProperty ; rdfs:label "所属订单" ; rdfs:domain :OrderLine ; :physicalColumn "order_id" ;
+    :references :Order .
+:lineProduct a owl:ObjectProperty ; rdfs:label "产品" ; rdfs:domain :OrderLine ; :physicalColumn "product_id" ;
+    :references :Product .
+:lineProductionLine a owl:ObjectProperty ; rdfs:label "生产产线" ; rdfs:domain :OrderLine ; :physicalColumn "production_line_id" ;
+    :references :ProductionLine .
+:lineQty a owl:DatatypeProperty ; rdfs:label "数量" ; rdfs:domain :OrderLine ; :physicalColumn "qty" ;
+    :businessDescription "件数，与 unit_price 相乘≈revenue（四舍五入到分）" .
+:lineUnitPrice a owl:DatatypeProperty ; rdfs:label "单价" ; rdfs:domain :OrderLine ; :physicalColumn "unit_price" ;
+    :businessDescription "成交单价，RMB/件" .
+:lineRevenue a owl:DatatypeProperty ; rdfs:label "行收入（净额）" ; rdfs:domain :OrderLine ; :physicalColumn "revenue" ;
+    :businessDescription "收入口径的唯一定义：明细净额。全部收入指标都用它" .
+:lineCost a owl:DatatypeProperty ; rdfs:label "行成本" ; rdfs:domain :OrderLine ; :physicalColumn "cost" ;
+    :businessDescription "营业成本；毛利 = revenue − cost（不用 gross_margin 列）" .
+:lineGrossMarginColumn a owl:DatatypeProperty ; rdfs:label "毛利率（派生列）" ; rdfs:domain :OrderLine ; :physicalColumn "gross_margin" ;
+    :businessDescription "百分数（18.6644 = 18.66%），是 100*(revenue-cost)/revenue 的派生且四舍五入到 0.005；只做校验，不参与计算" .
+:lineTier a owl:DatatypeProperty ; rdfs:label "产品分级" ; rdfs:domain :OrderLine ; :physicalColumn "tier" ;
+    :businessDescription "差异化 4,232 / 标准 9,384 / 低毛利走量 4,232 / 微改良 552" .
+:lineGrowthBucket a owl:DatatypeProperty ; rdfs:label "增长来源" ; rdfs:domain :OrderLine ; :physicalColumn "growth_bucket" ;
+    :businessDescription "存量基本盘 / B 新客户 / C 微改良 / A 老客户加购，来自报告的增长结构" .
+:lineCertificationPremium a owl:DatatypeProperty ; rdfs:label "认证溢价（行级）" ; rdfs:domain :OrderLine ; :physicalColumn "certification_premium" ;
+    :businessDescription "99.8% 为 NULL（18,371/18,400），行级不可用；溢价只从 products 层取" .
+:lineApproval a owl:ObjectProperty ; rdfs:label "放行单" ; rdfs:domain :OrderLine ; :physicalColumn "approval_id" ;
+    :references :LowMarginApproval .
+:lineCommissionFactor a owl:DatatypeProperty ; rdfs:label "提成系数" ; rdfs:domain :OrderLine ; :physicalColumn "commission_factor" ;
+    :businessDescription "只有 0.50 / 1.00 两值：低毛利走量提成减半就落在这" .
+
+# ---------------------------------------------------------------- 属性：OrderAdjustment（order_adjustments，4 列）
+:adjId a owl:DatatypeProperty ; rdfs:label "调整号" ; rdfs:domain :OrderAdjustment ; :physicalColumn "id" ;
+    :businessDescription "自增主键" .
+:adjOrder a owl:ObjectProperty ; rdfs:label "所属订单" ; rdfs:domain :OrderAdjustment ; :physicalColumn "order_id" ;
+    :references :Order .
+:adjKind a owl:DatatypeProperty ; rdfs:label "调整类型" ; rdfs:domain :OrderAdjustment ; :physicalColumn "kind" ;
+    :businessDescription "折扣 2,361 条 / 返利 2,239 条；每单恰好一条" .
+:adjAmount a owl:DatatypeProperty ; rdfs:label "调整金额" ; rdfs:domain :OrderAdjustment ; :physicalColumn "amount" ;
+    :businessDescription "负数是让价：折扣合计 −1,535.5 万、返利 −694.0 万" .
+
+# ---------------------------------------------------------------- 属性：Customer（customers，19 列）
+:customerId a owl:DatatypeProperty ; rdfs:label "客户号" ; rdfs:domain :Customer ; :physicalColumn "id" ;
+    :businessDescription "自增主键" .
+:customerName a owl:DatatypeProperty ; rdfs:label "客户名称" ; rdfs:domain :Customer ; :physicalColumn "name" ;
+    :businessDescription "脱敏名称" .
+:customerRegion a owl:DatatypeProperty ; rdfs:label "区域" ; rdfs:domain :Customer ; :physicalColumn "region" ;
+    :businessDescription "客户所在地" .
+:customerSourceChannel a owl:DatatypeProperty ; rdfs:label "来源渠道" ; rdfs:domain :Customer ; :physicalColumn "source_channel" ;
+    :businessDescription "转介绍 / 展会等；报告说新客只走这两条" .
+:customerEnteredAt a owl:DatatypeProperty ; rdfs:label "建档日期" ; rdfs:domain :Customer ; :physicalColumn "entered_at" ;
+    :businessDescription "客户进入系统的时点" .
+:customerChurnedAt a owl:DatatypeProperty ; rdfs:label "流失日期" ; rdfs:domain :Customer ; :physicalColumn "churned_at" ;
+    :businessDescription "非空即已流失（全库只有 1 家）" .
+:customerPurchaseAmount2025 a owl:DatatypeProperty ; rdfs:label "2025 采购额（客户口径）" ; rdfs:domain :Customer ; :physicalColumn "purchase_amount_2025" ;
+    :businessDescription "合计 113.47 亿 = 同年订单明细收入的 12.61 倍，**不可作收入源**" .
+:customerGrossMargin2025 a owl:DatatypeProperty ; rdfs:label "2025 毛利率（客户口径）" ; rdfs:domain :Customer ; :physicalColumn "gross_margin_2025" ;
+    :businessDescription "客户级百分数，与订单重算不同口径，只做参考" .
+:customerOnTimePaymentRate a owl:DatatypeProperty ; rdfs:label "准时回款率" ; rdfs:domain :Customer ; :physicalColumn "on_time_payment_rate" ;
+    :businessDescription "百分数" .
+:customerPriceCompareBehavior a owl:DatatypeProperty ; rdfs:label "比价行为" ; rdfs:domain :Customer ; :physicalColumn "price_compare_behavior" ;
+    :businessDescription "文本描述，不可聚合" .
+:customerMarginBand a owl:DatatypeProperty ; rdfs:label "毛利维度分档" ; rdfs:domain :Customer ; :physicalColumn "dim_margin_band" ;
+    :businessDescription "多维打分的其中一维" .
+:customerPurchaseBand a owl:DatatypeProperty ; rdfs:label "采购维度分档" ; rdfs:domain :Customer ; :physicalColumn "dim_purchase_band" ;
+    :businessDescription "多维打分的其中一维" .
+:customerPaymentBand a owl:DatatypeProperty ; rdfs:label "回款维度分档" ; rdfs:domain :Customer ; :physicalColumn "dim_payment_band" ;
+    :businessDescription "多维打分的其中一维" .
+:customerBehaviorBand a owl:DatatypeProperty ; rdfs:label "行为维度分档" ; rdfs:domain :Customer ; :physicalColumn "dim_behavior_band" ;
+    :businessDescription "多维打分的其中一维" .
+:segmentTier a owl:DatatypeProperty ; rdfs:label "客户等级" ; rdfs:domain :Customer ; :physicalColumn "segment" ;
+    :businessDescription "A 21 / B 114 / C 6 / 空 39（未分级）；空不是 C" .
+:customerSegmentScoredAt a owl:DatatypeProperty ; rdfs:label "分级日期" ; rdfs:domain :Customer ; :physicalColumn "segment_scored_at" ;
+    :businessDescription "分级是某个时点算出来的，不是恒真属性" .
+:customerIsBoundary a owl:DatatypeProperty ; rdfs:label "边界客户" ; rdfs:domain :Customer ; :physicalColumn "is_boundary" ;
+    :businessDescription "9 家落在分档边界上，需要仲裁" .
+:customerArbitratedBy a owl:DatatypeProperty ; rdfs:label "仲裁人" ; rdfs:domain :Customer ; :physicalColumn "arbitrated_by" ;
+    :businessDescription "边界客户由谁裁定等级" .
+:customerSegmentRuleVersion a owl:DatatypeProperty ; rdfs:label "分级规则版本" ; rdfs:domain :Customer ; :physicalColumn "segment_rule_version" ;
+    :businessDescription "等级是按哪一版规则算的；跨版本不能直接比" .
+
+# ---------------------------------------------------------------- 属性：CoreCustomer（core_customers，4 列）
+:coreCustomer a owl:ObjectProperty ; rdfs:label "核心客户" ; rdfs:domain :CoreCustomer ; :physicalColumn "customer_id" ;
+    :references :Customer .
+:coreSeq a owl:DatatypeProperty ; rdfs:label "名单序号" ; rdfs:domain :CoreCustomer ; :physicalColumn "seq" ;
+    :businessDescription "1–12，就是报告里那张锁定清单的顺序" .
+:coreLockedAt a owl:DatatypeProperty ; rdfs:label "锁定日期" ; rdfs:domain :CoreCustomer ; :physicalColumn "locked_at" ;
+    :businessDescription "全部 2026-03-31" .
+:coreApprovedBy a owl:DatatypeProperty ; rdfs:label "审批人" ; rdfs:domain :CoreCustomer ; :physicalColumn "approved_by" ;
+    :businessDescription "单一审批人；名单的权威来自这一列" .
+
+# ---------------------------------------------------------------- 属性：Product（products，7 列）
+:productId a owl:DatatypeProperty ; rdfs:label "产品号" ; rdfs:domain :Product ; :physicalColumn "id" ;
+    :businessDescription "自增主键" .
+:productSku a owl:DatatypeProperty ; rdfs:label "SKU" ; rdfs:domain :Product ; :physicalColumn "sku" ;
+    :businessDescription "对外编码" .
+:productName a owl:DatatypeProperty ; rdfs:label "产品名称" ; rdfs:domain :Product ; :physicalColumn "name" ;
+    :businessDescription "脱敏名称" .
+:productCategory a owl:DatatypeProperty ; rdfs:label "品类" ; rdfs:domain :Product ; :physicalColumn "category" ;
+    :businessDescription "产品大类" .
+:productTier a owl:DatatypeProperty ; rdfs:label "产品分级" ; rdfs:domain :Product ; :physicalColumn "tier" ;
+    :businessDescription "标准 200 / 差异化 100 / 低毛利走量 90 / 微改良 30" .
+:productListPrice a owl:DatatypeProperty ; rdfs:label "牌价" ; rdfs:domain :Product ; :physicalColumn "list_price" ;
+    :businessDescription "挂牌价，与实际成交单价不同" .
+:productCertificationPremium a owl:DatatypeProperty ; rdfs:label "认证溢价" ; rdfs:domain :Product ; :physicalColumn "certification_premium" ;
+    :businessDescription "产品层的认证溢价（2 个 NULL）：报告说的「出口检测认证溢价 2–3%」只有这里有字段" .
+
+# ---------------------------------------------------------------- 属性：ProductionLine（production_lines，8 列）
+:lineIdPk a owl:DatatypeProperty ; rdfs:label "产线号" ; rdfs:domain :ProductionLine ; :physicalColumn "id" ;
+    :businessDescription "自增主键" .
+:lineCode a owl:DatatypeProperty ; rdfs:label "产线编码" ; rdfs:domain :ProductionLine ; :physicalColumn "code" ;
+    :businessDescription "L01–L32" .
+:lineName a owl:DatatypeProperty ; rdfs:label "产线名称" ; rdfs:domain :ProductionLine ; :physicalColumn "name" ;
+    :businessDescription "车间里的叫法" .
+:lineCapacityUnitsMonth a owl:DatatypeProperty ; rdfs:label "月产能（件）" ; rdfs:domain :ProductionLine ; :physicalColumn "capacity_units_month" ;
+    :businessDescription "产能上限；关停后应当为 0 出货" .
+:lineUtilization a owl:DatatypeProperty ; rdfs:label "产能利用率（%）" ; rdfs:domain :ProductionLine ; :physicalColumn "utilization" ;
+    :businessDescription "百分数 55.30–90.53（不是 0–1 小数）；低毛利走量只允许落在 <70% 的线上" .
+:lineStatus a owl:DatatypeProperty ; rdfs:label "状态" ; rdfs:domain :ProductionLine ; :physicalColumn "status" ;
+    :businessDescription "运行 30 / 关停 2（L08、L09，2026-09-30）" .
+:lineClosedAt a owl:DatatypeProperty ; rdfs:label "关停日期" ; rdfs:domain :ProductionLine ; :physicalColumn "closed_at" ;
+    :businessDescription "非空即关停；关停后仍出货是这条列比出来的异常" .
+:lineNote a owl:DatatypeProperty ; rdfs:label "备注" ; rdfs:domain :ProductionLine ; :physicalColumn "note" ;
+    :businessDescription "关停原因等自由文本" .
+
+# ---------------------------------------------------------------- 属性：LowMarginApproval（low_margin_approvals，8 列）
+:apprId a owl:DatatypeProperty ; rdfs:label "放行单号" ; rdfs:domain :LowMarginApproval ; :physicalColumn "id" ;
+    :businessDescription "自增主键" .
+:apprOrderLine a owl:ObjectProperty ; rdfs:label "订单行" ; rdfs:domain :LowMarginApproval ; :physicalColumn "order_line_id" ;
+    :references :OrderLine .
+:apprReason a owl:DatatypeProperty ; rdfs:label "放行理由" ; rdfs:domain :LowMarginApproval ; :physicalColumn "reason" ;
+    :businessDescription "产能利用率<70% 填产能 2,150 / 战略客户临时让价 2,082" .
+:apprSignedBySales a owl:DatatypeProperty ; rdfs:label "销售总监签字" ; rdfs:domain :LowMarginApproval ; :physicalColumn "signed_by_sales" ;
+    :businessDescription "双签的第一签；0 缺失" .
+:apprSignedByFinance a owl:DatatypeProperty ; rdfs:label "财务总监签字" ; rdfs:domain :LowMarginApproval ; :physicalColumn "signed_by_finance" ;
+    :businessDescription "双签的第二签；0 缺失" .
+:apprSignedAt a owl:DatatypeProperty ; rdfs:label "签字日期" ; rdfs:domain :LowMarginApproval ; :physicalColumn "signed_at" ;
+    :businessDescription "放行时点" .
+:apprReviewDueAt a owl:DatatypeProperty ; rdfs:label "复审到期日" ; rdfs:domain :LowMarginApproval ; :physicalColumn "review_due_at" ;
+    :businessDescription "6 个月复审的到期时点；3,002 条已到期" .
+:apprReviewedAt a owl:DatatypeProperty ; rdfs:label "实际复核日" ; rdfs:domain :LowMarginApproval ; :physicalColumn "reviewed_at" ;
+    :businessDescription "非空即已复核；到期且为空 = 逾期未复核（744 条）" .
+
+# ---------------------------------------------------------------- 属性：OpexItem（opex_items，7 列）
+:oxId a owl:DatatypeProperty ; rdfs:label "科目号" ; rdfs:domain :OpexItem ; :physicalColumn "id" ;
+    :businessDescription "自增主键" .
+:oxCategory a owl:DatatypeProperty ; rdfs:label "费用科目" ; rdfs:domain :OpexItem ; :physicalColumn "category" ;
+    :businessDescription "28 个科目" .
+:oxAmount2025 a owl:DatatypeProperty ; rdfs:label "2025 金额" ; rdfs:domain :OpexItem ; :physicalColumn "amount_2025" ;
+    :businessDescription "宽表第一年；年度必须进条件，不能当成一列去分组" .
+:oxAmount2026 a owl:DatatypeProperty ; rdfs:label "2026 金额" ; rdfs:domain :OpexItem ; :physicalColumn "amount_2026" ;
+    :businessDescription "宽表第二年；与 amount_2025 同一行，差 23.16%" .
+:oxFreezable a owl:DatatypeProperty ; rdfs:label "可冻结" ; rdfs:domain :OpexItem ; :physicalColumn "freezable" ;
+    :businessDescription "10 项标为可冻结，是降本口径的来源" .
+:oxFrozenAt a owl:DatatypeProperty ; rdfs:label "冻结日期" ; rdfs:domain :OpexItem ; :physicalColumn "frozen_at" ;
+    :businessDescription "非空即已冻结（9 项；1 项可冻结但没冻）" .
+:oxApprovedBy a owl:DatatypeProperty ; rdfs:label "审批人" ; rdfs:domain :OpexItem ; :physicalColumn "approved_by" ;
+    :businessDescription "冻结由谁批的" .
+
+# ---------------------------------------------------------------- 属性：Supplier（suppliers，8 列）
+:supId a owl:DatatypeProperty ; rdfs:label "供应商号" ; rdfs:domain :Supplier ; :physicalColumn "id" ;
+    :businessDescription "自增主键" .
+:supName a owl:DatatypeProperty ; rdfs:label "供应商名称" ; rdfs:domain :Supplier ; :physicalColumn "name" ;
+    :businessDescription "40 家" .
+:supIsTop10 a owl:DatatypeProperty ; rdfs:label "是否前十大" ; rdfs:domain :Supplier ; :physicalColumn "is_top10" ;
+    :businessDescription "10 家；前十大采购额 12.07 亿→12.83 亿（+6.30%）" .
+:supPaymentDays a owl:DatatypeProperty ; rdfs:label "账期（天）" ; rdfs:domain :Supplier ; :physicalColumn "payment_days" ;
+    :businessDescription "付款条件，谈判结果的一部分" .
+:supSpend2025 a owl:DatatypeProperty ; rdfs:label "2025 采购额" ; rdfs:domain :Supplier ; :physicalColumn "spend_2025" ;
+    :businessDescription "合计 15.50 亿，是同年营业成本的 2.12 倍，不可与利润表相加" .
+:supSpend2026 a owl:DatatypeProperty ; rdfs:label "2026 采购额" ; rdfs:domain :Supplier ; :physicalColumn "spend_2026" ;
+    :businessDescription "合计 16.52 亿，是同年营业成本的 1.85 倍" .
+:supUnitPriceIndex2025 a owl:DatatypeProperty ; rdfs:label "2025 单价指数" ; rdfs:domain :Supplier ; :physicalColumn "unit_price_index_2025" ;
+    :businessDescription "以基期为 100 的指数；只比变化率，不比绝对值" .
+:supUnitPriceIndex2026 a owl:DatatypeProperty ; rdfs:label "2026 单价指数" ; rdfs:domain :Supplier ; :physicalColumn "unit_price_index_2026" ;
+    :businessDescription "简单平均 −4.12%，按采购额加权 −4.22%：两种聚合都要报" .
+
+# ---------------------------------------------------------------- 属性：Employee（employees，6 列）
+:empId a owl:DatatypeProperty ; rdfs:label "员工号" ; rdfs:domain :Employee ; :physicalColumn "id" ;
+    :businessDescription "自增主键" .
+:empName a owl:DatatypeProperty ; rdfs:label "姓名" ; rdfs:domain :Employee ; :physicalColumn "name" ;
+    :businessDescription "脱敏" .
+:empDepartment a owl:DatatypeProperty ; rdfs:label "部门" ; rdfs:domain :Employee ; :physicalColumn "department" ;
+    :businessDescription "销售/研发/生产/行政/人事/财务等" .
+:empHiredAt a owl:DatatypeProperty ; rdfs:label "入职日期" ; rdfs:domain :Employee ; :physicalColumn "hired_at" ;
+    :businessDescription "在册人数的入口时点" .
+:empLeftAt a owl:DatatypeProperty ; rdfs:label "离职日期" ; rdfs:domain :Employee ; :physicalColumn "left_at" ;
+    :businessDescription "非空即离职（164 人）；在职与否只看这一列" .
+:empLeaveReason a owl:DatatypeProperty ; rdfs:label "离职原因" ; rdfs:domain :Employee ; :physicalColumn "leave_reason" ;
+    :businessDescription "主动离职 82 / 合同到期 43 / 退休 39；在册者为 NULL" .
+
+# ---------------------------------------------------------------- 属性：Lead（leads，5 列）
+:leadId a owl:DatatypeProperty ; rdfs:label "线索号" ; rdfs:domain :Lead ; :physicalColumn "id" ;
+    :businessDescription "自增主键" .
+:leadSourceChannel a owl:DatatypeProperty ; rdfs:label "来源渠道" ; rdfs:domain :Lead ; :physicalColumn "source_channel" ;
+    :businessDescription "转介绍 / 展会 / 陌拜等" .
+:leadCreatedAt a owl:DatatypeProperty ; rdfs:label "线索日期" ; rdfs:domain :Lead ; :physicalColumn "created_at" ;
+    :businessDescription "900 条线索的时间轴" .
+:leadIsQualified a owl:DatatypeProperty ; rdfs:label "是否合格" ; rdfs:domain :Lead ; :physicalColumn "is_qualified" ;
+    :businessDescription "327 条合格（36.33%）" .
+:leadConvertedCustomer a owl:ObjectProperty ; rdfs:label "转成的客户" ; rdfs:domain :Lead ; :physicalColumn "converted_customer_id" ;
+    :references :Customer .
+
+# ---------------------------------------------------------------- 属性：MicroImprovement（micro_improvements，8 列）
+:miId a owl:DatatypeProperty ; rdfs:label "项目号" ; rdfs:domain :MicroImprovement ; :physicalColumn "id" ;
+    :businessDescription "自增主键" .
+:miKind a owl:DatatypeProperty ; rdfs:label "项目类型" ; rdfs:domain :MicroImprovement ; :physicalColumn "kind" ;
+    :businessDescription "微改良 5 条 / 认证 2 条" .
+:miTitle a owl:DatatypeProperty ; rdfs:label "项目名称" ; rdfs:domain :MicroImprovement ; :physicalColumn "title" ;
+    :businessDescription "具体改了什么" .
+:miProduct a owl:ObjectProperty ; rdfs:label "涉及产品" ; rdfs:domain :MicroImprovement ; :physicalColumn "product_id" ;
+    :references :Product .
+:miStatus a owl:DatatypeProperty ; rdfs:label "状态" ; rdfs:domain :MicroImprovement ; :physicalColumn "status" ;
+    :businessDescription "试产 / 客户验证中 / 已验证" .
+:miStartedAt a owl:DatatypeProperty ; rdfs:label "开始日期" ; rdfs:domain :MicroImprovement ; :physicalColumn "started_at" ;
+    :businessDescription "项目起点" .
+:miVerifiedAt a owl:DatatypeProperty ; rdfs:label "验证通过日" ; rdfs:domain :MicroImprovement ; :physicalColumn "verified_at" ;
+    :businessDescription "非空即已验证" .
+:miRetreatedAt a owl:DatatypeProperty ; rdfs:label "回退日期" ; rdfs:domain :MicroImprovement ; :physicalColumn "retreated_at" ;
+    :businessDescription "非空即已回退（本库 0 条）" .
+
+# ---------------------------------------------------------------- 属性：RuleRegime（rule_regimes，4 列）
+:rrId a owl:DatatypeProperty ; rdfs:label "事件号" ; rdfs:domain :RuleRegime ; :physicalColumn "id" ;
+    :businessDescription "自增主键" .
+:rrAt a owl:DatatypeProperty ; rdfs:label "生效日期" ; rdfs:domain :RuleRegime ; :physicalColumn "at" ;
+    :businessDescription "口径变更的生效时点（如 2026-04-01 全公司推开）" .
+:rrChange a owl:DatatypeProperty ; rdfs:label "变更内容" ; rdfs:domain :RuleRegime ; :physicalColumn "change" ;
+    :businessDescription "改了什么口径" .
+:rrSource a owl:DatatypeProperty ; rdfs:label "来源" ; rdfs:domain :RuleRegime ; :physicalColumn "source" ;
+    :businessDescription "这次变更是谁/哪份文件定的" .
+

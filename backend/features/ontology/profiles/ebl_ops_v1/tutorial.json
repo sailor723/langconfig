@@ -1,0 +1,102 @@
+{
+ "title": "ebl_ops_v1 · 一层一层读这套本体",
+ "intro": "九步。前四步讲这层声明是怎么从 ebl_ops 库长出来的（对象 → 定义 → 指标 → 拒绝），后五步是它能回答的数字、它拒绝回答的东西，以及护栏兜住的边界。每一步的数字都是这一步的声明现场编译、现场跑出来的，改一行声明，这里的数字就会变——这是这套东西唯一值得信的地方。读完之后你应该能自己判断：一个问题落在这层本体里，还是一个声明回答不了的新问题。",
+ "steps": [
+  {
+   "kind": "objects",
+   "title": "对象：一个业务名词对应一行什么",
+   "body": "三个对象，三种粒度，这是整个本体最贵的三个决定。:Order 一行是一张销售订单，:OrderLine 一行是订单里的一行（一个料号 × 一个数量 × 一个单价），:Customer 一行是一个客户编码。指标只能落在其中一种粒度上，混着用就会重复计数——收入在行级加总，客户数在客户级去重，:revenue 声明的粒度就是 :OrderLine，它不是随手写的。",
+   "items": [
+    "Order",
+    "OrderLine",
+    "Customer"
+   ]
+  },
+  {
+   "kind": "definitions",
+   "title": "定义：把业务黑话变成一段 WHERE",
+   "body": "「准时」「核心客户」「未分类客户」这三句话在任何一家公司都能吵三小时。本体的做法不是写进文档，而是写成一段能跑出数字的谓词：:LateOrder 就是实际交付日晚于承诺交付日的那批订单行，:UnclassifiedCustomer 就是客户分级字段为空或落在未识别值上的那些客户，:CoreCustomer 是有分级且分级属于核心档的客户。下面每条都能看到它的 WHERE 和它在库里数出多少行——这就是「定义」在这里的全部含义。",
+   "items": [
+    "LateOrder",
+    "OnTimeOrder",
+    "CoreCustomer",
+    "UnclassifiedCustomer"
+   ]
+  },
+  {
+   "kind": "definitions",
+   "title": "派生定义：一个定义可以骑在另一个定义上",
+   "body": "第二层定义是拿第一层拼出来的，不是重新写一遍 SQL。:LowMarginOnUnderutilizedLineOrderLine 是「低毛利订单行 ∩ 低产能利用率产线」，:IncrementalOrderLine 是「同一客户同一料号的 2026 收入超过 2025 基线」的那些行，:QualifiedLead 是线索里过了资格判定的那批。好处是：改一次上游定义，所有骑在它上面的指标一起改，没有人会掉队；坏处是：上游一旦写错，下游会安静地全错——所以上游那两条（毛利阈值、产能阈值）是口径确认单里点名的假设项。",
+   "items": [
+    "LowMarginOnUnderutilizedLineOrderLine",
+    "IncrementalOrderLine",
+    "QualifiedLead",
+    "ReviewedApproval"
+   ]
+  },
+  {
+   "kind": "metrics",
+   "title": "指标：一份声明，编译成一条 SQL，跑出一个数",
+   "body": "这三个是这层本体的主干：:revenueTotal 全期收入 1,999,999,999.89 元（2025 与 2026 两个财年合计），:revenueFy2026 单财年 1,100,000,000.07 元，:weightedGrossMargin 是按收入加权的毛利率（2026 财年 18.70%、2025 财年 18.62%）。注意最后一个：它不是「各行毛利率的平均」，是「毛利额之和 ÷ 收入之和」，两个算法能差好几个点，声明里写的是后者。每个指标都带着 :aggregate／:formula／:grain／:where 四件套，缺一件就编译不过。",
+   "items": [
+    "revenueTotal",
+    "revenueFy2026",
+    "weightedGrossMargin"
+   ]
+  },
+  {
+   "kind": "metrics",
+   "title": "分层指标：一个指标，一张分组的表",
+   "body": ":onTimeDeliveryRate 不是全局一个数，它按财年分组：2025 财年 88.00%，2026 财年 87.75%——差 0.25 个点，这种差在只有这两个数的时候不该被讲成「下滑」。:unclassifiedCustomerRevenueShare 同理，未分类客户占收入的比例从 2025 的 23.50% 降到 2026 的 20.15%。分组维度是声明的一部分（:groupBy :orderFiscalYear），不是查询时临时加的，所以任何人问「按财年还是整体」，答案在文件里。",
+   "items": [
+    "onTimeDeliveryRate",
+    "unclassifiedCustomerRevenueShare",
+    "lowMarginRevenueShare"
+   ]
+  },
+  {
+   "kind": "metrics",
+   "title": "比率与计数：分子分母也都得是声明",
+   "body": "比率是最容易骗人的一类。:leadQualificationRate 36.33% 的背后是 :qualifiedLeadCount ÷ :leadCount，两个计数指标各自可编译、可单独问；:approvalReviewRate 75.69% 同理（已复核审批 ÷ 全部审批）；:activeHeadcount 2,636 人是一列去重计数，不是行数。任何一个比率，如果你只信它的百分比而不看它的分子分母，它随时可以变大——只要分母变小。",
+   "items": [
+    "leadQualificationRate",
+    "qualifiedLeadCount",
+    "leadCount",
+    "approvalReviewRate",
+    "activeHeadcount"
+   ]
+  },
+  {
+   "kind": "refusals",
+   "title": "拒绝：这些数字这层本体不回答，而且是有名的",
+   "body": "拒绝不是没做完，是测量结果。第一件：:lowMarginOnUnderutilizedLineAtOrderTime 问的是「下单那一刻这条产线是否低负荷」，库里只有当下的产能快照、没有历史时点快照。它的拒因写在 :refusalReason 上，但它**不注册成指标**（不挂 :aggregate / :formula / :grain），所以编译器不会为它编出一条看着能跑的 SQL——菜单里点不到它，问它的人拿到的是「没有这条声明」，不是一个凑出来的 0。同样，供应商成本口径没有进库（:RefusedCustomerGrossMargin）、折扣与返利没有拆成可加总的净额（:RefusedDiscountNetRevenue）、微改善收益没有可核对的金额列（:RefusedMicroImprovementSaving）、线索转化没有可用的成交回链（:RefusedLeadConversionRate）、费用没有分类维度做同比（:RefusedOpexYearOverYearByCategory）——每一条都对应一个声明期就写死的「答不了」，外加一份按名列出缺哪条字段的拒绝清单。",
+   "items": [
+    "RefusedLowMarginComplianceAtOrderTime",
+    "RefusedCustomerGrossMargin",
+    "RefusedDiscountNetRevenue",
+    "RefusedMicroImprovementSaving",
+    "RefusedLeadConversionRate",
+    "RefusedOpexYearOverYearByCategory"
+   ]
+  },
+  {
+   "kind": "guard",
+   "title": "护栏：什么算「太大的问题」",
+   "body": "护栏管两类东西，而且分得很开：一句列举（给我看这些订单）会拿到 LIMIT 和时间窗口，因为它本来就不该全量；一个声明指标永远不会被加窗口，因为窗口会把定义改掉——它受的是执行预算（扫描行数上限 + 语句超时）。所以「最近 30 天收入」这种问题在本体里是两件事：要么问一个不带窗口的指标，要么你自己明确要一段窗口，前者由定义决定，后者由你的问句决定，本体不会偷偷替你选。",
+   "items": []
+  },
+  {
+   "kind": "metrics",
+   "title": "这层本体现在能回答什么、不能回答什么",
+   "body": "能回答：两个财年的收入、订单数、加权毛利率与低毛利占比、客户分级结构与未分类占比、准时交付、增量收入拆分、费用总额与可冻结额度、供应商集中度与前十单价变动、审批复核与双签、在职与离职人数、线索资格率、微改善项目数。（共 55 个指标编译通过，逐条可按名追问。）不能回答：任何需要供应商成本、折扣返利净额、历史时点产能、微改善金额、线索成交回链、费用分类同比的问题——它们在这份数据里没有字段，被按名拒绝，而不是被估算。最后一句：本体的价值不在于它答得多，而在于它答不了的时候会说出来。",
+   "items": [
+    "orderCount",
+    "lowMarginRevenueShare",
+    "incrementalRevenueShare",
+    "opexTotalFy2026",
+    "top10SupplierSpendShare",
+    "microImprovementCount"
+   ]
+  }
+ ]
+}

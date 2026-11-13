@@ -1,0 +1,197 @@
+{
+  "_doc": "这是 ebl_ops_v1 的看板声明。它不含 SQL、不含手打数字：每个面板指向一个已编译的指标或一条已声明的拒绝，开场评估里的数字全部是占位符，由运行器用编译结果填。阈值一条都不声明，因为没有业务方确认过任何红线。",
+  "version": 1,
+  "ontology": "ebl_ops_v1",
+  "title": "新溢 · 经营看板（ebl_ops_v1）",
+  "subtitle": "口径来自 ebl_ops_v1_settings.json 指向的 overlay；数字来自编译器，页面只排版",
+  "events": [],
+  "policy": [],
+  "briefing": {
+    "headline": "两年合计收入 {revenueTotal}，但其中能算作增量的只有 {incrementalRevenueTotal}（{incrementalRevenueShare}）；费用同比 {opexChangeRate}，按时交付率从 {onTimeDeliveryRate:2025} 变成 {onTimeDeliveryRate:2026}。",
+    "claims": [
+      {
+        "id": "mix",
+        "text": "增量收入里 {incrementalRevenue:B 新客户} 来自新客户、{incrementalRevenue:C 微改良} 来自微改良、{incrementalRevenue:A 老客户加购} 来自老客户加购；{growthBucketRevenue:存量基本盘} 仍记在存量基本盘下。",
+        "note": "bucket 是库里 growth_bucket 的取值，不是我们分的类。"
+      },
+      {
+        "id": "margin",
+        "text": "加权毛利率 {weightedGrossMargin:2025} → {weightedGrossMargin:2026}；低毛利走量收入 {lowMarginRevenue:2026}，占当年收入 {lowMarginRevenueShare:2026}。",
+        "note": "低毛利走量的提成系数在库里每行都是 {lowMarginCommissionFactorAvg}，所以这里的「均值」等于政策值。"
+      },
+      {
+        "id": "approvals",
+        "text": "放行单 {approvalCount} 张，已复核 {reviewedApprovalCount} 张（复核率 {approvalReviewRate}），其中到期未复核 {overdueUnreviewedApprovalCount} 张。",
+        "note": "「到期」按声明里的固定报告日算，不随 now() 漂移；基准日归业务确认。"
+      },
+      {
+        "id": "people",
+        "text": "在册 {activeHeadcount} 人；线索 {leadCount} 条，合格率 {leadQualificationRate}；名册内核心客户流失 {coreCustomerChurnCount} 家。",
+        "note": "核心客户名册是业务方给的名单（locked_at 那份），本体只数它。"
+      },
+      {
+        "id": "capability_gap",
+        "text": "本看板不展示「下这张低毛利单那天，这条产线是否低负荷」：production_lines 只有当前 utilization 一个快照，订单行上没有下单时点的产能，这条数在库里不存在。",
+        "note": "不画成面板，也不做代理列。可回答的近似物是 lowMarginOnUnderutilizedLineShare（按今天的快照，已标 assumed:true）；把快照当判定依据是编数据。"
+      }
+    ],
+    "cannot_see": [
+      "线索转化率：converted_customer_id 在库里全为空，声明里按名拒绝——任何「转化率」都回答不了，只能答合格率。",
+      "微改良省了多少钱：micro_improvements 没有任何金额或数量列，只能报进度条数。",
+      "下单当天的产线产能：production_lines 只有当前利用率，没有下单时点的快照，所以「低毛利走量是否压着低产能产线」按名拒绝。",
+      "可冻结但未冻结的费用：freezable 与 frozen_at 的组合没有对应声明，按名拒绝。",
+      "任何时间窗口（今年／去年／最近一个月这类窗口）：本 profile 没有指标声明支持 TimeWindow 槽位，问窗口会被拒绝，而不是猜一个区间。",
+      "客户分级的判定口径：segment 为空的行就记「未分级」，谁该被分到哪一级是业务规则，库里没有。"
+    ],
+    "next": "三件事只能由业务定，定了才能加声明：核心客户与客户分级的判定口径；低毛利走量在下单时点的产能判定；放行单「逾期」以哪一天为基准。在此之前，看板只报测量值，不给红绿灯——本声明里没有任何 policy 阈值，因为没有一条阈值被业务确认过。"
+  },
+  "kpis": [
+    {
+      "metric": "revenueTotal",
+      "note": "两年订单行收入合计（order_lines.revenue）"
+    },
+    {
+      "metric": "incrementalRevenueTotal",
+      "note": "growth_bucket <> '存量基本盘' 的收入合计"
+    },
+    {
+      "metric": "incrementalRevenueShare",
+      "note": "增量收入 / 全部收入"
+    },
+    {
+      "metric": "opexChangeRate",
+      "note": "费用同比变化率（分子分母同为费用行）"
+    },
+    {
+      "metric": "activeHeadcount",
+      "note": "left_at IS NULL 的在册员工"
+    },
+    {
+      "metric": "coreCustomerChurnCount",
+      "note": "名册内已流失客户数 / 名册"
+    },
+    {
+      "metric": "microImprovementVerifiedCount",
+      "note": "已验证微改良条数"
+    },
+    {
+      "metric": "leadQualificationRate",
+      "note": "is_qualified / 全部线索"
+    }
+  ],
+  "panels": [
+    {
+      "id": "revenue_ranked",
+      "kind": "ranked",
+      "metric": "revenue",
+      "size_by": "orderCount",
+      "sort": "desc",
+      "limit": 2,
+      "title": "两年收入各多少",
+      "question": "按财年看，收入是多少、各由多少张订单撑起来？",
+      "emit_filter": {
+        "dimension": "orderFiscalYear",
+        "column": "key1"
+      },
+      "note": "点大小 = 同财年订单数；收入单位元，未做任何通胀调整。"
+    },
+    {
+      "id": "margin_ranked",
+      "kind": "ranked",
+      "metric": "weightedGrossMargin",
+      "size_by": "revenue",
+      "sort": "desc",
+      "limit": 2,
+      "title": "两年加权毛利率",
+      "question": "毛利率是升是降？",
+      "note": "row-level (revenue − cost) 加权，不是各订单毛利率的算术平均。"
+    },
+    {
+      "id": "ontime_ranked",
+      "kind": "ranked",
+      "metric": "onTimeDeliveryRate",
+      "size_by": "orderCount",
+      "sort": "desc",
+      "limit": 2,
+      "title": "准时交付率",
+      "question": "准时交付率是多少？分年呢？",
+      "note": "actual_date <= promised_date 计为准时；分母是该财年全部订单。"
+    },
+    {
+      "id": "late_ranked",
+      "kind": "ranked",
+      "metric": "lateOrderCount",
+      "size_by": "orderCount",
+      "sort": "desc",
+      "limit": 2,
+      "title": "迟到订单数",
+      "question": "迟到多少单？",
+      "note": "与准时交付订单数是互补的两个计数，加起来等于订单总数。"
+    },
+    {
+      "id": "growth_mix",
+      "kind": "composition",
+      "metric": "growthBucketRevenue",
+      "null_label": "未判定",
+      "title": "收入按增长来源拆分",
+      "question": "收入里哪块是存量、哪块是增量？",
+      "note": "四个 bucket 之和等于收入合计；「存量基本盘」不是增量。"
+    },
+    {
+      "id": "incremental_mix",
+      "kind": "composition",
+      "metric": "incrementalRevenue",
+      "null_label": "未判定",
+      "title": "增量收入的三类来源",
+      "question": "增量来自哪里：老客户加购、新客户，还是微改良？",
+      "note": "只含 growth_bucket <> '存量基本盘' 的行，合计等于增量收入合计。"
+    },
+    {
+      "id": "segment_mix",
+      "kind": "composition",
+      "metric": "revenueByCustomerSegment",
+      "null_label": "未判定",
+      "title": "收入按客户等级拆分",
+      "question": "收入按客户等级怎么分？未分级占多少？",
+      "note": "NULL 就是「未分级」，它是一块真实收入，不是 0，也不能被丢掉。"
+    },
+    {
+      "id": "lowmargin_share_ranked",
+      "kind": "ranked",
+      "metric": "lowMarginRevenueShare",
+      "size_by": "revenue",
+      "sort": "desc",
+      "limit": 2,
+      "title": "低毛利走量收入占比",
+      "question": "低毛利走量的收入占比是多少？",
+      "note": "分子是 tier = '低毛利走量' 的收入，分母是同年全部收入。"
+    },
+    {
+      "id": "approval_parallel",
+      "kind": "parallel",
+      "metrics": [
+        "approvalCount",
+        "reviewedApprovalCount",
+        "dualSignedApprovalCount",
+        "overdueUnreviewedApprovalCount"
+      ],
+      "title": "放行单的四个数并排",
+      "question": "放行单有多少、复核了多少、双签多少、到期未复核多少？",
+      "note": "四个数各是各的口径，看板不给出它们之间的差——差需要一条未声明的口径（例如「到期但已逾期多久」）。"
+    }
+  ],
+  "holes": [],
+  "cross_filter": [
+    {
+      "dimension": "orderFiscalYear",
+      "label": "财年",
+      "metric_panel": "revenue_ranked",
+      "apply_to": [
+        "revenue_ranked",
+        "late_ranked",
+        "ontime_ranked",
+        "lowmargin_share_ranked"
+      ]
+    }
+  ]
+}
