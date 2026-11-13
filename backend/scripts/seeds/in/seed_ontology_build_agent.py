@@ -35,12 +35,54 @@ PROJECT_ID = int(os.environ.get("LANGCONFIG_PROJECT_ID") or 1)
 
 KEY = os.environ.get("ONTOLOGY_KEY") or "doc_demo"
 DATASOURCE = os.environ.get("DATASOURCE") or KEY
+#: The database NAME the dsn example must carry, when it differs from the datasource's key.
+#: Measured on sunhing_v1: the datasource is registered as `sunhing`, the database is
+#: `sunhing_kpi`, and the seeded prompt told every later builder to write `dbname: "sunhing"` —
+#: a dsn that cannot connect, in the one block people copy verbatim. (Audited by
+#: `scripts/audit_agent_prompts.py`, which compares the prompt's dsn against the installed profile.)
+DATASOURCE_DB = os.environ.get("DATASOURCE_DB") or DATASOURCE
 #: The deployment's connection defaults, so the profile a builder writes RESOLVES on this host instead of
 #: pointing at 5432/weiping out of habit. A password is never written: the variable name travels, the
 #: value stays in the deployment's .env (gate X2 refuses a literal in a declaration).
-DSN_PORT = os.environ.get("DSN_PORT") or "5432"
-DSN_USER = os.environ.get("DSN_USER") or "weiping"
-DSN_PASSWORD_VAR = os.environ.get("DSN_PASSWORD_VAR") or "ONTOLOGY_DB_PASSWORD"
+PROFILE_DIR = BACKEND / "features" / "ontology" / "profiles" / KEY
+
+
+def _profile_dsn_defaults() -> dict:
+    """port/user/password-var defaults READ FROM the installed profile, when there is one.
+
+    Measured (2026-11-13): `sunhing_kpi` lives on 5433 as `langconfig` while `meeting_hub` lives on
+    5432 as `weiping`, so a single global default teaches half the builders a dsn that cannot
+    connect — and the disagreement is invisible until someone asks a number. The installed profile
+    is the truth about THIS deployment; env still wins, and a brand-new key (no profile yet) falls
+    back to the documented defaults.
+    """
+    for name in (f"{KEY}_settings.json", "settings.json"):
+        path = PROFILE_DIR / name
+        if not path.exists():
+            continue
+        try:
+            dsn = (json.loads(path.read_text(encoding="utf-8")) or {}).get("dsn") or {}
+        except Exception:                                    # noqa: BLE001
+            return {}
+        out = {}
+        for field, env in (("port", "DSN_PORT"), ("user", "DSN_USER")):
+            value = str(dsn.get(field) or "")
+            value = value.split(":-")[-1].rstrip("}") if ":-" in value else value
+            if value:
+                out[env] = value
+        password = str(dsn.get("password") or "")
+        if password.startswith("${") and password.endswith("}"):
+            out["DSN_PASSWORD_VAR"] = password[2:-1]
+        return out
+    return {}
+
+
+_PROFILE_DEFAULTS = _profile_dsn_defaults()
+DSN_PORT = os.environ.get("DSN_PORT") or _PROFILE_DEFAULTS.get("DSN_PORT") or "5432"
+DSN_USER = os.environ.get("DSN_USER") or _PROFILE_DEFAULTS.get("DSN_USER") or "weiping"
+DSN_PASSWORD_VAR = (os.environ.get("DSN_PASSWORD_VAR")
+                     or _PROFILE_DEFAULTS.get("DSN_PASSWORD_VAR")
+                     or "ONTOLOGY_DB_PASSWORD")
 NAME = os.environ.get("BUILDER_AGENT_NAME") or f"Ontology Builder ({KEY})"
 # The description is what a human reads in the agent list, so it must describe the ontology this
 # agent actually targets — not the one the database had when the agent was first written down.
@@ -57,9 +99,9 @@ SYSTEM_PROMPT = f"""你是 **Ontology Builder ({KEY})**：把一个**已经存�
 - **ontology_key**：`{KEY}`（`{KEY}/01-structure.ttl`、`02-meaning.ttl`、`metrics_ext.ttl`、`{KEY}_settings.json`、
   `samples.json`、`tutorial.json`、`dashboard.json`）
 - **datasource**：`{DATASOURCE}` —— 已经绑进沙箱的 `PG*` 环境变量，`psql` 与 psycopg2 不用参数就能连。
-- `{KEY}_settings.json` 里的 dsn 请写成可部署的形式（下面这些默认值就是**这个部署**的真实值，
-  照抄；端口/用户/口令变量名由宿主注入，声明里不许出现字面量口令 —— 门禁 X2 会拒）：
-  `"dsn": {{"host": "${{ONTOLOGY_DB_HOST:-127.0.0.1}}", "port": "${{ONTOLOGY_DB_PORT:-{DSN_PORT}}}", "dbname": "{DATASOURCE}", "user": "${{ONTOLOGY_DB_USER:-{DSN_USER}}}", "password": "${{{DSN_PASSWORD_VAR}}}"}}`
+- `{KEY}_settings.json` 里的 dsn 请写成可部署的形式（照抄这一行，别改里面的数值；默认值只是本地开发值，
+  换一台机器时由宿主注入 `ONTOLOGY_DB_*` 覆盖它，声明里不许出现字面量口令 —— 门禁 X2 会拒）：
+  `"dsn": {{"host": "${{ONTOLOGY_DB_HOST:-127.0.0.1}}", "port": "${{ONTOLOGY_DB_PORT:-{DSN_PORT}}}", "dbname": "{DATASOURCE_DB}", "user": "${{ONTOLOGY_DB_USER:-{DSN_USER}}}", "password": "${{{DSN_PASSWORD_VAR}}}"}}`
 
 ## 先读技能，再动手
 
