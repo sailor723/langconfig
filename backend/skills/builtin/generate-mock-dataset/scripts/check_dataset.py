@@ -90,6 +90,14 @@ def main() -> int:
     # set in the same shell — the gate was the only reader ignoring it.
     import os as _os
 
+    # The spec says WHICH dataset; the environment says WHERE it is. Measured: the same committed
+    # spec has to run against the dev cluster (5433) and the deployment (5432), and hard-coding the
+    # port in the spec made the gate fail everywhere but the machine that wrote it.
+    for field, env in (("host", "PGHOST"), ("port", "PGPORT"), ("dbname", "PGDATABASE"),
+                       ("user", "PGUSER"), ("password", "PGPASSWORD")):
+        value = _os.environ.get(env)
+        if value:
+            dsn[field] = int(value) if field == "port" else value
     dsn.setdefault("password", _os.environ.get("PGPASSWORD", ""))
     only = {x.strip() for x in (args.only or "").split(",") if x.strip()}
 
