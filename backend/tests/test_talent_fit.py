@@ -81,3 +81,34 @@ def test_the_gate_re_derives_the_ranking_from_this_module():
         "the sync gate must import the same scoring module, not re-implement the weights")
     assert "60" not in gate.split("def _check_fit")[1][:2000] or "WEIGHTS" in gate, (
         "weights must come from scripts/talent/fit.py")
+
+
+def test_the_sync_gate_finds_its_own_credentials(monkeypatch, tmp_path):
+    """A gate that only runs when somebody exported PGPASSWORD is a gate that silently does not run.
+
+    Measured on talent_v1 (2026-11-14): the builder ran it in its own sandbox, got `fe_sendauth: no
+    password supplied`, and the publish refused on a NOT RUN gate the agent could not satisfy. The
+    precedence that must hold: the dsn's own ${VAR} first, then the platform's credentials — and never a
+    random per-ontology *_DB_PASSWORD, which authenticates as the wrong user.
+    """
+    import importlib.util
+    import json
+
+    gate_path = REPO / "backend" / "features" / "ontology" / "gates" / "check_abox_sync.py"
+    spec = importlib.util.spec_from_file_location("_sync_gate_creds", gate_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+
+    monkeypatch.setenv("TALENT_V1_DB_PASSWORD", "from-the-env")
+    monkeypatch.setenv("POSTGRES_PASSWORD", "from-postgres")
+    monkeypatch.setenv("PGPASSWORD", "from-pgpassword")
+    settings = {"dsn": {"host": "127.0.0.1", "port": 5432, "dbname": "talent_db",
+                        "user": "langconfig", "password": "${TALENT_V1_DB_PASSWORD}"}}
+    got = module._dsn_from_profile(settings, "talent_db")
+    assert got["password"] == "from-the-env", got
+    assert (got["host"], got["port"], got["user"]) == ("127.0.0.1", "5432", "langconfig")
+
+    monkeypatch.delenv("TALENT_V1_DB_PASSWORD", raising=False)
+    got = module._dsn_from_profile(settings, "talent_db")
+    assert got["password"] in ("from-pgpassword", "from-postgres"), got

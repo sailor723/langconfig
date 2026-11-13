@@ -53,7 +53,8 @@ def not_run(label: str, why: str) -> None:
 
 
 
-def _check_fit(profile: pathlib.Path, settings: dict, graph, result, ns: str, dbname: str) -> None:
+def _check_fit(profile: pathlib.Path, settings: dict, graph, result, ns: str, dbname: str,
+               conn_params: dict | None = None) -> None:
     """Re-derive every recommendation row from the ABox + the shared score, and demand equality.
 
     Everything here comes from the same two sources the materialiser used — the ABox (skills, years,
@@ -140,6 +141,7 @@ def _check_fit(profile: pathlib.Path, settings: dict, graph, result, ns: str, db
 
     import psycopg2
 
+    conn_params = conn_params or _dsn_from_profile(settings, dbname)
     conn = psycopg2.connect(host=conn_params["host"], port=int(conn_params["port"]),
                             dbname=dbname, user=conn_params["user"],
                             password=conn_params.get("password", ""))
@@ -237,7 +239,10 @@ def _dsn_from_profile(settings: dict, dbname_hint: str = "") -> dict:
             # _pg_conn_kwargs) and most profiles point at that server; a per-ontology variable is only
             # right when the dsn names it. Measured: a generic `<something>_DB_PASSWORD` picked first
             # produced "password authentication failed for user langconfig".
-            candidates += ["ONTOLOGY_DB_PASSWORD", "POSTGRES_PASSWORD", "PGPASSWORD"]
+            # PGPASSWORD / POSTGRES_PASSWORD before ONTOLOGY_DB_PASSWORD: the latter is a legacy
+            # alias that this box still defines with a stale 8-char value, and preferring it produced
+            # "password authentication failed for user langconfig" (measured today).
+            candidates += ["PGPASSWORD", "POSTGRES_PASSWORD", "ONTOLOGY_DB_PASSWORD"]
             # NO "any *_DB_PASSWORD" fallback: this box defines one per ontology, and picking one at
             # random produced "password authentication failed for user langconfig" (measured today).
             # A credential guessing game is worse than a NOT RUN that says so.
@@ -338,7 +343,7 @@ def main() -> int:
                    "and if it still disagrees, the table was not written by the reasoner")
 
     print("\n=== S1b the recommendation table equals the written rule ===")
-    _check_fit(profile, settings, graph, result, ns, dbname)
+    _check_fit(profile, settings, graph, result, ns, dbname, conn_params)
 
     print("\n=== S2 the table was built from the ABox that is on disk ===")
     abox_candidates = len(set(graph.subjects(None, None)))
