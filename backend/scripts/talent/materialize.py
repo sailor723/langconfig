@@ -105,6 +105,63 @@ create table candidate_role_fit (
     rank_in_role int not null,
     primary key (candidate, role_class)
 );
+
+-- ── the three questions the feature is actually asked, as views the ontology can declare metrics over
+drop view if exists v_role_shortlist;
+drop view if exists v_skill_gap;
+drop view if exists v_candidate_roles;
+drop view if exists v_missing_data;
+
+-- 1. "这个岗位推荐谁" — one row per ranked candidate, with the reason (skills/years/education) attached
+create view v_role_shortlist as
+select f.role,
+       f.rank_in_role,
+       f.candidate,
+       c.source_file,
+       c.role               as applied_role,
+       f.fit_score,
+       f.matched_skills,
+       f.required_skills,
+       f.years_experience,
+       f.required_years,
+       f.years_margin,
+       f.education_rank,
+       f.required_education_rank,
+       (f.matched_skills = f.required_skills) as all_skills_met,
+       coalesce(f.years_margin, 0) >= 0       as years_met
+from candidate_role_fit f join candidate c on c.id = f.candidate;
+
+-- 2. "这个岗位缺什么" — a required skill no candidate holds is the gap a hiring plan must name.
+--    It cannot fall out of candidate_skill alone: a skill nobody lists has no rows there at all.
+create view v_skill_gap as
+select r.role,
+       rs.skill,
+       sk.category,
+       (select count(*) from candidate_skill cs where cs.skill = rs.skill) as candidates_with_skill
+from role r
+join role_required_skill rs on rs.role = r.role
+left join skill sk on sk.skill = rs.skill;
+
+-- 3. "这个人适合哪些岗位" — the reverse direction of the same table
+create view v_candidate_roles as
+select f.candidate,
+       c.role      as applied_role,
+       f.role      as matched_role,
+       f.rank_in_role,
+       f.fit_score
+from candidate_role_fit f join candidate c on c.id = f.candidate;
+
+-- 4. "我们看不到谁" — data gaps, stated as gaps (never as zeros)
+create view v_missing_data as
+select 'years_experience' as field,
+       count(*) filter (where missing_years) as missing,
+       count(*)                              as total
+from candidate
+union all
+select 'education_rank', count(*) filter (where missing_education), count(*) from candidate
+union all
+select 'skills',         count(*) filter (where missing_skills),    count(*) from candidate;
+
 create table reasoning_run (
     run_at      timestamptz not null default now(),
     engine      text not null,
