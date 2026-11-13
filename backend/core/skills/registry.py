@@ -289,7 +289,42 @@ class SkillRegistry:
             self._initialized = False
 
         # Re-initialize
-        return await self.initialize(project_paths)
+        count = await self.initialize(project_paths)
+        await self.prune_deleted()
+        return count
+
+    async def prune_deleted(self) -> List[str]:
+        """Delete the rows of file-backed skills whose file no longer exists.
+
+        Measured (2026-11-13): `backend/skills/builtin/db-query/` was renamed to `sql-query`, and
+        after `POST /api/skills/reload-all` the library listed 116 skills — including the one that
+        no longer existed on disk. Nothing failed: the agent list still offered it, and any attempt
+        to read its SKILL.md was a 404. A skill that cannot be read is not a skill, and a stale row
+        is how a renamed skill becomes two half-skills (the new one unbound, the old one unreadable).
+
+        Personal skills live in the database and are untouched: only a row that CLAIMS a file
+        (`source_path`) and whose file is gone is removed.
+        """
+        import pathlib as _pathlib
+
+        removed: List[str] = []
+        async with AsyncSessionLocal() as session:
+            rows = (await session.execute(select(Skill))).scalars().all()
+            for skill in rows:
+                if skill.source_type != SkillSourceType.BUILTIN:
+                    continue
+                path = (skill.source_path or "").strip()
+                if not path:
+                    continue
+                if _pathlib.Path(path).exists():
+                    continue
+                await session.delete(skill)
+                removed.append(skill.skill_id)
+                self._skills.pop(skill.skill_id, None)
+            if removed:
+                await session.commit()
+                logger.info(f"Pruned {len(removed)} skill row(s) whose file is gone: {removed}")
+        return removed
 
     async def update_skill(self, skill: Skill) -> bool:
         """

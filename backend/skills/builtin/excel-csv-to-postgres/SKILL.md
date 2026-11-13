@@ -228,5 +228,5 @@ db_dashboard(db_name="orders_xlsx", confirm=true)     # 用户确认后写 HTML
 
 ## 与其它技能的接线
 
-- 建好的库里写 SQL、查现成的钱库 → `db-query`（三条通道：`db_query` / `sql_agent_tool` / `psql` 兜底，含「别猜表名」）；
+- 建好的库里写 SQL、查现成的钱库 → `sql-query`（三条通道：`db_query` / `sql_agent_tool` / `psql` 兜底，含「别猜表名」「先量库定分母」）；
 - 交付前要自证 → `evidence-first-delivery`（行数、孤儿数、口径差都属于"要贴出来的证据"）。

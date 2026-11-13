@@ -763,6 +763,17 @@ async def send_message(
         except Exception as e:
             logger.warning(f"History sanitize failed (non-fatal): {e}")
 
+        # Keep the thread inside the context window. The provider does not summarise for us: it
+        # answers 400 and the turn is lost (measured on ECS: 1,367,956 message tokens against a
+        # 1,048,576 window). Shrinking the checkpointed STATE means the next turn starts small too.
+        try:
+            from services.thread_budget import shrink_thread as _shrink
+            _compaction = await _shrink(agent_instance, session.session_id)
+            if _compaction.changed:
+                logger.info(f"compacted thread {session.session_id}: {_compaction.describe()}")
+        except Exception as e:                                     # noqa: BLE001
+            logger.warning(f"Thread compaction failed (non-fatal): {e}")
+
         # Invoke agent with thread_id for conversation persistence
         # The checkpointer automatically loads and saves conversation history.
         # Turn cap: the agent's own recursion_limit, else the team-wide setting.
@@ -1557,6 +1568,20 @@ async def send_message_stream(
                     # tonight: a turn that emitted nothing for 600 s, and another that emitted nothing while it
                     # wrote a 30 KB file — both looked identical to a dead spinner. So the stream is consumed with
                     # a 5 s timeout: a quiet 5 s emits one `progress` event (elapsed, tool, chunks, tokens).
+                    # Same guard as the non-streaming path, on the path the app actually uses.
+                    # This has to run BEFORE the stream starts: LangGraph replays the thread, so a
+                    # 1.3M-token history is already fatal by the time a token arrives. The notice is
+                    # yielded, not logged only — a silent shrink looks like the agent forgetting.
+                    try:
+                        from services.thread_budget import shrink_thread as _shrink
+                        _compaction = await _shrink(agent_instance, session_id)
+                        if _compaction.changed:
+                            logger.info("compacted thread %s: %s", session_id, _compaction.describe())
+                            _notice = _compaction.describe()
+                            yield f"data: {json.dumps({'type': 'custom_event', 'event_type': 'progress', 'message': _notice})}\n\n"
+                    except Exception as _compact_exc:                  # noqa: BLE001 — never fail a turn
+                        logger.warning("thread compaction failed (non-fatal): %s", _compact_exc)
+
                     _stream = agent_instance.astream_events(
                         {"messages": [new_message]},
                         config={

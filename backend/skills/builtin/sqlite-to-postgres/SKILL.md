@@ -165,6 +165,6 @@ python backend/scripts/seeds/in/register_database.py \
 
 ## 与其它技能的接线
 
-- 迁完要查数、写 SQL → `db-query`（三条路径、表名靠查不靠猜）；
+- 迁完要查数、写 SQL → `sql-query`（三条路径、表名靠查不靠猜、量库定分母、数字二次复核）；
 - 源数据本来是 Excel/CSV、还没进任何库 → `excel-csv-to-postgres`（那张技能从文件建库，这一步从库搬库）；
 - 交付前要自证 → `evidence-first-delivery`（行数、数值合计、孤儿 id 都是要贴出来的证据）。

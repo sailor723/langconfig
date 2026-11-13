@@ -937,6 +937,8 @@ async def reload_all_skills(project_paths: Optional[List[str]] = None):
     registry = get_skill_registry()
     count = await registry.reload_all(project_paths)
 
+    # reload_all also prunes rows whose skill file is gone (a rename otherwise leaves the old id
+    # in the catalogue forever); say so, because a shrinking library is worth noticing.
     return {"status": "reloaded", "skill_count": count}
 
 
