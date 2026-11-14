@@ -88,6 +88,36 @@ def _versions(key: str) -> tuple[str, str]:
     return f"{key}_v2", f"{key}_v3"
 
 
+def _baseline_for(key: str, datasource: str) -> tuple[str, str]:
+    """(baseline_key, why) — the profile a fork starts from.
+
+    Normally the builder's OWN installed profile. `new_coldchain_v7` has none (it is a builder for a
+    version nobody installed yet), so the fork falls back to the newest installed profile over the same
+    datasource — and says so, because "copied from v6 because v7 was never installed" is a different
+    statement from "copied from v7".
+    """
+    if _settings_for(key) is not None:
+        return key, "its own installed profile"
+    candidates: list[tuple[float, str]] = []
+    for directory in PROFILES.iterdir():
+        if not directory.is_dir():
+            continue
+        settings_path = _settings_for(directory.name)
+        if settings_path is None:
+            continue
+        try:
+            settings = json.loads(settings_path.read_text(encoding="utf-8"))
+        except Exception:                                        # noqa: BLE001
+            continue
+        if ((settings.get("dsn") or {}).get("dbname") or "") != datasource:
+            continue
+        candidates.append((settings_path.stat().st_mtime, directory.name))
+    if not candidates:
+        return "", f"no installed profile for {key} and none for datasource {datasource!r}"
+    newest = max(candidates)[1]
+    return newest, f"no installed profile for {key}; using {newest} (same datasource)"
+
+
 def _namespace_of(settings: dict) -> str:
     return (settings.get("ns") or "").rstrip("#")
 
@@ -176,8 +206,15 @@ def main() -> int:
         v2, v3 = _versions(key)
         print(f"\n== {key} (agent {builder['id']}, datasource {ds}) → {v2} · {v3}"
               + (f" · families+{families}" if families else ""))
+        baseline, why = _baseline_for(key, ds)
+        if not baseline:
+            print(f"   [base] {key}: FAIL {why}")
+            problems += 2
+            continue
+        if baseline != key:
+            print(f"   [base] {key}: {why}")
         for target in (v2, v3):
-            ok, note = _copy_profile(key, target, apply=args.apply)
+            ok, note = _copy_profile(baseline, target, apply=args.apply)
             print(f"   [copy] {target}: {'OK ' if ok else 'FAIL'} {note}")
             if not ok:
                 problems += 1
