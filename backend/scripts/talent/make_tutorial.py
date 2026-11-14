@@ -68,6 +68,21 @@ const KEY = document.body.dataset.key;
 const f = id => document.getElementById(id);
 async function getJSON(url) { const r = await fetch(url); return r.json(); }
 function esc(s) { return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+async function sparqlBlock(container, sparql, label) {
+  const r = await fetch(`/api/ontology/${KEY}/sparql`, { method:'POST',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify({ query: sparql, limit: 5 }) })
+    .then(x => x.json());
+  const cols = (r.after && r.after[0]) ? r.after[0].map((_, i) => 'c' + i) : ['c0'];
+  container.innerHTML =
+    `<div class="pair">
+       <div><div class="n a">${r.asserted}</div><div class="note" style="text-align:center">ABox 断言</div></div>
+       <div class="arrow">→</div>
+       <div><div class="n b">${r.entailed}</div><div class="note" style="text-align:center">推理之后</div></div>
+     </div>
+     <p class="note">${esc(label || '')} · HermiT 额外推出 ${r.added_types} 条类型断言 · ${r.elapsed_ms} ms</p>`
+    + qblock('# 这条查询跑了两遍（先 ABox 原文，再加上推出的类型）<NL>' + r.query)
+    + (r.after && r.after.length ? table(cols, r.after) : '<p class="note">推理之后仍无结果</p>');
+}
 function qblock(q) {
   return '<pre>' + esc(q || '(no query recorded)') + '</pre>';
 }
@@ -180,6 +195,8 @@ load();
         "right": """
       <h2>这个本体有多少个体</h2>
       <div id="cards"></div>
+      <h2 style="margin-top:16px">一条个体的 SPARQL（实时）</h2>
+      <div id="indiv"></div>
       <p class="note">ABox 不在任何数据库表里；它被物化成 <code>talent_db</code> 的 8 张表 + 5 个视图，
       指标与面板读的是那份物化结果，<code>check_abox_sync</code> 保证它与重新推理的结果逐行一致。</p>
 """,
@@ -226,8 +243,10 @@ load();
       <code>:CAT</code> 的那一版，AutoCAD 的要求一个人都匹配不上。</p>
 """,
         "right": """
-      <h2>技能类别与持有者（实时）</h2>
+      <h2>技能类别与持有者（实时指标）</h2>
       <div id="cats"></div>
+      <h2 style="margin-top:16px">一条只因为「技能是个体」才成立的查询</h2>
+      <div id="catq"></div>
 """,
         "script": """
 async function loadLayers() {
@@ -274,7 +293,9 @@ load();
       <code>xsd:minInclusive</code> 的类判成空集；本仓库用 HermiT。</p>
 """,
         "right": """
-      <h2>7 个可判定的岗位（实时）</h2>
+      <h2>公理 → 查询（实时）</h2>
+      <div id="axiomq"></div>
+      <h2 style="margin-top:16px">7 个可判定的岗位（实时）</h2>
       <select id="cls"></select>
       <button onclick="load()">看这个岗位的推理结果</button>
       <div id="out" style="margin-top:10px"></div>
@@ -282,6 +303,9 @@ load();
         "script": """
 let classes = [];
 async function boot() {
+  await sparqlBlock(f('axiomq'),
+    `SELECT ?c WHERE { ?c a :matches_业务跟单 }`,
+    '同一条 SPARQL：ABox 里 0 行；HermiT 判完定义类之后才有行');
   const r = await getJSON(`/api/ontology/${KEY}/reason`);
   classes = r.classes || [];
   f('cls').innerHTML = classes.map(c => `<option>${esc(c)}</option>`).join('');
@@ -437,8 +461,10 @@ load();
       这个本体就再也说不清自己可信到哪一步。</p>
 """,
         "right": """
-      <h2>缺口（实时）</h2>
+      <h2>缺口（实时指标）</h2>
       <div id="gap"></div>
+      <h2 style="margin-top:16px">缺口在 ABox 里是什么样子（实时查询）</h2>
+      <div id="gapq"></div>
 """,
         "script": """
 async function loadLayers() {

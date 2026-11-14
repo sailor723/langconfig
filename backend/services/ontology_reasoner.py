@@ -272,3 +272,59 @@ def reason_view(key: str, class_name: str, limit: int = 5,
         "elapsed_ms": payload["elapsed_ms"],
         "consistent": payload["consistent"],
     }
+
+
+def sparql(key: str, query: str, limit: int = 25) -> dict:
+    """Run one SPARQL twice — over the ABox as written, then over it plus the entailed types.
+
+    This is what makes a tutorial about REASONING honest: a chapter can print the query it used and both
+    answers, so a reader sees the `0 → N` transition rather than being told about it. Read-only by
+    construction — the graph is parsed into memory and nothing is written back.
+    """
+    payload = reasoned(key)
+    ns = payload["ns"]
+    import sys
+
+    backend = pathlib.Path(__file__).resolve().parents[1]
+    if str(backend) not in sys.path:
+        sys.path.insert(0, str(backend))
+    from rdflib import Graph, URIRef
+    from rdflib.namespace import RDF
+
+    abox, axioms, _settings = _files(key)
+    text = (query or "").replace("PREFIX : ", f"PREFIX : <{ns}> ")
+    if "PREFIX" not in text.upper():
+        text = f"PREFIX : <{ns}>\n" + text
+
+    asserted_graph = Graph()
+    for prefix, iri in [(p, n) for p, n in [("", ns)]]:
+        asserted_graph.bind("", iri)
+    asserted_graph.parse(str(abox), format="turtle")
+
+    def rows_of(graph) -> list[list[str]]:
+        try:
+            result = graph.query(text)
+        except Exception as exc:                                    # noqa: BLE001
+            return [[f"QUERY ERROR: {type(exc).__name__}: {exc}"]]
+        out = []
+        for row in result:
+            out.append([str(v).rsplit("#", 1)[-1] for v in row])
+            if len(out) >= limit:
+                break
+        return out
+
+    before = rows_of(asserted_graph)
+    entailed_graph = Graph()
+    for triple in asserted_graph:
+        entailed_graph.add(triple)
+    added = 0
+    for cls in payload["classes"]:
+        for member in payload["members"].get(cls) or []:
+            triple = (URIRef(member), RDF.type, URIRef(cls))
+            if triple not in entailed_graph:
+                entailed_graph.add(triple)
+                added += 1
+    after = rows_of(entailed_graph)
+    return {"asserted": len(before), "entailed": len(after), "added_types": added,
+            "before": before, "after": after, "query": text,
+            "ns": ns, "engine": payload["engine"], "elapsed_ms": payload["elapsed_ms"]}

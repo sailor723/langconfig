@@ -480,6 +480,25 @@ async def ontology_document(key: str, refresh: bool = False):
         raise HTTPException(404, str(exc)) from exc
 
 
+class SparqlRequest(BaseModel):
+    query: str
+    limit: int = 25
+
+
+@router.post("/{key}/sparql")
+async def ontology_sparql(key: str, req: SparqlRequest):
+    """One SPARQL, run twice: over abox.ttl and over abox.ttl + entailed types.
+
+    The tutorial prints both answers so the reader sees the `0 → N` transition instead of being told
+    about it. Read-only: everything is parsed into memory.
+    """
+    try:
+        return {"ok": True, **await asyncio.to_thread(
+            ontology_reasoner.sparql, key, req.query, int(req.limit))}
+    except ontology_reasoner.Unavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
 @router.get("/{key}/layers")
 async def ontology_layers(key: str):
     """Axioms / individuals / entailments, counted live — the three-layer overview's numbers."""
