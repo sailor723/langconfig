@@ -18,8 +18,8 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 
 from services import (ontology_actions, ontology_build, ontology_dashboard, ontology_editor,
-                      ontology_pages, ontology_publish, ontology_samples, ontology_tutorial_chapters,
-                      ontology_workbench)
+                      ontology_pages, ontology_publish, ontology_reasoner, ontology_samples,
+                      ontology_tutorial_chapters, ontology_workbench)
 
 logger = logging.getLogger(__name__)
 
@@ -479,6 +479,23 @@ async def ontology_document(key: str, refresh: bool = False):
     except ontology_pages.PageError as exc:
         raise HTTPException(404, str(exc)) from exc
 
+
+@router.get("/{key}/reason")
+async def ontology_reason(key: str, class_name: str = "", limit: int = 5):
+    """What the REASONER answers that the ABox does not say.
+
+    This endpoint exists because one ontology in this deployment has individuals whose useful facts are
+    nowhere in the data (277 CV scans x 10 job descriptions: "who clears this role's bar" is entailed,
+    not stored). A tutorial about that ontology has to show the difference live, or it is a brochure.
+
+    Returns the same query run twice — over `abox.ttl` as written, then over the same graph plus the
+    type assertions HermiT derived — so a page can print "0 → N" and list the N.
+    """
+    try:
+        payload = await asyncio.to_thread(ontology_reasoner.reason_view, key, class_name, int(limit))
+    except ontology_reasoner.Unavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    return {"ok": True, **payload}
 
 @router.get("/{key}/metrics/cards")
 async def ontology_metric_cards(key: str, refresh: bool = False):

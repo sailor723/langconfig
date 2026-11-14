@@ -1,0 +1,13 @@
+{
+ "_doc": "zh only: these chapters are written for this client's dossier, not translated from a generic tour. A translation would have to re-measure every number they quote.",
+ "zh": {
+  "step1": "277 份扫描件，先变成记录",
+  "step2": "记录变成个体（ABox）",
+  "step3": "技能是个体，类别是类",
+  "step4": "岗位是定义类：JD 原话变成公理",
+  "step5": "蕴含：答案不在任何一行里",
+  "step6": "推荐：过线的人里谁先看",
+  "step7": "缺口与拒绝：读不到 ≠ 0",
+  "step8": "你能问什么、不能问什么"
+ }
+}

@@ -154,7 +154,8 @@
   "_big_tables_note": "业务表（candidate/role/candidate_role_fit/…）没有任何时间列：这是一份快照，因此 default_window_days=0（拒绝相对窗口，而不是悄悄返回空）。全库唯一自带时间列的表是本体检运行日志 reasoning_run(run_at)——它是 :auditRunCount（本体自检运行次数）的来源，那条指标的定义**不含** run_at 过滤，于是护栏在 declared 模式下会报 unbounded scan on reasoning_run 而不是偷偷加窗（这是 gate G4b 能检验到的东西）；其余 10 条业务指标都不读它，所以业务数字上不会出现被注入的时间窗。large_tables 只给预算、不注入窗口。"
  },
  "features": {
-  "tutorial": true
+  "tutorial": true,
+  "tutorial_style": "authored"
  },
  "aliases": {
   "每个岗位有多少人过线": "matchCountByRole",

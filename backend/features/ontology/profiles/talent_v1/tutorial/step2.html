@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-store">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 2 步 — 记录变成个体（ABox）</title>
+<style>
+  body { font-family:-apple-system,"Segoe UI",Roboto,"PingFang SC",sans-serif; background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  header .rev { display:block; margin-top:4px; font:10px ui-monospace,Menlo,monospace; color:#9fb8cf; }
+  nav { background:#16324f; padding:8px 26px; }
+  nav a { color:#9fb8cf; font-size:12px; margin-right:14px; text-decoration:none; }
+  nav a.on { color:#fff; font-weight:600; }
+  main { max-width:1120px; margin:20px auto; padding:0 20px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:900px) { .cols { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:16px 18px; }
+  h2 { margin:0 0 10px; font-size:12px; letter-spacing:.5px; color:#334e68; text-transform:uppercase; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; font-size:11px; text-transform:uppercase; color:#687b8f; padding:6px 8px; border-bottom:1px solid #e3e6ea; }
+  td { padding:6px 8px; border-bottom:1px solid #f0f2f5; }
+  td.mono, code, pre { font-family:ui-monospace,Menlo,monospace; }
+  .box { background:#f2f4f6; border:1px solid #e4e8ec; border-radius:8px; padding:10px 12px; margin-bottom:14px; }
+  .label { font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:#687b8f; margin:0 0 4px; }
+  .note { font-size:12px; color:#687b8f; margin-top:10px; line-height:1.5; }
+  .big { font-size:40px; color:#0b4f9c; font-weight:700; text-align:center; }
+  .bigsub { text-align:center; font-size:12px; color:#687b8f; margin-bottom:6px; }
+  .pair { display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:center; }
+  .pair .n { font-size:34px; font-weight:700; text-align:center; }
+  .pair .a { color:#b3261e; } .pair .b { color:#0b7a3e; }
+  .pair .arrow { font-size:22px; color:#687b8f; }
+  input, select { width:100%; box-sizing:border-box; font:13px ui-monospace,Menlo,monospace;
+                  border:1px solid #cdd5df; border-radius:8px; padding:9px; margin-bottom:8px; }
+  button { background:#0b4f9c; color:#fff; border:0; border-radius:8px; padding:8px 14px; font-size:13px; cursor:pointer; }
+  button.ghost { background:#eef2f6; color:#0b4f9c; margin:0 6px 6px 0; font-size:12px; padding:5px 9px; }
+  pre { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px; font-size:12px;
+        white-space:pre-wrap; max-height:320px; overflow:auto; }
+  .warn { color:#b3261e; font-size:12px; }
+  .ok { color:#0b7a3e; font-size:12px; }
+</style></head>
+<body data-key="talent_v1">
+<header><h1>第 2 步 — 记录变成个体（ABox）</h1>
+  <span class="rev">step 2 — records → individuals · 2/8 · talent_v1 · 277 份简历 × 10 份职务说明书</span></header>
+<nav><a href="/api/ontology/talent_v1/tutorial/chapter/1">1. 277 份扫描件，先变成记录</a><a href="/api/ontology/talent_v1/tutorial/chapter/2" class=on>2. 记录变成个体（ABox）</a><a href="/api/ontology/talent_v1/tutorial/chapter/3">3. 技能是个体，类别是类</a><a href="/api/ontology/talent_v1/tutorial/chapter/4">4. 岗位是定义类：JD 原话变成公理</a><a href="/api/ontology/talent_v1/tutorial/chapter/5">5. 蕴含：答案不在任何一行里</a><a href="/api/ontology/talent_v1/tutorial/chapter/6">6. 推荐：过线的人里谁先看</a><a href="/api/ontology/talent_v1/tutorial/chapter/7">7. 缺口与拒绝：读不到 ≠ 0</a><a href="/api/ontology/talent_v1/tutorial/chapter/8">8. 你能问什么、不能问什么</a></nav>
+<main><div class="cols">
+  <div class="card">
+      <h2>一条记录，一个个体</h2>
+      <div class="box"><p class="label">abox.ttl 里长这样</p>
+<pre>:cand_业务跟单_东莞_6_10K_刘___3年 a :Candidate ;
+    :appliedFor       :role_业务跟单 ;
+    :yearsExperience  3 ;
+    :educationRank    3 ;
+    :hasSkill         :skill_跟单, :skill_Excel ;
+    :sourceFile       "07、业务课侯选人简历/业务跟单/【业务跟单_东莞 6-10K】刘__ 3年.pdf" .</pre>
+      </div>
+      <table><thead><tr><th>属性</th><th>从哪来</th></tr></thead><tbody>
+        <tr><td class="mono">:appliedFor</td><td>目录/文件名</td></tr>
+        <tr><td class="mono">:yearsExperience</td><td>文件名（<code>3年</code>），没有就 <code>:missingData :UnknownYears</code></td></tr>
+        <tr><td class="mono">:educationRank</td><td>OCR（2 中专/高中 · 3 大专 · 4 本科 · 5 硕士）</td></tr>
+        <tr><td class="mono">:hasSkill</td><td>OCR + 容忍拼错的正则；一个都没识别到 → <code>:UnknownSkills</code></td></tr>
+        <tr><td class="mono">:sourceFile</td><td>来源文件名，任何答案都能回溯到那份扫描件</td></tr>
+      </tbody></table>
+      <p class="note">重复扫描件（同一人两份，实际 7 对）用 <code>owl:sameAs</code> 连起来，推荐时不重复占名次。</p>
+</div>
+  <div class="card">
+      <h2>这个本体有多少个体</h2>
+      <div id="cards"></div>
+      <p class="note">ABox 不在任何数据库表里；它被物化成 <code>talent_db</code> 的 8 张表 + 5 个视图，
+      指标与面板读的是那份物化结果，<code>check_abox_sync</code> 保证它与重新推理的结果逐行一致。</p>
+</div>
+</div></main>
+<script>
+const KEY = document.body.dataset.key;
+const f = id => document.getElementById(id);
+async function getJSON(url) { const r = await fetch(url); return r.json(); }
+function esc(s) { return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function table(head, rows, cls) {
+  return '<table><thead><tr>' + head.map(h => `<th>${esc(h)}</th>`).join('') + '</tr></thead><tbody>'
+    + rows.map(r => '<tr>' + r.map((v, i) => `<td class="${cls && cls[i] ? cls[i] : 'mono'}">${esc(v)}</td>`).join('') + '</tr>').join('')
+    + '</tbody></table>';
+}
+
+
+async function load() {
+  const cards = await getJSON(`/api/ontology/${KEY}/metrics/cards`);
+  const rows = (cards.cards || []).slice(0, 8).map(c =>
+    [c.name, c.value ?? (c.rows && c.rows[0] ? c.rows[0].value : '—'), c.compiled ? '已编译' : '按名拒绝']);
+  f('cards').innerHTML = table(['指标', '值', '状态'], rows);
+}
+load();
+
+</script></body></html>

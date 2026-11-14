@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-store">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 5 步 — 蕴含：答案不在任何一行里</title>
+<style>
+  body { font-family:-apple-system,"Segoe UI",Roboto,"PingFang SC",sans-serif; background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  header .rev { display:block; margin-top:4px; font:10px ui-monospace,Menlo,monospace; color:#9fb8cf; }
+  nav { background:#16324f; padding:8px 26px; }
+  nav a { color:#9fb8cf; font-size:12px; margin-right:14px; text-decoration:none; }
+  nav a.on { color:#fff; font-weight:600; }
+  main { max-width:1120px; margin:20px auto; padding:0 20px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:900px) { .cols { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:16px 18px; }
+  h2 { margin:0 0 10px; font-size:12px; letter-spacing:.5px; color:#334e68; text-transform:uppercase; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; font-size:11px; text-transform:uppercase; color:#687b8f; padding:6px 8px; border-bottom:1px solid #e3e6ea; }
+  td { padding:6px 8px; border-bottom:1px solid #f0f2f5; }
+  td.mono, code, pre { font-family:ui-monospace,Menlo,monospace; }
+  .box { background:#f2f4f6; border:1px solid #e4e8ec; border-radius:8px; padding:10px 12px; margin-bottom:14px; }
+  .label { font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:#687b8f; margin:0 0 4px; }
+  .note { font-size:12px; color:#687b8f; margin-top:10px; line-height:1.5; }
+  .big { font-size:40px; color:#0b4f9c; font-weight:700; text-align:center; }
+  .bigsub { text-align:center; font-size:12px; color:#687b8f; margin-bottom:6px; }
+  .pair { display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:center; }
+  .pair .n { font-size:34px; font-weight:700; text-align:center; }
+  .pair .a { color:#b3261e; } .pair .b { color:#0b7a3e; }
+  .pair .arrow { font-size:22px; color:#687b8f; }
+  input, select { width:100%; box-sizing:border-box; font:13px ui-monospace,Menlo,monospace;
+                  border:1px solid #cdd5df; border-radius:8px; padding:9px; margin-bottom:8px; }
+  button { background:#0b4f9c; color:#fff; border:0; border-radius:8px; padding:8px 14px; font-size:13px; cursor:pointer; }
+  button.ghost { background:#eef2f6; color:#0b4f9c; margin:0 6px 6px 0; font-size:12px; padding:5px 9px; }
+  pre { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px; font-size:12px;
+        white-space:pre-wrap; max-height:320px; overflow:auto; }
+  .warn { color:#b3261e; font-size:12px; }
+  .ok { color:#0b7a3e; font-size:12px; }
+</style></head>
+<body data-key="talent_v1">
+<header><h1>第 5 步 — 蕴含：答案不在任何一行里</h1>
+  <span class="rev">step 5 — the answer is entailed · 5/8 · talent_v1 · 277 份简历 × 10 份职务说明书</span></header>
+<nav><a href="/api/ontology/talent_v1/tutorial/chapter/1">1. 277 份扫描件，先变成记录</a><a href="/api/ontology/talent_v1/tutorial/chapter/2">2. 记录变成个体（ABox）</a><a href="/api/ontology/talent_v1/tutorial/chapter/3">3. 技能是个体，类别是类</a><a href="/api/ontology/talent_v1/tutorial/chapter/4">4. 岗位是定义类：JD 原话变成公理</a><a href="/api/ontology/talent_v1/tutorial/chapter/5" class=on>5. 蕴含：答案不在任何一行里</a><a href="/api/ontology/talent_v1/tutorial/chapter/6">6. 推荐：过线的人里谁先看</a><a href="/api/ontology/talent_v1/tutorial/chapter/7">7. 缺口与拒绝：读不到 ≠ 0</a><a href="/api/ontology/talent_v1/tutorial/chapter/8">8. 你能问什么、不能问什么</a></nav>
+<main><div class="cols">
+  <div class="card">
+      <h2>这一页是整个本体的理由</h2>
+      <p class="note">数据只说「这个人有什么技能、几年经验」；JD 说「这个岗位要什么」。
+      <b>「谁过线」没有任何一行写着</b>——它是推理出来的。</p>
+      <div class="box"><p class="label">同一个问题，两条路</p>
+<pre># 直接查 ABox：0 行
+SELECT ?c WHERE { ?c a :matches_业务跟单 }
+
+# HermiT 之后：N 行（类型断言是推出来的）</pre>
+      </div>
+      <table><thead><tr><th>本体自检（check_abox）</th><th></th></tr></thead><tbody>
+        <tr><td>A2 蕴含必须存在且未被断言</td><td>断言了就报 <em>copied answer, not a reasoned one</em></td></tr>
+        <tr><td>A7 反证</td><td>删掉类定义 → 成员必须消失；删不动的变更证明不了任何事</td></tr>
+        <tr><td>A4 一致性</td><td>不可满足的类会让每一条蕴含都变成废话</td></tr>
+      </tbody></table>
+</div>
+  <div class="card">
+      <h2>实时：前 6 个岗位</h2>
+      <div id="pairs"></div>
+      <p class="note">左边红色 = <code>abox.ttl</code> 里能找到的类型断言数量；右边绿色 = HermiT 之后的数量。</p>
+</div>
+</div></main>
+<script>
+const KEY = document.body.dataset.key;
+const f = id => document.getElementById(id);
+async function getJSON(url) { const r = await fetch(url); return r.json(); }
+function esc(s) { return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function table(head, rows, cls) {
+  return '<table><thead><tr>' + head.map(h => `<th>${esc(h)}</th>`).join('') + '</tr></thead><tbody>'
+    + rows.map(r => '<tr>' + r.map((v, i) => `<td class="${cls && cls[i] ? cls[i] : 'mono'}">${esc(v)}</td>`).join('') + '</tr>').join('')
+    + '</tbody></table>';
+}
+
+
+async function load() {
+  const first = await getJSON(`/api/ontology/${KEY}/reason`);
+  const classes = (first.classes || []).slice(0, 6);
+  const rows = [];
+  for (const c of classes) {
+    const r = await getJSON(`/api/ontology/${KEY}/reason?class_name=${encodeURIComponent(c)}&limit=1`);
+    rows.push([c, r.asserted, r.entailed]);
+  }
+  f('pairs').innerHTML = table(['定义类', 'ABox 断言', '推理得出'], rows, ['mono', 'mono', 'mono']);
+}
+load();
+
+</script></body></html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-store">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>第 8 步 — 你能问什么、不能问什么</title>
+<style>
+  body { font-family:-apple-system,"Segoe UI",Roboto,"PingFang SC",sans-serif; background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  header .rev { display:block; margin-top:4px; font:10px ui-monospace,Menlo,monospace; color:#9fb8cf; }
+  nav { background:#16324f; padding:8px 26px; }
+  nav a { color:#9fb8cf; font-size:12px; margin-right:14px; text-decoration:none; }
+  nav a.on { color:#fff; font-weight:600; }
+  main { max-width:1120px; margin:20px auto; padding:0 20px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:900px) { .cols { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:16px 18px; }
+  h2 { margin:0 0 10px; font-size:12px; letter-spacing:.5px; color:#334e68; text-transform:uppercase; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; font-size:11px; text-transform:uppercase; color:#687b8f; padding:6px 8px; border-bottom:1px solid #e3e6ea; }
+  td { padding:6px 8px; border-bottom:1px solid #f0f2f5; }
+  td.mono, code, pre { font-family:ui-monospace,Menlo,monospace; }
+  .box { background:#f2f4f6; border:1px solid #e4e8ec; border-radius:8px; padding:10px 12px; margin-bottom:14px; }
+  .label { font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:#687b8f; margin:0 0 4px; }
+  .note { font-size:12px; color:#687b8f; margin-top:10px; line-height:1.5; }
+  .big { font-size:40px; color:#0b4f9c; font-weight:700; text-align:center; }
+  .bigsub { text-align:center; font-size:12px; color:#687b8f; margin-bottom:6px; }
+  .pair { display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:center; }
+  .pair .n { font-size:34px; font-weight:700; text-align:center; }
+  .pair .a { color:#b3261e; } .pair .b { color:#0b7a3e; }
+  .pair .arrow { font-size:22px; color:#687b8f; }
+  input, select { width:100%; box-sizing:border-box; font:13px ui-monospace,Menlo,monospace;
+                  border:1px solid #cdd5df; border-radius:8px; padding:9px; margin-bottom:8px; }
+  button { background:#0b4f9c; color:#fff; border:0; border-radius:8px; padding:8px 14px; font-size:13px; cursor:pointer; }
+  button.ghost { background:#eef2f6; color:#0b4f9c; margin:0 6px 6px 0; font-size:12px; padding:5px 9px; }
+  pre { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px; font-size:12px;
+        white-space:pre-wrap; max-height:320px; overflow:auto; }
+  .warn { color:#b3261e; font-size:12px; }
+  .ok { color:#0b7a3e; font-size:12px; }
+</style></head>
+<body data-key="talent_v1">
+<header><h1>第 8 步 — 你能问什么、不能问什么</h1>
+  <span class="rev">step 8 — ask it · 8/8 · talent_v1 · 277 份简历 × 10 份职务说明书</span></header>
+<nav><a href="/api/ontology/talent_v1/tutorial/chapter/1">1. 277 份扫描件，先变成记录</a><a href="/api/ontology/talent_v1/tutorial/chapter/2">2. 记录变成个体（ABox）</a><a href="/api/ontology/talent_v1/tutorial/chapter/3">3. 技能是个体，类别是类</a><a href="/api/ontology/talent_v1/tutorial/chapter/4">4. 岗位是定义类：JD 原话变成公理</a><a href="/api/ontology/talent_v1/tutorial/chapter/5">5. 蕴含：答案不在任何一行里</a><a href="/api/ontology/talent_v1/tutorial/chapter/6">6. 推荐：过线的人里谁先看</a><a href="/api/ontology/talent_v1/tutorial/chapter/7">7. 缺口与拒绝：读不到 ≠ 0</a><a href="/api/ontology/talent_v1/tutorial/chapter/8" class=on>8. 你能问什么、不能问什么</a></nav>
+<main><div class="cols">
+  <div class="card">
+      <h2>问它一句</h2>
+      <p class="note">下面这些问题都能答（每条都有门禁背后的期望值）；答不了的时候它<b>按名拒绝</b>，
+      不会编一个数。</p>
+      <div id="examples" style="margin:10px 0"></div>
+      <table><thead><tr><th>能答</th><th>不能答（按名拒绝）</th></tr></thead><tbody>
+        <tr><td>每个岗位有多少人过线</td><td>「那次下单时这条产线吃不吃紧」——库里只有当前快照</td></tr>
+        <tr><td>某岗位的推荐名单与分数线</td><td>「这个人的回款准时率」——没有回款表</td></tr>
+        <tr><td>跨岗位过线人数</td><td>无 JD 的 4 个岗位的匹配判定</td></tr>
+        <tr><td>有多少人年限/学历没读到</td><td>「谁最可能离职」——没有这类数据</td></tr>
+      </tbody></table>
+</div>
+  <div class="card">
+      <h2>回答（实时）</h2>
+      <input id="q" placeholder="例如：每个岗位有多少人过线"/>
+      <button onclick="ask()">问</button>
+      <div id="ans" style="margin-top:10px"></div>
+</div>
+</div></main>
+<script>
+const KEY = document.body.dataset.key;
+const f = id => document.getElementById(id);
+async function getJSON(url) { const r = await fetch(url); return r.json(); }
+function esc(s) { return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function table(head, rows, cls) {
+  return '<table><thead><tr>' + head.map(h => `<th>${esc(h)}</th>`).join('') + '</tr></thead><tbody>'
+    + rows.map(r => '<tr>' + r.map((v, i) => `<td class="${cls && cls[i] ? cls[i] : 'mono'}">${esc(v)}</td>`).join('') + '</tr>').join('')
+    + '</tbody></table>';
+}
+
+
+async function bootExamples() {
+  const s = await getJSON(`/api/ontology/${KEY}/samples`);
+  const list = (s.samples || []).map(x => x.question || x).slice(0, 8);
+  f('examples').innerHTML = list.map(t => `<button class="ghost" onclick="f('q').value=${JSON.stringify(t)};ask()">${esc(t)}</button>`).join('');
+}
+async function ask() {
+  const q = f('q').value.trim();
+  if (!q) return;
+  f('ans').innerHTML = '<p class="note">查询中…</p>';
+  try {
+    const r = await fetch(`/api/ontology/${KEY}/wb/nl`, { method:'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify({ question: q })}).then(x => x.json());
+    if (r.refused) { f('ans').innerHTML = `<p class="warn">按名拒绝：${esc(r.refused)}</p>`; return; }
+    if (r.rows && r.rows.length) {
+      const cols = Object.keys(r.rows[0]);
+      f('ans').innerHTML = table(cols, r.rows.slice(0, 12).map(row => cols.map(c => row[c])));
+      return;
+    }
+    f('ans').innerHTML = `<div class="big">${esc(r.value ?? '—')}</div><div class="bigsub">${esc(r.sql || '')}</div>`;
+  } catch (e) {
+    f('ans').innerHTML = `<p class="warn">请求失败：${esc(e)}</p>`;
+  }
+}
+bootExamples();
+
+</script></body></html>
