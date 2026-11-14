@@ -991,10 +991,10 @@ function show(id) {
   // r_regionkey". pyLODE calls the same list "In Domain Of" — the count is there so the
   // claim can be checked at a glance against the rows underneath.
   if ((n.inDomain || []).length)
-    html += section(`域 :${esc(n.name)} — ${n.inDomain.length} 个属性,
+    html += section(`域 :${esc(n.name)} — ${n.inDomain.length} 个属性`,
                     propTable(n.inDomain));
   if ((n.inRange || []).length)
-    html += section(`值域 :${esc(n.name)} — ${n.inRange.length} 个属性,
+    html += section(`值域 :${esc(n.name)} — ${n.inRange.length} 个属性`,
                     rangeTable(n.inRange));
   html += section("注解属性", annTable(n.annotations));
   html += section("公理", annTable(n.structural));
