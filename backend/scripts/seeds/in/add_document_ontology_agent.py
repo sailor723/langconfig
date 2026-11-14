@@ -44,8 +44,6 @@ def _run_seed(key: str, database: str, theme: str) -> tuple[bool, str]:
 
 def _ensure_database(database: str, *, apply: bool) -> tuple[bool, str]:
     """An EMPTY database, so PG* and the dsn point at something real before any file is built."""
-    from services import agent_database  # noqa: F401  (import check only)
-
     host = os.environ.get("PGHOST") or "127.0.0.1"
     port = os.environ.get("PGPORT") or "5432"
     user = os.environ.get("PGUSER") or "langconfig"
