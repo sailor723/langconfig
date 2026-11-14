@@ -65,7 +65,12 @@
 </div></main>
 <script>
 const KEY = document.body.dataset.key;
-const f = id => document.getElementById(id);
+// A chapter only writes to the containers it carries. The tutorial generator shares one script
+// skeleton across eight pages, so a block that belongs to chapter 1 must not crash chapter 6: `f()`
+// returns a stub that swallows writes when the element is absent (measured: chapter 6 threw
+// "Cannot set properties of null" and rendered nothing).
+const _stub = new Proxy({}, { get: () => () => {}, set: () => true });
+const f = id => document.getElementById(id) || _stub;
 async function getJSON(url) { const r = await fetch(url); return r.json(); }
 function esc(s) { return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
 async function sparqlBlock(container, sparql, label) {
