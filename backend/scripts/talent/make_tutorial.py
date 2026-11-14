@@ -362,7 +362,7 @@ load();
       <h2>问它一句</h2>
       <p class="note">下面这些问题都能答（每条都有门禁背后的期望值）；答不了的时候它<b>按名拒绝</b>，
       不会编一个数。</p>
-      <div id="examples" style="margin:10px 0"></div>
+      <div id="examples" style="margin:10px 0">{{EXAMPLES}}</div>
       <table><thead><tr><th>能答</th><th>不能答（按名拒绝）</th></tr></thead><tbody>
         <tr><td>每个岗位有多少人过线</td><td>「那次下单时这条产线吃不吃紧」——库里只有当前快照</td></tr>
         <tr><td>某岗位的推荐名单与分数线</td><td>「这个人的回款准时率」——没有回款表</td></tr>
@@ -377,11 +377,6 @@ load();
       <div id="ans" style="margin-top:10px"></div>
 """,
         "script": """
-async function bootExamples() {
-  const s = await getJSON(`/api/ontology/${KEY}/samples`);
-  const list = (s.samples || []).map(x => x.question || x).slice(0, 8);
-  f('examples').innerHTML = list.map(t => `<button class="ghost" onclick="f('q').value=${JSON.stringify(t)};ask()">${esc(t)}</button>`).join('');
-}
 async function ask() {
   const q = f('q').value.trim();
   if (!q) return;
@@ -400,13 +395,19 @@ async function ask() {
     f('ans').innerHTML = `<p class="warn">请求失败：${esc(e)}</p>`;
   }
 }
-bootExamples();
 """,
     },
 ]
 
 
-def page(chapter: dict, key: str, total: int) -> str:
+def page(chapter: dict, key: str, total: int, examples: list[str] | None = None) -> str:
+    def _attr(text: str) -> str:
+        """A question inside an HTML attribute: single-quoted JS string, HTML-escaped quotes."""
+        return "'" + text.replace("'", "\\'").replace('"', "&quot;") + "'"
+
+    buttons = "".join(
+        f'<button class="ghost" onclick="f(&#39;q&#39;).value={_attr(q)};ask()">{q}</button>'
+        for q in (examples or []))
     nav = "".join(
         f'<a href="/api/ontology/{key}/tutorial/chapter/{c["n"]}"'
         f'{" class=on" if c["n"] == chapter["n"] else ""}>{c["n"]}. {c["title"]}</a>'
@@ -422,7 +423,7 @@ def page(chapter: dict, key: str, total: int) -> str:
   <span class="rev">{chapter['rev']} · {chapter['n']}/{total} · talent_v1 · 277 份简历 × 10 份职务说明书</span></header>
 <nav>{nav}</nav>
 <main><div class="cols">
-  <div class="card">{chapter['left']}</div>
+  <div class="card">{chapter['left'].replace('{{EXAMPLES}}', buttons)}</div>
   <div class="card">{chapter['right']}</div>
 </div></main>
 <script>{JS_COMMON}
@@ -439,9 +440,18 @@ def main() -> int:
 
     out = pathlib.Path(args.out).expanduser().resolve()
     out.mkdir(parents=True, exist_ok=True)
+    examples: list[str] = []
+    samples_file = out.parent / "samples.json"
+    if samples_file.is_file():
+        spec = json.loads(samples_file.read_text(encoding="utf-8"))
+        items = spec if isinstance(spec, list) else spec.get("samples") or []
+        for item in items:
+            q = item.get("question") if isinstance(item, dict) else str(item)
+            if q:
+                examples.append(str(q).strip())
     for chapter in CHAPTERS:
-        (out / f"step{chapter['n']}.html").write_text(page(chapter, args.key, len(CHAPTERS)),
-                                                    encoding="utf-8")
+        (out / f"step{chapter['n']}.html").write_text(
+            page(chapter, args.key, len(CHAPTERS), examples), encoding="utf-8")
     (out / "i18n.json").write_text(json.dumps({
         "_doc": "zh only: these chapters are written for this client's dossier, not translated from a "
                 "generic tour. A translation would have to re-measure every number they quote.",

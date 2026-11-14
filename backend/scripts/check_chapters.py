@@ -100,7 +100,12 @@ class Gate:
         print(f"  NOT RUN  {name}  — {why}")
 
 
-WB = re.compile(r"/api/ontology/[a-z_]+/wb/[A-Za-z0-9_/.-]*")
+#: Endpoints a chapter may call. This used to require the workbench's `/wb/` family, because retail's
+#: chapters call it — measured on talent_v1 (2026-11-14): its chapters ask the app for `/reason`,
+#: `/metrics/cards` and `/wb/nl`, the gate reported "no /api/ontology/*/wb/ path found" and would have
+#: failed a tutorial that answers correctly. The requirement is that the page ASKS the app (and that
+#: every path it asks for answers), not that it asks a particular route family.
+WB = re.compile(r"/api/ontology/[a-z0-9_]+/(?:wb/)?[A-Za-z0-9_/.?=&%-]*")
 BARE = re.compile(r"""["'](?:/api/(?!ontology/)|/abctutorial/)""")
 
 
@@ -117,7 +122,8 @@ def check_chapters(g: Gate, base: str, key: str) -> None:
         bare = BARE.findall(html)
         g.ok(not bare, f"chapter {n} has no bare /api path",
              f"{len(bare)} bare path(s), first: {bare[0][:60] if bare else ''}")
-        refs |= set(WB.findall(html))
+        # the chapter links to its siblings under the same prefix; those are navigation, not data calls
+        refs |= {r for r in WB.findall(html) if "/tutorial/chapter/" not in r}
 
     g.ok(bool(refs), "the chapters ask for endpoints at all",
          "no /api/ontology/*/wb/ path found — the rewrite may have removed them all")
@@ -159,7 +165,8 @@ def check_training(g: Gate, base: str, key: str) -> None:
             bare = BARE.findall(html)
             g.ok(not bare, f"step {n} has no bare /api path",
                  f"{len(bare)} bare path(s), first: {bare[0][:60] if bare else ''}")
-            refs |= set(WB.findall(html))
+            # the chapter links to its siblings under the same prefix; those are navigation, not data calls
+        refs |= {r for r in WB.findall(html) if "/tutorial/chapter/" not in r}
     if any("/abct/action" in p for p in refs):
         # ABC's step 8 writes through `/abct/action/{check|reset|run}`. `check` is the dry run, so it is
         # the one a gate may call: it exercises the compiled preconditions and writes nothing.
@@ -325,7 +332,8 @@ def check_pages(g: Gate, base: str, key: str) -> None:
         bare = BARE.findall(html)
         g.ok(not bare, f"page/{name} has no bare /api path",
              f"{len(bare)} bare path(s), first: {bare[0][:70] if bare else ''}")
-        refs |= set(WB.findall(html))
+        # the chapter links to its siblings under the same prefix; those are navigation, not data calls
+        refs |= {r for r in WB.findall(html) if "/tutorial/chapter/" not in r}
         # the pages also load one static asset each by absolute path
         for asset in ("tutorial_graph.js", "architecture.svg"):
             if f"/asset/{asset}" in html:

@@ -47,7 +47,7 @@
       <h2>问它一句</h2>
       <p class="note">下面这些问题都能答（每条都有门禁背后的期望值）；答不了的时候它<b>按名拒绝</b>，
       不会编一个数。</p>
-      <div id="examples" style="margin:10px 0"></div>
+      <div id="examples" style="margin:10px 0"><button class="ghost" onclick="f(&#39;q&#39;).value='每个岗位有多少人过线';ask()">每个岗位有多少人过线</button><button class="ghost" onclick="f(&#39;q&#39;).value='每个岗位推荐名单有几个名额';ask()">每个岗位推荐名单有几个名额</button><button class="ghost" onclick="f(&#39;q&#39;).value='各岗位最高合成分';ask()">各岗位最高合成分</button><button class="ghost" onclick="f(&#39;q&#39;).value='每个岗位的平均合成分是多少';ask()">每个岗位的平均合成分是多少</button><button class="ghost" onclick="f(&#39;q&#39;).value='每个岗位推荐名单的分数线是多少';ask()">每个岗位推荐名单的分数线是多少</button><button class="ghost" onclick="f(&#39;q&#39;).value='有多少份简历没读到工作年限';ask()">有多少份简历没读到工作年限</button><button class="ghost" onclick="f(&#39;q&#39;).value='有多少份简历没读到学历';ask()">有多少份简历没读到学历</button><button class="ghost" onclick="f(&#39;q&#39;).value='有多少份简历没读到技能';ask()">有多少份简历没读到技能</button><button class="ghost" onclick="f(&#39;q&#39;).value='有多少条岗位技能要求没人会';ask()">有多少条岗位技能要求没人会</button><button class="ghost" onclick="f(&#39;q&#39;).value='有多少人同时过了两个以上岗位';ask()">有多少人同时过了两个以上岗位</button></div>
       <table><thead><tr><th>能答</th><th>不能答（按名拒绝）</th></tr></thead><tbody>
         <tr><td>每个岗位有多少人过线</td><td>「那次下单时这条产线吃不吃紧」——库里只有当前快照</td></tr>
         <tr><td>某岗位的推荐名单与分数线</td><td>「这个人的回款准时率」——没有回款表</td></tr>
@@ -74,11 +74,6 @@ function table(head, rows, cls) {
 }
 
 
-async function bootExamples() {
-  const s = await getJSON(`/api/ontology/${KEY}/samples`);
-  const list = (s.samples || []).map(x => x.question || x).slice(0, 8);
-  f('examples').innerHTML = list.map(t => `<button class="ghost" onclick="f('q').value=${JSON.stringify(t)};ask()">${esc(t)}</button>`).join('');
-}
 async function ask() {
   const q = f('q').value.trim();
   if (!q) return;
@@ -97,6 +92,5 @@ async function ask() {
     f('ans').innerHTML = `<p class="warn">请求失败：${esc(e)}</p>`;
   }
 }
-bootExamples();
 
 </script></body></html>
