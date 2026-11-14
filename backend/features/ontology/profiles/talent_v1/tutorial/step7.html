@@ -130,4 +130,11 @@ async function load() {
 }
 load();
 
+
+(async () => {
+  await sparqlBlock(f('gapq'),
+    `SELECT ?c ?missing WHERE { ?c :missingData ?missing } LIMIT 6`,
+    '读不到不是 0：每个缺口都是一条 :missingData 断言，门禁只对带记号的缺口免责');
+})();
+
 </script></body></html>

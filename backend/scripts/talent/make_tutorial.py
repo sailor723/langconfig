@@ -543,6 +543,39 @@ async function ask() {
     },
 ]
 
+_EXTRA_RIGHT = {
+    6: """
+      <h2 style="margin-top:16px">名单的两半：谁过线（推理）· 谁先看（SQL）</h2>
+      <div id="twoq"></div>""",
+}
+_EXTRA_JS = {
+    6: """
+(async () => {
+  await sparqlBlock(f('twoq'),
+    `SELECT ?c WHERE { ?c a :matches_业务跟单 } LIMIT 6`,
+    '第一半：资格由 HermiT 判（ABox 断言 0 行 → 推理后有行）');
+  const cards = await getJSON(`/api/ontology/${KEY}/metrics/cards`);
+  const fit = (cards.cards || []).find(c => /rank|fit|top/i.test(c.name) && c.sql);
+  if (fit) f('twoq').innerHTML += qblock('# 第二半：名次由这条 SQL 算（物化表；check_abox_sync 逐行重算）<NL>' + fit.sql);
+  const r = await getJSON(`/api/ontology/${KEY}/reason?limit=1`);
+  if (r.rows && r.rows[0]) f('why-cand').value = r.rows[0];
+})();
+""",
+    7: """
+(async () => {
+  await sparqlBlock(f('gapq'),
+    `SELECT ?c ?missing WHERE { ?c :missingData ?missing } LIMIT 6`,
+    '读不到不是 0：每个缺口都是一条 :missingData 断言，门禁只对带记号的缺口免责');
+})();
+""",
+}
+
+for _c in CHAPTERS:
+    if _c["n"] in _EXTRA_RIGHT:
+        _c["extra_right"] = _EXTRA_RIGHT[_c["n"]]
+    if _c["n"] in _EXTRA_JS:
+        _c["extra_js"] = _EXTRA_JS[_c["n"]]
+
 
 def page(chapter: dict, key: str, total: int, examples: list[str] | None = None) -> str:
     def _attr(text: str) -> str:
@@ -568,10 +601,11 @@ def page(chapter: dict, key: str, total: int, examples: list[str] | None = None)
 <nav>{nav}</nav>
 <main><div class="cols">
   <div class="card">{chapter['left'].replace('{{EXAMPLES}}', buttons)}</div>
-  <div class="card">{chapter['right']}</div>
+  <div class="card">{chapter['right']}{chapter.get('extra_right', '')}</div>
 </div></main>
 <script>{JS_COMMON}
 {chapter['script']}
+{chapter.get('extra_js', '')}
 </script></body></html>
 """
 

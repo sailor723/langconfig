@@ -62,7 +62,9 @@
       <input id="why-cand" placeholder="候选人 id（从上面的名单里挑一个）"/>
       <button onclick="explain()">看证明</button>
       <div id="why" style="margin-top:10px"></div>
-</div>
+
+      <h2 style="margin-top:16px">名单的两半：谁过线（推理）· 谁先看（SQL）</h2>
+      <div id="twoq"></div></div>
 </div></main>
 <script>
 const KEY = document.body.dataset.key;
@@ -133,5 +135,17 @@ async function load() {
     .concat(rows.length ? [] : [['（无）', '', '']]));
 }
 load();
+
+
+(async () => {
+  await sparqlBlock(f('twoq'),
+    `SELECT ?c WHERE { ?c a :matches_业务跟单 } LIMIT 6`,
+    '第一半：资格由 HermiT 判（ABox 断言 0 行 → 推理后有行）');
+  const cards = await getJSON(`/api/ontology/${KEY}/metrics/cards`);
+  const fit = (cards.cards || []).find(c => /rank|fit|top/i.test(c.name) && c.sql);
+  if (fit) f('twoq').innerHTML += qblock('# 第二半：名次由这条 SQL 算（物化表；check_abox_sync 逐行重算）\n' + fit.sql);
+  const r = await getJSON(`/api/ontology/${KEY}/reason?limit=1`);
+  if (r.rows && r.rows[0]) f('why-cand').value = r.rows[0];
+})();
 
 </script></body></html>
