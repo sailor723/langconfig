@@ -381,7 +381,12 @@ def page(key: str, name: str) -> tuple[str, str]:
     # the graph page is generated from the TTL: if the profile has none yet, generate it now (that is
     # what the workbench's `_app_page` did, and the reason logistics once served retail's page was that
     # a missing file resolved to another ontology's)
-    if name in ("graph", "design") and not _is_own_graph_page(html, key):
+    if name in ("graph", "design") and (not _is_own_graph_page(html, key)
+                                       or _graph_page_is_stale(key, asset)):
+        # A page that predates its own declarations is WRONG, not merely old: measured on talent_v1
+        # (2026-11-14) the shipped page still showed 9 metrics while the profile declared 11 and the
+        # generator now emits 13 structure nodes — the browser drew a graph of a previous ontology and
+        # the reader had no way to tell. Regenerating on mtime keeps the page a projection of the TTL.
         html = _regenerate_graph(key)
     if name == "tutorial":
         # absolute paths in the page's JS would hit the app root; point them at this ontology's routes.
@@ -411,10 +416,68 @@ def page(key: str, name: str) -> tuple[str, str]:
     return html, "text/html; charset=utf-8"
 
 
+
+def _graph_page_is_stale(key: str, asset: pathlib.Path | None) -> bool:
+    """True when the graph page is older than any declaration it claims to describe."""
+    if asset is None or not asset.is_file():
+        return False
+    page_mtime = asset.stat().st_mtime
+    try:
+        profile = _profile(key)
+    except PageError:
+        return False
+    settings = _settings(key)
+    candidates = []
+    onto_dir = profile.parent / (settings.get("ontology_dir") or "ontology")
+    if onto_dir.is_dir():
+        candidates += list(onto_dir.rglob("*.ttl"))
+    overlay = settings.get("overlay")
+    if overlay and (profile.parent / overlay).is_file():
+        candidates.append(profile.parent / overlay)
+    newest = max((c.stat().st_mtime for c in candidates), default=0)
+    return newest > page_mtime
+
 def _is_own_graph_page(html: str, key: str) -> bool:
     title = _settings(key).get("title") or key
     return title.split("（")[0].split("(")[0][:12] in html or key in html.lower()
 
+
+
+def _resolved_dsn(settings: dict) -> dict:
+    """The profile's dsn with ${VAR:-default} substituted.
+
+    A profile stores placeholders (`${ONTOLOGY_DB_PASSWORD}`), because a password must not live in the
+    file. graph_view runs in a subprocess and needs real values, so they are resolved here: the live
+    environment first, then the repo's own `.env` (a subprocess does not inherit the service's dotenv),
+    then the declared default. Measured on talent_v1: passing the placeholder through produced a page
+    with no live numbers at all.
+    """
+    import os
+    import re
+
+    raw = settings.get("dsn") or {}
+    env_file = pathlib.Path(__file__).resolve().parents[2] / ".env"
+    file_values: dict[str, str] = {}
+    if env_file.is_file():
+        for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
+            if "=" in line and not line.lstrip().startswith("#"):
+                k, _, v = line.partition("=")
+                file_values[k.strip()] = v.strip()
+
+    out: dict[str, str] = {}
+    for key, value in raw.items():
+        text = str(value).strip()
+        m = re.fullmatch(r"\$\{([A-Z0-9_]+)(?::-(.*))?\}", text)
+        if m:
+            var, default = m.group(1), (m.group(2) or "")
+            text = os.environ.get(var) or file_values.get(var) or default
+        if text:
+            out[key] = text
+    out.setdefault("host", os.environ.get("PGHOST") or file_values.get("POSTGRES_HOST") or "127.0.0.1")
+    out.setdefault("port", os.environ.get("PGPORT") or file_values.get("POSTGRES_PORT") or "5432")
+    out.setdefault("user", os.environ.get("PGUSER") or file_values.get("POSTGRES_USER") or "langconfig")
+    out.setdefault("password", os.environ.get("PGPASSWORD") or file_values.get("POSTGRES_PASSWORD") or "")
+    return out
 
 def _regenerate_graph(key: str) -> str:
     """Generate the profile's graph page in-process (graph_view.py) and return it.
@@ -430,7 +493,7 @@ def _regenerate_graph(key: str) -> str:
     profile = _profile(key)
     settings = _settings(key)
     out = profile.parent / "ontology.html"
-    dsn = (settings.get("dsn") or {})
+    dsn = _resolved_dsn(settings)
     args = [
         sys.executable, str(FEATURE / "compiler" / "graph_view.py"),
         "--ns", settings.get("ns") or "",

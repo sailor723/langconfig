@@ -19,6 +19,8 @@ see the files on disk exactly as a user would, and a crashing gate must not take
 """
 from __future__ import annotations
 
+import re
+
 import json
 import logging
 import os
@@ -136,6 +138,14 @@ def ask(key: str, question: str, *, polish: bool = False) -> dict:
         try:
             out = nl.ask(text, graph=graph, record=False, slots=False)
         except getattr(nl, "NlRefusal", Exception) as exc:      # a refusal is an answer
+            # …UNLESS the question is one only the reasoner can answer. An ontology whose facts are
+            # entailed (talent_v1: "who clears this role's bar") has questions no metric names, and
+            # refusing them in the chat panel would hide the one thing this ontology can do. The
+            # fallback is narrow and named: it fires only for questions shaped like the three the
+            # reasoner answers, and it says so in `source`.
+            reasoner_answer = _reasoner_fallback(key, text)
+            if reasoner_answer is not None:
+                return reasoner_answer
             return {"ok": False, "key": key, "question": text,
                     "refused": str(exc), "answer": getattr(exc, "polished", None) or str(exc)}
     result = out.get("result") or {}
@@ -226,3 +236,81 @@ def profile_info(key: str) -> dict:
             "features": settings.get("features") or {},
             "dashboard": str(profile.parent / "dashboard.json")
             if (profile.parent / "dashboard.json").is_file() else None}
+
+
+#: The three shapes the reasoner answers in the chat panel. Deliberately few and explicit: a chat that
+#: silently reinterprets any refused question would teach users that a refusal is negotiable.
+_REASONER_PATTERNS = (
+    ("members", re.compile(r"^(?:谁|哪些人|哪几个人)(?:能|可以)?(?:过|通过|符合|合格|满足)"
+                           r"(?P<role>.+?)(?:的)?(?:门槛|要求|条件)?\s*[?？]?$")),
+    ("count", re.compile(r"^(?P<role>.+?)(?:岗位)?(?:有)?(?:多少|几个)(?:人|名)(?:过线|合格|符合|满足)"
+                         r"\s*[?？]?$")),
+    ("why", re.compile(r"^为什么(?P<cand>[^\s，,]+?)(?:能|可以)?(?:过|通过|符合|合格)(?P<role>.+?)"
+                       r"(?:的)?(?:门槛|要求|条件)?\s*[?？]?$")),
+)
+
+
+_ROLE_NOISE = re.compile(r"(这道|那个|这个|的|门槛|要求|条件|岗位|职位|匹配)$")
+
+
+def _resolve_role(key: str, raw: str) -> str:
+    """The role the question means, as a class this ontology defines.
+
+    Measured: "谁过业务跟单这道门槛" captured `业务跟单这道` and refused, because a reasoner-shaped
+    question wraps the role in words the pattern cannot know. Rather than grow the regex, ask the ontology
+    which of ITS classes appears in the text — longest first, so `副总助理` beats `助理`.
+    """
+    from services import ontology_reasoner
+
+    text = _ROLE_NOISE.sub("", raw.strip())
+    known = ontology_reasoner.reasoned(key)["classes"]
+    local = [(c.rsplit("#", 1)[-1], c) for c in known]
+    for name, _iri in sorted(local, key=lambda x: -len(x[0])):
+        short = name[len("matches_"):] if name.startswith("matches_") else name
+        if short and short in raw:
+            return short
+    return text
+
+
+def _reasoner_fallback(key: str, question: str) -> dict | None:
+    """{...} when the question is reasoner-shaped and the profile has an ABox, else None."""
+    from services import ontology_reasoner
+
+    text = question.strip()
+    for kind, pattern in _REASONER_PATTERNS:
+        m = pattern.match(text)
+        if not m:
+            continue
+        role = _resolve_role(key, (m.groupdict().get("role") or "").strip())
+        if not role:
+            continue
+        try:
+            if kind == "members":
+                view = ontology_reasoner.reason_view(key, "matches_" + role, 10)
+                return {"ok": True, "key": key, "question": text, "source": "reasoner",
+                        "answer": (f"{role}：ABox 里断言 0 人，推理得出 {view['entailed']} 人"
+                                   f"（{view['engine']} {view['elapsed_ms']} ms）。"),
+                        "kind": "reasoned_members", "metric": f"matches_{role}",
+                        "rows": [{"candidate": r} for r in view["rows"]],
+                        "value": view["entailed"],
+                        "sql": None,
+                        "notes": ["这批人没有任何一行写着「合格」——类型是推理出来的",
+                                  "check_abox 的 A7 会在删掉定义后要求这个数变成 0"]}
+            if kind == "count":
+                view = ontology_reasoner.reason_view(key, "matches_" + role, 1)
+                return {"ok": True, "key": key, "question": text, "source": "reasoner",
+                        "answer": (f"{role}：推理得出 {view['entailed']} 人过线"
+                                   f"（ABox 断言 {view['asserted']} 人）。"),
+                        "kind": "reasoned_count", "metric": f"matches_{role}",
+                        "value": view["entailed"], "sql": None}
+            cand = (m.groupdict().get("cand") or "").strip()
+            detail = ontology_reasoner.why(key, cand, "matches_" + role)
+            return {"ok": True, "key": key, "question": text, "source": "reasoner",
+                    "answer": ("为什么 " + detail["candidate"] + " 能过 " + role + "："
+                               + "；".join(detail["facts"])),
+                    "kind": "reasoned_why", "metric": f"matches_{role}",
+                    "rows": [{"事实": f} for f in detail["facts"]],
+                    "notes": [detail["axiom"]], "sql": None}
+        except ontology_reasoner.Unavailable:
+            return None
+    return None
