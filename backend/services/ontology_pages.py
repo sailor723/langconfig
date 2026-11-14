@@ -418,24 +418,41 @@ def page(key: str, name: str) -> tuple[str, str]:
 
 
 def _graph_page_is_stale(key: str, asset: pathlib.Path | None) -> bool:
-    """True when the graph page is older than any declaration it claims to describe."""
+    """True when the graph page was built from declarations that have since changed.
+
+    mtime is not enough: a `git pull` gives every file the same timestamp, so a stale page looks current
+    (measured on talent_v1: served 9 metrics with 12 structure nodes while the profile declared 11 and
+    the generator emitted 13). The page therefore carries a fingerprint of the TTLs it read, and this
+    compares it with the declarations on disk.
+    """
     if asset is None or not asset.is_file():
         return False
-    page_mtime = asset.stat().st_mtime
     try:
         profile = _profile(key)
+        settings = _settings(key)
     except PageError:
         return False
-    settings = _settings(key)
-    candidates = []
+    html = asset.read_text(encoding="utf-8", errors="replace")
+    m = re.search(r'"fingerprint":\s*"([0-9a-f]+)"', html)
+    if not m:
+        return True                     # a page with no fingerprint predates this check
+    pages_fingerprint = m.group(1)
+
+    import hashlib
+
     onto_dir = profile.parent / (settings.get("ontology_dir") or "ontology")
-    if onto_dir.is_dir():
-        candidates += list(onto_dir.rglob("*.ttl"))
+    candidates: list[pathlib.Path] = []
     overlay = settings.get("overlay")
     if overlay and (profile.parent / overlay).is_file():
         candidates.append(profile.parent / overlay)
-    newest = max((c.stat().st_mtime for c in candidates), default=0)
-    return newest > page_mtime
+    if onto_dir.is_dir():
+        candidates += sorted(onto_dir.glob("*.ttl"))
+    digest = hashlib.sha256()
+    for path in candidates:
+        digest.update(str(path.name).encode())
+        digest.update(str(path.stat().st_size).encode())
+        digest.update(path.read_bytes())
+    return digest.hexdigest()[:16] != pages_fingerprint
 
 def _is_own_graph_page(html: str, key: str) -> bool:
     title = _settings(key).get("title") or key

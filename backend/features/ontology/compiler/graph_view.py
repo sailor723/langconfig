@@ -543,6 +543,16 @@ def build_payload(sample_limit: int = SAMPLE) -> dict:
         position[node["id"]] = [round(box["x"] * 72, 1), round(box["y"] * 72, 1),
                                 round(box["w"] * 72, 1), round(box["h"] * 72, 1)]
     missing = [n["id"] for n in nodes if n["id"] not in position]
+    # A page has to be able to prove it is current: an mtime comparison breaks the moment a checkout
+    # resets file times (measured: after `git pull` the page and its TTLs share one mtime and a stale
+    # page looks fresh). A fingerprint of the inputs answers the question the reader actually has.
+    import hashlib
+
+    digest = hashlib.sha256()
+    for path in ttl_files():
+        digest.update(str(path.name).encode())
+        digest.update(str(path.stat().st_size).encode())
+        digest.update(path.read_bytes())
     return dict(nodes=nodes, edges=edges, pos=position,
                 width=round(lay["width"] * 72 + 40), height=round(lay["height"] * 72 + 40),
                 missing=missing, note=facts["note"],
@@ -550,6 +560,7 @@ def build_payload(sample_limit: int = SAMPLE) -> dict:
                 dsn=f"{DSN['dbname']} @ {DSN['host']}:{DSN['port']}",
                 doc=DOC.name if DOC.exists() else None,
                 generated=time.strftime("%Y-%m-%d %H:%M"),
+                fingerprint=digest.hexdigest()[:16],
                 counts=dict(structure=len(shape["physical"]),
                             meaning=len(shape["defined"]) + len(shape["unexplained"]),
                             metrics=len(shape["metrics"]), refused=len(shape["refused"]),
