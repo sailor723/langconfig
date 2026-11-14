@@ -480,8 +480,28 @@ async def ontology_document(key: str, refresh: bool = False):
         raise HTTPException(404, str(exc)) from exc
 
 
+@router.get("/{key}/layers")
+async def ontology_layers(key: str):
+    """Axioms / individuals / entailments, counted live — the three-layer overview's numbers."""
+    try:
+        return {"ok": True, **await asyncio.to_thread(ontology_reasoner.layers, key)}
+    except ontology_reasoner.Unavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/{key}/reason/why")
+async def ontology_reason_why(key: str, candidate: str, role: str):
+    """Why this person clears this role: the matched facts, the thresholds, the axiom that fired."""
+    try:
+        return {"ok": True, **await asyncio.to_thread(
+            ontology_reasoner.why, key, candidate, role)}
+    except ontology_reasoner.Unavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
 @router.get("/{key}/reason")
-async def ontology_reason(key: str, class_name: str = "", limit: int = 5):
+async def ontology_reason(key: str, class_name: str = "", limit: int = 5,
+                          drop: str = "", candidate: str = ""):
     """What the REASONER answers that the ABox does not say.
 
     This endpoint exists because one ontology in this deployment has individuals whose useful facts are
@@ -492,7 +512,8 @@ async def ontology_reason(key: str, class_name: str = "", limit: int = 5):
     type assertions HermiT derived — so a page can print "0 → N" and list the N.
     """
     try:
-        payload = await asyncio.to_thread(ontology_reasoner.reason_view, key, class_name, int(limit))
+        payload = await asyncio.to_thread(ontology_reasoner.reason_view, key, class_name,
+                                          int(limit), drop, candidate)
     except ontology_reasoner.Unavailable as exc:
         raise HTTPException(404, str(exc)) from exc
     return {"ok": True, **payload}

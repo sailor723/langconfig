@@ -102,7 +102,108 @@ def reasoned(key: str) -> dict:
     return payload
 
 
-def reason_view(key: str, class_name: str, limit: int = 5) -> dict:
+def layers(key: str) -> dict:
+    """The three layers, counted: axioms, individuals, entailments. Live, never typed in."""
+    payload = reasoned(key)
+    import sys
+
+    backend = pathlib.Path(__file__).resolve().parents[1]
+    if str(backend) not in sys.path:
+        sys.path.insert(0, str(backend))
+    from rdflib import Graph
+    from rdflib.namespace import OWL, RDF
+
+    abox, axioms, _settings = _files(key)
+    tbox = Graph(); tbox.parse(str(axioms), format="turtle")
+    data = Graph(); data.parse(str(abox), format="turtle")
+    defined = [c for c in tbox.subjects(RDF.type, OWL.Class)
+               if list(tbox.objects(c, OWL.equivalentClass))]
+    return {
+        "tbox": {"triples": len(tbox),
+                 "classes": len(list(tbox.subjects(RDF.type, OWL.Class))),
+                 "defined": len(defined),
+                 "restrictions": len(list(tbox.subjects(RDF.type, OWL.Restriction))),
+                 "facets": len([1 for t in tbox if str(t[1]).endswith("minInclusive")])},
+        "abox": {"triples": len(data),
+                 "individuals": len(set(data.subjects(RDF.type, None))),
+                 "type_assertions": len(list(data.triples((None, RDF.type, None))))},
+        "entailed": {"total": sum(len(v) for v in payload["members"].values()),
+                     "classes": len(payload["classes"])},
+        "engine": payload["engine"], "elapsed_ms": payload["elapsed_ms"],
+        "consistent": payload["consistent"],
+    }
+
+
+def why(key: str, candidate: str, role: str) -> dict:
+    """Why this person clears this role: the facts that matched, the thresholds that passed, the axiom.
+
+    HermiT does not hand back a proof tree, and it does not need to: the axioms are OURS, so naming the
+    one that fired plus the facts it consumed IS the justification a recruiter can read.
+    """
+    payload = reasoned(key)
+    ns = payload["ns"]
+    cls = role if role.startswith("matches_") else f"matches_{role}"
+    iri = ns + cls
+    if iri not in payload["classes"]:
+        raise Unavailable(f"{key} has no defined class {cls!r}")
+    member = f"{ns}{candidate}" if not candidate.startswith("http") else candidate
+    if member not in set(payload["members"].get(iri) or []):
+        raise Unavailable(f"{candidate} is not a member of {cls}")
+
+    import sys
+
+    backend = pathlib.Path(__file__).resolve().parents[1]
+    if str(backend) not in sys.path:
+        sys.path.insert(0, str(backend))
+    from rdflib import Graph, Literal, URIRef
+    from rdflib.namespace import RDF
+
+    abox, axioms, _settings = _files(key)
+    data = Graph(); data.parse(str(abox), format="turtle")
+    tbox = Graph(); tbox.parse(str(axioms), format="turtle")
+
+    node = URIRef(member)
+    skills = sorted(str(o).rsplit("#", 1)[-1] for o in data.objects(node, URIRef(ns + "hasSkill")))
+    categories = {}
+    for skill in skills:
+        for t in data.objects(URIRef(ns + skill), RDF.type):
+            cat = str(t).rsplit("#", 1)[-1]
+            if cat not in ("SkillTag", "NamedIndividual"):
+                categories.setdefault(skill, cat)
+    years = next((int(v) for v in data.objects(node, URIRef(ns + "yearsExperience"))
+                  if isinstance(v, Literal)), None)
+    rank = next((int(v) for v in data.objects(node, URIRef(ns + "educationRank"))
+                 if isinstance(v, Literal)), None)
+    role_name = cls[len("matches_"):]
+    role_node = URIRef(ns + "role_" + role_name)
+    required_years = next((int(v) for v in data.objects(role_node, URIRef(ns + "requiredYears"))
+                           if isinstance(v, Literal)), None)
+    required_rank = next((int(v) for v in data.objects(role_node, URIRef(ns + "requiredEducationRank"))
+                          if isinstance(v, Literal)), None)
+    # the definition as written, printed so the page can show the sentence that fired
+    lines = [f":{cls} a owl:Class ;", "    owl:equivalentClass [ owl:intersectionOf ("]
+    for t in tbox.triples((URIRef(iri), None, None)):
+        lines.append(f"        # {t[1].rsplit('#', 1)[-1]} {str(t[2])[:80]}")
+    lines.append("    ) ] .")
+    return {
+        "candidate": candidate.rsplit("#", 1)[-1], "role": cls,
+        "skills": skills, "skill_categories": categories,
+        "years": years, "required_years": required_years,
+        "education_rank": rank, "required_education_rank": required_rank,
+        "facts": [
+            f":hasSkill {'/'.join(sorted(categories.values())) or '(none)'}",
+            f":yearsExperience {years} (门槛 {required_years})" if required_years is not None
+            else f":yearsExperience {years} (门槛 未声明)",
+            f":educationRank {rank} (下限 {required_rank})" if required_rank is not None
+            else f":educationRank {rank} (下限 未声明)",
+        ],
+        "axiom": "\n".join(lines),
+        "engine": payload["engine"],
+    }
+
+
+def reason_view(key: str, class_name: str, limit: int = 5,
+                drop: str = "", candidate: str = "") -> dict:
     """The tutorial's payload: how many the ABox asserts vs how many the reasoner entails."""
     payload = reasoned(key)
     ns = payload["ns"]
@@ -117,6 +218,34 @@ def reason_view(key: str, class_name: str, limit: int = 5) -> dict:
     else:
         iri = classes[0] if classes else ""
     members = payload["members"].get(iri) or []
+    if drop:
+        # FALSIFICATION on demand. A membership that survives the removal of its definition was never
+        # reasoned — that is A7 of check_abox, and here the reader can press the button themselves.
+        import sys
+
+        backend = pathlib.Path(__file__).resolve().parents[1]
+        if str(backend) not in sys.path:
+            sys.path.insert(0, str(backend))
+        from features.ontology.reasoning import reasoner as R
+
+        abox, axioms, _settings = _files(key)
+        graph = R.load_graph([axioms, abox])
+        if drop == "definition":
+            mutated, removed = R.mutate(graph, subject=iri.rsplit("#", 1)[-1],
+                                        predicate="equivalentClass", namespace=ns)
+        elif drop == "skills":
+            mutated, removed = R.mutate(graph, subject=candidate.rsplit("#", 1)[-1],
+                                        predicate="hasSkill", namespace=ns)
+        else:
+            raise Unavailable(f"unknown drop {drop!r} (known: definition, skills)")
+        after = R.reason(mutated, watch_classes=[iri])
+        left = after.members_of(iri)
+        return {"class": iri.rsplit("#", 1)[-1], "drop": drop, "removed": removed,
+                "before": len(members), "after": len(left),
+                "rows": [m.rsplit("#", 1)[-1] for m in left[: max(1, limit)]],
+                "engine": after.engine, "elapsed_ms": round(after.elapsed_ms, 1),
+                "consistent": after.consistent}
+
     asserted = 0
     if iri:
         import sys

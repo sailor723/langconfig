@@ -71,6 +71,18 @@ const KEY = document.body.dataset.key;
 const f = id => document.getElementById(id);
 async function getJSON(url) { const r = await fetch(url); return r.json(); }
 function esc(s) { return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function qblock(q) {
+  return '<pre>' + esc(q || '(no query recorded)') + '</pre>';
+}
+// Every number a chapter shows must come with the query that produced it — retail's chapter 1 prints its
+// SQL under the answer for the same reason: a tutorial that shows only results teaches reading, not checking.
+function cardRows(cards, filter) {
+  return (cards || []).filter(filter).map(c => [
+    c.name,
+    (c.rows && c.rows.length ? c.rows.slice(0, 4).map(r => `${r.key ?? r[0]} = ${r.value ?? r[1]}`).join('\n') : (c.value ?? '—')),
+    c.compiled === false ? ('按名拒绝: ' + (c.refused || '')) : (c.sql || ''),
+  ]);
+}
 function table(head, rows, cls) {
   return '<table><thead><tr>' + head.map(h => `<th>${esc(h)}</th>`).join('') + '</tr></thead><tbody>'
     + rows.map(r => '<tr>' + r.map((v, i) => `<td class="${cls && cls[i] ? cls[i] : 'mono'}">${esc(v)}</td>`).join('') + '</tr>').join('')
@@ -93,7 +105,10 @@ async function load() {
       <div class="arrow">→</div>
       <div><div class="n b">${r.entailed}</div><div class="note" style="text-align:center">推理得出</div></div>
     </div>
-    <p class="note">HermiT ${r.elapsed_ms} ms · consistent=${r.consistent}</p>` + table(['成员（前 5）'], (r.rows || []).map(x => [x]));
+    <p class="note">HermiT ${r.elapsed_ms} ms · consistent=${r.consistent}</p>`
+    + qblock(`PREFIX : <${(r.class || '').includes('#') ? '' : 'https://cube.local/ontology/talent_v1#'}>
+SELECT ?c WHERE { ?c a :${r.class} }   # ABox: ${r.asserted} 行 · 推理后: ${r.entailed} 行`)
+    + table(['成员（前 5）'], (r.rows || []).map(x => [x]));
 }
 boot();
 

@@ -57,6 +57,11 @@
   <div class="card">
       <h2>推荐名单（实时，编译指标）</h2>
       <div id="rank"></div>
+      <h2 style="margin-top:16px">为什么是这个人</h2>
+      <select id="why-cls"></select>
+      <input id="why-cand" placeholder="候选人 id（从上面的名单里挑一个）"/>
+      <button onclick="explain()">看证明</button>
+      <div id="why" style="margin-top:10px"></div>
 </div>
 </div></main>
 <script>
@@ -64,6 +69,18 @@ const KEY = document.body.dataset.key;
 const f = id => document.getElementById(id);
 async function getJSON(url) { const r = await fetch(url); return r.json(); }
 function esc(s) { return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function qblock(q) {
+  return '<pre>' + esc(q || '(no query recorded)') + '</pre>';
+}
+// Every number a chapter shows must come with the query that produced it — retail's chapter 1 prints its
+// SQL under the answer for the same reason: a tutorial that shows only results teaches reading, not checking.
+function cardRows(cards, filter) {
+  return (cards || []).filter(filter).map(c => [
+    c.name,
+    (c.rows && c.rows.length ? c.rows.slice(0, 4).map(r => `${r.key ?? r[0]} = ${r.value ?? r[1]}`).join('\n') : (c.value ?? '—')),
+    c.compiled === false ? ('按名拒绝: ' + (c.refused || '')) : (c.sql || ''),
+  ]);
+}
 function table(head, rows, cls) {
   return '<table><thead><tr>' + head.map(h => `<th>${esc(h)}</th>`).join('') + '</tr></thead><tbody>'
     + rows.map(r => '<tr>' + r.map((v, i) => `<td class="${cls && cls[i] ? cls[i] : 'mono'}">${esc(v)}</td>`).join('') + '</tr>').join('')
@@ -71,7 +88,18 @@ function table(head, rows, cls) {
 }
 
 
+async function loadLayers() {
+  const L = await getJSON(`/api/ontology/${KEY}/layers`);
+  const row = (label, v, q) => `<tr><td class="mono">${esc(v)}</td><td>${label}</td><td>${q ? `<pre style="margin:0;max-height:120px">${esc(q)}</pre>` : ''}</td></tr>`;
+  f('layers').innerHTML = '<table><thead><tr><th>数量</th><th>层</th><th>来源</th></tr></thead><tbody>'
+    + row('TBox 公理三元组 / 类', L.tbox.triples + ' / ' + L.tbox.classes, 'reasoning.ttl（' + L.tbox.defined + ' 个定义类 · ' + L.tbox.restrictions + ' 条 restriction · ' + L.tbox.facets + ' 个数值 facet）')
+    + row('ABox 断言三元组 / 个体', L.abox.triples + ' / ' + L.abox.individuals, 'abox.ttl（' + L.abox.type_assertions + ' 条 rdf:type 全是断言）')
+    + row('蕴含（断言 0 条）', L.entailed.total, 'HermiT，' + L.entailed.classes + ' 个定义类 · ' + L.elapsed_ms + ' ms')
+    + '</tbody></table>'
+    + '<p class="note">中间这一层是数据，第一层是规则，第三层是<b>由规则从数据里推出来、但从未被写下来的</b>事实。</p>';
+}
 async function load() {
+  await loadLayers();
   const cards = await getJSON(`/api/ontology/${KEY}/metrics/cards`);
   const rows = (cards.cards || [])
     .filter(c => /rank|fit|top|recommend/i.test(c.name))
@@ -80,7 +108,9 @@ async function load() {
                                         : (c.value ?? '—');
       return [c.name, v, c.compiled ? '已编译' : '按名拒绝'];
     });
-  f('rank').innerHTML = table(['指标', '值', '状态'], rows.length ? rows : [['（无）', '', '']]);
+  f('rank').innerHTML = table(['指标', '值', '查询（已编译的 SQL）'],
+    cardRows(cards.cards, c => /rank|fit|top|recommend/i.test(c.name))
+    .concat(rows.length ? [] : [['（无）', '', '']]));
 }
 load();
 

@@ -62,6 +62,12 @@ SELECT ?c WHERE { ?c a :matches_业务跟单 }
   <div class="card">
       <h2>实时：前 6 个岗位</h2>
       <div id="pairs"></div>
+      <h2 style="margin-top:16px">✂ 反证：删掉一句规则，看答案消失</h2>
+      <div>
+        <button onclick="falsify('definition')">删掉「业务跟单」的整条定义</button>
+        <button onclick="falsify('skills')">删掉某个人的技能断言</button>
+      </div>
+      <div id="falsify"></div>
       <p class="note">左边红色 = <code>abox.ttl</code> 里能找到的类型断言数量；右边绿色 = HermiT 之后的数量。</p>
 </div>
 </div></main>
@@ -70,6 +76,18 @@ const KEY = document.body.dataset.key;
 const f = id => document.getElementById(id);
 async function getJSON(url) { const r = await fetch(url); return r.json(); }
 function esc(s) { return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function qblock(q) {
+  return '<pre>' + esc(q || '(no query recorded)') + '</pre>';
+}
+// Every number a chapter shows must come with the query that produced it — retail's chapter 1 prints its
+// SQL under the answer for the same reason: a tutorial that shows only results teaches reading, not checking.
+function cardRows(cards, filter) {
+  return (cards || []).filter(filter).map(c => [
+    c.name,
+    (c.rows && c.rows.length ? c.rows.slice(0, 4).map(r => `${r.key ?? r[0]} = ${r.value ?? r[1]}`).join('\n') : (c.value ?? '—')),
+    c.compiled === false ? ('按名拒绝: ' + (c.refused || '')) : (c.sql || ''),
+  ]);
+}
 function table(head, rows, cls) {
   return '<table><thead><tr>' + head.map(h => `<th>${esc(h)}</th>`).join('') + '</tr></thead><tbody>'
     + rows.map(r => '<tr>' + r.map((v, i) => `<td class="${cls && cls[i] ? cls[i] : 'mono'}">${esc(v)}</td>`).join('') + '</tr>').join('')
@@ -77,6 +95,23 @@ function table(head, rows, cls) {
 }
 
 
+async function falsify(drop) {
+  const cls = 'matches_业务跟单';
+  let url = `/api/ontology/${KEY}/reason?class_name=${encodeURIComponent(cls)}&limit=4&drop=${drop}`;
+  if (drop === 'skills') {
+    const base = await getJSON(`/api/ontology/${KEY}/reason?class_name=${encodeURIComponent(cls)}&limit=1`);
+    url += '&candidate=' + encodeURIComponent(base.rows[0]);
+  }
+  const r = await getJSON(url);
+  f('falsify').innerHTML = `<div class="pair">
+      <div><div class="n b">${r.before}</div><div class="note" style="text-align:center">删之前</div></div>
+      <div class="arrow">→</div>
+      <div><div class="n a">${r.after}</div><div class="note" style="text-align:center">删之后</div></div>
+    </div>
+    <p class="note">删掉 ${r.removed} 条三元组（${esc(r.drop)}）；HermiT 重新推理 ${r.elapsed_ms} ms。
+    删不动的变更证明不了任何事——这正是 check_abox 的 A7。</p>`
+    + qblock(['PREFIX : <https://cube.local/ontology/talent_v1#>', '# 删掉后仍成立的成员'].concat((r.rows || []).map(x => `?c = :${x}`)).join('\n'));
+}
 async function load() {
   const first = await getJSON(`/api/ontology/${KEY}/reason`);
   const classes = (first.classes || []).slice(0, 6);
@@ -85,7 +120,9 @@ async function load() {
     const r = await getJSON(`/api/ontology/${KEY}/reason?class_name=${encodeURIComponent(c)}&limit=1`);
     rows.push([c, r.asserted, r.entailed]);
   }
-  f('pairs').innerHTML = table(['定义类', 'ABox 断言', '推理得出'], rows, ['mono', 'mono', 'mono']);
+  f('pairs').innerHTML = table(['定义类', 'ABox 断言', '推理得出'], rows, ['mono', 'mono', 'mono'])
+    + qblock(`# 同一个 SPARQL 跑两遍：一遍 abox.ttl 原文，一遍加上 HermiT 推出的 rdf:type\n`
+             + rows.map(r => `SELECT ?c WHERE { ?c a :${r[0]} }   -- ${r[1]} → ${r[2]}`).join('\n'));
 }
 load();
 

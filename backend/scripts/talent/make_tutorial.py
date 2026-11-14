@@ -68,6 +68,18 @@ const KEY = document.body.dataset.key;
 const f = id => document.getElementById(id);
 async function getJSON(url) { const r = await fetch(url); return r.json(); }
 function esc(s) { return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function qblock(q) {
+  return '<pre>' + esc(q || '(no query recorded)') + '</pre>';
+}
+// Every number a chapter shows must come with the query that produced it — retail's chapter 1 prints its
+// SQL under the answer for the same reason: a tutorial that shows only results teaches reading, not checking.
+function cardRows(cards, filter) {
+  return (cards || []).filter(filter).map(c => [
+    c.name,
+    (c.rows && c.rows.length ? c.rows.slice(0, 4).map(r => `${r.key ?? r[0]} = ${r.value ?? r[1]}`).join('<NL>') : (c.value ?? '—')),
+    c.compiled === false ? ('按名拒绝: ' + (c.refused || '')) : (c.sql || ''),
+  ]);
+}
 function table(head, rows, cls) {
   return '<table><thead><tr>' + head.map(h => `<th>${esc(h)}</th>`).join('') + '</tr></thead><tbody>'
     + rows.map(r => '<tr>' + r.map((v, i) => `<td class="${cls && cls[i] ? cls[i] : 'mono'}">${esc(v)}</td>`).join('') + '</tr>').join('')
@@ -100,7 +112,9 @@ CHAPTERS: list[dict] = [
       而是记 <code>missing_education</code>。这条规矩后面会反复出现。</p>
 """,
         "right": """
-      <h2>抽取结果（实时）</h2>
+      <h2>三层：公理 / 个体 / 蕴含（实时计数）</h2>
+      <div id="layers"></div>
+      <h2 style="margin-top:16px">抽取结果（实时）</h2>
       <div class="pair">
         <div><div class="n a" id="n-missing-years">…</div><div class="note" style="text-align:center">年限未读到</div></div>
         <div class="arrow">of</div>
@@ -110,7 +124,18 @@ CHAPTERS: list[dict] = [
       <p class="note">这些数字来自 <code>/api/ontology/talent_v1/metrics/cards</code>——面板与页面读的是同一份编译结果。</p>
 """,
         "script": """
+async function loadLayers() {
+  const L = await getJSON(`/api/ontology/${KEY}/layers`);
+  const row = (label, v, q) => `<tr><td class="mono">${esc(v)}</td><td>${label}</td><td>${q ? `<pre style="margin:0;max-height:120px">${esc(q)}</pre>` : ''}</td></tr>`;
+  f('layers').innerHTML = '<table><thead><tr><th>数量</th><th>层</th><th>来源</th></tr></thead><tbody>'
+    + row('TBox 公理三元组 / 类', L.tbox.triples + ' / ' + L.tbox.classes, 'reasoning.ttl（' + L.tbox.defined + ' 个定义类 · ' + L.tbox.restrictions + ' 条 restriction · ' + L.tbox.facets + ' 个数值 facet）')
+    + row('ABox 断言三元组 / 个体', L.abox.triples + ' / ' + L.abox.individuals, 'abox.ttl（' + L.abox.type_assertions + ' 条 rdf:type 全是断言）')
+    + row('蕴含（断言 0 条）', L.entailed.total, 'HermiT，' + L.entailed.classes + ' 个定义类 · ' + L.elapsed_ms + ' ms')
+    + '</tbody></table>'
+    + '<p class="note">中间这一层是数据，第一层是规则，第三层是<b>由规则从数据里推出来、但从未被写下来的</b>事实。</p>';
+}
 async function load() {
+  await loadLayers();
   const cards = await getJSON(`/api/ontology/${KEY}/metrics/cards`);
   const byName = {};
   (cards.cards || []).forEach(c => byName[c.name] = c);
@@ -122,7 +147,9 @@ async function load() {
     const c = byName[n];
     if (c) rows.push([n, c.value ?? (c.rows && c.rows[0] ? c.rows[0].value : '—'), c.compiled ? '已编译' : (c.refused || '按名拒绝')]);
   });
-  f('cov').innerHTML = table(['指标', '值', '状态'], rows.length ? rows : [['（暂无卡片）', '', '']]);
+  f('cov').innerHTML = table(['指标', '值'], cardRows(cards.cards, c => /missing|candidate/i.test(c.name)))
+    + (cardRows(cards.cards, c => /missing|candidate/i.test(c.name)).slice(0, 1).map(r => qblock(r[2])).join(''))
+    + table(['指标', '值', '状态'], rows.length ? rows : [['（暂无卡片）', '', '']]);
 }
 load();
 """,
@@ -157,11 +184,23 @@ load();
       指标与面板读的是那份物化结果，<code>check_abox_sync</code> 保证它与重新推理的结果逐行一致。</p>
 """,
         "script": """
+async function loadLayers() {
+  const L = await getJSON(`/api/ontology/${KEY}/layers`);
+  const row = (label, v, q) => `<tr><td class="mono">${esc(v)}</td><td>${label}</td><td>${q ? `<pre style="margin:0;max-height:120px">${esc(q)}</pre>` : ''}</td></tr>`;
+  f('layers').innerHTML = '<table><thead><tr><th>数量</th><th>层</th><th>来源</th></tr></thead><tbody>'
+    + row('TBox 公理三元组 / 类', L.tbox.triples + ' / ' + L.tbox.classes, 'reasoning.ttl（' + L.tbox.defined + ' 个定义类 · ' + L.tbox.restrictions + ' 条 restriction · ' + L.tbox.facets + ' 个数值 facet）')
+    + row('ABox 断言三元组 / 个体', L.abox.triples + ' / ' + L.abox.individuals, 'abox.ttl（' + L.abox.type_assertions + ' 条 rdf:type 全是断言）')
+    + row('蕴含（断言 0 条）', L.entailed.total, 'HermiT，' + L.entailed.classes + ' 个定义类 · ' + L.elapsed_ms + ' ms')
+    + '</tbody></table>'
+    + '<p class="note">中间这一层是数据，第一层是规则，第三层是<b>由规则从数据里推出来、但从未被写下来的</b>事实。</p>';
+}
 async function load() {
+  await loadLayers();
   const cards = await getJSON(`/api/ontology/${KEY}/metrics/cards`);
   const rows = (cards.cards || []).slice(0, 8).map(c =>
     [c.name, c.value ?? (c.rows && c.rows[0] ? c.rows[0].value : '—'), c.compiled ? '已编译' : '按名拒绝']);
-  f('cards').innerHTML = table(['指标', '值', '状态'], rows);
+  f('cards').innerHTML = table(['指标', '值', '查询（已编译的 SQL）'],
+    cardRows(cards.cards, c => /candidate|match/i.test(c.name)).slice(0, 6));
 }
 load();
 """,
@@ -191,12 +230,25 @@ load();
       <div id="cats"></div>
 """,
         "script": """
+async function loadLayers() {
+  const L = await getJSON(`/api/ontology/${KEY}/layers`);
+  const row = (label, v, q) => `<tr><td class="mono">${esc(v)}</td><td>${label}</td><td>${q ? `<pre style="margin:0;max-height:120px">${esc(q)}</pre>` : ''}</td></tr>`;
+  f('layers').innerHTML = '<table><thead><tr><th>数量</th><th>层</th><th>来源</th></tr></thead><tbody>'
+    + row('TBox 公理三元组 / 类', L.tbox.triples + ' / ' + L.tbox.classes, 'reasoning.ttl（' + L.tbox.defined + ' 个定义类 · ' + L.tbox.restrictions + ' 条 restriction · ' + L.tbox.facets + ' 个数值 facet）')
+    + row('ABox 断言三元组 / 个体', L.abox.triples + ' / ' + L.abox.individuals, 'abox.ttl（' + L.abox.type_assertions + ' 条 rdf:type 全是断言）')
+    + row('蕴含（断言 0 条）', L.entailed.total, 'HermiT，' + L.entailed.classes + ' 个定义类 · ' + L.elapsed_ms + ' ms')
+    + '</tbody></table>'
+    + '<p class="note">中间这一层是数据，第一层是规则，第三层是<b>由规则从数据里推出来、但从未被写下来的</b>事实。</p>';
+}
 async function load() {
+  await loadLayers();
   const cards = await getJSON(`/api/ontology/${KEY}/metrics/cards`);
   const rows = (cards.cards || [])
     .filter(c => /skill|Skill/i.test(c.name))
     .map(c => [c.name, c.value ?? (c.rows && c.rows[0] ? c.rows[0].value : '—'), c.compiled ? '已编译' : '按名拒绝']);
-  f('cats').innerHTML = table(['技能指标', '值', '状态'], rows.length ? rows : [['（无）', '', '']]);
+  f('cats').innerHTML = table(['技能指标', '值', '查询（已编译的 SQL）'],
+    cardRows(cards.cards, c => /skill|Skill/i.test(c.name))
+    .concat(rows.length ? [] : [['（无技能指标）', '', '']]));
 }
 load();
 """,
@@ -243,7 +295,10 @@ async function load() {
       <div class="arrow">→</div>
       <div><div class="n b">${r.entailed}</div><div class="note" style="text-align:center">推理得出</div></div>
     </div>
-    <p class="note">HermiT ${r.elapsed_ms} ms · consistent=${r.consistent}</p>` + table(['成员（前 5）'], (r.rows || []).map(x => [x]));
+    <p class="note">HermiT ${r.elapsed_ms} ms · consistent=${r.consistent}</p>`
+    + qblock(`PREFIX : <${(r.class || '').includes('#') ? '' : 'https://cube.local/ontology/talent_v1#'}>
+SELECT ?c WHERE { ?c a :${r.class} }   # ABox: ${r.asserted} 行 · 推理后: ${r.entailed} 行`)
+    + table(['成员（前 5）'], (r.rows || []).map(x => [x]));
 }
 boot();
 """,
@@ -271,9 +326,32 @@ SELECT ?c WHERE { ?c a :matches_业务跟单 }
         "right": """
       <h2>实时：前 6 个岗位</h2>
       <div id="pairs"></div>
+      <h2 style="margin-top:16px">✂ 反证：删掉一句规则，看答案消失</h2>
+      <div>
+        <button onclick="falsify('definition')">删掉「业务跟单」的整条定义</button>
+        <button onclick="falsify('skills')">删掉某个人的技能断言</button>
+      </div>
+      <div id="falsify"></div>
       <p class="note">左边红色 = <code>abox.ttl</code> 里能找到的类型断言数量；右边绿色 = HermiT 之后的数量。</p>
 """,
         "script": """
+async function falsify(drop) {
+  const cls = 'matches_业务跟单';
+  let url = `/api/ontology/${KEY}/reason?class_name=${encodeURIComponent(cls)}&limit=4&drop=${drop}`;
+  if (drop === 'skills') {
+    const base = await getJSON(`/api/ontology/${KEY}/reason?class_name=${encodeURIComponent(cls)}&limit=1`);
+    url += '&candidate=' + encodeURIComponent(base.rows[0]);
+  }
+  const r = await getJSON(url);
+  f('falsify').innerHTML = `<div class="pair">
+      <div><div class="n b">${r.before}</div><div class="note" style="text-align:center">删之前</div></div>
+      <div class="arrow">→</div>
+      <div><div class="n a">${r.after}</div><div class="note" style="text-align:center">删之后</div></div>
+    </div>
+    <p class="note">删掉 ${r.removed} 条三元组（${esc(r.drop)}）；HermiT 重新推理 ${r.elapsed_ms} ms。
+    删不动的变更证明不了任何事——这正是 check_abox 的 A7。</p>`
+    + qblock(['PREFIX : <https://cube.local/ontology/talent_v1#>', '# 删掉后仍成立的成员'].concat((r.rows || []).map(x => `?c = :${x}`)).join('<NL>'));
+}
 async function load() {
   const first = await getJSON(`/api/ontology/${KEY}/reason`);
   const classes = (first.classes || []).slice(0, 6);
@@ -282,7 +360,9 @@ async function load() {
     const r = await getJSON(`/api/ontology/${KEY}/reason?class_name=${encodeURIComponent(c)}&limit=1`);
     rows.push([c, r.asserted, r.entailed]);
   }
-  f('pairs').innerHTML = table(['定义类', 'ABox 断言', '推理得出'], rows, ['mono', 'mono', 'mono']);
+  f('pairs').innerHTML = table(['定义类', 'ABox 断言', '推理得出'], rows, ['mono', 'mono', 'mono'])
+    + qblock(`# 同一个 SPARQL 跑两遍：一遍 abox.ttl 原文，一遍加上 HermiT 推出的 rdf:type<NL>`
+             + rows.map(r => `SELECT ?c WHERE { ?c a :${r[0]} }   -- ${r[1]} → ${r[2]}`).join('<NL>'));
 }
 load();
 """,
@@ -305,9 +385,25 @@ load();
         "right": """
       <h2>推荐名单（实时，编译指标）</h2>
       <div id="rank"></div>
+      <h2 style="margin-top:16px">为什么是这个人</h2>
+      <select id="why-cls"></select>
+      <input id="why-cand" placeholder="候选人 id（从上面的名单里挑一个）"/>
+      <button onclick="explain()">看证明</button>
+      <div id="why" style="margin-top:10px"></div>
 """,
         "script": """
+async function loadLayers() {
+  const L = await getJSON(`/api/ontology/${KEY}/layers`);
+  const row = (label, v, q) => `<tr><td class="mono">${esc(v)}</td><td>${label}</td><td>${q ? `<pre style="margin:0;max-height:120px">${esc(q)}</pre>` : ''}</td></tr>`;
+  f('layers').innerHTML = '<table><thead><tr><th>数量</th><th>层</th><th>来源</th></tr></thead><tbody>'
+    + row('TBox 公理三元组 / 类', L.tbox.triples + ' / ' + L.tbox.classes, 'reasoning.ttl（' + L.tbox.defined + ' 个定义类 · ' + L.tbox.restrictions + ' 条 restriction · ' + L.tbox.facets + ' 个数值 facet）')
+    + row('ABox 断言三元组 / 个体', L.abox.triples + ' / ' + L.abox.individuals, 'abox.ttl（' + L.abox.type_assertions + ' 条 rdf:type 全是断言）')
+    + row('蕴含（断言 0 条）', L.entailed.total, 'HermiT，' + L.entailed.classes + ' 个定义类 · ' + L.elapsed_ms + ' ms')
+    + '</tbody></table>'
+    + '<p class="note">中间这一层是数据，第一层是规则，第三层是<b>由规则从数据里推出来、但从未被写下来的</b>事实。</p>';
+}
 async function load() {
+  await loadLayers();
   const cards = await getJSON(`/api/ontology/${KEY}/metrics/cards`);
   const rows = (cards.cards || [])
     .filter(c => /rank|fit|top|recommend/i.test(c.name))
@@ -316,7 +412,9 @@ async function load() {
                                         : (c.value ?? '—');
       return [c.name, v, c.compiled ? '已编译' : '按名拒绝'];
     });
-  f('rank').innerHTML = table(['指标', '值', '状态'], rows.length ? rows : [['（无）', '', '']]);
+  f('rank').innerHTML = table(['指标', '值', '查询（已编译的 SQL）'],
+    cardRows(cards.cards, c => /rank|fit|top|recommend/i.test(c.name))
+    .concat(rows.length ? [] : [['（无）', '', '']]));
 }
 load();
 """,
@@ -343,13 +441,26 @@ load();
       <div id="gap"></div>
 """,
         "script": """
+async function loadLayers() {
+  const L = await getJSON(`/api/ontology/${KEY}/layers`);
+  const row = (label, v, q) => `<tr><td class="mono">${esc(v)}</td><td>${label}</td><td>${q ? `<pre style="margin:0;max-height:120px">${esc(q)}</pre>` : ''}</td></tr>`;
+  f('layers').innerHTML = '<table><thead><tr><th>数量</th><th>层</th><th>来源</th></tr></thead><tbody>'
+    + row('TBox 公理三元组 / 类', L.tbox.triples + ' / ' + L.tbox.classes, 'reasoning.ttl（' + L.tbox.defined + ' 个定义类 · ' + L.tbox.restrictions + ' 条 restriction · ' + L.tbox.facets + ' 个数值 facet）')
+    + row('ABox 断言三元组 / 个体', L.abox.triples + ' / ' + L.abox.individuals, 'abox.ttl（' + L.abox.type_assertions + ' 条 rdf:type 全是断言）')
+    + row('蕴含（断言 0 条）', L.entailed.total, 'HermiT，' + L.entailed.classes + ' 个定义类 · ' + L.elapsed_ms + ' ms')
+    + '</tbody></table>'
+    + '<p class="note">中间这一层是数据，第一层是规则，第三层是<b>由规则从数据里推出来、但从未被写下来的</b>事实。</p>';
+}
 async function load() {
+  await loadLayers();
   const cards = await getJSON(`/api/ontology/${KEY}/metrics/cards`);
   const rows = (cards.cards || [])
     .filter(c => /missing|gap|refus/i.test(c.name) || c.refused)
     .map(c => [c.name, c.value ?? (c.rows && c.rows[0] ? c.rows[0].value : '—'),
                c.compiled ? '已编译' : ('按名拒绝: ' + (c.refused || '').slice(0, 40))]);
-  f('gap').innerHTML = table(['指标', '值', '状态'], rows.length ? rows : [['（无）', '', '']]);
+  f('gap').innerHTML = table(['指标', '值', '查询（已编译的 SQL）'],
+    cardRows(cards.cards, c => /missing|gap|refus/i.test(c.name) || c.refused)
+    .concat(rows.length ? [] : [['（无）', '', '']]));
 }
 load();
 """,
@@ -390,7 +501,9 @@ async function ask() {
       f('ans').innerHTML = table(cols, r.rows.slice(0, 12).map(row => cols.map(c => row[c])));
       return;
     }
-    f('ans').innerHTML = `<div class="big">${esc(r.value ?? '—')}</div><div class="bigsub">${esc(r.sql || '')}</div>`;
+    f('ans').innerHTML = `<div class="big">${esc(r.value ?? '—')}</div>`
+      + `<p class="note">意图：${esc((r.intent && r.intent.name) || '—')}</p>`
+      + qblock((r.result && r.result.sql) || r.sql || '');
   } catch (e) {
     f('ans').innerHTML = `<p class="warn">请求失败：${esc(e)}</p>`;
   }
@@ -450,8 +563,9 @@ def main() -> int:
             if q:
                 examples.append(str(q).strip())
     for chapter in CHAPTERS:
-        (out / f"step{chapter['n']}.html").write_text(
-            page(chapter, args.key, len(CHAPTERS), examples), encoding="utf-8")
+        html = page(chapter, args.key, len(CHAPTERS), examples)
+        out_html = html.replace("<NL>", "\\n")  # the two characters, not a real newline
+        (out / f"step{chapter['n']}.html").write_text(out_html, encoding="utf-8")
     (out / "i18n.json").write_text(json.dumps({
         "_doc": "zh only: these chapters are written for this client's dossier, not translated from a "
                 "generic tour. A translation would have to re-measure every number they quote.",
