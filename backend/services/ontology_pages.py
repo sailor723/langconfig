@@ -452,6 +452,9 @@ def _graph_page_is_stale(key: str, asset: pathlib.Path | None) -> bool:
         digest.update(str(path.name).encode())
         digest.update(str(path.stat().st_size).encode())
         digest.update(path.read_bytes())
+    generator = FEATURE / "compiler" / "graph_view.py"
+    if generator.is_file():
+        digest.update(generator.read_bytes())
     return digest.hexdigest()[:16] != pages_fingerprint
 
 def _is_own_graph_page(html: str, key: str) -> bool:

@@ -553,6 +553,10 @@ def build_payload(sample_limit: int = SAMPLE) -> dict:
         digest.update(str(path.name).encode())
         digest.update(str(path.stat().st_size).encode())
         digest.update(path.read_bytes())
+    # …and the GENERATOR: a page built by a broken generator from identical TTLs is still a broken page.
+    # Measured right after fixing two unterminated template literals here: every profile's page carried a
+    # matching fingerprint, so nothing regenerated and the window stayed blank.
+    digest.update(pathlib.Path(__file__).read_bytes())
     return dict(nodes=nodes, edges=edges, pos=position,
                 width=round(lay["width"] * 72 + 40), height=round(lay["height"] * 72 + 40),
                 missing=missing, note=facts["note"],

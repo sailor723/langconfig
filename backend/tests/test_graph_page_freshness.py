@@ -58,5 +58,7 @@ def test_the_shipped_page_is_current():
         digest.update(str(path.name).encode())
         digest.update(str(path.stat().st_size).encode())
         digest.update(path.read_bytes())
+    generator = REPO / "backend" / "features" / "ontology" / "compiler" / "graph_view.py"
+    digest.update(generator.read_bytes())  # the page also depends on the code that drew it
     assert digest.hexdigest()[:16] == m.group(1), (
         "profiles/talent_v1/ontology.html was built from different declarations; regenerate it")
