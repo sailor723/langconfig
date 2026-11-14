@@ -247,6 +247,20 @@ def call(key: str, rest: str, query: dict[str, list[str]], payload: dict | None 
         # the Query and Actions pages are every ontology's, not retail's: their endpoints are the
         # compiler's own (`nl.py`, `actions.py`), and they read whatever profile is active
         raise ChapterError(f"{key} serves no authored chapters (tutorial_style is not 'authored')")
+    # A profile with its OWN chapters (profiles/<key>/tutorial/stepN.html) does not carry the workbench's
+    # tutorial1..8 endpoints. Serving them anyway RAN RETAIL'S handlers against this ontology: measured on
+    # talent_v1, `/wb/tutorial6/metrics` answered HTTP 500 (not 404) because the handler expects retail's
+    # lane-B graph, so a page this ontology never had looked like a broken one.
+    own_chapters = False
+    try:
+        own_chapters = (ontology_pages._profile(key).parent / "tutorial" / "step1.html").is_file()
+    except ontology_pages.PageError:
+        own_chapters = False
+    if own_chapters and path.startswith("/tutorial"):
+        raise ChapterError(
+            f"{key} ships its own tutorial chapters; {path} is the workbench's page and this ontology "
+            "has no such endpoint")
+
     ui, _ = _activate(key)
     method = "POST" if payload is not None else "GET"
     payload = payload or {}

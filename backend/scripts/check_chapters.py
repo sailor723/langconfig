@@ -231,6 +231,12 @@ def check_posts(g: Gate, base: str, key: str) -> None:
         if first.get("name"):
             probes.append(("tutorial6/compile",
                            {"metric": first["name"], "formula": "", "aggregate": "", "where": None}))
+    elif status == 404:
+        # `tutorial6/metrics` is RETAIL's endpoint. A profile with its own chapters does not have to
+        # carry retail's routes: 404 is "this ontology has no such page", which is a NOT RUN, while a
+        # 500 would be a broken one (measured on talent_v1: it answered 500 for a route it never had).
+        g.notrun(f"{key} tutorial6/compile probe",
+                 "this ontology ships no tutorial6 compile page (HTTP 404), so there is nothing to probe")
     elif _style(key) == "authored":
         g.notrun(f"{key} tutorial6/compile probe", f"the metric list returned HTTP {status}")
 
