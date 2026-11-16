@@ -51,12 +51,6 @@
     owl:equivalentClass [ owl:intersectionOf (
         :Candidate
         [ a owl:Restriction ; owl:onProperty :hasSkill ; owl:someValuesFrom :skillsFor_品质经理 ]
-        [ a owl:Restriction ; owl:onProperty :yearsExperience ;
-          owl:someValuesFrom [ a rdfs:Datatype ; owl:onDatatype xsd:integer ;
-                               owl:withRestrictions ( [ xsd:minInclusive 3 ] ) ] ]
-        [ a owl:Restriction ; owl:onProperty :educationRank ;
-          owl:someValuesFrom [ a rdfs:Datatype ; owl:onDatatype xsd:integer ;
-                               owl:withRestrictions ( [ xsd:minInclusive 3 ] ) ] ]
     ) ] .
 
 # 业务跟单: any of ['Excel', '行政', '跟单'] -> categories ['AdminSkill', 'OrderTracking', 'SpreadsheetSoftware']; years>=2 education>=中专/高中
@@ -67,12 +61,6 @@
     owl:equivalentClass [ owl:intersectionOf (
         :Candidate
         [ a owl:Restriction ; owl:onProperty :hasSkill ; owl:someValuesFrom :skillsFor_业务跟单 ]
-        [ a owl:Restriction ; owl:onProperty :yearsExperience ;
-          owl:someValuesFrom [ a rdfs:Datatype ; owl:onDatatype xsd:integer ;
-                               owl:withRestrictions ( [ xsd:minInclusive 2 ] ) ] ]
-        [ a owl:Restriction ; owl:onProperty :educationRank ;
-          owl:someValuesFrom [ a rdfs:Datatype ; owl:onDatatype xsd:integer ;
-                               owl:withRestrictions ( [ xsd:minInclusive 2 ] ) ] ]
     ) ] .
 
 # 副总助理: any of ['Excel', 'Illustrator', 'PowerPoint', 'Word', '薪酬绩效'] -> categories ['CompensationSkill', 'DesignSoftware', 'OfficeSoftware', 'SpreadsheetSoftware']; years>=2 education>=大专
@@ -83,12 +71,6 @@
     owl:equivalentClass [ owl:intersectionOf (
         :Candidate
         [ a owl:Restriction ; owl:onProperty :hasSkill ; owl:someValuesFrom :skillsFor_副总助理 ]
-        [ a owl:Restriction ; owl:onProperty :yearsExperience ;
-          owl:someValuesFrom [ a rdfs:Datatype ; owl:onDatatype xsd:integer ;
-                               owl:withRestrictions ( [ xsd:minInclusive 2 ] ) ] ]
-        [ a owl:Restriction ; owl:onProperty :educationRank ;
-          owl:someValuesFrom [ a rdfs:Datatype ; owl:onDatatype xsd:integer ;
-                               owl:withRestrictions ( [ xsd:minInclusive 3 ] ) ] ]
     ) ] .
 
 # 业务助理: any of ['外贸业务'] -> categories ['TradeSkill']; years>=2 education>=中专/高中
@@ -99,12 +81,6 @@
     owl:equivalentClass [ owl:intersectionOf (
         :Candidate
         [ a owl:Restriction ; owl:onProperty :hasSkill ; owl:someValuesFrom :skillsFor_业务助理 ]
-        [ a owl:Restriction ; owl:onProperty :yearsExperience ;
-          owl:someValuesFrom [ a rdfs:Datatype ; owl:onDatatype xsd:integer ;
-                               owl:withRestrictions ( [ xsd:minInclusive 2 ] ) ] ]
-        [ a owl:Restriction ; owl:onProperty :educationRank ;
-          owl:someValuesFrom [ a rdfs:Datatype ; owl:onDatatype xsd:integer ;
-                               owl:withRestrictions ( [ xsd:minInclusive 2 ] ) ] ]
     ) ] .
 
 # 专案工程师: any of ['AutoCAD'] -> categories ['CAD']; years>=3 education: NOT STATED · NOT STATED: ['education_floor']
@@ -115,9 +91,6 @@
     owl:equivalentClass [ owl:intersectionOf (
         :Candidate
         [ a owl:Restriction ; owl:onProperty :hasSkill ; owl:someValuesFrom :skillsFor_专案工程师 ]
-        [ a owl:Restriction ; owl:onProperty :yearsExperience ;
-          owl:someValuesFrom [ a rdfs:Datatype ; owl:onDatatype xsd:integer ;
-                               owl:withRestrictions ( [ xsd:minInclusive 3 ] ) ] ]
     ) ] .
 
 # 招聘专员: any of ['招聘', '薪酬绩效', '行政'] -> categories ['AdminSkill', 'CompensationSkill', 'RecruitingSkill']; years>=1 education>=中专/高中
@@ -128,12 +101,6 @@
     owl:equivalentClass [ owl:intersectionOf (
         :Candidate
         [ a owl:Restriction ; owl:onProperty :hasSkill ; owl:someValuesFrom :skillsFor_招聘专员 ]
-        [ a owl:Restriction ; owl:onProperty :yearsExperience ;
-          owl:someValuesFrom [ a rdfs:Datatype ; owl:onDatatype xsd:integer ;
-                               owl:withRestrictions ( [ xsd:minInclusive 1 ] ) ] ]
-        [ a owl:Restriction ; owl:onProperty :educationRank ;
-          owl:someValuesFrom [ a rdfs:Datatype ; owl:onDatatype xsd:integer ;
-                               owl:withRestrictions ( [ xsd:minInclusive 2 ] ) ] ]
     ) ] .
 
 # 管理课长: any of ['招聘', '薪酬绩效', '行政'] -> categories ['AdminSkill', 'CompensationSkill', 'RecruitingSkill']; years>=5 education>=大专
@@ -144,10 +111,13 @@
     owl:equivalentClass [ owl:intersectionOf (
         :Candidate
         [ a owl:Restriction ; owl:onProperty :hasSkill ; owl:someValuesFrom :skillsFor_管理课长 ]
-        [ a owl:Restriction ; owl:onProperty :yearsExperience ;
-          owl:someValuesFrom [ a rdfs:Datatype ; owl:onDatatype xsd:integer ;
-                               owl:withRestrictions ( [ xsd:minInclusive 5 ] ) ] ]
-        [ a owl:Restriction ; owl:onProperty :educationRank ;
-          owl:someValuesFrom [ a rdfs:Datatype ; owl:onDatatype xsd:integer ;
-                               owl:withRestrictions ( [ xsd:minInclusive 3 ] ) ] ]
     ) ] .
+
+# ── extended skill categories (staged 2026-11-16) ──
+# 每个类别都能追到一份 JD 的资格要求原话，见 scripts/talent/skill_patterns_ext.py
+:Compliance a owl:Class ; rdfs:subClassOf :SkillTag .
+:GeneralCapability a owl:Class ; rdfs:subClassOf :SkillTag .
+:HRAdmin a owl:Class ; rdfs:subClassOf :SkillTag .
+:HarnessCraft a owl:Class ; rdfs:subClassOf :SkillTag .
+:QualityMethod a owl:Class ; rdfs:subClassOf :SkillTag .
+:WireEquipment a owl:Class ; rdfs:subClassOf :SkillTag .

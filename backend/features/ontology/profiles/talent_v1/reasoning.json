@@ -81,67 +81,18 @@
  ],
  "excluded": [
   {
-   "class": "matches_品质经理",
-   "individuals": [
-    "cand_人资专员_东莞_5_6K_何___5年",
-    "cand_人资专员_东莞_5_6K_黄___6年",
-    "cand_人资专员_东莞_5_6K_黄___6年_1"
-   ],
-   "why": "the second route says these miss a skill, a year or the floor"
-  },
-  {
    "class": "matches_业务跟单",
    "individuals": [
-    "cand_人资专员_东莞_5_6K_何___5年",
-    "cand_副总助理_东莞_10_15K_任___10年以上",
     "cand_副总助理_东莞_8_12K_雷___10年以上"
    ],
-   "why": "the second route says these miss a skill, a year or the floor"
+   "why": "lacks every skill category this role requires — a necessary-condition failure, not a years/floor failure"
   },
   {
    "class": "matches_副总助理",
    "individuals": [
-    "cand_人资专员_东莞_5_6K_何___5年",
-    "cand_副总助理_东莞_10_15K_任___10年以上",
     "cand_副总助理_东莞_8_12K_雷___10年以上"
    ],
-   "why": "the second route says these miss a skill, a year or the floor"
-  },
-  {
-   "class": "matches_业务助理",
-   "individuals": [
-    "cand_人资专员_东莞_5_6K_何___5年",
-    "cand_人资专员_东莞_5_6K_黄___6年",
-    "cand_人资专员_东莞_5_6K_黄___6年_1"
-   ],
-   "why": "the second route says these miss a skill, a year or the floor"
-  },
-  {
-   "class": "matches_专案工程师",
-   "individuals": [
-    "cand_人资专员_东莞_5_6K_何___5年",
-    "cand_人资专员_东莞_5_6K_黄___6年",
-    "cand_人资专员_东莞_5_6K_黄___6年_1"
-   ],
-   "why": "the second route says these miss a skill, a year or the floor"
-  },
-  {
-   "class": "matches_招聘专员",
-   "individuals": [
-    "cand_人资专员_东莞_5_6K_何___5年",
-    "cand_副总助理_东莞_10_15K_任___10年以上",
-    "cand_副总助理_东莞_10_15K_黄___8年"
-   ],
-   "why": "the second route says these miss a skill, a year or the floor"
-  },
-  {
-   "class": "matches_管理课长",
-   "individuals": [
-    "cand_人资专员_东莞_5_6K_何___5年",
-    "cand_副总助理_东莞_10_15K_任___10年以上",
-    "cand_副总助理_东莞_10_15K_黄___8年"
-   ],
-   "why": "the second route says these miss a skill, a year or the floor"
+   "why": "lacks every skill category this role requires — a necessary-condition failure, not a years/floor failure"
   }
  ],
  "falsify": [

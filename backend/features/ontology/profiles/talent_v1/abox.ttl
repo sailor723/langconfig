@@ -14,6 +14,7 @@
     :appliedFor :role_人资专员 ;
     :yearsExperience 5 ;
     :missingData :UnknownEducation ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_招聘 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
@@ -27,6 +28,7 @@
     :missingData :UnknownYears ;
     :educationRank 4 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_英语 ;
     :hasSkill :skill_行政 ;
     :salaryMinK 5 ;
     :salaryMaxK 6 ;
@@ -36,7 +38,10 @@
     :appliedFor :role_人资专员 ;
     :yearsExperience 6 ;
     :educationRank 3 ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_数据分析 ;
+    :hasSkill :skill_社保操作 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
     :salaryMinK 5 ;
@@ -47,7 +52,10 @@
     :appliedFor :role_人资专员 ;
     :yearsExperience 6 ;
     :educationRank 3 ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_数据分析 ;
+    :hasSkill :skill_社保操作 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
     :salaryMinK 5 ;
@@ -59,6 +67,7 @@
     :appliedFor :role_人资专员 ;
     :missingData :UnknownYears ;
     :educationRank 3 ;
+    :hasSkill :skill_6S ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_劳动法 ;
     :hasSkill :skill_招聘 ;
@@ -75,8 +84,11 @@
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_SolidWorks ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_劳动法 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_社保操作 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
@@ -88,6 +100,7 @@
     :missingData :UnknownYears ;
     :missingData :UnknownEducation ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_社保操作 ;
     :hasSkill :skill_财务 ;
     :age 27 ;
     :sourceFile "03、管理科+副总室侯选人简历/人资专员/李__-27岁-人资专员-智通简历-编号(______).pdf" .
@@ -96,8 +109,12 @@
     :appliedFor :role_副总助理 ;
     :yearsExperience 10 ;
     :missingData :UnknownEducation ;
+    :hasSkill :skill_体系管理 ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_报关 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_数据分析 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
@@ -110,10 +127,16 @@
 :cand_副总助理_东莞_10_15K_刘___10年 a :Candidate ;
     :appliedFor :role_副总助理 ;
     :yearsExperience 10 ;
-    :educationRank 3 ;
+    :missingData :UnknownEducation ;
+    :hasSkill :skill_6S ;
+    :hasSkill :skill_企业文化建设 ;
+    :hasSkill :skill_体系管理 ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_客户验厂 ;
     :hasSkill :skill_招聘 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :salaryMinK 10 ;
     :salaryMaxK 15 ;
     :sourceFile "03、管理科+副总室侯选人简历/副总助理/【副总助理_东莞 10-15K】刘__ 10年.pdf" .
@@ -122,10 +145,12 @@
     :appliedFor :role_副总助理 ;
     :yearsExperience 8 ;
     :educationRank 4 ;
+    :hasSkill :skill_6S ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_Photoshop ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_招聘 ;
     :hasSkill :skill_英语 ;
@@ -138,10 +163,12 @@
     :appliedFor :role_副总助理 ;
     :yearsExperience 8 ;
     :educationRank 4 ;
+    :hasSkill :skill_6S ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_Photoshop ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_招聘 ;
     :hasSkill :skill_英语 ;
@@ -154,8 +181,11 @@
 :cand_副总助理_东莞_10_15K_黄___8年 a :Candidate ;
     :appliedFor :role_副总助理 ;
     :yearsExperience 8 ;
-    :educationRank 3 ;
+    :missingData :UnknownEducation ;
     :hasSkill :skill_Excel ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_数据分析 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_财务 ;
     :salaryMinK 10 ;
@@ -178,9 +208,12 @@
     :hasSkill :skill_Excel ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_劳动法 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_财务 ;
     :salaryMinK 8 ;
     :salaryMaxK 13 ;
@@ -205,7 +238,11 @@
     :hasSkill :skill_Excel ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_切片 ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_数据分析 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_行政 ;
     :salaryMinK 8 ;
@@ -219,8 +256,9 @@
     :hasSkill :skill_ERP ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_Photoshop ;
-    :hasSkill :skill_UG_NX ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_培训课程开发 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_行政 ;
     :salaryMinK 8 ;
@@ -230,10 +268,13 @@
 :cand_王___31岁_副总助理_智通简历_编号 a :Candidate ;
     :appliedFor :role_副总助理 ;
     :missingData :UnknownYears ;
-    :missingData :UnknownEducation ;
+    :educationRank 4 ;
     :hasSkill :skill_Excel ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_劳动法 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_社保操作 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
     :hasSkill :skill_财务 ;
@@ -246,9 +287,13 @@
     :educationRank 4 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_PowerPoint ;
+    :hasSkill :skill_体系管理 ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_外贸业务 ;
+    :hasSkill :skill_客户验厂 ;
     :hasSkill :skill_招聘 ;
     :hasSkill :skill_精益生产 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
@@ -261,8 +306,11 @@
     :appliedFor :role_招聘专员 ;
     :yearsExperience 10 ;
     :educationRank 4 ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_数据分析 ;
     :hasSkill :skill_薪酬绩效 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :salaryMinK 7 ;
     :salaryMaxK 12 ;
     :sourceFile "03、管理科+副总室侯选人简历/招聘专员/【高级招聘专家_东莞 7-12K】罗__ 10年以上.pdf" .
@@ -272,6 +320,8 @@
     :yearsExperience 10 ;
     :educationRank 2 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_系统规划 ;
+    :hasSkill :skill_自动机 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_财务 ;
     :salaryMinK 7 ;
@@ -284,7 +334,9 @@
     :educationRank 4 ;
     :hasSkill :skill_Illustrator ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_财务 ;
     :salaryMinK 9 ;
     :salaryMaxK 14 ;
@@ -293,12 +345,15 @@
 :cand_高级招聘专家_东莞_9_14K_李___10年以上 a :Candidate ;
     :appliedFor :role_招聘专员 ;
     :yearsExperience 10 ;
-    :educationRank 3 ;
+    :missingData :UnknownEducation ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_劳动法 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_社保操作 ;
     :hasSkill :skill_精益生产 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_财务 ;
     :salaryMinK 9 ;
     :salaryMaxK 14 ;
@@ -308,8 +363,10 @@
     :appliedFor :role_招聘专员 ;
     :yearsExperience 7 ;
     :educationRank 3 ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_劳动法 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_社保操作 ;
     :hasSkill :skill_薪酬绩效 ;
     :salaryMinK 9 ;
     :salaryMaxK 14 ;
@@ -319,8 +376,10 @@
     :appliedFor :role_招聘专员 ;
     :yearsExperience 10 ;
     :missingData :UnknownEducation ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_数据分析 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_财务 ;
     :salaryMinK 9 ;
@@ -330,11 +389,14 @@
 :cand_人事经理_东莞_12_17K_张___10年以上 a :Candidate ;
     :appliedFor :role_管理课长 ;
     :yearsExperience 10 ;
-    :educationRank 4 ;
+    :missingData :UnknownEducation ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_劳动法 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_贸易安全合规 ;
     :salaryMinK 12 ;
     :salaryMaxK 17 ;
     :sourceFile "03、管理科+副总室侯选人简历/管理课长/【人事经理_东莞 12-17K】张__ 10年以上.pdf" .
@@ -344,9 +406,14 @@
     :yearsExperience 10 ;
     :educationRank 5 ;
     :hasSkill :skill_5S ;
+    :hasSkill :skill_6S ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_劳动法 ;
+    :hasSkill :skill_培训课程开发 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_社保操作 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
     :hasSkill :skill_财务 ;
@@ -358,9 +425,11 @@
 :cand_刘___41岁_管理课课长_智通简历_编号 a :Candidate ;
     :appliedFor :role_管理课长 ;
     :missingData :UnknownYears ;
-    :missingData :UnknownEducation ;
+    :educationRank 4 ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_社保操作 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
@@ -376,8 +445,11 @@
     :hasSkill :skill_ISO9001 ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_劳动法 ;
+    :hasSkill :skill_客户验厂 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_社保操作 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
     :age 42 ;
@@ -387,8 +459,13 @@
     :appliedFor :role_管理课长 ;
     :missingData :UnknownYears ;
     :educationRank 5 ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_劳动法 ;
+    :hasSkill :skill_培训课程开发 ;
+    :hasSkill :skill_客户验厂 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_系统规划 ;
+    :hasSkill :skill_线束行业知识 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
     :age 37 ;
@@ -398,15 +475,22 @@
     :appliedFor :role_管理课长 ;
     :missingData :UnknownYears ;
     :educationRank 4 ;
+    :hasSkill :skill_6S ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_ISO_TS16949 ;
     :hasSkill :skill_ISO9001 ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_劳动法 ;
+    :hasSkill :skill_培训课程开发 ;
+    :hasSkill :skill_客户验厂 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_社保操作 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :age 45 ;
     :sourceFile "03、管理科+副总室侯选人简历/管理课长/吴__-45岁-管理课课长-智通简历-编号(______).pdf" .
 
@@ -417,9 +501,15 @@
     :hasSkill :skill_Excel ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_劳动法 ;
+    :hasSkill :skill_培训课程开发 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_数据分析 ;
+    :hasSkill :skill_社保操作 ;
     :hasSkill :skill_精益生产 ;
+    :hasSkill :skill_系统规划 ;
+    :hasSkill :skill_自动机 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
     :hasSkill :skill_财务 ;
@@ -430,6 +520,7 @@
     :appliedFor :role_管理课长 ;
     :missingData :UnknownYears ;
     :educationRank 5 ;
+    :hasSkill :skill_6S ;
     :hasSkill :skill_CorelDRAW ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_ISO_TS16949 ;
@@ -437,12 +528,18 @@
     :hasSkill :skill_Photoshop ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_企业文化建设 ;
+    :hasSkill :skill_体系管理 ;
     :hasSkill :skill_劳动法 ;
+    :hasSkill :skill_客户验厂 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_社保操作 ;
     :hasSkill :skill_精益生产 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_财务 ;
     :age 43 ;
     :sourceFile "03、管理科+副总室侯选人简历/管理课长/张__-43岁-管理课课长-智通简历-编号(______).pdf" .
@@ -451,8 +548,10 @@
     :appliedFor :role_管理课长 ;
     :missingData :UnknownYears ;
     :educationRank 5 ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_劳动法 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_社保操作 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
     :age 38 ;
@@ -463,11 +562,16 @@
     :missingData :UnknownYears ;
     :educationRank 4 ;
     :hasSkill :skill_ISO_TS16949 ;
+    :hasSkill :skill_ISO9001 ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_招聘 ;
     :hasSkill :skill_精益生产 ;
+    :hasSkill :skill_系统规划 ;
+    :hasSkill :skill_线束行业知识 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_财务 ;
     :age 40 ;
     :sourceFile "03、管理科+副总室侯选人简历/管理课长/李__-40岁-管理课课长-智通简历-编号(______).pdf" .
 
@@ -476,6 +580,8 @@
     :missingData :UnknownYears ;
     :educationRank 4 ;
     :hasSkill :skill_ISO9001 ;
+    :hasSkill :skill_企业文化建设 ;
+    :hasSkill :skill_体系管理 ;
     :hasSkill :skill_劳动法 ;
     :hasSkill :skill_招聘 ;
     :hasSkill :skill_精益生产 ;
@@ -486,11 +592,15 @@
 :cand_黄___41岁_管理课课长_智通简历_编号 a :Candidate ;
     :appliedFor :role_管理课长 ;
     :missingData :UnknownYears ;
-    :missingData :UnknownEducation ;
-    :hasSkill :skill_ISO9001 ;
+    :educationRank 3 ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_劳动法 ;
+    :hasSkill :skill_培训课程开发 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_社保操作 ;
+    :hasSkill :skill_系统规划 ;
+    :hasSkill :skill_自动机 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
     :age 41 ;
@@ -504,8 +614,14 @@
     :hasSkill :skill_ISO_TS16949 ;
     :hasSkill :skill_ISO9001 ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_企业文化建设 ;
+    :hasSkill :skill_体系管理 ;
     :hasSkill :skill_劳动法 ;
+    :hasSkill :skill_培训课程开发 ;
+    :hasSkill :skill_客户验厂 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_社保操作 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
@@ -517,7 +633,9 @@
     :appliedFor :role_行政专员 ;
     :yearsExperience 3 ;
     :missingData :UnknownEducation ;
+    :hasSkill :skill_6S ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_数据分析 ;
     :hasSkill :skill_行政 ;
     :salaryMinK 5 ;
     :salaryMaxK 8 ;
@@ -529,6 +647,8 @@
     :missingData :UnknownEducation ;
     :hasSkill :skill_ERP ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_社保操作 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
     :hasSkill :skill_财务 ;
@@ -541,6 +661,9 @@
     :yearsExperience 4 ;
     :educationRank 2 ;
     :hasSkill :skill_Excel ;
+    :hasSkill :skill_培训课程开发 ;
+    :hasSkill :skill_数据分析 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_行政 ;
     :hasSkill :skill_财务 ;
     :salaryMinK 6 ;
@@ -553,6 +676,7 @@
     :missingData :UnknownEducation ;
     :hasSkill :skill_招聘 ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :salaryMinK 6 ;
     :salaryMaxK 8 ;
     :sourceFile "03、管理科+副总室侯选人简历/行政专员/【行政专员_东莞 6-8K】夏__ 2年.pdf" .
@@ -561,8 +685,10 @@
     :appliedFor :role_行政专员 ;
     :yearsExperience 6 ;
     :educationRank 4 ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_劳动法 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_数据分析 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
     :salaryMinK 6 ;
@@ -572,8 +698,10 @@
 :cand_行政专员_东莞_6_8K_肖___10年以上_1 a :Candidate ;
     :appliedFor :role_行政专员 ;
     :yearsExperience 10 ;
-    :educationRank 2 ;
+    :missingData :UnknownEducation ;
     :hasSkill :skill_5S ;
+    :hasSkill :skill_6S ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_招聘 ;
     :hasSkill :skill_行政 ;
     :salaryMinK 6 ;
@@ -583,8 +711,10 @@
 :cand_行政专员_东莞_6_8K_肖___10年以上 a :Candidate ;
     :appliedFor :role_行政专员 ;
     :yearsExperience 10 ;
-    :educationRank 2 ;
+    :missingData :UnknownEducation ;
     :hasSkill :skill_5S ;
+    :hasSkill :skill_6S ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_招聘 ;
     :hasSkill :skill_行政 ;
     :salaryMinK 6 ;
@@ -597,10 +727,15 @@
     :yearsExperience 9 ;
     :educationRank 3 ;
     :hasSkill :skill_ISO_TS16949 ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_劳动法 ;
+    :hasSkill :skill_客户验厂 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_社保操作 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :salaryMinK 6 ;
     :salaryMaxK 8 ;
     :sourceFile "03、管理科+副总室侯选人简历/行政专员/【行政专员_东莞 6-8K】范__ 9年.pdf" .
@@ -610,6 +745,7 @@
     :yearsExperience 8 ;
     :missingData :UnknownEducation ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
     :salaryMinK 7 ;
@@ -622,6 +758,7 @@
     :missingData :UnknownEducation ;
     :hasSkill :skill_招聘 ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :salaryMinK 7 ;
     :salaryMaxK 8 ;
     :sourceFile "03、管理科+副总室侯选人简历/行政专员/【行政专员_东莞 7-8K】徐__ 7年.pdf" .
@@ -630,6 +767,7 @@
     :appliedFor :role_行政专员 ;
     :yearsExperience 5 ;
     :educationRank 3 ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_行政 ;
     :salaryMinK 7 ;
     :salaryMaxK 8 ;
@@ -639,8 +777,12 @@
     :appliedFor :role_行政专员 ;
     :yearsExperience 10 ;
     :missingData :UnknownEducation ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_劳动法 ;
+    :hasSkill :skill_客户验厂 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_社保操作 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
     :hasSkill :skill_财务 ;
@@ -652,6 +794,10 @@
     :appliedFor :role_行政专员 ;
     :yearsExperience 5 ;
     :educationRank 3 ;
+    :hasSkill :skill_企业文化建设 ;
+    :hasSkill :skill_体系管理 ;
+    :hasSkill :skill_数据分析 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
     :salaryMinK 7 ;
@@ -662,10 +808,14 @@
     :appliedFor :role_行政专员 ;
     :yearsExperience 4 ;
     :educationRank 3 ;
+    :hasSkill :skill_6S ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_数据分析 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_行政 ;
     :salaryMinK 7 ;
     :salaryMaxK 9 ;
@@ -675,7 +825,7 @@
     :appliedFor :role_行政专员 ;
     :yearsExperience 6 ;
     :missingData :UnknownEducation ;
-    :missingData :UnknownSkills ;
+    :hasSkill :skill_注塑机 ;
     :salaryMinK 7 ;
     :salaryMaxK 9 ;
     :sourceFile "03、管理科+副总室侯选人简历/行政专员/【行政专员_东莞 7-9K】潘__ 6年.pdf" .
@@ -684,6 +834,8 @@
     :appliedFor :role_行政专员 ;
     :yearsExperience 9 ;
     :missingData :UnknownEducation ;
+    :hasSkill :skill_6S ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_行政 ;
     :salaryMinK 7 ;
     :salaryMaxK 9 ;
@@ -692,8 +844,10 @@
 :cand_行政专员_东莞_7_9K_邓___1年 a :Candidate ;
     :appliedFor :role_行政专员 ;
     :yearsExperience 1 ;
-    :educationRank 3 ;
+    :educationRank 2 ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_社保操作 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
     :hasSkill :skill_财务 ;
@@ -715,8 +869,10 @@
 :cand_何___36岁_行政专员_智通简历_编号 a :Candidate ;
     :appliedFor :role_行政专员 ;
     :missingData :UnknownYears ;
-    :missingData :UnknownEducation ;
+    :educationRank 3 ;
     :hasSkill :skill_5S ;
+    :hasSkill :skill_6S ;
+    :hasSkill :skill_自动机 ;
     :hasSkill :skill_行政 ;
     :age 36 ;
     :sourceFile "03、管理科+副总室侯选人简历/行政专员/何__-36岁-行政专员-智通简历-编号(______).pdf" .
@@ -726,6 +882,8 @@
     :missingData :UnknownYears ;
     :educationRank 3 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_数据分析 ;
+    :hasSkill :skill_社保操作 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_行政 ;
     :hasSkill :skill_财务 ;
@@ -735,7 +893,9 @@
 :cand_吴___25岁_行政专员_智通简历_编号 a :Candidate ;
     :appliedFor :role_行政专员 ;
     :missingData :UnknownYears ;
-    :missingData :UnknownEducation ;
+    :educationRank 3 ;
+    :hasSkill :skill_客户验厂 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_行政 ;
     :hasSkill :skill_财务 ;
     :age 25 ;
@@ -755,7 +915,10 @@
     :educationRank 3 ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_数据分析 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :age 36 ;
     :sourceFile "03、管理科+副总室侯选人简历/行政专员/朱__-36岁-行政专员-智通简历-编号(______).pdf" .
 
@@ -763,10 +926,16 @@
     :appliedFor :role_行政专员 ;
     :missingData :UnknownYears ;
     :educationRank 3 ;
+    :hasSkill :skill_6S ;
+    :hasSkill :skill_8D报告 ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_ISO9001 ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_体系管理 ;
+    :hasSkill :skill_培训课程开发 ;
+    :hasSkill :skill_客户验厂 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_行政 ;
     :age 38 ;
@@ -776,14 +945,20 @@
     :appliedFor :role_行政专员 ;
     :missingData :UnknownYears ;
     :educationRank 3 ;
+    :hasSkill :skill_6S ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_SAP ;
     :hasSkill :skill_Word ;
     :hasSkill :skill_劳动法 ;
+    :hasSkill :skill_客户验厂 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_社保操作 ;
+    :hasSkill :skill_系统规划 ;
+    :hasSkill :skill_自动机 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :age 37 ;
     :sourceFile "03、管理科+副总室侯选人简历/行政专员/王__-37岁-行政专员-智通简历-编号(______).pdf" .
 
@@ -794,14 +969,18 @@
     :hasSkill :skill_Excel ;
     :hasSkill :skill_Word ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :age 28 ;
     :sourceFile "03、管理科+副总室侯选人简历/行政专员/贺__-28岁-行政专员-智通简历-编号(______).pdf" .
 
 :cand_陈___37岁_行政专员_智通简历_编号 a :Candidate ;
     :appliedFor :role_行政专员 ;
     :missingData :UnknownYears ;
-    :missingData :UnknownEducation ;
+    :educationRank 3 ;
+    :hasSkill :skill_6S ;
+    :hasSkill :skill_企业文化建设 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_行政 ;
     :hasSkill :skill_财务 ;
     :age 37 ;
@@ -810,7 +989,8 @@
 :cand_黄___32岁_行政专员_智通简历_编号 a :Candidate ;
     :appliedFor :role_行政专员 ;
     :missingData :UnknownYears ;
-    :educationRank 2 ;
+    :educationRank 4 ;
+    :hasSkill :skill_6S ;
     :hasSkill :skill_行政 ;
     :age 32 ;
     :sourceFile "03、管理科+副总室侯选人简历/行政专员/黄__-32岁-行政专员-智通简历-编号(______).pdf" .
@@ -819,9 +999,15 @@
     :appliedFor :role_专案工程师 ;
     :yearsExperience 1 ;
     :educationRank 2 ;
+    :hasSkill :skill_8D报告 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_Photoshop ;
     :hasSkill :skill_ProE_Creo ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_注塑机 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_端子机 ;
+    :hasSkill :skill_线束行业知识 ;
     :hasSkill :skill_财务 ;
     :salaryMinK 10 ;
     :salaryMaxK 15 ;
@@ -832,6 +1018,9 @@
     :yearsExperience 7 ;
     :missingData :UnknownEducation ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_端子机 ;
+    :hasSkill :skill_线束行业知识 ;
     :salaryMinK 10 ;
     :salaryMaxK 15 ;
     :sourceFile "04、技术课候选人简历/专案工程师/【专案工程师_东莞 10-15K】黄__ 7年.pdf" .
@@ -840,7 +1029,11 @@
     :appliedFor :role_专案工程师 ;
     :yearsExperience 7 ;
     :missingData :UnknownEducation ;
-    :missingData :UnknownSkills ;
+    :hasSkill :skill_注塑机 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_端子机 ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_裁线机 ;
     :salaryMinK 11 ;
     :salaryMaxK 16 ;
     :sourceFile "04、技术课候选人简历/专案工程师/【专案工程师_东莞 11-16K】杨__ 7年.pdf" .
@@ -851,6 +1044,7 @@
     :missingData :UnknownEducation ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_ERP ;
+    :hasSkill :skill_线束行业知识 ;
     :salaryMinK 12 ;
     :salaryMaxK 16 ;
     :sourceFile "04、技术课候选人简历/专案工程师/【专案工程师_东莞 12-16K】l__ 10年以上.pdf" .
@@ -858,9 +1052,10 @@
 :cand_专案工程师_东莞_12_16K_lizw_10年以上 a :Candidate ;
     :appliedFor :role_专案工程师 ;
     :yearsExperience 10 ;
-    :educationRank 3 ;
+    :missingData :UnknownEducation ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_ERP ;
+    :hasSkill :skill_线束行业知识 ;
     :salaryMinK 12 ;
     :salaryMaxK 16 ;
     :sourceFile "04、技术课候选人简历/专案工程师/【专案工程师_东莞 12-16K】lizw 10年以上.pdf" .
@@ -871,6 +1066,7 @@
     :educationRank 4 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_ISO_TS16949 ;
+    :hasSkill :skill_线束行业知识 ;
     :salaryMinK 12 ;
     :salaryMaxK 16 ;
     :sourceFile "04、技术课候选人简历/专案工程师/【专案工程师_东莞 12-16K】何__ 5年.pdf" .
@@ -881,6 +1077,7 @@
     :educationRank 3 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_ProE_Creo ;
+    :hasSkill :skill_线束行业知识 ;
     :salaryMinK 12 ;
     :salaryMaxK 16 ;
     :sourceFile "04、技术课候选人简历/专案工程师/【专案工程师_东莞 12-16K】刘__ 10年以上.pdf" .
@@ -892,6 +1089,8 @@
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_ProE_Creo ;
     :hasSkill :skill_SolidWorks ;
+    :hasSkill :skill_系统规划 ;
+    :hasSkill :skill_线束行业知识 ;
     :salaryMinK 12 ;
     :salaryMaxK 16 ;
     :sourceFile "04、技术课候选人简历/专案工程师/【专案工程师_东莞 12-16K】华__ 9年.pdf" .
@@ -900,7 +1099,9 @@
     :appliedFor :role_专案工程师 ;
     :yearsExperience 10 ;
     :educationRank 2 ;
-    :missingData :UnknownSkills ;
+    :hasSkill :skill_6S ;
+    :hasSkill :skill_注塑机 ;
+    :hasSkill :skill_端子 ;
     :salaryMinK 12 ;
     :salaryMaxK 16 ;
     :sourceFile "04、技术课候选人简历/专案工程师/【专案工程师_东莞 12-16K】史__ 10年以上.pdf" .
@@ -912,6 +1113,12 @@
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_ERP ;
     :hasSkill :skill_ProE_Creo ;
+    :hasSkill :skill_企业文化建设 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_系统规划 ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_裁线机 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_财务 ;
     :salaryMinK 12 ;
     :salaryMaxK 16 ;
@@ -921,7 +1128,11 @@
     :appliedFor :role_专案工程师 ;
     :yearsExperience 10 ;
     :educationRank 2 ;
-    :missingData :UnknownSkills ;
+    :hasSkill :skill_注塑机 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_端子机 ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_裁线机 ;
     :salaryMinK 12 ;
     :salaryMaxK 16 ;
     :sourceFile "04、技术课候选人简历/专案工程师/【专案工程师_东莞 12-16K】周__ 10年以上 (1).pdf" .
@@ -930,7 +1141,11 @@
     :appliedFor :role_专案工程师 ;
     :yearsExperience 10 ;
     :educationRank 2 ;
-    :missingData :UnknownSkills ;
+    :hasSkill :skill_注塑机 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_端子机 ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_裁线机 ;
     :salaryMinK 12 ;
     :salaryMaxK 16 ;
     owl:sameAs :cand_专案工程师_东莞_12_16K_周___10年以上_1 ;
@@ -941,6 +1156,14 @@
     :yearsExperience 10 ;
     :educationRank 2 ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_FMEA ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_注塑机 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_端子机 ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_裁线机 ;
+    :hasSkill :skill_识图 ;
     :salaryMinK 12 ;
     :salaryMaxK 16 ;
     :sourceFile "04、技术课候选人简历/专案工程师/【专案工程师_东莞 12-16K】唐__ 10年以上.pdf" .
@@ -949,9 +1172,20 @@
     :appliedFor :role_专案工程师 ;
     :yearsExperience 10 ;
     :educationRank 3 ;
+    :hasSkill :skill_5S ;
+    :hasSkill :skill_6S ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_ISO_TS16949 ;
+    :hasSkill :skill_ISO9001 ;
+    :hasSkill :skill_SPC ;
+    :hasSkill :skill_体系管理 ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_注塑机 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_端子机 ;
     :hasSkill :skill_精益生产 ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_裁线机 ;
     :salaryMinK 12 ;
     :salaryMaxK 16 ;
     :sourceFile "04、技术课候选人简历/专案工程师/【专案工程师_东莞 12-16K】孙__ 10年以上.pdf" .
@@ -968,8 +1202,11 @@
 :cand_专案工程师_东莞_12_16K_张___5年 a :Candidate ;
     :appliedFor :role_专案工程师 ;
     :yearsExperience 5 ;
-    :educationRank 3 ;
+    :educationRank 5 ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_外贸业务 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_线束行业知识 ;
     :salaryMinK 12 ;
     :salaryMaxK 16 ;
     :sourceFile "04、技术课候选人简历/专案工程师/【专案工程师_东莞 12-16K】张__ 5年.pdf" .
@@ -978,7 +1215,10 @@
     :appliedFor :role_专案工程师 ;
     :yearsExperience 10 ;
     :missingData :UnknownEducation ;
-    :missingData :UnknownSkills ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_端子机 ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_裁线机 ;
     :salaryMinK 12 ;
     :salaryMaxK 16 ;
     :sourceFile "04、技术课候选人简历/专案工程师/【专案工程师_东莞 12-16K】熊__ 10年以上.pdf" .
@@ -991,6 +1231,8 @@
     :hasSkill :skill_CATIA ;
     :hasSkill :skill_ERP ;
     :hasSkill :skill_ProE_Creo ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_线束行业知识 ;
     :salaryMinK 12 ;
     :salaryMaxK 16 ;
     :sourceFile "04、技术课候选人简历/专案工程师/【专案工程师_东莞 12-16K】王__ 10年以上.pdf" .
@@ -1002,6 +1244,9 @@
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_ERP ;
     :hasSkill :skill_ProE_Creo ;
+    :hasSkill :skill_注塑机 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_线束行业知识 ;
     :salaryMinK 12 ;
     :salaryMaxK 16 ;
     :sourceFile "04、技术课候选人简历/专案工程师/【专案工程师_东莞 12-16K】石__ 10年以上.pdf" .
@@ -1010,7 +1255,10 @@
     :appliedFor :role_专案工程师 ;
     :yearsExperience 7 ;
     :educationRank 3 ;
+    :hasSkill :skill_8D报告 ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_线束行业知识 ;
     :salaryMinK 12 ;
     :salaryMaxK 16 ;
     :sourceFile "04、技术课候选人简历/专案工程师/【专案工程师_东莞 12-16K】董__ 7年.pdf" .
@@ -1019,7 +1267,12 @@
     :appliedFor :role_专案工程师 ;
     :yearsExperience 10 ;
     :missingData :UnknownEducation ;
-    :missingData :UnknownSkills ;
+    :hasSkill :skill_6S ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_系统规划 ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_裁线机 ;
     :salaryMinK 12 ;
     :salaryMaxK 16 ;
     :sourceFile "04、技术课候选人简历/专案工程师/【专案工程师_东莞 12-16K】邹__ 10年以上.pdf" .
@@ -1034,8 +1287,13 @@
     :hasSkill :skill_ISO_TS16949 ;
     :hasSkill :skill_ProE_Creo ;
     :hasSkill :skill_SAP ;
+    :hasSkill :skill_切片 ;
     :hasSkill :skill_报关 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_线束行业知识 ;
     :hasSkill :skill_英语 ;
+    :hasSkill :skill_裁线机 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :salaryMinK 12 ;
     :salaryMaxK 16 ;
     :sourceFile "04、技术课候选人简历/专案工程师/【专案工程师_东莞 12-16K】陈__ 5年.pdf" .
@@ -1043,10 +1301,11 @@
 :cand_何___35岁_专案工程师_智通简历_编号 a :Candidate ;
     :appliedFor :role_专案工程师 ;
     :missingData :UnknownYears ;
-    :educationRank 3 ;
+    :educationRank 2 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_ERP ;
     :hasSkill :skill_报关 ;
+    :hasSkill :skill_线束行业知识 ;
     :age 35 ;
     :sourceFile "04、技术课候选人简历/专案工程师/何__-35岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1054,7 +1313,7 @@
     :appliedFor :role_专案工程师 ;
     :missingData :UnknownYears ;
     :educationRank 3 ;
-    :missingData :UnknownSkills ;
+    :hasSkill :skill_线束行业知识 ;
     :age 27 ;
     :sourceFile "04、技术课候选人简历/专案工程师/刘__-27岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1062,7 +1321,8 @@
     :appliedFor :role_专案工程师 ;
     :missingData :UnknownYears ;
     :educationRank 3 ;
-    :missingData :UnknownSkills ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_线束行业知识 ;
     :age 44 ;
     :sourceFile "04、技术课候选人简历/专案工程师/吴__-44岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1072,15 +1332,24 @@
     :educationRank 4 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_CATIA ;
+    :hasSkill :skill_FMEA ;
     :hasSkill :skill_ProE_Creo ;
+    :hasSkill :skill_招聘 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_线束行业知识 ;
     :hasSkill :skill_英语 ;
     :sourceFile "04、技术课候选人简历/专案工程师/吴___项目工程师.pdf" .
 
 :cand_周___38岁_专案工程师_智通简历_编号 a :Candidate ;
     :appliedFor :role_专案工程师 ;
     :missingData :UnknownYears ;
-    :educationRank 2 ;
+    :missingData :UnknownEducation ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_注塑机 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_端子机 ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_裁线机 ;
     :age 38 ;
     :sourceFile "04、技术课候选人简历/专案工程师/周__-38岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1088,7 +1357,7 @@
     :appliedFor :role_专案工程师 ;
     :missingData :UnknownYears ;
     :educationRank 2 ;
-    :missingData :UnknownSkills ;
+    :hasSkill :skill_线束行业知识 ;
     :age 37 ;
     :sourceFile "04、技术课候选人简历/专案工程师/宋__-37岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1101,6 +1370,14 @@
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_注塑机 ;
+    :hasSkill :skill_点胶机 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_端子机 ;
+    :hasSkill :skill_系统规划 ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_自动机 ;
+    :hasSkill :skill_裁线机 ;
     :age 33 ;
     :sourceFile "04、技术课候选人简历/专案工程师/廖__-33岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1109,8 +1386,10 @@
     :missingData :UnknownYears ;
     :educationRank 4 ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_FMEA ;
     :hasSkill :skill_ISO_TS16949 ;
     :hasSkill :skill_SolidWorks ;
+    :hasSkill :skill_线束行业知识 ;
     :age 36 ;
     :sourceFile "04、技术课候选人简历/专案工程师/张__-36岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1118,8 +1397,14 @@
     :appliedFor :role_专案工程师 ;
     :missingData :UnknownYears ;
     :educationRank 3 ;
+    :hasSkill :skill_FMEA ;
     :hasSkill :skill_ISO_TS16949 ;
+    :hasSkill :skill_客户验厂 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_端子机 ;
     :hasSkill :skill_精益生产 ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_自动机 ;
     :age 37 ;
     :sourceFile "04、技术课候选人简历/专案工程师/张__-37岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1128,6 +1413,7 @@
     :missingData :UnknownYears ;
     :educationRank 3 ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_财务 ;
     :age 43 ;
     :sourceFile "04、技术课候选人简历/专案工程师/张__-43岁-专案工程师-智通简历-编号(______).pdf" .
@@ -1137,16 +1423,21 @@
     :missingData :UnknownYears ;
     :missingData :UnknownEducation ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_系统规划 ;
+    :hasSkill :skill_线束行业知识 ;
     :hasSkill :skill_财务 ;
     :sourceFile "04、技术课候选人简历/专案工程师/曹___工程师.pdf" .
 
 :cand_曾___38岁_专案工程师_智通简历_编号 a :Candidate ;
     :appliedFor :role_专案工程师 ;
     :missingData :UnknownYears ;
-    :educationRank 3 ;
+    :missingData :UnknownEducation ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_FMEA ;
     :hasSkill :skill_ProE_Creo ;
     :hasSkill :skill_SolidWorks ;
+    :hasSkill :skill_线束行业知识 ;
     :hasSkill :skill_财务 ;
     :age 38 ;
     :sourceFile "04、技术课候选人简历/专案工程师/曾__-38岁-专案工程师-智通简历-编号(______).pdf" .
@@ -1157,19 +1448,20 @@
     :missingData :UnknownEducation ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_ProE_Creo ;
+    :hasSkill :skill_线束行业知识 ;
     :sourceFile "04、技术课候选人简历/专案工程师/曾__-43-智通附件简历(944723388)专案工程师.pdf" .
 
 :cand_李___44岁_专案工程师_智通简历_编号 a :Candidate ;
     :appliedFor :role_专案工程师 ;
     :missingData :UnknownYears ;
-    :educationRank 3 ;
+    :educationRank 2 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_CATIA ;
-    :hasSkill :skill_Excel ;
     :hasSkill :skill_ISO_TS16949 ;
     :hasSkill :skill_ISO9001 ;
-    :hasSkill :skill_PowerPoint ;
-    :hasSkill :skill_Word ;
+    :hasSkill :skill_QC七大手法 ;
+    :hasSkill :skill_系统规划 ;
+    :hasSkill :skill_线束行业知识 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_薪酬绩效 ;
     :age 44 ;
@@ -1180,6 +1472,7 @@
     :missingData :UnknownYears ;
     :educationRank 3 ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_线束行业知识 ;
     :age 45 ;
     :sourceFile "04、技术课候选人简历/专案工程师/李__-45岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1192,6 +1485,8 @@
     :hasSkill :skill_Rhino ;
     :hasSkill :skill_SolidWorks ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_线束行业知识 ;
     :age 31 ;
     :sourceFile "04、技术课候选人简历/专案工程师/梁__-31岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1201,6 +1496,8 @@
     :educationRank 2 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_识图 ;
     :age 37 ;
     :sourceFile "04、技术课候选人简历/专案工程师/游__-37岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1209,10 +1506,13 @@
     :missingData :UnknownYears ;
     :educationRank 3 ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_CPK ;
     :hasSkill :skill_Excel ;
+    :hasSkill :skill_FMEA ;
     :hasSkill :skill_ProE_Creo ;
     :hasSkill :skill_SAP ;
     :hasSkill :skill_SolidWorks ;
+    :hasSkill :skill_线束行业知识 ;
     :age 32 ;
     :sourceFile "04、技术课候选人简历/专案工程师/罗__-32岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1221,6 +1521,8 @@
     :missingData :UnknownYears ;
     :educationRank 3 ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_注塑机 ;
+    :hasSkill :skill_线束行业知识 ;
     :hasSkill :skill_英语 ;
     :age 39 ;
     :sourceFile "04、技术课候选人简历/专案工程师/罗__-39岁-专案工程师-智通简历-编号(______).pdf" .
@@ -1230,6 +1532,8 @@
     :missingData :UnknownYears ;
     :educationRank 4 ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_财务 ;
     :age 44 ;
     :sourceFile "04、技术课候选人简历/专案工程师/罗__-44岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1237,6 +1541,7 @@
     :appliedFor :role_专案工程师 ;
     :missingData :UnknownYears ;
     :educationRank 4 ;
+    :hasSkill :skill_8D报告 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_ISO_TS16949 ;
@@ -1245,6 +1550,7 @@
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_SolidWorks ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_线束行业知识 ;
     :hasSkill :skill_英语 ;
     :age 46 ;
     :sourceFile "04、技术课候选人简历/专案工程师/罗__-46岁-专案工程师-智通简历-编号(______).pdf" .
@@ -1253,7 +1559,9 @@
     :appliedFor :role_专案工程师 ;
     :missingData :UnknownYears ;
     :educationRank 4 ;
-    :hasSkill :skill_英语 ;
+    :hasSkill :skill_CPK ;
+    :hasSkill :skill_FMEA ;
+    :hasSkill :skill_切片 ;
     :age 38 ;
     :sourceFile "04、技术课候选人简历/专案工程师/肖__-38岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1263,10 +1571,15 @@
     :educationRank 3 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_CATIA ;
+    :hasSkill :skill_FMEA ;
     :hasSkill :skill_ISO_TS16949 ;
     :hasSkill :skill_ISO9001 ;
+    :hasSkill :skill_ProE_Creo ;
     :hasSkill :skill_SolidWorks ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_切片 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_线束行业知识 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_财务 ;
     :age 46 ;
@@ -1275,14 +1588,21 @@
 :cand_胡___31岁_专案工程师_智通简历_编号 a :Candidate ;
     :appliedFor :role_专案工程师 ;
     :missingData :UnknownYears ;
-    :educationRank 3 ;
+    :missingData :UnknownEducation ;
+    :hasSkill :skill_8D报告 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_Excel ;
+    :hasSkill :skill_FMEA ;
     :hasSkill :skill_ISO_TS16949 ;
     :hasSkill :skill_ISO9001 ;
     :hasSkill :skill_ProE_Creo ;
+    :hasSkill :skill_SPC ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_系统规划 ;
+    :hasSkill :skill_自动机 ;
     :hasSkill :skill_英语 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :age 31 ;
     :sourceFile "04、技术课候选人简历/专案工程师/胡__-31岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1290,7 +1610,14 @@
     :appliedFor :role_专案工程师 ;
     :missingData :UnknownYears ;
     :educationRank 3 ;
-    :missingData :UnknownSkills ;
+    :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_Excel ;
+    :hasSkill :skill_注塑机 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_端子机 ;
+    :hasSkill :skill_系统规划 ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_裁线机 ;
     :age 38 ;
     :sourceFile "04、技术课候选人简历/专案工程师/胡__-38岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1301,6 +1628,7 @@
     :hasSkill :skill_ERP ;
     :hasSkill :skill_ISO_TS16949 ;
     :hasSkill :skill_ISO9001 ;
+    :hasSkill :skill_线束行业知识 ;
     :age 42 ;
     :sourceFile "04、技术课候选人简历/专案工程师/胡__-42岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1317,10 +1645,14 @@
 :cand_蒋___38岁_专案工程师_智通简历_编号 a :Candidate ;
     :appliedFor :role_专案工程师 ;
     :missingData :UnknownYears ;
-    :educationRank 2 ;
+    :educationRank 3 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_ISO_TS16949 ;
     :hasSkill :skill_ProE_Creo ;
+    :hasSkill :skill_注塑机 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_端子机 ;
+    :hasSkill :skill_线束行业知识 ;
     :hasSkill :skill_英语 ;
     :age 38 ;
     :sourceFile "04、技术课候选人简历/专案工程师/蒋__-38岁-专案工程师-智通简历-编号(______).pdf" .
@@ -1333,6 +1665,10 @@
     :hasSkill :skill_Excel ;
     :hasSkill :skill_ProE_Creo ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_注塑机 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_识图 ;
     :age 34 ;
     :sourceFile "04、技术课候选人简历/专案工程师/袁__-34岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1340,7 +1676,11 @@
     :appliedFor :role_专案工程师 ;
     :missingData :UnknownYears ;
     :educationRank 2 ;
-    :missingData :UnknownSkills ;
+    :hasSkill :skill_注塑机 ;
+    :hasSkill :skill_点胶机 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_端子机 ;
+    :hasSkill :skill_线束行业知识 ;
     :age 39 ;
     :sourceFile "04、技术课候选人简历/专案工程师/谢__-39岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1349,6 +1689,10 @@
     :missingData :UnknownYears ;
     :educationRank 2 ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_系统规划 ;
+    :hasSkill :skill_线束行业知识 ;
     :age 37 ;
     :sourceFile "04、技术课候选人简历/专案工程师/贺__-37岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1356,15 +1700,19 @@
     :appliedFor :role_专案工程师 ;
     :missingData :UnknownYears ;
     :educationRank 3 ;
-    :missingData :UnknownSkills ;
+    :hasSkill :skill_6S ;
     :age 37 ;
     :sourceFile "04、技术课候选人简历/专案工程师/郑__-37岁-专案工程师-智通简历-编号(______).pdf" .
 
 :cand_郭___29岁_专案工程师_智通简历_编号 a :Candidate ;
     :appliedFor :role_专案工程师 ;
     :missingData :UnknownYears ;
-    :missingData :UnknownEducation ;
+    :educationRank 3 ;
+    :hasSkill :skill_6S ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_CPK ;
+    :hasSkill :skill_FMEA ;
+    :hasSkill :skill_线束行业知识 ;
     :age 29 ;
     :sourceFile "04、技术课候选人简历/专案工程师/郭__-29岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1372,19 +1720,29 @@
     :appliedFor :role_专案工程师 ;
     :missingData :UnknownYears ;
     :educationRank 2 ;
+    :hasSkill :skill_6S ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_端子机 ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :age 31 ;
     :sourceFile "04、技术课候选人简历/专案工程师/雷__-31岁-专案工程师-智通简历-编号(______).pdf" .
 
 :cand_马___42岁_专案工程师_智通简历_编号 a :Candidate ;
     :appliedFor :role_专案工程师 ;
     :missingData :UnknownYears ;
-    :educationRank 5 ;
+    :educationRank 2 ;
+    :hasSkill :skill_6S ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_ERP ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_端子机 ;
+    :hasSkill :skill_线束行业知识 ;
     :hasSkill :skill_薪酬绩效 ;
+    :hasSkill :skill_裁线机 ;
     :age 42 ;
     :sourceFile "04、技术课候选人简历/专案工程师/马__-42岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1402,7 +1760,7 @@
 :cand_龚___33岁_专案工程师_智通简历_编号 a :Candidate ;
     :appliedFor :role_专案工程师 ;
     :missingData :UnknownYears ;
-    :missingData :UnknownEducation ;
+    :educationRank 3 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_CorelDRAW ;
     :hasSkill :skill_Excel ;
@@ -1410,6 +1768,10 @@
     :hasSkill :skill_SolidWorks ;
     :hasSkill :skill_Word ;
     :hasSkill :skill_外贸业务 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_端子机 ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_裁线机 ;
     :age 33 ;
     :sourceFile "04、技术课候选人简历/专案工程师/龚__-33岁-专案工程师-智通简历-编号(______).pdf" .
 
@@ -1419,6 +1781,8 @@
     :educationRank 2 ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_数据分析 ;
+    :hasSkill :skill_社保操作 ;
     :salaryMinK 4 ;
     :salaryMaxK 5 ;
     :sourceFile "04、技术课候选人简历/实验室技术员/【实验室技术员_东莞 4-5K】李__ 10年以上.pdf" .
@@ -1426,7 +1790,7 @@
 :cand_实验室技术员_东莞_4_5K_高___10年以上 a :Candidate ;
     :appliedFor :role_实验室技术员 ;
     :yearsExperience 10 ;
-    :missingData :UnknownEducation ;
+    :educationRank 3 ;
     :hasSkill :skill_招聘 ;
     :hasSkill :skill_行政 ;
     :hasSkill :skill_财务 ;
@@ -1451,6 +1815,7 @@
     :missingData :UnknownEducation ;
     :hasSkill :skill_ERP ;
     :hasSkill :skill_Excel ;
+    :hasSkill :skill_订单交期风险评估 ;
     :salaryMinK 5 ;
     :salaryMaxK 6 ;
     :sourceFile "04、技术课候选人简历/工程文员/【工程文员_东莞 5-6K】刘__ 10年.pdf" .
@@ -1459,6 +1824,7 @@
     :appliedFor :role_工程文员 ;
     :yearsExperience 10 ;
     :educationRank 2 ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 5 ;
     :salaryMaxK 6 ;
@@ -1480,6 +1846,8 @@
     :yearsExperience 10 ;
     :educationRank 2 ;
     :hasSkill :skill_报关 ;
+    :hasSkill :skill_数据分析 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_财务 ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 5 ;
@@ -1492,6 +1860,7 @@
     :missingData :UnknownEducation ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_UG_NX ;
+    :hasSkill :skill_订单交期风险评估 ;
     :salaryMinK 5 ;
     :salaryMaxK 6 ;
     :sourceFile "04、技术课候选人简历/工程文员/【工程文员_东莞 5-6K】肖__ 26年应届生.pdf" .
@@ -1499,8 +1868,9 @@
 :cand_何___20岁_工程文员_智通简历_编号 a :Candidate ;
     :appliedFor :role_工程文员 ;
     :missingData :UnknownYears ;
-    :educationRank 3 ;
+    :educationRank 2 ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_识图 ;
     :age 20 ;
     :sourceFile "04、技术课候选人简历/工程文员/何__-20岁-工程文员-智通简历-编号(______).pdf" .
 
@@ -1514,6 +1884,7 @@
     :hasSkill :skill_Photoshop ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_行政 ;
     :age 20 ;
     :sourceFile "04、技术课候选人简历/工程文员/刘__-20岁-工程文员-智通简历-编号(______).pdf" .
@@ -1523,6 +1894,7 @@
     :missingData :UnknownYears ;
     :educationRank 4 ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_Illustrator ;
     :hasSkill :skill_行政 ;
     :hasSkill :skill_财务 ;
     :age 23 ;
@@ -1536,6 +1908,7 @@
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_跟单 ;
     :age 27 ;
     :sourceFile "04、技术课候选人简历/工程文员/李__-27岁-工程文员-智通简历-编号(______).pdf" .
@@ -1545,6 +1918,7 @@
     :missingData :UnknownYears ;
     :educationRank 2 ;
     :hasSkill :skill_ERP ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_行政 ;
     :age 29 ;
     :sourceFile "04、技术课候选人简历/工程文员/赵__-29岁-工程文员-智通简历-编号(______).pdf" .
@@ -1554,6 +1928,7 @@
     :missingData :UnknownYears ;
     :educationRank 3 ;
     :hasSkill :skill_Excel ;
+    :hasSkill :skill_自动机 ;
     :age 25 ;
     :sourceFile "04、技术课候选人简历/工程文员/郑__-25岁-工程文员-智通简历-编号(______).pdf" .
 
@@ -1564,6 +1939,8 @@
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_ISO_TS16949 ;
     :hasSkill :skill_ISO9001 ;
+    :hasSkill :skill_体系管理 ;
+    :hasSkill :skill_线束行业知识 ;
     :age 39 ;
     :sourceFile "04、技术课候选人简历/技术经理主管/任__-39岁-技术课课长-智通简历-编号(______).pdf" .
 
@@ -1572,6 +1949,11 @@
     :missingData :UnknownYears ;
     :educationRank 3 ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_FMEA ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_系统规划 ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_自动机 ;
     :hasSkill :skill_英语 ;
     :age 37 ;
     :sourceFile "04、技术课候选人简历/技术经理主管/康__-37岁-技术课课长-智通简历-编号(______).pdf" .
@@ -1579,12 +1961,18 @@
 :cand_廖___品质经理_NPI经理_研发经理 a :Candidate ;
     :appliedFor :role_技术经理主管 ;
     :yearsExperience 15 ;
-    :missingData :UnknownEducation ;
+    :educationRank 4 ;
+    :hasSkill :skill_8D报告 ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_CPK ;
+    :hasSkill :skill_FMEA ;
     :hasSkill :skill_ISO_TS16949 ;
     :hasSkill :skill_ISO9001 ;
+    :hasSkill :skill_SPC ;
     :hasSkill :skill_SolidWorks ;
-    :hasSkill :skill_招聘 ;
+    :hasSkill :skill_体系管理 ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_线束行业知识 ;
     :sourceFile "04、技术课候选人简历/技术经理主管/廖___品质经理_NPI经理_研发经理.pdf" .
 
 :cand_张___35岁_智通简历_编号 a :Candidate ;
@@ -1592,46 +1980,53 @@
     :missingData :UnknownYears ;
     :educationRank 4 ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_FMEA ;
     :hasSkill :skill_ISO_TS16949 ;
     :hasSkill :skill_SolidWorks ;
+    :hasSkill :skill_线束行业知识 ;
     :age 35 ;
     :sourceFile "04、技术课候选人简历/技术经理主管/张__-35岁-智通简历-编号(______).pdf" .
 
 :cand_张___39岁_智通简历_编号 a :Candidate ;
     :appliedFor :role_技术经理主管 ;
     :missingData :UnknownYears ;
-    :educationRank 3 ;
+    :missingData :UnknownEducation ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_SolidWorks ;
     :hasSkill :skill_精益生产 ;
+    :hasSkill :skill_线束行业知识 ;
     :age 39 ;
     :sourceFile "04、技术课候选人简历/技术经理主管/张__-39岁-智通简历-编号(______).pdf" .
 
 :cand_彭___工程师_技术经理_总工 a :Candidate ;
     :appliedFor :role_技术经理主管 ;
-    :missingData :UnknownYears ;
+    :yearsExperience 15 ;
     :educationRank 4 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_ISO9001 ;
     :hasSkill :skill_Word ;
     :hasSkill :skill_外贸业务 ;
-    :hasSkill :skill_招聘 ;
+    :hasSkill :skill_数据分析 ;
     :sourceFile "04、技术课候选人简历/技术经理主管/彭___工程师_技术经理_总工.pdf" .
 
 :cand_曾___cable工程主管_cable工程经理 a :Candidate ;
     :appliedFor :role_技术经理主管 ;
     :missingData :UnknownYears ;
     :missingData :UnknownEducation ;
-    :missingData :UnknownSkills ;
+    :hasSkill :skill_系统规划 ;
+    :hasSkill :skill_线束行业知识 ;
     :sourceFile "04、技术课候选人简历/技术经理主管/曾___cable工程主管、cable工程经理.pdf" .
 
 :cand_李___46岁_工程经理_智通简历_编号________1 a :Candidate ;
     :appliedFor :role_技术经理主管 ;
     :missingData :UnknownYears ;
     :missingData :UnknownEducation ;
+    :hasSkill :skill_FMEA ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_线束行业知识 ;
     :hasSkill :skill_英语 ;
     :age 46 ;
     :sourceFile "04、技术课候选人简历/技术经理主管/李__-46岁-工程经理-智通简历-编号(______) (1).pdf" .
@@ -1640,13 +2035,20 @@
     :appliedFor :role_技术经理主管 ;
     :missingData :UnknownYears ;
     :educationRank 3 ;
+    :hasSkill :skill_8D报告 ;
     :hasSkill :skill_Excel ;
+    :hasSkill :skill_FMEA ;
     :hasSkill :skill_ISO_TS16949 ;
     :hasSkill :skill_ISO9001 ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_ProE_Creo ;
+    :hasSkill :skill_SPC ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_体系管理 ;
+    :hasSkill :skill_培训课程开发 ;
+    :hasSkill :skill_数据分析 ;
     :hasSkill :skill_精益生产 ;
+    :hasSkill :skill_系统规划 ;
     :age 48 ;
     :sourceFile "04、技术课候选人简历/技术经理主管/李__-48岁-工程经理-智通简历-编号(______).pdf" .
 
@@ -1655,6 +2057,8 @@
     :missingData :UnknownYears ;
     :educationRank 3 ;
     :hasSkill :skill_ProE_Creo ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_线束行业知识 ;
     :hasSkill :skill_英语 ;
     :sourceFile "04、技术课候选人简历/技术经理主管/段___研发工程主管，产品工程主管.pdf" .
 
@@ -1662,15 +2066,19 @@
     :appliedFor :role_技术经理主管 ;
     :missingData :UnknownYears ;
     :educationRank 4 ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_薪酬绩效 ;
     :sourceFile "04、技术课候选人简历/技术经理主管/毕___工程研发类.pdf" .
 
 :cand_汪___总工程师技术经理研发经理 a :Candidate ;
     :appliedFor :role_技术经理主管 ;
-    :missingData :UnknownYears ;
-    :educationRank 3 ;
+    :yearsExperience 15 ;
+    :missingData :UnknownEducation ;
     :hasSkill :skill_AutoCAD ;
-    :hasSkill :skill_招聘 ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_数据分析 ;
+    :hasSkill :skill_线束行业知识 ;
     :hasSkill :skill_财务 ;
     :sourceFile "04、技术课候选人简历/技术经理主管/汪___总工程师技术经理研发经理.pdf" .
 
@@ -1680,20 +2088,28 @@
     :educationRank 2 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_SolidWorks ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_注塑机 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_端子机 ;
+    :hasSkill :skill_线束行业知识 ;
     :hasSkill :skill_英语 ;
+    :hasSkill :skill_裁线机 ;
     :age 43 ;
     :sourceFile "04、技术课候选人简历/技术经理主管/蓝__-43岁-智通简历-编号(______).pdf" .
 
 :cand_陈___39岁_工程经理_智通简历_编号 a :Candidate ;
     :appliedFor :role_技术经理主管 ;
     :missingData :UnknownYears ;
-    :educationRank 2 ;
+    :educationRank 3 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_Excel ;
+    :hasSkill :skill_FMEA ;
     :hasSkill :skill_ProE_Creo ;
     :hasSkill :skill_SAP ;
     :hasSkill :skill_SolidWorks ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_线束行业知识 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_财务 ;
     :age 39 ;
@@ -1702,8 +2118,10 @@
 :cand_汽车线束高线工程师_东莞_10_14K_何___10年以上 a :Candidate ;
     :appliedFor :role_设计工程师 ;
     :yearsExperience 10 ;
-    :missingData :UnknownEducation ;
+    :educationRank 3 ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_线束行业知识 ;
     :salaryMinK 10 ;
     :salaryMaxK 14 ;
     :sourceFile "04、技术课候选人简历/设计工程师/【汽车线束高线工程师_东莞 10-14K】何__ 10年以上.pdf" .
@@ -1716,7 +2134,11 @@
     :hasSkill :skill_CATIA ;
     :hasSkill :skill_ERP ;
     :hasSkill :skill_ProE_Creo ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_线束行业知识 ;
     :hasSkill :skill_英语 ;
+    :hasSkill :skill_订单交期风险评估 ;
+    :hasSkill :skill_识图 ;
     :hasSkill :skill_财务 ;
     :salaryMinK 7 ;
     :salaryMaxK 10 ;
@@ -1726,7 +2148,7 @@
     :appliedFor :role_设计工程师 ;
     :yearsExperience 4 ;
     :missingData :UnknownEducation ;
-    :missingData :UnknownSkills ;
+    :hasSkill :skill_系统规划 ;
     :salaryMinK 7 ;
     :salaryMaxK 10 ;
     :sourceFile "04、技术课候选人简历/设计工程师/【设计助理工程师_东莞 7-10K】古__ 4年.pdf" .
@@ -1736,6 +2158,8 @@
     :yearsExperience 4 ;
     :educationRank 4 ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_系统规划 ;
     :salaryMinK 7 ;
     :salaryMaxK 10 ;
     :sourceFile "04、技术课候选人简历/设计工程师/【设计助理工程师_东莞 7-10K】柒__ 4年.pdf" .
@@ -1745,7 +2169,13 @@
     :yearsExperience 3 ;
     :educationRank 3 ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_FMEA ;
     :hasSkill :skill_ProE_Creo ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_裁线机 ;
+    :hasSkill :skill_识图 ;
     :salaryMinK 7 ;
     :salaryMaxK 10 ;
     :sourceFile "04、技术课候选人简历/设计工程师/【设计助理工程师_东莞 7-10K】蓝__ 3年.pdf" .
@@ -1753,7 +2183,7 @@
 :cand_设计助理工程师_东莞_7_10K_雷___1年 a :Candidate ;
     :appliedFor :role_设计工程师 ;
     :yearsExperience 1 ;
-    :educationRank 5 ;
+    :educationRank 3 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_SolidWorks ;
     :hasSkill :skill_UG_NX ;
@@ -1764,9 +2194,11 @@
 :cand_刘___28岁_汽车线束工程师_智通简历_编号________1 a :Candidate ;
     :appliedFor :role_设计工程师 ;
     :missingData :UnknownYears ;
-    :missingData :UnknownEducation ;
+    :educationRank 4 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_ISO_TS16949 ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_线束行业知识 ;
     :age 28 ;
     :sourceFile "04、技术课候选人简历/设计工程师/刘__-28岁-汽车线束工程师-智通简历-编号(______) (1).pdf" .
 
@@ -1783,6 +2215,8 @@
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_SolidWorks ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_线束行业知识 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_财务 ;
     :age 42 ;
@@ -1794,6 +2228,8 @@
     :educationRank 4 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_CATIA ;
+    :hasSkill :skill_系统规划 ;
+    :hasSkill :skill_线束行业知识 ;
     :age 28 ;
     :sourceFile "04、技术课候选人简历/设计工程师/陈__-28岁-智通简历-编号(______).pdf" .
 
@@ -1802,7 +2238,12 @@
     :missingData :UnknownYears ;
     :educationRank 2 ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_FMEA ;
     :hasSkill :skill_ProE_Creo ;
+    :hasSkill :skill_端子 ;
+    :hasSkill :skill_系统规划 ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_裁线机 ;
     :sourceFile "04、技术课候选人简历/设计工程师/陈__简历.pdf" .
 
 :cand_业务助理_东莞_7_9K_郑___3年 a :Candidate ;
@@ -1862,7 +2303,9 @@
 :cand_外贸业务员_东莞_5_10K_付___4年 a :Candidate ;
     :appliedFor :role_业务助理 ;
     :yearsExperience 4 ;
-    :missingData :UnknownEducation ;
+    :educationRank 3 ;
+    :hasSkill :skill_企业文化建设 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_行政 ;
     :hasSkill :skill_财务 ;
     :salaryMinK 5 ;
@@ -1901,6 +2344,7 @@
     :yearsExperience 2 ;
     :educationRank 3 ;
     :hasSkill :skill_外贸业务 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 5 ;
@@ -1911,6 +2355,7 @@
     :appliedFor :role_业务助理 ;
     :yearsExperience 2 ;
     :educationRank 4 ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_英语 ;
     :salaryMinK 5 ;
@@ -1951,6 +2396,7 @@
     :hasSkill :skill_Excel ;
     :hasSkill :skill_劳动法 ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_行政 ;
     :hasSkill :skill_财务 ;
@@ -1963,7 +2409,10 @@
     :yearsExperience 4 ;
     :educationRank 4 ;
     :hasSkill :skill_PowerPoint ;
+    :hasSkill :skill_培训课程开发 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_英语 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :salaryMinK 5 ;
     :salaryMaxK 10 ;
     :sourceFile "07、业务课侯选人简历/业务助理/【外贸业务员_东莞 5-10K】陈__ 4年.pdf" .
@@ -1973,9 +2422,9 @@
     :yearsExperience 8 ;
     :missingData :UnknownEducation ;
     :hasSkill :skill_Excel ;
-    :hasSkill :skill_单证 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_识图 ;
     :salaryMinK 6 ;
     :salaryMaxK 8 ;
     :sourceFile "07、业务课侯选人简历/业务助理/【日语业务助理_东莞 6-8K】古__ 8年.pdf" .
@@ -1983,10 +2432,11 @@
 :cand_何___36岁_业务助理_智通简历_编号 a :Candidate ;
     :appliedFor :role_业务助理 ;
     :missingData :UnknownYears ;
-    :educationRank 4 ;
+    :missingData :UnknownEducation ;
     :hasSkill :skill_Word ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_英语 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_跟单 ;
     :age 36 ;
     :sourceFile "07、业务课侯选人简历/业务助理/何__-36岁-业务助理-智通简历-编号(______).pdf" .
@@ -1994,7 +2444,7 @@
 :cand_刘___23岁_日文业务助理_智通简历_编号 a :Candidate ;
     :appliedFor :role_业务助理 ;
     :missingData :UnknownYears ;
-    :educationRank 4 ;
+    :missingData :UnknownEducation ;
     :hasSkill :skill_英语 ;
     :age 23 ;
     :sourceFile "07、业务课侯选人简历/业务助理/刘__-23岁-日文业务助理-智通简历-编号(______).pdf" .
@@ -2015,10 +2465,11 @@
 :cand_曾___23岁_业务助理_智通简历_编号 a :Candidate ;
     :appliedFor :role_业务助理 ;
     :missingData :UnknownYears ;
-    :missingData :UnknownEducation ;
+    :educationRank 3 ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_财务 ;
     :hasSkill :skill_跟单 ;
     :age 23 ;
@@ -2040,7 +2491,7 @@
 :cand_李___39岁_英文助理_智通简历_编号 a :Candidate ;
     :appliedFor :role_业务助理 ;
     :missingData :UnknownYears ;
-    :missingData :UnknownEducation ;
+    :educationRank 4 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_跟单 ;
@@ -2051,6 +2502,7 @@
     :appliedFor :role_业务助理 ;
     :missingData :UnknownYears ;
     :educationRank 4 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_行政 ;
     :age 25 ;
     :sourceFile "07、业务课侯选人简历/业务助理/王__-25岁-日文业务助理-智通简历-编号(______).pdf" .
@@ -2076,9 +2528,11 @@
     :appliedFor :role_业务助理 ;
     :missingData :UnknownYears ;
     :missingData :UnknownEducation ;
+    :hasSkill :skill_8D报告 ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_跟单 ;
     :age 29 ;
@@ -2097,13 +2551,14 @@
 :cand_陈___37岁_日文业务助理_智通简历_编号 a :Candidate ;
     :appliedFor :role_业务助理 ;
     :yearsExperience 4 ;
-    :educationRank 2 ;
+    :educationRank 3 ;
     :hasSkill :skill_Excel ;
-    :hasSkill :skill_Illustrator ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_报关 ;
     :hasSkill :skill_英语 ;
+    :hasSkill :skill_财务 ;
     :hasSkill :skill_跟单 ;
     :age 37 ;
     :sourceFile "07、业务课侯选人简历/业务助理/陈__-37岁-日文业务助理-智通简历-编号(______).pdf" .
@@ -2112,6 +2567,7 @@
     :appliedFor :role_业务助理 ;
     :missingData :UnknownYears ;
     :educationRank 3 ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_薪酬绩效 ;
     :age 26 ;
     :sourceFile "07、业务课侯选人简历/业务助理/黄__-26岁-日文业务助理-智通简历-编号(______).pdf" .
@@ -2132,10 +2588,12 @@
     :appliedFor :role_业务跟单 ;
     :yearsExperience 10 ;
     :educationRank 4 ;
+    :hasSkill :skill_8D报告 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_CorelDRAW ;
     :hasSkill :skill_ERP ;
     :hasSkill :skill_SAP ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_报关 ;
     :hasSkill :skill_英语 ;
@@ -2148,11 +2606,13 @@
 :cand_业务跟单_东莞_6_10K_Jessie郭___10年 a :Candidate ;
     :appliedFor :role_业务跟单 ;
     :yearsExperience 10 ;
-    :educationRank 4 ;
+    :educationRank 3 ;
+    :hasSkill :skill_8D报告 ;
     :hasSkill :skill_AutoCAD ;
     :hasSkill :skill_CorelDRAW ;
     :hasSkill :skill_ERP ;
     :hasSkill :skill_SAP ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_报关 ;
     :hasSkill :skill_英语 ;
@@ -2166,8 +2626,11 @@
     :appliedFor :role_业务跟单 ;
     :yearsExperience 10 ;
     :educationRank 5 ;
+    :hasSkill :skill_8D报告 ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_英语 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_财务 ;
     :salaryMinK 6 ;
     :salaryMaxK 10 ;
@@ -2177,8 +2640,11 @@
     :appliedFor :role_业务跟单 ;
     :yearsExperience 10 ;
     :educationRank 5 ;
+    :hasSkill :skill_8D报告 ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_英语 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_财务 ;
     :salaryMinK 6 ;
     :salaryMaxK 10 ;
@@ -2187,7 +2653,8 @@
 :cand_业务跟单_东莞_6_10K_万___10年以上 a :Candidate ;
     :appliedFor :role_业务跟单 ;
     :yearsExperience 10 ;
-    :missingData :UnknownEducation ;
+    :educationRank 3 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_财务 ;
     :salaryMinK 6 ;
     :salaryMaxK 10 ;
@@ -2213,6 +2680,7 @@
     :educationRank 3 ;
     :hasSkill :skill_SAP ;
     :hasSkill :skill_英语 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 6 ;
     :salaryMaxK 10 ;
@@ -2222,6 +2690,7 @@
     :appliedFor :role_业务跟单 ;
     :missingData :UnknownYears ;
     :educationRank 4 ;
+    :hasSkill :skill_单证 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_英语 ;
     :salaryMinK 6 ;
@@ -2234,7 +2703,9 @@
     :educationRank 4 ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_数据分析 ;
     :hasSkill :skill_薪酬绩效 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_财务 ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 6 ;
@@ -2249,6 +2720,7 @@
     :hasSkill :skill_Excel ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_SAP ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_财务 ;
     :salaryMinK 6 ;
     :salaryMaxK 10 ;
@@ -2257,7 +2729,7 @@
 :cand_业务跟单_东莞_6_10K_和___10年以上 a :Candidate ;
     :appliedFor :role_业务跟单 ;
     :yearsExperience 10 ;
-    :educationRank 2 ;
+    :educationRank 3 ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
@@ -2272,6 +2744,7 @@
     :yearsExperience 4 ;
     :missingData :UnknownEducation ;
     :hasSkill :skill_AutoCAD ;
+    :hasSkill :skill_数据分析 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 6 ;
@@ -2281,7 +2754,8 @@
 :cand_业务跟单_东莞_6_10K_张___10年以上 a :Candidate ;
     :appliedFor :role_业务跟单 ;
     :yearsExperience 10 ;
-    :educationRank 3 ;
+    :missingData :UnknownEducation ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_报关 ;
     :hasSkill :skill_英语 ;
@@ -2299,6 +2773,7 @@
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_报关 ;
     :hasSkill :skill_英语 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 6 ;
     :salaryMaxK 10 ;
@@ -2313,8 +2788,10 @@
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
     :hasSkill :skill_单证 ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_报关 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 6 ;
@@ -2337,7 +2814,10 @@
     :appliedFor :role_业务跟单 ;
     :missingData :UnknownYears ;
     :educationRank 6 ;
+    :hasSkill :skill_8D报告 ;
     :hasSkill :skill_Excel ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_数据分析 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_财务 ;
     :hasSkill :skill_跟单 ;
@@ -2348,11 +2828,13 @@
 :cand_业务跟单_东莞_6_10K_杨___8年 a :Candidate ;
     :appliedFor :role_业务跟单 ;
     :yearsExperience 8 ;
-    :educationRank 2 ;
+    :educationRank 3 ;
     :hasSkill :skill_ERP ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_财务 ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 6 ;
@@ -2366,6 +2848,7 @@
     :hasSkill :skill_ERP ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_SAP ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_财务 ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 6 ;
@@ -2378,6 +2861,8 @@
     :missingData :UnknownEducation ;
     :hasSkill :skill_ERP ;
     :hasSkill :skill_外贸业务 ;
+    :hasSkill :skill_数据分析 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 6 ;
@@ -2390,6 +2875,8 @@
     :educationRank 4 ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_数据分析 ;
     :hasSkill :skill_英语 ;
     :salaryMinK 6 ;
     :salaryMaxK 10 ;
@@ -2423,6 +2910,7 @@
     :yearsExperience 10 ;
     :educationRank 3 ;
     :hasSkill :skill_ERP ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_财务 ;
     :salaryMinK 6 ;
     :salaryMaxK 10 ;
@@ -2433,6 +2921,7 @@
     :yearsExperience 10 ;
     :educationRank 2 ;
     :hasSkill :skill_报关 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 6 ;
     :salaryMaxK 10 ;
@@ -2444,6 +2933,8 @@
     :educationRank 3 ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_Illustrator ;
+    :hasSkill :skill_数据分析 ;
+    :hasSkill :skill_社保操作 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
     :hasSkill :skill_财务 ;
@@ -2500,7 +2991,9 @@
     :appliedFor :role_业务跟单 ;
     :yearsExperience 2 ;
     :missingData :UnknownEducation ;
+    :hasSkill :skill_8D报告 ;
     :hasSkill :skill_Excel ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_薪酬绩效 ;
     :salaryMinK 6 ;
@@ -2522,11 +3015,14 @@
     :yearsExperience 1 ;
     :educationRank 4 ;
     :hasSkill :skill_Excel ;
+    :hasSkill :skill_SAP ;
     :hasSkill :skill_单证 ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_报关 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_英语 ;
-    :hasSkill :skill_财务 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 6 ;
     :salaryMaxK 10 ;
@@ -2536,6 +3032,7 @@
     :appliedFor :role_业务跟单 ;
     :yearsExperience 10 ;
     :educationRank 3 ;
+    :hasSkill :skill_Excel ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 6 ;
     :salaryMaxK 10 ;
@@ -2545,6 +3042,8 @@
     :appliedFor :role_业务跟单 ;
     :yearsExperience 2 ;
     :educationRank 3 ;
+    :hasSkill :skill_8D报告 ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_财务 ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 6 ;
@@ -2571,6 +3070,7 @@
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
     :hasSkill :skill_外贸业务 ;
+    :hasSkill :skill_数据分析 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 6 ;
@@ -2586,6 +3086,7 @@
     :hasSkill :skill_报关 ;
     :hasSkill :skill_招聘 ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_财务 ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 6 ;
@@ -2609,6 +3110,7 @@
     :educationRank 3 ;
     :hasSkill :skill_ERP ;
     :hasSkill :skill_Excel ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_英语 ;
     :salaryMinK 6 ;
     :salaryMaxK 10 ;
@@ -2621,6 +3123,7 @@
     :hasSkill :skill_ERP ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_英语 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_财务 ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 6 ;
@@ -2630,7 +3133,9 @@
 :cand_业务跟单_东莞_6_10K_陈___9年 a :Candidate ;
     :appliedFor :role_业务跟单 ;
     :yearsExperience 9 ;
-    :educationRank 5 ;
+    :missingData :UnknownEducation ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_培训课程开发 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_行政 ;
     :hasSkill :skill_财务 ;
@@ -2642,7 +3147,7 @@
 :cand_业务跟单_东莞_6_10K_马___4年 a :Candidate ;
     :appliedFor :role_业务跟单 ;
     :yearsExperience 4 ;
-    :missingData :UnknownEducation ;
+    :educationRank 4 ;
     :hasSkill :skill_ERP ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_财务 ;
@@ -2653,7 +3158,7 @@
 :cand_业务跟单_东莞_6_10K_黄___3年 a :Candidate ;
     :appliedFor :role_业务跟单 ;
     :yearsExperience 3 ;
-    :educationRank 3 ;
+    :missingData :UnknownEducation ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_招聘 ;
     :hasSkill :skill_行政 ;
@@ -2668,6 +3173,8 @@
     :yearsExperience 5 ;
     :educationRank 4 ;
     :hasSkill :skill_ERP ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_财务 ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 6 ;
@@ -2678,10 +3185,10 @@
     :appliedFor :role_业务跟单 ;
     :yearsExperience 6 ;
     :educationRank 4 ;
-    :hasSkill :skill_Excel ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
     :hasSkill :skill_报关 ;
+    :hasSkill :skill_数据分析 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_财务 ;
     :hasSkill :skill_跟单 ;
@@ -2701,7 +3208,7 @@
 :cand_业务跟单_东莞_6_8K_林___10年以上 a :Candidate ;
     :appliedFor :role_业务跟单 ;
     :yearsExperience 10 ;
-    :educationRank 3 ;
+    :missingData :UnknownEducation ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_外贸业务 ;
@@ -2714,7 +3221,6 @@
     :appliedFor :role_业务跟单 ;
     :yearsExperience 9 ;
     :missingData :UnknownEducation ;
-    :hasSkill :skill_行政 ;
     :hasSkill :skill_财务 ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 6 ;
@@ -2726,8 +3232,6 @@
     :yearsExperience 4 ;
     :educationRank 2 ;
     :hasSkill :skill_Excel ;
-    :hasSkill :skill_PowerPoint ;
-    :hasSkill :skill_Word ;
     :hasSkill :skill_行政 ;
     :hasSkill :skill_财务 ;
     :salaryMinK 6 ;
@@ -2737,7 +3241,7 @@
 :cand_业务跟单_东莞_6_8K_胡___6年 a :Candidate ;
     :appliedFor :role_业务跟单 ;
     :yearsExperience 6 ;
-    :missingData :UnknownEducation ;
+    :educationRank 4 ;
     :hasSkill :skill_英语 ;
     :salaryMinK 6 ;
     :salaryMaxK 8 ;
@@ -2746,8 +3250,9 @@
 :cand_业务跟单_东莞_6_8K_蒙___10年以上 a :Candidate ;
     :appliedFor :role_业务跟单 ;
     :yearsExperience 10 ;
-    :educationRank 3 ;
+    :missingData :UnknownEducation ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_财务 ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 6 ;
     :salaryMaxK 8 ;
@@ -2757,6 +3262,8 @@
     :appliedFor :role_业务跟单 ;
     :yearsExperience 10 ;
     :missingData :UnknownEducation ;
+    :hasSkill :skill_CPK ;
+    :hasSkill :skill_Illustrator ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 5 ;
     :salaryMaxK 7 ;
@@ -2765,8 +3272,7 @@
 :cand_日语业务跟单_东莞_5_7K_S___10年以上 a :Candidate ;
     :appliedFor :role_业务跟单 ;
     :yearsExperience 10 ;
-    :educationRank 3 ;
-    :hasSkill :skill_Illustrator ;
+    :missingData :UnknownEducation ;
     :hasSkill :skill_跟单 ;
     :salaryMinK 5 ;
     :salaryMaxK 7 ;
@@ -2810,7 +3316,10 @@
 :cand_日语业务跟单_东莞_5_7K_刘___5年 a :Candidate ;
     :appliedFor :role_业务跟单 ;
     :yearsExperience 5 ;
-    :educationRank 4 ;
+    :educationRank 2 ;
+    :hasSkill :skill_8D报告 ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_培训课程开发 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_报关 ;
     :hasSkill :skill_跟单 ;
@@ -2824,6 +3333,7 @@
     :missingData :UnknownEducation ;
     :hasSkill :skill_ERP ;
     :hasSkill :skill_Excel ;
+    :hasSkill :skill_Word ;
     :hasSkill :skill_单证 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_英语 ;
@@ -2837,6 +3347,7 @@
     :missingData :UnknownEducation ;
     :hasSkill :skill_ERP ;
     :hasSkill :skill_Excel ;
+    :hasSkill :skill_Word ;
     :hasSkill :skill_单证 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_英语 ;
@@ -2848,7 +3359,8 @@
 :cand_日语业务跟单_东莞_5_7K_吴___26年应届生 a :Candidate ;
     :appliedFor :role_业务跟单 ;
     :missingData :UnknownYears ;
-    :educationRank 4 ;
+    :missingData :UnknownEducation ;
+    :hasSkill :skill_数据分析 ;
     :hasSkill :skill_英语 ;
     :salaryMinK 5 ;
     :salaryMaxK 7 ;
@@ -2903,6 +3415,7 @@
     :hasSkill :skill_Excel ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_英语 ;
     :salaryMinK 5 ;
     :salaryMaxK 7 ;
@@ -2933,10 +3446,10 @@
 :cand_日语业务跟单_东莞_5_7K_黄___26年应届生 a :Candidate ;
     :appliedFor :role_业务跟单 ;
     :missingData :UnknownYears ;
-    :educationRank 2 ;
+    :educationRank 4 ;
     :hasSkill :skill_Excel ;
-    :hasSkill :skill_Illustrator ;
     :hasSkill :skill_PowerPoint ;
+    :hasSkill :skill_培训课程开发 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_行政 ;
     :hasSkill :skill_跟单 ;
@@ -2947,8 +3460,12 @@
 :cand_何___25岁_业务跟单_智通简历_编号 a :Candidate ;
     :appliedFor :role_业务跟单 ;
     :missingData :UnknownYears ;
-    :missingData :UnknownEducation ;
+    :educationRank 3 ;
+    :hasSkill :skill_6S ;
+    :hasSkill :skill_品质问题分析 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_跟单 ;
     :age 25 ;
     :sourceFile "07、业务课侯选人简历/业务跟单/何__-25岁-业务跟单-智通简历-编号(______).pdf" .
@@ -2957,9 +3474,11 @@
     :appliedFor :role_业务跟单 ;
     :missingData :UnknownYears ;
     :educationRank 4 ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_招聘 ;
     :hasSkill :skill_薪酬绩效 ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_财务 ;
     :hasSkill :skill_跟单 ;
     :age 28 ;
@@ -2968,7 +3487,7 @@
 :cand_冯___25岁_业务跟单_智通简历_编号 a :Candidate ;
     :appliedFor :role_业务跟单 ;
     :missingData :UnknownYears ;
-    :missingData :UnknownEducation ;
+    :educationRank 4 ;
     :hasSkill :skill_单证 ;
     :hasSkill :skill_报关 ;
     :hasSkill :skill_跟单 ;
@@ -2981,6 +3500,7 @@
     :educationRank 3 ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_数据分析 ;
     :hasSkill :skill_财务 ;
     :hasSkill :skill_跟单 ;
     :age 25 ;
@@ -2989,7 +3509,7 @@
 :cand_吴___30岁_英文业务跟单_智通简历_编号 a :Candidate ;
     :appliedFor :role_业务跟单 ;
     :missingData :UnknownYears ;
-    :educationRank 4 ;
+    :missingData :UnknownEducation ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_Photoshop ;
     :hasSkill :skill_Word ;
@@ -3004,12 +3524,14 @@
 :cand_宋___27岁_业务跟单_智通简历_编号 a :Candidate ;
     :appliedFor :role_业务跟单 ;
     :missingData :UnknownYears ;
-    :missingData :UnknownEducation ;
+    :educationRank 4 ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_PowerPoint ;
     :hasSkill :skill_Word ;
     :hasSkill :skill_招聘 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_财务 ;
     :hasSkill :skill_跟单 ;
     :age 27 ;
@@ -3019,6 +3541,7 @@
     :appliedFor :role_业务跟单 ;
     :missingData :UnknownYears ;
     :educationRank 4 ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_跟单 ;
@@ -3041,9 +3564,14 @@
     :appliedFor :role_业务跟单 ;
     :missingData :UnknownYears ;
     :educationRank 4 ;
+    :hasSkill :skill_6S ;
     :hasSkill :skill_ISO9001 ;
+    :hasSkill :skill_体系管理 ;
+    :hasSkill :skill_培训课程开发 ;
+    :hasSkill :skill_系统规划 ;
     :hasSkill :skill_英语 ;
     :hasSkill :skill_行政 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_跟单 ;
     :age 26 ;
     :sourceFile "07、业务课侯选人简历/业务跟单/田__-26岁-业务跟单-智通简历-编号(______).pdf" .
@@ -3054,6 +3582,7 @@
     :educationRank 3 ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_Photoshop ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_报关 ;
     :hasSkill :skill_英语 ;
@@ -3073,6 +3602,7 @@
     :appliedFor :role_业务跟单 ;
     :missingData :UnknownYears ;
     :educationRank 3 ;
+    :hasSkill :skill_数据分析 ;
     :hasSkill :skill_财务 ;
     :hasSkill :skill_跟单 ;
     :age 27 ;
@@ -3093,6 +3623,7 @@
     :educationRank 3 ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_单证 ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_外贸业务 ;
     :hasSkill :skill_报关 ;
     :hasSkill :skill_英语 ;
@@ -3107,7 +3638,10 @@
     :educationRank 4 ;
     :hasSkill :skill_Excel ;
     :hasSkill :skill_Word ;
+    :hasSkill :skill_品质问题分析 ;
     :hasSkill :skill_报关 ;
+    :hasSkill :skill_线束行业知识 ;
+    :hasSkill :skill_订单交期风险评估 ;
     :hasSkill :skill_财务 ;
     :hasSkill :skill_跟单 ;
     :age 32 ;
@@ -3126,32 +3660,57 @@
 
 # ── skills: individuals, each typed into the category the TBox reasons over
 :skill_5S a :OperationsSkill, :SkillTag ; rdfs:label "5S" .
+:skill_6S a :QualityMethod, :SkillTag ; rdfs:label "6S" .
+:skill_8D报告 a :QualityMethod, :SkillTag ; rdfs:label "8D报告" .
 :skill_AutoCAD a :CAD, :SkillTag ; rdfs:label "AutoCAD" .
 :skill_CATIA a :CAD, :SkillTag ; rdfs:label "CATIA" .
+:skill_CPK a :QualityMethod, :SkillTag ; rdfs:label "CPK" .
 :skill_CorelDRAW a :DesignSoftware, :SkillTag ; rdfs:label "CorelDRAW" .
 :skill_ERP a :BusinessSystem, :SkillTag ; rdfs:label "ERP" .
 :skill_Excel a :SpreadsheetSoftware, :SkillTag ; rdfs:label "Excel" .
+:skill_FMEA a :QualityMethod, :SkillTag ; rdfs:label "FMEA" .
 :skill_ISO_TS16949 a :QualitySystem, :SkillTag ; rdfs:label "ISO/TS16949" .
 :skill_ISO9001 a :QualitySystem, :SkillTag ; rdfs:label "ISO9001" .
 :skill_Illustrator a :DesignSoftware, :SkillTag ; rdfs:label "Illustrator" .
 :skill_Photoshop a :DesignSoftware, :SkillTag ; rdfs:label "Photoshop" .
 :skill_PowerPoint a :OfficeSoftware, :SkillTag ; rdfs:label "PowerPoint" .
 :skill_ProE_Creo a :CAD, :SkillTag ; rdfs:label "ProE/Creo" .
+:skill_QC七大手法 a :QualityMethod, :SkillTag ; rdfs:label "QC七大手法" .
 :skill_Rhino a :CAD, :SkillTag ; rdfs:label "Rhino" .
 :skill_SAP a :BusinessSystem, :SkillTag ; rdfs:label "SAP" .
+:skill_SPC a :QualityMethod, :SkillTag ; rdfs:label "SPC" .
 :skill_SolidWorks a :CAD, :SkillTag ; rdfs:label "SolidWorks" .
 :skill_UG_NX a :CAD, :SkillTag ; rdfs:label "UG/NX" .
 :skill_Word a :OfficeSoftware, :SkillTag ; rdfs:label "Word" .
+:skill_企业文化建设 a :GeneralCapability, :SkillTag ; rdfs:label "企业文化建设" .
+:skill_体系管理 a :GeneralCapability, :SkillTag ; rdfs:label "体系管理" .
+:skill_切片 a :HarnessCraft, :SkillTag ; rdfs:label "切片" .
 :skill_劳动法 a :LaborLawKnowledge, :SkillTag ; rdfs:label "劳动法" .
 :skill_单证 a :CustomsSkill, :SkillTag ; rdfs:label "单证" .
+:skill_品质问题分析 a :QualityMethod, :SkillTag ; rdfs:label "品质问题分析" .
+:skill_培训课程开发 a :GeneralCapability, :SkillTag ; rdfs:label "培训课程开发" .
 :skill_外贸业务 a :TradeSkill, :SkillTag ; rdfs:label "外贸业务" .
+:skill_客户验厂 a :QualityMethod, :SkillTag ; rdfs:label "客户验厂" .
 :skill_报关 a :CustomsSkill, :SkillTag ; rdfs:label "报关" .
 :skill_招聘 a :RecruitingSkill, :SkillTag ; rdfs:label "招聘" .
+:skill_数据分析 a :GeneralCapability, :SkillTag ; rdfs:label "数据分析" .
+:skill_注塑机 a :WireEquipment, :SkillTag ; rdfs:label "注塑机" .
+:skill_点胶机 a :WireEquipment, :SkillTag ; rdfs:label "点胶机" .
+:skill_社保操作 a :HRAdmin, :SkillTag ; rdfs:label "社保操作" .
+:skill_端子 a :HarnessCraft, :SkillTag ; rdfs:label "端子" .
+:skill_端子机 a :WireEquipment, :SkillTag ; rdfs:label "端子机" .
 :skill_精益生产 a :OperationsSkill, :SkillTag ; rdfs:label "精益生产" .
+:skill_系统规划 a :GeneralCapability, :SkillTag ; rdfs:label "系统规划" .
+:skill_线束行业知识 a :HarnessCraft, :SkillTag ; rdfs:label "线束行业知识" .
+:skill_自动机 a :WireEquipment, :SkillTag ; rdfs:label "自动机" .
 :skill_英语 a :LanguageSkill, :SkillTag ; rdfs:label "英语" .
 :skill_薪酬绩效 a :CompensationSkill, :SkillTag ; rdfs:label "薪酬绩效" .
 :skill_行政 a :AdminSkill, :SkillTag ; rdfs:label "行政" .
+:skill_裁线机 a :WireEquipment, :SkillTag ; rdfs:label "裁线机" .
+:skill_订单交期风险评估 a :GeneralCapability, :SkillTag ; rdfs:label "订单交期风险评估" .
+:skill_识图 a :HarnessCraft, :SkillTag ; rdfs:label "识图" .
 :skill_财务 a :FinanceSkill, :SkillTag ; rdfs:label "财务" .
+:skill_贸易安全合规 a :Compliance, :SkillTag ; rdfs:label "贸易安全合规" .
 :skill_跟单 a :OrderTracking, :SkillTag ; rdfs:label "跟单" .
 
 # ── roles and what the client's job description states for them
