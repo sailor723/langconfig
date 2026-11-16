@@ -1,0 +1,21 @@
+{
+ "_doc": "概念教程用的最小本体：从空文件一步步搭到会推理。没有数据库、没有指标——这一课教的是本体怎么写、推理机怎么判，不是数据怎么查。",
+ "ns": "http://example.org/talent#",
+ "ontology_dir": "ontology",
+ "title": "CV ↔ JD 匹配 · 搭建教程",
+ "profile": "talent_steps",
+ "features": {
+  "tutorial_style": "authored"
+ },
+ "ui": {
+  "language": "en"
+ },
+ "dsn": {
+  "host": "${ONTOLOGY_DB_HOST:-127.0.0.1}",
+  "port": "${ONTOLOGY_DB_PORT:-5432}",
+  "dbname": "talent_db",
+  "user": "${ONTOLOGY_DB_USER:-langconfig}",
+  "password": "${ONTOLOGY_DB_PASSWORD}"
+ },
+ "_dsn_note": "这一课没有指标也没有指标表，但本体页面（graph/design）要求一个可解析的 DSN 才会生成 —— 缺 dbname 时它直接 404。指向 talent_db 只是为了让页面能生成；这一课不查它。"
+}

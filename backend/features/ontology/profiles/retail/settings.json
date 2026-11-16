@@ -4,9 +4,9 @@
   "overlay": "metrics_ext.ttl",
   "dsn": {
     "host": "${ONTOLOGY_DB_HOST:-127.0.0.1}",
-    "port": "${ONTOLOGY_DB_PORT:-15432}",
+    "port": "${ONTOLOGY_DB_PORT:-5432}",
     "dbname": "retail_db",
-    "user": "${ONTOLOGY_DB_USER:-postgres}",
+    "user": "${ONTOLOGY_DB_USER:-langconfig}",
     "password": "${ONTOLOGY_DB_PASSWORD}"
   },
   "title": "Retail ontology",

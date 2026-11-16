@@ -7,7 +7,7 @@
     "host": "${ONTOLOGY_DB_HOST:-127.0.0.1}",
     "port": "${ONTOLOGY_DB_PORT:-5432}",
     "dbname": "eff_ops",
-    "user": "${ONTOLOGY_DB_USER:-weiping}",
+    "user": "${ONTOLOGY_DB_USER:-langconfig}",
     "password": "${EFF_OPS_V1_DB_PASSWORD}"
   },
   "guard": {
