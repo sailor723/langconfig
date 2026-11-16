@@ -349,7 +349,13 @@ def main() -> int:
                 continue
             fit_rows.append((row[0], cls_local, jd_role) + row[3:11])
     # rank inside each role: fit desc, then years desc, then id — a stated tie-break, not insertion order
-    fit_rows.sort(key=lambda r: (r[1], -float(r[10]), -(r[7] or 0), r[0]))
+    #
+    # ⚠ 用 r[5]（years_experience），**不是** r[7]（years_margin）。
+    # `fit.py::order_key` 的文档把平手规则写成 "more years first"；这里曾写成 years_margin，
+    # 后果：年限未知的人 years_margin 为 None → 0，与"刚好够格"同分，
+    # 于是**排在年限=1 的人前面**——把"读不到"当成了"经验正好"。
+    # 实测（talent_v1, 2026-11-16）：731 行里有 30 行的 rank 因此与门禁的推导不符。
+    fit_rows.sort(key=lambda r: (r[1], -float(r[10]), -(r[5] or 0), r[0]))
     ranked, seen = [], {}
     for row in fit_rows:
         seen[row[1]] = seen.get(row[1], 0) + 1

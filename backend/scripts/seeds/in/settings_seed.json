@@ -250,6 +250,14 @@
         "note": "registered for agent 379",
         "profile": "meeting_v1/meeting_v1_settings.json",
         "url": ""
+      },
+      {
+        "enabled": true,
+        "key": "talent_v1",
+        "label": "Talent · 277 CVs × 10 JDs",
+        "note": "277 份扫描简历 × 10 份职务说明书；决定 C：公理判必要条件，闸门判够不够",
+        "profile": "talent_v1/talent_v1_settings.json",
+        "url": ""
       }
     ],
     "python": "",

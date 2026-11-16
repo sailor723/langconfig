@@ -295,3 +295,7 @@ backend/skills/.zh-staging/
 
 # Personal study material (5-day vocabulary training sheets + generated PDFs)
 learning/5days-vocab-training/
+
+# ── talent 工作的本地快照（apply 前的数据库备份，体积大，不进库）──
+# 决定与实测写在 work/talent/*.md（那些要进库）；只有 *.dump 是本机备份。
+work/**/*.dump
