@@ -57,7 +57,34 @@ class DsnError(Exception):
     """A declared DSN names a variable this deployment does not define."""
 
 
-def _expand(value):
+#: Which platform variable backs which DSN field, used only when the profile's own `${VAR}` is unset.
+#:
+#: Why this exists. The gate (`features/ontology/gates/check_abox_sync.py::_dsn_from_profile`) has
+#: always resolved in the order **profile variable → platform variable → declared default**, so an
+#: ontology whose database simply IS the platform's Postgres worked with no configuration. The compiler
+#: did not: it went straight from the profile variable to the declared default. Measured 2026-11-16 on
+#: talent_v1: `check_abox` 54/0 and `check_abox_sync` 14/0 were **green** while
+#: `GET /dashboard/panels` answered 503, because the gate connected to 5433 (POSTGRES_PORT) and the
+#: compiler to 5432 (the `${ONTOLOGY_DB_PORT:-5432}` default). One declaration, two answers — which is
+#: the same failure this module's docstring promises cannot happen ("the ONE place that turns a declared
+#: DSN into a connection, so the substitution rule cannot differ between the app, the gates and the
+#: workbench"). This table is what makes that promise true.
+_PLATFORM = {
+    "host": ("PGHOST", "POSTGRES_HOST"),
+    "port": ("PGPORT", "POSTGRES_PORT"),
+    "user": ("PGUSER", "POSTGRES_USER"),
+    "password": ("PGPASSWORD", "POSTGRES_PASSWORD"),
+}
+
+
+def _platform_value(field: str | None) -> str:
+    for var in _PLATFORM.get(field or "", ()):
+        if os.environ.get(var):
+            return os.environ[var]
+    return ""
+
+
+def _expand(value, field: str | None = None):
     if not isinstance(value, str):
         return value
 
@@ -66,6 +93,12 @@ def _expand(value):
         default = match.group(2)
         if name in os.environ:
             return os.environ[name]
+        # the profile's own variable is unset here — prefer the platform's credentials over the
+        # declared default, because a baked default is a laptop's guess while POSTGRES_* is what
+        # this deployment actually runs.
+        platform = _platform_value(field)
+        if platform:
+            return platform
         if default is not None:
             # `${VAR:-127.0.0.1}`: the profile states a default that works on a laptop, and a
             # deployment overrides it. A declaration that only works in one environment is how
@@ -78,9 +111,13 @@ def _expand(value):
 
 
 def resolved(settings: dict) -> dict:
-    """The connection arguments for `psycopg2.connect(**…)`: expanded, with a password key."""
+    """The connection arguments for `psycopg2.connect(**…)`: expanded, with a password key.
+
+    Expansion is **field-aware** so the platform fallback can apply: `dsn.port` falls back to
+    `PGPORT`/`POSTGRES_PORT`, `dsn.user` to `PGUSER`/`POSTGRES_USER`, and so on.
+    """
     _load_deployment_env()
     raw = dict((settings or {}).get("dsn") or {})
-    out = {k: _expand(v) for k, v in raw.items()}
+    out = {k: _expand(v, k) for k, v in raw.items()}
     out.setdefault("password", "")
     return out
