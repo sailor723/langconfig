@@ -1,0 +1,469 @@
+# score_models.yaml —— 分数的目录(唯一依据)
+#
+# 为什么要有这个文件:现在代码里只有一个叫 `score` 的数。它同时被当成
+#   ① OWL 推理的必要条件判定 ② 闸门过没过 ③ 排序依据 ④ 给 HR 看的"匹配度"
+# 用。这四件事的分母不一样、可比范围不一样、错法也不一样。把其中一个叫
+# "the score",其余三个就会被悄悄当成它 —— 这是这套系统反复修的同一类 bug。
+#
+# 所以:每一个分数**必须有名字、必须有闸门、必须带分母**。
+#   R1 命名     —— 不写 `score`,写 `S2_coverage`。代码、视图、界面、对话里都不许出现裸 score。
+#   R2 闸门     —— 每个分数都写明"它不能拿来干什么"。没有禁令的分数等于没有定义域。
+#   R3 分母     —— 一个数离开分母不可解释。跨分母比较是错的,不是"略有偏差"。
+#
+# 实测日期 2026-11-19 · 语料 277 份简历 / 10 份 JD
+# 校验方式见文件末尾 `validation:` —— 每一项都对应一条可执行 SQL。
+
+version: 1
+scope: 东莞线束/连接器制造业 · 10 份职务说明书 × 277 份简历
+db: talent_db @ 127.0.0.1:5433 (public schema)
+measured: 2026-11-19
+
+# ══════════════════════════════════════════════════════════════════════════
+# 0 · 实测事实 —— 这些数字是下面每个分数定义的依据
+# ══════════════════════════════════════════════════════════════════════════
+facts:
+
+  - id: F1
+    claim: 10 个岗位里有 4 个的「合格名单」是完全相同的 55 个人
+    measured: |
+      v_shortlist 中 list_kind='qualified':
+        业务助理 55 / 副总助理 55 / 工程文员 55 / 管理课长 55
+      集合相等性实测:业务助理集合 == 副总助理集合 (true);工程文员集合 == 管理课长集合 (true)
+    cause: 这 4 个岗的可判定必备要求都塌成同一句「Office 三件套任取其二」
+    consequence: 现在的分数**不能区分这 4 个岗位**。任何"她更适合副总助理而不是管理课长"的说法,都没有分数支撑。
+
+  - id: F2
+    claim: 品质经理的合格名单是**空的**,而且不可能不空
+    measured: 闸门要求 英语 ∧ 5S 同时满足;skill_英语 99 人,skill_5S 5 人,交集 **0 人**
+    cause: 两条必备要求做 AND,而两条各自的持有人群不相交
+    consequence: >-
+      「0 人合格」不等于「没有合适的人」,等于「这个岗的闸门与投递池不相交」。
+      S4 排名在此岗无定义。
+
+  - id: F3
+    claim: S2 的分母在 10 个岗之间是 1 或 2
+    measured: 可判定 essential 要求 16 条,分布 专案2 跟单2 人资2 关务2 品质2 招聘2 业务助理1 副总助理1 工程文员1 管理课长1
+    consequence: 分母 2 的岗与分母 1 的岗**分数不可比**。分母 2 岗的 100 分 = 两条全覆盖;分母 1 岗的 100 分 = 一条覆盖。把两者放同一张榜,是把"考了两门"和"考了一门"当同一个分数。
+
+  - id: F4
+    claim: 95 条原子要求里,只有 16 条进了闸门(17%)
+    measured: JD 侧 95 条 → 库内 31 条(33%)→ 可判定 16 条(17%)→ 进闸门 16 条
+    consequence: 上面所有分数的天花板是 17%。任何"匹配度 92"都只是在 17% 的要求上算出来的 92。
+
+  - id: F5
+    claim: 副总助理的 16 条要求里,入库的只有 2 条,性别与年龄都没入库
+    measured: requirement 表 role='role_副总助理' 仅 req_001(Office)、req_002(工厂经验,assessable=false)
+    cause: 不是被删掉,是**从未入库**(staging 只覆盖了 D 维)
+    consequence: |
+      A 维(女性 / 25-38 岁)在 JD 原文里逐字可查,但库里没有对应行 —— 所以它对分数
+      的贡献是 0,而不是被剔除。这两者必须分开说:移除是一个动作,没入库是另一个动作。
+      恢复方式见 `scores.S2_coverage.blocked_requirements`,不是靠改分数。
+
+  - id: F6
+    claim: 年限/学历不进闸门,只进分(D10)
+    measured: |
+      fit_component 每个 candidate×role 恒为 3 行(component = skills/years/education),
+      其中 years/education 的 met 列在闸门里被忽略;gate_passed 只看 skills 行。
+    consequence: >-
+      「合格」是技能覆盖率的概念,不含年限学历。要求「3 年以上」的岗与人资专员(无年限门槛)
+      的「合格」含义不同,必须在名单上写明。
+
+  - id: F7
+    claim: 信息完备度可以把排序整体推翻
+    measured: 纯按分数排序时 top-12 里信息完整者 0/12;加入完整度作第二关键字后 11/12
+    consequence: S5 不是附属说明,是排序的第二关键字。没有 S5 的榜是错的。
+
+  - id: F8
+    claim: 分数本身几乎不提供排序信息 —— 74% 的合格者处在同岗同分的并列中
+    measured: |
+      v_shortlist(list_kind='qualified', 299 人)中,同岗同分的并列共 **222 人(74%)**,
+      涉及 8 个岗;最大并列组 6 人。
+      完备度分布:60.0 ×20 · 75.0 ×117 · 84.4 ×35 · 85.0 ×12 · 90.6 ×12 · 100.0 ×103
+    consequence: |
+      S2 的取值空间小(分母 1 或 2 + 覆盖率 ≥0.5 的阈值),导致大量同分。
+      真正的排序其实由 S5_completeness 与年限决定 —— 所以说"按匹配度排序"是不成立的,
+      实际是按(覆盖率, 完备度, 年限)排。三个键必须都说出来,否则是在用一个不存在的精确度。
+
+  - id: F9
+    claim: 现在的 60/25/15 是一个**全局**权重,而实测各族的技能条数占比在 30%–62% 之间波动
+    measured: 见 `weights.skeleton`(按族实测要求条数)
+    consequence: 副总助理所在的 F1 族技能条数占比约 30%,工程文员所在的 F4 族约 62%,却用同一套权重。
+      这是"想有好几种评分"的数据依据,不是审美偏好。
+
+# ══════════════════════════════════════════════════════════════════════════
+# 1 · 分数目录
+# ══════════════════════════════════════════════════════════════════════════
+#
+# 字段说明:
+#   answers       这个分数**唯一**回答的问题(换成别的问题就是别的分数)
+#   owner         谁算的 —— 分数必须有唯一的计算者,否则两处各算一套就会互相对不上
+#   kind          binary / graded / ordinal
+#   range         取值范围
+#   denominator   分母。**必填**。写 "n/a" 也必须写明为什么无分母
+#   compared_within  可比范围。超出这个范围比较 = 错误
+#   gate          它不能拿来干什么(禁令)
+#   disclose_with 发布这个分数时必须同时披露的东西
+#   status        live / partial / blocked / refused
+#
+scores:
+
+  # ────────────────────────────────────────────────────────────────────────
+  - code: S0_jd
+    name: 尺子分 —— JD 要求的可执行率
+    answers: 这份 JD 有多少条要求是机器能判的?
+    owner: scripts/talent/jd_parse.py(JD 侧);不属任何候选人
+    kind: graded
+    range: 0–100 %
+    denominator: 该 JD 的原子要求条数(全批 95)
+    compared_within: 只在 JD 之间比较。**永不进入候选人排序**
+    measured: 全批 16/95 = 17%;库内 31/95 = 33%;逐岗见 jd_requirements_all10.md 矩阵
+    gate:
+      - 不是人的分。出现在候选人榜上就是错的。
+      - S2/S3/S4 的任何一个数,离开 S0 都不能解释 —— 所以 S0 是它们的**前注**,不是它们的对手。
+    disclose_with: [S0_jd]
+    status: live
+
+  # ────────────────────────────────────────────────────────────────────────
+  - code: S1_entailed
+    name: 必要条件分 —— OWL 公理是否满足
+    answers: 在 OWL 语义下,这个人**是否具备**该岗的必要技能条件?
+    owner: HermiT(backend/features/ontology/reasoning/reasoner.py)→ candidate_match
+    kind: binary
+    range: '{0, 1}'
+    denominator: n/a —— 二值无可言分母;但**受测池**要写明(该岗 axiom 覆盖的候选人,实测每岗 ≤277)
+    compared_within: 只做"过/不过",不排序
+    measured: |
+      candidate_match 752 行 / 7 个岗(10 岗中 7 岗有公理:人资专员、工程文员、关务报关员无公理,
+      因为这 3 份 JD 未声明年限门槛,我们没造公理)
+    gate:
+      - 公理只是**必要条件**,不是充分条件。S1=1 不代表合格,只代表"没被必要条件否掉"。
+      - 不可与 S2 相加、不可加权平均 —— S1 是包含关系,S2 是覆盖率,单位不同。
+      - 两侧分歧必须披露(v_axiom_vs_gate),不许一方默默盖掉另一方。
+    disclose_with: [S1_entailed, S2_coverage, verdict]
+    measured_disagreement: |
+      v_axiom_vs_gate 实测:agree_qualified 143 / axiom_only 609 / gate_only 156 / agree_rejected 1862
+      axiom_only 609 = "会,但不够" —— 这是 S1 单用时最容易骗人的一类,必须披露。
+    status: live
+
+  # ────────────────────────────────────────────────────────────────────────
+  - code: S2_coverage
+    name: 要求覆盖率分 —— 现役的"score"
+    answers: 该岗**可判定的必备要求**,被这个人的证据覆盖了多少?
+    owner: backend/scripts/talent/shortlist.py → fit_component(component='skills')
+    kind: graded
+    range: 0–60(权重 60,见 weights.global)
+    denominator: |
+      该岗可判定的 essential 要求条数。
+      **实测 1 或 2**(全批 16 条,见 facts.F3)—— 这个范围小得不能当"匹配度"卖。
+    compared_within: |
+      **只能同岗内比较**。跨岗比较是错的(F3):分母 2 的 60 分与分母 1 的 60 分不是同一个 60。
+      跨岗只能用 S4_rank 的百分位,不能用 S2 的原始分。
+    measured: qualified 299 / near 60 / excluded 2411(v_shortlist 实测)
+    gate:
+      - 单条要求的满足阈值是覆盖率 ≥ 0.5(GATE_COVERAGE)。0.5 是拍的,不是推的 —— 披露时必须标为约定。
+      - 4 个岗的 S2 分母相同且分母集相同 → 名单相同(F1)。同分不代表同岗适配。
+    blocked_requirements: |
+      A 维(F5):「女性」「25-38 岁」在 JD 原文逐字可查,但库里没有 requirement 行,
+      所以对 S2 的贡献是 0。age 属性已有 107/277 可读,gender 属性不存在。
+      恢复路径 = 把这两条**入库并执行**,不是删掉它们、也不是调分数。
+    disclose_with: [S0_jd, S2_coverage, S5_completeness]
+    status: live
+
+  # ────────────────────────────────────────────────────────────────────────
+  - code: S3_tier
+    name: 分级加权分 —— essential 与 desirable 分开算
+    answers: 把「必须」和「优先」分开计权之后,还剩多少?
+    owner: fit.py `score_from_parts`(扩展)+ shortlist.py
+    kind: graded
+    range: 0–100
+    denominator: 该岗全部**可判定**要求(essential×1.0 + desirable×0.5)
+    compared_within: 同岗内;跨岗仍需带分母(S4)
+    measured: |
+      **今天退化**:5 条 desirable 要求全部 assessable=false,所以 S3 ≡ S2。
+      这不是设计失败,是 data 未到位 —— 但现在必须标成退化,否则会被当成"S3 算过了"。
+    gate:
+      - desirable 只进分、不进闸门。S3 高不代表合格(合格仍是 S2 的闸门说了算)。
+      - 只要 desirable 的可判定条数为 0,就不许发布 S3(发出去等于把 S2 换个名字再卖一次)。
+    disclose_with: [S3_tier]
+    disclose_note: S3 不参与合格判定;合格始终由 S2 的闸门说了算
+    status: blocked
+    blocked_on: 5 条 desirable 要求需要先具备可判定属性(major / industry / domain)
+
+  # ────────────────────────────────────────────────────────────────────────
+  - code: S4_rank
+    name: 同岗竞争力分 —— 百分位
+    answers: 在**报考同一岗**的人里,她排第几?
+    owner: fit.py `rank_rows_v2` / `order_key_v2` → v_shortlist
+    kind: ordinal
+    range: 1..n 或 0–100 百分位
+    denominator: |
+      **该岗过闸门人数**,不是 277。
+      实测:专案14 / 跟单37 / 人资8 / 关务7 / 招聘13 / 品质**0** / 其余 4 岗各 55(且为同一集合)
+    compared_within: 同岗内。**跨岗百分位不可比** —— 分母人群不同
+    measured: 见 facts.F1 / F2
+    gate:
+      - 分母 < 10 不发布百分位(命中:关务 7、人资 8、品质 0)。
+      - 分母 = 0 时 S4 无定义,必须显示"无法排名",不是显示"排名 0"。
+      - 同分并列必须露出 S5_completeness,否则并列是假的(实际是信息量不同)。
+      - 4 岗共享同一 55 人集合 → 在那 4 个岗上的 S4 差异**不代表适配差异**。
+    disclose_with: [S4_rank, denominator_n, S5_completeness]
+    status: live
+
+  # ────────────────────────────────────────────────────────────────────────
+  - code: S5_completeness
+    name: 证据完备度分 —— 分母披露
+    answers: 这个分数是建立在多少**可观测信息**上的?
+    owner: fit.py `score_from_parts` 的 completeness 返回项
+    kind: graded
+    range: 0–100(观测到的权重占比)
+    denominator: 总权重 100 = skills 60 + years 25 + education 15
+    compared_within: 全池可比(分母恒定 100)—— 这是它唯一能跨岗比的地方
+    measured: |
+      years 148/277 (53%) · education 206/277 (74%) · age 107/277 (39%,不进分)
+      → 只有 skills(259/277)基本齐全,所以 completeness 的常见取值是 60 / 85 / 100
+    gate:
+      - 未知项**不进分子也不进分母**。按 0 分算(判不及格)和按满分算(当齐全)都是错的。
+      - 完备度 <100 的进 B 名单,不与 A 名单同列排序(决策 O4)。
+      - 完备度是 S4 排序的**第二关键字**,不是备注(facts.F7)。
+    disclose_with: [S5_completeness, unknowns 列表]
+    status: live
+
+# ══════════════════════════════════════════════════════════════════════════
+# 2 · 可比性矩阵 —— 谁能跟谁比
+# ══════════════════════════════════════════════════════════════════════════
+# 一行一个"允许的比较"。任何不在此表中的比较都是错误,而不是"参考"。
+comparable:
+  - {a: S0_jd,          b: S0_jd,          axis: jd,        allowed: true,  note: "JD 之间比尺子"}
+  - {a: S1_entailed,    b: S1_entailed,    axis: candidate, within: role,   allowed: true}
+  - {a: S2_coverage,    b: S2_coverage,    axis: candidate, within: role,   allowed: true,  note: "唯一正确的 S2 用法"}
+  - {a: S2_coverage,    b: S2_coverage,    axis: candidate, within: pool,   allowed: false, because: "分母 1 vs 2(F3)"}
+  - {a: S2_coverage,    b: S1_entailed,    axis: mixed,     allowed: false, because: "包含关系 vs 覆盖率,单位不同"}
+  - {a: S2_coverage,    b: S3_tier,        axis: mixed,     allowed: false, because: "S3 未上线,今天恒等于 S2"}
+  - {a: S4_rank,        b: S4_rank,        axis: candidate, within: role,   allowed: true,  note: "分母 ≥10 才发布"}
+  - {a: S4_rank,        b: S4_rank,        axis: role,      allowed: false, because: "人群不同(且 4 岗为同一集合)"}
+  - {a: S5_completeness,b: S5_completeness,axis: candidate, within: pool,   allowed: true,  note: "分母恒为 100"}
+  - {a: S1_entailed,    b: S2_coverage,    axis: mixed,     allowed: false, because: "必须并列披露,不可合并成一个数"}
+
+# ══════════════════════════════════════════════════════════════════════════
+# 3 · 权重骨架 —— 5 个职能族 × 9 个维度
+# ══════════════════════════════════════════════════════════════════════════
+#
+# 先看现在的实况:代码里是**一套全局权重** 60/25/15(fit.WEIGHTS),
+# 等价于把 9 个维度压成 3 个:D=60, C=25, B=15,其余全 0。
+#
+weights:
+  global:                       # live,今天唯一在用的
+    D_skill: 60
+    C_experience: 25
+    B_education: 15
+    A_demographic: 0            # 未入库(facts.F5),不是"权重为零"
+    E_competency: 0             # 结构上不可判(24 条要求,可判 0)
+    F_credential: 0
+    G_compliance: 0
+    H_language: 0
+    I_physical: 0
+    note: |
+      9 个维度里只有 3 个非零,这本身就是"分数为什么不像分数"的答案:
+      0 不一定是"不重要",多数是"判不了"。这两者在界面上必须区分(a b c 三种 0)。
+
+  # 各族实测要求条数(来自 jd_requirements_all10.md 矩阵,10 份 JD × 9 维,合计 95)
+  # 顺手校验:25+28+21+10+11 = 95 ✓
+  family_counts:
+    F1_经营管理:  {roles: [副总助理, 关务报关员],     A: 3, B: 5, C: 2, D: 3,  E: 10, F: 1, G: 1, H: 0, total: 25}
+    F2_职能管理:  {roles: [人资专员, 招聘专员, 管理课长], A: 2, B: 5, C: 3, D: 13, E: 4,  F: 0, G: 1, H: 0, total: 28}
+    F3_业务:      {roles: [业务跟单, 业务助理],        A: 2, B: 4, C: 3, D: 4,  E: 7,  F: 0, G: 1, H: 0, total: 21}
+    F4_技术:      {roles: [专案工程师, 工程文员],      A: 0, B: 1, C: 2, D: 5,  E: 2,  F: 0, G: 0, H: 0, total: 10}
+    F5_品质:      {roles: [品质经理],                  A: 1, B: 2, C: 3, D: 3,  E: 1,  F: 0, G: 0, H: 1, total: 11}
+
+  # 只用**可判维度**(D/B/C)重算占比 —— 这是唯一有数据支撑的一组数
+  skeleton:
+    F1_经营管理: {D_skill: 30.0, B_education: 50.0, C_experience: 20.0}   # 3/5/2 of 10
+    F2_职能管理: {D_skill: 61.9, B_education: 23.8, C_experience: 14.3}   # 13/5/3 of 21
+    F3_业务:     {D_skill: 36.4, B_education: 36.4, C_experience: 27.3}   # 4/4/3 of 11
+    F4_技术:     {D_skill: 62.5, B_education: 12.5, C_experience: 25.0}   # 5/1/2 of 8
+    F5_品质:     {D_skill: 37.5, B_education: 25.0, C_experience: 37.5}   # 3/2/3 of 8
+    note: |
+      **这是条数占比,不是重要性权重。** 它回答"这一族的要求重点落在哪一维",
+      目前**不允许**直接进 S2 计算 —— 因为条数相等不代表分量相等(副总助理 9 条素质
+      与 1 条 Office 条数悬殊,但后者是唯一能判的)。
+      要让它进计算,需要两步:① 每族对 D 维内部再定"条内权重"规则并有闸门;
+      ② 声明 60/25/15 退休。在那之前,它只用于**解释**,不用于**打分**。
+
+  rounding:
+    decimals: 1
+    sum_tolerance: 0.5
+    why: |
+      分母是 11、8、10 这类数,一位小数必定除不尽(F3_业务 4/11 与 3/11 相加得 100.1)。
+      写 100.0 是凑数,不如声明容差 —— 校验规则是每族合计 ∈ [99.5, 100.5],
+      而不是"看起来等于 100"。
+
+  spread_check: |
+    实测 F1 技能占比 30% vs F4 62.5% —— 差一倍。而代码用同一套 60/25/15。
+    这就是"想要好几种评分"的可量化理由(facts.F9)。
+
+# ══════════════════════════════════════════════════════════════════════════
+# 4 · 明确拒绝的分数 —— 写下来,免得以后被重新发明
+# ══════════════════════════════════════════════════════════════════════════
+refused:
+  - code: S_culture
+    name: 文化匹配 / 价值观契合
+    why: 24 条 E 维素质要求**全部**只能从简历文字判定,而简历是自我陈述。LLM 打分在此不可复现、不可申诉。
+    alternative: 让 S2 报出"素质要求 9 条未判",把不确定性交回给人 —— 而不是用模型猜一个数。
+  - code: S_potential
+    name: 成长潜力 / 学习能力
+    why: 语料里没有任何可验证的代理变量(无绩效、无晋升史、无项目结果)。
+  - code: S_llm_fit
+    name: 让 LLM 直接给一个匹配度
+    why: |
+      一旦排序由 LLM 产出,"为什么她排第 7"就无法回答,而这正是这套系统要回答的问题。
+      LLM 只能站在 S0–S5 之上做**解释**,不能进入它们的计算路径(见 shortlist.py 文件头)。
+  - code: S_salary
+    name: 薪酬匹配
+    why: |
+      candidate 表有 salary_min_k / salary_max_k,JD 侧没有对应薪资区间 —— 单边数据不构成分数。
+      等 JD 侧有薪资范围再开。
+
+# ══════════════════════════════════════════════════════════════════════════
+# 5 · 门禁 —— 每个分数一条可执行检查
+# ══════════════════════════════════════════════════════════════════════════
+#
+# 两种形式,不许含糊:
+#   kind: sql     —— `check` 是可执行 SQL,由 scripts/talent/check_score_models.py 实跑
+#                    expect: rows    命中即"文档描述的现状成立"
+#                    expect: no_rows 命中即失败(有的话就是脏数据)
+#   kind: manual  —— 无法用 SQL 判定(命名、界面契约),写明 `how` 由谁查
+#
+# 注意:这些门禁大多是**状态断言**,不是通过/失败。它们把"今天是这样"钉住,
+# 一旦不命中了,说明现状变了、这份文档过期了 —— 那才是要处理的事。
+#
+validation:
+
+  - code: S-G1
+    kind: manual
+    rule: 每个分数都有名字,库里不许有裸 score
+    how: |
+      grep -rn "score" backend/scripts/talent/*.py | grep -v "s[0-9]_"   -- 人工核对
+      现有 `v_shortlist.score` 须改名 `s2_coverage`(落地见 open.O6)
+    applies_to: [S2_coverage, S3_tier, S4_rank]
+    status: pending
+
+  - code: S-G2
+    kind: manual
+    rule: 每个分数都写明了分母
+    how: 本文件的结构校验(check_score_models.py::check_structure)已自动执行 —— 缺 denominator 直接退出 1
+    status: enforced
+
+  - code: S-G3
+    kind: manual
+    rule: 跨分母比较是错误,不是近似
+    how: 任何跨岗榜必须用 S4_rank;用 S2 原始分跨岗排序即失败。界面审查项,暂无 SQL
+    status: pending
+
+  - code: S-G4
+    kind: sql
+    expect: rows
+    rule: S1 与 S2 必须并列披露,禁止合并
+    check: |
+      SELECT count(*) FILTER (WHERE verdict = 'axiom_only') AS axiom_only,
+             count(*) FILTER (WHERE verdict = 'agree_qualified') AS agree_qualified
+      FROM v_axiom_vs_gate;
+    means: |
+      这一行本身就是披露:609 个"会,但不够"与 143 个"两边都说合格"必须同时看得见。
+      任何只展示 143 的界面,隐藏了 4 倍于它的另一类人。
+    measured: axiom_only 609 / agree_qualified 143
+
+  - code: S-G5
+    kind: sql
+    expect: rows
+    rule: 分母 < 10 不发布百分位
+    check: |
+      -- 必须以 role 表为脊柱:写成 GROUP BY ... HAVING count(*)<10 会**漏掉 0 人的岗**
+      -- (没有行就没有分组,品质经理会凭空消失)。这条 bug 是写本文件时实测撞到的。
+      SELECT r.role, coalesce(c.n, 0) AS qualified
+      FROM role r
+      LEFT JOIN (SELECT role, count(*) n FROM v_shortlist
+                 WHERE list_kind = 'qualified' GROUP BY 1) c ON c.role = r.role
+      WHERE coalesce(c.n, 0) < 10 ORDER BY 2;
+    means: 命中的 3 个岗不得显示百分位;它们只能显示"合格 n 人,不足以排名"
+    measured: 品质经理 0 / 关务报关员 7 / 人资专员 8
+
+  - code: S-G6
+    kind: sql
+    expect: rows
+    rule: 退化的分数不许发布
+    check: |
+      SELECT count(*) AS assessable_desirable FROM requirement
+      WHERE assessable AND tier = 'desirable' HAVING count(*) = 0;
+    means: 命中(即计数为 0)时 S3_tier 必须保持 blocked;一旦 desirable 可判定,S3 才能解除 blocked
+    measured: 0 → S3_tier.status = blocked
+
+  - code: S-G7
+    kind: sql
+    expect: no_rows
+    rule: 视图与定义同源(分数只有一个计算者)
+    check: |
+      SELECT v.candidate, v.role, v.score AS view_score, f.s AS component_sum
+      FROM v_shortlist v
+      JOIN (SELECT candidate, role, round(sum(contribution)::numeric, 2) s
+            FROM fit_component GROUP BY 1, 2) f USING (candidate, role)
+      WHERE v.score <> f.s;
+    means: 命中就是"两处各算一套",这是本文件要防的第一类错误
+
+  - code: S-G8
+    kind: sql
+    expect: rows
+    rule: 同分并列时必须露出完备度,否则"排名"是假的
+    check: |
+      SELECT role, score, count(*) AS tied
+      FROM v_shortlist WHERE list_kind = 'qualified'
+      GROUP BY role, score HAVING count(*) > 1
+      ORDER BY tied DESC;
+    means: |
+      每一行代表一个"并列组"。222/299 人(74%)落在并列里,最大组 6 人 ——
+      所以排序绝大部分由 S5_completeness 与年限决定,不是由分数决定(facts.F8)。
+      界面上这些行必须带出 completeness,否则顺序无法解释。
+    implementation: fit.order_key_v2 / rank_rows_v2
+    measured: 69 个并列组 / 222 人 / 最大 6 人
+
+  - code: S-G9
+    kind: sql
+    expect: rows
+    rule: 空的合格名单必须报"闸门与投递池不相交",不报"无人合格"
+    check: |
+      -- 同上:HAVING count(*)=0 永远返回空 —— 空名单是**没有行**,不是"计数为零的行"。
+      SELECT r.role FROM role r
+      LEFT JOIN (SELECT DISTINCT role FROM v_shortlist
+                 WHERE list_kind = 'qualified') q ON q.role = r.role
+      WHERE q.role IS NULL;
+    means: 命中的岗讯息文案须指向 英语∩5S = 0(闸门与投递池不相交),而非候选人质量
+    measured: role_品质经理
+
+# ══════════════════════════════════════════════════════════════════════════
+# 6 · 尚未完成的部分(按 ROI 排序,不含"分数"本身)
+# ══════════════════════════════════════════════════════════════════════════
+open:
+  - id: O1
+    what: 把 95 条要求全部入库(现 31 条),优先 D 维剩余 12 条
+    unlocks: S0_jd 33%→100%,S2 分母从 1–2 条升到 3–6 条
+  - id: O2
+    what: 副总助理 A 维两条(女性 / 25-38 岁)入库并执行
+    unlocks: facts.F5 —— 库里从 2 条变 4 条;age 已有 107/277 可判,gender 需新属性
+    note: 这两条**保留并执行**,恢复路径是补属性,不是删除要求
+  - id: O3
+    what: 加 `major` 属性
+    unlocks: 6 条要求(B 维全族最高 ROI)
+  - id: O4
+    what: 解决 F1 —— 4 个岗同一把尺子
+    options:
+      - 把各族 D 维的**具体技能**分开(副总助理要 AI,工程文员要 AutoCAD)—— 数据已在 JD 原文里
+      - 引入 weights.skeleton 的族内权重(需先解决"条数≠重要性")
+    gate: 修好之前,那 4 岗的榜必须并排列出并注明"同一闸门"
+  - id: O5
+    what: 解决 F2 —— 品质经理 0 合格
+    options:
+      - 检查闸门是否该把「英语」与「5S」做 AND(原文是两条独立要求,各自都要)
+      - 或承认投递池无品质候选人(无品保简历文件夹),报"0 投递"而非"0 合格"
+  - id: O6
+    what: 把 v_shortlist.score 改名为 s2_coverage(S-G1 的落地)
+    ripple: shortlist.py 视图、fit.py 调用方、tests/test_talent_fit.py、任何界面列
+    why: 现在库里唯一一个叫 score 的字段就是 S2,而它最容易被当成"总分"读。
