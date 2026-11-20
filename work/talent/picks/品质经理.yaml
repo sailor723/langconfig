@@ -9,34 +9,34 @@ count:
   shortlist: 169
   excluded: 101
   with_interview: 0
-  judgeable_requirements: 13
+  judgeable_requirements: 14
   total_requirements: 15
 top:
 - rank: 1
+  candidate: cand_专案工程师_东莞_12_16K_陈___5年
+  满足: 7
+  不满足: 4
+  未知: 2
+  不可判: 2
+  有访谈: false
+- rank: 2
+  candidate: cand_张___37岁_专案工程师_智通简历_编号
+  满足: 7
+  不满足: 4
+  未知: 2
+  不可判: 2
+  有访谈: false
+- rank: 3
   candidate: cand_叶___37岁_管理课课长_智通简历_编号
   满足: 7
   不满足: 3
-  未知: 2
-  不可判: 3
-  有访谈: false
-- rank: 2
-  candidate: cand_王___37岁_行政专员_智通简历_编号
-  满足: 7
-  不满足: 3
-  未知: 2
-  不可判: 3
-  有访谈: false
-- rank: 3
-  candidate: cand_专案工程师_东莞_12_16K_华___9年
-  满足: 6
-  不满足: 4
-  未知: 2
-  不可判: 3
+  未知: 3
+  不可判: 2
   有访谈: false
 - rank: 4
-  candidate: cand_专案工程师_东莞_12_16K_熊___10年以上
-  满足: 6
-  不满足: 4
-  未知: 2
-  不可判: 3
+  candidate: cand_段___研发工程主管_产品工程主管
+  满足: 7
+  不满足: 3
+  未知: 3
+  不可判: 2
   有访谈: false

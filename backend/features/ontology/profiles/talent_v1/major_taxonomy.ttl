@@ -1,0 +1,164 @@
+# 专业层级 —— 由 scripts/talent/build_major_taxonomy.py 生成,不要手改。
+# 目的:让「等工程类专业」这种说法能被推理,而不是被正则近似。
+@prefix : <https://cube.local/ontology/talent_v1#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+:Major a owl:Class .
+:MajorField a owl:Class ; owl:disjointUnionOf ( :field_医学 :field_工学 :field_教育学 :field_文学 :field_法学 :field_理学 :field_管理学 :field_经济学 :field_艺术学 ) .
+:MajorCategory a owl:Class .
+
+:field_医学 a owl:Class, :MajorField ; rdfs:label "医学" .
+:field_工学 a owl:Class, :MajorField ; rdfs:label "工学" .
+:field_教育学 a owl:Class, :MajorField ; rdfs:label "教育学" .
+:field_文学 a owl:Class, :MajorField ; rdfs:label "文学" .
+:field_法学 a owl:Class, :MajorField ; rdfs:label "法学" .
+:field_理学 a owl:Class, :MajorField ; rdfs:label "理学" .
+:field_管理学 a owl:Class, :MajorField ; rdfs:label "管理学" .
+:field_经济学 a owl:Class, :MajorField ; rdfs:label "经济学" .
+:field_艺术学 a owl:Class, :MajorField ; rdfs:label "艺术学" .
+
+:cat_中国语言文学类 a owl:Class, :MajorCategory ; rdfs:label "中国语言文学类" ; :majorField :field_文学 
+    ; rdfs:subClassOf :field_文学 .
+:cat_交通运输类 a owl:Class, :MajorCategory ; rdfs:label "交通运输类" ; :majorField :field_工学 
+    ; rdfs:subClassOf :field_工学 .
+:cat_公共管理类 a owl:Class, :MajorCategory ; rdfs:label "公共管理类" ; :majorField :field_管理学 
+    ; rdfs:subClassOf :field_管理学 .
+:cat_医学技术类 a owl:Class, :MajorCategory ; rdfs:label "医学技术类" ; :majorField :field_医学 
+    ; rdfs:subClassOf :field_医学 .
+:cat_土木建筑类 a owl:Class, :MajorCategory ; rdfs:label "土木建筑类" ; :majorField :field_工学 
+    ; rdfs:subClassOf :field_工学 .
+:cat_外国语言文学类 a owl:Class, :MajorCategory ; rdfs:label "外国语言文学类" ; :majorField :field_文学 
+    ; rdfs:subClassOf :field_文学 .
+:cat_安全科学与工程类 a owl:Class, :MajorCategory ; rdfs:label "安全科学与工程类" ; :majorField :field_工学 
+    ; rdfs:subClassOf :field_工学 .
+:cat_工商管理类 a owl:Class, :MajorCategory ; rdfs:label "工商管理类" ; :majorField :field_管理学 
+    ; rdfs:subClassOf :field_管理学 .
+:cat_心理学类 a owl:Class, :MajorCategory ; rdfs:label "心理学类" ; :majorField :field_理学 
+    ; rdfs:subClassOf :field_理学 .
+:cat_教育学类 a owl:Class, :MajorCategory ; rdfs:label "教育学类" ; :majorField :field_教育学 
+    ; rdfs:subClassOf :field_教育学 .
+:cat_旅游管理类 a owl:Class, :MajorCategory ; rdfs:label "旅游管理类" ; :majorField :field_管理学 
+    ; rdfs:subClassOf :field_管理学 .
+:cat_机械类 a owl:Class, :MajorCategory ; rdfs:label "机械类" ; :majorField :field_工学 
+    ; rdfs:subClassOf :field_工学 .
+:cat_机电设备类 a owl:Class, :MajorCategory ; rdfs:label "机电设备类" ; :majorField :field_工学 
+    ; rdfs:subClassOf :field_工学 .
+:cat_材料类 a owl:Class, :MajorCategory ; rdfs:label "材料类" ; :majorField :field_工学 
+    ; rdfs:subClassOf :field_工学 .
+:cat_法学类 a owl:Class, :MajorCategory ; rdfs:label "法学类" ; :majorField :field_法学 
+    ; rdfs:subClassOf :field_法学 .
+:cat_物流管理与工程类 a owl:Class, :MajorCategory ; rdfs:label "物流管理与工程类" ; :majorField :field_管理学 
+    ; rdfs:subClassOf :field_管理学 .
+:cat_电子信息类 a owl:Class, :MajorCategory ; rdfs:label "电子信息类" ; :majorField :field_工学 
+    ; rdfs:subClassOf :field_工学 .
+:cat_纺织类 a owl:Class, :MajorCategory ; rdfs:label "纺织类" ; :majorField :field_工学 
+    ; rdfs:subClassOf :field_工学 .
+:cat_经济与贸易类 a owl:Class, :MajorCategory ; rdfs:label "经济与贸易类" ; :majorField :field_经济学 
+    ; rdfs:subClassOf :field_经济学 .
+:cat_自动化类 a owl:Class, :MajorCategory ; rdfs:label "自动化类" ; :majorField :field_工学 
+    ; rdfs:subClassOf :field_工学 .
+:cat_计算机类 a owl:Class, :MajorCategory ; rdfs:label "计算机类" ; :majorField :field_工学 
+    ; rdfs:subClassOf :field_工学 .
+:cat_设计学类 a owl:Class, :MajorCategory ; rdfs:label "设计学类" ; :majorField :field_艺术学 
+    ; rdfs:subClassOf :field_艺术学 .
+
+:major_Architecture a :Major ; a :cat_土木建筑类 ; rdfs:label "Architecture" .
+:major_人力资源管理 a :Major ; a :cat_工商管理类 ; rdfs:label "人力资源管理" .
+:major_企业工商管理 a :Major ; a :cat_工商管理类 ; rdfs:label "企业工商管理" .
+:major_企业管理 a :Major ; a :cat_工商管理类 ; rdfs:label "企业管理" .
+:major_企业财务管理 a :Major ; a :cat_工商管理类 ; rdfs:label "企业财务管理" .
+:major_会计 a :Major ; a :cat_工商管理类 ; rdfs:label "会计" .
+:major_会计与统计核算 a :Major ; a :cat_工商管理类 ; rdfs:label "会计与统计核算" .
+:major_会计信息管理 a :Major ; a :cat_工商管理类 ; rdfs:label "会计信息管理" .
+:major_会计学 a :Major ; a :cat_工商管理类 ; rdfs:label "会计学" .
+:major_会计电算化 a :Major ; a :cat_工商管理类 ; rdfs:label "会计电算化" .
+:major_动漫制作 a :Major ; a :cat_设计学类 ; rdfs:label "动漫制作" .
+:major_商务文秘 a :Major ; a :cat_中国语言文学类 ; rdfs:label "商务文秘" .
+:major_商务日语 a :Major ; a :cat_外国语言文学类 ; rdfs:label "商务日语" .
+:major_商务管理 a :Major ; a :cat_工商管理类 ; rdfs:label "商务管理" .
+:major_商务英语 a :Major ; a :cat_外国语言文学类 ; rdfs:label "商务英语" .
+:major_园林设计 a :Major ; a :cat_设计学类 ; rdfs:label "园林设计" .
+:major_国际经济与贸易 a :Major ; a :cat_经济与贸易类 ; rdfs:label "国际经济与贸易" .
+:major_城市轨道交通运营管理 a :Major ; a :cat_交通运输类 ; rdfs:label "城市轨道交通运营管理" .
+:major_大数据与会计 a :Major ; a :cat_工商管理类 ; rdfs:label "大数据与会计" .
+:major_安全工程 a :Major ; a :cat_安全科学与工程类 ; rdfs:label "安全工程" .
+:major_导游 a :Major ; a :cat_旅游管理类 ; rdfs:label "导游" .
+:major_小学教育 a :Major ; a :cat_教育学类 ; rdfs:label "小学教育" .
+:major_工业电气自动化 a :Major ; a :cat_自动化类 ; rdfs:label "工业电气自动化" .
+:major_工商企业管理 a :Major ; a :cat_工商管理类 ; rdfs:label "工商企业管理" .
+:major_工商管理 a :Major ; a :cat_工商管理类 ; rdfs:label "工商管理" .
+:major_工程机械运用与维护 a :Major ; a :cat_机械类 ; rdfs:label "工程机械运用与维护" .
+:major_市场营销 a :Major ; a :cat_工商管理类 ; rdfs:label "市场营销" .
+:major_应用日语 a :Major ; a :cat_外国语言文学类 ; rdfs:label "应用日语" .
+:major_应用电子 a :Major ; a :cat_电子信息类 ; rdfs:label "应用电子" .
+:major_应用电子工程技术 a :Major ; a :cat_电子信息类 ; rdfs:label "应用电子工程技术" .
+:major_应用英语 a :Major ; a :cat_外国语言文学类 ; rdfs:label "应用英语" .
+:major_应用西班牙语 a :Major ; a :cat_外国语言文学类 ; rdfs:label "应用西班牙语" .
+:major_康复治疗学 a :Major ; a :cat_医学技术类 ; rdfs:label "康复治疗学" .
+:major_建筑工程技术 a :Major ; a :cat_土木建筑类 ; rdfs:label "建筑工程技术" .
+:major_心理学专业 a :Major ; a :cat_心理学类 ; rdfs:label "心理学专业" .
+:major_数控技术 a :Major ; a :cat_机械类 ; rdfs:label "数控技术" .
+:major_文秘 a :Major ; a :cat_中国语言文学类 ; rdfs:label "文秘" .
+:major_旅游管理 a :Major ; a :cat_旅游管理类 ; rdfs:label "旅游管理" .
+:major_日语 a :Major ; a :cat_外国语言文学类 ; rdfs:label "日语" .
+:major_日语专业 a :Major ; a :cat_外国语言文学类 ; rdfs:label "日语专业" .
+:major_日语语言文学 a :Major ; a :cat_外国语言文学类 ; rdfs:label "日语语言文学" .
+:major_智能制造装备技术 a :Major ; a :cat_机械类 ; rdfs:label "智能制造装备技术" .
+:major_服装工程 a :Major ; a :cat_纺织类 ; rdfs:label "服装工程" .
+:major_服装艺术设计 a :Major ; a :cat_设计学类 ; rdfs:label "服装艺术设计" .
+:major_服装设计 a :Major ; a :cat_设计学类 ; rdfs:label "服装设计" .
+:major_服装设计与工程 a :Major ; a :cat_纺织类 ; rdfs:label "服装设计与工程" .
+:major_机械与自动化 a :Major ; a :cat_机械类 ; rdfs:label "机械与自动化" .
+:major_机械制造与自动化 a :Major ; a :cat_机械类 ; rdfs:label "机械制造与自动化" .
+:major_机械自动化 a :Major ; a :cat_机械类 ; rdfs:label "机械自动化" .
+:major_机械设计与制造 a :Major ; a :cat_机械类 ; rdfs:label "机械设计与制造" .
+:major_机电一体化 a :Major ; a :cat_机电设备类 ; rdfs:label "机电一体化" .
+:major_机电一体化技术 a :Major ; a :cat_机电设备类 ; rdfs:label "机电一体化技术" .
+:major_材料成型及控制工程 a :Major ; a :cat_材料类 ; rdfs:label "材料成型及控制工程" .
+:major_模具设计与制造 a :Major ; a :cat_设计学类 ; rdfs:label "模具设计与制造" .
+:major_水利水电工程 a :Major ; a :cat_土木建筑类 ; rdfs:label "水利水电工程" .
+:major_汉语言文学 a :Major ; a :cat_中国语言文学类 ; rdfs:label "汉语言文学" .
+:major_汽车检测与维修技术 a :Major ; a :cat_交通运输类 ; rdfs:label "汽车检测与维修技术" .
+:major_法律事务 a :Major ; a :cat_法学类 ; rdfs:label "法律事务" .
+:major_法语 a :Major ; a :cat_外国语言文学类 ; rdfs:label "法语" .
+:major_涉外文秘 a :Major ; a :cat_中国语言文学类 ; rdfs:label "涉外文秘" .
+:major_物流管理 a :Major ; a :cat_物流管理与工程类 ; rdfs:label "物流管理" .
+:major_物联网工程 a :Major ; a :cat_计算机类 ; rdfs:label "物联网工程" .
+:major_环境艺术设计 a :Major ; a :cat_设计学类 ; rdfs:label "环境艺术设计" .
+:major_环境设计 a :Major ; a :cat_设计学类 ; rdfs:label "环境设计" .
+:major_电子信息化工程 a :Major ; a :cat_电子信息类 ; rdfs:label "电子信息化工程" .
+:major_电子信息工程 a :Major ; a :cat_电子信息类 ; rdfs:label "电子信息工程" .
+:major_电子商务 a :Major ; a :cat_工商管理类 ; rdfs:label "电子商务" .
+:major_电子应用技术 a :Major ; a :cat_电子信息类 ; rdfs:label "电子应用技术" .
+:major_电子电气一体化 a :Major ; a :cat_自动化类 ; rdfs:label "电子电气一体化" .
+:major_电子电讯 a :Major ; a :cat_电子信息类 ; rdfs:label "电子电讯" .
+:major_电气工程及其自动化 a :Major ; a :cat_自动化类 ; rdfs:label "电气工程及其自动化" .
+:major_电脑文秘 a :Major ; a :cat_中国语言文学类 ; rdfs:label "电脑文秘" .
+:major_纺织工程 a :Major ; a :cat_纺织类 ; rdfs:label "纺织工程" .
+:major_经济学 a :Major ; a :cat_经济与贸易类 ; rdfs:label "经济学" .
+:major_经贸英语 a :Major ; a :cat_经济与贸易类 ; rdfs:label "经贸英语" .
+:major_英语 a :Major ; a :cat_外国语言文学类 ; rdfs:label "英语" .
+:major_英语教育 a :Major ; a :cat_外国语言文学类 ; rdfs:label "英语教育" .
+:major_虚拟现实应用技术 a :Major ; a :cat_计算机类 ; rdfs:label "虚拟现实应用技术" .
+:major_行政管理 a :Major ; a :cat_公共管理类 ; rdfs:label "行政管理" .
+:major_计算机 a :Major ; a :cat_计算机类 ; rdfs:label "计算机" .
+:major_计算机专业 a :Major ; a :cat_计算机类 ; rdfs:label "计算机专业" .
+:major_计算机及应用 a :Major ; a :cat_计算机类 ; rdfs:label "计算机及应用" .
+:major_计算机应用 a :Major ; a :cat_计算机类 ; rdfs:label "计算机应用" .
+:major_计算机应用技术 a :Major ; a :cat_计算机类 ; rdfs:label "计算机应用技术" .
+:major_计算机科学与技术 a :Major ; a :cat_计算机类 ; rdfs:label "计算机科学与技术" .
+:major_计算机网络 a :Major ; a :cat_计算机类 ; rdfs:label "计算机网络" .
+:major_计算机网络技术 a :Major ; a :cat_计算机类 ; rdfs:label "计算机网络技术" .
+:major_财务会计 a :Major ; a :cat_工商管理类 ; rdfs:label "财务会计" .
+:major_财务管理 a :Major ; a :cat_工商管理类 ; rdfs:label "财务管理" .
+:major_资产评估 a :Major ; a :cat_工商管理类 ; rdfs:label "资产评估" .
+:major_资源管理专业 a :Major ; a :cat_公共管理类 ; rdfs:label "资源管理专业" .
+:major_越南语 a :Major ; a :cat_外国语言文学类 ; rdfs:label "越南语" .
+:major_软件工程 a :Major ; a :cat_计算机类 ; rdfs:label "软件工程" .
+:major_软件技术_企业信息化管理方向 a :Major ; a :cat_计算机类 ; rdfs:label "软件技术 (企业信息化管理方向)" .
+:major_运营管理 a :Major ; a :cat_工商管理类 ; rdfs:label "运营管理" .
+:major_通信工程 a :Major ; a :cat_电子信息类 ; rdfs:label "通信工程" .
+:major_酒店管理 a :Major ; a :cat_旅游管理类 ; rdfs:label "酒店管理" .
+
+:hasMajor a owl:ObjectProperty ; rdfs:domain :Candidate ; rdfs:range :Major .

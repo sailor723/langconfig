@@ -76,8 +76,8 @@ items:
   cv_coverage: 0.744
   source: cv
   judge_ready: true
-  library_says_assessable: false
-  library_blocked_by: 枚举白名单 + 原话含「等」(举例不是穷举),匹配规则未定 —— 不是属性没建
+  library_says_assessable: true
+  library_blocked_by: null
   req_source: cv
 - jd: 品质经理
   citation: C-04

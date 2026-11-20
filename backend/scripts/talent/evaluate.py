@@ -41,6 +41,8 @@ LINKS = ROOT / "work" / "talent" / "jd_links"
 FACTS = ROOT / "work" / "talent" / "cv_facts.json"
 HR_FACTS = ROOT / "work" / "talent" / "hr_facts.json"
 INTERVIEW = ROOT / "work" / "talent" / "cv_interview"
+#: 本体推理落盘的事实(专业→专业类→门类)。由 build_major_taxonomy 生成,join 只读不算。
+ONT_FACTS = ROOT / "work" / "talent" / "ontology_facts.json"
 PROFILE = BACKEND / "features" / "ontology" / "profiles" / "talent_v1" / "talent_v1_settings.json"
 
 COVERAGE = 0.5
@@ -181,6 +183,35 @@ def overlay_interview(cands: list[dict]) -> int:
     return n
 
 
+def overlay_major_field(cands: list[dict]) -> int:
+    """按专业名查本体落盘的表,给候选人挂上 `majorField`(工学/管理学/…)。
+
+    这一步为什么不能自己算:判断"机电一体化技术属不属于工程类"是**分类**问题,
+    不是字符串问题。分类已经在 build_major_taxonomy 里让推理机做完并落了盘,
+    这里只做查表 —— 查表是可复现的,重新分类不是。
+    """
+    if not ONT_FACTS.is_file():
+        return 0
+    table = json.loads(ONT_FACTS.read_text(encoding="utf-8")).get("majors") or {}
+    n = 0
+    for c in cands:
+        raw = c.get("major")
+        if raw is None:
+            c["majorFields"], c["majorHits"] = set(), []
+            continue
+        text = str(raw)
+        hits = [m for m in table if m and m in text]
+        c["majorHits"] = hits
+        c["majorFields"] = {table[m]["field"] for m in hits}
+        if hits:
+            n += 1
+        else:
+            # 专业写了、但一个字都对不上分类表 —— 这是**分类覆盖不到**,不是候选人没专业。
+            # 记下来,让判定报「不可判」,别混进「不满足」。
+            c["majorFields"] = set()
+    return n
+
+
 def judge_component(held: set, needed: list) -> tuple:
     if not needed:
         return "不可判", "没有组件"
@@ -212,6 +243,23 @@ def judge_attribute(att: dict, req: dict, cit: dict, cand: dict, forced: str) ->
         return ("满足" if value >= val["num"] else "不满足"), f">={val['num']} vs {value}"
     if op == "<=" and "num" in val:
         return ("满足" if value <= val["num"] else "不满足"), f"<={val['num']} vs {value}"
+    if op == "in":
+        want = val.get("in") or []
+        text = str(value)
+        by_name = [w for w in want if w in text]
+        fields = cand.get("majorFields") or set()
+        need_field = req.get("match_field")
+        if by_name:
+            return "满足", f"专业名命中 {by_name}（{value}）"
+        if need_field and fields:
+            if need_field in fields:
+                hits = "、".join(cand.get("majorHits") or [])
+                return "满足", (f"门类命中 {need_field}（{value} → {hits}，"
+                                f"本体:{need_field}）")
+            return "不满足", f"门类 {sorted(fields)} 不含 {need_field}（{value}）"
+        if not fields:
+            return "不可判", f"「{value}」不在专业分类表里 —— 分类覆盖不到,不是不合格"
+        return "不满足", f"专业名与门类都不命中（{value}）"
     if op == "=":
         want = val.get("in") or ([val["value"]] if "value" in val else [])
         if want:
@@ -248,6 +296,7 @@ def main() -> int:
     n_llm = overlay_llm(cands) if args.facts == "llm" else 0
     n_hr = overlay_hr(cands)
     n_iv = overlay_interview(cands) if getattr(args, "interview", False) else 0
+    n_mf = overlay_major_field(cands)
     pool = [c for c in cands if args.include_duplicates or not c["duplicate"]]
     cit = link["citations"]
 
@@ -255,7 +304,8 @@ def main() -> int:
     print(f"候选人: {len(pool)} 人(另有 {len(cands) - len(pool)} 份重复已排除)")
     print(f"事实源: {args.facts}" + (f"(覆盖 {n_llm} 个字段)" if args.facts == "llm" else "")
           + f" · HR 事实 {n_hr} 个量"
-          + (f" · 一面记录 {n_iv} 处" if args.interview else ""))
+          + (f" · 一面记录 {n_iv} 处" if args.interview else "")
+          + f" · 专业门类 {n_mf} 人")
     print(f"年限口径: {args.year_basis or '按引用/要求声明'}   组件覆盖率阈值: {COVERAGE}")
 
     per_req = collections.defaultdict(collections.Counter)

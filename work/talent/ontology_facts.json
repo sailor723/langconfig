@@ -1,0 +1,4381 @@
+{
+ "source": "HermiT over talent_v1 abox + reasoning.ttl + major_taxonomy.ttl",
+ "ref": "scripts/talent/build_major_taxonomy.py",
+ "majors": {
+  "工商管理": {
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "计算机及应用": {
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机及应用 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "市场营销": {
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「市场营销/商务管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_市场营销 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "人力资源管理": {
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「人力资源」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_人力资源管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "电子应用技术": {
+   "category": "电子信息类",
+   "field": "工学",
+   "rule": "专业名含「电子」",
+   "entailed_classes": [
+    "cat_电子信息类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_电子应用技术 a cat_电子信息类",
+    "cat_电子信息类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "应用电子": {
+   "category": "电子信息类",
+   "field": "工学",
+   "rule": "专业名含「电子」",
+   "entailed_classes": [
+    "cat_电子信息类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_应用电子 a cat_电子信息类",
+    "cat_电子信息类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "物流管理": {
+   "category": "物流管理与工程类",
+   "field": "管理学",
+   "rule": "专业名含「物流」",
+   "entailed_classes": [
+    "cat_物流管理与工程类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_物流管理 a cat_物流管理与工程类",
+    "cat_物流管理与工程类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "模具设计与制造": {
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_模具设计与制造 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "计算机应用": {
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机应用 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "环境艺术设计": {
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_环境艺术设计 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "建筑工程技术": {
+   "category": "土木建筑类",
+   "field": "工学",
+   "rule": "专业名含「建筑」",
+   "entailed_classes": [
+    "cat_土木建筑类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_建筑工程技术 a cat_土木建筑类",
+    "cat_土木建筑类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "机械制造与自动化": {
+   "category": "机械类",
+   "field": "工学",
+   "rule": "专业名含「机械」",
+   "entailed_classes": [
+    "cat_机械类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_机械制造与自动化 a cat_机械类",
+    "cat_机械类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "英语": {
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_英语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "商务英语": {
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_商务英语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "服装艺术设计": {
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_服装艺术设计 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "工商企业管理": {
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商企业管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "应用英语": {
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_应用英语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "虚拟现实应用技术": {
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_虚拟现实应用技术 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "日语": {
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_日语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "企业财务管理": {
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_企业财务管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "软件工程": {
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_软件工程 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "法律事务": {
+   "category": "法学类",
+   "field": "法学",
+   "rule": "专业名含「法律」",
+   "entailed_classes": [
+    "cat_法学类",
+    "field_法学"
+   ],
+   "chain": [
+    "major_法律事务 a cat_法学类",
+    "cat_法学类 ⊑ field_法学"
+   ],
+   "field_entailed": true
+  },
+  "经贸英语": {
+   "category": "经济与贸易类",
+   "field": "经济学",
+   "rule": "专业名含「经济学/经贸」",
+   "entailed_classes": [
+    "cat_经济与贸易类",
+    "field_经济学"
+   ],
+   "chain": [
+    "major_经贸英语 a cat_经济与贸易类",
+    "cat_经济与贸易类 ⊑ field_经济学"
+   ],
+   "field_entailed": true
+  },
+  "园林设计": {
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_园林设计 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "酒店管理": {
+   "category": "旅游管理类",
+   "field": "管理学",
+   "rule": "专业名含「旅游/酒店/导游」",
+   "entailed_classes": [
+    "cat_旅游管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_酒店管理 a cat_旅游管理类",
+    "cat_旅游管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "会计学": {
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_会计学 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "会计与统计核算": {
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_会计与统计核算 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "小学教育": {
+   "category": "教育学类",
+   "field": "教育学",
+   "rule": "专业名含「教育」",
+   "entailed_classes": [
+    "cat_教育学类",
+    "field_教育学"
+   ],
+   "chain": [
+    "major_小学教育 a cat_教育学类",
+    "cat_教育学类 ⊑ field_教育学"
+   ],
+   "field_entailed": true
+  },
+  "涉外文秘": {
+   "category": "中国语言文学类",
+   "field": "文学",
+   "rule": "专业名含「文秘」(秘书学属文学门类)",
+   "entailed_classes": [
+    "cat_中国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_涉外文秘 a cat_中国语言文学类",
+    "cat_中国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "应用西班牙语": {
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_应用西班牙语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "行政管理": {
+   "category": "公共管理类",
+   "field": "管理学",
+   "rule": "专业名含「行政管理」",
+   "entailed_classes": [
+    "cat_公共管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_行政管理 a cat_公共管理类",
+    "cat_公共管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "会计": {
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_会计 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "法语": {
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_法语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "康复治疗学": {
+   "category": "医学技术类",
+   "field": "医学",
+   "rule": "专业名含「康复治疗」",
+   "entailed_classes": [
+    "cat_医学技术类",
+    "field_医学"
+   ],
+   "chain": [
+    "major_康复治疗学 a cat_医学技术类",
+    "cat_医学技术类 ⊑ field_医学"
+   ],
+   "field_entailed": true
+  },
+  "国际经济与贸易": {
+   "category": "经济与贸易类",
+   "field": "经济学",
+   "rule": "专业名含「经济学/经贸」",
+   "entailed_classes": [
+    "cat_经济与贸易类",
+    "field_经济学"
+   ],
+   "chain": [
+    "major_国际经济与贸易 a cat_经济与贸易类",
+    "cat_经济与贸易类 ⊑ field_经济学"
+   ],
+   "field_entailed": true
+  },
+  "软件技术 (企业信息化管理方向)": {
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_软件技术_企业信息化管理方向 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "英语教育": {
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_英语教育 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "旅游管理": {
+   "category": "旅游管理类",
+   "field": "管理学",
+   "rule": "专业名含「旅游/酒店/导游」",
+   "entailed_classes": [
+    "cat_旅游管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_旅游管理 a cat_旅游管理类",
+    "cat_旅游管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "财务管理": {
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_财务管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "资产评估": {
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_资产评估 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "会计信息管理": {
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_会计信息管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "文秘": {
+   "category": "中国语言文学类",
+   "field": "文学",
+   "rule": "专业名含「文秘」(秘书学属文学门类)",
+   "entailed_classes": [
+    "cat_中国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_文秘 a cat_中国语言文学类",
+    "cat_中国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "商务管理": {
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「市场营销/商务管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_商务管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "企业工商管理": {
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_企业工商管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "会计电算化": {
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_会计电算化 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "越南语": {
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_越南语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "应用日语": {
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_应用日语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "机械设计与制造": {
+   "category": "机械类",
+   "field": "工学",
+   "rule": "专业名含「机械」",
+   "entailed_classes": [
+    "cat_机械类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_机械设计与制造 a cat_机械类",
+    "cat_机械类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "物联网工程": {
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_物联网工程 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "企业管理": {
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_企业管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "汉语言文学": {
+   "category": "中国语言文学类",
+   "field": "文学",
+   "rule": "专业名含「汉语言文学」",
+   "entailed_classes": [
+    "cat_中国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_汉语言文学 a cat_中国语言文学类",
+    "cat_中国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "纺织工程": {
+   "category": "纺织类",
+   "field": "工学",
+   "rule": "专业名含「纺织/服装工程」",
+   "entailed_classes": [
+    "cat_纺织类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_纺织工程 a cat_纺织类",
+    "cat_纺织类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "机械与自动化": {
+   "category": "机械类",
+   "field": "工学",
+   "rule": "专业名含「机械」",
+   "entailed_classes": [
+    "cat_机械类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_机械与自动化 a cat_机械类",
+    "cat_机械类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "计算机网络技术": {
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机网络技术 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "Architecture": {
+   "category": "土木建筑类",
+   "field": "工学",
+   "rule": "专业名含「建筑」",
+   "entailed_classes": [
+    "cat_土木建筑类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_Architecture a cat_土木建筑类",
+    "cat_土木建筑类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "导游": {
+   "category": "旅游管理类",
+   "field": "管理学",
+   "rule": "专业名含「旅游/酒店/导游」",
+   "entailed_classes": [
+    "cat_旅游管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_导游 a cat_旅游管理类",
+    "cat_旅游管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "服装工程": {
+   "category": "纺织类",
+   "field": "工学",
+   "rule": "专业名含「纺织/服装工程」",
+   "entailed_classes": [
+    "cat_纺织类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_服装工程 a cat_纺织类",
+    "cat_纺织类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "水利水电工程": {
+   "category": "土木建筑类",
+   "field": "工学",
+   "rule": "专业名含「水利水电」",
+   "entailed_classes": [
+    "cat_土木建筑类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_水利水电工程 a cat_土木建筑类",
+    "cat_土木建筑类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "机电一体化": {
+   "category": "机电设备类",
+   "field": "工学",
+   "rule": "专业名含「机电」(机电设备类)",
+   "entailed_classes": [
+    "cat_机电设备类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_机电一体化 a cat_机电设备类",
+    "cat_机电设备类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "电子商务": {
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「电子商务」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_电子商务 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "环境设计": {
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_环境设计 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "电脑文秘": {
+   "category": "中国语言文学类",
+   "field": "文学",
+   "rule": "专业名含「文秘」(秘书学属文学门类)",
+   "entailed_classes": [
+    "cat_中国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_电脑文秘 a cat_中国语言文学类",
+    "cat_中国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "电气工程及其自动化": {
+   "category": "自动化类",
+   "field": "工学",
+   "rule": "专业名含「自动化/电气」",
+   "entailed_classes": [
+    "cat_自动化类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_电气工程及其自动化 a cat_自动化类",
+    "cat_自动化类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "计算机": {
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "数控技术": {
+   "category": "机械类",
+   "field": "工学",
+   "rule": "专业名含「数控」",
+   "entailed_classes": [
+    "cat_机械类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_数控技术 a cat_机械类",
+    "cat_机械类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "计算机科学与技术": {
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机科学与技术 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "机电一体化技术": {
+   "category": "机电设备类",
+   "field": "工学",
+   "rule": "专业名含「机电」(机电设备类)",
+   "entailed_classes": [
+    "cat_机电设备类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_机电一体化技术 a cat_机电设备类",
+    "cat_机电设备类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "机械自动化": {
+   "category": "机械类",
+   "field": "工学",
+   "rule": "专业名含「机械」",
+   "entailed_classes": [
+    "cat_机械类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_机械自动化 a cat_机械类",
+    "cat_机械类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "运营管理": {
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「运营管理」(且不含交通语境)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_运营管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "大数据与会计": {
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_大数据与会计 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "服装设计": {
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_服装设计 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "商务日语": {
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_商务日语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "日语语言文学": {
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_日语语言文学 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "日语专业": {
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_日语专业 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "安全工程": {
+   "category": "安全科学与工程类",
+   "field": "工学",
+   "rule": "专业名含「安全工程」",
+   "entailed_classes": [
+    "cat_安全科学与工程类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_安全工程 a cat_安全科学与工程类",
+    "cat_安全科学与工程类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "电子电气一体化": {
+   "category": "自动化类",
+   "field": "工学",
+   "rule": "专业名含「自动化/电气」",
+   "entailed_classes": [
+    "cat_自动化类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_电子电气一体化 a cat_自动化类",
+    "cat_自动化类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "计算机专业": {
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机专业 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "应用电子工程技术": {
+   "category": "电子信息类",
+   "field": "工学",
+   "rule": "专业名含「电子」",
+   "entailed_classes": [
+    "cat_电子信息类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_应用电子工程技术 a cat_电子信息类",
+    "cat_电子信息类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "电子信息工程": {
+   "category": "电子信息类",
+   "field": "工学",
+   "rule": "专业名含「电子」",
+   "entailed_classes": [
+    "cat_电子信息类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_电子信息工程 a cat_电子信息类",
+    "cat_电子信息类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "工业电气自动化": {
+   "category": "自动化类",
+   "field": "工学",
+   "rule": "专业名含「自动化/电气」",
+   "entailed_classes": [
+    "cat_自动化类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_工业电气自动化 a cat_自动化类",
+    "cat_自动化类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "计算机应用技术": {
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机应用技术 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "经济学": {
+   "category": "经济与贸易类",
+   "field": "经济学",
+   "rule": "专业名含「经济学/经贸」",
+   "entailed_classes": [
+    "cat_经济与贸易类",
+    "field_经济学"
+   ],
+   "chain": [
+    "major_经济学 a cat_经济与贸易类",
+    "cat_经济与贸易类 ⊑ field_经济学"
+   ],
+   "field_entailed": true
+  },
+  "电子信息化工程": {
+   "category": "电子信息类",
+   "field": "工学",
+   "rule": "专业名含「电子」",
+   "entailed_classes": [
+    "cat_电子信息类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_电子信息化工程 a cat_电子信息类",
+    "cat_电子信息类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "材料成型及控制工程": {
+   "category": "材料类",
+   "field": "工学",
+   "rule": "专业名含「材料」",
+   "entailed_classes": [
+    "cat_材料类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_材料成型及控制工程 a cat_材料类",
+    "cat_材料类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "工程机械运用与维护": {
+   "category": "机械类",
+   "field": "工学",
+   "rule": "专业名含「机械」",
+   "entailed_classes": [
+    "cat_机械类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_工程机械运用与维护 a cat_机械类",
+    "cat_机械类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "资源管理专业": {
+   "category": "公共管理类",
+   "field": "管理学",
+   "rule": "专业名含「资源管理」",
+   "entailed_classes": [
+    "cat_公共管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_资源管理专业 a cat_公共管理类",
+    "cat_公共管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "计算机网络": {
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机网络 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "汽车检测与维修技术": {
+   "category": "交通运输类",
+   "field": "工学",
+   "rule": "专业名含「汽车/轨道交通/铁道」",
+   "entailed_classes": [
+    "cat_交通运输类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_汽车检测与维修技术 a cat_交通运输类",
+    "cat_交通运输类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "电子电讯": {
+   "category": "电子信息类",
+   "field": "工学",
+   "rule": "专业名含「电子」",
+   "entailed_classes": [
+    "cat_电子信息类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_电子电讯 a cat_电子信息类",
+    "cat_电子信息类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "通信工程": {
+   "category": "电子信息类",
+   "field": "工学",
+   "rule": "专业名含「通信」",
+   "entailed_classes": [
+    "cat_电子信息类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_通信工程 a cat_电子信息类",
+    "cat_电子信息类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "智能制造装备技术": {
+   "category": "机械类",
+   "field": "工学",
+   "rule": "专业名含「智能制造」",
+   "entailed_classes": [
+    "cat_机械类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_智能制造装备技术 a cat_机械类",
+    "cat_机械类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "城市轨道交通运营管理": {
+   "category": "交通运输类",
+   "field": "工学",
+   "rule": "专业名含「汽车/轨道交通/铁道」",
+   "entailed_classes": [
+    "cat_交通运输类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_城市轨道交通运营管理 a cat_交通运输类",
+    "cat_交通运输类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "动漫制作": {
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_动漫制作 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "财务会计": {
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_财务会计 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "心理学专业": {
+   "category": "心理学类",
+   "field": "理学",
+   "rule": "专业名含「心理学」",
+   "entailed_classes": [
+    "cat_心理学类",
+    "field_理学"
+   ],
+   "chain": [
+    "major_心理学专业 a cat_心理学类",
+    "cat_心理学类 ⊑ field_理学"
+   ],
+   "field_entailed": true
+  },
+  "商务文秘": {
+   "category": "中国语言文学类",
+   "field": "文学",
+   "rule": "专业名含「文秘」(秘书学属文学门类)",
+   "entailed_classes": [
+    "cat_中国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_商务文秘 a cat_中国语言文学类",
+    "cat_中国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "服装设计与工程": {
+   "category": "纺织类",
+   "field": "工学",
+   "rule": "专业名含「纺织/服装工程」",
+   "entailed_classes": [
+    "cat_纺织类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_服装设计与工程 a cat_纺织类",
+    "cat_纺织类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  }
+ },
+ "candidates": {
+  "cand_专案工程师_东莞_12_16K_l___10年以上": {
+   "major": "工商管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_专案工程师_东莞_12_16K_lizw_10年以上": {
+   "major": "工商管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_专案工程师_东莞_12_16K_何___5年": {
+   "major": "计算机及应用",
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机及应用 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_专案工程师_东莞_12_16K_刘___10年以上": {
+   "major": "市场营销",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「市场营销/商务管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_市场营销 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_专案工程师_东莞_12_16K_华___9年": {
+   "major": "人力资源管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「人力资源」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_人力资源管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_专案工程师_东莞_12_16K_唐___10年以上": {
+   "major": "电子应用技术",
+   "category": "电子信息类",
+   "field": "工学",
+   "rule": "专业名含「电子」",
+   "entailed_classes": [
+    "cat_电子信息类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_电子应用技术 a cat_电子信息类",
+    "cat_电子信息类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_专案工程师_东莞_12_16K_孙___10年以上": {
+   "major": "应用电子",
+   "category": "电子信息类",
+   "field": "工学",
+   "rule": "专业名含「电子」",
+   "entailed_classes": [
+    "cat_电子信息类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_应用电子 a cat_电子信息类",
+    "cat_电子信息类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_专案工程师_东莞_12_16K_张___5年": {
+   "major": "物流管理",
+   "category": "物流管理与工程类",
+   "field": "管理学",
+   "rule": "专业名含「物流」",
+   "entailed_classes": [
+    "cat_物流管理与工程类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_物流管理 a cat_物流管理与工程类",
+    "cat_物流管理与工程类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_专案工程师_东莞_12_16K_熊___10年以上": {
+   "major": "模具设计与制造",
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_模具设计与制造 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "cand_专案工程师_东莞_12_16K_王___10年以上": {
+   "major": "人力资源管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「人力资源」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_人力资源管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_专案工程师_东莞_12_16K_石___10年以上": {
+   "major": "计算机应用",
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机应用 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_专案工程师_东莞_12_16K_董___7年": {
+   "major": "环境艺术设计",
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_环境艺术设计 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "cand_专案工程师_东莞_12_16K_邹___10年以上": {
+   "major": "建筑工程技术",
+   "category": "土木建筑类",
+   "field": "工学",
+   "rule": "专业名含「建筑」",
+   "entailed_classes": [
+    "cat_土木建筑类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_建筑工程技术 a cat_土木建筑类",
+    "cat_土木建筑类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_专案工程师_东莞_12_16K_陈___5年": {
+   "major": "机械制造与自动化",
+   "category": "机械类",
+   "field": "工学",
+   "rule": "专业名含「机械」",
+   "entailed_classes": [
+    "cat_机械类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_机械制造与自动化 a cat_机械类",
+    "cat_机械类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务助理_东莞_7_9K_郑___3年": {
+   "major": "英语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_英语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_J___10年": {
+   "major": "商务英语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_商务英语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_Jessie郭___10年": {
+   "major": "服装艺术设计",
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_服装艺术设计 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_L___10年以上": {
+   "major": "工商管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_Lily_10年以上": {
+   "major": "工商管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_万___10年以上": {
+   "major": "工商企业管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商企业管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_伍___1年": {
+   "major": "应用英语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_应用英语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_刘___3年": {
+   "major": "虚拟现实应用技术",
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_虚拟现实应用技术 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_叶___25年应届生": {
+   "major": "日语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_日语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_吴___1年": {
+   "major": "企业财务管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_企业财务管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_吴___23年毕业": {
+   "major": "软件工程",
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_软件工程 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_和___10年以上": {
+   "major": "市场营销",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「市场营销/商务管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_市场营销 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_宋___4年": {
+   "major": "法律事务",
+   "category": "法学类",
+   "field": "法学",
+   "rule": "专业名含「法律」",
+   "entailed_classes": [
+    "cat_法学类",
+    "field_法学"
+   ],
+   "chain": [
+    "major_法律事务 a cat_法学类",
+    "cat_法学类 ⊑ field_法学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_张___10年以上": {
+   "major": "经贸英语",
+   "category": "经济与贸易类",
+   "field": "经济学",
+   "rule": "专业名含「经济学/经贸」",
+   "entailed_classes": [
+    "cat_经济与贸易类",
+    "field_经济学"
+   ],
+   "chain": [
+    "major_经贸英语 a cat_经济与贸易类",
+    "cat_经济与贸易类 ⊑ field_经济学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_最近只线上_2年": {
+   "major": "园林设计",
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_园林设计 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_李___1年": {
+   "major": "商务英语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_商务英语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_李___4年": {
+   "major": "酒店管理",
+   "category": "旅游管理类",
+   "field": "管理学",
+   "rule": "专业名含「旅游/酒店/导游」",
+   "entailed_classes": [
+    "cat_旅游管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_酒店管理 a cat_旅游管理类",
+    "cat_旅游管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_杨___26年应届生": {
+   "major": "会计学",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_会计学 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_杨___8年": {
+   "major": "会计与统计核算",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_会计与统计核算 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_林___7年": {
+   "major": "小学教育",
+   "category": "教育学类",
+   "field": "教育学",
+   "rule": "专业名含「教育」",
+   "entailed_classes": [
+    "cat_教育学类",
+    "field_教育学"
+   ],
+   "chain": [
+    "major_小学教育 a cat_教育学类",
+    "cat_教育学类 ⊑ field_教育学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_栩___4年": {
+   "major": "涉外文秘",
+   "category": "中国语言文学类",
+   "field": "文学",
+   "rule": "专业名含「文秘」(秘书学属文学门类)",
+   "entailed_classes": [
+    "cat_中国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_涉外文秘 a cat_中国语言文学类",
+    "cat_中国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_梁___1年": {
+   "major": "日语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_日语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_梁___9年": {
+   "major": "人力资源管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「人力资源」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_人力资源管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_江___3年": {
+   "major": "应用西班牙语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_应用西班牙语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_王___10年以上": {
+   "major": "行政管理",
+   "category": "公共管理类",
+   "field": "管理学",
+   "rule": "专业名含「行政管理」",
+   "entailed_classes": [
+    "cat_公共管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_行政管理 a cat_公共管理类",
+    "cat_公共管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_王___10年以上_2": {
+   "major": "人力资源管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「人力资源」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_人力资源管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_王___24年毕业_1": {
+   "major": "英语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_英语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_王___5年": {
+   "major": "会计",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_会计 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_盘___6年": {
+   "major": "工商管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_罗___2年": {
+   "major": "法语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_法语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_罗___8年": {
+   "major": "康复治疗学",
+   "category": "医学技术类",
+   "field": "医学",
+   "rule": "专业名含「康复治疗」",
+   "entailed_classes": [
+    "cat_医学技术类",
+    "field_医学"
+   ],
+   "chain": [
+    "major_康复治疗学 a cat_医学技术类",
+    "cat_医学技术类 ⊑ field_医学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_范___1年": {
+   "major": "国际经济与贸易",
+   "category": "经济与贸易类",
+   "field": "经济学",
+   "rule": "专业名含「经济学/经贸」",
+   "entailed_classes": [
+    "cat_经济与贸易类",
+    "field_经济学"
+   ],
+   "chain": [
+    "major_国际经济与贸易 a cat_经济与贸易类",
+    "cat_经济与贸易类 ⊑ field_经济学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_菲___10年以上": {
+   "major": "工商管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_裴___2年": {
+   "major": "计算机及应用",
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机及应用 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_谢___1年": {
+   "major": "应用英语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_应用英语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_邓___1年": {
+   "major": "英语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_英语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_郭___23年毕业": {
+   "major": "商务英语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_商务英语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_钟___2年": {
+   "major": "软件技术 (企业信息化管理方向)",
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_软件技术_企业信息化管理方向 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_陈___5年": {
+   "major": "商务英语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_商务英语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_陈___9年": {
+   "major": "英语教育",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_英语教育 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_马___4年": {
+   "major": "旅游管理",
+   "category": "旅游管理类",
+   "field": "管理学",
+   "rule": "专业名含「旅游/酒店/导游」",
+   "entailed_classes": [
+    "cat_旅游管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_旅游管理 a cat_旅游管理类",
+    "cat_旅游管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_黄___3年": {
+   "major": "财务管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_财务管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_黎___5年": {
+   "major": "工商管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_10K_黎___6年": {
+   "major": "资产评估",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_资产评估 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_8K_周___10年": {
+   "major": "会计信息管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_会计信息管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_8K_符___4年": {
+   "major": "文秘",
+   "category": "中国语言文学类",
+   "field": "文学",
+   "rule": "专业名含「文秘」(秘书学属文学门类)",
+   "entailed_classes": [
+    "cat_中国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_文秘 a cat_中国语言文学类",
+    "cat_中国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_业务跟单_东莞_6_8K_蒙___10年以上": {
+   "major": "商务管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「市场营销/商务管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_商务管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_人事经理_东莞_12_17K_张___10年以上": {
+   "major": "人力资源管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「人力资源」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_人力资源管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_人资专员_东莞_5_6K_何___5年": {
+   "major": "人力资源管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「人力资源」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_人力资源管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_人资专员_东莞_5_6K_马___26年应届生": {
+   "major": "行政管理",
+   "category": "公共管理类",
+   "field": "管理学",
+   "rule": "专业名含「行政管理」",
+   "entailed_classes": [
+    "cat_公共管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_行政管理 a cat_公共管理类",
+    "cat_公共管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_人资专员_东莞_5_6K_黄___6年_1": {
+   "major": "人力资源管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「人力资源」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_人力资源管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_任___39岁_技术课课长_智通简历_编号": {
+   "major": "企业工商管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_企业工商管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_何___20岁_工程文员_智通简历_编号": {
+   "major": "模具设计与制造",
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_模具设计与制造 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "cand_何___35岁_专案工程师_智通简历_编号": {
+   "major": "工商管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_何___42岁_行政专员_智通简历_编号": {
+   "major": "会计电算化",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_会计电算化 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_傅___28岁_业务跟单_智通简历_编号": {
+   "major": "人力资源管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「人力资源」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_人力资源管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_冯___25岁_业务跟单_智通简历_编号": {
+   "major": "越南语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_越南语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_刘___20岁_工程文员_智通简历_编号": {
+   "major": "环境艺术设计",
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_环境艺术设计 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "cand_刘___25岁_业务跟单_智通简历_编号": {
+   "major": "应用日语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_应用日语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_刘___27岁_专案工程师_智通简历_编号": {
+   "major": "机械设计与制造",
+   "category": "机械类",
+   "field": "工学",
+   "rule": "专业名含「机械」",
+   "entailed_classes": [
+    "cat_机械类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_机械设计与制造 a cat_机械类",
+    "cat_机械类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_刘___28岁_汽车线束工程师_智通简历_编号________1": {
+   "major": "物联网工程",
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_物联网工程 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_刘___41岁_管理课课长_智通简历_编号": {
+   "major": "英语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_英语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_刘___42岁_管理课课长_智通简历_编号": {
+   "major": "企业管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_企业管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_副总助理_东莞_10_15K_刘___10年": {
+   "major": "工商管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_副总助理_东莞_10_15K_戴___8年_1": {
+   "major": "汉语言文学",
+   "category": "中国语言文学类",
+   "field": "文学",
+   "rule": "专业名含「汉语言文学」",
+   "entailed_classes": [
+    "cat_中国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_汉语言文学 a cat_中国语言文学类",
+    "cat_中国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_副总助理_东莞_10_15K_黄___8年": {
+   "major": "商务英语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_商务英语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_副总助理_东莞_8_13K_冷___9年": {
+   "major": "会计学",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_会计学 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_副总助理_东莞_8_13K_王___1年以内": {
+   "major": "行政管理",
+   "category": "公共管理类",
+   "field": "管理学",
+   "rule": "专业名含「行政管理」",
+   "entailed_classes": [
+    "cat_公共管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_行政管理 a cat_公共管理类",
+    "cat_公共管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_副总助理_东莞_8_13K_范___7年": {
+   "major": "纺织工程",
+   "category": "纺织类",
+   "field": "工学",
+   "rule": "专业名含「纺织/服装工程」",
+   "entailed_classes": [
+    "cat_纺织类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_纺织工程 a cat_纺织类",
+    "cat_纺织类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_副总助理_东莞_8_13K_钟___5年": {
+   "major": "汉语言文学",
+   "category": "中国语言文学类",
+   "field": "文学",
+   "rule": "专业名含「汉语言文学」",
+   "entailed_classes": [
+    "cat_中国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_汉语言文学 a cat_中国语言文学类",
+    "cat_中国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_吴___25岁_行政专员_智通简历_编号": {
+   "major": "旅游管理",
+   "category": "旅游管理类",
+   "field": "管理学",
+   "rule": "专业名含「旅游/酒店/导游」",
+   "entailed_classes": [
+    "cat_旅游管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_旅游管理 a cat_旅游管理类",
+    "cat_旅游管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_吴___44岁_专案工程师_智通简历_编号": {
+   "major": "应用电子",
+   "category": "电子信息类",
+   "field": "工学",
+   "rule": "专业名含「电子」",
+   "entailed_classes": [
+    "cat_电子信息类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_应用电子 a cat_电子信息类",
+    "cat_电子信息类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_吴___项目工程师": {
+   "major": "机械与自动化",
+   "category": "机械类",
+   "field": "工学",
+   "rule": "专业名含「机械」",
+   "entailed_classes": [
+    "cat_机械类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_机械与自动化 a cat_机械类",
+    "cat_机械类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_唐___42岁_智通简历_编号": {
+   "major": "计算机网络技术",
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机网络技术 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_外贸业务员_东莞_5_10K_D___24年毕业": {
+   "major": "Architecture",
+   "category": "土木建筑类",
+   "field": "工学",
+   "rule": "专业名含「建筑」",
+   "entailed_classes": [
+    "cat_土木建筑类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_Architecture a cat_土木建筑类",
+    "cat_土木建筑类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_外贸业务员_东莞_5_10K_Das_Abhi_Bashundhara_24年毕业": {
+   "major": "Architecture",
+   "category": "土木建筑类",
+   "field": "工学",
+   "rule": "专业名含「建筑」",
+   "entailed_classes": [
+    "cat_土木建筑类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_Architecture a cat_土木建筑类",
+    "cat_土木建筑类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_外贸业务员_东莞_5_10K_万___3年": {
+   "major": "财务管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_财务管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_外贸业务员_东莞_5_10K_付___4年": {
+   "major": "导游",
+   "category": "旅游管理类",
+   "field": "管理学",
+   "rule": "专业名含「旅游/酒店/导游」",
+   "entailed_classes": [
+    "cat_旅游管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_导游 a cat_旅游管理类",
+    "cat_旅游管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_外贸业务员_东莞_5_10K_任___2年": {
+   "major": "财务管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_财务管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_外贸业务员_东莞_5_10K_周___1年": {
+   "major": "英语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_英语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_外贸业务员_东莞_5_10K_奉___2年": {
+   "major": "旅游管理",
+   "category": "旅游管理类",
+   "field": "管理学",
+   "rule": "专业名含「旅游/酒店/导游」",
+   "entailed_classes": [
+    "cat_旅游管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_旅游管理 a cat_旅游管理类",
+    "cat_旅游管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_外贸业务员_东莞_5_10K_李___2年": {
+   "major": "英语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_英语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_外贸业务员_东莞_5_10K_谢___26年应届生": {
+   "major": "日语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_日语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_外贸业务员_东莞_5_10K_赵___4年": {
+   "major": "服装工程",
+   "category": "纺织类",
+   "field": "工学",
+   "rule": "专业名含「纺织/服装工程」",
+   "entailed_classes": [
+    "cat_纺织类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_服装工程 a cat_纺织类",
+    "cat_纺织类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_外贸业务员_东莞_5_10K_陈___4年": {
+   "major": "英语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_英语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_姚___23岁_工程文员_智通简历_编号": {
+   "major": "水利水电工程",
+   "category": "土木建筑类",
+   "field": "工学",
+   "rule": "专业名含「水利水电」",
+   "entailed_classes": [
+    "cat_土木建筑类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_水利水电工程 a cat_土木建筑类",
+    "cat_土木建筑类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_宋___27岁_业务跟单_智通简历_编号": {
+   "major": "物流管理",
+   "category": "物流管理与工程类",
+   "field": "管理学",
+   "rule": "专业名含「物流」",
+   "entailed_classes": [
+    "cat_物流管理与工程类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_物流管理 a cat_物流管理与工程类",
+    "cat_物流管理与工程类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_宋___37岁_专案工程师_智通简历_编号": {
+   "major": "机电一体化",
+   "category": "机电设备类",
+   "field": "工学",
+   "rule": "专业名含「机电」(机电设备类)",
+   "entailed_classes": [
+    "cat_机电设备类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_机电一体化 a cat_机电设备类",
+    "cat_机电设备类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_实验室技术员_东莞_4_5K_李___10年以上": {
+   "major": "计算机应用",
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机应用 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_实验室技术员_东莞_4_5K_高___10年以上": {
+   "major": "电子商务",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「电子商务」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_电子商务 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_工程文员_东莞_5_6K_何___25年应届生": {
+   "major": "环境设计",
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_环境设计 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "cand_工程文员_东莞_5_6K_刘___10年": {
+   "major": "电子商务",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「电子商务」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_电子商务 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_工程文员_东莞_5_6K_廖___10年以上": {
+   "major": "电脑文秘",
+   "category": "中国语言文学类",
+   "field": "文学",
+   "rule": "专业名含「文秘」(秘书学属文学门类)",
+   "entailed_classes": [
+    "cat_中国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_电脑文秘 a cat_中国语言文学类",
+    "cat_中国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_工程文员_东莞_5_6K_杨___3年": {
+   "major": "电气工程及其自动化",
+   "category": "自动化类",
+   "field": "工学",
+   "rule": "专业名含「自动化/电气」",
+   "entailed_classes": [
+    "cat_自动化类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_电气工程及其自动化 a cat_自动化类",
+    "cat_自动化类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_工程文员_东莞_5_6K_王___10年以上": {
+   "major": "计算机",
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_工程文员_东莞_5_6K_肖___26年应届生": {
+   "major": "数控技术",
+   "category": "机械类",
+   "field": "工学",
+   "rule": "专业名含「数控」",
+   "entailed_classes": [
+    "cat_机械类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_数控技术 a cat_机械类",
+    "cat_机械类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_康___37岁_技术课课长_智通简历_编号": {
+   "major": "模具设计与制造",
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_模具设计与制造 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "cand_廖___33岁_专案工程师_智通简历_编号": {
+   "major": "工商企业管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商企业管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_张___35岁_智通简历_编号": {
+   "major": "计算机科学与技术",
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机科学与技术 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_张___36岁_专案工程师_智通简历_编号": {
+   "major": "计算机科学与技术",
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机科学与技术 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_张___37岁_专案工程师_智通简历_编号": {
+   "major": "机电一体化技术",
+   "category": "机电设备类",
+   "field": "工学",
+   "rule": "专业名含「机电」(机电设备类)",
+   "entailed_classes": [
+    "cat_机电设备类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_机电一体化技术 a cat_机电设备类",
+    "cat_机电设备类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_张___39岁_智通简历_编号": {
+   "major": "机械自动化",
+   "category": "机械类",
+   "field": "工学",
+   "rule": "专业名含「机械」",
+   "entailed_classes": [
+    "cat_机械类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_机械自动化 a cat_机械类",
+    "cat_机械类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_张___43岁_管理课课长_智通简历_编号": {
+   "major": "运营管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「运营管理」(且不含交通语境)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_运营管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_彭___工程师_技术经理_总工": {
+   "major": "电气工程及其自动化",
+   "category": "自动化类",
+   "field": "工学",
+   "rule": "专业名含「自动化/电气」",
+   "entailed_classes": [
+    "cat_自动化类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_电气工程及其自动化 a cat_自动化类",
+    "cat_自动化类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_徐___28岁_人资专员_智通简历_编号": {
+   "major": "大数据与会计",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_大数据与会计 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_日语业务跟单_东莞_5_7K_SJCWNX_10年以上": {
+   "major": "服装设计",
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_服装设计 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "cand_日语业务跟单_东莞_5_7K_S___10年以上": {
+   "major": "服装设计",
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_服装设计 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "cand_日语业务跟单_东莞_5_7K_l___26年应届生": {
+   "major": "日语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_日语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_日语业务跟单_东莞_5_7K_刘___3年_2": {
+   "major": "商务日语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_商务日语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_日语业务跟单_东莞_5_7K_叶___4年": {
+   "major": "商务日语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_商务日语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_日语业务跟单_东莞_5_7K_吴___26年应届生": {
+   "major": "日语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_日语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_日语业务跟单_东莞_5_7K_夏___7年": {
+   "major": "日语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_日语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_日语业务跟单_东莞_5_7K_朱___10年以上": {
+   "major": "日语语言文学",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_日语语言文学 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_日语业务跟单_东莞_5_7K_焦___1年": {
+   "major": "日语专业",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_日语专业 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_日语业务跟单_东莞_5_7K_蔡___1年以内": {
+   "major": "日语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_日语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_日语业务跟单_东莞_5_7K_谢___1年": {
+   "major": "日语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_日语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_日语业务跟单_东莞_5_7K_邓___1年以内": {
+   "major": "安全工程",
+   "category": "安全科学与工程类",
+   "field": "工学",
+   "rule": "专业名含「安全工程」",
+   "entailed_classes": [
+    "cat_安全科学与工程类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_安全工程 a cat_安全科学与工程类",
+    "cat_安全科学与工程类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_日语业务跟单_东莞_5_7K_陈___26年应届生": {
+   "major": "日语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_日语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_日语业务跟单_东莞_5_7K_黄___26年应届生": {
+   "major": "日语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_日语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_曹___工程师": {
+   "major": "电子电气一体化",
+   "category": "自动化类",
+   "field": "工学",
+   "rule": "专业名含「自动化/电气」",
+   "entailed_classes": [
+    "cat_自动化类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_电子电气一体化 a cat_自动化类",
+    "cat_自动化类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_曾___23岁_业务助理_智通简历_编号": {
+   "major": "电子商务",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「电子商务」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_电子商务 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_曾___38岁_专案工程师_智通简历_编号": {
+   "major": "机械设计与制造",
+   "category": "机械类",
+   "field": "工学",
+   "rule": "专业名含「机械」",
+   "entailed_classes": [
+    "cat_机械类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_机械设计与制造 a cat_机械类",
+    "cat_机械类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_曾___43_智通附件简历_944723388_专案工程师": {
+   "major": "机电一体化",
+   "category": "机电设备类",
+   "field": "工学",
+   "rule": "专业名含「机电」(机电设备类)",
+   "entailed_classes": [
+    "cat_机电设备类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_机电一体化 a cat_机电设备类",
+    "cat_机电设备类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_曾___cable工程主管_cable工程经理": {
+   "major": "机械设计与制造",
+   "category": "机械类",
+   "field": "工学",
+   "rule": "专业名含「机械」",
+   "entailed_classes": [
+    "cat_机械类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_机械设计与制造 a cat_机械类",
+    "cat_机械类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_李___22岁_业务跟单_智通简历_编号": {
+   "major": "应用英语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_应用英语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_李___24岁_人资专员_智通简历_编号": {
+   "major": "人力资源管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「人力资源」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_人力资源管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_李___27岁_人资专员_智通简历_编号": {
+   "major": "人力资源管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「人力资源」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_人力资源管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_李___38岁_管理课课长_智通简历_编号": {
+   "major": "工商管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_李___39岁_英文助理_智通简历_编号": {
+   "major": "英语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_英语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_李___45岁_专案工程师_智通简历_编号": {
+   "major": "工商管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_李___46岁_工程经理_智通简历_编号________1": {
+   "major": "计算机专业",
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机专业 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_李___48岁_工程经理_智通简历_编号": {
+   "major": "应用电子工程技术",
+   "category": "电子信息类",
+   "field": "工学",
+   "rule": "专业名含「电子」",
+   "entailed_classes": [
+    "cat_电子信息类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_应用电子工程技术 a cat_电子信息类",
+    "cat_电子信息类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_梁___31岁_专案工程师_智通简历_编号": {
+   "major": "模具设计与制造",
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_模具设计与制造 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "cand_段___研发工程主管_产品工程主管": {
+   "major": "机电一体化",
+   "category": "机电设备类",
+   "field": "工学",
+   "rule": "专业名含「机电」(机电设备类)",
+   "entailed_classes": [
+    "cat_机电设备类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_机电一体化 a cat_机电设备类",
+    "cat_机电设备类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_毕___工程研发类": {
+   "major": "电子信息工程",
+   "category": "电子信息类",
+   "field": "工学",
+   "rule": "专业名含「电子」",
+   "entailed_classes": [
+    "cat_电子信息类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_电子信息工程 a cat_电子信息类",
+    "cat_电子信息类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_汪___总工程师技术经理研发经理": {
+   "major": "工业电气自动化",
+   "category": "自动化类",
+   "field": "工学",
+   "rule": "专业名含「自动化/电气」",
+   "entailed_classes": [
+    "cat_自动化类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_工业电气自动化 a cat_自动化类",
+    "cat_自动化类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_汽车线束高线工程师_东莞_10_14K_何___10年以上": {
+   "major": "计算机应用技术",
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机应用技术 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_王___31岁_副总助理_智通简历_编号": {
+   "major": "经济学",
+   "category": "经济与贸易类",
+   "field": "经济学",
+   "rule": "专业名含「经济学/经贸」",
+   "entailed_classes": [
+    "cat_经济与贸易类",
+    "field_经济学"
+   ],
+   "chain": [
+    "major_经济学 a cat_经济与贸易类",
+    "cat_经济与贸易类 ⊑ field_经济学"
+   ],
+   "field_entailed": true
+  },
+  "cand_罗___32岁_专案工程师_智通简历_编号": {
+   "major": "机电一体化技术",
+   "category": "机电设备类",
+   "field": "工学",
+   "rule": "专业名含「机电」(机电设备类)",
+   "entailed_classes": [
+    "cat_机电设备类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_机电一体化技术 a cat_机电设备类",
+    "cat_机电设备类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_罗___40岁_管理课课长_智通简历_编号": {
+   "major": "工商管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_罗___44岁_专案工程师_智通简历_编号": {
+   "major": "会计学",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_会计学 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_罗___46岁_专案工程师_智通简历_编号": {
+   "major": "电子信息化工程",
+   "category": "电子信息类",
+   "field": "工学",
+   "rule": "专业名含「电子」",
+   "entailed_classes": [
+    "cat_电子信息类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_电子信息化工程 a cat_电子信息类",
+    "cat_电子信息类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_肖___38岁_专案工程师_智通简历_编号": {
+   "major": "材料成型及控制工程",
+   "category": "材料类",
+   "field": "工学",
+   "rule": "专业名含「材料」",
+   "entailed_classes": [
+    "cat_材料类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_材料成型及控制工程 a cat_材料类",
+    "cat_材料类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_胡___38岁_专案工程师_智通简历_编号": {
+   "major": "工程机械运用与维护",
+   "category": "机械类",
+   "field": "工学",
+   "rule": "专业名含「机械」",
+   "entailed_classes": [
+    "cat_机械类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_工程机械运用与维护 a cat_机械类",
+    "cat_机械类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_胡___42岁_专案工程师_智通简历_编号": {
+   "major": "工商企业管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商企业管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_胡___46岁_专案工程师_智通简历_编号": {
+   "major": "商务英语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_商务英语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_蒋___38岁_专案工程师_智通简历_编号": {
+   "major": "模具设计与制造",
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_模具设计与制造 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "cand_行政专员_东莞_5_8K_吴___3年": {
+   "major": "行政管理",
+   "category": "公共管理类",
+   "field": "管理学",
+   "rule": "专业名含「行政管理」",
+   "entailed_classes": [
+    "cat_公共管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_行政管理 a cat_公共管理类",
+    "cat_公共管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_行政专员_东莞_6_8K_夏___2年": {
+   "major": "人力资源管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「人力资源」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_人力资源管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_行政专员_东莞_6_8K_梁___6年": {
+   "major": "人力资源管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「人力资源」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_人力资源管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_行政专员_东莞_6_8K_肖___10年以上_1": {
+   "major": "模具设计与制造",
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_模具设计与制造 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "cand_行政专员_东莞_6_8K_范___9年": {
+   "major": "资源管理专业",
+   "category": "公共管理类",
+   "field": "管理学",
+   "rule": "专业名含「资源管理」",
+   "entailed_classes": [
+    "cat_公共管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_资源管理专业 a cat_公共管理类",
+    "cat_公共管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_行政专员_东莞_7_8K_谢___5年": {
+   "major": "物流管理",
+   "category": "物流管理与工程类",
+   "field": "管理学",
+   "rule": "专业名含「物流」",
+   "entailed_classes": [
+    "cat_物流管理与工程类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_物流管理 a cat_物流管理与工程类",
+    "cat_物流管理与工程类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_行政专员_东莞_7_9K_刘___10年以上": {
+   "major": "模具设计与制造",
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_模具设计与制造 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "cand_行政专员_东莞_7_9K_唐___5年": {
+   "major": "计算机网络",
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机网络 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_行政专员_东莞_7_9K_杨___4年": {
+   "major": "电子商务",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「电子商务」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_电子商务 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_行政专员_东莞_7_9K_潘___6年": {
+   "major": "汽车检测与维修技术",
+   "category": "交通运输类",
+   "field": "工学",
+   "rule": "专业名含「汽车/轨道交通/铁道」",
+   "entailed_classes": [
+    "cat_交通运输类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_汽车检测与维修技术 a cat_交通运输类",
+    "cat_交通运输类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_行政专员_东莞_7_9K_邓___1年": {
+   "major": "工商企业管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商企业管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_行政专员_东莞_7_9K_陈___10年以上": {
+   "major": "商务管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「市场营销/商务管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_商务管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_袁___25岁_日文业务助理_智通简历_编号": {
+   "major": "应用日语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_应用日语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_袁___32岁_业务跟单_智通简历_编号": {
+   "major": "电子商务",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「电子商务」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_电子商务 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_覃___36岁_业务跟单_智通简历_编号": {
+   "major": "电子电讯",
+   "category": "电子信息类",
+   "field": "工学",
+   "rule": "专业名含「电子」",
+   "entailed_classes": [
+    "cat_电子信息类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_电子电讯 a cat_电子信息类",
+    "cat_电子信息类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_设计助理工程师_东莞_7_10K_柒___4年": {
+   "major": "通信工程",
+   "category": "电子信息类",
+   "field": "工学",
+   "rule": "专业名含「通信」",
+   "entailed_classes": [
+    "cat_电子信息类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_通信工程 a cat_电子信息类",
+    "cat_电子信息类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_设计助理工程师_东莞_7_10K_蓝___3年": {
+   "major": "计算机应用技术",
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机应用技术 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_设计助理工程师_东莞_7_10K_雷___1年": {
+   "major": "智能制造装备技术",
+   "category": "机械类",
+   "field": "工学",
+   "rule": "专业名含「智能制造」",
+   "entailed_classes": [
+    "cat_机械类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_智能制造装备技术 a cat_机械类",
+    "cat_机械类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_贺___28岁_行政专员_智通简历_编号": {
+   "major": "计算机",
+   "category": "计算机类",
+   "field": "工学",
+   "rule": "专业名含「计算机/软件/物联网/虚拟现实」",
+   "entailed_classes": [
+    "cat_计算机类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_计算机 a cat_计算机类",
+    "cat_计算机类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_邓___43岁_业务跟单_智通简历_编号": {
+   "major": "国际经济与贸易",
+   "category": "经济与贸易类",
+   "field": "经济学",
+   "rule": "专业名含「经济学/经贸」",
+   "entailed_classes": [
+    "cat_经济与贸易类",
+    "field_经济学"
+   ],
+   "chain": [
+    "major_国际经济与贸易 a cat_经济与贸易类",
+    "cat_经济与贸易类 ⊑ field_经济学"
+   ],
+   "field_entailed": true
+  },
+  "cand_郑___25岁_工程文员_智通简历_编号": {
+   "major": "城市轨道交通运营管理",
+   "category": "交通运输类",
+   "field": "工学",
+   "rule": "专业名含「汽车/轨道交通/铁道」",
+   "entailed_classes": [
+    "cat_交通运输类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_城市轨道交通运营管理 a cat_交通运输类",
+    "cat_交通运输类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_郑___37岁_专案工程师_智通简历_编号": {
+   "major": "工商企业管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商企业管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_郭___29岁_专案工程师_智通简历_编号": {
+   "major": "机电一体化",
+   "category": "机电设备类",
+   "field": "工学",
+   "rule": "专业名含「机电」(机电设备类)",
+   "entailed_classes": [
+    "cat_机电设备类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_机电一体化 a cat_机电设备类",
+    "cat_机电设备类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  },
+  "cand_陈___28岁_智通简历_编号": {
+   "major": "环境设计",
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_环境设计 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "cand_陈___29岁_副总助理_智通简历_编号": {
+   "major": "动漫制作",
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_动漫制作 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "cand_陈___29岁_日文业务助理_智通简历_编号": {
+   "major": "应用日语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_应用日语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_陈___32岁_业务跟单_智通简历_编号": {
+   "major": "工商管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_陈___36岁_业务助理_智通简历_编号": {
+   "major": "国际经济与贸易",
+   "category": "经济与贸易类",
+   "field": "经济学",
+   "rule": "专业名含「经济学/经贸」",
+   "entailed_classes": [
+    "cat_经济与贸易类",
+    "field_经济学"
+   ],
+   "chain": [
+    "major_国际经济与贸易 a cat_经济与贸易类",
+    "cat_经济与贸易类 ⊑ field_经济学"
+   ],
+   "field_entailed": true
+  },
+  "cand_陈___37岁_日文业务助理_智通简历_编号": {
+   "major": "财务会计",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「会计/财务/资产评估」(教育部目录:会计学属管理学)",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_财务会计 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_陈___37岁_行政专员_智通简历_编号": {
+   "major": "工商企业管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商企业管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_高级招聘专家_东莞_7_12K_罗___10年以上": {
+   "major": "人力资源管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「人力资源」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_人力资源管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_高级招聘专家_东莞_9_14K_南___10年以上": {
+   "major": "心理学专业",
+   "category": "心理学类",
+   "field": "理学",
+   "rule": "专业名含「心理学」",
+   "entailed_classes": [
+    "cat_心理学类",
+    "field_理学"
+   ],
+   "chain": [
+    "major_心理学专业 a cat_心理学类",
+    "cat_心理学类 ⊑ field_理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_高级招聘专家_东莞_9_14K_李___10年以上": {
+   "major": "行政管理",
+   "category": "公共管理类",
+   "field": "管理学",
+   "rule": "专业名含「行政管理」",
+   "entailed_classes": [
+    "cat_公共管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_行政管理 a cat_公共管理类",
+    "cat_公共管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_高级招聘专家_东莞_9_14K_段___7年": {
+   "major": "市场营销",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「市场营销/商务管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_市场营销 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_高级招聘专家_东莞_9_14K_王___10年以上": {
+   "major": "人力资源管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「人力资源」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_人力资源管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_麦___38岁_专案工程师_智通简历_编号": {
+   "major": "模具设计与制造",
+   "category": "设计学类",
+   "field": "艺术学",
+   "rule": "专业名含「设计/动漫」",
+   "entailed_classes": [
+    "cat_设计学类",
+    "field_艺术学"
+   ],
+   "chain": [
+    "major_模具设计与制造 a cat_设计学类",
+    "cat_设计学类 ⊑ field_艺术学"
+   ],
+   "field_entailed": true
+  },
+  "cand_黄___26岁_日文业务助理_智通简历_编号": {
+   "major": "日语",
+   "category": "外国语言文学类",
+   "field": "文学",
+   "rule": "专业名含语种名",
+   "entailed_classes": [
+    "cat_外国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_日语 a cat_外国语言文学类",
+    "cat_外国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_黄___30岁_业务跟单_智通简历_编号": {
+   "major": "商务文秘",
+   "category": "中国语言文学类",
+   "field": "文学",
+   "rule": "专业名含「文秘」(秘书学属文学门类)",
+   "entailed_classes": [
+    "cat_中国语言文学类",
+    "field_文学"
+   ],
+   "chain": [
+    "major_商务文秘 a cat_中国语言文学类",
+    "cat_中国语言文学类 ⊑ field_文学"
+   ],
+   "field_entailed": true
+  },
+  "cand_黄___32岁_行政专员_智通简历_编号": {
+   "major": "工商管理",
+   "category": "工商管理类",
+   "field": "管理学",
+   "rule": "专业名含「工商管理/企业管理」",
+   "entailed_classes": [
+    "cat_工商管理类",
+    "field_管理学"
+   ],
+   "chain": [
+    "major_工商管理 a cat_工商管理类",
+    "cat_工商管理类 ⊑ field_管理学"
+   ],
+   "field_entailed": true
+  },
+  "cand_龚___33岁_专案工程师_智通简历_编号": {
+   "major": "服装设计与工程",
+   "category": "纺织类",
+   "field": "工学",
+   "rule": "专业名含「纺织/服装工程」",
+   "entailed_classes": [
+    "cat_纺织类",
+    "field_工学"
+   ],
+   "chain": [
+    "major_服装设计与工程 a cat_纺织类",
+    "cat_纺织类 ⊑ field_工学"
+   ],
+   "field_entailed": true
+  }
+ }
+}
