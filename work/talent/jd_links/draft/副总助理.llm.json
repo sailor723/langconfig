@@ -1,0 +1,130 @@
+[
+ {
+  "quote": "女性",
+  "line": 14,
+  "dimension": "A",
+  "tier": "essential",
+  "subject": "性别",
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "25-38岁",
+  "line": 14,
+  "dimension": "A",
+  "tier": "essential",
+  "subject": "年龄",
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "全日制大专及以上学历",
+  "line": 15,
+  "dimension": "B",
+  "tier": "essential",
+  "subject": "学历",
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "全日制",
+  "line": 15,
+  "dimension": "B",
+  "tier": "essential",
+  "subject": "全日制",
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "中文、文秘类专业优先",
+  "line": 15,
+  "dimension": "B",
+  "tier": "desirable",
+  "subject": "专业",
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "2年以上文职类、助理类、管理类工厂工作经验",
+  "line": 16,
+  "dimension": "C",
+  "tier": "essential",
+  "subject": "年限",
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "原则性强",
+  "line": 17,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "原则性",
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "责任心突出",
+  "line": 17,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "责任心",
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "敢于担当",
+  "line": 17,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "担当",
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "坚持日清日结",
+  "line": 17,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "日清日结",
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "具备良好的奋斗精神",
+  "line": 17,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "奋斗精神",
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "沟通能力好",
+  "line": 18,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "沟通",
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "执行能力强",
+  "line": 18,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "执行力",
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "逻辑清晰",
+  "line": 18,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "逻辑",
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "数据敏感",
+  "line": 18,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "数据敏感",
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "熟练掌握Office办公软件（Word/ Excel/ PPT/ AI）",
+  "line": 19,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "Office",
+  "measurable_from_resume": true
+ }
+]

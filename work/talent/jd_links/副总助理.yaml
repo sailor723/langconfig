@@ -1,0 +1,205 @@
+jd: 副总助理
+department: 副总室
+source_file: client/team-4/unzipped/职务说明书10份/2.副总助理职务说明书 - 最新修改版.doc
+source_text: work/talent/jd_links/_source/副总助理.txt
+extracted_with: textutil -convert txt (macOS)
+drafted_by: deepseek-chat, temperature=0 —— **草稿,未人工审核**
+review_status: draft
+count:
+  source_section: 任职资格
+  source_lines: 6
+  atomic_requirements: 16
+  count_note: 任职资格段 14–19 行共 6 句,LLM 拆成 16 条原子要求。与我手工分析的 16 条数量一致。
+citations:
+- id: VP-01
+  requirement: REQ-A-GENDER
+  verbatim: 女性
+  source_text: 基本要求：女性，25-38岁；
+  txt_line: 14
+  tier: essential
+  value:
+    in:
+    - 女
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: true
+    subject: 性别
+- id: VP-02
+  requirement: REQ-A-AGE-RANGE
+  verbatim: 25-38岁
+  source_text: 基本要求：女性，25-38岁；
+  txt_line: 14
+  tier: essential
+  value:
+    min: 25
+    max: 38
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: true
+    subject: 年龄
+- id: VP-03
+  requirement: REQ-B-EDU-LEVEL
+  verbatim: 全日制大专及以上学历
+  source_text: 教育背景：全日制大专及以上学历，中文、文秘类专业优先；
+  txt_line: 15
+  tier: essential
+  value:
+    num: 3
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: true
+    subject: 学历
+- id: VP-04
+  requirement: REQ-B-FULL-TIME
+  verbatim: 全日制
+  source_text: 教育背景：全日制大专及以上学历，中文、文秘类专业优先；
+  txt_line: 15
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: true
+    subject: 全日制
+- id: VP-05
+  requirement: REQ-B-MAJOR
+  verbatim: 中文、文秘类专业优先
+  source_text: 教育背景：全日制大专及以上学历，中文、文秘类专业优先；
+  txt_line: 15
+  tier: desirable
+  value:
+    in:
+    - 中文
+    - 文秘
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: true
+    subject: 专业
+- id: VP-06
+  requirement: REQ-C-YEARS-DOMAIN
+  verbatim: 2年以上文职类、助理类、管理类工厂工作经验
+  source_text: 经验要求：2年以上文职类、助理类、管理类工厂工作经验；
+  txt_line: 16
+  tier: essential
+  value:
+    num: 2
+    domain: 文职/助理/管理
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: true
+    subject: 年限
+- id: VP-07
+  requirement: REQ-E-PRINCIPLE
+  verbatim: 原则性强
+  source_text: 职业素养：原则性强，责任心突出，敢于担当，坚持日清日结，具备良好的奋斗精神；
+  txt_line: 17
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: false
+    subject: 原则性
+- id: VP-08
+  requirement: REQ-E-RESPONSIBILITY
+  verbatim: 责任心突出
+  source_text: 职业素养：原则性强，责任心突出，敢于担当，坚持日清日结，具备良好的奋斗精神；
+  txt_line: 17
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: false
+    subject: 责任心
+- id: VP-09
+  requirement: REQ-E-ACCOUNTABILITY
+  verbatim: 敢于担当
+  source_text: 职业素养：原则性强，责任心突出，敢于担当，坚持日清日结，具备良好的奋斗精神；
+  txt_line: 17
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: false
+    subject: 担当
+- id: VP-10
+  requirement: REQ-E-DAILY-CLOSE
+  verbatim: 坚持日清日结
+  source_text: 职业素养：原则性强，责任心突出，敢于担当，坚持日清日结，具备良好的奋斗精神；
+  txt_line: 17
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: false
+    subject: 日清日结
+- id: VP-11
+  requirement: REQ-E-STRIVING
+  verbatim: 具备良好的奋斗精神
+  source_text: 职业素养：原则性强，责任心突出，敢于担当，坚持日清日结，具备良好的奋斗精神；
+  txt_line: 17
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: false
+    subject: 奋斗精神
+- id: VP-12
+  requirement: REQ-E-COMMUNICATION
+  verbatim: 沟通能力好
+  source_text: 核心能力：沟通能力好、执行能力强、逻辑清晰、数据敏感；
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: false
+    subject: 沟通
+- id: VP-13
+  requirement: REQ-E-EXECUTION
+  verbatim: 执行能力强
+  source_text: 核心能力：沟通能力好、执行能力强、逻辑清晰、数据敏感；
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: false
+    subject: 执行力
+- id: VP-14
+  requirement: REQ-E-LOGIC
+  verbatim: 逻辑清晰
+  source_text: 核心能力：沟通能力好、执行能力强、逻辑清晰、数据敏感；
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: false
+    subject: 逻辑
+- id: VP-15
+  requirement: REQ-E-DATA-SENSITIVITY
+  verbatim: 数据敏感
+  source_text: 核心能力：沟通能力好、执行能力强、逻辑清晰、数据敏感；
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: false
+    subject: 数据敏感
+- id: VP-16
+  requirement: REQ-D-OFFICE
+  verbatim: 熟练掌握Office办公软件（Word/ Excel/ PPT/ AI）
+  source_text: 工具技能：熟练掌握Office办公软件（Word/ Excel/ PPT/ AI）
+  txt_line: 19
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: true
+    subject: Office
+excluded: []

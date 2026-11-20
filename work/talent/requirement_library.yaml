@@ -240,6 +240,152 @@ requirements:
       G 维的 hasClearance 属性不存在,所以判不了。
       「无客户信息泄露记录」本质上需要证明文件,不是简历能答的。
 
+  # ── 第三份 JD(副总助理)带来的新语义 ────────────────────────────────────
+  - id: REQ-A-GENDER
+    name: 性别
+    dimension: A
+    attribute: A.1
+    kind: threshold
+    op: "="
+    value_shape: {in: [男, 女]}
+    components: []
+    assessable: false
+    blocked_by: "A.1 的 prop_exists=false(gender 属性未建)"
+    note: |
+      ★ 这条**保留并执行**,不是删除。JD 原文「基本要求:女性」逐字可查。
+      现状是**属性未建**,所以它对任何分数/图的贡献都是 0 —— 这与"被剔除"是两件事。
+      A 维没有外部标准依据(LinkedIn 与 HR-XML 都没有 gender 字段),
+      所以 standard_ref 恒为 NULL(G5 门禁)。
+
+  - id: REQ-B-FULL-TIME
+    name: 全日制
+    dimension: B
+    attribute: B.3
+    kind: threshold
+    op: "="
+    value_shape: {bool: true}
+    components: []
+    assessable: false
+    blocked_by: "B.3 的 prop_exists=false(full_time 属性未建)"
+    note: "标准里没有这个字段,是本地扩展。副总助理 JD 写「全日制大专」,以及一条隐含的同义要求。"
+
+  - id: REQ-D-OFFICE
+    name: Office 办公软件(Word/Excel/PPT)
+    dimension: D
+    attribute: null
+    kind: composite
+    op: holds
+    components: [skill_Word, skill_Excel, skill_PowerPoint]
+    unlinked_parts:
+      - {text: AI, gap: P5}
+    assessable: true
+    note: |
+      ★ 原文写「熟练掌握Office办公软件(Word/ Excel/ PPT/ AI)」。
+      组件只有三项 —— **AI 没有组件**。
+      这一条是旧抽取最大的坑:老的正则把 "AI" 认成了 skill_Illustrator,
+      于是 8 个人凭空匹配上副总助理。现在 AI 显式留空(unlinked_parts),
+      而不是编一个组件出来。**LLM 引文 + 组件映射,把这个坑从源头堵住了。**
+
+  # ── E 维九条素质:结构性不可判,但必须存在 ─────────────────────────────
+  # 共同点:PROP 是 null,所以不连 Attribute;没有组件,所以不连 Component。
+  # 它们在图上是一条走到 Dimension E 就到头的枝 —— 这是事实,不是缺陷。
+  # 要判只能靠面试评分表 / 背景调查,不是简历。
+  - id: REQ-E-PRINCIPLE
+    name: 原则性
+    dimension: E
+    attribute: null
+    attribute_ref: E.1
+    kind: unmeasurable
+    op: null
+    components: []
+    no_component: true
+    assessable: false
+    evidence_method: 面试评分表 / 背景调查
+
+  - id: REQ-E-RESPONSIBILITY
+    name: 责任心
+    dimension: E
+    attribute: null
+    attribute_ref: E.1
+    kind: unmeasurable
+    op: null
+    components: []
+    no_component: true
+    assessable: false
+    evidence_method: 面试评分表 / 背景调查
+
+  - id: REQ-E-ACCOUNTABILITY
+    name: 敢于担当
+    dimension: E
+    attribute: null
+    attribute_ref: E.1
+    kind: unmeasurable
+    op: null
+    components: []
+    no_component: true
+    assessable: false
+    evidence_method: 面试 / 述职
+
+  - id: REQ-E-DAILY-CLOSE
+    name: 日清日结
+    dimension: E
+    attribute: null
+    attribute_ref: E.1
+    kind: unmeasurable
+    op: null
+    components: []
+    no_component: true
+    assessable: false
+    evidence_method: 试用期观察
+
+  - id: REQ-E-STRIVING
+    name: 奋斗精神
+    dimension: E
+    attribute: null
+    attribute_ref: E.3
+    kind: unmeasurable
+    op: null
+    components: []
+    no_component: true
+    assessable: false
+    evidence_method: 面试 / 试用期观察
+
+  - id: REQ-E-EXECUTION
+    name: 执行能力
+    dimension: E
+    attribute: null
+    attribute_ref: E.1
+    kind: unmeasurable
+    op: null
+    components: []
+    no_component: true
+    assessable: false
+    evidence_method: 面试评分表 / 述职
+
+  - id: REQ-E-LOGIC
+    name: 逻辑清晰
+    dimension: E
+    attribute: null
+    attribute_ref: E.2
+    kind: unmeasurable
+    op: null
+    components: []
+    no_component: true
+    assessable: false
+    evidence_method: 笔试 / 结构化面试
+
+  - id: REQ-E-DATA-SENSITIVITY
+    name: 数据敏感
+    dimension: E
+    attribute: null
+    attribute_ref: E.2
+    kind: unmeasurable
+    op: null
+    components: []
+    no_component: true
+    assessable: false
+    evidence_method: 笔试 / 结构化面试
+
 # ══════════════════════════════════════════════════════════════════════════
 # 已知缺口
 # ══════════════════════════════════════════════════════════════════════════
