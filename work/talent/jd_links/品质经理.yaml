@@ -7,7 +7,7 @@ extracted_at: 2026-11-19
 count:
   source_section: 任职资格
   source_lines: 7
-  atomic_requirements: 10
+  atomic_requirements: 15
   count_note: 'JD 标题写「任职资格(5-8条)」,正文 7 条行。
 
     第 5 行「3年以上品质管理工作经验,熟识线束行业相关产品」含 2 条原子要求;
@@ -124,6 +124,44 @@ citations:
   section_index: 7
   note: 这条直连 Dimension E,库里 no_component=true —— E 维没有组件,只能靠面试。
   origin: client
+- id: HR-01
+  origin: hr
+  requirement: REQ-HR-NOTICE
+  author: HR
+  value:
+    num: 4
+  rationale: 交接期超过一个月,岗位就空太久了;四周是能接受的上限
+  note: 阈值由 HR 定,不是客户原话
+- id: HR-02
+  origin: hr
+  requirement: REQ-HR-STABILITY
+  author: HR
+  value:
+    num: 3
+  rationale: 近 5 年换过 3 家以上的,业务方一般直接视为不稳定
+  note: 阈值由 HR 定
+- id: HR-03
+  origin: hr
+  requirement: REQ-HR-TENURE
+  author: HR
+  value:
+    num: 2
+  rationale: 平均每段不到 2 年,说明每份工作都待不住
+  note: 阈值由 HR 定
+- id: HR-04
+  origin: hr
+  requirement: REQ-HR-SALARY
+  author: HR
+  pending_value: true
+  rationale: 谈薪在一面前就要摸清,否则业务领导面完才发现给不起
+  note: '**缺取值**:客户 JD 没写薪资预算,这个上限要客户给,现在判不了'
+- id: HR-05
+  origin: hr
+  requirement: REQ-HR-COMMUTE
+  author: HR
+  pending_value: true
+  rationale: 地点太远的人入职三个月就跑
+  note: '**缺取值**:岗位工作地点还没定,要问客户;现在判不了'
 excluded:
 - id: X-01
   candidate_text: IATF16949
@@ -154,6 +192,9 @@ summary:
     都会指回已有的 REQ-D-* 节点,那时 distinct_requirements 才会小于 citations 数。
 
     '
+  origin_split:
+    client: 10
+    hr: 5
 validation:
 - id: J-G1
   rule: 每条 citation 的 requirement 必须存在于 requirement_library.yaml

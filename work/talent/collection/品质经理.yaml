@@ -4,11 +4,11 @@ thresholds:
   cv_solid: 0.5
   cv_thin: 0.1
 count:
-  citations: 10
-  data_items: 14
-  cv: 3
+  citations: 15
+  data_items: 19
+  cv: 5
   cv_then_interview: 3
-  interview: 8
+  interview: 11
 items:
 - jd: 品质经理
   citation: C-01
@@ -300,4 +300,107 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: 没有可判的数据项(E 维无组件)
+  req_source: interview
+- jd: 品质经理
+  citation: HR-01
+  requirement: REQ-HR-NOTICE
+  requirement_name: 到岗时间不超过
+  verbatim: null
+  kind: property
+  value:
+    num: 4
+  data_item: notice_weeks
+  attach: A.3
+  label: 到岗时长
+  type: interval
+  cardinality: single
+  prop_exists: true
+  cv_holders: 9
+  cv_coverage: 0.033
+  source: interview
+  judge_ready: true
+  library_says_assessable: true
+  library_blocked_by: null
+  req_source: interview
+- jd: 品质经理
+  citation: HR-02
+  requirement: REQ-HR-STABILITY
+  requirement_name: 近 5 年任职不超过
+  verbatim: null
+  kind: property
+  value:
+    num: 3
+  data_item: recent5y_segments
+  attach: C.7
+  label: 近 5 年任职段数
+  type: interval
+  cardinality: single
+  prop_exists: true
+  cv_holders: 243
+  cv_coverage: 0.9
+  source: cv
+  judge_ready: true
+  library_says_assessable: true
+  library_blocked_by: null
+  req_source: cv
+- jd: 品质经理
+  citation: HR-03
+  requirement: REQ-HR-TENURE
+  requirement_name: 平均在职不低于
+  verbatim: null
+  kind: property
+  value:
+    num: 2
+  data_item: avg_tenure_years
+  attach: C.4
+  label: 在岗时长(均值)
+  type: interval
+  cardinality: single
+  prop_exists: true
+  cv_holders: 243
+  cv_coverage: 0.9
+  source: cv
+  judge_ready: true
+  library_says_assessable: true
+  library_blocked_by: null
+  req_source: cv
+- jd: 品质经理
+  citation: HR-04
+  requirement: REQ-HR-SALARY
+  requirement_name: 期望薪资不超过岗位上限
+  verbatim: null
+  kind: property
+  value: null
+  data_item: salary_max_k
+  attach: A.5
+  label: 薪资预期
+  type: interval
+  cardinality: single
+  prop_exists: true
+  cv_holders: 0
+  cv_coverage: 0.0
+  source: interview
+  judge_ready: true
+  library_says_assessable: true
+  library_blocked_by: null
+  req_source: interview
+- jd: 品质经理
+  citation: HR-05
+  requirement: REQ-HR-COMMUTE
+  requirement_name: 能接受上班地点
+  verbatim: null
+  kind: property
+  value: null
+  data_item: commute_ok
+  attach: A.4
+  label: 通勤意愿
+  type: nominal
+  cardinality: single
+  prop_exists: true
+  cv_holders: 0
+  cv_coverage: 0.0
+  source: interview
+  judge_ready: true
+  library_says_assessable: true
+  library_blocked_by: null
   req_source: interview

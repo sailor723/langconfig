@@ -9,6 +9,8 @@ count:
 screenable_requirements:
 - REQ-A-AGE-RANGE
 - REQ-B-EDU-LEVEL
+- REQ-HR-STABILITY
+- REQ-HR-TENURE
 not_screenable:
   REQ-B-MAJOR: 算子是 in,不是阈值 —— 不用于排除
 excluded:

@@ -323,15 +323,49 @@ def main() -> int:
                                 "status": V, "note": f"{len(items)} 条"}
         A(f"| {dim} {DIM[dim]} | {' / '.join(texts)} | {V} | {len(items)} |")
     A("")
+    client_cites = [c for c in link["citations"] if c.get("origin", "client") == "client"]
+    hr_cites = [c for c in link["citations"] if c.get("origin") == "hr"]
     A("**逐条(含原文行号):**")
     A("")
     A("| # | 原文 | 行 | 维度 | 可评估 |")
     A("|---|---|---|---|---|")
-    for i, c in enumerate(link["citations"], 1):
+    for i, c in enumerate(client_cites, 1):
         r = reqs[c["requirement"]]
         A(f"| {i} | 「{c['verbatim']}」 | {c['txt_line']} | {r['dimension']} | "
           f"{'是' if r.get('assessable') else '**否**'} |")
     A("")
+    if hr_cites:
+        # HR 侧要求单独成章 —— 它**不是客户写的**,混进上面的客户原话表就是替客户说话
+        A(f"## 三之二、HR 侧要求({len(hr_cites)} 条)")
+        A("")
+        A("> **这些不是客户原话。** 是 HR 从招聘视角加的要求,每一条都记了"
+          "「谁提的、为什么提」,并且和客户要求走同一套判定。")
+        A("> 客户正文一个字都没动 —— 两类出处分开,是为了让人一眼看出哪句是客户写的。")
+        A("")
+        A("| # | 要求 | 判据 | 谁提的 | 为什么 | 取值 |")
+        A("|---|---|---|---|---|---|")
+        for i, c in enumerate(hr_cites, 1):
+            r = reqs[c["requirement"]]
+            v = c.get("value") or {}
+            if v.get("num") is not None:
+                shown = f"{r.get('op','')} {v['num']}"
+            elif v.get("value") is not None:
+                shown = str(v["value"])
+            else:
+                shown = "**未给**"
+            shape = (r.get("value_shape") or {}).get("num") or ""
+            crit = f"{r.get('op','')} {shape}".strip()
+            A(f"| {i} | {r.get('name','')} | {crit} | {c.get('author','')} | "
+              f"{c.get('rationale','')} | {shown} |")
+        A("")
+        missing = [reqs[c["requirement"]].get("name", "") for c in hr_cites
+                   if not (c.get("value") or {}).get("num")
+                   and (c.get("value") or {}).get("value") is None]
+        if missing:
+            A(f"> 「取值未给」的 {len(missing)} 条({('、'.join(missing))})**卡在客户侧**:"
+              "JD 没写预算/地点。数据收得到,但阈值没有 —— 判定会诚实地报「不可判」,"
+              "而不是猜一个标准出来。")
+        A("")
 
     # ── S4
     A("## 四、岗位职责(S4 职责)")

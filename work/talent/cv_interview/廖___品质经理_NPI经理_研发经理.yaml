@@ -37,6 +37,11 @@ answers:
     answer: 住石排镇,离厂区骑车 15 分钟
     note: "这一条很关键 —— 岗位工作地点还没定,但候选人在同镇,通勤不构成障碍"
 
+  - field: F.WORK_LOCATION
+    props: {commute_ok: true}          # 住石排 + 能接受在石排上班 → 通勤意愿成立
+    question: 如果在石排上班,你能接受吗?
+    answer: 可以,我现在就住石排,骑车十五分钟
+
   - field: F.CV_PHONE
     question: 联系电话?
     answer: 186****1653(与简历一致,后四位核过)
@@ -51,6 +56,7 @@ answers:
     answer: 一个月,现在这家要交接
 
   - field: F.SALARY
+    props: {salary_max_k: 25}          # 25K 可谈 → 期望上限 25K/月
     question: 期望薪资 20-30K,能接受到多少?
     answer: 25K 左右可谈,主要看岗位职责范围
 

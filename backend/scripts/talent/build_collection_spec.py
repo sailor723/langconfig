@@ -37,6 +37,7 @@ CATALOG = ROOT / "work" / "talent" / "component_catalog.yaml"
 LIBRARY = ROOT / "work" / "talent" / "requirement_library.yaml"
 LINKS = ROOT / "work" / "talent" / "jd_links"
 FACTS = ROOT / "work" / "talent" / "cv_facts.json"
+HR_FACTS = ROOT / "work" / "talent" / "hr_facts.json"
 INTERVIEW = ROOT / "work" / "talent" / "cv_interview"
 OUT = ROOT / "work" / "talent" / "collection"
 
@@ -44,6 +45,9 @@ TRUSTED = {"stated", "inferred", "computed"}
 #: 属性 prop → cv_facts.json 里那一条的键
 FACT_KEY = {"age": "age", "education_rank": "education_rank", "major": "major",
             "gender": "gender", "full_time": "full_time", "years_stated": "years"}
+#: HR 视角的属性 prop → hr_facts.json 里那一条的键(derive_hr_facts 算出来的)
+HR_KEY = {"notice_weeks": "notice_weeks", "recent5y_segments": "recent5y_segments",
+          "avg_tenure_years": "avg_tenure_years"}
 
 #: 覆盖率分档。阈值是分派规则的一部分,写在这里而不是散在代码里。
 CV_SOLID, CV_THIN = 0.50, 0.10
@@ -57,6 +61,12 @@ ASK = {
     "B.1": ("最高学历是什么?(中专/大专/本科/硕士/博士)", "学历档位,写入 education_rank(2..6)"),
     "B.2": ("所学专业是什么?大专、本科分别填", "专业名原文,写入 major"),
     "B.3": ("这几段学历里,哪几段是全日制?", "是与否,写入 full_time"),
+    "A.3": ("最快什么时候能到岗?几周内?", "整数周(随时=0),写入 notice_weeks"),
+    "A.4": ("能不能接受在这个地点上班?", "能/不能,写入 commute_ok"),
+    "A.5": ("期望薪资多少?(月薪区间)", "区间上限,写入 salary_max_k(K/月)"),
+    "C.7": ("把每一段工作经历的起止报一遍(近 5 年的尤其要说清)",
+            "起止年月,累加段数写入 recent5y_segments"),
+    "C.4": ("每段工作分别做了多久?", "起止年月,取均值得 avg_tenure_years"),
     "C.1": ("从事 {domain} 多少年?(只算 {domain})", "整数年,写入 years_stated"),
     "C.6": ("把每一段工作经历的起止报一遍", "起止年月,累加后写入 years_computed"),
 }
@@ -79,6 +89,17 @@ def prop_coverage(facts: dict, prop: str) -> int:
         if item.get("basis") in TRUSTED and item.get("value") is not None:
             n += 1
     return n
+
+
+def hr_coverage(prop: str) -> int:
+    """HR 那几个量在 270 份里能算出多少 —— 用实测,不用估。"""
+    key = HR_KEY.get(prop)
+    if not key or not HR_FACTS.is_file():
+        return 0
+    data = json.loads(HR_FACTS.read_text(encoding="utf-8"))
+    return sum(1 for d in data.values()
+               if (d.get(key) or {}).get("basis") == "computed"
+               and (d.get(key) or {}).get("value") is not None)
 
 
 def component_holders(facts: dict, labels: set[str]) -> int:
@@ -118,6 +139,30 @@ def candidate_state(cid: str, facts: dict, comp_by_id: dict) -> dict:
         ok = item.get("basis") in TRUSTED and item.get("value") is not None
         state[prop] = {"have": ok, "value": item.get("value"),
                        "basis": item.get("basis"), "from": "cv" if ok else None}
+    # HR 那几个量是算出来的(derive_hr_facts),同样算"已经有"
+    hr_all = json.loads(HR_FACTS.read_text(encoding="utf-8")) if HR_FACTS.is_file() else {}
+    hd = hr_all.get(cid) or {}
+    for prop, key in HR_KEY.items():
+        item = hd.get(key) or {}
+        ok = item.get("basis") == "computed" and item.get("value") is not None
+        state[prop] = {"have": ok, "value": item.get("value"),
+                       "basis": item.get("basis"), "from": "cv" if ok else None}
+    # 薪资在平台归档里,不在简历里 —— 单独标出来源,免得跟"简历自述"混为一谈
+    state.setdefault("salary_max_k", {"have": False, "value": None,
+                                      "basis": None, "from": None})
+
+    # HR 那几个量是算出来的(derive_hr_facts),同样算"已经有" ——
+    # 不算的话,一面脚本会把"已经满足的项"再问一遍,而判定那边说它满足,两边打架
+    hr_all = json.loads(HR_FACTS.read_text(encoding="utf-8")) if HR_FACTS.is_file() else {}
+    hd = hr_all.get(cid) or {}
+    for prop, key in HR_KEY.items():
+        item = hd.get(key) or {}
+        ok = item.get("basis") == "computed" and item.get("value") is not None
+        state[prop] = {"have": ok, "value": item.get("value"),
+                       "basis": item.get("basis"), "from": "cv" if ok else None}
+    state.setdefault("salary_max_k", {"have": False, "value": None,
+                                      "basis": None, "from": None})
+
     held = {s["name"] for s in ((d.get("skills") or {}).get("value") or [])}
     for cid2, comp in comp_by_id.items():
         state[cid2] = {"have": comp["label"] in held, "value": comp["label"] in held,
@@ -138,6 +183,12 @@ def candidate_state(cid: str, facts: dict, comp_by_id: dict) -> dict:
             if fid in answers and not state[prop]["have"]:
                 state[prop] = {"have": True, "value": answers[fid].get("answer"),
                                "basis": "interview", "from": "interview"}
+        # 属性:answers 里的 props 显式声明"这条回答把哪个属性填成什么"
+        for a in raw_answers:
+            for prop, val in (a.get("props") or {}).items():
+                if prop in state and not state[prop]["have"]:
+                    state[prop] = {"have": True, "value": val,
+                                   "basis": "interview", "from": "interview"}
         # 组件:@establishes 是采访人写进记录的,不是程序猜的
         for a in raw_answers:
             for comp_id in a.get("establishes") or []:
@@ -177,7 +228,7 @@ def main() -> int:
             continue
         for it in items:
             if it["kind"] == "property":
-                have = prop_coverage(facts, it["key"])
+                have = hr_coverage(it["key"]) or prop_coverage(facts, it["key"])
             else:
                 have = component_holders(facts, {comp_by_id[it["key"]]["label"]})
             cov = have / total if total else 0.0

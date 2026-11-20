@@ -39,12 +39,16 @@ CATALOG = ROOT / "work" / "talent" / "component_catalog.yaml"
 LIBRARY = ROOT / "work" / "talent" / "requirement_library.yaml"
 LINKS = ROOT / "work" / "talent" / "jd_links"
 FACTS = ROOT / "work" / "talent" / "cv_facts.json"
+HR_FACTS = ROOT / "work" / "talent" / "hr_facts.json"
 PROFILE = BACKEND / "features" / "ontology" / "profiles" / "talent_v1" / "talent_v1_settings.json"
 
 COVERAGE = 0.5
 
 PROP_FIELD = {"A.1": "gender", "A.2": "age", "B.1": "educationRank",
-              "B.2": "major", "B.3": "fullTime", "C.1": "yearsStated", "C.6": "yearsComputed"}
+              "B.2": "major", "B.3": "fullTime", "C.1": "yearsStated", "C.6": "yearsComputed",
+              # HR 视角的属性(A.3-A.5 / C.4 / C.7):数据来自 derive_hr_facts
+              "A.3": "notice_weeks", "A.4": "commute_ok", "A.5": "salary_max_k",
+              "C.4": "avg_tenure_years", "C.7": "recent5y_segments"}
 BASIS_FIELD = {"platform": "yearsPlatform", "stated": "yearsStated", "computed": "yearsComputed"}
 TRUSTED = {"stated", "inferred", "computed"}
 
@@ -107,6 +111,27 @@ def overlay_llm(cands: list[dict]) -> int:
     return used
 
 
+def overlay_hr(cands: list[dict]) -> int:
+    """把 derive_hr_facts 算出来的量挂到候选人身上。
+
+    只有 basis=computed 的才认 —— 那几个量是**推出来的**,推不出来的留 None,
+    不许填 0。填 0 会让"切不出工作段"的人被判成"零在职",那是凭空判人不合格。
+    """
+    if not HR_FACTS.is_file():
+        print(f"  ! 缺 {HR_FACTS.relative_to(ROOT)} —— 先跑 derive_hr_facts")
+        return 0
+    data = json.loads(HR_FACTS.read_text(encoding="utf-8"))
+    used = 0
+    for c in cands:
+        d = data.get(c["id"]) or {}
+        for prop in ("notice_weeks", "recent5y_segments", "avg_tenure_years"):
+            item = d.get(prop) or {}
+            if item.get("basis") == "computed" and item.get("value") is not None:
+                c[prop] = item["value"]
+                used += 1
+    return used
+
+
 def judge_component(held: set, needed: list) -> tuple:
     if not needed:
         return "不可判", "没有组件"
@@ -122,16 +147,22 @@ def judge_attribute(att: dict, req: dict, cit: dict, cand: dict, forced: str) ->
         prop = BASIS_FIELD.get(basis, "yearsPlatform")
     if not prop:
         return "不可判", f"{attr_id} 没有供给侧字段"
+    val = cit.get("value") or {}
+    op = req.get("op")
+    # 先看 JD 这边给没给取值 —— JD 没给阈值是「不可判」,不是「候选人未知」。
+    # 这两件事混起来的后果是:看名单的人以为"这人没数据",实际是"这个岗没定标准"。
+    if op in (">=", "<=", "between") and not (set(val) & {"num", "min", "max"}):
+        return "不可判", f"算子 {op} 但 JD 没给取值"
     value = cand.get(prop)
     if value is None:
         return "未知", f"{prop} 没读到"
-    val = cit.get("value") or {}
-    op = req.get("op")
     if op == "between" and "min" in val and "max" in val:
         return ("满足" if val["min"] <= value <= val["max"] else "不满足"), \
                f"{val['min']}~{val['max']} vs {value}"
     if op == ">=" and "num" in val:
         return ("满足" if value >= val["num"] else "不满足"), f">={val['num']} vs {value}"
+    if op == "<=" and "num" in val:
+        return ("满足" if value <= val["num"] else "不满足"), f"<={val['num']} vs {value}"
     if op == "=":
         want = val.get("in") or ([val["value"]] if "value" in val else [])
         if want:
@@ -165,12 +196,14 @@ def main() -> int:
 
     cands = load_candidates()
     n_llm = overlay_llm(cands) if args.facts == "llm" else 0
+    n_hr = overlay_hr(cands)
     pool = [c for c in cands if args.include_duplicates or not c["duplicate"]]
     cit = link["citations"]
 
     print(f"JD: {link['jd']} · {len(cit)} 条引用 → {len({c['requirement'] for c in cit})} 条要求")
     print(f"候选人: {len(pool)} 人(另有 {len(cands) - len(pool)} 份重复已排除)")
-    print(f"事实源: {args.facts}" + (f"(覆盖 {n_llm} 个字段)" if args.facts == "llm" else ""))
+    print(f"事实源: {args.facts}" + (f"(覆盖 {n_llm} 个字段)" if args.facts == "llm" else "")
+          + f" · HR 事实覆盖 {n_hr} 个量")
     print(f"年限口径: {args.year_basis or '按引用/要求声明'}   组件覆盖率阈值: {COVERAGE}")
 
     per_req = collections.defaultdict(collections.Counter)

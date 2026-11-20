@@ -121,6 +121,56 @@ attributes:
     note: "107/277。JD 侧只有一条区间要求「25-38岁」/「25-40岁」。"
 
   # ── B 教育 ──────────────────────────────────────────────────────────────
+  # ── 以下三项为 HR 视角的要求而建(2026-11-20)──
+  # 为什么放 A 维:它们和「性别/年龄」一样是**入职的基本条件**,不是能力。
+  - id: A.3
+    dimension: A
+    label: 到岗时长
+    cardinality: single
+    scale: interval
+    unit: 周
+    values: null
+    prop: notice_weeks
+    prop_exists: true
+    cv_coverage: 9
+    standard_ref: null
+    note: |
+      单位:周。「随时」记 0 周。
+      实测 270 份里只有 9 份(3%)写得出来 —— 简历普遍只写「一个月」甚至不写。
+      **所以这一项基本只能一面问**,CV 只当锦上添花。
+      算法见 scripts/talent/derive_hr_facts.py。
+
+  - id: A.4
+    dimension: A
+    label: 通勤意愿
+    cardinality: single
+    scale: nominal
+    values: [{code: true, cv_count: 0}, {code: false, cv_count: 0}]
+    prop: commute_ok
+    prop_exists: true
+    cv_coverage: 0
+    standard_ref: null
+    note: |
+      能不能接受这个上班地点。CV 里写的是「住石排镇」这类自由文本 ——
+      **算不出距离,所以不做距离判定,只做是非题**,由一面直接问。
+      cv_coverage=0 是实测:CV 侧没有任何可计算的来源。
+
+  - id: A.5
+    dimension: A
+    label: 薪资预期
+    cardinality: single
+    scale: interval
+    unit: K/月
+    values: null
+    prop: salary_max_k
+    prop_exists: true
+    cv_coverage: 160
+    standard_ref: "HR Open Standards RemunerationRequest"
+    note: |
+      单位:K/月,取期望区间上限。160/277 来自招聘平台归档,**不是简历自述** ——
+      简历里的「薪资待遇:20000-29999元」与平台归档不一定一致。
+      只能拿它跟岗位预算上限比,不能当成"他已经接受了多少"。
+
   - id: B.1
     dimension: B
     label: 学历
@@ -226,16 +276,39 @@ attributes:
 
   - id: C.4
     dimension: C
-    label: 在岗时长
+    label: 在岗时长(均值)
     cardinality: single
     scale: interval
     unit: 年
     values: null
-    prop: tenure
-    prop_exists: false
-    cv_coverage: 0
+    prop: avg_tenure_years
+    prop_exists: true
+    cv_coverage: 243
     standard_ref: null
-    note: "最长一段任职时长,用于判断稳定性。10 份 JD 均未显式要求,预留。"
+    note: |
+      **算法**:从「工作经历」切出的每段起止,按月相减,取均值。
+      「至今」按 REF=2026-11 算(这是决定,换 REF 会改变所有人的值)。
+      243/270(90%)可算;切不出起止的 27 份留空,**不填 0** —— 填 0 等于判人零在职。
+
+      原来是"最长一段",改成均值:HR 关心"是不是一直在换",最长一段回答不了这个问题
+      (有人一段很长、其余都很短)。算法见 scripts/talent/derive_hr_facts.py。
+
+  - id: C.7
+    dimension: C
+    label: 近 5 年任职段数
+    cardinality: single
+    scale: interval
+    unit: 段
+    values: null
+    prop: recent5y_segments
+    prop_exists: true
+    cv_coverage: 243
+    standard_ref: null
+    note: |
+      **算法**:同一批工作段,只留「结束月 ≥ REF-60」的,数段数。
+      两段之间的空窗期不算段,也不单独成项 —— 简历很少写空窗期,
+      按段数是能算的极限,**不能声称它等于"换过几家公司"**(OCR 缺公司名时更算不准)。
+      实测:1 段 25 人 / 2 段 48 人 / 3 段 49 人;平均在职中位 2.5 年。
 
   - id: C.5
     dimension: C

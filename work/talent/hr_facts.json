@@ -1,0 +1,7907 @@
+{
+ "cand_专案工程师_东莞_10_15K_徐___1年以内": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第38行 2015.01-2020.12",
+    "第51行 2010.01-2013.12",
+    "第66行 2008.01-2009.12",
+    "第78行 2006.01-2008.01",
+    "第88行 2004.01-2006.01"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 0,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": []
+  },
+  "avg_tenure_years": {
+   "value": 3.2,
+   "basis": "computed",
+   "total_months": 194
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_专案工程师_东莞_10_15K_黄___7年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第16行 2026.03-2026.08",
+    "第38行 2022.11-2026.02"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2026.03-2026.08",
+    "2022.11-2026.02"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.9,
+   "basis": "computed",
+   "total_months": 46
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_专案工程师_东莞_11_16K_杨___7年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第25行 2014.01-至今",
+    "第34行 2019.03-2023.12"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2014.01-至今",
+    "2019.03-2023.12"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 8.9,
+   "basis": "computed",
+   "total_months": 213
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_专案工程师_东莞_12_16K_l___10年以上": {
+  "segment_count": {
+   "value": 7,
+   "basis": "computed",
+   "evidence": [
+    "第11行 2025.08-2026.03",
+    "第23行 2023.11-2024.11",
+    "第35行 2018.08-2023.06",
+    "第63行 2016.07-2018.06",
+    "第72行 2013.10-2016.06",
+    "第80行 2003-10-2012-12",
+    "第100行 2003.10-2012.12"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.08-2026.03",
+    "2023.11-2024.11",
+    "2018.08-2023.06"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 4.3,
+   "basis": "computed",
+   "total_months": 359
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_专案工程师_东莞_12_16K_lizw_10年以上": {
+  "segment_count": {
+   "value": 7,
+   "basis": "computed",
+   "evidence": [
+    "第14行 2025.08-2026.03",
+    "第26行 2023.11-2024.11",
+    "第38行 2018.08-2023.06",
+    "第65行 2016.07-2018.06",
+    "第74行 2013.10-2016.06",
+    "第82行 2003-10-2012-12",
+    "第100行 2003.10-2012.12"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.08-2026.03",
+    "2023.11-2024.11",
+    "2018.08-2023.06"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 4.3,
+   "basis": "computed",
+   "total_months": 359
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_专案工程师_东莞_12_16K_何___5年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第27行 2025.07-至今",
+    "第50行 2025.02-2025.06",
+    "第78行 2020.09-2025.02"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.07-至今",
+    "2025.02-2025.06",
+    "2020.09-2025.02"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.1,
+   "basis": "computed",
+   "total_months": 76
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_专案工程师_东莞_12_16K_刘___10年以上": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第19行 2024.01-至今",
+    "第24行 2022.12-2023.12",
+    "第27行 2018.12-2022.12",
+    "第33行 2014.06-2018.11",
+    "第38行 2006.06-2011.05"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024.01-至今",
+    "2022.12-2023.12",
+    "2018.12-2022.12"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.5,
+   "basis": "computed",
+   "total_months": 211
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_专案工程师_东莞_12_16K_华___9年": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第21行 2023.03-至今",
+    "第33行 2019.06-2023.01",
+    "第39行 2018.02-2019.04",
+    "第45行 2017.06-2017.12"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023.03-至今",
+    "2019.06-2023.01"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.3,
+   "basis": "computed",
+   "total_months": 111
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_专案工程师_东莞_12_16K_史___10年以上": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第17行 2020.06-2024.06",
+    "第28行 2018.06-2020.06",
+    "第45行 2014.12-2018.06",
+    "第67行 2011.09-2014.11"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2020.06-2024.06"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.2,
+   "basis": "computed",
+   "total_months": 156
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_专案工程师_东莞_12_16K_叶___10年以上": {
+  "notice_weeks": {
+   "value": 4.0,
+   "basis": "computed",
+   "why": "原文「到岗…，一个月」"
+  }
+ },
+ "cand_专案工程师_东莞_12_16K_周___10年以上": {},
+ "cand_专案工程师_东莞_12_16K_周___10年以上_1": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第19行 2023-2024",
+    "第20行 2024-2025"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-2024",
+    "2024-2025"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.1,
+   "basis": "computed",
+   "total_months": 26
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_专案工程师_东莞_12_16K_唐___10年以上": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第34行 2022-10-2024-12",
+    "第45行 2019-11-2022-08",
+    "第57行 2015-11-2019-10",
+    "第89行 2012-05-2015-09",
+    "第111行 2009-08-2012-04",
+    "第126行 2005-03-2009-07"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022-10-2024-12",
+    "2019-11-2022-08"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.3,
+   "basis": "computed",
+   "total_months": 236
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_专案工程师_东莞_12_16K_孙___10年以上": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_专案工程师_东莞_12_16K_廖___10年以上": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第19行 2019.01-至今"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2019.01-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 7.9,
+   "basis": "computed",
+   "total_months": 95
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_专案工程师_东莞_12_16K_张___5年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第18行 2025.11-2026.07",
+    "第42行 2023.03-2025.10"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.11-2026.07",
+    "2023.03-2025.10"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.7,
+   "basis": "computed",
+   "total_months": 41
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_专案工程师_东莞_12_16K_熊___10年以上": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第19行 2019.01-至今"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2019.01-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 7.9,
+   "basis": "computed",
+   "total_months": 95
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_专案工程师_东莞_12_16K_王___10年以上": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_专案工程师_东莞_12_16K_石___10年以上": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第12行 1999-2002"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 0,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": []
+  },
+  "avg_tenure_years": {
+   "value": 3.1,
+   "basis": "computed",
+   "total_months": 37
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_专案工程师_东莞_12_16K_董___7年": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_专案工程师_东莞_12_16K_邹___10年以上": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第25行 2025.03-至今",
+    "第34行 2022.03-2025.03",
+    "第51行 2016.01-2022.03",
+    "第65行 2011.07-2015.12"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.03-至今",
+    "2022.03-2025.03",
+    "2016.01-2022.03"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.9,
+   "basis": "computed",
+   "total_months": 187
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_专案工程师_东莞_12_16K_陈___5年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第21行 2026.05-2026.07",
+    "第24行 2023.09-2026.03",
+    "第79行 2021.10-2023.07"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2026.05-2026.07",
+    "2023.09-2026.03",
+    "2021.10-2023.07"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.6,
+   "basis": "computed",
+   "total_months": 56
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务助理_东莞_7_9K_郑___3年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第17行 2019-2023",
+    "第20行 2019. 09-2020. 06",
+    "第27行 2023. 07-2026. 3"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2019-2023",
+    "2023. 07-2026. 3"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.6,
+   "basis": "computed",
+   "total_months": 92
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_J___10年": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第16行 2022.05-2026.4",
+    "第41行 2019.10-2022.01",
+    "第66行 2017.12-2019.09",
+    "第84行 2015.09-2017.09"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022.05-2026.4",
+    "2019.10-2022.01"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.6,
+   "basis": "computed",
+   "total_months": 123
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_Jessie郭___10年": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第12行 2022.05-2026.4",
+    "第36行 2019.10-2022.01",
+    "第62行 2017.12-2019.09",
+    "第81行 2015.09-2017.09",
+    "第100行 2014-2015"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022.05-2026.4",
+    "2019.10-2022.01"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.3,
+   "basis": "computed",
+   "total_months": 136
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_L___10年以上": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第18行 2024.09-2026.02",
+    "第33行 2023.07-2024.09",
+    "第42行 2023-2024",
+    "第46行 2014.08-2022.06",
+    "第89行 2006.08-2014.08",
+    "第128行 2005.07-2006.08"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024.09-2026.02",
+    "2023.07-2024.09",
+    "2023-2024",
+    "2014.08-2022.06"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.5,
+   "basis": "computed",
+   "total_months": 252
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_Lily_10年以上": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第18行 2024.09-2026.02",
+    "第34行 2023.07-2024.09",
+    "第43行 2023-2024",
+    "第47行 2014.08-2022.06",
+    "第87行 2006.08-2014.08",
+    "第124行 2005.07-2006.08"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024.09-2026.02",
+    "2023.07-2024.09",
+    "2023-2024",
+    "2014.08-2022.06"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.5,
+   "basis": "computed",
+   "total_months": 252
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_万___10年以上": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第22行 2015.03-2017",
+    "第35行 2019.05-2020.07",
+    "第52行 2022.05-2024.12",
+    "第91行 2025.03-2025.09"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022.05-2024.12",
+    "2025.03-2025.09"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.6,
+   "basis": "computed",
+   "total_months": 77
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_伍___1年": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第23行 2024. 08-2026. 03"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024. 08-2026. 03"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.7,
+   "basis": "computed",
+   "total_months": 20
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_刘___3年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第64行 2025.02-至今",
+    "第85行 2024.09-2025.02",
+    "第97行 2023.09-2024.06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.02-至今",
+    "2024.09-2025.02",
+    "2023.09-2024.06"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.1,
+   "basis": "computed",
+   "total_months": 38
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_叶___25年应届生": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第22行 2025.05-2026.08"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.05-2026.08"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.3,
+   "basis": "computed",
+   "total_months": 16
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_吴___1年": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第20行 2025.03-2026.08",
+    "第35行 2023.05-2025.02",
+    "第47行 2020.08-2023.02",
+    "第62行 2018.03-2020.07"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.03-2026.08",
+    "2023.05-2025.02",
+    "2020.08-2023.02"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.1,
+   "basis": "computed",
+   "total_months": 100
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_吴___23年毕业": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_和___10年以上": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第14行 2025.10-2026.05",
+    "第28行 2021.01-2025.05",
+    "第41行 2014-2015"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.10-2026.05",
+    "2021.01-2025.05"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.1,
+   "basis": "computed",
+   "total_months": 74
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_宋___4年": {
+  "segment_count": {
+   "value": 7,
+   "basis": "computed",
+   "evidence": [
+    "第15行 2022.06-2022.09",
+    "第18行 2022.10-2023.07",
+    "第23行 2023.08-2024.07",
+    "第29行 2024.07-2025.10",
+    "第38行 2025.11-至今",
+    "第63行 2021.10-2022.10",
+    "第69行 2022.01-2022.02"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 7,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022.06-2022.09",
+    "2022.10-2023.07",
+    "2023.08-2024.07",
+    "2024.07-2025.10",
+    "2025.11-至今",
+    "2021.10-2022.10",
+    "2022.01-2022.02"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 0.8,
+   "basis": "computed",
+   "total_months": 70
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_张___10年以上": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第5行 2021.07-2026.08",
+    "第9行 2018.07-2021.02",
+    "第14行 2006.10-2018.07",
+    "第17行 2004-2007"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2021.07-2026.08"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 5.7,
+   "basis": "computed",
+   "total_months": 273
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_最近只线上_2年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第28行 2024.06-2025.12",
+    "第45行 2022.03-2024.03"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024.06-2025.12",
+    "2022.03-2024.03"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.8,
+   "basis": "computed",
+   "total_months": 44
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_李___1年": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第40行 2022.03-2025.01",
+    "第45行 2025.04-2025.12",
+    "第68行 2023.05-2024.06",
+    "第86行 2022.10-2023.10"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022.03-2025.01",
+    "2025.04-2025.12",
+    "2023.05-2024.06",
+    "2022.10-2023.10"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.5,
+   "basis": "computed",
+   "total_months": 71
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_李___4年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第14行 2023.09-2025.10",
+    "第24行 2022.08-2023.08"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023.09-2025.10",
+    "2022.08-2023.08"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.6,
+   "basis": "computed",
+   "total_months": 39
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_杨___26年应届生": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第12行 2020.09-2023.06",
+    "第28行 2022-07-2023",
+    "第46行 2023.07-2023.09",
+    "第61行 2024.06-2024.08"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2020.09-2023.06",
+    "2022-07-2023",
+    "2023.07-2023.09",
+    "2024.06-2024.08"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.0,
+   "basis": "computed",
+   "total_months": 47
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_杨___8年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第13行 2024.08-至今",
+    "第52行 2022.04-2024.01",
+    "第109行 2019.08-2021.12"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024.08-至今",
+    "2022.04-2024.01",
+    "2019.08-2021.12"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.2,
+   "basis": "computed",
+   "total_months": 79
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_林___7年": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_栩___4年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第43行 2023.01-2023.12",
+    "第52行 2024.2-2024.12",
+    "第65行 2026-2026"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023.01-2023.12",
+    "2024.2-2024.12",
+    "2026-2026"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 0.7,
+   "basis": "computed",
+   "total_months": 24
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_梁___1年": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第45行 2021-2022",
+    "第46行 2022-2023",
+    "第47行 2023-2024",
+    "第55行 2025.03-2026.03",
+    "第81行 2022-2023"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 5,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2021-2022",
+    "2022-2023",
+    "2023-2024",
+    "2025.03-2026.03",
+    "2022-2023"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.1,
+   "basis": "computed",
+   "total_months": 65
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_梁___9年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第8行 2022.06-至今",
+    "第16行 2018.10-2022.05",
+    "第22行 2017.08-2018.10"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022.06-至今",
+    "2018.10-2022.05"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.1,
+   "basis": "computed",
+   "total_months": 113
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_江___3年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第13行 2023.08-2024.05",
+    "第25行 2024.08-2025.10"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023.08-2024.05",
+    "2024.08-2025.10"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.0,
+   "basis": "computed",
+   "total_months": 25
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_王___10年以上": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第18行 2023/2-2026/6",
+    "第35行 2021/2-2022/12"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023/2-2026/6",
+    "2021/2-2022/12"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.7,
+   "basis": "computed",
+   "total_months": 64
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_王___10年以上_2": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第14行 2015.09-2024.03",
+    "第27行 2010.03-2015.07"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2015.09-2024.03"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 7.0,
+   "basis": "computed",
+   "total_months": 168
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_王___10年以上_3": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第39行 2021/02-2026/03",
+    "第58行 2020/07-2021/02",
+    "第63行 2018/05-2020/06",
+    "第69行 2016/11-2018/04",
+    "第76行 2012/09-2016/10"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2021/02-2026/03"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.7,
+   "basis": "computed",
+   "total_months": 164
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_王___24年毕业": {},
+ "cand_业务跟单_东莞_6_10K_王___24年毕业_1": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第49行 2024. 08-2026. 05"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024. 08-2026. 05"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.8,
+   "basis": "computed",
+   "total_months": 22
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_王___5年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第19行 2020.07-2022.12",
+    "第20行 2023.02-2026.02"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2020.07-2022.12",
+    "2023.02-2026.02"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.8,
+   "basis": "computed",
+   "total_months": 67
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_盘___6年": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第19行 2020.09-2026.04"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2020.09-2026.04"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 5.7,
+   "basis": "computed",
+   "total_months": 68
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_罗___2年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第16行 2024.07-2025.03",
+    "第24行 2025.04-2026.03"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024.07-2025.03",
+    "2025.04-2026.03"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 0.9,
+   "basis": "computed",
+   "total_months": 21
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_罗___8年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第26行 2019.09-2022.01",
+    "第30行 2022.02-2023.08",
+    "第33行 2023.09-2025.06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2019.09-2022.01",
+    "2022.02-2023.08",
+    "2023.09-2025.06"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.9,
+   "basis": "computed",
+   "total_months": 70
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_范___1年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第11行 2025. 06-2026. 01",
+    "第24行 2025. 08-2025. 12",
+    "第34行 2024. 03-2024. 04"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025. 06-2026. 01",
+    "2025. 08-2025. 12",
+    "2024. 03-2024. 04"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 0.4,
+   "basis": "computed",
+   "total_months": 15
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_菲___10年以上": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第7行 2022.12-至今",
+    "第22行 2018.04-2022.12",
+    "第38行 2014.07-2017"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022.12-至今",
+    "2018.04-2022.12"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.8,
+   "basis": "computed",
+   "total_months": 136
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_裴___2年": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第24行 2024.10-至今"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024.10-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.2,
+   "basis": "computed",
+   "total_months": 26
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_谢___1年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第44行 2025.04-2026.09",
+    "第63行 2022.09-2025.01",
+    "第68行 2022.12-2025.12"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.04-2026.09",
+    "2022.09-2025.01",
+    "2022.12-2025.12"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.3,
+   "basis": "computed",
+   "total_months": 84
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_邓___1年": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第41行 2025.09-2026.06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.09-2026.06"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 0.8,
+   "basis": "computed",
+   "total_months": 10
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_郑___10年以上": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_郭___23年毕业": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_钟___2年": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第33行 2025.02-2026.10"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.02-2026.10"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.8,
+   "basis": "computed",
+   "total_months": 21
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_陈___5年": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第19行 2022.03-2022.08",
+    "第30行 2022.10-2023.11",
+    "第40行 2024.01-2024.12",
+    "第55行 2025.01-2026.08"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022.03-2022.08",
+    "2022.10-2023.11",
+    "2024.01-2024.12",
+    "2025.01-2026.08"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.1,
+   "basis": "computed",
+   "total_months": 52
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_陈___9年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第19行 2023.10-2026.05",
+    "第34行 2019.09-2023.08"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023.10-2026.05",
+    "2019.09-2023.08"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.3,
+   "basis": "computed",
+   "total_months": 80
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_马___4年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第17行 2022.09-2025.03",
+    "第31行 2025.08-2026.09"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022.09-2025.03",
+    "2025.08-2026.09"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.9,
+   "basis": "computed",
+   "total_months": 45
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_黄___3年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第26行 2025.06-2026.06",
+    "第47行 2023.07-2025.06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.06-2026.06",
+    "2023.07-2025.06"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.5,
+   "basis": "computed",
+   "total_months": 37
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_黎___5年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第56行 2025.12-2026.07",
+    "第68行 2024.01-2025.11",
+    "第83行 2022.01-2022.08"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.12-2026.07",
+    "2024.01-2025.11",
+    "2022.01-2022.08"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.1,
+   "basis": "computed",
+   "total_months": 39
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_10K_黎___6年": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_8K_周___10年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第10行 2023.08-至今",
+    "第16行 2019.03-2022.05",
+    "第24行 2016.03-2019.01"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023.08-至今",
+    "2019.03-2022.05"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.2,
+   "basis": "computed",
+   "total_months": 114
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_8K_林___10年以上": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第23行 2007. 09-2009.06",
+    "第31行 2010. 12-2014. 12月",
+    "第39行 2016. 3月-2025. 6月",
+    "第55行 2025. 8月-2026. 3月"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2016. 3月-2025. 6月",
+    "2025. 8月-2026. 3月"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 4.0,
+   "basis": "computed",
+   "total_months": 191
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文写了「应聘职位 |外贸助理、文」,但读不出周数(不猜)"
+  }
+ },
+ "cand_业务跟单_东莞_6_8K_梁___9年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第34行 2025.10-2026.04",
+    "第46行 2021.08-2025.09",
+    "第58行 2017.08-2021.04"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.10-2026.04",
+    "2021.08-2025.09"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.8,
+   "basis": "computed",
+   "total_months": 102
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_8K_符___4年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第14行 2023.06-2026.03",
+    "第31行 2022.07-2023.03"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023.06-2026.03",
+    "2022.07-2023.03"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.8,
+   "basis": "computed",
+   "total_months": 43
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_8K_胡___6年": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_业务跟单_东莞_6_8K_蒙___10年以上": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第16行 2024.06-2026.01",
+    "第21行 2020.08-2024.05",
+    "第27行 2016.09-2020.07",
+    "第32行 2014.08-2016.08"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024.06-2026.01",
+    "2020.08-2024.05"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.9,
+   "basis": "computed",
+   "total_months": 138
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_人事经理_东莞_12_17K_张___10年以上": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第21行 2025.06-至今",
+    "第45行 2021.12-2025.04",
+    "第70行 2015.04-2021.11"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.06-至今",
+    "2021.12-2025.04",
+    "2015.04-2021.11"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.9,
+   "basis": "computed",
+   "total_months": 139
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_人事经理_东莞_12_17K_钟___10年以上": {
+  "segment_count": {
+   "value": 15,
+   "basis": "computed",
+   "evidence": [
+    "第31行 2022.05-2025.07",
+    "第108行 2016.04-2022.04",
+    "第119行 2011.11-2015.10",
+    "第167行 2008.10-2011.11",
+    "第227行 2025.05-2025.07",
+    "第235行 2023.11-2024.01",
+    "第244行 2023.08-2023.11",
+    "第256行 2022.06-2022.12",
+    "第263行 2021.06-2022.04",
+    "第292行 2020.02-2020.05",
+    "第327行 2014.07-2015.02",
+    "第354行 2016.09-2019.07",
+    "第357行 2004.09-2007.07",
+    "第359行 2024.07-2024.07",
+    "第361行 2017.06-2017.06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 8,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022.05-2025.07",
+    "2016.04-2022.04",
+    "2025.05-2025.07",
+    "2023.11-2024.01",
+    "2023.08-2023.11",
+    "2022.06-2022.12",
+    "2021.06-2022.04",
+    "2024.07-2024.07"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.7,
+   "basis": "computed",
+   "total_months": 310
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_人资专员_东莞_5_6K_何___5年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第28行 2019. 04-2019. 08",
+    "第33行 2023. 4-2026. 6"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023. 4-2026. 6"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.8,
+   "basis": "computed",
+   "total_months": 44
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_人资专员_东莞_5_6K_马___26年应届生": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第14行 2023.09-2024.07",
+    "第27行 2025.12-2026.04",
+    "第32行 2025.06-2025.09",
+    "第37行 2024.08-2024.10"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023.09-2024.07",
+    "2025.12-2026.04",
+    "2025.06-2025.09",
+    "2024.08-2024.10"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 0.5,
+   "basis": "computed",
+   "total_months": 23
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文写了「、薪资预期等关键信息，同」,但读不出周数(不猜)"
+  }
+ },
+ "cand_人资专员_东莞_5_6K_黄___6年": {},
+ "cand_人资专员_东莞_5_6K_黄___6年_1": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第13行 2025.05-至今",
+    "第30行 2023.11-2024.12",
+    "第49行 2022.06-2023.11",
+    "第80行 2020.07-2022.03"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.05-至今",
+    "2023.11-2024.12",
+    "2022.06-2023.11",
+    "2020.07-2022.03"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.5,
+   "basis": "computed",
+   "total_months": 72
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_任___39岁_技术课课长_智通简历_编号": {
+  "segment_count": {
+   "value": 9,
+   "basis": "computed",
+   "evidence": [
+    "第45行 2023-08-至今",
+    "第49行 2016-06-2023-07",
+    "第53行 2014-04-2016-05",
+    "第57行 2012-02-2013-12",
+    "第61行 2009-11-2011-04",
+    "第65行 2007-11-2009-09",
+    "第69行 2006-08-2007-10",
+    "第80行 2016-06-2023-07",
+    "第91行 2003-2006"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-08-至今",
+    "2016-06-2023-07",
+    "2016-06-2023-07"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.3,
+   "basis": "computed",
+   "total_months": 354
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_何___20岁_工程文员_智通简历_编号": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第38行 2025-07-2026-02",
+    "第46行 2024-08-2025-03",
+    "第56行 2022-2025",
+    "第58行 2020-2022"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-07-2026-02",
+    "2024-08-2025-03",
+    "2022-2025",
+    "2020-2022"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.6,
+   "basis": "computed",
+   "total_months": 78
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_何___25岁_业务跟单_智通简历_编号": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第18行 2025-02-至今",
+    "第84行 2023-05-2024-12",
+    "第106行 2018-2022"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-02-至今",
+    "2023-05-2024-12",
+    "2018-2022"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.5,
+   "basis": "computed",
+   "total_months": 91
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_何___35岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 7,
+   "basis": "computed",
+   "evidence": [
+    "第35行 2024-05-至今",
+    "第39行 2021-07-2024-04",
+    "第44行 2018-05-2021-05",
+    "第51行 2010-8-2014-11",
+    "第60行 2020-09-2021-05",
+    "第67行 2021-2025",
+    "第70行 2007-9-2010-6"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-05-至今",
+    "2021-07-2024-04",
+    "2021-2025"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.9,
+   "basis": "computed",
+   "total_months": 246
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_何___36岁_业务助理_智通简历_编号": {
+  "segment_count": {
+   "value": 7,
+   "basis": "computed",
+   "evidence": [
+    "第41行 2025-10-2025-12",
+    "第52行 2023-10-2024-07",
+    "第114行 2020-02-2023-07",
+    "第116行 2018-08-2019-12",
+    "第118行 2015-11-2018-04",
+    "第120行 2016-12-2017-04",
+    "第137行 2009-09-2013-06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-10-2025-12",
+    "2023-10-2024-07",
+    "2020-02-2023-07"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.8,
+   "basis": "computed",
+   "total_months": 153
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_何___36岁_行政专员_智通简历_编号": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第25行 2022-05-至今",
+    "第29行 2022.04-2025.12",
+    "第46行 2010-2013"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022-05-至今",
+    "2022.04-2025.12"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.8,
+   "basis": "computed",
+   "total_months": 137
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_何___42岁_行政专员_智通简历_编号": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第41行 2012-01-至今",
+    "第58行 2009-05-2011-12",
+    "第67行 2003-9-2006-6"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2012-01-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 6.8,
+   "basis": "computed",
+   "total_months": 245
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_傅___28岁_业务跟单_智通简历_编号": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第41行 2025-02-2025-09",
+    "第54行 2024-05-2024-12",
+    "第67行 2023-03-2024-03",
+    "第73行 2020-02-2022-11",
+    "第80行 2018-12-2019-10",
+    "第86行 2016-2019"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-02-2025-09",
+    "2024-05-2024-12",
+    "2023-03-2024-03",
+    "2020-02-2022-11"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.5,
+   "basis": "computed",
+   "total_months": 111
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_冯___25岁_业务跟单_智通简历_编号": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第22行 2024-07-至今",
+    "第27行 2023-07-2024-03",
+    "第34行 2019-2023"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-07-至今",
+    "2023-07-2024-03",
+    "2019-2023"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.4,
+   "basis": "computed",
+   "total_months": 87
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_刘___20岁_工程文员_智通简历_编号": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第49行 2023-03-2023-08",
+    "第56行 2023年3月-2023年8月",
+    "第73行 2023-2026",
+    "第80行 2023年9月-2026年6月"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-03-2023-08",
+    "2023年3月-2023年8月",
+    "2023-2026",
+    "2023年9月-2026年6月"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.7,
+   "basis": "computed",
+   "total_months": 83
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_刘___23岁_日文业务助理_智通简历_编号": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第49行 2024-02-2026-01",
+    "第51行 2020-2024"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-02-2026-01",
+    "2020-2024"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.0,
+   "basis": "computed",
+   "total_months": 73
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_刘___25岁_业务跟单_智通简历_编号": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第93行 2022-03-至今",
+    "第95行 2019-2022",
+    "第97行 2019-2022"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022-03-至今",
+    "2019-2022",
+    "2019-2022"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.6,
+   "basis": "computed",
+   "total_months": 131
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_刘___27岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第31行 2025-05-2026-03",
+    "第43行 2022.06-2025.03",
+    "第59行 2022-06-2025-03",
+    "第102行 2019-07-2022-05",
+    "第104行 2016-2019"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-05-2026-03",
+    "2022.06-2025.03",
+    "2022-06-2025-03",
+    "2019-07-2022-05"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.5,
+   "basis": "computed",
+   "total_months": 151
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_刘___28岁_汽车线束工程师_智通简历_编号________1": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第37行 2025-06-2026-03",
+    "第51行 2020-06-2025-04",
+    "第71行 2016-09-2020-06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-06-2026-03",
+    "2020-06-2025-04"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.2,
+   "basis": "computed",
+   "total_months": 115
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_刘___41岁_管理课课长_智通简历_编号": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第32行 2024-09-2026-05",
+    "第46行 2019-06-2024-06",
+    "第60行 2009-07-2019-03",
+    "第68行 2003-09-2007-06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-09-2026-05",
+    "2019-06-2024-06"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 5.1,
+   "basis": "computed",
+   "total_months": 245
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_刘___42岁_管理课课长_智通简历_编号": {
+  "segment_count": {
+   "value": 12,
+   "basis": "computed",
+   "evidence": [
+    "第35行 2018-08-至今",
+    "第94行 2014-09-2016-12",
+    "第134行 2012-03-2014-09",
+    "第140行 2007-09-2012-02",
+    "第149行 2004-09-2007-08",
+    "第157行 2008-02-2008-12",
+    "第165行 2001-09-2004-07",
+    "第178行 2024-03-2025-07",
+    "第179行 2023-12-2024-06",
+    "第184行 2022-09-2023-01",
+    "第192行 2010-05-2010-05",
+    "第195行 2005-07-2005-07"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2018-08-至今",
+    "2024-03-2025-07",
+    "2023-12-2024-06",
+    "2022-09-2023-01"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.3,
+   "basis": "computed",
+   "total_months": 326
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_副总助理_东莞_10_15K_任___10年以上": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第14行 2020.03-至今",
+    "第94行 2019.08-2020.01",
+    "第112行 2018.10-2019.08",
+    "第180行 2014.03-2017",
+    "第201行 2013.03-2014.03"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2020.03-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.4,
+   "basis": "computed",
+   "total_months": 146
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_副总助理_东莞_10_15K_刘___10年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第33行 2025.05-至今",
+    "第58行 2021.03-2025.03",
+    "第88行 2016.07-2020.08"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.05-至今",
+    "2021.03-2025.03"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.3,
+   "basis": "computed",
+   "total_months": 118
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_副总助理_东莞_10_15K_戴___8年": {},
+ "cand_副总助理_东莞_10_15K_戴___8年_1": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第29行 2023/02-2025/05",
+    "第46行 2021/09-2022/05",
+    "第65行 2020/10-2021/07",
+    "第76行 2018/09-2020/10"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023/02-2025/05",
+    "2021/09-2022/05"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.5,
+   "basis": "computed",
+   "total_months": 73
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_副总助理_东莞_10_15K_黄___8年": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第16行 2025.10-2026.10",
+    "第68行 2020.08-2025.07",
+    "第108行 2018.10-2020.07",
+    "第142行 2019.03-2022.07"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.10-2026.10",
+    "2020.08-2025.07",
+    "2019.03-2022.07"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.8,
+   "basis": "computed",
+   "total_months": 136
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_副总助理_东莞_8_12K_雷___10年以上": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第22行 2013.10-2016.12",
+    "第27行 2023.03-2025.12"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023.03-2025.12"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.0,
+   "basis": "computed",
+   "total_months": 73
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_副总助理_东莞_8_13K_冷___9年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第12行 2025.06-2026.09",
+    "第30行 2021.07-2025.01"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.06-2026.09",
+    "2021.07-2025.01"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.5,
+   "basis": "computed",
+   "total_months": 59
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_副总助理_东莞_8_13K_王___1年以内": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第43行 2023.06-2026.02",
+    "第59行 2018.11-2023.05",
+    "第72行 2014.07-2018.09"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023.06-2026.02",
+    "2018.11-2023.05"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.9,
+   "basis": "computed",
+   "total_months": 139
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_副总助理_东莞_8_13K_范___7年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第18行 2024.5-2026.3",
+    "第34行 2022.6-2024.4"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024.5-2026.3",
+    "2022.6-2024.4"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.9,
+   "basis": "computed",
+   "total_months": 46
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_副总助理_东莞_8_13K_钟___5年": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_叶___37岁_管理课课长_智通简历_编号": {
+  "segment_count": {
+   "value": 8,
+   "basis": "computed",
+   "evidence": [
+    "第40行 2023-05-2025-03",
+    "第97行 2018-09-2023-04",
+    "第145行 2013-03-2018-06",
+    "第151行 2015.10-2018.06",
+    "第170行 2013.03-2015.09",
+    "第187行 2017-03-2018-02",
+    "第210行 2024-02-至今",
+    "第212行 2013-09-2014-02"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-05-2025-03",
+    "2018-09-2023-04",
+    "2024-02-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.7,
+   "basis": "computed",
+   "total_months": 259
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_吴___25岁_行政专员_智通简历_编号": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第26行 2024-03-2026-05",
+    "第52行 2022-08-2024-02",
+    "第71行 2019-2022"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-03-2026-05",
+    "2022-08-2024-02",
+    "2019-2022"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.3,
+   "basis": "computed",
+   "total_months": 83
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_吴___30岁_英文业务跟单_智通简历_编号": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第37行 2025-04-至今",
+    "第49行 2023-10-2025-04",
+    "第67行 2017-07-2023-09",
+    "第82行 2013-2017"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-04-至今",
+    "2023-10-2025-04",
+    "2017-07-2023-09"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.4,
+   "basis": "computed",
+   "total_months": 163
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_吴___44岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第39行 2023-03-2024-08",
+    "第58行 2020-02-2022-12",
+    "第68行 2014-02-2021-12",
+    "第87行 2015-01-至今",
+    "第145行 2001-09-2004"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-03-2024-08",
+    "2020-02-2022-12",
+    "2014-02-2021-12",
+    "2015-01-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 5.3,
+   "basis": "computed",
+   "total_months": 320
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_吴___45岁_管理课课长_智通简历_编号": {
+  "segment_count": {
+   "value": 7,
+   "basis": "computed",
+   "evidence": [
+    "第50行 2025-07-至今",
+    "第95行 2024-10-2025-06",
+    "第136行 2014-10-2024-08",
+    "第197行 2009-09-2014-08",
+    "第232行 2001-03-2009-08",
+    "第256行 2000-09-2000-12",
+    "第261行 1996-2000"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-07-至今",
+    "2024-10-2025-06",
+    "2014-10-2024-08"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 4.3,
+   "basis": "computed",
+   "total_months": 360
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_吴___项目工程师": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第53行 2019年10月-至今"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2019年10月-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 7.2,
+   "basis": "computed",
+   "total_months": 86
+  },
+  "notice_weeks": {
+   "value": 0.0,
+   "basis": "computed",
+   "why": "原文「到岗…”随时」"
+  }
+ },
+ "cand_周___29岁_行政专员_智通简历_编号": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第28行 2023-08-2026-08",
+    "第57行 2019-06-2023-07",
+    "第64行 2014-09-2016-09",
+    "第72行 2014-2019"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-08-2026-08",
+    "2019-06-2023-07"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.6,
+   "basis": "computed",
+   "total_months": 173
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_周___38岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第33行 2020-10-至今",
+    "第37行 2016-08-2020-09",
+    "第41行 2013-10-2016-07",
+    "第45行 2007-09-2013-08"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2020-10-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 4.8,
+   "basis": "computed",
+   "total_months": 230
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_唐___42岁_智通简历_编号": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第43行 2025-06-2026-02",
+    "第52行 2012-06-2025-06",
+    "第81行 2008-4-2012-05",
+    "第101行 2024-2027",
+    "第111行 2002-9-2005-7"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-06-2026-02",
+    "2012-06-2025-06",
+    "2024-2027"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 4.8,
+   "basis": "computed",
+   "total_months": 288
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_外贸业务员_东莞_5_10K_D___24年毕业": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_外贸业务员_东莞_5_10K_Das_Abhi_Bashundhara_24年毕业": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_外贸业务员_东莞_5_10K_万___3年": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第16行 2023.6-2025.11",
+    "第28行 2022.7-2022.9",
+    "第72行 2019.09-2023.06",
+    "第78行 2023.06-2025.11",
+    "第93行 2022.07-2022.09"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 5,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023.6-2025.11",
+    "2022.7-2022.9",
+    "2019.09-2023.06",
+    "2023.06-2025.11",
+    "2022.07-2022.09"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.9,
+   "basis": "computed",
+   "total_months": 112
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_外贸业务员_东莞_5_10K_付___4年": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第36行 2022.12-2024.06",
+    "第81行 2023.01-2024.06",
+    "第115行 2022.12-2023.01",
+    "第135行 2023.08-2024.08"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022.12-2024.06",
+    "2023.01-2024.06",
+    "2022.12-2023.01",
+    "2023.08-2024.08"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.1,
+   "basis": "computed",
+   "total_months": 52
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_外贸业务员_东莞_5_10K_任___2年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第9行 2023.6-2024.1",
+    "第15行 2024.10-2025.11"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023.6-2024.1",
+    "2024.10-2025.11"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 0.9,
+   "basis": "computed",
+   "total_months": 22
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_外贸业务员_东莞_5_10K_周___1年": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_外贸业务员_东莞_5_10K_奉___2年": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第22行 2024.07-2025.10",
+    "第28行 2025.11-2025.12",
+    "第32行 2023.11-2024.05",
+    "第43行 2021.09-2023.11"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024.07-2025.10",
+    "2025.11-2025.12",
+    "2023.11-2024.05",
+    "2021.09-2023.11"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.1,
+   "basis": "computed",
+   "total_months": 52
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_外贸业务员_东莞_5_10K_李___2年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第15行 2023.07-2023.12",
+    "第19行 2024.04-2025.09"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023.07-2023.12",
+    "2024.04-2025.09"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.0,
+   "basis": "computed",
+   "total_months": 24
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_外贸业务员_东莞_5_10K_覃___2年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第24行 2025.02-2025.12",
+    "第30行 2024.07-2024.10",
+    "第35行 2024.03-2024.06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.02-2025.12",
+    "2024.07-2024.10",
+    "2024.03-2024.06"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 0.5,
+   "basis": "computed",
+   "total_months": 19
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_外贸业务员_东莞_5_10K_谢___26年应届生": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第13行 2023.11-2024.06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023.11-2024.06"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 0.7,
+   "basis": "computed",
+   "total_months": 8
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_外贸业务员_东莞_5_10K_赵___4年": {
+  "segment_count": {
+   "value": 7,
+   "basis": "computed",
+   "evidence": [
+    "第11行 2018.9-2021.6",
+    "第15行 2021.12-2022.02",
+    "第17行 2024.12-2025.02",
+    "第24行 2022.07-2022.09",
+    "第30行 2023.07-2023.09",
+    "第32行 2024.07-2024.09",
+    "第38行 2025.3-2026.03"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 6,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2021.12-2022.02",
+    "2024.12-2025.02",
+    "2022.07-2022.09",
+    "2023.07-2023.09",
+    "2024.07-2024.09",
+    "2025.3-2026.03"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 0.7,
+   "basis": "computed",
+   "total_months": 62
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_外贸业务员_东莞_5_10K_陈___2年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第35行 2025.09-2025.12",
+    "第56行 2024.11-2025.09"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.09-2025.12",
+    "2024.11-2025.09"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 0.6,
+   "basis": "computed",
+   "total_months": 15
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_外贸业务员_东莞_5_10K_陈___4年": {
+  "segment_count": {
+   "value": 8,
+   "basis": "computed",
+   "evidence": [
+    "第20行 2021.07-2021.08",
+    "第38行 2022. 01-2022. 02",
+    "第47行 2020. 09-2020. 10",
+    "第62行 2022. 04-2022. 05",
+    "第70行 2024. 09-2025. 07",
+    "第90行 2019.10-2020. 09",
+    "第102行 2021. 09-2022. 06",
+    "第114行 2019. 09-2022. 06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 5,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022. 01-2022. 02",
+    "2022. 04-2022. 05",
+    "2024. 09-2025. 07",
+    "2021. 09-2022. 06",
+    "2019. 09-2022. 06"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 0.8,
+   "basis": "computed",
+   "total_months": 75
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_姚___23岁_工程文员_智通简历_编号": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第34行 2020-2024"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2020-2024"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 4.1,
+   "basis": "computed",
+   "total_months": 49
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_宋___27岁_业务跟单_智通简历_编号": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第30行 2025-05-2026-06",
+    "第42行 2022-07-2025-02",
+    "第45行 2023.11-2025.02",
+    "第56行 2022.7-2023.10",
+    "第70行 2018-2022"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 5,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-05-2026-06",
+    "2022-07-2025-02",
+    "2023.11-2025.02",
+    "2022.7-2023.10",
+    "2018-2022"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.1,
+   "basis": "computed",
+   "total_months": 127
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_宋___37岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第44行 2004-2006"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 0,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": []
+  },
+  "avg_tenure_years": {
+   "value": 2.1,
+   "basis": "computed",
+   "total_months": 25
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_实验室技术员_东莞_4_5K_李___10年以上": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第15行 2023.04-2026.09",
+    "第24行 2008-2011"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023.04-2026.09"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.3,
+   "basis": "computed",
+   "total_months": 79
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_实验室技术员_东莞_4_5K_高___10年以上": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第21行 2015.01-2016.01"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 0,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": []
+  },
+  "avg_tenure_years": {
+   "value": 1.1,
+   "basis": "computed",
+   "total_months": 13
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_工程文员_东莞_5_6K_何___25年应届生": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第17行 2022. 08-2022.12",
+    "第18行 2025. 07-2026.02",
+    "第32行 2020-2021"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022. 08-2022.12",
+    "2025. 07-2026.02"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 0.7,
+   "basis": "computed",
+   "total_months": 26
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_工程文员_东莞_5_6K_刘___10年": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第46行 2018-06-2024/4"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2018-06-2024/4"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 5.9,
+   "basis": "computed",
+   "total_months": 71
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_工程文员_东莞_5_6K_廖___10年以上": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第15行 2025.06-至今",
+    "第28行 2020.07-2025.06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.06-至今",
+    "2020.07-2025.06"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.2,
+   "basis": "computed",
+   "total_months": 78
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_工程文员_东莞_5_6K_杨___3年": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_工程文员_东莞_5_6K_王___10年以上": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第13行 2025.01-2026.01",
+    "第21行 2023.02-2024.12",
+    "第33行 2019.03-2022.12"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.01-2026.01",
+    "2023.02-2024.12",
+    "2019.03-2022.12"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.3,
+   "basis": "computed",
+   "total_months": 82
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_工程文员_东莞_5_6K_肖___26年应届生": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第14行 2025 年 9 月-2026年 2月"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025 年 9 月-2026年 2月"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 0.5,
+   "basis": "computed",
+   "total_months": 6
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_康___37岁_技术课课长_智通简历_编号": {
+  "segment_count": {
+   "value": 9,
+   "basis": "computed",
+   "evidence": [
+    "第42行 2024-08-至今",
+    "第61行 2023-07-2024-08",
+    "第93行 2022-06-2023-07",
+    "第134行 2020-04-2022-06",
+    "第147行 2016-05-2020-04",
+    "第159行 2010-07-2016-04",
+    "第173行 2016-05-2024-08",
+    "第189行 2004-08-2007-06",
+    "第207行 2012-06-2014-08"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 5,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-08-至今",
+    "2023-07-2024-08",
+    "2022-06-2023-07",
+    "2020-04-2022-06",
+    "2016-05-2024-08"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.4,
+   "basis": "computed",
+   "total_months": 363
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_廖___33岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 11,
+   "basis": "computed",
+   "evidence": [
+    "第54行 2023-06-至今",
+    "第75行 2022-09-2023-05",
+    "第88行 2019-04-2022-05",
+    "第97行 2016-06-2019-03",
+    "第106行 2014-03-2016-05",
+    "第110行 2009-08-2014-02",
+    "第112行 2009-8-2010-8",
+    "第119行 2010-8-2011-8",
+    "第124行 2011-8-2014-2",
+    "第136行 2019-2021",
+    "第139行 2006-2009"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-06-至今",
+    "2022-09-2023-05",
+    "2019-04-2022-05"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.5,
+   "basis": "computed",
+   "total_months": 324
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_廖___品质经理_NPI经理_研发经理": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第35行 2025年4月-至今",
+    "第69行 2023年4月-2025年3月",
+    "第100行 2019年8月-2023年3月",
+    "第149行 2016年11月-2019年6月",
+    "第170行 2011年4月-2016年11月",
+    "第187行 2005年4月-2011年2月"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025年4月-至今",
+    "2023年4月-2025年3月",
+    "2019年8月-2023年3月"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.6,
+   "basis": "computed",
+   "total_months": 259
+  },
+  "notice_weeks": {
+   "value": 4.0,
+   "basis": "computed",
+   "why": "原文「到岗…”一个月」"
+  }
+ },
+ "cand_张___21岁_外贸业务员_智通简历_编号": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第22行 2024-12-2024-12",
+    "第27行 2024-07-2024-08",
+    "第34行 2022-2026"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-12-2024-12",
+    "2024-07-2024-08",
+    "2022-2026"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.4,
+   "basis": "computed",
+   "total_months": 52
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_张___35岁_智通简历_编号": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第32行 2023-05-至今",
+    "第56行 2021-07-2023-05",
+    "第73行 2015-09-2021-07",
+    "第90行 2012-03-2015-09",
+    "第102行 2019-2025",
+    "第110行 2019-03-2020-09"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-05-至今",
+    "2021-07-2023-05",
+    "2019-2025"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.8,
+   "basis": "computed",
+   "total_months": 272
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_张___36岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第34行 2023-05-至今",
+    "第57行 2021-07-2023-05",
+    "第74行 2015-09-2021-07",
+    "第91行 2012-03-2015-09",
+    "第103行 2019-2022",
+    "第111行 2019-03-2020-09"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-05-至今",
+    "2021-07-2023-05",
+    "2019-2022"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.3,
+   "basis": "computed",
+   "total_months": 236
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_张___36岁_管理课课长_智通简历_编号": {
+  "segment_count": {
+   "value": 10,
+   "basis": "computed",
+   "evidence": [
+    "第76行 2023-10-至今",
+    "第133行 2020-05-2023-10",
+    "第182行 2016-03-2020-04",
+    "第216行 2010-06-2016-01",
+    "第247行 2023-12-2024-05",
+    "第273行 2020-12-2022-05",
+    "第320行 2016-05-2017-04",
+    "第351行 2025-2027",
+    "第361行 2019-03-2019-12",
+    "第367行 2018-04-2018-05"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 5,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-10-至今",
+    "2020-05-2023-10",
+    "2023-12-2024-05",
+    "2020-12-2022-05",
+    "2025-2027"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.3,
+   "basis": "computed",
+   "total_months": 271
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_张___37岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第23行 2025-02-至今",
+    "第42行 2021-11-2024-12"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-02-至今",
+    "2021-11-2024-12"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.5,
+   "basis": "computed",
+   "total_months": 60
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_张___39岁_智通简历_编号": {
+  "segment_count": {
+   "value": 8,
+   "basis": "computed",
+   "evidence": [
+    "第30行 2022-11-2023-11",
+    "第41行 2016-08-2022-07",
+    "第115行 2015-11-2016-05",
+    "第117行 2008-06-2015-11",
+    "第119行 2018-09-至今",
+    "第121行 2017-06-2018-06",
+    "第123行 2016-08-2017-12",
+    "第129行 2016-09-2019-07"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022-11-2023-11",
+    "2016-08-2022-07",
+    "2018-09-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.6,
+   "basis": "computed",
+   "total_months": 346
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_张___43岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第29行 2018-01-至今",
+    "第49行 2010-06-2018-01",
+    "第58行 2005-05-2010-06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2018-01-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 7.2,
+   "basis": "computed",
+   "total_months": 261
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_张___43岁_管理课课长_智通简历_编号": {
+  "segment_count": {
+   "value": 13,
+   "basis": "computed",
+   "evidence": [
+    "第54行 2024-06-2025-12",
+    "第94行 2016-10-2024-04",
+    "第125行 2015-03-2016-09",
+    "第144行 2006-09-2015-01",
+    "第174行 2001-10-2006-05",
+    "第187行 2022-11-2025-11",
+    "第193行 2019-11-2021-07",
+    "第197行 1998-09-2001-06",
+    "第213行 2024-06-2024-07",
+    "第214行 2023-09-2024-09",
+    "第218行 2019-08-2019-09",
+    "第222行 2014-04-2014-11",
+    "第225行 2013-05-2013-08"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 5,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-06-2025-12",
+    "2016-10-2024-04",
+    "2022-11-2025-11",
+    "2024-06-2024-07",
+    "2023-09-2024-09"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.6,
+   "basis": "computed",
+   "total_months": 407
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_彭___工程师_技术经理_总工": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第64行 2022年4月-至今",
+    "第68行 2019年3月-2022年4月",
+    "第99行 2016年3月-2019年3月",
+    "第122行 2013年3月-2016年2月",
+    "第151行 2006年6月-2013年3月"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022年4月-至今",
+    "2019年3月-2022年4月"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 4.1,
+   "basis": "computed",
+   "total_months": 249
+  },
+  "notice_weeks": {
+   "value": 4.0,
+   "basis": "computed",
+   "why": "原文「到岗…一个月」"
+  }
+ },
+ "cand_徐___28岁_人资专员_智通简历_编号": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第66行 2025-05-至今",
+    "第68行 2018-06-2024-06",
+    "第93行 2022-2024"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-05-至今",
+    "2018-06-2024-06",
+    "2022-2024"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.2,
+   "basis": "computed",
+   "total_months": 117
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_日语业务助理_东莞_6_8K_古___8年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第21行 2026.07-2026.08",
+    "第29行 2018.08-2024.03"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2026.07-2026.08",
+    "2018.08-2024.03"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.9,
+   "basis": "computed",
+   "total_months": 70
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_日语业务跟单_东莞_5_7K_l___26年应届生": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第10行 2022.09-2026.06",
+    "第29行 2025.07-2025.11",
+    "第34行 2022.09-至今",
+    "第38行 2022.09-2023.09"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022.09-2026.06",
+    "2025.07-2025.11",
+    "2022.09-至今",
+    "2022.09-2023.09"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.4,
+   "basis": "computed",
+   "total_months": 115
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_日语业务跟单_东莞_5_7K_S___10年以上": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第14行 2025.09-至今",
+    "第19行 2024.02-2025.08",
+    "第24行 2023.11-2024.02",
+    "第29行 2021.11-2023.11",
+    "第42行 2018.12-2021.11"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 5,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.09-至今",
+    "2024.02-2025.08",
+    "2023.11-2024.02",
+    "2021.11-2023.11",
+    "2018.12-2021.11"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.7,
+   "basis": "computed",
+   "total_months": 99
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_日语业务跟单_东莞_5_7K_SJCWNX_10年以上": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第13行 2025.09-至今",
+    "第18行 2024.02-2025.08",
+    "第23行 2023.11-2024.02",
+    "第41行 2018.12-2021.11"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.09-至今",
+    "2024.02-2025.08",
+    "2023.11-2024.02",
+    "2018.12-2021.11"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.5,
+   "basis": "computed",
+   "total_months": 74
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_日语业务跟单_东莞_5_7K_刘___3年": {},
+ "cand_日语业务跟单_东莞_5_7K_刘___3年_2": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第51行 2025.02-2026.04",
+    "第72行 2026.05-2026.07"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.02-2026.04",
+    "2026.05-2026.07"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 0.8,
+   "basis": "computed",
+   "total_months": 18
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_日语业务跟单_东莞_5_7K_刘___5年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第15行 2024.08-至今",
+    "第24行 2023.03-2024.07",
+    "第33行 2022.01-2023.01"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024.08-至今",
+    "2023.03-2024.07",
+    "2022.01-2023.01"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.6,
+   "basis": "computed",
+   "total_months": 58
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_日语业务跟单_东莞_5_7K_叶___4年": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_日语业务跟单_东莞_5_7K_叶___5年": {},
+ "cand_日语业务跟单_东莞_5_7K_吴___26年应届生": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_日语业务跟单_东莞_5_7K_夏___7年": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_日语业务跟单_东莞_5_7K_朱___10年以上": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第20行 2010. 01-2023. 01"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2010. 01-2023. 01"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 13.1,
+   "basis": "computed",
+   "total_months": 157
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_日语业务跟单_东莞_5_7K_焦___1年": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第15行 2024. 09-2026.07"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024. 09-2026.07"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.9,
+   "basis": "computed",
+   "total_months": 23
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_日语业务跟单_东莞_5_7K_蔡___1年以内": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第17行 2026.04-2026.08",
+    "第24行 2023.10-2025.07",
+    "第30行 2022.07-2022.09"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2026.04-2026.08",
+    "2023.10-2025.07",
+    "2022.07-2022.09"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 0.8,
+   "basis": "computed",
+   "total_months": 30
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_日语业务跟单_东莞_5_7K_谢___1年": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_日语业务跟单_东莞_5_7K_邓___1年以内": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第19行 2024.06-2024.07",
+    "第24行 2025.03-2025.04",
+    "第28行 2026.02-2026.05",
+    "第37行 2022.09-2024.07"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024.06-2024.07",
+    "2025.03-2025.04",
+    "2026.02-2026.05",
+    "2022.09-2024.07"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 0.6,
+   "basis": "computed",
+   "total_months": 31
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_日语业务跟单_东莞_5_7K_陈___26年应届生": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第11行 2025.07-至今",
+    "第19行 2026.04-至今",
+    "第22行 2024.09-2026.06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.07-至今",
+    "2026.04-至今",
+    "2024.09-2026.06"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.3,
+   "basis": "computed",
+   "total_months": 47
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_日语业务跟单_东莞_5_7K_黄___26年应届生": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_曹___工程师": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第25行 2020年3月-至今",
+    "第38行 2015年3月-2019年12月"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2020年3月-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 5.8,
+   "basis": "computed",
+   "total_months": 139
+  },
+  "notice_weeks": {
+   "value": 0.0,
+   "basis": "computed",
+   "why": "原文「到岗…随时」"
+  }
+ },
+ "cand_曾___23岁_业务助理_智通简历_编号": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第25行 2024-04-2025-09",
+    "第40行 2023-06-2024-02"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-04-2025-09",
+    "2023-06-2024-02"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.1,
+   "basis": "computed",
+   "total_months": 27
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_曾___38岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第30行 2025-08-2026-05",
+    "第46行 2021-06-2025-07",
+    "第63行 2018-11-2021-05",
+    "第82行 2016-03-2018-10",
+    "第99行 2018-08-2019-07",
+    "第106行 2002-09-2007-07"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-08-2026-05",
+    "2021-06-2025-07"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.7,
+   "basis": "computed",
+   "total_months": 194
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_曾___43_智通附件简历_944723388_专案工程师": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第20行 2010 年 6 月-2013 年 8 月",
+    "第29行 2016 年 6 月-2021 年 5 月",
+    "第35行 2021 年 6 月-2022年 12 月"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2021 年 6 月-2022年 12 月"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.3,
+   "basis": "computed",
+   "total_months": 118
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_曾___cable工程主管_cable工程经理": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第67行 2024年3月-至今",
+    "第84行 2021年9月-2024年3月",
+    "第98行 2015年11月-2021年8月"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024年3月-至今",
+    "2021年9月-2024年3月"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.7,
+   "basis": "computed",
+   "total_months": 134
+  },
+  "notice_weeks": {
+   "value": 0.0,
+   "basis": "computed",
+   "why": "原文「到岗…随时」"
+  }
+ },
+ "cand_朱___26岁_业务助理_智通简历_编号": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第29行 2025-05-至今",
+    "第36行 2024-04-2025-05",
+    "第52行 2019-2023"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-05-至今",
+    "2024-04-2025-05",
+    "2019-2023"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.3,
+   "basis": "computed",
+   "total_months": 82
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_朱___36岁_行政专员_智通简历_编号": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第40行 2026-03-2026-09",
+    "第88行 2024-01-2025-11",
+    "第112行 2021-10-2023-08",
+    "第143行 2017-03-2021-03",
+    "第172行 2015-01-2017-01",
+    "第197行 2006-03-2009-07"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2026-03-2026-09",
+    "2024-01-2025-11",
+    "2021-10-2023-08"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.3,
+   "basis": "computed",
+   "total_months": 168
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_李___22岁_业务跟单_智通简历_编号": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第29行 2024-07-2025-07",
+    "第48行 2021-2025"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-07-2025-07",
+    "2021-2025"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.6,
+   "basis": "computed",
+   "total_months": 62
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_李___24岁_人资专员_智通简历_编号": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第41行 2026-01-2026-03",
+    "第71行 2024-06-2025-07",
+    "第95行 2022-2024"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2026-01-2026-03",
+    "2024-06-2025-07",
+    "2022-2024"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.2,
+   "basis": "computed",
+   "total_months": 42
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_李___27岁_人资专员_智通简历_编号": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第29行 2024-05-2025-05",
+    "第41行 2022-03-2023-12",
+    "第54行 2017-2021"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-05-2025-05",
+    "2022-03-2023-12"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.3,
+   "basis": "computed",
+   "total_months": 84
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_李___27岁_工程文员_智通简历_编号": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第23行 2023-10-2026-02",
+    "第31行 2021-03-2023-09"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-10-2026-02",
+    "2021-03-2023-09"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.5,
+   "basis": "computed",
+   "total_months": 60
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_李___38岁_管理课课长_智通简历_编号": {
+  "segment_count": {
+   "value": 14,
+   "basis": "computed",
+   "evidence": [
+    "第36行 2023-08-2025-09",
+    "第81行 2018-08-2023-07",
+    "第123行 2010-07-2018-07",
+    "第171行 2008-07-2010-7",
+    "第193行 2024-2027",
+    "第230行 2021-2023",
+    "第234行 2025-03-至今",
+    "第236行 2024-07-2025-06",
+    "第238行 2023-04-2023-07",
+    "第240行 2022-01-2022-04",
+    "第242行 2021-01-2021-12",
+    "第244行 2020-12-2023-01",
+    "第246行 2018-02-2018-08",
+    "第248行 2011-8-2012-11"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 10,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-08-2025-09",
+    "2018-08-2023-07",
+    "2024-2027",
+    "2021-2023",
+    "2025-03-至今",
+    "2024-07-2025-06",
+    "2023-04-2023-07",
+    "2022-01-2022-04",
+    "2021-01-2021-12",
+    "2020-12-2023-01"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.2,
+   "basis": "computed",
+   "total_months": 372
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_李___38岁_行政专员_智通简历_编号": {
+  "segment_count": {
+   "value": 16,
+   "basis": "computed",
+   "evidence": [
+    "第136行 2025-04-至今",
+    "第138行 2024-04-2025-04",
+    "第140行 2022-01-2022-10",
+    "第152行 2017-09-2019-08",
+    "第184行 2011-03-2017-07",
+    "第205行 2021-03-2021-12",
+    "第219行 2017-08-2021-12",
+    "第225行 2013-05-2014-07",
+    "第231行 2013-03-2016-03",
+    "第239行 2012-05-2013-07",
+    "第245行 2012-03-2013-06",
+    "第251行 2011-04-2012-06",
+    "第259行 2002-06-2005-07",
+    "第275行 2022-01-至今",
+    "第279行 2019-05-2020-02",
+    "第283行 2015-01-2015-01"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 6,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-04-至今",
+    "2024-04-2025-04",
+    "2022-01-2022-10",
+    "2021-03-2021-12",
+    "2017-08-2021-12",
+    "2022-01-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.2,
+   "basis": "computed",
+   "total_months": 413
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_李___39岁_英文助理_智通简历_编号": {
+  "segment_count": {
+   "value": 8,
+   "basis": "computed",
+   "evidence": [
+    "第40行 2025-09-至今",
+    "第46行 2024-09-2025-09",
+    "第56行 2020-09-2024-03",
+    "第63行 2019-08-2020-09",
+    "第70行 2014-11-2019-04",
+    "第76行 2013-02-2014-09",
+    "第81行 2020-03-至今",
+    "第90行 2005-10-2009-06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-09-至今",
+    "2024-09-2025-09",
+    "2020-09-2024-03",
+    "2020-03-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.0,
+   "basis": "computed",
+   "total_months": 285
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_李___40岁_管理课课长_智通简历_编号": {
+  "segment_count": {
+   "value": 7,
+   "basis": "computed",
+   "evidence": [
+    "第64行 2014-04-2025-06",
+    "第161行 2012-06-2014-03",
+    "第171行 2009-11-2012-06",
+    "第203行 2007-06-2009-10",
+    "第205行 2007/06-2009/10",
+    "第235行 2020-01-2023-01",
+    "第238行 2002-09-2007-06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2014-04-2025-06",
+    "2020-01-2023-01"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 4.1,
+   "basis": "computed",
+   "total_months": 342
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_李___44岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 13,
+   "basis": "computed",
+   "evidence": [
+    "第56行 2024-01-2024-06",
+    "第74行 2022-09-2023-04",
+    "第83行 2017-09-2021-08",
+    "第94行 2013-09-2018-08",
+    "第119行 2009-07-2013-7",
+    "第142行 2006-7-2007-9",
+    "第145行 2006-06-2007-08",
+    "第147行 2006.06-2006.08",
+    "第157行 2006.09-2007.08",
+    "第172行 2000-11-2006-05",
+    "第191行 2013-09-至今",
+    "第201行 2023-2025",
+    "第204行 1997-09-2000-07"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-01-2024-06",
+    "2022-09-2023-04",
+    "2013-09-至今",
+    "2023-2025"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.2,
+   "basis": "computed",
+   "total_months": 502
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_李___45岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第31行 2023-11-2025-07",
+    "第43行 2018-08-2023-06",
+    "第58行 2016-07-2018-06",
+    "第64行 2013-10-2016-06",
+    "第69行 2003-10-2012-12"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-11-2025-07",
+    "2018-08-2023-06"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 4.1,
+   "basis": "computed",
+   "total_months": 248
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_李___46岁_工程经理_智通简历_编号________1": {
+  "segment_count": {
+   "value": 8,
+   "basis": "computed",
+   "evidence": [
+    "第45行 2022-04-至今",
+    "第54行 2020-05-2022-04",
+    "第66行 2011-5-2020-04",
+    "第87行 2009-9-2011-5",
+    "第103行 2002-5-2009-9",
+    "第121行 2014-07-2015-07",
+    "第128行 1999-09-2001-07",
+    "第138行 2012-9-2013-7"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022-04-至今",
+    "2020-05-2022-04"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.6,
+   "basis": "computed",
+   "total_months": 345
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_李___48岁_工程经理_智通简历_编号": {
+  "segment_count": {
+   "value": 16,
+   "basis": "computed",
+   "evidence": [
+    "第107行 2023-12-2025-08",
+    "第119行 2002-01-2023-10",
+    "第169行 2000-12-2001-12",
+    "第173行 2000-07-2000-11",
+    "第180行 2024-08-2025-07",
+    "第196行 2023-12-2025-06",
+    "第211行 2021-01-2023-10",
+    "第217行 2020-01-2023-10",
+    "第224行 2008-01-2023-10",
+    "第235行 2007-01-2023-10",
+    "第245行 1997-2000",
+    "第261行 2023-02-2023-05",
+    "第265行 2022-07-2022-11",
+    "第269行 2021-06-2021-07",
+    "第271行 2017-03-2017-04",
+    "第275行 2011-03-2011-04"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 10,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-12-2025-08",
+    "2002-01-2023-10",
+    "2024-08-2025-07",
+    "2023-12-2025-06",
+    "2021-01-2023-10",
+    "2020-01-2023-10",
+    "2008-01-2023-10",
+    "2007-01-2023-10",
+    "2023-02-2023-05",
+    "2022-07-2022-11"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 4.5,
+   "basis": "computed",
+   "total_months": 856
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_梁___31岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第31行 2023-06-2026-01",
+    "第53行 2022-02-2023-05",
+    "第61行 2019-09-2020-12",
+    "第73行 2010-2013"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-06-2026-01",
+    "2022-02-2023-05"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.1,
+   "basis": "computed",
+   "total_months": 101
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_段___研发工程主管_产品工程主管": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第47行 2019年8月-至今",
+    "第65行 2014年3月-2019年7月"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2019年8月-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 6.4,
+   "basis": "computed",
+   "total_months": 153
+  },
+  "notice_weeks": {
+   "value": 0.0,
+   "basis": "computed",
+   "why": "原文「到岗…”随时」"
+  }
+ },
+ "cand_毕___工程研发类": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第53行 2025年7月-至今",
+    "第76行 2022年9月-2025年7月",
+    "第103行 2010年3月-2017年7月",
+    "第111行 2007年9月-2010年2月"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025年7月-至今",
+    "2022年9月-2025年7月"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.6,
+   "basis": "computed",
+   "total_months": 171
+  },
+  "notice_weeks": {
+   "value": 4.0,
+   "basis": "computed",
+   "why": "原文「到岗…一个月」"
+  }
+ },
+ "cand_汪___总工程师技术经理研发经理": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第50行 2020年7月-至今",
+    "第68行 2017年6月-2020年7月",
+    "第110行 2011年4月-2017年6月",
+    "第182行 2014年7月-2015年9月",
+    "第206行 2014年8月-2015年5月"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2020年7月-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.6,
+   "basis": "computed",
+   "total_months": 215
+  },
+  "notice_weeks": {
+   "value": 0.0,
+   "basis": "computed",
+   "why": "原文「到岗…随时」"
+  }
+ },
+ "cand_汽车线束高线工程师_东莞_10_14K_何___10年以上": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第21行 2023.12-至今",
+    "第40行 2024-2025",
+    "第42行 2019.09-2023.02",
+    "第57行 2014.08-2018.03"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023.12-至今",
+    "2024-2025",
+    "2019.09-2023.02"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.8,
+   "basis": "computed",
+   "total_months": 135
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_游___37岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 7,
+   "basis": "computed",
+   "evidence": [
+    "第36行 2023-07-至今",
+    "第39行 2023-2025",
+    "第42行 2021-11-2023-06",
+    "第45行 2021-2023",
+    "第53行 2018-03-2021-06",
+    "第56行 2018-2021",
+    "第63行 2004-09-2007-06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-07-至今",
+    "2023-2025",
+    "2021-11-2023-06",
+    "2021-2023"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.6,
+   "basis": "computed",
+   "total_months": 222
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_王___25岁_日文业务助理_智通简历_编号": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第23行 2024-03-2024-12",
+    "第34行 2020-2024"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-03-2024-12",
+    "2020-2024"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.5,
+   "basis": "computed",
+   "total_months": 59
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_王___31岁_副总助理_智通简历_编号": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第40行 2025-06-2025-10",
+    "第141行 2023-04-2025-04",
+    "第143行 2020-08-2023-05",
+    "第169行 2020-08-2023-03",
+    "第216行 2016-09-2020-07",
+    "第249行 2012-2016"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-06-2025-10",
+    "2023-04-2025-04",
+    "2020-08-2023-05",
+    "2020-08-2023-03"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.7,
+   "basis": "computed",
+   "total_months": 192
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_王___33岁_英文业务跟单_智通简历_编号": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第38行 2025-10-至今",
+    "第50行 2018-04-2024-12",
+    "第68行 2013-04-2017-12",
+    "第83行 2022-2024",
+    "第85行 2010-08-2013-06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-10-至今",
+    "2018-04-2024-12",
+    "2022-2024"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.5,
+   "basis": "computed",
+   "total_months": 212
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_王___37岁_行政专员_智通简历_编号": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第47行 2025-02-2026-02",
+    "第104行 2020-06-2024-09",
+    "第209行 2016-03-2020-03",
+    "第211行 2012-06-2014-12",
+    "第237行 2023-2026",
+    "第239行 2005-07-2008-06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-02-2026-02",
+    "2020-06-2024-09",
+    "2023-2026"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.0,
+   "basis": "computed",
+   "total_months": 218
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_田___26岁_业务跟单_智通简历_编号": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第36行 2025-04-2026-01",
+    "第55行 2023-02-2025-03",
+    "第93行 2022-06-2023-11",
+    "第138行 2018-2022"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-04-2026-01",
+    "2023-02-2025-03",
+    "2022-06-2023-11",
+    "2018-2022"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.1,
+   "basis": "computed",
+   "total_months": 103
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_罗___32岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第39行 2021-06-至今",
+    "第46行 2016-08-2021-05"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2021-06-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 5.2,
+   "basis": "computed",
+   "total_months": 124
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_罗___39岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 7,
+   "basis": "computed",
+   "evidence": [
+    "第50行 2024-04-至今",
+    "第62行 2021-05-2024-04",
+    "第70行 2018-11-2021-03",
+    "第79行 2016-07-2018-11",
+    "第85行 2014-06-2016-03",
+    "第93行 2010-08-2014-06",
+    "第104行 2009-07-2010-06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-04-至今",
+    "2021-05-2024-04"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.5,
+   "basis": "computed",
+   "total_months": 207
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_罗___40岁_管理课课长_智通简历_编号": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第44行 2013-08-2026-05",
+    "第48行 2018-至今",
+    "第86行 2012-03-2013-06",
+    "第101行 2018-05-2022-08",
+    "第107行 2016-05-2016-08",
+    "第114行 2017-09-2021-01"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2013-08-2026-05",
+    "2018-至今",
+    "2018-05-2022-08"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 5.2,
+   "basis": "computed",
+   "total_months": 374
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_罗___44岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第29行 2021-04-至今",
+    "第38行 2020-10-2021-03",
+    "第47行 2005-07-2020-09",
+    "第60行 2017-2019",
+    "第63行 2002-2005"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2021-04-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 5.3,
+   "basis": "computed",
+   "total_months": 319
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_罗___46岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 7,
+   "basis": "computed",
+   "evidence": [
+    "第46行 2022-03-2025-04",
+    "第52行 2010-11-2021-06",
+    "第57行 2013.9-2021.6",
+    "第69行 2009-06-2010-10",
+    "第77行 2005-08-2008-12",
+    "第87行 2000-06-2002-08",
+    "第97行 2016-08-2019-01"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022-03-2025-04"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 4.5,
+   "basis": "computed",
+   "total_months": 375
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_肖___38岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 11,
+   "basis": "computed",
+   "evidence": [
+    "第21行 2018-09-至今",
+    "第47行 2015-07-2018-09",
+    "第61行 2021-04-2022-04",
+    "第63行 2021-2022",
+    "第68行 2021-03-2022-04",
+    "第70行 2021-2022",
+    "第74行 2019-09-2020-06",
+    "第76行 2019-2020",
+    "第82行 2018-09-2019-06",
+    "第84行 2018-2019",
+    "第92行 2011-2015"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 5,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2018-09-至今",
+    "2021-04-2022-04",
+    "2021-2022",
+    "2021-03-2022-04",
+    "2021-2022"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.2,
+   "basis": "computed",
+   "total_months": 286
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_肖___46岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 10,
+   "basis": "computed",
+   "evidence": [
+    "第37行 2025-11-2026-05",
+    "第49行 2023-10-2025-11",
+    "第66行 2020-07-2023-11",
+    "第83行 2017-04-2020-07",
+    "第99行 2015-05-2017-03",
+    "第113行 2007-10-2015-05",
+    "第117行 2007/10-2015/5",
+    "第136行 2004-10-2007-10",
+    "第139行 2004/10-2007/10",
+    "第162行 1998-09-2001-07"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-11-2026-05",
+    "2023-10-2025-11",
+    "2020-07-2023-11"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.6,
+   "basis": "computed",
+   "total_months": 430
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_胡___31岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 7,
+   "basis": "computed",
+   "evidence": [
+    "第43行 2023-11-至今",
+    "第84行 2020-06-2023-11",
+    "第112行 2017-10-2020-06",
+    "第126行 2017-11-至今",
+    "第131行 2017-07-2017-11",
+    "第137行 2015-05-2017-09",
+    "第148行 2017-05-2017-05"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-11-至今",
+    "2020-06-2023-11",
+    "2017-11-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.0,
+   "basis": "computed",
+   "total_months": 256
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_胡___38岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第36行 2019-03-至今",
+    "第47行 2018-03-2019-02",
+    "第55行 2014-09-2018-02",
+    "第64行 2011-09-2014-08",
+    "第71行 2009-03-2011-06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2019-03-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.5,
+   "basis": "computed",
+   "total_months": 211
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_胡___42岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第33行 2023-04-至今",
+    "第48行 2021-04-2023-03",
+    "第65行 2018-05-2021-03",
+    "第81行 2013-03-2014-12",
+    "第85行 2006-04-2011-03",
+    "第90行 2023-06-2023-08"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-04-至今",
+    "2021-04-2023-03",
+    "2023-06-2023-08"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.6,
+   "basis": "computed",
+   "total_months": 188
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_胡___46岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 7,
+   "basis": "computed",
+   "evidence": [
+    "第41行 2020-12-2024-08",
+    "第129行 2015-01-2020-07",
+    "第131行 2012-11-2014-12",
+    "第133行 2009-07-2012-10",
+    "第181行 2005-12-2009-05",
+    "第183行 2022-2024",
+    "第185行 1994-9-1997-7"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2020-12-2024-08",
+    "2022-2024"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.3,
+   "basis": "computed",
+   "total_months": 280
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_蒋___38岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第49行 2014-07-2021-06",
+    "第69行 2011-03-2014-07",
+    "第78行 2007-11-2011-02",
+    "第83行 2019-10-2021-10",
+    "第85行 2006-10-2007-10",
+    "第87行 2003-9-2006-6"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 0,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": []
+  },
+  "avg_tenure_years": {
+   "value": 3.3,
+   "basis": "computed",
+   "total_months": 237
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_蒋___38岁_日文业务助理_智通简历_编号": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第29行 2013-03-2015-09",
+    "第39行 2012-2013"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 0,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": []
+  },
+  "avg_tenure_years": {
+   "value": 1.8,
+   "basis": "computed",
+   "total_months": 44
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_蓝___43岁_智通简历_编号": {
+  "segment_count": {
+   "value": 12,
+   "basis": "computed",
+   "evidence": [
+    "第40行 2016-06-至今",
+    "第71行 2014-04-2016-05",
+    "第93行 2010-05-2014-03",
+    "第117行 2001-11-2010-04",
+    "第154行 2025-07-至今",
+    "第160行 2024-07-至今",
+    "第166行 2021-02-至今",
+    "第173行 2019-04-至今",
+    "第180行 2017-10-2023-12",
+    "第187行 2015-03-2016-04",
+    "第197行 1998-9-2001-7",
+    "第213行 2010-11-2010-12"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 6,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2016-06-至今",
+    "2025-07-至今",
+    "2024-07-至今",
+    "2021-02-至今",
+    "2019-04-至今",
+    "2017-10-2023-12"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 4.4,
+   "basis": "computed",
+   "total_months": 635
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_行政专员_东莞_5_8K_吴___3年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第21行 2025 年5 月-2026 年5",
+    "第63行 2023 年 8 月-2025 年5 月"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025 年5 月-2026 年5",
+    "2023 年 8 月-2025 年5 月"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.5,
+   "basis": "computed",
+   "total_months": 35
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_行政专员_东莞_6_8K_余___5年": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_行政专员_东莞_6_8K_吴___4年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第12行 2026.01-至今",
+    "第23行 2024.04-2026.10",
+    "第49行 2019-2022"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2026.01-至今",
+    "2024.04-2026.10",
+    "2019-2022"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.2,
+   "basis": "computed",
+   "total_months": 79
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_行政专员_东莞_6_8K_夏___2年": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_行政专员_东莞_6_8K_梁___6年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第18行 2024.04-2026.06",
+    "第30行 2023.04-2024.02",
+    "第45行 2020.07-2023.01"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024.04-2026.06",
+    "2023.04-2024.02",
+    "2020.07-2023.01"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.9,
+   "basis": "computed",
+   "total_months": 69
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_行政专员_东莞_6_8K_肖___10年以上": {},
+ "cand_行政专员_东莞_6_8K_肖___10年以上_1": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第14行 2024.09-2026.09"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024.09-2026.09"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.1,
+   "basis": "computed",
+   "total_months": 25
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_行政专员_东莞_6_8K_范___9年": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第25行 2025.03-至今",
+    "第50行 2023.11-2025.01",
+    "第117行 2021.04-2023.05",
+    "第137行 2018.12-2021.04",
+    "第151行 2021.07-2022.07",
+    "第194行 2021.04-2023.05"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 5,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.03-至今",
+    "2023.11-2025.01",
+    "2021.04-2023.05",
+    "2021.07-2022.07",
+    "2021.04-2023.05"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.8,
+   "basis": "computed",
+   "total_months": 130
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_行政专员_东莞_7_8K_刘___8年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第85行 2020-2022",
+    "第86行 2023-2025"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2020-2022",
+    "2023-2025"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.1,
+   "basis": "computed",
+   "total_months": 50
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_行政专员_东莞_7_8K_徐___7年": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第18行 2021.01-2026.05"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2021.01-2026.05"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 5.4,
+   "basis": "computed",
+   "total_months": 65
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_行政专员_东莞_7_8K_谢___5年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第24行 2024.10-2026.06",
+    "第47行 2023.10-2024.08"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024.10-2026.06",
+    "2023.10-2024.08"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.3,
+   "basis": "computed",
+   "total_months": 32
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_行政专员_东莞_7_9K_刘___10年以上": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第19行 2024.07-2025.12",
+    "第44行 2016.09-2023.01",
+    "第78行 2014.04-2015.09",
+    "第106行 2011.03-2014.03",
+    "第134行 2006.12-2011.02"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024.07-2025.12",
+    "2016.09-2023.01"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.4,
+   "basis": "computed",
+   "total_months": 201
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_行政专员_东莞_7_9K_唐___5年": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第75行 2025.11-至今",
+    "第104行 2023.06-2025.06",
+    "第138行 2021.06-2023.04",
+    "第155行 2024.10-2025.02"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.11-至今",
+    "2023.06-2025.06",
+    "2021.06-2023.04",
+    "2024.10-2025.02"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.4,
+   "basis": "computed",
+   "total_months": 66
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_行政专员_东莞_7_9K_杨___4年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第22行 2025.6-2026.7",
+    "第37行 2023.12-2025.5",
+    "第49行 2021.7-2023.11"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.6-2026.7",
+    "2023.12-2025.5",
+    "2021.7-2023.11"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.7,
+   "basis": "computed",
+   "total_months": 61
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_行政专员_东莞_7_9K_潘___6年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第15行 2020.10-2025.01",
+    "第40行 2025.02-2026.03"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2020.10-2025.01",
+    "2025.02-2026.03"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.8,
+   "basis": "computed",
+   "total_months": 66
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_行政专员_东莞_7_9K_蒋___9年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第18行 2024.05-2026.07",
+    "第47行 2022.05-2024.03",
+    "第86行 2019.05-2022.03"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024.05-2026.07",
+    "2022.05-2024.03",
+    "2019.05-2022.03"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.4,
+   "basis": "computed",
+   "total_months": 85
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_行政专员_东莞_7_9K_邓___1年": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第38行 2025.03-2025.12",
+    "第85行 2023.07-2025.01",
+    "第91行 2022.11-2023.06",
+    "第111行 2019.08-2022.10",
+    "第129行 2013.08-2019.08",
+    "第156行 2010.04-2013.07"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 4,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025.03-2025.12",
+    "2023.07-2025.01",
+    "2022.11-2023.06",
+    "2019.08-2022.10"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.6,
+   "basis": "computed",
+   "total_months": 189
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_行政专员_东莞_7_9K_陈___10年以上": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第6行 2010.09-2013.06",
+    "第31行 2021.12-至今"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2021.12-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.9,
+   "basis": "computed",
+   "total_months": 94
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_袁___25岁_日文业务助理_智通简历_编号": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第54行 2024-07-2024-12",
+    "第56行 2018-08-2019-12",
+    "第70行 2022-2023"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-07-2024-12",
+    "2022-2023"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.0,
+   "basis": "computed",
+   "total_months": 36
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_袁___32岁_业务跟单_智通简历_编号": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第33行 2024-03-至今",
+    "第52行 2019-06-2024-03",
+    "第102行 2015-04-2019-06",
+    "第104行 2011-2014"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-03-至今",
+    "2019-06-2024-03"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.7,
+   "basis": "computed",
+   "total_months": 179
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_袁___34岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 8,
+   "basis": "computed",
+   "evidence": [
+    "第37行 2023-02-至今",
+    "第70行 2021-05-2022-12",
+    "第97行 2018-09-2021-04",
+    "第115行 2015-05-2018-08",
+    "第131行 2011-02-2015-02",
+    "第142行 2008-02-2010-12",
+    "第151行 2015-11-2015-12",
+    "第154行 2004-2006"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-02-至今",
+    "2021-05-2022-12"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.6,
+   "basis": "computed",
+   "total_months": 249
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_覃___36岁_业务跟单_智通简历_编号": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第36行 2006-2008"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 0,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": []
+  },
+  "avg_tenure_years": {
+   "value": 2.1,
+   "basis": "computed",
+   "total_months": 25
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_设计助理工程师_东莞_7_10K_卢___4年": {
+  "segment_count": {
+   "value": 9,
+   "basis": "computed",
+   "evidence": [
+    "第12行 2024.3-至今",
+    "第25行 2022.6-2024.2",
+    "第44行 2025.1-2025.8",
+    "第63行 2024.6-2024.12",
+    "第85行 2023.10-2024.5",
+    "第107行 2023.3-2023.9",
+    "第126行 2022.10-2023.2",
+    "第149行 2022.6-2022.9",
+    "第191行 2020.1-2022.1"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 9,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024.3-至今",
+    "2022.6-2024.2",
+    "2025.1-2025.8",
+    "2024.6-2024.12",
+    "2023.10-2024.5",
+    "2023.3-2023.9",
+    "2022.10-2023.2",
+    "2022.6-2022.9",
+    "2020.1-2022.1"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.1,
+   "basis": "computed",
+   "total_months": 118
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_设计助理工程师_东莞_7_10K_古___4年": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_设计助理工程师_东莞_7_10K_柒___4年": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_设计助理工程师_东莞_7_10K_蓝___3年": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第44行 2023.11-2024.07"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023.11-2024.07"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 0.8,
+   "basis": "computed",
+   "total_months": 9
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_设计助理工程师_东莞_7_10K_雷___1年": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第22行 2026.03-2026.06",
+    "第36行 2025.03-2025.12"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2026.03-2026.06",
+    "2025.03-2025.12"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 0.6,
+   "basis": "computed",
+   "total_months": 14
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_谢___39岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 7,
+   "basis": "computed",
+   "evidence": [
+    "第43行 2023-08-至今",
+    "第67行 2020-07-2023-07",
+    "第101行 2017-02-2019-04",
+    "第126行 2014-03-2015-10",
+    "第132行 2008-03-2013-12",
+    "第138行 2020-07-至今",
+    "第162行 2002-2005"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-08-至今",
+    "2020-07-2023-07",
+    "2020-07-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.7,
+   "basis": "computed",
+   "total_months": 308
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_谭___27岁_业务跟单_智通简历_编号": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第27行 2023-03-2025-12",
+    "第41行 2018-12-2023-03"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-03-2025-12",
+    "2018-12-2023-03"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.6,
+   "basis": "computed",
+   "total_months": 86
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_贺___28岁_行政专员_智通简历_编号": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第75行 2019-02-2022-10",
+    "第88行 2013-2015"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2019-02-2022-10"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.9,
+   "basis": "computed",
+   "total_months": 70
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_贺___37岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第31行 2020-07-至今",
+    "第49行 2019-03-2020-06",
+    "第57行 2018-03-2019-01",
+    "第66行 2012-01-2015-03",
+    "第81行 2010-01-2012-03",
+    "第98行 2008-09-2010"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2020-07-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.6,
+   "basis": "computed",
+   "total_months": 187
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_赵___29岁_工程文员_智通简历_编号": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第31行 2022-09-至今",
+    "第43行 2019-04-2022-08",
+    "第52行 2012-09-2015-06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022-09-至今",
+    "2019-04-2022-08"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.5,
+   "basis": "computed",
+   "total_months": 126
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_邓___27岁_业务跟单_智通简历_编号": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第29行 2021-07-2026-05",
+    "第34行 2019-07-2021-06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2021-07-2026-05"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.5,
+   "basis": "computed",
+   "total_months": 83
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_邓___43岁_业务跟单_智通简历_编号": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第38行 2006-10-2024-06",
+    "第54行 2002-01-2006-09"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2006-10-2024-06"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 11.2,
+   "basis": "computed",
+   "total_months": 270
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_郑___25岁_工程文员_智通简历_编号": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第31行 2024-08-至今",
+    "第45行 2023-08-2024-06",
+    "第60行 2022-03-2023-07"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-08-至今",
+    "2023-08-2024-06",
+    "2022-03-2023-07"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.6,
+   "basis": "computed",
+   "total_months": 56
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_郑___37岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 7,
+   "basis": "computed",
+   "evidence": [
+    "第36行 2023-09-至今",
+    "第40行 2020-11-2023-08",
+    "第47行 2018-06-2020-11",
+    "第53行 2015-03-2018-08",
+    "第61行 2012-06-2015-01",
+    "第69行 2010-10-2012-06",
+    "第82行 2004-09-2007-06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-09-至今",
+    "2020-11-2023-08"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.8,
+   "basis": "computed",
+   "total_months": 232
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_郭___29岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第34行 2018-09-至今",
+    "第72行 2018-01-2018-09",
+    "第77行 2017-06-2018-01",
+    "第83行 2018-02-2018-08",
+    "第91行 2015-09-2018-07",
+    "第102行 2024-07-2024-07"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2018-09-至今",
+    "2024-07-2024-07"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.2,
+   "basis": "computed",
+   "total_months": 159
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_陈___28岁_智通简历_编号": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第45行 2024-09-2026-04",
+    "第59行 2022-07-2024-08",
+    "第76行 2016-09-2022-06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-09-2026-04",
+    "2022-07-2024-08",
+    "2016-09-2022-06"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.2,
+   "basis": "computed",
+   "total_months": 116
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_陈___29岁_副总助理_智通简历_编号": {
+  "segment_count": {
+   "value": 7,
+   "basis": "computed",
+   "evidence": [
+    "第72行 2022-05-2024-10",
+    "第100行 2020-12-2021-12",
+    "第126行 2017-08-2019-02",
+    "第147行 2017-04-2017-12",
+    "第155行 2014-09-2018-06",
+    "第171行 2016-04-2016-12",
+    "第175行 2015.04-2016.02"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022-05-2024-10",
+    "2020-12-2021-12"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.6,
+   "basis": "computed",
+   "total_months": 137
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_陈___29岁_日文业务助理_智通简历_编号": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第25行 2022-09-2023-09",
+    "第33行 2020-07-2022-04",
+    "第46行 2019-11-2020-07",
+    "第55行 2015-2019"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022-09-2023-09",
+    "2020-07-2022-04"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 1.9,
+   "basis": "computed",
+   "total_months": 93
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_陈___32岁_业务跟单_智通简历_编号": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第39行 2022-12-2025-12",
+    "第64行 2017-01-2021-12",
+    "第87行 2022-03-2024-07",
+    "第89行 2019-03-2021-07"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022-12-2025-12",
+    "2017-01-2021-12",
+    "2022-03-2024-07"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.2,
+   "basis": "computed",
+   "total_months": 155
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_陈___36岁_业务助理_智通简历_编号": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第24行 2024-02-2025-11",
+    "第35行 2016-02-2023-10"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-02-2025-11",
+    "2016-02-2023-10"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 4.8,
+   "basis": "computed",
+   "total_months": 115
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_陈___37岁_日文业务助理_智通简历_编号": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第40行 2025-11-至今",
+    "第45行 2017-12-2020-12",
+    "第52行 2015-05-2017-12",
+    "第58行 2011-05-2015-05",
+    "第70行 2003-9-2006-7"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2025-11-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.8,
+   "basis": "computed",
+   "total_months": 166
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_陈___37岁_行政专员_智通简历_编号": {
+  "segment_count": {
+   "value": 5,
+   "basis": "computed",
+   "evidence": [
+    "第28行 2024-01-2026-02",
+    "第50行 2022-11-2023-06",
+    "第105行 2021-05-2022-10",
+    "第107行 2010-07-2020-12",
+    "第109行 2007-2010"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-01-2026-02",
+    "2022-11-2023-06",
+    "2021-05-2022-10"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.6,
+   "basis": "computed",
+   "total_months": 215
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_陈___39岁_工程经理_智通简历_编号": {
+  "segment_count": {
+   "value": 10,
+   "basis": "computed",
+   "evidence": [
+    "第89行 2017-04-2021-05",
+    "第132行 2014-03-2017-03",
+    "第162行 2011-07-2014-02",
+    "第185行 2008-09-2011-07",
+    "第201行 2006-09-2008-09",
+    "第204行 2006-09-2008-9",
+    "第208行 2006年9月-2007年9月",
+    "第222行 2017-07-2018-07",
+    "第322行 2000-09-2003-07",
+    "第329行 2021-10-至今"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2021-10-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.7,
+   "basis": "computed",
+   "total_months": 327
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_陈__简历": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第23行 2020.09-至今"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2020.09-至今"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 6.2,
+   "basis": "computed",
+   "total_months": 75
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_雷___31岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第36行 2024-10-2025-10",
+    "第55行 2023-08-2024-09",
+    "第79行 2020-06-2023-07",
+    "第93行 2015-09-2019-04",
+    "第110行 2013-03-2015-08",
+    "第130行 2009-09-2012-06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-10-2025-10",
+    "2023-08-2024-09",
+    "2020-06-2023-07"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.4,
+   "basis": "computed",
+   "total_months": 173
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_马___42岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第35行 2023-12-至今",
+    "第42行 2021-11-2023-11",
+    "第47行 2012-06-2021-11",
+    "第52行 2007-06-2012-05",
+    "第57行 2005-03-2007-06",
+    "第63行 2001-02-2005-03"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-12-至今",
+    "2021-11-2023-11",
+    "2012-06-2021-11"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 4.3,
+   "basis": "computed",
+   "total_months": 313
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_高级招聘专家_东莞_7_12K_罗___10年以上": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_高级招聘专家_东莞_7_12K_陈___10年": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第32行 2024.06-至今",
+    "第52行 2019.02-2024.06",
+    "第73行 2016.07-2017.03"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024.06-至今",
+    "2019.02-2024.06"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.9,
+   "basis": "computed",
+   "total_months": 104
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_高级招聘专家_东莞_9_14K_南___10年以上": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_高级招聘专家_东莞_9_14K_李___10年以上": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第24行 2023.06-至今",
+    "第40行 2021.07-2023.05",
+    "第99行 2020.01-2021.07",
+    "第143行 2013.10-2016.03"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023.06-至今",
+    "2021.07-2023.05"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.4,
+   "basis": "computed",
+   "total_months": 114
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_高级招聘专家_东莞_9_14K_段___7年": {
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_高级招聘专家_东莞_9_14K_王___10年以上": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第21行 2026.01-2026.05",
+    "第35行 2023.11-2025.12",
+    "第49行 2021.05-2023.11",
+    "第99行 2010.08-2017.01"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2026.01-2026.05",
+    "2023.11-2025.12",
+    "2021.05-2023.11"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.9,
+   "basis": "computed",
+   "total_months": 140
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_麦___38岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 7,
+   "basis": "computed",
+   "evidence": [
+    "第33行 2020-09-2024-06",
+    "第45行 2018-08-2019-12",
+    "第98行 2015-12-2018-08",
+    "第100行 2008-09-2010-07",
+    "第102行 2005-9-2008-6",
+    "第104行 2008-09-2010-07",
+    "第106行 2005-09-2008-06"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2020-09-2024-06"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.5,
+   "basis": "computed",
+   "total_months": 210
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_黄___26岁_日文业务助理_智通简历_编号": {
+  "segment_count": {
+   "value": 2,
+   "basis": "computed",
+   "evidence": [
+    "第52行 2016-08-2021-09",
+    "第54行 2014-2016"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 0,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": []
+  },
+  "avg_tenure_years": {
+   "value": 3.6,
+   "basis": "computed",
+   "total_months": 87
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_黄___30岁_业务跟单_智通简历_编号": {
+  "segment_count": {
+   "value": 4,
+   "basis": "computed",
+   "evidence": [
+    "第23行 2023-05-2024-07",
+    "第57行 2019-09-2021-03",
+    "第83行 2018-08-2019-06",
+    "第122行 2011-2015"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-05-2024-07"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.0,
+   "basis": "computed",
+   "total_months": 94
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_黄___32岁_行政专员_智通简历_编号": {
+  "segment_count": {
+   "value": 10,
+   "basis": "computed",
+   "evidence": [
+    "第34行 2020-04-至今",
+    "第56行 2019-11-2020-04",
+    "第111行 2018-01-2019-02",
+    "第113行 2015-12-2018-01",
+    "第115行 2012-09-2015-10",
+    "第117行 2011-11-2013-09",
+    "第119行 2020-2023",
+    "第121行 2013-2015",
+    "第123行 2009-09-2012-07",
+    "第125行 2006-09-2009-07"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2020-04-至今",
+    "2020-2023"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.7,
+   "basis": "computed",
+   "total_months": 319
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_黄___41岁_管理课课长_智通简历_编号": {
+  "segment_count": {
+   "value": 6,
+   "basis": "computed",
+   "evidence": [
+    "第41行 2022-03-2026-04",
+    "第68行 2023年12月-2024年4月",
+    "第78行 2019-11-2022-03",
+    "第111行 2017-03-2019-11",
+    "第159行 2014-10-2017-03",
+    "第186行 2008-10-2014-08"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 3,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2022-03-2026-04",
+    "2023年12月-2024年4月",
+    "2019-11-2022-03"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 3.0,
+   "basis": "computed",
+   "total_months": 218
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_黄___45岁_管理课课长_智通简历_编号": {
+  "segment_count": {
+   "value": 18,
+   "basis": "computed",
+   "evidence": [
+    "第167行 2014-10-2019-09",
+    "第263行 2013-03-2014-10",
+    "第303行 2010-01-2013-03",
+    "第367行 2000-7-2010-01",
+    "第425行 2016-08-2016-12",
+    "第455行 2016-01-2016-07",
+    "第480行 2015-09-2015-12",
+    "第594行 2015-04-2015-08",
+    "第598行 2015-01-2015-04",
+    "第600行 2011-09-2011-12",
+    "第604行 2011-01-2011-06",
+    "第626行 1997-09-2000-07",
+    "第654行 2010-9-2011-3",
+    "第656行 2009-9-2009-10",
+    "第658行 2009-8-2009-9",
+    "第660行 2005-10-2005-11",
+    "第662行 2005-7-2005-9",
+    "第664行 2003-9-2003-10"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 0,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": []
+  },
+  "avg_tenure_years": {
+   "value": 1.5,
+   "basis": "computed",
+   "total_months": 322
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_龙___21岁_日文业务助理_智通简历_编号": {
+  "segment_count": {
+   "value": 1,
+   "basis": "computed",
+   "evidence": [
+    "第33行 2024-05-2024-05"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 1,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2024-05-2024-05"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 0.1,
+   "basis": "computed",
+   "total_months": 1
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ },
+ "cand_龚___33岁_专案工程师_智通简历_编号": {
+  "segment_count": {
+   "value": 3,
+   "basis": "computed",
+   "evidence": [
+    "第38行 2023-02-至今",
+    "第83行 2020-05-2023-01",
+    "第118行 2018-03-2020-01"
+   ]
+  },
+  "recent5y_segments": {
+   "value": 2,
+   "basis": "computed",
+   "window": "2021-11 起",
+   "evidence": [
+    "2023-02-至今",
+    "2020-05-2023-01"
+   ]
+  },
+  "avg_tenure_years": {
+   "value": 2.8,
+   "basis": "computed",
+   "total_months": 102
+  },
+  "notice_weeks": {
+   "value": null,
+   "basis": "missing",
+   "why": "原文没有「到岗时间」这一项"
+  }
+ }
+}
