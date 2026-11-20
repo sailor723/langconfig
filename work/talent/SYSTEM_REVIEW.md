@@ -89,7 +89,7 @@
 | 文件 | 提交 | 内容 |
 |---|---|---|
 | `score_models.yaml` | ✓ | **6 个分数的目录**:名字/分母/闸门/可比范围 + 9 条可执行门禁 |
-| `skill_map.yaml` | ✓ | 技能词表(被 `skill_patterns_ext.py` 读取) |
+| ~~`skill_map.yaml`~~ | 已删 | 技能词表 —— **实际 0 个脚本读它**(这里原写"被 skill_patterns_ext.py 读取"是错的,那只是注释里引了一句)。2026-11-20 删除;说明见 `_retired/README.md` |
 | `D11_two_sources_of_truth.md` | ✓ | 决定 D11:权威在公理还是表,选 C 的理由与边界条件 |
 | `B_experiment.md` | ✓ | 复合要求为什么是"副总助理 0 人"的病因 |
 | `grill.md` | ✓ | 已定决定清单 |
