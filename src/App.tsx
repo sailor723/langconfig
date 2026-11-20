@@ -27,6 +27,7 @@ import DeepAgentStudioPage from './features/deepagent-studio-v2/ModernStudioPage
 import ToolHomePage from './components/layout2/ToolHomePage';
 import PromptHomePage from './components/layout2/PromptHomePage';
 import SkillHomePage from './components/layout2/SkillHomePage';
+import TalentDocView from './features/talent/TalentDocView';
 import KnowledgeHomePage from './components/layout2/KnowledgeHomePage';
 import LearningHomePage from './components/layout2/LearningHomePage';
 // The Ontology activity: home (what an ontology is), browser (what this profile declares) and
@@ -657,7 +658,7 @@ function AppContent() {
   // `directModeTabFor`) is the only content. Verbose mode keeps the
   // HomePage (hero + catalog) as before.
   const directCatalogViews: ReadonlySet<View> = new Set<View>([
-    'tools', 'agents', 'deepagents', 'skills', 'knowledge', 'prompt',
+    'tools', 'agents', 'deepagents', 'skills', 'knowledge', 'prompt', 'talent',
   ]);
   const skipHomeForDirect = displayMode === 'direct' && directCatalogViews.has(currentView);
 
@@ -697,6 +698,11 @@ function AppContent() {
         // Workspace just renders empty. The user can click back to
         // verbose via Settings if they want the catalog back.
         return skipHomeForDirect ? null : <KnowledgeHomePage />;
+      case 'talent':
+        // Talent 没有可浏览的目录 —— 它本身就是一屏。所以两种模式都直接渲染,
+        // 不再像其它活动那样"direct 留空、verbose 给 HomePage":
+        // 那个分支对它只剩一个 `default: return null`(实测:整屏空白)。
+        return <TalentDocView />;
       case 'ontology': return <OntologyHomePage />;
       case 'ontology-browse': return <OntologyBrowserPage />;
       case 'ontology-app': return <OntologySectionPage />;
