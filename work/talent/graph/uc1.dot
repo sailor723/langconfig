@@ -1,0 +1,250 @@
+digraph talent {
+  rankdir=LR; compound=true; splines=true; nodesep=0.14; ranksep=0.85;
+  graph [fontname="PingFang SC", bgcolor="white", fontsize=11];
+  node  [fontname="PingFang SC", fontsize=9, shape=box, style="rounded,filled", fillcolor="white", color="#888888"];
+  edge  [fontname="PingFang SC", fontsize=7, arrowsize=0.55];
+
+  // ── 能力全集:9 个维度,每个一个 cluster。与任何 JD 无关。
+  subgraph cluster_A {
+    label="A 人口属性"; fontsize=10; color="#4a7ba7"; style="rounded"; fontcolor="#1a1a1a";
+    dim_78948_A [label="A 人口属性", shape=box, style="bold,rounded", fillcolor="#d6e4f0", color="#4a7ba7", fontsize=10];
+    att_39249_A1 [label="A.1 性别", fillcolor="white", color="#bbbbbb", fontsize=8];
+    A -> att_39249_A1 [style=invis];
+    att_50607_A2 [label="A.2 年龄", fillcolor="#d8efd8", color="#2e7d32", fontsize=8];
+    A -> att_50607_A2 [style=invis];
+  }
+
+  subgraph cluster_B {
+    label="B 教育"; fontsize=10; color="#4a7ba7"; style="rounded"; fontcolor="#1a1a1a";
+    dim_13514_B [label="B 教育", shape=box, style="bold,rounded", fillcolor="#d6e4f0", color="#4a7ba7", fontsize=10];
+    att_34276_B1 [label="B.1 学历", fillcolor="#d8efd8", color="#2e7d32", fontsize=8];
+    B -> att_34276_B1 [style=invis];
+    att_54688_B2 [label="B.2 专业", fillcolor="#d8efd8", color="#2e7d32", fontsize=8];
+    B -> att_54688_B2 [style=invis];
+    att_20013_B3 [label="B.3 全日制", fillcolor="white", color="#bbbbbb", fontsize=8];
+    B -> att_20013_B3 [style=invis];
+    att_58887_B4 [label="B.4 院校层次", fillcolor="white", color="#bbbbbb", fontsize=8];
+    B -> att_58887_B4 [style=invis];
+  }
+
+  subgraph cluster_C {
+    label="C 经历"; fontsize=10; color="#4a7ba7"; style="rounded"; fontcolor="#1a1a1a";
+    dim_26906_C [label="C 经历", shape=box, style="bold,rounded", fillcolor="#d6e4f0", color="#4a7ba7", fontsize=10];
+    att_42836_C1 [label="C.1 总年限", fillcolor="#d8efd8", color="#2e7d32", fontsize=8];
+    C -> att_42836_C1 [style=invis];
+    att_6893_C2 [label="C.2 职能域", fillcolor="white", color="#bbbbbb", fontsize=8];
+    C -> att_6893_C2 [style=invis];
+    att_96472_C3 [label="C.3 行业", fillcolor="white", color="#bbbbbb", fontsize=8];
+    C -> att_96472_C3 [style=invis];
+    att_30430_C4 [label="C.4 在岗时长", fillcolor="white", color="#bbbbbb", fontsize=8];
+    C -> att_30430_C4 [style=invis];
+    att_68671_C5 [label="C.5 活动经验", fillcolor="white", color="#bbbbbb", fontsize=8];
+    C -> att_68671_C5 [style=invis];
+  }
+
+  subgraph cluster_D {
+    label="D 技能"; fontsize=10; color="#4a7ba7"; style="rounded"; fontcolor="#1a1a1a";
+    dim_5626_D [label="D 技能", shape=box, style="bold,rounded", fillcolor="#d6e4f0", color="#4a7ba7", fontsize=10];
+    cat_67471_AdminSkill [label="行政\n(1)", fillcolor="#eaeaea", color="#b0b0b0", fontsize=8];
+    D -> cat_67471_AdminSkill [style=invis];
+    cat_74432_BusinessSystem [label="业务系统\n(2)", fillcolor="#eaeaea", color="#b0b0b0", fontsize=8];
+    D -> cat_74432_BusinessSystem [style=invis];
+    cat_36381_CAD [label="制图软件\n(6)", fillcolor="#eaeaea", color="#b0b0b0", fontsize=8];
+    D -> cat_36381_CAD [style=invis];
+    cat_99686_CompensationSk [label="薪酬绩效\n(1)", fillcolor="#eaeaea", color="#b0b0b0", fontsize=8];
+    D -> cat_99686_CompensationSk [style=invis];
+    cat_12076_Compliance [label="合规\n(1)", fillcolor="#eaeaea", color="#b0b0b0", fontsize=8];
+    D -> cat_12076_Compliance [style=invis];
+    cat_16358_CustomsSkill [label="关务\n(2)", fillcolor="#eaeaea", color="#b0b0b0", fontsize=8];
+    D -> cat_16358_CustomsSkill [style=invis];
+    cat_52409_DesignSoftware [label="设计软件\n(3)", fillcolor="#eaeaea", color="#b0b0b0", fontsize=8];
+    D -> cat_52409_DesignSoftware [style=invis];
+    cat_52492_FinanceSkill [label="财务\n(1)", fillcolor="#eaeaea", color="#b0b0b0", fontsize=8];
+    D -> cat_52492_FinanceSkill [style=invis];
+    cat_22274_GeneralCapabil [label="通用能力\n(6)", fillcolor="#eaeaea", color="#b0b0b0", fontsize=8];
+    D -> cat_22274_GeneralCapabil [style=invis];
+    cat_96325_HRAdmin [label="人事事务\n(1)", fillcolor="#eaeaea", color="#b0b0b0", fontsize=8];
+    D -> cat_96325_HRAdmin [style=invis];
+    cat_81002_HarnessCraft [label="线束工艺\n(4)", fillcolor="#e8eef5", color="#7a9cc0", fontsize=8];
+    D -> cat_81002_HarnessCraft [style=invis];
+    cat_88249_LaborLawKnowle [label="劳动法\n(1)", fillcolor="#eaeaea", color="#b0b0b0", fontsize=8];
+    D -> cat_88249_LaborLawKnowle [style=invis];
+    cat_72456_LanguageSkill [label="语言技能\n(1)", fillcolor="#e8eef5", color="#7a9cc0", fontsize=8];
+    D -> cat_72456_LanguageSkill [style=invis];
+    cat_17010_OfficeSoftware [label="办公软件\n(2)", fillcolor="#eaeaea", color="#b0b0b0", fontsize=8];
+    D -> cat_17010_OfficeSoftware [style=invis];
+    cat_43556_OperationsSkil [label="运营管理\n(2)", fillcolor="#eaeaea", color="#b0b0b0", fontsize=8];
+    D -> cat_43556_OperationsSkil [style=invis];
+    cat_57006_OrderTracking [label="订单跟单\n(1)", fillcolor="#eaeaea", color="#b0b0b0", fontsize=8];
+    D -> cat_57006_OrderTracking [style=invis];
+    cat_33852_QualityMethod [label="品质手法\n(8)", fillcolor="#e8eef5", color="#7a9cc0", fontsize=8];
+    D -> cat_33852_QualityMethod [style=invis];
+    cat_71120_QualitySystem [label="品质体系\n(2)", fillcolor="#eaeaea", color="#b0b0b0", fontsize=8];
+    D -> cat_71120_QualitySystem [style=invis];
+    cat_320_RecruitingSkil [label="招聘\n(1)", fillcolor="#eaeaea", color="#b0b0b0", fontsize=8];
+    D -> cat_320_RecruitingSkil [style=invis];
+    cat_4738_SpreadsheetSof [label="表格软件\n(1)", fillcolor="#eaeaea", color="#b0b0b0", fontsize=8];
+    D -> cat_4738_SpreadsheetSof [style=invis];
+    cat_99125_TradeSkill [label="外贸\n(1)", fillcolor="#eaeaea", color="#b0b0b0", fontsize=8];
+    D -> cat_99125_TradeSkill [style=invis];
+    cat_59696_WireEquipment [label="线束设备\n(5)", fillcolor="#eaeaea", color="#b0b0b0", fontsize=8];
+    D -> cat_59696_WireEquipment [style=invis];
+  }
+
+  subgraph cluster_E {
+    label="E 素质能力"; fontsize=10; color="#4a7ba7"; style="rounded"; fontcolor="#1a1a1a";
+    dim_77685_E [label="E 素质能力", shape=box, style="bold,rounded", fillcolor="#d6e4f0", color="#4a7ba7", fontsize=10];
+    att_17710_E1 [label="E.1 行为素质", fillcolor="white", color="#bbbbbb", fontsize=8];
+    E -> att_17710_E1 [style=invis];
+    att_19671_E2 [label="E.2 认知能力", fillcolor="white", color="#bbbbbb", fontsize=8];
+    E -> att_19671_E2 [style=invis];
+    att_55925_E3 [label="E.3 动机意愿", fillcolor="white", color="#bbbbbb", fontsize=8];
+    E -> att_55925_E3 [style=invis];
+    att_22502_E4 [label="E.4 知识", fillcolor="white", color="#bbbbbb", fontsize=8];
+    E -> att_22502_E4 [style=invis];
+  }
+
+  subgraph cluster_F {
+    label="F 资质证书  · 本 JD 未涉及"; fontsize=10; color="#b0b0b0"; style="rounded,dashed"; fontcolor="#b0b0b0";
+    dim_81241_F [label="F 资质证书", shape=box, style="bold,rounded", fillcolor="#f2f2f2", color="#b0b0b0", fontsize=10];
+    att_21227_F1 [label="F.1 执业资格", fillcolor="white", color="#bbbbbb", fontsize=8];
+    F -> att_21227_F1 [style=invis];
+    att_66351_F2 [label="F.2 技能证书", fillcolor="white", color="#bbbbbb", fontsize=8];
+    F -> att_66351_F2 [style=invis];
+    att_98040_F3 [label="F.3 培训考核", fillcolor="white", color="#bbbbbb", fontsize=8];
+    F -> att_98040_F3 [style=invis];
+  }
+
+  subgraph cluster_G {
+    label="G 合规约束  · 本 JD 未涉及"; fontsize=10; color="#b0b0b0"; style="rounded,dashed"; fontcolor="#b0b0b0";
+    dim_43244_G [label="G 合规约束", shape=box, style="bold,rounded", fillcolor="#f2f2f2", color="#b0b0b0", fontsize=10];
+    att_95378_G1 [label="G.1 法律记录", fillcolor="white", color="#bbbbbb", fontsize=8];
+    G -> att_95378_G1 [style=invis];
+    att_37758_G2 [label="G.2 公司制度", fillcolor="white", color="#bbbbbb", fontsize=8];
+    G -> att_37758_G2 [style=invis];
+  }
+
+  subgraph cluster_H {
+    label="H 语言  · 本 JD 未涉及"; fontsize=10; color="#b0b0b0"; style="rounded,dashed"; fontcolor="#b0b0b0";
+    dim_97137_H [label="H 语言", shape=box, style="bold,rounded", fillcolor="#f2f2f2", color="#b0b0b0", fontsize=10];
+    att_70339_H1 [label="H.1 语种", fillcolor="white", color="#bbbbbb", fontsize=8];
+    H -> att_70339_H1 [style=invis];
+    att_7230_H2 [label="H.2 熟练度", fillcolor="white", color="#bbbbbb", fontsize=8];
+    H -> att_7230_H2 [style=invis];
+  }
+
+  subgraph cluster_I {
+    label="I 身体条件  · 本 JD 未涉及"; fontsize=10; color="#b0b0b0"; style="rounded,dashed"; fontcolor="#b0b0b0";
+    dim_84252_I [label="I 身体条件", shape=box, style="bold,rounded", fillcolor="#f2f2f2", color="#b0b0b0", fontsize=10];
+  }
+
+  // ── 这份 JD 实际要求的组件(叶子)
+  comp_31358_skill_6S [label="6S", fillcolor="#ffd9d9", color="#c62828", fontsize=8];
+  cat_33852_QualityMethod -> comp_31358_skill_6S [color="#c62828", style=dotted, arrowhead=none];
+  comp_99176_skill_8D报告 [label="8D报告", fillcolor="#ffd9d9", color="#c62828", fontsize=8];
+  cat_33852_QualityMethod -> comp_99176_skill_8D报告 [color="#c62828", style=dotted, arrowhead=none];
+  comp_1620_skill_CPK [label="CPK", fillcolor="#ffd9d9", color="#c62828", fontsize=8];
+  cat_33852_QualityMethod -> comp_1620_skill_CPK [color="#c62828", style=dotted, arrowhead=none];
+  comp_39803_skill_QC七大手法 [label="QC七大手法", fillcolor="#ffd9d9", color="#c62828", fontsize=8];
+  cat_33852_QualityMethod -> comp_39803_skill_QC七大手法 [color="#c62828", style=dotted, arrowhead=none];
+  comp_2754_skill_SPC [label="SPC", fillcolor="#ffd9d9", color="#c62828", fontsize=8];
+  cat_33852_QualityMethod -> comp_2754_skill_SPC [color="#c62828", style=dotted, arrowhead=none];
+  comp_86845_skill_品质问题分析 [label="品质问题分析", fillcolor="#ffd9d9", color="#c62828", fontsize=8];
+  cat_33852_QualityMethod -> comp_86845_skill_品质问题分析 [color="#c62828", style=dotted, arrowhead=none];
+  comp_2045_skill_客户验厂 [label="客户验厂", fillcolor="#ffd9d9", color="#c62828", fontsize=8];
+  cat_33852_QualityMethod -> comp_2045_skill_客户验厂 [color="#c62828", style=dotted, arrowhead=none];
+  comp_84062_skill_线束行业知识 [label="线束行业知识", fillcolor="#ffd9d9", color="#c62828", fontsize=8];
+  cat_81002_HarnessCraft -> comp_84062_skill_线束行业知识 [color="#c62828", style=dotted, arrowhead=none];
+  comp_17155_skill_英语 [label="英语", fillcolor="#ffd9d9", color="#c62828", fontsize=8];
+  cat_72456_LanguageSkill -> comp_17155_skill_英语 [color="#c62828", style=dotted, arrowhead=none];
+
+  // ── JD 与它的 10 条要求
+  jd_60041_品质经理 [label="JD\n品质经理", shape=note, fillcolor="#ffe6a7", color="#b8860b", fontsize=11];
+  req_48254_QM01 [label="QM-01\n年龄：25 ~ 40岁", fillcolor="#dce9f7", color="#4a7ba7", fontsize=8];
+  jd_60041_品质经理 -> req_48254_QM01 [color="#4a7ba7"];
+  req_48254_QM01 -> att_50607_A2 [color="#2e7d32", label="约束"];
+  req_65503_QM02 [label="QM-02\n学历：大专及以上学历", fillcolor="#dce9f7", color="#4a7ba7", fontsize=8];
+  jd_60041_品质经理 -> req_65503_QM02 [color="#4a7ba7"];
+  req_65503_QM02 -> att_34276_B1 [color="#2e7d32", label="约束"];
+  req_34211_QM03 [label="QM-03\n专业：机电一体化/电子技术/自动…", fillcolor="#dce9f7", color="#4a7ba7", fontsize=8];
+  jd_60041_品质经理 -> req_34211_QM03 [color="#4a7ba7"];
+  req_34211_QM03 -> att_54688_B2 [color="#2e7d32", label="约束"];
+  req_41303_QM04 [label="QM-04\n语言：英语口语熟练及具备独立书写…", fillcolor="#dce9f7", color="#4a7ba7", fontsize=8];
+  jd_60041_品质经理 -> req_41303_QM04 [color="#4a7ba7"];
+  req_41303_QM04 -> comp_17155_skill_英语 [color="#c62828"];
+  req_41303_QM04 -> comp_99176_skill_8D报告 [color="#c62828"];
+  req_81237_QM05 [label="QM-05\n3年以上品质管理工作经验，熟识线…", fillcolor="#dce9f7", color="#4a7ba7", fontsize=8];
+  jd_60041_品质经理 -> req_81237_QM05 [color="#4a7ba7"];
+  req_81237_QM05 -> att_42836_C1 [color="#2e7d32", label="约束"];
+  req_25088_QM06 [label="QM-06\n3年以上品质管理工作经验，熟识线…", fillcolor="#dce9f7", color="#4a7ba7", fontsize=8];
+  jd_60041_品质经理 -> req_25088_QM06 [color="#4a7ba7"];
+  req_25088_QM06 -> comp_84062_skill_线束行业知识 [color="#c62828"];
+  req_75925_QM07 [label="QM-07\n具备品质问题分析、改善的能力，懂…", fillcolor="#dce9f7", color="#4a7ba7", fontsize=8];
+  jd_60041_品质经理 -> req_75925_QM07 [color="#4a7ba7"];
+  req_75925_QM07 -> comp_86845_skill_品质问题分析 [color="#c62828"];
+  req_65488_QM08 [label="QM-08\n具备品质问题分析、改善的能力，懂…", fillcolor="#dce9f7", color="#4a7ba7", fontsize=8];
+  jd_60041_品质经理 -> req_65488_QM08 [color="#4a7ba7"];
+  req_65488_QM08 -> comp_39803_skill_QC七大手法 [color="#c62828"];
+  req_65488_QM08 -> comp_2754_skill_SPC [color="#c62828"];
+  req_65488_QM08 -> comp_1620_skill_CPK [color="#c62828"];
+  req_65488_QM08 -> comp_31358_skill_6S [color="#c62828"];
+  req_86862_QM09 [label="QM-09\n具备接待客户验厂经验，有良好的沟…", fillcolor="#dce9f7", color="#4a7ba7", fontsize=8];
+  jd_60041_品质经理 -> req_86862_QM09 [color="#4a7ba7"];
+  req_86862_QM09 -> comp_2045_skill_客户验厂 [color="#c62828"];
+  req_28529_QM10 [label="QM-10\n具备接待客户验厂经验，有良好的沟…", fillcolor="#dce9f7", color="#4a7ba7", fontsize=8];
+  jd_60041_品质经理 -> req_28529_QM10 [color="#4a7ba7"];
+  req_28529_QM10 -> dim_77685_E [color="#8e24aa", style=dashed, label="只到维度"];
+
+  // ── 候选人(只画这次进图的 5 个)
+  cand_54111_cand_专案工程师_东莞_ [label="专案工程师_东莞_12_16K_孙___\n14 个组件", shape=ellipse, fillcolor="#e8f5e9", color="#1b5e20", fontsize=8];
+  cand_54111_cand_专案工程师_东莞_ -> comp_97961_skill_裁线机 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_54111_cand_专案工程师_东莞_ -> comp_84062_skill_线束行业知识 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_54111_cand_专案工程师_东莞_ -> comp_86845_skill_品质问题分析 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_54111_cand_专案工程师_东莞_ -> comp_48973_skill_端子 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_54111_cand_专案工程师_东莞_ -> comp_55600_skill_AutoCAD [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_54111_cand_专案工程师_东莞_ -> comp_15464_skill_体系管理 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_54111_cand_专案工程师_东莞_ -> comp_72041_skill_ISO_TS16 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_54111_cand_专案工程师_东莞_ -> comp_26376_skill_5S [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_54111_cand_专案工程师_东莞_ -> comp_20156_skill_端子机 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_54111_cand_专案工程师_东莞_ -> comp_27770_skill_注塑机 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_54111_cand_专案工程师_东莞_ -> comp_45691_skill_精益生产 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_54111_cand_专案工程师_东莞_ -> comp_31358_skill_6S [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_54111_cand_专案工程师_东莞_ -> comp_2754_skill_SPC [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_54111_cand_专案工程师_东莞_ -> comp_55797_skill_ISO9001 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_42351_cand_李___38岁_行 [label="李___38岁_行政专员_智通简历_编号\n12 个组件", shape=ellipse, fillcolor="#e8f5e9", color="#1b5e20", fontsize=8];
+  cand_42351_cand_李___38岁_行 -> comp_31358_skill_6S [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_42351_cand_李___38岁_行 -> comp_2045_skill_客户验厂 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_42351_cand_李___38岁_行 -> comp_25776_skill_PowerPoi [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_42351_cand_李___38岁_行 -> comp_15464_skill_体系管理 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_42351_cand_李___38岁_行 -> comp_31948_skill_Excel [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_42351_cand_李___38岁_行 -> comp_69138_skill_行政 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_42351_cand_李___38岁_行 -> comp_55189_skill_培训课程开发 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_42351_cand_李___38岁_行 -> comp_17155_skill_英语 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_42351_cand_李___38岁_行 -> comp_46835_skill_系统规划 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_42351_cand_李___38岁_行 -> comp_31572_skill_Word [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_42351_cand_李___38岁_行 -> comp_55797_skill_ISO9001 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_42351_cand_李___38岁_行 -> comp_99176_skill_8D报告 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_21855_cand_廖___品质经理_ [label="廖___品质经理_NPI经理_研发经理\n11 个组件", shape=ellipse, fillcolor="#e8f5e9", color="#1b5e20", fontsize=8];
+  cand_21855_cand_廖___品质经理_ -> comp_32036_skill_SolidWor [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_21855_cand_廖___品质经理_ -> comp_15464_skill_体系管理 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_21855_cand_廖___品质经理_ -> comp_2754_skill_SPC [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_21855_cand_廖___品质经理_ -> comp_84062_skill_线束行业知识 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_21855_cand_廖___品质经理_ -> comp_55600_skill_AutoCAD [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_21855_cand_廖___品质经理_ -> comp_1620_skill_CPK [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_21855_cand_廖___品质经理_ -> comp_86845_skill_品质问题分析 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_21855_cand_廖___品质经理_ -> comp_6431_skill_FMEA [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_21855_cand_廖___品质经理_ -> comp_55797_skill_ISO9001 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_21855_cand_廖___品质经理_ -> comp_99176_skill_8D报告 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_21855_cand_廖___品质经理_ -> comp_72041_skill_ISO_TS16 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_96633_cand_专案工程师_东莞_ [label="专案工程师_东莞_10_15K_徐___\n10 个组件", shape=ellipse, fillcolor="#e8f5e9", color="#1b5e20", fontsize=8];
+  cand_96633_cand_专案工程师_东莞_ -> comp_39247_skill_ProE_Cre [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_96633_cand_专案工程师_东莞_ -> comp_55600_skill_AutoCAD [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_96633_cand_专案工程师_东莞_ -> comp_84062_skill_线束行业知识 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_96633_cand_专案工程师_东莞_ -> comp_49891_skill_Photosho [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_96633_cand_专案工程师_东莞_ -> comp_86845_skill_品质问题分析 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_96633_cand_专案工程师_东莞_ -> comp_20156_skill_端子机 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_96633_cand_专案工程师_东莞_ -> comp_27770_skill_注塑机 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_96633_cand_专案工程师_东莞_ -> comp_47455_skill_财务 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_96633_cand_专案工程师_东莞_ -> comp_48973_skill_端子 [color="#1b5e20", style=dashed, arrowhead=none];
+  cand_96633_cand_专案工程师_东莞_ -> comp_99176_skill_8D报告 [color="#1b5e20", style=dashed, arrowhead=none];
+}

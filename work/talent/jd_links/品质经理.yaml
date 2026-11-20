@@ -1,0 +1,248 @@
+# 品质经理 · JD 链接到组件目录
+#
+# 这一份是"需求侧投影":把一份真实 JD 的任职资格,逐条链接到 `component_catalog.yaml`
+# 里的组件或属性。它是目录的第一个消费者,也是 C-G3 / C-G7 两条门禁第一个要咬的东西。
+#
+# 三个数字,先在这里对齐,因为它们在别处是三个不同的值:
+#
+#   JD 原文标题写      「任职资格（5-8条）」        ← 原文自己的说法
+#   原文正文实际        7 条行（以「；」分隔）
+#   拆成原子要求        10 条                       ← 本文件用这个
+#   jd_requirements_all10.md 表尾写 11              ← 重复计数,见 count_note
+#
+# 每条要求分四种归宿之一(或组合):
+#   ① 单个组件        components: [skill_X]
+#   ② 组件集合(复合)  kind: composite + components: [...]
+#   ③ 属性的阈值/取值  attribute + constraint
+#   ④ 连不上          components: [] 或 unlinked_parts,显式留空,不丢
+#
+# 出处规则(R4 / C-G3):每条 verbatim 必须是 `_source/品质经理.txt` 的**逐字子串**。
+# 那份 txt 是用 `textutil -convert txt` 从原始 .doc 抽出来的,存在仓库里就是为了可回查。
+
+jd: 品质经理
+department: 品保课
+source_file: client/team-4/unzipped/职务说明书10份/12.品质经理职务说明书.doc
+source_text: work/talent/jd_links/_source/品质经理.txt
+extracted_with: "textutil -convert txt (macOS)"
+extracted_at: 2026-11-19
+
+count:
+  source_section: 任职资格
+  source_lines: 7
+  atomic_requirements: 10
+  count_note: |
+    JD 标题写「任职资格(5-8条)」,正文 7 条行。
+    第 5 行「3年以上品质管理工作经验,熟识线束行业相关产品」含 2 条原子要求;
+    第 6 行「具备品质问题分析、改善的能力,懂QC七大手法…」含 2 条;
+    第 7 行「具备接待客户验厂经验,有良好的沟通、协调能力」含 2 条。
+    其余 4 行各 1 条 → 4 + 2 + 2 + 2 = 10。
+    `jd_requirements_all10.md` 表尾的「11」把第 5 行同时算进 C 维和 D 维,
+    造成重复计数。**以 10 为准。**
+
+requirements:
+
+  # ── 第 1 行 ──────────────────────────────────────────────────────────────
+  - id: QM-01
+    verbatim: 年龄：25 ~ 40岁
+    # 原文:该行完整文字(textutil 抽取,见 source_text 文件)
+    source_text: 年龄：25 ~ 40岁；
+    txt_line: 14                # 该句在 source_text 文件里的行号(不是 Word 行号)
+    section_index: 1            # 任职资格段内第几句(1~7)
+    attribute: A.2
+    constraint: {min: 25, max: 40}
+    assessable: true
+    note: |
+      A 维是本文件里唯一没有外部标准的维度(gender/age 在 LinkedIn 与 HR-XML 都没有字段)。
+      保留并执行:age 属性已存在,107/277 可读。
+
+  # ── 第 2 行 ──────────────────────────────────────────────────────────────
+  - id: QM-02
+    verbatim: 学历：大专及以上学历
+    # 原文:该行完整文字(textutil 抽取,见 source_text 文件)
+    source_text: 学历：大专及以上学历；
+    txt_line: 15                # 该句在 source_text 文件里的行号(不是 Word 行号)
+    section_index: 2            # 任职资格段内第几句(1~7)
+    attribute: B.1
+    constraint: {op: ">=", value: 3}
+    assessable: true
+    note: "B.1 是 ordinal(2中专/高中 3大专 4本科 5硕士 6博士),所以 ≥ 可算。206/277 可读。"
+
+  # ── 第 3 行 ──────────────────────────────────────────────────────────────
+  - id: QM-03
+    verbatim: 专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业
+    # 原文:该行完整文字(textutil 抽取,见 source_text 文件)
+    source_text: 专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业；
+    txt_line: 16                # 该句在 source_text 文件里的行号(不是 Word 行号)
+    section_index: 3            # 任职资格段内第几句(1~7)
+    attribute: B.2
+    constraint: {op: in, value: [机电一体化, 电子技术, 自动化, 工业工程, 机械工程]}
+    components: []
+    assessable: false
+    blocked_by: B.2 的 prop_exists=false
+    note: |
+      B.2 major 属性还不存在,所以这条**判不了**。不标可判定(C-G7 会拦)。
+      目录里也没有"专业"组件 —— 专业是单值属性,不是集合组件。
+
+  # ── 第 4 行 ──────────────────────────────────────────────────────────────
+  - id: QM-04
+    verbatim: 语言：英语口语熟练及具备独立书写英文8D报告的能力
+    # 原文:该行完整文字(textutil 抽取,见 source_text 文件)
+    source_text: 语言：英语口语熟练及具备独立书写英文8D报告的能力；
+    txt_line: 17                # 该句在 source_text 文件里的行号(不是 Word 行号)
+    section_index: 4            # 任职资格段内第几句(1~7)
+    kind: composite
+    components: [skill_英语, skill_8D报告]
+    assessable: true
+    level_check:
+      attribute: H.2
+      assessable: false
+      why: "熟练度有 6 档(CEFR A1–C2),但语料里没有映射来源,判不了"
+    partial:
+      measurable: "会不会英语 / 会不会写 8D —— 两个组件都是集合型,可判"
+      unmeasurable: "「口语熟练」需要 CEFR 刻度,供给侧没有"
+    note: |
+      H 维从 D 拆出来的原因就是这条:「会英语」与「能独立写英文报告」是两个判定。
+      **这条要求一半能判、一半不能**,所以「熟练度」不塞进 attribute,单独放 level_check ——
+      否则 `assessable: true` + `attribute: H.2` 就是在声称一个属性不存在的东西可判。
+
+  # ── 第 5 行 · 拆成 2 条 ───────────────────────────────────────────────────
+  - id: QM-05
+    verbatim: 3年以上品质管理工作经验
+    # 原文:该行完整文字(textutil 抽取,见 source_text 文件)
+    source_text: 3年以上品质管理工作经验，熟识线束行业相关产品；
+    txt_line: 18                # 该句在 source_text 文件里的行号(不是 Word 行号)
+    section_index: 5            # 任职资格段内第几句(1~7)
+    attribute: C.1
+    constraint: {op: ">=", value: 3}
+    domain: 品质管理
+    assessable: true
+    partial:
+      measurable: "总年限 ≥3 —— C.1 可读,148/277"
+      unmeasurable: "「品质管理」这个领域限定需要 C.2 domain,而该属性不存在"
+    note: |
+      这是"一条要求同时约束年限与领域"的典型。现在只能判年限,判不了领域 ——
+      于是 10 年的人资专员和 10 年的品质经理在这条上得分相同。
+
+  - id: QM-06
+    verbatim: 熟识线束行业相关产品
+    # 原文:该行完整文字(textutil 抽取,见 source_text 文件)
+    source_text: 3年以上品质管理工作经验，熟识线束行业相关产品；
+    txt_line: 18                # 该句在 source_text 文件里的行号(不是 Word 行号)
+    section_index: 5            # 任职资格段内第几句(1~7)
+    components: [skill_线束行业知识]
+    assessable: true
+    note: "实测 72/277 具备。它是目录里持有率第二高的组件,说明这个词在语料里很常见。"
+
+  # ── 第 6 行 · 拆成 2 条 ───────────────────────────────────────────────────
+  - id: QM-07
+    verbatim: 具备品质问题分析、改善的能力
+    # 原文:该行完整文字(textutil 抽取,见 source_text 文件)
+    source_text: 具备品质问题分析、改善的能力，懂QC七大手法、5WHY、SPC、CPK、6S工具；
+    txt_line: 19                # 该句在 source_text 文件里的行号(不是 Word 行号)
+    section_index: 6            # 任职资格段内第几句(1~7)
+    components: [skill_品质问题分析]
+    assessable: true
+    note: "实测 53/277。"
+
+  - id: QM-08
+    verbatim: 懂QC七大手法、5WHY、SPC、CPK、6S工具
+    # 原文:该行完整文字(textutil 抽取,见 source_text 文件)
+    source_text: 具备品质问题分析、改善的能力，懂QC七大手法、5WHY、SPC、CPK、6S工具；
+    txt_line: 19                # 该句在 source_text 文件里的行号(不是 Word 行号)
+    section_index: 6            # 任职资格段内第几句(1~7)
+    kind: composite
+    components: [skill_QC七大手法, skill_SPC, skill_CPK, skill_6S]
+    assessable: true
+    unlinked_parts:
+      - {text: 5WHY, gap: P5}
+    note: |
+      原文点名 5 项,目录里只有 4 项 —— **5WHY 没有对应组件**(gaps.P5)。
+      不凑一个组件出来顶替;显式留空,让覆盖率的分母说真话。
+      另外:skill_QC七大手法 只有 1/277 具备,而 skill_6S 有 26 ——
+      这一条要求里 4 个组件的实际难度差 26 倍。
+
+  # ── 第 7 行 · 拆成 2 条 ───────────────────────────────────────────────────
+  - id: QM-09
+    verbatim: 具备接待客户验厂经验
+    # 原文:该行完整文字(textutil 抽取,见 source_text 文件)
+    source_text: 具备接待客户验厂经验，有良好的沟通、协调能力。
+    txt_line: 20                # 该句在 source_text 文件里的行号(不是 Word 行号)
+    section_index: 7            # 任职资格段内第几句(1~7)
+    components: [skill_客户验厂]
+    assessable: true
+    note: |
+      我原先以为这类"活动经验"在 schema 里无处安放(为此加了 C.5 activity_experience)。
+      查库发现 skill_客户验厂 已经存在且 13/277 具备,所以先用 D 维兜住。
+      C.5 仍然保留,留给"做过 vs 会做"需要分开的那天。
+
+  - id: QM-10
+    verbatim: 有良好的沟通、协调能力
+    # 原文:该行完整文字(textutil 抽取,见 source_text 文件)
+    source_text: 具备接待客户验厂经验，有良好的沟通、协调能力。
+    txt_line: 20                # 该句在 source_text 文件里的行号(不是 Word 行号)
+    section_index: 7            # 任职资格段内第几句(1~7)
+    dimension: E
+    attribute_ref: E.1          # 仅作分类记录,不是链接 —— E.1 的 prop 是 null
+    components: []
+    assessable: false
+    no_component: true
+    note: |
+      这条要求**直连 Dimension E 素质能力**,不连 E.1 行为素质。
+      依据:要求应该连到携带信息的最具体节点。E.1 的 `prop` 是 **null** ——
+      它不是一个候选人侧属性,只是一个分类标签。指向它等于说"我知道它属于行为素质"
+      却说不出任何可判定的事,那是把分类冒充信息。
+      对比 QM-03 → B.2 专业:那里的 prop 是 `major`(存在但未建),所以保留属性链接 ——
+      它告诉我们要建哪个属性。`prop: null` 与 `prop_exists: false` 是两件事。
+      E 维 24 条素质要求在本目录里**没有任何组件**,这一支天然没有叶子。
+      在图上它是一条走到 Dimension 就到头的枝,不是缺陷,是事实。要判它只能靠面试评分表。
+
+# ══════════════════════════════════════════════════════════════════════════
+# 被排除的条目 —— 写下来,因为它们在别处仍在生效
+# ══════════════════════════════════════════════════════════════════════════
+excluded:
+
+  - id: X-01
+    candidate_text: IATF16949
+    found_at: source_text 第 31 行,「岗位职责」段
+    why: |
+      ABox 的 `:role_品质经理 :requiresSkill :skill_ISO_TS16949` 会让 111 人被蕴含。
+      但 IATF16949 只出现在**岗位职责**段:「依IATF16949制定和完善品质管理制度」。
+      那是**公司要做的事**,不是**候选人必须具备的条件**。
+    verdict: 不应作为任职资格要求
+    action_pending: 建议从 :role_品质经理 的 :requiresSkill 里撤掉;撤掉后 matches_品质经理 会从 111 变少
+    note: |
+      这和 `skill_薪酬绩效` 从副总助理职责里的「督办各部门 KPI」被抽出,是同一类错误:
+      **职责段被当成任职资格段**。本文件把它排除在 requirements 之外;
+      ABox 里那条还在,因为改 ABox 要重跑推理与材料化,那是另一个动作。
+
+# ══════════════════════════════════════════════════════════════════════════
+# 汇总:这份 JD 对目录的引用
+# ══════════════════════════════════════════════════════════════════════════
+summary:
+  linked_to_components: 9          # 英语 8D报告 线束行业知识 品质问题分析 QC七大手法 SPC CPK 6S 客户验厂
+  linked_to_attributes: 5          # A.2 B.1 H.2 C.1 E.1
+  assessable: 8                    # QM-01 02 04 05 06 07 08 09
+  not_assessable: 2                # QM-03(专业缺属性) QM-10(素质无组件)
+  unlinked_parts: 1                # 5WHY
+  components_referenced:
+    - skill_英语
+    - skill_8D报告
+    - skill_线束行业知识
+    - skill_品质问题分析
+    - skill_QC七大手法
+    - skill_SPC
+    - skill_CPK
+    - skill_6S
+    - skill_客户验厂
+  attributes_referenced: [A.2, B.1, H.2, C.1, E.1]
+
+validation:
+  - id: J-G1
+    rule: 每条 verbatim 必须是 source_text 的逐字子串
+    why: C-G3 的实形。它抓的是"要求被改写/被编造",而不是"词表不对"。
+  - id: J-G2
+    rule: 原子要求条数必须等于逐行拆分后的实际条数
+    why: 9 / 10 / 11 三个数并存过,这类计数必须由文件自己声明并核。
+  - id: J-G3
+    rule: 被排除的条目必须写明 found_at(行号 + 段落)
+    why: 排除也要可回查,否则下一次又会被抽回来。
