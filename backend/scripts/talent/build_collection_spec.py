@@ -42,6 +42,10 @@ INTERVIEW = ROOT / "work" / "talent" / "cv_interview"
 OUT = ROOT / "work" / "talent" / "collection"
 
 TRUSTED = {"stated", "inferred", "computed"}
+
+import sys as _sys  # noqa: E402
+_sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+from scripts.talent.evaluate import overlay_interview  # noqa: E402
 #: 属性 prop → cv_facts.json 里那一条的键
 FACT_KEY = {"age": "age", "education_rank": "education_rank", "major": "major",
             "gender": "gender", "full_time": "full_time", "years_stated": "years"}
@@ -183,18 +187,25 @@ def candidate_state(cid: str, facts: dict, comp_by_id: dict) -> dict:
             if fid in answers and not state[prop]["have"]:
                 state[prop] = {"have": True, "value": answers[fid].get("answer"),
                                "basis": "interview", "from": "interview"}
-        # 属性:answers 里的 props 显式声明"这条回答把哪个属性填成什么"
-        for a in raw_answers:
-            for prop, val in (a.get("props") or {}).items():
-                if prop in state and not state[prop]["have"]:
-                    state[prop] = {"have": True, "value": val,
-                                   "basis": "interview", "from": "interview"}
-        # 组件:@establishes 是采访人写进记录的,不是程序猜的
-        for a in raw_answers:
-            for comp_id in a.get("establishes") or []:
-                if comp_id in state and not state[comp_id]["have"]:
-                    state[comp_id] = {"have": True, "value": True, "basis": "interview",
-                                      "from": "interview"}
+    # 访谈落点(@props / @establishes / 字段 id)统一由 evaluate.overlay_interview 处理 ——
+    # 这里只把结果读出来展示。一份逻辑两处实现,迟早两边说法不一致(踩过)。
+    probe = [{"id": cid, "components": set(), **{k: None for k in (
+        "age", "educationRank", "major", "gender", "fullTime", "yearsStated",
+        "notice_weeks", "recent5y_segments", "avg_tenure_years", "commute_ok",
+        "salary_max_k")}}]
+    overlay_interview(probe)
+    got = probe[0]
+    for prop in ("age", "educationRank", "major", "gender", "fullTime", "yearsStated",
+                 "notice_weeks", "recent5y_segments", "avg_tenure_years",
+                 "commute_ok", "salary_max_k"):
+        if got.get(prop) is not None:
+            state[prop] = {"have": True, "value": got[prop],
+                           "basis": "interview", "from": "interview"}
+    # 组件走 @establishes,同样只从共享实现里取
+    for comp_id in got["components"]:
+        if comp_id in state and not state[comp_id]["have"]:
+            state[comp_id] = {"have": True, "value": True,
+                              "basis": "interview", "from": "interview"}
     return state
 
 

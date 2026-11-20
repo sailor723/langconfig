@@ -44,6 +44,12 @@ OUT = ROOT / "work" / "talent" / "shortlist"
 #: 只认这些 basis —— 与 evaluate 一致,不在这里另立口径
 TRUST = TRUSTED
 
+#: 第 3 步只许用**简历里直接写着的**属性排除人。
+#: 为什么把 A.3/A.4/A.5/C.4/C.7 挡在外面:那几个是从工作段推出来的
+#: (OCR 缺公司名、起止切不全都会让值偏),拿一个已知会偏的推导量去排除人,
+#: 比"读到了学历不够"危险得多。这类要求留到第 5 步参与排序,不参与排除。
+STATED_ONLY = {"A.1", "A.2", "B.1"}
+
 #: 允许用来排除的算子。只认**数值/序数阈值** —— "落在区间""不低于"。
 #: 枚举(in)一律不用于排除:JD 原话常写「机电一体化/电子技术/…**等**工程类专业」,
 #: 白名单是举例不是穷举,拿它剔人会把"材料成型及控制工程"这种真工程专业也剔掉。
@@ -118,7 +124,10 @@ def main() -> int:
         verbatim = cites_by_req(link)[rid].get("verbatim") or ""
         op = req.get("op")
         why = None
-        if op not in EXCLUDING_OPS:
+        if s["attach"] and s["attach"] not in STATED_ONLY:
+            why = (f"{s['attach']} 是从简历推出来的量(不是直接写着),"
+                   f"推导会偏 —— 不用于排除")
+        elif op not in EXCLUDING_OPS:
             why = f"算子是 {op},不是阈值 —— 不用于排除"
         elif any(f in verbatim for f in FUZZY):
             why = f"原话含「{[f for f in FUZZY if f in verbatim][0]}」,白名单不是穷举 —— 不用于排除"

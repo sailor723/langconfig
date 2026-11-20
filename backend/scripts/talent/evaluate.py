@@ -40,6 +40,7 @@ LIBRARY = ROOT / "work" / "talent" / "requirement_library.yaml"
 LINKS = ROOT / "work" / "talent" / "jd_links"
 FACTS = ROOT / "work" / "talent" / "cv_facts.json"
 HR_FACTS = ROOT / "work" / "talent" / "hr_facts.json"
+INTERVIEW = ROOT / "work" / "talent" / "cv_interview"
 PROFILE = BACKEND / "features" / "ontology" / "profiles" / "talent_v1" / "talent_v1_settings.json"
 
 COVERAGE = 0.5
@@ -96,6 +97,11 @@ def overlay_llm(cands: list[dict]) -> int:
         print(f"  ! 缺 {FACTS.relative_to(ROOT)} —— 先跑 promote_cv_facts")
         return 0
     facts = json.loads(FACTS.read_text(encoding="utf-8"))
+    # 技能也要覆盖。之前 --facts llm 只覆盖属性、不动组件,于是判定用的是 abox 的
+    # 关键词匹配结果,而定稿展示的是 LLM 逐字抽取的结果 —— 同一批语料 249/270 人两者不一致。
+    # 后果很具体:简历写着「熟练应对二方与三方审核」的人,被判"没有客户验厂经验"。
+    cat = yaml.safe_load(CATALOG.read_text(encoding="utf-8"))
+    label2id = {c["label"]: c["id"] for c in cat["components"]}
     field_map = {"age": "age", "education_rank": "educationRank", "major": "major",
                  "gender": "gender", "full_time": "fullTime"}
     used = 0
@@ -108,6 +114,11 @@ def overlay_llm(cands: list[dict]) -> int:
         y = d.get("years") or {}
         if y.get("basis") in TRUSTED and y.get("value") is not None:
             c["yearsStated"] = int(y["value"]); used += 1
+        sk = d.get("skills") or {}
+        if sk.get("basis") in TRUSTED:
+            c["components"] = {label2id[s["name"]] for s in (sk.get("value") or [])
+                               if s.get("name") in label2id}
+            used += 1
     return used
 
 
@@ -130,6 +141,44 @@ def overlay_hr(cands: list[dict]) -> int:
                 c[prop] = item["value"]
                 used += 1
     return used
+
+
+#: 访谈记录里的字段 id → join 读的属性名。和 field_schema 不是一回事:
+#: 那边是"档案里有哪些字段",这里是"判定时读哪个量"。
+IV_FIELD_PROP = {"F.AGE": "age", "F.EDU_LEVEL": "educationRank", "F.EDU_MAJOR": "major",
+                 "F.GENDER": "gender", "F.EDU_FULLTIME": "fullTime",
+                 "F.EXP_YEARS": "yearsStated"}
+
+
+def overlay_interview(cands: list[dict]) -> int:
+    """把一面记录并进候选人。**一处实现**,判定和采集清单都走这里。
+
+    之前这段逻辑写在 build_collection_spec 里,判定脚本读不到 —— 于是同一个廖,
+    一面脚本说"到岗/通勤都有了",evaluate 说"没读到"。两边各自都"看起来正常",
+    这才是最难查的那种错。
+
+    三种落法,全部显式写在访谈 yaml 里,程序不猜:
+        props:       {属性名: 值}        直接定值
+        establishes: [skill_xxx]         坐实了哪个组件
+        字段 id                           按 IV_FIELD_PROP 映射到属性
+    """
+    n = 0
+    for c in cands:
+        path = INTERVIEW / f"{c['id'].replace('cand_', '')}.yaml"
+        if not path.is_file():
+            continue
+        iv = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        for a in iv.get("answers") or []:
+            for prop, val in (a.get("props") or {}).items():
+                if c.get(prop) is None:
+                    c[prop] = val; n += 1
+            for comp in a.get("establishes") or []:
+                if comp not in c["components"]:
+                    c["components"].add(comp); n += 1
+            prop = IV_FIELD_PROP.get(a.get("field") or "")
+            if prop and c.get(prop) is None:
+                c[prop] = a.get("answer"); n += 1
+    return n
 
 
 def judge_component(held: set, needed: list) -> tuple:
@@ -178,6 +227,7 @@ def main() -> int:
     ap.add_argument("--year-basis", choices=["platform", "stated", "computed"], default="")
     ap.add_argument("--top", type=int, default=10)
     ap.add_argument("--include-duplicates", action="store_true")
+    ap.add_argument("--interview", action="store_true", help="把一面记录并进判定")
     args = ap.parse_args()
 
     catalog = yaml.safe_load(CATALOG.read_text(encoding="utf-8"))
@@ -197,13 +247,15 @@ def main() -> int:
     cands = load_candidates()
     n_llm = overlay_llm(cands) if args.facts == "llm" else 0
     n_hr = overlay_hr(cands)
+    n_iv = overlay_interview(cands) if getattr(args, "interview", False) else 0
     pool = [c for c in cands if args.include_duplicates or not c["duplicate"]]
     cit = link["citations"]
 
     print(f"JD: {link['jd']} · {len(cit)} 条引用 → {len({c['requirement'] for c in cit})} 条要求")
     print(f"候选人: {len(pool)} 人(另有 {len(cands) - len(pool)} 份重复已排除)")
     print(f"事实源: {args.facts}" + (f"(覆盖 {n_llm} 个字段)" if args.facts == "llm" else "")
-          + f" · HR 事实覆盖 {n_hr} 个量")
+          + f" · HR 事实 {n_hr} 个量"
+          + (f" · 一面记录 {n_iv} 处" if args.interview else ""))
     print(f"年限口径: {args.year_basis or '按引用/要求声明'}   组件覆盖率阈值: {COVERAGE}")
 
     per_req = collections.defaultdict(collections.Counter)

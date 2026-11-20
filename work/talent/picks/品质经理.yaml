@@ -1,0 +1,42 @@
+jd: 品质经理
+step: 5 选人(最多 4)
+order:
+- 满足 desc
+- 未知 asc
+- 不满足 asc
+- id
+count:
+  shortlist: 169
+  excluded: 101
+  with_interview: 0
+  judgeable_requirements: 13
+  total_requirements: 15
+top:
+- rank: 1
+  candidate: cand_叶___37岁_管理课课长_智通简历_编号
+  满足: 7
+  不满足: 3
+  未知: 2
+  不可判: 3
+  有访谈: false
+- rank: 2
+  candidate: cand_王___37岁_行政专员_智通简历_编号
+  满足: 7
+  不满足: 3
+  未知: 2
+  不可判: 3
+  有访谈: false
+- rank: 3
+  candidate: cand_专案工程师_东莞_12_16K_华___9年
+  满足: 6
+  不满足: 4
+  未知: 2
+  不可判: 3
+  有访谈: false
+- rank: 4
+  candidate: cand_专案工程师_东莞_12_16K_熊___10年以上
+  满足: 6
+  不满足: 4
+  未知: 2
+  不可判: 3
+  有访谈: false
