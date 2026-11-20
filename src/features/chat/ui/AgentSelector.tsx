@@ -50,7 +50,12 @@ export default function AgentSelector({
 
   // Fetch agents when dropdown opens
   useEffect(() => {
-    if (isOpen && agents.length === 0) {
+    // 每次打开都重新拉。原来写的是 `isOpen && agents.length === 0` ——
+    // 列表只在第一次打开时取一次,之后永远用内存里那份。
+    // 后果很具体:agent 391 是页面打开之后新建的,所以它在接口里存在、
+    // 在这里选不到,而界面上没有任何地方提示"列表是旧的"。
+    // 新建 agent 现在走的是脚本(seed),不是界面,所以这不再是偶发情况。
+    if (isOpen) {
       fetchAgents();
     }
   }, [isOpen]);
@@ -60,7 +65,6 @@ export default function AgentSelector({
     try {
       // Use the correct API method with public_only=false to get all agents
       const response = await apiClient.listDeepAgents({ public_only: false });
-      console.log('Fetched agents:', response.data);
       setAgents(response.data || []);
     } catch (error) {
       console.error('Failed to fetch agents:', error);
