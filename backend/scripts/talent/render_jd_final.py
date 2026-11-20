@@ -111,38 +111,79 @@ def parse_duties(source: str) -> list[str]:
 
 
 def scrape(source: str) -> dict:
-    """从原文捞能自动填的字段;捞不到的留给「JD 未写」。"""
+    """从原文捞能自动填的 S1/S7 字段。
+
+    .doc 是「标签 值」同一行(.doc 用空格分);
+    .xlsx 是「标签 | 值 | 标签 | 值」交替 —— 盲取第二格会把「隶属部门」填成"直接上司"
+    (工程文员那份就是这个错),所以按标签走。
+    """
     lines = [l.strip() for l in source.split("\n")]
     got: dict[str, str] = {}
 
-    def find(pat):
-        for ln in lines:
-            m = re.search(pat, ln)
-            if m:
-                return m.group(1).strip()
-        return None
+    LABELS = {
+        "文件编号": "S1.02", "版本": "S1.03", "页数": "S1.04",
+        # 核准/审核/制订是同一栏的三个签名位 —— 三个都要认成标签,
+        # 否则「核准」会把「审核」当成自己的值(第一版就是这样,显示 核准=审核)
+        "核准": "S1.05", "审核": "S1.05", "制订": "S1.05", "批 准 人": "S1.05", "批准人": "S1.05",
+        "职务名称": "S1.01", "隶属部门": "S1.06", "直接上司": "S1.07",
+        "直接下属": "S1.08", "首次发行": "S7.02",
+    }
+    # OC R 出来的 .doc 里夹着 \x07 之类控制字符(表格分隔残留)—— 先清掉
+    clean = lambda s: re.sub(r"[\x00-\x1f\x7f]", "", s).strip()
+    # 去掉标签里的空格再比:「版    本」→「版本」
+    norm = lambda s: re.sub(r"\s+", "", clean(s))
+    LABEL_NORM = {norm(k): v for k, v in LABELS.items()}
 
+    for ln in lines:
+        if "|" in ln:                       # xlsx 行:标签|值|标签|值
+            cells = [clean(c) for c in ln.split("|")]
+            i = 0
+            while i < len(cells):
+                key = LABEL_NORM.get(norm(cells[i]))
+                if not key:
+                    i += 1
+                    continue
+                nxt = cells[i + 1] if i + 1 < len(cells) else ""
+                if norm(nxt) in LABEL_NORM:
+                    # 下一格又是标签 → 本字段无值。**只前进 1 格**,
+                    # 让下一轮把那个标签当成字段处理(前进 2 会把它的值吃掉)
+                    i += 1
+                    continue
+                if nxt and key not in got:
+                    got[key] = nxt
+                i += 2
+            continue
+        # .doc 行:「职务名称品质经理隶属部门品保课直接上司直接下属无」
+        if "职务名称" in ln and "隶属部门" in ln:
+            ln = clean(ln)
+            m = re.search(r"职务名称(\S*?)隶属部门(\S*?)直接上司(\S*?)直接下属(\S*)$", ln)
+            if m:
+                for key, val in zip(("S1.01", "S1.06", "S1.07", "S1.08"), m.groups()):
+                    if val.strip():
+                        got.setdefault(key, val.strip())
+
+    # 「版本」在 .doc 里常单独一行,下一行是 A0
     for i, ln in enumerate(lines):
-        if ln.replace(" ", "") in ("版本", "版本") and i + 1 < len(lines):
-            if re.fullmatch(r"A\d+", lines[i + 1]):
-                got["S1.03"] = lines[i + 1]
-        if ln.replace(" ", "") == "页数" and i + 1 < len(lines) and lines[i + 1].isdigit():
-            got["S1.04"] = lines[i + 1]
-        if ln == "首次发行" and i + 1 < len(lines):
-            got["S7.02"] = lines[i + 1].strip()
-    head = next((l for l in lines if "职务名称" in l and "隶属部门" in l), "")
-    if head:
-        for key, pat in (("S1.06", r"隶属部门(\S+?)(?:\||直接|$)"),
-                         ("S1.07", r"直接上司(\S*?)(?:\||直接|$)"),
-                         ("S1.08", r"直接下属(\S*?)(?:\||$)")):
-            m = re.search(pat, head)
-            if m and m.group(1).strip():
-                got[key] = m.group(1).strip()
+        if norm(ln) == "版本" and i + 1 < len(lines) and re.fullmatch(r"A[.．]?\d+", norm(lines[i + 1])):
+            got.setdefault("S1.03", norm(lines[i + 1]).replace("．", "."))
+        if norm(ln) == "页数" and i + 1 < len(lines) and lines[i + 1].isdigit():
+            got.setdefault("S1.04", lines[i + 1])
+        if norm(ln) == "首次发行" and i + 1 < len(lines):
+            got.setdefault("S7.02", clean(lines[i + 1]))
+        # docx: 「职务名称」占一行,值在下一行
+        if norm(ln) == "职务名称" and i + 1 < len(lines):
+            got.setdefault("S1.01", clean(lines[i + 1]).replace("职务说明书", ""))
+    # docx: 标签一列、值在下一行。按「标签行 → 下一行是值」补一遍
     for i, ln in enumerate(lines):
-        if ln.startswith("隶属部门 |") and i + 1 < len(lines):
-            cells = [c.strip() for c in ln.split("|")]
-            if len(cells) >= 2 and cells[1]:
-                got.setdefault("S1.06", cells[1])
+        key = LABEL_NORM.get(norm(ln))
+        if not key or i + 1 >= len(lines):
+            continue
+        nxt = clean(lines[i + 1])
+        if nxt and norm(nxt) not in LABEL_NORM and key not in got:
+            got[key] = nxt
+    # 「职务名称」若是「XX职务说明书」,取岗位名
+    if got.get("S1.01", "").endswith("职务说明书"):
+        got["S1.01"] = got["S1.01"][:-5]
     return got
 
 
