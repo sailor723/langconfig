@@ -45,8 +45,11 @@ requirements:
     list: 专业名
   components: []
   assessable: false
-  blocked_by: B.2 的 prop_exists=false(专业属性未建)
-  note: 属性没建之前不许标可判 —— 这是 C-G7 要拦的事。
+  blocked_by: 枚举白名单 + 原话含「等」(举例不是穷举),匹配规则未定 —— 不是属性没建
+  note: 'B.2 专业属性已建(major 覆盖 74%),之前写的「属性未建」是旧说法,已更正。
+
+
+    现在仍标 assessable=false 的原因不是数据,是**匹配规则**:原话是「机电一体化/电子技术/自动化/工业工程/机械工程**等**工程类专业」,按白名单精确匹配会误杀「材料成型及控制工程」这类真工程专业,按子串匹配又需要先定义什么叫「工程类」。这个规则没定之前不许判。'
 - id: REQ-C-YEARS-DOMAIN
   name: 某领域年限不低于
   dimension: C

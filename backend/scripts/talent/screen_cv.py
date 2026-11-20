@@ -124,11 +124,11 @@ def main() -> int:
         verbatim = cites_by_req(link)[rid].get("verbatim") or ""
         op = req.get("op")
         why = None
-        if s["attach"] and s["attach"] not in STATED_ONLY:
+        if op not in EXCLUDING_OPS:
+            why = f"算子是 {op},不是阈值 —— 不用于排除"
+        elif s["attach"] and s["attach"] not in STATED_ONLY:
             why = (f"{s['attach']} 是从简历推出来的量(不是直接写着),"
                    f"推导会偏 —— 不用于排除")
-        elif op not in EXCLUDING_OPS:
-            why = f"算子是 {op},不是阈值 —— 不用于排除"
         elif any(f in verbatim for f in FUZZY):
             why = f"原话含「{[f for f in FUZZY if f in verbatim][0]}」,白名单不是穷举 —— 不用于排除"
         if why:

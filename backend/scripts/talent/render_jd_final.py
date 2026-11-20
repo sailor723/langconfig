@@ -213,8 +213,12 @@ def main() -> int:
 
     scraped = scrape(source)
     duties = parse_duties(source)
+    # 维度汇总只算客户原话。HR 侧要求单独成章 —— 混进"本岗位要求"这一列,
+    # 等于让客户替 HR 的话背书(踩过:到岗/薪资/稳定性被画进了客户的 A、C 两行)
     by_dim = collections.defaultdict(list)
     for c in link["citations"]:
+        if c.get("origin", "client") != "client":
+            continue
         by_dim[reqs[c["requirement"]]["dimension"]].append(c)
 
     L: list[str] = []
@@ -375,11 +379,11 @@ def main() -> int:
     row("S4.01", "职责条目", f"{len(duties)} 条", V if duties else MISS,
         "" if duties else "原文无职责段")
     row("S4.02", "职责权重", None, MISS if duties else MISS,
-        "原文无时间占比;我方建议等权,见附录 F")
+        "原文无时间占比;我方的取法见附录 F")
     mapped = [(d, map_duty(d)) for d in duties]
     hit = sum(1 for _, c in mapped if c)
     row("S4.03", "职责对应能力", None, MISS if duties else MISS,
-        "原文未建立对应关系;我方按关键词推导,见附录 F")
+        "原文未建立对应关系;我方的推导见附录 F")
     A("")
     if duties:
         A("**职责条目(逐字):**")
@@ -391,13 +395,8 @@ def main() -> int:
                           "原文无时间占比;等权是最小假设"))
         proposals.append(("S4.03", "职责对应能力", f"{hit}/{len(duties)} 条可对应",
                           "按关键词表推导,其余在能力词表里无对应项"))
-        A("**职责 → 能力对应(我方推导,非客户原文;见附录 F)**")
-        A("")
-        A("| # | 职责(截断) | 对应能力 |")
-        A("|---|---|---|")
-        for i, (d, comps) in enumerate(mapped, 1):
-            cell = " · ".join(comp_label.get(x, x) for x in comps) if comps else "**—(词表无对应项)**"
-            A(f"| {i} | {d[:26]}… | {cell} |")
+        A(f"> 职责与能力的对应关系是我方推导({hit}/{len(duties)} 条可对应),"
+          f"**不属于客户原文**,完整对照表在附录 F。")
         A("")
         A(f"> {len(duties)-hit}/{len(duties)} 条职责在 {len(catalog['components'])} 个能力组件里找不到对应项。"
           "这是「职责与任职资格脱钩」在本岗位的具体数字。")

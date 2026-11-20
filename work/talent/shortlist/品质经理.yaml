@@ -10,7 +10,7 @@ screenable_requirements:
 - REQ-A-AGE-RANGE
 - REQ-B-EDU-LEVEL
 not_screenable:
-  REQ-B-MAJOR: B.2 是从简历推出来的量(不是直接写着),推导会偏 —— 不用于排除
+  REQ-B-MAJOR: 算子是 in,不是阈值 —— 不用于排除
   REQ-HR-STABILITY: C.7 是从简历推出来的量(不是直接写着),推导会偏 —— 不用于排除
   REQ-HR-TENURE: C.4 是从简历推出来的量(不是直接写着),推导会偏 —— 不用于排除
 excluded:

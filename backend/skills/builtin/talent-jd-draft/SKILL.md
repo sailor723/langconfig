@@ -1,0 +1,109 @@
+---
+name: "talent-jd-draft（步1·把客户 JD 拆成原子要求）"
+description: >-
+  拿到一份客户职务说明书，要把它变成"一条一条能指着原话说'这条我写的'"的原子要求时使用。
+  产物是引用文件：每条要求带客户原话、行号、原文整行，并且能逐字回查到原文。
+  这不是"抄一份 JD"，也不是"理解客户意思然后重写"——客户原话一个字都不许改。
+tags: [talent, jd, extraction, verbatim, requirements]
+triggers:
+  - "一份新的客户 JD（xlsx/docx/pdf）到手，要落成可判定的原子要求时"
+  - "同一句话里有两个约束（「英语熟练及独立书写 8D 报告」）要拆成两条时"
+  - "客户原话与要求库里的某条对不上，需要判断是新建还是复用一条要求时"
+allowed_tools: [bash, read_file, write_file, edit_file, grep, glob, skill]
+author: LangConfig
+version: "1.0"
+---
+
+你负责**把客户写的岗位要求，变成一条一条可回查的原子要求**。
+
+产物是 `work/talent/jd_links/<JD>.yaml` 和 `work/talent/jd_links/_source/<JD>.txt`。
+判断你做完没有，只看一件事：**随便挑一条要求，能不能说出它在原文第几行、并且那一行里真的有那几个字。**
+
+## 第 0 步——先确认环境，再动手
+
+```bash
+cd <repo>/backend && set -a && source ../.env; set +a
+env -u PGPORT .venv/bin/python -c "import psycopg2, rdflib, yaml; print('ok')"
+```
+
+`env -u PGPORT` 不是可选的：当前 shell 会导出 `PGPORT=5432`，把默认端口劫持掉，
+于是脚本以为库不在。**所有 talent 脚本都要带这个前缀。**
+
+## 第 1 步——原文落盘，保留行号
+
+把客户文件抽成纯文本存到 `jd_links/_source/<JD>.txt`：
+
+```bash
+# xlsx：一个 sheet 一个 csv，注意 openpyxl 读不到合并单元格的语义
+# docx：textutil -convert txt（macOS）/ pandoc（其他）
+# 抽完先 head -40 看一眼，OCR 错字、表格错位都要**留着**，不许修
+```
+
+**原文一个字都不改。** OCR 把「年以上」写成「午以上」、把「及」写成「3」，照留。
+理由：后面所有判定都要能回查到这一行；你顺手改一个错字，就等于把判定的依据换掉了。
+
+## 第 2 步——切原子要求
+
+一条原子要求 = 客户能指着说「这句是我写的」的最小单位。
+
+- 一句话里两个约束，拆两条：「英语口语熟练及具备独立书写英文8D报告的能力」→
+  ① 口语熟练 ② 独立书写英文 8D 报告。因为这两条一个人可能只满足一半。
+- 「等」「相关」「优先」**原样保留**，不许替客户把「等工程类专业」扩写成一张清单。
+  扩写了就是替客户做决定，而且下游会拿你的清单去排除人。
+- 带数字阈值的，把数值记进 `value`（`{num: 3}` / `{min: 25, max: 40}`）；
+  没有阈值的（「具备…能力」）就**不要编一个阈值**，`value` 留空。
+
+写进 yaml 的每条引用至少要这些字段：
+
+```yaml
+- id: C-05                      # 本文件内唯一
+  origin: client                # 客户原话；HR 提的写 hr 并带 author/rationale
+  requirement: REQ-C-YEARS-DOMAIN   # 挂到要求库的哪一条
+  verbatim: "3年以上品质管理工作经验"   # 必须是原文的**逐字子串**
+  source_text: "3年以上品质管理工作经验，熟识线束行业相关产品；"  # 原文的整行
+  txt_line: 18                  # verbatim 在 _source 里的真实行号
+  section_index: 5
+  value: {num: 3, domain: 品质管理}
+```
+
+## 第 3 步——挂到要求库，而不是就地发明
+
+`work/talent/requirement_library.yaml` 是 **JD 无关**的要求库（61 条）。顺序是：
+
+1. 先找有没有能复用的。宁可复用一条，也不要为这份 JD 造一条同义要求。
+   判据：语义相同、只是阈值不同 → 复用（阈值写在引用上，不写在要求上）。
+2. 确实没有，才新建。新建必须带 `rationale`（为什么需要这条）和 `source`。
+3. 新建之后跑门禁，门禁会检查「assessable=true 但属性不存在」这类谎话。
+
+**要求库里不许出现"某份 JD 专属"的东西**：阈值、行业、岗位名都在引用里，
+要求本身只描述"要比什么"。
+
+## 第 4 步——过门禁
+
+```bash
+cd <repo>/backend && set -a && source ../.env; set +a
+env -u PGPORT .venv/bin/python -m scripts.talent.check_component_catalog
+```
+
+它默认就会逐字回查所有引用（`--links` 默认指向正式目录）。要报告的是这一行：
+
+```
+N checks · 0 failed · green
+```
+
+红了先改**你的 yaml**，永远不要改门禁的期望值。门禁红了还交付，等于让后面五步全跑在错的原话上。
+
+## 交付时说什么
+
+- 这份 JD 拆出多少条原子要求，其中多少条是复用、多少条是新建
+- `N checks · 0 failed`
+- **哪几条你拿不准粒度**（比如一句里塞了三个动作），列出来让人确认
+- 哪几条客户写得太含糊、下游一定判不了（「良好的沟通能力」这类）
+
+## 绝对不要做
+
+- 不要改客户原文的一个字，包括错字
+- 不要把「等」「优先」这类开放词收窄成清单
+- 不要把职责段（做什么）混进要求段（要什么）
+- 不要给没有阈值的定性要求编一个阈值
+- 不要因为一条要求目前判不了就删掉它 —— 判不了要如实保留并标原因

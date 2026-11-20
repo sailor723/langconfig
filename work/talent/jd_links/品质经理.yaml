@@ -62,7 +62,7 @@ citations:
     - 自动化
     - 工业工程
     - 机械工程
-  note: 专业属性未建,所以这条判不了 —— 但原话和取值都记下来了,等属性建好就能判。
+  note: 这条判不了的**不是数据,是匹配规则**:专业属性 major 已建(74% 的人有值),但原话是「…机械工程**等**工程类专业毕业」——白名单是举例不是穷举。按精确匹配会误杀「材料成型及控制工程」,按子串匹配要先定义什么叫工程类。规则定下来就能判。
   origin: client
 - id: C-04
   requirement: REQ-H-LANG-EN
@@ -165,10 +165,10 @@ citations:
 excluded:
 - id: X-01
   candidate_text: IATF16949
-  found_at: source_text 第 31 行,「岗位职责」段
+  found_at: source_text 第 24 行,「岗位职责」段
   why: 'ABox 的 `:role_品质经理 :requiresSkill :skill_ISO_TS16949` 会让 111 人被蕴含。
 
-    但 IATF16949 只出现在**岗位职责**段:「依IATF16949制定和完善品质管理制度」。
+    但 IATF16949 只出现在**岗位职责**段(第 24 行):「依IATF16949制定和完善品质管理制度」。
 
     那是**公司要做的事**,不是**候选人必须具备的条件**。
 
