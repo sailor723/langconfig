@@ -25,6 +25,7 @@ citations:
     subject: 性别
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 业务-02
   requirement: REQ-A-AGE-RANGE
   verbatim: 年龄20-30岁
@@ -40,6 +41,7 @@ citations:
     subject: 年龄
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 业务-03
   requirement: REQ-B-EDU-LEVEL
   verbatim: 高中以上学历
@@ -54,6 +56,7 @@ citations:
     subject: 学历
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 业务-04
   requirement: REQ-B-MAJOR
   verbatim: 市场营销、外语外贸、销售等专业者优先考虑
@@ -71,6 +74,7 @@ citations:
     subject: 专业
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 业务-05
   requirement: REQ-C-YEARS-DOMAIN
   verbatim: 2年以上业务助理或相关工作经验
@@ -86,6 +90,7 @@ citations:
     subject: 业务助理经验年限
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 业务-06
   requirement: REQ-C-YEARS-DOMAIN
   verbatim: 同行业者优先考虑
@@ -100,6 +105,7 @@ citations:
     subject: 同行业经验
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 业务-07
   requirement: REQ-D-OFFICE
   verbatim: 熟悉使用Office办公软件
@@ -112,6 +118,7 @@ citations:
     subject: Office办公软件
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 业务-08
   requirement: REQ-E-OPENNESS
   verbatim: 性格开朗
@@ -127,6 +134,7 @@ citations:
   review:
     reassigned_from: REQ-E-COMMUNICATION
     reason: LLM 复用到 REQ-E-COMMUNICATION,经人工改判
+  origin: client
 - id: 业务-09
   requirement: REQ-D-BIZ-ETIQUETTE
   verbatim: 具备基本商务礼仪知识
@@ -139,6 +147,7 @@ citations:
     subject: 商务礼仪知识
     measurable_from_resume: false
     requirement_reused: false
+  origin: client
 - id: 业务-10
   requirement: REQ-E-BIZ-INTENT
   verbatim: 有业务发展意向
@@ -151,6 +160,7 @@ citations:
     subject: 业务发展意向
     measurable_from_resume: false
     requirement_reused: false
+  origin: client
 - id: 业务-11
   requirement: REQ-E-COMMUNICATION
   verbatim: 具备良好的沟通协调能力
@@ -163,6 +173,7 @@ citations:
     subject: 沟通协调能力
     measurable_from_resume: false
     requirement_reused: true
+  origin: client
 - id: 业务-12
   requirement: REQ-E-TEAMWORK
   verbatim: 团队合作精神
@@ -175,6 +186,7 @@ citations:
     subject: 团队合作
     measurable_from_resume: false
     requirement_reused: false
+  origin: client
 - id: 业务-13
   requirement: REQ-E-STRESS
   verbatim: 能吃苦耐劳
@@ -187,6 +199,7 @@ citations:
     subject: 吃苦耐劳
     measurable_from_resume: false
     requirement_reused: true
+  origin: client
 - id: 业务-14
   requirement: REQ-E-RESPONSIBILITY
   verbatim: 责任心强
@@ -199,6 +212,7 @@ citations:
     subject: 责任心
     measurable_from_resume: false
     requirement_reused: true
+  origin: client
 - id: 业务-15
   requirement: REQ-E-PROACTIVE
   verbatim: 对工作有积极主动性
@@ -211,4 +225,5 @@ citations:
     subject: 工作积极主动
     measurable_from_resume: false
     requirement_reused: false
+  origin: client
 excluded: []

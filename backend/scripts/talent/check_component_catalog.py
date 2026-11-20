@@ -290,10 +290,15 @@ def check_links(cat: dict, lib: dict, links_dir: pathlib.Path | None) -> None:
 
     lib_ids = {r["id"] for r in (lib.get("requirements") or [])}
     total = 0
+    client_total = 0
     for path in files:
         doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         cites = doc.get("citations") or []
         total += len(cites)
+        # 客户原话子集要在最前面就算好 —— 后面缺 source_text 会 continue,
+        # 那时再定义就晚了(踩过:UnboundLocalError)
+        client_cites = [c for c in cites if c.get("origin") == "client"]
+        client_total += len(client_cites)
         check_true(f"{path.name}: 读到 {len(cites)} 条引用(不是 0)", len(cites) > 0,
                    "文件结构不对 —— 读成 0 条会让所有检查空过")
 
@@ -312,8 +317,27 @@ def check_links(cat: dict, lib: dict, links_dir: pathlib.Path | None) -> None:
         check_true(f"{path.name}: 引用没带语义字段(dimension/attribute/components)",
                    not leaked, f"{leaked[:3]} —— 语义是库的事")
 
-        no_verbatim = [c["id"] for c in cites if not c.get("verbatim")]
-        check_true(f"{path.name}: 每条引用都有 verbatim", not no_verbatim, f"{no_verbatim}")
+        # ── 出处:客户原话 vs HR 侧要求。两者不许混为一谈 ──
+        # 客户原话有逐字坐标(verbatim/txt_line/source_text),必须能回查客户文件;
+        # HR 侧要求没有客户原话,硬给它安一个 verbatim 就是替客户说话。
+        bad_origin = [(c["id"], c.get("origin")) for c in cites
+                      if c.get("origin") not in ("client", "hr")]
+        check_true(f"{path.name}: 每条引用都声明 origin(client/hr)", not bad_origin,
+                   f"{bad_origin[:3]}")
+
+        hr = [c for c in cites if c.get("origin") == "hr"]
+        fake_client = [(c["id"], k) for c in hr
+                       for k in ("verbatim", "txt_line", "source_text") if c.get(k) is not None]
+        check_true(f"{path.name}: HR 侧要求不冒充客户原话(不带 verbatim/txt_line)",
+                   not fake_client, f"{fake_client[:3]}")
+
+        hr_thin = [c["id"] for c in hr
+                   if not c.get("author") or not c.get("rationale")]
+        check_true(f"{path.name}: 每条 HR 侧要求都写了 author 与 rationale",
+                   not hr_thin, f"{hr_thin[:3]} —— 没理由的要求不许进 JD")
+
+        no_verbatim = [c["id"] for c in client_cites if not c.get("verbatim")]
+        check_true(f"{path.name}: 每条客户引用都有 verbatim", not no_verbatim, f"{no_verbatim}")
 
         source_rel = doc.get("source_text") or ""
         source_path = (ROOT / source_rel) if source_rel else None
@@ -324,21 +348,21 @@ def check_links(cat: dict, lib: dict, links_dir: pathlib.Path | None) -> None:
         lines_of = text.split("\n")
         lines_set = {ln.strip() for ln in lines_of}
 
-        invented = [c["id"] for c in cites if c["verbatim"] not in text]
+        invented = [c["id"] for c in client_cites if c["verbatim"] not in text]
         check_true(f"{path.name}: 每条 verbatim 都是原文逐字子串", not invented,
                    f"{invented[:3]} —— 在 {source_rel} 里找不到")
 
-        bad_src = [c["id"] for c in cites
+        bad_src = [c["id"] for c in client_cites
                    if c.get("source_text") and c["source_text"].strip() not in lines_set]
         check_true(f"{path.name}: source_text 都是原文的一整行", not bad_src, f"{bad_src[:3]}")
 
-        not_in = [c["id"] for c in cites
+        not_in = [c["id"] for c in client_cites
                   if c.get("source_text") and c["verbatim"] not in c["source_text"]]
         check_true(f"{path.name}: verbatim 都落在自己的 source_text 里", not not_in,
                    f"{not_in[:3]}")
 
         wrong_line = []
-        for c in cites:
+        for c in client_cites:
             real = [i + 1 for i, ln in enumerate(lines_of) if c["verbatim"] in ln]
             if c.get("txt_line") is None:
                 continue
@@ -348,14 +372,17 @@ def check_links(cat: dict, lib: dict, links_dir: pathlib.Path | None) -> None:
                 wrong_line.append((c["id"], c["txt_line"], real))
         check_true(f"{path.name}: txt_line 是原文的真实行号", not wrong_line, f"{wrong_line[:3]}")
 
-    print(f"\n   两份 JD 合计 {total} 条引用")
+    print(f"\n   合计 {total} 条引用(客户原话 {client_total} · HR 侧 {total - client_total})")
 
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-db", action="store_true", help="只跑结构与自洽,不连库")
-    ap.add_argument("--links", default="", help="JD 链接文件目录(可选,存在时才校验引用)")
+    # 引用门禁必须默认就跑 —— 之前默认空字符串,等于 122 条逐字回查从来没在常规检查里跑过。
+    # 一个"要记得加参数才跑"的门禁,和没有这道门是一个效果。
+    ap.add_argument("--links", default=str(ROOT / "work" / "talent" / "jd_links"),
+                    help="JD 链接文件目录(默认就是正式目录;传空串可跳过)")
     ap.add_argument("--library", default=str(LIBRARY), help="要求库 yaml")
     # --catalog 让变异测试可以在副本上跑:一个只在真文件上能跑的门禁是没法证明自己有牙齿的
     ap.add_argument("--catalog", default=str(CATALOG), help="默认读 work/talent/component_catalog.yaml")

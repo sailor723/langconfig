@@ -24,6 +24,7 @@ citations:
     subject: 学历
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 招聘-02
   requirement: REQ-C-YEARS-DOMAIN
   verbatim: 1年以上招聘工作经验
@@ -39,6 +40,7 @@ citations:
     subject: 招聘经验年限
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 招聘-03
   requirement: REQ-E-COMMUNICATION
   verbatim: 良好的沟通表达协调能力强
@@ -51,6 +53,7 @@ citations:
     subject: 沟通协调能力
     measurable_from_resume: false
     requirement_reused: true
+  origin: client
 - id: 招聘-04
   requirement: REQ-E-LOGIC
   verbatim: 能够准确、清晰
@@ -63,6 +66,7 @@ citations:
     subject: 表达准确清晰
     measurable_from_resume: false
     requirement_reused: true
+  origin: client
 - id: 招聘-05
   requirement: REQ-E-RESPONSIBILITY
   verbatim: 责任心强
@@ -75,6 +79,7 @@ citations:
     subject: 责任心
     measurable_from_resume: false
     requirement_reused: true
+  origin: client
 - id: 招聘-06
   requirement: REQ-E-CAREFUL
   verbatim: 细心
@@ -90,6 +95,7 @@ citations:
   review:
     reassigned_from: REQ-E-DATA-SENSITIVITY
     reason: LLM 复用到 REQ-E-DATA-SENSITIVITY,经人工改判
+  origin: client
 - id: 招聘-07
   requirement: REQ-E-STEADY
   verbatim: 稳重
@@ -105,6 +111,7 @@ citations:
   review:
     reassigned_from: REQ-E-STRESS
     reason: LLM 复用到 REQ-E-STRESS,经人工改判
+  origin: client
 - id: 招聘-08
   requirement: REQ-D-OFFICE
   verbatim: 熟练使用相关办公软件
@@ -117,6 +124,7 @@ citations:
     subject: Office办公软件
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 招聘-09
   requirement: REQ-D-RECRUIT-SKILL
   verbatim: 具备基本的招聘技巧
@@ -129,6 +137,7 @@ citations:
     subject: 招聘技巧
     measurable_from_resume: false
     requirement_reused: false
+  origin: client
 - id: 招聘-10
   requirement: REQ-D-RECRUIT-CHANNEL
   verbatim: 熟悉通常的招聘渠道
@@ -141,6 +150,7 @@ citations:
     subject: 招聘渠道
     measurable_from_resume: true
     requirement_reused: false
+  origin: client
 - id: 招聘-11
   requirement: REQ-E-EXECUTION
   verbatim: 独立工作能力强
@@ -153,6 +163,7 @@ citations:
     subject: 独立工作能力
     measurable_from_resume: false
     requirement_reused: true
+  origin: client
 - id: 招聘-12
   requirement: REQ-C-YEARS-DOMAIN
   verbatim: 丰富的招聘经验
@@ -167,6 +178,7 @@ citations:
     subject: 招聘经验
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 招聘-13
   requirement: REQ-E-JOB-INTEREST
   verbatim: 对招聘工作感兴趣
@@ -182,6 +194,7 @@ citations:
   review:
     reassigned_from: REQ-E-STRIVING
     reason: LLM 复用到 REQ-E-STRIVING,经人工改判
+  origin: client
 - id: 招聘-14
   requirement: REQ-D-RECRUIT-KNOWLEDGE
   verbatim: 熟悉相关招聘知识
@@ -194,4 +207,5 @@ citations:
     subject: 招聘知识
     measurable_from_resume: false
     requirement_reused: false
+  origin: client
 excluded: []

@@ -25,6 +25,7 @@ citations:
     subject: 行业经验年限
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 专案-02
   requirement: REQ-D-NPI-PROCESS
   verbatim: 对新产品报价、样品、转量产做业流程熟知
@@ -37,6 +38,7 @@ citations:
     subject: 新产品报价/样品/转量产流程
     measurable_from_resume: true
     requirement_reused: false
+  origin: client
 - id: 专案-03
   requirement: REQ-E-STRESS
   verbatim: 抗压能力强
@@ -49,6 +51,7 @@ citations:
     subject: 抗压能力
     measurable_from_resume: false
     requirement_reused: true
+  origin: client
 - id: 专案-04
   requirement: REQ-E-STRIVING
   verbatim: 积极向上
@@ -61,6 +64,7 @@ citations:
     subject: 积极向上
     measurable_from_resume: false
     requirement_reused: true
+  origin: client
 - id: 专案-05
   requirement: REQ-E-CAREFUL
   verbatim: 工作细心，谨慎
@@ -73,6 +77,7 @@ citations:
     subject: 细心谨慎
     measurable_from_resume: false
     requirement_reused: false
+  origin: client
 - id: 专案-06
   requirement: REQ-D-WIRE-EQUIPMENT
   verbatim: 对电线加工设备：裁线机、端子机、自动机、注塑机、点胶机等功能熟知
@@ -85,6 +90,7 @@ citations:
     subject: 电线加工设备认知
     measurable_from_resume: true
     requirement_reused: false
+  origin: client
 - id: 专案-07
   requirement: REQ-D-WIRE-EQUIPMENT
   verbatim: 有一定的操作能力
@@ -100,6 +106,7 @@ citations:
   review:
     reassigned_from: REQ-D-WIRE-EQUIPMENT-OP
     reason: LLM 复用到 REQ-D-WIRE-EQUIPMENT-OP,经人工改判
+  origin: client
 - id: 专案-08
   requirement: REQ-D-CAD-2D
   verbatim: CAD二维制图
@@ -112,6 +119,7 @@ citations:
     subject: CAD二维制图
     measurable_from_resume: true
     requirement_reused: false
+  origin: client
 - id: 专案-09
   requirement: REQ-D-OFFICE
   verbatim: 办公软件操作熟练
@@ -124,4 +132,5 @@ citations:
     subject: Office办公软件
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 excluded: []

@@ -24,6 +24,7 @@ citations:
     subject: 学历
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 工程-02
   requirement: REQ-D-OFFICE
   verbatim: 2、熟练：Excel、Word、ppt等办公软件，同时具备AI工具的基本运用能力；
@@ -41,6 +42,7 @@ citations:
     subject: Office办公软件
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 工程-03
   requirement: REQ-D-AI-TOOLS
   verbatim: 同时具备AI工具的基本运用能力
@@ -53,6 +55,7 @@ citations:
     subject: AI工具运用
     measurable_from_resume: true
     requirement_reused: false
+  origin: client
 - id: 工程-04
   requirement: REQ-C-YEARS-DOMAIN
   verbatim: 3、有同等岗位工作经验二年以上；
@@ -68,6 +71,7 @@ citations:
     subject: 同等岗位年限
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 工程-05
   requirement: REQ-D-DRAWING-READ
   verbatim: 4、能识别图纸基本信息：线材规格、端子型号、胶壳料号、回路标识等；
@@ -80,6 +84,7 @@ citations:
     subject: 图纸识别
     measurable_from_resume: true
     requirement_reused: false
+  origin: client
 - id: 工程-06
   requirement: REQ-E-COMMUNICATION
   verbatim: 5、善于沟通，责任心与进取心强，工作认真、严谨细致；
@@ -92,6 +97,7 @@ citations:
     subject: 沟通协调能力
     measurable_from_resume: false
     requirement_reused: true
+  origin: client
 - id: 工程-07
   requirement: REQ-E-RESPONSIBILITY
   verbatim: 责任心与进取心强
@@ -104,6 +110,7 @@ citations:
     subject: 责任心
     measurable_from_resume: false
     requirement_reused: true
+  origin: client
 - id: 工程-08
   requirement: REQ-E-CAREFUL
   verbatim: 工作认真、严谨细致
@@ -116,4 +123,5 @@ citations:
     subject: 认真严谨细致
     measurable_from_resume: false
     requirement_reused: false
+  origin: client
 excluded: []

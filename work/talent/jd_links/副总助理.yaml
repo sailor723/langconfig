@@ -25,6 +25,7 @@ citations:
     temperature: 0
     measured_from_resume: true
     subject: 性别
+  origin: client
 - id: VP-02
   requirement: REQ-A-AGE-RANGE
   verbatim: 25-38岁
@@ -39,6 +40,7 @@ citations:
     temperature: 0
     measured_from_resume: true
     subject: 年龄
+  origin: client
 - id: VP-03
   requirement: REQ-B-EDU-LEVEL
   verbatim: 全日制大专及以上学历
@@ -52,6 +54,7 @@ citations:
     temperature: 0
     measured_from_resume: true
     subject: 学历
+  origin: client
 - id: VP-04
   requirement: REQ-B-FULL-TIME
   verbatim: 全日制
@@ -63,6 +66,7 @@ citations:
     temperature: 0
     measured_from_resume: true
     subject: 全日制
+  origin: client
 - id: VP-05
   requirement: REQ-B-MAJOR
   verbatim: 中文、文秘类专业优先
@@ -78,6 +82,7 @@ citations:
     temperature: 0
     measured_from_resume: true
     subject: 专业
+  origin: client
 - id: VP-06
   requirement: REQ-C-YEARS-DOMAIN
   verbatim: 2年以上文职类、助理类、管理类工厂工作经验
@@ -92,6 +97,7 @@ citations:
     temperature: 0
     measured_from_resume: true
     subject: 年限
+  origin: client
 - id: VP-07
   requirement: REQ-E-PRINCIPLE
   verbatim: 原则性强
@@ -103,6 +109,7 @@ citations:
     temperature: 0
     measured_from_resume: false
     subject: 原则性
+  origin: client
 - id: VP-08
   requirement: REQ-E-RESPONSIBILITY
   verbatim: 责任心突出
@@ -114,6 +121,7 @@ citations:
     temperature: 0
     measured_from_resume: false
     subject: 责任心
+  origin: client
 - id: VP-09
   requirement: REQ-E-ACCOUNTABILITY
   verbatim: 敢于担当
@@ -125,6 +133,7 @@ citations:
     temperature: 0
     measured_from_resume: false
     subject: 担当
+  origin: client
 - id: VP-10
   requirement: REQ-E-DAILY-CLOSE
   verbatim: 坚持日清日结
@@ -136,6 +145,7 @@ citations:
     temperature: 0
     measured_from_resume: false
     subject: 日清日结
+  origin: client
 - id: VP-11
   requirement: REQ-E-STRIVING
   verbatim: 具备良好的奋斗精神
@@ -147,6 +157,7 @@ citations:
     temperature: 0
     measured_from_resume: false
     subject: 奋斗精神
+  origin: client
 - id: VP-12
   requirement: REQ-E-COMMUNICATION
   verbatim: 沟通能力好
@@ -158,6 +169,7 @@ citations:
     temperature: 0
     measured_from_resume: false
     subject: 沟通
+  origin: client
 - id: VP-13
   requirement: REQ-E-EXECUTION
   verbatim: 执行能力强
@@ -169,6 +181,7 @@ citations:
     temperature: 0
     measured_from_resume: false
     subject: 执行力
+  origin: client
 - id: VP-14
   requirement: REQ-E-LOGIC
   verbatim: 逻辑清晰
@@ -180,6 +193,7 @@ citations:
     temperature: 0
     measured_from_resume: false
     subject: 逻辑
+  origin: client
 - id: VP-15
   requirement: REQ-E-DATA-SENSITIVITY
   verbatim: 数据敏感
@@ -191,6 +205,7 @@ citations:
     temperature: 0
     measured_from_resume: false
     subject: 数据敏感
+  origin: client
 - id: VP-16
   requirement: REQ-D-OFFICE
   verbatim: 熟练掌握Office办公软件（Word/ Excel/ PPT/ AI）
@@ -202,4 +217,5 @@ citations:
     temperature: 0
     measured_from_resume: true
     subject: Office
+  origin: client
 excluded: []

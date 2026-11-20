@@ -1,176 +1,167 @@
-# 品质经理 · JD 引用(citation)—— 只有"这份 JD 怎么说",没有语义
-#
-# 语义在 `work/talent/requirement_library.yaml`(JD 无关);
-# 能力词表在 `work/talent/component_catalog.yaml`(JD 无关)。
-# 本文件只做一件事:**把这份 JD 的原话,指到库里已有的要求上。**
-#
-# 为什么阈值在这里而不在库里(决定 A):
-#   REQ-B-EDU-LEVEL 的意思是"学历不低于某个值",而"3"是品质经理这份 JD 的取值。
-#   工程文员写 >=2、业务助理写 >=2 —— 同一个要求,不同阈值。
-#   所以阈值属于**引用**,改了它不影响别的 JD。
-#
-# 三个数字在这里对齐,因为它们在别处是三个不同的值:
-#   JD 原文标题写     「任职资格（5-8条）」        ← 原文自己的说法
-#   原文正文实际       7 条行（以「；」分隔）
-#   拆成原子要求       10 条                       ← 本文件用这个
-#   jd_requirements_all10.md 表尾写 11             ← 重复计数,见 count.count_note
-#
-# 每一跳都可回查:
-#   citation ──requirement──→ requirement_library.yaml 的一个 id
-#            ──value──────→ 这份 JD 的阈值
-#            ──verbatim───→ 原文的精确片段
-#            ──source_text→ 原文整句
-#            ──txt_line───→ source_text 文件里的行号(不是 Word 行号)
-
 jd: 品质经理
 department: 品保课
 source_file: client/team-4/unzipped/职务说明书10份/12.品质经理职务说明书.doc
 source_text: work/talent/jd_links/_source/品质经理.txt
-extracted_with: "textutil -convert txt (macOS)"
+extracted_with: textutil -convert txt (macOS)
 extracted_at: 2026-11-19
-
 count:
   source_section: 任职资格
   source_lines: 7
   atomic_requirements: 10
-  count_note: |
-    JD 标题写「任职资格(5-8条)」,正文 7 条行。
+  count_note: 'JD 标题写「任职资格(5-8条)」,正文 7 条行。
+
     第 5 行「3年以上品质管理工作经验,熟识线束行业相关产品」含 2 条原子要求;
+
     第 6 行「具备品质问题分析、改善的能力,懂QC七大手法…」含 2 条;
+
     第 7 行「具备接待客户验厂经验,有良好的沟通、协调能力」含 2 条。
+
     其余 4 行各 1 条 → 4 + 2 + 2 + 2 = 10。
+
     `jd_requirements_all10.md` 表尾的「11」把第 5 行同时算进 C 维和 D 维,
+
     造成重复计数。**以 10 为准。**
 
+    '
 citations:
+- id: C-01
+  requirement: REQ-A-AGE-RANGE
+  verbatim: 年龄：25 ~ 40岁
+  source_text: 年龄：25 ~ 40岁；
+  txt_line: 14
+  section_index: 1
+  value:
+    min: 25
+    max: 40
+  note: 'A 维是本文件里唯一没有外部标准的维度(gender/age 在 LinkedIn 与 HR-XML 都没有字段)。
 
-  # ── 第 1 行 ──────────────────────────────────────────────────────────────
-  - id: C-01
-    requirement: REQ-A-AGE-RANGE
-    verbatim: 年龄：25 ~ 40岁
-    source_text: 年龄：25 ~ 40岁；
-    txt_line: 14
-    section_index: 1
-    value: {min: 25, max: 40}
-    note: |
-      A 维是本文件里唯一没有外部标准的维度(gender/age 在 LinkedIn 与 HR-XML 都没有字段)。
-      保留并执行:age 属性已存在,107/277 可读。
+    保留并执行:age 属性已存在,107/277 可读。
 
-  # ── 第 2 行 ──────────────────────────────────────────────────────────────
-  - id: C-02
-    requirement: REQ-B-EDU-LEVEL
-    verbatim: 学历：大专及以上学历
-    source_text: 学历：大专及以上学历；
-    txt_line: 15
-    section_index: 2
-    value: {num: 3}
-    note: "3 = 大专。工程文员那份 JD 写的是 >=2(中专/高中)—— 同一个要求、不同阈值。"
+    '
+  origin: client
+- id: C-02
+  requirement: REQ-B-EDU-LEVEL
+  verbatim: 学历：大专及以上学历
+  source_text: 学历：大专及以上学历；
+  txt_line: 15
+  section_index: 2
+  value:
+    num: 3
+  note: 3 = 大专。工程文员那份 JD 写的是 >=2(中专/高中)—— 同一个要求、不同阈值。
+  origin: client
+- id: C-03
+  requirement: REQ-B-MAJOR
+  verbatim: 专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业
+  source_text: 专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业；
+  txt_line: 16
+  section_index: 3
+  value:
+    in:
+    - 机电一体化
+    - 电子技术
+    - 自动化
+    - 工业工程
+    - 机械工程
+  note: 专业属性未建,所以这条判不了 —— 但原话和取值都记下来了,等属性建好就能判。
+  origin: client
+- id: C-04
+  requirement: REQ-H-LANG-EN
+  verbatim: 语言：英语口语熟练及具备独立书写英文8D报告的能力
+  source_text: 语言：英语口语熟练及具备独立书写英文8D报告的能力；
+  txt_line: 17
+  section_index: 4
+  note: '没有 value:这条要求没有阈值,它要求"具备两个组件"。
 
-  # ── 第 3 行 ──────────────────────────────────────────────────────────────
-  - id: C-03
-    requirement: REQ-B-MAJOR
-    verbatim: 专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业
-    source_text: 专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业；
-    txt_line: 16
-    section_index: 3
-    value: {in: [机电一体化, 电子技术, 自动化, 工业工程, 机械工程]}
-    note: "专业属性未建,所以这条判不了 —— 但原话和取值都记下来了,等属性建好就能判。"
+    「口语熟练」这一半判不了(level_check 在库里声明为 assessable=false)。
 
-  # ── 第 4 行 ──────────────────────────────────────────────────────────────
-  - id: C-04
-    requirement: REQ-H-LANG-EN
-    verbatim: 语言：英语口语熟练及具备独立书写英文8D报告的能力
-    source_text: 语言：英语口语熟练及具备独立书写英文8D报告的能力；
-    txt_line: 17
-    section_index: 4
-    note: |
-      没有 value:这条要求没有阈值,它要求"具备两个组件"。
-      「口语熟练」这一半判不了(level_check 在库里声明为 assessable=false)。
-
-  # ── 第 5 行 · 拆成 2 条 ───────────────────────────────────────────────────
-  - id: C-05
-    requirement: REQ-C-YEARS-DOMAIN
-    verbatim: 3年以上品质管理工作经验
-    source_text: 3年以上品质管理工作经验，熟识线束行业相关产品；
-    txt_line: 18
-    section_index: 5
-    value: {num: 3, domain: 品质管理}
-    note: "领域限定品质管理需要 C.2,未建 —— 现在只判年限。"
-
-  - id: C-06
-    requirement: REQ-D-HARNESS-DOMAIN
-    verbatim: 熟识线束行业相关产品
-    source_text: 3年以上品质管理工作经验，熟识线束行业相关产品；
-    txt_line: 18
-    section_index: 5
-
-  # ── 第 6 行 · 拆成 2 条 ───────────────────────────────────────────────────
-  - id: C-07
-    requirement: REQ-D-QA-ANALYSIS
-    verbatim: 具备品质问题分析、改善的能力
-    source_text: 具备品质问题分析、改善的能力，懂QC七大手法、5WHY、SPC、CPK、6S工具；
-    txt_line: 19
-    section_index: 6
-
-  - id: C-08
-    requirement: REQ-D-QA-TOOLS
-    verbatim: 懂QC七大手法、5WHY、SPC、CPK、6S工具
-    source_text: 具备品质问题分析、改善的能力，懂QC七大手法、5WHY、SPC、CPK、6S工具；
-    txt_line: 19
-    section_index: 6
-    note: "原文 5 项,组件 4 项(缺 5WHY)。这条没有 value —— 它要求「具备这些组件」。"
-
-  # ── 第 7 行 · 拆成 2 条 ───────────────────────────────────────────────────
-  - id: C-09
-    requirement: REQ-D-CUSTOMER-AUDIT
-    verbatim: 具备接待客户验厂经验
-    source_text: 具备接待客户验厂经验，有良好的沟通、协调能力。
-    txt_line: 20
-    section_index: 7
-
-  - id: C-10
-    requirement: REQ-E-COMMUNICATION
-    verbatim: 有良好的沟通、协调能力
-    source_text: 具备接待客户验厂经验，有良好的沟通、协调能力。
-    txt_line: 20
-    section_index: 7
-    note: "这条直连 Dimension E,库里 no_component=true —— E 维没有组件,只能靠面试。"
-
-# ══════════════════════════════════════════════════════════════════════════
-# 被排除的条目 —— 写下来,因为它们在别处仍在生效
-# ══════════════════════════════════════════════════════════════════════════
+    '
+  origin: client
+- id: C-05
+  requirement: REQ-C-YEARS-DOMAIN
+  verbatim: 3年以上品质管理工作经验
+  source_text: 3年以上品质管理工作经验，熟识线束行业相关产品；
+  txt_line: 18
+  section_index: 5
+  value:
+    num: 3
+    domain: 品质管理
+  note: 领域限定品质管理需要 C.2,未建 —— 现在只判年限。
+  origin: client
+- id: C-06
+  requirement: REQ-D-HARNESS-DOMAIN
+  verbatim: 熟识线束行业相关产品
+  source_text: 3年以上品质管理工作经验，熟识线束行业相关产品；
+  txt_line: 18
+  section_index: 5
+  origin: client
+- id: C-07
+  requirement: REQ-D-QA-ANALYSIS
+  verbatim: 具备品质问题分析、改善的能力
+  source_text: 具备品质问题分析、改善的能力，懂QC七大手法、5WHY、SPC、CPK、6S工具；
+  txt_line: 19
+  section_index: 6
+  origin: client
+- id: C-08
+  requirement: REQ-D-QA-TOOLS
+  verbatim: 懂QC七大手法、5WHY、SPC、CPK、6S工具
+  source_text: 具备品质问题分析、改善的能力，懂QC七大手法、5WHY、SPC、CPK、6S工具；
+  txt_line: 19
+  section_index: 6
+  note: 原文 5 项,组件 4 项(缺 5WHY)。这条没有 value —— 它要求「具备这些组件」。
+  origin: client
+- id: C-09
+  requirement: REQ-D-CUSTOMER-AUDIT
+  verbatim: 具备接待客户验厂经验
+  source_text: 具备接待客户验厂经验，有良好的沟通、协调能力。
+  txt_line: 20
+  section_index: 7
+  origin: client
+- id: C-10
+  requirement: REQ-E-COMMUNICATION
+  verbatim: 有良好的沟通、协调能力
+  source_text: 具备接待客户验厂经验，有良好的沟通、协调能力。
+  txt_line: 20
+  section_index: 7
+  note: 这条直连 Dimension E,库里 no_component=true —— E 维没有组件,只能靠面试。
+  origin: client
 excluded:
+- id: X-01
+  candidate_text: IATF16949
+  found_at: source_text 第 31 行,「岗位职责」段
+  why: 'ABox 的 `:role_品质经理 :requiresSkill :skill_ISO_TS16949` 会让 111 人被蕴含。
 
-  - id: X-01
-    candidate_text: IATF16949
-    found_at: source_text 第 31 行,「岗位职责」段
-    why: |
-      ABox 的 `:role_品质经理 :requiresSkill :skill_ISO_TS16949` 会让 111 人被蕴含。
-      但 IATF16949 只出现在**岗位职责**段:「依IATF16949制定和完善品质管理制度」。
-      那是**公司要做的事**,不是**候选人必须具备的条件**。
-    verdict: 不应作为任职资格要求
-    action_pending: 建议从 :role_品质经理 的 :requiresSkill 里撤掉;撤掉后 matches_品质经理 会从 111 变少
-    note: |
-      这和 `skill_薪酬绩效` 从副总助理职责里的「督办各部门 KPI」被抽出,是同一类错误:
-      **职责段被当成任职资格段**。本文件把它排除在 citations 之外;
-      ABox 里那条还在,因为改 ABox 要重跑推理与材料化,那是另一个动作。
+    但 IATF16949 只出现在**岗位职责**段:「依IATF16949制定和完善品质管理制度」。
 
+    那是**公司要做的事**,不是**候选人必须具备的条件**。
+
+    '
+  verdict: 不应作为任职资格要求
+  action_pending: 建议从 :role_品质经理 的 :requiresSkill 里撤掉;撤掉后 matches_品质经理 会从 111 变少
+  note: '这和 `skill_薪酬绩效` 从副总助理职责里的「督办各部门 KPI」被抽出,是同一类错误:
+
+    **职责段被当成任职资格段**。本文件把它排除在 citations 之外;
+
+    ABox 里那条还在,因为改 ABox 要重跑推理与材料化,那是另一个动作。
+
+    '
 summary:
   citations: 10
   distinct_requirements: 10
-  note: |
-    这份 JD 引用了 10 条要求,恰好每条一个 —— 因为它是要求库的第一个来源。
+  note: '这份 JD 引用了 10 条要求,恰好每条一个 —— 因为它是要求库的第一个来源。
+
     第二份 JD 才会开始共享:业务跟单的"Office 三件套"、工程文员的"Excel/Word"
+
     都会指回已有的 REQ-D-* 节点,那时 distinct_requirements 才会小于 citations 数。
 
+    '
 validation:
-  - id: J-G1
-    rule: 每条 citation 的 requirement 必须存在于 requirement_library.yaml
-  - id: J-G2
-    rule: 每条 verbatim 必须是 source_text 的逐字子串
-  - id: J-G3
-    rule: 每条 source_text 必须是 source_text 文件的整整一行
-  - id: J-G4
-    rule: txt_line 必须是该行在文件里的真实行号
-  - id: J-G5
-    rule: citation 不许带语义字段(dimension / attribute / components)—— 那是库的事
+- id: J-G1
+  rule: 每条 citation 的 requirement 必须存在于 requirement_library.yaml
+- id: J-G2
+  rule: 每条 verbatim 必须是 source_text 的逐字子串
+- id: J-G3
+  rule: 每条 source_text 必须是 source_text 文件的整整一行
+- id: J-G4
+  rule: txt_line 必须是该行在文件里的真实行号
+- id: J-G5
+  rule: citation 不许带语义字段(dimension / attribute / components)—— 那是库的事

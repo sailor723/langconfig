@@ -25,6 +25,7 @@ citations:
     subject: 年龄
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 关务-02
   requirement: REQ-B-EDU-LEVEL
   verbatim: 大专及以上学历
@@ -39,6 +40,7 @@ citations:
     subject: 学历
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 关务-03
   requirement: REQ-B-MAJOR
   verbatim: 国际贸易、物流专业优先
@@ -55,6 +57,7 @@ citations:
     subject: 专业
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 关务-04
   requirement: REQ-D-CUSTOMS-DECLARE
   verbatim: 熟悉进出口报关流程
@@ -67,6 +70,7 @@ citations:
     subject: 进出口报关流程
     measurable_from_resume: true
     requirement_reused: false
+  origin: client
 - id: 关务-05
   requirement: REQ-C-YEARS-DOMAIN
   verbatim: 5年以上关务操作经验
@@ -82,6 +86,7 @@ citations:
     subject: 关务操作年限
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 关务-06
   requirement: REQ-F-TRADE-COMPLIANCE-TRAINING
   verbatim: 通过基础贸易安全合规培训考核
@@ -94,6 +99,7 @@ citations:
     subject: 贸易安全合规培训考核
     measurable_from_resume: true
     requirement_reused: false
+  origin: client
 - id: 关务-07
   requirement: REQ-G-NO-CRIMINAL-RECORD
   verbatim: 无海关行政处罚、犯罪记录
@@ -106,6 +112,7 @@ citations:
     subject: 无处罚及犯罪记录
     measurable_from_resume: false
     requirement_reused: false
+  origin: client
 - id: 关务-08
   requirement: REQ-E-DATA-SENSITIVITY
   verbatim: 对数据细心敏感
@@ -118,6 +125,7 @@ citations:
     subject: 数据敏感
     measurable_from_resume: false
     requirement_reused: true
+  origin: client
 - id: 关务-09
   requirement: REQ-E-EXECUTION
   verbatim: 具备良好的执行力
@@ -130,6 +138,7 @@ citations:
     subject: 执行力
     measurable_from_resume: false
     requirement_reused: true
+  origin: client
 - id: 关务-10
   requirement: REQ-E-COMMUNICATION
   verbatim: 沟通能力
@@ -142,6 +151,7 @@ citations:
     subject: 沟通能力
     measurable_from_resume: false
     requirement_reused: true
+  origin: client
 - id: 关务-11
   requirement: REQ-D-REPORT-WRITING
   verbatim: 日报/周报/月报整理能力
@@ -154,6 +164,7 @@ citations:
     subject: 报表整理能力
     measurable_from_resume: true
     requirement_reused: false
+  origin: client
 - id: 关务-12
   requirement: REQ-E-DAILY-CLOSE
   verbatim: 工作日事日毕
@@ -166,6 +177,7 @@ citations:
     subject: 日清日结
     measurable_from_resume: false
     requirement_reused: true
+  origin: client
 - id: 关务-13
   requirement: REQ-E-ETHICS
   verbatim: 良好的职业道德
@@ -178,6 +190,7 @@ citations:
     subject: 职业道德
     measurable_from_resume: false
     requirement_reused: false
+  origin: client
 - id: 关务-14
   requirement: REQ-E-TEAMWORK
   verbatim: 团队合作精神
@@ -190,6 +203,7 @@ citations:
     subject: 团队合作
     measurable_from_resume: false
     requirement_reused: false
+  origin: client
 - id: 关务-15
   requirement: REQ-E-PROACTIVE
   verbatim: 较强的工作主动性
@@ -205,6 +219,7 @@ citations:
   review:
     reassigned_from: REQ-E-PROACTIVITY
     reason: LLM 复用到 REQ-E-PROACTIVITY,经人工改判
+  origin: client
 - id: 关务-16
   requirement: REQ-E-RESPONSIBILITY
   verbatim: 责任感
@@ -217,6 +232,7 @@ citations:
     subject: 责任心
     measurable_from_resume: false
     requirement_reused: true
+  origin: client
 - id: 关务-17
   requirement: REQ-D-OFFICE
   verbatim: 熟练掌握Office办公软件基本操作
@@ -229,4 +245,5 @@ citations:
     subject: Office办公软件
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 excluded: []

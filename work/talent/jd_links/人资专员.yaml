@@ -24,6 +24,7 @@ citations:
     subject: 学历
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 人资-02
   requirement: REQ-B-MAJOR
   verbatim: 专业不限
@@ -39,6 +40,7 @@ citations:
     subject: 专业
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 人资-03
   requirement: REQ-B-MAJOR
   verbatim: 行政、文秘类优先
@@ -55,6 +57,7 @@ citations:
     subject: 专业优先
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 人资-04
   requirement: REQ-D-OFFICE
   verbatim: 熟练使用办公软件
@@ -67,6 +70,7 @@ citations:
     subject: Office办公软件
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 人资-05
   requirement: REQ-D-ATTENDANCE-SYSTEM
   verbatim: 考勤系统
@@ -79,6 +83,7 @@ citations:
     subject: 考勤系统操作
     measurable_from_resume: true
     requirement_reused: false
+  origin: client
 - id: 人资-06
   requirement: REQ-D-LABOR-LAW
   verbatim: 熟悉国家相关法律政策
@@ -91,6 +96,7 @@ citations:
     subject: 国家法律法规知识
     measurable_from_resume: false
     requirement_reused: false
+  origin: client
 - id: 人资-07
   requirement: REQ-D-SOCIAL-INSURANCE
   verbatim: 熟悉社会保险（增/减/补缴）等操作流程
@@ -103,6 +109,7 @@ citations:
     subject: 社保操作流程
     measurable_from_resume: true
     requirement_reused: false
+  origin: client
 - id: 人资-08
   requirement: REQ-D-DATA-ANALYSIS
   verbatim: 具备很好的数据统计分析能力
@@ -115,6 +122,7 @@ citations:
     subject: 数据统计分析能力
     measurable_from_resume: false
     requirement_reused: false
+  origin: client
 - id: 人资-09
   requirement: REQ-G-CONFIDENTIALITY
   verbatim: 具有人事数据保密意识
@@ -127,6 +135,7 @@ citations:
     subject: 数据保密
     measurable_from_resume: false
     requirement_reused: true
+  origin: client
 - id: 人资-10
   requirement: REQ-E-COMMUNICATION
   verbatim: 跨部门沟通能力
@@ -139,6 +148,7 @@ citations:
     subject: 沟通协调能力
     measurable_from_resume: false
     requirement_reused: true
+  origin: client
 - id: 人资-11
   requirement: REQ-E-RESPONSIBILITY
   verbatim: 工作认真
@@ -151,6 +161,7 @@ citations:
     subject: 工作认真
     measurable_from_resume: false
     requirement_reused: true
+  origin: client
 - id: 人资-12
   requirement: REQ-E-RESPONSIBILITY
   verbatim: 具有责任心
@@ -163,4 +174,5 @@ citations:
     subject: 责任心
     measurable_from_resume: false
     requirement_reused: true
+  origin: client
 excluded: []

@@ -26,6 +26,7 @@ citations:
     subject: 性别
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 管理-02
   requirement: REQ-A-AGE-RANGE
   verbatim: 年龄要求：30岁—45岁
@@ -41,6 +42,7 @@ citations:
     subject: 年龄
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 管理-03
   requirement: REQ-B-MAJOR
   verbatim: 专业要求：人力资源管理、行政管理、法律、企业管理等相关专业
@@ -59,6 +61,7 @@ citations:
     subject: 专业
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 管理-04
   requirement: REQ-B-EDU-LEVEL
   verbatim: 学历要求：大专或以上学历
@@ -73,6 +76,7 @@ citations:
     subject: 学历
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 管理-05
   requirement: REQ-D-OFFICE
   verbatim: 熟悉OFFICE软件
@@ -85,6 +89,7 @@ citations:
     subject: Office
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 - id: 管理-06
   requirement: REQ-D-OFFICE-NETWORK
   verbatim: 办公室网络
@@ -97,6 +102,7 @@ citations:
     subject: 办公室网络
     measurable_from_resume: true
     requirement_reused: false
+  origin: client
 - id: 管理-07
   requirement: REQ-D-DATA-ANALYSIS
   verbatim: 数据分据能力
@@ -109,6 +115,7 @@ citations:
     subject: 数据分析能力
     measurable_from_resume: false
     requirement_reused: false
+  origin: client
 - id: 管理-08
   requirement: REQ-D-TRAINING-DEV
   verbatim: 培训课程开发能力
@@ -121,6 +128,7 @@ citations:
     subject: 培训课程开发
     measurable_from_resume: false
     requirement_reused: false
+  origin: client
 - id: 管理-09
   requirement: REQ-D-SYSTEM-MGMT
   verbatim: 体系管理能力
@@ -133,6 +141,7 @@ citations:
     subject: 体系管理
     measurable_from_resume: false
     requirement_reused: false
+  origin: client
 - id: 管理-10
   requirement: REQ-D-SYSTEM-PLANNING
   verbatim: 系统规划能力
@@ -145,6 +154,7 @@ citations:
     subject: 系统规划
     measurable_from_resume: false
     requirement_reused: false
+  origin: client
 - id: 管理-11
   requirement: REQ-D-CULTURE-BUILD
   verbatim: 企业文化建设能力
@@ -157,6 +167,7 @@ citations:
     subject: 企业文化建设
     measurable_from_resume: false
     requirement_reused: false
+  origin: client
 - id: 管理-12
   requirement: REQ-C-YEARS-DOMAIN
   verbatim: 相关经验5年以上
@@ -172,4 +183,5 @@ citations:
     subject: 相关经验年限
     measurable_from_resume: true
     requirement_reused: true
+  origin: client
 excluded: []
