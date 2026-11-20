@@ -305,7 +305,7 @@ def main() -> int:
     print(f"事实源: {args.facts}" + (f"(覆盖 {n_llm} 个字段)" if args.facts == "llm" else "")
           + f" · HR 事实 {n_hr} 个量"
           + (f" · 一面记录 {n_iv} 处" if args.interview else "")
-          + f" · 专业门类 {n_mf} 人")
+          + (f" · 专业门类(仅参考,当前口径不参与判定) {n_mf} 人" if n_mf else ""))
     print(f"年限口径: {args.year_basis or '按引用/要求声明'}   组件覆盖率阈值: {COVERAGE}")
 
     per_req = collections.defaultdict(collections.Counter)
