@@ -25,7 +25,7 @@ Notes
 
 Configure with environment variables (both comma-separated):
 
-    LANGCONFIG_HARNESS_PROFILE_KEYS     default "deepseek:deepseek-flash"
+    LANGCONFIG_HARNESS_PROFILE_KEYS     default "deepseek"
     LANGCONFIG_HARNESS_EXCLUDED_TOOLS   default "read_file"
 
 Leave either empty to disable registration entirely.
@@ -37,7 +37,11 @@ import os
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_PROFILE_KEYS = "deepseek:deepseek-flash"
+#: 只写 provider,不写 ``provider:model`` —— 之前写的是 ``deepseek:deepseek-flash``,
+#: 而 agent 实际跑 ``deepseek-v4-flash``(键 ``deepseek:deepseek-v4-flash``),**对不上**,
+#: 于是 read_file 在这台机器上从来没被藏掉过。藏它的理由是模型无关的(图片 base64 撑爆
+#: 上下文),所以按 provider 注册,新模型不必再改这一行。
+DEFAULT_PROFILE_KEYS = "deepseek"
 DEFAULT_EXCLUDED_TOOLS = "read_file"
 
 _registered: dict[str, frozenset[str]] = {}

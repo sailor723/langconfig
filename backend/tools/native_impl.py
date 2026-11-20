@@ -1077,8 +1077,12 @@ def read_file(file_path: str, offset: int = 0, limit: int = None, max_chars: int
         elif ext in (".xlsx", ".xlsm"):
             content = _extract_xlsx(path)[0] or "Error: no data found in workbook"
         elif ext in (".ppt", ".doc", ".xls"):
-            return (f"Error: legacy {ext} files are not supported. "
-                    f"Convert to .pptx / .docx / .xlsx and read that instead")
+            # 老格式走 services/legacy_doc.py 的共享转换链(同一份实现,
+            # 聊天上传那条路也用它)。转不出来才报错,而且报错要能照着做。
+            from services.legacy_doc import legacy_to_text, unsupported_hint
+            content, _who = legacy_to_text(path)
+            if not content.strip():
+                return unsupported_hint(ext)
         else:
             # Bounded read: never slurp an arbitrarily large file into memory
             # before truncating. The 2MB ceiling is generous and the offset /
@@ -2943,6 +2947,47 @@ async def skill(skill_id: str, file: str = "", lang: str = "") -> str:
         return "\n".join(parts)
     except Exception as e:
         return f"Error loading skill '{skill_id}': {e}"
+
+
+# =============================================================================
+# talent: 交付前回检(把一份 JD 的事实重算一遍,和"报告里说的"对账)
+# =============================================================================
+@tool
+def talent_verify_jd_report(jd: str) -> str:
+    """用我：招聘流水线里"交付前回检"这一步 —— 把一份 JD 的事实**现场重算**,和你要写进报告的数字对账。
+
+    返回一张「主张 → 实测 → 结论」的表:原文行数、客户/HR 引用条数、每条 verbatim 是否逐字在原文里、
+    txt_line 是否真实行号、excluded 条目、门禁汇总行(现场跑一遍)。
+
+    为什么需要它:agent 交过一份报告,真话和假话同时存在 —— 门禁 161 checks 全绿(真),
+    但「原文 7 行」(实际 48)、「有一行含『主导内审』」(这份 JD 没有)、「excluded 是抬头标题」
+    (实际是 IATF16949)三句都是假的。它们有同一个来源:**从记忆里写**,而记忆来自另一份 JD。
+    所以这一步不许凭记忆:每个数字现场重算。
+
+    别用我:起草/修改 JD 本身(那是脚本 + edit_file 的事);这里只读不写。
+
+    Args:
+        jd: JD 名,等于 work/talent/jd_links/<jd>.yaml 的文件名主干,例如 "品质经理"
+
+    Returns:
+        回检表。**最后一行"全部对得上。可以交付。"才表示通过**;
+        出现「不一致」就说明报告里有数字/句子对不上,必须先改报告。
+    """
+    try:
+        import sys as _sys
+        from pathlib import Path as _Path
+        _backend = _Path(__file__).resolve().parents[1]
+        if str(_backend) not in _sys.path:
+            _sys.path.insert(0, str(_backend))
+        from scripts.talent.verify_jd_report import collect, render
+
+        result = collect(jd)
+        text = render(result)
+        verdict = "PASS" if result.get("ok") else "FAIL"
+        return f"{text}\n\n[{verdict}] talent_verify_jd_report(jd={jd!r})"
+    except Exception as exc:                       # 回检自己崩了也必须说清楚,不许静默
+        return (f"Error: 回检没能跑完（{type(exc).__name__}: {exc}）。"
+                f"**这不等于通过** —— 回检崩了按红处理。")
 
 
 # =============================================================================

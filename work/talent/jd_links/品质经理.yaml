@@ -20,7 +20,7 @@ count:
 
     `jd_requirements_all10.md` 表尾的「11」把第 5 行同时算进 C 维和 D 维,
 
-    造成重复计数。**以 10 为准。**
+    造成重复计数。**客户侧以 10 为准**(门禁里的 15 = 客户 10 + HR 侧 5)。
 
     '
 citations:
@@ -166,7 +166,7 @@ excluded:
 - id: X-01
   candidate_text: IATF16949
   found_at: source_text 第 24 行,「岗位职责」段
-  why: 'ABox 的 `:role_品质经理 :requiresSkill :skill_ISO_TS16949` 会让 111 人被蕴含。
+  why: 'ABox 的 `:role_品质经理 :requiresSkill :skill_ISO_TS16949` 会让 114 人被蕴含。
 
     但 IATF16949 只出现在**岗位职责**段(第 24 行):「依IATF16949制定和完善品质管理制度」。
 
@@ -174,7 +174,13 @@ excluded:
 
     '
   verdict: 不应作为任职资格要求
-  action_pending: 建议从 :role_品质经理 的 :requiresSkill 里撤掉;撤掉后 matches_品质经理 会从 111 变少
+  blast_radius_measured:
+    command: 'cd backend && set -a && source ../.env; set +a && env -u PGPORT .venv/bin/python ../work/talent/probe_qualitymanager_blast.py'
+    baseline_members: 114
+    drop_iso_ts16949_triples_only: 108
+    drop_whole_qualitysystem_route: 99
+    source_of_baseline: reasoning_run.members['matches_品质经理'] = 114 (run_at 2026-11-16 07:51Z) · candidate_match.count where role_class='matches_品质经理' = 114 · HermiT 重跑 = 114
+  action_pending: '建议从 :role_品质经理 的 :requiresSkill 里撤掉。影响面已用 HermiT 实测(命令见 blast_radius_measured):现状 matches_品质经理 = 114 人;只删 ISO/TS16949 的技能断言 → 108(−6);若整条 QualitySystem 路线(ISO/TS16949 + ISO9001)都撤 → 99(−15)。这是一个建议,**未执行** —— 改 ABox 要重跑推理与 materialize,是另一步。'
   note: '这和 `skill_薪酬绩效` 从副总助理职责里的「督办各部门 KPI」被抽出,是同一类错误:
 
     **职责段被当成任职资格段**。本文件把它排除在 citations 之外;

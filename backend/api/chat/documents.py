@@ -228,6 +228,22 @@ def _extract_file_text(content: bytes, filename: str, max_chars: int = 1_000_000
                 text = text[:max_chars] + "\n\n[...truncated]"
             return text if text.strip() else "[Empty DOCX]"
 
+        # --- legacy Office (.doc/.ppt/.xls) ---
+        # 走 services/legacy_doc.py 的共享转换链(antiword→catdoc→textutil→LibreOffice)。
+        # 转换器只吃路径,所以先把字节落到临时文件。
+        if ext in ('doc', 'ppt', 'xls'):
+            import tempfile
+            from services.legacy_doc import legacy_to_text, unsupported_hint
+            with tempfile.TemporaryDirectory() as td:
+                tmp = Path(td) / f"legacy.{ext}"
+                tmp.write_bytes(content)
+                text, who = legacy_to_text(tmp)
+            if not text.strip():
+                return unsupported_hint(f".{ext}")
+            if len(text) > max_chars:
+                text = text[:max_chars] + "\n\n[...truncated]"
+            return text
+
         # --- PPTX ---
         if ext == 'pptx':
             from pptx import Presentation
@@ -426,8 +442,11 @@ async def _process_single_chat_upload(
     # separate from agent-generated files (generated/) and the instruction docs
     # (AGENTS.md / CLAUDE.md at the root). The agent's filesystem tools are
     # scoped to the workspace root, so it can still read uploads.
+    # 老格式 .doc/.ppt/.xls 也必须在名单里:客户发来的职务说明书 10 份里有 6 份是老 .doc,
+    # 只认 .docx 的后果是文件进了库、却**没进 agent 的工作区** ——
+    # agent 说"upload/ 里还是空的",用户以为上传失败,实际是没复制过去。
     sandbox_exts = (
-        '.csv', '.pdf', '.docx', '.pptx', '.md', '.txt', '.json', '.py',
+        '.csv', '.pdf', '.docx', '.doc', '.pptx', '.ppt', '.md', '.txt', '.json', '.py',
         '.js', '.ts', '.tsx', '.jsx',
         # Spreadsheets: a workbook is a data source like a CSV, so it has to reach
         # the agent workspace too — otherwise the upload lands in project storage
@@ -486,8 +505,10 @@ async def _process_single_chat_upload(
     db.refresh(doc)
 
     # Extract text and inject as session message
+    # .doc/.ppt/.xls 也抽:转换链在 services/legacy_doc.py(一份实现,三处共用)
     extractable_exts = {'.pdf', '.md', '.txt', '.json', '.py', '.js', '.ts', '.tsx', '.jsx', '.csv',
-                        '.docx', '.pptx', '.yaml', '.yml', '.xml', '.html', '.htm', '.css', '.scss',
+                        '.docx', '.doc', '.pptx', '.ppt', '.yaml', '.yml', '.xml', '.html', '.htm',
+                        '.css', '.scss',
                         '.sql', '.sh', '.bash', '.rb', '.go', '.rs', '.java', '.c', '.cpp', '.h', '.hpp',
                         '.rtf', '.tex', '.toml', '.ini', '.cfg', '.conf', '.log'}
     if file_ext.startswith('.'):

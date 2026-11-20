@@ -34,7 +34,22 @@ from _seedpaths import BACKEND, REPO  # noqa: E402,F401
 BASE = os.environ.get("LANGCONFIG_BASE", "http://127.0.0.1:8765").rstrip("/")
 PROJECT_ID = int(os.environ.get("LANGCONFIG_PROJECT_ID") or 1)
 
-TOOLS = ["bash", "read_file", "write_file", "edit_file", "list_files", "glob", "grep", "skill"]
+# `read_any_file` 是平台已有的统一读取器(文本/图片 OCR/PDF 逐页/Office/压缩包),
+# 老 .doc 也走它。客户发来的职务说明书 10 份里有 6 份是老 .doc ——
+# 不绑它,agent 就只能靠 bash 自己找转换器,而它没有。
+# 读文件只留 read_any_file。read_file 有两个来源,两个都要去掉才算真的去掉:
+#   · 我们配置里的 read_file → 从这份列表删掉
+#   · SDK FilesystemMiddleware 的 read_file → 由 services/harness_profiles.py 隐藏
+#     (它藏的理由是图片 base64 会把上下文撑爆;read_any_file 只回文本,不会)
+# 为什么不留 read_file 兜底:两个同名工具同时在场时,模型看到的是 SDK 那个
+# (日志实测:description 是 SDK 的「MULTI-FORMAT」版),我们的 offset/limit 白配。
+TOOLS = ["bash", "read_any_file", "write_file", "edit_file",
+         "list_files", "glob", "grep", "skill"]
+
+# 「交付前回检」是一个**工具**,不是一句提醒:工具在列表里,模型才看得见、才能被门禁盯住。
+# 它和 CLI(`python -m scripts.talent.verify_jd_report --jd X`)共用同一份实现,
+# 所以工具里跑一次、命令行跑一次,结果必须一样。
+VERIFY = "talent_verify_jd_report"
 
 _HEAD = f"""你是招聘流水线里的一个环节,只为**你自己的那一步**负责。
 
@@ -221,7 +236,7 @@ def build(key: str) -> tuple[str, str, dict]:
         "max_tokens": 8192,
         "reasoning_effort": "low",
         "system_prompt": prompt,
-        "native_tools": TOOLS,
+        "native_tools": TOOLS + ([VERIFY] if key in ("1", "2") else []),
         "skills": [a["skill"]],
         "use_deepagents": True,
         "use_local_sandbox": True,

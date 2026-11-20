@@ -91,3 +91,38 @@ env -u PGPORT .venv/bin/python -m scripts.talent.check_component_catalog
 - 不要用常识替客户补字段
 - 不要给 HR 要求编一个客户原话
 - 不要因为"这条暂时判不了"就把它从定稿里删掉（判不了要留，并写明卡在哪）
+
+## 交付前回检（**不许跳**）
+
+写结论之前,把**打算写进报告**的每个数字现场重算一遍,并把命令贴出来。
+
+```bash
+cd <repo>/backend && set -a && source ../.env; set +a
+env -u PGPORT .venv/bin/python -m scripts.talent.render_jd_final --jd <JD>
+env -u PGPORT .venv/bin/python -m scripts.talent.jd_input_form  --jd <JD>
+env -u PGPORT .venv/bin/python -m scripts.talent.verify_jd_report --jd <JD>
+env -u PGPORT .venv/bin/python -m scripts.talent.check_component_catalog
+```
+四条都要跑。`verify_jd_report` 报的每一行,都要和你要写进报告的数字一致。
+
+### 为什么必须跑
+
+我交过一份报告,里面真话和假话同时存在:
+门禁 161 checks 全绿(真)、HermiT 影响面 114→108→99(真),
+但「`_source` 7 行」(实际 48)、「有一行含『主导内审』」(这份 JD 没有)、
+「excluded 是抬头标题」(实际是 IATF16949)—— **三句假话**。
+
+它们有同一个来源:**从记忆里写**,而记忆来自另一份 JD 或上一轮。
+所以规矩是:**每个数字现场重算,每句"原文有 X"现场 grep。记忆不算证据。**
+
+### 三条自查
+
+1. 这个数字我是刚跑出来的,还是记得的?—— 记得的一律重跑
+2. 这句话我能指出在文件的哪个位置吗?—— 指不出就是没读
+3. 我是不是把**别处**的内容混进来了?—— 报告里的每一句,都要能在**这一份**产物里找到
+
+### 两条"看着像绿的红"
+
+- **门禁没有汇总行 = 没跑完,不算通过。** 一处 YAML 写坏会让门禁中断,
+  而它前面的 PASS 已经打印了 —— `tail` 看着完全正常。只认 `N checks · M failed` 那一行。
+- **写完不等于写对。** `write_file` 成功之后必须重跑校验,不能凭"它没报错"。

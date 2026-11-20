@@ -416,10 +416,21 @@ def main() -> int:
     if lib_path.is_file():
         lib = yaml.safe_load(lib_path.read_text(encoding="utf-8")) or {}
         check_library(lib, cat)
-        check_links(cat, lib, pathlib.Path(args.links) if args.links else None)
+        try:
+            check_links(cat, lib, pathlib.Path(args.links) if args.links else None)
+        except Exception as exc:
+            # 一处 YAML 写坏(实测:跨行纯量里含「冒号+空格」→ ScannerError)会让整个
+            # 引用门禁**中断**,而它前面的 PASS 已经打印了。汇总行不出现时 tail 看着
+            # 完全正常。所以异常必须折成红,并把"哪一门没跑完"说出来。
+            check_true("引用门禁跑完了(中途崩溃 = 红,不是通过)",
+                       False, f"{type(exc).__name__}: {exc}")
     else:
         not_run("要求库门禁", f"找不到 {lib_path}")
 
+    # 「看不到汇总行就不算绿」—— 这句话要由脚本自己保证:一组检查都没产出结果时,
+    # 说绿是撒谎。NOT RUN 不算失败,但「零检查」一定是错的。
+    if CHECKS == 0:
+        check_true("门禁至少跑了一项检查", False, "零检查 = 什么都没验")
     print(f"\n{CHECKS} checks · {FAILS} failed · {'green' if OK else 'RED'}")
     return 0 if OK else 1
 

@@ -131,6 +131,8 @@ SEEDABLE_TOOL_META = {
     "db_verify_against_file": ("DB - Verify against Excel/CSV", "database", None),
     "db_dashboard": ("DB - Interactive dashboard (plan, then confirm)", "database", None),
     "db_rename_column": ("DB - Rename a misnamed column (plan, then confirm)", "database", None),
+    # 招聘流水线:交付前回检(只读,把 JD 的事实重算一遍并与报告对账)
+    "talent_verify_jd_report": ("Talent - Verify JD Report (交付前回检)", "database", None),
     "sqlite_execute": ("SQLite Execute", "data", None),
     "sqlite_load_csv": ("SQLite Load CSV", "data", None),
     "python_execute": ("Python Execute", "data", None),

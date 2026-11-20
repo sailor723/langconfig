@@ -35,6 +35,13 @@ from __future__ import annotations
 from typing import List, Optional
 
 DEFAULT_NATIVE_TOOLS: List[str] = [
+    # reading: `read_any_file` is the ONLY reader a deep agent has, because
+    # services/harness_profiles.py hides the SDK's `read_file` (its image path puts
+    # base64 into a TOOL message — a 1.5 MB PNG became ~1.46M tokens and 400'd).
+    # Leaving it out of this list is what produced 17 agents with no way to read a
+    # file: `ls`/`glob`/`grep` are not readers, and the tool descriptions said
+    # "use read_file" — a pointer to a tool that had been hidden.
+    "read_any_file",
     # reasoning
     "think_tool",
     "reasoning_chain",

@@ -935,6 +935,28 @@ def read_document_node(state: FileReadState) -> FileReadState:
         return _document_error(err, started)
     if not path.is_file():
         return _document_error(f"Error: File not found: {path_str}", started)
+    # 老格式(.doc/.ppt/.xls)先试转换,而不是直接回一句"存成 .docx 再来"。
+    # 客户发来的职务说明书 10 份里有 6 份是老 .doc —— 让用户自己去转格式,
+    # 等于把平台的缺口推给用户;而且转出来的东西还不一定对得上原文。
+    # 转换链只有一份(services/legacy_doc.py),这里只是调用方。
+    if ext in LEGACY_OFFICE_EXTS:
+        from services.legacy_doc import legacy_to_text, unsupported_hint
+        text, _who = legacy_to_text(path)
+        if text.strip():
+            return {
+                "branch": "document",
+                "doc_format": f"{ext.lstrip('.').upper()} (converted to text)",
+                "doc_sheets": 0,
+                "doc_rows": 0,
+                "doc_text": text,
+                "doc_picture_items": [],
+                "doc_skipped_pictures": [],
+                "doc_pictures": 0,
+                "doc_vision_budget": 0,
+                "read_document_ms": int((time.time() - started) * 1000),
+            }
+        return _document_error(unsupported_hint(ext), started)
+
     if ext not in OFFICE_EXTS and ext not in SHEET_EXTS:
         advice = OFFICE_ADVICE.get(ext)
         msg = (f"Error: cannot read '{name}'. {advice}" if advice else

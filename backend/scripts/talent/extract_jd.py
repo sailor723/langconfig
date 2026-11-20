@@ -34,29 +34,14 @@ DOC_CONVERTERS = ("antiword", "catdoc", "textutil")
 
 
 def _doc_text(path: pathlib.Path) -> tuple[str, str]:
-    if shutil.which("antiword"):
-        run = subprocess.run(["antiword", str(path)], capture_output=True, text=True, timeout=120)
-        if run.returncode == 0 and run.stdout.strip():
-            return run.stdout, "antiword"
-    if shutil.which("catdoc"):
-        run = subprocess.run(["catdoc", str(path)], capture_output=True, text=True, timeout=120)
-        if run.returncode == 0 and run.stdout.strip():
-            return run.stdout, "catdoc"
-    if shutil.which("textutil"):
-        run = subprocess.run(["textutil", "-convert", "txt", "-stdout", str(path)],
-                             capture_output=True, text=True, timeout=120)
-        if run.returncode == 0 and run.stdout.strip():
-            return run.stdout, "textutil"
-    for exe in ("libreoffice", "soffice"):
-        if shutil.which(exe):
-            outdir = pathlib.Path(str(path) + ".conv")
-            outdir.mkdir(exist_ok=True)
-            subprocess.run([exe, "--headless", "--convert-to", "txt:Text", "--outdir", str(outdir),
-                            str(path)], capture_output=True, timeout=300)
-            produced = list(outdir.glob("*.txt"))
-            if produced:
-                return produced[0].read_text(encoding="utf-8", errors="replace"), exe
-    return "", "none"
+    """老 .doc 转文本 —— 用 services/legacy_doc.py 那份共享实现。
+
+    这里原来自己写了一份转换链(antiword→catdoc→textutil→LibreOffice)。
+    平台要读文件的地方有三处(聊天上传、read_any_file、本脚本),三份实现的结果是
+    "一处支持、另两处报不支持" —— 用户上传 .doc 后 agent 说找不到,就是这么来的。
+    """
+    from services.legacy_doc import legacy_to_text
+    return legacy_to_text(path)
 
 
 def _docx_text(path: pathlib.Path) -> tuple[str, str]:
