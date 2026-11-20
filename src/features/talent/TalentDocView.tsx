@@ -55,6 +55,9 @@ export default function TalentDocView() {
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // 这三个是给"空白"用的:界面空着时,得能看出是"还在加载"、"请求失败"、还是"真没有数据"。
+  // 否则只能靠猜,而我已经猜过一轮了。
+  const [loadingList, setLoadingList] = useState(true);
 
   const agent = useAgentTurn(TALENT_AGENT_ID, projectId);
   const [question, setQuestion] = useState('');
@@ -64,12 +67,22 @@ export default function TalentDocView() {
 
   // ── 载入 JD 清单 ──
   useEffect(() => {
+    setLoadingList(true);
     listTalentDocs()
       .then((d) => {
         setJds(d.jds || []);
+        setError(null);
         if (!jd && d.jds?.length) setJd(d.jds[0].jd);
+        // eslint-disable-next-line no-console
+        console.info('[talent] /api/talent/docs →', d.jds?.length, '份 JD');
       })
-      .catch((e) => setError(String(e.message || e)));
+      .catch((e) => {
+        const msg = String((e as Error)?.message || e);
+        setError(`读取 JD 清单失败:${msg}`);
+        // eslint-disable-next-line no-console
+        console.error('[talent] /api/talent/docs 失败', e);
+      })
+      .finally(() => setLoadingList(false));
     // 只在挂载时拉一次;jd 由用户切换
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -194,7 +207,14 @@ export default function TalentDocView() {
               : `未通过 · ${validation.gate.summary || '门禁没有汇总行(未跑完)'}`}
           </span>
         )}
-        {error && <span style={{ fontSize: 11, color: '#e5484d' }}>{error}</span>}
+        <span style={{ fontSize: 11, color: t.textMuted, marginLeft: 'auto' }}>
+          {loadingList ? '正在读取 JD 清单…'
+            : error ? ''
+            : `${jds.length} 份 JD` + (doc ? ` · 已打开 ${doc.path.split('/').pop()}` : ' · 未选文件')}
+        </span>
+        {error && (
+          <span style={{ fontSize: 12, color: '#e5484d', fontWeight: 600 }}>{error}</span>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: 8, flex: 1, minHeight: 0 }}>
@@ -224,7 +244,15 @@ export default function TalentDocView() {
                 </button>
               );
             })}
-            {current && current.files.every((f) => !f.exists) && (
+            {loadingList && (
+              <div style={{ fontSize: 11, color: t.textMuted, padding: 8 }}>正在读取…</div>
+            )}
+            {!loadingList && !error && jds.length === 0 && (
+              <div style={{ fontSize: 11, color: '#e5484d', padding: 8 }}>
+                接口返回了 0 份 JD。work/talent/jd_links/ 下应该有 10 个 .yaml。
+              </div>
+            )}
+            {!loadingList && current && current.files.every((f) => !f.exists) && (
               <div style={{ fontSize: 11, color: t.textMuted, padding: 8 }}>
                 这份 JD 还没有任何产物。
               </div>
