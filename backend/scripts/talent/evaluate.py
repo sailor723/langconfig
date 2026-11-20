@@ -55,6 +55,22 @@ PROP_FIELD = {"A.1": "gender", "A.2": "age", "B.1": "educationRank",
 BASIS_FIELD = {"platform": "yearsPlatform", "stated": "yearsStated", "computed": "yearsComputed"}
 TRUSTED = {"stated", "inferred", "computed"}
 
+#: 目录里标了 `detectable: false` 的组件:原文要求了,但我们目前检不出来。
+#: 它们**不进判定的分母**,只在理由里如实标出。目前只有 skill_5WHY。
+UNDETECTABLE: set[str] = set()
+
+
+def load_undetectable() -> set[str]:
+    cat = yaml.safe_load(CATALOG.read_text(encoding="utf-8"))
+    return {c["id"] for c in cat.get("components") or [] if c.get("detectable") is False}
+
+
+def split_detectable(resolved: list[str]) -> tuple[list[str], list[str]]:
+    """(能判的组件, 要求了但检不出的组件)。两处消费者共用这一个切分。"""
+    live = [x for x in resolved if x not in UNDETECTABLE]
+    blind = [x for x in resolved if x in UNDETECTABLE]
+    return live, blind
+
 
 def load_candidates() -> list[dict]:
     """供给侧从 abox.ttl 读 —— 那才是唯一真源,不是 PG。"""
@@ -283,6 +299,8 @@ def main() -> int:
     ap.add_argument("--interview", action="store_true", help="把一面记录并进判定")
     args = ap.parse_args()
 
+    global UNDETECTABLE
+    UNDETECTABLE = load_undetectable()
     catalog = yaml.safe_load(CATALOG.read_text(encoding="utf-8"))
     library = yaml.safe_load(LIBRARY.read_text(encoding="utf-8"))
     link = yaml.safe_load((LINKS / f"{args.jd}.yaml").read_text(encoding="utf-8"))
@@ -322,7 +340,10 @@ def main() -> int:
             if not req.get("assessable"):
                 state, why = "不可判", ("E 维无组件" if req.get("no_component") else "属性未建")
             elif req.get("_resolved"):
-                state, why = judge_component(cand["components"], req["_resolved"])
+                live, blind = split_detectable(req["_resolved"])
+                state, why = judge_component(cand["components"], live)
+                if blind:
+                    why += f"（另有 {len(blind)} 项原文要求但当前检不出:{'、'.join(blind)}）"
             elif req.get("attribute"):
                 state, why = judge_attribute(atts[req["attribute"]], req, c, cand, args.year_basis)
             else:

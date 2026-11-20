@@ -1,710 +1,923 @@
-# component_catalog.yaml —— 组件目录(唯一的能力全集)
-#
-# 这份文件不是任何一份 JD 的要求清单,也不是任何一个人的简历摘要。
-# 它是一份**受控词表**:这个行业里"可以被要求、也可以被具备"的东西,全集在这里;
-# JD 和简历各自只是它的一个**子集投影**。
-#
-#        组件目录（本文件）
-#         ▲              ▲
-#    JD 链接它的子集   简历链接它的子集
-#    (一份 JD 连 2~11 个)   (一个人通常连 10~30 个,而且远不全)
-#
-# 为什么要有它(而不是继续用 JD 里的自由文本):
-#   之前同一件事被写了三遍 —— reasoning.ttl 的公理、requirement 表、abox.ttl 的 role 个体
-#   —— 于是公理判 204 人、闸门判 299 人、交集 38 人(一致率 13%)。
-#   根因不是算法,是**同一个组件没有唯一 ID**。这份目录提供那个 ID。
-#
-# 四条已定的规矩(R1–R4 见 rules:)决定了本文件的形状。
-#
-# 校验:backend/scripts/talent/check_component_catalog.py
-# 口径来源:`jd_schema.yaml` 的维度骨架 + `skill` 表的实测词表 + 各 JD 的逐字原文。
-# 所有 coverage 数字都是 2026-11-19 在 277 份简历上实测的,不是估计。
-
 version: 1
 scope: 东莞 · 线束/连接器制造业 · 10 份职务说明书 × 277 份简历
 measured: 2026-11-19
-
-# ══════════════════════════════════════════════════════════════════════════
-# 规矩(四条,已确认)
-# ══════════════════════════════════════════════════════════════════════════
 rules:
-
   R1_独立:
     内容: 组件目录独立于任何一份 JD,不隶属供需任一方。
     为什么: 它的名字里不该有"template" —— 它不属于哪份文件,它是全集。
     落地: 本文件的 components 段里**没有** `jd` 字段。JD 引用组件时才写出处。
-
   R2_三层:
     内容: 维度 → 中间层 → 组件。中间层在 D 维度叫"类别",其余维度叫"属性"。
     为什么: 技能有几千个,必须有领域分组才找得到;学历只有 5 档,不需要再分组。
     落地: D 用 `categories`(22 个);A/B/C/E/F/G/H/I 用 `attributes`(22 个)。
-
   R3_基数:
-    内容: "每个中间层元件必须标 `cardinality: single | set`。"
-    为什么: |
-      一个人**恰好有一个**学历 → JD 说阈值(≥大专),比较需要顺序。
+    内容: '每个中间层元件必须标 `cardinality: single | set`。'
+    为什么: '一个人**恰好有一个**学历 → JD 说阈值(≥大专),比较需要顺序。
+
       一个人**可能有多个**技能 → JD 说子集(要 Excel 和 Word),比较是找边。
+
       两者混成一套,`≥` 就永远表达不出来(实测教训:把年限/学历当成员判定时,
+
       三者齐备的人只有 1/277,合格人数从 55 塌到 1)。
+
+      '
     落地: single 必须给 `scale` 或 `values`;set 必须给 `prop`。
-
   R4_出处:
-    内容: |
-      组件本身**不需要**出处 —— 全集是"这个行业有什么",不依赖某份 JD。
+    内容: '组件本身**不需要**出处 —— 全集是"这个行业有什么",不依赖某份 JD。
+
       但**每一次 JD 对组件的引用,必须给逐字原文**。
-    为什么: |
-      老规矩("没有 JD 出处的行不许进表")把它用在了错误的层级上:它该约束的是
+
+      '
+    为什么: '老规矩("没有 JD 出处的行不许进表")把它用在了错误的层级上:它该约束的是
+
       **引用**,不是**词表**。约束词表会让词表永远只有 53 个词,因为只有被抽出来的才准进。
-    落地: "`components[*].evidence` 可选;JD 侧引用一律带 `verbatim`(见 validation: C-G3)。"
 
-# ══════════════════════════════════════════════════════════════════════════
-# 维度(9 个,封闭)
-# ══════════════════════════════════════════════════════════════════════════
-# count = 10 份 JD 里该维度的原子要求条数(合计 95)。它描述"需求侧现在用了多少",
-# 不是"这个维度该有多少组件" —— 后者才是本文件要给的。
+      '
+    落地: '`components[*].evidence` 可选;JD 侧引用一律带 `verbatim`(见 validation: C-G3)。'
 dimensions:
-
-  - {id: A, label: 人口属性,     cardinality_mix: single,       count: 8,  jds: 5,  standard_ref: null,
-     note: "★ 本地扩展:LinkedIn 与 HR-XML 都没有 gender/age 字段。依据是客户 JD,不是标准。"}
-  - {id: B, label: 教育,         cardinality_mix: single,       count: 17, jds: 10, standard_ref: "HR Open Standards EducationRequirement"}
-  - {id: C, label: 经历,         cardinality_mix: single,       count: 13, jds: 9,  standard_ref: "O*NET Job Zone / Work Experience"}
-  - {id: D, label: 技能,         cardinality_mix: set,          count: 28, jds: 10, standard_ref: "ESCO essential/optional · O*NET Tools & Technology",
-     note: "唯一 10/10 全员必有、且供给侧已有数据的维度。中间层用 categories。"}
-  - {id: E, label: 素质能力,     cardinality_mix: set,          count: 24, jds: 9,  standard_ref: "HR Open Standards Competency · O*NET Abilities",
-     note: "占全部要求 25%,且结构性不可从简历判定。它会在图里形成一个连不到供给侧的孤立子图 —— 那是事实,不是缺陷。"}
-  - {id: F, label: 资质证书,     cardinality_mix: set,          count: 1,  jds: 1,  standard_ref: "人社部《国家职业技能标准》/ O*NET Credentials"}
-  - {id: G, label: 合规约束,     cardinality_mix: set,          count: 3,  jds: 3,  standard_ref: "ISO/TC 260 / 公司章程"}
-  - {id: H, label: 语言,         cardinality_mix: set,          count: 1,  jds: 1,  standard_ref: "HR Open Standards Language / CEFR",
-     note: "从 D 拆出来:「会英语」与「能独立写英文8D报告」是两个判定。"}
-  - {id: I, label: 身体条件,     cardinality_mix: single,       count: 0,  jds: 0,  standard_ref: "HR Open Standards PhysicalRequirement",
-     note: "当前 0 条,但制造业厂区(噪音/粉尘/站立)迟早出现。先留位,避免以后新开维度。"}
-
-# ══════════════════════════════════════════════════════════════════════════
-# 中间层 · 属性(22 个)—— A/B/C/E/F/G/H/I 用这一层
-# ══════════════════════════════════════════════════════════════════════════
-# 字段:
-#   cardinality  single | set                     (R3)
-#   scale        nominal | ordinal | interval     (single 才需要;决定 ≥ 怎么算)
-#   values       可枚举时给出全部取值 + 实测人数
-#   prop         供给侧属性名;prop_exists=false 表示**属性还不存在**,不是"没人有"
-#   cv_coverage  实测:277 份简历里有多少份读到了这个值(没有就是 0,不是缺数据)
+- id: A
+  label: 人口属性
+  cardinality_mix: single
+  count: 8
+  jds: 5
+  standard_ref: null
+  note: ★ 本地扩展:LinkedIn 与 HR-XML 都没有 gender/age 字段。依据是客户 JD,不是标准。
+- id: B
+  label: 教育
+  cardinality_mix: single
+  count: 17
+  jds: 10
+  standard_ref: HR Open Standards EducationRequirement
+- id: C
+  label: 经历
+  cardinality_mix: single
+  count: 13
+  jds: 9
+  standard_ref: O*NET Job Zone / Work Experience
+- id: D
+  label: 技能
+  cardinality_mix: set
+  count: 28
+  jds: 10
+  standard_ref: ESCO essential/optional · O*NET Tools & Technology
+  note: 唯一 10/10 全员必有、且供给侧已有数据的维度。中间层用 categories。
+- id: E
+  label: 素质能力
+  cardinality_mix: set
+  count: 24
+  jds: 9
+  standard_ref: HR Open Standards Competency · O*NET Abilities
+  note: 占全部要求 25%,且结构性不可从简历判定。它会在图里形成一个连不到供给侧的孤立子图 —— 那是事实,不是缺陷。
+- id: F
+  label: 资质证书
+  cardinality_mix: set
+  count: 1
+  jds: 1
+  standard_ref: 人社部《国家职业技能标准》/ O*NET Credentials
+- id: G
+  label: 合规约束
+  cardinality_mix: set
+  count: 3
+  jds: 3
+  standard_ref: ISO/TC 260 / 公司章程
+- id: H
+  label: 语言
+  cardinality_mix: set
+  count: 1
+  jds: 1
+  standard_ref: HR Open Standards Language / CEFR
+  note: 从 D 拆出来:「会英语」与「能独立写英文8D报告」是两个判定。
+- id: I
+  label: 身体条件
+  cardinality_mix: single
+  count: 0
+  jds: 0
+  standard_ref: HR Open Standards PhysicalRequirement
+  note: 当前 0 条,但制造业厂区(噪音/粉尘/站立)迟早出现。先留位,避免以后新开维度。
 attributes:
+- id: A.1
+  dimension: A
+  label: 性别
+  cardinality: single
+  scale: nominal
+  values:
+  - code: 男
+    cv_count: 0
+  - code: 女
+    cv_count: 0
+  prop: gender
+  prop_exists: true
+  cv_coverage: 0
+  note_after_llm: LLM 抽出 176/270 人的性别(引文逐字可查)。属性由此建立 —— 之前 prop_exists=false 是因为没有抽取手段,不是因为这件事不该做。
+  standard_ref: null
+  note: '★ 保留并执行,不是删除。JD 原文「基本要求:女性」逐字可查。
 
-  # ── A 人口属性 ──────────────────────────────────────────────────────────
-  - id: A.1
-    dimension: A
-    label: 性别
-    cardinality: single
-    scale: nominal
-    values: [{code: 男, cv_count: 0}, {code: 女, cv_count: 0}]
-    prop: gender
-    prop_exists: true
-    cv_coverage: 0
-    note_after_llm: "LLM 抽出 176/270 人的性别(引文逐字可查)。属性由此建立 —— 之前 prop_exists=false 是因为没有抽取手段,不是因为这件事不该做。"
-    standard_ref: null
-    note: |
-      ★ 保留并执行,不是删除。JD 原文「基本要求:女性」逐字可查。
-      现状是**属性未建**,所以它对任何分数/图的贡献都是 0 —— 这与"被剔除"是两件事。
-      恢复路径 = 建属性 + 回填,不是改要求。
+    现状是**属性未建**,所以它对任何分数/图的贡献都是 0 —— 这与"被剔除"是两件事。
 
-  - id: A.2
-    dimension: A
-    label: 年龄
-    cardinality: single
-    scale: interval
-    unit: 岁
-    values: null
-    prop: age
-    prop_exists: true
-    cv_coverage: 107
-    standard_ref: null
-    note: "107/277。JD 侧只有一条区间要求「25-38岁」/「25-40岁」。"
+    恢复路径 = 建属性 + 回填,不是改要求。
 
-  # ── B 教育 ──────────────────────────────────────────────────────────────
-  # ── 以下三项为 HR 视角的要求而建(2026-11-20)──
-  # 为什么放 A 维:它们和「性别/年龄」一样是**入职的基本条件**,不是能力。
-  - id: A.3
-    dimension: A
-    label: 到岗时长
-    cardinality: single
-    scale: interval
-    unit: 周
-    values: null
-    prop: notice_weeks
-    prop_exists: true
-    cv_coverage: 9
-    standard_ref: null
-    note: |
-      单位:周。「随时」记 0 周。
-      实测 270 份里只有 9 份(3%)写得出来 —— 简历普遍只写「一个月」甚至不写。
-      **所以这一项基本只能一面问**,CV 只当锦上添花。
-      算法见 scripts/talent/derive_hr_facts.py。
+    '
+- id: A.2
+  dimension: A
+  label: 年龄
+  cardinality: single
+  scale: interval
+  unit: 岁
+  values: null
+  prop: age
+  prop_exists: true
+  cv_coverage: 107
+  standard_ref: null
+  note: 107/277。JD 侧只有一条区间要求「25-38岁」/「25-40岁」。
+- id: A.3
+  dimension: A
+  label: 到岗时长
+  cardinality: single
+  scale: interval
+  unit: 周
+  values: null
+  prop: notice_weeks
+  prop_exists: true
+  cv_coverage: 9
+  standard_ref: null
+  note: '单位:周。「随时」记 0 周。
 
-  - id: A.4
-    dimension: A
-    label: 通勤意愿
-    cardinality: single
-    scale: nominal
-    values: [{code: true, cv_count: 0}, {code: false, cv_count: 0}]
-    prop: commute_ok
-    prop_exists: true
-    cv_coverage: 0
-    standard_ref: null
-    note: |
-      能不能接受这个上班地点。CV 里写的是「住石排镇」这类自由文本 ——
-      **算不出距离,所以不做距离判定,只做是非题**,由一面直接问。
-      cv_coverage=0 是实测:CV 侧没有任何可计算的来源。
+    实测 270 份里只有 9 份(3%)写得出来 —— 简历普遍只写「一个月」甚至不写。
 
-  - id: A.5
-    dimension: A
-    label: 薪资预期
-    cardinality: single
-    scale: interval
-    unit: K/月
-    values: null
-    prop: salary_max_k
-    prop_exists: true
-    cv_coverage: 160
-    standard_ref: "HR Open Standards RemunerationRequest"
-    note: |
-      单位:K/月,取期望区间上限。160/277 来自招聘平台归档,**不是简历自述** ——
-      简历里的「薪资待遇:20000-29999元」与平台归档不一定一致。
-      只能拿它跟岗位预算上限比,不能当成"他已经接受了多少"。
+    **所以这一项基本只能一面问**,CV 只当锦上添花。
 
-  - id: B.1
-    dimension: B
-    label: 学历
-    cardinality: single
-    scale: ordinal
-    values:
-      - {code: 2, label: 中专/高中, cv_count: 37}
-      - {code: 3, label: 大专,     cv_count: 84}
-      - {code: 4, label: 本科,     cv_count: 74}
-      - {code: 5, label: 硕士,     cv_count: 9}
-      - {code: 6, label: 博士,     cv_count: 2}
-    prop: education_rank
-    prop_exists: true
-    cv_coverage: 206
-    standard_ref: "HR Open Standards EducationRequirement"
-    note: "206/277 有值,71 份没读到。ordinal 所以 ≥ 可算 —— 这是唯一能干净表达阈值的属性。"
+    算法见 scripts/talent/derive_hr_facts.py。
 
-  - id: B.2
-    dimension: B
-    label: 专业
-    cardinality: single
-    scale: nominal
-    values: null
-    prop: major
-    prop_exists: true
-    cv_coverage: 0
-    note_after_llm: "LLM 抽出 201/270 人的专业(引文逐字可查)。这是 B 维 ROI 最高的一项,现在有了。"
-    standard_ref: "HR Open Standards EducationRequirement.major"
-    note: "★ 补一个属性可解锁 6 条要求,是 B 维性价比最高的一项。"
+    '
+- id: A.4
+  dimension: A
+  label: 通勤意愿
+  cardinality: single
+  scale: nominal
+  values:
+  - code: true
+    cv_count: 0
+  - code: false
+    cv_count: 0
+  prop: commute_ok
+  prop_exists: true
+  cv_coverage: 0
+  standard_ref: null
+  note: '能不能接受这个上班地点。CV 里写的是「住石排镇」这类自由文本 ——
 
-  - id: B.3
-    dimension: B
-    label: 全日制
-    cardinality: single
-    scale: nominal
-    values: [{code: true, cv_count: 0}, {code: false, cv_count: 0}]
-    prop: full_time
-    prop_exists: true
-    cv_coverage: 0
-    note_after_llm: 'LLM 抽出 43/270 人的全日制。数量少 —— 多数简历不写,所以它将长期是"多数未知"的字段。'
-    standard_ref: null
-    note: "标准里没有,本地扩展。副总助理 JD 有「全日制大专」以及一条隐含的同义要求。"
+    **算不出距离,所以不做距离判定,只做是非题**,由一面直接问。
 
-  - id: B.4
-    dimension: B
-    label: 院校层次
-    cardinality: single
-    scale: ordinal
-    values: null
-    prop: school_tier
-    prop_exists: false
-    cv_coverage: 0
-    standard_ref: null
-    note: "10 份 JD 均未要求,预留。"
+    cv_coverage=0 是实测:CV 侧没有任何可计算的来源。
 
-  # ── C 经历 ──────────────────────────────────────────────────────────────
-  - id: C.1
-    dimension: C
-    label: 总年限(声明)
-    cardinality: single
-    scale: interval
-    unit: 年
-    values: null
-    prop: years_stated
-    prop_exists: true
-    cv_coverage: 118
-    basis_note: |
-      **三个来源,严格度不同**(实测 270 人):
-        ① 平台文件名「10年以上」  派生值,被截断 —— 277 人都有,但 10 是上限不是真值
-        ② 简历头部「15年」        候选人自述 —— 118 人,精确但无人核对
-        ③ 工作经历逐段累加        唯一**可重算**的 —— 54 人,需要逐段抽取 + 重叠/空档规则
-      本属性 = ②(声明值)。③ 另立 C.6。① 保留在 ABox 现有 years_experience 里不动。
-      为什么不合成一个:10 和 23 不是同一个量。合成会让"一致率 31%"看起来像 69% 的错误率,
-      然后有人会去"修"它,把对的改成错的。
-    standard_ref: "O*NET Job Zone"
-    note: |
-      148/277,129 份没读到。实测分布:1年16 · 2年10 · 3年10 · 4年15 · 5年13 · 6年7
-      · 7年8 · 8年7 · 9年7 · 10年52 · 15年3。
+    '
+- id: A.5
+  dimension: A
+  label: 薪资预期
+  cardinality: single
+  scale: interval
+  unit: K/月
+  values: null
+  prop: salary_max_k
+  prop_exists: true
+  cv_coverage: 160
+  standard_ref: HR Open Standards RemunerationRequest
+  note: '单位:K/月,取期望区间上限。160/277 来自招聘平台归档,**不是简历自述** ——
 
-  - id: C.2
-    dimension: C
-    label: 职能域
-    cardinality: set
-    scale: nominal
-    values: null
-    prop: domain
-    prop_exists: false
-    cv_coverage: 0
-    standard_ref: "O*NET Work Context"
-    note: "文职类/助理类/管理类/品质管理/订单跟单。JD 常写「2年以上文职/助理/管理类工厂经验」——一条要求同时约束年限与领域。"
+    简历里的「薪资待遇:20000-29999元」与平台归档不一定一致。
 
-  - id: C.3
-    dimension: C
-    label: 行业
-    cardinality: set
-    scale: nominal
-    values: null
-    prop: industry
-    prop_exists: false
-    cv_coverage: 0
-    standard_ref: "O*NET Industry"
-    note: "制造业/线束行业/连接器/同行业。"
+    只能拿它跟岗位预算上限比,不能当成"他已经接受了多少"。
 
-  - id: C.4
-    dimension: C
-    label: 在岗时长(均值)
-    cardinality: single
-    scale: interval
-    unit: 年
-    values: null
-    prop: avg_tenure_years
-    prop_exists: true
-    cv_coverage: 243
-    standard_ref: null
-    note: |
-      **算法**:从「工作经历」切出的每段起止,按月相减,取均值。
-      「至今」按 REF=2026-11 算(这是决定,换 REF 会改变所有人的值)。
-      243/270(90%)可算;切不出起止的 27 份留空,**不填 0** —— 填 0 等于判人零在职。
+    '
+- id: B.1
+  dimension: B
+  label: 学历
+  cardinality: single
+  scale: ordinal
+  values:
+  - code: 2
+    label: 中专/高中
+    cv_count: 37
+  - code: 3
+    label: 大专
+    cv_count: 84
+  - code: 4
+    label: 本科
+    cv_count: 74
+  - code: 5
+    label: 硕士
+    cv_count: 9
+  - code: 6
+    label: 博士
+    cv_count: 2
+  prop: education_rank
+  prop_exists: true
+  cv_coverage: 206
+  standard_ref: HR Open Standards EducationRequirement
+  note: 206/277 有值,71 份没读到。ordinal 所以 ≥ 可算 —— 这是唯一能干净表达阈值的属性。
+- id: B.2
+  dimension: B
+  label: 专业
+  cardinality: single
+  scale: nominal
+  values: null
+  prop: major
+  prop_exists: true
+  cv_coverage: 0
+  note_after_llm: LLM 抽出 201/270 人的专业(引文逐字可查)。这是 B 维 ROI 最高的一项,现在有了。
+  standard_ref: HR Open Standards EducationRequirement.major
+  note: ★ 补一个属性可解锁 6 条要求,是 B 维性价比最高的一项。
+- id: B.3
+  dimension: B
+  label: 全日制
+  cardinality: single
+  scale: nominal
+  values:
+  - code: true
+    cv_count: 0
+  - code: false
+    cv_count: 0
+  prop: full_time
+  prop_exists: true
+  cv_coverage: 0
+  note_after_llm: LLM 抽出 43/270 人的全日制。数量少 —— 多数简历不写,所以它将长期是"多数未知"的字段。
+  standard_ref: null
+  note: 标准里没有,本地扩展。副总助理 JD 有「全日制大专」以及一条隐含的同义要求。
+- id: B.4
+  dimension: B
+  label: 院校层次
+  cardinality: single
+  scale: ordinal
+  values: null
+  prop: school_tier
+  prop_exists: false
+  cv_coverage: 0
+  standard_ref: null
+  note: 10 份 JD 均未要求,预留。
+- id: C.1
+  dimension: C
+  label: 总年限(声明)
+  cardinality: single
+  scale: interval
+  unit: 年
+  values: null
+  prop: years_stated
+  prop_exists: true
+  cv_coverage: 118
+  basis_note: "**三个来源,严格度不同**(实测 270 人):\n  ① 平台文件名「10年以上」  派生值,被截断 —— 277 人都有,但 10\
+    \ 是上限不是真值\n  ② 简历头部「15年」        候选人自述 —— 118 人,精确但无人核对\n  ③ 工作经历逐段累加        唯一**可重算**的\
+    \ —— 54 人,需要逐段抽取 + 重叠/空档规则\n本属性 = ②(声明值)。③ 另立 C.6。① 保留在 ABox 现有 years_experience\
+    \ 里不动。\n为什么不合成一个:10 和 23 不是同一个量。合成会让\"一致率 31%\"看起来像 69% 的错误率,\n然后有人会去\"修\"它,把对的改成错的。\n"
+  standard_ref: O*NET Job Zone
+  note: '148/277,129 份没读到。实测分布:1年16 · 2年10 · 3年10 · 4年15 · 5年13 · 6年7
 
-      原来是"最长一段",改成均值:HR 关心"是不是一直在换",最长一段回答不了这个问题
-      (有人一段很长、其余都很短)。算法见 scripts/talent/derive_hr_facts.py。
+    · 7年8 · 8年7 · 9年7 · 10年52 · 15年3。
 
-  - id: C.7
-    dimension: C
-    label: 近 5 年任职段数
-    cardinality: single
-    scale: interval
-    unit: 段
-    values: null
-    prop: recent5y_segments
-    prop_exists: true
-    cv_coverage: 243
-    standard_ref: null
-    note: |
-      **算法**:同一批工作段,只留「结束月 ≥ REF-60」的,数段数。
-      两段之间的空窗期不算段,也不单独成项 —— 简历很少写空窗期,
-      按段数是能算的极限,**不能声称它等于"换过几家公司"**(OCR 缺公司名时更算不准)。
-      实测:1 段 25 人 / 2 段 48 人 / 3 段 49 人;平均在职中位 2.5 年。
+    '
+- id: C.2
+  dimension: C
+  label: 职能域
+  cardinality: set
+  scale: nominal
+  values: null
+  prop: domain
+  prop_exists: false
+  cv_coverage: 0
+  standard_ref: O*NET Work Context
+  note: 文职类/助理类/管理类/品质管理/订单跟单。JD 常写「2年以上文职/助理/管理类工厂经验」——一条要求同时约束年限与领域。
+- id: C.3
+  dimension: C
+  label: 行业
+  cardinality: set
+  scale: nominal
+  values: null
+  prop: industry
+  prop_exists: false
+  cv_coverage: 0
+  standard_ref: O*NET Industry
+  note: 制造业/线束行业/连接器/同行业。
+- id: C.4
+  dimension: C
+  label: 在岗时长(均值)
+  cardinality: single
+  scale: interval
+  unit: 年
+  values: null
+  prop: avg_tenure_years
+  prop_exists: true
+  cv_coverage: 243
+  standard_ref: null
+  note: '**算法**:从「工作经历」切出的每段起止,按月相减,取均值。
 
-  - id: C.5
-    dimension: C
-    label: 活动经验
-    cardinality: set
-    scale: nominal
-    values: null
-    prop: activity_experience
-    prop_exists: false
-    cv_coverage: 0
-    standard_ref: "O*NET Work Activities"
-    added: 2026-11-19
-    note: |
-      ★ 本次新增。原 26 个子维度里没有它的位置,于是「具备接待客户验厂经验」这类要求
-      无处安放(它既是活动,又不像技能那样只看会不会)。制造业 JD 里这类很多:
-      验厂、客户接待、参展、稽核、异常处理。
-      现状:其中一部分已被当作技能收进 components(如 skill_客户验厂),先兜住;
-      真正需要区分"有没有做过"时,用本属性。
+    「至今」按 REF=2026-11 算(这是决定,换 REF 会改变所有人的值)。
 
-  - id: C.6
-    dimension: C
-    label: 总年限(逐段累计)
-    cardinality: single
-    scale: interval
-    unit: 年
-    values: null
-    prop: years_computed
-    prop_exists: false
-    cv_coverage: 0
-    added: 2026-11-20
-    note: |
-      唯一**可重算**的年限口径:把所有工作经历的起止区间累加,重叠只算一次,空档不补。
-      为什么现在是 prop_exists=false:要它成立,必须先做一件现在没做的事 ——
-      **逐段抽出所有区间**(而不是像现在这样只引用了某一段),再由门禁验"各段之和 = 总年限"。
-      在此之前,任何"累计年限"都是不可验证的数字(实测:LLM 给的 54 条,引文只支持其中一段)。
-      要求若要按这个口径判,必须在要求上声明 year_basis: computed。
+    243/270(90%)可算;切不出起止的 27 份留空,**不填 0** —— 填 0 等于判人零在职。
 
-  # ── E 素质能力 ──────────────────────────────────────────────────────────
-  - id: E.1
-    dimension: E
-    label: 行为素质
-    cardinality: set
-    scale: nominal
-    values: null
-    prop: null
-    prop_exists: false
-    cv_coverage: 0
-    standard_ref: "HR Open Standards Competency"
-    evidence_method: 面试评分表 / 背景调查
-    note: "沟通、协调、责任心、担当、执行、奋斗精神。结构性不可从简历判定。"
 
-  - id: E.2
-    dimension: E
-    label: 认知能力
-    cardinality: set
-    scale: ordinal
-    values: null
-    prop: null
-    prop_exists: false
-    cv_coverage: 0
-    standard_ref: "O*NET Abilities"
-    evidence_method: 笔试 / 结构化面试
-    note: "逻辑清晰、数据敏感。"
+    原来是"最长一段",改成均值:HR 关心"是不是一直在换",最长一段回答不了这个问题
 
-  - id: E.3
-    dimension: E
-    label: 动机意愿
-    cardinality: set
-    scale: nominal
-    values: null
-    prop: null
-    prop_exists: false
-    cv_coverage: 0
-    standard_ref: "O*NET Work Styles"
-    evidence_method: 面试 / 试用期观察
+    (有人一段很长、其余都很短)。算法见 scripts/talent/derive_hr_facts.py。
 
-  - id: E.4
-    dimension: E
-    label: 知识
-    cardinality: set
-    scale: nominal
-    values: null
-    prop: null
-    prop_exists: false
-    cv_coverage: 0
-    standard_ref: "O*NET Knowledge"
-    evidence_method: 笔试
-    note: "与 D 的区别:知识不要求动手,技能要求能操作。"
+    '
+- id: C.7
+  dimension: C
+  label: 近 5 年任职段数
+  cardinality: single
+  scale: interval
+  unit: 段
+  values: null
+  prop: recent5y_segments
+  prop_exists: true
+  cv_coverage: 243
+  standard_ref: null
+  note: '**算法**:同一批工作段,只留「结束月 ≥ REF-60」的,数段数。
 
-  # ── F 资质证书 ──────────────────────────────────────────────────────────
-  - id: F.1
-    dimension: F
-    label: 执业资格
-    cardinality: set
-    scale: nominal
-    values: null
-    prop: hasCertification
-    prop_exists: false
-    cv_coverage: 0
-    standard_ref: "人社部《国家职业技能标准》"
+    两段之间的空窗期不算段,也不单独成项 —— 简历很少写空窗期,
 
-  - id: F.2
-    dimension: F
-    label: 技能证书
-    cardinality: set
-    scale: nominal
-    values: null
-    prop: hasCertification
-    prop_exists: false
-    cv_coverage: 0
-    standard_ref: "O*NET Credentials"
+    按段数是能算的极限,**不能声称它等于"换过几家公司"**(OCR 缺公司名时更算不准)。
 
-  - id: F.3
-    dimension: F
-    label: 培训考核
-    cardinality: set
-    scale: nominal
-    values: null
-    prop: hasCertification
-    prop_exists: false
-    cv_coverage: 0
-    standard_ref: null
-    note: "关务的「贸易安全合规培训考核」属此类。"
+    实测:1 段 25 人 / 2 段 48 人 / 3 段 49 人;平均在职中位 2.5 年。
 
-  # ── G 合规约束 ──────────────────────────────────────────────────────────
-  - id: G.1
-    dimension: G
-    label: 法律记录
-    cardinality: set
-    scale: nominal
-    values: null
-    prop: hasClearance
-    prop_exists: false
-    cv_coverage: 0
-    standard_ref: "ISO/TC 260"
-    note: "无犯罪、无海关行政处罚 —— 需证明文件,非简历可判。"
+    '
+- id: C.5
+  dimension: C
+  label: 活动经验
+  cardinality: set
+  scale: nominal
+  values: null
+  prop: activity_experience
+  prop_exists: false
+  cv_coverage: 0
+  standard_ref: O*NET Work Activities
+  added: 2026-11-19
+  note: '★ 本次新增。原 26 个子维度里没有它的位置,于是「具备接待客户验厂经验」这类要求
 
-  - id: G.2
-    dimension: G
-    label: 公司制度
-    cardinality: set
-    scale: nominal
-    values: null
-    prop: hasClearance
-    prop_exists: false
-    cv_coverage: 0
-    standard_ref: null
-    note: "保密制度遵守。"
+    无处安放(它既是活动,又不像技能那样只看会不会)。制造业 JD 里这类很多:
 
-  # ── H 语言 ──────────────────────────────────────────────────────────────
-  - id: H.1
-    dimension: H
-    label: 语种
-    cardinality: set
-    scale: nominal
-    values: [{code: 英语, component: skill_英语, cv_count: 99}]
-    prop: language
-    prop_exists: false
-    cv_coverage: 0
-    standard_ref: "HR Open Standards Language"
-    note: "语种现在被当作技能收在 components 里(skill_英语),所以 cv_coverage 记 0 —— 不走本属性。"
+    验厂、客户接待、参展、稽核、异常处理。
 
-  - id: H.2
-    dimension: H
-    label: 熟练度
-    cardinality: single
-    scale: ordinal
-    values:
-      - {code: A1, label: 入门}
-      - {code: A2, label: 基础}
-      - {code: B1, label: 进阶}
-      - {code: B2, label: 高阶}
-      - {code: C1, label: 流利}
-      - {code: C2, label: 精通}
-    prop: language_level
-    prop_exists: false
-    cv_coverage: 0
-    standard_ref: "CEFR"
-    note: "口语与书写应分开。品质经理 JD 要的是「口语熟练」+「能独立写英文8D报告」两件事。"
+    现状:其中一部分已被当作技能收进 components(如 skill_客户验厂),先兜住;
 
-# ══════════════════════════════════════════════════════════════════════════
-# 中间层 · 类别(22 个)—— D 维度用这一层
-# ══════════════════════════════════════════════════════════════════════════
-# 为什么 D 用类别而不是属性:技能是**集合**型(一个人有很多个),需要领域分组才找得到;
-# 而"会不会 Excel"与"会不会 CAD"之间没有顺序关系,所以不需要 scale。
-categories:
+    真正需要区分"有没有做过"时,用本属性。
 
-  - {id: AdminSkill,         label: 行政,         component_count: 1}
-  - {id: BusinessSystem,     label: 业务系统,     component_count: 2}
-  - {id: CAD,                label: 制图软件,     component_count: 6}
-  - {id: CompensationSkill,  label: 薪酬绩效,     component_count: 1}
-  - {id: Compliance,         label: 合规,         component_count: 1}
-  - {id: CustomsSkill,       label: 关务,         component_count: 2}
-  - {id: DesignSoftware,     label: 设计软件,     component_count: 3}
-  - {id: FinanceSkill,       label: 财务,         component_count: 1}
-  - {id: GeneralCapability,  label: 通用能力,     component_count: 6}
-  - {id: HRAdmin,            label: 人事事务,     component_count: 1}
-  - {id: HarnessCraft,       label: 线束工艺,     component_count: 4}
-  - {id: LaborLawKnowledge,  label: 劳动法,       component_count: 1}
-  - {id: LanguageSkill,      label: 语言技能,     component_count: 1}
-  - {id: OfficeSoftware,     label: 办公软件,     component_count: 2}
-  - {id: OperationsSkill,    label: 运营管理,     component_count: 2}
-  - {id: OrderTracking,      label: 订单跟单,     component_count: 1}
-  - {id: QualityMethod,      label: 品质手法,     component_count: 8}
-  - {id: QualitySystem,      label: 品质体系,     component_count: 2}
-  - {id: RecruitingSkill,    label: 招聘,         component_count: 1}
-  - {id: SpreadsheetSoftware,label: 表格软件,     component_count: 1}
-  - {id: TradeSkill,         label: 外贸,         component_count: 1}
-  - {id: WireEquipment,      label: 线束设备,     component_count: 5}
+    '
+- id: C.6
+  dimension: C
+  label: 总年限(逐段累计)
+  cardinality: single
+  scale: interval
+  unit: 年
+  values: null
+  prop: years_computed
+  prop_exists: false
+  cv_coverage: 0
+  added: 2026-11-20
+  note: '唯一**可重算**的年限口径:把所有工作经历的起止区间累加,重叠只算一次,空档不补。
 
-# ══════════════════════════════════════════════════════════════════════════
-# 组件(53 个)—— 供给侧实测认出的全部技能
-# ══════════════════════════════════════════════════════════════════════════
-# cardinality 恒为 set:一个人可能有任意多个技能,一份 JD 也要任意多个。
-# kind 说明这个组件的性质,决定图里怎么用:
-#   product    具体软件/产品名,判定"会不会"
-#   equipment  设备操作,与 product 不同权(会 AutoCAD ≠ 会操作端子机)
-#   capability 能力项,可部分满足
-#   composite  一句话里的复合要求,评分时算一个要求项,内部可部分满足
-#   domain     行业/产品领域知识
-# cv_count = 277 份简历里有多少人具备(实测),用于判断这个词表是否被语料覆盖。
-# children  该组件由哪几项组成(composite / 复合要求才有),顺序为 JD 原文顺序。
-components:
+    为什么现在是 prop_exists=false:要它成立,必须先做一件现在没做的事 ——
 
-  # ── AdminSkill ──
-  - {id: skill_行政,   label: 行政,   category: AdminSkill,        kind: capability, cv_count: 80}
+    **逐段抽出所有区间**(而不是像现在这样只引用了某一段),再由门禁验"各段之和 = 总年限"。
 
-  # ── BusinessSystem ──
-  - {id: skill_ERP,    label: ERP,    category: BusinessSystem,    kind: product,    cv_count: 37}
-  - {id: skill_SAP,    label: SAP,    category: BusinessSystem,    kind: product,    cv_count: 10}
+    在此之前,任何"累计年限"都是不可验证的数字(实测:LLM 给的 54 条,引文只支持其中一段)。
 
-  # ── CAD ──
-  - {id: skill_AutoCAD,   label: AutoCAD,   category: CAD, kind: product, cv_count: 75}
-  - {id: skill_CATIA,     label: CATIA,     category: CAD, kind: product, cv_count: 6}
-  - {id: skill_ProE_Creo, label: ProE/Creo, category: CAD, kind: product, cv_count: 21}
-  - {id: skill_Rhino,     label: Rhino,     category: CAD, kind: product, cv_count: 3}
-  - {id: skill_SolidWorks,label: SolidWorks,category: CAD, kind: product, cv_count: 19}
-  - {id: skill_UG_NX,     label: UG/NX,     category: CAD, kind: product, cv_count: 2}
+    要求若要按这个口径判,必须在要求上声明 year_basis: computed。
 
-  # ── CompensationSkill ──
-  - {id: skill_薪酬绩效, label: 薪酬绩效, category: CompensationSkill, kind: capability, cv_count: 45}
-
-  # ── Compliance ──
-  - {id: skill_贸易安全合规, label: 贸易安全合规, category: Compliance, kind: capability, cv_count: 1}
-
-  # ── CustomsSkill ──
-  - {id: skill_单证, label: 单证, category: CustomsSkill, kind: capability, cv_count: 13}
-  - {id: skill_报关, label: 报关, category: CustomsSkill, kind: capability, cv_count: 26}
-
-  # ── DesignSoftware ──
-  - {id: skill_CorelDRAW,  label: CorelDRAW,  category: DesignSoftware, kind: product, cv_count: 5}
-  - {id: skill_Illustrator,label: Illustrator,category: DesignSoftware, kind: product, cv_count: 8}
-  - {id: skill_Photoshop,  label: Photoshop,  category: DesignSoftware, kind: product, cv_count: 17}
-
-  # ── FinanceSkill ──
-  - {id: skill_财务, label: 财务, category: FinanceSkill, kind: capability, cv_count: 84}
-
-  # ── GeneralCapability ──
-  - {id: skill_企业文化建设,   label: 企业文化建设,   category: GeneralCapability, kind: capability, cv_count: 37}
-  - {id: skill_体系管理,       label: 体系管理,       category: GeneralCapability, kind: capability, cv_count: 13}
-  - {id: skill_培训课程开发,   label: 培训课程开发,   category: GeneralCapability, kind: capability, cv_count: 15}
-  - {id: skill_数据分析,       label: 数据分析,       category: GeneralCapability, kind: capability, cv_count: 31}
-  - {id: skill_系统规划,       label: 系统规划,       category: GeneralCapability, kind: capability, cv_count: 64}
-  - {id: skill_订单交期风险评估, label: 订单交期风险评估, category: GeneralCapability, kind: capability, cv_count: 41}
-
-  # ── HarnessCraft ──
-  - {id: skill_切片,         label: 切片,         category: HarnessCraft, kind: equipment,  cv_count: 4}
-  - {id: skill_端子,         label: 端子,         category: HarnessCraft, kind: equipment,  cv_count: 39}
-  - {id: skill_线束行业知识, label: 线束行业知识, category: HarnessCraft, kind: domain,     cv_count: 72}
-  - {id: skill_识图,         label: 识图,         category: HarnessCraft, kind: capability, cv_count: 7}
-
-  # ── HRAdmin ──
-  - {id: skill_社保操作, label: 社保操作, category: HRAdmin, kind: capability, cv_count: 24}
-
-  # ── LaborLawKnowledge ──
-  - {id: skill_劳动法, label: 劳动法, category: LaborLawKnowledge, kind: domain, cv_count: 22}
-
-  # ── LanguageSkill ──
-  - id: skill_英语
-    label: 英语
-    category: LanguageSkill
-    kind: capability
+    '
+- id: E.1
+  dimension: E
+  label: 行为素质
+  cardinality: set
+  scale: nominal
+  values: null
+  prop: null
+  prop_exists: false
+  cv_coverage: 0
+  standard_ref: HR Open Standards Competency
+  evidence_method: 面试评分表 / 背景调查
+  note: 沟通、协调、责任心、担当、执行、奋斗精神。结构性不可从简历判定。
+- id: E.2
+  dimension: E
+  label: 认知能力
+  cardinality: set
+  scale: ordinal
+  values: null
+  prop: null
+  prop_exists: false
+  cv_coverage: 0
+  standard_ref: O*NET Abilities
+  evidence_method: 笔试 / 结构化面试
+  note: 逻辑清晰、数据敏感。
+- id: E.3
+  dimension: E
+  label: 动机意愿
+  cardinality: set
+  scale: nominal
+  values: null
+  prop: null
+  prop_exists: false
+  cv_coverage: 0
+  standard_ref: O*NET Work Styles
+  evidence_method: 面试 / 试用期观察
+- id: E.4
+  dimension: E
+  label: 知识
+  cardinality: set
+  scale: nominal
+  values: null
+  prop: null
+  prop_exists: false
+  cv_coverage: 0
+  standard_ref: O*NET Knowledge
+  evidence_method: 笔试
+  note: 与 D 的区别:知识不要求动手,技能要求能操作。
+- id: F.1
+  dimension: F
+  label: 执业资格
+  cardinality: set
+  scale: nominal
+  values: null
+  prop: hasCertification
+  prop_exists: false
+  cv_coverage: 0
+  standard_ref: 人社部《国家职业技能标准》
+- id: F.2
+  dimension: F
+  label: 技能证书
+  cardinality: set
+  scale: nominal
+  values: null
+  prop: hasCertification
+  prop_exists: false
+  cv_coverage: 0
+  standard_ref: O*NET Credentials
+- id: F.3
+  dimension: F
+  label: 培训考核
+  cardinality: set
+  scale: nominal
+  values: null
+  prop: hasCertification
+  prop_exists: false
+  cv_coverage: 0
+  standard_ref: null
+  note: 关务的「贸易安全合规培训考核」属此类。
+- id: G.1
+  dimension: G
+  label: 法律记录
+  cardinality: set
+  scale: nominal
+  values: null
+  prop: hasClearance
+  prop_exists: false
+  cv_coverage: 0
+  standard_ref: ISO/TC 260
+  note: 无犯罪、无海关行政处罚 —— 需证明文件,非简历可判。
+- id: G.2
+  dimension: G
+  label: 公司制度
+  cardinality: set
+  scale: nominal
+  values: null
+  prop: hasClearance
+  prop_exists: false
+  cv_coverage: 0
+  standard_ref: null
+  note: 保密制度遵守。
+- id: H.1
+  dimension: H
+  label: 语种
+  cardinality: set
+  scale: nominal
+  values:
+  - code: 英语
+    component: skill_英语
     cv_count: 99
-    note: H.1 语种与 D 在这里重叠。先作为技能存在;需要区分「口语/书写/熟练度」时走 H.2。
+  prop: language
+  prop_exists: false
+  cv_coverage: 0
+  standard_ref: HR Open Standards Language
+  note: 语种现在被当作技能收在 components 里(skill_英语),所以 cv_coverage 记 0 —— 不走本属性。
+- id: H.2
+  dimension: H
+  label: 熟练度
+  cardinality: single
+  scale: ordinal
+  values:
+  - code: A1
+    label: 入门
+  - code: A2
+    label: 基础
+  - code: B1
+    label: 进阶
+  - code: B2
+    label: 高阶
+  - code: C1
+    label: 流利
+  - code: C2
+    label: 精通
+  prop: language_level
+  prop_exists: false
+  cv_coverage: 0
+  standard_ref: CEFR
+  note: 口语与书写应分开。品质经理 JD 要的是「口语熟练」+「能独立写英文8D报告」两件事。
+categories:
+- id: AdminSkill
+  label: 行政
+  component_count: 1
+- id: BusinessSystem
+  label: 业务系统
+  component_count: 2
+- id: CAD
+  label: 制图软件
+  component_count: 6
+- id: CompensationSkill
+  label: 薪酬绩效
+  component_count: 1
+- id: Compliance
+  label: 合规
+  component_count: 1
+- id: CustomsSkill
+  label: 关务
+  component_count: 2
+- id: DesignSoftware
+  label: 设计软件
+  component_count: 3
+- id: FinanceSkill
+  label: 财务
+  component_count: 1
+- id: GeneralCapability
+  label: 通用能力
+  component_count: 6
+- id: HRAdmin
+  label: 人事事务
+  component_count: 1
+- id: HarnessCraft
+  label: 线束工艺
+  component_count: 4
+- id: LaborLawKnowledge
+  label: 劳动法
+  component_count: 1
+- id: LanguageSkill
+  label: 语言技能
+  component_count: 1
+- id: OfficeSoftware
+  label: 办公软件
+  component_count: 2
+- id: OperationsSkill
+  label: 运营管理
+  component_count: 2
+- id: OrderTracking
+  label: 订单跟单
+  component_count: 1
+- id: QualityMethod
+  label: 品质手法
+  component_count: 9
+- id: QualitySystem
+  label: 品质体系
+  component_count: 2
+- id: RecruitingSkill
+  label: 招聘
+  component_count: 1
+- id: SpreadsheetSoftware
+  label: 表格软件
+  component_count: 1
+- id: TradeSkill
+  label: 外贸
+  component_count: 1
+- id: WireEquipment
+  label: 线束设备
+  component_count: 5
+components:
+- id: skill_行政
+  label: 行政
+  category: AdminSkill
+  kind: capability
+  cv_count: 80
+- id: skill_ERP
+  label: ERP
+  category: BusinessSystem
+  kind: product
+  cv_count: 37
+- id: skill_SAP
+  label: SAP
+  category: BusinessSystem
+  kind: product
+  cv_count: 10
+- id: skill_AutoCAD
+  label: AutoCAD
+  category: CAD
+  kind: product
+  cv_count: 75
+- id: skill_CATIA
+  label: CATIA
+  category: CAD
+  kind: product
+  cv_count: 6
+- id: skill_ProE_Creo
+  label: ProE/Creo
+  category: CAD
+  kind: product
+  cv_count: 21
+- id: skill_Rhino
+  label: Rhino
+  category: CAD
+  kind: product
+  cv_count: 3
+- id: skill_SolidWorks
+  label: SolidWorks
+  category: CAD
+  kind: product
+  cv_count: 19
+- id: skill_UG_NX
+  label: UG/NX
+  category: CAD
+  kind: product
+  cv_count: 2
+- id: skill_薪酬绩效
+  label: 薪酬绩效
+  category: CompensationSkill
+  kind: capability
+  cv_count: 45
+- id: skill_贸易安全合规
+  label: 贸易安全合规
+  category: Compliance
+  kind: capability
+  cv_count: 1
+- id: skill_单证
+  label: 单证
+  category: CustomsSkill
+  kind: capability
+  cv_count: 13
+- id: skill_报关
+  label: 报关
+  category: CustomsSkill
+  kind: capability
+  cv_count: 26
+- id: skill_CorelDRAW
+  label: CorelDRAW
+  category: DesignSoftware
+  kind: product
+  cv_count: 5
+- id: skill_Illustrator
+  label: Illustrator
+  category: DesignSoftware
+  kind: product
+  cv_count: 8
+- id: skill_Photoshop
+  label: Photoshop
+  category: DesignSoftware
+  kind: product
+  cv_count: 17
+- id: skill_财务
+  label: 财务
+  category: FinanceSkill
+  kind: capability
+  cv_count: 84
+- id: skill_企业文化建设
+  label: 企业文化建设
+  category: GeneralCapability
+  kind: capability
+  cv_count: 37
+- id: skill_体系管理
+  label: 体系管理
+  category: GeneralCapability
+  kind: capability
+  cv_count: 13
+- id: skill_培训课程开发
+  label: 培训课程开发
+  category: GeneralCapability
+  kind: capability
+  cv_count: 15
+- id: skill_数据分析
+  label: 数据分析
+  category: GeneralCapability
+  kind: capability
+  cv_count: 31
+- id: skill_系统规划
+  label: 系统规划
+  category: GeneralCapability
+  kind: capability
+  cv_count: 64
+- id: skill_订单交期风险评估
+  label: 订单交期风险评估
+  category: GeneralCapability
+  kind: capability
+  cv_count: 41
+- id: skill_切片
+  label: 切片
+  category: HarnessCraft
+  kind: equipment
+  cv_count: 4
+- id: skill_端子
+  label: 端子
+  category: HarnessCraft
+  kind: equipment
+  cv_count: 39
+- id: skill_线束行业知识
+  label: 线束行业知识
+  category: HarnessCraft
+  kind: domain
+  cv_count: 72
+- id: skill_识图
+  label: 识图
+  category: HarnessCraft
+  kind: capability
+  cv_count: 7
+- id: skill_社保操作
+  label: 社保操作
+  category: HRAdmin
+  kind: capability
+  cv_count: 24
+- id: skill_劳动法
+  label: 劳动法
+  category: LaborLawKnowledge
+  kind: domain
+  cv_count: 22
+- id: skill_英语
+  label: 英语
+  category: LanguageSkill
+  kind: capability
+  cv_count: 99
+  note: H.1 语种与 D 在这里重叠。先作为技能存在;需要区分「口语/书写/熟练度」时走 H.2。
+- id: skill_Word
+  label: Word
+  category: OfficeSoftware
+  kind: product
+  cv_count: 55
+- id: skill_PowerPoint
+  label: PowerPoint
+  category: OfficeSoftware
+  kind: product
+  cv_count: 40
+- id: skill_5S
+  label: 5S
+  category: OperationsSkill
+  kind: capability
+  cv_count: 5
+- id: skill_精益生产
+  label: 精益生产
+  category: OperationsSkill
+  kind: capability
+  cv_count: 10
+- id: skill_跟单
+  label: 跟单
+  category: OrderTracking
+  kind: capability
+  cv_count: 79
+- id: skill_6S
+  label: 6S
+  category: QualityMethod
+  kind: capability
+  cv_count: 26
+- id: skill_8D报告
+  label: 8D报告
+  category: QualityMethod
+  kind: capability
+  cv_count: 16
+- id: skill_CPK
+  label: CPK
+  category: QualityMethod
+  kind: capability
+  cv_count: 5
+- id: skill_FMEA
+  label: FMEA
+  category: QualityMethod
+  kind: capability
+  cv_count: 18
+- id: skill_QC七大手法
+  label: QC七大手法
+  category: QualityMethod
+  kind: capability
+  cv_count: 1
+- id: skill_SPC
+  label: SPC
+  category: QualityMethod
+  kind: capability
+  cv_count: 4
+- id: skill_品质问题分析
+  label: 品质问题分析
+  category: QualityMethod
+  kind: capability
+  cv_count: 53
+- id: skill_客户验厂
+  label: 客户验厂
+  category: QualityMethod
+  kind: capability
+  cv_count: 13
+- id: skill_ISO9001
+  label: ISO9001
+  category: QualitySystem
+  kind: capability
+  cv_count: 18
+- id: skill_ISO_TS16949
+  label: ISO/TS16949
+  category: QualitySystem
+  kind: capability
+  cv_count: 21
+  note: '★ 需要核对的一条。它不在 `jd_requirements_all10.md` 的品质经理 11 条里,
 
-  # ── OfficeSoftware ──
-  - {id: skill_Word,       label: Word,       category: OfficeSoftware, kind: product, cv_count: 55}
-  - {id: skill_PowerPoint, label: PowerPoint, category: OfficeSoftware, kind: product, cv_count: 40}
+    却出现在 `abox.ttl` 的 `:role_品质经理 :requiresSkill` 中 —— 即它是**从别处抽出来的**,
 
-  # ── OperationsSkill ──
-  - {id: skill_5S,         label: 5S,       category: OperationsSkill, kind: capability, cv_count: 5}
-  - {id: skill_精益生产,   label: 精益生产, category: OperationsSkill, kind: capability, cv_count: 10}
+    目前正驱动 111 人的匹配结果。二选一:补进 JD 要求清单(说明出自哪一段),或从公理里撤掉。
 
-  # ── OrderTracking ──
-  - {id: skill_跟单, label: 跟单, category: OrderTracking, kind: capability, cv_count: 79}
+    本目录只记录「这个词存在、21 人具备」,不裁定它该不该被要求。
 
-  # ── QualityMethod ──
-  - {id: skill_6S,           label: 6S,           category: QualityMethod, kind: capability, cv_count: 26}
-  - {id: skill_8D报告,       label: 8D报告,       category: QualityMethod, kind: capability, cv_count: 16}
-  - {id: skill_CPK,          label: CPK,          category: QualityMethod, kind: capability, cv_count: 5}
-  - {id: skill_FMEA,         label: FMEA,         category: QualityMethod, kind: capability, cv_count: 18}
-  - {id: skill_QC七大手法,   label: QC七大手法,   category: QualityMethod, kind: capability, cv_count: 1}
-  - {id: skill_SPC,          label: SPC,          category: QualityMethod, kind: capability, cv_count: 4}
-  - {id: skill_品质问题分析, label: 品质问题分析, category: QualityMethod, kind: capability, cv_count: 53}
-  - {id: skill_客户验厂,     label: 客户验厂,     category: QualityMethod, kind: capability, cv_count: 13}
+    '
+- id: skill_招聘
+  label: 招聘
+  category: RecruitingSkill
+  kind: capability
+  cv_count: 60
+- id: skill_Excel
+  label: Excel
+  category: SpreadsheetSoftware
+  kind: product
+  cv_count: 87
+- id: skill_外贸业务
+  label: 外贸业务
+  category: TradeSkill
+  kind: capability
+  cv_count: 54
+- id: skill_注塑机
+  label: 注塑机
+  category: WireEquipment
+  kind: equipment
+  cv_count: 17
+- id: skill_点胶机
+  label: 点胶机
+  category: WireEquipment
+  kind: equipment
+  cv_count: 2
+- id: skill_端子机
+  label: 端子机
+  category: WireEquipment
+  kind: equipment
+  cv_count: 18
+- id: skill_自动机
+  label: 自动机
+  category: WireEquipment
+  kind: equipment
+  cv_count: 10
+- id: skill_裁线机
+  label: 裁线机
+  category: WireEquipment
+  kind: equipment
+  cv_count: 17
+- id: skill_5WHY
+  label: 5WHY
+  category: QualityMethod
+  kind: capability
+  cv_count: 0
+  detectable: false
+  note: '品质经理 JD 第 19 行点名了 5 项「QC七大手法、5WHY、SPC、CPK、6S」，此前只有 4 项有组件(gaps.P5)。补上这一项是为了**词表完整**：要求里点到的名字，目录里必须有对应项，否则永远只能判到
+    4/5。
 
-  # ── QualitySystem ──
-  - {id: skill_ISO9001,      label: ISO9001,      category: QualitySystem, kind: capability, cv_count: 18}
-  - id: skill_ISO_TS16949
-    label: ISO/TS16949
-    category: QualitySystem
-    kind: capability
-    cv_count: 21
-    note: |
-      ★ 需要核对的一条。它不在 `jd_requirements_all10.md` 的品质经理 11 条里,
-      却出现在 `abox.ttl` 的 `:role_品质经理 :requiresSkill` 中 —— 即它是**从别处抽出来的**,
-      目前正驱动 111 人的匹配结果。二选一:补进 JD 要求清单(说明出自哪一段),或从公理里撤掉。
-      本目录只记录「这个词存在、21 人具备」,不裁定它该不该被要求。
 
-  # ── RecruitingSkill ──
-  - {id: skill_招聘, label: 招聘, category: RecruitingSkill, kind: capability, cv_count: 60}
-
-  # ── SpreadsheetSoftware ──
-  - {id: skill_Excel, label: Excel, category: SpreadsheetSoftware, kind: product, cv_count: 87}
-
-  # ── TradeSkill ──
-  - {id: skill_外贸业务, label: 外贸业务, category: TradeSkill, kind: capability, cv_count: 54}
-
-  # ── WireEquipment ──
-  - {id: skill_注塑机, label: 注塑机, category: WireEquipment, kind: equipment, cv_count: 17}
-  - {id: skill_点胶机, label: 点胶机, category: WireEquipment, kind: equipment, cv_count: 2}
-  - {id: skill_端子机, label: 端子机, category: WireEquipment, kind: equipment, cv_count: 18}
-  - {id: skill_自动机, label: 自动机, category: WireEquipment, kind: equipment, cv_count: 10}
-  - {id: skill_裁线机, label: 裁线机, category: WireEquipment, kind: equipment, cv_count: 17}
-
-# ══════════════════════════════════════════════════════════════════════════
-# 已知缺口 —— 写下来,免得被当成"已经全了"
-# ══════════════════════════════════════════════════════════════════════════
+    **但它是 detectable: false**：实测 270 份原文里出现 0 次，LLM 抽取也是 0 条 —— 不是没人会，是目前的抽取路径认不出来。所以它**不进判定的分母**，只在报告里如实标成「原文要求了但检不出」。等抽取支持了(比如词表加
+    5WHY/五个为什么)，把 detectable 改回 true 就自动参与判定。'
 gaps:
+- id: P1
+  what: E 维度 24 条素质要求没有任何组件
+  why: 素质不是技能,不能塞进 components。需要一张独立的素质词表(沟通/责任心/执行…),而它**永远连不到供给侧**。
+  consequence: 需求侧的 25% 会是一个孤立子图。
+- id: P2
+  what: F/G 维度没有任何组件
+  why: 10 份 JD 只出现 1 条资质 + 3 条合规,而且都没有对应属性。
+  consequence: 可以先空着;真要用时再建。
+- id: P3
+  what: 语言熟练度没有刻度来源
+  why: JD 只写「口语熟练」,简历只写「英语」或「CET-6」。CEFR 是标准刻度,但语料里没有映射。
+  consequence: H.2 的 6 档暂时无法从简历判定。
+- id: P4
+  what: 53 个技能是"抽取认出的",不是"行业全量"
+  why: 语料只有 277 份简历、10 份 JD。
+  consequence: 'R4 已经允许组件没有出处,所以词表可以扩。但每扩一个都要问:证据在哪?
 
-  - id: P1
-    what: E 维度 24 条素质要求没有任何组件
-    why: 素质不是技能,不能塞进 components。需要一张独立的素质词表(沟通/责任心/执行…),而它**永远连不到供给侧**。
-    consequence: 需求侧的 25% 会是一个孤立子图。
+    现在这 53 个的证据是 cv_count > 0 —— 至少有一个人的简历里有它。
 
-  - id: P2
-    what: F/G 维度没有任何组件
-    why: 10 份 JD 只出现 1 条资质 + 3 条合规,而且都没有对应属性。
-    consequence: 可以先空着;真要用时再建。
-
-  - id: P3
-    what: 语言熟练度没有刻度来源
-    why: JD 只写「口语熟练」,简历只写「英语」或「CET-6」。CEFR 是标准刻度,但语料里没有映射。
-    consequence: H.2 的 6 档暂时无法从简历判定。
-
-  - id: P4
-    what: 53 个技能是"抽取认出的",不是"行业全量"
-    why: 语料只有 277 份简历、10 份 JD。
-    consequence: |
-      R4 已经允许组件没有出处,所以词表可以扩。但每扩一个都要问:证据在哪?
-      现在这 53 个的证据是 cv_count > 0 —— 至少有一个人的简历里有它。
-
-  - id: P5
-    what: 5WHY 在 JD 里出现,但没有组件
-    why: 品质经理第 8 条写「QC七大手法、5WHY、SPC、CPK、6S」,其中 5WHY 从未被抽取成技能。
-    consequence: 这条复合要求目前只能落到 4 个组件,少 1 个。
-
-# ══════════════════════════════════════════════════════════════════════════
-# 门禁
-# ══════════════════════════════════════════════════════════════════════════
+    '
+- id: P5
+  what: 5WHY 曾无组件(gaps.P5)—— 现已补 skill_5WHY,但不可检出
+  why: 品质经理第 8 条写「QC七大手法、5WHY、SPC、CPK、6S」,其中 5WHY 从未被抽取成技能。
+  consequence: 词表已完整(要求点到的 5 项都有组件),但 5WHY 在 270 份原文里 0 次、LLM 抽取 0 条,所以标 detectable:false、不进分母。要真正判它,得先让抽取认得这个词。
 validation:
-
-  - id: C-G1
-    rule: 每个中间层元件有 cardinality,且 single 必须给 scale
-    why: R3。没有 scale 就无法比较 ≥,那是之前 55 vs 1 的根源。
-
-  - id: C-G2
-    rule: single 的 values 若可枚举,顺序必须单调(ordinal/interval)
-    why: 顺序错会让 ≥ 判反。
-
-  - id: C-G3
-    rule: JD 引用组件时必须带 verbatim,且 verbatim 必须是该 JD 原文的逐字子串
-    why: R4。约束引用而不是词表;这条是 `AI→Illustrator` 这类错的解药。
-
-  - id: C-G4
-    rule: components[*].category 必须存在于 categories[]
-    why: 防止类别被随手扩增。
-
-  - id: C-G5
-    rule: categories[*].component_count 必须等于该类别下实际组件数
-    why: 防止目录与实际脱节 —— 数字写死过就再也对不上了。
-
-  - id: C-G6
-    rule: 每个组件的 cv_count 必须与供给侧实测一致
-    why: 词表如果和语料对不上,说明有人在手改。
-
-  - id: C-G7
-    rule: prop_exists=false 的中间层元件不得被任何"已判定"的要求引用
-    why: 属性没建就标可判,是这套系统最初的错。
+- id: C-G1
+  rule: 每个中间层元件有 cardinality,且 single 必须给 scale
+  why: R3。没有 scale 就无法比较 ≥,那是之前 55 vs 1 的根源。
+- id: C-G2
+  rule: single 的 values 若可枚举,顺序必须单调(ordinal/interval)
+  why: 顺序错会让 ≥ 判反。
+- id: C-G3
+  rule: JD 引用组件时必须带 verbatim,且 verbatim 必须是该 JD 原文的逐字子串
+  why: R4。约束引用而不是词表;这条是 `AI→Illustrator` 这类错的解药。
+- id: C-G4
+  rule: components[*].category 必须存在于 categories[]
+  why: 防止类别被随手扩增。
+- id: C-G5
+  rule: categories[*].component_count 必须等于该类别下实际组件数
+  why: 防止目录与实际脱节 —— 数字写死过就再也对不上了。
+- id: C-G6
+  rule: 每个组件的 cv_count 必须与供给侧实测一致
+  why: 词表如果和语料对不上,说明有人在手改。
+- id: C-G7
+  rule: prop_exists=false 的中间层元件不得被任何"已判定"的要求引用
+  why: 属性没建就标可判,是这套系统最初的错。

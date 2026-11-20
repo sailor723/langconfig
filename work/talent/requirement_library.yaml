@@ -106,6 +106,7 @@ requirements:
   - skill_SPC
   - skill_CPK
   - skill_6S
+  - skill_5WHY
   unlinked_parts:
   - text: 5WHY
     gap: P5
@@ -116,7 +117,10 @@ requirements:
 
     所以"满足这条"和"满足这条"之间差别极大 —— 复合要求必须拆开看。
 
-    '
+
+
+    2026-11-20 补:原文点名 5 项(QC七大手法/5WHY/SPC/CPK/6S),此前只有 4 个组件(gaps.P5)。现补 skill_5WHY,但标
+    detectable:false —— 270 份原文里出现 0 次、抽取 0 条,所以它不进分母(判定仍按 4 项算),只在理由里标「原文要求了但检不出」。'
 - id: REQ-D-CUSTOMER-AUDIT
   name: 客户验厂经验
   dimension: D

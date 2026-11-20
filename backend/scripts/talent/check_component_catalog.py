@@ -187,8 +187,27 @@ def check_against_db(cat: dict) -> None:
 
     orphan = sorted(set(skill_rows) - {c["id"] for c in cat["components"]})
     check_true("库里的技能没有一个是目录漏掉的", not orphan, f"漏 {orphan[:5]}")
+    # 目录里的组件必须真的有人持有 —— 这条防的是"为了填缺口而造词"。
+    # 唯一的例外是**显式声明**的 `detectable: false`:原文点了名、但当前抽取路径检不出。
+    # 例外不是开口子,而是换一条更严的规则:
+    #   · 没这个标记的幽灵组件照旧红(不能凭空造词)
+    #   · 有这个标记的,cv_count 必须是 0(有人持有就不该标"检不出")
+    #   · 有这个标记的,必须写 note 说明为什么检不出(不许静默豁免)
     phantom = sorted({c["id"] for c in cat["components"]} - set(skill_rows))
-    check_true("目录里的组件没有一个是库里不存在的", not phantom, f"多 {phantom[:5]}")
+    declared_blind = {c["id"] for c in cat["components"] if c.get("detectable") is False}
+    undeclared = [c for c in phantom if c not in declared_blind]
+    check_true("目录里的组件没有一个是库里不存在的(除显式 detectable:false)",
+               not undeclared, f"多 {undeclared[:5]}")
+
+    bad_count = [(c["id"], c["cv_count"]) for c in cat["components"]
+                 if c.get("detectable") is False and c.get("cv_count") != 0]
+    check_true("detectable:false 的组件 cv_count 必须是 0(有人持有就不算检不出)",
+               not bad_count, f"{bad_count}")
+
+    silent_blind = [c["id"] for c in cat["components"]
+                    if c.get("detectable") is False and not (c.get("note") or "").strip()]
+    check_true("detectable:false 的组件都写明了为什么检不出", not silent_blind,
+               f"{silent_blind} —— 静默豁免就是造词")
 
     cat_wrong = [(c["id"], c["category"], skill_cat.get(c["id"]))
                  for c in cat["components"] if skill_cat.get(c["id"]) != c["category"]]

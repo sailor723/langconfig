@@ -70,11 +70,13 @@ citations:
   source_text: 语言：英语口语熟练及具备独立书写英文8D报告的能力；
   txt_line: 17
   section_index: 4
-  note: '没有 value:这条要求没有阈值,它要求"具备两个组件"。
-
-    「口语熟练」这一半判不了(level_check 在库里声明为 assessable=false)。
-
-    '
+  note: '没有 value，这条要求没有阈值，它要求「具备两个组件」。「口语熟练」这一半判不了（库里的 level_check 声明 assessable=false）。'
+  granularity_decision:
+    status: confirmed_keep
+    decided_by: admin
+    decided_at: 2026-11-20
+    scope: 第 17 行整句不拆，仍为 1 条引用指向 REQ-H-LANG-EN
+    why: 原文「英语口语熟练及具备独立书写英文8D报告的能力」本可按「及」拆两条，但拆开需为同一句在要求库造两条同义要求，违反复用优先，且与 ABox 的 composite 建模冲突。人工确认维持 composite 加 partial。
   origin: client
 - id: C-05
   requirement: REQ-C-YEARS-DOMAIN
@@ -100,6 +102,12 @@ citations:
   source_text: 具备品质问题分析、改善的能力，懂QC七大手法、5WHY、SPC、CPK、6S工具；
   txt_line: 19
   section_index: 6
+  granularity_decision:
+    status: confirmed_keep
+    decided_by: admin
+    decided_at: 2026-11-20
+    scope: 第 19 行前半「分析、改善」不拆，仍为 1 条引用指向 REQ-D-QA-ANALYSIS
+    why: 「分析」与「改善」本可拆成两个动作，人工确认按一个能力判定即可，不额外造同义要求。
   origin: client
 - id: C-08
   requirement: REQ-D-QA-TOOLS
@@ -122,7 +130,13 @@ citations:
   source_text: 具备接待客户验厂经验，有良好的沟通、协调能力。
   txt_line: 20
   section_index: 7
-  note: 这条直连 Dimension E,库里 no_component=true —— E 维没有组件,只能靠面试。
+  note: 这条直连 Dimension E，库里 no_component=true —— E 维没有组件，只能靠面试。
+  granularity_decision:
+    status: confirmed_keep
+    decided_by: admin
+    decided_at: 2026-11-20
+    scope: 第 20 行后半「沟通、协调」不拆，仍为 1 条引用指向 REQ-E-COMMUNICATION
+    why: 「沟通」与「协调」本可拆成两条，人工确认合并为一条；且 E 维本身 no_component，拆开也不会让下游多判出任何东西。
   origin: client
 - id: HR-01
   origin: hr
@@ -188,6 +202,26 @@ excluded:
     ABox 里那条还在,因为改 ABox 要重跑推理与材料化,那是另一个动作。
 
     '
+granularity_decisions:
+  decided_by: admin
+  decided_at: 2026-11-20
+  decision: 第 17、19、20 行维持现状，不拆
+  lines:
+  - line: 17
+    citation: C-04
+    kept_as: 1 条（REQ-H-LANG-EN，composite + partial）
+    would_have_split_into: 英语口语熟练 / 独立书写英文8D报告
+  - line: 19
+    citation: C-07
+    kept_as: 1 条（REQ-D-QA-ANALYSIS）
+    would_have_split_into: 品质问题分析能力 / 品质问题改善能力
+  - line: 20
+    citation: C-10
+    kept_as: 1 条（REQ-E-COMMUNICATION）
+    would_have_split_into: 沟通能力 / 协调能力
+  impact: 原子要求条数不变，客户 10 条、HR 5 条、合计 15 条；没有新增或删除任何引用
+  note: 这三条此前在交付说明里被列为「粒度拿不准」，现由 admin 确认保留原粒度。
+
 summary:
   citations: 10
   distinct_requirements: 10

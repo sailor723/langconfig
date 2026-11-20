@@ -5,10 +5,10 @@ thresholds:
   cv_thin: 0.1
 count:
   citations: 15
-  data_items: 19
+  data_items: 20
   cv: 5
   cv_then_interview: 3
-  interview: 11
+  interview: 12
 items:
 - jd: 品质经理
   citation: C-01
@@ -256,6 +256,26 @@ items:
   prop_exists: true
   cv_holders: 10
   cv_coverage: 0.037
+  source: interview
+  judge_ready: true
+  library_says_assessable: true
+  library_blocked_by: null
+  req_source: interview
+- jd: 品质经理
+  citation: C-08
+  requirement: REQ-D-QA-TOOLS
+  requirement_name: 品质工具(QC七大手法/5WHY/SPC/CPK/6S)
+  verbatim: 懂QC七大手法、5WHY、SPC、CPK、6S工具
+  kind: component
+  value: null
+  data_item: skill_5WHY
+  attach: skill_5WHY
+  label: 5WHY
+  type: boolean
+  cardinality: single
+  prop_exists: true
+  cv_holders: 0
+  cv_coverage: 0.0
   source: interview
   judge_ready: true
   library_says_assessable: true
