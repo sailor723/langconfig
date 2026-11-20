@@ -1,0 +1,95 @@
+[
+ {
+  "quote": "电线连接器加工行业产品开发3年以上经验",
+  "line": 4,
+  "dimension": "C",
+  "tier": "essential",
+  "subject": "行业经验年限",
+  "requirement": "REQ-C-YEARS-DOMAIN",
+  "value": {
+   "num": 3,
+   "domain": "电线连接器加工行业产品开发"
+  },
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "对新产品报价、样品、转量产做业流程熟知",
+  "line": 4,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "新产品报价/样品/转量产流程",
+  "requirement": "REQ-D-NPI-PROCESS",
+  "value": null,
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "抗压能力强",
+  "line": 5,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "抗压能力",
+  "requirement": "REQ-E-STRESS",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "积极向上",
+  "line": 5,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "积极向上",
+  "requirement": "REQ-E-STRIVING",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "工作细心，谨慎",
+  "line": 5,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "细心谨慎",
+  "requirement": "REQ-E-CAREFUL",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "对电线加工设备：裁线机、端子机、自动机、注塑机、点胶机等功能熟知",
+  "line": 6,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "电线加工设备认知",
+  "requirement": "REQ-D-WIRE-EQUIPMENT",
+  "value": null,
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "有一定的操作能力",
+  "line": 6,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "电线加工设备操作",
+  "requirement": "REQ-D-WIRE-EQUIPMENT-OP",
+  "value": null,
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "CAD二维制图",
+  "line": 7,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "CAD二维制图",
+  "requirement": "REQ-D-CAD-2D",
+  "value": null,
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "办公软件操作熟练",
+  "line": 7,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "Office办公软件",
+  "requirement": "REQ-D-OFFICE",
+  "value": null,
+  "measurable_from_resume": true
+ }
+]

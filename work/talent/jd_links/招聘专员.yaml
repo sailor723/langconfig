@@ -1,0 +1,197 @@
+jd: 招聘专员
+department: ''
+source_file: ../client/team-4/unzipped/职务说明书10份/招聘专员-职务说明书 .doc
+source_text: work/talent/jd_links/_source/招聘专员.txt
+extracted_with: textutil/openpyxl
+drafted_by: deepseek-chat, temperature=0 —— **草稿,未人工审核**
+review_status: draft
+count:
+  source_section: 任职资格
+  atomic_requirements: 14
+  count_note: LLM 从原文前 30 行抽出;粒度需人工审。
+citations:
+- id: 招聘-01
+  requirement: REQ-B-EDU-LEVEL
+  verbatim: 中专以上学历
+  source_text: 1） 中专以上学历，1年以上招聘工作经验；
+  txt_line: 14
+  tier: essential
+  value:
+    num: 2
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 学历
+    measurable_from_resume: true
+    requirement_reused: true
+- id: 招聘-02
+  requirement: REQ-C-YEARS-DOMAIN
+  verbatim: 1年以上招聘工作经验
+  source_text: 1） 中专以上学历，1年以上招聘工作经验；
+  txt_line: 14
+  tier: essential
+  value:
+    num: 1
+    domain: 招聘
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 招聘经验年限
+    measurable_from_resume: true
+    requirement_reused: true
+- id: 招聘-03
+  requirement: REQ-E-COMMUNICATION
+  verbatim: 良好的沟通表达协调能力强
+  source_text: 2）良好的沟通表达协调能力强、能够准确、清晰、责任心强、细心、稳重；
+  txt_line: 15
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 沟通协调能力
+    measurable_from_resume: false
+    requirement_reused: true
+- id: 招聘-04
+  requirement: REQ-E-LOGIC
+  verbatim: 能够准确、清晰
+  source_text: 2）良好的沟通表达协调能力强、能够准确、清晰、责任心强、细心、稳重；
+  txt_line: 15
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 表达准确清晰
+    measurable_from_resume: false
+    requirement_reused: true
+- id: 招聘-05
+  requirement: REQ-E-RESPONSIBILITY
+  verbatim: 责任心强
+  source_text: 2）良好的沟通表达协调能力强、能够准确、清晰、责任心强、细心、稳重；
+  txt_line: 15
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 责任心
+    measurable_from_resume: false
+    requirement_reused: true
+- id: 招聘-06
+  requirement: REQ-E-CAREFUL
+  verbatim: 细心
+  source_text: 2）良好的沟通表达协调能力强、能够准确、清晰、责任心强、细心、稳重；
+  txt_line: 15
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 细心
+    measurable_from_resume: false
+    requirement_reused: true
+  review:
+    reassigned_from: REQ-E-DATA-SENSITIVITY
+    reason: LLM 复用到 REQ-E-DATA-SENSITIVITY,经人工改判
+- id: 招聘-07
+  requirement: REQ-E-STEADY
+  verbatim: 稳重
+  source_text: 2）良好的沟通表达协调能力强、能够准确、清晰、责任心强、细心、稳重；
+  txt_line: 15
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 稳重
+    measurable_from_resume: false
+    requirement_reused: true
+  review:
+    reassigned_from: REQ-E-STRESS
+    reason: LLM 复用到 REQ-E-STRESS,经人工改判
+- id: 招聘-08
+  requirement: REQ-D-OFFICE
+  verbatim: 熟练使用相关办公软件
+  source_text: 3）熟练使用相关办公软件，具备基本的招聘技巧及熟悉通常的招聘渠道；
+  txt_line: 16
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: Office办公软件
+    measurable_from_resume: true
+    requirement_reused: true
+- id: 招聘-09
+  requirement: REQ-D-RECRUIT-SKILL
+  verbatim: 具备基本的招聘技巧
+  source_text: 3）熟练使用相关办公软件，具备基本的招聘技巧及熟悉通常的招聘渠道；
+  txt_line: 16
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 招聘技巧
+    measurable_from_resume: false
+    requirement_reused: false
+- id: 招聘-10
+  requirement: REQ-D-RECRUIT-CHANNEL
+  verbatim: 熟悉通常的招聘渠道
+  source_text: 3）熟练使用相关办公软件，具备基本的招聘技巧及熟悉通常的招聘渠道；
+  txt_line: 16
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 招聘渠道
+    measurable_from_resume: true
+    requirement_reused: false
+- id: 招聘-11
+  requirement: REQ-E-EXECUTION
+  verbatim: 独立工作能力强
+  source_text: 4）独立工作能力强，以及丰富的招聘经验；
+  txt_line: 17
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 独立工作能力
+    measurable_from_resume: false
+    requirement_reused: true
+- id: 招聘-12
+  requirement: REQ-C-YEARS-DOMAIN
+  verbatim: 丰富的招聘经验
+  source_text: 4）独立工作能力强，以及丰富的招聘经验；
+  txt_line: 17
+  tier: essential
+  value:
+    domain: 招聘
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 招聘经验
+    measurable_from_resume: true
+    requirement_reused: true
+- id: 招聘-13
+  requirement: REQ-E-JOB-INTEREST
+  verbatim: 对招聘工作感兴趣
+  source_text: 5）对招聘工作感兴趣，并熟悉相关招聘知识；
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 招聘工作兴趣
+    measurable_from_resume: false
+    requirement_reused: true
+  review:
+    reassigned_from: REQ-E-STRIVING
+    reason: LLM 复用到 REQ-E-STRIVING,经人工改判
+- id: 招聘-14
+  requirement: REQ-D-RECRUIT-KNOWLEDGE
+  verbatim: 熟悉相关招聘知识
+  source_text: 5）对招聘工作感兴趣，并熟悉相关招聘知识；
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 招聘知识
+    measurable_from_resume: false
+    requirement_reused: false
+excluded: []

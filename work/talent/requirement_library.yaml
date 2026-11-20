@@ -386,6 +386,331 @@ requirements:
     assessable: false
     evidence_method: 笔试 / 结构化面试
 
+  # ── 其余 7 份 JD 带来的语义(LLM 起草 + 跨 JD 去重)───────────────────────
+  # 说明:下面每条都是 LLM 从原文抽出来、引文已逐字校验的。
+  # components 是它对应的能力全集组件 —— 落不上的写 unlinked_parts,不编。
+
+  - id: REQ-D-CAD-2D
+    name: CAD 二维制图
+    dimension: D
+    attribute: null
+    kind: component
+    op: holds
+    assessable: true
+    components: [skill_AutoCAD]
+
+  - id: REQ-D-WIRE-EQUIPMENT
+    name: 电线加工设备(熟知并会操作)
+    dimension: D
+    attribute: null
+    kind: composite
+    op: holds
+    assessable: true
+    components: [skill_裁线机, skill_端子机, skill_自动机, skill_注塑机, skill_点胶机]
+    note: |
+      合并条目:LLM 原本拆成「认知」与「操作」两条(REQ-D-WIRE-EQUIPMENT / -OP),
+      但 JD 原文只有一句:「对电线加工设备:裁线机、端子机…等功能熟知并有一定的操作能力」。
+      一句话 → 一条复合要求,内部 5 个组件可部分满足。这是"原子要求"粒度的体现:
+      **一条要求可以内部复合,但对外是一件可判定的事。**
+
+  - id: REQ-D-NPI-PROCESS
+    name: 新产品报价/样品/转量产流程
+    dimension: D
+    attribute: null
+    kind: unmeasurable
+    op: null
+    components: []
+    unlinked_parts: [{text: NPI 流程经验, gap: P6}]
+    assessable: false
+    note: '语料里没有 NPI/报价/转量产相关组件。这类"流程经验"与 C.5 activity_experience 同类。'
+
+  - id: REQ-D-AI-TOOLS
+    name: AI 工具运用
+    dimension: D
+    attribute: null
+    kind: unmeasurable
+    op: null
+    components: []
+    unlinked_parts: [{text: AI, gap: P5}]
+    assessable: false
+    note: |
+      ★ 这条是旧抽取最大错误的现场。老正则把 "AI" 认成 skill_Illustrator,
+      于是 8 个人凭空匹配。现在**显式承认:AI 没有组件**。
+      目录里没有 AI 工具这一类,因为 53 个组件是提取出来的,不是行业全量(gaps.P4)。
+
+  - id: REQ-D-DRAWING-READ
+    name: 图纸识别(线材规格/端子型号/胶壳料号/回路标识)
+    dimension: D
+    attribute: null
+    kind: component
+    op: holds
+    assessable: true
+    components: [skill_识图]
+
+  - id: REQ-D-DATA-ANALYSIS
+    name: 数据统计分析
+    dimension: D
+    attribute: null
+    kind: component
+    op: holds
+    assessable: true
+    components: [skill_数据分析]
+    note: "人资专员与管理课长两份 JD 都提这条 —— LLM 各自提了同一个 id,天然合并。"
+
+  - id: REQ-D-ATTENDANCE-SYSTEM
+    name: 考勤系统操作
+    dimension: D
+    attribute: null
+    kind: unmeasurable
+    op: null
+    components: []
+    unlinked_parts: [{text: 考勤系统, gap: P6}]
+    blocked_by: "目录里没有考勤系统组件(gaps.P6)"
+    note: '它是具体系统,不是通用能力 —— 要么补组件,要么承认判不了,不能标可判。'
+    assessable: false
+
+  - id: REQ-D-LABOR-LAW
+    name: 国家法律法规知识
+    dimension: D
+    attribute: null
+    kind: component
+    op: holds
+    assessable: true
+    components: [skill_劳动法]
+
+  - id: REQ-D-SOCIAL-INSURANCE
+    name: 社保操作流程
+    dimension: D
+    attribute: null
+    kind: component
+    op: holds
+    assessable: true
+    components: [skill_社保操作]
+
+  - id: REQ-D-CUSTOMS-DECLARE
+    name: 进出口报关流程
+    dimension: D
+    attribute: null
+    kind: composite
+    op: holds
+    assessable: true
+    components: [skill_报关, skill_单证]
+
+  - id: REQ-D-REPORT-WRITING
+    name: 报表整理能力
+    dimension: D
+    attribute: null
+    kind: component
+    op: holds
+    assessable: true
+    components: [skill_Excel]
+
+  - id: REQ-D-RECRUIT-SKILL
+    name: 招聘技巧
+    dimension: D
+    attribute: null
+    kind: component
+    op: holds
+    assessable: true
+    components: [skill_招聘]
+
+  - id: REQ-D-RECRUIT-CHANNEL
+    name: 招聘渠道
+    dimension: D
+    attribute: null
+    kind: component
+    op: holds
+    assessable: true
+    components: [skill_招聘]
+    note: "与 REQ-D-RECRUIT-SKILL 共用同一个组件 —— 但它们是两件独立可判定的事(会招聘 ≠ 会用渠道),所以不合并。"
+
+  - id: REQ-D-RECRUIT-KNOWLEDGE
+    name: 招聘知识
+    dimension: D
+    attribute: null
+    kind: component
+    op: holds
+    assessable: true
+    components: [skill_招聘]
+
+  - id: REQ-D-OFFICE-NETWORK
+    name: Office 软件 + 办公室网络
+    dimension: D
+    attribute: null
+    kind: composite
+    op: holds
+    assessable: true
+    components: [skill_Excel, skill_Word, skill_PowerPoint]
+    unlinked_parts: [{text: 办公室网络, gap: P6}]
+
+  - id: REQ-D-TRAINING-DEV
+    name: 培训课程开发
+    dimension: D
+    attribute: null
+    kind: component
+    op: holds
+    assessable: true
+    components: [skill_培训课程开发]
+
+  - id: REQ-D-SYSTEM-MGMT
+    name: 体系管理
+    dimension: D
+    attribute: null
+    kind: component
+    op: holds
+    assessable: true
+    components: [skill_体系管理]
+
+  - id: REQ-D-SYSTEM-PLANNING
+    name: 系统规划
+    dimension: D
+    attribute: null
+    kind: component
+    op: holds
+    assessable: true
+    components: [skill_系统规划]
+
+  - id: REQ-D-CULTURE-BUILD
+    name: 企业文化建设
+    dimension: D
+    attribute: null
+    kind: component
+    op: holds
+    assessable: true
+    components: [skill_企业文化建设]
+
+  - id: REQ-D-BIZ-ETIQUETTE
+    name: 商务礼仪
+    dimension: E
+    attribute: null
+    attribute_ref: E.1
+    kind: unmeasurable
+    op: null
+    components: []
+    no_component: true
+    assessable: false
+    evidence_method: 面试观察 / 情景演练
+    note: "LLM 原提议放在 D 维,但商务礼仪是行为素养,不是可操作技能 —— 移入 E 维。"
+
+  - id: REQ-E-CAREFUL
+    name: 细心严谨
+    dimension: E
+    attribute: null
+    attribute_ref: E.1
+    kind: unmeasurable
+    op: null
+    components: []
+    no_component: true
+    assessable: false
+    evidence_method: 面试 / 试用期观察
+    note: "合并条目:专案工程师写「细心谨慎」、工程文员写「认真严谨细致」—— 同一件事。"
+
+  - id: REQ-E-TEAMWORK
+    name: 团队合作
+    dimension: E
+    attribute: null
+    attribute_ref: E.1
+    kind: unmeasurable
+    op: null
+    components: []
+    no_component: true
+    assessable: false
+    evidence_method: 面试 / 背景调查
+
+  - id: REQ-E-PROACTIVE
+    name: 工作积极主动
+    dimension: E
+    attribute: null
+    attribute_ref: E.1
+    kind: unmeasurable
+    op: null
+    components: []
+    no_component: true
+    assessable: false
+    evidence_method: 面试 / 试用期观察
+    note: "合并条目:业务助理「工作积极主动」、关务报关员「工作主动性」(LLM 两次拼法不同)。"
+
+  - id: REQ-E-BIZ-INTENT
+    name: 业务发展意向
+    dimension: E
+    attribute: null
+    attribute_ref: E.3
+    kind: unmeasurable
+    op: null
+    components: []
+    no_component: true
+    assessable: false
+    evidence_method: 面试 / 职业规划面谈
+
+  - id: REQ-E-ETHICS
+    name: 职业道德
+    dimension: E
+    attribute: null
+    attribute_ref: E.1
+    kind: unmeasurable
+    op: null
+    components: []
+    no_component: true
+    assessable: false
+    evidence_method: 面试 / 背景调查
+
+  - id: REQ-E-OPENNESS
+    name: 性格开朗
+    dimension: E
+    attribute: null
+    attribute_ref: E.1
+    kind: unmeasurable
+    op: null
+    components: []
+    no_component: true
+    assessable: false
+    evidence_method: 面试观察
+
+  - id: REQ-E-STEADY
+    name: 稳重
+    dimension: E
+    attribute: null
+    attribute_ref: E.1
+    kind: unmeasurable
+    op: null
+    components: []
+    no_component: true
+    assessable: false
+    evidence_method: 面试观察
+
+  - id: REQ-E-JOB-INTEREST
+    name: 岗位工作兴趣
+    dimension: E
+    attribute: null
+    attribute_ref: E.3
+    kind: unmeasurable
+    op: null
+    components: []
+    no_component: true
+    assessable: false
+    evidence_method: 面试 / 职业规划面谈
+
+  - id: REQ-F-TRADE-COMPLIANCE-TRAINING
+    name: 贸易安全合规培训考核
+    dimension: F
+    attribute: F.3
+    kind: unmeasurable
+    op: null
+    components: []
+    assessable: false
+    blocked_by: "F 维的 hasCertification 属性未建"
+    note: "关务报关员的资质要求。需证明文件,非简历可判。"
+
+  - id: REQ-G-NO-CRIMINAL-RECORD
+    name: 无处罚及犯罪记录
+    dimension: G
+    attribute: G.1
+    kind: unmeasurable
+    op: null
+    components: []
+    assessable: false
+    blocked_by: "G 维的 hasClearance 属性未建"
+
 # ══════════════════════════════════════════════════════════════════════════
 # 已知缺口
 # ══════════════════════════════════════════════════════════════════════════

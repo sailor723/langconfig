@@ -1,0 +1,172 @@
+[
+ {
+  "quote": "女性",
+  "line": 14,
+  "dimension": "A",
+  "tier": "essential",
+  "subject": "性别",
+  "requirement": "REQ-A-GENDER",
+  "value": {
+   "in": [
+    "女"
+   ]
+  },
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "年龄20-30岁",
+  "line": 14,
+  "dimension": "A",
+  "tier": "essential",
+  "subject": "年龄",
+  "requirement": "REQ-A-AGE-RANGE",
+  "value": {
+   "min": 20,
+   "max": 30
+  },
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "高中以上学历",
+  "line": 14,
+  "dimension": "B",
+  "tier": "essential",
+  "subject": "学历",
+  "requirement": "REQ-B-EDU-LEVEL",
+  "value": {
+   "num": 2
+  },
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "市场营销、外语外贸、销售等专业者优先考虑",
+  "line": 15,
+  "dimension": "B",
+  "tier": "desirable",
+  "subject": "专业",
+  "requirement": "REQ-B-MAJOR",
+  "value": {
+   "in": [
+    "市场营销",
+    "外语外贸",
+    "销售"
+   ]
+  },
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "2年以上业务助理或相关工作经验",
+  "line": 16,
+  "dimension": "C",
+  "tier": "essential",
+  "subject": "业务助理经验年限",
+  "requirement": "REQ-C-YEARS-DOMAIN",
+  "value": {
+   "num": 2,
+   "domain": "业务助理或相关"
+  },
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "同行业者优先考虑",
+  "line": 16,
+  "dimension": "C",
+  "tier": "desirable",
+  "subject": "同行业经验",
+  "requirement": "REQ-C-YEARS-DOMAIN",
+  "value": {
+   "domain": "同行业"
+  },
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "熟悉使用Office办公软件",
+  "line": 17,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "Office办公软件",
+  "requirement": "REQ-D-OFFICE",
+  "value": null,
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "性格开朗",
+  "line": 18,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "性格开朗",
+  "requirement": "REQ-E-COMMUNICATION",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "具备基本商务礼仪知识",
+  "line": 18,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "商务礼仪知识",
+  "requirement": "REQ-D-BIZ-ETIQUETTE",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "有业务发展意向",
+  "line": 18,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "业务发展意向",
+  "requirement": "REQ-E-BIZ-INTENT",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "具备良好的沟通协调能力",
+  "line": 19,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "沟通协调能力",
+  "requirement": "REQ-E-COMMUNICATION",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "团队合作精神",
+  "line": 19,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "团队合作",
+  "requirement": "REQ-E-TEAMWORK",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "能吃苦耐劳",
+  "line": 20,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "吃苦耐劳",
+  "requirement": "REQ-E-STRESS",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "责任心强",
+  "line": 20,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "责任心",
+  "requirement": "REQ-E-RESPONSIBILITY",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "对工作有积极主动性",
+  "line": 20,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "工作积极主动",
+  "requirement": "REQ-E-PROACTIVE",
+  "value": null,
+  "measurable_from_resume": false
+ }
+]

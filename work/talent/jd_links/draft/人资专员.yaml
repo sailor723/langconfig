@@ -1,0 +1,166 @@
+jd: 人资专员
+department: ''
+source_file: ../client/team-4/unzipped/职务说明书10份/人资专员-职务说明书.doc
+source_text: work/talent/jd_links/_source/人资专员.txt
+extracted_with: textutil/openpyxl
+drafted_by: deepseek-chat, temperature=0 —— **草稿,未人工审核**
+review_status: draft
+count:
+  source_section: 任职资格
+  atomic_requirements: 12
+  count_note: LLM 从原文前 30 行抽出;粒度需人工审。
+citations:
+- id: 人资-01
+  requirement: REQ-B-EDU-LEVEL
+  verbatim: 高中及以上学历
+  source_text: 1）高中及以上学历，专业不限，行政、文秘类优先；
+  txt_line: 14
+  tier: essential
+  value:
+    num: 3
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 学历
+    measurable_from_resume: true
+    requirement_reused: true
+- id: 人资-02
+  requirement: REQ-B-MAJOR
+  verbatim: 专业不限
+  source_text: 1）高中及以上学历，专业不限，行政、文秘类优先；
+  txt_line: 14
+  tier: essential
+  value:
+    in:
+    - 不限
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 专业
+    measurable_from_resume: true
+    requirement_reused: true
+- id: 人资-03
+  requirement: REQ-B-MAJOR
+  verbatim: 行政、文秘类优先
+  source_text: 1）高中及以上学历，专业不限，行政、文秘类优先；
+  txt_line: 14
+  tier: desirable
+  value:
+    in:
+    - 行政
+    - 文秘类
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 专业优先
+    measurable_from_resume: true
+    requirement_reused: true
+- id: 人资-04
+  requirement: REQ-D-OFFICE
+  verbatim: 熟练使用办公软件
+  source_text: 2）熟练使用办公软件以及考勤系统；
+  txt_line: 15
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: Office办公软件
+    measurable_from_resume: true
+    requirement_reused: true
+- id: 人资-05
+  requirement: REQ-D-ATTENDANCE-SYSTEM
+  verbatim: 考勤系统
+  source_text: 2）熟练使用办公软件以及考勤系统；
+  txt_line: 15
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 考勤系统操作
+    measurable_from_resume: true
+    requirement_reused: false
+- id: 人资-06
+  requirement: REQ-D-LABOR-LAW
+  verbatim: 熟悉国家相关法律政策
+  source_text: 3）熟悉国家相关法律政策，熟悉社会保险（增/减/补缴）等操作流程；
+  txt_line: 16
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 国家法律法规知识
+    measurable_from_resume: false
+    requirement_reused: false
+- id: 人资-07
+  requirement: REQ-D-SOCIAL-INSURANCE
+  verbatim: 熟悉社会保险（增/减/补缴）等操作流程
+  source_text: 3）熟悉国家相关法律政策，熟悉社会保险（增/减/补缴）等操作流程；
+  txt_line: 16
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 社保操作流程
+    measurable_from_resume: true
+    requirement_reused: false
+- id: 人资-08
+  requirement: REQ-D-DATA-ANALYSIS
+  verbatim: 具备很好的数据统计分析能力
+  source_text: 4）具备很好的数据统计分析能力；
+  txt_line: 17
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 数据统计分析能力
+    measurable_from_resume: false
+    requirement_reused: false
+- id: 人资-09
+  requirement: REQ-G-CONFIDENTIALITY
+  verbatim: 具有人事数据保密意识
+  source_text: 5）具有人事数据保密意识以及跨部门沟通能力，工作认真，具有责任心。
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 数据保密
+    measurable_from_resume: false
+    requirement_reused: true
+- id: 人资-10
+  requirement: REQ-E-COMMUNICATION
+  verbatim: 跨部门沟通能力
+  source_text: 5）具有人事数据保密意识以及跨部门沟通能力，工作认真，具有责任心。
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 沟通协调能力
+    measurable_from_resume: false
+    requirement_reused: true
+- id: 人资-11
+  requirement: REQ-E-RESPONSIBILITY
+  verbatim: 工作认真
+  source_text: 5）具有人事数据保密意识以及跨部门沟通能力，工作认真，具有责任心。
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 工作认真
+    measurable_from_resume: false
+    requirement_reused: true
+- id: 人资-12
+  requirement: REQ-E-RESPONSIBILITY
+  verbatim: 具有责任心
+  source_text: 5）具有人事数据保密意识以及跨部门沟通能力，工作认真，具有责任心。
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 责任心
+    measurable_from_resume: false
+    requirement_reused: true
+excluded: []

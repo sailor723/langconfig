@@ -1,0 +1,127 @@
+jd: 专案工程师
+department: ''
+source_file: ../client/team-4/unzipped/职务说明书10份/专案工程师职务说明书.xlsx
+source_text: work/talent/jd_links/_source/专案工程师.txt
+extracted_with: textutil/openpyxl
+drafted_by: deepseek-chat, temperature=0 —— **草稿,未人工审核**
+review_status: draft
+count:
+  source_section: 任职资格
+  atomic_requirements: 9
+  count_note: LLM 从原文前 30 行抽出;粒度需人工审。
+citations:
+- id: 专案-01
+  requirement: REQ-C-YEARS-DOMAIN
+  verbatim: 电线连接器加工行业产品开发3年以上经验
+  source_text: 资格要求 | 1、电线连接器加工行业产品开发3年以上经验；对新产品报价、样品、转量产做业流程熟知；
+  txt_line: 4
+  tier: essential
+  value:
+    num: 3
+    domain: 电线连接器加工行业产品开发
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 行业经验年限
+    measurable_from_resume: true
+    requirement_reused: true
+- id: 专案-02
+  requirement: REQ-D-NPI-PROCESS
+  verbatim: 对新产品报价、样品、转量产做业流程熟知
+  source_text: 资格要求 | 1、电线连接器加工行业产品开发3年以上经验；对新产品报价、样品、转量产做业流程熟知；
+  txt_line: 4
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 新产品报价/样品/转量产流程
+    measurable_from_resume: true
+    requirement_reused: false
+- id: 专案-03
+  requirement: REQ-E-STRESS
+  verbatim: 抗压能力强
+  source_text: 2、抗压能力强，积极向上，工作细心，谨慎；
+  txt_line: 5
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 抗压能力
+    measurable_from_resume: false
+    requirement_reused: true
+- id: 专案-04
+  requirement: REQ-E-STRIVING
+  verbatim: 积极向上
+  source_text: 2、抗压能力强，积极向上，工作细心，谨慎；
+  txt_line: 5
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 积极向上
+    measurable_from_resume: false
+    requirement_reused: true
+- id: 专案-05
+  requirement: REQ-E-CAREFUL
+  verbatim: 工作细心，谨慎
+  source_text: 2、抗压能力强，积极向上，工作细心，谨慎；
+  txt_line: 5
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 细心谨慎
+    measurable_from_resume: false
+    requirement_reused: false
+- id: 专案-06
+  requirement: REQ-D-WIRE-EQUIPMENT
+  verbatim: 对电线加工设备：裁线机、端子机、自动机、注塑机、点胶机等功能熟知
+  source_text: 3、对电线加工设备：裁线机、端子机、自动机、注塑机、点胶机等功能熟知并有一定的操作能力；
+  txt_line: 6
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 电线加工设备认知
+    measurable_from_resume: true
+    requirement_reused: false
+- id: 专案-07
+  requirement: REQ-D-WIRE-EQUIPMENT
+  verbatim: 有一定的操作能力
+  source_text: 3、对电线加工设备：裁线机、端子机、自动机、注塑机、点胶机等功能熟知并有一定的操作能力；
+  txt_line: 6
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 电线加工设备操作
+    measurable_from_resume: true
+    requirement_reused: false
+  review:
+    reassigned_from: REQ-D-WIRE-EQUIPMENT-OP
+    reason: LLM 复用到 REQ-D-WIRE-EQUIPMENT-OP,经人工改判
+- id: 专案-08
+  requirement: REQ-D-CAD-2D
+  verbatim: CAD二维制图
+  source_text: 4、CAD二维制图、办公软件操作熟练；
+  txt_line: 7
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: CAD二维制图
+    measurable_from_resume: true
+    requirement_reused: false
+- id: 专案-09
+  requirement: REQ-D-OFFICE
+  verbatim: 办公软件操作熟练
+  source_text: 4、CAD二维制图、办公软件操作熟练；
+  txt_line: 7
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: Office办公软件
+    measurable_from_resume: true
+    requirement_reused: true
+excluded: []

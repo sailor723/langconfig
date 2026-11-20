@@ -1,0 +1,142 @@
+[
+ {
+  "quote": "性别要求：男女不限",
+  "line": 15,
+  "dimension": "A",
+  "tier": "essential",
+  "subject": "性别",
+  "requirement": "REQ-A-GENDER",
+  "value": {
+   "in": [
+    "男",
+    "女"
+   ]
+  },
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "年龄要求：30岁—45岁",
+  "line": 15,
+  "dimension": "A",
+  "tier": "essential",
+  "subject": "年龄",
+  "requirement": "REQ-A-AGE-RANGE",
+  "value": {
+   "min": 30,
+   "max": 45
+  },
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "专业要求：人力资源管理、行政管理、法律、企业管理等相关专业",
+  "line": 16,
+  "dimension": "B",
+  "tier": "essential",
+  "subject": "专业",
+  "requirement": "REQ-B-MAJOR",
+  "value": {
+   "in": [
+    "人力资源管理",
+    "行政管理",
+    "法律",
+    "企业管理"
+   ]
+  },
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "学历要求：大专或以上学历",
+  "line": 17,
+  "dimension": "B",
+  "tier": "essential",
+  "subject": "学历",
+  "requirement": "REQ-B-EDU-LEVEL",
+  "value": {
+   "num": 3
+  },
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "熟悉OFFICE软件",
+  "line": 18,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "Office",
+  "requirement": "REQ-D-OFFICE",
+  "value": null,
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "办公室网络",
+  "line": 18,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "办公室网络",
+  "requirement": "REQ-D-OFFICE-NETWORK",
+  "value": null,
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "数据分据能力",
+  "line": 19,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "数据分析能力",
+  "requirement": "REQ-D-DATA-ANALYSIS",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "培训课程开发能力",
+  "line": 19,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "培训课程开发",
+  "requirement": "REQ-D-TRAINING-DEV",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "体系管理能力",
+  "line": 19,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "体系管理",
+  "requirement": "REQ-D-SYSTEM-MGMT",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "系统规划能力",
+  "line": 19,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "系统规划",
+  "requirement": "REQ-D-SYSTEM-PLANNING",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "企业文化建设能力",
+  "line": 19,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "企业文化建设",
+  "requirement": "REQ-D-CULTURE-BUILD",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "相关经验5年以上",
+  "line": 20,
+  "dimension": "C",
+  "tier": "essential",
+  "subject": "相关经验年限",
+  "requirement": "REQ-C-YEARS-DOMAIN",
+  "value": {
+   "num": 5,
+   "domain": "相关"
+  },
+  "measurable_from_resume": true
+ }
+]

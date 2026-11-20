@@ -1,0 +1,93 @@
+[
+ {
+  "quote": "1、高中及以上学历；",
+  "line": 4,
+  "dimension": "B",
+  "tier": "essential",
+  "subject": "学历",
+  "requirement": "REQ-B-EDU-LEVEL",
+  "value": {
+   "num": 3
+  },
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "2、熟练：Excel、Word、ppt等办公软件，同时具备AI工具的基本运用能力；",
+  "line": 5,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "Office办公软件",
+  "requirement": "REQ-D-OFFICE",
+  "value": {
+   "in": [
+    "Excel",
+    "Word",
+    "PPT"
+   ]
+  },
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "同时具备AI工具的基本运用能力",
+  "line": 5,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "AI工具运用",
+  "requirement": "REQ-D-AI-TOOLS",
+  "value": null,
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "3、有同等岗位工作经验二年以上；",
+  "line": 6,
+  "dimension": "C",
+  "tier": "essential",
+  "subject": "同等岗位年限",
+  "requirement": "REQ-C-YEARS-DOMAIN",
+  "value": {
+   "num": 2,
+   "domain": "同等岗位"
+  },
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "4、能识别图纸基本信息：线材规格、端子型号、胶壳料号、回路标识等；",
+  "line": 7,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "图纸识别",
+  "requirement": "REQ-D-DRAWING-READ",
+  "value": null,
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "5、善于沟通，责任心与进取心强，工作认真、严谨细致；",
+  "line": 8,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "沟通协调能力",
+  "requirement": "REQ-E-COMMUNICATION",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "责任心与进取心强",
+  "line": 8,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "责任心",
+  "requirement": "REQ-E-RESPONSIBILITY",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "工作认真、严谨细致",
+  "line": 8,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "认真严谨细致",
+  "requirement": "REQ-E-CAREFUL",
+  "value": null,
+  "measurable_from_resume": false
+ }
+]

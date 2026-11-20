@@ -1,0 +1,149 @@
+[
+ {
+  "quote": "中专以上学历",
+  "line": 14,
+  "dimension": "B",
+  "tier": "essential",
+  "subject": "学历",
+  "requirement": "REQ-B-EDU-LEVEL",
+  "value": {
+   "num": 2
+  },
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "1年以上招聘工作经验",
+  "line": 14,
+  "dimension": "C",
+  "tier": "essential",
+  "subject": "招聘经验年限",
+  "requirement": "REQ-C-YEARS-DOMAIN",
+  "value": {
+   "num": 1,
+   "domain": "招聘"
+  },
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "良好的沟通表达协调能力强",
+  "line": 15,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "沟通协调能力",
+  "requirement": "REQ-E-COMMUNICATION",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "能够准确、清晰",
+  "line": 15,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "表达准确清晰",
+  "requirement": "REQ-E-LOGIC",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "责任心强",
+  "line": 15,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "责任心",
+  "requirement": "REQ-E-RESPONSIBILITY",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "细心",
+  "line": 15,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "细心",
+  "requirement": "REQ-E-DATA-SENSITIVITY",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "稳重",
+  "line": 15,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "稳重",
+  "requirement": "REQ-E-STRESS",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "熟练使用相关办公软件",
+  "line": 16,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "Office办公软件",
+  "requirement": "REQ-D-OFFICE",
+  "value": null,
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "具备基本的招聘技巧",
+  "line": 16,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "招聘技巧",
+  "requirement": "REQ-D-RECRUIT-SKILL",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "熟悉通常的招聘渠道",
+  "line": 16,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "招聘渠道",
+  "requirement": "REQ-D-RECRUIT-CHANNEL",
+  "value": null,
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "独立工作能力强",
+  "line": 17,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "独立工作能力",
+  "requirement": "REQ-E-EXECUTION",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "丰富的招聘经验",
+  "line": 17,
+  "dimension": "C",
+  "tier": "essential",
+  "subject": "招聘经验",
+  "requirement": "REQ-C-YEARS-DOMAIN",
+  "value": {
+   "domain": "招聘"
+  },
+  "measurable_from_resume": true
+ },
+ {
+  "quote": "对招聘工作感兴趣",
+  "line": 18,
+  "dimension": "E",
+  "tier": "essential",
+  "subject": "招聘工作兴趣",
+  "requirement": "REQ-E-STRIVING",
+  "value": null,
+  "measurable_from_resume": false
+ },
+ {
+  "quote": "熟悉相关招聘知识",
+  "line": 18,
+  "dimension": "D",
+  "tier": "essential",
+  "subject": "招聘知识",
+  "requirement": "REQ-D-RECRUIT-KNOWLEDGE",
+  "value": null,
+  "measurable_from_resume": false
+ }
+]
