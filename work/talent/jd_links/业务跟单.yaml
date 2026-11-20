@@ -1,0 +1,133 @@
+# 业务跟单 · JD 引用(citation)
+#
+# 第二份 JD。它的意义不是"再来一份",而是**第一次产生共享**:
+#   学历      → REQ-B-EDU-LEVEL      品质经理已经用过,阈值从 3 变成 2
+#   年限      → REQ-C-YEARS-DOMAIN   同一个要求,阈值 2,领域换成"订单跟单"
+#   沟通协调  → REQ-E-COMMUNICATION  和品质经理**一字不差地共用**
+#
+# 原文用 textutil 从 .doc 抽取,存 _source/业务跟单.txt 当行号坐标系。
+# 资格要求段在 13–22 行,共 9 条原子要求(其中两条是"优先",不是硬性)。
+
+jd: 业务跟单
+department: 业务课
+source_file: client/team-4/unzipped/职务说明书10份/2. 业务跟单职务说明书.doc
+source_text: work/talent/jd_links/_source/业务跟单.txt
+extracted_with: "textutil -convert txt (macOS)"
+extracted_at: 2026-11-20
+
+count:
+  source_section: 资格要求
+  source_lines: 9
+  atomic_requirements: 9
+  count_note: |
+    资格要求段 13–22 行。其中「专业…优先」是 desirable 而非硬性要求 ——
+    tier 记在引用边上,因为"这条要求在这份 JD 里是硬性还是优先"是 JD 的判断,
+    不是要求本身的属性。
+    「经验」「技能」「素质」这三行是**小标题**,本身不是要求。
+
+citations:
+
+  # ── 学历(共享:品质经理用过同一个 REQ,阈值 3 → 这里 2)──────────────
+  - id: GZ-01
+    requirement: REQ-B-EDU-LEVEL
+    verbatim: 高中及以上学历
+    source_text: 学历：高中及以上学历，国际贸易、商务管理类相关专业优先；
+    txt_line: 14
+    section_index: 1
+    value: {num: 2}
+    tier: essential
+    note: "高中 = rank 2。品质经理要 3(大专)—— 同一条要求,不同阈值。"
+
+  # ── 专业(共享:REQ 与品质经理相同,tier 不同)────────────────────────────
+  - id: GZ-02
+    requirement: REQ-B-MAJOR
+    verbatim: 国际贸易、商务管理类相关专业优先
+    source_text: 学历：高中及以上学历，国际贸易、商务管理类相关专业优先；
+    txt_line: 14
+    section_index: 1
+    value: {in: [国际贸易, 商务管理]}
+    tier: desirable
+    note: |
+      **这一条是「优先」,不是硬性。** 品质经理那份写的是"…等工程类专业毕业"(硬性)。
+      同一个要求,两个 tier —— tier 记在引用边上,因为它属于 JD 的判断。
+
+  # ── 经验(共享:REQ 与品质经理相同,领域不同)────────────────────────────
+  - id: GZ-03
+    requirement: REQ-C-YEARS-DOMAIN
+    verbatim: 2年以上制造业订单跟单经验
+    source_text: 经验：2年以上制造业订单跟单经验，熟悉ERP系统操作；
+    txt_line: 15
+    section_index: 2
+    value: {num: 2, domain: 订单跟单}
+    tier: essential
+    note: "品质经理是 ≥3 年 + 领域品质管理;这里是 ≥2 年 + 领域订单跟单。"
+
+  - id: GZ-04
+    requirement: REQ-D-ERP-OPERATE
+    verbatim: 熟悉ERP系统操作
+    source_text: 经验：2年以上制造业订单跟单经验，熟悉ERP系统操作；
+    txt_line: 15
+    section_index: 2
+    tier: essential
+
+  # ── 技能 ────────────────────────────────────────────────────────────────
+  - id: GZ-05
+    requirement: REQ-D-ERP-EXCEL
+    verbatim: 熟练使用ERP订单管理模块及Excel数据分析
+    source_text: 熟练使用ERP订单管理模块及Excel数据分析；
+    txt_line: 17
+    section_index: 4
+    tier: essential
+
+  - id: GZ-06
+    requirement: REQ-D-DELIVERY-RISK
+    verbatim: 具备订单交期风险评估能力
+    source_text: 具备订单交期风险评估能力；
+    txt_line: 18
+    section_index: 5
+    tier: essential
+
+  # ── 素质 ────────────────────────────────────────────────────────────────
+  - id: GZ-07
+    requirement: REQ-E-STRESS
+    verbatim: 抗压能力强，可同时处理多线程任务
+    source_text: 抗压能力强，可同时处理多线程任务；
+    txt_line: 20
+    section_index: 6
+    tier: essential
+
+  # ── 沟通协调(与品质经理**一字不差**共用同一个 REQ)──────────────────────
+  - id: GZ-08
+    requirement: REQ-E-COMMUNICATION
+    verbatim: 沟通协调能力佳，能独立对接客户与生产部门
+    source_text: 沟通协调能力佳，能独立对接客户与生产部门；
+    txt_line: 21
+    section_index: 7
+    tier: essential
+    note: |
+      品质经理写「有良好的沟通、协调能力」,这里写「沟通协调能力佳,能独立对接客户与生产部门」。
+      两句话不同,指同一个要求 —— 这就是"语义共享、表述各异"。
+
+  # ── 合规 ────────────────────────────────────────────────────────────────
+  - id: GZ-09
+    requirement: REQ-G-CONFIDENTIALITY
+    verbatim: 严守数据保密制度，无客户信息泄露记录
+    source_text: 合规：严守数据保密制度，无客户信息泄露记录。
+    txt_line: 22
+    section_index: 8
+    tier: essential
+    note: "G 维的 hasClearance 属性不存在,判不了 —— 但原话记下来了。"
+
+excluded: []
+
+validation:
+  - id: J-G1
+    rule: 每条 citation 的 requirement 必须存在于 requirement_library.yaml
+  - id: J-G2
+    rule: 每条 verbatim 必须是 source_text 的逐字子串
+  - id: J-G3
+    rule: 每条 source_text 必须是原文的整整一行
+  - id: J-G4
+    rule: txt_line 必须是该行在文件里的真实行号
+  - id: J-G5
+    rule: citation 不许带语义字段(dimension / attribute / components)

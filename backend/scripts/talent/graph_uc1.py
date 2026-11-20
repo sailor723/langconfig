@@ -52,6 +52,7 @@ from rdflib.namespace import RDF  # noqa: E402
 
 CATALOG = ROOT / "work" / "talent" / "component_catalog.yaml"
 LINK = ROOT / "work" / "talent" / "jd_links" / "品质经理.yaml"
+LIBRARY = ROOT / "work" / "talent" / "requirement_library.yaml"
 PROFILE = BACKEND / "features" / "ontology" / "profiles" / "talent_v1" / "talent_v1_settings.json"
 
 #: 五个人,按"命中组件数"从高到低挑,让三种判定状态都能出现
@@ -79,6 +80,11 @@ def load_catalog() -> dict:
 
 def load_link() -> dict:
     return yaml.safe_load(LINK.read_text(encoding="utf-8"))
+
+
+def load_library() -> dict:
+    """要求库:JD 无关。Requirement 节点的语义全部来自这里。"""
+    return yaml.safe_load(LIBRARY.read_text(encoding="utf-8"))
 
 
 def load_candidates(ids: list[str]) -> dict[str, dict]:
@@ -119,12 +125,12 @@ def load_candidates(ids: list[str]) -> dict[str, dict]:
 
 
 # ─────────────────────────────────────────────── 建图
-def build(driver, catalog: dict, link: dict, candidates: dict[str, dict]) -> dict:
+def build(driver, catalog: dict, link: dict, library: dict, candidates: dict[str, dict]) -> dict:
     comps = catalog["components"]
     atts = catalog["attributes"]
     cats = catalog["categories"]
     dims = catalog["dimensions"]
-    reqs = link["requirements"]
+    reqs = library["requirements"]
 
     def rows_of_components():
         return [{"id": c["id"], "label": c["label"], "kind": c.get("kind"),
@@ -155,49 +161,63 @@ def build(driver, catalog: dict, link: dict, candidates: dict[str, dict]) -> dic
                  WITH c, r MATCH (cat:Category {id:r.category})
                  MERGE (c)-[:IN_CATEGORY]->(cat)""", rows=rows_of_components()).consume()
 
-        # ② 需求侧投影 —— 完全来自 jd_links/品质经理.yaml
+        # ② 需求侧:Requirement 只放**语义**(来自 requirement_library.yaml,JD 无关);
+        #    这份 JD 的原话/行号/阈值放在 (:JD)-[:STATES {...}]->(:Requirement) 的边上。
+        #    这是"要求 JD 无关"的落地:第二份 JD 指向同一个 REQ-* 节点,各带各的引用。
+        lib = {r["id"]: r for r in library["requirements"]}
+        cit = link["citations"]
+
         s.run("""MERGE (j:JD {name:$name})
                  SET j.sourceFile=$src, j.sourceText=$txt,
-                     j.sourceLines=$lines, j.atomicRequirements=$atomic""",
+                     j.sourceLines=$lines, j.citations=$cites""",
               name=link["jd"], src=link["source_file"], txt=link["source_text"],
               lines=link["count"]["source_lines"],
-              atomic=link["count"]["atomic_requirements"]).consume()
-        s.run("""UNWIND $rows AS r MERGE (q:Requirement {id:r.id})
-                 SET q.name=r.id, q.verbatim=r.verbatim, q.kind=r.kind, q.assessable=r.assessable,
-                     q.sourceText=r.sourceText, q.txtLine=r.txtLine, q.sectionIndex=r.sectionIndex,
-                     q.jd=r.jd,
-                     q.noComponent=r.noComponent, q.attributeRef=r.attributeRef
-                 WITH q, r MATCH (j:JD {name:r.jd}) MERGE (j)-[:HAS_REQUIREMENT]->(q)""",
-              rows=[{"id": r["id"], "verbatim": r["verbatim"], "kind": r.get("kind"),
-                     "assessable": bool(r.get("assessable")),
-                     "sourceText": r.get("source_text"), "txtLine": r.get("txt_line"),
-                     "sectionIndex": r.get("section_index"),
-                     "jd": link["jd"],
-                     "noComponent": bool(r.get("no_component")),
-                     "attributeRef": r.get("attribute_ref")} for r in reqs]).consume()
-        s.run("""UNWIND $rows AS r MATCH (q:Requirement {id:r.req})
-                 MATCH (c:Component {id:r.comp}) MERGE (q)-[:ON_COMPONENT]->(c)""",
-              rows=[{"req": r["id"], "comp": c} for r in reqs for c in (r.get("components") or [])]).consume()
-        s.run("""UNWIND $rows AS r MATCH (q:Requirement {id:r.req})
-                 MATCH (a:Attribute {id:r.att}) MERGE (q)-[:ON_ATTRIBUTE]->(a)""",
-              rows=[{"req": r["id"], "att": r["attribute"]} for r in reqs if r.get("attribute")]).consume()
+              cites=len(cit)).consume()
 
-        # 每条要求都落在**恰好一个** Dimension 上。这是分类事实,不是抄近路:
-        #   带 attribute 的要求 → 由该属性的 dimension 决定
-        #   直接写 dimension 的要求 → 用它自己声明的(E 维这种 prop=null 的空壳属性走这条)
-        #   只挂组件的技能要求 → D
-        # 它让「按维度看一个岗要什么」变成一跳,而不是在 Neo4j 里连点三下。
-        att_dim = {a["id"]: a["dimension"] for a in atts}
+        # 2a 语义节点:没有任何 JD 专属字段
+        s.run("""UNWIND $rows AS r MERGE (q:Requirement {id:r.id})
+                 SET q.name=r.id, q.title=r.id, q.caption=r.id,
+                     q.label=r.label, q.kind=r.kind, q.dimension=r.dimension,
+                     q.assessable=r.assessable, q.noComponent=r.noComponent,
+                     q.attributeRef=r.attributeRef
+                 REMOVE q.jd, q.verbatim, q.sourceText, q.txtLine, q.sectionIndex,
+                        q.valueOp, q.valueNum, q.valueMin, q.valueMax""",
+              rows=[{"id": r["id"], "label": r["name"], "kind": r.get("kind"),
+                     "dimension": r["dimension"], "assessable": bool(r.get("assessable")),
+                     "noComponent": bool(r.get("no_component")),
+                     "attributeRef": r.get("attribute_ref")} for r in lib.values()]).consume()
+
         s.run("""UNWIND $rows AS r MATCH (q:Requirement {id:r.req})
                  MATCH (d:Dimension {id:r.dim}) MERGE (q)-[:IN_DIMENSION]->(d)""",
-              rows=[{"req": r["id"],
-                     "dim": (att_dim.get(r.get("attribute") or "")
-                             or r.get("dimension")
-                             or "D")} for r in reqs]).consume()
+              rows=[{"req": r["id"], "dim": r["dimension"]} for r in lib.values()]).consume()
+        s.run("""UNWIND $rows AS r MATCH (q:Requirement {id:r.req})
+                 MATCH (a:Attribute {id:r.att}) MERGE (q)-[:ON_ATTRIBUTE]->(a)""",
+              rows=[{"req": r["id"], "att": r["attribute"]}
+                    for r in lib.values() if r.get("attribute")]).consume()
+        s.run("""UNWIND $rows AS r MATCH (q:Requirement {id:r.req})
+                 MATCH (k:Component {id:r.comp}) MERGE (q)-[:ON_COMPONENT]->(k)""",
+              rows=[{"req": r["id"], "comp": c} for r in lib.values()
+                    for c in (r.get("components") or [])]).consume()
         s.run("""UNWIND $rows AS r MATCH (q:Requirement {id:r.req})
                  MATCH (a:Attribute {id:r.att}) MERGE (q)-[:LEVEL_CHECK_ON]->(a)""",
               rows=[{"req": r["id"], "att": (r.get("level_check") or {}).get("attribute")}
-                    for r in reqs if (r.get("level_check") or {}).get("attribute")]).consume()
+                    for r in lib.values() if (r.get("level_check") or {}).get("attribute")]).consume()
+
+        # 2b 引用边:JD 的取值与原话全在这里
+        s.run("""UNWIND $rows AS r MATCH (j:JD {name:r.jd}) MATCH (q:Requirement {id:r.req})
+                 MERGE (j)-[e:STATES {citation:r.id}]->(q)
+                 SET e.verbatim=r.verbatim, e.sourceText=r.sourceText, e.txtLine=r.txtLine,
+                     e.sectionIndex=r.sectionIndex, e.valueOp=r.valueOp,
+                     e.valueNum=r.valueNum, e.valueMin=r.valueMin, e.valueMax=r.valueMax,
+                     e.valueIn=r.valueIn""",
+              rows=[{"jd": link["jd"], "id": c["id"], "req": c["requirement"],
+                     "verbatim": c["verbatim"], "sourceText": c["source_text"],
+                     "txtLine": c.get("txt_line"), "sectionIndex": c.get("section_index"),
+                     "valueOp": (lib[c["requirement"]].get("op")),
+                     "valueNum": (c.get("value") or {}).get("num"),
+                     "valueMin": (c.get("value") or {}).get("min"),
+                     "valueMax": (c.get("value") or {}).get("max"),
+                     "valueIn": (c.get("value") or {}).get("in")} for c in cit]).consume()
 
         # ③ 供给侧投影 —— 来自 abox.ttl
         s.run("""UNWIND $rows AS r MERGE (c:Candidate {id:r.id})
@@ -237,6 +257,14 @@ def build(driver, catalog: dict, link: dict, candidates: dict[str, dict]) -> dic
             if bad:
                 raise SystemExit(f"层级规则被违反,拒绝出图 —— {label}: {bad[:5]}")
 
+        # Requirement 必须 JD 无关 —— 任何 JD 专属字段出现在语义节点上都是错位。
+        leaked = s.run("""MATCH (q:Requirement)
+                          WHERE q.jd IS NOT NULL OR q.verbatim IS NOT NULL
+                             OR q.sourceText IS NOT NULL OR q.txtLine IS NOT NULL
+                          RETURN collect(q.id) AS leaked""").single()["leaked"]
+        if leaked:
+            raise SystemExit(f"Requirement 不该带 JD 专属字段: {leaked[:5]}")
+
         # 一致性断言:一条要求的 IN_DIMENSION 必须等于它真正约束的那个节点所属的维度。
         # 读图的人一定会走 JD → Requirement → Dimension → 属性 这条路;
         # 那条路会顺带连上同一维度里的**其他**属性(QM-02 会连上专业/全日制/院校层次),
@@ -261,15 +289,16 @@ def build(driver, catalog: dict, link: dict, candidates: dict[str, dict]) -> dic
 
 # ─────────────────────────────────────────────── 回答那个真问题
 ANSWER = """
-MATCH (j:JD {name:$jd})-[:HAS_REQUIREMENT]->(q:Requirement)
+MATCH (j:JD {name:$jd})-[st:STATES]->(q:Requirement)
 OPTIONAL MATCH (q)-[:ON_COMPONENT]->(need:Component)
-WITH q, collect(DISTINCT need.id) AS 需要组件
+WITH q, st, collect(DISTINCT need.id) AS 需要组件
 OPTIONAL MATCH (q)-[:ON_ATTRIBUTE]->(att:Attribute)
-WITH q, 需要组件, att
+WITH q, st, 需要组件, att
 MATCH (c:Candidate)
 OPTIONAL MATCH (c)-[:HAS_COMPONENT]->(have:Component) WHERE have.id IN 需要组件
-WITH c, q, 需要组件, att, collect(DISTINCT have.id) AS 命中组件
-RETURN c.id AS 候选人, q.id AS 要求, q.sourceText AS 原句,
+WITH c, q, st, 需要组件, att, collect(DISTINCT have.id) AS 命中组件
+RETURN c.id AS 候选人, q.id AS 要求, st.verbatim AS 引文, st.sourceText AS 原句,
+       st.valueNum AS 阈值, st.valueMin AS 下限, st.valueMax AS 上限,
        size(需要组件) AS 组件数, size(命中组件) AS 命中数,
        [h IN 命中组件] AS 命中, att.id AS 属性, att.label AS 属性名, att.prop AS 供侧属性,
        [(q)-[:IN_DIMENSION]->(dd:Dimension) | dd.id][0] AS 维度,
@@ -278,29 +307,39 @@ ORDER BY c.id, q.id
 """
 
 
-def attribute_verdict(link: dict, candidates: dict, attr_id: str, cand_id: str) -> tuple[str, str]:
-    """属性类要求:够了 / 不够 / 没有数据。三态,不是两态。"""
-    req = next(r for r in link["requirements"] if (r.get("attribute") == attr_id))
-    cons = req.get("constraint") or {}
+def attribute_verdict(link: dict, library: dict, candidates: dict,
+                      req_id: str, cand_id: str) -> tuple[str, str]:
+    """属性类要求:够了 / 不够 / 没有数据。三态,不是两态。
+
+    阈值来自**引用**(这份 JD 的取值),不来自要求本身 —— 那是决定 A 的直接后果。
+    """
+    cit = next((c for c in link["citations"] if c["requirement"] == req_id), {})
+    cons = cit.get("value") or {}
+    req = next((r for r in library["requirements"] if r["id"] == req_id), {})
+    attr_id = req.get("attribute")
     cand = candidates[cand_id]
-    prop = {"A.2": "age", "B.1": "educationRank", "C.1": "years"}.get(attr_id)
+    prop = {"A.2": "age", "B.1": "educationRank", "C.1": "years"}.get(attr_id or "")
     if prop is None:
         return "—", "该属性未建或在语料里没有来源"
     value = cand.get(prop)
     if value is None:
         return "未知", f"{prop} 没读到 —— 不是不合格,是说不清"
-    if "min" in cons and "max" in cons:
+    op = req.get("op")
+    if op == "between" and "min" in cons and "max" in cons:
         ok = cons["min"] <= value <= cons["max"]
         return ("够" if ok else "不够"), f"{cons['min']}~{cons['max']} vs {value}"
-    if cons.get("op") == ">=":
-        ok = value >= cons["value"]
-        return ("够" if ok else "不够"), f">={cons['value']} vs {value}"
-    return "—", "这个约束类型没有判定规则"
+    if op == ">=" and "num" in cons:
+        ok = value >= cons["num"]
+        return ("够" if ok else "不够"), f">={cons['num']} vs {value}"
+    if op == "in":
+        return "—", "取值集合型,需要属性支持"
+    return "—", f"算子 {op} 没有判定规则"
 
 
-def report(rows: list[dict], link: dict, catalog: dict, candidates: dict) -> None:
+def report(rows: list[dict], link: dict, library: dict, catalog: dict, candidates: dict) -> None:
     comp_by_id = {c["id"]: c for c in catalog["components"]}
-    reqs = {r["id"]: r for r in link["requirements"]}
+    reqs = {r["id"]: r for r in library["requirements"]}
+    cit_by_req = {c["requirement"]: c for c in link["citations"]}
 
     print(f"\n{'═' * 78}\n{link['jd']} · {len(reqs)} 条要求 × {len(candidates)} 个人\n{'═' * 78}")
     for cand_id in candidates:
@@ -319,11 +358,11 @@ def report(rows: list[dict], link: dict, catalog: dict, candidates: dict) -> Non
                 if r["命中"]:
                     parts.append("命中 " + "·".join(comp_by_id[h]["label"] for h in r["命中"]))
             if r["属性"]:
-                verdict, why = attribute_verdict(link, candidates, r["属性"], cand_id)
+                verdict, why = attribute_verdict(link, library, candidates, r["要求"], cand_id)
                 parts.append(f"{r['属性名']} {verdict}({why})")
                 met_attr += 1 if verdict == "够" else 0
                 unknown += 1 if verdict == "未知" else 0
-            elif req.get("dimension"):
+            elif req.get("dimension") and not r["组件数"] and not r["属性"]:
                 parts.append(f"→ {req['dimension']} 维(该维无组件,只连到维度)")
             lvl = (req.get("level_check") or {})
             if lvl:
@@ -341,13 +380,18 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
-    catalog, link = load_catalog(), load_link()
+    catalog, link, library = load_catalog(), load_link(), load_library()
     candidates = load_candidates(CANDIDATES)
-    reqs = link["requirements"]
+    reqs = library["requirements"]
+    cit = link["citations"]
     comps_needed = sorted({c for r in reqs for c in (r.get("components") or [])})
+    shared = len(cit) - len({c["requirement"] for c in cit})
     print(f"catalog: {len(catalog['components'])} 组件 / {len(catalog['attributes'])} 属性 / "
           f"{len(catalog['categories'])} 类别 / {len(catalog['dimensions'])} 维度")
-    print(f"JD     : {link['jd']} · {len(reqs)} 条要求 · 引用 {len(comps_needed)} 个组件")
+    print(f"库     : {len(reqs)} 条要求(JD 无关)")
+    print(f"JD     : {link['jd']} · {len(cit)} 条引用 → {len({c['requirement'] for c in cit})} 条要求"
+          f" · 引用 {len(comps_needed)} 个组件"
+          + (f" · 其中 {shared} 条被重复引用" if shared else ""))
     print(f"候选人 : {len(candidates)} 个")
 
     if args.dry_run:
@@ -361,7 +405,7 @@ def main() -> int:
         auth=(os.environ.get("NEO4J_USER", "neo4j"), os.environ.get("NEO4J_PASSWORD", "")))
     try:
         driver.verify_connectivity()
-        built = build(driver, catalog, link, candidates)
+        built = build(driver, catalog, link, library, candidates)
         print("图: " + " · ".join(f"{k} {v}" for k, v in built["nodes"].items()))
         print("  边: " + " · ".join(f"{k} {v}" for k, v in built["edges"].items()))
         with driver.session(database=os.environ.get("NEO4J_DATABASE", "neo4j")) as s:
@@ -369,7 +413,7 @@ def main() -> int:
     finally:
         driver.close()
 
-    report(rows, link, catalog, candidates)
+    report(rows, link, library, catalog, candidates)
     return 0
 
 

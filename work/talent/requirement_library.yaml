@@ -1,0 +1,252 @@
+# requirement_library.yaml —— 要求库(JD 无关)
+#
+# 这个文件里**没有 JD**。每一条要求是"这个行业会要求什么"的语义单元,
+# 可以被任意多份 JD 引用。JD 说的原话、出自第几行、阈值取多少,**都不在这里** ——
+# 那些挂在引用边 `(:JD)-[:STATES {...}]->(:Requirement)` 上。
+#
+# 为什么必须分开(实测):
+#   10 份 JD 一共产生 28 个"岗位-技能"对,但不同技能只有 15 个。
+#     skill_行政    ← 5 个岗(业务跟单 · 人资专员 · 工程文员 · 招聘专员 · 管理课长)
+#     skill_薪酬绩效 ← 4 个岗
+#     skill_Excel   ← 3 个岗
+#   28 个对里 13 个(46%)是共享语义。若把要求做成"某份 JD 的",就要造 28 个节点
+#   去表达 15 个意思 —— 而且"哪几个岗都要 Excel"这个最该问的问题反而查不到。
+#
+# 阈值为什么不进节点身份(决定 A):
+#   要求本身是"学历不低于某个值",值是**参数**。
+#   品质经理要 ≥3、工程文员要 ≥2、业务助理要 ≥2 —— 同一条要求,三个取值。
+#   所以 `REQ-B-EDU-LEVEL` 只有一个节点,≥3 / ≥2 写在各自的引用边上。
+#
+# 与另两份文件的关系:
+#   component_catalog.yaml      能力全集(维度/属性/类别/组件)—— 本文件只引用,不定义
+#   jd_links/<岗位>.yaml        引用(某份 JD 的原话 + 行号 + 取值)
+#
+# 校验:backend/scripts/talent/check_component_catalog.py
+
+version: 1
+scope: 东莞 · 线束/连接器制造业 · 从 10 份职务说明书里概括出来的要求语义
+measured: 2026-11-19
+
+# 命名:REQ-<维度>-<语义>。id 里**不许出现岗位名** —— 那是引用的事。
+#
+# 每条要求的字段:
+#   dimension    维度(A–I),必须存在于 component_catalog.yaml
+#   attribute    属性 id(A.2 / B.1 …);null 表示这一支没有候选人侧属性
+#   kind         要求形态
+#                  threshold  单值阈值,值在引用边上(valueOp / valueNum / valueMin / valueMax)
+#                  enumerate  取值集合,值在引用边上(valueIn)
+#                  component  指向具体技能组件
+#                  composite  一句话多个技能组件,算一条要求
+#                  unmeasurable  结构性不可判(素质)
+#   components   引用的组件 id(必须存在于 component_catalog.yaml)
+#   op           算子。**算子是要求的性质,阈值是 JD 的取值**
+#   level_check  附带的熟练度判定(有则说明它判不了)
+#   no_component true 表示这一支天然没有组件(E 维)
+#   assessable   在**当前供给侧**能不能判。取决于属性/组件是否已存在,与哪份 JD 无关。
+
+requirements:
+
+  # ── A 人口属性 ──────────────────────────────────────────────────────────
+  - id: REQ-A-AGE-RANGE
+    name: 年龄区间
+    dimension: A
+    attribute: A.2
+    kind: threshold
+    op: between
+    value_shape: {min: 岁, max: 岁}
+    components: []
+    assessable: true
+    note: |
+      要求是"年龄落在某个区间",区间是 JD 的取值。
+      实测:品质经理 25~40、业务助理 25~38、副总助理 25~38 —— 三个取值,一条要求。
+      供给侧 age 覆盖 107/277,所以能判,但有一多半的人判不了(未知,不是不合格)。
+
+  # ── B 教育 ──────────────────────────────────────────────────────────────
+  - id: REQ-B-EDU-LEVEL
+    name: 学历不低于
+    dimension: B
+    attribute: B.1
+    kind: threshold
+    op: ">="
+    value_shape: {num: 学历等级 2..6}
+    components: []
+    assessable: true
+    note: |
+      B.1 是 ordinal(2中专 3大专 4本科 5硕士 6博士),所以 ≥ 可算。
+      150 份 JD 里写"大专及以上"和"中专及以上"的,是同一条要求、不同阈值。
+
+  - id: REQ-B-MAJOR
+    name: 专业限定
+    dimension: B
+    attribute: B.2
+    kind: enumerate
+    op: in
+    value_shape: {list: 专业名}
+    components: []
+    assessable: false
+    blocked_by: B.2 的 prop_exists=false(专业属性未建)
+    note: "属性没建之前不许标可判 —— 这是 C-G7 要拦的事。"
+
+  # ── C 经历 ──────────────────────────────────────────────────────────────
+  - id: REQ-C-YEARS-DOMAIN
+    name: 某领域年限不低于
+    dimension: C
+    attribute: C.1
+    kind: threshold
+    op: ">="
+    value_shape: {num: 年, domain: 职能域}
+    components: []
+    assessable: true
+    partial: "年限可判(148/277);领域限定需要 C.2 domain,该属性未建"
+    note: |
+      一条要求同时约束年限与领域:"3年以上品质管理工作经验"。
+      现在只能判年限 —— 10 年的人资专员和 10 年的品质经理在这条上得分相同。
+
+  # ── D 技能 ──────────────────────────────────────────────────────────────
+  - id: REQ-D-HARNESS-DOMAIN
+    name: 线束/连接器行业认知
+    dimension: D
+    attribute: null
+    kind: component
+    op: holds
+    components: [skill_线束行业知识]
+    assessable: true
+
+  - id: REQ-D-QA-ANALYSIS
+    name: 品质问题分析改善能力
+    dimension: D
+    attribute: null
+    kind: component
+    op: holds
+    components: [skill_品质问题分析]
+    assessable: true
+
+  - id: REQ-D-QA-TOOLS
+    name: 品质工具(QC七大手法/5WHY/SPC/CPK/6S)
+    dimension: D
+    attribute: null
+    kind: composite
+    op: holds
+    components: [skill_QC七大手法, skill_SPC, skill_CPK, skill_6S]
+    unlinked_parts:
+      - {text: 5WHY, gap: P5}
+    assessable: true
+    note: |
+      原文点名 5 项,组件只有 4 项 —— 5WHY 没有组件(gaps.P5)。显式留空,不凑。
+      这 4 个组件的持有率差 26 倍(QC七大手法 1/277、6S 26/277),
+      所以"满足这条"和"满足这条"之间差别极大 —— 复合要求必须拆开看。
+
+  - id: REQ-D-CUSTOMER-AUDIT
+    name: 客户验厂经验
+    dimension: D
+    attribute: null
+    kind: component
+    op: holds
+    components: [skill_客户验厂]
+    assessable: true
+    note: '这类"活动经验"先用 D 维兜住。C.5 activity_experience 留着,等需要区分"做过 vs 会做"再用。'
+
+  # ── H 语言 ──────────────────────────────────────────────────────────────
+  - id: REQ-H-LANG-EN
+    name: 英语(口语 + 独立书写英文8D报告)
+    dimension: D          # 组件在 D;熟练度是**面**,不是维度归属(见 level_check)
+    attribute: null
+    kind: composite
+    op: holds
+    components: [skill_英语, skill_8D报告]
+    level_check:
+      attribute: H.2
+      assessable: false
+      why: 熟练度有 6 档(CEFR A1–C2),但语料里没有映射来源
+    assessable: true
+    partial: "会不会英语、会不会写 8D —— 两个组件都能判;「口语熟练」判不了"
+    note: |
+      H 维从 D 拆出来的原因就是这条:「会英语」与「能独立写英文报告」是两个判定。
+      但它属于 **D 维度**:两个组件(skill_英语 / skill_8D报告)都在 D。
+      「口语熟练」是**面**而不是维度归属 —— 所以它放 level_check(H.2),放的是"这一面判不了",
+      不声称这条要求属于 H 维。**层级断言"组件必须属于要求声明的维度"在这里是判据。**
+      副作用:这份 JD 对 H 维的真实贡献是 0 条 —— H 维只为熟练度预留。
+
+  # ── E 素质能力 ──────────────────────────────────────────────────────────
+  - id: REQ-E-COMMUNICATION
+    name: 沟通协调能力
+    dimension: E
+    attribute: null
+    attribute_ref: E.1
+    kind: unmeasurable
+    op: null
+    components: []
+    no_component: true
+    assessable: false
+    note: |
+      E 维 24 条素质要求在本目录里**没有任何组件** —— 素质不是技能,不能塞进 components。
+      它不连 Attribute,因为 E.1 的 prop 是 null(只是分类标签,不是候选人侧属性)。
+      在图上它是一条走到 Dimension 就到头的枝,不是缺陷,是事实。要判它只能靠面试评分表。
+
+  # ── 第二份 JD(业务跟单)带来的新语义 ────────────────────────────────────
+  - id: REQ-D-ERP-OPERATE
+    name: ERP 系统操作
+    dimension: D
+    attribute: null
+    kind: component
+    op: holds
+    components: [skill_ERP]
+    assessable: true
+    note: "业务跟单原文「熟悉ERP系统操作」。37/277 具备。"
+
+  - id: REQ-D-ERP-EXCEL
+    name: ERP 订单模块 + Excel 数据分析
+    dimension: D
+    attribute: null
+    kind: composite
+    op: holds
+    components: [skill_ERP, skill_Excel]
+    assessable: true
+    note: |
+      原文「熟练使用ERP订单管理模块及Excel数据分析」。
+      PG 侧的 req_004 就是这条,当时也是 2 个组件。
+      注意它和 REQ-D-ERP-OPERATE 不同:那条只要"熟悉",这条要"熟练使用+数据分析"。
+
+  - id: REQ-D-DELIVERY-RISK
+    name: 订单交期风险评估
+    dimension: D
+    attribute: null
+    kind: component
+    op: holds
+    components: [skill_订单交期风险评估]
+    assessable: true
+    note: "41/277 具备。这个词放进组件表是对的 —— 它是一个可判的能力项,不是素质。"
+
+  - id: REQ-E-STRESS
+    name: 抗压能力 / 多线程处理
+    dimension: E
+    attribute: null
+    attribute_ref: E.1
+    kind: unmeasurable
+    op: null
+    components: []
+    no_component: true
+    assessable: false
+
+  - id: REQ-G-CONFIDENTIALITY
+    name: 数据保密 / 无信息泄露记录
+    dimension: G
+    attribute: G.1
+    kind: unmeasurable
+    op: null
+    components: []
+    assessable: false
+    note: |
+      G 维的 hasClearance 属性不存在,所以判不了。
+      「无客户信息泄露记录」本质上需要证明文件,不是简历能答的。
+
+# ══════════════════════════════════════════════════════════════════════════
+# 已知缺口
+# ══════════════════════════════════════════════════════════════════════════
+gaps:
+  - id: P5
+    what: 5WHY 在 JD 原文里出现,但没有组件
+    why: 它从未被抽取成技能。REQ-D-QA-TOOLS 只能落到 4 个组件。
+  - id: P6
+    what: 要求库目前只覆盖了品质经理一份 JD 出现的语义
+    why: 其余 9 份 JD 会带来新的要求类型(合规、资质、班制…)。库要随 JD 增长。

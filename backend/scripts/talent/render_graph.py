@@ -36,7 +36,7 @@ def _id(prefix: str, value: str) -> str:
     return f'{prefix}_{abs(hash(value)) % 100000}_{value.translate(str.maketrans("", "", ".-+/ ()"))[:14]}'
 
 
-def build(catalog: dict, link: dict) -> str:
+def build(catalog: dict, link: dict, mode: str = 'full') -> str:
     reqs = link["requirements"]
     dims = catalog["dimensions"]
     atts = catalog["attributes"]
@@ -62,15 +62,21 @@ def build(catalog: dict, link: dict) -> str:
         "digraph talent {",
         '  rankdir=LR; compound=true; splines=true; nodesep=0.14; ranksep=0.85;',
         f'  graph [fontname="{FONT}", bgcolor="white", fontsize=11];',
-        f'  node  [fontname="{FONT}", fontsize=9, shape=box, style="rounded,filled", fillcolor="{USED_FILL}", color="#888888"];',
-        f'  edge  [fontname="{FONT}", fontsize=7, arrowsize=0.55];',
+        f'  node  [fontname="{FONT}", fontsize=12, shape=box, style="rounded,filled", fillcolor="{USED_FILL}", color="#888888"];',
+        f'  edge  [fontname="{FONT}", fontsize=9, arrowsize=0.7];',
         "",
         "  // ── 能力全集:9 个维度,每个一个 cluster。与任何 JD 无关。",
     ]
 
+    # mode=jd: 只画被这份 JD 碰到的维度/属性/类别 —— 图上每个字都读得清
+    focus_atts = used_atts if mode == 'jd' else None
+    focus_cats = ({comps[c]["category"] for c in used_comps} if mode == 'jd' else None)
+
     for dim in dims:
         did = dim["id"]
         used = did in used_dims
+        if mode == 'jd' and not used:
+            continue
         style = "rounded" if used else "rounded,dashed"
         color = "#4a7ba7" if used else GREY
         tag = "" if used else "  · 本 JD 未涉及"
@@ -82,20 +88,24 @@ def build(catalog: dict, link: dict) -> str:
         if did == "D":
             for cat in cats:
                 hit = any(comps[c]["category"] == cat["id"] for c in used_comps)
+                if mode == 'jd' and not hit:
+                    continue
                 cid = _id("cat", cat["id"])
                 L.append(f'    {cid} [label="{cat["label"]}\\n({cat["component_count"]})", '
                          f'fillcolor="{"#eaeaea" if not hit else "#e8eef5"}", '
-                         f'color="{GREY if not hit else "#7a9cc0"}", fontsize=8];')
+                         f'color="{GREY if not hit else "#7a9cc0"}", fontsize=11];')
                 L.append(f"    {did} -> {cid} [style=invis];")
         else:
             for att in atts:
                 if att["dimension"] != did:
                     continue
+                if focus_atts is not None and att["id"] not in focus_atts:
+                    continue
                 hit = att["id"] in used_atts
                 aid = _id("att", att["id"])
                 L.append(f'    {aid} [label="{att["id"]} {att["label"]}", '
                          f'fillcolor="{"#d8efd8" if hit else USED_FILL}", '
-                         f'color="{"#2e7d32" if hit else "#bbbbbb"}", fontsize=8];')
+                         f'color="{"#2e7d32" if hit else "#bbbbbb"}", fontsize=11];')
                 L.append(f"    {did} -> {aid} [style=invis];")
         L.append("  }")
         L.append("")
@@ -103,7 +113,7 @@ def build(catalog: dict, link: dict) -> str:
     L.append("  // ── 这份 JD 实际要求的组件(叶子)")
     for cid in sorted(used_comps):
         nid = _id("comp", cid)
-        L.append(f'  {nid} [label="{comps[cid]["label"]}", fillcolor="#ffd9d9", color="#c62828", fontsize=8];')
+        L.append(f'  {nid} [label="{comps[cid]["label"]}", fillcolor="#ffd9d9", color="#c62828", fontsize=11];')
         cat = _id("cat", comps[cid]["category"])
         L.append(f"  {cat} -> {nid} [color=\"#c62828\", style=dotted, arrowhead=none];")
     L.append("")
@@ -119,7 +129,7 @@ def build(catalog: dict, link: dict) -> str:
         if len(txt) > 16:
             txt = txt[:16] + "…"
         L.append(f'  {q} [label="{r["id"]}\\n{txt}", fillcolor="#dce9f7", '
-                 f'color="#4a7ba7", fontsize=8];')
+                 f'color="#4a7ba7", fontsize=11];')
         L.append(f"  {jd} -> {q} [color=\"#4a7ba7\"];")
         if r.get("attribute"):
             L.append(f'  {q} -> {_id("att", r["attribute"])} [color="#2e7d32", label="约束"];')
@@ -147,7 +157,7 @@ def build(catalog: dict, link: dict) -> str:
         nid = _id("cand", row["id"])
         short = row["id"].replace("cand_", "")
         L.append(f'  {nid} [label="{short[:20]}\\n{len(row["comps"])} 个组件", shape=ellipse, '
-                 f'fillcolor="#e8f5e9", color="#1b5e20", fontsize=8];')
+                 f'fillcolor="#e8f5e9", color="#1b5e20", fontsize=11];')
         for c in row["comps"]:
             L.append(f'  {nid} -> {_id("comp", c)} [color="#1b5e20", style=dashed, arrowhead=none];')
     L.append("}")
@@ -157,6 +167,8 @@ def build(catalog: dict, link: dict) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--name", default="uc1", help="输出文件名(不含扩展名)")
+    ap.add_argument("--mode", choices=["jd", "full"], default="jd",
+                    help="jd=只画这份 JD 碰到的节点(读得清);full=整个目录树")
     ap.add_argument("--open", action="store_true")
     args = ap.parse_args()
 
@@ -164,7 +176,7 @@ def main() -> int:
     link = yaml.safe_load(LINK.read_text(encoding="utf-8"))
     OUT.mkdir(parents=True, exist_ok=True)
 
-    dot_text = build(catalog, link)
+    dot_text = build(catalog, link, mode=args.mode)
     dot_path = OUT / f"{args.name}.dot"
     dot_path.write_text(dot_text, encoding="utf-8")
 
@@ -187,7 +199,14 @@ def main() -> int:
         if r.returncode != 0:
             print(f"  {fmt} 渲染失败: {r.stderr.strip()[:200]}")
             return 1
-        print(f"  {target.relative_to(ROOT)}  {target.stat().st_size // 1024}K")
+        size = ""
+        if fmt == "svg":
+            head = target.read_text(encoding="utf-8", errors="ignore")[:400]
+            import re as _re
+            m = _re.search(r'width="([\d.]+)pt" height="([\d.]+)pt"', head)
+            if m:
+                size = f"  画布 {m.group(1)}×{m.group(2)}pt"
+        print(f"  {target.relative_to(ROOT)}  {target.stat().st_size // 1024}K{size}")
 
     if args.open:
         subprocess.run(["open", str(OUT / f"{args.name}.svg")])

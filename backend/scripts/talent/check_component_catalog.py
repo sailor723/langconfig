@@ -36,6 +36,7 @@ import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 CATALOG = ROOT / "work" / "talent" / "component_catalog.yaml"
+LIBRARY = ROOT / "work" / "talent" / "requirement_library.yaml"
 
 OK = True
 CHECKS = 0
@@ -220,128 +221,142 @@ def check_against_db(cat: dict) -> None:
 
 
 # ─────────────────────────────────────────────────────── ③ 待条件
-def check_links(cat: dict, links_dir: pathlib.Path | None) -> None:
-    print("\n=== C-G3 / C-G7 JD 链接门禁 ===")
+def check_library(lib: dict, cat: dict) -> None:
+    """要求库(JD 无关)自身的门禁:语义必须落在目录上。"""
+    print("\n=== 要求库:语义必须落在能力全集上 ===")
+    atts = {a["id"]: a for a in cat["attributes"]}
+    comps = {c["id"] for c in cat["components"]}
+    dims = {d["id"] for d in cat["dimensions"]}
+    reqs = lib.get("requirements") or []
+
+    check_true(f"要求库有 {len(reqs)} 条要求", len(reqs) > 0)
+
+    # J-G4:prop 是 null 的属性只是分类标签,不是候选人侧属性 → 要求不许连它
+    stub = []
+    for r in reqs:
+        att = atts.get(r.get("attribute") or "")
+        if att is not None and att.get("prop") is None:
+            stub.append((r["id"], att["id"]))
+    check_true("没有要求连到 prop=null 的空壳属性", not stub, f"{stub} —— 应改用 attribute_ref")
+
+    bad_dim = [(r["id"], r["dimension"]) for r in reqs if r["dimension"] not in dims]
+    check_true("每条要求的 dimension 都在目录里", not bad_dim, f"{bad_dim}")
+
+    bad_att = [(r["id"], r["attribute"]) for r in reqs
+               if r.get("attribute") and r["attribute"] not in atts]
+    check_true("每条要求引用的属性都在目录里", not bad_att, f"{bad_att}")
+
+    bad_comp = [(r["id"], c) for r in reqs for c in (r.get("components") or [])
+                if c not in comps]
+    check_true("每条要求引用的组件都在目录里", not bad_comp, f"{bad_comp}")
+
+    # 层级:组件必须属于要求声明的维度(这条抓出过 REQ-H-LANG-EN 放 H 维的错误)
+    comp_dim = {}
+    for c in cat["components"]:
+        for catg in cat["categories"]:
+            if catg["id"] == c["category"]:
+                comp_dim[c["id"]] = "D"
+    wrong = [(r["id"], c) for r in reqs for c in (r.get("components") or [])
+             if comp_dim.get(c) and comp_dim[c] != r["dimension"]]
+    check_true("引用的组件都属于要求声明的维度", not wrong, f"{wrong}")
+
+    # 不可判的要求必须说明为什么不可判
+    silent = [r["id"] for r in reqs
+              if not r.get("assessable") and not (r.get("no_component") or r.get("blocked_by")
+                                                  or r.get("note") or r.get("attribute_ref"))]
+    check_true("每条不可判的要求都写了原因", not silent, f"{silent}")
+
+    # assessable=true 但依赖的属性不存在 → 撒谎
+    lying = []
+    for r in reqs:
+        if not r.get("assessable"):
+            continue
+        att = atts.get(r.get("attribute") or "")
+        if att is not None and att.get("prop_exists") is False:
+            lying.append((r["id"], att["id"]))
+        lvl = atts.get((r.get("level_check") or {}).get("attribute") or "")
+        if (r.get("level_check") or {}).get("assessable") and lvl and lvl.get("prop_exists") is False:
+            lying.append((r["id"], lvl["id"], "level_check"))
+    check_true("没有把「属性未建」的要求标成可判定", not lying, f"{lying}")
+
+
+def check_links(cat: dict, lib: dict, links_dir: pathlib.Path | None) -> None:
+    """引用(JD 专属)的门禁:原话可回查、语义字段不许混进来。"""
+    print("\n=== 引用:每条原话都能回查到原文 ===")
     files = sorted(links_dir.glob("*.yaml")) if links_dir and links_dir.is_dir() else []
     if not files:
-        not_run("C-G3 每条 JD 引用都带逐字原文",
-                "还没有 JD 链接文件(需求侧投影未建),没有东西可查")
-        not_run("C-G7 prop_exists=false 的属性不得被已判定的要求引用",
-                "同上 —— 需要链接文件里的 assessable 标记")
+        not_run("引用门禁", "还没有 JD 链接文件")
         return
 
-    comp_ids = {c["id"] for c in cat["components"]}
-    att_ids = {a["id"]: a for a in cat["attributes"]}
-    gap_ids = {g["id"] for g in cat.get("gaps") or []}
+    lib_ids = {r["id"] for r in (lib.get("requirements") or [])}
+    total = 0
     for path in files:
         doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        reqs = doc.get("requirements") or []
-        missing_verbatim = [r.get("id") for r in reqs if not r.get("verbatim")]
-        check_true(f"{path.name}:{len(reqs)} 条要求全部带 verbatim",
-                   not missing_verbatim, f"{missing_verbatim}")
+        cites = doc.get("citations") or []
+        total += len(cites)
+        check_true(f"{path.name}: 读到 {len(cites)} 条引用(不是 0)", len(cites) > 0,
+                   "文件结构不对 —— 读成 0 条会让所有检查空过")
 
-        # C-G3 的实形:verbatim 必须是原文的逐字子串。这是"要求被改写/被编造"的唯一解药。
+        declared = (doc.get("count") or {}).get("atomic_requirements")
+        check_true(f"{path.name}: 声明的原子条数 {declared} = 实际 {len(cites)}",
+                   declared == len(cites), "声明与实际不符")
+
+        dangling = [(c["id"], c.get("requirement")) for c in cites
+                    if c.get("requirement") not in lib_ids]
+        check_true(f"{path.name}: 每条引用的 requirement 都在要求库里",
+                   not dangling, f"{dangling[:3]}")
+
+        # J-G5:引用不许带语义字段
+        leaked = [(c["id"], k) for c in cites
+                  for k in ("dimension", "attribute", "components") if k in c]
+        check_true(f"{path.name}: 引用没带语义字段(dimension/attribute/components)",
+                   not leaked, f"{leaked[:3]} —— 语义是库的事")
+
+        no_verbatim = [c["id"] for c in cites if not c.get("verbatim")]
+        check_true(f"{path.name}: 每条引用都有 verbatim", not no_verbatim, f"{no_verbatim}")
+
         source_rel = doc.get("source_text") or ""
         source_path = (ROOT / source_rel) if source_rel else None
-        if source_path and source_path.is_file():
-            text = source_path.read_text(encoding="utf-8")
-            invented = [r.get("id") for r in reqs
-                        if r.get("verbatim") and r["verbatim"] not in text]
-            check_true(f"{path.name}: 每条 verbatim 都是原文逐字子串",
-                       not invented, f"{invented} —— 在 {source_rel} 里找不到")
+        if not (source_path and source_path.is_file()):
+            not_run(f"{path.name}: 逐字回查", f"缺 source_text({source_rel or '未声明'})")
+            continue
+        text = source_path.read_text(encoding="utf-8")
+        lines_of = text.split("\n")
+        lines_set = {ln.strip() for ln in lines_of}
 
-            # source_text 必须是原文的**一整行**;verbatim 必须是 source_text 的子串。
-            # 这是把"文字当主锚点"落地的地方 —— 行号会随重新抽取而漂,文字不会。
-            lines_set = {ln.strip() for ln in text.split("\n")}
-            bad_src = [r.get("id") for r in reqs
-                       if r.get("source_text") and r["source_text"].strip() not in lines_set]
-            check_true(f"{path.name}: source_text 都是原文的一整行", not bad_src, f"{bad_src[:3]}")
-            not_in_src = [r.get("id") for r in reqs
-                          if r.get("source_text") and r.get("verbatim")
-                          and r["verbatim"] not in r["source_text"]]
-            check_true(f"{path.name}: verbatim 都落在 source_text 里", not not_in_src,
-                       f"{not_in_src[:3]} —— 引文和它声称的出处原句不一致")
+        invented = [c["id"] for c in cites if c["verbatim"] not in text]
+        check_true(f"{path.name}: 每条 verbatim 都是原文逐字子串", not invented,
+                   f"{invented[:3]} —— 在 {source_rel} 里找不到")
 
-            # txt_line 必须是**真实文件行号**,不是段内序号。
-            # 第一版就是段内序号(1~7),而真行号是 14~20 —— 差 13 行,名字却叫 sourceLine。
-            lines_of = text.split("\n")
-            wrong_line = []
-            for r in reqs:
-                v = r.get("verbatim")
-                if not v or r.get("txt_line") is None:
-                    continue
-                real = [i + 1 for i, ln in enumerate(lines_of) if v in ln]
-                if not real:
-                    wrong_line.append((r.get("id"), r["txt_line"], None))
-                elif r["txt_line"] not in real:
-                    wrong_line.append((r.get("id"), r["txt_line"], real))
-            check_true(f"{path.name}: txt_line 是原文的真实行号",
-                       not wrong_line, f"{wrong_line[:3]} —— 段内序号不是行号")
-        else:
-            not_run(f"{path.name}: verbatim 逐字回查", f"缺 source_text({source_rel or '未声明'})")
+        bad_src = [c["id"] for c in cites
+                   if c.get("source_text") and c["source_text"].strip() not in lines_set]
+        check_true(f"{path.name}: source_text 都是原文的一整行", not bad_src, f"{bad_src[:3]}")
 
-        # J-G2:自己声明的原子条数必须等于实际列出的条数
-        declared = (doc.get("count") or {}).get("atomic_requirements")
-        check_true(f"{path.name}: 声明的原子条数 {declared} = 实际 {len(reqs)}",
-                   declared == len(reqs), "声明与实际不符")
+        not_in = [c["id"] for c in cites
+                  if c.get("source_text") and c["verbatim"] not in c["source_text"]]
+        check_true(f"{path.name}: verbatim 都落在自己的 source_text 里", not not_in,
+                   f"{not_in[:3]}")
 
-        # 留空必须指向目录里存在的 gap
-        bad_gap = [(r.get("id"), p2.get("gap")) for r in reqs
-                   for p2 in (r.get("unlinked_parts") or []) if p2.get("gap") not in gap_ids]
-        check_true(f"{path.name}: unlinked_parts 指向的 gap 都存在", not bad_gap, f"{bad_gap}")
+        wrong_line = []
+        for c in cites:
+            real = [i + 1 for i, ln in enumerate(lines_of) if c["verbatim"] in ln]
+            if c.get("txt_line") is None:
+                continue
+            if not real:
+                wrong_line.append((c["id"], c["txt_line"], None))
+            elif c["txt_line"] not in real:
+                wrong_line.append((c["id"], c["txt_line"], real))
+        check_true(f"{path.name}: txt_line 是原文的真实行号", not wrong_line, f"{wrong_line[:3]}")
 
-        # J-G3:被排除的条目也要可回查
-        excl = doc.get("excluded") or []
-        no_proof = [e.get("id") for e in excl if not e.get("found_at")]
-        check_true(f"{path.name}: {len(excl)} 条被排除项都写了 found_at", not no_proof, f"{no_proof}")
-        bad_comp = [(r.get("id"), c) for r in reqs for c in (r.get("components") or [])
-                    if c not in comp_ids]
-        check_true(f"{path.name}: 引用的组件都在目录里", not bad_comp, f"{bad_comp[:3]}")
-        bad_att = [(r.get("id"), r["attribute"]) for r in reqs
-                   if r.get("attribute") and r["attribute"] not in att_ids]
-        check_true(f"{path.name}: 引用的属性都在目录里", not bad_att, f"{bad_att[:3]}")
+    print(f"\n   两份 JD 合计 {total} 条引用")
 
-        # J-G4:要求必须连到**携带信息**的最具体节点。
-        #   prop 有名字(哪怕还没建)  → 连 Attribute:它告诉我们要建哪个属性
-        #   prop 是 null             → 连 Dimension:那个属性只是分类标签,不是候选人侧属性
-        stub = [(r.get("id"), r["attribute"]) for r in reqs
-                if r.get("attribute") and att_ids.get(r["attribute"], {}).get("prop") is None]
-        check_true(f"{path.name}: 没有把要求连到 prop=null 的空壳属性", not stub,
-                   f"{stub} —— 应改用 dimension:")
-
-        dim_ids = {d["id"] for d in cat["dimensions"]}
-        bad_dim = [(r.get("id"), r["dimension"]) for r in reqs
-                   if r.get("dimension") and r["dimension"] not in dim_ids]
-        check_true(f"{path.name}: 直接声明的 dimension 都在目录里", not bad_dim, f"{bad_dim}")
-
-        # 每条要求都必须能落进恰好一个维度:要么经属性,要么自己声明,要么挂组件(→D)
-        att_dim = {a["id"]: a["dimension"] for a in cat["attributes"]}
-        landing = []
-        for r in reqs:
-            dim = att_dim.get(r.get("attribute") or "") or r.get("dimension") \
-                or ("D" if r.get("components") else None)
-            if not dim:
-                landing.append(r.get("id"))
-        check_true(f"{path.name}: 每条要求都能落进一个维度", not landing,
-                   f"{landing} —— 既没属性也没 dimension 也没组件")
-
-        blocked = []
-        for req in reqs:
-            att = att_ids.get(req.get("attribute") or "")
-            if req.get("assessable") and att and att.get("prop_exists") is False:
-                blocked.append((req.get("id"), att["id"], "attribute"))
-            level = req.get("level_check") or {}
-            latt = att_ids.get(level.get("attribute") or "")
-            if level.get("assessable") and latt and latt.get("prop_exists") is False:
-                blocked.append((req.get("id"), latt["id"], "level_check"))
-        check_true(f"{path.name}: 没有把「属性未建」的要求标成可判定",
-                   not blocked, f"{blocked[:3]}")
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-db", action="store_true", help="只跑结构与自洽,不连库")
-    ap.add_argument("--links", default="", help="JD 链接文件目录(可选,存在时才校验 C-G3/C-G7)")
+    ap.add_argument("--links", default="", help="JD 链接文件目录(可选,存在时才校验引用)")
+    ap.add_argument("--library", default=str(LIBRARY), help="要求库 yaml")
     # --catalog 让变异测试可以在副本上跑:一个只在真文件上能跑的门禁是没法证明自己有牙齿的
     ap.add_argument("--catalog", default=str(CATALOG), help="默认读 work/talent/component_catalog.yaml")
     args = ap.parse_args()
@@ -370,7 +385,13 @@ def main() -> int:
         not_run("C-G6 对库校验", "--no-db")
     else:
         check_against_db(cat)
-    check_links(cat, pathlib.Path(args.links) if args.links else None)
+    lib_path = pathlib.Path(args.library).resolve()
+    if lib_path.is_file():
+        lib = yaml.safe_load(lib_path.read_text(encoding="utf-8")) or {}
+        check_library(lib, cat)
+        check_links(cat, lib, pathlib.Path(args.links) if args.links else None)
+    else:
+        not_run("要求库门禁", f"找不到 {lib_path}")
 
     print(f"\n{CHECKS} checks · {FAILS} failed · {'green' if OK else 'RED'}")
     return 0 if OK else 1
