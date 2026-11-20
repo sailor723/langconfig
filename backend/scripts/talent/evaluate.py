@@ -257,9 +257,14 @@ def judge_attribute(att: dict, req: dict, cit: dict, cand: dict, forced: str) ->
                 return "满足", (f"门类命中 {need_field}（{value} → {hits}，"
                                 f"本体:{need_field}）")
             return "不满足", f"门类 {sorted(fields)} 不含 {need_field}（{value}）"
-        if not fields:
-            return "不可判", f"「{value}」不在专业分类表里 —— 分类覆盖不到,不是不合格"
-        return "不满足", f"专业名与门类都不命中（{value}）"
+        if need_field:
+            # 只有声明了 match_field(要用门类)时,"分类表里没有"才等于不可判。
+            # 不声明门类(D 口径)时,名字没中就是**不满足** —— 这里原先写错了:
+            # 文件不在时 189 人从"不满足"变成"不可判",等于把"没命中"伪装成"判不了"。
+            if not fields:
+                return "不可判", f"「{value}」不在专业分类表里 —— 分类覆盖不到,不是不合格"
+            return "不满足", f"专业名与门类都不命中（{value}）"
+        return "不满足", f"专业名没命中白名单（{value}）"
     if op == "=":
         want = val.get("in") or ([val["value"]] if "value" in val else [])
         if want:
