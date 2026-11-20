@@ -34,14 +34,6 @@ BACKEND = pathlib.Path(__file__).resolve().parents[3]   # scripts/seeds/in → b
 DOC_SEED = BACKEND / "scripts" / "seeds" / "in" / "seed_document_ontology_agent.py"
 
 
-def _run_seed(key: str, database: str, theme: str) -> tuple[bool, str]:
-    env = {**os.environ, "ONTOLOGY_KEY": key, "DOC_DATABASE": database, "DOC_THEME": theme}
-    run = subprocess.run([sys.executable, str(DOC_SEED)], capture_output=True, text=True,
-                         cwd=str(BACKEND), env=env)
-    tail = [line for line in (run.stdout or "").splitlines() if line.strip()][-4:]
-    return run.returncode == 0, " / ".join(tail) or (run.stderr or "")[-300:]
-
-
 def _ensure_database(database: str, *, apply: bool) -> tuple[bool, str]:
     """An EMPTY database, so PG* and the dsn point at something real before any file is built."""
     host = os.environ.get("PGHOST") or "127.0.0.1"
@@ -92,10 +84,16 @@ def main() -> int:
     if not ok:
         return 1
 
-    ok, note = _run_seed(key, database, theme)
-    print(f"\n[1] the agent row\n  {'OK  ' if ok else 'FAIL'} {note}")
-    if not ok:
-        problems += 1
+    # The agent row is written by the SHARED registration, pointed at the document seed through
+    # ONTOLOGY_SEED_SCRIPT. Running the document seed here and the shared registration afterwards would
+    # re-seed the agent with the DATABASE prompt and tools — measured on the dry run: the row came back as
+    # "Ontology Builder (sales_docs)" with `db_plan_from_file` missing.
+    os.environ["ONTOLOGY_SEED_SCRIPT"] = str(DOC_SEED)
+    os.environ["BUILDER_AGENT_NAME"] = f"Document Ontology Builder ({key})"
+    os.environ["DOC_DATABASE"] = database
+    os.environ["DOC_THEME"] = theme
+    if not args.apply:
+        os.environ["SEED_DRY_RUN"] = "1"
 
     # the remaining artefacts are the shared registration's job — reusing it keeps ONE definition of
     # "a builder is registered" (the lesson from the missing tool rows on talent_v1)
@@ -107,7 +105,7 @@ def main() -> int:
         argv.append("--apply")
     run = subprocess.run(argv, capture_output=True, text=True, cwd=str(BACKEND))
     tail = [line for line in (run.stdout or "").splitlines() if line.strip()][-3:]
-    print("\n[2..6] gates / Settings / .env / tool rows / profile dir")
+    print("\n[1..6] the agent row, gates / Settings / .env / tool rows / profile dir")
     print("  " + ("OK  " if run.returncode == 0 else "FAIL ") + " / ".join(tail))
     if run.returncode != 0:
         problems += 1

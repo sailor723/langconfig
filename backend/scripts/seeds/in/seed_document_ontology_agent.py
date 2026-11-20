@@ -41,9 +41,9 @@ for _p in Path(__file__).resolve().parents:
 from _seedpaths import BACKEND, REPO  # noqa: E402,F401
 
 KEY = os.environ.get("ONTOLOGY_KEY") or "doc_demo"
-DATABASE = os.environ.get("DOC_DATABASE") or f"doc_{KEY}"
+DATABASE = os.environ.get("DOC_DATABASE") or os.environ.get("DATASOURCE") or f"doc_{KEY}"
 THEME = os.environ.get("DOC_THEME") or KEY
-NAME = f"Document Ontology Builder ({KEY})"
+NAME = os.environ.get("BUILDER_AGENT_NAME") or f"Document Ontology Builder ({KEY})"
 DESCRIPTION = (
     "上传文档（MD / Excel / CSV / DOCX）→ 建库 → 建本体与看板。"
     "先把文档变成一个有主键、有粒度、有覆盖率的数据库，再按台阶梯声明结构/含义/指标/看板。"
@@ -150,7 +150,18 @@ CONFIG = {
 
 
 def main() -> int:
-    """Reuse the builder seed's plumbing, with this module's prompt, tools and identity."""
+    """Reuse the builder seed's plumbing, with this module's prompt, tools and identity.
+
+    A DRY RUN must not create anything: `SEED_DRY_RUN=1` prints the row this would write and stops.
+    Measured while registering sales_docs — the wrapper's "--dry-run" called the seed, the seed POSTed,
+    and a document builder appeared in the database before anyone had applied anything.
+    """
+    if os.environ.get("SEED_DRY_RUN") not in (None, "", "0"):
+        print(f"[dry run] would create/update agent {NAME!r}")
+        print(f"          datasource={DATABASE} · ontology_key={KEY} · theme={THEME}")
+        print(f"          native_tools={CONFIG['native_tools']}")
+        print(f"          skills={CONFIG['skills']}")
+        return 0
     seed_path = BACKEND / "scripts" / "seeds" / "in" / "seed_ontology_build_agent.py"
     spec = importlib.util.spec_from_file_location("_seed_ontology_build_agent", seed_path)
     module = importlib.util.module_from_spec(spec)

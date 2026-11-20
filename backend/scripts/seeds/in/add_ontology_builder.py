@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import pathlib
 import os
 import pathlib
 import re
@@ -46,7 +47,12 @@ BACKEND = HERE.parents[3]                      # backend/
 REPO = BACKEND.parent
 GATES = BACKEND / "features" / "ontology" / "gates.json"
 PROFILES = BACKEND / "features" / "ontology" / "profiles"
-SEED = BACKEND / "scripts" / "seeds" / "in" / "seed_ontology_build_agent.py"
+#: Which seed writes the agent row. A DOCUMENT builder starts from uploaded files instead of an existing
+#: database, so its prompt and tool list differ; everything else about registration is identical. Overriding
+#: this env var is how the document wrapper keeps ONE definition of "a builder is registered" without
+#: overwriting the agent it just created (measured: the DB seed ran last and replaced the document prompt).
+SEED = pathlib.Path(os.environ.get("ONTOLOGY_SEED_SCRIPT")
+                    or (BACKEND / "scripts" / "seeds" / "in" / "seed_ontology_build_agent.py"))
 ENV = REPO / ".env"
 
 
@@ -110,7 +116,10 @@ def step_agent(key: str, datasource: str, theme: str, *, apply: bool) -> bool:
     env.update({
         "ONTOLOGY_KEY": key,
         "DATASOURCE": datasource,
-        "BUILDER_AGENT_NAME": f"Ontology Builder ({key})",
+        # setdefault, not assign: a DOCUMENT builder names itself "Document Ontology Builder (key)", and
+        # overwriting that made the registration create a SECOND row next to the one it had just written
+        # (measured: agents 402 and 403 for the same key).
+        "BUILDER_AGENT_NAME": env.get("BUILDER_AGENT_NAME") or f"Ontology Builder ({key})",
         "THEME": theme,
     })
     if not apply:
