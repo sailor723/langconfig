@@ -1,0 +1,325 @@
+# JD schema —— 可执行版(唯一依据)
+#
+# 三层分类 + 字段级子项。写库、写门禁、写界面都以本文件为准;
+# 不再有"分类只存在于对话里"的情况。
+#
+# 所有 presence 数字都是在 10 份 JD 上实测的,不是估计。
+# 校验方式:见文件末尾 `validation:` —— 每一节都对应一条可执行的门禁。
+#
+# 三层回答三个不同的问题:
+#   L1 文档分区  —— 这句话在 JD 的哪一块?
+#   L2 要求维度  —— 这条要求考察候选人的哪一面?
+#   L3 岗位画像  —— 这是什么岗?
+
+version: 1
+scope: 东莞线束/连接器制造业 · 10 份职务说明书
+sources:
+  corpus: client/team-4/unzipped/职务说明书10份
+  cv_corpus: client/team-4/unzipped/简历307份        # 实际 277 份 PDF
+  measured: 2026-11-19
+
+# 计数更正:之前口述"38 个子项/17 个全缺",实测为 42 个子项(S3 另计)/ 15 个全缺。
+totals:
+  jd_documents: 10
+  L1_fields: 42            # 不含 S3 的子项(即 L2 的 9 个维度)
+  L1_zero_presence: 15
+  L2_requirements: 95      # 原子要求总数
+  L2_judgeable: 70         # 可由候选人属性判定的
+  L3_families: 5
+  L3_seniority: 6
+
+# ══════════════════════════════════════════════════════════════════════════
+# L1 · 文档分区(8 块 → 42 个字段)
+# ══════════════════════════════════════════════════════════════════════════
+L1_sections:
+
+  - code: S1
+    name: identity
+    label: 身份
+    presence: 10/10
+    fields:
+      - {code: S1.01, name: job_title,        label: 职务名称,      presence: 10, required: true,  source: jd, note: "文档内写「助理」,文件名写「副总助理」—— 取名以文件名为准,避免与业务助理撞名"}
+      - {code: S1.02, name: doc_number,       label: 文件编号,      presence: 9,  required: false, source: jd}
+      - {code: S1.03, name: version,          label: 版本,          presence: 10, required: true,  source: jd}
+      - {code: S1.04, name: page_count,       label: 页数,          presence: 8,  required: false, source: jd}
+      - {code: S1.05, name: approvers,        label: 核准/审核/制订, presence: 8, required: false, source: jd}
+      - {code: S1.06, name: department,       label: 隶属部门,      presence: 10, required: true,  source: jd, drives: "L3a_职能族"}
+      - {code: S1.07, name: reports_to,       label: 直接上司,      presence: 10, required: true,  source: jd}
+      - {code: S1.08, name: supervises,       label: 直接下属,      presence: 10, required: true,  source: jd, note: "副总助理填「各部门负责人」,与「助理」职级矛盾 —— 待业务确认"}
+      - {code: S1.09, name: occupation_code,  label: 职业编码,      presence: 0,  required: false, source: standard, standard_ref: "人社部《职业分类大典》"}
+      - {code: S1.10, name: job_grade,        label: 职级,          presence: 0,  required: false, source: standard, standard_ref: "ISO 30405 / HR Open Standards jobGrade", drives: "L3b_职级"}
+
+  - code: S2
+    name: purpose
+    label: 目的
+    presence: 0/10
+    fields:
+      - {code: S2.01, name: job_purpose,      label: 岗位目的,      presence: 0, required: false, source: standard, standard_ref: "HR Open Standards jobPurpose"}
+      - {code: S2.02, name: success_criteria, label: 关键成功指标,  presence: 0, required: false, source: standard, standard_ref: "HR Open Standards / ISO 30414"}
+
+  - code: S3
+    name: qualification
+    label: 任职资格
+    presence: 10/10
+    note: "唯一被建模的分区;占 JD 全文 8%(实测 1,596 / 19,804 字)。其子项 = L2 的 9 个维度。"
+
+  - code: S4
+    name: duties
+    label: 职责
+    presence: 10/10
+    fields:
+      - {code: S4.01, name: duty_items,       label: 职责条目,      presence: 10, required: true,  source: jd}
+      - {code: S4.02, name: duty_weight,      label: 职责权重,      presence: 0,  required: false, source: standard, standard_ref: "HR Open Standards essentialDuties (% time)"}
+      - {code: S4.03, name: duty_competency,  label: 职责对应能力,  presence: 0,  required: false, source: standard, standard_ref: "O*NET Work Activities → Skills", note: "缺失导致 73% 的职责内容与任职资格完全脱钩"}
+
+  - code: S5
+    name: activities
+    label: 作业明细
+    presence: 10/10
+    note: "全批 JD 里信息量最大的一块:占全文 73%(14,393 / 19,804 字),却完全没有建模。"
+    fields:
+      - {code: S5.01, name: activity_seq,     label: 序号,          presence: 10, required: false, source: jd}
+      - {code: S5.02, name: activity_text,    label: 内容,          presence: 10, required: true,  source: jd}
+      - {code: S5.03, name: activity_freq,    label: 频次(日/周/月/年/偶发), presence: 10, required: true, source: jd}
+      - {code: S5.04, name: activity_duration,label: 时长,          presence: 4,  required: false, source: jd}
+      - {code: S5.05, name: activity_ai_fit,  label: AI 可否替代,   presence: 2,  required: false, source: jd, note: "仅专案工程师、工程文员有;2026 年新增字段"}
+      - {code: S5.06, name: activity_sop,     label: 操作标准流程,  presence: 2,  required: false, source: jd}
+      - {code: S5.07, name: activity_form,    label: 关联表单,      presence: 3,  required: false, source: jd}
+
+  - code: S6
+    name: conditions
+    label: 工作条件
+    presence: 0/10
+    note: "结构性空白。制造业厂区的真实约束(环境/体力/班制)全缺。"
+    fields:
+      - {code: S6.01, name: work_location,    label: 工作地点/厂区, presence: 0, required: false, source: standard, standard_ref: "O*NET Work Context"}
+      - {code: S6.02, name: shift_pattern,    label: 班制,          presence: 0, required: false, source: standard, standard_ref: "O*NET Work Context / ISO"}
+      - {code: S6.03, name: work_hours,       label: 工时,          presence: 3, required: false, source: jd}
+      - {code: S6.04, name: environment,      label: 环境(噪音/粉尘/温度), presence: 0, required: false, source: standard, standard_ref: "O*NET Work Context"}
+      - {code: S6.05, name: physical_demand,  label: 体力/站立/搬运, presence: 0, required: false, source: standard, standard_ref: "HR Open Standards PhysicalRequirement"}
+      - {code: S6.06, name: travel,           label: 出差,          presence: 3, required: false, source: jd}
+      - {code: S6.07, name: ppe,              label: 劳保/防护,     presence: 0, required: false, source: standard}
+
+  - code: S7
+    name: metadata
+    label: 元数据
+    presence: 10/10
+    note: "版本/履历齐全,但招聘流程元数据(日期/有效期/原因)全缺 —— 这是看板无法声明任何时间窗口的直接原因。"
+    fields:
+      - {code: S7.01, name: revision_history,label: 修订履历,      presence: 10, required: false, source: jd}
+      - {code: S7.02, name: first_issued,     label: 首次发行日,    presence: 9,  required: false, source: jd, standard_ref: "ISO 8601"}
+      - {code: S7.03, name: date_posted,      label: 发布日期,      presence: 0,  required: false, source: standard, standard_ref: "ISO 8601 / ISO 30405"}
+      - {code: S7.04, name: valid_until,      label: 有效期/截止,   presence: 0,  required: false, source: standard, standard_ref: "ISO 30405"}
+      - {code: S7.05, name: headcount,        label: 编制/招聘人数, presence: 1,  required: false, source: jd}
+      - {code: S7.06, name: hiring_reason,    label: 招聘原因,      presence: 0,  required: false, source: standard, standard_ref: "ISO 30414"}
+      - {code: S7.07, name: posting_channel,  label: 发布渠道,      presence: 1,  required: false, source: jd}
+
+  - code: S8
+    name: compliance
+    label: 合规声明
+    presence: 2/10
+    note: "内容散落在 S3 里(如业务跟单把「数据保密」写在任职资格中)—— 分组必须按内容性质,不能只按位置。"
+    fields:
+      - {code: S8.01, name: confidentiality,  label: 保密/数据保密, presence: 2, required: false, source: jd}
+      - {code: S8.02, name: clean_record,     label: 无犯罪/无行政处罚, presence: 1, required: false, source: jd}
+      - {code: S8.03, name: non_compete,      label: 竞业限制,      presence: 0, required: false, source: standard}
+      - {code: S8.04, name: contract_type,    label: 用工类型/合同, presence: 3, required: false, source: jd}
+      - {code: S8.05, name: probation,        label: 试用期,        presence: 1, required: false, source: jd}
+      - {code: S8.06, name: social_insurance, label: 社保,          presence: 1, required: false, source: jd}
+
+# ══════════════════════════════════════════════════════════════════════════
+# L2 · 要求维度(9 维,封闭)—— S3 的子项
+# ══════════════════════════════════════════════════════════════════════════
+L2_dimensions:
+
+  - code: A
+    name: demographic
+    label: 人口属性
+    count: 8
+    jds: 5
+    candidate_props: [gender, age]
+    standard_ref: null
+    note: "★ 本地扩展维度:LinkedIn 与 HR-XML 均无 gender/age 字段。入库时必须标记 standard_ref=null,表示依据是客户 JD,不是标准。"
+    subdimensions:
+      - {code: A.1, name: gender, label: 性别, prop: gender, exists: false, kind: binary}
+      - {code: A.2, name: age,    label: 年龄, prop: age,    exists: true,  kind: range}
+
+  - code: B
+    name: education
+    label: 教育
+    count: 17
+    jds: 10
+    candidate_props: [education_rank, major, full_time]
+    standard_ref: "HR Open Standards EducationRequirement"
+    subdimensions:
+      - {code: B.1, name: level,     label: 学历,   prop: education_rank, exists: true,  kind: ordinal}
+      - {code: B.2, name: major,     label: 专业,   prop: major,          exists: false, kind: binary, unlocks: 6, note: "★ 补一个属性解锁 6 条要求,性价比最高"}
+      - {code: B.3, name: full_time, label: 全日制, prop: full_time,      exists: false, kind: binary, standard_ref: null, note: "标准里没有,本地扩展"}
+      - {code: B.4, name: school_tier, label: 院校层次, prop: school_tier, exists: false, kind: binary, note: "JD 未要求,预留"}
+
+  - code: C
+    name: experience
+    label: 经历
+    count: 13
+    jds: 9
+    candidate_props: [years_experience, domain, industry]
+    standard_ref: "O*NET Job Zone / Work Experience"
+    subdimensions:
+      - {code: C.1, name: years,    label: 年限,     prop: years_experience, exists: true,  kind: ordinal}
+      - {code: C.2, name: domain,   label: 职能域,   prop: domain,           exists: false, kind: binary, note: "文职类/助理类/管理类/订单跟单 — 需从经历段抽"}
+      - {code: C.3, name: industry, label: 行业,     prop: industry,         exists: false, kind: binary, note: "制造业/线束行业/同行业"}
+      - {code: C.4, name: tenure,   label: 在岗时长, prop: tenure,           exists: false, kind: ordinal}
+
+  - code: D
+    name: skill
+    label: 技能
+    count: 28
+    jds: 10
+    candidate_props: [hasSkill]
+    standard_ref: "ESCO essential/optional · O*NET Tools & Technology"
+    note: "唯一 10/10 全员必有、且已经有属性的维度。设备类与产品类必须分开 scoring。"
+    subdimensions:
+      - {code: D.1, name: product,    label: 软件/产品, prop: hasSkill, exists: true, kind: product}
+      - {code: D.2, name: equipment,  label: 设备操作,  prop: hasSkill, exists: true, kind: equipment}
+      - {code: D.3, name: capability, label: 能力项,    prop: hasSkill, exists: true, kind: capability}
+      - {code: D.4, name: composite,  label: 复合要求,  prop: hasSkill, exists: true, kind: composite}
+      - {code: D.5, name: skill_level,label: 熟练度,    prop: skill_level, exists: false, kind: ordinal, note: "JD 只有「熟练/熟悉/具备」,无刻度 —— 不可自行发明"}
+
+  - code: E
+    name: competency
+    label: 素质能力
+    count: 24
+    jds: 9
+    candidate_props: []
+    standard_ref: "HR Open Standards Competency + Evidence · O*NET Abilities"
+    note: "占全部要求的 25%,且结构性不可从简历判定。处置:assessable=false + evidence 字段写明证明方式。"
+    subdimensions:
+      - {code: E.1, name: behavioral,  label: 行为素质, prop: null, exists: false, kind: soft, evidence: "面试评分表 / 背景调查"}
+      - {code: E.2, name: cognitive,   label: 认知能力, prop: null, exists: false, kind: soft, evidence: "笔试 / 结构化面试"}
+      - {code: E.3, name: motivational,label: 动机意愿, prop: null, exists: false, kind: soft, evidence: "面试 / 试用期观察"}
+      - {code: E.4, name: knowledge,   label: 知识,     prop: null, exists: false, kind: soft, evidence: "笔试"}
+
+  - code: F
+    name: credential
+    label: 资质证书
+    count: 1
+    jds: 1
+    candidate_props: [hasCertification]
+    standard_ref: "人社部《国家职业技能标准》等级 / O*NET Credentials"
+    subdimensions:
+      - {code: F.1, name: license,     label: 执业资格, prop: hasCertification, exists: false, kind: credential}
+      - {code: F.2, name: certificate, label: 技能证书, prop: hasCertification, exists: false, kind: credential}
+      - {code: F.3, name: training,    label: 培训考核, prop: hasCertification, exists: false, kind: credential, note: "关务的「贸易安全合规培训考核」属此类"}
+
+  - code: G
+    name: compliance
+    label: 合规约束
+    count: 3
+    jds: 3
+    candidate_props: [hasClearance]
+    standard_ref: "ISO/TC 260 / 公司章程"
+    subdimensions:
+      - {code: G.1, name: legal,     label: 法律记录, prop: hasClearance, exists: false, kind: binary, note: "无犯罪、无海关行政处罚 —— 需证明文件,非简历可判"}
+      - {code: G.2, name: corporate, label: 公司制度, prop: hasClearance, exists: false, kind: binary, note: "保密制度遵守"}
+
+  - code: H
+    name: language
+    label: 语言
+    count: 1
+    jds: 1
+    candidate_props: [language_level]
+    standard_ref: "HR Open Standards Language(含熟练度)/ CEFR"
+    note: "从 D 拆出来的原因:品质经理要求「英语口语熟练」+「独立书写英文8D报告」—— 会英语与能写英文报告是两个判定。"
+    subdimensions:
+      - {code: H.1, name: language,       label: 语种,   prop: language,       exists: false, kind: binary}
+      - {code: H.2, name: language_level, label: 熟练度, prop: language_level, exists: false, kind: ordinal, note: "口语/书写分开;CEFR A1–C2 或自定刻度"}
+
+  - code: I
+    name: physical
+    label: 身体条件
+    count: 0
+    jds: 0
+    candidate_props: [physical_capacity]
+    standard_ref: "HR Open Standards PhysicalRequirement"
+    note: "当前 0 条,但制造业厂区(噪音/粉尘/站立)迟早出现。先留位,避免以后新开维度。"
+
+# ══════════════════════════════════════════════════════════════════════════
+# L3 · 岗位画像(两条正交轴)
+# ══════════════════════════════════════════════════════════════════════════
+
+L3a_job_families:          # 直接来自客户组织结构的「隶属部门」
+  - {code: F1, name: executive_office, label: 经营管理, department: 副总室, roles: [副总助理, 关务报关员], note: "关务按部门归此族(待确认);按职能它更像独立一族"}
+  - {code: F2, name: functional_mgmt,  label: 职能管理, department: 管理课, roles: [人资专员, 招聘专员, 管理课长], note: "三个岗位跨 L3/L5 两级,是阶梯最完整的一族"}
+  - {code: F3, name: business,         label: 业务,     department: 业务课, roles: [业务跟单, 业务助理]}
+  - {code: F4, name: technical,        label: 技术,     department: 技术课, roles: [专案工程师, 工程文员]}
+  - {code: F5, name: quality,          label: 品质,     department: 品保课, roles: [品质经理], note: "只有经理一级;CV 语料里没有品保文件夹 → 该岗 0 投递"}
+
+L3b_seniority:
+  source: 从 10 个岗位名称里读出,无一虚构
+  note: "L1 只有 1 个岗位、L3 有 3 个 —— 职级阶梯在低端是断的,这批 JD 覆盖的是中层为主的招聘季"
+  levels:
+    - {code: L1, name: clerk,     label: 文员,   roles: [工程文员]}
+    - {code: L2, name: assistant, label: 助理,   roles: [副总助理, 业务助理]}
+    - {code: L3, name: specialist,label: 专员,   roles: [人资专员, 招聘专员, 关务报关员]}
+    - {code: L4, name: engineer,  label: 工程师, roles: [专案工程师]}
+    - {code: L5, name: supervisor,label: 课长,   roles: [管理课长]}
+    - {code: L6, name: manager,   label: 经理,   roles: [品质经理]}
+
+# ══════════════════════════════════════════════════════════════════════════
+# 候选人侧属性(9 个缺口,按解锁条数排序)
+# ══════════════════════════════════════════════════════════════════════════
+candidate_properties:
+  exists:   [candidate_id, education_rank, years_experience, age, salary_min_k, salary_max_k, source_file, duplicate_of, hasSkill]
+  needed:
+    - {prop: major,               unlocks: 6, dim: B.2, source: OCR,  priority: 1, note: "★ 最高性价比"}
+    - {prop: gender,              unlocks: 3, dim: A.1, source: OCR,  priority: 2, note: "简历基本信息行「男 | 42岁」"}
+    - {prop: domain,              unlocks: 3, dim: C.2, source: OCR,  priority: 3, note: "需从经历段抽"}
+    - {prop: industry,            unlocks: 3, dim: C.3, source: OCR,  priority: 4}
+    - {prop: language_level,      unlocks: 1, dim: H.2, source: OCR,  priority: 5}
+    - {prop: hasCertification,    unlocks: 1, dim: F.1, source: OCR,  priority: 6}
+    - {prop: hasClearance,        unlocks: 1, dim: G.1, source: 证明文件, priority: 7}
+    - {prop: full_time,           unlocks: 1, dim: B.3, source: OCR,  priority: 8}
+    - {prop: skill_level,         unlocks: 0, dim: D.5, source: null, priority: null, note: "不可建:JD 无刻度,建了就是发明"}
+
+# ══════════════════════════════════════════════════════════════════════════
+# 落库映射
+# ══════════════════════════════════════════════════════════════════════════
+db_mapping:
+  requirement:                 # 95 条要求
+    new_columns:
+      code:         "text UNIQUE        -- VP-A1 / PM-D3 / …"
+      section:      "text NOT NULL      -- S3(当前全部来自任职资格)"
+      dimension:    "text NOT NULL      -- A..I"
+      subdimension: "text               -- A.1 / B.2 / C.1 …"
+      provenance:   "text NOT NULL DEFAULT 'jd'  -- jd | standard"
+      evidence:     "text               -- kind=soft 时的证明方式"
+      standard_ref: "text               -- 标准出处;A 维度恒为 NULL"
+  role:                        # 岗位属性(不是候选人要求)
+    add: [job_family, seniority, department, reports_to, supervises, occupation_code]
+  note: "S2/S5/S6/S7 的字段属于岗位侧,不得写入 requirement 表。这条界线划错,requirement 里就会混进候选人永远无法满足的项。"
+
+# ══════════════════════════════════════════════════════════════════════════
+# 可执行门禁(每条都能被脚本检查)
+# ══════════════════════════════════════════════════════════════════════════
+validation:
+  - id: G1_dimension_closed
+    rule: "requirement.dimension ∈ {A..I} 且 subdimension 属于该 dimension 的子项"
+    why:   "防止维度表被随手扩增"
+  - id: G2_verbatim_in_source
+    rule: "provenance='jd' 的要求,其 verbatim 必须能在源 JD 原文里逐字找到"
+    why:   "能立刻抓出抽取错误 —— 例如「Illustrator」并不出现在副总助理的资格段"
+  - id: G3_standard_no_override
+    rule: "provenance='standard' 的要求,不得与该岗位任一 provenance='jd' 的要求同 section+dimension+subdimension"
+    why:   "落实「JD 为主,标准只补空」"
+  - id: G4_prop_required
+    rule: "assessable=true 的要求,其维度的 candidate_props 必须全部存在"
+    why:   "A.1 依赖 gender:属性没建就不许标 assessable"
+  - id: G5_demographic_flag
+    rule: "dimension='A' 的行必须 standard_ref IS NULL"
+    why:   "A 是本地扩展,无标准依据;数据库里必须能看出这一点"
+  - id: G6_soft_needs_evidence
+    rule: "kind='soft' 的行必须填 evidence"
+    why:   "24 条 E 维度不能只是「不可评」,要写明用什么证明"
+  - id: G7_role_vs_candidate
+    rule: "S2/S5/S6/S7 的字段不得出现在 requirement 表"
+    why:   "岗位属性混进候选人要求,会让名单永远招不满"

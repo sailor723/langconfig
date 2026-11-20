@@ -1,0 +1,112 @@
+# cv_schema.yaml —— 简历的字段模板(与 jd_schema.yaml 对称)
+#
+# JD 那边有 8 个分区 / 42 个字段的模板;简历这边一直没有,于是"简历定稿"只能靠人决定写什么
+# —— 那就等于每份文档的字段集都不一样,没法横向比较。
+#
+# 本文件定死字段集:**所有 CV 文档必须列出这 28 个字段,有值写值,没值写〔待补〕。**
+# presence 是实测的:270 份简历文本里,有多少份**带这个字段的标签**(不是"有这个信息")。
+# 标签存在率 ≠ 信息可得率 —— 很多简历把姓名写在标题里而不写「姓名:」。
+#
+# 五个分区按最常见的简历排版:基本信息 → 求职意向 → 教育 → 工作 → 技能/证书 → 其他。
+
+version: 1
+scope: 东莞制造业 · 270 份简历(OCR 后文本)
+measured: 2026-11-20
+corpus: work/talent/cv_text
+
+totals:
+  documents: 270
+  sections: 6
+  fields: 28
+  fields_never_labeled: 0
+
+sections:
+
+  - code: C1
+    name: identity
+    label: 基本信息
+    presence: 270/270
+    note: "姓名常写在页面顶部而不用「姓名:」标签 —— 标签存在率 8%,但每份都有名字。"
+    fields:
+      - {code: C1.01, name: full_name,      label: 姓名,      presence: 24,  prop: null,        source: resume}
+      - {code: C1.02, name: gender,         label: 性别,      presence: 153, prop: gender,      source: resume}
+      - {code: C1.03, name: birth_date,     label: 出生年月,  presence: 52,  prop: null,        source: resume, note: "与年龄二选一,多数只写其一"}
+      - {code: C1.04, name: age,            label: 年龄,      presence: 129, prop: age,         source: resume}
+      - {code: C1.05, name: marital_status, label: 婚姻状况,  presence: 11,  prop: null,        source: resume}
+      - {code: C1.06, name: native_place,   label: 籍贯,      presence: 19,  prop: null,        source: resume}
+      - {code: C1.07, name: current_city,   label: 现所在地,  presence: 113, prop: null,        source: resume, note: "招聘第一道筛子:通勤半径"}
+      - {code: C1.08, name: phone,          label: 联系电话,  presence: 120, prop: null,        source: resume, note: "原件常已打码,需通过平台获取"}
+      - {code: C1.09, name: email,          label: 电子邮箱,  presence: 173, prop: null,        source: resume}
+      - {code: C1.10, name: target_role,    label: 意向职位,  presence: 192, prop: null,        source: resume, note: "决定与哪个岗位比对"}
+
+  - code: C2
+    name: intention
+    label: 求职意向
+    presence: 265/270
+    fields:
+      - {code: C2.01, name: job_type,       label: 求职类型,  presence: 15,  prop: full_time,   source: resume}
+      - {code: C2.02, name: available_from, label: 到岗日期,  presence: 123, prop: null,        source: resume}
+      - {code: C2.03, name: expected_salary,label: 期望薪资,  presence: 71,  prop: null,        source: resume, note: "与岗位薪资带宽的差额决定能否谈成"}
+      - {code: C2.04, name: current_salary, label: 目前年薪,  presence: 5,   prop: null,        source: resume}
+
+  - code: C3
+    name: education
+    label: 教育背景
+    presence: 270/270
+    note: "多段学历是常态(全日制 + 自考/成教)—— 每一段都要独立列,不能只留最高一段。"
+    fields:
+      - {code: C3.01, name: institution,    label: 毕业院校,  presence: 67,  prop: null,        source: resume}
+      - {code: C3.02, name: edu_period,     label: 起止时间,  presence: 267, prop: null,        source: resume}
+      - {code: C3.03, name: major,          label: 专业,      presence: 117, prop: major,       source: resume, note: "岗位常写「XX类专业」,缺它这条要求判不了"}
+      - {code: C3.04, name: edu_level,      label: 学历层次,  presence: 181, prop: education_rank, source: resume, note: "常写在页面顶部「最高学历」,不一定逐段标注"}
+      - {code: C3.05, name: full_time,      label: 是否全日制,presence: 0,   prop: full_time,   source: derived, note: "270 份里没有一份直接写「全日制」—— 只能从学制形式(自考/成教/统招)推断"}
+
+  - code: C4
+    name: experience
+    label: 工作经历
+    presence: 270/270
+    note: "公司名与时间几乎都在(94%/98%);「任职时间」「工作描述」这些**标签**反而少见 —— 说明简历排版差异极大。"
+    fields:
+      - {code: C4.01, name: employer,       label: 公司名称,  presence: 255, prop: null,        source: resume}
+      - {code: C4.02, name: period,         label: 起止时间,  presence: 267, prop: null,        source: resume, note: "唯一可重算年限的依据"}
+      - {code: C4.03, name: title,          label: 担任职位,  presence: 135, prop: null,        source: resume}
+      - {code: C4.04, name: description,    label: 工作内容,  presence: 56,  prop: null,        source: resume, note: "标签少见,但内容普遍存在;这是技能抽取的主要来源"}
+      - {code: C4.05, name: industry,       label: 行业,      presence: 0,   prop: industry,    source: derived, note: "简历极少直接写行业,需从公司名/产品推断"}
+
+  - code: C5
+    name: capability
+    label: 技能与证书
+    presence: 259/270
+    fields:
+      - {code: C5.01, name: skills,         label: 职业技能,  presence: 140, prop: hasSkill,    source: resume}
+      - {code: C5.02, name: language,       label: 语言能力,  presence: 109, prop: language,    source: resume, note: "与「英语」技能的区别:这里指等级(CET/日语一级)"}
+      - {code: C5.03, name: certification,  label: 资格证书,  presence: 109, prop: hasCertification, source: resume, note: "如「ISO9001&IATF16949 内审资格证书」"}
+      - {code: C5.04, name: language_level, label: 语言熟练度,presence: 0,   prop: language_level, source: derived, note: "简历只写 CET-4/6 或「熟练」,无统一刻度"}
+
+  - code: C6
+    name: other
+    label: 其他
+    presence: 270/270
+    fields:
+      - {code: C6.01, name: self_evaluation,label: 自我评价,  presence: 62,  prop: null,        source: resume}
+      - {code: C6.02, name: projects,       label: 项目经验,  presence: 42,  prop: null,        source: resume}
+      - {code: C6.03, name: trainings,      label: 培训经历,  presence: 94,  prop: null,        source: resume}
+
+# ── 与 JD 模板的对应关系 ──────────────────────────────────────────────────
+# 这是"JD 和 CV 能不能对上"的地图。一侧有字段、另一侧没有,那条要求就判不了。
+crosswalk:
+  - {jd: A.1 性别,       cv: C1.02 gender,        ready: true}
+  - {jd: A.2 年龄,       cv: C1.04 age,           ready: true,  note: "47% 直接写年龄,19% 写出生年月(可推算)"}
+  - {jd: B.1 学历,       cv: C3.04 edu_level,     ready: true,  note: "67% 有标签,但需与院校逐段对应"}
+  - {jd: B.2 专业,       cv: C3.03 major,         ready: true,  note: "43% 写明;缺失时「专业类」要求判不了"}
+  - {jd: B.3 全日制,     cv: C3.05 full_time,     ready: false, note: "**没有任何一份直接写全日制** —— 只能从「自考/成教/统招」推断,而推断无出处"}
+  - {jd: C.1 总年限,     cv: C4.02 period,        ready: true,  note: "98% 有时间区间;但「自述年限」与「逐段累计」是两个量"}
+  - {jd: C.2 职能域,     cv: C4.03 title,         ready: false, note: "职位名有 50%,但「文职类/管理类」这类分类标准不存在"}
+  - {jd: C.3 行业,       cv: C4.05 industry,      ready: false, note: "简历不写行业,需从公司名推断 —— 推断无出处"}
+  - {jd: C.5 活动经验,   cv: C4.04 description,   ready: false, note: "「做过客户验厂」这类经验,只能从工作描述里读"}
+  - {jd: D   技能,       cv: C5.01 skills,        ready: true}
+  - {jd: E   素质能力,   cv: C6.01 self_evaluation, ready: false, note: "**自我评价是自我陈述,不构成判定依据**"}
+  - {jd: F   资质证书,   cv: C5.03 certification, ready: true}
+  - {jd: G   合规约束,   cv: null,                ready: false, note: "**简历侧完全没有对应字段** —— 无犯罪/行政处罚只能要证明文件"}
+  - {jd: H   语言熟练度, cv: C5.04 language_level, ready: false, note: "等级无统一刻度"}
+  - {jd: I   身体条件,   cv: null,                ready: false, note: "简历侧完全没有"}

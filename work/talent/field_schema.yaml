@@ -1,0 +1,902 @@
+version: 2
+scope: 东莞制造业 · 10 份职务说明书 × 270 份简历
+measured: '2026-11-20'
+principle: 字段集只有一份;JD 与 CV 是两个模板,各自裁剪。
+sections:
+  jd:
+    S1: 岗位标识
+    S2: 岗位目的
+    S3: 任职资格
+    S4: 岗位职责
+    S5: 作业明细
+    S6: 工作条件
+    S7: 元数据
+    S8: 合规声明
+  cv:
+    C1: 基本信息
+    C2: 求职意向
+    C3: 教育背景
+    C4: 工作经历
+    C5: 技能与证书
+    C6: 其他
+templates:
+  jd:
+    name: 职务说明书
+    rule: 渲染 jd 非 null 的字段;其余标「JD 未写」
+  cv:
+    name: 候选人档案
+    rule: 渲染 cv 非 null 的字段;其余标〔待补〕
+totals:
+  fields: 73
+  both: 8
+  not_comparable: 9
+  jd_only: 41
+  cv_only: 15
+fields:
+- id: F.AGE
+  label: 年龄
+  dimension: A
+  scale: interval
+  unit: 岁
+  jd:
+    section: S3
+    presence: 4
+    required: false
+  cv:
+    section: C1
+    presence: 129
+    prop: age
+  compare: both
+  note: JD 写区间;简历 47% 直述年龄、19% 写出生年月(可推算)。
+- id: F.CERTIFICATION
+  label: 资格证书
+  dimension: F
+  scale: nominal
+  cardinality: set
+  jd:
+    section: S3
+    presence: 1
+    required: false
+  cv:
+    section: C5
+    presence: 109
+    prop: hasCertification
+  compare: both
+  note: 两侧都有:JD 提「合规培训考核」,简历 109/270 写内审员/CET 等。
+- id: F.EDU_LEVEL
+  label: 学历
+  dimension: B
+  scale: ordinal
+  values:
+    2: 中专/高中
+    3: 大专
+    4: 本科
+    5: 硕士
+    6: 博士
+  jd:
+    section: S3
+    presence: 10
+    required: true
+  cv:
+    section: C3
+    presence: 179
+    prop: education_rank
+  compare: both
+  note: JD 侧几乎必写门槛;简历侧 179/270 有标签,但需与院校逐段对应。
+- id: F.EDU_MAJOR
+  label: 专业
+  dimension: B
+  scale: nominal
+  jd:
+    section: S3
+    presence: 6
+    required: false
+  cv:
+    section: C3
+    presence: 117
+    prop: major
+  compare: both
+  note: JD 写「XX类专业」;简历 43% 写明。缺失时这条要求判不了 —— 不是不合格。
+- id: F.EXP_ACTIVITY
+  label: 活动经验
+  dimension: C
+  scale: nominal
+  jd:
+    section: S3
+    presence: 2
+    required: false
+  cv:
+    section: C4
+    presence: 56
+    prop: activity_experience
+  compare: both
+  note: 「做过客户验厂」这类经验只能从工作描述里读;描述标签只有 56/270。
+- id: F.EXP_YEARS
+  label: 总年限
+  dimension: C
+  scale: interval
+  unit: 年
+  jd:
+    section: S3
+    presence: 7
+    required: true
+  cv:
+    section: C4
+    presence: 267
+    prop: years_stated
+  compare: both
+  note: 三个口径:平台文件名(被截断)/ 简历自述 / 逐段累计。要求必须声明用哪个。
+- id: F.GENDER
+  label: 性别
+  dimension: A
+  scale: nominal
+  values:
+  - 男
+  - 女
+  jd:
+    section: S3
+    presence: 3
+    required: false
+  cv:
+    section: C1
+    presence: 153
+    prop: gender
+  compare: both
+  note: A 维无外部标准依据(LinkedIn 与 HR-XML 都无此字段),standard_ref 恒为 NULL。
+- id: F.SKILL
+  label: 技能
+  dimension: D
+  scale: nominal
+  cardinality: set
+  jd:
+    section: S3
+    presence: 10
+    required: true
+  cv:
+    section: C5
+    presence: 140
+    prop: hasSkill
+  compare: both
+  note: 唯一 10/10 全员必写、且两侧都有实据的维度。词表见 component_catalog.yaml。
+- id: F.CLEARANCE
+  label: 法律记录 / 无犯罪
+  dimension: G
+  scale: nominal
+  jd:
+    section: S8
+    presence: 1
+    required: false
+  cv: null
+  compare: not_comparable
+  note: '**简历侧完全没有对应字段** —— 只能要证明文件。'
+  not_comparable_because: 简历侧完全没有对应字段
+- id: F.COMPETENCY
+  label: 职业素养
+  dimension: E
+  scale: ordinal
+  jd:
+    section: S3
+    presence: 9
+    required: true
+  cv:
+    section: C6
+    presence: 62
+    prop: null
+  compare: not_comparable
+  note: '**简历侧的「自我评价」是自我陈述,不构成判定依据** —— 所以两侧虽有字段,仍不可比。'
+  not_comparable_because: 简历「自我评价」是自我陈述,不构成判定依据
+- id: F.EDU_FULLTIME
+  label: 是否全日制
+  dimension: B
+  scale: nominal
+  values:
+  - true
+  - false
+  jd:
+    section: S3
+    presence: 1
+    required: false
+  cv:
+    section: C3
+    presence: 0
+    prop: full_time
+  compare: not_comparable
+  note: '**简历侧没有任何一份直接写「全日制」** —— 只能从自考/成教/统招推断,而推断没有出处。'
+  not_comparable_because: 简历侧没有任何一份直接写「全日制」,只能推断且推断无出处
+- id: F.EXP_DOMAIN
+  label: 职能域
+  dimension: C
+  scale: nominal
+  jd:
+    section: S3
+    presence: 4
+    required: false
+  cv:
+    section: C4
+    presence: 135
+    prop: domain
+  compare: not_comparable
+  note: JD 写「文职类/管理类」;简历只有职位名。分类标准本身不存在,需先定义。
+  not_comparable_because: JD 写「文职类/管理类」,简历只有职位名;分类标准本身不存在
+- id: F.EXP_INDUSTRY
+  label: 行业
+  dimension: C
+  scale: nominal
+  jd:
+    section: S3
+    presence: 3
+    required: false
+  cv:
+    section: C4
+    presence: 0
+    prop: industry
+  compare: not_comparable
+  note: 简历不写行业;只能从公司名推断 —— 推断无出处。
+  not_comparable_because: 简历不写行业,只能从公司名推断
+- id: F.JOB_TITLE
+  label: 职务名称
+  dimension: null
+  jd:
+    section: S1
+    presence: 10
+    required: true
+  cv:
+    section: C1
+    presence: 192
+    prop: null
+  compare: not_comparable
+  note: 不是同一条信息:JD 的职务名称是岗位;简历的「意向职位」是候选人的期望。
+  not_comparable_because: 岗位名称 vs 候选人期望职位 —— 两条不同的信息
+- id: F.LANGUAGE_LEVEL
+  label: 语言熟练度
+  dimension: H
+  scale: ordinal
+  jd:
+    section: S3
+    presence: 1
+    required: false
+  cv:
+    section: C5
+    presence: 0
+    prop: language_level
+  compare: not_comparable
+  note: 简历只写 CET-4/6 或「熟练」,无统一刻度;CEFR 映射不存在。
+  not_comparable_because: 简历只写 CET 等级,无统一刻度
+- id: F.SALARY
+  label: 薪资
+  dimension: null
+  jd:
+    section: S7
+    presence: 0
+    required: false
+  cv:
+    section: C2
+    presence: 71
+    prop: null
+  compare: not_comparable
+  note: '**JD 侧无薪资区间,简历侧 26% 有期望薪资** —— 单边数据不构成比较。'
+  not_comparable_because: JD 侧无薪资区间,单边数据不构成比较
+- id: F.WORK_LOCATION
+  label: 工作地点
+  dimension: null
+  jd:
+    section: S6
+    presence: 0
+    required: false
+  cv:
+    section: C1
+    presence: 113
+    prop: null
+  compare: not_comparable
+  note: '**JD 全批都没写工作地点,简历 41% 有现居地** —— 无法比对通勤半径。'
+  not_comparable_because: JD 全批未写工作地点,无法与简历现居地比对通勤
+- id: F.DEPARTMENT
+  label: 隶属部门
+  dimension: null
+  jd:
+    section: S1
+    presence: 10
+    required: true
+  cv: null
+  compare: jd_only
+- id: F.JD_ACTIVITY_AI_FIT
+  label: AI 可否替代
+  dimension: null
+  scale: null
+  jd:
+    section: S5
+    presence: 2
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_ACTIVITY_DURATION
+  label: 时长
+  dimension: null
+  scale: null
+  jd:
+    section: S5
+    presence: 4
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_ACTIVITY_FORM
+  label: 关联表单
+  dimension: null
+  scale: null
+  jd:
+    section: S5
+    presence: 3
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_ACTIVITY_FREQ
+  label: 频次(日/周/月/年/偶发)
+  dimension: null
+  scale: null
+  jd:
+    section: S5
+    presence: 10
+    required: true
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_ACTIVITY_SEQ
+  label: 序号
+  dimension: null
+  scale: null
+  jd:
+    section: S5
+    presence: 10
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_ACTIVITY_SOP
+  label: 操作标准流程
+  dimension: null
+  scale: null
+  jd:
+    section: S5
+    presence: 2
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_ACTIVITY_TEXT
+  label: 内容
+  dimension: null
+  scale: null
+  jd:
+    section: S5
+    presence: 10
+    required: true
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_APPROVERS
+  label: 核准/审核/制订
+  dimension: null
+  scale: null
+  jd:
+    section: S1
+    presence: 8
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_CLEAN_RECORD
+  label: 无犯罪/无行政处罚
+  dimension: null
+  scale: null
+  jd:
+    section: S8
+    presence: 1
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_CONFIDENTIALITY
+  label: 保密/数据保密
+  dimension: null
+  scale: null
+  jd:
+    section: S8
+    presence: 2
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_CONTRACT_TYPE
+  label: 用工类型/合同
+  dimension: null
+  scale: null
+  jd:
+    section: S8
+    presence: 3
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_DATE_POSTED
+  label: 发布日期
+  dimension: null
+  scale: null
+  jd:
+    section: S7
+    presence: 0
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_DOC_NUMBER
+  label: 文件编号
+  dimension: null
+  scale: null
+  jd:
+    section: S1
+    presence: 9
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_DUTY_COMPETENCY
+  label: 职责对应能力
+  dimension: null
+  scale: null
+  jd:
+    section: S4
+    presence: 0
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_DUTY_ITEMS
+  label: 职责条目
+  dimension: null
+  scale: null
+  jd:
+    section: S4
+    presence: 10
+    required: true
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_DUTY_WEIGHT
+  label: 职责权重
+  dimension: null
+  scale: null
+  jd:
+    section: S4
+    presence: 0
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_ENVIRONMENT
+  label: 环境(噪音/粉尘/温度)
+  dimension: null
+  scale: null
+  jd:
+    section: S6
+    presence: 0
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_FIRST_ISSUED
+  label: 首次发行日
+  dimension: null
+  scale: null
+  jd:
+    section: S7
+    presence: 9
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_HEADCOUNT
+  label: 编制/招聘人数
+  dimension: null
+  scale: null
+  jd:
+    section: S7
+    presence: 1
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_HIRING_REASON
+  label: 招聘原因
+  dimension: null
+  scale: null
+  jd:
+    section: S7
+    presence: 0
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_JOB_GRADE
+  label: 职级
+  dimension: null
+  scale: null
+  jd:
+    section: S1
+    presence: 0
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_JOB_PURPOSE
+  label: 岗位目的
+  dimension: null
+  scale: null
+  jd:
+    section: S2
+    presence: 0
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_NON_COMPETE
+  label: 竞业限制
+  dimension: null
+  scale: null
+  jd:
+    section: S8
+    presence: 0
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_OCCUPATION_CODE
+  label: 职业编码
+  dimension: null
+  scale: null
+  jd:
+    section: S1
+    presence: 0
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_PAGE_COUNT
+  label: 页数
+  dimension: null
+  scale: null
+  jd:
+    section: S1
+    presence: 8
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_PHYSICAL_DEMAND
+  label: 体力/站立/搬运
+  dimension: null
+  scale: null
+  jd:
+    section: S6
+    presence: 0
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_POSTING_CHANNEL
+  label: 发布渠道
+  dimension: null
+  scale: null
+  jd:
+    section: S7
+    presence: 1
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_PPE
+  label: 劳保/防护
+  dimension: null
+  scale: null
+  jd:
+    section: S6
+    presence: 0
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_PROBATION
+  label: 试用期
+  dimension: null
+  scale: null
+  jd:
+    section: S8
+    presence: 1
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_REVISION_HISTORY
+  label: 修订履历
+  dimension: null
+  scale: null
+  jd:
+    section: S7
+    presence: 10
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_SOCIAL_INSURANCE
+  label: 社保
+  dimension: null
+  scale: null
+  jd:
+    section: S8
+    presence: 1
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_SUCCESS_CRITERIA
+  label: 关键成功指标
+  dimension: null
+  scale: null
+  jd:
+    section: S2
+    presence: 0
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_TRAVEL
+  label: 出差
+  dimension: null
+  scale: null
+  jd:
+    section: S6
+    presence: 3
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_VALID_UNTIL
+  label: 有效期/截止
+  dimension: null
+  scale: null
+  jd:
+    section: S7
+    presence: 0
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_VERSION
+  label: 版本
+  dimension: null
+  scale: null
+  jd:
+    section: S1
+    presence: 10
+    required: true
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_WORK_HOURS
+  label: 工时
+  dimension: null
+  scale: null
+  jd:
+    section: S6
+    presence: 3
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.JD_WORK_LOCATION
+  label: 工作地点/厂区
+  dimension: null
+  scale: null
+  jd:
+    section: S6
+    presence: 0
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.REPORTS_TO
+  label: 直接上司
+  dimension: null
+  jd:
+    section: S1
+    presence: 10
+    required: true
+  cv: null
+  compare: jd_only
+- id: F.SHIFT
+  label: 班制
+  dimension: null
+  jd:
+    section: S6
+    presence: 0
+    required: false
+  cv: null
+  compare: jd_only
+  note: 两侧都没有 —— 这是制造业招聘最要紧的一项,却全批缺失。
+- id: F.SUPERVISES
+  label: 直接下属
+  dimension: null
+  jd:
+    section: S1
+    presence: 10
+    required: true
+  cv: null
+  compare: jd_only
+- id: F.AVAILABILITY
+  label: 到岗日期
+  dimension: null
+  jd:
+    section: S7
+    presence: 0
+    required: false
+  cv:
+    section: C2
+    presence: 123
+    prop: null
+  compare: cv_only
+- id: F.CV_BIRTH_DATE
+  label: 出生年月
+  dimension: null
+  scale: null
+  jd: null
+  cv:
+    section: C1
+    presence: 52
+    prop: null
+  compare: cv_only
+  note: 候选人侧字段,JD 无对应项
+- id: F.CV_CURRENT_SALARY
+  label: 目前年薪
+  dimension: null
+  scale: null
+  jd: null
+  cv:
+    section: C2
+    presence: 5
+    prop: null
+  compare: cv_only
+  note: 候选人侧字段,JD 无对应项
+- id: F.CV_EDU_PERIOD
+  label: 起止时间
+  dimension: null
+  scale: null
+  jd: null
+  cv:
+    section: C3
+    presence: 267
+    prop: null
+  compare: cv_only
+  note: 候选人侧字段,JD 无对应项
+- id: F.CV_EMAIL
+  label: 电子邮箱
+  dimension: null
+  scale: null
+  jd: null
+  cv:
+    section: C1
+    presence: 173
+    prop: null
+  compare: cv_only
+  note: 候选人侧字段,JD 无对应项
+- id: F.CV_EMPLOYER
+  label: 公司名称
+  dimension: null
+  scale: null
+  jd: null
+  cv:
+    section: C4
+    presence: 255
+    prop: null
+  compare: cv_only
+  note: 候选人侧字段,JD 无对应项
+- id: F.CV_FULL_NAME
+  label: 姓名
+  dimension: null
+  scale: null
+  jd: null
+  cv:
+    section: C1
+    presence: 24
+    prop: null
+  compare: cv_only
+  note: 候选人侧字段,JD 无对应项
+- id: F.CV_INSTITUTION
+  label: 毕业院校
+  dimension: null
+  scale: null
+  jd: null
+  cv:
+    section: C3
+    presence: 67
+    prop: null
+  compare: cv_only
+  note: 候选人侧字段,JD 无对应项
+- id: F.CV_JOB_TYPE
+  label: 求职类型
+  dimension: null
+  scale: null
+  jd: null
+  cv:
+    section: C2
+    presence: 15
+    prop: full_time
+  compare: cv_only
+  note: 候选人侧字段,JD 无对应项
+- id: F.CV_LANGUAGE
+  label: 语言能力
+  dimension: null
+  scale: null
+  jd: null
+  cv:
+    section: C5
+    presence: 109
+    prop: language
+  compare: cv_only
+  note: 候选人侧字段,JD 无对应项
+- id: F.CV_MARITAL_STATUS
+  label: 婚姻状况
+  dimension: null
+  scale: null
+  jd: null
+  cv:
+    section: C1
+    presence: 11
+    prop: null
+  compare: cv_only
+  note: 候选人侧字段,JD 无对应项
+- id: F.CV_NATIVE_PLACE
+  label: 籍贯
+  dimension: null
+  scale: null
+  jd: null
+  cv:
+    section: C1
+    presence: 19
+    prop: null
+  compare: cv_only
+  note: 候选人侧字段,JD 无对应项
+- id: F.CV_PHONE
+  label: 联系电话
+  dimension: null
+  scale: null
+  jd: null
+  cv:
+    section: C1
+    presence: 120
+    prop: null
+  compare: cv_only
+  note: 候选人侧字段,JD 无对应项
+- id: F.CV_PROJECTS
+  label: 项目经验
+  dimension: null
+  scale: null
+  jd: null
+  cv:
+    section: C6
+    presence: 42
+    prop: null
+  compare: cv_only
+  note: 候选人侧字段,JD 无对应项
+- id: F.CV_TRAININGS
+  label: 培训经历
+  dimension: null
+  scale: null
+  jd: null
+  cv:
+    section: C6
+    presence: 94
+    prop: null
+  compare: cv_only
+  note: 候选人侧字段,JD 无对应项

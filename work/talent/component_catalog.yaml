@@ -98,8 +98,9 @@ attributes:
     scale: nominal
     values: [{code: 男, cv_count: 0}, {code: 女, cv_count: 0}]
     prop: gender
-    prop_exists: false
+    prop_exists: true
     cv_coverage: 0
+    note_after_llm: "LLM 抽出 176/270 人的性别(引文逐字可查)。属性由此建立 —— 之前 prop_exists=false 是因为没有抽取手段,不是因为这件事不该做。"
     standard_ref: null
     note: |
       ★ 保留并执行,不是删除。JD 原文「基本要求:女性」逐字可查。
@@ -144,8 +145,9 @@ attributes:
     scale: nominal
     values: null
     prop: major
-    prop_exists: false
+    prop_exists: true
     cv_coverage: 0
+    note_after_llm: "LLM 抽出 201/270 人的专业(引文逐字可查)。这是 B 维 ROI 最高的一项,现在有了。"
     standard_ref: "HR Open Standards EducationRequirement.major"
     note: "★ 补一个属性可解锁 6 条要求,是 B 维性价比最高的一项。"
 
@@ -156,8 +158,9 @@ attributes:
     scale: nominal
     values: [{code: true, cv_count: 0}, {code: false, cv_count: 0}]
     prop: full_time
-    prop_exists: false
+    prop_exists: true
     cv_coverage: 0
+    note_after_llm: 'LLM 抽出 43/270 人的全日制。数量少 —— 多数简历不写,所以它将长期是"多数未知"的字段。'
     standard_ref: null
     note: "标准里没有,本地扩展。副总助理 JD 有「全日制大专」以及一条隐含的同义要求。"
 
@@ -176,14 +179,22 @@ attributes:
   # ── C 经历 ──────────────────────────────────────────────────────────────
   - id: C.1
     dimension: C
-    label: 总年限
+    label: 总年限(声明)
     cardinality: single
     scale: interval
     unit: 年
     values: null
-    prop: years_experience
+    prop: years_stated
     prop_exists: true
-    cv_coverage: 148
+    cv_coverage: 118
+    basis_note: |
+      **三个来源,严格度不同**(实测 270 人):
+        ① 平台文件名「10年以上」  派生值,被截断 —— 277 人都有,但 10 是上限不是真值
+        ② 简历头部「15年」        候选人自述 —— 118 人,精确但无人核对
+        ③ 工作经历逐段累加        唯一**可重算**的 —— 54 人,需要逐段抽取 + 重叠/空档规则
+      本属性 = ②(声明值)。③ 另立 C.6。① 保留在 ABox 现有 years_experience 里不动。
+      为什么不合成一个:10 和 23 不是同一个量。合成会让"一致率 31%"看起来像 69% 的错误率,
+      然后有人会去"修"它,把对的改成错的。
     standard_ref: "O*NET Job Zone"
     note: |
       148/277,129 份没读到。实测分布:1年16 · 2年10 · 3年10 · 4年15 · 5年13 · 6年7
@@ -243,6 +254,24 @@ attributes:
       验厂、客户接待、参展、稽核、异常处理。
       现状:其中一部分已被当作技能收进 components(如 skill_客户验厂),先兜住;
       真正需要区分"有没有做过"时,用本属性。
+
+  - id: C.6
+    dimension: C
+    label: 总年限(逐段累计)
+    cardinality: single
+    scale: interval
+    unit: 年
+    values: null
+    prop: years_computed
+    prop_exists: false
+    cv_coverage: 0
+    added: 2026-11-20
+    note: |
+      唯一**可重算**的年限口径:把所有工作经历的起止区间累加,重叠只算一次,空档不补。
+      为什么现在是 prop_exists=false:要它成立,必须先做一件现在没做的事 ——
+      **逐段抽出所有区间**(而不是像现在这样只引用了某一段),再由门禁验"各段之和 = 总年限"。
+      在此之前,任何"累计年限"都是不可验证的数字(实测:LLM 给的 54 条,引文只支持其中一段)。
+      要求若要按这个口径判,必须在要求上声明 year_basis: computed。
 
   # ── E 素质能力 ──────────────────────────────────────────────────────────
   - id: E.1

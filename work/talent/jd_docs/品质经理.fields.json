@@ -1,0 +1,343 @@
+{
+ "jd": "品质经理",
+ "fields": {
+  "S1.01": {
+   "label": "职务名称",
+   "value": "品质经理",
+   "status": "有值",
+   "note": ""
+  },
+  "S1.02": {
+   "label": "文件编号",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文该栏为空"
+  },
+  "S1.03": {
+   "label": "版本",
+   "value": "A0",
+   "status": "有值",
+   "note": ""
+  },
+  "S1.04": {
+   "label": "页数",
+   "value": "1",
+   "status": "有值",
+   "note": ""
+  },
+  "S1.05": {
+   "label": "核准/审核/制订",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文栏位存在但无姓名"
+  },
+  "S1.06": {
+   "label": "隶属部门",
+   "value": "品保课",
+   "status": "有值",
+   "note": ""
+  },
+  "S1.07": {
+   "label": "直接上司",
+   "value": "\u0007\u0007",
+   "status": "有值",
+   "note": ""
+  },
+  "S1.08": {
+   "label": "直接下属",
+   "value": "\u0007无\u0007\u0007",
+   "status": "有值",
+   "note": ""
+  },
+  "S1.09": {
+   "label": "职业编码",
+   "value": null,
+   "status": "JD 未写",
+   "note": "需按《职业分类大典》编码,原文无"
+  },
+  "S1.10": {
+   "label": "职级",
+   "value": null,
+   "status": "JD 未写",
+   "note": "需按职级体系套档,原文无"
+  },
+  "S2.01": {
+   "label": "岗位目的",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无独立段;我方归纳见附录 F"
+  },
+  "S2.02": {
+   "label": "关键成功指标",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无量化指标;我方提案见附录 F"
+  },
+  "dim_A": {
+   "label": "人口属性",
+   "value": "年龄 25–40 岁",
+   "status": "有值",
+   "note": "1 条"
+  },
+  "dim_B": {
+   "label": "教育",
+   "value": "大专及以上 / 专业:机电一体化/电子技术/自动化/工业工程/机械工程",
+   "status": "有值",
+   "note": "2 条"
+  },
+  "dim_C": {
+   "label": "经历",
+   "value": "3 年以上",
+   "status": "有值",
+   "note": "1 条"
+  },
+  "dim_D": {
+   "label": "技能",
+   "value": "英语·8D报告 / 线束行业知识 / 品质问题分析 / QC七大手法·SPC·CPK·6S / 客户验厂",
+   "status": "有值",
+   "note": "5 条"
+  },
+  "dim_E": {
+   "label": "素质能力",
+   "value": "有良好的沟通、协调能力",
+   "status": "有值",
+   "note": "1 条"
+  },
+  "dim_F": {
+   "label": "资质证书",
+   "value": null,
+   "status": "不适用",
+   "note": "本岗位 JD 未提此维度"
+  },
+  "dim_G": {
+   "label": "合规约束",
+   "value": null,
+   "status": "不适用",
+   "note": "本岗位 JD 未提此维度"
+  },
+  "dim_H": {
+   "label": "语言",
+   "value": null,
+   "status": "不适用",
+   "note": "本岗位 JD 未提此维度"
+  },
+  "dim_I": {
+   "label": "身体条件",
+   "value": null,
+   "status": "不适用",
+   "note": "本岗位 JD 未提此维度"
+  },
+  "S4.01": {
+   "label": "职责条目",
+   "value": "8 条",
+   "status": "有值",
+   "note": ""
+  },
+  "S4.02": {
+   "label": "职责权重",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无时间占比;我方建议等权,见附录 F"
+  },
+  "S4.03": {
+   "label": "职责对应能力",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文未建立对应关系;我方按关键词推导,见附录 F"
+  },
+  "S5.01": {
+   "label": "序号",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文该段为空"
+  },
+  "S5.02": {
+   "label": "内容",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S5.03": {
+   "label": "频次",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S5.04": {
+   "label": "时长",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S5.05": {
+   "label": "AI 可否替代",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S5.06": {
+   "label": "操作标准流程",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S5.07": {
+   "label": "关联表单",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S6.01": {
+   "label": "工作地点/厂区",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S6.02": {
+   "label": "班制",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S6.03": {
+   "label": "工时",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S6.04": {
+   "label": "环境",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S6.05": {
+   "label": "体力",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S6.06": {
+   "label": "出差",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S6.07": {
+   "label": "劳保/防护",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S7.01": {
+   "label": "修订履历",
+   "value": "首次发行",
+   "status": "有值",
+   "note": "无后续修订记录"
+  },
+  "S7.02": {
+   "label": "首次发行日",
+   "value": "2021.09.30",
+   "status": "有值",
+   "note": ""
+  },
+  "S7.03": {
+   "label": "发布日期",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S7.04": {
+   "label": "有效期",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S7.05": {
+   "label": "编制/招聘人数",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S7.06": {
+   "label": "招聘原因",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S7.07": {
+   "label": "发布渠道",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S8.01": {
+   "label": "保密/数据保密",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S8.02": {
+   "label": "无犯罪/无行政处罚",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S8.03": {
+   "label": "竞业限制",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S8.04": {
+   "label": "用工类型",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S8.05": {
+   "label": "试用期",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  },
+  "S8.06": {
+   "label": "社保",
+   "value": null,
+   "status": "JD 未写",
+   "note": "原文无"
+  }
+ },
+ "tally": {
+  "有值": 9,
+  "JD 未写": 33
+ },
+ "proposals": [
+  {
+   "code": "S2.01",
+   "label": "岗位目的",
+   "value": "负责部门品质与业务目标管理,承接上级与客户下达的任务 建立并维护管理体系、标准与培训考核机制 监督标准执行,组织检测、设备与物料验收,保障过程受控 通过数据收集与持续改善,定期报送运营数据 对接客户要求与审厂,管理供应商/外部资源质量。",
+   "basis": "由 8 条职责归纳:「负责部门品质与业…」←职责1、「建立并维护管理体…」←职责2,3、「监督标准执行,组…」←职责4,5、「通过数据收集与持…」←职责6、「对接客户要求与审…」←职责7,8"
+  },
+  {
+   "code": "S2.02",
+   "label": "关键成功指标",
+   "value": "目标达成率、异常闭环率 / 投诉件数、报表按时报送率、客户审厂通过率、供应商/外部资源合格率",
+   "basis": "由职责动词推导:目标达成率←职责1「保质保量完成…任务」;异常闭环率 / 投诉件数←职责4「执行各项标准…达成目标」;报表按时报送率←职责6「完成周报、月报」;客户审厂通过率←职责7「接待客户、承接客户要求」;供应商/外部资源合格率←职责8「供应商品质管理」"
+  },
+  {
+   "code": "S4.02",
+   "label": "职责权重",
+   "value": "等权,各 12%",
+   "basis": "原文无时间占比;等权是最小假设"
+  },
+  {
+   "code": "S4.03",
+   "label": "职责对应能力",
+   "value": "3/8 条可对应",
+   "basis": "按关键词表推导,其余在能力词表里无对应项"
+  }
+ ],
+ "citations": 10,
+ "duties": 8
+}

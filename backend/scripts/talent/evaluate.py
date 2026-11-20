@@ -1,33 +1,24 @@
 #!/usr/bin/env python3
-"""用 yaml 的尺子,量一次 277 人 —— 只做 join,不用推理机,不碰 Neo4j。
+"""用 yaml 的尺子量一遍所有候选人 —— 只做 join,不用推理机,不碰 Neo4j。
 
-这是"两种口径并排"的那一步。目的是回答一个具体问题:
+四种状态,不是两种:满足 / 不满足 / **未知**(简历没读到)/ 不可判(这一支判不了)。
+"未知"永远不能折成"不满足" —— 270 人里年限未知的有一半,折进去就等于凭空判了一批人不合格。
 
-    新尺子(10 条要求逐条落位)量出来的人,和旧尺子(PG 闸门 英语∧5S = 0 人)
-    到底差在哪?
+三个年限口径,必须分开:
+    platform   平台文件名「10年以上」  派生值、截断在 10   277 人都有,但 10 是上限不是真值
+    stated     简历头部「15年」        候选人自述           118 人
+    computed   工作经历逐段累加         唯一**可重算**        54 人,且尚不可验证
 
-输入只有三样,全部已存在:
-    work/talent/component_catalog.yaml     属性(prop / scale / prop_exists)
-    work/talent/requirement_library.yaml   要求语义(算子 / 组件 / 哪些判不了)
-    work/talent/jd_links/品质经理.yaml      这份 JD 的引用(阈值 + 原话)
-    + abox.ttl                             277 人的事实
+要求用哪个口径由 year_basis 决定:写在要求上是默认值,写在引用上可覆盖 ——
+"比哪个年限"是每份 JD 的判断,不是要求的属性(同 tier 的逻辑)。
 
-**判定规则,写在明面上(不藏):**
-
-  组件类要求   coverage = 命中组件数 / 要求组件数;  coverage >= 0.5 记为"满足"
-               —— 0.5 是沿用旧闸门的 GATE_COVERAGE,为了让两边可比。
-               覆盖率本身也一起打印出来,所以这个阈值随时可以改。
-  属性类要求   算子来自要求(op),阈值来自引用(value),刻度来自属性(scale)。
-               供给侧读不到 → "未知"。**未知不是不合格。**
-  不可判要求   库里 assessable=false 的(素质、专业属性未建)→ "不可判",不计入分母。
-
-**分母必须一并披露:** 有人只被 3 条要求判过,有人被 8 条判过。
-不披露分母就排不出名次 —— 排出来的名次是假的。
+要求引用类别还是组件:用 categories 的要求接受该类下任何组件,所以目录里新增同类
+组件时要求自动覆盖,不用改 yaml。这是本体层唯一能赚到的钱。
 
 用法:
-    python -m scripts.talent.evaluate                    # 品质经理 × 277 人
-    python -m scripts.talent.evaluate --top 15
-    python -m scripts.talent.evaluate --include-duplicates
+    python -m scripts.talent.evaluate --jd 品质经理
+    python -m scripts.talent.evaluate --jd 品质经理 --facts llm
+    ... --facts llm --year-basis platform
 """
 from __future__ import annotations
 
@@ -47,23 +38,19 @@ import yaml  # noqa: E402
 CATALOG = ROOT / "work" / "talent" / "component_catalog.yaml"
 LIBRARY = ROOT / "work" / "talent" / "requirement_library.yaml"
 LINKS = ROOT / "work" / "talent" / "jd_links"
+FACTS = ROOT / "work" / "talent" / "cv_facts.json"
 PROFILE = BACKEND / "features" / "ontology" / "profiles" / "talent_v1" / "talent_v1_settings.json"
 
-#: 组件类要求的覆盖率阈值。沿用旧闸门的值,两边才可比。
 COVERAGE = 0.5
 
-#: 属性 id → 供给侧字段名
-PROP_FIELD = {"A.2": "age", "B.1": "educationRank", "C.1": "years"}
-
-
-def load_all(jd: str) -> tuple[dict, dict, dict]:
-    return (yaml.safe_load(CATALOG.read_text(encoding="utf-8")),
-            yaml.safe_load(LIBRARY.read_text(encoding="utf-8")),
-            yaml.safe_load((LINKS / f"{jd}.yaml").read_text(encoding="utf-8")))
+PROP_FIELD = {"A.1": "gender", "A.2": "age", "B.1": "educationRank",
+              "B.2": "major", "B.3": "fullTime", "C.1": "yearsStated", "C.6": "yearsComputed"}
+BASIS_FIELD = {"platform": "yearsPlatform", "stated": "yearsStated", "computed": "yearsComputed"}
+TRUSTED = {"stated", "inferred", "computed"}
 
 
 def load_candidates() -> list[dict]:
-    """从 abox.ttl 读 277 人。供给侧的唯一真源是它,不是 PG。"""
+    """供给侧从 abox.ttl 读 —— 那才是唯一真源,不是 PG。"""
     import rdflib
     from rdflib import Literal, URIRef
     from rdflib.namespace import RDF
@@ -74,139 +61,162 @@ def load_candidates() -> list[dict]:
     g.parse(PROFILE.parent / settings.get("abox", "abox.ttl"), format="turtle")
     SAME_AS = "http://www.w3.org/2002/07/owl#sameAs"
 
-    def one(node, prop, *, absolute: bool = False):
-        """absolute=True 时不加命名空间 —— 第一版把 owl:sameAs 也拼上了 ns,
-        于是 7 份重复简历一条也没认出来,dup 检测静默失效。"""
-        for value in g.objects(node, URIRef(prop if absolute else ns + prop)):
-            if isinstance(value, Literal):
+    def one(node, prop, *, absolute=False):
+        for v in g.objects(node, URIRef(prop if absolute else ns + prop)):
+            if isinstance(v, Literal):
                 try:
-                    return int(value)
+                    return int(v)
                 except (TypeError, ValueError):
-                    return str(value)
-            return str(value)
+                    return str(v)
+            return str(v).rsplit("#", 1)[-1]
         return None
 
-    out, dupes = [], set()
+    out = []
     for node in g.subjects(RDF.type, URIRef(ns + "Candidate")):
-        cid = str(node).rsplit("#", 1)[-1]
-        dup = one(node, SAME_AS, absolute=True)
-        if dup:
-            dupes.add(cid)
         out.append({
-            "id": cid,
-            "years": one(node, "yearsExperience"),
-            "educationRank": one(node, "educationRank"),
+            "id": str(node).rsplit("#", 1)[-1],
             "age": one(node, "age"),
-            "duplicate": bool(dup),
+            "educationRank": one(node, "educationRank"),
+            "yearsPlatform": one(node, "yearsExperience"),
+            "yearsStated": None, "yearsComputed": None,
+            "gender": None, "major": None, "fullTime": None,
+            "duplicate": bool(one(node, SAME_AS, absolute=True)),
             "components": {str(o).rsplit("#", 1)[-1]
                            for o in g.objects(node, URIRef(ns + "hasSkill"))},
         })
     return out
 
 
-def judge_component(held: set[str], needed: list[str]) -> tuple[str, str]:
-    """返回 (状态, 说明)。覆盖率判据写在这里,只有一个地方。"""
+def overlay_llm(cands: list[dict]) -> int:
+    if not FACTS.is_file():
+        print(f"  ! 缺 {FACTS.relative_to(ROOT)} —— 先跑 promote_cv_facts")
+        return 0
+    facts = json.loads(FACTS.read_text(encoding="utf-8"))
+    field_map = {"age": "age", "education_rank": "educationRank", "major": "major",
+                 "gender": "gender", "full_time": "fullTime"}
+    used = 0
+    for c in cands:
+        d = facts.get(c["id"]) or {}
+        for field, key in field_map.items():
+            item = d.get(field) or {}
+            if item.get("basis") in TRUSTED and item.get("value") is not None:
+                c[key] = item["value"]; used += 1
+        y = d.get("years") or {}
+        if y.get("basis") in TRUSTED and y.get("value") is not None:
+            c["yearsStated"] = int(y["value"]); used += 1
+    return used
+
+
+def judge_component(held: set, needed: list) -> tuple:
     if not needed:
         return "不可判", "没有组件"
     hit = [c for c in needed if c in held]
-    cov = len(hit) / len(needed)
-    state = "满足" if cov >= COVERAGE else "不满足"
-    return state, f"{len(hit)}/{len(needed)}" + (f" 命中 {'·'.join(hit)}" if hit else "")
+    return ("满足" if len(hit) / len(needed) >= COVERAGE else "不满足"), f"{len(hit)}/{len(needed)}"
 
 
-def judge_attribute(att: dict, req: dict, cit: dict, cand: dict) -> tuple[str, str]:
-    """三态:满足 / 不满足 / 未知。未知不折成不满足。"""
-    field = PROP_FIELD.get(att["id"])
-    if field is None:
-        return "不可判", f"{att['id']} 的 supply 属性未建"
-    value = cand.get(field)
+def judge_attribute(att: dict, req: dict, cit: dict, cand: dict, forced: str) -> tuple:
+    attr_id = att["id"]
+    prop = PROP_FIELD.get(attr_id)
+    if attr_id in ("C.1", "C.6"):
+        basis = forced or cit.get("year_basis") or req.get("year_basis") or "platform"
+        prop = BASIS_FIELD.get(basis, "yearsPlatform")
+    if not prop:
+        return "不可判", f"{attr_id} 没有供给侧字段"
+    value = cand.get(prop)
     if value is None:
-        return "未知", f"{field} 没读到"
+        return "未知", f"{prop} 没读到"
     val = cit.get("value") or {}
     op = req.get("op")
     if op == "between" and "min" in val and "max" in val:
-        ok = val["min"] <= value <= val["max"]
-        return ("满足" if ok else "不满足"), f"{val['min']}~{val['max']} vs {value}"
+        return ("满足" if val["min"] <= value <= val["max"] else "不满足"), \
+               f"{val['min']}~{val['max']} vs {value}"
     if op == ">=" and "num" in val:
-        ok = value >= val["num"]
-        return ("满足" if ok else "不满足"), f">={val['num']} vs {value}"
-    if op == "in":
-        return "不可判", "取值集合型,属性未建"
+        return ("满足" if value >= val["num"] else "不满足"), f">={val['num']} vs {value}"
+    if op == "=":
+        want = val.get("in") or ([val["value"]] if "value" in val else [])
+        if want:
+            return ("满足" if value in want else "不满足"), f"{want} vs {value}"
+        return "不可判", "eq 但没有取值"
     return "不可判", f"算子 {op} 无判定规则"
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--jd", default="品质经理", help="jd_links/<名字>.yaml")
+    ap.add_argument("--jd", default="品质经理")
+    ap.add_argument("--facts", choices=["abox", "llm"], default="abox")
+    ap.add_argument("--year-basis", choices=["platform", "stated", "computed"], default="")
     ap.add_argument("--top", type=int, default=10)
     ap.add_argument("--include-duplicates", action="store_true")
     args = ap.parse_args()
 
-    catalog, library, link = load_all(args.jd)
+    catalog = yaml.safe_load(CATALOG.read_text(encoding="utf-8"))
+    library = yaml.safe_load(LIBRARY.read_text(encoding="utf-8"))
+    link = yaml.safe_load((LINKS / f"{args.jd}.yaml").read_text(encoding="utf-8"))
     atts = {a["id"]: a for a in catalog["attributes"]}
-    comps = {c["id"]: c for c in catalog["components"]}
     reqs = {r["id"]: r for r in library["requirements"]}
+
+    by_cat = collections.defaultdict(list)
+    for c in catalog["components"]:
+        by_cat[c["category"]].append(c["id"])
+    for r in reqs.values():
+        cats = r.get("categories") or []
+        r["_resolved"] = (sorted({x for cat in cats for x in by_cat.get(cat, [])})
+                          if cats else list(r.get("components") or []))
+
     cands = load_candidates()
-
+    n_llm = overlay_llm(cands) if args.facts == "llm" else 0
     pool = [c for c in cands if args.include_duplicates or not c["duplicate"]]
-    print(f"JD: {link['jd']} · {len(link['citations'])} 条引用 → "
-          f"{len({c['requirement'] for c in link['citations']})} 条要求")
-    print(f"候选人: {len(pool)} 人(另有 {len(cands) - len(pool)} 份重复简历已排除)")
-    print(f"组件覆盖率阈值: {COVERAGE}(沿用旧闸门,两边可比)")
+    cit = link["citations"]
 
-    # ── 每条要求:分母 + 结果分布
-    per_req: dict[str, dict] = {}
+    print(f"JD: {link['jd']} · {len(cit)} 条引用 → {len({c['requirement'] for c in cit})} 条要求")
+    print(f"候选人: {len(pool)} 人(另有 {len(cands) - len(pool)} 份重复已排除)")
+    print(f"事实源: {args.facts}" + (f"(覆盖 {n_llm} 个字段)" if args.facts == "llm" else ""))
+    print(f"年限口径: {args.year_basis or '按引用/要求声明'}   组件覆盖率阈值: {COVERAGE}")
+
+    per_req = collections.defaultdict(collections.Counter)
     rows = []
     for cand in pool:
         result = {}
-        for cit in link["citations"]:
-            req = reqs[cit["requirement"]]
+        for c in cit:
+            req = reqs[c["requirement"]]
             if not req.get("assessable"):
-                state, why = "不可判", ("E 维无组件" if req.get("no_component")
-                                        else "属性未建")
-            elif req.get("components"):
-                state, why = judge_component(cand["components"], req["components"])
+                state, why = "不可判", ("E 维无组件" if req.get("no_component") else "属性未建")
+            elif req.get("_resolved"):
+                state, why = judge_component(cand["components"], req["_resolved"])
             elif req.get("attribute"):
-                state, why = judge_attribute(atts[req["attribute"]], req, cit, cand)
+                state, why = judge_attribute(atts[req["attribute"]], req, c, cand, args.year_basis)
             else:
                 state, why = "不可判", "既无组件也无属性"
-            result[cit["requirement"]] = (state, why)
-            per_req.setdefault(cit["requirement"], collections.Counter())[state] += 1
-        judged = [s for s, _ in result.values() if s in ("满足", "不满足")]
-        rows.append({
-            "id": cand["id"], "result": result,
-            "满足": sum(1 for s, _ in result.values() if s == "满足"),
-            "不满足": sum(1 for s, _ in result.values() if s == "不满足"),
-            "未知": sum(1 for s, _ in result.values() if s == "未知"),
-            "不可判": sum(1 for s, _ in result.values() if s == "不可判"),
-            "可判": len(judged),
-            "年限": cand["years"], "学历": cand["educationRank"], "年龄": cand["age"],
-        })
+            result[c["requirement"]] = (state, why)
+            per_req[c["requirement"]][state] += 1
+        rows.append({"id": cand["id"], "result": result,
+                     "满足": sum(1 for s, _ in result.values() if s == "满足"),
+                     "不满足": sum(1 for s, _ in result.values() if s == "不满足"),
+                     "未知": sum(1 for s, _ in result.values() if s == "未知"),
+                     "不可判": sum(1 for s, _ in result.values() if s == "不可判"),
+                     "可判": sum(1 for s, _ in result.values() if s in ("满足", "不满足"))})
 
-    print(f"\n{'═' * 84}\n每条要求的分母(有多少人被它真正判过)\n{'═' * 84}")
-    print(f"{'要求':24s} {'含义':22s} 满足 / 不满足 / 未知 / 不可判")
-    for cit in link["citations"]:
-        rid = cit["requirement"]
-        c = per_req[rid]
-        print(f"{rid:24s} {reqs[rid].get('name','')[:20]:22s} "
-              f"{c['满足']:4d} / {c['不满足']:4d} / {c['未知']:4d} / {c['不可判']:4d}"
-              + ("  [优先]" if cit.get("tier") == "desirable" else ""))
+    print(f"\n{'='*84}\n每条要求的分母(多少人被它真正判过)\n{'='*84}")
+    for c in cit:
+        rid = c["requirement"]; n = per_req[rid]
+        tag = "  [优先]" if c.get("tier") == "desirable" else ""
+        print(f"{rid:26s} {reqs[rid].get('name','')[:18]:20s} "
+              f"满足{n['满足']:4d} 不满足{n['不满足']:4d} 未知{n['未知']:4d} 不可判{n['不可判']:4d}{tag}")
 
-    print(f"\n{'═' * 84}\n分布:满足 k 条要求的人数(分母 = 该人被几条要求判过)\n{'═' * 84}")
+    print(f"\n{'='*84}\n分布\n{'='*84}")
     dist = collections.Counter(r["满足"] for r in rows)
     for k in sorted(dist, reverse=True):
-        full = sum(1 for r in rows if r["满足"] == k and r["可判"] == 10 - r["不可判"] and r["未知"] == 0)
-        print(f"   满足 {k:2d} 条 → {dist[k]:4d} 人   (其中「零未知」的 {full} 人)")
+        zu = sum(1 for r in rows if r["满足"] == k and r["未知"] == 0)
+        print(f"   满足 {k:2d} 条 → {dist[k]:4d} 人   (零未知 {zu} 人)")
 
-    print(f"\n{'═' * 84}\nTop {args.top}(按 满足条数 ↓,再看 可判条数 ↓)\n{'═' * 84}")
-    rows.sort(key=lambda r: (-r["满足"], -r["可判"], -r["未知"], r["id"]))
-    for r in rows[:args.top]:
-        gaps = [rid for rid, (s, _) in r["result"].items() if s == "不满足"]
-        print(f"\n▌{r['id']}")
-        print(f"   满足 {r['满足']} · 不满足 {r['不满足']} · 未知 {r['未知']} · "
-              f"不可判 {r['不可判']}  |  学历={r['学历']} 年限={r['年限']} 年龄={r['年龄']}")
-        if gaps:
-            print(f"   差:{' · '.join(gaps)}")
+    if args.top:
+        print(f"\n{'='*84}\nTop {args.top}\n{'='*84}")
+        rows.sort(key=lambda r: (-r["满足"], r["未知"], r["id"]))
+        for r in rows[:args.top]:
+            gaps = [rid for rid, (s, _) in r["result"].items() if s == "不满足"]
+            print(f"@{r['id']}")
+            print(f"   满足{r['满足']} 不满足{r['不满足']} 未知{r['未知']} 不可判{r['不可判']}"
+                  + (f"   差:{'·'.join(gaps)}" if gaps else ""))
     return 0
 
 

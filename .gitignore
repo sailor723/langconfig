@@ -299,3 +299,12 @@ learning/5days-vocab-training/
 # ── talent 工作的本地快照（apply 前的数据库备份，体积大，不进库）──
 # 决定与实测写在 work/talent/*.md（那些要进库）；只有 *.dump 是本机备份。
 work/**/*.dump
+
+# ── talent 的中间产物:可重跑的不进库 ──────────────────────────────────────
+# OCR 缓存与 OCR 文本:2 份各 1.6M,且都能用 extract.py 重新生成(缓存键 sha256+dpi+lang)
+work/talent/cv_cache/
+work/talent/cv_text/
+# 270 份大模型原始输出:1.1M。保留在本地可追溯;进库只会让 diff 失去意义
+work/talent/cv_draft/
+# 图:dot 与 svg 进库(可 diff、矢量);png 是位图导出
+work/talent/graph/*.png

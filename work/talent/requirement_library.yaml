@@ -96,6 +96,12 @@ requirements:
     op: ">="
     value_shape: {num: 年, domain: 职能域}
     components: []
+    year_basis: stated
+    year_basis_note: |
+      **比的是声明值(C.1 / years_stated),不是累计值。**
+      理由:① 声明值覆盖 118 人,累计值只有 54 人且还不可验;② 客户 JD 写"3年以上"时,
+      看的就是简历上写的年限。若某份 JD 要求按累计口径判,在**引用**上写 year_basis: computed
+      —— 它属于哪份 JD 的判断,不属于要求本身(同 tier 的逻辑)。
     assessable: true
     partial: "年限可判(148/277);领域限定需要 C.2 domain,该属性未建"
     note: |
@@ -118,7 +124,7 @@ requirements:
     attribute: null
     kind: component
     op: holds
-    components: [skill_品质问题分析]
+    components: [skill_品质问题分析]      # 保留:具体组件
     assessable: true
 
   - id: REQ-D-QA-TOOLS
@@ -142,7 +148,7 @@ requirements:
     attribute: null
     kind: component
     op: holds
-    components: [skill_客户验厂]
+    components: [skill_客户验厂]      # 保留:具体组件
     assessable: true
     note: '这类"活动经验"先用 D 维兜住。C.5 activity_experience 留着,等需要区分"做过 vs 会做"再用。'
 
@@ -275,7 +281,8 @@ requirements:
     attribute: null
     kind: composite
     op: holds
-    components: [skill_Word, skill_Excel, skill_PowerPoint]
+    components: [skill_Word, skill_Excel, skill_PowerPoint]      # 保留:具体组件
+    categories: [OfficeSoftware, SpreadsheetSoftware]      # 绑类别:新增同类组件自动覆盖
     unlinked_parts:
       - {text: AI, gap: P5}
     assessable: true
@@ -406,7 +413,8 @@ requirements:
     kind: composite
     op: holds
     assessable: true
-    components: [skill_裁线机, skill_端子机, skill_自动机, skill_注塑机, skill_点胶机]
+    components: [skill_裁线机, skill_端子机, skill_自动机, skill_注塑机, skill_点胶机]      # 保留:具体组件
+    categories: [WireEquipment]      # 绑类别:新增同类组件自动覆盖
     note: |
       合并条目:LLM 原本拆成「认知」与「操作」两条(REQ-D-WIRE-EQUIPMENT / -OP),
       但 JD 原文只有一句:「对电线加工设备:裁线机、端子机…等功能熟知并有一定的操作能力」。
@@ -454,7 +462,7 @@ requirements:
     kind: component
     op: holds
     assessable: true
-    components: [skill_数据分析]
+    components: [skill_数据分析]      # 保留:具体组件
     note: "人资专员与管理课长两份 JD 都提这条 —— LLM 各自提了同一个 id,天然合并。"
 
   - id: REQ-D-ATTENDANCE-SYSTEM
@@ -494,7 +502,8 @@ requirements:
     kind: composite
     op: holds
     assessable: true
-    components: [skill_报关, skill_单证]
+    components: [skill_报关, skill_单证]      # 保留:具体组件
+    categories: [CustomsSkill]      # 绑类别:新增同类组件自动覆盖
 
   - id: REQ-D-REPORT-WRITING
     name: 报表整理能力
@@ -512,7 +521,10 @@ requirements:
     kind: component
     op: holds
     assessable: true
-    components: [skill_招聘]
+    components: [skill_招聘]      # 保留:具体组件
+    categories: [RecruitingSkill]      # 绑类别:新增同类组件自动覆盖      # 保留:具体组件
+    categories: [RecruitingSkill]      # 绑类别:新增同类组件自动覆盖      # 保留:具体组件
+    categories: [RecruitingSkill]      # 绑类别:新增同类组件自动覆盖
 
   - id: REQ-D-RECRUIT-CHANNEL
     name: 招聘渠道
@@ -550,7 +562,7 @@ requirements:
     kind: component
     op: holds
     assessable: true
-    components: [skill_培训课程开发]
+    components: [skill_培训课程开发]      # 保留:具体组件
 
   - id: REQ-D-SYSTEM-MGMT
     name: 体系管理
@@ -559,7 +571,7 @@ requirements:
     kind: component
     op: holds
     assessable: true
-    components: [skill_体系管理]
+    components: [skill_体系管理]      # 保留:具体组件
 
   - id: REQ-D-SYSTEM-PLANNING
     name: 系统规划
@@ -568,7 +580,7 @@ requirements:
     kind: component
     op: holds
     assessable: true
-    components: [skill_系统规划]
+    components: [skill_系统规划]      # 保留:具体组件
 
   - id: REQ-D-CULTURE-BUILD
     name: 企业文化建设
@@ -577,7 +589,7 @@ requirements:
     kind: component
     op: holds
     assessable: true
-    components: [skill_企业文化建设]
+    components: [skill_企业文化建设]      # 保留:具体组件
 
   - id: REQ-D-BIZ-ETIQUETTE
     name: 商务礼仪
