@@ -1,5 +1,12 @@
 # skill_map.yaml — 东莞线束/连接器制造业 · 样本技能词表（草稿 v0.1）
 #
+# ⚠ 注意:当前**没有任何脚本读这个文件**。它是一份词表参考(哪些技能、哪个类别、
+#   证据出自哪条 JD),改它**不会**改变任何抽取结果。真正落库的是 talent_db 的
+#   `skill` / `candidate_skill` 两张表,ABox 由 scripts/talent/build_abox.py 从库里生成。
+#   2026-11-20 实测:这个文件在 HEAD 里是**语法坏的**(双引号标量里套了 ASCII 双引号),
+#   因为没有消费者,坏了很久没人发现。已修。
+#
+#
 # 生成方式：先抽取、后概括。
 #   来源是 client/team-4/unzipped/职务说明书10份 的【资格要求】段，共 10 份 JD。
 #   每一行都必须有 evidence：哪份 JD、原话是什么。没有出处的行不许进表。
@@ -78,7 +85,7 @@ categories:
          evidence: {jd: 专案工程师,
                     quote: "对电线加工设备：裁线机、端子机、自动机、注塑机、点胶机等功能熟知并有一定的操作能力"},
          parts: [裁线机, 端子机, 自动机, 注塑机, 点胶机],
-         note: "一句复合要求。另：设备类与"会不会用某软件"不同权，见 kind 说明"}
+         note: '一句复合要求。另：设备类与「会不会用某软件」不同权，见 kind 说明'}
 
   # ── 工程软件（product）──
   EngineeringCAD:
@@ -88,7 +95,7 @@ categories:
     skills:
       - {name: CAD二维制图, kind: capability,
          evidence: {jd: 专案工程师, quote: "CAD二维制图、办公软件操作熟练"},
-         note: "现有词表靠正则 [^a-z]cad[^a-z] 碰巧抽中；换成"二维绘图""制图软件"就漏。这是巧合覆盖"}
+         note: "现有词表靠正则 [^a-z]cad[^a-z] 碰巧抽中；换成「二维绘图」「制图软件」就漏。这是巧合覆盖"}
       - {name: AutoCAD, kind: product, alias_of: [CAD二维制图],
          evidence: {jd: 专案工程师, derived: "CAD二维制图 的具体产品化"}, external: {onet_tt: "Autodesk AutoCAD"}}
       - {name: SolidWorks, kind: product, external: {onet_tt: "Dassault Systemes SolidWorks"}}
@@ -119,7 +126,7 @@ categories:
       - {name: Office办公软件, kind: composite,
          evidence: {jd: 副总助理, quote: "熟练掌握Office办公软件（Word/ Excel/ PPT/ AI）"},
          parts: [Word, Excel, PowerPoint, AI工具],
-         note: "**这就是"副总助理 0 人"的根源**：一句复合要求被旧管线拍平成 4 个合取项"}
+         note: "**这就是「副总助理 0 人」的根源**：一句复合要求被旧管线拍平成 4 个合取项"}
       - {name: Excel, kind: product,
          evidence: {jd: 业务跟单, quote: "熟练使用ERP订单管理模块及Excel数据分析"}}
       - {name: Word, kind: product,
@@ -158,8 +165,8 @@ categories:
          evidence: {jd: 人资专员, quote: "熟悉社会保险（增/减/补缴）等操作流程"}}
       - {name: 劳动法, kind: capability, aliases: [国家相关法律政策],
          evidence: {jd: 人资专员, quote: "熟悉国家相关法律政策，熟悉社会保险（增/减/补缴）等操作流程"},
-         note: "CV 里多半写"法律政策"，旧词表只认"劳动法"，会漏"}
-      - {name: 薪酬绩效, kind: capability, note: "**本批 JD 未在资格段点名** —— 旧表把它记成副总助理的要求，实为从岗位职责"监督…KPI"误抓。应删"}
+         note: "CV 里多半写「法律政策」，旧词表只认「劳动法」，会漏"}
+      - {name: 薪酬绩效, kind: capability, note: "**本批 JD 未在资格段点名** —— 旧表把它记成副总助理的要求，实为从岗位职责「监督…KPI」误抓。应删"}
 
   # ── 通用能力 ──
   GeneralCapability:
@@ -169,7 +176,7 @@ categories:
       - {name: 数据分析, kind: capability, aliases: [数据统计分析, 数据分据],
          evidence: {jd: 人资专员, quote: "具备很好的数据统计分析能力"},
          also_in: [管理课长, 副总助理, 关务报关员],
-         note: "管理课长 JD 原文写的是"数据分**据**能力" —— 错别字。别名层要能吃脏"}
+         note: "管理课长 JD 原文写的是「数据分**据**能力」 —— 错别字。别名层要能吃脏"}
       - {name: 订单交期风险评估, kind: capability,
          evidence: {jd: 业务跟单, quote: "具备订单交期风险评估能力"}}
       - {name: 报表能力, kind: capability,
