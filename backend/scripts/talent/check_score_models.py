@@ -108,6 +108,34 @@ def check_structure(spec: dict) -> list[str]:
                 problems.append(f"{gate.get('code')}: applies_to 指向不存在的分数 {target}")
     if not live:
         problems.append("没有任何 live 状态的分数 —— 目录与实现脱节")
+
+    # ── 权重必须和**实际打分代码**一致 ──
+    # 这个文件描述打分,但真正算分的是 fit.py 的 WEIGHTS。两边不一致时,
+    # 文档会静默变成假话,而所有门禁照绿 —— 一个"描述打分却不影响打分"的文件
+    # 比没有它更危险。所以这里把两边拉到一起比,并让 yaml 自己声明名字的对应关系
+    # (`weights.global.maps_to`),而不是在代码里硬编码一套映射。
+    glob_w = weights.get("global") or {}
+    maps = glob_w.get("maps_to") or {}
+    if not maps:
+        problems.append("weights.global 缺 maps_to(维度名 → fit.py 的项名),无法与实现对照")
+    else:
+        try:
+            from scripts.talent.fit import WEIGHTS as FIT_WEIGHTS
+        except Exception as exc:                      # 导入失败也要红,不能静默跳过
+            problems.append(f"无法导入 scripts.talent.fit.WEIGHTS: {type(exc).__name__}: {exc}")
+        else:
+            for dim, key in maps.items():
+                want = glob_w.get(dim)
+                got = FIT_WEIGHTS.get(key)
+                if want is None or got is None:
+                    problems.append(f"weights 对照:{dim}→{key} 有一边缺失"
+                                    f"(yaml={want}, fit={got})")
+                elif abs(float(want) - float(got)) > 1e-9:
+                    problems.append(f"weights 不一致:{dim}={want} 但 fit.py "
+                                    f"WEIGHTS[{key!r}]={got}(谁改的,同步另一边)")
+            extra = [k for k in FIT_WEIGHTS if k not in maps.values()]
+            if extra:
+                problems.append(f"fit.py 有 yaml 没覆盖的权重项:{extra} —— 分母会算错")
     return problems
 
 
