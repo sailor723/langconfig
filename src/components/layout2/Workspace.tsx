@@ -21,6 +21,7 @@ import SearchProviderDetailTab from './SearchProviderDetailTab';
 import KnowledgeView from './KnowledgeView';
 import SkillView from './SkillView';
 import SkillEditorTab from './SkillEditorTab';
+import TalentDocView from '../../features/talent/TalentDocView';
 import PromptDetailTab from './PromptDetailTab';
 import NotebookViewer from './NotebookViewer';
 import TemplatePicker from './TemplatePicker';
@@ -39,6 +40,7 @@ const VIEW_ICONS: Record<string, React.ReactNode> = {
   'knowledge-view':      <Database size={13} />,
   skill:               <Award size={13} />,
   'skill-editor':       <Award size={13} />,
+  'talent-doc':         <FileText size={13} />,
   'prompt-detail':      <FileText size={13} />,
   notebook:            <BookOpen size={13} />,
   library:             <BookOpen size={13} />,
@@ -65,6 +67,7 @@ const VIEWS: Record<string, React.FC<ViewComponentProps>> = {
   'knowledge-view':      KnowledgeView,
   skill:               SkillView,
   'skill-editor':       SkillEditorTab,
+  'talent-doc':         TalentDocView,
   'prompt-detail':      PromptDetailTab,
   notebook:            NotebookViewer,
   library:             FileEditor,

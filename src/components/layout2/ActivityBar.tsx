@@ -23,7 +23,7 @@ import { useLayoutTokens } from './tokens';
 import {
   GitBranch, Brain, Users, BarChart3, Network, Settings, Wrench, Database, Award,
   MessageSquare, Archive, FileText, BookOpen, Workflow, UserRound, Boxes,
-  PanelLeftClose, PanelLeftOpen, type LucideIcon,
+  PanelLeftClose, PanelLeftOpen, Briefcase, type LucideIcon,
 } from 'lucide-react';
 import apiClient from '../../lib/api-client';
 import VaultPopover from './VaultPopover';
@@ -40,6 +40,7 @@ const ICON_MAP: Partial<Record<ActivityId, LucideIcon>> = {
   skills:     Award,
   ontology:   Boxes,
   knowledge:  Database,
+  talent:     Briefcase,
   analysis:   BarChart3,
   studio:     Network,
   learning:   BookOpen,
@@ -50,7 +51,7 @@ const ICON_MAP: Partial<Record<ActivityId, LucideIcon>> = {
 const SECTION_GROUPS: ActivityId[][] = [
   ['vault', 'deepagents', 'agents', 'graph'],
   ['prompt', 'tools', 'skills'],
-  ['ontology', 'knowledge', 'analysis', 'learning'],
+  ['ontology', 'knowledge', 'talent', 'analysis', 'learning'],
 ];
 
 const RAIL_COLLAPSED = 48;

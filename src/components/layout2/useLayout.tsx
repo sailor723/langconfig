@@ -21,6 +21,7 @@ export type ActivityId =
   | 'skills'
   | 'ontology'
   | 'knowledge'
+  | 'talent'
   | 'analysis'
   | 'settings'
   | 'studio'
@@ -46,6 +47,9 @@ export const ACTIVITIES: ActivityDef[] = [
   // the data model, Knowledge is the ingest one — two halves of the same idea.
   { id: 'ontology',   label: 'Ontology',   icon: 'Boxes',      group: 'main' },
   { id: 'knowledge',  label: 'Knowledge',  icon: 'Database',   group: 'main' },
+  // Talent sits beside Knowledge: same shape (document + chat), different job —
+  // these documents are pipeline artefacts that a gate has to approve, not free text.
+  { id: 'talent',     label: 'Talent',     icon: 'Briefcase',  group: 'main' },
   { id: 'analysis',   label: 'Analysis',   icon: 'BarChart3',  group: 'main' },
   { id: 'studio',     label: 'Studio',     icon: 'Network',    group: 'main' },
   { id: 'learning',   label: 'Learning',   icon: 'BookOpen',   group: 'main' },

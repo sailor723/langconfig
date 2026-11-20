@@ -744,6 +744,7 @@ from api.notebooks import routes as notebooks
 from api.classic_graph import routes as classic_graph
 from api.graph_studio import routes as graph_studio
 from api.semantics import routes as semantics
+from api.talent import routes as talent
 from api.plugins import router as plugins
 from api.ontology import routes as ontology_workbench_routes
 
@@ -794,6 +795,7 @@ app.include_router(notebooks.router)  # Educational notebooks viewer
 app.include_router(classic_graph.router)  # Classic LangGraph builder API
 app.include_router(graph_studio.router)  # Graph Engineering Studio (code-defined graphs)
 app.include_router(semantics.router)  # SEMANTICS.md per database: read + edit + gate
+app.include_router(talent.router)  # work/talent JD/CV 产物: 读 + 改 + 保存即校验
 app.include_router(plugins)  # LangChain-style declarative plugins (marketplace + components)
 app.include_router(ontology_workbench_routes.router)  # ontology workbench: start/probe per-profile servers
 

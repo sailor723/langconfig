@@ -69,7 +69,7 @@ import GraphStudioPage from './features/graph-studio/GraphStudioPage';
 import GraphStudioSidebar from './features/graph-studio/GraphStudioSidebar';
 import AnalysisSidebar from './features/analysis/AnalysisSidebar';
 
-type View = 'studio' | 'settings' | 'ontology' | 'ontology-browse' | 'ontology-app' | 'ontology-dashboard' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'chat' | 'learning' | 'graph' | 'project';
+type View = 'studio' | 'settings' | 'ontology' | 'ontology-browse' | 'ontology-app' | 'ontology-dashboard' | 'knowledge' | 'talent' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'chat' | 'learning' | 'graph' | 'project';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
 interface Agent {
@@ -181,6 +181,7 @@ const ROUTE_TO_VIEW: Record<string, View> = {
   '/workbench/app': 'ontology-app',
   '/workbench/dashboard': 'ontology-dashboard',
   '/knowledge': 'knowledge',
+  '/talent': 'talent',
   '/skills': 'skills',
   '/tools': 'tools',
   '/prompt': 'prompt',
@@ -203,7 +204,7 @@ const VIEW_ROUTE: Record<View, string> = {
   'ontology-browse': '/ontology/browse',
   'ontology-app': '/ontology/app',
   'ontology-dashboard': '/ontology/dashboard',
-  knowledge: '/knowledge', analysis: '/analysis', settings: '/settings',
+  knowledge: '/knowledge', talent: '/talent', analysis: '/analysis', settings: '/settings',
   playground: '/playground', tools: '/tools', prompt: '/prompt',
   'deepagent-studio': '/deepagent-studio',
   chat: '/chat',
@@ -226,6 +227,7 @@ const VIEW_TO_ACTIVITY: Record<View, ActivityId | null> = {
   'ontology-app': 'ontology',
   'ontology-dashboard': 'ontology',
   knowledge: 'knowledge',
+  talent: 'talent',
   analysis: 'analysis',
   settings: 'settings',
   playground: 'workflows',
@@ -304,6 +306,15 @@ function directModeTabFor(view: View): Tab | null {
         viewType: 'template-picker',
         activity: 'prompt',
         data: { activity: 'prompt' },
+      };
+    case 'talent':
+      // Talent 活动没有卡片目录 —— 它本身就是一屏:文件树 + 编辑器 + 对话。
+      return {
+        id: 'direct-talent',
+        label: 'Talent · JD/CV 文档',
+        viewType: 'talent-doc',
+        activity: 'talent',
+        data: {},
       };
     case 'knowledge':
       // Knowledge has no per-item editor; render an empty workspace
