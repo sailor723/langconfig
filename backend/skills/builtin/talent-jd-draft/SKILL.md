@@ -19,6 +19,11 @@ version: "1.0"
 产物是 `work/talent/jd_links/<JD>.yaml` 和 `work/talent/jd_links/_source/<JD>.txt`。
 判断你做完没有，只看一件事：**随便挑一条要求，能不能说出它在原文第几行、并且那一行里真的有那几个字。**
 
+
+> **本 agent 同时负责两步(起草 + 定稿)。**
+> 手上是客户原文、还没有引用文件 → 走本技能;已经有 `jd_links/<JD>.yaml`、要出定稿 → 改用 `skill("talent-jd-final")`。
+> 不要跳步:定稿只读引用文件,引用文件不存在时先说清「起草还没做完」。
+
 ## 第 0 步——先确认环境，再动手
 
 ```bash

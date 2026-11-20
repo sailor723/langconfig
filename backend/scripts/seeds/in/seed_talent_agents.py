@@ -89,48 +89,45 @@ env -u PGPORT .venv/bin/python -m scripts.talent.<模块> [参数]
 
 AGENTS = {
     "1": {
-        "name": "Talent · 1 JD 起草",
-        "skill": "talent-jd-draft",
-        "description": ("把客户职务说明书拆成原子要求:每条带原话、行号、原文整行,逐字可回查。"
-                        "不改客户一个字,不把「等」收窄成清单,不替定性要求编阈值。"),
-        "body": """## 你这一步做什么
+        # 合并了原来的步2。**显式钉住 id=386** —— 改名后若按名字找会新建一个 agent,
+        # 旧的那个就成了孤儿,而界面上两个名字很像,分不清哪个在跑。
+        "id": 386,
+        "name": "Talent · 1-2 JD 起草与定稿",
+        "skills": ["talent-jd-draft", "talent-jd-final"],
+        "description": ("客户职务说明书 → 原子要求 → 定稿,一个人做完两步:"
+                        "拆要求(逐字可回查)+ 出定稿(客户原文/未写/我方建议分开,"
+                        "空白按 A/B/C 分级,HR 侧要求单独成章)。"),
+        "body": """## 你负责两步(原步1 + 原步2)
 
-客户给了一份职务说明书(xlsx/docx/pdf)。把它落成 `work/talent/jd_links/<JD>.yaml`:
-一条一条的原子要求,每条都能回查到原文第几行。
+| 拿到什么 | 走哪一步 | 读哪个技能 |
+|---|---|---|
+| 客户原文(xlsx/docx/pdf),还没有引用文件 | **步1 起草** | `skill("talent-jd-draft")` |
+| 已有 `work/talent/jd_links/<JD>.yaml`,要出定稿/回填表 | **步2 定稿** | `skill("talent-jd-final")` |
+| 用户只说"处理这份 JD" | 先看有没有引用文件;没有就步1,有就核对后步2 | 对应那个 |
 
-## 顺序
+**不要跳步。** 步2 的定稿只读 `jd_links/<JD>.yaml`;引用文件不存在或门禁不绿时,
+要说清"步1 还没做完",不要凭客户原文直接出定稿 —— 那样定稿里的数字没有出处。
+
+## 步1:起草
 
 1. 原文抽成纯文本存 `work/talent/jd_links/_source/<JD>.txt`,**错字照留**
 2. 逐条切原子要求(一句一要求;「及」拆两条;「等」原样保留)
 3. 每条挂到 `work/talent/requirement_library.yaml` 里的一条要求(复用优先)
 4. 跑门禁,带回 `N checks · 0 failed`
 
-## 交付时特别要说
-
-哪几条粒度你拿不准(一句里塞了几个动作),哪几条客户写得太含糊、下游一定判不了。
-""",
-    },
-    "2": {
-        "name": "Talent · 2 JD 定稿",
-        "skill": "talent-jd-final",
-        "description": ("业务与 HR 一起把 JD 定下来:客户写了的照抄、没写的标「未写」、我方建议只进附录 F;"
-                        "空白字段按 A/B/C 影响分级;HR 侧要求单独成章并记 author + rationale。"),
-        "body": """## 你这一步做什么
-
-把 `jd_links/<JD>.yaml` 变成 `jd_docs/<JD>.定稿.md` + `.待补清单.md`,
-再把空白字段变成一张业务方真会填的回填表。
-
-## 顺序
+## 步2:定稿
 
 ```bash
 env -u PGPORT .venv/bin/python -m scripts.talent.render_jd_final --jd <JD>
-env -u PGPORT .venv/bin/python -m scripts.talent.check_component_catalog
+env -u PGPORT .venv/bin/python -m scripts.talent.jd_input_form  --jd <JD>
 ```
+两条都要跑 —— 少跑第二条,回填表就停在上一次的样子,而你以为它是新的。
 
-## 交付时特别要说
+## 两步都适用的三条底线
 
-A 级空白有几条、分别是谁的责任(业务方/客户/HR);HR 侧要求里**几条缺取值**——
-缺取值的现在判不了,要客户补。
+- 客户原文一个字不改;我方建议只进附录 F
+- **交付前必须回检**:`talent_verify_jd_report(jd="<JD>")`,只有 `[PASS]` 算过
+- 报告里每个数字现场重算;每句"原文有 X"现场 grep。记忆不算证据
 """,
     },
     "3": {
@@ -229,15 +226,18 @@ def _find(name: str) -> int | None:
 
 def build(key: str) -> tuple[str, str, dict]:
     a = AGENTS[key]
-    prompt = _HEAD.format(skill=a["skill"]) + "\n" + a["body"]
+    skills = a.get("skills") or [a["skill"]]
+    # prompt 里先说"你要读哪些技能",再说正文;一个 agent 两技能时这句话必须列全
+    head = _HEAD.format(skill=skills[0] if len(skills) == 1 else "、".join(f"`{s}`" for s in skills))
+    prompt = head + "\n" + a["body"]
     cfg = {
         "model": "deepseek-v4-flash",
         "temperature": 0.0,
         "max_tokens": 8192,
         "reasoning_effort": "low",
         "system_prompt": prompt,
-        "native_tools": TOOLS + ([VERIFY] if key in ("1", "2") else []),
-        "skills": [a["skill"]],
+        "native_tools": TOOLS + ([VERIFY] if key == "1" else []),
+        "skills": skills,
         "use_deepagents": True,
         "use_local_sandbox": True,
     }
@@ -255,7 +255,7 @@ def main() -> int:
         if key not in AGENTS:
             raise SystemExit(f"没有这一步:{key}")
         name, desc, cfg = build(key)
-        existing = _find(name)
+        existing = AGENTS[key].get("id") or _find(name)
         print(f"[{key}] {name}  {'更新 id=' + str(existing) if existing else '新建'}")
         print(f"      skill={cfg['skills']} tools={len(cfg['native_tools'])} 个")
         if not args.apply:
@@ -268,7 +268,10 @@ def main() -> int:
             agent_id = created.get("id")
         else:
             agent_id = existing
-            _call("PUT", f"/api/deepagents/{agent_id}", {"config": cfg})
+            # name/description 也要 PUT —— 只发 config 的话改个名字不会生效,
+            # 而界面按名字区分 agent(踩过:合并步2 后名字还停在「1 JD 起草」)
+            _call("PUT", f"/api/deepagents/{agent_id}",
+                  {"name": name, "description": desc, "config": cfg})
         row = _call("GET", f"/api/deepagents/{agent_id}")
         got = row.get("config") or {}
         print(f"      -> id={agent_id} tools={got.get('native_tools')} "

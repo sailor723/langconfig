@@ -18,6 +18,11 @@ version: "1.0"
 
 产物三份：`work/talent/jd_docs/<JD>.定稿.md`、`<JD>.fields.json`、`<JD>.待补清单.md`。
 
+
+> **本 agent 同时负责两步(起草 + 定稿)。**
+> 手上是客户原文、还没有引用文件 → 走本技能;已经有 `jd_links/<JD>.yaml`、要出定稿 → 改用 `skill("talent-jd-draft")`。
+> 不要跳步:定稿只读引用文件,引用文件不存在时先说清「起草还没做完」。
+
 ## 第 0 步——环境
 
 ```bash
