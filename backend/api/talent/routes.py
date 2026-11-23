@@ -394,7 +394,7 @@ def list_docs() -> Dict[str, Any]:
 
 
 @router.get("/raw")
-def get_raw(jd: str = Query(...), path: str = Query(...)):
+def get_raw(jd: str = Query(""), path: str = Query(...)):
     """仓库产物的**原始字节**,内联返回(给 docx/pdf/图片的查看器用)。
 
     为什么需要:页面在 http 下打不开 `file://`;而把 docx 当文本读回来只能得到乱码。

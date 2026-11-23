@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="300" viewBox="0 0 1080 300" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif">
+<defs><marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#334e68"/></marker></defs>
+<rect width="1080" height="300" fill="#f6f7f9"/>
+<line x1="190" y1="83.0" x2="330" y2="83.0" stroke="#334e68" stroke-width="1.4" marker-end="url(#ag)"/>
+<text x="260.0" y="75.0" font-size="9.5" fill="#687b8f" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">客户原话</text>
+<line x1="480" y1="83.0" x2="620" y2="83.0" stroke="#334e68" stroke-width="1.4" marker-end="url(#ag)"/>
+<text x="550.0" y="75.0" font-size="9.5" fill="#687b8f" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">闸门</text>
+<line x1="620" y1="83.0" x2="770" y2="213.0" stroke="#334e68" stroke-width="1.4" marker-end="url(#ag)"/>
+<text x="695.0" y="75.0" font-size="9.5" fill="#687b8f" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">面试名单</text>
+<line x1="480" y1="213.0" x2="620" y2="213.0" stroke="#334e68" stroke-width="1.4" marker-end="url(#ag)"/>
+<text x="550.0" y="205.0" font-size="9.5" fill="#687b8f" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">10 人以内</text>
+<line x1="190" y1="213.0" x2="330" y2="213.0" stroke="#334e68" stroke-width="1.4" marker-end="url(#ag)"/>
+<text x="260.0" y="205.0" font-size="9.5" fill="#687b8f" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">5 人</text>
+<rect x="40" y="40" width="150" height="86" rx="6" fill="#eef3fb" stroke="#0b4f9c" stroke-width="1.4"/>
+<text x="49" y="56" font-size="8.5" font-weight="600" fill="#0b4f9c">1 · 客户给 JD</text>
+<text x="49" y="70" font-size="7.5" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">jd_links/_source/&lt;JD&gt;.txt</text>
+<text x="49" y="81" font-size="7.5" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">原文一字不改 · 逐字可回查</text>
+<rect x="330" y="40" width="150" height="86" rx="6" fill="#eef3fb" stroke="#0b4f9c" stroke-width="1.4"/>
+<text x="339" y="56" font-size="8.5" font-weight="600" fill="#0b4f9c">2 · HR + 业务定稿</text>
+<text x="339" y="70" font-size="7.5" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">jd_links/&lt;JD&gt;.yaml</text>
+<text x="339" y="81" font-size="7.5" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">要求 + 阈值 + 行号 · 决策账本</text>
+<rect x="620" y="40" width="150" height="86" rx="6" fill="#fdf6e3" stroke="#8a6d3b" stroke-width="1.4"/>
+<text x="629" y="56" font-size="8.5" font-weight="600" fill="#8a6d3b">3 · 初筛：谁值得面</text>
+<text x="629" y="70" font-size="7.5" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">shortlist/&lt;JD&gt;.yaml</text>
+<text x="629" y="81" font-size="7.5" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">只剔硬证据不合格 · 读不到一律留</text>
+<rect x="620" y="170" width="150" height="86" rx="6" fill="#fdf6e3" stroke="#8a6d3b" stroke-width="1.4"/>
+<text x="629" y="186" font-size="8.5" font-weight="600" fill="#8a6d3b">4 · 一面：补数据</text>
+<text x="629" y="200" font-size="7.5" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">cv_interview/&lt;人&gt;.yaml</text>
+<text x="629" y="211" font-size="7.5" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">一次电话两份产物 · 答案落回要求</text>
+<rect x="330" y="170" width="150" height="86" rx="6" fill="#fbe9e7" stroke="#b3261e" stroke-width="1.4"/>
+<text x="339" y="186" font-size="8.5" font-weight="600" fill="#b3261e">5a · 短名单 ≤10</text>
+<text x="339" y="200" font-size="7.5" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">目标名单.yaml · selected</text>
+<text x="339" y="211" font-size="7.5" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">九层证据阶梯 · 切线 tie_band</text>
+<rect x="40" y="170" width="150" height="86" rx="6" fill="#fbe9e7" stroke="#b3261e" stroke-width="1.4"/>
+<text x="49" y="186" font-size="8.5" font-weight="600" fill="#b3261e">5b · 最终名单 ≤5</text>
+<text x="49" y="200" font-size="7.5" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">目标名单.yaml · final</text>
+<text x="49" y="211" font-size="7.5" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">门槛 0 不满足 + 硬证据≥1 + 未知≤3</text>
+<text x="40" y="286" font-size="9" fill="#687b8f">每一步都落成文件；下一步只读上一步的产物，不靠人转述。　门禁:417 checks · 0 failed · green</text>
+</svg>

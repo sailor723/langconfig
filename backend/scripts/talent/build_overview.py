@@ -38,6 +38,88 @@ from scripts.talent import tutorial_facts as TF  # noqa: E402
 TALENT = ROOT / 'work' / 'talent'
 DEST = TALENT / 'OVERVIEW.md'
 
+
+# ── 流程图（SVG，样式沿用本体教程里的那张 graph：同样的圆角框、同样的字阶与箭头）──
+FLOW_NODES = [
+    ('1', '客户给 JD', '#eef3fb', '#0b4f9c',
+     ['jd_links/_source/<JD>.txt', '原文一字不改 · 逐字可回查']),
+    ('2', 'HR + 业务定稿', '#eef3fb', '#0b4f9c',
+     ['jd_links/<JD>.yaml', '要求 + 阈值 + 行号 · 决策账本']),
+    ('3', '初筛：谁值得面', '#fdf6e3', '#8a6d3b',
+     ['shortlist/<JD>.yaml', '只剔硬证据不合格 · 读不到一律留']),
+    ('4', '一面：补数据', '#fdf6e3', '#8a6d3b',
+     ['cv_interview/<人>.yaml', '一次电话两份产物 · 答案落回要求']),
+    ('5a', '短名单 ≤10', '#fbe9e7', '#b3261e',
+     ['目标名单.yaml · selected', '九层证据阶梯 · 切线 tie_band']),
+    ('5b', '最终名单 ≤5', '#fbe9e7', '#b3261e',
+     ['目标名单.yaml · final', '门槛 0 不满足 + 硬证据≥1 + 未知≤3']),
+]
+FLOW_EDGES = [
+    (0, 1, '客户原话'), (1, 2, '闸门'), (2, 3, '面试名单'),
+    (4, 3, '10 人以内'), (5, 4, '5 人'),
+]
+
+
+def _esc(x: str) -> str:
+    """SVG 里的文字要转义 —— `jd_links/_source/<JD>.txt` 里的尖括号否则会被当成标签,
+    整张图变成非法 XML(浏览器直接不显示)。"""
+    return (str(x).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'))
+
+
+def flow_svg(gate: str = '') -> str:
+    """六段流程图。版式刻意照本体教程那张 graph：120×44 圆角框、8.5px 标题、7px 等宽副行。"""
+    W, H = 1080, 300
+    W2, H2 = 150, 86
+    pos = [(40, 40), (330, 40), (620, 40), (620, 170), (330, 170), (40, 170)]
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" '
+           f'viewBox="0 0 {W} {H}" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif">',
+           '<defs><marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" '
+           'markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" '
+           'fill="#334e68"/></marker></defs>',
+           f'<rect width="{W}" height="{H}" fill="#f6f7f9"/>']
+
+    def cx(i):
+        return pos[i][0] + W2 / 2
+
+    def cy(i):
+        return pos[i][1] + H2 / 2
+
+    # 连线先画，压在框下面
+    for a, b, label in FLOW_EDGES:
+        ax, ay = pos[a][0], pos[a][1]
+        bx, by = pos[b][0], pos[b][1]
+        if abs(ay - by) < 1:                       # 同一行：左 → 右
+            x1, y1, x2, y2 = ax + W2, ay + H2 / 2, bx, by + H2 / 2
+            mx, my = (x1 + x2) / 2, y1 - 8
+        elif bx > ax:                              # 右下行
+            x1, y1, x2, y2 = ax + W2 / 2, ay + H2, bx + W2 / 2, by
+            mx, my = (x1 + x2) / 2 + 6, (y1 + y2) / 2
+        else:                                      # 左行（回折）
+            x1, y1, x2, y2 = ax, ay + H2 / 2, bx + W2, by + H2 / 2
+            mx, my = (x1 + x2) / 2, y1 - 8
+        out.append(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="#334e68" '
+                   f'stroke-width="1.4" marker-end="url(#ag)"/>')
+        if label:
+            out.append(f'<text x="{mx}" y="{my}" font-size="9.5" fill="#687b8f" '
+                       f'text-anchor="middle" font-family="ui-monospace,Menlo,monospace">{_esc(label)}</text>')
+
+    for i, (num, title, fill, stroke, lines) in enumerate(FLOW_NODES):
+        x, y = pos[i]
+        out.append(f'<rect x="{x}" y="{y}" width="{W2}" height="{H2}" rx="6" fill="{fill}" '
+                   f'stroke="{stroke}" stroke-width="1.4"/>')
+        out.append(f'<text x="{x + 9}" y="{y + 16}" font-size="8.5" font-weight="600" '
+                   f'fill="{stroke}">{_esc(num + " · " + title)}</text>')
+        for j, ln in enumerate(lines):
+            out.append(f'<text x="{x + 9}" y="{y + 30 + j * 11}" font-size="7.5" fill="#687b8f" '
+                       f'font-family="ui-monospace,Menlo,monospace">{_esc(ln)}</text>')
+
+    out.append('<text x="40" y="286" font-size="9" fill="#687b8f">'
+               '每一步都落成文件；下一步只读上一步的产物，不靠人转述。'
+               f'{_esc("　门禁:" + gate) if gate else ""}</text>')
+    out.append('</svg>')
+    return '\n'.join(out)
+
+
 STEP_NAMES = ('1 出初始 JD', '2 定稿', '3 初筛', '4 一面', '5a 短名单', '5b 最终名单')
 
 
@@ -90,7 +172,7 @@ def gate_line() -> str:
     return '（未跑）'
 
 
-def render(facts: dict, rows: list[dict], gate: str) -> str:
+def render(facts: dict, rows: list[dict], gate: str, svg_v: str = '') -> str:
     s5, s7, s8, s13 = facts['step5_gates'], facts['step7_states'], facts['step8_evidence'], facts['step13_replay']
     s10, s12, s2 = facts['step10_two_sources'], facts['step12_refusals'], facts['step2_individuals']
     pt = facts['pipeline_truth']
@@ -112,6 +194,9 @@ def render(facts: dict, rows: list[dict], gate: str) -> str:
     A('')
     A('## 全流程图')
     A('')
+    A(f'![招聘流水线全流程](/api/talent/raw?path=flow.svg{("&v=" + svg_v) if svg_v else ""})')
+    A('')
+    A('::: details 同样的流程，纯文本版（图片看不清时看这个）')
     A('```')
     A('  ① 客户给 JD          ② HR + 业务定稿         ③ 初筛（决定谁值得面）')
     A('  ────────────         ─────────────          ──────────────────')
@@ -132,6 +217,7 @@ def render(facts: dict, rows: list[dict], gate: str) -> str:
     A('        └──────→ ⑥ 选人 + 逐人判定说明 ←────────────────┘')
     A('                  （客户原文 / 行号 / 值来源 / 四态）')
     A('```')
+    A('::: ')
     A('')
     A('**交接关系**：业务交原文 → HR+业务交闸门 → HR 交面试名单 → HR 交一面记录 → HR 交短名单 → 业务+HR 交最终 5 人 → 用人部门面这 5 人。')
     A('每一步都落成文件；下一步只读上一步的产物，不靠人转述。')
@@ -331,7 +417,11 @@ def main() -> int:
     facts = json.loads(json.dumps(TF.collect(), ensure_ascii=False))
     rows = funnel()
     gate = '（本次未跑；见 STATUS 最近一次记录）' if args.skip_gate else gate_line()
-    md = render(facts, rows, gate)
+    svg = flow_svg(gate)
+    import hashlib as _hl
+    svg_v = _hl.sha256(svg.encode()).hexdigest()[:8]
+    md = render(facts, rows, gate, svg_v)
+    (TALENT / 'flow.svg').write_text(svg, encoding='utf-8')
 
     if args.check:
         old = DEST.read_text(encoding='utf-8') if DEST.is_file() else ''
@@ -340,7 +430,7 @@ def main() -> int:
         print('OVERVIEW.md 是最新的' if same else 'OVERVIEW.md 已过期 —— 重跑 build_overview')
         return 0 if same else 1
     DEST.write_text(md, encoding='utf-8')
-    print(f'写出 {DEST.relative_to(ROOT)} · {len(md.splitlines())} 行 · 门禁 {gate}')
+    print(f'写出 {DEST.relative_to(ROOT)} · {len(md.splitlines())} 行 · 图 flow.svg · 门禁 {gate}')
     return 0
 
 
