@@ -1,0 +1,610 @@
+{
+ "_doc": "每一步的本体图，由 scripts/build_tutorial_graphs.py 从该步的 TTL 生成 —— 图里的东西就是文件里的东西。节点：id / t 标题 / l 标签行 / x,y,w,h 位置 / k 种类；边：a / b 两端 / l 标签 / k 种类。",
+ "steps": {
+  "1": {
+   "nodes": [
+    {
+     "id": "Candidate",
+     "t": ":Candidate",
+     "l": [
+      "class"
+     ],
+     "x": 30,
+     "y": 30,
+     "w": 150,
+     "h": 44,
+     "k": "class"
+    }
+   ],
+   "edges": []
+  },
+  "2": {
+   "nodes": [
+    {
+     "id": "Candidate",
+     "t": ":Candidate",
+     "l": [
+      "class"
+     ],
+     "x": 30,
+     "y": 30,
+     "w": 150,
+     "h": 44,
+     "k": "class"
+    },
+    {
+     "id": "yearsExperience",
+     "t": ":yearsExperience",
+     "l": [
+      "a slot · holds a integer"
+     ],
+     "x": 260,
+     "y": 88,
+     "w": 170,
+     "h": 44,
+     "k": "prop"
+    }
+   ],
+   "edges": [
+    {
+     "a": "Candidate",
+     "b": "yearsExperience",
+     "l": "holds",
+     "k": "prop"
+    }
+   ]
+  },
+  "3": {
+   "nodes": [
+    {
+     "id": "Candidate",
+     "t": ":Candidate",
+     "l": [
+      "class"
+     ],
+     "x": 30,
+     "y": 30,
+     "w": 150,
+     "h": 44,
+     "k": "class"
+    },
+    {
+     "id": "SkillTag",
+     "t": ":SkillTag",
+     "l": [
+      "class"
+     ],
+     "x": 30,
+     "y": 88,
+     "w": 150,
+     "h": 44,
+     "k": "class"
+    },
+    {
+     "id": "yearsExperience",
+     "t": ":yearsExperience",
+     "l": [
+      "a slot · holds a integer"
+     ],
+     "x": 260,
+     "y": 146,
+     "w": 170,
+     "h": 44,
+     "k": "prop"
+    }
+   ],
+   "edges": [
+    {
+     "a": "Candidate",
+     "b": "yearsExperience",
+     "l": "holds",
+     "k": "prop"
+    }
+   ]
+  },
+  "4": {
+   "nodes": [
+    {
+     "id": "Candidate",
+     "t": ":Candidate",
+     "l": [
+      "class"
+     ],
+     "x": 30,
+     "y": 30,
+     "w": 150,
+     "h": 44,
+     "k": "class"
+    },
+    {
+     "id": "SkillTag",
+     "t": ":SkillTag",
+     "l": [
+      "class"
+     ],
+     "x": 30,
+     "y": 88,
+     "w": 150,
+     "h": 44,
+     "k": "class"
+    },
+    {
+     "id": "hasSkill",
+     "t": ":hasSkill",
+     "l": [
+      "a link between two boxes"
+     ],
+     "x": 260,
+     "y": 146,
+     "w": 170,
+     "h": 44,
+     "k": "prop"
+    },
+    {
+     "id": "yearsExperience",
+     "t": ":yearsExperience",
+     "l": [
+      "a slot · holds a integer"
+     ],
+     "x": 260,
+     "y": 204,
+     "w": 170,
+     "h": 44,
+     "k": "prop"
+    }
+   ],
+   "edges": [
+    {
+     "a": "Candidate",
+     "b": "hasSkill",
+     "l": "from",
+     "k": "join"
+    },
+    {
+     "a": "hasSkill",
+     "b": "SkillTag",
+     "l": "to",
+     "k": "join"
+    },
+    {
+     "a": "Candidate",
+     "b": "yearsExperience",
+     "l": "holds",
+     "k": "prop"
+    }
+   ]
+  },
+  "5": {
+   "nodes": [
+    {
+     "id": "Candidate",
+     "t": ":Candidate",
+     "l": [
+      "class"
+     ],
+     "x": 30,
+     "y": 30,
+     "w": 150,
+     "h": 44,
+     "k": "class"
+    },
+    {
+     "id": "Programming",
+     "t": ":Programming",
+     "l": [
+      "class"
+     ],
+     "x": 30,
+     "y": 88,
+     "w": 150,
+     "h": 44,
+     "k": "class"
+    },
+    {
+     "id": "SkillTag",
+     "t": ":SkillTag",
+     "l": [
+      "class"
+     ],
+     "x": 30,
+     "y": 146,
+     "w": 150,
+     "h": 44,
+     "k": "class"
+    },
+    {
+     "id": "Python",
+     "t": ":Python",
+     "l": [
+      "individual · SkillTag, Programming"
+     ],
+     "x": 260,
+     "y": 30,
+     "w": 170,
+     "h": 44,
+     "k": "object"
+    },
+    {
+     "id": "hasSkill",
+     "t": ":hasSkill",
+     "l": [
+      "a link between two boxes"
+     ],
+     "x": 260,
+     "y": 262,
+     "w": 170,
+     "h": 44,
+     "k": "prop"
+    },
+    {
+     "id": "yearsExperience",
+     "t": ":yearsExperience",
+     "l": [
+      "a slot · holds a integer"
+     ],
+     "x": 260,
+     "y": 320,
+     "w": 170,
+     "h": 44,
+     "k": "prop"
+    }
+   ],
+   "edges": [
+    {
+     "a": "Python",
+     "b": "SkillTag",
+     "l": "type",
+     "k": "sub"
+    },
+    {
+     "a": "Python",
+     "b": "Programming",
+     "l": "type",
+     "k": "sub"
+    },
+    {
+     "a": "Candidate",
+     "b": "hasSkill",
+     "l": "from",
+     "k": "join"
+    },
+    {
+     "a": "hasSkill",
+     "b": "SkillTag",
+     "l": "to",
+     "k": "join"
+    },
+    {
+     "a": "Candidate",
+     "b": "yearsExperience",
+     "l": "holds",
+     "k": "prop"
+    }
+   ]
+  },
+  "6": {
+   "nodes": [
+    {
+     "id": "Candidate",
+     "t": ":Candidate",
+     "l": [
+      "class"
+     ],
+     "x": 30,
+     "y": 30,
+     "w": 150,
+     "h": 44,
+     "k": "class"
+    },
+    {
+     "id": "Programming",
+     "t": ":Programming",
+     "l": [
+      "class"
+     ],
+     "x": 30,
+     "y": 88,
+     "w": 150,
+     "h": 44,
+     "k": "class"
+    },
+    {
+     "id": "SkillTag",
+     "t": ":SkillTag",
+     "l": [
+      "class"
+     ],
+     "x": 30,
+     "y": 146,
+     "w": 150,
+     "h": 44,
+     "k": "class"
+    },
+    {
+     "id": "Python",
+     "t": ":Python",
+     "l": [
+      "individual · SkillTag, Programming"
+     ],
+     "x": 260,
+     "y": 30,
+     "w": 170,
+     "h": 44,
+     "k": "object"
+    },
+    {
+     "id": "cand_A",
+     "t": ":cand_A",
+     "l": [
+      "individual · Candidate"
+     ],
+     "x": 260,
+     "y": 88,
+     "w": 170,
+     "h": 44,
+     "k": "object"
+    },
+    {
+     "id": "cand_B",
+     "t": ":cand_B",
+     "l": [
+      "individual · Candidate"
+     ],
+     "x": 260,
+     "y": 146,
+     "w": 170,
+     "h": 44,
+     "k": "object"
+    },
+    {
+     "id": "hasSkill",
+     "t": ":hasSkill",
+     "l": [
+      "a link between two boxes"
+     ],
+     "x": 260,
+     "y": 30,
+     "w": 170,
+     "h": 44,
+     "k": "prop"
+    },
+    {
+     "id": "yearsExperience",
+     "t": ":yearsExperience",
+     "l": [
+      "a slot · holds a integer"
+     ],
+     "x": 260,
+     "y": 88,
+     "w": 170,
+     "h": 44,
+     "k": "prop"
+    }
+   ],
+   "edges": [
+    {
+     "a": "Python",
+     "b": "SkillTag",
+     "l": "type",
+     "k": "sub"
+    },
+    {
+     "a": "Python",
+     "b": "Programming",
+     "l": "type",
+     "k": "sub"
+    },
+    {
+     "a": "cand_A",
+     "b": "Candidate",
+     "l": "type",
+     "k": "sub"
+    },
+    {
+     "a": "cand_B",
+     "b": "Candidate",
+     "l": "type",
+     "k": "sub"
+    },
+    {
+     "a": "cand_A",
+     "b": "Python",
+     "l": "hasSkill",
+     "k": "join"
+    },
+    {
+     "a": "cand_B",
+     "b": "Python",
+     "l": "hasSkill",
+     "k": "join"
+    },
+    {
+     "a": "Candidate",
+     "b": "hasSkill",
+     "l": "from",
+     "k": "join"
+    },
+    {
+     "a": "hasSkill",
+     "b": "SkillTag",
+     "l": "to",
+     "k": "join"
+    },
+    {
+     "a": "Candidate",
+     "b": "yearsExperience",
+     "l": "holds",
+     "k": "prop"
+    }
+   ]
+  },
+  "7": {
+   "nodes": [
+    {
+     "id": "Candidate",
+     "t": ":Candidate",
+     "l": [
+      "class"
+     ],
+     "x": 30,
+     "y": 30,
+     "w": 150,
+     "h": 44,
+     "k": "class"
+    },
+    {
+     "id": "Programming",
+     "t": ":Programming",
+     "l": [
+      "class"
+     ],
+     "x": 30,
+     "y": 88,
+     "w": 150,
+     "h": 44,
+     "k": "class"
+    },
+    {
+     "id": "SkillTag",
+     "t": ":SkillTag",
+     "l": [
+      "class"
+     ],
+     "x": 30,
+     "y": 146,
+     "w": 150,
+     "h": 44,
+     "k": "class"
+    },
+    {
+     "id": "matches_SoftwareEngineer",
+     "t": ":matches_SoftwareEngineer",
+     "l": [
+      "defined class"
+     ],
+     "x": 30,
+     "y": 204,
+     "w": 150,
+     "h": 44,
+     "k": "defined"
+    },
+    {
+     "id": "Python",
+     "t": ":Python",
+     "l": [
+      "individual · SkillTag, Programming"
+     ],
+     "x": 260,
+     "y": 30,
+     "w": 170,
+     "h": 44,
+     "k": "object"
+    },
+    {
+     "id": "cand_A",
+     "t": ":cand_A",
+     "l": [
+      "individual · Candidate"
+     ],
+     "x": 260,
+     "y": 88,
+     "w": 170,
+     "h": 44,
+     "k": "object"
+    },
+    {
+     "id": "cand_B",
+     "t": ":cand_B",
+     "l": [
+      "individual · Candidate"
+     ],
+     "x": 260,
+     "y": 146,
+     "w": 170,
+     "h": 44,
+     "k": "object"
+    },
+    {
+     "id": "hasSkill",
+     "t": ":hasSkill",
+     "l": [
+      "a link between two boxes"
+     ],
+     "x": 260,
+     "y": 88,
+     "w": 170,
+     "h": 44,
+     "k": "prop"
+    },
+    {
+     "id": "yearsExperience",
+     "t": ":yearsExperience",
+     "l": [
+      "a slot · holds a integer"
+     ],
+     "x": 260,
+     "y": 146,
+     "w": 170,
+     "h": 44,
+     "k": "prop"
+    }
+   ],
+   "edges": [
+    {
+     "a": "Python",
+     "b": "SkillTag",
+     "l": "type",
+     "k": "sub"
+    },
+    {
+     "a": "Python",
+     "b": "Programming",
+     "l": "type",
+     "k": "sub"
+    },
+    {
+     "a": "cand_A",
+     "b": "Candidate",
+     "l": "type",
+     "k": "sub"
+    },
+    {
+     "a": "cand_B",
+     "b": "Candidate",
+     "l": "type",
+     "k": "sub"
+    },
+    {
+     "a": "cand_A",
+     "b": "Python",
+     "l": "hasSkill",
+     "k": "join"
+    },
+    {
+     "a": "cand_B",
+     "b": "Python",
+     "l": "hasSkill",
+     "k": "join"
+    },
+    {
+     "a": "Candidate",
+     "b": "hasSkill",
+     "l": "from",
+     "k": "join"
+    },
+    {
+     "a": "hasSkill",
+     "b": "SkillTag",
+     "l": "to",
+     "k": "join"
+    },
+    {
+     "a": "Candidate",
+     "b": "yearsExperience",
+     "l": "holds",
+     "k": "prop"
+    }
+   ]
+  }
+ }
+}

@@ -1,14 +1,14 @@
 {
- "_doc": "概念教程用的最小本体：从空文件一步步搭到会推理。没有数据库、没有指标——这一课教的是本体怎么写、推理机怎么判，不是数据怎么查。",
+ "_doc": "概念教程用的最小本体：从空文件一步步搭到会推理。没有数据库、没有指标 —— 这一课教的是本体怎么写、推理机怎么判，不是数据怎么查。（中文正文见 tutorial/ZH.md；7 张 step 页是英文原版，正在逐步重写）",
  "ns": "http://example.org/talent#",
  "ontology_dir": "ontology",
- "title": "CV ↔ JD 匹配 · 搭建教程",
+ "title": "CV ↔ JD · 概念搭建教程（7 步，从空文件到会推理）",
  "profile": "talent_steps",
  "features": {
   "tutorial_style": "authored"
  },
  "ui": {
-  "language": "en"
+  "language": "zh"
  },
  "dsn": {
   "host": "${ONTOLOGY_DB_HOST:-127.0.0.1}",

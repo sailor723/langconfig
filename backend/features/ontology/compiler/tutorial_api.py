@@ -96,10 +96,15 @@ def authored(profile_path: pathlib.Path) -> dict | None:
     steps = data.get("steps") or []
     if not steps:
         return None
-    return {"ok": True, "source": "profile", "title": data.get("title"),
-            "intro": data.get("intro") or "", "steps": steps,
-            "profile": profile_path.name, "guard": _guard_of(profile_path),
-            "features": _features_of(profile_path)}
+    out = {"ok": True, "source": "profile", "title": data.get("title"),
+           "intro": data.get("intro") or "", "steps": steps,
+           "profile": profile_path.name, "guard": _guard_of(profile_path),
+           "features": _features_of(profile_path)}
+    # 声明的多语言块要**原样带出去**:调用方(ontology_pages.localize_steps)按全局语言挑一份。
+    # 之前这里只挑 title/intro/steps,于是 i18n 块被静默丢掉 —— 翻译表看着完整,一条也到不了页面。
+    if isinstance(data.get("i18n"), dict):
+        out["i18n"] = data["i18n"]
+    return out
 
 
 def derive(profile: dict, g) -> list[dict]:

@@ -94,7 +94,7 @@ def main() -> int:
             if not req.get("assessable"):
                 st = "不可判"
             elif req.get("_resolved"):
-                st = E.judge_component(cand["components"], req["_resolved"])[0]
+                st = E.judge_component(cand["components"], req["_resolved"], req.get("match"))[0]
             elif req.get("attribute"):
                 st = E.judge_attribute(atts[req["attribute"]], req, c, cand, "")[0]
             else:

@@ -28,8 +28,10 @@ from __future__ import annotations
 
 import argparse
 import collections
+import json
 import os
 import pathlib
+import re
 import sys
 
 import yaml
@@ -37,10 +39,14 @@ import yaml
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 CATALOG = ROOT / "work" / "talent" / "component_catalog.yaml"
 LIBRARY = ROOT / "work" / "talent" / "requirement_library.yaml"
+TEMPLATE = ROOT / "work" / "talent" / "jd_template.yaml"
 
 OK = True
 CHECKS = 0
 FAILS = 0
+#: 被标记为「未审」的份数。**不算失败**,但必须出现在汇总行里 ——
+#: 否则「green」会被读成「全都审过了」,而实际上门禁只检查已经写下来的东西。
+NOT_RUN_UNITS = 0
 
 
 def check_true(label: str, cond: bool, detail: str = "") -> None:
@@ -53,6 +59,13 @@ def check_true(label: str, cond: bool, detail: str = "") -> None:
 
 
 def not_run(label: str, why: str) -> None:
+    print(f"  [NOT RUN] {label} — {why}")
+
+
+def not_reviewed(label: str, why: str) -> None:
+    """标记一份"存在但没被审过"的东西。会计入汇总行,不计入失败。"""
+    global NOT_RUN_UNITS
+    NOT_RUN_UNITS += 1
     print(f"  [NOT RUN] {label} — {why}")
 
 
@@ -269,6 +282,24 @@ def check_library(lib: dict, cat: dict) -> None:
                 if c not in comps]
     check_true("每条要求引用的组件都在目录里", not bad_comp, f"{bad_comp}")
 
+    # `unlinked_parts` 是"原文点了名、但没连上组件"的登记簿。组件补上之后这条登记就**过期**了,
+    # 而过期不会报任何错 —— 它会一直躺在库里,让复核的人以为缺口还在。实测:REQ-D-QA-TOOLS 的
+    # 5WHY 早已补成 skill_5WHY,登记却还在,同一个 note 里 122 行的更正和 114 行的旧说法自相矛盾;
+    # agent 386 核验品质经理时正是靠读文件才发现这处矛盾 —— 也就是说这个矛盾本来是**人肉**才看得见的。
+    comp_label = {c["id"]: str(c.get("label") or "") for c in cat["components"]}
+    stale_unlinked = []
+    for r in reqs:
+        for part in (r.get("unlinked_parts") or []):
+            text = str(part.get("text") or "").strip().lower()
+            if not text:
+                continue
+            covered = [c for c in (r.get("components") or [])
+                       if text in c.lower() or text in comp_label.get(c, "").lower()]
+            if covered:
+                stale_unlinked.append((r["id"], part.get("text"), covered))
+    check_true("unlinked_parts 里没有已经连上组件的条目", not stale_unlinked,
+               f"{stale_unlinked} —— 组件已存在就该删掉这条登记,缺口写在组件上")
+
     # 层级:组件必须属于要求声明的维度(这条抓出过 REQ-H-LANG-EN 放 H 维的错误)
     comp_dim = {}
     for c in cat["components"]:
@@ -395,6 +426,721 @@ def check_links(cat: dict, lib: dict, links_dir: pathlib.Path | None) -> None:
 
 
 
+#: 「note 里声称人已决定」的句式。带否定的句子(「未经 admin 确认」)不算声称 ——
+#: 它恰恰是在说"没有确认",把它也要求一条记录就是逼人造假。
+_CLAIM_RE = re.compile(r"(admin\s*(?:定|决定|确认|拍板)|人工确认|已确认|已经确认)")
+_CLAIM_NEG_RE = re.compile(r"(未经|未确认|没有确认|待确认|尚未确认|尚未经|不是\s*admin)")
+
+#: 客户**明说还没定**的句子。这类句子不是任职资格(不进引用),但它对下游的待补清单
+#: 是最有用的一类信息 —— 客户亲口承认的空白,比我们猜出来的空白可信得多。
+_UNDEFINED_RE = re.compile(r"(没制定|未制定|暂无|待定|另定|未定|不详|暂不|以后再定|尚未)")
+
+
+def _claimed_decisions(doc: dict) -> list[str]:
+    """note / count_note 里声称「admin 定过」的引用 id(排除否定句)。"""
+    out: list[str] = []
+    for c in (doc.get("citations") or []):
+        note = str(c.get("note") or "")
+        if _CLAIM_RE.search(note) and not _CLAIM_NEG_RE.search(note):
+            out.append(str(c.get("id")))
+    count_note = str((doc.get("count") or {}).get("count_note") or "")
+    if _CLAIM_RE.search(count_note) and not _CLAIM_NEG_RE.search(count_note):
+        out.append("count")
+    return out
+
+
+def _check_undefined_statements(path: pathlib.Path, doc: dict) -> None:
+    """原文里「目前没制定 / 暂无 / 待定」这类句子,要么被引用覆盖,要么登记在案。
+
+    为什么必须有这一条:2026-11-20 品质经理的 `_source` 第 106 行孤零零一句「目前没制定」,
+    两轮 agent 都没处理 —— 它不是任职资格,所以不进引用是对的;但它**是客户明说某项还没定**,
+    对第 2 步的待补清单恰恰最有用。没登记的后果不是"少一条要求",是**这句话彻底消失**。
+
+    判据:该行被某条引用占了(txt_line == 该行),或者在 `undefined_statements` 里点过名。
+    """
+    src_rel = str(doc.get("source_text") or "").strip()
+    if not src_rel:
+        return
+    src = (ROOT / src_rel) if not pathlib.Path(src_rel).is_absolute() else pathlib.Path(src_rel)
+    if not src.is_file():
+        check_true(f"{path.name}: 找得到 source_text 以便核对「客户说没定」的句子", False,
+                   f"读不到 {src_rel}")
+        return
+
+    covered = {int(c["txt_line"]) for c in (doc.get("citations") or [])
+               if c.get("txt_line") is not None}
+    declared = {int(x["txt_line"]) for x in (doc.get("undefined_statements") or [])
+                if x.get("txt_line") is not None}
+
+    hits = []
+    for i, line in enumerate(src.read_text(encoding="utf-8").splitlines(), 1):
+        if _UNDEFINED_RE.search(line):
+            hits.append((i, line.strip()))
+    lost = [(i, t) for (i, t) in hits if i not in covered and i not in declared]
+    check_true(f"{path.name}: 客户明说「还没定」的句子都有去处", not lost,
+               f"{lost} —— 要么它是任职资格(进引用),要么登记进 `undefined_statements`,"
+               f"不许让它无声消失")
+
+
+#: 「可能该拆」的机械信号 —— 这**是筛子,不是判据**。
+#: 它挑出"值得人看一眼"的条目,不替人判断该不该拆:实测「高中**及**以上学历」(阈值写法)和
+#: 「1、2、3、」(列表序号)都会被朴素匹配命中,而 agent 正确地把它们判成"不该拆"。
+#: 所以这里先去掉两类噪音(列表序号、「及以上/或以下」),剩下的仍只是候选。
+_NUMBERING = re.compile(r"^\s*(\d+|[一二三四五六七八九十]+)\s*[、.）)]\s*")
+_SPLIT_SIGNAL = re.compile(r"(及|以及|或者|和|、|/|或)")
+
+
+def _split_candidate(verbatim: str) -> bool:
+    """verbatim 去掉列表序号与「及以上」阈值后,是否仍含并列/连接词。"""
+    s = _NUMBERING.sub("", verbatim)
+    s = re.sub(r"(及|或以)(上|下)", "", s)
+    return bool(_SPLIT_SIGNAL.search(s))
+
+
+def check_coverage(links_dir: pathlib.Path | None) -> None:
+    """哪些 JD **还没被审过**。
+
+    这条检查的来由:2026-11-20 审完品质经理之后回头看另外 9 份,发现它们
+    **零粒度决定、零排除、8 份零 note** —— 门禁全绿,但那是因为门禁只核对已经写下来的东西,
+    而它们身上几乎什么都没写。**"绿"被读成了"没问题",实际是"没看过"**。
+
+    所以这里不算失败,只点名:某份 JD 有「该拆没拆」的候选条目却一条粒度决定都没有,
+    就按仓库既有约定标 `[NOT RUN]`,并且计数进汇总行 —— NOT RUN 不等于 PASS。
+    """
+    print("\n=== 覆盖度:哪些 JD 还没被审过 ===")
+    files = sorted(links_dir.glob("*.yaml")) if links_dir and links_dir.is_dir() else []
+    if not files:
+        not_run("覆盖度", "还没有 JD 链接文件")
+        return
+
+    reviewed = 0
+    total_signal = 0
+    total_open = 0
+    for path in files:
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        cites = doc.get("citations") or []
+        signal = [c for c in cites if _split_candidate(str(c.get("verbatim") or ""))]
+        decided = [c for c in signal if isinstance(c.get("granularity_decision"), dict)]
+        open_ = len(signal) - len(decided)
+        total_signal += len(signal)
+        total_open += open_
+        if signal and not decided:
+            not_reviewed(f"{path.name}: {len(signal)} 条含拆分信号,0 条粒度决定",
+                         f"未审 —— 这些条目没人看过该不该拆;审过的 JD 会把决定写进 citations/账本")
+        else:
+            reviewed += 1
+
+    print(f"  已审 {reviewed}/{len(files)} 份 · 拆分候选 {total_signal} 条,"
+          f"其中 {total_open} 条从未被审视过")
+    print("  (机械筛子,只是挑出来给人看 —— 判「该不该拆」的是审的人,不是这条正则)")
+
+
+def check_template(links_dir: pathlib.Path | None) -> None:
+    """正式模板 `jd_template.yaml` 与渲染结果必须对得上。
+
+    为什么需要这道门:这份模板原本是**两处代码字面量** —— `render_jd_final.py` 渲染 42 个码,
+    `jd_input_form.py` 的 SPEC 只认识 29 个。后果是 13 个字段在回填表里「为什么需要 / 建议填法」
+    两列是空的,业务方看到的就是空格子;而 A 级归责没有 owner,只能靠 agent 猜。
+    模板提成数据后,这里钉住三件事:码集一致、每列不为空、owner 合法 —— 否则它又会飘回代码里。
+    """
+    print("\n=== 正式模板:与渲染结果一致、每列有内容 ===")
+    if not TEMPLATE.is_file():
+        check_true("jd_template.yaml 存在", False, f"找不到 {TEMPLATE}")
+        return
+    doc = yaml.safe_load(TEMPLATE.read_text(encoding="utf-8")) or {}
+    codes: list[str] = []
+    empty: list[tuple[str, str]] = []
+    bad_owner: list[tuple[str, str]] = []
+    bad_level: list[tuple[str, str]] = []
+    for sec in doc.get("sections") or []:
+        for f in sec.get("fields") or []:
+            code = str(f.get("code") or "")
+            codes.append(code)
+            for k in ("label", "level", "owner", "why", "how", "shape"):
+                if not str(f.get(k) or "").strip():
+                    empty.append((code, k))
+            if f.get("owner") not in ("business", "hr"):
+                bad_owner.append((code, f.get("owner")))
+            if f.get("level") not in ("A", "B", "C"):
+                bad_level.append((code, f.get("level")))
+
+    check_true(f"模板字段 {len(codes)} 个且不重复", len(codes) == len(set(codes)) == 42,
+               f"实际 {len(codes)},去重后 {len(set(codes))} —— 应为 42")
+    check_true("模板里没有 S3 字段码(任职资格按维度渲染)", not [c for c in codes if c.startswith("S3.")],
+               f"{[c for c in codes if c.startswith('S3.')]}")
+    check_true("模板每列的 level/owner/why/how/shape 都不为空", not empty, f"{empty[:5]}")
+    check_true("模板 owner ∈ {business, hr}(客户即业务方,没有第三个)", not bad_owner, f"{bad_owner[:5]}")
+    check_true("模板 level ∈ {A, B, C}", not bad_level, f"{bad_level[:5]}")
+
+    # ── 岗位类别:决定用哪版模板。未定 → 该 JD 标 NOT RUN(不许猜) ──
+    docs_dir = ROOT / "work" / "talent" / "jd_docs"
+    files = sorted(links_dir.glob("*.yaml")) if links_dir and links_dir.is_dir() else []
+    role_by_jd: dict[str, str] = {}
+    undefined: list[str] = []
+    for path in files:
+        doc_l = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        role = str(doc_l.get("role_type") or "").strip().lower()
+        if role in ("manager", "staff"):
+            role_by_jd[path.stem] = role
+        else:
+            undefined.append(path.stem)
+            not_reviewed(f"{path.name}: 岗位类别未定", 
+                         "role_type 缺失/undetermined —— 用错模板不会报错,只会问一堆不该问的问题")
+    if files:
+        # **不算失败**,只点名(与「未审」同口径):岗位类别要业务方答,门禁替不了。
+        # 但它必须出现在汇总行的"未审"计数里 —— 否则 green 会被读成"10 份都定好了"。
+        print(f"  已定岗位类别 {len(role_by_jd)}/{len(files)} 份"
+              + (f";未定 {len(undefined)} 份" if undefined else ""))
+
+    # ── 模板码集必须等于该 JD 实际渲染出的字段集(按 role 分别核对) ──
+    rendered: dict[str, set[str]] = {}
+    for f in sorted(docs_dir.glob("*.fields.json")):
+        try:
+            fields = json.loads(f.read_text(encoding="utf-8")).get("fields") or {}
+        except Exception:
+            continue
+        rendered[f.name.replace(".fields.json", "")] = {c for c in fields if not c.startswith("dim_")}
+    if rendered:
+        from scripts.talent.jd_template_loader import load as _load_tpl
+        drift = {}
+        for jd_name, got in rendered.items():
+            role = role_by_jd.get(jd_name)
+            if role is None:
+                continue          # 未定岗位类别的 JD 已在上面标 NOT RUN
+            want = set(_load_tpl(role)["by_code"])
+            if got != want:
+                drift[jd_name] = {"缺": sorted(want - got)[:6], "多": sorted(got - want)[:6]}
+        check_true(f"模板码集 = 渲染输出({len(rendered)} 份 JD,按各自岗位类别核对)",
+                   not drift, f"{drift} —— 模板与 render_jd_final 已经漂移")
+    else:
+        not_run("模板码集 vs 渲染输出", "还没有 jd_docs/*.fields.json")
+
+
+def check_decisions(links_dir: pathlib.Path | None, reviews_dir: pathlib.Path | None) -> None:
+    """决策账本:人定过什么,必须有**独立**记录。
+
+    这条检查的来由很具体:2026-11-20 agent 386 核验品质经理时,读到 inline 的
+    `granularity_decision: confirmed_keep / decided_by: admin`,却找不到任何独立记录,
+    只能把这条列成「拿不准」。也就是说 —— **被审的文件在给自己作证**,而当时没有任何门禁看得见这件事。
+
+    现在两边交叉校验:inline 的每条粒度决定、每条 excluded,在账本里都必须有 subject 匹配的条目,
+    且 status / decided_by / decided_at 必须逐字一致。谁单方面改口径,这里就红。
+
+    未签署的决定允许存在(`signoff: pending`),但**必须是显式的** —— 门禁会把它数出来并打印,
+    而不是让"没签"混在"签了"里看不出来。不许为了让门禁变绿补一个没发生过的签署。
+    """
+    print("\n=== 决策账本:粒度与排除都有独立记录 ===")
+    files = sorted(links_dir.glob("*.yaml")) if links_dir and links_dir.is_dir() else []
+    if not files:
+        not_run("决策账本", "还没有 JD 链接文件")
+        return
+
+    DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+    pending_seen: list[str] = []
+
+    # 「note 里声称人已决定」与「原文里客户明说还没定」这两种句子,以前会静默消失:
+    # 前者让被审的文件自己给自己作证,后者把客户亲口承认的空白丢掉。
+    # 两条规则都写在门禁里 → 对**每一份** JD 都成立,不是给某一份打补丁。
+    for path in files:
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        cites = doc.get("citations") or []
+        inline = [(c.get("id"), c["granularity_decision"]) for c in cites
+                  if isinstance(c.get("granularity_decision"), dict)]
+        excluded = [x.get("id") for x in (doc.get("excluded") or []) if x.get("id")]
+
+        # ── 规则①:note 里声称「admin 定过」的,必须在账本里有记录 ──
+        claims = _claimed_decisions(doc)
+        if not inline and not excluded and not claims:
+            continue      # 这份 JD 没有需要签署的决定、也没有引用签署,不要求账本
+
+        review_path = (reviews_dir / path.name) if reviews_dir else None
+        has_review = bool(review_path and review_path.is_file())
+        check_true(f"{path.name}: 有 {len(inline)} 条粒度决定 / {len(excluded)} 条排除,"
+                   f"账本 jd_reviews/{path.name} {'存在' if has_review else '缺失'}",
+                   has_review,
+                   "决定写在 jd_links 里就是自述 —— 没有账本,复核的人无从查证")
+        if not has_review:
+            continue
+
+        book = yaml.safe_load(review_path.read_text(encoding="utf-8")) or {}
+        decisions = book.get("decisions") or []
+
+        covered = {str(d.get("subject")) for d in decisions}
+        unbacked = [c for c in claims if c not in covered]
+        check_true(f"{path.name}: note 里声称的决定都有账本记录", not unbacked,
+                   f"{unbacked} —— 这些条目在 note 里说「admin 已定」,账本里却没有对应 subject。"
+                   f"没有记录的签署等于没有签署")
+        check_true(f"{path.name}: 账本声明 jd 与文件一致({book.get('jd')!r})",
+                   book.get("jd") == (doc.get("jd") or path.stem),
+                   f"账本 jd={book.get('jd')!r} 文件 jd={doc.get('jd')!r}")
+
+        by_subject: dict[str, list[dict]] = {}
+        for d in decisions:
+            by_subject.setdefault(str(d.get("subject")), []).append(d)
+
+        # ① 每条 inline 粒度决定都要有账本记录,且口径逐字一致
+        for cid, dec in inline:
+            recs = [d for d in by_subject.get(str(cid), []) if d.get("kind") == "granularity"]
+            check_true(f"{path.name} {cid}: 粒度决定在账本里有记录",
+                       bool(recs), f"账本里没有 subject={cid} 的 granularity 条目")
+            if not recs:
+                continue
+            rec = recs[0]
+            check_true(f"{path.name} {cid}: 账本 decision = inline status({dec.get('status')})",
+                       rec.get("decision") == dec.get("status"),
+                       f"账本 {rec.get('decision')!r} ≠ 文件 {dec.get('status')!r}")
+            for field in ("decided_by", "decided_at"):
+                if dec.get(field) is None:
+                    continue
+                got = str(rec.get(field) or "")
+                want = str(dec.get(field))
+                check_true(f"{path.name} {cid}: 账本 {field} = 文件 {want}",
+                           got == want, f"账本 {got!r} ≠ 文件 {want!r} —— 两边必须指向同一个签署")
+
+        # ② 每条 excluded 都要有账本记录
+        for xid in excluded:
+            recs = [d for d in by_subject.get(str(xid), []) if d.get("kind") == "exclusion"]
+            check_true(f"{path.name} {xid}: 排除决定在账本里有记录", bool(recs),
+                       f"账本里没有 subject={xid} 的 exclusion 条目")
+
+        # ③ 账本不许记着文件里不存在的东西
+        valid = {str(c.get("id")) for c in cites} | {str(x) for x in excluded}
+        phantom = [(d.get("id"), d.get("subject")) for d in decisions
+                   if str(d.get("subject")) not in valid]
+        check_true(f"{path.name}: 账本条目的 subject 都存在于该 JD", not phantom,
+                   f"{phantom} —— 账本记着不存在的引用,比没有记录更糟")
+
+        # ④ 签署:要么齐,要么显式 pending
+        for d in decisions:
+            tag = f"{path.name} {d.get('id')}"
+            if d.get("signoff") == "pending":
+                pending_seen.append(tag)
+                check_true(f"{tag}: 未签署的不许带 decided_by/decided_at",
+                           not d.get("decided_by") and not d.get("decided_at"),
+                           "写了 pending 又写了签署人,自相矛盾")
+                continue
+            missing = [f for f in ("decided_by", "decided_at") if not d.get(f)]
+            check_true(f"{tag}: 已签署的条目有 decided_by + decided_at", not missing,
+                       f"缺 {missing} —— 没有签署人的决定等于没有决定")
+            when = d.get("decided_at")
+            if when is not None and missing == []:
+                check_true(f"{tag}: decided_at 是 YYYY-MM-DD",
+                           bool(DATE_RE.match(str(when))), f"{when!r}")
+            check_true(f"{tag}: 写了 why", bool(str(d.get("why") or "").strip()),
+                       "没有 why 的决定,下次没人能判断它还成不成立")
+
+        # ⑤ 同一条不许记两次
+        keys = [(str(d.get("kind")), str(d.get("subject"))) for d in decisions]
+        dups = sorted({k for k in keys if keys.count(k) > 1})
+        check_true(f"{path.name}: 账本没有重复的 (kind, subject)", not dups, f"{dups}")
+
+        # ⑥ 原文里客户**明说还没定**的句子,必须有个去处
+        _check_undefined_statements(path, doc)
+
+    if pending_seen:
+        print(f"  ⚠ 未签署 {len(pending_seen)} 条(需要人点头,不是门禁能替的):"
+              f" {', '.join(pending_seen)}")
+
+
+def check_picks(picks_dir: pathlib.Path | None, policy_path: pathlib.Path | None) -> None:
+    """第 5 步产物门禁:模拟数据可以进判定,但**必须每一处都标出来**。
+
+    这道门存在的理由很具体:模拟访谈一度被当成真的一面,产出「入选 4 人」,
+    而那 4 个人从没被谁面过。规则后来改成"可以放开"(interview_policy.yaml),
+    放开之后唯一挡在假结论和递交之间的东西,就是产物上的标注 ——
+    所以标注本身必须是可复算的门禁,而不是脚本里的一句 print。
+    """
+    if not picks_dir or not picks_dir.is_dir():
+        not_run("选人产物门禁", f"找不到 {picks_dir}")
+        return
+    try:
+        from scripts.talent import interview_policy
+    except Exception as exc:  # noqa: BLE001
+        check_true("选人产物门禁能读到规则模块", False, f"{type(exc).__name__}: {exc}")
+        return
+    if policy_path:
+        interview_policy.POLICY = pathlib.Path(policy_path)
+
+    files = sorted(picks_dir.glob("*.yaml"))
+    if not files:
+        not_run("选人产物门禁", "还没有第 5 步产物")
+        return
+    for f in files:
+        try:
+            doc = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
+        except yaml.YAMLError as exc:
+            check_true(f"{f.name}: 能解析", False, str(exc)[:120])
+            continue
+        jd = doc.get("jd") or f.stem
+        mode = str((doc.get("interview_policy") or {}).get("mode") or "")
+        rec = interview_policy.record(jd)
+        # ① 产物必须自带规则记录 —— 一年后"凭什么用模拟数据"要能从文件里答出来
+        check_true(f"{f.name}: 产物里记了采信规则", bool(mode),
+                   "interview_policy 段缺失 —— 无法复算当时按什么规则选的")
+        if mode:
+            check_true(f"{f.name}: 规则名合法", mode in interview_policy.MODES, f"mode={mode!r}")
+        # ② 放开了模拟就必须有授权记录在策略文件里
+        if mode == interview_policy.MOCK_ALLOWED:
+            check_true(f"{f.name}: 放开模拟有授权记录(署名人+日期)",
+                       bool(rec.get("decided_by") and rec.get("decided_at")),
+                       "interview_policy.yaml 里这个 JD 缺 decided_by / decided_at")
+        top = doc.get("top") or []
+        mock_rows = [r for r in top if str(r.get("数据来源")) == "模拟(演练)"]
+        real_rows = [r for r in top if str(r.get("数据来源")) in ("真访谈", "真+模拟")]
+        # ③ 每一行都得有数据来源,不许空白 —— 空白就是含糊
+        check_true(f"{f.name}: 每行都写了数据来源",
+                   all(str(r.get("数据来源") or "").strip() for r in top),
+                   "有行缺 数据来源")
+        # ④ 模拟行必须能对回真实文件:说的和做的不许不一致
+        cv_dir = ROOT / "work" / "talent" / "cv_interview"
+        bad = []
+        for r in mock_rows:
+            path = cv_dir / f"{str(r['candidate']).replace('cand_', '')}.yaml"
+            if not path.is_file():
+                bad.append(f"{r['candidate']}: 无访谈文件")
+                continue
+            ans = (yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("answers") or []
+            if any(interview_policy.is_real_basis(a) for a in ans):
+                bad.append(f"{r['candidate']}: 标了模拟却含有真人答案")
+        check_true(f"{f.name}: 标「模拟」的行确实只有模拟答案", not bad, "; ".join(bad[:3]))
+        # ⑤ 真人行不许被标成模拟(反方向也要查)
+        bad2 = []
+        for r in real_rows:
+            path = cv_dir / f"{str(r['candidate']).replace('cand_', '')}.yaml"
+            if not path.is_file():
+                continue
+            ans = (yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("answers") or []
+            has_real = any(interview_policy.is_real_basis(a) for a in ans)
+            if str(r.get("数据来源")) == "真访谈" and not has_real:
+                bad2.append(f"{r['candidate']}: 标了真访谈却没有真人答案")
+        check_true(f"{f.name}: 标「真访谈」的行确实有真人答案", not bad2, "; ".join(bad2[:3]))
+        # ⑥ 用了模拟数据,md 里必须有演练横幅 —— 递交出去的那份才算数
+        md_path = picks_dir / f"{jd} 选人.md"
+        if mock_rows:
+            if md_path.is_file():
+                body = md_path.read_text(encoding="utf-8")
+                check_true(f"{f.name}: md 有演练横幅", "演练模式" in body,
+                           "md 用了模拟数据却没有「演练模式」提示")
+                check_true(f"{f.name}: md 横幅写了不得作为录用依据",
+                           "不得作为录用决策依据" in body, "横幅没把这条禁令写全")
+            else:
+                check_true(f"{f.name}: 有人读的版本存在", False, f"缺 {md_path.name}")
+        # ⑦ real_only 模式下不该出现任何模拟行
+        if mode == interview_policy.REAL_ONLY:
+            check_true(f"{f.name}: real_only 下无模拟行", not mock_rows,
+                       f"{len(mock_rows)} 行用了模拟答案,与规则不符")
+
+
+def check_shortlist(dirp: pathlib.Path | None) -> None:
+    """第 3 步门禁:排除必须是**硬证据**,待核必须留有名字。
+
+    这两条是「读不到 ≠ 不满足」在流程上的落地。实测过的错:第 3 步用一道
+    "读不出品质岗"的信号挡掉了 165 个人,而短名单只有 4 人 —— 那个 4 不是筛选结果,
+    是把"不知道"当成了"不行"。
+    """
+    if not dirp or not dirp.is_dir():
+        not_run("短名单门禁", f"找不到 {dirp}")
+        return
+    files = sorted(dirp.glob("*.yaml"))
+    if not files:
+        not_run("短名单门禁", "还没有短名单")
+        return
+    for f in files:
+        try:
+            doc = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
+        except yaml.YAMLError as exc:
+            check_true(f"{f.name}: 能解析", False, str(exc)[:100])
+            continue
+        if not doc.get("kept") and not doc.get("excluded"):
+            # 只认第 3 步的初筛明细。第 5 步目标名单、3b 目标人数都没有 kept/excluded,
+            # 拿它们查"没人同时在两边"是空过(vacuous pass)—— 看着绿,什么都没验。
+            continue
+        kept = set(doc.get("kept") or [])
+        excluded = doc.get("excluded") or []
+        qg = doc.get("quality_gate") or {}
+        pending = {p.get("candidate") for p in (qg.get("needs_verification") or [])}
+        # ⓪ 账要平:kept + excluded = pool。差一个人都说明有人被静默丢掉
+        cnt = doc.get("count") or {}
+        if cnt.get("pool") is not None:
+            check_true(f"{f.name}: kept + excluded = pool(账平)",
+                       int(cnt.get("kept") or 0) + int(cnt.get("excluded") or 0) == int(cnt["pool"]),
+                       f'{cnt.get("kept")} + {cnt.get("excluded")} != {cnt["pool"]} —— 有人被丢掉却没记账')
+        # ① 同一个人不能既排除又保留
+        check_true(f"{f.name}: 没有人同时出现在 kept 与 excluded",
+                   not (kept & {e.get("candidate") for e in excluded}),
+                   "两边都有 = 后面读谁说了算都行,这是个不确定状态")
+        # ② 待核的人必须还在 kept 里(不能借待核把人偷偷排除)
+        check_true(f"{f.name}: 待核的人都留在 kept 里", not (pending - kept),
+                   f"{len(pending - kept)} 人被标待核却不在 kept —— 等于还是排除了")
+        # ③ excluded 必须是硬证据:要么有 attribute 判决,要么 quality=无(时长已知)
+        soft = []
+        for e in excluded:
+            if e.get("stage") == "品质门槛":
+                # 这一类是"职责命中品质动作,但该段时长已知且不足门槛" —— 也是硬证据,
+                # 只是证据不是属性比较。它必须写清为什么,所以下面单独查 why。
+                if not any((r.get("why") or "").strip() for r in (e.get("reasons") or [])):
+                    soft.append(e.get("candidate"))
+                continue
+            v = e.get("verdicts") or {}
+            hard = any(st == "不满足" for st in v.values())
+            if not hard:
+                soft.append(e.get("candidate"))
+        check_true(f"{f.name}: 每条排除都有硬证据(至少一条属性不满足)", not soft,
+                   f"{len(soft)} 人是「没读到」被排除的: {', '.join(x[:16] for x in soft[:3] if x)}")
+        # ④ quality=无 必须有 months_known,否则又是拿读不出的时长当结论
+        badq = [x.get("candidate") for x in (qg.get("failed") or [])
+                if not (x.get("why") or "")]
+        check_true(f"{f.name}: 品质门槛的排除都写了理由", not badq, f"{len(badq)} 条没有 why")
+
+
+def check_interview_list(dirp: pathlib.Path | None) -> None:
+    """面试名单门禁:排序口径必须是 9 层,切线必须交代 tie_band。
+
+    这两条挡的是"名次可不可读靠嘴说" —— 口径和并列规模都必须是文件里的事实。
+    """
+    if not dirp or not dirp.is_dir():
+        not_run("面试名单门禁", f"找不到 {dirp}")
+        return
+    files = sorted(dirp.glob("*.面试名单.yaml"))
+    if not files:
+        not_run("面试名单门禁", "还没有面试名单")
+        return
+    for f in files:
+        try:
+            doc = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
+        except yaml.YAMLError as exc:
+            check_true(f"{f.name}: 能解析", False, str(exc)[:120])
+            continue
+        rules = doc.get("rank_rule") or []
+        check_true(f"{f.name}: 排序口径是 9 层", len(rules) == 9, f"实际 {len(rules)} 层")
+        cut = doc.get("cut") or {}
+        check_true(f"{f.name}: 交代了切线 tie_band",
+                   isinstance(cut.get("tie_band"), int), "缺 cut.tie_band")
+        want = len(doc.get("selected") or [])
+        check_true(f"{f.name}: 切线位置 = 名单人数", cut.get("position") == want,
+                   f"{cut.get('position')} vs {want}")
+        if cut.get("tie_band", 1) > 1:
+            check_true(f"{f.name}: 并列区已标注 hash_decided", cut.get("hash_decided") is True,
+                       "切线在并列区却没标 hash_decided")
+
+
+def check_shortlist5(dirp: pathlib.Path | None, interview_dir: pathlib.Path | None,
+                     list_dir: pathlib.Path | None) -> None:
+    """第 5 步目标名单门禁:进名单的人必须是**面过的人**,人数必须对得上 HR 的目标。
+
+    「第 5 步基于一面数据」这句话如果不检查,谁都能从 270 人的池子里直接点 8 个人
+    写进短名单 —— 看起来一样,实际跳过了整条第 4 步。
+    """
+    if not dirp or not dirp.is_dir():
+        not_run("第 5 步目标名单门禁", f"找不到 {dirp}")
+        return
+    files = sorted(dirp.glob("*.目标名单.yaml"))
+    files = [f for f in files
+             if str((yaml.safe_load(f.read_text(encoding="utf-8")) or {}).get("step") or "")
+             .startswith("5")]
+    if not files:
+        not_run("第 5 步目标名单门禁", "还没有第 5 步目标名单")
+        return
+    for f in files:
+        try:
+            doc = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
+        except yaml.YAMLError as exc:
+            check_true(f"{f.name}: 能解析", False, str(exc)[:120])
+            continue
+        jd = doc.get("jd") or f.name.split(".")[0]
+        sel = list(doc.get("selected") or [])
+        # ① 面过才进名单
+        if interview_dir and interview_dir.is_dir():
+            missing = [c for c in sel
+                       if not (interview_dir / f"{str(c).replace('cand_', '')}.yaml").is_file()]
+            check_true(f"{f.name}: 进名单的人都有一面记录", not missing,
+                       f"{len(missing)} 人没有 cv_interview 记录 —— 等于跳过了第 4 步")
+        # ② 名单里的人必须出自面试名单
+        lp = (list_dir / f"{jd}.面试名单.yaml") if list_dir else None
+        if lp and lp.is_file():
+            listed = set(yaml.safe_load(lp.read_text(encoding="utf-8")).get("selected") or [])
+            outside = [c for c in sel if c not in listed]
+            check_true(f"{f.name}: 名单里的人都在面试名单里", not outside,
+                       f"{len(outside)} 人不在这份 JD 的面试名单 —— 池子被绕过")
+        # ③ 人数口径
+        tgt = doc.get("target") or {}
+        lo, hi = int(tgt.get("min") or 0), int(tgt.get("max") or 0)
+        short = int(doc.get("shortfall") or 0)
+        check_true(f"{f.name}: 人数在 min~max 内,或如实记了差额",
+                   (lo <= len(sel) <= hi) or (len(sel) < lo and short == lo - len(sel)),
+                   f"{len(sel)} 人 vs {lo}~{hi}(shortfall={short})")
+        # ④ 切线要交代
+        cut = doc.get("cut") or {}
+        check_true(f"{f.name}: 交代了切线 tie_band", isinstance(cut.get("tie_band"), int),
+                   "缺 cut.tie_band")
+        check_true(f"{f.name}: 切线位置 = 名单人数", cut.get("position") == len(sel),
+                   f"{cut.get('position')} vs {len(sel)}")
+        if (cut.get("tie_band") or 1) > 1:
+            check_true(f"{f.name}: 并列区已标 hash_decided", cut.get("hash_decided") is True,
+                       "切线在并列区却没标 hash_decided")
+        # ⑤ 排序口径九层,且第一层必须是硬证据(不是"分数")
+        rules = doc.get("rank_rule") or []
+        check_true(f"{f.name}: 排序口径是 9 层", len(rules) == 9, f"实际 {len(rules)} 层")
+        check_true(f"{f.name}: 第 1 层是硬证据项数",
+                   bool(rules) and "硬证据" in str(rules[0]), str(rules[0])[:50] if rules else "空")
+        # ⑥ 带客户门槛不满足却进名单的,必须记进 relaxations(要人点头)
+        flagged = {x.get("candidate") for x in (doc.get("flags") or [])}
+        relaxed = {x.get("candidate") for x in (doc.get("relaxations") or [])}
+        check_true(f"{f.name}: 带门槛不满足的人若进名单已记账", flagged <= (relaxed | flagged),
+                   "有 flags 却没写 relaxations(缺谁点头)")
+        # ⑦ 最终名单:必须是短名单的真子集,人数 ≤ final_max,而且**明显更少**
+        fin = doc.get("final") or {}
+        fids = list(fin.get("ids") or [])
+        fmax = int(fin.get("max") or 0)
+        check_true(f"{f.name}: 最终名单是短名单的子集", set(fids) <= set(sel),
+                   f"{len(set(fids) - set(sel))} 人不在短名单里")
+        check_true(f"{f.name}: 最终名单人数 ≤ 上限({fmax})",
+                   bool(fmax) and len(fids) <= fmax, f"{len(fids)} 人 vs 上限 {fmax}")
+        check_true(f"{f.name}: 最终名单比短名单明显更少",
+                   len(fids) < len(sel) or len(sel) <= 1,
+                   f"最终 {len(fids)} / 短名单 {len(sel)} —— 两道闸没起作用")
+        # ⑧ 最终名单里的人必须真的满足三条硬条件(从 rows 里核,不信自报)
+        rows = {r.get("candidate"): r for r in (doc.get("rows") or [])}
+        bad = []
+        for c in fids:
+            r = rows.get(c)
+            if not r:
+                bad.append(f"{str(c)[:14]}(不在 rows 里)")
+                continue
+            if r.get("gate_fails"):
+                bad.append(f"{str(c)[:14]}(硬门槛不满足)")
+            elif (r.get("hard_hits") or 0) < int(fin.get("min_hard") or 1):
+                bad.append(f"{str(c)[:14]}(无硬证据)")
+            elif (r.get("未知") or 0) > int(fin.get("unknown_max") or 3):
+                bad.append(f"{str(c)[:14]}(未知过多)")
+        check_true(f"{f.name}: 最终名单每人都过了硬条件", not bad, "、".join(bad[:3]))
+        # ⑧.5 显示姓名必须是人名,不能是脱敏残留(____ / ** / 纯英文短名)
+        try:
+            sys.path.insert(0, str(ROOT / "backend"))
+            from scripts.talent import names as _nm
+            import re as _re
+            masked = [c for c in sel
+                      if _re.search(r"\S_{2,}|\*\*", _nm.name_of(c))]
+            check_true(f"{f.name}: 名单里的人都换成了完整姓名", not masked,
+                       f"{len(masked)} 人还是脱敏写法 —— 看起来像数据坏了;"
+                       f"先跑 fake_names 再重生成名单")
+        except Exception as _exc:  # noqa: BLE001
+            check_true(f"{f.name}: 姓名映射可读", False, f"{type(_exc).__name__}: {_exc}")
+        # ⑨ 演练必须自曝
+        mode = str((doc.get("interview_policy") or {}).get("mode") or "")
+        sim_only = doc.get("simulated_interview_only") or []
+        if mode == "mock_allowed" and sim_only:
+            check_true(f"{f.name}: 全是模拟一面的人在产物里点名了",
+                       len(sim_only) >= 1, "标了 mock_allowed 却没写 simulated_interview_only")
+
+
+def check_verdicts(vdir: pathlib.Path | None) -> None:
+    """判定说明门禁 —— 回答「为什么这个人没过」的那份文件,不能是散文。
+
+    HR 拿去见业务领导的东西,只要有一句站不住,整套系统的可信度就没了。
+    所以这里逐行查四件事,并且**查它有没有过期**:
+
+    ① 四态合法,且「不可判」没有被写成结论
+    ② 每条「不满足」都必须带齐:客户原文 + 行号 + 数据项 + 他的值 + 阈值 + 值来源
+       (少一样,这句话就追不到底)
+    ③ 每条「未知」必须写清为什么没读到 —— 空着就等于含糊
+    ④ 指纹必须和当前输入一致:JD 原文/阈值/词表/简历事实/一面记录任何一样改过,
+       旧说明就是**过期文件**,必须重生成,不许继续挂在墙上
+    """
+    if not vdir or not vdir.is_dir():
+        not_run("判定说明门禁", f"找不到 {vdir}")
+        return
+    try:
+        from scripts.talent import explain_rejection as EX
+        from scripts.talent.evaluate import (load_candidates, overlay_hr, overlay_interview,
+                                             overlay_llm, overlay_mock)
+        from scripts.talent import interview_policy
+    except Exception as exc:  # noqa: BLE001
+        check_true("判定说明门禁能加载依赖", False, f"{type(exc).__name__}: {exc}")
+        return
+
+    cv, hr = EX.load_facts()
+    try:
+        lib = {r["id"]: r for r in
+               (yaml.safe_load(LIBRARY.read_text(encoding="utf-8")).get("requirements") or [])}
+    except Exception:  # noqa: BLE001
+        lib = {}
+    cands = load_candidates()
+    overlay_llm(cands)
+    overlay_hr(cands)
+    # **不并 cv_mock**:生成说明那边已经停用(2026-11-23)。指纹要按同一份输入算,
+    # 一边并 mock、一边不并,结果就是"267 份全部过期"这种假红。
+    by_id = {c["id"]: c for c in cands}
+    n_files = 0
+    for jd_dir in sorted(p for p in vdir.iterdir() if p.is_dir()):
+        jd = jd_dir.name
+        files = sorted(jd_dir.glob("*.yaml"))
+        if not files:
+            not_run(f"{jd}: 判定说明门禁", "还没有说明文件")
+            continue
+        mode, _src = interview_policy.mode_for(jd)
+        overlay_interview(cands, allow_simulated=mode == interview_policy.MOCK_ALLOWED)
+        by_id = {c["id"]: c for c in cands}
+        check_true(f"{jd}: 有总览 _index.md", (jd_dir / "_index.md").is_file(),
+                   "没有总览,HR 得一个个点开")
+        stale, bad_row, bad_unknown, bad_evidence = [], [], [], []
+        for f in files:
+            n_files += 1
+            try:
+                doc = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
+            except yaml.YAMLError as exc:
+                check_true(f"{jd}/{f.name}: 能解析", False, str(exc)[:100])
+                continue
+            cid = doc.get("candidate")
+            cand = by_id.get(cid)
+            if not cand:
+                check_true(f"{jd}/{f.name}: 候选人还在库里", False, "库里找不到这个人")
+                continue
+            # ④ 过期检查:输入指纹
+            fp = EX.fingerprint(cid, jd, cand, cv, hr)
+            if doc.get("fingerprint") != fp:
+                stale.append(f.name)
+            rows = doc.get("rows") or []
+            for r in rows:
+                st = r.get("state")
+                if st not in EX.STATES:
+                    bad_row.append(f"{f.name}:{r.get('clause')} 状态非法 {st!r}")
+                    continue
+                if st == "不满足":
+                    # 客户原话要求必须能追到行号;我方(HR)提的要求没有行号,改追 rationale 文本
+                    need = ["client_text", "data_item", "value", "threshold"]
+                    if (r.get("origin") or "client") == "client":
+                        need.append("client_line")
+                    miss = [k for k in need if r.get(k) in (None, "", [])]
+                    if miss:
+                        bad_row.append(f"{f.name}:{r.get('clause')} 缺 {miss}")
+                    src = r.get("source") or {}
+                    if not src or src.get("kind") in (None, "", "无"):
+                        # 组件类要求:要么有命中的来源,要么有否定证据(读完了、里面没有)
+                        ab = r.get("absence") or {}
+                        if not (r.get("sources") or []) and not ab.get("checked"):
+                            bad_row.append(f"{f.name}:{r.get('clause')} 没有值来源也没有否定证据")
+                if st == "未知" and not str(r.get("why") or "").strip():
+                    bad_unknown.append(f"{f.name}:{r.get('clause')}")
+                # 能力类的"满足"必须写清是案例还是自述 —— 只写"满足"等于把自述当实据
+                if st == "满足":
+                    req = (lib.get(r.get("requirement")) or {}) if isinstance(lib, dict) else {}
+                    if req.get("data_class") == "capability":
+                        ev = str(r.get("evidence") or "")
+                        if ev not in ("案例/实测", "仅自述"):
+                            bad_evidence.append(f"{f.name}:{r.get('clause')} 证据强度缺失")
+        check_true(f"{jd}: {len(files)} 份说明的输入指纹都是当前的", not stale,
+                   f"{len(stale)} 份过期(输入已变,必须重生成): {', '.join(stale[:3])}")
+        check_true(f"{jd}: 「不满足」每行都能追到原文与来源", not bad_row,
+                   "; ".join(bad_row[:3]))
+        check_true(f"{jd}: 「未知」每行都写了为什么没读到", not bad_unknown,
+                   "; ".join(bad_unknown[:3]))
+        check_true(f"{jd}: 能力类的「满足」都标了证据强度(案例/自述)", not bad_evidence,
+                   "; ".join(bad_evidence[:3]))
+    if n_files == 0:
+        not_run("判定说明门禁", "目录里没有 yaml")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-db", action="store_true", help="只跑结构与自洽,不连库")
@@ -403,8 +1149,22 @@ def main() -> int:
     ap.add_argument("--links", default=str(ROOT / "work" / "talent" / "jd_links"),
                     help="JD 链接文件目录(默认就是正式目录;传空串可跳过)")
     ap.add_argument("--library", default=str(LIBRARY), help="要求库 yaml")
+    ap.add_argument("--reviews", default=str(ROOT / "work" / "talent" / "jd_reviews"),
+                    help="决策账本目录(默认就是正式目录;传空串可跳过)")
     # --catalog 让变异测试可以在副本上跑:一个只在真文件上能跑的门禁是没法证明自己有牙齿的
     ap.add_argument("--catalog", default=str(CATALOG), help="默认读 work/talent/component_catalog.yaml")
+    ap.add_argument("--picks", default=str(ROOT / "work" / "talent" / "picks"),
+                    help="第 5 步产物目录(默认正式目录;传空串可跳过)")
+    ap.add_argument("--policy", default=str(ROOT / "work" / "talent" / "interview_policy.yaml"),
+                    help="一面采信规则(默认正式文件)")
+    ap.add_argument("--verdicts", default=str(ROOT / "work" / "talent" / "verdicts"),
+                    help="判定说明目录(默认正式目录;传空串可跳过)")
+    ap.add_argument("--interview-dir", default=str(ROOT / "work" / "talent" / "cv_interview"),
+                    help="一面记录目录(第 5 步门禁用它核「进名单的人都面过」)")
+    ap.add_argument("--interview-list", default=str(ROOT / "work" / "talent" / "shortlist"),
+                    help="面试名单目录(默认同 shortlist;传空串可跳过)")
+    ap.add_argument("--shortlist", default=str(ROOT / "work" / "talent" / "shortlist"),
+                    help="短名单目录(默认正式目录;传空串可跳过)")
     args = ap.parse_args()
 
     catalog = pathlib.Path(args.catalog).resolve()
@@ -443,6 +1203,69 @@ def main() -> int:
             # 完全正常。所以异常必须折成红,并把"哪一门没跑完"说出来。
             check_true("引用门禁跑完了(中途崩溃 = 红,不是通过)",
                        False, f"{type(exc).__name__}: {exc}")
+        try:
+            check_template(pathlib.Path(args.links) if args.links else None)
+        except Exception as exc:
+            check_true("模板门禁跑完了(中途崩溃 = 红,不是通过)", False,
+                       f"{type(exc).__name__}: {exc}")
+        try:
+            check_coverage(pathlib.Path(args.links) if args.links else None)
+        except Exception as exc:
+            check_true("覆盖度检查跑完了(中途崩溃 = 红,不是通过)",
+                       False, f"{type(exc).__name__}: {exc}")
+        try:
+            check_decisions(pathlib.Path(args.links) if args.links else None,
+                            pathlib.Path(args.reviews) if args.reviews else None)
+        except Exception as exc:
+            check_true("决策账本门禁跑完了(中途崩溃 = 红,不是通过)",
+                       False, f"{type(exc).__name__}: {exc}")
+        try:
+            check_picks(pathlib.Path(args.picks) if args.picks else None,
+                        pathlib.Path(args.policy) if args.policy else None)
+        except Exception as exc:
+            check_true("选人产物门禁跑完了(中途崩溃 = 红,不是通过)",
+                       False, f"{type(exc).__name__}: {exc}")
+        try:
+            check_shortlist(pathlib.Path(args.shortlist) if args.shortlist else None)
+        except Exception as exc:
+            check_true("短名单门禁跑完了(中途崩溃 = 红,不是通过)",
+                       False, f"{type(exc).__name__}: {exc}")
+        # 教程 v2:数字过期、手写数字、反证失效都在里面查(它自己也是可失败的)
+        try:
+            import re as _re2
+            import subprocess as _sp2
+            _r = _sp2.run([sys.executable, "-m", "scripts.talent.check_tutorial"],
+                          cwd=str(ROOT / "backend"), capture_output=True, text=True,
+                          env={k: v for k, v in os.environ.items() if k != "PGPORT"})
+            _out = (_r.stdout or "") + (_r.stderr or "")
+            _sum = next((ln.strip() for ln in reversed(_out.splitlines())
+                         if "checks ·" in ln), "")
+            check_true("教程 v2 门禁跑完了(数字不过期/无手写数字/反证有效)",
+                       bool(_sum) and " 0 failed" in _sum,
+                       _sum or "没有汇总行 = 没跑完：" + _out.strip().splitlines()[-1][:120]
+                       if _out.strip() else "没有输出")
+        except Exception as exc:  # noqa: BLE001
+            check_true("教程 v2 门禁跑完了(中途崩溃 = 红)", False,
+                       f"{type(exc).__name__}: {exc}")
+
+        try:
+            check_shortlist5(
+                pathlib.Path(args.shortlist) if args.shortlist else None,
+                pathlib.Path(args.interview_dir) if args.interview_dir else None,
+                pathlib.Path(args.shortlist) if args.shortlist else None)
+        except Exception as exc:
+            check_true("第 5 步目标名单门禁跑完了(中途崩溃 = 红,不是通过)",
+                       False, f"{type(exc).__name__}: {exc}")
+        try:
+            check_interview_list(pathlib.Path(args.interview_list) if args.interview_list else None)
+        except Exception as exc:
+            check_true("面试名单门禁跑完了(中途崩溃 = 红,不是通过)",
+                       False, f"{type(exc).__name__}: {exc}")
+        try:
+            check_verdicts(pathlib.Path(args.verdicts) if args.verdicts else None)
+        except Exception as exc:
+            check_true("判定说明门禁跑完了(中途崩溃 = 红,不是通过)",
+                       False, f"{type(exc).__name__}: {exc}")
     else:
         not_run("要求库门禁", f"找不到 {lib_path}")
 
@@ -450,7 +1273,19 @@ def main() -> int:
     # 说绿是撒谎。NOT RUN 不算失败,但「零检查」一定是错的。
     if CHECKS == 0:
         check_true("门禁至少跑了一项检查", False, "零检查 = 什么都没验")
-    print(f"\n{CHECKS} checks · {FAILS} failed · {'green' if OK else 'RED'}")
+    # 「检查数暴跌 = 门禁没覆盖到东西」必须吼出来:
+    # 清空交付物后 gate 仍会打印 green,但只查了 49 项(正常是 500+)——
+    # 那个 green 只说明"没有反例",不说明"流程成立"。
+    cov = 0
+    if args.links:
+        lp = pathlib.Path(args.links)
+        if lp.is_dir():
+            cov = len([x for x in lp.glob("*.yaml") if not x.name.startswith("_")])
+    if cov < 5 and not args.no_db:
+        print(f"\n⚠ 门禁只覆盖了 {cov} 份 JD 的引用文件 —— 这个结果**不代表流程成立**,"
+              "只代表「没有反例」。先跑第 1 步把 jd_links 做出来,再看门禁。")
+    tail = f" · {NOT_RUN_UNITS} 项未审(见 [NOT RUN])" if NOT_RUN_UNITS else ""
+    print(f"\n{CHECKS} checks · {FAILS} failed · {'green' if OK else 'RED'}{tail}")
     return 0 if OK else 1
 
 

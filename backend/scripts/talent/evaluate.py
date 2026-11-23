@@ -168,7 +168,43 @@ IV_FIELD_PROP = {"F.AGE": "age", "F.EDU_LEVEL": "educationRank", "F.EDU_MAJOR": 
                  "F.EXP_YEARS": "yearsStated"}
 
 
-def overlay_interview(cands: list[dict]) -> int:
+MOCK = ROOT / "work" / "talent" / "cv_mock"
+
+
+def overlay_mock(cands: list[dict]) -> int:
+    """把 mock_fill 生成的模拟值并进候选人 —— 只在授权范围内、只补空位。
+
+    模拟值和真事实**分开存**是刻意的:cv_facts.json 里只允许有读来的东西。
+    这里并进来时会在候选人身上留 `_mock` 标记,判定说明据此标成「模拟」,
+    而不是把它当成读到的数据。
+    """
+    from scripts.talent import interview_policy
+    pol = (interview_policy.load().get("mock_fill") or {})
+    if pol.get("mode") != "allowed":
+        return 0
+    n = 0
+    for c in cands:
+        f = MOCK / f"{c['id'].replace('cand_', '')}.yaml"
+        if not f.is_file():
+            continue
+        doc = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
+        if doc.get("jd") not in (pol.get("scope") or []):
+            continue
+        mock = c.setdefault("_mock", {})
+        for prop, rec in (doc.get("props") or {}).items():
+            if c.get(prop) is None:
+                c[prop] = rec.get("value")
+                mock[prop] = rec
+                n += 1
+        for comp, rec in (doc.get("components") or {}).items():
+            if rec.get("held") and comp not in c["components"]:
+                c["components"].add(comp)
+                mock[comp] = rec
+                n += 1
+    return n
+
+
+def overlay_interview(cands: list[dict], *, allow_simulated: bool = False) -> int:
     """把一面记录并进候选人。**一处实现**,判定和采集清单都走这里。
 
     之前这段逻辑写在 build_collection_spec 里,判定脚本读不到 —— 于是同一个廖,
@@ -187,12 +223,21 @@ def overlay_interview(cands: list[dict]) -> int:
             continue
         iv = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         for a in iv.get("answers") or []:
+            # **模拟答案是开发用的,默认不进判定。** 实测踩过:9 份模拟访谈被当成真访谈,
+            # 第 5 步直接给出「入选 4 人」—— 一份看起来完全正常的录用建议,而里面 9 个人
+            # 从没被面过。要用模拟数据只能显式 --include-simulated,并且结论必须标演练。
+            if str(a.get("basis") or "interview") in ("simulated", "simulated_interview") \
+                    and not allow_simulated:
+                continue
             for prop, val in (a.get("props") or {}).items():
                 if c.get(prop) is None:
                     c[prop] = val; n += 1
             for comp in a.get("establishes") or []:
                 if comp not in c["components"]:
                     c["components"].add(comp); n += 1
+            # 明确否认也要记 —— 否则"我问过了,他说没有"和"我没问到"在判定里长得一样
+            for comp in a.get("denies") or []:
+                c.setdefault("_denied", set()).add(comp)
             prop = IV_FIELD_PROP.get(a.get("field") or "")
             if prop and c.get(prop) is None:
                 c[prop] = a.get("answer"); n += 1
@@ -228,10 +273,65 @@ def overlay_major_field(cands: list[dict]) -> int:
     return n
 
 
-def judge_component(held: set, needed: list) -> tuple:
+#: 证据强度分级。能力类的"满足"不是一个二元结论 —— "他说他会"和"他拿出过案例"差别很大。
+#:   strong 案例/实测:面试记录里带 case/test,或业务现场出题做对了
+#:   weak   自述:简历写的、面试里说自己会
+#:   none   无证据
+EVIDENCE_RANK = {"none": 0, "weak": 1, "strong": 2}
+EVIDENCE_CN = {"strong": "案例/实测", "weak": "仅自述", "none": "无证据"}
+
+
+def component_evidence(cid: str, comp: str, cv: dict, iv: dict) -> str:
+    """这个组件是被什么强度的证据坐实的。
+
+    刻意只看**记录里是否明写了** case/test —— 不从答案自由文本里猜"这像不像案例",
+    那会变成主观判断。想升级成 strong,就在采集时把 evidence_level 记下来。
+    """
+    for a in (iv or {}).get("answers") or []:
+        if comp in (a.get("establishes") or []):
+            lv = str(a.get("evidence_level") or "").lower()
+            if lv in ("case", "test", "strong"):
+                return "strong"
+            return "weak"
+    skills = ((cv.get(cid) or {}).get("skills") or {}).get("value") or []
+    if any(str(x.get("name")) == comp.replace("skill_", "") for x in skills):
+        return "weak"
+    return "none"
+
+
+def judge_component(held: set, needed: list, match: dict | None = None,
+                    absence: str = "unknown", evidence: str | None = None,
+                    denied: set | None = None) -> tuple:
+    """组件类判定。匹配口径由**要求自己**决定,不是全局一个 50%:
+
+    match: {kind: any_of, n: 1}  → 命中其中任意一项即满足
+    match: {kind: all_of}        → 全都要(默认按 COVERAGE 覆盖率)
+    2026-11-21 admin 定:品质工具(5 项)是 any_of 1 —— 具体会哪个工具由业务面确认。
+    全局 50% 口径下全库只有 2 人过;any_of 1 下有 17 人过,差别全在这条口径上。
+    """
     if not needed:
         return "不可判", "没有组件"
     hit = [c for c in needed if c in held]
+    if not hit:
+        # **一直在问、当面否认** 和 **一项都没读到**,是两件事:
+        #   前者是候选人自己说的「没有」—— 有来源、可引原话,判不满足;
+        #   后者只是材料里读不到 —— 只能记未知,交给第 4 步去问。
+        # 之前只有前者也被记成未知,于是面完 30 个人,未知一条都没少。
+        _denied = denied or set()
+        if _denied and all(c in _denied for c in needed):
+            return "不满足", f"{len(needed)} 项一面明确否认(自述:没有相关经历或举不出例子)"
+    if not hit and absence == "unknown":
+        # **一项都没读到 ≠ 一项都不会。** 简历里没写、词表没覆盖、或者他确实没做过 ——
+        # 这三件事在这一层分不开,所以只能记「未知」,交给第 4 步去问。
+        # 之前这里直接判「不满足」,实测把 148 个没在简历里写"品质问题分析"的人判成不合格。
+        return "未知", f"{len(needed)} 项一项都没读到(可能没写/没做过,需面谈确认)"
+    kind = (match or {}).get("kind")
+    if kind == "any_of":
+        n = int((match or {}).get("n") or 1)
+        return ("满足" if len(hit) >= n else "不满足"), f"{len(hit)}/{len(needed)}(需要≥{n}项)"
+    if kind == "all_of":
+        # 客户用「及/和/、」把几项并列时,通常是**都要**。默认的 50% 覆盖率会把它读成"会一个就行"。
+        return ("满足" if len(hit) == len(needed) else "不满足"), f"{len(hit)}/{len(needed)}(需要全部{len(needed)}项)"
     return ("满足" if len(hit) / len(needed) >= COVERAGE else "不满足"), f"{len(hit)}/{len(needed)}"
 
 
@@ -297,6 +397,8 @@ def main() -> int:
     ap.add_argument("--top", type=int, default=10)
     ap.add_argument("--include-duplicates", action="store_true")
     ap.add_argument("--interview", action="store_true", help="把一面记录并进判定")
+    ap.add_argument("--real-only", action="store_true",
+                    help="强制只认真人答案(默认按 interview_policy.yaml)")
     args = ap.parse_args()
 
     global UNDETECTABLE
@@ -318,7 +420,15 @@ def main() -> int:
     cands = load_candidates()
     n_llm = overlay_llm(cands) if args.facts == "llm" else 0
     n_hr = overlay_hr(cands)
-    n_iv = overlay_interview(cands) if getattr(args, "interview", False) else 0
+    n_iv = 0
+    if getattr(args, "interview", False):
+        from scripts.talent import interview_policy
+        _mode, _src = interview_policy.mode_for(
+            args.jd, override="real" if getattr(args, "real_only", False) else None)
+        # 规则只在 interview_policy 一处,选人和判定不许各判一套
+        n_iv = overlay_interview(
+            cands, allow_simulated=_mode == interview_policy.MOCK_ALLOWED)
+        print(f"  [面试] 采信规则 {_mode} —— {_src}")
     n_mf = overlay_major_field(cands)
     pool = [c for c in cands if args.include_duplicates or not c["duplicate"]]
     cit = link["citations"]
@@ -341,7 +451,7 @@ def main() -> int:
                 state, why = "不可判", ("E 维无组件" if req.get("no_component") else "属性未建")
             elif req.get("_resolved"):
                 live, blind = split_detectable(req["_resolved"])
-                state, why = judge_component(cand["components"], live)
+                state, why = judge_component(cand["components"], live, req.get("match"))
                 if blind:
                     why += f"（另有 {len(blind)} 项原文要求但当前检不出:{'、'.join(blind)}）"
             elif req.get("attribute"):

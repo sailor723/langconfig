@@ -74,5 +74,45 @@
     "Role"
    ]
   }
- ]
+ ],
+ "i18n": {
+  "en": {
+   "title": "Walk from a number back to its definition",
+   "intro": "This data is a hiring-season snapshot computed from a pile of résumés and a pile of job descriptions. Every step points at one declared definition; when you press Run, the number is computed by compiled SQL instead of being written in the prose.",
+   "steps": [
+    {
+     "title": "How many people clear each role",
+     "body": "Pass counts the candidate rows entailed as members of that role's defined class. It reads no composite score and no rank — the score only decides who to look at first. So this number is a lower bound: people whose years or education were never read are not judged to qualify, and therefore do not appear here."
+    },
+    {
+     "title": "How many people clear more than one role",
+     "body": "This counts people whose qualified-role count reaches two in the per-person card. The cardinality constraint (having count >= 2) lives in the materialised view v_cross_role_candidate: one row per person, and the metric only counts it. It cannot be added to the per-role counts — the same person is counted under several roles."
+    },
+    {
+     "title": "How many slots a shortlist has",
+     "body": "Slots are the rows whose in-role rank falls inside the list length. It is not the pass count: passing is eligibility, slots are list capacity, and the gap between them is the candidate surplus for that role."
+    },
+    {
+     "title": "The cut-off score of a shortlist",
+     "body": "The cut-off is the lowest composite score inside the list. When comparing across roles, remember: the composite score is a ranking score, not a threshold; comparing cut-offs means comparing two roles' score distributions."
+    },
+    {
+     "title": "Highest and average score",
+     "body": "The maximum tells you the ceiling; the average tells you where the passing group sits. Both aggregate one column, with no gap filling mixed in."
+    },
+    {
+     "title": "Three things we never read",
+     "body": "Years, education and skills each carry a not-read marker. Not-read is neither zero nor a low value: those people do not pass a role with that threshold, so any pass rate here can only be a lower bound. The forbidden move is to coalesce the gap to zero — that rewrites these people as zero-experience."
+    },
+    {
+     "title": "A required skill nobody has",
+     "body": "Every required skill has a count of people who hold it. This metric counts the ones whose count is zero — zero is a measurement: nobody in this batch has it, not that we failed to read skills."
+    },
+    {
+     "title": "Questions refused by name",
+     "body": "Some questions this ontology cannot answer, and it says which declaration is missing instead of returning a plausible number. Example one: list the top ten names and matched skills for a role — the compute vocabulary has aggregate/grain/universe/where/groupBy and no orderBy/limit, so ordered row selection is not a number, and the missing piece is the row-selection vocabulary. Example two: what skills does a role need — the definition class cannot be judged true when the job description lacks that line, so it refuses by name. Neither is an oversight; both are the declared boundary."
+    }
+   ]
+  }
+ }
 }

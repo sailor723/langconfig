@@ -118,6 +118,11 @@ export function viewTypeToActivity(viewType: string): ActivityId | undefined {
     // Knowledge
     case 'knowledge-view':
       return 'knowledge';
+    // Talent —— 每个产物文件一个 tab（TalentSidebar 开）。必须归到 'talent'，
+    // 否则它会被当成全局 tab：切到别的活动时不会被关掉，还会继续占着 activeTab，
+    // 于是"点 Knowledge 却看见一份 JD"。（这正是 activity 映射缺失时的老毛病。）
+    case 'talent-doc':
+      return 'talent';
     // Prompt
     case 'prompt-detail':
       return 'prompt';

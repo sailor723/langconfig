@@ -1,0 +1,87 @@
+{
+ "_doc": "概念教程：每一步只加一样东西，每一步都能在 Protégé 里当场验证。菜单只列作者手写的章节，不从指标自动生成——这一课没有指标。",
+ "version": 1,
+ "ontology": "talent_steps",
+ "title": "Build a recruiting ontology, one thing at a time",
+ "intro": "Seven steps, one thing per step: from an empty class to a rule the machine can decide. Each chapter gives you the one line of Turtle it adds, where to click in Protégé, and what you should see — plus a query box that answers live against that step's own file, so you can watch the questions unlock one step at a time. All seven steps are ready.",
+ "steps": [
+  {
+   "kind": "chapters",
+   "title": "Create the candidate",
+   "body": "One empty box: candidates exist. Nothing is said about them yet — and that is the point. You cannot describe something you have not named. This chapter also states the three rules the whole course rests on: the TBox/ABox line, that the value's type decides the Protégé panel, and that individuals carry the facts while classes fuel the rules.",
+   "items": []
+  },
+  {
+   "kind": "chapters",
+   "title": "Add their years of experience",
+   "body": "The first thing we can say about a candidate: how many years of experience they have. It is a number, so it lives in the Data properties panel. This chapter also answers a confusing question: “which class is this property about” and “which panel does it show up in” are two different questions.",
+   "items": []
+  },
+  {
+   "kind": "chapters",
+   "title": "Add skills as their own thing",
+   "body": "A skill is not a person. “Python” is not a candidate. So skills get their own box, separate from the candidate box — and for now the two boxes have no connection at all. This box is the container: the skills themselves (Python, Java) are created in the next steps and filed inside it, each under a category that says what kind of skill it is. This chapter also warns off the one thing these two boxes must never do — merge into each other.",
+   "items": []
+  },
+  {
+   "kind": "chapters",
+   "title": "Join them: a candidate has a skill",
+   "body": "The link between the two boxes. It points one way only — candidates have skills, skills do not have candidates — and it is defined but not yet used: nobody has any skill yet. This chapter also makes an important point: the skills box is an open list. We never write down “the skills are Python, Java, Excel”; we say a candidate may have any skill that exists, and the skills themselves arrive later from whatever the CVs say. On 277 real CVs that is hundreds of different skills — nobody could have listed them in advance.",
+   "items": []
+  },
+  {
+   "kind": "chapters",
+   "title": "Put a real skill in the skill box",
+   "body": "Python — one specific skill — filed under a “programming” category. This is the first time a box in the ontology gains a member, and the chapter teaches the mistake that would break everything: writing the concrete skill as a category, which makes the rule “has a programming skill” match nobody at all. The query box shows the skill count going from 0 to 1.",
+   "items": []
+  },
+  {
+   "kind": "chapters",
+   "title": "Now add a real candidate",
+   "body": "Two real candidates from our files: A 君 knows Python and has 5 years of experience; B 君 knows Python too but has only 1. This is the step where the link built in step 4 finally carries something — so the questions that answered “no rows” in step 4 now have answers. What has NOT changed: “who qualifies as a software engineer?” is still empty, because two people with the same skill and different years is not yet an answer. Step 7 says what “qualifies” means.",
+   "items": []
+  },
+  {
+   "kind": "chapters",
+   "title": "Write the rule, and let the machine decide",
+   "body": "A software engineer is someone who is a candidate, has a programming skill, and has 3 years or more of experience. Nothing is written about A or B — the machine works the answer out from the rule and the facts, and says A qualifies and B does not. The last lesson is the sharpest one: the query box STILL answers “no rows” to “who qualifies?” even now, because the conclusion is in no file. Only the reasoner can produce it — and deleting the rule makes its answer disappear too, which is what proves it was computed rather than typed.",
+   "items": []
+  }
+ ],
+ "i18n": {
+  "zh": {
+   "title": "一步一步搭一个招聘本体",
+   "intro": "七步，一步只加一样东西：从空的一个类，走到「机器能自己判」的规则。每一步给出它新增的那一行 Turtle、在 Protégé 里点哪里、以及你该看到什么；另外还有一个查询框，直接查这一步自己的文件 —— 你能看着问题一步一步解锁。七步都已就绪。",
+   "steps": [
+    {
+     "title": "建出候选人",
+     "body": "一个空盒子：存在候选人这回事。关于他有什么，一个字都还没说 —— 这正是这一步的意思：先有东西。"
+    },
+    {
+     "title": "加上「他有几年经验」",
+     "body": "关于候选人我们能说的第一件事：他有几年经验。它挂在「人」这个盒子上，而且只收整数。"
+    },
+    {
+     "title": "技能要单独成为一种东西",
+     "body": "技能不是人。「Python」不是候选人。所以技能要单独建类 —— 否则同一种技能会被写很多遍，而且写法会飘。"
+    },
+    {
+     "title": "连起来：候选人「会」技能",
+     "body": "两个盒子之间的链接。它是有方向的：候选人 → 技能。方向错了，问题就答不出来。"
+    },
+    {
+     "title": "往技能里放一个真技能",
+     "body": "Python —— 一个具体技能 —— 归在「编程类」下面。这一课最想拦住的错就在这里：把 Python 写成类是「空盒子 + 永不报错」。"
+    },
+    {
+     "title": "放一个真候选人",
+     "body": "从我们的文件里放两个真候选人：A 君会 Python、五年经验；B 君四年、不会编程。差别要能被判出来。"
+    },
+    {
+     "title": "写规则，让机器去判",
+     "body": "「软件工程师」= 是候选人 ∧ 有一种编程技能 ∧ 年限 ≥ 3。我们没有写「谁是」，我们写的是规则；谁合格由推理机算出来 —— 这就是「答案不在任何一行里」。"
+    }
+   ]
+  }
+ }
+}

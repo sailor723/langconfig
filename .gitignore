@@ -308,3 +308,6 @@ work/talent/cv_text/
 work/talent/cv_draft/
 # 图:dot 与 svg 进库(可 diff、矢量);png 是位图导出
 work/talent/graph/*.png
+
+# 第 5/4 步的运行锁(空文件,跨进程串行用)
+work/talent/.run-step.lock

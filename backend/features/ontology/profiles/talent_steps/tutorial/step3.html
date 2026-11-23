@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-store">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Step 3 — Add skills as their own kind of thing</title>
+<style>
+  body { font-family:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif; background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  header .rev { display:block; margin-top:4px; font:10px ui-monospace,Menlo,monospace; color:#9fb8cf; }
+  nav { background:#16324f; padding:8px 26px; }
+  nav a { color:#9fb8cf; font-size:12px; margin-right:14px; text-decoration:none; }
+  nav a.on { color:#fff; font-weight:600; }
+  main { max-width:1180px; margin:20px auto; padding:0 20px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:900px) { .cols { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:16px 18px; }
+  h2 { margin:0 0 10px; font-size:12px; letter-spacing:.5px; color:#334e68; text-transform:uppercase; }
+  h3 { margin:14px 0 6px; font-size:13px; color:#334e68; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; font-size:11px; text-transform:uppercase; color:#687b8f; padding:6px 8px; border-bottom:1px solid #e3e6ea; }
+  td { padding:6px 8px; border-bottom:1px solid #f0f2f5; vertical-align:top; }
+  td.mono, code, pre { font-family:ui-monospace,Menlo,monospace; }
+  .box { background:#f2f4f6; border:1px solid #e4e8ec; border-radius:8px; padding:10px 12px; margin-bottom:14px; }
+  .label { font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:#687b8f; margin:0 0 4px; }
+  .note { font-size:12px; color:#687b8f; margin-top:10px; line-height:1.5; }
+  .tech { border-left:3px solid #cbd5e1; background:#fbfcfd; }
+  .tech .label { color:#94a3b8; }
+  pre { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px; font-size:12px;
+        white-space:pre-wrap; max-height:360px; overflow:auto; }
+  .warn { color:#b3261e; font-size:12px; }
+  .ok { color:#0b7a3e; font-size:12px; }
+  .why { background:#eef3fb; border-color:#cfdff5; }
+  pre.sql { background:#f6f8fa; color:#1f2937; border:1px solid #e3e8ef; font-size:12px; }
+  .why .label { color:#0b4f9c; }
+  /* the query box — the same shape retail's chapters use */
+  .ask input#aq { width:100%; box-sizing:border-box; padding:8px 10px; border:1px solid #cdd5df;
+                  border-radius:8px; font:13px ui-monospace,Menlo,monospace; background:#fff; }
+  .ask button#arun { margin-top:8px; background:#0b4f9c; color:#fff; border:0; border-radius:8px;
+                     padding:8px 14px; font-size:12px; cursor:pointer; }
+  .ex { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .runrow { display:flex; gap:8px; align-items:center; }
+  .runrow button { margin:0; }
+  .runrow button.ghost { background:#eef2f6; color:#0b4f9c; border:1px solid #cfdff5; }
+  .aclass { flex:1; min-width:0; padding:7px 9px; font:12px ui-monospace,Menlo,monospace;
+            border:1px solid #cdd5df; border-radius:8px; }
+  /* the reasoner panel: a separate, clearly-labelled box, so the reader always knows WHICH
+     question is being asked and WHICH tool is being asked */
+  .reasoner { margin-top:12px; border:1px solid #cfdff5; border-radius:10px; padding:12px 14px;
+              background:#f7faff; }
+  .reasoner-head { display:flex; flex-direction:column; gap:3px; margin-bottom:10px; }
+  .reasoner-title { font-size:12.5px; font-weight:700; color:#0b4f9c; letter-spacing:.3px; }
+  .reasoner-why { font-size:11.5px; color:#687b8f; line-height:1.45; }
+  .reasoner-q { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:7px;
+                font:12.5px ui-monospace,Menlo,monospace; color:#334e68; }
+  .reasoner-q .rq-label { font-size:9.5px; letter-spacing:.08em; text-transform:uppercase;
+                           color:#94a3b8; background:#eef2f6; border-radius:4px; padding:2px 6px; }
+  .reasoner-q code { background:#eef3fb; border:1px solid #d5e3f7; border-radius:6px;
+                      padding:3px 8px; font-size:12.5px; color:#0b4f9c; }
+  .reasoner-q .rq-radio { display:flex; align-items:center; gap:4px; font-size:11.5px;
+                           color:#334e68; cursor:pointer; }
+  .reasoner-q .rq-radio input { width:auto; margin:0; }
+  /* the button that produced the answer stays lit */
+  .runrow button.active { outline:3px solid #f0a202; outline-offset:1px; }
+  .runrow button.active.ghost { background:#fff3d6; color:#8a5a00; border-color:#f0a202; }
+  .asrc { font-size:11.5px; font-weight:600; margin:2px 0 6px; letter-spacing:.2px; }
+  .asrc.query { color:#0b4f9c; }
+  .asrc.reasoner { color:#b45309; }
+  .scope { display:flex; gap:14px; margin-top:10px; font-size:12px; color:#334e68; }
+  .scope label { display:flex; align-items:center; gap:5px; cursor:pointer; }
+  .scope input { width:auto; margin:0; }
+  .ex button { margin:0; background:#eef2f6; color:#0b4f9c; font-size:11px; padding:4px 9px;
+               border:0; border-radius:6px; cursor:pointer; }
+  #ares { display:none; margin-top:12px; border-top:1px dashed #e3e6ea; padding-top:10px; }
+  #ahead { font:12px ui-monospace,Menlo,monospace; color:#0b4f9c; font-weight:600; }
+  #asql { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:10px 12px; font-size:11.5px;
+          white-space:pre-wrap; margin:8px 0 0; }
+  #arows { width:100%; margin-top:8px; }
+  #arows td { font:12px ui-monospace,Menlo,monospace; }
+  .hint { font-size:12px; color:#687b8f; margin-top:10px; line-height:1.5; }
+</style></head>
+<body data-key="talent_steps">
+<header><h1>Step 3 — Add skills as their own kind of thing</h1>
+  <span class="rev">step 3 — a second box · 3/7 · talent_steps · build 2026-11-15-a</span></header>
+<nav><a href="/api/ontology/talent_steps/tutorial/chapter/1">1. Create the candidate</a><a href="/api/ontology/talent_steps/tutorial/chapter/2">2. Add their years of experience</a><a href="/api/ontology/talent_steps/tutorial/chapter/3" class="on">3. Add skills as their own kind of thing</a><a href="/api/ontology/talent_steps/tutorial/chapter/4">4. Join them: a candidate has a skill</a><a href="/api/ontology/talent_steps/tutorial/chapter/5">5. Put a real skill in the skill box</a><a href="/api/ontology/talent_steps/tutorial/chapter/6">6. Now add a real candidate</a><a href="/api/ontology/talent_steps/tutorial/chapter/7">7. Write the rule, and let the machine decide</a></nav>
+<main><div style="background:#fff8e6;border:1px solid #f0c674;border-radius:8px;padding:10px 14px;margin:10px 0;font-size:13px;line-height:1.6"><b>中文版：</b><code>tutorial/ZH.md</code> —— 这一页是英文原版；中文正文已按同样七步重写（先结论、后术语），以那份为准。</div><div class="cols">
+
+      <div class="card">
+        <h2>What we add</h2>
+        <div class="box"><p class="label">One more empty box</p>
+          <pre>:SkillTag  a  owl:Class .</pre>
+        </div>
+        <div class="box"><p class="label">In plain words</p>
+          <p>A skill is not a person. “Python” is not a candidate. So skills get their own box,
+          separate from the candidate box.</p>
+        </div>
+        <div class="box why"><p class="label">Why we need this box</p>
+          <p>Because <strong>this box is where the skills will go</strong>. In the next steps we
+          create the skills themselves — Python, Java — and each one is filed inside this box,
+          under a category that says what kind of skill it is.</p>
+          <p>So this step is creating the <strong>container</strong>, not the contents. The box
+          exists first; the skills go in afterwards.</p>
+        </div>
+        <div class="box why"><p class="label">Why this is next</p>
+          <p>Step 2 showed us a candidate has <strong>two kinds</strong> of information about them:
+          numbers (years) and things (skills). Numbers go in a slot; things need a box of their own.</p>
+        </div>
+        <div class="box"><p class="label">What the reader sees</p>
+          <p>Two boxes — and <strong>no connection between them yet</strong>. They are two islands.
+          The skills box is still empty; that is the point of this step.</p>
+        </div>
+        <div class="box tech"><p class="label">Optional technical note</p>
+          <p>A second <strong>class</strong>. Two classes with no link between them are two separate
+          islands — step 4 joins them.</p>
+        </div>
+        <h2>What Protégé should show</h2>
+        <table><thead><tr><th>Panel</th><th>Expected</th></tr></thead><tbody>
+          <tr><td><strong>Classes</strong></td><td><strong>2 rows <code>Candidate</code>, <code>SkillTag</code></strong> ← new (side by side, neither contains the other)</td></tr>
+          <tr><td>Data properties</td><td>1 row (unchanged)</td></tr>
+          <tr><td>Object properties</td><td>still empty</td></tr>
+          <tr><td>Individuals</td><td>still empty — the skills box has nothing in it yet</td></tr>
+        </tbody></table>
+      </div>
+
+      <div class="card">
+        <h2>Remember this: “no relationship yet”</h2>
+        <div class="box"><p class="label">The state before the bridge</p>
+          <pre>owl:Thing
+├── :Candidate      (candidates)
+└── :SkillTag       (skills)</pre>
+          <p><strong>Two islands, no link between them.</strong></p>
+          <p class="note">Step 4 builds the bridge. Keeping this “no relationship yet” state visible
+          is the point of stopping here.</p>
+        </div>
+        <div class="box"><p class="label">And one thing they must never do</p>
+          <p>These two boxes must stay <strong>separate kinds of thing</strong>. A person is not a
+          skill, and a skill is not a person.</p>
+          <p>So we never write <code>:SkillTag rdfs:subClassOf :Candidate</code> — that would say
+          “every skill is a candidate”, and the machine would then conclude that every candidate is
+          a skill too. The whole model collapses into one meaningless box.</p>
+          <p class="note">Worth knowing now: the reason the box is called <code>SkillTag</code> and
+          not <code>Skill</code> is that a <em>concrete</em> skill (step 5) is an item <em>tagged</em>
+          with a category — <code>:Python a :SkillTag , :Programming</code>. If the box were called
+          <code>Skill</code>, that line would read as “Python IS a skill”, which is the confusion
+          step 5 exists to clear up.</p>
+        </div>
+      </div>
+</div></main>
+
+</body></html>

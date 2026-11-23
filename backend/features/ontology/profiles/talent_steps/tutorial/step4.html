@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-store">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Step 4 — Join them: a candidate has a skill</title>
+<style>
+  body { font-family:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif; background:#f6f7f9; margin:0; color:#1c1e21; }
+  header { background:#102a43; color:#fff; padding:18px 26px; }
+  header h1 { margin:0; font-size:17px; }
+  header .rev { display:block; margin-top:4px; font:10px ui-monospace,Menlo,monospace; color:#9fb8cf; }
+  nav { background:#16324f; padding:8px 26px; }
+  nav a { color:#9fb8cf; font-size:12px; margin-right:14px; text-decoration:none; }
+  nav a.on { color:#fff; font-weight:600; }
+  main { max-width:1180px; margin:20px auto; padding:0 20px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:900px) { .cols { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:10px; padding:16px 18px; }
+  h2 { margin:0 0 10px; font-size:12px; letter-spacing:.5px; color:#334e68; text-transform:uppercase; }
+  h3 { margin:14px 0 6px; font-size:13px; color:#334e68; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; font-size:11px; text-transform:uppercase; color:#687b8f; padding:6px 8px; border-bottom:1px solid #e3e6ea; }
+  td { padding:6px 8px; border-bottom:1px solid #f0f2f5; vertical-align:top; }
+  td.mono, code, pre { font-family:ui-monospace,Menlo,monospace; }
+  .box { background:#f2f4f6; border:1px solid #e4e8ec; border-radius:8px; padding:10px 12px; margin-bottom:14px; }
+  .label { font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:#687b8f; margin:0 0 4px; }
+  .note { font-size:12px; color:#687b8f; margin-top:10px; line-height:1.5; }
+  .tech { border-left:3px solid #cbd5e1; background:#fbfcfd; }
+  .tech .label { color:#94a3b8; }
+  pre { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:12px; font-size:12px;
+        white-space:pre-wrap; max-height:360px; overflow:auto; }
+  .warn { color:#b3261e; font-size:12px; }
+  .ok { color:#0b7a3e; font-size:12px; }
+  .why { background:#eef3fb; border-color:#cfdff5; }
+  pre.sql { background:#f6f8fa; color:#1f2937; border:1px solid #e3e8ef; font-size:12px; }
+  .why .label { color:#0b4f9c; }
+  /* the query box — the same shape retail's chapters use */
+  .ask input#aq { width:100%; box-sizing:border-box; padding:8px 10px; border:1px solid #cdd5df;
+                  border-radius:8px; font:13px ui-monospace,Menlo,monospace; background:#fff; }
+  .ask button#arun { margin-top:8px; background:#0b4f9c; color:#fff; border:0; border-radius:8px;
+                     padding:8px 14px; font-size:12px; cursor:pointer; }
+  .ex { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .runrow { display:flex; gap:8px; align-items:center; }
+  .runrow button { margin:0; }
+  .runrow button.ghost { background:#eef2f6; color:#0b4f9c; border:1px solid #cfdff5; }
+  .aclass { flex:1; min-width:0; padding:7px 9px; font:12px ui-monospace,Menlo,monospace;
+            border:1px solid #cdd5df; border-radius:8px; }
+  /* the reasoner panel: a separate, clearly-labelled box, so the reader always knows WHICH
+     question is being asked and WHICH tool is being asked */
+  .reasoner { margin-top:12px; border:1px solid #cfdff5; border-radius:10px; padding:12px 14px;
+              background:#f7faff; }
+  .reasoner-head { display:flex; flex-direction:column; gap:3px; margin-bottom:10px; }
+  .reasoner-title { font-size:12.5px; font-weight:700; color:#0b4f9c; letter-spacing:.3px; }
+  .reasoner-why { font-size:11.5px; color:#687b8f; line-height:1.45; }
+  .reasoner-q { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:7px;
+                font:12.5px ui-monospace,Menlo,monospace; color:#334e68; }
+  .reasoner-q .rq-label { font-size:9.5px; letter-spacing:.08em; text-transform:uppercase;
+                           color:#94a3b8; background:#eef2f6; border-radius:4px; padding:2px 6px; }
+  .reasoner-q code { background:#eef3fb; border:1px solid #d5e3f7; border-radius:6px;
+                      padding:3px 8px; font-size:12.5px; color:#0b4f9c; }
+  .reasoner-q .rq-radio { display:flex; align-items:center; gap:4px; font-size:11.5px;
+                           color:#334e68; cursor:pointer; }
+  .reasoner-q .rq-radio input { width:auto; margin:0; }
+  /* the button that produced the answer stays lit */
+  .runrow button.active { outline:3px solid #f0a202; outline-offset:1px; }
+  .runrow button.active.ghost { background:#fff3d6; color:#8a5a00; border-color:#f0a202; }
+  .asrc { font-size:11.5px; font-weight:600; margin:2px 0 6px; letter-spacing:.2px; }
+  .asrc.query { color:#0b4f9c; }
+  .asrc.reasoner { color:#b45309; }
+  .scope { display:flex; gap:14px; margin-top:10px; font-size:12px; color:#334e68; }
+  .scope label { display:flex; align-items:center; gap:5px; cursor:pointer; }
+  .scope input { width:auto; margin:0; }
+  .ex button { margin:0; background:#eef2f6; color:#0b4f9c; font-size:11px; padding:4px 9px;
+               border:0; border-radius:6px; cursor:pointer; }
+  #ares { display:none; margin-top:12px; border-top:1px dashed #e3e6ea; padding-top:10px; }
+  #ahead { font:12px ui-monospace,Menlo,monospace; color:#0b4f9c; font-weight:600; }
+  #asql { background:#0f172a; color:#dbe7f3; border-radius:8px; padding:10px 12px; font-size:11.5px;
+          white-space:pre-wrap; margin:8px 0 0; }
+  #arows { width:100%; margin-top:8px; }
+  #arows td { font:12px ui-monospace,Menlo,monospace; }
+  .hint { font-size:12px; color:#687b8f; margin-top:10px; line-height:1.5; }
+</style></head>
+<body data-key="talent_steps">
+<header><h1>Step 4 — Join them: a candidate has a skill</h1>
+  <span class="rev">step 4 — the bridge · 4/7 · talent_steps · build 2026-11-15-a</span></header>
+<nav><a href="/api/ontology/talent_steps/tutorial/chapter/1">1. Create the candidate</a><a href="/api/ontology/talent_steps/tutorial/chapter/2">2. Add their years of experience</a><a href="/api/ontology/talent_steps/tutorial/chapter/3">3. Add skills as their own kind of thing</a><a href="/api/ontology/talent_steps/tutorial/chapter/4" class="on">4. Join them: a candidate has a skill</a><a href="/api/ontology/talent_steps/tutorial/chapter/5">5. Put a real skill in the skill box</a><a href="/api/ontology/talent_steps/tutorial/chapter/6">6. Now add a real candidate</a><a href="/api/ontology/talent_steps/tutorial/chapter/7">7. Write the rule, and let the machine decide</a></nav>
+<main><div style="background:#fff8e6;border:1px solid #f0c674;border-radius:8px;padding:10px 14px;margin:10px 0;font-size:13px;line-height:1.6"><b>中文版：</b><code>tutorial/ZH.md</code> —— 这一页是英文原版；中文正文已按同样七步重写（先结论、后术语），以那份为准。</div><div class="cols">
+
+      <div class="card">
+        <h2>What we add</h2>
+        <div class="box"><p class="label">The link from the candidate box to the skill box</p>
+          <pre>:hasSkill  a  owl:ObjectProperty ;
+    rdfs:domain :Candidate ;
+    rdfs:range  :SkillTag .</pre>
+        </div>
+        <div class="box"><p class="label">In plain words</p>
+          <p>We write down that a candidate can <strong>have</strong> a skill. The link only points
+          one way: candidates have skills; skills do not have candidates.</p>
+        </div>
+        <div class="box why"><p class="label">Why this is next</p>
+          <p>We have both boxes; now we connect them.</p>
+        </div>
+        <div class="box why"><p class="label">The skills box is an open list</p>
+          <p>This link points at a <strong>box</strong>, not at a fixed set of items. We never write
+          down “the skills are Python, Java, Excel” as the rule. We say: <em>a candidate may have
+          any skill that exists</em>, and the skills themselves arrive later — one at a time, from
+          whatever the CVs actually say.</p>
+          <p>That matters at scale: on this project 277 CVs mention <strong>hundreds</strong> of
+          different skills, and nobody could have listed them in advance. The box stays open; the
+          contents are data, not schema.</p>
+          <p class="note">This is the difference between a <em>list of skills</em> and a
+          <em>kind of skill</em>. The box is a kind; the list inside it grows with the data.</p>
+        </div>
+        <div class="box"><p class="label">What the reader sees</p>
+          <p>An arrow from the candidate box to the skill box — <strong>defined but unused</strong>.
+          Nowhere yet does it say <em>who</em> has <em>which</em> skill. That is step 6, and this gap
+          is deliberate.</p>
+        </div>
+        <div class="box tech"><p class="label">Optional technical note</p>
+          <p>An <strong>object property</strong> — it points at another thing, not at a number.
+          <code>rdfs:domain</code> is the candidate box; <code>rdfs:range</code> is the skill box.</p>
+        </div>
+        <h2>What Protégé should show</h2>
+        <table><thead><tr><th>Panel</th><th>Expected</th></tr></thead><tbody>
+          <tr><td><strong>Object properties</strong></td><td><strong>1 row <code>hasSkill</code></strong> ← new</td></tr>
+          <tr><td>Classes</td><td>2 rows (unchanged)</td></tr>
+          <tr><td>Data properties</td><td>1 row (unchanged)</td></tr>
+        </tbody></table>
+      </div>
+
+      <div class="card">
+        <h2>Two properties, one candidate</h2>
+        <table><thead><tr><th>Property</th><th>Panel</th><th>Value type</th><th>Domain</th><th>Range</th></tr></thead><tbody>
+          <tr><td class="mono">:yearsExperience</td><td>Data properties</td><td>number <code>5</code></td>
+              <td class="mono">:Candidate</td><td class="mono">xsd:integer</td></tr>
+          <tr><td class="mono">:hasSkill</td><td>Object properties</td><td>entity <code>:Python</code></td>
+              <td class="mono">:Candidate</td><td class="mono">:SkillTag</td></tr>
+        </tbody></table>
+        <p class="note">Both are properties of a candidate; they land in different panels because
+        their values are different kinds of thing.</p>
+        <h2>A naming rule we will need later</h2>
+        <div class="box"><p class="label">Classes and individuals must not share a name</p>
+          <p>If a concrete skill were called <code>CAD</code> and we also built a <em>category</em>
+          called <code>CAD</code>, the same name would be both a box and something inside a box —
+          and the reasoner would read that as “a thing belonging to itself”. So the categories in
+          step 5 are named differently (<code>Programming</code>, not <code>Python</code>).</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Try it: ask the ontology a question</h2>
+        <p>The query runs against <em>this step's file</em> — step 4, not the finished ontology —
+        so the answer is the honest one for where we are.</p>
+        <p>Two of these <strong>work</strong>, and one <strong>cannot be answered yet</strong>. Both
+        outcomes matter: a query that returns nothing could mean the ontology is broken, or it could
+        mean the ontology has not got that far yet. You only know which by trying one that works.</p>
+        <div class="ask">
+          <input id="aq" placeholder="SELECT ?c WHERE { ?c a owl:Class }"/>
+          <div class="ex">
+            <button data-q="SELECT ?c WHERE { ?c a owl:Class }" data-ok="1">which boxes exist?</button>
+            <button data-q="SELECT ?p WHERE { ?p a owl:ObjectProperty }" data-ok="1">which links exist?</button>
+            <button data-q="SELECT (COUNT(?c) AS ?n) WHERE { ?c a :Candidate }" data-ok="1">how many candidates?</button>
+            <button data-q="SELECT ?c WHERE { ?c a :matches_SoftwareEngineer }" data-ok="0">who qualifies? ✗ needs the reasoner</button>
+          </div>
+          <div class="scope">
+            <label><input type="radio" name="scope" value="all" checked/> the whole ontology</label>
+            <label><input type="radio" name="scope" value="step"/> this step only</label>
+          </div>
+          <button id="arun">Run the query</button>
+          <div id="ares">
+            <div id="ahead">—</div>
+            <div id="asrc" class="asrc"></div>
+            <table id="arows" style="display:none"><tbody></tbody></table>
+            <pre id="asql"></pre>
+            <div class="hint" id="ahint"></div>
+          </div>
+        </div>
+        <div class="box"><p class="label">The same questions, against the whole ontology</p>
+          <p>Nothing is locked — the query box is live. Switch <strong>“the whole ontology”</strong>
+          on and these questions come back with real rows, because by then the ontology is
+          complete.</p>
+          <table><thead><tr><th>Question</th><th>The whole ontology</th><th>This step only</th></tr></thead><tbody>
+            <tr><td>who are the candidates?</td><td class="ok"><strong>cand_A, cand_B</strong></td>
+                <td class="warn">no rows</td></tr>
+            <tr><td>who has a skill?</td><td class="ok"><strong>cand_A → Python, cand_B → Python</strong></td>
+                <td class="warn">no rows</td></tr>
+            <tr><td>which skills exist?</td><td class="ok"><strong>Python</strong></td><td class="warn">no rows</td></tr>
+          </tbody></table>
+          <p class="note">Type any query into the box and press <strong>Run the query</strong> —
+          both scopes answer live. What you see in the left column is the point of this step: the
+          link exists, and <strong>nothing uses it yet</strong>. Each later step fills it in.</p>
+        </div>
+        <div class="box"><p class="label">What each working answer means</p>
+          <table><thead><tr><th>Question</th><th>Answer at step 4</th><th>Why</th></tr></thead><tbody>
+            <tr><td>which boxes exist?</td><td class="ok"><strong>Candidate, SkillTag</strong></td>
+                <td>Two <em>kinds</em> of thing exist — one line each.</td></tr>
+            <tr><td>which links exist?</td><td class="ok"><strong>hasSkill</strong></td>
+                <td>The link was built in this very step.</td></tr>
+            <tr><td>how many candidates?</td><td class="ok"><strong>0</strong></td>
+                <td>The query works and the answer is <strong>zero</strong>: the box exists, but
+                nobody is in it yet.</td></tr>
+          </tbody></table>
+          <p><strong>“0” and “no rows” are different answers.</strong> The first says “there are
+          none”; the second says “I have nothing to tell you”. Both are honest — and which one you
+          get tells you how far the ontology has been built.</p>
+          <p class="note">Notice what “how many candidates?” is really asking: it counts the
+          <strong>people</strong> in the box. The box itself is described by
+          <code>:Candidate a owl:Class</code> — one line, one kind of thing. A box is not one of its
+          contents.</p>
+          <p class="note">This is how you know an ontology is not finished: <strong>the questions
+          you most want to ask are the ones it cannot answer</strong>. Each next step unlocks one —
+          step 5 makes “who has a skill?” find a skill, step 6 makes it find people.</p>
+        </div>
+      </div>
+</div></main>
+
+<script>
+(function () {
+  const STEP = 4;
+  const F = (id) => document.getElementById(id);
+  // WHICH ONTOLOGY ANSWERS: this step's file, or the complete one. Resolved ONCE, here, so both
+  // buttons use the same answer — it used to be computed inside `run()` only, and `askReasoner()`
+  // then read an undefined `step` and died with "Can't find variable: step".
+  function scopeOf() {
+    const picked = document.querySelector('input[name=scope]:checked');
+    return (picked && picked.value) || 'all';
+  }
+  function stepOf() {
+    return scopeOf() === 'all' ? 'all' : STEP;
+  }
+  function scopeLabel() {
+    return scopeOf() === 'all' ? 'the whole ontology' : 'step ' + STEP;
+  }
+  // The reasoner panel carries its OWN radios: asking the reasoner is a different act from running
+  // a query, and the reader should be able to say "reason over the whole ontology" while still
+  // querying this step. Both sets of radios stay in sync with what they describe.
+  function reasonerScope() {
+    const picked = document.querySelector('input[name=rscope]:checked');
+    return (picked && picked.value) || 'all';
+  }
+  function reasonerStep() {
+    return reasonerScope() === 'all' ? 'all' : STEP;
+  }
+  function paintReasonerQuestion() {
+    const cls = (F('aclass') || {}).value || 'matches_SoftwareEngineer';
+    const c = F('rqclass'); if (c) c.textContent = cls;
+    const s = F('rqscope');
+    if (s) s.textContent = reasonerScope() === 'all' ? 'the whole ontology' : 'step ' + STEP;
+  }
+  // WHICH BUTTON DID THE READER PRESS? The answer panel says so, and the button stays lit — so a
+  // reader who pressed "Ask the reasoner" can see at a glance WHICH tool produced the number.
+  function markSource(which) {
+    const q = F('arun'), r = F('areason');
+    if (q) q.classList.toggle('active', which === 'query');
+    if (r) r.classList.toggle('active', which === 'reasoner');
+    const badge = F('asrc');
+    if (badge) {
+      badge.textContent = which === 'reasoner'
+        ? 'answered by the REASONER (worked out from the rule)'
+        : 'answered by a QUERY (found in the file)';
+      badge.className = 'asrc ' + which;
+    }
+  }
+
+  const ex = document.querySelectorAll('.ex button');
+  ex.forEach(b => b.addEventListener('click', () => {
+    F('aq').value = b.dataset.q;
+    // the button says whether this query is expected to work at this step
+    run(b.dataset.ok === '1');
+  }));
+  F('arun').addEventListener('click', () => { markSource('query'); run(); });
+  F('areason').addEventListener('click', () => { markSource('reasoner'); askReasoner(); });
+  F('aq').addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { markSource('query'); run(); } });
+  document.querySelectorAll('input[name=rscope]').forEach(r =>
+    r.addEventListener('change', paintReasonerQuestion));
+  const aclass = F('aclass');
+  if (aclass) aclass.addEventListener('input', paintReasonerQuestion);
+  paintReasonerQuestion();
+
+  async function run(expectOk) {
+    const q = F('aq').value.trim();
+    if (!q) return;
+    // WHICH ONTOLOGY ANSWERS: this step's file, or the complete one. The reader picks — the box
+    // is live either way, and both answers are real.
+    const scope = scopeOf();
+    const step = stepOf();
+    F('ares').style.display = 'block';
+    F('ahead').textContent = 'asking ' + scopeLabel() + '…';
+    F('asql').textContent = '';
+    F('ahint').textContent = '';
+    const rows = F('arows');
+    rows.style.display = 'none';
+    rows.querySelector('tbody').innerHTML = '';
+    let j;
+    try {
+      j = await (await fetch('/api/ontology/talent_steps/wb/stepquery?step=' + step +
+                             '&query=' + encodeURIComponent(q))).json();
+    } catch (e) {
+      F('ahead').textContent = 'request failed: ' + e;
+      return;
+    }
+    // SHOW WHAT CAME BACK. A tutorial that swallows the raw answer is a tutorial nobody can debug:
+    // if the answer is wrong, the reader must be able to see what the server actually said.
+    F('asql').textContent = 'query → ' + j.file + '  (' + j.triples + ' triples)\n' + q +
+                            '\nserver said: ' + JSON.stringify(j).slice(0, 400);
+    const body = rows.querySelector('tbody');
+    const isError = (j.rows && j.rows.length === 1 && String(j.rows[0][0] || '').startsWith('QUERY ERROR'));
+    if (isError) {
+      F('ahead').textContent = 'QUERY ERROR';
+      F('ahint').textContent = String(j.rows[0][0]);
+      return;
+    }
+    if (!j.rows || !j.rows.length) {
+      F('ahead').textContent = 'no rows';
+      F('ahint').textContent = expectOk === false
+        ? 'As expected at step ' + STEP + ': the ontology cannot answer this yet. The next steps are what unlock it — or switch to “the whole ontology” to see the finished answer.'
+        : (scope === 'all'
+            ? 'The whole ontology has nothing to say about this yet either.'
+            : 'The ontology at step ' + STEP + ' has nothing to say about this yet. Switch to “the whole ontology” to see the finished answer.');
+      return;
+    }
+    F('ahead').textContent = (expectOk === false ? 'rows (not expected to work yet) — ' : '') +
+                             j.rows.length + ' row' + (j.rows.length === 1 ? '' : 's');
+    (j.columns || []).forEach(c => {
+      const tr = document.createElement('tr');
+      const th = document.createElement('td');
+      th.textContent = c;
+      th.style.fontWeight = '600';
+      tr.appendChild(th);
+      body.appendChild(tr);
+    });
+    j.rows.forEach(r => {
+      const tr = document.createElement('tr');
+      r.forEach(v => {
+        const td = document.createElement('td');
+        td.textContent = v;
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+    rows.style.display = 'table';
+  }
+
+  // ASK THE REASONER. SPARQL can only FIND what is in the files; the reasoner CONCLUDES what must
+  // be true. This button runs the real reasoner over the ontology and shows both numbers — what was
+  // asserted, and what was entailed — because the difference between them IS the lesson.
+  async function askReasoner() {
+    const cls = (F('aclass') || {}).value || 'matches_SoftwareEngineer';
+    const step = reasonerStep();
+    F('ares').style.display = 'block';
+    F('ahead').textContent = 'asking: who qualifies as a ' + cls + '?  ·  over ' +
+      (reasonerScope() === 'all' ? 'the whole ontology' : 'step ' + STEP) + '…';
+    F('asql').textContent = '';
+    F('ahint').textContent = '';
+    const rows = F('arows');
+    rows.style.display = 'none';
+    rows.querySelector('tbody').innerHTML = '';
+    let j;
+    try {
+      // the STEP-SCOPED reasoner: it reasons over the same file the query box reads, so at
+      // step 6 it honestly says "nothing yet" — the platform's own /reason always answers from
+      // the finished ontology, which would show step 7's answer while the reader is at step 6.
+      j = await (await fetch('/api/ontology/talent_steps/wb/stepreason?step=' + step +
+                             '&class=' + encodeURIComponent(cls))).json();
+    } catch (e) {
+      F('ahead').textContent = 'request failed: ' + e;
+      return;
+    }
+    if (!j.ok) {
+      F('ahead').textContent = 'the reasoner could not answer';
+      F('ahint').textContent = j.error || j.detail || '(no detail)';
+      return;
+    }
+    F('asql').textContent = 'reasoner → ' + j.engine + ' · ' + j.elapsed_ms + ' ms\n' +
+      'file ' + j.file + ' · asserted ' + j.asserted + ' · entailed ' + j.entailed +
+      (j.has_axiom === false ? ' · NO AXIOM IN THIS FILE' : '');
+    const body = rows.querySelector('tbody');
+    const head = document.createElement('tr');
+    ['candidate', 'how it got there'].forEach(c => {
+      const td = document.createElement('td');
+      td.textContent = c;
+      td.style.fontWeight = '600';
+      head.appendChild(td);
+    });
+    body.appendChild(head);
+    (j.rows || []).forEach(r => {
+      const tr = document.createElement('tr');
+      const a = document.createElement('td');
+      a.textContent = r;
+      tr.appendChild(a);
+      const b = document.createElement('td');
+      b.textContent = 'asserted ' + j.asserted + ' → entailed ' + j.entailed +
+                      ' (the reasoner worked it out)';
+      tr.appendChild(b);
+      body.appendChild(tr);
+    });
+    rows.style.display = 'table';
+    if (j.rows && j.rows.length) {
+      F('ahint').textContent = 'The file says NOTHING about this candidate. The reasoner concluded '
+                             + 'it from the axiom — that is why it is not written down anywhere.';
+    } else if (j.has_axiom === false) {
+      F('ahint').textContent = 'Nothing entailed, and this file has no axiom yet: '
+                             + 'the reasoner has no rule to apply. Step 7 writes it.';
+    } else {
+      F('ahint').textContent = 'Nothing entailed.';
+    }
+  }
+})();
+</script>
+
+</body></html>

@@ -23,6 +23,7 @@ single bare `/api/tutorial/` path.
 """
 from __future__ import annotations
 
+import html
 import json
 import logging
 import pathlib
@@ -131,6 +132,42 @@ def _settings(key: str) -> dict:
 
 
 # ── JSON: the three documents ───────────────────────────────────────────────
+def global_language() -> str:
+    """The app's UI language (**Settings → General → Language**), lower-cased, '' when unreadable.
+
+    这一层以前只看 profile 自己的 `ui.language`，结果两件事悄悄分叉：
+    界面切成中文，教程页还是英文；反过来也一样。用户在设置里选的语言是**一个**，
+    所以这里读同一个数。读不到时返回空串，调用方退回 profile 的声明。
+    """
+    try:
+        from core import settings as core_settings
+        from db.database import SessionLocal
+        db = SessionLocal()
+        try:
+            value = core_settings.resolve_value(db, "general") or {}
+        finally:
+            db.close()
+        return str(value.get("language") or "").lower()
+    except Exception:                                            # noqa: BLE001
+        return ""
+
+
+def configured_language(key: str) -> str:
+    """Which language these pages should be rendered in.
+
+    优先级：**全局设置**（Settings → General → Language）> profile 的 `ui.language`。
+    全局设置是用户在界面上真正改的那一个，所以它说话最算数；profile 里那句话保留为
+    "这个本体自己偏好什么"，只在全局读不到时兜底。
+    """
+    lang = global_language()
+    if lang:
+        return lang
+    try:
+        return str((_settings(key).get("ui") or {}).get("language") or "").lower()
+    except PageError:
+        return ""
+
+
 def tutorial_i18n(key: str) -> dict[str, str]:
     """The profile's declared translation for its own pages, in the language it declares.
 
@@ -147,7 +184,7 @@ def tutorial_i18n(key: str) -> dict[str, str]:
     """
     try:
         base = _profile(key).parent
-        lang = str((_settings(key).get("ui") or {}).get("language") or "").lower()
+        lang = configured_language(key)
     except PageError:
         return {}
     path = base / "tutorial" / "i18n.json"
@@ -161,6 +198,74 @@ def tutorial_i18n(key: str) -> dict[str, str]:
     return {str(k): str(v) for k, v in table.items() if k and v}
 
 
+def authored_language(key: str) -> str:
+    """页面正文是用哪种语言手写的(声明在 i18n.json 的 `authored`)。"""
+    try:
+        path = _profile(key).parent / "tutorial" / "i18n.json"
+        if not path.is_file():
+            return ""
+        return str((json.loads(path.read_text(encoding="utf-8")) or {}).get("authored") or "").lower()
+    except (PageError, OSError, ValueError):
+        return ""
+
+
+def language_notice(key: str) -> str:
+    """界面语言和正文母语不一致时,插一条说明 —— 半翻译要说出来,不能静默。"""
+    lang, authored = configured_language(key), authored_language(key)
+    if not lang or not authored or lang == authored:
+        return ""
+    if lang == "zh":
+        text = "界面语言是中文；本页正文为英文原版（数字按原文实测，未逐句翻译）。"
+    else:
+        text = ("The interface language is English; the body of this page is Chinese-only "
+                "because its numbers are measured against this client's data.")
+    return (f'<div style="background:#eef4ff;border:1px solid #b6cdf5;border-radius:8px;'
+            f'padding:9px 13px;margin:8px 0;font-size:12.5px;line-height:1.6">{text}</div>')
+
+
+#: 会被"整块翻译"的标签:正文段落、列表项、小标题、表格单元、标签行
+_BLOCK = re.compile(r'<(p|li|h2|h3|summary|td|th)([^>]*)>(.*?)</\1>', re.S)
+_LABEL_BLOCK = re.compile(r'<div class="label">(.*?)</div>', re.S)
+
+
+def _visible(inner: str) -> str:
+    text = re.sub(r'<[^>]+>', ' ', inner)
+    return re.sub(r'\s+', ' ', html.unescape(text)).strip()
+
+
+def translate_blocks(key: str, html: str) -> str:
+    """按**整块**替换正文(`i18n.json` 的 `en_blocks` / 任意 `<lang>_blocks` 表)。
+
+    为什么需要它:字符串表是按连续文本替换的,而正文段落里到处是行内标签
+    (`<code>:Candidate</code>、<strong>…</strong>`)—— 同一个句子在 HTML 里不是一个连续串,
+    塞进字符串表一条都命中不了(retail 那 52 条就是这么失效的)。块级替换用
+    "去掉标签后的可见文本"作键,替换值可以自带行内标签。
+    """
+    lang = configured_language(key)
+    if not lang:
+        return html
+    try:
+        path = _profile(key).parent / "tutorial" / "i18n.json"
+        table = (json.loads(path.read_text(encoding="utf-8")) or {}).get(f"{lang}_blocks") or {}
+    except (PageError, OSError, ValueError):
+        return html
+    if not table:
+        return html
+
+    def repl(m):
+        inner = m.group(3)
+        replay = table.get(_visible(inner))
+        return m.group(0) if not replay else m.group(0).replace(inner, replay)
+
+    html = _BLOCK.sub(repl, html)
+
+    def repl_label(m):
+        replay = table.get(_visible(m.group(1)))
+        return m.group(0) if not replay else m.group(0).replace(m.group(1), replay)
+
+    return _LABEL_BLOCK.sub(repl_label, html)
+
+
 def translate_page(key: str, html: str) -> str:
     """Apply the declared translation, longest source string first, IGNORING whitespace differences.
 
@@ -170,6 +275,7 @@ def translate_page(key: str, html: str) -> str:
     while the dictionary looked complete. Runs of whitespace in the key match runs in the HTML, which is
     what "the same sentence" means in HTML.
     """
+    html = translate_blocks(key, html)      # 块级优先(正文)
     table = tutorial_i18n(key)
     if not table:
         return html
@@ -271,6 +377,52 @@ def sections(key: str) -> list[dict]:
 
 
 # ── the tutorial, live ──────────────────────────────────────────────────────
+def localize_steps(key: str, doc: dict) -> dict:
+    """让"步骤列表"(浏览器里那一列)跟随全局语言。
+
+    三类来源都走这里:
+      ① 声明的 `i18n.<lang>` 块(首选:`tutorial.json` 里按语言给 title/intro/steps)——
+         结构和原文一一对应,不靠字符串匹配,所以不会"看着翻译了其实一条没命中";
+      ② 没有 `i18n` 块时,退回 `tutorial/i18n.json` 的字符串表,逐串替换 title/intro/步骤标题/正文;
+      ③ 两者都没有 → 原样返回(页面上会挂语言说明条,不静默假装翻译过)。
+    """
+    lang = configured_language(key)
+    if not lang or not isinstance(doc, dict):
+        return doc
+    declared = (doc.get("i18n") or {}).get(lang) or {}
+    table = tutorial_i18n(key)
+
+    def tr(text):
+        if not isinstance(text, str):
+            return text
+        return table.get(text, text)
+
+    out = dict(doc)
+    if isinstance(declared.get("title"), str):
+        out["title"] = declared["title"]
+    else:
+        out["title"] = tr(out.get("title"))
+    if isinstance(declared.get("intro"), str):
+        out["intro"] = declared["intro"]
+    else:
+        out["intro"] = tr(out.get("intro"))
+    steps = doc.get("steps") or []
+    dsteps = declared.get("steps") or []
+    new_steps = []
+    for i, st in enumerate(steps):
+        if not isinstance(st, dict):
+            new_steps.append(st)
+            continue
+        cur = dict(st)
+        d = dsteps[i] if i < len(dsteps) and isinstance(dsteps[i], dict) else {}
+        cur["title"] = d.get("title") or tr(st.get("title"))
+        cur["body"] = d.get("body") or tr(st.get("body"))
+        new_steps.append(cur)
+    out["steps"] = new_steps
+    out["lang"] = lang
+    return out
+
+
 def steps(key: str) -> dict:
     profile = _profile(key)
     with ontology_runtime._LOCK:
@@ -281,12 +433,12 @@ def steps(key: str) -> dict:
 
         doc = tutorial_api.authored(profile)
         if doc is not None:
-            return doc
-        return {"ok": True, "source": "derived", "profile": profile.name,
+            return localize_steps(key, doc)
+        return localize_steps(key, {"ok": True, "source": "derived", "profile": profile.name,
                 "title": _settings(key).get("title"),
                 "guard": _settings(key).get("guard") or {},
                 "features": _settings(key).get("features") or {},
-                "steps": tutorial_api.derive(_settings(key), sqlgen.load())}
+                "steps": tutorial_api.derive(_settings(key), sqlgen.load())})
 
 
 def tutorial_run(key: str, metric: str) -> dict:

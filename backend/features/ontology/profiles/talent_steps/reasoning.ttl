@@ -1,0 +1,47 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# 公理（规则）—— 这一课的"什么算合格"
+#
+# 这份文件是 `ontology/step07.ttl` 里那条公理（连同它依赖的 TBox）的独立副本：
+# 平台的推理接口按约定读 `abox.ttl` + `reasoning.ttl`。
+#
+# 大白话：
+#     软件工程师 = 是候选人 ∧ 会某种技能 ∧ 年限 ≥ 3
+#
+# ⚠️ 这里没有结论。合格的人由推理机算出来，不写在这里。
+# ─────────────────────────────────────────────────────────────────────────────
+@prefix :    <http://example.org/talent#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# 两个类
+:Candidate  a  owl:Class .
+:SkillTag   a  owl:Class .
+
+# 技能类别类：Python 归进这个筐（在 abox.ttl 里写成 a :SkillTag , :Programming）
+:Programming  a  owl:Class ;
+    rdfs:subClassOf :SkillTag .
+
+# 两个属性
+:yearsExperience  a  owl:DatatypeProperty ;
+    rdfs:domain :Candidate ;
+    rdfs:range  xsd:integer .
+
+:hasSkill  a  owl:ObjectProperty ;
+    rdfs:domain :Candidate ;
+    rdfs:range  :SkillTag .
+
+# 那条公理（类必须有名字，否则推理机答不了"谁在里面"）
+# someValuesFrom 指向的是【类别类】：只有归进了 :Programming 的技能才算数。
+:matches_SoftwareEngineer  a  owl:Class ;
+    owl:equivalentClass [
+        owl:intersectionOf (
+            :Candidate
+            [ a  owl:Restriction ;
+               owl:onProperty    :hasSkill ;
+               owl:someValuesFrom :Programming ]
+            [ a  owl:Restriction ;
+               owl:onProperty    :yearsExperience ;
+               owl:someValuesFrom [ a rdfs:Datatype ;
+                                    owl:onDatatype xsd:integer ;
+                                    owl:withRestrictions ( [ xsd:minInclusive 3 ] ) ] ] ) ] .

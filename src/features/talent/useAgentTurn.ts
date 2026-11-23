@@ -9,8 +9,14 @@
  *
  * The stream contract (`POST /api/chat/message/stream`, SSE `data: {json}`) is the
  * same one the chat page uses; only the consumer differs.
+ *
+ * **状态为什么放在模块级 store 里,而不是组件内 useState**：Tab 之间切换时 Workspace 只渲染
+ * 当前 tab,那个视图会被卸载 —— 对话、工具轨迹、正在跑的流全部跟着没。实测症状很具体:
+ * 打开 agent 的报告看它写了什么,回头对话就空了,而且还在跑的那一轮被静默丢掉。
+ * 一个对话面板不该因为"看了一眼别的文件"就失忆,所以状态按 `<agentId>:<projectId>` 落在
+ * 模块里,组件只是订阅者。
  */
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { API_BASE_URL } from '../../config/api';
 
 export interface ToolEvent {
@@ -27,18 +33,50 @@ export interface AgentTurnState {
   error: string | null;
 }
 
+const EMPTY: AgentTurnState = { answer: '', tools: [], running: false, error: null };
+
+interface Store {
+  state: AgentTurnState;
+  listeners: Set<() => void>;
+  /** 正在进行的请求。放这里而不是 ref 里,组件卸载时它不该被连带丢掉。 */
+  ctrl: AbortController | null;
+}
+
+const STORES = new Map<string, Store>();
+
+function getStore(key: string): Store {
+  let s = STORES.get(key);
+  if (!s) {
+    s = { state: EMPTY, listeners: new Set(), ctrl: null };
+    STORES.set(key, s);
+  }
+  return s;
+}
+
+function emit(store: Store, patch: Partial<AgentTurnState>): void {
+  store.state = { ...store.state, ...patch };
+  for (const l of store.listeners) l();
+}
+
 export function useAgentTurn(agentId: number, projectId: number) {
-  const [state, setState] = useState<AgentTurnState>({
-    answer: '', tools: [], running: false, error: null,
-  });
-  const abortRef = useRef<AbortController | null>(null);
+  const key = `${agentId}:${projectId}`;
+  const store = useMemo(() => getStore(key), [key]);
+
+  const state = useSyncExternalStore(
+    useCallback((cb: () => void) => {
+      store.listeners.add(cb);
+      return () => { store.listeners.delete(cb); };
+    }, [store]),
+    useCallback(() => store.state, [store]),
+    useCallback(() => store.state, [store]),
+  );
 
   const ask = useCallback(
     async (message: string) => {
-      abortRef.current?.abort();
+      store.ctrl?.abort();
       const ctrl = new AbortController();
-      abortRef.current = ctrl;
-      setState({ answer: '', tools: [], running: true, error: null });
+      store.ctrl = ctrl;
+      emit(store, { answer: '', tools: [], running: true, error: null });
 
       try {
         const start = await fetch(`${API_BASE_URL}/api/chat/start`, {
@@ -84,7 +122,7 @@ export function useAgentTurn(agentId: number, projectId: number) {
             }
             if (ev.type === 'chunk') {
               answer += ev.content || '';
-              setState((s) => ({ ...s, answer }));
+              emit(store, { answer });
             } else if (ev.type === 'tool_start') {
               const item: ToolEvent = {
                 name: ev.tool_name || '?',
@@ -92,33 +130,35 @@ export function useAgentTurn(agentId: number, projectId: number) {
                 at: Date.now(),
               };
               tools.push(item);
-              setState((s) => ({ ...s, tools: [...tools] }));
+              emit(store, { tools: [...tools] });
             } else if (ev.type === 'tool_end') {
               const last = [...tools].reverse().find((t) => t.name === ev.tool_name && t.output === undefined);
               if (last) {
                 last.output = typeof ev.data?.output === 'string'
                   ? ev.data.output
                   : JSON.stringify(ev.data?.output ?? '').slice(0, 4000);
-                setState((s) => ({ ...s, tools: [...tools] }));
+                emit(store, { tools: [...tools] });
               }
             }
           }
         }
-        setState((s) => ({ ...s, running: false }));
+        emit(store, { running: false });
       } catch (err: any) {
         if (err?.name === 'AbortError') {
-          setState((s) => ({ ...s, running: false }));
+          emit(store, { running: false });
         } else {
-          setState((s) => ({ ...s, running: false, error: String(err?.message || err) }));
+          emit(store, { running: false, error: String(err?.message || err) });
         }
+      } finally {
+        if (store.ctrl === ctrl) store.ctrl = null;
       }
     },
-    [agentId, projectId],
+    [agentId, projectId, store],
   );
 
   const cancel = useCallback(() => {
-    abortRef.current?.abort();
-  }, []);
+    store.ctrl?.abort();
+  }, [store]);
 
   return { ...state, ask, cancel };
 }

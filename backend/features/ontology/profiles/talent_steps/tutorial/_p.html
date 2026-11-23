@@ -1,0 +1,14 @@
+<!DOCTYPE html><html><body style="margin:0">
+<pre id="out" style="font:12px monospace;background:#111;color:#0f0;padding:8px;height:200px">…</pre>
+<iframe id="f" src="/api/ontology/talent_steps/tutorial/chapter/5?t=12345" style="width:1200px;height:1200px"></iframe>
+<script>
+setTimeout(async ()=>{
+  const d=document.getElementById('f').contentDocument, log=[];
+  const b=[...d.querySelectorAll('.ex button')].find(x=>x.textContent.includes('boxes'));
+  b.click(); await new Promise(r=>setTimeout(r,1500));
+  log.push('ahead = '+d.getElementById('ahead').textContent);
+  log.push('rows  = '+d.querySelectorAll('#arows tr').length);
+  log.push('asql  = '+d.getElementById('asql').textContent.slice(0,200).replace(/\n/g,' | '));
+  document.getElementById('out').textContent=log.join('\n');
+},1500);
+</script></body></html>

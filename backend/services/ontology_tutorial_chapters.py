@@ -133,13 +133,30 @@ def _activate(key: str):
 
 # ── the pages ───────────────────────────────────────────────────────────────
 def _rewrite(html: str, key: str) -> str:
-    """Make a page's absolute paths belong to THIS ontology on the app's own origin."""
-    html = (
-        html.replace('"/api/', f'"/api/ontology/{key}/wb/')
-        .replace("'/api/", f"'/api/ontology/{key}/wb/")
-        .replace('"/abctutorial/', f'"/api/ontology/{key}/abct/')
-        .replace("'/abctutorial/", f"'/api/ontology/{key}/abct/")
-    )
+    """Make a page's absolute paths belong to THIS ontology on the app's own origin.
+
+    The rewrite must be IDEMPOTENT. It used to replace every `"/api/` with
+    `"/api/ontology/{key}/wb/"` — so a page that already addressed this ontology's own endpoint
+    (`/api/ontology/talent_steps/wb/stepquery`) came back as
+    `/api/ontology/talent_steps/wb/ontology/talent_steps/wb/stepquery`, which 404s. The reader
+    saw "no rows" and an `undefined` filename, because the fetch had failed silently.
+    """
+    own = f"/api/ontology/{key}/"
+    # 1) a path that already points at THIS ontology is left alone
+    # 2) a path that points at ANOTHER ontology is left alone too — rewriting it would silently
+    #    answer a question from the wrong ontology, which is worse than a 404
+    # 3) the bare `/api/...` workbench paths are rewritten to this ontology's own
+    import re
+
+    def fix(match: "re.Match[str]") -> str:
+        quote, path = match.group(1), match.group(2)
+        if "/api/ontology/" in path:
+            return match.group(0)          # already an ontology-scoped path — leave it
+        return f"{quote}/api/ontology/{key}/wb/{path}"
+
+    html = re.sub(r'(["\'])/api/(?!ontology/)([^"\']*)', fix, html)
+    html = html.replace('"/abctutorial/', f'"/api/ontology/{key}/abct/')
+    html = html.replace("'/abctutorial/", f"'/api/ontology/{key}/abct/")
     # …and say it in the language the profile declares, when it declares a translation.
     return ontology_pages.translate_page(key, html)
 
@@ -165,6 +182,156 @@ def _step_graph(key: str, step: int) -> dict:
         pass
     ui, _ = _activate(key)
     return ui.tutorial_graph(step)
+
+
+def _step_arg(raw) -> int | str:
+    """A step number, or the words that mean "the complete ontology".
+
+    `arg(..., int)` cannot be used here: casting "all" to int raises ValueError, and `arg` swallows
+    it into the DEFAULT (1) — so "the whole ontology" silently answered as step 1 and looked broken.
+    """
+    text = str(raw).strip().lower()
+    if text in ("all", "0", "final", "full"):
+        return text
+    try:
+        return int(text)
+    except (TypeError, ValueError):
+        return 1
+
+
+def _step_query(key: str, step: int, query: str, limit: int = 25) -> dict:
+    """Run a SPARQL query against ONE STEP's ontology file — the file that step teaches.
+
+    Why this exists: the platform's own `/sparql` answers against the profile's `abox.ttl`, which
+    holds the FINAL ontology (step 7). A step-by-step tutorial needs the opposite: the query must
+    be answered by the ontology as it stands at that step, so a reader who asks "who has Python?"
+    at step 4 gets the honest empty answer — and can see that the answer appears at step 6.
+
+    The file is read as-is; nothing is entailed and nothing is written back. That is the point:
+    "not yet answerable" must be shown, not asserted.
+    """
+    import pathlib as _pathlib
+
+    try:
+        base = ontology_pages._profile(key).parent
+    except ontology_pages.PageError as exc:
+        raise ChapterError(str(exc)) from exc
+    settings_path = next(iter(sorted(base.glob("*_settings.json"))), None) or base / "settings.json"
+    settings = {}
+    if settings_path.is_file():
+        try:
+            settings = json.loads(settings_path.read_text(encoding="utf-8"))
+        except ValueError:
+            settings = {}
+    ns = (settings.get("ns") or "").rstrip("#") + "#"
+    if not ns or ns == "#":
+        ns = "http://example.org/talent#"
+
+    ont_dir = base / (settings.get("ontology_dir") or "ontology")
+    # step=0 (or "all") means THE COMPLETE ONTOLOGY — the last step's file. The tutorial offers both:
+    # "this step" shows where the ontology is NOW, "all steps" shows what the finished ontology can
+    # answer. A reader must be able to ask a real question and get a real answer, not be told which
+    # question they are allowed to ask.
+    if str(step).lower() in ("all", "0", "final", "full"):
+        step = max([int(p.stem.replace("step", "")) for p in ont_dir.glob("step*.ttl")] or [0])
+    path = ont_dir / f"step{step:02d}.ttl"
+    if not path.is_file():
+        raise ChapterError(f"this ontology has no step {step} file ({path.name} is not installed)")
+
+    from rdflib import Graph
+
+    text = (query or "").replace("PREFIX : ", f"PREFIX : <{ns}> ")
+    if "PREFIX" not in text.upper():
+        text = f"PREFIX : <{ns}>\n" + text
+
+    graph = Graph()
+    graph.bind("", ns)
+    graph.parse(str(path), format="turtle")
+    try:
+        result = graph.query(text)
+    except Exception as exc:                                    # noqa: BLE001
+        return {"ok": True, "step": step, "rows": [[f"QUERY ERROR: {type(exc).__name__}: {exc}"]],
+                "columns": [], "file": path.name, "triples": len(graph)}
+    # ASK returns a BOOLEAN, not rows. Handled FIRST: iterating an ASK result yields the boolean
+    # itself as a "row", so the row loop consumed it and the answer came back as a bare row —
+    # and a FALSE answer came back as no rows at all, so the reader could not tell "false" from
+    # "nothing to say".
+    answer = None
+    if str(getattr(result, "type", "") or "").upper() == "ASK":
+        answer = bool(result.askAnswer)
+        return {"ok": True, "step": step, "rows": [["true" if answer else "false"]],
+                "columns": ["?"], "file": path.name, "triples": len(graph), "answer": answer}
+
+    columns = [str(v) for v in (result.vars or [])]
+    rows = []
+    for row in result:
+        rows.append([str(v).rsplit("#", 1)[-1] for v in row])
+        if len(rows) >= limit:
+            break
+    return {"ok": True, "step": step, "rows": rows, "columns": columns,
+            "file": path.name, "triples": len(graph), "answer": None}
+
+
+def _step_reason(key: str, step: int, class_name: str, limit: int = 25) -> dict:
+    """Run the REASONER over ONE STEP's file — the file that step teaches.
+
+    Why this exists: the platform's own `/reason` endpoint always reasons over the profile's
+    COMPLETE ontology (`abox.ttl` + `reasoning.ttl`, which is step 7). A step-by-step tutorial
+    needs the opposite: at step 6 there is no axiom yet, so the reasoner has nothing to conclude
+    from — and saying so is the honest answer, not "cand_A" from a later step's rule.
+
+    The step's own file is loaded and reasoned over as it stands. Nothing is written back.
+    """
+    from features.ontology.reasoning.reasoner import load_graph, reason, mutate
+
+    try:
+        base = ontology_pages._profile(key).parent
+    except ontology_pages.PageError as exc:
+        raise ChapterError(str(exc)) from exc
+    settings_path = next(iter(sorted(base.glob("*_settings.json"))), None) or base / "settings.json"
+    settings = {}
+    if settings_path.is_file():
+        try:
+            settings = json.loads(settings_path.read_text(encoding="utf-8"))
+        except ValueError:
+            settings = {}
+    ns = (settings.get("ns") or "").rstrip("#") + "#"
+    if not ns or ns == "#":
+        ns = "http://example.org/talent#"
+
+    ont_dir = base / (settings.get("ontology_dir") or "ontology")
+    if str(step).lower() in ("all", "0", "final", "full"):
+        step = max([int(p.stem.replace("step", "")) for p in ont_dir.glob("step*.ttl")] or [0])
+    path = ont_dir / f"step{step:02d}.ttl"
+    if not path.is_file():
+        raise ChapterError(f"this ontology has no step {step} file ({path.name} is not installed)")
+
+    iri = ns + (class_name or "")
+    graph = load_graph([path])
+    res = reason(graph, watch_classes=[iri])
+    members = res.members_of(iri)
+
+    # the falsification check, on this step's file: without the axiom the answer must vanish
+    pruned, removed = mutate(graph, subject=(class_name or ""), predicate="equivalentClass",
+                             namespace=ns)
+    after = reason(pruned, watch_classes=[iri]).members_of(iri)
+
+    from rdflib import RDF, URIRef
+    asserted = len(list(graph.subjects(RDF.type, URIRef(iri))))
+
+    return {
+        "ok": True, "step": step, "file": path.name,
+        "class": class_name,
+        "asserted": asserted,
+        "entailed": len(members),
+        "added": len(members),
+        "rows": [m.rsplit("#", 1)[-1] for m in members[:limit]],
+        "engine": res.engine,
+        "elapsed_ms": res.elapsed_ms,
+        "consistent": res.consistent,
+        "has_axiom": removed > 0,
+        "without_axiom": [m.rsplit("#", 1)[-1] for m in after],
+    }
 
 
 def _guard_config(key: str) -> dict:
@@ -202,7 +369,22 @@ def chapter(key: str, number: int) -> str:
     asset = own if own.is_file() else WORKBENCH / name
     if not asset.is_file():
         raise ChapterError(f"this ontology has no tutorial chapter {number} ({asset.name} is not installed)")
-    return _rewrite(asset.read_text(encoding="utf-8"), key)
+    html = _rewrite(asset.read_text(encoding="utf-8"), key)
+    # 声明过的翻译在这里生效:页面是手写 HTML,不可能按语言重新 author,
+    # 所以翻译放在 profiles/<key>/tutorial/i18n.json,由**全局语言设置**选一份。
+    # 只替换声明过的串,没声明的保持原样 —— 半翻译是诚实的,静默空白不是。
+    try:
+        html = ontology_pages.translate_page(key, html)
+    except Exception:                                            # noqa: BLE001
+        pass
+    # 正文没翻译时,把"这一页是哪种语言"写在页顶 —— 静默地给一半语言,读者会以为是坏了
+    try:
+        notice = ontology_pages.language_notice(key)
+        if notice and "<main>" in html:
+            html = html.replace("<main>", "<main>" + notice, 1)
+    except Exception:                                            # noqa: BLE001
+        pass
+    return html
 
 
 def _abct_dir(key: str) -> pathlib.Path:
@@ -266,7 +448,14 @@ def call(key: str, rest: str, query: dict[str, list[str]], payload: dict | None 
     payload = payload or {}
 
     def arg(name: str, default=None, cast=None):
-        raw = (query.get(name) or [None])[0]
+        # The caller passes `dict(request.query_params)`, and Starlette's QueryParams yields a
+        # PLAIN STRING per key — not a list. The old `(query.get(name) or [None])[0]` therefore took
+        # the FIRST CHARACTER of the value: every parameter that carried a query or a path came in
+        # as one letter, and every SPARQL failed with "Expected {SelectQuery …}, found 'S'".
+        # Accept both shapes; the list form is what the older callers pass.
+        raw = query.get(name)
+        if isinstance(raw, (list, tuple)):
+            raw = raw[0] if raw else None
         if raw in (None, ""):
             return default
         try:
@@ -281,6 +470,16 @@ def call(key: str, rest: str, query: dict[str, list[str]], payload: dict | None 
             # onto this app the route was never carried over, so the graph rendered as the literal text
             # "graph unavailable" while the eight authored step pictures sat unused in `TUTORIAL_GRAPHS`.
             "/graph": lambda: _step_graph(key, arg("step", 1, int)),
+            # A step's own SPARQL: answered by that step's OWN file, so a question a reader asks
+            # early gets the honest "not yet" answer — and "all" answers against the COMPLETE
+            # ontology, so the reader can always ask a real question and get a real answer.
+            "/stepquery": lambda: _step_query(
+                key, arg("step", 1, _step_arg), arg("query", "", str), arg("limit", 25, int)),
+            # THE REASONER over ONE STEP's file. The platform's own /reason always reads the
+            # COMPLETE ontology, so a step-by-step tutorial would otherwise see step 7's answer
+            # while the reader is at step 6 — where the axiom does not exist yet.
+            "/stepreason": lambda: _step_reason(
+                key, arg("step", 1, _step_arg), arg("class", "", str), arg("limit", 25, int)),
             # The guardrails AS DECLARED. Retail's chapter 4 has always asked for this and got a 404
             # ("no chapter endpoint /guard (GET)") because only the POST form — dry-run a write verb —
             # existed. A tutorial that teaches limits must be able to show the limits.

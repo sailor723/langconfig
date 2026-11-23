@@ -33,17 +33,26 @@ sys.path.insert(0, str(BACKEND))
 
 import yaml  # noqa: E402
 
+from scripts.talent.jd_template_loader import load as load_template, role_of  # noqa: E402
+from scripts.talent.requirement_matrix import (  # noqa: E402
+    DIM as DIM_NAMES, build_rows, cv_total as mx_cv_total, dim_summaries,
+)
+
 SCHEMA = ROOT / "work" / "talent" / "field_schema.yaml"
 CATALOG = ROOT / "work" / "talent" / "component_catalog.yaml"
 LIBRARY = ROOT / "work" / "talent" / "requirement_library.yaml"
 LINKS = ROOT / "work" / "talent" / "jd_links"
 OUT_DIR = ROOT / "work" / "talent" / "jd_docs"
+INPUTS = ROOT / "work" / "talent" / "jd_inputs"
 
 DIM = {"A": "人口属性", "B": "教育", "C": "经历", "D": "技能", "E": "素质能力",
        "F": "资质证书", "G": "合规约束", "H": "语言", "I": "身体条件"}
 EDU = {2: "中专/高中", 3: "大专", 4: "本科", 5: "硕士", 6: "博士"}
 
 V, DER, PROP, MISS, NA = "有值", "归纳", "提案", "JD 未写", "不适用"
+#: 客户没写、但由我方按依据填补的格子。**必须与"客户原文"在文档里可区分** ——
+#: 否则读者会把我们的推断当成客户的要求,而这条链上最贵的错误就是这个。
+OURS = "我方填补"
 
 #: 职责关键词 → 能力组件。泛用词先判,否则「客户」会把「品质目标管理」误连到「客户验厂」。
 DUTY_TO_COMPONENT = (
@@ -187,6 +196,35 @@ def scrape(source: str) -> dict:
     return got
 
 
+
+
+def _plain(v):
+    """把 yaml 里的日期等非 JSON 类型降成纯量。
+
+    踩过:jd_inputs 里写 `2021-09-30`,yaml 解析成 `datetime.date`,写 fields.json 时
+    `TypeError: Object of type date is not JSON serializable` —— 而报错点在最后一步落盘,
+    看起来像"渲染崩了",其实是数据类型问题。
+    """
+    if v is None or isinstance(v, (str, int, float, bool)):
+        return v
+    if isinstance(v, (list, tuple)):
+        return [_plain(x) for x in v]
+    if isinstance(v, dict):
+        return {str(k): _plain(x) for k, x in v.items()}
+    return str(v)
+
+
+def cv_total() -> int:
+    """去重后的 CV 份数 —— 从 component_catalog 的 cv_coverage 里现取,不写死。
+
+    写死一个 270 的风险:语料一变,所有持有率的分母就悄悄错了,而百分比看起来仍然合理。
+    """
+    cat = yaml.safe_load(CATALOG.read_text(encoding="utf-8"))
+    # `scope: 东莞制造业 · 10 份职务说明书 × 270 份简历` —— 分母只在这里,属性里只存分子
+    m = re.search(r"(\d+)\s*份简历", str(cat.get("scope") or ""))
+    return int(m.group(1)) if m else 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--jd", default="品质经理")
@@ -211,6 +249,18 @@ def main() -> int:
         r["_resolved"] = (sorted({x for cat in cats for x in by_cat.get(cat, [])})
                           if cats else list(r.get("components") or []))
 
+    # ── 岗位类别闸门:决定用哪版模板。判不出来就**不渲染** ——
+    # 用错模板不会报错,只会问一堆不该问的问题(实测:品质经理原文「直接下属:无」,
+    # 按名字套经理岗就会去问管理幅度和预算),而错到"问了不该问的"才被发现。
+    role, role_basis = role_of(link)
+    if role is None:
+        print(f"NOT RUN — {args.jd}:{role_basis}")
+        print("  先定 S1.11 岗位类别(业务方答;判据见 work/talent/jd_templates/README.md),再重跑。")
+        print("  未写产物 —— 用默认模板兜底会把整份 JD 的字段集搞错。")
+        return 3
+    tpl = load_template(role)
+
+    comp_cv = {c["id"]: f"{c.get('cv_count', 0)}" for c in catalog["components"]}
     scraped = scrape(source)
     duties = parse_duties(source)
     # 维度汇总只算客户原话。HR 侧要求单独成章 —— 混进"本岗位要求"这一列,
@@ -226,14 +276,32 @@ def main() -> int:
     tally = collections.Counter()
     STRUCT: dict[str, dict] = {}
 
+    # 人填的答案(客户没写的格子)—— 在这里载入,由 row() 统一套用。
+    # 只在 row() 一处套:各段都走它,就不会出现"正文还是 JD 未写、汇总却写我方填补"。
+    filled = {}
+    inp = INPUTS / f"{args.jd}.yaml"
+    if inp.is_file():
+        for a in (yaml.safe_load(inp.read_text(encoding="utf-8")) or {}).get("answers") or []:
+            filled[str(a.get("field"))] = a
+
     def row(code, label, value, status, note=""):
+        a = filled.get(code)
+        if a is not None and (value is None or status == MISS):
+            by = str(a.get("answered_by") or "ours")
+            status = V if by in ("client", "hr") else OURS
+            value = _plain(a.get("value"))
+            src = {"client": "客户", "hr": "HR"}.get(by, "我方填补")
+            note = f"[{src}] {str(a.get('basis') or '')[:150]}"
+            if a.get("needs_client"):
+                note += " 【须客户确认】"
         tally[status] += 1
         STRUCT[code] = {"label": label, "value": value, "status": status, "note": note}
         A(f"| {code} | {label} | {value or '—'} | {status} | {note} |")
 
     A(f"# {link['jd']} · 岗位说明书(定稿)")
     A("")
-    A(f"**{link.get('department','')}** · 模板 {len(jd_fields)} 个字段全部列出(取自 field_schema.yaml);"
+    A(f"**{link.get('department','')}** · {tpl['title']}模板 **{len(tpl['by_code'])}** 个字段全部列出"
+      f"(其中本版不适用 {len(tpl['not_applicable'])} 个);"
       "缺的写「JD 未写」,不需要的写「不适用」,由原文推出的写「归纳」,需客户拍板的写「提案」。")
     A("")
     A(f"> 原文:`{link['source_text']}`(自 `{pathlib.Path(link['source_file']).name}`)")
@@ -262,81 +330,63 @@ def main() -> int:
     A("")
     A("| 码 | 字段 | 值 | 状态 | 说明 |")
     A("|---|---|---|---|---|")
-    PURPOSE = [
-        ("负责部门品质与业务目标管理,承接上级与客户下达的任务", [1]),
-        ("建立并维护管理体系、标准与培训考核机制", [2, 3]),
-        ("监督标准执行,组织检测、设备与物料验收,保障过程受控", [4, 5]),
-        ("通过数据收集与持续改善,定期报送运营数据", [6]),
-        ("对接客户要求与审厂,管理供应商/外部资源质量", [7, 8]),
-    ]
-    KPI = [
-        ("目标达成率", "职责1「保质保量完成…任务」"),
-        ("异常闭环率 / 投诉件数", "职责4「执行各项标准…达成目标」"),
-        ("报表按时报送率", "职责6「完成周报、月报」"),
-        ("客户审厂通过率", "职责7「接待客户、承接客户要求」"),
-        ("供应商/外部资源合格率", "职责8「供应商品质管理」"),
-    ]
+    # ⚠ 这里原来把**品质经理**的岗位目的/KPI 写死在模块里,无条件套给每个 JD ——
+    # 实测后果:业务跟单的附录 F 里出现「负责部门品质与业务目标管理」「客户审厂通过率」,
+    # 一条都对不上它的 14 条职责(业务跟单做的是订单、MOQ、交期、出货单据、VMI)。
+    # 现在改为:我方建议只能来自 `jd_inputs/<JD>.yaml` 的回填答案(answered_by: ours),
+    # 没有回填就不编 —— 空着比编错强。
+    import yaml as _yaml
+    _ji_path = ROOT / "work" / "talent" / "jd_inputs" / f"{args.jd}.yaml"
+    _ji = (_yaml.safe_load(_ji_path.read_text(encoding="utf-8"))
+           if _ji_path.is_file() else {}) or {}
+    _ours = {a.get("field"): a for a in (_ji.get("answers") or [])
+             if a.get("answered_by") == "ours"}
     proposals: list[tuple[str, str, str, str]] = []   # (码, 字段, 我方建议, 推导依据)
     if duties:
-        row("S2.01", "岗位目的", None, MISS, "原文无独立段;我方归纳见附录 F")
-        row("S2.02", "关键成功指标", None, MISS, "原文无量化指标;我方提案见附录 F")
-        proposals.append(("S2.01", "岗位目的", " ".join(x[0] for x in PURPOSE) + "。",
-                          "由 8 条职责归纳:" + "、".join(f"「{x[0][:8]}…」←职责{','.join(map(str,x[1]))}"
-                                                     for x in PURPOSE)))
-        proposals.append(("S2.02", "关键成功指标", "、".join(k[0] for k in KPI),
-                          "由职责动词推导:" + ";".join(f"{k}←{v}" for k, v in KPI)))
+        row("S2.01", "岗位目的", None, MISS, "原文无独立段")
+        row("S2.02", "关键成功指标", None, MISS, "原文无量化指标")
+        # 只认 jd_inputs 里我方真填过的;没填就不往附录 F 里塞东西
+        for code, label in (("S2.01", "岗位目的"), ("S2.02", "关键成功指标")):
+            a = _ours.get(code)
+            if a and str(a.get("value") or "").strip():
+                proposals.append((code, label, str(a["value"]),
+                                  str(a.get("basis") or "我方回填(jd_inputs)")))
+            else:
+                row(code, label, None, MISS,
+                    "原文无;我方未回填 —— 待业务方/HR 在 jd_inputs 里给一句")
     else:
         row("S2.01", "岗位目的", None, MISS, "原文无职责段")
         row("S2.02", "关键成功指标", None, MISS, "原文无量化指标")
     A("")
     # ── S3
-    A("## 三、任职资格(S3 · 9 个维度全部列出)")
+    # ── S3:一张「维度 → 组件」矩阵(行数据与 docx 共用,见 requirement_matrix.py)
+    A("## 三、任职资格(维度 → 组件)")
     A("")
-    A("| 维度 | 本岗位要求 | 状态 | 条数 |")
-    A("|---|---|---|---|")
-    for dim in "ABCDEFGHI":
-        items = by_dim.get(dim) or []
-        if not items:
-            STRUCT[f"dim_{dim}"] = {"label": DIM[dim], "value": None, "status": NA,
-                                    "note": "本岗位 JD 未提此维度"}
-            A(f"| {dim} {DIM[dim]} | — | {NA} | 0 |")
-            continue
-        texts = []
-        for c in items:
-            r = reqs[c["requirement"]]
-            v = c.get("value") or {}
-            att = atts.get(r.get("attribute") or "")
-            if att and att["id"] == "A.2":
-                texts.append(f"年龄 {v.get('min')}–{v.get('max')} 岁")
-            elif att and att["id"] == "A.1":
-                texts.append("性别 " + "/".join(v.get("in") or []))
-            elif att and att["id"] == "B.1":
-                texts.append(f"{EDU.get(v.get('num'))}及以上")
-            elif att and att["id"] == "B.2":
-                texts.append("专业:" + "/".join(v.get("in") or []))
-            elif att and att["id"] == "B.3":
-                texts.append("全日制")
-            elif att and att["id"] == "C.1":
-                texts.append(f"{v.get('num')} 年以上")
-            elif r.get("no_component"):
-                texts.append(c["verbatim"].rstrip("，,。"))
-            else:
-                labels = [comp_label[x] for x in (r.get("_resolved") or []) if x in comp_label]
-                texts.append("·".join(labels) if labels else r.get("name", ""))
-        STRUCT[f"dim_{dim}"] = {"label": DIM[dim], "value": " / ".join(texts),
-                                "status": V, "note": f"{len(items)} 条"}
-        A(f"| {dim} {DIM[dim]} | {' / '.join(texts)} | {V} | {len(items)} |")
+    A("> 一行 = 一条要求。**组件**是判人时真正要比对的东西;没有组件的行是区间/枚举类,直接比属性。")
+    A(f"> 持有 = 该组件的持有份数 / {mx_cv_total(catalog)} 份简历(分母取自 component_catalog.scope)。")
     A("")
     client_cites = [c for c in link["citations"] if c.get("origin", "client") == "client"]
     hr_cites = [c for c in link["citations"] if c.get("origin") == "hr"]
-    A("**逐条(含原文行号):**")
+    rows = build_rows(link, reqs, atts, comp_label, catalog, origin="client")
+    sums = dim_summaries(rows)
+    A("| 维度 | 要求 / 组件 | 客户原话 | 行 | 怎么判 | 可判 | 持有 |")
+    A("|---|---|---|---|---|---|---|")
+    for d in "ABCDEFGHI":
+        dim_rows = [r for r in rows if r["dim"] == d]
+        if not dim_rows:
+            STRUCT[f"dim_{d}"] = {"label": DIM_NAMES[d], "value": None, "status": NA,
+                                  "note": "本岗位 JD 未提此维度"}
+            A(f"| {d} {DIM_NAMES[d]} | — | | | | 本岗位未提 | |")
+            continue
+        for r in dim_rows:
+            A(f"| {d} {DIM_NAMES[d]} | {r['need']} | 「{r['verbatim']}」 | {r['line']} | "
+              f"{r['how']} | {'是' if r['assessable'] else '**否**'} | {r['holds']} |")
+        STRUCT[f"dim_{d}"] = {"label": DIM_NAMES[d], "value": sums.get(d, ""),
+                              "status": V, "note": f"{len(dim_rows)} 条"}
+    n_ok = sum(1 for r in rows if r["assessable"])
     A("")
-    A("| # | 原文 | 行 | 维度 | 可评估 |")
-    A("|---|---|---|---|---|")
-    for i, c in enumerate(client_cites, 1):
-        r = reqs[c["requirement"]]
-        A(f"| {i} | 「{c['verbatim']}」 | {c['txt_line']} | {r['dimension']} | "
-          f"{'是' if r.get('assessable') else '**否**'} |")
+    A(f"**合计 {len(client_cites)} 条** · 可判 {n_ok} · 判不了 {len(rows) - n_ok}"
+      f"(判不了的照样留着,理由见各行「怎么判」列)")
     A("")
     if hr_cites:
         # HR 侧要求单独成章 —— 它**不是客户写的**,混进上面的客户原话表就是替客户说话
@@ -458,31 +508,74 @@ def main() -> int:
     A("是因为我方写的内容一旦混进「定稿」,下一个读的人会以为它是客户说的。")
     A("")
     if proposals:
-        A("| 码 | 字段 | 我方建议 | 推导依据 | 需要客户做什么 |")
-        A("|---|---|---|---|---|")
+        # 每条建议单独成块,**不截断**。
+        # 原先是一张表 + `{value[:70]}` / `{basis[:60]}` 硬截断,实测把 S2.01 的建议断在
+        # 「…保障过」、依据断在「监督标准执行,组…」,而完整文本就在 fields.json 里。
+        # 附录 F 的全部价值是"客户能直接指着说这条不对" —— 半句话指不了。
+        # 表格也放不下:118 字的建议塞进表格单元格,读者横着滚三屏更读不完。
         for code, label, value, basis in proposals:
             act = ("确认归纳对不对;不对则指出" if code in ("S2.01", "S4.03")
                    else "选哪几项、目标值定多少" if code == "S2.02"
                    else "是否等权;若不等权,各条占比")
-            A(f"| {code} | {label} | {value[:70]} | {basis[:60]} | {act} |")
-        A("")
+            A(f"### {code} · {label}")
+            A("")
+            A(f"- **我方建议**:{value}")
+            A(f"- **推导依据**:{basis}")
+            A(f"- **需要客户做什么**:{act}")
+            A("")
     A("> 这些建议的价值在于**可以被反驳** —— 每条都带推导依据,客户能直接说\"不对,第 3 条不是这个意思\"。")
     A("> 而如果我把它直接写进正文,客户看到的就是一份\"已经写好\"的 JD,连反驳的机会都没有。")
     A("")
 
+    # ── 按岗位模板校正(后处理,不改上面 500 行渲染逻辑)
+    # 先快照"上面八段真的印出了哪些码" —— 后处理会往 STRUCT 里补,补完再取差集就晚了
+    rendered_codes = set(STRUCT)
+    # ① 该版"不适用"的码:标不适用;若原文居然抓到了值,保留在说明里 —— 不能因为
+    #    "本版不问"就把客户写过的东西丢掉。
+    for code in tpl["not_applicable"]:
+        meta = tpl["by_code"][code]
+        old = STRUCT.get(code)
+        if old is None:
+            # 上面八段没印过这个码 —— 交给「九、按岗位类别补充的字段」统一出一行,
+            # 由那一行的 row() 负责计数。这里再数一次就会重复(实测:不适用 7 变 12)。
+            continue
+        why = str(meta.get("why") or "").replace("**本版不适用**:", "").strip()
+        keep = f";原文有此值「{old['value']}」" if old.get("value") else ""
+        tally[old["status"]] -= 1
+        tally[NA] += 1
+        STRUCT[code] = {**old, "status": NA, "note": f"本版不适用:{why}{keep}"}
+
+    # ② 模板里有、渲染器还没产出的码(按岗位类别新增的那几个):补成「JD 未写」
+    extra = [c for c in tpl["by_code"] if c not in rendered_codes]
+    if extra:
+        A("## 九、按岗位类别补充的字段")
+        A("")
+        A("这些码不在原来那 42 个里:一部分是本轮拆分新增(客户原文都没有),"
+          "另一部分是本版明确不适用的 —— **也要列出来**,否则读者会以为漏了。")
+        A("")
+        A("| 码 | 字段 | 值 | 状态 | 说明 |")
+        A("|---|---|---|---|---|")
+        na_set = set(tpl["not_applicable"])
+        for code in extra:
+            meta = tpl["by_code"][code]
+            why = str(meta.get("why") or "").replace("**本版不适用**:", "").strip()
+            row(code, meta["label"], None, NA if code in na_set else MISS, why[:60])
+        A("")
+
     # ── 汇总
-    A("## 九、字段填充汇总")
+    A("## 十、字段填充汇总")
     A("")
     tot = sum(tally.values())
     A("| 状态 | 字段数 | 占比 | 含义 |")
     A("|---|---|---|---|")
-    MEAN = {V: "客户原文写了", MISS: "客户原文没有 —— 见附录 F 与待补清单", NA: "本岗位确实不涉及"}
-    for k in (V, MISS, NA):
+    MEAN = {V: "客户原文写了", MISS: "客户原文没有 —— 见附录 F 与待补清单",
+            NA: "本岗位确实不涉及", OURS: "客户没写,由我方按依据据填补 —— 提交前须客户确认"}
+    for k in (V, OURS, MISS, NA):
         A(f"| {k} | {tally[k]} | {tally[k]*100//max(tot,1)}% | {MEAN[k]} |")
     A(f"| **合计** | **{tot}** | 100% | |")
     A("")
     A(f"另有 S3 任职资格 **{len(link['citations'])}** 条、S4 职责 **{len(duties)}** 条"
-      "(均逐字取自客户原文,不属于 42 字段框架)。")
+      f"(均逐字取自客户原文,不属于上面 {len(tpl['by_code'])} 个字段)。")
     A("")
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -493,7 +586,7 @@ def main() -> int:
                                   for c, l, v, b in proposals],
                     "citations": len(link["citations"]), "duties": len(duties)},
                    ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"{args.jd}: 客户原文 {tally[V]} · 未写 {tally[MISS]} · 不适用 {tally[NA]} · "
+    print(f"{args.jd}[{role}]: 客户原文 {tally[V]} · 未写 {tally[MISS]} · 不适用 {tally[NA]} · "
           f"我方建议 {len(proposals)} 项 | 资格 {len(link['citations'])} 条 · 职责 {len(duties)} 条")
     return 0
 

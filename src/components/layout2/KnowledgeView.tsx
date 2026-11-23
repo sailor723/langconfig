@@ -8,10 +8,9 @@
  * Chat is handled by the bottom panel, not embedded in this view.
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
+import MarkdownBody from './MarkdownBody';
 import PdfViewer from './PdfViewer';
 import type { Tab } from './useLayout';
 // OfficeViewer pulls in docx-preview + pptxviewjs (~1MB) — lazy-load it so
@@ -457,47 +456,14 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
             />
           </div>
         ) : isMarkdown && content ? (
-          /* Markdown: render with react-markdown */
-          <div
-            ref={scrollRef}
+          /* Markdown: 用共享渲染器 MarkdownBody —— 与 Talent 的 JD 文档同一份样式,同一份代码。 */
+          <MarkdownBody
+            text={content}
+            tokens={t}
+            components={mdComponents}
+            scrollRef={scrollRef}
             onScroll={updateActive}
-            style={{
-              flex: 1,
-              overflow: 'auto',
-              padding: '16px 24px',
-              fontSize: 14,
-              lineHeight: 1.6,
-              color: t.textPrimary,
-            }}
-          >
-            <div className="markdown-body" style={{ maxWidth: 800 }}>
-              <style>{`
-                .markdown-body h1 { font-size: 1.6em; font-weight: 700; margin: 0.8em 0 0.4em; padding-bottom: 0.3em; border-bottom: 1px solid ${t.border}; }
-                .markdown-body h2 { font-size: 1.35em; font-weight: 600; margin: 0.7em 0 0.3em; }
-                .markdown-body h3 { font-size: 1.15em; font-weight: 600; margin: 0.6em 0 0.25em; }
-                .markdown-body p { margin: 0.5em 0; }
-                .markdown-body ul, .markdown-body ol { padding-left: 1.5em; margin: 0.4em 0; }
-                .markdown-body li { margin: 0.2em 0; }
-                .markdown-body a { color: #a855f7; text-decoration: underline; }
-                .markdown-body pre { background: ${t.bgBase}; padding: 12px; border-radius: 6px; overflow-x: auto; margin: 0.6em 0; font-size: 0.875em; }
-                .markdown-body code { background: ${t.bgHover}; padding: 1px 4px; border-radius: 3px; font-size: 0.875em; }
-                .markdown-body pre code { background: transparent; padding: 0; }
-                .markdown-body blockquote { border-left: 3px solid #a855f7; padding-left: 12px; color: ${t.textMuted}; margin: 0.5em 0; }
-                .markdown-body table { border-collapse: collapse; width: 100%; margin: 0.6em 0; }
-                .markdown-body th, .markdown-body td { border: 1px solid ${t.border}; padding: 6px 10px; text-align: left; }
-                .markdown-body th { background: ${t.bgBase}; font-weight: 600; }
-                .markdown-body hr { border: none; border-top: 1px solid ${t.border}; margin: 1em 0; }
-                .markdown-body img { max-width: 100%; }
-                .markdown-body h1, .markdown-body h2, .markdown-body h3,
-                .markdown-body h4, .markdown-body h5, .markdown-body h6 {
-                  scroll-margin-top: 12px;
-                }
-              `}</style>
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-                {content}
-              </ReactMarkdown>
-            </div>
-          </div>
+          />
         ) : isText && content ? (
           /* Plain text / code: render in pre */
           <pre style={{

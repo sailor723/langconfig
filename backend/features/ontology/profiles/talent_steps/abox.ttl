@@ -1,0 +1,35 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ABox（事实）—— 这一课的"人"与"技能"
+#
+# 这份文件是 `ontology/step06.ttl` + 类别层 的独立副本：平台的推理接口
+# （/api/ontology/talent_steps/reason）按约定读 `abox.ttl` + `reasoning.ttl`，
+# 所以它需要这两个文件在 profile 根目录。
+#
+# ⚠️ 这里没有任何结论：
+#     没有 :cand_A a :matches_SoftwareEngineer .
+#     合格的人由 reasoning.ttl 里的公理算出来，不是抄在这里。
+#
+# 【为什么 Python 有两个类型】
+#     :Python  a  :SkillTag , :Programming .
+#     它既是"技能"（宽），又是"编程类技能"（窄）。
+#     平台推理面板的"为什么合格"要显示的是【类别】而不是技能名 ——
+#     所以一个没有类别的技能，在那个面板里会显示成 (none)。
+#     公理也正是靠类别来判别的：someValuesFrom :Programming。
+# ─────────────────────────────────────────────────────────────────────────────
+@prefix :    <http://example.org/talent#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# 技能筐里的第一件东西，同时归入"编程类技能"这个类别
+:Python  a  :SkillTag , :Programming .
+
+# 两个人：技能相同，年限不同
+:cand_A  a  :Candidate ;
+    rdfs:label         "A 君（会 Python，5 年）" ;
+    :hasSkill        :Python ;
+    :yearsExperience 5 .
+
+:cand_B  a  :Candidate ;
+    rdfs:label         "B 君（会 Python，1 年）" ;
+    :hasSkill        :Python ;
+    :yearsExperience 1 .

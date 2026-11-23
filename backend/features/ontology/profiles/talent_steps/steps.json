@@ -1,0 +1,87 @@
+{
+  "ontology_key": "talent_steps",
+  "datasource": null,
+  "note": "概念教程，没有数据库。每一步的数字都由 scripts/build_tutorial_steps.py 现场跑推理机测出来 —— 章节里的 'HermiT 239 ms / cand_A 合格' 不是手写的散文，是量出来的。",
+  "steps": [
+    {
+      "step": "S0 前置：这一课没有数据，只有一个本体",
+      "artifacts": ["settings.json", "ontology/step01.ttl … step07.ttl"],
+      "why_no_datasource": "这一课教的是「本体怎么写、推理机怎么判」。数据库、指标、面板都是另一层的东西；把它们放进同一课，读者会以为指标才是本体。talent_v1 那一课才是有数据的。",
+      "step_files_are_cumulative": "stepNN.ttl 是 step(N-1).ttl 的超集。每一份都能在 Protégé 里单独打开 —— 教学时按顺序打开，就是按顺序看本体长出来。"
+    },
+    {
+      "step": "S1 结构层：7 步，每步只加一样东西",
+      "ladder": [
+        {"step": 1, "file": "step01.ttl", "adds": ":Candidate 类", "triples": 1, "layer": "TBox"},
+        {"step": 2, "file": "step02.ttl", "adds": ":yearsExperience 数据属性（domain=:Candidate, range=xsd:integer）", "triples": 4, "layer": "TBox"},
+        {"step": 3, "file": "step03.ttl", "adds": ":SkillTag 类", "triples": 5, "layer": "TBox"},
+        {"step": 4, "file": "step04.ttl", "adds": ":hasSkill 对象属性（domain=:Candidate, range=:SkillTag）", "triples": 8, "layer": "TBox"},
+        {"step": 5, "file": "step05.ttl", "adds": ":Python 个体", "triples": 9, "layer": "ABox"},
+        {"step": 6, "file": "step06.ttl", "adds": ":cand_A / :cand_B 两个个体及其实", "triples": 15, "layer": "ABox"},
+        {"step": 7, "file": "step07.ttl", "adds": ":matches_SoftwareEngineer 定义类公理", "triples": 36, "layer": "TBox"}
+      ],
+      "counting_route_1": "rdflib 解析每个文件，数三元组：1 / 4 / 5 / 8 / 9 / 15 / 36。",
+      "counting_route_2": "owlready2 经 RDF/XML（Protégé 自己的加载路径）读 step07.ttl，classes() = Candidate, SkillTag, matches_SoftwareEngineer；is_a 均为 Thing。",
+      "one_thing_per_step": "第 2 步刻意不选 hasSkill：它的 range 要指向第 3 步才存在的 :SkillTag，一次加两样就看不出各自的作用。",
+      "naming_rule": "类名不能和个体名撞车。若某个具体技能叫 :CAD（个体），类别类就必须另起名（:Programming / :CADDesign）——同名会让推理机认为「自己属于自己」。"
+    },
+    {
+      "step": "S2 ABox：把技能挂到人身上需要三样东西",
+      "requires": [
+        {"what": "技能这个个体存在", "ttl": ":Python a :SkillTag .", "layer": "ABox"},
+        {"what": "动词存在", "ttl": ":hasSkill a owl:ObjectProperty ; domain :Candidate ; range :SkillTag .", "layer": "TBox"},
+        {"what": "事实把两者连起来", "ttl": ":cand_A :hasSkill :Python .", "layer": "ABox"}
+      ],
+      "payload_must_be_an_individual": ":cand_A :hasSkill :Python . 说得清「会哪一个」；写成 :hasSkill :SkillTag 就只能说「会某种技能」，无法区分，而且类值的断言喂不动推理机的存在量词。",
+      "why_two_candidates": "两人技能相同、只有年限不同：规则写好后 A 合格 B 不合格，且只差在年限。没有对照就看不出规则有没有起作用。",
+      "iron_rule": "ABox 里不许出现结论 —— 不写 :cand_A a :matches_SoftwareEngineer。结论必须算出来，否则证伪测试不成立。"
+    },
+    {
+      "step": "S3 推理：公理、蕴含与证伪",
+      "axiom": ":matches_SoftwareEngineer ≡ :Candidate ⊓ (:hasSkill some :SkillTag) ⊓ (:yearsExperience some xsd:integer[>=3])",
+      "engine": "hermit",
+      "measured": {
+        "consistent": true,
+        "unsatisfiable_classes": [],
+        "matches_SoftwareEngineer": ["cand_A"],
+        "candidates": ["cand_A", "cand_B"],
+        "skill_tags": ["Python"]
+      },
+      "second_route_check": "owlready2 经 RDF/XML 加载 → HermiT 分类成员与 rdflib/owlready2 路径一致；cand_B 不在 matches_SoftwareEngineer 里，原因是 yearsExperience=1 < 3，技能与它相同。",
+      "falsification": {
+        "removed": "owl:equivalentClass（1 条）",
+        "matches_SoftwareEngineer_after": [],
+        "why_it_matters": "删掉规则，结论必须消失。若答案还在，说明它是断言进去的，规则根本没起作用 —— 平台门禁 check_abox 的 A2（entailment-not-assertion）查的就是这条。"
+      },
+      "reasoner_choice_measured": {
+        "hermit": "推出 cand_A",
+        "owlrl_owl2rl": "一个都没推出（漏推，不是错推）—— OWL 2 RL 的 datatype 规则不判定 xsd:minInclusive",
+        "consequence": "弱推理机给的是空答案，会被误读成「没有合格的人」。招聘判断几乎全是阈值，所以这一课必须用 HermiT。"
+      },
+      "writing_details": [
+        "类必须有名字：写成匿名 [ owl:equivalentClass [...] ]，推理机回答「class matches_SoftwareEngineer is not in the ontology」。",
+        "owl:someValuesFrom 指向的是类（存在量词），匹配的是个体的类型 —— 前提是 :Python a :SkillTag 存在。",
+        "owl:equivalentClass 是定义不是要求：合格的人不需要写进文件。"
+      ]
+    },
+    {
+      "step": "S4 教学层：Protégé 里实际踩到的坑",
+      "the_one_that_cost_us_time": {
+        "symptom": "step07.ttl 明明声明了 :matches_SoftwareEngineer，Classes 面板里只有 Candidate 和 SkillTag；切 Asserted/Inferred 都看不到；文件无解析错误。",
+        "cause": "Classes 面板开着搜索过滤（面板底色发黄）。而且 Protégé 的「只显示有实例的类」这一类过滤会藏掉断言实例数为 0 的类 —— matches_SoftwareEngineer 恰好一个断言实例都没有（它的成员是推理出来的）。",
+        "fix": "点工具栏的 ⊘ 筛选图标关掉过滤；或用右上角放大镜搜 matches_SoftwareEngineer（会自动清除过滤）；或切到 Inferred 视图。",
+        "why_teachable": "这正是 TBox/ABox 分离的直观后果：结论不在任何文件里，所以在「断言」视图里它本来就该是空的。"
+      },
+      "other_gotchas": [
+        "个体不在 Classes 面板，在 Individuals 面板（5.6 是 Individuals by class）—— 新手常因此以为文件里没写。",
+        "值的类型决定面板：Data properties 装字面量，Object properties 装另一个实体；domain 决定不了面板。",
+        "Reasoner 选 ELK 会让人以为「没人合格」；要 HermiT / Pellet。",
+        "切到 Inferred 后若还是空，需要 Reasoner ▸ Synchronize reasoner。"
+      ]
+    }
+  ],
+  "open_questions_for_the_human": [
+    "这一课是否要接上真实数据（277 份简历 → talent_v1），做成「先手搭最小本体、再看真实数据怎么落进去」的一条线？talent_v1 已有 8 章，但那是数据视角；这一课是搭建视角。",
+    "章节语言目前只有 zh。Protégé 的界面术语按中文界面写；若要出英文版，截图与报错文案要重做。"
+  ]
+}
