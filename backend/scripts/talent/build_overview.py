@@ -66,59 +66,102 @@ def _esc(x: str) -> str:
     return (str(x).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'))
 
 
+#: 字阶(2026-11-23 用户要求:字号整体 +30%,框按内容重新量)
+F_TITLE, F_SUB, F_EDGE, F_FOOT = 11.0, 9.8, 12.0, 10.5
+#: 框内边距与行高
+PADX, PADY, TITLE_H, SUB_H = 12.0, 11.0, 15.0, 12.5
+GAPX, GAPY = 70.0, 86.0
+
+
+def _text_w(t: str, size: float) -> float:
+    """粗估一行文字宽度:CJK 按 1.0em、ASCII 按 0.55em。不上渲染器也能算出框该多宽。"""
+    w = 0.0
+    for ch in str(t):
+        w += size * (1.0 if '\u4e00' <= ch <= '\u9fa5' or ch in '，。；：、（）「」·—≤≥' else 0.55)
+    return w
+
+
 def flow_svg(gate: str = '') -> str:
-    """六段流程图。版式刻意照本体教程那张 graph：120×44 圆角框、8.5px 标题、7px 等宽副行。"""
-    W, H = 1080, 300
-    W2, H2 = 150, 86
-    pos = [(40, 40), (330, 40), (620, 40), (620, 170), (330, 170), (40, 170)]
+    """六段流程图。字号与框尺寸**按内容算**，不再写死 —— 改文案不会再溢出。
+
+    布局(蛇形,箭头只朝前):
+        row1:  ① → ② → ③
+                          ↓
+        row2:  ⑤b ← ⑤a ← ④
+    """
+    nodes = FLOW_NODES
+    # ① 每个框按内容定宽高
+    sizes = []
+    for _num, title, _fill, _stroke, lines in nodes:
+        w = max([_text_w(title, F_TITLE)] + [_text_w(l, F_SUB) for l in lines]) + 2 * PADX
+        h = TITLE_H + SUB_H * len(lines) + PADY
+        sizes.append((max(w, 190.0), h))
+    # 统一成同一尺寸:六个框同宽同高才像张图(内容最长的那个决定格子多大)
+    colw = max(w for w, _h in sizes)
+    rowh = max(h for _w, h in sizes)
+    sizes = [(colw, rowh) for _ in sizes]
+
+    M = 34.0                                  # 画布留白
+    x0, x1, x2 = M, M + colw + GAPX, M + 2 * (colw + GAPX)
+    y0 = M
+    y1 = M + rowh + GAPY
+    pos = [(x0, y0), (x1, y0), (x2, y0), (x2, y1), (x1, y1), (x0, y1)]
+    W = int(x2 + colw + M)
+    H = int(y1 + rowh + M + 30)
+
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" '
            f'viewBox="0 0 {W} {H}" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif">',
-           '<defs><marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" '
-           'markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" '
+           '<defs><marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" '
+           'markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" '
            'fill="#334e68"/></marker></defs>',
            f'<rect width="{W}" height="{H}" fill="#f6f7f9"/>']
 
-    def cx(i):
-        return pos[i][0] + W2 / 2
+    def box(i):
+        return (pos[i][0], pos[i][1], sizes[i][0], sizes[i][1])
 
-    def cy(i):
-        return pos[i][1] + H2 / 2
-
-    # 连线先画，压在框下面
-    for a, b, label in FLOW_EDGES:
-        ax, ay = pos[a][0], pos[a][1]
-        bx, by = pos[b][0], pos[b][1]
-        if abs(ay - by) < 1:                       # 同一行：左 → 右
-            x1, y1, x2, y2 = ax + W2, ay + H2 / 2, bx, by + H2 / 2
-            mx, my = (x1 + x2) / 2, y1 - 8
-        elif bx > ax:                              # 右下行
-            x1, y1, x2, y2 = ax + W2 / 2, ay + H2, bx + W2 / 2, by
-            mx, my = (x1 + x2) / 2 + 6, (y1 + y2) / 2
-        else:                                      # 左行（回折）
-            x1, y1, x2, y2 = ax, ay + H2 / 2, bx + W2, by + H2 / 2
-            mx, my = (x1 + x2) / 2, y1 - 8
-        out.append(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="#334e68" '
-                   f'stroke-width="1.4" marker-end="url(#ag)"/>')
+    # ② 连线:只朝前(①→②→③→④→⑤a→⑤b)
+    edges = [(0, 1, '客户原话'), (1, 2, '闸门'), (2, 3, '面试名单'),
+             (3, 4, '10 人以内'), (4, 5, '5 人')]
+    for a, b, label in edges:
+        ax, ay, aw, ah = box(a)
+        bx, by, _bw, _bh = box(b)
+        if abs(ay - by) < 1:                                    # 同一行:左→右
+            x1_, y1_ = ax + aw, ay + ah / 2
+            x2_, y2_ = bx, by + sizes[b][1] / 2
+            mx, my = (x1_ + x2_) / 2, y1_ - 9
+        elif abs(ax - bx) < 1:                                  # 同一列:上→下
+            x1_, y1_ = ax + aw / 2, ay + ah
+            x2_, y2_ = bx + sizes[b][0] / 2, by
+            mx, my = x1_ + 8, (y1_ + y2_) / 2 + 4
+        else:                                                   # 回折行:右→左
+            x1_, y1_ = ax, ay + ah / 2
+            x2_, y2_ = bx + sizes[b][0], by + sizes[b][1] / 2
+            mx, my = (x1_ + x2_) / 2, y1_ - 9
+        out.append(f'<line x1="{x1_:.1f}" y1="{y1_:.1f}" x2="{x2_:.1f}" y2="{y2_:.1f}" '
+                   f'stroke="#334e68" stroke-width="1.6" marker-end="url(#ag)"/>')
         if label:
-            out.append(f'<text x="{mx}" y="{my}" font-size="9.5" fill="#687b8f" '
-                       f'text-anchor="middle" font-family="ui-monospace,Menlo,monospace">{_esc(label)}</text>')
+            out.append(f'<text x="{mx:.1f}" y="{my:.1f}" font-size="{F_EDGE}" fill="#687b8f" '
+                       f'text-anchor="middle">{_esc(label)}</text>')
 
-    for i, (num, title, fill, stroke, lines) in enumerate(FLOW_NODES):
-        x, y = pos[i]
-        out.append(f'<rect x="{x}" y="{y}" width="{W2}" height="{H2}" rx="6" fill="{fill}" '
-                   f'stroke="{stroke}" stroke-width="1.4"/>')
-        out.append(f'<text x="{x + 9}" y="{y + 16}" font-size="8.5" font-weight="600" '
-                   f'fill="{stroke}">{_esc(num + " · " + title)}</text>')
+    # ③ 框与文字
+    for i, (num, title, fill, stroke, lines) in enumerate(nodes):
+        x, y, w, h = box(i)
+        out.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="8" '
+                   f'fill="{fill}" stroke="{stroke}" stroke-width="1.6"/>')
+        out.append(f'<text x="{x + PADX:.1f}" y="{y + PADY + F_TITLE:.1f}" '
+                   f'font-size="{F_TITLE}" font-weight="600" fill="{stroke}">'
+                   f'{_esc(num + " · " + title)}</text>')
         for j, ln in enumerate(lines):
-            out.append(f'<text x="{x + 9}" y="{y + 30 + j * 11}" font-size="7.5" fill="#687b8f" '
+            yy = y + PADY + F_TITLE + 6 + SUB_H * (j + 1) - 2
+            out.append(f'<text x="{x + PADX:.1f}" y="{yy:.1f}" font-size="{F_SUB}" fill="#687b8f" '
                        f'font-family="ui-monospace,Menlo,monospace">{_esc(ln)}</text>')
 
-    out.append('<text x="40" y="286" font-size="9" fill="#687b8f">'
-               '每一步都落成文件；下一步只读上一步的产物，不靠人转述。'
-               f'{_esc("　门禁:" + gate) if gate else ""}</text>')
+    foot = '每一步都落成文件；下一步只读上一步的产物，不靠人转述。'
+    if gate:
+        foot += f'　门禁：{gate}'
+    out.append(f'<text x="{M}" y="{H - 14}" font-size="{F_FOOT}" fill="#687b8f">{_esc(foot)}</text>')
     out.append('</svg>')
     return '\n'.join(out)
-
 
 STEP_NAMES = ('1 出初始 JD', '2 定稿', '3 初筛', '4 一面', '5a 短名单', '5b 最终名单')
 
@@ -349,6 +392,86 @@ def render(facts: dict, rows: list[dict], gate: str, svg_v: str = '') -> str:
     A('| 门禁 | 最终名单 ⊂ 短名单、人数 ≤ 上限、**人数明显更少**、每人真的过三条硬条件（从 `rows` 复算，不信自报）、说明不得过期 |')
     A('')
     A('---')
+    A('')
+    A('## 排序口径：名单是怎么"切"出来的')
+    A('')
+    A('> 唯一权威就是本节。代码在 `pick_interview_list`（面试名单）与 '
+      '`shortlist_after_interview`（短名单/最终名单），两处产物里都写着 `rank_rule` 与 `cut`。')
+    A('> **本节与代码不一致时，以代码 + 产物为准**，并回来把本节改掉 —— 文档不能变成第二个真相。')
+    A('')
+    A('**九个层，前面的决定后面的。** 上一层分不出胜负才看下一层；越靠前越硬，哈希永远在最后。')
+    A('')
+    A('| 层 | 依据 | 数据来源 | 谁能改 |')
+    A('|---|---|---|---|')
+    A('| ① | **硬证据项数**（可验证载体：系统/报告/客户审核/图表） | 简历抽取能力项 ∩ JD 要求组件中 `evidence_role: hard`，按**能力**去重 | 系统固定 |')
+    A('| ② | **软证据项数**（只能靠陈述） | 同上，`evidence_role: soft` | 系统固定 |')
+    A('| ③ | **业务优先规则命中数** | `priority_catalog.yaml` 里用户挑的那几条 | **用户** |')
+    A('| ④ | **客户原文「…优先」条款命中数** | JD 中 `verbatim` 含「优先」的条款，判定=满足才计 | 客户原文（自动） |')
+    A('| ⑤ | **总年限**（多者前） | 平台计算年限 | 系统固定 |')
+    A('| ⑥ | **稳定性：平均在职年限** | `hr_facts.avg_tenure_years`（从工作段算出） | 系统固定 |')
+    A('| ⑦ | **待核项数**（少者前） | `open_questions/<JD>.yaml` | 系统固定 |')
+    A('| ⑧ | **品质岗经历强度**（有 > 待核 > 读不出 > 无） | `cv_quality.verdict` | 系统固定；**本 JD 不要求品质经历时这一层关闭** |')
+    A('| ⑨ | **`sha256(候选人 id)`** | — | 系统固定；**不按姓名/文件名排** |')
+    A('')
+    A('### 只能动的三个旋钮')
+    A('')
+    A('| 旋钮 | 命令 | 影响 |')
+    A('|---|---|---|')
+    A('| 人数 | `set_target --jd <JD> --interview N --shortlist M~K` | 切几刀 |')
+    A('| 业务优先规则 | `priorities --jd <JD> --select 2 5` | 只影响第 ③ 层 |')
+    A('| 清空规则 | `priorities --jd <JD> --clear` | 第 ③ 层归零，回到纯证据排序 |')
+    A('')
+    A('**其余七层不能靠对话改。** 要改先改政策，改完同时更新本节、代码里的 `rank_rule`、'
+      '以及 agent prompt —— 三处必须一致。')
+    A('')
+    A('### "他的名次能不能读"——看 `cut.tie_band`')
+    A('')
+    A('```yaml')
+    A('cut:')
+    A('  position: 10          # 切在第几位')
+    A('  tie_band: 1           # 这个位置上有几个人排序键完全相同')
+    A('  hash_decided: false   # 名次是否由哈希决定')
+    A('  note: 切线唯一 —— 名次可读')
+    A('```')
+    A('')
+    A('| tie_band | 含义 | 汇报怎么说 |')
+    A('|---|---|---|')
+    A('| **1** | 切线唯一 | 名次可读，可以说"他排第 N" |')
+    A('| 2~3 | 小并列 | "这几个人键相同，谁上都行，按哈希排" |')
+    A('| >3 | 大片并列 | "**切线落在并列区内，名次不可读**；集合有意义，顺序没有" |')
+    A('')
+    A('**不许**在 `tie_band > 1` 时说"他更合适"—— 那是把哈希说成判断。')
+    A('当前五条线的 `tie_band` 见上面漏斗表的「切线并列」列。')
+    A('')
+    A('### 为什么是这个顺序（设计理由，不是偏好）')
+    A('')
+    A('1. **证据在最前**：能不能干这个活是第一位，偏好不能压过证据。'
+      '（曾把用户规则放最前，结果"规则全中但零能力证据"的人排到第 5 —— 已改。）')
+    A('2. **客户的「优先」在第 ④**：排用户规则之后，因为用户规则是本轮招聘的临时取舍，客户原文是长期口径；两者都是"偏好"，不是"资格"。')
+    A('3. **年限在稳定性之前**：客户写了「N 年以上经验」，这是客户口径；稳定性是我方推断。')
+    A('4. **待核项数是成本指标**：信息完整的人先面能省钱，但**不代表他更合适**。')
+    A('5. **哈希兜底而不是 id**：按 id 排等于按文件名/姓氏排，是一种看不见的偏差。')
+    A('')
+    A('### 已知偏差（必须一起说）')
+    A('')
+    A('| 层 | 偏差 | 方向 |')
+    A('|---|---|---|')
+    A('| ① ② | 用的是**简历抽取词表**，偏向"简历写得细的人"（DEF-01） | 会漏判能力：说不清的人被排后 |')
+    A('| ④ | 客户只写"专业优先"这类弱条款时，该层常命中 0 人 | 该层失效，不产生偏差也不起作用 |')
+    A('| ⑤ | 年限**读不出来**的排最后 —— 这是**排序口径，不是判他不合格** | 信息不全的人被排后 |')
+    A('| ⑥ | 平均在职年限是我方推断量，客户原文没要求 | 可能压掉"跳槽多但能力强"的人 |')
+    A('')
+    A('### 怎么验证这份口径没走样')
+    A('')
+    A('```bash')
+    A('env -u PGPORT .venv/bin/python -m scripts.talent.pick_interview_list --jd <JD>')
+    A('env -u PGPORT .venv/bin/python -m scripts.talent.shortlist_after_interview --jd <JD>')
+    A('env -u PGPORT .venv/bin/python -m scripts.talent.check_component_catalog')
+    A('```')
+    A('')
+    A('门禁会核：`rank_rule` 必须是 **9 层**、必须有 `cut` 段、`tie_band` 必须是整数、'
+      '面试名单人数等于 `interview_target`、账必须平（`kept + excluded = pool`）、'
+      '最终名单必须是短名单真子集且明显更少。**同输入重跑必须逐字节相同** —— 不确定就不算"可复算"。')
     A('')
     A('## 四个设计决定（演示时最该讲的四句）')
     A('')
