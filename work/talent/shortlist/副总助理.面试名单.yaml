@@ -1,0 +1,589 @@
+jd: 副总助理
+step: 3 初筛 → 面试名单
+target: 20
+decided_by: admin
+pool: 153
+rank_rule:
+- ① 硬证据项数(可验证载体:系统/报告/客户审核/图表),多者优先
+- ② 软证据项数(只能靠陈述的),多者优先
+- ③ 用户选的业务优先条件命中数
+- ④ 客户原文写的「优先」条款命中数(客户授权的排序依据)
+- ⑤ 总年限(客户要求 2 年以上;读不出来排最后 —— 排序口径,不是不合格)
+- ⑥ 稳定性:平均在职年限(从工作段算出,不是自述)
+- ⑦ 待核项数(成本,不是优劣)
+- ⑧ 品质岗经历(仅当本 JD 要求时)
+- ⑨ sha256(候选人 id):确定性兜底,不按文件名/姓氏排
+priorities:
+- Office 办公软件(Word/Excel/PPT)
+cut:
+  position: 20
+  tie_band: 1
+  hash_decided: false
+  note: 切线唯一 —— 名次可读
+selected:
+- cand_王___37岁_行政专员_智通简历_编号
+- cand_业务跟单_东莞_6_10K_王___10年以上_2
+- cand_业务跟单_东莞_6_8K_林___10年以上
+- cand_行政专员_东莞_7_9K_陈___10年以上
+- cand_业务跟单_东莞_6_8K_蒙___10年以上
+- cand_副总助理_东莞_8_13K_冷___9年
+- cand_副总助理_东莞_10_15K_黄___8年
+- cand_叶___37岁_管理课课长_智通简历_编号
+- cand_副总助理_东莞_10_15K_戴___8年_1
+- cand_副总助理_东莞_8_13K_范___7年
+- cand_专案工程师_东莞_12_16K_董___7年
+- cand_高级招聘专家_东莞_9_14K_段___7年
+- cand_业务跟单_东莞_6_10K_盘___6年
+- cand_业务跟单_东莞_6_10K_黎___6年
+- cand_专案工程师_东莞_12_16K_何___5年
+- cand_行政专员_东莞_7_8K_谢___5年
+- cand_业务跟单_东莞_6_10K_陈___5年
+- cand_陈___37岁_日文业务助理_智通简历_编号
+- cand_行政专员_东莞_7_9K_杨___4年
+- cand_业务跟单_东莞_6_10K_李___4年
+already_real_interview: []
+rows:
+- candidate: cand_王___37岁_行政专员_智通简历_编号
+  prefer_hits: 0
+  tenure: 3.0
+  years: 14
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  iv_real: 0
+  iv_sim: 36
+  quality: —
+  quality_kind: null
+  quality_months: 51
+  quality_quote: 专员.行政部:1、根据公司现状制定公司行政管理制度监督并实施; 2、协助人事专员对公司需求岗位的招聘及员工培训; 3、负责工厂日常办公用品、生产辅助材料的采购、分配和管理。确保物资供应充足，管理规范，降低企业成本，提高运营效
+    4、处理工厂日
+  gates_ok: 4
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 2
+  hard_items:
+  - Excel
+  soft_items:
+  - PowerPoint
+  - Word
+  major: 电子技术
+  fulltime: false
+  n_ask: 1
+  age: 37
+  edu: 3
+- candidate: cand_业务跟单_东莞_6_10K_王___10年以上_2
+  prefer_hits: 0
+  tenure: 7.0
+  years: 10
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 64
+  quality_quote: 助理 | 行业:2. 实时同步生产进度，响应客户咨询，妥善处理客诉及产品异常 3. 核对月度往来账款，负责客户样品寄送、测试及后续跟进工作
+  gates_ok: 3
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 2
+  hard_items:
+  - Excel
+  soft_items:
+  - PowerPoint
+  - Word
+  major: 人力资源管理
+  fulltime: null
+  n_ask: 3
+  age: null
+  edu: 3
+- candidate: cand_业务跟单_东莞_6_8K_林___10年以上
+  prefer_hits: 0
+  tenure: 4.0
+  years: 10
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 108
+  quality_quote: ''
+  gates_ok: 1
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 2
+  hard_items:
+  - Excel
+  soft_items:
+  - PowerPoint
+  - Word
+  major: null
+  fulltime: null
+  n_ask: 5
+  age: null
+  edu: null
+- candidate: cand_行政专员_东莞_7_9K_陈___10年以上
+  prefer_hits: 0
+  tenure: 3.9
+  years: 10
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 33
+  quality_quote: '专员”工作经验: 4年:'
+  gates_ok: 2
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 2
+  hard_items:
+  - Excel
+  soft_items:
+  - PowerPoint
+  - Word
+  major: 商务管理
+  fulltime: null
+  n_ask: 4
+  age: null
+  edu: 3
+- candidate: cand_业务跟单_东莞_6_8K_蒙___10年以上
+  prefer_hits: 0
+  tenure: 2.9
+  years: 10
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 46
+  quality_quote: '专员/助理:'
+  gates_ok: 3
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 2
+  hard_items:
+  - Excel
+  soft_items:
+  - PowerPoint
+  - Word
+  major: 商务管理
+  fulltime: null
+  n_ask: 2
+  age: 32
+  edu: 3
+- candidate: cand_副总助理_东莞_8_13K_冷___9年
+  prefer_hits: 0
+  tenure: 2.5
+  years: 9
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 42
+  quality_quote: '经理助理:'
+  gates_ok: 3
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 2
+  hard_items:
+  - Excel
+  soft_items:
+  - PowerPoint
+  - Word
+  major: 会计学
+  fulltime: null
+  n_ask: 3
+  age: 30
+  edu: 3
+- candidate: cand_副总助理_东莞_10_15K_黄___8年
+  prefer_hits: 0
+  tenure: 2.8
+  years: 8
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 59
+  quality_quote: 经理:1. 负责基建及工程项目全周期采购管理，涵盖圭建、机电、暖通、消防、弱电、给排 2. 严格执行总公司采购管理规定与实施细则，按项目节点推进采购执行，统筹采购订
+    3. 搭建并维护工程类供应商/分包商资源池，负责准入评审、资质核查、履约评
+  gates_ok: 1
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 2
+  hard_items:
+  - Excel
+  soft_items:
+  - PowerPoint
+  - Word
+  major: 商务英语
+  fulltime: null
+  n_ask: 4
+  age: null
+  edu: null
+- candidate: cand_叶___37岁_管理课课长_智通简历_编号
+  prefer_hits: 0
+  tenure: 2.7
+  years: 8
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  iv_real: 0
+  iv_sim: 35
+  quality: —
+  quality_kind: null
+  quality_months: 63
+  quality_quote: '专员/人力资源主管.人事行政部:'
+  gates_ok: 4
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 2
+  hard_items:
+  - Excel
+  soft_items:
+  - PowerPoint
+  - Word
+  major: 机械工程
+  fulltime: true
+  n_ask: 1
+  age: 37
+  edu: 5
+- candidate: cand_副总助理_东莞_10_15K_戴___8年_1
+  prefer_hits: 0
+  tenure: 1.5
+  years: 8
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 27
+  quality_quote: 经理助理:2.，项目管理，全流程管理，确保项目顺利推进，风险管理，按时交付，获得客户好评，树立品牌形象; 6. 客户服务，构建服务体系，制定服务标准，确保咨询、投诉、建议得到及时处理，客户满意度95%以上，
+  gates_ok: 3
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 2
+  hard_items:
+  - Excel
+  soft_items:
+  - PowerPoint
+  - Word
+  major: 汉语言文学
+  fulltime: null
+  n_ask: 4
+  age: null
+  edu: 4
+- candidate: cand_副总助理_东莞_8_13K_范___7年
+  prefer_hits: 0
+  tenure: 1.9
+  years: 7
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 22
+  quality_quote: '经理助理(兼人事):'
+  gates_ok: 2
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 2
+  hard_items:
+  - Excel
+  soft_items:
+  - PowerPoint
+  - Word
+  major: 纺织工程
+  fulltime: null
+  n_ask: 4
+  age: null
+  edu: 4
+- candidate: cand_专案工程师_东莞_12_16K_董___7年
+  prefer_hits: 0
+  tenure: 0.0
+  years: 7
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  iv_real: 0
+  iv_sim: 38
+  quality: —
+  quality_kind: null
+  quality_months: 0
+  quality_quote: ''
+  gates_ok: 4
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 2
+  hard_items:
+  - Excel
+  soft_items:
+  - PowerPoint
+  - Word
+  major: 环境艺术设计
+  fulltime: true
+  n_ask: 1
+  age: 27
+  edu: 3
+- candidate: cand_高级招聘专家_东莞_9_14K_段___7年
+  prefer_hits: 0
+  tenure: 0.0
+  years: 7
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 0
+  quality_quote: ''
+  gates_ok: 3
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 2
+  hard_items:
+  - Excel
+  soft_items:
+  - PowerPoint
+  - Word
+  major: 市场营销
+  fulltime: null
+  n_ask: 3
+  age: 31
+  edu: 3
+- candidate: cand_业务跟单_东莞_6_10K_盘___6年
+  prefer_hits: 0
+  tenure: 5.7
+  years: 6
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 67
+  quality_quote: 文员:2、制单，跟踪样品制作。 5、跟踪生产货期及品质监控检验，确保按期按质交货。 6、完成上级交付的其他工作任务
+  gates_ok: 3
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 2
+  hard_items:
+  - Excel
+  soft_items:
+  - PowerPoint
+  - Word
+  major: 工商管理
+  fulltime: null
+  n_ask: 2
+  age: 25
+  edu: 3
+- candidate: cand_业务跟单_东莞_6_10K_黎___6年
+  prefer_hits: 0
+  tenure: 0.0
+  years: 6
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 0
+  quality_quote: ''
+  gates_ok: 2
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 2
+  hard_items:
+  - Excel
+  soft_items:
+  - PowerPoint
+  - Word
+  major: 资产评估
+  fulltime: null
+  n_ask: 3
+  age: null
+  edu: 4
+- candidate: cand_专案工程师_东莞_12_16K_何___5年
+  prefer_hits: 0
+  tenure: 2.1
+  years: 5
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  iv_real: 0
+  iv_sim: 32
+  quality: —
+  quality_kind: null
+  quality_months: 53
+  quality_quote: :1.负责线束产品图纸设计，变更，与审核; 2.负责快充数据线，各类等级网线，各类高频线束等各类线束产品结构材料选型，产线SOP指导书,产品结构材料BOM
+    ，样品承认 3.负责工艺文件编辑及工艺优化，工序流程的设计; 4.负责改进后的制程工
+  gates_ok: 4
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 2
+  hard_items:
+  - Excel
+  soft_items:
+  - PowerPoint
+  - Word
+  major: 计算机及应用
+  fulltime: false
+  n_ask: 1
+  age: 26
+  edu: 3
+- candidate: cand_行政专员_东莞_7_8K_谢___5年
+  prefer_hits: 0
+  tenure: 1.3
+  years: 5
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 20
+  quality_quote: '专员:'
+  gates_ok: 2
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 2
+  hard_items:
+  - Excel
+  soft_items:
+  - PowerPoint
+  - Word
+  major: 物流管理
+  fulltime: null
+  n_ask: 4
+  age: null
+  edu: 3
+- candidate: cand_业务跟单_东莞_6_10K_陈___5年
+  prefer_hits: 0
+  tenure: 1.1
+  years: 5
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  iv_real: 0
+  iv_sim: 31
+  quality: —
+  quality_kind: null
+  quality_months: 19
+  quality_quote: '助理 | 儿童木制玩具                                                  6.8K:'
+  gates_ok: 4
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 2
+  hard_items:
+  - Excel
+  soft_items:
+  - PowerPoint
+  - Word
+  major: 商务英语
+  fulltime: true
+  n_ask: 1
+  age: 27
+  edu: 4
+- candidate: cand_陈___37岁_日文业务助理_智通简历_编号
+  prefer_hits: 0
+  tenure: 2.8
+  years: 4
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  iv_real: 0
+  iv_sim: 30
+  quality: —
+  quality_kind: null
+  quality_months: 48
+  quality_quote: ''
+  gates_ok: 4
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 2
+  hard_items:
+  - Excel
+  soft_items:
+  - PowerPoint
+  - Word
+  major: 财务会计
+  fulltime: false
+  n_ask: 1
+  age: 37
+  edu: 3
+- candidate: cand_行政专员_东莞_7_9K_杨___4年
+  prefer_hits: 0
+  tenure: 1.7
+  years: 4
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  iv_real: 0
+  iv_sim: 38
+  quality: —
+  quality_kind: null
+  quality_months: 28
+  quality_quote: '专员:'
+  gates_ok: 4
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 2
+  hard_items:
+  - Excel
+  soft_items:
+  - PowerPoint
+  - Word
+  major: 电子商务
+  fulltime: true
+  n_ask: 1
+  age: 34
+  edu: 3
+- candidate: cand_业务跟单_东莞_6_10K_李___4年
+  prefer_hits: 0
+  tenure: 1.6
+  years: 4
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 25
+  quality_quote: :1. 对接新老客户，接收客户需求、登记订单信息、跟进订单进度，确保按时交付; 2. 负责报价单制作、合同对接、资料核对，熟悉商务流程
+    3. 跟进回款、对账、单据整理，做好客户售后沟通与问题协调; 4. 每日整理客户资料、订单台账，统计业绩
+  gates_ok: 2
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 2
+  hard_items:
+  - Excel
+  soft_items:
+  - PowerPoint
+  - Word
+  major: 酒店管理
+  fulltime: null
+  n_ask: 4
+  age: null
+  edu: 3

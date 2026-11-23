@@ -1,64 +1,80 @@
 jd: 业务跟单
 department: 业务课
-source_file: client/team-4/unzipped/职务说明书10份/2. 业务跟单职务说明书.doc
+source_file: 业务跟单职务说明书（客户原始 .doc 不在本仓库内,见下方 extracted_with)
 source_text: work/talent/jd_links/_source/业务跟单.txt
-extracted_with: textutil -convert txt (macOS)
-extracted_at: 2026-11-20
+extracted_with: '**_source 是既有产物(2026-11-20 11:47 建立),本轮没有重抽** —— 客户原始 .doc 不在本仓库、
+  也不在我的工作区 upload/ 里(那里只有 12.品质经理职务说明书.doc)。本步只做了逐行核对: 103 行与 `wc -l` 一致;第 12 行是 Word
+  表格被抽平后单元格黏连的抬头行; 「职务名称业务跟单隶属部门业务课直接上司业务副课长直接下属」末格为空。未修任何字。'
+role_type: staff
+role_basis: 'operator 按原文线索推断为员工岗(执行层),待业务方确认: ①第 12 行职务名称为「业务跟单」、直接上司是「业务副课长」;②第
+  28 行「与业务经理/业务员协同服务客户」;③第 34 行「根据业务经理/业务员指示,处理客户退货事宜」;④第 37 行「执行上级交办的临时任务」。「直接下属」格为空
+  → 不能据此判断,故本结论来自上述行为线索,非该单元格。'
+role_confirmed: false
+sections:
+  1: 抬头 / 文件信息（第 1–12 行;第 12 行是表格黏连行,职务名称/隶属部门/直接上司/直接下属 都在这一行）
+  2: 资格要求（第 13–22 行;第 13「资格要求」、第 16「技能：」、第 19「素质：」是段内小标题,不是要求句）
+  3: 职务简述（第 23–37 行;第 24/30/35 行是 3 个组标题,其下 11 条子项全部是职责）
+  4: 事务表述（第 38–95 行;表头 39–45 行「序号/内容/每日/每周/每月/偶发/备注」,表体 46–95 行）
+  5: 修改履历（第 96–103 行;表体只剩「首次发行」与 PAGE 字段,无实质内容）
 count:
-  source_section: 资格要求
-  source_lines: 9
+  source_section: 资格要求（第 13–22 行;其中第 14/15/17/18/20/21/22 这 7 行是要求句）
   atomic_requirements: 9
-  count_note: '资格要求段 13–22 行。其中「专业…优先」是 desirable 而非硬性要求 ——
-
-    tier 记在引用边上,因为"这条要求在这份 JD 里是硬性还是优先"是 JD 的判断,
-
-    不是要求本身的属性。
-
-    「经验」「技能」「素质」这三行是**小标题**,本身不是要求。
-
-    '
+  client_requirements: 9
+  hr_requirements: 0
+  count_note: 7 行要求句切成 9 条:第 14 行用「，」带了两个主语(学历阈值 / 专业偏好)、第 15 行同样 (年限门槛 / ERP 熟悉度),各拆
+    2 条 = +2;其余 5 行各 1 条 → 9。 第 16「技能：」、第 19「素质：」是分组小标题,不单独成要求;第 13「资格要求」是段标题。 第 17
+    行「熟练使用ERP订单管理模块及Excel数据分析」带「及」,本步按 1 条登记, 理由与代价写在账本 D-业务跟单-02,等签字。 **HR 侧 0 条**:本步只登记客户原话。品质经理那
+    5 条 HR 侧要求是 2026-11-20 经 admin 签字的一批, 不能照抄到这份 JD 上 —— 没有发生的签署不许写进来。
 citations:
-- id: GZ-01
+- id: C-01
   requirement: REQ-B-EDU-LEVEL
-  verbatim: 高中及以上学历
+  verbatim: 学历：高中及以上学历
   source_text: 学历：高中及以上学历，国际贸易、商务管理类相关专业优先；
   txt_line: 14
-  section_index: 1
+  section_index: 2
+  tier: essential
+  origin: client
   value:
     num: 2
-  tier: essential
-  note: 高中 = rank 2。品质经理要 3(大专)—— 同一条要求,不同阈值。
-  origin: client
-- id: GZ-02
+  note: 库内 REQ-B-EDU-LEVEL 是 B.1(ordinal 2中专/高中 · 3大专 · 4本科…)+ op '>='。 属性表 B.1 的取值
+    2 的 label 就是「中专/高中」,所以客户写的「高中」直接对应 num 2, 「及以上」只表达比较方向,不是第二个约束 —— 没有沿用「大专」的阈值,这份客户写的确实是高中。
+- id: C-02
   requirement: REQ-B-MAJOR
   verbatim: 国际贸易、商务管理类相关专业优先
   source_text: 学历：高中及以上学历，国际贸易、商务管理类相关专业优先；
   txt_line: 14
-  section_index: 1
+  section_index: 2
+  tier: desirable
+  origin: client
   value:
     in:
     - 国际贸易
-    - 商务管理
-  tier: desirable
-  note: '**这一条是「优先」,不是硬性。** 品质经理那份写的是"…等工程类专业毕业"(硬性)。
-
-    同一个要求,两个 tier —— tier 记在引用边上,因为它属于 JD 的判断。
-
-    '
-  origin: client
-- id: GZ-03
+    - 商务管理类
+    open_word: 优先
+  granularity_decision:
+    status: confirmed_keep
+    note: 「、」在这里是枚举分隔符(同一条专业限定里的两个取值),不是两条独立要求;扩写/拆开都会替客户改口径。
+  note: "客户写的是「优先」,所以本步标 tier: desirable,value 里留着 open_word: 优先 和「类」这个开放词,不扩写。 要提醒下游两件事:\
+    \ ① 库内 REQ-B-MAJOR 的判法是**只按专业名点名**(见该条 note,2026-11-20 用户定的 D 口径),\n   也就是「国际贸易」「商务管理类」命中即满足、其余一律不满足\
+    \ —— 库这一层并没有「优先」这个第三态;\n   evaluate 只是把它打个 [优先] 标记(见 evaluate.py 的 tier 打印),不改「满足/不满足」的判定。\n\
+    ② 「商务管理类」带「类」,而点名判据是字面匹配,所以「工商管理」「商务英语」这类同族专业\n   会被判不满足。要让「优先」「类」真的按语义算,改的是要求库那一层,不在本步。"
+- id: C-03
   requirement: REQ-C-YEARS-DOMAIN
-  verbatim: 2年以上制造业订单跟单经验
+  verbatim: 经验：2年以上制造业订单跟单经验
   source_text: 经验：2年以上制造业订单跟单经验，熟悉ERP系统操作；
   txt_line: 15
   section_index: 2
+  tier: essential
+  origin: client
   value:
     num: 2
-    domain: 订单跟单
-  tier: essential
-  note: 品质经理是 ≥3 年 + 领域品质管理;这里是 ≥2 年 + 领域订单跟单。
-  origin: client
-- id: GZ-04
+    unit: 年
+    domain: 制造业订单跟单
+  year_basis: stated
+  note: 第 15 行用「，」带了两个主语,这里只取前一半(年限+领域),后一半是 C-04。 按库的 stated 口径比简历声明年限。「制造业」和「订单跟单」两个限定都写进
+    value.domain, 但库内 C.2(领域)属性未建,所以只有人能判「制造业」和「跟单」是不是同一回事 —— 简历写「业务助理 3 年」「PMC 2
+    年」的,下游会判成未知而非不满足。
+- id: C-04
   requirement: REQ-D-ERP-OPERATE
   verbatim: 熟悉ERP系统操作
   source_text: 经验：2年以上制造业订单跟单经验，熟悉ERP系统操作；
@@ -66,61 +82,135 @@ citations:
   section_index: 2
   tier: essential
   origin: client
-- id: GZ-05
+  value: {}
+  note: 第 15 行后半句。库内 REQ-D-ERP-OPERATE 的 note 点名的原文就是这句,组件 skill_ERP(37/277),自述级即可判。
+    注意它和 C-05 的关系:两条都落在 skill_ERP 上,所以「简历写了会 ERP」会同时满足这两条。 这不是重复计数(两条挂的是不同要求),但排序时要知道它们是同一个证据支撑的。
+- id: C-05
   requirement: REQ-D-ERP-EXCEL
   verbatim: 熟练使用ERP订单管理模块及Excel数据分析
   source_text: 熟练使用ERP订单管理模块及Excel数据分析；
   txt_line: 17
-  section_index: 4
+  section_index: 2
   tier: essential
   origin: client
-- id: GZ-06
+  value: {}
+  granularity_decision:
+    status: confirmed_keep
+    note: 按「及」拆两条会让库内同一条复合要求(2 个组件)被算两遍,且每条都退化成「或」,故按 1 条登记,等签字。
+  note: '客户写「熟练使用,带数据分析」,比 C-04 的「熟悉」高一档;库内这条的 note 也明说了两者不同。 按「及」本可拆成「ERP 订单模块」+「Excel
+    数据分析」两条,本步按 1 条登记,代价写在账本 D-业务跟单-02: 库内 REQ-D-ERP-EXCEL 是 composite、**没有写 match**,于是走默认
+    COVERAGE=0.5(evaluate.py:48), 2 个组件时命中 1 项就算满足 —— 也就是说「只会 Excel 不会 ERP」在库里判成满足。
+    要把「两项都要」保住,改的是这条要求的 match(all_of),属要求库那一层的变更,不在本步。'
+- id: C-06
   requirement: REQ-D-DELIVERY-RISK
   verbatim: 具备订单交期风险评估能力
   source_text: 具备订单交期风险评估能力；
   txt_line: 18
-  section_index: 5
+  section_index: 2
   tier: essential
   origin: client
-- id: GZ-07
+  value: {}
+  note: 库内 REQ-D-DELIVERY-RISK 的 note 点名的原文就是这句,组件 skill_订单交期风险评估(41/277),自述级即可判。
+    原文是「具备…能力」,没有写「几年」也没有写「做过」,所以本步不编阈值、不改成经验口径。
+- id: C-07
   requirement: REQ-E-STRESS
   verbatim: 抗压能力强，可同时处理多线程任务
   source_text: 抗压能力强，可同时处理多线程任务；
   txt_line: 20
-  section_index: 6
+  section_index: 2
   tier: essential
   origin: client
-- id: GZ-08
+  value: {}
+  note: 一句话两个面(抗压 / 多线程),但库内 REQ-E-STRESS 的 name 就是「抗压能力 / 多线程处理」, 本来就是一条要求、assessable=false、no_component=true
+    —— 拆开也只会得到两条都判不了的要求。 「强」没有刻度,本步不编一个。下游一定判不了,只能留面试评分表;保留不删是因为客户写了这一条。
+- id: C-08
   requirement: REQ-E-COMMUNICATION
   verbatim: 沟通协调能力佳，能独立对接客户与生产部门
   source_text: 沟通协调能力佳，能独立对接客户与生产部门；
   txt_line: 21
-  section_index: 7
+  section_index: 2
   tier: essential
-  note: '品质经理写「有良好的沟通、协调能力」,这里写「沟通协调能力佳,能独立对接客户与生产部门」。
-
-    两句话不同,指同一个要求 —— 这就是"语义共享、表述各异"。
-
-    '
   origin: client
-- id: GZ-09
+  value: {}
+  note: 后半句「能独立对接客户与生产部门」写得像一条独立能力(客户/生产两头对),但库内没有任何要求承载 「客户对接」:skill_跟单 是订单跟单,不是客户界面。所以本步按
+    1 条登记在 REQ-E-COMMUNICATION 上, 没有为它新造一条同义要求(复用优先)。 代价写明:下游完全判不了这一句(E 维 no_component),「能独立对接」和「沟通协调」在结果上分不开。
+    若业务方认为「独立对接客户」是硬条件(要真判),需要另建一条要求 + 候选侧数据源,属第 2 步的事。
+- id: C-09
   requirement: REQ-G-CONFIDENTIALITY
-  verbatim: 严守数据保密制度，无客户信息泄露记录
+  verbatim: 合规：严守数据保密制度，无客户信息泄露记录
   source_text: 合规：严守数据保密制度，无客户信息泄露记录。
   txt_line: 22
-  section_index: 8
+  section_index: 2
   tier: essential
-  note: G 维的 hasClearance 属性不存在,判不了 —— 但原话记下来了。
   origin: client
-excluded: []
-validation:
-- id: J-G1
-  rule: 每条 citation 的 requirement 必须存在于 requirement_library.yaml
-- id: J-G2
-  rule: 每条 verbatim 必须是 source_text 的逐字子串
-- id: J-G3
-  rule: 每条 source_text 必须是原文的整整一行
-- id: J-G4
-  rule: txt_line 必须是该行在文件里的真实行号
-- id: J-G5
-  rule: citation 不许带语义字段(dimension / attribute / components)
+  value: {}
+  note: 库内 REQ-G-CONFIDENTIALITY 的 name 就是「数据保密 / 无信息泄露记录」,assessable=false(G.1 hasClearance
+    属性不存在)。 这句话其实带两个约束:① 愿不愿意守制度(态度) ② 有没有泄露记录(事实,需证明文件)。 两个都不进计算(简历答不了 ②),所以按 1 条登记;拆开只会把「判不了」从
+    1 条变成 2 条。 原文写的是「无…记录」这种否定式硬条件,别在面试里当成「问一句有没有」就过。
+excluded:
+- id: X-01
+  candidate_text: 1.1. 对内跟进订单生产进度，对外主动服务客户，确保信息畅通；
+  txt_line: 25
+  section_index: 3
+  why: 职务简述第 1 组第 1 条 —— 是「公司要这个人做什么」,不是「候选人必须具备什么」。
+- id: X-02
+  candidate_text: 1.2. 管理客户订单，包括料号、最小起订量（MOQ）、交期等审核，及时回签交期确认函；
+  txt_line: 26
+  section_index: 3
+  why: 职责段第 1.2 条。这一行里有「料号」「最小起订量（MOQ）」「交期确认函」三个名词,极易被顺手抽成 「懂 MOQ / 懂交期确认函」这类技能要求
+    —— 但原文语境是「管理客户订单」这件工作,是公司要做的事。 「等」原样保留,本步没有把它当清单。
+- id: X-03
+  candidate_text: 1.3. 定期更新系统交期并回复客户，跟踪订单变更及呆滞订单处理；
+  txt_line: 27
+  section_index: 3
+  why: 职责段第 1.3 条。「更新系统交期」是日常动作,不是「会 ERP」这条资格的出处(那是 C-04/C-05,客户写在资格段里)。
+- id: X-04
+  candidate_text: 1.4. 与客户保持良好沟通，及时收集市场与订单信息，并与业务经理/业务员协同服务客户；
+  txt_line: 28
+  section_index: 3
+  why: 职责段第 1.4 条。「与客户保持良好沟通」和 C-08「沟通协调能力佳」字面相近,但这一条是要人干的事, C-08 才是对候选人的要求。两者都在,是两份东西,不是重复。
+- id: X-05
+  candidate_text: 1.5. 定期与客户沟通需求预测（FC）及订单趋势，协助内部资源准备。
+  txt_line: 29
+  section_index: 3
+  why: 职责段第 1.5 条。「需求预测（FC）」是工作内容里的名词,不据此造「会做 FC」的技能要求。
+- id: X-06
+  candidate_text: 2.1. 协调内部异常处理与改善，并与客户协商解决方案；
+  txt_line: 31
+  section_index: 3
+  why: 职责段第 2.1 条,是工作范围(协调异常),不是「有异常处理经验」这一条资格。
+- id: X-07
+  candidate_text: 2.2. 安排客户交货事宜，包括出货单据处理、快递申请、VMI库存核对等；
+  txt_line: 32
+  section_index: 3
+  why: 职责段第 2.2 条。「出货单据处理」「VMI库存核对」都是名词,抽成技能要求会凭空多出 「会单证」「懂 VMI」两条客户没写的门槛。「等」原样留着。
+- id: X-08
+  candidate_text: 2.3. 负责客户图纸的申请与变更管理；
+  txt_line: 33
+  section_index: 3
+  why: 职责段第 2.3 条。出现「图纸」不等于要求候选人会识图(库内另有 skill_识图)—— 原文说的是「申请与变更管理」,是流程动作。
+- id: X-09
+  candidate_text: 2.4. 根据业务经理/业务员指示，处理客户退货事宜，如需重新交货则跟进打单与交付流程。
+  txt_line: 34
+  section_index: 3
+  why: 职责段第 2.4 条。含「根据…指示」,说明这是被指派的执行动作,更不构成资格门槛。
+- id: X-10
+  candidate_text: 3.1. 每日汇报工作完成情况，确保任务透明可控；
+  txt_line: 36
+  section_index: 3
+  why: 职责段第 3.1 条。「每日」是频次,归事务表述那张表,不是资格门槛。
+- id: X-11
+  candidate_text: 3.2. 高效执行上级交办的临时任务，保障团队协作顺畅。
+  txt_line: 37
+  section_index: 3
+  why: 职责段第 3.2 条。它和事务表述表第 09 项「处理上级交待的其他任务」是同一件事的两种写法 (一处「交办」一处「交待」),两处都照留,都不当要求。
+- id: X-12
+  candidate_text: 事务表述（第 38 行标题;表头 39–45 行;表体 46–95 行共 11 项工作内容 + √ 勾选）
+  txt_line: 38
+  section_index: 4
+  why: 整张频次表都不作为任职资格:表体 11 项(客户新订单的确认 / 回签订单交期给客户 / 内部异常处理和与客户协商 / 按要求安排交货给客户 / 客户各种需求确认回复
+    / 经常与客户沟通… / 与客户保持良好的关系 / 订单、图纸的变更 / 处理上级交待的其他任务 / 客户投诉闭环处理 / ERP订单数据校验)与职务简述的
+    11 条子项基本一一对应, 是「同一件事多久做一次」,不是资格。 另外这张表的**勾选核对不了**:表头 4 列(每日/每周/每月/偶发),但表体被抽平后每项的
+    √ 只有 1–3 个 (第 07 项 2 个、第 10 和 11 项各 1 个),无法判断少的是哪一列。所以连「哪些事每天做」都不能当事实用, 只能当空白登记给第
+    2 步去问。
+undefined_statements: []

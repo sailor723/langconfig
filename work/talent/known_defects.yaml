@@ -1,0 +1,66 @@
+schema: talent.known_defects/v1
+as_of: 2026-11-21
+defects:
+- id: DEF-01
+  title: 抽取词表漏了同义表达
+  what: 组分抽取只认词表里的写法,简历里说「线材线束」「邀请客人验厂」 「不良制程改善」「SQA 稽核」时抽不到,于是判「不满足」。
+  direction: 漏判(把合格的人挡在外面,不会放进不合格的人)
+  affects:
+    requirements:
+    - REQ-D-HARNESS-DOMAIN
+    - REQ-D-CUSTOMER-AUDIT
+    - REQ-D-QA-ANALYSIS
+    components:
+    - skill_线束行业知识
+    - skill_客户验厂
+    - skill_品质问题分析
+  fix: llm_extract_cv 的字段说明 + component_catalog 词表补同义写法
+  verify: 抽 3 份已知 CV 对照 → 门禁 489 项 → 重跑对比看这 12 格是否翻转
+  evidenced_by: work/talent/compare/品质经理·核对结论.md#①
+- id: DEF-02
+  title: skill_英语 一个组件盖住了「口语」与「书面 8D」两件事
+  what: 一面答案相当于同时坐实了 skill_英语 与 skill_8D报告,于是「口语一般、 报告能写」的人被判「英语满足」。
+  direction: 假阳性(会把不达标的人放进来)
+  affects:
+    requirements:
+    - REQ-H-LANG-EN
+    components:
+    - skill_英语
+  fix: 拆成 skill_英语书面 / skill_英语口语;口语在 level_check 无刻度前只能判未知
+  verify: 门禁复算 + 廖/胡/陈 三人复核
+  evidenced_by: work/talent/compare/品质经理·核对结论.md#②
+- id: DEF-03
+  title: 年限要求只比年限、不比领域
+  what: 「3 年以上品质管理工作经验」现在只把总年限与 3 比,看不出这 3 年是不是品质岗。
+  direction: 假阳性(采购/研发 11 年也算满足)
+  affects:
+    requirements:
+    - REQ-C-YEARS-DOMAIN
+    components: []
+  fix: 把 cv_quality.json(品质岗经历,已算好)接进这条要求
+  verify: quality_gate 的 10 人结果可对照 → 门禁复算
+  evidenced_by: work/talent/compare/品质经理·核对结论.md#③
+- id: DEF-04
+  title: 专业限定的命中口径未定(子串 vs 断词)
+  what: 客户点名「自动化」,「工业电气自动化」按子串命中判满足; 按断词则不命中。两种口径都说得通,需要人拍板。
+  direction: 口径分歧(可能假阳性也可能漏判)
+  affects:
+    requirements:
+    - REQ-B-MAJOR
+    components: []
+  fix: 在 requirement_library 的 C-03 口径里写死,并把口径写进 note
+  verify: 门禁复算 + 汪___ 一人复核
+  evidenced_by: work/talent/compare/品质经理·核对结论.md#待你定
+- id: DEF-05
+  title: 定稿附录 F 曾把品质经理的岗位目的/KPI 套给所有 JD
+  what: render_jd_final.py 里 PURPOSE/KPI 是模块级硬编码常量(品质经理的内容),无条件写进每个 JD 的附录 F。业务跟单的定稿因此出现「负责部门品质与业务目标管理」「客户审厂通过率」——与它
+    14 条职责一条都对不上。
+  direction: 污染(把 A 岗的建议挂在 B 岗上),而且看起来像「我方建议」
+  affects:
+    requirements: []
+    components: []
+  fix: '附录 F 改为只认 jd_inputs/<JD>.yaml 里 answered_by: ours 的回填答案;没回填就不编,留一句「待业务方/HR
+    回填」'
+  verify: 重渲染 业务跟单 定稿,附录 F 只剩 S4.02/S4.03(由本 JD 14 条职责推出)
+  status: fixed 2026-11-22
+  evidenced_by: agent 391 在 业务跟单 第 2 步交付报告里发现并给了行号

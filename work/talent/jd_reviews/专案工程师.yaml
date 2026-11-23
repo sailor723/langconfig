@@ -1,0 +1,49 @@
+# 决策账本 —— 「谁、何时、为什么」这么定的**独立**记录。只能由人改。
+# 本文件由 DSH 在「步1·JD 起草」复核时建立:只登记待定事项,一律 signoff: pending。
+jd: 专案工程师
+ref: jd_links/专案工程师.yaml
+role_decision:
+  question: role_type 该记 manager 还是 staff
+  current: staff
+  why: _source 第 3 行「直接下属 | 无」是唯一判据 → 员工岗。与 品质经理 同一口径(那份也写「直接下属无」)。
+  signoff: pending
+decisions:
+- id: D-专案工程师-01
+  kind: granularity
+  subject: C-02
+  decision: pending_signoff
+  signoff: pending
+  why: 客户第 4 行一句话同时给了年限和行业背景。C-01 取年限、C-02 取行业认知,拆成两条是因为两者判定路径不同(年限按属性比,行业按能力项看证据)。
+  cost: 同一句话进两次账。若业务认为「做过 3 年电线连接器开发」就等价于「懂这个行业」,应当合并成一条,否则分母虚高(这条对所有人都多算一格)。
+- id: D-专案工程师-02
+  kind: granularity
+  subject: C-07
+  decision: confirmed_keep
+  signoff: pending
+  why: LLM 草稿把「电线加工设备」那一行拆成了两条同 requirement 的引用,判定按 requirement 聚合 → 同一句在分母里算两遍。已合成一条。
+- id: D-专案工程师-03
+  kind: threshold
+  subject: C-07
+  decision: pending_signoff
+  signoff: pending
+  why: 五个设备(裁线机/端子机/自动机/注塑机/点胶机)客户没说清是「都会」还是「会其中几项」。库里默认按覆盖率 50% 判(3/5 即满足),这会放宽客户原意。
+  cost: 按 all_of 判,本池里能满足的人会明显减少;按 50% 判,会有人「只会裁线机+端子机」也过。这条要客户/业务拍板,不是我方能定的。
+- id: D-专案工程师-04
+  kind: coverage
+  subject: C-03
+  decision: deferred
+  signoff: pending
+  why: 'C-03(新产品报价/样品/转量产流程)库里 assessable: false;C-04~C-06(抗压/积极向上/工作细心)是软素质,没有数据项。这 4 条对所有人都是「不可判」,不进分母、也不许拿来淘汰人。'
+  applies_to:
+  - C-03
+  - C-04
+  - C-05
+  - C-06
+scope_notes:
+- id: D-专案工程师-05
+  note: HR 侧要求本 JD 未登记(见 decisions 里同名条目)
+- id: D-专案工程师-05
+  kind: scope
+  signoff: pending
+  note: HR 侧要求(到岗/在职时长/稳定性/预算/通勤)本 JD **未登记**:品质经理那 5 条是 2026-11-20 经 admin 签字的一批,不能照抄(同 业务跟单 先例)。所以第
+    5b 步的硬门槛只剩客户条款。

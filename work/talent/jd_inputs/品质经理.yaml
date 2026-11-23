@@ -1,0 +1,45 @@
+jd: 品质经理
+interview_target:
+  n: 30
+  decided_by: admin
+  decided_at: '2026-11-21'
+  why: 初筛保留人数太多,第 3 步要给出可执行的面试批次
+interview_priorities:
+  decided_by: admin
+  decided_at: '2026-11-22'
+  criteria:
+  - id: P-QUALITY-EVIDENCE
+    name: 品质岗经历有硬证据
+    rule:
+      kind: quality_verdict
+      in_:
+      - 有
+    why: 岗位第一要求是做过品质管理,这条最硬
+    caveat: 全库只有个位数,选中后名单会很短
+  - id: P-IND-HARNESS
+    name: 线束/连接器行业
+    rule:
+      kind: component_any
+      components:
+      - skill_线束行业知识
+    why: 客户原文「熟识线束行业相关产品」(C-06)
+    caveat: 简历词表较窄,可能漏人(DEF-01)
+shortlist_5:
+  n: 10
+  decided_by: admin
+  rule: min→max,扩的前提是下一位有硬证据
+shortlist:
+  min: 8
+  max: 10
+  asked_by: hr
+  set_by: admin
+  set_at: '2026-11-23'
+  note: 第 5a 步:一面之后够格进下一轮评估的人
+final_max: 5
+final_note: 第 5b 步:送去用人部门面的人。硬门槛 0 不满足 + 硬证据≥1 + 未知≤3,最多 5 人,不硬凑
+shortlist_target_legacy:
+  min: 8
+  max: 12
+  asked_by: hr
+  set_by: admin
+  set_at: '2026-11-22'

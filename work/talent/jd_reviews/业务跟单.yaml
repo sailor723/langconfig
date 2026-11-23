@@ -1,0 +1,150 @@
+# 决策账本 —— 「谁、何时、为什么」这么定的**独立**记录。只能由人改。
+#
+#   jd_links/<JD>.yaml   引用了什么（派生文件，可被重新抽取覆盖）
+#   jd_reviews/<JD>.yaml 人定过什么（决策文件，只能由人改）
+#
+# 本文件由 agent 386 在「步1·JD 起草」时建立：只登记**待定的事项**，一律 signoff: pending，
+# 不写 decided_by / decided_at —— 我没有 admin 的签字权。没有发生的签署不许写进来。
+jd: 业务跟单
+ref: jd_links/业务跟单.yaml
+role_decision:
+  question: role_type 该记 manager 还是 staff
+  current: undetermined
+  why: >-
+    _source 第 12 行「直接下属」这一格**是空的**(品质经理那份写的是「直接下属无」)。技能只认这一处,
+    未写就记 undetermined,不许按岗位名猜。等业务方在定稿表(第 2 步)上答。
+  signoff: pending
+decisions:
+
+- id: D-业务跟单-01
+  kind: granularity
+  subject: C-02
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「国际贸易、商务管理类相关专业优先」里的「、」是枚举分隔符 —— 同一条专业限定里的两个取值。
+    客户只有一条专业偏好要求；拆成两条会得到两条同义要求（都挂 REQ-B-MAJOR），下游把同一句话算两遍。
+  cost: >-
+    不拆的代价落在库那一层：REQ-B-MAJOR 按**点名**判（2026-11-20 用户定的 D 口径），
+    「类」和「优先」都进不去判定 —— 客户写「优先」，库里却只有满足/不满足两态。
+    要把「优先」真的当加分，改的是要求库口径，不是这条引用。
+
+- id: D-业务跟单-02
+  kind: granularity
+  subject: C-05
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    技能里的默认规矩是「及」拆两条（一 ERP 订单模块 / 一 Excel 数据分析），因为一个人可能只满足一半。
+    本条不拆的理由是库那一侧的现状：REQ-D-ERP-EXCEL 是 composite、挂着 2 个组件、**没有写 match**，
+    于是走默认 COVERAGE=0.5（evaluate.py:48）—— 命中 1/2 即判满足。
+    把一句话挂成两条引用，等于同一条要求算两遍，且每条都退化成「或」，比不拆更松。
+  cost: >-
+    **不拆也保不住「两项都要」**：现状下「只会 Excel、不会 ERP」判成满足。这是本次最该被看见的一处
+    （客户原文是「熟练使用…及…」，语气是两项都要的）。
+    两条路都要人定：① 改 REQ-D-ERP-EXCEL 的 match 为 all_of（要求库那一层的变更，不在本步）；
+    ② 或者接受「命中一项即满足」，在面试里补问另一项。现在是哪条都没定，所以 pending。
+
+- id: D-业务跟单-03
+  kind: exclusion
+  subject: X-01
+  decision: excluded
+  signoff: pending
+  why: 职务简述第 1 组第 1 条，是「做什么」，不是「要什么」。
+
+- id: D-业务跟单-04
+  kind: exclusion
+  subject: X-02
+  decision: excluded
+  signoff: pending
+  why: >-
+    职责段第 1.2 条。这一行有三个名词（料号 / 最小起订量（MOQ）/ 交期确认函），是最容易被抽成
+    「懂 MOQ」「懂交期确认函」的入口 —— 但原文语境是「管理客户订单」这件工作。抽进去就等于给客户
+    凭空加了两条他没写的门槛，把没写 MOQ 的跟单员整批挡在外面。
+  cost: >-
+    若业务方实际认为「懂 MOQ 审核」是硬条件，需要它明说并新增一条要求 + 候选侧数据源；本账本只登记「不作为任职资格」。
+
+- id: D-业务跟单-05
+  kind: exclusion
+  subject: X-03
+  decision: excluded
+  signoff: pending
+  why: 职责段第 1.3 条；「更新系统交期」是日常动作，不是「会 ERP」这条资格的出处（资格段已另有 C-04/C-05）。
+
+- id: D-业务跟单-06
+  kind: exclusion
+  subject: X-04
+  decision: excluded
+  signoff: pending
+  why: >-
+    职责段第 1.4 条与 C-08「沟通协调能力佳」字面相近，但这是公司要人干的事，C-08 才是对候选人的要求。
+    两条都留着，不是重复。
+
+- id: D-业务跟单-07
+  kind: exclusion
+  subject: X-05
+  decision: excluded
+  signoff: pending
+  why: 职责段第 1.5 条；「需求预测（FC）」是工作内容里的名词，不据此造「会做 FC」的技能要求。
+
+- id: D-业务跟单-08
+  kind: exclusion
+  subject: X-06
+  decision: excluded
+  signoff: pending
+  why: 职责段第 2.1 条；工作范围（协调异常），不是「有异常处理经验」这条资格。
+
+- id: D-业务跟单-09
+  kind: exclusion
+  subject: X-07
+  decision: excluded
+  signoff: pending
+  why: >-
+    职责段第 2.2 条；「出货单据处理」「VMI库存核对」是名词，抽成要求会凭空多出「会单证」「懂 VMI」两条门槛。
+    「等」原样保留，没有收窄成清单。
+
+- id: D-业务跟单-10
+  kind: exclusion
+  subject: X-08
+  decision: excluded
+  signoff: pending
+  why: >-
+    职责段第 2.3 条；出现「图纸」不等于要求候选人会识图（库内另有 skill_识图）——
+    原文说的是「申请与变更管理」，是流程动作，不是能力。
+
+- id: D-业务跟单-11
+  kind: exclusion
+  subject: X-09
+  decision: excluded
+  signoff: pending
+  why: 职责段第 2.4 条；含「根据…指示」，是被指派的执行动作，更不构成资格门槛。
+
+- id: D-业务跟单-12
+  kind: exclusion
+  subject: X-10
+  decision: excluded
+  signoff: pending
+  why: 职责段第 3.1 条；「每日」是频次口径，归事务表述表，不是资格门槛。
+
+- id: D-业务跟单-13
+  kind: exclusion
+  subject: X-11
+  decision: excluded
+  signoff: pending
+  why: >-
+    职责段第 3.2 条；与事务表述表第 09 项「处理上级交待的其他任务」同一件事的两种写法
+    （一处「交办」一处「交待」，错字照留），两处都不当要求。
+
+- id: D-业务跟单-14
+  kind: exclusion
+  subject: X-12
+  decision: excluded
+  signoff: pending
+  why: >-
+    「事务表述」整张频次表（表头 39–45 行 + 表体 46–95 行 11 项）不作为任职资格：表体 11 项与职务简述
+    的 11 条子项基本一一对应，是「同一件事多久做一次」。
+    另外它的勾选**核对不了**：表头有 4 列（每日/每周/每月/偶发），抽平后每项的 √ 只有 1–3 个，
+    分不清少的是哪一列。
+  cost: >-
+    频次信息（哪件事每天做、哪件事偶发）就此丢失，不进任何计算。若业务方要用它来排面试重点，
+    得把原表按列重抽一遍（本步做不到，原始 .doc 不在仓库内）。

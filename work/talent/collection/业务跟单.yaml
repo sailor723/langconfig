@@ -11,10 +11,10 @@ count:
   interview: 4
 items:
 - jd: 业务跟单
-  citation: GZ-01
+  citation: C-01
   requirement: REQ-B-EDU-LEVEL
   requirement_name: 学历不低于
-  verbatim: 高中及以上学历
+  verbatim: 学历：高中及以上学历
   kind: property
   value:
     num: 2
@@ -30,8 +30,9 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: cv
 - jd: 业务跟单
-  citation: GZ-02
+  citation: C-02
   requirement: REQ-B-MAJOR
   requirement_name: 专业限定
   verbatim: 国际贸易、商务管理类相关专业优先
@@ -39,7 +40,8 @@ items:
   value:
     in:
     - 国际贸易
-    - 商务管理
+    - 商务管理类
+    open_word: 优先
   data_item: major
   attach: B.2
   label: 专业
@@ -50,17 +52,19 @@ items:
   cv_coverage: 0.744
   source: cv
   judge_ready: true
-  library_says_assessable: false
-  library_blocked_by: B.2 的 prop_exists=false(专业属性未建)
+  library_says_assessable: true
+  library_blocked_by: null
+  req_source: cv
 - jd: 业务跟单
-  citation: GZ-03
+  citation: C-03
   requirement: REQ-C-YEARS-DOMAIN
   requirement_name: 某领域年限不低于
-  verbatim: 2年以上制造业订单跟单经验
+  verbatim: 经验：2年以上制造业订单跟单经验
   kind: property
   value:
     num: 2
-    domain: 订单跟单
+    unit: 年
+    domain: 制造业订单跟单
   data_item: years_stated
   attach: C.1
   label: 总年限(声明)
@@ -73,13 +77,14 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: cv_then_interview
 - jd: 业务跟单
-  citation: GZ-04
+  citation: C-04
   requirement: REQ-D-ERP-OPERATE
   requirement_name: ERP 系统操作
   verbatim: 熟悉ERP系统操作
   kind: component
-  value: null
+  value: {}
   data_item: skill_ERP
   attach: skill_ERP
   label: ERP
@@ -92,13 +97,14 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: cv_then_interview
 - jd: 业务跟单
-  citation: GZ-05
+  citation: C-05
   requirement: REQ-D-ERP-EXCEL
   requirement_name: ERP 订单模块 + Excel 数据分析
   verbatim: 熟练使用ERP订单管理模块及Excel数据分析
   kind: component
-  value: null
+  value: &id001 {}
   data_item: skill_ERP
   attach: skill_ERP
   label: ERP
@@ -111,13 +117,14 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: cv_then_interview
 - jd: 业务跟单
-  citation: GZ-05
+  citation: C-05
   requirement: REQ-D-ERP-EXCEL
   requirement_name: ERP 订单模块 + Excel 数据分析
   verbatim: 熟练使用ERP订单管理模块及Excel数据分析
   kind: component
-  value: null
+  value: *id001
   data_item: skill_Excel
   attach: skill_Excel
   label: Excel
@@ -130,13 +137,14 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: cv_then_interview
 - jd: 业务跟单
-  citation: GZ-06
+  citation: C-06
   requirement: REQ-D-DELIVERY-RISK
   requirement_name: 订单交期风险评估
   verbatim: 具备订单交期风险评估能力
   kind: component
-  value: null
+  value: {}
   data_item: skill_订单交期风险评估
   attach: skill_订单交期风险评估
   label: 订单交期风险评估
@@ -149,13 +157,14 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: interview
 - jd: 业务跟单
-  citation: GZ-07
+  citation: C-07
   requirement: REQ-E-STRESS
   requirement_name: 抗压能力 / 多线程处理
   verbatim: 抗压能力强，可同时处理多线程任务
   kind: none
-  value: null
+  value: {}
   data_item: null
   attach: null
   label: 抗压能力 / 多线程处理
@@ -168,13 +177,14 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: 没有可判的数据项(E 维无组件)
+  req_source: interview
 - jd: 业务跟单
-  citation: GZ-08
+  citation: C-08
   requirement: REQ-E-COMMUNICATION
   requirement_name: 沟通协调能力
   verbatim: 沟通协调能力佳，能独立对接客户与生产部门
   kind: none
-  value: null
+  value: {}
   data_item: null
   attach: null
   label: 沟通协调能力
@@ -187,13 +197,14 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: 没有可判的数据项(E 维无组件)
+  req_source: interview
 - jd: 业务跟单
-  citation: GZ-09
+  citation: C-09
   requirement: REQ-G-CONFIDENTIALITY
   requirement_name: 数据保密 / 无信息泄露记录
-  verbatim: 严守数据保密制度，无客户信息泄露记录
+  verbatim: 合规：严守数据保密制度，无客户信息泄露记录
   kind: property
-  value: null
+  value: {}
   data_item: hasClearance
   attach: G.1
   label: 法律记录
@@ -206,3 +217,4 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: null
+  req_source: interview

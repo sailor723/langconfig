@@ -1,0 +1,635 @@
+jd: 专案工程师
+step: 3 初筛 → 面试名单
+target: 20
+decided_by: admin
+pool: 258
+rank_rule:
+- ① 硬证据项数(可验证载体:系统/报告/客户审核/图表),多者优先
+- ② 软证据项数(只能靠陈述的),多者优先
+- ③ 用户选的业务优先条件命中数
+- ④ 客户原文写的「优先」条款命中数(客户授权的排序依据)
+- ⑤ 总年限(客户要求 2 年以上;读不出来排最后 —— 排序口径,不是不合格)
+- ⑥ 稳定性:平均在职年限(从工作段算出,不是自述)
+- ⑦ 待核项数(成本,不是优劣)
+- ⑧ 品质岗经历(仅当本 JD 要求时)
+- ⑨ sha256(候选人 id):确定性兜底,不按文件名/姓氏排
+priorities:
+- CAD/二维制图
+- 电线加工设备
+cut:
+  position: 20
+  tie_band: 1
+  hash_decided: false
+  note: 切线唯一 —— 名次可读
+selected:
+- cand_蓝___43岁_智通简历_编号
+- cand_专案工程师_东莞_10_15K_黄___7年
+- cand_廖___33岁_专案工程师_智通简历_编号
+- cand_专案工程师_东莞_12_16K_陈___5年
+- cand_胡___38岁_专案工程师_智通简历_编号
+- cand_雷___31岁_专案工程师_智通简历_编号
+- cand_廖___品质经理_NPI经理_研发经理
+- cand_专案工程师_东莞_12_16K_l___10年以上
+- cand_专案工程师_东莞_12_16K_石___10年以上
+- cand_专案工程师_东莞_12_16K_王___10年以上
+- cand_专案工程师_东莞_12_16K_董___7年
+- cand_罗___46岁_专案工程师_智通简历_编号
+- cand_肖___46岁_专案工程师_智通简历_编号
+- cand_彭___工程师_技术经理_总工
+- cand_汪___总工程师技术经理研发经理
+- cand_专案工程师_东莞_12_16K_lizw_10年以上
+- cand_专案工程师_东莞_12_16K_何___5年
+- cand_业务跟单_东莞_6_10K_宋___4年
+- cand_设计助理工程师_东莞_7_10K_柒___4年
+- cand_日语业务跟单_东莞_5_7K_邓___1年以内
+already_real_interview: []
+rows:
+- candidate: cand_蓝___43岁_智通简历_编号
+  prefer_hits: 0
+  tenure: 4.4
+  years: null
+  prio_hits: 2
+  prio_names:
+  - CAD/二维制图
+  - 电线加工设备
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 46
+  quality_quote: 工程师.工程课:1.根据客户需求，确认产品规格. 2.设计产品规格图面. 3.搜寻CABLE，CONNECTOR生产供应商. 4.展开产品成本分析给采购议价.
+    5.制作样品和承认书. 6.产品信赖性测试. 7.协助品质部处理产品异常及客诉.
+  gates_ok: 3
+  real_hits: 4
+  hard_hits: 1
+  soft_hits: 6
+  hard_items:
+  - Excel
+  soft_items:
+  - AutoCAD
+  - PowerPoint
+  - Word
+  - 端子机
+  - 线束行业知识
+  - 裁线机
+  major: null
+  fulltime: null
+  n_ask: 2
+  age: 43
+  edu: 2
+- candidate: cand_专案工程师_东莞_10_15K_黄___7年
+  prefer_hits: 0
+  tenure: 1.9
+  years: 7
+  prio_hits: 2
+  prio_names:
+  - CAD/二维制图
+  - 电线加工设备
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 39
+  quality_quote: ''
+  gates_ok: 4
+  real_hits: 4
+  hard_hits: 1
+  soft_hits: 5
+  hard_items:
+  - Excel
+  soft_items:
+  - AutoCAD
+  - PowerPoint
+  - Word
+  - 端子机
+  - 线束行业知识
+  major: null
+  fulltime: null
+  n_ask: 1
+  age: 29
+  edu: 2
+- candidate: cand_廖___33岁_专案工程师_智通简历_编号
+  prefer_hits: 0
+  tenure: 2.5
+  years: null
+  prio_hits: 2
+  prio_names:
+  - CAD/二维制图
+  - 电线加工设备
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 54
+  quality_quote: '工程师:'
+  gates_ok: 2
+  real_hits: 3
+  hard_hits: 1
+  soft_hits: 5
+  hard_items:
+  - Excel
+  soft_items:
+  - AutoCAD
+  - PowerPoint
+  - Word
+  - 端子机
+  - 裁线机
+  major: 工商企业管理
+  fulltime: null
+  n_ask: 3
+  age: 33
+  edu: 2
+- candidate: cand_专案工程师_东莞_12_16K_陈___5年
+  prefer_hits: 0
+  tenure: 1.6
+  years: 5
+  prio_hits: 2
+  prio_names:
+  - CAD/二维制图
+  - 电线加工设备
+  iv_real: 0
+  iv_sim: 31
+  quality: —
+  quality_kind: B
+  quality_months: 30
+  quality_quote: 工程师:1.经理指派责任产品工程师 2.登陆agile查看报价中心输出的QBOM、工时、工模治具以及客户的图纸、认证、包规、环保、测试报告、客户标准等要求
+    3.根据图纸未明确点以及实际可制造性提交DFM 4.收集零件图纸上传系统并申请ECN
+  gates_ok: 4
+  real_hits: 4
+  hard_hits: 1
+  soft_hits: 4
+  hard_items:
+  - Excel
+  soft_items:
+  - AutoCAD
+  - PowerPoint
+  - 注塑机
+  - 线束行业知识
+  major: 机械制造与自动化
+  fulltime: null
+  n_ask: 0
+  age: 26
+  edu: 3
+- candidate: cand_胡___38岁_专案工程师_智通简历_编号
+  prefer_hits: 0
+  tenure: 3.5
+  years: null
+  prio_hits: 2
+  prio_names:
+  - CAD/二维制图
+  - 电线加工设备
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 41
+  quality_quote: '工程师/技术员.工程部:'
+  gates_ok: 3
+  real_hits: 3
+  hard_hits: 1
+  soft_hits: 4
+  hard_items:
+  - Excel
+  soft_items:
+  - AutoCAD
+  - Word
+  - 注塑机
+  - 端子机
+  major: 工程机械运用与维护
+  fulltime: null
+  n_ask: 3
+  age: 38
+  edu: 3
+- candidate: cand_雷___31岁_专案工程师_智通简历_编号
+  prefer_hits: 0
+  tenure: 2.4
+  years: null
+  prio_hits: 2
+  prio_names:
+  - CAD/二维制图
+  - 电线加工设备
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: B
+  quality_months: 29
+  quality_quote: 组长.制造部:1.做好机械维修保养、到勤检查工作，保证机械正常运转; 2.妥善保管机械使用说明 、保修卡，认真学习掌握所有机器设备的性能及使用情况;
+    3.制定并向操作员宣传机械操作规程及制度 ，检查操作情况，纠正违章，实现安全生产 1.对设
+  gates_ok: 2
+  real_hits: 3
+  hard_hits: 1
+  soft_hits: 4
+  hard_items:
+  - Excel
+  soft_items:
+  - AutoCAD
+  - Word
+  - 端子机
+  - 自动机
+  major: null
+  fulltime: null
+  n_ask: 2
+  age: 31
+  edu: 2
+- candidate: cand_廖___品质经理_NPI经理_研发经理
+  prefer_hits: 0
+  tenure: 3.6
+  years: 15
+  prio_hits: 1
+  prio_names:
+  - CAD/二维制图
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: A
+  quality_months: null
+  quality_quote: 高速线品质经理:1. 完成ISO9001体系维护 2.定期组织各部门开展质量管理及质量控制培训工作, 推行全员品质, 提升员工的品质意
+    3. 客户端不良问题处理对接及8D报告完成, 不良品MRB处理及三内落实改善 4.根据产品及客户要求制定
+  gates_ok: 3
+  real_hits: 3
+  hard_hits: 1
+  soft_hits: 4
+  hard_items:
+  - Excel
+  soft_items:
+  - AutoCAD
+  - PowerPoint
+  - Word
+  - 线束行业知识
+  major: null
+  fulltime: null
+  n_ask: 1
+  age: 41
+  edu: 4
+- candidate: cand_专案工程师_东莞_12_16K_l___10年以上
+  prefer_hits: 0
+  tenure: 4.3
+  years: 10
+  prio_hits: 1
+  prio_names:
+  - CAD/二维制图
+  iv_real: 0
+  iv_sim: 29
+  quality: —
+  quality_kind: null
+  quality_months: 110
+  quality_quote: '技术员，产品工程师:'
+  gates_ok: 4
+  real_hits: 3
+  hard_hits: 1
+  soft_hits: 4
+  hard_items:
+  - Excel
+  soft_items:
+  - AutoCAD
+  - PowerPoint
+  - Word
+  - 线束行业知识
+  major: 工商管理
+  fulltime: null
+  n_ask: 2
+  age: 45
+  edu: 4
+- candidate: cand_专案工程师_东莞_12_16K_石___10年以上
+  prefer_hits: 0
+  tenure: 3.1
+  years: 10
+  prio_hits: 1
+  prio_names:
+  - CAD/二维制图
+  iv_real: 0
+  iv_sim: 32
+  quality: —
+  quality_kind: null
+  quality_months: 36
+  quality_quote: '主管         深圳中天电子《奥海科技前身) 中企 300 人:'
+  gates_ok: 3
+  real_hits: 3
+  hard_hits: 1
+  soft_hits: 4
+  hard_items:
+  - Excel
+  soft_items:
+  - AutoCAD
+  - PowerPoint
+  - Word
+  - 线束行业知识
+  major: 计算机应用
+  fulltime: null
+  n_ask: 2
+  age: null
+  edu: 2
+- candidate: cand_专案工程师_东莞_12_16K_王___10年以上
+  prefer_hits: 0
+  tenure: 0.0
+  years: 10
+  prio_hits: 1
+  prio_names:
+  - CAD/二维制图
+  iv_real: 0
+  iv_sim: 32
+  quality: —
+  quality_kind: null
+  quality_months: 0
+  quality_quote: ''
+  gates_ok: 3
+  real_hits: 3
+  hard_hits: 1
+  soft_hits: 4
+  hard_items:
+  - Excel
+  soft_items:
+  - AutoCAD
+  - PowerPoint
+  - Word
+  - 线束行业知识
+  major: 人力资源管理
+  fulltime: null
+  n_ask: 2
+  age: 43
+  edu: 4
+- candidate: cand_专案工程师_东莞_12_16K_董___7年
+  prefer_hits: 0
+  tenure: 0.0
+  years: 7
+  prio_hits: 1
+  prio_names:
+  - CAD/二维制图
+  iv_real: 0
+  iv_sim: 36
+  quality: —
+  quality_kind: null
+  quality_months: 0
+  quality_quote: ''
+  gates_ok: 4
+  real_hits: 3
+  hard_hits: 1
+  soft_hits: 4
+  hard_items:
+  - Excel
+  soft_items:
+  - AutoCAD
+  - PowerPoint
+  - Word
+  - 线束行业知识
+  major: 环境艺术设计
+  fulltime: null
+  n_ask: 2
+  age: 27
+  edu: 3
+- candidate: cand_罗___46岁_专案工程师_智通简历_编号
+  prefer_hits: 0
+  tenure: 4.5
+  years: null
+  prio_hits: 1
+  prio_names:
+  - CAD/二维制图
+  iv_real: 0
+  iv_sim: 32
+  quality: —
+  quality_kind: null
+  quality_months: 127
+  quality_quote: '工程师/线束工程主管.研发中心/工程半:'
+  gates_ok: 4
+  real_hits: 3
+  hard_hits: 1
+  soft_hits: 4
+  hard_items:
+  - Excel
+  soft_items:
+  - AutoCAD
+  - PowerPoint
+  - Word
+  - 线束行业知识
+  major: 电子信息化工程
+  fulltime: null
+  n_ask: 3
+  age: 46
+  edu: 4
+- candidate: cand_肖___46岁_专案工程师_智通简历_编号
+  prefer_hits: 0
+  tenure: 3.6
+  years: null
+  prio_hits: 1
+  prio_names:
+  - CAD/二维制图
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 91
+  quality_quote: '工程师.工程部:'
+  gates_ok: 3
+  real_hits: 3
+  hard_hits: 1
+  soft_hits: 4
+  hard_items:
+  - Excel
+  soft_items:
+  - AutoCAD
+  - PowerPoint
+  - Word
+  - 线束行业知识
+  major: null
+  fulltime: null
+  n_ask: 3
+  age: 46
+  edu: 3
+- candidate: cand_彭___工程师_技术经理_总工
+  prefer_hits: 0
+  tenure: 4.1
+  years: 15
+  prio_hits: 1
+  prio_names:
+  - CAD/二维制图
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 81
+  quality_quote: 工程师:2. 先后申报了 “铝合金环保型电缆”、“ 陶瓷硅橡胶防火电缆”等5项专利。 3. 全面负责申环电缆35kV及以下塑料电缆技术文件及技术指导。
+    4. 参与制定和修订塑料电线产品原材料消耗定额和原材料采购标准; 组织产品工艺分析 5.
+  gates_ok: 2
+  real_hits: 2
+  hard_hits: 1
+  soft_hits: 3
+  hard_items:
+  - Excel
+  soft_items:
+  - AutoCAD
+  - PowerPoint
+  - Word
+  major: 电气工程及其自动化
+  fulltime: null
+  n_ask: 3
+  age: 43
+  edu: 4
+- candidate: cand_汪___总工程师技术经理研发经理
+  prefer_hits: 0
+  tenure: 3.6
+  years: 15
+  prio_hits: 1
+  prio_names:
+  - CAD/二维制图
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: A
+  quality_months: 37
+  quality_quote: 技术质量经理:10. 负责检测设备和计量器具的效验、    管理检查督促工作。 12. 负责产品相关的标准文件的管理工作。
+  gates_ok: 3
+  real_hits: 2
+  hard_hits: 1
+  soft_hits: 3
+  hard_items:
+  - Excel
+  soft_items:
+  - AutoCAD
+  - PowerPoint
+  - Word
+  major: 工业电气自动化
+  fulltime: null
+  n_ask: 2
+  age: 47
+  edu: null
+- candidate: cand_专案工程师_东莞_12_16K_lizw_10年以上
+  prefer_hits: 0
+  tenure: 4.3
+  years: 10
+  prio_hits: 1
+  prio_names:
+  - CAD/二维制图
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 110
+  quality_quote: '技术员，产品工程师:'
+  gates_ok: 2
+  real_hits: 2
+  hard_hits: 1
+  soft_hits: 3
+  hard_items:
+  - Excel
+  soft_items:
+  - AutoCAD
+  - PowerPoint
+  - Word
+  major: 工商管理
+  fulltime: null
+  n_ask: 3
+  age: null
+  edu: 4
+- candidate: cand_专案工程师_东莞_12_16K_何___5年
+  prefer_hits: 0
+  tenure: 2.1
+  years: 5
+  prio_hits: 1
+  prio_names:
+  - CAD/二维制图
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 53
+  quality_quote: :1.负责线束产品图纸设计，变更，与审核; 2.负责快充数据线，各类等级网线，各类高频线束等各类线束产品结构材料选型，产线SOP指导书,产品结构材料BOM
+    ，样品承认 3.负责工艺文件编辑及工艺优化，工序流程的设计; 4.负责改进后的制程工
+  gates_ok: 3
+  real_hits: 2
+  hard_hits: 1
+  soft_hits: 3
+  hard_items:
+  - Excel
+  soft_items:
+  - AutoCAD
+  - PowerPoint
+  - Word
+  major: 计算机及应用
+  fulltime: null
+  n_ask: 3
+  age: 26
+  edu: 3
+- candidate: cand_业务跟单_东莞_6_10K_宋___4年
+  prefer_hits: 0
+  tenure: 0.8
+  years: 4
+  prio_hits: 1
+  prio_names:
+  - CAD/二维制图
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 15
+  quality_quote: 专员:1、接待淘宝平台用户咨询; 2、了解客户的需求，推荐合适的产品并跟进成交; 3、整理收集成交客户信息资料录入系统; 4、跟进产品使用及售后服务。
+  gates_ok: 2
+  real_hits: 2
+  hard_hits: 1
+  soft_hits: 3
+  hard_items:
+  - Excel
+  soft_items:
+  - AutoCAD
+  - PowerPoint
+  - Word
+  major: 法律事务
+  fulltime: null
+  n_ask: 3
+  age: 24
+  edu: null
+- candidate: cand_设计助理工程师_东莞_7_10K_柒___4年
+  prefer_hits: 0
+  tenure: 0.0
+  years: 4
+  prio_hits: 1
+  prio_names:
+  - CAD/二维制图
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 0
+  quality_quote: ''
+  gates_ok: 3
+  real_hits: 2
+  hard_hits: 1
+  soft_hits: 3
+  hard_items:
+  - Excel
+  soft_items:
+  - AutoCAD
+  - PowerPoint
+  - Word
+  major: 通信工程
+  fulltime: null
+  n_ask: 3
+  age: null
+  edu: 4
+- candidate: cand_日语业务跟单_东莞_5_7K_邓___1年以内
+  prefer_hits: 0
+  tenure: 0.6
+  years: 1
+  prio_hits: 1
+  prio_names:
+  - CAD/二维制图
+  iv_real: 0
+  iv_sim: 0
+  quality: —
+  quality_kind: null
+  quality_months: 22
+  quality_quote: ''
+  gates_ok: 2
+  real_hits: 2
+  hard_hits: 1
+  soft_hits: 3
+  hard_items:
+  - Excel
+  soft_items:
+  - AutoCAD
+  - PowerPoint
+  - Word
+  major: 安全工程
+  fulltime: null
+  n_ask: 3
+  age: 22
+  edu: 4

@@ -1,0 +1,80 @@
+# 决策账本 —— 「谁、何时、为什么」这么定的独立记录。只能由人改。
+# 本文件由 promote_jd 建立:只登记待定事项,一律 signoff: pending。
+jd: 关务报关员
+ref: jd_links/关务报关员.yaml
+role_decision:
+  question: role_type 该记 manager 还是 staff
+  current: staff
+  why: promote_jd 未做判断:归属要看客户原文的「直接下属」等线索,不能让脚本猜。
+  signoff: pending
+decisions:
+- id: D-关务报关员-01
+  kind: coverage
+  subject: 关务-06
+  applies_to:
+  - 关务-06
+  - 关务-07
+  - 关务-08
+  - 关务-09
+  - 关务-10
+  - 关务-12
+  - 关务-13
+  - 关务-14
+  - 关务-15
+  - 关务-16
+  decision: deferred
+  signoff: pending
+  why: '这 10 条在要求库里 assessable: false(或没有数据项),对所有人都是「不可判」:不进判定分母,也不许拿来淘汰人。'
+  cost: 要让它可判,得先给这些要求定数据项 —— 改的是要求库那一层,不在引用文件里。
+- id: D-关务报关员-02
+  kind: scope
+  subject: 关务-06
+  applies_to:
+  - 关务-06
+  - 关务-07
+  - 关务-08
+  - 关务-09
+  - 关务-10
+  - 关务-12
+  - 关务-13
+  - 关务-14
+  - 关务-15
+  - 关务-16
+  decision: deferred
+  signoff: pending
+  why: 这 10 条是软素质(数据类 soft),没有任何可判的数据项。演练里它们只出现在名单上,不参与排名与淘汰。
+  cost: 把软素质做成可判=设计一套结构化面试量表,现在没有。
+- id: D-关务报关员-04
+  kind: granularity
+  subject: 关务-03
+  decision: pending_signoff
+  signoff: pending
+  why: 「国际贸易、物流专业优先」—— 枚举分隔 + 客户只说「优先」,库内无「优先」第三态。
+  cost: 「物流管理」「国际经济与贸易」这类同族写法是否命中,取决于库的口径,不取决于本文件。
+- id: D-关务报关员-06
+  kind: granularity
+  subject: 关务-07
+  decision: deferred
+  signoff: pending
+  why: '「无海关行政处罚、犯罪记录」是**背调项**(G.1),assessable: false。简历里不会写,也不该由简历判。'
+  cost: 真要执行,只能靠入职前背调;演练里它只是「不可判」。
+- id: D-关务报关员-07
+  kind: granularity
+  subject: 关务-11
+  decision: confirmed_keep
+  signoff: pending
+  why: 「日报/周报/月报整理能力」是一件事的三个粒度,按 1 条登记(库内是单组件 skill_公文写作)。
+  cost: 无 —— 若硬拆成 3 条,三条会挂同一个 requirement,判定里算三遍。
+- id: D-关务报关员-08
+  kind: granularity
+  subject: 关务-02
+  decision: confirmed_keep
+  signoff: pending
+  why: 学历是一个 ordinal 阈值(≥大专),「及以上」由算子表达,拆开没有第二个变量。
+  cost: 无。
+scope_notes:
+- id: D-关务报关员-03
+  kind: scope
+  signoff: pending
+  note: HR 侧要求(到岗/在职时长/稳定性/预算/通勤)本 JD **未登记**:品质经理那 5 条是 2026-11-20 经 admin 签字的一批,不能照抄(同 业务跟单 先例)。所以第
+    5b 步的硬门槛只剩客户条款。

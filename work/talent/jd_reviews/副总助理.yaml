@@ -1,0 +1,80 @@
+# 决策账本 —— 「谁、何时、为什么」这么定的独立记录。只能由人改。
+# 本文件由 promote_jd 建立:只登记待定事项,一律 signoff: pending。
+jd: 副总助理
+ref: jd_links/副总助理.yaml
+role_decision:
+  question: role_type 该记 manager 还是 staff
+  current: staff
+  why: promote_jd 未做判断:归属要看客户原文的「直接下属」等线索,不能让脚本猜。
+  signoff: pending
+decisions:
+- id: D-副总助理-01
+  kind: coverage
+  subject: VP-01
+  applies_to:
+  - VP-01
+  - VP-04
+  - VP-07
+  - VP-08
+  - VP-09
+  - VP-10
+  - VP-11
+  - VP-12
+  - VP-13
+  - VP-14
+  - VP-15
+  decision: deferred
+  signoff: pending
+  why: '这 11 条在要求库里 assessable: false(或没有数据项),对所有人都是「不可判」:不进判定分母,也不许拿来淘汰人。'
+  cost: 要让它可判,得先给这些要求定数据项 —— 改的是要求库那一层,不在引用文件里。
+- id: D-副总助理-02
+  kind: scope
+  subject: VP-07
+  applies_to:
+  - VP-07
+  - VP-08
+  - VP-09
+  - VP-10
+  - VP-11
+  - VP-12
+  - VP-13
+  - VP-14
+  - VP-15
+  decision: deferred
+  signoff: pending
+  why: 这 9 条是软素质(数据类 soft),没有任何可判的数据项。演练里它们只出现在名单上,不参与排名与淘汰。
+  cost: 把软素质做成可判=设计一套结构化面试量表,现在没有。
+- id: D-副总助理-05
+  kind: granularity
+  subject: VP-03
+  decision: confirmed_split
+  signoff: pending
+  why: 「全日制大专及以上学历」一句话里有两个约束:学历层级(VP-03)与是否全日制(VP-04)。两者判定路径不同(学历按 ordinal 比,全日制按布尔),拆成两条。
+  cost: 同一句话进两次账;但合并会让「非全日制本科」这种组合判不出来。
+- id: D-副总助理-06
+  kind: granularity
+  subject: VP-05
+  decision: pending_signoff
+  signoff: pending
+  why: 「中文、文秘类专业优先」——「、」是枚举分隔符(同一条专业限定里的两个取值),且客户写的是「优先」;库内 REQ-B-MAJOR 只有满足/不满足两态。
+  cost: 按库现口径判,「商务英语」「行政管理」这类同族专业会被判不满足;要让「优先」真的起作用,改的是要求库,不在引用这一层。
+- id: D-副总助理-07
+  kind: granularity
+  subject: VP-16
+  decision: pending_signoff
+  signoff: pending
+  why: 「Office(Word/Excel/PPT/AI)」—— 前三个是库内已有组件,**AI 不在库内组件里**(库内 REQ-D-OFFICE 只有 Word/Excel/PowerPoint)。
+  cost: 'AI 这一项现在判不到:要么给库加 skill_AI工具(另有一套 REQ-D-AI-TOOLS,assessable: false),要么把客户这一项降级为「未建数据项」。两条都要人定。'
+- id: D-副总助理-08
+  kind: granularity
+  subject: VP-06
+  decision: confirmed_keep
+  signoff: pending
+  why: 客户把三类岗位写在一起作为同一段经历的限定;拆成三条会变成三条同注 REQ-C-YEARS-DOMAIN 的要求,同一句在分母里算三遍。
+  cost: 按 1 条登记后,「只做过文职 2 年」与「做过管理 2 年」在判定上等价 —— 客户若其实更看重其中某一类,应当另立一条带权重的偏好。
+scope_notes:
+- id: D-副总助理-03
+  kind: scope
+  signoff: pending
+  note: HR 侧要求(到岗/在职时长/稳定性/预算/通勤)本 JD **未登记**:品质经理那 5 条是 2026-11-20 经 admin 签字的一批,不能照抄(同 业务跟单 先例)。所以第
+    5b 步的硬门槛只剩客户条款。

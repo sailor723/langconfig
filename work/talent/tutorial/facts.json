@@ -1,0 +1,389 @@
+{
+ "_doc": "教程 v2 的全部数字。每个数只有一个来源；正文不许手写数字。unavailable 表示这项现在测不出来，不许用「约」蒙混。",
+ "generated_from": "scripts/talent/tutorial_facts.py",
+ "jds": [
+  "品质经理",
+  "业务跟单",
+  "专案工程师",
+  "副总助理",
+  "关务报关员"
+ ],
+ "step1_records": {
+  "source_files": 270,
+  "ocr_chars": 535695,
+  "avg_chars": 1984
+ },
+ "step2_individuals": {
+  "candidates": 277,
+  "skills": 53,
+  "skill_assertions": 1549,
+  "assertions_per_candidate": 5.6
+ },
+ "step3_categories": {
+  "categories_used": 22,
+  "classes_declared": 39,
+  "undeclared_but_used": [],
+  "top_categories": [
+   [
+    "QualityMethod",
+    8
+   ],
+   [
+    "CAD",
+    6
+   ],
+   [
+    "GeneralCapability",
+    6
+   ],
+   [
+    "WireEquipment",
+    5
+   ],
+   [
+    "HarnessCraft",
+    4
+   ]
+  ]
+ },
+ "step4_missing": {
+  "abox_marks": {
+   "Years": 129,
+   "Education": 71,
+   "Skills": 3
+  },
+  "cv_facts_absent": {
+   "years": 96,
+   "education": 24,
+   "skills": 8
+  }
+ },
+ "step5_gates": {
+  "per_jd": {
+   "品质经理": {
+    "citations": 15,
+    "client": 10,
+    "hr": 5,
+    "verbatim_ok": 10,
+    "judgeable": 14
+   },
+   "业务跟单": {
+    "citations": 9,
+    "client": 9,
+    "hr": 0,
+    "verbatim_ok": 9,
+    "judgeable": 6
+   },
+   "专案工程师": {
+    "citations": 9,
+    "client": 9,
+    "hr": 0,
+    "verbatim_ok": 9,
+    "judgeable": 5
+   },
+   "副总助理": {
+    "citations": 16,
+    "client": 16,
+    "hr": 0,
+    "verbatim_ok": 16,
+    "judgeable": 5
+   },
+   "关务报关员": {
+    "citations": 17,
+    "client": 17,
+    "hr": 0,
+    "verbatim_ok": 17,
+    "judgeable": 7
+   }
+  },
+  "client_citations": 61,
+  "verbatim_ok": 61,
+  "hr_side_citations": 5,
+  "judgeable": 37,
+  "client_origin": 61,
+  "library_size": 61
+ },
+ "step6_threshold_owner": {
+  "py_requirements_judged": 66,
+  "dl_defined_classes": 7,
+  "dl_roles": [
+   "专案工程师",
+   "业务助理",
+   "业务跟单",
+   "副总助理",
+   "品质经理",
+   "招聘专员",
+   "管理课长"
+  ],
+  "note": "招聘链上全部要求由 judge_all() 在 Python 里比阈值；定义类只用于教材与 profile 指标"
+ },
+ "step7_states": {
+  "docs": 1025,
+  "counts": {
+   "满足": 2677,
+   "不满足": 1139,
+   "未知": 3460,
+   "不可判": 5432
+  },
+  "total_cells": 12708
+ },
+ "step8_evidence": {
+  "components": 54,
+  "roles": {
+   "未声明": 39,
+   "hard": 11,
+   "soft": 4
+  },
+  "catalog_has_note": 15,
+  "capability_satisfied_rows": 827
+ },
+ "step9_division": {
+  "experiment": {
+   "A 只看本体": {
+    "判定质量": "7/31",
+    "可复算_重放": 1.0,
+    "可复算_重调": 1.0,
+    "调用次数": 0
+   },
+   "B 本体给料·LLM 全判": {
+    "判定质量": "15/31",
+    "可复算_重放": 1.0,
+    "可复算_重调": 0.8667,
+    "调用次数": 20
+   },
+   "C B + 冲突规则": {
+    "判定质量": "15/31",
+    "可复算_重放": 1.0,
+    "可复算_重调": 0.8667,
+    "调用次数": 20
+   },
+   "D 本体先判·LLM 补缺口": {
+    "判定质量": "7/31",
+    "可复算_重放": 1.0,
+    "可复算_重调": 1.0,
+    "调用次数": 0
+   }
+  },
+  "truth_cells": 31,
+  "candidates": 10,
+  "conflicts_now": 0,
+  "note": "冲突台账当前为空（判定重跑后 C 类冲突 0 格）；分工对比是历史实验，数字出自 work/talent/compare/品质经理·分工对比.yaml"
+ },
+ "step10_two_sources": {
+  "candidates": 277,
+  "differ": 249,
+  "only_abox": 578,
+  "only_llm": 331,
+  "abox_assertions": 1549,
+  "llm_assertions": 1302
+ },
+ "step11_lists": {
+  "per_jd": {
+   "品质经理": {
+    "shortlist": 10,
+    "final": 5,
+    "final_max": 5,
+    "tie_band": 1,
+    "dropped": 5
+   },
+   "业务跟单": {
+    "shortlist": 10,
+    "final": 5,
+    "final_max": 5,
+    "tie_band": 1,
+    "dropped": 5
+   },
+   "专案工程师": {
+    "shortlist": 10,
+    "final": 5,
+    "final_max": 5,
+    "tie_band": 1,
+    "dropped": 5
+   },
+   "副总助理": {
+    "shortlist": 10,
+    "final": 5,
+    "final_max": 5,
+    "tie_band": 1,
+    "dropped": 5
+   },
+   "关务报关员": {
+    "shortlist": 10,
+    "final": 5,
+    "final_max": 5,
+    "tie_band": 1,
+    "dropped": 5
+   }
+  },
+  "rules": {
+   "unknown_max": 3,
+   "min_hard": 1,
+   "final_max": 5
+  }
+ },
+ "step12_refusals": {
+  "requirements_without_data_item": [
+   "REQ-A-GENDER",
+   "REQ-B-FULL-TIME",
+   "REQ-D-NPI-PROCESS",
+   "REQ-E-ACCOUNTABILITY",
+   "REQ-E-CAREFUL",
+   "REQ-E-COMMUNICATION",
+   "REQ-E-DAILY-CLOSE",
+   "REQ-E-DATA-SENSITIVITY",
+   "REQ-E-ETHICS",
+   "REQ-E-EXECUTION",
+   "REQ-E-LOGIC",
+   "REQ-E-PRINCIPLE",
+   "REQ-E-PROACTIVE",
+   "REQ-E-RESPONSIBILITY",
+   "REQ-E-STRESS",
+   "REQ-E-STRIVING",
+   "REQ-E-TEAMWORK",
+   "REQ-F-TRADE-COMPLIANCE-TRAINING",
+   "REQ-G-CONFIDENTIALITY",
+   "REQ-G-NO-CRIMINAL-RECORD"
+  ],
+  "roles_without_threshold": [
+   [
+    "人资专员",
+    7,
+    [
+     "min_years"
+    ]
+   ],
+   [
+    "关务报关员",
+    0,
+    [
+     "min_years",
+     "education_floor"
+    ]
+   ],
+   [
+    "工程文员",
+    12,
+    [
+     "min_years"
+    ]
+   ]
+  ],
+  "roles_without_threshold_candidates": 19,
+  "components_zero_holder": [
+   "skill_5WHY",
+   "skill_贸易安全合规"
+  ],
+  "roles_without_jd": [
+   [
+    "行政专员",
+    28
+   ],
+   [
+    "技术经理主管",
+    14
+   ],
+   [
+    "设计工程师",
+    10
+   ],
+   [
+    "实验室技术员",
+    2
+   ]
+  ],
+  "roles_without_jd_candidates": 54
+ },
+ "pipeline_truth": {
+  "interview_docs": 72,
+  "real_interview_docs": 0,
+  "simulated_docs": 72,
+  "note": "basis: interview 才算真访谈;其余全是 simulated(代拟)"
+ },
+ "step13_replay": {
+  "run_pairs": 40,
+  "same_verdicts": 29,
+  "byte_identical": 7,
+  "replay_rate": 0.725,
+  "reask_drift": 11,
+  "cells_compared": 360,
+  "cells_same": 351,
+  "cell_agreement": 0.975,
+  "archive_dir": "work/talent/compare/_raw/品质经理",
+  "definition": "重放 = 同一份存档读两次结论相同;重调 = 再问一次模型(可能漂移)"
+ },
+ "step14_questions": {
+  "metrics_declared": 11,
+  "refusals_declared": 8,
+  "holes_declared": 2
+ },
+ "falsify": {
+  "F1_drop_category_CAD": {
+   "before": 78,
+   "after": 0,
+   "changed": true,
+   "means": "类别声明错了，「谁会 CAD」永远是空集，而且不报错"
+  },
+  "F2_missing_years_as_zero": {
+   "before": 96,
+   "after": 0,
+   "changed": true,
+   "unknown_becomes": "不满足",
+   "means": "缺失记作未知时，这些人不进「不满足」；当成 0 之后全部掉进「不满足」。全库曾因此把 1192/1207 格判成不合格"
+  },
+  "F3_drop_defined_classes": {
+   "before": 7,
+   "after": 0,
+   "changed": true,
+   "pipeline_verdicts_unchanged": true,
+   "judging_modules_reading_defined_classes": [],
+   "means": "定义类只服务教材与 profile；招聘结论来自 Python，删掉它一个判定都不会变"
+  },
+  "F4_unknown_as_unsatisfied": {
+   "before": 1139,
+   "after": 4599,
+   "changed": true,
+   "means": "这正是全库曾经犯过的错：1192/1207 格把「没读到」判成了「不合格」"
+  },
+  "F5_abox_only": {
+   "before": 1302,
+   "after": 1549,
+   "changed": true,
+   "means": "不定真源，两个人各算一遍会得到两个数，而且都能自称「可复算」"
+  },
+  "F6_default_years_on_refused_jd": {
+   "before": 0,
+   "after": 19,
+   "changed": true,
+   "roles": [
+    "人资专员",
+    "关务报关员",
+    "工程文员"
+   ],
+   "means": "人资专员/关务报关员/工程文员 的 JD 没写年限；补默认值等于替客户加一条要求 —— 教程要求「拒绝并点名缺哪条声明」"
+  },
+  "F9_tamper_client_source": {
+   "before": 9,
+   "after": 8,
+   "changed": true,
+   "means": "客户原文改一个字，那一条引用就对不上行 —— 逐字回查会红，所以阈值改不了"
+  },
+  "F10_soft_evidence_as_hard": {
+   "before": 621,
+   "after": 1139,
+   "changed": true,
+   "means": "把「仅自述/代拟」的否定也当成可排除依据，可用来排除的格数会膨胀 —— 门禁要求排除必须有硬证据，正是为了挡这个"
+  },
+  "F8_c_conflict_follows_ontology": {
+   "before": "15/31",
+   "after": "7/31",
+   "changed": true,
+   "means": "把 C 类冲突改成「一律跟本体」，等价于回退到 A 变体：判定质量掉回只看本体的水平 —— 那 8 格提升正是 LLM 读语义带来的"
+  },
+  "F7_final_without_second_gate": {
+   "before": 25,
+   "after": 50,
+   "changed": true,
+   "means": "两道闸没设就等于把「够格排队」当成了「可以送去面」"
+  }
+ }
+}

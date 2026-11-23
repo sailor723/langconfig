@@ -1,0 +1,1363 @@
+jd: 副总助理
+step: 5 目标名单(基于一面数据)
+pool:
+  interview_list: 20
+  with_interview: 20
+target:
+  min: 5
+  max: 10
+  asked_by: hr
+interview_policy:
+  mode: mock_allowed
+  source: interview_policy.yaml · 副总助理 · admin 2026-11-23
+judgeable_requirements: 5
+total_requirements: 16
+rank_rule:
+- ① 硬证据项数(可验证载体:系统/报告/客户审核/图表),多者优先
+- ② 软证据项数(只能靠陈述的),多者优先
+- ③ 用户选的业务优先条件命中数
+- ④ 客户原文写的「优先」条款被判定满足的条数
+- ⑤ 总年限(客户要求 X 年以上;读不出来排最后 —— 排序口径,不是不合格)
+- ⑥ 稳定性:平均在职年限(从工作段算出,不是自述)
+- ⑦ 待核项数(成本,不是优劣)
+- ⑧ 品质岗经历(仅当本 JD 要求)
+- ⑨ sha256(候选人 id):确定性兜底,不按文件名/姓氏排
+evidence_note: 证据分层按「简历 ∪ 一面坐实」算;from_interview 里标了 from_interview_simulated 的那些是**模拟一面**给的,演练用
+cut:
+  target_min: 5
+  target_max: 10
+  position: 10
+  tie_band: 1
+  hash_decided: false
+  note: 切线唯一 —— 名次可读
+shortfall: 0
+final:
+  rule:
+  - 硬门槛(A/B 类客户阈值 + HR 侧 5 条)0 条不满足
+  - 至少 1 项硬证据(简历或一面坐实)
+  - 未知 ≤3 条(再多就说明关键项还没读到)
+  max: 5
+  unknown_max: 3
+  min_hard: 1
+  ids:
+  - cand_王___37岁_行政专员_智通简历_编号
+  - cand_行政专员_东莞_7_9K_陈___10年以上
+  - cand_业务跟单_东莞_6_8K_蒙___10年以上
+  - cand_副总助理_东莞_8_13K_冷___9年
+  - cand_副总助理_东莞_10_15K_黄___8年
+  count: 5
+  dropped:
+  - candidate: cand_叶___37岁_管理课课长_智通简历_编号
+    why: 合格但超出 5 个名额(按短名单顺序)
+  - candidate: cand_副总助理_东莞_10_15K_戴___8年_1
+    why: 合格但超出 5 个名额(按短名单顺序)
+  - candidate: cand_专案工程师_东莞_12_16K_董___7年
+    why: 合格但超出 5 个名额(按短名单顺序)
+  - candidate: cand_高级招聘专家_东莞_9_14K_段___7年
+    why: 合格但超出 5 个名额(按短名单顺序)
+  - candidate: cand_业务跟单_东莞_6_10K_盘___6年
+    why: 合格但超出 5 个名额(按短名单顺序)
+  note: 最终名单 ⊂ 短名单,且人数明显更少:短名单是"够格排队",最终名单是"送去用人部门面,不许有硬伤"
+flags: []
+relaxations: []
+simulated_interview_only:
+- cand_王___37岁_行政专员_智通简历_编号
+- cand_行政专员_东莞_7_9K_陈___10年以上
+- cand_业务跟单_东莞_6_8K_蒙___10年以上
+- cand_副总助理_东莞_8_13K_冷___9年
+- cand_副总助理_东莞_10_15K_黄___8年
+- cand_叶___37岁_管理课课长_智通简历_编号
+- cand_副总助理_东莞_10_15K_戴___8年_1
+- cand_专案工程师_东莞_12_16K_董___7年
+- cand_高级招聘专家_东莞_9_14K_段___7年
+- cand_业务跟单_东莞_6_10K_盘___6年
+selected:
+- cand_王___37岁_行政专员_智通简历_编号
+- cand_行政专员_东莞_7_9K_陈___10年以上
+- cand_业务跟单_东莞_6_8K_蒙___10年以上
+- cand_副总助理_东莞_8_13K_冷___9年
+- cand_副总助理_东莞_10_15K_黄___8年
+- cand_叶___37岁_管理课课长_智通简历_编号
+- cand_副总助理_东莞_10_15K_戴___8年_1
+- cand_专案工程师_东莞_12_16K_董___7年
+- cand_高级招聘专家_东莞_9_14K_段___7年
+- cand_业务跟单_东莞_6_10K_盘___6年
+rows:
+- candidate: cand_王___37岁_行政专员_智通简历_编号
+  hard_items:
+  - skill_Excel
+  soft_items:
+  - skill_PowerPoint
+  - skill_Word
+  hard_hits: 1
+  soft_hits: 2
+  from_interview:
+  - skill_6S
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_客户验厂
+  - skill_英语
+  from_interview_simulated:
+  - skill_6S
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_客户验厂
+  - skill_英语
+  resume_items:
+  - skill_5S
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_SAP
+  - skill_Word
+  - skill_客户验厂
+  - skill_招聘
+  - skill_英语
+  iv_real: 0
+  iv_sim: 38
+  满足: 4
+  不满足: 1
+  未知: 0
+  不可判: 11
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  prefer_hits: 0
+  years: 14
+  tenure: 3.0
+  n_ask: 1
+  quality: —
+  quality_months: null
+  age: 37
+  edu: 3
+  verdicts:
+    REQ-A-GENDER: 不可判
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-FULL-TIME: 不可判
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-E-PRINCIPLE: 不可判
+    REQ-E-RESPONSIBILITY: 不可判
+    REQ-E-ACCOUNTABILITY: 不可判
+    REQ-E-DAILY-CLOSE: 不可判
+    REQ-E-STRIVING: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-E-EXECUTION: 不可判
+    REQ-E-LOGIC: 不可判
+    REQ-E-DATA-SENSITIVITY: 不可判
+    REQ-D-OFFICE: 满足
+- candidate: cand_业务跟单_东莞_6_10K_王___10年以上_2
+  hard_items:
+  - skill_Excel
+  soft_items:
+  - skill_PowerPoint
+  - skill_Word
+  hard_hits: 1
+  soft_hits: 2
+  from_interview:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  from_interview_simulated:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  resume_items:
+  - skill_ERP
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_财务
+  iv_real: 0
+  iv_sim: 33
+  满足: 3
+  不满足: 2
+  未知: 0
+  不可判: 11
+  冲突: []
+  gate_fails:
+  - REQ-A-AGE-RANGE
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  prefer_hits: 0
+  years: 10
+  tenure: 7.0
+  n_ask: 3
+  quality: —
+  quality_months: null
+  age: 41
+  edu: 3
+  verdicts:
+    REQ-A-GENDER: 不可判
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-FULL-TIME: 不可判
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-E-PRINCIPLE: 不可判
+    REQ-E-RESPONSIBILITY: 不可判
+    REQ-E-ACCOUNTABILITY: 不可判
+    REQ-E-DAILY-CLOSE: 不可判
+    REQ-E-STRIVING: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-E-EXECUTION: 不可判
+    REQ-E-LOGIC: 不可判
+    REQ-E-DATA-SENSITIVITY: 不可判
+    REQ-D-OFFICE: 满足
+- candidate: cand_业务跟单_东莞_6_8K_林___10年以上
+  hard_items:
+  - skill_Excel
+  soft_items:
+  - skill_PowerPoint
+  - skill_Word
+  hard_hits: 1
+  soft_hits: 2
+  from_interview:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  from_interview_simulated:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  resume_items:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_跟单
+  iv_real: 0
+  iv_sim: 36
+  满足: 3
+  不满足: 2
+  未知: 0
+  不可判: 11
+  冲突: []
+  gate_fails:
+  - REQ-A-AGE-RANGE
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  prefer_hits: 0
+  years: 10
+  tenure: 4.0
+  n_ask: 5
+  quality: —
+  quality_months: null
+  age: 41
+  edu: 3
+  verdicts:
+    REQ-A-GENDER: 不可判
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-FULL-TIME: 不可判
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-E-PRINCIPLE: 不可判
+    REQ-E-RESPONSIBILITY: 不可判
+    REQ-E-ACCOUNTABILITY: 不可判
+    REQ-E-DAILY-CLOSE: 不可判
+    REQ-E-STRIVING: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-E-EXECUTION: 不可判
+    REQ-E-LOGIC: 不可判
+    REQ-E-DATA-SENSITIVITY: 不可判
+    REQ-D-OFFICE: 满足
+- candidate: cand_行政专员_东莞_7_9K_陈___10年以上
+  hard_items:
+  - skill_Excel
+  soft_items:
+  - skill_PowerPoint
+  - skill_Word
+  hard_hits: 1
+  soft_hits: 2
+  from_interview:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  from_interview_simulated:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  resume_items:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_英语
+  - skill_行政
+  iv_real: 0
+  iv_sim: 34
+  满足: 3
+  不满足: 1
+  未知: 1
+  不可判: 11
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  prefer_hits: 0
+  years: 10
+  tenure: 3.9
+  n_ask: 4
+  quality: —
+  quality_months: null
+  age: 38
+  edu: 3
+  verdicts:
+    REQ-A-GENDER: 不可判
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-FULL-TIME: 不可判
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 未知
+    REQ-E-PRINCIPLE: 不可判
+    REQ-E-RESPONSIBILITY: 不可判
+    REQ-E-ACCOUNTABILITY: 不可判
+    REQ-E-DAILY-CLOSE: 不可判
+    REQ-E-STRIVING: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-E-EXECUTION: 不可判
+    REQ-E-LOGIC: 不可判
+    REQ-E-DATA-SENSITIVITY: 不可判
+    REQ-D-OFFICE: 满足
+- candidate: cand_业务跟单_东莞_6_8K_蒙___10年以上
+  hard_items:
+  - skill_Excel
+  soft_items:
+  - skill_PowerPoint
+  - skill_Word
+  hard_hits: 1
+  soft_hits: 2
+  from_interview:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  from_interview_simulated:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  resume_items:
+  - skill_ERP
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_跟单
+  iv_real: 0
+  iv_sim: 32
+  满足: 4
+  不满足: 1
+  未知: 0
+  不可判: 11
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  prefer_hits: 0
+  years: 10
+  tenure: 2.9
+  n_ask: 2
+  quality: —
+  quality_months: null
+  age: 32
+  edu: 3
+  verdicts:
+    REQ-A-GENDER: 不可判
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-FULL-TIME: 不可判
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-E-PRINCIPLE: 不可判
+    REQ-E-RESPONSIBILITY: 不可判
+    REQ-E-ACCOUNTABILITY: 不可判
+    REQ-E-DAILY-CLOSE: 不可判
+    REQ-E-STRIVING: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-E-EXECUTION: 不可判
+    REQ-E-LOGIC: 不可判
+    REQ-E-DATA-SENSITIVITY: 不可判
+    REQ-D-OFFICE: 满足
+- candidate: cand_副总助理_东莞_8_13K_冷___9年
+  hard_items:
+  - skill_Excel
+  soft_items:
+  - skill_PowerPoint
+  - skill_Word
+  hard_hits: 1
+  soft_hits: 2
+  from_interview:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  from_interview_simulated:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  resume_items:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_企业文化建设
+  - skill_体系管理
+  - skill_劳动法
+  - skill_招聘
+  - skill_薪酬绩效
+  iv_real: 0
+  iv_sim: 32
+  满足: 4
+  不满足: 1
+  未知: 0
+  不可判: 11
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  prefer_hits: 0
+  years: 9
+  tenure: 2.5
+  n_ask: 3
+  quality: —
+  quality_months: null
+  age: 30
+  edu: 3
+  verdicts:
+    REQ-A-GENDER: 不可判
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-FULL-TIME: 不可判
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-E-PRINCIPLE: 不可判
+    REQ-E-RESPONSIBILITY: 不可判
+    REQ-E-ACCOUNTABILITY: 不可判
+    REQ-E-DAILY-CLOSE: 不可判
+    REQ-E-STRIVING: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-E-EXECUTION: 不可判
+    REQ-E-LOGIC: 不可判
+    REQ-E-DATA-SENSITIVITY: 不可判
+    REQ-D-OFFICE: 满足
+- candidate: cand_副总助理_东莞_10_15K_黄___8年
+  hard_items:
+  - skill_Excel
+  soft_items:
+  - skill_PowerPoint
+  - skill_Word
+  hard_hits: 1
+  soft_hits: 2
+  from_interview:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  from_interview_simulated:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  resume_items:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  iv_real: 0
+  iv_sim: 34
+  满足: 4
+  不满足: 1
+  未知: 0
+  不可判: 11
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  prefer_hits: 0
+  years: 8
+  tenure: 2.8
+  n_ask: 4
+  quality: —
+  quality_months: null
+  age: 32
+  edu: 3
+  verdicts:
+    REQ-A-GENDER: 不可判
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-FULL-TIME: 不可判
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-E-PRINCIPLE: 不可判
+    REQ-E-RESPONSIBILITY: 不可判
+    REQ-E-ACCOUNTABILITY: 不可判
+    REQ-E-DAILY-CLOSE: 不可判
+    REQ-E-STRIVING: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-E-EXECUTION: 不可判
+    REQ-E-LOGIC: 不可判
+    REQ-E-DATA-SENSITIVITY: 不可判
+    REQ-D-OFFICE: 满足
+- candidate: cand_叶___37岁_管理课课长_智通简历_编号
+  hard_items:
+  - skill_Excel
+  soft_items:
+  - skill_PowerPoint
+  - skill_Word
+  hard_hits: 1
+  soft_hits: 2
+  from_interview:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_客户验厂
+  - skill_线束行业知识
+  from_interview_simulated:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_客户验厂
+  - skill_线束行业知识
+  resume_items:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_企业文化建设
+  - skill_体系管理
+  - skill_劳动法
+  - skill_培训课程开发
+  - skill_客户验厂
+  - skill_招聘
+  - skill_线束行业知识
+  - skill_薪酬绩效
+  iv_real: 0
+  iv_sim: 36
+  满足: 4
+  不满足: 1
+  未知: 0
+  不可判: 11
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  prefer_hits: 0
+  years: 8
+  tenure: 2.7
+  n_ask: 1
+  quality: —
+  quality_months: null
+  age: 37
+  edu: 5
+  verdicts:
+    REQ-A-GENDER: 不可判
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-FULL-TIME: 不可判
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-E-PRINCIPLE: 不可判
+    REQ-E-RESPONSIBILITY: 不可判
+    REQ-E-ACCOUNTABILITY: 不可判
+    REQ-E-DAILY-CLOSE: 不可判
+    REQ-E-STRIVING: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-E-EXECUTION: 不可判
+    REQ-E-LOGIC: 不可判
+    REQ-E-DATA-SENSITIVITY: 不可判
+    REQ-D-OFFICE: 满足
+- candidate: cand_副总助理_东莞_10_15K_戴___8年_1
+  hard_items:
+  - skill_Excel
+  soft_items:
+  - skill_PowerPoint
+  - skill_Word
+  hard_hits: 1
+  soft_hits: 2
+  from_interview:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  from_interview_simulated:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  resume_items:
+  - skill_Excel
+  - skill_Photoshop
+  - skill_PowerPoint
+  - skill_Word
+  - skill_招聘
+  - skill_英语
+  - skill_薪酬绩效
+  iv_real: 0
+  iv_sim: 33
+  满足: 4
+  不满足: 1
+  未知: 0
+  不可判: 11
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  prefer_hits: 0
+  years: 8
+  tenure: 1.5
+  n_ask: 4
+  quality: —
+  quality_months: null
+  age: 28
+  edu: 4
+  verdicts:
+    REQ-A-GENDER: 不可判
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-FULL-TIME: 不可判
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-E-PRINCIPLE: 不可判
+    REQ-E-RESPONSIBILITY: 不可判
+    REQ-E-ACCOUNTABILITY: 不可判
+    REQ-E-DAILY-CLOSE: 不可判
+    REQ-E-STRIVING: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-E-EXECUTION: 不可判
+    REQ-E-LOGIC: 不可判
+    REQ-E-DATA-SENSITIVITY: 不可判
+    REQ-D-OFFICE: 满足
+- candidate: cand_副总助理_东莞_8_13K_范___7年
+  hard_items:
+  - skill_Excel
+  soft_items:
+  - skill_PowerPoint
+  - skill_Word
+  hard_hits: 1
+  soft_hits: 2
+  from_interview:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  from_interview_simulated:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  resume_items:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_切片
+  - skill_培训课程开发
+  - skill_招聘
+  - skill_英语
+  iv_real: 0
+  iv_sim: 34
+  满足: 3
+  不满足: 2
+  未知: 0
+  不可判: 11
+  冲突: []
+  gate_fails:
+  - REQ-A-AGE-RANGE
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  prefer_hits: 0
+  years: 7
+  tenure: 1.9
+  n_ask: 4
+  quality: —
+  quality_months: null
+  age: 41
+  edu: 4
+  verdicts:
+    REQ-A-GENDER: 不可判
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-FULL-TIME: 不可判
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-E-PRINCIPLE: 不可判
+    REQ-E-RESPONSIBILITY: 不可判
+    REQ-E-ACCOUNTABILITY: 不可判
+    REQ-E-DAILY-CLOSE: 不可判
+    REQ-E-STRIVING: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-E-EXECUTION: 不可判
+    REQ-E-LOGIC: 不可判
+    REQ-E-DATA-SENSITIVITY: 不可判
+    REQ-D-OFFICE: 满足
+- candidate: cand_专案工程师_东莞_12_16K_董___7年
+  hard_items:
+  - skill_Excel
+  soft_items:
+  - skill_PowerPoint
+  - skill_Word
+  hard_hits: 1
+  soft_hits: 2
+  from_interview:
+  - skill_8D报告
+  - skill_AutoCAD
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_线束行业知识
+  from_interview_simulated:
+  - skill_8D报告
+  - skill_AutoCAD
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_线束行业知识
+  resume_items:
+  - skill_8D报告
+  - skill_AutoCAD
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_端子
+  - skill_线束行业知识
+  iv_real: 0
+  iv_sim: 38
+  满足: 4
+  不满足: 1
+  未知: 0
+  不可判: 11
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  prefer_hits: 0
+  years: 7
+  tenure: 0.0
+  n_ask: 1
+  quality: —
+  quality_months: null
+  age: 27
+  edu: 3
+  verdicts:
+    REQ-A-GENDER: 不可判
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-FULL-TIME: 不可判
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-E-PRINCIPLE: 不可判
+    REQ-E-RESPONSIBILITY: 不可判
+    REQ-E-ACCOUNTABILITY: 不可判
+    REQ-E-DAILY-CLOSE: 不可判
+    REQ-E-STRIVING: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-E-EXECUTION: 不可判
+    REQ-E-LOGIC: 不可判
+    REQ-E-DATA-SENSITIVITY: 不可判
+    REQ-D-OFFICE: 满足
+- candidate: cand_高级招聘专家_东莞_9_14K_段___7年
+  hard_items:
+  - skill_Excel
+  soft_items:
+  - skill_PowerPoint
+  - skill_Word
+  hard_hits: 1
+  soft_hits: 2
+  from_interview:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  from_interview_simulated:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  resume_items:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_劳动法
+  - skill_招聘
+  - skill_社保操作
+  - skill_薪酬绩效
+  iv_real: 0
+  iv_sim: 32
+  满足: 4
+  不满足: 1
+  未知: 0
+  不可判: 11
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  prefer_hits: 0
+  years: 7
+  tenure: 0.0
+  n_ask: 3
+  quality: —
+  quality_months: null
+  age: 31
+  edu: 3
+  verdicts:
+    REQ-A-GENDER: 不可判
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-FULL-TIME: 不可判
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-E-PRINCIPLE: 不可判
+    REQ-E-RESPONSIBILITY: 不可判
+    REQ-E-ACCOUNTABILITY: 不可判
+    REQ-E-DAILY-CLOSE: 不可判
+    REQ-E-STRIVING: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-E-EXECUTION: 不可判
+    REQ-E-LOGIC: 不可判
+    REQ-E-DATA-SENSITIVITY: 不可判
+    REQ-D-OFFICE: 满足
+- candidate: cand_业务跟单_东莞_6_10K_盘___6年
+  hard_items:
+  - skill_Excel
+  soft_items:
+  - skill_PowerPoint
+  - skill_Word
+  hard_hits: 1
+  soft_hits: 2
+  from_interview:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  from_interview_simulated:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  resume_items:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  iv_real: 0
+  iv_sim: 30
+  满足: 4
+  不满足: 1
+  未知: 0
+  不可判: 11
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  prefer_hits: 0
+  years: 6
+  tenure: 5.7
+  n_ask: 2
+  quality: —
+  quality_months: null
+  age: 25
+  edu: 3
+  verdicts:
+    REQ-A-GENDER: 不可判
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-FULL-TIME: 不可判
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-E-PRINCIPLE: 不可判
+    REQ-E-RESPONSIBILITY: 不可判
+    REQ-E-ACCOUNTABILITY: 不可判
+    REQ-E-DAILY-CLOSE: 不可判
+    REQ-E-STRIVING: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-E-EXECUTION: 不可判
+    REQ-E-LOGIC: 不可判
+    REQ-E-DATA-SENSITIVITY: 不可判
+    REQ-D-OFFICE: 满足
+- candidate: cand_业务跟单_东莞_6_10K_黎___6年
+  hard_items:
+  - skill_Excel
+  soft_items:
+  - skill_PowerPoint
+  - skill_Word
+  hard_hits: 1
+  soft_hits: 2
+  from_interview:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_报关
+  from_interview_simulated:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_报关
+  resume_items:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_报关
+  - skill_英语
+  - skill_财务
+  iv_real: 0
+  iv_sim: 34
+  满足: 4
+  不满足: 1
+  未知: 0
+  不可判: 11
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  prefer_hits: 0
+  years: 6
+  tenure: 0.0
+  n_ask: 3
+  quality: —
+  quality_months: null
+  age: 38
+  edu: 4
+  verdicts:
+    REQ-A-GENDER: 不可判
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-FULL-TIME: 不可判
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-E-PRINCIPLE: 不可判
+    REQ-E-RESPONSIBILITY: 不可判
+    REQ-E-ACCOUNTABILITY: 不可判
+    REQ-E-DAILY-CLOSE: 不可判
+    REQ-E-STRIVING: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-E-EXECUTION: 不可判
+    REQ-E-LOGIC: 不可判
+    REQ-E-DATA-SENSITIVITY: 不可判
+    REQ-D-OFFICE: 满足
+- candidate: cand_专案工程师_东莞_12_16K_何___5年
+  hard_items:
+  - skill_Excel
+  soft_items:
+  - skill_PowerPoint
+  - skill_Word
+  hard_hits: 1
+  soft_hits: 2
+  from_interview:
+  - skill_AutoCAD
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_线束行业知识
+  from_interview_simulated:
+  - skill_AutoCAD
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_线束行业知识
+  resume_items:
+  - skill_AutoCAD
+  - skill_Excel
+  - skill_ISO/TS16949
+  - skill_ISO9001
+  - skill_PowerPoint
+  - skill_Word
+  iv_real: 0
+  iv_sim: 32
+  满足: 4
+  不满足: 1
+  未知: 0
+  不可判: 11
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  prefer_hits: 0
+  years: 5
+  tenure: 2.1
+  n_ask: 1
+  quality: —
+  quality_months: null
+  age: 26
+  edu: 3
+  verdicts:
+    REQ-A-GENDER: 不可判
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-FULL-TIME: 不可判
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-E-PRINCIPLE: 不可判
+    REQ-E-RESPONSIBILITY: 不可判
+    REQ-E-ACCOUNTABILITY: 不可判
+    REQ-E-DAILY-CLOSE: 不可判
+    REQ-E-STRIVING: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-E-EXECUTION: 不可判
+    REQ-E-LOGIC: 不可判
+    REQ-E-DATA-SENSITIVITY: 不可判
+    REQ-D-OFFICE: 满足
+- candidate: cand_行政专员_东莞_7_8K_谢___5年
+  hard_items:
+  - skill_Excel
+  soft_items:
+  - skill_PowerPoint
+  - skill_Word
+  hard_hits: 1
+  soft_hits: 2
+  from_interview:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  from_interview_simulated:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  resume_items:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_企业文化建设
+  - skill_行政
+  iv_real: 0
+  iv_sim: 33
+  满足: 4
+  不满足: 1
+  未知: 0
+  不可判: 11
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  prefer_hits: 0
+  years: 5
+  tenure: 1.3
+  n_ask: 4
+  quality: —
+  quality_months: null
+  age: 32
+  edu: 3
+  verdicts:
+    REQ-A-GENDER: 不可判
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-FULL-TIME: 不可判
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-E-PRINCIPLE: 不可判
+    REQ-E-RESPONSIBILITY: 不可判
+    REQ-E-ACCOUNTABILITY: 不可判
+    REQ-E-DAILY-CLOSE: 不可判
+    REQ-E-STRIVING: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-E-EXECUTION: 不可判
+    REQ-E-LOGIC: 不可判
+    REQ-E-DATA-SENSITIVITY: 不可判
+    REQ-D-OFFICE: 满足
+- candidate: cand_业务跟单_东莞_6_10K_陈___5年
+  hard_items:
+  - skill_Excel
+  soft_items:
+  - skill_PowerPoint
+  - skill_Word
+  hard_hits: 1
+  soft_hits: 2
+  from_interview:
+  - skill_ERP
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_订单交期风险评估
+  from_interview_simulated:
+  - skill_ERP
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_订单交期风险评估
+  resume_items:
+  - skill_ERP
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_外贸业务
+  - skill_英语
+  - skill_跟单
+  iv_real: 0
+  iv_sim: 32
+  满足: 4
+  不满足: 1
+  未知: 0
+  不可判: 11
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  prefer_hits: 0
+  years: 5
+  tenure: 1.1
+  n_ask: 1
+  quality: —
+  quality_months: null
+  age: 27
+  edu: 4
+  verdicts:
+    REQ-A-GENDER: 不可判
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-FULL-TIME: 不可判
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-E-PRINCIPLE: 不可判
+    REQ-E-RESPONSIBILITY: 不可判
+    REQ-E-ACCOUNTABILITY: 不可判
+    REQ-E-DAILY-CLOSE: 不可判
+    REQ-E-STRIVING: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-E-EXECUTION: 不可判
+    REQ-E-LOGIC: 不可判
+    REQ-E-DATA-SENSITIVITY: 不可判
+    REQ-D-OFFICE: 满足
+- candidate: cand_陈___37岁_日文业务助理_智通简历_编号
+  hard_items:
+  - skill_Excel
+  soft_items:
+  - skill_PowerPoint
+  - skill_Word
+  hard_hits: 1
+  soft_hits: 2
+  from_interview:
+  - skill_ERP
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_报关
+  from_interview_simulated:
+  - skill_ERP
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_报关
+  resume_items:
+  - skill_ERP
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_报关
+  - skill_英语
+  - skill_跟单
+  iv_real: 0
+  iv_sim: 33
+  满足: 4
+  不满足: 1
+  未知: 0
+  不可判: 11
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  prefer_hits: 0
+  years: 4
+  tenure: 2.8
+  n_ask: 1
+  quality: —
+  quality_months: null
+  age: 37
+  edu: 3
+  verdicts:
+    REQ-A-GENDER: 不可判
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-FULL-TIME: 不可判
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-E-PRINCIPLE: 不可判
+    REQ-E-RESPONSIBILITY: 不可判
+    REQ-E-ACCOUNTABILITY: 不可判
+    REQ-E-DAILY-CLOSE: 不可判
+    REQ-E-STRIVING: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-E-EXECUTION: 不可判
+    REQ-E-LOGIC: 不可判
+    REQ-E-DATA-SENSITIVITY: 不可判
+    REQ-D-OFFICE: 满足
+- candidate: cand_行政专员_东莞_7_9K_杨___4年
+  hard_items:
+  - skill_Excel
+  soft_items:
+  - skill_PowerPoint
+  - skill_Word
+  hard_hits: 1
+  soft_hits: 2
+  from_interview:
+  - skill_6S
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  from_interview_simulated:
+  - skill_6S
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  resume_items:
+  - skill_6S
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_招聘
+  - skill_行政
+  iv_real: 0
+  iv_sim: 39
+  满足: 4
+  不满足: 1
+  未知: 0
+  不可判: 11
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  prefer_hits: 0
+  years: 4
+  tenure: 1.7
+  n_ask: 1
+  quality: —
+  quality_months: null
+  age: 34
+  edu: 3
+  verdicts:
+    REQ-A-GENDER: 不可判
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-FULL-TIME: 不可判
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-E-PRINCIPLE: 不可判
+    REQ-E-RESPONSIBILITY: 不可判
+    REQ-E-ACCOUNTABILITY: 不可判
+    REQ-E-DAILY-CLOSE: 不可判
+    REQ-E-STRIVING: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-E-EXECUTION: 不可判
+    REQ-E-LOGIC: 不可判
+    REQ-E-DATA-SENSITIVITY: 不可判
+    REQ-D-OFFICE: 满足
+- candidate: cand_业务跟单_东莞_6_10K_李___4年
+  hard_items:
+  - skill_Excel
+  soft_items:
+  - skill_PowerPoint
+  - skill_Word
+  hard_hits: 1
+  soft_hits: 2
+  from_interview:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  from_interview_simulated:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  resume_items:
+  - skill_ERP
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_跟单
+  iv_real: 0
+  iv_sim: 32
+  满足: 4
+  不满足: 1
+  未知: 0
+  不可判: 11
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - Office 办公软件(Word/Excel/PPT)
+  prefer_hits: 0
+  years: 4
+  tenure: 1.6
+  n_ask: 4
+  quality: —
+  quality_months: null
+  age: 32
+  edu: 3
+  verdicts:
+    REQ-A-GENDER: 不可判
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-FULL-TIME: 不可判
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-E-PRINCIPLE: 不可判
+    REQ-E-RESPONSIBILITY: 不可判
+    REQ-E-ACCOUNTABILITY: 不可判
+    REQ-E-DAILY-CLOSE: 不可判
+    REQ-E-STRIVING: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-E-EXECUTION: 不可判
+    REQ-E-LOGIC: 不可判
+    REQ-E-DATA-SENSITIVITY: 不可判
+    REQ-D-OFFICE: 满足
+in_list:
+  cand_王___37岁_行政专员_智通简历_编号: true
+  cand_业务跟单_东莞_6_10K_王___10年以上_2: false
+  cand_业务跟单_东莞_6_8K_林___10年以上: false
+  cand_行政专员_东莞_7_9K_陈___10年以上: true
+  cand_业务跟单_东莞_6_8K_蒙___10年以上: true
+  cand_副总助理_东莞_8_13K_冷___9年: true
+  cand_副总助理_东莞_10_15K_黄___8年: true
+  cand_叶___37岁_管理课课长_智通简历_编号: true
+  cand_副总助理_东莞_10_15K_戴___8年_1: true
+  cand_副总助理_东莞_8_13K_范___7年: false
+  cand_专案工程师_东莞_12_16K_董___7年: true
+  cand_高级招聘专家_东莞_9_14K_段___7年: true
+  cand_业务跟单_东莞_6_10K_盘___6年: true
+  cand_业务跟单_东莞_6_10K_黎___6年: false
+  cand_专案工程师_东莞_12_16K_何___5年: false
+  cand_行政专员_东莞_7_8K_谢___5年: false
+  cand_业务跟单_东莞_6_10K_陈___5年: false
+  cand_陈___37岁_日文业务助理_智通简历_编号: false
+  cand_行政专员_东莞_7_9K_杨___4年: false
+  cand_业务跟单_东莞_6_10K_李___4年: false

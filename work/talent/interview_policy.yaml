@@ -1,0 +1,88 @@
+schema: talent.interview_policy/v1
+# 一面数据的采信规则。**规则是数据,不是代码里的默认值** ——
+# 谁改、什么时候改、为什么改,都写在这份文件里,判定和选人两边读同一份。
+#
+# 两个模式:
+#   real_only     只认 basis 不是 simulated 的答案。模拟答案是"我方按简历推的",
+#                 拿它选人 = 拿假设当录用依据。
+#   mock_allowed  模拟答案也进判定。**但每一处都必须写明「模拟(演练)」**,
+#                 产物不得作为录用决策依据。这是开发期把管道跑通的做法,
+#                 不是可以拿去递交给业务领导的结论。
+default_mode: real_only
+
+jobs:
+  品质经理:
+    mode: mock_allowed
+    decided_by: admin
+    decided_at: 2026-11-20
+    reason: >-
+      全库真正做过一面的只有廖 1 人,而他以年龄 41 被客户原文「25~40」卡在需复议,
+      进不了第 3 步的短名单。短名单 4 人一个真一面数据都没有 —— 第 5 步按 real_only
+      只能给出"入选 0 人"。为把第 4a/4b/5 的管道在开发期跑通,按简历给其余 9 份 CV
+      补模拟访谈,并允许它们参与判定;所有产物必须带「模拟(演练)」标注。
+    applies_to: [pick_final, evaluate]
+    # 真人答案永远优先:同一个数据项,真访谈答过的不会被模拟答案覆盖
+    prefer_real: true
+
+  # 2026-11-23 admin:业务跟单同样要跑通第 4 步(名单 10 人,一个真一面都没有)。
+  # 授权范围、标注要求与上面完全一致 —— 模拟答案不得当决策依据。
+  业务跟单:
+    mode: mock_allowed
+    decided_by: admin
+    decided_at: 2026-11-23
+    reason: >-
+      第 3 步出了 10 人面试名单,但一个真一面都没有;为使第 4~6 步能端到端验证,
+      允许按待核清单模拟一面答案,全部 basis: simulated,产物带演练标注。
+    applies_to: [pick_final, evaluate]
+    prefer_real: true
+
+  # 2026-11-23 admin:专案工程师 是新开的第三条线(第 1~2 步刚做完),同样要能端到端验证。
+  # 授权范围、标注要求与前两条完全一致 —— 模拟答案不得当决策依据。
+  专案工程师:
+    mode: mock_allowed
+    decided_by: admin
+    decided_at: 2026-11-23
+    reason: >-
+      第 3 步出了 20 人面试名单,一个真一面都没有;为使第 4~5 步能端到端验证,
+      允许按待核清单与 JD 能力项模拟一面答案,全部 basis: simulated,产物带演练标注。
+    applies_to: [pick_final, evaluate]
+    prefer_real: true
+
+
+  # 2026-11-23 admin:副总助理 / 关务报关员 是第 4、5 条线,同样要能端到端验证。
+  # 授权范围、标注要求与前三条完全一致 —— 模拟答案不得当决策依据。
+  副总助理:
+    mode: mock_allowed
+    decided_by: admin
+    decided_at: 2026-11-23
+    reason: >-
+      第 3 步出了 20 人面试名单,一个真一面都没有;为使第 4~5 步能端到端验证,
+      允许按待核清单与 JD 能力项模拟一面答案,全部 basis: simulated,产物带演练标注。
+    applies_to: [pick_final, evaluate]
+    prefer_real: true
+
+  关务报关员:
+    mode: mock_allowed
+    decided_by: admin
+    decided_at: 2026-11-23
+    reason: >-
+      第 3 步出了 20 人面试名单,一个真一面都没有;为使第 4~5 步能端到端验证,
+      允许按待核清单与 JD 能力项模拟一面答案,全部 basis: simulated,产物带演练标注。
+    applies_to: [pick_final, evaluate]
+    prefer_real: true
+
+# ─────────────────────────────────────────────────────────────
+
+# CV 缺字段的模拟填充(2026-11-21 admin 要求:为了把第 5 步跑通)
+mock_fill:
+  mode: allowed
+  decided_by: admin
+  decided_at: 2026-11-21
+  scope: [品质经理, 业务跟单]
+  why: >-
+    第 4 步还没跑,9 条可判要求里 5 条供给率不到 20%。为了让第 5 步端到端跑通,
+    给缺失的数据项补模拟值;所有值 basis: mock,产物必须带演练横幅。
+  rules:
+    - 只补缺失项(已有真值的一律不动)
+    - 个人身份字段不补
+    - 同一候选人 + 同一字段,重跑必须得到同一个值

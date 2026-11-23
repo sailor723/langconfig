@@ -1,136 +1,127 @@
 jd: 专案工程师
-department: ''
-source_file: ../client/team-4/unzipped/职务说明书10份/专案工程师职务说明书.xlsx
+department: 技术课
+source_file: 专案工程师职务说明书.xlsx（客户原始文件,抽取记录见 draft/专案工程师.llm.json）
 source_text: work/talent/jd_links/_source/专案工程师.txt
-extracted_with: textutil/openpyxl
-drafted_by: deepseek-chat, temperature=0 —— **草稿,未人工审核**
-review_status: draft
+extracted_with: xlsx → openpyxl 抽平（每 sheet 每非空行一行,单元格用 " | " 连接）;先由 `llm_draft_jd` 起草,本文件逐条复核 verbatim
+  与行号,原文一个字未改
+role_type: staff
+role_basis: _source 第 3 行「直接下属 | 无」—— 原文只认这一处判据:写「无」→ 员工岗。岗位名里没有「经理」字样,也不据此反推。
+role_confirmed: false
+sections:
+  1: 抬头（第 1–3 行,表格黏连行:职务名称/隶属部门/直接上司/直接下属 都在这里）
+  2: 资格要求（第 4–7 行;第 4 行「资格要求」是段标题,不是要求句）
+  3: 职务简述（第 8–23 行;16 条职责）
+  4: 事务表述（第 24–49 行;表头第 24 行,表体 25–49 行）
+  5: 修改履历（第 50–52 行;表体只剩「首次发行」）
 count:
-  source_section: 任职资格
+  source_section: 资格要求（第 4–7 行,4 行要求句）
   atomic_requirements: 9
-  count_note: LLM 从原文前 30 行抽出;粒度需人工审。
+  client_requirements: 9
+  hr_requirements: 0
+  count_note: 4 行切成 9 条:第 4 行用「;」带了两个主语(年限+领域 / 新产品流程),拆 2 条并再拆出行业认知(见 C-02);第 5 行用「,」带三个素质词(抗压 / 积极向上
+    / 工作细心谨慎),拆 3 条;第 6 行「电线加工设备:裁线机、端子机、自动机、注塑机、点胶机」是一句复合要求,库内 REQ-D-WIRE-EQUIPMENT 已按 5 个组件建模,按 1 条登记;第
+    7 行「CAD二维制图、办公软件操作熟练」两个不同能力,拆 2 条。合计 8 条客户要求 + 1 条行业认知拆分 = 9。**HR 侧 0 条**:品质经理那 5 条 HR 侧要求是 2026-11-20
+    经 admin 签字的一批,不能照抄到这份 JD 上 —— 没有发生的签署不许写进来(同 业务跟单 的先例)。
 citations:
-- id: 专案-01
+- id: C-01
   requirement: REQ-C-YEARS-DOMAIN
   verbatim: 电线连接器加工行业产品开发3年以上经验
   source_text: 资格要求 | 1、电线连接器加工行业产品开发3年以上经验；对新产品报价、样品、转量产做业流程熟知；
   txt_line: 4
+  section_index: 2
   tier: essential
+  origin: client
   value:
     num: 3
+    unit: 年
     domain: 电线连接器加工行业产品开发
-  llm:
-    model: deepseek-chat
-    temperature: 0
-    subject: 行业经验年限
-    measurable_from_resume: true
-    requirement_reused: true
+  year_basis: stated
+  note: 第 4 行前半句(「;」切分)。按库的 stated 口径比简历声明年限;领域限定「电线连接器加工行业产品开发」对应的 C.2 域属性未建,所以「产品开发 3 年、线束厂」这类同义说法下游会判成未知而非满足
+    —— 与已知缺陷 DEF-03 同族。
+- id: C-02
+  requirement: REQ-D-HARNESS-DOMAIN
+  verbatim: 电线连接器加工行业产品开发3年以上经验
+  source_text: 资格要求 | 1、电线连接器加工行业产品开发3年以上经验；对新产品报价、样品、转量产做业流程熟知；
+  txt_line: 4
+  section_index: 2
+  tier: essential
   origin: client
-- id: 专案-02
+  granularity_decision:
+    status: pending_signoff
+    note: 客户在一句话里同时给了「年限」和「行业背景」两个约束(C-01 取年限)。行业背景单独登记,因为「做了 3 年」和「懂线束/连接器」在判定上不是一件事:前者按年限算,后者只能看简历里有没有行业证据。拆开的代价是同一句话进两次账,记在账本
+      D-专案工程师-01,等业务确认要不要合并。
+  note: 库内 REQ-D-HARNESS-DOMAIN 按组件 skill_线束行业知识 判;词表偏窄(见 DEF-01),简历写「线束」「cable」「连接器」才命中,写「电线加工」不命中。
+- id: C-03
   requirement: REQ-D-NPI-PROCESS
   verbatim: 对新产品报价、样品、转量产做业流程熟知
   source_text: 资格要求 | 1、电线连接器加工行业产品开发3年以上经验；对新产品报价、样品、转量产做业流程熟知；
   txt_line: 4
+  section_index: 2
   tier: essential
-  llm:
-    model: deepseek-chat
-    temperature: 0
-    subject: 新产品报价/样品/转量产流程
-    measurable_from_resume: true
-    requirement_reused: false
   origin: client
-- id: 专案-03
+  note: '第 4 行后半句。库内 REQ-D-NPI-PROCESS 目前 **assessable: false**(没有建成可判的数据项),所以这条对所有人都是「不可判」,不进判定分母,也不许拿它淘汰人。要让它可判,得先给这条要求定数据项(例如「报价单/打样单/试产通知的经手记录」)。'
+- id: C-04
   requirement: REQ-E-STRESS
   verbatim: 抗压能力强
   source_text: 2、抗压能力强，积极向上，工作细心，谨慎；
   txt_line: 5
+  section_index: 2
   tier: essential
-  llm:
-    model: deepseek-chat
-    temperature: 0
-    subject: 抗压能力
-    measurable_from_resume: false
-    requirement_reused: true
   origin: client
-- id: 专案-04
+  note: '第 5 行三个素质词之一。软素质,库内 data_class: soft → 对所有人「不可判」。'
+- id: C-05
   requirement: REQ-E-STRIVING
   verbatim: 积极向上
   source_text: 2、抗压能力强，积极向上，工作细心，谨慎；
   txt_line: 5
+  section_index: 2
   tier: essential
-  llm:
-    model: deepseek-chat
-    temperature: 0
-    subject: 积极向上
-    measurable_from_resume: false
-    requirement_reused: true
   origin: client
-- id: 专案-05
+  note: 第 5 行三个素质词之一。软素质 → 不可判。
+- id: C-06
   requirement: REQ-E-CAREFUL
   verbatim: 工作细心，谨慎
   source_text: 2、抗压能力强，积极向上，工作细心，谨慎；
   txt_line: 5
+  section_index: 2
   tier: essential
-  llm:
-    model: deepseek-chat
-    temperature: 0
-    subject: 细心谨慎
-    measurable_from_resume: false
-    requirement_reused: false
   origin: client
-- id: 专案-06
+  note: 第 5 行三个素质词之一。软素质 → 不可判。
+- id: C-07
   requirement: REQ-D-WIRE-EQUIPMENT
-  verbatim: 对电线加工设备：裁线机、端子机、自动机、注塑机、点胶机等功能熟知
+  verbatim: 对电线加工设备：裁线机、端子机、自动机、注塑机、点胶机等功能熟知并有一定的操作能力
   source_text: 3、对电线加工设备：裁线机、端子机、自动机、注塑机、点胶机等功能熟知并有一定的操作能力；
   txt_line: 6
+  section_index: 2
   tier: essential
-  llm:
-    model: deepseek-chat
-    temperature: 0
-    subject: 电线加工设备认知
-    measurable_from_resume: true
-    requirement_reused: false
   origin: client
-- id: 专案-07
-  requirement: REQ-D-WIRE-EQUIPMENT
-  verbatim: 有一定的操作能力
-  source_text: 3、对电线加工设备：裁线机、端子机、自动机、注塑机、点胶机等功能熟知并有一定的操作能力；
-  txt_line: 6
-  tier: essential
-  llm:
-    model: deepseek-chat
-    temperature: 0
-    subject: 电线加工设备操作
-    measurable_from_resume: true
-    requirement_reused: false
-  review:
-    reassigned_from: REQ-D-WIRE-EQUIPMENT-OP
-    reason: LLM 复用到 REQ-D-WIRE-EQUIPMENT-OP,经人工改判
-  origin: client
-- id: 专案-08
+  value:
+    in:
+    - 裁线机
+    - 端子机
+    - 自动机
+    - 注塑机
+    - 点胶机
+  granularity_decision:
+    status: confirmed_keep
+    note: LLM 草稿把这一行拆成了两条同 requirement 的引用(专案-06/专案-07),两条都挂 REQ-D-WIRE-EQUIPMENT —— 判定按 requirement 聚合,两条会让同一句在分母里算两遍。这里合成一条,五个设备作为
+      value.in 保留。
+  note: 库内按 5 个组件建模;草稿未给 match 口径,沿用库默认(覆盖率 50% → 3/5 即满足)。若客户要的是「五项都会」,应改库里的 match 为 all_of,不该在这里私自加严。
+- id: C-08
   requirement: REQ-D-CAD-2D
   verbatim: CAD二维制图
   source_text: 4、CAD二维制图、办公软件操作熟练；
   txt_line: 7
+  section_index: 2
   tier: essential
-  llm:
-    model: deepseek-chat
-    temperature: 0
-    subject: CAD二维制图
-    measurable_from_resume: true
-    requirement_reused: false
   origin: client
-- id: 专案-09
+  note: 第 7 行前半句。库内按组件 skill_AutoCAD 判;简历写「2D绘图」「AutoCAD」命中,写「SolidWorks/ProE」不命中(三维不等于二维)。
+- id: C-09
   requirement: REQ-D-OFFICE
   verbatim: 办公软件操作熟练
   source_text: 4、CAD二维制图、办公软件操作熟练；
   txt_line: 7
+  section_index: 2
   tier: essential
-  llm:
-    model: deepseek-chat
-    temperature: 0
-    subject: Office办公软件
-    measurable_from_resume: true
-    requirement_reused: true
   origin: client
-excluded: []
+  note: 第 7 行后半句。库内是 Word/Excel/PowerPoint 三组件;草稿未给 match,沿用库默认覆盖率 50%。

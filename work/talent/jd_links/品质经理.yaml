@@ -1,0 +1,287 @@
+# 引用文件 —— 客户职务说明书 → 原子要求。派生文件:可由重新抽取覆盖。
+# 规则:verbatim / source_text / txt_line 三个字段一个字都不许改;判定与排序不在本文件里算。
+jd: 品质经理
+department: 品保课
+source_file: 12.品质经理职务说明书.doc（客户原始 .doc，见 agent_386 工作区 upload/）
+source_text: work/talent/jd_links/_source/品质经理.txt
+extracted_with: textutil -convert txt（macOS）—— 本轮重抽与 _source 逐字一致，109 行
+role_type: staff
+role_basis: >-
+  _source 第 17 行「直接下属无」（该行是 Word 表格，被 textutil 抽平后单元格黏连）。
+  原文只认这一处判据：写「无」→ 员工岗。名字带「经理」不作数。
+role_confirmed: false
+sections:
+  1: 抬头（第 17 行，表格黏连行）
+  2: 任职资格（第 18–26 行）
+  3: 岗位职责（第 28–37 行）
+  4: 事务表述（第 39–106 行，表头在第 41–47 行，表体全空）
+  5: 修改履历（第 82–93 行）
+count:
+  source_section: 任职资格（第 20–26 行，7 行）
+  atomic_requirements: 15
+  client_requirements: 10
+  hr_requirements: 5
+  count_note: >-
+    7 行切成 10 条：第 24/25/26 行各用「，」带了两个不同主语，按「一句一要求」拆开；
+    第 20–23 行各是一整句，各自 1 条。第 23 行「英语口语熟练及具备独立书写英文8D报告的能力」
+    按「及」本可拆两条，本步按 1 条登记，理由与代价写在账本 D-品质经理-02，等签字。
+    **15 = 客户 10 + HR 侧 5**。HR 侧 5 条(HR-01..HR-05)不是客户原文,由 HR 提出、
+    2026-11-20 经 admin 签字;本轮回抽时被覆盖丢失,2026-11-22 由 agent_391 从 HEAD 原样恢复,
+    阈值一个字未改。
+citations:
+- id: C-01
+  requirement: REQ-A-AGE-RANGE
+  verbatim: 年龄：25 ~ 40岁；
+  source_text: 年龄：25 ~ 40岁；
+  txt_line: 20
+  section_index: 2
+  tier: essential
+  origin: client
+  value:
+    min: 25
+    max: 40
+    unit: 岁
+  note: >-
+    原文「25 ~ 40岁」没写端点含不含。本步按含两端记（25/40 都算在内），不额外加减一岁 ——
+    若业务方口径是「40 岁不含」，这里就该改成 max 39，改的是引用上的取值，不是客户原话。
+- id: C-02
+  requirement: REQ-B-EDU-LEVEL
+  verbatim: 学历：大专及以上学历；
+  source_text: 学历：大专及以上学历；
+  txt_line: 21
+  section_index: 2
+  tier: essential
+  origin: client
+  value:
+    num: 3
+  granularity_decision:
+    status: confirmed_keep
+    note: 门禁的机械筛按「及」把这条当拆分候选；现场看，「及以上」是比较方向(阈值)，不是并列的两个要求。
+  note: >-
+    库内 REQ-B-EDU-LEVEL 是 B.1（ordinal 2中专/3大专/4本科…）+ op '>='，所以「大专及以上」= num 3。
+    「及以上」不是一个可再拆的第二个约束，它是同一条阈值的比较方向。只要简历写了学历层次就能判。
+- id: C-03
+  requirement: REQ-B-MAJOR
+  verbatim: 专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业；
+  source_text: 专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业；
+  txt_line: 22
+  section_index: 2
+  tier: essential
+  origin: client
+  value:
+    in:
+    - 机电一体化
+    - 电子技术
+    - 自动化
+    - 工业工程
+    - 机械工程
+    open_word: 等
+  granularity_decision:
+    status: confirmed_keep
+    note: 客户点名的 5 个专业是一条枚举要求，「/」只是分隔符，不是 5 条独立要求。
+  note: >-
+    「等」原样留在 value.open_word，不扩写成专业清单。库内 REQ-B-MAJOR 的判法是只按点名判
+    （见 requirement_library.yaml 该条 note），所以「材料成型及控制工程」这类未点名的真工科会判不满足 ——
+    这是库的口径把「等」当空话，不是本步改了客户原话；把「等」当真要换口径，属要求库那一层。
+- id: C-04
+  requirement: REQ-H-LANG-EN
+  verbatim: 语言：英语口语熟练及具备独立书写英文8D报告的能力；
+  source_text: 语言：英语口语熟练及具备独立书写英文8D报告的能力；
+  txt_line: 23
+  section_index: 2
+  tier: essential
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    note: 按「及」拆两条会让库内同一条要求（any_of n:1）被算两遍且各自放宽为「或」，故按 1 条登记，等签字。
+  note: >-
+    这句话有两个面：① 口语熟练 ② 具备独立书写英文 8D 报告的能力。本步按 1 条登记，代价写在账本：
+    库内 REQ-H-LANG-EN 的 match 是 any_of n:1（命中其一即可），拆成两条会让同一要求被算两遍、
+    且每条都退化成「或」。下游判定：「会不会英语」「会不会写 8D」两个组件可判，
+    「口语熟练」判不了（库内 level_check 指向 H.2，assessable=false，6 档 CEFR 无语料映射）。
+- id: C-05
+  requirement: REQ-C-YEARS-DOMAIN
+  verbatim: 3年以上品质管理工作经验
+  source_text: 3年以上品质管理工作经验，熟识线束行业相关产品；
+  txt_line: 24
+  section_index: 2
+  tier: essential
+  origin: client
+  value:
+    num: 3
+    unit: 年
+    domain: 品质管理
+  year_basis: stated
+  note: >-
+    第 24 行用「，」带了两个主语，这里只取前一半（年限+领域），后一半是 C-06。
+    按库的 stated 口径比简历声明年限；「品质管理」这个领域限定需要的 C.2 属性未建，
+    所以简历写「SQE 3 年」「品质工程师 3 年」这类同义说法时只有人能判，下游会判成未知而非不满足。
+- id: C-06
+  requirement: REQ-D-HARNESS-DOMAIN
+  verbatim: 熟识线束行业相关产品
+  source_text: 3年以上品质管理工作经验，熟识线束行业相关产品；
+  txt_line: 24
+  section_index: 2
+  tier: essential
+  origin: client
+  note: >-
+    客户写的是「熟识…相关产品」，不是「做过线束行业」——考核的是认知，不是行业履历。
+    库内这条 evidence_policy 是 weak_ok（自述级即可判满足），所以一句「了解线束/连接器产品」就够。
+    它几乎不筛人，别把它当硬门槛用。
+- id: C-07
+  requirement: REQ-D-QA-ANALYSIS
+  verbatim: 具备品质问题分析、改善的能力
+  source_text: 具备品质问题分析、改善的能力，懂QC七大手法、5WHY、SPC、CPK、6S工具；
+  txt_line: 25
+  section_index: 2
+  tier: essential
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    note: 「分析、改善」是一个能力的两个动作，库内只有一个组件承载；拆开只会得到两条同义要求。
+  note: >-
+    第 25 行前半句。「分析」和「改善」本可拆两个动作，但库内只有 skill_品质问题分析 一个组件承载这对能力，
+    拆开会让同一句产出两条同义要求（违反复用优先）。下游可判，自述级即可。
+- id: C-08
+  requirement: REQ-D-QA-TOOLS
+  verbatim: 懂QC七大手法、5WHY、SPC、CPK、6S工具
+  source_text: 具备品质问题分析、改善的能力，懂QC七大手法、5WHY、SPC、CPK、6S工具；
+  txt_line: 25
+  section_index: 2
+  tier: essential
+  origin: client
+  value:
+    in:
+    - QC七大手法
+    - 5WHY
+    - SPC
+    - CPK
+    - 6S
+  granularity_decision:
+    status: confirmed_keep
+    note: 客户点名的 5 个工具是一条复合要求，库内 REQ-D-QA-TOOLS 已按 5 个组件建模；拆成 5 条会变成 5 条同义要求。
+  note: >-
+    第 25 行后半句。库内是 composite（any_of n:1），且 skill_5WHY 标 detectable=false（语料里抽取 0 条），
+    所以「满足」= 命中其余 4 项中的任一项。四项的持有率差别极大（见 component_catalog 该条 note），
+    排序时必须看命中了哪一项，不能只看这条满不满足。
+- id: C-09
+  requirement: REQ-D-CUSTOMER-AUDIT
+  verbatim: 具备接待客户验厂经验
+  source_text: 具备接待客户验厂经验，有良好的沟通、协调能力。
+  txt_line: 26
+  section_index: 2
+  tier: essential
+  origin: client
+  note: >-
+    第 26 行前半句。原文是「具备…经验」，所以判的是做过，不是会做；证据取自简历里的客户验厂/客户审核经历，
+    自述级即可。注意别和 X-07（岗位职责里的「接待客户、承接客户品质要求」）混：那是要做的事，这条是资格。
+- id: C-10
+  requirement: REQ-E-COMMUNICATION
+  verbatim: 有良好的沟通、协调能力
+  source_text: 具备接待客户验厂经验，有良好的沟通、协调能力。
+  txt_line: 26
+  section_index: 2
+  tier: essential
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    note: 「沟通、协调」拆成两条只会得到两条都判不了的要求，故按 1 条登记。
+  note: >-
+    第 26 行后半句。库内 REQ-E-COMMUNICATION 是 assessable=false、no_component=true（素质不进组件），
+    这条下游一定判不了，只能留面试评分表；保留不删是因为客户写了这一条，删掉等于替客户减要求。
+# --- HR 侧要求(2026-11-20 admin 签字;本轮回抽时被覆盖丢失,2026-11-22 由 agent_391 从 HEAD 原样恢复,一个字未改)---
+- id: HR-01
+  origin: hr
+  requirement: REQ-HR-NOTICE
+  author: HR
+  value:
+    num: 4
+  rationale: 交接期超过一个月,岗位就空太久了;四周是能接受的上限
+  note: 阈值由 HR 定,不是客户原话
+- id: HR-02
+  origin: hr
+  requirement: REQ-HR-STABILITY
+  author: HR
+  value:
+    num: 3
+  rationale: 近 5 年换过 3 家以上的,业务方一般直接视为不稳定
+  note: 阈值由 HR 定
+- id: HR-03
+  origin: hr
+  requirement: REQ-HR-TENURE
+  author: HR
+  value:
+    num: 2
+  rationale: 平均每段不到 2 年,说明每份工作都待不住
+  note: 阈值由 HR 定
+- id: HR-04
+  origin: hr
+  requirement: REQ-HR-SALARY
+  author: HR
+  pending_value: true
+  rationale: 谈薪在一面前就要摸清,否则业务领导面完才发现给不起
+  note: '**缺取值**:客户 JD 没写薪资预算,这个上限要客户给,现在判不了'
+- id: HR-05
+  origin: hr
+  requirement: REQ-HR-COMMUTE
+  author: HR
+  pending_value: true
+  rationale: 地点太远的人入职三个月就跑
+  note: '**缺取值**:岗位工作地点还没定,要问客户;现在判不了'
+excluded:
+- id: X-01
+  candidate_text: 负责部门品质目标管理工作，保质保量完成上级、客户下达的各项品质管理任务；
+  txt_line: 30
+  section_index: 3
+  why: 岗位职责段第 1 条 —— 是「公司要这个人做什么」，不是「候选人必须具备什么」。
+- id: X-02
+  candidate_text: 依IATF16949制定和完善品质管理制度；
+  txt_line: 31
+  section_index: 3
+  why: >-
+    职责段第 2 条。这一行点名 IATF16949，极易被顺手抽成「候选人须持 IATF16949 内审员证 / 熟悉 ISO·TS16949」，
+    但原文语境是「制定和完善制度」，是公司要做的事。本步只登记「不作为任职资格」，不动图谱里已有的断言 ——
+    撤那条断言要重跑推理与材料化，是另一层的事。
+- id: X-03
+  candidate_text: 3、完善各类质量标准、培训资料，并对相关人员进行考核；
+  txt_line: 32
+  section_index: 3
+  why: 职责段第 3 条。其中「对相关人员进行考核」是岗位权限，不是任职资格。
+- id: X-04
+  candidate_text: 4、监督检查相关人员遵守标准，执行各项质量标准（含SIP），达成目标；
+  txt_line: 33
+  section_index: 3
+  why: 职责段第 4 条。「含SIP」是工作内容里的名词，不是要求候选人会的工具，不据此造技能要求。
+- id: X-05
+  candidate_text: 5、检测仪器效验、参与设备、模治具验收；
+  txt_line: 34
+  section_index: 3
+  why: 职责段第 5 条。（原文「效验」为错字，照留不改成「校验」。）
+- id: X-06
+  candidate_text: 6、每日收集品质、产能、异常数据，不断优化、提升、PDCA、完成周报、月报；
+  txt_line: 35
+  section_index: 3
+  why: 职责段第 6 条。「每日/周报/月报」是这份工作的频次，归事务表述那张表，不是资格门槛。
+- id: X-07
+  candidate_text: 7、接待客户、承接客户品质要求，完成相关报告；
+  txt_line: 36
+  section_index: 3
+  why: >-
+    职责段第 7 条。它和 C-09「具备接待客户验厂经验」字面相近，但这一条是公司要人干的事，
+    C-09 才是对候选人的要求。两者都在，是两份东西，不是重复。
+- id: X-08
+  candidate_text: 8、供应商品质管理。
+  txt_line: 37
+  section_index: 3
+  why: 职责段第 8 条，是工作范围（管供应商），不是「有供应商管理经验」这一条资格。
+undefined_statements:
+- id: U-01
+  txt_line: 106
+  text: 目前没制定
+  likely_field: >-
+    未知（原文没有标签，是客户字段的空缺句）。疑似指第 39–47 行「事务表述」表
+    （表头：序号/内容/每日/每周/每月/偶发/备注）尚未填 —— 该表表体第 49–79 行全空。
+  why_it_matters: >-
+    这张表若填了，就是「哪些事每天做、哪些每周做」，即这个岗位的事务频次；
+    它不进任职资格，但第 2 步（JD 定稿）的业务回填表必须问它 —— 客户自己承认这块是空白。
+  ask: 这张事务表述表是「还没制定」还是「不适用这个岗位」？若还没制定，什么时候能给？

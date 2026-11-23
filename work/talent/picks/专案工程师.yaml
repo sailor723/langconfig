@@ -1,0 +1,85 @@
+jd: 专案工程师
+step: 5 选人(最终名单 5 人)
+pool:
+  kind: target
+  size: 5
+  meaning: 第 5b 步最终名单(≤ final_max,送去用人部门面)
+order:
+- 满足 desc
+- 未知 asc
+- 不满足 asc
+- id
+interview_policy:
+  mode: mock_allowed
+  source: interview_policy.yaml · 专案工程师 · admin 2026-11-23
+  decided_by: admin
+  decided_at: '2026-11-23'
+count:
+  shortlist: 5
+  excluded: 12
+  with_interview: 5
+  with_real_interview: 0
+  with_mock_only: 5
+  judgeable_requirements: 5
+  total_requirements: 9
+top:
+- rank: 1
+  candidate: cand_廖___33岁_专案工程师_智通简历_编号
+  满足: 5
+  不满足: 0
+  未知: 0
+  不可判: 4
+  有访谈: true
+  数据来源: 模拟(演练)
+  真访谈条数: 0
+  模拟条数: 32
+  第3步: 短名单
+  阻塞: ''
+- rank: 2
+  candidate: cand_蓝___43岁_智通简历_编号
+  满足: 5
+  不满足: 0
+  未知: 0
+  不可判: 4
+  有访谈: true
+  数据来源: 模拟(演练)
+  真访谈条数: 0
+  模拟条数: 33
+  第3步: 短名单
+  阻塞: ''
+- rank: 3
+  candidate: cand_胡___38岁_专案工程师_智通简历_编号
+  满足: 5
+  不满足: 0
+  未知: 0
+  不可判: 4
+  有访谈: true
+  数据来源: 模拟(演练)
+  真访谈条数: 0
+  模拟条数: 34
+  第3步: 短名单
+  阻塞: ''
+- rank: 4
+  candidate: cand_雷___31岁_专案工程师_智通简历_编号
+  满足: 4
+  不满足: 1
+  未知: 0
+  不可判: 4
+  有访谈: true
+  数据来源: 模拟(演练)
+  真访谈条数: 0
+  模拟条数: 32
+  第3步: 短名单
+  阻塞: ''
+- rank: 5
+  candidate: cand_专案工程师_东莞_10_15K_黄___7年
+  满足: 4
+  不满足: 1
+  未知: 0
+  不可判: 4
+  有访谈: true
+  数据来源: 模拟(演练)
+  真访谈条数: 0
+  模拟条数: 33
+  第3步: 短名单
+  阻塞: ''

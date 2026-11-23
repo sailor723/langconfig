@@ -1,0 +1,43 @@
+jd: 专案工程师
+interview_target:
+  n: 20
+  decided_by: admin
+  decided_at: '2026-11-21'
+  why: 初筛保留人数太多,第 3 步要给出可执行的面试批次
+interview_priorities:
+  decided_by: admin
+  decided_at: '2026-11-23'
+  criteria:
+  - id: P-CAD
+    name: CAD/二维制图
+    rule:
+      kind: component_any
+      components:
+      - skill_AutoCAD
+    why: 客户原文「CAD二维制图」(C-08)
+    caveat: 三维软件不算二维
+  - id: P-EQUIP
+    name: 电线加工设备
+    rule:
+      kind: component_any
+      components:
+      - skill_裁线机
+      - skill_端子机
+      - skill_自动机
+      - skill_注塑机
+      - skill_点胶机
+    why: 客户原文「对电线加工设备…熟知并有一定的操作能力」(C-07)
+    caveat: 词表偏窄(DEF-01)
+shortlist:
+  min: 5
+  max: 10
+  asked_by: hr
+  set_by: admin
+  set_at: '2026-11-23'
+  note: 第 5a 步:一面之后够格进下一轮评估的人
+final_max: 5
+final_note: 第 5b 步:送去用人部门面的人。硬门槛 0 不满足 + 硬证据≥1 + 未知≤3,最多 5 人,不硬凑
+shortlist_5:
+  n: 10
+  decided_by: admin
+  rule: min→max,扩的前提是下一位有硬证据

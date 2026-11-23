@@ -14,11 +14,12 @@ items:
   citation: C-01
   requirement: REQ-A-AGE-RANGE
   requirement_name: 年龄区间
-  verbatim: 年龄：25 ~ 40岁
+  verbatim: 年龄：25 ~ 40岁；
   kind: property
   value:
     min: 25
     max: 40
+    unit: 岁
   data_item: age
   attach: A.2
   label: 年龄
@@ -36,7 +37,7 @@ items:
   citation: C-02
   requirement: REQ-B-EDU-LEVEL
   requirement_name: 学历不低于
-  verbatim: 学历：大专及以上学历
+  verbatim: 学历：大专及以上学历；
   kind: property
   value:
     num: 3
@@ -57,7 +58,7 @@ items:
   citation: C-03
   requirement: REQ-B-MAJOR
   requirement_name: 专业限定
-  verbatim: 专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业
+  verbatim: 专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业；
   kind: property
   value:
     in:
@@ -66,6 +67,7 @@ items:
     - 自动化
     - 工业工程
     - 机械工程
+    open_word: 等
   data_item: major
   attach: B.2
   label: 专业
@@ -83,7 +85,7 @@ items:
   citation: C-04
   requirement: REQ-H-LANG-EN
   requirement_name: 英语(口语 + 独立书写英文8D报告)
-  verbatim: 语言：英语口语熟练及具备独立书写英文8D报告的能力
+  verbatim: 语言：英语口语熟练及具备独立书写英文8D报告的能力；
   kind: component
   value: null
   data_item: skill_英语
@@ -103,7 +105,7 @@ items:
   citation: C-04
   requirement: REQ-H-LANG-EN
   requirement_name: 英语(口语 + 独立书写英文8D报告)
-  verbatim: 语言：英语口语熟练及具备独立书写英文8D报告的能力
+  verbatim: 语言：英语口语熟练及具备独立书写英文8D报告的能力；
   kind: component
   value: null
   data_item: skill_8D报告
@@ -127,6 +129,7 @@ items:
   kind: property
   value:
     num: 3
+    unit: 年
     domain: 品质管理
   data_item: years_stated
   attach: C.1
@@ -187,7 +190,13 @@ items:
   requirement_name: 品质工具(QC七大手法/5WHY/SPC/CPK/6S)
   verbatim: 懂QC七大手法、5WHY、SPC、CPK、6S工具
   kind: component
-  value: null
+  value: &id001
+    in:
+    - QC七大手法
+    - 5WHY
+    - SPC
+    - CPK
+    - 6S
   data_item: skill_QC七大手法
   attach: skill_QC七大手法
   label: QC七大手法
@@ -207,7 +216,7 @@ items:
   requirement_name: 品质工具(QC七大手法/5WHY/SPC/CPK/6S)
   verbatim: 懂QC七大手法、5WHY、SPC、CPK、6S工具
   kind: component
-  value: null
+  value: *id001
   data_item: skill_SPC
   attach: skill_SPC
   label: SPC
@@ -227,7 +236,7 @@ items:
   requirement_name: 品质工具(QC七大手法/5WHY/SPC/CPK/6S)
   verbatim: 懂QC七大手法、5WHY、SPC、CPK、6S工具
   kind: component
-  value: null
+  value: *id001
   data_item: skill_CPK
   attach: skill_CPK
   label: CPK
@@ -247,7 +256,7 @@ items:
   requirement_name: 品质工具(QC七大手法/5WHY/SPC/CPK/6S)
   verbatim: 懂QC七大手法、5WHY、SPC、CPK、6S工具
   kind: component
-  value: null
+  value: *id001
   data_item: skill_6S
   attach: skill_6S
   label: 6S
@@ -267,7 +276,7 @@ items:
   requirement_name: 品质工具(QC七大手法/5WHY/SPC/CPK/6S)
   verbatim: 懂QC七大手法、5WHY、SPC、CPK、6S工具
   kind: component
-  value: null
+  value: *id001
   data_item: skill_5WHY
   attach: skill_5WHY
   label: 5WHY

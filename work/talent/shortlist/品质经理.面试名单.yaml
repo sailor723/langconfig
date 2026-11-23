@@ -1,0 +1,818 @@
+jd: 品质经理
+step: 3 初筛 → 面试名单
+target: 30
+decided_by: admin
+pool: 164
+rank_rule:
+- ① 硬证据项数(可验证载体:系统/报告/客户审核/图表),多者优先
+- ② 软证据项数(只能靠陈述的),多者优先
+- ③ 用户选的业务优先条件命中数
+- ④ 客户原文写的「优先」条款命中数(客户授权的排序依据)
+- ⑤ 总年限(客户要求 2 年以上;读不出来排最后 —— 排序口径,不是不合格)
+- ⑥ 稳定性:平均在职年限(从工作段算出,不是自述)
+- ⑦ 待核项数(成本,不是优劣)
+- ⑧ 品质岗经历(仅当本 JD 要求时)
+- ⑨ sha256(候选人 id):确定性兜底,不按文件名/姓氏排
+priorities:
+- 品质岗经历有硬证据
+- 线束/连接器行业
+cut:
+  position: 30
+  tie_band: 1
+  hash_decided: false
+  note: 切线唯一 —— 名次可读
+selected:
+- cand_胡___31岁_专案工程师_智通简历_编号
+- cand_行政专员_东莞_5_8K_吴___3年
+- cand_叶___37岁_管理课课长_智通简历_编号
+- cand_专案工程师_东莞_12_16K_董___7年
+- cand_郑___37岁_专案工程师_智通简历_编号
+- cand_王___37岁_行政专员_智通简历_编号
+- cand_业务跟单_东莞_6_10K_Jessie郭___10年
+- cand_李___40岁_管理课课长_智通简历_编号
+- cand_副总助理_东莞_10_15K_刘___10年
+- cand_业务跟单_东莞_6_10K_J___10年
+- cand_何___25岁_业务跟单_智通简历_编号
+- cand_何___36岁_行政专员_智通简历_编号
+- cand_行政专员_东莞_7_9K_蒋___9年
+- cand_肖___38岁_专案工程师_智通简历_编号
+- cand_行政专员_东莞_6_8K_范___9年
+- cand_李___38岁_行政专员_智通简历_编号
+- cand_行政专员_东莞_7_9K_杨___4年
+- cand_专案工程师_东莞_12_16K_陈___5年
+- cand_段___研发工程主管_产品工程主管
+- cand_专案工程师_东莞_12_16K_熊___10年以上
+- cand_专案工程师_东莞_12_16K_邹___10年以上
+- cand_汽车线束高线工程师_东莞_10_14K_何___10年以上
+- cand_专案工程师_东莞_12_16K_叶___10年以上
+- cand_专案工程师_东莞_12_16K_华___9年
+- cand_曹___工程师
+- cand_罗___32岁_专案工程师_智通简历_编号
+- cand_专案工程师_东莞_11_16K_杨___7年
+- cand_专案工程师_东莞_12_16K_张___5年
+- cand_设计助理工程师_东莞_7_10K_卢___4年
+- cand_设计助理工程师_东莞_7_10K_蓝___3年
+already_real_interview: []
+rows:
+- candidate: cand_胡___31岁_专案工程师_智通简历_编号
+  prefer_hits: 0
+  tenure: 3.0
+  years: 10
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 36
+  quality: 待核
+  quality_kind: B
+  quality_months: null
+  quality_quote: 工程师.产品工程:1. 新产品3D评审，协同结构研发确认产品的可量产性，改善建议讨论落实 2. NUDD/PFMEA/Process
+    DFM制定，同客户端讨论制 1. 新产品项目评审，结构可行性分析 2. 拆解3D或实物整理FLOW CHA
+  gates_ok: 10
+  real_hits: 3
+  hard_hits: 2
+  soft_hits: 2
+  hard_items:
+  - 8D报告
+  - SPC
+  soft_items:
+  - 品质问题分析
+  - 英语
+  major: 机电一体化技术
+  fulltime: false
+  n_ask: 3
+  age: 31
+  edu: 4
+- candidate: cand_行政专员_东莞_5_8K_吴___3年
+  prefer_hits: 0
+  tenure: 1.5
+  years: 3
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 37
+  quality: 待核
+  quality_kind: null
+  quality_months: 24
+  quality_quote: '专员:2. 司车管理: 负责公司车辆的调度: 使用登记、维护保养、保险、年检、违章处理、油卡 ETC、车辆钥匙保管 3. 食堂管理:
+    负责员工食堂的日常运营监管〈菜品排配、了卫生、安全、成本、供应商管理、满意度调查) 5. 6S 环境管理:'
+  gates_ok: 7
+  real_hits: 2
+  hard_hits: 2
+  soft_hits: 0
+  hard_items:
+  - 6S
+  - 客户验厂
+  soft_items: []
+  major: 行政管理
+  fulltime: false
+  n_ask: 4
+  age: 30
+  edu: 3
+- candidate: cand_叶___37岁_管理课课长_智通简历_编号
+  prefer_hits: 0
+  tenure: 2.7
+  years: 8
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 35
+  quality: 待核
+  quality_kind: null
+  quality_months: 63
+  quality_quote: '专员/人力资源主管.人事行政部:'
+  gates_ok: 9
+  real_hits: 2
+  hard_hits: 1
+  soft_hits: 1
+  hard_items:
+  - 客户验厂
+  soft_items:
+  - 线束行业知识
+  major: 机械工程
+  fulltime: true
+  n_ask: 4
+  age: 37
+  edu: 5
+- candidate: cand_专案工程师_东莞_12_16K_董___7年
+  prefer_hits: 0
+  tenure: 0.0
+  years: 7
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 36
+  quality: 读不出
+  quality_kind: null
+  quality_months: 0
+  quality_quote: ''
+  gates_ok: 8
+  real_hits: 2
+  hard_hits: 1
+  soft_hits: 1
+  hard_items:
+  - 8D报告
+  soft_items:
+  - 线束行业知识
+  major: 环境艺术设计
+  fulltime: true
+  n_ask: 4
+  age: 27
+  edu: 3
+- candidate: cand_郑___37岁_专案工程师_智通简历_编号
+  prefer_hits: 0
+  tenure: 2.8
+  years: 4
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 34
+  quality: 待核
+  quality_kind: null
+  quality_months: 41
+  quality_quote: '工程师.开发部:'
+  gates_ok: 8
+  real_hits: 2
+  hard_hits: 1
+  soft_hits: 1
+  hard_items:
+  - 6S
+  soft_items:
+  - 线束行业知识
+  major: 工商企业管理
+  fulltime: false
+  n_ask: 4
+  age: 37
+  edu: 3
+- candidate: cand_王___37岁_行政专员_智通简历_编号
+  prefer_hits: 0
+  tenure: 3.0
+  years: 14
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 36
+  quality: 待核
+  quality_kind: null
+  quality_months: 51
+  quality_quote: 专员.行政部:1、根据公司现状制定公司行政管理制度监督并实施; 2、协助人事专员对公司需求岗位的招聘及员工培训; 3、负责工厂日常办公用品、生产辅助材料的采购、分配和管理。确保物资供应充足，管理规范，降低企业成本，提高运营效
+    4、处理工厂日
+  gates_ok: 10
+  real_hits: 2
+  hard_hits: 1
+  soft_hits: 1
+  hard_items:
+  - 客户验厂
+  soft_items:
+  - 英语
+  major: 电子技术
+  fulltime: false
+  n_ask: 3
+  age: 37
+  edu: 3
+- candidate: cand_业务跟单_东莞_6_10K_Jessie郭___10年
+  prefer_hits: 0
+  tenure: 2.3
+  years: 10
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 35
+  quality: 待核
+  quality_kind: null
+  quality_months: 47
+  quality_quote: 经理一:1.负责开发公司潜力新客户 CU1，在收到每个新项目询盘时，因每次询盘产品内容多以及比较专业复杂，因此每次需和公司总经理一
+    2. 负责对询盘的每个新项目进行分类，并且跟进项目的所有进度如打样制作，寄送，登记，归档处理 寄样反馈跟进，
+  gates_ok: 8
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 1
+  hard_items:
+  - 8D报告
+  soft_items:
+  - 英语
+  major: 服装艺术设计
+  fulltime: true
+  n_ask: 4
+  age: 33
+  edu: 3
+- candidate: cand_李___40岁_管理课课长_智通简历_编号
+  prefer_hits: 0
+  tenure: 4.1
+  years: 14
+  prio_hits: 1
+  prio_names:
+  - 品质岗经历有硬证据
+  iv_real: 0
+  iv_sim: 34
+  quality: 有
+  quality_kind: A
+  quality_months: 21
+  quality_quote: 课长.品质部:1、管理者代表; 2、管理体系搭建; 3、公司品质系统管理; 4、对外客户沟通。
+  gates_ok: 9
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 0
+  hard_items:
+  - 客户验厂
+  soft_items: []
+  major: 机电一体化技术
+  fulltime: true
+  n_ask: 3
+  age: 40
+  edu: 4
+- candidate: cand_副总助理_东莞_10_15K_刘___10年
+  prefer_hits: 0
+  tenure: 3.3
+  years: 10
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 34
+  quality: 待核
+  quality_kind: null
+  quality_months: 49
+  quality_quote: '经理助理兼人事行政主管:'
+  gates_ok: 9
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 0
+  hard_items:
+  - 6S
+  soft_items: []
+  major: 工商管理
+  fulltime: true
+  n_ask: 3
+  age: 39
+  edu: 4
+- candidate: cand_业务跟单_东莞_6_10K_J___10年
+  prefer_hits: 0
+  tenure: 2.6
+  years: 10
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 35
+  quality: 待核
+  quality_kind: null
+  quality_months: 47
+  quality_quote: 经理一:1.负责开发公司潜力新客户 CU1，在收到每个新项目询盘时，因每次询盘产品内容多以及比较专业复杂，因此每次需和公司总经理一
+    2. 负责对询盘的每个新项目进行分类，并且跟进项目的所有进度如打样制作，寄送，登记，归档处理 寄样反馈跟进，
+  gates_ok: 8
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 0
+  hard_items:
+  - 8D报告
+  soft_items: []
+  major: 商务英语
+  fulltime: true
+  n_ask: 4
+  age: 34
+  edu: 4
+- candidate: cand_何___25岁_业务跟单_智通简历_编号
+  prefer_hits: 0
+  tenure: 2.5
+  years: 10
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 37
+  quality: 待核
+  quality_kind: B
+  quality_months: null
+  quality_quote: 助理.生产部门:1. 协助生产主管制定周/日生产计划，根据订单需求、产能情况及物料库存，核对生产排期合理性，跟进计划落地执行，确保生产
+    2. 实时跟踪生产进度，每日记录生产数据，及时反馈生产过程中的进度滞后、设备异常等问题，协助主管调整生产
+  gates_ok: 7
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 0
+  hard_items:
+  - 6S
+  soft_items: []
+  major: 工商管理
+  fulltime: true
+  n_ask: 4
+  age: 25
+  edu: 3
+- candidate: cand_何___36岁_行政专员_智通简历_编号
+  prefer_hits: 0
+  tenure: 3.8
+  years: 9
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 38
+  quality: 待核
+  quality_kind: null
+  quality_months: 44
+  quality_quote: ''
+  gates_ok: 6
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 0
+  hard_items:
+  - 6S
+  soft_items: []
+  major: 工商管理
+  fulltime: false
+  n_ask: 5
+  age: 36
+  edu: 3
+- candidate: cand_行政专员_东莞_7_9K_蒋___9年
+  prefer_hits: 0
+  tenure: 2.4
+  years: 9
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 39
+  quality: 待核
+  quality_kind: null
+  quality_months: 34
+  quality_quote: 经理:1. 外省区域市场开发，主营内宇镜、外科手术器械维修; 自主规划出差，拜访医院科室主任、护士长，推介维修服务，输出技术与 2.
+    常态化客户回访维护，持续维系院内容情。 3. 承接医院设备报修，现场勘查故障、出具报价;，跟进报价签批、协
+  gates_ok: 8
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 0
+  hard_items:
+  - 6S
+  soft_items: []
+  major: 机电一体化技术
+  fulltime: false
+  n_ask: 5
+  age: 38
+  edu: 3
+- candidate: cand_肖___38岁_专案工程师_智通简历_编号
+  prefer_hits: 0
+  tenure: 2.2
+  years: 9
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 38
+  quality: 待核
+  quality_kind: null
+  quality_months: 48
+  quality_quote: ''
+  gates_ok: 5
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 0
+  hard_items:
+  - CPK
+  soft_items: []
+  major: 材料成型及控制工程
+  fulltime: true
+  n_ask: 5
+  age: 38
+  edu: 4
+- candidate: cand_行政专员_东莞_6_8K_范___9年
+  prefer_hits: 0
+  tenure: 1.8
+  years: 9
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 35
+  quality: 待核
+  quality_kind: null
+  quality_months: 28
+  quality_quote: :1.利用公司的资源招聘渠道进行招聘工作; 2.开发新的招聘渠道; 3.员工关系协调矛盾及内外关系维护; 4.员工入职培训，及公司的年度计划关于制度、薪酬变动、组织协调类培训;
+    5.负责员工入离职处理;
+  gates_ok: 5
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 0
+  hard_items:
+  - 客户验厂
+  soft_items: []
+  major: 资源管理专业
+  fulltime: true
+  n_ask: 5
+  age: 28
+  edu: 3
+- candidate: cand_李___38岁_行政专员_智通简历_编号
+  prefer_hits: 0
+  tenure: 2.2
+  years: 6
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 34
+  quality: 待核
+  quality_kind: null
+  quality_months: 76
+  quality_quote: :1.负责公司ISO14001&OHSAS18001职业健康安全管理体系的维护，主导内部审核、管理评审的组织实施。 2. 主导工伤、火灾及其他突发安全事件的调查与处理，建立事故分析报告机制，确保整改措施有效落实。
+    3. 承担承包商施工作业的
+  gates_ok: 9
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 0
+  hard_items:
+  - 6S
+  soft_items: []
+  major: 机械工程
+  fulltime: true
+  n_ask: 3
+  age: 38
+  edu: 3
+- candidate: cand_行政专员_东莞_7_9K_杨___4年
+  prefer_hits: 0
+  tenure: 1.7
+  years: 4
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 38
+  quality: 待核
+  quality_kind: null
+  quality_months: 28
+  quality_quote: '专员:'
+  gates_ok: 5
+  real_hits: 1
+  hard_hits: 1
+  soft_hits: 0
+  hard_items:
+  - 6S
+  soft_items: []
+  major: 电子商务
+  fulltime: true
+  n_ask: 5
+  age: 34
+  edu: 3
+- candidate: cand_专案工程师_东莞_12_16K_陈___5年
+  prefer_hits: 0
+  tenure: 1.6
+  years: 5
+  prio_hits: 2
+  prio_names:
+  - 品质岗经历有硬证据
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 31
+  quality: 有
+  quality_kind: B
+  quality_months: 30
+  quality_quote: 工程师:1.经理指派责任产品工程师 2.登陆agile查看报价中心输出的QBOM、工时、工模治具以及客户的图纸、认证、包规、环保、测试报告、客户标准等要求
+    3.根据图纸未明确点以及实际可制造性提交DFM 4.收集零件图纸上传系统并申请ECN
+  gates_ok: 8
+  real_hits: 2
+  hard_hits: 0
+  soft_hits: 2
+  hard_items: []
+  soft_items:
+  - 线束行业知识
+  - 英语
+  major: 机械制造与自动化
+  fulltime: true
+  n_ask: 3
+  age: 26
+  edu: 3
+- candidate: cand_段___研发工程主管_产品工程主管
+  prefer_hits: 0
+  tenure: 6.4
+  years: 13
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 28
+  quality: 待核
+  quality_kind: null
+  quality_months: 64
+  quality_quote: '工程课长:'
+  gates_ok: 8
+  real_hits: 2
+  hard_hits: 0
+  soft_hits: 2
+  hard_items: []
+  soft_items:
+  - 线束行业知识
+  - 英语
+  major: 机电一体化
+  fulltime: true
+  n_ask: 3
+  age: 41
+  edu: 3
+- candidate: cand_专案工程师_东莞_12_16K_熊___10年以上
+  prefer_hits: 0
+  tenure: 7.9
+  years: 10
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 36
+  quality: 待核
+  quality_kind: null
+  quality_months: null
+  quality_quote: ''
+  gates_ok: 6
+  real_hits: 1
+  hard_hits: 0
+  soft_hits: 1
+  hard_items: []
+  soft_items:
+  - 线束行业知识
+  major: 模具设计与制造
+  fulltime: true
+  n_ask: 5
+  age: 40
+  edu: 3
+- candidate: cand_专案工程师_东莞_12_16K_邹___10年以上
+  prefer_hits: 0
+  tenure: 3.9
+  years: 10
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 33
+  quality: 待核
+  quality_kind: null
+  quality_months: 74
+  quality_quote: 工程部-研发工程师:1. 主导新产品导入 (NPI) ，负责连接器、线材等关键物料选型，并完成成本分析与报价。 2. 编制工程图纸、BOM表、产品承认书及可靠性测试规范，确保技术文档准确完整。
+    3. 跟进样品打样、测试及客户承认流程，高效解
+  gates_ok: 9
+  real_hits: 1
+  hard_hits: 0
+  soft_hits: 1
+  hard_items: []
+  soft_items:
+  - 线束行业知识
+  major: 建筑工程技术
+  fulltime: false
+  n_ask: 3
+  age: 37
+  edu: 3
+- candidate: cand_汽车线束高线工程师_东莞_10_14K_何___10年以上
+  prefer_hits: 0
+  tenure: 2.8
+  years: 10
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 34
+  quality: 待核
+  quality_kind: null
+  quality_months: 43
+  quality_quote: ':1. 专长: 具有较强的领导能力、组织与协调能力、沟通能力、计划与执行能力。 有良好的团队协作精神，为人诚实可靠、品'
+  gates_ok: 7
+  real_hits: 1
+  hard_hits: 0
+  soft_hits: 1
+  hard_items: []
+  soft_items:
+  - 线束行业知识
+  major: 计算机应用技术
+  fulltime: false
+  n_ask: 5
+  age: 38
+  edu: 3
+- candidate: cand_专案工程师_东莞_12_16K_叶___10年以上
+  prefer_hits: 0
+  tenure: 0.0
+  years: 10
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 38
+  quality: 读不出
+  quality_kind: null
+  quality_months: 0
+  quality_quote: ''
+  gates_ok: 7
+  real_hits: 1
+  hard_hits: 0
+  soft_hits: 1
+  hard_items: []
+  soft_items:
+  - 线束行业知识
+  major: 工商管理
+  fulltime: true
+  n_ask: 5
+  age: 36
+  edu: 3
+- candidate: cand_专案工程师_东莞_12_16K_华___9年
+  prefer_hits: 0
+  tenure: 2.3
+  years: 9
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 36
+  quality: 待核
+  quality_kind: null
+  quality_months: 43
+  quality_quote: ''
+  gates_ok: 7
+  real_hits: 1
+  hard_hits: 0
+  soft_hits: 1
+  hard_items: []
+  soft_items:
+  - 线束行业知识
+  major: 人力资源管理
+  fulltime: true
+  n_ask: 5
+  age: 31
+  edu: 4
+- candidate: cand_曹___工程师
+  prefer_hits: 0
+  tenure: 5.8
+  years: 8
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 31
+  quality: 待核
+  quality_kind: null
+  quality_months: 57
+  quality_quote: 项目专案工程师:1、线材连接器行业新产品开发[CAD图纸设计、研发技术标准及行业应用， 2、建立审核各项BOM清单，计划通知采购原材科，完成客户样品开发设计制作交付，
+    3、保障公司设备的正常运行，及技术管理、采购新机器管理、测试治具刀片/模
+  gates_ok: 6
+  real_hits: 1
+  hard_hits: 0
+  soft_hits: 1
+  hard_items: []
+  soft_items:
+  - 线束行业知识
+  major: 电子电气一体化
+  fulltime: true
+  n_ask: 5
+  age: 32
+  edu: 3
+- candidate: cand_罗___32岁_专案工程师_智通简历_编号
+  prefer_hits: 0
+  tenure: 5.2
+  years: 8
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 35
+  quality: 待核
+  quality_kind: null
+  quality_months: 57
+  quality_quote: '工程师.研发部门:'
+  gates_ok: 9
+  real_hits: 1
+  hard_hits: 0
+  soft_hits: 1
+  hard_items: []
+  soft_items:
+  - 线束行业知识
+  major: 机电一体化技术
+  fulltime: true
+  n_ask: 4
+  age: 32
+  edu: 3
+- candidate: cand_专案工程师_东莞_11_16K_杨___7年
+  prefer_hits: 0
+  tenure: 8.9
+  years: 7
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 36
+  quality: 待核
+  quality_kind: B
+  quality_months: null
+  quality_quote: 经理/主管:1.前期开发 (项目立项、解读客户需求、制图、制样、作业指导书、工艺流程、控制计划) 2.试产跟踪 (作业方式、方法、作业流程、是否按照控制计划作业)
+    3.项目跟踪 (召开新项目产前会议，过程跟踪、召开项目总结会议) 4.供应链
+  gates_ok: 7
+  real_hits: 1
+  hard_hits: 0
+  soft_hits: 1
+  hard_items: []
+  soft_items:
+  - 线束行业知识
+  major: 电子技术
+  fulltime: true
+  n_ask: 5
+  age: 29
+  edu: 4
+- candidate: cand_专案工程师_东莞_12_16K_张___5年
+  prefer_hits: 0
+  tenure: 1.7
+  years: 5
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 33
+  quality: 待核
+  quality_kind: null
+  quality_months: 31
+  quality_quote: ''
+  gates_ok: 7
+  real_hits: 1
+  hard_hits: 0
+  soft_hits: 1
+  hard_items: []
+  soft_items:
+  - 线束行业知识
+  major: 物流管理
+  fulltime: true
+  n_ask: 4
+  age: 27
+  edu: 4
+- candidate: cand_设计助理工程师_东莞_7_10K_卢___4年
+  prefer_hits: 0
+  tenure: 1.1
+  years: 4
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 37
+  quality: 待核
+  quality_kind: null
+  quality_months: 24
+  quality_quote: ''
+  gates_ok: 6
+  real_hits: 1
+  hard_hits: 0
+  soft_hits: 1
+  hard_items: []
+  soft_items:
+  - 线束行业知识
+  major: 机械工程
+  fulltime: true
+  n_ask: 5
+  age: 25
+  edu: 4
+- candidate: cand_设计助理工程师_东莞_7_10K_蓝___3年
+  prefer_hits: 0
+  tenure: 0.8
+  years: 3
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 37
+  quality: 待核
+  quality_kind: null
+  quality_months: 8
+  quality_quote: 助理 (服务器线束):2. 跟进服务器线束样品试制全流程，熟悉裁线、剥皮、压接、焊锡、注塑、电测整套加
+  gates_ok: 7
+  real_hits: 1
+  hard_hits: 0
+  soft_hits: 1
+  hard_items: []
+  soft_items:
+  - 线束行业知识
+  major: 计算机应用技术
+  fulltime: true
+  n_ask: 4
+  age: 37
+  edu: 3

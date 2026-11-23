@@ -1,0 +1,636 @@
+jd: 业务跟单
+step: 5 目标名单(基于一面数据)
+pool:
+  interview_list: 10
+  with_interview: 10
+target:
+  min: 5
+  max: 10
+  asked_by: hr
+interview_policy:
+  mode: mock_allowed
+  source: interview_policy.yaml · 业务跟单 · admin 2026-11-23
+judgeable_requirements: 6
+total_requirements: 9
+rank_rule:
+- ① 硬证据项数(可验证载体:系统/报告/客户审核/图表),多者优先
+- ② 软证据项数(只能靠陈述的),多者优先
+- ③ 用户选的业务优先条件命中数
+- ④ 客户原文写的「优先」条款被判定满足的条数
+- ⑤ 总年限(客户要求 X 年以上;读不出来排最后 —— 排序口径,不是不合格)
+- ⑥ 稳定性:平均在职年限(从工作段算出,不是自述)
+- ⑦ 待核项数(成本,不是优劣)
+- ⑧ 品质岗经历(仅当本 JD 要求)
+- ⑨ sha256(候选人 id):确定性兜底,不按文件名/姓氏排
+evidence_note: 证据分层按「简历 ∪ 一面坐实」算;from_interview 里标了 from_interview_simulated 的那些是**模拟一面**给的,演练用
+cut:
+  target_min: 5
+  target_max: 10
+  position: 10
+  tie_band: 1
+  hash_decided: false
+  note: 切线唯一 —— 名次可读
+shortfall: 0
+final:
+  rule:
+  - 硬门槛(A/B 类客户阈值 + HR 侧 5 条)0 条不满足
+  - 至少 1 项硬证据(简历或一面坐实)
+  - 未知 ≤3 条(再多就说明关键项还没读到)
+  max: 5
+  unknown_max: 3
+  min_hard: 1
+  ids:
+  - cand_专案工程师_东莞_12_16K_陈___5年
+  - cand_业务跟单_东莞_6_10K_陈___5年
+  - cand_罗___46岁_专案工程师_智通简历_编号
+  - cand_专案工程师_东莞_12_16K_l___10年以上
+  - cand_专案工程师_东莞_12_16K_石___10年以上
+  count: 5
+  dropped:
+  - candidate: cand_专案工程师_东莞_12_16K_王___10年以上
+    why: 合格但超出 5 个名额(按短名单顺序)
+  - candidate: cand_副总助理_东莞_8_13K_钟___5年
+    why: 合格但超出 5 个名额(按短名单顺序)
+  - candidate: cand_陈___37岁_日文业务助理_智通简历_编号
+    why: 合格但超出 5 个名额(按短名单顺序)
+  - candidate: cand_日语业务跟单_东莞_5_7K_叶___4年
+    why: 合格但超出 5 个名额(按短名单顺序)
+  - candidate: cand_业务跟单_东莞_6_10K_钟___2年
+    why: 合格但超出 5 个名额(按短名单顺序)
+  note: 最终名单 ⊂ 短名单,且人数明显更少:短名单是"够格排队",最终名单是"送去用人部门面,不许有硬伤"
+flags: []
+relaxations: []
+simulated_interview_only:
+- cand_专案工程师_东莞_12_16K_陈___5年
+- cand_业务跟单_东莞_6_10K_陈___5年
+- cand_罗___46岁_专案工程师_智通简历_编号
+- cand_专案工程师_东莞_12_16K_l___10年以上
+- cand_专案工程师_东莞_12_16K_石___10年以上
+- cand_专案工程师_东莞_12_16K_王___10年以上
+- cand_副总助理_东莞_8_13K_钟___5年
+- cand_陈___37岁_日文业务助理_智通简历_编号
+- cand_日语业务跟单_东莞_5_7K_叶___4年
+- cand_业务跟单_东莞_6_10K_钟___2年
+selected:
+- cand_专案工程师_东莞_12_16K_陈___5年
+- cand_业务跟单_东莞_6_10K_陈___5年
+- cand_罗___46岁_专案工程师_智通简历_编号
+- cand_专案工程师_东莞_12_16K_l___10年以上
+- cand_专案工程师_东莞_12_16K_石___10年以上
+- cand_专案工程师_东莞_12_16K_王___10年以上
+- cand_副总助理_东莞_8_13K_钟___5年
+- cand_陈___37岁_日文业务助理_智通简历_编号
+- cand_日语业务跟单_东莞_5_7K_叶___4年
+- cand_业务跟单_东莞_6_10K_钟___2年
+rows:
+- candidate: cand_专案工程师_东莞_12_16K_陈___5年
+  hard_items:
+  - skill_ERP
+  - skill_Excel
+  soft_items:
+  - skill_订单交期风险评估
+  hard_hits: 2
+  soft_hits: 1
+  from_interview:
+  - skill_ERP
+  - skill_Excel
+  - skill_订单交期风险评估
+  from_interview_simulated:
+  - skill_ERP
+  - skill_Excel
+  - skill_订单交期风险评估
+  resume_items:
+  - skill_AutoCAD
+  - skill_ERP
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_ProE/Creo
+  - skill_SAP
+  - skill_报关
+  - skill_注塑机
+  - skill_端子
+  - skill_线束行业知识
+  - skill_英语
+  iv_real: 0
+  iv_sim: 31
+  满足: 5
+  不满足: 1
+  未知: 0
+  不可判: 3
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 2
+  prio_names:
+  - 线束/连接器行业
+  - 英语(会读写或能写 8D 任一)
+  prefer_hits: 0
+  years: 5
+  tenure: 1.6
+  n_ask: 0
+  quality: —
+  quality_months: null
+  age: 26
+  edu: 3
+  verdicts:
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-D-ERP-OPERATE: 满足
+    REQ-D-ERP-EXCEL: 满足
+    REQ-D-DELIVERY-RISK: 满足
+    REQ-E-STRESS: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-G-CONFIDENTIALITY: 不可判
+- candidate: cand_业务跟单_东莞_6_10K_陈___5年
+  hard_items:
+  - skill_ERP
+  - skill_Excel
+  soft_items:
+  - skill_订单交期风险评估
+  hard_hits: 2
+  soft_hits: 1
+  from_interview:
+  - skill_ERP
+  - skill_Excel
+  - skill_订单交期风险评估
+  from_interview_simulated:
+  - skill_ERP
+  - skill_Excel
+  - skill_订单交期风险评估
+  resume_items:
+  - skill_ERP
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_外贸业务
+  - skill_英语
+  - skill_跟单
+  iv_real: 0
+  iv_sim: 31
+  满足: 5
+  不满足: 1
+  未知: 0
+  不可判: 3
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  prio_hits: 1
+  prio_names:
+  - 英语(会读写或能写 8D 任一)
+  prefer_hits: 0
+  years: 5
+  tenure: 1.1
+  n_ask: 1
+  quality: —
+  quality_months: null
+  age: 27
+  edu: 4
+  verdicts:
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-D-ERP-OPERATE: 满足
+    REQ-D-ERP-EXCEL: 满足
+    REQ-D-DELIVERY-RISK: 满足
+    REQ-E-STRESS: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-G-CONFIDENTIALITY: 不可判
+- candidate: cand_罗___46岁_专案工程师_智通简历_编号
+  hard_items:
+  - skill_ERP
+  - skill_Excel
+  soft_items: []
+  hard_hits: 2
+  soft_hits: 0
+  from_interview:
+  - skill_ERP
+  - skill_Excel
+  from_interview_simulated:
+  - skill_ERP
+  - skill_Excel
+  resume_items:
+  - skill_8D报告
+  - skill_AutoCAD
+  - skill_ERP
+  - skill_Excel
+  - skill_ISO9001
+  - skill_Photoshop
+  - skill_PowerPoint
+  - skill_SolidWorks
+  - skill_Word
+  - skill_线束行业知识
+  - skill_英语
+  iv_real: 0
+  iv_sim: 32
+  满足: 4
+  不满足: 2
+  未知: 0
+  不可判: 3
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  - REQ-D-DELIVERY-RISK
+  prio_hits: 2
+  prio_names:
+  - 线束/连接器行业
+  - 英语(会读写或能写 8D 任一)
+  prefer_hits: 0
+  years: 4
+  tenure: 4.5
+  n_ask: 2
+  quality: —
+  quality_months: null
+  age: 46
+  edu: 4
+  verdicts:
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-D-ERP-OPERATE: 满足
+    REQ-D-ERP-EXCEL: 满足
+    REQ-D-DELIVERY-RISK: 不满足
+    REQ-E-STRESS: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-G-CONFIDENTIALITY: 不可判
+- candidate: cand_专案工程师_东莞_12_16K_l___10年以上
+  hard_items:
+  - skill_ERP
+  - skill_Excel
+  soft_items: []
+  hard_hits: 2
+  soft_hits: 0
+  from_interview:
+  - skill_ERP
+  - skill_Excel
+  from_interview_simulated:
+  - skill_ERP
+  - skill_Excel
+  resume_items:
+  - skill_AutoCAD
+  - skill_ERP
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_SolidWorks
+  - skill_Word
+  - skill_线束行业知识
+  iv_real: 0
+  iv_sim: 29
+  满足: 4
+  不满足: 2
+  未知: 0
+  不可判: 3
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  - REQ-D-DELIVERY-RISK
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  prefer_hits: 0
+  years: 10
+  tenure: 4.3
+  n_ask: 2
+  quality: —
+  quality_months: null
+  age: 45
+  edu: 4
+  verdicts:
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-D-ERP-OPERATE: 满足
+    REQ-D-ERP-EXCEL: 满足
+    REQ-D-DELIVERY-RISK: 不满足
+    REQ-E-STRESS: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-G-CONFIDENTIALITY: 不可判
+- candidate: cand_专案工程师_东莞_12_16K_石___10年以上
+  hard_items:
+  - skill_ERP
+  - skill_Excel
+  soft_items: []
+  hard_hits: 2
+  soft_hits: 0
+  from_interview:
+  - skill_ERP
+  - skill_Excel
+  from_interview_simulated:
+  - skill_ERP
+  - skill_Excel
+  resume_items:
+  - skill_AutoCAD
+  - skill_ERP
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_ProE/Creo
+  - skill_Word
+  - skill_端子
+  - skill_线束行业知识
+  iv_real: 0
+  iv_sim: 32
+  满足: 4
+  不满足: 2
+  未知: 0
+  不可判: 3
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  - REQ-D-DELIVERY-RISK
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  prefer_hits: 0
+  years: 10
+  tenure: 3.1
+  n_ask: 2
+  quality: —
+  quality_months: null
+  age: 37
+  edu: 2
+  verdicts:
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-D-ERP-OPERATE: 满足
+    REQ-D-ERP-EXCEL: 满足
+    REQ-D-DELIVERY-RISK: 不满足
+    REQ-E-STRESS: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-G-CONFIDENTIALITY: 不可判
+- candidate: cand_专案工程师_东莞_12_16K_王___10年以上
+  hard_items:
+  - skill_ERP
+  - skill_Excel
+  soft_items: []
+  hard_hits: 2
+  soft_hits: 0
+  from_interview:
+  - skill_ERP
+  - skill_Excel
+  from_interview_simulated:
+  - skill_ERP
+  - skill_Excel
+  resume_items:
+  - skill_AutoCAD
+  - skill_CATIA
+  - skill_ERP
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_ProE/Creo
+  - skill_Word
+  - skill_端子
+  - skill_线束行业知识
+  iv_real: 0
+  iv_sim: 32
+  满足: 4
+  不满足: 2
+  未知: 0
+  不可判: 3
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  - REQ-D-DELIVERY-RISK
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  prefer_hits: 0
+  years: 10
+  tenure: 0.0
+  n_ask: 2
+  quality: —
+  quality_months: null
+  age: 43
+  edu: 4
+  verdicts:
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-D-ERP-OPERATE: 满足
+    REQ-D-ERP-EXCEL: 满足
+    REQ-D-DELIVERY-RISK: 不满足
+    REQ-E-STRESS: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-G-CONFIDENTIALITY: 不可判
+- candidate: cand_副总助理_东莞_8_13K_钟___5年
+  hard_items:
+  - skill_ERP
+  - skill_Excel
+  soft_items: []
+  hard_hits: 2
+  soft_hits: 0
+  from_interview:
+  - skill_ERP
+  - skill_Excel
+  from_interview_simulated:
+  - skill_ERP
+  - skill_Excel
+  resume_items:
+  - skill_ERP
+  - skill_Excel
+  - skill_Photoshop
+  - skill_Word
+  - skill_英语
+  iv_real: 0
+  iv_sim: 33
+  满足: 4
+  不满足: 2
+  未知: 0
+  不可判: 3
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  - REQ-D-DELIVERY-RISK
+  prio_hits: 1
+  prio_names:
+  - 英语(会读写或能写 8D 任一)
+  prefer_hits: 0
+  years: 5
+  tenure: 0.0
+  n_ask: 2
+  quality: —
+  quality_months: null
+  age: 26
+  edu: 4
+  verdicts:
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-D-ERP-OPERATE: 满足
+    REQ-D-ERP-EXCEL: 满足
+    REQ-D-DELIVERY-RISK: 不满足
+    REQ-E-STRESS: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-G-CONFIDENTIALITY: 不可判
+- candidate: cand_陈___37岁_日文业务助理_智通简历_编号
+  hard_items:
+  - skill_ERP
+  - skill_Excel
+  soft_items: []
+  hard_hits: 2
+  soft_hits: 0
+  from_interview:
+  - skill_ERP
+  - skill_Excel
+  from_interview_simulated:
+  - skill_ERP
+  - skill_Excel
+  resume_items:
+  - skill_ERP
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_报关
+  - skill_英语
+  - skill_跟单
+  iv_real: 0
+  iv_sim: 30
+  满足: 4
+  不满足: 2
+  未知: 0
+  不可判: 3
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  - REQ-D-DELIVERY-RISK
+  prio_hits: 1
+  prio_names:
+  - 英语(会读写或能写 8D 任一)
+  prefer_hits: 0
+  years: 4
+  tenure: 2.8
+  n_ask: 2
+  quality: —
+  quality_months: null
+  age: 37
+  edu: 3
+  verdicts:
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-D-ERP-OPERATE: 满足
+    REQ-D-ERP-EXCEL: 满足
+    REQ-D-DELIVERY-RISK: 不满足
+    REQ-E-STRESS: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-G-CONFIDENTIALITY: 不可判
+- candidate: cand_日语业务跟单_东莞_5_7K_叶___4年
+  hard_items:
+  - skill_ERP
+  - skill_Excel
+  soft_items: []
+  hard_hits: 2
+  soft_hits: 0
+  from_interview:
+  - skill_ERP
+  - skill_Excel
+  from_interview_simulated:
+  - skill_ERP
+  - skill_Excel
+  resume_items:
+  - skill_ERP
+  - skill_Excel
+  - skill_Word
+  - skill_单证
+  - skill_外贸业务
+  - skill_英语
+  iv_real: 0
+  iv_sim: 32
+  满足: 4
+  不满足: 2
+  未知: 0
+  不可判: 3
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  - REQ-D-DELIVERY-RISK
+  prio_hits: 1
+  prio_names:
+  - 英语(会读写或能写 8D 任一)
+  prefer_hits: 0
+  years: 4
+  tenure: 0.0
+  n_ask: 2
+  quality: —
+  quality_months: null
+  age: 25
+  edu: 3
+  verdicts:
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-D-ERP-OPERATE: 满足
+    REQ-D-ERP-EXCEL: 满足
+    REQ-D-DELIVERY-RISK: 不满足
+    REQ-E-STRESS: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-G-CONFIDENTIALITY: 不可判
+- candidate: cand_业务跟单_东莞_6_10K_钟___2年
+  hard_items:
+  - skill_ERP
+  - skill_Excel
+  soft_items: []
+  hard_hits: 2
+  soft_hits: 0
+  from_interview:
+  - skill_ERP
+  - skill_Excel
+  from_interview_simulated:
+  - skill_ERP
+  - skill_Excel
+  resume_items:
+  - skill_ERP
+  - skill_Excel
+  - skill_英语
+  iv_real: 0
+  iv_sim: 34
+  满足: 4
+  不满足: 2
+  未知: 0
+  不可判: 3
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-B-MAJOR
+  - REQ-D-DELIVERY-RISK
+  prio_hits: 1
+  prio_names:
+  - 英语(会读写或能写 8D 任一)
+  prefer_hits: 0
+  years: 2
+  tenure: 1.8
+  n_ask: 2
+  quality: —
+  quality_months: null
+  age: 23
+  edu: 3
+  verdicts:
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-MAJOR: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-D-ERP-OPERATE: 满足
+    REQ-D-ERP-EXCEL: 满足
+    REQ-D-DELIVERY-RISK: 不满足
+    REQ-E-STRESS: 不可判
+    REQ-E-COMMUNICATION: 不可判
+    REQ-G-CONFIDENTIALITY: 不可判
+in_list:
+  cand_专案工程师_东莞_12_16K_陈___5年: true
+  cand_业务跟单_东莞_6_10K_陈___5年: true
+  cand_罗___46岁_专案工程师_智通简历_编号: true
+  cand_专案工程师_东莞_12_16K_l___10年以上: true
+  cand_专案工程师_东莞_12_16K_石___10年以上: true
+  cand_专案工程师_东莞_12_16K_王___10年以上: true
+  cand_副总助理_东莞_8_13K_钟___5年: true
+  cand_陈___37岁_日文业务助理_智通简历_编号: true
+  cand_日语业务跟单_东莞_5_7K_叶___4年: true
+  cand_业务跟单_东莞_6_10K_钟___2年: true

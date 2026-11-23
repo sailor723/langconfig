@@ -1,0 +1,146 @@
+# 决策账本 —— 「谁、何时、为什么」这么定的**独立**记录。只能由人改。
+#
+#   jd_links/<JD>.yaml   引用了什么（派生文件，可被重新抽取覆盖）
+#   jd_reviews/<JD>.yaml 人定过什么（决策文件，只能由人改）
+#
+# 本文件由 agent 386 在「步1·JD 起草」时建立：只登记**待定的事项**，一律 signoff: pending。
+# 没有发生的签署不许写进来 —— 为了让门禁变绿而补一个签名的代价，比红着更大。
+jd: 品质经理
+ref: jd_links/品质经理.yaml
+decisions:
+
+- id: D-品质经理-01
+  kind: granularity
+  subject: C-03
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「机电一体化/电子技术/自动化/工业工程/机械工程」是一条枚举要求里的 5 个取值，「/」是分隔符。
+    拆成 5 条会得到 5 条同义要求（都挂 REQ-B-MAJOR），下游会把同一句话算 5 遍。
+  cost: >-
+    不拆的代价是「等工程类专业」这半个口子留在库那一层：库内 REQ-B-MAJOR 按点名判，
+    未点名的真工科（材料成型、车辆工程…）会判不满足。要改的是要求库口径，不是这条引用。
+
+- id: D-品质经理-02
+  kind: granularity
+  subject: C-04
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    技能里的默认规矩是「及」拆两条（一口语熟练 / 一独立书写英文8D报告），因为一个人可能只满足一半。
+    本条不拆的理由是库那一侧的现状：REQ-H-LANG-EN 是单条要求、match 写的是 any_of n:1（命中其一即可）。
+    把一句话挂成两条引用，等于同一条要求算两遍，且每条都退化成「英语或 8D」—— 比不拆更松。
+  cost: >-
+    不拆就保不住「两项都要」这一读法。若业务方真实意图是口语与 8D 书写**都要**，
+    则要改的是 REQ-H-LANG-EN 的 match（any_of → all_of），属于要求库那一层的变更，不在本步。
+    另外无论拆不拆，「口语熟练」都判不了（level_check 指向 H.2，assessable=false）。
+
+- id: D-品质经理-03
+  kind: granularity
+  subject: C-07
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「分析、改善」是两个动作，但库内只有 skill_品质问题分析 一个组件承载这对能力；
+    拆开只会得到两条同义要求。
+  cost: >-
+    下游只会判「有没有品质问题分析能力」，判不出「只会分析、不会推动改善」这种半吊子。
+
+- id: D-品质经理-04
+  kind: granularity
+  subject: C-08
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    客户点名的 5 个工具是一条复合要求，库内 REQ-D-QA-TOOLS 已按 5 个组件（any_of n:1）建模。
+    拆成 5 条引用会让同一条要求算 5 遍。
+  cost: >-
+    这条只有「满不满足」一个结果，看不出命中了几项、命中哪一项。要分辨得看下游的组件明细；
+    而 skill_5WHY 在语料里抽取 0 条（detectable=false），所以「5 项」实际只按 4 项算。
+
+- id: D-品质经理-05
+  kind: granularity
+  subject: C-10
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「沟通、协调」本可拆两个能力，但 REQ-E-COMMUNICATION 本身 assessable=false、no_component=true，
+    拆开只会得到两条都判不了的要求。
+  cost: >-
+    这条无论拆不拆都判不了，只能留面试评分表；拆开唯一的效果是把「判不了」的条数从 1 变成 2。
+
+- id: D-品质经理-14
+  kind: granularity
+  subject: C-02
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    门禁的机械筛(_split_candidate)把「学历：大专及以上学历」判成含拆分信号,原因是那条正则
+    只在「及」直接接「上/下」时才剥掉阈值词,而这里「及以上」中间隔了一个「以」,于是「及」被当成并列。
+    现场看这不是并列：「及以上」是比较方向,和 num 3 + op '>=' 一起表达同一条阈值。
+  cost: >-
+    代价为零(不拆也不影响判定)。登记它是为了把「这条被筛子挑过、人看过、判不拆」留成记录,
+    免得下次有人重新纠结一遍。
+
+- id: D-品质经理-06
+  kind: exclusion
+  subject: X-01
+  decision: excluded
+  signoff: pending
+  why: 岗位职责段第 1 条，是「做什么」，不是「要什么」。
+
+- id: D-品质经理-07
+  kind: exclusion
+  subject: X-02
+  decision: excluded
+  signoff: pending
+  why: >-
+    职责段第 2 条「依IATF16949制定和完善品质管理制度」—— 出现 IATF16949 不等于要求候选人有 IATF16949 资质或
+    ISO/TS16949 体系经验。这是把「职责段当任职资格段」的典型入口：一旦漏进去，图谱里就会多一条
+    「候选人须具备 ISO/TS16949」的断言，把持证/做体系的人整批拉进来。
+  cost: >-
+    本账本只登记「不作为任职资格」这个判定。图谱里若已有那条断言，撤它要重跑推理与材料化，另一步做；
+    在那之前，下游仍可能按体系资质筛人 —— 所以这条 pending 的签字是要紧的。
+
+- id: D-品质经理-08
+  kind: exclusion
+  subject: X-03
+  decision: excluded
+  signoff: pending
+  why: 职责段第 3 条；「对相关人员进行考核」是岗位权限，不是候选人条件。
+
+- id: D-品质经理-09
+  kind: exclusion
+  subject: X-04
+  decision: excluded
+  signoff: pending
+  why: 职责段第 4 条；「含SIP」是工作内容里的文件名词，不据此造工具类要求。
+
+- id: D-品质经理-10
+  kind: exclusion
+  subject: X-05
+  decision: excluded
+  signoff: pending
+  why: 职责段第 5 条（原文「效验」为错字，照留）。
+
+- id: D-品质经理-11
+  kind: exclusion
+  subject: X-06
+  decision: excluded
+  signoff: pending
+  why: 职责段第 6 条；频次口径归「事务表述」表，不是资格门槛。
+
+- id: D-品质经理-12
+  kind: exclusion
+  subject: X-07
+  decision: excluded
+  signoff: pending
+  why: >-
+    职责段第 7 条与 C-09「具备接待客户验厂经验」字面相近，但这是公司要人干的事，C-09 才是对候选人的要求。
+
+- id: D-品质经理-13
+  kind: exclusion
+  subject: X-08
+  decision: excluded
+  signoff: pending
+  why: 职责段第 8 条；工作范围（管供应商），不等于「有供应商管理经验」这条资格。

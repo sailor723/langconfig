@@ -4,8 +4,9 @@ rule: 只用 CV 类别(cv)的数据项排除;读不到/判不了一律保留
 facts: llm
 count:
   pool: 270
-  kept: 169
-  excluded: 101
+  kept: 164
+  excluded: 106
+  dropped_by_quality_gate: 5
 screenable_requirements:
 - REQ-A-AGE-RANGE
 - REQ-B-EDU-LEVEL
@@ -13,744 +14,1083 @@ not_screenable:
   REQ-B-MAJOR: 算子是 in,不是阈值 —— 不用于排除
   REQ-HR-STABILITY: C.7 是从简历推出来的量(不是直接写着),推导会偏 —— 不用于排除
   REQ-HR-TENURE: C.4 是从简历推出来的量(不是直接写着),推导会偏 —— 不用于排除
+untrusted_source_kept: []
 excluded:
 - candidate: cand_人资专员_东莞_5_6K_黄___6年_1
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 24
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_李___24岁_人资专员_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 24
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_刘___41岁_管理课课长_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 41
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_刘___42岁_管理课课长_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 42
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 未知
 - candidate: cand_吴___45岁_管理课课长_智通简历_编号
-  reasons:
+  reasons: &id001
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 45
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_张___43岁_管理课课长_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 43
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_黄___41岁_管理课课长_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 41
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_黄___45岁_管理课课长_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 45
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_行政专员_东莞_6_8K_吴___4年
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 未知
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_行政专员_东莞_7_9K_刘___10年以上
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 43
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_行政专员_东莞_7_9K_邓___1年
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 未知
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_何___42岁_行政专员_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 42
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_贺___28岁_行政专员_智通简历_编号
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_专案工程师_东莞_10_15K_徐___1年以内
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 未知
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_专案工程师_东莞_10_15K_黄___7年
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_专案工程师_东莞_12_16K_l___10年以上
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 45
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_专案工程师_东莞_12_16K_刘___10年以上
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 42
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_专案工程师_东莞_12_16K_史___10年以上
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_专案工程师_东莞_12_16K_周___10年以上_1
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_专案工程师_东莞_12_16K_唐___10年以上
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_专案工程师_东莞_12_16K_孙___10年以上
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 46
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_专案工程师_东莞_12_16K_廖___10年以上
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 未知
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_专案工程师_东莞_12_16K_王___10年以上
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 43
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_专案工程师_东莞_12_16K_石___10年以上
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 未知
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_吴___44岁_专案工程师_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 44
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_吴___项目工程师
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 41
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_宋___37岁_专案工程师_智通简历_编号
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_廖___33岁_专案工程师_智通简历_编号
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_张___43岁_专案工程师_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 43
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_曾___43_智通附件简历_944723388_专案工程师
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 43
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 未知
 - candidate: cand_李___44岁_专案工程师_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 44
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_李___45岁_专案工程师_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 45
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_游___37岁_专案工程师_智通简历_编号
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_罗___44岁_专案工程师_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 44
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_罗___46岁_专案工程师_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 46
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_肖___46岁_专案工程师_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 46
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_胡___42岁_专案工程师_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 42
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_胡___46岁_专案工程师_智通简历_编号
-  reasons:
+  reasons: &id002
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 46
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_蒋___38岁_专案工程师_智通简历_编号
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_袁___34岁_专案工程师_智通简历_编号
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_谢___39岁_专案工程师_智通简历_编号
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_贺___37岁_专案工程师_智通简历_编号
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_雷___31岁_专案工程师_智通简历_编号
-  reasons:
+  reasons: &id003
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_马___42岁_专案工程师_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 42
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_实验室技术员_东莞_4_5K_李___10年以上
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_工程文员_东莞_5_6K_何___25年应届生
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 24
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_工程文员_东莞_5_6K_廖___10年以上
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_工程文员_东莞_5_6K_杨___3年
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 24
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_工程文员_东莞_5_6K_王___10年以上
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_何___20岁_工程文员_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 20
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_刘___20岁_工程文员_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 20
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_姚___23岁_工程文员_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 23
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_李___27岁_工程文员_智通简历_编号
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_赵___29岁_工程文员_智通简历_编号
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_廖___品质经理_NPI经理_研发经理
-  reasons:
+  reasons: &id004
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 41
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_彭___工程师_技术经理_总工
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 43
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_曾___cable工程主管_cable工程经理
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 44
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 未知
 - candidate: cand_李___46岁_工程经理_智通简历_编号________1
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 46
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 未知
 - candidate: cand_李___48岁_工程经理_智通简历_编号
-  reasons:
+  reasons: &id005
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 48
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_毕___工程研发类
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 45
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_汪___总工程师技术经理研发经理
-  reasons:
+  reasons: &id006
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 47
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 未知
 - candidate: cand_蓝___43岁_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 43
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_设计助理工程师_东莞_7_10K_古___4年
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 24
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 未知
 - candidate: cand_设计助理工程师_东莞_7_10K_雷___1年
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 21
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_唐___42岁_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 42
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_陈__简历
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_外贸业务员_东莞_5_10K_任___2年
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 24
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_外贸业务员_东莞_5_10K_周___1年
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 24
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 未知
 - candidate: cand_外贸业务员_东莞_5_10K_奉___2年
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 23
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_外贸业务员_东莞_5_10K_李___2年
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 23
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_外贸业务员_东莞_5_10K_谢___26年应届生
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 24
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_外贸业务员_东莞_5_10K_陈___2年
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 21
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_刘___23岁_日文业务助理_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 23
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_张___21岁_外贸业务员_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 21
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_曾___23岁_业务助理_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 23
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_龙___21岁_日文业务助理_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 21
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_业务跟单_东莞_6_10K_伍___1年
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 22
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_业务跟单_东莞_6_10K_叶___25年应届生
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 22
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_业务跟单_东莞_6_10K_宋___4年
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 24
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 未知
 - candidate: cand_业务跟单_东莞_6_10K_林___7年
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 24
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 未知
 - candidate: cand_业务跟单_东莞_6_10K_王___10年以上_3
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_业务跟单_东莞_6_10K_王___5年
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 22
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_业务跟单_东莞_6_10K_罗___2年
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 24
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_业务跟单_东莞_6_10K_谢___1年
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 21
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_业务跟单_东莞_6_10K_邓___1年
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 21
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_业务跟单_东莞_6_10K_郑___10年以上
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 未知
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_业务跟单_东莞_6_10K_钟___2年
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 23
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_业务跟单_东莞_6_10K_黄___3年
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 23
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_业务跟单_东莞_6_8K_符___4年
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 21
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_日语业务跟单_东莞_5_7K_l___26年应届生
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 22
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_日语业务跟单_东莞_5_7K_焦___1年
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 22
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_日语业务跟单_东莞_5_7K_蔡___1年以内
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 22
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_日语业务跟单_东莞_5_7K_谢___1年
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 21
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_日语业务跟单_东莞_5_7K_邓___1年以内
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 22
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_日语业务跟单_东莞_5_7K_陈___26年应届生
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 22
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_日语业务跟单_东莞_5_7K_黄___26年应届生
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 23
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_李___22岁_业务跟单_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 22
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_覃___36岁_业务跟单_智通简历_编号
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_邓___27岁_业务跟单_智通简历_编号
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_邓___43岁_业务跟单_智通简历_编号
   reasons:
   - requirement: REQ-A-AGE-RANGE
     requirement_name: 年龄区间
-    verbatim: 年龄：25 ~ 40岁
+    verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 43
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_黄___30岁_业务跟单_智通简历_编号
   reasons:
   - requirement: REQ-B-EDU-LEVEL
     requirement_name: 学历不低于
-    verbatim: 学历：大专及以上学历
+    verbatim: 学历：大专及以上学历；
     data_item: education_rank
     why: '>=3 vs 2'
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 不满足
+- candidate: cand_工程文员_东莞_5_6K_肖___26年应届生
+  reasons:
+  - requirement: QUALITY-GATE
+    requirement_name: 品质岗经历门槛
+    why: 有品质硬动作(首件/巡检),但该段仅 12 个月,低于门槛 24
+  verdicts: {}
+  stage: 品质门槛
+- candidate: cand_陈___39岁_工程经理_智通简历_编号
+  reasons:
+  - requirement: QUALITY-GATE
+    requirement_name: 品质岗经历门槛
+    why: 有品质硬动作(检验标准),但该段仅 12 个月,低于门槛 24
+  verdicts: {}
+  stage: 品质门槛
+- candidate: cand_刘___28岁_汽车线束工程师_智通简历_编号________1
+  reasons:
+  - requirement: QUALITY-GATE
+    requirement_name: 品质岗经历门槛
+    why: 有品质硬动作(首件/巡检),但该段仅 9 个月,低于门槛 24
+  verdicts: {}
+  stage: 品质门槛
+- candidate: cand_业务跟单_东莞_6_10K_刘___3年
+  reasons:
+  - requirement: QUALITY-GATE
+    requirement_name: 品质岗经历门槛
+    why: 有品质硬动作(检验标准),但该段仅 5 个月,低于门槛 24
+  verdicts: {}
+  stage: 品质门槛
+- candidate: cand_宋___27岁_业务跟单_智通简历_编号
+  reasons:
+  - requirement: QUALITY-GATE
+    requirement_name: 品质岗经历门槛
+    why: 有品质硬动作(检验标准,供应商质量),但该段仅 13 个月,低于门槛 24
+  verdicts: {}
+  stage: 品质门槛
 kept:
 - cand_人资专员_东莞_5_6K_何___5年
 - cand_人资专员_东莞_5_6K_马___26年应届生
@@ -831,19 +1171,16 @@ kept:
 - cand_龚___33岁_专案工程师_智通简历_编号
 - cand_实验室技术员_东莞_4_5K_高___10年以上
 - cand_工程文员_东莞_5_6K_刘___10年
-- cand_工程文员_东莞_5_6K_肖___26年应届生
 - cand_郑___25岁_工程文员_智通简历_编号
 - cand_任___39岁_技术课课长_智通简历_编号
 - cand_康___37岁_技术课课长_智通简历_编号
 - cand_张___35岁_智通简历_编号
 - cand_张___39岁_智通简历_编号
 - cand_段___研发工程主管_产品工程主管
-- cand_陈___39岁_工程经理_智通简历_编号
 - cand_汽车线束高线工程师_东莞_10_14K_何___10年以上
 - cand_设计助理工程师_东莞_7_10K_卢___4年
 - cand_设计助理工程师_东莞_7_10K_柒___4年
 - cand_设计助理工程师_东莞_7_10K_蓝___3年
-- cand_刘___28岁_汽车线束工程师_智通简历_编号________1
 - cand_陈___28岁_智通简历_编号
 - cand_业务助理_东莞_7_9K_郑___3年
 - cand_外贸业务员_东莞_5_10K_D___24年毕业
@@ -869,7 +1206,6 @@ kept:
 - cand_业务跟单_东莞_6_10K_L___10年以上
 - cand_业务跟单_东莞_6_10K_Lily_10年以上
 - cand_业务跟单_东莞_6_10K_万___10年以上
-- cand_业务跟单_东莞_6_10K_刘___3年
 - cand_业务跟单_东莞_6_10K_吴___1年
 - cand_业务跟单_东莞_6_10K_吴___23年毕业
 - cand_业务跟单_东莞_6_10K_和___10年以上
@@ -915,9 +1251,1208 @@ kept:
 - cand_冯___25岁_业务跟单_智通简历_编号
 - cand_刘___25岁_业务跟单_智通简历_编号
 - cand_吴___30岁_英文业务跟单_智通简历_编号
-- cand_宋___27岁_业务跟单_智通简历_编号
 - cand_王___33岁_英文业务跟单_智通简历_编号
 - cand_田___26岁_业务跟单_智通简历_编号
 - cand_袁___32岁_业务跟单_智通简历_编号
 - cand_谭___27岁_业务跟单_智通简历_编号
 - cand_陈___32岁_业务跟单_智通简历_编号
+quality_gate:
+  rule: A 岗位名在品质序列(不限时长) 或 B 职责含硬动作且该段≥min_months;弱动作(客诉/8D、SPC)不算
+  min_months: 24
+  in_pool_yes: 10
+  needs_verification:
+  - candidate: cand_人资专员_东莞_5_6K_何___5年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 36
+    months_known: true
+    quote: ''
+  - candidate: cand_人资专员_东莞_5_6K_马___26年应届生
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 10
+    months_known: true
+    quote: ''
+  - candidate: cand_徐___28岁_人资专员_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 72
+    months_known: true
+    quote: 经理跟进项目进展情况:8、负责部门的会议安排、记录; 9、处理采购打样/追踪打样物料; 10、测试样机的前期准备工作; 11、协助项目经理跟进项目进展情况
+      12、处理业务部打样的样机处理; 13、考勤异常处理 14、处理上级领导安排的工作事
+  - candidate: cand_李___27岁_人资专员_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 48
+    months_known: true
+    quote: ''
+  - candidate: cand_副总助理_东莞_10_15K_任___10年以上
+    verdict: 待核
+    why: 只出现弱动作(客诉/8D)—— 业务/工程职责里也有,既不足以判「做过品质」,也不足以判「没做过」
+    months: null
+    months_known: false
+    quote: '经理助理:1、 经营督办闭环: 建立全公司事项台账、节点追踪、落地复盘机制，统筹业务、运营、财务、项目全条线落地，重大事项闭环率 2、经营数据管控:
+      统一汇总全板块营收、成交、回款、项目进度数据，按月输出经营分析报表、蜡动复盘报告，为公司战'
+  - candidate: cand_副总助理_东莞_10_15K_戴___8年_1
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 27
+    months_known: true
+    quote: 经理助理:2.，项目管理，全流程管理，确保项目顺利推进，风险管理，按时交付，获得客户好评，树立品牌形象; 6. 客户服务，构建服务体系，制定服务标准，确保咨询、投诉、建议得到及时处理，客户满意度95%以上，
+  - candidate: cand_副总助理_东莞_10_15K_黄___8年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 59
+    months_known: true
+    quote: 经理:1. 负责基建及工程项目全周期采购管理，涵盖圭建、机电、暖通、消防、弱电、给排 2. 严格执行总公司采购管理规定与实施细则，按项目节点推进采购执行，统筹采购订
+      3. 搭建并维护工程类供应商/分包商资源池，负责准入评审、资质核查、履约评
+  - candidate: cand_副总助理_东莞_8_12K_雷___10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 38
+    months_known: true
+    quote: '助理/董事长助理:'
+  - candidate: cand_副总助理_东莞_8_13K_冷___9年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 42
+    months_known: true
+    quote: '经理助理:'
+  - candidate: cand_副总助理_东莞_8_13K_王___1年以内
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 54
+    months_known: true
+    quote: ''
+  - candidate: cand_副总助理_东莞_8_13K_范___7年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 22
+    months_known: true
+    quote: '经理助理(兼人事):'
+  - candidate: cand_副总助理_东莞_8_13K_钟___5年
+    verdict: 读不出
+    why: 读不出品质岗经历
+    months: 0
+    months_known: null
+    quote: ''
+  - candidate: cand_王___31岁_副总助理_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 48
+    months_known: true
+    quote: ''
+  - candidate: cand_高级招聘专家_东莞_7_12K_罗___10年以上
+    verdict: 读不出
+    why: 读不出品质岗经历
+    months: 0
+    months_known: null
+    quote: ''
+  - candidate: cand_高级招聘专家_东莞_7_12K_陈___10年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 64
+    months_known: true
+    quote: '工程师、pack 结构、电气，PE 工程师、研究院院长以及工艺经理和财务:'
+  - candidate: cand_高级招聘专家_东莞_9_14K_南___10年以上
+    verdict: 读不出
+    why: 读不出品质岗经历
+    months: 0
+    months_known: null
+    quote: ''
+  - candidate: cand_高级招聘专家_东莞_9_14K_李___10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 29
+    months_known: true
+    quote: 专员/助理:1.根据公司每月人力需求目标，带领招聘团队执行招聘计划，确保人员及时到位，满足公司需求; 2.招聘渠 道的维护，人力需求的分析审核，利用现有资源对直接及间接人员的招聘，开展校园招聘，校企合作，劳务派遣工合作;
+      2.招聘达成率，招
+  - candidate: cand_高级招聘专家_东莞_9_14K_段___7年
+    verdict: 读不出
+    why: 读不出品质岗经历
+    months: 0
+    months_known: null
+    quote: ''
+  - candidate: cand_高级招聘专家_东莞_9_14K_王___10年以上
+    verdict: 待核
+    why: 只出现弱动作(客诉/8D)—— 业务/工程职责里也有,既不足以判「做过品质」,也不足以判「没做过」
+    months: 77
+    months_known: true
+    quote: :1、负责小组招聘网、招聘报、招聘会、专项工作等主要销售管理工作。 2、专项产品销售的计划方案、计划策略、客户调查、销售思路整理、专项产品分析、协助企划实施。
+      3、新员工培训工作(电话营销基础知识、客户异议处理、竞争对手产品信息、销售技巧、
+  - candidate: cand_人事经理_东莞_12_17K_张___10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 79
+    months_known: true
+    quote: 专员/助理:1.负责员工入离职、转正、合同续签、异动及人事档案管理，推动人事档案管理电子化，实现便捷高效管理，提升工作效 2.独立负责公司招聘工作，精准满足各部门用人需求，确保招聘计划顺利完成。
+      3.独立完成公司每年度高新审核人事资料的准备
+  - candidate: cand_人事经理_东莞_12_17K_钟___10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 72
+    months_known: true
+    quote: 经理:10、负责集团档案管理、印章证照管理、收发文管理、行政公文、对内外文件的草拟审
+  - candidate: cand_张___36岁_管理课课长_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 67
+    months_known: true
+    quote: 经理领导下负责企业具体管理工作的布置、实施、检查、督促、落实执行情况;:1、在董事长/总经理领导下负责企业具体管理工作的布置、实施、检查、督促、落实执行情况;
+      2、负责各类文件的分类呈送，请董事长/总经理阅批并转有关部门处理; 3、在董事长
+  - candidate: cand_李___38岁_管理课课长_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 96
+    months_known: true
+    quote: '课长.人力资源部:2.招聘效率提升: 开发招聘渠道、推行内部介绍奖励机制，招聘达成率从75.37%提升至91.23%。 3.团队培养: 在本部门率先实行轮岗制度，培养部属多岗位技能，提升团队整体作战能力。
+      1.人力资源规划与管理 2.招聘与'
+  - candidate: cand_罗___40岁_管理课课长_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 153
+    months_known: true
+    quote: '经理/主管.人力资源部:'
+  - candidate: cand_行政专员_东莞_6_8K_余___5年
+    verdict: 读不出
+    why: 读不出品质岗经历
+    months: 0
+    months_known: null
+    quote: ''
+  - candidate: cand_行政专员_东莞_6_8K_夏___2年
+    verdict: 读不出
+    why: 读不出品质岗经历
+    months: 0
+    months_known: null
+    quote: ''
+  - candidate: cand_行政专员_东莞_6_8K_梁___6年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 30
+    months_known: true
+    quote: 专员/助理:1.负责项目部办公用品及后勤物资采购， 进行入库、领用全流程管理。年采购额20万元， 通过集中采购、库存优化等措施 2.负责项目部的会务与接待，
+      组织协调各项会议的召开， 负责会议纪要撰写与决议事项督办百余项， 完成率95%以上
+  - candidate: cand_行政专员_东莞_6_8K_肖___10年以上_1
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 24
+    months_known: true
+    quote: 专员/助理:1、负责保安、保洁日常管理工作 2、负责电工对内维修台账登记，维修材料购买，对外维修的报价、台账登记。 3、负责宿舍日常管理、分配、检查，水电费抄录核算等工作
+      4、协助人事招聘员工，建立员工关系，组织员工活动 5、协助办公室物品
+  - candidate: cand_行政专员_东莞_6_8K_范___9年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 28
+    months_known: true
+    quote: :1.利用公司的资源招聘渠道进行招聘工作; 2.开发新的招聘渠道; 3.员工关系协调矛盾及内外关系维护; 4.员工入职培训，及公司的年度计划关于制度、薪酬变动、组织协调类培训;
+      5.负责员工入离职处理;
+  - candidate: cand_行政专员_东莞_7_8K_刘___8年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 24
+    months_known: true
+    quote: ''
+  - candidate: cand_行政专员_东莞_7_8K_徐___7年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 64
+    months_known: true
+    quote: 专员:1.负责全岗位招聘，筛选简历、邀约面试、初试面谈，把控人员到岗率 2.维护招聘渠道，更新岗位信息，梳理招聘需求，制定简单招聘计划 3.对接部门沟通用人标准，跟进试用期员工情况，优化招聘流程
+      4.完成上级安排的人事行政类日常工作
+  - candidate: cand_行政专员_东莞_7_8K_谢___5年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 20
+    months_known: true
+    quote: '专员:'
+  - candidate: cand_行政专员_东莞_7_9K_唐___5年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 24
+    months_known: true
+    quote: '助理、行政司:1、行政制度体系搭建与流程优化: 主导行政类制度的调研、起草、修订、宣贯落地， 2、千人级后勤全盘运营: 全面统筹500+员工规模企业后勤板块，包含员工宿舍管理、
+      3、成本管控与供应商管理: 建立供应商准入、评估、考核、淘汰全'
+  - candidate: cand_行政专员_东莞_7_9K_杨___4年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 28
+    months_known: true
+    quote: '专员:'
+  - candidate: cand_行政专员_东莞_7_9K_潘___6年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 51
+    months_known: true
+    quote: ''
+  - candidate: cand_行政专员_东莞_7_9K_蒋___9年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 34
+    months_known: true
+    quote: 经理:1. 外省区域市场开发，主营内宇镜、外科手术器械维修; 自主规划出差，拜访医院科室主任、护士长，推介维修服务，输出技术与 2. 常态化客户回访维护，持续维系院内容情。
+      3. 承接医院设备报修，现场勘查故障、出具报价;，跟进报价签批、协
+  - candidate: cand_行政专员_东莞_7_9K_陈___10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 33
+    months_known: true
+    quote: '专员”工作经验: 4年:'
+  - candidate: cand_何___36岁_行政专员_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 44
+    months_known: true
+    quote: ''
+  - candidate: cand_吴___25岁_行政专员_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 36
+    months_known: true
+    quote: ''
+  - candidate: cand_周___29岁_行政专员_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 60
+    months_known: true
+    quote: ''
+  - candidate: cand_朱___36岁_行政专员_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 48
+    months_known: true
+    quote: '专员/助理.行政部:1.宿舍管理: 负责公司员工宿舍的分配与居住登记，确保宿舍资源合理利用，处理宿舍相关事务，提升员工住宿满意度。 2.环境卫生:
+      协调环境卫生及绿化修缮工作，定期检查并维护公司环境，确保办公区域整洁舒适，提高员工工作体验。'
+  - candidate: cand_李___38岁_行政专员_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 76
+    months_known: true
+    quote: :1.负责公司ISO14001&OHSAS18001职业健康安全管理体系的维护，主导内部审核、管理评审的组织实施。 2. 主导工伤、火灾及其他突发安全事件的调查与处理，建立事故分析报告机制，确保整改措施有效落实。
+      3. 承担承包商施工作业的
+  - candidate: cand_王___37岁_行政专员_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 51
+    months_known: true
+    quote: 专员.行政部:1、根据公司现状制定公司行政管理制度监督并实施; 2、协助人事专员对公司需求岗位的招聘及员工培训; 3、负责工厂日常办公用品、生产辅助材料的采购、分配和管理。确保物资供应充足，管理规范，降低企业成本，提高运营效
+      4、处理工厂日
+  - candidate: cand_陈___37岁_行政专员_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 125
+    months_known: true
+    quote: ''
+  - candidate: cand_黄___32岁_行政专员_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 37
+    months_known: true
+    quote: ''
+  - candidate: cand_专案工程师_东莞_12_16K_lizw_10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 110
+    months_known: true
+    quote: '技术员，产品工程师:'
+  - candidate: cand_专案工程师_东莞_12_16K_何___5年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 53
+    months_known: true
+    quote: :1.负责线束产品图纸设计，变更，与审核; 2.负责快充数据线，各类等级网线，各类高频线束等各类线束产品结构材料选型，产线SOP指导书,产品结构材料BOM
+      ，样品承认 3.负责工艺文件编辑及工艺优化，工序流程的设计; 4.负责改进后的制程工
+  - candidate: cand_专案工程师_东莞_12_16K_华___9年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 43
+    months_known: true
+    quote: ''
+  - candidate: cand_专案工程师_东莞_12_16K_董___7年
+    verdict: 读不出
+    why: 读不出品质岗经历
+    months: 0
+    months_known: null
+    quote: ''
+  - candidate: cand_专案工程师_东莞_12_16K_邹___10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 74
+    months_known: true
+    quote: 工程部-研发工程师:1. 主导新产品导入 (NPI) ，负责连接器、线材等关键物料选型，并完成成本分析与报价。 2. 编制工程图纸、BOM表、产品承认书及可靠性测试规范，确保技术文档准确完整。
+      3. 跟进样品打样、测试及客户承认流程，高效解
+  - candidate: cand_何___35岁_专案工程师_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 51
+    months_known: true
+    quote: '助理工程师.工程:'
+  - candidate: cand_刘___27岁_专案工程师_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 36
+    months_known: true
+    quote: ''
+  - candidate: cand_周___38岁_专案工程师_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 71
+    months_known: true
+    quote: '工程师.工程部:'
+  - candidate: cand_张___36岁_专案工程师_智通简历_编号
+    verdict: 待核
+    why: 有品质硬动作(体系/审核),但这段的起止时间读不出来,无法比 24 个月门槛
+    months: null
+    months_known: false
+    quote: 经理.开发工程部:1.汽车线束开发; 2.新能源线束技术沟通; 3.公司技术文件完善; 4.车规产品前期评估; 6.技术资料发行及部门人员培训;
+      7.工艺指导验证; 8.部门人员管理、建设; 9.部门IATF16949体系、航空体系EN91
+  - candidate: cand_张___37岁_专案工程师_智通简历_编号
+    verdict: 待核
+    why: 只出现弱动作(统计工具)—— 业务/工程职责里也有,既不足以判「做过品质」,也不足以判「没做过」
+    months: 37
+    months_known: true
+    quote: ':1.独立完成样品制作.生产设备的使用调试和保养及维护 〈 端子机:; 准壁海唱，冠锅 ，银钢 测试机: 6350. 6350H 350,
+      CIRRIS 2.对工程项目中所需的承认书,BOM表,PFMEA SOP试产资料能独立完成。 3.产'
+  - candidate: cand_曾___38岁_专案工程师_智通简历_编号
+    verdict: 待核
+    why: 只出现弱动作(统计工具)—— 业务/工程职责里也有,既不足以判「做过品质」,也不足以判「没做过」
+    months: 49
+    months_known: true
+    quote: 工程师.研发部:1.新产品的结构设计，分析所需材料，做样品，工程图，SOPBOM等。 2.产品成本核算，报价，制作样品承认书。 3.根据客户的来图，来样，画成自己公司的专用图纸，英文或中文。
+      4.新开模治具的跟进，新产品试产总结。 5.熟悉
+  - candidate: cand_梁___31岁_专案工程师_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 36
+    months_known: true
+    quote: ''
+  - candidate: cand_罗___39岁_专案工程师_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 46
+    months_known: true
+    quote: '工程师.工程部:'
+  - candidate: cand_胡___38岁_专案工程师_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 41
+    months_known: true
+    quote: '工程师/技术员.工程部:'
+  - candidate: cand_郭___29岁_专案工程师_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 34
+    months_known: true
+    quote: ''
+  - candidate: cand_麦___38岁_专案工程师_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 45
+    months_known: true
+    quote: 工程师.设计部:1、产品图纸绘制及复审。 2、样品申请、跟进及送样承认书制作。 3、运用ERP系统内建立成品及半成品BOM表。 4、产品出现异常及时与相关部门讨论分析、异常图纸与客户及时进行沟通。
+  - candidate: cand_龚___33岁_专案工程师_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 32
+    months_known: true
+    quote: '工程师.工程部:1、根据客户对产品的文字描述，或客户图纸，或客户来样进行分析，及结合我司生产条件利用CAD软件绘制工艺流程图、内 2、内部生产图纸量产的现场跟踪:
+      制作生产图纸并且流入产线后，及时与生产主管沟通，并且确认图纸在生产上没问题。'
+  - candidate: cand_实验室技术员_东莞_4_5K_高___10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 12
+    months_known: true
+    quote: 专员/助理:1. 负责客户订单合同的系统化整理与归档，确保合同信息的准确性与可追溯性; 同时负责核对客户往来账单，确保账务数据的一致 2. 独立完成增值税发票的开具与审核，确保发票信息合规、准确;
+      同时负责报销单据的审核与整理，确保费用报销
+  - candidate: cand_工程文员_东莞_5_6K_刘___10年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 70
+    months_known: true
+    quote: 技术员      工作地点，东坑:1、办公软件操作熟练，伐文件管理，制作 SOP 作业指导书、制作承认书; 2、具备数据统计的能力，熟练 Excel
+      表格; 3、负责生产部门物流的统计与跟进，负责部门文件及资料的整理、存档、维护和工程资 4
+  - candidate: cand_郑___25岁_工程文员_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 16
+    months_known: true
+    quote: 技术员:1. 负责三星及荣耀客户的MIM工艺性能测试，包括但不限于碳含量、硬度、推拉力、杜邦测试、盐雾测试、附着力、拉拔力、产 2. 每日上班前对测试机台进行效验，确保其有效性，并负责日常点检记录。
+      3.与DQE工程师合作，参与不同工艺的性
+  - candidate: cand_任___39岁_技术课课长_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 85
+    months_known: true
+    quote: '工程师:'
+  - candidate: cand_康___37岁_技术课课长_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 99
+    months_known: true
+    quote: '经理，主导该项目的开发以及技术支持:'
+  - candidate: cand_张___35岁_智通简历_编号
+    verdict: 待核
+    why: 有品质硬动作(体系/审核),但这段的起止时间读不出来,无法比 24 个月门槛
+    months: null
+    months_known: false
+    quote: 经理.开发工程部:2.新能源线束技术沟通; 3.公司技术文件完善; 4.车规产品前期评估; 6.技术资料发行及部门人员培训; 7.工艺指导验证;
+      8.部门人员管理、建设; 9.部门IATF16949体系、航空体系EN9100维护;
+  - candidate: cand_张___39岁_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 89
+    months_known: true
+    quote: ''
+  - candidate: cand_段___研发工程主管_产品工程主管
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 64
+    months_known: true
+    quote: '工程课长:'
+  - candidate: cand_汽车线束高线工程师_东莞_10_14K_何___10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 43
+    months_known: true
+    quote: ':1. 专长: 具有较强的领导能力、组织与协调能力、沟通能力、计划与执行能力。 有良好的团队协作精神，为人诚实可靠、品'
+  - candidate: cand_设计助理工程师_东莞_7_10K_柒___4年
+    verdict: 读不出
+    why: 读不出品质岗经历
+    months: 0
+    months_known: null
+    quote: ''
+  - candidate: cand_陈___28岁_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 69
+    months_known: true
+    quote: ''
+  - candidate: cand_业务助理_东莞_7_9K_郑___3年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 48
+    months_known: true
+    quote: ''
+  - candidate: cand_外贸业务员_东莞_5_10K_D___24年毕业
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: null
+    months_known: false
+    quote: ''
+  - candidate: cand_外贸业务员_东莞_5_10K_Das_Abhi_Bashundhara_24年毕业
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: null
+    months_known: false
+    quote: ''
+  - candidate: cand_外贸业务员_东莞_5_10K_万___3年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 45
+    months_known: true
+    quote: ''
+  - candidate: cand_外贸业务员_东莞_5_10K_付___4年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 18
+    months_known: true
+    quote: 主管:1.日常运营与商务管理 2. 研学业务与跨部门协作 3. 差旅与行政支持 4. 团队与财务管理 1. 成功与12所教育机构建立合作关系，为学生提供丰富的研学旅行体验。
+      2. 独立设计12套研学方案，池盖历史文化、自然生态等多领域知识，
+  - candidate: cand_外贸业务员_东莞_5_10K_覃___2年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 10
+    months_known: true
+    quote: ''
+  - candidate: cand_外贸业务员_东莞_5_10K_赵___4年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 33
+    months_known: true
+    quote: ''
+  - candidate: cand_外贸业务员_东莞_5_10K_陈___4年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 36
+    months_known: true
+    quote: ''
+  - candidate: cand_日语业务助理_东莞_6_8K_古___8年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 67
+    months_known: true
+    quote: 文员:1.负责全员幼儿考勤统计，制作出勤台账，整理录入幼儿及监护人信息档案 2.承担园区文印工作，排班打印通知，试卷，接送卡，证照卡片并装订归档。
+      3.管理园区物资采购登记，出入库台账，定期盘点固定资产。 4.整理上报各类报表资料，对接外部
+  - candidate: cand_何___36岁_业务助理_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 45
+    months_known: true
+    quote: ''
+  - candidate: cand_朱___26岁_业务助理_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 48
+    months_known: true
+    quote: ''
+  - candidate: cand_李___39岁_英文助理_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 53
+    months_known: true
+    quote: ''
+  - candidate: cand_王___25岁_日文业务助理_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 48
+    months_known: true
+    quote: ''
+  - candidate: cand_蒋___38岁_日文业务助理_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 30
+    months_known: true
+    quote: ''
+  - candidate: cand_袁___25岁_日文业务助理_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 16
+    months_known: true
+    quote: ':4. 项目跟进: 协助业务员跟进产品开发项目进度 包括核价 报价 跟踪样 5. 展会策划: 协助部门同事制定参展策略 展位布置 定向邀约及拓展新业'
+  - candidate: cand_陈___29岁_日文业务助理_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 48
+    months_known: true
+    quote: ''
+  - candidate: cand_陈___36岁_业务助理_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 92
+    months_known: true
+    quote: ''
+  - candidate: cand_陈___37岁_日文业务助理_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 48
+    months_known: true
+    quote: ''
+  - candidate: cand_黄___26岁_日文业务助理_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 61
+    months_known: true
+    quote: ''
+  - candidate: cand_业务跟单_东莞_6_10K_J___10年
+    verdict: 待核
+    why: 只出现弱动作(客诉/8D)—— 业务/工程职责里也有,既不足以判「做过品质」,也不足以判「没做过」
+    months: 47
+    months_known: true
+    quote: 经理一:1.负责开发公司潜力新客户 CU1，在收到每个新项目询盘时，因每次询盘产品内容多以及比较专业复杂，因此每次需和公司总经理一 2. 负责对询盘的每个新项目进行分类，并且跟进项目的所有进度如打样制作，寄送，登记，归档处理
+      寄样反馈跟进，
+  - candidate: cand_业务跟单_东莞_6_10K_L___10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 96
+    months_known: true
+    quote: 经理。 2. 2009 成功开拓:1.参加各种国内外行业展会,开拓行业 OEM/ODM 音频项目业务。 2.高效而准确的开拓摩托罗拉,沃尔玛,逻辑等国际大客户新项目合
+      作。跨各部门统筹协 3.专业高效,迅速回应客户的各种询盘。开发新的业务和
+  - candidate: cand_业务跟单_东莞_6_10K_Lily_10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 96
+    months_known: true
+    quote: :1.参加各种国内外行业展会,开拓行业 OEM/ODM 音频项目业务。 2.高效而准确的开拓摩托罗拉,沃尔玛,逻辑等国际大客户新项目合 作。跨各部门统筹协
+      3.专业高效,迅速回应客户的各种询盘。开发新的业务和客户。 4.全面深入市场调研,了
+  - candidate: cand_业务跟单_东莞_6_10K_吴___1年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 30
+    months_known: true
+    quote: :1、负责部门文件资料管理，会议记录跟进，OA流程申请;
+  - candidate: cand_业务跟单_东莞_6_10K_吴___23年毕业
+    verdict: 读不出
+    why: 读不出品质岗经历
+    months: 0
+    months_known: null
+    quote: ''
+  - candidate: cand_业务跟单_东莞_6_10K_和___10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 52
+    months_known: true
+    quote: 文员:1. 日常行政事务处理，文件整理、归档、表格制作及数据录入。 2. 协助内部各部门沟通对接，做好信息传达、事务跟进。 3. 整理日常业务资料、登记基础台账，配合领导完成各类报表汇总。
+  - candidate: cand_业务跟单_东莞_6_10K_张___10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 141
+    months_known: true
+    quote: ''
+  - candidate: cand_业务跟单_东莞_6_10K_最近只线上_2年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 24
+    months_known: true
+    quote: ''
+  - candidate: cand_业务跟单_东莞_6_10K_李___1年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 34
+    months_known: true
+    quote: ''
+  - candidate: cand_业务跟单_东莞_6_10K_李___4年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 25
+    months_known: true
+    quote: :1. 对接新老客户，接收客户需求、登记订单信息、跟进订单进度，确保按时交付; 2. 负责报价单制作、合同对接、资料核对，熟悉商务流程 3.
+      跟进回款、对账、单据整理，做好客户售后沟通与问题协调; 4. 每日整理客户资料、订单台账，统计业绩
+  - candidate: cand_业务跟单_东莞_6_10K_杨___26年应届生
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 33
+    months_known: true
+    quote: ''
+  - candidate: cand_业务跟单_东莞_6_10K_杨___8年
+    verdict: 待核
+    why: 只出现弱动作(客诉/8D)—— 业务/工程职责里也有,既不足以判「做过品质」,也不足以判「没做过」
+    months: null
+    months_known: false
+    quote: ':1. 订单对接与确认: 根据销售订单核对产品规格、价格、数量、交期、付款方式等信息，确认无误后录入系统，同步内部生产、采 2. 生产进度跟进:
+      全程跟踪生产排期、物料采购、生产制程，及时发现缺料、延期、品质异常等问题，协调解决，确保订单按'
+  - candidate: cand_业务跟单_东莞_6_10K_栩___4年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 11
+    months_known: true
+    quote: ''
+  - candidate: cand_业务跟单_东莞_6_10K_梁___1年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 12
+    months_known: true
+    quote: ''
+  - candidate: cand_业务跟单_东莞_6_10K_梁___9年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 43
+    months_known: true
+    quote: 文员:1.负责在公司系统上审核业务部门所下达的订单 2.疾病单类客户或不符合开发条件的客户如实反馈给业务部的相关人员、及时更新修改订单状态等
+      3.成交单录音抽检、核实是否有存在违规或泄露公司机密等行为、为公司把控风险
+  - candidate: cand_业务跟单_东莞_6_10K_江___3年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 14
+    months_known: true
+    quote: :1. 负责日常邮件整理与核对，根据客户当日需求合理安排工作优先级，确保任务高效推进。 2. 结合客户提供的开发资料,与设计部门沟通并制定符合客户要求的图稿方案，协助客户选定后，协调
+      3. 负责样品寡送安排，及时收集客户反馈并协调工厂进行样
+  - candidate: cand_业务跟单_东莞_6_10K_王___10年以上_2
+    verdict: 待核
+    why: 只出现弱动作(客诉/8D)—— 业务/工程职责里也有,既不足以判「做过品质」,也不足以判「没做过」
+    months: 64
+    months_known: true
+    quote: 助理 | 行业:2. 实时同步生产进度，响应客户咨询，妥善处理客诉及产品异常 3. 核对月度往来账款，负责客户样品寄送、测试及后续跟进工作
+  - candidate: cand_业务跟单_东莞_6_10K_王___10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 40
+    months_known: true
+    quote: :1. 根据财务制度的规定和要求报销结算公司各项费用，凭证的整理、编制、装订和登账， 编制各种财
+  - candidate: cand_业务跟单_东莞_6_10K_王___24年毕业_1
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 24
+    months_known: true
+    quote: '专员:'
+  - candidate: cand_业务跟单_东莞_6_10K_盘___6年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 67
+    months_known: true
+    quote: 文员:2、制单，跟踪样品制作。 5、跟踪生产货期及品质监控检验，确保按期按质交货。 6、完成上级交付的其他工作任务
+  - candidate: cand_业务跟单_东莞_6_10K_罗___8年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 28
+    months_known: true
+    quote: ''
+  - candidate: cand_业务跟单_东莞_6_10K_范___1年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 12
+    months_known: true
+    quote: ''
+  - candidate: cand_业务跟单_东莞_6_10K_菲___10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 56
+    months_known: true
+    quote: :1.接收客户订单， 2.确认库存，回复客户交期。 3、ERP系统下单、录入等;
+  - candidate: cand_业务跟单_东莞_6_10K_裴___2年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: null
+    months_known: false
+    quote: '助理/业务跟单:1. 报价与订单管理: 根据客户需求制作精准报价单，跟进报价反馈; 熟练操作ERP易 2. 样品与资料跟进: 安排样品寄送并全程追踪客户试样效果，同步完成承认书、规格
+      3. 出货统筹: 制定出货排期表，根据生产BOM表跟催物'
+  - candidate: cand_业务跟单_东莞_6_10K_郭___23年毕业
+    verdict: 读不出
+    why: 读不出品质岗经历
+    months: 0
+    months_known: null
+    quote: ''
+  - candidate: cand_业务跟单_东莞_6_10K_陈___5年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 19
+    months_known: true
+    quote: '助理 | 儿童木制玩具                                                  6.8K:'
+  - candidate: cand_业务跟单_东莞_6_10K_陈___9年
+    verdict: 待核
+    why: 只出现弱动作(客诉/8D)—— 业务/工程职责里也有,既不足以判「做过品质」,也不足以判「没做过」
+    months: 31
+    months_known: true
+    quote: :1. 负责不锈钢板材、卷料、等原材料的接单和全程跟单，熟悉201、304、430、316等常用材质规格。日常对接客户、厂里车间、 2. 日常对接新老客户，解答询价、报价格、确认尺寸厚度、数量、加工要求
+      (开平、分条、磨砂、8K等) ，核对
+  - candidate: cand_业务跟单_东莞_6_10K_马___4年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 30
+    months_known: true
+    quote: 助理 | 医药制造:1.客户与销售管理:负责客户协议、档案及资料的系统化管理 ，及时与客户沟通确认需求 ，确保客户关系的高效维护与 2.订单管理:使用
+      ERP 系统准确无误制作订单 ，与各部门沟通相关注意事项确认货物准确发出 ，跟进物流运输
+  - candidate: cand_业务跟单_东莞_6_10K_黎___5年
+    verdict: 待核
+    why: 只出现弱动作(客诉/8D)—— 业务/工程职责里也有,既不足以判「做过品质」,也不足以判「没做过」
+    months: 7
+    months_known: true
+    quote: :2.每日在ERP做销售订单、从MES软件下推订单情况。 3.每月与客户对账，处理B端客户客诉问题，并及时追踪不良产品问题，及时反馈至质量部
+      4.与计划部，生产部，质量部，物流部，仓库等涉及产品的各个部门的沟通与协调，订单
+  - candidate: cand_业务跟单_东莞_6_10K_黎___6年
+    verdict: 读不出
+    why: 读不出品质岗经历
+    months: 0
+    months_known: null
+    quote: ''
+  - candidate: cand_业务跟单_东莞_6_8K_周___10年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 38
+    months_known: true
+    quote: :1、根据客户订单下达给生产部门。 2、随时了解生产进度,协调过程中可能出现的问题，并向客户反馈订单的最新情况。 3、根据交期协调发货，跟踪物流信息直至客户签收。
+      4、随时跟客户保持沟通，耐心解答咨询，妥善处理投诉，维护好客户关系。
+  - candidate: cand_业务跟单_东莞_6_8K_林___10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 108
+    months_known: true
+    quote: ''
+  - candidate: cand_业务跟单_东莞_6_8K_梁___9年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 49
+    months_known: true
+    quote: ':1.协助销售业务准备报价单、产品资料，根据客户要求调整方案，保证报价准确且符合公司流程。 2.全程跟踪订单进度，对接生产部确认生产排期，及时反馈后续进度问题
+      3.整理客户签收的送货单等资料对应存档，便于后续查档、对账及应对客户追溯需求。 '
+  - candidate: cand_业务跟单_东莞_6_8K_胡___6年
+    verdict: 读不出
+    why: 读不出品质岗经历
+    months: 0
+    months_known: null
+    quote: ''
+  - candidate: cand_业务跟单_东莞_6_8K_蒙___10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 46
+    months_known: true
+    quote: '专员/助理:'
+  - candidate: cand_日语业务跟单_东莞_5_7K_SJCWNX_10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 35
+    months_known: true
+    quote: ''
+  - candidate: cand_日语业务跟单_东莞_5_7K_S___10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 35
+    months_known: true
+    quote: ''
+  - candidate: cand_日语业务跟单_东莞_5_7K_刘___3年_2
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 14
+    months_known: true
+    quote: :1.客户&平台业务对接 2.订单全流程跟进 3.客户维护&资料处理 4.工厂端对接管控
+  - candidate: cand_日语业务跟单_东莞_5_7K_刘___5年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 16
+    months_known: true
+    quote: '文员:'
+  - candidate: cand_日语业务跟单_东莞_5_7K_吴___26年应届生
+    verdict: 读不出
+    why: 读不出品质岗经历
+    months: 0
+    months_known: null
+    quote: ''
+  - candidate: cand_日语业务跟单_东莞_5_7K_夏___7年
+    verdict: 读不出
+    why: 读不出品质岗经历
+    months: 0
+    months_known: null
+    quote: ''
+  - candidate: cand_日语业务跟单_东莞_5_7K_朱___10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 156
+    months_known: true
+    quote: '工程师:1. DFW评审 ，跟踪项目开发的进度 ，参与后期生产 ， 2.客户的订单及新项目的开发 ，促进订单完成及下达 3. 项目经验丰富:
+      有近15年的注塑 ，模具行业的积累沉淀 。有大项目管理经验; 4. 熟悉注塑和模具相关工艺; 从模'
+  - candidate: cand_傅___28岁_业务跟单_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 36
+    months_known: true
+    quote: ''
+  - candidate: cand_冯___25岁_业务跟单_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 48
+    months_known: true
+    quote: ''
+  - candidate: cand_刘___25岁_业务跟单_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 36
+    months_known: true
+    quote: ''
+  - candidate: cand_吴___30岁_英文业务跟单_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 74
+    months_known: true
+    quote: '专员:'
+  - candidate: cand_王___33岁_英文业务跟单_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 80
+    months_known: true
+    quote: :1.管理年销售额200万十 USD 客户订单，客户续单率提升30% 2.协调3家合作工厂生产排期，订单准时交付率保持95% 3.主导客户验货及第三方检验，减少交付纠纷
+      4.对比并优化10十家货代方案，物流成本降低10% 5.独立完成PI、
+  - candidate: cand_田___26岁_业务跟单_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 48
+    months_known: true
+    quote: ''
+  - candidate: cand_袁___32岁_业务跟单_智通简历_编号
+    verdict: 待核
+    why: 只出现弱动作(客诉/8D)—— 业务/工程职责里也有,既不足以判「做过品质」,也不足以判「没做过」
+    months: 57
+    months_known: true
+    quote: :1. 负责 /店铺运营,选品新品开发包括产品上架,Listing优化 (标题， 2. 广告投放,制定PPC广告策略,优化广告销售成本 3.
+      监控销售数据排名,转化率,库存周转率,分析退货率,差评原因,优化产品描述 4. 管理 /FBA海外
+  - candidate: cand_谭___27岁_业务跟单_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 51
+    months_known: true
+    quote: :1、 负责电线电缆订单从接单、排产、生产跟进到发货全流程跟踪，确保订单按时交付; 2、 对接客户、销售、生产、人仓库、物流等部门，协调交期、规格、数量、质量等问题;
+      3、 核对客户订单、合同、技术要求，确认电缆型号、截面、电压等级、长度等
+  - candidate: cand_陈___32岁_业务跟单_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 59
+    months_known: true
+    quote: :1. 负责注塑车间生产计划排程,根据订单交期、机台产能、模具状况制定日/周生产计划,合理排配机台与人员。 2.全程跟进生产进度,及时处理机台、模具、品质等异常,调整生产计划,确保订单准时交付。
+      3.统筹物料管控,跟进原料、辅料齐套性,预防
+  passed:
+  - cand_人资专员_东莞_5_6K_何___5年
+  - cand_人资专员_东莞_5_6K_马___26年应届生
+  - cand_徐___28岁_人资专员_智通简历_编号
+  - cand_李___27岁_人资专员_智通简历_编号
+  - cand_副总助理_东莞_10_15K_任___10年以上
+  - cand_副总助理_东莞_10_15K_刘___10年
+  - cand_副总助理_东莞_10_15K_戴___8年_1
+  - cand_副总助理_东莞_10_15K_黄___8年
+  - cand_副总助理_东莞_8_12K_雷___10年以上
+  - cand_副总助理_东莞_8_13K_冷___9年
+  - cand_副总助理_东莞_8_13K_王___1年以内
+  - cand_副总助理_东莞_8_13K_范___7年
+  - cand_副总助理_东莞_8_13K_钟___5年
+  - cand_王___31岁_副总助理_智通简历_编号
+  - cand_陈___29岁_副总助理_智通简历_编号
+  - cand_高级招聘专家_东莞_7_12K_罗___10年以上
+  - cand_高级招聘专家_东莞_7_12K_陈___10年
+  - cand_高级招聘专家_东莞_9_14K_南___10年以上
+  - cand_高级招聘专家_东莞_9_14K_李___10年以上
+  - cand_高级招聘专家_东莞_9_14K_段___7年
+  - cand_高级招聘专家_东莞_9_14K_王___10年以上
+  - cand_人事经理_东莞_12_17K_张___10年以上
+  - cand_人事经理_东莞_12_17K_钟___10年以上
+  - cand_叶___37岁_管理课课长_智通简历_编号
+  - cand_张___36岁_管理课课长_智通简历_编号
+  - cand_李___38岁_管理课课长_智通简历_编号
+  - cand_李___40岁_管理课课长_智通简历_编号
+  - cand_罗___40岁_管理课课长_智通简历_编号
+  - cand_行政专员_东莞_5_8K_吴___3年
+  - cand_行政专员_东莞_6_8K_余___5年
+  - cand_行政专员_东莞_6_8K_夏___2年
+  - cand_行政专员_东莞_6_8K_梁___6年
+  - cand_行政专员_东莞_6_8K_肖___10年以上_1
+  - cand_行政专员_东莞_6_8K_范___9年
+  - cand_行政专员_东莞_7_8K_刘___8年
+  - cand_行政专员_东莞_7_8K_徐___7年
+  - cand_行政专员_东莞_7_8K_谢___5年
+  - cand_行政专员_东莞_7_9K_唐___5年
+  - cand_行政专员_东莞_7_9K_杨___4年
+  - cand_行政专员_东莞_7_9K_潘___6年
+  - cand_行政专员_东莞_7_9K_蒋___9年
+  - cand_行政专员_东莞_7_9K_陈___10年以上
+  - cand_何___36岁_行政专员_智通简历_编号
+  - cand_吴___25岁_行政专员_智通简历_编号
+  - cand_周___29岁_行政专员_智通简历_编号
+  - cand_朱___36岁_行政专员_智通简历_编号
+  - cand_李___38岁_行政专员_智通简历_编号
+  - cand_王___37岁_行政专员_智通简历_编号
+  - cand_陈___37岁_行政专员_智通简历_编号
+  - cand_黄___32岁_行政专员_智通简历_编号
+  - cand_专案工程师_东莞_11_16K_杨___7年
+  - cand_专案工程师_东莞_12_16K_lizw_10年以上
+  - cand_专案工程师_东莞_12_16K_何___5年
+  - cand_专案工程师_东莞_12_16K_华___9年
+  - cand_专案工程师_东莞_12_16K_叶___10年以上
+  - cand_专案工程师_东莞_12_16K_张___5年
+  - cand_专案工程师_东莞_12_16K_熊___10年以上
+  - cand_专案工程师_东莞_12_16K_董___7年
+  - cand_专案工程师_东莞_12_16K_邹___10年以上
+  - cand_专案工程师_东莞_12_16K_陈___5年
+  - cand_何___35岁_专案工程师_智通简历_编号
+  - cand_刘___27岁_专案工程师_智通简历_编号
+  - cand_周___38岁_专案工程师_智通简历_编号
+  - cand_张___36岁_专案工程师_智通简历_编号
+  - cand_张___37岁_专案工程师_智通简历_编号
+  - cand_曹___工程师
+  - cand_曾___38岁_专案工程师_智通简历_编号
+  - cand_梁___31岁_专案工程师_智通简历_编号
+  - cand_罗___32岁_专案工程师_智通简历_编号
+  - cand_罗___39岁_专案工程师_智通简历_编号
+  - cand_肖___38岁_专案工程师_智通简历_编号
+  - cand_胡___31岁_专案工程师_智通简历_编号
+  - cand_胡___38岁_专案工程师_智通简历_编号
+  - cand_郑___37岁_专案工程师_智通简历_编号
+  - cand_郭___29岁_专案工程师_智通简历_编号
+  - cand_麦___38岁_专案工程师_智通简历_编号
+  - cand_龚___33岁_专案工程师_智通简历_编号
+  - cand_实验室技术员_东莞_4_5K_高___10年以上
+  - cand_工程文员_东莞_5_6K_刘___10年
+  - cand_郑___25岁_工程文员_智通简历_编号
+  - cand_任___39岁_技术课课长_智通简历_编号
+  - cand_康___37岁_技术课课长_智通简历_编号
+  - cand_张___35岁_智通简历_编号
+  - cand_张___39岁_智通简历_编号
+  - cand_段___研发工程主管_产品工程主管
+  - cand_汽车线束高线工程师_东莞_10_14K_何___10年以上
+  - cand_设计助理工程师_东莞_7_10K_卢___4年
+  - cand_设计助理工程师_东莞_7_10K_柒___4年
+  - cand_设计助理工程师_东莞_7_10K_蓝___3年
+  - cand_陈___28岁_智通简历_编号
+  - cand_业务助理_东莞_7_9K_郑___3年
+  - cand_外贸业务员_东莞_5_10K_D___24年毕业
+  - cand_外贸业务员_东莞_5_10K_Das_Abhi_Bashundhara_24年毕业
+  - cand_外贸业务员_东莞_5_10K_万___3年
+  - cand_外贸业务员_东莞_5_10K_付___4年
+  - cand_外贸业务员_东莞_5_10K_覃___2年
+  - cand_外贸业务员_东莞_5_10K_赵___4年
+  - cand_外贸业务员_东莞_5_10K_陈___4年
+  - cand_日语业务助理_东莞_6_8K_古___8年
+  - cand_何___36岁_业务助理_智通简历_编号
+  - cand_朱___26岁_业务助理_智通简历_编号
+  - cand_李___39岁_英文助理_智通简历_编号
+  - cand_王___25岁_日文业务助理_智通简历_编号
+  - cand_蒋___38岁_日文业务助理_智通简历_编号
+  - cand_袁___25岁_日文业务助理_智通简历_编号
+  - cand_陈___29岁_日文业务助理_智通简历_编号
+  - cand_陈___36岁_业务助理_智通简历_编号
+  - cand_陈___37岁_日文业务助理_智通简历_编号
+  - cand_黄___26岁_日文业务助理_智通简历_编号
+  - cand_业务跟单_东莞_6_10K_J___10年
+  - cand_业务跟单_东莞_6_10K_Jessie郭___10年
+  - cand_业务跟单_东莞_6_10K_L___10年以上
+  - cand_业务跟单_东莞_6_10K_Lily_10年以上
+  - cand_业务跟单_东莞_6_10K_万___10年以上
+  - cand_业务跟单_东莞_6_10K_吴___1年
+  - cand_业务跟单_东莞_6_10K_吴___23年毕业
+  - cand_业务跟单_东莞_6_10K_和___10年以上
+  - cand_业务跟单_东莞_6_10K_张___10年以上
+  - cand_业务跟单_东莞_6_10K_最近只线上_2年
+  - cand_业务跟单_东莞_6_10K_李___1年
+  - cand_业务跟单_东莞_6_10K_李___4年
+  - cand_业务跟单_东莞_6_10K_杨___26年应届生
+  - cand_业务跟单_东莞_6_10K_杨___8年
+  - cand_业务跟单_东莞_6_10K_栩___4年
+  - cand_业务跟单_东莞_6_10K_梁___1年
+  - cand_业务跟单_东莞_6_10K_梁___9年
+  - cand_业务跟单_东莞_6_10K_江___3年
+  - cand_业务跟单_东莞_6_10K_王___10年以上_2
+  - cand_业务跟单_东莞_6_10K_王___10年以上
+  - cand_业务跟单_东莞_6_10K_王___24年毕业_1
+  - cand_业务跟单_东莞_6_10K_盘___6年
+  - cand_业务跟单_东莞_6_10K_罗___8年
+  - cand_业务跟单_东莞_6_10K_范___1年
+  - cand_业务跟单_东莞_6_10K_菲___10年以上
+  - cand_业务跟单_东莞_6_10K_裴___2年
+  - cand_业务跟单_东莞_6_10K_郭___23年毕业
+  - cand_业务跟单_东莞_6_10K_陈___5年
+  - cand_业务跟单_东莞_6_10K_陈___9年
+  - cand_业务跟单_东莞_6_10K_马___4年
+  - cand_业务跟单_东莞_6_10K_黎___5年
+  - cand_业务跟单_东莞_6_10K_黎___6年
+  - cand_业务跟单_东莞_6_8K_周___10年
+  - cand_业务跟单_东莞_6_8K_林___10年以上
+  - cand_业务跟单_东莞_6_8K_梁___9年
+  - cand_业务跟单_东莞_6_8K_胡___6年
+  - cand_业务跟单_东莞_6_8K_蒙___10年以上
+  - cand_日语业务跟单_东莞_5_7K_SJCWNX_10年以上
+  - cand_日语业务跟单_东莞_5_7K_S___10年以上
+  - cand_日语业务跟单_东莞_5_7K_刘___3年_2
+  - cand_日语业务跟单_东莞_5_7K_刘___5年
+  - cand_日语业务跟单_东莞_5_7K_叶___4年
+  - cand_日语业务跟单_东莞_5_7K_吴___26年应届生
+  - cand_日语业务跟单_东莞_5_7K_夏___7年
+  - cand_日语业务跟单_东莞_5_7K_朱___10年以上
+  - cand_何___25岁_业务跟单_智通简历_编号
+  - cand_傅___28岁_业务跟单_智通简历_编号
+  - cand_冯___25岁_业务跟单_智通简历_编号
+  - cand_刘___25岁_业务跟单_智通简历_编号
+  - cand_吴___30岁_英文业务跟单_智通简历_编号
+  - cand_王___33岁_英文业务跟单_智通简历_编号
+  - cand_田___26岁_业务跟单_智通简历_编号
+  - cand_袁___32岁_业务跟单_智通简历_编号
+  - cand_谭___27岁_业务跟单_智通简历_编号
+  - cand_陈___32岁_业务跟单_智通简历_编号
+  failed:
+  - candidate: cand_工程文员_东莞_5_6K_肖___26年应届生
+    why: 有品质硬动作(首件/巡检),但该段仅 12 个月,低于门槛 24
+  - candidate: cand_陈___39岁_工程经理_智通简历_编号
+    why: 有品质硬动作(检验标准),但该段仅 12 个月,低于门槛 24
+  - candidate: cand_刘___28岁_汽车线束工程师_智通简历_编号________1
+    why: 有品质硬动作(首件/巡检),但该段仅 9 个月,低于门槛 24
+  - candidate: cand_业务跟单_东莞_6_10K_刘___3年
+    why: 有品质硬动作(检验标准),但该段仅 5 个月,低于门槛 24
+  - candidate: cand_宋___27岁_业务跟单_智通简历_编号
+    why: 有品质硬动作(检验标准,供应商质量),但该段仅 13 个月,低于门槛 24
+  blocked_by_other_requirements:
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    quality:
+      months: 118
+      months_known: true
+      actions:
+      - 体系/审核
+      hard:
+      - 体系/审核
+      weak: []
+      title: 经理.管理部
+      company: 制定公司福利政策、办理社会保障福利
+      span: 2014-10 - 2024-08
+      quote: 经理.管理部:1、依据公司短、中、长期战略经营计划，制定招聘计划、策划招聘程序、组织招聘工作、安排面试、复试、综合素质测试 2、制定考评政策、统计考评结果、管理考评文件、做好考评后的沟通工作、不合格员工的辞退
+        3、制定薪酬政策、晋升政策; 组织提薪评审、晋升评审 4、制定公司福利政策、办理社会保障福利 5、办理员工各种
+      kind: B
+      verdict: 有
+      rule: quality-v1
+      min_months: 24
+    blocked_by: *id001
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    quality:
+      months: 39
+      months_known: true
+      actions: []
+      hard: []
+      weak: []
+      title: 课长对品质管理系统的维护
+      company: 东莞庆龙电线电缆有限公司 “电线电缆工程师.工程部
+      span: 2009-07 - 2012-10
+      quote: 课长对品质管理系统的维护:12.对客户有报价要求的线材进行综合分析 13.协助课长对品质管理系统的维护 1.样品《电线设计卡》,《规格书》及《承认书》的制作
+        2.样品《规格书》客户确认的跟催 3.对样品所需原物料，模具，印字轮的请购与跟催及承认 5.样品及样品相关资料的建档,保管与整理 6.订单的评审及订单《电线设计卡
+      kind: A
+      verdict: 有
+      rule: quality-v1
+      min_months: 24
+    blocked_by: *id002
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    quality:
+      months: 29
+      months_known: true
+      actions:
+      - 首件/巡检
+      hard:
+      - 首件/巡检
+      weak: []
+      title: 组长.制造部
+      company: 东莞市联基电子实业有限公司
+      span: 2013-03 - 2015-08
+      quote: 组长.制造部:1.做好机械维修保养、到勤检查工作，保证机械正常运转; 2.妥善保管机械使用说明 、保修卡，认真学习掌握所有机器设备的性能及使用情况;
+        3.制定并向操作员宣传机械操作规程及制度 ，检查操作情况，纠正违章，实现安全生产 1.对设备现场操作员进行管理，巡查各线设备的运行情况，巡查产品的品质状况，检查生产线工艺
+      kind: B
+      verdict: 有
+      rule: quality-v1
+      min_months: 24
+    blocked_by: *id003
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    quality:
+      months: null
+      months_known: false
+      actions:
+      - 检验标准
+      - 体系/审核
+      - 客诉/8D
+      - 统计工具
+      hard:
+      - 检验标准
+      - 体系/审核
+      weak:
+      - 客诉/8D
+      - 统计工具
+      title: 高速线品质经理
+      company: 领亚电子科技股份有限公司
+      span: 2025年4月 - 至今
+      quote: 高速线品质经理:1. 完成ISO9001体系维护 2.定期组织各部门开展质量管理及质量控制培训工作, 推行全员品质, 提升员工的品质意 3.
+        客户端不良问题处理对接及8D报告完成, 不良品MRB处理及三内落实改善 4.根据产品及客户要求制定产品检验标准及限制样品 5. 完成周报月报，组织品质周会,
+        完成质量成本统计 6
+      kind: A
+      verdict: 有
+      rule: quality-v1
+      min_months: 24
+    blocked_by: *id004
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    quality:
+      months: 4
+      months_known: true
+      actions: []
+      hard: []
+      weak: []
+      title: 工程师 (QAIQCc工程师)
+      company: ''
+      span: 2000-07 - 2000-11
+      quote: '工程师 (QAIQCc工程师):'
+      kind: A
+      verdict: 有
+      rule: quality-v1
+      min_months: 24
+    blocked_by: *id005
+  - candidate: cand_汪___总工程师技术经理研发经理
+    quality:
+      months: 37
+      months_known: true
+      actions: []
+      hard: []
+      weak: []
+      title: 技术质量经理
+      company: 国内知名特种电缆制造企业
+      span: 2017年6月 - 2020年7月
+      quote: 技术质量经理:10. 负责检测设备和计量器具的效验、    管理检查督促工作。 12. 负责产品相关的标准文件的管理工作。
+      kind: A
+      verdict: 有
+      rule: quality-v1
+      min_months: 24
+    blocked_by: *id006

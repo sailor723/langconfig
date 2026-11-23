@@ -31,6 +31,7 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: cv
 - jd: 关务报关员
   citation: 关务-02
   requirement: REQ-B-EDU-LEVEL
@@ -51,6 +52,7 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: cv
 - jd: 关务报关员
   citation: 关务-03
   requirement: REQ-B-MAJOR
@@ -71,8 +73,9 @@ items:
   cv_coverage: 0.744
   source: cv
   judge_ready: true
-  library_says_assessable: false
-  library_blocked_by: B.2 的 prop_exists=false(专业属性未建)
+  library_says_assessable: true
+  library_blocked_by: null
+  req_source: cv
 - jd: 关务报关员
   citation: 关务-04
   requirement: REQ-D-CUSTOMS-DECLARE
@@ -92,6 +95,7 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: interview
 - jd: 关务报关员
   citation: 关务-04
   requirement: REQ-D-CUSTOMS-DECLARE
@@ -111,6 +115,7 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: interview
 - jd: 关务报关员
   citation: 关务-05
   requirement: REQ-C-YEARS-DOMAIN
@@ -132,6 +137,7 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: cv_then_interview
 - jd: 关务报关员
   citation: 关务-06
   requirement: REQ-F-TRADE-COMPLIANCE-TRAINING
@@ -151,6 +157,7 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: F 维的 hasCertification 属性未建
+  req_source: interview
 - jd: 关务报关员
   citation: 关务-07
   requirement: REQ-G-NO-CRIMINAL-RECORD
@@ -170,6 +177,7 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: G 维的 hasClearance 属性未建
+  req_source: interview
 - jd: 关务报关员
   citation: 关务-08
   requirement: REQ-E-DATA-SENSITIVITY
@@ -189,6 +197,7 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: 没有可判的数据项(E 维无组件)
+  req_source: interview
 - jd: 关务报关员
   citation: 关务-09
   requirement: REQ-E-EXECUTION
@@ -208,6 +217,7 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: 没有可判的数据项(E 维无组件)
+  req_source: interview
 - jd: 关务报关员
   citation: 关务-10
   requirement: REQ-E-COMMUNICATION
@@ -227,6 +237,7 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: 没有可判的数据项(E 维无组件)
+  req_source: interview
 - jd: 关务报关员
   citation: 关务-11
   requirement: REQ-D-REPORT-WRITING
@@ -246,6 +257,7 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: cv_then_interview
 - jd: 关务报关员
   citation: 关务-12
   requirement: REQ-E-DAILY-CLOSE
@@ -265,6 +277,7 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: 没有可判的数据项(E 维无组件)
+  req_source: interview
 - jd: 关务报关员
   citation: 关务-13
   requirement: REQ-E-ETHICS
@@ -284,6 +297,7 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: 没有可判的数据项(E 维无组件)
+  req_source: interview
 - jd: 关务报关员
   citation: 关务-14
   requirement: REQ-E-TEAMWORK
@@ -303,6 +317,7 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: 没有可判的数据项(E 维无组件)
+  req_source: interview
 - jd: 关务报关员
   citation: 关务-15
   requirement: REQ-E-PROACTIVE
@@ -322,6 +337,7 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: 没有可判的数据项(E 维无组件)
+  req_source: interview
 - jd: 关务报关员
   citation: 关务-16
   requirement: REQ-E-RESPONSIBILITY
@@ -341,6 +357,7 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: 没有可判的数据项(E 维无组件)
+  req_source: interview
 - jd: 关务报关员
   citation: 关务-17
   requirement: REQ-D-OFFICE
@@ -360,6 +377,7 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: cv_then_interview
 - jd: 关务报关员
   citation: 关务-17
   requirement: REQ-D-OFFICE
@@ -379,6 +397,7 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: cv_then_interview
 - jd: 关务报关员
   citation: 关务-17
   requirement: REQ-D-OFFICE
@@ -398,3 +417,4 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: cv_then_interview

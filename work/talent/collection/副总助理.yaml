@@ -31,6 +31,7 @@ items:
   judge_ready: true
   library_says_assessable: false
   library_blocked_by: A.1 的 prop_exists=false(gender 属性未建)
+  req_source: cv
 - jd: 副总助理
   citation: VP-02
   requirement: REQ-A-AGE-RANGE
@@ -52,6 +53,7 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: cv
 - jd: 副总助理
   citation: VP-03
   requirement: REQ-B-EDU-LEVEL
@@ -72,6 +74,7 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: cv
 - jd: 副总助理
   citation: VP-04
   requirement: REQ-B-FULL-TIME
@@ -91,6 +94,7 @@ items:
   judge_ready: true
   library_says_assessable: false
   library_blocked_by: B.3 的 prop_exists=false(full_time 属性未建)
+  req_source: cv_then_interview
 - jd: 副总助理
   citation: VP-05
   requirement: REQ-B-MAJOR
@@ -111,8 +115,9 @@ items:
   cv_coverage: 0.744
   source: cv
   judge_ready: true
-  library_says_assessable: false
-  library_blocked_by: B.2 的 prop_exists=false(专业属性未建)
+  library_says_assessable: true
+  library_blocked_by: null
+  req_source: cv
 - jd: 副总助理
   citation: VP-06
   requirement: REQ-C-YEARS-DOMAIN
@@ -134,6 +139,7 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: cv_then_interview
 - jd: 副总助理
   citation: VP-07
   requirement: REQ-E-PRINCIPLE
@@ -153,6 +159,7 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: 没有可判的数据项(E 维无组件)
+  req_source: interview
 - jd: 副总助理
   citation: VP-08
   requirement: REQ-E-RESPONSIBILITY
@@ -172,6 +179,7 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: 没有可判的数据项(E 维无组件)
+  req_source: interview
 - jd: 副总助理
   citation: VP-09
   requirement: REQ-E-ACCOUNTABILITY
@@ -191,6 +199,7 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: 没有可判的数据项(E 维无组件)
+  req_source: interview
 - jd: 副总助理
   citation: VP-10
   requirement: REQ-E-DAILY-CLOSE
@@ -210,6 +219,7 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: 没有可判的数据项(E 维无组件)
+  req_source: interview
 - jd: 副总助理
   citation: VP-11
   requirement: REQ-E-STRIVING
@@ -229,6 +239,7 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: 没有可判的数据项(E 维无组件)
+  req_source: interview
 - jd: 副总助理
   citation: VP-12
   requirement: REQ-E-COMMUNICATION
@@ -248,6 +259,7 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: 没有可判的数据项(E 维无组件)
+  req_source: interview
 - jd: 副总助理
   citation: VP-13
   requirement: REQ-E-EXECUTION
@@ -267,6 +279,7 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: 没有可判的数据项(E 维无组件)
+  req_source: interview
 - jd: 副总助理
   citation: VP-14
   requirement: REQ-E-LOGIC
@@ -286,6 +299,7 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: 没有可判的数据项(E 维无组件)
+  req_source: interview
 - jd: 副总助理
   citation: VP-15
   requirement: REQ-E-DATA-SENSITIVITY
@@ -305,6 +319,7 @@ items:
   judge_ready: false
   library_says_assessable: false
   library_blocked_by: 没有可判的数据项(E 维无组件)
+  req_source: interview
 - jd: 副总助理
   citation: VP-16
   requirement: REQ-D-OFFICE
@@ -324,6 +339,7 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: cv_then_interview
 - jd: 副总助理
   citation: VP-16
   requirement: REQ-D-OFFICE
@@ -343,6 +359,7 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: cv_then_interview
 - jd: 副总助理
   citation: VP-16
   requirement: REQ-D-OFFICE
@@ -362,3 +379,4 @@ items:
   judge_ready: true
   library_says_assessable: true
   library_blocked_by: null
+  req_source: cv_then_interview

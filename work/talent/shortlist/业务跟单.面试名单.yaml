@@ -1,0 +1,299 @@
+jd: 业务跟单
+step: 3 初筛 → 面试名单
+target: 10
+decided_by: admin
+pool: 270
+rank_rule:
+- ① 硬证据项数(可验证载体:系统/报告/客户审核/图表),多者优先
+- ② 软证据项数(只能靠陈述的),多者优先
+- ③ 用户选的业务优先条件命中数
+- ④ 客户原文写的「优先」条款命中数(客户授权的排序依据)
+- ⑤ 总年限(客户要求 2 年以上;读不出来排最后 —— 排序口径,不是不合格)
+- ⑥ 稳定性:平均在职年限(从工作段算出,不是自述)
+- ⑦ 待核项数(成本,不是优劣)
+- ⑧ 品质岗经历(仅当本 JD 要求时)
+- ⑨ sha256(候选人 id):确定性兜底,不按文件名/姓氏排
+priorities:
+- 线束/连接器行业
+- 英语(会读写或能写 8D 任一)
+cut:
+  position: 10
+  tie_band: 2
+  hash_decided: true
+  note: 切线落在 2 人并列区内,谁上都行(按哈希排)
+selected:
+- cand_专案工程师_东莞_12_16K_陈___5年
+- cand_罗___46岁_专案工程师_智通简历_编号
+- cand_专案工程师_东莞_12_16K_l___10年以上
+- cand_专案工程师_东莞_12_16K_石___10年以上
+- cand_专案工程师_东莞_12_16K_王___10年以上
+- cand_业务跟单_东莞_6_10K_陈___5年
+- cand_副总助理_东莞_8_13K_钟___5年
+- cand_陈___37岁_日文业务助理_智通简历_编号
+- cand_日语业务跟单_东莞_5_7K_叶___4年
+- cand_业务跟单_东莞_6_10K_钟___2年
+already_real_interview: []
+rows:
+- candidate: cand_专案工程师_东莞_12_16K_陈___5年
+  prefer_hits: 0
+  tenure: 1.6
+  years: 5
+  prio_hits: 2
+  prio_names:
+  - 线束/连接器行业
+  - 英语(会读写或能写 8D 任一)
+  iv_real: 0
+  iv_sim: 31
+  quality: —
+  quality_kind: B
+  quality_months: 30
+  quality_quote: 工程师:1.经理指派责任产品工程师 2.登陆agile查看报价中心输出的QBOM、工时、工模治具以及客户的图纸、认证、包规、环保、测试报告、客户标准等要求
+    3.根据图纸未明确点以及实际可制造性提交DFM 4.收集零件图纸上传系统并申请ECN
+  gates_ok: 5
+  real_hits: 2
+  hard_hits: 2
+  soft_hits: 0
+  hard_items:
+  - ERP
+  - Excel
+  soft_items: []
+  major: 机械制造与自动化
+  fulltime: true
+  n_ask: 0
+  age: 26
+  edu: 3
+- candidate: cand_罗___46岁_专案工程师_智通简历_编号
+  prefer_hits: 0
+  tenure: 4.5
+  years: 4
+  prio_hits: 2
+  prio_names:
+  - 线束/连接器行业
+  - 英语(会读写或能写 8D 任一)
+  iv_real: 0
+  iv_sim: 32
+  quality: —
+  quality_kind: null
+  quality_months: 127
+  quality_quote: '工程师/线束工程主管.研发中心/工程半:'
+  gates_ok: 4
+  real_hits: 2
+  hard_hits: 2
+  soft_hits: 0
+  hard_items:
+  - ERP
+  - Excel
+  soft_items: []
+  major: 电子信息化工程
+  fulltime: true
+  n_ask: 2
+  age: 46
+  edu: 4
+- candidate: cand_专案工程师_东莞_12_16K_l___10年以上
+  prefer_hits: 0
+  tenure: 4.3
+  years: 10
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 29
+  quality: —
+  quality_kind: null
+  quality_months: 110
+  quality_quote: '技术员，产品工程师:'
+  gates_ok: 4
+  real_hits: 2
+  hard_hits: 2
+  soft_hits: 0
+  hard_items:
+  - ERP
+  - Excel
+  soft_items: []
+  major: 工商管理
+  fulltime: true
+  n_ask: 2
+  age: 45
+  edu: 4
+- candidate: cand_专案工程师_东莞_12_16K_石___10年以上
+  prefer_hits: 0
+  tenure: 3.1
+  years: 10
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 32
+  quality: —
+  quality_kind: null
+  quality_months: 36
+  quality_quote: '主管         深圳中天电子《奥海科技前身) 中企 300 人:'
+  gates_ok: 4
+  real_hits: 2
+  hard_hits: 2
+  soft_hits: 0
+  hard_items:
+  - ERP
+  - Excel
+  soft_items: []
+  major: 计算机应用
+  fulltime: false
+  n_ask: 2
+  age: 37
+  edu: 2
+- candidate: cand_专案工程师_东莞_12_16K_王___10年以上
+  prefer_hits: 0
+  tenure: 0.0
+  years: 10
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 32
+  quality: —
+  quality_kind: null
+  quality_months: 0
+  quality_quote: ''
+  gates_ok: 4
+  real_hits: 2
+  hard_hits: 2
+  soft_hits: 0
+  hard_items:
+  - ERP
+  - Excel
+  soft_items: []
+  major: 人力资源管理
+  fulltime: true
+  n_ask: 2
+  age: 43
+  edu: 4
+- candidate: cand_业务跟单_东莞_6_10K_陈___5年
+  prefer_hits: 0
+  tenure: 1.1
+  years: 5
+  prio_hits: 1
+  prio_names:
+  - 英语(会读写或能写 8D 任一)
+  iv_real: 0
+  iv_sim: 31
+  quality: —
+  quality_kind: null
+  quality_months: 19
+  quality_quote: '助理 | 儿童木制玩具                                                  6.8K:'
+  gates_ok: 5
+  real_hits: 2
+  hard_hits: 2
+  soft_hits: 0
+  hard_items:
+  - ERP
+  - Excel
+  soft_items: []
+  major: 商务英语
+  fulltime: true
+  n_ask: 1
+  age: 27
+  edu: 4
+- candidate: cand_副总助理_东莞_8_13K_钟___5年
+  prefer_hits: 0
+  tenure: 0.0
+  years: 5
+  prio_hits: 1
+  prio_names:
+  - 英语(会读写或能写 8D 任一)
+  iv_real: 0
+  iv_sim: 33
+  quality: —
+  quality_kind: null
+  quality_months: 0
+  quality_quote: ''
+  gates_ok: 4
+  real_hits: 2
+  hard_hits: 2
+  soft_hits: 0
+  hard_items:
+  - ERP
+  - Excel
+  soft_items: []
+  major: 汉语言文学
+  fulltime: false
+  n_ask: 2
+  age: 26
+  edu: 4
+- candidate: cand_陈___37岁_日文业务助理_智通简历_编号
+  prefer_hits: 0
+  tenure: 2.8
+  years: 4
+  prio_hits: 1
+  prio_names:
+  - 英语(会读写或能写 8D 任一)
+  iv_real: 0
+  iv_sim: 30
+  quality: —
+  quality_kind: null
+  quality_months: 48
+  quality_quote: ''
+  gates_ok: 4
+  real_hits: 2
+  hard_hits: 2
+  soft_hits: 0
+  hard_items:
+  - ERP
+  - Excel
+  soft_items: []
+  major: 财务会计
+  fulltime: false
+  n_ask: 2
+  age: 37
+  edu: 3
+- candidate: cand_日语业务跟单_东莞_5_7K_叶___4年
+  prefer_hits: 0
+  tenure: 0.0
+  years: 4
+  prio_hits: 1
+  prio_names:
+  - 英语(会读写或能写 8D 任一)
+  iv_real: 0
+  iv_sim: 32
+  quality: —
+  quality_kind: null
+  quality_months: 0
+  quality_quote: ''
+  gates_ok: 4
+  real_hits: 2
+  hard_hits: 2
+  soft_hits: 0
+  hard_items:
+  - ERP
+  - Excel
+  soft_items: []
+  major: 商务日语
+  fulltime: true
+  n_ask: 2
+  age: 25
+  edu: 3
+- candidate: cand_业务跟单_东莞_6_10K_钟___2年
+  prefer_hits: 0
+  tenure: 1.8
+  years: 2
+  prio_hits: 1
+  prio_names:
+  - 英语(会读写或能写 8D 任一)
+  iv_real: 0
+  iv_sim: 34
+  quality: —
+  quality_kind: null
+  quality_months: 20
+  quality_quote: ''
+  gates_ok: 4
+  real_hits: 2
+  hard_hits: 2
+  soft_hits: 0
+  hard_items:
+  - ERP
+  - Excel
+  soft_items: []
+  major: 软件技术 (企业信息化管理方向)
+  fulltime: false
+  n_ask: 2
+  age: 23
+  edu: 3

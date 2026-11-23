@@ -1,0 +1,46 @@
+jd: 业务跟单
+interview_target:
+  n: 10
+  decided_by: admin
+  decided_at: '2026-11-21'
+  why: 初筛保留人数太多,第 3 步要给出可执行的面试批次
+interview_priorities:
+  decided_by: admin
+  decided_at: '2026-11-22'
+  criteria:
+  - id: P-IND-HARNESS
+    name: 线束/连接器行业
+    rule:
+      kind: component_any
+      components:
+      - skill_线束行业知识
+    why: 客户原文「熟识线束行业相关产品」(C-06)
+    caveat: 简历词表较窄,可能漏人(DEF-01)
+  - id: P-ENGLISH
+    name: 英语(会读写或能写 8D 任一)
+    rule:
+      kind: component_any
+      components:
+      - skill_英语
+      - skill_8D报告
+    why: 客户原文「英语口语熟练及具备独立书写英文8D报告」(C-04)
+    caveat: null
+shortlist_5:
+  n: 10
+  decided_by: admin
+  rule: min→max,扩的前提是下一位有硬证据
+shortlist:
+  min: 5
+  max: 10
+  asked_by: hr
+  set_by: admin
+  set_at: '2026-11-23'
+  note: 第 5a 步:一面之后够格进下一轮评估的人
+final_max: 5
+final_note: 第 5b 步:送去用人部门面的人。硬门槛 0 不满足 + 硬证据≥1 + 未知≤3,最多 5 人,不硬凑
+shortlist_target_legacy:
+  min: 5
+  max: 8
+  asked_by: hr
+  set_by: admin
+  set_at: '2026-11-22'
