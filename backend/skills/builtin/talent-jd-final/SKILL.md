@@ -9,7 +9,7 @@ triggers:
   - "客户 JD 有大量空白字段（班制、时长、频次），要变成一张能填的表时"
   - "我方对 JD 有补充意见，但客户原文不能改时"
   - "HR 提出「稳定一点」「到岗要快」这类要求，需要落成一条可判定要求时"
-allowed_tools: [bash, read_file, write_file, edit_file, grep, glob, skill]
+allowed_tools: [bash, read_any_file, write_file, edit_file, grep, list_files, glob, skill]
 author: LangConfig
 version: "1.0"
 ---
@@ -21,16 +21,52 @@ version: "1.0"
 
 > **这一步由 `Talent · 2 JD 定稿` 负责。** 相邻那一步是 `Talent · 1 JD 起草` —— 遇到不属于本步的活(比如让你出定稿/出回填表),说清该谁做,不要顺手做掉。
 
+## 前置——`role_type` 未定就 **NOT RUN**,不要猜模板
+
+`jd_links/<JD>.yaml` 的 `role_type`（`manager` / `staff`）决定用哪版模板:
+
+```
+work/talent/jd_templates/_common.yaml   两版共用（S1 岗位标识 / S7 元数据 / S8 合规）
+work/talent/jd_templates/manager.yaml   经理岗:S2 目标与 KPI、S4 职责与授权
+work/talent/jd_templates/staff.yaml     员工岗:S5 作业明细、S6 作业条件
+```
+
+`role_type` 缺失或 `undetermined` 时,`render_jd_final` / `render_jd_docx` / `jd_input_form`
+都会打印 **NOT RUN** 且**不写任何产物**。那时不要去改脚本、也不要挑一个默认模板 ——
+正确的动作是告诉业务方:先定 S1.11 岗位类别（原文『直接下属』没写）,否则模板选不了。
+
+用错模板不会报错,只会问一堆不该问的问题:**「品质经理」原文写「直接下属:无」,它是员工岗**;
+按名字套经理岗,就会去问管理幅度和预算（空问）,同时把作业频次/时长降级掉。
+
 ## 第 0 步——环境
 
 ```bash
 cd <repo>/backend && set -a && source ../.env; set +a
 env -u PGPORT .venv/bin/python -m scripts.talent.render_jd_final --jd <JD>
-env -u PGPORT .venv/bin/python -m scripts.talent.jd_input_form  --jd <JD>
+env -u PGPORT .venv/bin/python -m scripts.talent.render_jd_docx  --jd <JD>
+env -u PGPORT .venv/bin/python -m scripts.talent.jd_input_form   --jd <JD>
 ```
 
-**两条都要跑。** `render_jd_final` 只写「定稿.md」和「fields.json」,**不会更新待补清单**;
-少跑第二条,回填表就停在上一次的样子,而你以为它是新的。这条是一个真跑过的 agent 发现的。
+**三条都要跑。** `render_jd_final` 只写「定稿.md」和「fields.json」,**不会更新待补清单**;
+少跑 `jd_input_form`,回填表就停在上一次的样子,而你以为它是新的(这条是一个真跑过的 agent 发现的)。
+`render_jd_docx` 出的是**给人看的那一份**(客户原文黑 · HR 紫 · 我方填补灰斜体 · 缺失红),
+md 在应用预览里上不了色,所以这一份不能省。
+
+### 定稿是重新生成出来的,不是手改的
+
+| 文件 | 是什么 |
+|---|---|
+| `jd_docs/<JD>.定稿.md` | 数据源(可 diff、可门禁) |
+| `jd_docs/<JD>.定稿.docx` | 给人看的(带颜色) |
+| `jd_docs/<JD>.待补清单.md` | 客户/业务方真正要填的表 |
+| **`jd_inputs/<JD>.yaml`** | **人填的答案**:客户没写的格子填什么 + 依据 + 是否须确认 |
+
+客户没写的格子填什么,写在 `jd_inputs/<JD>.yaml`,然后重跑 `render_jd_final` ——
+**不要直接改 `定稿.md`**:手改会破坏逐字回查,而且下次重跑就被覆盖。
+
+`answered_by` 只有三个值:`client` / `hr` / `ours`。**`ours` = 我方填补**,
+每一条都必须写 `basis` 和 `needs_client`,否则读者会把它当成客户的要求 ——
+而这条链上最贵的错误就是这个。
 
 ## 第 1 步——三种来源必须分开放
 
@@ -44,6 +80,31 @@ env -u PGPORT .venv/bin/python -m scripts.talent.jd_input_form  --jd <JD>
 
 这条是我犯过的错：把「我方建议」直接写进定稿正文，客户读到会以为是他自己写的。
 所以现在正文里出现任何建议性文字，都是缺陷。
+
+## 第 1.5 步——客户自己说「还没定」的，排在最前面
+
+`jd_links/<JD>.yaml` 里可能有 `undefined_statements`（步 1 登记的、客户亲口承认还没定的句子）。
+`jd_input_form` 会把它们单独列成「客户自己说『还没定』的」一段，**放在 A 级之前**。
+
+为什么排最前：这些不是我们推测出来的空白，是客户自己说的——问起来最该先问，
+也**最容易被写成"客户没说"而漏掉**。实测：品质经理 `_source` 第 106 行那句「目前没制定」，
+两轮 agent 都没提过一个字。现在它有去处了，别又把它丢掉。
+
+## 第 1.8 步——客户门槛与候选人池冲突时，提成待客户拍板的一条
+
+`jd_input_form` 会读第 3 步的短名单(`shortlist/<JD>.yaml` 的 `quality_gate`),
+如果发现**做过目标岗位的人被客户写的硬门槛挡住了**,待补清单最前面会出现一段
+「⚠ 需客户拍板:门槛与候选人池的冲突」。
+
+实例:品质经理的「年龄 25~40岁」把全语料里唯一岗位名属品质管理序列的人挡掉了 ——
+「高速线品质经理」,41 岁,只差 1 岁。
+
+**这条的纪律与别的条目不同:**
+- 门槛是**客户原话**(逐字可回查),**我方一个字都不改**
+- 只提供三个选项让客户选:维持 / 放宽(给新数字) / 改为按经验判
+- **不许自己放宽**,也不许把"名单很短"当理由偷偷调数字
+
+交付时要主动说明这一段的存在,别让客户在长表里找不见它。
 
 ## 第 2 步——空白字段按影响分级问
 

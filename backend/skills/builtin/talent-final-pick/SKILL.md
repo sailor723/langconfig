@@ -1,7 +1,7 @@
 ---
-name: "talent-final-pick（步5·从短名单挑出最多 4 人）"
+name: "talent-final-pick（步5·从最终名单挑人交给业务面，人数由 final_max 定）"
 description: >-
-  短名单里一部分人做过一轮电话之后，要选出最多 4 个人交给业务领导面时使用。
+  短名单里一部分人做过一轮电话之后，要选出几个人交给业务领导面时使用。人数**不是技能里的数字**：第 5b 步已按 `jd_inputs.final_max`（默认 5）切过，本步不再二次限制。
   排序是确定性的（满足条数 → 未知多少），你的工作不是重算，而是**在数据不够的时候如实说"现在挑不出来"**，
   并且给每个入选的人一句能站得住的理由。
 tags: [talent, pick, join, four-state, ranking]
@@ -9,20 +9,65 @@ triggers:
   - "短名单里有人做完了第一轮电话，要选出交给业务领导的人时"
   - "业务问「为什么是他不是你」时"
   - "短名单很大但做过面试的很少，需要判断现在能不能选人时"
-allowed_tools: [bash, read_file, write_file, grep, glob, skill]
+allowed_tools: [bash, read_any_file, write_file, grep, list_files, glob, skill]
 author: LangConfig
 version: "1.0"
 ---
 
-你负责**选出最多 4 个人**，并把理由说清楚。产物是 `work/talent/picks/<JD> 选人.md`。
+你负责**照着已有名单把理由说清楚**，产物是 `work/talent/picks/<JD> 选人.md`。名单人数由 `final_max` 决定（现有 5 份 JD 都是 5）——技能里不许写死数字，否则就会重演"最终名单 5 个人只显示 4 个、标题还写最多 4 人"那次。
 
+## 上游变了什么(2026-11-20)
+
+- 短名单**可能只有 4~10 人**(品质岗经历门槛收紧),且可能含 `需复议` 的人。
+  **选人前先确认那条被放宽的客户门槛批了没有** —— 没批的话,这个人选上来也用不了。
+- JD 定稿里有 `我方填补` 的字段(客户没写、我方按依据填)。按 JD 判人时,
+  这类字段的权重应低于客户原文 —— 它们是推断,不是要求。
+- 判据仍是四态(满足 / 不满足 / **未知** / 不可判),**未知不许折成不满足**。
+
+- **每个人的完整材料**:`cv_docs/<名>.定稿.md`(10 段:字段表 / 工作经历 / 品质岗经历 / 稳定性 / 能力项 / 待补)。
+  选人前读**品质岗经历**与**待补清单**两段 —— 前者说明他到底做没做过这个岗,后者说明还有多少不知道。
+- **⚠ 先看档案是真的还是模拟的**:`cv_interview/<名>.yaml` 里 `answers[].basis` 全是
+  `simulated` 的,那份档案就是**模拟的**(开发/演练用),里面 10 个字段与整段评语都不是真人说的。
+  **不许拿模拟档案作为选人依据** —— 选人的前提是真实一面数据;模拟数据只能用来演练流程。
+- **采信规则在 `work/talent/interview_policy.yaml`,不在代码里**:
+  `default_mode: real_only`(只认真人答案);某份 JD 写了 `mode: mock_allowed`
+  并且有 `decided_by` / `decided_at` / `reason`,那份 JD 的模拟答案才进判定。
+  **没有授权记录的 JD 一律按只认真人处理** —— 别用 `--include-simulated` 绕过记录。
+- `--include-simulated` / `--real-only` 只是**强制覆盖**,产物里会写清是命令行强制的,
+  不是规则文件授权的。交付时这个区别要说出来。
+- 放开模拟之后的硬要求(门禁会复查,少一处就红):
+  1. 控制台每人一个标签:`[访谈]` / `[真+模拟]` / `[模拟]` / 空(只有简历)
+  2. md + yaml 每行都有 `数据来源`,`模拟(演练)` 不许含糊成"有访谈"
+  3. md `## 入选` 下方一段「⚠ **演练模式** … 本名单不得作为录用决策依据」,并写明依据的规则
+  4. `picks/<JD>.yaml` 里 `interview_policy` 段落记录 mode / 来源 / 署名人 / 日期
+- 一个真访谈都没有时,脚本会说 `⚠ 只有 0 人做过一面 …` 并且**入选 0 人**。
+  这是正确结论,不是脚本坏了 —— 别为了凑人数去改判据。
+- 报告时必须原话告诉用人方:**当前有几个人是真做过一面的**。数不够就说数不够 ——
+  这一步的瓶颈通常不是算法,是 4a 还没做。
+- **数据在哪**:`shortlist/<JD>.目标名单.yaml`（`selected` / `relaxations` / `shortfall`）、
+  `shortlist/<JD>.yaml`（`quality_gate`）。`shortfall > 0` 说明连目标人数都没凑够。
 ## 第 0 步——先跑判定，再跑选人
 
 ```bash
 cd <repo>/backend && set -a && source ../.env; set +a
 env -u PGPORT .venv/bin/python -m scripts.talent.evaluate --jd <JD> --facts llm --interview --top 0
-env -u PGPORT .venv/bin/python -m scripts.talent.pick_final --jd <JD>
+env -u PGPORT .venv/bin/python -m scripts.talent.pick_final --jd <JD>        # 按 interview_policy.yaml
+env -u PGPORT .venv/bin/python -m scripts.talent.pick_final --jd <JD> --real-only    # 强制收紧
+env -u PGPORT .venv/bin/python -m scripts.talent.pick_final --jd <JD> --include-simulated  # 强制放开
+env -u PGPORT .venv/bin/python -m scripts.talent.pick_final --jd <JD> --pool interviewed --top 10  # 交叉比对
 ```
+
+### 两种问法,别混用
+
+| `--pool` | 拿谁去对 JD | 产出是什么 |
+|---|---|---|
+| `shortlist`(默认) | 第 3 步保留的人 | **录用候选名单** |
+| `interviewed` | 所有填好档案的人(有访谈文件的) | **交叉比对** —— 复核第 3 步有没有看漏人 |
+| `all` | 全库 | 交叉比对(通常没必要:没档案的人大量「未知」) |
+
+交叉比对的结论**不是录用名单**,标题和正文都这么写。它最有用的一段是
+「名单外的人:被哪一条卡住」—— 那里面的人**够格,只是被某条客户原文挡着**
+(常见:年龄、学历)。要不要见他们,取决于那条门槛批不批,不是算法能定的。
 
 判定是四态：**满足 / 不满足 / 未知 / 不可判**。这四个状态不许合并：
 
@@ -84,8 +129,23 @@ env -u PGPORT .venv/bin/python -m scripts.talent.pick_final --jd <JD>
 ```bash
 cd <repo>/backend && set -a && source ../.env; set +a
 env -u PGPORT .venv/bin/python -m scripts.talent.evaluate --jd <JD> --facts llm --interview --top 0
-env -u PGPORT .venv/bin/python -m scripts.talent.pick_final --jd <JD>
+env -u PGPORT .venv/bin/python -m scripts.talent.pick_final --jd <JD>        # 按 interview_policy.yaml
+env -u PGPORT .venv/bin/python -m scripts.talent.pick_final --jd <JD> --real-only    # 强制收紧
+env -u PGPORT .venv/bin/python -m scripts.talent.pick_final --jd <JD> --include-simulated  # 强制放开
+env -u PGPORT .venv/bin/python -m scripts.talent.pick_final --jd <JD> --pool interviewed --top 10  # 交叉比对
 ```
+
+### 两种问法,别混用
+
+| `--pool` | 拿谁去对 JD | 产出是什么 |
+|---|---|---|
+| `shortlist`(默认) | 第 3 步保留的人 | **录用候选名单** |
+| `interviewed` | 所有填好档案的人(有访谈文件的) | **交叉比对** —— 复核第 3 步有没有看漏人 |
+| `all` | 全库 | 交叉比对(通常没必要:没档案的人大量「未知」) |
+
+交叉比对的结论**不是录用名单**,标题和正文都这么写。它最有用的一段是
+「名单外的人:被哪一条卡住」—— 那里面的人**够格,只是被某条客户原文挡着**
+(常见:年龄、学历)。要不要见他们,取决于那条门槛批不批,不是算法能定的。
 **短名单/有一面数据/可判要求 三个数必须是脚本打出来的**;
 "挑不出来"这句话也要有脚本依据(有过一面数据的人数 < 4)。
 
@@ -111,6 +171,34 @@ env -u PGPORT .venv/bin/python -m scripts.talent.pick_final --jd <JD>
   而它前面的 PASS 已经打印了 —— `tail` 看着完全正常。只认 `N checks · M failed` 那一行。
 - **写完不等于写对。** `write_file` 成功之后必须重跑校验,不能凭"它没报错"。
 
+## 必交付:每个人的「为什么没过」判定说明
+
+这是**唯一对外**的产物。HR 拿它回答业务领导那句必问的话,所以它必须逐行可追:
+
+```bash
+# 短名单 + 需复议的人(业务最可能问的就是这批)
+env -u PGPORT .venv/bin/python -m scripts.talent.explain_rejection --jd <JD> --shortlist
+# 只查:输入有没有变、结论有没有漂(交付前必须跑)
+env -u PGPORT .venv/bin/python -m scripts.talent.explain_rejection --jd <JD> --shortlist --verify
+```
+
+产物在 `work/talent/verdicts/<JD>/`:`_index.md`(总览:这批人集体卡在哪、放开哪条客户门槛能救回谁)
++ 每人一份 `.md`(给人)+ `.yaml`(给门禁复算)。
+
+每份说明的硬要求(门禁会逐条查,**少一样就红**):
+
+1. 每条「不满足」都要带齐:客户原文 + 行号 + 数据项 + 他的值 + 阈值 + **值来源**
+   (简历原文/简历推算/HR 计算/一面记录/平台)——「值来源」是这一栏的灵魂,没有它就是在说结论
+2. 组件类「不满足」是**否定证据**:要写清"整份简历抽到 N 项技能,其中没有 X/Y/Z"
+3. 每条「未知」要写清为什么没读到;**未知绝不写成不满足**
+4. 「不可判」要写清是 JD 没有数据项,不是候选人缺数据
+5. **已知缺陷必须主动交代**:`work/talent/known_defects.yaml` 里登记的影响到哪几条,
+   说明里会单列「会被追问的地方」—— 拿去见领导之前自己先看这一段
+6. **输入指纹必须当前**:JD 原文/阈值/词表/简历事实/一面记录任何一样改了,
+   旧说明就是过期文件,门禁会红。**过期说明挂在墙上比没有更糟。**
+
+交付时这样汇报:`短名单 N 人 → 卡在 C-xx 的 N 人 → 需客户拍板哪一条 → 已知缺陷影响哪几条`。
+
 ## 交付时说什么
 
 - 短名单 / 有一面数据 / 可判要求 三个数
@@ -118,10 +206,54 @@ env -u PGPORT .venv/bin/python -m scripts.talent.pick_final --jd <JD>
 - **如果不够格挑，直说**，并说明缺的是哪一步的数据
 - 排序倒置有几处（如果有）
 
+## 被问「为什么不用 LLM 直接判」时怎么答
+
+不要凭感觉回答「因为大模型不可靠」——那是断言。跑一次实测:
+
+```bash
+env -u PGPORT .venv/bin/python -m scripts.talent.compare_llm_vs_ontology --jd <JD> --runs 2
+```
+
+它把同一份材料喂两条路径(本体+join / 只有 LLM),输出四个可直接引用的数:
+一致率、LLM 自一致性(同 prompt 同温度跑两遍是否一致)、引文可核验率、耗时。
+
+**先做两档,不要只跑一档** —— 一次性直判是最容易被击败的基线,拿它的成绩说
+「LLM 判不了」等于把自己的 prompt 缺陷算到模型头上:
+
+```bash
+env -u PGPORT .venv/bin/python -m scripts.talent.compare_llm_vs_ontology --jd <JD> --runs 2
+env -u PGPORT .venv/bin/python -m scripts.talent.compare_prompt_profiles --jd <JD>
+```
+
+品质经理实测(2026-11-21,10 人 × 10 条):
+
+| 档位 | 与本体一致 | 判「未知」 | 自一致 | 代价 |
+|---|---|---|---|---|
+| v0 一次直判 | 33% | 48 格 | 99% | 20 次 / 51s |
+| v1 判据细化+证据先行 | 59% | 5 格 | 95% | 20 / 53s |
+| v2 先抽后判 | 62% | 6 格 | 95% | 40 / 107s |
+| v3 v2+自我复核 | **64%** | 7 格 | 97% | 60 / 144s |
+
+**这三条必须一起说,少一条就是误导:**
+
+1. **准确率上认真写 prompt 的 LLM 反超本体。** 人工逐条核对:本体至少错 24 格
+   (词表漏抽同义表达、年限当领域、组件粒度过粗),v3 错 3 格。
+   所以不能说「LLM 判不了」—— 它判得了,而且更快认出同义表达。
+2. **来源这一层 prompt 拿不走。** v3 有 4 格判「未知」是因为只喂了简历,
+   而本体知道年龄来自平台/HR 派生量。**LLM 只看得见你递过去的东西。**
+3. **自校验这一层 prompt 更危险。** v3 出现过「理由写应判不满足、标签却写满足」,
+   自洽到只有人点开原文才发现;自一致性 97% 不是 100%,不能当门禁。
+
+**绝对不要做的事:拿 v0 的成绩宣布"本体更好"。** 有人质疑时,跑上面两档,
+把三张表(准确率 / 来源 / 可复算)分开报,让人自己看边界在哪。
+
+产物在 `work/talent/compare/`:机器算的一份、人工核对的一份**分开写** ——
+脚本不生成人的结论,人的结论也不假装是脚本算的。
+
 ## 绝对不要做
 
 - 不要把「未知」折成「不满足」
 - 不要用分数或匹配度排序
-- 不要在数据不够的时候硬凑 4 个人
+- 不要在数据不够的时候硬凑人数（人数上限见 `jd_inputs.final_max`，不在技能里）
 - 不要让 LLM 参与排序或判定（排序必须是确定性的；你只能解释，不能计算）
 - 不要写"综合表现优秀"这种没有条款指向的理由
