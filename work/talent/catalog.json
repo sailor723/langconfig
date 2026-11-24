@@ -1,0 +1,3077 @@
+{
+ "_doc": "标准目录。数字全部由 scripts/talent/build_catalog.py 现算，不手写；--check 可判断是否过期。",
+ "generated_from": "scripts/talent/build_catalog.py",
+ "categories": [
+  {
+   "name": "QualityMethod",
+   "components": [
+    {
+     "id": "skill_5WHY",
+     "label": "5WHY",
+     "kind": "capability",
+     "evidence_role": "hard",
+     "cv_count": 0,
+     "requirements": [
+      "REQ-D-QA-TOOLS"
+     ],
+     "jds": [
+      "品质经理"
+     ],
+     "evidence_note": "给一个不良现场连问五层,可看深度"
+    },
+    {
+     "id": "skill_6S",
+     "label": "6S",
+     "kind": "capability",
+     "evidence_role": "hard",
+     "cv_count": 26,
+     "requirements": [
+      "REQ-D-QA-TOOLS"
+     ],
+     "jds": [
+      "品质经理"
+     ],
+     "evidence_note": "现场审核频次与整改记录可对账"
+    },
+    {
+     "id": "skill_8D报告",
+     "label": "8D报告",
+     "kind": "capability",
+     "evidence_role": "hard",
+     "cv_count": 16,
+     "requirements": [
+      "REQ-H-LANG-EN"
+     ],
+     "jds": [
+      "品质经理"
+     ],
+     "evidence_note": "能拿出脱敏报告,是实物"
+    },
+    {
+     "id": "skill_CPK",
+     "label": "CPK",
+     "kind": "capability",
+     "evidence_role": "hard",
+     "cv_count": 5,
+     "requirements": [
+      "REQ-D-QA-TOOLS"
+     ],
+     "jds": [
+      "品质经理"
+     ],
+     "evidence_note": "给一组数据让他算,结果可核"
+    },
+    {
+     "id": "skill_FMEA",
+     "label": "FMEA",
+     "kind": "capability",
+     "evidence_role": null,
+     "cv_count": 18,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_QC七大手法",
+     "label": "QC七大手法",
+     "kind": "capability",
+     "evidence_role": "hard",
+     "cv_count": 1,
+     "requirements": [
+      "REQ-D-QA-TOOLS"
+     ],
+     "jds": [
+      "品质经理"
+     ],
+     "evidence_note": "鱼骨图/柏拉图现场画得出来"
+    },
+    {
+     "id": "skill_SPC",
+     "label": "SPC",
+     "kind": "capability",
+     "evidence_role": "hard",
+     "cv_count": 4,
+     "requirements": [
+      "REQ-D-QA-TOOLS"
+     ],
+     "jds": [
+      "品质经理"
+     ],
+     "evidence_note": "控制图与判异规则现场问得住"
+    },
+    {
+     "id": "skill_品质问题分析",
+     "label": "品质问题分析",
+     "kind": "capability",
+     "evidence_role": "soft",
+     "cv_count": 53,
+     "requirements": [
+      "REQ-D-QA-ANALYSIS"
+     ],
+     "jds": [
+      "品质经理"
+     ],
+     "evidence_note": "「会分析」是自评,拿不出案例就无法验证"
+    },
+    {
+     "id": "skill_客户验厂",
+     "label": "客户验厂",
+     "kind": "capability",
+     "evidence_role": "hard",
+     "cv_count": 13,
+     "requirements": [
+      "REQ-D-CUSTOMER-AUDIT"
+     ],
+     "jds": [
+      "品质经理"
+     ],
+     "evidence_note": "哪家客户、什么体系、他负责哪段,可对账"
+    }
+   ]
+  },
+  {
+   "name": "CAD",
+   "components": [
+    {
+     "id": "skill_AutoCAD",
+     "label": "AutoCAD",
+     "kind": "product",
+     "evidence_role": null,
+     "cv_count": 75,
+     "requirements": [
+      "REQ-D-CAD-2D"
+     ],
+     "jds": [
+      "专案工程师"
+     ],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_CATIA",
+     "label": "CATIA",
+     "kind": "product",
+     "evidence_role": null,
+     "cv_count": 6,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_ProE_Creo",
+     "label": "ProE/Creo",
+     "kind": "product",
+     "evidence_role": null,
+     "cv_count": 21,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_Rhino",
+     "label": "Rhino",
+     "kind": "product",
+     "evidence_role": null,
+     "cv_count": 3,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_SolidWorks",
+     "label": "SolidWorks",
+     "kind": "product",
+     "evidence_role": null,
+     "cv_count": 19,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_UG_NX",
+     "label": "UG/NX",
+     "kind": "product",
+     "evidence_role": null,
+     "cv_count": 2,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    }
+   ]
+  },
+  {
+   "name": "GeneralCapability",
+   "components": [
+    {
+     "id": "skill_企业文化建设",
+     "label": "企业文化建设",
+     "kind": "capability",
+     "evidence_role": null,
+     "cv_count": 37,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_体系管理",
+     "label": "体系管理",
+     "kind": "capability",
+     "evidence_role": null,
+     "cv_count": 13,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_培训课程开发",
+     "label": "培训课程开发",
+     "kind": "capability",
+     "evidence_role": null,
+     "cv_count": 15,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_数据分析",
+     "label": "数据分析",
+     "kind": "capability",
+     "evidence_role": null,
+     "cv_count": 31,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_系统规划",
+     "label": "系统规划",
+     "kind": "capability",
+     "evidence_role": null,
+     "cv_count": 64,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_订单交期风险评估",
+     "label": "订单交期风险评估",
+     "kind": "capability",
+     "evidence_role": "soft",
+     "cv_count": 41,
+     "requirements": [
+      "REQ-D-DELIVERY-RISK"
+     ],
+     "jds": [
+      "业务跟单"
+     ],
+     "evidence_note": "能力描述,难以单靠陈述验证"
+    }
+   ]
+  },
+  {
+   "name": "WireEquipment",
+   "components": [
+    {
+     "id": "skill_注塑机",
+     "label": "注塑机",
+     "kind": "equipment",
+     "evidence_role": null,
+     "cv_count": 17,
+     "requirements": [
+      "REQ-D-WIRE-EQUIPMENT"
+     ],
+     "jds": [
+      "专案工程师"
+     ],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_点胶机",
+     "label": "点胶机",
+     "kind": "equipment",
+     "evidence_role": null,
+     "cv_count": 2,
+     "requirements": [
+      "REQ-D-WIRE-EQUIPMENT"
+     ],
+     "jds": [
+      "专案工程师"
+     ],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_端子机",
+     "label": "端子机",
+     "kind": "equipment",
+     "evidence_role": null,
+     "cv_count": 18,
+     "requirements": [
+      "REQ-D-WIRE-EQUIPMENT"
+     ],
+     "jds": [
+      "专案工程师"
+     ],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_自动机",
+     "label": "自动机",
+     "kind": "equipment",
+     "evidence_role": null,
+     "cv_count": 10,
+     "requirements": [
+      "REQ-D-WIRE-EQUIPMENT"
+     ],
+     "jds": [
+      "专案工程师"
+     ],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_裁线机",
+     "label": "裁线机",
+     "kind": "equipment",
+     "evidence_role": null,
+     "cv_count": 17,
+     "requirements": [
+      "REQ-D-WIRE-EQUIPMENT"
+     ],
+     "jds": [
+      "专案工程师"
+     ],
+     "evidence_note": null
+    }
+   ]
+  },
+  {
+   "name": "HarnessCraft",
+   "components": [
+    {
+     "id": "skill_切片",
+     "label": "切片",
+     "kind": "equipment",
+     "evidence_role": null,
+     "cv_count": 4,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_端子",
+     "label": "端子",
+     "kind": "equipment",
+     "evidence_role": null,
+     "cv_count": 39,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_线束行业知识",
+     "label": "线束行业知识",
+     "kind": "domain",
+     "evidence_role": "soft",
+     "cv_count": 72,
+     "requirements": [
+      "REQ-D-HARNESS-DOMAIN"
+     ],
+     "jds": [
+      "专案工程师",
+      "品质经理"
+     ],
+     "evidence_note": "多半是简历自述,产品/工序说不清就虚"
+    },
+    {
+     "id": "skill_识图",
+     "label": "识图",
+     "kind": "capability",
+     "evidence_role": null,
+     "cv_count": 7,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    }
+   ]
+  },
+  {
+   "name": "DesignSoftware",
+   "components": [
+    {
+     "id": "skill_CorelDRAW",
+     "label": "CorelDRAW",
+     "kind": "product",
+     "evidence_role": null,
+     "cv_count": 5,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_Illustrator",
+     "label": "Illustrator",
+     "kind": "product",
+     "evidence_role": null,
+     "cv_count": 8,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_Photoshop",
+     "label": "Photoshop",
+     "kind": "product",
+     "evidence_role": null,
+     "cv_count": 17,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    }
+   ]
+  },
+  {
+   "name": "BusinessSystem",
+   "components": [
+    {
+     "id": "skill_ERP",
+     "label": "ERP",
+     "kind": "product",
+     "evidence_role": "hard",
+     "cv_count": 37,
+     "requirements": [
+      "REQ-D-ERP-EXCEL",
+      "REQ-D-ERP-OPERATE"
+     ],
+     "jds": [
+      "业务跟单"
+     ],
+     "evidence_note": "用过什么系统、跑过什么单据,面试能当场问流程"
+    },
+    {
+     "id": "skill_SAP",
+     "label": "SAP",
+     "kind": "product",
+     "evidence_role": null,
+     "cv_count": 10,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    }
+   ]
+  },
+  {
+   "name": "CustomsSkill",
+   "components": [
+    {
+     "id": "skill_单证",
+     "label": "单证",
+     "kind": "capability",
+     "evidence_role": null,
+     "cv_count": 13,
+     "requirements": [
+      "REQ-D-CUSTOMS-DECLARE"
+     ],
+     "jds": [
+      "关务报关员"
+     ],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_报关",
+     "label": "报关",
+     "kind": "capability",
+     "evidence_role": null,
+     "cv_count": 26,
+     "requirements": [
+      "REQ-D-CUSTOMS-DECLARE"
+     ],
+     "jds": [
+      "关务报关员"
+     ],
+     "evidence_note": null
+    }
+   ]
+  },
+  {
+   "name": "OfficeSoftware",
+   "components": [
+    {
+     "id": "skill_PowerPoint",
+     "label": "PowerPoint",
+     "kind": "product",
+     "evidence_role": null,
+     "cv_count": 40,
+     "requirements": [
+      "REQ-D-OFFICE"
+     ],
+     "jds": [
+      "专案工程师",
+      "关务报关员",
+      "副总助理"
+     ],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_Word",
+     "label": "Word",
+     "kind": "product",
+     "evidence_role": null,
+     "cv_count": 55,
+     "requirements": [
+      "REQ-D-OFFICE"
+     ],
+     "jds": [
+      "专案工程师",
+      "关务报关员",
+      "副总助理"
+     ],
+     "evidence_note": null
+    }
+   ]
+  },
+  {
+   "name": "OperationsSkill",
+   "components": [
+    {
+     "id": "skill_5S",
+     "label": "5S",
+     "kind": "capability",
+     "evidence_role": null,
+     "cv_count": 5,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    },
+    {
+     "id": "skill_精益生产",
+     "label": "精益生产",
+     "kind": "capability",
+     "evidence_role": null,
+     "cv_count": 10,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    }
+   ]
+  },
+  {
+   "name": "QualitySystem",
+   "components": [
+    {
+     "id": "skill_ISO_TS16949",
+     "label": "ISO/TS16949",
+     "kind": "capability",
+     "evidence_role": "hard",
+     "cv_count": 21,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": "同上"
+    },
+    {
+     "id": "skill_ISO9001",
+     "label": "ISO9001",
+     "kind": "capability",
+     "evidence_role": "hard",
+     "cv_count": 18,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": "证书/审核记录,可验证"
+    }
+   ]
+  },
+  {
+   "name": "AdminSkill",
+   "components": [
+    {
+     "id": "skill_行政",
+     "label": "行政",
+     "kind": "capability",
+     "evidence_role": null,
+     "cv_count": 80,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    }
+   ]
+  },
+  {
+   "name": "CompensationSkill",
+   "components": [
+    {
+     "id": "skill_薪酬绩效",
+     "label": "薪酬绩效",
+     "kind": "capability",
+     "evidence_role": null,
+     "cv_count": 45,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    }
+   ]
+  },
+  {
+   "name": "Compliance",
+   "components": [
+    {
+     "id": "skill_贸易安全合规",
+     "label": "贸易安全合规",
+     "kind": "capability",
+     "evidence_role": null,
+     "cv_count": 1,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    }
+   ]
+  },
+  {
+   "name": "FinanceSkill",
+   "components": [
+    {
+     "id": "skill_财务",
+     "label": "财务",
+     "kind": "capability",
+     "evidence_role": null,
+     "cv_count": 84,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    }
+   ]
+  },
+  {
+   "name": "HRAdmin",
+   "components": [
+    {
+     "id": "skill_社保操作",
+     "label": "社保操作",
+     "kind": "capability",
+     "evidence_role": null,
+     "cv_count": 24,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    }
+   ]
+  },
+  {
+   "name": "LaborLawKnowledge",
+   "components": [
+    {
+     "id": "skill_劳动法",
+     "label": "劳动法",
+     "kind": "domain",
+     "evidence_role": null,
+     "cv_count": 22,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    }
+   ]
+  },
+  {
+   "name": "LanguageSkill",
+   "components": [
+    {
+     "id": "skill_英语",
+     "label": "英语",
+     "kind": "capability",
+     "evidence_role": "soft",
+     "cv_count": 99,
+     "requirements": [
+      "REQ-H-LANG-EN"
+     ],
+     "jds": [
+      "品质经理"
+     ],
+     "evidence_note": "「口语熟练」是自评,要实测才算硬"
+    }
+   ]
+  },
+  {
+   "name": "OrderTracking",
+   "components": [
+    {
+     "id": "skill_跟单",
+     "label": "跟单",
+     "kind": "capability",
+     "evidence_role": null,
+     "cv_count": 79,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    }
+   ]
+  },
+  {
+   "name": "RecruitingSkill",
+   "components": [
+    {
+     "id": "skill_招聘",
+     "label": "招聘",
+     "kind": "capability",
+     "evidence_role": null,
+     "cv_count": 60,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    }
+   ]
+  },
+  {
+   "name": "SpreadsheetSoftware",
+   "components": [
+    {
+     "id": "skill_Excel",
+     "label": "Excel",
+     "kind": "product",
+     "evidence_role": "hard",
+     "cv_count": 87,
+     "requirements": [
+      "REQ-D-ERP-EXCEL",
+      "REQ-D-OFFICE",
+      "REQ-D-REPORT-WRITING"
+     ],
+     "jds": [
+      "专案工程师",
+      "业务跟单",
+      "关务报关员",
+      "副总助理"
+     ],
+     "evidence_note": "数据分析能力可以做一份透视表当场验"
+    }
+   ]
+  },
+  {
+   "name": "TradeSkill",
+   "components": [
+    {
+     "id": "skill_外贸业务",
+     "label": "外贸业务",
+     "kind": "capability",
+     "evidence_role": null,
+     "cv_count": 54,
+     "requirements": [],
+     "jds": [],
+     "evidence_note": null
+    }
+   ]
+  }
+ ],
+ "requirements": [
+  {
+   "id": "REQ-A-AGE-RANGE",
+   "name": "年龄区间",
+   "dimension": "A",
+   "kind": "threshold",
+   "data_class": "fact",
+   "assessable": true,
+   "components": [],
+   "attribute": "A.2",
+   "op": "between",
+   "jds": [
+    "关务报关员",
+    "副总助理",
+    "品质经理"
+   ]
+  },
+  {
+   "id": "REQ-A-GENDER",
+   "name": "性别",
+   "dimension": "A",
+   "kind": "threshold",
+   "data_class": "fact",
+   "assessable": false,
+   "components": [],
+   "attribute": "A.1",
+   "op": "=",
+   "jds": [
+    "副总助理"
+   ]
+  },
+  {
+   "id": "REQ-B-EDU-LEVEL",
+   "name": "学历不低于",
+   "dimension": "B",
+   "kind": "threshold",
+   "data_class": "fact",
+   "assessable": true,
+   "components": [],
+   "attribute": "B.1",
+   "op": ">=",
+   "jds": [
+    "业务跟单",
+    "关务报关员",
+    "副总助理",
+    "品质经理"
+   ]
+  },
+  {
+   "id": "REQ-B-FULL-TIME",
+   "name": "全日制",
+   "dimension": "B",
+   "kind": "threshold",
+   "data_class": "fact",
+   "assessable": false,
+   "components": [],
+   "attribute": "B.3",
+   "op": "=",
+   "jds": [
+    "副总助理"
+   ]
+  },
+  {
+   "id": "REQ-B-MAJOR",
+   "name": "专业限定",
+   "dimension": "B",
+   "kind": "enumerate",
+   "data_class": "fact",
+   "assessable": true,
+   "components": [],
+   "attribute": "B.2",
+   "op": "in",
+   "jds": [
+    "业务跟单",
+    "关务报关员",
+    "副总助理",
+    "品质经理"
+   ]
+  },
+  {
+   "id": "REQ-C-YEARS-DOMAIN",
+   "name": "某领域年限不低于",
+   "dimension": "C",
+   "kind": "threshold",
+   "data_class": "fact",
+   "assessable": true,
+   "components": [],
+   "attribute": "C.1",
+   "op": ">=",
+   "jds": [
+    "专案工程师",
+    "业务跟单",
+    "关务报关员",
+    "副总助理",
+    "品质经理"
+   ]
+  },
+  {
+   "id": "REQ-D-AI-TOOLS",
+   "name": "AI 工具运用",
+   "dimension": "D",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": []
+  },
+  {
+   "id": "REQ-D-ATTENDANCE-SYSTEM",
+   "name": "考勤系统操作",
+   "dimension": "D",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": []
+  },
+  {
+   "id": "REQ-D-BIZ-ETIQUETTE",
+   "name": "商务礼仪",
+   "dimension": "E",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": []
+  },
+  {
+   "id": "REQ-D-CAD-2D",
+   "name": "CAD 二维制图",
+   "dimension": "D",
+   "kind": "component",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_AutoCAD"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": [
+    "专案工程师"
+   ]
+  },
+  {
+   "id": "REQ-D-CULTURE-BUILD",
+   "name": "企业文化建设",
+   "dimension": "D",
+   "kind": "component",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_企业文化建设"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": []
+  },
+  {
+   "id": "REQ-D-CUSTOMER-AUDIT",
+   "name": "客户验厂经验",
+   "dimension": "D",
+   "kind": "component",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_客户验厂"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": [
+    "品质经理"
+   ]
+  },
+  {
+   "id": "REQ-D-CUSTOMS-DECLARE",
+   "name": "进出口报关流程",
+   "dimension": "D",
+   "kind": "composite",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_报关",
+    "skill_单证"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": [
+    "关务报关员"
+   ]
+  },
+  {
+   "id": "REQ-D-DATA-ANALYSIS",
+   "name": "数据统计分析",
+   "dimension": "D",
+   "kind": "component",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_数据分析"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": []
+  },
+  {
+   "id": "REQ-D-DELIVERY-RISK",
+   "name": "订单交期风险评估",
+   "dimension": "D",
+   "kind": "component",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_订单交期风险评估"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": [
+    "业务跟单"
+   ]
+  },
+  {
+   "id": "REQ-D-DRAWING-READ",
+   "name": "图纸识别(线材规格/端子型号/胶壳料号/回路标识)",
+   "dimension": "D",
+   "kind": "component",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_识图"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": []
+  },
+  {
+   "id": "REQ-D-ERP-EXCEL",
+   "name": "ERP 订单模块 + Excel 数据分析",
+   "dimension": "D",
+   "kind": "composite",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_ERP",
+    "skill_Excel"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": [
+    "业务跟单"
+   ]
+  },
+  {
+   "id": "REQ-D-ERP-OPERATE",
+   "name": "ERP 系统操作",
+   "dimension": "D",
+   "kind": "component",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_ERP"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": [
+    "业务跟单"
+   ]
+  },
+  {
+   "id": "REQ-D-HARNESS-DOMAIN",
+   "name": "线束/连接器行业认知",
+   "dimension": "D",
+   "kind": "component",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_线束行业知识"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": [
+    "专案工程师",
+    "品质经理"
+   ]
+  },
+  {
+   "id": "REQ-D-LABOR-LAW",
+   "name": "国家法律法规知识",
+   "dimension": "D",
+   "kind": "component",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_劳动法"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": []
+  },
+  {
+   "id": "REQ-D-NPI-PROCESS",
+   "name": "新产品报价/样品/转量产流程",
+   "dimension": "D",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": [
+    "专案工程师"
+   ]
+  },
+  {
+   "id": "REQ-D-OFFICE",
+   "name": "Office 办公软件(Word/Excel/PPT)",
+   "dimension": "D",
+   "kind": "composite",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_Word",
+    "skill_Excel",
+    "skill_PowerPoint"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": [
+    "专案工程师",
+    "关务报关员",
+    "副总助理"
+   ]
+  },
+  {
+   "id": "REQ-D-OFFICE-NETWORK",
+   "name": "Office 软件 + 办公室网络",
+   "dimension": "D",
+   "kind": "composite",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_Excel",
+    "skill_Word",
+    "skill_PowerPoint"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": []
+  },
+  {
+   "id": "REQ-D-QA-ANALYSIS",
+   "name": "品质问题分析改善能力",
+   "dimension": "D",
+   "kind": "component",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_品质问题分析"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": [
+    "品质经理"
+   ]
+  },
+  {
+   "id": "REQ-D-QA-TOOLS",
+   "name": "品质工具(QC七大手法/5WHY/SPC/CPK/6S)",
+   "dimension": "D",
+   "kind": "composite",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_QC七大手法",
+    "skill_SPC",
+    "skill_CPK",
+    "skill_6S",
+    "skill_5WHY"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": [
+    "品质经理"
+   ]
+  },
+  {
+   "id": "REQ-D-RECRUIT-CHANNEL",
+   "name": "招聘渠道",
+   "dimension": "D",
+   "kind": "component",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_招聘"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": []
+  },
+  {
+   "id": "REQ-D-RECRUIT-KNOWLEDGE",
+   "name": "招聘知识",
+   "dimension": "D",
+   "kind": "component",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_招聘"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": []
+  },
+  {
+   "id": "REQ-D-RECRUIT-SKILL",
+   "name": "招聘技巧",
+   "dimension": "D",
+   "kind": "component",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_招聘"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": []
+  },
+  {
+   "id": "REQ-D-REPORT-WRITING",
+   "name": "报表整理能力",
+   "dimension": "D",
+   "kind": "component",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_Excel"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": [
+    "关务报关员"
+   ]
+  },
+  {
+   "id": "REQ-D-SOCIAL-INSURANCE",
+   "name": "社保操作流程",
+   "dimension": "D",
+   "kind": "component",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_社保操作"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": []
+  },
+  {
+   "id": "REQ-D-SYSTEM-MGMT",
+   "name": "体系管理",
+   "dimension": "D",
+   "kind": "component",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_体系管理"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": []
+  },
+  {
+   "id": "REQ-D-SYSTEM-PLANNING",
+   "name": "系统规划",
+   "dimension": "D",
+   "kind": "component",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_系统规划"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": []
+  },
+  {
+   "id": "REQ-D-TRAINING-DEV",
+   "name": "培训课程开发",
+   "dimension": "D",
+   "kind": "component",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_培训课程开发"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": []
+  },
+  {
+   "id": "REQ-D-WIRE-EQUIPMENT",
+   "name": "电线加工设备(熟知并会操作)",
+   "dimension": "D",
+   "kind": "composite",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_裁线机",
+    "skill_端子机",
+    "skill_自动机",
+    "skill_注塑机",
+    "skill_点胶机"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": [
+    "专案工程师"
+   ]
+  },
+  {
+   "id": "REQ-E-ACCOUNTABILITY",
+   "name": "敢于担当",
+   "dimension": "E",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": [
+    "副总助理"
+   ]
+  },
+  {
+   "id": "REQ-E-BIZ-INTENT",
+   "name": "业务发展意向",
+   "dimension": "E",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": []
+  },
+  {
+   "id": "REQ-E-CAREFUL",
+   "name": "细心严谨",
+   "dimension": "E",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": [
+    "专案工程师"
+   ]
+  },
+  {
+   "id": "REQ-E-COMMUNICATION",
+   "name": "沟通协调能力",
+   "dimension": "E",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": [
+    "业务跟单",
+    "关务报关员",
+    "副总助理",
+    "品质经理"
+   ]
+  },
+  {
+   "id": "REQ-E-DAILY-CLOSE",
+   "name": "日清日结",
+   "dimension": "E",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": [
+    "关务报关员",
+    "副总助理"
+   ]
+  },
+  {
+   "id": "REQ-E-DATA-SENSITIVITY",
+   "name": "数据敏感",
+   "dimension": "E",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": [
+    "关务报关员",
+    "副总助理"
+   ]
+  },
+  {
+   "id": "REQ-E-ETHICS",
+   "name": "职业道德",
+   "dimension": "E",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": [
+    "关务报关员"
+   ]
+  },
+  {
+   "id": "REQ-E-EXECUTION",
+   "name": "执行能力",
+   "dimension": "E",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": [
+    "关务报关员",
+    "副总助理"
+   ]
+  },
+  {
+   "id": "REQ-E-JOB-INTEREST",
+   "name": "岗位工作兴趣",
+   "dimension": "E",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": []
+  },
+  {
+   "id": "REQ-E-LOGIC",
+   "name": "逻辑清晰",
+   "dimension": "E",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": [
+    "副总助理"
+   ]
+  },
+  {
+   "id": "REQ-E-OPENNESS",
+   "name": "性格开朗",
+   "dimension": "E",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": []
+  },
+  {
+   "id": "REQ-E-PRINCIPLE",
+   "name": "原则性",
+   "dimension": "E",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": [
+    "副总助理"
+   ]
+  },
+  {
+   "id": "REQ-E-PROACTIVE",
+   "name": "工作积极主动",
+   "dimension": "E",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": [
+    "关务报关员"
+   ]
+  },
+  {
+   "id": "REQ-E-RESPONSIBILITY",
+   "name": "责任心",
+   "dimension": "E",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": [
+    "关务报关员",
+    "副总助理"
+   ]
+  },
+  {
+   "id": "REQ-E-STEADY",
+   "name": "稳重",
+   "dimension": "E",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": []
+  },
+  {
+   "id": "REQ-E-STRESS",
+   "name": "抗压能力 / 多线程处理",
+   "dimension": "E",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": [
+    "专案工程师",
+    "业务跟单"
+   ]
+  },
+  {
+   "id": "REQ-E-STRIVING",
+   "name": "奋斗精神",
+   "dimension": "E",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": [
+    "专案工程师",
+    "副总助理"
+   ]
+  },
+  {
+   "id": "REQ-E-TEAMWORK",
+   "name": "团队合作",
+   "dimension": "E",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": null,
+   "op": null,
+   "jds": [
+    "关务报关员"
+   ]
+  },
+  {
+   "id": "REQ-F-TRADE-COMPLIANCE-TRAINING",
+   "name": "贸易安全合规培训考核",
+   "dimension": "F",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": "F.3",
+   "op": null,
+   "jds": [
+    "关务报关员"
+   ]
+  },
+  {
+   "id": "REQ-G-CONFIDENTIALITY",
+   "name": "数据保密 / 无信息泄露记录",
+   "dimension": "G",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": "G.1",
+   "op": null,
+   "jds": [
+    "业务跟单"
+   ]
+  },
+  {
+   "id": "REQ-G-NO-CRIMINAL-RECORD",
+   "name": "无处罚及犯罪记录",
+   "dimension": "G",
+   "kind": "unmeasurable",
+   "data_class": "soft",
+   "assessable": false,
+   "components": [],
+   "attribute": "G.1",
+   "op": null,
+   "jds": [
+    "关务报关员"
+   ]
+  },
+  {
+   "id": "REQ-H-LANG-EN",
+   "name": "英语(口语 + 独立书写英文8D报告)",
+   "dimension": "D",
+   "kind": "composite",
+   "data_class": "capability",
+   "assessable": true,
+   "components": [
+    "skill_英语",
+    "skill_8D报告"
+   ],
+   "attribute": null,
+   "op": "holds",
+   "jds": [
+    "品质经理"
+   ]
+  },
+  {
+   "id": "REQ-HR-COMMUTE",
+   "name": "能接受上班地点",
+   "dimension": "A",
+   "kind": "boolean",
+   "data_class": "fact",
+   "assessable": true,
+   "components": [],
+   "attribute": "A.4",
+   "op": "=",
+   "jds": [
+    "品质经理"
+   ]
+  },
+  {
+   "id": "REQ-HR-NOTICE",
+   "name": "到岗时间不超过",
+   "dimension": "A",
+   "kind": "threshold",
+   "data_class": "fact",
+   "assessable": true,
+   "components": [],
+   "attribute": "A.3",
+   "op": "<=",
+   "jds": [
+    "品质经理"
+   ]
+  },
+  {
+   "id": "REQ-HR-SALARY",
+   "name": "期望薪资不超过岗位上限",
+   "dimension": "A",
+   "kind": "threshold",
+   "data_class": "fact",
+   "assessable": true,
+   "components": [],
+   "attribute": "A.5",
+   "op": "<=",
+   "jds": [
+    "品质经理"
+   ]
+  },
+  {
+   "id": "REQ-HR-STABILITY",
+   "name": "近 5 年任职不超过",
+   "dimension": "C",
+   "kind": "threshold",
+   "data_class": "fact",
+   "assessable": true,
+   "components": [],
+   "attribute": "C.7",
+   "op": "<=",
+   "jds": [
+    "品质经理"
+   ]
+  },
+  {
+   "id": "REQ-HR-TENURE",
+   "name": "平均在职不低于",
+   "dimension": "C",
+   "kind": "threshold",
+   "data_class": "fact",
+   "assessable": true,
+   "components": [],
+   "attribute": "C.4",
+   "op": ">=",
+   "jds": [
+    "品质经理"
+   ]
+  }
+ ],
+ "jd_template": {
+  "name": "职务说明书",
+  "rule": "渲染 jd 非 null 的字段;其余标「JD 未写」",
+  "field_count": 66,
+  "sections": [
+   {
+    "code": "S1",
+    "label": "岗位标识",
+    "fields": [
+     {
+      "id": "F.DEPARTMENT",
+      "label": "隶属部门",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 10,
+      "required": true,
+      "prop": null,
+      "compare": "jd_only",
+      "note": null
+     },
+     {
+      "id": "F.JD_APPROVERS",
+      "label": "核准/审核/制订",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 8,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_DOC_NUMBER",
+      "label": "文件编号",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 9,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_JOB_GRADE",
+      "label": "职级",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_OCCUPATION_CODE",
+      "label": "职业编码",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_PAGE_COUNT",
+      "label": "页数",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 8,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_VERSION",
+      "label": "版本",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 10,
+      "required": true,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JOB_TITLE",
+      "label": "职务名称",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 10,
+      "required": true,
+      "prop": null,
+      "compare": "not_comparable",
+      "note": "不是同一条信息:JD 的职务名称是岗位;简历的「意向职位」是候选人的期望。"
+     },
+     {
+      "id": "F.MGMT_CATEGORY",
+      "label": "岗位类别",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": true,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "经理岗 / 员工岗。决定用哪份模板 —— 不能按岗位名猜:品质经理原文写「直接下属:无」"
+     },
+     {
+      "id": "F.REPORTS_TO",
+      "label": "直接上司",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 10,
+      "required": true,
+      "prop": null,
+      "compare": "jd_only",
+      "note": null
+     },
+     {
+      "id": "F.SUPERVISES",
+      "label": "直接下属",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 10,
+      "required": true,
+      "prop": null,
+      "compare": "jd_only",
+      "note": null
+     }
+    ]
+   },
+   {
+    "code": "S2",
+    "label": "岗位目的",
+    "fields": [
+     {
+      "id": "F.JD_JOB_PURPOSE",
+      "label": "岗位目的",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_SUCCESS_CRITERIA",
+      "label": "关键成功指标",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.TEAM_GOAL",
+      "label": "团队/部门目标",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     }
+    ]
+   },
+   {
+    "code": "S3",
+    "label": "任职资格",
+    "fields": [
+     {
+      "id": "F.AGE",
+      "label": "年龄",
+      "dimension": "A",
+      "scale": "interval",
+      "unit": "岁",
+      "presence": 4,
+      "required": false,
+      "prop": null,
+      "compare": "both",
+      "note": "JD 写区间;简历 47% 直述年龄、19% 写出生年月(可推算)。"
+     },
+     {
+      "id": "F.CERTIFICATION",
+      "label": "资格证书",
+      "dimension": "F",
+      "scale": "nominal",
+      "unit": null,
+      "presence": 1,
+      "required": false,
+      "prop": null,
+      "compare": "both",
+      "note": "两侧都有:JD 提「合规培训考核」,简历 109/270 写内审员/CET 等。"
+     },
+     {
+      "id": "F.COMPETENCY",
+      "label": "职业素养",
+      "dimension": "E",
+      "scale": "ordinal",
+      "unit": null,
+      "presence": 9,
+      "required": true,
+      "prop": null,
+      "compare": "not_comparable",
+      "note": "**简历侧的「自我评价」是自我陈述,不构成判定依据** —— 所以两侧虽有字段,仍不可比。"
+     },
+     {
+      "id": "F.EDU_FULLTIME",
+      "label": "是否全日制",
+      "dimension": "B",
+      "scale": "nominal",
+      "unit": null,
+      "presence": 1,
+      "required": false,
+      "prop": null,
+      "compare": "not_comparable",
+      "note": "**简历侧没有任何一份直接写「全日制」** —— 只能从自考/成教/统招推断,而推断没有出处。"
+     },
+     {
+      "id": "F.EDU_LEVEL",
+      "label": "学历",
+      "dimension": "B",
+      "scale": "ordinal",
+      "unit": null,
+      "presence": 10,
+      "required": true,
+      "prop": null,
+      "compare": "both",
+      "note": "JD 侧几乎必写门槛;简历侧 179/270 有标签,但需与院校逐段对应。"
+     },
+     {
+      "id": "F.EDU_MAJOR",
+      "label": "专业",
+      "dimension": "B",
+      "scale": "nominal",
+      "unit": null,
+      "presence": 6,
+      "required": false,
+      "prop": null,
+      "compare": "both",
+      "note": "JD 写「XX类专业」;简历 43% 写明。缺失时这条要求判不了 —— 不是不合格。"
+     },
+     {
+      "id": "F.EXP_ACTIVITY",
+      "label": "活动经验",
+      "dimension": "C",
+      "scale": "nominal",
+      "unit": null,
+      "presence": 2,
+      "required": false,
+      "prop": null,
+      "compare": "both",
+      "note": "「做过客户验厂」这类经验只能从工作描述里读;描述标签只有 56/270。"
+     },
+     {
+      "id": "F.EXP_DOMAIN",
+      "label": "职能域",
+      "dimension": "C",
+      "scale": "nominal",
+      "unit": null,
+      "presence": 4,
+      "required": false,
+      "prop": null,
+      "compare": "not_comparable",
+      "note": "JD 写「文职类/管理类」;简历只有职位名。分类标准本身不存在,需先定义。"
+     },
+     {
+      "id": "F.EXP_INDUSTRY",
+      "label": "行业",
+      "dimension": "C",
+      "scale": "nominal",
+      "unit": null,
+      "presence": 3,
+      "required": false,
+      "prop": null,
+      "compare": "not_comparable",
+      "note": "简历不写行业;只能从公司名推断 —— 推断无出处。"
+     },
+     {
+      "id": "F.EXP_YEARS",
+      "label": "总年限",
+      "dimension": "C",
+      "scale": "interval",
+      "unit": "年",
+      "presence": 7,
+      "required": true,
+      "prop": null,
+      "compare": "both",
+      "note": "三个口径:平台文件名(被截断)/ 简历自述 / 逐段累计。要求必须声明用哪个。"
+     },
+     {
+      "id": "F.GENDER",
+      "label": "性别",
+      "dimension": "A",
+      "scale": "nominal",
+      "unit": null,
+      "presence": 3,
+      "required": false,
+      "prop": null,
+      "compare": "both",
+      "note": "A 维无外部标准依据(LinkedIn 与 HR-XML 都无此字段),standard_ref 恒为 NULL。"
+     },
+     {
+      "id": "F.LANGUAGE_LEVEL",
+      "label": "语言熟练度",
+      "dimension": "H",
+      "scale": "ordinal",
+      "unit": null,
+      "presence": 1,
+      "required": false,
+      "prop": null,
+      "compare": "not_comparable",
+      "note": "简历只写 CET-4/6 或「熟练」,无统一刻度;CEFR 映射不存在。"
+     },
+     {
+      "id": "F.SKILL",
+      "label": "技能",
+      "dimension": "D",
+      "scale": "nominal",
+      "unit": null,
+      "presence": 10,
+      "required": true,
+      "prop": null,
+      "compare": "both",
+      "note": "唯一 10/10 全员必写、且两侧都有实据的维度。词表见 component_catalog.yaml。"
+     }
+    ]
+   },
+   {
+    "code": "S4",
+    "label": "岗位职责",
+    "fields": [
+     {
+      "id": "F.BUDGET_OWNERSHIP",
+      "label": "预算与成本责任",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.CROSS_DEPT",
+      "label": "跨部门接口",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.DECISION_AUTHORITY",
+      "label": "决策权限",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_DUTY_COMPETENCY",
+      "label": "职责对应能力",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_DUTY_ITEMS",
+      "label": "职责条目",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 10,
+      "required": true,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_DUTY_WEIGHT",
+      "label": "职责权重",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.MGMT_SPAN",
+      "label": "管理幅度",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": true,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "直接/间接下属人数。岗位侧字段,简历无对应项"
+     }
+    ]
+   },
+   {
+    "code": "S5",
+    "label": "作业明细",
+    "fields": [
+     {
+      "id": "F.JD_ACTIVITY_AI_FIT",
+      "label": "AI 可否替代",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 2,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_ACTIVITY_DURATION",
+      "label": "时长",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 4,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_ACTIVITY_FORM",
+      "label": "关联表单",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 3,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_ACTIVITY_FREQ",
+      "label": "频次(日/周/月/年/偶发)",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 10,
+      "required": true,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_ACTIVITY_SEQ",
+      "label": "序号",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 10,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_ACTIVITY_SOP",
+      "label": "操作标准流程",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 2,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_ACTIVITY_TEXT",
+      "label": "内容",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 10,
+      "required": true,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.SHIFT_HANDOVER",
+      "label": "排班与交接",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     }
+    ]
+   },
+   {
+    "code": "S6",
+    "label": "工作条件",
+    "fields": [
+     {
+      "id": "F.JD_ENVIRONMENT",
+      "label": "环境(噪音/粉尘/温度)",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_PHYSICAL_DEMAND",
+      "label": "体力/站立/搬运",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_PPE",
+      "label": "劳保/防护",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_TRAVEL",
+      "label": "出差",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 3,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_WORK_HOURS",
+      "label": "工时",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 3,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_WORK_LOCATION",
+      "label": "工作地点/厂区",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.SHIFT",
+      "label": "班制",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "两侧都没有 —— 这是制造业招聘最要紧的一项,却全批缺失。"
+     },
+     {
+      "id": "F.WORK_LOCATION",
+      "label": "工作地点",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "not_comparable",
+      "note": "**JD 全批都没写工作地点,简历 41% 有现居地** —— 无法比对通勤半径。"
+     }
+    ]
+   },
+   {
+    "code": "S7",
+    "label": "元数据",
+    "fields": [
+     {
+      "id": "F.AVAILABILITY",
+      "label": "到岗日期",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "cv_only",
+      "note": null
+     },
+     {
+      "id": "F.JD_DATE_POSTED",
+      "label": "发布日期",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_FIRST_ISSUED",
+      "label": "首次发行日",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 9,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_HEADCOUNT",
+      "label": "编制/招聘人数",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 1,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_HIRING_REASON",
+      "label": "招聘原因",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_POSTING_CHANNEL",
+      "label": "发布渠道",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 1,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_REVISION_HISTORY",
+      "label": "修订履历",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 10,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_VALID_UNTIL",
+      "label": "有效期/截止",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.SALARY",
+      "label": "薪资",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "not_comparable",
+      "note": "**JD 侧无薪资区间,简历侧 26% 有期望薪资** —— 单边数据不构成比较。"
+     }
+    ]
+   },
+   {
+    "code": "S8",
+    "label": "合规声明",
+    "fields": [
+     {
+      "id": "F.CLEARANCE",
+      "label": "法律记录 / 无犯罪",
+      "dimension": "G",
+      "scale": "nominal",
+      "unit": null,
+      "presence": 1,
+      "required": false,
+      "prop": null,
+      "compare": "not_comparable",
+      "note": "**简历侧完全没有对应字段** —— 只能要证明文件。"
+     },
+     {
+      "id": "F.JD_CLEAN_RECORD",
+      "label": "无犯罪/无行政处罚",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 1,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_CONFIDENTIALITY",
+      "label": "保密/数据保密",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 2,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_CONTRACT_TYPE",
+      "label": "用工类型/合同",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 3,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_NON_COMPETE",
+      "label": "竞业限制",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 0,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_PROBATION",
+      "label": "试用期",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 1,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     },
+     {
+      "id": "F.JD_SOCIAL_INSURANCE",
+      "label": "社保",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 1,
+      "required": false,
+      "prop": null,
+      "compare": "jd_only",
+      "note": "岗位侧字段,简历无对应项"
+     }
+    ]
+   }
+  ]
+ },
+ "cv_template": {
+  "name": "候选人档案",
+  "rule": "渲染 cv 非 null 的字段;其余标〔待补〕",
+  "field_count": 31,
+  "sections": [
+   {
+    "code": "C1",
+    "label": "基本信息",
+    "fields": [
+     {
+      "id": "F.AGE",
+      "label": "年龄",
+      "dimension": "A",
+      "scale": "interval",
+      "unit": "岁",
+      "presence": 129,
+      "required": null,
+      "prop": "age",
+      "compare": "both",
+      "note": "JD 写区间;简历 47% 直述年龄、19% 写出生年月(可推算)。"
+     },
+     {
+      "id": "F.CV_BIRTH_DATE",
+      "label": "出生年月",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 52,
+      "required": null,
+      "prop": "birthDate",
+      "compare": "cv_only",
+      "note": "候选人侧字段,JD 无对应项"
+     },
+     {
+      "id": "F.CV_EMAIL",
+      "label": "电子邮箱",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 173,
+      "required": null,
+      "prop": "email",
+      "compare": "cv_only",
+      "note": "候选人侧字段,JD 无对应项"
+     },
+     {
+      "id": "F.CV_FULL_NAME",
+      "label": "姓名",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 24,
+      "required": null,
+      "prop": "fullName",
+      "compare": "cv_only",
+      "note": "候选人侧字段,JD 无对应项"
+     },
+     {
+      "id": "F.CV_MARITAL_STATUS",
+      "label": "婚姻状况",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 11,
+      "required": null,
+      "prop": "marital",
+      "compare": "cv_only",
+      "note": "候选人侧字段,JD 无对应项"
+     },
+     {
+      "id": "F.CV_NATIVE_PLACE",
+      "label": "籍贯",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 19,
+      "required": null,
+      "prop": "hometown",
+      "compare": "cv_only",
+      "note": "候选人侧字段,JD 无对应项"
+     },
+     {
+      "id": "F.CV_PHONE",
+      "label": "联系电话",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 120,
+      "required": null,
+      "prop": "phone",
+      "compare": "cv_only",
+      "note": "候选人侧字段,JD 无对应项"
+     },
+     {
+      "id": "F.GENDER",
+      "label": "性别",
+      "dimension": "A",
+      "scale": "nominal",
+      "unit": null,
+      "presence": 153,
+      "required": null,
+      "prop": "gender",
+      "compare": "both",
+      "note": "A 维无外部标准依据(LinkedIn 与 HR-XML 都无此字段),standard_ref 恒为 NULL。"
+     },
+     {
+      "id": "F.JOB_TITLE",
+      "label": "职务名称",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 192,
+      "required": null,
+      "prop": "jobTitle",
+      "compare": "not_comparable",
+      "note": "不是同一条信息:JD 的职务名称是岗位;简历的「意向职位」是候选人的期望。"
+     },
+     {
+      "id": "F.WORK_LOCATION",
+      "label": "工作地点",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 113,
+      "required": null,
+      "prop": "workLocation",
+      "compare": "not_comparable",
+      "note": "**JD 全批都没写工作地点,简历 41% 有现居地** —— 无法比对通勤半径。"
+     }
+    ]
+   },
+   {
+    "code": "C2",
+    "label": "求职意向",
+    "fields": [
+     {
+      "id": "F.AVAILABILITY",
+      "label": "到岗日期",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 123,
+      "required": null,
+      "prop": "notice_weeks",
+      "compare": "cv_only",
+      "note": null
+     },
+     {
+      "id": "F.CV_CURRENT_SALARY",
+      "label": "目前年薪",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 5,
+      "required": null,
+      "prop": "current_salary_k",
+      "compare": "cv_only",
+      "note": "候选人侧字段,JD 无对应项"
+     },
+     {
+      "id": "F.CV_JOB_TYPE",
+      "label": "求职类型",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 15,
+      "required": null,
+      "prop": "job_type",
+      "compare": "cv_only",
+      "note": "候选人侧字段,JD 无对应项"
+     },
+     {
+      "id": "F.SALARY",
+      "label": "薪资",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 71,
+      "required": null,
+      "prop": "salary",
+      "compare": "not_comparable",
+      "note": "**JD 侧无薪资区间,简历侧 26% 有期望薪资** —— 单边数据不构成比较。"
+     }
+    ]
+   },
+   {
+    "code": "C3",
+    "label": "教育背景",
+    "fields": [
+     {
+      "id": "F.CV_EDU_PERIOD",
+      "label": "起止时间",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 267,
+      "required": null,
+      "prop": "edu_period",
+      "compare": "cv_only",
+      "note": "候选人侧字段,JD 无对应项"
+     },
+     {
+      "id": "F.CV_INSTITUTION",
+      "label": "毕业院校",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 67,
+      "required": null,
+      "prop": "institution",
+      "compare": "cv_only",
+      "note": "候选人侧字段,JD 无对应项"
+     },
+     {
+      "id": "F.EDU_FULLTIME",
+      "label": "是否全日制",
+      "dimension": "B",
+      "scale": "nominal",
+      "unit": null,
+      "presence": 0,
+      "required": null,
+      "prop": "full_time",
+      "compare": "not_comparable",
+      "note": "**简历侧没有任何一份直接写「全日制」** —— 只能从自考/成教/统招推断,而推断没有出处。"
+     },
+     {
+      "id": "F.EDU_LEVEL",
+      "label": "学历",
+      "dimension": "B",
+      "scale": "ordinal",
+      "unit": null,
+      "presence": 179,
+      "required": null,
+      "prop": "education_rank",
+      "compare": "both",
+      "note": "JD 侧几乎必写门槛;简历侧 179/270 有标签,但需与院校逐段对应。"
+     },
+     {
+      "id": "F.EDU_MAJOR",
+      "label": "专业",
+      "dimension": "B",
+      "scale": "nominal",
+      "unit": null,
+      "presence": 117,
+      "required": null,
+      "prop": "major",
+      "compare": "both",
+      "note": "JD 写「XX类专业」;简历 43% 写明。缺失时这条要求判不了 —— 不是不合格。"
+     }
+    ]
+   },
+   {
+    "code": "C4",
+    "label": "工作经历",
+    "fields": [
+     {
+      "id": "F.CV_EMPLOYER",
+      "label": "公司名称",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 255,
+      "required": null,
+      "prop": "employer",
+      "compare": "cv_only",
+      "note": "候选人侧字段,JD 无对应项"
+     },
+     {
+      "id": "F.EXP_ACTIVITY",
+      "label": "活动经验",
+      "dimension": "C",
+      "scale": "nominal",
+      "unit": null,
+      "presence": 56,
+      "required": null,
+      "prop": "activity_experience",
+      "compare": "both",
+      "note": "「做过客户验厂」这类经验只能从工作描述里读;描述标签只有 56/270。"
+     },
+     {
+      "id": "F.EXP_DOMAIN",
+      "label": "职能域",
+      "dimension": "C",
+      "scale": "nominal",
+      "unit": null,
+      "presence": 135,
+      "required": null,
+      "prop": "domain",
+      "compare": "not_comparable",
+      "note": "JD 写「文职类/管理类」;简历只有职位名。分类标准本身不存在,需先定义。"
+     },
+     {
+      "id": "F.EXP_INDUSTRY",
+      "label": "行业",
+      "dimension": "C",
+      "scale": "nominal",
+      "unit": null,
+      "presence": 0,
+      "required": null,
+      "prop": "industry",
+      "compare": "not_comparable",
+      "note": "简历不写行业;只能从公司名推断 —— 推断无出处。"
+     },
+     {
+      "id": "F.EXP_YEARS",
+      "label": "总年限",
+      "dimension": "C",
+      "scale": "interval",
+      "unit": "年",
+      "presence": 267,
+      "required": null,
+      "prop": "years_stated",
+      "compare": "both",
+      "note": "三个口径:平台文件名(被截断)/ 简历自述 / 逐段累计。要求必须声明用哪个。"
+     }
+    ]
+   },
+   {
+    "code": "C5",
+    "label": "技能与证书",
+    "fields": [
+     {
+      "id": "F.CERTIFICATION",
+      "label": "资格证书",
+      "dimension": "F",
+      "scale": "nominal",
+      "unit": null,
+      "presence": 109,
+      "required": null,
+      "prop": "hasCertification",
+      "compare": "both",
+      "note": "两侧都有:JD 提「合规培训考核」,简历 109/270 写内审员/CET 等。"
+     },
+     {
+      "id": "F.CV_LANGUAGE",
+      "label": "语言能力",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 109,
+      "required": null,
+      "prop": "language",
+      "compare": "cv_only",
+      "note": "候选人侧字段,JD 无对应项"
+     },
+     {
+      "id": "F.LANGUAGE_LEVEL",
+      "label": "语言熟练度",
+      "dimension": "H",
+      "scale": "ordinal",
+      "unit": null,
+      "presence": 0,
+      "required": null,
+      "prop": "language_level",
+      "compare": "not_comparable",
+      "note": "简历只写 CET-4/6 或「熟练」,无统一刻度;CEFR 映射不存在。"
+     },
+     {
+      "id": "F.SKILL",
+      "label": "技能",
+      "dimension": "D",
+      "scale": "nominal",
+      "unit": null,
+      "presence": 140,
+      "required": null,
+      "prop": "hasSkill",
+      "compare": "both",
+      "note": "唯一 10/10 全员必写、且两侧都有实据的维度。词表见 component_catalog.yaml。"
+     }
+    ]
+   },
+   {
+    "code": "C6",
+    "label": "其他",
+    "fields": [
+     {
+      "id": "F.COMPETENCY",
+      "label": "职业素养",
+      "dimension": "E",
+      "scale": "ordinal",
+      "unit": null,
+      "presence": 62,
+      "required": null,
+      "prop": "competency",
+      "compare": "not_comparable",
+      "note": "**简历侧的「自我评价」是自我陈述,不构成判定依据** —— 所以两侧虽有字段,仍不可比。"
+     },
+     {
+      "id": "F.CV_PROJECTS",
+      "label": "项目经验",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 42,
+      "required": null,
+      "prop": "projects",
+      "compare": "cv_only",
+      "note": "候选人侧字段,JD 无对应项"
+     },
+     {
+      "id": "F.CV_TRAININGS",
+      "label": "培训经历",
+      "dimension": null,
+      "scale": null,
+      "unit": null,
+      "presence": 94,
+      "required": null,
+      "prop": "trainings",
+      "compare": "cv_only",
+      "note": "候选人侧字段,JD 无对应项"
+     }
+    ]
+   }
+  ]
+ },
+ "coverage": {
+  "categories": 22,
+  "components": 54,
+  "requirements": 61,
+  "fields": 80,
+  "components_with_evidence_role": 15,
+  "components_evidence_role_missing": [
+   "skill_行政",
+   "skill_SAP",
+   "skill_AutoCAD",
+   "skill_CATIA",
+   "skill_ProE_Creo",
+   "skill_Rhino",
+   "skill_SolidWorks",
+   "skill_UG_NX",
+   "skill_薪酬绩效",
+   "skill_贸易安全合规",
+   "skill_单证",
+   "skill_报关",
+   "skill_CorelDRAW",
+   "skill_Illustrator",
+   "skill_Photoshop",
+   "skill_财务",
+   "skill_企业文化建设",
+   "skill_体系管理",
+   "skill_培训课程开发",
+   "skill_数据分析",
+   "skill_系统规划",
+   "skill_切片",
+   "skill_端子",
+   "skill_识图",
+   "skill_社保操作",
+   "skill_劳动法",
+   "skill_Word",
+   "skill_PowerPoint",
+   "skill_5S",
+   "skill_精益生产",
+   "skill_跟单",
+   "skill_FMEA",
+   "skill_招聘",
+   "skill_外贸业务",
+   "skill_注塑机",
+   "skill_点胶机",
+   "skill_端子机",
+   "skill_自动机",
+   "skill_裁线机"
+  ],
+  "requirements_used_by_jds": 42,
+  "requirements_unused": [
+   "REQ-D-AI-TOOLS",
+   "REQ-D-ATTENDANCE-SYSTEM",
+   "REQ-D-BIZ-ETIQUETTE",
+   "REQ-D-CULTURE-BUILD",
+   "REQ-D-DATA-ANALYSIS",
+   "REQ-D-DRAWING-READ",
+   "REQ-D-LABOR-LAW",
+   "REQ-D-OFFICE-NETWORK",
+   "REQ-D-RECRUIT-CHANNEL",
+   "REQ-D-RECRUIT-KNOWLEDGE",
+   "REQ-D-RECRUIT-SKILL",
+   "REQ-D-SOCIAL-INSURANCE",
+   "REQ-D-SYSTEM-MGMT",
+   "REQ-D-SYSTEM-PLANNING",
+   "REQ-D-TRAINING-DEV",
+   "REQ-E-BIZ-INTENT",
+   "REQ-E-JOB-INTEREST",
+   "REQ-E-OPENNESS",
+   "REQ-E-STEADY"
+  ],
+  "components_unused": [
+   "skill_5S",
+   "skill_CATIA",
+   "skill_CorelDRAW",
+   "skill_FMEA",
+   "skill_ISO9001",
+   "skill_ISO_TS16949",
+   "skill_Illustrator",
+   "skill_Photoshop",
+   "skill_ProE_Creo",
+   "skill_Rhino",
+   "skill_SAP",
+   "skill_SolidWorks",
+   "skill_UG_NX",
+   "skill_企业文化建设",
+   "skill_体系管理",
+   "skill_切片",
+   "skill_劳动法",
+   "skill_培训课程开发",
+   "skill_外贸业务",
+   "skill_招聘",
+   "skill_数据分析",
+   "skill_社保操作",
+   "skill_端子",
+   "skill_精益生产",
+   "skill_系统规划",
+   "skill_薪酬绩效",
+   "skill_行政",
+   "skill_识图",
+   "skill_财务",
+   "skill_贸易安全合规",
+   "skill_跟单"
+  ],
+  "requirements_unassessable": [
+   "REQ-A-GENDER",
+   "REQ-B-FULL-TIME",
+   "REQ-D-AI-TOOLS",
+   "REQ-D-ATTENDANCE-SYSTEM",
+   "REQ-D-BIZ-ETIQUETTE",
+   "REQ-D-NPI-PROCESS",
+   "REQ-E-ACCOUNTABILITY",
+   "REQ-E-BIZ-INTENT",
+   "REQ-E-CAREFUL",
+   "REQ-E-COMMUNICATION",
+   "REQ-E-DAILY-CLOSE",
+   "REQ-E-DATA-SENSITIVITY",
+   "REQ-E-ETHICS",
+   "REQ-E-EXECUTION",
+   "REQ-E-JOB-INTEREST",
+   "REQ-E-LOGIC",
+   "REQ-E-OPENNESS",
+   "REQ-E-PRINCIPLE",
+   "REQ-E-PROACTIVE",
+   "REQ-E-RESPONSIBILITY",
+   "REQ-E-STEADY",
+   "REQ-E-STRESS",
+   "REQ-E-STRIVING",
+   "REQ-E-TEAMWORK",
+   "REQ-F-TRADE-COMPLIANCE-TRAINING",
+   "REQ-G-CONFIDENTIALITY",
+   "REQ-G-NO-CRIMINAL-RECORD"
+  ],
+  "jds": {
+   "专案工程师": {
+    "citations": 9
+   },
+   "业务跟单": {
+    "citations": 9
+   },
+   "关务报关员": {
+    "citations": 17
+   },
+   "副总助理": {
+    "citations": 16
+   },
+   "品质经理": {
+    "citations": 15
+   }
+  }
+ }
+}

@@ -1230,6 +1230,18 @@ def main() -> int:
         except Exception as exc:
             check_true("短名单门禁跑完了(中途崩溃 = 红,不是通过)",
                        False, f"{type(exc).__name__}: {exc}")
+        # 标准目录:分类/组件/模板的数字过期就红(它读三份 YAML,改一份没重跑必红)
+        try:
+            import subprocess as _sp3
+            _c = _sp3.run([sys.executable, "-m", "scripts.talent.build_catalog", "--check"],
+                          cwd=str(ROOT / "backend"), capture_output=True, text=True,
+                          env={k: v for k, v in os.environ.items() if k != "PGPORT"})
+            _out3 = ((_c.stdout or "") + (_c.stderr or "")).strip()
+            check_true("标准目录(catalog.json / CATALOG.md)是最新的", _c.returncode == 0,
+                       _out3.splitlines()[-1][:140] if _out3 else "没有输出")
+        except Exception as exc:  # noqa: BLE001
+            check_true("标准目录校验跑完了(中途崩溃 = 红)", False, f"{type(exc).__name__}: {exc}")
+
         # 教程 v2:数字过期、手写数字、反证失效都在里面查(它自己也是可失败的)
         try:
             import re as _re2

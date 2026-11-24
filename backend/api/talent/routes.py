@@ -139,6 +139,9 @@ def _jd_files(jd: str) -> list[dict]:
     if (TALENT / "OVERVIEW.md").is_file():
         add("OVERVIEW.md", "0 总览 · 完整流水线",
             "五步全景：每步业务做什么、技术怎么实现、门禁卡什么（演示用）")
+    if (TALENT / "CATALOG.md").is_file():
+        add("CATALOG.md", "0 标准目录 · 分类/组件/模板",
+            "22 分类 · 54 组件 · 61 要求 · JD 66 字段 / CV 31 字段，含缺口清单")
     add(f"jd_links/_source/{jd}.txt", "1 客户原文", "只读锚点")
     add(f"jd_links/{jd}.yaml", "2 引用文件", "改完要过逐字回查")
     add(f"jd_docs/{jd}.定稿.md", "3 定稿", "我方建议/排版可改")
