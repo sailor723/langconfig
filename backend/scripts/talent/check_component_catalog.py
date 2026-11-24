@@ -1320,6 +1320,51 @@ def check_standard_templates() -> None:
                ", ".join(fake_new[:6]))
     check_true("ST-G11 新增字段都是推理所需(带 data_item)", not no_item, ", ".join(no_item[:6]))
 
+    # ── 定稿草稿：拿一份真 JD 逐格填（品质经理是试点）────────────────────
+    draft_dir = ROOT / "work" / "talent" / "jd_draft"
+    drafts = sorted(p for p in draft_dir.glob("*.draft.json")) if draft_dir.is_dir() else []
+    if not drafts:
+        not_run("ST-G14 定稿草稿", f"{draft_dir} 里还没有 *.draft.json")
+    for dp in drafts:
+        jd_name = dp.name.replace(".draft.json", "")
+        try:
+            import subprocess as _sp6
+            _c6 = _sp6.run([sys.executable, "-m", "scripts.talent.draft_jd", "--jd", jd_name,
+                            "--check"], cwd=str(ROOT / "backend"), capture_output=True,
+                           text=True, env={k: v for k, v in os.environ.items() if k != "PGPORT"})
+            _o6 = ((_c6.stdout or "") + (_c6.stderr or "")).strip()
+            check_true(f"ST-G14 {jd_name}: 草稿是最新的", _c6.returncode == 0,
+                       _o6.splitlines()[-1][:140] if _o6 else "没有输出")
+        except Exception as exc:  # noqa: BLE001
+            check_true(f"ST-G14 {jd_name}: 校验跑完了(崩溃 = 红)", False, f"{type(exc).__name__}: {exc}")
+        try:
+            dd = json.loads(dp.read_text(encoding="utf-8"))
+            rows_d = dd.get("rows") or []
+            states = {"客户原文", "HR 侧", "原文·空值", "我方建议·待确认", "待客户给",
+                      "待客户确认", "不适用"}
+            codes_t = [r["code"] for r in rows["jd"]]
+            check_true(f"ST-G14 {jd_name}: 模板每个字段都填了（{len(codes_t)} 格）",
+                       [r["code"] for r in rows_d] == codes_t,
+                       f'实际 {len(rows_d)} 格')
+            bad_state = [r["code"] for r in rows_d if r.get("state") not in states]
+            check_true(f"ST-G14 {jd_name}: 每格状态合法(7 种)", not bad_state, ", ".join(bad_state[:6]))
+            no_ev = [r["code"] for r in rows_d
+                     if r.get("state") in ("客户原文", "HR 侧") and not r.get("evidence")]
+            check_true(f"ST-G14 {jd_name}: 进判定的格子都有依据(引用/原文行)", not no_ev,
+                       ", ".join(no_ev[:6]))
+            no_why = [r["code"] for r in rows_d
+                      if r.get("state") in ("我方建议·待确认", "待客户给", "待客户确认", "原文·空值")
+                      and not (r.get("why") and r.get("needs"))]
+            check_true(f"ST-G14 {jd_name}: 建议/待补的格子都写了理由与确认方", not no_why,
+                       ", ".join(no_why[:6]))
+            bad_na = [r["code"] for r in rows_d if r.get("state") == "不适用"
+                      and (r.get("level") != "conditional")]
+            check_true(f"ST-G14 {jd_name}: 「不适用」只在条件字段上", not bad_na, ", ".join(bad_na[:6]))
+            check_true(f"ST-G14 {jd_name}: 自检没有遗留问题", not dd.get("problems"),
+                       "; ".join((dd.get("problems") or [])[:4]))
+        except Exception as exc:  # noqa: BLE001
+            check_true(f"ST-G14 {jd_name}: 草稿可解析", False, f"{type(exc).__name__}: {exc}")
+
     # ── 试填：拿 5 份客户 JD 真填一遍，看模板够不够用 ──────────────────────
     fill_json = ROOT / "work" / "talent" / "template_fill" / "fill.json"
     if not fill_json.is_file():
