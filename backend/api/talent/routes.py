@@ -46,7 +46,7 @@ from typing import Any, Dict, Optional
 
 import yaml
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -117,8 +117,31 @@ def _resolve(rel: str, *, must_exist: bool = True) -> pathlib.Path:
     return candidate
 
 
+def _global_files() -> list[dict]:
+    """**不属于任何一份 JD** 的全局文档（标准目录 / 总览）。
+
+    浏览器是"单 JD 作用域"：选中哪份 JD，看到的就只是那份 JD 的产物。
+    所以全局文档不混进 JD 产物链，单独一份清单、单独一组显示 ——
+    否则"这份 JD 的产物里怎么有一份讲 22 个分类的目录"这种问题会一直出现。
+    """
+    out: list[dict] = []
+    for rel, layer, note in (
+        ("OVERVIEW.md", "总览 · 完整流水线", "五步全景：每步业务做什么、门禁卡什么"),
+        ("CATALOG.md", "标准目录 · Phase 0", "分类 / 组件 / 要求 / 标准 JD 40 / CV 26 模板"),
+        ("tutorial/TUTORIAL_v2.md", "教程 v2 · 从记录到判定",
+         "跨 JD 的读本：十四步，每步一个真数字 + 一个能变红的反证"),
+    ):
+        p = TALENT / rel
+        if not p.is_file():
+            continue
+        out.append({"path": rel, "layer": layer, "exists": True, "bytes": p.stat().st_size,
+                    "mtime": p.stat().st_mtime, "writable": False, "readonly_reason": "只读",
+                    "note": note, "scope": "global"})
+    return out
+
+
 def _jd_files(jd: str) -> list[dict]:
-    """某份 JD 的全部产物,按"哪一层"分组。"""
+    """**某一份 JD** 的全部产物,按"哪一层"分组。全局文档不在这里（见 _global_files）。"""
     items: list[dict] = []
 
     def add(rel: str, layer: str, note: str = "") -> None:
@@ -128,6 +151,7 @@ def _jd_files(jd: str) -> list[dict]:
         items.append({
             "path": rel,
             "layer": layer,
+            "scope": "jd",
             "exists": exists,
             "bytes": p.stat().st_size if exists else 0,
             "mtime": p.stat().st_mtime if exists else None,
@@ -136,16 +160,11 @@ def _jd_files(jd: str) -> list[dict]:
             "note": note,
         })
 
-    if (TALENT / "OVERVIEW.md").is_file():
-        add("OVERVIEW.md", "0 总览 · 完整流水线",
-            "五步全景：每步业务做什么、技术怎么实现、门禁卡什么（演示用）")
-    if (TALENT / "CATALOG.md").is_file():
-        add("CATALOG.md", "0 标准目录 · 分类/组件/模板",
-            "22 分类 · 54 组件 · 61 要求 · JD 66 字段 / CV 31 字段，含缺口清单")
     # 虚拟产物：不是磁盘文件，path 前缀 `@` 让前端走面板而不是读文件。
     # 放在最前面，因为"这份 JD 还缺什么"是打开就最该看到的。
     if jd in _jds():
         items.append({
+            "scope": "jd",
             "path": "@gap",
             "layer": "0 JD · 原文与缺口",
             "exists": True,
@@ -186,21 +205,15 @@ def _jd_files(jd: str) -> list[dict]:
     # 产物,却排在第 5 步名单后面,顺序本身就是错的。现在只留一条清单:
     # 打开是短表(名次/年龄/学历/年限/证据/判定),表里点「看 CV」在弹层里读全文。
     add(f"cv_docs/{jd}.CV清单.md", "4 CV 定稿 · 清单", "短表 + 每人一个「看 CV」入口")
-    # 教程 v2：跨 JD 的读本，数字全部由 tutorial_facts 算出来（有门禁查过期）
-    if (TALENT / "tutorial" / "TUTORIAL_v2.md").is_file():
-        add("tutorial/TUTORIAL_v2.md", "教程 v2 · 从记录到判定",
-            "十四步，每步一个真数字 + 一个能变红的反证")
 
     return items
 
 
 def _jds() -> list[str]:
-    if not (TALENT / "jd_links").is_dir():
-        return []
-    return sorted(p.stem for p in (TALENT / "jd_links").glob("*.yaml"))
+    """有哪些 JD —— 复用服务层定义（jd_links ∪ uploads），避免两处各写一份。"""
+    from services.talent_gap import known_jds
 
-
-# ── 校验:跑真脚本,不在这里重算 ──────────────────────────────
+    return known_jds()
 
 def _run(cmd: list[str], timeout: int = 300) -> dict:
     env = dict(os.environ)
@@ -411,6 +424,8 @@ def list_docs() -> Dict[str, Any]:
             for jd in jds
         ],
         "default_jd": _default_jd(),
+        # 单 JD 作用域：浏览器只显示选中那份 JD 的产物；全局文档单独一组
+        "globals": _global_files(),
         "writable_prefixes": WRITABLE,
         "readonly_prefixes": READONLY,
         "user": _who(),
@@ -433,6 +448,29 @@ def get_gap(jd: str = Query(..., description="必填：缺口是相对某一份 
         return gap_for(jd.strip())
     except KeyError:
         raise HTTPException(404, f"没有这份 JD：{jd}")
+
+
+@router.post("/jd/upload")
+def upload_jd(file: UploadFile = File(...)) -> Dict[str, Any]:
+    """上传一份 JD → 抽文本 → 写抽取件 → 算缺口 → 生成给业务/HR 看的缺口 md。
+
+    这是 Phase 1 的入口：**只有 JD**，不涉及任何简历。
+    返回里带 `md`（可编辑的缺口说明）与 `gap`（四状态小计），前端据此打开编辑器。
+    """
+    from services.talent_jd_ingest import JdIngestError, ingest
+
+    data = file.file.read()
+    if not data:
+        raise HTTPException(422, "文件是空的")
+    try:
+        out = ingest(file.filename or "upload", data)
+    except JdIngestError as exc:
+        raise HTTPException(422, str(exc))
+    except Exception as exc:  # noqa: BLE001 —— 转换/解析都可能炸，但必须说清是哪种
+        raise HTTPException(500, f"抽取失败（{type(exc).__name__}）：{exc}")
+    _audit({"at": time.time(), "who": _who(), "kind": "jd-upload",
+            "jd": out["jd"], "file": file.filename, "md": out["md"]})
+    return out
 
 
 @router.get("/cvs")

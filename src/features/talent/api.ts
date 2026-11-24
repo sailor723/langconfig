@@ -113,7 +113,27 @@ export async function getTalentGap(jd: string): Promise<TalentGapData> {
   return r.json();
 }
 
-export async function listTalentDocs(): Promise<{ jds: TalentJd[]; default_jd?: string }> {
+/** 上传一份 JD 的结果（Phase 1）：抽文本 → 抽取件 → 引用骨架 → 缺口 md。 */
+export interface JdUploadResult {
+  jd: string;
+  original: string;
+  source_text: string;
+  extracted: string;
+  links: string;
+  md: string;
+  gap: { source: string; source_label: string; template_fields: number;
+         tally: Record<string, number>; in_judging: number; note: string };
+}
+export async function uploadTalentJd(file: File): Promise<JdUploadResult> {
+  const fd = new FormData();
+  fd.append('file', file);
+  const r = await fetch(`${BASE}/jd/upload`, { method: 'POST', body: fd, credentials: 'include' });
+  if (!r.ok) throw new Error((await r.text()).slice(0, 300) || `HTTP ${r.status}`);
+  return r.json();
+}
+
+export async function listTalentDocs(): Promise<{ jds: TalentJd[]; default_jd?: string;
+                                                 globals?: TalentFile[] }> {
   return jsonFetch(`${BASE}/docs`);
 }
 

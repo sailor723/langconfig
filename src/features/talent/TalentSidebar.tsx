@@ -16,12 +16,12 @@
  * 前端再判一次就等于有两个权威。
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Bot, Briefcase, FileText, Inbox, Lock, RefreshCw, Loader2 } from 'lucide-react';
+import { Bot, Briefcase, FileText, Inbox, Lock, RefreshCw, Loader2, Upload } from 'lucide-react';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { useLayoutState } from '../../components/layout2/useLayout';
 import { useProject } from '../../contexts/ProjectContext';
 import {
-  getTalentGap, listAgentFiles, listTalentDocs,
+  getTalentGap, listAgentFiles, listTalentDocs, uploadTalentJd,
   type AgentFile, type TalentFile, type TalentJd,
 } from './api';
 import { useTalentAgentId } from './currentAgent';
@@ -104,6 +104,10 @@ export default function TalentSidebar() {
                                   blockers: number; proposals: number;
                                   source: 'draft' | 'trial' } | null>(null);
   const [gapErr, setGapErr] = useState<string>('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState('');
+  /** 全局文档（标准目录/总览）：不属于任何一份 JD，单独一组显示。 */
+  const [globals, setGlobals] = useState<TalentFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -116,6 +120,31 @@ export default function TalentSidebar() {
   const [agentFiles, setAgentFiles] = useState<AgentFile[]>([]);
   const [agentName, setAgentName] = useState<string>('');
   const [agentErr, setAgentErr] = useState<string | null>(null);
+
+  const onUpload = async (file: File) => {
+    setUploading(true); setUploadMsg('');
+    try {
+      const r = await uploadTalentJd(file);
+      setDefaultJd((d) => d || r.jd);
+      await new Promise<void>((res) => { loadDocs(); setTimeout(res, 300); });
+      setJd(r.jd);
+      remember(r.jd);
+      // 上传后先给人看缺口 md（业务与 HR 要读的那一份），而不是丢在列表深处
+      openTab({
+        id: tabIdFor(r.jd, r.md),
+        label: baseName(r.md),
+        viewType: 'talent-doc',
+        data: { jd: r.jd, path: r.md },
+      });
+      dropPlaceholder();
+      setUploadMsg(`已抽取：能判 ${r.gap.in_judging}/${r.gap.template_fields} 格`);
+    } catch (e: any) {
+      setUploadMsg('');
+      setError(`上传失败：${String(e?.message || e)}`);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const remember = (v: string) => {
     try { window.localStorage.setItem(JD_KEY, v); } catch { /* 存不下不影响使用 */ }
@@ -133,6 +162,7 @@ export default function TalentSidebar() {
         const list = d.jds || [];
         setJds(list);
         setDefaultJd(d.default_jd || '');
+        setGlobals((d.globals || []) as TalentFile[]);
         setError(null);
         // 落点优先级：正在编辑的那份 → 上次选的（localStorage）→ 后端默认（品质经理）→ 第一份。
         // 「第一份」永远是最后手段：清单是按名字排的，第一份往往就是缺口最大的那份。
@@ -306,6 +336,31 @@ export default function TalentSidebar() {
                   : gapErr ? <span style={{ color: '#e5484d' }}>缺口读取失败</span> : '缺口 …'}
               </button>
             )}
+            {/* Phase 1 入口：上传一份 JD。上传后自动选中它，并打开"缺口 vs 标准模板"的 md。
+                浏览器始终只服务**一份** JD —— 上传不会变成"多 JD 视图"。 */}
+            <label
+              title="上传一份客户 JD（doc/docx/pdf/xlsx/txt/md）→ 抽文本 → 生成缺口 md"
+              style={{
+                marginTop: 6, width: '100%', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', gap: 5, fontSize: 11, padding: '3px 6px',
+                borderRadius: 4, cursor: uploading ? 'progress' : 'pointer',
+                border: `1px solid ${t.border}`,
+                background: t.bgInput, color: uploading ? t.textMuted : t.textPrimary,
+              }}
+            >
+              <Upload size={11} />
+              {uploading ? '正在抽取…' : uploadMsg || '上传 JD（出缺口 md）'}
+              <input
+                type="file"
+                accept=".doc,.docx,.pdf,.xlsx,.txt,.md"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.currentTarget.value = '';
+                  if (f) void onUpload(f);
+                }}
+              />
+            </label>
             <button
               onClick={() => setHumanOnly((v) => !v)}
               title={humanOnly
@@ -327,6 +382,25 @@ export default function TalentSidebar() {
 
           {/* 产物链：按 layer 分组，因为顺序本身是信息（原文 → 派生 → 定稿） */}
           <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '6px 6px 12px' }}>
+            {/* 全局文档：不属于任何一份 JD，单独一组。浏览器是单 JD 作用域，
+                所以标准目录不能混进"这份 JD 的产物"里。 */}
+            {globals.length > 0 && (
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 10, color: t.textMuted, padding: '0 8px 3px',
+                              display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Lock size={9} /> 全局 · 不属于任何一份 JD
+                </div>
+                {globals.filter((f) => humanOnly ? !MACHINE_RE.test(f.path) : true).map((f) => (
+                  <button key={f.path} onClick={() => openRepoFile(f)}
+                          title={f.note || ''}
+                          style={rowStyle(activePath === f.path)}>
+                    <FileText size={10} style={{ color: t.textMuted, flexShrink: 0 }} />
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
+                                   whiteSpace: 'nowrap' }}>{baseName(f.path)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {error && (
               <div style={{ fontSize: 11, color: '#e5484d', padding: 8, whiteSpace: 'pre-wrap' }}>{error}</div>
             )}

@@ -239,6 +239,10 @@ def run() -> dict:
     jds = []
     for p in sorted(LINKS.glob('*.yaml')):
         d = yaml.safe_load(p.read_text(encoding='utf-8')) or {}
+        # 只覆盖"有逐字引用"的客户 JD。Phase 1 上传件（status: text-only）没有引用，
+        # 它的覆盖度由 services/talent_gap.text_gap_for 算，不进这份试填表。
+        if d.get('status') == 'text-only' or not (d.get('citations') or []):
+            continue
         name = d.get('jd') or p.stem
         src_rel = d.get('source_text') or ''
         src_path = ROOT / src_rel if src_rel else None

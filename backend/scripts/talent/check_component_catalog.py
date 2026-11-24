@@ -1320,6 +1320,70 @@ def check_standard_templates() -> None:
                ", ".join(fake_new[:6]))
     check_true("ST-G11 新增字段都是推理所需(带 data_item)", not no_item, ", ".join(no_item[:6]))
 
+    # ── Phase 1：上传 → 抽取 → 缺口 md；以及"单 JD 作用域"──
+    try:
+        import sys as _sys2
+        if str(ROOT / "backend") not in _sys2.path:
+            _sys2.path.insert(0, str(ROOT / "backend"))
+        from services.talent_gap import known_jds, text_gap_for  # noqa: PLC0415
+
+        ups = ROOT / "work" / "talent" / "uploads"
+        jd_dirs = sorted(p for p in ups.glob("*") if p.is_dir()) if ups.is_dir() else []
+        orphans, bad_gap, no_md = [], [], []
+        if not jd_dirs:
+            # 没有上传件时说"通过"是撒谎：这条门禁这时什么也没验。
+            not_run("ST-G16 上传→抽取→缺口 md", "还没有上传过 JD（uploads/ 为空）")
+        for d in jd_dirs:
+            jd_name = d.name
+            src = ROOT / "work" / "talent" / "jd_links" / "_source" / f"{jd_name}.txt"
+            md = ROOT / "work" / "talent" / "jd_docs" / f"{jd_name}.缺口.md"
+            extracted = ROOT / "work" / "talent" / "jd_extracted" / f"{jd_name}.yaml"
+            originals = [p for p in d.glob("original*") if p.is_file()]
+            if not originals or not src.is_file():
+                orphans.append(jd_name)          # 有上传目录却没有原件或正文
+                continue
+            if not md.is_file():
+                no_md.append(jd_name)
+            try:
+                g = text_gap_for(jd_name)
+                if (len(g["fields"]) != g["template_fields"]
+                        or sum(g["tally"].values()) != g["template_fields"]):
+                    bad_gap.append(jd_name)
+                if not extracted.is_file():
+                    orphans.append(f"{jd_name}(缺抽取件)")
+            except Exception as exc:  # noqa: BLE001
+                bad_gap.append(f"{jd_name}: {type(exc).__name__}")
+        if jd_dirs:                      # 没有上传件时只说 NOT RUN，不印一堆空通过
+            check_true("ST-G16 每份上传的 JD 都有原件 + 正文(没有孤儿目录)", not orphans,
+                       ", ".join(orphans[:5]))
+            check_true("ST-G16 每份上传的 JD 都生成了缺口 md", not no_md, ", ".join(no_md[:5]))
+            check_true("ST-G16 每份上传的 JD 缺口格数与 tally 自洽", not bad_gap,
+                       ", ".join(bad_gap[:5]))
+
+        # 单 JD 作用域：JD 产物里不许出现"属于另一份 JD"的路径，也不许夹全局文档
+        from api.talent.routes import _global_files, _jd_files  # noqa: PLC0415
+
+        glob_paths = {f["path"] for f in _global_files()}
+        bad_scope = []
+        for jd_name in known_jds():
+            files = _jd_files(jd_name)
+            for f in files:
+                path = f["path"]
+                if f.get("scope") != "jd":
+                    bad_scope.append(f"{jd_name}: {path} 没标 scope=jd")
+                if path in glob_paths:
+                    bad_scope.append(f"{jd_name}: {path} 是全局文档，混进了 JD 产物链")
+                if path.startswith("@"):
+                    continue
+                # JD 名字必须出现在路径里（每份 JD 的产物是它自己的）
+                if jd_name not in path and not path.startswith(("jd_reviews/", "collection/")):
+                    bad_scope.append(f"{jd_name}: {path} 路径里没有 JD 名")
+        check_true("ST-G17 浏览器是单 JD 作用域(每份 JD 只列自己的产物，不含全局文档)",
+                   not bad_scope, "; ".join(bad_scope[:5]))
+    except Exception as exc:  # noqa: BLE001
+        check_true("ST-G16/G17 上传与作用域门禁跑完了(崩溃 = 红)", False,
+                   f"{type(exc).__name__}: {exc}")
+
     # ── 缺口接口：数字必须与文件一致，且必须强制带 jd ─────────────────────
     try:
         import sys as _sys
