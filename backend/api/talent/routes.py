@@ -339,40 +339,66 @@ class _FileLock:
 _RUN_LOCK = _FileLock(_RUN_LOCK_FILE)
 
 STEPS: dict[str, list[str]] = {
-    # 第 5 步整条链。刻意把"判定说明 + 门禁"包进来 ——
-    # 只跑名单不跑判定说明,门禁会立刻报"说明过期",那种红是自己造的。
+    # 第 3 步 = HR 一面（**必须**）：初筛 → 面试名单 → 待核清单 → 一面补齐 → HR 评语 →
+    # 判定说明 → 门禁。后两件不能省：一面数据一变，判定说明的指纹立刻过期，
+    # 门禁必然红 —— 那是自己造的红，不该留给用户去猜。
+    "3": [
+        "scripts.talent.screen_cv",
+        "scripts.talent.pick_interview_list",
+        "scripts.talent.open_questions",
+        "scripts.talent.simulate_hr_round",
+        "scripts.talent.mock_hr_comment",
+        "scripts.talent.render_all_cv",
+        "scripts.talent.explain_all",
+        "scripts.talent.check_component_catalog",
+    ],
+    # 第 4 步 = 加面（**可选**）。没跑不是缺；跑了就补 HR 评语与 CV 定稿。
+    "4": [
+        "scripts.talent.mock_hr_comment",
+        "scripts.talent.render_all_cv",
+        "scripts.talent.open_questions",
+        # 一次电话改的是**共享**的一面数据（同一个人可能同时在两份名单里），
+        # 所以要刷新所有 JD 的说明，不能只刷这一份。
+        "scripts.talent.explain_all",
+        "scripts.talent.check_component_catalog",
+    ],
+    # 第 5 步 = 挑出给业务面的 5 人：目标名单(≤10) → 最终(≤5) → 判定说明 →
+    # CV 清单 → **业务面问题清单** → 门禁。
     "5": [
         "scripts.talent.shortlist_after_interview",
         "scripts.talent.pick_final",
         "scripts.talent.explain_rejection",
         "scripts.talent.index_cv",
-        "scripts.talent.check_component_catalog",
-    ],
-    # 第 4 步:代拟(演练)→ 逐份重渲染定稿 → 待核清单 → 判定说明 → 门禁。
-    # 后两件事不能省:一面数据一变,判定说明的指纹立刻过期,门禁必然红 ——
-    # 那是自己造的红,不该留给用户去猜。
-    "4": [
-        "scripts.talent.simulate_hr_round",
-        "scripts.talent.render_all_cv",
-        "scripts.talent.open_questions",
-        # 一次电话改的是**共享**的一面数据(同一个人可能同时在两份名单里),
-        # 所以要刷新所有 JD 的说明,不能只刷这一份。
-        "scripts.talent.explain_all",
+        "scripts.talent.business_questions",
         "scripts.talent.check_component_catalog",
     ],
 }
 
+#: 每一步都按"顺序错了就白跑"排，一个失败就停（半套产物比没有更危险）。
+#: 口径（用户 2026-11-24）：第 3 步 = HR 一面**必须**（补齐 CV + HR 评语）；
+#: 第 4 步 = 加面（**可选**）；第 5 步 = 挑出给业务面的 5 人 + 出业务面问题清单。
 _RUN_ARGS: dict[str, dict[str, list[str]]] = {
+    # 第 3 步：初筛 → 面试名单 → 待核清单 → 一面（补齐 CV）→ HR 评语 → CV 清单
+    "3": {
+        "scripts.talent.screen_cv": ["--jd", "{jd}"],
+        "scripts.talent.pick_interview_list": ["--jd", "{jd}"],
+        "scripts.talent.open_questions": ["--jd", "{jd}"],
+        "scripts.talent.simulate_hr_round": ["--jd", "{jd}", "--force", "--refresh"],
+        "scripts.talent.mock_hr_comment": ["--jd", "{jd}"],
+        "scripts.talent.render_all_cv": ["--jd", "{jd}"],
+    },
+    # 第 4 步：加面（可选）。没跑不是缺 —— 跳过的格子记「未知」。
+    "4": {
+        "scripts.talent.mock_hr_comment": ["--jd", "{jd}"],
+        "scripts.talent.render_all_cv": ["--jd", "{jd}"],
+    },
+    # 第 5 步：目标名单(≤10) → 最终 ≤5 → 判定说明 → CV 清单 → **业务面问题清单**
     "5": {
         "scripts.talent.shortlist_after_interview": ["--jd", "{jd}"],
         "scripts.talent.pick_final": ["--jd", "{jd}"],
         "scripts.talent.explain_rejection": ["--jd", "{jd}", "--shortlist"],
         "scripts.talent.index_cv": ["--jd", "{jd}"],
-    },
-    "4": {
-        "scripts.talent.simulate_hr_round": ["--jd", "{jd}", "--force", "--refresh"],
-        "scripts.talent.render_all_cv": ["--jd", "{jd}"],
-        "scripts.talent.open_questions": ["--jd", "{jd}"],
+        "scripts.talent.business_questions": ["--jd", "{jd}"],
     },
 }
 
@@ -388,8 +414,11 @@ def run_step(body: RunStep) -> Dict[str, Any]:
     cmds = STEPS.get(body.step)
     if not cmds:
         raise HTTPException(400, f"不认识的步骤:{body.step}(可选:{', '.join(STEPS)})")
-    if not (TALENT / "jd_links" / f"{body.jd}.yaml").is_file():
-        raise HTTPException(404, f"这份 JD 还没有引用文件:jd_links/{body.jd}.yaml")
+    if body.jd not in _jds():
+        raise HTTPException(404, f"没有这份 JD:{body.jd}")
+    if body.step in ("3", "5") and not (TALENT / "jd_draft" / f"{body.jd}.draft.json").is_file():
+        raise HTTPException(409, f"先跑第 2 步定稿:缺 jd_draft/{body.jd}.draft.json"
+                                 "（mock_fill_jd → draft_jd → render_jd_standard）")
     if not _RUN_LOCK.acquire(blocking=False):
         raise HTTPException(409, "上一步还在跑,等它跑完再点")
     t0 = time.time()
