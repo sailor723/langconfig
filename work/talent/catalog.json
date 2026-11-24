@@ -1,6 +1,8 @@
 {
- "_doc": "标准目录。数字全部由 scripts/talent/build_catalog.py 现算，不手写；--check 可判断是否过期。",
+ "_doc": "标准目录 · Phase 0（标准定义层）。不对应任何具体 JD 或简历：分类 / 组件 / 要求 / 标准 JD 模板（所有 JD 共用同一版式）/ 标准 CV 模板。数字全部由 scripts/talent/build_catalog.py 现算，不手写；--check 可判断是否过期。",
  "generated_from": "scripts/talent/build_catalog.py",
+ "phase": "phase0-standard-definition",
+ "layout_rule": "所有 JD 共用同一份 40 字段版式（standard_templates.jd）；所有简历共用同一份 26 字段版式（standard_templates.cv）。具体某份 JD 的取值与缺口属于下一层，不在本目录里。",
  "categories": [
   {
    "name": "QualityMethod",
@@ -11,12 +13,8 @@
      "label_en": "5WHY",
      "kind": "capability",
      "evidence_role": "hard",
-     "cv_count": 0,
      "requirements": [
       "REQ-D-QA-TOOLS"
-     ],
-     "jds": [
-      "品质经理"
      ],
      "evidence_note": "给一个不良现场连问五层,可看深度"
     },
@@ -26,12 +24,8 @@
      "label_en": "6S",
      "kind": "capability",
      "evidence_role": "hard",
-     "cv_count": 26,
      "requirements": [
       "REQ-D-QA-TOOLS"
-     ],
-     "jds": [
-      "品质经理"
      ],
      "evidence_note": "现场审核频次与整改记录可对账"
     },
@@ -41,12 +35,8 @@
      "label_en": "8D report",
      "kind": "capability",
      "evidence_role": "hard",
-     "cv_count": 16,
      "requirements": [
       "REQ-H-LANG-EN"
-     ],
-     "jds": [
-      "品质经理"
      ],
      "evidence_note": "能拿出脱敏报告,是实物"
     },
@@ -56,12 +46,8 @@
      "label_en": "CPK",
      "kind": "capability",
      "evidence_role": "hard",
-     "cv_count": 5,
      "requirements": [
       "REQ-D-QA-TOOLS"
-     ],
-     "jds": [
-      "品质经理"
      ],
      "evidence_note": "给一组数据让他算,结果可核"
     },
@@ -71,9 +57,7 @@
      "label_en": "FMEA",
      "kind": "capability",
      "evidence_role": null,
-     "cv_count": 18,
      "requirements": [],
-     "jds": [],
      "evidence_note": null
     },
     {
@@ -82,12 +66,8 @@
      "label_en": "QC seven tools",
      "kind": "capability",
      "evidence_role": "hard",
-     "cv_count": 1,
      "requirements": [
       "REQ-D-QA-TOOLS"
-     ],
-     "jds": [
-      "品质经理"
      ],
      "evidence_note": "鱼骨图/柏拉图现场画得出来"
     },
@@ -97,12 +77,8 @@
      "label_en": "SPC",
      "kind": "capability",
      "evidence_role": "hard",
-     "cv_count": 4,
      "requirements": [
       "REQ-D-QA-TOOLS"
-     ],
-     "jds": [
-      "品质经理"
      ],
      "evidence_note": "控制图与判异规则现场问得住"
     },
@@ -112,12 +88,8 @@
      "label_en": "Quality problem analysis",
      "kind": "capability",
      "evidence_role": "soft",
-     "cv_count": 53,
      "requirements": [
       "REQ-D-QA-ANALYSIS"
-     ],
-     "jds": [
-      "品质经理"
      ],
      "evidence_note": "「会分析」是自评,拿不出案例就无法验证"
     },
@@ -127,12 +99,8 @@
      "label_en": "Customer audits",
      "kind": "capability",
      "evidence_role": "hard",
-     "cv_count": 13,
      "requirements": [
       "REQ-D-CUSTOMER-AUDIT"
-     ],
-     "jds": [
-      "品质经理"
      ],
      "evidence_note": "哪家客户、什么体系、他负责哪段,可对账"
     }
@@ -147,12 +115,8 @@
      "label_en": "AutoCAD",
      "kind": "product",
      "evidence_role": null,
-     "cv_count": 75,
      "requirements": [
       "REQ-D-CAD-2D"
-     ],
-     "jds": [
-      "专案工程师"
      ],
      "evidence_note": null
     },
@@ -162,9 +126,7 @@
      "label_en": "CATIA",
      "kind": "product",
      "evidence_role": null,
-     "cv_count": 6,
      "requirements": [],
-     "jds": [],
      "evidence_note": null
     },
     {
@@ -173,9 +135,7 @@
      "label_en": "ProE/Creo",
      "kind": "product",
      "evidence_role": null,
-     "cv_count": 21,
      "requirements": [],
-     "jds": [],
      "evidence_note": null
     },
     {
@@ -184,9 +144,7 @@
      "label_en": "Rhino",
      "kind": "product",
      "evidence_role": null,
-     "cv_count": 3,
      "requirements": [],
-     "jds": [],
      "evidence_note": null
     },
     {
@@ -195,9 +153,7 @@
      "label_en": "SolidWorks",
      "kind": "product",
      "evidence_role": null,
-     "cv_count": 19,
      "requirements": [],
-     "jds": [],
      "evidence_note": null
     },
     {
@@ -206,9 +162,7 @@
      "label_en": "UG/NX",
      "kind": "product",
      "evidence_role": null,
-     "cv_count": 2,
      "requirements": [],
-     "jds": [],
      "evidence_note": null
     }
    ]
@@ -222,9 +176,9 @@
      "label_en": "Culture building",
      "kind": "capability",
      "evidence_role": null,
-     "cv_count": 37,
-     "requirements": [],
-     "jds": [],
+     "requirements": [
+      "REQ-D-CULTURE-BUILD"
+     ],
      "evidence_note": null
     },
     {
@@ -233,9 +187,9 @@
      "label_en": "Management systems",
      "kind": "capability",
      "evidence_role": null,
-     "cv_count": 13,
-     "requirements": [],
-     "jds": [],
+     "requirements": [
+      "REQ-D-SYSTEM-MGMT"
+     ],
      "evidence_note": null
     },
     {
@@ -244,9 +198,9 @@
      "label_en": "Training design",
      "kind": "capability",
      "evidence_role": null,
-     "cv_count": 15,
-     "requirements": [],
-     "jds": [],
+     "requirements": [
+      "REQ-D-TRAINING-DEV"
+     ],
      "evidence_note": null
     },
     {
@@ -255,9 +209,9 @@
      "label_en": "Data analysis",
      "kind": "capability",
      "evidence_role": null,
-     "cv_count": 31,
-     "requirements": [],
-     "jds": [],
+     "requirements": [
+      "REQ-D-DATA-ANALYSIS"
+     ],
      "evidence_note": null
     },
     {
@@ -266,9 +220,9 @@
      "label_en": "System planning",
      "kind": "capability",
      "evidence_role": null,
-     "cv_count": 64,
-     "requirements": [],
-     "jds": [],
+     "requirements": [
+      "REQ-D-SYSTEM-PLANNING"
+     ],
      "evidence_note": null
     },
     {
@@ -277,12 +231,8 @@
      "label_en": "Order delivery risk assessment",
      "kind": "capability",
      "evidence_role": "soft",
-     "cv_count": 41,
      "requirements": [
       "REQ-D-DELIVERY-RISK"
-     ],
-     "jds": [
-      "业务跟单"
      ],
      "evidence_note": "能力描述,难以单靠陈述验证"
     }
@@ -297,12 +247,8 @@
      "label_en": "Injection machine",
      "kind": "equipment",
      "evidence_role": null,
-     "cv_count": 17,
      "requirements": [
       "REQ-D-WIRE-EQUIPMENT"
-     ],
-     "jds": [
-      "专案工程师"
      ],
      "evidence_note": null
     },
@@ -312,12 +258,8 @@
      "label_en": "Dispensing machine",
      "kind": "equipment",
      "evidence_role": null,
-     "cv_count": 2,
      "requirements": [
       "REQ-D-WIRE-EQUIPMENT"
-     ],
-     "jds": [
-      "专案工程师"
      ],
      "evidence_note": null
     },
@@ -327,12 +269,8 @@
      "label_en": "Terminal crimper",
      "kind": "equipment",
      "evidence_role": null,
-     "cv_count": 18,
      "requirements": [
       "REQ-D-WIRE-EQUIPMENT"
-     ],
-     "jds": [
-      "专案工程师"
      ],
      "evidence_note": null
     },
@@ -342,12 +280,8 @@
      "label_en": "Automatic machine",
      "kind": "equipment",
      "evidence_role": null,
-     "cv_count": 10,
      "requirements": [
       "REQ-D-WIRE-EQUIPMENT"
-     ],
-     "jds": [
-      "专案工程师"
      ],
      "evidence_note": null
     },
@@ -357,12 +291,8 @@
      "label_en": "Wire cutting machine",
      "kind": "equipment",
      "evidence_role": null,
-     "cv_count": 17,
      "requirements": [
       "REQ-D-WIRE-EQUIPMENT"
-     ],
-     "jds": [
-      "专案工程师"
      ],
      "evidence_note": null
     }
@@ -377,9 +307,7 @@
      "label_en": "Cross-sectioning",
      "kind": "equipment",
      "evidence_role": null,
-     "cv_count": 4,
      "requirements": [],
-     "jds": [],
      "evidence_note": null
     },
     {
@@ -388,9 +316,7 @@
      "label_en": "Terminals",
      "kind": "equipment",
      "evidence_role": null,
-     "cv_count": 39,
      "requirements": [],
-     "jds": [],
      "evidence_note": null
     },
     {
@@ -399,13 +325,8 @@
      "label_en": "Wire-harness domain knowledge",
      "kind": "domain",
      "evidence_role": "soft",
-     "cv_count": 72,
      "requirements": [
       "REQ-D-HARNESS-DOMAIN"
-     ],
-     "jds": [
-      "专案工程师",
-      "品质经理"
      ],
      "evidence_note": "多半是简历自述,产品/工序说不清就虚"
     },
@@ -415,9 +336,9 @@
      "label_en": "Drawing reading",
      "kind": "capability",
      "evidence_role": null,
-     "cv_count": 7,
-     "requirements": [],
-     "jds": [],
+     "requirements": [
+      "REQ-D-DRAWING-READ"
+     ],
      "evidence_note": null
     }
    ]
@@ -431,9 +352,7 @@
      "label_en": "CorelDRAW",
      "kind": "product",
      "evidence_role": null,
-     "cv_count": 5,
      "requirements": [],
-     "jds": [],
      "evidence_note": null
     },
     {
@@ -442,9 +361,7 @@
      "label_en": "Illustrator",
      "kind": "product",
      "evidence_role": null,
-     "cv_count": 8,
      "requirements": [],
-     "jds": [],
      "evidence_note": null
     },
     {
@@ -453,9 +370,7 @@
      "label_en": "Photoshop",
      "kind": "product",
      "evidence_role": null,
-     "cv_count": 17,
      "requirements": [],
-     "jds": [],
      "evidence_note": null
     }
    ]
@@ -469,13 +384,9 @@
      "label_en": "ERP",
      "kind": "product",
      "evidence_role": "hard",
-     "cv_count": 37,
      "requirements": [
       "REQ-D-ERP-EXCEL",
       "REQ-D-ERP-OPERATE"
-     ],
-     "jds": [
-      "业务跟单"
      ],
      "evidence_note": "用过什么系统、跑过什么单据,面试能当场问流程"
     },
@@ -485,9 +396,7 @@
      "label_en": "SAP",
      "kind": "product",
      "evidence_role": null,
-     "cv_count": 10,
      "requirements": [],
-     "jds": [],
      "evidence_note": null
     }
    ]
@@ -501,12 +410,8 @@
      "label_en": "Trade documents",
      "kind": "capability",
      "evidence_role": null,
-     "cv_count": 13,
      "requirements": [
       "REQ-D-CUSTOMS-DECLARE"
-     ],
-     "jds": [
-      "关务报关员"
      ],
      "evidence_note": null
     },
@@ -516,12 +421,8 @@
      "label_en": "Customs declaration",
      "kind": "capability",
      "evidence_role": null,
-     "cv_count": 26,
      "requirements": [
       "REQ-D-CUSTOMS-DECLARE"
-     ],
-     "jds": [
-      "关务报关员"
      ],
      "evidence_note": null
     }
@@ -536,14 +437,9 @@
      "label_en": "PowerPoint",
      "kind": "product",
      "evidence_role": null,
-     "cv_count": 40,
      "requirements": [
-      "REQ-D-OFFICE"
-     ],
-     "jds": [
-      "专案工程师",
-      "关务报关员",
-      "副总助理"
+      "REQ-D-OFFICE",
+      "REQ-D-OFFICE-NETWORK"
      ],
      "evidence_note": null
     },
@@ -553,14 +449,9 @@
      "label_en": "Word",
      "kind": "product",
      "evidence_role": null,
-     "cv_count": 55,
      "requirements": [
-      "REQ-D-OFFICE"
-     ],
-     "jds": [
-      "专案工程师",
-      "关务报关员",
-      "副总助理"
+      "REQ-D-OFFICE",
+      "REQ-D-OFFICE-NETWORK"
      ],
      "evidence_note": null
     }
@@ -575,9 +466,7 @@
      "label_en": "5S",
      "kind": "capability",
      "evidence_role": null,
-     "cv_count": 5,
      "requirements": [],
-     "jds": [],
      "evidence_note": null
     },
     {
@@ -586,9 +475,7 @@
      "label_en": "Lean production",
      "kind": "capability",
      "evidence_role": null,
-     "cv_count": 10,
      "requirements": [],
-     "jds": [],
      "evidence_note": null
     }
    ]
@@ -602,9 +489,7 @@
      "label_en": "ISO/TS16949",
      "kind": "capability",
      "evidence_role": "hard",
-     "cv_count": 21,
      "requirements": [],
-     "jds": [],
      "evidence_note": "同上"
     },
     {
@@ -613,9 +498,7 @@
      "label_en": "ISO9001",
      "kind": "capability",
      "evidence_role": "hard",
-     "cv_count": 18,
      "requirements": [],
-     "jds": [],
      "evidence_note": "证书/审核记录,可验证"
     }
    ]
@@ -629,9 +512,7 @@
      "label_en": "Administration",
      "kind": "capability",
      "evidence_role": null,
-     "cv_count": 80,
      "requirements": [],
-     "jds": [],
      "evidence_note": null
     }
    ]
@@ -645,9 +526,7 @@
      "label_en": "Compensation & performance",
      "kind": "capability",
      "evidence_role": null,
-     "cv_count": 45,
      "requirements": [],
-     "jds": [],
      "evidence_note": null
     }
    ]
@@ -661,9 +540,7 @@
      "label_en": "Trade security compliance",
      "kind": "capability",
      "evidence_role": null,
-     "cv_count": 1,
      "requirements": [],
-     "jds": [],
      "evidence_note": null
     }
    ]
@@ -677,9 +554,7 @@
      "label_en": "Finance",
      "kind": "capability",
      "evidence_role": null,
-     "cv_count": 84,
      "requirements": [],
-     "jds": [],
      "evidence_note": null
     }
    ]
@@ -693,9 +568,9 @@
      "label_en": "Social insurance handling",
      "kind": "capability",
      "evidence_role": null,
-     "cv_count": 24,
-     "requirements": [],
-     "jds": [],
+     "requirements": [
+      "REQ-D-SOCIAL-INSURANCE"
+     ],
      "evidence_note": null
     }
    ]
@@ -709,9 +584,9 @@
      "label_en": "Labour law",
      "kind": "domain",
      "evidence_role": null,
-     "cv_count": 22,
-     "requirements": [],
-     "jds": [],
+     "requirements": [
+      "REQ-D-LABOR-LAW"
+     ],
      "evidence_note": null
     }
    ]
@@ -725,12 +600,8 @@
      "label_en": "English",
      "kind": "capability",
      "evidence_role": "soft",
-     "cv_count": 99,
      "requirements": [
       "REQ-H-LANG-EN"
-     ],
-     "jds": [
-      "品质经理"
      ],
      "evidence_note": "「口语熟练」是自评,要实测才算硬"
     }
@@ -745,9 +616,7 @@
      "label_en": "Order tracking",
      "kind": "capability",
      "evidence_role": null,
-     "cv_count": 79,
      "requirements": [],
-     "jds": [],
      "evidence_note": null
     }
    ]
@@ -761,9 +630,11 @@
      "label_en": "Recruiting",
      "kind": "capability",
      "evidence_role": null,
-     "cv_count": 60,
-     "requirements": [],
-     "jds": [],
+     "requirements": [
+      "REQ-D-RECRUIT-CHANNEL",
+      "REQ-D-RECRUIT-KNOWLEDGE",
+      "REQ-D-RECRUIT-SKILL"
+     ],
      "evidence_note": null
     }
    ]
@@ -777,17 +648,11 @@
      "label_en": "Excel",
      "kind": "product",
      "evidence_role": "hard",
-     "cv_count": 87,
      "requirements": [
       "REQ-D-ERP-EXCEL",
       "REQ-D-OFFICE",
+      "REQ-D-OFFICE-NETWORK",
       "REQ-D-REPORT-WRITING"
-     ],
-     "jds": [
-      "专案工程师",
-      "业务跟单",
-      "关务报关员",
-      "副总助理"
      ],
      "evidence_note": "数据分析能力可以做一份透视表当场验"
     }
@@ -802,9 +667,7 @@
      "label_en": "Foreign trade business",
      "kind": "capability",
      "evidence_role": null,
-     "cv_count": 54,
      "requirements": [],
-     "jds": [],
      "evidence_note": null
     }
    ]
@@ -821,12 +684,7 @@
    "assessable": true,
    "components": [],
    "attribute": "A.2",
-   "op": "between",
-   "jds": [
-    "关务报关员",
-    "副总助理",
-    "品质经理"
-   ]
+   "op": "between"
   },
   {
    "id": "REQ-A-GENDER",
@@ -838,10 +696,7 @@
    "assessable": false,
    "components": [],
    "attribute": "A.1",
-   "op": "=",
-   "jds": [
-    "副总助理"
-   ]
+   "op": "="
   },
   {
    "id": "REQ-B-EDU-LEVEL",
@@ -853,13 +708,7 @@
    "assessable": true,
    "components": [],
    "attribute": "B.1",
-   "op": ">=",
-   "jds": [
-    "业务跟单",
-    "关务报关员",
-    "副总助理",
-    "品质经理"
-   ]
+   "op": ">="
   },
   {
    "id": "REQ-B-FULL-TIME",
@@ -871,10 +720,7 @@
    "assessable": false,
    "components": [],
    "attribute": "B.3",
-   "op": "=",
-   "jds": [
-    "副总助理"
-   ]
+   "op": "="
   },
   {
    "id": "REQ-B-MAJOR",
@@ -886,13 +732,7 @@
    "assessable": true,
    "components": [],
    "attribute": "B.2",
-   "op": "in",
-   "jds": [
-    "业务跟单",
-    "关务报关员",
-    "副总助理",
-    "品质经理"
-   ]
+   "op": "in"
   },
   {
    "id": "REQ-C-YEARS-DOMAIN",
@@ -904,14 +744,7 @@
    "assessable": true,
    "components": [],
    "attribute": "C.1",
-   "op": ">=",
-   "jds": [
-    "专案工程师",
-    "业务跟单",
-    "关务报关员",
-    "副总助理",
-    "品质经理"
-   ]
+   "op": ">="
   },
   {
    "id": "REQ-D-AI-TOOLS",
@@ -923,8 +756,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": []
+   "op": null
   },
   {
    "id": "REQ-D-ATTENDANCE-SYSTEM",
@@ -936,8 +768,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": []
+   "op": null
   },
   {
    "id": "REQ-D-BIZ-ETIQUETTE",
@@ -949,8 +780,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": []
+   "op": null
   },
   {
    "id": "REQ-D-CAD-2D",
@@ -964,10 +794,7 @@
     "skill_AutoCAD"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": [
-    "专案工程师"
-   ]
+   "op": "holds"
   },
   {
    "id": "REQ-D-CULTURE-BUILD",
@@ -981,8 +808,7 @@
     "skill_企业文化建设"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": []
+   "op": "holds"
   },
   {
    "id": "REQ-D-CUSTOMER-AUDIT",
@@ -996,10 +822,7 @@
     "skill_客户验厂"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": [
-    "品质经理"
-   ]
+   "op": "holds"
   },
   {
    "id": "REQ-D-CUSTOMS-DECLARE",
@@ -1014,10 +837,7 @@
     "skill_单证"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": [
-    "关务报关员"
-   ]
+   "op": "holds"
   },
   {
    "id": "REQ-D-DATA-ANALYSIS",
@@ -1031,8 +851,7 @@
     "skill_数据分析"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": []
+   "op": "holds"
   },
   {
    "id": "REQ-D-DELIVERY-RISK",
@@ -1046,10 +865,7 @@
     "skill_订单交期风险评估"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": [
-    "业务跟单"
-   ]
+   "op": "holds"
   },
   {
    "id": "REQ-D-DRAWING-READ",
@@ -1063,8 +879,7 @@
     "skill_识图"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": []
+   "op": "holds"
   },
   {
    "id": "REQ-D-ERP-EXCEL",
@@ -1079,10 +894,7 @@
     "skill_Excel"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": [
-    "业务跟单"
-   ]
+   "op": "holds"
   },
   {
    "id": "REQ-D-ERP-OPERATE",
@@ -1096,10 +908,7 @@
     "skill_ERP"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": [
-    "业务跟单"
-   ]
+   "op": "holds"
   },
   {
    "id": "REQ-D-HARNESS-DOMAIN",
@@ -1113,11 +922,7 @@
     "skill_线束行业知识"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": [
-    "专案工程师",
-    "品质经理"
-   ]
+   "op": "holds"
   },
   {
    "id": "REQ-D-LABOR-LAW",
@@ -1131,8 +936,7 @@
     "skill_劳动法"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": []
+   "op": "holds"
   },
   {
    "id": "REQ-D-NPI-PROCESS",
@@ -1144,10 +948,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": [
-    "专案工程师"
-   ]
+   "op": null
   },
   {
    "id": "REQ-D-OFFICE",
@@ -1163,12 +964,7 @@
     "skill_PowerPoint"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": [
-    "专案工程师",
-    "关务报关员",
-    "副总助理"
-   ]
+   "op": "holds"
   },
   {
    "id": "REQ-D-OFFICE-NETWORK",
@@ -1184,8 +980,7 @@
     "skill_PowerPoint"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": []
+   "op": "holds"
   },
   {
    "id": "REQ-D-QA-ANALYSIS",
@@ -1199,10 +994,7 @@
     "skill_品质问题分析"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": [
-    "品质经理"
-   ]
+   "op": "holds"
   },
   {
    "id": "REQ-D-QA-TOOLS",
@@ -1220,10 +1012,7 @@
     "skill_5WHY"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": [
-    "品质经理"
-   ]
+   "op": "holds"
   },
   {
    "id": "REQ-D-RECRUIT-CHANNEL",
@@ -1237,8 +1026,7 @@
     "skill_招聘"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": []
+   "op": "holds"
   },
   {
    "id": "REQ-D-RECRUIT-KNOWLEDGE",
@@ -1252,8 +1040,7 @@
     "skill_招聘"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": []
+   "op": "holds"
   },
   {
    "id": "REQ-D-RECRUIT-SKILL",
@@ -1267,8 +1054,7 @@
     "skill_招聘"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": []
+   "op": "holds"
   },
   {
    "id": "REQ-D-REPORT-WRITING",
@@ -1282,10 +1068,7 @@
     "skill_Excel"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": [
-    "关务报关员"
-   ]
+   "op": "holds"
   },
   {
    "id": "REQ-D-SOCIAL-INSURANCE",
@@ -1299,8 +1082,7 @@
     "skill_社保操作"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": []
+   "op": "holds"
   },
   {
    "id": "REQ-D-SYSTEM-MGMT",
@@ -1314,8 +1096,7 @@
     "skill_体系管理"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": []
+   "op": "holds"
   },
   {
    "id": "REQ-D-SYSTEM-PLANNING",
@@ -1329,8 +1110,7 @@
     "skill_系统规划"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": []
+   "op": "holds"
   },
   {
    "id": "REQ-D-TRAINING-DEV",
@@ -1344,8 +1124,7 @@
     "skill_培训课程开发"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": []
+   "op": "holds"
   },
   {
    "id": "REQ-D-WIRE-EQUIPMENT",
@@ -1363,10 +1142,7 @@
     "skill_点胶机"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": [
-    "专案工程师"
-   ]
+   "op": "holds"
   },
   {
    "id": "REQ-E-ACCOUNTABILITY",
@@ -1378,10 +1154,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": [
-    "副总助理"
-   ]
+   "op": null
   },
   {
    "id": "REQ-E-BIZ-INTENT",
@@ -1393,8 +1166,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": []
+   "op": null
   },
   {
    "id": "REQ-E-CAREFUL",
@@ -1406,10 +1178,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": [
-    "专案工程师"
-   ]
+   "op": null
   },
   {
    "id": "REQ-E-COMMUNICATION",
@@ -1421,13 +1190,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": [
-    "业务跟单",
-    "关务报关员",
-    "副总助理",
-    "品质经理"
-   ]
+   "op": null
   },
   {
    "id": "REQ-E-DAILY-CLOSE",
@@ -1439,11 +1202,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": [
-    "关务报关员",
-    "副总助理"
-   ]
+   "op": null
   },
   {
    "id": "REQ-E-DATA-SENSITIVITY",
@@ -1455,11 +1214,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": [
-    "关务报关员",
-    "副总助理"
-   ]
+   "op": null
   },
   {
    "id": "REQ-E-ETHICS",
@@ -1471,10 +1226,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": [
-    "关务报关员"
-   ]
+   "op": null
   },
   {
    "id": "REQ-E-EXECUTION",
@@ -1486,11 +1238,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": [
-    "关务报关员",
-    "副总助理"
-   ]
+   "op": null
   },
   {
    "id": "REQ-E-JOB-INTEREST",
@@ -1502,8 +1250,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": []
+   "op": null
   },
   {
    "id": "REQ-E-LOGIC",
@@ -1515,10 +1262,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": [
-    "副总助理"
-   ]
+   "op": null
   },
   {
    "id": "REQ-E-OPENNESS",
@@ -1530,8 +1274,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": []
+   "op": null
   },
   {
    "id": "REQ-E-PRINCIPLE",
@@ -1543,10 +1286,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": [
-    "副总助理"
-   ]
+   "op": null
   },
   {
    "id": "REQ-E-PROACTIVE",
@@ -1558,10 +1298,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": [
-    "关务报关员"
-   ]
+   "op": null
   },
   {
    "id": "REQ-E-RESPONSIBILITY",
@@ -1573,11 +1310,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": [
-    "关务报关员",
-    "副总助理"
-   ]
+   "op": null
   },
   {
    "id": "REQ-E-STEADY",
@@ -1589,8 +1322,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": []
+   "op": null
   },
   {
    "id": "REQ-E-STRESS",
@@ -1602,11 +1334,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": [
-    "专案工程师",
-    "业务跟单"
-   ]
+   "op": null
   },
   {
    "id": "REQ-E-STRIVING",
@@ -1618,11 +1346,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": [
-    "专案工程师",
-    "副总助理"
-   ]
+   "op": null
   },
   {
    "id": "REQ-E-TEAMWORK",
@@ -1634,10 +1358,7 @@
    "assessable": false,
    "components": [],
    "attribute": null,
-   "op": null,
-   "jds": [
-    "关务报关员"
-   ]
+   "op": null
   },
   {
    "id": "REQ-F-TRADE-COMPLIANCE-TRAINING",
@@ -1649,10 +1370,7 @@
    "assessable": false,
    "components": [],
    "attribute": "F.3",
-   "op": null,
-   "jds": [
-    "关务报关员"
-   ]
+   "op": null
   },
   {
    "id": "REQ-G-CONFIDENTIALITY",
@@ -1664,10 +1382,7 @@
    "assessable": false,
    "components": [],
    "attribute": "G.1",
-   "op": null,
-   "jds": [
-    "业务跟单"
-   ]
+   "op": null
   },
   {
    "id": "REQ-G-NO-CRIMINAL-RECORD",
@@ -1679,10 +1394,7 @@
    "assessable": false,
    "components": [],
    "attribute": "G.1",
-   "op": null,
-   "jds": [
-    "关务报关员"
-   ]
+   "op": null
   },
   {
    "id": "REQ-H-LANG-EN",
@@ -1697,10 +1409,7 @@
     "skill_8D报告"
    ],
    "attribute": null,
-   "op": "holds",
-   "jds": [
-    "品质经理"
-   ]
+   "op": "holds"
   },
   {
    "id": "REQ-HR-COMMUTE",
@@ -1712,10 +1421,7 @@
    "assessable": true,
    "components": [],
    "attribute": "A.4",
-   "op": "=",
-   "jds": [
-    "品质经理"
-   ]
+   "op": "="
   },
   {
    "id": "REQ-HR-NOTICE",
@@ -1727,10 +1433,7 @@
    "assessable": true,
    "components": [],
    "attribute": "A.3",
-   "op": "<=",
-   "jds": [
-    "品质经理"
-   ]
+   "op": "<="
   },
   {
    "id": "REQ-HR-SALARY",
@@ -1742,10 +1445,7 @@
    "assessable": true,
    "components": [],
    "attribute": "A.5",
-   "op": "<=",
-   "jds": [
-    "品质经理"
-   ]
+   "op": "<="
   },
   {
    "id": "REQ-HR-STABILITY",
@@ -1757,10 +1457,7 @@
    "assessable": true,
    "components": [],
    "attribute": "C.7",
-   "op": "<=",
-   "jds": [
-    "品质经理"
-   ]
+   "op": "<="
   },
   {
    "id": "REQ-HR-TENURE",
@@ -1772,1389 +1469,11 @@
    "assessable": true,
    "components": [],
    "attribute": "C.4",
-   "op": ">=",
-   "jds": [
-    "品质经理"
-   ]
+   "op": ">="
   }
  ],
- "jd_template": {
-  "name": "职务说明书",
-  "rule": "渲染 jd 非 null 的字段;其余标「JD 未写」",
-  "field_count": 66,
-  "sections": [
-   {
-    "code": "S1",
-    "label": "岗位标识",
-    "label_en": "Position identity",
-    "fields": [
-     {
-      "id": "F.DEPARTMENT",
-      "label": "隶属部门",
-      "label_en": "Department",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 10,
-      "required": true,
-      "prop": null,
-      "compare": "jd_only",
-      "note": null
-     },
-     {
-      "id": "F.JD_APPROVERS",
-      "label": "核准/审核/制订",
-      "label_en": "Approved / reviewed / prepared",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 8,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_DOC_NUMBER",
-      "label": "文件编号",
-      "label_en": "Document number",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 9,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_JOB_GRADE",
-      "label": "职级",
-      "label_en": "Job grade",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_OCCUPATION_CODE",
-      "label": "职业编码",
-      "label_en": "Occupation code",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_PAGE_COUNT",
-      "label": "页数",
-      "label_en": "Page count",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 8,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_VERSION",
-      "label": "版本",
-      "label_en": "Version",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 10,
-      "required": true,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JOB_TITLE",
-      "label": "职务名称",
-      "label_en": "Job title",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 10,
-      "required": true,
-      "prop": null,
-      "compare": "not_comparable",
-      "note": "不是同一条信息:JD 的职务名称是岗位;简历的「意向职位」是候选人的期望。"
-     },
-     {
-      "id": "F.MGMT_CATEGORY",
-      "label": "岗位类别",
-      "label_en": "Position category",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": true,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "经理岗 / 员工岗。决定用哪份模板 —— 不能按岗位名猜:品质经理原文写「直接下属:无」"
-     },
-     {
-      "id": "F.REPORTS_TO",
-      "label": "直接上司",
-      "label_en": "Reports to",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 10,
-      "required": true,
-      "prop": null,
-      "compare": "jd_only",
-      "note": null
-     },
-     {
-      "id": "F.SUPERVISES",
-      "label": "直接下属",
-      "label_en": "Supervises",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 10,
-      "required": true,
-      "prop": null,
-      "compare": "jd_only",
-      "note": null
-     }
-    ]
-   },
-   {
-    "code": "S2",
-    "label": "岗位目的",
-    "label_en": "Job purpose",
-    "fields": [
-     {
-      "id": "F.JD_JOB_PURPOSE",
-      "label": "岗位目的",
-      "label_en": "Job purpose",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_SUCCESS_CRITERIA",
-      "label": "关键成功指标",
-      "label_en": "Key success indicators",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.TEAM_GOAL",
-      "label": "团队/部门目标",
-      "label_en": "Team / department goal",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     }
-    ]
-   },
-   {
-    "code": "S3",
-    "label": "任职资格",
-    "label_en": "Qualifications",
-    "fields": [
-     {
-      "id": "F.AGE",
-      "label": "年龄",
-      "label_en": "Age",
-      "dimension": "A",
-      "scale": "interval",
-      "unit": "岁",
-      "presence": 4,
-      "required": false,
-      "prop": null,
-      "compare": "both",
-      "note": "JD 写区间;简历 47% 直述年龄、19% 写出生年月(可推算)。"
-     },
-     {
-      "id": "F.CERTIFICATION",
-      "label": "资格证书",
-      "label_en": "Certificates",
-      "dimension": "F",
-      "scale": "nominal",
-      "unit": null,
-      "presence": 1,
-      "required": false,
-      "prop": null,
-      "compare": "both",
-      "note": "两侧都有:JD 提「合规培训考核」,简历 109/270 写内审员/CET 等。"
-     },
-     {
-      "id": "F.COMPETENCY",
-      "label": "职业素养",
-      "label_en": "Professional conduct",
-      "dimension": "E",
-      "scale": "ordinal",
-      "unit": null,
-      "presence": 9,
-      "required": true,
-      "prop": null,
-      "compare": "not_comparable",
-      "note": "**简历侧的「自我评价」是自我陈述,不构成判定依据** —— 所以两侧虽有字段,仍不可比。"
-     },
-     {
-      "id": "F.EDU_FULLTIME",
-      "label": "是否全日制",
-      "label_en": "Full-time study",
-      "dimension": "B",
-      "scale": "nominal",
-      "unit": null,
-      "presence": 1,
-      "required": false,
-      "prop": null,
-      "compare": "not_comparable",
-      "note": "**简历侧没有任何一份直接写「全日制」** —— 只能从自考/成教/统招推断,而推断没有出处。"
-     },
-     {
-      "id": "F.EDU_LEVEL",
-      "label": "学历",
-      "label_en": "Education level",
-      "dimension": "B",
-      "scale": "ordinal",
-      "unit": null,
-      "presence": 10,
-      "required": true,
-      "prop": null,
-      "compare": "both",
-      "note": "JD 侧几乎必写门槛;简历侧 179/270 有标签,但需与院校逐段对应。"
-     },
-     {
-      "id": "F.EDU_MAJOR",
-      "label": "专业",
-      "label_en": "Major",
-      "dimension": "B",
-      "scale": "nominal",
-      "unit": null,
-      "presence": 6,
-      "required": false,
-      "prop": null,
-      "compare": "both",
-      "note": "JD 写「XX类专业」;简历 43% 写明。缺失时这条要求判不了 —— 不是不合格。"
-     },
-     {
-      "id": "F.EXP_ACTIVITY",
-      "label": "活动经验",
-      "label_en": "Activity experience",
-      "dimension": "C",
-      "scale": "nominal",
-      "unit": null,
-      "presence": 2,
-      "required": false,
-      "prop": null,
-      "compare": "both",
-      "note": "「做过客户验厂」这类经验只能从工作描述里读;描述标签只有 56/270。"
-     },
-     {
-      "id": "F.EXP_DOMAIN",
-      "label": "职能域",
-      "label_en": "Functional domain",
-      "dimension": "C",
-      "scale": "nominal",
-      "unit": null,
-      "presence": 4,
-      "required": false,
-      "prop": null,
-      "compare": "not_comparable",
-      "note": "JD 写「文职类/管理类」;简历只有职位名。分类标准本身不存在,需先定义。"
-     },
-     {
-      "id": "F.EXP_INDUSTRY",
-      "label": "行业",
-      "label_en": "Industry",
-      "dimension": "C",
-      "scale": "nominal",
-      "unit": null,
-      "presence": 3,
-      "required": false,
-      "prop": null,
-      "compare": "not_comparable",
-      "note": "简历不写行业;只能从公司名推断 —— 推断无出处。"
-     },
-     {
-      "id": "F.EXP_YEARS",
-      "label": "总年限",
-      "label_en": "Total years",
-      "dimension": "C",
-      "scale": "interval",
-      "unit": "年",
-      "presence": 7,
-      "required": true,
-      "prop": null,
-      "compare": "both",
-      "note": "三个口径:平台文件名(被截断)/ 简历自述 / 逐段累计。要求必须声明用哪个。"
-     },
-     {
-      "id": "F.GENDER",
-      "label": "性别",
-      "label_en": "Gender",
-      "dimension": "A",
-      "scale": "nominal",
-      "unit": null,
-      "presence": 3,
-      "required": false,
-      "prop": null,
-      "compare": "both",
-      "note": "A 维无外部标准依据(LinkedIn 与 HR-XML 都无此字段),standard_ref 恒为 NULL。"
-     },
-     {
-      "id": "F.LANGUAGE_LEVEL",
-      "label": "语言熟练度",
-      "label_en": "Language proficiency",
-      "dimension": "H",
-      "scale": "ordinal",
-      "unit": null,
-      "presence": 1,
-      "required": false,
-      "prop": null,
-      "compare": "not_comparable",
-      "note": "简历只写 CET-4/6 或「熟练」,无统一刻度;CEFR 映射不存在。"
-     },
-     {
-      "id": "F.SKILL",
-      "label": "技能",
-      "label_en": "Skills",
-      "dimension": "D",
-      "scale": "nominal",
-      "unit": null,
-      "presence": 10,
-      "required": true,
-      "prop": null,
-      "compare": "both",
-      "note": "唯一 10/10 全员必写、且两侧都有实据的维度。词表见 component_catalog.yaml。"
-     }
-    ]
-   },
-   {
-    "code": "S4",
-    "label": "岗位职责",
-    "label_en": "Responsibilities",
-    "fields": [
-     {
-      "id": "F.BUDGET_OWNERSHIP",
-      "label": "预算与成本责任",
-      "label_en": "Budget & cost responsibility",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.CROSS_DEPT",
-      "label": "跨部门接口",
-      "label_en": "Cross-department interfaces",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.DECISION_AUTHORITY",
-      "label": "决策权限",
-      "label_en": "Decision authority",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_DUTY_COMPETENCY",
-      "label": "职责对应能力",
-      "label_en": "Skill behind each duty",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_DUTY_ITEMS",
-      "label": "职责条目",
-      "label_en": "Duty items",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 10,
-      "required": true,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_DUTY_WEIGHT",
-      "label": "职责权重",
-      "label_en": "Duty weight",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.MGMT_SPAN",
-      "label": "管理幅度",
-      "label_en": "Span of control",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": true,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "直接/间接下属人数。岗位侧字段,简历无对应项"
-     }
-    ]
-   },
-   {
-    "code": "S5",
-    "label": "作业明细",
-    "label_en": "Task detail",
-    "fields": [
-     {
-      "id": "F.JD_ACTIVITY_AI_FIT",
-      "label": "AI 可否替代",
-      "label_en": "AI can take over part",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 2,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_ACTIVITY_DURATION",
-      "label": "时长",
-      "label_en": "Duration",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 4,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_ACTIVITY_FORM",
-      "label": "关联表单",
-      "label_en": "Related form",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 3,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_ACTIVITY_FREQ",
-      "label": "频次(日/周/月/年/偶发)",
-      "label_en": "Frequency (day/week/month/year/ad-hoc)",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 10,
-      "required": true,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_ACTIVITY_SEQ",
-      "label": "序号",
-      "label_en": "No.",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 10,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_ACTIVITY_SOP",
-      "label": "操作标准流程",
-      "label_en": "Standard procedure",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 2,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_ACTIVITY_TEXT",
-      "label": "内容",
-      "label_en": "Content",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 10,
-      "required": true,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.SHIFT_HANDOVER",
-      "label": "排班与交接",
-      "label_en": "Scheduling & handover",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     }
-    ]
-   },
-   {
-    "code": "S6",
-    "label": "工作条件",
-    "label_en": "Working conditions",
-    "fields": [
-     {
-      "id": "F.JD_ENVIRONMENT",
-      "label": "环境(噪音/粉尘/温度)",
-      "label_en": "Environment (noise / dust / temperature)",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_PHYSICAL_DEMAND",
-      "label": "体力/站立/搬运",
-      "label_en": "Physical demand (standing / lifting)",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_PPE",
-      "label": "劳保/防护",
-      "label_en": "Protective equipment",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_TRAVEL",
-      "label": "出差",
-      "label_en": "Business travel",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 3,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_WORK_HOURS",
-      "label": "工时",
-      "label_en": "Work hours",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 3,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_WORK_LOCATION",
-      "label": "工作地点/厂区",
-      "label_en": "Work site / plant",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.SHIFT",
-      "label": "班制",
-      "label_en": "Shift pattern",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "两侧都没有 —— 这是制造业招聘最要紧的一项,却全批缺失。"
-     },
-     {
-      "id": "F.WORK_LOCATION",
-      "label": "工作地点",
-      "label_en": "Work location",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "not_comparable",
-      "note": "**JD 全批都没写工作地点,简历 41% 有现居地** —— 无法比对通勤半径。"
-     }
-    ]
-   },
-   {
-    "code": "S7",
-    "label": "元数据",
-    "label_en": "Metadata",
-    "fields": [
-     {
-      "id": "F.AVAILABILITY",
-      "label": "到岗日期",
-      "label_en": "Available from",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "cv_only",
-      "note": null
-     },
-     {
-      "id": "F.JD_DATE_POSTED",
-      "label": "发布日期",
-      "label_en": "Posting date",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_FIRST_ISSUED",
-      "label": "首次发行日",
-      "label_en": "First release",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 9,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_HEADCOUNT",
-      "label": "编制/招聘人数",
-      "label_en": "Planned headcount",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 1,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_HIRING_REASON",
-      "label": "招聘原因",
-      "label_en": "Hiring reason",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_POSTING_CHANNEL",
-      "label": "发布渠道",
-      "label_en": "Posting channel",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 1,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_REVISION_HISTORY",
-      "label": "修订履历",
-      "label_en": "Revision history",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 10,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_VALID_UNTIL",
-      "label": "有效期/截止",
-      "label_en": "Valid until",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.SALARY",
-      "label": "薪资",
-      "label_en": "Salary",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "not_comparable",
-      "note": "**JD 侧无薪资区间,简历侧 26% 有期望薪资** —— 单边数据不构成比较。"
-     }
-    ]
-   },
-   {
-    "code": "S8",
-    "label": "合规声明",
-    "label_en": "Compliance statements",
-    "fields": [
-     {
-      "id": "F.CLEARANCE",
-      "label": "法律记录 / 无犯罪",
-      "label_en": "Legal record / no criminal record",
-      "dimension": "G",
-      "scale": "nominal",
-      "unit": null,
-      "presence": 1,
-      "required": false,
-      "prop": null,
-      "compare": "not_comparable",
-      "note": "**简历侧完全没有对应字段** —— 只能要证明文件。"
-     },
-     {
-      "id": "F.JD_CLEAN_RECORD",
-      "label": "无犯罪/无行政处罚",
-      "label_en": "No penalty or criminal record",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 1,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_CONFIDENTIALITY",
-      "label": "保密/数据保密",
-      "label_en": "Confidentiality / data protection",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 2,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_CONTRACT_TYPE",
-      "label": "用工类型/合同",
-      "label_en": "Employment type / contract",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 3,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_NON_COMPETE",
-      "label": "竞业限制",
-      "label_en": "Non-compete",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 0,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_PROBATION",
-      "label": "试用期",
-      "label_en": "Probation",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 1,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     },
-     {
-      "id": "F.JD_SOCIAL_INSURANCE",
-      "label": "社保",
-      "label_en": "Social insurance",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 1,
-      "required": false,
-      "prop": null,
-      "compare": "jd_only",
-      "note": "岗位侧字段,简历无对应项"
-     }
-    ]
-   }
-  ]
- },
- "cv_template": {
-  "name": "候选人档案",
-  "rule": "渲染 cv 非 null 的字段;其余标〔待补〕",
-  "field_count": 31,
-  "sections": [
-   {
-    "code": "C1",
-    "label": "基本信息",
-    "label_en": "Basic info",
-    "fields": [
-     {
-      "id": "F.AGE",
-      "label": "年龄",
-      "label_en": "Age",
-      "dimension": "A",
-      "scale": "interval",
-      "unit": "岁",
-      "presence": 129,
-      "required": null,
-      "prop": "age",
-      "compare": "both",
-      "note": "JD 写区间;简历 47% 直述年龄、19% 写出生年月(可推算)。"
-     },
-     {
-      "id": "F.CV_BIRTH_DATE",
-      "label": "出生年月",
-      "label_en": "Date of birth",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 52,
-      "required": null,
-      "prop": "birthDate",
-      "compare": "cv_only",
-      "note": "候选人侧字段,JD 无对应项"
-     },
-     {
-      "id": "F.CV_EMAIL",
-      "label": "电子邮箱",
-      "label_en": "Email",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 173,
-      "required": null,
-      "prop": "email",
-      "compare": "cv_only",
-      "note": "候选人侧字段,JD 无对应项"
-     },
-     {
-      "id": "F.CV_FULL_NAME",
-      "label": "姓名",
-      "label_en": "Name",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 24,
-      "required": null,
-      "prop": "fullName",
-      "compare": "cv_only",
-      "note": "候选人侧字段,JD 无对应项"
-     },
-     {
-      "id": "F.CV_MARITAL_STATUS",
-      "label": "婚姻状况",
-      "label_en": "Marital status",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 11,
-      "required": null,
-      "prop": "marital",
-      "compare": "cv_only",
-      "note": "候选人侧字段,JD 无对应项"
-     },
-     {
-      "id": "F.CV_NATIVE_PLACE",
-      "label": "籍贯",
-      "label_en": "Native place",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 19,
-      "required": null,
-      "prop": "hometown",
-      "compare": "cv_only",
-      "note": "候选人侧字段,JD 无对应项"
-     },
-     {
-      "id": "F.CV_PHONE",
-      "label": "联系电话",
-      "label_en": "Phone",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 120,
-      "required": null,
-      "prop": "phone",
-      "compare": "cv_only",
-      "note": "候选人侧字段,JD 无对应项"
-     },
-     {
-      "id": "F.GENDER",
-      "label": "性别",
-      "label_en": "Gender",
-      "dimension": "A",
-      "scale": "nominal",
-      "unit": null,
-      "presence": 153,
-      "required": null,
-      "prop": "gender",
-      "compare": "both",
-      "note": "A 维无外部标准依据(LinkedIn 与 HR-XML 都无此字段),standard_ref 恒为 NULL。"
-     },
-     {
-      "id": "F.JOB_TITLE",
-      "label": "职务名称",
-      "label_en": "Job title",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 192,
-      "required": null,
-      "prop": "jobTitle",
-      "compare": "not_comparable",
-      "note": "不是同一条信息:JD 的职务名称是岗位;简历的「意向职位」是候选人的期望。"
-     },
-     {
-      "id": "F.WORK_LOCATION",
-      "label": "工作地点",
-      "label_en": "Work location",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 113,
-      "required": null,
-      "prop": "workLocation",
-      "compare": "not_comparable",
-      "note": "**JD 全批都没写工作地点,简历 41% 有现居地** —— 无法比对通勤半径。"
-     }
-    ]
-   },
-   {
-    "code": "C2",
-    "label": "求职意向",
-    "label_en": "Job preference",
-    "fields": [
-     {
-      "id": "F.AVAILABILITY",
-      "label": "到岗日期",
-      "label_en": "Available from",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 123,
-      "required": null,
-      "prop": "notice_weeks",
-      "compare": "cv_only",
-      "note": null
-     },
-     {
-      "id": "F.CV_CURRENT_SALARY",
-      "label": "目前年薪",
-      "label_en": "Current salary",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 5,
-      "required": null,
-      "prop": "current_salary_k",
-      "compare": "cv_only",
-      "note": "候选人侧字段,JD 无对应项"
-     },
-     {
-      "id": "F.CV_JOB_TYPE",
-      "label": "求职类型",
-      "label_en": "Job type",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 15,
-      "required": null,
-      "prop": "job_type",
-      "compare": "cv_only",
-      "note": "候选人侧字段,JD 无对应项"
-     },
-     {
-      "id": "F.SALARY",
-      "label": "薪资",
-      "label_en": "Salary",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 71,
-      "required": null,
-      "prop": "salary",
-      "compare": "not_comparable",
-      "note": "**JD 侧无薪资区间,简历侧 26% 有期望薪资** —— 单边数据不构成比较。"
-     }
-    ]
-   },
-   {
-    "code": "C3",
-    "label": "教育背景",
-    "label_en": "Education",
-    "fields": [
-     {
-      "id": "F.CV_EDU_PERIOD",
-      "label": "起止时间",
-      "label_en": "Study period",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 267,
-      "required": null,
-      "prop": "edu_period",
-      "compare": "cv_only",
-      "note": "候选人侧字段,JD 无对应项"
-     },
-     {
-      "id": "F.CV_INSTITUTION",
-      "label": "毕业院校",
-      "label_en": "Institution",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 67,
-      "required": null,
-      "prop": "institution",
-      "compare": "cv_only",
-      "note": "候选人侧字段,JD 无对应项"
-     },
-     {
-      "id": "F.EDU_FULLTIME",
-      "label": "是否全日制",
-      "label_en": "Full-time study",
-      "dimension": "B",
-      "scale": "nominal",
-      "unit": null,
-      "presence": 0,
-      "required": null,
-      "prop": "full_time",
-      "compare": "not_comparable",
-      "note": "**简历侧没有任何一份直接写「全日制」** —— 只能从自考/成教/统招推断,而推断没有出处。"
-     },
-     {
-      "id": "F.EDU_LEVEL",
-      "label": "学历",
-      "label_en": "Education level",
-      "dimension": "B",
-      "scale": "ordinal",
-      "unit": null,
-      "presence": 179,
-      "required": null,
-      "prop": "education_rank",
-      "compare": "both",
-      "note": "JD 侧几乎必写门槛;简历侧 179/270 有标签,但需与院校逐段对应。"
-     },
-     {
-      "id": "F.EDU_MAJOR",
-      "label": "专业",
-      "label_en": "Major",
-      "dimension": "B",
-      "scale": "nominal",
-      "unit": null,
-      "presence": 117,
-      "required": null,
-      "prop": "major",
-      "compare": "both",
-      "note": "JD 写「XX类专业」;简历 43% 写明。缺失时这条要求判不了 —— 不是不合格。"
-     }
-    ]
-   },
-   {
-    "code": "C4",
-    "label": "工作经历",
-    "label_en": "Work history",
-    "fields": [
-     {
-      "id": "F.CV_EMPLOYER",
-      "label": "公司名称",
-      "label_en": "Employer",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 255,
-      "required": null,
-      "prop": "employer",
-      "compare": "cv_only",
-      "note": "候选人侧字段,JD 无对应项"
-     },
-     {
-      "id": "F.EXP_ACTIVITY",
-      "label": "活动经验",
-      "label_en": "Activity experience",
-      "dimension": "C",
-      "scale": "nominal",
-      "unit": null,
-      "presence": 56,
-      "required": null,
-      "prop": "activity_experience",
-      "compare": "both",
-      "note": "「做过客户验厂」这类经验只能从工作描述里读;描述标签只有 56/270。"
-     },
-     {
-      "id": "F.EXP_DOMAIN",
-      "label": "职能域",
-      "label_en": "Functional domain",
-      "dimension": "C",
-      "scale": "nominal",
-      "unit": null,
-      "presence": 135,
-      "required": null,
-      "prop": "domain",
-      "compare": "not_comparable",
-      "note": "JD 写「文职类/管理类」;简历只有职位名。分类标准本身不存在,需先定义。"
-     },
-     {
-      "id": "F.EXP_INDUSTRY",
-      "label": "行业",
-      "label_en": "Industry",
-      "dimension": "C",
-      "scale": "nominal",
-      "unit": null,
-      "presence": 0,
-      "required": null,
-      "prop": "industry",
-      "compare": "not_comparable",
-      "note": "简历不写行业;只能从公司名推断 —— 推断无出处。"
-     },
-     {
-      "id": "F.EXP_YEARS",
-      "label": "总年限",
-      "label_en": "Total years",
-      "dimension": "C",
-      "scale": "interval",
-      "unit": "年",
-      "presence": 267,
-      "required": null,
-      "prop": "years_stated",
-      "compare": "both",
-      "note": "三个口径:平台文件名(被截断)/ 简历自述 / 逐段累计。要求必须声明用哪个。"
-     }
-    ]
-   },
-   {
-    "code": "C5",
-    "label": "技能与证书",
-    "label_en": "Skills & certificates",
-    "fields": [
-     {
-      "id": "F.CERTIFICATION",
-      "label": "资格证书",
-      "label_en": "Certificates",
-      "dimension": "F",
-      "scale": "nominal",
-      "unit": null,
-      "presence": 109,
-      "required": null,
-      "prop": "hasCertification",
-      "compare": "both",
-      "note": "两侧都有:JD 提「合规培训考核」,简历 109/270 写内审员/CET 等。"
-     },
-     {
-      "id": "F.CV_LANGUAGE",
-      "label": "语言能力",
-      "label_en": "Languages",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 109,
-      "required": null,
-      "prop": "language",
-      "compare": "cv_only",
-      "note": "候选人侧字段,JD 无对应项"
-     },
-     {
-      "id": "F.LANGUAGE_LEVEL",
-      "label": "语言熟练度",
-      "label_en": "Language proficiency",
-      "dimension": "H",
-      "scale": "ordinal",
-      "unit": null,
-      "presence": 0,
-      "required": null,
-      "prop": "language_level",
-      "compare": "not_comparable",
-      "note": "简历只写 CET-4/6 或「熟练」,无统一刻度;CEFR 映射不存在。"
-     },
-     {
-      "id": "F.SKILL",
-      "label": "技能",
-      "label_en": "Skills",
-      "dimension": "D",
-      "scale": "nominal",
-      "unit": null,
-      "presence": 140,
-      "required": null,
-      "prop": "hasSkill",
-      "compare": "both",
-      "note": "唯一 10/10 全员必写、且两侧都有实据的维度。词表见 component_catalog.yaml。"
-     }
-    ]
-   },
-   {
-    "code": "C6",
-    "label": "其他",
-    "label_en": "Other",
-    "fields": [
-     {
-      "id": "F.COMPETENCY",
-      "label": "职业素养",
-      "label_en": "Professional conduct",
-      "dimension": "E",
-      "scale": "ordinal",
-      "unit": null,
-      "presence": 62,
-      "required": null,
-      "prop": "competency",
-      "compare": "not_comparable",
-      "note": "**简历侧的「自我评价」是自我陈述,不构成判定依据** —— 所以两侧虽有字段,仍不可比。"
-     },
-     {
-      "id": "F.CV_PROJECTS",
-      "label": "项目经验",
-      "label_en": "Projects",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 42,
-      "required": null,
-      "prop": "projects",
-      "compare": "cv_only",
-      "note": "候选人侧字段,JD 无对应项"
-     },
-     {
-      "id": "F.CV_TRAININGS",
-      "label": "培训经历",
-      "label_en": "Training",
-      "dimension": null,
-      "scale": null,
-      "unit": null,
-      "presence": 94,
-      "required": null,
-      "prop": "trainings",
-      "compare": "cv_only",
-      "note": "候选人侧字段,JD 无对应项"
-     }
-    ]
-   }
-  ]
- },
  "standard_templates": {
   "jd": {
-   "name": null,
-   "_doc": null,
    "version": 2,
    "principles": [
     "based on field_schema",
@@ -3240,6 +1559,22 @@
    ],
    "field_count_target": 40,
    "field_count": 40,
+   "levels": {
+    "required": 23,
+    "conditional": 10,
+    "optional": 7
+   },
+   "assess": {
+    "internal": 17,
+    "not_judgeable": 6,
+    "judgeable": 17
+   },
+   "new_fields": [
+    "F.AVG_TENURE",
+    "F.RECENT_SEGMENTS",
+    "F.COMMUTE"
+   ],
+   "cross_side_fields": [],
    "sections": [
     {
      "code": "S1",
@@ -4214,27 +2549,9 @@
       }
      ]
     }
-   ],
-   "levels": {
-    "required": 23,
-    "conditional": 10,
-    "optional": 7
-   },
-   "assess": {
-    "internal": 17,
-    "not_judgeable": 6,
-    "judgeable": 17
-   },
-   "new_fields": [
-    "F.AVG_TENURE",
-    "F.RECENT_SEGMENTS",
-    "F.COMMUTE"
-   ],
-   "cross_side_fields": []
+   ]
   },
   "cv": {
-   "name": null,
-   "_doc": null,
    "version": 2,
    "principles": [
     "based on field_schema",
@@ -4284,6 +2601,24 @@
    ],
    "field_count_target": 26,
    "field_count": 26,
+   "levels": {
+    "required": 18,
+    "conditional": 2,
+    "optional": 6
+   },
+   "assess": {
+    "internal": 8,
+    "judgeable": 18
+   },
+   "new_fields": [
+    "F.COMMUTE",
+    "F.YEARS_COMPUTED",
+    "F.AVG_TENURE",
+    "F.RECENT_SEGMENTS"
+   ],
+   "cross_side_fields": [
+    "F.CLEARANCE"
+   ],
    "sections": [
     {
      "code": "C1",
@@ -4933,24 +3268,6 @@
       }
      ]
     }
-   ],
-   "levels": {
-    "required": 18,
-    "conditional": 2,
-    "optional": 6
-   },
-   "assess": {
-    "internal": 8,
-    "judgeable": 18
-   },
-   "new_fields": [
-    "F.COMMUTE",
-    "F.YEARS_COMPUTED",
-    "F.AVG_TENURE",
-    "F.RECENT_SEGMENTS"
-   ],
-   "cross_side_fields": [
-    "F.CLEARANCE"
    ]
   }
  },
@@ -5169,10 +3486,10 @@
   "cv_target": 26
  },
  "coverage": {
+  "phase": "phase0",
   "categories": 22,
   "components": 54,
   "requirements": 61,
-  "fields": 80,
   "components_with_evidence_role": 15,
   "components_evidence_role_missing": [
    "skill_行政",
@@ -5215,28 +3532,6 @@
    "skill_自动机",
    "skill_裁线机"
   ],
-  "requirements_used_by_jds": 42,
-  "requirements_unused": [
-   "REQ-D-AI-TOOLS",
-   "REQ-D-ATTENDANCE-SYSTEM",
-   "REQ-D-BIZ-ETIQUETTE",
-   "REQ-D-CULTURE-BUILD",
-   "REQ-D-DATA-ANALYSIS",
-   "REQ-D-DRAWING-READ",
-   "REQ-D-LABOR-LAW",
-   "REQ-D-OFFICE-NETWORK",
-   "REQ-D-RECRUIT-CHANNEL",
-   "REQ-D-RECRUIT-KNOWLEDGE",
-   "REQ-D-RECRUIT-SKILL",
-   "REQ-D-SOCIAL-INSURANCE",
-   "REQ-D-SYSTEM-MGMT",
-   "REQ-D-SYSTEM-PLANNING",
-   "REQ-D-TRAINING-DEV",
-   "REQ-E-BIZ-INTENT",
-   "REQ-E-JOB-INTEREST",
-   "REQ-E-OPENNESS",
-   "REQ-E-STEADY"
-  ],
   "components_unused": [
    "skill_5S",
    "skill_CATIA",
@@ -5251,21 +3546,12 @@
    "skill_SAP",
    "skill_SolidWorks",
    "skill_UG_NX",
-   "skill_企业文化建设",
-   "skill_体系管理",
    "skill_切片",
-   "skill_劳动法",
-   "skill_培训课程开发",
    "skill_外贸业务",
-   "skill_招聘",
-   "skill_数据分析",
-   "skill_社保操作",
    "skill_端子",
    "skill_精益生产",
-   "skill_系统规划",
    "skill_薪酬绩效",
    "skill_行政",
-   "skill_识图",
    "skill_财务",
    "skill_贸易安全合规",
    "skill_跟单"
@@ -5298,23 +3584,6 @@
    "REQ-F-TRADE-COMPLIANCE-TRAINING",
    "REQ-G-CONFIDENTIALITY",
    "REQ-G-NO-CRIMINAL-RECORD"
-  ],
-  "jds": {
-   "专案工程师": {
-    "citations": 9
-   },
-   "业务跟单": {
-    "citations": 9
-   },
-   "关务报关员": {
-    "citations": 17
-   },
-   "副总助理": {
-    "citations": 16
-   },
-   "品质经理": {
-    "citations": 15
-   }
-  }
+  ]
  }
 }

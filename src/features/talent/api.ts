@@ -269,7 +269,7 @@ export async function runTalentStep(jd: string, step = '5'): Promise<RunStepResu
 // ── 标准目录（分类/组件/要求/JD 与 CV 模板）────────────────────────────────
 export interface CatalogComponent {
   id: string; label: string; kind: string | null; evidence_role: string | null;
-  cv_count: number | null; requirements: string[]; jds: string[]; evidence_note: string | null;
+  requirements: string[]; evidence_note: string | null;
 }
 export interface CatalogField {
   id: string; label: string; dimension: string | null; scale?: string | null;
@@ -313,20 +313,20 @@ export interface StdCoverage {
 export interface TalentCatalog {
   ok: boolean;
   categories: { name: string; components: CatalogComponent[] }[];
+  /** Phase 0：这一层只讲标准，不出现任何具体 JD / 简历 / 缺口。 */
+  phase?: string;
+  layout_rule?: string;
   requirements: { id: string; name: string | null; dimension: string | null; kind: string | null;
                   data_class: string | null; assessable: boolean; components: string[];
-                  attribute: string | null; op: string | null; jds: string[] }[];
-  jd_template: CatalogTemplate;
-  cv_template: CatalogTemplate;
+                  attribute: string | null; op: string | null }[];
   /** 公司标准（应该长什么样）—— 与下面的客户实际字段是两件事。 */
   standard_templates: { jd: StdTemplate; cv: StdTemplate };
   standard_coverage: StdCoverage;
   coverage: {
-    categories: number; components: number; requirements: number; fields: number;
+    phase?: string;
+    categories: number; components: number; requirements: number;
     components_with_evidence_role: number; components_evidence_role_missing: string[];
-    requirements_used_by_jds: number; requirements_unused: string[];
     components_unused: string[]; requirements_unassessable: string[];
-    jds: Record<string, { citations: number }>;
   };
 }
 

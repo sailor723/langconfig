@@ -1,5 +1,10 @@
 /**
- * TalentCatalog —— 「标准目录」的可交互版：分类 → 组件、要求清单、JD 模板、CV 模板、缺口。
+ * TalentCatalog —— 「标准目录」的可交互版（**Phase 0 · 标准定义层**）。
+ *
+ * 这一层**不对应任何具体的 JD 或简历**：只有 分类 → 组件、要求清单、标准 JD 模板（40 字段）、
+ * 标准 CV 模板（26 字段）。客户 JD 原文、这份 JD 的缺口、某份简历的缺口都在下面几层
+ * （侧栏「0 JD · 原文与缺口」），**不在这页** —— 一页里混进"某份 JD 的取值"，
+ * 读的人就会以为标准本身在变。
  *
  * 数据来自 `GET /api/talent/catalog`（`build_catalog.py` 的产物），页面**只读不写**：
  * 编辑仍回三份 YAML，否则又多一个"两处真相"。门禁里有「catalog 与三份 YAML 一致」这一条，
@@ -15,19 +20,15 @@ import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { getTalentCatalog, type TalentCatalog } from './api';
 
-type Tab = 'components' | 'requirements' | 'std_jd' | 'std_cv' | 'jd' | 'cv' | 'gaps';
+type Tab = 'components' | 'requirements' | 'std_jd' | 'std_cv';
 
-/** 七页：分类/要求 → 公司标准（JD、CV）→ 客户实际字段（JD、CV）→ 缺口。
- *  标准与客户实际**分成两页**，是因为它们是两件事：一个是"应该长什么样"，一个是
- *  "10 份 JD 里真长什么样"。混在一页里，看的人会把客户漏填当成标准不需要。 */
+/** 四页：分类与组件 / 要求 / 标准 JD 模板 / 标准 CV 模板。
+ *  没有"客户 JD 字段""客户 CV 字段"——那属于下一层的某一份 JD，不属于标准定义。 */
 const TABS: { key: Tab; key_: string }[] = [
   { key: 'components', key_: 'tc_tab_components' },
   { key: 'requirements', key_: 'tc_tab_requirements' },
   { key: 'std_jd', key_: 'tc_tab_std_jd' },
   { key: 'std_cv', key_: 'tc_tab_std_cv' },
-  { key: 'jd', key_: 'tc_tab_jd' },
-  { key: 'cv', key_: 'tc_tab_cv' },
-  { key: 'gaps', key_: 'tc_tab_gaps' },
 ];
 
 export default function TalentCatalog() {
@@ -68,7 +69,6 @@ export default function TalentCatalog() {
   const gapSets = useMemo(() => ({
     roleMissing: new Set(cov?.components_evidence_role_missing || []),
     compUnused: new Set(cov?.components_unused || []),
-    reqUnused: new Set(cov?.requirements_unused || []),
     reqUnassessable: new Set(cov?.requirements_unassessable || []),
   }), [cov]);
 
@@ -113,18 +113,17 @@ export default function TalentCatalog() {
       {/* 顶部:标题 + 缺口概览 */}
       <div style={{ ...box, padding: '10px 12px' }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: t.textPrimary }}>
-          {tr('tc_summary')} · {cov?.categories} × {cov?.components} × {cov?.requirements}
+          {tr('tc_summary')} · {tr('tc_phase0')} · {cov?.categories} × {cov?.components} × {cov?.requirements}
           {' · '}{tr('tc_std_short')} JD {stdCov?.jd_fields ?? '—'} / CV {stdCov?.cv_fields ?? '—'}
-          {' · '}{tr('tc_client_short')} JD {data.jd_template.field_count} / CV {data.cv_template.field_count}
           {' '}{tr('tc_fields_rule')}
         </div>
         <div style={{ display: 'flex', gap: 14, marginTop: 6, flexWrap: 'wrap', fontSize: 11 }}>
           <span style={{ color: '#b3261e' }}>
             <AlertTriangle size={11} /> {tr('tc_gap_evidence')} {gapSets.roleMissing.size}
           </span>
-          <span style={{ color: '#8a6d3b' }}>{tr('tc_gap_req_unused')} {gapSets.reqUnused.size}</span>
           <span style={{ color: '#8a6d3b' }}>{tr('tc_gap_comp_unused')} {gapSets.compUnused.size}</span>
           <span style={{ color: t.textMuted }}>{tr('tc_gap_unassessable')} {gapSets.reqUnassessable.size}</span>
+          <span style={{ color: '#8a6d3b' }}>{tr('tc_gap_comp_unused_hint')} {gapSets.compUnused.size}</span>
           <span style={{ color: (stdCov?.requirements_uncovered.length ?? 0) ? '#e5484d' : '#2f9e44' }}>
             {tr('tc_std_cover')} {stdCov?.requirements_assessable ?? '—'} {'→'} {tr('tc_std_cover_missing')}{' '}
             {stdCov?.requirements_uncovered.length ?? '—'}
@@ -174,7 +173,7 @@ export default function TalentCatalog() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {data.categories.map((c) => {
             const rows = c.components.filter((x) =>
-              hit(x.id, x.label, x.kind, x.evidence_role, ...x.requirements, ...x.jds)
+              hit(x.id, x.label, x.kind, x.evidence_role, ...x.requirements)
               && (!onlyGap || gapSets.roleMissing.has(x.id) || gapSets.compUnused.has(x.id)));
             if (!rows.length) return null;
             const opened = open[c.name] ?? Boolean(q.trim()) ?? false;
@@ -200,9 +199,7 @@ export default function TalentCatalog() {
                         <th style={th()}>{tr('tc_col_label')}</th>
                         <th style={th()}>{tr('tc_col_kind')}</th>
                         <th style={th()}>{tr('tc_col_evidence')}</th>
-                        <th style={th({ textAlign: 'right' })}>{tr('tc_col_hits')}</th>
                         <th style={th()}>{tr('tc_col_reqs')}</th>
-                        <th style={th()}>{tr('tc_col_jds')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -218,11 +215,8 @@ export default function TalentCatalog() {
                               {x.evidence_role || tr('tc_undeclared')}
                             </span>
                           </td>
-                          <td style={td({ textAlign: 'right' })}>{x.cv_count ?? '—'}</td>
                           <td style={td()}>{x.requirements.length
                             ? x.requirements.map((r) => r.replace('REQ-', '')).join('、')
-                            : <span style={{ color: '#8a6d3b' }}>{tr('tc_none')}</span>}</td>
-                          <td style={td()}>{x.jds.length ? x.jds.join('、')
                             : <span style={{ color: '#8a6d3b' }}>{tr('tc_none')}</span>}</td>
                         </tr>
                       ))}
@@ -246,13 +240,12 @@ export default function TalentCatalog() {
                 <th style={th()}>{tr('tc_col_kind')}</th><th style={th()}>{tr('tc_col_class')}</th>
                 <th style={th()}>{tr('tc_col_assessable')}</th>
                 <th style={th({ textAlign: 'right' })}>{tr('tc_col_component')}</th>
-                <th style={th()}>{tr('tc_col_jds')}</th>
               </tr>
             </thead>
             <tbody>
               {data.requirements
-                .filter((r) => hit(r.id, r.name, r.dimension, r.kind, r.data_class, ...r.jds)
-                  && (!onlyGap || gapSets.reqUnused.has(r.id) || gapSets.reqUnassessable.has(r.id)))
+                .filter((r) => hit(r.id, r.name, r.dimension, r.kind, r.data_class)
+                  && (!onlyGap || gapSets.reqUnassessable.has(r.id)))
                 .map((r) => (
                   <tr key={r.id}>
                     <td style={td({ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10.5 })}>
@@ -264,8 +257,6 @@ export default function TalentCatalog() {
                     <td style={td({ color: t.textMuted })}>{r.data_class || '—'}</td>
                     <td style={td()}>{r.assessable ? '✅' : <span style={{ color: '#8a6d3b' }}>—</span>}</td>
                     <td style={td({ textAlign: 'right' })}>{r.components.length}</td>
-                    <td style={td()}>{r.jds.length ? r.jds.join('、')
-                      : <span style={{ color: '#8a6d3b' }}>{tr('tc_none')}</span>}</td>
                   </tr>
                 ))}
             </tbody>
@@ -400,86 +391,6 @@ export default function TalentCatalog() {
         );
       })()}
 
-      {/* JD / CV 模板 */}
-      {(tab === 'jd' || tab === 'cv') && (() => {
-        const tpl = tab === 'jd' ? data.jd_template : data.cv_template;
-        return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ fontSize: 11, color: t.textMuted }}>
-              {L(tpl.name, tab === 'jd' ? 'Job description' : 'Candidate profile')} ·{' '}
-              {tpl.field_count} {tr('tc_fields_rule')}
-            </div>
-            {tpl.sections.map((s) => {
-              const rows = s.fields.filter((f) =>
-                hit(f.id, f.label, f.dimension, f.prop, f.compare));
-              if (!rows.length) return null;
-              return (
-                <div key={s.code} style={box}>
-                  <div style={{ padding: '6px 10px', fontSize: 11.5, color: t.textPrimary,
-                                borderBottom: `1px solid ${t.border}` }}>
-                    <b>{s.code} · {L(s.label, (s as any).label_en)}</b>
-                    <span style={{ color: t.textMuted }}>（{s.fields.length}）</span>
-                  </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr>
-                        <th style={th()}>{tr('tc_col_field')}</th><th style={th()}>{tr('tc_col_name')}</th>
-                        <th style={th()}>{tr('tc_col_dim')}</th>
-                        <th style={th({ textAlign: 'right' })}>{tr('tc_col_presence')}</th>
-                        {tab === 'jd'
-                          ? <th style={th()}>{tr('tc_col_required')}</th>
-                          : <th style={th()}>{tr('tc_col_prop')}</th>}
-                        {tab === 'cv' && <th style={th()}>{tr('tc_col_compare')}</th>}
-                        <th style={th()}>{tr('tc_col_note')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((f) => (
-                        <tr key={f.id}>
-                          <td style={td({ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10.5 })}>{f.id}</td>
-                          <td style={td()}>{L(f.label, (f as any).label_en)}</td>
-                          <td style={td({ textAlign: 'center' })}>{f.dimension || '—'}</td>
-                          <td style={td({ textAlign: 'right' })}>{f.presence ?? '—'}</td>
-                          {tab === 'jd'
-                            ? <td style={td()}>{f.required ? (isZh ? '是' : 'yes') : '—'}</td>
-                            : <td style={td({ color: t.textMuted })}>{f.prop || '—'}</td>}
-                          {tab === 'cv' && <td style={td({ color: t.textMuted })}>{f.compare || '—'}</td>}
-                          <td style={td({ color: t.textMuted })}>{f.note || '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              );
-            })}
-          </div>
-        );
-      })()}
-
-      {/* 缺口 */}
-      {tab === 'gaps' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {[
-            [tr('tc_gap_t1'), cov?.components_evidence_role_missing || [], tr('tc_gap_t1_why')],
-            [tr('tc_gap_t2'), cov?.requirements_unused || [], tr('tc_gap_t2_why')],
-            [tr('tc_gap_t3'), cov?.components_unused || [], tr('tc_gap_t3_why')],
-            [tr('tc_gap_t4'), cov?.requirements_unassessable || [], tr('tc_gap_t4_why')],
-          ].map(([title, list, why]: any) => (
-            <div key={title} style={box}>
-              <div style={{ padding: '6px 10px', fontSize: 11.5, color: t.textPrimary,
-                            borderBottom: `1px solid ${t.border}` }}>
-                <b>{title}</b>
-                <span style={{ color: '#e5484d' }}> {list.length}</span>
-                <span style={{ color: t.textMuted }}> · {why}</span>
-              </div>
-              <div style={{ padding: '6px 10px', fontSize: 10.5, lineHeight: 1.9,
-                            fontFamily: 'ui-monospace,Menlo,monospace', color: t.textPrimary }}>
-                {list.length ? list.join('　') : <span style={{ color: t.textMuted }}>{tr('tc_none')}</span>}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
