@@ -41,18 +41,18 @@ DEST = TALENT / 'OVERVIEW.md'
 
 # ── 流程图（SVG，样式沿用本体教程里的那张 graph：同样的圆角框、同样的字阶与箭头）──
 FLOW_NODES = [
-    ('1', '客户给 JD', '#eef3fb', '#0b4f9c',
-     ['jd_links/_source/<JD>.txt', '原文一字不改 · 逐字可回查']),
+    ('1', '上传 JD → 缺口', '#eef3fb', '#0b4f9c',
+     ['_source/<JD>.txt + 缺口 md', '对 40 格模板逐格：原文/空值/缺']),
     ('2', 'HR + 业务定稿', '#eef3fb', '#0b4f9c',
-     ['jd_links/<JD>.yaml', '要求 + 阈值 + 行号 · 决策账本']),
-    ('3', '初筛：谁值得面', '#fdf6e3', '#8a6d3b',
-     ['shortlist/<JD>.yaml', '只剔硬证据不合格 · 读不到一律留']),
-    ('4', '一面：补数据', '#fdf6e3', '#8a6d3b',
-     ['cv_interview/<人>.yaml', '一次电话两份产物 · 答案落回要求']),
+     ['定稿(标准40格).md', '缺的格 mock 满 · 逐格标来源与待签']),
+    ('3', '初筛 + HR 一面（必须）', '#fdf6e3', '#8a6d3b',
+     ['shortlist/<JD>.yaml + cv_interview', '只剔硬证据 · 读不到一律留；补齐 CV + HR 评语']),
+    ('4', '加面（可选）', '#f4f4f4', '#6b7280',
+     ['cv_interview 追加', '跳过不是缺 · 跳过那几格记未知']),
     ('5a', '短名单 ≤10', '#fbe9e7', '#b3261e',
      ['目标名单.yaml · selected', '九层证据阶梯 · 切线 tie_band']),
-    ('5b', '最终名单 ≤5', '#fbe9e7', '#b3261e',
-     ['目标名单.yaml · final', '门槛 0 不满足 + 硬证据≥1 + 未知≤3']),
+    ('5b', '最终 ≤5 + 业务面问题', '#fbe9e7', '#b3261e',
+     ['final + 业务面问题清单.md', '门槛 0 不满足 + 硬证据≥1 + 未知≤3']),
 ]
 FLOW_EDGES = [
     (0, 1, '客户原话'), (1, 2, '闸门'), (2, 3, '面试名单'),
@@ -120,7 +120,7 @@ def flow_svg(gate: str = '') -> str:
         return (pos[i][0], pos[i][1], sizes[i][0], sizes[i][1])
 
     # ② 连线:只朝前(①→②→③→④→⑤a→⑤b)
-    edges = [(0, 1, '客户原话'), (1, 2, '闸门'), (2, 3, '面试名单'),
+    edges = [(0, 1, '缺口'), (1, 2, '闸门'), (2, 3, '可选'),
              (3, 4, '10 人以内'), (4, 5, '5 人')]
     for a, b, label in edges:
         ax, ay, aw, ah = box(a)
@@ -215,6 +215,54 @@ def gate_line() -> str:
     return '（未跑）'
 
 
+def phases() -> dict:
+    """今天新增的四层：数字全部从产物现算。
+
+    · Phase 0 读 catalog.json（标准目录：分类/组件/要求 + 标准模板字段数）
+    · Phase 1 读模板的判据（22 格文本可判 / 18 格需引用）+ 上传件的缺口状态分布
+    · Phase 2 读 jd_draft/*.draft.json（客户原文/HR 侧/HR 模拟确认/不适用）
+    · 第 3/5 步读 cv_interview 的 review 数与 picks/*.业务面问题.md 数
+    """
+    cat = json.loads((TALENT / 'catalog.json').read_text(encoding='utf-8')) \
+        if (TALENT / 'catalog.json').is_file() else {}
+    cov = cat.get('coverage') or {}
+    std = cat.get('standard_templates') or {}
+    ph0 = {'cats': cov.get('categories'), 'comps': cov.get('components'),
+           'reqs': cov.get('requirements'),
+           'jd': (std.get('jd') or {}).get('field_count'),
+           'cv': (std.get('cv') or {}).get('field_count')}
+
+    # 文本可判 vs 需引用：直接问 Phase 1 的规则表
+    try:
+        from scripts.talent.check_template_fill import PROBES
+        need_cite = sum(1 for v in PROBES.values() if v.get('reqs'))
+        text_can = len(PROBES) - need_cite
+    except Exception:                                              # noqa: BLE001
+        text_can, need_cite = 0, 0
+    ph1 = {'text_can': text_can, 'need_cite': need_cite}
+
+    ph2 = {'jds': 0, 'client': 0, 'hr': 0, 'hrmock': 0, 'na': 0}
+    for dp in (TALENT / 'jd_draft').glob('*.draft.json'):
+        d = json.loads(dp.read_text(encoding='utf-8'))
+        t = d.get('tally') or {}
+        ph2['jds'] += 1
+        ph2['client'] += t.get('客户原文', 0)
+        ph2['hr'] += t.get('HR 侧', 0)
+        ph2['hrmock'] += t.get('HR 模拟确认', 0)
+        ph2['na'] += t.get('不适用', 0)
+
+    reviews = 0
+    for f in (TALENT / 'cv_interview').glob('*.yaml'):
+        try:
+            if (yaml.safe_load(f.read_text(encoding='utf-8')) or {}).get('review'):
+                reviews += 1
+        except yaml.YAMLError:
+            continue
+    ph3 = {'reviews': reviews,
+           'bq': len(list((TALENT / 'picks').glob('*.业务面问题.md')))}
+    return {'ph0': ph0, 'ph1': ph1, 'ph2': ph2, 'ph3': ph3}
+
+
 def render(facts: dict, rows: list[dict], gate: str, svg_v: str = '') -> str:
     s5, s7, s8, s13 = facts['step5_gates'], facts['step7_states'], facts['step8_evidence'], facts['step13_replay']
     s10, s12, s2 = facts['step10_two_sources'], facts['step12_refusals'], facts['step2_individuals']
@@ -223,6 +271,8 @@ def render(facts: dict, rows: list[dict], gate: str, svg_v: str = '') -> str:
     cites = sum(v['citations'] for v in s5['per_jd'].values())
     client = sum(v['client'] for v in s5['per_jd'].values())
     hr = sum(v['hr'] for v in s5['per_jd'].values())
+    _ph = phases()
+    ph0, ph1, ph2, ph3 = _ph['ph0'], _ph['ph1'], _ph['ph2'], _ph['ph3']
     L: list[str] = []
     A = L.append
 
@@ -233,7 +283,8 @@ def render(facts: dict, rows: list[dict], gate: str, svg_v: str = '') -> str:
     A('')
     A('## 一句话')
     A('')
-    A('**客户原文 → 可回查的闸门 → 决定谁值得面 → 电话补数据 → 两道闸筛出 5 个人 → 每人一份可追到行号的判定说明。**')
+    A('**客户 JD 上传 → 对 40 格标准模板查缺口 → HR 与业务定稿（缺的格先 mock 满）→ '
+      '初筛 + HR 一面补齐 CV 并写评语 → 短名单 ≤10 → 选 5 人给业务面，并附每人一份问题清单。**')
     A('')
     A('## 全流程图')
     A('')
@@ -241,29 +292,46 @@ def render(facts: dict, rows: list[dict], gate: str, svg_v: str = '') -> str:
     A('')
     A('::: details 同样的流程，纯文本版（图片看不清时看这个）')
     A('```')
-    A('  ① 客户给 JD          ② HR + 业务定稿         ③ 初筛（决定谁值得面）')
-    A('  ────────────         ─────────────          ──────────────────')
-    A('  原文一字不改    →    拆成要求 + 阈值    →   只剔"简历上明确不合格"的')
-    A('  逐字可回查            每条落到客户行号       读不到的一律留 + 进待核清单')
-    A('        │                    │                       │')
-    A('        ▼                    ▼                       ▼')
-    A('  client 原文.txt      jd_links/<JD>.yaml        shortlist/<JD>.yaml')
-    A('                       要求库 + 决策账本          面试名单 + 待核清单')
-    A('                                                     │')
-    A('  ⑤b 最终名单 ≤5   ←   ⑤a 短名单 ≤10     ←        ④ 一面（补数据）')
-    A('  ──────────────       ──────────────             ──────────────────')
-    A('  没有硬伤的人          按九层证据阶梯排序           一次电话两份产物：')
-    A('  门槛 0 不满足        切线并列数写进产物           ① JD 要的字段问齐')
-    A('  硬证据 ≥1                                       ② 能力要能举例')
-    A('  未知 ≤3                      │                  答案落回"哪条要求"')
-    A('        │                      │                        │')
-    A('        └──────→ ⑥ 选人 + 逐人判定说明 ←────────────────┘')
-    A('                  （客户原文 / 行号 / 值来源 / 四态）')
+    A('  ① 上传 JD → 出缺口    ② HR + 业务定稿       ③ 初筛 + HR 一面（必须）')
+    A('  ──────────────────    ──────────────────    ─────────────────────────')
+    A('  原文抽文本，一字不改   缺的格 mock 满（标来源）  只剔"简历上明确不合格"的')
+    A('  对 40 格模板逐格查     逐格等客户/HR 签字        读不到一律留 + 进待核清单')
+    A('        │                    │                   一面补齐 CV + 写 HR 评语')
+    A('        ▼                    ▼                       │')
+    A('  _source/<JD>.txt      定稿(标准40格).md           ▼')
+    A('  <JD>.缺口.md                                shortlist/<JD>.yaml + cv_interview')
+    A('                                                   │')
+    A('  ⑤b 最终 ≤5 + 业务面问题 ← ⑤a 短名单 ≤10 ←     ④ 加面（可选）')
+    A('  ────────────────────    ──────────────        ─────────────────')
+    A('  门槛 0 不满足           九层证据阶梯排序         跳过不是缺：')
+    A('  硬证据 ≥1               切线并列数写进产物       没问的格子记「未知」')
+    A('  未知 ≤3 · 附每人的                              不是「不合格」')
+    A('  业务面问题清单（A/B/C）')
     A('```')
     A('::: ')
     A('')
-    A('**交接关系**：业务交原文 → HR+业务交闸门 → HR 交面试名单 → HR 交一面记录 → HR 交短名单 → 业务+HR 交最终 5 人 → 用人部门面这 5 人。')
+    A('**交接关系**：业务交原文 → HR+业务交定稿 → HR 交面试名单与一面记录（含评语）→ '
+      'HR+业务交短名单 → 业务+HR 交最终 5 人 + 业务面问题清单 → 用人部门面这 5 人。')
     A('每一步都落成文件；下一步只读上一步的产物，不靠人转述。')
+    A('')
+    A('> **阶段口径**（2026-11-24 定）：Phase 0 = 标准定义（字段/组件/要求/模板，跟具体 JD 无关）；'
+      'Phase 1 = 上传一份 JD、抽原文、出缺口；Phase 2 = HR 与业务定稿；之后才是第 3–5 步的选人。')
+    A('')
+    A('## 今天新增的四层（数字从产物现算）')
+    A('')
+    A('| 层 | 产物 | 现算结果 |')
+    A('|---|---|---|')
+    A(f'| **Phase 0 · 标准定义** | `CATALOG.md` / `catalog.json` | 分类 **{ph0["cats"]}** · 组件 **{ph0["comps"]}**'
+      f' · 要求 **{ph0["reqs"]}** · 标准 JD **{ph0["jd"]}** 字段 / CV **{ph0["cv"]}** 字段 |')
+    A(f'| **Phase 1 · 上传出缺口** | `jd_docs/<JD>.缺口.md` + `_source/<JD>.txt` | '
+      f'四状态（原文/原文·空值/缺/不适用）· 40 格里 {ph1["text_can"]} 格纯文本可判、'
+      f'{ph1["need_cite"]} 格原本要逐字引用 |')
+    A(f'| **Phase 2 · 定稿（缺的格 mock 满）** | `jd_docs/<JD>.定稿(标准40格).md` | '
+      f'{ph2["jds"]} 份 JD 全部 40 格无空格：客户原文 {ph2["client"]} · HR 侧 {ph2["hr"]} · '
+      f'**HR 模拟确认 {ph2["hrmock"]}** · 不适用 {ph2["na"]}（每份带「AI 模拟清单」） |')
+    A(f'| **第 3/5 步新增产物** | HR 评语 + 业务面问题清单 | HR 评语 **{ph3["reviews"]}** 份'
+      f'（模拟，不进判定）· 业务面问题清单 **{ph3["bq"]}** 份（覆盖最终 5 人） |')
+    A('')
     A('')
     A('## 现在跑出来的漏斗（五条线）')
     A('')
@@ -316,14 +384,15 @@ def render(facts: dict, rows: list[dict], gate: str, svg_v: str = '') -> str:
     A('| 回填参数 | `jd_inputs/<JD>.yaml`：面试人数、短名单区间、`final_max`、业务优先条件 |')
     A('| 门禁 | 引用逐字性、行号真实、HR 侧不许冒充客户原话、带拆分信号的引用必须有粒度决定且账本里有对应条目 |')
     A('')
-    A('## 第 ③ 步 · 初筛（决定谁值得面，不是判合格）')
+    A('## 第 ③ 步 · 初筛 + HR 一面（必须）：决定谁值得面，并把 CV 补齐')
     A('')
     A('### 业务视角')
     A('')
     A('- **谁**：HR。**什么时候**：定稿之后、打电话之前。')
     A('- **做什么**：从简历池里**只**剔除"简历上明确写着不合格"的人（例如客户写 25~40 岁、简历写 45 岁）。')
     A('- **判断标准**：读不到 ≠ 不合格。凡是拿不准的，一律留在池子里，进**待核清单**，等电话里问。')
-    A('- **交付**：一份面试名单（HR 真能打完电话的数量）+ 一份待核清单（按谁问、怎么问写清楚）。')
+    A('- **交付**：一份面试名单（HR 真能打完电话的数量）+ 一份待核清单（按谁问、怎么问写清楚）'
+      '+ **补齐的 CV**（每人一份定稿）+ **HR 评语**（这个人怎么样，一句话也要有证据）。')
     A('')
     A('### 技术视角')
     A('')
@@ -333,16 +402,24 @@ def render(facts: dict, rows: list[dict], gate: str, svg_v: str = '') -> str:
     A('| 账要平 | `kept + excluded = pool`，门禁断言；差一个人就说明有人被静默丢掉 |')
     A('| 面试名单 | `pick_interview_list`：九层证据阶梯排序 + 切线 `tie_band`（并列几个人写进产物，名次可读不可读由它决定） |')
     A('| 待核清单 | `open_questions`：按人 × 按条款生成；每条写清谁问、给什么问法 |')
-    A('| 门禁 | **排除必须有硬证据**；待核的人必须还在池里；每条排除都能追到值 |')
+    A('| 一面（必须） | `simulate_hr_round`（演练；真访谈时换成真人记录）：按待核清单把 JD 要的数据问齐，'
+      '答案 `basis` 标 `interview` / `simulated` |')
+    A('| CV 补齐 | `render_all_cv` → `cv_docs/<人>.定稿.md`（31 字段逐格标来源）+ `index_cv` → '
+      '`<JD>.CV清单.md`（含 **HR 评语** 列） |')
+    A('| HR 评语 | `mock_hr_comment` → `cv_interview/<人>.yaml` 的 `review`：**不进判定**，只给人读；'
+      '每条都要能追到证据（硬证据几项、一面几条、填充度） |')
+    A('| 门禁 | **排除必须有硬证据**；待核的人必须还在池里；每条排除都能追到值；'
+      'CV 定稿每格必须标来源 |')
     A('')
-    A('## 第 ④ 步 · 一面（把 JD 要的数据补齐）')
+    A('## 第 ④ 步 · 加面（**可选**）')
     A('')
     A('### 业务视角')
     A('')
-    A('- **谁**：HR 打电话（采集），业务判能力。**什么时候**：面试名单出来之后。')
-    A('- **做什么**：一次电话两份产物：① 按待核清单把 JD 要的数据问齐（到岗、薪资、通勤、在职时长…）② 对能力项要"能举出具体一段做法"。')
+    A('- **谁**：HR / 业务。**什么时候**：第 ③ 步之后，**需要时**才做 —— 这一步不是必须的。')
+    A('- **做什么**：对拿不准的人再补一轮（能力举例、加面确认）。'
+      '**跳过不是缺**：没问的格子记「未知」，不是「不合格」。')
     A('- **判断标准**：**不问"你觉得他行不行"**，也不打分。只记录：问了什么、他怎么答、能不能举例。')
-    A('- **交付**：每人一份问答记录；简历里读不到的字段，靠这场对话补齐。')
+    A('- **交付**：追加的问答记录（并回 CV 定稿）；没有加面就什么都不用交，流程照样往下走。')
     A('')
     A('### 技术视角')
     A('')
@@ -380,7 +457,8 @@ def render(facts: dict, rows: list[dict], gate: str, svg_v: str = '') -> str:
     A('- **谁**：HR + 业务。**什么时候**：短名单之后，送去用人部门面之前。')
     A('- **做什么**：从短名单里取出**送去面试的那 5 个人**。')
     A('- **判断标准**：三条硬条件 —— 客户硬门槛 **0 条不满足**、至少 **1 项硬证据**、未知 **≤3 条**；上限 5 人。**不够 5 个就如实说不够，不硬凑。**')
-    A('- **交付**：5 人名单 + 每人一段"为什么是他"。')
+    A('- **交付**：5 人名单 + 每人一段"为什么是他" + **每人一份业务面问题清单**'
+      '（A 能力举例 / B 当面确认未知项 / C 岗位必答）。')
     A('')
     A('### 技术视角')
     A('')
@@ -389,6 +467,9 @@ def render(facts: dict, rows: list[dict], gate: str, svg_v: str = '') -> str:
     A('| 产物 | 同文件的 `final`（含 `unknown_max` / `min_hard` / `max`，门禁照产物复核，不写死数字） |')
     A('| 选人 | `pick_final`：**不重排**，直接按名单顺序取；只补逐人理由与判定说明 |')
     A('| 判定说明 | `explain_rejection` → `verdicts/<JD>/<人>.md|yaml`：每条判定带客户原文、行号、数据项、他的值、阈值、值来源、四态 |')
+    A('| 业务面问题 | `business_questions` → `picks/<JD>.业务面问题.md`：每人三段 —— '
+      'A 能力项（软证据要举例 / 硬证据当面核对载体）、B 当面确认（判定「未知」格 + 客户门槛「不满足」格，'
+      '逐条带客户原话）、**C 岗位必答**。**不生成"你觉得他行不行"这类问题** |')
     A('| 门禁 | 最终名单 ⊂ 短名单、人数 ≤ 上限、**人数明显更少**、每人真的过三条硬条件（从 `rows` 复算，不信自报）、说明不得过期 |')
     A('')
     A('---')
