@@ -79,7 +79,23 @@ SIGNIN_PATH = "/signin"
 #: Paths the gate always passes through, whatever ``LANGCONFIG_LAN_BYPASS_PATHS``
 #: says. The sign-in page and the auth endpoints have to be reachable while signed
 #: out, and they reveal nothing about any account.
-PUBLIC_PREFIXES: tuple[str, ...] = ("/api/auth/", "/signin")
+#:
+#: The **built frontend** belongs here too, and this was a real outage: the sign-in
+#: page posts, sets a cookie and redirects to ``/`` — the browser then fetches
+#: ``/assets/index-*.js`` (5 MB) and, if that request happens to be issued before
+#: the cookie is applied (or from a stale tab that has none), the gate answered
+#: **401** and the app never booted: white page, or the previously rendered view
+#: left on screen. The bundle is public bytes that ship to every visitor anyway
+#: (``dist/`` has no data in it), so gating it protects nothing and breaks login.
+#: Data endpoints stay gated — only the shell is open.
+PUBLIC_PREFIXES: tuple[str, ...] = (
+    "/api/auth/",
+    "/signin",
+    "/assets/",          # 构建产物（js/css/字体/图片），内容对所有访问者都一样
+    "/favicon.ico",
+    "/static/",          # 后端自带的静态目录（若启用）
+    "/manifest.webmanifest",
+)
 
 
 def lan_access_enabled() -> bool:
