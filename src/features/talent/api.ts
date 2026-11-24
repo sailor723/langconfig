@@ -262,10 +262,15 @@ export interface StdField {
   evidence_required: string | null; missing_means: string | null;
   requirement_level: string; conditional_on: string | null;
   source_requirement: string[]; origin?: string | null; compare?: string | null;
-  new_in_standard?: boolean; in_field_schema?: boolean; note: string | null;
+  new_in_standard?: boolean; in_field_schema?: boolean; cross_side?: boolean;
+  prop?: string | null; note: string | null;
 }
 export interface StdTemplate {
   name: string | null; version: number | null; field_count_target: number | null;
+  /** 建法原则（基于 field_schema / 支撑本体推理）。 */
+  principles?: string[];
+  /** 没进模板的字段，逐条写明了去处。 */
+  dropped?: { code: string; why: string }[];
   field_count: number;
   levels: { required: number; conditional: number; optional: number };
   assess: Record<string, number>;

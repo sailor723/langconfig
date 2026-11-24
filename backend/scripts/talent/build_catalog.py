@@ -157,9 +157,11 @@ def build() -> dict:
     for which, doc in std_in.items():
         rows = _std_rows(doc)
         std[which] = {
-            'name': doc.get('_doc', '').split('\n')[0] if doc.get('_doc') else None,
-            '_doc': doc.get('_doc'),
+            'name': None,
+            '_doc': None,
             'version': doc.get('version'),
+            'principles': doc.get('principles') or [],
+            'dropped': doc.get('dropped') or [],
             'field_count_target': doc.get('field_count_target'),
             'field_count': len(rows),
             'sections': [{
@@ -178,6 +180,8 @@ def build() -> dict:
                     'origin': f.get('origin'), 'compare': f.get('compare'),
                     'new_in_standard': bool(f.get('new_in_standard')),
                     'in_field_schema': bool(f.get('in_field_schema')),
+                    'cross_side': bool(f.get('cross_side')),
+                    'prop': f.get('prop'),
                     'note': f.get('note'),
                 } for f in s.get('fields') or []],
             } for s in doc.get('sections') or []],
@@ -185,7 +189,9 @@ def build() -> dict:
         lv = collections.Counter(r.get('requirement_level') for r in rows)
         std[which]['levels'] = {k: lv.get(k, 0) for k in ('required', 'conditional', 'optional')}
         std[which]['assess'] = dict(collections.Counter(r.get('assessable') for r in rows))
-        std[which]['new_fields'] = [r['code'] for r in rows if r.get('new_in_standard')]
+        std[which]['new_fields'] = [r['code'] for r in rows
+                                    if r.get('new_in_standard') and not r.get('cross_side')]
+        std[which]['cross_side_fields'] = [r['code'] for r in rows if r.get('cross_side')]
 
     cv_items = {r.get('data_item') for r in _std_rows(std_in['cv'])}
     jd_items = {r.get('data_item') for r in _std_rows(std_in['jd'])}
@@ -301,6 +307,11 @@ def render(d: dict) -> str:
         A(f'{sub}。共 **{t["field_count"]}** 字段'
           f'（必需 {lv["required"]} / 条件 {lv["conditional"]} / 可选 {lv["optional"]}）'
           f'· 目标 {t["field_count_target"]} 字段。')
+        A('')
+        A('> 生成器：`scripts/talent/build_templates.py`。原则：' +
+          ' / '.join(t['principles']) + '。字段 id 与中文名取自 `field_schema`，'
+          '每个字段上方的注释写清了"这家公司为什么需要它"与出现次数；'
+          f'没进模板的 **{len(t["dropped"])}** 条在文件末尾 `dropped` 里逐条交代去处。')
         A('')
         A('| 段 | 段名 | 字段数 |')
         A('|---|---|---|')

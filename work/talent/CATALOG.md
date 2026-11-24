@@ -211,189 +211,175 @@
 
 ## 三、标准 JD 模板（公司标准 · 40 字段）
 
-职务说明书应该长什么样。共 **40** 字段（必需 22 / 条件 9 / 可选 9）· 目标 40 字段。
+职务说明书应该长什么样。共 **40** 字段（必需 23 / 条件 10 / 可选 7）· 目标 40 字段。
+
+> 生成器：`scripts/talent/build_templates.py`。原则：based on field_schema / support ontology reasoning。字段 id 与中文名取自 `field_schema`，每个字段上方的注释写清了"这家公司为什么需要它"与出现次数；没进模板的 **19** 条在文件末尾 `dropped` 里逐条交代去处。
 
 | 段 | 段名 | 字段数 |
 |---|---|---|
-| S1 | 岗位标识 | 10 |
-| S2 | 岗位目的 | 3 |
-| S3 | 门槛（A 人口 / B 教育 / C 经历） | 9 |
-| S4 | 能力（D） | 3 |
-| S5 | 资质与合规（F/G） | 3 |
-| S6 | 素质（E）—— 列名但不判 | 1 |
-| S7 | 职责与作业明细 | 1 |
-| S8 | 工作条件（一线岗必填） | 3 |
-| S9 | 管理责任（经理岗必填） | 2 |
-| S10 | HR 侧与发布元数据 | 5 |
+| S1 | 岗位标识 | 6 |
+| S2 | 岗位目的 | 2 |
+| S3 | 任职资格 | 11 |
+| S4 | 岗位职责 | 4 |
+| S5 | 作业明细 | 2 |
+| S6 | 工作条件 | 5 |
+| S7 | 元数据 | 7 |
+| S8 | 合规声明 | 3 |
 
-### S1 · 岗位标识（10）
+### S1 · 岗位标识（6）
 
 | 字段 | 名称 | 层级 | 判定 | 数据项 | 门槛形状 | 证据 | 缺了算 | 要求 |
 |---|---|---|---|---|---|---|---|---|
-| `F.JOB_TITLE` | 岗位名称 | required | internal | — | — | — | — | — |
+| `F.JOB_TITLE` | 职务名称 | required | internal | — | — | — | — | — |
 | `F.MGMT_CATEGORY` | 岗位类别 | required | internal | — | — | — | — | — |
 | `F.DEPARTMENT` | 隶属部门 | required | internal | — | — | — | — | — |
 | `F.REPORTS_TO` | 直接上司 | required | internal | — | — | — | — | — |
-| `F.SUPERVISES` | 直接下属〔含管理幅度〕 | required | internal | — | — | — | — | — |
-| `F.JD_HEADCOUNT` 🆕 | 编制人数 | required | internal | — | — | — | — | — |
-| `F.WORK_LOCATION` | 工作地点 | required | internal | — | — | — | — | — |
-| `F.EMPLOYMENT_TYPE` 🆕 | 雇佣类型 | required | internal | — | — | — | — | — |
+| `F.SUPERVISES` | 直接下属 | required | internal | — | — | — | — | — |
 | `F.JD_JOB_GRADE` | 职级 | optional | internal | — | — | — | — | — |
-| `F.JD_OCCUPATION_CODE` | 职业编码 | optional | internal | — | — | — | — | — |
 
-### S2 · 岗位目的（3）
+### S2 · 岗位目的（2）
 
 | 字段 | 名称 | 层级 | 判定 | 数据项 | 门槛形状 | 证据 | 缺了算 | 要求 |
 |---|---|---|---|---|---|---|---|---|
 | `F.JD_JOB_PURPOSE` | 岗位目的 | required | not_judgeable | — | — | — | — | — |
 | `F.JD_SUCCESS_CRITERIA` | 关键成功指标 | required | not_judgeable | — | — | — | — | — |
-| `F.TEAM_GOAL` | 团队目标 | conditional | not_judgeable | — | — | — | — | — |
 
-### S3 · 门槛（A 人口 / B 教育 / C 经历）（9）
-
-| 字段 | 名称 | 层级 | 判定 | 数据项 | 门槛形状 | 证据 | 缺了算 | 要求 |
-|---|---|---|---|---|---|---|---|---|
-| `F.AGE` | 年龄区间 | required | judgeable | A.2 | 区间(岁) | 原文 | 未知 | A-AGE-RANGE |
-| `F.GENDER` | 性别要求 | optional | judgeable | A.1 | 闭集 | 原文 | 未知 | A-GENDER |
-| `F.EDU_LEVEL` | 学历下限 | required | judgeable | B.1 | 顺序(≥等级) | 原文 | 未知 | B-EDU-LEVEL |
-| `F.EDU_MAJOR` | 专业范围 | required | judgeable | B.2 | 闭集 或 开区间(写清"等") | 原文 | 未知 | B-MAJOR |
-| `F.EDU_FULLTIME` | 全日制要求 | conditional | judgeable | B.3 | 布尔 | 原文 or 一面 | 未知 | B-FULL-TIME |
-| `F.EXP_YEARS` | 工作年限 | required | judgeable | C.1 | 区间(年) | 原文 | 未知 | C-YEARS-DOMAIN |
-| `F.EXP_DOMAIN` | 领域/行业限定 | conditional | judgeable | C.2 | 闭集(领域) [+ 闭集(行业)] | 一面 | 未知 | C-YEARS-DOMAIN、D-HARNESS-DOMAIN |
-| `F.HR_STABILITY` | 平均在职不低于 | required | judgeable | C.4 | 区间(年) | 推断(逐段累计) | 未知 | HR-TENURE |
-| `F.HR_RECENT_SEGMENTS` | 近 5 年任职不超过 | required | judgeable | C.7 | 整数上限 | 推断(工作段) | 未知 | HR-STABILITY |
-
-### S4 · 能力（D）（3）
+### S3 · 任职资格（11）
 
 | 字段 | 名称 | 层级 | 判定 | 数据项 | 门槛形状 | 证据 | 缺了算 | 要求 |
 |---|---|---|---|---|---|---|---|---|
-| `F.SKILL` | 能力要求（逐条） | required | judgeable | skill_* | any_of n / all_of（每条单独声明） | 原文 or 一面坐实 | 未知 | D-* |
-| `F.EQUIPMENT` | 设备操作（专项） | conditional | judgeable | skill_*(equipment) | any_of n | 一面坐实 | 未知 | D-WIRE-EQUIPMENT |
-| `F.LANGUAGE_LEVEL` | 语言要求（分档） | optional | judgeable | skill_语言 | 分档：口语 / 书面 各一档 | 一面 | 未知 | H-LANG-EN |
+| `F.AGE` | 年龄 | required | judgeable | A.2 | 区间(岁) | 原文 | 未知 | A-AGE-RANGE |
+| `F.GENDER` | 性别 | optional | judgeable | A.1 | 闭集 | 原文 | 未知 | A-GENDER |
+| `F.EDU_LEVEL` | 学历 | required | judgeable | B.1 | 顺序(≥等级) | 原文 | 未知 | B-EDU-LEVEL |
+| `F.EDU_MAJOR` | 专业 | required | judgeable | B.2 | 闭集 或 开区间(必须写清"等") | 原文 | 未知 | B-MAJOR |
+| `F.EDU_FULLTIME` | 是否全日制 | conditional | judgeable | B.3 | 布尔 | 原文 or 一面 | 未知 | B-FULL-TIME |
+| `F.EXP_YEARS` | 总年限 | required | judgeable | C.1 | 区间(年) | 原文 | 未知 | C-YEARS-DOMAIN |
+| `F.EXP_DOMAIN` | 职能域 | conditional | judgeable | C.2 | 闭集(领域) | 一面 | 未知 | C-YEARS-DOMAIN、D-HARNESS-DOMAIN |
+| `F.SKILL` | 技能 | required | judgeable | skill_* | any_of n / all_of（逐条声明） | 原文 or 一面坐实 | 未知 | D-* |
+| `F.CERTIFICATION` | 资格证书 | optional | judgeable | F.3 | 闭集(证书清单) | 原文(扫描件) | 未知 | F-TRADE-COMPLIANCE-TRAINING |
+| `F.LANGUAGE_LEVEL` | 语言熟练度 | optional | judgeable | skill_语言 | 分档：口语 / 书面 各一档 | 一面 | 未知 | H-LANG-EN |
+| `F.COMPETENCY` | 职业素养 | optional | not_judgeable | — | — | — | 不可判 | E-* |
 
-### S5 · 资质与合规（F/G）（3）
-
-| 字段 | 名称 | 层级 | 判定 | 数据项 | 门槛形状 | 证据 | 缺了算 | 要求 |
-|---|---|---|---|---|---|---|---|---|
-| `F.CERTIFICATION` | 证书/资质 | optional | judgeable | F.3 | 闭集(证书清单) | 原文(扫描件) | 未知 | F-TRADE-COMPLIANCE-TRAINING |
-| `F.CLEARANCE` | 背景合规 | optional | judgeable | G.1 | 布尔 | 背调 | 未知 | G-NO-CRIMINAL-RECORD |
-| `F.CONFIDENTIALITY` | 保密与竞业 | conditional | judgeable | G.2 | 布尔 | 背调 | 未知 | G-CONFIDENTIALITY |
-
-### S6 · 素质（E）—— 列名但不判（1）
-
-| 字段 | 名称 | 层级 | 判定 | 数据项 | 门槛形状 | 证据 | 缺了算 | 要求 |
-|---|---|---|---|---|---|---|---|---|
-| `F.COMPETENCY` | 素质要求 | optional | not_judgeable | — | — | — | 不可判 | E-* |
-
-### S7 · 职责与作业明细（1）
+### S4 · 岗位职责（4）
 
 | 字段 | 名称 | 层级 | 判定 | 数据项 | 门槛形状 | 证据 | 缺了算 | 要求 |
 |---|---|---|---|---|---|---|---|---|
 | `F.JD_DUTY_ITEMS` | 职责条目 | required | not_judgeable | — | — | — | — | — |
+| `F.DECISION_AUTHORITY` | 决策权限 | conditional | internal | — | — | — | — | — |
+| `F.BUDGET_OWNERSHIP` | 预算与成本责任 | conditional | internal | — | — | — | — | — |
+| `F.CROSS_DEPT` | 跨部门接口 | conditional | internal | — | — | — | — | — |
 
-### S8 · 工作条件（一线岗必填）（3）
+### S5 · 作业明细（2）
+
+| 字段 | 名称 | 层级 | 判定 | 数据项 | 门槛形状 | 证据 | 缺了算 | 要求 |
+|---|---|---|---|---|---|---|---|---|
+| `F.JD_ACTIVITY_TEXT` | 内容 | required | not_judgeable | — | — | — | — | — |
+| `F.JD_ACTIVITY_FREQ` | 频次(日/周/月/年/偶发) | required | not_judgeable | — | — | — | — | — |
+
+### S6 · 工作条件（5）
 
 | 字段 | 名称 | 层级 | 判定 | 数据项 | 门槛形状 | 证据 | 缺了算 | 要求 |
 |---|---|---|---|---|---|---|---|---|
 | `F.SHIFT` | 班制 | conditional | internal | — | — | — | — | — |
-| `F.JD_WORK_ENV` 🆕 | 作业环境 | conditional | internal | — | — | — | — | — |
-| `F.JD_TRAVEL` | 出差要求 | optional | internal | — | — | — | — | — |
+| `F.JD_ENVIRONMENT` | 环境(噪音/粉尘/温度) | conditional | internal | — | — | — | — | — |
+| `F.JD_PHYSICAL_DEMAND` | 体力/站立/搬运 | conditional | internal | — | — | — | — | — |
+| `F.JD_PPE` | 劳保/防护 | conditional | internal | — | — | — | — | — |
+| `F.JD_WORK_LOCATION` | 工作地点/厂区 | required | internal | — | — | — | — | — |
 
-### S9 · 管理责任（经理岗必填）（2）
-
-| 字段 | 名称 | 层级 | 判定 | 数据项 | 门槛形状 | 证据 | 缺了算 | 要求 |
-|---|---|---|---|---|---|---|---|---|
-| `F.DECISION_BUDGET` 🆕 | 决策与预算权限 | conditional | internal | — | — | — | — | — |
-| `F.CROSS_DEPT` | 跨部门协作 | conditional | internal | — | — | — | — | — |
-
-### S10 · HR 侧与发布元数据（5）
+### S7 · 元数据（7）
 
 | 字段 | 名称 | 层级 | 判定 | 数据项 | 门槛形状 | 证据 | 缺了算 | 要求 |
 |---|---|---|---|---|---|---|---|---|
-| `F.AVAILABILITY` | 到岗周期 | required | judgeable | A.3 | 周数上限 | 一面 | 未知 | HR-NOTICE |
-| `F.HR_SALARY_CAP` | 薪资上限（预算） | required | judgeable | A.5 | 数值上限(K) | 客户预算 | 不可判 | HR-SALARY |
-| `F.HR_COMMUTE` | 可接受通勤 | required | judgeable | A.4 | 布尔 / 单程分钟 | 一面 | 不可判 | HR-COMMUTE |
-| `F.JD_POSTING_WINDOW` 🆕 | 发布窗口（起/止） | required | internal | — | — | — | — | — |
+| `F.JD_HEADCOUNT` | 编制/招聘人数 | required | internal | — | — | — | — | — |
+| `F.AVAILABILITY` | 到岗日期 | required | judgeable | A.3 | 周数上限 | 一面 | 未知 | HR-NOTICE |
+| `F.SALARY` | 薪资 | required | judgeable | A.5 | 区间(K)，判定读上限 | 客户预算 | 不可判 | HR-SALARY |
+| `F.AVG_TENURE` 🆕 | 平均在职不低于 | required | judgeable | C.4 | 区间(年) | 推断(逐段累计) | 未知 | HR-TENURE |
+| `F.RECENT_SEGMENTS` 🆕 | 近 5 年任职不超过 | required | judgeable | C.7 | 整数上限 | 推断(工作段) | 未知 | HR-STABILITY |
+| `F.COMMUTE` 🆕 | 可接受通勤 | required | judgeable | A.4 | 布尔 / 单程分钟 | 一面 | 不可判 | HR-COMMUTE |
 | `F.JD_HIRING_REASON` | 招聘原因 | optional | internal | — | — | — | — | — |
 
-标准新增（`field_schema` 里还没有）：`F.JD_HEADCOUNT`、`F.EMPLOYMENT_TYPE`、`F.JD_WORK_ENV`、`F.DECISION_BUDGET`、`F.JD_POSTING_WINDOW`
+### S8 · 合规声明（3）
+
+| 字段 | 名称 | 层级 | 判定 | 数据项 | 门槛形状 | 证据 | 缺了算 | 要求 |
+|---|---|---|---|---|---|---|---|---|
+| `F.CLEARANCE` | 法律记录 / 无犯罪 | optional | judgeable | G.1 | 布尔 | 背调 | 未知 | G-NO-CRIMINAL-RECORD |
+| `F.JD_CONFIDENTIALITY` | 保密/数据保密 | conditional | judgeable | G.2 | 布尔 | 背调 | 未知 | G-CONFIDENTIALITY |
+| `F.JD_CONTRACT_TYPE` | 用工类型/合同 | required | internal | — | — | — | — | — |
+
+标准新增（`field_schema` 里还没有）：`F.AVG_TENURE`、`F.RECENT_SEGMENTS`、`F.COMMUTE`
 
 ## 四、标准 CV 模板（公司标准 · 26 字段）
 
-候选人档案应该长什么样。共 **26** 字段（必需 20 / 条件 3 / 可选 3）· 目标 26 字段。
+候选人档案应该长什么样。共 **26** 字段（必需 18 / 条件 2 / 可选 6）· 目标 26 字段。
+
+> 生成器：`scripts/talent/build_templates.py`。原则：based on field_schema / support ontology reasoning。字段 id 与中文名取自 `field_schema`，每个字段上方的注释写清了"这家公司为什么需要它"与出现次数；没进模板的 **10** 条在文件末尾 `dropped` 里逐条交代去处。
 
 | 段 | 段名 | 字段数 |
 |---|---|---|
-| C1 | 基本信息（A） | 5 |
-| C2 | 求职意向（A） | 4 |
-| C3 | 教育（B） | 4 |
-| C4 | 工作经历（C） | 7 |
-| C5 | 技能与证书（D/F） | 3 |
-| C6 | 合规（G） | 1 |
-| C7 | 证据与来源（本仓库新增） | 2 |
+| C1 | 基本信息 | 7 |
+| C2 | 求职意向 | 3 |
+| C3 | 教育背景 | 4 |
+| C4 | 工作经历 | 6 |
+| C5 | 技能与证书 | 3 |
+| C6 | 其他 | 3 |
 
-### C1 · 基本信息（A）（5）
+### C1 · 基本信息（7）
 
 | 字段 | 名称 | 层级 | 判定 | 数据项 | 值形状 | 证据 | 缺了算 | 来源 |
 |---|---|---|---|---|---|---|---|---|
 | `F.CV_FULL_NAME` | 姓名 | required | internal | — | — | 原文 | 未知 | — |
 | `F.GENDER` | 性别 | required | judgeable | A.1 | 闭集(男/女) | 原文 | 未知 | A-GENDER |
-| `F.CV_AGE_BIRTH` 🆕 | 年龄 / 出生年月 | required | judgeable | A.2 | 数值(岁) + 日期(出生年月) | 原文 | 未知 | A-AGE-RANGE |
-| `F.CV_CONTACT` 🆕 | 联系方式（手机/邮箱） | required | internal | — | — | 原文 | 未知 | — |
-| `F.WORK_LOCATION` | 现居地 | required | judgeable | A.4 | 布尔 + 单程分钟 | 原文 | 未知 | HR-COMMUTE |
+| `F.AGE` | 年龄 | required | judgeable | A.2 | 数值(岁) + 出生年月 | 原文 | 未知 | A-AGE-RANGE |
+| `F.CV_PHONE` | 联系电话 | required | internal | — | — | 原文 | 未知 | — |
+| `F.CV_EMAIL` | 电子邮箱 | optional | internal | — | — | 原文 | 未知 | — |
+| `F.WORK_LOCATION` | 工作地点 | required | judgeable | A.4 | 城市 / 区镇 | 原文 | 未知 | HR-COMMUTE |
+| `F.JOB_TITLE` | 职务名称 | optional | internal | — | — | 原文 | 未知 | — |
 
-### C2 · 求职意向（A）（4）
+### C2 · 求职意向（3）
 
 | 字段 | 名称 | 层级 | 判定 | 数据项 | 值形状 | 证据 | 缺了算 | 来源 |
 |---|---|---|---|---|---|---|---|---|
-| `F.SALARY_MAX_K` 🆕 | 期望薪资上限(K) | required | judgeable | A.5 | 数值(K) | 原文 or 一面 | 未知 | HR-SALARY |
-| `F.AVAILABILITY` | 到岗周期 | required | judgeable | A.3 | 整数(周) | 一面 | 未知 | HR-NOTICE |
-| `F.COMMUTE_OK` 🆕 | 通勤可接受 | required | judgeable | A.4 | 布尔 + 单程分钟 | 一面 | 未知 | HR-COMMUTE |
-| `F.JOB_TITLE` | 期望职位 | optional | internal | — | — | 原文 | 未知 | — |
+| `F.SALARY` | 薪资 | required | judgeable | A.5 | 区间(K)，判定读上限 | 原文 or 一面 | 未知 | HR-SALARY |
+| `F.AVAILABILITY` | 到岗日期 | required | judgeable | A.3 | 整数(周) | 一面 | 未知 | HR-NOTICE |
+| `F.COMMUTE` 🆕 | 通勤可接受 | required | judgeable | A.4 | 布尔 + 单程分钟 | 一面 | 未知 | HR-COMMUTE |
 
-### C3 · 教育（B）（4）
+### C3 · 教育背景（4）
 
 | 字段 | 名称 | 层级 | 判定 | 数据项 | 值形状 | 证据 | 缺了算 | 来源 |
 |---|---|---|---|---|---|---|---|---|
 | `F.EDU_LEVEL` | 学历 | required | judgeable | B.1 | 闭集(学历等级) | 原文 | 未知 | B-EDU-LEVEL |
-| `F.EDU_MAJOR` | 专业 | required | judgeable | B.2 | 文本(专业名) | 原文 | 未知 | B-MAJOR |
-| `F.EDU_FULLTIME` | 全日制 | required | judgeable | B.3 | 布尔 | 原文 or 一面 | 未知 | B-FULL-TIME |
-| `F.CV_EDU_SCHOOL` 🆕 | 院校 / 起止 | required | internal | — | — | 原文 | 未知 | — |
+| `F.EDU_MAJOR` | 专业 | required | judgeable | B.2 | 文本(专业全称) | 原文 | 未知 | B-MAJOR |
+| `F.EDU_FULLTIME` | 是否全日制 | required | judgeable | B.3 | 布尔 | 原文 or 一面 | 未知 | B-FULL-TIME |
+| `F.CV_INSTITUTION` | 毕业院校 | required | internal | — | — | 原文 | 未知 | — |
 
-### C4 · 工作经历（C）（7）
+### C4 · 工作经历（6）
 
 | 字段 | 名称 | 层级 | 判定 | 数据项 | 值形状 | 证据 | 缺了算 | 来源 |
 |---|---|---|---|---|---|---|---|---|
-| `F.CV_EMPLOYER` | 逐段经历（公司/职位/起止/职责） | required | internal | — | — | 原文 | 未知 | — |
-| `F.EXP_YEARS` | 总年限（自述） | required | judgeable | C.1 | 数值(年,自述) | 原文 | 未知 | C-YEARS-DOMAIN |
-| `F.YEARS_COMPUTED` 🆕 | 累计年限（逐段） | required | judgeable | C.6 | 数值(年,推算) | 推断(逐段) | 未知 | — |
-| `F.AVG_TENURE` 🆕 | 平均在职年限 | required | judgeable | C.4 | 数值(年,推算) | 推断(逐段) | 未知 | HR-TENURE |
-| `F.RECENT5Y_SEGMENTS` 🆕 | 近 5 年任职段数 | required | judgeable | C.7 | 整数(段) | 推断(逐段) | 未知 | HR-STABILITY |
+| `F.CV_EMPLOYER` | 公司名称 | required | internal | — | — | 原文 | 未知 | — |
+| `F.EXP_YEARS` | 总年限 | required | judgeable | C.1 | 数值(年,自述) | 原文 | 未知 | C-YEARS-DOMAIN |
+| `F.YEARS_COMPUTED` 🆕 | 累计年限（逐段） | required | judgeable | C.6 | 数值(年,逐段累加) | 推断(逐段) | 未知 | — |
+| `F.AVG_TENURE` 🆕 | 平均在职年限 | required | judgeable | C.4 | 数值(年,逐段) | 推断(逐段) | 未知 | HR-TENURE |
+| `F.RECENT_SEGMENTS` 🆕 | 近 5 年任职段数 | required | judgeable | C.7 | 整数(段) | 推断(逐段) | 未知 | HR-STABILITY |
 | `F.EXP_DOMAIN` | 职能域 | conditional | judgeable | C.2 | 闭集(领域) | 一面 | 未知 | C-YEARS-DOMAIN |
-| `F.EXP_INDUSTRY` | 行业 | conditional | judgeable | C.3 | 闭集(行业) | 原文 or 一面 | 未知 | D-HARNESS-DOMAIN |
 
-### C5 · 技能与证书（D/F）（3）
-
-| 字段 | 名称 | 层级 | 判定 | 数据项 | 值形状 | 证据 | 缺了算 | 来源 |
-|---|---|---|---|---|---|---|---|---|
-| `F.SKILL` | 技能清单（含熟练度/证据） | required | judgeable | skill_* | 闭集(组件) × 熟练度 × 引文 | 原文 or 一面坐实 | 未知 | D-* |
-| `F.LANGUAGE_LEVEL` | 语言水平（口语/书面） | conditional | judgeable | skill_语言 | 文本 | 一面 | 未知 | H-LANG-EN |
-| `F.CERTIFICATION` | 证书（含培训记录） | optional | judgeable | F.3 | 闭集(证书清单) + 扫描件 | 原文(扫描件) | 未知 | F-TRADE-COMPLIANCE-TRAINING |
-
-### C6 · 合规（G）（1）
+### C5 · 技能与证书（3）
 
 | 字段 | 名称 | 层级 | 判定 | 数据项 | 值形状 | 证据 | 缺了算 | 来源 |
 |---|---|---|---|---|---|---|---|---|
-| `F.CLEARANCE` | 背调项（无犯罪/保密/竞业） | optional | judgeable | G.1 | 布尔 + 背调附件 | 背调 | 未知 | G-NO-CRIMINAL-RECORD、G-CONFIDENTIALITY |
+| `F.SKILL` | 技能 | required | judgeable | skill_* | 组件 × 熟练度 × 引文 | 原文 or 一面坐实 | 未知 | D-* |
+| `F.LANGUAGE_LEVEL` | 语言熟练度 | conditional | judgeable | skill_语言 | 分档(口语/书面) | 一面 | 未知 | H-LANG-EN |
+| `F.CERTIFICATION` | 资格证书 | optional | judgeable | F.3 | 闭集(证书) + 扫描件 | 原文(扫描件) | 未知 | F-TRADE-COMPLIANCE-TRAINING |
 
-### C7 · 证据与来源（本仓库新增）（2）
+### C6 · 其他（3）
 
 | 字段 | 名称 | 层级 | 判定 | 数据项 | 值形状 | 证据 | 缺了算 | 来源 |
 |---|---|---|---|---|---|---|---|---|
-| `F.EVIDENCE_LEVEL` 🆕 | 每字段证据等级 | required | internal | — | — | — | — | — |
-| `F.BASIS` 🆕 | 答案来源 | required | internal | — | — | — | — | — |
+| `F.CLEARANCE` 🆕 | 法律记录 / 无犯罪 | optional | judgeable | G.1 | 布尔 + 背调附件 | 背调 | 未知 | G-NO-CRIMINAL-RECORD |
+| `F.CV_TRAININGS` | 培训经历 | optional | internal | — | — | 原文 | 未知 | — |
+| `F.CV_PROJECTS` | 项目经验 | optional | internal | — | — | 原文 | 未知 | — |
 
-标准新增（`field_schema` 里还没有）：`F.CV_AGE_BIRTH`、`F.CV_CONTACT`、`F.SALARY_MAX_K`、`F.COMMUTE_OK`、`F.CV_EDU_SCHOOL`、`F.YEARS_COMPUTED`、`F.AVG_TENURE`、`F.RECENT5Y_SEGMENTS`、`F.EVIDENCE_LEVEL`、`F.BASIS`
+标准新增（`field_schema` 里还没有）：`F.COMMUTE`、`F.YEARS_COMPUTED`、`F.AVG_TENURE`、`F.RECENT_SEGMENTS`
 
 ## 五、客户实际字段 · JD（10 份 JD 里真长什么样）
 

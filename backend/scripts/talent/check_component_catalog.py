@@ -1248,20 +1248,27 @@ def check_standard_templates() -> None:
     check_true(f"ST-G8 BLOCKING {len(blocking)} 条在标准模板里都是必需", not not_req,
                "; ".join(not_req))
 
-    # ST-G9 删的删干净、降级的真的降了
+    # ST-G9 删的删干净、降级的真的降了、没进模板的都交代了去处
     jd_codes = {r["code"] for r in rows["jd"]}
+    dropped: dict[str, str] = {}
+    for d in docs["jd"].get("dropped") or []:
+        for code in str(d.get("code") or "").split(" / "):
+            dropped[code.strip()] = d.get("why") or ""
     must_be_absent = {"F.JD_PAGE_COUNT", "F.JD_APPROVERS"}
     leaked = sorted(must_be_absent & jd_codes)
     check_true("ST-G9 已删字段(页数/核准审核制订)不在标准模板里", not leaked, ", ".join(leaked))
+    # 降级为可选、或干脆不进模板 —— 两条都行，但**必须有交代**：不许悄悄消失
     must_be_opt = {"F.JD_JOB_GRADE", "F.JD_OCCUPATION_CODE"}
     wrong = []
     for code in must_be_opt:
         r = next((x for x in rows["jd"] if x["code"] == code), None)
         if r is None:
-            wrong.append(f"{code}: 缺")
+            if not dropped.get(code):
+                wrong.append(f"{code}: 既不进模板也没写进 dropped")
         elif r.get("requirement_level") != "optional":
             wrong.append(f"{code}: {r.get('requirement_level')}")
-    check_true("ST-G9 降级字段(职级/职业编码)在且为可选", not wrong, "; ".join(wrong))
+    check_true("ST-G9 降级/不进的字段有交代(职级可选 · 职业编码写进 dropped)", not wrong,
+               "; ".join(wrong))
     # 职责权重不是降级而是**折进**「职责条目」:标准模板不为一个 0 出现率的子字段单开一行,
     # 但也不许它悄悄消失 —— 折进去必须在目标字段里写明,否则下一个人不知道它去哪了。
     merged = {"F.JD_DUTY_WEIGHT": "F.JD_DUTY_ITEMS"}
@@ -1274,6 +1281,56 @@ def check_standard_templates() -> None:
         if d is None or "权重" not in (d.get("note") or ""):
             bad_merge.append(f"{dst}: 没有写明吸收了 {src}")
     check_true("ST-G9 折并字段(职责权重→职责条目)写明了去处", not bad_merge, "; ".join(bad_merge))
+
+    # ST-G10 「基于 field_schema」不是口号：名字与段号必须与它逐字相同
+    fs_path = ROOT / "work" / "talent" / "field_schema.yaml"
+    if not fs_path.is_file():
+        not_run("ST-G10 字段名与 field_schema 一致", f"找不到 {fs_path}")
+        return
+    fs = yaml.safe_load(fs_path.read_text(encoding="utf-8")) or {}
+    fs_rows = fs["fields"] if isinstance(fs.get("fields"), list) else list(fs["fields"].values())
+    fs_by = {f["id"]: f for f in fs_rows}
+    bad_label, bad_sec = [], []
+    for w in ("jd", "cv"):
+        for r in rows[w]:
+            if not r.get("in_field_schema"):
+                continue
+            src = fs_by.get(r["code"])
+            if src is None:
+                bad_label.append(f"{w}:{r['code']} 声称在 field_schema、其实不在")
+                continue
+            if src.get("label") != r.get("label_zh"):
+                bad_label.append(f"{w}:{r['code']} 叫「{r.get('label_zh')}」,"
+                                 f"field_schema 叫「{src.get('label')}」")
+            side = src.get(w) or {}
+            if side and side.get("section") and side.get("section") != r.get("_sec"):
+                bad_sec.append(f"{w}:{r['code']} 在 {r.get('_sec')},field_schema 在 {side['section']}")
+    check_true("ST-G10 取自 field_schema 的字段,名称与段号逐字一致", not bad_label,
+               "; ".join(bad_label[:6]))
+    check_true("ST-G10 取自 field_schema 的字段,段号未被重新分组", not bad_sec,
+               "; ".join(bad_sec[:6]))
+
+    # ST-G11 新增字段:必须真的不在 field_schema,而且必须是为推理加的(带 data_item)
+    fake_new = [f"{w}:{r['code']}" for w in ("jd", "cv") for r in rows[w]
+                if r.get("new_in_standard") and r["code"] in fs_by
+                and (fs_by[r["code"]].get(w))]
+    no_item = [f"{w}:{r['code']}" for w in ("jd", "cv") for r in rows[w]
+               if r.get("new_in_standard") and not r.get("data_item")]
+    check_true("ST-G11 新增字段确实不在 field_schema(不重复造词)", not fake_new,
+               ", ".join(fake_new[:6]))
+    check_true("ST-G11 新增字段都是推理所需(带 data_item)", not no_item, ", ".join(no_item[:6]))
+
+    # ST-G12 模板与生成器一致(手改 YAML 会被这里判红)
+    try:
+        import subprocess as _sp4
+        _c4 = _sp4.run([sys.executable, "-m", "scripts.talent.build_templates", "--check"],
+                       cwd=str(ROOT / "backend"), capture_output=True, text=True,
+                       env={k: v for k, v in os.environ.items() if k != "PGPORT"})
+        _o4 = ((_c4.stdout or "") + (_c4.stderr or "")).strip()
+        check_true("ST-G12 模板与 build_templates 生成结果一致(未被手改)", _c4.returncode == 0,
+                   _o4.splitlines()[-1][:140] if _o4 else "没有输出")
+    except Exception as exc:  # noqa: BLE001
+        check_true("ST-G12 一致性校验跑完了(中途崩溃 = 红)", False, f"{type(exc).__name__}: {exc}")
 
     print(f"  · JD {len(rows['jd'])} 字段 · CV {len(rows['cv'])} 字段 · "
           f"可判要求 {n_assess} 条全覆盖")

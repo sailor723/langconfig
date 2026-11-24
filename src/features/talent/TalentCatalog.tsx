@@ -338,7 +338,11 @@ export default function TalentCatalog() {
                         <tr key={f.code} title={f.note || ''}>
                           <td style={td({ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10.5,
                                           whiteSpace: 'nowrap' })}>
-                            {f.code}{f.new_in_standard ? <span style={{ color: '#2f9e44' }}> ·新</span> : null}
+                            {f.code}
+                            {f.new_in_standard && !f.cross_side
+                              ? <span style={{ color: '#2f9e44' }}> ·新</span> : null}
+                            {f.cross_side
+                              ? <span style={{ color: '#8a6d3b' }}> ·跨侧</span> : null}
                           </td>
                           <td style={td()}>
                             {L(f.label_zh, f.label_en)}
@@ -373,6 +377,25 @@ export default function TalentCatalog() {
                 </div>
               );
             })}
+            {Boolean(tpl.dropped?.length) && (
+              <div style={box}>
+                <div style={{ padding: '6px 10px', fontSize: 11.5, color: t.textPrimary,
+                              borderBottom: `1px solid ${t.border}` }}>
+                  <b>{tr('tc_std_dropped_title')}</b>
+                  <span style={{ color: t.textMuted }}>（{tpl.dropped?.length}）</span>
+                  <span style={{ color: t.textMuted }}> · {tr('tc_std_dropped_why')}</span>
+                </div>
+                <div style={{ padding: '6px 10px', fontSize: 10.5, lineHeight: 1.9,
+                              color: t.textPrimary }}>
+                  {(tpl.dropped || []).map((d) => (
+                    <div key={d.code}>
+                      <span style={{ fontFamily: 'ui-monospace,Menlo,monospace' }}>{d.code}</span>
+                      <span style={{ color: t.textMuted }}> — {d.why}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         );
       })()}
