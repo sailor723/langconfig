@@ -377,6 +377,40 @@ export default function TalentCatalog() {
                 </div>
               );
             })}
+            {which === 'jd' && (data as any).jd_fill && (() => {
+              const f = (data as any).jd_fill;
+              const tal = f.tally || {};
+              return (
+                <div style={{ ...box, padding: '8px 10px', fontSize: 11.5, color: t.textPrimary,
+                              lineHeight: 1.8 }}>
+                  <b>{tr('tc_fill_title')}</b>
+                  <span style={{ color: t.textMuted }}> · {f.cells} {tr('tc_fields_rule')} × </span>
+                  <span style={{ color: t.textMuted }}>{(f.jds || []).length} JD</span>
+                  <div style={{ marginTop: 2, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    <span style={{ color: '#2f9e44' }}>{tr('tc_fill_orig')} {tal['原文'] ?? 0}</span>
+                    <span style={{ color: '#b3261e' }}>{tr('tc_fill_empty')} {tal['原文·空值'] ?? 0}</span>
+                    <span style={{ color: '#8a6d3b' }}>{tr('tc_fill_hr')} {tal['HR 侧'] ?? 0}</span>
+                    <span style={{ color: '#8a6d3b' }}>{tr('tc_fill_miss')} {tal['缺'] ?? 0}</span>
+                    <span style={{ color: t.textMuted }}>{tr('tc_fill_na')} {tal['不适用'] ?? 0}</span>
+                  </div>
+                  {Boolean(f.never_filled?.length) && (
+                    <div style={{ marginTop: 4, color: t.textMuted }}>
+                      {tr('tc_fill_never')} {f.never_filled.length}：
+                      {f.never_filled.map((x: any) => x.code).join('、')}
+                    </div>
+                  )}
+                  {(f.jds || []).length > 0 && (
+                    <div style={{ marginTop: 4, color: t.textMuted }}>
+                      {(f.jds || []).map((j: any) => (
+                        <span key={j.jd} style={{ marginRight: 12 }}>
+                          {j.jd}: {tr('tc_fill_orig')} {j.states['原文']} / {tr('tc_fill_miss')} {j.states['缺']}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             {Boolean(tpl.dropped?.length) && (
               <div style={box}>
                 <div style={{ padding: '6px 10px', fontSize: 11.5, color: t.textPrimary,

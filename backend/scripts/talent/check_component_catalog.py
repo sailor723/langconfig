@@ -1320,6 +1320,50 @@ def check_standard_templates() -> None:
                ", ".join(fake_new[:6]))
     check_true("ST-G11 新增字段都是推理所需(带 data_item)", not no_item, ", ".join(no_item[:6]))
 
+    # ── 试填：拿 5 份客户 JD 真填一遍，看模板够不够用 ──────────────────────
+    fill_json = ROOT / "work" / "talent" / "template_fill" / "fill.json"
+    if not fill_json.is_file():
+        not_run("ST-G13 5 份 JD 试填", "还没有 template_fill/fill.json")
+    else:
+        try:
+            import subprocess as _sp5
+            _c5 = _sp5.run([sys.executable, "-m", "scripts.talent.check_template_fill", "--check"],
+                           cwd=str(ROOT / "backend"), capture_output=True, text=True,
+                           env={k: v for k, v in os.environ.items() if k != "PGPORT"})
+            _o5 = ((_c5.stdout or "") + (_c5.stderr or "")).strip()
+            check_true("ST-G13 试填结果是最新的(客户原文/引用改了要重跑)", _c5.returncode == 0,
+                       _o5.splitlines()[-1][:140] if _o5 else "没有输出")
+        except Exception as exc:  # noqa: BLE001
+            check_true("ST-G13 试填校验跑完了(中途崩溃 = 红)", False, f"{type(exc).__name__}: {exc}")
+        try:
+            fd = json.loads(fill_json.read_text(encoding="utf-8"))
+            n_fields = fd.get("template_fields") or 0
+            jds = fd.get("jds") or []
+            cells = [c for j in jds for c in j.get("cells") or []]
+            base = len(rows["jd"])
+            check_true("ST-G13 试填覆盖了模板的每一个字段",
+                       n_fields == base and len(cells) == base * len(jds),
+                       f"{len(cells)} 格 = {n_fields} × {len(jds)},模板 {base}")
+            states = {"原文", "原文·空值", "HR 侧", "缺", "不适用"}
+            bad = [f"{j['jd']}:{c['code']}={c['state']}" for j in jds for c in j.get("cells") or []
+                   if c.get("state") not in states]
+            check_true("ST-G13 每格状态都在 5 种之内(不许自己发明状态/合并)", not bad,
+                       ", ".join(bad[:6]))
+            jd_by_code = {r["code"]: r for r in rows["jd"]}
+            bad_na = [f"{j['jd']}:{c['code']}" for j in jds for c in j.get("cells") or []
+                      if c.get("state") == "不适用"
+                      and (jd_by_code.get(c["code"]) or {}).get("requirement_level") != "conditional"]
+            check_true("ST-G13 「不适用」只出现在条件字段上", not bad_na, ", ".join(bad_na[:6]))
+            # 缺字段必须是可判要求记得住「缺了算」的 —— 否则补的时候没有口径
+            bad_missing = [c["code"] for c in cells
+                           if c.get("state") in ("缺", "原文·空值")
+                           and c.get("assessable") == "judgeable"
+                           and not (jd_by_code.get(c["code"]) or {}).get("missing_means")]
+            check_true("ST-G13 缺的值都能追到「缺了算什么」", not bad_missing,
+                       ", ".join(sorted(set(bad_missing))[:6]))
+        except Exception as exc:  # noqa: BLE001
+            check_true("ST-G13 试填结果可解析", False, f"{type(exc).__name__}: {exc}")
+
     # ST-G12 模板与生成器一致(手改 YAML 会被这里判红)
     try:
         import subprocess as _sp4

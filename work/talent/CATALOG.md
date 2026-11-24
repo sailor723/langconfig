@@ -215,6 +215,8 @@
 
 > 生成器：`scripts/talent/build_templates.py`。原则：based on field_schema / support ontology reasoning。字段 id 与中文名取自 `field_schema`，每个字段上方的注释写清了"这家公司为什么需要它"与出现次数；没进模板的 **19** 条在文件末尾 `dropped` 里逐条交代去处。
 
+**拿 5 份客户 JD 试填**（200 格）：原文 **71** · 原文但空值 **4** · HR 侧 **5** · 缺 **105** · 不适用 **15**。5 份全填不出的 **10** 个字段：`F.JD_JOB_GRADE`、`F.JD_JOB_PURPOSE`、`F.SHIFT`、`F.JD_ENVIRONMENT`、`F.JD_PHYSICAL_DEMAND`、`F.JD_PPE`、`F.JD_WORK_LOCATION`、`F.JD_HEADCOUNT`、`F.JD_HIRING_REASON`、`F.JD_CONTRACT_TYPE`。详见 `work/talent/template_fill/_index.md`。
+
 | 段 | 段名 | 字段数 |
 |---|---|---|
 | S1 | 岗位标识 | 6 |

@@ -1,0 +1,2620 @@
+{
+ "_doc": "5 份客户 JD 试填标准模板的结果（scripts/talent/check_template_fill.py 现算）",
+ "template_fields": 40,
+ "jds": [
+  {
+   "jd": "专案工程师",
+   "role_type": "staff",
+   "department": "技术课",
+   "citations": 9,
+   "source_lines": 52,
+   "cells": [
+    {
+     "code": "F.JOB_TITLE",
+     "section": "S1",
+     "state": "原文",
+     "why": "客户抬头「专案工程师」（专案工程师职务说明书.xlsx（客户原始文件,抽取记录见 draft/专案工程师.llm.json））",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.MGMT_CATEGORY",
+     "section": "S1",
+     "state": "原文",
+     "why": "role_type=staff（_source 第 3 行「直接下属 | 无」—— 原文只认这一处判据:写「无」）（原文判据已记录，尚未签字）",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.DEPARTMENT",
+     "section": "S1",
+     "state": "原文",
+     "why": "department=技术课",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.REPORTS_TO",
+     "section": "S1",
+     "state": "原文",
+     "why": "原文「直接上司：|」",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.SUPERVISES",
+     "section": "S1",
+     "state": "原文",
+     "why": "原文「直接下属：| 无」",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_JOB_GRADE",
+     "section": "S1",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_JOB_PURPOSE",
+     "section": "S2",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_SUCCESS_CRITERIA",
+     "section": "S2",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.AGE",
+     "section": "S3",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "A.2"
+    },
+    {
+     "code": "F.GENDER",
+     "section": "S3",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "judgeable",
+     "data_item": "A.1"
+    },
+    {
+     "code": "F.EDU_LEVEL",
+     "section": "S3",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "B.1"
+    },
+    {
+     "code": "F.EDU_MAJOR",
+     "section": "S3",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "B.2"
+    },
+    {
+     "code": "F.EDU_FULLTIME",
+     "section": "S3",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "judgeable",
+     "data_item": "B.3"
+    },
+    {
+     "code": "F.EXP_YEARS",
+     "section": "S3",
+     "state": "原文",
+     "why": "C-01「电线连接器加工行业产品开发3年以上经验」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "C.1"
+    },
+    {
+     "code": "F.EXP_DOMAIN",
+     "section": "S3",
+     "state": "原文",
+     "why": "C-01「电线连接器加工行业产品开发3年以上经验」 等 2 条",
+     "level": "conditional",
+     "assessable": "judgeable",
+     "data_item": "C.2"
+    },
+    {
+     "code": "F.SKILL",
+     "section": "S3",
+     "state": "原文",
+     "why": "C-02「电线连接器加工行业产品开发3年以上经验」 等 5 条",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "skill_*"
+    },
+    {
+     "code": "F.CERTIFICATION",
+     "section": "S3",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "judgeable",
+     "data_item": "F.3"
+    },
+    {
+     "code": "F.LANGUAGE_LEVEL",
+     "section": "S3",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "judgeable",
+     "data_item": "skill_语言"
+    },
+    {
+     "code": "F.COMPETENCY",
+     "section": "S3",
+     "state": "原文",
+     "why": "C-04「抗压能力强」 等 3 条",
+     "level": "optional",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_DUTY_ITEMS",
+     "section": "S4",
+     "state": "原文",
+     "why": "原文含「工作任务」：16、上司安排的其他工作任务。",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.DECISION_AUTHORITY",
+     "section": "S4",
+     "state": "不适用",
+     "why": "条件字段（岗位类别=经理岗），本 JD 是 staff",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.BUDGET_OWNERSHIP",
+     "section": "S4",
+     "state": "不适用",
+     "why": "条件字段（岗位类别=经理岗），本 JD 是 staff",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.CROSS_DEPT",
+     "section": "S4",
+     "state": "不适用",
+     "why": "条件字段（岗位类别=经理岗），本 JD 是 staff",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_ACTIVITY_TEXT",
+     "section": "S5",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_ACTIVITY_FREQ",
+     "section": "S5",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.SHIFT",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_ENVIRONMENT",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_PHYSICAL_DEMAND",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_PPE",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_WORK_LOCATION",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_HEADCOUNT",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.AVAILABILITY",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户 JD 与 HR 都没给（HR 闸门缺数据）",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "A.3"
+    },
+    {
+     "code": "F.SALARY",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户 JD 与 HR 都没给（HR 闸门缺数据）",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "A.5"
+    },
+    {
+     "code": "F.AVG_TENURE",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户 JD 与 HR 都没给（HR 闸门缺数据）",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "C.4"
+    },
+    {
+     "code": "F.RECENT_SEGMENTS",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户 JD 与 HR 都没给（HR 闸门缺数据）",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "C.7"
+    },
+    {
+     "code": "F.COMMUTE",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户 JD 与 HR 都没给（HR 闸门缺数据）",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "A.4"
+    },
+    {
+     "code": "F.JD_HIRING_REASON",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.CLEARANCE",
+     "section": "S8",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "judgeable",
+     "data_item": "G.1"
+    },
+    {
+     "code": "F.JD_CONFIDENTIALITY",
+     "section": "S8",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "judgeable",
+     "data_item": "G.2"
+    },
+    {
+     "code": "F.JD_CONTRACT_TYPE",
+     "section": "S8",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    }
+   ]
+  },
+  {
+   "jd": "业务跟单",
+   "role_type": "staff",
+   "department": "业务课",
+   "citations": 9,
+   "source_lines": 103,
+   "cells": [
+    {
+     "code": "F.JOB_TITLE",
+     "section": "S1",
+     "state": "原文",
+     "why": "客户抬头「业务跟单」（业务跟单职务说明书（客户原始 .doc 不在本仓库内,见下方 extracted_with)）",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.MGMT_CATEGORY",
+     "section": "S1",
+     "state": "原文",
+     "why": "role_type=staff（operator 按原文线索推断为员工岗(执行层),待业务方确认: ①第 12 ）（原文判据已记录，尚未签字）",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.DEPARTMENT",
+     "section": "S1",
+     "state": "原文",
+     "why": "department=业务课",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.REPORTS_TO",
+     "section": "S1",
+     "state": "原文",
+     "why": "原文「直接上司：\u0007业务副课长\u0007」",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.SUPERVISES",
+     "section": "S1",
+     "state": "原文",
+     "why": "原文「直接下属：\u0007\u0007\u0007」",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_JOB_GRADE",
+     "section": "S1",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_JOB_PURPOSE",
+     "section": "S2",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_SUCCESS_CRITERIA",
+     "section": "S2",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.AGE",
+     "section": "S3",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "A.2"
+    },
+    {
+     "code": "F.GENDER",
+     "section": "S3",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "judgeable",
+     "data_item": "A.1"
+    },
+    {
+     "code": "F.EDU_LEVEL",
+     "section": "S3",
+     "state": "原文",
+     "why": "C-01「学历：高中及以上学历」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "B.1"
+    },
+    {
+     "code": "F.EDU_MAJOR",
+     "section": "S3",
+     "state": "原文",
+     "why": "C-02「国际贸易、商务管理类相关专业优先」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "B.2"
+    },
+    {
+     "code": "F.EDU_FULLTIME",
+     "section": "S3",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "judgeable",
+     "data_item": "B.3"
+    },
+    {
+     "code": "F.EXP_YEARS",
+     "section": "S3",
+     "state": "原文",
+     "why": "C-03「经验：2年以上制造业订单跟单经验」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "C.1"
+    },
+    {
+     "code": "F.EXP_DOMAIN",
+     "section": "S3",
+     "state": "原文",
+     "why": "C-03「经验：2年以上制造业订单跟单经验」",
+     "level": "conditional",
+     "assessable": "judgeable",
+     "data_item": "C.2"
+    },
+    {
+     "code": "F.SKILL",
+     "section": "S3",
+     "state": "原文",
+     "why": "C-04「熟悉ERP系统操作」 等 3 条",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "skill_*"
+    },
+    {
+     "code": "F.CERTIFICATION",
+     "section": "S3",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "judgeable",
+     "data_item": "F.3"
+    },
+    {
+     "code": "F.LANGUAGE_LEVEL",
+     "section": "S3",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "judgeable",
+     "data_item": "skill_语言"
+    },
+    {
+     "code": "F.COMPETENCY",
+     "section": "S3",
+     "state": "原文",
+     "why": "C-07「抗压能力强，可同时处理多线程任务」 等 2 条",
+     "level": "optional",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_DUTY_ITEMS",
+     "section": "S4",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.DECISION_AUTHORITY",
+     "section": "S4",
+     "state": "不适用",
+     "why": "条件字段（岗位类别=经理岗），本 JD 是 staff",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.BUDGET_OWNERSHIP",
+     "section": "S4",
+     "state": "不适用",
+     "why": "条件字段（岗位类别=经理岗），本 JD 是 staff",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.CROSS_DEPT",
+     "section": "S4",
+     "state": "不适用",
+     "why": "条件字段（岗位类别=经理岗），本 JD 是 staff",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_ACTIVITY_TEXT",
+     "section": "S5",
+     "state": "原文",
+     "why": "原文「事务表述」表体 17 行，如「01」",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_ACTIVITY_FREQ",
+     "section": "S5",
+     "state": "原文",
+     "why": "原文「事务表述」表体 17 行，如「01」",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.SHIFT",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_ENVIRONMENT",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_PHYSICAL_DEMAND",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_PPE",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_WORK_LOCATION",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_HEADCOUNT",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.AVAILABILITY",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户 JD 与 HR 都没给（HR 闸门缺数据）",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "A.3"
+    },
+    {
+     "code": "F.SALARY",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户 JD 与 HR 都没给（HR 闸门缺数据）",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "A.5"
+    },
+    {
+     "code": "F.AVG_TENURE",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户 JD 与 HR 都没给（HR 闸门缺数据）",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "C.4"
+    },
+    {
+     "code": "F.RECENT_SEGMENTS",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户 JD 与 HR 都没给（HR 闸门缺数据）",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "C.7"
+    },
+    {
+     "code": "F.COMMUTE",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户 JD 与 HR 都没给（HR 闸门缺数据）",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "A.4"
+    },
+    {
+     "code": "F.JD_HIRING_REASON",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.CLEARANCE",
+     "section": "S8",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "judgeable",
+     "data_item": "G.1"
+    },
+    {
+     "code": "F.JD_CONFIDENTIALITY",
+     "section": "S8",
+     "state": "原文",
+     "why": "C-09「合规：严守数据保密制度，无客户信息泄露记录」",
+     "level": "conditional",
+     "assessable": "judgeable",
+     "data_item": "G.2"
+    },
+    {
+     "code": "F.JD_CONTRACT_TYPE",
+     "section": "S8",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    }
+   ]
+  },
+  {
+   "jd": "关务报关员",
+   "role_type": "staff",
+   "department": "",
+   "citations": 17,
+   "source_lines": 320,
+   "cells": [
+    {
+     "code": "F.JOB_TITLE",
+     "section": "S1",
+     "state": "原文",
+     "why": "客户抬头「关务报关员」（../client/team-4/unzipped/职务说明书10份/关务报关员职务说明书-11.7.docx）",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.MGMT_CATEGORY",
+     "section": "S1",
+     "state": "原文",
+     "why": "role_type=staff（promote_jd 未做岗位性质判断 —— 归属需人工确认(见 jd_revi）（原文判据已记录，尚未签字）",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.DEPARTMENT",
+     "section": "S1",
+     "state": "原文·空值",
+     "why": "隶属部门栏为空",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.REPORTS_TO",
+     "section": "S1",
+     "state": "原文",
+     "why": "原文「直接上司：\n副总经理\n」",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.SUPERVISES",
+     "section": "S1",
+     "state": "原文·空值",
+     "why": "原文有「直接下属」栏但值是空的",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_JOB_GRADE",
+     "section": "S1",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_JOB_PURPOSE",
+     "section": "S2",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_SUCCESS_CRITERIA",
+     "section": "S2",
+     "state": "原文",
+     "why": "原文含「KPI」：9）为KPI结果负责；",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.AGE",
+     "section": "S3",
+     "state": "原文",
+     "why": "关务-01「年龄25-45岁」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "A.2"
+    },
+    {
+     "code": "F.GENDER",
+     "section": "S3",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "judgeable",
+     "data_item": "A.1"
+    },
+    {
+     "code": "F.EDU_LEVEL",
+     "section": "S3",
+     "state": "原文",
+     "why": "关务-02「大专及以上学历」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "B.1"
+    },
+    {
+     "code": "F.EDU_MAJOR",
+     "section": "S3",
+     "state": "原文",
+     "why": "关务-03「国际贸易、物流专业优先」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "B.2"
+    },
+    {
+     "code": "F.EDU_FULLTIME",
+     "section": "S3",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "judgeable",
+     "data_item": "B.3"
+    },
+    {
+     "code": "F.EXP_YEARS",
+     "section": "S3",
+     "state": "原文",
+     "why": "关务-05「5年以上关务操作经验」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "C.1"
+    },
+    {
+     "code": "F.EXP_DOMAIN",
+     "section": "S3",
+     "state": "原文",
+     "why": "关务-05「5年以上关务操作经验」",
+     "level": "conditional",
+     "assessable": "judgeable",
+     "data_item": "C.2"
+    },
+    {
+     "code": "F.SKILL",
+     "section": "S3",
+     "state": "原文",
+     "why": "关务-04「熟悉进出口报关流程」 等 3 条",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "skill_*"
+    },
+    {
+     "code": "F.CERTIFICATION",
+     "section": "S3",
+     "state": "原文",
+     "why": "关务-06「通过基础贸易安全合规培训考核」",
+     "level": "optional",
+     "assessable": "judgeable",
+     "data_item": "F.3"
+    },
+    {
+     "code": "F.LANGUAGE_LEVEL",
+     "section": "S3",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "judgeable",
+     "data_item": "skill_语言"
+    },
+    {
+     "code": "F.COMPETENCY",
+     "section": "S3",
+     "state": "原文",
+     "why": "关务-08「对数据细心敏感」 等 8 条",
+     "level": "optional",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_DUTY_ITEMS",
+     "section": "S4",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.DECISION_AUTHORITY",
+     "section": "S4",
+     "state": "不适用",
+     "why": "条件字段（岗位类别=经理岗），本 JD 是 staff",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.BUDGET_OWNERSHIP",
+     "section": "S4",
+     "state": "不适用",
+     "why": "条件字段（岗位类别=经理岗），本 JD 是 staff",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.CROSS_DEPT",
+     "section": "S4",
+     "state": "不适用",
+     "why": "条件字段（岗位类别=经理岗），本 JD 是 staff",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_ACTIVITY_TEXT",
+     "section": "S5",
+     "state": "原文",
+     "why": "原文「事务表述」表体 16 行，如「是否可以AI操作」",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_ACTIVITY_FREQ",
+     "section": "S5",
+     "state": "原文",
+     "why": "原文「事务表述」表体 16 行，如「是否可以AI操作」",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.SHIFT",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_ENVIRONMENT",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_PHYSICAL_DEMAND",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_PPE",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_WORK_LOCATION",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_HEADCOUNT",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.AVAILABILITY",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户 JD 与 HR 都没给（HR 闸门缺数据）",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "A.3"
+    },
+    {
+     "code": "F.SALARY",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户 JD 与 HR 都没给（HR 闸门缺数据）",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "A.5"
+    },
+    {
+     "code": "F.AVG_TENURE",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户 JD 与 HR 都没给（HR 闸门缺数据）",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "C.4"
+    },
+    {
+     "code": "F.RECENT_SEGMENTS",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户 JD 与 HR 都没给（HR 闸门缺数据）",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "C.7"
+    },
+    {
+     "code": "F.COMMUTE",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户 JD 与 HR 都没给（HR 闸门缺数据）",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "A.4"
+    },
+    {
+     "code": "F.JD_HIRING_REASON",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.CLEARANCE",
+     "section": "S8",
+     "state": "原文",
+     "why": "关务-07「无海关行政处罚、犯罪记录」",
+     "level": "optional",
+     "assessable": "judgeable",
+     "data_item": "G.1"
+    },
+    {
+     "code": "F.JD_CONFIDENTIALITY",
+     "section": "S8",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "judgeable",
+     "data_item": "G.2"
+    },
+    {
+     "code": "F.JD_CONTRACT_TYPE",
+     "section": "S8",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    }
+   ]
+  },
+  {
+   "jd": "副总助理",
+   "role_type": "staff",
+   "department": "副总室",
+   "citations": 16,
+   "source_lines": 45,
+   "cells": [
+    {
+     "code": "F.JOB_TITLE",
+     "section": "S1",
+     "state": "原文",
+     "why": "客户抬头「副总助理」（client/team-4/unzipped/职务说明书10份/2.副总助理职务说明书 - 最新修改版.doc）",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.MGMT_CATEGORY",
+     "section": "S1",
+     "state": "原文",
+     "why": "role_type=staff（promote_jd 未做岗位性质判断 —— 归属需人工确认(见 jd_revi）（原文判据已记录，尚未签字）",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.DEPARTMENT",
+     "section": "S1",
+     "state": "原文",
+     "why": "department=副总室",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.REPORTS_TO",
+     "section": "S1",
+     "state": "原文",
+     "why": "原文「直接上司：\u0007副总经理\u0007」",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.SUPERVISES",
+     "section": "S1",
+     "state": "原文",
+     "why": "原文「直接下属：\u0007各部门负责人\u0007\u0007\n」",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_JOB_GRADE",
+     "section": "S1",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_JOB_PURPOSE",
+     "section": "S2",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_SUCCESS_CRITERIA",
+     "section": "S2",
+     "state": "原文",
+     "why": "原文含「KPI」：监督、帮助各部门达成KPI目标，监督各部门依《工作准",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.AGE",
+     "section": "S3",
+     "state": "原文",
+     "why": "VP-02「25-38岁」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "A.2"
+    },
+    {
+     "code": "F.GENDER",
+     "section": "S3",
+     "state": "原文",
+     "why": "VP-01「女性」",
+     "level": "optional",
+     "assessable": "judgeable",
+     "data_item": "A.1"
+    },
+    {
+     "code": "F.EDU_LEVEL",
+     "section": "S3",
+     "state": "原文",
+     "why": "VP-03「全日制大专及以上学历」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "B.1"
+    },
+    {
+     "code": "F.EDU_MAJOR",
+     "section": "S3",
+     "state": "原文",
+     "why": "VP-05「中文、文秘类专业优先」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "B.2"
+    },
+    {
+     "code": "F.EDU_FULLTIME",
+     "section": "S3",
+     "state": "原文",
+     "why": "VP-04「全日制」",
+     "level": "conditional",
+     "assessable": "judgeable",
+     "data_item": "B.3"
+    },
+    {
+     "code": "F.EXP_YEARS",
+     "section": "S3",
+     "state": "原文",
+     "why": "VP-06「2年以上文职类、助理类、管理类工厂工作经验」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "C.1"
+    },
+    {
+     "code": "F.EXP_DOMAIN",
+     "section": "S3",
+     "state": "原文",
+     "why": "VP-06「2年以上文职类、助理类、管理类工厂工作经验」",
+     "level": "conditional",
+     "assessable": "judgeable",
+     "data_item": "C.2"
+    },
+    {
+     "code": "F.SKILL",
+     "section": "S3",
+     "state": "原文",
+     "why": "VP-16「熟练掌握Office办公软件（Word/ Excel」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "skill_*"
+    },
+    {
+     "code": "F.CERTIFICATION",
+     "section": "S3",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "judgeable",
+     "data_item": "F.3"
+    },
+    {
+     "code": "F.LANGUAGE_LEVEL",
+     "section": "S3",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "judgeable",
+     "data_item": "skill_语言"
+    },
+    {
+     "code": "F.COMPETENCY",
+     "section": "S3",
+     "state": "原文",
+     "why": "VP-07「原则性强」 等 9 条",
+     "level": "optional",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_DUTY_ITEMS",
+     "section": "S4",
+     "state": "原文",
+     "why": "原文含「岗位职责」：岗位职责",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.DECISION_AUTHORITY",
+     "section": "S4",
+     "state": "不适用",
+     "why": "条件字段（岗位类别=经理岗），本 JD 是 staff",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.BUDGET_OWNERSHIP",
+     "section": "S4",
+     "state": "不适用",
+     "why": "条件字段（岗位类别=经理岗），本 JD 是 staff",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.CROSS_DEPT",
+     "section": "S4",
+     "state": "不适用",
+     "why": "条件字段（岗位类别=经理岗），本 JD 是 staff",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_ACTIVITY_TEXT",
+     "section": "S5",
+     "state": "原文",
+     "why": "原文「事务表述」表体 11 行，如「内          容」",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_ACTIVITY_FREQ",
+     "section": "S5",
+     "state": "原文",
+     "why": "原文「事务表述」表体 11 行，如「内          容」",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.SHIFT",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_ENVIRONMENT",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_PHYSICAL_DEMAND",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_PPE",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_WORK_LOCATION",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_HEADCOUNT",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.AVAILABILITY",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户 JD 与 HR 都没给（HR 闸门缺数据）",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "A.3"
+    },
+    {
+     "code": "F.SALARY",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户 JD 与 HR 都没给（HR 闸门缺数据）",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "A.5"
+    },
+    {
+     "code": "F.AVG_TENURE",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户 JD 与 HR 都没给（HR 闸门缺数据）",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "C.4"
+    },
+    {
+     "code": "F.RECENT_SEGMENTS",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户 JD 与 HR 都没给（HR 闸门缺数据）",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "C.7"
+    },
+    {
+     "code": "F.COMMUTE",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户 JD 与 HR 都没给（HR 闸门缺数据）",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "A.4"
+    },
+    {
+     "code": "F.JD_HIRING_REASON",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.CLEARANCE",
+     "section": "S8",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "judgeable",
+     "data_item": "G.1"
+    },
+    {
+     "code": "F.JD_CONFIDENTIALITY",
+     "section": "S8",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "judgeable",
+     "data_item": "G.2"
+    },
+    {
+     "code": "F.JD_CONTRACT_TYPE",
+     "section": "S8",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    }
+   ]
+  },
+  {
+   "jd": "品质经理",
+   "role_type": "staff",
+   "department": "品保课",
+   "citations": 15,
+   "source_lines": 109,
+   "cells": [
+    {
+     "code": "F.JOB_TITLE",
+     "section": "S1",
+     "state": "原文",
+     "why": "客户抬头「品质经理」（12.品质经理职务说明书.doc（客户原始 .doc，见 agent_386 工作区 upload/））",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.MGMT_CATEGORY",
+     "section": "S1",
+     "state": "原文",
+     "why": "role_type=staff（_source 第 17 行「直接下属无」（该行是 Word 表格，被 text）（原文判据已记录，尚未签字）",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.DEPARTMENT",
+     "section": "S1",
+     "state": "原文",
+     "why": "department=品保课",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.REPORTS_TO",
+     "section": "S1",
+     "state": "原文",
+     "why": "原文「直接上司：\u0007\u0007」",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.SUPERVISES",
+     "section": "S1",
+     "state": "原文",
+     "why": "原文「直接下属：\u0007无\u0007\u0007\n」",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_JOB_GRADE",
+     "section": "S1",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_JOB_PURPOSE",
+     "section": "S2",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_SUCCESS_CRITERIA",
+     "section": "S2",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.AGE",
+     "section": "S3",
+     "state": "原文",
+     "why": "C-01「年龄：25 ~ 40岁；」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "A.2"
+    },
+    {
+     "code": "F.GENDER",
+     "section": "S3",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "judgeable",
+     "data_item": "A.1"
+    },
+    {
+     "code": "F.EDU_LEVEL",
+     "section": "S3",
+     "state": "原文",
+     "why": "C-02「学历：大专及以上学历；」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "B.1"
+    },
+    {
+     "code": "F.EDU_MAJOR",
+     "section": "S3",
+     "state": "原文",
+     "why": "C-03「专业：机电一体化/电子技术/自动化/工业工程/机械工」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "B.2"
+    },
+    {
+     "code": "F.EDU_FULLTIME",
+     "section": "S3",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "judgeable",
+     "data_item": "B.3"
+    },
+    {
+     "code": "F.EXP_YEARS",
+     "section": "S3",
+     "state": "原文",
+     "why": "C-05「3年以上品质管理工作经验」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "C.1"
+    },
+    {
+     "code": "F.EXP_DOMAIN",
+     "section": "S3",
+     "state": "原文",
+     "why": "C-05「3年以上品质管理工作经验」 等 2 条",
+     "level": "conditional",
+     "assessable": "judgeable",
+     "data_item": "C.2"
+    },
+    {
+     "code": "F.SKILL",
+     "section": "S3",
+     "state": "原文",
+     "why": "C-06「熟识线束行业相关产品」 等 4 条",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "skill_*"
+    },
+    {
+     "code": "F.CERTIFICATION",
+     "section": "S3",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "judgeable",
+     "data_item": "F.3"
+    },
+    {
+     "code": "F.LANGUAGE_LEVEL",
+     "section": "S3",
+     "state": "原文",
+     "why": "C-04「语言：英语口语熟练及具备独立书写英文8D报告的能力；」",
+     "level": "optional",
+     "assessable": "judgeable",
+     "data_item": "skill_语言"
+    },
+    {
+     "code": "F.COMPETENCY",
+     "section": "S3",
+     "state": "原文",
+     "why": "C-10「有良好的沟通、协调能力」",
+     "level": "optional",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_DUTY_ITEMS",
+     "section": "S4",
+     "state": "原文",
+     "why": "原文含「岗位职责」：岗位职责",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.DECISION_AUTHORITY",
+     "section": "S4",
+     "state": "不适用",
+     "why": "条件字段（岗位类别=经理岗），本 JD 是 staff",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.BUDGET_OWNERSHIP",
+     "section": "S4",
+     "state": "不适用",
+     "why": "条件字段（岗位类别=经理岗），本 JD 是 staff",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.CROSS_DEPT",
+     "section": "S4",
+     "state": "不适用",
+     "why": "条件字段（岗位类别=经理岗），本 JD 是 staff",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_ACTIVITY_TEXT",
+     "section": "S5",
+     "state": "原文·空值",
+     "why": "原文有「事务表述」表头，但表体是空的",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_ACTIVITY_FREQ",
+     "section": "S5",
+     "state": "原文·空值",
+     "why": "原文有「事务表述」表头，但表体是空的",
+     "level": "required",
+     "assessable": "not_judgeable",
+     "data_item": null
+    },
+    {
+     "code": "F.SHIFT",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_ENVIRONMENT",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_PHYSICAL_DEMAND",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_PPE",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_WORK_LOCATION",
+     "section": "S6",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.JD_HEADCOUNT",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.AVAILABILITY",
+     "section": "S7",
+     "state": "HR 侧",
+     "why": "HR-01（HR 提出）「」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "A.3"
+    },
+    {
+     "code": "F.SALARY",
+     "section": "S7",
+     "state": "HR 侧",
+     "why": "HR-04（HR 提出）「」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "A.5"
+    },
+    {
+     "code": "F.AVG_TENURE",
+     "section": "S7",
+     "state": "HR 侧",
+     "why": "HR-03（HR 提出）「」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "C.4"
+    },
+    {
+     "code": "F.RECENT_SEGMENTS",
+     "section": "S7",
+     "state": "HR 侧",
+     "why": "HR-02（HR 提出）「」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "C.7"
+    },
+    {
+     "code": "F.COMMUTE",
+     "section": "S7",
+     "state": "HR 侧",
+     "why": "HR-05（HR 提出）「」",
+     "level": "required",
+     "assessable": "judgeable",
+     "data_item": "A.4"
+    },
+    {
+     "code": "F.JD_HIRING_REASON",
+     "section": "S7",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "internal",
+     "data_item": null
+    },
+    {
+     "code": "F.CLEARANCE",
+     "section": "S8",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "optional",
+     "assessable": "judgeable",
+     "data_item": "G.1"
+    },
+    {
+     "code": "F.JD_CONFIDENTIALITY",
+     "section": "S8",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "conditional",
+     "assessable": "judgeable",
+     "data_item": "G.2"
+    },
+    {
+     "code": "F.JD_CONTRACT_TYPE",
+     "section": "S8",
+     "state": "缺",
+     "why": "客户原文没有这一项",
+     "level": "required",
+     "assessable": "internal",
+     "data_item": null
+    }
+   ]
+  }
+ ],
+ "per_field": [
+  {
+   "code": "F.JOB_TITLE",
+   "label": "职务名称",
+   "section": "S1",
+   "level": "required",
+   "assessable": "internal",
+   "states": [
+    "原文",
+    "原文",
+    "原文",
+    "原文",
+    "原文"
+   ],
+   "orig": 5,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 0,
+   "na": 0
+  },
+  {
+   "code": "F.MGMT_CATEGORY",
+   "label": "岗位类别",
+   "section": "S1",
+   "level": "required",
+   "assessable": "internal",
+   "states": [
+    "原文",
+    "原文",
+    "原文",
+    "原文",
+    "原文"
+   ],
+   "orig": 5,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 0,
+   "na": 0
+  },
+  {
+   "code": "F.DEPARTMENT",
+   "label": "隶属部门",
+   "section": "S1",
+   "level": "required",
+   "assessable": "internal",
+   "states": [
+    "原文",
+    "原文",
+    "原文·空值",
+    "原文",
+    "原文"
+   ],
+   "orig": 4,
+   "orig_empty": 1,
+   "hr": 0,
+   "miss": 0,
+   "na": 0
+  },
+  {
+   "code": "F.REPORTS_TO",
+   "label": "直接上司",
+   "section": "S1",
+   "level": "required",
+   "assessable": "internal",
+   "states": [
+    "原文",
+    "原文",
+    "原文",
+    "原文",
+    "原文"
+   ],
+   "orig": 5,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 0,
+   "na": 0
+  },
+  {
+   "code": "F.SUPERVISES",
+   "label": "直接下属",
+   "section": "S1",
+   "level": "required",
+   "assessable": "internal",
+   "states": [
+    "原文",
+    "原文",
+    "原文·空值",
+    "原文",
+    "原文"
+   ],
+   "orig": 4,
+   "orig_empty": 1,
+   "hr": 0,
+   "miss": 0,
+   "na": 0
+  },
+  {
+   "code": "F.JD_JOB_GRADE",
+   "label": "职级",
+   "section": "S1",
+   "level": "optional",
+   "assessable": "internal",
+   "states": [
+    "缺",
+    "缺",
+    "缺",
+    "缺",
+    "缺"
+   ],
+   "orig": 0,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 5,
+   "na": 0
+  },
+  {
+   "code": "F.JD_JOB_PURPOSE",
+   "label": "岗位目的",
+   "section": "S2",
+   "level": "required",
+   "assessable": "not_judgeable",
+   "states": [
+    "缺",
+    "缺",
+    "缺",
+    "缺",
+    "缺"
+   ],
+   "orig": 0,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 5,
+   "na": 0
+  },
+  {
+   "code": "F.JD_SUCCESS_CRITERIA",
+   "label": "关键成功指标",
+   "section": "S2",
+   "level": "required",
+   "assessable": "not_judgeable",
+   "states": [
+    "缺",
+    "缺",
+    "原文",
+    "原文",
+    "缺"
+   ],
+   "orig": 2,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 3,
+   "na": 0
+  },
+  {
+   "code": "F.AGE",
+   "label": "年龄",
+   "section": "S3",
+   "level": "required",
+   "assessable": "judgeable",
+   "states": [
+    "缺",
+    "缺",
+    "原文",
+    "原文",
+    "原文"
+   ],
+   "orig": 3,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 2,
+   "na": 0
+  },
+  {
+   "code": "F.GENDER",
+   "label": "性别",
+   "section": "S3",
+   "level": "optional",
+   "assessable": "judgeable",
+   "states": [
+    "缺",
+    "缺",
+    "缺",
+    "原文",
+    "缺"
+   ],
+   "orig": 1,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 4,
+   "na": 0
+  },
+  {
+   "code": "F.EDU_LEVEL",
+   "label": "学历",
+   "section": "S3",
+   "level": "required",
+   "assessable": "judgeable",
+   "states": [
+    "缺",
+    "原文",
+    "原文",
+    "原文",
+    "原文"
+   ],
+   "orig": 4,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 1,
+   "na": 0
+  },
+  {
+   "code": "F.EDU_MAJOR",
+   "label": "专业",
+   "section": "S3",
+   "level": "required",
+   "assessable": "judgeable",
+   "states": [
+    "缺",
+    "原文",
+    "原文",
+    "原文",
+    "原文"
+   ],
+   "orig": 4,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 1,
+   "na": 0
+  },
+  {
+   "code": "F.EDU_FULLTIME",
+   "label": "是否全日制",
+   "section": "S3",
+   "level": "conditional",
+   "assessable": "judgeable",
+   "states": [
+    "缺",
+    "缺",
+    "缺",
+    "原文",
+    "缺"
+   ],
+   "orig": 1,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 4,
+   "na": 0
+  },
+  {
+   "code": "F.EXP_YEARS",
+   "label": "总年限",
+   "section": "S3",
+   "level": "required",
+   "assessable": "judgeable",
+   "states": [
+    "原文",
+    "原文",
+    "原文",
+    "原文",
+    "原文"
+   ],
+   "orig": 5,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 0,
+   "na": 0
+  },
+  {
+   "code": "F.EXP_DOMAIN",
+   "label": "职能域",
+   "section": "S3",
+   "level": "conditional",
+   "assessable": "judgeable",
+   "states": [
+    "原文",
+    "原文",
+    "原文",
+    "原文",
+    "原文"
+   ],
+   "orig": 5,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 0,
+   "na": 0
+  },
+  {
+   "code": "F.SKILL",
+   "label": "技能",
+   "section": "S3",
+   "level": "required",
+   "assessable": "judgeable",
+   "states": [
+    "原文",
+    "原文",
+    "原文",
+    "原文",
+    "原文"
+   ],
+   "orig": 5,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 0,
+   "na": 0
+  },
+  {
+   "code": "F.CERTIFICATION",
+   "label": "资格证书",
+   "section": "S3",
+   "level": "optional",
+   "assessable": "judgeable",
+   "states": [
+    "缺",
+    "缺",
+    "原文",
+    "缺",
+    "缺"
+   ],
+   "orig": 1,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 4,
+   "na": 0
+  },
+  {
+   "code": "F.LANGUAGE_LEVEL",
+   "label": "语言熟练度",
+   "section": "S3",
+   "level": "optional",
+   "assessable": "judgeable",
+   "states": [
+    "缺",
+    "缺",
+    "缺",
+    "缺",
+    "原文"
+   ],
+   "orig": 1,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 4,
+   "na": 0
+  },
+  {
+   "code": "F.COMPETENCY",
+   "label": "职业素养",
+   "section": "S3",
+   "level": "optional",
+   "assessable": "not_judgeable",
+   "states": [
+    "原文",
+    "原文",
+    "原文",
+    "原文",
+    "原文"
+   ],
+   "orig": 5,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 0,
+   "na": 0
+  },
+  {
+   "code": "F.JD_DUTY_ITEMS",
+   "label": "职责条目",
+   "section": "S4",
+   "level": "required",
+   "assessable": "not_judgeable",
+   "states": [
+    "原文",
+    "缺",
+    "缺",
+    "原文",
+    "原文"
+   ],
+   "orig": 3,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 2,
+   "na": 0
+  },
+  {
+   "code": "F.DECISION_AUTHORITY",
+   "label": "决策权限",
+   "section": "S4",
+   "level": "conditional",
+   "assessable": "internal",
+   "states": [
+    "不适用",
+    "不适用",
+    "不适用",
+    "不适用",
+    "不适用"
+   ],
+   "orig": 0,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 0,
+   "na": 5
+  },
+  {
+   "code": "F.BUDGET_OWNERSHIP",
+   "label": "预算与成本责任",
+   "section": "S4",
+   "level": "conditional",
+   "assessable": "internal",
+   "states": [
+    "不适用",
+    "不适用",
+    "不适用",
+    "不适用",
+    "不适用"
+   ],
+   "orig": 0,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 0,
+   "na": 5
+  },
+  {
+   "code": "F.CROSS_DEPT",
+   "label": "跨部门接口",
+   "section": "S4",
+   "level": "conditional",
+   "assessable": "internal",
+   "states": [
+    "不适用",
+    "不适用",
+    "不适用",
+    "不适用",
+    "不适用"
+   ],
+   "orig": 0,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 0,
+   "na": 5
+  },
+  {
+   "code": "F.JD_ACTIVITY_TEXT",
+   "label": "内容",
+   "section": "S5",
+   "level": "required",
+   "assessable": "not_judgeable",
+   "states": [
+    "缺",
+    "原文",
+    "原文",
+    "原文",
+    "原文·空值"
+   ],
+   "orig": 3,
+   "orig_empty": 1,
+   "hr": 0,
+   "miss": 1,
+   "na": 0
+  },
+  {
+   "code": "F.JD_ACTIVITY_FREQ",
+   "label": "频次(日/周/月/年/偶发)",
+   "section": "S5",
+   "level": "required",
+   "assessable": "not_judgeable",
+   "states": [
+    "缺",
+    "原文",
+    "原文",
+    "原文",
+    "原文·空值"
+   ],
+   "orig": 3,
+   "orig_empty": 1,
+   "hr": 0,
+   "miss": 1,
+   "na": 0
+  },
+  {
+   "code": "F.SHIFT",
+   "label": "班制",
+   "section": "S6",
+   "level": "conditional",
+   "assessable": "internal",
+   "states": [
+    "缺",
+    "缺",
+    "缺",
+    "缺",
+    "缺"
+   ],
+   "orig": 0,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 5,
+   "na": 0
+  },
+  {
+   "code": "F.JD_ENVIRONMENT",
+   "label": "环境(噪音/粉尘/温度)",
+   "section": "S6",
+   "level": "conditional",
+   "assessable": "internal",
+   "states": [
+    "缺",
+    "缺",
+    "缺",
+    "缺",
+    "缺"
+   ],
+   "orig": 0,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 5,
+   "na": 0
+  },
+  {
+   "code": "F.JD_PHYSICAL_DEMAND",
+   "label": "体力/站立/搬运",
+   "section": "S6",
+   "level": "conditional",
+   "assessable": "internal",
+   "states": [
+    "缺",
+    "缺",
+    "缺",
+    "缺",
+    "缺"
+   ],
+   "orig": 0,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 5,
+   "na": 0
+  },
+  {
+   "code": "F.JD_PPE",
+   "label": "劳保/防护",
+   "section": "S6",
+   "level": "conditional",
+   "assessable": "internal",
+   "states": [
+    "缺",
+    "缺",
+    "缺",
+    "缺",
+    "缺"
+   ],
+   "orig": 0,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 5,
+   "na": 0
+  },
+  {
+   "code": "F.JD_WORK_LOCATION",
+   "label": "工作地点/厂区",
+   "section": "S6",
+   "level": "required",
+   "assessable": "internal",
+   "states": [
+    "缺",
+    "缺",
+    "缺",
+    "缺",
+    "缺"
+   ],
+   "orig": 0,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 5,
+   "na": 0
+  },
+  {
+   "code": "F.JD_HEADCOUNT",
+   "label": "编制/招聘人数",
+   "section": "S7",
+   "level": "required",
+   "assessable": "internal",
+   "states": [
+    "缺",
+    "缺",
+    "缺",
+    "缺",
+    "缺"
+   ],
+   "orig": 0,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 5,
+   "na": 0
+  },
+  {
+   "code": "F.AVAILABILITY",
+   "label": "到岗日期",
+   "section": "S7",
+   "level": "required",
+   "assessable": "judgeable",
+   "states": [
+    "缺",
+    "缺",
+    "缺",
+    "缺",
+    "HR 侧"
+   ],
+   "orig": 0,
+   "orig_empty": 0,
+   "hr": 1,
+   "miss": 4,
+   "na": 0
+  },
+  {
+   "code": "F.SALARY",
+   "label": "薪资",
+   "section": "S7",
+   "level": "required",
+   "assessable": "judgeable",
+   "states": [
+    "缺",
+    "缺",
+    "缺",
+    "缺",
+    "HR 侧"
+   ],
+   "orig": 0,
+   "orig_empty": 0,
+   "hr": 1,
+   "miss": 4,
+   "na": 0
+  },
+  {
+   "code": "F.AVG_TENURE",
+   "label": "平均在职不低于",
+   "section": "S7",
+   "level": "required",
+   "assessable": "judgeable",
+   "states": [
+    "缺",
+    "缺",
+    "缺",
+    "缺",
+    "HR 侧"
+   ],
+   "orig": 0,
+   "orig_empty": 0,
+   "hr": 1,
+   "miss": 4,
+   "na": 0
+  },
+  {
+   "code": "F.RECENT_SEGMENTS",
+   "label": "近 5 年任职不超过",
+   "section": "S7",
+   "level": "required",
+   "assessable": "judgeable",
+   "states": [
+    "缺",
+    "缺",
+    "缺",
+    "缺",
+    "HR 侧"
+   ],
+   "orig": 0,
+   "orig_empty": 0,
+   "hr": 1,
+   "miss": 4,
+   "na": 0
+  },
+  {
+   "code": "F.COMMUTE",
+   "label": "可接受通勤",
+   "section": "S7",
+   "level": "required",
+   "assessable": "judgeable",
+   "states": [
+    "缺",
+    "缺",
+    "缺",
+    "缺",
+    "HR 侧"
+   ],
+   "orig": 0,
+   "orig_empty": 0,
+   "hr": 1,
+   "miss": 4,
+   "na": 0
+  },
+  {
+   "code": "F.JD_HIRING_REASON",
+   "label": "招聘原因",
+   "section": "S7",
+   "level": "optional",
+   "assessable": "internal",
+   "states": [
+    "缺",
+    "缺",
+    "缺",
+    "缺",
+    "缺"
+   ],
+   "orig": 0,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 5,
+   "na": 0
+  },
+  {
+   "code": "F.CLEARANCE",
+   "label": "法律记录 / 无犯罪",
+   "section": "S8",
+   "level": "optional",
+   "assessable": "judgeable",
+   "states": [
+    "缺",
+    "缺",
+    "原文",
+    "缺",
+    "缺"
+   ],
+   "orig": 1,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 4,
+   "na": 0
+  },
+  {
+   "code": "F.JD_CONFIDENTIALITY",
+   "label": "保密/数据保密",
+   "section": "S8",
+   "level": "conditional",
+   "assessable": "judgeable",
+   "states": [
+    "缺",
+    "原文",
+    "缺",
+    "缺",
+    "缺"
+   ],
+   "orig": 1,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 4,
+   "na": 0
+  },
+  {
+   "code": "F.JD_CONTRACT_TYPE",
+   "label": "用工类型/合同",
+   "section": "S8",
+   "level": "required",
+   "assessable": "internal",
+   "states": [
+    "缺",
+    "缺",
+    "缺",
+    "缺",
+    "缺"
+   ],
+   "orig": 0,
+   "orig_empty": 0,
+   "hr": 0,
+   "miss": 5,
+   "na": 0
+  }
+ ],
+ "tally": {
+  "原文": 71,
+  "原文·空值": 4,
+  "HR 侧": 5,
+  "缺": 105,
+  "不适用": 15
+ }
+}

@@ -71,6 +71,33 @@ def _load_std() -> dict:
     return out
 
 
+def _fill() -> dict:
+    """5 份客户 JD 的试填结果（check_template_fill 的产物）。没有就返回空 —— 
+    缺它不算错误，但界面与 md 会少一块"这套模板在真稿上够不够用"的证据。"""
+    p = TALENT / 'template_fill' / 'fill.json'
+    if not p.is_file():
+        return {}
+    try:
+        d = json.loads(p.read_text(encoding='utf-8'))
+    except json.JSONDecodeError:
+        return {}
+    never = [x for x in d.get('per_field') or []
+             if x['orig'] == 0 and x['orig_empty'] == 0 and x['hr'] == 0 and x['na'] == 0]
+    empty = [x for x in d.get('per_field') or [] if x['orig_empty']]
+    return {
+        'tally': d.get('tally') or {},
+        'cells': (d.get('template_fields') or 0) * len(d.get('jds') or []),
+        'jds': [{'jd': j['jd'], 'role_type': j.get('role_type'), 'citations': j.get('citations'),
+                 'states': {k: sum(1 for c in j['cells'] if c['state'] == k)
+                            for k in ('原文', '原文·空值', 'HR 侧', '缺', '不适用')}}
+                for j in d.get('jds') or []],
+        'never_filled': [{'code': x['code'], 'label': x['label'], 'section': x['section'],
+                          'level': x['level']} for x in never],
+        'label_only': [{'code': x['code'], 'label': x['label'], 'count': x['orig_empty']}
+                       for x in empty],
+    }
+
+
 def _std_rows(doc: dict) -> list[dict]:
     rows = [dict(f, section=s.get('code'), section_label=s.get('label_zh'),
                  section_label_en=s.get('label_en'))
@@ -235,6 +262,7 @@ def build() -> dict:
         'cv_template': tpl('cv'),
         'standard_templates': std,
         'standard_coverage': std_cov,
+        'jd_fill': _fill(),
         'coverage': {
             'categories': len(categories),
             'components': len(cat), 'requirements': len(lib), 'fields': len(fields),
@@ -312,6 +340,17 @@ def render(d: dict) -> str:
           ' / '.join(t['principles']) + '。字段 id 与中文名取自 `field_schema`，'
           '每个字段上方的注释写清了"这家公司为什么需要它"与出现次数；'
           f'没进模板的 **{len(t["dropped"])}** 条在文件末尾 `dropped` 里逐条交代去处。')
+        if which == 'jd' and d.get('jd_fill'):
+            _f = d['jd_fill']
+            _tal = _f['tally']
+            A('')
+            A(f'**拿 {len(_f["jds"])} 份客户 JD 试填**（{_f["cells"]} 格）：'
+              f'原文 **{_tal.get("原文", 0)}** · 原文但空值 **{_tal.get("原文·空值", 0)}** · '
+              f'HR 侧 **{_tal.get("HR 侧", 0)}** · 缺 **{_tal.get("缺", 0)}** · '
+              f'不适用 **{_tal.get("不适用", 0)}**。'
+              f'5 份全填不出的 **{len(_f["never_filled"])}** 个字段：' +
+              '、'.join(f'`{x["code"]}`' for x in _f['never_filled']) + '。'
+              '详见 `work/talent/template_fill/_index.md`。')
         A('')
         A('| 段 | 段名 | 字段数 |')
         A('|---|---|---|')
