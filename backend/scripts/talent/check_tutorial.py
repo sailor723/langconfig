@@ -72,6 +72,15 @@ def main() -> int:
         print('缺产物：先跑 tutorial_facts 和 build_tutorial_v2')
         return 2
 
+    # 教程里有 40 组「重放实验」的数字，它们来自 **本机归档**（llm_verdicts/ 等，
+    # 按 .gitignore 不进库：270 份大模型原始输出，进库只会让 diff 失去意义）。
+    # 同事 clone 下来没有这份归档 → 重算结果必然不同，这时**不能判红**：
+    # 判红会让人以为"教程坏了"，实际只是"这台机器没做过那些实验"。
+    if not (TF.TALENT / 'llm_verdicts').is_dir():
+        print('NOT RUN — 缺本机归档 llm_verdicts/（教程第 13 步的重放实验数字只有做过实验的机器能重算）。'
+              '\n  这不是失败：clone 里本来就没有这份归档；装了它的机器会自动恢复校验。')
+        return 0
+
     saved = json.loads(facts_path.read_text(encoding='utf-8'))
     fresh = json.loads(json.dumps(TF.collect(), ensure_ascii=False))  # 产物形态比较
     ok('facts.json 是现场重算的结果', saved == fresh,

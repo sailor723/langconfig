@@ -545,7 +545,9 @@ def check_template(links_dir: pathlib.Path | None) -> None:
     """
     print("\n=== 正式模板:与渲染结果一致、每列有内容 ===")
     if not TEMPLATE.is_file():
-        check_true("jd_template.yaml 存在", False, f"找不到 {TEMPLATE}")
+        # 旧 49 格模板（jd_template.yaml）只在本机残留，**不再入库**：标准模板已经取代它。
+        # 这条检查没必要因此判红 —— 同事 clone 下来本来就没有这个文件。
+        not_run("旧 49 格模板(jd_template.yaml)", "本机没有 · 已被 templates/standard_jd_template.yaml 取代")
         return
     doc = yaml.safe_load(TEMPLATE.read_text(encoding="utf-8")) or {}
     codes: list[str] = []
@@ -1735,10 +1737,14 @@ def main() -> int:
             _out = (_r.stdout or "") + (_r.stderr or "")
             _sum = next((ln.strip() for ln in reversed(_out.splitlines())
                          if "checks ·" in ln), "")
-            check_true("教程 v2 门禁跑完了(数字不过期/无手写数字/反证有效)",
-                       bool(_sum) and " 0 failed" in _sum,
-                       _sum or "没有汇总行 = 没跑完：" + _out.strip().splitlines()[-1][:120]
-                       if _out.strip() else "没有输出")
+            if not _sum and "NOT RUN" in _out:
+                # clone 里没有 llm_verdicts 归档 → 教程的重放数字无法重算，允许 NOT RUN
+                not_run("教程 v2 门禁", _out.strip().splitlines()[0][:120])
+            else:
+                check_true("教程 v2 门禁跑完了(数字不过期/无手写数字/反证有效)",
+                           bool(_sum) and " 0 failed" in _sum,
+                           _sum or "没有汇总行 = 没跑完：" + _out.strip().splitlines()[-1][:120]
+                           if _out.strip() else "没有输出")
         except Exception as exc:  # noqa: BLE001
             check_true("教程 v2 门禁跑完了(中途崩溃 = 红)", False,
                        f"{type(exc).__name__}: {exc}")
