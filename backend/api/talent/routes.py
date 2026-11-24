@@ -140,6 +140,34 @@ def _global_files() -> list[dict]:
     return out
 
 
+#: 层序 = 业务顺序（第 1 步 → 第 5 步）。**按业务事实排，不按字符串**。
+LAYER_ORDER = (
+    "1 客户原文",
+    "2 引用文件",
+    "2 决策账本",
+    "2 回填答案",
+    "2 回填表",
+    "2 定稿 · 标准 40 格",
+    "2 定稿 · 旧 49 格（历史）",
+    "2 定稿 · 可读版",
+    "2 字段机读",
+    "3 初筛 · 明细(机读)",
+    "3 初筛 · 面试名单",
+    "3 初筛 · 面试名单(机读)",
+    "4 采集清单(机读)",
+    "4 采集清单(人读)",
+    "4 待核清单",
+    "4 待核清单(机读)",
+    "4 CV 定稿 · 清单",
+    "5 目标名单 · 人读",
+    "5 目标名单 · 机读",
+    "5 选人 · 名单",
+    "5 选人 · 机读",
+    "5 判定总览",
+    "5 冲突待裁",
+)
+
+
 def _jd_files(jd: str) -> list[dict]:
     """**某一份 JD** 的全部产物,按"哪一层"分组。全局文档不在这里（见 _global_files）。"""
     items: list[dict] = []
@@ -176,17 +204,20 @@ def _jd_files(jd: str) -> list[dict]:
         })
     add(f"jd_links/_source/{jd}.txt", "1 客户原文", "只读锚点")
     add(f"jd_links/{jd}.yaml", "2 引用文件", "改完要过逐字回查")
-    add(f"jd_docs/{jd}.定稿.md", "3 定稿", "我方建议/排版可改")
+    # ── 第 2 步：HR 与业务把 JD 定下来（定稿 + 回填 + 决策账本都在这一步）──
+    add(f"jd_docs/{jd}.定稿(标准40格).md", "2 定稿 · 标准 40 格",
+        "所有 JD 同一版式；逐行标 客户原文 / HR 侧 / AI 模拟")
+    add(f"jd_docs/{jd}.定稿.md", "2 定稿 · 旧 49 格（历史）", "field_schema 版式，保留对照")
     # 同一份定稿的 Word 版:颜色区分「谁说的」——md 在应用预览里没法上色。
-    add(f"jd_docs/{jd}.定稿.docx", "3 定稿 · 可读版", "由 render_jd_docx 生成,不要手改")
-    add(f"jd_inputs/{jd}.yaml", "2.5 回填答案", "人填的格子 + 依据;改完重跑 render_jd_final")
-    add(f"jd_docs/{jd}.待补清单.md", "3 回填表", "空白字段的 A/B/C 分级")
-    add(f"jd_docs/{jd}.fields.json", "3 字段机读", "")
+    add(f"jd_docs/{jd}.定稿.docx", "2 定稿 · 可读版", "由 render_jd_docx 生成,不要手改")
+    add(f"jd_inputs/{jd}.yaml", "2 回填答案", "人填的格子 + 依据;改完重跑 render_jd_final")
+    add(f"jd_docs/{jd}.待补清单.md", "2 回填表", "空白字段的 A/B/C 分级")
+    add(f"jd_docs/{jd}.fields.json", "2 字段机读", "")
     add(f"collection/{jd}.yaml", "4 采集清单(机读)", "生成物")
     add(f"collection/{jd}.采集清单.md", "4 采集清单(人读)", "生成物")
     # ── 第 3~6 步的产物。之前这里只列到"采集清单",于是初筛、面试名单、判定说明
     #    在面板上根本看不见 —— 跑完了也找不到东西,只能去翻目录。
-    add(f"jd_reviews/{jd}.yaml", "2 决策账本", "谁定了什么、哪天定的")
+    add(f"jd_reviews/{jd}.yaml", "2 决策账本", "谁定了什么、哪天定的（定稿依据）")
     add(f"shortlist/{jd}.yaml", "3 初筛 · 明细(机读)", "保留/排除/待核,排除必须带硬证据")
     add(f"shortlist/{jd}.面试名单.md", "3 初筛 · 面试名单", "按目标人数切,每人附待问项")
     add(f"shortlist/{jd}.面试名单.yaml", "3 初筛 · 面试名单(机读)", "含排序规则与业务优先条件")
@@ -206,6 +237,21 @@ def _jd_files(jd: str) -> list[dict]:
     # 打开是短表(名次/年龄/学历/年限/证据/判定),表里点「看 CV」在弹层里读全文。
     add(f"cv_docs/{jd}.CV清单.md", "4 CV 定稿 · 清单", "短表 + 每人一个「看 CV」入口")
 
+    # 层序：显式排列，**不按 add 的先后、也不按拼音**。
+    # 之前是按 add 先后，于是「2 决策账本」跑到「4 采集清单」后面；改成拼音又变成
+    # 决策账本/回填答案/定稿/引用文件 乱序 —— 流水线的先后是业务事实，不能由字符串比较决定。
+    rank = {name: i for i, name in enumerate(LAYER_ORDER)}
+
+    def _key(x: dict) -> tuple:
+        layer = x["layer"]
+        head = layer.split(" ", 1)[0]
+        try:
+            lead = float(head)
+        except ValueError:
+            lead = 99.0
+        return (rank.get(layer, 10_000), lead, layer, x["path"])
+
+    items.sort(key=_key)
     return items
 
 

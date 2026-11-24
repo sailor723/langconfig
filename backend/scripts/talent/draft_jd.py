@@ -114,7 +114,11 @@ def build(jd: str) -> dict:
         if state not in ALL_STATES:
             problems.append(f'{code}: state 非法/缺失（{state}）')
         if state in IN_JUDGING:
-            if not cites and not quote:
+            # 第三类依据：Phase 1 的**文本规则**（正文里读出来的，还没抽成引用）。
+            # 这类格子可以进判定，但必须在依据里标出来 —— "文本规则"与"逐字引用"不是一回事。
+            if not cites and not quote and spec.get('basis') in ('text-fallback', 'text-rule'):
+                ev.append(f"文本规则：{why[:40] or '正文命中'}")
+            elif not cites and not quote:
                 problems.append(f'{code}: {state} 却没有 cites/quote')
             if quote:
                 # 直引原文也可作依据,但必须逐字在客户稿里找得到(空白归一后比较)

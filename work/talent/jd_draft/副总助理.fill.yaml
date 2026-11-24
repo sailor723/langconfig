@@ -1,0 +1,234 @@
+_doc: '# 副总助理 · 自动生成填充稿（引用 + 文本兜底 + 公司画像 mock）
+
+  #
+
+  # 生成器：scripts/talent/mock_fill_jd.py（--force 才覆盖手改）。
+
+  # 来源优先级：jd_links 逐字引用 → Phase 1 文本规则/兜底 → company_profile.yaml 的默认口径。
+
+  # 标 basis: mock 的格子**客户确认前不进判定**。
+
+  '
+jd: 副总助理
+role_type: staff
+counts:
+  cite: 9
+  text: 9
+  mock: 19
+overrides:
+  F.JOB_TITLE:
+    state: 客户原文
+    value: 副总助理
+    why: 取文件名/抬头
+    basis: text-rule
+  F.MGMT_CATEGORY:
+    state: 客户原文
+    value: 员工岗
+    why: 原文「直接下属」栏 → 员工岗
+    basis: text-rule
+  F.DEPARTMENT:
+    state: 客户原文
+    value: 副总室
+    why: 原文「隶属部门」栏 = 副总室
+    basis: text-rule
+  F.REPORTS_TO:
+    state: 客户原文
+    value: 副总经理
+    why: "原文「直接上司：\a副总经理\a」"
+    basis: text-rule
+  F.SUPERVISES:
+    state: 客户原文
+    value: 各部门负责人
+    why: "原文「直接下属：\a各部门负责人\a\a\n」"
+    basis: text-rule
+  F.JD_JOB_GRADE:
+    state: 我方建议·待确认
+    basis: mock
+    value: E2（员工）
+    why: 客户稿没有职级；按 员工岗 台阶套档
+    needs: 客户/HR 确认
+  F.JD_JOB_PURPOSE:
+    state: 我方建议·待确认
+    basis: mock
+    value: 副总助理：在副总室内承担该岗位的核心职责，按公司标准与客户要求交付结果。
+    why: 客户稿没有岗位目的；按公司画像模板 + 部门名生成
+    needs: 客户/HR 确认
+  F.JD_SUCCESS_CRITERIA:
+    state: 客户原文
+    value: 制定各项工作标准、发行、使用，跟进结果；
+    why: 原文「KPI」下一行：制定各项工作标准、发行、使用，跟进结果；
+    basis: text-rule
+  F.AGE:
+    state: 客户原文
+    value: 25~38
+    cites:
+    - VP-02
+  F.GENDER:
+    state: 客户原文
+    value: 女
+    cites:
+    - VP-01
+  F.EDU_LEVEL:
+    state: 客户原文
+    value: '3'
+    cites:
+    - VP-03
+  F.EDU_MAJOR:
+    state: 客户原文
+    value: 中文、文秘
+    cites:
+    - VP-05
+  F.EDU_FULLTIME:
+    state: 客户原文
+    value: 全日制
+    cites:
+    - VP-04
+  F.EXP_YEARS:
+    state: 客户原文
+    value: 2（文职/助理/管理）
+    cites:
+    - VP-06
+  F.EXP_DOMAIN:
+    state: 客户原文
+    value: 2（文职/助理/管理）
+    cites:
+    - VP-06
+  F.SKILL:
+    state: 客户原文
+    value: 熟练掌握Office办公软件（Word/ Excel/ PPT/ AI）
+    cites:
+    - VP-16
+  F.CERTIFICATION:
+    state: 我方建议·待确认
+    basis: mock
+    value: （不作硬门槛，加分项）
+    why: 客户未写证书要求
+    needs: 客户/HR 确认
+  F.LANGUAGE_LEVEL:
+    state: 我方建议·待确认
+    basis: mock
+    value: （未要求）
+    why: 客户未写外语要求
+    needs: 客户/HR 确认
+  F.COMPETENCY:
+    state: 客户原文
+    value: 原则性强；责任心突出；敢于担当；坚持日清日结
+    cites:
+    - VP-07
+    - VP-08
+    - VP-09
+    - VP-10
+  F.JD_DUTY_ITEMS:
+    state: 客户原文
+    value: 会议记录整理，传达，督办执行，为结果负责；
+    why: 原文「岗位职责」下一行：会议记录整理，传达，督办执行，为结果负责；
+    basis: text-rule
+  F.DECISION_AUTHORITY:
+    state: 不适用
+    why: 条件字段（岗位类别=经理岗），本 JD 是员工岗
+  F.BUDGET_OWNERSHIP:
+    state: 不适用
+    why: 条件字段（岗位类别=经理岗），本 JD 是员工岗
+  F.CROSS_DEPT:
+    state: 不适用
+    why: 条件字段（岗位类别=经理岗），本 JD 是员工岗
+  F.JD_ACTIVITY_TEXT:
+    state: 客户原文
+    value: 内          容
+    why: 原文「事务表述」表体 3 行
+    basis: text-rule
+  F.JD_ACTIVITY_FREQ:
+    state: 客户原文
+    value: 内          容
+    why: 原文「事务表述」表体 3 行
+    basis: text-rule
+  F.SHIFT:
+    state: 我方建议·待确认
+    basis: mock
+    value: 生产两班倒；办公室常白班；品质/工程岗随产线跟班
+    why: 客户稿没有班制；按公司画像（一线岗才触发）
+    needs: 客户/HR 确认
+  F.JD_ENVIRONMENT:
+    state: 我方建议·待确认
+    basis: mock
+    value: 有噪音（压接/注塑）、少量粉尘与助焊剂气味；通风区域作业
+    why: 客户稿没有作业环境；按公司画像
+    needs: 客户/HR 确认
+  F.JD_PHYSICAL_DEMAND:
+    state: 我方建议·待确认
+    basis: mock
+    value: 巡检需站立走动；无重物搬运（≤10kg）
+    why: 客户稿没有体力要求；按公司画像
+    needs: 客户/HR 确认
+  F.JD_PPE:
+    state: 我方建议·待确认
+    basis: mock
+    value: 进车间护目镜 + 静电手环；浸锡/注塑区耳塞
+    why: 客户稿没有劳保配置；按公司画像
+    needs: 客户/HR 确认
+  F.JD_WORK_LOCATION:
+    state: 我方建议·待确认
+    basis: mock
+    value: ''
+    why: 客户 10 份 JD 全没写厂区；按公司画像
+    needs: 客户/HR 确认
+  F.JD_HEADCOUNT:
+    state: 我方建议·待确认
+    basis: mock
+    value: 1 人
+    why: 按公司画像编制口径（一个课/岗原则配 1 人，产线岗按编制）
+    needs: 客户/HR 确认
+  F.AVAILABILITY:
+    state: 我方建议·待确认
+    basis: mock
+    value: ≤ 4 周
+    why: 客户没给到岗周期；按 4 周上限
+    needs: 客户/HR 确认
+  F.SALARY:
+    state: 我方建议·待确认
+    basis: mock
+    value: 8~12K，预算上限 12K
+    why: 客户没给预算；按公司画像挂牌区间（判定前须换成客户真实预算）
+    needs: 客户/HR 确认
+  F.AVG_TENURE:
+    state: 我方建议·待确认
+    basis: mock
+    value: ≥ 2 年
+    why: HR 闸门；按「平均在职不低于 2 年」
+    needs: 客户/HR 确认
+  F.RECENT_SEGMENTS:
+    state: 我方建议·待确认
+    basis: mock
+    value: 近 5 年 ≤ 3 家
+    why: HR 闸门；按「近 5 年不超过 3 家」
+    needs: 客户/HR 确认
+  F.COMMUTE:
+    state: 我方建议·待确认
+    basis: mock
+    value: 单程 ≤ 60 分钟（有厂车）
+    why: HR 闸门缺取值；按「有厂车、单程一小时」
+    needs: 客户/HR 确认
+  F.JD_HIRING_REASON:
+    state: 我方建议·待确认
+    basis: mock
+    value: 替补（原任离职）
+    why: 客户未说明；按公司画像的替补优先口径
+    needs: 客户/HR 确认
+  F.CLEARANCE:
+    state: 我方建议·待确认
+    basis: mock
+    value: 品质/关务/财务等敏感岗做入职背调（无犯罪 + 学历核验）
+    why: 客户未提背调；按公司画像（敏感岗背调）
+    needs: 客户/HR 确认
+  F.JD_CONFIDENTIALITY:
+    state: 我方建议·待确认
+    basis: mock
+    value: 接触客户图纸/BOM/体系文件的岗位签保密协议；竞业仅在涉密核心岗谈
+    why: 客户未提保密；按公司画像
+    needs: 客户/HR 确认
+  F.JD_CONTRACT_TYPE:
+    state: 我方建议·待确认
+    basis: mock
+    value: 全职（劳动合同制）
+    why: 客户未写用工类型；按公司画像
+    needs: 客户/HR 确认

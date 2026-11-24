@@ -1361,7 +1361,7 @@ def check_standard_templates() -> None:
                        ", ".join(bad_gap[:5]))
 
         # 单 JD 作用域：JD 产物里不许出现"属于另一份 JD"的路径，也不许夹全局文档
-        from api.talent.routes import _global_files, _jd_files  # noqa: PLC0415
+        from api.talent.routes import LAYER_ORDER, _global_files, _jd_files  # noqa: PLC0415
 
         glob_paths = {f["path"] for f in _global_files()}
         bad_scope = []
@@ -1380,6 +1380,49 @@ def check_standard_templates() -> None:
                     bad_scope.append(f"{jd_name}: {path} 路径里没有 JD 名")
         check_true("ST-G17 浏览器是单 JD 作用域(每份 JD 只列自己的产物，不含全局文档)",
                    not bad_scope, "; ".join(bad_scope[:5]))
+
+        # ST-G18 定稿属于**第 2 步**（HR 与业务定稿），不是第 3 步；层序必须按业务顺序排
+        wrong_step, wrong_order = [], []
+        for jd_name in known_jds():
+            files = _jd_files(jd_name)
+            for f in files:
+                pth, layer = f["path"], f["layer"]
+                if pth.endswith((".定稿.md", ".定稿.docx")) and not layer.startswith("2 "):
+                    wrong_step.append(f"{jd_name}: {pth} 在「{layer}」")
+            order = [LAYER_ORDER.index(fl["layer"]) for fl in files
+                     if fl["layer"] in LAYER_ORDER]
+            if order != sorted(order):
+                wrong_order.append(jd_name)
+        check_true("ST-G18 定稿类产物都在第 2 步（HR 与业务定稿）", not wrong_step,
+                   "; ".join(wrong_step[:4]))
+        check_true("ST-G18 产物层序按业务顺序（1→5）排列", not wrong_order,
+                   ", ".join(wrong_order[:4]))
+
+        # ST-G19 每份 JD 都有「标准 40 格定稿」，且 AI 模拟逐格标出（不进判定的那几格必须看得见）
+        missing_final, bad_mock, mock_mismatch = [], [], []
+        for jd_name in known_jds():
+            md = ROOT / "work" / "talent" / "jd_docs" / f"{jd_name}.定稿(标准40格).md"
+            if not md.is_file():
+                missing_final.append(jd_name)
+                continue
+            text_md = md.read_text(encoding="utf-8")
+            draft_p = ROOT / "work" / "talent" / "jd_draft" / f"{jd_name}.draft.json"
+            if not draft_p.is_file():
+                bad_mock.append(f"{jd_name}: 没有 draft.json")
+                continue
+            dd = json.loads(draft_p.read_text(encoding="utf-8"))
+            want = sum(1 for r in dd.get("rows") or [] if r.get("state") == "我方建议·待确认")
+            got = text_md.count("**AI 模拟**")
+            if got != want:
+                mock_mismatch.append(f"{jd_name}: 定稿标了 {got} 格，草稿有 {want} 格")
+            if want and "AI 模拟清单" not in text_md:
+                bad_mock.append(f"{jd_name}: 有 {want} 格 AI 模拟，却没有「AI 模拟清单」一节")
+        check_true("ST-G19 每份 JD 都有「标准 40 格定稿」", not missing_final,
+                   ", ".join(missing_final[:5]))
+        check_true("ST-G19 定稿里 AI 模拟逐格标出，且与草稿数量一致", not mock_mismatch,
+                   "; ".join(mock_mismatch[:4]))
+        check_true("ST-G19 有 AI 模拟的定稿都带「AI 模拟清单」", not bad_mock,
+                   "; ".join(bad_mock[:4]))
     except Exception as exc:  # noqa: BLE001
         check_true("ST-G16/G17 上传与作用域门禁跑完了(崩溃 = 红)", False,
                    f"{type(exc).__name__}: {exc}")
