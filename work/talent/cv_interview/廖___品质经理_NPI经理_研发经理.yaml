@@ -1,266 +1,211 @@
-# 电话初筛记录 · 廖明辉 · 2026-11-20
-#
-# 这份文件回答的是"简历没写的那些字段"。它**不是简历内容**,
-# 所以在定稿里标 interview,与 resume(原文)/ derived(推算)分开。
-#
-# 为什么要分开:简历是候选人写给招聘平台的,访谈是候选人对我们说的。
-# 两者都可能不准,但**责任方不同** —— 简历错了是简历的事,访谈错了是我们记录的事。
-# 混成一个来源,出了问题查不出是哪一环。
-#
-# 使用的字段 id 来自 work/talent/field_schema.yaml 的规范 id(F.*),
-# 与简历定稿同一套 —— 这样访谈补的值可以直接并进同一张表。
-
 candidate: cand_廖___品质经理_NPI经理_研发经理
-channel: 电话初筛
-date: 2026-11-20
-interviewer: (我方)
-duration_min: 25
-
+simulated: true
+channel: 模拟一面(开发用,非真实访谈)
+date: '2026-11-23'
+interviewer: —
+simulated_note: '本文件 answers 全部 `basis: simulated`:按待核清单与简历常识推的,不是访谈记录。对外前必须换成真实答案。'
 answers:
-
-  # ── 基本信息 ──
-  - field: F.CV_FULL_NAME
-    question: 简历上的姓名 OCR 不清楚,能确认一下全名吗?
-    answer: 廖明辉
-    note: 原件为「廖__」,平台档案里也只有前两字
-
-  - field: F.CV_NATIVE_PLACE
-    question: 籍贯是哪里?
-    answer: 广东梅州
-
-  - field: F.CV_MARITAL_STATUS
-    question: 婚姻状况?
-    answer: 已婚
-
-  - field: F.WORK_LOCATION
-    question: 现在住东莞哪个镇?到石排通勤方便吗?
-    answer: 住石排镇,离厂区骑车 15 分钟
-    note: "这一条很关键 —— 岗位工作地点还没定,但候选人在同镇,通勤不构成障碍"
-
-  - field: F.WORK_LOCATION
-    props: {commute_ok: true}          # 住石排 + 能接受在石排上班 → 通勤意愿成立
-    question: 如果在石排上班,你能接受吗?
-    answer: 可以,我现在就住石排,骑车十五分钟
-
-  - field: F.CV_PHONE
-    question: 联系电话?
-    answer: 186****1653(与简历一致,后四位核过)
-
-  - field: F.CV_EMAIL
-    question: 电子邮箱?
-    answer: 与平台档案一致,已核对
-
-  # ── 求职意向 ──
-  - field: F.AVAILABILITY
-    question: 最快什么时候能到岗?
-    answer: 一个月,现在这家要交接
-
-  - field: F.SALARY
-    props: {salary_max_k: 25}          # 25K 可谈 → 期望上限 25K/月
-    question: 期望薪资 20-30K,能接受到多少?
-    answer: 25K 左右可谈,主要看岗位职责范围
-
-  - field: F.CV_CURRENT_SALARY
-    question: 目前年薪大概?
-    answer: 约 28 万(含年终)
-
-  # ── 教育(CV 三段都没写专业与层次)──
-  # 一条回答覆盖三个字段,拆成三条记录,不对一条回答编多个值。
-  - field: F.EDU_LEVEL
-    question: 三段学历分别是什么层次?
-    answer: 广东司法学校中专;东莞职业技术学院大专(2019-2022,在职读);暨南大学自考本科(2019-2024)
-    note: |
-      简历三段只写了校名,**没写层次**。访谈确认最高层次为本科(自考)。
-      平台原先按校名带「大学」推断为本科 —— 那是 inferred;这次是候选人自述,来源升为 interview。
-
-  - field: F.EDU_MAJOR
-    question: 三段学历分别是什么专业?
-    answer: 中专法律事务;大专机电一体化技术;本科工商管理
-    note: |
-      简历三段**只有校名,没有专业** —— 所以简历阶段这个字段是空的,不是候选人缺什么,是原文没写。
-      访谈补齐后:大专=机电一体化技术,本科=工商管理,中专=法律事务。
-      三段专业不同,所以这个字段在定稿里保留全部三段,不折叠成最高学历那一档。
-
-  - field: F.CV_INSTITUTION
-    question: 三段学历的学校分别是?
-    answer: 广东司法学校(中专)/ 东莞职业技术学院(大专)/ 暨南大学(自考本科)
-    note: 与简历原文一致,仅补全层次与专业
-
-  - field: F.EDU_FULLTIME
-    question: 这三段都是全日制吗?
-    answer: 中专是全日制;大专和本科都是工作后读的,非全日制
-    note: "岗位未要求全日制(那是副总助理的要求),所以这一条对本岗无影响"
-
-  # ── 客户验厂 ──
-  - field: F.EXP_ACTIVITY
-    question: 简历写「熟练应对二方与三方审核」—— 具体是客户来你们厂审核,还是你们去审供应商?
-    answer: |
-      客户来我们厂是主要的:日系客户每年一次,欧美客户两年一次,
-      从首次会议、现场巡查、文件抽查到末次会议全程由我接待主答,
-      不符合项由我出整改计划并跟进关闭。供应商那边我也带队审,但那是第二位的。
-    note: |
-      **这是本次访谈信息量最大的一条。**
-      简历原文只写「熟练应对二方与三方审核」——这句话读不出"客户来审"还是"我们去审",
-      也读不出频次与角色。抽取器按这句话提出过「客户验厂」这个能力项,
-      但那只是措辞到词表的映射,**不能据此认定他接待过客户验厂**。
-      访谈确认:他是**被审核方的主接待人**,日系一年一次、欧美两年一次,
-      从首次会议到不符合项关闭全程负责。这才叫有实据。
-
-  - field: F.SKILL
-    question: 举个例子,最近一次客户验厂什么情况?
-    answer: |
-      2025 年 8 月一家日系客户来审,开了 3 个不符合项:巡检记录缺签字、供应商来料报告格式不对、培训记录缺考核结果。
-      三个都两周内关闭,复评通过。
-    note: 细节具体、可追问(不符合项类别、关闭周期),不是套话
-
-  # ── 语言 ──
-  - field: F.LANGUAGE_LEVEL
-    establishes: [skill_英语, skill_8D报告]     # 这条回答坐实的是这两件具体能力
-    question: 岗位要「英语口语熟练 + 独立书写英文 8D 报告」,你的英语到什么程度?
-    answer: 英文 8D 报告可以独立写,这几年客户报告都是我出的;口语一般,能开会交流但不算流利,日系客户主要靠翻译
-    note: |
-      「英语好」在这种岗位上其实是两件事:能不能写(书面产出)、能不能开口(现场沟通)。
-      访谈只坐实了前者。口语自评"一般",**没有任何客观刻度**,
-      所以这一条在定稿里就按原话记,不给它安一个等级。
-
-  # ── 按采集清单补问的三条(CV 里拿不到,而 join 要用)──
-  - field: F.SKILL
-    establishes: [skill_品质问题分析]
-    question: 品质问题分析这块你具体怎么做?举一次:上次是什么时候、你负责哪一段。
-    answer: |
-      每月的品质周报我都自己做:把不良按类别拆开、算 Top3、找原因再定对策。
-      2025 年 3 月高速线那道,成品直通率从 92% 掉到 86%,我从巡检记录里查出是
-      一台裁线机的刀模磨损,换刀模之后一周内回到 93%。
-    note: 具体到时间、数字、动作 —— 不是"我懂品质分析"这种话
-
-  - field: F.SKILL
-    establishes: [skill_6S]
-    question: 6S 你们厂做到什么程度?你管过吗?
-    answer: |
-      6S 是车间在做,我这边负责稽核:每周走一次现场,把照片贴到看板上要求限期整改。
-      不是我亲手推开的大项目,但现场问题我天天在看。
-    note: "**只声称稽核,不声称主导** —— 这一条按「接触过」记,不按「推行过」记"
-
-  - field: F.COMPETENCY
-    question: 「有良好的沟通协调能力」—— 举一个你和别的部门有冲突、最后协调下来的例子。
-    answer: |
-      去年供应商一批端子镀层不合格,采购说换供应商影响交期,我坚持退货。
-      最后是把这批挑出来 100% 全检、让步接收一部分,同时让采购同步开发第二家。
-      交期没耽误,第二批也换了供应商。
-    note: |
-      **E 维没有组件,这条入不了 join** —— 只能进人看的部分。
-      记录它是因为面试里问了,不是因为能算分。
-
-  # ── 其他 ──
-  - field: F.CV_PROJECTS
-    question: 简历里没写项目经验,有没有代表性的?
-    answer: |
-      2023 到 2025 在讲盛达主导过一条新能源汽车 PACK 储能柜的线束品质导入:
-      从 PPAP 提交、CPK 达标验证到量产放行,客户是欧美的,审核一次通过。
-
-  - field: F.CV_TRAININGS
-    question: 参加过什么培训?
-    answer: |
-      ISO9001 与 IATF16949 内审员培训(有证书),五大工具(APQP/PPAP/FMEA/SPC/MSA)培训,另上过一门精益生产。
-
-summary:
-  questions_asked: 21
-  answered: 21
-  # 「补上了几项」= 定稿里因这场对话才有值的字段数,由渲染器算,这里只是记录
-  filled_fields: 18
-  still_open:
-    - field: F.CV_BIRTH_DATE
-      why: "原文有「出生年月: 1984-03-01」,定稿直接用原文,不必再问"
-    - field: F.GENDER
-      why: "原文「性 Ol: 男」已逐字可查;访谈未单独复核,不改动来源"
-  filled_note:
-    - "三段学历的层次与专业:原文只有校名"
-    - "客户验厂的频次与角色:原文只有「熟练应对二方与三方审核」一句"
-    - "英语程度:原文只字未提外语"
-    - "到岗、薪资、目前年薪:原文「到岗日期: 一个月」有,薪资平台归档有,访谈细化到 25K 可谈"
-    - "项目经验、培训、联系方式、籍贯、婚姻、住址:原文缺失或 OCR 不清"
-  # 注意:这份文件只记**候选人说了什么**。满不满足某个岗位的要求,不在 CV 里判 ——
-  # 那是另一份文件(JD 对位)的事,这里不混进来。
-
-# ══════════════════════════════════════════════════════════════════
-# 4b · 一面整体评语(2026-11-20,由 HR 在电话初筛后写)
-#
-# **这一段不进计算**:不参与 join、不进四态判定、不产生任何分数或等级。
-# 它只随档案给业务领导看。
-# 能落成一条可判定要求的担心,已经退回 4a(见 returned_to_4a),
-# 留在这里的,是落不成要求、或者要求本身缺属性而判不了的。
-# ══════════════════════════════════════════════════════════════════
-review:
-  joins: false
-  not_in_computation: true
-  basis_of: 本文件 answers 段(21 问 21 答,2026-11-20,25 分钟)
-
-  heard: >
-    客户验厂是他自己展开讲的,不是我挤出来的:日系客户一年一次、欧美两年一次,
-    从首次会议、现场巡查、文件抽查到末次会议都由他接待主答,不符合项由他出整改计划并跟进关闭;
-    2025 年 8 月一家日系客户开了 3 个不符合项(巡检记录缺签字、供应商来料报告格式不对、
-    培训记录缺考核结果),两周内关闭、复评通过。英语他说:英文 8D 报告可以独立写,
-    「这几年客户报告都是我出的」;「口语一般,能开会交流但不算流利,日系客户主要靠翻译」。
-    6S 他说:车间在做,他负责每周现场稽核、拍照上板、限期整改,「不是我亲手推开的大项目」。
-    品质分析举了 2025 年 3 月高速线一例:成品直通率从 92% 掉到 86%,从巡检记录查出是
-    一台裁线机的刀模磨损,换刀模后一周内回到 93%。沟通协调一例:供应商端子镀层不合格,
-    采购怕影响交期,他坚持退货,最后 100% 全检 + 部分让步接收 + 采购同步开发第二家。
-
-  basis: >
-    客户验厂这一项的依据不是简历那句「熟练应对二方与三方审核」(那句话读不出是客户来审还是我们去审),
-    而是访谈拿到的四样东西:频次(日系 1 次/年、欧美 1 次/2 年)、角色(被审核方主接待主答)、
-    不符合项类别、关闭周期 —— 四样都能追问、能回查,所以算有实据。
-    英语按 JD 原话「英语口语熟练及具备独立书写英文8D报告的能力」拆两半看:书面产出有实据
-    (客户报告由他出、8D 独立写),口语只有自评、没有刻度。
-    稳定性与到岗用脚本算好的 hr_facts:6 段、近 5 年 3 段、平均 3.6 年,
-    对 HR 阈值(近 5 年 <= 3 段、均值 >= 2 年)不冲突;到岗 4 周,正好压在 HR 阈值 4 周这条线上。
-    工具项按 JD 原话「懂QC七大手法、5WHY、SPC、CPK、6S工具」判 —— 客户只要求「懂」,
-    所以稽核级接触也记作具备,但记录里注的是「接触过」,不是「推行过」。
-
-  reservation: >
-    (1) 口语只能按原话记,判不了「熟练」;而「日系客户主要靠翻译」这句更像是在说现场开口那一半不成立 ——
-        我没有独立证据,保留。
-    (2) 客户验厂、6S、品质分析三处实例都落在电线电缆 / 高速线,而 JD 另有一条「熟识线束行业相关产品」,
-        线束与高速线是不是同一个口径,我没有核实,保留。
-    (3) 沟通协调那一例具体、可复述,但 E 维没有组件、入不了 join,我只能说「他给得出一例」,
-        不能说「良好」。
-    (4) hr_facts 的近 5 年段数按「段」数,而 requirement_library 自己写着「段数不等于公司数」;
-        3 段正好压在阈值上限,边界上我没有独立核过公司名。
-    (5) 本文件有两处把候选人写成「她」,而 F.GENDER 原文是「性 Ol: 男」,来源需订正,否则以后引用会串。
-
-  # ── 退回 4a 的(能落成要求的,不留在评语里)──
-  returned_to_4a:
-
-    - requirement: REQ-C-YEARS-DOMAIN
-      what: 总年限(声明)
-      evidence: >
-        4a 的一面脚本把这条列为「缺」,问句是「从事 品质管理 多少年?(只算 品质管理)」,
-        但本文件 answers 段(21 问、22 条记录,其中 WORK_LOCATION 一条问了两次)里没有一条给年限。
-        同时 cv_docs 定稿第 47 行写「总年限 15年以上 / resume / both」,逐段累计又是 19 年(computed_unverified),
-        三个口径并存。
-      ask: 补问一次「品质管理专职做了多少年」,落成 C.1 yearsStated;或者明确 15年以上 的出处并写进声明值。
-      why: 有阈值(3 年)、能判、能回查 —— 属于要求,不该留在评语里。
-
-    - requirement: REQ-H-LANG-EN(口语那一半)
-      what: 英语口语
-      evidence: >
-        库里 level_check 声明 assessable=false,「熟练」没有刻度;访谈答案「一般 / 靠翻译」是印象,不是判定。
-      ask: 改问成二值:「近 12 个月有没有至少一次不靠翻译、独立用英语主答客户审核会议?」是 / 否,写入一个布尔字段。
-      why: 现有答案判不了,但这件事本身可判 —— 换成可判的问法,比留一句「口语一般」有用。
-
-    - requirement: 建议新增 · 状态未生效,待 HR 决定
-      what: 是否「主导推行」过 6S(而不仅是稽核)
-      evidence: 他的原话「6S 是车间在做,我这边负责稽核……不是我亲手推开的大项目」。
-      ask: 由 HR 决定加不加、阈值怎么定;在 HR 决定之前不进任何判定。
-      why: >
-        客户原话只写「懂…6S工具」,加这条等于超出 JD 加严。按「客户写了的照抄、没写的标未写」的规矩,
-        它只能作为 HR 提议并写明 rationale,不能当成已生效要求。
-
-  # ── 问了也算不出来的(不是没问到)──
-  known_gaps:
-    - "沟通协调能力(REQ-E-COMMUNICATION):E 维无组件,jd_links C-10 标 no_component=true —— 只能进人看的部分"
-    - "英语口语『熟练』:level_check 声明 assessable=false,没有刻度可用,再问一次也还是自评"
-    - "专业限定(REQ-B-MAJOR):component_catalog 标『枚举白名单 + 原话含等(举例不是穷举),匹配规则未定』—— 他大专是机电一体化,但这条现在判不了"
-    - "薪资上限(REQ-HR-SALARY):客户没给预算,库内 pending_value;他报 25K 可谈,也判不了我们给不给得起"
-    - "通勤意愿(REQ-HR-COMMUTE):岗位工作地点未定,pending_value;已知他住石排、骑车 15 分钟到厂区"
-    - "品质管理『领域』年限:领域属性 C.2 未建 —— 只能比总年限,比不了『品质管理』这一段的年限"
+- question: 逐个确认 单证、报关:确认「skill_单证」这项信息
+  answer: （模拟答案）简历里没有单证、报关的证据,本人也说不出具体例子 —— 记为否认
+  basis: simulated
+  evidence_level: stated
+  establishes: []
+  denies:
+  - skill_单证
+  - skill_报关
+  note: 模拟:本人否认(跟着简历走,不是随机)
+- question: 逐个确认 注塑机、点胶机、端子机、自动机、裁线机:确认「skill_注塑机」这项信息
+  answer: （模拟答案）简历里没有注塑机、点胶机、端子机、自动机、裁线机的证据,本人也说不出具体例子 —— 记为否认
+  basis: simulated
+  evidence_level: stated
+  establishes: []
+  denies:
+  - skill_注塑机
+  - skill_点胶机
+  - skill_端子机
+  - skill_自动机
+  - skill_裁线机
+  note: 模拟:本人否认(跟着简历走,不是随机)
+- question: （补充询问）专业:75% 落在客户点名范围,25% 工商管理
+  answer: （模拟答案）专业:75% 落在客户点名范围,25% 工商管理 → 机电一体化技术
+  basis: simulated
+  evidence_level: stated
+  props:
+    major: 机电一体化技术
+  note: 模拟:不是真人说的
+- question: （补充询问）总年限 3~15 年
+  answer: （模拟答案）总年限 3~15 年 → 10
+  basis: simulated
+  evidence_level: stated
+  props:
+    yearsPlatform: 10
+  note: 模拟:不是真人说的
+- question: （补充询问）到岗:4 周(50%)/ 2 周(30%)/ 8 周(20%)
+  answer: （模拟答案）到岗:4 周(50%)/ 2 周(30%)/ 8 周(20%) → 2
+  basis: simulated
+  evidence_level: stated
+  props:
+    notice_weeks: 2
+  note: 模拟:不是真人说的
+- question: （补充询问）期望月薪 8~20K
+  answer: （模拟答案）期望月薪 8~20K → 10
+  basis: simulated
+  evidence_level: stated
+  props:
+    salary_max_k: 10
+  note: 模拟:不是真人说的
+- question: （补充询问）通勤可接受 75%
+  answer: （模拟答案）通勤可接受 75% → True
+  basis: simulated
+  evidence_level: stated
+  props:
+    commute_ok: true
+  note: 模拟:不是真人说的
+- question: （补充询问）平均在职 1~6 年
+  answer: （模拟答案）平均在职 1~6 年 → 1.7
+  basis: simulated
+  evidence_level: stated
+  props:
+    avg_tenure_years: 1.7
+  note: 模拟:不是真人说的
+- question: （补充询问）近 5 年 1~4 段
+  answer: （模拟答案）近 5 年 1~4 段 → 3
+  basis: simulated
+  evidence_level: stated
+  props:
+    recent5y_segments: 3
+  note: 模拟:不是真人说的
+- question: （补充询问）全日制 70%
+  answer: （模拟答案）全日制 70% → True
+  basis: simulated
+  evidence_level: stated
+  props:
+    fullTime: true
+    full_time: true
+  note: 模拟:不是真人说的
+- question: （补充询问）性别:男 72% / 女 28%
+  answer: （模拟答案）性别:男 72% / 女 28% → 男
+  basis: simulated
+  evidence_level: stated
+  props:
+    gender: 男
+  note: 模拟:不是真人说的
+- question: （补充询问）活动经验:按岗位性质给三段标准动作
+  answer: （模拟答案）活动经验:按岗位性质给三段标准动作 → 来料检验、制程异常处理、客户投诉闭环
+  basis: simulated
+  evidence_level: stated
+  props:
+    activityExperience: 来料检验、制程异常处理、客户投诉闭环
+    activity_experience: 来料检验、制程异常处理、客户投诉闭环
+  note: 模拟:不是真人说的
+- question: （补充询问）行业:按简历公司产品归到制造业
+  answer: （模拟答案）行业:按简历公司产品归到制造业 → 制造业(线束/汽车零部件)
+  basis: simulated
+  evidence_level: stated
+  props:
+    industry: 制造业(线束/汽车零部件)
+  note: 模拟:不是真人说的
+- question: （补充询问）语言熟练度:CET-4,读写为主
+  answer: （模拟答案）语言熟练度:CET-4,读写为主 → 英语:CET-4,能读写英文图纸与邮件
+  basis: simulated
+  evidence_level: stated
+  props:
+    languageLevel: 英语:CET-4,能读写英文图纸与邮件
+    language_level: 英语:CET-4,能读写英文图纸与邮件
+  note: 模拟:不是真人说的
+- question: （补充询问）语言:英语
+  answer: （模拟答案）语言:英语 → 英语
+  basis: simulated
+  evidence_level: stated
+  props:
+    language: 英语
+  note: 模拟:不是真人说的
+- question: （补充询问）毕业院校:华南/华中工科院校之一
+  answer: （模拟答案）毕业院校:华南/华中工科院校之一 → 广东工业大学
+  basis: simulated
+  evidence_level: stated
+  props:
+    institution: 广东工业大学
+  note: 模拟:不是真人说的
+- question: （补充询问）项目经验:一条可讲出来的项目
+  answer: （模拟答案）项目经验:一条可讲出来的项目 → 主导 CCS 采集线束导入,良率 92%→97%
+  basis: simulated
+  evidence_level: stated
+  props:
+    projects: 主导 CCS 采集线束导入,良率 92%→97%
+  note: 模拟:不是真人说的
+- question: （补充询问）培训经历:与本岗相关的一次培训
+  answer: （模拟答案）培训经历:与本岗相关的一次培训 → IATF16949:2016 内审员培训
+  basis: simulated
+  evidence_level: stated
+  props:
+    trainings: IATF16949:2016 内审员培训
+  note: 模拟:不是真人说的
+- question: （补充询问）目前年薪(月薪口径)8~19K
+  answer: （模拟答案）目前年薪(月薪口径)8~19K → 15
+  basis: simulated
+  evidence_level: stated
+  props:
+    currentSalaryK: 15
+    current_salary_k: 15
+  note: 模拟:不是真人说的
+- question: （补充询问）薪资:按客户预算区间代拟(平台无归档时)
+  answer: （模拟答案）薪资:按客户预算区间代拟(平台无归档时) → 14-16K
+  basis: simulated
+  evidence_level: stated
+  props:
+    salary: 14-16K
+  note: 模拟:不是真人说的
+- question: （补充询问）手机号:138****XXXX(明显占位)
+  answer: （模拟答案）手机号:138****XXXX(明显占位) → 138****6525
+  basis: simulated
+  evidence_level: stated
+  props:
+    phone: 138****6525
+  note: 模拟:不是真人说的
+- question: （补充询问）邮箱:example.com 占位域
+  answer: （模拟答案）邮箱:example.com 占位域 → cand2147@example.com
+  basis: simulated
+  evidence_level: stated
+  props:
+    email: cand2147@example.com
+  note: 模拟:不是真人说的
+- question: （补充询问）婚姻:已婚 60% / 未婚 40%
+  answer: （模拟答案）婚姻:已婚 60% / 未婚 40% → 未婚
+  basis: simulated
+  evidence_level: stated
+  props:
+    marital: 未婚
+  note: 模拟:不是真人说的
+- question: （补充询问）籍贯:华南/华中常见五省之一
+  answer: （模拟答案）籍贯:华南/华中常见五省之一 → 广东
+  basis: simulated
+  evidence_level: stated
+  props:
+    hometown: 广东
+  note: 模拟:不是真人说的
+- question: （补充询问）现岗位:取简历最后一段的岗位名
+  answer: （模拟答案）现岗位:取简历最后一段的岗位名 → 开发工程师
+  basis: simulated
+  evidence_level: stated
+  props:
+    jobTitle: 开发工程师
+  note: 模拟:不是真人说的
+- question: （补充询问）工作地点:按简历城市(东莞)
+  answer: （模拟答案）工作地点:按简历城市(东莞) → 东莞
+  basis: simulated
+  evidence_level: stated
+  props:
+    workLocation: 东莞
+  note: 模拟:不是真人说的
+- question: （补充核实）JD 要求的能力项:AutoCAD、Excel、PowerPoint、Word、线束行业知识
+  answer: （模拟答案）简历里有证据,本人能讲出具体一段与做法:AutoCAD、Excel、PowerPoint、Word、线束行业知识
+  basis: simulated
+  evidence_level: stated
+  establishes:
+  - skill_AutoCAD
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  - skill_线束行业知识
+  note: 模拟:简历有证据 → 坐实

@@ -1,0 +1,399 @@
+jd: 副总助理
+candidate: cand_外贸业务员_东莞_5_10K_D___24年毕业
+name: 范秀佳
+short_id: 外贸业务员_东莞_5_10K_D___24年毕业
+fingerprint: fe2d8928187820c8
+scope: shortlist
+counts:
+  满足: 0
+  不满足: 1
+  未知: 6
+  不可判: 9
+judgeable: 7
+verdict: 卡在 VP-05「专业限定」
+headline: '结论:**卡在 VP-05「专业限定」** ——客户原文「中文、文秘类专业优先」,要求 {''in'': [''中文'', ''文秘'']},他是「Architecture」。此外,6
+  条我们没读到数据(标「未知」,不当作不合格);9 条这条 JD 没有数据项(标「不可判」,对所有人一样)。'
+blocked_by:
+- clause: VP-05
+  name: 专业限定
+  client_text: 中文、文秘类专业优先
+  client_line: 15
+  value: Architecture
+  threshold: &id001
+    in:
+    - 中文
+    - 文秘
+  source: &id002
+    kind: 简历原文
+    detail: cv_facts
+    evidence: BACHELOR IN ARCHITECTURE
+    basis: stated
+  client_gate: null
+absence_evidence:
+- clause: VP-16
+  checked: cv_facts.skills(整份简历抽取的技能项)
+  n_skills: 3
+  not_found: &id003
+  - Excel
+  - PowerPoint
+  - Word
+  note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+unknown:
+- clause: VP-01
+  name: 性别
+  data_item: A.1 性别
+  why: gender 没读到
+- clause: VP-02
+  name: 年龄区间
+  data_item: A.2 年龄
+  why: age 没读到
+- clause: VP-03
+  name: 学历不低于
+  data_item: B.1 学历
+  why: educationRank 没读到
+- clause: VP-04
+  name: 全日制
+  data_item: B.3 全日制
+  why: fullTime 没读到
+- clause: VP-06
+  name: 某领域年限不低于
+  data_item: C.1 总年限(声明)
+  why: yearsStated 没读到
+- clause: VP-16
+  name: Office 办公软件(Word/Excel/PPT)
+  data_item: Excel、PowerPoint、Word
+  why: 3 项一项都没读到(可能没写/没做过,需面谈确认)
+not_judgeable:
+- clause: VP-07
+  name: 原则性
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: VP-08
+  name: 责任心
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: VP-09
+  name: 敢于担当
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: VP-10
+  name: 日清日结
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: VP-11
+  name: 奋斗精神
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: VP-12
+  name: 沟通协调能力
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: VP-13
+  name: 执行能力
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: VP-14
+  name: 逻辑清晰
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: VP-15
+  name: 数据敏感
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+known_defects:
+- DEF-03
+- DEF-04
+disputes: []
+rows:
+- clause: VP-01
+  requirement: REQ-A-GENDER
+  name: 性别
+  client_text: 女性
+  client_line: 14
+  origin: client
+  data_item: A.1 性别
+  value: null
+  threshold:
+    in:
+    - 女
+  op: '='
+  state: 未知
+  why: gender 没读到
+  source:
+    kind: 无
+    detail: 库中没有这个值
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: VP-02
+  requirement: REQ-A-AGE-RANGE
+  name: 年龄区间
+  client_text: 25-38岁
+  client_line: 14
+  origin: client
+  data_item: A.2 年龄
+  value: null
+  threshold:
+    min: 25
+    max: 38
+  op: between
+  state: 未知
+  why: age 没读到
+  source:
+    kind: 无
+    detail: 库中没有这个值
+    evidence: ''
+  client_gate: 年龄
+  defects: []
+- clause: VP-03
+  requirement: REQ-B-EDU-LEVEL
+  name: 学历不低于
+  client_text: 全日制大专及以上学历
+  client_line: 15
+  origin: client
+  data_item: B.1 学历
+  value: null
+  threshold:
+    num: 3
+  op: '>='
+  state: 未知
+  why: educationRank 没读到
+  source:
+    kind: 无
+    detail: 库中没有这个值
+    evidence: ''
+  client_gate: 学历
+  defects: []
+- clause: VP-04
+  requirement: REQ-B-FULL-TIME
+  name: 全日制
+  client_text: 全日制
+  client_line: 15
+  origin: client
+  data_item: B.3 全日制
+  value: null
+  threshold: {}
+  op: '='
+  state: 未知
+  why: fullTime 没读到
+  source:
+    kind: 无
+    detail: 库中没有这个值
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: VP-05
+  requirement: REQ-B-MAJOR
+  name: 专业限定
+  client_text: 中文、文秘类专业优先
+  client_line: 15
+  origin: client
+  data_item: B.2 专业
+  value: Architecture
+  threshold: *id001
+  op: in
+  state: 不满足
+  why: 专业名没命中白名单（Architecture）
+  source: *id002
+  client_gate: null
+  defects:
+  - DEF-04
+- clause: VP-06
+  requirement: REQ-C-YEARS-DOMAIN
+  name: 某领域年限不低于
+  client_text: 2年以上文职类、助理类、管理类工厂工作经验
+  client_line: 16
+  origin: client
+  data_item: C.1 总年限(声明)
+  value: null
+  threshold:
+    num: 2
+    domain: 文职/助理/管理
+  op: '>='
+  state: 未知
+  why: yearsStated 没读到
+  source:
+    kind: 无
+    detail: 库中没有这个值
+    evidence: ''
+  client_gate: null
+  defects:
+  - DEF-03
+- clause: VP-07
+  requirement: REQ-E-PRINCIPLE
+  name: 原则性
+  client_text: 原则性强
+  client_line: 17
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: VP-08
+  requirement: REQ-E-RESPONSIBILITY
+  name: 责任心
+  client_text: 责任心突出
+  client_line: 17
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: VP-09
+  requirement: REQ-E-ACCOUNTABILITY
+  name: 敢于担当
+  client_text: 敢于担当
+  client_line: 17
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: VP-10
+  requirement: REQ-E-DAILY-CLOSE
+  name: 日清日结
+  client_text: 坚持日清日结
+  client_line: 17
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: VP-11
+  requirement: REQ-E-STRIVING
+  name: 奋斗精神
+  client_text: 具备良好的奋斗精神
+  client_line: 17
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: VP-12
+  requirement: REQ-E-COMMUNICATION
+  name: 沟通协调能力
+  client_text: 沟通能力好
+  client_line: 18
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: VP-13
+  requirement: REQ-E-EXECUTION
+  name: 执行能力
+  client_text: 执行能力强
+  client_line: 18
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: VP-14
+  requirement: REQ-E-LOGIC
+  name: 逻辑清晰
+  client_text: 逻辑清晰
+  client_line: 18
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: VP-15
+  requirement: REQ-E-DATA-SENSITIVITY
+  name: 数据敏感
+  client_text: 数据敏感
+  client_line: 18
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: VP-16
+  requirement: REQ-D-OFFICE
+  name: Office 办公软件(Word/Excel/PPT)
+  client_text: 熟练掌握Office办公软件（Word/ Excel/ PPT/ AI）
+  client_line: 19
+  origin: client
+  data_item: Excel、PowerPoint、Word
+  value: 无
+  threshold: 命中率 ≥ 50%(3 项中至少 2 项)
+  op: component_coverage
+  state: 未知
+  why: 3 项一项都没读到(可能没写/没做过,需面谈确认)
+  evidence: null
+  sources: []
+  missing:
+  - Excel
+  - PowerPoint
+  - Word
+  absence:
+    checked: cv_facts.skills(整份简历抽取的技能项)
+    n_skills: 3
+    not_found: *id003
+    note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+  client_gate: null
+  defects: []

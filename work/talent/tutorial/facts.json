@@ -120,10 +120,10 @@
  "step7_states": {
   "docs": 1025,
   "counts": {
-   "满足": 2677,
-   "不满足": 1139,
-   "未知": 3460,
-   "不可判": 5432
+   "满足": 2687,
+   "不满足": 1147,
+   "未知": 3440,
+   "不可判": 5434
   },
   "total_cells": 12708
  },
@@ -135,7 +135,7 @@
    "soft": 4
   },
   "catalog_has_note": 15,
-  "capability_satisfied_rows": 827
+  "capability_satisfied_rows": 832
  },
  "step9_division": {
   "experiment": {
@@ -294,9 +294,9 @@
   "roles_without_jd_candidates": 54
  },
  "pipeline_truth": {
-  "interview_docs": 72,
+  "interview_docs": 73,
   "real_interview_docs": 0,
-  "simulated_docs": 72,
+  "simulated_docs": 73,
   "note": "basis: interview 才算真访谈;其余全是 simulated(代拟)"
  },
  "step13_replay": {
@@ -339,8 +339,8 @@
    "means": "定义类只服务教材与 profile；招聘结论来自 Python，删掉它一个判定都不会变"
   },
   "F4_unknown_as_unsatisfied": {
-   "before": 1139,
-   "after": 4599,
+   "before": 1147,
+   "after": 4587,
    "changed": true,
    "means": "这正是全库曾经犯过的错：1192/1207 格把「没读到」判成了「不合格」"
   },
@@ -368,8 +368,8 @@
    "means": "客户原文改一个字，那一条引用就对不上行 —— 逐字回查会红，所以阈值改不了"
   },
   "F10_soft_evidence_as_hard": {
-   "before": 621,
-   "after": 1139,
+   "before": 620,
+   "after": 1147,
    "changed": true,
    "means": "把「仅自述/代拟」的否定也当成可排除依据，可用来排除的格数会膨胀 —— 门禁要求排除必须有硬证据，正是为了挡这个"
   },

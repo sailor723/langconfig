@@ -1,0 +1,245 @@
+jd: 专案工程师
+candidate: cand_专案工程师_东莞_12_16K_陈___5年
+name: 陈子宁
+short_id: 专案工程师_东莞_12_16K_陈___5年
+fingerprint: a41d8d79628af121
+scope: shortlist
+counts:
+  满足: 4
+  不满足: 1
+  未知: 0
+  不可判: 4
+judgeable: 5
+verdict: 卡在 C-07「电线加工设备(熟知并会操作)」
+headline: 结论:**卡在 C-07「电线加工设备(熟知并会操作)」** ——客户原文「对电线加工设备：裁线机、端子机、自动机、注塑机、点胶机等功能熟知并有一定的操作能力」,要求
+  命中率 ≥ 50%(5 项中至少 3 项),他是「命中 注塑机」。此外,4 条这条 JD 没有数据项(标「不可判」,对所有人一样)。
+blocked_by:
+- clause: C-07
+  name: 电线加工设备(熟知并会操作)
+  client_text: 对电线加工设备：裁线机、端子机、自动机、注塑机、点胶机等功能熟知并有一定的操作能力
+  client_line: 6
+  value: 命中 注塑机
+  threshold: 命中率 ≥ 50%(5 项中至少 3 项)
+  source:
+    kind: 见 sources
+  client_gate: null
+absence_evidence: []
+unknown: []
+not_judgeable:
+- clause: C-03
+  name: 新产品报价/样品/转量产流程
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: C-04
+  name: 抗压能力 / 多线程处理
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: C-05
+  name: 奋斗精神
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: C-06
+  name: 细心严谨
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+known_defects:
+- DEF-01
+- DEF-03
+disputes: []
+rows:
+- clause: C-01
+  requirement: REQ-C-YEARS-DOMAIN
+  name: 某领域年限不低于
+  client_text: 电线连接器加工行业产品开发3年以上经验
+  client_line: 4
+  origin: client
+  data_item: C.1 总年限(声明)
+  value: 5
+  threshold:
+    num: 3
+    unit: 年
+    domain: 电线连接器加工行业产品开发
+  op: '>='
+  state: 满足
+  why: '>=3 vs 5'
+  source:
+    kind: 一面记录
+    detail: 一面记录(模拟)
+    evidence: （模拟答案）声明年限 3~15 年 → 8
+    question: （补充询问）声明年限 3~15 年
+    real: false
+  client_gate: null
+  defects:
+  - DEF-03
+- clause: C-02
+  requirement: REQ-D-HARNESS-DOMAIN
+  name: 线束/连接器行业认知
+  client_text: 电线连接器加工行业产品开发3年以上经验
+  client_line: 4
+  origin: client
+  data_item: 线束行业知识
+  value: 命中 线束行业知识
+  threshold: 命中率 ≥ 50%(1 项中至少 1 项)
+  op: component_coverage
+  state: 满足
+  why: 1/1
+  evidence: 仅自述
+  sources:
+  - kind: 一面记录
+    detail: 一面记录(模拟)
+    evidence: （模拟答案）简历里有证据,本人能讲出具体一段与做法:线束行业知识、英语
+    question: （补充核实）JD 要求的能力项:线束行业知识、英语
+    real: false
+    component: 线束行业知识
+  missing: []
+  absence: {}
+  client_gate: null
+  defects:
+  - DEF-01
+- clause: C-03
+  requirement: REQ-D-NPI-PROCESS
+  name: 新产品报价/样品/转量产流程
+  client_text: 对新产品报价、样品、转量产做业流程熟知
+  client_line: 4
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: C-04
+  requirement: REQ-E-STRESS
+  name: 抗压能力 / 多线程处理
+  client_text: 抗压能力强
+  client_line: 5
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: C-05
+  requirement: REQ-E-STRIVING
+  name: 奋斗精神
+  client_text: 积极向上
+  client_line: 5
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: C-06
+  requirement: REQ-E-CAREFUL
+  name: 细心严谨
+  client_text: 工作细心，谨慎
+  client_line: 5
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: C-07
+  requirement: REQ-D-WIRE-EQUIPMENT
+  name: 电线加工设备(熟知并会操作)
+  client_text: 对电线加工设备：裁线机、端子机、自动机、注塑机、点胶机等功能熟知并有一定的操作能力
+  client_line: 6
+  origin: client
+  data_item: 注塑机、点胶机、端子机、自动机、裁线机
+  value: 命中 注塑机
+  threshold: 命中率 ≥ 50%(5 项中至少 3 项)
+  op: component_coverage
+  state: 不满足
+  why: 1/5
+  evidence: null
+  sources:
+  - kind: 简历原文
+    detail: cv_facts.skills
+    evidence: 熟悉注塑
+    basis: stated
+    component: 注塑机
+  missing:
+  - 点胶机
+  - 端子机
+  - 自动机
+  - 裁线机
+  absence: {}
+  client_gate: null
+  defects: []
+- clause: C-08
+  requirement: REQ-D-CAD-2D
+  name: CAD 二维制图
+  client_text: CAD二维制图
+  client_line: 7
+  origin: client
+  data_item: AutoCAD
+  value: 命中 AutoCAD
+  threshold: 命中率 ≥ 50%(1 项中至少 1 项)
+  op: component_coverage
+  state: 满足
+  why: 1/1
+  evidence: 仅自述
+  sources:
+  - kind: 简历原文
+    detail: cv_facts.skills
+    evidence: autoCAD
+    basis: stated
+    component: AutoCAD
+  missing: []
+  absence: {}
+  client_gate: null
+  defects: []
+- clause: C-09
+  requirement: REQ-D-OFFICE
+  name: Office 办公软件(Word/Excel/PPT)
+  client_text: 办公软件操作熟练
+  client_line: 7
+  origin: client
+  data_item: Excel、PowerPoint、Word
+  value: 命中 Excel、PowerPoint
+  threshold: 命中率 ≥ 50%(3 项中至少 2 项)
+  op: component_coverage
+  state: 满足
+  why: 2/3
+  evidence: 仅自述
+  sources:
+  - kind: 简历原文
+    detail: cv_facts.skills
+    evidence: excel
+    basis: stated
+    component: Excel
+  - kind: 简历原文
+    detail: cv_facts.skills
+    evidence: PPT编写
+    basis: stated
+    component: PowerPoint
+  missing:
+  - Word
+  absence: {}
+  client_gate: null
+  defects: []

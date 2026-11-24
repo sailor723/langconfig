@@ -1423,6 +1423,38 @@ def check_standard_templates() -> None:
                    "; ".join(mock_mismatch[:4]))
         check_true("ST-G19 有 AI 模拟的定稿都带「AI 模拟清单」", not bad_mock,
                    "; ".join(bad_mock[:4]))
+
+        # ST-G20 最终 5 人必须各有一份「业务面问题清单」（业务拿它去面）
+        miss_bq, bad_bq = [], []
+        for jd_name in known_jds():
+            tgt_p = ROOT / "work" / "talent" / "shortlist" / f"{jd_name}.目标名单.yaml"
+            bq = ROOT / "work" / "talent" / "picks" / f"{jd_name}.业务面问题.md"
+            if not tgt_p.is_file():
+                continue
+            tgt = yaml.safe_load(tgt_p.read_text(encoding="utf-8")) or {}
+            ids = list((tgt.get("final") or {}).get("ids") or [])
+            if not ids:
+                continue
+            if not bq.is_file():
+                miss_bq.append(jd_name)
+                continue
+            txt = bq.read_text(encoding="utf-8")
+            names_p = ROOT / "work" / "talent" / "fake_names.yaml"
+            nm = {}
+            if names_p.is_file():
+                nd = yaml.safe_load(names_p.read_text(encoding="utf-8")) or {}
+                for k, v in (nd.get("names") or {}).items():
+                    nm[str(k)] = str(v.get("name")) if isinstance(v, dict) else str(v)
+            missing = [cid for cid in ids if nm.get(cid) and nm[cid] not in txt]
+            if missing:
+                bad_bq.append(f"{jd_name}: {len(missing)} 人没有对应问题段")
+            for seg in ("A. 能力项", "B. 当面确认", "C. 岗位必答"):
+                if seg not in txt:
+                    bad_bq.append(f"{jd_name}: 缺少「{seg}」段")
+        check_true("ST-G20 有最终名单的 JD 都生成了「业务面问题清单」", not miss_bq,
+                   ", ".join(miss_bq[:4]))
+        check_true("ST-G20 清单覆盖最终 5 人，且三段齐全(能力/当面确认/岗位必答)", not bad_bq,
+                   "; ".join(bad_bq[:4]))
     except Exception as exc:  # noqa: BLE001
         check_true("ST-G16/G17 上传与作用域门禁跑完了(崩溃 = 红)", False,
                    f"{type(exc).__name__}: {exc}")

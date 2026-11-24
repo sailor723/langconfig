@@ -132,6 +132,15 @@ def _ask_for(prop: str, cand_name: str) -> dict:
             'method': kind, 'material': material, 'judge_by': judge}
 
 
+def _name(cid: str) -> str:
+    """显示姓名：一处读 fake_names.yaml（270 份都编了完整姓名，不显示脱敏 id）。"""
+    try:
+        from scripts.talent.names import name_of
+        return name_of(cid)
+    except Exception:  # noqa: BLE001
+        return str(cid)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument('--jd', required=True)
@@ -281,7 +290,7 @@ def main() -> int:
             if key in seen:
                 continue
             seen.add(key)
-            md.append(f"| {i2['candidate'].replace('cand_', '')[:26]} | {i2['data_item']} | "
+            md.append(f"| {_name(i2['candidate'])} | {i2['data_item']} | "
                       f"{i2.get('method') or '面谈'} | {i2['how']} | {i2['unlock']} |")
         md.append('')
     md += ['## 优先做哪些', '',

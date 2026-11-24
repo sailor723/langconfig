@@ -1,8 +1,8 @@
 jd: 品质经理
 scope_size: 159
-items: 1329
+items: 1323
 by_who:
-  HR: 633
+  HR: 627
   业务: 696
 rule: 待核 ≠ 不合格。未核期间这些要求一律按「未知」处理,不得用于排除;问完把答案写回 cv_facts/cv_interview,再重跑第 3 步。
 queue:
@@ -5131,72 +5131,6 @@ queue:
   material: 按起止年月问清责任范围
   judge_by: 业务
   evidence: '工程师.工程部:'
-- candidate: cand_周___38岁_专案工程师_智通简历_编号
-  data_item: B.1 educationRank
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人提供最高学历证书照片(毕业证/学位证),注明全日制还是在职
-  unlock: 解锁 C-02 学历不低于
-  method: 证件
-  material: 毕业证/学位证 + 学信网
-  judge_by: HR
-  evidence: ''
-- candidate: cand_周___38岁_专案工程师_智通简历_编号
-  data_item: B.2 major
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人说明证书上的**专业全称**与院校(例:机电一体化技术)
-  unlock: 解锁 C-03 专业限定
-  method: 证件
-  material: 毕业证上的专业全称
-  judge_by: HR
-  evidence: ''
-- candidate: cand_周___38岁_专案工程师_智通简历_编号
-  data_item: C.1 yearsPlatform
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人按"起止年月"口述主要工作段,用来核对总年限
-  unlock: 解锁 C-05 某领域年限
-  method: 面谈
-  material: 按起止年月核对,补空档
-  judge_by: HR
-  evidence: ''
-- candidate: cand_周___38岁_专案工程师_智通简历_编号
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_周___38岁_专案工程师_智通简历_编号
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_周___38岁_专案工程师_智通简历_编号
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
-  evidence: ''
 - candidate: cand_周___38岁_专案工程师_智通简历_编号
   data_item: 英语、8D报告
   current: 没抽到

@@ -1,0 +1,271 @@
+candidate: cand_郑___37岁_专案工程师_智通简历_编号
+simulated: true
+channel: 模拟一面(开发用,非真实访谈)
+date: '2026-11-24'
+interviewer: —
+simulated_note: '本文件 answers 全部 `basis: simulated`:按待核清单与简历常识推的,不是访谈记录。对外前必须换成真实答案。'
+answers:
+- question: 近三年有没有做过品质相关工作(检验判定/异常处理/体系或客户审核)?是哪一段、起止年月、具体做什么?
+  answer: （模拟答案）简历里没有品质岗经历的证据,本人也说不出具体例子 —— 记为否认
+  basis: simulated
+  evidence_level: stated
+  establishes: []
+  denies:
+  - skill_品质岗经历
+  note: 模拟:本人否认(跟着简历走,不是随机)
+- question: 一次问完 英语、8D报告:近 12 个月有没有一次不靠翻译、独立用英语主答客户审核会议?(是/否)
+  answer: （模拟答案）简历里没有英语、8D报告的证据,本人也说不出具体例子 —— 记为否认
+  basis: simulated
+  evidence_level: stated
+  establishes: []
+  denies:
+  - skill_英语
+  - skill_8D报告
+  note: 模拟:本人否认(跟着简历走,不是随机)
+- question: 举一个他主导的品质异常分析:什么不良、用什么方法、结果如何?
+  answer: （模拟答案）简历里没有品质问题分析的证据,本人也说不出具体例子 —— 记为否认
+  basis: simulated
+  evidence_level: stated
+  establishes: []
+  denies:
+  - skill_品质问题分析
+  note: 模拟:本人否认(跟着简历走,不是随机)
+- question: 哪家客户来验过厂?验的什么体系(ISO/客户自有标准)?他负责哪部分?
+  answer: （模拟答案）简历里没有客户验厂的证据,本人也说不出具体例子 —— 记为否认
+  basis: simulated
+  evidence_level: stated
+  establishes: []
+  denies:
+  - skill_客户验厂
+  note: 模拟:本人否认(跟着简历走,不是随机)
+- question: （补充询问）出生年月:1985~1998 均匀取,年龄由它反算
+  answer: （模拟答案）出生年月:1985~1998 均匀取,年龄由它反算 → 1989-02-01
+  basis: simulated
+  evidence_level: stated
+  props:
+    birthDate: '1989-02-01'
+  note: 模拟:不是真人说的
+- question: （补充询问）总年限 3~15 年
+  answer: （模拟答案）总年限 3~15 年 → 4
+  basis: simulated
+  evidence_level: stated
+  props:
+    yearsPlatform: 4
+  note: 模拟:不是真人说的
+- question: （补充询问）声明年限 3~15 年
+  answer: （模拟答案）声明年限 3~15 年 → 8
+  basis: simulated
+  evidence_level: stated
+  props:
+    yearsStated: 8
+    years_stated: 8
+  note: 模拟:不是真人说的
+- question: （补充询问）到岗:4 周(50%)/ 2 周(30%)/ 8 周(20%)
+  answer: （模拟答案）到岗:4 周(50%)/ 2 周(30%)/ 8 周(20%) → 2
+  basis: simulated
+  evidence_level: stated
+  props:
+    notice_weeks: 2
+  note: 模拟:不是真人说的
+- question: （补充询问）期望月薪 8~20K
+  answer: （模拟答案）期望月薪 8~20K → 13
+  basis: simulated
+  evidence_level: stated
+  props:
+    salary_max_k: 13
+  note: 模拟:不是真人说的
+- question: （补充询问）通勤可接受 75%
+  answer: （模拟答案）通勤可接受 75% → True
+  basis: simulated
+  evidence_level: stated
+  props:
+    commute_ok: true
+  note: 模拟:不是真人说的
+- question: （补充询问）平均在职 1~6 年
+  answer: （模拟答案）平均在职 1~6 年 → 4.8
+  basis: simulated
+  evidence_level: stated
+  props:
+    avg_tenure_years: 4.8
+  note: 模拟:不是真人说的
+- question: （补充询问）近 5 年 1~4 段
+  answer: （模拟答案）近 5 年 1~4 段 → 1
+  basis: simulated
+  evidence_level: stated
+  props:
+    recent5y_segments: 1
+  note: 模拟:不是真人说的
+- question: （补充询问）全日制 70%
+  answer: （模拟答案）全日制 70% → False
+  basis: simulated
+  evidence_level: stated
+  props:
+    fullTime: false
+    full_time: false
+  note: 模拟:不是真人说的
+- question: （补充询问）性别:男 72% / 女 28%
+  answer: （模拟答案）性别:男 72% / 女 28% → 男
+  basis: simulated
+  evidence_level: stated
+  props:
+    gender: 男
+  note: 模拟:不是真人说的
+- question: （补充询问）证书:35% 有内审员/质量类证书
+  answer: （模拟答案）证书:35% 有内审员/质量类证书 → False
+  basis: simulated
+  evidence_level: stated
+  props:
+    hasCertification: false
+  note: 模拟:不是真人说的
+- question: （补充询问）活动经验:按岗位性质给三段标准动作
+  answer: （模拟答案）活动经验:按岗位性质给三段标准动作 → 来料检验、制程异常处理、客户投诉闭环
+  basis: simulated
+  evidence_level: stated
+  props:
+    activityExperience: 来料检验、制程异常处理、客户投诉闭环
+    activity_experience: 来料检验、制程异常处理、客户投诉闭环
+  note: 模拟:不是真人说的
+- question: （补充询问）职能域:按岗位性质归域
+  answer: （模拟答案）职能域:按岗位性质归域 → 品质/工程
+  basis: simulated
+  evidence_level: stated
+  props:
+    domain: 品质/工程
+  note: 模拟:不是真人说的
+- question: （补充询问）行业:按简历公司产品归到制造业
+  answer: （模拟答案）行业:按简历公司产品归到制造业 → 制造业(线束/汽车零部件)
+  basis: simulated
+  evidence_level: stated
+  props:
+    industry: 制造业(线束/汽车零部件)
+  note: 模拟:不是真人说的
+- question: （补充询问）语言熟练度:CET-4,读写为主
+  answer: （模拟答案）语言熟练度:CET-4,读写为主 → 英语:CET-4,能读写英文图纸与邮件
+  basis: simulated
+  evidence_level: stated
+  props:
+    languageLevel: 英语:CET-4,能读写英文图纸与邮件
+    language_level: 英语:CET-4,能读写英文图纸与邮件
+  note: 模拟:不是真人说的
+- question: （补充询问）语言:英语
+  answer: （模拟答案）语言:英语 → 英语
+  basis: simulated
+  evidence_level: stated
+  props:
+    language: 英语
+  note: 模拟:不是真人说的
+- question: （补充询问）职业素养:自评(自述,不作为判定依据)
+  answer: （模拟答案）职业素养:自评(自述,不作为判定依据) → 工作认真负责,能独立推动异常闭环
+  basis: simulated
+  evidence_level: stated
+  props:
+    competency: 工作认真负责,能独立推动异常闭环
+  note: 模拟:不是真人说的
+- question: （补充询问）起止时间:四年制本科区间
+  answer: （模拟答案）起止时间:四年制本科区间 → 2006.09-2010.06
+  basis: simulated
+  evidence_level: stated
+  props:
+    eduPeriod: 2006.09-2010.06
+    edu_period: 2006.09-2010.06
+  note: 模拟:不是真人说的
+- question: （补充询问）毕业院校:华南/华中工科院校之一
+  answer: （模拟答案）毕业院校:华南/华中工科院校之一 → 广东工业大学
+  basis: simulated
+  evidence_level: stated
+  props:
+    institution: 广东工业大学
+  note: 模拟:不是真人说的
+- question: （补充询问）项目经验:一条可讲出来的项目
+  answer: （模拟答案）项目经验:一条可讲出来的项目 → 主导 CCS 采集线束导入,良率 92%→97%
+  basis: simulated
+  evidence_level: stated
+  props:
+    projects: 主导 CCS 采集线束导入,良率 92%→97%
+  note: 模拟:不是真人说的
+- question: （补充询问）培训经历:与本岗相关的一次培训
+  answer: （模拟答案）培训经历:与本岗相关的一次培训 → IATF16949:2016 内审员培训
+  basis: simulated
+  evidence_level: stated
+  props:
+    trainings: IATF16949:2016 内审员培训
+  note: 模拟:不是真人说的
+- question: （补充询问）目前年薪(月薪口径)8~19K
+  answer: （模拟答案）目前年薪(月薪口径)8~19K → 18
+  basis: simulated
+  evidence_level: stated
+  props:
+    currentSalaryK: 18
+    current_salary_k: 18
+  note: 模拟:不是真人说的
+- question: （补充询问）求职类型:全职
+  answer: （模拟答案）求职类型:全职 → 全职
+  basis: simulated
+  evidence_level: stated
+  props:
+    jobType: 全职
+    job_type: 全职
+  note: 模拟:不是真人说的
+- question: （补充询问）薪资:按客户预算区间代拟(平台无归档时)
+  answer: （模拟答案）薪资:按客户预算区间代拟(平台无归档时) → 8-10K
+  basis: simulated
+  evidence_level: stated
+  props:
+    salary: 8-10K
+  note: 模拟:不是真人说的
+- question: （补充询问）姓名:显示用编好的完整姓名(原文脱敏)
+  answer: （模拟答案）姓名:显示用编好的完整姓名(原文脱敏) → 郑冬国
+  basis: simulated
+  evidence_level: stated
+  props:
+    fullName: 郑冬国
+  note: 模拟:不是真人说的
+- question: （补充询问）邮箱:example.com 占位域
+  answer: （模拟答案）邮箱:example.com 占位域 → cand2238@example.com
+  basis: simulated
+  evidence_level: stated
+  props:
+    email: cand2238@example.com
+  note: 模拟:不是真人说的
+- question: （补充询问）籍贯:华南/华中常见五省之一
+  answer: （模拟答案）籍贯:华南/华中常见五省之一 → 江西
+  basis: simulated
+  evidence_level: stated
+  props:
+    hometown: 江西
+  note: 模拟:不是真人说的
+- question: （补充询问）工作地点:按简历城市(东莞)
+  answer: （模拟答案）工作地点:按简历城市(东莞) → 东莞
+  basis: simulated
+  evidence_level: stated
+  props:
+    workLocation: 东莞
+  note: 模拟:不是真人说的
+- question: （补充核实）JD 要求的能力项:6S、线束行业知识
+  answer: （模拟答案）简历里有证据,本人能讲出具体一段与做法:6S、线束行业知识
+  basis: simulated
+  evidence_level: stated
+  establishes:
+  - skill_6S
+  - skill_线束行业知识
+  note: 模拟:简历有证据 → 坐实
+- question: （补充核实）JD 要求的能力项:5WHY、CPK、QC七大手法、SPC
+  answer: （模拟答案）简历里没有这几项的证据,本人也举不出例子 —— 记为否认
+  basis: simulated
+  evidence_level: stated
+  establishes: []
+  denies:
+  - skill_5WHY
+  - skill_CPK
+  - skill_QC七大手法
+  - skill_SPC
+  note: 模拟:简历无证据 → 否认
+review:
+  text: （HR 模拟评语，不是真访谈）有 1 项可验证的硬证据（客户审核/报告/系统类）；一面补充了 34 条结构化答案（模拟）；数据填充度 34 条。建议业务面重点确认：能力项能否举出具体一段做法，以及到岗与通勤是否接受。
+  basis: simulated
+  by: HR（模拟）
+  evidence:
+  - 硬证据 1 项
+  - 一面答案 34 条
+  - 数据填充度 34 条
+  note: 评语不进判定（不改变任何四态），只给人读；basis=simulated 表示代拟

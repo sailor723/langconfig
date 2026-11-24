@@ -1,0 +1,436 @@
+jd: 关务报关员
+candidate: cand_周___38岁_专案工程师_智通简历_编号
+name: 周春怡
+short_id: 周___38岁_专案工程师_智通简历_编号
+fingerprint: bb90268026f33495
+scope: shortlist
+counts:
+  满足: 3
+  不满足: 1
+  未知: 3
+  不可判: 10
+judgeable: 7
+verdict: 卡在 关务-03「专业限定」
+headline: '结论:**卡在 关务-03「专业限定」** ——客户原文「国际贸易、物流专业优先」,要求 {''in'': [''国际贸易'', ''物流'']},他是「机电一体化技术」。此外,3
+  条我们没读到数据(标「未知」,不当作不合格);10 条这条 JD 没有数据项(标「不可判」,对所有人一样)。'
+blocked_by:
+- clause: 关务-03
+  name: 专业限定
+  client_text: 国际贸易、物流专业优先
+  client_line: 21
+  value: 机电一体化技术
+  threshold: &id001
+    in:
+    - 国际贸易
+    - 物流
+  source: &id002
+    kind: 一面记录
+    detail: 一面记录(模拟)
+    evidence: （模拟答案）专业:75% 落在客户点名范围,25% 工商管理 → 机电一体化技术
+    question: 请候选人说明证书上的**专业全称**与院校(例:机电一体化技术)
+    real: false
+  client_gate: null
+absence_evidence:
+- clause: 关务-04
+  checked: cv_facts.skills(整份简历抽取的技能项)
+  n_skills: 5
+  not_found: &id003
+  - 单证
+  - 报关
+  note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+- clause: 关务-11
+  checked: cv_facts.skills(整份简历抽取的技能项)
+  n_skills: 5
+  not_found: &id004
+  - Excel
+  note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+- clause: 关务-17
+  checked: cv_facts.skills(整份简历抽取的技能项)
+  n_skills: 5
+  not_found: &id005
+  - Excel
+  - PowerPoint
+  - Word
+  note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+unknown:
+- clause: 关务-04
+  name: 进出口报关流程
+  data_item: 单证、报关
+  why: 2 项一项都没读到(可能没写/没做过,需面谈确认)
+- clause: 关务-11
+  name: 报表整理能力
+  data_item: Excel
+  why: 1 项一项都没读到(可能没写/没做过,需面谈确认)
+- clause: 关务-17
+  name: Office 办公软件(Word/Excel/PPT)
+  data_item: Excel、PowerPoint、Word
+  why: 3 项一项都没读到(可能没写/没做过,需面谈确认)
+not_judgeable:
+- clause: 关务-06
+  name: 贸易安全合规培训考核
+  why: F.3 没有供给侧字段
+- clause: 关务-07
+  name: 无处罚及犯罪记录
+  why: G.1 没有供给侧字段
+- clause: 关务-08
+  name: 数据敏感
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: 关务-09
+  name: 执行能力
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: 关务-10
+  name: 沟通协调能力
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: 关务-12
+  name: 日清日结
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: 关务-13
+  name: 职业道德
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: 关务-14
+  name: 团队合作
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: 关务-15
+  name: 工作积极主动
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: 关务-16
+  name: 责任心
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+known_defects:
+- DEF-03
+- DEF-04
+disputes: []
+rows:
+- clause: 关务-01
+  requirement: REQ-A-AGE-RANGE
+  name: 年龄区间
+  client_text: 年龄25-45岁
+  client_line: 21
+  origin: client
+  data_item: A.2 年龄
+  value: 38
+  threshold:
+    min: 25
+    max: 45
+  op: between
+  state: 满足
+  why: 25~45 vs 38
+  source:
+    kind: 简历原文
+    detail: cv_facts
+    evidence: 男|38岁
+    basis: stated
+  client_gate: 年龄
+  defects: []
+- clause: 关务-02
+  requirement: REQ-B-EDU-LEVEL
+  name: 学历不低于
+  client_text: 大专及以上学历
+  client_line: 21
+  origin: client
+  data_item: B.1 学历
+  value: 4
+  threshold:
+    num: 3
+  op: '>='
+  state: 满足
+  why: '>=3 vs 4'
+  source:
+    kind: 一面记录
+    detail: 一面记录(模拟)
+    evidence: （模拟答案）学历:45% 本科、55% 大专(客户要求大专及以上) → 4
+    question: 请候选人提供最高学历证书照片(毕业证/学位证),注明全日制还是在职
+    real: false
+  client_gate: 学历
+  defects: []
+- clause: 关务-03
+  requirement: REQ-B-MAJOR
+  name: 专业限定
+  client_text: 国际贸易、物流专业优先
+  client_line: 21
+  origin: client
+  data_item: B.2 专业
+  value: 机电一体化技术
+  threshold: *id001
+  op: in
+  state: 不满足
+  why: 专业名没命中白名单（机电一体化技术）
+  source: *id002
+  client_gate: null
+  defects:
+  - DEF-04
+- clause: 关务-04
+  requirement: REQ-D-CUSTOMS-DECLARE
+  name: 进出口报关流程
+  client_text: 熟悉进出口报关流程
+  client_line: 22
+  origin: client
+  data_item: 单证、报关
+  value: 无
+  threshold: 命中率 ≥ 50%(2 项中至少 1 项)
+  op: component_coverage
+  state: 未知
+  why: 2 项一项都没读到(可能没写/没做过,需面谈确认)
+  evidence: null
+  sources: []
+  missing:
+  - 单证
+  - 报关
+  absence:
+    checked: cv_facts.skills(整份简历抽取的技能项)
+    n_skills: 5
+    not_found: *id003
+    note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+  client_gate: null
+  defects: []
+- clause: 关务-05
+  requirement: REQ-C-YEARS-DOMAIN
+  name: 某领域年限不低于
+  client_text: 5年以上关务操作经验
+  client_line: 22
+  origin: client
+  data_item: C.1 总年限(声明)
+  value: 9
+  threshold:
+    num: 5
+    domain: 关务操作
+  op: '>='
+  state: 满足
+  why: '>=5 vs 9'
+  source:
+    kind: 一面记录
+    detail: 一面记录(模拟)
+    evidence: （模拟答案）声明年限 3~15 年 → 9
+    question: （补充询问）声明年限 3~15 年
+    real: false
+  client_gate: null
+  defects:
+  - DEF-03
+- clause: 关务-06
+  requirement: REQ-F-TRADE-COMPLIANCE-TRAINING
+  name: 贸易安全合规培训考核
+  client_text: 通过基础贸易安全合规培训考核
+  client_line: 23
+  origin: client
+  data_item: F.3 培训考核
+  value: null
+  threshold: {}
+  op: null
+  state: 不可判
+  why: F.3 没有供给侧字段
+  source:
+    kind: 无
+    detail: 属性没有供给侧字段
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: 关务-07
+  requirement: REQ-G-NO-CRIMINAL-RECORD
+  name: 无处罚及犯罪记录
+  client_text: 无海关行政处罚、犯罪记录
+  client_line: 23
+  origin: client
+  data_item: G.1 法律记录
+  value: null
+  threshold: {}
+  op: null
+  state: 不可判
+  why: G.1 没有供给侧字段
+  source:
+    kind: 无
+    detail: 属性没有供给侧字段
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: 关务-08
+  requirement: REQ-E-DATA-SENSITIVITY
+  name: 数据敏感
+  client_text: 对数据细心敏感
+  client_line: 24
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: 关务-09
+  requirement: REQ-E-EXECUTION
+  name: 执行能力
+  client_text: 具备良好的执行力
+  client_line: 24
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: 关务-10
+  requirement: REQ-E-COMMUNICATION
+  name: 沟通协调能力
+  client_text: 沟通能力
+  client_line: 24
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: 关务-11
+  requirement: REQ-D-REPORT-WRITING
+  name: 报表整理能力
+  client_text: 日报/周报/月报整理能力
+  client_line: 24
+  origin: client
+  data_item: Excel
+  value: 无
+  threshold: 命中率 ≥ 50%(1 项中至少 1 项)
+  op: component_coverage
+  state: 未知
+  why: 1 项一项都没读到(可能没写/没做过,需面谈确认)
+  evidence: null
+  sources: []
+  missing:
+  - Excel
+  absence:
+    checked: cv_facts.skills(整份简历抽取的技能项)
+    n_skills: 5
+    not_found: *id004
+    note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+  client_gate: null
+  defects: []
+- clause: 关务-12
+  requirement: REQ-E-DAILY-CLOSE
+  name: 日清日结
+  client_text: 工作日事日毕
+  client_line: 25
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: 关务-13
+  requirement: REQ-E-ETHICS
+  name: 职业道德
+  client_text: 良好的职业道德
+  client_line: 25
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: 关务-14
+  requirement: REQ-E-TEAMWORK
+  name: 团队合作
+  client_text: 团队合作精神
+  client_line: 25
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: 关务-15
+  requirement: REQ-E-PROACTIVE
+  name: 工作积极主动
+  client_text: 较强的工作主动性
+  client_line: 25
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: 关务-16
+  requirement: REQ-E-RESPONSIBILITY
+  name: 责任心
+  client_text: 责任感
+  client_line: 25
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: 关务-17
+  requirement: REQ-D-OFFICE
+  name: Office 办公软件(Word/Excel/PPT)
+  client_text: 熟练掌握Office办公软件基本操作
+  client_line: 26
+  origin: client
+  data_item: Excel、PowerPoint、Word
+  value: 无
+  threshold: 命中率 ≥ 50%(3 项中至少 2 项)
+  op: component_coverage
+  state: 未知
+  why: 3 项一项都没读到(可能没写/没做过,需面谈确认)
+  evidence: null
+  sources: []
+  missing:
+  - Excel
+  - PowerPoint
+  - Word
+  absence:
+    checked: cv_facts.skills(整份简历抽取的技能项)
+    n_skills: 5
+    not_found: *id005
+    note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+  client_gate: null
+  defects: []

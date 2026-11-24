@@ -1,0 +1,241 @@
+candidate: cand_高级招聘专家_东莞_9_14K_段___7年
+simulated: true
+channel: 模拟一面(开发用,非真实访谈)
+date: '2026-11-23'
+interviewer: —
+simulated_note: '本文件 answers 全部 `basis: simulated`:按待核清单与简历常识推的,不是访谈记录。对外前必须换成真实答案。'
+answers:
+- question: 近三年有没有做过品质相关工作(检验判定/异常处理/体系或客户审核)?是哪一段、起止年月、具体做什么?
+  answer: （模拟答案）简历里没有品质岗经历的证据,本人也说不出具体例子 —— 记为否认
+  basis: simulated
+  evidence_level: stated
+  establishes: []
+  denies:
+  - skill_品质岗经历
+  note: 模拟:本人否认(跟着简历走,不是随机)
+- question: 确认「gender」这项信息
+  answer: （模拟答案）性别:男 72% / 女 28% → 男
+  basis: simulated
+  evidence_level: stated
+  props:
+    gender: 男
+  note: 模拟:不是真人说的
+- question: 这份学历是全日制还是在职/自考?
+  answer: （模拟答案）全日制 70% → False
+  basis: simulated
+  evidence_level: stated
+  props:
+    fullTime: false
+    full_time: false
+  note: 模拟:不是真人说的
+- question: （补充询问）总年限 3~15 年
+  answer: （模拟答案）总年限 3~15 年 → 4
+  basis: simulated
+  evidence_level: stated
+  props:
+    yearsPlatform: 4
+  note: 模拟:不是真人说的
+- question: （补充询问）声明年限 3~15 年
+  answer: （模拟答案）声明年限 3~15 年 → 8
+  basis: simulated
+  evidence_level: stated
+  props:
+    yearsStated: 8
+    years_stated: 8
+  note: 模拟:不是真人说的
+- question: （补充询问）到岗:4 周(50%)/ 2 周(30%)/ 8 周(20%)
+  answer: （模拟答案）到岗:4 周(50%)/ 2 周(30%)/ 8 周(20%) → 4
+  basis: simulated
+  evidence_level: stated
+  props:
+    notice_weeks: 4
+  note: 模拟:不是真人说的
+- question: （补充询问）期望月薪 8~20K
+  answer: （模拟答案）期望月薪 8~20K → 10
+  basis: simulated
+  evidence_level: stated
+  props:
+    salary_max_k: 10
+  note: 模拟:不是真人说的
+- question: （补充询问）通勤可接受 75%
+  answer: （模拟答案）通勤可接受 75% → True
+  basis: simulated
+  evidence_level: stated
+  props:
+    commute_ok: true
+  note: 模拟:不是真人说的
+- question: （补充询问）平均在职 1~6 年
+  answer: （模拟答案）平均在职 1~6 年 → 2.4
+  basis: simulated
+  evidence_level: stated
+  props:
+    avg_tenure_years: 2.4
+  note: 模拟:不是真人说的
+- question: （补充询问）近 5 年 1~4 段
+  answer: （模拟答案）近 5 年 1~4 段 → 1
+  basis: simulated
+  evidence_level: stated
+  props:
+    recent5y_segments: 1
+  note: 模拟:不是真人说的
+- question: （补充询问）证书:35% 有内审员/质量类证书
+  answer: （模拟答案）证书:35% 有内审员/质量类证书 → False
+  basis: simulated
+  evidence_level: stated
+  props:
+    hasCertification: false
+  note: 模拟:不是真人说的
+- question: （补充询问）活动经验:按岗位性质给三段标准动作
+  answer: （模拟答案）活动经验:按岗位性质给三段标准动作 → 来料检验、制程异常处理、客户投诉闭环
+  basis: simulated
+  evidence_level: stated
+  props:
+    activityExperience: 来料检验、制程异常处理、客户投诉闭环
+    activity_experience: 来料检验、制程异常处理、客户投诉闭环
+  note: 模拟:不是真人说的
+- question: （补充询问）职能域:按岗位性质归域
+  answer: （模拟答案）职能域:按岗位性质归域 → 品质/工程
+  basis: simulated
+  evidence_level: stated
+  props:
+    domain: 品质/工程
+  note: 模拟:不是真人说的
+- question: （补充询问）行业:按简历公司产品归到制造业
+  answer: （模拟答案）行业:按简历公司产品归到制造业 → 制造业(线束/汽车零部件)
+  basis: simulated
+  evidence_level: stated
+  props:
+    industry: 制造业(线束/汽车零部件)
+  note: 模拟:不是真人说的
+- question: （补充询问）语言熟练度:CET-4,读写为主
+  answer: （模拟答案）语言熟练度:CET-4,读写为主 → 英语:CET-4,能读写英文图纸与邮件
+  basis: simulated
+  evidence_level: stated
+  props:
+    languageLevel: 英语:CET-4,能读写英文图纸与邮件
+    language_level: 英语:CET-4,能读写英文图纸与邮件
+  note: 模拟:不是真人说的
+- question: （补充询问）语言:英语
+  answer: （模拟答案）语言:英语 → 英语
+  basis: simulated
+  evidence_level: stated
+  props:
+    language: 英语
+  note: 模拟:不是真人说的
+- question: （补充询问）职业素养:自评(自述,不作为判定依据)
+  answer: （模拟答案）职业素养:自评(自述,不作为判定依据) → 工作认真负责,能独立推动异常闭环
+  basis: simulated
+  evidence_level: stated
+  props:
+    competency: 工作认真负责,能独立推动异常闭环
+  note: 模拟:不是真人说的
+- question: （补充询问）起止时间:四年制本科区间
+  answer: （模拟答案）起止时间:四年制本科区间 → 2007.09-2011.06
+  basis: simulated
+  evidence_level: stated
+  props:
+    eduPeriod: 2007.09-2011.06
+    edu_period: 2007.09-2011.06
+  note: 模拟:不是真人说的
+- question: （补充询问）毕业院校:华南/华中工科院校之一
+  answer: （模拟答案）毕业院校:华南/华中工科院校之一 → 湖南工业大学
+  basis: simulated
+  evidence_level: stated
+  props:
+    institution: 湖南工业大学
+  note: 模拟:不是真人说的
+- question: （补充询问）项目经验:一条可讲出来的项目
+  answer: （模拟答案）项目经验:一条可讲出来的项目 → 主导 CCS 采集线束导入,良率 92%→97%
+  basis: simulated
+  evidence_level: stated
+  props:
+    projects: 主导 CCS 采集线束导入,良率 92%→97%
+  note: 模拟:不是真人说的
+- question: （补充询问）培训经历:与本岗相关的一次培训
+  answer: （模拟答案）培训经历:与本岗相关的一次培训 → IATF16949:2016 内审员培训
+  basis: simulated
+  evidence_level: stated
+  props:
+    trainings: IATF16949:2016 内审员培训
+  note: 模拟:不是真人说的
+- question: （补充询问）目前年薪(月薪口径)8~19K
+  answer: （模拟答案）目前年薪(月薪口径)8~19K → 12
+  basis: simulated
+  evidence_level: stated
+  props:
+    currentSalaryK: 12
+    current_salary_k: 12
+  note: 模拟:不是真人说的
+- question: （补充询问）求职类型:全职
+  answer: （模拟答案）求职类型:全职 → 全职
+  basis: simulated
+  evidence_level: stated
+  props:
+    jobType: 全职
+    job_type: 全职
+  note: 模拟:不是真人说的
+- question: （补充询问）薪资:按客户预算区间代拟(平台无归档时)
+  answer: （模拟答案）薪资:按客户预算区间代拟(平台无归档时) → 13-15K
+  basis: simulated
+  evidence_level: stated
+  props:
+    salary: 13-15K
+  note: 模拟:不是真人说的
+- question: （补充询问）姓名:显示用编好的完整姓名(原文脱敏)
+  answer: （模拟答案）姓名:显示用编好的完整姓名(原文脱敏) → 段宇秀
+  basis: simulated
+  evidence_level: stated
+  props:
+    fullName: 段宇秀
+  note: 模拟:不是真人说的
+- question: （补充询问）手机号:138****XXXX(明显占位)
+  answer: （模拟答案）手机号:138****XXXX(明显占位) → 138****3036
+  basis: simulated
+  evidence_level: stated
+  props:
+    phone: 138****3036
+  note: 模拟:不是真人说的
+- question: （补充询问）邮箱:example.com 占位域
+  answer: （模拟答案）邮箱:example.com 占位域 → cand3450@example.com
+  basis: simulated
+  evidence_level: stated
+  props:
+    email: cand3450@example.com
+  note: 模拟:不是真人说的
+- question: （补充询问）婚姻:已婚 60% / 未婚 40%
+  answer: （模拟答案）婚姻:已婚 60% / 未婚 40% → 已婚
+  basis: simulated
+  evidence_level: stated
+  props:
+    marital: 已婚
+  note: 模拟:不是真人说的
+- question: （补充询问）籍贯:华南/华中常见五省之一
+  answer: （模拟答案）籍贯:华南/华中常见五省之一 → 湖北
+  basis: simulated
+  evidence_level: stated
+  props:
+    hometown: 湖北
+  note: 模拟:不是真人说的
+- question: （补充询问）现岗位:取简历最后一段的岗位名
+  answer: （模拟答案）现岗位:取简历最后一段的岗位名 → 工程师
+  basis: simulated
+  evidence_level: stated
+  props:
+    jobTitle: 工程师
+  note: 模拟:不是真人说的
+- question: （补充询问）工作地点:按简历城市(东莞)
+  answer: （模拟答案）工作地点:按简历城市(东莞) → 东莞
+  basis: simulated
+  evidence_level: stated
+  props:
+    workLocation: 东莞
+  note: 模拟:不是真人说的
+- question: （补充核实）JD 要求的能力项:Excel、PowerPoint、Word
+  answer: （模拟答案）简历里有证据,本人能讲出具体一段与做法:Excel、PowerPoint、Word
+  basis: simulated
+  evidence_level: stated
+  establishes:
+  - skill_Excel
+  - skill_PowerPoint
+  - skill_Word
+  note: 模拟:简历有证据 → 坐实

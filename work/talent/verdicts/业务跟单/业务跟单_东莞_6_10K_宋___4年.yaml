@@ -1,0 +1,267 @@
+jd: 业务跟单
+candidate: cand_业务跟单_东莞_6_10K_宋___4年
+name: 宋洋振
+short_id: 业务跟单_东莞_6_10K_宋___4年
+fingerprint: 5e02bc6b8cd2ee45
+scope: shortlist
+counts:
+  满足: 1
+  不满足: 2
+  未知: 3
+  不可判: 3
+judgeable: 6
+verdict: 卡在 C-02「专业限定」
+headline: '结论:**卡在 C-02「专业限定」** ——客户原文「国际贸易、商务管理类相关专业优先」,要求 {''in'': [''国际贸易'', ''商务管理类''],
+  ''open_word'': ''优先''},他是「法律事务」。此外,还有 1 条也不满足;3 条我们没读到数据(标「未知」,不当作不合格);3 条这条 JD
+  没有数据项(标「不可判」,对所有人一样)。'
+blocked_by:
+- clause: C-02
+  name: 专业限定
+  client_text: 国际贸易、商务管理类相关专业优先
+  client_line: 14
+  value: 法律事务
+  threshold: &id001
+    in:
+    - 国际贸易
+    - 商务管理类
+    open_word: 优先
+  source: &id002
+    kind: 简历原文
+    detail: cv_facts
+    evidence: 法律事务
+    basis: stated
+  client_gate: null
+- clause: C-05
+  name: ERP 订单模块 + Excel 数据分析
+  client_text: 熟练使用ERP订单管理模块及Excel数据分析
+  client_line: 17
+  value: 命中 Excel
+  threshold: 命中率 ≥ 50%(2 项中至少 1 项)
+  source:
+    kind: 见 sources
+  client_gate: null
+absence_evidence:
+- clause: C-04
+  checked: cv_facts.skills(整份简历抽取的技能项)
+  n_skills: 8
+  not_found: &id003
+  - ERP
+  note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+- clause: C-06
+  checked: cv_facts.skills(整份简历抽取的技能项)
+  n_skills: 8
+  not_found: &id004
+  - 订单交期风险评估
+  note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+unknown:
+- clause: C-01
+  name: 学历不低于
+  data_item: B.1 学历
+  why: educationRank 没读到
+- clause: C-04
+  name: ERP 系统操作
+  data_item: ERP
+  why: 1 项一项都没读到(可能没写/没做过,需面谈确认)
+- clause: C-06
+  name: 订单交期风险评估
+  data_item: 订单交期风险评估
+  why: 1 项一项都没读到(可能没写/没做过,需面谈确认)
+not_judgeable:
+- clause: C-07
+  name: 抗压能力 / 多线程处理
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: C-08
+  name: 沟通协调能力
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: C-09
+  name: 数据保密 / 无信息泄露记录
+  why: G.1 没有供给侧字段
+known_defects:
+- DEF-03
+- DEF-04
+disputes: []
+rows:
+- clause: C-01
+  requirement: REQ-B-EDU-LEVEL
+  name: 学历不低于
+  client_text: 学历：高中及以上学历
+  client_line: 14
+  origin: client
+  data_item: B.1 学历
+  value: null
+  threshold:
+    num: 2
+  op: '>='
+  state: 未知
+  why: educationRank 没读到
+  source:
+    kind: 无
+    detail: 库中没有这个值
+    evidence: ''
+  client_gate: 学历
+  defects: []
+- clause: C-02
+  requirement: REQ-B-MAJOR
+  name: 专业限定
+  client_text: 国际贸易、商务管理类相关专业优先
+  client_line: 14
+  origin: client
+  data_item: B.2 专业
+  value: 法律事务
+  threshold: *id001
+  op: in
+  state: 不满足
+  why: 专业名没命中白名单（法律事务）
+  source: *id002
+  client_gate: null
+  defects:
+  - DEF-04
+- clause: C-03
+  requirement: REQ-C-YEARS-DOMAIN
+  name: 某领域年限不低于
+  client_text: 经验：2年以上制造业订单跟单经验
+  client_line: 15
+  origin: client
+  data_item: C.1 总年限(声明)
+  value: 9
+  threshold:
+    num: 2
+    unit: 年
+    domain: 制造业订单跟单
+  op: '>='
+  state: 满足
+  why: '>=2 vs 9'
+  source:
+    kind: 一面记录
+    detail: 一面记录(模拟)
+    evidence: （模拟答案）声明年限 3~15 年 → 9
+    question: （补充询问）声明年限 3~15 年
+    real: false
+  client_gate: null
+  defects:
+  - DEF-03
+- clause: C-04
+  requirement: REQ-D-ERP-OPERATE
+  name: ERP 系统操作
+  client_text: 熟悉ERP系统操作
+  client_line: 15
+  origin: client
+  data_item: ERP
+  value: 无
+  threshold: 命中率 ≥ 50%(1 项中至少 1 项)
+  op: component_coverage
+  state: 未知
+  why: 1 项一项都没读到(可能没写/没做过,需面谈确认)
+  evidence: null
+  sources: []
+  missing:
+  - ERP
+  absence:
+    checked: cv_facts.skills(整份简历抽取的技能项)
+    n_skills: 8
+    not_found: *id003
+    note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+  client_gate: null
+  defects: []
+- clause: C-05
+  requirement: REQ-D-ERP-EXCEL
+  name: ERP 订单模块 + Excel 数据分析
+  client_text: 熟练使用ERP订单管理模块及Excel数据分析
+  client_line: 17
+  origin: client
+  data_item: ERP、Excel
+  value: 命中 Excel
+  threshold: 命中率 ≥ 50%(2 项中至少 1 项)
+  op: component_coverage
+  state: 不满足
+  why: 1/2(需要全部2项)
+  evidence: null
+  sources:
+  - kind: 一面记录
+    detail: 一面记录(模拟)
+    evidence: （模拟答案）简历里有证据,本人能讲出具体一段与做法:AutoCAD、Excel、PowerPoint、Word
+    question: （补充核实）JD 要求的能力项:AutoCAD、Excel、PowerPoint、Word
+    real: false
+    component: Excel
+  missing:
+  - ERP
+  absence: {}
+  client_gate: null
+  defects: []
+- clause: C-06
+  requirement: REQ-D-DELIVERY-RISK
+  name: 订单交期风险评估
+  client_text: 具备订单交期风险评估能力
+  client_line: 18
+  origin: client
+  data_item: 订单交期风险评估
+  value: 无
+  threshold: 命中率 ≥ 50%(1 项中至少 1 项)
+  op: component_coverage
+  state: 未知
+  why: 1 项一项都没读到(可能没写/没做过,需面谈确认)
+  evidence: null
+  sources: []
+  missing:
+  - 订单交期风险评估
+  absence:
+    checked: cv_facts.skills(整份简历抽取的技能项)
+    n_skills: 8
+    not_found: *id004
+    note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+  client_gate: null
+  defects: []
+- clause: C-07
+  requirement: REQ-E-STRESS
+  name: 抗压能力 / 多线程处理
+  client_text: 抗压能力强，可同时处理多线程任务
+  client_line: 20
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: C-08
+  requirement: REQ-E-COMMUNICATION
+  name: 沟通协调能力
+  client_text: 沟通协调能力佳，能独立对接客户与生产部门
+  client_line: 21
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: C-09
+  requirement: REQ-G-CONFIDENTIALITY
+  name: 数据保密 / 无信息泄露记录
+  client_text: 合规：严守数据保密制度，无客户信息泄露记录
+  client_line: 22
+  origin: client
+  data_item: G.1 法律记录
+  value: null
+  threshold: {}
+  op: null
+  state: 不可判
+  why: G.1 没有供给侧字段
+  source:
+    kind: 无
+    detail: 属性没有供给侧字段
+    evidence: ''
+  client_gate: null
+  defects: []

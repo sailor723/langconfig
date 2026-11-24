@@ -60,6 +60,22 @@ def brief(jd: str) -> list[dict]:
     order = list(tgt.get('selected') or []) + [c for c in rows if c not in set(tgt.get('selected') or [])]
 
     facts = json.loads(CV_FACTS.read_text(encoding='utf-8')) if CV_FACTS.is_file() else {}
+    # HR 评语来自第 3 步那通一面（cv_interview/<人>.yaml 的 review 段）
+    iv_dir = ROOT / 'work' / 'talent' / 'cv_interview'
+
+    def hr_comment(cid: str) -> str:
+        q = iv_dir / f"{str(cid).replace('cand_', '')}.yaml"
+        if not q.is_file():
+            return ''
+        try:
+            d = yaml.safe_load(q.read_text(encoding='utf-8')) or {}
+        except yaml.YAMLError:
+            return ''
+        rev = d.get('review') or {}
+        txt = str(rev.get('text') or '').replace('（HR 模拟评语，不是真访谈）', '').strip()
+        if not txt:
+            return ''
+        return ('模拟·' if rev.get('basis') == 'simulated' else '') + txt
     out = []
     for rank, cid in enumerate(order, 1):
         doc = CV_DOCS / f"{str(cid).replace('cand_', '')}.定稿.md"
@@ -89,20 +105,22 @@ def brief(jd: str) -> list[dict]:
             'iv': (f"模拟 {r.get('iv_sim')} 条" if r.get('iv_real') in (0, None) and r.get('iv_sim')
                    else (f"真 {r.get('iv_real')} 条" if r.get('iv_real') else '—')),
             'doc': doc,
+            'hr': hr_comment(cid),
         })
     return out
 
 
 def render(jd: str, rows: list[dict]) -> str:
     L = [f'# CV 定稿清单 · {jd}', '',
-         f'共 **{len(rows)}** 份定稿（第 4 步产物，31 个字段逐份核对过）。',
+         f'共 **{len(rows)}** 份定稿（第 3 步产物：HR 一面补齐 + 评语，31 个字段逐份核对过）。',
          '表格只放"要不要点开"的信息；点 **看 CV** 在右侧弹层里读全文。', '',
-         '| 名次 | 归属 | 候选人 | 年龄 | 学历 | 年限 | 待核 | 硬/软 | 满足/不满足/未知 | 一面 | CV |',
+         '| 名次 | 归属 | 候选人 | 年龄 | 学历 | 年限 | 待核 | 硬/软 | 满足/不满足/未知 | HR 评语（第 3 步一面后） | CV |',
          '|---|---|---|---|---|---|---|---|---|---|---|']
     for r in rows:
         L.append(f"| {r['rank']} | {r['tags']} | {r['name'][:30]} | {r['age'] or '—'} | {r['edu']} | "
                  f"{r['years'] if r['years'] is not None else '—'} | {r['ask'] or '—'} | "
-                 f"{r['hard']}/{r['soft']} | {r['ok']}/{r['fail']}/{r['unknown']} | {r['iv']} | {link(r['cid'])} |")
+                 f"{r['hard']}/{r['soft']} | {r['ok']}/{r['fail']}/{r['unknown']} | "
+                 f"{(r.get('hr') or '—')[:60]} | {link(r['cid'])} |")
     L += ['', '> 定稿里的每一格要么有原文引文，要么标 `代拟(模拟)`。演练数据不能对外。', '']
     return '\n'.join(L)
 

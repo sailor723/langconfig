@@ -1,0 +1,436 @@
+jd: 品质经理
+candidate: cand_徐___28岁_人资专员_智通简历_编号
+name: 徐强国
+short_id: 徐___28岁_人资专员_智通简历_编号
+fingerprint: b18b91aa4fee5260
+scope: shortlist
+counts:
+  满足: 4
+  不满足: 1
+  未知: 8
+  不可判: 2
+judgeable: 13
+verdict: 卡在 C-03「专业限定」
+headline: '结论:**卡在 C-03「专业限定」** ——客户原文「专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业；」,要求 {''in'':
+  [''机电一体化'', ''电子技术'', ''自动化'', ''工业工程'', ''机械工程''], ''open_word'': ''等''},他是「大数据与会计」。此外,8
+  条我们没读到数据(标「未知」,不当作不合格);2 条这条 JD 没有数据项(标「不可判」,对所有人一样)。'
+blocked_by:
+- clause: C-03
+  name: 专业限定
+  client_text: 专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业；
+  client_line: 22
+  value: 大数据与会计
+  threshold: &id001
+    in:
+    - 机电一体化
+    - 电子技术
+    - 自动化
+    - 工业工程
+    - 机械工程
+    open_word: 等
+  source: &id002
+    kind: 简历原文
+    detail: cv_facts
+    evidence: 大数据与会计
+    basis: stated
+  client_gate: null
+absence_evidence:
+- clause: C-04
+  checked: cv_facts.skills(整份简历抽取的技能项)
+  n_skills: 5
+  not_found: &id003
+  - 英语
+  - 8D报告
+  note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+- clause: C-06
+  checked: cv_facts.skills(整份简历抽取的技能项)
+  n_skills: 5
+  not_found: &id004
+  - 线束行业知识
+  note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+- clause: C-07
+  checked: cv_facts.skills(整份简历抽取的技能项)
+  n_skills: 5
+  not_found: &id005
+  - 品质问题分析
+  note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+- clause: C-08
+  checked: cv_facts.skills(整份简历抽取的技能项)
+  n_skills: 5
+  not_found: &id006
+  - QC七大手法
+  - SPC
+  - CPK
+  - 6S
+  - 5WHY
+  note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+- clause: C-09
+  checked: cv_facts.skills(整份简历抽取的技能项)
+  n_skills: 5
+  not_found: &id007
+  - 客户验厂
+  note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+unknown:
+- clause: C-04
+  name: 英语(口语 + 独立书写英文8D报告)
+  data_item: 英语、8D报告
+  why: 2 项一项都没读到(可能没写/没做过,需面谈确认)
+- clause: C-05
+  name: 某领域年限不低于
+  data_item: C.1 总年限(声明)
+  why: yearsStated 没读到
+- clause: C-06
+  name: 线束/连接器行业认知
+  data_item: 线束行业知识
+  why: 1 项一项都没读到(可能没写/没做过,需面谈确认)
+- clause: C-07
+  name: 品质问题分析改善能力
+  data_item: 品质问题分析
+  why: 1 项一项都没读到(可能没写/没做过,需面谈确认)
+- clause: C-08
+  name: 品质工具(QC七大手法/5WHY/SPC/CPK/6S)
+  data_item: QC七大手法、SPC、CPK、6S、5WHY
+  why: 5 项一项都没读到(可能没写/没做过,需面谈确认)
+- clause: C-09
+  name: 客户验厂经验
+  data_item: 客户验厂
+  why: 1 项一项都没读到(可能没写/没做过,需面谈确认)
+- clause: HR-01
+  name: 到岗时间不超过
+  data_item: A.3 到岗时长
+  why: notice_weeks 没读到
+- clause: HR-05
+  name: 能接受上班地点
+  data_item: A.4 通勤意愿
+  why: commute_ok 没读到
+not_judgeable:
+- clause: C-10
+  name: 沟通协调能力
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+- clause: HR-04
+  name: 期望薪资不超过岗位上限
+  why: 算子 <= 但 JD 没给取值
+known_defects:
+- DEF-01
+- DEF-02
+- DEF-03
+- DEF-04
+disputes: []
+rows:
+- clause: C-01
+  requirement: REQ-A-AGE-RANGE
+  name: 年龄区间
+  client_text: 年龄：25 ~ 40岁；
+  client_line: 20
+  origin: client
+  data_item: A.2 年龄
+  value: 28
+  threshold:
+    min: 25
+    max: 40
+    unit: 岁
+  op: between
+  state: 满足
+  why: 25~40 vs 28
+  source:
+    kind: 简历原文
+    detail: cv_facts
+    evidence: 女|28岁
+    basis: stated
+  client_gate: 年龄
+  defects: []
+- clause: C-02
+  requirement: REQ-B-EDU-LEVEL
+  name: 学历不低于
+  client_text: 学历：大专及以上学历；
+  client_line: 21
+  origin: client
+  data_item: B.1 学历
+  value: 3
+  threshold:
+    num: 3
+  op: '>='
+  state: 满足
+  why: '>=3 vs 3'
+  source:
+    kind: 平台计算
+    detail: abox/平台
+    evidence: ''
+  client_gate: 学历
+  defects: []
+- clause: C-03
+  requirement: REQ-B-MAJOR
+  name: 专业限定
+  client_text: 专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业；
+  client_line: 22
+  origin: client
+  data_item: B.2 专业
+  value: 大数据与会计
+  threshold: *id001
+  op: in
+  state: 不满足
+  why: 专业名没命中白名单（大数据与会计）
+  source: *id002
+  client_gate: null
+  defects:
+  - DEF-04
+- clause: C-04
+  requirement: REQ-H-LANG-EN
+  name: 英语(口语 + 独立书写英文8D报告)
+  client_text: 语言：英语口语熟练及具备独立书写英文8D报告的能力；
+  client_line: 23
+  origin: client
+  data_item: 英语、8D报告
+  value: 无
+  threshold: 命中其中至少 1 项
+  op: component_coverage
+  state: 未知
+  why: 2 项一项都没读到(可能没写/没做过,需面谈确认)
+  evidence: null
+  sources: []
+  missing:
+  - 英语
+  - 8D报告
+  absence:
+    checked: cv_facts.skills(整份简历抽取的技能项)
+    n_skills: 5
+    not_found: *id003
+    note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+  client_gate: null
+  defects:
+  - DEF-02
+- clause: C-05
+  requirement: REQ-C-YEARS-DOMAIN
+  name: 某领域年限不低于
+  client_text: 3年以上品质管理工作经验
+  client_line: 24
+  origin: client
+  data_item: C.1 总年限(声明)
+  value: null
+  threshold:
+    num: 3
+    unit: 年
+    domain: 品质管理
+  op: '>='
+  state: 未知
+  why: yearsStated 没读到
+  source:
+    kind: 无
+    detail: 库中没有这个值
+    evidence: ''
+  client_gate: null
+  defects:
+  - DEF-03
+- clause: C-06
+  requirement: REQ-D-HARNESS-DOMAIN
+  name: 线束/连接器行业认知
+  client_text: 熟识线束行业相关产品
+  client_line: 24
+  origin: client
+  data_item: 线束行业知识
+  value: 无
+  threshold: 命中率 ≥ 50%(1 项中至少 1 项)
+  op: component_coverage
+  state: 未知
+  why: 1 项一项都没读到(可能没写/没做过,需面谈确认)
+  evidence: null
+  sources: []
+  missing:
+  - 线束行业知识
+  absence:
+    checked: cv_facts.skills(整份简历抽取的技能项)
+    n_skills: 5
+    not_found: *id004
+    note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+  client_gate: null
+  defects:
+  - DEF-01
+- clause: C-07
+  requirement: REQ-D-QA-ANALYSIS
+  name: 品质问题分析改善能力
+  client_text: 具备品质问题分析、改善的能力
+  client_line: 25
+  origin: client
+  data_item: 品质问题分析
+  value: 无
+  threshold: 命中率 ≥ 50%(1 项中至少 1 项)
+  op: component_coverage
+  state: 未知
+  why: 1 项一项都没读到(可能没写/没做过,需面谈确认)
+  evidence: null
+  sources: []
+  missing:
+  - 品质问题分析
+  absence:
+    checked: cv_facts.skills(整份简历抽取的技能项)
+    n_skills: 5
+    not_found: *id005
+    note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+  client_gate: null
+  defects:
+  - DEF-01
+- clause: C-08
+  requirement: REQ-D-QA-TOOLS
+  name: 品质工具(QC七大手法/5WHY/SPC/CPK/6S)
+  client_text: 懂QC七大手法、5WHY、SPC、CPK、6S工具
+  client_line: 25
+  origin: client
+  data_item: QC七大手法、SPC、CPK、6S、5WHY
+  value: 无
+  threshold: 命中其中至少 1 项
+  op: component_coverage
+  state: 未知
+  why: 5 项一项都没读到(可能没写/没做过,需面谈确认)
+  evidence: null
+  sources: []
+  missing:
+  - QC七大手法
+  - SPC
+  - CPK
+  - 6S
+  - 5WHY
+  absence:
+    checked: cv_facts.skills(整份简历抽取的技能项)
+    n_skills: 5
+    not_found: *id006
+    note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+  client_gate: null
+  defects: []
+- clause: C-09
+  requirement: REQ-D-CUSTOMER-AUDIT
+  name: 客户验厂经验
+  client_text: 具备接待客户验厂经验
+  client_line: 26
+  origin: client
+  data_item: 客户验厂
+  value: 无
+  threshold: 命中率 ≥ 50%(1 项中至少 1 项)
+  op: component_coverage
+  state: 未知
+  why: 1 项一项都没读到(可能没写/没做过,需面谈确认)
+  evidence: null
+  sources: []
+  missing:
+  - 客户验厂
+  absence:
+    checked: cv_facts.skills(整份简历抽取的技能项)
+    n_skills: 5
+    not_found: *id007
+    note: 抽取器把这份简历读了一遍,抽出的技能项里没有上面这几项;抽取的每条引文都在门禁里校验过是原文子串。
+  client_gate: null
+  defects:
+  - DEF-01
+- clause: C-10
+  requirement: REQ-E-COMMUNICATION
+  name: 沟通协调能力
+  client_text: 有良好的沟通、协调能力
+  client_line: 26
+  origin: client
+  data_item: —
+  value: null
+  threshold: null
+  op: null
+  state: 不可判
+  why: 库里没有任何数据项能判这一条(不是候选人缺数据,是这条要求还没有对应的字段)
+  source:
+    kind: 无
+    detail: 这条要求没有数据项
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: HR-01
+  requirement: REQ-HR-NOTICE
+  name: 到岗时间不超过
+  client_text: '[我方提出] 交接期超过一个月,岗位就空太久了;四周是能接受的上限'
+  client_line: null
+  origin: hr
+  data_item: A.3 到岗时长
+  value: null
+  threshold:
+    num: 4
+  op: <=
+  state: 未知
+  why: notice_weeks 没读到
+  source:
+    kind: missing
+    detail: hr_facts
+    evidence: ''
+    basis: missing
+  client_gate: null
+  defects: []
+- clause: HR-02
+  requirement: REQ-HR-STABILITY
+  name: 近 5 年任职不超过
+  client_text: '[我方提出] 近 5 年换过 3 家以上的,业务方一般直接视为不稳定'
+  client_line: null
+  origin: hr
+  data_item: C.7 近 5 年任职段数
+  value: 3
+  threshold:
+    num: 3
+  op: <=
+  state: 满足
+  why: <=3 vs 3
+  source:
+    kind: HR 计算
+    detail: hr_facts
+    evidence: 2025-05-至今; 2018-06-2024-06; 2022-2024
+    basis: computed
+  client_gate: null
+  defects: []
+- clause: HR-03
+  requirement: REQ-HR-TENURE
+  name: 平均在职不低于
+  client_text: '[我方提出] 平均每段不到 2 年,说明每份工作都待不住'
+  client_line: null
+  origin: hr
+  data_item: C.4 在岗时长(均值)
+  value: 3.2
+  threshold:
+    num: 2
+  op: '>='
+  state: 满足
+  why: '>=2 vs 3.2'
+  source:
+    kind: HR 计算
+    detail: hr_facts
+    evidence: ''
+    basis: computed
+  client_gate: null
+  defects: []
+- clause: HR-04
+  requirement: REQ-HR-SALARY
+  name: 期望薪资不超过岗位上限
+  client_text: '[我方提出] 谈薪在一面前就要摸清,否则业务领导面完才发现给不起'
+  client_line: null
+  origin: hr
+  data_item: A.5 薪资预期
+  value: null
+  threshold: {}
+  op: <=
+  state: 不可判
+  why: 算子 <= 但 JD 没给取值
+  source:
+    kind: 无
+    detail: 库中没有这个值
+    evidence: ''
+  client_gate: null
+  defects: []
+- clause: HR-05
+  requirement: REQ-HR-COMMUTE
+  name: 能接受上班地点
+  client_text: '[我方提出] 地点太远的人入职三个月就跑'
+  client_line: null
+  origin: hr
+  data_item: A.4 通勤意愿
+  value: null
+  threshold: {}
+  op: '='
+  state: 未知
+  why: commute_ok 没读到
+  source:
+    kind: 无
+    detail: 库中没有这个值
+    evidence: ''
+  client_gate: null
+  defects: []

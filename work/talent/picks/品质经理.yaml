@@ -16,7 +16,7 @@ interview_policy:
   decided_at: '2026-11-20'
 count:
   shortlist: 5
-  excluded: 106
+  excluded: 111
   with_interview: 5
   with_real_interview: 0
   with_mock_only: 5

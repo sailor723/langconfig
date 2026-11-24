@@ -1224,66 +1224,6 @@ rows:
     REQ-HR-TENURE: 不满足
     REQ-HR-SALARY: 不可判
     REQ-HR-COMMUTE: 不可判
-- candidate: cand_段___研发工程主管_产品工程主管
-  hard_items: []
-  soft_items:
-  - skill_品质问题分析
-  - skill_线束行业知识
-  - skill_英语
-  hard_hits: 0
-  soft_hits: 3
-  from_interview:
-  - skill_品质问题分析
-  - skill_线束行业知识
-  - skill_英语
-  from_interview_simulated:
-  - skill_品质问题分析
-  - skill_线束行业知识
-  - skill_英语
-  resume_items:
-  - skill_AutoCAD
-  - skill_ProE/Creo
-  - skill_线束行业知识
-  - skill_英语
-  iv_real: 0
-  iv_sim: 28
-  满足: 8
-  不满足: 3
-  未知: 1
-  不可判: 3
-  冲突: []
-  gate_fails:
-  - REQ-A-AGE-RANGE
-  soft_fails:
-  - REQ-D-QA-TOOLS
-  - REQ-D-CUSTOMER-AUDIT
-  prio_hits: 1
-  prio_names:
-  - 线束/连接器行业
-  prefer_hits: 0
-  years: 13
-  tenure: 6.4
-  n_ask: 3
-  quality: 待核
-  quality_months: 64
-  age: 41
-  edu: 3
-  verdicts:
-    REQ-A-AGE-RANGE: 不满足
-    REQ-B-EDU-LEVEL: 满足
-    REQ-B-MAJOR: 满足
-    REQ-H-LANG-EN: 满足
-    REQ-C-YEARS-DOMAIN: 未知
-    REQ-D-HARNESS-DOMAIN: 满足
-    REQ-D-QA-ANALYSIS: 满足
-    REQ-D-QA-TOOLS: 不满足
-    REQ-D-CUSTOMER-AUDIT: 不满足
-    REQ-E-COMMUNICATION: 不可判
-    REQ-HR-NOTICE: 满足
-    REQ-HR-STABILITY: 满足
-    REQ-HR-TENURE: 满足
-    REQ-HR-SALARY: 不可判
-    REQ-HR-COMMUTE: 不可判
 - candidate: cand_专案工程师_东莞_12_16K_陈___5年
   hard_items: []
   soft_items:
@@ -1292,13 +1232,11 @@ rows:
   hard_hits: 0
   soft_hits: 2
   from_interview:
-  - skill_ERP
-  - skill_Excel
-  - skill_订单交期风险评估
+  - skill_线束行业知识
+  - skill_英语
   from_interview_simulated:
-  - skill_ERP
-  - skill_Excel
-  - skill_订单交期风险评估
+  - skill_线束行业知识
+  - skill_英语
   resume_items:
   - skill_AutoCAD
   - skill_ERP
@@ -1312,15 +1250,18 @@ rows:
   - skill_线束行业知识
   - skill_英语
   iv_real: 0
-  iv_sim: 31
+  iv_sim: 35
   满足: 8
-  不满足: 1
-  未知: 3
+  不满足: 4
+  未知: 0
   不可判: 3
   冲突: []
   gate_fails:
   - REQ-HR-TENURE
-  soft_fails: []
+  soft_fails:
+  - REQ-D-QA-ANALYSIS
+  - REQ-D-QA-TOOLS
+  - REQ-D-CUSTOMER-AUDIT
   prio_hits: 2
   prio_names:
   - 品质岗经历有硬证据
@@ -1340,9 +1281,9 @@ rows:
     REQ-H-LANG-EN: 满足
     REQ-C-YEARS-DOMAIN: 满足
     REQ-D-HARNESS-DOMAIN: 满足
-    REQ-D-QA-ANALYSIS: 未知
-    REQ-D-QA-TOOLS: 未知
-    REQ-D-CUSTOMER-AUDIT: 未知
+    REQ-D-QA-ANALYSIS: 不满足
+    REQ-D-QA-TOOLS: 不满足
+    REQ-D-CUSTOMER-AUDIT: 不满足
     REQ-E-COMMUNICATION: 不可判
     REQ-HR-NOTICE: 满足
     REQ-HR-STABILITY: 满足
@@ -1468,6 +1409,62 @@ rows:
     REQ-HR-NOTICE: 满足
     REQ-HR-STABILITY: 满足
     REQ-HR-TENURE: 不满足
+    REQ-HR-SALARY: 不可判
+    REQ-HR-COMMUTE: 不可判
+- candidate: cand_周___38岁_专案工程师_智通简历_编号
+  hard_items: []
+  soft_items:
+  - skill_线束行业知识
+  hard_hits: 0
+  soft_hits: 1
+  from_interview:
+  - skill_线束行业知识
+  from_interview_simulated:
+  - skill_线束行业知识
+  resume_items:
+  - skill_AutoCAD
+  - skill_ERP
+  - skill_端子机
+  - skill_线束行业知识
+  - skill_裁线机
+  iv_real: 0
+  iv_sim: 37
+  满足: 8
+  不满足: 4
+  未知: 0
+  不可判: 3
+  冲突: []
+  gate_fails: []
+  soft_fails:
+  - REQ-H-LANG-EN
+  - REQ-D-QA-ANALYSIS
+  - REQ-D-QA-TOOLS
+  - REQ-D-CUSTOMER-AUDIT
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  prefer_hits: 0
+  years: 13
+  tenure: 4.8
+  n_ask: 11
+  quality: 待核
+  quality_months: 71
+  age: 38
+  edu: 4
+  verdicts:
+    REQ-A-AGE-RANGE: 满足
+    REQ-B-EDU-LEVEL: 满足
+    REQ-B-MAJOR: 满足
+    REQ-H-LANG-EN: 不满足
+    REQ-C-YEARS-DOMAIN: 满足
+    REQ-D-HARNESS-DOMAIN: 满足
+    REQ-D-QA-ANALYSIS: 不满足
+    REQ-D-QA-TOOLS: 不满足
+    REQ-D-CUSTOMER-AUDIT: 不满足
+    REQ-E-COMMUNICATION: 不可判
+    REQ-HR-NOTICE: 满足
+    REQ-HR-STABILITY: 满足
+    REQ-HR-TENURE: 满足
     REQ-HR-SALARY: 不可判
     REQ-HR-COMMUTE: 不可判
 - candidate: cand_专案工程师_东莞_12_16K_熊___10年以上
@@ -1882,10 +1879,10 @@ in_list:
   cand_肖___38岁_专案工程师_智通简历_编号: false
   cand_行政专员_东莞_6_8K_范___9年: false
   cand_行政专员_东莞_7_9K_杨___4年: false
-  cand_段___研发工程主管_产品工程主管: false
   cand_专案工程师_东莞_12_16K_陈___5年: false
   cand_专案工程师_东莞_12_16K_张___5年: false
   cand_设计助理工程师_东莞_7_10K_蓝___3年: false
+  cand_周___38岁_专案工程师_智通简历_编号: false
   cand_专案工程师_东莞_12_16K_熊___10年以上: false
   cand_汽车线束高线工程师_东莞_10_14K_何___10年以上: false
   cand_专案工程师_东莞_12_16K_叶___10年以上: false
