@@ -597,6 +597,8 @@ components:
   category: BusinessSystem
   kind: product
   cv_count: 37
+  evidence_role: hard
+  evidence_note: 用过什么系统、跑过什么单据,面试能当场问流程
 - id: skill_SAP
   label: SAP
   category: BusinessSystem
@@ -702,6 +704,8 @@ components:
   category: GeneralCapability
   kind: capability
   cv_count: 41
+  evidence_role: soft
+  evidence_note: 能力描述,难以单靠陈述验证
 - id: skill_切片
   label: 切片
   category: HarnessCraft
@@ -717,6 +721,8 @@ components:
   category: HarnessCraft
   kind: domain
   cv_count: 72
+  evidence_role: soft
+  evidence_note: 多半是简历自述,产品/工序说不清就虚
 - id: skill_识图
   label: 识图
   category: HarnessCraft
@@ -738,6 +744,8 @@ components:
   kind: capability
   cv_count: 99
   note: H.1 语种与 D 在这里重叠。先作为技能存在;需要区分「口语/书写/熟练度」时走 H.2。
+  evidence_role: soft
+  evidence_note: 「口语熟练」是自评,要实测才算硬
 - id: skill_Word
   label: Word
   category: OfficeSoftware
@@ -768,16 +776,22 @@ components:
   category: QualityMethod
   kind: capability
   cv_count: 26
+  evidence_role: hard
+  evidence_note: 现场审核频次与整改记录可对账
 - id: skill_8D报告
   label: 8D报告
   category: QualityMethod
   kind: capability
   cv_count: 16
+  evidence_role: hard
+  evidence_note: 能拿出脱敏报告,是实物
 - id: skill_CPK
   label: CPK
   category: QualityMethod
   kind: capability
   cv_count: 5
+  evidence_role: hard
+  evidence_note: 给一组数据让他算,结果可核
 - id: skill_FMEA
   label: FMEA
   category: QualityMethod
@@ -788,26 +802,36 @@ components:
   category: QualityMethod
   kind: capability
   cv_count: 1
+  evidence_role: hard
+  evidence_note: 鱼骨图/柏拉图现场画得出来
 - id: skill_SPC
   label: SPC
   category: QualityMethod
   kind: capability
   cv_count: 4
+  evidence_role: hard
+  evidence_note: 控制图与判异规则现场问得住
 - id: skill_品质问题分析
   label: 品质问题分析
   category: QualityMethod
   kind: capability
   cv_count: 53
+  evidence_role: soft
+  evidence_note: 「会分析」是自评,拿不出案例就无法验证
 - id: skill_客户验厂
   label: 客户验厂
   category: QualityMethod
   kind: capability
   cv_count: 13
+  evidence_role: hard
+  evidence_note: 哪家客户、什么体系、他负责哪段,可对账
 - id: skill_ISO9001
   label: ISO9001
   category: QualitySystem
   kind: capability
   cv_count: 18
+  evidence_role: hard
+  evidence_note: 证书/审核记录,可验证
 - id: skill_ISO_TS16949
   label: ISO/TS16949
   category: QualitySystem
@@ -822,6 +846,8 @@ components:
     本目录只记录「这个词存在、21 人具备」,不裁定它该不该被要求。
 
     '
+  evidence_role: hard
+  evidence_note: 同上
 - id: skill_招聘
   label: 招聘
   category: RecruitingSkill
@@ -832,6 +858,8 @@ components:
   category: SpreadsheetSoftware
   kind: product
   cv_count: 87
+  evidence_role: hard
+  evidence_note: 数据分析能力可以做一份透视表当场验
 - id: skill_外贸业务
   label: 外贸业务
   category: TradeSkill
@@ -874,6 +902,8 @@ components:
     \  why(任意大小写) 0 份 · 5WHY/5-why/5 why 0 份 · 五个为什么 0 份 ·\n  5个为什么 0 份 · why-why\
     \ 0 份 —— **全部 0**。\n所以「往关键词表里加 5WHY 再重跑抽取」这条路目前是空的:捞不到任何人。\n要让这一项真可判,得等语料里出现这种写法(简历普遍写「不良分析」「原因分析」\n\
     而不写方法论名),或者由一面直接问(采集清单已经问到了)。"
+  evidence_role: hard
+  evidence_note: 给一个不良现场连问五层,可看深度
 gaps:
 - id: P1
   what: E 维度 24 条素质要求没有任何组件

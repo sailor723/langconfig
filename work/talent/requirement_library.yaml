@@ -1,3 +1,7 @@
+# 数据类别(2026-11-21 加,由 scripts/talent/tag_data_class.py 写入)
+#   fact       有值就按阈值比;没有值 = 未知(不是不满足)。采集=证件/面谈
+#   capability 有证据就按匹配口径判;没有证据 = 未知(不是不满足)。采集=业务实测,问不出来
+#   soft       没有数据项 → 不可判(对所有人一样);要判必须先落数据项
 version: 1
 scope: 东莞 · 线束/连接器制造业 · 从 10 份职务说明书里概括出来的要求语义
 measured: 2026-11-19
@@ -20,6 +24,7 @@ requirements:
     供给侧 age 覆盖 107/277,所以能判,但有一多半的人判不了(未知,不是不合格)。
 
     '
+  data_class: fact
 - id: REQ-B-EDU-LEVEL
   name: 学历不低于
   dimension: B
@@ -35,6 +40,7 @@ requirements:
     150 份 JD 里写"大专及以上"和"中专及以上"的,是同一条要求、不同阈值。
 
     '
+  data_class: fact
 - id: REQ-B-MAJOR
   name: 专业限定
   dimension: B
@@ -50,6 +56,7 @@ requirements:
     \ D 的定义,不是 bug\n  · 出生语料的分类表(major_taxonomy.ttl / ontology_facts.json)仍然生成并自检,但**没有要求使用它**;要换回门类口径,给这条要求加一行\
     \ match_field: 工学 即可\n  · 四个口径的实测差异:A 门类=工学 56 人 · B 工学除计算机 39 · C 5 个核心类 29 ·\
     \ D 点名 13"
+  data_class: fact
 - id: REQ-C-YEARS-DOMAIN
   name: 某领域年限不低于
   dimension: C
@@ -77,6 +84,7 @@ requirements:
     现在只能判年限 —— 10 年的人资专员和 10 年的品质经理在这条上得分相同。
 
     '
+  data_class: fact
 - id: REQ-D-HARNESS-DOMAIN
   name: 线束/连接器行业认知
   dimension: D
@@ -86,6 +94,8 @@ requirements:
   components:
   - skill_线束行业知识
   assessable: true
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-D-QA-ANALYSIS
   name: 品质问题分析改善能力
   dimension: D
@@ -95,6 +105,8 @@ requirements:
   components:
   - skill_品质问题分析
   assessable: true
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-D-QA-TOOLS
   name: 品质工具(QC七大手法/5WHY/SPC/CPK/6S)
   dimension: D
@@ -107,11 +119,8 @@ requirements:
   - skill_CPK
   - skill_6S
   - skill_5WHY
-  unlinked_parts:
-  - text: 5WHY
-    gap: P5
   assessable: true
-  note: '原文点名 5 项,组件只有 4 项 —— 5WHY 没有组件(gaps.P5)。显式留空,不凑。
+  note: '原文点名 5 项,组件已补齐 5 个;其中 skill_5WHY 标 detectable:false,所以判定按 4 项算。
 
     这 4 个组件的持有率差 26 倍(QC七大手法 1/277、6S 26/277),
 
@@ -121,6 +130,11 @@ requirements:
 
     2026-11-20 补:原文点名 5 项(QC七大手法/5WHY/SPC/CPK/6S),此前只有 4 个组件(gaps.P5)。现补 skill_5WHY,但标
     detectable:false —— 270 份原文里出现 0 次、抽取 0 条,所以它不进分母(判定仍按 4 项算),只在理由里标「原文要求了但检不出」。'
+  match:
+    kind: any_of
+    n: 1
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-D-CUSTOMER-AUDIT
   name: 客户验厂经验
   dimension: D
@@ -131,6 +145,8 @@ requirements:
   - skill_客户验厂
   assessable: true
   note: 这类"活动经验"先用 D 维兜住。C.5 activity_experience 留着,等需要区分"做过 vs 会做"再用。
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-H-LANG-EN
   name: 英语(口语 + 独立书写英文8D报告)
   dimension: D
@@ -157,6 +173,14 @@ requirements:
     副作用:这份 JD 对 H 维的真实贡献是 0 条 —— H 维只为熟练度预留。
 
     '
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
+  # 2026-11-21 admin 定:英语这条**命中其一即可**(口语 或 独立书写 8D)。
+  # 之前的 50% 口径在 2 组件时等价于"至少 1 项",但现在写成显式口径,不再依赖巧合。
+  # 具体到"口语熟练"还是"能写 8D",由业务面试实测确认。
+  match: {kind: any_of, n: 1}
+  # 证据强度:能力类要求默认允许"自述级",但排序时案例级优先(见 evidence_policy)
+
 - id: REQ-E-COMMUNICATION
   name: 沟通协调能力
   dimension: E
@@ -174,6 +198,12 @@ requirements:
     在图上它是一条走到 Dimension 就到头的枝,不是缺陷,是事实。要判它只能靠面试评分表。
 
     '
+  deferred:
+    to: business_interview
+    decided_by: admin
+    decided_at: '2026-11-21'
+    why: 软性素质,无数据项;判定需要刻度,而刻度会变成"看起来像计算的主观分"
+  data_class: soft
 - id: REQ-D-ERP-OPERATE
   name: ERP 系统操作
   dimension: D
@@ -184,6 +214,8 @@ requirements:
   - skill_ERP
   assessable: true
   note: 业务跟单原文「熟悉ERP系统操作」。37/277 具备。
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-D-ERP-EXCEL
   name: ERP 订单模块 + Excel 数据分析
   dimension: D
@@ -201,6 +233,13 @@ requirements:
     注意它和 REQ-D-ERP-OPERATE 不同:那条只要"熟悉",这条要"熟练使用+数据分析"。
 
     '
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
+  # 2026-11-22 admin 定:客户原话是「熟练使用ERP订单管理模块**及**Excel数据分析」——
+  # 「及」= 两个都要。之前没写 match,走默认 COVERAGE=0.5(2 项命中 1 项即满足),
+  # 也就是「只会 Excel、不会 ERP」判满足,与客户原话相反。
+  match: {kind: all_of}
+
 - id: REQ-D-DELIVERY-RISK
   name: 订单交期风险评估
   dimension: D
@@ -211,6 +250,8 @@ requirements:
   - skill_订单交期风险评估
   assessable: true
   note: 41/277 具备。这个词放进组件表是对的 —— 它是一个可判的能力项,不是素质。
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-E-STRESS
   name: 抗压能力 / 多线程处理
   dimension: E
@@ -221,6 +262,7 @@ requirements:
   components: []
   no_component: true
   assessable: false
+  data_class: soft
 - id: REQ-G-CONFIDENTIALITY
   name: 数据保密 / 无信息泄露记录
   dimension: G
@@ -234,6 +276,7 @@ requirements:
     「无客户信息泄露记录」本质上需要证明文件,不是简历能答的。
 
     '
+  data_class: soft
 - id: REQ-A-GENDER
   name: 性别
   dimension: A
@@ -256,6 +299,7 @@ requirements:
     所以 standard_ref 恒为 NULL(G5 门禁)。
 
     '
+  data_class: fact
 - id: REQ-B-FULL-TIME
   name: 全日制
   dimension: B
@@ -268,6 +312,7 @@ requirements:
   assessable: false
   blocked_by: B.3 的 prop_exists=false(full_time 属性未建)
   note: 标准里没有这个字段,是本地扩展。副总助理 JD 写「全日制大专」,以及一条隐含的同义要求。
+  data_class: fact
 - id: REQ-D-OFFICE
   name: Office 办公软件(Word/Excel/PPT)
   dimension: D
@@ -296,6 +341,8 @@ requirements:
     而不是编一个组件出来。**LLM 引文 + 组件映射,把这个坑从源头堵住了。**
 
     '
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-E-PRINCIPLE
   name: 原则性
   dimension: E
@@ -307,6 +354,7 @@ requirements:
   no_component: true
   assessable: false
   evidence_method: 面试评分表 / 背景调查
+  data_class: soft
 - id: REQ-E-RESPONSIBILITY
   name: 责任心
   dimension: E
@@ -318,6 +366,7 @@ requirements:
   no_component: true
   assessable: false
   evidence_method: 面试评分表 / 背景调查
+  data_class: soft
 - id: REQ-E-ACCOUNTABILITY
   name: 敢于担当
   dimension: E
@@ -329,6 +378,7 @@ requirements:
   no_component: true
   assessable: false
   evidence_method: 面试 / 述职
+  data_class: soft
 - id: REQ-E-DAILY-CLOSE
   name: 日清日结
   dimension: E
@@ -340,6 +390,7 @@ requirements:
   no_component: true
   assessable: false
   evidence_method: 试用期观察
+  data_class: soft
 - id: REQ-E-STRIVING
   name: 奋斗精神
   dimension: E
@@ -351,6 +402,7 @@ requirements:
   no_component: true
   assessable: false
   evidence_method: 面试 / 试用期观察
+  data_class: soft
 - id: REQ-E-EXECUTION
   name: 执行能力
   dimension: E
@@ -362,6 +414,7 @@ requirements:
   no_component: true
   assessable: false
   evidence_method: 面试评分表 / 述职
+  data_class: soft
 - id: REQ-E-LOGIC
   name: 逻辑清晰
   dimension: E
@@ -373,6 +426,7 @@ requirements:
   no_component: true
   assessable: false
   evidence_method: 笔试 / 结构化面试
+  data_class: soft
 - id: REQ-E-DATA-SENSITIVITY
   name: 数据敏感
   dimension: E
@@ -384,6 +438,7 @@ requirements:
   no_component: true
   assessable: false
   evidence_method: 笔试 / 结构化面试
+  data_class: soft
 - id: REQ-D-CAD-2D
   name: CAD 二维制图
   dimension: D
@@ -393,6 +448,8 @@ requirements:
   assessable: true
   components:
   - skill_AutoCAD
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-D-WIRE-EQUIPMENT
   name: 电线加工设备(熟知并会操作)
   dimension: D
@@ -417,6 +474,8 @@ requirements:
     **一条要求可以内部复合,但对外是一件可判定的事。**
 
     '
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-D-NPI-PROCESS
   name: 新产品报价/样品/转量产流程
   dimension: D
@@ -429,6 +488,7 @@ requirements:
     gap: P6
   assessable: false
   note: 语料里没有 NPI/报价/转量产相关组件。这类"流程经验"与 C.5 activity_experience 同类。
+  data_class: soft
 - id: REQ-D-AI-TOOLS
   name: AI 工具运用
   dimension: D
@@ -447,6 +507,7 @@ requirements:
     目录里没有 AI 工具这一类,因为 53 个组件是提取出来的,不是行业全量(gaps.P4)。
 
     '
+  data_class: soft
 - id: REQ-D-DRAWING-READ
   name: 图纸识别(线材规格/端子型号/胶壳料号/回路标识)
   dimension: D
@@ -456,6 +517,8 @@ requirements:
   assessable: true
   components:
   - skill_识图
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-D-DATA-ANALYSIS
   name: 数据统计分析
   dimension: D
@@ -466,6 +529,8 @@ requirements:
   components:
   - skill_数据分析
   note: 人资专员与管理课长两份 JD 都提这条 —— LLM 各自提了同一个 id,天然合并。
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-D-ATTENDANCE-SYSTEM
   name: 考勤系统操作
   dimension: D
@@ -479,6 +544,7 @@ requirements:
   blocked_by: 目录里没有考勤系统组件(gaps.P6)
   note: 它是具体系统,不是通用能力 —— 要么补组件,要么承认判不了,不能标可判。
   assessable: false
+  data_class: soft
 - id: REQ-D-LABOR-LAW
   name: 国家法律法规知识
   dimension: D
@@ -488,6 +554,8 @@ requirements:
   assessable: true
   components:
   - skill_劳动法
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-D-SOCIAL-INSURANCE
   name: 社保操作流程
   dimension: D
@@ -497,6 +565,8 @@ requirements:
   assessable: true
   components:
   - skill_社保操作
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-D-CUSTOMS-DECLARE
   name: 进出口报关流程
   dimension: D
@@ -509,6 +579,8 @@ requirements:
   - skill_单证
   categories:
   - CustomsSkill
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-D-REPORT-WRITING
   name: 报表整理能力
   dimension: D
@@ -518,6 +590,8 @@ requirements:
   assessable: true
   components:
   - skill_Excel
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-D-RECRUIT-SKILL
   name: 招聘技巧
   dimension: D
@@ -529,6 +603,8 @@ requirements:
   - skill_招聘
   categories:
   - RecruitingSkill
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-D-RECRUIT-CHANNEL
   name: 招聘渠道
   dimension: D
@@ -539,6 +615,8 @@ requirements:
   components:
   - skill_招聘
   note: 与 REQ-D-RECRUIT-SKILL 共用同一个组件 —— 但它们是两件独立可判定的事(会招聘 ≠ 会用渠道),所以不合并。
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-D-RECRUIT-KNOWLEDGE
   name: 招聘知识
   dimension: D
@@ -548,6 +626,8 @@ requirements:
   assessable: true
   components:
   - skill_招聘
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-D-OFFICE-NETWORK
   name: Office 软件 + 办公室网络
   dimension: D
@@ -562,6 +642,8 @@ requirements:
   unlinked_parts:
   - text: 办公室网络
     gap: P6
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-D-TRAINING-DEV
   name: 培训课程开发
   dimension: D
@@ -571,6 +653,8 @@ requirements:
   assessable: true
   components:
   - skill_培训课程开发
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-D-SYSTEM-MGMT
   name: 体系管理
   dimension: D
@@ -580,6 +664,8 @@ requirements:
   assessable: true
   components:
   - skill_体系管理
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-D-SYSTEM-PLANNING
   name: 系统规划
   dimension: D
@@ -589,6 +675,8 @@ requirements:
   assessable: true
   components:
   - skill_系统规划
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-D-CULTURE-BUILD
   name: 企业文化建设
   dimension: D
@@ -598,6 +686,8 @@ requirements:
   assessable: true
   components:
   - skill_企业文化建设
+  data_class: capability
+  evidence_policy: weak_ok    # 自述级可判满足;案例级只在排序时优先
 - id: REQ-D-BIZ-ETIQUETTE
   name: 商务礼仪
   dimension: E
@@ -610,6 +700,7 @@ requirements:
   assessable: false
   evidence_method: 面试观察 / 情景演练
   note: LLM 原提议放在 D 维,但商务礼仪是行为素养,不是可操作技能 —— 移入 E 维。
+  data_class: soft
 - id: REQ-E-CAREFUL
   name: 细心严谨
   dimension: E
@@ -622,6 +713,7 @@ requirements:
   assessable: false
   evidence_method: 面试 / 试用期观察
   note: 合并条目:专案工程师写「细心谨慎」、工程文员写「认真严谨细致」—— 同一件事。
+  data_class: soft
 - id: REQ-E-TEAMWORK
   name: 团队合作
   dimension: E
@@ -633,6 +725,7 @@ requirements:
   no_component: true
   assessable: false
   evidence_method: 面试 / 背景调查
+  data_class: soft
 - id: REQ-E-PROACTIVE
   name: 工作积极主动
   dimension: E
@@ -645,6 +738,7 @@ requirements:
   assessable: false
   evidence_method: 面试 / 试用期观察
   note: 合并条目:业务助理「工作积极主动」、关务报关员「工作主动性」(LLM 两次拼法不同)。
+  data_class: soft
 - id: REQ-E-BIZ-INTENT
   name: 业务发展意向
   dimension: E
@@ -656,6 +750,7 @@ requirements:
   no_component: true
   assessable: false
   evidence_method: 面试 / 职业规划面谈
+  data_class: soft
 - id: REQ-E-ETHICS
   name: 职业道德
   dimension: E
@@ -667,6 +762,7 @@ requirements:
   no_component: true
   assessable: false
   evidence_method: 面试 / 背景调查
+  data_class: soft
 - id: REQ-E-OPENNESS
   name: 性格开朗
   dimension: E
@@ -678,6 +774,7 @@ requirements:
   no_component: true
   assessable: false
   evidence_method: 面试观察
+  data_class: soft
 - id: REQ-E-STEADY
   name: 稳重
   dimension: E
@@ -689,6 +786,7 @@ requirements:
   no_component: true
   assessable: false
   evidence_method: 面试观察
+  data_class: soft
 - id: REQ-E-JOB-INTEREST
   name: 岗位工作兴趣
   dimension: E
@@ -700,6 +798,7 @@ requirements:
   no_component: true
   assessable: false
   evidence_method: 面试 / 职业规划面谈
+  data_class: soft
 - id: REQ-F-TRADE-COMPLIANCE-TRAINING
   name: 贸易安全合规培训考核
   dimension: F
@@ -710,6 +809,7 @@ requirements:
   assessable: false
   blocked_by: F 维的 hasCertification 属性未建
   note: 关务报关员的资质要求。需证明文件,非简历可判。
+  data_class: soft
 - id: REQ-G-NO-CRIMINAL-RECORD
   name: 无处罚及犯罪记录
   dimension: G
@@ -719,6 +819,7 @@ requirements:
   components: []
   assessable: false
   blocked_by: G 维的 hasClearance 属性未建
+  data_class: soft
 - id: REQ-HR-NOTICE
   name: 到岗时间不超过
   dimension: A
@@ -732,6 +833,7 @@ requirements:
   source: HR 侧
   rationale: HR 一面必问的第一件事。超过一个月的交接期,业务方通常等不了 —— 岗位空着就是产线停着。
   note: 阈值(几周)是每份 JD 的取值,不是要求的属性。数据源:A.3 notice_weeks,CV 只有 3%,主要靠一面
+  data_class: fact
 - id: REQ-HR-SALARY
   name: 期望薪资不超过岗位上限
   dimension: A
@@ -745,6 +847,7 @@ requirements:
   source: HR 侧
   rationale: 谈薪在第一轮就要摸清楚。等业务领导面完再发现给不起,是浪费双方时间。
   note: 岗位预算上限是 JD 侧的取值;客户 JD 不写薪资,所以这条在很多岗上会缺取值 → 不可判,这个缺口要暴露不要藏
+  data_class: fact
 - id: REQ-HR-STABILITY
   name: 近 5 年任职不超过
   dimension: C
@@ -758,6 +861,7 @@ requirements:
   source: HR 侧
   rationale: HR 说「这人不太稳定」时,真正在担心的是换得太频。把这个担心落成一个可数的量,才能判;落不成量的印象就不该进计算。
   note: 数据源 C.7 recent5y_segments,可算 243/270(90%)。段数不等于公司数(OCR 缺公司名时更明显),这是近似
+  data_class: fact
 - id: REQ-HR-TENURE
   name: 平均在职不低于
   dimension: C
@@ -771,6 +875,7 @@ requirements:
   source: HR 侧
   rationale: 与稳定性互补:段数看「换得频不频」,均值看「每段待得住待不住」。有人只换过两家但每家半年。
   note: 数据源 C.4 avg_tenure_years,可算 243/270(90%)
+  data_class: fact
 - id: REQ-HR-COMMUTE
   name: 能接受上班地点
   dimension: A
@@ -784,6 +889,7 @@ requirements:
   source: HR 侧
   rationale: 地点太远的人,入职三个月就跑。这是招聘里最便宜的排除项,放在一面问掉。
   note: '**只做是非题,不做距离计算** —— CV 只有「住石排镇」这种自由文本,算不出通勤时间'
+  data_class: fact
 gaps:
 - id: P5
   what: 5WHY 在 JD 原文里出现,但没有组件

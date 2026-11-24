@@ -27,10 +27,10 @@ templates:
     name: 候选人档案
     rule: 渲染 cv 非 null 的字段;其余标〔待补〕
 totals:
-  fields: 73
+  fields: 80
   both: 8
   not_comparable: 9
-  jd_only: 41
+  jd_only: 48
   cv_only: 15
 fields:
 - id: F.AGE
@@ -181,7 +181,7 @@ fields:
   cv:
     section: C6
     presence: 62
-    prop: null
+    prop: competency
   compare: not_comparable
   note: '**简历侧的「自我评价」是自我陈述,不构成判定依据** —— 所以两侧虽有字段,仍不可比。'
   not_comparable_because: 简历「自我评价」是自我陈述,不构成判定依据
@@ -243,7 +243,7 @@ fields:
   cv:
     section: C1
     presence: 192
-    prop: null
+    prop: jobTitle
   compare: not_comparable
   note: 不是同一条信息:JD 的职务名称是岗位;简历的「意向职位」是候选人的期望。
   not_comparable_because: 岗位名称 vs 候选人期望职位 —— 两条不同的信息
@@ -272,7 +272,7 @@ fields:
   cv:
     section: C2
     presence: 71
-    prop: null
+    prop: salary
   compare: not_comparable
   note: '**JD 侧无薪资区间,简历侧 26% 有期望薪资** —— 单边数据不构成比较。'
   not_comparable_because: JD 侧无薪资区间,单边数据不构成比较
@@ -286,7 +286,7 @@ fields:
   cv:
     section: C1
     presence: 113
-    prop: null
+    prop: workLocation
   compare: not_comparable
   note: '**JD 全批都没写工作地点,简历 41% 有现居地** —— 无法比对通勤半径。'
   not_comparable_because: JD 全批未写工作地点,无法与简历现居地比对通勤
@@ -744,7 +744,7 @@ fields:
   cv:
     section: C2
     presence: 123
-    prop: null
+    prop: notice_weeks
   compare: cv_only
 - id: F.CV_BIRTH_DATE
   label: 出生年月
@@ -754,7 +754,7 @@ fields:
   cv:
     section: C1
     presence: 52
-    prop: null
+    prop: birthDate
   compare: cv_only
   note: 候选人侧字段,JD 无对应项
 - id: F.CV_CURRENT_SALARY
@@ -765,7 +765,7 @@ fields:
   cv:
     section: C2
     presence: 5
-    prop: null
+    prop: current_salary_k
   compare: cv_only
   note: 候选人侧字段,JD 无对应项
 - id: F.CV_EDU_PERIOD
@@ -776,7 +776,7 @@ fields:
   cv:
     section: C3
     presence: 267
-    prop: null
+    prop: edu_period
   compare: cv_only
   note: 候选人侧字段,JD 无对应项
 - id: F.CV_EMAIL
@@ -787,7 +787,7 @@ fields:
   cv:
     section: C1
     presence: 173
-    prop: null
+    prop: email
   compare: cv_only
   note: 候选人侧字段,JD 无对应项
 - id: F.CV_EMPLOYER
@@ -798,7 +798,7 @@ fields:
   cv:
     section: C4
     presence: 255
-    prop: null
+    prop: employer
   compare: cv_only
   note: 候选人侧字段,JD 无对应项
 - id: F.CV_FULL_NAME
@@ -809,7 +809,7 @@ fields:
   cv:
     section: C1
     presence: 24
-    prop: null
+    prop: fullName
   compare: cv_only
   note: 候选人侧字段,JD 无对应项
 - id: F.CV_INSTITUTION
@@ -820,7 +820,7 @@ fields:
   cv:
     section: C3
     presence: 67
-    prop: null
+    prop: institution
   compare: cv_only
   note: 候选人侧字段,JD 无对应项
 - id: F.CV_JOB_TYPE
@@ -831,7 +831,7 @@ fields:
   cv:
     section: C2
     presence: 15
-    prop: full_time
+    prop: job_type
   compare: cv_only
   note: 候选人侧字段,JD 无对应项
 - id: F.CV_LANGUAGE
@@ -853,7 +853,7 @@ fields:
   cv:
     section: C1
     presence: 11
-    prop: null
+    prop: marital
   compare: cv_only
   note: 候选人侧字段,JD 无对应项
 - id: F.CV_NATIVE_PLACE
@@ -864,7 +864,7 @@ fields:
   cv:
     section: C1
     presence: 19
-    prop: null
+    prop: hometown
   compare: cv_only
   note: 候选人侧字段,JD 无对应项
 - id: F.CV_PHONE
@@ -875,7 +875,7 @@ fields:
   cv:
     section: C1
     presence: 120
-    prop: null
+    prop: phone
   compare: cv_only
   note: 候选人侧字段,JD 无对应项
 - id: F.CV_PROJECTS
@@ -886,7 +886,7 @@ fields:
   cv:
     section: C6
     presence: 42
-    prop: null
+    prop: projects
   compare: cv_only
   note: 候选人侧字段,JD 无对应项
 - id: F.CV_TRAININGS
@@ -897,6 +897,83 @@ fields:
   cv:
     section: C6
     presence: 94
-    prop: null
+    prop: trainings
   compare: cv_only
   note: 候选人侧字段,JD 无对应项
+- id: F.MGMT_CATEGORY
+  label: 岗位类别
+  dimension: null
+  scale: null
+  jd:
+    section: S1
+    presence: 0
+    required: true
+  cv: null
+  compare: jd_only
+  note: 经理岗 / 员工岗。决定用哪份模板 —— 不能按岗位名猜:品质经理原文写「直接下属:无」
+- id: F.TEAM_GOAL
+  label: 团队/部门目标
+  dimension: null
+  scale: null
+  jd:
+    section: S2
+    presence: 0
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.MGMT_SPAN
+  label: 管理幅度
+  dimension: null
+  scale: null
+  jd:
+    section: S4
+    presence: 0
+    required: true
+  cv: null
+  compare: jd_only
+  note: 直接/间接下属人数。岗位侧字段,简历无对应项
+- id: F.BUDGET_OWNERSHIP
+  label: 预算与成本责任
+  dimension: null
+  scale: null
+  jd:
+    section: S4
+    presence: 0
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.DECISION_AUTHORITY
+  label: 决策权限
+  dimension: null
+  scale: null
+  jd:
+    section: S4
+    presence: 0
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.CROSS_DEPT
+  label: 跨部门接口
+  dimension: null
+  scale: null
+  jd:
+    section: S4
+    presence: 0
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
+- id: F.SHIFT_HANDOVER
+  label: 排班与交接
+  dimension: null
+  scale: null
+  jd:
+    section: S5
+    presence: 0
+    required: false
+  cv: null
+  compare: jd_only
+  note: 岗位侧字段,简历无对应项
