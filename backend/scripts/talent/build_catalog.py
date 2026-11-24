@@ -71,33 +71,6 @@ def _load_std() -> dict:
     return out
 
 
-def _fill() -> dict:
-    """5 份客户 JD 的试填结果（check_template_fill 的产物）。没有就返回空 —— 
-    缺它不算错误，但界面与 md 会少一块"这套模板在真稿上够不够用"的证据。"""
-    p = TALENT / 'template_fill' / 'fill.json'
-    if not p.is_file():
-        return {}
-    try:
-        d = json.loads(p.read_text(encoding='utf-8'))
-    except json.JSONDecodeError:
-        return {}
-    never = [x for x in d.get('per_field') or []
-             if x['orig'] == 0 and x['orig_empty'] == 0 and x['hr'] == 0 and x['na'] == 0]
-    empty = [x for x in d.get('per_field') or [] if x['orig_empty']]
-    return {
-        'tally': d.get('tally') or {},
-        'cells': (d.get('template_fields') or 0) * len(d.get('jds') or []),
-        'jds': [{'jd': j['jd'], 'role_type': j.get('role_type'), 'citations': j.get('citations'),
-                 'states': {k: sum(1 for c in j['cells'] if c['state'] == k)
-                            for k in ('原文', '原文·空值', 'HR 侧', '缺', '不适用')}}
-                for j in d.get('jds') or []],
-        'never_filled': [{'code': x['code'], 'label': x['label'], 'section': x['section'],
-                          'level': x['level']} for x in never],
-        'label_only': [{'code': x['code'], 'label': x['label'], 'count': x['orig_empty']}
-                       for x in empty],
-    }
-
-
 def _std_rows(doc: dict) -> list[dict]:
     rows = [dict(f, section=s.get('code'), section_label=s.get('label_zh'),
                  section_label_en=s.get('label_en'))
@@ -262,7 +235,6 @@ def build() -> dict:
         'cv_template': tpl('cv'),
         'standard_templates': std,
         'standard_coverage': std_cov,
-        'jd_fill': _fill(),
         'coverage': {
             'categories': len(categories),
             'components': len(cat), 'requirements': len(lib), 'fields': len(fields),
@@ -289,11 +261,15 @@ def render(d: dict) -> str:
       f' · 标准模板 **JD {sc["jd_fields"]} / CV {sc["cv_fields"]}** 字段'
       f'（客户实际字段 JD {d["jd_template"]["field_count"]} / CV {d["cv_template"]["field_count"]}）。')
     A('')
-    A('两套模板是**两件事**：`templates/standard_*` 是公司标准（应该长什么样，来自 schema.org /'
-      ' JSON Resume / HR Open / BOSS 发布向导 + 推理所需数据项）；'
+    A('两套模板是**两件事**：`templates/standard_*` 是公司标准（应该长什么样，字段取自 '
+      '`field_schema`、按这家公司实务取舍，并支撑本体推理）；'
       '`field_schema` 是客户实际（10 份 JD / 270 份简历里真长什么样）。')
     A('')
-    A('## 先说缺口（要清理的就是这几张清单）')
+    A('> **缺口不在这份目录里**：某份 JD「还缺哪几格」是下一阶段的事 —— 在 Talent 左栏选一份 JD，'
+      '打开「0 JD · 原文与缺口」看（`jd_draft/` 与 `template_fill/` 是它的原料）。'
+      '标准目录只负责"标准长什么样"。')
+    A('')
+    A('## 目录自身的完整性（这里不看 JD/CV 缺口，那是下一层）')
     A('')
     A('| 缺口 | 数量 | 影响 |')
     A('|---|---|---|')
@@ -340,17 +316,6 @@ def render(d: dict) -> str:
           ' / '.join(t['principles']) + '。字段 id 与中文名取自 `field_schema`，'
           '每个字段上方的注释写清了"这家公司为什么需要它"与出现次数；'
           f'没进模板的 **{len(t["dropped"])}** 条在文件末尾 `dropped` 里逐条交代去处。')
-        if which == 'jd' and d.get('jd_fill'):
-            _f = d['jd_fill']
-            _tal = _f['tally']
-            A('')
-            A(f'**拿 {len(_f["jds"])} 份客户 JD 试填**（{_f["cells"]} 格）：'
-              f'原文 **{_tal.get("原文", 0)}** · 原文但空值 **{_tal.get("原文·空值", 0)}** · '
-              f'HR 侧 **{_tal.get("HR 侧", 0)}** · 缺 **{_tal.get("缺", 0)}** · '
-              f'不适用 **{_tal.get("不适用", 0)}**。'
-              f'5 份全填不出的 **{len(_f["never_filled"])}** 个字段：' +
-              '、'.join(f'`{x["code"]}`' for x in _f['never_filled']) + '。'
-              '详见 `work/talent/template_fill/_index.md`。')
         A('')
         A('| 段 | 段名 | 字段数 |')
         A('|---|---|---|')

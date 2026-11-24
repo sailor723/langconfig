@@ -3,9 +3,11 @@
 > 数字由 `scripts/talent/build_catalog.py` 从三份 YAML 与五份 `jd_links` 现算，不手写。
 > 分类 **22** · 组件 **54** · 要求 **61** · 标准模板 **JD 40 / CV 26** 字段（客户实际字段 JD 66 / CV 31）。
 
-两套模板是**两件事**：`templates/standard_*` 是公司标准（应该长什么样，来自 schema.org / JSON Resume / HR Open / BOSS 发布向导 + 推理所需数据项）；`field_schema` 是客户实际（10 份 JD / 270 份简历里真长什么样）。
+两套模板是**两件事**：`templates/standard_*` 是公司标准（应该长什么样，字段取自 `field_schema`、按这家公司实务取舍，并支撑本体推理）；`field_schema` 是客户实际（10 份 JD / 270 份简历里真长什么样）。
 
-## 先说缺口（要清理的就是这几张清单）
+> **缺口不在这份目录里**：某份 JD「还缺哪几格」是下一阶段的事 —— 在 Talent 左栏选一份 JD，打开「0 JD · 原文与缺口」看（`jd_draft/` 与 `template_fill/` 是它的原料）。标准目录只负责"标准长什么样"。
+
+## 目录自身的完整性（这里不看 JD/CV 缺口，那是下一层）
 
 | 缺口 | 数量 | 影响 |
 |---|---|---|
@@ -214,8 +216,6 @@
 职务说明书应该长什么样。共 **40** 字段（必需 23 / 条件 10 / 可选 7）· 目标 40 字段。
 
 > 生成器：`scripts/talent/build_templates.py`。原则：based on field_schema / support ontology reasoning。字段 id 与中文名取自 `field_schema`，每个字段上方的注释写清了"这家公司为什么需要它"与出现次数；没进模板的 **19** 条在文件末尾 `dropped` 里逐条交代去处。
-
-**拿 5 份客户 JD 试填**（200 格）：原文 **71** · 原文但空值 **4** · HR 侧 **5** · 缺 **105** · 不适用 **15**。5 份全填不出的 **10** 个字段：`F.JD_JOB_GRADE`、`F.JD_JOB_PURPOSE`、`F.SHIFT`、`F.JD_ENVIRONMENT`、`F.JD_PHYSICAL_DEMAND`、`F.JD_PPE`、`F.JD_WORK_LOCATION`、`F.JD_HEADCOUNT`、`F.JD_HIRING_REASON`、`F.JD_CONTRACT_TYPE`。详见 `work/talent/template_fill/_index.md`。
 
 | 段 | 段名 | 字段数 |
 |---|---|---|
