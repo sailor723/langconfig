@@ -166,13 +166,13 @@ def _jd_files(jd: str) -> list[dict]:
         items.append({
             "scope": "jd",
             "path": "@gap",
-            "layer": "0 JD · 原文与缺口",
+            "layer": "1 客户原文",
             "exists": True,
             "bytes": 0,
             "mtime": None,
             "writable": False,
             "readonly_reason": "面板：由 jd_draft 或 template_fill 现算，不落盘",
-            "note": "左：客户原文（只读）· 右：40 格缺口（能判几格 / 等客户给什么 / 我方建议什么）",
+            "note": "原文 + 40 格缺口并排：能判几格 / 谁还缺什么（跟着上面选的 JD 走）",
         })
     add(f"jd_links/_source/{jd}.txt", "1 客户原文", "只读锚点")
     add(f"jd_links/{jd}.yaml", "2 引用文件", "改完要过逐字回查")

@@ -314,7 +314,7 @@ export default function TalentSidebar() {
                 onClick={() => {
                   openTab({
                     id: tabIdFor(jd, '@gap'),
-                    label: 'JD · 原文与缺口',
+                    label: '原文 + 缺口',
                     viewType: 'talent-doc',
                     data: { jd, path: '@gap' },
                   });
