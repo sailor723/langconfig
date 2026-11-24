@@ -30,6 +30,49 @@ machines.
 | **credentials** | **never** — not exported, not committed, not applied | every `role="secret"` field is discovered from the settings schema and dropped on export (`models.api_keys.*` — LLM **and** web/search keys — plus `models.local_api_key`). Listed in the file's `__meta__.stripped` so you can audit what left |
 | **per machine** | `.env`, API keys, `backend/outputs/` | secrets and workspaces are local by design |
 
+### 1.1 更新到含 **talent（招聘流水线）** 的版本
+
+talent 是后加的一整块：五份 JD 的标准 40 格定稿、270 份 CV 的补齐与判定、短名单/最终名单、
+业务面问题清单。它的产物**已经入库**（mock 数据也在里头），同事不需要"重新跑一遍生成"，
+只需要更新代码 + 灌库 + 起服务。
+
+```bash
+cd <repo>
+git pull                                   # ① 代码 + talent 产物 + mock 数据
+
+cd backend
+uv sync                                    # ② 依赖（或用 .venv/bin/pip install -r requirements.txt）
+.venv/bin/python scripts/seeds/in/seed_all.py    # ③ 灌库：agents / tools / settings / **skills**
+                                                 #    talent-interview 等技能就在 skills 这一腿
+
+cd .. && npm install && npm run build            # ④ 前端：后端直接 serve dist/
+bash start.sh                                    # ⑤ 起服务（backend :8765 + frontend :1421）
+
+# ⑥ talent 的六个 agent 是**单独一条 seed**（要服务在跑，它走 API）
+cd backend && .venv/bin/python scripts/seeds/in/seed_talent_agents.py --apply
+
+# ⑦ 自检：文件层 + 本机归档 + 服务/技能/agent
+.venv/bin/python -m scripts.talent.verify_install --online
+```
+
+`verify_install` 会把"三层"一次说清：**仓库层**（标准 YAML / 模板 / 五份 JD 的引用+原文+
+草稿+定稿 / 假名 / 公司画像）、**本机归档**（cv_text / llm_verdicts / cv_draft —— 缺了不影响，
+它只影响"重新抽取简历"和"教程第 13 步的重放数字"）、**服务层**（`/api/talent/docs`、120 个技能里
+`talent-*` 五个、`Talent · 1..5` 六个 agent）。
+
+**不在仓库里、按设计也不该在的**（缺了不会让链断，只是少能力）：
+
+| 缺的 | 影响 | 怎么办 |
+|---|---|---|
+| `work/talent/cv_text/`（270 份简历正文，1.6 MB） | 不能"重新抽取"简历事实；判定用的是已入库的 `cv_facts.json` | 需要时跑 `scripts/talent/extract.py` |
+| `work/talent/llm_verdicts/`、`cv_draft/` | 教程第 13 步的重放实验数字无法重算（门禁打 **NOT RUN**，不判红） | 只有做过那些实验的机器有 |
+| `work/talent/uploads/`、`jd_extracted/` | Phase 1 上传过的原件与抽取件；`jd_links/_source/*.txt` 已入库，缺口照样能算 | 需要时重新上传 |
+| `talent_db` 这个 PostgreSQL 库 | 门禁里"对库校验"（组件 cv_count vs 库）打 **NOT RUN**；其余检查照跑 | 需要时按 `ONTOLOGY_DB_*` 建库并灌 `candidate` / `candidate_skill` |
+
+**一句实话**：talent 的"数字"有三种来源 —— 仓库里的产物（git）、库里的行（seed）、本机归档
+（不迁移）。前两种是所有人都该一致的；第三种只影响"能不能重算历史实验"，不影响能不能按
+OVERVIEW 的流程跑一遍。
+
 **Deliberately NOT migrated:** `chat_sessions`, `conversation_archives`, the
 LangGraph checkpoint tables, and uploaded document blobs. Each person keeps their
 own history. This is also why a full `pg_dump` is the wrong tool — on one real
