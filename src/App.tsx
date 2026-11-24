@@ -28,6 +28,7 @@ import ToolHomePage from './components/layout2/ToolHomePage';
 import PromptHomePage from './components/layout2/PromptHomePage';
 import SkillHomePage from './components/layout2/SkillHomePage';
 import TalentDocView from './features/talent/TalentDocView';
+import TalentSidebar from './features/talent/TalentSidebar';
 import KnowledgeHomePage from './components/layout2/KnowledgeHomePage';
 import LearningHomePage from './components/layout2/LearningHomePage';
 // The Ontology activity: home (what an ontology is), browser (what this profile declares) and
@@ -247,6 +248,7 @@ const ACTIVITY_TO_VIEW: Partial<Record<ActivityId, View>> = {
   tools: 'tools',
   ontology: 'ontology',
   knowledge: 'knowledge',
+  talent: 'talent',
   analysis: 'analysis',
   skills: 'skills',
   settings: 'settings',
@@ -326,6 +328,29 @@ function directModeTabFor(view: View): Tab | null {
   }
 }
 
+/**
+ * 路由规范化：这个应用用的是 **HashRouter**，但 URL 里出现真实路径时（`/talent`、
+ * `/knowledge` —— 分享链接、书签、或者直接在地址栏敲路径），`location.pathname`
+ * 会带着它，而 hash 里还留着上一次的路由。此时 React Router 只看 hash：
+ *
+ *     https://host/talent#/knowledge   → 用户以为在 Talent，界面却是 Knowledge
+ *
+ * 实测过一次：点 Talent 后地址栏正是上面这个组合，左侧 Talent 浏览器空白、主区停在
+ * Knowledge —— 看起来像"Talent 坏了"，其实是 URL 里两套路由打架。
+ *
+ * 所以启动时把"真实路径"翻成规范 hash（`/talent` → `/#/talent`）并**只重载一次**。
+ * 只在路径是已知视图时才动，未知路径（后端给的 404 页等）原样放过。
+ */
+function normalizeLegacyRoute(): boolean {
+  if (typeof window === 'undefined') return false;
+  const path = window.location.pathname;
+  if (!path || path === '/' || !ROUTE_TO_VIEW[path]) return false;
+  const want = '#' + path;
+  if (window.location.hash === want) return false;
+  window.location.replace('/' + want);
+  return true;
+}
+
 function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -371,15 +396,21 @@ function AppContent() {
   // activity, skip the HomePage (which renders the "what is X..."
   // hero + template grid) and jump straight to the activity's natural
   // studio / "new item" tab. Verbose mode is unchanged — HomePages
-  // render as before.
+  // render as before. The one exception is Talent, which has no
+  // HomePage and opens its own tab in **both** modes (see below).
   useEffect(() => {
-    if (displayMode !== 'direct') return;
     const tab = directModeTabFor(currentView);
     if (!tab) return;
+    // Talent 是唯一"内容只存在于 fallback 里"的活动(它没有目录/HomePage)。
+    // 而 Workspace 的取舍是 `activeTab ? 那个 tab : fallback`,且 analysis /
+    // workflow / library 这些 tab 的 activity 是 undefined —— 它们**不会被
+    // closeTabsByActivity 关掉**,会一直占着 activeTab。于是路由已经是 /talent,
+    // 屏幕上却还是上一屏(实测:从 Dashboard 点 Talent,看到的仍是 Dashboard)。
+    // 让它像其它活动一样自己占一个 tab(openTab 会一并把 activeTabId 设过来),
+    // 就不必再看别人脸色 —— 所以这一条对 talent 不设 displayMode 门槛。
+    if (displayMode !== 'direct' && currentView !== 'talent') return;
     openTab(tab);
-    // currentView + displayMode are the reactive inputs. openTab is
-    // stable; we deliberately don't depend on it to avoid re-running on
-    // every tab state update.
+    // currentView + displayMode are the reactive inputs. openTab is stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentView, displayMode]);
 
@@ -467,7 +498,8 @@ function AppContent() {
   const [sidebarPanel, setSidebarPanel] = useState<'agents' | 'history'>('agents');
 
   // Layout state
-  const { setActiveActivity, sidebarView, setSidebarView, openRightPanel, closeRightPanel, rightPanelOpen } = useLayoutState();
+  const { setActiveActivity, sidebarView, setSidebarView, setSidebarOpen,
+          openRightPanel, closeRightPanel, rightPanelOpen } = useLayoutState();
 
   // Sync workflowTab with current route
   useEffect(() => {
@@ -556,6 +588,9 @@ function AppContent() {
       // global (no-activity) tabs remain.
       closeTabsByActivity('global');
     }
+    // Talent 唯一选文件的入口在左轨（TalentSidebar）。轨收着的时候它会跟着藏起来，
+    // 于是中间只剩一句"从左边选一个产物"而无处可选 —— 所以进来时把它展开。
+    if (view === 'talent') setSidebarOpen(true);
     navigate(VIEW_ROUTE[view]);
   };
 
@@ -747,7 +782,17 @@ function AppContent() {
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <ActivityBar onClickActivity={(activity) => {
           const view = ACTIVITY_TO_VIEW[activity];
-          if (view) handleViewChange(view);
+          if (!view) return;
+          handleViewChange(view);
+          // 已经在 Talent 时再点一次图标:路由没变,上面的 effect 不会重跑,
+          // 而用户可能已经手动切到一个全局 tab(analysis / workflow / library 的
+          // activity 是 undefined,切活动时不会被关掉)—— 屏幕就停在那儿。
+          // 对 Talent 来说"点图标 = 回到它自己的那一屏",所以显式把它的 tab 拉回前台。
+          // 只对 talent 这样:其它活动开不开 tab 由 displayMode 决定,强开会改变 verbose 行为。
+          if (view === 'talent') {
+            const tab = directModeTabFor('talent');
+            if (tab) openTab(tab);
+          }
         }} />
 
         {/* Sidebar: WorkflowStudioSidebar in studio, default TreeView otherwise.
@@ -774,6 +819,8 @@ function AppContent() {
             || currentView === 'ontology-dashboard') && (
             <OntologySidebar />
           )}
+          {/* Talent 的产物链在轨上（原文 → 引用文件 → 定稿），编辑器在中间。 */}
+          {currentView === 'talent' && <TalentSidebar />}
         </LeftSidebar>
         )}
 
@@ -841,6 +888,11 @@ function GlobalChatModalWrapper() {
 }
 
 function App() {
+  // Legacy 真实路径 → 规范 hash（见 normalizeLegacyRoute 的注释）。放在最外层，
+  // 保证 12 个活动都受益，而不是只有 Talent 一处打补丁。
+  if (normalizeLegacyRoute()) {
+    return null;   // 正在 replace，别渲染半秒错的界面
+  }
   return (
     <ThemeProvider>
       <ToastProvider>
