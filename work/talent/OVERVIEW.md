@@ -9,7 +9,7 @@
 
 ## 全流程图
 
-![招聘流水线全流程](/api/talent/raw?path=flow.svg&v=b55a81b4)
+![招聘流水线全流程](/api/talent/raw?path=flow.svg&v=92b39c5d)
 
 ::: details 同样的流程，纯文本版（图片看不清时看这个）
 ```

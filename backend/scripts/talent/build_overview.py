@@ -69,7 +69,10 @@ def _esc(x: str) -> str:
 #: 字阶(2026-11-23 用户要求:字号整体 +30%,框按内容重新量)
 F_TITLE, F_SUB, F_EDGE, F_FOOT = 11.0, 9.8, 12.0, 10.5
 #: 框内边距与行高
-PADX, PADY, TITLE_H, SUB_H = 12.0, 11.0, 15.0, 12.5
+PADX, PADY, TITLE_H, SUB_H = 26.0, 20.0, 16.0, 15.0
+#: 框与框之间的呼吸（放大内边距后同步加大，否则图会挤成一团）
+ACCENT_H = 5.0          # 框顶的高亮条
+
 GAPX, GAPY = 70.0, 86.0
 
 
@@ -92,9 +95,10 @@ def flow_svg(gate: str = '') -> str:
     nodes = FLOW_NODES
     # ① 每个框按内容定宽高
     sizes = []
-    for _num, title, _fill, _stroke, lines in nodes:
-        w = max([_text_w(title, F_TITLE)] + [_text_w(l, F_SUB) for l in lines]) + 2 * PADX
-        h = TITLE_H + SUB_H * len(lines) + PADY
+    for num, title, _fill, _stroke, lines in nodes:
+        w = max([_text_w(f'{num} · {title}', F_TITLE)] +
+                [_text_w(l, F_SUB) for l in lines]) + 2 * PADX
+        h = ACCENT_H + PADY + TITLE_H + SUB_H * len(lines) + PADY
         sizes.append((max(w, 190.0), h))
     # 统一成同一尺寸:六个框同宽同高才像张图(内容最长的那个决定格子多大)
     colw = max(w for w, _h in sizes)
@@ -143,18 +147,33 @@ def flow_svg(gate: str = '') -> str:
             out.append(f'<text x="{mx:.1f}" y="{my:.1f}" font-size="{F_EDGE}" fill="#687b8f" '
                        f'text-anchor="middle">{_esc(label)}</text>')
 
-    # ③ 框与文字
+    # ③ 框与文字：**文字全部居中**（text-anchor=middle，x 取框中心），
+    #    并且给每个框加"高亮"——顶部一条与描边同色的高亮带 + 轻投影，
+    #    这样一眼看得出这是一张卡片，而不是浮在背景上的几行字。
+    out.append('<defs><filter id="card" x="-8%" y="-8%" width="116%" height="120%">'
+               '<feDropShadow dx="0" dy="1.5" stdDeviation="1.6" flood-color="#1f2933" '
+               'flood-opacity="0.16"/></filter></defs>')
     for i, (num, title, fill, stroke, lines) in enumerate(nodes):
         x, y, w, h = box(i)
-        out.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="8" '
-                   f'fill="{fill}" stroke="{stroke}" stroke-width="1.6"/>')
-        out.append(f'<text x="{x + PADX:.1f}" y="{y + PADY + F_TITLE:.1f}" '
-                   f'font-size="{F_TITLE}" font-weight="600" fill="{stroke}">'
-                   f'{_esc(num + " · " + title)}</text>')
+        cx = x + w / 2
+        # 底板（带投影）
+        out.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="10" '
+                   f'fill="{fill}" stroke="{stroke}" stroke-width="1.6" filter="url(#card)"/>')
+        # 顶部高亮条：整张卡片的"抬头"，颜色跟框的语义一致
+        out.append(f'<path d="M{x + 10:.1f} {y:.1f} H{x + w - 10:.1f} '
+                   f'Q{x + w:.1f} {y:.1f} {x + w:.1f} {y + 10:.1f} '
+                   f'V{y + ACCENT_H:.1f} H{x:.1f} V{y + 10:.1f} '
+                   f'Q{x:.1f} {y:.1f} {x + 10:.1f} {y:.1f} Z" fill="{stroke}" opacity="0.9"/>')
+        # 标题：居中
+        ty = y + ACCENT_H + PADY + F_TITLE - 2
+        out.append(f'<text x="{cx:.1f}" y="{ty:.1f}" font-size="{F_TITLE}" font-weight="600" '
+                   f'fill="{stroke}" text-anchor="middle">{_esc(num + " · " + title)}</text>')
+        # 副行：同样居中（等宽字，行距 SUB_H）
         for j, ln in enumerate(lines):
-            yy = y + PADY + F_TITLE + 6 + SUB_H * (j + 1) - 2
-            out.append(f'<text x="{x + PADX:.1f}" y="{yy:.1f}" font-size="{F_SUB}" fill="#687b8f" '
-                       f'font-family="ui-monospace,Menlo,monospace">{_esc(ln)}</text>')
+            yy = ty + TITLE_H - 2 + SUB_H * (j + 1)
+            out.append(f'<text x="{cx:.1f}" y="{yy:.1f}" font-size="{F_SUB}" fill="#687b8f" '
+                       f'text-anchor="middle" font-family="ui-monospace,Menlo,monospace">'
+                       f'{_esc(ln)}</text>')
 
     foot = '每一步都落成文件；下一步只读上一步的产物，不靠人转述。'
     if gate:

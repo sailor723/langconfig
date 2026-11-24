@@ -1,39 +1,46 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="957" height="286" viewBox="0 0 957 286" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1041" height="366" viewBox="0 0 1041 366" font-family="ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif">
 <defs><marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#334e68"/></marker></defs>
-<rect width="957" height="286" fill="#f6f7f9"/>
-<line x1="283.9" y1="59.5" x2="353.9" y2="59.5" stroke="#334e68" stroke-width="1.6" marker-end="url(#ag)"/>
-<text x="318.9" y="50.5" font-size="12.0" fill="#687b8f" text-anchor="middle">缺口</text>
-<line x1="603.8" y1="59.5" x2="673.8" y2="59.5" stroke="#334e68" stroke-width="1.6" marker-end="url(#ag)"/>
-<text x="638.8" y="50.5" font-size="12.0" fill="#687b8f" text-anchor="middle">闸门</text>
-<line x1="798.7" y1="85.0" x2="798.7" y2="171.0" stroke="#334e68" stroke-width="1.6" marker-end="url(#ag)"/>
-<text x="806.7" y="132.0" font-size="12.0" fill="#687b8f" text-anchor="middle">可选</text>
-<line x1="923.7" y1="196.5" x2="353.9" y2="196.5" stroke="#334e68" stroke-width="1.6" marker-end="url(#ag)"/>
-<text x="638.8" y="187.5" font-size="12.0" fill="#687b8f" text-anchor="middle">10 人以内</text>
-<line x1="603.8" y1="196.5" x2="34.0" y2="196.5" stroke="#334e68" stroke-width="1.6" marker-end="url(#ag)"/>
-<text x="318.9" y="187.5" font-size="12.0" fill="#687b8f" text-anchor="middle">5 人</text>
-<rect x="34.0" y="34.0" width="249.9" height="51.0" rx="8" fill="#eef3fb" stroke="#0b4f9c" stroke-width="1.6"/>
-<text x="46.0" y="56.0" font-size="11.0" font-weight="600" fill="#0b4f9c">1 · 上传 JD → 缺口</text>
-<text x="46.0" y="72.5" font-size="9.8" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">_source/&lt;JD&gt;.txt + 缺口 md</text>
-<text x="46.0" y="85.0" font-size="9.8" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">对 40 格模板逐格：原文/空值/缺</text>
-<rect x="353.9" y="34.0" width="249.9" height="51.0" rx="8" fill="#eef3fb" stroke="#0b4f9c" stroke-width="1.6"/>
-<text x="365.9" y="56.0" font-size="11.0" font-weight="600" fill="#0b4f9c">2 · HR + 业务定稿</text>
-<text x="365.9" y="72.5" font-size="9.8" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">定稿(标准40格).md</text>
-<text x="365.9" y="85.0" font-size="9.8" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">缺的格 mock 满 · 逐格标来源与待签</text>
-<rect x="673.8" y="34.0" width="249.9" height="51.0" rx="8" fill="#fdf6e3" stroke="#8a6d3b" stroke-width="1.6"/>
-<text x="685.8" y="56.0" font-size="11.0" font-weight="600" fill="#8a6d3b">3 · 初筛 + HR 一面（必须）</text>
-<text x="685.8" y="72.5" font-size="9.8" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">shortlist/&lt;JD&gt;.yaml + cv_interview</text>
-<text x="685.8" y="85.0" font-size="9.8" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">只剔硬证据 · 读不到一律留；补齐 CV + HR 评语</text>
-<rect x="673.8" y="171.0" width="249.9" height="51.0" rx="8" fill="#f4f4f4" stroke="#6b7280" stroke-width="1.6"/>
-<text x="685.8" y="193.0" font-size="11.0" font-weight="600" fill="#6b7280">4 · 加面（可选）</text>
-<text x="685.8" y="209.5" font-size="9.8" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">cv_interview 追加</text>
-<text x="685.8" y="222.0" font-size="9.8" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">跳过不是缺 · 跳过那几格记未知</text>
-<rect x="353.9" y="171.0" width="249.9" height="51.0" rx="8" fill="#fbe9e7" stroke="#b3261e" stroke-width="1.6"/>
-<text x="365.9" y="193.0" font-size="11.0" font-weight="600" fill="#b3261e">5a · 短名单 ≤10</text>
-<text x="365.9" y="209.5" font-size="9.8" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">目标名单.yaml · selected</text>
-<text x="365.9" y="222.0" font-size="9.8" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">九层证据阶梯 · 切线 tie_band</text>
-<rect x="34.0" y="171.0" width="249.9" height="51.0" rx="8" fill="#fbe9e7" stroke="#b3261e" stroke-width="1.6"/>
-<text x="46.0" y="193.0" font-size="11.0" font-weight="600" fill="#b3261e">5b · 最终 ≤5 + 业务面问题</text>
-<text x="46.0" y="209.5" font-size="9.8" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">final + 业务面问题清单.md</text>
-<text x="46.0" y="222.0" font-size="9.8" fill="#687b8f" font-family="ui-monospace,Menlo,monospace">门槛 0 不满足 + 硬证据≥1 + 未知≤3</text>
-<text x="34.0" y="272" font-size="10.5" fill="#687b8f">每一步都落成文件；下一步只读上一步的产物，不靠人转述。　门禁：497 checks · 0 failed · green</text>
+<rect width="1041" height="366" fill="#f6f7f9"/>
+<line x1="311.9" y1="79.5" x2="381.9" y2="79.5" stroke="#334e68" stroke-width="1.6" marker-end="url(#ag)"/>
+<text x="346.9" y="70.5" font-size="12.0" fill="#687b8f" text-anchor="middle">缺口</text>
+<line x1="659.8" y1="79.5" x2="729.8" y2="79.5" stroke="#334e68" stroke-width="1.6" marker-end="url(#ag)"/>
+<text x="694.8" y="70.5" font-size="12.0" fill="#687b8f" text-anchor="middle">闸门</text>
+<line x1="868.7" y1="125.0" x2="868.7" y2="211.0" stroke="#334e68" stroke-width="1.6" marker-end="url(#ag)"/>
+<text x="876.7" y="172.0" font-size="12.0" fill="#687b8f" text-anchor="middle">可选</text>
+<line x1="1007.7" y1="256.5" x2="381.9" y2="256.5" stroke="#334e68" stroke-width="1.6" marker-end="url(#ag)"/>
+<text x="694.8" y="247.5" font-size="12.0" fill="#687b8f" text-anchor="middle">10 人以内</text>
+<line x1="659.8" y1="256.5" x2="34.0" y2="256.5" stroke="#334e68" stroke-width="1.6" marker-end="url(#ag)"/>
+<text x="346.9" y="247.5" font-size="12.0" fill="#687b8f" text-anchor="middle">5 人</text>
+<defs><filter id="card" x="-8%" y="-8%" width="116%" height="120%"><feDropShadow dx="0" dy="1.5" stdDeviation="1.6" flood-color="#1f2933" flood-opacity="0.16"/></filter></defs>
+<rect x="34.0" y="34.0" width="277.9" height="91.0" rx="10" fill="#eef3fb" stroke="#0b4f9c" stroke-width="1.6" filter="url(#card)"/>
+<path d="M44.0 34.0 H301.9 Q311.9 34.0 311.9 44.0 V39.0 H34.0 V44.0 Q34.0 34.0 44.0 34.0 Z" fill="#0b4f9c" opacity="0.9"/>
+<text x="172.9" y="68.0" font-size="11.0" font-weight="600" fill="#0b4f9c" text-anchor="middle">1 · 上传 JD → 缺口</text>
+<text x="172.9" y="97.0" font-size="9.8" fill="#687b8f" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">_source/&lt;JD&gt;.txt + 缺口 md</text>
+<text x="172.9" y="112.0" font-size="9.8" fill="#687b8f" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">对 40 格模板逐格：原文/空值/缺</text>
+<rect x="381.9" y="34.0" width="277.9" height="91.0" rx="10" fill="#eef3fb" stroke="#0b4f9c" stroke-width="1.6" filter="url(#card)"/>
+<path d="M391.9 34.0 H649.8 Q659.8 34.0 659.8 44.0 V39.0 H381.9 V44.0 Q381.9 34.0 391.9 34.0 Z" fill="#0b4f9c" opacity="0.9"/>
+<text x="520.8" y="68.0" font-size="11.0" font-weight="600" fill="#0b4f9c" text-anchor="middle">2 · HR + 业务定稿</text>
+<text x="520.8" y="97.0" font-size="9.8" fill="#687b8f" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">定稿(标准40格).md</text>
+<text x="520.8" y="112.0" font-size="9.8" fill="#687b8f" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">缺的格 mock 满 · 逐格标来源与待签</text>
+<rect x="729.8" y="34.0" width="277.9" height="91.0" rx="10" fill="#fdf6e3" stroke="#8a6d3b" stroke-width="1.6" filter="url(#card)"/>
+<path d="M739.8 34.0 H997.7 Q1007.7 34.0 1007.7 44.0 V39.0 H729.8 V44.0 Q729.8 34.0 739.8 34.0 Z" fill="#8a6d3b" opacity="0.9"/>
+<text x="868.7" y="68.0" font-size="11.0" font-weight="600" fill="#8a6d3b" text-anchor="middle">3 · 初筛 + HR 一面（必须）</text>
+<text x="868.7" y="97.0" font-size="9.8" fill="#687b8f" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">shortlist/&lt;JD&gt;.yaml + cv_interview</text>
+<text x="868.7" y="112.0" font-size="9.8" fill="#687b8f" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">只剔硬证据 · 读不到一律留；补齐 CV + HR 评语</text>
+<rect x="729.8" y="211.0" width="277.9" height="91.0" rx="10" fill="#f4f4f4" stroke="#6b7280" stroke-width="1.6" filter="url(#card)"/>
+<path d="M739.8 211.0 H997.7 Q1007.7 211.0 1007.7 221.0 V216.0 H729.8 V221.0 Q729.8 211.0 739.8 211.0 Z" fill="#6b7280" opacity="0.9"/>
+<text x="868.7" y="245.0" font-size="11.0" font-weight="600" fill="#6b7280" text-anchor="middle">4 · 加面（可选）</text>
+<text x="868.7" y="274.0" font-size="9.8" fill="#687b8f" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">cv_interview 追加</text>
+<text x="868.7" y="289.0" font-size="9.8" fill="#687b8f" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">跳过不是缺 · 跳过那几格记未知</text>
+<rect x="381.9" y="211.0" width="277.9" height="91.0" rx="10" fill="#fbe9e7" stroke="#b3261e" stroke-width="1.6" filter="url(#card)"/>
+<path d="M391.9 211.0 H649.8 Q659.8 211.0 659.8 221.0 V216.0 H381.9 V221.0 Q381.9 211.0 391.9 211.0 Z" fill="#b3261e" opacity="0.9"/>
+<text x="520.8" y="245.0" font-size="11.0" font-weight="600" fill="#b3261e" text-anchor="middle">5a · 短名单 ≤10</text>
+<text x="520.8" y="274.0" font-size="9.8" fill="#687b8f" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">目标名单.yaml · selected</text>
+<text x="520.8" y="289.0" font-size="9.8" fill="#687b8f" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">九层证据阶梯 · 切线 tie_band</text>
+<rect x="34.0" y="211.0" width="277.9" height="91.0" rx="10" fill="#fbe9e7" stroke="#b3261e" stroke-width="1.6" filter="url(#card)"/>
+<path d="M44.0 211.0 H301.9 Q311.9 211.0 311.9 221.0 V216.0 H34.0 V221.0 Q34.0 211.0 44.0 211.0 Z" fill="#b3261e" opacity="0.9"/>
+<text x="172.9" y="245.0" font-size="11.0" font-weight="600" fill="#b3261e" text-anchor="middle">5b · 最终 ≤5 + 业务面问题</text>
+<text x="172.9" y="274.0" font-size="9.8" fill="#687b8f" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">final + 业务面问题清单.md</text>
+<text x="172.9" y="289.0" font-size="9.8" fill="#687b8f" text-anchor="middle" font-family="ui-monospace,Menlo,monospace">门槛 0 不满足 + 硬证据≥1 + 未知≤3</text>
+<text x="34.0" y="352" font-size="10.5" fill="#687b8f">每一步都落成文件；下一步只读上一步的产物，不靠人转述。　门禁：497 checks · 0 failed · green</text>
 </svg>
