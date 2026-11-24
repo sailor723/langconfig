@@ -41,6 +41,14 @@ DEST_JSON = TALENT / 'catalog.json'
 DEST_MD = TALENT / 'CATALOG.md'
 
 
+def _labels_en() -> dict:
+    """英文显示名(侧挂文件)。标准 YAML 一个字节都不动 —— 判定读的是那些。"""
+    p = TALENT / 'labels_en.yaml'
+    if not p.is_file():
+        return {}
+    return yaml.safe_load(p.read_text(encoding='utf-8')) or {}
+
+
 def _load(name: str, key: str | None = None):
     doc = yaml.safe_load((TALENT / name).read_text(encoding='utf-8')) or {}
     return doc[key] if key else doc
@@ -52,6 +60,9 @@ def build() -> dict:
     fs = _load('field_schema.yaml')
     fields = fs['fields'] if isinstance(fs.get('fields'), list) else list(fs['fields'].values())
     sec = fs.get('sections') or {}
+    en = _labels_en()
+    en_c, en_f, en_r = en.get('components') or {}, en.get('fields') or {}, en.get('requirements') or {}
+    en_sec = en.get('sections') or {}
 
     # ① 引用关系：要求 → 组件；JD → 要求（只读 jd_links，不重算）
     reqs = {r['id']: r for r in lib}
@@ -75,7 +86,7 @@ def build() -> dict:
     cats: dict[str, list] = collections.defaultdict(list)
     for c in cat:
         cats[c['category']].append({
-            'id': c['id'], 'label': c['label'], 'kind': c.get('kind'),
+            'id': c['id'], 'label': c['label'], 'label_en': en_c.get(c['id']), 'kind': c.get('kind'),
             'evidence_role': c.get('evidence_role') or None,
             'cv_count': c.get('cv_count'),
             'requirements': sorted(comp2req.get(c['id'], ())),
@@ -92,7 +103,8 @@ def build() -> dict:
         for f in rows:
             blk = f[which]
             by_sec[blk.get('section') or '—'].append({
-                'id': f['id'], 'label': f.get('label'), 'dimension': f.get('dimension'),
+                'id': f['id'], 'label': f.get('label'),
+                'label_en': en_f.get(f['id']), 'dimension': f.get('dimension'),
                 'scale': f.get('scale'), 'unit': f.get('unit'),
                 'presence': blk.get('presence'), 'required': blk.get('required'),
                 'prop': blk.get('prop'), 'compare': f.get('compare'),
@@ -104,6 +116,7 @@ def build() -> dict:
             'rule': (fs.get('templates', {}).get(which) or {}).get('rule'),
             'field_count': len(rows),
             'sections': [{'code': code, 'label': labels.get(code) or code,
+                          'label_en': (en_sec.get(which) or {}).get(code),
                           'fields': sorted(v, key=lambda x: str(x['id']))}
                          for code, v in sorted(by_sec.items())],
         }
@@ -120,7 +133,8 @@ def build() -> dict:
         'generated_from': 'scripts/talent/build_catalog.py',
         'categories': categories,
         'requirements': [{
-            'id': r['id'], 'name': r.get('name'), 'dimension': r.get('dimension'),
+            'id': r['id'], 'name': r.get('name'), 'name_en': en_r.get(r['id']),
+            'dimension': r.get('dimension'),
             'kind': r.get('kind'), 'data_class': r.get('data_class'),
             'assessable': bool(r.get('assessable')),
             'components': list(r.get('components') or []),

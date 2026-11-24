@@ -1,0 +1,219 @@
+_doc: 英文标签(显示用)。**不改三份标准 YAML** —— 那些是判定读的,一个字节都不动;这里只是给界面在全局语言=English 时用的显示名。缺的条目界面自动回落中文。
+sections:
+  jd:
+    S1: Position identity
+    S2: Job purpose
+    S3: Qualifications
+    S4: Responsibilities
+    S5: Task detail
+    S6: Working conditions
+    S7: Metadata
+    S8: Compliance statements
+  cv:
+    C1: Basic info
+    C2: Job preference
+    C3: Education
+    C4: Work history
+    C5: Skills & certificates
+    C6: Other
+components:
+  skill_行政: Administration
+  skill_薪酬绩效: Compensation & performance
+  skill_贸易安全合规: Trade security compliance
+  skill_单证: Trade documents
+  skill_报关: Customs declaration
+  skill_财务: Finance
+  skill_企业文化建设: Culture building
+  skill_体系管理: Management systems
+  skill_培训课程开发: Training design
+  skill_数据分析: Data analysis
+  skill_系统规划: System planning
+  skill_订单交期风险评估: Order delivery risk assessment
+  skill_切片: Cross-sectioning
+  skill_端子: Terminals
+  skill_线束行业知识: Wire-harness domain knowledge
+  skill_识图: Drawing reading
+  skill_社保操作: Social insurance handling
+  skill_劳动法: Labour law
+  skill_英语: English
+  skill_精益生产: Lean production
+  skill_跟单: Order tracking
+  skill_8D报告: 8D report
+  skill_QC七大手法: QC seven tools
+  skill_品质问题分析: Quality problem analysis
+  skill_客户验厂: Customer audits
+  skill_招聘: Recruiting
+  skill_外贸业务: Foreign trade business
+  skill_注塑机: Injection machine
+  skill_点胶机: Dispensing machine
+  skill_端子机: Terminal crimper
+  skill_自动机: Automatic machine
+  skill_裁线机: Wire cutting machine
+  skill_5WHY: 5WHY
+  skill_6S: 6S
+  skill_5S: 5S
+  skill_SPC: SPC
+  skill_CPK: CPK
+  skill_FMEA: FMEA
+  skill_ISO9001: ISO9001
+  skill_ISO_TS16949: ISO/TS16949
+  skill_AutoCAD: AutoCAD
+  skill_CATIA: CATIA
+  skill_ProE_Creo: ProE/Creo
+  skill_Rhino: Rhino
+  skill_SolidWorks: SolidWorks
+  skill_UG_NX: UG/NX
+  skill_CorelDRAW: CorelDRAW
+  skill_Illustrator: Illustrator
+  skill_Photoshop: Photoshop
+  skill_ERP: ERP
+  skill_SAP: SAP
+  skill_PowerPoint: PowerPoint
+  skill_Word: Word
+  skill_Excel: Excel
+fields:
+  F.AGE: Age
+  F.CERTIFICATION: Certificates
+  F.EDU_LEVEL: Education level
+  F.EDU_MAJOR: Major
+  F.EXP_ACTIVITY: Activity experience
+  F.EXP_YEARS: Total years
+  F.GENDER: Gender
+  F.SKILL: Skills
+  F.NO_CRIMINAL: No criminal record
+  F.COMPETENCY: Professional conduct
+  F.EDU_FULLTIME: Full-time study
+  F.EXP_DOMAIN: Functional domain
+  F.EXP_INDUSTRY: Industry
+  F.JOB_TITLE: Job title
+  F.LANGUAGE_LEVEL: Language proficiency
+  F.SALARY: Salary
+  F.WORK_LOCATION: Work location
+  F.DEPARTMENT: Department
+  F.JD_APPROVERS: Approved / reviewed / prepared
+  F.JD_CONFIDENTIALITY: Confidentiality / data protection
+  F.JD_DOC_NUMBER: Document number
+  F.JD_DUTY_WEIGHT: Duty weight
+  F.JD_ENVIRONMENT: Environment (noise / dust / temperature)
+  F.JD_HEADCOUNT: Planned headcount
+  F.JD_HIRING_REASON: Hiring reason
+  F.JD_JOB_GRADE: Job grade
+  F.JD_NON_COMPETE: Non-compete
+  F.JD_OCCUPATION_CODE: Occupation code
+  F.JD_PAGE_COUNT: Page count
+  F.JD_POSTING_CHANNEL: Posting channel
+  F.JD_PPE: Protective equipment
+  F.JD_PROBATION: Probation
+  F.JD_SOCIAL_INSURANCE: Social insurance
+  F.JD_TRAVEL: Business travel
+  F.JD_VALID_UNTIL: Valid until
+  F.JD_VERSION: Version
+  F.JD_WORK_HOURS: Work hours
+  F.REPORTS_TO: Reports to
+  F.SUPERVISES: Supervises
+  F.AVAILABILITY: Available from
+  F.CV_BIRTH_DATE: Date of birth
+  F.CV_CURRENT_SALARY: Current salary
+  F.CV_EDU_PERIOD: Study period
+  F.CV_EMAIL: Email
+  F.CV_EMPLOYER: Employer
+  F.CV_FULL_NAME: Name
+  F.CV_INSTITUTION: Institution
+  F.CV_JOB_TYPE: Job type
+  F.CV_LANGUAGE: Languages
+  F.CV_MARITAL_STATUS: Marital status
+  F.CV_NATIVE_PLACE: Native place
+  F.CV_PHONE: Phone
+  F.CV_PROJECTS: Projects
+  F.CV_TRAININGS: Training
+  F.MGMT_CATEGORY: Position category
+  F.DECISION_AUTHORITY: Decision authority
+  F.JD_JOB_PURPOSE: Job purpose
+  F.JD_SUCCESS_CRITERIA: Key success indicators
+  F.TEAM_GOAL: Team / department goal
+  F.BUDGET_OWNERSHIP: Budget & cost responsibility
+  F.CROSS_DEPT: Cross-department interfaces
+  F.JD_DUTY_COMPETENCY: Skill behind each duty
+  F.JD_DUTY_ITEMS: Duty items
+  F.MGMT_SPAN: Span of control
+  F.JD_ACTIVITY_AI_FIT: AI can take over part
+  F.JD_ACTIVITY_DURATION: Duration
+  F.JD_ACTIVITY_FORM: Related form
+  F.JD_ACTIVITY_FREQ: Frequency (day/week/month/year/ad-hoc)
+  F.JD_ACTIVITY_SEQ: No.
+  F.JD_ACTIVITY_SOP: Standard procedure
+  F.JD_ACTIVITY_TEXT: Content
+  F.SHIFT_HANDOVER: Scheduling & handover
+  F.JD_PHYSICAL_DEMAND: Physical demand (standing / lifting)
+  F.JD_WORK_LOCATION: Work site / plant
+  F.SHIFT: Shift pattern
+  F.JD_DATE_POSTED: Posting date
+  F.JD_FIRST_ISSUED: First release
+  F.JD_REVISION_HISTORY: Revision history
+  F.CLEARANCE: Legal record / no criminal record
+  F.JD_CLEAN_RECORD: No penalty or criminal record
+  F.JD_CONTRACT_TYPE: Employment type / contract
+requirements:
+  REQ-A-AGE-RANGE: Age range
+  REQ-B-EDU-LEVEL: Education at least
+  REQ-B-MAJOR: Major (limited)
+  REQ-C-YEARS-DOMAIN: Years in a domain at least
+  REQ-D-HARNESS-DOMAIN: Wire-harness / connector domain
+  REQ-D-QA-ANALYSIS: Quality problem analysis
+  REQ-D-QA-TOOLS: Quality tools (QC7 / 5WHY / SPC / CPK / 6S)
+  REQ-D-CUSTOMER-AUDIT: Customer audit experience
+  REQ-H-LANG-EN: English (spoken + writing 8D reports)
+  REQ-E-COMMUNICATION: Communication & coordination
+  REQ-D-ERP-OPERATE: ERP operation
+  REQ-D-ERP-EXCEL: ERP order module + Excel analysis
+  REQ-D-DELIVERY-RISK: Order delivery risk assessment
+  REQ-E-STRESS: Stress tolerance
+  REQ-E-MULTITASK: Multitasking
+  REQ-G-CONFIDENTIALITY: Data confidentiality
+  REQ-G-NO-LEAK: No information-leak record
+  REQ-A-GENDER: Gender
+  REQ-B-FULL-TIME: Full-time
+  REQ-D-OFFICE: Office software (Word/Excel/PPT)
+  REQ-E-PRINCIPLE: Principled
+  REQ-E-RESPONSIBILITY: Sense of responsibility
+  REQ-E-ACCOUNTABILITY: Willing to own outcomes
+  REQ-E-DAILY-CLOSE: Daily close-out
+  REQ-E-STRIVING: Drive / striving
+  REQ-E-EXECUTION: Execution
+  REQ-E-LOGIC: Clear logic
+  REQ-E-DATA-SENSITIVITY: Data sensitivity
+  REQ-D-CAD-2D: CAD 2D drafting
+  REQ-D-WIRE-EQUIPMENT: Wire-processing equipment (knows and can operate)
+  REQ-D-NPI-PROCESS: 'NPI: quotation / samples / ramp-up'
+  REQ-D-AI-TOOLS: AI tool use
+  REQ-D-DRAWING-READ: Drawing reading (wire spec / terminal / housing / circuit)
+  REQ-D-DATA-ANALYSIS: Statistical data analysis
+  REQ-D-ATTENDANCE-SYSTEM: Attendance system
+  REQ-D-LABOR-LAW: National labour law knowledge
+  REQ-D-SOCIAL-INSURANCE: Social-insurance process
+  REQ-D-CUSTOMS-DECLARE: Import / export declaration process
+  REQ-D-REPORT-WRITING: Report writing
+  REQ-D-RECRUIT-SKILL: Recruiting skills
+  REQ-D-RECRUIT-CHANNEL: Recruiting channels
+  REQ-D-RECRUIT-KNOWLEDGE: Recruiting knowledge
+  REQ-D-OFFICE-NETWORK: Office software + office network
+  REQ-D-TRAINING-DEV: Training course design
+  REQ-D-SYSTEM-MGMT: Management systems
+  REQ-D-SYSTEM-PLANNING: System planning
+  REQ-D-CULTURE-BUILD: Culture building
+  REQ-D-BIZ-ETIQUETTE: Business etiquette
+  REQ-E-CAREFUL: Careful & rigorous
+  REQ-E-TEAMWORK: Teamwork
+  REQ-E-PROACTIVE: Proactive
+  REQ-E-BIZ-INTENT: Wants business development work
+  REQ-E-ETHICS: Professional ethics
+  REQ-E-OPENNESS: Outgoing personality
+  REQ-E-STEADY: Steady
+  REQ-E-JOB-INTEREST: Interest in the role
+  REQ-F-TRADE-COMPLIANCE-TRAINING: Trade-security compliance training
+  REQ-G-NO-CRIMINAL-RECORD: No penalty or criminal record
+  REQ-HR-NOTICE: Notice period not more than
+  REQ-HR-SALARY: Expected salary within band
+  REQ-HR-STABILITY: Recent-5y job changes not more than
+  REQ-HR-TENURE: Average tenure at least
+  REQ-HR-COMMUTE: Can reach the work location

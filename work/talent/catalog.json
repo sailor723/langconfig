@@ -8,6 +8,7 @@
     {
      "id": "skill_5WHY",
      "label": "5WHY",
+     "label_en": "5WHY",
      "kind": "capability",
      "evidence_role": "hard",
      "cv_count": 0,
@@ -22,6 +23,7 @@
     {
      "id": "skill_6S",
      "label": "6S",
+     "label_en": "6S",
      "kind": "capability",
      "evidence_role": "hard",
      "cv_count": 26,
@@ -36,6 +38,7 @@
     {
      "id": "skill_8D报告",
      "label": "8D报告",
+     "label_en": "8D report",
      "kind": "capability",
      "evidence_role": "hard",
      "cv_count": 16,
@@ -50,6 +53,7 @@
     {
      "id": "skill_CPK",
      "label": "CPK",
+     "label_en": "CPK",
      "kind": "capability",
      "evidence_role": "hard",
      "cv_count": 5,
@@ -64,6 +68,7 @@
     {
      "id": "skill_FMEA",
      "label": "FMEA",
+     "label_en": "FMEA",
      "kind": "capability",
      "evidence_role": null,
      "cv_count": 18,
@@ -74,6 +79,7 @@
     {
      "id": "skill_QC七大手法",
      "label": "QC七大手法",
+     "label_en": "QC seven tools",
      "kind": "capability",
      "evidence_role": "hard",
      "cv_count": 1,
@@ -88,6 +94,7 @@
     {
      "id": "skill_SPC",
      "label": "SPC",
+     "label_en": "SPC",
      "kind": "capability",
      "evidence_role": "hard",
      "cv_count": 4,
@@ -102,6 +109,7 @@
     {
      "id": "skill_品质问题分析",
      "label": "品质问题分析",
+     "label_en": "Quality problem analysis",
      "kind": "capability",
      "evidence_role": "soft",
      "cv_count": 53,
@@ -116,6 +124,7 @@
     {
      "id": "skill_客户验厂",
      "label": "客户验厂",
+     "label_en": "Customer audits",
      "kind": "capability",
      "evidence_role": "hard",
      "cv_count": 13,
@@ -135,6 +144,7 @@
     {
      "id": "skill_AutoCAD",
      "label": "AutoCAD",
+     "label_en": "AutoCAD",
      "kind": "product",
      "evidence_role": null,
      "cv_count": 75,
@@ -149,6 +159,7 @@
     {
      "id": "skill_CATIA",
      "label": "CATIA",
+     "label_en": "CATIA",
      "kind": "product",
      "evidence_role": null,
      "cv_count": 6,
@@ -159,6 +170,7 @@
     {
      "id": "skill_ProE_Creo",
      "label": "ProE/Creo",
+     "label_en": "ProE/Creo",
      "kind": "product",
      "evidence_role": null,
      "cv_count": 21,
@@ -169,6 +181,7 @@
     {
      "id": "skill_Rhino",
      "label": "Rhino",
+     "label_en": "Rhino",
      "kind": "product",
      "evidence_role": null,
      "cv_count": 3,
@@ -179,6 +192,7 @@
     {
      "id": "skill_SolidWorks",
      "label": "SolidWorks",
+     "label_en": "SolidWorks",
      "kind": "product",
      "evidence_role": null,
      "cv_count": 19,
@@ -189,6 +203,7 @@
     {
      "id": "skill_UG_NX",
      "label": "UG/NX",
+     "label_en": "UG/NX",
      "kind": "product",
      "evidence_role": null,
      "cv_count": 2,
@@ -204,6 +219,7 @@
     {
      "id": "skill_企业文化建设",
      "label": "企业文化建设",
+     "label_en": "Culture building",
      "kind": "capability",
      "evidence_role": null,
      "cv_count": 37,
@@ -214,6 +230,7 @@
     {
      "id": "skill_体系管理",
      "label": "体系管理",
+     "label_en": "Management systems",
      "kind": "capability",
      "evidence_role": null,
      "cv_count": 13,
@@ -224,6 +241,7 @@
     {
      "id": "skill_培训课程开发",
      "label": "培训课程开发",
+     "label_en": "Training design",
      "kind": "capability",
      "evidence_role": null,
      "cv_count": 15,
@@ -234,6 +252,7 @@
     {
      "id": "skill_数据分析",
      "label": "数据分析",
+     "label_en": "Data analysis",
      "kind": "capability",
      "evidence_role": null,
      "cv_count": 31,
@@ -244,6 +263,7 @@
     {
      "id": "skill_系统规划",
      "label": "系统规划",
+     "label_en": "System planning",
      "kind": "capability",
      "evidence_role": null,
      "cv_count": 64,
@@ -254,6 +274,7 @@
     {
      "id": "skill_订单交期风险评估",
      "label": "订单交期风险评估",
+     "label_en": "Order delivery risk assessment",
      "kind": "capability",
      "evidence_role": "soft",
      "cv_count": 41,
@@ -273,6 +294,7 @@
     {
      "id": "skill_注塑机",
      "label": "注塑机",
+     "label_en": "Injection machine",
      "kind": "equipment",
      "evidence_role": null,
      "cv_count": 17,
@@ -287,6 +309,7 @@
     {
      "id": "skill_点胶机",
      "label": "点胶机",
+     "label_en": "Dispensing machine",
      "kind": "equipment",
      "evidence_role": null,
      "cv_count": 2,
@@ -301,6 +324,7 @@
     {
      "id": "skill_端子机",
      "label": "端子机",
+     "label_en": "Terminal crimper",
      "kind": "equipment",
      "evidence_role": null,
      "cv_count": 18,
@@ -315,6 +339,7 @@
     {
      "id": "skill_自动机",
      "label": "自动机",
+     "label_en": "Automatic machine",
      "kind": "equipment",
      "evidence_role": null,
      "cv_count": 10,
@@ -329,6 +354,7 @@
     {
      "id": "skill_裁线机",
      "label": "裁线机",
+     "label_en": "Wire cutting machine",
      "kind": "equipment",
      "evidence_role": null,
      "cv_count": 17,
@@ -348,6 +374,7 @@
     {
      "id": "skill_切片",
      "label": "切片",
+     "label_en": "Cross-sectioning",
      "kind": "equipment",
      "evidence_role": null,
      "cv_count": 4,
@@ -358,6 +385,7 @@
     {
      "id": "skill_端子",
      "label": "端子",
+     "label_en": "Terminals",
      "kind": "equipment",
      "evidence_role": null,
      "cv_count": 39,
@@ -368,6 +396,7 @@
     {
      "id": "skill_线束行业知识",
      "label": "线束行业知识",
+     "label_en": "Wire-harness domain knowledge",
      "kind": "domain",
      "evidence_role": "soft",
      "cv_count": 72,
@@ -383,6 +412,7 @@
     {
      "id": "skill_识图",
      "label": "识图",
+     "label_en": "Drawing reading",
      "kind": "capability",
      "evidence_role": null,
      "cv_count": 7,
@@ -398,6 +428,7 @@
     {
      "id": "skill_CorelDRAW",
      "label": "CorelDRAW",
+     "label_en": "CorelDRAW",
      "kind": "product",
      "evidence_role": null,
      "cv_count": 5,
@@ -408,6 +439,7 @@
     {
      "id": "skill_Illustrator",
      "label": "Illustrator",
+     "label_en": "Illustrator",
      "kind": "product",
      "evidence_role": null,
      "cv_count": 8,
@@ -418,6 +450,7 @@
     {
      "id": "skill_Photoshop",
      "label": "Photoshop",
+     "label_en": "Photoshop",
      "kind": "product",
      "evidence_role": null,
      "cv_count": 17,
@@ -433,6 +466,7 @@
     {
      "id": "skill_ERP",
      "label": "ERP",
+     "label_en": "ERP",
      "kind": "product",
      "evidence_role": "hard",
      "cv_count": 37,
@@ -448,6 +482,7 @@
     {
      "id": "skill_SAP",
      "label": "SAP",
+     "label_en": "SAP",
      "kind": "product",
      "evidence_role": null,
      "cv_count": 10,
@@ -463,6 +498,7 @@
     {
      "id": "skill_单证",
      "label": "单证",
+     "label_en": "Trade documents",
      "kind": "capability",
      "evidence_role": null,
      "cv_count": 13,
@@ -477,6 +513,7 @@
     {
      "id": "skill_报关",
      "label": "报关",
+     "label_en": "Customs declaration",
      "kind": "capability",
      "evidence_role": null,
      "cv_count": 26,
@@ -496,6 +533,7 @@
     {
      "id": "skill_PowerPoint",
      "label": "PowerPoint",
+     "label_en": "PowerPoint",
      "kind": "product",
      "evidence_role": null,
      "cv_count": 40,
@@ -512,6 +550,7 @@
     {
      "id": "skill_Word",
      "label": "Word",
+     "label_en": "Word",
      "kind": "product",
      "evidence_role": null,
      "cv_count": 55,
@@ -533,6 +572,7 @@
     {
      "id": "skill_5S",
      "label": "5S",
+     "label_en": "5S",
      "kind": "capability",
      "evidence_role": null,
      "cv_count": 5,
@@ -543,6 +583,7 @@
     {
      "id": "skill_精益生产",
      "label": "精益生产",
+     "label_en": "Lean production",
      "kind": "capability",
      "evidence_role": null,
      "cv_count": 10,
@@ -558,6 +599,7 @@
     {
      "id": "skill_ISO_TS16949",
      "label": "ISO/TS16949",
+     "label_en": "ISO/TS16949",
      "kind": "capability",
      "evidence_role": "hard",
      "cv_count": 21,
@@ -568,6 +610,7 @@
     {
      "id": "skill_ISO9001",
      "label": "ISO9001",
+     "label_en": "ISO9001",
      "kind": "capability",
      "evidence_role": "hard",
      "cv_count": 18,
@@ -583,6 +626,7 @@
     {
      "id": "skill_行政",
      "label": "行政",
+     "label_en": "Administration",
      "kind": "capability",
      "evidence_role": null,
      "cv_count": 80,
@@ -598,6 +642,7 @@
     {
      "id": "skill_薪酬绩效",
      "label": "薪酬绩效",
+     "label_en": "Compensation & performance",
      "kind": "capability",
      "evidence_role": null,
      "cv_count": 45,
@@ -613,6 +658,7 @@
     {
      "id": "skill_贸易安全合规",
      "label": "贸易安全合规",
+     "label_en": "Trade security compliance",
      "kind": "capability",
      "evidence_role": null,
      "cv_count": 1,
@@ -628,6 +674,7 @@
     {
      "id": "skill_财务",
      "label": "财务",
+     "label_en": "Finance",
      "kind": "capability",
      "evidence_role": null,
      "cv_count": 84,
@@ -643,6 +690,7 @@
     {
      "id": "skill_社保操作",
      "label": "社保操作",
+     "label_en": "Social insurance handling",
      "kind": "capability",
      "evidence_role": null,
      "cv_count": 24,
@@ -658,6 +706,7 @@
     {
      "id": "skill_劳动法",
      "label": "劳动法",
+     "label_en": "Labour law",
      "kind": "domain",
      "evidence_role": null,
      "cv_count": 22,
@@ -673,6 +722,7 @@
     {
      "id": "skill_英语",
      "label": "英语",
+     "label_en": "English",
      "kind": "capability",
      "evidence_role": "soft",
      "cv_count": 99,
@@ -692,6 +742,7 @@
     {
      "id": "skill_跟单",
      "label": "跟单",
+     "label_en": "Order tracking",
      "kind": "capability",
      "evidence_role": null,
      "cv_count": 79,
@@ -707,6 +758,7 @@
     {
      "id": "skill_招聘",
      "label": "招聘",
+     "label_en": "Recruiting",
      "kind": "capability",
      "evidence_role": null,
      "cv_count": 60,
@@ -722,6 +774,7 @@
     {
      "id": "skill_Excel",
      "label": "Excel",
+     "label_en": "Excel",
      "kind": "product",
      "evidence_role": "hard",
      "cv_count": 87,
@@ -746,6 +799,7 @@
     {
      "id": "skill_外贸业务",
      "label": "外贸业务",
+     "label_en": "Foreign trade business",
      "kind": "capability",
      "evidence_role": null,
      "cv_count": 54,
@@ -760,6 +814,7 @@
   {
    "id": "REQ-A-AGE-RANGE",
    "name": "年龄区间",
+   "name_en": "Age range",
    "dimension": "A",
    "kind": "threshold",
    "data_class": "fact",
@@ -776,6 +831,7 @@
   {
    "id": "REQ-A-GENDER",
    "name": "性别",
+   "name_en": "Gender",
    "dimension": "A",
    "kind": "threshold",
    "data_class": "fact",
@@ -790,6 +846,7 @@
   {
    "id": "REQ-B-EDU-LEVEL",
    "name": "学历不低于",
+   "name_en": "Education at least",
    "dimension": "B",
    "kind": "threshold",
    "data_class": "fact",
@@ -807,6 +864,7 @@
   {
    "id": "REQ-B-FULL-TIME",
    "name": "全日制",
+   "name_en": "Full-time",
    "dimension": "B",
    "kind": "threshold",
    "data_class": "fact",
@@ -821,6 +879,7 @@
   {
    "id": "REQ-B-MAJOR",
    "name": "专业限定",
+   "name_en": "Major (limited)",
    "dimension": "B",
    "kind": "enumerate",
    "data_class": "fact",
@@ -838,6 +897,7 @@
   {
    "id": "REQ-C-YEARS-DOMAIN",
    "name": "某领域年限不低于",
+   "name_en": "Years in a domain at least",
    "dimension": "C",
    "kind": "threshold",
    "data_class": "fact",
@@ -856,6 +916,7 @@
   {
    "id": "REQ-D-AI-TOOLS",
    "name": "AI 工具运用",
+   "name_en": "AI tool use",
    "dimension": "D",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -868,6 +929,7 @@
   {
    "id": "REQ-D-ATTENDANCE-SYSTEM",
    "name": "考勤系统操作",
+   "name_en": "Attendance system",
    "dimension": "D",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -880,6 +942,7 @@
   {
    "id": "REQ-D-BIZ-ETIQUETTE",
    "name": "商务礼仪",
+   "name_en": "Business etiquette",
    "dimension": "E",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -892,6 +955,7 @@
   {
    "id": "REQ-D-CAD-2D",
    "name": "CAD 二维制图",
+   "name_en": "CAD 2D drafting",
    "dimension": "D",
    "kind": "component",
    "data_class": "capability",
@@ -908,6 +972,7 @@
   {
    "id": "REQ-D-CULTURE-BUILD",
    "name": "企业文化建设",
+   "name_en": "Culture building",
    "dimension": "D",
    "kind": "component",
    "data_class": "capability",
@@ -922,6 +987,7 @@
   {
    "id": "REQ-D-CUSTOMER-AUDIT",
    "name": "客户验厂经验",
+   "name_en": "Customer audit experience",
    "dimension": "D",
    "kind": "component",
    "data_class": "capability",
@@ -938,6 +1004,7 @@
   {
    "id": "REQ-D-CUSTOMS-DECLARE",
    "name": "进出口报关流程",
+   "name_en": "Import / export declaration process",
    "dimension": "D",
    "kind": "composite",
    "data_class": "capability",
@@ -955,6 +1022,7 @@
   {
    "id": "REQ-D-DATA-ANALYSIS",
    "name": "数据统计分析",
+   "name_en": "Statistical data analysis",
    "dimension": "D",
    "kind": "component",
    "data_class": "capability",
@@ -969,6 +1037,7 @@
   {
    "id": "REQ-D-DELIVERY-RISK",
    "name": "订单交期风险评估",
+   "name_en": "Order delivery risk assessment",
    "dimension": "D",
    "kind": "component",
    "data_class": "capability",
@@ -985,6 +1054,7 @@
   {
    "id": "REQ-D-DRAWING-READ",
    "name": "图纸识别(线材规格/端子型号/胶壳料号/回路标识)",
+   "name_en": "Drawing reading (wire spec / terminal / housing / circuit)",
    "dimension": "D",
    "kind": "component",
    "data_class": "capability",
@@ -999,6 +1069,7 @@
   {
    "id": "REQ-D-ERP-EXCEL",
    "name": "ERP 订单模块 + Excel 数据分析",
+   "name_en": "ERP order module + Excel analysis",
    "dimension": "D",
    "kind": "composite",
    "data_class": "capability",
@@ -1016,6 +1087,7 @@
   {
    "id": "REQ-D-ERP-OPERATE",
    "name": "ERP 系统操作",
+   "name_en": "ERP operation",
    "dimension": "D",
    "kind": "component",
    "data_class": "capability",
@@ -1032,6 +1104,7 @@
   {
    "id": "REQ-D-HARNESS-DOMAIN",
    "name": "线束/连接器行业认知",
+   "name_en": "Wire-harness / connector domain",
    "dimension": "D",
    "kind": "component",
    "data_class": "capability",
@@ -1049,6 +1122,7 @@
   {
    "id": "REQ-D-LABOR-LAW",
    "name": "国家法律法规知识",
+   "name_en": "National labour law knowledge",
    "dimension": "D",
    "kind": "component",
    "data_class": "capability",
@@ -1063,6 +1137,7 @@
   {
    "id": "REQ-D-NPI-PROCESS",
    "name": "新产品报价/样品/转量产流程",
+   "name_en": "NPI: quotation / samples / ramp-up",
    "dimension": "D",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1077,6 +1152,7 @@
   {
    "id": "REQ-D-OFFICE",
    "name": "Office 办公软件(Word/Excel/PPT)",
+   "name_en": "Office software (Word/Excel/PPT)",
    "dimension": "D",
    "kind": "composite",
    "data_class": "capability",
@@ -1097,6 +1173,7 @@
   {
    "id": "REQ-D-OFFICE-NETWORK",
    "name": "Office 软件 + 办公室网络",
+   "name_en": "Office software + office network",
    "dimension": "D",
    "kind": "composite",
    "data_class": "capability",
@@ -1113,6 +1190,7 @@
   {
    "id": "REQ-D-QA-ANALYSIS",
    "name": "品质问题分析改善能力",
+   "name_en": "Quality problem analysis",
    "dimension": "D",
    "kind": "component",
    "data_class": "capability",
@@ -1129,6 +1207,7 @@
   {
    "id": "REQ-D-QA-TOOLS",
    "name": "品质工具(QC七大手法/5WHY/SPC/CPK/6S)",
+   "name_en": "Quality tools (QC7 / 5WHY / SPC / CPK / 6S)",
    "dimension": "D",
    "kind": "composite",
    "data_class": "capability",
@@ -1149,6 +1228,7 @@
   {
    "id": "REQ-D-RECRUIT-CHANNEL",
    "name": "招聘渠道",
+   "name_en": "Recruiting channels",
    "dimension": "D",
    "kind": "component",
    "data_class": "capability",
@@ -1163,6 +1243,7 @@
   {
    "id": "REQ-D-RECRUIT-KNOWLEDGE",
    "name": "招聘知识",
+   "name_en": "Recruiting knowledge",
    "dimension": "D",
    "kind": "component",
    "data_class": "capability",
@@ -1177,6 +1258,7 @@
   {
    "id": "REQ-D-RECRUIT-SKILL",
    "name": "招聘技巧",
+   "name_en": "Recruiting skills",
    "dimension": "D",
    "kind": "component",
    "data_class": "capability",
@@ -1191,6 +1273,7 @@
   {
    "id": "REQ-D-REPORT-WRITING",
    "name": "报表整理能力",
+   "name_en": "Report writing",
    "dimension": "D",
    "kind": "component",
    "data_class": "capability",
@@ -1207,6 +1290,7 @@
   {
    "id": "REQ-D-SOCIAL-INSURANCE",
    "name": "社保操作流程",
+   "name_en": "Social-insurance process",
    "dimension": "D",
    "kind": "component",
    "data_class": "capability",
@@ -1221,6 +1305,7 @@
   {
    "id": "REQ-D-SYSTEM-MGMT",
    "name": "体系管理",
+   "name_en": "Management systems",
    "dimension": "D",
    "kind": "component",
    "data_class": "capability",
@@ -1235,6 +1320,7 @@
   {
    "id": "REQ-D-SYSTEM-PLANNING",
    "name": "系统规划",
+   "name_en": "System planning",
    "dimension": "D",
    "kind": "component",
    "data_class": "capability",
@@ -1249,6 +1335,7 @@
   {
    "id": "REQ-D-TRAINING-DEV",
    "name": "培训课程开发",
+   "name_en": "Training course design",
    "dimension": "D",
    "kind": "component",
    "data_class": "capability",
@@ -1263,6 +1350,7 @@
   {
    "id": "REQ-D-WIRE-EQUIPMENT",
    "name": "电线加工设备(熟知并会操作)",
+   "name_en": "Wire-processing equipment (knows and can operate)",
    "dimension": "D",
    "kind": "composite",
    "data_class": "capability",
@@ -1283,6 +1371,7 @@
   {
    "id": "REQ-E-ACCOUNTABILITY",
    "name": "敢于担当",
+   "name_en": "Willing to own outcomes",
    "dimension": "E",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1297,6 +1386,7 @@
   {
    "id": "REQ-E-BIZ-INTENT",
    "name": "业务发展意向",
+   "name_en": "Wants business development work",
    "dimension": "E",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1309,6 +1399,7 @@
   {
    "id": "REQ-E-CAREFUL",
    "name": "细心严谨",
+   "name_en": "Careful & rigorous",
    "dimension": "E",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1323,6 +1414,7 @@
   {
    "id": "REQ-E-COMMUNICATION",
    "name": "沟通协调能力",
+   "name_en": "Communication & coordination",
    "dimension": "E",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1340,6 +1432,7 @@
   {
    "id": "REQ-E-DAILY-CLOSE",
    "name": "日清日结",
+   "name_en": "Daily close-out",
    "dimension": "E",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1355,6 +1448,7 @@
   {
    "id": "REQ-E-DATA-SENSITIVITY",
    "name": "数据敏感",
+   "name_en": "Data sensitivity",
    "dimension": "E",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1370,6 +1464,7 @@
   {
    "id": "REQ-E-ETHICS",
    "name": "职业道德",
+   "name_en": "Professional ethics",
    "dimension": "E",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1384,6 +1479,7 @@
   {
    "id": "REQ-E-EXECUTION",
    "name": "执行能力",
+   "name_en": "Execution",
    "dimension": "E",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1399,6 +1495,7 @@
   {
    "id": "REQ-E-JOB-INTEREST",
    "name": "岗位工作兴趣",
+   "name_en": "Interest in the role",
    "dimension": "E",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1411,6 +1508,7 @@
   {
    "id": "REQ-E-LOGIC",
    "name": "逻辑清晰",
+   "name_en": "Clear logic",
    "dimension": "E",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1425,6 +1523,7 @@
   {
    "id": "REQ-E-OPENNESS",
    "name": "性格开朗",
+   "name_en": "Outgoing personality",
    "dimension": "E",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1437,6 +1536,7 @@
   {
    "id": "REQ-E-PRINCIPLE",
    "name": "原则性",
+   "name_en": "Principled",
    "dimension": "E",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1451,6 +1551,7 @@
   {
    "id": "REQ-E-PROACTIVE",
    "name": "工作积极主动",
+   "name_en": "Proactive",
    "dimension": "E",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1465,6 +1566,7 @@
   {
    "id": "REQ-E-RESPONSIBILITY",
    "name": "责任心",
+   "name_en": "Sense of responsibility",
    "dimension": "E",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1480,6 +1582,7 @@
   {
    "id": "REQ-E-STEADY",
    "name": "稳重",
+   "name_en": "Steady",
    "dimension": "E",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1492,6 +1595,7 @@
   {
    "id": "REQ-E-STRESS",
    "name": "抗压能力 / 多线程处理",
+   "name_en": "Stress tolerance",
    "dimension": "E",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1507,6 +1611,7 @@
   {
    "id": "REQ-E-STRIVING",
    "name": "奋斗精神",
+   "name_en": "Drive / striving",
    "dimension": "E",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1522,6 +1627,7 @@
   {
    "id": "REQ-E-TEAMWORK",
    "name": "团队合作",
+   "name_en": "Teamwork",
    "dimension": "E",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1536,6 +1642,7 @@
   {
    "id": "REQ-F-TRADE-COMPLIANCE-TRAINING",
    "name": "贸易安全合规培训考核",
+   "name_en": "Trade-security compliance training",
    "dimension": "F",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1550,6 +1657,7 @@
   {
    "id": "REQ-G-CONFIDENTIALITY",
    "name": "数据保密 / 无信息泄露记录",
+   "name_en": "Data confidentiality",
    "dimension": "G",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1564,6 +1672,7 @@
   {
    "id": "REQ-G-NO-CRIMINAL-RECORD",
    "name": "无处罚及犯罪记录",
+   "name_en": "No penalty or criminal record",
    "dimension": "G",
    "kind": "unmeasurable",
    "data_class": "soft",
@@ -1578,6 +1687,7 @@
   {
    "id": "REQ-H-LANG-EN",
    "name": "英语(口语 + 独立书写英文8D报告)",
+   "name_en": "English (spoken + writing 8D reports)",
    "dimension": "D",
    "kind": "composite",
    "data_class": "capability",
@@ -1595,6 +1705,7 @@
   {
    "id": "REQ-HR-COMMUTE",
    "name": "能接受上班地点",
+   "name_en": "Can reach the work location",
    "dimension": "A",
    "kind": "boolean",
    "data_class": "fact",
@@ -1609,6 +1720,7 @@
   {
    "id": "REQ-HR-NOTICE",
    "name": "到岗时间不超过",
+   "name_en": "Notice period not more than",
    "dimension": "A",
    "kind": "threshold",
    "data_class": "fact",
@@ -1623,6 +1735,7 @@
   {
    "id": "REQ-HR-SALARY",
    "name": "期望薪资不超过岗位上限",
+   "name_en": "Expected salary within band",
    "dimension": "A",
    "kind": "threshold",
    "data_class": "fact",
@@ -1637,6 +1750,7 @@
   {
    "id": "REQ-HR-STABILITY",
    "name": "近 5 年任职不超过",
+   "name_en": "Recent-5y job changes not more than",
    "dimension": "C",
    "kind": "threshold",
    "data_class": "fact",
@@ -1651,6 +1765,7 @@
   {
    "id": "REQ-HR-TENURE",
    "name": "平均在职不低于",
+   "name_en": "Average tenure at least",
    "dimension": "C",
    "kind": "threshold",
    "data_class": "fact",
@@ -1671,10 +1786,12 @@
    {
     "code": "S1",
     "label": "岗位标识",
+    "label_en": "Position identity",
     "fields": [
      {
       "id": "F.DEPARTMENT",
       "label": "隶属部门",
+      "label_en": "Department",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -1687,6 +1804,7 @@
      {
       "id": "F.JD_APPROVERS",
       "label": "核准/审核/制订",
+      "label_en": "Approved / reviewed / prepared",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -1699,6 +1817,7 @@
      {
       "id": "F.JD_DOC_NUMBER",
       "label": "文件编号",
+      "label_en": "Document number",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -1711,6 +1830,7 @@
      {
       "id": "F.JD_JOB_GRADE",
       "label": "职级",
+      "label_en": "Job grade",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -1723,6 +1843,7 @@
      {
       "id": "F.JD_OCCUPATION_CODE",
       "label": "职业编码",
+      "label_en": "Occupation code",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -1735,6 +1856,7 @@
      {
       "id": "F.JD_PAGE_COUNT",
       "label": "页数",
+      "label_en": "Page count",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -1747,6 +1869,7 @@
      {
       "id": "F.JD_VERSION",
       "label": "版本",
+      "label_en": "Version",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -1759,6 +1882,7 @@
      {
       "id": "F.JOB_TITLE",
       "label": "职务名称",
+      "label_en": "Job title",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -1771,6 +1895,7 @@
      {
       "id": "F.MGMT_CATEGORY",
       "label": "岗位类别",
+      "label_en": "Position category",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -1783,6 +1908,7 @@
      {
       "id": "F.REPORTS_TO",
       "label": "直接上司",
+      "label_en": "Reports to",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -1795,6 +1921,7 @@
      {
       "id": "F.SUPERVISES",
       "label": "直接下属",
+      "label_en": "Supervises",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -1809,10 +1936,12 @@
    {
     "code": "S2",
     "label": "岗位目的",
+    "label_en": "Job purpose",
     "fields": [
      {
       "id": "F.JD_JOB_PURPOSE",
       "label": "岗位目的",
+      "label_en": "Job purpose",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -1825,6 +1954,7 @@
      {
       "id": "F.JD_SUCCESS_CRITERIA",
       "label": "关键成功指标",
+      "label_en": "Key success indicators",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -1837,6 +1967,7 @@
      {
       "id": "F.TEAM_GOAL",
       "label": "团队/部门目标",
+      "label_en": "Team / department goal",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -1851,10 +1982,12 @@
    {
     "code": "S3",
     "label": "任职资格",
+    "label_en": "Qualifications",
     "fields": [
      {
       "id": "F.AGE",
       "label": "年龄",
+      "label_en": "Age",
       "dimension": "A",
       "scale": "interval",
       "unit": "岁",
@@ -1867,6 +2000,7 @@
      {
       "id": "F.CERTIFICATION",
       "label": "资格证书",
+      "label_en": "Certificates",
       "dimension": "F",
       "scale": "nominal",
       "unit": null,
@@ -1879,6 +2013,7 @@
      {
       "id": "F.COMPETENCY",
       "label": "职业素养",
+      "label_en": "Professional conduct",
       "dimension": "E",
       "scale": "ordinal",
       "unit": null,
@@ -1891,6 +2026,7 @@
      {
       "id": "F.EDU_FULLTIME",
       "label": "是否全日制",
+      "label_en": "Full-time study",
       "dimension": "B",
       "scale": "nominal",
       "unit": null,
@@ -1903,6 +2039,7 @@
      {
       "id": "F.EDU_LEVEL",
       "label": "学历",
+      "label_en": "Education level",
       "dimension": "B",
       "scale": "ordinal",
       "unit": null,
@@ -1915,6 +2052,7 @@
      {
       "id": "F.EDU_MAJOR",
       "label": "专业",
+      "label_en": "Major",
       "dimension": "B",
       "scale": "nominal",
       "unit": null,
@@ -1927,6 +2065,7 @@
      {
       "id": "F.EXP_ACTIVITY",
       "label": "活动经验",
+      "label_en": "Activity experience",
       "dimension": "C",
       "scale": "nominal",
       "unit": null,
@@ -1939,6 +2078,7 @@
      {
       "id": "F.EXP_DOMAIN",
       "label": "职能域",
+      "label_en": "Functional domain",
       "dimension": "C",
       "scale": "nominal",
       "unit": null,
@@ -1951,6 +2091,7 @@
      {
       "id": "F.EXP_INDUSTRY",
       "label": "行业",
+      "label_en": "Industry",
       "dimension": "C",
       "scale": "nominal",
       "unit": null,
@@ -1963,6 +2104,7 @@
      {
       "id": "F.EXP_YEARS",
       "label": "总年限",
+      "label_en": "Total years",
       "dimension": "C",
       "scale": "interval",
       "unit": "年",
@@ -1975,6 +2117,7 @@
      {
       "id": "F.GENDER",
       "label": "性别",
+      "label_en": "Gender",
       "dimension": "A",
       "scale": "nominal",
       "unit": null,
@@ -1987,6 +2130,7 @@
      {
       "id": "F.LANGUAGE_LEVEL",
       "label": "语言熟练度",
+      "label_en": "Language proficiency",
       "dimension": "H",
       "scale": "ordinal",
       "unit": null,
@@ -1999,6 +2143,7 @@
      {
       "id": "F.SKILL",
       "label": "技能",
+      "label_en": "Skills",
       "dimension": "D",
       "scale": "nominal",
       "unit": null,
@@ -2013,10 +2158,12 @@
    {
     "code": "S4",
     "label": "岗位职责",
+    "label_en": "Responsibilities",
     "fields": [
      {
       "id": "F.BUDGET_OWNERSHIP",
       "label": "预算与成本责任",
+      "label_en": "Budget & cost responsibility",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2029,6 +2176,7 @@
      {
       "id": "F.CROSS_DEPT",
       "label": "跨部门接口",
+      "label_en": "Cross-department interfaces",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2041,6 +2189,7 @@
      {
       "id": "F.DECISION_AUTHORITY",
       "label": "决策权限",
+      "label_en": "Decision authority",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2053,6 +2202,7 @@
      {
       "id": "F.JD_DUTY_COMPETENCY",
       "label": "职责对应能力",
+      "label_en": "Skill behind each duty",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2065,6 +2215,7 @@
      {
       "id": "F.JD_DUTY_ITEMS",
       "label": "职责条目",
+      "label_en": "Duty items",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2077,6 +2228,7 @@
      {
       "id": "F.JD_DUTY_WEIGHT",
       "label": "职责权重",
+      "label_en": "Duty weight",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2089,6 +2241,7 @@
      {
       "id": "F.MGMT_SPAN",
       "label": "管理幅度",
+      "label_en": "Span of control",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2103,10 +2256,12 @@
    {
     "code": "S5",
     "label": "作业明细",
+    "label_en": "Task detail",
     "fields": [
      {
       "id": "F.JD_ACTIVITY_AI_FIT",
       "label": "AI 可否替代",
+      "label_en": "AI can take over part",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2119,6 +2274,7 @@
      {
       "id": "F.JD_ACTIVITY_DURATION",
       "label": "时长",
+      "label_en": "Duration",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2131,6 +2287,7 @@
      {
       "id": "F.JD_ACTIVITY_FORM",
       "label": "关联表单",
+      "label_en": "Related form",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2143,6 +2300,7 @@
      {
       "id": "F.JD_ACTIVITY_FREQ",
       "label": "频次(日/周/月/年/偶发)",
+      "label_en": "Frequency (day/week/month/year/ad-hoc)",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2155,6 +2313,7 @@
      {
       "id": "F.JD_ACTIVITY_SEQ",
       "label": "序号",
+      "label_en": "No.",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2167,6 +2326,7 @@
      {
       "id": "F.JD_ACTIVITY_SOP",
       "label": "操作标准流程",
+      "label_en": "Standard procedure",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2179,6 +2339,7 @@
      {
       "id": "F.JD_ACTIVITY_TEXT",
       "label": "内容",
+      "label_en": "Content",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2191,6 +2352,7 @@
      {
       "id": "F.SHIFT_HANDOVER",
       "label": "排班与交接",
+      "label_en": "Scheduling & handover",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2205,10 +2367,12 @@
    {
     "code": "S6",
     "label": "工作条件",
+    "label_en": "Working conditions",
     "fields": [
      {
       "id": "F.JD_ENVIRONMENT",
       "label": "环境(噪音/粉尘/温度)",
+      "label_en": "Environment (noise / dust / temperature)",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2221,6 +2385,7 @@
      {
       "id": "F.JD_PHYSICAL_DEMAND",
       "label": "体力/站立/搬运",
+      "label_en": "Physical demand (standing / lifting)",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2233,6 +2398,7 @@
      {
       "id": "F.JD_PPE",
       "label": "劳保/防护",
+      "label_en": "Protective equipment",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2245,6 +2411,7 @@
      {
       "id": "F.JD_TRAVEL",
       "label": "出差",
+      "label_en": "Business travel",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2257,6 +2424,7 @@
      {
       "id": "F.JD_WORK_HOURS",
       "label": "工时",
+      "label_en": "Work hours",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2269,6 +2437,7 @@
      {
       "id": "F.JD_WORK_LOCATION",
       "label": "工作地点/厂区",
+      "label_en": "Work site / plant",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2281,6 +2450,7 @@
      {
       "id": "F.SHIFT",
       "label": "班制",
+      "label_en": "Shift pattern",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2293,6 +2463,7 @@
      {
       "id": "F.WORK_LOCATION",
       "label": "工作地点",
+      "label_en": "Work location",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2307,10 +2478,12 @@
    {
     "code": "S7",
     "label": "元数据",
+    "label_en": "Metadata",
     "fields": [
      {
       "id": "F.AVAILABILITY",
       "label": "到岗日期",
+      "label_en": "Available from",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2323,6 +2496,7 @@
      {
       "id": "F.JD_DATE_POSTED",
       "label": "发布日期",
+      "label_en": "Posting date",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2335,6 +2509,7 @@
      {
       "id": "F.JD_FIRST_ISSUED",
       "label": "首次发行日",
+      "label_en": "First release",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2347,6 +2522,7 @@
      {
       "id": "F.JD_HEADCOUNT",
       "label": "编制/招聘人数",
+      "label_en": "Planned headcount",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2359,6 +2535,7 @@
      {
       "id": "F.JD_HIRING_REASON",
       "label": "招聘原因",
+      "label_en": "Hiring reason",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2371,6 +2548,7 @@
      {
       "id": "F.JD_POSTING_CHANNEL",
       "label": "发布渠道",
+      "label_en": "Posting channel",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2383,6 +2561,7 @@
      {
       "id": "F.JD_REVISION_HISTORY",
       "label": "修订履历",
+      "label_en": "Revision history",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2395,6 +2574,7 @@
      {
       "id": "F.JD_VALID_UNTIL",
       "label": "有效期/截止",
+      "label_en": "Valid until",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2407,6 +2587,7 @@
      {
       "id": "F.SALARY",
       "label": "薪资",
+      "label_en": "Salary",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2421,10 +2602,12 @@
    {
     "code": "S8",
     "label": "合规声明",
+    "label_en": "Compliance statements",
     "fields": [
      {
       "id": "F.CLEARANCE",
       "label": "法律记录 / 无犯罪",
+      "label_en": "Legal record / no criminal record",
       "dimension": "G",
       "scale": "nominal",
       "unit": null,
@@ -2437,6 +2620,7 @@
      {
       "id": "F.JD_CLEAN_RECORD",
       "label": "无犯罪/无行政处罚",
+      "label_en": "No penalty or criminal record",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2449,6 +2633,7 @@
      {
       "id": "F.JD_CONFIDENTIALITY",
       "label": "保密/数据保密",
+      "label_en": "Confidentiality / data protection",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2461,6 +2646,7 @@
      {
       "id": "F.JD_CONTRACT_TYPE",
       "label": "用工类型/合同",
+      "label_en": "Employment type / contract",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2473,6 +2659,7 @@
      {
       "id": "F.JD_NON_COMPETE",
       "label": "竞业限制",
+      "label_en": "Non-compete",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2485,6 +2672,7 @@
      {
       "id": "F.JD_PROBATION",
       "label": "试用期",
+      "label_en": "Probation",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2497,6 +2685,7 @@
      {
       "id": "F.JD_SOCIAL_INSURANCE",
       "label": "社保",
+      "label_en": "Social insurance",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2518,10 +2707,12 @@
    {
     "code": "C1",
     "label": "基本信息",
+    "label_en": "Basic info",
     "fields": [
      {
       "id": "F.AGE",
       "label": "年龄",
+      "label_en": "Age",
       "dimension": "A",
       "scale": "interval",
       "unit": "岁",
@@ -2534,6 +2725,7 @@
      {
       "id": "F.CV_BIRTH_DATE",
       "label": "出生年月",
+      "label_en": "Date of birth",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2546,6 +2738,7 @@
      {
       "id": "F.CV_EMAIL",
       "label": "电子邮箱",
+      "label_en": "Email",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2558,6 +2751,7 @@
      {
       "id": "F.CV_FULL_NAME",
       "label": "姓名",
+      "label_en": "Name",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2570,6 +2764,7 @@
      {
       "id": "F.CV_MARITAL_STATUS",
       "label": "婚姻状况",
+      "label_en": "Marital status",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2582,6 +2777,7 @@
      {
       "id": "F.CV_NATIVE_PLACE",
       "label": "籍贯",
+      "label_en": "Native place",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2594,6 +2790,7 @@
      {
       "id": "F.CV_PHONE",
       "label": "联系电话",
+      "label_en": "Phone",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2606,6 +2803,7 @@
      {
       "id": "F.GENDER",
       "label": "性别",
+      "label_en": "Gender",
       "dimension": "A",
       "scale": "nominal",
       "unit": null,
@@ -2618,6 +2816,7 @@
      {
       "id": "F.JOB_TITLE",
       "label": "职务名称",
+      "label_en": "Job title",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2630,6 +2829,7 @@
      {
       "id": "F.WORK_LOCATION",
       "label": "工作地点",
+      "label_en": "Work location",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2644,10 +2844,12 @@
    {
     "code": "C2",
     "label": "求职意向",
+    "label_en": "Job preference",
     "fields": [
      {
       "id": "F.AVAILABILITY",
       "label": "到岗日期",
+      "label_en": "Available from",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2660,6 +2862,7 @@
      {
       "id": "F.CV_CURRENT_SALARY",
       "label": "目前年薪",
+      "label_en": "Current salary",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2672,6 +2875,7 @@
      {
       "id": "F.CV_JOB_TYPE",
       "label": "求职类型",
+      "label_en": "Job type",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2684,6 +2888,7 @@
      {
       "id": "F.SALARY",
       "label": "薪资",
+      "label_en": "Salary",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2698,10 +2903,12 @@
    {
     "code": "C3",
     "label": "教育背景",
+    "label_en": "Education",
     "fields": [
      {
       "id": "F.CV_EDU_PERIOD",
       "label": "起止时间",
+      "label_en": "Study period",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2714,6 +2921,7 @@
      {
       "id": "F.CV_INSTITUTION",
       "label": "毕业院校",
+      "label_en": "Institution",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2726,6 +2934,7 @@
      {
       "id": "F.EDU_FULLTIME",
       "label": "是否全日制",
+      "label_en": "Full-time study",
       "dimension": "B",
       "scale": "nominal",
       "unit": null,
@@ -2738,6 +2947,7 @@
      {
       "id": "F.EDU_LEVEL",
       "label": "学历",
+      "label_en": "Education level",
       "dimension": "B",
       "scale": "ordinal",
       "unit": null,
@@ -2750,6 +2960,7 @@
      {
       "id": "F.EDU_MAJOR",
       "label": "专业",
+      "label_en": "Major",
       "dimension": "B",
       "scale": "nominal",
       "unit": null,
@@ -2764,10 +2975,12 @@
    {
     "code": "C4",
     "label": "工作经历",
+    "label_en": "Work history",
     "fields": [
      {
       "id": "F.CV_EMPLOYER",
       "label": "公司名称",
+      "label_en": "Employer",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2780,6 +2993,7 @@
      {
       "id": "F.EXP_ACTIVITY",
       "label": "活动经验",
+      "label_en": "Activity experience",
       "dimension": "C",
       "scale": "nominal",
       "unit": null,
@@ -2792,6 +3006,7 @@
      {
       "id": "F.EXP_DOMAIN",
       "label": "职能域",
+      "label_en": "Functional domain",
       "dimension": "C",
       "scale": "nominal",
       "unit": null,
@@ -2804,6 +3019,7 @@
      {
       "id": "F.EXP_INDUSTRY",
       "label": "行业",
+      "label_en": "Industry",
       "dimension": "C",
       "scale": "nominal",
       "unit": null,
@@ -2816,6 +3032,7 @@
      {
       "id": "F.EXP_YEARS",
       "label": "总年限",
+      "label_en": "Total years",
       "dimension": "C",
       "scale": "interval",
       "unit": "年",
@@ -2830,10 +3047,12 @@
    {
     "code": "C5",
     "label": "技能与证书",
+    "label_en": "Skills & certificates",
     "fields": [
      {
       "id": "F.CERTIFICATION",
       "label": "资格证书",
+      "label_en": "Certificates",
       "dimension": "F",
       "scale": "nominal",
       "unit": null,
@@ -2846,6 +3065,7 @@
      {
       "id": "F.CV_LANGUAGE",
       "label": "语言能力",
+      "label_en": "Languages",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2858,6 +3078,7 @@
      {
       "id": "F.LANGUAGE_LEVEL",
       "label": "语言熟练度",
+      "label_en": "Language proficiency",
       "dimension": "H",
       "scale": "ordinal",
       "unit": null,
@@ -2870,6 +3091,7 @@
      {
       "id": "F.SKILL",
       "label": "技能",
+      "label_en": "Skills",
       "dimension": "D",
       "scale": "nominal",
       "unit": null,
@@ -2884,10 +3106,12 @@
    {
     "code": "C6",
     "label": "其他",
+    "label_en": "Other",
     "fields": [
      {
       "id": "F.COMPETENCY",
       "label": "职业素养",
+      "label_en": "Professional conduct",
       "dimension": "E",
       "scale": "ordinal",
       "unit": null,
@@ -2900,6 +3124,7 @@
      {
       "id": "F.CV_PROJECTS",
       "label": "项目经验",
+      "label_en": "Projects",
       "dimension": null,
       "scale": null,
       "unit": null,
@@ -2912,6 +3137,7 @@
      {
       "id": "F.CV_TRAININGS",
       "label": "培训经历",
+      "label_en": "Training",
       "dimension": null,
       "scale": null,
       "unit": null,

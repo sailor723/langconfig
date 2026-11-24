@@ -11,21 +11,26 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ChevronRight, Loader, RefreshCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { getTalentCatalog, type TalentCatalog } from './api';
 
 type Tab = 'components' | 'requirements' | 'jd' | 'cv' | 'gaps';
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'components', label: '分类与组件' },
-  { key: 'requirements', label: '要求' },
-  { key: 'jd', label: 'JD 模板' },
-  { key: 'cv', label: 'CV 模板' },
-  { key: 'gaps', label: '缺口' },
+const TABS: { key: Tab; key_: string }[] = [
+  { key: 'components', key_: 'tc_tab_components' },
+  { key: 'requirements', key_: 'tc_tab_requirements' },
+  { key: 'jd', key_: 'tc_tab_jd' },
+  { key: 'cv', key_: 'tc_tab_cv' },
+  { key: 'gaps', key_: 'tc_tab_gaps' },
 ];
 
 export default function TalentCatalog() {
   const t = useLayoutTokens();
+  const { t: tr, i18n } = useTranslation('chat');
+  const isZh = String(i18n.language || '').toLowerCase().startsWith('zh');
+  /** 数据标签(组件/字段/要求/区段)按全局语言挑;缺英文就回落中文,不显示空白。 */
+  const L = (zh?: string | null, en?: string | null) => (isZh ? (zh || en || '') : (en || zh || ''));
   const [data, setData] = useState<TalentCatalog | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -78,7 +83,7 @@ export default function TalentCatalog() {
 
   if (busy && !data) {
     return <div style={{ padding: 20, fontSize: 12, color: t.textMuted }}>
-      <Loader size={12} /> 正在读标准目录…
+      <Loader size={12} /> {tr('tc_loading')}
     </div>;
   }
   if (err) {
@@ -86,10 +91,10 @@ export default function TalentCatalog() {
       <div style={{ padding: 20, fontSize: 12, color: '#e5484d', lineHeight: 1.8 }}>
         {err}
         <div style={{ marginTop: 8, color: t.textMuted }}>
-          目录由脚本现算：<code>python -m scripts.talent.build_catalog</code>
+          {tr('tc_hint')}
         </div>
         <button onClick={() => void load()} style={{ marginTop: 10, fontSize: 11 }}>
-          <RefreshCw size={11} /> 重试
+          <RefreshCw size={11} /> {tr('tc_retry')}
         </button>
       </div>
     );
@@ -101,16 +106,16 @@ export default function TalentCatalog() {
       {/* 顶部:标题 + 缺口概览 */}
       <div style={{ ...box, padding: '10px 12px' }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: t.textPrimary }}>
-          标准目录 · {cov?.categories} 分类 · {cov?.components} 组件 · {cov?.requirements} 要求
-          {' · '}JD 模板 {data.jd_template.field_count} 字段 · CV 模板 {data.cv_template.field_count} 字段
+          {tr('tc_summary')} · {cov?.categories} × {cov?.components} × {cov?.requirements}
+          {' · '}JD {data.jd_template.field_count} / CV {data.cv_template.field_count} {tr('tc_fields_rule')}
         </div>
         <div style={{ display: 'flex', gap: 14, marginTop: 6, flexWrap: 'wrap', fontSize: 11 }}>
           <span style={{ color: '#b3261e' }}>
-            <AlertTriangle size={11} /> 证据档未标 {gapSets.roleMissing.size}
+            <AlertTriangle size={11} /> {tr('tc_gap_evidence')} {gapSets.roleMissing.size}
           </span>
-          <span style={{ color: '#8a6d3b' }}>要求没人用 {gapSets.reqUnused.size}</span>
-          <span style={{ color: '#8a6d3b' }}>组件没被要求挂 {gapSets.compUnused.size}</span>
-          <span style={{ color: t.textMuted }}>要求不可判 {gapSets.reqUnassessable.size}</span>
+          <span style={{ color: '#8a6d3b' }}>{tr('tc_gap_req_unused')} {gapSets.reqUnused.size}</span>
+          <span style={{ color: '#8a6d3b' }}>{tr('tc_gap_comp_unused')} {gapSets.compUnused.size}</span>
+          <span style={{ color: t.textMuted }}>{tr('tc_gap_unassessable')} {gapSets.reqUnassessable.size}</span>
         </div>
       </div>
 
@@ -127,14 +132,14 @@ export default function TalentCatalog() {
                 color: tab === x.key ? '#fff' : t.textMuted,
               }}
             >
-              {x.label}
+              {tr(x.key_)}
             </button>
           ))}
         </div>
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="搜组件 / 要求 / 字段（如 Excel、REQ-D、F.AGE）"
+          placeholder={tr('tc_search')}
           style={{
             flex: 1, minWidth: 180, fontSize: 11.5, padding: '4px 8px', borderRadius: 5,
             border: `1px solid ${t.border}`, background: t.bgInput, color: t.textPrimary,
@@ -142,10 +147,10 @@ export default function TalentCatalog() {
         />
         <label style={{ fontSize: 11, color: t.textMuted, display: 'flex', gap: 4, alignItems: 'center' }}>
           <input type="checkbox" checked={onlyGap} onChange={(e) => setOnlyGap(e.target.checked)} />
-          只看有缺口的
+          {tr('tc_only_gap')}
         </label>
         <button onClick={() => void load()} disabled={busy} style={{ fontSize: 11, cursor: 'pointer' }}>
-          <RefreshCw size={11} /> {busy ? '读取中' : '重新读'}
+          <RefreshCw size={11} /> {busy ? '…' : tr('tc_reload')}
         </button>
       </div>
 
@@ -176,34 +181,34 @@ export default function TalentCatalog() {
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
-                        <th style={th()}>组件</th>
-                        <th style={th()}>标签</th>
-                        <th style={th()}>kind</th>
-                        <th style={th()}>证据档</th>
-                        <th style={th({ textAlign: 'right' })}>简历命中</th>
-                        <th style={th()}>被要求挂</th>
-                        <th style={th()}>被 JD 用</th>
+                        <th style={th()}>{tr('tc_col_component')}</th>
+                        <th style={th()}>{tr('tc_col_label')}</th>
+                        <th style={th()}>{tr('tc_col_kind')}</th>
+                        <th style={th()}>{tr('tc_col_evidence')}</th>
+                        <th style={th({ textAlign: 'right' })}>{tr('tc_col_hits')}</th>
+                        <th style={th()}>{tr('tc_col_reqs')}</th>
+                        <th style={th()}>{tr('tc_col_jds')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {rows.map((x) => (
                         <tr key={x.id}>
                           <td style={td({ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10.5 })}>{x.id}</td>
-                          <td style={td()}>{x.label}</td>
+                          <td style={td()}>{L(x.label, (x as any).label_en)}</td>
                           <td style={td({ color: t.textMuted })}>{x.kind || '—'}</td>
                           <td style={td()}>
-                            <span style={chip(x.evidence_role || '未声明',
+                            <span style={chip(x.evidence_role || tr('tc_undeclared'),
                               x.evidence_role === 'hard' ? '#2f9e44'
                                 : x.evidence_role === 'soft' ? '#8a6d3b' : '#e5484d')}>
-                              {x.evidence_role || '未声明'}
+                              {x.evidence_role || tr('tc_undeclared')}
                             </span>
                           </td>
                           <td style={td({ textAlign: 'right' })}>{x.cv_count ?? '—'}</td>
                           <td style={td()}>{x.requirements.length
                             ? x.requirements.map((r) => r.replace('REQ-', '')).join('、')
-                            : <span style={{ color: '#8a6d3b' }}>无</span>}</td>
+                            : <span style={{ color: '#8a6d3b' }}>{tr('tc_none')}</span>}</td>
                           <td style={td()}>{x.jds.length ? x.jds.join('、')
-                            : <span style={{ color: '#8a6d3b' }}>无</span>}</td>
+                            : <span style={{ color: '#8a6d3b' }}>{tr('tc_none')}</span>}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -221,9 +226,12 @@ export default function TalentCatalog() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                <th style={th()}>码</th><th style={th()}>名称</th><th style={th()}>维度</th>
-                <th style={th()}>kind</th><th style={th()}>类别</th><th style={th()}>可判</th>
-                <th style={th({ textAlign: 'right' })}>组件</th><th style={th()}>被 JD 用</th>
+                <th style={th()}>{tr('tc_col_code')}</th><th style={th()}>{tr('tc_col_name')}</th>
+                <th style={th()}>{tr('tc_col_dim')}</th>
+                <th style={th()}>{tr('tc_col_kind')}</th><th style={th()}>{tr('tc_col_class')}</th>
+                <th style={th()}>{tr('tc_col_assessable')}</th>
+                <th style={th({ textAlign: 'right' })}>{tr('tc_col_component')}</th>
+                <th style={th()}>{tr('tc_col_jds')}</th>
               </tr>
             </thead>
             <tbody>
@@ -235,14 +243,14 @@ export default function TalentCatalog() {
                     <td style={td({ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10.5 })}>
                       {r.id.replace('REQ-', '')}
                     </td>
-                    <td style={td()}>{r.name || '—'}</td>
+                    <td style={td()}>{L(r.name, (r as any).name_en) || '—'}</td>
                     <td style={td({ textAlign: 'center' })}>{r.dimension || '—'}</td>
                     <td style={td({ color: t.textMuted })}>{r.kind || '—'}</td>
                     <td style={td({ color: t.textMuted })}>{r.data_class || '—'}</td>
                     <td style={td()}>{r.assessable ? '✅' : <span style={{ color: '#8a6d3b' }}>—</span>}</td>
                     <td style={td({ textAlign: 'right' })}>{r.components.length}</td>
                     <td style={td()}>{r.jds.length ? r.jds.join('、')
-                      : <span style={{ color: '#8a6d3b' }}>无</span>}</td>
+                      : <span style={{ color: '#8a6d3b' }}>{tr('tc_none')}</span>}</td>
                   </tr>
                 ))}
             </tbody>
@@ -256,7 +264,8 @@ export default function TalentCatalog() {
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ fontSize: 11, color: t.textMuted }}>
-              {tpl.name} · 共 {tpl.field_count} 个字段。{tpl.rule}
+              {L(tpl.name, tab === 'jd' ? 'Job description' : 'Candidate profile')} ·{' '}
+              {tpl.field_count} {tr('tc_fields_rule')}
             </div>
             {tpl.sections.map((s) => {
               const rows = s.fields.filter((f) =>
@@ -266,30 +275,31 @@ export default function TalentCatalog() {
                 <div key={s.code} style={box}>
                   <div style={{ padding: '6px 10px', fontSize: 11.5, color: t.textPrimary,
                                 borderBottom: `1px solid ${t.border}` }}>
-                    <b>{s.code} · {s.label}</b>
+                    <b>{s.code} · {L(s.label, (s as any).label_en)}</b>
                     <span style={{ color: t.textMuted }}>（{s.fields.length}）</span>
                   </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
-                        <th style={th()}>字段</th><th style={th()}>名称</th><th style={th()}>维度</th>
-                        <th style={th({ textAlign: 'right' })}>出现</th>
+                        <th style={th()}>{tr('tc_col_field')}</th><th style={th()}>{tr('tc_col_name')}</th>
+                        <th style={th()}>{tr('tc_col_dim')}</th>
+                        <th style={th({ textAlign: 'right' })}>{tr('tc_col_presence')}</th>
                         {tab === 'jd'
-                          ? <th style={th()}>必填</th>
-                          : <th style={th()}>属性</th>}
-                        {tab === 'cv' && <th style={th()}>两侧可比</th>}
-                        <th style={th()}>说明</th>
+                          ? <th style={th()}>{tr('tc_col_required')}</th>
+                          : <th style={th()}>{tr('tc_col_prop')}</th>}
+                        {tab === 'cv' && <th style={th()}>{tr('tc_col_compare')}</th>}
+                        <th style={th()}>{tr('tc_col_note')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {rows.map((f) => (
                         <tr key={f.id}>
                           <td style={td({ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10.5 })}>{f.id}</td>
-                          <td style={td()}>{f.label}</td>
+                          <td style={td()}>{L(f.label, (f as any).label_en)}</td>
                           <td style={td({ textAlign: 'center' })}>{f.dimension || '—'}</td>
                           <td style={td({ textAlign: 'right' })}>{f.presence ?? '—'}</td>
                           {tab === 'jd'
-                            ? <td style={td()}>{f.required ? '是' : '—'}</td>
+                            ? <td style={td()}>{f.required ? (isZh ? '是' : 'yes') : '—'}</td>
                             : <td style={td({ color: t.textMuted })}>{f.prop || '—'}</td>}
                           {tab === 'cv' && <td style={td({ color: t.textMuted })}>{f.compare || '—'}</td>}
                           <td style={td({ color: t.textMuted })}>{f.note || '—'}</td>
@@ -308,14 +318,10 @@ export default function TalentCatalog() {
       {tab === 'gaps' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {[
-            ['组件没标证据档', cov?.components_evidence_role_missing || [],
-             '能力「满足」里有多少只是自述，现在答不出来 —— 标一条 runtime 就生效一条'],
-            ['要求没被任何 JD 引用', cov?.requirements_unused || [],
-             '标准建了没人用：要么有 JD 会用到，要么从库里删掉'],
-            ['组件没被任何要求挂', cov?.components_unused || [],
-             '抽得出、判不到：要么建一条要求用它，要么它只是词表噪音'],
-            ['要求不可判（assessable=false）', cov?.requirements_unassessable || [],
-             '对所有人一样，不进分母、也不许拿来淘汰人'],
+            [tr('tc_gap_t1'), cov?.components_evidence_role_missing || [], tr('tc_gap_t1_why')],
+            [tr('tc_gap_t2'), cov?.requirements_unused || [], tr('tc_gap_t2_why')],
+            [tr('tc_gap_t3'), cov?.components_unused || [], tr('tc_gap_t3_why')],
+            [tr('tc_gap_t4'), cov?.requirements_unassessable || [], tr('tc_gap_t4_why')],
           ].map(([title, list, why]: any) => (
             <div key={title} style={box}>
               <div style={{ padding: '6px 10px', fontSize: 11.5, color: t.textPrimary,
@@ -326,7 +332,7 @@ export default function TalentCatalog() {
               </div>
               <div style={{ padding: '6px 10px', fontSize: 10.5, lineHeight: 1.9,
                             fontFamily: 'ui-monospace,Menlo,monospace', color: t.textPrimary }}>
-                {list.length ? list.join('　') : <span style={{ color: t.textMuted }}>无</span>}
+                {list.length ? list.join('　') : <span style={{ color: t.textMuted }}>{tr('tc_none')}</span>}
               </div>
             </div>
           ))}
