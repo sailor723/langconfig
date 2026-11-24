@@ -511,6 +511,86 @@ bash start.sh --fe    # 仅前端
 
 ---
 
+## 10. 更新到含 **talent（招聘流水线）** 的版本
+
+talent 是 2026-11-24 加进来的一整块：五份 JD 的标准 40 格定稿、270 份 CV 的补齐与判定、
+短名单/最终名单、业务面问题清单。**产物与 mock 数据都已入库**，所以不需要"重新跑一遍生成"，
+只要更新代码 + 灌库 + 起服务。下面这套流程在装 11-12 旧版的 Ubuntu 24.04 机器上真跑通过。
+
+### 10.1 只会更新代码的老机器，按这个顺序
+
+```bash
+cd <repo> && git pull --ff-only origin main     # ① 代码 + talent 产物 + mock 数据
+cd backend
+.venv/bin/python -m ensurepip --upgrade         # ② 只有 .venv 里没有 pip 时才要
+.venv/bin/python -m pip install -r requirements.txt
+set -a && . ../.env && set +a
+env -u PGPORT .venv/bin/python -m alembic upgrade head        # ③ 迁移
+env -u PGPORT .venv/bin/python scripts/seeds/in/seed_all.py   # ④ 期望 deep agents 76 / skills 121
+cd .. && npm install && npm run build           # ⑤ **别跳过**：后端直接 serve dist/
+bash start.sh                                   # ⑥ 起服务
+cd backend && set -a && . ../.env && set +a
+env -u PGPORT .venv/bin/python scripts/seeds/in/seed_talent_agents.py --apply   # ⑦ 六个 Talent agent
+env -u PGPORT .venv/bin/python -m scripts.talent.verify_install --online        # ⑧ 自检
+```
+
+漏第 ⑦ 步的表现：Talent 面板能打开，但「问 agent」里没有 Talent agent —— 那六个不在
+`seed_all.py` 里，是独立一条 seed（走 API，要服务先起）。
+
+### 10.2 本体判定库 `talent_db`（缺了本体页 503）
+
+```bash
+cd backend && set -a && . ../.env && set +a && export PGPASSWORD=$POSTGRES_PASSWORD
+psql -h 127.0.0.1 -p ${POSTGRES_PORT:-5432} -U $POSTGRES_USER -d postgres \
+     -c "CREATE DATABASE talent_db OWNER $POSTGRES_USER;"
+env -u PGPORT .venv/bin/python -m scripts.talent.materialize \
+    --profile features/ontology/profiles/talent_v1/talent_v1_settings.json --dsn-db talent_db
+# 期望：reasoner hermit · ~700ms · consistent=True → candidate 277 / candidate_skill 1549 / match 752
+```
+
+这一步要 **JRE**（`apt install default-jre-headless`）—— 判定用 HermiT 推理机，缺了会报
+`no java on PATH`。talent 活动本身不依赖它（读仓库文件），只有本体 `talent_v1` 的 dashboard 需要。
+
+### 10.3 对公网/局域网访问时（TLS + Secure cookie）
+
+用 caddy 反代到 `127.0.0.1:8765`，域名用 `<ip-用横杠>.sslip.io`（自动解析到该 IP，证书自动签发），
+`.env` 里配：
+
+```
+LANGCONFIG_LAN_ACCESS=on
+LANGCONFIG_TRUSTED_PROXIES=127.0.0.1
+LANGCONFIG_COOKIE_SECURE=on      # 有 TLS 才开；纯 http 访问时必须 off
+```
+
+### 10.4 这次实测踩过的五个坑
+
+| 现象 | 根因 | 修法 |
+|---|---|---|
+| 登录"成功"后又跳回 `/signin` | `COOKIE_SECURE=on` 但用 http 访问 → 浏览器丢弃 Secure cookie | 用 https；或临时设 `off` 再重启 |
+| 白屏 / 点活动没反应 / 主区停在上一屏 | `/assets/index-*.js` 被 LAN 守卫 401，SPA 起不来 | 已在 `1953e820` 修（构建产物放行，数据接口仍要登录） |
+| 地址是 `/talent#/knowledge`、界面却是 Knowledge | 应用是 HashRouter，真实路径与 hash 两套路由打架 | 已在 `bb4d7e2a` 修（启动时规范成 `/#/talent`） |
+| 本体 `talent_v1` dashboard 503 | 缺 `talent_db` / 没装 JRE 没物化 | 见 10.2 |
+| 面板能开但问 agent 没得选 | 没跑 `seed_talent_agents.py --apply` | 见 10.1 第 ⑦ 步 |
+
+### 10.5 自检通过的样子
+
+```bash
+cd backend
+env -u PGPORT .venv/bin/python -m scripts.talent.verify_install --online   # 全 ✔
+env -u PGPORT .venv/bin/python -m scripts.talent.check_component_catalog --no-db
+# 481 checks · 0 failed · green（4 项 NOT RUN：对库校验 / 旧 49 格模板 / 上传件 / 教程归档）
+```
+
+接口抽查：`/api/talent/docs` → 200（5 份 JD、每份 21–22 个产物）、
+`/api/talent/gap?jd=品质经理` → 200（能判 34/40）、`/api/talent/catalog` → 200。
+进来后左栏 **Talent**（Briefcase）→ 默认 JD **品质经理**。
+
+> 英文版逐条细节（含前置依赖、目录树、每步期望输出）在
+> [`installation.md` §1.1](installation.md#11-更新到含-talent招聘流水线的版本--一条可照抄的-runbook)。
+
+
+---
+
 ## 故障排查
 
 | 症状 | 修复 |

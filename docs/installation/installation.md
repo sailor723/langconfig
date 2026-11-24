@@ -1662,6 +1662,34 @@ uv sync                                   # venv to the new uv.lock
 > existing row. Run `scripts/seeds/in/seed_builtin_tools.py --refresh` as well, or that
 > machine keeps executing the old tool code. See §4 "What a seed in actually does".
 
+### 5.0 Since 2026-11-24 the pull also carries **talent** — four extra steps
+
+The talent work (JD → 40-field 定稿 → CV shortlist → final 5 → 业务面问题清单) brings its own
+artifacts, its own seed, and two frontend fixes. **A `git pull` alone is not enough**: without
+`npm run build` the three fixes below never reach the browser, and the app looks broken in
+exactly the ways the table lists.
+
+```bash
+cd <repo> && git pull --ff-only origin main
+cd backend && set -a && . ../.env && set +a
+env -u PGPORT .venv/bin/python scripts/seeds/in/seed_all.py        # skills 121, agents 76
+cd .. && npm install && npm run build                              # ← required, not optional
+# (re)start the backend, then register the six Talent agents — they are NOT in seed_all.py:
+cd backend && env -u PGPORT .venv/bin/python scripts/seeds/in/seed_talent_agents.py --apply
+env -u PGPORT .venv/bin/python -m scripts.talent.verify_install --online
+```
+
+Three things this pull fixed, which on an un-rebuilt frontend still look like failures:
+
+| Symptom before the rebuild | Cause | Fixed in |
+|---|---|---|
+| blank page / an activity does nothing / the centre keeps the previous screen | `/assets/index-*.js` answered **401** by the LAN gate (cookie missing at that instant) | `1953e820` — build output is public, data endpoints are not |
+| URL `/talent#/knowledge` shows Knowledge | the app is a **HashRouter**; a real path plus a stale hash fight over the view | `bb4d7e2a` — `/talent` is normalised to `/#/talent` on boot |
+| the ONTOLOGY `talent_v1` page 503s | `talent_db` missing (or no JRE, so nothing was materialised) | see §1.1 step 7 |
+
+Full command-by-command runbook, with the expected output of every step and the five traps we
+actually hit: **§1.1** above.
+
 > **Why there is no separate `alembic upgrade head` step.** `seed_all.py` reads
 > `alembic_version` first. A database with **no** recorded revision is *stamped* at
 > head — correct, because step 2 has just built the schema from the ORM models and
