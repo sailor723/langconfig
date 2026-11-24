@@ -30,44 +30,153 @@ machines.
 | **credentials** | **never** — not exported, not committed, not applied | every `role="secret"` field is discovered from the settings schema and dropped on export (`models.api_keys.*` — LLM **and** web/search keys — plus `models.local_api_key`). Listed in the file's `__meta__.stripped` so you can audit what left |
 | **per machine** | `.env`, API keys, `backend/outputs/` | secrets and workspaces are local by design |
 
-### 1.1 更新到含 **talent（招聘流水线）** 的版本
+### 1.1 更新到含 **talent（招聘流水线）** 的版本 —— 一条可照抄的 runbook
 
 talent 是后加的一整块：五份 JD 的标准 40 格定稿、270 份 CV 的补齐与判定、短名单/最终名单、
-业务面问题清单。它的产物**已经入库**（mock 数据也在里头），同事不需要"重新跑一遍生成"，
-只需要更新代码 + 灌库 + 起服务。
+业务面问题清单。**产物与 mock 数据都已入库**，同事不需要重新生成，只要更新代码 + 灌库 + 起服务。
+
+这套流程在 2026-11-24 拿一台**装了 11-12 旧版**的机器（Ubuntu 24.04 / 16 核）真跑过一遍，
+下面每条命令、每个坑都来自那次实测（不是纸面推演）。
+
+#### 0. 前置（只装一次）
+
+| 需要 | 为什么 |
+|---|---|
+| Python 3.12+、`backend/.venv` | 后端；venv 里没有 pip 时先 `python -m ensurepip --upgrade` |
+| Node 20+ | 前端构建（后端直接 serve `dist/`） |
+| PostgreSQL 16 | 应用库；`talent_db` 另建（见 ⑦） |
+| **JRE（`default-jre-headless`）** | talent 的判定要用 HermiT（Java 推理机）物化 `talent_db`；缺了报 `no java on PATH` |
+
+#### 1. 代码
 
 ```bash
 cd <repo>
-git pull                                   # ① 代码 + talent 产物 + mock 数据
-
-cd backend
-uv sync                                    # ② 依赖（或用 .venv/bin/pip install -r requirements.txt）
-.venv/bin/python scripts/seeds/in/seed_all.py    # ③ 灌库：agents / tools / settings / **skills**
-                                                 #    talent-interview 等技能就在 skills 这一腿
-
-cd .. && npm install && npm run build            # ④ 前端：后端直接 serve dist/
-bash start.sh                                    # ⑤ 起服务（backend :8765 + frontend :1421）
-
-# ⑥ talent 的六个 agent 是**单独一条 seed**（要服务在跑，它走 API）
-cd backend && .venv/bin/python scripts/seeds/in/seed_talent_agents.py --apply
-
-# ⑦ 自检：文件层 + 本机归档 + 服务/技能/agent
-.venv/bin/python -m scripts.talent.verify_install --online
+git pull --ff-only origin main        # 期望看到 b4476802 之后的提交
+git status --porcelain               # 应为空；有本地改动先 stash，别硬合并
 ```
 
-`verify_install` 会把"三层"一次说清：**仓库层**（标准 YAML / 模板 / 五份 JD 的引用+原文+
-草稿+定稿 / 假名 / 公司画像）、**本机归档**（cv_text / llm_verdicts / cv_draft —— 缺了不影响，
-它只影响"重新抽取简历"和"教程第 13 步的重放数字"）、**服务层**（`/api/talent/docs`、120 个技能里
-`talent-*` 五个、`Talent · 1..5` 六个 agent）。
+#### 2. 后端依赖
 
-**不在仓库里、按设计也不该在的**（缺了不会让链断，只是少能力）：
+```bash
+cd backend
+.venv/bin/python -m ensurepip --upgrade          # 只有当 .venv 里没有 pip 时
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -c "import rdflib,fastapi,docx,openpyxl,psycopg2,yaml,alembic; print('ok')"
+```
+
+#### 3. 数据库迁移
+
+```bash
+cd backend && set -a && . ../.env && set +a
+env -u PGPORT .venv/bin/python -m alembic upgrade head
+```
+
+#### 4. 前端构建（**别跳过**）
+
+```bash
+cd <repo>
+npm install
+npm run build            # 期望 ✓ built in ~10s；失败最常见是 package.json 漏声明依赖
+```
+
+#### 5. 灌库（agents / tools / settings / skills）
+
+```bash
+cd backend && set -a && . ../.env && set +a
+env -u PGPORT .venv/bin/python scripts/seeds/in/seed_all.py
+# 期望结尾：deep agents 76 / skills 121 / tools 80
+```
+
+#### 6. 起服务 + talent 的六个 agent
+
+```bash
+cd <repo> && bash start.sh
+# 或者生产：systemctl restart langconfig（后端是 uvicorn :8765，caddy 反代）
+
+cd backend && set -a && . ../.env && set +a
+env -u PGPORT .venv/bin/python scripts/seeds/in/seed_talent_agents.py --apply
+# 期望：6 个 agent 更新完（Talent · 1..5，4b 已停用）
+```
+
+> `Talent · 1..5` **不在** `seed_all.py` 里 —— 它是独立一条 seed，走 API，所以要让服务先起来。
+> 漏了这一步的表现是：Talent 面板能打开，但「问 agent」没有可选的 Talent agent。
+
+#### 7. `talent_db`（本体判定库）—— 缺了本体页会 503
+
+```bash
+cd backend && set -a && . ../.env && set +a
+export PGPASSWORD=$POSTGRES_PASSWORD
+psql -h 127.0.0.1 -p ${POSTGRES_PORT:-5432} -U $POSTGRES_USER -d postgres \
+     -c "CREATE DATABASE talent_db OWNER $POSTGRES_USER;"
+
+env -u PGPORT .venv/bin/python -m scripts.talent.materialize \
+    --profile features/ontology/profiles/talent_v1/talent_v1_settings.json \
+    --dsn-db talent_db
+# 期望：reasoner hermit · ~700ms · consistent=True
+#       candidates 277 · skills 53 · roles 10 · matches 752
+#       wrote talent_db: candidate 277, candidate_skill 1549, role 10, match 752
+```
+
+漏了它的表现：`/api/ontology/talent_v1/dashboard/panels` **503**、`metrics/cards` 报
+`database "talent_db" does not exist` —— **Talent 活动本身不受影响**（它读仓库文件）。
+
+#### 8. 对外访问：TLS + Secure cookie（只有需要公网/局域网时）
+
+用 caddy 反代到 `127.0.0.1:8765`，域名用 `<ip-with-dashes>.sslip.io`（sslip.io 自动解析到该 IP，
+Let's Encrypt 会自动签发）：
+
+```
+8-216-56-149.sslip.io {
+    encode zstd gzip
+    header { Strict-Transport-Security "max-age=31536000; includeSubDomains" }
+    reverse_proxy 127.0.0.1:8765 { flush_interval -1 }
+}
+```
+
+`.env` 里配合：
+
+```
+LANGCONFIG_LAN_ACCESS=on
+LANGCONFIG_TRUSTED_PROXIES=127.0.0.1
+LANGCONFIG_COOKIE_SECURE=on      # 有 TLS 才开；纯 http 访问时**必须关**
+```
+
+#### 9. 自检（两条，都要绿）
+
+```bash
+cd backend
+env -u PGPORT .venv/bin/python -m scripts.talent.verify_install --online
+env -u PGPORT .venv/bin/python -m scripts.talent.check_component_catalog --no-db
+```
+
+期望：`verify_install` 全 ✔（默认 JD 品质经理、缺口 draft 口径 **34/40**、技能 121、Talent agent 6）；
+门禁 **481 checks · 0 failed · green**（4 项 NOT RUN：对库校验 / 旧 49 格模板 / 上传件 / 教程归档）。
+接口层抽查：`/api/talent/docs` → 200（5 份 JD、每份 21–22 个产物）、
+`/api/talent/gap?jd=品质经理` → 200（34/40）、`/api/talent/catalog` → 200。
+
+#### 10. 进来之后看哪儿
+
+登录 → 左栏 **Talent**（Briefcase）→ 默认 JD **品质经理**，产物链自上而下：
+`1 客户原文（含「原文 + 缺口」面板）` → `2 引用文件 / 决策账本 / 回填答案 / 定稿 · 标准 40 格`
+→ `3 初筛 · 面试名单 · 一面（必须）· 待核清单 · CV 补齐` → `5 目标名单 / 选人 / 业务面问题清单`。
+
+#### 排障：这次实测真踩过的五个坑
+
+| 现象 | 根因 | 修法 |
+|---|---|---|
+| 登录"成功"后又跳回 `/signin` | `LANGCONFIG_COOKIE_SECURE=on` 但用 **http** 访问 → 浏览器丢弃 Secure cookie | 用 https；或临时设 `LANGCONFIG_COOKIE_SECURE=off` 再重启 |
+| 白屏 / 点活动没反应 / 主区停在上一屏 | `/assets/index-*.js` 被 LAN 守卫 **401**（cookie 没带上），SPA 永远起不来 | 已在 `1953e820` 修：`/assets/`、`/favicon.ico`、`/static/` 放行（数据接口仍要登录） |
+| 地址是 `/talent#/knowledge`，界面却是 Knowledge | 应用是 **HashRouter**，真实路径与 hash 两套路由打架 | 已在 `bb4d7e2a` 修：启动时把 `/talent` 规范成 `/#/talent` 并重载一次 |
+| 本体 `talent_v1` 页 dashboard 503 | 缺 `talent_db`（或没装 JRE 没物化） | 见上面 ⑦ |
+| talent 面板能开、但问 agent 没得选 | 没跑 `seed_talent_agents.py --apply` | 见上面 ⑥ |
+
+**不在仓库里、按设计也不该在的**（缺了不断链，只是少能力）：
 
 | 缺的 | 影响 | 怎么办 |
 |---|---|---|
 | `work/talent/cv_text/`（270 份简历正文，1.6 MB） | 不能"重新抽取"简历事实；判定用的是已入库的 `cv_facts.json` | 需要时跑 `scripts/talent/extract.py` |
 | `work/talent/llm_verdicts/`、`cv_draft/` | 教程第 13 步的重放实验数字无法重算（门禁打 **NOT RUN**，不判红） | 只有做过那些实验的机器有 |
 | `work/talent/uploads/`、`jd_extracted/` | Phase 1 上传过的原件与抽取件；`jd_links/_source/*.txt` 已入库，缺口照样能算 | 需要时重新上传 |
-| `talent_db` 这个 PostgreSQL 库 | 门禁里"对库校验"（组件 cv_count vs 库）打 **NOT RUN**；其余检查照跑 | 需要时按 `ONTOLOGY_DB_*` 建库并灌 `candidate` / `candidate_skill` |
 
 **一句实话**：talent 的"数字"有三种来源 —— 仓库里的产物（git）、库里的行（seed）、本机归档
 （不迁移）。前两种是所有人都该一致的；第三种只影响"能不能重算历史实验"，不影响能不能按
