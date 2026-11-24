@@ -1,0 +1,68 @@
+# 业务优先条件目录 —— 用户从这张表里**挑**,不需要懂组件 id。
+#
+# 用词约定:优先条件只决定"先面谁",**不是硬过滤**。没命中的仍在候选池里。
+# 每条规则只用**简历里真有的证据**判定,不看模拟填充(cv_mock)。
+schema: talent.priority_catalog/v1
+as_of: 2026-11-21
+
+items:
+- id: P-QUALITY-EVIDENCE
+  name: 品质岗经历有硬证据
+  rule: {kind: quality_verdict, in_: [有]}
+  why: 岗位第一要求是做过品质管理,这条最硬
+  caveat: 全库只有个位数,选中后名单会很短
+
+- id: P-QUALITY-YEARS-3
+  name: 品质岗经历 ≥3 年
+  rule: {kind: quality_months, min: 36}
+  why: 客户要求「3 年以上品质管理工作经验」
+
+- id: P-QUALITY-YEARS-5
+  name: 品质岗经历 ≥5 年
+  rule: {kind: quality_months, min: 60}
+  why: 更稳的中层人选
+
+- id: P-IND-HARNESS
+  name: 线束/连接器行业
+  rule: {kind: component_any, components: [skill_线束行业知识]}
+  why: 客户原文「熟识线束行业相关产品」(C-06)
+  caveat: 简历词表较窄,可能漏人(DEF-01)
+
+- id: P-CUST-AUDIT
+  name: 客户验厂经验
+  rule: {kind: component_any, components: [skill_客户验厂]}
+  why: 客户原文「具备接待客户验厂经验」(C-09)
+  caveat: 同上,「参与二方审核」这类说法可能没被抽到(DEF-01)
+
+- id: P-QA-TOOLS
+  name: 懂品质工具(QC 手法/SPC/CPK/6S/5Why 任一)
+  rule: {kind: component_any, components: [skill_QC七大手法, skill_SPC, skill_CPK, skill_6S, skill_5WHY]}
+  why: 客户原文「懂QC七大手法、5WHY、SPC、CPK、6S工具」(C-08)
+
+- id: P-ENGLISH
+  name: 英语(会读写或能写 8D 任一)
+  rule: {kind: component_any, components: [skill_英语, skill_8D报告]}
+  why: 客户原文「英语口语熟练及具备独立书写英文8D报告」(C-04)
+
+- id: P-AGE-30-38
+  name: 年龄 30~38(在客户门槛 25~40 之内)
+  rule: {kind: prop_between, prop: age, min: 30, max: 38}
+  why: 偏好在客户原文门槛之内收紧,不放宽客户条件
+  caveat: 会实质排除 38 岁以上的人,谨慎用
+
+- id: P-EDU-BACHELOR
+  name: 本科及以上
+  rule: {kind: prop_gte, prop: educationRank, value: 4}
+  why: 高于客户「大专及以上」的自我要求
+  caveat: 客户只要求大专,选中等于加严
+
+- id: P-HAS-INTERVIEW
+  name: 已有一面记录(可复核)
+  rule: {kind: interview_real, min: 1}
+  why: 已经聊过的人,补问成本最低
+
+- id: P-FEW-ASKS
+  name: 待核项 ≤3 项
+  rule: {kind: asked_max, max: 3}
+  why: 一个电话能问完,先把好问的面掉
+  caveat: 这是**成本**条件,不是能力条件
