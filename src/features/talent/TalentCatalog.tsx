@@ -15,11 +15,16 @@ import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { getTalentCatalog, type TalentCatalog } from './api';
 
-type Tab = 'components' | 'requirements' | 'jd' | 'cv' | 'gaps';
+type Tab = 'components' | 'requirements' | 'std_jd' | 'std_cv' | 'jd' | 'cv' | 'gaps';
 
+/** 七页：分类/要求 → 公司标准（JD、CV）→ 客户实际字段（JD、CV）→ 缺口。
+ *  标准与客户实际**分成两页**，是因为它们是两件事：一个是"应该长什么样"，一个是
+ *  "10 份 JD 里真长什么样"。混在一页里，看的人会把客户漏填当成标准不需要。 */
 const TABS: { key: Tab; key_: string }[] = [
   { key: 'components', key_: 'tc_tab_components' },
   { key: 'requirements', key_: 'tc_tab_requirements' },
+  { key: 'std_jd', key_: 'tc_tab_std_jd' },
+  { key: 'std_cv', key_: 'tc_tab_std_cv' },
   { key: 'jd', key_: 'tc_tab_jd' },
   { key: 'cv', key_: 'tc_tab_cv' },
   { key: 'gaps', key_: 'tc_tab_gaps' },
@@ -58,6 +63,8 @@ export default function TalentCatalog() {
   }, [q]);
 
   const cov = data?.coverage;
+  const stdCov = data?.standard_coverage;
+  const isStdTab = tab === 'std_jd' || tab === 'std_cv';
   const gapSets = useMemo(() => ({
     roleMissing: new Set(cov?.components_evidence_role_missing || []),
     compUnused: new Set(cov?.components_unused || []),
@@ -107,7 +114,9 @@ export default function TalentCatalog() {
       <div style={{ ...box, padding: '10px 12px' }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: t.textPrimary }}>
           {tr('tc_summary')} · {cov?.categories} × {cov?.components} × {cov?.requirements}
-          {' · '}JD {data.jd_template.field_count} / CV {data.cv_template.field_count} {tr('tc_fields_rule')}
+          {' · '}{tr('tc_std_short')} JD {stdCov?.jd_fields ?? '—'} / CV {stdCov?.cv_fields ?? '—'}
+          {' · '}{tr('tc_client_short')} JD {data.jd_template.field_count} / CV {data.cv_template.field_count}
+          {' '}{tr('tc_fields_rule')}
         </div>
         <div style={{ display: 'flex', gap: 14, marginTop: 6, flexWrap: 'wrap', fontSize: 11 }}>
           <span style={{ color: '#b3261e' }}>
@@ -116,6 +125,10 @@ export default function TalentCatalog() {
           <span style={{ color: '#8a6d3b' }}>{tr('tc_gap_req_unused')} {gapSets.reqUnused.size}</span>
           <span style={{ color: '#8a6d3b' }}>{tr('tc_gap_comp_unused')} {gapSets.compUnused.size}</span>
           <span style={{ color: t.textMuted }}>{tr('tc_gap_unassessable')} {gapSets.reqUnassessable.size}</span>
+          <span style={{ color: (stdCov?.requirements_uncovered.length ?? 0) ? '#e5484d' : '#2f9e44' }}>
+            {tr('tc_std_cover')} {stdCov?.requirements_assessable ?? '—'} {'→'} {tr('tc_std_cover_missing')}{' '}
+            {stdCov?.requirements_uncovered.length ?? '—'}
+          </span>
         </div>
       </div>
 
@@ -145,10 +158,12 @@ export default function TalentCatalog() {
             border: `1px solid ${t.border}`, background: t.bgInput, color: t.textPrimary,
           }}
         />
-        <label style={{ fontSize: 11, color: t.textMuted, display: 'flex', gap: 4, alignItems: 'center' }}>
-          <input type="checkbox" checked={onlyGap} onChange={(e) => setOnlyGap(e.target.checked)} />
-          {tr('tc_only_gap')}
-        </label>
+        {!isStdTab && (
+          <label style={{ fontSize: 11, color: t.textMuted, display: 'flex', gap: 4, alignItems: 'center' }}>
+            <input type="checkbox" checked={onlyGap} onChange={(e) => setOnlyGap(e.target.checked)} />
+            {tr('tc_only_gap')}
+          </label>
+        )}
         <button onClick={() => void load()} disabled={busy} style={{ fontSize: 11, cursor: 'pointer' }}>
           <RefreshCw size={11} /> {busy ? '…' : tr('tc_reload')}
         </button>
@@ -257,6 +272,110 @@ export default function TalentCatalog() {
           </table>
         </div>
       )}
+
+      {/* 公司标准模板（JD / CV）—— 应该长什么样 */}
+      {isStdTab && (() => {
+        const which = tab === 'std_jd' ? 'jd' : 'cv';
+        const tpl = (data.standard_templates || ({} as any))[which];
+        if (!tpl) {
+          return <div style={{ ...box, padding: 12, fontSize: 11.5, color: t.textMuted }}>
+            {tr('tc_std_missing')}
+          </div>;
+        }
+        const lv = tpl.levels || ({} as any);
+        const lvChip = (x: string) => {
+          const m: Record<string, [string, string]> = {
+            required: ['tc_lv_required', '#2f9e44'],
+            conditional: ['tc_lv_conditional', '#8a6d3b'],
+            optional: ['tc_lv_optional', '#6b7280'],
+          };
+          const [k, c] = m[x] || ['tc_lv_optional', '#6b7280'];
+          return <span style={chip(tr(k), c)}>{tr(k)}</span>;
+        };
+        const judged = (x: string | null) => {
+          if (x === 'judgeable') return <span style={{ color: '#2f9e44' }}>{tr('tc_as_judgeable')}</span>;
+          if (x === 'not_judgeable') return <span style={{ color: '#8a6d3b' }}>{tr('tc_as_not')}</span>;
+          return <span style={{ color: t.textMuted }}>{tr('tc_as_internal')}</span>;
+        };
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ fontSize: 11, color: t.textMuted, lineHeight: 1.7 }}>
+              {tr('tc_std_rule')}{' '}
+              <b>{tpl.field_count}</b> {tr('tc_fields_rule')}{' '}
+              ({(lv.required ?? 0)}+{(lv.conditional ?? 0)}+{(lv.optional ?? 0)})
+              {tpl.field_count_target ? ` · ${tr('tc_std_target')} ${tpl.field_count_target}` : ''}
+              {tpl.new_fields?.length
+                ? ` · ${tr('tc_std_new')} ${tpl.new_fields.length}` : ''}
+            </div>
+            {tpl.sections.map((s2) => {
+              const rows = s2.fields.filter((f) =>
+                hit(f.code, f.label_zh, f.label_en, f.data_item, f.dimension, f.conditional_on,
+                    ...(f.source_requirement || [])));
+              if (!rows.length) return null;
+              return (
+                <div key={s2.code} style={box}>
+                  <div style={{ padding: '6px 10px', fontSize: 11.5, color: t.textPrimary,
+                                borderBottom: `1px solid ${t.border}` }}>
+                    <b>{s2.code} · {L(s2.label_zh, s2.label_en)}</b>
+                    <span style={{ color: t.textMuted }}>（{s2.fields.length}）</span>
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        <th style={th()}>{tr('tc_col_field')}</th>
+                        <th style={th()}>{tr('tc_col_name')}</th>
+                        <th style={th()}>{tr('tc_col_level')}</th>
+                        <th style={th()}>{tr('tc_col_assess')}</th>
+                        <th style={th()}>{tr('tc_col_data_item')}</th>
+                        <th style={th()}>{tr('tc_col_shape')}</th>
+                        <th style={th()}>{tr('tc_col_evidence_src')}</th>
+                        <th style={th()}>{tr('tc_col_missing')}</th>
+                        <th style={th()}>{tr('tc_col_reqs')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((f) => (
+                        <tr key={f.code} title={f.note || ''}>
+                          <td style={td({ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10.5,
+                                          whiteSpace: 'nowrap' })}>
+                            {f.code}{f.new_in_standard ? <span style={{ color: '#2f9e44' }}> ·新</span> : null}
+                          </td>
+                          <td style={td()}>
+                            {L(f.label_zh, f.label_en)}
+                            {f.conditional_on
+                              ? <div style={{ fontSize: 10, color: '#8a6d3b' }}>↳ {f.conditional_on}</div>
+                              : null}
+                          </td>
+                          <td style={td()}>{lvChip(f.requirement_level)}</td>
+                          <td style={td()}>{judged(f.assessable)}</td>
+                          <td style={td({ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 10.5 })}>
+                            {f.data_item || '—'}
+                          </td>
+                          <td style={td({ color: t.textMuted, fontSize: 10.5 })}>
+                            {f.threshold_shape || f.value_shape || '—'}
+                          </td>
+                          <td style={td({ color: t.textMuted, fontSize: 10.5 })}>
+                            {f.evidence_required || '—'}
+                          </td>
+                          <td style={td({ fontSize: 10.5,
+                                          color: f.missing_means === '不可判' ? '#8a6d3b' : t.textMuted })}>
+                            {f.missing_means || '—'}
+                          </td>
+                          <td style={td({ color: t.textMuted, fontSize: 10 })}>
+                            {(f.source_requirement || []).length
+                              ? f.source_requirement.map((r) => r.replace('REQ-', '')).join('、')
+                              : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* JD / CV 模板 */}
       {(tab === 'jd' || tab === 'cv') && (() => {

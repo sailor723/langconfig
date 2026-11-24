@@ -54,6 +54,30 @@ def _load(name: str, key: str | None = None):
     return doc[key] if key else doc
 
 
+# 公司标准模板：**公司口径**，不是从客户 10 份 JD 统计出来的。
+# 客户模板（field_schema）是"实际长什么样"；标准模板是"应该长什么样"。
+STD_DIR = TALENT / 'templates'
+STD_FILES = {'jd': 'standard_jd_template.yaml', 'cv': 'standard_cv_template.yaml'}
+
+
+def _load_std() -> dict:
+    out: dict = {}
+    for which, name in STD_FILES.items():
+        p = STD_DIR / name
+        if not p.is_file():
+            out[which] = {'_missing': name}
+            continue
+        out[which] = yaml.safe_load(p.read_text(encoding='utf-8')) or {}
+    return out
+
+
+def _std_rows(doc: dict) -> list[dict]:
+    rows = [dict(f, section=s.get('code'), section_label=s.get('label_zh'),
+                 section_label_en=s.get('label_en'))
+            for s in doc.get('sections') or [] for f in (s.get('fields') or [])]
+    return rows
+
+
 def build() -> dict:
     cat = _load('component_catalog.yaml', 'components')
     lib = _load('requirement_library.yaml', 'requirements')
@@ -127,6 +151,66 @@ def build() -> dict:
     comp_unused = sorted(c['id'] for c in cat if c['id'] not in comp2req)
     unassessable = sorted(r['id'] for r in lib if not r.get('assessable'))
 
+    # ⑤ 公司标准模板 + 要求覆盖（每条可判要求必须落到两个模板的某个字段上）
+    std_in = _load_std()
+    std: dict = {}
+    for which, doc in std_in.items():
+        rows = _std_rows(doc)
+        std[which] = {
+            'name': doc.get('_doc', '').split('\n')[0] if doc.get('_doc') else None,
+            '_doc': doc.get('_doc'),
+            'version': doc.get('version'),
+            'field_count_target': doc.get('field_count_target'),
+            'field_count': len(rows),
+            'sections': [{
+                'code': s.get('code'), 'label_zh': s.get('label_zh'), 'label_en': s.get('label_en'),
+                'fields': [{
+                    'code': f.get('code'), 'label_zh': f.get('label_zh'),
+                    'label_en': f.get('label_en'), 'dimension': f.get('dimension'),
+                    'data_item': f.get('data_item'), 'assessable': f.get('assessable'),
+                    'threshold_shape': f.get('threshold_shape'),
+                    'value_shape': f.get('value_shape'),
+                    'evidence_required': f.get('evidence_required'),
+                    'missing_means': f.get('missing_means'),
+                    'requirement_level': f.get('requirement_level'),
+                    'conditional_on': f.get('conditional_on'),
+                    'source_requirement': f.get('source_requirement') or [],
+                    'origin': f.get('origin'), 'compare': f.get('compare'),
+                    'new_in_standard': bool(f.get('new_in_standard')),
+                    'in_field_schema': bool(f.get('in_field_schema')),
+                    'note': f.get('note'),
+                } for f in s.get('fields') or []],
+            } for s in doc.get('sections') or []],
+        }
+        lv = collections.Counter(r.get('requirement_level') for r in rows)
+        std[which]['levels'] = {k: lv.get(k, 0) for k in ('required', 'conditional', 'optional')}
+        std[which]['assess'] = dict(collections.Counter(r.get('assessable') for r in rows))
+        std[which]['new_fields'] = [r['code'] for r in rows if r.get('new_in_standard')]
+
+    cv_items = {r.get('data_item') for r in _std_rows(std_in['cv'])}
+    jd_items = {r.get('data_item') for r in _std_rows(std_in['jd'])}
+    req_cov = []
+    for r in lib:
+        if not r.get('assessable'):
+            continue
+        item = r.get('attribute')
+        if r.get('components'):
+            ok = 'skill_*' in cv_items and 'skill_*' in jd_items
+            where = 'skill_*'
+        else:
+            ok = item in cv_items and item in jd_items
+            where = item
+        req_cov.append({'requirement': r['id'], 'data_item': where,
+                        'in_cv_template': ok, 'in_jd_template': ok})
+    std_cov = {
+        'requirements_assessable': len(req_cov),
+        'requirements_uncovered': [x['requirement'] for x in req_cov if not x['in_cv_template']],
+        'requirements': req_cov,
+        'jd_fields': len(_std_rows(std_in['jd'])), 'cv_fields': len(_std_rows(std_in['cv'])),
+        'jd_target': std_in['jd'].get('field_count_target'),
+        'cv_target': std_in['cv'].get('field_count_target'),
+    }
+
     return {
         '_doc': ('标准目录。数字全部由 scripts/talent/build_catalog.py 现算，'
                  '不手写；--check 可判断是否过期。'),
@@ -143,6 +227,8 @@ def build() -> dict:
         } for r in sorted(lib, key=lambda x: x['id'])],
         'jd_template': tpl('jd'),
         'cv_template': tpl('cv'),
+        'standard_templates': std,
+        'standard_coverage': std_cov,
         'coverage': {
             'categories': len(categories),
             'components': len(cat), 'requirements': len(lib), 'fields': len(fields),
@@ -164,9 +250,14 @@ def render(d: dict) -> str:
     A('# 标准目录 · 分类 / 组件 / JD 模板 / CV 模板')
     A('')
     A('> 数字由 `scripts/talent/build_catalog.py` 从三份 YAML 与五份 `jd_links` 现算，不手写。')
+    std = d['standard_templates']; sc = d['standard_coverage']
     A(f'> 分类 **{cov["categories"]}** · 组件 **{cov["components"]}** · 要求 **{cov["requirements"]}**'
-      f' · 字段 **{cov["fields"]}**（JD 模板 {d["jd_template"]["field_count"]} / '
-      f'CV 模板 {d["cv_template"]["field_count"]}）。')
+      f' · 标准模板 **JD {sc["jd_fields"]} / CV {sc["cv_fields"]}** 字段'
+      f'（客户实际字段 JD {d["jd_template"]["field_count"]} / CV {d["cv_template"]["field_count"]}）。')
+    A('')
+    A('两套模板是**两件事**：`templates/standard_*` 是公司标准（应该长什么样，来自 schema.org /'
+      ' JSON Resume / HR Open / BOSS 发布向导 + 推理所需数据项）；'
+      '`field_schema` 是客户实际（10 份 JD / 270 份简历里真长什么样）。')
     A('')
     A('## 先说缺口（要清理的就是这几张清单）')
     A('')
@@ -176,6 +267,7 @@ def render(d: dict) -> str:
     A(f'| 要求**没有被任何 JD 引用** | **{len(cov["requirements_unused"])}** | 标准建了没人用，要留还是删 |')
     A(f'| 组件**没有被任何要求挂** | **{len(cov["components_unused"])}** | 抽得出、判不到 |')
     A(f'| 要求**不可判**（assessable=false） | **{len(cov["requirements_unassessable"])}** | 对所有人一样，不能拿来淘汰人 |')
+    A(f'| 可判要求**没落到标准模板** | **{len(sc["requirements_uncovered"])}** | 判不了：JD 提了要求，简历侧没有落脚字段 |')
     A('')
     A('## 一、分类与组件')
     A('')
@@ -199,7 +291,49 @@ def render(d: dict) -> str:
           f'{("、".join(r.replace("REQ-", "") for r in x["requirements"])) or "—"} | '
           f'{("、".join(x["jds"])) or "—"} |')
     A('')
-    A('## 三、JD 模板（职务说明书）')
+    for which, title, sub in (
+            ('jd', '三、标准 JD 模板（公司标准 · 40 字段）', '职务说明书应该长什么样'),
+            ('cv', '四、标准 CV 模板（公司标准 · 26 字段）', '候选人档案应该长什么样')):
+        t = std[which]
+        lv = t['levels']
+        A(f'## {title}')
+        A('')
+        A(f'{sub}。共 **{t["field_count"]}** 字段'
+          f'（必需 {lv["required"]} / 条件 {lv["conditional"]} / 可选 {lv["optional"]}）'
+          f'· 目标 {t["field_count_target"]} 字段。')
+        A('')
+        A('| 段 | 段名 | 字段数 |')
+        A('|---|---|---|')
+        for s2 in t['sections']:
+            A(f'| {s2["code"]} | {s2["label_zh"]} | {len(s2["fields"])} |')
+        A('')
+        for s2 in t['sections']:
+            A(f'### {s2["code"]} · {s2["label_zh"]}（{len(s2["fields"])}）')
+            A('')
+            if which == 'jd':
+                A('| 字段 | 名称 | 层级 | 判定 | 数据项 | 门槛形状 | 证据 | 缺了算 | 要求 |')
+                A('|---|---|---|---|---|---|---|---|---|')
+                for f2 in s2['fields']:
+                    A(f'| `{f2["code"]}`{" 🆕" if f2["new_in_standard"] else ""} | {f2["label_zh"]} | '
+                      f'{f2["requirement_level"]} | {f2["assessable"]} | {f2["data_item"] or "—"} | '
+                      f'{f2["threshold_shape"] or "—"} | {f2["evidence_required"] or "—"} | '
+                      f'{f2["missing_means"] or "—"} | '
+                      f'{("、".join(r.replace("REQ-", "") for r in f2["source_requirement"])) or "—"} |')
+            else:
+                A('| 字段 | 名称 | 层级 | 判定 | 数据项 | 值形状 | 证据 | 缺了算 | 来源 |')
+                A('|---|---|---|---|---|---|---|---|---|')
+                for f2 in s2['fields']:
+                    A(f'| `{f2["code"]}`{" 🆕" if f2["new_in_standard"] else ""} | {f2["label_zh"]} | '
+                      f'{f2["requirement_level"]} | {f2["assessable"]} | {f2["data_item"] or "—"} | '
+                      f'{f2["value_shape"] or "—"} | {f2["evidence_required"] or "—"} | '
+                      f'{f2["missing_means"] or "—"} | '
+                      f'{("、".join(r.replace("REQ-", "") for r in f2["source_requirement"])) or "—"} |')
+            A('')
+        newf = t['new_fields']
+        if newf:
+            A(f'标准新增（`field_schema` 里还没有）：{"、".join(f"`{x}`" for x in newf)}')
+            A('')
+    A('## 五、客户实际字段 · JD（10 份 JD 里真长什么样）')
     A('')
     t = d['jd_template']
     A(f'共 **{t["field_count"]}** 个字段。规则：{t["rule"]}')
@@ -215,7 +349,7 @@ def render(d: dict) -> str:
               f'{f["presence"] if f["presence"] is not None else "—"} | '
               f'{"是" if f["required"] else "—"} | {note or "—"} |')
         A('')
-    A('## 四、CV 模板（候选人档案）')
+    A('## 六、客户实际字段 · CV（270 份简历里真长什么样）')
     A('')
     t = d['cv_template']
     A(f'共 **{t["field_count"]}** 个字段。规则：{t["rule"]}')
@@ -231,7 +365,7 @@ def render(d: dict) -> str:
               f'{f["presence"] if f["presence"] is not None else "—"} | '
               f'{f["prop"] or "—"} | {f["compare"] or "—"} | {note or "—"} |')
         A('')
-    A('## 五、要求清单（码 / 维度 / 类别 / 可判 / 被几个 JD 用）')
+    A('## 七、要求清单（码 / 维度 / 类别 / 可判 / 被几个 JD 用）')
     A('')
     A('| 码 | 名称 | 维度 | kind | 类别 | 可判 | 挂组件 | JD |')
     A('|---|---|---|---|---|---|---|---|')
@@ -262,7 +396,10 @@ def main() -> int:
     print(f'  分类 {cov["categories"]} · 组件 {cov["components"]}'
           f'（证据档已标 {cov["components_with_evidence_role"]}）'
           f' · 要求 {cov["requirements"]}（被引用 {cov["requirements_used_by_jds"]}）')
-    print(f'  JD 模板 {d["jd_template"]["field_count"]} 字段 · CV 模板 {d["cv_template"]["field_count"]} 字段')
+    sc = d['standard_coverage']
+    print(f'  标准模板 JD {sc["jd_fields"]} / CV {sc["cv_fields"]} 字段'
+          f' · 可判要求 {sc["requirements_assessable"]} 条（未覆盖 {len(sc["requirements_uncovered"])}）')
+    print(f'  客户实际字段 JD {d["jd_template"]["field_count"]} / CV {d["cv_template"]["field_count"]}')
     return 0
 
 

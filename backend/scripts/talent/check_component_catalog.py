@@ -1141,6 +1141,144 @@ def check_verdicts(vdir: pathlib.Path | None) -> None:
         not_run("判定说明门禁", "目录里没有 yaml")
 
 
+def check_standard_templates() -> None:
+    """公司标准模板（`work/talent/templates/standard_{jd,cv}_template.yaml`）。
+
+    客户模板（`field_schema`）回答"10 份 JD 实际长什么样";标准模板回答"应该长什么样"。
+    这两件事混在一起过一次,结果是 80 个字段里 25 个在客户 JD 里出现 0 次 —— 于是有人
+    想删掉它们。**错了**:那是客户漏填,不是标准不需要。所以标准模板单独存在,并用
+    "每条可判要求必须落到某个字段"来证明它够用。
+
+    这里守的六件事,每一件都能真的红:
+      ST-G1 文件在、能解析、版本与目标字段数写在文件里(不许靠记忆)
+      ST-G2 实际字段数 == 目标字段数(40 / 26)
+      ST-G3 code 不重复
+      ST-G4 可判字段四件套齐全(JD 侧门槛形状 / CV 侧值形状)—— 缺一项这条要求就判不了
+      ST-G5 缺数据时的口径只能是「未知」或「不可判」——
+            **混进「不满足」是把没读到当成不合格**,这是本仓库最贵的那个 bug
+      ST-G6 条件字段必须写清 conditional_on(否则它就是个永远不触发的装饰)
+      ST-G7 每条 assessable 要求的数据项,必须两个模板里都有落脚字段
+      ST-G8 BLOCKING 要求对应的 JD 标准字段必须是 required
+      ST-G9 已删字段(F.JD_PAGE_COUNT / F.JD_APPROVERS)不得出现;
+           已降级字段(职责权重/职级/职业编码)必须存在且是 optional
+    """
+    print("\n── 公司标准模板（JD 40 / CV 26）──")
+    tdir = ROOT / "work" / "talent" / "templates"
+    paths = {"jd": tdir / "standard_jd_template.yaml", "cv": tdir / "standard_cv_template.yaml"}
+    docs: dict[str, dict] = {}
+    for which, p in paths.items():
+        ok = p.is_file()
+        check_true(f"ST-G1 {p.name} 存在", ok, str(p))
+        if not ok:
+            return
+        try:
+            docs[which] = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+        except yaml.YAMLError as exc:  # noqa: BLE001
+            check_true(f"ST-G1 {p.name} 可解析", False, str(exc)[:120])
+            return
+        check_true(f"ST-G1 {p.name} 有版本与目标字段数",
+                   isinstance(docs[which].get("version"), int)
+                   and isinstance(docs[which].get("field_count_target"), int),
+                   "缺 version / field_count_target")
+
+    rows = {w: [dict(f, _sec=s.get("code"))
+                for s in docs[w].get("sections") or [] for f in (s.get("fields") or [])]
+            for w in docs}
+
+    # ST-G2 规模
+    for w in ("jd", "cv"):
+        n, tgt = len(rows[w]), docs[w].get("field_count_target")
+        check_true(f"ST-G2 {'JD' if w == 'jd' else 'CV'} 模板字段数 == 目标 {tgt}",
+                   n == tgt, f"实际 {n}")
+
+    # ST-G3 code 唯一（两个模板内各自唯一;跨模板允许同名 —— 性别/学历就是同一条数据项）
+    for w in ("jd", "cv"):
+        codes = [r["code"] for r in rows[w]]
+        dup = sorted({c for c in codes if codes.count(c) > 1})
+        check_true(f"ST-G3 {'JD' if w == 'jd' else 'CV'} 字段 code 唯一", not dup, "重复: " + ", ".join(dup))
+
+    # ST-G4 / ST-G5 / ST-G6 标注完整性
+    miss_annot, bad_missing, bad_cond = [], [], []
+    for w in ("jd", "cv"):
+        for r in rows[w]:
+            if r.get("assessable") == "judgeable":
+                shape = r.get("threshold_shape") if w == "jd" else r.get("value_shape")
+                if not (r.get("data_item") and shape and r.get("evidence_required")
+                        and r.get("missing_means")):
+                    miss_annot.append(f"{w}:{r['code']}")
+                if r.get("missing_means") not in ("未知", "不可判"):
+                    bad_missing.append(f"{w}:{r['code']}={r.get('missing_means')}")
+            if r.get("requirement_level") == "conditional" and not r.get("conditional_on"):
+                bad_cond.append(f"{w}:{r['code']}")
+    check_true("ST-G4 可判字段四件套齐全(data_item/形状/证据/缺了算)", not miss_annot,
+               ", ".join(miss_annot[:8]))
+    check_true("ST-G5 缺数据时只许「未知」或「不可判」", not bad_missing, ", ".join(bad_missing[:8]))
+    check_true("ST-G6 条件字段都写了 conditional_on", not bad_cond, ", ".join(bad_cond[:8]))
+
+    # ST-G7 每条可判要求 → 两个模板都落到字段
+    lib_path = LIBRARY
+    if not lib_path.is_file():
+        not_run("ST-G7 要求覆盖", f"找不到 {lib_path}")
+        return
+    lib = yaml.safe_load(lib_path.read_text(encoding="utf-8")) or {}
+    reqs = lib.get("requirements") or []
+    items = {w: {r.get("data_item") for r in rows[w] if r.get("data_item")} for w in ("jd", "cv")}
+    uncovered = []
+    for r in reqs:
+        if not r.get("assessable"):
+            continue
+        need = "skill_*" if r.get("components") else r.get("attribute")
+        if need not in items["jd"] or need not in items["cv"]:
+            uncovered.append(f"{r['id']}({need})")
+    n_assess = sum(1 for r in reqs if r.get("assessable"))
+    check_true(f"ST-G7 可判要求 {n_assess} 条全部落到两个模板", not uncovered,
+               "未落: " + ", ".join(uncovered[:8]))
+
+    # ST-G8 BLOCKING 要求必须 required（否则 JD 漏写这一条,闸门就拦不到人）
+    blocking = ("REQ-A-AGE-RANGE", "REQ-B-EDU-LEVEL", "REQ-HR-NOTICE", "REQ-HR-TENURE",
+                "REQ-HR-STABILITY", "REQ-HR-SALARY", "REQ-HR-COMMUTE")
+    jd_reqs = {rid: r for r in rows["jd"] for rid in (r.get("source_requirement") or [])}
+    not_req = []
+    for rid in blocking:
+        r = jd_reqs.get(rid)
+        if r is None:
+            not_req.append(f"{rid}: 标准模板里没有字段")
+        elif r.get("requirement_level") != "required":
+            not_req.append(f"{rid}: {r['code']} 是 {r.get('requirement_level')}")
+    check_true(f"ST-G8 BLOCKING {len(blocking)} 条在标准模板里都是必需", not not_req,
+               "; ".join(not_req))
+
+    # ST-G9 删的删干净、降级的真的降了
+    jd_codes = {r["code"] for r in rows["jd"]}
+    must_be_absent = {"F.JD_PAGE_COUNT", "F.JD_APPROVERS"}
+    leaked = sorted(must_be_absent & jd_codes)
+    check_true("ST-G9 已删字段(页数/核准审核制订)不在标准模板里", not leaked, ", ".join(leaked))
+    must_be_opt = {"F.JD_JOB_GRADE", "F.JD_OCCUPATION_CODE"}
+    wrong = []
+    for code in must_be_opt:
+        r = next((x for x in rows["jd"] if x["code"] == code), None)
+        if r is None:
+            wrong.append(f"{code}: 缺")
+        elif r.get("requirement_level") != "optional":
+            wrong.append(f"{code}: {r.get('requirement_level')}")
+    check_true("ST-G9 降级字段(职级/职业编码)在且为可选", not wrong, "; ".join(wrong))
+    # 职责权重不是降级而是**折进**「职责条目」:标准模板不为一个 0 出现率的子字段单开一行,
+    # 但也不许它悄悄消失 —— 折进去必须在目标字段里写明,否则下一个人不知道它去哪了。
+    merged = {"F.JD_DUTY_WEIGHT": "F.JD_DUTY_ITEMS"}
+    bad_merge = []
+    for src, dst in merged.items():
+        if src in jd_codes:
+            bad_merge.append(f"{src}: 说好折进 {dst},却还单列着")
+            continue
+        d = next((x for x in rows["jd"] if x["code"] == dst), None)
+        if d is None or "权重" not in (d.get("note") or ""):
+            bad_merge.append(f"{dst}: 没有写明吸收了 {src}")
+    check_true("ST-G9 折并字段(职责权重→职责条目)写明了去处", not bad_merge, "; ".join(bad_merge))
+
+    print(f"  · JD {len(rows['jd'])} 字段 · CV {len(rows['cv'])} 字段 · "
+          f"可判要求 {n_assess} 条全覆盖")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-db", action="store_true", help="只跑结构与自洽,不连库")
@@ -1231,6 +1369,11 @@ def main() -> int:
             check_true("短名单门禁跑完了(中途崩溃 = 红,不是通过)",
                        False, f"{type(exc).__name__}: {exc}")
         # 标准目录:分类/组件/模板的数字过期就红(它读三份 YAML,改一份没重跑必红)
+        try:
+            check_standard_templates()
+        except Exception as exc:  # noqa: BLE001
+            check_true("标准模板门禁跑完了(中途崩溃 = 红,不是通过)",
+                       False, f"{type(exc).__name__}: {exc}")
         try:
             import subprocess as _sp3
             _c = _sp3.run([sys.executable, "-m", "scripts.talent.build_catalog", "--check"],

@@ -253,6 +253,31 @@ export interface CatalogTemplate {
   name: string | null; rule: string | null; field_count: number;
   sections: { code: string; label: string; fields: CatalogField[] }[];
 }
+
+/** 公司标准模板的字段。比客户字段多四件事：判定口径、门槛形状、证据来源、缺了算什么。 */
+export interface StdField {
+  code: string; label_zh: string; label_en: string | null; dimension: string | null;
+  data_item: string | null; assessable: string | null;
+  threshold_shape?: string | null; value_shape?: string | null;
+  evidence_required: string | null; missing_means: string | null;
+  requirement_level: string; conditional_on: string | null;
+  source_requirement: string[]; origin?: string | null; compare?: string | null;
+  new_in_standard?: boolean; in_field_schema?: boolean; note: string | null;
+}
+export interface StdTemplate {
+  name: string | null; version: number | null; field_count_target: number | null;
+  field_count: number;
+  levels: { required: number; conditional: number; optional: number };
+  assess: Record<string, number>;
+  new_fields: string[];
+  sections: { code: string; label_zh: string; label_en: string | null; fields: StdField[] }[];
+}
+export interface StdCoverage {
+  requirements_assessable: number; requirements_uncovered: string[];
+  requirements: { requirement: string; data_item: string | null;
+                  in_cv_template: boolean; in_jd_template: boolean }[];
+  jd_fields: number; cv_fields: number; jd_target: number | null; cv_target: number | null;
+}
 export interface TalentCatalog {
   ok: boolean;
   categories: { name: string; components: CatalogComponent[] }[];
@@ -261,6 +286,9 @@ export interface TalentCatalog {
                   attribute: string | null; op: string | null; jds: string[] }[];
   jd_template: CatalogTemplate;
   cv_template: CatalogTemplate;
+  /** 公司标准（应该长什么样）—— 与下面的客户实际字段是两件事。 */
+  standard_templates: { jd: StdTemplate; cv: StdTemplate };
+  standard_coverage: StdCoverage;
   coverage: {
     categories: number; components: number; requirements: number; fields: number;
     components_with_evidence_role: number; components_evidence_role_missing: string[];

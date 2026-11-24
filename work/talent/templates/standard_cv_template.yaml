@@ -1,0 +1,415 @@
+_doc: 公司标准 CV 模板（26 字段 / 7 段）。与标准 JD 模板一一对应：**每条可判要求的数据项都必须在这里有落脚字段**，否则判不了。字段口径 = JSON Resume（basics/work/education/skills/languages/certificates）+
+  本仓库 ABox 属性 + 推理新增。
+version: 1
+field_count_target: 26
+sections:
+- code: C1
+  label_zh: 基本信息（A）
+  label_en: Basic info (A)
+  fields:
+  - code: F.CV_FULL_NAME
+    label_zh: 姓名
+    label_en: Full name
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    evidence_required: 原文
+    missing_means: 未知
+    source_requirement: []
+    requirement_level: required
+    in_field_schema: true
+    judge_role: provider
+  - code: F.GENDER
+    label_zh: 性别
+    label_en: Gender
+    dimension: A
+    data_item: A.1
+    assessable: judgeable
+    threshold_shape: null
+    value_shape: 闭集(男/女)
+    evidence_required: 原文
+    missing_means: 未知
+    source_requirement:
+    - REQ-A-GENDER
+    requirement_level: required
+    in_field_schema: true
+    judge_role: provider
+  - code: F.CV_AGE_BIRTH
+    label_zh: 年龄 / 出生年月
+    label_en: Age / date of birth
+    data_item: A.2
+    assessable: judgeable
+    threshold_shape: null
+    value_shape: 数值(岁) + 日期(出生年月)
+    evidence_required: 原文
+    missing_means: 未知
+    source_requirement:
+    - REQ-A-AGE-RANGE
+    requirement_level: required
+    new_in_standard: true
+    note: 两口径必须自洽：简历常只写出生年月，年龄由它推
+    judge_role: provider
+  - code: F.CV_CONTACT
+    label_zh: 联系方式（手机/邮箱）
+    label_en: Contact (phone / email)
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    evidence_required: 原文
+    missing_means: 未知
+    source_requirement: []
+    requirement_level: required
+    new_in_standard: true
+    judge_role: provider
+  - code: F.WORK_LOCATION
+    label_zh: 现居地
+    label_en: Current residence
+    data_item: A.4
+    assessable: judgeable
+    threshold_shape: null
+    value_shape: 布尔 + 单程分钟
+    evidence_required: 原文
+    missing_means: 未知
+    source_requirement:
+    - REQ-HR-COMMUTE
+    requirement_level: required
+    in_field_schema: true
+    note: 通勤判断的输入之一；另一输入是一面问到的接受度
+    judge_role: provider
+- code: C2
+  label_zh: 求职意向（A）
+  label_en: Job preference (A)
+  fields:
+  - code: F.SALARY_MAX_K
+    label_zh: 期望薪资上限(K)
+    label_en: Expected salary cap (K)
+    data_item: A.5
+    assessable: judgeable
+    threshold_shape: null
+    value_shape: 数值(K)
+    evidence_required: 原文 or 一面
+    missing_means: 未知
+    source_requirement:
+    - REQ-HR-SALARY
+    requirement_level: required
+    new_in_standard: true
+    note: 判定读的是**数值上限**，不是「8-12K」这段文本
+    judge_role: provider
+  - code: F.AVAILABILITY
+    label_zh: 到岗周期
+    label_en: Notice period
+    data_item: A.3
+    assessable: judgeable
+    threshold_shape: null
+    value_shape: 整数(周)
+    evidence_required: 一面
+    missing_means: 未知
+    source_requirement:
+    - REQ-HR-NOTICE
+    requirement_level: required
+    in_field_schema: true
+    judge_role: provider
+  - code: F.COMMUTE_OK
+    label_zh: 通勤可接受
+    label_en: Commute acceptable
+    data_item: A.4
+    assessable: judgeable
+    threshold_shape: null
+    value_shape: 布尔 + 单程分钟
+    evidence_required: 一面
+    missing_means: 未知
+    source_requirement:
+    - REQ-HR-COMMUTE
+    requirement_level: required
+    new_in_standard: true
+    note: 一面问「到厂单程多久、能否接受两班倒」——简历里永远没有
+    judge_role: provider
+  - code: F.JOB_TITLE
+    label_zh: 期望职位
+    label_en: Desired position
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    evidence_required: 原文
+    missing_means: 未知
+    source_requirement: []
+    requirement_level: optional
+    compare: not_comparable
+    in_field_schema: true
+    note: 与 JD「岗位名称」不是同一条信息，不可比
+    judge_role: provider
+- code: C3
+  label_zh: 教育（B）
+  label_en: Education (B)
+  fields:
+  - code: F.EDU_LEVEL
+    label_zh: 学历
+    label_en: Education level
+    dimension: B
+    data_item: B.1
+    assessable: judgeable
+    threshold_shape: null
+    value_shape: 闭集(学历等级)
+    evidence_required: 原文
+    missing_means: 未知
+    source_requirement:
+    - REQ-B-EDU-LEVEL
+    requirement_level: required
+    in_field_schema: true
+    judge_role: provider
+  - code: F.EDU_MAJOR
+    label_zh: 专业
+    label_en: Major
+    dimension: B
+    data_item: B.2
+    assessable: judgeable
+    threshold_shape: null
+    value_shape: 文本(专业名)
+    evidence_required: 原文
+    missing_means: 未知
+    source_requirement:
+    - REQ-B-MAJOR
+    requirement_level: required
+    in_field_schema: true
+    judge_role: provider
+  - code: F.EDU_FULLTIME
+    label_zh: 全日制
+    label_en: Full-time study
+    dimension: B
+    data_item: B.3
+    assessable: judgeable
+    threshold_shape: null
+    value_shape: 布尔
+    evidence_required: 原文 or 一面
+    missing_means: 未知
+    source_requirement:
+    - REQ-B-FULL-TIME
+    requirement_level: required
+    in_field_schema: true
+    note: 简历很少写（实测 0/270）→ 一面必须问；客户写了全日制门槛，缺这条就判不了
+    judge_role: provider
+  - code: F.CV_EDU_SCHOOL
+    label_zh: 院校 / 起止
+    label_en: Institution / period
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    evidence_required: 原文
+    missing_means: 未知
+    source_requirement: []
+    requirement_level: required
+    new_in_standard: true
+    note: 判定不用，但核学历真伪要看（与「全日制」互证）
+    judge_role: provider
+- code: C4
+  label_zh: 工作经历（C）
+  label_en: Work history (C)
+  fields:
+  - code: F.CV_EMPLOYER
+    label_zh: 逐段经历（公司/职位/起止/职责）
+    label_en: Work entries
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    evidence_required: 原文
+    missing_means: 未知
+    source_requirement: []
+    requirement_level: required
+    in_field_schema: true
+    note: 下面六个 C 类字段都从这一段的起止算出来
+    judge_role: provider
+  - code: F.EXP_YEARS
+    label_zh: 总年限（自述）
+    label_en: Total years (stated)
+    dimension: C
+    data_item: C.1
+    assessable: judgeable
+    threshold_shape: null
+    value_shape: 数值(年,自述)
+    evidence_required: 原文
+    missing_means: 未知
+    source_requirement:
+    - REQ-C-YEARS-DOMAIN
+    requirement_level: required
+    in_field_schema: true
+    judge_role: provider
+  - code: F.YEARS_COMPUTED
+    label_zh: 累计年限（逐段）
+    label_en: Computed years
+    data_item: C.6
+    assessable: judgeable
+    threshold_shape: null
+    value_shape: 数值(年,推算)
+    evidence_required: 推断(逐段)
+    missing_means: 未知
+    source_requirement: []
+    requirement_level: required
+    new_in_standard: true
+    note: 由工作段起止算，未必等于自述 —— 两个口径都要露，差太多要问
+    judge_role: provider
+  - code: F.AVG_TENURE
+    label_zh: 平均在职年限
+    label_en: Average tenure (years)
+    data_item: C.4
+    assessable: judgeable
+    threshold_shape: null
+    value_shape: 数值(年,推算)
+    evidence_required: 推断(逐段)
+    missing_means: 未知
+    source_requirement:
+    - REQ-HR-TENURE
+    requirement_level: required
+    new_in_standard: true
+    judge_role: provider
+  - code: F.RECENT5Y_SEGMENTS
+    label_zh: 近 5 年任职段数
+    label_en: Segments in last 5 years
+    data_item: C.7
+    assessable: judgeable
+    threshold_shape: null
+    value_shape: 整数(段)
+    evidence_required: 推断(逐段)
+    missing_means: 未知
+    source_requirement:
+    - REQ-HR-STABILITY
+    requirement_level: required
+    new_in_standard: true
+    judge_role: provider
+  - code: F.EXP_DOMAIN
+    label_zh: 职能域
+    label_en: Functional domain
+    dimension: C
+    data_item: C.2
+    assessable: judgeable
+    threshold_shape: null
+    value_shape: 闭集(领域)
+    evidence_required: 一面
+    missing_means: 未知
+    source_requirement:
+    - REQ-C-YEARS-DOMAIN
+    requirement_level: conditional
+    conditional_on: JD 写了领域年限
+    in_field_schema: true
+    note: 简历常读不出 → 一面问
+    judge_role: provider
+  - code: F.EXP_INDUSTRY
+    label_zh: 行业
+    label_en: Industry
+    dimension: C
+    data_item: C.3
+    assessable: judgeable
+    threshold_shape: null
+    value_shape: 闭集(行业)
+    evidence_required: 原文 or 一面
+    missing_means: 未知
+    source_requirement:
+    - REQ-D-HARNESS-DOMAIN
+    requirement_level: conditional
+    conditional_on: JD 写了行业
+    in_field_schema: true
+    judge_role: provider
+- code: C5
+  label_zh: 技能与证书（D/F）
+  label_en: Skills & certificates (D/F)
+  fields:
+  - code: F.SKILL
+    label_zh: 技能清单（含熟练度/证据）
+    label_en: Skills (with level & evidence)
+    dimension: D
+    data_item: skill_*
+    assessable: judgeable
+    threshold_shape: null
+    value_shape: 闭集(组件) × 熟练度 × 引文
+    evidence_required: 原文 or 一面坐实
+    missing_means: 未知
+    source_requirement:
+    - REQ-D-*
+    requirement_level: required
+    in_field_schema: true
+    note: 每行 = 一个组件 + 熟练度 + 引文 + evidence_role(hard/soft)
+    judge_role: provider
+  - code: F.LANGUAGE_LEVEL
+    label_zh: 语言水平（口语/书面）
+    label_en: Language level
+    dimension: H
+    data_item: skill_语言
+    assessable: judgeable
+    threshold_shape: null
+    value_shape: 文本
+    evidence_required: 一面
+    missing_means: 未知
+    source_requirement:
+    - REQ-H-LANG-EN
+    requirement_level: conditional
+    conditional_on: JD 写了外语要求
+    in_field_schema: true
+    judge_role: provider
+  - code: F.CERTIFICATION
+    label_zh: 证书（含培训记录）
+    label_en: Certificates (incl. training)
+    dimension: F
+    data_item: F.3
+    assessable: judgeable
+    threshold_shape: null
+    value_shape: 闭集(证书清单) + 扫描件
+    evidence_required: 原文(扫描件)
+    missing_means: 未知
+    source_requirement:
+    - REQ-F-TRADE-COMPLIANCE-TRAINING
+    requirement_level: optional
+    in_field_schema: true
+    judge_role: provider
+- code: C6
+  label_zh: 合规（G）
+  label_en: Compliance (G)
+  fields:
+  - code: F.CLEARANCE
+    label_zh: 背调项（无犯罪/保密/竞业）
+    label_en: Background checks
+    dimension: G
+    data_item: G.1
+    assessable: judgeable
+    threshold_shape: null
+    value_shape: 布尔 + 背调附件
+    evidence_required: 背调
+    missing_means: 未知
+    source_requirement:
+    - REQ-G-NO-CRIMINAL-RECORD
+    - REQ-G-CONFIDENTIALITY
+    requirement_level: optional
+    in_field_schema: true
+    note: 入职前核；在此之前一律「未知」。**不许**在判定里当「不满足」
+    judge_role: provider
+- code: C7
+  label_zh: 证据与来源（本仓库新增）
+  label_en: Evidence & provenance (new)
+  fields:
+  - code: F.EVIDENCE_LEVEL
+    label_zh: 每字段证据等级
+    label_en: Evidence level per field
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: required
+    new_in_standard: true
+    note: 原文 / 一面 / 推断 / 背调；能力类另标 hard/soft。没有这层，「满足」与「未知」分不开
+    judge_role: provider
+  - code: F.BASIS
+    label_zh: 答案来源
+    label_en: Answer basis
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: required
+    new_in_standard: true
+    note: interview / simulated —— 代拟答案默认不进判定
+    judge_role: provider

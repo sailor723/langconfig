@@ -808,3 +808,96 @@ GUI 里两个入口看着都像「CV ↔ JD 搭建」，实际是两个东西：
 
 - `zh → en → zh → en` 来回切换实测，两种语言的 h1 与左列都正确
 - 总门禁：**417 checks · 0 failed · green**
+
+## 二十五、2026-11-23 · 公司标准 JD / CV 模板（40 / 26 字段）+ 门禁 ST-G1…G9
+
+### 为什么要拆出"标准"这一层
+
+原先只有 `work/talent/field_schema.yaml`：**从客户 10 份 JD 与 270 份简历统计出来的字段表**
+（JD 66 / CV 31）。它回答的是"实际长什么样"。审这份表时发现两个相反方向的问题：
+
+| 现象 | 数 | 说明 |
+|---|---|---|
+| JD 字段里**出现 0 次**的 | 25 | 其中 19 个是**标准必须有**的（岗位类别、岗位目的、KPI、薪资、工作地点、到岗、有效期、编制、班制、环境、劳保、竞业、决策权限、预算责任、管理幅度、跨部门、招聘原因…）—— 客户漏填，不是标准不需要 |
+| **判定要读、却根本没有字段**的 | 8 | `commute_ok` / `salary_max_k`（A.4、A.5）、`avg_tenure_years`（C.4）、`yearsComputed`（C.6）、`recent5y_segments`（C.7），外加 `education_rank` / `full_time` / `years_stated` 三处命名分裂 |
+
+所以拆成两套，各管一件事：
+
+| 文件 | 回答 | 规模 |
+|---|---|---|
+| `templates/standard_jd_template.yaml` | 职务说明书**应该**长什么样 | **40** 字段（必需 22 / 条件 9 / 可选 9）· 10 段 |
+| `templates/standard_cv_template.yaml` | 候选人档案**应该**长什么样 | **26** 字段（必需 20 / 条件 3 / 可选 3）· 7 段 |
+| `field_schema.yaml`（不动） | 客户 10 份 JD / 270 份简历**实际**长什么样 | JD 66 / CV 31 |
+
+字段口径不是拍脑袋：schema.org JobPosting（datePosted / validThrough / employmentType / totalJobOpenings /
+jobLocation / baseSalary）、Google Jobs 的结构化数据要求、JSON Resume（basics / work / education /
+skills / languages / certificates）、HR Open Standards（JobGrade、Competency）、BOSS直聘发布向导的
+最小必填集，再加上本仓库 `requirement_library` 里**判定真正要读的 14 个属性 + 54 个组件**。
+
+### 每个字段的六件标注（缺一件这条要求就判不了）
+
+`dimension / data_item / assessable / threshold_shape（JD 侧）/ value_shape（CV 侧）/ evidence_required /
+missing_means / source_requirement / requirement_level / conditional_on`
+
+关键约定：
+
+- **`missing_means` 只能是「未知」或「不可判」**。写「不满足」＝把没读到当成不合格，那是本仓库最贵的那个 bug。
+- **供给侧的 CV 字段没有"门槛"** —— 门槛在 JD 侧，CV 侧只有"值长什么样"（`value_shape`）+ `judge_role: provider`。
+- **条件字段必须写 `conditional_on`**：一线岗（员工岗）自动要 班制/作业环境，经理岗自动要 决策与预算权限/跨部门。
+  判"是不是经理岗"不许按岗位名猜 —— 客户原文可能写「直接下属：无」。
+- **素质（E）类 22 条要求**在标准模板里只占 1 个字段（`F.COMPETENCY`），`assessable: not_judgeable`。
+  对所有人「不可判」，不许拿来淘汰人。
+
+### 按"决定"落地的删 / 降 / 折
+
+| 处理 | 字段 | 怎么落 |
+|---|---|---|
+| 删 | 页数 `F.JD_PAGE_COUNT`、核准/审核/制订 `F.JD_APPROVERS` | 标准模板里**不许出现**（ST-G9 守） |
+| 降级为可选(内部) | 职级 `F.JD_JOB_GRADE`、职业编码 `F.JD_OCCUPATION_CODE` | 在且 `requirement_level: optional` |
+| 折进别的字段 | 职责权重 → 职责条目、管理幅度 → 直接下属、行业 → 领域/行业、排期交接 → 班制、环境/体力/劳保 → 作业环境、决策权限+预算责任 → 决策与预算权限、发布日期+截止日期 → 发布窗口 | 折进去必须在目标字段 `note` 写明，否则下一个人不知道它去哪了（ST-G9 守） |
+| 标准新增 | JD 5 个：编制人数、雇佣类型、作业环境、决策与预算权限、发布窗口<br>CV 10 个：年龄/出生、联系方式、期望薪资上限(K)、通勤可接受、院校/起止、累计年限、平均在职、近5年段数、每字段证据等级、答案来源 | 标 `new_in_standard: true`，界面显示「·新」 |
+
+### 门禁 ST-G1…G9（16 项检查，每条都做过变异测试）
+
+```
+G1 文件在/可解析/写了版本与目标字段数   G2 实际字段数 == 目标(40/26)
+G3 字段 code 唯一                      G4 可判字段四件套齐全
+G5 缺数据只许「未知/不可判」            G6 条件字段都有 conditional_on
+G7 34 条可判要求全部落到两个模板        G8 BLOCKING 7 条在标准模板里都是必需
+G9 删的删干净、降级的真降了、折并的写明了去处
+```
+
+**G7 是这套模板存在的理由**：每条可判要求的数据项，必须在 JD 模板与 CV 模板里**都**有落脚字段，
+否则就会出现"JD 提了要求、简历侧没有字段可读"——那也是「未知」的另一种成因（不是候选人没有，是我们没问）。
+
+**G8 是防漏**：7 条 BLOCKING（年龄/学历/到岗/平均在职/近5年/薪资上限/通勤）如果哪条在标准模板里
+不是必需，那 JD 一旦漏写这一条，闸门就**拦不到人** —— 门禁会把"某条被悄悄降级"直接判红。
+
+变异测试（每次只改一处，跑完还原，sha256 校验已还原）：
+
+| 变异 | 结果 |
+|---|---|
+| 去掉 `F.AGE` 的门槛形状 | 🔴 ST-G4 |
+| 缺数据写成「不满足」 | 🔴 ST-G5 |
+| 删掉 `F.HR_COMMUTE`（A.4 失去 JD 落脚） | 🔴 ST-G2 + G7 + G8 |
+| CV 侧所有 A.4 提供者都改成 A.9 | 🔴 ST-G7（34 条 → 1 条未落） |
+| 偷偷加回「页数」 | 🔴 ST-G2 + G9 |
+| 目标字段数改 30 | 🔴 ST-G2 |
+| 条件字段不写 conditional_on | 🔴 ST-G6 |
+| CV 值形状删掉 | 🔴 ST-G4 |
+| 稳定性要求降成 optional | 🔴 ST-G8 |
+| 什么都不改 | 🟢 0 失败 |
+
+### 界面
+
+侧栏「0 标准目录」新增两页：**标准 JD 模板** / **标准 CV 模板**（段 → 字段表：层级 / 判定 / 数据项 /
+门槛或值形状 / 证据来源 / 缺了算 / 来源要求）；原来的两页改名为 **客户 JD 字段** / **客户 CV 字段**，
+顶部概览同时给两组数（标准 40/26 · 客户实际 66/31），并显示"可判要求 34 → 没有落脚字段的 0"。
+缺口页不动。字段名/段名中英双语，跟全局语言设置走。
+
+### 验证
+
+- 总门禁：**434 checks · 0 failed · green**（新增 16 项 ST 检查）
+- `npm run build` 通过；`GET /api/talent/catalog` 实测返回 `standard_templates` 与 `standard_coverage`
+- 局限（照旧说）：**0 场真实面试**；这 40/26 是**公司标准草案**，客户（兴业/嘉瑞等）尚未逐字段确认；
+  素质类 22 条要求仍无数据项；39/54 组件仍没标证据档

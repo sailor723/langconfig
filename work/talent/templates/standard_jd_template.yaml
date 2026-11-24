@@ -1,0 +1,547 @@
+_doc: 公司标准 JD 模板（40 字段 / 10 段）。**不是**从客户 10 份 JD 统计出来的——那 10 份是填好的实例，缺字段是客户的问题，不是标准的问题。
+version: 1
+field_count_target: 40
+sections:
+- code: S1
+  label_zh: 岗位标识
+  label_en: Position identity
+  fields:
+  - code: F.JOB_TITLE
+    label_zh: 岗位名称
+    label_en: Job title
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: required
+    in_field_schema: true
+    note: 定稿后的对外名称；客户原文名称另存 doc_title
+  - code: F.MGMT_CATEGORY
+    label_zh: 岗位类别
+    label_en: Position category
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: required
+    in_field_schema: true
+    note: 经理岗/员工岗 —— 决定用哪套条件字段。**不许按岗位名猜**：客户原文可能写「直接下属：无」
+  - code: F.DEPARTMENT
+    label_zh: 隶属部门
+    label_en: Department
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: required
+    in_field_schema: true
+  - code: F.REPORTS_TO
+    label_zh: 直接上司
+    label_en: Reports to
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: required
+    in_field_schema: true
+  - code: F.SUPERVISES
+    label_zh: 直接下属〔含管理幅度〕
+    label_en: Direct reports (incl. span)
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: required
+    in_field_schema: true
+    note: 合并原「管理幅度」：几个下属、什么层级，一条写清
+  - code: F.JD_HEADCOUNT
+    label_zh: 编制人数
+    label_en: Headcount
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: required
+    new_in_standard: true
+    note: schema.org totalJobOpenings / BOSS 发布必填
+  - code: F.WORK_LOCATION
+    label_zh: 工作地点
+    label_en: Work location
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: required
+    in_field_schema: true
+    note: 发布必需（schema.org jobLocation）。客户 10 份全没写 → 定稿必须补齐并标「我方填写」
+  - code: F.EMPLOYMENT_TYPE
+    label_zh: 雇佣类型
+    label_en: Employment type
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: required
+    new_in_standard: true
+    note: 全职/兼职/实习（schema.org employmentType / BOSS 必填）
+  - code: F.JD_JOB_GRADE
+    label_zh: 职级
+    label_en: Job grade
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: optional
+    in_field_schema: true
+    note: HR Open JobGrade：内部用，不对外发布
+  - code: F.JD_OCCUPATION_CODE
+    label_zh: 职业编码
+    label_en: Occupation code
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: optional
+    in_field_schema: true
+    note: 《职业分类大典》编码：对外发布用，判定不用
+- code: S2
+  label_zh: 岗位目的
+  label_en: Job purpose
+  fields:
+  - code: F.JD_JOB_PURPOSE
+    label_zh: 岗位目的
+    label_en: Job purpose
+    data_item: null
+    assessable: not_judgeable
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: required
+    in_field_schema: true
+    note: 一句话：为什么设这个岗。只作上下文，不进判定
+  - code: F.JD_SUCCESS_CRITERIA
+    label_zh: 关键成功指标
+    label_en: Key success metrics
+    data_item: null
+    assessable: not_judgeable
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: required
+    in_field_schema: true
+    note: 3~5 条可量化指标：作试用期考核与「优先条件」来源，不进判定
+  - code: F.TEAM_GOAL
+    label_zh: 团队目标
+    label_en: Team goals
+    data_item: null
+    assessable: not_judgeable
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: conditional
+    conditional_on: 岗位类别=经理岗
+    in_field_schema: true
+- code: S3
+  label_zh: 门槛（A 人口 / B 教育 / C 经历）
+  label_en: Thresholds (A/B/C)
+  fields:
+  - code: F.AGE
+    label_zh: 年龄区间
+    label_en: Age range
+    dimension: A
+    data_item: A.2
+    assessable: judgeable
+    threshold_shape: 区间(岁)
+    value_shape: null
+    evidence_required: 原文
+    missing_means: 未知
+    source_requirement:
+    - REQ-A-AGE-RANGE
+    requirement_level: required
+    in_field_schema: true
+  - code: F.GENDER
+    label_zh: 性别要求
+    label_en: Gender requirement
+    dimension: A
+    data_item: A.1
+    assessable: judgeable
+    threshold_shape: 闭集
+    value_shape: null
+    evidence_required: 原文
+    missing_means: 未知
+    source_requirement:
+    - REQ-A-GENDER
+    requirement_level: optional
+    in_field_schema: true
+    note: 除非有法律依据或岗位客观必要（涉密/更衣），否则留空 —— 留空=不筛，不许默认筛选
+  - code: F.EDU_LEVEL
+    label_zh: 学历下限
+    label_en: Minimum education
+    dimension: B
+    data_item: B.1
+    assessable: judgeable
+    threshold_shape: 顺序(≥等级)
+    value_shape: null
+    evidence_required: 原文
+    missing_means: 未知
+    source_requirement:
+    - REQ-B-EDU-LEVEL
+    requirement_level: required
+    in_field_schema: true
+  - code: F.EDU_MAJOR
+    label_zh: 专业范围
+    label_en: Major scope
+    dimension: B
+    data_item: B.2
+    assessable: judgeable
+    threshold_shape: 闭集 或 开区间(写清"等")
+    value_shape: null
+    evidence_required: 原文
+    missing_means: 未知
+    source_requirement:
+    - REQ-B-MAJOR
+    requirement_level: required
+    in_field_schema: true
+    note: 必须写明是枚举还是开区间：客户写「机械工程等」按闭集判会误杀（DEF-04，故意不过闸）
+  - code: F.EDU_FULLTIME
+    label_zh: 全日制要求
+    label_en: Full-time study required
+    dimension: B
+    data_item: B.3
+    assessable: judgeable
+    threshold_shape: 布尔
+    value_shape: null
+    evidence_required: 原文 or 一面
+    missing_means: 未知
+    source_requirement:
+    - REQ-B-FULL-TIME
+    requirement_level: conditional
+    conditional_on: 客户写了全日制
+    in_field_schema: true
+  - code: F.EXP_YEARS
+    label_zh: 工作年限
+    label_en: Years of experience
+    dimension: C
+    data_item: C.1
+    assessable: judgeable
+    threshold_shape: 区间(年)
+    value_shape: null
+    evidence_required: 原文
+    missing_means: 未知
+    source_requirement:
+    - REQ-C-YEARS-DOMAIN
+    requirement_level: required
+    in_field_schema: true
+  - code: F.EXP_DOMAIN
+    label_zh: 领域/行业限定
+    label_en: Domain & industry scope
+    dimension: C
+    data_item: C.2
+    assessable: judgeable
+    threshold_shape: 闭集(领域) [+ 闭集(行业)]
+    value_shape: null
+    evidence_required: 一面
+    missing_means: 未知
+    source_requirement:
+    - REQ-C-YEARS-DOMAIN
+    - REQ-D-HARNESS-DOMAIN
+    requirement_level: conditional
+    conditional_on: JD 写了领域或行业年限
+    in_field_schema: true
+    note: 合并原「行业要求」：领域与行业分两行写，但同一条要求判
+  - code: F.HR_STABILITY
+    label_zh: 平均在职不低于
+    label_en: Average tenure at least
+    data_item: C.4
+    assessable: judgeable
+    threshold_shape: 区间(年)
+    value_shape: null
+    evidence_required: 推断(逐段累计)
+    missing_means: 未知
+    source_requirement:
+    - REQ-HR-TENURE
+    requirement_level: required
+    origin: hr
+    note: 客户 HR 闸门（BLOCKING）→ 标准模板里必须存在，否则 JD 漏写就无法拦
+  - code: F.HR_RECENT_SEGMENTS
+    label_zh: 近 5 年任职不超过
+    label_en: Recent-5y job changes at most
+    data_item: C.7
+    assessable: judgeable
+    threshold_shape: 整数上限
+    value_shape: null
+    evidence_required: 推断(工作段)
+    missing_means: 未知
+    source_requirement:
+    - REQ-HR-STABILITY
+    requirement_level: required
+    origin: hr
+- code: S4
+  label_zh: 能力（D）
+  label_en: Capabilities (D)
+  fields:
+  - code: F.SKILL
+    label_zh: 能力要求（逐条）
+    label_en: Capability requirements (per item)
+    dimension: D
+    data_item: skill_*
+    assessable: judgeable
+    threshold_shape: any_of n / all_of（每条单独声明）
+    value_shape: null
+    evidence_required: 原文 or 一面坐实
+    missing_means: 未知
+    source_requirement:
+    - REQ-D-*
+    requirement_level: required
+    in_field_schema: true
+    note: 值域 = component_catalog 的 54 个组件；每条带 evidence_role(hard/soft)。软件/设备/系统都是它的子类（ERP、Excel、CAD、检测设备），不再单列
+  - code: F.EQUIPMENT
+    label_zh: 设备操作（专项）
+    label_en: Equipment operation
+    data_item: skill_*(equipment)
+    assessable: judgeable
+    threshold_shape: any_of n
+    value_shape: null
+    evidence_required: 一面坐实
+    missing_means: 未知
+    source_requirement:
+    - REQ-D-WIRE-EQUIPMENT
+    requirement_level: conditional
+    conditional_on: 岗位涉及产线设备
+  - code: F.LANGUAGE_LEVEL
+    label_zh: 语言要求（分档）
+    label_en: Language requirement (graded)
+    dimension: H
+    data_item: skill_语言
+    assessable: judgeable
+    threshold_shape: 分档：口语 / 书面 各一档
+    value_shape: null
+    evidence_required: 一面
+    missing_means: 未知
+    source_requirement:
+    - REQ-H-LANG-EN
+    requirement_level: optional
+    in_field_schema: true
+    note: 口语与书面必须分开：客户常写「口语熟练 + 能独立写 8D」，是两件事
+- code: S5
+  label_zh: 资质与合规（F/G）
+  label_en: Credentials & compliance (F/G)
+  fields:
+  - code: F.CERTIFICATION
+    label_zh: 证书/资质
+    label_en: Certificates & licences
+    dimension: F
+    data_item: F.3
+    assessable: judgeable
+    threshold_shape: 闭集(证书清单)
+    value_shape: null
+    evidence_required: 原文(扫描件)
+    missing_means: 未知
+    source_requirement:
+    - REQ-F-TRADE-COMPLIANCE-TRAINING
+    requirement_level: optional
+    in_field_schema: true
+  - code: F.CLEARANCE
+    label_zh: 背景合规
+    label_en: Background compliance
+    dimension: G
+    data_item: G.1
+    assessable: judgeable
+    threshold_shape: 布尔
+    value_shape: null
+    evidence_required: 背调
+    missing_means: 未知
+    source_requirement:
+    - REQ-G-NO-CRIMINAL-RECORD
+    requirement_level: optional
+    in_field_schema: true
+    note: 无犯罪/学历真伪：简历不写、一面也不该问 → 入职前核；在此之前一律「未知」，不打分
+  - code: F.CONFIDENTIALITY
+    label_zh: 保密与竞业
+    label_en: Confidentiality & non-compete
+    data_item: G.2
+    assessable: judgeable
+    threshold_shape: 布尔
+    value_shape: null
+    evidence_required: 背调
+    missing_means: 未知
+    source_requirement:
+    - REQ-G-CONFIDENTIALITY
+    requirement_level: conditional
+    conditional_on: 涉密岗位
+- code: S6
+  label_zh: 素质（E）—— 列名但不判
+  label_en: Competencies (E) — named, not judged
+  fields:
+  - code: F.COMPETENCY
+    label_zh: 素质要求
+    label_en: Competency requirements
+    dimension: E
+    data_item: null
+    assessable: not_judgeable
+    threshold_shape: null
+    value_shape: null
+    missing_means: 不可判
+    source_requirement:
+    - REQ-E-*
+    requirement_level: optional
+    in_field_schema: true
+    note: 沟通/抗压/责任心/团队协作等：**没有任何数据项**，对所有人「不可判」，不许拿来淘汰人。要判只能另做结构化面试量表（目前还没有）
+- code: S7
+  label_zh: 职责与作业明细
+  label_en: Duties & tasks
+  fields:
+  - code: F.JD_DUTY_ITEMS
+    label_zh: 职责条目
+    label_en: Duty items
+    data_item: null
+    assessable: not_judgeable
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: required
+    in_field_schema: true
+    note: 逐条职责（含可选的职责↔能力映射、权重）：用于核对经历是否对得上，不进判定
+- code: S8
+  label_zh: 工作条件（一线岗必填）
+  label_en: Working conditions (frontline)
+  fields:
+  - code: F.SHIFT
+    label_zh: 班制
+    label_en: Shift pattern
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: conditional
+    conditional_on: 岗位类别=员工岗
+    in_field_schema: true
+    note: 含原「排期交接」；两班倒/三班倒/常白班/轮休
+  - code: F.JD_WORK_ENV
+    label_zh: 作业环境
+    label_en: Work environment
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: conditional
+    conditional_on: 岗位类别=员工岗
+    new_in_standard: true
+    note: 合并原「工作环境 / 体力要求 / 劳保用品」：温度噪音粉尘、体力强度、劳保配置，一条写清
+  - code: F.JD_TRAVEL
+    label_zh: 出差要求
+    label_en: Travel requirement
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: optional
+    in_field_schema: true
+- code: S9
+  label_zh: 管理责任（经理岗必填）
+  label_en: Management scope (manager)
+  fields:
+  - code: F.DECISION_BUDGET
+    label_zh: 决策与预算权限
+    label_en: Decision & budget authority
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: conditional
+    conditional_on: 岗位类别=经理岗
+    new_in_standard: true
+    note: 合并原「决策权限 / 预算责任」
+  - code: F.CROSS_DEPT
+    label_zh: 跨部门协作
+    label_en: Cross-department scope
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: conditional
+    conditional_on: 岗位类别=经理岗
+    in_field_schema: true
+- code: S10
+  label_zh: HR 侧与发布元数据
+  label_en: HR side & posting metadata
+  fields:
+  - code: F.AVAILABILITY
+    label_zh: 到岗周期
+    label_en: Notice period
+    data_item: A.3
+    assessable: judgeable
+    threshold_shape: 周数上限
+    value_shape: null
+    evidence_required: 一面
+    missing_means: 未知
+    source_requirement:
+    - REQ-HR-NOTICE
+    requirement_level: required
+    origin: hr
+    in_field_schema: true
+  - code: F.HR_SALARY_CAP
+    label_zh: 薪资上限（预算）
+    label_en: Salary cap (budget)
+    data_item: A.5
+    assessable: judgeable
+    threshold_shape: 数值上限(K)
+    value_shape: null
+    evidence_required: 客户预算
+    missing_means: 不可判
+    source_requirement:
+    - REQ-HR-SALARY
+    requirement_level: required
+    origin: hr
+    note: 客户没给预算 → 这条「不可判」，不许拿候选人的期望薪资当门槛
+  - code: F.HR_COMMUTE
+    label_zh: 可接受通勤
+    label_en: Commute acceptable
+    data_item: A.4
+    assessable: judgeable
+    threshold_shape: 布尔 / 单程分钟
+    value_shape: null
+    evidence_required: 一面
+    missing_means: 不可判
+    source_requirement:
+    - REQ-HR-COMMUTE
+    requirement_level: required
+    origin: hr
+  - code: F.JD_POSTING_WINDOW
+    label_zh: 发布窗口（起/止）
+    label_en: Posting window
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: required
+    new_in_standard: true
+    note: 合并原「发布日期 / 截止日期」（schema.org datePosted / validThrough）
+  - code: F.JD_HIRING_REASON
+    label_zh: 招聘原因
+    label_en: Hiring reason
+    data_item: null
+    assessable: internal
+    threshold_shape: null
+    value_shape: null
+    source_requirement: []
+    requirement_level: optional
+    origin: hr
+    in_field_schema: true
+    note: 新增编/替补/储备：影响是否放宽年限，不进判定

@@ -3151,6 +3151,1793 @@
    }
   ]
  },
+ "standard_templates": {
+  "jd": {
+   "name": "公司标准 JD 模板（40 字段 / 10 段）。**不是**从客户 10 份 JD 统计出来的——那 10 份是填好的实例，缺字段是客户的问题，不是标准的问题。",
+   "_doc": "公司标准 JD 模板（40 字段 / 10 段）。**不是**从客户 10 份 JD 统计出来的——那 10 份是填好的实例，缺字段是客户的问题，不是标准的问题。",
+   "version": 1,
+   "field_count_target": 40,
+   "field_count": 40,
+   "sections": [
+    {
+     "code": "S1",
+     "label_zh": "岗位标识",
+     "label_en": "Position identity",
+     "fields": [
+      {
+       "code": "F.JOB_TITLE",
+       "label_zh": "岗位名称",
+       "label_en": "Job title",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "定稿后的对外名称；客户原文名称另存 doc_title"
+      },
+      {
+       "code": "F.MGMT_CATEGORY",
+       "label_zh": "岗位类别",
+       "label_en": "Position category",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "经理岗/员工岗 —— 决定用哪套条件字段。**不许按岗位名猜**：客户原文可能写「直接下属：无」"
+      },
+      {
+       "code": "F.DEPARTMENT",
+       "label_zh": "隶属部门",
+       "label_en": "Department",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": null
+      },
+      {
+       "code": "F.REPORTS_TO",
+       "label_zh": "直接上司",
+       "label_en": "Reports to",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": null
+      },
+      {
+       "code": "F.SUPERVISES",
+       "label_zh": "直接下属〔含管理幅度〕",
+       "label_en": "Direct reports (incl. span)",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "合并原「管理幅度」：几个下属、什么层级，一条写清"
+      },
+      {
+       "code": "F.JD_HEADCOUNT",
+       "label_zh": "编制人数",
+       "label_en": "Headcount",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": true,
+       "in_field_schema": false,
+       "note": "schema.org totalJobOpenings / BOSS 发布必填"
+      },
+      {
+       "code": "F.WORK_LOCATION",
+       "label_zh": "工作地点",
+       "label_en": "Work location",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "发布必需（schema.org jobLocation）。客户 10 份全没写 → 定稿必须补齐并标「我方填写」"
+      },
+      {
+       "code": "F.EMPLOYMENT_TYPE",
+       "label_zh": "雇佣类型",
+       "label_en": "Employment type",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": true,
+       "in_field_schema": false,
+       "note": "全职/兼职/实习（schema.org employmentType / BOSS 必填）"
+      },
+      {
+       "code": "F.JD_JOB_GRADE",
+       "label_zh": "职级",
+       "label_en": "Job grade",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "optional",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "HR Open JobGrade：内部用，不对外发布"
+      },
+      {
+       "code": "F.JD_OCCUPATION_CODE",
+       "label_zh": "职业编码",
+       "label_en": "Occupation code",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "optional",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "《职业分类大典》编码：对外发布用，判定不用"
+      }
+     ]
+    },
+    {
+     "code": "S2",
+     "label_zh": "岗位目的",
+     "label_en": "Job purpose",
+     "fields": [
+      {
+       "code": "F.JD_JOB_PURPOSE",
+       "label_zh": "岗位目的",
+       "label_en": "Job purpose",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "not_judgeable",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "一句话：为什么设这个岗。只作上下文，不进判定"
+      },
+      {
+       "code": "F.JD_SUCCESS_CRITERIA",
+       "label_zh": "关键成功指标",
+       "label_en": "Key success metrics",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "not_judgeable",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "3~5 条可量化指标：作试用期考核与「优先条件」来源，不进判定"
+      },
+      {
+       "code": "F.TEAM_GOAL",
+       "label_zh": "团队目标",
+       "label_en": "Team goals",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "not_judgeable",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "conditional",
+       "conditional_on": "岗位类别=经理岗",
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": null
+      }
+     ]
+    },
+    {
+     "code": "S3",
+     "label_zh": "门槛（A 人口 / B 教育 / C 经历）",
+     "label_en": "Thresholds (A/B/C)",
+     "fields": [
+      {
+       "code": "F.AGE",
+       "label_zh": "年龄区间",
+       "label_en": "Age range",
+       "dimension": "A",
+       "data_item": "A.2",
+       "assessable": "judgeable",
+       "threshold_shape": "区间(岁)",
+       "value_shape": null,
+       "evidence_required": "原文",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-A-AGE-RANGE"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": null
+      },
+      {
+       "code": "F.GENDER",
+       "label_zh": "性别要求",
+       "label_en": "Gender requirement",
+       "dimension": "A",
+       "data_item": "A.1",
+       "assessable": "judgeable",
+       "threshold_shape": "闭集",
+       "value_shape": null,
+       "evidence_required": "原文",
+       "missing_means": "未知",
+       "requirement_level": "optional",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-A-GENDER"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "除非有法律依据或岗位客观必要（涉密/更衣），否则留空 —— 留空=不筛，不许默认筛选"
+      },
+      {
+       "code": "F.EDU_LEVEL",
+       "label_zh": "学历下限",
+       "label_en": "Minimum education",
+       "dimension": "B",
+       "data_item": "B.1",
+       "assessable": "judgeable",
+       "threshold_shape": "顺序(≥等级)",
+       "value_shape": null,
+       "evidence_required": "原文",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-B-EDU-LEVEL"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": null
+      },
+      {
+       "code": "F.EDU_MAJOR",
+       "label_zh": "专业范围",
+       "label_en": "Major scope",
+       "dimension": "B",
+       "data_item": "B.2",
+       "assessable": "judgeable",
+       "threshold_shape": "闭集 或 开区间(写清\"等\")",
+       "value_shape": null,
+       "evidence_required": "原文",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-B-MAJOR"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "必须写明是枚举还是开区间：客户写「机械工程等」按闭集判会误杀（DEF-04，故意不过闸）"
+      },
+      {
+       "code": "F.EDU_FULLTIME",
+       "label_zh": "全日制要求",
+       "label_en": "Full-time study required",
+       "dimension": "B",
+       "data_item": "B.3",
+       "assessable": "judgeable",
+       "threshold_shape": "布尔",
+       "value_shape": null,
+       "evidence_required": "原文 or 一面",
+       "missing_means": "未知",
+       "requirement_level": "conditional",
+       "conditional_on": "客户写了全日制",
+       "source_requirement": [
+        "REQ-B-FULL-TIME"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": null
+      },
+      {
+       "code": "F.EXP_YEARS",
+       "label_zh": "工作年限",
+       "label_en": "Years of experience",
+       "dimension": "C",
+       "data_item": "C.1",
+       "assessable": "judgeable",
+       "threshold_shape": "区间(年)",
+       "value_shape": null,
+       "evidence_required": "原文",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-C-YEARS-DOMAIN"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": null
+      },
+      {
+       "code": "F.EXP_DOMAIN",
+       "label_zh": "领域/行业限定",
+       "label_en": "Domain & industry scope",
+       "dimension": "C",
+       "data_item": "C.2",
+       "assessable": "judgeable",
+       "threshold_shape": "闭集(领域) [+ 闭集(行业)]",
+       "value_shape": null,
+       "evidence_required": "一面",
+       "missing_means": "未知",
+       "requirement_level": "conditional",
+       "conditional_on": "JD 写了领域或行业年限",
+       "source_requirement": [
+        "REQ-C-YEARS-DOMAIN",
+        "REQ-D-HARNESS-DOMAIN"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "合并原「行业要求」：领域与行业分两行写，但同一条要求判"
+      },
+      {
+       "code": "F.HR_STABILITY",
+       "label_zh": "平均在职不低于",
+       "label_en": "Average tenure at least",
+       "dimension": null,
+       "data_item": "C.4",
+       "assessable": "judgeable",
+       "threshold_shape": "区间(年)",
+       "value_shape": null,
+       "evidence_required": "推断(逐段累计)",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-HR-TENURE"
+       ],
+       "origin": "hr",
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": false,
+       "note": "客户 HR 闸门（BLOCKING）→ 标准模板里必须存在，否则 JD 漏写就无法拦"
+      },
+      {
+       "code": "F.HR_RECENT_SEGMENTS",
+       "label_zh": "近 5 年任职不超过",
+       "label_en": "Recent-5y job changes at most",
+       "dimension": null,
+       "data_item": "C.7",
+       "assessable": "judgeable",
+       "threshold_shape": "整数上限",
+       "value_shape": null,
+       "evidence_required": "推断(工作段)",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-HR-STABILITY"
+       ],
+       "origin": "hr",
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": false,
+       "note": null
+      }
+     ]
+    },
+    {
+     "code": "S4",
+     "label_zh": "能力（D）",
+     "label_en": "Capabilities (D)",
+     "fields": [
+      {
+       "code": "F.SKILL",
+       "label_zh": "能力要求（逐条）",
+       "label_en": "Capability requirements (per item)",
+       "dimension": "D",
+       "data_item": "skill_*",
+       "assessable": "judgeable",
+       "threshold_shape": "any_of n / all_of（每条单独声明）",
+       "value_shape": null,
+       "evidence_required": "原文 or 一面坐实",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-D-*"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "值域 = component_catalog 的 54 个组件；每条带 evidence_role(hard/soft)。软件/设备/系统都是它的子类（ERP、Excel、CAD、检测设备），不再单列"
+      },
+      {
+       "code": "F.EQUIPMENT",
+       "label_zh": "设备操作（专项）",
+       "label_en": "Equipment operation",
+       "dimension": null,
+       "data_item": "skill_*(equipment)",
+       "assessable": "judgeable",
+       "threshold_shape": "any_of n",
+       "value_shape": null,
+       "evidence_required": "一面坐实",
+       "missing_means": "未知",
+       "requirement_level": "conditional",
+       "conditional_on": "岗位涉及产线设备",
+       "source_requirement": [
+        "REQ-D-WIRE-EQUIPMENT"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": false,
+       "note": null
+      },
+      {
+       "code": "F.LANGUAGE_LEVEL",
+       "label_zh": "语言要求（分档）",
+       "label_en": "Language requirement (graded)",
+       "dimension": "H",
+       "data_item": "skill_语言",
+       "assessable": "judgeable",
+       "threshold_shape": "分档：口语 / 书面 各一档",
+       "value_shape": null,
+       "evidence_required": "一面",
+       "missing_means": "未知",
+       "requirement_level": "optional",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-H-LANG-EN"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "口语与书面必须分开：客户常写「口语熟练 + 能独立写 8D」，是两件事"
+      }
+     ]
+    },
+    {
+     "code": "S5",
+     "label_zh": "资质与合规（F/G）",
+     "label_en": "Credentials & compliance (F/G)",
+     "fields": [
+      {
+       "code": "F.CERTIFICATION",
+       "label_zh": "证书/资质",
+       "label_en": "Certificates & licences",
+       "dimension": "F",
+       "data_item": "F.3",
+       "assessable": "judgeable",
+       "threshold_shape": "闭集(证书清单)",
+       "value_shape": null,
+       "evidence_required": "原文(扫描件)",
+       "missing_means": "未知",
+       "requirement_level": "optional",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-F-TRADE-COMPLIANCE-TRAINING"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": null
+      },
+      {
+       "code": "F.CLEARANCE",
+       "label_zh": "背景合规",
+       "label_en": "Background compliance",
+       "dimension": "G",
+       "data_item": "G.1",
+       "assessable": "judgeable",
+       "threshold_shape": "布尔",
+       "value_shape": null,
+       "evidence_required": "背调",
+       "missing_means": "未知",
+       "requirement_level": "optional",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-G-NO-CRIMINAL-RECORD"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "无犯罪/学历真伪：简历不写、一面也不该问 → 入职前核；在此之前一律「未知」，不打分"
+      },
+      {
+       "code": "F.CONFIDENTIALITY",
+       "label_zh": "保密与竞业",
+       "label_en": "Confidentiality & non-compete",
+       "dimension": null,
+       "data_item": "G.2",
+       "assessable": "judgeable",
+       "threshold_shape": "布尔",
+       "value_shape": null,
+       "evidence_required": "背调",
+       "missing_means": "未知",
+       "requirement_level": "conditional",
+       "conditional_on": "涉密岗位",
+       "source_requirement": [
+        "REQ-G-CONFIDENTIALITY"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": false,
+       "note": null
+      }
+     ]
+    },
+    {
+     "code": "S6",
+     "label_zh": "素质（E）—— 列名但不判",
+     "label_en": "Competencies (E) — named, not judged",
+     "fields": [
+      {
+       "code": "F.COMPETENCY",
+       "label_zh": "素质要求",
+       "label_en": "Competency requirements",
+       "dimension": "E",
+       "data_item": null,
+       "assessable": "not_judgeable",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": "不可判",
+       "requirement_level": "optional",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-E-*"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "沟通/抗压/责任心/团队协作等：**没有任何数据项**，对所有人「不可判」，不许拿来淘汰人。要判只能另做结构化面试量表（目前还没有）"
+      }
+     ]
+    },
+    {
+     "code": "S7",
+     "label_zh": "职责与作业明细",
+     "label_en": "Duties & tasks",
+     "fields": [
+      {
+       "code": "F.JD_DUTY_ITEMS",
+       "label_zh": "职责条目",
+       "label_en": "Duty items",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "not_judgeable",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "逐条职责（含可选的职责↔能力映射、权重）：用于核对经历是否对得上，不进判定"
+      }
+     ]
+    },
+    {
+     "code": "S8",
+     "label_zh": "工作条件（一线岗必填）",
+     "label_en": "Working conditions (frontline)",
+     "fields": [
+      {
+       "code": "F.SHIFT",
+       "label_zh": "班制",
+       "label_en": "Shift pattern",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "conditional",
+       "conditional_on": "岗位类别=员工岗",
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "含原「排期交接」；两班倒/三班倒/常白班/轮休"
+      },
+      {
+       "code": "F.JD_WORK_ENV",
+       "label_zh": "作业环境",
+       "label_en": "Work environment",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "conditional",
+       "conditional_on": "岗位类别=员工岗",
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": true,
+       "in_field_schema": false,
+       "note": "合并原「工作环境 / 体力要求 / 劳保用品」：温度噪音粉尘、体力强度、劳保配置，一条写清"
+      },
+      {
+       "code": "F.JD_TRAVEL",
+       "label_zh": "出差要求",
+       "label_en": "Travel requirement",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "optional",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": null
+      }
+     ]
+    },
+    {
+     "code": "S9",
+     "label_zh": "管理责任（经理岗必填）",
+     "label_en": "Management scope (manager)",
+     "fields": [
+      {
+       "code": "F.DECISION_BUDGET",
+       "label_zh": "决策与预算权限",
+       "label_en": "Decision & budget authority",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "conditional",
+       "conditional_on": "岗位类别=经理岗",
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": true,
+       "in_field_schema": false,
+       "note": "合并原「决策权限 / 预算责任」"
+      },
+      {
+       "code": "F.CROSS_DEPT",
+       "label_zh": "跨部门协作",
+       "label_en": "Cross-department scope",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "conditional",
+       "conditional_on": "岗位类别=经理岗",
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": null
+      }
+     ]
+    },
+    {
+     "code": "S10",
+     "label_zh": "HR 侧与发布元数据",
+     "label_en": "HR side & posting metadata",
+     "fields": [
+      {
+       "code": "F.AVAILABILITY",
+       "label_zh": "到岗周期",
+       "label_en": "Notice period",
+       "dimension": null,
+       "data_item": "A.3",
+       "assessable": "judgeable",
+       "threshold_shape": "周数上限",
+       "value_shape": null,
+       "evidence_required": "一面",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-HR-NOTICE"
+       ],
+       "origin": "hr",
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": null
+      },
+      {
+       "code": "F.HR_SALARY_CAP",
+       "label_zh": "薪资上限（预算）",
+       "label_en": "Salary cap (budget)",
+       "dimension": null,
+       "data_item": "A.5",
+       "assessable": "judgeable",
+       "threshold_shape": "数值上限(K)",
+       "value_shape": null,
+       "evidence_required": "客户预算",
+       "missing_means": "不可判",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-HR-SALARY"
+       ],
+       "origin": "hr",
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": false,
+       "note": "客户没给预算 → 这条「不可判」，不许拿候选人的期望薪资当门槛"
+      },
+      {
+       "code": "F.HR_COMMUTE",
+       "label_zh": "可接受通勤",
+       "label_en": "Commute acceptable",
+       "dimension": null,
+       "data_item": "A.4",
+       "assessable": "judgeable",
+       "threshold_shape": "布尔 / 单程分钟",
+       "value_shape": null,
+       "evidence_required": "一面",
+       "missing_means": "不可判",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-HR-COMMUTE"
+       ],
+       "origin": "hr",
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": false,
+       "note": null
+      },
+      {
+       "code": "F.JD_POSTING_WINDOW",
+       "label_zh": "发布窗口（起/止）",
+       "label_en": "Posting window",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": true,
+       "in_field_schema": false,
+       "note": "合并原「发布日期 / 截止日期」（schema.org datePosted / validThrough）"
+      },
+      {
+       "code": "F.JD_HIRING_REASON",
+       "label_zh": "招聘原因",
+       "label_en": "Hiring reason",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "optional",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": "hr",
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "新增编/替补/储备：影响是否放宽年限，不进判定"
+      }
+     ]
+    }
+   ],
+   "levels": {
+    "required": 22,
+    "conditional": 9,
+    "optional": 9
+   },
+   "assess": {
+    "internal": 17,
+    "not_judgeable": 5,
+    "judgeable": 18
+   },
+   "new_fields": [
+    "F.JD_HEADCOUNT",
+    "F.EMPLOYMENT_TYPE",
+    "F.JD_WORK_ENV",
+    "F.DECISION_BUDGET",
+    "F.JD_POSTING_WINDOW"
+   ]
+  },
+  "cv": {
+   "name": "公司标准 CV 模板（26 字段 / 7 段）。与标准 JD 模板一一对应：**每条可判要求的数据项都必须在这里有落脚字段**，否则判不了。字段口径 = JSON Resume（basics/work/education/skills/languages/certificates）+ 本仓库 ABox 属性 + 推理新增。",
+   "_doc": "公司标准 CV 模板（26 字段 / 7 段）。与标准 JD 模板一一对应：**每条可判要求的数据项都必须在这里有落脚字段**，否则判不了。字段口径 = JSON Resume（basics/work/education/skills/languages/certificates）+ 本仓库 ABox 属性 + 推理新增。",
+   "version": 1,
+   "field_count_target": 26,
+   "field_count": 26,
+   "sections": [
+    {
+     "code": "C1",
+     "label_zh": "基本信息（A）",
+     "label_en": "Basic info (A)",
+     "fields": [
+      {
+       "code": "F.CV_FULL_NAME",
+       "label_zh": "姓名",
+       "label_en": "Full name",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": "原文",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": null
+      },
+      {
+       "code": "F.GENDER",
+       "label_zh": "性别",
+       "label_en": "Gender",
+       "dimension": "A",
+       "data_item": "A.1",
+       "assessable": "judgeable",
+       "threshold_shape": null,
+       "value_shape": "闭集(男/女)",
+       "evidence_required": "原文",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-A-GENDER"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": null
+      },
+      {
+       "code": "F.CV_AGE_BIRTH",
+       "label_zh": "年龄 / 出生年月",
+       "label_en": "Age / date of birth",
+       "dimension": null,
+       "data_item": "A.2",
+       "assessable": "judgeable",
+       "threshold_shape": null,
+       "value_shape": "数值(岁) + 日期(出生年月)",
+       "evidence_required": "原文",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-A-AGE-RANGE"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": true,
+       "in_field_schema": false,
+       "note": "两口径必须自洽：简历常只写出生年月，年龄由它推"
+      },
+      {
+       "code": "F.CV_CONTACT",
+       "label_zh": "联系方式（手机/邮箱）",
+       "label_en": "Contact (phone / email)",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": "原文",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": true,
+       "in_field_schema": false,
+       "note": null
+      },
+      {
+       "code": "F.WORK_LOCATION",
+       "label_zh": "现居地",
+       "label_en": "Current residence",
+       "dimension": null,
+       "data_item": "A.4",
+       "assessable": "judgeable",
+       "threshold_shape": null,
+       "value_shape": "布尔 + 单程分钟",
+       "evidence_required": "原文",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-HR-COMMUTE"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "通勤判断的输入之一；另一输入是一面问到的接受度"
+      }
+     ]
+    },
+    {
+     "code": "C2",
+     "label_zh": "求职意向（A）",
+     "label_en": "Job preference (A)",
+     "fields": [
+      {
+       "code": "F.SALARY_MAX_K",
+       "label_zh": "期望薪资上限(K)",
+       "label_en": "Expected salary cap (K)",
+       "dimension": null,
+       "data_item": "A.5",
+       "assessable": "judgeable",
+       "threshold_shape": null,
+       "value_shape": "数值(K)",
+       "evidence_required": "原文 or 一面",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-HR-SALARY"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": true,
+       "in_field_schema": false,
+       "note": "判定读的是**数值上限**，不是「8-12K」这段文本"
+      },
+      {
+       "code": "F.AVAILABILITY",
+       "label_zh": "到岗周期",
+       "label_en": "Notice period",
+       "dimension": null,
+       "data_item": "A.3",
+       "assessable": "judgeable",
+       "threshold_shape": null,
+       "value_shape": "整数(周)",
+       "evidence_required": "一面",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-HR-NOTICE"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": null
+      },
+      {
+       "code": "F.COMMUTE_OK",
+       "label_zh": "通勤可接受",
+       "label_en": "Commute acceptable",
+       "dimension": null,
+       "data_item": "A.4",
+       "assessable": "judgeable",
+       "threshold_shape": null,
+       "value_shape": "布尔 + 单程分钟",
+       "evidence_required": "一面",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-HR-COMMUTE"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": true,
+       "in_field_schema": false,
+       "note": "一面问「到厂单程多久、能否接受两班倒」——简历里永远没有"
+      },
+      {
+       "code": "F.JOB_TITLE",
+       "label_zh": "期望职位",
+       "label_en": "Desired position",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": "原文",
+       "missing_means": "未知",
+       "requirement_level": "optional",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": "not_comparable",
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "与 JD「岗位名称」不是同一条信息，不可比"
+      }
+     ]
+    },
+    {
+     "code": "C3",
+     "label_zh": "教育（B）",
+     "label_en": "Education (B)",
+     "fields": [
+      {
+       "code": "F.EDU_LEVEL",
+       "label_zh": "学历",
+       "label_en": "Education level",
+       "dimension": "B",
+       "data_item": "B.1",
+       "assessable": "judgeable",
+       "threshold_shape": null,
+       "value_shape": "闭集(学历等级)",
+       "evidence_required": "原文",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-B-EDU-LEVEL"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": null
+      },
+      {
+       "code": "F.EDU_MAJOR",
+       "label_zh": "专业",
+       "label_en": "Major",
+       "dimension": "B",
+       "data_item": "B.2",
+       "assessable": "judgeable",
+       "threshold_shape": null,
+       "value_shape": "文本(专业名)",
+       "evidence_required": "原文",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-B-MAJOR"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": null
+      },
+      {
+       "code": "F.EDU_FULLTIME",
+       "label_zh": "全日制",
+       "label_en": "Full-time study",
+       "dimension": "B",
+       "data_item": "B.3",
+       "assessable": "judgeable",
+       "threshold_shape": null,
+       "value_shape": "布尔",
+       "evidence_required": "原文 or 一面",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-B-FULL-TIME"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "简历很少写（实测 0/270）→ 一面必须问；客户写了全日制门槛，缺这条就判不了"
+      },
+      {
+       "code": "F.CV_EDU_SCHOOL",
+       "label_zh": "院校 / 起止",
+       "label_en": "Institution / period",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": "原文",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": true,
+       "in_field_schema": false,
+       "note": "判定不用，但核学历真伪要看（与「全日制」互证）"
+      }
+     ]
+    },
+    {
+     "code": "C4",
+     "label_zh": "工作经历（C）",
+     "label_en": "Work history (C)",
+     "fields": [
+      {
+       "code": "F.CV_EMPLOYER",
+       "label_zh": "逐段经历（公司/职位/起止/职责）",
+       "label_en": "Work entries",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": "原文",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "下面六个 C 类字段都从这一段的起止算出来"
+      },
+      {
+       "code": "F.EXP_YEARS",
+       "label_zh": "总年限（自述）",
+       "label_en": "Total years (stated)",
+       "dimension": "C",
+       "data_item": "C.1",
+       "assessable": "judgeable",
+       "threshold_shape": null,
+       "value_shape": "数值(年,自述)",
+       "evidence_required": "原文",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-C-YEARS-DOMAIN"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": null
+      },
+      {
+       "code": "F.YEARS_COMPUTED",
+       "label_zh": "累计年限（逐段）",
+       "label_en": "Computed years",
+       "dimension": null,
+       "data_item": "C.6",
+       "assessable": "judgeable",
+       "threshold_shape": null,
+       "value_shape": "数值(年,推算)",
+       "evidence_required": "推断(逐段)",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": true,
+       "in_field_schema": false,
+       "note": "由工作段起止算，未必等于自述 —— 两个口径都要露，差太多要问"
+      },
+      {
+       "code": "F.AVG_TENURE",
+       "label_zh": "平均在职年限",
+       "label_en": "Average tenure (years)",
+       "dimension": null,
+       "data_item": "C.4",
+       "assessable": "judgeable",
+       "threshold_shape": null,
+       "value_shape": "数值(年,推算)",
+       "evidence_required": "推断(逐段)",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-HR-TENURE"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": true,
+       "in_field_schema": false,
+       "note": null
+      },
+      {
+       "code": "F.RECENT5Y_SEGMENTS",
+       "label_zh": "近 5 年任职段数",
+       "label_en": "Segments in last 5 years",
+       "dimension": null,
+       "data_item": "C.7",
+       "assessable": "judgeable",
+       "threshold_shape": null,
+       "value_shape": "整数(段)",
+       "evidence_required": "推断(逐段)",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-HR-STABILITY"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": true,
+       "in_field_schema": false,
+       "note": null
+      },
+      {
+       "code": "F.EXP_DOMAIN",
+       "label_zh": "职能域",
+       "label_en": "Functional domain",
+       "dimension": "C",
+       "data_item": "C.2",
+       "assessable": "judgeable",
+       "threshold_shape": null,
+       "value_shape": "闭集(领域)",
+       "evidence_required": "一面",
+       "missing_means": "未知",
+       "requirement_level": "conditional",
+       "conditional_on": "JD 写了领域年限",
+       "source_requirement": [
+        "REQ-C-YEARS-DOMAIN"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "简历常读不出 → 一面问"
+      },
+      {
+       "code": "F.EXP_INDUSTRY",
+       "label_zh": "行业",
+       "label_en": "Industry",
+       "dimension": "C",
+       "data_item": "C.3",
+       "assessable": "judgeable",
+       "threshold_shape": null,
+       "value_shape": "闭集(行业)",
+       "evidence_required": "原文 or 一面",
+       "missing_means": "未知",
+       "requirement_level": "conditional",
+       "conditional_on": "JD 写了行业",
+       "source_requirement": [
+        "REQ-D-HARNESS-DOMAIN"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": null
+      }
+     ]
+    },
+    {
+     "code": "C5",
+     "label_zh": "技能与证书（D/F）",
+     "label_en": "Skills & certificates (D/F)",
+     "fields": [
+      {
+       "code": "F.SKILL",
+       "label_zh": "技能清单（含熟练度/证据）",
+       "label_en": "Skills (with level & evidence)",
+       "dimension": "D",
+       "data_item": "skill_*",
+       "assessable": "judgeable",
+       "threshold_shape": null,
+       "value_shape": "闭集(组件) × 熟练度 × 引文",
+       "evidence_required": "原文 or 一面坐实",
+       "missing_means": "未知",
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-D-*"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "每行 = 一个组件 + 熟练度 + 引文 + evidence_role(hard/soft)"
+      },
+      {
+       "code": "F.LANGUAGE_LEVEL",
+       "label_zh": "语言水平（口语/书面）",
+       "label_en": "Language level",
+       "dimension": "H",
+       "data_item": "skill_语言",
+       "assessable": "judgeable",
+       "threshold_shape": null,
+       "value_shape": "文本",
+       "evidence_required": "一面",
+       "missing_means": "未知",
+       "requirement_level": "conditional",
+       "conditional_on": "JD 写了外语要求",
+       "source_requirement": [
+        "REQ-H-LANG-EN"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": null
+      },
+      {
+       "code": "F.CERTIFICATION",
+       "label_zh": "证书（含培训记录）",
+       "label_en": "Certificates (incl. training)",
+       "dimension": "F",
+       "data_item": "F.3",
+       "assessable": "judgeable",
+       "threshold_shape": null,
+       "value_shape": "闭集(证书清单) + 扫描件",
+       "evidence_required": "原文(扫描件)",
+       "missing_means": "未知",
+       "requirement_level": "optional",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-F-TRADE-COMPLIANCE-TRAINING"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": null
+      }
+     ]
+    },
+    {
+     "code": "C6",
+     "label_zh": "合规（G）",
+     "label_en": "Compliance (G)",
+     "fields": [
+      {
+       "code": "F.CLEARANCE",
+       "label_zh": "背调项（无犯罪/保密/竞业）",
+       "label_en": "Background checks",
+       "dimension": "G",
+       "data_item": "G.1",
+       "assessable": "judgeable",
+       "threshold_shape": null,
+       "value_shape": "布尔 + 背调附件",
+       "evidence_required": "背调",
+       "missing_means": "未知",
+       "requirement_level": "optional",
+       "conditional_on": null,
+       "source_requirement": [
+        "REQ-G-NO-CRIMINAL-RECORD",
+        "REQ-G-CONFIDENTIALITY"
+       ],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": false,
+       "in_field_schema": true,
+       "note": "入职前核；在此之前一律「未知」。**不许**在判定里当「不满足」"
+      }
+     ]
+    },
+    {
+     "code": "C7",
+     "label_zh": "证据与来源（本仓库新增）",
+     "label_en": "Evidence & provenance (new)",
+     "fields": [
+      {
+       "code": "F.EVIDENCE_LEVEL",
+       "label_zh": "每字段证据等级",
+       "label_en": "Evidence level per field",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": true,
+       "in_field_schema": false,
+       "note": "原文 / 一面 / 推断 / 背调；能力类另标 hard/soft。没有这层，「满足」与「未知」分不开"
+      },
+      {
+       "code": "F.BASIS",
+       "label_zh": "答案来源",
+       "label_en": "Answer basis",
+       "dimension": null,
+       "data_item": null,
+       "assessable": "internal",
+       "threshold_shape": null,
+       "value_shape": null,
+       "evidence_required": null,
+       "missing_means": null,
+       "requirement_level": "required",
+       "conditional_on": null,
+       "source_requirement": [],
+       "origin": null,
+       "compare": null,
+       "new_in_standard": true,
+       "in_field_schema": false,
+       "note": "interview / simulated —— 代拟答案默认不进判定"
+      }
+     ]
+    }
+   ],
+   "levels": {
+    "required": 20,
+    "conditional": 3,
+    "optional": 3
+   },
+   "assess": {
+    "internal": 7,
+    "judgeable": 19
+   },
+   "new_fields": [
+    "F.CV_AGE_BIRTH",
+    "F.CV_CONTACT",
+    "F.SALARY_MAX_K",
+    "F.COMMUTE_OK",
+    "F.CV_EDU_SCHOOL",
+    "F.YEARS_COMPUTED",
+    "F.AVG_TENURE",
+    "F.RECENT5Y_SEGMENTS",
+    "F.EVIDENCE_LEVEL",
+    "F.BASIS"
+   ]
+  }
+ },
+ "standard_coverage": {
+  "requirements_assessable": 34,
+  "requirements_uncovered": [],
+  "requirements": [
+   {
+    "requirement": "REQ-A-AGE-RANGE",
+    "data_item": "A.2",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-B-EDU-LEVEL",
+    "data_item": "B.1",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-B-MAJOR",
+    "data_item": "B.2",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-C-YEARS-DOMAIN",
+    "data_item": "C.1",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-HARNESS-DOMAIN",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-QA-ANALYSIS",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-QA-TOOLS",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-CUSTOMER-AUDIT",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-H-LANG-EN",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-ERP-OPERATE",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-ERP-EXCEL",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-DELIVERY-RISK",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-OFFICE",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-CAD-2D",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-WIRE-EQUIPMENT",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-DRAWING-READ",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-DATA-ANALYSIS",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-LABOR-LAW",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-SOCIAL-INSURANCE",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-CUSTOMS-DECLARE",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-REPORT-WRITING",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-RECRUIT-SKILL",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-RECRUIT-CHANNEL",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-RECRUIT-KNOWLEDGE",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-OFFICE-NETWORK",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-TRAINING-DEV",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-SYSTEM-MGMT",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-SYSTEM-PLANNING",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-D-CULTURE-BUILD",
+    "data_item": "skill_*",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-HR-NOTICE",
+    "data_item": "A.3",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-HR-SALARY",
+    "data_item": "A.5",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-HR-STABILITY",
+    "data_item": "C.7",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-HR-TENURE",
+    "data_item": "C.4",
+    "in_cv_template": true,
+    "in_jd_template": true
+   },
+   {
+    "requirement": "REQ-HR-COMMUTE",
+    "data_item": "A.4",
+    "in_cv_template": true,
+    "in_jd_template": true
+   }
+  ],
+  "jd_fields": 40,
+  "cv_fields": 26,
+  "jd_target": 40,
+  "cv_target": 26
+ },
  "coverage": {
   "categories": 22,
   "components": 54,
