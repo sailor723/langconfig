@@ -1320,6 +1320,57 @@ def check_standard_templates() -> None:
                ", ".join(fake_new[:6]))
     check_true("ST-G11 新增字段都是推理所需(带 data_item)", not no_item, ", ".join(no_item[:6]))
 
+    # ── 缺口接口：数字必须与文件一致，且必须强制带 jd ─────────────────────
+    try:
+        import sys as _sys
+        if str(ROOT / "backend") not in _sys.path:
+            _sys.path.insert(0, str(ROOT / "backend"))
+        from services.talent_gap import gap_for, default_jd, known_jds  # noqa: PLC0415
+
+        dj = default_jd()
+        check_true("ST-G15 默认 JD 有来源且是真实的 JD", dj in known_jds(),
+                   f"default_jd()={dj!r}")
+        jd_inputs_defaults = []
+        for ip in (ROOT / "work" / "talent" / "jd_inputs").glob("*.yaml"):
+            try:
+                spec = yaml.safe_load(ip.read_text(encoding="utf-8")) or {}
+            except yaml.YAMLError:
+                continue
+            if spec.get("default") is True:
+                jd_inputs_defaults.append(ip.stem)
+        check_true("ST-G15 只有一个 JD 标了 default: true", len(jd_inputs_defaults) == 1,
+                   f"标了 default 的: {jd_inputs_defaults}")
+        if jd_inputs_defaults:
+            check_true("ST-G15 default_jd 与配置一致", dj == jd_inputs_defaults[0],
+                       f"{dj} vs {jd_inputs_defaults[0]}")
+        bad_tally = []
+        for jd_name in known_jds():
+            g = gap_for(jd_name)
+            n_fields = len(g["fields"])
+            sum_tally = sum(g["tally"].values())
+            if n_fields != g["template_fields"] or sum_tally != n_fields:
+                bad_tally.append(f"{jd_name}: {n_fields} 格 vs tally 合计 {sum_tally}")
+            if g["in_judging"] != sum(1 for f in g["fields"] if f["in_judging"]):
+                bad_tally.append(f"{jd_name}: in_judging 与字段不符")
+        check_true("ST-G15 每份 JD 的缺口格数与 tally 自洽", not bad_tally,
+                   "; ".join(bad_tally[:4]))
+        # 面板与草稿/试填是同一份数据：能判格数必须等于 JSON 里 in_judging 的个数
+        draft_json = ROOT / "work" / "talent" / "jd_draft" / f"{dj}.draft.json"
+        if draft_json.is_file():
+            dd = json.loads(draft_json.read_text(encoding="utf-8"))
+            want = sum(1 for r in dd.get("rows") or [] if r.get("in_judging"))
+            got = gap_for(dj)["in_judging"]
+            check_true("ST-G15 缺口面板的能判格数 == 定稿草稿", got == want, f"{got} vs {want}")
+        # 没有 jd 必须报错，而不是返回空表（空表会被读成"没有缺口"）
+        try:
+            gap_for("")
+            check_true("ST-G15 不传 jd 会报错(不是返回空表)", False, "gap_for('') 没报错")
+        except ValueError:
+            check_true("ST-G15 不传 jd 会报错(不是返回空表)", True)
+    except Exception as exc:  # noqa: BLE001
+        check_true("ST-G15 缺口接口门禁跑完了(崩溃 = 红)", False,
+                   f"{type(exc).__name__}: {exc}")
+
     # ── 定稿草稿：拿一份真 JD 逐格填（品质经理是试点）────────────────────
     draft_dir = ROOT / "work" / "talent" / "jd_draft"
     drafts = sorted(p for p in draft_dir.glob("*.draft.json")) if draft_dir.is_dir() else []

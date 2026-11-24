@@ -28,6 +28,7 @@ import { useProject } from '../../contexts/ProjectContext';
 import MarkdownBody from '../../components/layout2/MarkdownBody';
 import CollapsibleMarkdown from './CollapsibleMarkdown';
 import TalentCatalog from './TalentCatalog';
+import TalentGap from './TalentGap';
 import StructuredBody from '../../components/layout2/StructuredBody';
 import type { Tab } from '../../components/layout2/useLayout';
 import {
@@ -323,8 +324,16 @@ function TalentDocViewInner({ tab }: { tab?: Tab }) {
 
   const dirty = doc != null && draft !== doc.text;
 
+  /** `@` 前缀 = 面板型产物（不落盘、不读文件）。目前只有 `@gap`：这份 JD 的 40 格缺口。 */
+  const isPanel = Boolean(path && path.startsWith('@'));
+
   // ── 打开文件：换 tab 就是在换文件，所以依赖只认来源 + 路径 ──
   useEffect(() => {
+    if (isPanel) {
+      setLoadingDoc(false);
+      setDoc(null);
+      return;
+    }
     if (!path) {
       setDoc(null);
       setDraft('');
@@ -619,7 +628,11 @@ function TalentDocViewInner({ tab }: { tab?: Tab }) {
           </div>
         )}
 
-        {agentAsset ? (
+        {path === '@gap' ? (
+          <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '4px 16px 24px' }}>
+            <TalentGap jd={jd} />
+          </div>
+        ) : agentAsset ? (
           <AssetView asset={agentAsset} tokens={t} />
         ) : doc && isMd && mode === 'preview' ? (
           /* 滚动容器**必须在这里**:之前直接把渲染结果铺在 flex 里,长文档滚不动

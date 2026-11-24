@@ -21,7 +21,7 @@ import { useLayoutTokens } from '../../components/layout2/tokens';
 import { useLayoutState } from '../../components/layout2/useLayout';
 import { useProject } from '../../contexts/ProjectContext';
 import {
-  listAgentFiles, listTalentDocs,
+  getTalentGap, listAgentFiles, listTalentDocs,
   type AgentFile, type TalentFile, type TalentJd,
 } from './api';
 import { useTalentAgentId } from './currentAgent';
@@ -42,6 +42,21 @@ const TAB_KEY = 'talent.browserTab';
 
 /** 只显示人读的产物(md/docx/txt),隐藏 yaml/json。默认开 —— 一屏里全是 yaml 时看不出哪份要读。 */
 const HUMAN_KEY = 'talent.humanOnly';
+/** 上次选的 JD。刷新后不该跳回清单第一份（第一份往往就是缺口最大的那份）。 */
+const JD_KEY = 'talent.jd';
+
+function rememberedJd(): string {
+  // URL 里的 ?jd= 优先（方便把"我正在看品质经理"发给同事），其次 localStorage。
+  try {
+    const fromUrl = new URL(window.location.href).searchParams.get('jd');
+    if (fromUrl) return fromUrl;
+  } catch { /* 读不到 URL 不算错 */ }
+  try {
+    return window.localStorage.getItem(JD_KEY) || '';
+  } catch {
+    return '';
+  }
+}
 /** 机读后缀:md/docx 能覆盖它们的内容,不需要在人读视图里出现。 */
 const MACHINE_RE = /\.(ya?ml|json)$/i;
 function readHumanOnly(): boolean {
@@ -82,6 +97,13 @@ export default function TalentSidebar() {
   // ── Talent 侧 ──
   const [jds, setJds] = useState<TalentJd[]>([]);
   const [jd, setJd] = useState<string>('');
+  /** 后端给的默认 JD（`jd_inputs` 里 default: true）—— 前端不猜第一份。 */
+  const [defaultJd, setDefaultJd] = useState<string>('');
+  /** 当前 JD 的缺口小结（数字全部来自后端 /gap，不在前端重算）。 */
+  const [gap, setGap] = useState<{ in_judging: number; template_fields: number;
+                                  blockers: number; proposals: number;
+                                  source: 'draft' | 'trial' } | null>(null);
+  const [gapErr, setGapErr] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,15 +117,26 @@ export default function TalentSidebar() {
   const [agentName, setAgentName] = useState<string>('');
   const [agentErr, setAgentErr] = useState<string | null>(null);
 
+  const remember = (v: string) => {
+    try { window.localStorage.setItem(JD_KEY, v); } catch { /* 存不下不影响使用 */ }
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.set('jd', v);
+      window.history.replaceState({}, '', u.toString());
+    } catch { /* 同上 */ }
+  };
+
   const loadDocs = useCallback(() => {
     setLoading(true);
     listTalentDocs()
       .then((d) => {
         const list = d.jds || [];
         setJds(list);
+        setDefaultJd(d.default_jd || '');
         setError(null);
-        // 先落到"正在编辑的那份 JD"，其次第一份。切回来时不该跳走。
-        setJd((cur) => cur || activeJd || list[0]?.jd || '');
+        // 落点优先级：正在编辑的那份 → 上次选的（localStorage）→ 后端默认（品质经理）→ 第一份。
+        // 「第一份」永远是最后手段：清单是按名字排的，第一份往往就是缺口最大的那份。
+        setJd((cur) => cur || activeJd || rememberedJd() || d.default_jd || list[0]?.jd || '');
       })
       .catch((e) => setError(`读取 JD 清单失败：${String((e as Error)?.message || e)}`))
       .finally(() => setLoading(false));
@@ -123,6 +156,22 @@ export default function TalentSidebar() {
   }, [projectId, agentId]);
 
   useEffect(() => { loadDocs(); }, [loadDocs]);
+
+  // 缺口小结：换 JD 就重新取。取不到不影响文档树，只是这一行显示"读取失败"。
+  useEffect(() => {
+    if (!jd) { setGap(null); return; }
+    let dead = false;
+    setGapErr('');
+    getTalentGap(jd)
+      .then((g) => {
+        if (dead) return;
+        setGap({ in_judging: g.in_judging, template_fields: g.template_fields,
+                 blockers: g.blockers.length, proposals: g.proposals.length,
+                 source: g.source });
+      })
+      .catch((e) => { if (!dead) { setGapErr(String((e as Error)?.message || e)); setGap(null); } });
+    return () => { dead = true; };
+  }, [jd]);
   useEffect(() => { loadAgentFiles(); }, [loadAgentFiles]);
 
   const refresh = () => { loadDocs(); loadAgentFiles(); };
@@ -216,16 +265,47 @@ export default function TalentSidebar() {
           <div style={{ padding: '2px 10px 8px', borderBottom: `1px solid ${t.border}`, flexShrink: 0 }}>
             <select
               value={jd}
-              onChange={(e) => setJd(e.target.value)}
+              onChange={(e) => { setJd(e.target.value); remember(e.target.value); }}
               disabled={jds.length === 0}
               style={{ width: '100%', fontSize: 12, padding: '4px 6px', borderRadius: 4,
                        border: `1px solid ${t.border}`, background: t.bgContent, color: t.textPrimary }}
             >
               {jds.length === 0 && <option value="">（没有 JD）</option>}
               {jds.map((x) => (
-                <option key={x.jd} value={x.jd}>{x.jd} · {x.existing} 个产物</option>
+                <option key={x.jd} value={x.jd}>
+                  {x.jd} · {x.existing} 个产物{x.jd === defaultJd ? '（默认）' : ''}
+                </option>
               ))}
             </select>
+            {/* 缺口小结：跟着上面那份 JD 走。零占位 —— 它回答的是"这份 JD 现在能判几格"，
+                而不是再造一个需要点开才知道的页面。 */}
+            {jd && (
+              <button
+                onClick={() => {
+                  openTab({
+                    id: tabIdFor(jd, '@gap'),
+                    label: 'JD · 原文与缺口',
+                    viewType: 'talent-doc',
+                    data: { jd, path: '@gap' },
+                  });
+                  dropPlaceholder();
+                }}
+                title={gapErr || '点开看 40 格明细：能判几格 / 等客户给什么 / 我方建议什么'}
+                style={{
+                  marginTop: 6, width: '100%', textAlign: 'left', fontSize: 11,
+                  padding: '4px 7px', borderRadius: 4, cursor: 'pointer',
+                  border: `1px solid ${t.border}`, background: t.bgInput, color: t.textPrimary,
+                }}
+              >
+                {gap
+                  ? <>缺口 · <b style={{ color: '#2f9e44' }}>{gap.in_judging}</b>/{gap.template_fields} 能判
+                      {gap.blockers ? <span style={{ color: '#5f6b7a' }}> · 等客户 {gap.blockers}</span> : null}
+                      {gap.proposals ? <span style={{ color: '#8a6d3b' }}> · 建议 {gap.proposals}</span> : null}
+                      {gap.source === 'trial' ? <span style={{ color: t.textMuted }}> · 仅客户稿覆盖度</span> : null}
+                    </>
+                  : gapErr ? <span style={{ color: '#e5484d' }}>缺口读取失败</span> : '缺口 …'}
+              </button>
+            )}
             <button
               onClick={() => setHumanOnly((v) => !v)}
               title={humanOnly

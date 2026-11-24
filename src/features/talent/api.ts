@@ -86,7 +86,34 @@ async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
   return (parsed ?? ({} as T)) as T;
 }
 
-export async function listTalentDocs(): Promise<{ jds: TalentJd[] }> {
+/** 一份 JD 的缺口（`GET /api/talent/gap?jd=`）。**jd 必填**：缺口是相对某一份 JD 的。 */
+export interface TalentGapField {
+  code: string; section: string; label: string; label_en?: string | null;
+  level: string | null; assessable: string | null; data_item: string | null;
+  value: unknown; state: string; why: string; needs: string;
+  evidence: string[]; in_judging: boolean;
+}
+export interface TalentGapData {
+  jd: string;
+  /** draft = 有定稿草稿（7 状态）；trial = 只有客户稿覆盖度（5 状态）。 */
+  source: 'draft' | 'trial';
+  source_label: string;
+  note: string;
+  template_fields: number;
+  tally: Record<string, number>;
+  states: string[];
+  in_judging: number;
+  blockers: { code: string; label: string; why: string }[];
+  proposals: { code: string; label: string; value: unknown; why: string; needs: string }[];
+  fields: TalentGapField[];
+}
+export async function getTalentGap(jd: string): Promise<TalentGapData> {
+  const r = await fetch(`${BASE}/gap?jd=${encodeURIComponent(jd)}`, { credentials: 'include' });
+  if (!r.ok) throw new Error((await r.text()).slice(0, 200) || `HTTP ${r.status}`);
+  return r.json();
+}
+
+export async function listTalentDocs(): Promise<{ jds: TalentJd[]; default_jd?: string }> {
   return jsonFetch(`${BASE}/docs`);
 }
 

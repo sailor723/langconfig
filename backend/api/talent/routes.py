@@ -142,6 +142,19 @@ def _jd_files(jd: str) -> list[dict]:
     if (TALENT / "CATALOG.md").is_file():
         add("CATALOG.md", "0 标准目录 · 分类/组件/模板",
             "22 分类 · 54 组件 · 61 要求 · JD 66 字段 / CV 31 字段，含缺口清单")
+    # 虚拟产物：不是磁盘文件，path 前缀 `@` 让前端走面板而不是读文件。
+    # 放在最前面，因为"这份 JD 还缺什么"是打开就最该看到的。
+    if jd in _jds():
+        items.append({
+            "path": "@gap",
+            "layer": "0 JD · 原文与缺口",
+            "exists": True,
+            "bytes": 0,
+            "mtime": None,
+            "writable": False,
+            "readonly_reason": "面板：由 jd_draft 或 template_fill 现算，不落盘",
+            "note": "左：客户原文（只读）· 右：40 格缺口（能判几格 / 等客户给什么 / 我方建议什么）",
+        })
     add(f"jd_links/_source/{jd}.txt", "1 客户原文", "只读锚点")
     add(f"jd_links/{jd}.yaml", "2 引用文件", "改完要过逐字回查")
     add(f"jd_docs/{jd}.定稿.md", "3 定稿", "我方建议/排版可改")
@@ -382,18 +395,72 @@ class DocSave(BaseModel):
 
 @router.get("/docs")
 def list_docs() -> Dict[str, Any]:
-    """所有 JD 及其产物清单。"""
+    """所有 JD 及其产物清单。
+
+    `default_jd` 由 `jd_inputs/<JD>.yaml` 的 `default: true` 决定（换批次不用改代码）；
+    前端拿它当"没选过时的默认"，不再自己猜第一份 —— 猜第一份等于把缺口最大的那份
+    摆在人眼前。
+    """
     jds = _jds()
+    from services.talent_gap import default_jd as _default_jd
+
     return {
         "jds": [
             {"jd": jd, "files": _jd_files(jd),
              "existing": sum(1 for f in _jd_files(jd) if f["exists"])}
             for jd in jds
         ],
+        "default_jd": _default_jd(),
         "writable_prefixes": WRITABLE,
         "readonly_prefixes": READONLY,
         "user": _who(),
     }
+
+
+@router.get("/gap")
+def get_gap(jd: str = Query(..., description="必填：缺口是相对某一份 JD 才成立的")) -> Dict[str, Any]:
+    """某份 JD 的缺口（40 格状态）。
+
+    `jd` **必填**：不传就报 422，而不是返回空表 —— 空表会被人读成"没有缺口"。
+    有 `jd_draft/<JD>.draft.json` 就返回 7 状态（定稿还差什么），
+    否则退回 `template_fill` 的 5 状态（客户稿覆盖到哪），并在 `source` 里标清楚。
+    """
+    from services.talent_gap import gap_for
+
+    if not jd.strip():
+        raise HTTPException(422, "jd 不能为空：缺口是相对某一份 JD 才成立的")
+    try:
+        return gap_for(jd.strip())
+    except KeyError:
+        raise HTTPException(404, f"没有这份 JD：{jd}")
+
+
+@router.get("/cvs")
+def list_cvs(search: str = Query(""), limit: int = Query(400, ge=1, le=2000)) -> Dict[str, Any]:
+    """可选简历清单（展示名为伪造，见下）。
+
+    简历与 JD 是**一对多**：一个人可能投过几个岗。所以这里不做"按 JD 过滤"的强绑定，
+    只给 jd 字段供前端分组/筛选 —— 但缺口**永远是一份简历对模板**，不是一堆简历的统计。
+    """
+    from services.talent_gap import cv_list
+
+    rows = cv_list(limit=limit, search=search)
+    return {"cvs": rows, "count": len(rows),
+            "disclosure": "展示名为本仓库伪造（basis=fabricated）；原件姓名已脱敏"}
+
+
+@router.get("/cv-gap")
+def get_cv_gap(cv: str = Query(..., description="必填：缺口是相对某一份简历才成立的"),
+               jd: str = Query("", description="可选：判断条件字段是否适用于这份 JD")):
+    """一份简历对着 CV 模板（26 字段）的缺口。"""
+    from services.talent_gap import cv_gap_for
+
+    if not cv.strip():
+        raise HTTPException(422, "cv 不能为空：缺口是相对某一份简历才成立的")
+    try:
+        return cv_gap_for(cv.strip(), jd.strip())
+    except KeyError:
+        raise HTTPException(404, f"没有这份简历：{cv}")
 
 
 @router.get("/raw")

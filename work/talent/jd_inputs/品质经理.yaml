@@ -1,4 +1,6 @@
 jd: 品质经理
+# 默认 JD：Talent 打开时先选它、缺口面板也先给它。判定链不读这个键。
+default: true
 interview_target:
   n: 30
   decided_by: admin
