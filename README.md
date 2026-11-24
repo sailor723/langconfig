@@ -16,6 +16,17 @@ your own PostgreSQL, so nothing leaves the machine.
 
 ---
 
+> **Upgrading a machine that was installed before 2026-11-24?** That pull also brings **talent**
+> (the CV ↔ JD hiring pipeline: 40-field JD 定稿 → CV shortlist → final 5 → 业务面问题清单).
+> A `git pull` alone is **not** enough — you still need `npm install && npm run build`,
+> `scripts/seeds/in/seed_all.py`, and `scripts/seeds/in/seed_talent_agents.py --apply`, or the app
+> looks broken in three specific ways (blank page, an activity that does nothing,
+> `/talent#/knowledge` showing Knowledge). Command-by-command runbook and the traps we actually hit:
+> **[installation.md §5.0 / §1.1](docs/installation/installation.md)** ·
+> 中文：[installation.zh-CN.md §10](docs/installation/installation.zh-CN.md)
+
+---
+
 ## Documentation
 
 | Doc | What it answers |
