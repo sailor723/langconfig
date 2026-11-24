@@ -522,6 +522,8 @@ def emit(which: str, sections: list[tuple[str, list[dict]]], fs: dict) -> str:
             A(f"        in_field_schema: {'true' if r['in_field_schema'] else 'false'}")
             if r['new_in_standard']:
                 A('        new_in_standard: true')
+            if r.get('cross_side'):
+                A('        cross_side: true')
             if r['note']:
                 A(f"        note: {_esc(r['note'])}")
     A('')
