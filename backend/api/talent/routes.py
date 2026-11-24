@@ -410,6 +410,24 @@ def get_raw(jd: str = Query(""), path: str = Query(...)):
                         content_disposition_type="inline")
 
 
+@router.get("/catalog")
+def get_catalog() -> Dict[str, Any]:
+    """标准目录(分类/组件/要求/JD 与 CV 模板)。
+
+    读的是 `build_catalog.py` 的产物 —— 门禁里有「catalog 与三份 YAML 一致」这一条,
+    所以这里**不重算**:重算会让页面和门禁各有一份真相。
+    """
+    path = TALENT / "catalog.json"
+    if not path.is_file():
+        raise HTTPException(404, "还没有 catalog.json —— 先跑 "
+                                 "`python -m scripts.talent.build_catalog`")
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as exc:
+        raise HTTPException(500, f"catalog.json 解析失败: {exc}") from exc
+    return {"ok": True, **doc}
+
+
 @router.get("/doc")
 def get_doc(jd: str = Query(...), path: str = Query(...)) -> Dict[str, Any]:
     """读一个产物。`path` 是相对 `work/talent/` 的路径。

@@ -238,3 +238,41 @@ export async function runTalentStep(jd: string, step = '5'): Promise<RunStepResu
   if (!r.ok) throw new Error((await r.text()).slice(0, 200) || `HTTP ${r.status}`);
   return r.json();
 }
+
+// ── 标准目录（分类/组件/要求/JD 与 CV 模板）────────────────────────────────
+export interface CatalogComponent {
+  id: string; label: string; kind: string | null; evidence_role: string | null;
+  cv_count: number | null; requirements: string[]; jds: string[]; evidence_note: string | null;
+}
+export interface CatalogField {
+  id: string; label: string; dimension: string | null; scale?: string | null;
+  unit?: string | null; presence: number | null; required?: boolean | null;
+  prop?: string | null; compare: string | null; note: string | null;
+}
+export interface CatalogTemplate {
+  name: string | null; rule: string | null; field_count: number;
+  sections: { code: string; label: string; fields: CatalogField[] }[];
+}
+export interface TalentCatalog {
+  ok: boolean;
+  categories: { name: string; components: CatalogComponent[] }[];
+  requirements: { id: string; name: string | null; dimension: string | null; kind: string | null;
+                  data_class: string | null; assessable: boolean; components: string[];
+                  attribute: string | null; op: string | null; jds: string[] }[];
+  jd_template: CatalogTemplate;
+  cv_template: CatalogTemplate;
+  coverage: {
+    categories: number; components: number; requirements: number; fields: number;
+    components_with_evidence_role: number; components_evidence_role_missing: string[];
+    requirements_used_by_jds: number; requirements_unused: string[];
+    components_unused: string[]; requirements_unassessable: string[];
+    jds: Record<string, { citations: number }>;
+  };
+}
+
+/** 标准目录。读的是 build_catalog 的产物（门禁保证它与三份 YAML 一致）。*/
+export async function getTalentCatalog(): Promise<TalentCatalog> {
+  const r = await fetch(`${BASE}/catalog`, { credentials: 'include' });
+  if (!r.ok) throw new Error((await r.text()).slice(0, 200) || `HTTP ${r.status}`);
+  return r.json();
+}

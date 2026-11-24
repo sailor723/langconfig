@@ -27,6 +27,7 @@ import { useLayoutTokens, type LayoutTokens } from '../../components/layout2/tok
 import { useProject } from '../../contexts/ProjectContext';
 import MarkdownBody from '../../components/layout2/MarkdownBody';
 import CollapsibleMarkdown from './CollapsibleMarkdown';
+import TalentCatalog from './TalentCatalog';
 import StructuredBody from '../../components/layout2/StructuredBody';
 import type { Tab } from '../../components/layout2/useLayout';
 import {
@@ -624,7 +625,11 @@ function TalentDocViewInner({ tab }: { tab?: Tab }) {
           /* 滚动容器**必须在这里**:之前直接把渲染结果铺在 flex 里,长文档滚不动
              (高度被 flex 吃掉了)。minHeight:0 + overflow:auto 是这条的关键两行。 */
           <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '4px 16px 24px' }}>
-            <CollapsibleMarkdown text={draft} tokens={t} onOpenLink={openCvLink} />
+            {/* 标准目录是**可查**的东西（反查/筛选），只给 md 等于让人 Ctrl+F。
+                这里换成面板；想读原文就切到「源码」页签（保存/回检那条路不变）。 */}
+            {path === 'CATALOG.md'
+              ? <TalentCatalog />
+              : <CollapsibleMarkdown text={draft} tokens={t} onOpenLink={openCvLink} />}
           </div>
         ) : doc && dataFmt && mode === 'preview' ? (
           /* yaml/json:读成树。引文、txt_line、rationale 在这棵树里才看得出关系。 */
