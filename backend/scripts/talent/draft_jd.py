@@ -45,9 +45,12 @@ DIR = TALENT / 'jd_draft'
 ST_CLIENT, ST_HR, ST_EMPTY = '客户原文', 'HR 侧', '原文·空值'
 ST_PROPOSED, ST_WAIT, ST_WAITC, ST_NA = ('我方建议·待确认', '待客户给', '待客户确认',
                                        '不适用')
+#: HR 对「AI 模拟」格子的回复（模拟，未签字）：可以进判定，但定稿里必须标「未签字」
+ST_HRMOCK = 'HR 模拟确认'
 #: 能进判定的状态（其余一律「未知」/「不可判」）
-IN_JUDGING = {ST_CLIENT, ST_HR}
-ALL_STATES = {ST_CLIENT, ST_HR, ST_EMPTY, ST_PROPOSED, ST_WAIT, ST_WAITC, ST_NA}
+IN_JUDGING = {ST_CLIENT, ST_HR, ST_HRMOCK}
+ALL_STATES = {ST_CLIENT, ST_HR, ST_EMPTY, ST_PROPOSED, ST_WAIT, ST_WAITC, ST_NA,
+              ST_HRMOCK}
 
 
 def load_template() -> list[dict]:
@@ -84,6 +87,26 @@ def build(jd: str) -> dict:
     fillp = DIR / f'{jd}.fill.yaml'
     fill = (yaml.safe_load(fillp.read_text(encoding='utf-8')) or {})
     over = fill.get('overrides') or {}
+    # HR 的逐格回复（模拟）：accept=沿用模拟值、change=换成 HR 口径、reject=不写进 JD
+    hr_p = DIR / f'{jd}.hr_response.yaml'
+    hr_resp = {}
+    if hr_p.is_file():
+        hr_resp = (yaml.safe_load(hr_p.read_text(encoding='utf-8')) or {}).get('responses') or {}
+        for code, resp in hr_resp.items():
+            if code not in over:
+                continue
+            cur = over[code]
+            if cur.get('state') not in (ST_PROPOSED,):
+                continue
+            dec = resp.get('decision')
+            merged = dict(cur, state=ST_HRMOCK, hr_decision=dec,
+                          why=(cur.get('why') or '') + '｜HR 回复（模拟）：' + (resp.get('note') or ''),
+                          needs='HR 签字')
+            if dec == 'change':
+                merged['value'] = resp.get('value')
+            elif dec == 'reject':
+                merged['value'] = '（不写进 JD）'
+            over[code] = merged
     cits = {c['id']: c for c in links.get('citations') or []}
     src_rel = links.get('source_text') or ''
     source = ''
@@ -113,7 +136,7 @@ def build(jd: str) -> dict:
         ev = []
         if state not in ALL_STATES:
             problems.append(f'{code}: state 非法/缺失（{state}）')
-        if state in IN_JUDGING:
+        if state in IN_JUDGING and state != ST_HRMOCK:
             # 第三类依据：Phase 1 的**文本规则**（正文里读出来的，还没抽成引用）。
             # 这类格子可以进判定，但必须在依据里标出来 —— "文本规则"与"逐字引用"不是一回事。
             if not cites and not quote and spec.get('basis') in ('text-fallback', 'text-rule'):
@@ -141,9 +164,15 @@ def build(jd: str) -> dict:
                     problems.append(f'{code}: 标客户原文，但 {cid} 是我方 HR 提的')
                 eb = (c.get('verbatim') or '').strip()
                 ev.append(f'{cid}「{eb}」' if eb else f'{cid}（HR 提出）')
-        if state in (ST_PROPOSED, ST_WAIT, ST_WAITC, ST_EMPTY) and not why:
+        # HR 模拟确认的依据是"HR 回复"，不是引用/原文 —— 依据由 hr_decision 与 why 承担
+        if state == ST_HRMOCK:
+            if not spec.get('hr_decision'):
+                problems.append(f'{code}: HR 模拟确认 却没有 hr_decision')
+            if not why:
+                problems.append(f'{code}: HR 模拟确认 必须写 HR 的回复理由')
+        if state in (ST_PROPOSED, ST_WAIT, ST_WAITC, ST_EMPTY, ST_HRMOCK) and not why:
             problems.append(f'{code}: {state} 必须写 why（为什么这么建议/缺什么）')
-        if state in (ST_PROPOSED, ST_WAIT, ST_WAITC) and not needs:
+        if state in (ST_PROPOSED, ST_WAIT, ST_WAITC, ST_HRMOCK) and not needs:
             problems.append(f'{code}: {state} 必须写 needs（谁来确认）')
         if state == ST_NA:
             if r.get('requirement_level') != 'conditional':
@@ -167,7 +196,7 @@ def build(jd: str) -> dict:
         })
 
     tally: dict[str, int] = {k: 0 for k in (ST_CLIENT, ST_HR, ST_EMPTY, ST_PROPOSED,
-                                            ST_WAIT, ST_WAITC, ST_NA)}
+                                            ST_WAIT, ST_WAITC, ST_NA, ST_HRMOCK)}
     for x in rows:
         tally[x['state']] = tally.get(x['state'], 0) + 1
     return {'jd': jd, 'template': 'templates/standard_jd_template.yaml',
@@ -188,6 +217,7 @@ def render(d: dict) -> str:
          f'| 我方建议·待确认 | {t[ST_PROPOSED]} | ❌ 未确认不进判定 | 有理由、有确认方 |',
          f'| 待客户给 | {t[ST_WAIT]} | ❌ 记「不可判」 | 对所有人一样，不冤枉人 |',
          f'| 待客户确认 | {t[ST_WAITC]} | ❌ 未确认不进判定 | 客户没写，但我方已有默认口径 |',
+         f'| HR 模拟确认 | {t[ST_HRMOCK]} | ⚠ 进判定但**未签字** | HR 对 AI 模拟的回复（模拟） |',
          f'| 不适用 | {t[ST_NA]} | — | 条件字段，本岗位类别不触发 |', '']
     if d['problems']:
         L += ['## ⚠ 自检不通过', ''] + [f'- {p}' for p in d['problems']] + ['']
@@ -244,7 +274,7 @@ def main() -> int:
     print(f"{jd}: {d['fields']} 字段 · 能进判定 {t[ST_CLIENT] + t[ST_HR]}"
           f"（客户原文 {t[ST_CLIENT]} / HR {t[ST_HR]}）· 原文·空值 {t[ST_EMPTY]}"
           f" · 建议待确认 {t[ST_PROPOSED]} · 待客户给 {t[ST_WAIT]}"
-          f" · 待客户确认 {t[ST_WAITC]} · 不适用 {t[ST_NA]}")
+          f" · 待客户确认 {t[ST_WAITC]} · HR 模拟确认 {t[ST_HRMOCK]} · 不适用 {t[ST_NA]}")
     if d['problems']:
         print(f'  ✗ 自检 {len(d["problems"])} 条不通过:')
         for p in d['problems'][:10]:

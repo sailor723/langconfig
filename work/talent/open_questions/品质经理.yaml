@@ -1,9 +1,9 @@
 jd: 品质经理
-scope_size: 164
-items: 1450
+scope_size: 159
+items: 1329
 by_who:
-  HR: 731
-  业务: 719
+  HR: 633
+  业务: 696
 rule: 待核 ≠ 不合格。未核期间这些要求一律按「未知」处理,不得用于排除;问完把答案写回 cv_facts/cv_interview,再重跑第 3 步。
 queue:
 - candidate: cand_人资专员_东莞_5_6K_何___5年
@@ -603,50 +603,6 @@ queue:
   judge_by: 业务
   evidence: 经理助理:2.，项目管理，全流程管理，确保项目顺利推进，风险管理，按时交付，获得客户好评，树立品牌形象; 6. 客户服务，构建服务体系，制定服务标准，确保咨询、投诉、建议得到及时处理，客户满意度95%以上，
 - candidate: cand_副总助理_东莞_10_15K_戴___8年_1
-  data_item: A.2 age
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人提供身份证出生日期(或出生年月),并说明是身份证还是自述
-  unlock: 解锁 C-01 年龄区间
-  method: 证件
-  material: 身份证
-  judge_by: HR
-  evidence: ''
-- candidate: cand_副总助理_东莞_10_15K_戴___8年_1
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_副总助理_东莞_10_15K_戴___8年_1
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_副总助理_东莞_10_15K_戴___8年_1
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
-  evidence: ''
-- candidate: cand_副总助理_东莞_10_15K_戴___8年_1
   data_item: 线束行业知识
   current: 没抽到
   why: 1 项一项都没抽到(可能没写,也可能没做过)
@@ -702,61 +658,6 @@ queue:
   judge_by: 业务
   evidence: 经理:1. 负责基建及工程项目全周期采购管理，涵盖圭建、机电、暖通、消防、弱电、给排 2. 严格执行总公司采购管理规定与实施细则，按项目节点推进采购执行，统筹采购订
     3. 搭建并维护工程类供应商/分包商资源池，负责准入评审、资质核查、履约评
-- candidate: cand_副总助理_东莞_10_15K_黄___8年
-  data_item: A.2 age
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人提供身份证出生日期(或出生年月),并说明是身份证还是自述
-  unlock: 解锁 C-01 年龄区间
-  method: 证件
-  material: 身份证
-  judge_by: HR
-  evidence: ''
-- candidate: cand_副总助理_东莞_10_15K_黄___8年
-  data_item: B.1 educationRank
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人提供最高学历证书照片(毕业证/学位证),注明全日制还是在职
-  unlock: 解锁 C-02 学历不低于
-  method: 证件
-  material: 毕业证/学位证 + 学信网
-  judge_by: HR
-  evidence: ''
-- candidate: cand_副总助理_东莞_10_15K_黄___8年
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_副总助理_东莞_10_15K_黄___8年
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_副总助理_东莞_10_15K_黄___8年
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
-  evidence: ''
 - candidate: cand_副总助理_东莞_10_15K_黄___8年
   data_item: 英语、8D报告
   current: 没抽到
@@ -934,39 +835,6 @@ queue:
   judge_by: 业务
   evidence: '经理助理:'
 - candidate: cand_副总助理_东莞_8_13K_冷___9年
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_副总助理_东莞_8_13K_冷___9年
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_副总助理_东莞_8_13K_冷___9年
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
-  evidence: ''
-- candidate: cand_副总助理_东莞_8_13K_冷___9年
   data_item: 英语、8D报告
   current: 没抽到
   why: 2 项一项都没抽到(可能没写,也可能没做过)
@@ -1110,105 +978,6 @@ queue:
   judge_by: 业务
   evidence: ''
 - candidate: cand_副总助理_东莞_8_13K_王___1年以内
-  data_item: 客户验厂
-  current: 没抽到
-  why: 1 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 哪家客户来验过厂?验的什么体系(ISO/客户自有标准)?他负责哪部分?
-  unlock: 解锁 C-09 客户验厂经验
-  method: 面谈
-  material: 哪家客户、什么体系、他负责哪部分
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_副总助理_东莞_8_13K_范___7年
-  data_item: 品质岗经历
-  current: 待核
-  why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
-  who: HR
-  how: 近三年有没有做过品质相关工作(检验判定/异常处理/体系或客户审核)?是哪一段、起止年月、具体做什么?
-  unlock: 第 3 步的品质岗门槛(现在卡着的人全部因此待核)
-  method: 面谈
-  material: 按起止年月问清责任范围
-  judge_by: 业务
-  evidence: '经理助理(兼人事):'
-- candidate: cand_副总助理_东莞_8_13K_范___7年
-  data_item: A.2 age
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人提供身份证出生日期(或出生年月),并说明是身份证还是自述
-  unlock: 解锁 C-01 年龄区间
-  method: 证件
-  material: 身份证
-  judge_by: HR
-  evidence: ''
-- candidate: cand_副总助理_东莞_8_13K_范___7年
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_副总助理_东莞_8_13K_范___7年
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_副总助理_东莞_8_13K_范___7年
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
-  evidence: ''
-- candidate: cand_副总助理_东莞_8_13K_范___7年
-  data_item: 线束行业知识
-  current: 没抽到
-  why: 1 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 他做过线束/连接器产品吗?哪一段、什么产品、做了什么工序?
-  unlock: 解锁 C-06 线束/连接器行业认知
-  method: 面谈
-  material: 产品/工序/客户指名道姓地问
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_副总助理_东莞_8_13K_范___7年
-  data_item: 品质问题分析
-  current: 没抽到
-  why: 1 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 举一个他主导的品质异常分析:什么不良、用什么方法、结果如何?
-  unlock: 解锁 C-07 品质问题分析改善能力
-  method: 实测
-  material: 给一个真实不良,现场让他分析并给对策
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_副总助理_东莞_8_13K_范___7年
-  data_item: QC七大手法、SPC、CPK、6S、5WHY
-  current: 没抽到
-  why: 5 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 一次问完 QC七大手法、SPC、CPK、6S、5WHY:现场随机问一项 QC 手法(如鱼骨图/柏拉图)让他说怎么用
-  unlock: 解锁 C-08 品质工具(QC七大手法/5WHY/SPC/CPK/6S)
-  method: 实测
-  material: 现场出题:鱼骨图/柏拉图各画一次
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_副总助理_东莞_8_13K_范___7年
   data_item: 客户验厂
   current: 没抽到
   why: 1 项一项都没抽到(可能没写,也可能没做过)
@@ -1956,61 +1725,6 @@ queue:
   method: 面谈
   material: 按起止年月问清责任范围
   judge_by: 业务
-  evidence: ''
-- candidate: cand_高级招聘专家_东莞_9_14K_段___7年
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_高级招聘专家_东莞_9_14K_段___7年
-  data_item: C.7 recent5y_segments
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 近 5 年有哪几段工作?每段起止年月与岗位?
-  unlock: 解锁 HR 侧「近 5 年工作段数」
-  method: 面谈
-  material: 按起止年月核对近 5 年工作段
-  judge_by: HR
-  evidence: ''
-- candidate: cand_高级招聘专家_东莞_9_14K_段___7年
-  data_item: C.4 avg_tenure_years
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 近 5 年换过几家?每段做多久?离职原因是什么?
-  unlock: 解锁 HR 侧「平均在职年限(稳定性)」
-  method: 面谈
-  material: 问清每段时长与离职原因
-  judge_by: HR
-  evidence: ''
-- candidate: cand_高级招聘专家_东莞_9_14K_段___7年
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_高级招聘专家_东莞_9_14K_段___7年
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
   evidence: ''
 - candidate: cand_高级招聘专家_东莞_9_14K_段___7年
   data_item: 英语、8D报告
@@ -3672,50 +3386,6 @@ queue:
   judge_by: 业务
   evidence: '专员:'
 - candidate: cand_行政专员_东莞_7_8K_谢___5年
-  data_item: A.2 age
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人提供身份证出生日期(或出生年月),并说明是身份证还是自述
-  unlock: 解锁 C-01 年龄区间
-  method: 证件
-  material: 身份证
-  judge_by: HR
-  evidence: ''
-- candidate: cand_行政专员_东莞_7_8K_谢___5年
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_行政专员_东莞_7_8K_谢___5年
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_行政专员_东莞_7_8K_谢___5年
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
-  evidence: ''
-- candidate: cand_行政专员_东莞_7_8K_谢___5年
   data_item: 英语、8D报告
   current: 没抽到
   why: 2 项一项都没抽到(可能没写,也可能没做过)
@@ -4113,50 +3783,6 @@ queue:
   material: 按起止年月问清责任范围
   judge_by: 业务
   evidence: '专员”工作经验: 4年:'
-- candidate: cand_行政专员_东莞_7_9K_陈___10年以上
-  data_item: A.2 age
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人提供身份证出生日期(或出生年月),并说明是身份证还是自述
-  unlock: 解锁 C-01 年龄区间
-  method: 证件
-  material: 身份证
-  judge_by: HR
-  evidence: ''
-- candidate: cand_行政专员_东莞_7_9K_陈___10年以上
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_行政专员_东莞_7_9K_陈___10年以上
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_行政专员_东莞_7_9K_陈___10年以上
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
-  evidence: ''
 - candidate: cand_行政专员_东莞_7_9K_陈___10年以上
   data_item: 线束行业知识
   current: 没抽到
@@ -4953,116 +4579,6 @@ queue:
   material: 哪家客户、什么体系、他负责哪部分
   judge_by: 业务
   evidence: ''
-- candidate: cand_专案工程师_东莞_12_16K_lizw_10年以上
-  data_item: 品质岗经历
-  current: 待核
-  why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
-  who: HR
-  how: 近三年有没有做过品质相关工作(检验判定/异常处理/体系或客户审核)?是哪一段、起止年月、具体做什么?
-  unlock: 第 3 步的品质岗门槛(现在卡着的人全部因此待核)
-  method: 面谈
-  material: 按起止年月问清责任范围
-  judge_by: 业务
-  evidence: '技术员，产品工程师:'
-- candidate: cand_专案工程师_东莞_12_16K_lizw_10年以上
-  data_item: A.2 age
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人提供身份证出生日期(或出生年月),并说明是身份证还是自述
-  unlock: 解锁 C-01 年龄区间
-  method: 证件
-  material: 身份证
-  judge_by: HR
-  evidence: ''
-- candidate: cand_专案工程师_东莞_12_16K_lizw_10年以上
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_专案工程师_东莞_12_16K_lizw_10年以上
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_专案工程师_东莞_12_16K_lizw_10年以上
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
-  evidence: ''
-- candidate: cand_专案工程师_东莞_12_16K_lizw_10年以上
-  data_item: 英语、8D报告
-  current: 没抽到
-  why: 2 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 一次问完 英语、8D报告:近 12 个月有没有一次不靠翻译、独立用英语主答客户审核会议?(是/否)
-  unlock: 解锁 C-04 英语(口语 + 独立书写英文8D报告)
-  method: 实测
-  material: 英文 8D 作业 + 英文面试 10 分钟
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_专案工程师_东莞_12_16K_lizw_10年以上
-  data_item: 线束行业知识
-  current: 没抽到
-  why: 1 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 他做过线束/连接器产品吗?哪一段、什么产品、做了什么工序?
-  unlock: 解锁 C-06 线束/连接器行业认知
-  method: 面谈
-  material: 产品/工序/客户指名道姓地问
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_专案工程师_东莞_12_16K_lizw_10年以上
-  data_item: 品质问题分析
-  current: 没抽到
-  why: 1 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 举一个他主导的品质异常分析:什么不良、用什么方法、结果如何?
-  unlock: 解锁 C-07 品质问题分析改善能力
-  method: 实测
-  material: 给一个真实不良,现场让他分析并给对策
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_专案工程师_东莞_12_16K_lizw_10年以上
-  data_item: QC七大手法、SPC、CPK、6S、5WHY
-  current: 没抽到
-  why: 5 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 一次问完 QC七大手法、SPC、CPK、6S、5WHY:现场随机问一项 QC 手法(如鱼骨图/柏拉图)让他说怎么用
-  unlock: 解锁 C-08 品质工具(QC七大手法/5WHY/SPC/CPK/6S)
-  method: 实测
-  material: 现场出题:鱼骨图/柏拉图各画一次
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_专案工程师_东莞_12_16K_lizw_10年以上
-  data_item: 客户验厂
-  current: 没抽到
-  why: 1 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 哪家客户来验过厂?验的什么体系(ISO/客户自有标准)?他负责哪部分?
-  unlock: 解锁 C-09 客户验厂经验
-  method: 面谈
-  material: 哪家客户、什么体系、他负责哪部分
-  judge_by: 业务
-  evidence: ''
 - candidate: cand_专案工程师_东莞_12_16K_何___5年
   data_item: 品质岗经历
   current: 待核
@@ -5076,39 +4592,6 @@ queue:
   evidence: :1.负责线束产品图纸设计，变更，与审核; 2.负责快充数据线，各类等级网线，各类高频线束等各类线束产品结构材料选型，产线SOP指导书,产品结构材料BOM
     ，样品承认 3.负责工艺文件编辑及工艺优化，工序流程的设计; 4.负责改进后的制程工
 - candidate: cand_专案工程师_东莞_12_16K_何___5年
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_专案工程师_东莞_12_16K_何___5年
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_专案工程师_东莞_12_16K_何___5年
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
-  evidence: ''
-- candidate: cand_专案工程师_东莞_12_16K_何___5年
   data_item: 英语、8D报告
   current: 没抽到
   why: 2 项一项都没抽到(可能没写,也可能没做过)
@@ -5117,17 +4600,6 @@ queue:
   unlock: 解锁 C-04 英语(口语 + 独立书写英文8D报告)
   method: 实测
   material: 英文 8D 作业 + 英文面试 10 分钟
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_专案工程师_东莞_12_16K_何___5年
-  data_item: 线束行业知识
-  current: 没抽到
-  why: 1 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 他做过线束/连接器产品吗?哪一段、什么产品、做了什么工序?
-  unlock: 解锁 C-06 线束/连接器行业认知
-  method: 面谈
-  material: 产品/工序/客户指名道姓地问
   judge_by: 业务
   evidence: ''
 - candidate: cand_专案工程师_东莞_12_16K_何___5年
@@ -5494,50 +4966,6 @@ queue:
   material: 按起止年月问清责任范围
   judge_by: 业务
   evidence: '助理工程师.工程:'
-- candidate: cand_何___35岁_专案工程师_智通简历_编号
-  data_item: C.1 yearsPlatform
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人按"起止年月"口述主要工作段,用来核对总年限
-  unlock: 解锁 C-05 某领域年限
-  method: 面谈
-  material: 按起止年月核对,补空档
-  judge_by: HR
-  evidence: ''
-- candidate: cand_何___35岁_专案工程师_智通简历_编号
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_何___35岁_专案工程师_智通简历_编号
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_何___35岁_专案工程师_智通简历_编号
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
-  evidence: ''
 - candidate: cand_何___35岁_专案工程师_智通简历_编号
   data_item: 英语、8D报告
   current: 没抽到
@@ -6567,50 +5995,6 @@ queue:
   judge_by: 业务
   evidence: '工程师/技术员.工程部:'
 - candidate: cand_胡___38岁_专案工程师_智通简历_编号
-  data_item: C.1 yearsPlatform
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人按"起止年月"口述主要工作段,用来核对总年限
-  unlock: 解锁 C-05 某领域年限
-  method: 面谈
-  material: 按起止年月核对,补空档
-  judge_by: HR
-  evidence: ''
-- candidate: cand_胡___38岁_专案工程师_智通简历_编号
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_胡___38岁_专案工程师_智通简历_编号
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_胡___38岁_专案工程师_智通简历_编号
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
-  evidence: ''
-- candidate: cand_胡___38岁_专案工程师_智通简历_编号
   data_item: 英语、8D报告
   current: 没抽到
   why: 2 项一项都没抽到(可能没写,也可能没做过)
@@ -6619,17 +6003,6 @@ queue:
   unlock: 解锁 C-04 英语(口语 + 独立书写英文8D报告)
   method: 实测
   material: 英文 8D 作业 + 英文面试 10 分钟
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_胡___38岁_专案工程师_智通简历_编号
-  data_item: 线束行业知识
-  current: 没抽到
-  why: 1 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 他做过线束/连接器产品吗?哪一段、什么产品、做了什么工序?
-  unlock: 解锁 C-06 线束/连接器行业认知
-  method: 面谈
-  material: 产品/工序/客户指名道姓地问
   judge_by: 业务
   evidence: ''
 - candidate: cand_胡___38岁_专案工程师_智通简历_编号
@@ -7814,39 +7187,6 @@ queue:
   material: 哪家客户、什么体系、他负责哪部分
   judge_by: 业务
   evidence: ''
-- candidate: cand_段___研发工程主管_产品工程主管
-  data_item: 品质岗经历
-  current: 待核
-  why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
-  who: HR
-  how: 近三年有没有做过品质相关工作(检验判定/异常处理/体系或客户审核)?是哪一段、起止年月、具体做什么?
-  unlock: 第 3 步的品质岗门槛(现在卡着的人全部因此待核)
-  method: 面谈
-  material: 按起止年月问清责任范围
-  judge_by: 业务
-  evidence: '工程课长:'
-- candidate: cand_段___研发工程主管_产品工程主管
-  data_item: QC七大手法、SPC、CPK、6S、5WHY
-  current: 没抽到
-  why: 5 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 一次问完 QC七大手法、SPC、CPK、6S、5WHY:现场随机问一项 QC 手法(如鱼骨图/柏拉图)让他说怎么用
-  unlock: 解锁 C-08 品质工具(QC七大手法/5WHY/SPC/CPK/6S)
-  method: 实测
-  material: 现场出题:鱼骨图/柏拉图各画一次
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_段___研发工程主管_产品工程主管
-  data_item: 客户验厂
-  current: 没抽到
-  why: 1 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 哪家客户来验过厂?验的什么体系(ISO/客户自有标准)?他负责哪部分?
-  unlock: 解锁 C-09 客户验厂经验
-  method: 面谈
-  material: 哪家客户、什么体系、他负责哪部分
-  judge_by: 业务
-  evidence: ''
 - candidate: cand_汽车线束高线工程师_东莞_10_14K_何___10年以上
   data_item: 品质岗经历
   current: 待核
@@ -7967,72 +7307,6 @@ queue:
   method: 面谈
   material: 按起止年月问清责任范围
   judge_by: 业务
-  evidence: ''
-- candidate: cand_设计助理工程师_东莞_7_10K_柒___4年
-  data_item: A.2 age
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人提供身份证出生日期(或出生年月),并说明是身份证还是自述
-  unlock: 解锁 C-01 年龄区间
-  method: 证件
-  material: 身份证
-  judge_by: HR
-  evidence: ''
-- candidate: cand_设计助理工程师_东莞_7_10K_柒___4年
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_设计助理工程师_东莞_7_10K_柒___4年
-  data_item: C.7 recent5y_segments
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 近 5 年有哪几段工作?每段起止年月与岗位?
-  unlock: 解锁 HR 侧「近 5 年工作段数」
-  method: 面谈
-  material: 按起止年月核对近 5 年工作段
-  judge_by: HR
-  evidence: ''
-- candidate: cand_设计助理工程师_东莞_7_10K_柒___4年
-  data_item: C.4 avg_tenure_years
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 近 5 年换过几家?每段做多久?离职原因是什么?
-  unlock: 解锁 HR 侧「平均在职年限(稳定性)」
-  method: 面谈
-  material: 问清每段时长与离职原因
-  judge_by: HR
-  evidence: ''
-- candidate: cand_设计助理工程师_东莞_7_10K_柒___4年
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_设计助理工程师_东莞_7_10K_柒___4年
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
   evidence: ''
 - candidate: cand_设计助理工程师_东莞_7_10K_柒___4年
   data_item: 英语、8D报告
@@ -11231,50 +10505,6 @@ queue:
   judge_by: 业务
   evidence: ''
 - candidate: cand_业务跟单_东莞_6_10K_李___1年
-  data_item: A.2 age
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人提供身份证出生日期(或出生年月),并说明是身份证还是自述
-  unlock: 解锁 C-01 年龄区间
-  method: 证件
-  material: 身份证
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_李___1年
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_李___1年
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_李___1年
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_李___1年
   data_item: 线束行业知识
   current: 没抽到
   why: 1 项一项都没抽到(可能没写,也可能没做过)
@@ -11330,50 +10560,6 @@ queue:
   judge_by: 业务
   evidence: :1. 对接新老客户，接收客户需求、登记订单信息、跟进订单进度，确保按时交付; 2. 负责报价单制作、合同对接、资料核对，熟悉商务流程 3.
     跟进回款、对账、单据整理，做好客户售后沟通与问题协调; 4. 每日整理客户资料、订单台账，统计业绩
-- candidate: cand_业务跟单_东莞_6_10K_李___4年
-  data_item: A.2 age
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人提供身份证出生日期(或出生年月),并说明是身份证还是自述
-  unlock: 解锁 C-01 年龄区间
-  method: 证件
-  material: 身份证
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_李___4年
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_李___4年
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_李___4年
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
-  evidence: ''
 - candidate: cand_业务跟单_东莞_6_10K_李___4年
   data_item: 英语、8D报告
   current: 没抽到
@@ -12059,116 +11245,6 @@ queue:
   material: 哪家客户、什么体系、他负责哪部分
   judge_by: 业务
   evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_王___10年以上_2
-  data_item: 品质岗经历
-  current: 待核
-  why: 只出现弱动作(客诉/8D)—— 业务/工程职责里也有,既不足以判「做过品质」,也不足以判「没做过」
-  who: HR
-  how: 近三年有没有做过品质相关工作(检验判定/异常处理/体系或客户审核)?是哪一段、起止年月、具体做什么?
-  unlock: 第 3 步的品质岗门槛(现在卡着的人全部因此待核)
-  method: 面谈
-  material: 按起止年月问清责任范围
-  judge_by: 业务
-  evidence: 助理 | 行业:2. 实时同步生产进度，响应客户咨询，妥善处理客诉及产品异常 3. 核对月度往来账款，负责客户样品寄送、测试及后续跟进工作
-- candidate: cand_业务跟单_东莞_6_10K_王___10年以上_2
-  data_item: A.2 age
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人提供身份证出生日期(或出生年月),并说明是身份证还是自述
-  unlock: 解锁 C-01 年龄区间
-  method: 证件
-  material: 身份证
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_王___10年以上_2
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_王___10年以上_2
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_王___10年以上_2
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_王___10年以上_2
-  data_item: 英语、8D报告
-  current: 没抽到
-  why: 2 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 一次问完 英语、8D报告:近 12 个月有没有一次不靠翻译、独立用英语主答客户审核会议?(是/否)
-  unlock: 解锁 C-04 英语(口语 + 独立书写英文8D报告)
-  method: 实测
-  material: 英文 8D 作业 + 英文面试 10 分钟
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_王___10年以上_2
-  data_item: 线束行业知识
-  current: 没抽到
-  why: 1 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 他做过线束/连接器产品吗?哪一段、什么产品、做了什么工序?
-  unlock: 解锁 C-06 线束/连接器行业认知
-  method: 面谈
-  material: 产品/工序/客户指名道姓地问
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_王___10年以上_2
-  data_item: 品质问题分析
-  current: 没抽到
-  why: 1 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 举一个他主导的品质异常分析:什么不良、用什么方法、结果如何?
-  unlock: 解锁 C-07 品质问题分析改善能力
-  method: 实测
-  material: 给一个真实不良,现场让他分析并给对策
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_王___10年以上_2
-  data_item: QC七大手法、SPC、CPK、6S、5WHY
-  current: 没抽到
-  why: 5 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 一次问完 QC七大手法、SPC、CPK、6S、5WHY:现场随机问一项 QC 手法(如鱼骨图/柏拉图)让他说怎么用
-  unlock: 解锁 C-08 品质工具(QC七大手法/5WHY/SPC/CPK/6S)
-  method: 实测
-  material: 现场出题:鱼骨图/柏拉图各画一次
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_王___10年以上_2
-  data_item: 客户验厂
-  current: 没抽到
-  why: 1 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 哪家客户来验过厂?验的什么体系(ISO/客户自有标准)?他负责哪部分?
-  unlock: 解锁 C-09 客户验厂经验
-  method: 面谈
-  material: 哪家客户、什么体系、他负责哪部分
-  judge_by: 业务
-  evidence: ''
 - candidate: cand_业务跟单_东莞_6_10K_王___10年以上
   data_item: 品质岗经历
   current: 待核
@@ -12401,39 +11477,6 @@ queue:
   judge_by: 业务
   evidence: 文员:2、制单，跟踪样品制作。 5、跟踪生产货期及品质监控检验，确保按期按质交货。 6、完成上级交付的其他工作任务
 - candidate: cand_业务跟单_东莞_6_10K_盘___6年
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_盘___6年
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_盘___6年
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_盘___6年
   data_item: 英语、8D报告
   current: 没抽到
   why: 2 项一项都没抽到(可能没写,也可能没做过)
@@ -12608,50 +11651,6 @@ queue:
   method: 面谈
   material: 按起止年月问清责任范围
   judge_by: 业务
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_范___1年
-  data_item: A.2 age
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人提供身份证出生日期(或出生年月),并说明是身份证还是自述
-  unlock: 解锁 C-01 年龄区间
-  method: 证件
-  material: 身份证
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_范___1年
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_范___1年
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_范___1年
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
   evidence: ''
 - candidate: cand_业务跟单_东莞_6_10K_范___1年
   data_item: 线束行业知识
@@ -13417,72 +12416,6 @@ queue:
   judge_by: 业务
   evidence: ''
 - candidate: cand_业务跟单_东莞_6_10K_黎___6年
-  data_item: A.2 age
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人提供身份证出生日期(或出生年月),并说明是身份证还是自述
-  unlock: 解锁 C-01 年龄区间
-  method: 证件
-  material: 身份证
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_黎___6年
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_黎___6年
-  data_item: C.7 recent5y_segments
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 近 5 年有哪几段工作?每段起止年月与岗位?
-  unlock: 解锁 HR 侧「近 5 年工作段数」
-  method: 面谈
-  material: 按起止年月核对近 5 年工作段
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_黎___6年
-  data_item: C.4 avg_tenure_years
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 近 5 年换过几家?每段做多久?离职原因是什么?
-  unlock: 解锁 HR 侧「平均在职年限(稳定性)」
-  method: 面谈
-  material: 问清每段时长与离职原因
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_黎___6年
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_黎___6年
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_10K_黎___6年
   data_item: 线束行业知识
   current: 没抽到
   why: 1 项一项都没抽到(可能没写,也可能没做过)
@@ -13627,138 +12560,6 @@ queue:
   judge_by: 业务
   evidence: ''
 - candidate: cand_业务跟单_东莞_6_8K_周___10年
-  data_item: 客户验厂
-  current: 没抽到
-  why: 1 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 哪家客户来验过厂?验的什么体系(ISO/客户自有标准)?他负责哪部分?
-  unlock: 解锁 C-09 客户验厂经验
-  method: 面谈
-  material: 哪家客户、什么体系、他负责哪部分
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_8K_林___10年以上
-  data_item: 品质岗经历
-  current: 待核
-  why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
-  who: HR
-  how: 近三年有没有做过品质相关工作(检验判定/异常处理/体系或客户审核)?是哪一段、起止年月、具体做什么?
-  unlock: 第 3 步的品质岗门槛(现在卡着的人全部因此待核)
-  method: 面谈
-  material: 按起止年月问清责任范围
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_8K_林___10年以上
-  data_item: A.2 age
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人提供身份证出生日期(或出生年月),并说明是身份证还是自述
-  unlock: 解锁 C-01 年龄区间
-  method: 证件
-  material: 身份证
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_8K_林___10年以上
-  data_item: B.1 educationRank
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人提供最高学历证书照片(毕业证/学位证),注明全日制还是在职
-  unlock: 解锁 C-02 学历不低于
-  method: 证件
-  material: 毕业证/学位证 + 学信网
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_8K_林___10年以上
-  data_item: B.2 major
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人说明证书上的**专业全称**与院校(例:机电一体化技术)
-  unlock: 解锁 C-03 专业限定
-  method: 证件
-  material: 毕业证上的专业全称
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_8K_林___10年以上
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_8K_林___10年以上
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_8K_林___10年以上
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_8K_林___10年以上
-  data_item: 英语、8D报告
-  current: 没抽到
-  why: 2 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 一次问完 英语、8D报告:近 12 个月有没有一次不靠翻译、独立用英语主答客户审核会议?(是/否)
-  unlock: 解锁 C-04 英语(口语 + 独立书写英文8D报告)
-  method: 实测
-  material: 英文 8D 作业 + 英文面试 10 分钟
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_8K_林___10年以上
-  data_item: 线束行业知识
-  current: 没抽到
-  why: 1 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 他做过线束/连接器产品吗?哪一段、什么产品、做了什么工序?
-  unlock: 解锁 C-06 线束/连接器行业认知
-  method: 面谈
-  material: 产品/工序/客户指名道姓地问
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_8K_林___10年以上
-  data_item: 品质问题分析
-  current: 没抽到
-  why: 1 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 举一个他主导的品质异常分析:什么不良、用什么方法、结果如何?
-  unlock: 解锁 C-07 品质问题分析改善能力
-  method: 实测
-  material: 给一个真实不良,现场让他分析并给对策
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_8K_林___10年以上
-  data_item: QC七大手法、SPC、CPK、6S、5WHY
-  current: 没抽到
-  why: 5 项一项都没抽到(可能没写,也可能没做过)
-  who: 业务
-  how: 一次问完 QC七大手法、SPC、CPK、6S、5WHY:现场随机问一项 QC 手法(如鱼骨图/柏拉图)让他说怎么用
-  unlock: 解锁 C-08 品质工具(QC七大手法/5WHY/SPC/CPK/6S)
-  method: 实测
-  material: 现场出题:鱼骨图/柏拉图各画一次
-  judge_by: 业务
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_8K_林___10年以上
   data_item: 客户验厂
   current: 没抽到
   why: 1 项一项都没抽到(可能没写,也可能没做过)
@@ -14034,39 +12835,6 @@ queue:
   material: 按起止年月问清责任范围
   judge_by: 业务
   evidence: '专员/助理:'
-- candidate: cand_业务跟单_东莞_6_8K_蒙___10年以上
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_8K_蒙___10年以上
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_业务跟单_东莞_6_8K_蒙___10年以上
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
-  evidence: ''
 - candidate: cand_业务跟单_东莞_6_8K_蒙___10年以上
   data_item: 英语、8D报告
   current: 没抽到
@@ -15357,61 +14125,6 @@ queue:
   judge_by: 业务
   evidence: '专员:'
 - candidate: cand_吴___30岁_英文业务跟单_智通简历_编号
-  data_item: B.2 major
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人说明证书上的**专业全称**与院校(例:机电一体化技术)
-  unlock: 解锁 C-03 专业限定
-  method: 证件
-  material: 毕业证上的专业全称
-  judge_by: HR
-  evidence: ''
-- candidate: cand_吴___30岁_英文业务跟单_智通简历_编号
-  data_item: C.1 yearsPlatform
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人按"起止年月"口述主要工作段,用来核对总年限
-  unlock: 解锁 C-05 某领域年限
-  method: 面谈
-  material: 按起止年月核对,补空档
-  judge_by: HR
-  evidence: ''
-- candidate: cand_吴___30岁_英文业务跟单_智通简历_编号
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_吴___30岁_英文业务跟单_智通简历_编号
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_吴___30岁_英文业务跟单_智通简历_编号
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
-  evidence: ''
-- candidate: cand_吴___30岁_英文业务跟单_智通简历_编号
   data_item: 线束行业知识
   current: 没抽到
   why: 1 项一项都没抽到(可能没写,也可能没做过)
@@ -15910,50 +14623,6 @@ queue:
   judge_by: 业务
   evidence: :1. 负责注塑车间生产计划排程,根据订单交期、机台产能、模具状况制定日/周生产计划,合理排配机台与人员。 2.全程跟进生产进度,及时处理机台、模具、品质等异常,调整生产计划,确保订单准时交付。
     3.统筹物料管控,跟进原料、辅料齐套性,预防
-- candidate: cand_陈___32岁_业务跟单_智通简历_编号
-  data_item: C.1 yearsPlatform
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 请候选人按"起止年月"口述主要工作段,用来核对总年限
-  unlock: 解锁 C-05 某领域年限
-  method: 面谈
-  material: 按起止年月核对,补空档
-  judge_by: HR
-  evidence: ''
-- candidate: cand_陈___32岁_业务跟单_智通简历_编号
-  data_item: A.3 notice_weeks
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 如果录用,多久能到岗?是否需要办离职交接?有无竞业限制?
-  unlock: 解锁 HR 侧「到岗时间」
-  method: 面谈
-  material: 问清到岗时间与离职周期
-  judge_by: HR
-  evidence: ''
-- candidate: cand_陈___32岁_业务跟单_智通简历_编号
-  data_item: A.5 salary_max_k
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 目前月薪多少?期望多少?最低可接受多少?(要具体数字)
-  unlock: 解锁 HR 侧「薪资上限」
-  method: 面谈
-  material: 问清现薪、期望与底线
-  judge_by: HR
-  evidence: ''
-- candidate: cand_陈___32岁_业务跟单_智通简历_编号
-  data_item: A.4 commute_ok
-  current: 未知
-  why: 库里没有这个值
-  who: HR
-  how: 住哪里?到厂单程多久?能接受本岗的班制/加班/调岗吗?
-  unlock: 解锁 HR 侧「上班地点与班制」
-  method: 面谈
-  material: 问清住址、通勤时长、能否接受班制
-  judge_by: HR
-  evidence: ''
 - candidate: cand_陈___32岁_业务跟单_智通简历_编号
   data_item: 英语、8D报告
   current: 没抽到

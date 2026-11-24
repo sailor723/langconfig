@@ -2,7 +2,7 @@ jd: 品质经理
 step: 3 初筛 → 面试名单
 target: 30
 decided_by: admin
-pool: 164
+pool: 159
 rank_rule:
 - ① 硬证据项数(可验证载体:系统/报告/客户审核/图表),多者优先
 - ② 软证据项数(只能靠陈述的),多者优先
@@ -40,7 +40,6 @@ selected:
 - cand_李___38岁_行政专员_智通简历_编号
 - cand_行政专员_东莞_7_9K_杨___4年
 - cand_专案工程师_东莞_12_16K_陈___5年
-- cand_段___研发工程主管_产品工程主管
 - cand_专案工程师_东莞_12_16K_熊___10年以上
 - cand_专案工程师_东莞_12_16K_邹___10年以上
 - cand_汽车线束高线工程师_东莞_10_14K_何___10年以上
@@ -52,6 +51,7 @@ selected:
 - cand_专案工程师_东莞_12_16K_张___5年
 - cand_设计助理工程师_东莞_7_10K_卢___4年
 - cand_设计助理工程师_东莞_7_10K_蓝___3年
+- cand_周___38岁_专案工程师_智通简历_编号
 already_real_interview: []
 rows:
 - candidate: cand_胡___31岁_专案工程师_智通简历_编号
@@ -116,7 +116,7 @@ rows:
   prio_names:
   - 线束/连接器行业
   iv_real: 0
-  iv_sim: 35
+  iv_sim: 36
   quality: 待核
   quality_kind: null
   quality_months: 63
@@ -142,7 +142,7 @@ rows:
   prio_names:
   - 线束/连接器行业
   iv_real: 0
-  iv_sim: 36
+  iv_sim: 38
   quality: 读不出
   quality_kind: null
   quality_months: 0
@@ -193,7 +193,7 @@ rows:
   prio_hits: 0
   prio_names: []
   iv_real: 0
-  iv_sim: 36
+  iv_sim: 38
   quality: 待核
   quality_kind: null
   quality_months: 51
@@ -467,7 +467,7 @@ rows:
   prio_hits: 0
   prio_names: []
   iv_real: 0
-  iv_sim: 38
+  iv_sim: 39
   quality: 待核
   quality_kind: null
   quality_months: 28
@@ -493,7 +493,7 @@ rows:
   - 品质岗经历有硬证据
   - 线束/连接器行业
   iv_real: 0
-  iv_sim: 31
+  iv_sim: 35
   quality: 有
   quality_kind: B
   quality_months: 30
@@ -511,32 +511,6 @@ rows:
   fulltime: true
   n_ask: 3
   age: 26
-  edu: 3
-- candidate: cand_段___研发工程主管_产品工程主管
-  prefer_hits: 0
-  tenure: 6.4
-  years: 13
-  prio_hits: 1
-  prio_names:
-  - 线束/连接器行业
-  iv_real: 0
-  iv_sim: 28
-  quality: 待核
-  quality_kind: null
-  quality_months: 64
-  quality_quote: '工程课长:'
-  gates_ok: 8
-  real_hits: 2
-  hard_hits: 0
-  soft_hits: 2
-  hard_items: []
-  soft_items:
-  - 线束行业知识
-  - 英语
-  major: 机电一体化
-  fulltime: true
-  n_ask: 3
-  age: 41
   edu: 3
 - candidate: cand_专案工程师_东莞_12_16K_熊___10年以上
   prefer_hits: 0
@@ -816,3 +790,28 @@ rows:
   n_ask: 4
   age: 37
   edu: 3
+- candidate: cand_周___38岁_专案工程师_智通简历_编号
+  prefer_hits: 0
+  tenure: 4.8
+  years: null
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 71
+  quality_quote: '工程师.工程部:'
+  gates_ok: 4
+  real_hits: 1
+  hard_hits: 0
+  soft_hits: 1
+  hard_items: []
+  soft_items:
+  - 线束行业知识
+  major: null
+  fulltime: null
+  n_ask: 11
+  age: 38
+  edu: null

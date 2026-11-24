@@ -1,0 +1,224 @@
+_doc: 第 3 步判定输入：由第 2 步标准 40 格定稿翻译而来（一条要求一行）。can_exclude=true 的项才允许拿来剔除候选人；其余只参与第 5 步排序。
+jd: 品质经理
+generated_from: jd_draft/品质经理.draft.json + jd_links/品质经理.yaml
+role_type: staff
+requirements:
+- template_code: F.AGE
+  requirement: REQ-DRAFT-AGE
+  label: 年龄
+  data_item: A.2
+  op: between
+  value:
+    min: 25
+    max: 40
+    unit: 岁
+  source: 客户原文
+  basis: client_verbatim
+  evidence_required: null
+  can_exclude: true
+  cannot_exclude_why: null
+  quote: C-01「年龄：25 ~ 40岁；」
+  missing_means: 未知
+- template_code: F.GENDER
+  requirement: REQ-DRAFT-GENDER
+  label: 性别
+  data_item: A.1
+  op: in
+  value: null
+  source: HR 模拟确认
+  basis: hr_response_mock
+  evidence_required: null
+  can_exclude: false
+  cannot_exclude_why: 解析不出机器阈值
+  quote: ''
+  missing_means: 未知
+- template_code: F.EDU_LEVEL
+  requirement: REQ-DRAFT-EDU_LEVEL
+  label: 学历
+  data_item: B.1
+  op: '>='
+  value:
+    num: 3
+  source: 客户原文
+  basis: client_verbatim
+  evidence_required: null
+  can_exclude: true
+  cannot_exclude_why: null
+  quote: C-02「学历：大专及以上学历；」
+  missing_means: 未知
+- template_code: F.EDU_MAJOR
+  requirement: REQ-DRAFT-EDU_MAJOR
+  label: 专业
+  data_item: B.2
+  op: in
+  value:
+    in:
+    - '机电一体化 '
+    - ' 电子技术 '
+    - ' 自动化 '
+    - ' 工业工程 '
+    - ' 机械工程 '
+    open_word: 等
+  source: 客户原文
+  basis: client_verbatim
+  evidence_required: null
+  can_exclude: false
+  cannot_exclude_why: B.2 不是"简历里直接写着"的属性（推导或一面才有）→ 不参与剔除
+  quote: C-03「专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业；」
+  missing_means: 未知
+- template_code: F.EDU_FULLTIME
+  requirement: REQ-DRAFT-EDU_FULLTIME
+  label: 是否全日制
+  data_item: B.3
+  op: '='
+  value: null
+  source: 不适用
+  basis: client_verbatim
+  evidence_required: null
+  can_exclude: false
+  cannot_exclude_why: B.3 不是"简历里直接写着"的属性（推导或一面才有）→ 不参与剔除
+  quote: ''
+  missing_means: 未知
+- template_code: F.EXP_YEARS
+  requirement: REQ-DRAFT-EXP_YEARS
+  label: 总年限
+  data_item: C.1
+  op: '>='
+  value:
+    num: 3.0
+    unit: 年
+  source: 客户原文
+  basis: client_verbatim
+  evidence_required: null
+  can_exclude: false
+  cannot_exclude_why: C.1 不是"简历里直接写着"的属性（推导或一面才有）→ 不参与剔除
+  quote: C-05「3年以上品质管理工作经验」
+  missing_means: 未知
+- template_code: F.EXP_DOMAIN
+  requirement: REQ-DRAFT-EXP_DOMAIN
+  label: 职能域
+  data_item: C.2
+  op: in
+  value: null
+  source: 客户原文
+  basis: client_verbatim
+  evidence_required: null
+  can_exclude: false
+  cannot_exclude_why: C.2 不是"简历里直接写着"的属性（推导或一面才有）→ 不参与剔除
+  quote: C-05「3年以上品质管理工作经验」
+  missing_means: 未知
+- template_code: F.CERTIFICATION
+  requirement: REQ-DRAFT-CERTIFICATION
+  label: 资格证书
+  data_item: F.3
+  op: null
+  value: null
+  source: HR 模拟确认
+  basis: hr_response_mock
+  evidence_required: null
+  can_exclude: false
+  cannot_exclude_why: F.3 不是"简历里直接写着"的属性（推导或一面才有）→ 不参与剔除
+  quote: ''
+  missing_means: 未知
+- template_code: F.AVAILABILITY
+  requirement: REQ-DRAFT-AVAILABILITY
+  label: 到岗日期
+  data_item: A.3
+  op: <=
+  value:
+    num: 4
+  source: HR 侧
+  basis: client_verbatim
+  evidence_required: null
+  can_exclude: false
+  cannot_exclude_why: A.3 不是"简历里直接写着"的属性（推导或一面才有）→ 不参与剔除
+  quote: HR-01（HR 提出）
+  missing_means: 未知
+- template_code: F.SALARY
+  requirement: REQ-DRAFT-SALARY
+  label: 薪资
+  data_item: A.5
+  op: <=
+  value:
+    num: 15
+    unit: K
+  source: HR 模拟确认
+  basis: hr_response_mock
+  evidence_required: null
+  can_exclude: false
+  cannot_exclude_why: A.5 不是"简历里直接写着"的属性（推导或一面才有）→ 不参与剔除
+  quote: ''
+  missing_means: 不可判
+- template_code: F.AVG_TENURE
+  requirement: REQ-DRAFT-AVG_TENURE
+  label: 平均在职不低于
+  data_item: C.4
+  op: '>='
+  value:
+    num: 2.0
+    unit: 年
+  source: HR 侧
+  basis: client_verbatim
+  evidence_required: null
+  can_exclude: false
+  cannot_exclude_why: C.4 不是"简历里直接写着"的属性（推导或一面才有）→ 不参与剔除
+  quote: HR-03（HR 提出）
+  missing_means: 未知
+- template_code: F.RECENT_SEGMENTS
+  requirement: REQ-DRAFT-RECENT_SEGMENTS
+  label: 近 5 年任职不超过
+  data_item: C.7
+  op: <=
+  value:
+    num: 5
+  source: HR 侧
+  basis: client_verbatim
+  evidence_required: null
+  can_exclude: false
+  cannot_exclude_why: C.7 不是"简历里直接写着"的属性（推导或一面才有）→ 不参与剔除
+  quote: HR-02（HR 提出）
+  missing_means: 未知
+- template_code: F.COMMUTE
+  requirement: REQ-DRAFT-COMMUTE
+  label: 可接受通勤
+  data_item: A.4
+  op: <=
+  value: null
+  source: HR 模拟确认
+  basis: hr_response_mock
+  evidence_required: null
+  can_exclude: false
+  cannot_exclude_why: A.4 不是"简历里直接写着"的属性（推导或一面才有）→ 不参与剔除
+  quote: ''
+  missing_means: 不可判
+- template_code: F.CLEARANCE
+  requirement: REQ-DRAFT-CLEARANCE
+  label: 法律记录 / 无犯罪
+  data_item: G.1
+  op: null
+  value: null
+  source: HR 模拟确认
+  basis: hr_response_mock
+  evidence_required: null
+  can_exclude: false
+  cannot_exclude_why: G.1 不是"简历里直接写着"的属性（推导或一面才有）→ 不参与剔除
+  quote: ''
+  missing_means: 未知
+- template_code: F.JD_CONFIDENTIALITY
+  requirement: REQ-DRAFT-JD_CONFIDENTIALITY
+  label: 保密/数据保密
+  data_item: G.2
+  op: null
+  value: null
+  source: HR 模拟确认
+  basis: hr_response_mock
+  evidence_required: null
+  can_exclude: false
+  cannot_exclude_why: G.2 不是"简历里直接写着"的属性（推导或一面才有）→ 不参与剔除
+  quote: ''
+  missing_means: 未知
+summary:
+  total: 15
+  can_exclude: 2
+  hr_mock_based: 6
+  text_rule_based: 0

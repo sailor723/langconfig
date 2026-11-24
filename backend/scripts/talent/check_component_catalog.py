@@ -1499,15 +1499,19 @@ def check_standard_templates() -> None:
             dd = json.loads(dp.read_text(encoding="utf-8"))
             rows_d = dd.get("rows") or []
             states = {"客户原文", "HR 侧", "原文·空值", "我方建议·待确认", "待客户给",
-                      "待客户确认", "不适用"}
+                      "待客户确认", "不适用", "HR 模拟确认"}
             codes_t = [r["code"] for r in rows["jd"]]
             check_true(f"ST-G14 {jd_name}: 模板每个字段都填了（{len(codes_t)} 格）",
                        [r["code"] for r in rows_d] == codes_t,
                        f'实际 {len(rows_d)} 格')
             bad_state = [r["code"] for r in rows_d if r.get("state") not in states]
-            check_true(f"ST-G14 {jd_name}: 每格状态合法(7 种)", not bad_state, ", ".join(bad_state[:6]))
+            check_true(f"ST-G14 {jd_name}: 每格状态合法(8 种)", not bad_state, ", ".join(bad_state[:6]))
             no_ev = [r["code"] for r in rows_d
                      if r.get("state") in ("客户原文", "HR 侧") and not r.get("evidence")]
+            bad_hrmock = [r["code"] for r in rows_d
+                          if r.get("state") == "HR 模拟确认" and not r.get("why")]
+            check_true(f"ST-G14 {jd_name}: HR 模拟确认的格子都写了 HR 的回复理由", not bad_hrmock,
+                       ", ".join(bad_hrmock[:6]))
             check_true(f"ST-G14 {jd_name}: 进判定的格子都有依据(引用/原文行)", not no_ev,
                        ", ".join(no_ev[:6]))
             no_why = [r["code"] for r in rows_d

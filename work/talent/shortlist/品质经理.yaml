@@ -4,8 +4,8 @@ rule: 只用 CV 类别(cv)的数据项排除;读不到/判不了一律保留
 facts: llm
 count:
   pool: 270
-  kept: 164
-  excluded: 106
+  kept: 159
+  excluded: 111
   dropped_by_quality_gate: 5
 screenable_requirements:
 - REQ-A-AGE-RANGE
@@ -33,6 +33,16 @@ excluded:
     verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 24
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
+- candidate: cand_副总助理_东莞_8_13K_范___7年
+  reasons:
+  - requirement: REQ-A-AGE-RANGE
+    requirement_name: 年龄区间
+    verbatim: 年龄：25 ~ 40岁；
+    data_item: age
+    why: 25~40 vs 41
   verdicts:
     REQ-A-AGE-RANGE: 不满足
     REQ-B-EDU-LEVEL: 满足
@@ -176,6 +186,16 @@ excluded:
   verdicts:
     REQ-A-AGE-RANGE: 不满足
     REQ-B-EDU-LEVEL: 满足
+- candidate: cand_专案工程师_东莞_12_16K_lizw_10年以上
+  reasons:
+  - requirement: REQ-A-AGE-RANGE
+    requirement_name: 年龄区间
+    verbatim: 年龄：25 ~ 40岁；
+    data_item: age
+    why: 25~40 vs 41
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_专案工程师_东莞_12_16K_刘___10年以上
   reasons:
   - requirement: REQ-A-AGE-RANGE
@@ -254,7 +274,7 @@ excluded:
     data_item: education_rank
     why: '>=3 vs 2'
   verdicts:
-    REQ-A-AGE-RANGE: 未知
+    REQ-A-AGE-RANGE: 满足
     REQ-B-EDU-LEVEL: 不满足
 - candidate: cand_吴___44岁_专案工程师_智通简历_编号
   reasons:
@@ -621,6 +641,16 @@ excluded:
   verdicts:
     REQ-A-AGE-RANGE: 不满足
     REQ-B-EDU-LEVEL: 满足
+- candidate: cand_段___研发工程主管_产品工程主管
+  reasons:
+  - requirement: REQ-A-AGE-RANGE
+    requirement_name: 年龄区间
+    verbatim: 年龄：25 ~ 40岁；
+    data_item: age
+    why: 25~40 vs 41
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_毕___工程研发类
   reasons:
   - requirement: REQ-A-AGE-RANGE
@@ -836,6 +866,16 @@ excluded:
   verdicts:
     REQ-A-AGE-RANGE: 不满足
     REQ-B-EDU-LEVEL: 未知
+- candidate: cand_业务跟单_东莞_6_10K_王___10年以上_2
+  reasons:
+  - requirement: REQ-A-AGE-RANGE
+    requirement_name: 年龄区间
+    verbatim: 年龄：25 ~ 40岁；
+    data_item: age
+    why: 25~40 vs 41
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
 - candidate: cand_业务跟单_东莞_6_10K_王___10年以上_3
   reasons:
   - requirement: REQ-B-EDU-LEVEL
@@ -918,6 +958,16 @@ excluded:
     verbatim: 年龄：25 ~ 40岁；
     data_item: age
     why: 25~40 vs 23
+  verdicts:
+    REQ-A-AGE-RANGE: 不满足
+    REQ-B-EDU-LEVEL: 满足
+- candidate: cand_业务跟单_东莞_6_8K_林___10年以上
+  reasons:
+  - requirement: REQ-A-AGE-RANGE
+    requirement_name: 年龄区间
+    verbatim: 年龄：25 ~ 40岁；
+    data_item: age
+    why: 25~40 vs 41
   verdicts:
     REQ-A-AGE-RANGE: 不满足
     REQ-B-EDU-LEVEL: 满足
@@ -1103,7 +1153,6 @@ kept:
 - cand_副总助理_东莞_8_12K_雷___10年以上
 - cand_副总助理_东莞_8_13K_冷___9年
 - cand_副总助理_东莞_8_13K_王___1年以内
-- cand_副总助理_东莞_8_13K_范___7年
 - cand_副总助理_东莞_8_13K_钟___5年
 - cand_王___31岁_副总助理_智通简历_编号
 - cand_陈___29岁_副总助理_智通简历_编号
@@ -1143,7 +1192,6 @@ kept:
 - cand_陈___37岁_行政专员_智通简历_编号
 - cand_黄___32岁_行政专员_智通简历_编号
 - cand_专案工程师_东莞_11_16K_杨___7年
-- cand_专案工程师_东莞_12_16K_lizw_10年以上
 - cand_专案工程师_东莞_12_16K_何___5年
 - cand_专案工程师_东莞_12_16K_华___9年
 - cand_专案工程师_东莞_12_16K_叶___10年以上
@@ -1176,7 +1224,6 @@ kept:
 - cand_康___37岁_技术课课长_智通简历_编号
 - cand_张___35岁_智通简历_编号
 - cand_张___39岁_智通简历_编号
-- cand_段___研发工程主管_产品工程主管
 - cand_汽车线束高线工程师_东莞_10_14K_何___10年以上
 - cand_设计助理工程师_东莞_7_10K_卢___4年
 - cand_设计助理工程师_东莞_7_10K_柒___4年
@@ -1219,7 +1266,6 @@ kept:
 - cand_业务跟单_东莞_6_10K_梁___1年
 - cand_业务跟单_东莞_6_10K_梁___9年
 - cand_业务跟单_东莞_6_10K_江___3年
-- cand_业务跟单_东莞_6_10K_王___10年以上_2
 - cand_业务跟单_东莞_6_10K_王___10年以上
 - cand_业务跟单_东莞_6_10K_王___24年毕业_1
 - cand_业务跟单_东莞_6_10K_盘___6年
@@ -1234,7 +1280,6 @@ kept:
 - cand_业务跟单_东莞_6_10K_黎___5年
 - cand_业务跟单_东莞_6_10K_黎___6年
 - cand_业务跟单_东莞_6_8K_周___10年
-- cand_业务跟单_东莞_6_8K_林___10年以上
 - cand_业务跟单_东莞_6_8K_梁___9年
 - cand_业务跟单_东莞_6_8K_胡___6年
 - cand_业务跟单_东莞_6_8K_蒙___10年以上
@@ -1293,6 +1338,12 @@ quality_gate:
     months_known: false
     quote: '经理助理:1、 经营督办闭环: 建立全公司事项台账、节点追踪、落地复盘机制，统筹业务、运营、财务、项目全条线落地，重大事项闭环率 2、经营数据管控:
       统一汇总全板块营收、成交、回款、项目进度数据，按月输出经营分析报表、蜡动复盘报告，为公司战'
+  - candidate: cand_副总助理_东莞_10_15K_刘___10年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 49
+    months_known: true
+    quote: '经理助理兼人事行政主管:'
   - candidate: cand_副总助理_东莞_10_15K_戴___8年_1
     verdict: 待核
     why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
@@ -1324,12 +1375,6 @@ quality_gate:
     months: 54
     months_known: true
     quote: ''
-  - candidate: cand_副总助理_东莞_8_13K_范___7年
-    verdict: 待核
-    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
-    months: 22
-    months_known: true
-    quote: '经理助理(兼人事):'
   - candidate: cand_副总助理_东莞_8_13K_钟___5年
     verdict: 读不出
     why: 读不出品质岗经历
@@ -1393,6 +1438,12 @@ quality_gate:
     months: 72
     months_known: true
     quote: 经理:10、负责集团档案管理、印章证照管理、收发文管理、行政公文、对内外文件的草拟审
+  - candidate: cand_叶___37岁_管理课课长_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 63
+    months_known: true
+    quote: '专员/人力资源主管.人事行政部:'
   - candidate: cand_张___36岁_管理课课长_智通简历_编号
     verdict: 待核
     why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
@@ -1413,6 +1464,13 @@ quality_gate:
     months: 153
     months_known: true
     quote: '经理/主管.人力资源部:'
+  - candidate: cand_行政专员_东莞_5_8K_吴___3年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 24
+    months_known: true
+    quote: '专员:2. 司车管理: 负责公司车辆的调度: 使用登记、维护保养、保险、年检、违章处理、油卡 ETC、车辆钥匙保管 3. 食堂管理: 负责员工食堂的日常运营监管〈菜品排配、了卫生、安全、成本、供应商管理、满意度调查)
+      5. 6S 环境管理:'
   - candidate: cand_行政专员_东莞_6_8K_余___5年
     verdict: 读不出
     why: 读不出品质岗经历
@@ -1548,12 +1606,13 @@ quality_gate:
     months: 37
     months_known: true
     quote: ''
-  - candidate: cand_专案工程师_东莞_12_16K_lizw_10年以上
+  - candidate: cand_专案工程师_东莞_11_16K_杨___7年
     verdict: 待核
-    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
-    months: 110
-    months_known: true
-    quote: '技术员，产品工程师:'
+    why: 有品质硬动作(检验标准),但这段的起止时间读不出来,无法比 24 个月门槛
+    months: null
+    months_known: false
+    quote: 经理/主管:1.前期开发 (项目立项、解读客户需求、制图、制样、作业指导书、工艺流程、控制计划) 2.试产跟踪 (作业方式、方法、作业流程、是否按照控制计划作业)
+      3.项目跟踪 (召开新项目产前会议，过程跟踪、召开项目总结会议) 4.供应链
   - candidate: cand_专案工程师_东莞_12_16K_何___5年
     verdict: 待核
     why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
@@ -1566,6 +1625,24 @@ quality_gate:
     why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
     months: 43
     months_known: true
+    quote: ''
+  - candidate: cand_专案工程师_东莞_12_16K_叶___10年以上
+    verdict: 读不出
+    why: 读不出品质岗经历
+    months: 0
+    months_known: null
+    quote: ''
+  - candidate: cand_专案工程师_东莞_12_16K_张___5年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 31
+    months_known: true
+    quote: ''
+  - candidate: cand_专案工程师_东莞_12_16K_熊___10年以上
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: null
+    months_known: false
     quote: ''
   - candidate: cand_专案工程师_东莞_12_16K_董___7年
     verdict: 读不出
@@ -1612,6 +1689,13 @@ quality_gate:
     months_known: true
     quote: ':1.独立完成样品制作.生产设备的使用调试和保养及维护 〈 端子机:; 准壁海唱，冠锅 ，银钢 测试机: 6350. 6350H 350,
       CIRRIS 2.对工程项目中所需的承认书,BOM表,PFMEA SOP试产资料能独立完成。 3.产'
+  - candidate: cand_曹___工程师
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 57
+    months_known: true
+    quote: 项目专案工程师:1、线材连接器行业新产品开发[CAD图纸设计、研发技术标准及行业应用， 2、建立审核各项BOM清单，计划通知采购原材科，完成客户样品开发设计制作交付，
+      3、保障公司设备的正常运行，及技术管理、采购新机器管理、测试治具刀片/模
   - candidate: cand_曾___38岁_专案工程师_智通简历_编号
     verdict: 待核
     why: 只出现弱动作(统计工具)—— 业务/工程职责里也有,既不足以判「做过品质」,也不足以判「没做过」
@@ -1625,18 +1709,43 @@ quality_gate:
     months: 36
     months_known: true
     quote: ''
+  - candidate: cand_罗___32岁_专案工程师_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 57
+    months_known: true
+    quote: '工程师.研发部门:'
   - candidate: cand_罗___39岁_专案工程师_智通简历_编号
     verdict: 待核
     why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
     months: 46
     months_known: true
     quote: '工程师.工程部:'
+  - candidate: cand_肖___38岁_专案工程师_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 48
+    months_known: true
+    quote: ''
+  - candidate: cand_胡___31岁_专案工程师_智通简历_编号
+    verdict: 待核
+    why: 有品质硬动作(体系/审核),但这段的起止时间读不出来,无法比 24 个月门槛
+    months: null
+    months_known: false
+    quote: 工程师.产品工程:1. 新产品3D评审，协同结构研发确认产品的可量产性，改善建议讨论落实 2. NUDD/PFMEA/Process DFM制定，同客户端讨论制
+      1. 新产品项目评审，结构可行性分析 2. 拆解3D或实物整理FLOW CHA
   - candidate: cand_胡___38岁_专案工程师_智通简历_编号
     verdict: 待核
     why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
     months: 41
     months_known: true
     quote: '工程师/技术员.工程部:'
+  - candidate: cand_郑___37岁_专案工程师_智通简历_编号
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 41
+    months_known: true
+    quote: '工程师.开发部:'
   - candidate: cand_郭___29岁_专案工程师_智通简历_编号
     verdict: 待核
     why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
@@ -1702,24 +1811,30 @@ quality_gate:
     months: 89
     months_known: true
     quote: ''
-  - candidate: cand_段___研发工程主管_产品工程主管
-    verdict: 待核
-    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
-    months: 64
-    months_known: true
-    quote: '工程课长:'
   - candidate: cand_汽车线束高线工程师_东莞_10_14K_何___10年以上
     verdict: 待核
     why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
     months: 43
     months_known: true
     quote: ':1. 专长: 具有较强的领导能力、组织与协调能力、沟通能力、计划与执行能力。 有良好的团队协作精神，为人诚实可靠、品'
+  - candidate: cand_设计助理工程师_东莞_7_10K_卢___4年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 24
+    months_known: true
+    quote: ''
   - candidate: cand_设计助理工程师_东莞_7_10K_柒___4年
     verdict: 读不出
     why: 读不出品质岗经历
     months: 0
     months_known: null
     quote: ''
+  - candidate: cand_设计助理工程师_东莞_7_10K_蓝___3年
+    verdict: 待核
+    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
+    months: 8
+    months_known: true
+    quote: 助理 (服务器线束):2. 跟进服务器线束样品试制全流程，熟悉裁线、剥皮、压接、焊锡、注塑、电测整套加
   - candidate: cand_陈___28岁_智通简历_编号
     verdict: 待核
     why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
@@ -1849,6 +1964,13 @@ quality_gate:
     months_known: true
     quote: 经理一:1.负责开发公司潜力新客户 CU1，在收到每个新项目询盘时，因每次询盘产品内容多以及比较专业复杂，因此每次需和公司总经理一 2. 负责对询盘的每个新项目进行分类，并且跟进项目的所有进度如打样制作，寄送，登记，归档处理
       寄样反馈跟进，
+  - candidate: cand_业务跟单_东莞_6_10K_Jessie郭___10年
+    verdict: 待核
+    why: 只出现弱动作(客诉/8D)—— 业务/工程职责里也有,既不足以判「做过品质」,也不足以判「没做过」
+    months: 47
+    months_known: true
+    quote: 经理一:1.负责开发公司潜力新客户 CU1，在收到每个新项目询盘时，因每次询盘产品内容多以及比较专业复杂，因此每次需和公司总经理一 2. 负责对询盘的每个新项目进行分类，并且跟进项目的所有进度如打样制作，寄送，登记，归档处理
+      寄样反馈跟进，
   - candidate: cand_业务跟单_东莞_6_10K_L___10年以上
     verdict: 待核
     why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
@@ -1945,12 +2067,6 @@ quality_gate:
     months_known: true
     quote: :1. 负责日常邮件整理与核对，根据客户当日需求合理安排工作优先级，确保任务高效推进。 2. 结合客户提供的开发资料,与设计部门沟通并制定符合客户要求的图稿方案，协助客户选定后，协调
       3. 负责样品寡送安排，及时收集客户反馈并协调工厂进行样
-  - candidate: cand_业务跟单_东莞_6_10K_王___10年以上_2
-    verdict: 待核
-    why: 只出现弱动作(客诉/8D)—— 业务/工程职责里也有,既不足以判「做过品质」,也不足以判「没做过」
-    months: 64
-    months_known: true
-    quote: 助理 | 行业:2. 实时同步生产进度，响应客户咨询，妥善处理客诉及产品异常 3. 核对月度往来账款，负责客户样品寄送、测试及后续跟进工作
   - candidate: cand_业务跟单_东莞_6_10K_王___10年以上
     verdict: 待核
     why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
@@ -2040,12 +2156,6 @@ quality_gate:
     months_known: true
     quote: :1、根据客户订单下达给生产部门。 2、随时了解生产进度,协调过程中可能出现的问题，并向客户反馈订单的最新情况。 3、根据交期协调发货，跟踪物流信息直至客户签收。
       4、随时跟客户保持沟通，耐心解答咨询，妥善处理投诉，维护好客户关系。
-  - candidate: cand_业务跟单_东莞_6_8K_林___10年以上
-    verdict: 待核
-    why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
-    months: 108
-    months_known: true
-    quote: ''
   - candidate: cand_业务跟单_东莞_6_8K_梁___9年
     verdict: 待核
     why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
@@ -2089,6 +2199,12 @@ quality_gate:
     months: 16
     months_known: true
     quote: '文员:'
+  - candidate: cand_日语业务跟单_东莞_5_7K_叶___4年
+    verdict: 读不出
+    why: 读不出品质岗经历
+    months: 0
+    months_known: null
+    quote: ''
   - candidate: cand_日语业务跟单_东莞_5_7K_吴___26年应届生
     verdict: 读不出
     why: 读不出品质岗经历
@@ -2108,6 +2224,13 @@ quality_gate:
     months_known: true
     quote: '工程师:1. DFW评审 ，跟踪项目开发的进度 ，参与后期生产 ， 2.客户的订单及新项目的开发 ，促进订单完成及下达 3. 项目经验丰富:
       有近15年的注塑 ，模具行业的积累沉淀 。有大项目管理经验; 4. 熟悉注塑和模具相关工艺; 从模'
+  - candidate: cand_何___25岁_业务跟单_智通简历_编号
+    verdict: 待核
+    why: 有品质硬动作(首件/巡检),但这段的起止时间读不出来,无法比 24 个月门槛
+    months: null
+    months_known: false
+    quote: 助理.生产部门:1. 协助生产主管制定周/日生产计划，根据订单需求、产能情况及物料库存，核对生产排期合理性，跟进计划落地执行，确保生产 2.
+      实时跟踪生产进度，每日记录生产数据，及时反馈生产过程中的进度滞后、设备异常等问题，协助主管调整生产
   - candidate: cand_傅___28岁_业务跟单_智通简历_编号
     verdict: 待核
     why: 工作段的岗位名与职责里读不到品质动作 —— 可能是没做过,也可能是没写出来 / 词表没覆盖,需要在面谈中确认
@@ -2178,7 +2301,6 @@ quality_gate:
   - cand_副总助理_东莞_8_12K_雷___10年以上
   - cand_副总助理_东莞_8_13K_冷___9年
   - cand_副总助理_东莞_8_13K_王___1年以内
-  - cand_副总助理_东莞_8_13K_范___7年
   - cand_副总助理_东莞_8_13K_钟___5年
   - cand_王___31岁_副总助理_智通简历_编号
   - cand_陈___29岁_副总助理_智通简历_编号
@@ -2218,7 +2340,6 @@ quality_gate:
   - cand_陈___37岁_行政专员_智通简历_编号
   - cand_黄___32岁_行政专员_智通简历_编号
   - cand_专案工程师_东莞_11_16K_杨___7年
-  - cand_专案工程师_东莞_12_16K_lizw_10年以上
   - cand_专案工程师_东莞_12_16K_何___5年
   - cand_专案工程师_东莞_12_16K_华___9年
   - cand_专案工程师_东莞_12_16K_叶___10年以上
@@ -2251,7 +2372,6 @@ quality_gate:
   - cand_康___37岁_技术课课长_智通简历_编号
   - cand_张___35岁_智通简历_编号
   - cand_张___39岁_智通简历_编号
-  - cand_段___研发工程主管_产品工程主管
   - cand_汽车线束高线工程师_东莞_10_14K_何___10年以上
   - cand_设计助理工程师_东莞_7_10K_卢___4年
   - cand_设计助理工程师_东莞_7_10K_柒___4年
@@ -2294,7 +2414,6 @@ quality_gate:
   - cand_业务跟单_东莞_6_10K_梁___1年
   - cand_业务跟单_东莞_6_10K_梁___9年
   - cand_业务跟单_东莞_6_10K_江___3年
-  - cand_业务跟单_东莞_6_10K_王___10年以上_2
   - cand_业务跟单_东莞_6_10K_王___10年以上
   - cand_业务跟单_东莞_6_10K_王___24年毕业_1
   - cand_业务跟单_东莞_6_10K_盘___6年
@@ -2309,7 +2428,6 @@ quality_gate:
   - cand_业务跟单_东莞_6_10K_黎___5年
   - cand_业务跟单_东莞_6_10K_黎___6年
   - cand_业务跟单_东莞_6_8K_周___10年
-  - cand_业务跟单_东莞_6_8K_林___10年以上
   - cand_业务跟单_东莞_6_8K_梁___9年
   - cand_业务跟单_东莞_6_8K_胡___6年
   - cand_业务跟单_东莞_6_8K_蒙___10年以上

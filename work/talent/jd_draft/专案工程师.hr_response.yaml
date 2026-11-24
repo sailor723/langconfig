@@ -1,0 +1,169 @@
+_doc: HR 对「AI 模拟」格子的逐格回复（**模拟**，bar 上没签字）。 accept=按模拟的来 / change=改成 HR 的口径 / reject=不写进 JD。 重跑 draft_jd 后这些格子状态变成「HR
+  模拟确认（未签字）」。
+jd: 专案工程师
+stage: hr-response-mock
+reviewed_by: HR（模拟）
+signed: false
+responses:
+  F.JD_JOB_GRADE:
+    decision: change
+    value: E3（资深员工）
+    note: 品质经理原文直接下属为「无」，按员工岗资深档 E3，不套 M 序列
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.JD_JOB_PURPOSE:
+    decision: accept
+    value: 专案工程师：在技术课内承担该岗位的核心职责，按公司标准与客户要求交付结果。
+    note: 同意按此执行
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.JD_SUCCESS_CRITERIA:
+    decision: accept
+    value: 岗位目标按时完成率；客诉/返工件数下降；报表与异常闭环及时
+    note: 同意按此执行
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.AGE:
+    decision: accept
+    value: （待客户补）
+    note: 同意按此执行
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.GENDER:
+    decision: reject
+    value: （不写）
+    note: 公司口径：除涉密/更衣岗外不设性别门槛，这一格不写进 JD
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.EDU_LEVEL:
+    decision: accept
+    value: （待客户补）
+    note: 同意按此执行
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.EDU_MAJOR:
+    decision: accept
+    value: （待客户补）
+    note: 同意按此执行
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.EDU_FULLTIME:
+    decision: accept
+    value: 不限
+    note: 同意按此执行
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.CERTIFICATION:
+    decision: accept
+    value: （不作硬门槛，加分项）
+    note: 同意按此执行
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.LANGUAGE_LEVEL:
+    decision: accept
+    value: （未要求）
+    note: 同意按此执行
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.JD_ACTIVITY_TEXT:
+    decision: accept
+    value: （按职责条目执行，频次待定）
+    note: 同意按此执行
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.JD_ACTIVITY_FREQ:
+    decision: accept
+    value: （按职责条目执行，频次待定）
+    note: 同意按此执行
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.SHIFT:
+    decision: accept
+    value: 生产两班倒；办公室常白班；品质/工程岗随产线跟班
+    note: 品质岗随产线跟班，常白班为主
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.JD_ENVIRONMENT:
+    decision: accept
+    value: 有噪音（压接/注塑）、少量粉尘与助焊剂气味；通风区域作业
+    note: 同意按此执行
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.JD_PHYSICAL_DEMAND:
+    decision: accept
+    value: 巡检需站立走动；无重物搬运（≤10kg）
+    note: 同意按此执行
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.JD_PPE:
+    decision: accept
+    value: 进车间护目镜 + 静电手环；浸锡/注塑区耳塞
+    note: 同意按此执行
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.JD_WORK_LOCATION:
+    decision: accept
+    value: ''
+    note: 同意按此执行
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.JD_HEADCOUNT:
+    decision: accept
+    value: 1 人
+    note: 确实补 1 人
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.AVAILABILITY:
+    decision: accept
+    value: ≤ 4 周
+    note: 同意按此执行
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.SALARY:
+    decision: change
+    value: 10~15K，预算上限 15K
+    note: 按今年品质岗预算上调 1K；上限 15K 是硬顶，超了走特批
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.AVG_TENURE:
+    decision: accept
+    value: ≥ 2 年
+    note: 同意按此执行
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.RECENT_SEGMENTS:
+    decision: accept
+    value: 近 5 年 ≤ 3 家
+    note: 同意按此执行
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.COMMUTE:
+    decision: change
+    value: 单程 ≤ 90 分钟（有厂车）
+    note: 厂车覆盖东莞全域，90 分钟内都算可接受；跨市不考虑
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.JD_HIRING_REASON:
+    decision: accept
+    value: 替补（原任离职）
+    note: 原任已于上月离职，属替补
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.CLEARANCE:
+    decision: accept
+    value: 品质/关务/财务等敏感岗做入职背调（无犯罪 + 学历核验）
+    note: 敏感岗统一做背调（无犯罪 + 学历）
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.JD_CONFIDENTIALITY:
+    decision: accept
+    value: 接触客户图纸/BOM/体系文件的岗位签保密协议；竞业仅在涉密核心岗谈
+    note: 接触客户图纸，必须签保密协议
+    by: HR（模拟）
+    basis: hr_response_mock
+  F.JD_CONTRACT_TYPE:
+    decision: accept
+    value: 全职（劳动合同制）
+    note: 全职劳动合同
+    by: HR（模拟）
+    basis: hr_response_mock
