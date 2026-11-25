@@ -1,7 +1,7 @@
 # Ontology agents: one builder, many ontologies, numbered versions
 
-Status: **partly implemented** (2026-11-12). Versioning is live; the single-builder runtime and the
-retirement of the six legacy builder rows are the remaining steps, listed at the end.
+Status: **live** (2026-11-12). Versioning, the single builder template and the retirement of the six
+per-key builder rows are done; what remains is listed at the end.
 
 ## The decision
 
@@ -106,16 +106,49 @@ corrupt-registry refusal, plus two checks against the **real** repository state 
 returning the highest existing number instead of +1, and dropping the supersede loop, each turn the
 suite red.
 
-## Not done yet (the rest of the review)
+## The single builder (agent 393)
 
-1. **Retire the six per-key builder rows** (348, 349, 355, 376, 378, 379) — `is_public=false` plus a
-   `superseded_by` note pointing at the single template. Not executed: it changes what the Agent
-   list shows, so it wants one confirmation.
-2. **Single builder template** that takes the key per conversation, with `profiles/<key>/_brief.md`
-   holding the per-customer theme/datasource facts, and the prompt's four hardcoded names removed.
-3. **Unify the tool sets** (9 vs 11 — 348/349 lack `ontology_open` and `read_any_file`, i.e. the
-   rebuild path) as part of (2).
-4. **Move the tool implementations** out of `backend/scripts/seeds/in/seed_ontology_*_tool.py` into
+`scripts/seeds/in/seed_ontology_builder_single.py` writes one agent, `Ontology Builder`:
+
+- **no ontology in the row.** No `ontology_key` in `skill_params`, no key in the prompt. The key arrives
+  in the conversation; the prompt says so in its second paragraph and forbids inventing one.
+- **one database binding = the ontology server.** `config.database` is a custom block with
+  `dbname=postgres` (the server's default database) and an encrypted password. That is what lets one
+  agent serve many ontologies: `db_query(db_name="<key's db>", sqls=[...])` names the database per
+  call, and `execute` uses `psql -d <db>`.
+- **the tool superset** (12: adds `db_query` on top of the retired rows' 11), so measuring is one
+  round-trip per batch and the rebuild path (`ontology_open`) exists.
+
+`scope: conversation` in the skill's frontmatter is what makes this buildable. Before it,
+`build-ontology-from-db` declared `ontology_key: required`, so `core/skills/params.resolve` returned a
+problem and `assembly` raised — a keyless builder could not start at all ("set
+config.skill_params[...]"), which is the opposite of asking the user. A conversation-scoped parameter is
+never defaulted from the agent, never reconciled against `config.database` (one agent, many databases,
+so there is no single right answer), and never required as a build condition. A per-key agent that
+still supplies the values keeps rendering exactly as before —
+`tests/test_skill_params_scope.py` pins both halves, including that a plain `required: true` elsewhere
+still fails by name.
+
+Proven with a real turn (local, 2026-11-12): agent 393 was asked, without acting, which ontology it
+would write — it answered that it does not know yet and would read `profiles/<key>/_brief.md` +
+`<key>_settings.json` once given the key, and that its connection defaults to `postgres` so it names the
+database per call. A second turn had it measure `sunhing_kpi` with one `db_query` batch; its answer
+(24 tables, 2 087 rows) matched an independent `count(*)` sum exactly.
+
+## Retirement of the per-key rows
+
+`scripts/seeds/in/retire_ontology_builders.py` (dry run by default, `--restore` to undo) set
+`is_public=false` on 348, 349, 355, 376, 378, 379 and recorded
+`config.superseded_by = "Ontology Builder"` + `config.retired = {at, reason, superseded_by}`. Nothing
+was deleted: each row keeps its prompt and its key, so a key those rows alone knew about is still
+readable, and one command puts them back. `--require-target` refuses to retire towards an agent that
+does not exist.
+
+## Not done yet
+
+1. **Unify nothing else**: the six retired rows also lacked `ontology_key`-free prompts, but they are
+   now invisible; if one is ever restored it should be re-pointed at the versioning rules first.
+2. **Move the tool implementations** out of `backend/scripts/seeds/in/seed_ontology_*_tool.py` into
    `backend/tools/ontology_*.py` so a tool's code is not a string inside a seed script.
-5. `new_coldchain_v7` needs a decision: finish it, or delete the declaration and keep the reserved
+3. `new_coldchain_v7` needs a decision: finish it, or delete the declaration and keep the reserved
    number.

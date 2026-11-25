@@ -20,19 +20,23 @@ triggers:
 version: 3.3
 author: weiping
 params:
+  # Both of these are answered PER CONVERSATION, not per agent (`scope: conversation`): one builder
+  # serves every ontology, so a baked value would be right for exactly one key. A per-key builder that
+  # still supplies them in `config.skill_params` keeps working unchanged — supplying a value is what
+  # makes the block render; `scope: conversation` only stops the platform from inventing or demanding one.
   datasource:
     label: 数据库
-    description: 本体从哪个数据库搭建（即智能体的 `datasource`）
-    required: true
-    default_from: agent.datasource
+    description: 这个 key 对应的库名——由对话给出（在 profile 的 `dsn.dbname` 里），不从智能体默认
+    scope: conversation
   ontology_key:
     label: 本体
-    description: 这个智能体写入的文件夹（例如 new_coldchain）
-    required: true
+    description: 这次写哪一份本体，`<名字>_v<N>`——由对话给出，不猜、不自造
+    scope: conversation
   profile_file:
     label: profile 文件名
-    description: 该文件夹里的 profile
+    description: 该文件夹里的 profile（留空即 `<ontology_key>_settings.json`）
     required: false
+    scope: conversation
     default: '{ontology_key}_settings.json'
 ---
 

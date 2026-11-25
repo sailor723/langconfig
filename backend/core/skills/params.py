@@ -123,6 +123,14 @@ def resolve(agent_id: Optional[int], pins: list[str], skill_params: Optional[Dic
         # and a stale value in skill_params is reported rather than silently used.
         db_name = _agent_database_name(cfg)
         for name, declared_spec in spec.items():
+            # A `scope: conversation` parameter is answered per conversation, not per agent: the
+            # customer's name, the database behind it. It is never defaulted from the agent, never
+            # reconciled against `config.database` (one agent can serve many ontologies, so there is
+            # no single right answer) and never "required" as a build condition. Measured: the seven
+            # per-key builder copies demanded `ontology_key: required`, which made a keyless agent
+            # impossible to build at all — the error named the parameter instead of asking for it.
+            if str(declared_spec.get("scope") or "").strip().lower() == "conversation":
+                continue
             if values.get(name) in (None, "") and declared_spec.get("default_from"):
                 source = str(declared_spec["default_from"])
                 if source.startswith("agent."):
@@ -138,7 +146,9 @@ def resolve(agent_id: Optional[int], pins: list[str], skill_params: Optional[Dic
                         f"skill param (agent {agent_id})")
                 values[name] = db_name
         values = _fill_defaults(spec, values)
-        missing = [n for n, s in spec.items() if s.get("required") and values.get(n) in (None, "")]
+        missing = [n for n, s in spec.items()
+                   if s.get("required") and values.get(n) in (None, "")
+                   and str(s.get("scope") or "").strip().lower() != "conversation"]
         if missing:
             problems.append(
                 f"skill {pin!r} needs {', '.join(missing)} — set config.skill_params[{pin!r}]"
