@@ -193,8 +193,14 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
         #lc-rail {
           width: ${RAIL_COLLAPSED}px;
           transition: width .16s ease;
-          overflow: hidden;
+          /* Vertical scroll, never horizontal: the labels stay clipped sideways while the
+             column is closed, and a window shorter than the rail scrolls instead of hiding
+             the settings / chat / toggle rows past the bottom edge. */
+          overflow-x: hidden;
+          overflow-y: auto;
+          scrollbar-width: none;
         }
+        #lc-rail::-webkit-scrollbar { width: 0; height: 0; }
         /* State-driven, not :hover-only: the pointer can leave mid-transition, and a
            focused row should reveal its label too. */
         #lc-rail.lc-open {
@@ -263,7 +269,12 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
           </Fragment>
         ))}
 
-        <div style={{ flex: 1 }} />
+        {/* No stretching band between the activities and the account cluster.
+            ECS looked like "Learning and my profile are almost together" simply because its
+            window was just tall enough that this `flex: 1` collapsed to nothing — the gap is
+            viewport height, not design. The cluster now follows the last activity at every
+            window size, so the rail reads the same on the laptop and on the server. */}
+        <div className="lc-rail-divider" style={{ height: 1, background: t.activityBarDivider }} />
 
         {/* Account — who am I, and the two things an account can do. Bottom cluster
             because that is where "this session" lives, next to Settings. */}
