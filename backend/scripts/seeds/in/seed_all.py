@@ -691,6 +691,27 @@ def step_talent_agents() -> None:
         print("     .venv/bin/python -m scripts.talent.verify_install --online")
 
 
+def step_ontology_builder() -> None:
+    """注册**唯一一个** `Ontology Builder`（key 由对话给出，不预置本体）。
+
+    为什么在 seed 里做：这台机器上没有任何 agent 能建本体时，整个 ontology 工作台是死的，而这一步
+    只是一条 INSERT —— 不需要服务在跑，也不需要人记得去敲。密码从本机的 `.env` 读出来、加密后写进
+    `config.database`（agent 连的是**本体服务器**，`dbname=postgres`，具体库名按对话给），所以
+    重复跑是幂等的、换机器重跑会把凭据换成本机的那一份。
+
+    按 key 分身的旧 builder（`Ontology Builder (xxx)`）不在这里创建：它们是历史，已在
+    `deep_agents_merge.sql` 里带 `is_public=false` + `superseded_by`。
+    """
+    print("\n[10.7/10] ontology builder  (一个 agent 服务所有本体；key 由对话给出)")
+    rc = subprocess.run(
+        [sys.executable, "scripts/seeds/in/seed_ontology_builder_single.py", "--apply"],
+        cwd=str(BACKEND_DIR),
+    )
+    if rc.returncode != 0:
+        print("  !! ontology builder 没装上（见上面的输出）。装完可以这样自检:")
+        print("     .venv/bin/python features/ontology/versioning.py")
+
+
 def step_chinook() -> None:
     print("\n[10/10] chinook sample DB (Graph Studio SQL agent, best-effort)")
     try:
@@ -745,6 +766,11 @@ def main() -> int:
              "sessions go too.",
     )
     parser.add_argument(
+        "--skip-ontology-builder",
+        action="store_true",
+        help="don't register the single `Ontology Builder` agent (the row needs this machine's DB credentials)",
+    )
+    parser.add_argument(
         "--skip-talent-agents",
         action="store_true",
         help="不注册招聘流水线的六个 agent（服务没起时会自动跳过并提示）",
@@ -767,6 +793,10 @@ def main() -> int:
         print("\n[10.6/10] talent agents  (--skip-talent-agents)")
     else:
         step_talent_agents()
+    if getattr(args, "skip_ontology_builder", False):
+        print("\n[10.7/10] ontology builder  (--skip-ontology-builder)")
+    else:
+        step_ontology_builder()
     step_chinook()
     summary()
     # No duplicate report here. The union matches on tool_id, so a teammate's

@@ -95,8 +95,14 @@ cd <repo> && bash start.sh
 cd backend && set -a && . ../.env && set +a
 env -u PGPORT .venv/bin/python scripts/seeds/in/seed_all.py
 # 期望结尾：deep agents 76 / skills 121 / tools 80
-#           [10.6/10] talent agents  → Talent · 1..5 注册/更新（绑技能与工具白名单）
+#           [10.6/10] talent agents     → Talent · 1..5 注册/更新（绑技能与工具白名单）
+#           [10.7/10] ontology builder  → 唯一的 `Ontology Builder`（key 由对话给出，不预置本体）
 ```
+
+`[10.7/10]` 写的是**一个** builder：它的 `config.database` 指向本体服务器（`dbname=postgres`，
+口令从本机 `.env` 读出来加密后写进行里），具体本体库按对话里给的 key 现读——所以换一台机器
+重跑这一步会把凭据换成本机的那一份，是幂等的。旧的分身 builder（`Ontology Builder (xxx)`）
+不会新建，它们带 `is_public=false` + `superseded_by`。不想注册就加 `--skip-ontology-builder`。
 
 `seed_all.py` 自己会探 `LANGCONFIG_BASE`（默认 `http://127.0.0.1:8765`）：
 
