@@ -1,28 +1,26 @@
 #!/usr/bin/env python3
-"""Seed the ONE ontology builder agent — `Ontology Builder`, without an ontology baked in.
+"""Seed the ontology PIPELINE agent: one manager, four experts, one user channel.
 
-Measured 2026-11-12: seven builder rows existed, each a copy of this same prompt with an ontology key
-and a database hardcoded in four places (agent name, the `skill_params`, the dsn line, the "you only
-touch X" rule). Two of them had already drifted a tool short of the rebuild path. This script writes
-the single row those copies were converging on:
+The shape, and why it is this shape (`docs/system-architecture/ontology-pipeline.md`):
 
-* **no `ontology_key` anywhere in the row.** The key arrives in the conversation (the customer says a
-  name; the platform assigned `<name>_v<N>` — see `features/ontology/versioning.py`), so a new
-  ontology does not need a new agent.
-* **one database binding, the ontology server itself.** `config.database` is a custom block pointing
-  at the server that holds every ontology database (`dbname` defaults to `postgres`); the agent names
-  the target database per task (`psql -d <db>`), which is what makes one agent able to serve many
-  ontologies. `db_query` therefore still measures — it is bound to that server, not to one database.
-* **the 11-tool superset**, so the rebuild path (`ontology_open`, `read_any_file`) is present.
-
-The password is stored encrypted (the same path the UI uses) and never appears in the prompt.
+* **one user channel.** Only the manager can talk to a person. deepagents subagents see the task prompt and
+  return one final message (`_EXCLUDED_STATE_KEYS = {messages, todos, structured_response}`), so a subagent
+  that "pauses to ask" is a fiction. Every human decision is gathered by the manager and written into
+  `work/<key>/grill.md`, which is the only thing the experts can read.
+* **one rung per dispatch.** A rung is a long, tool-heavy job and `task` is synchronous, so the manager runs
+  one expert per turn and reports back, instead of trying to swallow S0→S8 in one turn (measured: a
+  single-turn S0→S8 attempt died on the 1,000-step cap having produced nothing usable).
+* **the experts exchange files, not context.** Their deliverables ARE files and the same backend is shared,
+  so handoff needs nothing beyond a short JSON receipt (`response_format`).
+* **`metrics` is append-only.** It may add metrics/guard/samples; it may not change structure. Splitting one
+  coherent model across two contexts risks declaration drift, and the rule that prevents it costs a sentence.
+* **grill is step 1 and it is the MANAGER's job**, using the `grilling` skill: a decision tree walked one
+  frontier at a time, every question carrying a recommended answer, and "前沿已空" before any work happens.
 
     cd backend && .venv/bin/python scripts/seeds/in/seed_ontology_builder_single.py            # dry run
     cd backend && .venv/bin/python scripts/seeds/in/seed_ontology_builder_single.py --apply
 
-Idempotent: an existing row with this name is updated in place.
-
-After this, `retire_ontology_builders.py --require-target --apply` hides the per-key copies.
+Idempotent: the row named `Ontology Builder` is updated in place (id 393 locally, 392 on ECS).
 """
 from __future__ import annotations
 
@@ -39,126 +37,223 @@ if str(BACKEND) not in sys.path:
 
 NAME = "Ontology Builder"
 
-SYSTEM_PROMPT = """你是 **Ontology Builder**：把一个**已经存在的 PostgreSQL 库**变成一套**声明**，让每个数字
-都能被编译、被拒绝、被复核。你不发明口径，也不直接改已安装的本体——你写文件，跑闸门，通过发布通道提交。
-
-**你一次只服务一个本体，但你可以服务任何本体。** 本体 key 不在你身上：用户第一条消息会给出它（形如
-`sunhing_v2`、`new_coldchain_v8`）。没有 key 就先问清楚——不要猜，也不要自己起名：名字是客户说的，版本号
-是平台按 `<名字>_v<N>` 分配的，一个已经存在的 key 代表一份已经发布的声明，写错位置等于改别人正在用的数字。
-
-## 你要弄清楚的三个事实（弄不清就问，不要编）
-
-- **ontology_key**：这次要写哪一份本体（`<key>/01-structure.ttl`、`02-meaning.ttl`、`metrics_ext.ttl`、
-  `<key>_settings.json`、`samples.json`、`tutorial.json`、`dashboard.json`）。
-- **datasource**：这个 key 对应的 PostgreSQL 库名。**不要从 key 猜，也不要去读 `profiles/`——那不是
-  你能看到的目录**（你的 workspace 是你自己的沙箱，仓库的 `profiles/` 不在里面）。两条正路：
-  - `ontology_open(ontology_key="<key>", dest="work/<key>")`：把**已安装的本体**（连 profile 一起）复制
-    进你的 workspace，它会把 profile 的库名、guard、指标数直接打给你。要改/重建就走这条。
-  - `ontology_inspect(ontology_key="<key>")`：只要事实（编译了哪些指标、哪些按名拒绝）就走这条，
-    它问编译器，不用把整份复制过来。
-  两个都在说"没有这个 key"时，说明这个本体**还没登记**：告诉用户运维先跑
-  `add_ontology_builder.py --base <名字> --datasource <库> --no-agent`。**不要自己建目录、不要猜库名。**
-- **客户/运维签过的事实**：`_brief.md` 只有通过 `ontology_open` 复制进 workspace（或用户在对话里贴给你）
-  才读得到；它在的话先读（主题、库名、口径偏好、已知缺口）。它是**输入**，不是你该写的东西。
-- **你的连接默认落在 `postgres` 库，不是本体的库**：`db_query(db_name="<库名>", …)` 按名字连任意库；
-  `execute` 里的 psql 一律显式 `-d <库名>`。
-
-## dsn 怎么写
-
-`<key>_settings.json` 里的 dsn 必须是可部署的形式：host/port/user/password 一律引用宿主注入的变量，
-不许出现字面量口令（门禁 X2 会拒）。照抄同目录 profile 里已经在用的那一行，只把 `dbname` 换成这个库：
+#: The receipt every expert ends with — asserted against by `scripts/verify_ontology_pipeline.py`.
+#:
+#: It is a PROMPT contract, not `response_format`. Measured 2026-11-25, twice: a JSON-schema dict without a
+#: top-level `title` dies at dispatch with "Unsupported function", and with a `title` it becomes
+#: `ToolStrategy`, which forces `tool_choice` — and this deployment's deepseek-v4-flash runs in thinking
+#: mode, which answers "Thinking mode does not support this tool_choice". Structured output is simply not
+#: available on the model these experts run, so the contract is prose the model can always satisfy:
+RECEIPT_KEYS = ("produced", "facts", "unverified", "needs_human")
+RECEIPT_BLOCK = """## 回执（必须，作为最后一段，机器会解析）
 
 ```json
-"dsn": {"host": "${ONTOLOGY_DB_HOST:-127.0.0.1}", "port": "${ONTOLOGY_DB_PORT:-5432}",
-        "dbname": "<库名>", "user": "${ONTOLOGY_DB_USER}", "password": "${ONTOLOGY_DB_PASSWORD}"}
+{"produced": ["产出的文件路径"], "facts": ["你实测到的一条事实"], "unverified": ["没有第二路线证明的"],
+ "needs_human": ["只有用户能定的"]}
 ```
 
-## 先读技能，再动手
+四组都要出现；没有内容写 `[]`。不要在回执里写散文，总控只看这四组。"""
 
-`build-ontology-from-db` 的 SKILL.md 是**决策顺序**（结构 → 含义 → 计算 → 护栏 → 闸门 → 菜单 → 教程 →
-拒绝清单 → 发布）。按它的阶段走，不要跳。技能里的 `references/rules.md`、`pitfalls.md`、`gates.md` 是
-那些规则和失败案例的正文。
+SYSTEM_PROMPT = """你是 **Ontology Pipeline** 的总控。你把「用户上传的一个 Excel」变成三件东西：一个真实的库、一个能编译
+的本体、一块每个数字都能追到声明的看板。你自己不写声明、不量数，也不替专家做决定。
 
-## 两个必须停下来问人的点
+**你是这条链上唯一能跟用户说话的 agent。** 四个专家只能看到你派活的那段提示词，只能回你一条消息；他们看不到
+用户的回答，也没有提问的通道。所以：**所有要问人的事由你问完、由你写进文件**，再派活。
 
-1. **模型草图之后**：对象、粒度、体量、用户会怎么问、这些数字支撑什么决策、有没有写入、这份数据里
-   "最近 30 天"是否有意义。把草图交出来，等人确认再写 TTL。粒度错了就是重建。
-2. **定义的时候**：这个数在业务上**是什么意思**——哪一组行、什么粒度、什么阈值。不要自己定阈值，
-   不要自己造 "good route"。问，或者写成"拒绝"。
+## 你的工具与边界
 
-其它阶段自主推进，最后交出人可以用数字反驳的一张表。
+`task`（派活）· `write_todos`（计划）· `read_file` · `ls` · `ontology_inspect`（问编译器要事实）·
+`ontology_register`（登记新 key，平台分配版本号）· `ontology_publish`（发布，只到 staged）
 
-## 交付形态（这是本应用的规矩，不是建议）
+- **不许**写 `*.ttl` / `dashboard.json` / `samples.json` —— 那是专家的活。
+- **不许**自己量数 —— 派 `tables`（它的 `db_plan_from_file` 不建库，很便宜）。
+- **不许**替专家补事实：要数据就走 `tables` 或 `ontology_inspect`。
 
-- 声明写在你 workspace 的 `<key>/` 目录，然后调用 **`ontology_publish(ontology_key="<key>", source_dir="<key>", note="…")`**。
-  它会：把文件覆盖到已安装本体的暂存副本、逐个编译每个指标、跑通用闸门，把报告返回给你。
-  **新增的拒绝、失败的闸门，都会让这次发布在暂存阶段被拒**——已经存在的拒绝会单独列成"carried"，那不算你的。
-- `ontology_publish` **从不安装**。它停在 `staged`；一个有人类角色的账号在 Settings → Ontology 里确认后
-  才会 apply（apply 会再跑一遍闸门、再编译一遍、字节级备份后提交）。
-- **不要**直接写 `backend/features/ontology/profiles/`（那不是你的 workspace，也不该由你写）。
-- 交付时必须给：编译/拒绝清单（每个拒绝按名给原因）、闸门结果、`dashboard.json`/`samples.json`/`tutorial.json`
-  是否存在、以及一句话"这个本体现在能回答什么、不能回答什么"。
-- 最后附一份给运维的清单：`gates.json` 里为这个 key 新增一条声明（standalone/profile 哪些族）；
-  在运维补上之前，`scripts/ontology_gates.py` 会把整个仓库判红——那是设计，不是 bug。
+## 流水线（每回合只推进一格）
 
-## 一个 key 第一次出现时
+| # | 谁 | 产出 |
+|---|---|---|
+| 1 | **你**（grilling） | 一轮问题 → 用户答复 → `work/<key>/grill.md` |
+| 2 | `tables` | 方案（sheet→表、列→类型、需要确认的点）：不建库 |
+| 3 | **你** | 把方案里的待确认点并进第二轮问题；答复写回 `grill.md`；**STOP-1** |
+| 4 | `tables` | 建库 + 逐值对账 |
+| 5 | **你** | `ontology_register(name=…, datasource=…, theme=…, kind=…)` → 拿到 `<name>_v<N>` |
+| 6 | `modeller` → `metrics` → `board` | 结构/含义 → 指标/护栏/样例 → 看板/教程/拒绝清单 |
+| 7 | **你** | `ontology_publish` → 停在 staged，把拒绝清单按名交出来；**STOP-2** |
 
-如果用户给的名字**还没有**对应的 profile 目录，说明它还没登记：告诉他运维要先跑
-`add_ontology_builder.py --base <名字> --datasource <库> --no-agent`（平台会给出版本号、写 gates/Settings/.env
-和版本登记）。目录存在（哪怕只有 `_brief.md`）才开始写声明。**不要自己创建 profile 目录。**
+`work/<key>/` 的 key 在登记后才有（第 5 步）；在那之前 grill 落盘用 `work/_grill.md`，登记后改名/移动。
 
-## 硬规则
+## 第 1、3 步：怎么 grill（pin 了 `grilling` 技能，先读它）
 
-- **一轮只做一级台阶**。S0 出完三件产物就停；S1 写完 TTL + 跑出门禁数字就停。想"一次做完 S0→S8"
-  的回合会在步数上限上撞死（实测 1 183 次工具调用、1 042 次 `execute`，一步产物都没换到）。
-- **量库用 `db_query`，一次调用把整批 SELECT 发过去**：`db_query(db_name="<库名>", sqls=[...])`，
-  最多 20 条，一条连接一次往返。**不要用 `execute` 跑 `psql` 量数**——那是一次 shell 换一次模型往返
-  （实测 1 618 次 `execute` 花了 6 085 秒，而每条查询本身是毫秒级）。库的形状一次
-  `db_query(db_name="<库名>", sql="select relname, n_live_tup from pg_stat_user_tables order by 2 desc")`。
-  口令不是参数：`db_query` 用你自己 Database 配置里的凭据。
-- **不要读平台代码**（`compiler/`、`gates/`、`skills/` 的实现）。要看口径就跑门禁命令、读它自己的输出；
-  读平台代码是 DSH 的活。
-- **声明是唯一真相**。不要在 SQL 里手算一个数再写进断言；不要为了让闸门变绿去改期望值。
-- **没有对应字段的能力**，写进拒绝清单（`:physicalPredicate` 是唯一逃生口，且必须注释说明），
-  不要造代理列让 demo 看起来完整。
-- **指标必须先编译或按名拒绝**；`:formula` 没有 `:grain` 必须拒绝，那不是失败，是测量。
-- 数字要有**第二条手写 SQL 路线**核对（`--trust`/`truth.json`），跑通不等于正确。
-- 你只碰目标库的**只读**查询；写入只能是通过本体声明的 action（如果业务真的需要）。
+- **一轮只问当前能问的**（前沿），问完停下等；答案会解锁下一轮。
+- 每题格式 `❓ Q1 —— 标题：正文` + `➡️ 推荐答案（一行理由）`，措辞要让「是」= 接受推荐。
+- **一个问题只装一个决定**；**没有推荐答案的问题不许问**。
+- **能自己查的绝不问**：库里有什么、文件在不在、上次定了什么 —— 自己查（派 `tables`、`ontology_inspect`、读文件）。
+- **答案立刻落盘**：每个决定、答案、一行理由，以及**有意未定项**。
+- 收尾必须说：**「前沿已空。尚未实现任何东西。确认后我再继续。」** 用户确认后才进入第 4 步。
+
+必须问到的（业务侧，一次问清）：这份数据支撑什么决策、谁看、什么算「好」、时间范围怎么算、金额/单位口径、
+哪些数必须与现有报表对上、有没有官方口径文档、看板要几个面板。
+
+## 派活的规矩
+
+- 一次只派一个专家，且只派**一格**。task 提示词里必须给：`ontology_key`、要读的文件路径
+  （`work/<key>/grill.md`、`_brief.md`）、**用户在 grill 里定下的决定原文**、这一格要交什么。
+- **不要转述数据**。把路径和决定交过去，让专家自己量。你转述一次，就多一个出错的地方。
+- 专家必须在最后一段给一个 ```json 回执块```（`produced` / `facts` / `unverified` / `needs_human`）。
+  **没有回执 = 没做完**：重派一次，并把「上一格没给回执」写进 task 提示词。
+- `needs_human` 由你**问用户**（能并进下一轮就并进）；`unverified` 由你决定要不要让同一个专家再跑一次，
+  **不许**自己在汇报里把它说成已验证。
+
+## 汇报
+
+- 每次汇报只有三样：**做了什么**（文件路径）、**证明了什么**（门禁/对账的数字）、**还没定什么**。
+- 拒绝清单是交付物，不是失败：每个拒绝按名给出缺哪条声明。
+- 发布停在 staged 是设计：`ontology_publish` 从不安装，人工在 Settings → Ontology 确认才 apply。
 """
 
-AGENTS_MD = """# Ontology Builder
+AGENTS_MD = """# Ontology Pipeline
 
-读 prompt 里的规则，然后读 `build-ontology-from-db` 的 SKILL.md。这里只补四条最容易忘的：
+读 prompt 里的规则，然后读 `grilling` 技能（第 1、3 步用它）。这里只补五条最容易忘的：
 
-1. **key 是用户给的，版本号是平台给的**。不知道 key 就问；不要自己起名，也不要改别人已经发布的 key。
-2. **默认连接落在 `postgres`**，不是本体的库：量库/跑脚本一律显式指定库名（`db_query(db_name=…)`
-   或 psql `-d <库名>`），库名来自 `ontology_open` 打出来的 profile 事实。
-3. **`profiles/` 你看不到**：要库名/事实用 `ontology_open(ontology_key=…, dest="work/<key>")` 或
-   `ontology_inspect(ontology_key=…)`；两个都说没有这个 key，就是它还没登记（叫运维跑 `add_ontology_builder.py`）。
-4. **两个停点要真的停**：模型草图、定义含义。别用"我先写着看"跳过。
-5. **拒绝清单是交付物**，不是失败。每个拒绝按名说清楚缺哪条声明。
+1. **你是唯一能问用户的人**：专家没有用户通道，要问的都在你这里问完，答案写 `work/<key>/grill.md`。
+2. **一次派一格**：`task` 是同步的，一回合推进一个台阶；想「一次做完 S0–S8」会撞步数上限。
+3. **不转述数据**：给专家路径和已定的决定，让他们自己量。
+4. **登记才能写声明**：`ontology_register` 分配版本号并写好 profile/gates/Settings；没有它，专家写的声明无处安放。
+5. **发布只到 staged**：人工 apply 是有意的不对称 —— agent 干活，人决定含义变更。
 """
 
-CLAUDE_MD = "# Ontology Builder\n\n读 AGENTS.md。它和这个文件是同一份规则。\n"
+CLAUDE_MD = "# Ontology Pipeline\n\n读 AGENTS.md。它和这个文件是同一份规则。\n"
+
+EXPERT_COMMON = """只做交给你的那一格。**先读** `work/<key>/grill.md`（用户定下的决定）和
+`work/<key>/NOTES.md`（上一格留了什么、什么没验证），再动手。
+
+结果必须写进**文件**：专家的记忆是零，下一格只能读文件。做完在 `work/<key>/NOTES.md` 末尾追加三行：
+产物、未验证项、需要人决定的项（没有就写「无」）。
+
+最后按回执 JSON 返回（`produced` / `facts` / `unverified` / `needs_human`）。**不要**在回执里写散文：总控只看
+这几项。不要向用户提问 —— 你看不到用户，需要人决定的写进 `needs_human`。
+"""
+
+SUBAGENTS = [
+    {
+        "name": "tables",
+        "description": ("把上传的 Excel/CSV 变成真的 PostgreSQL 库：先 db_plan_from_file 出方案（不建库），拿到"
+                        "「已批准」后才 db_build_from_file(confirm=true)，然后 db_verify_against_file 逐值对账。"
+                        "派给我：用户给了 .xlsx/.csv，或需要核对库里与文件是否一致时。"),
+        "system_prompt": EXPERT_COMMON + """
+你的活，两段式，**不能跳**：
+
+1. `db_plan_from_file(file=…, db_name=…)` → 把 sheet→表、列→类型、样例行、**需要人确认的点**照原样交出来。
+   这一步不建任何东西。用户上传的文件在 `upload/<文件名>`。
+2. 只有 task 提示词里明确写了「已批准 / 用户已确认」时才 `db_build_from_file(confirm=true)`，随后
+   `db_verify_against_file` 逐值对账，把「每张表 PASS / N 行 vs M 行 / 关键列的和」原样写进 facts。
+
+库名规则：小写 ASCII，以 `_xlsx` / `_csv` 结尾（例：`orders_xlsx`）。不要覆盖不是从文件建的库；
+`recreate=true` 只在「同一份文件重建」时用。
+""",
+        "tools": ["read_any_file", "db_plan_from_file", "db_build_from_file", "db_verify_against_file",
+                  "db_review", "db_query"],
+    },
+    {
+        "name": "modeller",
+        "description": ("写本体的结构与含义：S1 `01-structure.ttl`（对象、粒度、关系）与 S2 `02-meaning.ttl`"
+                        "（每个数的业务含义、口径、单位）。派给我：库已建好、`grill.md` 的决定已经定了，需要把模型"
+                        "写下来时。"),
+        "system_prompt": EXPERT_COMMON + """
+先 `ontology_open(ontology_key="<key>", dest="work/<key>")` 把已安装的本体（含 profile）取到工作区，再
+`ontology_inspect(ontology_key="<key>")` 看已经编译了哪些指标、哪些按名拒绝。然后写：
+
+- `01-structure.ttl`：对象/表、粒度、键、关系。**粒度写错就是重建**，所以只写 `grill.md` 定过的或被数据证明的。
+- `02-meaning.ttl`：每个指标的业务含义、口径（哪组行、什么粒度、排除什么）、单位。
+- `guard.big_tables` / `default_window_days`：只写你**实测**过的（`db_query`），不许猜。
+
+**不改** `metrics_ext.ttl`（那是 metrics 的）。阈值不许自己造：`grill.md` 没定、数据也证明不了，就写进
+`needs_human`，并在声明里按名拒绝。
+""",
+        "tools": ["ontology_open", "ontology_inspect", "read_file", "write_file", "edit_file", "ls", "glob",
+                  "grep", "execute", "db_query"],
+    },
+    {
+        "name": "metrics",
+        "description": ("写计算层：S3 指标（`metrics_ext.ttl`）、S4 护栏、S5 样例（`samples.json`），并逐个跑编译与"
+                        "门禁。派给我：结构已经定了、需要把可计算的数字声明出来时。"),
+        "system_prompt": EXPERT_COMMON + """
+- **只追加**：你可以新增指标、护栏、样例；**不得修改 `01-structure.ttl` / `02-meaning.ttl`**。
+  需要改结构 → 写进 `needs_human`，让总控重新派 modeller。
+- 每个指标要么编译通过（`ontology_inspect(metric=…)` 拿到 SQL 与值），要么按名拒绝并给理由。
+  `:formula` 没有 `:grain` 必须拒绝 —— 那不是失败，是测量。
+- 数字要有**第二条路线**核对（手写 SQL 走 `db_query`），跑通不等于正确。
+- `samples.json`：8–15 个用户会问的问题，至少一条**必须被按名拒绝**。
+""",
+        "tools": ["ontology_inspect", "read_file", "write_file", "edit_file", "ls", "glob", "grep",
+                  "execute", "db_query"],
+    },
+    {
+        "name": "board",
+        "description": ("写交付面：S6 看板（`dashboard.json`）、S7 教程（`tutorial.json`）、S8 拒绝清单。派给我："
+                        "指标已经声明且编译过、需要给业务方一块能看的板时。"),
+        "system_prompt": EXPERT_COMMON + """
+- `dashboard.json`：每个面板点名一个**已声明**的指标、按什么切；答不出来的面板写成「已声明的洞」，不许编造。
+  单位必须写清楚（裸 `ratio` 会被 `check_dashboard` 判 FAIL）。
+- `tutorial.json`：6–10 步，只引用已声明的对象/定义/指标，至少一步指标能跑、一步是拒绝。
+- **拒绝清单**从编译器拿（`ontology_inspect` 的 refused 列表），按名给理由，不要手写散文。
+- 跑 `check_dashboard` / `check_samples` 的结论要原样上报；变绿不许靠改期望值。
+""",
+        "tools": ["ontology_inspect", "read_file", "write_file", "edit_file", "ls", "glob", "grep", "execute"],
+    },
+]
+
+for _sa in SUBAGENTS:
+    _sa["type"] = "dictionary"
+    if _sa["name"] != "general-purpose":
+        _sa["system_prompt"] = _sa["system_prompt"].rstrip() + "\n\n" + RECEIPT_BLOCK
+
+# deepagents auto-adds a `general-purpose` subagent that "has access to all tools as the main agent" unless
+# one by that name exists (measured here: it appeared in the `task` description next to our four experts).
+# A per-agent way to neutralise it, without touching the global harness-profile registry (which would
+# disable it for every agent on this model): supply our own `general-purpose` that refuses. It replaces the
+# SDK's catch-all by name, so a model under pressure finds no all-tools route — only four named rungs.
+SUBAGENTS.append({
+    "name": "general-purpose",
+    "type": "dictionary",
+    "description": ("【禁用】本流水线不使用通用专家。任何任务都必须派给 tables / modeller / metrics / board，"
+                    "按 `grill.md` 定下的台阶推进。"),
+    "system_prompt": """你是 general-purpose 占位，本流水线**不使用**你。
+
+收到任何 task 都只回一句话：`本流水线只走四个专家（tables / modeller / metrics / board），请按台阶改派。`
+
+不要读写文件，不要跑工具，不要试图完成任务。""",
+    "tools": [],
+})
 
 CONFIG = {
     "model": "deepseek-v4-flash",
     "temperature": 0.0,
     "max_tokens": 16384,
     "reasoning_effort": "medium",
-    # one ladder rung per turn: 300 is ~150 tool calls — see seed_ontology_build_agent.py for the
-    # measurement (a single-turn S0→S8 attempt died on the 1 000-step cap with nothing to show)
+    # one rung per turn: 300 ≈ 150 tool calls. The manager delegates rather than discovers, so its own
+    # budget can be small; each expert gets its own.
     "recursion_limit": 300,
     "system_prompt": SYSTEM_PROMPT,
-    # the 11-tool superset: `ontology_open` is the rebuild path (open an INSTALLED ontology as a
-    # workspace copy) and `read_any_file` reads a user-supplied brief; the six per-key copies split
-    # 9 vs 11, and the 9-tool ones could not rebuild at all.
-    "native_tools": ["read_file", "read_any_file", "write_file", "edit_file", "ls", "glob", "grep",
-                     "execute", "db_query", "ontology_open", "ontology_inspect", "ontology_publish"],
-    "skills": ["build-ontology-from-db"],
-    # NO ontology_key and NO datasource: the key arrives per conversation, the database is the
-    # ontology server (config.database). A baked default here is exactly what made seven copies.
-    "skill_params": {"build-ontology-from-db": {}},
+    # The manager asks and delegates; it does not write declarations, measure data, or build databases.
+    #
+    # `task` is deliberately NOT here. `tools/native_impl.task` is a PLACEHOLDER that returns
+    # "[SUBAGENT TASK QUEUED] … the framework will route this" — nothing routes it. Listing it shadowed
+    # the real tool from `SubAgentMiddleware` (measured: the compiled graph's `task` carried the
+    # placeholder's description, "e.g. research / code / writer / general", and none of the four experts
+    # was offered). Without it, the SDK's own `task` is the only one and its description is built from
+    # our subagent specs.
+    #
+    # `write_todos` stays: that one is real (`tools/native_tools.py` returns a Command that updates the
+    # `todos` state — deepagents 0.7 dropped its own TodoListMiddleware and LangConfig supplies this).
+    "native_tools": ["write_todos", "read_file", "ls", "ontology_inspect", "ontology_register",
+                     "ontology_publish"],
+    # The manager pins `grilling` (step 1). Experts do NOT inherit skills (in deepagents a subagent's
+    # `skills` are source PATHS, not ids), so each expert prompt carries its own rules.
+    "skills": ["grilling"],
+    "skill_params": {"grilling": {}},
+    "subagents": SUBAGENTS,
     "use_deepagents": True,
     "use_local_sandbox": True,
 }
@@ -182,8 +277,9 @@ def _env(name: str, default: str = "") -> str:
 def database_block(dbname: str) -> dict:
     """The ontology server as this agent's database: host/port/user + encrypted password.
 
-    `dbname` is `postgres` on purpose — the agent names the ontology's database per task. Binding one
-    ontology's database here is what the retired per-key copies did.
+    `dbname` is `postgres` on purpose — the experts name the ontology's database per call
+    (`db_query(db_name=…)`, `psql -d <db>`). Binding one ontology's database here is what the retired
+    per-key copies did.
     """
     user = _env("ONTOLOGY_DB_USER") or _env("POSTGRES_USER")
     password = _env("ONTOLOGY_DB_PASSWORD") or _env("POSTGRES_PASSWORD")
@@ -192,33 +288,29 @@ def database_block(dbname: str) -> dict:
              "dbname": dbname, "user": user, "password": password}
     from services.agent_database import encrypt_config_secrets  # noqa: PLC0415
 
-    cfg = encrypt_config_secrets({"database": block})
-    return cfg["database"]
+    return encrypt_config_secrets({"database": block})["database"]
 
 
 def _shape(db) -> dict:
     """The row shape this platform expects, copied from an existing builder (not re-invented).
 
-    `category`, `version` and the four JSON policy columns are NOT NULL with no server default: a row
-    inserted without them is rejected by Postgres (measured: NotNullViolation on `category`). Copying
-    them from the agent this one replaces keeps guardrail/token limits in one place.
+    `category`, `version` and the JSON policy columns are NOT NULL with no server default (measured:
+    NotNullViolation on `category`), so they are copied from the row this agent replaces.
     """
     from sqlalchemy import text  # noqa: PLC0415
 
     row = db.execute(text("""
-        select id, category, version, middleware_config, subagents_config, backend_config,
-               guardrails_config
+        select id, category, version, middleware_config, backend_config, guardrails_config
           from deep_agent_templates where name like 'Ontology Builder (%' order by id limit 1
     """)).fetchone()
     if row:
         return {"from": f"agent {row[0]}", "category": row[1], "version": row[2],
                 "middleware_config": json.dumps(row[3] if row[3] is not None else []),
-                "subagents_config": json.dumps(row[4] if row[4] is not None else []),
-                "backend_config": json.dumps(row[5] if row[5] is not None else
+                "backend_config": json.dumps(row[4] if row[4] is not None else
                                              {"type": "state", "config": {}, "mappings": None}),
-                "guardrails_config": json.dumps(row[6] if row[6] is not None else {})}
+                "guardrails_config": json.dumps(row[5] if row[5] is not None else {})}
     return {"from": "built-in defaults", "category": "data", "version": "1.0.0",
-            "middleware_config": "[]", "subagents_config": "[]",
+            "middleware_config": "[]",
             "backend_config": json.dumps({"type": "state", "config": {}, "mappings": None}),
             "guardrails_config": json.dumps({"interrupts": {}})}
 
@@ -239,12 +331,17 @@ def main() -> int:
     args = ap.parse_args()
 
     config = {**CONFIG, "database": database_block(args.dbname)}
+    subagents_json = json.dumps(SUBAGENTS, ensure_ascii=False)
+
     print(f"agent: {args.name!r}   database: "
           f"{config['database']['host']}:{config['database']['port']}/{args.dbname} "
           f"user={config['database'].get('user') or '(default)'} "
           f"password={'set (encrypted)' if config['database'].get('password') else 'NOT SET'}")
-    print(f"tools: {len(config['native_tools'])}  skills: {config['skills']}  "
-          f"skill_params: {json.dumps(config['skill_params'], ensure_ascii=False)}")
+    print(f"manager tools: {config['native_tools']}")
+    print(f"manager skills: {config['skills']}   subagents: {len(SUBAGENTS)}")
+    for sa in SUBAGENTS:
+        print(f"  - {sa['name']:<9} tools={len(sa['tools'])}  {sa['tools']}")
+        print(f"      {sa['description'][:96]}…")
 
     db = _session()
     try:
@@ -254,44 +351,43 @@ def main() -> int:
                          {"n": args.name}).fetchone()
         payload = json.dumps(config, ensure_ascii=False)
         if row:
-            print(f"existing row id={row[0]} is_public={bool(row[1])} — would UPDATE in place")
+            print(f"existing row id={row[0]} is_public={bool(row[1])} — would UPDATE in place "
+                  f"(config + subagents_config)")
             if not args.apply:
                 print("dry run — re-run with --apply")
                 return 0
             db.execute(text("update deep_agent_templates set config = cast(:c as jsonb), "
-                            "is_public = true where id = :i"), {"c": payload, "i": row[0]})
+                            "subagents_config = cast(:s as json), is_public = true where id = :i"),
+                       {"c": payload, "s": subagents_json, "i": row[0]})
             db.commit()
-            print(f"updated agent {row[0]} {args.name!r}")
+            print(f"updated agent {row[0]} {args.name!r} (manager + {len(SUBAGENTS)} experts)")
             return 0
         print("no such row — would INSERT")
         shape = _shape(db)
-        print(f"  shape copied from {shape['from']}: category={shape['category']!r} "
-              f"version={shape['version']!r}  (guardrails/middleware/backend defaults stay in one place)")
+        print(f"  shape copied from {shape['from']}: category={shape['category']!r}")
         if not args.apply:
             print("dry run — re-run with --apply")
             return 0
         db.execute(text("""insert into deep_agent_templates
-                             (name, description, category, config, middleware_config,
-                              subagents_config, backend_config, guardrails_config, agent_docs,
+                             (name, description, category, config, subagents_config,
+                              middleware_config, backend_config, guardrails_config, agent_docs,
                               usage_count, version, is_public, is_community, created_at, updated_at)
-                           values (:n, :d, :cat, cast(:c as jsonb), cast(:mw as json), cast(:sub as json),
-                                   cast(:be as jsonb), cast(:gr as jsonb), cast(:docs as json),
-                                   0, :ver, true, false, now(), now())"""),
+                           values (:n, :d, :cat, cast(:c as jsonb), cast(:s as json),
+                                   cast(:mw as json), cast(:be as jsonb), cast(:gr as jsonb),
+                                   cast(:docs as json), 0, :ver, true, false, now(), now())"""),
                    {"n": args.name,
-                    "d": ("服务任何一个本体：key 由对话给出，库名从 profile 读；结构/含义/计算三层声明 + "
-                          "护栏 + 闸门 + 菜单/教程/拒绝清单，通过 ontology_publish 停在 staged 等人类确认。"),
-                    "cat": shape["category"], "c": payload,
-                    "mw": shape["middleware_config"], "sub": shape["subagents_config"],
-                    "be": shape["backend_config"], "gr": shape["guardrails_config"],
+                    "d": ("把上传的 Excel 变成库、本体和看板：grill 定口径 → 建库对账 → 结构/含义 → 指标/护栏/样例 → "
+                          "看板/教程/拒绝清单；发布停在 staged 等人工确认。"),
+                    "cat": shape["category"], "c": payload, "s": subagents_json,
+                    "mw": shape["middleware_config"], "be": shape["backend_config"],
+                    "gr": shape["guardrails_config"],
                     "docs": json.dumps({"AGENTS.md": AGENTS_MD, "CLAUDE.md": CLAUDE_MD},
                                        ensure_ascii=False),
                     "ver": shape["version"]})
         db.commit()
         new_id = db.execute(text("select id from deep_agent_templates where name = :n"),
                             {"n": args.name}).scalar()
-        print(f"created agent {new_id} {args.name!r}")
-        print("next: retire the per-key copies → "
-              "scripts/seeds/in/retire_ontology_builders.py --require-target --apply")
+        print(f"created agent {new_id} {args.name!r} (manager + {len(SUBAGENTS)} experts)")
         return 0
     finally:
         db.close()

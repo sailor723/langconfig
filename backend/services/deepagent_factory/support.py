@@ -24,6 +24,30 @@ from services.agent_utils import load_agent_tools
 from .shared import logger
 
 
+def _as_response_format(sub_config):
+    """A dict schema becomes `ToolStrategy`, never a provider-native format.
+
+    `SubAgentConfig.response_format` is documented as a JSON schema dict, and passing it through raw makes
+    LangChain choose `AutoStrategy` → the PROVIDER's native structured-output mode. Measured 2026-11-25 on
+    DeepSeek: the `task` call died with `This response_format type is unavailable now`, after the subagent
+    had already been selected — delegation failed with no receipt at all, and only in a real turn.
+
+    `ToolStrategy(schema)` extracts the same object by calling a tool, which every tool-calling model
+    supports. A caller that passes an already-built strategy object is respected as-is.
+    """
+    fmt = sub_config.response_format
+    if not isinstance(fmt, dict):
+        return fmt
+    try:
+        from langchain.agents.structured_output import ToolStrategy
+
+        return ToolStrategy(schema=fmt)
+    except Exception as exc:                                            # noqa: BLE001
+        logger.warning(f"response_format for subagent {sub_config.name!r} could not be wrapped in "
+                       f"ToolStrategy ({type(exc).__name__}: {exc}); passing it through unchanged")
+        return fmt
+
+
 class _DeepAgentSupportMixin:
     @staticmethod
     async def _load_base_tools(
@@ -205,7 +229,7 @@ class _DeepAgentSupportMixin:
                     subagent["skills"] = sub_config.skills
 
                 if sub_config.response_format:
-                    subagent["response_format"] = sub_config.response_format
+                    subagent["response_format"] = _as_response_format(sub_config)
 
                 subagents.append(subagent)
                 logger.info(f"Dictionary subagent prepared: {sub_config.name} with {len(subagent_tools or [])} tools")

@@ -137,10 +137,29 @@ STOP-1 用对话（问不到 `interrupt_on`，因为它是**语义**决定）；
 | 大输出不进 manager 上下文 | subagent + `response_format` | 父只见最终消息 |
 | 真实文件 + `execute` | `LocalShellBackend`（LangConfig 已用 `use_local_sandbox`） | `permissions` **不覆盖** `execute` |
 | 每级独立预算 | 每个 subagent 自己的 summarization + 栈 | 单回合 300 步上限，一级一回合 |
-| 结构化回执 | `response_format`（dict schema） | 0.7.1 支持；`mode: "fork"` 尚无 |
+| 结构化回执 | **不用 `response_format`**：见下方「实测踩到的三个坑」 | `mode: "fork"` 尚无 |
 | 人工硬闸 | `interrupt_on`（需 checkpointer） | 只在写入类工具上用 |
 | 技能按需加载 | `skills=[...]`（每 subagent 各自 `SkillsMiddleware`，**不继承**） | 专家各自 pin `build-ontology-from-db` |
 | 记忆常驻 | `memory=["AGENTS.md"]` | 放硬规则（10 条），不放流程 |
+
+### 实测踩到的三个坑（2026-11-25，真回合）
+
+设计写得再顺，这三个都是跑起来才暴露的，且每一个都会**静默毁掉整个架构**：
+
+1. **`task` 有两个实现，平台那个是占位。** `tools/native_impl.py` 的 `task` 返回
+   `"[SUBAGENT TASK QUEUED] … the framework will route this"` —— **没有任何东西会路由它**。它一旦进了
+   `native_tools`，就盖住了 `SubAgentMiddleware` 真正的 `task`（实测：编译图里的 `task` 描述里写的是
+   "e.g. research / code / writer / general"，我们的四个专家一个都没出现）。**修法**：manager 的
+   `native_tools` 里不写 `task`，让 SDK 自己的那个成为唯一的。
+2. **`general-purpose` 会被自动加进来。** 只要没有同名 spec，SDK 就补一个「拥有主 agent 全部工具」的兜底
+   —— 管理者绕过四个专家的后门。**修法**：自己给一个同名 spec，描述写「【禁用】」，prompt 只回一句
+   「请按台阶改派」—— 名字被占住，兜底就不会生成（不用动全局 harness profile 注册表，那会波及同模型的所有
+   agent）。
+3. **结构化输出在这台机器上不可用。** `response_format` 传 JSON schema dict 时：不带顶层 `title` 直接
+   `Unsupported function`；带了 `title` 会变成 `ToolStrategy`，而它是**强制 `tool_choice`**——本部署的
+   deepseek-v4-flash 在 thinking 模式下回答 `Thinking mode does not support this tool_choice`。两次都是
+   **子 agent 已经被选中之后**才失败，所以看起来像「派了活但没回执」。**修法**：回执改成 prompt 合同
+   （专家最后必须给一个 ```json 回执块```），管理者没有回执就当作没做完、重派一次。
 
 **必须验证而不是假定**（否则设计只是纸面）：
 
