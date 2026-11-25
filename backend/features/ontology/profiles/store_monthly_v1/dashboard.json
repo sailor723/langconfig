@@ -9,7 +9,8 @@
     "sort：编译器对分组指标永远 ORDER BY 值 DESC。所以「客单价垫底在前」那块必须自己声明 client_sort（sort=asc），否则页面会渲染成「最好的门店」；「退货率最差在前」要的正是高的一端，DESC 就是对的，不需要重排。趋势线也声明 client_sort：三个点若按值 DESC 出行就不是时间序。",
     "policy：本看板不设任何业务阈值（grill D13）——客单价目标、退货率红线都没有，也没有 assumed: true 的演示阈值。",
     "briefing：每个数字都是 {metric} 或 {metric:key} 占位符，正文不出现手打数字，占位符由 run_dashboard 现场填；正文用中文数字（「四家店」「三个月份」）叙述，不写阿拉伯数字。",
-    "cannot_see 写在顶层、不写在 briefing 里：run_dashboard.resolve_briefing 在没有 briefing.cannot_see 时回退到顶层这一份，页面照样显示；写在这里也把「答不了的和要补的那一列」与「能答的数字」分开。"
+    "cannot_see 写在顶层、不写在 briefing 里：run_dashboard.resolve_briefing 在没有 briefing.cannot_see 时回退到顶层这一份，页面照样显示；写在这里也把「答不了的和要补的那一列」与「能答的数字」分开。",
+    "D3 identities / D5 independent_sql 由 board 层声明：四个 KPI 的加总恒等式与手写 SQL 第二路线，让 D3/D5 在这块板上真的比较，而不是永远 NOT RUN。"
   ],
   "kpis": [
     {
@@ -119,5 +120,61 @@
     "答不了「同比 / 上年同期」：库里只有三个月份（2026-01 / 2026-02 / 2026-03），没有上年数据，也没有日期列（月份是 text 的 YYYY-MM）。缺的声明：一条能把上年同期放进来算的指标 + 上年的数据；同表内相邻两个月的比较可以做，跨年不行（D9/D14）。",
     "答不了「退货额本身作为一张 KPI 卡」：指标已经编译好了（returnAmountTotal，三个月份的合计金额，元），但 D1 只点名四个数，grill 第 3 节把「退货额是否独立成卡」列为有意未定项。缺的不是声明，是用户的一句话——板上它只以退货率的分母身份出现。",
     "答不了任何「本月 / 最近多少天」的时间窗问题：D14 说 3 个月平铺、没有「当期」概念；技术上也是真做不到——月份是 text，实测 date_trunc('month',\"月份\") 报「function date_trunc(unknown, text) does not exist」、\"月份\" >= now() - interval '90 days' 报「operator does not exist: text >= timestamp with time zone」。缺的声明：一个真日期列 + :supportsSlot :TimeWindow，本层不声明。"
+  ],
+  "identities": [
+    {
+      "label": "营业额按门店加总 = 营业额合计",
+      "grouped": "revenueTotalByStore",
+      "whole": "revenueTotal",
+      "width": 1
+    },
+    {
+      "label": "营业额按月加总 = 营业额合计",
+      "grouped": "revenueTotalByMonth",
+      "whole": "revenueTotal",
+      "width": 1
+    },
+    {
+      "label": "客流按门店加总 = 客流合计",
+      "grouped": "trafficTotalByStore",
+      "whole": "trafficTotal",
+      "width": 1
+    },
+    {
+      "label": "退货率按门店加权回合计（营业额为权）",
+      "grouped": "returnRateByStore",
+      "weights": "revenueTotalByStore",
+      "whole": "returnRate",
+      "width": 1
+    },
+    {
+      "label": "客单价按门店加权回合计（客流为权）",
+      "grouped": "avgTicketByStore",
+      "weights": "trafficTotalByStore",
+      "whole": "avgTicket",
+      "width": 1
+    }
+  ],
+  "independent_sql": [
+    {
+      "label": "handRevenue",
+      "sql": "SELECT sum(营业额)::bigint FROM 月度经营"
+    },
+    {
+      "label": "handTraffic",
+      "sql": "SELECT sum(客流量)::bigint FROM 月度经营"
+    },
+    {
+      "label": "handReturnRate",
+      "sql": "SELECT round(sum(退货额)::numeric / sum(营业额), 6) FROM 月度经营"
+    },
+    {
+      "label": "handAvgTicket",
+      "sql": "SELECT round(sum(营业额)::numeric / sum(客流量), 4) FROM 月度经营"
+    },
+    {
+      "label": "handReturnsCoverage",
+      "sql": "SELECT count(*) FROM 月度经营 WHERE 退货额 > 0"
+    }
   ]
 }
