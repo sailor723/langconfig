@@ -649,6 +649,8 @@ def database_catalog() -> Dict[str, Any]:
             row["origin"] = origin
             row["apps"] = _app_tags(dbname, dashboard_dbs=dashboard_dbs, ontology=ontology)
             row["bucket"] = "system" if origin == "technical" else "business"
+            # `offered` is derived, not stored: the page renders this instead of a switch.
+            row["offered"] = row["bucket"] == "business"
         if str(row.get("kind") or "platform") == "target" and row.get("host"):
             row["connection_source"] = "自己配置"
             continue
@@ -828,12 +830,15 @@ def _settings_databases() -> List[str]:
     A `dashboard` row is a dashboard grouping, not a database the SQL tools can
     connect to — offering it would make the picker produce a failing run.
     """
-    # A `server` row is a CONNECTION an agent picks, not a database a SQL tool reads; the platform's own
-    # databases are excluded by rule (see `_is_system_database`), not by hope.
+    # DECIDED BY BUCKET, not by a switch:
+    #   system (langconfig*, postgres, templates) → never offered
+    #   business (everything else a SQL tool can read) → always offered
+    #   a `server` row is a CONNECTION an agent picks, never a database a SQL tool reads
+    # The per-row `enabled` flag is no longer consulted here: it was a second place to decide the same
+    # thing, and the settings page stopped offering it (the bucket is the decision).
     return [
         str(r["name"]) for r in _legacy_catalog_list()
-        if r.get("enabled", True) and r.get("kind") in ("platform", "target")
-        and not _is_system_database(str(r["name"]))
+        if r.get("kind") in ("platform", "target") and not _is_system_database(str(r["name"]))
     ]
 
 
@@ -1000,10 +1005,9 @@ def databases_catalog() -> Dict[str, Any]:
         # Switched on, split by what the switch actually feeds: `offered` is the
         # SQL picker's list, `offered_dashboards` is the Analysis browser's.
         "offered": [r["name"] for r in rows
-                    if r.get("enabled", True) and r.get("kind") in ("platform", "target")
+                    if r.get("kind") in ("platform", "target")
                     and not _is_system_database(str(r["name"]))],
-        "offered_dashboards": [r["name"] for r in rows
-                               if r.get("enabled", True) and r.get("kind") == "dashboard"],
+        "offered_dashboards": [r["name"] for r in rows if r.get("kind") == "dashboard"],
     }
 
 
