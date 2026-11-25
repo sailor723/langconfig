@@ -86,3 +86,28 @@
 | 3 | 给 `pg_*` 打 `is_public=false`（保留行、保留绑定给老 agent） | 低 | 工具列表少 8 个重复入口；老 agent 不受影响 |
 | 4 | 给未绑定且非储备用途的工具（`pg_execute` 保留给平台库维护，标注）加 `note`/标签，说明「保留原因」 | 无 | 下一次盘点不用重新判断 |
 | 5 | 写一份「DB 工具选择表」进 `docs`：问库规模 → `db_list_databases`；看结构 → `db_describe`；精确查 → `db_query`；NL 问 → `sql_agent_tool`；写一条 → `db_execute`；平台库行级改 → `pg_execute`；对账 → `db_verify_against_file` | 无 | 新 agent 不再乱挂工具 |
+
+## 4. 整理已执行（2026-11-25）
+
+| 动作 | 结果 |
+|---|---|
+| `db_query` 描述指错门（`execute` → 深 agent 才有的沙箱工具） | 改为指名 `db_execute`（任意库、两段式）与 `pg_execute`（平台库行级 DML），并补「看结构用 db_describe」 |
+| `pg_execute` 描述 | 补「别的库用 `db_execute`；两个写工具都不做 DDL」——两个写入口互相点名，避免重复实现守卫 |
+| 工具「退休」机制 | `custom_tools` 加 `is_deprecated` / `superseded_by` / `deprecated_reason`（迁移 `041_tool_retirement`）；`/api/tools/registry` 默认不返回废弃项，`?include_deprecated=true` 才给（含「→ 用哪个替代」） |
+| 严格子集退休 | `pg_query → db_query`、`pg_list_tables → db_describe`、`pg_describe_table → db_describe` |
+| 平台自省换分类 | `pg_list_agents / get_agent / projects / documents / skills / custom_tools` → 分类 `platform`（查的是平台状态，不是业务库） |
+| 休眠能力标注 | `advanced_sql_agent_tool`、`databricks_query` 标废弃 + 写明「未启用」原因（没有替代品，是**没开**而不是**换掉**） |
+| 门禁 | `tests/test_tool_registry_deprecation.py`：废弃项不进候选、`include_deprecated=true` 才出、每条废弃都要有理由、subset 必须指名接任者且接任者自己可得 |
+
+整理后：`/api/tools/registry` **94 → 89**（隐藏 5 个），数据库相关候选从 24 收敛到 **13** +
+6 个平台自省（新分类）。
+
+### 仍然 OPEN
+
+1. **`usage_count` 仍然不动**（88 行全 0，包括刚真实调用过的 `db_list_databases`）。写入点在
+   `core/agents/tool_loader.py:502`（加载时 +1）——说明聊天路径没走到那里。修之前，任何「哪个工具真被用过」
+   的结论都只能靠绑定关系推断。
+2. **`sqlite_*`** 两个仍在候选里（4 个 public demo agent 绑着）。我们的栈是 Postgres，SQLite 是遗留演示路径；
+   要么把 demo 迁到 Postgres，要么同样标废弃。
+3. **`db_dashboard`** 与本体看板（`dashboard.json` + 工作台）是两条生成路径，迟早给出两块不一样的板。留着但
+   没有第二个消费者，建议下一步明确它是否退役。

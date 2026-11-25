@@ -4607,6 +4607,10 @@ def pg_query(sql: str) -> str:
 @tool
 def pg_execute(sql: str) -> str:
     """
+    用我：改**平台自己这个库**（`POSTGRES_DB`）里的行——INSERT / UPDATE / DELETE，一次一条。
+    别用我：**别的库**的 DDL/DML 用 `db_execute`（它按 db_name 指名目标库、两段式确认）；
+    只读查询用 `pg_query`（平台库）或 `db_query`（任意库）；建表/改表这类 DDL 两个写工具都不做。
+
     Execute a write SQL statement (INSERT, UPDATE, DELETE) against PostgreSQL.
 
     WARNING: This modifies database data. Use with caution.
@@ -7103,7 +7107,9 @@ def db_query(db_name: str, sql: str = "", limit: int = 200, host: str = "", port
              user: str = "", sqls: Optional[List[str]] = None, timeout_ms: int = 8000) -> str:
     """
     用我：对**任意**数据库跑只读 SELECT（包括你用 db_build_from_file 刚建的那个）。**要量很多口径时，一次调用把整批 SELECT 发过来**（`sqls` 列表，或 `sql` 里用 `;` 分隔），一条连接一次往返拿回全部结果——往返才是成本，查询本身是毫秒级。
-    别用我：查平台库可以用 pg_query；写操作不该发生在报表里；DDL/DML（建视图、改表）用 `execute`；自然语言问 chinook 用 sql_agent_tool。
+    别用我：写操作不该发生在报表里。DDL/DML 用 **`db_execute`**（任意库，两段式 plan→confirm；它按 db_name 拒绝平台库）；
+    平台库的行级改数据用 **`pg_execute`**（只写平台库，且只允许 INSERT/UPDATE/DELETE）；
+    自然语言问库用 `sql_agent_tool`（LangGraph 固定步骤），看结构用 `db_describe`。
 
     Run one or MANY read-only SELECTs against a named PostgreSQL database; each returns a markdown table.
 

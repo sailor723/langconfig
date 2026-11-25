@@ -146,11 +146,15 @@ TOOLS = [
     {
         "tool_id": "db_execute",
         "name": "DB execute (one write statement)",
-        "description": ("Run ONE write statement against a named database: INSERT/UPDATE/DELETE and DDL "
+        "description": ("【写别的库就用我】Run ONE write statement against a named database: "
+                        "INSERT/UPDATE/DELETE and DDL "
                         "(CREATE/ALTER/DROP/TRUNCATE/COMMENT). TWO PHASES — confirm=false returns the plan "
                         "and executes nothing; only confirm=true runs it. Refuses, by name: stacked "
                         "statements, server-level verbs (DROP DATABASE, DROP SCHEMA, ALTER SYSTEM, roles, "
-                        "grants), the platform's own database, and template0/template1/postgres."),
+                        "grants), the platform's own database, and template0/template1/postgres. "
+                        "NOT for the platform database's rows — that door is `pg_execute` (this tool "
+                        "refuses the platform database by its db_name argument); NOT for reading — "
+                        "`db_query` / `db_describe`."),
         "fn": "db_execute",
         "code": EXECUTE_CODE,
         "schema": {

@@ -43,7 +43,7 @@ def _load_db_rows() -> List[Any]:
 
 
 @router.get("/registry")
-async def get_registry() -> List[Dict[str, Any]]:
+async def get_registry(include_deprecated: bool = False) -> List[Dict[str, Any]]:
     """
     Get the full tool registry with metadata for UI display.
 
@@ -60,6 +60,10 @@ async def get_registry() -> List[Dict[str, Any]]:
     think_tool) come from TOOL_REGISTRY in tools/native_tools.py.
     The frontend should group these by `category` and render a checkbox
     (or selection control) for each tool.
+
+    DEPRECATED tools are left out unless `include_deprecated=true` (the Tool Library shows them behind a
+    "retired" filter; the agent tool picker does not). A retired tool keeps its row because agent configs,
+    transcripts and seed snapshots quote its id — see `custom_tools.superseded_by` for what replaced it.
     """
     legacy_entries = {t["id"]: t for t in get_tool_registry()}
 
@@ -73,6 +77,8 @@ async def get_registry() -> List[Dict[str, Any]]:
     for row in rows:
         if not row.is_builtin:
             continue  # user custom tools stay in their own picker (custom_tool_ids)
+        if getattr(row, "is_deprecated", False) and not include_deprecated:
+            continue
         db_entries.append({
             "id": row.tool_id,
             "name": row.name or row.tool_id.replace("_", " ").title(),
@@ -83,6 +89,10 @@ async def get_registry() -> List[Dict[str, Any]]:
             # timeout/output_schema/guards/presentation for prompt assembly
             # and the UI.
             "definition": row.definition,
+            # Retirement, so the UI can show "→ use X instead" instead of silently hiding history.
+            "is_deprecated": bool(getattr(row, "is_deprecated", False)),
+            "superseded_by": getattr(row, "superseded_by", None),
+            "deprecated_reason": getattr(row, "deprecated_reason", None),
         })
         db_ids.add(row.tool_id)
 

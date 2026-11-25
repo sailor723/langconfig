@@ -99,6 +99,14 @@ class CustomTool(Base):
     version = Column(String(20), default="1.0.0", nullable=False)
     parent_tool_id = Column(Integer, ForeignKey("custom_tools.id"), nullable=True)  # For forked tools
 
+    # Retirement, the same shape the agent rows use. A tool that has a successor is not deleted (rows are
+    # quoted by agent configs, transcripts and seed snapshots); it is marked, and the registry stops
+    # offering it. `is_public` could NOT do this job: it is false on all 88 seeded rows already, so it
+    # carries no signal.
+    is_deprecated = Column(Boolean, default=False, nullable=False, server_default="false")
+    superseded_by = Column(String(100), nullable=True)  # tool_id of the successor, e.g. "db_query"
+    deprecated_reason = Column(Text, nullable=True)
+
     # Metadata
     category = Column(String(50), nullable=True)  # User-defined category
     is_builtin = Column(Boolean, default=False, nullable=False)  # System-seeded built-in tool (from native_tools.py)
