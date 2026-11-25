@@ -315,7 +315,11 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
           // The databases section is a 7-column table: at 800px it scrolled
           // sideways and only a couple of rows fit. Give that one section a
           // roomier shell (8 rows on screen, no horizontal scroll).
-          width: section === 'databases' || section === 'ontology' ? 1080 : 800,
+          // The databases table is 10 columns wide (inputs + 测试 + result + remove). At 1080 the test
+          // button and its result line were clipped, so the panel gets its own, wider cap.
+          width: section === 'databases'
+            ? 'min(1400px, calc(100vw - 48px))'
+            : section === 'ontology' ? 1080 : 800,
           height: section === 'databases' ? 'min(880px, calc(100vh - 48px))' : 'min(800px, calc(100vh - 48px))',
           maxWidth: 'calc(100vw - 48px)',
           borderRadius: 24, overflow: 'hidden',
@@ -366,7 +370,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             >✕</button>
           </div>
           <div style={{ flex: 1, minHeight: 0, padding: '0 24px 24px', overflowY: 'auto' }}>
-            <div style={{ maxWidth: section === 'databases' || section === 'ontology' ? 1080 : 720 }}>
+            <div style={{ maxWidth: section === 'databases' ? 'none' : section === 'ontology' ? 1080 : 720 }}>
               {section === 'general' && <GeneralSection i18n={i18n} activeTheme={activeTheme.name} setTheme={setTheme} />}
               {section === 'models' && <ModelsSection />}
               {section === 'ontology' && <OntologySection />}
@@ -2146,6 +2150,7 @@ function DatabasesSection() {
   const [pwDraft, setPwDraft] = useState<Record<string, string>>({})
   const [testResult, setTestResult] = useState<Record<string, { ok: boolean; text: string }>>({})
   const [testing, setTesting] = useState<string | null>(null)
+  const [testingAll, setTestingAll] = useState(false)
 
   // The table shows the CATALOG (every database the server can reach), not just
   // the stored list. Storing only the switched-on names meant a database that
@@ -2216,6 +2221,40 @@ function DatabasesSection() {
     }
   }
 
+  /** Test one row against the live server; returns the same result it stored. */
+  const probe = async (name: string) => {
+    try {
+      const res = await apiClient.post(`/api/graph-studio/databases/${encodeURIComponent(name)}/test`, {})
+      const d = res.data || {}
+      return d.ok
+        ? { ok: true, text: `${d.tables} 张表 · ${d.role} · ${d.version}` }
+        : { ok: false, text: String(d.detail || '连接失败') }
+    } catch (e: any) {
+      return { ok: false, text: e?.response?.data?.detail || e?.message || '连接失败' }
+    }
+  }
+
+  /** TEST ALL — the same per-row test, run down the list, so reviewing twelve
+   *  connections is one click instead of twelve. Results land in the same
+   *  per-row slot the individual button uses, and the summary names the failures
+   *  (a count alone would hide which one is broken). */
+  const testAll = async () => {
+    const names = rows.map(r => (r.name || '').trim()).filter(Boolean)
+    if (!names.length) return
+    setTestingAll(true); setMsg(null)
+    const failed: string[] = []
+    for (const name of names) {
+      setTesting(name)
+      const result = await probe(name)
+      setTestResult(prev => ({ ...prev, [name]: result }))
+      if (!result.ok) failed.push(name)
+    }
+    setTesting(null); setTestingAll(false)
+    setMsg(failed.length
+      ? { ok: false, text: `测了 ${names.length} 个：${names.length - failed.length} 成功 · ${failed.length} 失败（${failed.join('、')}）` }
+      : { ok: true, text: `测了 ${names.length} 个：全部连通` })
+  }
+
   const onCount = rows.filter(r => r.enabled && (r.name || '').trim()).length
 
   // Every row is stored, including the switched-OFF ones: "off on purpose" has to
@@ -2269,8 +2308,15 @@ function DatabasesSection() {
           {rows.length} 个库 · {onCount} 个开启 · {rows.length - onCount} 个关闭
           {active ? ` · 当前指向 ${active}` : ''}
         </span>
+        <button onClick={() => void testAll()} disabled={testingAll || !rows.length}
+          title="逐个连接数据库，把每个服务器返回的原话记在那一行；单个的「测试」仍然可用"
+          style={{
+            marginLeft: 'auto', padding: '3px 10px', fontSize: 12, borderRadius: 4,
+            cursor: testingAll ? 'wait' : 'pointer', opacity: testingAll ? 0.6 : 1,
+            border: `1px solid ${tok.borderL2}`, background: 'transparent', color: tok.labelSecondary,
+          }}>{testingAll ? '测试中…' : '全部测试'}</button>
         <button onClick={() => void load()} title="重新扫描服务器上的库" style={{
-          marginLeft: 'auto', padding: '3px 10px', fontSize: 12, borderRadius: 4, cursor: 'pointer',
+          padding: '3px 10px', fontSize: 12, borderRadius: 4, cursor: 'pointer',
           border: `1px solid ${tok.borderL2}`, background: 'transparent', color: tok.labelSecondary,
         }}>重新扫描</button>
       </div>
