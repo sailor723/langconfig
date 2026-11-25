@@ -6156,14 +6156,40 @@ def _pg_conn_kwargs(host: str = "", port: int = 0, user: str = "", dbname: str =
             return value
         return os.environ.get(env_name) or fallback
 
+    # THE AGENT'S OWN DATABASE FIRST. `config.database` used to reach only the sandbox, so every in-process
+    # tool connected as the DEPLOYMENT's role and an agent's Database setting changed nothing here (measured
+    # 2026-11-25: `test_db` carried a block nothing read; it worked only because the process env has
+    # POSTGRES_*). The binding is scoped to the tool call (services/agent_database.bind_run_db_env), so two
+    # agents running at once cannot see each other's credentials.
+    try:
+        from services.agent_database import current_run_db_env
+
+        run_env = current_run_db_env()
+    except Exception:                                              # noqa: BLE001
+        run_env = {}
+
+    def pick_run(key: str):
+        return run_env.get(key) or None
+
     kwargs = {
-        "host": pick(host, "POSTGRES_HOST", "localhost"),
+        "host": pick(host, "POSTGRES_HOST", "localhost") if not host else host,
         "port": int(pick(port, "POSTGRES_PORT", 5432)),
-        "user": pick(user, "POSTGRES_USER", "postgres"),
-        # PGPASSWORD is what the sandbox exports from the agent's database (services/agent_database.py);
-        # POSTGRES_PASSWORD is the platform's own server.
+        "user": pick(user, "POSTGRES_USER", "postgres") if not user else user,
+        # PGPASSWORD is what the run's own database exports (services/agent_database.py); POSTGRES_PASSWORD
+        # is the platform's own server.
         "password": os.environ.get("PGPASSWORD") or os.environ.get("POSTGRES_PASSWORD") or "",
     }
+    if run_env:
+        # host/port/user/password from the agent's Database section; `dbname` still comes from the tool
+        # argument, because one agent manages many databases.
+        if not host and run_env.get("PGHOST"):
+            kwargs["host"] = run_env["PGHOST"]
+        if not port and run_env.get("PGPORT"):
+            kwargs["port"] = int(run_env["PGPORT"])
+        if not user and run_env.get("PGUSER"):
+            kwargs["user"] = run_env["PGUSER"]
+        if run_env.get("PGPASSWORD"):
+            kwargs["password"] = run_env["PGPASSWORD"]
     if dbname:
         kwargs["dbname"] = dbname
     return kwargs

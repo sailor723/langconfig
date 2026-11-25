@@ -273,6 +273,27 @@ class _AgentAssemblyMixin:
         from core.tools.sandbox_scope import scope_tools_to_root
         tools.extend(scope_tools_to_root(_native, workspace_root))
 
+        # …and to the agent's OWN database (Agent → Database). Without this, a plain agent's Database
+        # section changed nothing for db_query/db_describe — they connected as the deployment's role.
+        try:
+            from core.tools.db_scope import scope_tools_to_database
+            from services import agent_database as _agent_db
+
+            _run_env = _agent_db.resolve_for_tools(agent_config)
+            if not _run_env:
+                # No per-agent block: use the CONNECTION Settings → Databases marks default (or the first
+                # enabled one). An agent picks a connection by name; naming none means "the default one".
+                _picked = ((agent_config.get("database") or {}) if isinstance(agent_config, dict) else {})
+                _name = _picked.get("name") if isinstance(_picked, dict) else None
+                _run_env, _used = _agent_db.connection_env(_name or "")
+                logger.info(f"DB connection for this agent: {_used} (agent named {_name or 'none'})")
+            if _run_env:
+                tools = scope_tools_to_database(tools, _run_env)
+                logger.info("Tools bound to the agent's database (user=%s, db=%s)",
+                            _run_env.get("PGUSER"), _run_env.get("PGDATABASE"))
+        except Exception as exc:                                  # noqa: BLE001 — never break a build
+            logger.warning(f"Could not bind tools to the agent's database: {exc}")
+
         # Load CLI tools if specified
         cli_tools = agent_config.get("cli_tools", [])
         if cli_tools:

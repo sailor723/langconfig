@@ -109,7 +109,29 @@ class _DeepAgentSupportMixin:
         # core/tools/sandbox_scope.py for why the binding cannot live in the request
         # context (the agent harness runs tools outside it).
         from core.tools.sandbox_scope import scope_tools_to_root
-        return scope_tools_to_root(tools, workspace_root)
+        tools = scope_tools_to_root(tools, workspace_root)
+
+        # …and to the CONNECTION this agent selected in Agent → Database (Settings → Databases names one).
+        # Before this, `config.database` only reached the sandbox shell: `db_query` and friends read
+        # os.environ and therefore always connected as the deployment's own role. An agent whose Database
+        # setting changes nothing is worse than an agent without one.
+        try:
+            from core.tools.db_scope import scope_tools_to_database
+            from services import agent_database as _agent_db
+
+            _env = _agent_db.resolve_for_tools(config)
+            if not _env:
+                _name = getattr(config, "database", None)
+                _picked = None
+                if isinstance(_name, dict) and str(_name.get("mode") or "catalog") == "catalog":
+                    _picked = _name.get("name")
+                _env, _used = _agent_db.connection_env(_picked or "")
+                logger.info(f"DB connection for this agent: {_used} (agent named {_picked or 'none'})")
+            if _env:
+                tools = scope_tools_to_database(tools, _env)
+        except Exception as exc:                                  # noqa: BLE001 — never break a build
+            logger.warning(f"Could not bind tools to a database connection: {exc}")
+        return tools
 
     @staticmethod
     async def _prepare_subagents(

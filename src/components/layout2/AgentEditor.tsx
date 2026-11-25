@@ -615,6 +615,9 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
             ...((jsonConfig.guardrails || {}).token_limits || {}),
           },
         },
+        // The connection picker wins over the JSON tab: this is where the agent says which Settings →
+        // Databases connection its db_* tools run against. Empty = the connection marked `default` there.
+        ...(dbConnection ? { database: { mode: 'catalog', name: dbConnection } } : {}),
         // Tool picker always wins over JSON tab for tool selection
         native_tools: selectedNativeTools,
         custom_tools: selectedCustomTools,
@@ -715,6 +718,10 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   // (sql_setup_db._DB_OVERRIDE). Baking it into the agent config would make one
   // build point at one database forever, which is the wrong default.
   const [sqlDbs, setSqlDbs] = useState<string[]>([]);
+  // The ONE connection this agent uses. Settings → Databases names connections; the agent picks one and the
+  // choice lives in config.database = {mode:'catalog', name} — the same shape the deep-agent editor writes, so
+  // the runtime resolves both kinds of agent through one code path.
+  const [dbConnection, setDbConnection] = useState<string>('');
   const [sqlTargets, setSqlTargets] = useState<Record<string, string>>({});
   const [activeSql, setActiveSql] = useState<string>('');
   const [dbMsg, setDbMsg] = useState<string | null>(null);
@@ -732,6 +739,11 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   }, []);
 
   useEffect(() => { loadDatabases(); }, [loadDatabases]);
+
+  useEffect(() => {
+    const db = (config as any)?.database;
+    if (db && typeof db === 'object' && db.mode !== 'custom' && db.name) setDbConnection(String(db.name));
+  }, [config]);
 
   const handleSqlTargetChange = useCallback(async (name: string) => {
     if (!name) return;
@@ -838,42 +850,37 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         </div>
       )}
 
-      {/* Runtime database target — development only, never saved on the agent. */}
+      {/* Which Settings → Databases connection this agent uses. ONE pick, stored on the agent
+          (config.database) and resolved by the runtime for plain and deep agents alike.
+          Empty = the connection marked `default` in Settings → Databases. */}
       <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
-        <div style={labelStyle}>Database (development target)</div>
+        <div style={labelStyle}>数据库连接 / Database connection</div>
         <div style={{ fontSize: 10.5, color: t.textMuted, margin: '2px 0 8px', lineHeight: '15px' }}>
-          Which database these SQL nodes read from. This is a <b>process-wide runtime switch</b>
-          (the same one Studio&rsquo;s header uses) — it is <b>not</b> stored on the agent, so the
-          agent stays database-agnostic and resets to the <code>.env</code> default on backend
-          restart. Bind it per deployment / per call, not here.
+          Pick a connection from <b>Settings → Databases</b> (name + host/port + user + password, like a VS
+          Code connection). This agent&apos;s <code>db_*</code> tools run as that connection and can reach{' '}
+          <b>every database on that server</b>. Empty = the connection marked <i>default</i>.
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <select
-            value={activeSql}
-            onChange={e => void handleSqlTargetChange(e.target.value)}
+            value={dbConnection}
+            onChange={e => setDbConnection(e.target.value)}
             style={{
-              flex: 1, height: 28, padding: '0 8px',
-              background: t.bgContent, border: `1px solid ${t.border}`,
-              borderRadius: 3, color: t.textPrimary, fontSize: 11.5,
-              fontFamily: 'monospace', outline: 'none',
+              flex: 1, height: 28, padding: '0 8px', background: t.bgContent,
+              border: `1px solid ${t.border}`, borderRadius: 3, color: t.textPrimary,
+              fontSize: 11.5, fontFamily: 'monospace', outline: 'none',
             }}
           >
-            {activeSql && !sqlDbs.includes(activeSql) && (
-              <option value={activeSql}>{activeSql}</option>
-            )}
+            <option value="">（默认连接）</option>
             {sqlDbs.map(d => (
-              <option key={d} value={d}>
-                {d}{sqlTargets[d] ? `  ·  ${sqlTargets[d]} (remote target)` : ''}
-              </option>
+              <option key={d} value={d}>{d}{sqlTargets[d] ? `  ·  ${sqlTargets[d]}` : ''}</option>
             ))}
           </select>
           <button
             onClick={() => loadDatabases()}
-            title="Refresh the list"
+            title="刷新连接列表（Settings → Databases）"
             style={{
-              height: 28, padding: '0 10px', background: 'transparent',
-              color: t.textPrimary, border: `1px solid ${t.border}`,
-              borderRadius: 3, fontSize: 11, cursor: 'pointer',
+              height: 28, padding: '0 10px', background: 'transparent', color: t.textPrimary,
+              border: `1px solid ${t.border}`, borderRadius: 3, fontSize: 11, cursor: 'pointer',
             }}
           >Refresh</button>
         </div>

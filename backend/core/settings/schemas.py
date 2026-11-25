@@ -416,6 +416,13 @@ class DatabaseEntry(BaseModel):
         description="Password for a `target`; empty means 'use SQL_TARGETS / .env'.",
     )
     enabled: bool = True
+    #: Minimal VS-Code-style model: an entry is a CONNECTION to a server (url/host + a user + its password),
+    #: and `dbname` (when set) is only its default database — every database on that server is reachable
+    #: afterwards. `default` marks the connection an agent uses when it names none.
+    default: bool = Field(default=False, description="the connection used when an agent names none")
+    #: Optional one-line URL (`postgresql://user@host:5432/postgres`). Stored as given; the fields above stay
+    #: authoritative, so a URL that disagrees never silently wins.
+    url: Optional[str] = None
 
 
 class DatabasesSettings(BaseModel):

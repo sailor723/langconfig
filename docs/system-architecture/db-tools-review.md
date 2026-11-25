@@ -129,3 +129,45 @@
    要么把 demo 迁到 Postgres，要么同样标废弃。
 3. **`db_dashboard`** 与本体看板（`dashboard.json` + 工作台）是两条生成路径，迟早给出两块不一样的板。留着但
    没有第二个消费者，建议下一步明确它是否退役。
+
+## 5. 连接模型：全局配连接，agent 只选一个（2026-11-25）
+
+**模型**（最小、和 VS Code 一致）：`Settings → Databases` 里配**连接**（名字 + host/port + 用户 + 密码，密码
+Fernet 加密存储）；agent 的 Database 设置**只选一个连接名**。一条连接 = 一台服务器，**它下面的所有库都能查** ——
+`db_query` 只带库名，`db_list_databases` 列的就是这条连接的库。
+
+### 之前断在哪（实测，2026-11-25）
+
+`config.database` **只喂给 deep agent 的沙箱**（`execute` 里的 psql/脚本），而进程内工具
+（`db_query` / `db_review` / `db_describe` / `db_execute`）一律读 `os.environ` 的 `POSTGRES_*`。后果：
+
+- 普通 agent 的 Database 设置**没人读**（`test_db` 就是这种：它的区块是装饰品）；
+- 所有进程内 DB 工具都以**部署超级用户**身份运行，任何绑了 `db_query` 的 agent 都能读平台库；
+- 还有一层：内置工具的 `implementation_config.code` 是**seed 时嵌入的副本**，改 `tools/native_impl.py`
+  不会影响正在运行的 `db_query`，必须 `seed_builtin_tools.py --refresh` 重新生成行。
+
+### 现在（已接通并验证）
+
+| 环节 | 实现 |
+|---|---|
+| 连接清单 | `services/agent_database.list_connections()` / `default_connection_name()`（读 Settings → Databases，不返回密码） |
+| agent 选一个 | `config.database = {mode:'catalog', name:'<连接名>'}`；空 = 用 Settings 里标 `default` 的连接（再没有就报错，不静默降级） |
+| 运行时绑定 | `bind_run_db_env()`（contextvar，**按工具调用**绑定，仿 `sandbox_scope`；并发互不可见）+ `core/tools/db_scope.py` |
+| 工具取连接 | `_pg_conn_kwargs` 先读运行期绑定（host/port/user/password），`db_name` 仍是工具参数 |
+| 两条装配路径 | 普通 agent：`core/agents/factory/assembly.py`；deep agent：`services/deepagent_factory/support.py` |
+| UI | 普通 agent 编辑器新增「数据库连接 / Database connection」单选框（写 `config.database`）；deep agent 原有的 Database 区块同源 |
+
+**证据**（真回合，不是推断）：建了两个连接 `local-server`（部署角色 `langconfig`）与 `local-readonly`
+（只读角色 `db_read`，`LOGIN` 无写权限）。
+
+- `test_db`(395) 选 `local-readonly` → chat 里 `select current_user` 回答 **`db_read`**；
+- 同一台机器上 `DB Manager`(394) 选 `local-server` → 回答 **`langconfig`**，并正确列出 19 个库。
+
+也就是说：**一个 agent 的连接设置现在真的决定它用什么身份、连哪台服务器**，而不再是装饰。
+
+### 遗留
+
+1. `db_execute` 的写权限还应跟连接分级（`role: readonly|readwrite|admin`）—— 现在只靠「连接用只读角色」实现，
+   schema 里还没有这个字段。
+2 老连接条目（`kind: target` + `dbname`）语义是「这条连接的默认库」，保持不变；要在 UI 上区分「连接」与
+   「某个库」还需要一轮重命名（`dbname` → 可选默认库的说明）。

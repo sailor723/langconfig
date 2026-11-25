@@ -189,6 +189,123 @@ def ontology_env(env: Dict[str, str]) -> Dict[str, str]:
     return out
 
 
+# ── the minimal VS-Code-style model: named CONNECTIONS, agents pick one ─────
+def list_connections() -> list[dict]:
+    """Every enabled connection in Settings → Databases, without any credential.
+
+    A connection is a SERVER (url/host + user + password); its `dbname`, when set, is only its default
+    database. That is why one connection makes every database on that server reachable.
+    """
+    from core.settings import store
+    from db.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        own, effective = store.get_effective_document(db, "databases")
+    finally:
+        db.close()
+    items: list[dict] = []
+    for doc in (own, effective):
+        for item in (doc or {}).get("items") or []:
+            if isinstance(item, dict) and item.get("name"):
+                items.append(item)
+    seen, out = set(), []
+    for item in items:
+        name = str(item.get("name")).strip()
+        if name.lower() in seen:
+            continue
+        seen.add(name.lower())
+        out.append({"name": name, "label": item.get("label") or name,
+                    "kind": item.get("kind") or "target",
+                    "host": item.get("host"), "port": item.get("port"),
+                    "dbname": item.get("dbname") or item.get("name"),
+                    "user": item.get("user"),
+                    "password_set": bool(item.get("password")),
+                    "default": bool(item.get("default")),
+                    "enabled": item.get("enabled", True)})
+    return out
+
+
+def default_connection_name() -> str | None:
+    """The connection an agent uses when it names none: the one marked `default`, else the first enabled."""
+    conns = [c for c in list_connections() if c["enabled"]]
+    marked = [c for c in conns if c["default"]]
+    if marked:
+        return marked[0]["name"]
+    return conns[0]["name"] if conns else None
+
+
+def connection_env(name: str = "") -> tuple[dict, str]:
+    """(PG env, connection name) for a named connection, or the default one.
+
+    Raises `DatabaseConfigError` when there is no such connection and no default: an agent with no connection
+    must fail loudly at the tool call, not silently run as the deployment's own superuser — that is the
+    behaviour this replaces.
+    """
+    wanted = (name or "").strip()
+    if not wanted:
+        wanted = default_connection_name() or ""
+        if not wanted:
+            raise DatabaseConfigError(
+                "no database connection configured: add one in Settings → Databases (name + host/port + user "
+                "+ password, the way a VS Code connection works), or pick one on this agent")
+    from services.deepagent_factory.assembly import _datasource_env  # the one place that decrypts
+
+    env, _dsn = _datasource_env(wanted)
+    return env, wanted
+
+
+# ── the run's own connection, for IN-PROCESS tools ─────────────────────────
+# `config.database` reached only the sandbox: the shell's `execute` got PGHOST/PGPASSWORD from it, while the
+# in-process tools (`db_query`, `db_describe`, `db_review`, `db_admin.*`) read `os.environ` and therefore
+# always connected as the DEPLOYMENT's role, ignoring the agent's own setting. Measured 2026-11-25: the
+# `test_db` agent carried a Database block that nothing ever read — it worked only because the backend's
+# process env holds `POSTGRES_*`.
+#
+# The binding is a contextvar, not an `os.environ` write: two agents running concurrently must not be able to
+# see each other's credentials. Tools are wrapped per call (`core/tools/db_scope.py`), the same way the
+# workspace root is bound (`core/tools/sandbox_scope.py`) and for the same reason — the harness runs a tool
+# call in its own task, so a binding made around `ainvoke` is not visible inside the call.
+import contextvars as _contextvars
+
+_RUN_DB_ENV: _contextvars.ContextVar[dict] = _contextvars.ContextVar("agent_db_env", default={})
+
+
+def bind_run_db_env(env: dict | None) -> "contextvars.Token | None":
+    """Make `env` the connection for tools called inside this scope. Returns a token to clear."""
+    if not env:
+        return None
+    want = {k: v for k, v in env.items()
+            if k in ("PGHOST", "PGPORT", "PGUSER", "PGPASSWORD", "PGDATABASE", "PGSSLMODE") and v}
+    if not want:
+        return None
+    return _RUN_DB_ENV.set({**_RUN_DB_ENV.get(), **want})
+
+
+def clear_run_db_env(token: "contextvars.Token | None") -> None:
+    if token is not None:
+        try:
+            _RUN_DB_ENV.reset(token)
+        except Exception:                                       # noqa: BLE001 — a stale token must not raise
+            pass
+
+
+def current_run_db_env() -> dict:
+    """The connection bound for this tool call, or {} when the agent has no Database setting."""
+    return dict(_RUN_DB_ENV.get() or {})
+
+
+def resolve_for_tools(config: Any) -> dict:
+    """`(env,)`-style helper: the run's PG env, or {} when there is no usable Database setting."""
+    try:
+        env, _dsn = resolve(config)
+    except DatabaseConfigError:
+        return {}
+    except Exception:                                            # noqa: BLE001
+        return {}
+    return env
+
+
 def describe(config: Any) -> str:
     """One line for the prompt: WHERE, never the credential."""
     block = _block(config)
