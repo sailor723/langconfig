@@ -56,6 +56,17 @@ const SECTION_GROUPS: ActivityId[][] = [
 
 const RAIL_COLLAPSED = 48;
 const RAIL_EXPANDED = 208;
+/**
+ * Row metrics — the rail has a fixed budget of 16 rows (12 activities + account, settings,
+ * chat, sidebar toggle). At the original 48px that is ~790px, taller than the viewport of a
+ * 1366×768 laptop or any window with browser chrome, so the last rows could only be reached
+ * by scrolling. 36px puts the whole rail at ~594px, which fits a 700px window with the
+ * bottom cluster still pinned to the edge.
+ */
+const ROW_H = 36;
+const GLYPH = 18;
+/** 48px rail, 18px glyph: the icon sits on the rail's centre line. */
+const ROW_PAD = `0 12px 0 ${(RAIL_COLLAPSED - GLYPH) / 2}px`;
 
 /** One row of the rail: icon + label. The label is what the hover expansion reveals. */
 function RailItem({
@@ -90,12 +101,12 @@ function RailItem({
       style={{
         position: 'relative',
         width: '100%',
-        height: 48,
+        height: ROW_H,
         flex: 'none',
         display: 'flex',
         alignItems: 'center',
-        gap: 12,
-        padding: '0 12px 0 14px',
+        gap: 10,
+        padding: ROW_PAD,
         background: 'transparent',
         border: 'none',
         cursor: 'pointer',
@@ -112,14 +123,14 @@ function RailItem({
       {active && (
         <span
           style={{
-            position: 'absolute', left: 0, top: 8, bottom: 8, width: 2,
+            position: 'absolute', left: 0, top: 6, bottom: 6, width: 2,
             background: t.activityBarActive,
           }}
         />
       )}
       {Icon && (
         <Icon
-          size={20}
+          size={GLYPH}
           strokeWidth={active ? 2 : 1.5}
           // A solid glyph, not a solid row: the fill belongs to the icon's own shape, so the
           // rail keeps its uniform look and the chat entry is still the one you spot.
@@ -132,7 +143,7 @@ function RailItem({
       {children}
       <span
         className="lc-rail-label"
-        style={{ fontSize: 13, lineHeight: '18px', overflow: 'hidden', textOverflow: 'ellipsis' }}
+        style={{ fontSize: 12.5, lineHeight: '17px', overflow: 'hidden', textOverflow: 'ellipsis' }}
       >
         {label}
       </span>
@@ -213,8 +224,9 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
         }
         #lc-rail.lc-open .lc-rail-label { opacity: 1; }
         #lc-rail .lc-rail-divider {
+          flex: none;
           width: 20px;
-          margin: 6px 0 6px 14px;
+          margin: 4px 0 4px 14px;
           transition: width .16s ease;
         }
         #lc-rail.lc-open .lc-rail-divider { width: calc(100% - 28px); }
