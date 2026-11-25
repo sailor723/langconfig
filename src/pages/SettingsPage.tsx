@@ -173,6 +173,30 @@ function Row({ label: rowLabel, hint, children }: { label: string; hint?: React.
   )
 }
 
+/** A group heading inside a section: 12px, weight 500 — the one size every section uses for it. */
+function SubHeading({ title, hint, children }: { title: string; hint?: string; children?: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, margin: '18px 0 2px' }}>
+      <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>{title}</span>
+      {hint && <span style={{ fontSize: 12, lineHeight: '18px', color: tok.labelTertiary }}>{hint}</span>}
+      {children && <span style={{ marginLeft: 'auto' }}>{children}</span>}
+    </div>
+  )
+}
+
+/** One channel for "what happened": success / failure / neutral, 12px, tok colours only. */
+function Notice({ msg }: { msg: { ok: boolean; text: string } | null }) {
+  if (!msg) return null
+  return (
+    <span style={{ fontSize: 12, lineHeight: '18px', color: msg.ok ? tok.success : tok.error }}>{msg.text}</span>
+  )
+}
+
+/** The empty/loading line every section shows in the same place: 14px, muted. */
+function Empty({ children }: { children: React.ReactNode }) {
+  return <div style={{ fontSize: 14, lineHeight: '22px', color: tok.labelTertiary, padding: '12px 0' }}>{children}</div>
+}
+
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
@@ -315,11 +339,10 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
           // The databases section is a 7-column table: at 800px it scrolled
           // sideways and only a couple of rows fit. Give that one section a
           // roomier shell (8 rows on screen, no horizontal scroll).
-          // The databases table is 10 columns wide (inputs + 测试 + result + remove). At 1080 the test
-          // button and its result line were clipped, so the panel gets its own, wider cap.
-          width: section === 'databases'
-            ? 'min(1400px, calc(100vw - 48px))'
-            : section === 'ontology' ? 1080 : 800,
+          // ONE width for every section. The databases table used to ask for 1400px because it was a
+          // 10-column grid; now it is built from Row/card like the rest, so it fits the same 800px the
+          // other sections use (ontology keeps 1080 — it is a list of profiles with URLs).
+          width: section === 'ontology' ? 1080 : 800,
           height: section === 'databases' ? 'min(880px, calc(100vh - 48px))' : 'min(800px, calc(100vh - 48px))',
           maxWidth: 'calc(100vw - 48px)',
           borderRadius: 24, overflow: 'hidden',
@@ -370,7 +393,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             >✕</button>
           </div>
           <div style={{ flex: 1, minHeight: 0, padding: '0 24px 24px', overflowY: 'auto' }}>
-            <div style={{ maxWidth: section === 'databases' ? 'none' : section === 'ontology' ? 1080 : 720 }}>
+            <div style={{ maxWidth: section === 'ontology' ? 1080 : 720 }}>
               {section === 'general' && <GeneralSection i18n={i18n} activeTheme={activeTheme.name} setTheme={setTheme} />}
               {section === 'models' && <ModelsSection />}
               {section === 'ontology' && <OntologySection />}
@@ -422,7 +445,11 @@ function GeneralSection({ i18n, activeTheme, setTheme }: {
   const changeTheme = async (name: ThemeName) => { setTheme(name); await update({ theme: name }) }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+    <div>
+      <SectionTitle
+        title={t('settings_general')}
+        desc={t('settings_general_desc')}
+      />
       <Row label={t('settings_language')} hint={t('settings_language_label')}>
         <Select value={language} onChange={changeLanguage} options={[{ value: 'en', label: 'English' }, { value: 'zh', label: '中文' }]} />
       </Row>
@@ -1552,13 +1579,17 @@ function KnowledgeSection() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div>
+      <SectionTitle
+        title="知识库"
+        desc="文档、导入与索引：这一页回答「知识从哪来、进到哪一层」"
+      />
       <DocChatSettingsPanel t={panelTokens} />
-      <div style={{ height: 1, background: tok.borderL2 }} />
+      <SubHeading title="导入" hint="文件夹导入后的去向与合并规则" />
       <ImportFolderPanel onImported={loadBases} existingBases={bases} t={panelTokens} />
-      <div style={{ height: 1, background: tok.borderL2 }} />
+      <SubHeading title="索引" hint="建索引时用的切分与嵌入" />
       <KnowledgeIndexPanel onIndexed={loadBases} t={panelTokens} />
-      <div style={{ height: 1, background: tok.borderL2 }} />
+      <SubHeading title="从旧布局迁移" hint="每台机器跑一次，之后不再需要" />
       <LegacyMigrationPanel existingBases={bases} onMigrated={loadBases} t={panelTokens} />
     </div>
   )
@@ -2177,7 +2208,6 @@ function DatabasesSection() {
   const [loaded, setLoaded] = useState(false)
   const [active, setActive] = useState<string | null>(null)
   const [connections, setConnections] = useState<DbConnection[]>([])
-  const [pickedConn, setPickedConn] = useState<string>('')
   // Draft password per row, and the result of the last connection test per row.
   const [pwDraft, setPwDraft] = useState<Record<string, string>>({})
   const [testResult, setTestResult] = useState<Record<string, { ok: boolean; text: string }>>({})
@@ -2194,7 +2224,6 @@ function DatabasesSection() {
       const list = (res.data?.databases || []) as DbEntry[]
       const conns = (res.data?.connections || []) as DbConnection[]
       setConnections(conns)
-      setPickedConn(prev => prev || (conns.find(c => c.default)?.key ?? conns[0]?.key ?? ''))
       setActive(res.data?.active_sql ?? null)
       setRows(list.map(r => ({
         ...r,
@@ -2329,85 +2358,92 @@ function DatabasesSection() {
     }
   }
 
-  const cell = (style?: React.CSSProperties): React.CSSProperties => ({
-    // 38px rows: eight databases fit on one screen without scrolling.
-    padding: '9px 10px', fontSize: 13, background: tok.layer1,
-    border: `1px solid ${tok.borderL2}`, borderRadius: 6, color: tok.labelPrimary,
-    minWidth: 0, boxSizing: 'border-box', ...style,
-  })
-
   const thTd: React.CSSProperties = {
     padding: '3px 6px', fontSize: 11.5, color: tok.labelPrimary, border: 'none',
     verticalAlign: 'middle', whiteSpace: 'nowrap', overflow: 'hidden',
   }
 
-  // ── grouping ────────────────────────────────────────────────────────────
-  // Two levels, and both are TABLES: a connection row and a database row have to line up down the page,
-  // or comparing twelve of them is a reading exercise. Every row keeps its result column whether or not a
-  // result exists yet — that column is fixed width, so clicking 测试 cannot reflow the table.
+  // ── derived lists ───────────────────────────────────────────────────────
+  // One card per CONNECTION, and the card lists that connection's databases — the same shape as the Models
+  // section, where a provider card lists that provider's models. A database can serve several business apps,
+  // so the app is a badge, not a folder it lives in.
   const serverRows = rows.filter(r => r.kind === 'server')
   const dashboardRows = rows.filter(r => r.kind === 'dashboard')
-  const picked = connections.find(c => c.key === pickedConn) ?? connections[0]
-  const dbsOfPicked = picked?.databases ?? []
 
+  // Badges: 11px (the smallest size the rest of Settings uses), colours from tokens only.
   const appChip = (app: string) => {
-    const map: Record<string, { label: string; color: string }> = {
-      analysis: { label: '分析', color: '#8b5cf6' },
-      ontology: { label: '本体', color: '#0ea5e9' },
-      talent: { label: '招聘', color: '#f59e0b' },
+    const map: Record<string, string> = { analysis: '分析', ontology: '本体', talent: '招聘' }
+    const label = map[app] || app
+    return (
+      <span key={app} title={`被「${label}」使用`} style={{
+        display: 'inline-block', marginRight: 4, padding: '0 5px', fontSize: 11, lineHeight: '16px',
+        borderRadius: 999, border: `1px solid ${tok.borderL3}`, color: tok.labelSecondary, whiteSpace: 'nowrap',
+      }}>{label}</span>
+    )
+  }
+
+  const dotFor = (name: string) => (testResult[name] ? (testResult[name].ok ? 'configured' : 'invalid') : 'configured')
+  const resultText = (name: string) => testResult[name]?.text ?? ''
+
+  /** Databases of one connection, in the four buckets — rendered INSIDE that connection's card, the way a
+   *  provider card lists its models. */
+  const dbList = (conn: DbConnection) => {
+    const buckets: { id: string; title: string; policy: string; items: DbEntry[] }[] = [
+      { id: 'system', title: '系统自用', policy: '永不对外',
+        items: conn.databases.filter(d => d.bucket === 'system') },
+      { id: 'uploaded', title: '从 Excel / CSV 建库', policy: '对外提供',
+        items: conn.databases.filter(d => d.bucket === 'business' && d.origin === 'uploaded') },
+      { id: 'native', title: '库里原有', policy: '对外提供',
+        items: conn.databases.filter(d => d.bucket === 'business' && d.origin !== 'uploaded') },
+    ]
+    if (!conn.databases.length) {
+      return (
+        <div style={{ padding: 12, border: `1px dashed ${tok.borderL3}`, borderRadius: 8, textAlign: 'center',
+                      fontSize: 12, color: tok.labelTertiary }}>
+          还没有列出库 —— 点「测试」确认连得上，再用「重新扫描」
+        </div>
+      )
     }
-    const m = map[app] || { label: app, color: tok.labelTertiary }
     return (
-      <span key={app} title={`被「${m.label}」使用`} style={{
-        display: 'inline-block', marginRight: 4, padding: '0 4px', fontSize: 9, lineHeight: '14px',
-        borderRadius: 3, border: `1px solid ${m.color}`, color: m.color, whiteSpace: 'nowrap',
-      }}>{m.label}</span>
-    )
-  }
-
-  const resultCell = (name: string) => {
-    const r = testResult[name]
-    return (
-      <td style={{ ...thTd, width: 300, maxWidth: 300, padding: '2px 6px' }}>
-        <span title={r?.text || ''} style={{
-          display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          fontSize: 10, lineHeight: '13px', color: r ? (r.ok ? '#2e7d32' : '#e5484d') : tok.labelTertiary,
-        }}>{r ? (r.ok ? '✓ ' : '✗ ') + r.text : '—'}</span>
-      </td>
-    )
-  }
-
-  const testBtn = (name: string) => (
-    <button onClick={() => void testConnection(name)} disabled={testing === name}
-      title="真的连一次库，把服务器返回的原话显示出来"
-      style={{
-        height: 22, padding: '0 7px', fontSize: 10.5, borderRadius: 4,
-        border: `1px solid ${tok.borderL2}`, background: 'transparent',
-        color: tok.labelSecondary, cursor: testing === name ? 'wait' : 'pointer',
-      }}>{testing === name ? '…' : '测试'}</button>
-  )
-
-  const groups: { id: string; title: string; items: DbEntry[] }[] = [
-    { id: 'system', title: '系统自用（仅 admin）',
-      items: dbsOfPicked.filter(d => d.bucket === 'system') },
-    { id: 'uploaded', title: '从 Excel / CSV 建库',
-      items: dbsOfPicked.filter(d => d.bucket === 'business' && d.origin === 'uploaded') },
-    { id: 'native', title: '库里原有 / 直接 mock',
-      items: dbsOfPicked.filter(d => d.bucket === 'business' && d.origin !== 'uploaded') },
-  ]
-
-  const dotFor = (name: string) => {
-    const r = testResult[name]
-    return r ? (r.ok ? 'configured' : 'invalid') : 'configured'
-  }
-  const resultLine = (name: string) => {
-    const r = testResult[name]
-    return (
-      <span title={r?.text || ''} style={{
-        display: 'inline-block', width: 260, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap', fontSize: 12, lineHeight: '18px', textAlign: 'right',
-        color: r ? (r.ok ? tok.success : tok.error) : tok.labelTertiary,
-      }}>{r ? r.text : '未测试'}</span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {buckets.map(g => g.items.length === 0 ? null : (
+          <div key={g.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>{g.title}</span>
+              <span style={{ fontSize: 12, lineHeight: '18px', color: tok.labelTertiary }}>· {g.items.length} · {g.policy}</span>
+            </div>
+            {g.items.map(d => (
+              <div key={d.name} style={{
+                border: `1px solid ${tok.borderL2}`, borderRadius: 8, padding: '6px 8px',
+                display: 'grid', gridTemplateColumns: 'minmax(0,1.3fr) minmax(0,1fr) auto', gap: 8, alignItems: 'center',
+                opacity: d.bucket === 'system' ? 0.7 : 1,
+              }}>
+                <span style={{ fontSize: 13, color: tok.labelPrimary, fontFamily: 'monospace', overflow: 'hidden',
+                               textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={d.name}>{d.name}</span>
+                <span style={{ minWidth: 0 }}>
+                  {(d.apps || []).map(appChip)}
+                  {(d.ontology_keys || []).length > 0 && (
+                    <span style={{ fontSize: 12, color: tok.labelTertiary }}>
+                      {(d.ontology_keys || []).slice(0, 2).join(' / ')}{(d.ontology_keys || []).length > 2 ? '…' : ''}
+                    </span>
+                  )}
+                  {(d.apps || []).length === 0 && <span style={{ fontSize: 12, color: tok.labelTertiary }}>未归类</span>}
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }} title={resultText(d.name)}>
+                  <Btn dense onClick={() => void testConnection(d.name)} disabled={testing === d.name}>
+                    {testing === d.name ? '…' : '测试'}
+                  </Btn>
+                  <span style={{
+                    display: 'inline-block', width: 170, overflow: 'hidden', textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap', fontSize: 12, lineHeight: '18px', textAlign: 'right',
+                    color: testResult[d.name] ? (testResult[d.name].ok ? tok.success : tok.error) : tok.labelTertiary,
+                  }}>{testResult[d.name] ? testResult[d.name].text : '未测试'}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
     )
   }
 
@@ -2415,8 +2451,8 @@ function DatabasesSection() {
     <div>
       <SectionTitle title={t('settings_databases')} desc={t('settings_databases_desc')} />
 
-      {/* Summary + the two batch actions, in the same Row geometry as every other section. */}
-      <Row label="连接与库" hint={`${connections.length} 个连接 · ${rows.length} 个条目 · 勾选已取消：system 永不对外，business 全部对外`}>
+      <Row label="连接与库"
+           hint={`${connections.length} 个连接 · ${rows.length} 个条目 · 系统库永不对外，业务库全部对外`}>
         <div style={{ display: 'flex', gap: 8 }}>
           <Btn dense onClick={() => void testAll()} disabled={testingAll || !rows.length}>
             {testingAll ? '测试中…' : '全部测试'}
@@ -2425,39 +2461,39 @@ function DatabasesSection() {
         </div>
       </Row>
 
-      {loaded && rows.length === 0 && (
-        <div style={{ fontSize: 14, color: tok.labelTertiary, padding: '12px 0' }}>
-          {t('settings_databases_empty')}
-        </div>
-      )}
+      {loaded && rows.length === 0 && <Empty>{t('settings_databases_empty')}</Empty>}
 
-      {/* ── 1. connections: outlined cards, the same shape as a provider card ── */}
-      <div style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary, margin: '16px 0 6px' }}>
-        连接（agent 只从这里选一个）
-      </div>
-      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {/* Connections are CARDS, and each card lists its databases — the same shape as a provider card on
+          the Models section, which lists that provider's models. */}
+      <ul style={{ listStyle: 'none', margin: '12px 0 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {connections.map(c => {
           const decl = serverRows.find(r => r.name === c.name)
-          const isPicked = picked?.key === c.key
           return (
             <li key={c.key} style={{
-              border: `1px solid ${isPicked ? tok.primary : tok.borderL2}`, borderRadius: 12,
-              padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8,
-              background: isPicked ? 'var(--color-background-light)' : 'transparent',
+              border: `1px solid ${tok.borderL2}`, borderRadius: 12, padding: '12px 14px',
+              display: 'flex', flexDirection: 'column', gap: 10,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <input type="radio" name="picked-conn" checked={isPicked} onChange={() => setPickedConn(c.key)}
-                  title="选中这一条，下面列出它的库" />
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                   <span style={{ fontSize: 14, lineHeight: '22px', fontWeight: 500, color: tok.labelPrimary }}>{c.name}</span>
                   <Dot state={dotFor(c.name)} />
+                  {c.default && (
+                    <span style={{ fontSize: 11, lineHeight: '16px', padding: '1px 7px', borderRadius: 9,
+                                   border: `1px solid ${tok.borderL2}`, color: tok.labelTertiary }}>默认</span>
+                  )}
+                  {c.same_server_as && (
+                    <span style={{ fontSize: 11, lineHeight: '16px', color: tok.labelTertiary }}>
+                      与 {c.same_server_as} 同一台服务器
+                    </span>
+                  )}
+                  {!decl && (
+                    <span style={{ fontSize: 11, lineHeight: '16px', color: tok.labelTertiary }}>由库推导</span>
+                  )}
                 </span>
                 <span style={{ fontSize: 12, lineHeight: '18px', color: tok.labelTertiary }}>
                   {c.host}:{c.port} · {c.user} · {c.databases.length} 个库
-                  {c.same_server_as ? ` · 与 ${c.same_server_as} 同一台服务器` : ''}
-                  {decl ? '' : ' · 由库推导，未显式声明'}
                 </span>
-                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
                   {decl ? (
                     <>
                       <span style={{ fontSize: 12, color: tok.labelTertiary }}>默认</span>
@@ -2467,21 +2503,28 @@ function DatabasesSection() {
                         value={pwDraft[c.name] || ''}
                         onChange={v => setPwDraft(prev => ({ ...prev, [c.name]: v }))}
                         placeholder={decl.has_password ? '密码已设置（留空不改）' : '密码'} />
-                      <Btn dense onClick={() => void testConnection(c.name)} disabled={testing === c.name}>
-                        {testing === c.name ? '…' : '测试'}
-                      </Btn>
                     </>
-                  ) : (
-                    <span style={{ fontSize: 12, color: tok.labelTertiary }}>—</span>
-                  )}
-                </div>
+                  ) : null}
+                  <Btn dense onClick={() => void testConnection(c.name)} disabled={testing === c.name}>
+                    {testing === c.name ? '…' : '测试'}
+                  </Btn>
+                </span>
               </div>
-              {/* fixed-height line: a result appearing must not move the card */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', minHeight: 18 }}>{resultLine(c.name)}</div>
+
+              {testResult[c.name] && (
+                <div title={testResult[c.name].text} style={{
+                  fontSize: 12, lineHeight: '18px',
+                  color: testResult[c.name].ok ? tok.success : tok.error,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>{testResult[c.name].text}</div>
+              )}
+
+              {dbList(c)}
             </li>
           )
         })}
       </ul>
+
       {isAdmin && (
         <div style={{ marginTop: 8 }}>
           <Btn dense onClick={() => setRows(prev => [...prev, { name: '', label: '', kind: 'server', enabled: true, host: '', user: '' } as DbEntry])}>
@@ -2490,64 +2533,13 @@ function DatabasesSection() {
         </div>
       )}
 
-      {/* ── 2. the picked connection's databases, grouped ─────────────────── */}
-      {picked && (
-        <>
-          <div style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary, margin: '20px 0 2px' }}>
-            {picked.name} 上的 {dbsOfPicked.length} 个库
-          </div>
-          <div style={{ fontSize: 12, lineHeight: '18px', color: tok.labelTertiary, marginBottom: 4 }}>
-            徽章 = 哪个业务 app 在用（一个库可服务多个）；system 的库永不对外，business 的库全部对外
-          </div>
-          {groups.map(g => g.items.length > 0 && (
-            <div key={g.id}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, margin: '12px 0 0' }}>
-                <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>{g.title}</span>
-                <span style={{ fontSize: 12, lineHeight: '18px', color: tok.labelTertiary }}>
-                  · {g.items.length} · {g.id === 'system' ? '永不对外' : '对外提供'}
-                </span>
-              </div>
-              {g.items.map((d, idx) => (
-                <Row key={`${d.name}-${idx}`} label={d.name}
-                     hint={
-                       <span>
-                         {(d.apps || []).map(appChip)}
-                         {(d.ontology_keys || []).length > 0
-                           ? <span style={{ marginLeft: 2 }}>{(d.ontology_keys || []).slice(0, 2).join(' / ')}{(d.ontology_keys || []).length > 2 ? '…' : ''}</span>
-                           : (d.apps || []).length === 0 ? '未归类' : null}
-                       </span>
-                     }>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Btn dense onClick={() => void testConnection(d.name)} disabled={testing === d.name}>
-                      {testing === d.name ? '…' : '测试'}
-                    </Btn>
-                    {resultLine(d.name)}
-                  </div>
-                </Row>
-              ))}
-            </div>
-          ))}
-          {dbsOfPicked.length === 0 && (
-            <div style={{ fontSize: 12, color: tok.labelTertiary, padding: '8px 0' }}>
-              这条连接下还没有列出库 —— 点「测试」确认它连得上，再用「重新扫描」。
-            </div>
-          )}
-        </>
-      )}
-
-      {/* ── 3. dashboard groupings ────────────────────────────────────────── */}
       {dashboardRows.length > 0 && (
         <>
-          <div style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary, margin: '20px 0 2px' }}>
-            看板分组（不是数据库）
-          </div>
-          <div style={{ fontSize: 12, lineHeight: '18px', color: tok.labelTertiary, marginBottom: 6 }}>
-            分析活动里的看板组合：没有 host、没有密码、不能当连接
-          </div>
+          <SubHeading title="看板分组" hint="不是数据库：没有 host、没有密码、不能当连接（分析活动里的看板组合）" />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {dashboardRows.map(r => (
               <span key={r.name} style={{
-                padding: '2px 9px', border: `1px solid ${tok.borderL2}`, borderRadius: 999,
+                padding: '1px 9px', border: `1px solid ${tok.borderL2}`, borderRadius: 999,
                 fontSize: 12, lineHeight: '18px', color: tok.labelSecondary, fontFamily: 'monospace',
               }}>{r.name}</span>
             ))}
@@ -2559,7 +2551,7 @@ function DatabasesSection() {
         {isAdmin ? (
           <>
             <Btn variant="primary" onClick={() => void save()} disabled={saving}>{saving ? '…' : t('settings_databases_save')}</Btn>
-            {msg && <span style={{ fontSize: 12, color: msg.ok ? tok.success : tok.error }}>{msg.text}</span>}
+            <Notice msg={msg} />
           </>
         ) : (
           <span style={{ fontSize: 12, color: tok.labelTertiary }}>{t('settings_databases_admin_only')}</span>
