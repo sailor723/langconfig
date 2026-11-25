@@ -2528,7 +2528,16 @@ function DatabasesSection() {
                 }}>{testResult[c.name].text}</div>
               )}
 
-              {dbList(c)}
+              {/* The databases of this connection are INDENTED under it, behind a left rule. A card
+                  header listing "N 个库" is not enough: with three connections stacked, the rows below
+                  a header read as if they belonged to the section rather than to that connection.
+                  The 2px rule is the same trick a tree uses, and it costs no extra nesting. */}
+              <div style={{
+                marginLeft: 2, paddingLeft: 12, borderLeft: `2px solid ${tok.borderL3}`,
+                display: 'flex', flexDirection: 'column', gap: 8,
+              }}>
+                {dbList(c)}
+              </div>
             </li>
           )
         })}
