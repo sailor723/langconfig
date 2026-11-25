@@ -190,3 +190,30 @@ Fernet 加密存储）；agent 的 Database 设置**只选一个连接名**。�
 代价（要记住）：现在**没有逐个隐藏**的开关了。想从选择器里拿掉某个 business 库，办法是：删掉它、
 改名（前缀 `langconfig` 会被当作 system）、或者把它归到某个不提供库的连接下。如果以后又需要
 「库存在但暂时不提供」，那要重新引入一个**单一**开关（并同时从桶推导里退一步），不要再让两处都能答。
+
+## 7. Settings 一致性（2026-11-25，全部 12 个分区）
+
+主题词汇（`SettingsPage.tsx` 顶部）：`SectionTitle` · `Row`（14px 标签 + 12px hint，`padding 12px 0`，
+`borderBottom 1px`）· `SubHeading`（12px/500）· `Btn`（primary/ghost/danger，dense）· `Input`/`Select`/
+`Toggle`/`Dot` · `Notice`（成功/失败同一通道）· `Empty`（14px muted）· `AddCard`（虚线、radius 12、44px）。
+
+| 分区 | SectionTitle | Row | SubHeading | Btn | AddCard | Notice/Empty | 写死色 | 原生 button | 字号 |
+|---|---|---|---|---|---|---|---|---|---|
+| General | ✅ | 7 | — | — | — | — | 0 | 0 | 标准 |
+| Models | ✅ | 2 | — | 7 | ✅ | — | 0 | 0（AddCard） | 11–14 |
+| Search | ✅ | — | — | 5 | — | — | 0 | 0 | 11–14 |
+| LocalModels | ✅ | — | — | 6 | ✅ | — | 0 | 0（AddCard） | 11–14 |
+| Workspace / Storage / Runtime / Agents | ✅ | 8/1/24/— | — | 2/—/—/— | — | — | 0 | 0 | 标准 |
+| Knowledge | ✅ | — | 3 | — | — | — | 0 | 0 | 标准 |
+| Ontology | ✅ | — | — | 12 | — | — | 0 | 0 | 11–14 |
+| Databases | ✅ | 1 | 1 | 6 | — | ✅/✅ | 0 | 0 | 11–14 |
+| About | ✅ | 3 | — | 1 | — | — | 0 | 0 | 14 |
+
+结论：**12/12 分区都有 SectionTitle**；**0 处写死颜色**；**0 个低于 11px 的字号**；剩下 2 个原生
+`<button>` 是对话框自己的**导航项与关闭键**（分区导航 / ✕），不是分区内的操作控件，保留原样式；
+Models/LocalModels 的「新增」卡片已统一为 `AddCard`（之前一个是 radius 12 + Material 图标、另一个是
+radius 22 + `+` 字符——同一个动作两种长相）。
+
+已统一的、但**没有动**的行为差异，需要单独决策：**保存模型**。General/Models/Workspace/Runtime/Agents 是
+「改即存」；Ontology/Databases 是显式「保存」。两种并存时用户无法判断刚才那一下存没存——建议二选一，
+或采用「标量改即存 + 数组类显式保存，并在标题下写明」的折中。

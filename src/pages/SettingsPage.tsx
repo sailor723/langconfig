@@ -174,6 +174,29 @@ function Row({ label: rowLabel, hint, children }: { label: string; hint?: React.
 }
 
 /** A group heading inside a section: 12px, weight 500 — the one size every section uses for it. */
+/** The "add one" card used at the bottom of a provider/model list: dashed, radius 12, 44px tall.
+ *
+ * Before this, Models and LocalModels each hand-rolled it — one at radius 12 with a Material icon, the other
+ * at radius 22 with a "+" character — so the same action looked like two different components. */
+function AddCard({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button" onClick={onClick}
+      style={{
+        flex: '1 1 0', minWidth: 180, height: 44, boxSizing: 'border-box',
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        border: `1px dashed ${tok.borderL3}`, borderRadius: 12, background: 'transparent',
+        color: tok.labelPrimary, fontFamily: 'inherit', fontSize: 14, lineHeight: '22px', cursor: 'pointer',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = tok.hover }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+    >
+      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
+      {label}
+    </button>
+  )
+}
+
 function SubHeading({ title, hint, children }: { title: string; hint?: string; children?: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, margin: '18px 0 2px' }}>
@@ -813,20 +836,8 @@ function ModelsSection() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-          <button
-            type="button" onClick={() => { setAdding(true); setKeyInput(''); setBaseUrl(''); setNewProviderName(''); setTestMsg(prev => ({ ...prev, __add__: undefined })) }}
-            style={{
-              flex: '1 1 0', minWidth: 180, gap: 6, height: 44, boxSizing: 'border-box',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              border: `1px dashed ${tok.borderL3}`, borderRadius: 12, background: 'transparent',
-              color: tok.labelPrimary, fontFamily: 'inherit', fontSize: 14, lineHeight: '22px', cursor: 'pointer',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = tok.hover }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
-            {t('settings_add_provider')}
-          </button>
+          <AddCard label={t('settings_add_provider')}
+            onClick={() => { setAdding(true); setKeyInput(''); setBaseUrl(''); setNewProviderName(''); setTestMsg(prev => ({ ...prev, __add__: undefined })) }} />
         </div>
       )}
     </div>
@@ -1156,10 +1167,8 @@ function LocalModelsSection() {
 
       {!adding && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-          <button type="button" onClick={() => { setAdding(true); setEditingId(null); setForm({ name: '', display_name: '', provider: 'ollama', base_url: 'http://localhost:11434/v1', model_name: '', api_key: '' }); changeProvider('ollama', 'http://localhost:11434/v1') }}
-            style={{ flex: '1 1 0', minWidth: 180, gap: 6, height: 44, boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 22, border: `1px dashed ${tok.borderL3}`, background: 'transparent', cursor: 'pointer', color: tok.labelPrimary, fontSize: 14, lineHeight: '22px', fontFamily: 'inherit' }}>
-            <span style={{ fontSize: 16 }}>+</span> {t('settings_add_local_model')}
-          </button>
+          <AddCard label={t('settings_add_local_model')}
+            onClick={() => { setAdding(true); setEditingId(null); setForm({ name: '', display_name: '', provider: 'ollama', base_url: 'http://localhost:11434/v1', model_name: '', api_key: '' }); changeProvider('ollama', 'http://localhost:11434/v1') }} />
         </div>
       )}
     </div>
@@ -1767,7 +1776,7 @@ function OntologySection() {
     background: `var(--color-input-background, ${tok.layer1})`, color: tok.labelPrimary, outline: 'none',
     fontFamily: 'ui-monospace, Menlo, monospace',
   }
-  const label: React.CSSProperties = { fontSize: 10.5, color: tok.labelTertiary, marginBottom: 3, display: 'block' }
+  const label: React.CSSProperties = { fontSize: 12, lineHeight: '18px', color: tok.labelTertiary, marginBottom: 3, display: 'block' }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%' }}>
@@ -1806,7 +1815,7 @@ function OntologySection() {
               style={{ ...input, width: 130 }}
             />
             {defaultKey === row.key && (
-              <span style={{ fontSize: 10.5, padding: '1px 7px', borderRadius: 9, border: `1px solid ${tok.borderL2}`, color: tok.labelTertiary }}>
+              <span style={{ fontSize: 11, lineHeight: '16px', padding: '1px 7px', borderRadius: 9, border: `1px solid ${tok.borderL2}`, color: tok.labelTertiary }}>
                 default
               </span>
             )}
@@ -2034,7 +2043,7 @@ function PublishPanel() {
           <div key={row.id} style={{ border: `1px solid ${tok.borderL2}`, borderRadius: 10, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => setOpen(isOpen ? null : row.id)}>
               <span style={{ fontSize: 13, fontWeight: 500, color: tok.labelPrimary }}>{row.key}</span>
-              <span style={{ fontSize: 11.5, fontFamily: mono, color: tok.labelTertiary }}>{row.id}</span>
+              <span style={{ fontSize: 12, fontFamily: mono, color: tok.labelTertiary }}>{row.id}</span>
               <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 9, border: `1px solid ${tok.borderL2}`, color: rep.gates_ok ? tok.success : tok.error }}>
                 gates {rep.gates_ok ? 'pass' : 'fail'}
               </span>
@@ -2096,7 +2105,7 @@ function PublishPanel() {
                               {f.path} <span style={{ color: tok.success }}>+{f.added || 0}</span>{' '}
                               <span style={{ color: tok.error }}>−{f.removed || 0}</span>
                             </div>
-                            <pre style={{ fontSize: 10, fontFamily: mono, background: tok.layer1, padding: 8, borderRadius: 8, maxHeight: 220, overflow: 'auto', margin: '2px 0 0' }}>
+                            <pre style={{ fontSize: 11, lineHeight: '16px', fontFamily: mono, background: tok.layer1, padding: 8, borderRadius: 8, maxHeight: 220, overflow: 'auto', margin: '2px 0 0' }}>
                               {f.diff.trim()}
                             </pre>
                           </div>
@@ -2129,7 +2138,7 @@ function PublishPanel() {
                             <b>{String(c.after ?? c.after_state ?? '—')}</b>
                           </div>
                         ))}
-                        <div style={{ fontSize: 10.5, color: tok.labelTertiary }}>
+                        <div style={{ fontSize: 11, lineHeight: '16px', color: tok.labelTertiary }}>
                           {changed.length} of {v.metrics} move
                         </div>
                       </div>
@@ -2139,7 +2148,7 @@ function PublishPanel() {
                 {rep.gates_text && (
                   <details>
                     <summary style={{ fontSize: 11.5, color: tok.labelTertiary, cursor: 'pointer' }}>gate output</summary>
-                    <pre style={{ fontSize: 10.5, fontFamily: mono, color: tok.labelSecondary ?? tok.labelPrimary, background: tok.layer1, padding: 8, borderRadius: 8, maxHeight: 260, overflow: 'auto', margin: '6px 0 0' }}>
+                    <pre style={{ fontSize: 11, lineHeight: '16px', fontFamily: mono, color: tok.labelSecondary ?? tok.labelPrimary, background: tok.layer1, padding: 8, borderRadius: 8, maxHeight: 260, overflow: 'auto', margin: '6px 0 0' }}>
                       {rep.gates_text}
                     </pre>
                   </details>
