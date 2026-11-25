@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8">
+<title>门店月度经营 —— 图谱与文档（由 TTL 生成）</title>
+<style>
+  :root { --ink:#1b1b1b; --dim:#777; --faint:#999; --line:#c9c9c9; --pick:#ffe9a8; }
+  * { box-sizing:border-box }
+  body { margin:0; font:13px/1.45 -apple-system,Helvetica,Arial,sans-serif; color:var(--ink);
+         display:flex; height:100vh; overflow:hidden; background:#fbfbfb }
+  code, pre, .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace }
+  /* ── index: a documentation table of contents that drives the graph ────── */
+  #index { width:232px; border-right:1px solid #e2e2e2; background:#fff; overflow-y:auto;
+           padding:10px 0 40px; flex:none }
+  #index .head { padding:0 12px 8px; font-size:10px; letter-spacing:.06em;
+                 text-transform:uppercase; color:var(--dim) }
+  #index .grp { padding:12px 12px 3px; font-size:10px; letter-spacing:.06em;
+                text-transform:uppercase; color:var(--dim); border-top:1px solid #f0f0f0 }
+  #index .grp:first-child { border-top:none }
+  #index a { display:block; padding:2px 12px 2px 16px; font-size:12px; color:var(--ink);
+             text-decoration:none; cursor:pointer; white-space:nowrap; overflow:hidden;
+             text-overflow:ellipsis }
+  #index a:hover { background:#f4f4f4 }
+  #index a.on { background:var(--pick); font-weight:600 }
+  #index a.off, #index .grp.off { display:none }
+  /* ── stage ─────────────────────────────────────────────────────────────── */
+  #stage { flex:1; position:relative; overflow:hidden; cursor:grab; min-width:0 }
+  #stage.dragging { cursor:grabbing }
+  svg { width:100%; height:100%; display:block }
+  .node { cursor:pointer }
+  .node rect, .node ellipse { stroke:#333; stroke-width:1; fill:#fff }
+  .node.meaning rect { fill:#efefef }
+  .node.metric ellipse { fill:#f7f7f7 }
+  .node.metric-refused ellipse { fill:#ffe2e2 }
+  .node text { font-size:9px; fill:var(--ink); pointer-events:none }
+  .node .name { font-size:10px; font-weight:600 }
+  .node .sub { font-size:8.5px; fill:#333 }
+  .node .col { font-size:8px; fill:#666; font-family:ui-monospace,Menlo,monospace }
+  .node.dim { opacity:.14 }
+  .node.reach rect, .node.reach ellipse { stroke:#888 }
+  .node.hit rect, .node.hit ellipse { stroke:var(--pick); stroke-width:3 }
+  .node.sel rect, .node.sel ellipse { stroke:#c99a00; stroke-width:4 }
+  .edge { fill:none; stroke:var(--line); stroke-width:1.1 }
+  .edge.measures { stroke-dasharray:3 3; stroke:#bbb }
+  .edge.subclass { stroke-dasharray:1 3 }
+  .edge.dim { opacity:.1 }
+  .edge.hit { stroke:#c99a00; stroke-width:1.8 }
+  .edge-label { font-size:8px; fill:var(--dim); pointer-events:none }
+  #bar { position:absolute; top:10px; left:12px; right:12px; display:flex; gap:6px;
+         align-items:center; font-size:11px; background:rgba(255,255,255,.93);
+         padding:6px 8px; border-radius:4px; border:1px solid #e2e2e2 }
+  #bar input { border:1px solid #ddd; border-radius:3px; padding:3px 6px; font-size:11px;
+               width:140px }
+  #bar button { border:1px solid #ddd; background:#fff; border-radius:3px; padding:3px 7px;
+                font-size:11px; cursor:pointer }
+  #bar button.on { background:#333; color:#fff; border-color:#333 }
+  #bar .sp { flex:1 }
+  #bar .meta { color:var(--dim); font-size:10px; white-space:nowrap; overflow:hidden;
+               text-overflow:ellipsis }
+  #hint { position:absolute; bottom:8px; left:12px; font-size:10px; color:var(--faint) }
+  #controls { position:absolute; right:12px; bottom:12px; user-select:none }
+  #controls .row { display:flex; gap:4px; justify-content:flex-end; margin-top:4px }
+  #controls button { width:26px; height:26px; padding:0; border:1px solid #ddd; background:rgba(255,255,255,.95);
+                     border-radius:3px; cursor:pointer; font-size:13px; line-height:1; color:var(--ink) }
+  #controls button:hover { background:#f1f1f1 }
+  #controls button:active { background:#e8e8e8 }
+  #controls button.on { background:#333; color:#fff; border-color:#333 }
+  #controls button[data-mode] { width:auto; padding:0 6px; font-size:11px }
+  /* ── panel: the documentation ──────────────────────────────────────────── */
+  #panel { width:432px; border-left:1px solid #e2e2e2; background:#fff; overflow-y:auto;
+           padding:14px 16px 60px; flex:none }
+  #panel h1 { font-size:15px; margin:0 0 2px }
+  #panel .kind { color:var(--dim); font-size:11px; margin-bottom:10px }
+  #panel h2 { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim);
+              margin:16px 0 4px; font-weight:600 }
+  #panel pre { margin:0; background:#f5f5f5; border:1px solid #e8e8e8; border-radius:3px;
+               padding:7px 8px; overflow-x:auto; font-size:11px; line-height:1.4;
+               white-space:pre-wrap; word-break:break-word }
+  #panel .desc { margin:0; font-size:12.5px; line-height:1.5 }
+  #panel .big { font:600 20px/1.2 ui-monospace,Menlo,monospace; margin:2px 0 0 }
+  #panel table.ann { width:100%; border-collapse:collapse; font-size:11.5px }
+  #panel table.ann th { text-align:left; vertical-align:top; width:38%; padding:3px 8px 3px 0;
+                        color:#555; font-weight:500 }
+  #panel table.ann td { padding:3px 0; word-break:break-word; vertical-align:top }
+  /* id columns hug their content instead of stealing a third of the row */
+  #panel table.ann th.idcol, #panel table.ann td.idcol { width:1%; white-space:nowrap;
+                                                         padding-right:14px }
+  #panel .why { color:#a11; font-size:11.5px; margin:0 }
+  #panel .file { font-family:ui-monospace,Menlo,monospace; font-size:10px; color:var(--dim) }
+  #panel .muted { color:var(--dim) }
+  #panel .db { background:#eef4fb; border-left:3px solid #7aa7d9; border-radius:3px;
+               padding:8px 10px }
+  #panel .db .src { font-size:10px; color:#4a6f9c; margin-top:5px;
+                    font-family:ui-monospace,Menlo,monospace }
+  #panel .db table.ann th, #panel .db table.ann td { border-color:#d5e3f2 }
+  #bar .dbchip { font-size:10px; color:#4a6f9c; white-space:nowrap }
+</style></head>
+<body>
+<div id="index"><div class="head">实体</div><div id="idx"></div></div>
+<div id="stage">
+  <div id="bar">
+    <input id="q" placeholder="搜索…">
+    <button data-k="structure" class="on">类</button>
+    <button data-k="meaning" class="on">定义</button>
+    <button data-k="metric" class="on">属性</button>
+    <button id="reset">适配</button>
+    <span class="sp"></span>
+    <span class="dbchip" id="scope"></span>
+    <span class="dbchip">■ 蓝色 = 在 Postgres 里实测</span>
+    <span class="meta" id="meta"></span>
+  </div>
+  <svg id="svg"><g id="view"></g></svg>
+  <div id="controls">
+    <div class="row">
+      <button id="c-fit" title="适配窗口 — 快捷键 0">⤢</button>
+      <button id="c-zin" title="放大 — 快捷键 +">＋</button>
+      <button id="c-zout" title="缩小 — 快捷键 −">−</button>
+    </div>
+    <div class="row">
+      <button data-mode="domain" title="这个词的属性指向谁 — 快捷键 d">域→</button>
+      <button data-mode="range" title="谁指向这个词 — 快捷键 r">←值域</button>
+      <button data-mode="both" title="两个方向都看 — 快捷键 b">双向</button>
+    </div>
+    <div class="row">
+      <button data-pan="left" title="左移 — 快捷键 ←">←</button>
+      <button data-pan="up" title="上移 — 快捷键 ↑">↑</button>
+      <button data-pan="down" title="下移 — 快捷键 ↓">↓</button>
+      <button data-pan="right" title="右移 — 快捷键 →">→</button>
+    </div>
+  </div>
+  <div id="hint">点一个实体 · <b>域→ / ←值域</b> 只留与它相关的 · 拖动节点 · 滚轮缩放 · 方向键平移 · 快捷键 + − 0 ← ↑ ↓ → d r b</div>
+</div>
+<div id="panel">
+  <h1>门店月度经营</h1>
+  <div class="kind">2026-11-25 14:11 · 由 4 个文件里的 310 条三元组生成</div>
+  <p class="muted">在左侧或图里点一个 <b>c</b> 类或一个 <b>dp</b> 数据属性。这一栏是它的文档，
+  由 <code>.ttl</code> 生成，用词与 <code>ontology-doc.html</code> 一致：描述、等价类、注解属性、
+  公理、IRI。<b>域</b>/<b>值域</b> 两个列表就是那一页里说的 <i>In Domain Of</i> 与
+  <i>In Range Of</i>。</p>
+  <p class="muted" id="note">这个文件写出时实测的数字。</p>
+</div>
+<script>
+const DATA = {"nodes": [{"id": "StoreMonth", "kind": "structure", "badge": "c", "term": "Class", "label": "月度经营（一个门店的一个月）", "name": "StoreMonth", "iri": "https://cube.local/ontology/store_monthly_v1#StoreMonth", "sub": "月度经营", "inDomain": [{"n": "storeOf", "kind": "object", "col": "门店编码", "sqlType": null, "unit": null, "additivity": null, "formula": null, "aggregate": null, "to": null, "refs": null}, {"n": "avg_ticket_stored", "kind": "datatype", "col": "客单价", "sqlType": null, "unit": "money", "additivity": "non-additive", "formula": null, "aggregate": null}, {"n": "month", "kind": "datatype", "col": "月份", "sqlType": null, "unit": null, "additivity": null, "formula": null, "aggregate": null}, {"n": "return_amount", "kind": "datatype", "col": "退货额", "sqlType": null, "unit": "money", "additivity": "additive", "formula": null, "aggregate": null}, {"n": "revenue", "kind": "datatype", "col": "营业额", "sqlType": null, "unit": "money", "additivity": "additive", "formula": null, "aggregate": null}, {"n": "traffic", "kind": "datatype", "col": "客流量", "sqlType": null, "unit": "count", "additivity": "additive", "formula": null, "aggregate": null}], "inRange": [], "lines": ["月度经营（一个门店的一个月）", "月度经营", "客单价", "客流量", "月份", "营业额", "退货额", "门店编码"], "value": 12, "sample": {"cols": ["门店编码", "月份"], "rule": ":primaryKey", "sql": "SELECT 门店编码, 月份 FROM 月度经营 ORDER BY 门店编码, 月份;", "rows": [["S01", "2026-01"], ["S01", "2026-02"], ["S01", "2026-03"], ["S02", "2026-01"], ["S02", "2026-02"], ["S02", "2026-03"], ["S03", "2026-01"], ["S03", "2026-02"], ["S03", "2026-03"], ["S04", "2026-01"], ["S04", "2026-02"], ["S04", "2026-03"]]}, "objects": [{"props": [["月份", "2026-01"], ["门店编码", "S01"], ["营业额", "128600"], ["客流量", "5200"], ["客单价", "24.73"], ["退货额", "3200"]], "classes": ["AllStoreMonths"]}, {"props": [["月份", "2026-02"], ["门店编码", "S01"], ["营业额", "110300"], ["客流量", "4400"], ["客单价", "25.07"], ["退货额", "2600"]], "classes": ["AllStoreMonths"]}, {"props": [["月份", "2026-03"], ["门店编码", "S01"], ["营业额", "135900"], ["客流量", "5500"], ["客单价", "24.71"], ["退货额", "2900"]], "classes": ["AllStoreMonths"]}, {"props": [["月份", "2026-01"], ["门店编码", "S02"], ["营业额", "86400"], ["客流量", "4100"], ["客单价", "21.07"], ["退货额", "1500"]], "classes": ["AllStoreMonths"]}, {"props": [["月份", "2026-02"], ["门店编码", "S02"], ["营业额", "79200"], ["客流量", "3800"], ["客单价", "20.84"], ["退货额", "1800"]], "classes": ["AllStoreMonths"]}, {"props": [["月份", "2026-03"], ["门店编码", "S02"], ["营业额", "91100"], ["客流量", "4300"], ["客单价", "21.19"], ["退货额", "1400"]], "classes": ["AllStoreMonths"]}, {"props": [["月份", "2026-01"], ["门店编码", "S03"], ["营业额", "154200"], ["客流量", "5600"], ["客单价", "27.54"], ["退货额", "4100"]], "classes": ["AllStoreMonths"]}, {"props": [["月份", "2026-02"], ["门店编码", "S03"], ["营业额", "142800"], ["客流量", "5100"], ["客单价", "28"], ["退货额", "3900"]], "classes": ["AllStoreMonths"]}, {"props": [["月份", "2026-03"], ["门店编码", "S03"], ["营业额", "160500"], ["客流量", "5900"], ["客单价", "27.2"], ["退货额", "4300"]], "classes": ["AllStoreMonths"]}, {"props": [["月份", "2026-01"], ["门店编码", "S04"], ["营业额", "61200"], ["客流量", "3000"], ["客单价", "20.4"], ["退货额", "900"]], "classes": ["AllStoreMonths"]}, {"props": [["月份", "2026-02"], ["门店编码", "S04"], ["营业额", "54800"], ["客流量", "2700"], ["客单价", "20.3"], ["退货额", "700"]], "classes": ["AllStoreMonths"]}, {"props": [["月份", "2026-03"], ["门店编码", "S04"], ["营业额", "66300"], ["客流量", "3200"], ["客单价", "20.72"], ["退货额", "850"]], "classes": ["AllStoreMonths"]}], "indivSql": "SELECT count(*) FROM 月度经营;", "labelRule": ":primaryKey", "description": null, "table": "月度经营", "structural": [], "annotations": [{"k": "businessDescription", "label": "业务描述", "v": ["一行 = 一个门店的一个月。粒度是 (门店编码, 月份)：12 行覆盖 4 个门店 × 3 个月（2026-01/02/03），实测 count(*)=12、count(distinct (门店编码,月份))=12，无重复无缺月。这是本本体唯一的事实表：营业额、客流量、退货额三个可加量都落在这一行上；客单价（存量列）只是这一行的派生读数。6 列全部无空值（实测 count(*) filter (where 任一列为 null) = 0）。3 个月平铺、没有「当期」概念（D14），不做同比（D9：库里只有 3 个月，没有上年同期）。库里没有订单级明细，所以「日趋势 / 单品 / 渠道」在这份数据上回答不了"], "iri": ""}, {"k": "physicalTable", "label": "物理表", "v": ["月度经营"], "iri": ""}, {"k": "primaryKey", "label": "主键", "v": ["门店编码, 月份"], "iri": ""}, {"k": "timeColumn", "label": "timeColumn", "v": ["月份"], "iri": ""}], "sources": {"self": [{"file": "01-structure.ttl", "line": 31, "text": ":StoreMonth a owl:Class ;\n    rdfs:label \"月度经营（一个门店的一个月）\" ;\n    :physicalTable \"月度经营\" ;\n    :primaryKey \"门店编码, 月份\" ;\n    :timeColumn \"月份\" ;\n    :businessDescription \"一行 = 一个门店的一个月。粒度是 (门店编码, 月份)：12 行覆盖 4 个门店 × 3 个月（2026-01/02/03），实测 count(*)=12、count(distinct (门店编码,月份))=12，无重复无缺月。这是本本体唯一的事实表：营业额、客流量、退货额三个可加量都落在这一行上；客单价（存量列）只是这一行的派生读数。6 列全部无空值（实测 count(*) filter (where 任一列为 null) = 0）。3 个月平铺、没有「当期」概念（D14），不做同比（D9：库里只有 3 个月，没有上年同期）。库里没有订单级明细，所以「日趋势 / 单品 / 渠道」在这份数据上回答不了\" ."}], "related": [{"file": "01-structure.ttl", "line": 40, "rel": "domain", "prop": "month", "text": ":month a owl:DatatypeProperty ; rdfs:label \"月份\" ; :askedAs \"月份\" ;\n    rdfs:domain :StoreMonth ; :physicalColumn \"月份\" ; rdfs:range xsd:string ;\n    :businessDescription \"月份，text，形如 2026-01（YYYY-MM）。实测 12/12 行长度为 7、全部匹配 ^[0-9]{4}-[0-9]{2}$、无首尾空白、无空值；取值只有 2026-01 / 2026-02 / 2026-03，每月 4 行（4 个门店各一行）。它是这张表唯一的时间轴，定长 7 位所以字典序即时间序（月环比就是相邻两个取值相减，D14）。**它不是 date 列**：库里没有把月份存成日期。后果要说清：编译器的 :timeBucket（date_trunc）和 TimeWindow（now() - interval）两条路径都要求日期/时间戳列，作用在这一列上会发出 date_trunc('month', 月份) / 月份 >= now() - interval 然后在数据库里报类型错误。趋势线按 :month 直接分组即可（它已经是月粒度），不要声明 :timeBucket。\" ."}, {"file": "02-meaning.ttl", "line": 61, "rel": "domain", "prop": "month", "text": ":month rdfs:label \"月份（YYYY-MM）\" ;\n    :businessDescription \"时间口径：月份，字符串 YYYY-MM（D6），不是日期列 —— 库里没有 date/timestamp 形态的月，也没有任何时间戳列（唯一的 date 列是 门店.开业日期）。三条语义：① **3 个月平铺**：2026-01 / 2026-02 / 2026-03 并排看，没有「当期」「完整月」「截至今日」这类概念（D14）—— 所以「本月」在本体里没有定义对象，问「本月」只能按名拒绝或改问某个月；② **允许环比**：2 月对 1 月、3 月对 2 月，同表内相邻两个月相减/相除，是这份数据唯一能看的走向（D14）；③ **不做同比**：库里没有上年同期，D9 明确排除，因此不存在任何跨年的比较口径。因为 YYYY-MM 定长 7 位，字典序就是时间序\" ."}, {"file": "01-structure.ttl", "line": 44, "rel": "domain", "prop": "revenue", "text": ":revenue a owl:DatatypeProperty ; rdfs:label \"营业额（元，含税，毛额）\" ; :askedAs \"营业额\" ;\n    rdfs:domain :StoreMonth ; :physicalColumn \"营业额\" ; rdfs:range xsd:integer ;\n    :businessDescription \"一个门店一个月的营业额，bigint，单位元，含税，**毛销售额**：未扣退货的含税销售总额（D10）。实测 12/12 行非空、无负值，取值 54,800 … 160,500，合计 1,271,300。它是可加量：跨门店、跨月求和都是同一个口径。它同时是退货率的分母（D5/D10）—— 分母必须是退货发生**前**的销售额，这一点写在 02-meaning.ttl 里，因为改分母就是改指标含义\" ."}, {"file": "02-meaning.ttl", "line": 45, "rel": "domain", "prop": "revenue", "text": ":revenue rdfs:label \"营业额（元，含税，毛额）\" ;\n    :unit \"money\" ; :additivity \"additive\" ;\n    :businessDescription \"营业额 = 一个门店在一个月内的**毛销售额**：含税、未扣退货的销售总额（D10）。单位元（D3）。粒度是「一个门店的一个月」，所以它天然是月度的、门店级的数；跨门店或跨月相加仍是同一个口径（合计 1,271,300，measured），这也是它作为可加量的定义所在。**它是退货率的分母**（D5）：分母取退货发生前的销售额，退货率才只反映退货强度，而不随退货金额变化来回摇摆 —— 这正是 D10 逐字定的理由。别把它解释成「净收入」：净口径在这份数据上等于 营业额 − 退货额，而库里没有这个字段，也没人定过这个指标（grill 第 3 节把退货额独立成 KPI 列为有意未定项）\" ."}, {"file": "01-structure.ttl", "line": 48, "rel": "domain", "prop": "traffic", "text": ":traffic a owl:DatatypeProperty ; rdfs:label \"客流量（人次）\" ; :askedAs \"客流量\" ;\n    rdfs:domain :StoreMonth ; :physicalColumn \"客流量\" ; rdfs:range xsd:integer ;\n    :businessDescription \"一个门店一个月的客流量，bigint，单位人次。实测 12/12 行非空、**无 0 值**（最小 2,700、最大 5,900），所以以它为分母的客单价在每一行都有定义 —— 这就是本本体不需要声明「排除除零行」的原因。它是可加量：合计 52,800 人次\" ."}, {"file": "02-meaning.ttl", "line": 49, "rel": "domain", "prop": "traffic", "text": ":traffic rdfs:label \"客流量（人次）\" ;\n    :unit \"count\" ; :additivity \"additive\" ;\n    :businessDescription \"客流量 = 一个门店在一个月内进店的**人次**（不是人数、不是笔数：库里没有会员/单据标识，无法去重到人）。单位人次。measured: 12/12 行非空、无 0 值（2,700 … 5,900，合计 52,800），所以它作为客单价的分母处处有意义，也就没有「除零行要剔除」这条口径。它和营业额同粒度、可按月按店相加；与营业额的比值就是客单价（D4）\" ."}, {"file": "01-structure.ttl", "line": 52, "rel": "domain", "prop": "avg_ticket_stored", "text": ":avg_ticket_stored a owl:DatatypeProperty ; rdfs:label \"客单价（存量列，只作对账）\" ; :askedAs \"库里存的客单价\" ;\n    rdfs:domain :StoreMonth ; :physicalColumn \"客单价\" ; rdfs:range xsd:decimal ;\n    :businessDescription \"库里已经存好的客单价，numeric，元/人次。D11：**客单价以公式为准**（营业额 ÷ 客流量），这一列只作对账的第二路径，不直接上板。实测它与 round(营业额::numeric / 客流量, 2) 在 12/12 行完全一致（select count(*) where round(营业额/客流量,2) <> 客单价 → 0），所以现在两条路径给出同一个数；把它单独声明成一个属性名，是为了让「公式口径」与「存量列」在图上就是两个东西，谁也不能悄悄替换谁。它是**不可加**量：12 行的算术平均是 23.48，而合计口径（总营业额÷总客流量）是 24.08 —— 两个数不相等，这就是 D12 禁止比率算术平均的实测理由\" ."}, {"file": "02-meaning.ttl", "line": 83, "rel": "domain", "prop": "avg_ticket_stored", "text": ":avg_ticket_stored :unit \"money\" ; :additivity \"non-additive\" ;\n    :businessDescription \"存量 客单价 列 = 库里已经算好并落盘的客单价（元/人次）。D11：**它不是口径来源**，只是对账用的第二路径。measured: 与 round(营业额::numeric / 客流量, 2) 在 12/12 行完全一致。上游若把这一列改成别的算法，对账会立刻分出差异 —— 这正是把它留在图上的用处；但任何指标都不许直接 sum/avg 这一列：average of averages 会把大店小店等权（12 行算术平均 23.48 ≠ 合计口径 24.08）\" ."}, {"file": "01-structure.ttl", "line": 56, "rel": "domain", "prop": "return_amount", "text": ":return_amount a owl:DatatypeProperty ; rdfs:label \"退货额（元，含税）\" ; :askedAs \"退货额\" ;\n    rdfs:domain :StoreMonth ; :physicalColumn \"退货额\" ; rdfs:range xsd:integer ;\n    :businessDescription \"一个门店一个月的退货金额，bigint，单位元，与营业额同口径（含税，D10）。实测 12/12 行非空、无负值，取值 700 … 4,300，合计 28,150；12/12 行 **退货额 < 营业额**（count(*) filter (where 退货额 >= 营业额) = 0），所以退货率在每一行都落在 0…1 之间（单行实测 1.28% … 2.73%，合计 2.21%）。它是退货率的分子（D5），本身不是看板上的 KPI：D1 只点了四个数（营业额/客流量/客单价/退货率），「退货额要不要单独上板」在 grill 第 3 节是有意未定项，本层不替用户决定，只保证这一列的含义与单位是明确的\" ."}, {"file": "02-meaning.ttl", "line": 53, "rel": "domain", "prop": "return_amount", "text": ":return_amount rdfs:label \"退货额（元，含税）\" ;\n    :unit \"money\" ; :additivity \"additive\" ;\n    :businessDescription \"退货额 = 一个门店在一个月内发生的退货金额，**与营业额同口径**：含税、按同一套价格（D10）。单位元。measured: 12/12 行非空、无负值（700 … 4,300，合计 28,150），且 12/12 行 退货额 < 营业额。它是退货率的分子（D5），不是看板上的 KPI：D1 只点了四个数（营业额、客流量、客单价、退货率），「退货额本身要不要独立成卡」是 grill 第 3 节的有意未定项 —— 本层把它的含义和单位定清楚，上不上板留给用户。注意它与营业额同口径这件事只保证分子分母可比，**不**意味着两者能相互替代\" ."}, {"file": "01-structure.ttl", "line": 65, "rel": "domain", "prop": "storeOf", "text": ":storeOf a owl:ObjectProperty ; rdfs:label \"所属门店\" ; :askedAs \"门店\" ;\n    rdfs:domain :StoreMonth ; :range :Store ;\n    :physicalColumn \"门店编码\" ; :references :Store ;\n    :businessDescription \"月度经营.门店编码 → 门店.门店编码。实测 12/12 行都能在门店表里找到对应行（left join 后 门店编码 is null 的行 = 0），4 个取值 S01…S04 一一对应 4 家门店。库里**没有**外键约束（pg_constraint 0 行），这条关联是被数据证实的，不是数据库强制的\" ."}], "comments": [{"file": "02-meaning.ttl", "line": 17, "text": "#   事实粒度 = 一个门店的一个月（:StoreMonth，(门店编码, 月份) 唯一，12 行 = 4 店 × 3 月）；"}]}}, {"id": "Store", "kind": "structure", "badge": "c", "term": "Class", "label": "门店", "name": "Store", "iri": "https://cube.local/ontology/store_monthly_v1#Store", "sub": "门店", "inDomain": [{"n": "area_sqm", "kind": "datatype", "col": "面积平米", "sqlType": null, "unit": null, "additivity": null, "formula": null, "aggregate": null}, {"n": "city", "kind": "datatype", "col": "城市", "sqlType": null, "unit": null, "additivity": null, "formula": null, "aggregate": null}, {"n": "opened_on", "kind": "datatype", "col": "开业日期", "sqlType": null, "unit": null, "additivity": null, "formula": null, "aggregate": null}, {"n": "store_id", "kind": "datatype", "col": "门店编码", "sqlType": null, "unit": null, "additivity": null, "formula": null, "aggregate": null}, {"n": "store_name", "kind": "datatype", "col": "门店名", "sqlType": null, "unit": null, "additivity": null, "formula": null, "aggregate": null}], "inRange": [], "lines": ["门店", "门店", "城市", "开业日期", "门店名", "门店编码", "面积平米"], "value": 4, "sample": {"cols": ["门店编码"], "rule": ":primaryKey", "sql": "SELECT 门店编码 FROM 门店 ORDER BY 门店编码;", "rows": [["S01"], ["S02"], ["S03"], ["S04"]]}, "objects": [{"props": [["门店编码", "S01"], ["门店名", "新街口店"], ["城市", "南京"], ["开业日期", "2021-03-15"], ["面积平米", "860"]], "classes": []}, {"props": [["门店编码", "S02"], ["门店名", "五道口店"], ["城市", "北京"], ["开业日期", "2020-09-01"], ["面积平米", "640"]], "classes": []}, {"props": [["门店编码", "S03"], ["门店名", "天河城店"], ["城市", "广州"], ["开业日期", "2022-06-20"], ["面积平米", "1020"]], "classes": []}, {"props": [["门店编码", "S04"], ["门店名", "春熙路店"], ["城市", "成都"], ["开业日期", "2023-01-11"], ["面积平米", "720"]], "classes": []}], "indivSql": "SELECT count(*) FROM 门店;", "labelRule": ":primaryKey", "description": null, "table": "门店", "structural": [], "annotations": [{"k": "businessDescription", "label": "业务描述", "v": ["一行 = 一家门店，4 行，门店编码 S01…S04（实测 count(*)=4 = count(distinct 门店编码)，无空值、无首尾空白）。它是月度经营的门店维度：门店名、城市、开业日期、面积都在这里。4 家门店落在 4 个不同城市、每城恰好 1 家（南京/北京/广州/成都），所以「按城市分组」与「按门店分组」在这份数据上是同一件事 —— D15 明确不按城市分组、不做门店排名表，这条事实写在这里是为了让后续层不必再猜"], "iri": ""}, {"k": "physicalTable", "label": "物理表", "v": ["门店"], "iri": ""}, {"k": "primaryKey", "label": "主键", "v": ["门店编码"], "iri": ""}], "sources": {"self": [{"file": "01-structure.ttl", "line": 72, "text": ":Store a owl:Class ;\n    rdfs:label \"门店\" ;\n    :physicalTable \"门店\" ;\n    :primaryKey \"门店编码\" ;\n    :businessDescription \"一行 = 一家门店，4 行，门店编码 S01…S04（实测 count(*)=4 = count(distinct 门店编码)，无空值、无首尾空白）。它是月度经营的门店维度：门店名、城市、开业日期、面积都在这里。4 家门店落在 4 个不同城市、每城恰好 1 家（南京/北京/广州/成都），所以「按城市分组」与「按门店分组」在这份数据上是同一件事 —— D15 明确不按城市分组、不做门店排名表，这条事实写在这里是为了让后续层不必再猜\" ."}], "related": [{"file": "01-structure.ttl", "line": 78, "rel": "domain", "prop": "store_id", "text": ":store_id a owl:DatatypeProperty ; rdfs:label \"门店编码\" ; :askedAs \"门店编码\" ;\n    rdfs:domain :Store ; :physicalColumn \"门店编码\" ; rdfs:range xsd:string ;\n    :businessDescription \"门店编码，text，4 个取值（S01 / S02 / S03 / S04），无空值。它是门店表的主键（数据事实）。事实表通过 :storeOf 指向它；要按门店编码分组时用本属性（经声明的链接可达），不要在事实表上再造一个同列属性\" ."}, {"file": "01-structure.ttl", "line": 82, "rel": "domain", "prop": "store_name", "text": ":store_name a owl:DatatypeProperty ; rdfs:label \"门店名\" ; :askedAs \"门店名\" ;\n    rdfs:domain :Store ; :physicalColumn \"门店名\" ; rdfs:range xsd:string ;\n    :businessDescription \"门店名，text，4 个取值：新街口店 / 五道口店 / 天河城店 / 春熙路店，无空值、互不重复。看板第 2 块「门店 × 月矩阵」的行就是它（D15）\" ."}, {"file": "01-structure.ttl", "line": 86, "rel": "domain", "prop": "city", "text": ":city a owl:DatatypeProperty ; rdfs:label \"城市\" ; :askedAs \"城市\" ;\n    rdfs:domain :Store ; :physicalColumn \"城市\" ; rdfs:range xsd:string ;\n    :businessDescription \"门店所在城市，text，4 个取值：南京 / 北京 / 广州 / 成都，无空值，每城恰好 1 家门店。它被建模是因为这一列在库里真实存在（S1 要求每张表的每一列都有归属），**不是**因为看板要按它切：D15 明确不按城市分组、不做排名表\" ."}, {"file": "01-structure.ttl", "line": 90, "rel": "domain", "prop": "opened_on", "text": ":opened_on a owl:DatatypeProperty ; rdfs:label \"开业日期\" ; :askedAs \"开业日期\" ;\n    rdfs:domain :Store ; :physicalColumn \"开业日期\" ; rdfs:range xsd:date ;\n    :businessDescription \"开业日期，date —— 本库唯一的真日期列，4 行非空：2020-09-01 / 2021-03-15 / 2022-06-20 / 2023-01-11。它属于门店、不随时间变化，不是事实表的时间轴（那条是 text 的 月份）。4 家门店在 2026-01 之前都已开业，12 行 = 4×3 说明每店都被完整观察了 3 个月，所以「开业不满月」这种剔除在这份数据上不需要\" ."}, {"file": "01-structure.ttl", "line": 94, "rel": "domain", "prop": "area_sqm", "text": ":area_sqm a owl:DatatypeProperty ; rdfs:label \"面积（平米）\" ; :askedAs \"面积\" ;\n    rdfs:domain :Store ; :physicalColumn \"面积平米\" ; rdfs:range xsd:integer ;\n    :businessDescription \"门店面积，bigint，单位平米，4 行非空：640 / 720 / 860 / 1020。D15 的三块板都用不到它（没有坪效指标，grill 第 3 节把坪效列为未定项）。建模它是因为这一列在库里真实存在，不是因为它是个指标\" ."}], "comments": []}}, {"id": "Category", "kind": "structure", "badge": "c", "term": "Class", "label": "品类（参考数据，不参与看板）", "name": "Category", "iri": "https://cube.local/ontology/store_monthly_v1#Category", "sub": "品类", "inDomain": [{"n": "category_code", "kind": "datatype", "col": "品类编码", "sqlType": null, "unit": null, "additivity": null, "formula": null, "aggregate": null}, {"n": "category_name", "kind": "datatype", "col": "品类名", "sqlType": null, "unit": null, "additivity": null, "formula": null, "aggregate": null}, {"n": "target_margin", "kind": "datatype", "col": "目标毛利率", "sqlType": null, "unit": null, "additivity": null, "formula": null, "aggregate": null}], "inRange": [], "lines": ["品类（参考数据，不参与看板）", "品类", "品类名", "品类编码", "目标毛利率"], "value": 3, "sample": {"cols": ["品类编码"], "rule": ":primaryKey", "sql": "SELECT 品类编码 FROM 品类 ORDER BY 品类编码;", "rows": [["C1"], ["C2"], ["C3"]]}, "objects": [{"props": [["品类编码", "C1"], ["品类名", "生鲜"], ["目标毛利率", "0.18"]], "classes": []}, {"props": [["品类编码", "C2"], ["品类名", "日配"], ["目标毛利率", "0.22"]], "classes": []}, {"props": [["品类编码", "C3"], ["品类名", "百货"], ["目标毛利率", "0.31"]], "classes": []}], "indivSql": "SELECT count(*) FROM 品类;", "labelRule": ":primaryKey", "description": null, "table": "品类", "structural": [], "annotations": [{"k": "businessDescription", "label": "业务描述", "v": ["一行 = 一个品类，3 行：C1 生鲜 / C2 日配 / C3 百货（实测 count(*)=3 = count(distinct 品类编码)）。D7 只作参考、不上看板；D13 它的 目标毛利率 既不上板也不当阈值/红绿灯。**它与 :StoreMonth 之间没有任何关联可声明**：事实表 6 列是 月份 / 门店编码 / 营业额 / 客流量 / 客单价 / 退货额，没有品类键，也没有任何一列能推出品类。本本体因此不声明 :Category 与 :StoreMonth 之间的链接；任何「按品类看营业额」的问题都应该被按名拒绝，而不是被 join 成一张笛卡尔积"], "iri": ""}, {"k": "physicalTable", "label": "物理表", "v": ["品类"], "iri": ""}, {"k": "primaryKey", "label": "主键", "v": ["品类编码"], "iri": ""}], "sources": {"self": [{"file": "01-structure.ttl", "line": 103, "text": ":Category a owl:Class ;\n    rdfs:label \"品类（参考数据，不参与看板）\" ;\n    :physicalTable \"品类\" ;\n    :primaryKey \"品类编码\" ;\n    :businessDescription \"一行 = 一个品类，3 行：C1 生鲜 / C2 日配 / C3 百货（实测 count(*)=3 = count(distinct 品类编码)）。D7 只作参考、不上看板；D13 它的 目标毛利率 既不上板也不当阈值/红绿灯。**它与 :StoreMonth 之间没有任何关联可声明**：事实表 6 列是 月份 / 门店编码 / 营业额 / 客流量 / 客单价 / 退货额，没有品类键，也没有任何一列能推出品类。本本体因此不声明 :Category 与 :StoreMonth 之间的链接；任何「按品类看营业额」的问题都应该被按名拒绝，而不是被 join 成一张笛卡尔积\" ."}], "related": [{"file": "01-structure.ttl", "line": 109, "rel": "domain", "prop": "category_code", "text": ":category_code a owl:DatatypeProperty ; rdfs:label \"品类编码\" ; :askedAs \"品类编码\" ;\n    rdfs:domain :Category ; :physicalColumn \"品类编码\" ; rdfs:range xsd:string ;\n    :businessDescription \"品类编码，text，3 个取值 C1 / C2 / C3，无空值。它是品类表的主键（数据事实）。没有下游表引用它 —— 事实表里不存在这一列\" ."}, {"file": "01-structure.ttl", "line": 113, "rel": "domain", "prop": "category_name", "text": ":category_name a owl:DatatypeProperty ; rdfs:label \"品类名\" ; :askedAs \"品类名\" ;\n    rdfs:domain :Category ; :physicalColumn \"品类名\" ; rdfs:range xsd:string ;\n    :businessDescription \"品类名，text：生鲜 / 日配 / 百货，3 行非空、互不重复。只作参考展示（D7），不在看板上出现\" ."}, {"file": "01-structure.ttl", "line": 117, "rel": "domain", "prop": "target_margin", "text": ":target_margin a owl:DatatypeProperty ; rdfs:label \"目标毛利率（参考，不作阈值）\" ; :askedAs \"目标毛利率\" ;\n    rdfs:domain :Category ; :physicalColumn \"目标毛利率\" ; rdfs:range xsd:decimal ;\n    :businessDescription \"目标毛利率，numeric，3 行：0.18 / 0.22 / 0.31。D13：**不设目标线/红绿灯**，这一列不上板、也不当任何阈值。它连到事实表的路都没有（见 :Category），所以在这份数据上连「毛利达成率」都算不出来；声明它只是为了给这一列一个归属，并把「不许拿它当阈值」写进图里\" ."}], "comments": [{"file": "metrics_ext.ttl", "line": 159, "text": "#     且 月度经营 没有品类键 —— 两张表 JOIN 不上，任何品类数都算不出来（见 01-structure 的 :Category）。"}, {"file": "02-meaning.ttl", "line": 90, "text": "#     D7 只作参考、D13 排除目标毛利率 —— 事实表里没有任何一列能连到品类（见 01-structure.ttl 的 :Category）。"}, {"file": "metrics_ext.ttl", "line": 159, "text": "#     且 月度经营 没有品类键 —— 两张表 JOIN 不上，任何品类数都算不出来（见 01-structure 的 :Category）。"}]}}, {"id": "AllStoreMonths", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "全部门店月（不做任何剔除）", "name": "AllStoreMonths", "iri": "https://cube.local/ontology/store_monthly_v1#AllStoreMonths", "inDomain": [], "inRange": [], "sub": "1=1", "lines": ["全部门店月（不做任何剔除）", "1=1"], "description": null, "definedBy": "1=1", "definedVia": "physicalPredicate", "refusal": "declared as :physicalPredicate — OWL cannot say this", "sql": "SELECT count(*) FROM 月度经营 WHERE 1=1;", "value": 12, "sample": null, "objects": null, "labelRule": "none", "structural": [{"k": "subClassOf", "label": "子类于", "v": [":StoreMonth"], "iri": "rdfs:subClassOf"}], "annotations": [{"k": "businessDescription", "label": "业务描述", "v": ["本本体所有指标的行集合：12 行全算，不做任何剔除。这条不是「还没定剔除规则」，是实测过不需要剔除：measured: 6 列全部无空值（条件计数 0 行）；客流量最小 2,700、无 0 值，所以客单价的分母处处可用；12/12 行 退货额 < 营业额，退货率处处落在 0…1 之内。把它显式声明成一个定义类而不是在 S3 里散着写 1=1，是为了让「分母是哪一组行」在图上有个名字：将来若要剔除（例如剔除新店首月），改动点是这一处，而不是每个指标的谓词"], "iri": ""}, {"k": "physicalPredicate", "label": "手写谓词", "v": ["1=1"], "iri": ""}, {"k": "physicalTable", "label": "物理表", "v": ["月度经营"], "iri": ""}], "sources": {"self": [{"file": "02-meaning.ttl", "line": 35, "text": ":AllStoreMonths a owl:Class ; rdfs:label \"全部门店月（不做任何剔除）\" ;\n    rdfs:subClassOf :StoreMonth ;\n    :physicalTable \"月度经营\" ;\n    :physicalPredicate \"1=1\" ;\n    :businessDescription \"本本体所有指标的行集合：12 行全算，不做任何剔除。这条不是「还没定剔除规则」，是实测过不需要剔除：measured: 6 列全部无空值（条件计数 0 行）；客流量最小 2,700、无 0 值，所以客单价的分母处处可用；12/12 行 退货额 < 营业额，退货率处处落在 0…1 之内。把它显式声明成一个定义类而不是在 S3 里散着写 1=1，是为了让「分母是哪一组行」在图上有个名字：将来若要剔除（例如剔除新店首月），改动点是这一处，而不是每个指标的谓词\" ."}], "related": [], "comments": [{"file": "metrics_ext.ttl", "line": 88, "text": "# 分组不改变口径：仍是 :AllStoreMonths 那 12 行，只按声明的维度切；比率在每个分组里各自"}, {"file": "02-meaning.ttl", "line": 19, "text": "#   全部 12 行都合格：无 NULL、客流量无 0、退货额 < 营业额 12/12 —— 见 :AllStoreMonths。"}, {"file": "metrics_ext.ttl", "line": 88, "text": "# 分组不改变口径：仍是 :AllStoreMonths 那 12 行，只按声明的维度切；比率在每个分组里各自"}]}}, {"id": "m_revenueTotal", "name": "revenueTotal", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "revenueTotal", "iri": "https://cube.local/ontology/store_monthly_v1#revenueTotal", "sub": ":aggregate sum · 营业额", "lines": ["revenueTotal", ":aggregate sum · 营业额"], "refusal": null, "description": null, "sql": "SELECT sum(营业额) AS revenue_total FROM 月度经营;", "value": 1271300.0, "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["sum"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["营业额"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径来自 doc#grill.md D1/D3/D10：营业额 = 毛销售额（未扣退货的含税销售总额），单位元。measured: 12 行合计 sum(营业额) = 1,271,300 元，即编译出来的 SELECT sum(营业额) FROM 月度经营 与本格的第二条手写路线同值（samples.json 的 route）。可加量：跨门店、跨月求和同口径 —— 这也是它能给客单价、退货率当分母（D4/D5）而不随退货额摆动的原因。"], "iri": ""}, {"k": "formula", "label": "公式", "v": ["营业额"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":StoreMonth"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["money"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllStoreMonths"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 47, "text": ":revenueTotal a owl:DatatypeProperty ; rdfs:label \"营业额（元，含税，毛额）\" ;\n    :askedAs \"营业额\" ;\n    :aggregate \"sum\" ; :formula \"营业额\" ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ;\n    :additivity \"additive\" ; :unit \"money\" ;\n    :businessDescription \"口径来自 doc#grill.md D1/D3/D10：营业额 = 毛销售额（未扣退货的含税销售总额），单位元。measured: 12 行合计 sum(营业额) = 1,271,300 元，即编译出来的 SELECT sum(营业额) FROM 月度经营 与本格的第二条手写路线同值（samples.json 的 route）。可加量：跨门店、跨月求和同口径 —— 这也是它能给客单价、退货率当分母（D4/D5）而不随退货额摆动的原因。\" ."}, {"file": "metrics_ext.ttl", "line": 47, "text": ":revenueTotal a owl:DatatypeProperty ; rdfs:label \"营业额（元，含税，毛额）\" ;\n    :askedAs \"营业额\" ;\n    :aggregate \"sum\" ; :formula \"营业额\" ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ;\n    :additivity \"additive\" ; :unit \"money\" ;\n    :businessDescription \"口径来自 doc#grill.md D1/D3/D10：营业额 = 毛销售额（未扣退货的含税销售总额），单位元。measured: 12 行合计 sum(营业额) = 1,271,300 元，即编译出来的 SELECT sum(营业额) FROM 月度经营 与本格的第二条手写路线同值（samples.json 的 route）。可加量：跨门店、跨月求和同口径 —— 这也是它能给客单价、退货率当分母（D4/D5）而不随退货额摆动的原因。\" ."}], "related": [], "comments": []}}, {"id": "m_trafficTotal", "name": "trafficTotal", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "trafficTotal", "iri": "https://cube.local/ontology/store_monthly_v1#trafficTotal", "sub": ":aggregate sum · 客流量", "lines": ["trafficTotal", ":aggregate sum · 客流量"], "refusal": null, "description": null, "sql": "SELECT sum(客流量) AS traffic_total FROM 月度经营;", "value": 52800.0, "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["sum"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["客流量"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径来自 doc#grill.md D1：客流量 = 进店人次（库里没有会员/单据标识，无法去重到人）。measured: 12 行合计 52,800 人次；单行最小 2,700、**无 0 值**，所以它作客单价分母时处处有定义（除零在这份数据上不会发生）。单位记 \"count\"（整数计数，与 02-meaning.ttl 的 :traffic 声明一致）：它不是金额，也不是比率，渲染成裸数字加「人次」才是对的。"], "iri": ""}, {"k": "formula", "label": "公式", "v": ["客流量"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":StoreMonth"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["count"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllStoreMonths"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 54, "text": ":trafficTotal a owl:DatatypeProperty ; rdfs:label \"客流量（人次）\" ;\n    :askedAs \"客流量\" ;\n    :aggregate \"sum\" ; :formula \"客流量\" ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ;\n    :additivity \"additive\" ; :unit \"count\" ;\n    :businessDescription \"口径来自 doc#grill.md D1：客流量 = 进店人次（库里没有会员/单据标识，无法去重到人）。measured: 12 行合计 52,800 人次；单行最小 2,700、**无 0 值**，所以它作客单价分母时处处有定义（除零在这份数据上不会发生）。单位记 \\\"count\\\"（整数计数，与 02-meaning.ttl 的 :traffic 声明一致）：它不是金额，也不是比率，渲染成裸数字加「人次」才是对的。\" ."}, {"file": "metrics_ext.ttl", "line": 54, "text": ":trafficTotal a owl:DatatypeProperty ; rdfs:label \"客流量（人次）\" ;\n    :askedAs \"客流量\" ;\n    :aggregate \"sum\" ; :formula \"客流量\" ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ;\n    :additivity \"additive\" ; :unit \"count\" ;\n    :businessDescription \"口径来自 doc#grill.md D1：客流量 = 进店人次（库里没有会员/单据标识，无法去重到人）。measured: 12 行合计 52,800 人次；单行最小 2,700、**无 0 值**，所以它作客单价分母时处处有定义（除零在这份数据上不会发生）。单位记 \\\"count\\\"（整数计数，与 02-meaning.ttl 的 :traffic 声明一致）：它不是金额，也不是比率，渲染成裸数字加「人次」才是对的。\" ."}], "related": [], "comments": []}}, {"id": "m_returnAmountTotal", "name": "returnAmountTotal", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "returnAmountTotal", "iri": "https://cube.local/ontology/store_monthly_v1#returnAmountTotal", "sub": ":aggregate sum · 退货额", "lines": ["returnAmountTotal", ":aggregate sum · 退货额"], "refusal": null, "description": null, "sql": "SELECT sum(退货额) AS return_amount_total FROM 月度经营;", "value": 28150.0, "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["sum"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["退货额"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径来自 doc#grill.md D5/D10：退货额 = 与营业额同口径的含税退货金额，单位元。measured: 12 行合计 28,150 元，12/12 行 退货额 < 营业额。它是 D12 的**必然副产品**：ratio_of_sums 要求分子本身是一个可独立编译的 sum 指标，所以它出现在菜单上；但**它不是看板 KPI** —— D1 只点了四个数，grill 第 3 节把「退货额是否独立成卡」列为有意未定项，本层不替用户决定上不上板。"], "iri": ""}, {"k": "formula", "label": "公式", "v": ["退货额"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":StoreMonth"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["money"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllStoreMonths"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 61, "text": ":returnAmountTotal a owl:DatatypeProperty ; rdfs:label \"退货额（元，含税）\" ;\n    :askedAs \"退货额\" ;\n    :aggregate \"sum\" ; :formula \"退货额\" ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ;\n    :additivity \"additive\" ; :unit \"money\" ;\n    :businessDescription \"口径来自 doc#grill.md D5/D10：退货额 = 与营业额同口径的含税退货金额，单位元。measured: 12 行合计 28,150 元，12/12 行 退货额 < 营业额。它是 D12 的**必然副产品**：ratio_of_sums 要求分子本身是一个可独立编译的 sum 指标，所以它出现在菜单上；但**它不是看板 KPI** —— D1 只点了四个数，grill 第 3 节把「退货额是否独立成卡」列为有意未定项，本层不替用户决定上不上板。\" ."}, {"file": "metrics_ext.ttl", "line": 61, "text": ":returnAmountTotal a owl:DatatypeProperty ; rdfs:label \"退货额（元，含税）\" ;\n    :askedAs \"退货额\" ;\n    :aggregate \"sum\" ; :formula \"退货额\" ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ;\n    :additivity \"additive\" ; :unit \"money\" ;\n    :businessDescription \"口径来自 doc#grill.md D5/D10：退货额 = 与营业额同口径的含税退货金额，单位元。measured: 12 行合计 28,150 元，12/12 行 退货额 < 营业额。它是 D12 的**必然副产品**：ratio_of_sums 要求分子本身是一个可独立编译的 sum 指标，所以它出现在菜单上；但**它不是看板 KPI** —— D1 只点了四个数，grill 第 3 节把「退货额是否独立成卡」列为有意未定项，本层不替用户决定上不上板。\" ."}], "related": [], "comments": []}}, {"id": "m_avgTicket", "name": "avgTicket", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "avgTicket", "iri": "https://cube.local/ontology/store_monthly_v1#avgTicket", "sub": ":aggregate ratio_of_sums · concept", "lines": ["avgTicket", ":aggregate ratio_of_sums · concept"], "refusal": null, "description": null, "sql": "SELECT ((SELECT sum(营业额) AS revenue_total FROM 月度经营)::numeric) / NULLIF((SELECT sum(客流量) AS traffic_total FROM 月度经营), 0) AS avg_ticket;", "value": 24.077651515151516, "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["non-additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["ratio_of_sums"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["客单价"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径来自 doc#grill.md D4（客单价 = 营业额 ÷ 客流量）+ D11（以公式为准，存量 客单价 列只作对账第二路径）+ D12（合计层先加总再相除）。measured: 编译出的 SQL 是 ((SELECT sum(营业额))::numeric) / NULLIF((SELECT sum(客流量)),0) = 24.0776515151515152 元/人次；12 行比率的算术平均是 23.480833 —— 两个数不相等，本指标取前者（每进来一个人次花多少钱）。单位 \"money_per_visit\" 自解释：元/人次，不是无单位的 ratio。"], "iri": ""}, {"k": "denominator", "label": "denominator", "v": [":trafficTotal"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":StoreMonth"], "iri": ""}, {"k": "numerator", "label": "numerator", "v": [":revenueTotal"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["money_per_visit"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllStoreMonths"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 72, "text": ":avgTicket a owl:DatatypeProperty ; rdfs:label \"客单价（元/人次）\" ;\n    :askedAs \"客单价\" ;\n    :aggregate \"ratio_of_sums\" ; :numerator :revenueTotal ; :denominator :trafficTotal ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ;\n    :additivity \"non-additive\" ; :unit \"money_per_visit\" ;\n    :businessDescription \"口径来自 doc#grill.md D4（客单价 = 营业额 ÷ 客流量）+ D11（以公式为准，存量 客单价 列只作对账第二路径）+ D12（合计层先加总再相除）。measured: 编译出的 SQL 是 ((SELECT sum(营业额))::numeric) / NULLIF((SELECT sum(客流量)),0) = 24.0776515151515152 元/人次；12 行比率的算术平均是 23.480833 —— 两个数不相等，本指标取前者（每进来一个人次花多少钱）。单位 \\\"money_per_visit\\\" 自解释：元/人次，不是无单位的 ratio。\" ."}, {"file": "metrics_ext.ttl", "line": 72, "text": ":avgTicket a owl:DatatypeProperty ; rdfs:label \"客单价（元/人次）\" ;\n    :askedAs \"客单价\" ;\n    :aggregate \"ratio_of_sums\" ; :numerator :revenueTotal ; :denominator :trafficTotal ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ;\n    :additivity \"non-additive\" ; :unit \"money_per_visit\" ;\n    :businessDescription \"口径来自 doc#grill.md D4（客单价 = 营业额 ÷ 客流量）+ D11（以公式为准，存量 客单价 列只作对账第二路径）+ D12（合计层先加总再相除）。measured: 编译出的 SQL 是 ((SELECT sum(营业额))::numeric) / NULLIF((SELECT sum(客流量)),0) = 24.0776515151515152 元/人次；12 行比率的算术平均是 23.480833 —— 两个数不相等，本指标取前者（每进来一个人次花多少钱）。单位 \\\"money_per_visit\\\" 自解释：元/人次，不是无单位的 ratio。\" ."}], "related": [], "comments": []}}, {"id": "m_returnRate", "name": "returnRate", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "returnRate", "iri": "https://cube.local/ontology/store_monthly_v1#returnRate", "sub": ":aggregate ratio_of_sums · concept", "lines": ["returnRate", ":aggregate ratio_of_sums · concept"], "refusal": null, "description": null, "sql": "SELECT ((SELECT sum(退货额) AS return_amount_total FROM 月度经营)::numeric) / NULLIF((SELECT sum(营业额) AS revenue_total FROM 月度经营), 0) AS return_rate;", "value": 0.022142688586486273, "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["non-additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["ratio_of_sums"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["退货率"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径来自 doc#grill.md D5（退货率 = 退货额 ÷ 营业额）+ D10（分母是毛销售额）+ D12（合计先加总再相除）。measured: 编译出的 SQL 是 ((SELECT sum(退货额))::numeric) / NULLIF((SELECT sum(营业额)),0) = 0.02214268858648627389（2.21%），与手写 SQL sum(退货额)/sum(营业额) 同值；单行 0.0128…0.0273。**单位只写 \"ratio\"、不写 :scale**：本仓看板渲染器对 unit=ratio 自己 ×100 显示成百分比（run_dashboard._fmt 的实测行为），再声明 :scale \"100.0\" 会乘两次、退货率变 221%。D13：没有红线、没有「多少算超标」，护栏只做质量检查（行数/超时/除零），不做业务判定。"], "iri": ""}, {"k": "denominator", "label": "denominator", "v": [":revenueTotal"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":StoreMonth"], "iri": ""}, {"k": "numerator", "label": "numerator", "v": [":returnAmountTotal"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["ratio"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllStoreMonths"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 79, "text": ":returnRate a owl:DatatypeProperty ; rdfs:label \"退货率\" ;\n    :askedAs \"退货率\" ;\n    :aggregate \"ratio_of_sums\" ; :numerator :returnAmountTotal ; :denominator :revenueTotal ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ;\n    :additivity \"non-additive\" ; :unit \"ratio\" ;\n    :businessDescription \"口径来自 doc#grill.md D5（退货率 = 退货额 ÷ 营业额）+ D10（分母是毛销售额）+ D12（合计先加总再相除）。measured: 编译出的 SQL 是 ((SELECT sum(退货额))::numeric) / NULLIF((SELECT sum(营业额)),0) = 0.02214268858648627389（2.21%），与手写 SQL sum(退货额)/sum(营业额) 同值；单行 0.0128…0.0273。**单位只写 \\\"ratio\\\"、不写 :scale**：本仓看板渲染器对 unit=ratio 自己 ×100 显示成百分比（run_dashboard._fmt 的实测行为），再声明 :scale \\\"100.0\\\" 会乘两次、退货率变 221%。D13：没有红线、没有「多少算超标」，护栏只做质量检查（行数/超时/除零），不做业务判定。\" ."}, {"file": "metrics_ext.ttl", "line": 79, "text": ":returnRate a owl:DatatypeProperty ; rdfs:label \"退货率\" ;\n    :askedAs \"退货率\" ;\n    :aggregate \"ratio_of_sums\" ; :numerator :returnAmountTotal ; :denominator :revenueTotal ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ;\n    :additivity \"non-additive\" ; :unit \"ratio\" ;\n    :businessDescription \"口径来自 doc#grill.md D5（退货率 = 退货额 ÷ 营业额）+ D10（分母是毛销售额）+ D12（合计先加总再相除）。measured: 编译出的 SQL 是 ((SELECT sum(退货额))::numeric) / NULLIF((SELECT sum(营业额)),0) = 0.02214268858648627389（2.21%），与手写 SQL sum(退货额)/sum(营业额) 同值；单行 0.0128…0.0273。**单位只写 \\\"ratio\\\"、不写 :scale**：本仓看板渲染器对 unit=ratio 自己 ×100 显示成百分比（run_dashboard._fmt 的实测行为），再声明 :scale \\\"100.0\\\" 会乘两次、退货率变 221%。D13：没有红线、没有「多少算超标」，护栏只做质量检查（行数/超时/除零），不做业务判定。\" ."}], "related": [], "comments": []}}, {"id": "m_revenueTotalByStore", "name": "revenueTotalByStore", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "revenueTotalByStore", "iri": "https://cube.local/ontology/store_monthly_v1#revenueTotalByStore", "sub": ":aggregate sum · 营业额", "lines": ["revenueTotalByStore", ":aggregate sum · 营业额"], "refusal": null, "description": null, "sql": "SELECT 门店.门店名 AS revenue_total_by_store_key1, sum(营业额) AS revenue_total_by_store FROM 月度经营 JOIN 门店 ON 月度经营.门店编码 = 门店.门店编码 GROUP BY 门店.门店名 ORDER BY 2 DESC;", "value": "天河城店=457500 · 新街口店=374800 · 五道口店=256700 · 春熙路店=182300", "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["sum"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["按门店看营业额"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径来自 doc#grill.md D2（维度=门店）+ D15（门店×月矩阵的行）。按 门店.门店名 分组（经 :storeOf 声明的链接 JOIN 门店 表）。measured: 4 组 —— 新街口店 374,800 / 五道口店 256,700 / 天河城店 457,500 / 春熙路店 182,300，合计 1,271,300，与合计层一致。"], "iri": ""}, {"k": "formula", "label": "公式", "v": ["营业额"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":StoreMonth"], "iri": ""}, {"k": "groupBy", "label": "groupBy", "v": [":store_name"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["money"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllStoreMonths"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 92, "text": ":revenueTotalByStore a owl:DatatypeProperty ; rdfs:label \"按门店看营业额\" ;\n    :askedAs \"按门店看营业额\" ;\n    :aggregate \"sum\" ; :formula \"营业额\" ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :store_name ;\n    :additivity \"additive\" ; :unit \"money\" ;\n    :businessDescription \"口径来自 doc#grill.md D2（维度=门店）+ D15（门店×月矩阵的行）。按 门店.门店名 分组（经 :storeOf 声明的链接 JOIN 门店 表）。measured: 4 组 —— 新街口店 374,800 / 五道口店 256,700 / 天河城店 457,500 / 春熙路店 182,300，合计 1,271,300，与合计层一致。\" ."}, {"file": "metrics_ext.ttl", "line": 92, "text": ":revenueTotalByStore a owl:DatatypeProperty ; rdfs:label \"按门店看营业额\" ;\n    :askedAs \"按门店看营业额\" ;\n    :aggregate \"sum\" ; :formula \"营业额\" ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :store_name ;\n    :additivity \"additive\" ; :unit \"money\" ;\n    :businessDescription \"口径来自 doc#grill.md D2（维度=门店）+ D15（门店×月矩阵的行）。按 门店.门店名 分组（经 :storeOf 声明的链接 JOIN 门店 表）。measured: 4 组 —— 新街口店 374,800 / 五道口店 256,700 / 天河城店 457,500 / 春熙路店 182,300，合计 1,271,300，与合计层一致。\" ."}], "related": [], "comments": []}}, {"id": "m_revenueTotalByMonth", "name": "revenueTotalByMonth", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "revenueTotalByMonth", "iri": "https://cube.local/ontology/store_monthly_v1#revenueTotalByMonth", "sub": ":aggregate sum · 营业额", "lines": ["revenueTotalByMonth", ":aggregate sum · 营业额"], "refusal": null, "description": null, "sql": "SELECT 月度经营.月份 AS revenue_total_by_month_key1, sum(营业额) AS revenue_total_by_month FROM 月度经营 GROUP BY 月度经营.月份 ORDER BY 2 DESC;", "value": "2026-03=453800 · 2026-01=430400 · 2026-02=387100", "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["sum"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["按月份看营业额"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径来自 doc#grill.md D2（维度=月份）+ D14（3 个月平铺、允许环比）+ D15（月度趋势线 3 点）。按 月份 直接分组：它已是 YYYY-MM 文本，不需要 date_trunc，也不声明 :timeBucket（实测两条日期路径在库里都报类型错误，见文件头）。measured: 2026-01 430,400 / 2026-02 387,100 / 2026-03 453,800。"], "iri": ""}, {"k": "formula", "label": "公式", "v": ["营业额"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":StoreMonth"], "iri": ""}, {"k": "groupBy", "label": "groupBy", "v": [":month"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["money"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllStoreMonths"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 99, "text": ":revenueTotalByMonth a owl:DatatypeProperty ; rdfs:label \"按月份看营业额\" ;\n    :askedAs \"按月份看营业额\" ;\n    :aggregate \"sum\" ; :formula \"营业额\" ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :month ;\n    :additivity \"additive\" ; :unit \"money\" ;\n    :businessDescription \"口径来自 doc#grill.md D2（维度=月份）+ D14（3 个月平铺、允许环比）+ D15（月度趋势线 3 点）。按 月份 直接分组：它已是 YYYY-MM 文本，不需要 date_trunc，也不声明 :timeBucket（实测两条日期路径在库里都报类型错误，见文件头）。measured: 2026-01 430,400 / 2026-02 387,100 / 2026-03 453,800。\" ."}, {"file": "metrics_ext.ttl", "line": 99, "text": ":revenueTotalByMonth a owl:DatatypeProperty ; rdfs:label \"按月份看营业额\" ;\n    :askedAs \"按月份看营业额\" ;\n    :aggregate \"sum\" ; :formula \"营业额\" ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :month ;\n    :additivity \"additive\" ; :unit \"money\" ;\n    :businessDescription \"口径来自 doc#grill.md D2（维度=月份）+ D14（3 个月平铺、允许环比）+ D15（月度趋势线 3 点）。按 月份 直接分组：它已是 YYYY-MM 文本，不需要 date_trunc，也不声明 :timeBucket（实测两条日期路径在库里都报类型错误，见文件头）。measured: 2026-01 430,400 / 2026-02 387,100 / 2026-03 453,800。\" ."}], "related": [], "comments": []}}, {"id": "m_trafficTotalByStore", "name": "trafficTotalByStore", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "trafficTotalByStore", "iri": "https://cube.local/ontology/store_monthly_v1#trafficTotalByStore", "sub": ":aggregate sum · 客流量", "lines": ["trafficTotalByStore", ":aggregate sum · 客流量"], "refusal": null, "description": null, "sql": "SELECT 门店.门店名 AS traffic_total_by_store_key1, sum(客流量) AS traffic_total_by_store FROM 月度经营 JOIN 门店 ON 月度经营.门店编码 = 门店.门店编码 GROUP BY 门店.门店名 ORDER BY 2 DESC;", "value": "天河城店=16600 · 新街口店=15100 · 五道口店=12200 · 春熙路店=8900", "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["sum"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["按门店看客流量"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径来自 doc#grill.md D2 + D16（复盘要回答「哪家店掉队了，掉在客流、客单价，还是退货」）。按 门店名 分组。measured: 新街口 15,100 / 五道口 12,200 / 天河城 16,600 / 春熙路 8,900 人次，合计 52,800。"], "iri": ""}, {"k": "formula", "label": "公式", "v": ["客流量"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":StoreMonth"], "iri": ""}, {"k": "groupBy", "label": "groupBy", "v": [":store_name"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["count"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllStoreMonths"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 106, "text": ":trafficTotalByStore a owl:DatatypeProperty ; rdfs:label \"按门店看客流量\" ;\n    :askedAs \"按门店看客流量\" ;\n    :aggregate \"sum\" ; :formula \"客流量\" ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :store_name ;\n    :additivity \"additive\" ; :unit \"count\" ;\n    :businessDescription \"口径来自 doc#grill.md D2 + D16（复盘要回答「哪家店掉队了，掉在客流、客单价，还是退货」）。按 门店名 分组。measured: 新街口 15,100 / 五道口 12,200 / 天河城 16,600 / 春熙路 8,900 人次，合计 52,800。\" ."}, {"file": "metrics_ext.ttl", "line": 106, "text": ":trafficTotalByStore a owl:DatatypeProperty ; rdfs:label \"按门店看客流量\" ;\n    :askedAs \"按门店看客流量\" ;\n    :aggregate \"sum\" ; :formula \"客流量\" ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :store_name ;\n    :additivity \"additive\" ; :unit \"count\" ;\n    :businessDescription \"口径来自 doc#grill.md D2 + D16（复盘要回答「哪家店掉队了，掉在客流、客单价，还是退货」）。按 门店名 分组。measured: 新街口 15,100 / 五道口 12,200 / 天河城 16,600 / 春熙路 8,900 人次，合计 52,800。\" ."}], "related": [], "comments": []}}, {"id": "m_trafficTotalByMonth", "name": "trafficTotalByMonth", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "trafficTotalByMonth", "iri": "https://cube.local/ontology/store_monthly_v1#trafficTotalByMonth", "sub": ":aggregate sum · 客流量", "lines": ["trafficTotalByMonth", ":aggregate sum · 客流量"], "refusal": null, "description": null, "sql": "SELECT 月度经营.月份 AS traffic_total_by_month_key1, sum(客流量) AS traffic_total_by_month FROM 月度经营 GROUP BY 月度经营.月份 ORDER BY 2 DESC;", "value": "2026-03=18900 · 2026-01=17900 · 2026-02=16000", "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["sum"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["按月份看客流量"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径来自 doc#grill.md D2/D14。按 月份 分组。measured: 2026-01 17,900 / 2026-02 16,000 / 2026-03 18,900 人次，合计 52,800。趋势线看营业额时，这一条是「掉的是客流还是客单价」的分母。"], "iri": ""}, {"k": "formula", "label": "公式", "v": ["客流量"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":StoreMonth"], "iri": ""}, {"k": "groupBy", "label": "groupBy", "v": [":month"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["count"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllStoreMonths"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 113, "text": ":trafficTotalByMonth a owl:DatatypeProperty ; rdfs:label \"按月份看客流量\" ;\n    :askedAs \"按月份看客流量\" ;\n    :aggregate \"sum\" ; :formula \"客流量\" ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :month ;\n    :additivity \"additive\" ; :unit \"count\" ;\n    :businessDescription \"口径来自 doc#grill.md D2/D14。按 月份 分组。measured: 2026-01 17,900 / 2026-02 16,000 / 2026-03 18,900 人次，合计 52,800。趋势线看营业额时，这一条是「掉的是客流还是客单价」的分母。\" ."}, {"file": "metrics_ext.ttl", "line": 113, "text": ":trafficTotalByMonth a owl:DatatypeProperty ; rdfs:label \"按月份看客流量\" ;\n    :askedAs \"按月份看客流量\" ;\n    :aggregate \"sum\" ; :formula \"客流量\" ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :month ;\n    :additivity \"additive\" ; :unit \"count\" ;\n    :businessDescription \"口径来自 doc#grill.md D2/D14。按 月份 分组。measured: 2026-01 17,900 / 2026-02 16,000 / 2026-03 18,900 人次，合计 52,800。趋势线看营业额时，这一条是「掉的是客流还是客单价」的分母。\" ."}], "related": [], "comments": []}}, {"id": "m_avgTicketByStore", "name": "avgTicketByStore", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "avgTicketByStore", "iri": "https://cube.local/ontology/store_monthly_v1#avgTicketByStore", "sub": ":aggregate ratio_of_sums · concept", "lines": ["avgTicketByStore", ":aggregate ratio_of_sums · concept"], "refusal": null, "description": null, "sql": "SELECT 门店.门店名 AS avg_ticket_by_store_key1, ((sum(营业额))::numeric) / NULLIF((sum(客流量)), 0) AS avg_ticket_by_store FROM 月度经营 JOIN 门店 ON 月度经营.门店编码 = 门店.门店编码 GROUP BY 门店.门店名 ORDER BY 2 DESC;", "value": "天河城店=27.5602409638554217 · 新街口店=24.8211920529801325 · 五道口店=21.0409836065573770 · 春熙路店=20.4831460674157303", "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["non-additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["ratio_of_sums"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["按门店看客单价"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径来自 doc#grill.md D4 + D12：每个门店各自 sum(营业额)/sum(客流量)，不是把该店 3 个月的比率取平均。measured: 编译出的 SQL 是 ((sum(营业额))::numeric) / NULLIF((sum(客流量)),0) … GROUP BY 门店.门店名，值 24.8212 / 21.0410 / 27.5602 / 20.4831 元/人次（新街口/五道口/天河城/春熙路）；四店合计口径 24.0777 —— 合计不等于四者平均，正因为它是加总后再相除。"], "iri": ""}, {"k": "denominator", "label": "denominator", "v": [":trafficTotal"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":StoreMonth"], "iri": ""}, {"k": "groupBy", "label": "groupBy", "v": [":store_name"], "iri": ""}, {"k": "numerator", "label": "numerator", "v": [":revenueTotal"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["money_per_visit"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllStoreMonths"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 120, "text": ":avgTicketByStore a owl:DatatypeProperty ; rdfs:label \"按门店看客单价\" ;\n    :askedAs \"按门店看客单价\" ;\n    :aggregate \"ratio_of_sums\" ; :numerator :revenueTotal ; :denominator :trafficTotal ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :store_name ;\n    :additivity \"non-additive\" ; :unit \"money_per_visit\" ;\n    :businessDescription \"口径来自 doc#grill.md D4 + D12：每个门店各自 sum(营业额)/sum(客流量)，不是把该店 3 个月的比率取平均。measured: 编译出的 SQL 是 ((sum(营业额))::numeric) / NULLIF((sum(客流量)),0) … GROUP BY 门店.门店名，值 24.8212 / 21.0410 / 27.5602 / 20.4831 元/人次（新街口/五道口/天河城/春熙路）；四店合计口径 24.0777 —— 合计不等于四者平均，正因为它是加总后再相除。\" ."}, {"file": "metrics_ext.ttl", "line": 120, "text": ":avgTicketByStore a owl:DatatypeProperty ; rdfs:label \"按门店看客单价\" ;\n    :askedAs \"按门店看客单价\" ;\n    :aggregate \"ratio_of_sums\" ; :numerator :revenueTotal ; :denominator :trafficTotal ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :store_name ;\n    :additivity \"non-additive\" ; :unit \"money_per_visit\" ;\n    :businessDescription \"口径来自 doc#grill.md D4 + D12：每个门店各自 sum(营业额)/sum(客流量)，不是把该店 3 个月的比率取平均。measured: 编译出的 SQL 是 ((sum(营业额))::numeric) / NULLIF((sum(客流量)),0) … GROUP BY 门店.门店名，值 24.8212 / 21.0410 / 27.5602 / 20.4831 元/人次（新街口/五道口/天河城/春熙路）；四店合计口径 24.0777 —— 合计不等于四者平均，正因为它是加总后再相除。\" ."}], "related": [], "comments": []}}, {"id": "m_avgTicketByMonth", "name": "avgTicketByMonth", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "avgTicketByMonth", "iri": "https://cube.local/ontology/store_monthly_v1#avgTicketByMonth", "sub": ":aggregate ratio_of_sums · concept", "lines": ["avgTicketByMonth", ":aggregate ratio_of_sums · concept"], "refusal": null, "description": null, "sql": "SELECT 月度经营.月份 AS avg_ticket_by_month_key1, ((sum(营业额))::numeric) / NULLIF((sum(客流量)), 0) AS avg_ticket_by_month FROM 月度经营 GROUP BY 月度经营.月份 ORDER BY 2 DESC;", "value": "2026-02=24.1937500000000000 · 2026-01=24.0446927374301676 · 2026-03=24.0105820105820106", "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["non-additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["ratio_of_sums"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["按月份看客单价"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径来自 doc#grill.md D4 + D12 + D14（月环比是这份数据唯一能看的走向）。每月各自 sum(营业额)/sum(客流量)。measured: 2026-01 24.0447 / 2026-02 24.1938 / 2026-03 24.0106 元/人次。"], "iri": ""}, {"k": "denominator", "label": "denominator", "v": [":trafficTotal"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":StoreMonth"], "iri": ""}, {"k": "groupBy", "label": "groupBy", "v": [":month"], "iri": ""}, {"k": "numerator", "label": "numerator", "v": [":revenueTotal"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["money_per_visit"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllStoreMonths"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 127, "text": ":avgTicketByMonth a owl:DatatypeProperty ; rdfs:label \"按月份看客单价\" ;\n    :askedAs \"按月份看客单价\" ;\n    :aggregate \"ratio_of_sums\" ; :numerator :revenueTotal ; :denominator :trafficTotal ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :month ;\n    :additivity \"non-additive\" ; :unit \"money_per_visit\" ;\n    :businessDescription \"口径来自 doc#grill.md D4 + D12 + D14（月环比是这份数据唯一能看的走向）。每月各自 sum(营业额)/sum(客流量)。measured: 2026-01 24.0447 / 2026-02 24.1938 / 2026-03 24.0106 元/人次。\" ."}, {"file": "metrics_ext.ttl", "line": 127, "text": ":avgTicketByMonth a owl:DatatypeProperty ; rdfs:label \"按月份看客单价\" ;\n    :askedAs \"按月份看客单价\" ;\n    :aggregate \"ratio_of_sums\" ; :numerator :revenueTotal ; :denominator :trafficTotal ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :month ;\n    :additivity \"non-additive\" ; :unit \"money_per_visit\" ;\n    :businessDescription \"口径来自 doc#grill.md D4 + D12 + D14（月环比是这份数据唯一能看的走向）。每月各自 sum(营业额)/sum(客流量)。measured: 2026-01 24.0447 / 2026-02 24.1938 / 2026-03 24.0106 元/人次。\" ."}], "related": [], "comments": []}}, {"id": "m_returnRateByStore", "name": "returnRateByStore", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "returnRateByStore", "iri": "https://cube.local/ontology/store_monthly_v1#returnRateByStore", "sub": ":aggregate ratio_of_sums · concept", "lines": ["returnRateByStore", ":aggregate ratio_of_sums · concept"], "refusal": null, "description": null, "sql": "SELECT 门店.门店名 AS return_rate_by_store_key1, ((sum(退货额))::numeric) / NULLIF((sum(营业额)), 0) AS return_rate_by_store FROM 月度经营 JOIN 门店 ON 月度经营.门店编码 = 门店.门店编码 GROUP BY 门店.门店名 ORDER BY 2 DESC;", "value": "天河城店=0.02688524590163934426 · 新街口店=0.02321237993596584845 · 五道口店=0.01830931047915855084 · 春熙路店=0.01343938562808557323", "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["non-additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["ratio_of_sums"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["按门店看退货率"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径来自 doc#grill.md D5 + D12：每店各自 sum(退货额)/sum(营业额)。measured: 0.023212 / 0.018309 / 0.026885 / 0.013439（新街口/五道口/天河城/春熙路）。D13：**不设红线**，不给「多少算超标」的判定 —— 这个数只陈述事实，判定要业务给。单位 \"ratio\"、不写 :scale（看板对 ratio 自己 ×100，再写会乘两次）。"], "iri": ""}, {"k": "denominator", "label": "denominator", "v": [":revenueTotal"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":StoreMonth"], "iri": ""}, {"k": "groupBy", "label": "groupBy", "v": [":store_name"], "iri": ""}, {"k": "numerator", "label": "numerator", "v": [":returnAmountTotal"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["ratio"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllStoreMonths"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 134, "text": ":returnRateByStore a owl:DatatypeProperty ; rdfs:label \"按门店看退货率\" ;\n    :askedAs \"按门店看退货率\" ;\n    :aggregate \"ratio_of_sums\" ; :numerator :returnAmountTotal ; :denominator :revenueTotal ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :store_name ;\n    :additivity \"non-additive\" ; :unit \"ratio\" ;\n    :businessDescription \"口径来自 doc#grill.md D5 + D12：每店各自 sum(退货额)/sum(营业额)。measured: 0.023212 / 0.018309 / 0.026885 / 0.013439（新街口/五道口/天河城/春熙路）。D13：**不设红线**，不给「多少算超标」的判定 —— 这个数只陈述事实，判定要业务给。单位 \\\"ratio\\\"、不写 :scale（看板对 ratio 自己 ×100，再写会乘两次）。\" ."}, {"file": "metrics_ext.ttl", "line": 134, "text": ":returnRateByStore a owl:DatatypeProperty ; rdfs:label \"按门店看退货率\" ;\n    :askedAs \"按门店看退货率\" ;\n    :aggregate \"ratio_of_sums\" ; :numerator :returnAmountTotal ; :denominator :revenueTotal ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :store_name ;\n    :additivity \"non-additive\" ; :unit \"ratio\" ;\n    :businessDescription \"口径来自 doc#grill.md D5 + D12：每店各自 sum(退货额)/sum(营业额)。measured: 0.023212 / 0.018309 / 0.026885 / 0.013439（新街口/五道口/天河城/春熙路）。D13：**不设红线**，不给「多少算超标」的判定 —— 这个数只陈述事实，判定要业务给。单位 \\\"ratio\\\"、不写 :scale（看板对 ratio 自己 ×100，再写会乘两次）。\" ."}], "related": [], "comments": []}}, {"id": "m_returnRateByMonth", "name": "returnRateByMonth", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "returnRateByMonth", "iri": "https://cube.local/ontology/store_monthly_v1#returnRateByMonth", "sub": ":aggregate ratio_of_sums · concept", "lines": ["returnRateByMonth", ":aggregate ratio_of_sums · concept"], "refusal": null, "description": null, "sql": "SELECT 月度经营.月份 AS return_rate_by_month_key1, ((sum(退货额))::numeric) / NULLIF((sum(营业额)), 0) AS return_rate_by_month FROM 月度经营 GROUP BY 月度经营.月份 ORDER BY 2 DESC;", "value": "2026-02=0.02324980625161456988 · 2026-01=0.02253717472118959108 · 2026-03=0.02082415160863816659", "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["non-additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["ratio_of_sums"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["按月份看退货率"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径来自 doc#grill.md D5 + D12 + D14。每月各自 sum(退货额)/sum(营业额)。measured: 2026-01 0.022537 / 2026-02 0.023250 / 2026-03 0.020824。单位 \"ratio\"、不写 :scale（同 returnRate：双乘会变成 2.25%→225%）。D13：无红绿灯。"], "iri": ""}, {"k": "denominator", "label": "denominator", "v": [":revenueTotal"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":StoreMonth"], "iri": ""}, {"k": "groupBy", "label": "groupBy", "v": [":month"], "iri": ""}, {"k": "numerator", "label": "numerator", "v": [":returnAmountTotal"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["ratio"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllStoreMonths"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 141, "text": ":returnRateByMonth a owl:DatatypeProperty ; rdfs:label \"按月份看退货率\" ;\n    :askedAs \"按月份看退货率\" ;\n    :aggregate \"ratio_of_sums\" ; :numerator :returnAmountTotal ; :denominator :revenueTotal ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :month ;\n    :additivity \"non-additive\" ; :unit \"ratio\" ;\n    :businessDescription \"口径来自 doc#grill.md D5 + D12 + D14。每月各自 sum(退货额)/sum(营业额)。measured: 2026-01 0.022537 / 2026-02 0.023250 / 2026-03 0.020824。单位 \\\"ratio\\\"、不写 :scale（同 returnRate：双乘会变成 2.25%→225%）。D13：无红绿灯。\" ."}, {"file": "metrics_ext.ttl", "line": 141, "text": ":returnRateByMonth a owl:DatatypeProperty ; rdfs:label \"按月份看退货率\" ;\n    :askedAs \"按月份看退货率\" ;\n    :aggregate \"ratio_of_sums\" ; :numerator :returnAmountTotal ; :denominator :revenueTotal ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :month ;\n    :additivity \"non-additive\" ; :unit \"ratio\" ;\n    :businessDescription \"口径来自 doc#grill.md D5 + D12 + D14。每月各自 sum(退货额)/sum(营业额)。measured: 2026-01 0.022537 / 2026-02 0.023250 / 2026-03 0.020824。单位 \\\"ratio\\\"、不写 :scale（同 returnRate：双乘会变成 2.25%→225%）。D13：无红绿灯。\" ."}], "related": [], "comments": []}}, {"id": "m_revenueTotalByStoreMonth", "name": "revenueTotalByStoreMonth", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "revenueTotalByStoreMonth", "iri": "https://cube.local/ontology/store_monthly_v1#revenueTotalByStoreMonth", "sub": ":aggregate sum · 营业额", "lines": ["revenueTotalByStoreMonth", ":aggregate sum · 营业额"], "refusal": null, "description": null, "sql": "SELECT 月度经营.月份 AS revenue_total_by_store_month_key1, 门店.门店名 AS revenue_total_by_store_month_key2, sum(营业额) AS revenue_total_by_store_month FROM 月度经营 JOIN 门店 ON 月度经营.门店编码 = 门店.门店编码 GROUP BY 月度经营.月份, 门店.门店名 ORDER BY 3 DESC;", "value": "2026-03 / 天河城店=160500 · 2026-01 / 天河城店=154200 · 2026-02 / 天河城店=142800 · 2026-03 / 新街口店=135900", "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["sum"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["按门店和月份看营业额"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径来自 doc#grill.md D2 + D15（看板第 ② 块 = 门店×月矩阵 4×3）。两个维度一起分组，正好还原 12 行事实（(门店编码, 月份) 唯一，measured: count(distinct (门店编码,月份)) = 12 = count(*)），所以这一格没有聚合损失，也没有「缺失月」需要补 0。编译器把双键渲染成「月份 / 门店名」（nl.py 用 ' / ' 拼接 keys），实测 12 组全部与手写 SQL 对上。"], "iri": ""}, {"k": "formula", "label": "公式", "v": ["营业额"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":StoreMonth"], "iri": ""}, {"k": "groupBy", "label": "groupBy", "v": [":month", ":store_name"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["money"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllStoreMonths"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 148, "text": ":revenueTotalByStoreMonth a owl:DatatypeProperty ; rdfs:label \"按门店和月份看营业额\" ;\n    :askedAs \"按门店和月份看营业额\" ;\n    :aggregate \"sum\" ; :formula \"营业额\" ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :month, :store_name ;\n    :additivity \"additive\" ; :unit \"money\" ;\n    :businessDescription \"口径来自 doc#grill.md D2 + D15（看板第 ② 块 = 门店×月矩阵 4×3）。两个维度一起分组，正好还原 12 行事实（(门店编码, 月份) 唯一，measured: count(distinct (门店编码,月份)) = 12 = count(*)），所以这一格没有聚合损失，也没有「缺失月」需要补 0。编译器把双键渲染成「月份 / 门店名」（nl.py 用 ' / ' 拼接 keys），实测 12 组全部与手写 SQL 对上。\" ."}, {"file": "metrics_ext.ttl", "line": 148, "text": ":revenueTotalByStoreMonth a owl:DatatypeProperty ; rdfs:label \"按门店和月份看营业额\" ;\n    :askedAs \"按门店和月份看营业额\" ;\n    :aggregate \"sum\" ; :formula \"营业额\" ;\n    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :month, :store_name ;\n    :additivity \"additive\" ; :unit \"money\" ;\n    :businessDescription \"口径来自 doc#grill.md D2 + D15（看板第 ② 块 = 门店×月矩阵 4×3）。两个维度一起分组，正好还原 12 行事实（(门店编码, 月份) 唯一，measured: count(distinct (门店编码,月份)) = 12 = count(*)），所以这一格没有聚合损失，也没有「缺失月」需要补 0。编译器把双键渲染成「月份 / 门店名」（nl.py 用 ' / ' 拼接 keys），实测 12 组全部与手写 SQL 对上。\" ."}], "related": [], "comments": []}}], "edges": [{"src": "StoreMonth", "dst": "AllStoreMonths", "label": "subClassOf", "kind": "subclass"}], "pos": {"StoreMonth": [128.6, 74.0, 142.0, 116.0], "Store": [128.6, 207.0, 54.0, 102.5], "Category": [128.6, 320.0, 142.0, 75.5], "AllStoreMonths": [432.7, 74.0, 133.0, 36.0], "m_revenueTotal": [128.6, 423.0, 160.5, 44.2], "m_trafficTotal": [128.6, 491.0, 160.5, 44.2], "m_returnAmountTotal": [128.6, 559.0, 160.5, 44.2], "m_avgTicket": [128.6, 625.0, 225.2, 38.9], "m_returnRate": [128.6, 688.0, 225.2, 38.9], "m_revenueTotalByStore": [128.6, 754.0, 160.5, 44.2], "m_revenueTotalByMonth": [128.6, 822.0, 160.5, 44.2], "m_trafficTotalByStore": [128.6, 890.0, 160.5, 44.2], "m_trafficTotalByMonth": [128.6, 958.0, 160.5, 44.2], "m_avgTicketByStore": [128.6, 1024.0, 225.2, 38.9], "m_avgTicketByMonth": [128.6, 1087.0, 225.2, 38.9], "m_returnRateByStore": [128.6, 1150.0, 225.2, 38.9], "m_returnRateByMonth": [128.6, 1213.0, 225.2, 38.9], "m_revenueTotalByStoreMonth": [128.6, 1279.0, 179.6, 44.2]}, "width": 567, "height": 1397, "missing": [], "note": null, "triples": 310, "files": 4, "sample": 20, "dsn": "store_monthly_xlsx @ 127.0.0.1:5433", "doc": null, "generated": "2026-11-25 14:11", "fingerprint": "b394d2410affc3d1", "counts": {"structure": 3, "meaning": 1, "metrics": 14, "refused": 0, "links": 0}};
+const NS = "http://www.w3.org/2000/svg";
+const svg = document.getElementById("svg"), view = document.getElementById("view");
+const stage = document.getElementById("stage"), panel = document.getElementById("panel");
+const byId = Object.fromEntries(DATA.nodes.map(n => [n.id, n]));
+let scale = 1, tx = 0, ty = 0, selected = null;
+
+// dot's y grows up, so flip once, here, using the box height
+const pos = {};
+for (const [id, b] of Object.entries(DATA.pos)) {
+  const kind = (byId[id] || {}).kind || "";
+  pos[id] = {x: b[0], y: DATA.height - b[1], w: b[2], h: b[3],
+             shape: kind.startsWith("metric") ? "ellipse" : "rect"};
+}
+const have = id => pos[id] !== undefined;
+const centre = id => ({x: pos[id].x, y: pos[id].y});
+// An arrow that ends in the middle of a box says nothing about direction, so each end is
+// pulled back to the border of the node it touches: rectangle for a class, ellipse for a
+// datatype property.
+function border(center, toward, node) {
+  const dx = toward.x - center.x, dy = toward.y - center.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len, uy = dy / len;
+  const hw = Math.max(node.w / 2, 6), hh = Math.max(node.h / 2, 6);
+  const ellipse = node.shape === "ellipse";
+  const t = ellipse
+    ? 1 / Math.sqrt((ux * ux) / (hw * hw) + (uy * uy) / (hh * hh))
+    : Math.min(Math.abs(ux) > 1e-6 ? hw / Math.abs(ux) : Infinity,
+               Math.abs(uy) > 1e-6 ? hh / Math.abs(uy) : Infinity);
+  return {x: center.x + ux * t, y: center.y + uy * t};
+}
+const edgePoints = e => {
+  const a = centre(e.src), b = centre(e.dst);
+  const A = pos[e.src], B = pos[e.dst];
+  return {start: border(a, b, A), end: border(b, a, B)};
+};
+const edgePath = e => {
+  const {start, end} = edgePoints(e), m = (start.x + end.x) / 2;
+  return `M${start.x},${start.y} C${m},${start.y} ${m},${end.y} ${end.x},${end.y}`;
+};
+
+function draw() {
+  const mk = (t, attrs) => { const el = document.createElementNS(NS, t);
+    for (const k in attrs) el.setAttribute(k, attrs[k]); return el };
+  const defs = mk("defs", {});
+  for (const [id, fill] of [["arrow", "#9a9a9a"], ["arrow-hit", "#c99a00"]]) {
+    const marker = mk("marker", {id, viewBox: "0 0 10 10", refX: "9", refY: "5",
+                                 markerWidth: "6", markerHeight: "6", orient: "auto"});
+    marker.appendChild(mk("path", {d: "M0,0 L10,5 L0,10 z", fill}));
+    defs.appendChild(marker);
+  }
+  svg.appendChild(defs);
+  const gEdges = mk("g", {}), gNodes = mk("g", {});
+  view.appendChild(gEdges); view.appendChild(gNodes);
+
+  for (const e of DATA.edges) {
+    if (!have(e.src) || !have(e.dst)) continue;
+    const p = mk("path", {d: edgePath(e), class: "edge " + e.kind,
+                          "data-src": e.src, "data-dst": e.dst,
+                          "marker-end": "url(#arrow)"});
+    const t = mk("title", {}); t.textContent = e.label || e.kind;
+    p.appendChild(t); gEdges.appendChild(p);
+    if (e.label) {
+      const a = centre(e.src), b = centre(e.dst);
+      const lab = mk("text", {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - 3, class: "edge-label",
+                              "text-anchor": "middle", "data-src": e.src, "data-dst": e.dst});
+      lab.textContent = e.label; gEdges.appendChild(lab);
+    }
+  }
+
+  for (const n of DATA.nodes) {
+    if (!have(n.id)) continue;
+    const p = pos[n.id];
+    const g = mk("g", {class: "node " + n.kind, "data-id": n.id,
+                       transform: `translate(${p.x},${p.y})`});
+    if (n.kind.startsWith("metric")) {
+      g.appendChild(mk("ellipse", {rx: p.w / 2, ry: p.h / 2, cx: 0, cy: 0}));
+    } else {
+      g.appendChild(mk("rect", {x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h, rx: 3}));
+    }
+    const lines = n.lines || [n.label];
+    const step = 11, top = -((lines.length - 1) * step) / 2;
+    lines.forEach((text, i) => {
+      const cls = i === 0 ? "name" : (i === 1 ? "sub" : "col");
+      const el = mk("text", {x: 0, y: top + i * step + 3, "text-anchor": "middle", class: cls});
+      el.textContent = text;
+      g.appendChild(el);
+    });
+    const tip = mk("title", {}); tip.textContent = n.id; g.appendChild(tip);
+    gNodes.appendChild(g);
+  }
+  applyTransform();
+}
+const applyTransform = () => view.setAttribute("transform", `translate(${tx},${ty}) scale(${scale})`);
+function fit() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  scale = Math.min(w / DATA.width, h / DATA.height, 1.3);
+  tx = (w - DATA.width * scale) / 2; ty = (h - DATA.height * scale) / 2;
+  applyTransform();
+}
+
+// ── the index ──────────────────────────────────────────────────────────────
+const GROUPS = [["structure", "Classes"], ["meaning", "Defined classes"],
+                ["metric", "Datatype Properties — compiled"],
+                ["metric-refused", "Datatype Properties — refused"]];
+function buildIndex() {
+  const box = document.getElementById("idx");
+  for (const [kind, title] of GROUPS) {
+    const rows = DATA.nodes.filter(n => n.kind === kind);
+    if (!rows.length) continue;
+    const h = document.createElement("div");
+    h.className = "grp";
+    h.dataset.k = kind === "metric-refused" ? "metric" : kind;
+    h.textContent = `${title} (${rows.length})`; box.appendChild(h);
+    for (const n of rows) {
+      const a = document.createElement("a");
+      a.dataset.id = n.id; a.dataset.k = kind;
+      a.textContent = n.label; a.title = n.id;
+      a.onclick = () => show(n.id);
+      box.appendChild(a);
+    }
+  }
+}
+
+// ── the panel ──────────────────────────────────────────────────────────────
+function clearMarks() {
+  document.querySelectorAll(".node").forEach(el => el.classList.remove("hit", "sel", "dim", "reach"));
+  document.querySelectorAll(".edge, .edge-label").forEach(el => {
+    el.classList.remove("hit", "dim"); el.style.display = "";
+  });
+  const scope = document.getElementById("scope"); if (scope) scope.textContent = "";
+}
+// The radius was the wrong idea: what a reader wants to see is the RELATION, not a hop
+// count. `domain` lights the classes this term's properties point at, `range` lights what
+// points at this term — which is how `Region` reaches `Nation` (n_regionkey) and
+// `Customer` (the customerRegion chain) in one step, instead of a 2-hop walk.
+let mode = "both";
+function litBy(id, how) {
+  const out = new Set([id]);
+  for (const e of DATA.edges) {
+    if (how !== "range" && e.src === id) out.add(e.dst);     // my properties, my metrics
+    if (how !== "domain" && e.dst === id) out.add(e.src);    // properties that point at me
+  }
+  return out;
+}
+function setMode(value) {
+  mode = value;
+  document.querySelectorAll("#controls button[data-mode]").forEach(b =>
+    b.classList.toggle("on", b.dataset.mode === value));
+  if (selected) focus(selected);
+}
+function focus(id) {
+  clearMarks();
+  const near = litBy(id, mode);
+  const el = document.querySelector(`.node[data-id="${id}"]`);
+  document.querySelectorAll(".node").forEach(n => {
+    const lit = near.has(n.dataset.id);
+    n.classList.toggle("dim", n !== el && !lit);
+    if (lit) n.classList.add("reach");
+  });
+  if (!el) return;
+  el.classList.add("sel");
+  // In `domain`/`range` mode the other edges are not dimmed — they are removed from the
+  // picture, so what remains IS the answer to "show me the range relations".
+  let shown = 0, total = 0;
+  document.querySelectorAll(".edge, .edge-label").forEach(edge => {
+    // `range` shows only the edges that END here; `domain` only the ones that LEAVE here.
+    // The lit set is still two-way, but the picture is the relation you asked for.
+    const hit = mode === "range" ? edge.dataset.dst === id
+              : mode === "domain" ? edge.dataset.src === id
+              : (near.has(edge.dataset.src) && near.has(edge.dataset.dst));
+    total += edge.classList.contains("edge") ? 1 : 0;
+    shown += edge.classList.contains("edge") && hit ? 1 : 0;
+    edge.style.display = (mode === "both" || hit) ? "" : "none";
+    edge.classList.toggle("hit", hit);
+    edge.classList.toggle("dim", mode === "both" && !hit);
+    if (edge.classList.contains("edge"))
+      edge.setAttribute("marker-end", hit ? "url(#arrow-hit)" : "url(#arrow)");
+  });
+  const scope = document.getElementById("scope");
+  if (scope) scope.textContent =
+    `${mode} · ${near.size}/${DATA.nodes.length} lit · ` +
+    (mode === "both" ? `${total} edges` : `${shown}/${total} edges shown`);
+}
+const esc = s => String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const num = v => typeof v === "number" ? v.toLocaleString(undefined, {maximumFractionDigits: 4}) : v;
+const section = (title, body, cls) =>
+  body ? `<h2>${title}</h2><div class="${cls || ""}">${body}</div>` : "";
+const dbSrc = () => `<div class="src">来自 Postgres · ${DATA.dsn} · 实测于 ${DATA.generated}</div>`;
+function propTable(rows) {
+  if (!rows || !rows.length) return "";
+  const tr = rows.map(r => {
+    const facts = [r.col, r.sqlType, r.unit, r.additivity, r.aggregate && ("aggregate " + r.aggregate)]
+      .filter(Boolean).join(" · ");
+    const tail = r.kind === "object"
+      ? `<span class="file">→ ${esc(r.to || "?")}${r.refs ? " · references " + esc(r.refs) : ""}</span>`
+      : (facts ? `<span class="file">${esc(facts)}</span>` : "");
+    return `<tr><td class="mono">:${esc(r.n)}</td><td>${tail}` +
+      (r.formula ? `<div class="file">formula: ${esc(r.formula)}</div>` : "") + `</td></tr>`;
+  }).join("");
+  return `<table class="ann">${tr}</table>`;
+}
+function rangeTable(rows) {
+  if (!rows || !rows.length) return "";
+  return `<table class="ann">` + rows.map(r => {
+    // A plain link names its :domain. A derived one has none, so name the chain instead —
+    // and its origin, which is the first hop's :domain, not a guess.
+    let src;
+    if (r.from) src = `from :${esc(r.from)}`;
+    else if (r.chain && r.chain.length)
+      src = `derived: ${r.chain.map(h => ":" + esc(h)).join(" → ")}` +
+            (r.chain_start ? ` · from :${esc(r.chain_start)}` : "");
+    else src = "no :domain declared";
+    return `<tr><td class="mono">:${esc(r.n)}</td><td><span class="file">${src}</span></td></tr>`;
+  }).join("") + `</table>`;
+}
+function indivTable(sample, rule, objects) {
+  // Tabular, like the SQL it came from: one row per object, every column of the physical
+  // row, and a last column with the defined classes the row satisfies (evaluated from the
+  // axiom — the membership is never stored).
+  if (objects && objects.length) {
+    const cols = [];
+    objects.forEach(o => o.props.forEach(([k]) => { if (!cols.includes(k)) cols.push(k); }));
+    const idcol = c => /(^|_)id$/i.test(c);
+    const head = `<tr>${cols.map(c => `<th class="${idcol(c) ? "idcol" : ""}">${esc(c)}</th>`)
+      .join("")}<th>defined classes</th></tr>`;
+    const body = objects.map(o => {
+      const byCol = Object.fromEntries(o.props);
+      const cells = cols.map(c =>
+        `<td class="mono${idcol(c) ? " idcol" : ""}">${esc(byCol[c] ?? "")}</td>`).join("");
+      const cls = o.classes.length
+        ? o.classes.map(c => `<b>:${esc(c)}</b>`).join("<br>") : "—";
+      return `<tr>${cells}<td>${cls}</td></tr>`;
+    }).join("");
+    return `<table class="ann">${head}${body}</table>` +
+      `<div class="file" style="margin-top:4px">rows from ${esc(rule)} · ` +
+      `defined classes evaluated from the axiom, not stored</div>`;
+  }
+  const head = `<tr>${sample.cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr>`;
+  const body = sample.rows.map(r =>
+    `<tr>${r.map(v => `<td class="mono">${esc(v)}</td>`).join("")}</tr>`).join("");
+  return `<table class="ann">${head}${body}</table>` +
+    `<div class="file" style="margin-top:4px">columns from ${esc(rule)}</div>`;
+}
+function annTable(rows) {
+  if (!rows || !rows.length) return "";
+  const tr = rows.map(r =>
+    `<tr><th>${esc(r.label)}${r.iri ? `<br><span class="file">${esc(r.iri)}</span>` : ""}</th>` +
+    `<td>${r.v.map(v => esc(v)).join("<br>")}</td></tr>`).join("");
+  return `<table class="ann">${tr}</table>`;
+}
+function show(id) {
+  const n = byId[id]; if (!n) return;
+  selected = id; focus(id);
+  document.querySelectorAll("#idx a").forEach(a => a.classList.toggle("on", a.dataset.id === id));
+  document.querySelector(`#idx a[data-id="${id}"]`)?.scrollIntoView({block: "nearest"});
+
+  let html = `<h1>${esc(n.label)}</h1><div class="kind"><b>${esc(n.badge)}</b> · ` +
+    `${esc(n.term || n.kind)} · <code>:${esc(n.name)}</code></div>`;
+  if (n.description) html += section("描述", `<p class="desc">${esc(n.description)}</p>`);
+  if (n.definedBy) {
+    const title = n.definedVia === "physicalPredicate" ? "手写谓词" : "等价类";
+    html += section(title, `<pre>${esc(n.definedBy)}</pre>`);
+  }
+  if (n.refusal) html += section("Definition", `<p class="why">${esc(n.refusal)}</p>`);
+  if (n.sql) html += section("SQL", `<pre>${esc(n.sql)}</pre>`);
+  // ONE container for anything that comes out of the database: the count and the values
+  // it belongs to. Two boxes made them look like two different kinds of evidence.
+  if (n.value !== undefined && n.value !== null) {
+    let body = `<div class="big">${num(n.value)}</div>`;
+    if (n.kind.startsWith("metric")) {
+      html += section("Measured now", body + dbSrc(), "db");
+    } else {
+      if (n.sample) body += `<div style="margin-top:9px">${indivTable(n.sample, n.sample.rule, n.objects)}</div>`;
+      else if (n.indivSql && n.value > DATA.sample)
+        body += `<p class="muted" style="margin:6px 0 0">more than ${DATA.sample} — counted, not listed.</p>`;
+      html += section("Individuals", body + dbSrc(), "db");
+    }
+  }
+  if (n.error) html += `<p class="why">${esc(n.error)}</p>`;
+  // Read the way a reader says it out loud: "domain :Region has two properties, r_name and
+  // r_regionkey". pyLODE calls the same list "In Domain Of" — the count is there so the
+  // claim can be checked at a glance against the rows underneath.
+  if ((n.inDomain || []).length)
+    html += section(`域 :${esc(n.name)} — ${n.inDomain.length} 个属性`,
+                    propTable(n.inDomain));
+  if ((n.inRange || []).length)
+    html += section(`值域 :${esc(n.name)} — ${n.inRange.length} 个属性`,
+                    rangeTable(n.inRange));
+  html += section("注解属性", annTable(n.annotations));
+  html += section("公理", annTable(n.structural));
+  const src = n.sources || {};
+  for (const s of src.self || [])
+    html += section(`TTL · <span class="file">${esc(s.file)}:${s.line}</span>`,
+                    `<pre>${esc(s.text)}</pre>`);
+  if ((src.related || []).length) {
+    const body = src.related.map(s =>
+      `<div class="file" style="margin:0 0 2px">:${esc(s.prop)} names it · ${esc(s.rel)} · ${esc(s.file)}:${s.line}</div>` +
+      `<pre style="margin:0 0 8px">${esc(s.text)}</pre>`).join("");
+    html += section("TTL — statements that name this term", body);
+  }
+  if ((src.comments || []).length) {
+    const body = src.comments.map(c =>
+      `<div class="file">${esc(c.file)}:${c.line}</div>` +
+      `<pre style="margin:0 0 6px">${esc(c.text)}</pre>`).join("");
+    html += section("Mentioned in comments — not data; Protégé deletes these", body);
+  }
+  html += section("IRI", `<p class="file">${esc(n.iri || "")}</p>`);
+  panel.innerHTML = html;
+  panel.scrollTop = 0;
+}
+
+// ── interaction ────────────────────────────────────────────────────────────
+svg.addEventListener("click", ev => {
+  const node = ev.target.closest(".node");
+  if (node) return show(node.dataset.id);
+  if (!ev.target.closest(".edge")) { clearMarks(); selected = null;
+    document.querySelectorAll("#idx a").forEach(a => a.classList.remove("on")); }
+});
+let drag = null;
+svg.addEventListener("mousedown", ev => {
+  const node = ev.target.closest(".node");
+  drag = node ? {id: node.dataset.id, x: ev.clientX, y: ev.clientY}
+              : {pan: true, x: ev.clientX, y: ev.clientY};
+  if (drag.pan) stage.classList.add("dragging");
+});
+window.addEventListener("mousemove", ev => {
+  if (!drag) return;
+  const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
+  if (drag.pan) { tx += dx; ty += dy; drag.x = ev.clientX; drag.y = ev.clientY; applyTransform(); }
+  else {
+    const p = pos[drag.id];
+    p.x += dx / scale; p.y += dy / scale;
+    drag.x = ev.clientX; drag.y = ev.clientY;
+    document.querySelector(`.node[data-id="${drag.id}"]`)
+      ?.setAttribute("transform", `translate(${p.x},${p.y})`);
+    document.querySelectorAll(`.edge[data-src="${drag.id}"], .edge[data-dst="${drag.id}"]`)
+      .forEach(el => el.setAttribute("d", edgePath({src: el.dataset.src, dst: el.dataset.dst})));
+  }
+});
+window.addEventListener("mouseup", () => { drag = null; stage.classList.remove("dragging"); });
+function zoomBy(k, cx, cy) {
+  const r = stage.getBoundingClientRect();
+  const mx = cx === undefined ? r.width / 2 : cx;
+  const my = cy === undefined ? r.height / 2 : cy;
+  const next = Math.min(4, Math.max(0.15, scale * k));
+  tx = mx - (mx - tx) * (next / scale);
+  ty = my - (my - ty) * (next / scale);
+  scale = next; applyTransform();
+}
+function panBy(dx, dy) { tx += dx; ty += dy; applyTransform(); }
+
+svg.addEventListener("wheel", ev => {
+  ev.preventDefault();
+  const r = stage.getBoundingClientRect();
+  zoomBy(ev.deltaY < 0 ? 1.12 : 1 / 1.12, ev.clientX - r.left, ev.clientY - r.top);
+}, {passive: false});
+
+document.getElementById("c-zin").onclick = () => zoomBy(1.25);
+document.getElementById("c-zout").onclick = () => zoomBy(1 / 1.25);
+document.getElementById("c-fit").onclick = () => { fit(); clearMarks(); };
+document.querySelectorAll("#controls button[data-pan]").forEach(b => {
+  b.onclick = () => {
+    const step = 70, dir = b.dataset.pan;
+    panBy(dir === "left" ? step : dir === "right" ? -step : 0,
+          dir === "up" ? step : dir === "down" ? -step : 0);
+  };
+});
+window.addEventListener("keydown", ev => {
+  const tag = (document.activeElement || {}).tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA") return;
+  const k = ev.key;
+  if (k === "+" || k === "=") { zoomBy(1.25); ev.preventDefault(); }
+  else if (k === "-" || k === "_") { zoomBy(1 / 1.25); ev.preventDefault(); }
+  else if (k === "0") { fit(); ev.preventDefault(); }
+  else if (k === "d" || k === "D") { setMode("domain"); ev.preventDefault(); }
+  else if (k === "r" || k === "R") { setMode("range"); ev.preventDefault(); }
+  else if (k === "b" || k === "B") { setMode("both"); ev.preventDefault(); }
+  else if (k === "ArrowLeft") { panBy(60, 0); ev.preventDefault(); }
+  else if (k === "ArrowRight") { panBy(-60, 0); ev.preventDefault(); }
+  else if (k === "ArrowUp") { panBy(0, 60); ev.preventDefault(); }
+  else if (k === "ArrowDown") { panBy(0, -60); ev.preventDefault(); }
+});
+
+const filters = {structure: true, meaning: true, metric: true};
+document.querySelectorAll("#bar button[data-k]").forEach(b => {
+  b.onclick = () => {
+    const k = b.dataset.k; filters[k] = !filters[k]; b.classList.toggle("on", filters[k]);
+    document.querySelectorAll(".node").forEach(el => {
+      const kind = el.dataset.id.startsWith("m_") ? "metric" : byId[el.dataset.id].kind;
+      el.style.display = filters[kind] === false ? "none" : "";
+    });
+    document.querySelectorAll("#idx a").forEach(a => {
+      const kind = a.dataset.k === "metric-refused" ? "metric" : a.dataset.k;
+      a.classList.toggle("off", filters[kind] === false);
+    });
+    document.querySelectorAll("#idx .grp").forEach(g => {
+      const kind = g.dataset.k === "metric-refused" ? "metric" : g.dataset.k;
+      g.classList.toggle("off", filters[kind] === false);
+    });
+  };
+});
+document.getElementById("reset").onclick = () => { fit(); clearMarks(); };
+document.querySelectorAll("#controls button[data-mode]").forEach(b => {
+  b.onclick = () => setMode(b.dataset.mode);
+});
+document.getElementById("q").oninput = ev => {
+  const q = ev.target.value.toLowerCase().trim();
+  clearMarks();
+  document.querySelectorAll("#idx a").forEach(a => {
+    const n = byId[a.dataset.id];
+    const hay = (n.label + " " + a.dataset.id + " " + (n.sub || "") + " " +
+                 (n.description || "")).toLowerCase();
+    a.classList.toggle("off", q !== "" && !hay.includes(q));
+    a.classList.toggle("on", q !== "" && hay.includes(q));
+  });
+  document.querySelectorAll(".node").forEach(el => {
+    const n = byId[el.dataset.id];
+    const hay = (n.label + " " + el.dataset.id + " " + (n.sub || "")).toLowerCase();
+    el.classList.toggle("hit", q !== "" && hay.includes(q));
+    el.classList.toggle("dim", q !== "" && !hay.includes(q));
+  });
+};
+
+document.getElementById("meta").textContent =
+  `${DATA.triples} triples · ${DATA.counts.structure} classes · ` +
+  `${DATA.counts.meaning} defined classes · ${DATA.counts.metrics + DATA.counts.refused} ` +
+  `datatype properties (${DATA.counts.metrics} compiled, ${DATA.counts.refused} refused)` +
+  (DATA.doc ? ` · doc: ${DATA.doc}` : "");
+draw();
+buildIndex();
+fit();
+setMode("both");
+if (DATA.missing.length) document.getElementById("note").textContent =
+  "no layout position for: " + DATA.missing.join(", ");
+</script></body></html>

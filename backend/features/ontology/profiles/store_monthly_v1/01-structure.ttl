@@ -1,0 +1,119 @@
+@prefix : <https://cube.local/ontology/store_monthly_v1#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# =============================================================================
+# S1 结构层：这个库到底有什么。只写实测到的，每条都在下面带查询。
+# 库 store_monthly_xlsx（127.0.0.1:5433，user langconfig，schema public）。
+#   select table_schema, table_name, table_type from information_schema.tables
+#     where table_schema not in ('pg_catalog','information_schema');
+#   → public.月度经营 / public.门店 / public.品类 —— 三张全是 BASE TABLE，没有视图。
+#   select … from pg_constraint / pg_indexes（public）→ 0 行：库里没有主键、没有唯一约束、
+#   没有索引。本文件里的「主键」是**数据事实**（唯一性实测过），不是数据库保证的约束。
+#
+# 粒度（写错就是重建，所以只写被数据证明的那一条）：
+#   select count(*), count(distinct "门店编码"), count(distinct "月份"),
+#          count(distinct ("门店编码","月份")) from "月度经营"   →  12 / 4 / 3 / 12
+#   即 (门店编码, 月份) 唯一，且 4 门店 × 3 月 = 12 行：无重复、无缺月。
+#
+# 时间：库里**没有任何 timestamp 列**，唯一的 date 列是 门店.开业日期（4 行）。
+#   事实表的时间轴是 text 列 月份（YYYY-MM），它不是 date 列 —— 见 :month。
+#
+# guard 相关实测（profile settings 不是本格的产物，这里只把事实记下来）：
+#   最大的表就是 月度经营 12 行 / 16 kB（pg_total_relation_size，三张表都是 16 kB）；
+#   所以本库没有 big table，也没有任何能给 now() - interval 用的时间戳列。
+#   依据：information_schema.columns 的 14 列类型只有 text / bigint / numeric / date。
+# =============================================================================
+
+# ================================================================ 事实表
+
+:StoreMonth a owl:Class ;
+    rdfs:label "月度经营（一个门店的一个月）" ;
+    :physicalTable "月度经营" ;
+    :primaryKey "门店编码, 月份" ;
+    :timeColumn "月份" ;
+    :businessDescription "一行 = 一个门店的一个月。粒度是 (门店编码, 月份)：12 行覆盖 4 个门店 × 3 个月（2026-01/02/03），实测 count(*)=12、count(distinct (门店编码,月份))=12，无重复无缺月。这是本本体唯一的事实表：营业额、客流量、退货额三个可加量都落在这一行上；客单价（存量列）只是这一行的派生读数。6 列全部无空值（实测 count(*) filter (where 任一列为 null) = 0）。3 个月平铺、没有「当期」概念（D14），不做同比（D9：库里只有 3 个月，没有上年同期）。库里没有订单级明细，所以「日趋势 / 单品 / 渠道」在这份数据上回答不了" .
+
+# --- 事实表的列 ---------------------------------------------------------------
+
+:month a owl:DatatypeProperty ; rdfs:label "月份" ; :askedAs "月份" ;
+    rdfs:domain :StoreMonth ; :physicalColumn "月份" ; rdfs:range xsd:string ;
+    :businessDescription "月份，text，形如 2026-01（YYYY-MM）。实测 12/12 行长度为 7、全部匹配 ^[0-9]{4}-[0-9]{2}$、无首尾空白、无空值；取值只有 2026-01 / 2026-02 / 2026-03，每月 4 行（4 个门店各一行）。它是这张表唯一的时间轴，定长 7 位所以字典序即时间序（月环比就是相邻两个取值相减，D14）。**它不是 date 列**：库里没有把月份存成日期。后果要说清：编译器的 :timeBucket（date_trunc）和 TimeWindow（now() - interval）两条路径都要求日期/时间戳列，作用在这一列上会发出 date_trunc('month', 月份) / 月份 >= now() - interval 然后在数据库里报类型错误。趋势线按 :month 直接分组即可（它已经是月粒度），不要声明 :timeBucket。" .
+
+:revenue a owl:DatatypeProperty ; rdfs:label "营业额（元，含税，毛额）" ; :askedAs "营业额" ;
+    rdfs:domain :StoreMonth ; :physicalColumn "营业额" ; rdfs:range xsd:integer ;
+    :businessDescription "一个门店一个月的营业额，bigint，单位元，含税，**毛销售额**：未扣退货的含税销售总额（D10）。实测 12/12 行非空、无负值，取值 54,800 … 160,500，合计 1,271,300。它是可加量：跨门店、跨月求和都是同一个口径。它同时是退货率的分母（D5/D10）—— 分母必须是退货发生**前**的销售额，这一点写在 02-meaning.ttl 里，因为改分母就是改指标含义" .
+
+:traffic a owl:DatatypeProperty ; rdfs:label "客流量（人次）" ; :askedAs "客流量" ;
+    rdfs:domain :StoreMonth ; :physicalColumn "客流量" ; rdfs:range xsd:integer ;
+    :businessDescription "一个门店一个月的客流量，bigint，单位人次。实测 12/12 行非空、**无 0 值**（最小 2,700、最大 5,900），所以以它为分母的客单价在每一行都有定义 —— 这就是本本体不需要声明「排除除零行」的原因。它是可加量：合计 52,800 人次" .
+
+:avg_ticket_stored a owl:DatatypeProperty ; rdfs:label "客单价（存量列，只作对账）" ; :askedAs "库里存的客单价" ;
+    rdfs:domain :StoreMonth ; :physicalColumn "客单价" ; rdfs:range xsd:decimal ;
+    :businessDescription "库里已经存好的客单价，numeric，元/人次。D11：**客单价以公式为准**（营业额 ÷ 客流量），这一列只作对账的第二路径，不直接上板。实测它与 round(营业额::numeric / 客流量, 2) 在 12/12 行完全一致（select count(*) where round(营业额/客流量,2) <> 客单价 → 0），所以现在两条路径给出同一个数；把它单独声明成一个属性名，是为了让「公式口径」与「存量列」在图上就是两个东西，谁也不能悄悄替换谁。它是**不可加**量：12 行的算术平均是 23.48，而合计口径（总营业额÷总客流量）是 24.08 —— 两个数不相等，这就是 D12 禁止比率算术平均的实测理由" .
+
+:return_amount a owl:DatatypeProperty ; rdfs:label "退货额（元，含税）" ; :askedAs "退货额" ;
+    rdfs:domain :StoreMonth ; :physicalColumn "退货额" ; rdfs:range xsd:integer ;
+    :businessDescription "一个门店一个月的退货金额，bigint，单位元，与营业额同口径（含税，D10）。实测 12/12 行非空、无负值，取值 700 … 4,300，合计 28,150；12/12 行 **退货额 < 营业额**（count(*) filter (where 退货额 >= 营业额) = 0），所以退货率在每一行都落在 0…1 之间（单行实测 1.28% … 2.73%，合计 2.21%）。它是退货率的分子（D5），本身不是看板上的 KPI：D1 只点了四个数（营业额/客流量/客单价/退货率），「退货额要不要单独上板」在 grill 第 3 节是有意未定项，本层不替用户决定，只保证这一列的含义与单位是明确的" .
+
+# --- 事实表到门店的链接 -------------------------------------------------------
+# 外键列只以「链接」声明，不再声明一个同列的数据属性：一列一个属性是本体的规矩，
+# 而按门店出维度走链接另一端的属性即可（:store_id 门店编码 / :store_name 门店名 / :city 城市），
+# 编译器会把门店表 JOIN 进来。
+
+:storeOf a owl:ObjectProperty ; rdfs:label "所属门店" ; :askedAs "门店" ;
+    rdfs:domain :StoreMonth ; :range :Store ;
+    :physicalColumn "门店编码" ; :references :Store ;
+    :businessDescription "月度经营.门店编码 → 门店.门店编码。实测 12/12 行都能在门店表里找到对应行（left join 后 门店编码 is null 的行 = 0），4 个取值 S01…S04 一一对应 4 家门店。库里**没有**外键约束（pg_constraint 0 行），这条关联是被数据证实的，不是数据库强制的" .
+
+# ================================================================ 维度：门店
+
+:Store a owl:Class ;
+    rdfs:label "门店" ;
+    :physicalTable "门店" ;
+    :primaryKey "门店编码" ;
+    :businessDescription "一行 = 一家门店，4 行，门店编码 S01…S04（实测 count(*)=4 = count(distinct 门店编码)，无空值、无首尾空白）。它是月度经营的门店维度：门店名、城市、开业日期、面积都在这里。4 家门店落在 4 个不同城市、每城恰好 1 家（南京/北京/广州/成都），所以「按城市分组」与「按门店分组」在这份数据上是同一件事 —— D15 明确不按城市分组、不做门店排名表，这条事实写在这里是为了让后续层不必再猜" .
+
+:store_id a owl:DatatypeProperty ; rdfs:label "门店编码" ; :askedAs "门店编码" ;
+    rdfs:domain :Store ; :physicalColumn "门店编码" ; rdfs:range xsd:string ;
+    :businessDescription "门店编码，text，4 个取值（S01 / S02 / S03 / S04），无空值。它是门店表的主键（数据事实）。事实表通过 :storeOf 指向它；要按门店编码分组时用本属性（经声明的链接可达），不要在事实表上再造一个同列属性" .
+
+:store_name a owl:DatatypeProperty ; rdfs:label "门店名" ; :askedAs "门店名" ;
+    rdfs:domain :Store ; :physicalColumn "门店名" ; rdfs:range xsd:string ;
+    :businessDescription "门店名，text，4 个取值：新街口店 / 五道口店 / 天河城店 / 春熙路店，无空值、互不重复。看板第 2 块「门店 × 月矩阵」的行就是它（D15）" .
+
+:city a owl:DatatypeProperty ; rdfs:label "城市" ; :askedAs "城市" ;
+    rdfs:domain :Store ; :physicalColumn "城市" ; rdfs:range xsd:string ;
+    :businessDescription "门店所在城市，text，4 个取值：南京 / 北京 / 广州 / 成都，无空值，每城恰好 1 家门店。它被建模是因为这一列在库里真实存在（S1 要求每张表的每一列都有归属），**不是**因为看板要按它切：D15 明确不按城市分组、不做排名表" .
+
+:opened_on a owl:DatatypeProperty ; rdfs:label "开业日期" ; :askedAs "开业日期" ;
+    rdfs:domain :Store ; :physicalColumn "开业日期" ; rdfs:range xsd:date ;
+    :businessDescription "开业日期，date —— 本库唯一的真日期列，4 行非空：2020-09-01 / 2021-03-15 / 2022-06-20 / 2023-01-11。它属于门店、不随时间变化，不是事实表的时间轴（那条是 text 的 月份）。4 家门店在 2026-01 之前都已开业，12 行 = 4×3 说明每店都被完整观察了 3 个月，所以「开业不满月」这种剔除在这份数据上不需要" .
+
+:area_sqm a owl:DatatypeProperty ; rdfs:label "面积（平米）" ; :askedAs "面积" ;
+    rdfs:domain :Store ; :physicalColumn "面积平米" ; rdfs:range xsd:integer ;
+    :businessDescription "门店面积，bigint，单位平米，4 行非空：640 / 720 / 860 / 1020。D15 的三块板都用不到它（没有坪效指标，grill 第 3 节把坪效列为未定项）。建模它是因为这一列在库里真实存在，不是因为它是个指标" .
+
+# ================================================================ 参考数据：品类
+# D7：品类表只作参考、不上看板。D13：目标毛利率不上板、也不当阈值。
+# 结构上的硬事实：月度经营**没有品类列**（它的 6 列里没有任何一列能指向品类），
+# 所以事实表与品类表之间**没有可声明的关联** —— 不是「暂时没写」，是这份数据里不存在这个键。
+
+:Category a owl:Class ;
+    rdfs:label "品类（参考数据，不参与看板）" ;
+    :physicalTable "品类" ;
+    :primaryKey "品类编码" ;
+    :businessDescription "一行 = 一个品类，3 行：C1 生鲜 / C2 日配 / C3 百货（实测 count(*)=3 = count(distinct 品类编码)）。D7 只作参考、不上看板；D13 它的 目标毛利率 既不上板也不当阈值/红绿灯。**它与 :StoreMonth 之间没有任何关联可声明**：事实表 6 列是 月份 / 门店编码 / 营业额 / 客流量 / 客单价 / 退货额，没有品类键，也没有任何一列能推出品类。本本体因此不声明 :Category 与 :StoreMonth 之间的链接；任何「按品类看营业额」的问题都应该被按名拒绝，而不是被 join 成一张笛卡尔积" .
+
+:category_code a owl:DatatypeProperty ; rdfs:label "品类编码" ; :askedAs "品类编码" ;
+    rdfs:domain :Category ; :physicalColumn "品类编码" ; rdfs:range xsd:string ;
+    :businessDescription "品类编码，text，3 个取值 C1 / C2 / C3，无空值。它是品类表的主键（数据事实）。没有下游表引用它 —— 事实表里不存在这一列" .
+
+:category_name a owl:DatatypeProperty ; rdfs:label "品类名" ; :askedAs "品类名" ;
+    rdfs:domain :Category ; :physicalColumn "品类名" ; rdfs:range xsd:string ;
+    :businessDescription "品类名，text：生鲜 / 日配 / 百货，3 行非空、互不重复。只作参考展示（D7），不在看板上出现" .
+
+:target_margin a owl:DatatypeProperty ; rdfs:label "目标毛利率（参考，不作阈值）" ; :askedAs "目标毛利率" ;
+    rdfs:domain :Category ; :physicalColumn "目标毛利率" ; rdfs:range xsd:decimal ;
+    :businessDescription "目标毛利率，numeric，3 行：0.18 / 0.22 / 0.31。D13：**不设目标线/红绿灯**，这一列不上板、也不当任何阈值。它连到事实表的路都没有（见 :Category），所以在这份数据上连「毛利达成率」都算不出来；声明它只是为了给这一列一个归属，并把「不许拿它当阈值」写进图里" .

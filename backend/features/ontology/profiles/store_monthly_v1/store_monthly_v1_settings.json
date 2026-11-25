@@ -1,0 +1,71 @@
+{
+  "_profile": "store_monthly_v1 —— 门店月度经营。**工作区副本**（不是注册的 profile）：ontology_dir 由 \"ontology\" 改为 \".\"，因为两个 TTL 与 metrics_ext.ttl 都写在 work/store_monthly_v1/ 根目录（本仓 meeting_v1 用的是同一个约定）。dsn.dbname 与注册 profile 一致（store_monthly_xlsx）。guard 段由 S4 按实测落定，见 _guard_note。 · guard.big_tables 由实测补齐：月度经营 12 行是唯一事实表，时间列 月份(TEXT 'YYYY-MM')；三张表均小，不设窗口。",
+  "_guard_note": [
+    "default_window_days = 0：本库数据是固定历史窗口 2026-01~03，全库没有任何 timestamp 列（唯一 date 列是 门店.开业日期），",
+    "所以任何 now() - interval 的窗口都是错的：给 90（compiler/guard.py 的 retail DEFAULTS 当初兜下来的值）会把 '2026-01' 与 timestamp 相比 → 报类型错误；",
+    "给 0 让 guard 明确拒绝时间窗口，而不是悄悄收窄（D14：3 个月平铺，没有「当期」）。",
+    "big_tables = {}：本库最大表 月度经营 12 行 / 16 kB（pg_total_relation_size），且三张表都没有时间戳列 —— 没有一张表够得上「独立时间列的大表」，",
+    "所以不声明。留空是事实，不是省事：往这里塞一个不存在的列会让护栏每次读取都往不存在的列注入窗口而整条 SQL 死掉。"
+  ],
+  "title": "门店月度经营",
+  "ns": "https://cube.local/ontology/store_monthly_v1#",
+  "ontology_dir": ".",
+  "overlay": "metrics_ext.ttl",
+  "dsn": {
+    "host": "${ONTOLOGY_DB_HOST:-127.0.0.1}",
+    "port": "${ONTOLOGY_DB_PORT:-5432}",
+    "dbname": "store_monthly_xlsx",
+    "user": "${ONTOLOGY_DB_USER}",
+    "password": "${ONTOLOGY_DB_PASSWORD}"
+  },
+  "guard": {
+    "enabled": true,
+    "max_rows": 500,
+    "default_window_days": 0,
+    "statement_timeout_ms": 8000,
+    "max_plan_rows": 5000000,
+    "big_tables": {
+      "月度经营": "月份"
+    },
+    "large_tables": []
+  },
+  "aliases": {
+    "_comment": "别名值必须落到「声明侧」的词：维度别名要等于 :groupBy 属性名里的某个词（month / store_name），中文→中文的别名对匹配器无效（meeting_v1 的同一课）。实测：没有这张表时「按月份看退货率」被按名拒绝 —— \"nothing declares a grouping by ['月份']\"，而分组指标声明的是 ['month']；:month 的 label/askedAs 都是中文，匹配器只看属性名。别名之间不要互相包含。",
+    "月份": "month",
+    "各月份": "month",
+    "分月份": "month",
+    "按月份": "month",
+    "按月": "month",
+    "门店名": "store_name",
+    "各门店": "store_name",
+    "各家门店": "store_name",
+    "分门店": "store_name",
+    "客流量": "trafficTotal",
+    "客单价": "avgTicket",
+    "退货额": "returnAmountTotal",
+    "营业额": "revenueTotal",
+    "退货率": "returnRate"
+  },
+  "features": {
+    "actions": false,
+    "lane_b": false,
+    "tutorial": true
+  },
+  "samples": [
+    "营业额是多少？",
+    "客流量是多少？",
+    "客单价是多少？",
+    "退货率是多少？",
+    "按门店看营业额",
+    "按月份看营业额",
+    "按门店看客流量",
+    "按门店看客单价",
+    "按月份看客单价",
+    "按门店看退货率",
+    "按月份看退货率",
+    "按门店和月份看营业额",
+    "各品类的毛利率是多少？",
+    "本月营业额是多少？",
+    "各门店的坪效是多少？"
+  ]
+}

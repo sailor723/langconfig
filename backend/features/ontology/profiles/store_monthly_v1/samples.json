@@ -1,0 +1,135 @@
+{
+  "_comment": [
+    "store_monthly_v1 的样例闸门（S5）：用户最先会点的 15 个问题。每一条要么答出一个数并由第二条手写 SQL 现场核对（route），",
+    "要么按名拒绝（refused_by_name）。route 里的 SQL 只读 月度经营 / 门店 两张表，不经过管线，也不进入任何声明 ——",
+    "它存在的意义是：管线与它独立推导，两者在闸门运行时对不上就红（比冻死一个数字更能咬住口径漂移）。",
+    "每类覆盖：四个数各一条（营业额/客流量/客单价/退货率），其中营业额/客单价/退货率各带一次按门店 + 一次按月份；门店×月矩阵一条；三条按名拒绝（品类毛利率 / 本月 / 坪效）。共 15 条 —— 闸门的形状是 8–15 条，多出来的不是覆盖，是同一批数换排法（D15 也只有 3 块板）。",
+    "比率 route 不写 round()、tolerance 给 1e-6：退货率与客单价都是 sum(a)/sum(b) 的比值，round 掉的是精度不是误差。三条退货率的 route 写成 sum(退货额)*100/sum(营业额)，因为声明的单位是 :unit \"percent\" + :scale \"100.0\"（乘 100 发生在编译出的 SQL 里）—— route 与编译值必须同一把尺子，否则 check_samples 会靠 _declared_scale 把编译值除回 100 再比，闸门绿了却钉不住单位。客单价的 route 仍是裸比值（单位 money_per_visit，元/人次）。",
+    "D13：这里没有任何『客单价目标』『退货率红线』的样例 —— 本本体不设业务阈值，编一个只会被当成承诺。"
+  ],
+  "samples": [
+    {
+      "question": "营业额是多少？",
+      "expect": {
+        "metric": "revenueTotal",
+        "route": "SELECT sum(\"营业额\") FROM \"月度经营\""
+      },
+      "_why": "D1/D3/D10：12 行毛销售额合计 = 1,271,300 元。route 直接 sum 事实表，不碰存量 客单价 列。"
+    },
+    {
+      "question": "客流量是多少？",
+      "expect": {
+        "metric": "trafficTotal",
+        "route": "SELECT sum(\"客流量\") FROM \"月度经营\""
+      },
+      "_why": "D1：12 行客流量合计 = 52,800 人次。"
+    },
+    {
+      "question": "客单价是多少？",
+      "expect": {
+        "metric": "avgTicket",
+        "route": "SELECT sum(\"营业额\")::numeric / nullif(sum(\"客流量\"),0) FROM \"月度经营\"",
+        "tolerance": 1e-06
+      },
+      "_why": "D4/D11/D12：合计口径 = 总营业额 ÷ 总客流量 = 24.0776 元/人次（**不是** 12 行 ave(客单价)=23.4808，也不是存量列）。route 自己再算一遍比值。"
+    },
+    {
+      "question": "退货率是多少？",
+      "expect": {
+        "metric": "returnRate",
+        "route": "SELECT sum(\"退货额\")::numeric * 100 / nullif(sum(\"营业额\"),0) FROM \"月度经营\"",
+        "tolerance": 1e-06
+      },
+      "_why": "D5/D10/D12：28,150 ÷ 1,271,300 = 2.2142688586 %（route 与编译值都写成这个数）。route 是**手写的第二路线**，同一个比值再乘 100，逐位与编译值对上（2.2142688586486274 = 2.2142688586486274）。管线返回的已经是乘过 100 的百分数：:unit \"percent\" + :scale \"100.0\"，而乘 100 发生在**编译出的 SQL 里**（notes 带 scaled by 100.0），不是显示层；渲染器对 percent 不再乘第二次（run_dashboard._fmt 只对 unit=\"ratio\" ×100）。route 故意写 *100：口径改了、单位没跟上，闸门就会红 —— 如果 route 还写裸 ratio，check_samples 会靠 _declared_scale 把编译值除回 100 再比，闸门照样绿，那就钉不住单位了。"
+    },
+    {
+      "question": "按门店看营业额",
+      "expect": {
+        "metric": "revenueTotalByStore",
+        "route": "SELECT 门店.\"门店名\", sum(\"营业额\") FROM \"月度经营\" JOIN \"门店\" ON \"月度经营\".\"门店编码\" = \"门店\".\"门店编码\" GROUP BY 1"
+      },
+      "_why": "D2/D15 矩阵的行：新街口 374800 / 五道口 256700 / 天河城 457500 / 春熙路 182300，合计 1271300。分组键是 门店名（经 :storeOf 声明的链接）。"
+    },
+    {
+      "question": "按月份看营业额",
+      "expect": {
+        "metric": "revenueTotalByMonth",
+        "route": "SELECT \"月份\", sum(\"营业额\") FROM \"月度经营\" GROUP BY 1"
+      },
+      "_why": "D2/D14/D15 趋势线：2026-01 430400 / 2026-02 387100 / 2026-03 453800。按 text 的 月份 直接分组，没有 date_trunc（实测算不了，见 02-meaning 的 :month）。"
+    },
+    {
+      "question": "按门店看客流量",
+      "expect": {
+        "metric": "trafficTotalByStore",
+        "route": "SELECT 门店.\"门店名\", sum(\"客流量\") FROM \"月度经营\" JOIN \"门店\" ON \"月度经营\".\"门店编码\" = \"门店\".\"门店编码\" GROUP BY 1"
+      },
+      "_why": "D16 的问题「哪家店掉队了，掉在客流还是客单价」：客流这一半 = 15100 / 12200 / 16600 / 8900 人次。"
+    },
+    {
+      "question": "按门店看客单价",
+      "expect": {
+        "metric": "avgTicketByStore",
+        "route": "SELECT 门店.\"门店名\", sum(\"营业额\")::numeric / nullif(sum(\"客流量\"),0) FROM \"月度经营\" JOIN \"门店\" ON \"月度经营\".\"门店编码\" = \"门店\".\"门店编码\" GROUP BY 1",
+        "tolerance": 1e-06
+      },
+      "_why": "D12 的分组形态：每店各自 sum(营业额)/sum(客流量) = 24.8212 / 21.0410 / 27.5602 / 20.4831，都不是「该店 3 个月比率的算术平均」。route 也是先加总再相除。"
+    },
+    {
+      "question": "按月份看客单价",
+      "expect": {
+        "metric": "avgTicketByMonth",
+        "route": "SELECT \"月份\", sum(\"营业额\")::numeric / nullif(sum(\"客流量\"),0) FROM \"月度经营\" GROUP BY 1",
+        "tolerance": 1e-06
+      },
+      "_why": "D14 允许的月环比读法：24.0447 / 24.1938 / 24.0106 元/人次。"
+    },
+    {
+      "question": "按门店看退货率",
+      "expect": {
+        "metric": "returnRateByStore",
+        "route": "SELECT 门店.\"门店名\", sum(\"退货额\")::numeric * 100 / nullif(sum(\"营业额\"),0) FROM \"月度经营\" JOIN \"门店\" ON \"月度经营\".\"门店编码\" = \"门店\".\"门店编码\" GROUP BY 1",
+        "tolerance": 1e-06
+      },
+      "_why": "D5/D12：每店各自 sum(退货额)*100/sum(营业额) = 2.321238 / 1.830931 / 2.688525 / 1.343939（新街口/五道口/天河城/春熙路，百分数）。route 与编译值逐店对上（编译 SQL 同样带 (100.0) * ( … )）。单位与合计卡同一把尺子（percent + scale 100.0）——只改合计不改分组，合计读 2.21、按店读 0.027，读者会把按店退货率当成合计的百分之一。D13：这里只陈述数值，没有「谁的退货率超标」这种判定。"
+    },
+    {
+      "question": "按月份看退货率",
+      "expect": {
+        "metric": "returnRateByMonth",
+        "route": "SELECT \"月份\", sum(\"退货额\")::numeric * 100 / nullif(sum(\"营业额\"),0) FROM \"月度经营\" GROUP BY 1",
+        "tolerance": 1e-06
+      },
+      "_why": "D5/D12/D14：2.253717 / 2.324981 / 2.082415（2026-01/02/03，百分数），route 逐月与编译值对上。这条样例还钉住两件事：① 单位与合计、按门店一致（percent + scale 100.0，三个退货率同屏不能换尺子）；② 中文「月份」要能被匹配成 :group_by month —— settings.aliases 里那一行是必需的（没有它这条按名拒绝，实测见过）。"
+    },
+    {
+      "question": "按门店和月份看营业额",
+      "expect": {
+        "metric": "revenueTotalByStoreMonth",
+        "route": "SELECT \"月份\" || ' / ' || \"门店名\", sum(\"营业额\") FROM \"月度经营\" JOIN \"门店\" ON \"月度经营\".\"门店编码\" = \"门店\".\"门店编码\" GROUP BY \"月份\",\"门店名\""
+      },
+      "_why": "D15 第 ② 块「门店×月矩阵」= 12 格，正好还原 12 行事实（(门店编码,月份) 唯一，所以一格一行、没有聚合损失）。双键渲染成「月份 / 门店名」。"
+    },
+    {
+      "question": "各品类的毛利率是多少？",
+      "expect": {
+        "refused_by_name": "I can answer about"
+      },
+      "_why": "**用户点名要的按名拒绝样例。** 事实理由：品类 表只有 品类编码 / 品类名 / 目标毛利率 三列，`目标毛利率` 是**目标值**（0.18 / 0.22 / 0.31），库里没有任何实际销售额或实际成本；而且 月度经营 的 6 列里没有品类键，两张表 JOIN 不上（01-structure.ttl 的 :Category 明确写了「没有任何关联可声明」）。所以毛利额 = 营业额 − 成本 与毛利率 = 毛利额 ÷ 营业额 两个都算不出来 —— 缺的不是一行 SQL，是一列事实数据。要能答：需要事实表补品类键 + 成本/进价列（或一张带品类的销售明细），然后才能声明一个 :grain :StoreMonth 的毛利率指标。D13 另外规定 目标毛利率 不上板、不当阈值，所以也不能拿目标值冒充实际值。"
+    },
+    {
+      "question": "本月营业额是多少？",
+      "expect": {
+        "refused_by_name": "does not support the TimeWindow slot"
+      },
+      "_why": "D14：3 个月平铺、没有「当期/本月」这个概念（唯一的时间轴是 text 列 月份，2026-01/02/03 三个取值）。而且这条不只是口径问题，是**技术上也做不到**：实测算过 date_trunc('month',\"月份\") 报 function date_trunc(unknown, text) does not exist、\"月份\" >= now() - interval '90 days' 报 operator does not exist: text >= timestamp with time zone。所以本本体不声明 :supportsSlot :TimeWindow、不声明 :timeBucket，这条按名拒绝而不是悄悄给一个默认月份。"
+    },
+    {
+      "question": "各门店的坪效是多少？",
+      "expect": {
+        "refused_by_name": "A class is a list, not a number"
+      },
+      "_why": "坪效 = 营业额 ÷ 面积平米。面积在 门店.面积平米（640/720/860/1020，有数据），但**没有任何指标声明它**：grill §3 把「坪效」列为有意未定项（要先定口径：按月还是整期、按建筑面积还是营业面积），所以本层不替用户编一个。拒绝句给的是「先声明一个指标再加 :aggregate/:grain」，路径正确但没点出缺的那一步 —— 真正的缺口是「坪效的口径未定」，需要用户点头后才能加声明。"
+    }
+  ]
+}

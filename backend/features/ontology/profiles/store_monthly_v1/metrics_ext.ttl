@@ -1,0 +1,170 @@
+@prefix : <https://cube.local/ontology/store_monthly_v1#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# =============================================================================
+# S3 计算层（overlay）：四个数怎么算。
+# 含义/口径/单位为什么是这样，写在 02-meaning.ttl（S2）；这里只写「可计算形式」。
+#
+# 形状上只有三件事要做，每一件都对应 grill.md 的一条用户决定：
+#   1. 三个可加量各是一个 sum 指标（营业额/客流量/退货额，D1 + D12 的分子分母需求）；
+#   2. 两个比率是 :aggregate "ratio_of_sums" + :numerator/:denominator，**不是** sum(比率)，
+#      也不是 12 个比率的平均（D12：先加总再相除）；
+#   3. 门店 / 月份 两个维度靠 :groupBy（D2/D15）；分组后比率仍是「组内 sum(分子)/sum(分母)」——
+#      这是编译器的行为，已实测，见每个分组比率的 :businessDescription。
+#
+# 有意不写的东西（写下来是为了让读文件的人知道「没写」是决定）：
+#   · 没有 :timeBucket、没有 :supportsSlot :TimeWindow、没有同比指标：月份是 text（YYYY-MM），
+#     实测 date_trunc('month',"月份") 报 function date_trunc(unknown, text) does not exist、
+#     "月份" >= now() - interval '90 days' 报 operator does not exist: text >= timestamp with time zone。
+#     趋势线按 :month 直接分组就够了（D6/D9/D14）。
+#   · :scale 只出现在三个退货率指标上，且只与 :unit "percent" 成对出现，理由有三段，都不能省：
+#       ① :scale 不是显示层设置 —— 编译器把它乘进 SQL 本身（sqlgen.py 的 ratio 分支
+#          body = "({scale}) * ({body})"，notes 写「scaled by 100.0 (declared :scale)」）。
+#          声明后 returnRate 的**编译值**从 0.02214268858 变成 2.2142688586486274。
+#       ② 渲染器对 unit="percent" 不再乘第二次（run_dashboard._fmt 只对 unit="ratio" 做 ×100，
+#          percent 走通用分支：2.2142688 → "2.21"）。所以「percent + scale 100.0」是乘一次、显示对。
+#       ③ 旧写法「只写 unit="ratio"、不写 :scale」实测会差 100 倍：briefing 走 _fmt 得 2.2%，
+#          而 KPI 卡按裸比率读出 0.02 —— 同一份声明在两种渲染器下不一致，D1 门禁正是按这条判红的。
+#   · 没有任何业务阈值/红绿灯（D13）：本文件里不会出现「客单价目标」「退货率红线」。
+#   · 没有动作（D8，settings.features.actions=false）。
+# =============================================================================
+
+:aggregate a owl:AnnotationProperty .
+:grain a owl:AnnotationProperty .
+:universe a owl:AnnotationProperty .
+:where a owl:AnnotationProperty .
+:groupBy a owl:AnnotationProperty .
+:numerator a owl:AnnotationProperty .
+:denominator a owl:AnnotationProperty .
+:scale a owl:AnnotationProperty .
+:additivity a owl:AnnotationProperty .
+:unit a owl:AnnotationProperty .
+:askedAs a owl:AnnotationProperty .
+
+# =============================================================================
+# 三个可加量（金额单位元、含税；客流量单位人次）
+# 单位字符串的选择：金额 "money"、计数 "count"（与 02-meaning.ttl 里 :traffic 的 :unit 一致）、
+# 比率 "percent" + :scale "100.0"（值已在编译出的 SQL 里乘 100，见文件头）。客单价另起
+# "money_per_visit"：它是元/人次，写成裸 "ratio" 会让看板把它当百分比 ÷100，
+# 单价被渲染成 0.24 就再也读不出「每个人次花多少钱」。
+# =============================================================================
+
+:revenueTotal a owl:DatatypeProperty ; rdfs:label "营业额（元，含税，毛额）" ;
+    :askedAs "营业额" ;
+    :aggregate "sum" ; :formula "营业额" ;
+    :grain :StoreMonth ; :universe :AllStoreMonths ;
+    :additivity "additive" ; :unit "money" ;
+    :businessDescription "口径来自 doc#grill.md D1/D3/D10：营业额 = 毛销售额（未扣退货的含税销售总额），单位元。measured: 12 行合计 sum(营业额) = 1,271,300 元，即编译出来的 SELECT sum(营业额) FROM 月度经营 与本格的第二条手写路线同值（samples.json 的 route）。可加量：跨门店、跨月求和同口径 —— 这也是它能给客单价、退货率当分母（D4/D5）而不随退货额摆动的原因。" .
+
+:trafficTotal a owl:DatatypeProperty ; rdfs:label "客流量（人次）" ;
+    :askedAs "客流量" ;
+    :aggregate "sum" ; :formula "客流量" ;
+    :grain :StoreMonth ; :universe :AllStoreMonths ;
+    :additivity "additive" ; :unit "count" ;
+    :businessDescription "口径来自 doc#grill.md D1：客流量 = 进店人次（库里没有会员/单据标识，无法去重到人）。measured: 12 行合计 52,800 人次；单行最小 2,700、**无 0 值**，所以它作客单价分母时处处有定义（除零在这份数据上不会发生）。单位记 \"count\"（整数计数，与 02-meaning.ttl 的 :traffic 声明一致）：它不是金额，也不是比率，渲染成裸数字加「人次」才是对的。" .
+
+:returnAmountTotal a owl:DatatypeProperty ; rdfs:label "退货额（元，含税）" ;
+    :askedAs "退货额" ;
+    :aggregate "sum" ; :formula "退货额" ;
+    :grain :StoreMonth ; :universe :AllStoreMonths ;
+    :additivity "additive" ; :unit "money" ;
+    :businessDescription "口径来自 doc#grill.md D5/D10：退货额 = 与营业额同口径的含税退货金额，单位元。measured: 12 行合计 28,150 元，12/12 行 退货额 < 营业额。它是 D12 的**必然副产品**：ratio_of_sums 要求分子本身是一个可独立编译的 sum 指标，所以它出现在菜单上；但**它不是看板 KPI** —— D1 只点了四个数，grill 第 3 节把「退货额是否独立成卡」列为有意未定项，本层不替用户决定上不上板。" .
+
+# =============================================================================
+# 两个比率（D12：先加总再相除；绝不 sum 比率、绝不算术平均）
+# =============================================================================
+
+:avgTicket a owl:DatatypeProperty ; rdfs:label "客单价（元/人次）" ;
+    :askedAs "客单价" ;
+    :aggregate "ratio_of_sums" ; :numerator :revenueTotal ; :denominator :trafficTotal ;
+    :grain :StoreMonth ; :universe :AllStoreMonths ;
+    :additivity "non-additive" ; :unit "money_per_visit" ;
+    :businessDescription "口径来自 doc#grill.md D4（客单价 = 营业额 ÷ 客流量）+ D11（以公式为准，存量 客单价 列只作对账第二路径）+ D12（合计层先加总再相除）。measured: 编译出的 SQL 是 ((SELECT sum(营业额))::numeric) / NULLIF((SELECT sum(客流量)),0) = 24.0776515151515152 元/人次；12 行比率的算术平均是 23.480833 —— 两个数不相等，本指标取前者（每进来一个人次花多少钱）。单位 \"money_per_visit\" 自解释：元/人次，不是无单位的 ratio。" .
+
+:returnRate a owl:DatatypeProperty ; rdfs:label "退货率" ;
+    :askedAs "退货率" ;
+    :aggregate "ratio_of_sums" ; :numerator :returnAmountTotal ; :denominator :revenueTotal ;
+    :grain :StoreMonth ; :universe :AllStoreMonths ;
+    :additivity "non-additive" ; :unit "percent" ; :scale "100.0" ;
+    :businessDescription "口径来自 doc#grill.md D5（退货率 = 退货额 ÷ 营业额）+ D10（分母是毛销售额）+ D12（合计先加总再相除）。measured: 编译出的 SQL 是 (100.0) * (((SELECT sum(退货额))::numeric) / NULLIF((SELECT sum(营业额)),0)) = **2.2142688586486274**（读作 2.21%），notes 带「scaled by 100.0 (declared :scale)」—— 乘 100 发生在编译出的 SQL 里，不是显示层；第二条手写路线 sum(退货额)*100/sum(营业额) 同值（samples.json 的 route）。单行区间 1.2774…2.7311（百分数；0.0128…0.0273 × 100 的同一批数，由 sum 前的逐行 SQL 量出）。**单位 = :unit \"percent\" + :scale \"100.0\"**，理由分三段：① :scale 由编译器乘进 SQL（sqlgen.py 的 ratio 分支），所以要写在这里而不是渲染层；② 渲染器对 percent 不再乘第二次（run_dashboard._fmt 只对 unit=\"ratio\" ×100，percent 走通用分支 2.2142688→\"2.21\"），乘一次、显示对；③ 旧写法「unit=\"ratio\" + 不写 :scale」实测差 100 倍：briefing 显示 2.2%，KPI 卡读成 0.02，D1 门禁正是按这条判红。**三个退货率指标（returnRate / returnRateByStore / returnRateByMonth）必须同时是 percent + scale 100.0**：只改合计不改分组，同一块板上合计卡读 2.21、按店卡读 0.027（或反之 2.69 对 0.0227），读者会把按店退货率当成合计的 1% 或 100 倍 —— 这不是为了过 D1（D1 只查 KPI 卡），是同一份看板上三个退货率必须用同一把尺子。D13：没有红线、没有「多少算超标」，护栏只做质量检查（行数/超时/除零），不做业务判定。" .
+
+# =============================================================================
+# 分组（D2 维度 = 门店、月份；D15 看板第 ② 块 = 门店×月矩阵，第 ③ 块 = 月度趋势线）
+# 分组不改变口径：仍是 :AllStoreMonths 那 12 行，只按声明的维度切；比率在每个分组里各自
+# 重新编译成 sum(分子)/sum(分母)（D12），所以「某店的退货率」与「三个月的退货率」互不相加。
+# =============================================================================
+
+:revenueTotalByStore a owl:DatatypeProperty ; rdfs:label "按门店看营业额" ;
+    :askedAs "按门店看营业额" ;
+    :aggregate "sum" ; :formula "营业额" ;
+    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :store_name ;
+    :additivity "additive" ; :unit "money" ;
+    :businessDescription "口径来自 doc#grill.md D2（维度=门店）+ D15（门店×月矩阵的行）。按 门店.门店名 分组（经 :storeOf 声明的链接 JOIN 门店 表）。measured: 4 组 —— 新街口店 374,800 / 五道口店 256,700 / 天河城店 457,500 / 春熙路店 182,300，合计 1,271,300，与合计层一致。" .
+
+:revenueTotalByMonth a owl:DatatypeProperty ; rdfs:label "按月份看营业额" ;
+    :askedAs "按月份看营业额" ;
+    :aggregate "sum" ; :formula "营业额" ;
+    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :month ;
+    :additivity "additive" ; :unit "money" ;
+    :businessDescription "口径来自 doc#grill.md D2（维度=月份）+ D14（3 个月平铺、允许环比）+ D15（月度趋势线 3 点）。按 月份 直接分组：它已是 YYYY-MM 文本，不需要 date_trunc，也不声明 :timeBucket（实测两条日期路径在库里都报类型错误，见文件头）。measured: 2026-01 430,400 / 2026-02 387,100 / 2026-03 453,800。" .
+
+:trafficTotalByStore a owl:DatatypeProperty ; rdfs:label "按门店看客流量" ;
+    :askedAs "按门店看客流量" ;
+    :aggregate "sum" ; :formula "客流量" ;
+    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :store_name ;
+    :additivity "additive" ; :unit "count" ;
+    :businessDescription "口径来自 doc#grill.md D2 + D16（复盘要回答「哪家店掉队了，掉在客流、客单价，还是退货」）。按 门店名 分组。measured: 新街口 15,100 / 五道口 12,200 / 天河城 16,600 / 春熙路 8,900 人次，合计 52,800。" .
+
+:trafficTotalByMonth a owl:DatatypeProperty ; rdfs:label "按月份看客流量" ;
+    :askedAs "按月份看客流量" ;
+    :aggregate "sum" ; :formula "客流量" ;
+    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :month ;
+    :additivity "additive" ; :unit "count" ;
+    :businessDescription "口径来自 doc#grill.md D2/D14。按 月份 分组。measured: 2026-01 17,900 / 2026-02 16,000 / 2026-03 18,900 人次，合计 52,800。趋势线看营业额时，这一条是「掉的是客流还是客单价」的分母。" .
+
+:avgTicketByStore a owl:DatatypeProperty ; rdfs:label "按门店看客单价" ;
+    :askedAs "按门店看客单价" ;
+    :aggregate "ratio_of_sums" ; :numerator :revenueTotal ; :denominator :trafficTotal ;
+    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :store_name ;
+    :additivity "non-additive" ; :unit "money_per_visit" ;
+    :businessDescription "口径来自 doc#grill.md D4 + D12：每个门店各自 sum(营业额)/sum(客流量)，不是把该店 3 个月的比率取平均。measured: 编译出的 SQL 是 ((sum(营业额))::numeric) / NULLIF((sum(客流量)),0) … GROUP BY 门店.门店名，值 24.8212 / 21.0410 / 27.5602 / 20.4831 元/人次（新街口/五道口/天河城/春熙路）；四店合计口径 24.0777 —— 合计不等于四者平均，正因为它是加总后再相除。" .
+
+:avgTicketByMonth a owl:DatatypeProperty ; rdfs:label "按月份看客单价" ;
+    :askedAs "按月份看客单价" ;
+    :aggregate "ratio_of_sums" ; :numerator :revenueTotal ; :denominator :trafficTotal ;
+    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :month ;
+    :additivity "non-additive" ; :unit "money_per_visit" ;
+    :businessDescription "口径来自 doc#grill.md D4 + D12 + D14（月环比是这份数据唯一能看的走向）。每月各自 sum(营业额)/sum(客流量)。measured: 2026-01 24.0447 / 2026-02 24.1938 / 2026-03 24.0106 元/人次。" .
+
+:returnRateByStore a owl:DatatypeProperty ; rdfs:label "按门店看退货率" ;
+    :askedAs "按门店看退货率" ;
+    :aggregate "ratio_of_sums" ; :numerator :returnAmountTotal ; :denominator :revenueTotal ;
+    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :store_name ;
+    :additivity "non-additive" ; :unit "percent" ; :scale "100.0" ;
+    :businessDescription "口径来自 doc#grill.md D5 + D12：每店各自 sum(退货额)/sum(营业额)。measured: 编译出的 SQL 是 (100.0) * (((sum(退货额))::numeric) / NULLIF((sum(营业额)),0)) … GROUP BY 门店.门店名，值 2.321238（新街口）/ 1.830931（五道口）/ 2.688525（天河城）/ 1.343939（春熙路），百分数；与手写 SQL sum(退货额)*100/sum(营业额) 逐店同值。**单位 percent + :scale 100.0**：与 returnRate 同一把尺子（值在 SQL 里乘 100，渲染器不再乘第二次）。D1 不检查分组指标的单位 —— 这里改是因为面板 storeReturnRate 与合计卡同屏，合计读 2.21、按店读 0.0269 会被读成「按店是合计的百分之一」，那是单位错，不是数据错。D13：**不设红线**，不给「多少算超标」的判定 —— 这个数只陈述事实，判定要业务给。" .
+
+:returnRateByMonth a owl:DatatypeProperty ; rdfs:label "按月份看退货率" ;
+    :askedAs "按月份看退货率" ;
+    :aggregate "ratio_of_sums" ; :numerator :returnAmountTotal ; :denominator :revenueTotal ;
+    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :month ;
+    :additivity "non-additive" ; :unit "percent" ; :scale "100.0" ;
+    :businessDescription "口径来自 doc#grill.md D5 + D12 + D14。每月各自 sum(退货额)/sum(营业额)。measured: (100.0) * (sum(退货额)::numeric / NULLIF(sum(营业额),0)) … GROUP BY 月份 → 2026-01 2.253717 / 2026-02 2.324981 / 2026-03 2.082415，百分数（0.022537 / 0.023250 / 0.020824 的同一批数，乘 100 发生在编译出的 SQL 里）；手写 SQL sum*100/sum 逐月同值。**单位 percent + :scale 100.0**，与 returnRate / returnRateByStore 一致：三个退货率同屏，任何一格换单位都等于让读者拿两把尺子比。D13：无红绿灯，只陈述数值。" .
+
+:revenueTotalByStoreMonth a owl:DatatypeProperty ; rdfs:label "按门店和月份看营业额" ;
+    :askedAs "按门店和月份看营业额" ;
+    :aggregate "sum" ; :formula "营业额" ;
+    :grain :StoreMonth ; :universe :AllStoreMonths ; :groupBy :month, :store_name ;
+    :additivity "additive" ; :unit "money" ;
+    :businessDescription "口径来自 doc#grill.md D2 + D15（看板第 ② 块 = 门店×月矩阵 4×3）。两个维度一起分组，正好还原 12 行事实（(门店编码, 月份) 唯一，measured: count(distinct (门店编码,月份)) = 12 = count(*)），所以这一格没有聚合损失，也没有「缺失月」需要补 0。编译器把双键渲染成「月份 / 门店名」（nl.py 用 ' / ' 拼接 keys），实测 12 组全部与手写 SQL 对上。" .
+
+# =============================================================================
+# 有意不声明的指标（写在这里，是为了让下一格/读者知道「没有」是决定，不是遗漏）
+#   · 同比 / 上年同期增长率：D9 只有 3 个月，库里没有上年数据。
+#   · 品类切片（按品类看营业额、品类毛利率、毛利额）：品类 表只有 目标毛利率 目标值，
+#     且 月度经营 没有品类键 —— 两张表 JOIN 不上，任何品类数都算不出来（见 01-structure 的 :Category）。
+#   · 坪效（营业额 ÷ 面积平米）：grill 第 3 节的有意未定项，口径（按月还是整期）未定，不替用户编。
+#   · 排名 / 达标判定 / 红绿灯：D13 + D15 明确不做。
+#   · 「本月」「当期」类窗口指标：D14 没有当期概念；且 text 月份上任何日期窗口都会报类型错误。
+# =============================================================================

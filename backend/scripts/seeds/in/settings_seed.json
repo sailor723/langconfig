@@ -198,66 +198,110 @@
       {
         "enabled": true,
         "key": "new_coldchain_v6",
+        "kind": null,
         "label": "ABC 冷链运输本体（v6）",
+        "latest": true,
         "note": null,
         "profile": "new_coldchain_v6/new_coldchain_v6_settings.json",
-        "url": ""
+        "superseded_by": null,
+        "url": "",
+        "version": null
       },
       {
         "enabled": true,
         "key": "clinic",
+        "kind": null,
         "label": "Clinic",
+        "latest": true,
         "note": "built by a DeepAgent from clinic_db — 门诊 / 收费 / 理赔, 28 metrics",
         "profile": "clinic/clinic_settings.json",
-        "url": ""
+        "superseded_by": null,
+        "url": "",
+        "version": null
       },
       {
         "enabled": true,
         "key": "retail",
+        "kind": null,
         "label": "Retail",
+        "latest": true,
         "note": "the hand-built reference: orders, customers, stores, two lanes",
         "profile": "retail/settings.json",
-        "url": ""
+        "superseded_by": null,
+        "url": "",
+        "version": null
       },
       {
         "enabled": true,
         "key": "tpch",
+        "kind": null,
         "label": "TPC-H",
+        "latest": true,
         "note": "SF0.1 benchmark — historical data, so the guard refuses windows",
         "profile": "tpch/tpch_settings.json",
-        "url": ""
+        "superseded_by": null,
+        "url": "",
+        "version": null
       },
       {
         "enabled": true,
         "key": "abc",
+        "kind": null,
         "label": "ABC",
+        "latest": true,
         "note": "cold-chain training set with declared writes (lane C)",
         "profile": "abc/abc_settings.json",
-        "url": ""
+        "superseded_by": null,
+        "url": "",
+        "version": null
       },
       {
         "enabled": true,
         "key": "logistics",
+        "kind": null,
         "label": "Logistics (cold chain)",
+        "latest": true,
         "note": "built by DeepAgent 349 from abc_coldchain — 配送/站点/理赔 11 tables",
         "profile": "logistics/logistics_settings.json",
-        "url": ""
+        "superseded_by": null,
+        "url": "",
+        "version": null
       },
       {
         "enabled": true,
         "key": "meeting_v1",
+        "kind": null,
         "label": "集团会议决议闭环",
+        "latest": true,
         "note": "registered for agent 379",
         "profile": "meeting_v1/meeting_v1_settings.json",
-        "url": ""
+        "superseded_by": null,
+        "url": "",
+        "version": null
       },
       {
         "enabled": true,
         "key": "talent_v1",
+        "kind": null,
         "label": "Talent · 277 CVs × 10 JDs",
+        "latest": true,
         "note": "277 份扫描简历 × 10 份职务说明书；决定 C：公理判必要条件，闸门判够不够",
         "profile": "talent_v1/talent_v1_settings.json",
-        "url": ""
+        "superseded_by": null,
+        "url": "",
+        "version": null
+      },
+      {
+        "enabled": true,
+        "key": "store_monthly_v1",
+        "kind": "trial",
+        "label": "门店月度经营",
+        "latest": true,
+        "note": "registered by ontology_register",
+        "profile": "store_monthly_v1/store_monthly_v1_settings.json",
+        "superseded_by": "",
+        "url": "",
+        "version": 1
       }
     ],
     "python": "",
