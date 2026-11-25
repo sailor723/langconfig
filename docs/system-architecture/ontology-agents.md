@@ -135,6 +135,29 @@ would write — it answered that it does not know yet and would read `profiles/<
 database per call. A second turn had it measure `sunhing_kpi` with one `db_query` batch; its answer
 (24 tables, 2 087 rows) matched an independent `count(*)` sum exactly.
 
+## The pitfall the first prompt had (measured)
+
+The first version of the prompt told the agent to read `profiles/<key>/<key>_settings.json` and
+`profiles/<key>/_brief.md` to learn which database a key belongs to. A test turn with `meeting_v1`
+showed the agent reporting that **those files are not in its workspace** — and it was right: an agent's
+workspace is its own sandbox (`outputs/users/<n>/agents/agent_<id>`), not the repository. The prompt was
+asking for something unobtainable, so the honest-looking answer ("I would read …") was unactionable, and
+on a less careful model it would have degraded into guessing the database from the key.
+
+The platform already had the right tools; the prompt now names them:
+
+- `ontology_open(ontology_key="<key>", dest="work/<key>")` copies the INSTALLED ontology (profile
+  included) into the workspace and prints the profile's facts, including the database name. This is the
+  rebuild path.
+- `ontology_inspect(ontology_key="<key>")` asks the compiler for facts without copying anything.
+- Both reporting "no such key" means the ontology was never registered — the answer is to tell the user
+  to run `add_ontology_builder.py --base <name> --datasource <db> --no-agent`, not to create a folder.
+
+Re-tested after the fix, same question, agent 393: it called `ontology_open` (10 files opened), read
+`work/meeting_v1/meeting_v1_settings.json` with `read_any_file`, and answered `meeting_hub` from **two
+independent sources** that agreed, without writing or publishing anything. `meeting_hub` is what the
+repository's `profiles/meeting_v1/meeting_v1_settings.json` declares, checked separately.
+
 ## Retirement of the per-key rows
 
 `scripts/seeds/in/retire_ontology_builders.py` (dry run by default, `--restore` to undo) set

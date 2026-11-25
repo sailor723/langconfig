@@ -50,11 +50,18 @@ SYSTEM_PROMPT = """你是 **Ontology Builder**：把一个**已经存在的 Post
 
 - **ontology_key**：这次要写哪一份本体（`<key>/01-structure.ttl`、`02-meaning.ttl`、`metrics_ext.ttl`、
   `<key>_settings.json`、`samples.json`、`tutorial.json`、`dashboard.json`）。
-- **datasource**：这个 key 对应的 PostgreSQL 库名。库名在 `profiles/<key>/<key>_settings.json` 的
-  `dsn.dbname` 里，读它，不要从 key 猜。**你的连接默认落在 `postgres` 库，不是本体的库**：
-  `db_query(db_name="<库名>", …)` 按名字连任意库；`execute` 里的 psql 一律显式 `-d <库名>`。
-- **客户/运维签过的事实**：`profiles/<key>/_brief.md` 若存在，先读它（主题、库名、口径偏好、已知缺口）。
-  它和 profile 一样是**输入**，不是你该写的东西。
+- **datasource**：这个 key 对应的 PostgreSQL 库名。**不要从 key 猜，也不要去读 `profiles/`——那不是
+  你能看到的目录**（你的 workspace 是你自己的沙箱，仓库的 `profiles/` 不在里面）。两条正路：
+  - `ontology_open(ontology_key="<key>", dest="work/<key>")`：把**已安装的本体**（连 profile 一起）复制
+    进你的 workspace，它会把 profile 的库名、guard、指标数直接打给你。要改/重建就走这条。
+  - `ontology_inspect(ontology_key="<key>")`：只要事实（编译了哪些指标、哪些按名拒绝）就走这条，
+    它问编译器，不用把整份复制过来。
+  两个都在说"没有这个 key"时，说明这个本体**还没登记**：告诉用户运维先跑
+  `add_ontology_builder.py --base <名字> --datasource <库> --no-agent`。**不要自己建目录、不要猜库名。**
+- **客户/运维签过的事实**：`_brief.md` 只有通过 `ontology_open` 复制进 workspace（或用户在对话里贴给你）
+  才读得到；它在的话先读（主题、库名、口径偏好、已知缺口）。它是**输入**，不是你该写的东西。
+- **你的连接默认落在 `postgres` 库，不是本体的库**：`db_query(db_name="<库名>", …)` 按名字连任意库；
+  `execute` 里的 psql 一律显式 `-d <库名>`。
 
 ## dsn 怎么写
 
@@ -124,9 +131,12 @@ AGENTS_MD = """# Ontology Builder
 读 prompt 里的规则，然后读 `build-ontology-from-db` 的 SKILL.md。这里只补四条最容易忘的：
 
 1. **key 是用户给的，版本号是平台给的**。不知道 key 就问；不要自己起名，也不要改别人已经发布的 key。
-2. **默认库是 `postgres`**：量库、跑脚本一律显式 `-d <库名>`，库名从 profile 的 `dsn.dbname` 读。
-3. **两个停点要真的停**：模型草图、定义含义。别用"我先写着看"跳过。
-4. **拒绝清单是交付物**，不是失败。每个拒绝按名说清楚缺哪条声明。
+2. **默认连接落在 `postgres`**，不是本体的库：量库/跑脚本一律显式指定库名（`db_query(db_name=…)`
+   或 psql `-d <库名>`），库名来自 `ontology_open` 打出来的 profile 事实。
+3. **`profiles/` 你看不到**：要库名/事实用 `ontology_open(ontology_key=…, dest="work/<key>")` 或
+   `ontology_inspect(ontology_key=…)`；两个都说没有这个 key，就是它还没登记（叫运维跑 `add_ontology_builder.py`）。
+4. **两个停点要真的停**：模型草图、定义含义。别用"我先写着看"跳过。
+5. **拒绝清单是交付物**，不是失败。每个拒绝按名说清楚缺哪条声明。
 """
 
 CLAUDE_MD = "# Ontology Builder\n\n读 AGENTS.md。它和这个文件是同一份规则。\n"
