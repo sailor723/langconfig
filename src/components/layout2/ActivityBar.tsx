@@ -57,13 +57,14 @@ const SECTION_GROUPS: ActivityId[][] = [
 const RAIL_COLLAPSED = 48;
 const RAIL_EXPANDED = 208;
 /**
- * Row metrics — the rail has a fixed budget of 16 rows (12 activities + account, settings,
- * chat, sidebar toggle). At the original 48px that is ~790px, taller than the viewport of a
- * 1366×768 laptop or any window with browser chrome, so the last rows could only be reached
- * by scrolling. 36px puts the whole rail at ~594px, which fits a 700px window with the
- * bottom cluster still pinned to the edge.
+ * Row metrics — the rail's budget is 16 rows (12 activities + account, settings, chat, sidebar
+ * toggle). Rows GROW to share the leftover height (`flex: 1 1 0`), so on a normal window the
+ * last row rides the bottom edge with no blank band between it and the activities. ROW_H is
+ * therefore a FLOOR, not a height: it is what the rows shrink to before the column starts
+ * scrolling. 28px × 16 rows + dividers ≈ 466px, which every browser window can show whole —
+ * the deployed build's fixed 48px (≈790px) cannot on a laptop.
  */
-const ROW_H = 36;
+const ROW_H = 28;
 const GLYPH = 18;
 /** 48px rail, 18px glyph: the icon sits on the rail's centre line. */
 const ROW_PAD = `0 12px 0 ${(RAIL_COLLAPSED - GLYPH) / 2}px`;
@@ -101,8 +102,8 @@ function RailItem({
       style={{
         position: 'relative',
         width: '100%',
-        height: ROW_H,
-        flex: 'none',
+        minHeight: ROW_H,
+        flex: '1 1 0',
         display: 'flex',
         alignItems: 'center',
         gap: 10,
@@ -281,12 +282,11 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
           </Fragment>
         ))}
 
-        {/* Keep the account cluster on the bottom edge, the way the deployed build does:
-            a `flex: 1` band absorbs whatever height the window has left, so the last row
-            rides the bottom edge and stays there when the window is resized or zoomed.
-            (Removing this band moved the cluster up under Learning and left the empty space
-            at the bottom instead — same pixels of nothing, wrong place.) */}
-        <div style={{ flex: 1 }} />
+        {/* No free-floating band and no stretching spacer: the rows above share the leftover
+            height among themselves (`flex: 1 1 0`, floor 36px), so the last row always sits on
+            the rail's bottom edge whatever the window height, and the gap that used to appear
+            between Learning and the account row cannot open. On a window shorter than the rows
+            need, they stop at 36px and the column scrolls instead of clipping. */}
 
         {/* Account — who am I, and the two things an account can do. Bottom cluster
             because that is where "this session" lives, next to Settings. */}
