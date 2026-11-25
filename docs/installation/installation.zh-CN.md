@@ -529,13 +529,18 @@ env -u PGPORT .venv/bin/python -m alembic upgrade head        # ③ 迁移
 env -u PGPORT .venv/bin/python scripts/seeds/in/seed_all.py   # ④ 期望 deep agents 76 / skills 121
 cd .. && npm install && npm run build           # ⑤ **别跳过**：后端直接 serve dist/
 bash start.sh                                   # ⑥ 起服务
-cd backend && set -a && . ../.env && set +a
-env -u PGPORT .venv/bin/python scripts/seeds/in/seed_talent_agents.py --apply   # ⑦ 六个 Talent agent
+env -u PGPORT .venv/bin/python scripts/seeds/in/seed_all.py   # ⑦ 灌库（服务在跑时**连 Talent agent 一起注册**）
 env -u PGPORT .venv/bin/python -m scripts.talent.verify_install --online        # ⑧ 自检
 ```
 
-漏第 ⑦ 步的表现：Talent 面板能打开，但「问 agent」里没有 Talent agent —— 那六个不在
-`seed_all.py` 里，是独立一条 seed（走 API，要服务先起）。
+`seed_all.py` 的最后一步是 `[10.6/10] talent agents`：服务在跑就顺手把 `Talent · 1..5` 注册/更新；
+服务没起就跳过，并原文打出该补的那条命令：
+
+```bash
+cd backend && .venv/bin/python scripts/seeds/in/seed_talent_agents.py --apply
+```
+
+漏了它的表现：Talent 面板能打开，但「问 agent」里没有 Talent agent。（`--skip-talent-agents` 可显式跳过。）
 
 ### 10.2 本体判定库 `talent_db`（缺了本体页 503）
 

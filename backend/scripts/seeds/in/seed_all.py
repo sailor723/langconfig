@@ -655,6 +655,42 @@ def step_skills() -> None:
           f"(total in DB: {_table_count('skills')})")
 
 
+def step_talent_agents() -> None:
+    """把六个 Talent agent 注册上（招聘流水线 1..5 + 已停用的 4b）。
+
+    **为什么不并进 [8/10] agents 那一步**：那一步写的是 `deep_agent_templates`（模板），
+    而 Talent 的 agent 需要**按项目实例化**、还要绑技能与工具白名单 —— 平台里那条路只开在
+    API 上（`POST /api/deepagents/`）。所以它必须等服务起来之后跑。
+
+    这里做的是"**服务在跑就顺手做掉**"：seed 完之后很多人就是 `bash start.sh`，
+    再让他们记一条独立命令，实际结果就是漏跑（实测过：面板能开、问 agent 没得选）。
+    服务没起时不报错，只把该敲的那一条命令原文打出来。
+    """
+    print("\n[10.6/10] talent agents  (6 个招聘 agent；需要服务在跑)")
+    import urllib.error
+    import urllib.request
+
+    base = os.environ.get("LANGCONFIG_BASE", "http://127.0.0.1:8765").rstrip("/")
+    try:
+        with urllib.request.urlopen(f"{base}/api/talent/docs", timeout=5) as r:
+            reachable = r.status in (200, 401)      # 401 = 服务在、只是没登录，够了
+    except (urllib.error.URLError, TimeoutError, OSError):
+        reachable = False
+
+    if not reachable:
+        print(f"  -> 跳过:后端没在 {base} 上跑。启动后补这一条:")
+        print("     cd backend && .venv/bin/python scripts/seeds/in/seed_talent_agents.py --apply")
+        return
+
+    rc = subprocess.run(
+        [sys.executable, "scripts/seeds/in/seed_talent_agents.py", "--apply"],
+        cwd=str(BACKEND_DIR),
+    )
+    if rc.returncode != 0:
+        print("  !! talent agents 没装上（见上面的输出）。装完可以用这条自检:")
+        print("     .venv/bin/python -m scripts.talent.verify_install --online")
+
+
 def step_chinook() -> None:
     print("\n[10/10] chinook sample DB (Graph Studio SQL agent, best-effort)")
     try:
@@ -708,6 +744,11 @@ def main() -> int:
              "baseline from the merge files. Destructive: agent chat "
              "sessions go too.",
     )
+    parser.add_argument(
+        "--skip-talent-agents",
+        action="store_true",
+        help="不注册招聘流水线的六个 agent（服务没起时会自动跳过并提示）",
+    )
     args = parser.parse_args()
 
     print("LangConfig DB seed-all bootstrap")
@@ -722,6 +763,10 @@ def main() -> int:
     step_deep_agents(replace=args.replace)
     step_identity()
     step_skills()
+    if getattr(args, "skip_talent_agents", False):
+        print("\n[10.6/10] talent agents  (--skip-talent-agents)")
+    else:
+        step_talent_agents()
     step_chinook()
     summary()
     # No duplicate report here. The union matches on tool_id, so a teammate's

@@ -87,19 +87,32 @@ env -u PGPORT .venv/bin/python scripts/seeds/in/seed_all.py
 # 期望结尾：deep agents 76 / skills 121 / tools 80
 ```
 
-#### 6. 起服务 + talent 的六个 agent
+#### 6. 起服务（talent 的六个 agent 会被 seed_all 顺手注册）
 
 ```bash
 cd <repo> && bash start.sh
 # 或者生产：systemctl restart langconfig（后端是 uvicorn :8765，caddy 反代）
-
-cd backend && set -a && . ../.env && set +a
-env -u PGPORT .venv/bin/python scripts/seeds/in/seed_talent_agents.py --apply
-# 期望：6 个 agent 更新完（Talent · 1..5，4b 已停用）
 ```
 
-> `Talent · 1..5` **不在** `seed_all.py` 里 —— 它是独立一条 seed，走 API，所以要让服务先起来。
-> 漏了这一步的表现是：Talent 面板能打开，但「问 agent」没有可选的 Talent agent。
+`seed_all.py` 的最后一步是 **`[10.6/10] talent agents`**：服务在跑 → 直接把
+`Talent · 1..5` 注册/更新（绑技能与工具白名单）；服务没起 → 跳过并原文打出该补的那条命令：
+
+```bash
+cd backend && .venv/bin/python scripts/seeds/in/seed_talent_agents.py --apply
+```
+
+所以两种顺序都对：
+
+```bash
+# A. 先灌库再起服务（seed 时服务没起 → 起来后补一条）
+seed_all.py  →  start.sh  →  seed_talent_agents.py --apply
+
+# B. 先起服务再灌库（推荐：seed_all 一步到位）
+start.sh  →  seed_all.py            # 最后一步会把 agent 一起注册
+```
+
+> 漏了这一步的表现：Talent 面板能打开，但「问 agent」没有可选的 Talent agent。
+> `--skip-talent-agents` 可以显式跳过。
 
 #### 7. `talent_db`（本体判定库）—— 缺了本体页会 503
 
