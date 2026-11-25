@@ -269,12 +269,12 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
           </Fragment>
         ))}
 
-        {/* No stretching band between the activities and the account cluster.
-            ECS looked like "Learning and my profile are almost together" simply because its
-            window was just tall enough that this `flex: 1` collapsed to nothing — the gap is
-            viewport height, not design. The cluster now follows the last activity at every
-            window size, so the rail reads the same on the laptop and on the server. */}
-        <div className="lc-rail-divider" style={{ height: 1, background: t.activityBarDivider }} />
+        {/* Keep the account cluster on the bottom edge, the way the deployed build does:
+            a `flex: 1` band absorbs whatever height the window has left, so the last row
+            rides the bottom edge and stays there when the window is resized or zoomed.
+            (Removing this band moved the cluster up under Learning and left the empty space
+            at the bottom instead — same pixels of nothing, wrong place.) */}
+        <div style={{ flex: 1 }} />
 
         {/* Account — who am I, and the two things an account can do. Bottom cluster
             because that is where "this session" lives, next to Settings. */}
