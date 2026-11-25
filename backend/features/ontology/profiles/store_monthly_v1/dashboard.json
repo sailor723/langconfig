@@ -158,23 +158,25 @@
   "independent_sql": [
     {
       "label": "handRevenue",
+      "metric": "revenueTotal",
       "sql": "SELECT sum(营业额)::bigint FROM 月度经营"
     },
     {
       "label": "handTraffic",
+      "metric": "trafficTotal",
       "sql": "SELECT sum(客流量)::bigint FROM 月度经营"
     },
     {
       "label": "handReturnRate",
-      "sql": "SELECT round(sum(退货额)::numeric / sum(营业额), 6) FROM 月度经营"
+      "metric": "returnRate",
+      "sql": "SELECT round((100.0) * sum(退货额)::numeric / sum(营业额), 6) FROM 月度经营"
     },
     {
       "label": "handAvgTicket",
-      "sql": "SELECT round(sum(营业额)::numeric / sum(客流量), 4) FROM 月度经营"
-    },
-    {
-      "label": "handReturnsCoverage",
-      "sql": "SELECT count(*) FROM 月度经营 WHERE 退货额 > 0"
+      "metric": "avgTicket",
+      "sql": "SELECT round(sum(营业额)::numeric / sum(客流量), 6) FROM 月度经营"
     }
-  ]
+  ],
+  "tolerance": 1e-05,
+  "_doc_note_independent": "第二路线的量纲必须跟声明一致：退货率声明为 percent + scale 100.0，手写 SQL 也乘 100；客单价声明为 money_per_visit（未声明 scale），手写 SQL 不乘。"
 }
