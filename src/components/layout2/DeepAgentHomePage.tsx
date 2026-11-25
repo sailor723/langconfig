@@ -1473,7 +1473,7 @@ export default function DeepAgentHomePage() {
       </div>
 
       {/* ── Scrollable content area — intro + templates ── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '28px 32px' }}>
         <HeroCard onNewAgent={handleNewAgent} />
 
         {/* Search + category filter */}

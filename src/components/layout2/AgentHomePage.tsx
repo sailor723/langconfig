@@ -849,7 +849,7 @@ export default function AgentHomePage() {
       </div>
 
       {/* ── Content area — rich intro + templates ──────── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 24px' }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '24px 24px' }}>
         {/* Rich intro section */}
         <HeroCard onNewAgent={handleNewAgent} />
 

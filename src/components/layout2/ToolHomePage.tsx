@@ -444,7 +444,7 @@ export default function ToolHomePage() {
       </div>
 
       {/* ── Content area ── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '24px' }}>
         {/* Hero banner */}
         <div
           style={{
