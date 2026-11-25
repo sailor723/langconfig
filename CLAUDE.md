@@ -131,6 +131,7 @@ See `docs/` for architecture and design documentation:
 | `docs/system-architecture/skills-and-tools-review-2026-11-09.md` | Skills and tools review: the honest-skill test, and what to adopt / install next |
 | `docs/system-architecture/sunhing-dashboards.md` | Sun Hing dashboard generation (deterministic generator, producer map, 28-KPI coverage, UI wiring) |
 | `docs/system-architecture/ontology-agents.md` | 一个 builder 模板 + 每个本体一个实例；客户给名字、平台给版本（`<name>_v<N>`，永不复用），版本登记在 `profiles/_versions.json` |
+| `docs/system-architecture/ontology-pipeline.md` | Excel→库→本体→看板 的总体设计：五层、manager+4 专家、文件即契约、两处停点、失败模式与验收 |
 | `docs/talent/` | 招聘流水线（talent）：`PROCESS.md` 是五步流程的唯一权威，`decisions/` 是决定与理由，`reviews/` 是一次性复盘，`archive/` 是已被取代的过程稿（只读） |
 | `docs/installation/lan-access.md` | Letting other people use this instance over the network: the LAN gate, the /signin page and its sessions, what stays shared, and why per-user data is a rebuild |
 | `docs/system-architecture/REFACTORING.md` | Backend refactor status (god-module splits, verification methodology, security-fix pass) |
