@@ -168,3 +168,16 @@
 #   · 排名 / 达标判定 / 红绿灯：D13 + D15 明确不做。
 #   · 「本月」「当期」类窗口指标：D14 没有当期概念；且 text 月份上任何日期窗口都会报类型错误。
 # =============================================================================
+
+# ---------------------------------------------------------------- 派生概念上的计数
+# 「有退货的门店月有几个」—— 12，与总门店月数相等。它存在的理由是让 :ReturnedStoreMonth 这个
+# 定义有一个 :where 使用者（编译器由此知道它的表），顺便给看板一句可核的事实：
+# 退货覆盖 100% 的门店月，所以退货率的分母在每一格都成立。
+:storeMonthsWithReturns a owl:DatatypeProperty ;
+    rdfs:label "有退货的门店月数" ;
+    :askedAs "有退货的门店月有多少" ;
+    :aggregate "count" ; :formula "*" ;
+    :grain :StoreMonth ; :universe :StoreMonth ; :where :ReturnedStoreMonth ;
+    :additivity "additive" ; :unit "count" ;
+    :businessDescription "table: 月度经营 — 退货额 > 0 的门店月计数。measured: 12（= 全部门店月数），退货额 700 … 4,300 元。第二条路线：select count(*) from 月度经营 where 退货额 > 0 → 12。它不上看板（D1 只点四个数），是给 R2 定义等价性门禁和「退货率分母处处成立」这句话的证据。" .
+

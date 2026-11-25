@@ -1,0 +1,36 @@
+{
+  "_comment": "门店月度经营本体的第二条路线。`_definitions` 是 R2 门禁的输入：定义类 → [物理表, 手写谓词]；门禁把它与编译出来的谓词各自 count，两者相等才算等价。`_hand_metrics` 只是人读的实测值（门禁不消费它），用来让「数字有第二条路线」这件事在文件里留痕，而不是只留在对话里。",
+  "_definitions": {
+    "ReturnedStoreMonth": [
+      "月度经营",
+      "退货额 > 0"
+    ]
+  },
+  "_hand_metrics": {
+    "_note": "手写 SQL 的实测值；与 metric 的编译值并列，供人核对（门禁不读这一节）。",
+    "revenueTotal": {
+      "value": 1271300,
+      "route2": "select sum(营业额) from 月度经营"
+    },
+    "trafficTotal": {
+      "value": 52800,
+      "route2": "select sum(客流量) from 月度经营"
+    },
+    "returnAmountTotal": {
+      "value": 28150,
+      "route2": "select sum(退货额) from 月度经营"
+    },
+    "avgTicket": {
+      "value": 24.0777,
+      "route2": "select round(sum(营业额)::numeric/sum(客流量), 4) from 月度经营"
+    },
+    "returnRate": {
+      "value": 0.022143,
+      "route2": "select round(sum(退货额)::numeric/sum(营业额), 6) from 月度经营"
+    },
+    "storeMonthsWithReturns": {
+      "value": 12,
+      "route2": "select count(*) from 月度经营 where 退货额 > 0"
+    }
+  }
+}
