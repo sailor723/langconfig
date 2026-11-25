@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8">
+<title>订单与回款（按城市） —— 图谱与文档（由 TTL 生成）</title>
+<style>
+  :root { --ink:#1b1b1b; --dim:#777; --faint:#999; --line:#c9c9c9; --pick:#ffe9a8; }
+  * { box-sizing:border-box }
+  body { margin:0; font:13px/1.45 -apple-system,Helvetica,Arial,sans-serif; color:var(--ink);
+         display:flex; height:100vh; overflow:hidden; background:#fbfbfb }
+  code, pre, .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace }
+  /* ── index: a documentation table of contents that drives the graph ────── */
+  #index { width:232px; border-right:1px solid #e2e2e2; background:#fff; overflow-y:auto;
+           padding:10px 0 40px; flex:none }
+  #index .head { padding:0 12px 8px; font-size:10px; letter-spacing:.06em;
+                 text-transform:uppercase; color:var(--dim) }
+  #index .grp { padding:12px 12px 3px; font-size:10px; letter-spacing:.06em;
+                text-transform:uppercase; color:var(--dim); border-top:1px solid #f0f0f0 }
+  #index .grp:first-child { border-top:none }
+  #index a { display:block; padding:2px 12px 2px 16px; font-size:12px; color:var(--ink);
+             text-decoration:none; cursor:pointer; white-space:nowrap; overflow:hidden;
+             text-overflow:ellipsis }
+  #index a:hover { background:#f4f4f4 }
+  #index a.on { background:var(--pick); font-weight:600 }
+  #index a.off, #index .grp.off { display:none }
+  /* ── stage ─────────────────────────────────────────────────────────────── */
+  #stage { flex:1; position:relative; overflow:hidden; cursor:grab; min-width:0 }
+  #stage.dragging { cursor:grabbing }
+  svg { width:100%; height:100%; display:block }
+  .node { cursor:pointer }
+  .node rect, .node ellipse { stroke:#333; stroke-width:1; fill:#fff }
+  .node.meaning rect { fill:#efefef }
+  .node.metric ellipse { fill:#f7f7f7 }
+  .node.metric-refused ellipse { fill:#ffe2e2 }
+  .node text { font-size:9px; fill:var(--ink); pointer-events:none }
+  .node .name { font-size:10px; font-weight:600 }
+  .node .sub { font-size:8.5px; fill:#333 }
+  .node .col { font-size:8px; fill:#666; font-family:ui-monospace,Menlo,monospace }
+  .node.dim { opacity:.14 }
+  .node.reach rect, .node.reach ellipse { stroke:#888 }
+  .node.hit rect, .node.hit ellipse { stroke:var(--pick); stroke-width:3 }
+  .node.sel rect, .node.sel ellipse { stroke:#c99a00; stroke-width:4 }
+  .edge { fill:none; stroke:var(--line); stroke-width:1.1 }
+  .edge.measures { stroke-dasharray:3 3; stroke:#bbb }
+  .edge.subclass { stroke-dasharray:1 3 }
+  .edge.dim { opacity:.1 }
+  .edge.hit { stroke:#c99a00; stroke-width:1.8 }
+  .edge-label { font-size:8px; fill:var(--dim); pointer-events:none }
+  #bar { position:absolute; top:10px; left:12px; right:12px; display:flex; gap:6px;
+         align-items:center; font-size:11px; background:rgba(255,255,255,.93);
+         padding:6px 8px; border-radius:4px; border:1px solid #e2e2e2 }
+  #bar input { border:1px solid #ddd; border-radius:3px; padding:3px 6px; font-size:11px;
+               width:140px }
+  #bar button { border:1px solid #ddd; background:#fff; border-radius:3px; padding:3px 7px;
+                font-size:11px; cursor:pointer }
+  #bar button.on { background:#333; color:#fff; border-color:#333 }
+  #bar .sp { flex:1 }
+  #bar .meta { color:var(--dim); font-size:10px; white-space:nowrap; overflow:hidden;
+               text-overflow:ellipsis }
+  #hint { position:absolute; bottom:8px; left:12px; font-size:10px; color:var(--faint) }
+  #controls { position:absolute; right:12px; bottom:12px; user-select:none }
+  #controls .row { display:flex; gap:4px; justify-content:flex-end; margin-top:4px }
+  #controls button { width:26px; height:26px; padding:0; border:1px solid #ddd; background:rgba(255,255,255,.95);
+                     border-radius:3px; cursor:pointer; font-size:13px; line-height:1; color:var(--ink) }
+  #controls button:hover { background:#f1f1f1 }
+  #controls button:active { background:#e8e8e8 }
+  #controls button.on { background:#333; color:#fff; border-color:#333 }
+  #controls button[data-mode] { width:auto; padding:0 6px; font-size:11px }
+  /* ── panel: the documentation ──────────────────────────────────────────── */
+  #panel { width:432px; border-left:1px solid #e2e2e2; background:#fff; overflow-y:auto;
+           padding:14px 16px 60px; flex:none }
+  #panel h1 { font-size:15px; margin:0 0 2px }
+  #panel .kind { color:var(--dim); font-size:11px; margin-bottom:10px }
+  #panel h2 { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim);
+              margin:16px 0 4px; font-weight:600 }
+  #panel pre { margin:0; background:#f5f5f5; border:1px solid #e8e8e8; border-radius:3px;
+               padding:7px 8px; overflow-x:auto; font-size:11px; line-height:1.4;
+               white-space:pre-wrap; word-break:break-word }
+  #panel .desc { margin:0; font-size:12.5px; line-height:1.5 }
+  #panel .big { font:600 20px/1.2 ui-monospace,Menlo,monospace; margin:2px 0 0 }
+  #panel table.ann { width:100%; border-collapse:collapse; font-size:11.5px }
+  #panel table.ann th { text-align:left; vertical-align:top; width:38%; padding:3px 8px 3px 0;
+                        color:#555; font-weight:500 }
+  #panel table.ann td { padding:3px 0; word-break:break-word; vertical-align:top }
+  /* id columns hug their content instead of stealing a third of the row */
+  #panel table.ann th.idcol, #panel table.ann td.idcol { width:1%; white-space:nowrap;
+                                                         padding-right:14px }
+  #panel .why { color:#a11; font-size:11.5px; margin:0 }
+  #panel .file { font-family:ui-monospace,Menlo,monospace; font-size:10px; color:var(--dim) }
+  #panel .muted { color:var(--dim) }
+  #panel .db { background:#eef4fb; border-left:3px solid #7aa7d9; border-radius:3px;
+               padding:8px 10px }
+  #panel .db .src { font-size:10px; color:#4a6f9c; margin-top:5px;
+                    font-family:ui-monospace,Menlo,monospace }
+  #panel .db table.ann th, #panel .db table.ann td { border-color:#d5e3f2 }
+  #bar .dbchip { font-size:10px; color:#4a6f9c; white-space:nowrap }
+</style></head>
+<body>
+<div id="index"><div class="head">实体</div><div id="idx"></div></div>
+<div id="stage">
+  <div id="bar">
+    <input id="q" placeholder="搜索…">
+    <button data-k="structure" class="on">类</button>
+    <button data-k="meaning" class="on">定义</button>
+    <button data-k="metric" class="on">属性</button>
+    <button id="reset">适配</button>
+    <span class="sp"></span>
+    <span class="dbchip" id="scope"></span>
+    <span class="dbchip">■ 蓝色 = 在 Postgres 里实测</span>
+    <span class="meta" id="meta"></span>
+  </div>
+  <svg id="svg"><g id="view"></g></svg>
+  <div id="controls">
+    <div class="row">
+      <button id="c-fit" title="适配窗口 — 快捷键 0">⤢</button>
+      <button id="c-zin" title="放大 — 快捷键 +">＋</button>
+      <button id="c-zout" title="缩小 — 快捷键 −">−</button>
+    </div>
+    <div class="row">
+      <button data-mode="domain" title="这个词的属性指向谁 — 快捷键 d">域→</button>
+      <button data-mode="range" title="谁指向这个词 — 快捷键 r">←值域</button>
+      <button data-mode="both" title="两个方向都看 — 快捷键 b">双向</button>
+    </div>
+    <div class="row">
+      <button data-pan="left" title="左移 — 快捷键 ←">←</button>
+      <button data-pan="up" title="上移 — 快捷键 ↑">↑</button>
+      <button data-pan="down" title="下移 — 快捷键 ↓">↓</button>
+      <button data-pan="right" title="右移 — 快捷键 →">→</button>
+    </div>
+  </div>
+  <div id="hint">点一个实体 · <b>域→ / ←值域</b> 只留与它相关的 · 拖动节点 · 滚轮缩放 · 方向键平移 · 快捷键 + − 0 ← ↑ ↓ → d r b</div>
+</div>
+<div id="panel">
+  <h1>订单与回款（按城市）</h1>
+  <div class="kind">2026-11-25 22:56 · 由 4 个文件里的 210 条三元组生成</div>
+  <p class="muted">在左侧或图里点一个 <b>c</b> 类或一个 <b>dp</b> 数据属性。这一栏是它的文档，
+  由 <code>.ttl</code> 生成，用词与 <code>ontology-doc.html</code> 一致：描述、等价类、注解属性、
+  公理、IRI。<b>域</b>/<b>值域</b> 两个列表就是那一页里说的 <i>In Domain Of</i> 与
+  <i>In Range Of</i>。</p>
+  <p class="muted" id="note">这个文件写出时实测的数字。</p>
+</div>
+<script>
+const DATA = {"nodes": [{"id": "Order", "kind": "structure", "badge": "c", "term": "Class", "label": "订单（一行一张订单）", "name": "Order", "iri": "https://cube.local/ontology/orders_demo_v1#Order", "sub": "orders", "inDomain": [{"n": "customerOf", "kind": "object", "col": "客户", "sqlType": null, "unit": null, "additivity": null, "formula": null, "aggregate": null, "to": null, "refs": null}, {"n": "amount", "kind": "datatype", "col": "金额", "sqlType": null, "unit": "money", "additivity": "additive", "formula": null, "aggregate": null}, {"n": "order_city", "kind": "datatype", "col": "城市", "sqlType": null, "unit": "category", "additivity": "not-a-dimension", "formula": null, "aggregate": null}, {"n": "order_date", "kind": "datatype", "col": "下单日期", "sqlType": null, "unit": "date", "additivity": "dimension", "formula": null, "aggregate": null}, {"n": "order_id", "kind": "datatype", "col": "订单号", "sqlType": null, "unit": null, "additivity": null, "formula": null, "aggregate": null}, {"n": "paid", "kind": "datatype", "col": "已付款", "sqlType": null, "unit": "boolean", "additivity": "not-additive-as-a-boolean-counted-as-rows", "formula": null, "aggregate": null}], "inRange": [], "lines": ["订单（一行一张订单）", "orders", "下单日期", "城市", "客户", "已付款", "订单号", "金额"], "value": 5, "sample": null, "objects": null, "indivSql": "SELECT count(*) FROM orders;", "labelRule": ":primaryKey", "description": null, "table": "orders", "structural": [], "annotations": [{"k": "businessDescription", "label": "业务描述", "v": ["一行 = 一张订单。粒度证据（measured）：count(*) = 5，count(distinct \"订单号\") = 5，min/max 订单号 = 1/5；主键由库约束 orders_pkey(订单号) 保证（convalidated = t），不是「看起来唯一」。这是本本体唯一的事实表：金额、已付款、下单日期都落在这一行上，城市不在这一行上（见 :order_city 与 02-meaning.ttl 的 D5 段）。5 行里 订单号 取值恰好是 1..5，与行号无法区分 —— 「订单号在全量数据里是否唯一」是 grill §2 的有意未定项，本层只声明「在这一列的每一行都唯一」这个库约束能保证的事。时间轴是 :order_date（真 date 列），全库没有任何 timestamp 列。"], "iri": ""}, {"k": "physicalTable", "label": "物理表", "v": ["orders"], "iri": ""}, {"k": "primaryKey", "label": "主键", "v": ["订单号"], "iri": ""}, {"k": "timeColumn", "label": "timeColumn", "v": ["下单日期"], "iri": ""}], "sources": {"self": [{"file": "01-structure.ttl", "line": 43, "text": ":Order a owl:Class ;\n    rdfs:label \"订单（一行一张订单）\" ;\n    :physicalTable \"orders\" ;\n    :primaryKey \"订单号\" ;\n    :timeColumn \"下单日期\" ;\n    :businessDescription \"一行 = 一张订单。粒度证据（measured）：count(*) = 5，count(distinct \\\"订单号\\\") = 5，min/max 订单号 = 1/5；主键由库约束 orders_pkey(订单号) 保证（convalidated = t），不是「看起来唯一」。这是本本体唯一的事实表：金额、已付款、下单日期都落在这一行上，城市不在这一行上（见 :order_city 与 02-meaning.ttl 的 D5 段）。5 行里 订单号 取值恰好是 1..5，与行号无法区分 —— 「订单号在全量数据里是否唯一」是 grill §2 的有意未定项，本层只声明「在这一列的每一行都唯一」这个库约束能保证的事。时间轴是 :order_date（真 date 列），全库没有任何 timestamp 列。\" ."}], "related": [{"file": "01-structure.ttl", "line": 50, "rel": "domain", "prop": "order_id", "text": ":order_id a owl:DatatypeProperty ; rdfs:label \"订单号\" ; :askedAs \"订单号\" ;\n    rdfs:domain :Order ; :physicalColumn \"订单号\" ; rdfs:range xsd:integer ;\n    :businessDescription \"订单号，integer（grill D10），库里是 orders 的主键（orders_pkey）。measured: 5 行、5 个不同值、1..5、无空值。它是订单的唯一标识，也是任何「订单数」口径的计数单位（count(distinct 订单号) = count(*) = 5，两种写法同值）。它不参与任何按值筛选：本数据里 1..5 与行号重合，用它当筛选条件没有业务含义。\" ."}, {"file": "01-structure.ttl", "line": 54, "rel": "domain", "prop": "amount", "text": ":amount a owl:DatatypeProperty ; rdfs:label \"金额（元）\" ; :askedAs \"金额\" ;\n    rdfs:domain :Order ; :physicalColumn \"金额\" ; rdfs:range xsd:decimal ;\n    :businessDescription \"一张订单的金额，numeric(12,2)（grill D11），单位**人民币元**、库里存的就是元、不缩放（grill D3，口径写在 02-meaning.ttl 的 :amount）。measured: 5 行非空，sum = 746.74，min = 0.99，max = 320.00；没有任何一行的小数位超过 2（count(*) where 金额 <> round(金额,2) = 0）。可加量：跨行、跨城市求和同口径。它是本板唯一的金额量，回款率的分子分母都不来自这一列（回款按整单布尔计，见 :paid）。\" ."}, {"file": "02-meaning.ttl", "line": 47, "rel": "domain", "prop": "amount", "text": ":amount rdfs:label \"金额（元）\" ;\n    :unit \"money\" ; :additivity \"additive\" ;\n    :businessDescription \"金额 = **一张订单的金额，单位人民币元，库里存的就是元**（grill D3）。三条硬口径，写死在这里：① **不做任何缩放**：不 ÷100、不 ×100、不换算成万元/千元、不当分/角处理 —— 库里 numeric(12,2) 的 746.74 就是 746.74 元，读出来直接写「746.74 元」；② **不做币种换算**：文件里没有任何货币符号、没有币种列、没有汇率，任何把元当成别的币种的动作都是编的；③ **可加量**：跨订单、跨城市求和是同一个口径（measured: 5 行合计 sum(金额) = 746.74，min 0.99 / max 320.00，没有任何一行小数位超过 2）。**它是本板唯一的金额来源**：没有成本、没有税、没有实付金额、没有退款额 —— 所以「毛利」「净收入」「实收」这些词在这份数据上都没有对应的数，只能按名拒绝。别把它解释成「已回款金额」：回款只由 :paid 这个布尔表达（见下），金额与付款状态是两件事，相加/相除都不构成「已回款金额」。\" ."}, {"file": "01-structure.ttl", "line": 58, "rel": "domain", "prop": "paid", "text": ":paid a owl:DatatypeProperty ; rdfs:label \"已付款（整单是否付清）\" ; :askedAs \"已付款\" ;\n    rdfs:domain :Order ; :physicalColumn \"已付款\" ; rdfs:range xsd:boolean ;\n    :businessDescription \"整单是否付清的布尔标记，boolean，5 行非空。measured: true 3 行 / false 2 行（count(*) filter (where 已付款) = 3，filter (where not 已付款) = 2）。它是**布尔**、不是金额：库里没有任何「实付金额」列，所以本列只能读成「整单付清 / 未付清」，不存在第三种状态（grill D4，口径写在 02-meaning.ttl 的 :paid）。用它求和（true 当 1）得到的整数就是「已付款订单数」，这也是它唯一合法的数值用法。\" ."}, {"file": "02-meaning.ttl", "line": 55, "rel": "domain", "prop": "paid", "text": ":paid rdfs:label \"已付款（整单是否付清）\" ;\n    :unit \"boolean\" ; :additivity \"not-additive-as-a-boolean-counted-as-rows\" ;\n    :businessDescription \"已付款 = **整单是否付清的布尔标记位**：true 表示这一张订单**已全部付清**，false 表示**未付清**。grill D4 逐字定了两件事：① 它是整单口径，不是部分口径；② **本数据里不存在部分付款** —— 库里没有任何「实付金额」「已付金额」「欠款」列，也没有退款表（S1 实测：两表 10 列里没有这类列）。所以不存在「付了一半」这种状态，也不许把布尔读成「付了多少钱」。measured: 5 行全部非空，true 3 行 / false 2 行。**合法的数值用法只有一种**：把 true 数成 1（count(*) filter (where 已付款) = 3）得到「已付款订单数」；「回款率」在 S3 里就是 已付款订单数 ÷ 订单数（本层只保证 :paid 的含义里没有部分付款，因此这个比率的分子分母都是「整单」，不会因为半付而系统性漂移）。**这是本规格最贵的错**（SPEC「风险与可逆性」第一条）：若真实世界存在部分付款，把布尔当全额标记会让回款率系统性偏高。撤销成本低（改这条口径 + 重编译指标，库里没有实付金额可丢），但发现成本高 —— 所以这条口径必须写在声明里，而不是留在某人的记忆里。什么会推翻它：出现「实付金额」列或退款表（grill §2 的解锁条件）。\" ."}, {"file": "01-structure.ttl", "line": 62, "rel": "domain", "prop": "order_date", "text": ":order_date a owl:DatatypeProperty ; rdfs:label \"下单日期\" ; :askedAs \"下单日期\" ;\n    rdfs:domain :Order ; :physicalColumn \"下单日期\" ; rdfs:range xsd:date ;\n    :businessDescription \"下单日期，**真 date 列**（grill D7；Excel 里是 inlineStr 文本，建库时转成 date）。measured: 5 行非空，min 2026-01-05 / max 2026-03-02，跨度 56 天，5 个不同日期；::text 不匹配 ^\\\\d{4}-\\\\d{2}-\\\\d{2}$ 的行 0 个。它是本类的 :timeColumn，即「按时间看」时唯一合法的列。日期只有日期部分、没有时间也没有时区（文件的实际情况，grill §2 把时区语义列为有意未定项）—— 因此任何「近 N 天」的窗口口径都还要人来定 N，本层不编（grill D8② 按名拒绝时间窗口护栏）。\" ."}, {"file": "02-meaning.ttl", "line": 75, "rel": "domain", "prop": "order_date", "text": ":order_date rdfs:label \"下单日期\" ;\n    :unit \"date\" ; :additivity \"dimension\" ;\n    :businessDescription \"下单日期 = 这张订单**下单那一天**，类型是真正的 date（grill D7：Excel 里是 inlineStr 文本，建库时转成 date，不是靠字符串排序）。measured: 5 行非空、5 个不同日期、min 2026-01-05 / max 2026-03-02、跨度 56 天；::text 不匹配 ^\\\\d{4}-\\\\d{2}-\\\\d{2}$ 的行 = 0。它是**本本体唯一的订单时间轴**（:Order 的 :timeColumn）：任何「按时间看订单」的口径都用它。三条边界：① 只有日期部分，**没有时间、没有时区** —— 所以「某天几点下的单」「按小时」在这份数据上没有对应物（grill §2 把时区语义列为有意未定项，文件只含日期部分）；② 不做任何窗口（「近 90 天」「本月」）：数据只有 5 行 / 56 天，任何 N 都是编的，grill D8② 把时间窗口护栏**按名拒绝**，S4 不填假数字；③ 2026 年的日期晚于今天（current_date）不是错误，是这份快照的未来区间，本层不做「剔除未来」的处理 —— 剔了就把 5 行剔成 0 行。\" ."}, {"file": "01-structure.ttl", "line": 71, "rel": "domain", "prop": "order_city", "text": ":order_city a owl:DatatypeProperty ; rdfs:label \"城市（订单表副本，仅对账，不参与任何指标）\" ;\n    :askedAs \"订单表上的城市（对账用）\" ;\n    rdfs:domain :Order ; :physicalColumn \"城市\" ; rdfs:range xsd:string ;\n    :businessDescription \"订单行上冗余存的城市，text，5 行非空，3 个取值（上海 3 / 北京 1 / 广州 1）。**它不是城市的口径**（grill D5）：权威口径是 :city（customers.城市，本文件的另一个类）。它被声明出来只为一件事——S1 要求每一列都有归属，而且库里这一列真实存在、@grill 决定先保留做对账、删除它属于后续另一份规格（SPEC「范围之外」）。measured: 按 客户 join 后 orders.城市 <> customers.城市 的行 = 0（两表城市 5/5 一致），所以拿它分组**看起来也对** —— 门禁不会因此变红，靠的就是 02-meaning.ttl 里那条「不参与任何指标」的声明挡住它。\" ."}, {"file": "02-meaning.ttl", "line": 67, "rel": "domain", "prop": "order_city", "text": ":order_city rdfs:label \"城市（订单表副本，仅对账，不参与任何指标）\" ;\n    :unit \"category\" ; :additivity \"not-a-dimension\" ;\n    :businessDescription \"**这一列不参与任何指标**（grill D5，逐字：orders.城市 留在库里仅做对账，不参与任何指标）。它存在的原因只有一个：库里真有这一列，而 S1 要求每一列都有归属（S1b2 的列覆盖检查），所以它必须有个属性名 —— 于是它有了一个**和权威口径不同的名字** :order_city，而不是 :city。三件不许做的事，写在这里免得下一格再问：① 不许用它分组、筛选、下钻、排序（那也是「参与指标」）；② 不许用它替代 :city 做任何展示；③ 不许在它和 :city 之间做 COALESCE / CASE / 取平均之类的「融合」—— D5 说的是「一份事实一个负责人」，融合等于又造了第三份口径。**为什么只有声明能挡住它**（这一段是本票的核心，逐条都是本格实测的）：① 两份数据此刻 5/5 一致 —— 按客户 join 后不一致行 = 0，所以用它算出的数与用 :city 算出的数**完全相同**：两条 SQL 亲手跑过，一条 `… JOIN customers t0 ON f0.客户=t0.客户 … GROUP BY t0.城市`、一条 `… FROM orders f0 … GROUP BY f0.城市`，都返回 上海 3 单 / 495.75 元 / 已付 3、北京 1 单 / 250.00 元 / 已付 0、广州 1 单 / 0.99 元 / 已付 0 —— 一个格子都不差，所以看板、样例、门禁都不会报警；② 编译器也不会替你报警：本格实测 sqlgen 把「按 :city 筛订单」编译成带 JOIN 的 `SELECT f0.订单号 FROM orders f0 JOIN customers t0 ON f0.客户 = t0.客户 WHERE t0.城市 = '上海'`（对的），把「按 :order_city 筛订单」编译成不带 JOIN 的 `SELECT f0.订单号 FROM orders f0 WHERE f0.城市 = '上海'`（也「能跑」，结果同上）—— 两条都合法，**没有任何一条会报错**；③ 于是唯一的机械防线就是名字：本体的维度只能来自指标 :groupBy 里写的属性名，而「城市」这个词只会解析到 :city（:order_city 的 label 是一整串带括号的说明、:askedAs 写的是「订单表上的城市（对账用）」，都不会被问题原样命中）。要动到 :order_city，必须有人把一个指标显式声明到 :order_city 上 —— 那是违反 D5，不是「另一种实现」。它的最终去处是删除（SPEC「范围之外」：删列属于后续另一份规格），所以本层绝不把它升格成口径。\" ."}, {"file": "01-structure.ttl", "line": 78, "rel": "domain", "prop": "customerOf", "text": ":customerOf a owl:ObjectProperty ; rdfs:label \"下单客户\" ; :askedAs \"客户\" ;\n    rdfs:domain :Order ; :range :Customer ;\n    :physicalColumn \"客户\" ; :references :Customer ;\n    :businessDescription \"join 路径：orders.客户 → customers.客户（grill D6）。库里**有真外键** orders_客户_fkey（convalidated = t），不是只有数据巧合。measured: orders 里 5 行 客户 全部能在 customers 找到对应行（left join 后 customers.客户 is null 的 = 0），取值 alice/bob/carol/dave/erin 与 customers 的 5 个 客户 完全一致。键是**文本客户名**不是编号：customers 没有 id 列，「要不要建客户编号体系」是 grill §2 的有意未定项，本层不发明代理键。注意方向：一张订单恰好属于一个客户（many-to-one），但本数据的 5 行恰好是 5 个不同客户（一客一单）—— 这是 5 行小样本的巧合，**不是** 1:1 的声明；将来同一客户有多张订单时本声明不需要改。\" ."}], "comments": [{"file": "02-meaning.ttl", "line": 19, "text": "#   事实粒度 = 一张订单（:Order，主键 订单号，5 行）；维度 = 一个客户（:Customer，主键 客户，5 行）；"}]}}, {"id": "Customer", "kind": "structure", "badge": "c", "term": "Class", "label": "客户（一行一个客户）", "name": "Customer", "iri": "https://cube.local/ontology/orders_demo_v1#Customer", "sub": "customers", "inDomain": [{"n": "city", "kind": "datatype", "col": "城市", "sqlType": null, "unit": "category", "additivity": "dimension", "formula": null, "aggregate": null}, {"n": "customer_name", "kind": "datatype", "col": "客户", "sqlType": null, "unit": "category", "additivity": "dimension", "formula": null, "aggregate": null}, {"n": "registered_on", "kind": "datatype", "col": "注册日期", "sqlType": null, "unit": "date", "additivity": "dimension", "formula": null, "aggregate": null}, {"n": "tier", "kind": "datatype", "col": "等级", "sqlType": null, "unit": "category", "additivity": "dimension", "formula": null, "aggregate": null}], "inRange": [], "lines": ["客户（一行一个客户）", "customers", "城市", "客户", "注册日期", "等级"], "value": 5, "sample": null, "objects": null, "indivSql": "SELECT count(*) FROM customers;", "labelRule": ":primaryKey", "description": null, "table": "customers", "structural": [], "annotations": [{"k": "businessDescription", "label": "业务描述", "v": ["一行 = 一个客户。粒度证据（measured）：count(*) = 5，count(distinct \"客户\") = 5，主键由库约束 customers_pkey(客户) 保证（convalidated = t）。客户的城市、等级、注册日期都挂在这一行上 —— 其中城市（:city）是本本体唯一的城市口径来源（grill D5）。没有 id 列：主键是文本客户名（alice/bob/carol/dave/erin），「是否存在客户编号体系」是 grill §2 的有意未定项。measured: 5 个客户在 orders 里各有 1 张订单（反向 left join 后 orders.订单号 is null 的客户 = 0），即这份快照里没有「零订单客户」，但这是数据现状不是口径：本层不声明「客户必须有订单」。"], "iri": ""}, {"k": "physicalTable", "label": "物理表", "v": ["customers"], "iri": ""}, {"k": "primaryKey", "label": "主键", "v": ["客户"], "iri": ""}], "sources": {"self": [{"file": "01-structure.ttl", "line": 85, "text": ":Customer a owl:Class ;\n    rdfs:label \"客户（一行一个客户）\" ;\n    :physicalTable \"customers\" ;\n    :primaryKey \"客户\" ;\n    :businessDescription \"一行 = 一个客户。粒度证据（measured）：count(*) = 5，count(distinct \\\"客户\\\") = 5，主键由库约束 customers_pkey(客户) 保证（convalidated = t）。客户的城市、等级、注册日期都挂在这一行上 —— 其中城市（:city）是本本体唯一的城市口径来源（grill D5）。没有 id 列：主键是文本客户名（alice/bob/carol/dave/erin），「是否存在客户编号体系」是 grill §2 的有意未定项。measured: 5 个客户在 orders 里各有 1 张订单（反向 left join 后 orders.订单号 is null 的客户 = 0），即这份快照里没有「零订单客户」，但这是数据现状不是口径：本层不声明「客户必须有订单」。\" ."}], "related": [{"file": "01-structure.ttl", "line": 91, "rel": "domain", "prop": "customer_name", "text": ":customer_name a owl:DatatypeProperty ; rdfs:label \"客户（客户名，文本主键）\" ; :askedAs \"客户\" ;\n    rdfs:domain :Customer ; :physicalColumn \"客户\" ; rdfs:range xsd:string ;\n    :businessDescription \"客户名，text，库里是 customers 的主键（customers_pkey），5 个取值 alice / bob / carol / dave / erin，无空值、无首尾空白、互不重复。它是文本键**而不是编号**（grill D6 明确接受文本键；grill §2 把「是否有客户编号体系」列为有意未定项，本层不建代理键）。事实表通过 :customerOf 指向这一列；要按客户分组时用本属性（经声明的链接可达），不要在 orders 上再造一个同列属性（那正是 D5 禁止的两份事实两个负责人）。\" ."}, {"file": "02-meaning.ttl", "line": 87, "rel": "domain", "prop": "customer_name", "text": ":customer_name rdfs:label \"客户（客户名，文本主键）\" ;\n    :unit \"category\" ; :additivity \"dimension\" ;\n    :businessDescription \"客户 = 一个客户的名字，text，是 customers 的主键，也是订单归属客户的**唯一**依据（grill D6：customers.客户 主键、orders.客户 外键）。measured: 5 个取值 alice / bob / carol / dave / erin，两表集合完全一致，订单侧 0 孤儿行。**没有客户编号体系**：库里没有 id 列，名字本身就是键（grill §2 的有意未定项，本层不发明代理键、不做「客户编号」这类概念）。名字当键的两个已知后果，写在这里不装作没有：① 改名等于换客户（历史订单会指向不存在的客户，外键会拒绝，方向是对的）；② 两个同名客户会被合并成一个。这两条在 5 行数据上都无法验证，所以只声明口径、不声明任何强制的处理方式 —— 要改，先改 D6。\" ."}, {"file": "01-structure.ttl", "line": 95, "rel": "domain", "prop": "city", "text": ":city a owl:DatatypeProperty ; rdfs:label \"城市（权威口径）\" ; :askedAs \"城市\" ;\n    rdfs:domain :Customer ; :physicalColumn \"城市\" ; rdfs:range xsd:string ;\n    :businessDescription \"客户所在城市，text，5 行非空，3 个取值（上海 3 / 北京 1 / 广州 1）。**这是本本体唯一的城市口径**（grill D5）：任何按城市分组、按城市筛选、按城市下钻的指标，城市都只能来自这一列（经 :customerOf 从 :Order join 过来）。它挂在客户上而不是订单上，因为城市是客户的属性（客户住在哪），订单并不搬家；同一客户的多张订单必须落在同一个城市，这就是「一份事实一个负责人」的实质。见 :order_city 与 02-meaning.ttl 的 D5 段：订单表那份城市**不参与任何指标**，虽然它此刻与这一列 5/5 一致。\" ."}, {"file": "02-meaning.ttl", "line": 63, "rel": "domain", "prop": "city", "text": ":city rdfs:label \"城市（权威口径）\" ;\n    :unit \"category\" ; :additivity \"dimension\" ;\n    :businessDescription \"城市 = **客户所在城市**，唯一来源是 customers.城市（grill D5）。口径三句话：① 城市是**客户**的属性，不是订单的属性：客户住在哪里，他的每一张订单就落在哪个城市；② 从订单出发按城市分组，走的是声明的 join 路径 :customerOf（orders.客户 → customers.客户），取 customers.城市；③ 两表城市若将来不一致，**以 customers.城市 为准**，orders.城市 只作对账（对账口径：按 客户 join 后比较两列，差异行数应恒为 0）。measured（可重放）：customers 5 行 3 个城市（上海 3 / 北京 1 / 广州 1）；按 客户 join 后 orders.城市 与 customers.城市 不一致的行 = **0**；按 customers.城市 汇总 = 上海 3 单 / 495.75 元 / 已付款 3、北京 1 单 / 250.00 元 / 已付款 0、广州 1 单 / 0.99 元 / 已付款 0。**这就是最危险的地方**：两表城市 5/5 一致，所以拿 orders.城市 分组算出来的三个数**一模一样**，跑出来的板子看起来完全正常，门禁也不会因此变红 —— 唯一能挡住它的，是本条声明和下面 :order_city 那条。**「城市」这个词在本体里只解析到 :city**，任何指标、面板、教程在提到城市时指的都是这一列；换一列就是换了一个口径，而不是换了一种写法。\" ."}, {"file": "01-structure.ttl", "line": 99, "rel": "domain", "prop": "tier", "text": ":tier a owl:DatatypeProperty ; rdfs:label \"等级（参考标签）\" ; :askedAs \"等级\" ;\n    rdfs:domain :Customer ; :physicalColumn \"等级\" ; rdfs:range xsd:string ;\n    :businessDescription \"客户等级，text，单字符标签，5 行非空，取值 A 3 / B 1 / C 1。库里**没有**枚举 CHECK（grill D13：3 个值是快照现状不是世界全集，写了 CHECK 下一个等级就插不进去）。它只是标签、没有事件序列，做不出漏斗或分层（grill D8③ 把「等级 A/B/C 的漏斗/分层」按名拒绝），本层不声明「A/B/C 是有序的」这类结构 —— 顺序若有，是业务口径，得人说。\" ."}, {"file": "02-meaning.ttl", "line": 91, "rel": "domain", "prop": "tier", "text": ":tier rdfs:label \"等级（参考标签）\" ;\n    :unit \"category\" ; :additivity \"dimension\" ;\n    :businessDescription \"等级 = 客户等级标签，单字符 A/B/C，5 行：A 3 / B 1 / C 1。库里没有枚举 CHECK（grill D13）。**本层只声明它是一个标签**：不声明 A > B > C 的顺序、不声明它是分层/漏斗的依据 —— grill D8③ 把「客户等级 A/B/C 的漏斗或分层分析」按名拒绝，理由是它只有一个标签、没有事件序列，做不出漏斗。它在本板上不参与主口径（D2 = 按城市看金额与回款），S3 不声明任何按等级切的指标；若将来出现按等级切的明确需求，那是新的一次 grill，不是从这一列能推出来的结论。\" ."}, {"file": "01-structure.ttl", "line": 103, "rel": "domain", "prop": "registered_on", "text": ":registered_on a owl:DatatypeProperty ; rdfs:label \"注册日期\" ; :askedAs \"注册日期\" ;\n    rdfs:domain :Customer ; :physicalColumn \"注册日期\" ; rdfs:range xsd:date ;\n    :businessDescription \"客户注册日期，**真 date 列**（grill D7，与 :order_date 同一处理）。measured: 5 行非空，min 2025-11-01 / max 2026-02-15，::text 不匹配 ^\\\\d{4}-\\\\d{2}-\\\\d{2}$ 的行 0 个，晚于 current_date 的行 0 个。它是客户维度的属性、不随订单变化，所以**不是**事实表的时间轴（那条是 :order_date）：用它筛会把「客户哪年注册的」和「订单哪天下的」两件事混在一起。时区语义与 :order_date 同样是 grill §2 的有意未定项。\" ."}, {"file": "02-meaning.ttl", "line": 79, "rel": "domain", "prop": "registered_on", "text": ":registered_on rdfs:label \"注册日期\" ;\n    :unit \"date\" ; :additivity \"dimension\" ;\n    :businessDescription \"注册日期 = 这个客户**注册那一天**，真 date 列（grill D7）。measured: 5 行非空、min 2025-11-01 / max 2026-02-15、::text 不匹配 ^\\\\d{4}-\\\\d{2}-\\\\d{2}$ 的行 = 0、晚于 current_date 的行 = 0。它是**客户维度的属性**、不随订单变化，所以它**不是**事实表的时间轴（那条是 :order_date）：拿它筛订单会把「客户哪年注册的」混成「订单哪天下的」，两个问题各有一个答案，不许互相顶替。它在本板上的合法用途最多是「客户有多久」这类维度描述，而 SPEC 并没有要求这类指标（D2 的主口径是按城市看金额与回款），所以本层只固定它的含义与类型，不替 S3 决定要不要用它。\" ."}], "comments": [{"file": "02-meaning.ttl", "line": 19, "text": "#   事实粒度 = 一张订单（:Order，主键 订单号，5 行）；维度 = 一个客户（:Customer，主键 客户，5 行）；"}]}}, {"id": "AllOrders", "kind": "meaning", "badge": "c", "term": "Defined class", "label": "全部订单（不做任何剔除）", "name": "AllOrders", "iri": "https://cube.local/ontology/orders_demo_v1#AllOrders", "inDomain": [], "inRange": [], "sub": "1=1", "lines": ["全部订单（不做任何剔除）", "1=1"], "description": null, "definedBy": "1=1", "definedVia": "physicalPredicate", "refusal": "declared as :physicalPredicate — OWL cannot say this", "sql": "SELECT count(*) FROM orders WHERE 1=1;", "value": 5, "sample": null, "objects": null, "labelRule": "none", "structural": [{"k": "subClassOf", "label": "子类于", "v": [":Order"], "iri": "rdfs:subClassOf"}], "annotations": [{"k": "businessDescription", "label": "业务描述", "v": ["本本体所有指标的行集合：orders 的 5 行全算，不做任何剔除。这不是「还没想好剔除规则」，是实测过不需要剔：measured —— 6 列全部无空值（任一列为 null 的行 = 0）；每张订单的 客户 都能在 customers 找到（孤儿订单 = 0，外键 orders_客户_fkey 已 convalidated）；金额 min 0.99 无负值、无 0 值，所以任何「客单价」式的除法在这份数据上处处有定义；已付款 是布尔、无 null，所以「已付款订单数」的分母就是 5。把它显式写成一个定义类而不是在 S3 里散着写 1=1，是为了让「分母是哪组行」在图上有个名字：将来若要剔（例如剔掉未付款订单看已回款金额），改动点是这一处，而不是每个指标的谓词。"], "iri": ""}, {"k": "physicalPredicate", "label": "手写谓词", "v": ["1=1"], "iri": ""}, {"k": "physicalTable", "label": "物理表", "v": ["orders"], "iri": ""}], "sources": {"self": [{"file": "02-meaning.ttl", "line": 37, "text": ":AllOrders a owl:Class ; rdfs:label \"全部订单（不做任何剔除）\" ;\n    rdfs:subClassOf :Order ;\n    :physicalTable \"orders\" ;\n    :physicalPredicate \"1=1\" ;\n    :businessDescription \"本本体所有指标的行集合：orders 的 5 行全算，不做任何剔除。这不是「还没想好剔除规则」，是实测过不需要剔：measured —— 6 列全部无空值（任一列为 null 的行 = 0）；每张订单的 客户 都能在 customers 找到（孤儿订单 = 0，外键 orders_客户_fkey 已 convalidated）；金额 min 0.99 无负值、无 0 值，所以任何「客单价」式的除法在这份数据上处处有定义；已付款 是布尔、无 null，所以「已付款订单数」的分母就是 5。把它显式写成一个定义类而不是在 S3 里散着写 1=1，是为了让「分母是哪组行」在图上有个名字：将来若要剔（例如剔掉未付款订单看已回款金额），改动点是这一处，而不是每个指标的谓词。\" ."}], "related": [], "comments": [{"file": "01-structure.ttl", "line": 117, "text": "#   · 定义类（哪组行算「全部订单」）写在 02-meaning.ttl 的 :AllOrders —— 那是口径，不是结构。"}]}}, {"id": "m_amountByCity", "name": "amountByCity", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "amountByCity", "iri": "https://cube.local/ontology/orders_demo_v1#amountByCity", "sub": ":aggregate sum · 金额", "lines": ["amountByCity", ":aggregate sum · 金额"], "refusal": null, "description": null, "sql": "SELECT customers.城市 AS amount_by_city_key1, sum(金额) AS amount_by_city FROM orders JOIN customers ON orders.客户 = customers.客户 GROUP BY customers.城市 ORDER BY 2 DESC;", "value": "上海=495.75 · 北京=250.00 · 广州=0.99", "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["sum"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["按城市看订单金额"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径：grill D2（主口径 = 按城市看订单金额与回款）+ D5（城市只认 customers.城市）+ D3（单位人民币元、不缩放）。算的是 :AllOrders 那 5 行（0 剔除）的 金额 之和，按 :city 分组 —— :city 是 customers.城市，编译器据此编译成 `SELECT customers.城市, sum(orders.金额) FROM orders JOIN customers ON orders.客户 = customers.客户 GROUP BY customers.城市`，JOIN 路径来自 S1 声明的 :customerOf（库里有真外键 orders_客户_fkey）。引用物理列：orders.金额（numeric(12,2)，元）。measured（可重放，第二条手写路线同值）：上海 495.75 / 北京 250.00 / 广州 0.99，三组相加 = 746.74 = 合计层 :amountTotal，可加量成立。样本量：上海 3 单 / 北京 1 单 / 广州 1 单 —— 北京、广州各只有一张订单，它们的「城市金额」就是那一单的金额，不是该城市的月度规模。换一种写法会得到**逐格相同**的数：拿订单表上那份城市副本分组，5 行数据下三格一个都不差（实测），所以这条声明不是「这样算更准」，而是「一份事实只能有一个负责人」（D5）。"], "iri": ""}, {"k": "formula", "label": "公式", "v": ["金额"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":Order"], "iri": ""}, {"k": "groupBy", "label": "groupBy", "v": [":city"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["money"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllOrders"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 75, "text": ":amountByCity a owl:DatatypeProperty ;\n    rdfs:label \"按城市看订单金额\" ;\n    :askedAs \"按城市看订单金额\" ;\n    :aggregate \"sum\" ; :formula \"金额\" ;\n    :grain :Order ; :universe :AllOrders ; :groupBy :city ;\n    :additivity \"additive\" ; :unit \"money\" ;\n    :businessDescription \"口径：grill D2（主口径 = 按城市看订单金额与回款）+ D5（城市只认 customers.城市）+ D3（单位人民币元、不缩放）。算的是 :AllOrders 那 5 行（0 剔除）的 金额 之和，按 :city 分组 —— :city 是 customers.城市，编译器据此编译成 `SELECT customers.城市, sum(orders.金额) FROM orders JOIN customers ON orders.客户 = customers.客户 GROUP BY customers.城市`，JOIN 路径来自 S1 声明的 :customerOf（库里有真外键 orders_客户_fkey）。引用物理列：orders.金额（numeric(12,2)，元）。measured（可重放，第二条手写路线同值）：上海 495.75 / 北京 250.00 / 广州 0.99，三组相加 = 746.74 = 合计层 :amountTotal，可加量成立。样本量：上海 3 单 / 北京 1 单 / 广州 1 单 —— 北京、广州各只有一张订单，它们的「城市金额」就是那一单的金额，不是该城市的月度规模。换一种写法会得到**逐格相同**的数：拿订单表上那份城市副本分组，5 行数据下三格一个都不差（实测），所以这条声明不是「这样算更准」，而是「一份事实只能有一个负责人」（D5）。\" ."}, {"file": "metrics_ext.ttl", "line": 75, "text": ":amountByCity a owl:DatatypeProperty ;\n    rdfs:label \"按城市看订单金额\" ;\n    :askedAs \"按城市看订单金额\" ;\n    :aggregate \"sum\" ; :formula \"金额\" ;\n    :grain :Order ; :universe :AllOrders ; :groupBy :city ;\n    :additivity \"additive\" ; :unit \"money\" ;\n    :businessDescription \"口径：grill D2（主口径 = 按城市看订单金额与回款）+ D5（城市只认 customers.城市）+ D3（单位人民币元、不缩放）。算的是 :AllOrders 那 5 行（0 剔除）的 金额 之和，按 :city 分组 —— :city 是 customers.城市，编译器据此编译成 `SELECT customers.城市, sum(orders.金额) FROM orders JOIN customers ON orders.客户 = customers.客户 GROUP BY customers.城市`，JOIN 路径来自 S1 声明的 :customerOf（库里有真外键 orders_客户_fkey）。引用物理列：orders.金额（numeric(12,2)，元）。measured（可重放，第二条手写路线同值）：上海 495.75 / 北京 250.00 / 广州 0.99，三组相加 = 746.74 = 合计层 :amountTotal，可加量成立。样本量：上海 3 单 / 北京 1 单 / 广州 1 单 —— 北京、广州各只有一张订单，它们的「城市金额」就是那一单的金额，不是该城市的月度规模。换一种写法会得到**逐格相同**的数：拿订单表上那份城市副本分组，5 行数据下三格一个都不差（实测），所以这条声明不是「这样算更准」，而是「一份事实只能有一个负责人」（D5）。\" ."}], "related": [], "comments": []}}, {"id": "m_orderCountByCity", "name": "orderCountByCity", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "orderCountByCity", "iri": "https://cube.local/ontology/orders_demo_v1#orderCountByCity", "sub": ":aggregate count · concept", "lines": ["orderCountByCity", ":aggregate count · concept"], "refusal": null, "description": null, "sql": "SELECT customers.城市 AS order_count_by_city_key1, count(DISTINCT orders.订单号) AS order_count_by_city FROM orders JOIN customers ON orders.客户 = customers.客户 GROUP BY customers.城市 ORDER BY 2 DESC;", "value": "上海=3 · 北京=1 · 广州=1", "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["count"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["按城市看订单数"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径：D2 的订单数半边 + D5（按 :city = customers.城市 分组）。算的是 :AllOrders 那 5 行的行数，粒度是一张订单（S1 声明 :Order 主键 订单号，orders_pkey convalidated），编译器发出的聚合是 count(DISTINCT orders.订单号) —— 不是 count(*)，因为这条 SQL 带 JOIN，主键计数才不会被 join 扇出放大（本库 5 个客户各 1 单，两种写法同值 3/1/1，但声明按安全的那种写）。measured：上海 3 / 北京 1 / 广州 1，合计 5 = 合计层 :orderCount。样本量：一共 5 单，分组后最大一组 3 单 —— 这个数的抖动单位是「1 单」，任何环比都要按这个量级读。"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":Order"], "iri": ""}, {"k": "groupBy", "label": "groupBy", "v": [":city"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["count"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllOrders"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 83, "text": ":orderCountByCity a owl:DatatypeProperty ;\n    rdfs:label \"按城市看订单数\" ;\n    :askedAs \"按城市看订单数\" ;\n    :aggregate \"count\" ;\n    :grain :Order ; :universe :AllOrders ; :groupBy :city ;\n    :additivity \"additive\" ; :unit \"count\" ;\n    :businessDescription \"口径：D2 的订单数半边 + D5（按 :city = customers.城市 分组）。算的是 :AllOrders 那 5 行的行数，粒度是一张订单（S1 声明 :Order 主键 订单号，orders_pkey convalidated），编译器发出的聚合是 count(DISTINCT orders.订单号) —— 不是 count(*)，因为这条 SQL 带 JOIN，主键计数才不会被 join 扇出放大（本库 5 个客户各 1 单，两种写法同值 3/1/1，但声明按安全的那种写）。measured：上海 3 / 北京 1 / 广州 1，合计 5 = 合计层 :orderCount。样本量：一共 5 单，分组后最大一组 3 单 —— 这个数的抖动单位是「1 单」，任何环比都要按这个量级读。\" ."}, {"file": "metrics_ext.ttl", "line": 83, "text": ":orderCountByCity a owl:DatatypeProperty ;\n    rdfs:label \"按城市看订单数\" ;\n    :askedAs \"按城市看订单数\" ;\n    :aggregate \"count\" ;\n    :grain :Order ; :universe :AllOrders ; :groupBy :city ;\n    :additivity \"additive\" ; :unit \"count\" ;\n    :businessDescription \"口径：D2 的订单数半边 + D5（按 :city = customers.城市 分组）。算的是 :AllOrders 那 5 行的行数，粒度是一张订单（S1 声明 :Order 主键 订单号，orders_pkey convalidated），编译器发出的聚合是 count(DISTINCT orders.订单号) —— 不是 count(*)，因为这条 SQL 带 JOIN，主键计数才不会被 join 扇出放大（本库 5 个客户各 1 单，两种写法同值 3/1/1，但声明按安全的那种写）。measured：上海 3 / 北京 1 / 广州 1，合计 5 = 合计层 :orderCount。样本量：一共 5 单，分组后最大一组 3 单 —— 这个数的抖动单位是「1 单」，任何环比都要按这个量级读。\" ."}], "related": [], "comments": []}}, {"id": "m_paidOrderCountByCity", "name": "paidOrderCountByCity", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "paidOrderCountByCity", "iri": "https://cube.local/ontology/orders_demo_v1#paidOrderCountByCity", "sub": ":aggregate sum · CASE WHEN 已付款 THEN 1 ELSE 0 END", "lines": ["paidOrderCountByCity", ":aggregate sum · CASE WHEN 已付款 THEN 1 ELSE 0 END"], "refusal": null, "description": null, "sql": "SELECT customers.城市 AS paid_order_count_by_city_key1, sum(CASE WHEN 已付款 THEN 1 ELSE 0 END) AS paid_order_count_by_city FROM orders JOIN customers ON orders.客户 = customers.客户 GROUP BY customers.城市 ORDER BY 2 DESC;", "value": "上海=3 · 广州=0 · 北京=0", "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["sum"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["按城市看已付款订单数"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径：grill D4（已付款 = 整单是否付清，无部分付款）+ D5（按 :city 分组）。算的是 :AllOrders 那 5 行里 已付款 = true 的行数，按城市切；实现是「把 true 数成 1」的 0/1 指示量求和 —— sum(CASE WHEN 已付款 THEN 1 ELSE 0 END)，这是 02-meaning.ttl 的 :paid 段给 :paid 唯一许可的数值用法（库里没有任何「实付金额」列，不许把布尔读成钱）。引用物理列：orders.已付款（boolean）。measured：上海 3 / 北京 0 / 广州 0，合计 3 = 合计层 :paidOrderCount，且 3 + 0 + 0 = 3（城市层与合计层同一个表达式，可加）。**为什么不用 count(*) + WHERE 已付款**：WHERE 在 GROUP BY 之前生效，会把 0 单已付款的城市整行删掉（本库实测只剩上海一行），看板上北京、广州看起来像不存在；指示量求和让 0 成为明确的 0。样本量：上海 3 单全付清，北京、广州各 1 单未付 —— 这 3 个数字任一变化都会让该城市回款率在 0%/100% 之间跳，见 :paidOrderCountByCity 的说明与 :paidRateByCity。"], "iri": ""}, {"k": "formula", "label": "公式", "v": ["CASE WHEN 已付款 THEN 1 ELSE 0 END"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":Order"], "iri": ""}, {"k": "groupBy", "label": "groupBy", "v": [":city"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["count"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllOrders"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 91, "text": ":paidOrderCountByCity a owl:DatatypeProperty ;\n    rdfs:label \"按城市看已付款订单数\" ;\n    :askedAs \"按城市看已付款订单数\" ;\n    :aggregate \"sum\" ; :formula \"CASE WHEN 已付款 THEN 1 ELSE 0 END\" ;\n    :grain :Order ; :universe :AllOrders ; :groupBy :city ;\n    :additivity \"additive\" ; :unit \"count\" ;\n    :businessDescription \"口径：grill D4（已付款 = 整单是否付清，无部分付款）+ D5（按 :city 分组）。算的是 :AllOrders 那 5 行里 已付款 = true 的行数，按城市切；实现是「把 true 数成 1」的 0/1 指示量求和 —— sum(CASE WHEN 已付款 THEN 1 ELSE 0 END)，这是 02-meaning.ttl 的 :paid 段给 :paid 唯一许可的数值用法（库里没有任何「实付金额」列，不许把布尔读成钱）。引用物理列：orders.已付款（boolean）。measured：上海 3 / 北京 0 / 广州 0，合计 3 = 合计层 :paidOrderCount，且 3 + 0 + 0 = 3（城市层与合计层同一个表达式，可加）。**为什么不用 count(*) + WHERE 已付款**：WHERE 在 GROUP BY 之前生效，会把 0 单已付款的城市整行删掉（本库实测只剩上海一行），看板上北京、广州看起来像不存在；指示量求和让 0 成为明确的 0。样本量：上海 3 单全付清，北京、广州各 1 单未付 —— 这 3 个数字任一变化都会让该城市回款率在 0%/100% 之间跳，见 :paidOrderCountByCity 的说明与 :paidRateByCity。\" ."}, {"file": "metrics_ext.ttl", "line": 91, "text": ":paidOrderCountByCity a owl:DatatypeProperty ;\n    rdfs:label \"按城市看已付款订单数\" ;\n    :askedAs \"按城市看已付款订单数\" ;\n    :aggregate \"sum\" ; :formula \"CASE WHEN 已付款 THEN 1 ELSE 0 END\" ;\n    :grain :Order ; :universe :AllOrders ; :groupBy :city ;\n    :additivity \"additive\" ; :unit \"count\" ;\n    :businessDescription \"口径：grill D4（已付款 = 整单是否付清，无部分付款）+ D5（按 :city 分组）。算的是 :AllOrders 那 5 行里 已付款 = true 的行数，按城市切；实现是「把 true 数成 1」的 0/1 指示量求和 —— sum(CASE WHEN 已付款 THEN 1 ELSE 0 END)，这是 02-meaning.ttl 的 :paid 段给 :paid 唯一许可的数值用法（库里没有任何「实付金额」列，不许把布尔读成钱）。引用物理列：orders.已付款（boolean）。measured：上海 3 / 北京 0 / 广州 0，合计 3 = 合计层 :paidOrderCount，且 3 + 0 + 0 = 3（城市层与合计层同一个表达式，可加）。**为什么不用 count(*) + WHERE 已付款**：WHERE 在 GROUP BY 之前生效，会把 0 单已付款的城市整行删掉（本库实测只剩上海一行），看板上北京、广州看起来像不存在；指示量求和让 0 成为明确的 0。样本量：上海 3 单全付清，北京、广州各 1 单未付 —— 这 3 个数字任一变化都会让该城市回款率在 0%/100% 之间跳，见 :paidOrderCountByCity 的说明与 :paidRateByCity。\" ."}], "related": [], "comments": [{"file": "metrics_ext.ttl", "line": 158, "text": "#     :paidOrderCountByCity）。也正因为如此，:PaidOrder 这类定义类本票不需要新增。"}, {"file": "metrics_ext.ttl", "line": 158, "text": "#     :paidOrderCountByCity）。也正因为如此，:PaidOrder 这类定义类本票不需要新增。"}]}}, {"id": "m_paidRateByCity", "name": "paidRateByCity", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "paidRateByCity", "iri": "https://cube.local/ontology/orders_demo_v1#paidRateByCity", "sub": ":aggregate ratio_of_sums · concept", "lines": ["paidRateByCity", ":aggregate ratio_of_sums · concept"], "refusal": null, "description": null, "sql": "SELECT customers.城市 AS paid_rate_by_city_key1, (100.0) * (((sum(CASE WHEN 已付款 THEN 1 ELSE 0 END))::numeric) / NULLIF((count(DISTINCT orders.订单号)), 0)) AS paid_rate_by_city FROM orders JOIN customers ON orders.客户 = customers.客户 GROUP BY customers.城市 ORDER BY 2 DESC;", "value": "上海=100.000000000000000000000 · 北京=0E-21 · 广州=0E-21", "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["non-additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["ratio_of_sums"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["按城市看回款率"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径（逐字来自 grill D4 + 工单）：**回款率 = 已付款订单数 ÷ 订单数，按订单数加权，不做金额加权**。分子 :paidOrderCountByCity（同城市里 已付款 = true 的订单数），分母 :orderCountByCity（同城市的订单数），两者同 grain（:Order）、同 universe（:AllOrders）、同分组（:city），所以「某城市的回款率」= 该城市组内 已付款订单数 ÷ 该城市订单数 —— 不是「各城市比率的平均」，也不是「已回款金额 ÷ 总金额」（库里没有实付金额列，见 D4）。为什么要写死「不做金额加权」：如果按金额加权，一张 320 元的订单付清就会压过三张 0.99 元的订单，而 已付款 本身是整单布尔、没有付了多少的信息，加权等于把「金额大小」冒充成「付款程度」。measured（可重放，第二条手写路线 sum(CASE…)*100/count(*) 同值）：上海 100.00（3/3）、北京 0.00（0/1）、广州 0.00（0/1）；合计层 :paidRateTotal = 60.00（3/5），城市层的三个数不能相加（non-additive），只能各自读。单位 = :unit \"percent\" + :scale \"100.0\"：乘 100 在编译出的 SQL 里（(100.0) * (…)，notes 带 scaled by 100.0），渲染器对 percent 不再乘第二次；改单位不改系数，同一块板上合计与城市就会差 100 倍。样本量（工单要求写进声明）：分母是 3/1/1 单 —— 北京、广州的 0% 是「那唯一一张单没付」，上海 100% 是「三张都付了」，都不是趋势；D8② 已定不做时间窗口护栏，本条不设任何阈值，也不把 100% 当「健康」。"], "iri": ""}, {"k": "denominator", "label": "denominator", "v": [":orderCountByCity"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":Order"], "iri": ""}, {"k": "groupBy", "label": "groupBy", "v": [":city"], "iri": ""}, {"k": "numerator", "label": "numerator", "v": [":paidOrderCountByCity"], "iri": ""}, {"k": "scale", "label": "scale", "v": ["100.0"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["percent"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllOrders"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 99, "text": ":paidRateByCity a owl:DatatypeProperty ;\n    rdfs:label \"按城市看回款率\" ;\n    :askedAs \"按城市看回款率\" ;\n    :aggregate \"ratio_of_sums\" ;\n    :numerator :paidOrderCountByCity ; :denominator :orderCountByCity ;\n    :grain :Order ; :universe :AllOrders ; :groupBy :city ;\n    :additivity \"non-additive\" ; :unit \"percent\" ; :scale \"100.0\" ;\n    :businessDescription \"口径（逐字来自 grill D4 + 工单）：**回款率 = 已付款订单数 ÷ 订单数，按订单数加权，不做金额加权**。分子 :paidOrderCountByCity（同城市里 已付款 = true 的订单数），分母 :orderCountByCity（同城市的订单数），两者同 grain（:Order）、同 universe（:AllOrders）、同分组（:city），所以「某城市的回款率」= 该城市组内 已付款订单数 ÷ 该城市订单数 —— 不是「各城市比率的平均」，也不是「已回款金额 ÷ 总金额」（库里没有实付金额列，见 D4）。为什么要写死「不做金额加权」：如果按金额加权，一张 320 元的订单付清就会压过三张 0.99 元的订单，而 已付款 本身是整单布尔、没有付了多少的信息，加权等于把「金额大小」冒充成「付款程度」。measured（可重放，第二条手写路线 sum(CASE…)*100/count(*) 同值）：上海 100.00（3/3）、北京 0.00（0/1）、广州 0.00（0/1）；合计层 :paidRateTotal = 60.00（3/5），城市层的三个数不能相加（non-additive），只能各自读。单位 = :unit \\\"percent\\\" + :scale \\\"100.0\\\"：乘 100 在编译出的 SQL 里（(100.0) * (…)，notes 带 scaled by 100.0），渲染器对 percent 不再乘第二次；改单位不改系数，同一块板上合计与城市就会差 100 倍。样本量（工单要求写进声明）：分母是 3/1/1 单 —— 北京、广州的 0% 是「那唯一一张单没付」，上海 100% 是「三张都付了」，都不是趋势；D8② 已定不做时间窗口护栏，本条不设任何阈值，也不把 100% 当「健康」。\" ."}, {"file": "metrics_ext.ttl", "line": 99, "text": ":paidRateByCity a owl:DatatypeProperty ;\n    rdfs:label \"按城市看回款率\" ;\n    :askedAs \"按城市看回款率\" ;\n    :aggregate \"ratio_of_sums\" ;\n    :numerator :paidOrderCountByCity ; :denominator :orderCountByCity ;\n    :grain :Order ; :universe :AllOrders ; :groupBy :city ;\n    :additivity \"non-additive\" ; :unit \"percent\" ; :scale \"100.0\" ;\n    :businessDescription \"口径（逐字来自 grill D4 + 工单）：**回款率 = 已付款订单数 ÷ 订单数，按订单数加权，不做金额加权**。分子 :paidOrderCountByCity（同城市里 已付款 = true 的订单数），分母 :orderCountByCity（同城市的订单数），两者同 grain（:Order）、同 universe（:AllOrders）、同分组（:city），所以「某城市的回款率」= 该城市组内 已付款订单数 ÷ 该城市订单数 —— 不是「各城市比率的平均」，也不是「已回款金额 ÷ 总金额」（库里没有实付金额列，见 D4）。为什么要写死「不做金额加权」：如果按金额加权，一张 320 元的订单付清就会压过三张 0.99 元的订单，而 已付款 本身是整单布尔、没有付了多少的信息，加权等于把「金额大小」冒充成「付款程度」。measured（可重放，第二条手写路线 sum(CASE…)*100/count(*) 同值）：上海 100.00（3/3）、北京 0.00（0/1）、广州 0.00（0/1）；合计层 :paidRateTotal = 60.00（3/5），城市层的三个数不能相加（non-additive），只能各自读。单位 = :unit \\\"percent\\\" + :scale \\\"100.0\\\"：乘 100 在编译出的 SQL 里（(100.0) * (…)，notes 带 scaled by 100.0），渲染器对 percent 不再乘第二次；改单位不改系数，同一块板上合计与城市就会差 100 倍。样本量（工单要求写进声明）：分母是 3/1/1 单 —— 北京、广州的 0% 是「那唯一一张单没付」，上海 100% 是「三张都付了」，都不是趋势；D8② 已定不做时间窗口护栏，本条不设任何阈值，也不把 100% 当「健康」。\" ."}], "related": [], "comments": []}}, {"id": "m_amountTotal", "name": "amountTotal", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "amountTotal", "iri": "https://cube.local/ontology/orders_demo_v1#amountTotal", "sub": ":aggregate sum · 金额", "lines": ["amountTotal", ":aggregate sum · 金额"], "refusal": null, "description": null, "sql": "SELECT sum(金额) AS amount_total FROM orders;", "value": 746.74, "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["sum"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["订单金额合计"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径：D3（人民币元、库里存的就是元、不缩放）+ D2 的合计层锚点。算 :AllOrders 那 5 行的 金额 之和，不分城市。引用物理列：orders.金额。measured：**sum(金额) = 746.74**（第二条手写路线 `SELECT sum(金额) FROM orders` 同值，samples.json 里冻结的就是这个数）。这个数是本规格 AC-4 点名的两个总量事实之一（SPEC「问题」段），也是「金额没有被缩放」的唯一机械证据：÷100 会得到 7.4674，×100 会得到 74674，两种错法都能被这一个数看住。与城市层的关系：上海 495.75 + 北京 250.00 + 广州 0.99 = 746.74（可加量，逐项对上）。"], "iri": ""}, {"k": "formula", "label": "公式", "v": ["金额"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":Order"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["money"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllOrders"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 112, "text": ":amountTotal a owl:DatatypeProperty ;\n    rdfs:label \"订单金额合计\" ;\n    :askedAs \"订单金额合计\" ;\n    :aggregate \"sum\" ; :formula \"金额\" ;\n    :grain :Order ; :universe :AllOrders ;\n    :additivity \"additive\" ; :unit \"money\" ;\n    :businessDescription \"口径：D3（人民币元、库里存的就是元、不缩放）+ D2 的合计层锚点。算 :AllOrders 那 5 行的 金额 之和，不分城市。引用物理列：orders.金额。measured：**sum(金额) = 746.74**（第二条手写路线 `SELECT sum(金额) FROM orders` 同值，samples.json 里冻结的就是这个数）。这个数是本规格 AC-4 点名的两个总量事实之一（SPEC「问题」段），也是「金额没有被缩放」的唯一机械证据：÷100 会得到 7.4674，×100 会得到 74674，两种错法都能被这一个数看住。与城市层的关系：上海 495.75 + 北京 250.00 + 广州 0.99 = 746.74（可加量，逐项对上）。\" ."}, {"file": "metrics_ext.ttl", "line": 112, "text": ":amountTotal a owl:DatatypeProperty ;\n    rdfs:label \"订单金额合计\" ;\n    :askedAs \"订单金额合计\" ;\n    :aggregate \"sum\" ; :formula \"金额\" ;\n    :grain :Order ; :universe :AllOrders ;\n    :additivity \"additive\" ; :unit \"money\" ;\n    :businessDescription \"口径：D3（人民币元、库里存的就是元、不缩放）+ D2 的合计层锚点。算 :AllOrders 那 5 行的 金额 之和，不分城市。引用物理列：orders.金额。measured：**sum(金额) = 746.74**（第二条手写路线 `SELECT sum(金额) FROM orders` 同值，samples.json 里冻结的就是这个数）。这个数是本规格 AC-4 点名的两个总量事实之一（SPEC「问题」段），也是「金额没有被缩放」的唯一机械证据：÷100 会得到 7.4674，×100 会得到 74674，两种错法都能被这一个数看住。与城市层的关系：上海 495.75 + 北京 250.00 + 广州 0.99 = 746.74（可加量，逐项对上）。\" ."}], "related": [], "comments": []}}, {"id": "m_paidOrderCount", "name": "paidOrderCount", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "paidOrderCount", "iri": "https://cube.local/ontology/orders_demo_v1#paidOrderCount", "sub": ":aggregate sum · CASE WHEN 已付款 THEN 1 ELSE 0 END", "lines": ["paidOrderCount", ":aggregate sum · CASE WHEN 已付款 THEN 1 ELSE 0 END"], "refusal": null, "description": null, "sql": "SELECT sum(CASE WHEN 已付款 THEN 1 ELSE 0 END) AS paid_order_count FROM orders;", "value": 3, "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["sum"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["已付款订单数"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径：D4（整单是否付清的布尔，无部分付款）。算 :AllOrders 那 5 行里 已付款 = true 的行数，不分组：sum(CASE WHEN 已付款 THEN 1 ELSE 0 END)。measured：**3 单**（第二条手写路线 `SELECT count(*) FROM orders WHERE 已付款` 也是 3；两种写法的差别只在 0 值分组是否保留，合计层没有分组所以同值）。这是 AC-4 点名的第二个总量事实。它**不是金额**：没有「已回款金额」，因为库里没有实付金额列（D4）；把它乘任何东西当金额都是编的。与城市层的关系：上海 3 + 北京 0 + 广州 0 = 3（可加量）。"], "iri": ""}, {"k": "formula", "label": "公式", "v": ["CASE WHEN 已付款 THEN 1 ELSE 0 END"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":Order"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["count"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllOrders"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 120, "text": ":paidOrderCount a owl:DatatypeProperty ;\n    rdfs:label \"已付款订单数\" ;\n    :askedAs \"已付款订单数\" ;\n    :aggregate \"sum\" ; :formula \"CASE WHEN 已付款 THEN 1 ELSE 0 END\" ;\n    :grain :Order ; :universe :AllOrders ;\n    :additivity \"additive\" ; :unit \"count\" ;\n    :businessDescription \"口径：D4（整单是否付清的布尔，无部分付款）。算 :AllOrders 那 5 行里 已付款 = true 的行数，不分组：sum(CASE WHEN 已付款 THEN 1 ELSE 0 END)。measured：**3 单**（第二条手写路线 `SELECT count(*) FROM orders WHERE 已付款` 也是 3；两种写法的差别只在 0 值分组是否保留，合计层没有分组所以同值）。这是 AC-4 点名的第二个总量事实。它**不是金额**：没有「已回款金额」，因为库里没有实付金额列（D4）；把它乘任何东西当金额都是编的。与城市层的关系：上海 3 + 北京 0 + 广州 0 = 3（可加量）。\" ."}, {"file": "metrics_ext.ttl", "line": 120, "text": ":paidOrderCount a owl:DatatypeProperty ;\n    rdfs:label \"已付款订单数\" ;\n    :askedAs \"已付款订单数\" ;\n    :aggregate \"sum\" ; :formula \"CASE WHEN 已付款 THEN 1 ELSE 0 END\" ;\n    :grain :Order ; :universe :AllOrders ;\n    :additivity \"additive\" ; :unit \"count\" ;\n    :businessDescription \"口径：D4（整单是否付清的布尔，无部分付款）。算 :AllOrders 那 5 行里 已付款 = true 的行数，不分组：sum(CASE WHEN 已付款 THEN 1 ELSE 0 END)。measured：**3 单**（第二条手写路线 `SELECT count(*) FROM orders WHERE 已付款` 也是 3；两种写法的差别只在 0 值分组是否保留，合计层没有分组所以同值）。这是 AC-4 点名的第二个总量事实。它**不是金额**：没有「已回款金额」，因为库里没有实付金额列（D4）；把它乘任何东西当金额都是编的。与城市层的关系：上海 3 + 北京 0 + 广州 0 = 3（可加量）。\" ."}], "related": [], "comments": []}}, {"id": "m_orderCount", "name": "orderCount", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "orderCount", "iri": "https://cube.local/ontology/orders_demo_v1#orderCount", "sub": ":aggregate count · concept", "lines": ["orderCount", ":aggregate count · concept"], "refusal": null, "description": null, "sql": "SELECT count(*) AS order_count FROM orders;", "value": 5, "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["count"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["订单数"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径：:AllOrders 的行数（0 剔除），粒度一张订单。编译成 count(*) FROM orders —— 没有 JOIN，所以不需要 count(DISTINCT)。measured：**5 单**（第二条手写路线 `SELECT count(*) FROM orders` 同值）。声明它的理由不是凑数：回款率的分母就是它（:paidRateTotal 的 :denominator），而「3 单已付款」这句话只有在「一共 5 单」在场时才读得出 60% —— 少了这个数，读者会把 3 单当成全部。它是 5 行数据里最容易被误当「样本量充足」的数：5 单，任一单进出就是 20% 的摆动。"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":Order"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["count"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllOrders"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 128, "text": ":orderCount a owl:DatatypeProperty ;\n    rdfs:label \"订单数\" ;\n    :askedAs \"订单数\" ;\n    :aggregate \"count\" ;\n    :grain :Order ; :universe :AllOrders ;\n    :additivity \"additive\" ; :unit \"count\" ;\n    :businessDescription \"口径：:AllOrders 的行数（0 剔除），粒度一张订单。编译成 count(*) FROM orders —— 没有 JOIN，所以不需要 count(DISTINCT)。measured：**5 单**（第二条手写路线 `SELECT count(*) FROM orders` 同值）。声明它的理由不是凑数：回款率的分母就是它（:paidRateTotal 的 :denominator），而「3 单已付款」这句话只有在「一共 5 单」在场时才读得出 60% —— 少了这个数，读者会把 3 单当成全部。它是 5 行数据里最容易被误当「样本量充足」的数：5 单，任一单进出就是 20% 的摆动。\" ."}, {"file": "metrics_ext.ttl", "line": 128, "text": ":orderCount a owl:DatatypeProperty ;\n    rdfs:label \"订单数\" ;\n    :askedAs \"订单数\" ;\n    :aggregate \"count\" ;\n    :grain :Order ; :universe :AllOrders ;\n    :additivity \"additive\" ; :unit \"count\" ;\n    :businessDescription \"口径：:AllOrders 的行数（0 剔除），粒度一张订单。编译成 count(*) FROM orders —— 没有 JOIN，所以不需要 count(DISTINCT)。measured：**5 单**（第二条手写路线 `SELECT count(*) FROM orders` 同值）。声明它的理由不是凑数：回款率的分母就是它（:paidRateTotal 的 :denominator），而「3 单已付款」这句话只有在「一共 5 单」在场时才读得出 60% —— 少了这个数，读者会把 3 单当成全部。它是 5 行数据里最容易被误当「样本量充足」的数：5 单，任一单进出就是 20% 的摆动。\" ."}], "related": [], "comments": []}}, {"id": "m_paidRateTotal", "name": "paidRateTotal", "kind": "metric", "badge": "dp", "term": "Datatype Property · metric", "label": "paidRateTotal", "iri": "https://cube.local/ontology/orders_demo_v1#paidRateTotal", "sub": ":aggregate ratio_of_sums · concept", "lines": ["paidRateTotal", ":aggregate ratio_of_sums · concept"], "refusal": null, "description": null, "sql": "SELECT (100.0) * (((SELECT sum(CASE WHEN 已付款 THEN 1 ELSE 0 END) AS paid_order_count FROM orders)::numeric) / NULLIF((SELECT count(*) AS order_count FROM orders), 0)) AS paid_rate_total;", "value": 60.0, "error": null, "structural": [], "annotations": [{"k": "additivity", "label": "可加性", "v": ["non-additive"], "iri": ""}, {"k": "aggregate", "label": "聚合", "v": ["ratio_of_sums"], "iri": ""}, {"k": "askedAs", "label": "askedAs", "v": ["整体回款率"], "iri": ""}, {"k": "businessDescription", "label": "业务描述", "v": ["口径：与 :paidRateByCity **同一把尺子** —— 回款率 = 已付款订单数 ÷ 订单数（按订单数加权，不做金额加权，D4），只是不分组。分子 :paidOrderCount（3）、分母 :orderCount（5），编译器展开成两个已声明指标再相除：((sum(CASE WHEN 已付款 THEN 1 ELSE 0 END))::numeric) / NULLIF((count(*)), 0)，再乘声明的 :scale 100.0。measured：**60.00**（3 ÷ 5，第二条手写路线 sum(CASE…)*100/count(*) 同值）。它是合计层读数，与城市层不构成平均关系：上海 100 / 北京 0 / 广州 0 的算术平均是 33.33，不是 60 —— 60 是「5 单里 3 单已付」，33.33 是「先按城市平均再平均」，后者是错的口径（哪个数都不许这么算）。NULLIF 防除零：本库分母 5 非 0，但声明里就写好守卫，将来空表返回 null 而不是崩。样本量：分母 5 单，见 :orderCount。"], "iri": ""}, {"k": "denominator", "label": "denominator", "v": [":orderCount"], "iri": ""}, {"k": "grain", "label": "粒度", "v": [":Order"], "iri": ""}, {"k": "numerator", "label": "numerator", "v": [":paidOrderCount"], "iri": ""}, {"k": "scale", "label": "scale", "v": ["100.0"], "iri": ""}, {"k": "unit", "label": "单位", "v": ["percent"], "iri": ""}, {"k": "universe", "label": "范围", "v": [":AllOrders"], "iri": ""}], "sources": {"self": [{"file": "metrics_ext.ttl", "line": 136, "text": ":paidRateTotal a owl:DatatypeProperty ;\n    rdfs:label \"回款率\" ;\n    :askedAs \"整体回款率\" ;\n    :aggregate \"ratio_of_sums\" ;\n    :numerator :paidOrderCount ; :denominator :orderCount ;\n    :grain :Order ; :universe :AllOrders ;\n    :additivity \"non-additive\" ; :unit \"percent\" ; :scale \"100.0\" ;\n    :businessDescription \"口径：与 :paidRateByCity **同一把尺子** —— 回款率 = 已付款订单数 ÷ 订单数（按订单数加权，不做金额加权，D4），只是不分组。分子 :paidOrderCount（3）、分母 :orderCount（5），编译器展开成两个已声明指标再相除：((sum(CASE WHEN 已付款 THEN 1 ELSE 0 END))::numeric) / NULLIF((count(*)), 0)，再乘声明的 :scale 100.0。measured：**60.00**（3 ÷ 5，第二条手写路线 sum(CASE…)*100/count(*) 同值）。它是合计层读数，与城市层不构成平均关系：上海 100 / 北京 0 / 广州 0 的算术平均是 33.33，不是 60 —— 60 是「5 单里 3 单已付」，33.33 是「先按城市平均再平均」，后者是错的口径（哪个数都不许这么算）。NULLIF 防除零：本库分母 5 非 0，但声明里就写好守卫，将来空表返回 null 而不是崩。样本量：分母 5 单，见 :orderCount。\" ."}, {"file": "metrics_ext.ttl", "line": 136, "text": ":paidRateTotal a owl:DatatypeProperty ;\n    rdfs:label \"回款率\" ;\n    :askedAs \"整体回款率\" ;\n    :aggregate \"ratio_of_sums\" ;\n    :numerator :paidOrderCount ; :denominator :orderCount ;\n    :grain :Order ; :universe :AllOrders ;\n    :additivity \"non-additive\" ; :unit \"percent\" ; :scale \"100.0\" ;\n    :businessDescription \"口径：与 :paidRateByCity **同一把尺子** —— 回款率 = 已付款订单数 ÷ 订单数（按订单数加权，不做金额加权，D4），只是不分组。分子 :paidOrderCount（3）、分母 :orderCount（5），编译器展开成两个已声明指标再相除：((sum(CASE WHEN 已付款 THEN 1 ELSE 0 END))::numeric) / NULLIF((count(*)), 0)，再乘声明的 :scale 100.0。measured：**60.00**（3 ÷ 5，第二条手写路线 sum(CASE…)*100/count(*) 同值）。它是合计层读数，与城市层不构成平均关系：上海 100 / 北京 0 / 广州 0 的算术平均是 33.33，不是 60 —— 60 是「5 单里 3 单已付」，33.33 是「先按城市平均再平均」，后者是错的口径（哪个数都不许这么算）。NULLIF 防除零：本库分母 5 非 0，但声明里就写好守卫，将来空表返回 null 而不是崩。样本量：分母 5 单，见 :orderCount。\" ."}], "related": [], "comments": []}}], "edges": [{"src": "Order", "dst": "AllOrders", "label": "subClassOf", "kind": "subclass"}], "pos": {"Order": [200.2, 72.0, 106.0, 112.2], "Customer": [200.2, 195.0, 106.0, 85.2], "AllOrders": [575.9, 72.0, 124.0, 36.0], "m_amountByCity": [200.2, 303.0, 147.8, 44.2], "m_orderCountByCity": [200.2, 369.0, 175.4, 38.9], "m_paidOrderCountByCity": [200.2, 435.0, 368.4, 44.2], "m_paidRateByCity": [200.2, 501.0, 225.2, 38.9], "m_amountTotal": [200.2, 567.0, 147.8, 44.2], "m_paidOrderCount": [200.2, 635.0, 368.4, 44.2], "m_orderCount": [200.2, 701.0, 175.4, 38.9], "m_paidRateTotal": [200.2, 764.0, 225.2, 38.9]}, "width": 710, "height": 881, "missing": [], "note": null, "triples": 210, "files": 4, "sample": 3, "dsn": "orders_demo_xlsx @ 127.0.0.1:5433", "doc": null, "generated": "2026-11-25 22:56", "fingerprint": "347420b6f2c516ac", "counts": {"structure": 2, "meaning": 1, "metrics": 8, "refused": 0, "links": 0}};
+const NS = "http://www.w3.org/2000/svg";
+const svg = document.getElementById("svg"), view = document.getElementById("view");
+const stage = document.getElementById("stage"), panel = document.getElementById("panel");
+const byId = Object.fromEntries(DATA.nodes.map(n => [n.id, n]));
+let scale = 1, tx = 0, ty = 0, selected = null;
+
+// dot's y grows up, so flip once, here, using the box height
+const pos = {};
+for (const [id, b] of Object.entries(DATA.pos)) {
+  const kind = (byId[id] || {}).kind || "";
+  pos[id] = {x: b[0], y: DATA.height - b[1], w: b[2], h: b[3],
+             shape: kind.startsWith("metric") ? "ellipse" : "rect"};
+}
+const have = id => pos[id] !== undefined;
+const centre = id => ({x: pos[id].x, y: pos[id].y});
+// An arrow that ends in the middle of a box says nothing about direction, so each end is
+// pulled back to the border of the node it touches: rectangle for a class, ellipse for a
+// datatype property.
+function border(center, toward, node) {
+  const dx = toward.x - center.x, dy = toward.y - center.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len, uy = dy / len;
+  const hw = Math.max(node.w / 2, 6), hh = Math.max(node.h / 2, 6);
+  const ellipse = node.shape === "ellipse";
+  const t = ellipse
+    ? 1 / Math.sqrt((ux * ux) / (hw * hw) + (uy * uy) / (hh * hh))
+    : Math.min(Math.abs(ux) > 1e-6 ? hw / Math.abs(ux) : Infinity,
+               Math.abs(uy) > 1e-6 ? hh / Math.abs(uy) : Infinity);
+  return {x: center.x + ux * t, y: center.y + uy * t};
+}
+const edgePoints = e => {
+  const a = centre(e.src), b = centre(e.dst);
+  const A = pos[e.src], B = pos[e.dst];
+  return {start: border(a, b, A), end: border(b, a, B)};
+};
+const edgePath = e => {
+  const {start, end} = edgePoints(e), m = (start.x + end.x) / 2;
+  return `M${start.x},${start.y} C${m},${start.y} ${m},${end.y} ${end.x},${end.y}`;
+};
+
+function draw() {
+  const mk = (t, attrs) => { const el = document.createElementNS(NS, t);
+    for (const k in attrs) el.setAttribute(k, attrs[k]); return el };
+  const defs = mk("defs", {});
+  for (const [id, fill] of [["arrow", "#9a9a9a"], ["arrow-hit", "#c99a00"]]) {
+    const marker = mk("marker", {id, viewBox: "0 0 10 10", refX: "9", refY: "5",
+                                 markerWidth: "6", markerHeight: "6", orient: "auto"});
+    marker.appendChild(mk("path", {d: "M0,0 L10,5 L0,10 z", fill}));
+    defs.appendChild(marker);
+  }
+  svg.appendChild(defs);
+  const gEdges = mk("g", {}), gNodes = mk("g", {});
+  view.appendChild(gEdges); view.appendChild(gNodes);
+
+  for (const e of DATA.edges) {
+    if (!have(e.src) || !have(e.dst)) continue;
+    const p = mk("path", {d: edgePath(e), class: "edge " + e.kind,
+                          "data-src": e.src, "data-dst": e.dst,
+                          "marker-end": "url(#arrow)"});
+    const t = mk("title", {}); t.textContent = e.label || e.kind;
+    p.appendChild(t); gEdges.appendChild(p);
+    if (e.label) {
+      const a = centre(e.src), b = centre(e.dst);
+      const lab = mk("text", {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - 3, class: "edge-label",
+                              "text-anchor": "middle", "data-src": e.src, "data-dst": e.dst});
+      lab.textContent = e.label; gEdges.appendChild(lab);
+    }
+  }
+
+  for (const n of DATA.nodes) {
+    if (!have(n.id)) continue;
+    const p = pos[n.id];
+    const g = mk("g", {class: "node " + n.kind, "data-id": n.id,
+                       transform: `translate(${p.x},${p.y})`});
+    if (n.kind.startsWith("metric")) {
+      g.appendChild(mk("ellipse", {rx: p.w / 2, ry: p.h / 2, cx: 0, cy: 0}));
+    } else {
+      g.appendChild(mk("rect", {x: -p.w / 2, y: -p.h / 2, width: p.w, height: p.h, rx: 3}));
+    }
+    const lines = n.lines || [n.label];
+    const step = 11, top = -((lines.length - 1) * step) / 2;
+    lines.forEach((text, i) => {
+      const cls = i === 0 ? "name" : (i === 1 ? "sub" : "col");
+      const el = mk("text", {x: 0, y: top + i * step + 3, "text-anchor": "middle", class: cls});
+      el.textContent = text;
+      g.appendChild(el);
+    });
+    const tip = mk("title", {}); tip.textContent = n.id; g.appendChild(tip);
+    gNodes.appendChild(g);
+  }
+  applyTransform();
+}
+const applyTransform = () => view.setAttribute("transform", `translate(${tx},${ty}) scale(${scale})`);
+function fit() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  scale = Math.min(w / DATA.width, h / DATA.height, 1.3);
+  tx = (w - DATA.width * scale) / 2; ty = (h - DATA.height * scale) / 2;
+  applyTransform();
+}
+
+// ── the index ──────────────────────────────────────────────────────────────
+const GROUPS = [["structure", "Classes"], ["meaning", "Defined classes"],
+                ["metric", "Datatype Properties — compiled"],
+                ["metric-refused", "Datatype Properties — refused"]];
+function buildIndex() {
+  const box = document.getElementById("idx");
+  for (const [kind, title] of GROUPS) {
+    const rows = DATA.nodes.filter(n => n.kind === kind);
+    if (!rows.length) continue;
+    const h = document.createElement("div");
+    h.className = "grp";
+    h.dataset.k = kind === "metric-refused" ? "metric" : kind;
+    h.textContent = `${title} (${rows.length})`; box.appendChild(h);
+    for (const n of rows) {
+      const a = document.createElement("a");
+      a.dataset.id = n.id; a.dataset.k = kind;
+      a.textContent = n.label; a.title = n.id;
+      a.onclick = () => show(n.id);
+      box.appendChild(a);
+    }
+  }
+}
+
+// ── the panel ──────────────────────────────────────────────────────────────
+function clearMarks() {
+  document.querySelectorAll(".node").forEach(el => el.classList.remove("hit", "sel", "dim", "reach"));
+  document.querySelectorAll(".edge, .edge-label").forEach(el => {
+    el.classList.remove("hit", "dim"); el.style.display = "";
+  });
+  const scope = document.getElementById("scope"); if (scope) scope.textContent = "";
+}
+// The radius was the wrong idea: what a reader wants to see is the RELATION, not a hop
+// count. `domain` lights the classes this term's properties point at, `range` lights what
+// points at this term — which is how `Region` reaches `Nation` (n_regionkey) and
+// `Customer` (the customerRegion chain) in one step, instead of a 2-hop walk.
+let mode = "both";
+function litBy(id, how) {
+  const out = new Set([id]);
+  for (const e of DATA.edges) {
+    if (how !== "range" && e.src === id) out.add(e.dst);     // my properties, my metrics
+    if (how !== "domain" && e.dst === id) out.add(e.src);    // properties that point at me
+  }
+  return out;
+}
+function setMode(value) {
+  mode = value;
+  document.querySelectorAll("#controls button[data-mode]").forEach(b =>
+    b.classList.toggle("on", b.dataset.mode === value));
+  if (selected) focus(selected);
+}
+function focus(id) {
+  clearMarks();
+  const near = litBy(id, mode);
+  const el = document.querySelector(`.node[data-id="${id}"]`);
+  document.querySelectorAll(".node").forEach(n => {
+    const lit = near.has(n.dataset.id);
+    n.classList.toggle("dim", n !== el && !lit);
+    if (lit) n.classList.add("reach");
+  });
+  if (!el) return;
+  el.classList.add("sel");
+  // In `domain`/`range` mode the other edges are not dimmed — they are removed from the
+  // picture, so what remains IS the answer to "show me the range relations".
+  let shown = 0, total = 0;
+  document.querySelectorAll(".edge, .edge-label").forEach(edge => {
+    // `range` shows only the edges that END here; `domain` only the ones that LEAVE here.
+    // The lit set is still two-way, but the picture is the relation you asked for.
+    const hit = mode === "range" ? edge.dataset.dst === id
+              : mode === "domain" ? edge.dataset.src === id
+              : (near.has(edge.dataset.src) && near.has(edge.dataset.dst));
+    total += edge.classList.contains("edge") ? 1 : 0;
+    shown += edge.classList.contains("edge") && hit ? 1 : 0;
+    edge.style.display = (mode === "both" || hit) ? "" : "none";
+    edge.classList.toggle("hit", hit);
+    edge.classList.toggle("dim", mode === "both" && !hit);
+    if (edge.classList.contains("edge"))
+      edge.setAttribute("marker-end", hit ? "url(#arrow-hit)" : "url(#arrow)");
+  });
+  const scope = document.getElementById("scope");
+  if (scope) scope.textContent =
+    `${mode} · ${near.size}/${DATA.nodes.length} lit · ` +
+    (mode === "both" ? `${total} edges` : `${shown}/${total} edges shown`);
+}
+const esc = s => String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const num = v => typeof v === "number" ? v.toLocaleString(undefined, {maximumFractionDigits: 4}) : v;
+const section = (title, body, cls) =>
+  body ? `<h2>${title}</h2><div class="${cls || ""}">${body}</div>` : "";
+const dbSrc = () => `<div class="src">来自 Postgres · ${DATA.dsn} · 实测于 ${DATA.generated}</div>`;
+function propTable(rows) {
+  if (!rows || !rows.length) return "";
+  const tr = rows.map(r => {
+    const facts = [r.col, r.sqlType, r.unit, r.additivity, r.aggregate && ("aggregate " + r.aggregate)]
+      .filter(Boolean).join(" · ");
+    const tail = r.kind === "object"
+      ? `<span class="file">→ ${esc(r.to || "?")}${r.refs ? " · references " + esc(r.refs) : ""}</span>`
+      : (facts ? `<span class="file">${esc(facts)}</span>` : "");
+    return `<tr><td class="mono">:${esc(r.n)}</td><td>${tail}` +
+      (r.formula ? `<div class="file">formula: ${esc(r.formula)}</div>` : "") + `</td></tr>`;
+  }).join("");
+  return `<table class="ann">${tr}</table>`;
+}
+function rangeTable(rows) {
+  if (!rows || !rows.length) return "";
+  return `<table class="ann">` + rows.map(r => {
+    // A plain link names its :domain. A derived one has none, so name the chain instead —
+    // and its origin, which is the first hop's :domain, not a guess.
+    let src;
+    if (r.from) src = `from :${esc(r.from)}`;
+    else if (r.chain && r.chain.length)
+      src = `derived: ${r.chain.map(h => ":" + esc(h)).join(" → ")}` +
+            (r.chain_start ? ` · from :${esc(r.chain_start)}` : "");
+    else src = "no :domain declared";
+    return `<tr><td class="mono">:${esc(r.n)}</td><td><span class="file">${src}</span></td></tr>`;
+  }).join("") + `</table>`;
+}
+function indivTable(sample, rule, objects) {
+  // Tabular, like the SQL it came from: one row per object, every column of the physical
+  // row, and a last column with the defined classes the row satisfies (evaluated from the
+  // axiom — the membership is never stored).
+  if (objects && objects.length) {
+    const cols = [];
+    objects.forEach(o => o.props.forEach(([k]) => { if (!cols.includes(k)) cols.push(k); }));
+    const idcol = c => /(^|_)id$/i.test(c);
+    const head = `<tr>${cols.map(c => `<th class="${idcol(c) ? "idcol" : ""}">${esc(c)}</th>`)
+      .join("")}<th>defined classes</th></tr>`;
+    const body = objects.map(o => {
+      const byCol = Object.fromEntries(o.props);
+      const cells = cols.map(c =>
+        `<td class="mono${idcol(c) ? " idcol" : ""}">${esc(byCol[c] ?? "")}</td>`).join("");
+      const cls = o.classes.length
+        ? o.classes.map(c => `<b>:${esc(c)}</b>`).join("<br>") : "—";
+      return `<tr>${cells}<td>${cls}</td></tr>`;
+    }).join("");
+    return `<table class="ann">${head}${body}</table>` +
+      `<div class="file" style="margin-top:4px">rows from ${esc(rule)} · ` +
+      `defined classes evaluated from the axiom, not stored</div>`;
+  }
+  const head = `<tr>${sample.cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr>`;
+  const body = sample.rows.map(r =>
+    `<tr>${r.map(v => `<td class="mono">${esc(v)}</td>`).join("")}</tr>`).join("");
+  return `<table class="ann">${head}${body}</table>` +
+    `<div class="file" style="margin-top:4px">columns from ${esc(rule)}</div>`;
+}
+function annTable(rows) {
+  if (!rows || !rows.length) return "";
+  const tr = rows.map(r =>
+    `<tr><th>${esc(r.label)}${r.iri ? `<br><span class="file">${esc(r.iri)}</span>` : ""}</th>` +
+    `<td>${r.v.map(v => esc(v)).join("<br>")}</td></tr>`).join("");
+  return `<table class="ann">${tr}</table>`;
+}
+function show(id) {
+  const n = byId[id]; if (!n) return;
+  selected = id; focus(id);
+  document.querySelectorAll("#idx a").forEach(a => a.classList.toggle("on", a.dataset.id === id));
+  document.querySelector(`#idx a[data-id="${id}"]`)?.scrollIntoView({block: "nearest"});
+
+  let html = `<h1>${esc(n.label)}</h1><div class="kind"><b>${esc(n.badge)}</b> · ` +
+    `${esc(n.term || n.kind)} · <code>:${esc(n.name)}</code></div>`;
+  if (n.description) html += section("描述", `<p class="desc">${esc(n.description)}</p>`);
+  if (n.definedBy) {
+    const title = n.definedVia === "physicalPredicate" ? "手写谓词" : "等价类";
+    html += section(title, `<pre>${esc(n.definedBy)}</pre>`);
+  }
+  if (n.refusal) html += section("Definition", `<p class="why">${esc(n.refusal)}</p>`);
+  if (n.sql) html += section("SQL", `<pre>${esc(n.sql)}</pre>`);
+  // ONE container for anything that comes out of the database: the count and the values
+  // it belongs to. Two boxes made them look like two different kinds of evidence.
+  if (n.value !== undefined && n.value !== null) {
+    let body = `<div class="big">${num(n.value)}</div>`;
+    if (n.kind.startsWith("metric")) {
+      html += section("Measured now", body + dbSrc(), "db");
+    } else {
+      if (n.sample) body += `<div style="margin-top:9px">${indivTable(n.sample, n.sample.rule, n.objects)}</div>`;
+      else if (n.indivSql && n.value > DATA.sample)
+        body += `<p class="muted" style="margin:6px 0 0">more than ${DATA.sample} — counted, not listed.</p>`;
+      html += section("Individuals", body + dbSrc(), "db");
+    }
+  }
+  if (n.error) html += `<p class="why">${esc(n.error)}</p>`;
+  // Read the way a reader says it out loud: "domain :Region has two properties, r_name and
+  // r_regionkey". pyLODE calls the same list "In Domain Of" — the count is there so the
+  // claim can be checked at a glance against the rows underneath.
+  if ((n.inDomain || []).length)
+    html += section(`域 :${esc(n.name)} — ${n.inDomain.length} 个属性`,
+                    propTable(n.inDomain));
+  if ((n.inRange || []).length)
+    html += section(`值域 :${esc(n.name)} — ${n.inRange.length} 个属性`,
+                    rangeTable(n.inRange));
+  html += section("注解属性", annTable(n.annotations));
+  html += section("公理", annTable(n.structural));
+  const src = n.sources || {};
+  for (const s of src.self || [])
+    html += section(`TTL · <span class="file">${esc(s.file)}:${s.line}</span>`,
+                    `<pre>${esc(s.text)}</pre>`);
+  if ((src.related || []).length) {
+    const body = src.related.map(s =>
+      `<div class="file" style="margin:0 0 2px">:${esc(s.prop)} names it · ${esc(s.rel)} · ${esc(s.file)}:${s.line}</div>` +
+      `<pre style="margin:0 0 8px">${esc(s.text)}</pre>`).join("");
+    html += section("TTL — statements that name this term", body);
+  }
+  if ((src.comments || []).length) {
+    const body = src.comments.map(c =>
+      `<div class="file">${esc(c.file)}:${c.line}</div>` +
+      `<pre style="margin:0 0 6px">${esc(c.text)}</pre>`).join("");
+    html += section("Mentioned in comments — not data; Protégé deletes these", body);
+  }
+  html += section("IRI", `<p class="file">${esc(n.iri || "")}</p>`);
+  panel.innerHTML = html;
+  panel.scrollTop = 0;
+}
+
+// ── interaction ────────────────────────────────────────────────────────────
+svg.addEventListener("click", ev => {
+  const node = ev.target.closest(".node");
+  if (node) return show(node.dataset.id);
+  if (!ev.target.closest(".edge")) { clearMarks(); selected = null;
+    document.querySelectorAll("#idx a").forEach(a => a.classList.remove("on")); }
+});
+let drag = null;
+svg.addEventListener("mousedown", ev => {
+  const node = ev.target.closest(".node");
+  drag = node ? {id: node.dataset.id, x: ev.clientX, y: ev.clientY}
+              : {pan: true, x: ev.clientX, y: ev.clientY};
+  if (drag.pan) stage.classList.add("dragging");
+});
+window.addEventListener("mousemove", ev => {
+  if (!drag) return;
+  const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
+  if (drag.pan) { tx += dx; ty += dy; drag.x = ev.clientX; drag.y = ev.clientY; applyTransform(); }
+  else {
+    const p = pos[drag.id];
+    p.x += dx / scale; p.y += dy / scale;
+    drag.x = ev.clientX; drag.y = ev.clientY;
+    document.querySelector(`.node[data-id="${drag.id}"]`)
+      ?.setAttribute("transform", `translate(${p.x},${p.y})`);
+    document.querySelectorAll(`.edge[data-src="${drag.id}"], .edge[data-dst="${drag.id}"]`)
+      .forEach(el => el.setAttribute("d", edgePath({src: el.dataset.src, dst: el.dataset.dst})));
+  }
+});
+window.addEventListener("mouseup", () => { drag = null; stage.classList.remove("dragging"); });
+function zoomBy(k, cx, cy) {
+  const r = stage.getBoundingClientRect();
+  const mx = cx === undefined ? r.width / 2 : cx;
+  const my = cy === undefined ? r.height / 2 : cy;
+  const next = Math.min(4, Math.max(0.15, scale * k));
+  tx = mx - (mx - tx) * (next / scale);
+  ty = my - (my - ty) * (next / scale);
+  scale = next; applyTransform();
+}
+function panBy(dx, dy) { tx += dx; ty += dy; applyTransform(); }
+
+svg.addEventListener("wheel", ev => {
+  ev.preventDefault();
+  const r = stage.getBoundingClientRect();
+  zoomBy(ev.deltaY < 0 ? 1.12 : 1 / 1.12, ev.clientX - r.left, ev.clientY - r.top);
+}, {passive: false});
+
+document.getElementById("c-zin").onclick = () => zoomBy(1.25);
+document.getElementById("c-zout").onclick = () => zoomBy(1 / 1.25);
+document.getElementById("c-fit").onclick = () => { fit(); clearMarks(); };
+document.querySelectorAll("#controls button[data-pan]").forEach(b => {
+  b.onclick = () => {
+    const step = 70, dir = b.dataset.pan;
+    panBy(dir === "left" ? step : dir === "right" ? -step : 0,
+          dir === "up" ? step : dir === "down" ? -step : 0);
+  };
+});
+window.addEventListener("keydown", ev => {
+  const tag = (document.activeElement || {}).tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA") return;
+  const k = ev.key;
+  if (k === "+" || k === "=") { zoomBy(1.25); ev.preventDefault(); }
+  else if (k === "-" || k === "_") { zoomBy(1 / 1.25); ev.preventDefault(); }
+  else if (k === "0") { fit(); ev.preventDefault(); }
+  else if (k === "d" || k === "D") { setMode("domain"); ev.preventDefault(); }
+  else if (k === "r" || k === "R") { setMode("range"); ev.preventDefault(); }
+  else if (k === "b" || k === "B") { setMode("both"); ev.preventDefault(); }
+  else if (k === "ArrowLeft") { panBy(60, 0); ev.preventDefault(); }
+  else if (k === "ArrowRight") { panBy(-60, 0); ev.preventDefault(); }
+  else if (k === "ArrowUp") { panBy(0, 60); ev.preventDefault(); }
+  else if (k === "ArrowDown") { panBy(0, -60); ev.preventDefault(); }
+});
+
+const filters = {structure: true, meaning: true, metric: true};
+document.querySelectorAll("#bar button[data-k]").forEach(b => {
+  b.onclick = () => {
+    const k = b.dataset.k; filters[k] = !filters[k]; b.classList.toggle("on", filters[k]);
+    document.querySelectorAll(".node").forEach(el => {
+      const kind = el.dataset.id.startsWith("m_") ? "metric" : byId[el.dataset.id].kind;
+      el.style.display = filters[kind] === false ? "none" : "";
+    });
+    document.querySelectorAll("#idx a").forEach(a => {
+      const kind = a.dataset.k === "metric-refused" ? "metric" : a.dataset.k;
+      a.classList.toggle("off", filters[kind] === false);
+    });
+    document.querySelectorAll("#idx .grp").forEach(g => {
+      const kind = g.dataset.k === "metric-refused" ? "metric" : g.dataset.k;
+      g.classList.toggle("off", filters[kind] === false);
+    });
+  };
+});
+document.getElementById("reset").onclick = () => { fit(); clearMarks(); };
+document.querySelectorAll("#controls button[data-mode]").forEach(b => {
+  b.onclick = () => setMode(b.dataset.mode);
+});
+document.getElementById("q").oninput = ev => {
+  const q = ev.target.value.toLowerCase().trim();
+  clearMarks();
+  document.querySelectorAll("#idx a").forEach(a => {
+    const n = byId[a.dataset.id];
+    const hay = (n.label + " " + a.dataset.id + " " + (n.sub || "") + " " +
+                 (n.description || "")).toLowerCase();
+    a.classList.toggle("off", q !== "" && !hay.includes(q));
+    a.classList.toggle("on", q !== "" && hay.includes(q));
+  });
+  document.querySelectorAll(".node").forEach(el => {
+    const n = byId[el.dataset.id];
+    const hay = (n.label + " " + el.dataset.id + " " + (n.sub || "")).toLowerCase();
+    el.classList.toggle("hit", q !== "" && hay.includes(q));
+    el.classList.toggle("dim", q !== "" && !hay.includes(q));
+  });
+};
+
+document.getElementById("meta").textContent =
+  `${DATA.triples} triples · ${DATA.counts.structure} classes · ` +
+  `${DATA.counts.meaning} defined classes · ${DATA.counts.metrics + DATA.counts.refused} ` +
+  `datatype properties (${DATA.counts.metrics} compiled, ${DATA.counts.refused} refused)` +
+  (DATA.doc ? ` · doc: ${DATA.doc}` : "");
+draw();
+buildIndex();
+fit();
+setMode("both");
+if (DATA.missing.length) document.getElementById("note").textContent =
+  "no layout position for: " + DATA.missing.join(", ");
+</script></body></html>

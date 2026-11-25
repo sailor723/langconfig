@@ -1,0 +1,109 @@
+{
+  "_comment": [
+    "orders_demo_v1 的样例闸门（S5）：用户最先会点的 12 个问题。每一条要么答出一个数并由第二条手写 SQL 现场核对（route），要么按名拒绝（refused_by_name）。",
+    "route 里的 SQL 只读 orders / customers 两张表，不经过管线、也不进入任何声明 —— 它存在的意义是：管线与它独立推导，两者在闸门运行时对不上就红（比冻死一个数字更能咬住口径漂移）。8 条 route 全部用 \"customers\".\"城市\" 做分组键，这正是 grill D5 的口径：城市只认 customers.城市；用订单表上那份城市副本分组在 5 行数据上会返回逐格相同的数（实测），所以样例也必须是权威那一路，否则它挡不住任何东西 —— 本文件里连那个属性名都没有出现（grep 0 命中是我们的一条验收证据，不是巧合）。",
+    "为什么分组 route 里 城市 必须带表名：orders 与 customers 都有 城市 列，裸 城市 在 JOIN 上直接报 column reference \"城市\" is ambiguous（实测）；这一条本身就是 D5 的机器版本 —— 两条路都「能写」，但只有一条是口径。",
+    "锚定数字（AC-4 点名）：金额合计 = 746.74（第 5 条，同时冻结 value 与 route）；已付款 = true 计 3 单（第 6 条，同样冻结 value 与 route）；orders 5 行（第 7 条 route count(*)）；城市 上海 3 / 北京 1 / 广州 1（第 2 条 route）。customers 5 行没有对应的指标（本板按 D2 只看订单的城市分布），所以它没有被封成数字而是被封成一条**按名拒绝**（第 12 条）：问客户数会明确说「没有指标声明 :Customer 的计数」，而不是给一个谁也不认识的数。",
+    "率类 route 不写 round()、tolerance 给 1e-6：回款率是 已付款订单数 / 订单数 的比值（D4：整单布尔、无部分付款、不做金额加权），round 掉的是精度不是误差。两条回款率 route 都写成 …::numeric * 100 / NULLIF(…)，因为声明的单位是 :unit \"percent\" + :scale \"100.0\"（乘 100 发生在编译出的 SQL 里）—— route 与编译值必须同一把尺子，写成裸 ratio 的话 check_samples 会靠 _declared_scale 把编译值除回 100 再比，闸门绿了却钉不住单位。",
+    "四条按名拒绝各自钉住一条 D8 / 口径边界：① 退款率（D8①：没有实付金额列、没有退款表，缺的是一列事实数据）；② 最近 30 天的回款率（D8②：本 profile 不声明任何时间窗口槽位/天数，拒绝原话是 does not support the TimeWindow slot —— 窗口不会被静默忽略）；③ 按客户等级看订单金额（D8③：没有按 :tier 分组的指标，等级只是标签）；④ 有多少个客户（:Customer 没有计数指标 —— 一条诚实的 backlog，不是错误）。",
+    "D8 与 02-meaning.ttl 的口径边界：这里没有任何『回款率目标』『多少算健康』的样例，也没有『已回款金额』的样例 —— 后者是本库的一条已知空洞（问它会命中 金额 → amountTotal，返回 746.74，而不是已付款订单的金额之和），S2 的 :amount 段逐字禁止把金额与付款状态合成「已回款金额」，所以本票不声明那条指标，只把它留给拒绝清单（S8/TICKET-06），见 NOTES 的未验证项。"
+  ],
+  "samples": [
+    {
+      "question": "按城市看订单金额",
+      "expect": {
+        "metric": "amountByCity",
+        "route": "SELECT \"customers\".\"城市\", sum(\"orders\".\"金额\") FROM \"orders\" JOIN \"customers\" ON \"orders\".\"客户\" = \"customers\".\"客户\" GROUP BY 1"
+      },
+      "_why": "D2 主口径 + D5：金额按城市切，城市取 customers.城市（经 :customerOf 声明的 JOIN）。三组 = 上海 495.75 / 北京 250.00 / 广州 0.99，相加 = 746.74 = 合计层 amountTotal（可加量）。route 与编译 SQL 的分组键都是 customers.城市；用订单表那份副本分组会得到逐格相同的结果（5 行、两表 5/5 一致），所以这条样例挡不住写错列的人 —— 挡住它的是 metrics_ext.ttl 里只写了 :groupBy :city。"
+    },
+    {
+      "question": "按城市看订单数",
+      "expect": {
+        "metric": "orderCountByCity",
+        "route": "SELECT \"customers\".\"城市\", count(DISTINCT \"orders\".\"订单号\") FROM \"orders\" JOIN \"customers\" ON \"orders\".\"客户\" = \"customers\".\"客户\" GROUP BY 1"
+      },
+      "_why": "上海 3 / 北京 1 / 广州 1，合计 5（= orderCount）。这 3 个数字就是回款率三条的分母，样本量也在这里写明：最大一组 3 单、另两组各 1 单。"
+    },
+    {
+      "question": "按城市看已付款订单数",
+      "expect": {
+        "metric": "paidOrderCountByCity",
+        "route": "SELECT \"customers\".\"城市\", sum(CASE WHEN \"orders\".\"已付款\" THEN 1 ELSE 0 END) FROM \"orders\" JOIN \"customers\" ON \"orders\".\"客户\" = \"customers\".\"客户\" GROUP BY 1"
+      },
+      "_why": "D4：已付款是整单布尔，把 true 数成 1（02-meaning 的 :paid 段唯一许可的数值用法）。上海 3 / 北京 0 / 广州 0 —— **0 是两个城市真实的 0，不是缺席**：如果用 count(*) + WHERE 已付款 的写法，WHERE 在 GROUP BY 之前生效，北京、广州会从结果里整行消失（本票实测）。route 用同一个 0/1 指示量，所以它同时也钉住「城市层三组相加 = 合计层 3」。"
+    },
+    {
+      "question": "按城市看回款率",
+      "expect": {
+        "metric": "paidRateByCity",
+        "route": "SELECT \"customers\".\"城市\", sum(CASE WHEN \"orders\".\"已付款\" THEN 1 ELSE 0 END)::numeric * 100 / NULLIF(count(DISTINCT \"orders\".\"订单号\"),0) FROM \"orders\" JOIN \"customers\" ON \"orders\".\"客户\" = \"customers\".\"客户\" GROUP BY 1",
+        "tolerance": 1e-06
+      },
+      "_why": "D4 + 工单：回款率 = 已付款订单数 ÷ 订单数，按订单数加权，**不做金额加权**（库里没有实付金额列，加权等于把金额大小冒充付款程度）。上海 100.00（3/3）/ 北京 0.00（0/1）/ 广州 0.00（0/1）。分母是 1 单的城市只有 0% 或 100% 两个取值 —— 这不是趋势；D8② 已定不做时间窗口护栏，本文件也不设阈值。route 付 *100 是为了与 :unit \"percent\" + :scale \"100.0\" 同一把尺子。"
+    },
+    {
+      "question": "订单金额合计是多少",
+      "expect": {
+        "metric": "amountTotal",
+        "value": "746.74",
+        "route": "SELECT sum(\"金额\") FROM \"orders\""
+      },
+      "_why": "AC-4 点名的第一个总量事实：**746.74 元**（D3：人民币元、库里存的就是元、不缩放）。value 与 route 双封：route 现场再算一遍，value 把 AC-4 的验收数字冻在闸门里 —— ÷100 会得到 7.4674、×100 会得到 74674，两种缩放错法都会被这两条中任一条看住。"
+    },
+    {
+      "question": "已付款订单数是多少",
+      "expect": {
+        "metric": "paidOrderCount",
+        "value": "3",
+        "route": "SELECT sum(CASE WHEN \"已付款\" THEN 1 ELSE 0 END) FROM \"orders\""
+      },
+      "_why": "AC-4 点名的第二个总量事实：**3 单**（D4：整单付清，无部分付款）。route 用 0/1 指示量求和（等价写法 count(*) WHERE 已付款 也是 3，合计层没有分组所以两种写法同值）。它不是金额：库里没有实付金额列。"
+    },
+    {
+      "question": "订单数是多少",
+      "expect": {
+        "metric": "orderCount",
+        "route": "SELECT count(*) FROM \"orders\""
+      },
+      "_why": "5 单（orders 精确 5 行）。它是回款率合计层 60% 的分母，也是「3 单已付款」这句话能被读懂的前提。它同时是这份快照的样本量：5 单，任一单进出就是 20% 的摆动。"
+    },
+    {
+      "question": "回款率是多少",
+      "expect": {
+        "metric": "paidRateTotal",
+        "route": "SELECT sum(CASE WHEN \"已付款\" THEN 1 ELSE 0 END)::numeric * 100 / NULLIF(count(*),0) FROM \"orders\"",
+        "tolerance": 1e-06
+      },
+      "_why": "合计层用与城市层**同一把尺子**：3 ÷ 5 = **60.00%**（不是上海 100 / 北京 0 / 广州 0 的算术平均 33.33 —— 那是「先按城市平均再平均」，是错的口径）。route 也乘 100，与 :unit \"percent\" + :scale \"100.0\" 一致。"
+    },
+    {
+      "question": "退款率是多少？",
+      "expect": {
+        "refused_by_name": "I can answer about"
+      },
+      "_why": "**必选的按名拒绝样例（D8①）。** 事实理由：库里没有「实付金额」列、没有退款表（S1 实测两表 10 列里没有这类列），所以退款额、退款率都没有可声明的结构 —— 缺的不是一行 SQL，是一列事实数据（grill §2 的解锁条件：出现退款表或实付金额列）。本 profile 的指标菜单里没有任何退款类名字，所以拒绝原话是把菜单列出来（I can answer about: …），这就是「按名拒绝」而不是给一个编出来的 0。"
+    },
+    {
+      "question": "最近 30 天的回款率是多少？",
+      "expect": {
+        "refused_by_name": "does not support the TimeWindow slot"
+      },
+      "_why": "**D8②的按名拒绝样例，而且它证明窗口不会被静默忽略。** 事实理由：orders 只有 5 行、跨 56 天、时间列是 date 且全库没有 timestamp；任何 N 都是编的（N>56 等于不筛，N<56 把 5 行筛成 0..3 行）。所以本 profile 的指标一条都不声明 :supportsSlot :TimeWindow、也不声明 :timeBucket，问带时间窗的问题得到的原话是 `:paidRateTotal does not support the TimeWindow slot (declared slots: none) — refusing rather than ignoring the constraint` —— 而不是「按 30 天算出一个 60%」。护栏侧同样没有窗口阈值（settings.guard 只有 enabled / max_rows / statement_timeout_ms / max_plan_rows）。"
+    },
+    {
+      "question": "按客户等级看订单金额",
+      "expect": {
+        "refused_by_name": "nothing declares a grouping by"
+      },
+      "_why": "**D8③的按名拒绝样例。** 事实理由：等级（:tier）是单字符标签 A/B/C、没有事件序列，做不出漏斗；而且本票的四个城市指标都只 :groupBy :city，没有任何指标按 :tier 分组。拒绝原话点名了缺的东西：`nothing declares a grouping by ['客户等级'] … (grouped metrics: [(amountByCity, [city]), …])` —— 它没有悄悄把维度丢掉再回答一个总额，这正是「按名拒绝」与「答了另一个问题」的分界。"
+    },
+    {
+      "question": "有多少个客户？",
+      "expect": {
+        "refused_by_name": "no metric declares that count"
+      },
+      "_why": "一条诚实的 backlog：customers 精确 5 行（本票用只读 SELECT 量过），但本板按 D2 只看订单的城市分布，所以没有声明 customerCount 之类的指标 —— 于是问客户数会明确说「最好匹配到的是 CLASS :Customer，没有指标声明这个计数」，而不是顺手返回一个数或把 5 张订单当成 5 个客户。要能答：在 :Customer 上声明一个 :aggregate \"count\" + :grain :Customer 的指标（那是新的一次决定，不是本票擅自加的）。"
+    }
+  ]
+}

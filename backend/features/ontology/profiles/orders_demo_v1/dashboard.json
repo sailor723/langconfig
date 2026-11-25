@@ -1,0 +1,104 @@
+{
+  "_doc": [
+    "S6 看板（TICKET-05）。四张 KPI 卡 + 四块分组面板，每一块只点名 metrics_ext.ttl 已声明的指标（八个全部用上，一个不多造）。页面不自算任何数：kpis / panels / identities / briefing 里没有一个 JSON 数字（int/float），也没有任何「让页面自己算」的字段，declaration 字符串只写指标名与它声明的聚合、分组、单位。",
+    "城市维度只来自 customers.城市：四个城市指标都是 :groupBy :city。本文件不出现订单表那份城市副本的任何写法，也没有任何手写分组字段（grill D5：一份事实只能有一个负责人）。",
+    "回款率两个指标在声明里带 :unit \"percent\" 与 :scale，乘一百发生在编译器发出的 SQL 里；面板与卡片直接显示编译值，不再乘第二次（否则同一块板上合计与城市会差一百倍）。",
+    "不做时间维度、不做阈值、不做等级漏斗（grill D8）：本板没有 series 面板（时间轴不存在）、没有 policy、没有窗口参数，也没有「近 N 天」这类口径。",
+    "面板 kind 只用 stage_checks.RENDER_KINDS 里的值（bar / table）：不在集合里的 kind 会让前端渲染空白面板且不报错（2026-11-13 在 meeting_v1 实测过九个面板全白、门禁还绿）。",
+    "identities 段是给看板门禁的算术恒等式（城市层加总 = 合计层；城市回款率按订单数加权 = 整体回款率）：只写指标名，求和与加权由门禁跑编译后的指标完成，页面不参与、也不显示这些算式。",
+    "holes 为空是有理由的：本本体八个指标全部编译通过、编译器按名拒答零个，没有「已声明但拒绝编译」的指标可以做成空洞卡；把不存在的指标名写成 hole 会被门禁判红（那是 missing_declaration，不是 refused）。拒答清单与教程属于 TICKET-06，本文件不写。"
+  ],
+  "ontology": "orders_demo_v1",
+  "title": "订单与回款（按城市）",
+  "subtitle": "口径来自 metrics_ext.ttl 已声明的指标；城市只认 customers.城市（grill D5），不设时间窗口与阈值（grill D8）",
+  "briefing": {
+    "_doc": "这一块里的每个数字都必须写成占位符（{指标名} 或 {指标名:分组键}）：门禁会扫描 headline / claims / cannot_see / next，出现一个手打阿拉伯数字就判红。本板没有 policy —— 阈值是业务判断，grill 已明确不设（D8）。",
+    "headline": "共 {orderCount} 张订单，其中 {paidOrderCount} 张已付款，整体回款率 {paidRateTotal}，订单金额合计 {amountTotal}。",
+    "claims": [],
+    "next": "按城市读金额：{amountByCity:上海} / {amountByCity:北京} / {amountByCity:广州}；按城市读回款率：{paidRateByCity:上海} / {paidRateByCity:北京} / {paidRateByCity:广州}。城市只有三组，每组的读法与样本量写在对应面板的说明里。"
+  },
+  "kpis": [
+    {
+      "metric": "amountTotal",
+      "title": "订单金额合计",
+      "unit": "money",
+      "declaration": ":amountTotal（metrics_ext.ttl）· 聚合 sum · 不分组 · 单位 money（人民币元，库里存的就是元）",
+      "note": "全部订单的金额之和，人民币元、不缩放（grill D3）。它是城市金额那几格的合计层锚点：城市格相加必须回到这里，门禁按 identities 里的恒等式核对。它不是任何窗口内的合计 —— 本板没有时间维度（grill D8）。"
+    },
+    {
+      "metric": "paidOrderCount",
+      "title": "已付款订单数",
+      "unit": "count",
+      "declaration": ":paidOrderCount（metrics_ext.ttl）· 聚合 sum（已付款 的 0/1 指示量）· 不分组 · 单位 count",
+      "note": "整单是否付清的布尔按订单求和（grill D4：不存在部分付款）。它不是一个金额：库里没有实付金额列，把它读成钱就是编的（理由写在声明的正文里）。"
+    },
+    {
+      "metric": "orderCount",
+      "title": "订单数",
+      "unit": "count",
+      "declaration": ":orderCount（metrics_ext.ttl）· 聚合 count · 不分组 · 单位 count",
+      "note": "整体回款率的分母。少了这张卡，「已付款订单数」读不出比例，读者会把已付款的那些单当成全部。"
+    },
+    {
+      "metric": "paidRateTotal",
+      "title": "整体回款率",
+      "unit": "percent",
+      "declaration": ":paidRateTotal（metrics_ext.ttl）· 分子 :paidOrderCount · 分母 :orderCount · 单位 percent（声明里带 :scale）",
+      "note": "已付款订单数 ÷ 订单数，与城市层同一把尺子、只是不分组（grill D4，按订单数加权、不做金额加权）。百分比在编译出的 SQL 里乘好，卡片不乘第二次。它与城市层不构成平均关系：城市层按订单数加权才回得到这个数，算术平均不是这个口径。"
+    }
+  ],
+  "panels": [
+    {
+      "id": "cityAmount",
+      "kind": "bar",
+      "section": "主口径：按城市看金额",
+      "title": "按城市看订单金额",
+      "metric": "amountByCity",
+      "unit": "money",
+      "declaration": ":amountByCity（metrics_ext.ttl）· 聚合 sum · 分组 :city · 单位 money · 可加",
+      "note": "一格 = 一个城市，值是那一组订单的金额之和，单位人民币元、库里存的就是元（grill D3），页面不缩放也不再换算。城市取自 customers.城市（grill D5 的唯一权威口径），分组来自声明里的 :groupBy :city，不是页面自己拼的字段。几格相加应当正好等于合计卡片上的订单金额合计 —— 这条恒等式写在 identities 里，由看板门禁跑编译后的指标核对。样本量与「每城只有一两单」的读法写在 :amountByCity 的 :businessDescription 里。",
+      "emit_filter": {"dimension": "city", "column": "key1"}
+    },
+    {
+      "id": "cityPaidRate",
+      "kind": "bar",
+      "section": "回款情况",
+      "title": "按城市看回款率",
+      "metric": "paidRateByCity",
+      "unit": "percent",
+      "declaration": ":paidRateByCity（metrics_ext.ttl）· 分子 :paidOrderCountByCity · 分母 :orderCountByCity · 分组 :city · 单位 percent（声明里带 :scale）· 不可加",
+      "note": "回款率 = 该城市已付款订单数 ÷ 该城市订单数，按订单数加权、不做金额加权（grill D4）。百分比在声明里就已经乘好（:unit \"percent\" 与声明中的 :scale），面板显示编译值 —— 不乘第二次，也不由页面重新算一次比率。比率不带可加性：几个城市各自读，不相加、也不互相平均（为什么不是平均，写在 :paidRateTotal 的 :businessDescription 里）。",
+      "emit_filter": {"dimension": "city", "column": "key1"}
+    },
+    {
+      "id": "cityPaidOrders",
+      "kind": "bar",
+      "section": "回款情况",
+      "title": "按城市看已付款订单数",
+      "metric": "paidOrderCountByCity",
+      "unit": "count",
+      "declaration": ":paidOrderCountByCity（metrics_ext.ttl）· 聚合 sum（已付款 的 0/1 指示量）· 分组 :city · 单位 count · 可加",
+      "note": "零值城市照样出现在轴上：实现是「把已付款数成 1」的指示量求和，不是 count 加条件筛选，所以没有已付款订单的城市是一格明确的零，而不是整行消失（为什么不能用条件筛选，写在 :paidOrderCountByCity 的 :businessDescription 里）。这是回款率的分子。",
+      "emit_filter": {"dimension": "city", "column": "key1"}
+    },
+    {
+      "id": "cityOrderCount",
+      "kind": "table",
+      "section": "回款情况",
+      "title": "按城市看订单数",
+      "metric": "orderCountByCity",
+      "unit": "count",
+      "declaration": ":orderCountByCity（metrics_ext.ttl）· 聚合 count（按订单号去重计数）· 分组 :city · 单位 count · 可加",
+      "note": "回款率的分母。把上面那张回款率读数按这里的订单数加权，就能回到合计卡片的整体回款率 —— 门禁里那条加权恒等式做的就是这件事。每城的订单数也决定该城比率能摆动的幅度（说明见 :orderCountByCity 的 :businessDescription）。",
+      "emit_filter": {"dimension": "city", "column": "key1"}
+    }
+  ],
+  "identities": [
+    {"label": "城市金额加总 = 订单金额合计", "grouped": "amountByCity", "whole": "amountTotal"},
+    {"label": "城市订单数加总 = 订单数", "grouped": "orderCountByCity", "whole": "orderCount"},
+    {"label": "城市已付款订单数加总 = 已付款订单数", "grouped": "paidOrderCountByCity", "whole": "paidOrderCount"},
+    {"label": "城市回款率按订单数加权 = 整体回款率", "grouped": "paidRateByCity", "weights": "orderCountByCity", "whole": "paidRateTotal"}
+  ],
+  "holes": [],
+  "_scope_note": "本板不声明 no_filterable_dimension：城市是已声明的 :groupBy，四块城市面板也真的 emit_filter（维度 city、值取自编译结果），所以门禁的 F1 族跑的是真检查（维度已声明 / 值集合至少两个 / 未知值必须被拒），不是标成 NOT RUN。本板也不声明第二路线（那属于声明层，本票不让页面自带手写查询）。"
+}

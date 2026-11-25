@@ -1,0 +1,118 @@
+@prefix : <https://cube.local/ontology/orders_demo_v1#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# =============================================================================
+# S1 结构层：这个库到底有什么。只写被数据/约束证明的东西，每条都在下面带可重放的查询。
+#
+# 库：orders_demo_xlsx（host 127.0.0.1，port 5433，user langconfig，schema public）。
+# 本文件的每一条事实都是本格用只读 SELECT 亲自量到的（不是照 Excel 猜的，也不是照 PLAN 抄的）。
+#
+# 表清单（S1f 覆盖检查的依据）：
+#   select table_schema, table_name, table_type from information_schema.tables
+#     where table_schema not in ('pg_catalog','information_schema') order by 1,2;
+#   → public.customers / public.orders —— 两张，都是 BASE TABLE；视图 0 个
+#     （information_schema.views 排除系统 schema 后 count(*) = 0）。
+#   库里没有第三张业务表，所以本文件声明两个类就是全量覆盖；编译器会在自己库里建
+#   nl_events / audit_events 两类遥测表，它们不是业务表（check_structure 的 platform tables 已扣除）。
+#
+# 列清单（S1b 的依据）—— information_schema.columns，schema='public'：
+#   orders    : 订单号 integer not null / 客户 text / 城市 text / 金额 numeric(12,2) / 已付款 boolean / 下单日期 date
+#   customers : 客户 text not null / 城市 text / 等级 text / 注册日期 date
+#   10 列全部 is_nullable = NO（对应 grill D12：全列 NOT NULL）。
+#
+# 约束清单（S1a/S1c 的依据）—— pg_constraint:
+#   orders_pkey        PRIMARY KEY ("订单号")                                   convalidated = t
+#   customers_pkey     PRIMARY KEY ("客户")                                     convalidated = t
+#   orders_客户_fkey   FOREIGN KEY ("客户") REFERENCES customers("客户")        convalidated = t
+#   contype='c'（CHECK）计数 0（grill D13：城市/等级不建枚举）；
+#   pg_trigger where not tgisinternal 计数 0（grill D14：不用触发器锁两表城市一致）。
+#
+# 本文件的规矩：
+#   · 一列一个属性名，一个属性名只属于一个类（check_structure 的 S1d）。两表都有「城市」、
+#     两表都有「客户」，所以它们**必须**是四个不同的属性名 —— 这不是起名偏好，是 D5 的
+#     执行机构：`orders.城市` 与 `customers.城市` 若同名 :city，编译器
+#     （sqlgen._dimension_predicate）会以 "it is a column of MORE THAN ONE class" 拒绝
+#     按城市筛选，而本本体要的恰恰相反：「城市」永远只有一个答案。
+#   · 外键列不再额外声明成一个同列的数据属性（一列一个属性），走 :customerOf 这条链接。
+# =============================================================================
+
+# ================================================================ 事实表：订单
+
+:Order a owl:Class ;
+    rdfs:label "订单（一行一张订单）" ;
+    :physicalTable "orders" ;
+    :primaryKey "订单号" ;
+    :timeColumn "下单日期" ;
+    :businessDescription "一行 = 一张订单。粒度证据（measured）：count(*) = 5，count(distinct \"订单号\") = 5，min/max 订单号 = 1/5；主键由库约束 orders_pkey(订单号) 保证（convalidated = t），不是「看起来唯一」。这是本本体唯一的事实表：金额、已付款、下单日期都落在这一行上，城市不在这一行上（见 :order_city 与 02-meaning.ttl 的 D5 段）。5 行里 订单号 取值恰好是 1..5，与行号无法区分 —— 「订单号在全量数据里是否唯一」是 grill §2 的有意未定项，本层只声明「在这一列的每一行都唯一」这个库约束能保证的事。时间轴是 :order_date（真 date 列），全库没有任何 timestamp 列。" .
+
+:order_id a owl:DatatypeProperty ; rdfs:label "订单号" ; :askedAs "订单号" ;
+    rdfs:domain :Order ; :physicalColumn "订单号" ; rdfs:range xsd:integer ;
+    :businessDescription "订单号，integer（grill D10），库里是 orders 的主键（orders_pkey）。measured: 5 行、5 个不同值、1..5、无空值。它是订单的唯一标识，也是任何「订单数」口径的计数单位（count(distinct 订单号) = count(*) = 5，两种写法同值）。它不参与任何按值筛选：本数据里 1..5 与行号重合，用它当筛选条件没有业务含义。" .
+
+:amount a owl:DatatypeProperty ; rdfs:label "金额（元）" ; :askedAs "金额" ;
+    rdfs:domain :Order ; :physicalColumn "金额" ; rdfs:range xsd:decimal ;
+    :businessDescription "一张订单的金额，numeric(12,2)（grill D11），单位**人民币元**、库里存的就是元、不缩放（grill D3，口径写在 02-meaning.ttl 的 :amount）。measured: 5 行非空，sum = 746.74，min = 0.99，max = 320.00；没有任何一行的小数位超过 2（count(*) where 金额 <> round(金额,2) = 0）。可加量：跨行、跨城市求和同口径。它是本板唯一的金额量，回款率的分子分母都不来自这一列（回款按整单布尔计，见 :paid）。" .
+
+:paid a owl:DatatypeProperty ; rdfs:label "已付款（整单是否付清）" ; :askedAs "已付款" ;
+    rdfs:domain :Order ; :physicalColumn "已付款" ; rdfs:range xsd:boolean ;
+    :businessDescription "整单是否付清的布尔标记，boolean，5 行非空。measured: true 3 行 / false 2 行（count(*) filter (where 已付款) = 3，filter (where not 已付款) = 2）。它是**布尔**、不是金额：库里没有任何「实付金额」列，所以本列只能读成「整单付清 / 未付清」，不存在第三种状态（grill D4，口径写在 02-meaning.ttl 的 :paid）。用它求和（true 当 1）得到的整数就是「已付款订单数」，这也是它唯一合法的数值用法。" .
+
+:order_date a owl:DatatypeProperty ; rdfs:label "下单日期" ; :askedAs "下单日期" ;
+    rdfs:domain :Order ; :physicalColumn "下单日期" ; rdfs:range xsd:date ;
+    :businessDescription "下单日期，**真 date 列**（grill D7；Excel 里是 inlineStr 文本，建库时转成 date）。measured: 5 行非空，min 2026-01-05 / max 2026-03-02，跨度 56 天，5 个不同日期；::text 不匹配 ^\\d{4}-\\d{2}-\\d{2}$ 的行 0 个。它是本类的 :timeColumn，即「按时间看」时唯一合法的列。日期只有日期部分、没有时间也没有时区（文件的实际情况，grill §2 把时区语义列为有意未定项）—— 因此任何「近 N 天」的窗口口径都还要人来定 N，本层不编（grill D8② 按名拒绝时间窗口护栏）。" .
+
+# --- 订单表上那份城市：保留，但**不是**口径 ---------------------------------
+# D5：一份事实只能有一个负责人。customers.城市 是权威，orders.城市 只做对账。
+# 它必须有属性名（S1b2 要求每一列都有归属），但这个名字刻意与权威口径不同，
+# 而且 :askedAs 也不叫「城市」—— 见 02-meaning.ttl 的 :order_city 段（本文件只写结构）。
+
+:order_city a owl:DatatypeProperty ; rdfs:label "城市（订单表副本，仅对账，不参与任何指标）" ;
+    :askedAs "订单表上的城市（对账用）" ;
+    rdfs:domain :Order ; :physicalColumn "城市" ; rdfs:range xsd:string ;
+    :businessDescription "订单行上冗余存的城市，text，5 行非空，3 个取值（上海 3 / 北京 1 / 广州 1）。**它不是城市的口径**（grill D5）：权威口径是 :city（customers.城市，本文件的另一个类）。它被声明出来只为一件事——S1 要求每一列都有归属，而且库里这一列真实存在、@grill 决定先保留做对账、删除它属于后续另一份规格（SPEC「范围之外」）。measured: 按 客户 join 后 orders.城市 <> customers.城市 的行 = 0（两表城市 5/5 一致），所以拿它分组**看起来也对** —— 门禁不会因此变红，靠的就是 02-meaning.ttl 里那条「不参与任何指标」的声明挡住它。" .
+
+# --- 事实表到客户维度的链接 ---------------------------------------------------
+
+:customerOf a owl:ObjectProperty ; rdfs:label "下单客户" ; :askedAs "客户" ;
+    rdfs:domain :Order ; :range :Customer ;
+    :physicalColumn "客户" ; :references :Customer ;
+    :businessDescription "join 路径：orders.客户 → customers.客户（grill D6）。库里**有真外键** orders_客户_fkey（convalidated = t），不是只有数据巧合。measured: orders 里 5 行 客户 全部能在 customers 找到对应行（left join 后 customers.客户 is null 的 = 0），取值 alice/bob/carol/dave/erin 与 customers 的 5 个 客户 完全一致。键是**文本客户名**不是编号：customers 没有 id 列，「要不要建客户编号体系」是 grill §2 的有意未定项，本层不发明代理键。注意方向：一张订单恰好属于一个客户（many-to-one），但本数据的 5 行恰好是 5 个不同客户（一客一单）—— 这是 5 行小样本的巧合，**不是** 1:1 的声明；将来同一客户有多张订单时本声明不需要改。" .
+
+# ================================================================ 维度：客户
+
+:Customer a owl:Class ;
+    rdfs:label "客户（一行一个客户）" ;
+    :physicalTable "customers" ;
+    :primaryKey "客户" ;
+    :businessDescription "一行 = 一个客户。粒度证据（measured）：count(*) = 5，count(distinct \"客户\") = 5，主键由库约束 customers_pkey(客户) 保证（convalidated = t）。客户的城市、等级、注册日期都挂在这一行上 —— 其中城市（:city）是本本体唯一的城市口径来源（grill D5）。没有 id 列：主键是文本客户名（alice/bob/carol/dave/erin），「是否存在客户编号体系」是 grill §2 的有意未定项。measured: 5 个客户在 orders 里各有 1 张订单（反向 left join 后 orders.订单号 is null 的客户 = 0），即这份快照里没有「零订单客户」，但这是数据现状不是口径：本层不声明「客户必须有订单」。" .
+
+:customer_name a owl:DatatypeProperty ; rdfs:label "客户（客户名，文本主键）" ; :askedAs "客户" ;
+    rdfs:domain :Customer ; :physicalColumn "客户" ; rdfs:range xsd:string ;
+    :businessDescription "客户名，text，库里是 customers 的主键（customers_pkey），5 个取值 alice / bob / carol / dave / erin，无空值、无首尾空白、互不重复。它是文本键**而不是编号**（grill D6 明确接受文本键；grill §2 把「是否有客户编号体系」列为有意未定项，本层不建代理键）。事实表通过 :customerOf 指向这一列；要按客户分组时用本属性（经声明的链接可达），不要在 orders 上再造一个同列属性（那正是 D5 禁止的两份事实两个负责人）。" .
+
+:city a owl:DatatypeProperty ; rdfs:label "城市（权威口径）" ; :askedAs "城市" ;
+    rdfs:domain :Customer ; :physicalColumn "城市" ; rdfs:range xsd:string ;
+    :businessDescription "客户所在城市，text，5 行非空，3 个取值（上海 3 / 北京 1 / 广州 1）。**这是本本体唯一的城市口径**（grill D5）：任何按城市分组、按城市筛选、按城市下钻的指标，城市都只能来自这一列（经 :customerOf 从 :Order join 过来）。它挂在客户上而不是订单上，因为城市是客户的属性（客户住在哪），订单并不搬家；同一客户的多张订单必须落在同一个城市，这就是「一份事实一个负责人」的实质。见 :order_city 与 02-meaning.ttl 的 D5 段：订单表那份城市**不参与任何指标**，虽然它此刻与这一列 5/5 一致。" .
+
+:tier a owl:DatatypeProperty ; rdfs:label "等级（参考标签）" ; :askedAs "等级" ;
+    rdfs:domain :Customer ; :physicalColumn "等级" ; rdfs:range xsd:string ;
+    :businessDescription "客户等级，text，单字符标签，5 行非空，取值 A 3 / B 1 / C 1。库里**没有**枚举 CHECK（grill D13：3 个值是快照现状不是世界全集，写了 CHECK 下一个等级就插不进去）。它只是标签、没有事件序列，做不出漏斗或分层（grill D8③ 把「等级 A/B/C 的漏斗/分层」按名拒绝），本层不声明「A/B/C 是有序的」这类结构 —— 顺序若有，是业务口径，得人说。" .
+
+:registered_on a owl:DatatypeProperty ; rdfs:label "注册日期" ; :askedAs "注册日期" ;
+    rdfs:domain :Customer ; :physicalColumn "注册日期" ; rdfs:range xsd:date ;
+    :businessDescription "客户注册日期，**真 date 列**（grill D7，与 :order_date 同一处理）。measured: 5 行非空，min 2025-11-01 / max 2026-02-15，::text 不匹配 ^\\d{4}-\\d{2}-\\d{2}$ 的行 0 个，晚于 current_date 的行 0 个。它是客户维度的属性、不随订单变化，所以**不是**事实表的时间轴（那条是 :order_date）：用它筛会把「客户哪年注册的」和「订单哪天下的」两件事混在一起。时区语义与 :order_date 同样是 grill §2 的有意未定项。" .
+
+# =============================================================================
+# 本层刻意**没有**声明的东西（写下来是为了让下一格知道「没写」是决定，不是遗漏）
+#
+#   · 没有代理键 / 没有 id 列：customers 无 id，订单号是 INTEGER 业务号。客户编号体系见 grill §2。
+#   · 没有 CHECK / 触发器 / 枚举：D13 不建枚举，D14 不锁两表城市一致（库里实测 CHECK 0 个、
+#     用户触发器 0 个 —— 本文件不假装它们存在）。
+#   · 没有第三张表、没有视图：库里只有 orders / customers 两张 BASE TABLE。
+#   · 没有「已付款金额」列，也没有退款表：数据里不存在，所以「部分付款 / 退款」在本体里
+#     连结构都没有（grill D4 + D8①，S2 里写明按名拒绝）。
+#   · 没有业务阈值 / 红绿灯 / 时间窗口参数的声明：阈值不是结构事实，grill D8② 按名拒绝。
+#   · 定义类（哪组行算「全部订单」）写在 02-meaning.ttl 的 :AllOrders —— 那是口径，不是结构。
+# =============================================================================

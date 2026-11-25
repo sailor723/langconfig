@@ -1,0 +1,162 @@
+@prefix : <https://cube.local/ontology/orders_demo_v1#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# =============================================================================
+# S3 计算层（overlay）：每个数怎么算。
+#
+# 含义、口径、单位为什么是这样，写在 02-meaning.ttl（S2）；这里只写「可计算形式」，并把
+# 每条口径在声明正文里重述一遍 —— 看板上一个数字出错时，读的人只需要打开这一个文件。
+#
+# 主口径来自 grill D2：**按城市看订单金额与回款情况**。于是本文件有四个城市指标
+# （金额 / 订单数 / 已付款订单数 / 回款率），每个都 :groupBy :city；另外四个是合计层锚点
+# （金额合计、已付款订单数、订单数、整体回款率），它们存在的理由是同一把尺子：城市层与合计层
+# 用同一个分子分母，读者才能把「上海 3 单已付款」与「全库 3 单已付款」对上，而不是拿两把尺子
+# 比。合计层的 3 + 0 + 0 = 3、495.75 + 250.00 + 0.99 = 746.74，逐项可加，这就是可加量的实测证据。
+#
+# 城市口径（grill D5，本票最容易「结果看起来也对」的一条）：
+#   **城市只认 :city —— customers.城市。** 四个城市指标写的都是 :groupBy :city，编译器据此
+#   编译成带 `JOIN customers ON orders.客户 = customers.客户` 的 SQL，分组键是 customers.城市。
+#   订单表上那份城市副本（02-meaning.ttl 有它的名字与禁令）不参与任何指标：本文件没有引用它、
+#   没有在 :formula 里写它、没有在任何 :businessDescription 里把它当口径。实测过为什么必须写死
+#   这一条：两表城市此刻 5/5 一致，用哪一份分组返回的格子都相同（上海 3 单 / 495.75 / 已付 3、
+#   北京 1 / 250.00 / 0、广州 1 / 0.99 / 0），门禁不会红 —— 唯一能挡住它的就是「指标只准写 :city」
+#   这条声明本身。
+#
+# 回款率的口径（grill D4，写在这里因为 S3 是它唯一能被算出来的地方）：
+#   **回款率 = 已付款订单数 ÷ 订单数，按订单数加权，不做金额加权。**
+#   理由：`已付款` 是整单是否付清的布尔（D4），库里**没有**「实付金额」列、没有退款表，
+#   所以不存在部分付款，也就不存在「已回款金额 ÷ 应回款金额」这个分子分母 —— 任何金额加权的
+#   回款率都要先有一列「实付金额」，本库没有。于是「把 true 数成 1」是本文件唯一的合法数值用法
+#   （02-meaning.ttl 的 :paid 段逐字许可），写成 0/1 指示量的和：`CASE WHEN 已付款 THEN 1 ELSE 0 END`。
+#
+# 为什么已付款订单数用 sum(CASE …) 而不用 count(*) + WHERE（这条差点被写错，留档）：
+#   `:where` + `count` 编译成 `… FROM orders WHERE 订单已付款 GROUP BY 城市`，**WHERE 在 GROUP BY
+#   之前**，于是 0 单已付款的城市从结果里整行消失（本库：北京、广州直接不见），看板上看起来像
+#   「这两个城市没有订单」。改用 0/1 指示量求和，三个城市都在，北京 0 / 广州 0 是明确的 0 而不是
+#   缺席 —— 而且合计层与城市层是同一个表达式，3 = 3 + 0 + 0 可直接核对。
+#
+# 单位（02-meaning.ttl 的 :unit 词表，只有四个值 + S3 负责的比例单位）：
+#   金额 "money" = 人民币元、库里存元、不缩放（D3）；计数 "count" = 单；比率 "percent" +
+#   :scale "100.0" —— 乘 100 发生在**编译出的 SQL 里**（本格实测 notes 带 `scaled by 100.0
+#   (declared :scale)`），渲染器对 "percent" 不再乘第二次（store_monthly_v1 的实测记录），
+#   所以两个回款率（城市层 / 合计层）都必须是 percent + scale 100.0，否则同一块板上合计读 60、
+#   城市读 1.0，读者会差 100 倍。
+#
+# 样本量（工单要求写进声明，不是写进护栏）：全库 orders 5 行 / customers 5 行，跨度 56 天。
+#   分城市之后：上海 3 单、北京 1 单、广州 1 单。**1 单的分母上的比率只有 0% 或 100% 两个取值**，
+#   上海 3 单的 100% 也只是 3/3。这不是「不稳定所以要加护栏」——D8② 已明确不做时间窗口护栏，
+#   本文件也不设任何阈值/红绿灯；它只是让读的人知道这些百分比是小样本，别当趋势。
+#
+# D8 明确不做的三项，在本文件里的样子是「不存在」而不是「填了个数」：
+#   ① 部分付款 / 退款：没有 refund 类指标，:formula 里没有实付金额（库里也没有那一列）；
+#   ② 时间窗口：没有一条指标带 :timeBucket / :supportsSlot :TimeWindow，:formula 里没有
+#      now() / interval / 任何天数；护栏侧的 big_tables / default_window_days 由 settings 的
+#      guard 负责人决定，本文件不写、也不假装写过（D8② 按名拒绝，拒绝清单在 S8/TICKET-06）；
+#   ③ 等级 A/B/C 漏斗：没有按 :tier 分组的指标，也没有任何「A→B→C」的序列口径。
+# =============================================================================
+
+:aggregate a owl:AnnotationProperty .
+:grain a owl:AnnotationProperty .
+:universe a owl:AnnotationProperty .
+:groupBy a owl:AnnotationProperty .
+:numerator a owl:AnnotationProperty .
+:denominator a owl:AnnotationProperty .
+:scale a owl:AnnotationProperty .
+:unit a owl:AnnotationProperty .
+:additivity a owl:AnnotationProperty .
+:askedAs a owl:AnnotationProperty .
+
+# =============================================================================
+# 城市层（D2 主口径 · D5 城市只认 :city）
+# =============================================================================
+
+:amountByCity a owl:DatatypeProperty ;
+    rdfs:label "按城市看订单金额" ;
+    :askedAs "按城市看订单金额" ;
+    :aggregate "sum" ; :formula "金额" ;
+    :grain :Order ; :universe :AllOrders ; :groupBy :city ;
+    :additivity "additive" ; :unit "money" ;
+    :businessDescription "指名来源：求和 table: orders.金额（numeric(12,2)，元），分组 table: customers.城市（JOIN orders.客户 = customers.客户）；换用别的表或别的列都不是这条口径。口径：grill D2（主口径 = 按城市看订单金额与回款）+ D5（城市只认 customers.城市）+ D3（单位人民币元、不缩放）。算的是 :AllOrders 那 5 行（0 剔除）的 金额 之和，按 :city 分组 —— :city 是 customers.城市，编译器据此编译成 `SELECT customers.城市, sum(orders.金额) FROM orders JOIN customers ON orders.客户 = customers.客户 GROUP BY customers.城市`，JOIN 路径来自 S1 声明的 :customerOf（库里有真外键 orders_客户_fkey）。引用物理列：orders.金额（numeric(12,2)，元）。measured（可重放，第二条手写路线同值）：上海 495.75 / 北京 250.00 / 广州 0.99，三组相加 = 746.74 = 合计层 :amountTotal，可加量成立。样本量：上海 3 单 / 北京 1 单 / 广州 1 单 —— 北京、广州各只有一张订单，它们的「城市金额」就是那一单的金额，不是该城市的月度规模。换一种写法会得到**逐格相同**的数：拿订单表上那份城市副本分组，5 行数据下三格一个都不差（实测），所以这条声明不是「这样算更准」，而是「一份事实只能有一个负责人」（D5）。" .
+
+:orderCountByCity a owl:DatatypeProperty ;
+    rdfs:label "按城市看订单数" ;
+    :askedAs "按城市看订单数" ;
+    :aggregate "count" ;
+    :grain :Order ; :universe :AllOrders ; :groupBy :city ;
+    :additivity "additive" ; :unit "count" ;
+    :businessDescription "指名来源：计数 table: orders.订单号（DISTINCT，主键 orders_pkey），分组 table: customers.城市（JOIN orders.客户 = customers.客户）。口径：D2 的订单数半边 + D5（按 :city = customers.城市 分组）。算的是 :AllOrders 那 5 行的行数，粒度是一张订单（S1 声明 :Order 主键 订单号，orders_pkey convalidated），编译器发出的聚合是 count(DISTINCT orders.订单号) —— 不是 count(*)，因为这条 SQL 带 JOIN，主键计数才不会被 join 扇出放大（本库 5 个客户各 1 单，两种写法同值 3/1/1，但声明按安全的那种写）。measured：上海 3 / 北京 1 / 广州 1，合计 5 = 合计层 :orderCount。样本量：一共 5 单，分组后最大一组 3 单 —— 这个数的抖动单位是「1 单」，任何环比都要按这个量级读。" .
+
+:paidOrderCountByCity a owl:DatatypeProperty ;
+    rdfs:label "按城市看已付款订单数" ;
+    :askedAs "按城市看已付款订单数" ;
+    :aggregate "sum" ; :formula "CASE WHEN 已付款 THEN 1 ELSE 0 END" ;
+    :grain :Order ; :universe :AllOrders ; :groupBy :city ;
+    :additivity "additive" ; :unit "count" ;
+    :businessDescription "指名来源：0/1 指示量求和 table: orders.已付款（boolean，true 记 1），分组 table: customers.城市（JOIN orders.客户 = customers.客户）。口径：grill D4（已付款 = 整单是否付清，无部分付款）+ D5（按 :city 分组）。算的是 :AllOrders 那 5 行里 已付款 = true 的行数，按城市切；实现是「把 true 数成 1」的 0/1 指示量求和 —— sum(CASE WHEN 已付款 THEN 1 ELSE 0 END)，这是 02-meaning.ttl 的 :paid 段给 :paid 唯一许可的数值用法（库里没有任何「实付金额」列，不许把布尔读成钱）。引用物理列：orders.已付款（boolean）。measured：上海 3 / 北京 0 / 广州 0，合计 3 = 合计层 :paidOrderCount，且 3 + 0 + 0 = 3（城市层与合计层同一个表达式，可加）。**为什么不用 count(*) + WHERE 已付款**：WHERE 在 GROUP BY 之前生效，会把 0 单已付款的城市整行删掉（本库实测只剩上海一行），看板上北京、广州看起来像不存在；指示量求和让 0 成为明确的 0。样本量：上海 3 单全付清，北京、广州各 1 单未付 —— 这 3 个数字任一变化都会让该城市回款率在 0%/100% 之间跳，见 :paidOrderCountByCity 的说明与 :paidRateByCity。" .
+
+:paidRateByCity a owl:DatatypeProperty ;
+    rdfs:label "按城市看回款率" ;
+    :askedAs "按城市看回款率" ;
+    :aggregate "ratio_of_sums" ;
+    :numerator :paidOrderCountByCity ; :denominator :orderCountByCity ;
+    :grain :Order ; :universe :AllOrders ; :groupBy :city ;
+    :additivity "non-additive" ; :unit "percent" ; :scale "100.0" ;
+    :businessDescription "指名来源：分子 求和 table: orders.已付款（0/1 指示量）÷ 分母 计数 table: orders.订单号（DISTINCT），两者分组键同为 table: customers.城市。口径（逐字来自 grill D4 + 工单）：**回款率 = 已付款订单数 ÷ 订单数，按订单数加权，不做金额加权**。分子 :paidOrderCountByCity（同城市里 已付款 = true 的订单数），分母 :orderCountByCity（同城市的订单数），两者同 grain（:Order）、同 universe（:AllOrders）、同分组（:city），所以「某城市的回款率」= 该城市组内 已付款订单数 ÷ 该城市订单数 —— 不是「各城市比率的平均」，也不是「已回款金额 ÷ 总金额」（库里没有实付金额列，见 D4）。为什么要写死「不做金额加权」：如果按金额加权，一张 320 元的订单付清就会压过三张 0.99 元的订单，而 已付款 本身是整单布尔、没有付了多少的信息，加权等于把「金额大小」冒充成「付款程度」。measured（可重放，第二条手写路线 sum(CASE…)*100/count(*) 同值）：上海 100.00（3/3）、北京 0.00（0/1）、广州 0.00（0/1）；合计层 :paidRateTotal = 60.00（3/5），城市层的三个数不能相加（non-additive），只能各自读。单位 = :unit \"percent\" + :scale \"100.0\"：乘 100 在编译出的 SQL 里（(100.0) * (…)，notes 带 scaled by 100.0），渲染器对 percent 不再乘第二次；改单位不改系数，同一块板上合计与城市就会差 100 倍。样本量（工单要求写进声明）：分母是 3/1/1 单 —— 北京、广州的 0% 是「那唯一一张单没付」，上海 100% 是「三张都付了」，都不是趋势；D8② 已定不做时间窗口护栏，本条不设任何阈值，也不把 100% 当「健康」。" .
+
+# =============================================================================
+# 合计层锚点（同一把尺子的另一半：城市层相加能对上这里）
+# =============================================================================
+
+:amountTotal a owl:DatatypeProperty ;
+    rdfs:label "订单金额合计" ;
+    :askedAs "订单金额合计" ;
+    :aggregate "sum" ; :formula "金额" ;
+    :grain :Order ; :universe :AllOrders ;
+    :additivity "additive" ; :unit "money" ;
+    :businessDescription "指名来源：求和 table: orders.金额（numeric(12,2)，元），不分城市。口径：D3（人民币元、库里存的就是元、不缩放）+ D2 的合计层锚点。算 :AllOrders 那 5 行的 金额 之和，不分城市。引用物理列：orders.金额。measured：**sum(金额) = 746.74**（第二条手写路线 `SELECT sum(金额) FROM orders` 同值，samples.json 里冻结的就是这个数）。这个数是本规格 AC-4 点名的两个总量事实之一（SPEC「问题」段），也是「金额没有被缩放」的唯一机械证据：÷100 会得到 7.4674，×100 会得到 74674，两种错法都能被这一个数看住。与城市层的关系：上海 495.75 + 北京 250.00 + 广州 0.99 = 746.74（可加量，逐项对上）。" .
+
+:paidOrderCount a owl:DatatypeProperty ;
+    rdfs:label "已付款订单数" ;
+    :askedAs "已付款订单数" ;
+    :aggregate "sum" ; :formula "CASE WHEN 已付款 THEN 1 ELSE 0 END" ;
+    :grain :Order ; :universe :AllOrders ;
+    :additivity "additive" ; :unit "count" ;
+    :businessDescription "指名来源：0/1 指示量求和 table: orders.已付款（boolean），不分组。口径：D4（整单是否付清的布尔，无部分付款）。算 :AllOrders 那 5 行里 已付款 = true 的行数，不分组：sum(CASE WHEN 已付款 THEN 1 ELSE 0 END)。measured：**3 单**（第二条手写路线 `SELECT count(*) FROM orders WHERE 已付款` 也是 3；两种写法的差别只在 0 值分组是否保留，合计层没有分组所以同值）。这是 AC-4 点名的第二个总量事实。它**不是金额**：没有「已回款金额」，因为库里没有实付金额列（D4）；把它乘任何东西当金额都是编的。与城市层的关系：上海 3 + 北京 0 + 广州 0 = 3（可加量）。" .
+
+:orderCount a owl:DatatypeProperty ;
+    rdfs:label "订单数" ;
+    :askedAs "订单数" ;
+    :aggregate "count" ;
+    :grain :Order ; :universe :AllOrders ;
+    :additivity "additive" ; :unit "count" ;
+    :businessDescription "指名来源：行计数 table: orders（粒度 orders.订单号，主键 orders_pkey；无 JOIN 故 count(*) 与 count(DISTINCT 订单号) 同值）。口径：:AllOrders 的行数（0 剔除），粒度一张订单。编译成 count(*) FROM orders —— 没有 JOIN，所以不需要 count(DISTINCT)。measured：**5 单**（第二条手写路线 `SELECT count(*) FROM orders` 同值）。声明它的理由不是凑数：回款率的分母就是它（:paidRateTotal 的 :denominator），而「3 单已付款」这句话只有在「一共 5 单」在场时才读得出 60% —— 少了这个数，读者会把 3 单当成全部。它是 5 行数据里最容易被误当「样本量充足」的数：5 单，任一单进出就是 20% 的摆动。" .
+
+:paidRateTotal a owl:DatatypeProperty ;
+    rdfs:label "回款率" ;
+    :askedAs "整体回款率" ;
+    :aggregate "ratio_of_sums" ;
+    :numerator :paidOrderCount ; :denominator :orderCount ;
+    :grain :Order ; :universe :AllOrders ;
+    :additivity "non-additive" ; :unit "percent" ; :scale "100.0" ;
+    :businessDescription "指名来源：分子 0/1 指示量求和 table: orders.已付款（boolean）÷ 分母 行计数 table: orders（粒度 orders.订单号），不分组。口径：与 :paidRateByCity **同一把尺子** —— 回款率 = 已付款订单数 ÷ 订单数（按订单数加权，不做金额加权，D4），只是不分组。分子 :paidOrderCount（3）、分母 :orderCount（5），编译器展开成两个已声明指标再相除：((sum(CASE WHEN 已付款 THEN 1 ELSE 0 END))::numeric) / NULLIF((count(*)), 0)，再乘声明的 :scale 100.0。measured：**60.00**（3 ÷ 5，第二条手写路线 sum(CASE…)*100/count(*) 同值）。它是合计层读数，与城市层不构成平均关系：上海 100 / 北京 0 / 广州 0 的算术平均是 33.33，不是 60 —— 60 是「5 单里 3 单已付」，33.33 是「先按城市平均再平均」，后者是错的口径（哪个数都不许这么算）。NULLIF 防除零：本库分母 5 非 0，但声明里就写好守卫，将来空表返回 null 而不是崩。样本量：分母 5 单，见 :orderCount。" .
+
+# =============================================================================
+# 本文件刻意**没有**声明的东西（写下来是为了让下一格知道「没写」是决定，不是遗漏）
+#
+#   · 没有退款率 / 部分付款率 / 已回款金额：库里没有实付金额列、没有退款表（D4 + D8①）。
+#     缺的不是一行 SQL，是一列事实数据 —— S8 按名拒绝，本文件不建占位列、不填假数字。
+#   · 没有 :timeBucket / :supportsSlot :TimeWindow / 任何「近 N 天」口径（D8②）：5 行、跨 56 天，
+#     任何 N 都是编的；N>56 时窗口等于不筛、N<56 时把 5 行筛成 0..3 行 —— 那不是护栏，是改答案。
+#   · 没有按 :tier（等级 A/B/C）分组的指标，也没有漏斗/分层口径（D8③）：等级只是单字符标签，
+#     没有事件序列。
+#   · 没有按 :customer_name（客户）分组的指标：5 个客户各 1 单，按客分组等于把每张订单换个标签，
+#     D2 的主口径是城市；要按客户看是新的一次 grill，不是从这一列能推出来的结论。
+#   · 没有 :where / :concept 过滤器：本板没有「只看某类订单」的口径（D8 没有这类决定），
+#     所以本文件不发明一个（唯一需要「只看已付款」的地方已经用 0/1 指示量表达，理由见
+#     :paidOrderCountByCity）。也正因为如此，:PaidOrder 这类定义类本票不需要新增。
+#   · 没有任何业务阈值 / 目标线 / 红绿灯：D8 与 02-meaning 的「有意不声明」逐字沿用，本文件
+#     一个阈值数字都没有（S4 的护栏是执行层的 max_rows / statement_timeout_ms / max_plan_rows，
+#     在 settings.guard 里，由 S4 按名配置，不是指标声明）。
+# =============================================================================
