@@ -15,12 +15,6 @@
  * The groups are unchanged (vault · deepagents/agents/graph · prompt/tools/skills ·
  * ontology/knowledge/analysis/learning) and the vault / account / settings / chat entries
  * keep their popovers, the settings modal event and the dedicated chat window.
- *
- * The rail has a fixed budget: 12 activity rows, then account · settings · chat · sidebar
- * toggle. Whatever that count becomes, they have to fit one screen — an activator that is
- * cut off is a feature nobody can reach. Hence the tight row scale (36px, not the 48px of
- * the first version) and, because a window can still be short, a scroll fallback instead of
- * silent clipping.
  */
 import { useState, useRef, useEffect, Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -62,15 +56,6 @@ const SECTION_GROUPS: ActivityId[][] = [
 
 const RAIL_COLLAPSED = 48;
 const RAIL_EXPANDED = 208;
-/**
- * Row metrics. 16 rows at the old 48px plus dividers came to ~790px, which is taller than
- * the content area of a 800px window — the bottom cluster (settings / chat / sidebar
- * toggle) fell off the end. 36px × 16 rows ≈ 600px leaves headroom on a 700px window.
- */
-const ROW_H = 36;
-const GLYPH = 18;
-/** 48px rail, 18px glyph: the icon sits on the rail's centre line. */
-const ROW_PAD = `0 12px 0 ${(RAIL_COLLAPSED - GLYPH) / 2}px`;
 
 /** One row of the rail: icon + label. The label is what the hover expansion reveals. */
 function RailItem({
@@ -105,12 +90,12 @@ function RailItem({
       style={{
         position: 'relative',
         width: '100%',
-        height: ROW_H,
+        height: 48,
         flex: 'none',
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
-        padding: ROW_PAD,
+        gap: 12,
+        padding: '0 12px 0 14px',
         background: 'transparent',
         border: 'none',
         cursor: 'pointer',
@@ -127,14 +112,14 @@ function RailItem({
       {active && (
         <span
           style={{
-            position: 'absolute', left: 0, top: 6, bottom: 6, width: 2,
+            position: 'absolute', left: 0, top: 8, bottom: 8, width: 2,
             background: t.activityBarActive,
           }}
         />
       )}
       {Icon && (
         <Icon
-          size={GLYPH}
+          size={20}
           strokeWidth={active ? 2 : 1.5}
           // A solid glyph, not a solid row: the fill belongs to the icon's own shape, so the
           // rail keeps its uniform look and the chat entry is still the one you spot.
@@ -147,7 +132,7 @@ function RailItem({
       {children}
       <span
         className="lc-rail-label"
-        style={{ fontSize: 12.5, lineHeight: '17px', overflow: 'hidden', textOverflow: 'ellipsis' }}
+        style={{ fontSize: 13, lineHeight: '18px', overflow: 'hidden', textOverflow: 'ellipsis' }}
       >
         {label}
       </span>
@@ -208,13 +193,8 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
         #lc-rail {
           width: ${RAIL_COLLAPSED}px;
           transition: width .16s ease;
-          /* Vertical scroll, never horizontal: the labels stay clipped sideways while the
-             column closed, and a short window scrolls instead of losing the last row. */
-          overflow-x: hidden;
-          overflow-y: auto;
-          scrollbar-width: none;
+          overflow: hidden;
         }
-        #lc-rail::-webkit-scrollbar { width: 0; height: 0; }
         /* State-driven, not :hover-only: the pointer can leave mid-transition, and a
            focused row should reveal its label too. */
         #lc-rail.lc-open {
@@ -227,9 +207,8 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
         }
         #lc-rail.lc-open .lc-rail-label { opacity: 1; }
         #lc-rail .lc-rail-divider {
-          flex: none;
           width: 20px;
-          margin: 4px 0 4px 14px;
+          margin: 6px 0 6px 14px;
           transition: width .16s ease;
         }
         #lc-rail.lc-open .lc-rail-divider { width: calc(100% - 28px); }
