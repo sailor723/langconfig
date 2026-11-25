@@ -559,7 +559,7 @@ def _discovered_databases() -> List[Dict[str, Any]]:
     return rows
 
 
-def database_catalog() -> List[Dict[str, Any]]:
+def database_catalog() -> Dict[str, Any]:
     """Every known database, each with an on/off state — the Settings table.
 
     Settings is the DECISION, discovery is the OFFER. A database that exists on
@@ -570,11 +570,11 @@ def database_catalog() -> List[Dict[str, Any]]:
     """
     items = _settings_items()
     by_name = {str(i["name"]): i for i in items}
-    discovered = _discovered_databases()
+    discovered_rows = _discovered_databases()
 
     catalog: List[Dict[str, Any]] = []
     seen = set()
-    for row in discovered:
+    for row in discovered_rows:
         name = str(row["name"])
         seen.add(name)
         item = by_name.get(name)
@@ -613,7 +613,42 @@ def database_catalog() -> List[Dict[str, Any]]:
     # so a reader could not tell which server a connection test would actually hit. `effective_*` is what
     # the server would use — display only: these are never written back into the setting.
     platform_defaults = _platform_connection_defaults()
+    ontology = _ontology_db_usage()
+    uploaded = _uploaded_databases()
+    # Names that came from DISCOVERY (real databases on the platform server), as opposed to a hand-added
+    # target entry — that difference is what tells a "connection" from a "database" below.
+    discovered = {str(r["name"]) for r in discovered_rows}
+    dashboard_dbs = {str(i.get("dbname") or i.get("name")): str(i.get("name") or "")
+                     for i in items if str(i.get("kind") or "") == "dashboard"}
     for row in catalog:
+        # Classification, derived not typed:
+        #   system      — the platform's own state (admin only)
+        #   business    — everything a business app reads; `apps` says which app(s)
+        #   origin      — uploaded (a CSV/Excel built it) | native (pre-existed) | technical
+        name = str(row.get("name") or "")
+        dbname = str(row.get("dbname") or name)
+        row["ontology_keys"] = ontology.get(dbname, [])
+
+        # A `target` entry whose name is NOT a database on the platform server is a CONNECTION (a server a
+        # person added: local-server, local-readonly, tpch-server …). It belongs in the connection list, not
+        # in a database bucket — that confusion is what made 29 rows look like 29 databases.
+        is_dashboard = str(row.get("kind") or "") == "dashboard"
+        # `kind: server` is an explicit CONNECTION (a server an agent can pick). Anything else that is not a
+        # dashboard is a DATABASE, and inherits the connection its host/port/user points at. Heuristics used
+        # to decide this ("a target whose name is not on the platform server") and got `tpch` and `clinic`
+        # wrong in opposite directions.
+        is_connection = str(row.get("kind") or "") == "server"
+        if is_dashboard:
+            row["bucket"], row["origin"], row["apps"] = "dashboard", None, ["analysis"]
+        elif is_connection:
+            row["bucket"], row["origin"], row["apps"] = "connection", None, []
+        else:
+            origin = ("technical" if (name in ("postgres", "template0", "template1") or name.startswith("langconfig"))
+                      else "uploaded" if dbname in uploaded
+                      else "native")
+            row["origin"] = origin
+            row["apps"] = _app_tags(dbname, dashboard_dbs=dashboard_dbs, ontology=ontology)
+            row["bucket"] = "system" if origin == "technical" else "business"
         if str(row.get("kind") or "platform") == "target" and row.get("host"):
             row["connection_source"] = "自己配置"
             continue
@@ -624,7 +659,143 @@ def database_catalog() -> List[Dict[str, Any]]:
                                     if str(row.get("kind") or "platform") == "platform"
                                     else "自己配置（无 host → 平台默认）")
 
-    return sorted(catalog, key=lambda r: (not r.get("enabled", True), str(r["name"]).lower()))
+    # ── connections ────────────────────────────────────────────────────────
+    # A connection is a SERVER (host + port + user); its databases are what lives there. Settings still holds
+    # one row per database in places (tpch / clinic / doc_demo / new_coldchain all point at 127.0.0.1:5432 as
+    # `weiping`) — that history is why the table looked like 29 connections. Grouping by (host, port, user)
+    # turns those five rows back into the ONE server they describe.
+    connections: Dict[str, Dict[str, Any]] = {}
+
+    # A connection is a SERVER + a role. The databases belong to the server, not to the role: `local-server`
+    # and `local-readonly` are two logins on localhost:5433 and must list the same databases (what each role
+    # can SEE is a grant question, answered by 测试, not by this table).
+    by_server: Dict[str, List[Dict[str, Any]]] = {}
+
+    def _conn_key(host, port, user) -> str:
+        return f"{host}:{port}/{user}"
+
+    # 1) connections the admin declared (`kind: server`) — these are what an agent picks.
+    #    A `platform` connection (no host) is implied by the deployment itself.
+    declared_servers = {f"{r.get('host')}:{r.get('port')}" for r in catalog if r.get("bucket") == "connection"}
+    for row in catalog:
+        if row.get("bucket") != "connection":
+            continue
+        host, port, user = row.get("host"), row.get("port"), row.get("user")
+        key = _conn_key(host, port, user)
+        connections[key] = {
+            "key": key, "name": row.get("name"), "label": row.get("label") or row.get("name"),
+            "host": host, "port": port, "user": user,
+            "source": "自己配置", "password_set": bool(row.get("has_password")),
+            "default": bool(row.get("default")), "databases": [], "names": [row.get("name")],
+        }
+
+    # 2) every database joins the connection its host/port/user names, creating a derived one otherwise
+    for row in catalog:
+        if row.get("bucket") in ("dashboard", "connection"):
+            continue
+        host = row.get("host") or platform_defaults.get("host")
+        port = row.get("port") or platform_defaults.get("port")
+        user = row.get("user") or platform_defaults.get("user")
+        key = _conn_key(host, port, user)
+        conn = connections.setdefault(key, {
+            "key": key, "name": key, "label": key,
+            "host": host, "port": port, "user": user,
+            "source": row.get("connection_source") or "平台默认（POSTGRES_*）",
+            "password_set": bool(row.get("has_password")),
+            "default": False, "databases": [], "names": [],
+        })
+        conn["databases"].append({"name": row.get("name"), "dbname": row.get("dbname") or row.get("name"),
+                                  "bucket": row.get("bucket"), "apps": row.get("apps") or [],
+                                  "origin": row.get("origin"), "enabled": row.get("enabled", True)})
+        conn["names"].append(row.get("name"))
+        row["connection"] = key
+        by_server.setdefault(f"{host}:{port}", []).append({
+            "name": row.get("name"), "dbname": row.get("dbname") or row.get("name"),
+            "bucket": row.get("bucket"), "apps": row.get("apps") or [],
+            "origin": row.get("origin"), "enabled": row.get("enabled", True)})
+
+    # 2b) a role-only connection (server row with the same host:port as another) lists the same databases
+    for conn in connections.values():
+        server = f"{conn['host']}:{conn['port']}"
+        if conn["databases"]:
+            continue
+        conn["databases"] = list(by_server.get(server) or [])
+        conn["same_server_as"] = next((c["name"] for c in connections.values()
+                                       if c is not conn and f"{c['host']}:{c['port']}" == server and c["databases"]),
+                                      None)
+
+    for conn in connections.values():
+        conn["databases"].sort(key=lambda d: (d["bucket"], str(d["name"]).lower()))
+
+    return {"rows": sorted(catalog, key=lambda r: (not r.get("enabled", True), str(r["name"]).lower())),
+            "connections": sorted(connections.values(), key=lambda c: (not c["default"], c["key"]))}
+
+
+def _legacy_catalog_list() -> List[Dict[str, Any]]:
+    """The flat list other callers still expect (`database_catalog()` used to return it directly)."""
+    return database_catalog()["rows"]
+
+
+def _ontology_db_usage() -> Dict[str, List[str]]:
+    """database → the ontology keys that DECLARE it (read from each profile's `dsn.dbname`).
+
+    Derived, never typed: a build that adds `store_monthly_v1` shows up here without this file changing.
+    """
+    import json
+    import pathlib
+
+    base = pathlib.Path(__file__).resolve().parents[2] / "features" / "ontology" / "profiles"
+    out: Dict[str, List[str]] = {}
+    if not base.is_dir():
+        return out
+    for prof in base.glob("*/*_settings.json"):
+        try:
+            dsn = (json.loads(prof.read_text(encoding="utf-8")) or {}).get("dsn") or {}
+        except Exception:                                        # noqa: BLE001
+            continue
+        db = str(dsn.get("dbname") or "").strip()
+        if db:
+            out.setdefault(db, []).append(prof.parent.name)
+    return out
+
+
+def _uploaded_databases() -> set[str]:
+    """Databases a CSV/Excel built — read from the stamp `db_build_from_file` writes into the database comment.
+
+    ONE query for the whole server: the first version opened a connection per row (29 connections, and it
+    printed "native" whenever that call failed), which made the settings page slow and quietly wrong.
+    """
+    import os
+
+    import psycopg2
+
+    try:
+        conn = psycopg2.connect(host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),
+                                port=int(os.environ.get("POSTGRES_PORT", 5432)),
+                                user=os.environ.get("POSTGRES_USER"),
+                                password=os.environ.get("POSTGRES_PASSWORD"),
+                                dbname="postgres", connect_timeout=5)
+        try:
+            with conn.cursor() as cur:
+                cur.execute("select datname, shobj_description(oid, 'pg_database') from pg_database")
+                return {name for name, desc in cur.fetchall() if "built-from" in (desc or "")}
+        finally:
+            conn.close()
+    except Exception:                                            # noqa: BLE001
+        return set()
+
+
+def _app_tags(dbname: str, *, dashboard_dbs: Dict[str, str], ontology: Dict[str, List[str]]) -> List[str]:
+    """Which of the three BUSINESS apps use this database. A database can serve more than one, and that is
+    the honest answer: `talent_db` is both the Talent activity's store and `talent_v1`'s ontology."""
+    tags: List[str] = []
+    if dbname in ontology:
+        tags.append("ontology")
+    if dbname in dashboard_dbs:
+        tags.append("analysis")
+    if dbname == "talent_db" or dbname.startswith("talent_"):
+        tags.append("talent")
+    return tags
 
 
 def _platform_connection_defaults() -> Dict[str, Any]:
@@ -648,7 +819,7 @@ def _settings_databases() -> List[str]:
     connect to — offering it would make the picker produce a failing run.
     """
     return [
-        str(r["name"]) for r in database_catalog()
+        str(r["name"]) for r in _legacy_catalog_list()
         if r.get("enabled", True) and r.get("kind") in ("platform", "target")
     ]
 
@@ -804,12 +975,14 @@ def databases_catalog() -> Dict[str, Any]:
     """
     sqlmod = _sql_setup_module()
     try:
-        rows = database_catalog()
+        catalog_payload = database_catalog()
+        rows = catalog_payload["rows"]
     except Exception as exc:  # noqa: BLE001
         logger.warning(f"[graph-studio] catalog failed: {exc}")
-        return {"databases": [], "active_sql": None, "error": str(exc)}
+        return {"databases": [], "connections": [], "active_sql": None, "error": str(exc)}
     return {
         "databases": rows,
+        "connections": catalog_payload.get("connections") or [],
         "active_sql": sqlmod.get_target_database(),
         # Switched on, split by what the switch actually feeds: `offered` is the
         # SQL picker's list, `offered_dashboards` is the Analysis browser's.

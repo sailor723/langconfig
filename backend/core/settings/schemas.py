@@ -393,13 +393,14 @@ class DatabaseEntry(BaseModel):
 
     name: str = Field(..., description="Target name shown in the picker, e.g. 'chinook'")
     label: Optional[str] = Field(default=None, description="Display name; falls back to name")
-    kind: Literal["platform", "target", "dashboard"] = Field(
+    kind: Literal["platform", "target", "dashboard", "server"] = Field(
         default="platform",
         description=(
             "'platform' = a database on the platform Postgres (host/port come from "
-            "POSTGRES_*), 'target' = its own server (host/port/user required, or set "
-            "through SQL_TARGETS), 'dashboard' = a dashboard grouping in "
-            "data/analysis_dbs (offered by the Analysis browser, never by the SQL picker)."
+            "POSTGRES_*, 'target' = a database on another server (host/port/user required, or set "
+            "through SQL_TARGETS), 'server' = a CONNECTION (a server an agent can pick; its databases "
+            "are the rows that point at the same host/port/user), "
+            "'dashboard' = a dashboard grouping (offered by the Analysis browser, never by the SQL picker)."
         ),
     )
     host: Optional[str] = None
