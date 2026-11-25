@@ -79,40 +79,42 @@ npm install
 npm run build            # 期望 ✓ built in ~10s；失败最常见是 package.json 漏声明依赖
 ```
 
-#### 5. 灌库（agents / tools / settings / skills）
+#### 5. 起服务
+
+```bash
+cd <repo> && bash start.sh
+# 或者生产：systemctl restart langconfig（后端 uvicorn :8765，caddy 反代）
+```
+
+**先起服务再灌库** —— 因为 `seed_all.py` 的最后一步要把 Talent 的六个 agent 注册进项目，
+而平台只把"实例化 agent"这条路开在 API 上。服务不在跑，那一步就跳过（下一节有兜底）。
+
+#### 6. 灌库（一条命令，含 Talent 的六个 agent）
 
 ```bash
 cd backend && set -a && . ../.env && set +a
 env -u PGPORT .venv/bin/python scripts/seeds/in/seed_all.py
 # 期望结尾：deep agents 76 / skills 121 / tools 80
+#           [10.6/10] talent agents  → Talent · 1..5 注册/更新（绑技能与工具白名单）
 ```
 
-#### 6. 起服务（talent 的六个 agent 会被 seed_all 顺手注册）
+`seed_all.py` 自己会探 `LANGCONFIG_BASE`（默认 `http://127.0.0.1:8765`）：
 
-```bash
-cd <repo> && bash start.sh
-# 或者生产：systemctl restart langconfig（后端是 uvicorn :8765，caddy 反代）
-```
+| 服务状态 | 它的行为 |
+|---|---|
+| 在跑 | 直接 `seed_talent_agents.py --apply`，把六个 agent 注册/更新 |
+| 没起 | **不报错**，跳过并原文打出该补的那条命令 |
 
-`seed_all.py` 的最后一步是 **`[10.6/10] talent agents`**：服务在跑 → 直接把
-`Talent · 1..5` 注册/更新（绑技能与工具白名单）；服务没起 → 跳过并原文打出该补的那条命令：
+所以如果灌库时服务还没起（比如按"先 seed 后 start"的老顺序），起来后补这一条就行：
 
 ```bash
 cd backend && .venv/bin/python scripts/seeds/in/seed_talent_agents.py --apply
 ```
 
-所以两种顺序都对：
+`--skip-talent-agents` 可以显式跳过那一步（例如只想灌基础库）。
 
-```bash
-# A. 先灌库再起服务（seed 时服务没起 → 起来后补一条）
-seed_all.py  →  start.sh  →  seed_talent_agents.py --apply
-
-# B. 先起服务再灌库（推荐：seed_all 一步到位）
-start.sh  →  seed_all.py            # 最后一步会把 agent 一起注册
-```
-
-> 漏了这一步的表现：Talent 面板能打开，但「问 agent」没有可选的 Talent agent。
-> `--skip-talent-agents` 可以显式跳过。
+> 漏了它的表现：Talent 面板能打开，但「问 agent」没有可选的 Talent agent；
+> `verify_install --online` 会点名缺什么。
 
 #### 7. `talent_db`（本体判定库）—— 缺了本体页会 503
 
@@ -180,8 +182,8 @@ env -u PGPORT .venv/bin/python -m scripts.talent.check_component_catalog --no-db
 | 登录"成功"后又跳回 `/signin` | `LANGCONFIG_COOKIE_SECURE=on` 但用 **http** 访问 → 浏览器丢弃 Secure cookie | 用 https；或临时设 `LANGCONFIG_COOKIE_SECURE=off` 再重启 |
 | 白屏 / 点活动没反应 / 主区停在上一屏 | `/assets/index-*.js` 被 LAN 守卫 **401**（cookie 没带上），SPA 永远起不来 | 已在 `1953e820` 修：`/assets/`、`/favicon.ico`、`/static/` 放行（数据接口仍要登录） |
 | 地址是 `/talent#/knowledge`，界面却是 Knowledge | 应用是 **HashRouter**，真实路径与 hash 两套路由打架 | 已在 `bb4d7e2a` 修：启动时把 `/talent` 规范成 `/#/talent` 并重载一次 |
-| 本体 `talent_v1` 页 dashboard 503 | 缺 `talent_db`（或没装 JRE 没物化） | 见上面 ⑦ |
-| talent 面板能开、但问 agent 没得选 | 没跑 `seed_talent_agents.py --apply` | 见上面 ⑥ |
+| 本体 `talent_v1` 页 dashboard 503 | 缺 `talent_db`（或没装 JRE 没物化） | 见上面第 7 步 |
+| talent 面板能开、但问 agent 没得选 | 灌库时服务没起，agent 那一步被跳过 | 见上面第 6 步 |
 
 **不在仓库里、按设计也不该在的**（缺了不断链，只是少能力）：
 
@@ -1684,13 +1686,17 @@ exactly the ways the table lists.
 
 ```bash
 cd <repo> && git pull --ff-only origin main
-cd backend && set -a && . ../.env && set +a
-env -u PGPORT .venv/bin/python scripts/seeds/in/seed_all.py        # skills 121, agents 76
 cd .. && npm install && npm run build                              # ← required, not optional
-# (re)start the backend, then register the six Talent agents — they are NOT in seed_all.py:
-cd backend && env -u PGPORT .venv/bin/python scripts/seeds/in/seed_talent_agents.py --apply
+bash start.sh                                                      # backend up FIRST
+cd backend && set -a && . ../.env && set +a
+env -u PGPORT .venv/bin/python scripts/seeds/in/seed_all.py        # skills 121 / agents 76,
+                                                                   # and [10.6/10] Talent agents
 env -u PGPORT .venv/bin/python -m scripts.talent.verify_install --online
 ```
+
+> `seed_all.py` registers the six Talent agents itself **when the backend is up** (`[10.6/10]`);
+> it skips them with the exact fallback command when the backend is down, so the order above is
+> the one that does everything in one pass.
 
 Three things this pull fixed, which on an un-rebuilt frontend still look like failures:
 

@@ -132,8 +132,10 @@ def check_online(base: str) -> int:
         rows = raw if isinstance(raw, list) else (raw.get('data') or raw.get('agents') or [])
         names = [str(x.get('name')) for x in rows]
         talent = [n for n in names if n.startswith('Talent · ')]
+        hint = (' → 跑 seed_all.py（服务在跑时会连它们一起注册）'
+                ' 或 backend/.venv/bin/python scripts/seeds/in/seed_talent_agents.py --apply')
         print(f"   {'✔' if talent else '✘'} Talent agent {len(talent)} 个"
-              + ('' if talent else ' → 跑 seed_talent_agents.py --apply'))
+              + ('' if talent else hint))
         for n in sorted(talent):
             print(f'      · {n}')
         bad += 0 if talent else 1

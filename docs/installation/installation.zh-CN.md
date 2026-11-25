@@ -526,11 +526,12 @@ cd backend
 .venv/bin/python -m pip install -r requirements.txt
 set -a && . ../.env && set +a
 env -u PGPORT .venv/bin/python -m alembic upgrade head        # ③ 迁移
-env -u PGPORT .venv/bin/python scripts/seeds/in/seed_all.py   # ④ 期望 deep agents 76 / skills 121
-cd .. && npm install && npm run build           # ⑤ **别跳过**：后端直接 serve dist/
-bash start.sh                                   # ⑥ 起服务
-env -u PGPORT .venv/bin/python scripts/seeds/in/seed_all.py   # ⑦ 灌库（服务在跑时**连 Talent agent 一起注册**）
-env -u PGPORT .venv/bin/python -m scripts.talent.verify_install --online        # ⑧ 自检
+cd .. && npm install && npm run build           # ④ **别跳过**：后端直接 serve dist/
+bash start.sh                                   # ⑤ **先起服务**
+cd backend && set -a && . ../.env && set +a
+env -u PGPORT .venv/bin/python scripts/seeds/in/seed_all.py   # ⑥ 灌库（一条命令：deep agents 76 /
+                                                              #    skills 121 / [10.6/10] Talent agents）
+env -u PGPORT .venv/bin/python -m scripts.talent.verify_install --online        # ⑦ 自检
 ```
 
 `seed_all.py` 的最后一步是 `[10.6/10] talent agents`：服务在跑就顺手把 `Talent · 1..5` 注册/更新；
