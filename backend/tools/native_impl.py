@@ -6047,7 +6047,9 @@ def _validate_sqlite_db_path(db_path: str):
 
 def sqlite_execute(sql: str, db_path: str = ":memory:") -> str:
     """
-    用我：对 SQLite 文件或临时表跑只读 SQL（配 sqlite_load_csv 建表）。
+    用我：对 SQLite 文件或临时表跑只读 SQL（配 sqlite_load_csv 建表）。这是**本地临时数据**的路径
+    （CSV 试算、一次性表格），不是数据库：真库用 `db_query` / `db_describe`（任意 PostgreSQL 库），
+    建库用 `db_build_from_file`。
     别用我：查平台库用 pg_query。
 
     Execute a read-only SQL query on a SQLite database.
@@ -6485,7 +6487,12 @@ def db_rename_column(db_name: str, table: str, column: str, new_name: str, confi
 def db_dashboard(db_name: str, confirm: bool = False, title: str = "", host: str = "", port: int = 0,
                  user: str = "") -> str:
     """
-    用我：给一个库做**交互式 HTML 仪表盘**（KPI + 业务综述 + 桑基/气泡/树/条形/趋势），两段式：先出方案给人确认。
+    【已退役】别再用我。看板走本体流水线：`dashboard.json` + `check_dashboard` 门禁 + 工作台（
+    Ontology Builder 的 S6）。本工具仍能跑（历史 agent 绑着它），但它产出的是另一块独立的 HTML 板，
+    与本体看板的两条生成路径迟早给出不一样的数字 —— 这是 2026-11-25 工具盘点里唯一的「重复产品」。
+
+    用我（仅历史）：给一个库做**交互式 HTML 仪表盘**（KPI + 业务综述 + 桑基/气泡/树/条形/趋势），
+    两段式：先出方案给人确认。
     别用我：只要几个数字用 db_query；只想看结构用 db_review。
 
     Build an interactive dashboard for a database. **Two phases**, like the build tool:
@@ -6761,8 +6768,10 @@ def db_build_from_file(file: str, db_name: str, confirm: bool = False, host: str
                         f"（{len(tables)} 张表的表名、列名、行数都对得上）。\n"
                         "本次没有建库、也没有写入任何东西 —— 直接用它就行。\n"
                         f"下一步：db_verify_against_file(file=..., db_name={db_name}) 做逐值对账；"
-                        f"db_review(db_name={db_name}, apply=true) 补主外键；"
-                        f"db_dashboard(db_name={db_name}) 出看板。")
+                        f"db_review(db_name={db_name}, apply=true) 补主外键。"
+                        f"要看板就交给本体流水线（Ontology Builder：登记 key → 写 dashboard.json → "
+                        f"ontology_publish），不要再走 db_dashboard —— 那条路已经退役，两条生成路径会给出"
+                        f"两块不一样的板。")
             return (f"Error: 数据库 {db_name!r} 已存在，但和文件对不上：{'; '.join(notes)}\n"
                     + ("这个库是本工具从文件建出来的（带建库标记），确认后可以 recreate=true 重建。"
                        if reproducible else

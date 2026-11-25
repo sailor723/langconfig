@@ -48,8 +48,10 @@ def test_a_call_is_counted_and_stamped():
     from db.database import SessionLocal
 
     db = SessionLocal()
-    db.execute(text("update custom_tools set usage_count = 0, last_used_at = null "
-                    "where tool_id = 'db_describe'"))
+    # Reset BOTH counters: these tests share one row, and a test that only resets the column it
+    # asserts would read a neighbour's error_count and fail for a reason that is not about counting.
+    db.execute(text("update custom_tools set usage_count = 0, error_count = 0, last_used_at = null, "
+                    "last_error_at = null where tool_id = 'db_describe'"))
     db.commit()
     db.close()
 
