@@ -178,6 +178,19 @@ def main() -> int:
         ns = str(classes[0]).rsplit("#", 1)[0] + "#"
     PT = URIRef(ns + "physicalTable") if ns else URIRef("urn:x:physicalTable")
     PK = URIRef(ns + "primaryKey") if ns else URIRef("urn:x:primaryKey")
+
+    # A DEFINITION class is a set of rows, not a physical object: it carries `:physicalPredicate` (or an
+    # `owl:equivalentClass` axiom) and borrows its table from the class it refines. It therefore has no
+    # columns and no primary key of its own, and S1a/S1b3 must not demand them: the only way to satisfy
+    # those two checks would be to redeclare the base table's key and to invent a second property name for
+    # a column that already has one — which S1d forbids and which the ontology's own "one column, one
+    # property" rule forbids too. Measured on store_monthly_v1: adding `:ReturnedStoreMonth a owl:Class`
+    # with a predicate failed "ReturnedStoreMonth names :primaryKey — no :primaryKey" and "no class is
+    # property-less", i.e. the gate was pushing the build towards exactly the duplication it exists to
+    # prevent.
+    pred_ns = URIRef(ns + "physicalPredicate") if ns else URIRef("urn:x:physicalPredicate")
+    definition_classes = {s for s in classes
+                          if list(g.objects(s, pred_ns)) or list(g.objects(s, OWL.equivalentClass))}
     PC = URIRef(ns + "physicalColumn") if ns else URIRef("urn:x:physicalColumn")
     REF = URIRef(ns + "references") if ns else URIRef("urn:x:references")
     check_true("at least one owl:Class", bool(classes), "0 classes")
@@ -199,8 +212,10 @@ def main() -> int:
         check_true(f"{name} -> table {table} exists", schema.has_table(table),
                    f"{table} is not a table in this database")
         pk = one(cls, PK)
-        if pk is None:
+        if pk is None and cls not in definition_classes:
             check_true(f"{name} names :primaryKey", False, "no :primaryKey")
+        elif pk is None:
+            print(f"  SKIP  {name} names :primaryKey — a definition class has no key of its own")
         else:
             parts = key_parts(pk)
             missing = [c for c in parts if not schema.has_column(table, c)]
@@ -310,8 +325,13 @@ def main() -> int:
                "; ".join(f":{n} -> {d}" for n, d in list(shared.items())[:4]))
 
     print("\n=== S1b3 every class has at least one property ===")
-    empty_classes = [n for n in table_of if not any(d == n for ds in by_name.values() for d in ds)]
-    check_true("no class is property-less", not empty_classes, f"{len(empty_classes)}: {empty_classes[:6]}")
+    # A definition class owns no column, so it is legitimately property-less (see `definition_classes`).
+    defined_names = {str(c).split("#")[-1] for c in definition_classes}
+    empty_classes = [n for n in table_of
+                     if n not in defined_names
+                     and not any(d == n for ds in by_name.values() for d in ds)]
+    check_true("no class is property-less (definition classes exempt: they own no column)",
+               not empty_classes, f"{len(empty_classes)}: {empty_classes[:6]}")
 
     # ── S1e  no orphans
     print("\n=== S1e no orphan properties ===")

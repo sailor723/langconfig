@@ -144,5 +144,15 @@
       "check_abox",
       "check_abox_sync"
     ]
+  },
+  "store_monthly_v1": {
+    "why": "store_monthly_v1：门店月度经营（trial），由 ontology_register 登记；构建中，发布前不参与仓库门禁。",
+    "pending_install": "registered by ontology_register — not built yet (2026-11-25T05:48:03Z)",
+    "profile": [
+      "check_structure",
+      "check_ontology_generic",
+      "check_samples",
+      "check_dashboard"
+    ]
   }
 }

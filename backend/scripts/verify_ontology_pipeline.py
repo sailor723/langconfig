@@ -198,10 +198,15 @@ async def main() -> int:
                     f"{sa.name}: response_format not set (unavailable on a thinking-mode model)")
 
     print("\n3) the manager does not do the work itself")
-    forbidden = {"write_file", "edit_file", "db_build_from_file", "db_plan_from_file", "db_query",
+    # The manager MAY write records (`grill.md`, `NOTES.md`) — that is why write_file is allowed. What it
+    # must not have is the tools that make declarations or measure data: those belong to the experts, and
+    # the prompt rule "only records" is unenforceable at the tool level.
+    forbidden = {"db_build_from_file", "db_plan_from_file", "db_verify_against_file", "db_query",
                  "ontology_open"}
     leaked = sorted(set(config.native_tools or []) & forbidden)
-    good &= _ok(not leaked, "manager has no declaration/db/file-write tools", f"leaked: {leaked}")
+    good &= _ok(not leaked, "manager has no database / declaration-context tools", f"leaked: {leaked}")
+    good &= _ok("write_file" in (config.native_tools or []),
+                "manager can write the grill record (work/<key>/grill.md)")
 
     print("\n4) the experts get different tools")
     seen: dict[str, list[str]] = {}

@@ -209,6 +209,20 @@
           "superseded_by": null
         }
       ]
+    },
+    "store_monthly": {
+      "latest": "store_monthly_v1",
+      "versions": [
+        {
+          "key": "store_monthly_v1",
+          "version": 1,
+          "kind": "trial",
+          "theme": "门店月度经营",
+          "datasource": "store_monthly_xlsx",
+          "created": "2026-11-25T05:48:03Z",
+          "superseded_by": null
+        }
+      ]
     }
   }
 }

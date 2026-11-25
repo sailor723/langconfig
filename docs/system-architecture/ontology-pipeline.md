@@ -253,6 +253,32 @@ backend/outputs/users/<n>/agents/agent_<id>/   ← agent 的沙箱（upload/ wor
 
 ---
 
+## 9b. 让 truth / 门禁真的跑起来（2026-11-25，全流程演练暴露）
+
+`store_monthly_v1` 跑通后剩下两处 `NOT RUN`，都不是「先放着」：一处是声明缺文件，一处是门禁写得只认
+logistics 的表名。修法都落在**通用性**上，不是给某个本体开后门：
+
+| 问题 | 修法 | 证据 |
+|---|---|---|
+| `R2 definition == hand SQL` 永远 NOT RUN（没 `truth.json _definitions`） | 声明一个**定义类** `:ReturnedStoreMonth`（谓词式，`退货额 > 0`）+ 用它作 `:where` 的计数指标 + `truth.json` 的 `_definitions` | R1/R2 真跑：`[PASS] R2 :ReturnedStoreMonth entails 退货额 > 0`（12 vs 12） |
+| 定义类过不了 `check_structure`：`names :primaryKey`、`no class is property-less` | `check_structure` 对**定义类**（有 `:physicalPredicate` / `owl:equivalentClass`）豁免 S1a/S1b3 | 定义类没有列也没有自己的主键；要满足这两条只能重复声明基类主键、再给同一列起第二个属性名 —— 那正是 S1d「一个属性名只属于一个 domain」禁止的 |
+| `D3` 十二个恒等式只认 `tripCountByWeek` 等 logistics 指标 | 看板可**自己声明** `identities`（`{grouped, whole, width?, weights?}`）；声明了自己的，就不再跑内置清单 | 5 条真跑：营业额按门店/按月加总 = 合计、客流按门店、退货率（**营业额为权**）、客单价（客流为权） |
+| `D5` 的第二路线写在门禁里、且只认 logistics 表 | 看板可声明 `independent_sql`：`{label, sql, metric}`，**指名它验证哪个指标**，门禁就真的比 | 4 条真跑：`revenueTotal` / `trafficTotal` / `returnRate` / `avgTicket` 与手写 SQL 相等 |
+| `independent_sql` 只被塞进 truth、从不比较 | 上一条的同一个修法：加了 `metric` 字段后才进比较循环 | 之前「声明了 4 条第二路线，一条都没比」——检查跑起来却什么都没证明 |
+
+量纲这条值得单独记：**第二路线必须与声明的单位一致**。`returnRate` 声明 `:unit percent` + `:scale "100.0"`，
+编译值 2.214269；手写 SQL 若不自乘 100 就得到 0.022143，D5 判红——第一次就是这么红的，改的是手写 SQL
+（乘 100、round 6 位），不是把门禁放宽。
+
+仍然 NOT RUN（都是**前提不适用**，不是漏做）：
+
+- `window gate: no metric declares :supportsSlot :TimeWindow` —— 本库唯一时间列是 **TEXT** `月份`
+  (`YYYY-MM`)。`TimeWindow` 会编译成 `月份 >= now() - interval`，在库里直接类型报错；趋势线按 `:month`
+  分组即可。声明它才是错的。
+- `F1` 交叉过滤 —— 这块板**没有可过滤维度**（`emit_filter` 空）。F1a/F1b/F1c 因此无从比较，门禁按
+  「没有就 NOT RUN」处理。要不要把「本板不做交叉过滤」写成一条**声明式 scope**（从而判 PASS 而不是
+  NOT RUN）是个设计选择，留待决定。
+
 ## 10. 证据与验证
 
 | 层 | 验证方式 | 现状 |

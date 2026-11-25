@@ -450,6 +450,16 @@ class OntologyProfile(BaseModel):
     )
     note: Optional[str] = Field(default=None, description="One line: what this ontology is for")
     enabled: bool = True
+    # Which BUILD this row points at. Optional, because every row written before versioning existed has
+    # none — and a row that cannot say which build it is hands the reader a directory listing instead of
+    # an answer. Written by `scripts/seeds/in/add_ontology_builder.py` / `services/ontology_register.py`;
+    # the version chain itself (superseded_by, latest) lives in `profiles/_versions.json`.
+    version: Optional[int] = Field(default=None, description="The `<name>_v<N>` number this row is")
+    kind: Optional[str] = Field(default=None,
+                                description="customer | demo | trial | tutorial — why this key exists")
+    latest: bool = Field(default=True, description="Is this the family's newest build?")
+    superseded_by: Optional[str] = Field(default=None,
+                                         description="The key that replaced this build, if any")
 
 
 class OntologySettings(BaseModel):

@@ -338,7 +338,31 @@ def main() -> int:
         def rows(name: str, width: int = 1) -> dict[tuple, float | None]:
             return _by_key(data[name], width) if name in data else {}
 
-        identities = [
+        # ── identities a dashboard DECLARES ───────────────────────────────
+        # The list below is written for the LOGISTICS board, so on any other ontology it can only say
+        # "names tripCountByWeek". A board that declares its own additive identities gets real D3 checks
+        # instead of a permanent NOT RUN — and the declaration lives with the board, where the person who
+        # built the panels is. Shape: {"label", "grouped", "whole", "width"} for a sum identity, plus an
+        # optional "weights" (a count metric) to make it a weighted-rate identity.
+        declared_identities = dash.get("identities") or []
+        for entry in declared_identities:
+            grouped, whole = entry.get("grouped"), entry.get("whole")
+            width = int(entry.get("width") or 1)
+            label = entry.get("label") or f"{grouped} sums to {whole}"
+            missing = [m for m in (grouped, whole, entry.get("weights")) if m and m not in data]
+            if missing:
+                not_run_d3_early = (f"{label} (names {', '.join(sorted(missing))})")
+                print(f"  [NOT RUN] D3 {not_run_d3_early}")
+                continue
+            if entry.get("weights"):
+                close(f"D3 {label}", _weighted(rows(grouped, width), rows(entry["weights"], width),
+                                               width), total(whole), tol=1e-6)
+            else:
+                close(f"D3 {label}", sum(v or 0 for v in rows(grouped, width).values()), total(whole))
+
+        # A board that declares its own identities has ALREADY proven what this list would prove for
+        # logistics; printing eleven "names tripCountByWeek" lines under it is noise, not evidence.
+        identities = [] if declared_identities else [
             ("trips by version sum to trips", "tripCountByRouteVersion", None, 1, "tripCount"),
             ("trips by week sum to trips", "tripCountByWeek", None, 1, "tripCount"),
             ("trips by vehicle sum to trips", "tripCountByVehicle", None, 1, "tripCount"),
@@ -360,7 +384,7 @@ def main() -> int:
             close(f"D3 {label}", sum(v or 0 for v in rows(grouped, width).values()),
                   total(whole))
 
-        weighted = [
+        weighted = [] if declared_identities else [
             ("overload rate by version weights to the fleet rate", "overloadRateByRouteVersion",
              "tripCountByRouteVersion", 1, "overloadRate"),
             ("overload rate by vehicle weights to the fleet rate", "overloadRateByVehicle",
@@ -440,6 +464,12 @@ def main() -> int:
         # dropped BY NAME and the rest still compares — and a declaration may supply its own.
         truth: dict[str, float | None] = {}
         d5_not_run: list[str] = []
+        if dash.get("independent_sql"):
+            # This board carries its own second routes; the built-in ones are LOGISTICS queries and could
+            # only be dropped by name on any other schema. Say that once instead of eleven times.
+            print("  (using the dashboard's own independent_sql entries; the built-in logistics routes are "
+                  "not run here)")
+            independent = {}
         for label, sql in independent.items():
             try:
                 cur.execute(sql)
@@ -448,17 +478,33 @@ def main() -> int:
             except Exception as exc:                            # noqa: BLE001
                 cur.connection.rollback()
                 d5_not_run.append(f"{label}: {str(exc).strip().splitlines()[0][:120]}")
+        # A declared second route may NAME the metric it verifies, and then it is compared here. Before
+        # this, `independent_sql` only added a label to `truth`: the comparisons below are hardcoded to
+        # tripCount/stopCount/complaints, so a board that supplied its own routes had them computed and
+        # never used — a check that runs and proves nothing.
+        declared_checks: list[tuple[str, str, float | None]] = []
         for entry in dash.get("independent_sql") or []:
             label = entry.get("label") or "?"
             try:
                 cur.execute(entry["sql"])
                 row = cur.fetchone()
-                truth[label] = run_dashboard._jsonable(row[0]) if row else None
+                value = run_dashboard._jsonable(row[0]) if row else None
+                truth[label] = value
             except Exception as exc:                            # noqa: BLE001
                 cur.connection.rollback()
                 d5_not_run.append(f"{label}: {str(exc).strip().splitlines()[0][:120]}")
+                continue
+            metric = entry.get("metric")
+            if metric:
+                declared_checks.append((label, metric, value))
         for line in d5_not_run:
             print(f"  [NOT RUN] independent SQL {line}")
+        for label, metric, value in declared_checks:
+            if metric not in data:
+                print(f"  [NOT RUN] D5 {label} — this dashboard does not declare {metric}")
+                continue
+            close(f"D5 {label} ({metric} == hand SQL)", total(metric), value,
+                  tol=float(dash.get("tolerance") or 1e-9))
 
         if "tripCount" in data and "trips" in truth:
             close("D5 trips", total("tripCount"), truth["trips"])

@@ -65,7 +65,8 @@ SYSTEM_PROMPT = """你是 **Ontology Pipeline** 的总控。你把「用户上�
 `task`（派活）· `write_todos`（计划）· `read_file` · `ls` · `ontology_inspect`（问编译器要事实）·
 `ontology_register`（登记新 key，平台分配版本号）· `ontology_publish`（发布，只到 staged）
 
-- **不许**写 `*.ttl` / `dashboard.json` / `samples.json` —— 那是专家的活。
+- **只许**写 `work/<key>/grill.md` 与 `work/<key>/NOTES.md`（记录），**不许**写 `*.ttl` / `dashboard.json` /
+  `samples.json` / `<key>_settings.json` —— 声明是专家的活。
 - **不许**自己量数 —— 派 `tables`（它的 `db_plan_from_file` 不建库，很便宜）。
 - **不许**替专家补事实：要数据就走 `tables` 或 `ontology_inspect`。
 
@@ -120,6 +121,7 @@ AGENTS_MD = """# Ontology Pipeline
 2. **一次派一格**：`task` 是同步的，一回合推进一个台阶；想「一次做完 S0–S8」会撞步数上限。
 3. **不转述数据**：给专家路径和已定的决定，让他们自己量。
 4. **登记才能写声明**：`ontology_register` 分配版本号并写好 profile/gates/Settings；没有它，专家写的声明无处安放。
+   你自己只写 `grill.md` 与 `NOTES.md` 这类记录，不写声明文件。
 5. **发布只到 staged**：人工 apply 是有意的不对称 —— agent 干活，人决定含义变更。
 """
 
@@ -247,8 +249,12 @@ CONFIG = {
     #
     # `write_todos` stays: that one is real (`tools/native_tools.py` returns a Command that updates the
     # `todos` state — deepagents 0.7 dropped its own TodoListMiddleware and LangConfig supplies this).
-    "native_tools": ["write_todos", "read_file", "ls", "ontology_inspect", "ontology_register",
-                     "ontology_publish"],
+    # `write_file`/`edit_file` are here for ONE artefact the manager owns: `work/<key>/grill.md`, the record
+    # of what the user decided (and NOTES.md). Experts are the only ones who write declarations — the
+    # boundary is a prompt rule plus the publish channel, because a tool list cannot tell a record from a
+    # declaration.
+    "native_tools": ["write_todos", "read_file", "write_file", "edit_file", "ls", "ontology_inspect",
+                     "ontology_register", "ontology_publish"],
     # The manager pins `grilling` (step 1). Experts do NOT inherit skills (in deepagents a subagent's
     # `skills` are source PATHS, not ids), so each expert prompt carries its own rules.
     "skills": ["grilling"],
