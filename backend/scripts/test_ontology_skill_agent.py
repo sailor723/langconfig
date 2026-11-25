@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Does `build-ontology-from-db` work inside a real deepagents agent?
 
-Filesystem-first, per rules.md §Code Workflow: no PostgreSQL requirement of the platform's
+Filesystem-first, per docs/design/development-rules.md §Code Workflow: no PostgreSQL requirement of the platform's
 own, no DB-mode skill staging — just `create_deep_agent(skills=[...])` with a disk backend,
 the skill on disk, and a model.
 

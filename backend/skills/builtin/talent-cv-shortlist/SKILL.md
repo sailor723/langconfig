@@ -255,7 +255,7 @@ python -m scripts.talent.pick_interview_list --jd <JD>                          
 `set_target` 会把 `decided_by` / `decided_at` / `why` 一起写进 `jd_inputs/<JD>.yaml`,
 所以半年后有人问"为什么面 30 个",答案在文件里。
 
-## 切的顺序:九层阶梯,**唯一权威在 `work/talent/ORDERING.md`**
+## 切的顺序:九层阶梯,**唯一权威在 `work/talent/OVERVIEW.md` 的「排序口径」一节**
 
 一句话:**越靠前越硬,哈希永远在最后。** 上一层分不出胜负才看下一层。
 
@@ -285,7 +285,7 @@ cut: {position: 10, tie_band: 2, hash_decided: true,
 | >3 | "**名次不可读**;集合有意义,顺序没有" |
 
 **不许在 tie_band > 1 时说"他更合适"** —— 那是把哈希说成判断。
-设计理由、已知偏差、验证方法都在 `ORDERING.md`,别在技能里抄第二份。
+设计理由、已知偏差、验证方法都在 `work/talent/OVERVIEW.md` 的「排序口径」一节,别在技能里抄第二份。
 
 ## 让用户挑优先条件(agent 的标准动作)
 

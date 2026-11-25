@@ -127,8 +127,9 @@ See `docs/` for architecture and design documentation:
 | `docs/system-architecture/ecosystem-skills-plan-2026-11-09.md` | The upstream skill port: what was read, the ecosystem layer rules, and what the generated skills changed |
 | `docs/system-architecture/skills-and-tools-review-2026-11-09.md` | Skills and tools review: the honest-skill test, and what to adopt / install next |
 | `docs/system-architecture/sunhing-dashboards.md` | Sun Hing dashboard generation (deterministic generator, producer map, 28-KPI coverage, UI wiring) |
+| `docs/talent/` | 招聘流水线（talent）：`PROCESS.md` 是五步流程的唯一权威，`decisions/` 是决定与理由，`reviews/` 是一次性复盘，`archive/` 是已被取代的过程稿（只读） |
 | `docs/installation/lan-access.md` | Letting other people use this instance over the network: the LAN gate, the /signin page and its sessions, what stays shared, and why per-user data is a rebuild |
-| `REFACTORING.md` | Backend refactor status (god-module splits, verification methodology) |
+| `docs/system-architecture/REFACTORING.md` | Backend refactor status (god-module splits, verification methodology) |
 | `docs/system-architecture/OKF_MINIMAL_PROFILE.md` | OKF knowledge-bundle profile (local-only, not committed) |
 | `docs/system-architecture/PAGEINDEX_OKF_DESIGN.md` | PageIndex + OKF knowledge design note (local-only, not committed) |
 | `backend/README.md` | Backend-specific setup |

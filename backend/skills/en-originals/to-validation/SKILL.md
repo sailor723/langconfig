@@ -34,7 +34,7 @@ a vague memory of what was asked is guessing with a table around it.
 
 ### Step 1 — Find the criteria, in this order
 
-1. **`work/<scope>/grill.md`** — the settled decisions from a grill round. These are the strongest
+1. **`docs/<area>/decisions/grill.md`** (older repos: `work/<scope>/grill.md`) — the settled decisions from a grill round. These are the strongest
    kind: somebody already agreed they are the definition of done.
 2. **A plan/spec/ticket file** — look for `## Acceptance Criteria`, `## Success Criteria`,
    `## Done when`, `## Validation gate`, and any checklist whose items are phrased as outcomes.

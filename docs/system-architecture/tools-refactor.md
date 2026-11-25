@@ -1,7 +1,7 @@
 # Tools Refactor — DSH-shaped definitions on the compile model
 
 Status: **design + Phase A in progress (2026-08-15)** — see docs/settings-refactor.md
-for the sibling settings refactor; REFACTORING.md for the broader cleanup.
+for the sibling settings refactor; docs/system-architecture/REFACTORING.md for the broader cleanup.
 
 ## 1. Goal
 

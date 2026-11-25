@@ -1,6 +1,6 @@
 # Settings Refactor — DSH-style namespaced settings on Postgres
 
-Status: **design (approved 2026-08-15)** — see REFACTORING.md for the broader
+Status: **design (approved 2026-08-15)** — see docs/system-architecture/REFACTORING.md for the broader
 backend cleanup this is part of.
 
 ## 1. Goal

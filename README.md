@@ -33,9 +33,12 @@ your own PostgreSQL, so nothing leaves the machine.
 |---|---|
 | **[docs/usage.md](docs/usage.md)** | How to use it — the shell, the fourteen activities, first-agent and first-workflow walkthroughs |
 | **[docs/installation.md](docs/installation/installation.md)** | Install **and** update: local development, team install from a zip, and the seed out → push → pull → seed loop (plus a [Chinese edition](docs/installation/installation.zh-CN.md)) |
+| **[docs/talent/](docs/talent/)** | The CV ↔ JD hiring pipeline: **[PROCESS.md](docs/talent/PROCESS.md)** (the authoritative five steps), `decisions/` (why it is built this way), `reviews/`, `archive/` (superseded drafts — read-only) |
+| **[docs/design/](docs/design/)** | Research notes: DeepAgents definition & runtime build, the DSH agent-model report, and the development rules |
+| **[docs/tickets/](docs/tickets/)** | One-off audit and ticket history (e.g. the 2026-11-09 housekeeping audit) |
 | **[docs/system-architecture.md](docs/system-architecture/system-architecture.md)** | How it works — five-layer model, agent build pipeline, execution engine, data layer ([Chinese edition](docs/system-architecture/system-architecture.zh-CN.md)) |
 | [docs/system-architecture/](docs/system-architecture/) | How the system is built: storage map, data taxonomy, skill authoring, settings/tools design, audits, studies |
-| [REFACTORING.md](REFACTORING.md) | Backend refactor history and known gaps |
+| [docs/system-architecture/REFACTORING.md](docs/system-architecture/REFACTORING.md) | Backend refactor history and known gaps |
 
 ---
 
@@ -117,7 +120,7 @@ npm run build
 ```
 
 591 passed · 3 failed (pre-existing) · 18 skipped. The two ignores are stale modules that
-break collection — see [REFACTORING.md](REFACTORING.md).
+break collection — see [docs/system-architecture/REFACTORING.md](docs/system-architecture/REFACTORING.md).
 
 ## Contributing
 

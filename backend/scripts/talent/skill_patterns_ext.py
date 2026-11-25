@@ -2,7 +2,7 @@ r"""从 JD 证据里长出来的技能抽取模式 —— **扩展层，不改�
 
 为什么单独一个模块：`parse.py:SKILL_PATTERNS` 是 29 条手写正则，实测对 10 份 JD 的 44 个
 要求词只覆盖 6 个（14%）。这份文件补上缺的，**每一条都带着它在 JD 里的原话**——没有出处的
-模式不许进来（见 `work/talent/component_catalog.yaml` 的规矩、`grill.md` 的"先抽取、后概括"）。
+模式不许进来（见 `work/talent/component_catalog.yaml` 的规矩、`docs/talent/decisions/grill.md` 的"先抽取、后概括"）。
 旧的 `work/talent/skill_map.yaml` 已于 2026-11-20 删除 —— 零消费者、且在 HEAD 里就是坏 YAML，退役说明与它独有的 22 个词见 `work/talent/_retired/README.md`。
 
 为什么先不并进生产：一旦并进 `parse.py`，`talent_v1` 的 ABox 全部要重建、`candidate_skill`

@@ -82,7 +82,7 @@ def lint(skill_dir: pathlib.Path, warns: list[str] | None = None) -> list[str]:
         problems.append(f"L3 unreachable file (nothing links it): {rel}")
 
     # L4/L5/L6 rules: an id, a gate, an honest count
-    rules_md = skill_dir / "references" / "rules.md"
+    rules_md = skill_dir / "references" / "docs/design/development-rules.md"
     if rules_md.is_file():
         rules_text = rules_md.read_text(encoding="utf-8")
         rules = re.findall(r"^##\s+(\d+[a-z]?)\.\s+(.+)$", rules_text, re.M)
@@ -103,7 +103,7 @@ def lint(skill_dir: pathlib.Path, warns: list[str] | None = None) -> list[str]:
         claimed = re.search(r"^(Fifteen|Sixteen|Seventeen|Eighteen|Nineteen|Twenty)\s+rules", rules_text, re.M)
         words = {"Fifteen": 15, "Sixteen": 16, "Seventeen": 17, "Eighteen": 18, "Nineteen": 19, "Twenty": 20}
         if claimed and words[claimed.group(1)] != len(rules):
-            problems.append(f"L5 rules.md claims {words[claimed.group(1)]} rules but defines {len(rules)}")
+            problems.append(f"L5 docs/design/development-rules.md claims {words[claimed.group(1)]} rules but defines {len(rules)}")
         # L7 each reference is scheduled somewhere in SKILL.md
         for ref in (skill_dir / "references").glob("*.md"):
             if ref.name not in text:
