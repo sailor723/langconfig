@@ -2377,6 +2377,18 @@ function DatabasesSection() {
     )
   }
 
+  const linkBtnStyle: React.CSSProperties = {
+    marginLeft: 6, padding: 0, fontSize: 10.5, background: 'transparent', border: 'none',
+    color: tok.primary, cursor: 'pointer', textDecoration: 'underline',
+  }
+
+  /** 全选 / 全不选 for one group: seventeen rows are adjusted as a batch ("I just uploaded three test
+   *  databases — keep them out of the picker"), not one at a time. */
+  const setGroupEnabled = (items: DbEntry[], value: boolean) => {
+    const names = new Set(items.map(i => i.name))
+    setRows(prev => prev.map(r => names.has(r.name) ? { ...r, enabled: value } : r))
+  }
+
   const testBtn = (name: string) => (
     <button onClick={() => void testConnection(name)} disabled={testing === name}
       title="真的连一次库，把服务器返回的原话显示出来"
@@ -2510,7 +2522,7 @@ function DatabasesSection() {
             </colgroup>
             <thead>
               <tr style={{ color: tok.labelTertiary, textAlign: 'left' }}>
-                {['', '库', '谁在用', '', '结果'].map((h, i) => (
+                {['对外', '库', '谁在用', '', '结果'].map((h, i) => (
                   <th key={i} style={{ padding: '2px 6px', fontWeight: 500, fontSize: 11 }}>{h}</th>
                 ))}
               </tr>
@@ -2522,15 +2534,25 @@ function DatabasesSection() {
                     <td colSpan={5} style={{
                       padding: '6px 6px 2px', fontSize: 11, fontWeight: 600, color: tok.labelSecondary,
                       borderBottom: `1px solid ${tok.borderL2}`,
-                    }}>{g.title} <span style={{ fontWeight: 400, color: tok.labelTertiary }}>· {g.items.length}</span></td>
+                    }}>
+                      {g.title} <span style={{ fontWeight: 400, color: tok.labelTertiary }}>· {g.items.length}</span>
+                      {isAdmin && g.id !== 'system' && (
+                        <span style={{ marginLeft: 8, fontWeight: 400 }}>
+                          <button onClick={() => setGroupEnabled(g.items, true)} style={linkBtnStyle}>全选</button>
+                          <button onClick={() => setGroupEnabled(g.items, false)} style={linkBtnStyle}>全不选</button>
+                        </span>
+                      )}
+                    </td>
                   </tr>
                   {g.items.map((d, idx) => {
                     const i = rows.findIndex(r => r.name === d.name)
                     return (
                       <tr key={`${d.name}-${idx}`} style={{ opacity: d.enabled === false ? 0.55 : 1 }}>
                         <td style={thTd}>
-                          <input type="checkbox" checked={d.enabled !== false} disabled={!isAdmin}
-                            title={d.enabled !== false ? '提供给 SQL 工具/分析' : '不提供给工具'}
+                          <input type="checkbox" checked={d.enabled !== false} disabled={!isAdmin || d.bucket === 'system'}
+                            title={d.bucket === 'system'
+                              ? '平台自己的状态库，规则上永不对 SQL 工具开放'
+                              : (d.enabled !== false ? '对外：出现在 SQL 选择器 / 分析页' : '不对外：工具选择器里看不到它')}
                             onChange={e => i >= 0 && patch(i, 'enabled', e.target.checked)} />
                         </td>
                         <td style={{ ...thTd, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</td>

@@ -812,15 +812,28 @@ def _platform_connection_defaults() -> Dict[str, Any]:
     return {"host": host, "port": port, "user": user}
 
 
+def _is_system_database(name: str) -> bool:
+    """The platform's own state: never offered to SQL tools, whatever the switch says.
+
+    `enabled` is a human decision; this is a rule. A tick on `langconfig` would put the platform's own
+    tables (users, encrypted API keys) in every SQL picker — the checkbox must not be able to do that.
+    """
+    n = (name or "").strip().lower()
+    return n.startswith("langconfig") or n in ("postgres", "template0", "template1")
+
+
 def _settings_databases() -> List[str]:
     """Names the SQL picker offers: switched-ON rows that are actually SQL targets.
 
     A `dashboard` row is a dashboard grouping, not a database the SQL tools can
     connect to — offering it would make the picker produce a failing run.
     """
+    # A `server` row is a CONNECTION an agent picks, not a database a SQL tool reads; the platform's own
+    # databases are excluded by rule (see `_is_system_database`), not by hope.
     return [
         str(r["name"]) for r in _legacy_catalog_list()
         if r.get("enabled", True) and r.get("kind") in ("platform", "target")
+        and not _is_system_database(str(r["name"]))
     ]
 
 
@@ -987,7 +1000,8 @@ def databases_catalog() -> Dict[str, Any]:
         # Switched on, split by what the switch actually feeds: `offered` is the
         # SQL picker's list, `offered_dashboards` is the Analysis browser's.
         "offered": [r["name"] for r in rows
-                    if r.get("enabled", True) and r.get("kind") in ("platform", "target")],
+                    if r.get("enabled", True) and r.get("kind") in ("platform", "target")
+                    and not _is_system_database(str(r["name"]))],
         "offered_dashboards": [r["name"] for r in rows
                                if r.get("enabled", True) and r.get("kind") == "dashboard"],
     }

@@ -727,12 +727,17 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   const [dbMsg, setDbMsg] = useState<string | null>(null);
 
   const loadDatabases = useCallback(() => {
-    fetch('/api/graph-studio/databases')
+    // CONNECTIONS, not databases. An agent picks a server (+role) and then reaches every database on it;
+    // the old list was `sql` — the SQL picker's databases — which is a different question, and it made an
+    // agent able to point at a database that had merely been ticked for that picker.
+    fetch('/api/graph-studio/databases/catalog')
       .then(r => (r.ok ? r.json() : null))
-      .then((d: { sql?: string[]; active_sql?: string; sql_targets?: Record<string, string> } | null) => {
+      .then((d: { connections?: { name: string; host: string; port: number | string; user: string }[];
+                  active_sql?: string } | null) => {
         if (!d) return;
-        setSqlDbs(Array.isArray(d.sql) ? d.sql : []);
-        setSqlTargets(d.sql_targets || {});
+        const conns = d.connections || [];
+        setSqlDbs(conns.map(c => c.name));
+        setSqlTargets(Object.fromEntries(conns.map(c => [c.name, `${c.host}:${c.port} · ${c.user}`])));
         setActiveSql(d.active_sql || '');
       })
       .catch(() => { setSqlDbs([]); });
