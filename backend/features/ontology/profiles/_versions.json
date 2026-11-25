@@ -1,0 +1,214 @@
+{
+  "_doc": "Ontology versions. Written by scripts/seeds/in/add_ontology_builder.py (and by the ontology builder's own registration step). One entry per built key: base name, version number, kind, and superseded_by. `latest` names the ONE build a customer is expected to be running. Edit by hand only to correct a mistake — the numbers are a contract, not a cache.",
+  "families": {
+    "abc": {
+      "latest": "abc",
+      "versions": [
+        {
+          "key": "abc",
+          "version": 1,
+          "kind": "demo",
+          "theme": "ABC 样本（演示）",
+          "datasource": "abc",
+          "created": "2026-11-25T05:00:26Z",
+          "superseded_by": null
+        }
+      ]
+    },
+    "clinic": {
+      "latest": "clinic",
+      "versions": [
+        {
+          "key": "clinic",
+          "version": 1,
+          "kind": "demo",
+          "theme": "诊所（演示）",
+          "datasource": "clinic",
+          "created": "2026-11-25T05:00:26Z",
+          "superseded_by": null
+        }
+      ]
+    },
+    "ebl_ops": {
+      "latest": "ebl_ops_v1",
+      "versions": [
+        {
+          "key": "ebl_ops_v1",
+          "version": 1,
+          "kind": "demo",
+          "theme": "EBL 运营（实测构建）",
+          "datasource": "ebl_ops",
+          "created": "2026-11-25T05:00:26Z",
+          "superseded_by": null
+        }
+      ]
+    },
+    "eff_ops": {
+      "latest": "eff_ops_v1",
+      "versions": [
+        {
+          "key": "eff_ops_v1",
+          "version": 1,
+          "kind": "demo",
+          "theme": "EFF 运营（实测构建）",
+          "datasource": "eff_ops",
+          "created": "2026-11-25T05:00:26Z",
+          "superseded_by": null
+        }
+      ]
+    },
+    "logistics": {
+      "latest": "logistics",
+      "versions": [
+        {
+          "key": "logistics",
+          "version": 1,
+          "kind": "demo",
+          "theme": "物流（演示）",
+          "datasource": "logistics",
+          "created": "2026-11-25T05:00:26Z",
+          "superseded_by": null
+        }
+      ]
+    },
+    "meeting": {
+      "latest": "meeting_v1",
+      "versions": [
+        {
+          "key": "meeting_v1",
+          "version": 1,
+          "kind": "demo",
+          "theme": "会议（实测构建）",
+          "datasource": "meeting",
+          "created": "2026-11-25T05:00:26Z",
+          "superseded_by": null
+        }
+      ]
+    },
+    "new_coldchain": {
+      "latest": "new_coldchain_v6",
+      "versions": [
+        {
+          "key": "new_coldchain_v3",
+          "version": 3,
+          "kind": "customer",
+          "theme": "新冷鏈 v3",
+          "datasource": "new_coldchain",
+          "created": "2026-11-25T05:00:26Z",
+          "superseded_by": "new_coldchain_v4"
+        },
+        {
+          "key": "new_coldchain_v4",
+          "version": 4,
+          "kind": "customer",
+          "theme": "新冷鏈 v4",
+          "datasource": "new_coldchain",
+          "created": "2026-11-25T05:00:26Z",
+          "superseded_by": "new_coldchain_v5"
+        },
+        {
+          "key": "new_coldchain_v5",
+          "version": 5,
+          "kind": "customer",
+          "theme": "新冷鏈 v5",
+          "datasource": "new_coldchain",
+          "created": "2026-11-25T05:00:26Z",
+          "superseded_by": "new_coldchain_v6"
+        },
+        {
+          "key": "new_coldchain_v6",
+          "version": 6,
+          "kind": "customer",
+          "theme": "新冷鏈 v6",
+          "datasource": "new_coldchain",
+          "created": "2026-11-25T05:00:26Z",
+          "superseded_by": null
+        }
+      ]
+    },
+    "probe_key": {
+      "latest": "probe_key",
+      "versions": [
+        {
+          "key": "probe_key",
+          "version": 1,
+          "kind": "trial",
+          "theme": "构建器探针（可删）",
+          "datasource": "probe_key",
+          "created": "2026-11-25T05:00:26Z",
+          "superseded_by": null
+        }
+      ]
+    },
+    "retail": {
+      "latest": "retail",
+      "versions": [
+        {
+          "key": "retail",
+          "version": 1,
+          "kind": "demo",
+          "theme": "零售（演示）",
+          "datasource": "retail",
+          "created": "2026-11-25T05:00:26Z",
+          "superseded_by": null
+        }
+      ]
+    },
+    "sunhing": {
+      "latest": "sunhing_v1",
+      "versions": [
+        {
+          "key": "sunhing_v1",
+          "version": 1,
+          "kind": "customer",
+          "theme": "新鸿（Sun Hing）冷鏈",
+          "datasource": "sunhing",
+          "created": "2026-11-25T05:00:26Z",
+          "superseded_by": null
+        }
+      ]
+    },
+    "talent": {
+      "latest": "talent_v1",
+      "versions": [
+        {
+          "key": "talent_v1",
+          "version": 1,
+          "kind": "demo",
+          "theme": "招聘（产品本体）",
+          "datasource": "talent",
+          "created": "2026-11-25T05:00:26Z",
+          "superseded_by": null
+        }
+      ]
+    },
+    "talent_steps": {
+      "latest": "talent_steps",
+      "versions": [
+        {
+          "key": "talent_steps",
+          "version": 1,
+          "kind": "tutorial",
+          "theme": "招聘五步（教程）",
+          "datasource": "talent_steps",
+          "created": "2026-11-25T05:00:26Z",
+          "superseded_by": null
+        }
+      ]
+    },
+    "tpch": {
+      "latest": "tpch",
+      "versions": [
+        {
+          "key": "tpch",
+          "version": 1,
+          "kind": "demo",
+          "theme": "TPC-H（演示）",
+          "datasource": "tpch",
+          "created": "2026-11-25T05:00:26Z",
+          "superseded_by": null
+        }
+      ]
+    }
+  }
+}

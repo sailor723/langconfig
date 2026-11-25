@@ -159,6 +159,7 @@ docs/system-architecture/*
 !docs/system-architecture/deepagents-study.md
 !docs/system-architecture/deepseek-vision-model.md
 !docs/system-architecture/multitenancy.md
+!docs/system-architecture/ontology-agents.md
 !docs/system-architecture/settings-refactor.md
 !docs/system-architecture/skill-authoring.md
 !docs/system-architecture/storage-map.md

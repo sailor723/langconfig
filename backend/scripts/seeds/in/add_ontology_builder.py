@@ -30,6 +30,13 @@ reachable from this machine (Postgres), because the builder reads it read-only.
 Idempotent: an existing agent row is updated in place, an existing gates.json entry is left alone
 (and reported), an existing Settings row is updated. Exit codes: 0 ok, 1 a problem it will not
 paper over, 2 bad arguments.
+
+NAMING (decided 2026-11-12, option A): the customer supplies a NAME, the platform assigns the
+version. `--base sunhing` becomes `sunhing_v<N>` with N = one past the highest N that already
+exists anywhere (registry, profiles/, gates.json) — so a build is never overwritten in place and
+a number is never reused. `--key` still works for a name that has no version to assign (legacy
+`abc`, `tpch`). See `features/ontology/versioning.py` for the rules and `--kind` for why the key
+exists (customer | demo | trial | tutorial).
 """
 from __future__ import annotations
 
@@ -47,6 +54,9 @@ BACKEND = HERE.parents[3]                      # backend/
 REPO = BACKEND.parent
 GATES = BACKEND / "features" / "ontology" / "gates.json"
 PROFILES = BACKEND / "features" / "ontology" / "profiles"
+if str(BACKEND) not in sys.path:
+    sys.path.insert(0, str(BACKEND))
+from features.ontology import versioning as V  # noqa: E402  (the numbering rules, and the registry)
 #: Which seed writes the agent row. A DOCUMENT builder starts from uploaded files instead of an existing
 #: database, so its prompt and tool list differ; everything else about registration is identical. Overriding
 #: this env var is how the document wrapper keeps ONE definition of "a builder is registered" without
@@ -107,6 +117,14 @@ def _env_var_for(key: str) -> str:
     return re.sub(r"[^A-Z0-9]+", "_", key.upper()).strip("_") + "_DB_PASSWORD"
 
 
+def _gate_keys() -> set[str]:
+    """Keys already declared in gates.json — a new number has to clear those too, not only profiles/."""
+    try:
+        return {str(k) for k in json.loads(GATES.read_text(encoding="utf-8"))}
+    except Exception:                                                   # noqa: BLE001
+        return set()
+
+
 def step_agent(key: str, datasource: str, theme: str, *, apply: bool) -> bool:
     print("\n[1] builder agent")
     if not SEED.is_file():
@@ -134,6 +152,13 @@ def step_agent(key: str, datasource: str, theme: str, *, apply: bool) -> bool:
         _warn((p.stderr or "").strip()[-400:])
         return False
     _ok(f"agent 'Ontology Builder ({key})' seeded (datasource={datasource})")
+    return True
+
+
+def step_agent_note(key: str, *, base: str, version: int, kind: str) -> bool:
+    """The registration is versioned per key; say so where a human reads the summary."""
+    print(f"   key {key} = {base} v{version} ({kind}) — a rebuild of {base} becomes "
+          f"{base}_v{version + 1}, never a rewrite of this one")
     return True
 
 
@@ -169,7 +194,8 @@ def step_gates(key: str, *, apply: bool, family_extra: set[str] | None = None) -
     return True
 
 
-def step_settings(key: str, theme: str, *, apply: bool) -> bool:
+def step_settings(key: str, theme: str, *, apply: bool,
+                  meta: dict | None = None) -> bool:
     print("\n[3] Settings → Ontology (the `ontology` namespace document)")
     sys.path.insert(0, str(BACKEND))
     try:
@@ -185,6 +211,11 @@ def step_settings(key: str, theme: str, *, apply: bool) -> bool:
         items = [dict(x) for x in (doc.get("items") or [])]
         row = {"key": key, "label": theme or key, "url": "", "profile": f"{key}/{key}_settings.json",
                "note": "registered by add_ontology_builder.py", "enabled": True}
+        # version/bookkeeping is additive: the workbench reads key/label/url/profile/enabled and
+        # ignores the rest, while an audit can answer "is this the build the customer runs?" from
+        # the document itself instead of from a directory listing.
+        if meta is not None:
+            row.update(meta)
         existing = next((i for i in items if str(i.get("key")) == key), None)
         if existing is not None:
             existing.update({k: v for k, v in row.items() if k != "note"})
@@ -205,8 +236,33 @@ def step_settings(key: str, theme: str, *, apply: bool) -> bool:
     return True
 
 
-def step_env(key: str, *, apply: bool) -> bool:
+def _family_password_var(base: str) -> str | None:
+    """The variable an existing build of this family already declares in its profile's dsn.
+
+    A rebuild of `sunhing` reads the SAME database, so it must not invent
+    `SUNHING_V2_DB_PASSWORD`: two variables for one password is how a deployment ends up with one
+    of them blank, and the profile's dsn is what the gates execute against.
+    """
+    for cand in sorted(PROFILES.glob(f"{base}*/")):
+        if not cand.is_dir() or not cand.name.startswith(base):
+            continue
+        for prof in cand.glob("*_settings.json"):
+            try:
+                dsn = (json.loads(prof.read_text(encoding="utf-8")) or {}).get("dsn") or {}
+            except Exception:                                        # noqa: BLE001
+                continue
+            pw = str(dsn.get("password") or "")
+            if pw.startswith("${") and pw.endswith("}"):
+                return pw[2:-1]
+    return None
+
+
+def step_env(key: str, *, apply: bool, base: str = "") -> bool:
     print("\n[4] .env — the variable the profile's dsn will reference")
+    shared = _family_password_var(base or key) if base else None
+    if shared:
+        _ok(f"reuses {shared} — an existing build of {base} already declares it")
+        return True
     var = _env_var_for(key)
     text = ENV.read_text(encoding="utf-8") if ENV.is_file() else ""
     if re.search(rf"(?m)^{var}=", text):
@@ -230,7 +286,7 @@ def step_tools(*, apply: bool) -> bool:
     seed scripts, not in `SEEDABLE_TOOL_META`, so nothing here ever created them — a sixth artefact that
     has to agree and had no step of its own.
     """
-    print("\n[6] the ontology tool rows (agent cannot publish without them)")
+    print("\n[5] the ontology tool rows (agent cannot publish without them)")
     import importlib.util
 
     here = pathlib.Path(__file__).resolve().parent
@@ -267,7 +323,7 @@ def step_tools(*, apply: bool) -> bool:
 
 
 def step_profile_dir(key: str, *, apply: bool) -> bool:
-    print("\n[5] profile directory")
+    print("\n[6] profile directory")
     path = PROFILES / key
     if path.is_dir() and any(path.iterdir()):
         _warn(f"{path} already has content — the builder will update it, not start from scratch")
@@ -276,10 +332,81 @@ def step_profile_dir(key: str, *, apply: bool) -> bool:
     return True
 
 
+def _preview_version(key: str, *, base: str, kind: str, theme: str, datasource: str) -> dict:
+    """What the Settings row will say about the version — computed without writing the registry."""
+    try:
+        reg = V.load(PROFILES / V.REGISTRY_NAME)
+        entry = V.record(reg, key=key, kind=kind, theme=theme, datasource=datasource)
+    except V.VersionError as exc:
+        _warn(f"version facts unavailable: {exc}")
+        return {}
+    return {"version": entry["version"], "kind": kind, "latest": True, "superseded_by": ""}
+
+
+def _previous_build(key: str) -> str | None:
+    """The build this key replaced, if any (read from the registry, never guessed)."""
+    try:
+        reg = V.load(PROFILES / V.REGISTRY_NAME)
+    except V.VersionError:
+        return None
+    base = V.parse_key(key)[0]
+    fam = (reg.get("families") or {}).get(base) or {}
+    latest = fam.get("latest")
+    if latest and latest != key:
+        return str(latest)                       # the build this one supersedes (dry run too)
+    for v in fam.get("versions") or []:
+        if str(v.get("superseded_by")) == key and str(v.get("key")) != key:
+            return str(v["key"])
+    return None
+
+
+def step_versions(key: str, *, base: str, kind: str, theme: str, datasource: str,
+                  apply: bool) -> tuple[bool, dict]:
+    """Record the build in `profiles/_versions.json` and return the fields for the Settings row."""
+    print("\n[7] version registry (profiles/_versions.json)")
+    try:
+        reg = V.load(PROFILES / V.REGISTRY_NAME)
+    except V.VersionError as exc:
+        _warn(f"registry unreadable: {exc}")
+        return False, {}
+    before = V.latest_of(base, registry=reg) or ""
+    try:
+        entry = V.record(reg, key=key, kind=kind, theme=theme, datasource=datasource)
+    except V.VersionError as exc:
+        _warn(str(exc))
+        return False, {}
+    meta = {"version": entry["version"], "kind": kind, "latest": True, "superseded_by": ""}
+    if not apply:
+        _todo(f"would record {key} as {base} v{entry['version']} (kind={kind})"
+              + (f"; latest {before} → {key}" if before and before != key else ""))
+        return True, meta
+    try:
+        path = V.save(reg)
+    except OSError as exc:
+        _warn(f"could not write the registry: {exc}")
+        return False, meta
+    _ok(f"recorded {key} as {base} v{entry['version']} (kind={kind}) — "
+        f"{path.relative_to(REPO)}")
+    if before and before != key:
+        _ok(f"latest moved {before} → {key}; {before} now carries superseded_by={key}")
+    else:
+        _ok(f"latest is {key} (first build of {base})")
+    return True, meta
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--key", required=True, help="ontology key, e.g. chinook_v1")
+    ap.add_argument("--base", default="",
+                    help="the customer's NAME, e.g. `sunhing` — the script assigns sunhing_v<N>")
+    ap.add_argument("--key", default="",
+                    help="an exact key for a name that carries no version (abc, tpch, logistics)")
+    ap.add_argument("--kind", default="customer", choices=sorted(V.KINDS),
+                    help="why this key exists: customer | demo | trial | tutorial "
+                         "(nothing deletes a customer or tutorial key)")
+    ap.add_argument("--no-agent", action="store_true",
+                    help="register gates/Settings/registry only — for handing the key to the single "
+                         "builder template instead of minting a per-key agent row")
     ap.add_argument("--datasource", required=True, help="database name the builder reads")
     ap.add_argument("--theme", default="", help="human label for Settings → Ontology")
     ap.add_argument("--family", action="append", default=[], choices=["abox"],
@@ -291,8 +418,22 @@ def main() -> int:
                          "dev laptop may use a different role than the deployment)")
     args = ap.parse_args()
 
-    key = args.key.strip()
     ds = args.datasource.strip()
+    base = args.base.strip().lower()
+    key = args.key.strip().lower()
+    if bool(base) == bool(key):
+        print("[FATAL] pass exactly one of --base (the customer's name, a version is assigned) "
+              "or --key (an exact, unversioned key)", file=sys.stderr)
+        return 2
+    try:
+        if base:
+            known = V.existing_keys(PROFILES, gate_keys=_gate_keys())
+            key, version = V.key_for(base, known=known)
+        else:
+            base, version = V.parse_key(key)
+    except V.VersionError as exc:
+        print(f"[FATAL] {exc}", file=sys.stderr)
+        return 2
     if not re.fullmatch(r"[a-z][a-z0-9_]*", key):
         print(f"[FATAL] key {key!r} must be lowercase letters/digits/underscore", file=sys.stderr)
         return 2
@@ -300,8 +441,8 @@ def main() -> int:
         print(f"[FATAL] datasource {ds!r} is not a database name", file=sys.stderr)
         return 2
 
-    print(f"ontology builder: key={key} datasource={ds} theme={args.theme or '(none)'} "
-          f"mode={'APPLY' if args.apply else 'DRY RUN'}")
+    print(f"ontology builder: {base} v{version} → key={key}  datasource={ds}  kind={args.kind}  "
+          f"theme={args.theme or '(none)'}  mode={'APPLY' if args.apply else 'DRY RUN'}")
 
     problems = 0
     if not args.skip_db_probe:
@@ -316,12 +457,20 @@ def main() -> int:
             else:
                 print("       (advisory: pass --require-db to make this fatal)")
 
-    for fn in (lambda: step_agent(key, ds, args.theme, apply=args.apply),
+    # The version facts are computed FIRST (in memory, nothing written) so the Settings row carries
+    # the same numbers the registry will record; the registry itself is written LAST, so its output is
+    # the last thing a human reads before the summary.
+    meta = _preview_version(key, base=base, kind=args.kind, theme=args.theme, datasource=ds)
+    for fn in (lambda: True if args.no_agent else step_agent(key, ds, args.theme, apply=args.apply),
+               lambda: True if args.no_agent else
+               step_agent_note(key, base=base, version=version, kind=args.kind),
                lambda: step_gates(key, apply=args.apply, family_extra=set(args.family or [])),
-               lambda: step_settings(key, args.theme, apply=args.apply),
-               lambda: step_env(key, apply=args.apply),
+               lambda: step_settings(key, args.theme, apply=args.apply, meta=meta),
+               lambda: step_env(key, apply=args.apply, base=base),
                lambda: step_tools(apply=args.apply),
-               lambda: step_profile_dir(key, apply=args.apply)):
+               lambda: step_profile_dir(key, apply=args.apply),
+               lambda: step_versions(key, base=base, kind=args.kind, theme=args.theme,
+                                     datasource=ds, apply=args.apply)[0]):
         try:
             if not fn():
                 problems += 1
@@ -335,8 +484,19 @@ def main() -> int:
               f"warnings are real.")
         return 1
     print("  ready." + ("" if args.apply else "  Re-run with --apply to write these changes."))
-    print(f"  next: chat with 'Ontology Builder ({key})' — it reads {ds} read-only, writes "
-          f"profiles/{key}/, then publishes through the channel (staged → gates → human apply).")
+    if args.no_agent:
+        print(f"  next: hand {key} to the single 'Ontology Builder' template (no per-key agent row "
+              f"was created); it reads {ds} read-only, writes profiles/{key}/, then publishes "
+              f"through the channel (staged → gates → human apply).")
+    else:
+        print(f"  next: chat with 'Ontology Builder ({key})' — it reads {ds} read-only, writes "
+              f"profiles/{key}/, then publishes through the channel (staged → gates → human apply).")
+    prev = _previous_build(key)
+    if prev:
+        print(f"  version: {base} v{version} → {key} is the family's latest; {prev} keeps "
+              f"superseded_by={key} so the old build is still readable and gateable.")
+    else:
+        print(f"  version: {base} v{version} → {key} is the family's first build.")
     return 0
 
 
