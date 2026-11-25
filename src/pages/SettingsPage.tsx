@@ -2370,16 +2370,35 @@ function DatabasesSection() {
                         <input value={r.host || ''} disabled={!isAdmin || r.kind !== 'target'}
                           onChange={e => patch(i, 'host', e.target.value)}
                           placeholder={r.kind === 'target' ? '127.0.0.1' : '—'} style={cell({ width: 110, fontFamily: 'monospace' })} />
+                        {!r.host && (r as any).effective_host && (
+                          <div
+                            title={`这一行没有自己的 host，实际连接用的是 ${(r as any).connection_source || '平台默认'}：`
+                                   + `${(r as any).effective_host}:${(r as any).effective_port}`
+                                   + `（用户 ${(r as any).effective_user || '默认'}）`}
+                            style={{ marginTop: 3, fontSize: 10, lineHeight: '13px', color: tok.labelTertiary,
+                                     maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                          >→ {(r as any).effective_host}:{(r as any).effective_port}</div>
+                        )}
                       </td>
                       <td style={{ padding: '0 4px' }}>
                         <input value={r.port ?? ''} disabled={!isAdmin || r.kind !== 'target'}
                           onChange={e => patch(i, 'port', e.target.value ? Number(e.target.value) : null)}
                           placeholder={r.kind === 'target' ? '5432' : '—'} style={cell({ width: 66, fontFamily: 'monospace' })} />
+                        {!r.port && (r as any).effective_port && (
+                          <div style={{ marginTop: 3, fontSize: 10, lineHeight: '13px', color: tok.labelTertiary }}>
+                            → {(r as any).effective_port}
+                          </div>
+                        )}
                       </td>
                       <td style={{ padding: '0 4px' }}>
                         <input value={r.user || ''} disabled={!isAdmin || r.kind !== 'target'}
                           onChange={e => patch(i, 'user', e.target.value)}
                           placeholder={r.kind === 'target' ? 'myrole' : '—'} style={cell({ width: 88, fontFamily: 'monospace' })} />
+                        {!r.user && (r as any).effective_user && (
+                          <div style={{ marginTop: 3, fontSize: 10, lineHeight: '13px', color: tok.labelTertiary,
+                                        maxWidth: 88, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                               title={`实际连接身份：${(r as any).effective_user}`}>→ {(r as any).effective_user}</div>
+                        )}
                       </td>
                       <td style={{ padding: '0 4px' }}>
                         <input

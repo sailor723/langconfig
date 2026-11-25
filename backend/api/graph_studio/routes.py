@@ -608,7 +608,37 @@ def database_catalog() -> List[Dict[str, Any]]:
                         "has_password": bool(item.get("password")),
                         "enabled": bool(item.get("enabled", True)), "registered": True})
 
+    # Fill in the EFFECTIVE connection for rows that do not carry their own. A `platform` row (and a
+    # `target` row with no host) connects through the deployment's `POSTGRES_*`; the table showed "—" there,
+    # so a reader could not tell which server a connection test would actually hit. `effective_*` is what
+    # the server would use — display only: these are never written back into the setting.
+    platform_defaults = _platform_connection_defaults()
+    for row in catalog:
+        if str(row.get("kind") or "platform") == "target" and row.get("host"):
+            row["connection_source"] = "自己配置"
+            continue
+        row["effective_host"] = row.get("host") or platform_defaults.get("host")
+        row["effective_port"] = row.get("port") or platform_defaults.get("port")
+        row["effective_user"] = row.get("user") or platform_defaults.get("user")
+        row["connection_source"] = ("平台默认（POSTGRES_*）"
+                                    if str(row.get("kind") or "platform") == "platform"
+                                    else "自己配置（无 host → 平台默认）")
+
     return sorted(catalog, key=lambda r: (not r.get("enabled", True), str(r["name"]).lower()))
+
+
+def _platform_connection_defaults() -> Dict[str, Any]:
+    """host/port/user the deployment itself connects with — read from the same precedence the tools use."""
+    import os
+
+    host = os.environ.get("POSTGRES_HOST") or os.environ.get("PGHOST") or "localhost"
+    port = os.environ.get("POSTGRES_PORT") or os.environ.get("PGPORT") or 5432
+    user = os.environ.get("POSTGRES_USER") or os.environ.get("PGUSER") or "postgres"
+    try:
+        port = int(port)
+    except (TypeError, ValueError):
+        port = 5432
+    return {"host": host, "port": port, "user": user}
 
 
 def _settings_databases() -> List[str]:
