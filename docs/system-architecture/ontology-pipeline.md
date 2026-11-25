@@ -275,9 +275,11 @@ logistics 的表名。修法都落在**通用性**上，不是给某个本体开
 - `window gate: no metric declares :supportsSlot :TimeWindow` —— 本库唯一时间列是 **TEXT** `月份`
   (`YYYY-MM`)。`TimeWindow` 会编译成 `月份 >= now() - interval`，在库里直接类型报错；趋势线按 `:month`
   分组即可。声明它才是错的。
-- `F1` 交叉过滤 —— 这块板**没有可过滤维度**（`emit_filter` 空）。F1a/F1b/F1c 因此无从比较，门禁按
-  「没有就 NOT RUN」处理。要不要把「本板不做交叉过滤」写成一条**声明式 scope**（从而判 PASS 而不是
-  NOT RUN）是个设计选择，留待决定。
+- `F1` 交叉过滤 —— 这块板**没有可过滤维度**（`emit_filter` 空）。现在它写成一条**声明式 scope**：
+  `dashboard.json` 的 `no_filterable_dimension: true`（或 `filters: []`），F1 于是判
+  `PASS the board declares no filterable dimension — and emits none`，而不是 NOT RUN ——
+  **并且声明必须与面板一致**：一旦某个面板 `emit_filter`，同一条会判红。声明了自己的 scope，就不再跑
+  内置的 logistics 维度（routeVersion / storeZone / liability），那三条只属于那块板。
 
 ## 10. 证据与验证
 

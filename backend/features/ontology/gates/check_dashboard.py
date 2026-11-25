@@ -694,6 +694,9 @@ def main() -> int:
                     # duplicated value silently doubled the Σ identity (102,420 vs 51,210)
                     dims[dim] = {"source": metric,
                                  "values": list(dict.fromkeys(r[0] for r in (res.get("rows") or [])))}
+        # "This board has no cross-filter" is a SCOPE DECISION a board can make; when it does, the F1
+        # family is checkable rather than merely unrun (and the declaration must match the panels).
+        declared_none = bool(dash.get("no_filterable_dimension")) or dash.get("filters") == []
         for dim, info in dims.items():
             declared = any(dim in (sqlgen.metrics(g).get(name).group_by or [])
                            for name in sqlgen.metrics(g) if sqlgen.metrics(g)[name])
@@ -712,9 +715,10 @@ def main() -> int:
                 total += float(v or 0)
             return total, parts
 
-        for name, dim, whole in (("tripCount", "routeVersion", "tripCount"),
-                                 ("stopCount", "storeZone", "stopCount"),
-                                 ("complaintCount", "liability", "complaintCount")):
+        for name, dim, whole in (() if declared_none else (
+                ("tripCount", "routeVersion", "tripCount"),
+                ("stopCount", "storeZone", "stopCount"),
+                ("complaintCount", "liability", "complaintCount"))):
             if dim not in dims:
                 skill(f"F1b no panel emits a filter on {dim}")
                 continue
@@ -765,7 +769,16 @@ def main() -> int:
             check("F1e ... and the refusal lists the allowed values",
                   "allowed" in (probe.stdout or ""), True)
         else:
-            print("  [NOT RUN] F1e — this dashboard declares no filterable dimension")
+            # "This board has no cross-filter" is a SCOPE DECISION a board can make — and then the family
+            # is checkable rather than merely unrun: the declaration must match the panels. Before this,
+            # a board with no filter dimension could only ever print "[NOT RUN] declares no filterable
+            # dimension", which reads as an unfinished board on a board that is finished by design.
+            if declared_none:
+                check("F1 the board declares no filterable dimension — and emits none",
+                      not dims, True)
+            else:
+                print("  [NOT RUN] F1e — this dashboard declares no filterable dimension "
+                      "(declare `no_filterable_dimension: true` if that is the design)")
 
         events = dash.get("events") or []
         for ev in events:
