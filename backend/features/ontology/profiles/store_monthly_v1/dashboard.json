@@ -178,5 +178,7 @@
     }
   ],
   "tolerance": 1e-05,
-  "_doc_note_independent": "第二路线的量纲必须跟声明一致：退货率声明为 percent + scale 100.0，手写 SQL 也乘 100；客单价声明为 money_per_visit（未声明 scale），手写 SQL 不乘。"
+  "_doc_note_independent": "第二路线的量纲必须跟声明一致：退货率声明为 percent + scale 100.0，手写 SQL 也乘 100；客单价声明为 money_per_visit（未声明 scale），手写 SQL 不乘。",
+  "no_filterable_dimension": true,
+  "_scope_note": "本板不做交叉过滤（grill D15/D2：只按门店与月份切，四个 KPI 各自成块；没有「筛选器」这种交互），因此 F1 族按声明式 scope 判 PASS 而不是 NOT RUN —— 声明必须与面板一致：一旦有面板 emit_filter，这条会判红。"
 }
