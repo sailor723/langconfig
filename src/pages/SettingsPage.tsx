@@ -1584,8 +1584,8 @@ function KnowledgeSection() {
 interface DbEntry {
   name: string
   label?: string | null
-  /** platform/target = a SQL database; dashboard = a dashboard grouping with pages. */
-  kind: 'platform' | 'target' | 'dashboard'
+  /** platform/target = a SQL database; server = a CONNECTION an agent picks; dashboard = a grouping. */
+  kind: 'platform' | 'target' | 'dashboard' | 'server'
   host?: string | null
   port?: number | string | null
   dbname?: string | null
@@ -1595,6 +1595,36 @@ interface DbEntry {
   has_password?: boolean
   /** True when the row comes from the setting; false = discovered on the server. */
   registered?: boolean
+  /** The connection this database belongs to (host:port/user), from the catalog. */
+  connection?: string
+  /** system = the platform's own state; business = a business app reads it; connection/dashboard. */
+  bucket?: 'system' | 'business' | 'connection' | 'dashboard'
+  /** uploaded = a CSV/Excel built it (build stamp); native = pre-existed; technical = platform state. */
+  origin?: 'uploaded' | 'native' | 'technical' | null
+  /** Which business apps use it: analysis (legacy dashboards) | ontology | talent. */
+  apps?: string[]
+  /** The ontology keys that declare this database in their dsn. */
+  ontology_keys?: string[]
+  /** The connection marked default in the setting. */
+  default?: boolean
+  effective_host?: string | null
+  effective_port?: number | string | null
+  effective_user?: string | null
+  connection_source?: string | null
+}
+
+interface DbConnection {
+  key: string
+  name: string
+  label?: string
+  host: string
+  port: number | string
+  user: string
+  source?: string
+  password_set?: boolean
+  default?: boolean
+  same_server_as?: string | null
+  databases: DbEntry[]
 }
 
 // ── Ontology workbench profiles ──────────────────────────────────
@@ -2146,6 +2176,8 @@ function DatabasesSection() {
   const [saving, setSaving] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [active, setActive] = useState<string | null>(null)
+  const [connections, setConnections] = useState<DbConnection[]>([])
+  const [pickedConn, setPickedConn] = useState<string>('')
   // Draft password per row, and the result of the last connection test per row.
   const [pwDraft, setPwDraft] = useState<Record<string, string>>({})
   const [testResult, setTestResult] = useState<Record<string, { ok: boolean; text: string }>>({})
@@ -2160,6 +2192,9 @@ function DatabasesSection() {
     try {
       const res = await apiClient.get('/api/graph-studio/databases/catalog')
       const list = (res.data?.databases || []) as DbEntry[]
+      const conns = (res.data?.connections || []) as DbConnection[]
+      setConnections(conns)
+      setPickedConn(prev => prev || (conns.find(c => c.default)?.key ?? conns[0]?.key ?? ''))
       setActive(res.data?.active_sql ?? null)
       setRows(list.map(r => ({
         ...r,
@@ -2272,6 +2307,11 @@ function DatabasesSection() {
         dbname: (r.dbname || '').toString().trim() || null,
         user: (r.user || '').toString().trim() || null,
         enabled: r.enabled !== false,
+        // `default` marks the connection an agent falls back to, and `url` is the one-line form the
+        // connection editor offers. Dropping them here would make the checkbox a decoration that
+        // un-ticks itself on the next load.
+        default: r.default === true,
+        url: ((r as any).url || '').toString().trim() || null,
       }))
       .filter(r => r.name)
     const bad = clean.find((r, i) => clean.findIndex(x => x.name === r.name) !== i)
@@ -2296,6 +2336,76 @@ function DatabasesSection() {
     minWidth: 0, boxSizing: 'border-box', ...style,
   })
 
+  // ── grouping the table ──────────────────────────────────────────────────
+  // Two levels, because they are two different things: CONNECTIONS (servers an agent picks) and the
+  // DATABASES on each one. A database can serve more than one business app (talent_db is Talent's store
+  // AND talent_v1's ontology), so the app is a TAG, not a folder it lives in.
+  const serverRows = rows.filter(r => r.kind === 'server')
+  const dashboardRows = rows.filter(r => r.kind === 'dashboard')
+  const picked = connections.find(c => c.key === pickedConn) ?? connections[0]
+  const dbsOfPicked = picked?.databases ?? []
+  const groups: { id: string; title: string; note: string; items: DbEntry[] }[] = [
+    { id: 'system', title: '系统自用（仅 admin）', note: 'langconfig 自己的状态库：agent 配置、工具、skill、会话',
+      items: dbsOfPicked.filter(d => d.bucket === 'system') },
+    { id: 'uploaded', title: '从 Excel / CSV 建库', note: '带建库戳（langconfig:built-from=…）的库，可追溯到源文件',
+      items: dbsOfPicked.filter(d => d.bucket === 'business' && d.origin === 'uploaded') },
+    { id: 'native', title: '库里原有 / 直接 mock', note: '预先存在，或直接在本体/库里造的库',
+      items: dbsOfPicked.filter(d => d.bucket === 'business' && d.origin !== 'uploaded') },
+  ]
+  const appBadge = (app: string) => {
+    const map: Record<string, { label: string; color: string }> = {
+      analysis: { label: '分析', color: '#8b5cf6' },
+      ontology: { label: '本体', color: '#0ea5e9' },
+      talent: { label: '招聘', color: '#f59e0b' },
+    }
+    const m = map[app] || { label: app, color: tok.labelTertiary }
+    return (
+      <span key={app} title={`这个库被 ${m.label} 使用`} style={{
+        display: 'inline-block', marginLeft: 4, padding: '0 5px', fontSize: 9.5, lineHeight: '15px',
+        borderRadius: 3, border: `1px solid ${m.color}`, color: m.color, verticalAlign: 'middle',
+      }}>{m.label}</span>
+    )
+  }
+  const dbRow = (d: DbEntry, idx: number) => {
+    const i = rows.findIndex(r => r.name === d.name)
+    const result = testResult[d.name]
+    return (
+      <tr key={`${d.name}-${idx}`} style={{ opacity: d.enabled === false ? 0.55 : 1 }}>
+        <td style={{ padding: '0 4px', textAlign: 'center' }}>
+          <input type="checkbox" checked={d.enabled !== false} disabled={!isAdmin}
+            title={d.enabled !== false ? '开启：SQL 工具/分析可以选它' : '关闭：不提供给工具'}
+            onChange={e => i >= 0 && patch(i, 'enabled', e.target.checked)} />
+        </td>
+        <td style={{ padding: '4px 6px', fontFamily: 'monospace', fontSize: 12 }}>{d.name}</td>
+        <td style={{ padding: '4px 6px', fontSize: 11, color: tok.labelTertiary }}>
+          {(d.apps || []).map(appBadge)}
+          {(d.ontology_keys || []).length > 0 && (
+            <span title={`本体 key：${(d.ontology_keys || []).join(', ')}`} style={{ marginLeft: 4, fontSize: 9.5, color: tok.labelTertiary }}>
+              · {(d.ontology_keys || []).slice(0, 2).join(' / ')}{(d.ontology_keys || []).length > 2 ? '…' : ''}
+            </span>
+          )}
+          {(d.apps || []).length === 0 && <span style={{ fontSize: 10 }}>未归类</span>}
+        </td>
+        <td style={{ padding: '0 4px', whiteSpace: 'nowrap' }}>
+          <button onClick={() => void testConnection(d.name)} disabled={testing === d.name}
+            title="真的连一次库，把服务器返回的原话显示出来"
+            style={{
+              height: 24, padding: '0 7px', fontSize: 10.5, borderRadius: 5,
+              border: `1px solid ${tok.borderL2}`, background: 'transparent',
+              color: tok.labelSecondary, cursor: testing === d.name ? 'wait' : 'pointer',
+            }}>{testing === d.name ? '…' : '测试'}</button>
+          {result && (
+            <div title={result.text} style={{
+              marginTop: 2, maxWidth: 260, fontSize: 10, lineHeight: '13px',
+              color: result.ok ? '#2e7d32' : '#e5484d',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>{result.ok ? '✓ ' : '✗ '}{result.text}</div>
+          )}
+        </td>
+      </tr>
+    )
+  }
+
   return (
     <div>
       <SectionTitle
@@ -2305,7 +2415,7 @@ function DatabasesSection() {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 10px' }}>
         <span style={{ fontSize: 12, color: tok.labelTertiary }}>
-          {rows.length} 个库 · {onCount} 个开启 · {rows.length - onCount} 个关闭
+          {connections.length} 个连接 · {rows.length} 个条目 · {onCount} 个开启
           {active ? ` · 当前指向 ${active}` : ''}
         </span>
         <button onClick={() => void testAll()} disabled={testingAll || !rows.length}
@@ -2321,162 +2431,157 @@ function DatabasesSection() {
         }}>重新扫描</button>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {loaded && rows.length === 0 && (
-          <div style={{ fontSize: 13, color: tok.labelTertiary, padding: '10px 0' }}>
-            {t('settings_databases_empty')}
-          </div>
-        )}
+      {loaded && rows.length === 0 && (
+        <div style={{ fontSize: 13, color: tok.labelTertiary, padding: '10px 0' }}>
+          {t('settings_databases_empty')}
+        </div>
+      )}
 
-        {rows.length > 0 && (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 4px', fontSize: 13 }}>
-              <thead>
-                <tr style={{ color: tok.labelTertiary, textAlign: 'left' }}>
-                  {['on', 'name', 'label', 'kind', 'host', 'port', 'user', 'password', '', ''].map((h, i) => (
-                    <th key={h || `c${i}`} style={{ padding: '4px 6px', fontWeight: 500, fontSize: 12 }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => {
-                  const fixedName = r.registered === false // discovered: the name is the real dbname
-                  return (
-                    <tr key={`${r.name}-${i}`} style={{ opacity: r.enabled ? 1 : 0.55 }}>
-                      <td style={{ padding: '0 4px', textAlign: 'center' }}>
-                        <input type="checkbox" checked={r.enabled !== false} disabled={!isAdmin}
-                          title={r.enabled !== false ? '开启：出现在下拉里' : '关闭：不提供给 agent'}
-                          onChange={e => patch(i, 'enabled', e.target.checked)} />
-                      </td>
-                      <td style={{ padding: '0 4px' }}>
-                        <input value={r.name} disabled={!isAdmin || fixedName}
-                          onChange={e => patch(i, 'name', e.target.value)}
-                          title={fixedName ? '服务器上已有的库，名字固定' : ''}
-                          placeholder="chinook" style={cell({ width: 140, fontFamily: 'monospace' })} />
-                      </td>
-                      <td style={{ padding: '0 4px' }}>
-                        <input value={r.label || ''} disabled={!isAdmin} onChange={e => patch(i, 'label', e.target.value)}
-                          placeholder="显示名" style={cell({ width: 160 })} />
-                      </td>
-                      <td style={{ padding: '0 4px' }}>
-                        <select value={r.kind} disabled={!isAdmin || fixedName} onChange={e => patch(i, 'kind', e.target.value)}
-                          style={cell({ width: 96 })}>
-                          <option value="platform">platform</option>
-                          <option value="target">target</option>
-                          <option value="dashboard">dashboard</option>
-                        </select>
-                      </td>
-                      <td style={{ padding: '0 4px' }}>
-                        <input value={r.host || ''} disabled={!isAdmin || r.kind !== 'target'}
-                          onChange={e => patch(i, 'host', e.target.value)}
-                          placeholder={r.kind === 'target' ? '127.0.0.1' : '—'} style={cell({ width: 110, fontFamily: 'monospace' })} />
-                        {!r.host && (r as any).effective_host && (
-                          <div
-                            title={`这一行没有自己的 host，实际连接用的是 ${(r as any).connection_source || '平台默认'}：`
-                                   + `${(r as any).effective_host}:${(r as any).effective_port}`
-                                   + `（用户 ${(r as any).effective_user || '默认'}）`}
-                            style={{ marginTop: 3, fontSize: 10, lineHeight: '13px', color: tok.labelTertiary,
-                                     maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                          >→ {(r as any).effective_host}:{(r as any).effective_port}</div>
-                        )}
-                      </td>
-                      <td style={{ padding: '0 4px' }}>
-                        <input value={r.port ?? ''} disabled={!isAdmin || r.kind !== 'target'}
-                          onChange={e => patch(i, 'port', e.target.value ? Number(e.target.value) : null)}
-                          placeholder={r.kind === 'target' ? '5432' : '—'} style={cell({ width: 66, fontFamily: 'monospace' })} />
-                        {!r.port && (r as any).effective_port && (
-                          <div style={{ marginTop: 3, fontSize: 10, lineHeight: '13px', color: tok.labelTertiary }}>
-                            → {(r as any).effective_port}
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ padding: '0 4px' }}>
-                        <input value={r.user || ''} disabled={!isAdmin || r.kind !== 'target'}
-                          onChange={e => patch(i, 'user', e.target.value)}
-                          placeholder={r.kind === 'target' ? 'myrole' : '—'} style={cell({ width: 88, fontFamily: 'monospace' })} />
-                        {!r.user && (r as any).effective_user && (
-                          <div style={{ marginTop: 3, fontSize: 10, lineHeight: '13px', color: tok.labelTertiary,
-                                        maxWidth: 88, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                               title={`实际连接身份：${(r as any).effective_user}`}>→ {(r as any).effective_user}</div>
-                        )}
-                      </td>
-                      <td style={{ padding: '0 4px' }}>
-                        <input
-                          type="password"
-                          value={pwDraft[r.name] || ''}
-                          disabled={!isAdmin || r.kind !== 'target'}
-                          onChange={e => setPwDraft(prev => ({ ...prev, [r.name]: e.target.value }))}
-                          onKeyDown={e => { if (e.key === 'Enter') void savePassword(r.name) }}
-                          onBlur={() => void savePassword(r.name)}
-                          placeholder={r.kind === 'target' ? (r.has_password ? '已设置（留空不改）' : '密码') : '—'}
-                          title={r.kind === 'target'
-                            ? (r.has_password ? '已保存密码；留空保存不会清除它' : '这个 target 还没有密码')
-                            : 'platform 用 POSTGRES_* 里的凭据'}
-                          style={cell({ width: 112, fontFamily: 'monospace' })}
-                        />
-                      </td>
-                      <td style={{ padding: '0 4px', whiteSpace: 'nowrap' }}>
-                        <button
-                          onClick={() => void testConnection(r.name)}
-                          disabled={testing === r.name}
-                          title="真的连一次库，把服务器返回的原话显示出来"
-                          style={{
-                            height: 26, padding: '0 8px', fontSize: 11, borderRadius: 5,
-                            border: `1px solid ${tok.borderL2}`, background: 'transparent',
-                            color: tok.labelSecondary, cursor: testing === r.name ? 'wait' : 'pointer',
-                          }}
-                        >{testing === r.name ? '…' : '测试'}</button>
-                        {testResult[r.name] && (
-                          <div
-                            title={testResult[r.name].text}
-                            style={{
-                              marginTop: 3, maxWidth: 190, fontSize: 10.5, lineHeight: '14px',
-                              color: testResult[r.name].ok ? '#2e7d32' : '#e5484d',
-                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            }}
-                          >{testResult[r.name].ok ? '✓ ' : '✗ '}{testResult[r.name].text}</div>
-                        )}
-                      </td>
-                      <td style={{ padding: '0 4px' }}>
-                        {isAdmin && !fixedName && (
-                          <button onClick={() => removeRow(i)} title="移除这一行"
-                            style={{ border: 'none', background: 'transparent', color: '#e5484d', cursor: 'pointer', fontSize: 13 }}>
-                            ✕
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+      {/* ── 1. connections ───────────────────────────────────────────────── */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: tok.labelPrimary }}>连接（agent 只从这里选一个）</span>
+          <span style={{ fontSize: 11, color: tok.labelTertiary }}>
+            一条连接 = 一台服务器 + 一个角色；它下面的库都能查
+          </span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {connections.map(c => {
+            const decl = serverRows.find(r => r.name === c.name)
+            const res = testResult[c.name]
+            const isPicked = picked?.key === c.key
+            return (
+              <div key={c.key} style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px',
+                border: `1px solid ${isPicked ? tok.primary : tok.borderL2}`, borderRadius: 6,
+                background: isPicked ? 'rgba(59,130,246,0.06)' : 'transparent',
+              }}>
+                <input type="radio" name="picked-conn" checked={isPicked}
+                  onChange={() => setPickedConn(c.key)}
+                  title="选中这一条，下面列出它的库" />
+                <span style={{ fontFamily: 'monospace', fontSize: 12.5, color: tok.labelPrimary, minWidth: 150 }}>
+                  {c.name}
+                </span>
+                <span style={{ fontFamily: 'monospace', fontSize: 11.5, color: tok.labelSecondary }}>
+                  {c.host}:{c.port} · {c.user}
+                </span>
+                <span style={{ fontSize: 10.5, color: tok.labelTertiary }}>{c.databases.length} 个库</span>
+                {c.default && <span style={{ fontSize: 10, color: '#2e7d32' }}>[默认]</span>}
+                {c.same_server_as && (
+                  <span style={{ fontSize: 10, color: tok.labelTertiary }}>（与 {c.same_server_as} 同一台服务器）</span>
+                )}
+                <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
+                  {decl ? (
+                    <>
+                      <input type="checkbox" checked={!!decl.default} disabled={!isAdmin}
+                        title="没有选连接的 agent 用它"
+                        onChange={e => { const i = rows.findIndex(r => r.name === decl.name); if (i >= 0) patch(i, 'default', e.target.checked) }} />
+                      <span style={{ fontSize: 10.5, color: tok.labelTertiary }}>默认</span>
+                      <input type="password" value={pwDraft[c.name] || ''} disabled={!isAdmin}
+                        onChange={e => setPwDraft(prev => ({ ...prev, [c.name]: e.target.value }))}
+                        onBlur={() => void savePassword(c.name)}
+                        placeholder={decl.has_password ? '密码已设置（留空不改）' : '密码'}
+                        style={cell({ width: 150, fontFamily: 'monospace', fontSize: 11 })} />
+                      <button onClick={() => void testConnection(c.name)} disabled={testing === c.name}
+                        style={{
+                          height: 24, padding: '0 8px', fontSize: 10.5, borderRadius: 5,
+                          border: `1px solid ${tok.borderL2}`, background: 'transparent',
+                          color: tok.labelSecondary, cursor: testing === c.name ? 'wait' : 'pointer',
+                        }}>{testing === c.name ? '…' : '测试'}</button>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: 10, color: tok.labelTertiary }}>由 {c.databases.length} 个库推导（未显式声明）</span>
+                  )}
+                </span>
+                {res && (
+                  <span title={res.text} style={{
+                    fontSize: 10, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap', color: res.ok ? '#2e7d32' : '#e5484d',
+                  }}>{res.ok ? '✓ ' : '✗ '}{res.text}</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        {isAdmin && (
+          <button onClick={() => { addRow(); setRows(prev => prev.map((r, i) => i === prev.length - 1 ? { ...r, kind: 'server' } : r)) }}
+            style={{
+              marginTop: 6, padding: '4px 10px', fontSize: 11.5, borderRadius: 4, cursor: 'pointer',
+              border: `1px dashed ${tok.borderL2}`, background: 'transparent', color: tok.labelSecondary,
+            }}>＋ 新增连接（服务器 + 角色）</button>
         )}
+      </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
-          {isAdmin ? (
-            <>
-              <button onClick={addRow} style={{
-                padding: '5px 12px', fontSize: 13, borderRadius: 4, cursor: 'pointer',
-                border: `1px solid ${tok.borderL2}`, background: 'transparent', color: tok.labelPrimary,
-              }}>{t('settings_databases_add')}</button>
-              <button onClick={save} disabled={saving} style={{
-                padding: '5px 14px', fontSize: 13, borderRadius: 4, cursor: saving ? 'wait' : 'pointer',
-                border: 'none', background: tok.primary, color: '#fff', opacity: saving ? 0.6 : 1,
-              }}>{saving ? '…' : t('settings_databases_save')}</button>
-            </>
-          ) : (
-            <span style={{ fontSize: 12, color: tok.labelTertiary }}>{t('settings_databases_admin_only')}</span>
-          )}
-          {msg && (
-            <span style={{ fontSize: 12, color: msg.ok ? '#2e7d32' : '#e5484d' }}>{msg.text}</span>
+      {/* ── 2. this connection's databases, by what they are ─────────────── */}
+      {picked && (
+        <div style={{ borderTop: `1px solid ${tok.borderL2}`, paddingTop: 10, marginBottom: 12 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: tok.labelPrimary, marginBottom: 2 }}>
+            {picked.name} 上的 {dbsOfPicked.length} 个库
+          </div>
+          <div style={{ fontSize: 11, color: tok.labelTertiary, marginBottom: 8 }}>
+            勾选 = 提供给 SQL 工具 / 分析；标签是「哪个业务 app 在用它」（一个库可以同时服务多个）。
+          </div>
+          {groups.map(g => g.items.length > 0 && (
+            <div key={g.id} style={{ marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, margin: '4px 0' }}>
+                <span style={{ fontSize: 11.5, fontWeight: 600, color: tok.labelSecondary }}>{g.title}</span>
+                <span style={{ fontSize: 10.5, color: tok.labelTertiary }}>{g.note}</span>
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 3px', fontSize: 12 }}>
+                <tbody>{g.items.map(dbRow)}</tbody>
+              </table>
+            </div>
+          ))}
+          {dbsOfPicked.length === 0 && (
+            <div style={{ fontSize: 11.5, color: tok.labelTertiary }}>
+              这条连接下还没有列出库 —— 点「测试」确认它连得上，再用「重新扫描」。
+            </div>
           )}
         </div>
+      )}
 
-        <p style={{ fontSize: 12, lineHeight: '18px', color: tok.labelTertiary, margin: '10px 0 0', maxWidth: 760 }}>
-          {t('settings_databases_hint')}
-        </p>
+      {/* ── 3. dashboard groupings (not databases at all) ────────────────── */}
+      {dashboardRows.length > 0 && (
+        <div style={{ borderTop: `1px solid ${tok.borderL2}`, paddingTop: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: tok.labelPrimary }}>看板分组（不是数据库）</span>
+            <span style={{ fontSize: 11, color: tok.labelTertiary }}>
+              分析活动里的看板组合：没有 host、没有密码、不可被 agent 选为连接
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {dashboardRows.map(r => (
+              <span key={r.name} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px',
+                border: `1px solid ${tok.borderL2}`, borderRadius: 4, fontSize: 11,
+                fontFamily: 'monospace', color: tok.labelSecondary, opacity: r.enabled === false ? 0.5 : 1,
+              }}>
+                <input type="checkbox" checked={r.enabled !== false} disabled={!isAdmin}
+                  onChange={e => { const i = rows.findIndex(x => x.name === r.name); if (i >= 0) patch(i, 'enabled', e.target.checked) }} />
+                {r.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+        {isAdmin ? (
+          <>
+            <button onClick={() => void save()} disabled={saving} style={{
+              padding: '5px 14px', fontSize: 13, borderRadius: 4, cursor: saving ? 'wait' : 'pointer',
+              border: 'none', background: tok.primary, color: '#fff', opacity: saving ? 0.6 : 1,
+            }}>{saving ? '…' : t('settings_databases_save')}</button>
+            {msg && <span style={{ fontSize: 12, color: msg.ok ? '#2e7d32' : '#e5484d' }}>{msg.text}</span>}
+          </>
+        ) : (
+          <span style={{ fontSize: 12, color: tok.labelTertiary }}>{t('settings_databases_admin_only')}</span>
+        )}
       </div>
+
+      <p style={{ fontSize: 12, lineHeight: '18px', color: tok.labelTertiary, margin: '10px 0 0', maxWidth: 760 }}>
+        {t('settings_databases_hint')}
+      </p>
     </div>
   )
 }
