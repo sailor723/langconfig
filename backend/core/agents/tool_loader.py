@@ -498,10 +498,10 @@ class ToolLoader:
                         tool = await ToolFactory.create_tool(tool_config, project_id)
                         tools.append(tool)
 
-                        # Update usage tracking
-                        custom_tool.usage_count += 1
-                        custom_tool.last_used_at = datetime.utcnow()
-                        db.commit()
+                        # Load-time counting is GONE: `usage_count` now means "called", recorded by
+                        # `core/tools/usage.py` around the tool's callable (ToolFactory wraps every tool).
+                        # Keeping this increment as well would make one call look like two events, and a
+                        # rebuild look like a use.
 
                         logger.info(f"✓ Loaded custom tool: {custom_tool.name} ({tool_id})")
 

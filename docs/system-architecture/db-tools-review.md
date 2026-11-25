@@ -102,11 +102,29 @@
 整理后：`/api/tools/registry` **94 → 89**（隐藏 5 个），数据库相关候选从 24 收敛到 **13** +
 6 个平台自省（新分类）。
 
-### 仍然 OPEN
+### `usage_count` 已修（2026-11-25）
 
-1. **`usage_count` 仍然不动**（88 行全 0，包括刚真实调用过的 `db_list_databases`）。写入点在
-   `core/agents/tool_loader.py:502`（加载时 +1）——说明聊天路径没走到那里。修之前，任何「哪个工具真被用过」
-   的结论都只能靠绑定关系推断。
+**根因不是「聊天路径绕过计数」，而是计数写错了地方。** 唯一的写入点在
+`core/agents/tool_loader.py::load_custom` —— 那是**用户自定义工具**的加载路径；builtin/原生工具
+（整个 `db_*`、`pg_*`、技能、文件系统族）走的是 `_load_builtin_from_db`，**从来没有加过 1**。所以 88 行全 0，
+`last_used_at` 全空。
+
+而且「加载时计数」本身就是错的数：它回答的是「这个 agent 被建成时带了哪些工具」，不是「有没有人真的调过它」。
+整理要看的是后者。
+
+**改法**：计数挪到**调用**处 —— `core/tools/usage.py` 包住工具的可调用体，`ToolFactory.create_tool` 在返回前
+统一套上（两条加载路径都经过它，所以一次改动覆盖全部）。`load_custom` 里那行加载时 +1 已删除，避免一次调用被记成
+两次、一次重建被记成一次使用。
+
+三条规矩（都有门禁 `tests/test_tool_usage_counting.py`，5 条）：
+① 计数失败绝不影响工具调用（无库、无行、会话已关 → debug 日志 + 吞掉）；
+② **调用抛异常也计数，记成 `error_count`**，且异常照常抛给调用方（跳过它等于把失败藏起来）；
+③ 重复包装不重复计数（agent 重建不该看起来像一次使用）。
+
+实测（真回合）：`db_describe` 从 0 → 2，`last_used_at` 有时间戳；`db_list_databases` 那一轮没被调用，仍是 0 ——
+这正是「能回答哪个工具真被用过」的样子。
+
+### 仍然 OPEN
 2. **`sqlite_*`** 两个仍在候选里（4 个 public demo agent 绑着）。我们的栈是 Postgres，SQLite 是遗留演示路径；
    要么把 demo 迁到 Postgres，要么同样标废弃。
 3. **`db_dashboard`** 与本体看板（`dashboard.json` + 工作台）是两条生成路径，迟早给出两块不一样的板。留着但

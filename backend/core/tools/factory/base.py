@@ -83,7 +83,18 @@ class _ToolFactoryBaseMixin:
         else:
             raise NotImplementedError(f"Tool type '{tool_type}' is not yet implemented")
 
-        return ToolFactory._attach_definition(tool, definition)
+        tool = ToolFactory._attach_definition(tool, definition)
+
+        # Count a CALL, not a load. The only writer used to be `load_custom` (+1 on load), so every
+        # builtin/native tool counted nothing — measured: usage_count 0 on all 88 rows including tools we
+        # had just called. Wrapping here covers both load paths, because both build through this factory.
+        try:
+            from core.tools.usage import wrap as _wrap_usage
+
+            tool = _wrap_usage(tool, tool_config.get("tool_id") or tool_config.get("name") or "")
+        except Exception as exc:                                  # noqa: BLE001 — telemetry never breaks a tool
+            logger.debug(f"usage counting not attached for {tool_config.get('name')}: {exc}")
+        return tool
 
     @staticmethod
     def _attach_definition(tool: BaseTool, definition: Any) -> BaseTool:
