@@ -161,6 +161,7 @@ docs/system-architecture/*
 !docs/system-architecture/multitenancy.md
 !docs/system-architecture/ontology-agents.md
 !docs/system-architecture/ontology-pipeline.md
+!docs/system-architecture/db-tools-review.md
 !docs/system-architecture/settings-refactor.md
 !docs/system-architecture/skill-authoring.md
 !docs/system-architecture/storage-map.md

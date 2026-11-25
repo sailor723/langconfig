@@ -302,6 +302,18 @@
         "superseded_by": "",
         "url": "",
         "version": 1
+      },
+      {
+        "enabled": true,
+        "key": "ticket_ops_v1",
+        "kind": "trial",
+        "label": "客服工单运营",
+        "latest": true,
+        "note": "registered by ontology_register",
+        "profile": "ticket_ops_v1/ticket_ops_v1_settings.json",
+        "superseded_by": "",
+        "url": "",
+        "version": 1
       }
     ],
     "python": "",
