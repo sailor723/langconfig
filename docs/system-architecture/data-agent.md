@@ -489,6 +489,10 @@ grill = 动手之前，把你那句「我想按城市看每月销售」，问到
 ![七格流水线：从一句话到 staging 候选（含两处停点与每格产物）](../assets/data-agent-pipeline7.svg)
 
 
+> **下文的 `393` 是本机 Ontology Builder 的 agent id。** 它随安装而变 —— 例如同一套代码在
+> ECS 上那个角色是 `392`。要找人**按名字**找（`Ontology Builder`），不要把 id 写进脚本或文档；
+> 本文写 id 只是为了指代方便。
+
 ### 零、工作单元是"票"，不是"阶段"
 
 一条用户的话要走完：**grill → 规格 → 工单 → 逐票干活 → 逐票验收**。七格/七阶只是**票的类型**，
@@ -2509,6 +2513,7 @@ bash scripts/update_host_from_git.sh root@<host> --key ~/.ssh/<key>.pem
 | 工具少装了几条、merge 还说 0 added | 显式 id 被占就**整行跳过** | id 被占改取序列值（有守卫测试） |
 | 图字出框 / 表格冲出纸边 | 生成器不报错，静默裁切 | `check_svg_overflow.py` + PDF 边界量测 |
 | 目录的链接点不到 | 两套 slug 各写各的 | 三份产物共用 `build_toc.slug()` |
+| 照文档里的 id 找不到 agent | agent id 随安装变（本机 393、ECS 392） | 按**名字**查：`select id,name from deep_agent_templates where name like 'Ontology%'` |
 
 ## 12.12 一张清单（照着做，不要凭记忆）
 
