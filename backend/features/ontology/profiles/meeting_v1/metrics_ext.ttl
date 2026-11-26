@@ -51,6 +51,7 @@
 
 :noNoteItemCount a owl:DatatypeProperty ; rdfs:label "纪要缺失的决议事项数" ;
     :askedAs "纪要缺失的决议事项数是多少？" ;
+    :askedAs "纪要缺失的事项有多少条？" ;
     :aggregate "count" ; :grain :DecisionItem ; :universe :DecisionItem ; :where :NoNoteItem ;
     :additivity "additive" ; :unit "row" ;
     :businessDescription "口径来源：answers:Q2（纪要缺失的行仍然是事项）+ measured: samples.json；没有实质纪要 = 1651（占位符 / 空 / 长度 ≤3）。与 notedItemCount 互斥且穷尽 1911 + 1651 = 3562。" .
@@ -71,30 +72,35 @@
 
 :weeklyMeetingItemCount a owl:DatatypeProperty ; rdfs:label "周会类事项数" ;
     :askedAs "周会类事项数是多少？" ;
+    :askedAs "周会类事项有多少条？" ;
     :aggregate "count" ; :grain :DecisionItem ; :universe :DecisionItem ; :where :WeeklyMeetingItem ;
     :additivity "additive" ; :unit "row" ;
     :businessDescription "口径来源：answers:Q5（14 个原始标签，斜杠值不拆）；例会 369 + 周会 112 = 481，不含组合标签「例会/工作汇报」257 行。" .
 
 :topicMeetingItemCount a owl:DatatypeProperty ; rdfs:label "专题会类事项数" ;
     :askedAs "专题会类事项数是多少？" ;
+    :askedAs "专题会类事项有多少条？" ;
     :aggregate "count" ; :grain :DecisionItem ; :universe :DecisionItem ; :where :TopicMeetingItem ;
     :additivity "additive" ; :unit "row" ;
     :businessDescription "口径来源：answers:Q5（14 个原始标签，斜杠值不拆）；六种有议题的会 = 1902，不含组合标签「例会/工作汇报」257 行。" .
 
 :adHocMeetingItemCount a owl:DatatypeProperty ; rdfs:label "临时会类事项数" ;
     :askedAs "临时会类事项数是多少？" ;
+    :askedAs "临时会类事项有多少条？" ;
     :aggregate "count" ; :grain :DecisionItem ; :universe :DecisionItem ; :where :AdHocMeetingItem ;
     :additivity "additive" ; :unit "row" ;
     :businessDescription "口径来源：answers:Q5（14 个原始标签，斜杠值不拆）；临时 661 + 例会/临时会议 7 = 668。" .
 
 :trainingMeetingItemCount a owl:DatatypeProperty ; rdfs:label "培训类事项数" ;
     :askedAs "培训类事项数是多少？" ;
+    :askedAs "培训类事项有多少条？" ;
     :aggregate "count" ; :grain :DecisionItem ; :universe :DecisionItem ; :where :TrainingMeetingItem ;
     :additivity "additive" ; :unit "row" ;
     :businessDescription "口径来源：answers:Q5（14 个原始标签，斜杠值不拆）；培训 = 67。" .
 
 :ambiguousTypeItemCount a owl:DatatypeProperty ; rdfs:label "类型存疑事项数" ;
     :askedAs "类型存疑事项数是多少？" ;
+    :askedAs "类型存疑的事项有多少条？" ;
     :aggregate "count" ; :grain :DecisionItem ; :universe :DecisionItem ; :where :AmbiguousTypeItem ;
     :additivity "additive" ; :unit "row" ;
     :businessDescription "口径来源：answers:Q5（类型无法唯一归一的 145 行单列，不猜）；「例会/工作汇报」257 行，规格 §2.5 自相矛盾，本体不替业务拍（Q5）。这 257 行既不在周会类也不在专题会类里，四个会议类互不重叠。" .
@@ -102,6 +108,7 @@
 # ---------------------------------------------------------------- 日期闭环
 :datedItemCount a owl:DatatypeProperty ; rdfs:label "可判定闭环的事项数" ;
     :askedAs "可判定闭环的事项数是多少？" ;
+    :askedAs "可判定闭环的事项有多少条？" ;
     :aggregate "count" ; :grain :DecisionItem ; :universe :DecisionItem ; :where :DatedItem ;
     :additivity "additive" ; :unit "row" ;
     :businessDescription "口径来源：answers:Q6（分母 = 计划完成与实际完成都存在的行）+ Q10；计划与实际都能解析成日期的行 = 1678，闭环类指标唯一合法的分母（Q6）。" .
@@ -114,18 +121,21 @@
 
 :overdueItemCount a owl:DatatypeProperty ; rdfs:label "超期事项数" ;
     :askedAs "超期事项数是多少？" ;
+    :askedAs "超期事项有多少条？" ;
     :aggregate "count" ; :grain :DecisionItem ; :universe :DecisionItem ; :where :OverdueItem ;
     :additivity "additive" ; :unit "row" ;
     :businessDescription "口径来源：answers:Q6 + Q10（锚会议日期）；实际晚于计划 = 58。" .
 
 :earlyItemCount a owl:DatatypeProperty ; rdfs:label "提前完成事项数" ;
     :askedAs "提前完成事项数是多少？" ;
+    :askedAs "提前完成的事项有多少条？" ;
     :aggregate "count" ; :grain :DecisionItem ; :universe :DecisionItem ; :where :EarlyItem ;
     :additivity "additive" ; :unit "row" ;
     :businessDescription "口径来源：answers:Q6 + Q10（锚会议日期）；实际早于计划 = 11。提前不是超期，不计入未按期。" .
 
 :futureScheduledItemCount a owl:DatatypeProperty ; rdfs:label "排期在未来的事项数" ;
     :askedAs "排期在未来的事项数是多少？" ;
+    :askedAs "排期在未来的事项有多少条？" ;
     :aggregate "count" ; :grain :DecisionItem ; :universe :DecisionItem ; :where :FutureScheduledItem ;
     :additivity "additive" ; :unit "row" ;
     :businessDescription "口径来源：answers:Q10（排期在未来 7 行只在这一点上计数，不进窗口分母）；会议日期晚于今天 = 7（Q10：看闭环时剔除未来期间，剔除量在这里可数）。" .
