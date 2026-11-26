@@ -7,7 +7,7 @@ from the rest of the platform in two ways:
 
 1. **As selectable native tools** — ``run_sql_agent()`` / ``run_neo4j_agent()``
    are plain-call adapters invoked by the seeded built-in tools
-   (``sql_agent_tool`` / ``neo4j_agent_tool`` in ``tools/native_impl.py``).
+   (``db_query_langgraph`` / ``neo4j_agent_tool`` in ``tools/native_impl.py``).
    Because those are ordinary ``custom_tools`` rows, they appear in the tool
    picker and load for **both** normal agents (``AgentFactory``) and
    DeepAgents (``DeepAgentFactory._load_base_tools``) — both go through the

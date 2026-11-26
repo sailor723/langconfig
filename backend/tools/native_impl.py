@@ -2795,6 +2795,11 @@ def bash(command: str, timeout: int = 30, cwd: str = None) -> str:
         timeout: Timeout in seconds (default 30, max 120)
         cwd: Working directory for the command (must be inside the sandbox)
     """
+    from core.tools.db_guard import refusal as _db_refusal
+
+    _blocked = _db_refusal(command or "")
+    if _blocked is not None:
+        return _blocked
     import subprocess
 
     timeout = max(1, min(int(timeout or 30), 120))
@@ -4544,12 +4549,12 @@ def databricks_query(sql: str, limit: int = 200) -> str:
 def pg_query(sql: str) -> str:
     """
     用我：查平台自己的 PostgreSQL（只读 SELECT），例如 deep_agent_templates。
-    别用我：查 SQLite / 临时表用 sqlite_execute；用自然语言问业务库用 sql_agent_tool。
+    别用我：查 SQLite / 临时表用 sqlite_execute；用自然语言问业务库用 db_query_langgraph。
 
     Run a read-only SQL SELECT query against PostgreSQL and return results as a table.
 
     SAFETY: Only SELECT statements are allowed. INSERT/UPDATE/DELETE are rejected.
-    Use pg_execute for write operations.
+    Use db_execute for write operations.
 
     Args:
         sql: The SELECT SQL query to run (e.g. 'SELECT * FROM deep_agent_templates LIMIT 5')
@@ -4575,7 +4580,7 @@ def pg_query(sql: str) -> str:
     no_comments = _re.sub(r"^\s*(--[^\n]*\n|/\*.*?\*/|#.*?\n)*\s*", "", stripped,
                           flags=_re.DOTALL).lower()
     if not no_comments.startswith("select"):
-        return "❌ Only SELECT queries are allowed. Use pg_execute for write operations."
+        return "❌ Only SELECT queries are allowed. Use db_execute for write operations."
     sql = stripped
 
     db = _get_pg_session()
@@ -4603,63 +4608,6 @@ def pg_query(sql: str) -> str:
     finally:
         db.close()
 
-
-@tool
-def pg_execute(sql: str) -> str:
-    """
-    用我：改**平台自己这个库**（`POSTGRES_DB`）里的行——INSERT / UPDATE / DELETE，一次一条。
-    别用我：**别的库**的 DDL/DML 用 `db_execute`（它按 db_name 指名目标库、两段式确认）；
-    只读查询用 `pg_query`（平台库）或 `db_query`（任意库）；建表/改表这类 DDL 两个写工具都不做。
-
-    Execute a write SQL statement (INSERT, UPDATE, DELETE) against PostgreSQL.
-
-    WARNING: This modifies database data. Use with caution.
-
-    Args:
-        sql: The SQL statement to execute (e.g. "UPDATE deep_agent_templates SET name='New Name' WHERE id=1")
-
-    Returns:
-        Confirmation message with number of rows affected
-
-    Example:
-        >>> pg_execute("UPDATE deep_agent_templates SET is_public=false WHERE id=1")
-        >>> pg_execute("DELETE FROM chat_sessions WHERE is_active=false")
-    """
-    import sqlalchemy as sa
-    # Write guard: only row-level DML (INSERT/UPDATE/DELETE). Destructive DDL
-    # (CREATE/ALTER/DROP/TRUNCATE) is intentionally excluded, and ';' is banned
-    # so a stacked "UPDATE ...; DROP TABLE ..." can't slip through.
-    stripped = sql.strip()
-    if stripped.endswith(";"):
-        stripped = stripped[:-1].rstrip()
-    if ";" in stripped:
-        return "❌ Multiple statements are not allowed. Use a single write statement."
-    sql_lower = stripped.lower()
-    if not (sql_lower.startswith("insert")
-            or sql_lower.startswith("update")
-            or sql_lower.startswith("delete")):
-        return ("❌ Only INSERT/UPDATE/DELETE statements are allowed. "
-                "Destructive DDL (CREATE/ALTER/DROP/TRUNCATE) is blocked. "
-                "Use pg_query for SELECT.")
-    sql = stripped
-
-    db = _get_pg_session()
-    try:
-        conn = db.connection()
-        result = conn.execute(sa.text(sql))
-        db.commit()
-        return f"✅ Statement executed successfully. {result.rowcount} row(s) affected."
-    except Exception as e:
-        db.rollback()
-        return f"❌ Execute error: {e}"
-    finally:
-        db.close()
-
-
-# =============================================================================
-# PostgreSQL Domain-Specific Tools (read entity configs)
-# These provide structured access to application entities rather than raw SQL.
-# =============================================================================
 
 @tool
 def pg_list_agents(category: str | None = None) -> str:
@@ -4858,15 +4806,17 @@ def pg_list_skills(limit: int = 50) -> str:
         db.close()
 
 
-def search_skills(query: str) -> str:
+def search_skills(query: str = "") -> str:
     """
-    Search skills by name, description, or tags.
+    用我：按名字 / 描述 / tags 找技能；**query 留空就是列出全部**（按使用次数排序，最多 50 条）。
+    别用我：要知道某个技能怎么用，读它的 SKILL.md，不要靠这里的摘要猜。
 
-    Useful for an agent to find relevant skills for a given task.
-    Returns matching skills with their ID, name, description, tags, and triggers.
+    Search skills by name, description, or tags — with an EMPTY query, list every skill (most
+    used first). Listing and searching are the same question about the same table, which is why the
+    old pair (`pg_list_skills` + `search_skills`) is one tool now.
 
     Args:
-        query: Search keyword (e.g., 'stock', 'database', 'research')
+        query: Search keyword (e.g., 'stock', 'database', 'research'). Empty lists all skills.
 
     Returns:
         Formatted list of matching skills
@@ -4877,8 +4827,19 @@ def search_skills(query: str) -> str:
     from models.skill import Skill
     db = _get_pg_session()
     try:
-        query_lower = query.lower()
+        query_lower = (query or "").strip().lower()
         skills = db.query(Skill).order_by(Skill.usage_count.desc()).all()
+        if not query_lower:
+            # listing: no filter, capped the way pg_list_skills used to cap it
+            skills = skills[:50]
+            lines = [f"## Skills ({len(skills)} shown, most used first)", ""]
+            for s_ in skills:
+                lines.append(f"### {s_.name} (`{s_.skill_id}`)")
+                lines.append(f"  Description: {s_.description or 'N/A'}")
+                lines.append(f"  Tags: {', '.join(s_.tags or [])}")
+                lines.append(f"  Used: {s_.usage_count}x")
+                lines.append("")
+            return "\n".join(lines)
         matches = []
         for s in skills:
             if (query_lower in s.name.lower() or
@@ -6048,7 +6009,7 @@ def _validate_sqlite_db_path(db_path: str):
 def sqlite_execute(sql: str, db_path: str = ":memory:") -> str:
     """
     用我：对 SQLite 文件或临时表跑只读 SQL（配 sqlite_load_csv 建表）。这是**本地临时数据**的路径
-    （CSV 试算、一次性表格），不是数据库：真库用 `db_query` / `db_describe`（任意 PostgreSQL 库），
+    （CSV 试算、一次性表格），不是数据库：真库用 `db_query_agent` / `db_describe`（任意 PostgreSQL 库），
     建库用 `db_build_from_file`。
     别用我：查平台库用 pg_query。
 
@@ -6126,13 +6087,46 @@ def sqlite_execute(sql: str, db_path: str = ":memory:") -> str:
 # ── Excel/CSV → PostgreSQL, for the table-building agents ────────────────────
 # The three tools below are the in-conversation form of `scripts/load_workbook_to_postgres.py`
 # and `scripts/review_db_constraints.py`. They exist because `pg_query` / `pg_list_tables` /
-# `pg_execute` are bound to the PLATFORM database: before this, building a new database from
+# the platform-level tools (`pg_*`) are bound to the PLATFORM database: before this, building a new database from
 # an upload meant shelling out, which not every agent has. Each tool here must be
 # self-contained (the seeder bakes this source into a DB row), so the helpers are small and
 # module-level, and heavy dependencies are imported inside the function that needs them.
 
+def _profile_dsn(ontology_key: str) -> dict:
+    """The connection an ontology's own profile declares (host/port/user/password/dbname).
+
+    An ontology may read a database that is NOT on this deployment's server — measured 2026-11-26:
+    `tpch` (SF0.1) lives on :5432 under role `weiping` while the platform's own database is :5433 /
+    role `langconfig`. Every db tool took `host`/`port`/`user` separately, so the agent had to
+    rediscover the four values per call and twice fell back to `psycopg2` in a shell (which the
+    guard refuses). The profile already declares them, so the tools take `ontology_key` and read
+    the declaration — one place, no guessing, no password in the transcript.
+    """
+    import json
+    import pathlib
+    import sys as _sys
+
+    key = (ontology_key or "").strip()
+    if not key:
+        return {}
+    repo = pathlib.Path(__file__).resolve().parents[1]
+    folder = repo / "features" / "ontology" / "profiles" / key
+    settings = None
+    for name in (f"{key}_settings.json", "settings.json"):
+        if (folder / name).is_file():
+            settings = folder / name
+            break
+    if settings is None:
+        raise ValueError(f"no profile {key!r} under features/ontology/profiles/ — check the key")
+    doc = json.loads(settings.read_text(encoding="utf-8"))
+    _sys.path.insert(0, str(repo / "features" / "ontology" / "compiler"))
+    import dsn as _dsn                                              # noqa: PLC0415
+
+    return _dsn.resolved({"dsn": dict(doc.get("dsn") or {})})
+
+
 def _pg_conn_kwargs(host: str = "", port: int = 0, user: str = "", dbname: str = "",
-                    *, password: str = "") -> dict:
+                    *, password: str = "", ontology_key: str = "") -> dict:
     """Connection kwargs: the agent's own connection → explicit argument → env → platform default.
 
     A password is NOT a tool argument. A tool call's arguments are the transcript, the tool log and the
@@ -6190,6 +6184,19 @@ def _pg_conn_kwargs(host: str = "", port: int = 0, user: str = "", dbname: str =
             kwargs["user"] = run_env["PGUSER"]
         if run_env.get("PGPASSWORD"):
             kwargs["password"] = run_env["PGPASSWORD"]
+    if ontology_key:
+        # A profile-declared server is a FACT with a home; it outranks the environment fallbacks above
+        # but still loses to an explicit argument (a caller who names a host means it).
+        declared = _profile_dsn(ontology_key)
+        if not host and declared.get("host"):
+            kwargs["host"] = declared["host"]
+        if not port and declared.get("port"):
+            kwargs["port"] = int(declared["port"])
+        if not user and declared.get("user"):
+            kwargs["user"] = declared["user"]
+        if declared.get("password"):
+            kwargs["password"] = declared["password"]
+        dbname = dbname or declared.get("dbname") or ""
     if dbname:
         kwargs["dbname"] = dbname
     return kwargs
@@ -6231,12 +6238,25 @@ def _infer_pg_type(values: list, name: str = "") -> str:
     import re as _re
     from decimal import Decimal as _Decimal
 
-    money = _re.compile(r"(amount|price|total|cost|revenue|fee|balance|tax|discount|salary|budget)")
+    # Money by NAME, in both languages. The Latin list alone meant the exception never fired on the
+    # column names this repo actually sees: measured 2026-11-25, `金额` with values 100/250/75 was
+    # classified BIGINT and only survived because those happened to be whole — 100.5 would have been
+    # NUMERIC by luck, not by rule.
+    money = _re.compile(r"(amount|price|total|cost|revenue|fee|balance|tax|discount|salary|budget"
+                        r"|金额|单价|总价|价格|收入|营业额|销售额|成本|费用|税|折扣|工资|预算|余额|毛利|净利|客单价)")
     iso = _re.compile(r"^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$")
     vals = [v for v in values if v is not None and not (isinstance(v, str) and v.strip() == "")]
     if not vals:
         return "TEXT"
     if all(isinstance(v, bool) for v in vals):
+        return "BOOLEAN"
+    # A spreadsheet exported to CSV/XLSX very often carries TRUE/FALSE as TEXT. The docstring above
+    # claimed booleans "stay BOOLEAN", but that only held for real Python bools — a text column of
+    # TRUE/FALSE was classified TEXT, and the skill that tells agents "布尔别建成文本" then had no way
+    # to be right. Postgres casts the same literals back into a boolean column on INSERT, so the
+    # classifier can accept them.
+    _BOOL_TEXT = {"true", "false"}
+    if all(isinstance(v, str) and v.strip().lower() in _BOOL_TEXT for v in vals):
         return "BOOLEAN"
     nums = [v for v in vals if isinstance(v, (int, float, _Decimal)) and not isinstance(v, bool)]
     if len(nums) == len(vals):
@@ -6454,7 +6474,10 @@ def db_rename_column(db_name: str, table: str, column: str, new_name: str, confi
     if not re.fullmatch(r"[a-z_][a-z0-9_]{0,58}", new_name or ""):
         return f"Error: new_name {new_name!r} must be lower_snake_case ASCII"
 
-    target = _pg_conn_kwargs(host, port, user, dbname=db_name)
+    try:
+        target = _pg_conn_kwargs(host, port, user, dbname=db_name, ontology_key=ontology_key)
+    except ValueError as exc:
+        return f"Error: {exc}"
     try:
         conn = psycopg2.connect(**target)
     except Exception as exc:                                   # noqa: BLE001
@@ -6502,67 +6525,18 @@ def db_rename_column(db_name: str, table: str, column: str, new_name: str, confi
             preview.append("确认后调用 db_rename_column(..., confirm=true)；然后再跑 db_review(apply=true) 建外键。")
             return "\n".join(preview)
 
-        cur.execute(f'ALTER TABLE "{schema_name}"."{table}" RENAME COLUMN "{column}" TO "{new_name}"')
+        # DDL 只有一条路：services/db_admin。它带单语句、服务器级动词、平台库这些守卫，
+        # 而这里原先直接 cur.execute，等于给 DDL 开了第二个没有守卫的门。
+        from services import db_admin
+        stmt = f'ALTER TABLE "{schema_name}"."{table}" RENAME COLUMN "{column}" TO "{new_name}"'
+        try:
+            db_admin.execute(db_name, stmt, confirm=True)
+        except db_admin.DbAdminError as exc:
+            return "\n".join(preview + [f"  REFUSED：{exc}"])
         preview.append(f"  已改名。下一步：db_review(db_name='{db_name}', apply=true) —— 新名字能让外键自动建上。")
         return "\n".join(preview)
     finally:
         conn.close()
-
-
-@tool
-def db_dashboard(db_name: str, confirm: bool = False, title: str = "", host: str = "", port: int = 0,
-                 user: str = "") -> str:
-    """
-    【已退役】别再用我。看板走本体流水线：`dashboard.json` + `check_dashboard` 门禁 + 工作台（
-    Ontology Builder 的 S6）。本工具仍能跑（历史 agent 绑着它），但它产出的是另一块独立的 HTML 板，
-    与本体看板的两条生成路径迟早给出不一样的数字 —— 这是 2026-11-25 工具盘点里唯一的「重复产品」。
-
-    用我（仅历史）：给一个库做**交互式 HTML 仪表盘**（KPI + 业务综述 + 桑基/气泡/树/条形/趋势），
-    两段式：先出方案给人确认。
-    别用我：只要几个数字用 db_query；只想看结构用 db_review。
-
-    Build an interactive dashboard for a database. **Two phases**, like the build tool:
-
-      1. `confirm=False` (default) → profiles the schema and returns the PLAN: which tables are
-         facts/dimensions/logs (logs never reach a chart), the measure, the time column, the
-         dimension chain (2–4 levels, taken from the schema's FK graph, so depth follows the data),
-         the ONE cube query every figure is derived from, and what the panels will show. Nothing is
-         written.
-      2. `confirm=true` → renders a self-contained HTML (D3 inlined, no network) into the agent
-         workspace's `generated/<db>_dashboard.html`, then re-runs the cube and refuses to ship if
-         the page's totals disagree with the database.
-
-    The page opens itself: the chat client asks `/api/chat/<id>/dashboards` when the turn ends and
-    opens the newest entry in a tab.
-
-    Args:
-        db_name: database to visualise
-        confirm: set true only after the user agreed to the plan
-        title: page title (default: "<db> · dashboard")
-        host/port/user: target server (empty = the platform's own server). A credential is NOT an argument — it arrives as PGPASSWORD from the agent's own Database configuration
-
-    Returns:
-        Without confirm: the plan (structure, chain, cube SQL, what each panel shows).
-        With confirm: where the file was written, plus the plan and the verification result.
-    """
-    from services import db_dashboard as dash
-
-    conn = _pg_conn_kwargs(host, port, user, dbname=db_name)
-    try:
-        if not confirm:
-            return dash.plan(db_name, **conn)
-    except Exception as exc:                                  # noqa: BLE001 — report, do not raise
-        return f"Error: cannot profile {db_name}: {exc}"
-
-    # Write beside the agent's own deliverables so the Files panel and the dashboards route see it.
-    roots = _sandbox_roots()
-    target_dir = Path(roots[0]) / "generated"
-    try:
-        target_dir.mkdir(parents=True, exist_ok=True)
-        out = target_dir / f"{_ident(db_name, fallback='dashboard')}_dashboard.html"
-        return dash.render(db_name, out, title=title or f"{db_name} · dashboard", **conn)
-    except Exception as exc:                                   # noqa: BLE001
-        return f"Error: could not render the dashboard: {exc}"
 
 
 @tool
@@ -6717,7 +6691,7 @@ def db_build_from_file(file: str, db_name: str, confirm: bool = False, host: str
                        user: str = "", recreate: bool = False) -> str:
     """
     用我：把一个上传的 Excel(.xlsx) 或 .csv 建成一个真的 PostgreSQL 库 —— **两段式**：先出方案，用户确认后才建。
-    别用我：只想读文件内容用 read_any_file；查已有业务库用 sql_agent_tool。
+    别用我：只想读文件内容用 read_any_file；查已有业务库用 db_query_langgraph。
 
     Build a PostgreSQL database from a spreadsheet. **Two phases, and phase two is not
     optional:** the first call (confirm omitted/false) inspects the workbook and returns the
@@ -6774,7 +6748,10 @@ def db_build_from_file(file: str, db_name: str, confirm: bool = False, host: str
         return f"Error: cannot connect to {admin['host']}:{admin['port']} as {admin['user']}: {exc}"
 
     conn.autocommit = True
-    target = _pg_conn_kwargs(host, port, user, dbname=db_name)
+    try:
+        target = _pg_conn_kwargs(host, port, user, dbname=db_name, ontology_key=ontology_key)
+    except ValueError as exc:
+        return f"Error: {exc}"
     with conn.cursor() as cur:
         cur.execute("select 1 from pg_database where datname = %s", (db_name,))
         exists = cur.fetchone() is not None
@@ -6818,7 +6795,10 @@ def db_build_from_file(file: str, db_name: str, confirm: bool = False, host: str
             stamp = ""
     conn.close()
 
-    target = _pg_conn_kwargs(host, port, user, dbname=db_name)
+    try:
+        target = _pg_conn_kwargs(host, port, user, dbname=db_name, ontology_key=ontology_key)
+    except ValueError as exc:
+        return f"Error: {exc}"
     conn = psycopg2.connect(**target)
     conn.autocommit = False
     out = [f"Database: {db_name} @ {target['host']}:{target['port']}"]
@@ -6886,7 +6866,10 @@ def db_review(db_name: str, host: str = "", port: int = 0, user: str = "",
     """
     import psycopg2
 
-    target = _pg_conn_kwargs(host, port, user, dbname=db_name)
+    try:
+        target = _pg_conn_kwargs(host, port, user, dbname=db_name, ontology_key=ontology_key)
+    except ValueError as exc:
+        return f"Error: {exc}"
     try:
         conn = psycopg2.connect(**target)
     except Exception as exc:
@@ -6995,6 +6978,83 @@ def db_review(db_name: str, host: str = "", port: int = 0, user: str = "",
                     named_fks.append((table, col, ref, ref_col))
                 else:
                     out.append(f"  {table}.{col} -> {ref}.{ref_col}  x {orphans} orphans (not built)")
+    if not named_fks:
+        out.append("  （无）")
+
+    # ── 自然键（文本/日期等非 id 列）────────────────────────────────────────
+    # 表格里的引用关系常常写在文本列上（orders.客户 → 客户档案.客户）。只靠 `*_id` 命名永远看不见它，
+    # 于是"把 Excel 建成关系库"这件事只做了一半：表建出来了，表与表之间的连接没有。
+    # 判据只有一条能被机械验证的：非空子集 —— 子列的每个非空值都出现在父表的唯一列里。这必要但不充分，
+    # 所以单独列一节、由 agent 跟人确认后才建。
+    natural_fks: list = []
+    out.append("\n## 自然键外键候选（按取值包含推断 —— 值能对上 ≠ 一定是外键，建之前要人确认）")
+    for table in tables:
+        for c in stats[table]:
+            col, dtype = c["column"], c["type"]
+            if col.lower().endswith("_id") or c["distinct"] == 0:
+                continue
+            if fam.get(dtype) not in ("txt", "date"):
+                continue         # 数值列上的包含关系太弱（客流量 vs 订单号 实测就是假阳性）
+            measure_like = bool(_MEASURE_NAME.search(col))
+            for ref in tables:
+                if ref == table:
+                    continue
+                # 候选父列 = 目标表的主键列 + 它的唯一列（无空值且 distinct == 行数）。
+                # 只认主键会漏掉"客户名"这种 UNIQUE 但非主键的自然键；而"列名不同、数据相同"
+                # （fact_order.customer -> dim_customer.customer_name）正是靠这条路才看得见。
+                parents: list[str] = []
+                key = chosen_pk(ref)
+                if key:
+                    parents.append(key[0])
+                parents += [pc["column"] for pc in stats[ref]
+                            if pc["column"] not in parents and not pc["nulls"]
+                            and pc["total"] and pc["distinct"] == pc["total"]]
+                child_pk = chosen_pk(table)
+                child_is_pk = bool(child_pk) and child_pk[0] == col
+                for ref_col in parents:
+                    parent = next((pc for pc in stats[ref] if pc["column"] == ref_col), None)
+                    if parent is None:
+                        continue
+                    # 方向约束：本表的**主键列**不该指向别人的非主键列。
+                    # 实测 2026-11-25：`dim_customer(customer_name PK)` 与 `fact_order(customer UNIQUE)`
+                    # 两侧数据完全相同时，会被同时报成两个方向的"外键"，其中"维表指向事实表"那条是反的。
+                    parent_pk = chosen_pk(ref)
+                    parent_is_pk = bool(parent_pk) and parent_pk[0] == ref_col
+                    if child_is_pk and not parent_is_pk:
+                        continue
+                    if fam.get(dtype) != fam.get(parent["type"]):
+                        continue     # `bigint = text` 在 Postgres 里直接报错（实测：月份 vs 订单号）
+                    if c["distinct"] > parent["distinct"] or c["distinct"] < 3:
+                        continue
+                    # 子 → 父：有没有孤儿
+                    cur.execute('select count(*) from "' + schema_name + '"."' + table + '" t where t."'
+                                + col + '" is not null and not exists (select 1 from "'
+                                + schema_name + '"."' + ref + '" r where r."' + ref_col
+                                + '" = t."' + col + '")')
+                    orphans = cur.fetchone()[0]
+                    # 父 → 子：只有"集合相同"才可能异名同数据（父表有这个值、子表没有就不是引用）
+                    orphans_back = None
+                    if col != ref_col and orphans == 0:
+                        cur.execute('select count(*) from "' + schema_name + '"."' + ref + '" r where r."'
+                                    + ref_col + '" is not null and not exists (select 1 from "'
+                                    + schema_name + '"."' + table + '" t where t."' + col
+                                    + '" = r."' + ref_col + '")')
+                        orphans_back = cur.fetchone()[0]
+                    tier = _fk_tier(col == ref_col, True, c["distinct"], parent["distinct"],
+                                    orphans, orphans_back or 0, measure_like)
+                    if tier == 2:
+                        out.append(f"  {table}.{col} -> {ref}.{ref_col}  "
+                                   f"(同名, 0 orphans, {c['distinct']} values)")
+                        natural_fks.append((table, col, ref, ref_col))
+                        break
+                    if tier == 3:
+                        out.append(f"  {table}.{col} -> {ref}.{ref_col}  (异名同数据, {c['distinct']} values "
+                                   f"两侧集合完全一致 —— 可能是同义列)")
+                        natural_fks.append((table, col, ref, ref_col))
+                        break
+    if not natural_fks:
+        out.append("  （无）")
+    for table in tables:
         for c in stats[table]:
             name = c["column"].lower()
             if fam.get(c["type"]) == "int" and name.endswith(("_at", "_code", "_no", "_key")) \
@@ -7002,8 +7062,6 @@ def db_review(db_name: str, host: str = "", port: int = 0, user: str = "",
                 hints.append(f"  {table}.{c['column']} — 名字像时间/编码，取值却是小整数，可能是命名 bug"
                              f"（例如 sold_at 实际存门店 id）")
 
-    if not named_fks:
-        out.append("  （无）")
     if hints:
         out.append("\n## 命名提示（不建约束，建议改名后再建）")
         out.extend(hints)
@@ -7014,6 +7072,14 @@ def db_review(db_name: str, host: str = "", port: int = 0, user: str = "",
         return "\n".join(out)
 
     out.append("\n## 应用约束")
+    # The review's own SELECTs opened an implicit transaction on this connection, and it holds
+    # ACCESS SHARE on the very tables the DDL below wants to lock. Running those ALTERs on a second
+    # connection (services/db_admin) then blocks itself: "canceling statement due to statement
+    # timeout". Ending the read transaction first is enough — the DDL takes its own locks.
+    try:
+        conn.rollback()
+    except Exception:                                        # noqa: BLE001 — a closed/broken conn is fine here
+        pass
     for table in tables:
         if pk_existing.get(table):
             out.append(f"  {table}: 已有主键，跳过")
@@ -7022,25 +7088,29 @@ def db_review(db_name: str, host: str = "", port: int = 0, user: str = "",
         if not key:
             out.append(f"  {table}: 无主键候选，跳过")
             continue
+        # 与 db_execute / db_rename_column 同一道门（见 services/db_admin）：平台库的 DDL 在这里也会被拒。
+        from services import db_admin
         try:
-            cur.execute('ALTER TABLE "' + schema_name + '"."' + table
-                        + '" ADD CONSTRAINT "' + table + '_pkey" PRIMARY KEY ("' + key[0] + '")')
-            conn.commit()
+            db_admin.execute(db_name, 'ALTER TABLE "' + schema_name + '"."' + table
+                             + '" ADD CONSTRAINT "' + table + '_pkey" PRIMARY KEY ("' + key[0] + '")',
+                             confirm=True)
             out.append(f"  {table}: PK ({key[0]}) ok")
         except Exception as exc:
-            conn.rollback()
             out.append(f"  {table}: PK 失败 — {exc}")
 
     cur.execute("""select conrelid::regclass::text from pg_constraint
                     where contype='f' and connamespace=(select oid from pg_namespace where nspname=%s)""",
                 (schema_name,))
-    for table, col, ref, ref_col in named_fks:
+    # id 约定找到的外键 + 取值包含推断的自然键，一起建（apply=True 就是"人已经确认过这份报告"）。
+    for table, col, ref, ref_col in list(named_fks) + list(natural_fks):
+        kind = "推定" if (table, col, ref, ref_col) in natural_fks and \
+                (table, col, ref, ref_col) not in named_fks else ""
         try:
-            cur.execute('ALTER TABLE "' + schema_name + '"."' + table + '" ADD CONSTRAINT "'
-                        + table + "_" + col + '_fkey" FOREIGN KEY ("' + col + '") REFERENCES "'
-                        + schema_name + '"."' + ref + '" ("' + ref_col + '")')
-            conn.commit()
-            out.append(f"  {table}.{col} -> {ref}.{ref_col}: FK ok")
+            from services import db_admin
+            db_admin.execute(db_name, 'ALTER TABLE "' + schema_name + '"."' + table + '" ADD CONSTRAINT "'
+                             + table + "_" + col + '_fkey" FOREIGN KEY ("' + col + '") REFERENCES "'
+                             + schema_name + '"."' + ref + '" ("' + ref_col + '")', confirm=True)
+            out.append(f"  {table}.{col} -> {ref}.{ref_col}: FK ok" + ("  (自然键推定)" if kind else ""))
         except Exception as exc:
             conn.rollback()
             out.append(f"  {table}.{col}: FK 失败 — {exc}")
@@ -7138,13 +7208,14 @@ def _render_query_rows(cols: list[str], rows: list, cap: int) -> str:
 
 
 @tool
-def db_query(db_name: str, sql: str = "", limit: int = 200, host: str = "", port: int = 0,
-             user: str = "", sqls: Optional[List[str]] = None, timeout_ms: int = 8000) -> str:
+def db_query_agent(db_name: str, sql: str = "", limit: int = 200, host: str = "", port: int = 0,
+             user: str = "", sqls: Optional[List[str]] = None, timeout_ms: int = 8000,
+             ontology_key: str = "") -> str:
     """
     用我：对**任意**数据库跑只读 SELECT（包括你用 db_build_from_file 刚建的那个）。**要量很多口径时，一次调用把整批 SELECT 发过来**（`sqls` 列表，或 `sql` 里用 `;` 分隔），一条连接一次往返拿回全部结果——往返才是成本，查询本身是毫秒级。
     别用我：写操作不该发生在报表里。DDL/DML 用 **`db_execute`**（任意库，两段式 plan→confirm；它按 db_name 拒绝平台库）；
-    平台库的行级改数据用 **`pg_execute`**（只写平台库，且只允许 INSERT/UPDATE/DELETE）；
-    自然语言问库用 `sql_agent_tool`（LangGraph 固定步骤），看结构用 `db_describe`。
+    平台库的行级改数据也用 **`db_execute`**（传平台库名，只放行 INSERT/UPDATE/DELETE，DDL 仍拒绝）；
+    自然语言问库用 `db_query_langgraph`（LangGraph 固定步骤），看结构用 `db_describe`。
 
     Run one or MANY read-only SELECTs against a named PostgreSQL database; each returns a markdown table.
 
@@ -7173,10 +7244,18 @@ def db_query(db_name: str, sql: str = "", limit: int = 200, host: str = "", port
 
     import psycopg2
 
+    # A model that wants a batch sometimes puts the LIST in `sql` instead of `sqls` — the schema says
+    # `sql: str`, but tool arguments are not enforced at runtime, and the old code then died with
+    # `AttributeError: 'list' object has no attribute 'startswith'` (a raw crash instead of an answer).
+    # Accept it: the intent is unambiguous, and the batch path already exists.
+    if isinstance(sql, (list, tuple)):
+        sqls = list(sql) + list(sqls or [])
+        sql = ""
+
     statements: List[str] = []
     for item in (sqls or []):
         statements.extend(_split_sql_statements(str(item or "")))
-    statements.extend(_split_sql_statements(sql or ""))
+    statements.extend(_split_sql_statements(str(sql or "")))
     if not statements:
         return "Error: empty SQL — pass `sql` or `sqls`."
     if len(statements) > _MAX_DB_QUERY_BATCH:
@@ -7191,7 +7270,10 @@ def db_query(db_name: str, sql: str = "", limit: int = 200, host: str = "", port
     cap = max(1, min(int(limit or 200), 2000))
     timeout = max(100, min(int(timeout_ms or 8000), 60000))
 
-    target = _pg_conn_kwargs(host, port, user, dbname=db_name)
+    try:
+        target = _pg_conn_kwargs(host, port, user, dbname=db_name, ontology_key=ontology_key)
+    except ValueError as exc:
+        return f"Error: {exc}"
     try:
         conn = psycopg2.connect(**target)
     except Exception as exc:
@@ -7293,6 +7375,10 @@ def _read_source_sheets(path):
     return sheets, None
 
 
+#: What counts as "a number written as text" for comparison purposes: 120, -3, 100.50, .5, 1e6.
+_NUM_RE = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?")
+
+
 def _canon(value) -> str:
     """Canonical string for comparing one cell across two representations.
 
@@ -7328,7 +7414,71 @@ def _canon(value) -> str:
         return value.isoformat()
     if isinstance(value, (dict, list)):
         return _json.dumps(value, ensure_ascii=False, sort_keys=True)
+    if isinstance(value, str):
+        text = value.strip()
+        # The FILE side is always strings: `'100.50'`, `'TRUE'`, `'2026-01-05'`. The database side is
+        # typed. Without these two normalisations a perfectly loaded table reports "0/4 rows match" —
+        # measured 2026-11-25 on a 4-row orders CSV whose totals were already identical on both sides.
+        low = text.lower()
+        if low in ("true", "false"):
+            return "t" if low == "true" else "f"
+        if _NUM_RE.fullmatch(text):
+            return _canon(_Decimal(text))
+        return text
     return str(value).strip()
+
+
+#: 名字像"度量"的列：它们的数值分布不可能靠包含关系证明引用关系（实测：客流量 3,1 ⊂ 订单号 1..4）。
+_MEASURE_NAME = re.compile(
+    r"(金额|数量|客流量|人次|计数|次数|合计|总额|总计|余额|率|占比|百分比|"
+    r"amount|price|total|cost|count|qty|quantity|sum|rate|ratio|pct|percent|score|weight)", re.I)
+
+
+def _fk_tier(same_name: bool, type_family_match: bool, child_distinct: int, parent_distinct: int,
+             orphan_child_to_parent: int, orphan_parent_to_child: int, measure_like: bool) -> int:
+    """Which tier of evidence, if any, links `child.col` to `parent.key`.
+
+    3 tiers, weakest last — the caller reports them separately and a human confirms before any DDL:
+
+    * **2 = 同名 + 值包含** — `orders.客户 → 客户档案.客户`.
+    * **3 = 异名 + 值集合相同** — the data is identical even though the names are not
+      (`orders.customer → 客户档案.客户名`). Set equality both ways is what separates this from the
+      "值碰巧都在里面" trap: 客流量 {3,1} is a subset of 订单号 {1,2,3,4} but the sets differ.
+    * **0 = no** — different type families, a measure-looking column, too few distinct values to mean
+      anything, orphans in either direction, or a child with more distinct values than the parent.
+    """
+    if not type_family_match or measure_like:
+        return 0
+    if child_distinct <= 0 or parent_distinct <= 0 or child_distinct > parent_distinct:
+        return 0
+    if orphan_child_to_parent:
+        return 0
+    if same_name:
+        return 2
+    # 异名：还要求"集合相同" + 至少 3 个不同值（2 个值的表太容易碰巧一致）
+    if child_distinct >= 3 and orphan_parent_to_child == 0 and child_distinct == parent_distinct:
+        return 3
+    return 0
+
+
+def _natural_fk_ok(child_type: str, parent_type: str, child_distinct: int,
+                   parent_distinct: int, orphans: int, child_nulls_ok: bool = True) -> bool:
+    """Should a (child column → parent key) pair be reported as a foreign-key candidate?
+
+    The name rule (`*_id`) only finds ids. A spreadsheet's natural keys are text: `orders.客户` →
+    `客户档案.客户` is a real reference with no `id` anywhere, and the tool never saw it — measured
+    2026-11-25 on a 3-sheet workbook where the agent had to build that link by hand.
+
+    Value containment is the evidence: every non-null child value appears in the parent's unique
+    column. That is necessary, not sufficient (the skill's own warning: 值能对上 ≠ 是外键), so the
+    caller reports these separately from the id-convention ones and the agent must confirm with a
+    human before building.
+    """
+    if child_type != parent_type or child_distinct <= 0:
+        return False
+    if parent_distinct and child_distinct > parent_distinct:
+        return False
+    return orphans == 0
 
 
 def _multiset(rows) -> dict:
@@ -7394,7 +7544,10 @@ def db_verify_against_file(file: str, db_name: str, host: str = "", port: int = 
     if error:
         return error
 
-    target = _pg_conn_kwargs(host, port, user, dbname=db_name)
+    try:
+        target = _pg_conn_kwargs(host, port, user, dbname=db_name, ontology_key=ontology_key)
+    except ValueError as exc:
+        return f"Error: {exc}"
     try:
         conn = psycopg2.connect(**target)
     except Exception as exc:
@@ -7659,6 +7812,10 @@ def python_execute(code: str, timeout: int = 30) -> str:
     """
     Execute Python code and return stdout + stderr.
 
+    **不可以用它连数据库**：解析文件、算数、生成报告、跑编译与门禁都可以；
+    `psql` / `psycopg2` / `sqlalchemy` / `connect(...dbname)` 会被拒绝——
+    数据只走 `db_query_agent` / `db_query_langgraph` / `db_execute` / `db_describe`。
+
     WARNING: Code runs in the same process. Only trusted agents should call this.
 
     Args:
@@ -7668,6 +7825,11 @@ def python_execute(code: str, timeout: int = 30) -> str:
     Returns:
         Combined stdout and stderr output.
     """
+    from core.tools.db_guard import refusal as _db_refusal
+
+    _blocked = _db_refusal(code or "")
+    if _blocked is not None:
+        return _blocked
     try:
         # Wrap code to capture stdout
         wrapper_code = (
@@ -7709,13 +7871,18 @@ def python_execute(code: str, timeout: int = 30) -> str:
 
 
 @tool
-def sql_agent_tool(question: str, database: str = "") -> str:
+def db_query_langgraph(question: str, database: str = "") -> str:
     """
-    用我：用自然语言问 Chinook 业务库（内部先转 SQL，返回结论）。
-    别用我：要精确 SQL 或查平台库用 pg_query。
+    用我：**用自然语言**问一个业务库（我按 LangGraph 固定步骤自己取 schema、写 SQL、自检、只读执行，再解释结论）。
+    别用我：**你已经知道要跑哪条 SQL** 时用 `db_query_agent`——它直连数据库、一条往返、可批量，比我快也比我便宜；
+    看结构用 `db_describe`；写数据用 `db_execute`。
 
-    Ask a natural-language question and get an answer from a PostgreSQL
-    database (read-only).
+    Ask a natural-language question and get an answer from a PostgreSQL database (read-only),
+    through a hand-built LangGraph pipeline.
+
+    Name says what it is: this is the LANGGRAPH one. `db_query_agent` is the direct one (you supply the
+    SQL). Both reach the same server with the same role — this one just spends several model calls
+    discovering tables, reading schemas, generating and checking the SQL first.
 
     Runs the hand-built LangGraph SQL agent: discovers tables, reads schemas,
     generates a PostgreSQL query, double-checks it, executes it read-only, and
@@ -7726,16 +7893,36 @@ def sql_agent_tool(question: str, database: str = "") -> str:
     Args:
         question: The natural-language SQL question to answer.
         database: Optional PostgreSQL database name to query. Empty uses the
-            default (env SQL_POSTGRES_DB, else POSTGRES_DB, else chinook).
+            database of this agent's own Database setting, then the studio
+            override / env SQL_POSTGRES_DB.
 
     Returns:
         The final answer text (not raw query results).
 
     Example:
-        >>> sql_agent_tool("Which genre has the longest average track?", database="chinook")
+        >>> db_query_langgraph("Which genre has the longest average track?", database="chinook")
     """
     from langgraph.tool_adapters import run_sql_agent
-    return run_sql_agent(question, database=database or None)
+
+    # THE AGENT'S DATABASE, NOT THE DEPLOYMENT'S. `sql_setup_db` resolves its server from
+    # SQL_POSTGRES_* / POSTGRES_*, i.e. the platform's own superuser; the graph would therefore
+    # ignore an agent's Database setting and query as the deployment. The binding that `db_query_agent`
+    # already follows (services/agent_database.bind_run_db_env) is passed here as the graph's
+    # explicit per-call `connection` override, so both tools reach the same server with the same
+    # role. `database` still selects WHICH database; the connection supplies the server and role.
+    connection = None
+    default_db = database or ""
+    try:
+        from services.agent_database import current_run_db_env
+
+        run_env = current_run_db_env() or {}
+        default_db = default_db or str(run_env.get("PGDATABASE") or "")
+        if run_env:
+            connection = {k.lower(): v for k, v in _pg_conn_kwargs(dbname=default_db).items()}
+    except Exception:                                          # noqa: BLE001 — no binding: keep the graph's own defaults
+        connection = None
+
+    return run_sql_agent(question, database=default_db or None, connection=connection)
 
 
 @tool
@@ -7795,3 +7982,210 @@ def neo4j_agent_advanced_tool(question: str, database: str = "") -> str:
     """
     from langgraph.tool_adapters import run_neo4j_agent_advanced
     return run_neo4j_agent_advanced(question, database=database or None)
+
+# ───────────────────────────────────────────────────────────── ontology gate doc
+#: Which gate families each build STAGE actually runs. Kept next to the tool (not in a doc) and
+#: asserted against `features/ontology/stage_checks.py` by tests/test_context_cost_guards.py, so a
+#: stage that starts running another gate cannot leave this answer stale.
+STAGE_GATES = {
+    "structure": ["check_structure"],
+    "metrics": ["check_samples", "check_ontology_generic"],
+    "board": ["check_dashboard", "check_ontology_generic"],
+    "publish": [],          # the families come from the profile's gates.json declaration
+    "build": [],            # a database stage: row counts, not a gate
+    "plan": [],             # a plan document stage: no gate
+}
+
+
+def ontology_gate_doc(gate: str = "", profile: str = "", stage: str = "") -> str:
+    """What a gate actually checks — read from the gate's own source, not from a summary.
+
+    Use me instead of `sed`-ing a 800-line gate script: one call returns the gate's purpose
+    (its module docstring) and every check label it prints, in order. That is the list a
+    builder needs to make a declaration pass, and it costs one tool result instead of twenty
+    shell results in the context.
+
+    Arguments:
+      gate     a gate id (`check_structure`, `check_samples`, `check_dashboard`,
+               `check_ontology_generic`, `check_nl`, `check_metrics`, ...). Empty = list them.
+      profile  optional profile settings path; when given, the profile's own declared gate
+               families (`gates.json`) are printed too, so the list is "what THIS ontology is
+               held to", not "every gate in the repo".
+    """
+    import json
+    import pathlib
+    import re as _re
+
+    repo = pathlib.Path(__file__).resolve().parents[1]
+    feature = repo / "features" / "ontology"
+    dirs = [feature / "gates", repo / "scripts"]
+    found = {}
+    for d in dirs:
+        if d.is_dir():
+            for f in sorted(d.glob("check_*.py")):
+                found[f.stem] = f
+
+    if stage.strip():
+        stage_key = stage.strip()
+        families = STAGE_GATES.get(stage_key)
+        if families is None:
+            return ("no stage %r. Known stages: %s" % (stage_key, ", ".join(STAGE_GATES)))
+        out = [f"stage: {stage_key}", ""]
+        if not families:
+            out.append("this stage runs no gate script — it is judged by files/rows, not by a gate")
+            if stage_key == "publish":
+                out.append("publish runs whatever `features/ontology/gates.json` declares for the key")
+            return "\n".join(out)
+        out.append(f"gates this stage runs ({len(families)}): {', '.join(families)}")
+        for fam in families:
+            path = found.get(fam)
+            if path is None:
+                out.append(f"  {fam}: (gate script missing)")
+                continue
+            text = path.read_text(encoding="utf-8")
+            labels = []
+            for m in _re.finditer(r'check(?:_true)?\(\s*[fr]?["\'](.+?)["\']', text):
+                if m.group(1) not in labels:
+                    labels.append(m.group(1))
+            out.append("")
+            out.append(f"  {fam} — {len(labels)} checks:")
+            for label in labels:
+                out.append(f"    - {label}")
+        if profile.strip():
+            try:
+                from services import ontology_publish as _op
+                key = pathlib.Path(profile).expanduser().parent.name
+                out += ["", f"declared families for {key}: {_op.declared_families(key)}"]
+            except Exception as exc:                                # noqa: BLE001
+                out.append(f"(could not read the profile's gate declaration: {exc})")
+        return "\n".join(out)
+
+    if not gate.strip():
+        lines = [f"{len(found)} gates (id → first line of its docstring):"]
+        for name, f in sorted(found.items()):
+            try:
+                text = f.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            doc = _re.search(r'"""(.+?)(?:\n\n|""")', text, _re.S)
+            first = " ".join((doc.group(1) if doc else "").split())[:150]
+            lines.append(f"  {name:26} {first}")
+        if profile.strip():
+            try:
+                from services import ontology_publish as _op
+                p = json.loads(pathlib.Path(profile).expanduser().read_text(encoding="utf-8"))
+                key = pathlib.Path(profile).expanduser().parent.name
+                lines.append("")
+                lines.append(f"declared families for {key}: {_op.declared_families(key)}")
+            except Exception as exc:                                # noqa: BLE001
+                lines.append(f"(could not read the profile's gate declaration: {exc})")
+        return "\n".join(lines)
+
+    name = gate.strip()
+    path = found.get(name) or found.get(name if name.startswith("check_") else f"check_{name}")
+    if path is None:
+        return ("no gate %r. Known: %s" % (name, ", ".join(sorted(found))))
+    text = path.read_text(encoding="utf-8")
+    doc = _re.search(r'"""(.+?)"""', text, _re.S)
+    purpose = " ".join((doc.group(1) if doc else "").split())
+    labels = []
+    for m in _re.finditer(r'check(?:_true)?\(\s*[fr]?["\'](.+?)["\']', text):
+        label = m.group(1)
+        if label not in labels:
+            labels.append(label)
+    out = [f"gate: {path.name}", "", "purpose:", purpose or "(no docstring)", ""]
+    out.append(f"checks printed ({len(labels)}):")
+    for label in labels:
+        out.append(f"  - {label}")
+    if profile.strip():
+        try:
+            from services import ontology_publish as _op
+            key = pathlib.Path(profile).expanduser().parent.name
+            out += ["", f"declared families for {key}: {_op.declared_families(key)}"]
+        except Exception as exc:                                    # noqa: BLE001
+            out.append(f"(could not read the profile's gate declaration: {exc})")
+    out += ["", "Run it with:", f"  cd backend && .venv/bin/python features/ontology/gates/{path.name} --profile <profile settings.json>"]
+    return "\n".join(out)
+
+# ─────────────────────────────────────────────────────── ontology start pack
+def ontology_start_pack(ontology_key: str) -> str:
+    """Everything a build needs to START, derived from the profile — nothing case-specific baked in.
+
+    Use me as the first call of a ticket: one answer replaces "ls the tree, grep for the gates,
+    find another profile to copy, rediscover the connection". Measured 2026-11-26: the first ~40
+    tool calls of a build were exactly that exploration, and every fact it found was already
+    declared somewhere in the profile.
+
+    Arguments:
+      ontology_key  the key under features/ontology/profiles/ (e.g. "<name>_v<N>").
+    """
+    import json as _json
+    import pathlib as _pl
+
+    key = (ontology_key or "").strip()
+    if not key:
+        return "Error: ontology_key is required (e.g. the key ontology_register returned)."
+    root = _pl.Path(__file__).resolve().parents[1]                 # backend/
+    folder = root / "features" / "ontology" / "profiles" / key
+    if not folder.is_dir():
+        return (f"Error: no profile {key!r} under features/ontology/profiles/. "
+                f"Registered keys are listed by `ls` on that directory; ask the manager which key is yours.")
+    settings = None
+    for name in (f"{key}_settings.json", "settings.json"):
+        if (folder / name).is_file():
+            settings = folder / name
+            break
+    if settings is None:
+        return f"Error: {folder} has no *_settings.json — it is not an ontology profile."
+
+    doc = _json.loads(settings.read_text(encoding="utf-8"))
+    onto_dir = (folder / (doc.get("ontology_dir") or ".")).resolve()
+    lines = [f"start pack for {key}", ""]
+
+    lines.append("## profile")
+    lines.append(f"  settings     {settings}")
+    lines.append(f"  declarations {onto_dir}")
+    lines.append(f"  overlay      {folder / (doc.get('overlay') or 'metrics_ext.ttl')}")
+    lines.append(f"  namespace    {doc.get('ns')}")
+
+    lines.append("")
+    lines.append("## the database this ontology reads (declared, not guessed)")
+    dsn = doc.get("dsn") or {}
+    lines.append(f"  host/port    {dsn.get('host')}:{dsn.get('port')}   dbname={dsn.get('dbname')}")
+    lines.append(f"  role         {dsn.get('user')}")
+    if dsn.get("port") in (None, "", "5432") and str(dsn.get("host", "")).startswith("${"):
+        lines.append("  → this DSN uses ${VAR:-default}; the deployment's variables decide the real server.")
+    lines.append("  read it with: db_query_agent(db_name=<dbname>, ontology_key=<key>, sqls=[…])")
+    lines.append("                db_describe(db_name=<dbname>, ontology_key=<key>)")
+    lines.append("  never  with: shell psql / python psycopg2 (refused, and not in the usage ledger)")
+
+    lines.append("")
+    lines.append("## what the gates will demand (ask per stage, do not read the source)")
+    lines.append('  ontology_gate_doc(stage="structure") · (stage="metrics") · (stage="board")')
+    lines.append("  ontology_gate_doc() lists every gate id; ontology_gate_doc(gate=<id>) prints its checks")
+
+    lines.append("")
+    lines.append("## read once, then stop searching")
+    docs = root.parent / "docs" / "system-architecture"
+    for name, why in (("ontology-dsl.md", "the four minimal TTL shapes"),
+                      ("platform-facts.md", "path bases, profile keys, remote databases"),
+                      ("ontology-metrics-shapes.md", "metric/sample field shapes + refusal wording")):
+        state = "" if (docs / name).is_file() else "   (missing — say so instead of grepping for it)"
+        lines.append(f"  {docs / name}  — {why}{state}")
+
+    lines.append("")
+    lines.append("## do not search for these")
+    lines.append(f"  · another ontology's TTL as an example (the DSL doc is the example)")
+    lines.append(f"  · retired keys (registry: {root / 'features' / 'ontology' / 'profiles' / '_versions.json'}"
+                 f" — anything marked retired is history)")
+    lines.append(f"  · .archive/ and .staging/ trees (never the answer)")
+    lines.append(f"  · the gate implementations (gate_doc answers the question; read a gate only if a")
+    lines.append(f"    specific check's JUDGEMENT is what you need, and then only that function)")
+    lines.append("")
+    lines.append("## the four path bases")
+    lines.append("  file tools (read_file/…)  → agent workspace root:  work/<key>/…   (= /work/<key>/…)")
+    lines.append("  shell (execute)           → backend/               features/ontology/…")
+    lines.append("  docs                      → repo root              ../docs/system-architecture/…  (from backend)")
+    lines.append("  profile                   → features/ontology/profiles/<key>/")
+    return "\n".join(lines)
+
