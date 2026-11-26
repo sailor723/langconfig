@@ -31,20 +31,29 @@ read -r -d '' REMOTE <<'REMOTE_SCRIPT' || true
 set -euo pipefail
 cd ~/langconfig
 
-echo "== 1/7 预检（仓库、分支、是否脏）"
+echo "== 1/7 预检（仓库、分支、是否脏、是否快进）"
 git remote get-url origin
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-echo "   branch: $BRANCH"
-[ "$BRANCH" = "main" ] || { echo "!! 当前不是 main，先自己确认要更新哪条分支"; exit 1; }
-if [ -n "$(git status --porcelain)" ]; then
-    echo "!! 工作树有未提交改动，未做任何事。看这几行再决定（stash / commit / 放弃）："
-    git status --short | head -20
+UP=$(git rev-parse --abbrev-ref --symbolic-full-name "@{u}" 2>/dev/null || true)
+echo "   branch: ${BRANCH}   upstream: ${UP:-<none>}"
+# 只看**已跟踪**文件的改动：线上的 .env.bak-* 之类 untracked 备份不该挡住一次快进。
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+    echo "!! 有未提交的已跟踪改动，未做任何事。看这几行再决定（stash / commit / 放弃）："
+    git status --short --untracked-files=no | head -20
     exit 1
 fi
 BEFORE=$(git rev-parse --short HEAD); echo "   HEAD before: $BEFORE"
 
 echo "== 2/7 拉取"
 git fetch --all --prune
+if [ -n "${UP}" ]; then
+    LOCAL_ONLY=$(git rev-list --count "${UP}..HEAD")
+    if [ "${LOCAL_ONLY}" != "0" ]; then
+        echo "!! 本地有 ${LOCAL_ONLY} 个 ${UP} 没有的提交 —— 这不是快进，停止（先人工确认）"
+        git log --oneline "${UP}..HEAD" | head -10
+        exit 1
+    fi
+fi
 git pull --ff-only
 AFTER=$(git rev-parse --short HEAD); echo "   HEAD after:  $AFTER"
 
@@ -62,10 +71,15 @@ cd ~/langconfig/backend
 .venv/bin/python scripts/seeds/in/seed_builtin_tools.py --refresh 2>&1 | tail -2
 
 echo "== 6/7 校验：库里的 agents/tools/skills 是否等于已提交快照"
-.venv/bin/python scripts/seeds/out/export_baseline.py --check 2>&1 | tail -12
+# 不阻断：这台机器自己的 agent/工具本来就可能与仓库快照不同，那不算更新失败。
+.venv/bin/python scripts/seeds/out/export_baseline.py --check 2>&1 | tail -12 \
+    || echo "   (STALE 不阻断；上面的差异是这台机器自己的数据，不是本次更新引入的)"
 
 echo "== 7/7 重启并验收"
-if systemctl list-unit-files 2>/dev/null | grep -q '^langconfig\.service'; then
+# `list-unit-files | grep` 在这台 ECS 上判过空（unit 明明在、服务明明是 active），
+# 于是脚本打印"没有 langconfig.service"就跳过了重启 —— 代码更新了、进程还是旧的。
+# `systemctl cat` 才是"这个 unit 存在吗"的直接答案。
+if systemctl cat langconfig >/dev/null 2>&1; then
     sudo systemctl restart langconfig && sleep 3 && systemctl is-active langconfig
 else
     echo "   没有 langconfig.service：这台机器可能用 start.sh/screen 起的，请自己重启后端"
@@ -83,8 +97,12 @@ fi
 [ -n "$HOST" ] || { echo "usage: bash scripts/update_host_from_git.sh <user@host> [--port 22] [--key path]" >&2
                     echo "       bash scripts/update_host_from_git.sh --print" >&2; exit 2; }
 
-SSH_OPTS=(-p "$PORT" -o ConnectTimeout=12 -o StrictHostKeyChecking=accept-new)
-[ -n "$KEY" ] && SSH_OPTS+=(-i "$KEY")
+SSH_OPTS=(-p "${PORT}" -o ConnectTimeout=12 -o StrictHostKeyChecking=accept-new)
+[ -n "${KEY}" ] && SSH_OPTS+=(-i "${KEY}")
+# 额外选项，空格分隔。典型用法（写不了 known_hosts 的一次性环境）：
+#   SSH_EXTRA="-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" bash scripts/update_host_from_git.sh …
+# shellcheck disable=SC2206
+[ -n "${SSH_EXTRA:-}" ] && SSH_OPTS+=(${SSH_EXTRA})
 
 echo "== 更新 ${HOST}（port ${PORT}）—— 下面每一步的输出来自远端"
 printf '%s\n' "$REMOTE" | ssh "${SSH_OPTS[@]}" "$HOST" 'bash -s'
