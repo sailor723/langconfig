@@ -42,7 +42,7 @@ gate suites for the ontology work.
    (run by `start.sh`) but no skill explaining the rule — the failure mode is a skill-shaped failure.
 3. **Context discipline.** Upstream's own words: skills exist so the agent "gets a summary of the contents
    on startup and discovers and reads the contained files only when relevant". Our skills were written as
-   one-shot instructions; several of them (e.g. `sql-analyst` at 334 lines) are read whole every time.
+   one-shot instructions; several of them (e.g. `db-sql-analyst` at 334 lines) are read whole every time.
 
 ## 3. The ecosystem rules, as the docs state them
 

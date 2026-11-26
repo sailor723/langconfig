@@ -95,7 +95,7 @@ The only change was wording. Treat the anti-loop rule, stop conditions and hard 
 
 ## 5b. Skills that ship scripts (`scripts/`, `references/`)
 
-A skill whose value is *running* something — `build-ontology-from-db` ships three Python
+A skill whose value is *running* something — `db-ontology-build` ships three Python
 scripts — needs three things a markdown-only skill never did. All three were broken in this
 platform and are now fixed; each failed silently in a different way:
 
@@ -139,7 +139,7 @@ deeper, and **refuses a flat `personal/<skill>/` layout** rather than adopting i
 the shared namespace. Move folders with `scripts/adopt_personal_skills.py`.
 
 The test for which root: **would a new colleague need this on day one, for work that is not
-yours?** If yes it is `builtin` (`code-review`, `web-search`, `sql-analyst`, `git-workflow`).
+yours?** If yes it is `builtin` (`code-review`, `web-search`, `db-sql-analyst`, `git-workflow`).
 If it names your company, your market, or your data, it is `personal` (`sunhing-analyst`,
 `a-share-research`, `erp-analyst`). Of this install's 25 "personal" skills, 16 were generic
 and moved; see `scripts/reclassify_skills.py`.

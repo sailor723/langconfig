@@ -172,6 +172,15 @@ docs/system-architecture/*
 !docs/system-architecture/tools-refactor.md
 !docs/system-architecture/skills-and-tools-review-2026-11-09.md
 !docs/system-architecture/ecosystem-skills-plan-2026-11-09.md
+*.bak
+*.orig
+
+# 数据 Agent 总文档：唯一权威 + 三份同源产物。md 是源，docx/html/pdf 由
+# scripts/build_data_agent_docs.py / build_data_agent_html.py 生成（读 md 顶部同一行版本号）。
+!docs/system-architecture/data-agent.md
+!docs/system-architecture/data-agent.docx
+!docs/system-architecture/data-agent.html
+!docs/system-architecture/data-agent.pdf
 # Specs and tickets written by the to-spec / to-tickets skills
 !docs/specs/
 !docs/specs/**

@@ -23,7 +23,7 @@ changing the public API.
 
 ## Phase 4b — Script-bearing skills (measured, uncommitted)
 
-Found by taking a real script-bearing skill (`build-ontology-from-db`: three Python entry
+Found by taking a real script-bearing skill (`db-ontology-build`: three Python entry
 points) through an agent row and running it end to end. Each defect is silent — the run looks
 successful without the fix. Regression tests: `backend/scripts/test_ontology_skill_platform_agent.py`
 (P1–P5, platform/SSE level, DeepSeek) and `backend/scripts/test_ontology_skill_agent.py`

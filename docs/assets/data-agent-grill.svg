@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 620" width="1240" height="620">
+<rect x="0" y="0" width="1240" height="620" fill="#0F1419"/>
+<text x="34" y="46" fill="#E6EDF3" font-family="Menlo, monospace" font-size="22" font-weight="700">grill：把决策树问空，再动手</text>
+<text x="34" y="70" fill="#8B98A5" font-family="Menlo, monospace" font-size="13">每轮只问「前沿」= 现在就能答的问题；答案把前沿往外推；没人能答的写成「有意未定」，不猜</text>
+<text x="160.0" y="116" fill="#8B98A5" font-family="Menlo, monospace" font-size="12" text-anchor="middle">第 1 轮 · 前沿（现在能答）</text>
+<text x="455.0" y="116" fill="#8B98A5" font-family="Menlo, monospace" font-size="12" text-anchor="middle">第 2 轮 · 答案解锁的</text>
+<text x="750.0" y="116" fill="#8B98A5" font-family="Menlo, monospace" font-size="12" text-anchor="middle">第 3 轮 · 只剩一问</text>
+<rect x="40" y="136" width="240" height="84" rx="10" ry="10" fill="#12202E" stroke="#4DABF7" stroke-width="2"/>
+<text x="160.0" y="164.0" fill="#D0EBFF" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">Q1 退货率分母</text>
+<text x="160.0" y="182.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">A 订单数 / B 行数</text>
+<text x="160.0" y="200.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">→ A ·「一单退一单」</text>
+<rect x="40" y="232" width="240" height="84" rx="10" ry="10" fill="#12202E" stroke="#4DABF7" stroke-width="2"/>
+<text x="160.0" y="260.0" fill="#D0EBFF" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">Q2 时间轴</text>
+<text x="160.0" y="278.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">A 下单 / B 发货</text>
+<text x="160.0" y="296.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">→ A · 与对账单同期</text>
+<rect x="40" y="328" width="240" height="84" rx="10" ry="10" fill="#12202E" stroke="#4DABF7" stroke-width="2"/>
+<text x="160.0" y="356.0" fill="#D0EBFF" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">Q3 金额</text>
+<text x="160.0" y="374.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">A 含税扣退货 / B 不含税</text>
+<text x="160.0" y="392.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">→ A · 财务口径</text>
+<rect x="335" y="184" width="240" height="84" rx="10" ry="10" fill="#12202E" stroke="#4DABF7" stroke-width="2"/>
+<text x="455.0" y="212.0" fill="#D0EBFF" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">Q4 城市维度（靠 Q1 的粒度）</text>
+<text x="455.0" y="230.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">A 客户最新地址 / B 首单地址</text>
+<text x="455.0" y="248.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">→ A · 两种地址常不一致</text>
+<rect x="335" y="280" width="240" height="84" rx="10" ry="10" fill="#12202E" stroke="#4DABF7" stroke-width="2"/>
+<text x="455.0" y="308.0" fill="#D0EBFF" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">Q5 回款口径（靠 Q3 的金额）</text>
+<text x="455.0" y="326.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">A 到账日 / B 开票日</text>
+<text x="455.0" y="344.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">➡️ A · 与 D1 同期</text>
+<rect x="335" y="376" width="240" height="84" rx="10" ry="10" fill="#12202E" stroke="#4DABF7" stroke-width="2" stroke-dasharray="6 5"/>
+<text x="455.0" y="404.0" fill="#D0EBFF" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">Q6 成本口径（谁都没有答案）</text>
+<text x="455.0" y="422.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">财务：还没给</text>
+<text x="455.0" y="440.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">→ 下一轮再问，不进计划</text>
+<rect x="630" y="376" width="240" height="84" rx="10" ry="10" fill="#12202E" stroke="#4DABF7" stroke-width="2" stroke-dasharray="6 5"/>
+<text x="750.0" y="404.0" fill="#D0EBFF" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">Q7 成本口径（再问一次）</text>
+<text x="750.0" y="422.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">财务：还是没给</text>
+<text x="750.0" y="440.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">→ 不猜，写成有意未定</text>
+<rect x="630" y="474" width="240" height="76" rx="10" ry="10" fill="#3A2A07" stroke="#F59F00" stroke-width="2"/>
+<text x="750.0" y="498.0" fill="#FFD8A8" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">有意未定（交付物）</text>
+<text x="750.0" y="516.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">成本口径 · 汇率</text>
+<text x="750.0" y="534.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">→ :refusalReason 按名拒绝</text>
+<path d="M 280,178 C 280,204.4 335,199.6 335,226" fill="none" stroke="#F59F00" stroke-width="1.6" stroke-opacity="0.8" stroke-linecap="round"/>
+<circle cx="335" cy="226" r="3.4" fill="#F59F00" fill-opacity="0.9500000000000001"/>
+<path d="M 280,274 C 280,300.4 335,295.6 335,322" fill="none" stroke="#F59F00" stroke-width="1.6" stroke-opacity="0.8" stroke-linecap="round"/>
+<circle cx="335" cy="322" r="3.4" fill="#F59F00" fill-opacity="0.9500000000000001"/>
+<path d="M 280,370 C 280,396.4 335,391.6 335,418" fill="none" stroke="#F59F00" stroke-width="1.6" stroke-opacity="0.8" stroke-linecap="round"/>
+<circle cx="335" cy="418" r="3.4" fill="#F59F00" fill-opacity="0.9500000000000001"/>
+<path d="M 575,418 C 575,418.0 630,418.0 630,418" fill="none" stroke="#F59F00" stroke-width="1.6" stroke-opacity="0.8" stroke-linecap="round"/>
+<circle cx="630" cy="418" r="3.4" fill="#F59F00" fill-opacity="0.9500000000000001"/>
+<path d="M 750.0,460 C 750.0,467.7 750.0,466.3 750.0,474" fill="none" stroke="#F59F00" stroke-width="1.6" stroke-opacity="0.8" stroke-linecap="round" stroke-dasharray="4 4"/>
+<circle cx="750.0" cy="474" r="3.4" fill="#F59F00" fill-opacity="0.9500000000000001"/>
+<text x="1055.0" y="116" fill="#8B98A5" font-family="Menlo, monospace" font-size="12" text-anchor="middle">产物：决定表，每条一行理由</text>
+<rect x="910" y="136" width="290" height="320" rx="10" ry="10" fill="#11161C" stroke="#3A4450" stroke-width="2"/>
+<text x="1055.0" y="237.0" fill="#9AA7B4" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">work/&lt;key&gt;/grill.md</text>
+<text x="1055.0" y="255.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">D1 时间口径 = 下单日期</text>
+<text x="1055.0" y="273.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">D2 金额 = 含税、扣退货</text>
+<text x="1055.0" y="291.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">D3 退货率分母 = 订单数</text>
+<text x="1055.0" y="309.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">D4 城市 = 客户最新地址</text>
+<text x="1055.0" y="327.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">未定：成本口径、汇率</text>
+<text x="1055.0" y="345.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">「前沿已空。</text>
+<text x="1055.0" y="363.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">尚未实现任何东西。」</text>
+<path d="M 870,512 C 870,461.4 910,470.6 910,420" fill="none" stroke="#F59F00" stroke-width="1.6" stroke-opacity="0.7" stroke-linecap="round"/>
+<circle cx="910" cy="420" r="3.4" fill="#F59F00" fill-opacity="0.85"/>
+<text x="160.0" y="440" fill="#8B98A5" font-family="Menlo, monospace" font-size="11" text-anchor="middle">答 A / A / A → 解锁 3 个新问题</text>
+<text x="455.0" y="488" fill="#8B98A5" font-family="Menlo, monospace" font-size="11" text-anchor="middle">答 A / A → 1 个没人能答</text>
+<rect x="170.0" y="558.0" width="900" height="44" rx="22.0" ry="22.0" fill="#3A2A07" fill-opacity="0.92" stroke="#F59F00" stroke-width="1.6" stroke-opacity="0.85"/>
+<text x="620" y="584.0" fill="#FFD8A8" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">停点 1 · 你确认 SPEC 与口径之后，才允许建库 / 登记 / 编译</text>
+</svg>

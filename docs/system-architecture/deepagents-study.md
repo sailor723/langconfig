@@ -781,7 +781,7 @@ text, and the catalogue inventory itself (it counted 42 skills; the DB holds 42 
    `storage_mode=db`, so `_stage_skill_catalog` persists skills to **storage** and serves them through
    `DbBackend` at `/skills/…`; nothing is copied into the workspace — 115's own workspace `skills/` folder is
    empty, which is exactly what it had just discovered with `bash` and then explained away.
-3. It gave inconsistent counts between answers (18/24 then "20 personal") and listed `sql-analyst` as builtin
+3. It gave inconsistent counts between answers (18/24 then "20 personal") and listed `db-sql-analyst` as builtin
    (the DB says `personal`).
 
 The pattern worth remembering: 115 has no schema access, so it reconstructed its own harness by grepping the

@@ -1,7 +1,7 @@
 # Skill translation — validation report
 
 Scope: the 102 builtin skills in `backend/skills/builtin/` are now Chinese, with the English they came from
-archived in `backend/skills/en-originals/` (101 translations + 1 skill authored in Chinese, `sql-analyst`).
+archived in `backend/skills/en-originals/` (101 translations + 1 skill authored in Chinese, `db-sql-analyst`).
 This file records what was **verified**, with the evidence, and what is **only known** — written after the fact
 of the work, in the discipline `to-validation` asks for: criteria first, then evidence, then a verdict per
 criterion, and never the author's own summary standing in as proof.
@@ -70,7 +70,7 @@ It is worth writing down what these checks found, because it is the argument for
 | `allowed-tools` (Anthropic spelling) never read by the loader, so 16 skills' tool lists never reached a prompt | `test_the_loader_sees_a_declared_tool_list` |
 | Six guards silently running on an empty parameter set after the provenance/floor markers were translated | Fixing the markers; 308 passed + 6 empty → 614 passed |
 | `implement` had lost its provenance block entirely | Fidelity check (C4) |
-| `edit-ontology-metrics` said `atRiskDriver` where the English now says `atRiskDrivers` | C4 |
+| `db-ontology-metrics` said `atRiskDriver` where the English now says `atRiskDrivers` | C4 |
 | Four skills called the verification floor 本仓库的地板 where 54 called it 本仓库的底线 | C6 (the moment `implement` gained a provenance block it looked generated, so it owed a floor) |
 | `data-analysis` rendered "3x larger" as 大三倍 — **4× in Chinese** | C4 after two refinements of the severity rule |
 | 58 skills addressed `ecosystem-primer` when the id is `lc-ecosystem-primer` | C7 |
@@ -88,8 +88,8 @@ a `file:line`, and do not edit anything.
   `handoff`, `claude-handoff`, `research`, `research-planner`
 - **C** — LangChain's official set: `lc-langchain-fundamentals`, `lc-langgraph-fundamentals`,
   `lc-deep-agents-core`, `lc-langchain-rag`, `lc-eval-engineering`, `lc-langchain-middleware`
-- **D** — ontology and data: `build-ontology-from-db` (45 KB), `answer-ontology-question`,
-  `build-ontology-dashboard`, `edit-ontology-metrics`, `data-analysis`, `software-factory`, `chief-of-staff`
+- **D** — ontology and data: `db-ontology-build` (45 KB), `db-ontology-ask`,
+  `db-ontology-dashboard`, `db-ontology-metrics`, `data-analysis`, `software-factory`, `chief-of-staff`
 
 29 of 101 translations, chosen because they are the ones an agent is most likely to act on: the loop this
 session itself used, the two indexes that tell an agent which skill to load, the official LangChain set, and the
@@ -102,10 +102,10 @@ ontology family where a softened refusal would cost money.
 | A — development loop | grilling, to-spec, to-tickets, to-validation, implement, tdd, triage, retro | triage | 7 | 0 |
 | B — indexes and research | code-review, setup-matt-pocock-skills, ask-matt, wayfinder, handoff, claude-handoff, research, research-planner | code-review, setup-matt, ask-matt, handoff, research, research-planner | wayfinder, claude-handoff | 0 |
 | C — LangChain official | lc-langchain-fundamentals, lc-langgraph-fundamentals, lc-deep-agents-core, lc-langchain-rag, lc-eval-engineering, lc-langchain-middleware | — | 6 (all register/terminology; no technical statement changed) | 0 |
-| D — ontology and data | build-ontology-from-db, answer-ontology-question, build-ontology-dashboard, edit-ontology-metrics, data-analysis, software-factory, chief-of-staff | 5 | 2 | 0 |
+| D — ontology and data | db-ontology-build, db-ontology-ask, db-ontology-dashboard, db-ontology-metrics, data-analysis, software-factory, chief-of-staff | 5 | 2 | 0 |
 
 No `FAIL`: nothing a reviewer read would make an agent do something wrong or unsafe. Notably, D confirmed that
-every measured claim in the 45 KB `build-ontology-from-db` survived as a measurement — 213 calls split 69/68/29/15,
+every measured claim in the 45 KB `db-ontology-build` survived as a measurement — 213 calls split 69/68/29/15,
 0.94596, 46.1 %, `columns_missing` 104→77→66→56→46→37→0 — and that no refusal was softened. C confirmed the
 parameter-level facts in the LangChain set: `allowed_decisions`, the `yield`/`NotImplementedError` warning, the
 FAISS/pickle warning, "interrupts must precede execution", "same embedding model for index and query".

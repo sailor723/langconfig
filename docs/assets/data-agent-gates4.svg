@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 300" width="1100" height="300">
+<rect x="0" y="0" width="1100" height="300" fill="#0F1419"/>
+<text x="34" y="46" fill="#E6EDF3" font-family="Menlo, monospace" font-size="22" font-weight="700">一个数的四道门</text>
+<text x="34" y="70" fill="#8B98A5" font-family="Menlo, monospace" font-size="13">只有编译器产出的 SQL 会被执行；护栏在数字出现之前先拒绝</text>
+<rect x="40" y="140" width="230" height="84" rx="10" ry="10" fill="#12202E" stroke="#4DABF7" stroke-width="2"/>
+<text x="155.0" y="176.66666666666666" fill="#D0EBFF" font-family="Menlo, monospace" font-size="14" font-weight="600" text-anchor="middle">声明（TTL）</text>
+<text x="155.0" y="196.66666666666666" fill="#8B98A5" font-family="Menlo, monospace" font-size="12.5" font-weight="400" text-anchor="middle">类/属性/关系/指标</text>
+<path d="M 270,182 C 270,182.0 300,182.0 300,182" fill="none" stroke="#4DABF7" stroke-width="1.6" stroke-opacity="0.75" stroke-linecap="round"/>
+<circle cx="300" cy="182" r="3.4" fill="#4DABF7" fill-opacity="0.9"/>
+<rect x="300" y="140" width="230" height="84" rx="10" ry="10" fill="#12202E" stroke="#4DABF7" stroke-width="2"/>
+<text x="415.0" y="176.66666666666666" fill="#D0EBFF" font-family="Menlo, monospace" font-size="14" font-weight="600" text-anchor="middle">编译</text>
+<text x="415.0" y="196.66666666666666" fill="#8B98A5" font-family="Menlo, monospace" font-size="12.5" font-weight="400" text-anchor="middle">唯一一条 SELECT</text>
+<path d="M 530,182 C 530,182.0 560,182.0 560,182" fill="none" stroke="#4DABF7" stroke-width="1.6" stroke-opacity="0.75" stroke-linecap="round"/>
+<circle cx="560" cy="182" r="3.4" fill="#4DABF7" fill-opacity="0.9"/>
+<rect x="560" y="140" width="230" height="84" rx="10" ry="10" fill="#12202E" stroke="#4DABF7" stroke-width="2"/>
+<text x="675.0" y="176.66666666666666" fill="#D0EBFF" font-family="Menlo, monospace" font-size="14" font-weight="600" text-anchor="middle">护栏</text>
+<text x="675.0" y="196.66666666666666" fill="#8B98A5" font-family="Menlo, monospace" font-size="12.5" font-weight="400" text-anchor="middle">LIMIT · 预算 · 超时</text>
+<path d="M 790,182 C 790,182.0 820,182.0 820,182" fill="none" stroke="#4DABF7" stroke-width="1.6" stroke-opacity="0.75" stroke-linecap="round"/>
+<circle cx="820" cy="182" r="3.4" fill="#4DABF7" fill-opacity="0.9"/>
+<rect x="820" y="140" width="230" height="84" rx="10" ry="10" fill="#12202E" stroke="#4DABF7" stroke-width="2"/>
+<text x="935.0" y="176.66666666666666" fill="#D0EBFF" font-family="Menlo, monospace" font-size="14" font-weight="600" text-anchor="middle">执行</text>
+<text x="935.0" y="196.66666666666666" fill="#8B98A5" font-family="Menlo, monospace" font-size="12.5" font-weight="400" text-anchor="middle">数字或按名拒绝</text>
+<rect x="825.0" y="229.0" width="300" height="42" rx="21.0" ry="21.0" fill="#3A2A07" fill-opacity="0.92" stroke="#F59F00" stroke-width="1.6" stroke-opacity="0.85"/>
+<text x="975.0" y="253.66666666666666" fill="#FFD8A8" font-family="Menlo, monospace" font-size="11" font-weight="600" text-anchor="middle">任何一步拒绝 → 按名给出缺哪条声明</text>
+</svg>

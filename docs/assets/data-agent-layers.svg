@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 560" width="1100" height="560">
+<rect x="0" y="0" width="1100" height="560" fill="#0F1419"/>
+<text x="34" y="46" fill="#E6EDF3" font-family="Menlo, monospace" font-size="22" font-weight="700">五层：从对话到平台</text>
+<text x="34" y="70" fill="#8B98A5" font-family="Menlo, monospace" font-size="13">L4 只有总控有用户通道；L3 四个专家各自独立上下文；越往下越像契约</text>
+<rect x="40" y="110" width="1020" height="74" rx="10" ry="10" fill="#12202E" stroke="#4DABF7" stroke-width="2"/>
+<text x="550.0" y="141.83333333333334" fill="#D0EBFF" font-family="Menlo, monospace" font-size="13" font-weight="600" text-anchor="middle">L4 对话层   manager agent（唯一有用户通道的 agent）</text>
+<text x="550.0" y="160.83333333333334" fill="#8B98A5" font-family="Menlo, monospace" font-size="11.5" font-weight="400" text-anchor="middle">grill · 汇总 · 登记 · 发布 · 汇报拒绝清单</text>
+<rect x="40" y="198" width="1020" height="74" rx="10" ry="10" fill="#12202E" stroke="#4DABF7" stroke-width="2"/>
+<text x="550.0" y="229.83333333333334" fill="#D0EBFF" font-family="Menlo, monospace" font-size="13" font-weight="600" text-anchor="middle">L3 劳动层   4 个 subagent（各自上下文，只读文件、只回一条消息）</text>
+<text x="550.0" y="248.83333333333334" fill="#8B98A5" font-family="Menlo, monospace" font-size="11.5" font-weight="400" text-anchor="middle">tables │ modeller │ metrics │ board</text>
+<rect x="40" y="286" width="1020" height="74" rx="10" ry="10" fill="#11161C" stroke="#3A4450" stroke-width="2"/>
+<text x="550.0" y="317.8333333333333" fill="#9AA7B4" font-family="Menlo, monospace" font-size="13" font-weight="600" text-anchor="middle">L2 契约层   文件即接口 + 回执即契约</text>
+<text x="550.0" y="336.8333333333333" fill="#8B98A5" font-family="Menlo, monospace" font-size="11.5" font-weight="400" text-anchor="middle">work/&lt;key&gt;/grill.md · NOTES.md · JSON {produced, unverified, …}</text>
+<rect x="40" y="374" width="1020" height="74" rx="10" ry="10" fill="#11161C" stroke="#3A4450" stroke-width="2"/>
+<text x="550.0" y="405.8333333333333" fill="#9AA7B4" font-family="Menlo, monospace" font-size="13" font-weight="600" text-anchor="middle">L1 声明层   profiles/&lt;key&gt;/：本体声明</text>
+<text x="550.0" y="424.8333333333333" fill="#8B98A5" font-family="Menlo, monospace" font-size="11.5" font-weight="400" text-anchor="middle">01-structure.ttl · 02-meaning.ttl · metrics_ext.ttl · samples.json · dashboard.json · tutorial.json</text>
+<rect x="40" y="462" width="1020" height="74" rx="10" ry="10" fill="#1A1226" stroke="#8B5CF6" stroke-width="2"/>
+<text x="550.0" y="493.8333333333333" fill="#E5DBFF" font-family="Menlo, monospace" font-size="13" font-weight="600" text-anchor="middle">L0 平台层   编译器 · 门禁 · 发布通道 · 工作台</text>
+<text x="550.0" y="512.8333333333333" fill="#8B98A5" font-family="Menlo, monospace" font-size="11.5" font-weight="400" text-anchor="middle">sqlgen/guard/nl · check_* · stage→apply · Settings → Ontology</text>
+</svg>

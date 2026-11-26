@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 470" width="1100" height="470">
+<rect x="0" y="0" width="1100" height="470" fill="#0F1419"/>
+<text x="34" y="46" fill="#E6EDF3" font-family="Menlo, monospace" font-size="22" font-weight="700">发布通道：stage() 做什么，apply() 由谁点</text>
+<text x="34" y="70" fill="#8B98A5" font-family="Menlo, monospace" font-size="13">左边是 agent 能做的（压到 staged），右边是人才能做的（confirm → apply）</text>
+<rect x="40" y="150" width="250" height="90" rx="10" ry="10" fill="#11161C" stroke="#3A4450" stroke-width="2"/>
+<text x="165.0" y="190.0" fill="#9AA7B4" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">work/&lt;key&gt;/*.ttl</text>
+<text x="165.0" y="208.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">本体声明（已过四族门禁）</text>
+<rect x="360" y="130" width="330" height="250" rx="10" ry="10" fill="#12202E" stroke="#4DABF7" stroke-width="2"/>
+<text x="525.0" y="214.0" fill="#D0EBFF" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">ontology_publish → stage()</text>
+<text x="525.0" y="232.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">① 备份已安装版本 → 暂存副本</text>
+<text x="525.0" y="250.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">② 逐指标编译（compiler）</text>
+<text x="525.0" y="268.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">③ 跑 gates.json 声明的族</text>
+<text x="525.0" y="286.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">④ new_refusals / carried 分开列</text>
+<text x="525.0" y="304.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">⑤ 停在 staged（不安装）</text>
+<rect x="760" y="130" width="300" height="250" rx="10" ry="10" fill="#1B2A1B" stroke="#51CF66" stroke-width="2"/>
+<text x="910.0" y="223.0" fill="#B2F2BB" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">人 · confirm → apply()</text>
+<text x="910.0" y="241.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">① 再跑门禁</text>
+<text x="910.0" y="259.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">② 字节级备份</text>
+<text x="910.0" y="277.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">③ git commit（平台身份）</text>
+<text x="910.0" y="295.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">④ _versions.json latest 指向新版本</text>
+<path d="M 290,195 C 290,195.0 360,195.0 360,195" fill="none" stroke="#4DABF7" stroke-width="1.6" stroke-opacity="0.75" stroke-linecap="round"/>
+<circle cx="360" cy="195" r="3.4" fill="#4DABF7" fill-opacity="0.9"/>
+<path d="M 690,255 C 690,255.0 760,255.0 760,255" fill="none" stroke="#F59F00" stroke-width="1.6" stroke-opacity="0.75" stroke-linecap="round"/>
+<circle cx="760" cy="255" r="3.4" fill="#F59F00" fill-opacity="0.9"/>
+<rect x="540.0" y="65.0" width="370" height="46" rx="23.0" ry="23.0" fill="#3A2A07" fill-opacity="0.92" stroke="#F59F00" stroke-width="1.6" stroke-opacity="0.85"/>
+<text x="725" y="92.0" fill="#FFD8A8" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">▣ STOP-2：安装只能由人点</text>
+</svg>

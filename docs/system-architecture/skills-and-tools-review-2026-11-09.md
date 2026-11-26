@@ -105,8 +105,8 @@ same pass and both parse through the real loader (`core/skills/loader.py::load_s
 
 ## 3. What this repository already covers (so we do not copy twice)
 
-42 builtin skills, and the substantial ones are substantial — `build-ontology-from-db` 725 lines,
-`sql-analyst` 334, `langconfig-builder` 320, `langgraph-workflows` 316, `git-workflow` 291,
+42 builtin skills, and the substantial ones are substantial — `db-ontology-build` 725 lines,
+`db-sql-analyst` 334, `langconfig-builder` 320, `langgraph-workflows` 316, `git-workflow` 291,
 `debugging` 289, `security-review` 286 (line counts of `SKILL.md`).
 
 | Matt's / Anthropic's skill | Local equivalent | Verdict |

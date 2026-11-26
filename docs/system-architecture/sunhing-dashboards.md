@@ -169,7 +169,7 @@ arrive via a separate sync step — which is why they can drift from the DB.
    today; the agent edits the deepresearch one via `build_dashboards.py`).
    `data/` is **gitignored**, so the LangConfig copy is not version-controlled.
 7. **`dashboard-builder` skill missing** — `agent-workspace/build_dashboards.py`
-   declares `skills=["dashboard-builder", "sql-analyst"]` but no such skill
+   declares `skills=["dashboard-builder", "db-sql-analyst"]` but no such skill
    directory exists in the workspace.
 
 ## 7. How to regenerate
