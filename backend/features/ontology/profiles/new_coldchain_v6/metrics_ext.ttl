@@ -141,6 +141,7 @@
     :aggregate "count" ; :grain :Appeal ; :universe :Appeal ; :unit "count" ;
     :businessDescription "申诉记录数。outcome 现在只有 pending：本版的 FileAppeal 只登记，判定不由动词负责。口径来自 docx 任务9。" .
 :appealCountByOutcome a owl:DatatypeProperty ; rdfs:label "按结果看司机申诉数" ; :askedAs "按结果看司机申诉数" ; rdfs:domain :Appeal ;
+    :askedAs "按结果看申诉数" ;
     :aggregate "count" ; :grain :Appeal ; :universe :Appeal ; :groupBy :appealOutcome ; :unit "count" ;
     :businessDescription "同一条申诉记录数按 outcome 切开（库里 pending 9 / rejected 25 / upheld 12）：登记与判定是两件事，pending 的那 9 条就是缺口。维度名是 outcome，中文问法是「按结果看申诉数」。口径来自 docx 任务9。" .
 

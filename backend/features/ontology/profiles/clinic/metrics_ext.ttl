@@ -142,6 +142,7 @@
     :aggregate "count" ; :grain :Appointment ; :universe :Appointment ;
     :groupBy :appointmentStatus ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
 :appointmentsByDoctorSpecialty a owl:DatatypeProperty ; rdfs:label "appointmentsByDoctorSpecialty" ; :askedAs "appointmentsByDoctorSpecialty" ;
+    :askedAs "按专科看预约数" ;
     :aggregate "count" ; :grain :Appointment ; :universe :Appointment ;
     :groupBy :specialty ; :additivity "additive"  ; :businessDescription "refused: 平台历史声明，业务出处待补" .
 
