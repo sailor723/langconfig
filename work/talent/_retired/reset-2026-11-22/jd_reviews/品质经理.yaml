@@ -1,0 +1,132 @@
+# 决策账本 —— 「谁、何时、为什么」这么定的**独立**记录。
+#
+# 分工:
+#   jd_links/<JD>.yaml   引用了什么(派生文件,可被重新抽取覆盖)
+#   jd_reviews/<JD>.yaml 人定过什么(决策文件)
+# 门禁交叉校验两边:inline 的每条 granularity_decision 和每条 excluded,在账本里都必须有
+# subject 匹配的条目,且 status / decided_by / decided_at 逐字一致。
+#
+# 本账本的所有条目都是 signoff: pending —— 2026-11-20 这轮重拆**没有**拿到新的签署。
+# 其中 3 条粒度决定沿用的是 _retired/品质经理-redo-2026-11-20/jd_reviews 里 admin
+# 2026-11-20 的旧决定,但那份账本已整体退出流水线,所以这里不复制它的签名,
+# 只把「按什么口径拆的、代价是什么」记下来,等人重新点头。
+
+jd: 品质经理
+ref: jd_links/品质经理.yaml
+decisions:
+
+- id: D-品质经理-01
+  kind: granularity
+  subject: C-04
+  decision: confirmed_keep
+  decided_by: admin
+  decided_at: 2026-11-20
+  why: >-
+    第 23 行「英语口语熟练及具备独立书写英文8D报告的能力」用「及」连接两个判定,
+
+    按「及拆两条」本应拆。但要求库里只有一条 REQ-H-LANG-EN(本身就是 composite);
+
+    拆开会让同一条要求被引用两次、评分算两遍,另造同义要求又违反复用优先。
+
+    故维持 1 条 composite 引用。沿用 retired 账本 admin 2026-11-20「不拆」的决定,本轮未重新签署。
+  cost: >-
+    这条永远只能判 partial:「口语熟练」在 REQ-H-LANG-EN.level_check 上就是判不了
+
+    (H.2 有 6 档 CEFR,语料里没有映射来源),只有「独立书写英文8D报告」那一半可判。
+
+- id: D-品质经理-02
+  kind: granularity
+  subject: C-07
+  decision: confirmed_keep
+  decided_by: admin
+  decided_at: 2026-11-20
+  why: >-
+    第 25 行前半「具备品质问题分析、改善的能力」里「分析」与「改善」是两个动作,可拆两条。
+
+    但库里只有一条 REQ-D-QA-ANALYSIS,拆开等于造同义要求。沿用 retired 账本的决定,未重新签署。
+  cost: >-
+    把「会分析」和「会改善」合成一条判:只做过分析、没做过改善的人,在这条上会得到与被认可者相同的判定。
+
+- id: D-品质经理-03
+  kind: granularity
+  subject: C-10
+  decision: confirmed_keep
+  decided_by: admin
+  decided_at: 2026-11-20
+  why: >-
+    第 26 行后半「有良好的沟通、协调能力」里「沟通」与「协调」可拆两条。
+
+    但 REQ-E-COMMUNICATION 在库里 assessable=false、no_component=true,拆开只会得到两条都判不了的要求。
+  cost: >-
+    这条**下游一定判不了**,只能靠面试。拆不拆都不产生可判信息,所以拆它没有收益。
+
+- id: D-品质经理-04
+  kind: exclusion
+  subject: X-01
+  decision: excluded
+  decided_by: admin
+  decided_at: 2026-11-20
+  why: >-
+    第 17 行是 Word 表格黏连的产物:「职务名称品质经理隶属部门品保课直接上司直接下属无」。
+
+    四个字段丢了分隔符,无法逐字确认「直接上司」后是否为空值,因此不作为原子要求。
+
+    「品保课」已写进文件头部 department 字段。
+  cost: >-
+    如果原文的表格里「直接上司」其实写了人名/岗位,这一轮就**看不到**了。
+
+    要恢复只能回原始 .doc 看表格结构(不是重跑 textutil —— 它就是这么抽的)。
+
+- id: D-品质经理-05
+  kind: exclusion
+  subject: X-02
+  decision: excluded
+  decided_by: admin
+  decided_at: 2026-11-20
+  why: >-
+    _source 第 30–37 行是「岗位职责」段(做什么),不是「任职资格」段(要什么)。
+
+    把它当要求,下游会据此排除没做过这些事的人。典型是第 31 行的 IATF16949 ——
+
+    它只在职责段出现,本轮没有把它当作任职资格要求。
+  cost: >-
+    业务方若认为「必须懂 IATF16949」,那就得由客户在任职资格段**明写**,
+
+    而不是靠我们从职责段推。本账本只记录「不作为任职资格」这个判定,不代替客户改 JD。
+
+- id: D-品质经理-06
+  kind: criterion
+  subject: C-03
+  decision: 只按专业名点名(原话的「等」当空话)
+  decided_by: admin
+  decided_at: 2026-11-20
+  why: >-
+    C-03 原话是「…机械工程**等**工程类专业毕业」,白名单是举例不是穷举。判定口径定为
+    D 口径(2026-11-20 admin 定,记在已退的旧账本里):只按客户点名的 5 个词精确匹配,
+    不使用专业门类。本条把那个决定在新账本里重新登记 —— 否则引用文件的 note 在引用一个
+    账本里不存在的签署,而这正是账本要消灭的东西。
+  cost: >-
+    「材料成型及控制工程」这类真工科**会被判不满足**(不在点名的 5 个词里)。这是定义的代价。
+
+- id: D-品质经理-07
+  kind: criterion
+  subject: C-08
+  decision: any_of_one
+  value: {kind: any_of, n: 1}
+  decided_by: admin
+  decided_at: 2026-11-21
+  why: >-
+    品质工具这条原按全局"命中率 ≥50%"(5 项要会 3 项)判,全库只有 2 人过。
+    2026-11-21 admin 定:**命中其中任意一项即算满足**,具体会哪个工具、到什么程度,
+    留到业务面试确认 —— 那一层能看到他现场怎么做,比简历上的关键词可靠。
+    按新口径过的人从 2 人变 17 人,差别全部来自这一条口径,不要误读成"标准放宽"。
+- id: D-品质经理-08
+  kind: exclusion
+  subject: C-10
+  decision: deferred
+  decided_by: admin
+  decided_at: 2026-11-21
+  why: >-
+    「有良好的沟通、协调能力」是软性素质,库里没有任何数据项能判(没有测评、没有量表)。
+    本轮**明确不判**:不计入任何分母;业务面试时以行为笔记记录,不算判定、不给分数。
+    若以后要做,必须先落一个可判的数据项(例:推动过一次跨部门变更,有案例与时间)。

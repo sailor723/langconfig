@@ -1,0 +1,56 @@
+jd: 品质经理
+candidate: cand_专案工程师_东莞_12_16K_陈___5年
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 9d4cf77078f56dbd
+runs:
+  1:
+    output_sha256: fb6ae3fe6fde8d78
+    chars: 822
+  2:
+    output_sha256: 8dc709a7fe33a742
+    chars: 845
+replay_identical: false
+cells:
+  C-01:
+    state: 满足
+    why: 简历年龄26岁，落在客户要求25~40岁区间内
+    quote: 男| 26岁
+  C-02:
+    state: 满足
+    why: 简历为大专（AS）学历，达到大专及以上要求
+    quote: 湖南铁道职业技术学院 AS 机械制造与自动化
+  C-03:
+    state: 满足
+    why: 专业为机械制造与自动化，命中工程类专业要求
+    quote: 机械制造与自动化
+  C-04:
+    state: 未知
+    why: 简历仅称英语可用于工作、听读写与日常沟通，未体现独立书写英文8D报告能力
+    quote: 英语可用于工作，听读写与日常沟通
+  C-05:
+    state: 未知
+    why: 简历为线束设计/研发工程师经历，未见品质管理工作年限证据
+    quote: 5年工作经验 | 线束设计
+  C-06:
+    state: 满足
+    why: 简历明确有四年线束经验、一年连接器经验，熟识线束行业产品
+    quote: 1.四年线束经验，一年连接器经验
+  C-07:
+    state: 未知
+    why: 简历未体现品质问题分析、改善能力的明确证据
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历未提及接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条无对应数据项，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

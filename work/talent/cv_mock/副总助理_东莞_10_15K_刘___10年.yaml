@@ -1,0 +1,11 @@
+candidate: cand_副总助理_东莞_10_15K_刘___10年
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props: {}
+components:
+  skill_5WHY:
+    held: true
+    basis: mock
+    rule: 按 22% 概率抽中(seed=0.092202)
+    note: 模拟值,不是事实

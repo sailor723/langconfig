@@ -1,0 +1,16 @@
+candidate: cand_傅___28岁_业务跟单_智通简历_编号
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props: {}
+components:
+  skill_品质问题分析:
+    held: true
+    basis: mock
+    rule: 按 45% 概率抽中(seed=0.078677)
+    note: 模拟值,不是事实
+  skill_英语:
+    held: true
+    basis: mock
+    rule: 按 35% 概率抽中(seed=0.333351)
+    note: 模拟值,不是事实

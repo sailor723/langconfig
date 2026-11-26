@@ -1,0 +1,491 @@
+jd: 品质经理
+step: 3 初筛 → 面试名单
+target: 30
+decided_by: admin
+pool: 150
+rank_rule:
+- 业务优先条件命中数(用户指定;只用简历里真有的证据)
+- 品质岗经历:有 > 待核 > 读不出 > 无
+- 简历里真有证据的 JD 能力项数(不含模拟填充)多者优先
+- 待核项少者优先(一个电话能问完的先面)
+- 品质岗经历时长长者优先
+- candidate id 的 sha256(确定性,且不按文件名/姓氏排序)
+priorities:
+- 品质岗经历有硬证据
+- 线束/连接器行业
+selected:
+- cand_专案工程师_东莞_12_16K_陈___5年
+- cand_陈___29岁_副总助理_智通简历_编号
+- cand_李___40岁_管理课课长_智通简历_编号
+- cand_郑___37岁_专案工程师_智通简历_编号
+- cand_段___研发工程主管_产品工程主管
+- cand_叶___37岁_管理课课长_智通简历_编号
+- cand_专案工程师_东莞_12_16K_邹___10年以上
+- cand_专案工程师_东莞_12_16K_华___9年
+- cand_汽车线束高线工程师_东莞_10_14K_何___10年以上
+- cand_专案工程师_东莞_12_16K_张___5年
+- cand_专案工程师_东莞_12_16K_熊___10年以上
+- cand_罗___32岁_专案工程师_智通简历_编号
+- cand_曹___工程师
+- cand_张___37岁_专案工程师_智通简历_编号
+- cand_刘___27岁_专案工程师_智通简历_编号
+- cand_设计助理工程师_东莞_7_10K_卢___4年
+- cand_设计助理工程师_东莞_7_10K_蓝___3年
+- cand_张___36岁_专案工程师_智通简历_编号
+- cand_专案工程师_东莞_11_16K_杨___7年
+- cand_周___38岁_专案工程师_智通简历_编号
+- cand_专案工程师_东莞_12_16K_董___7年
+- cand_专案工程师_东莞_12_16K_叶___10年以上
+- cand_胡___31岁_专案工程师_智通简历_编号
+- cand_行政专员_东莞_5_8K_吴___3年
+- cand_王___37岁_行政专员_智通简历_编号
+- cand_副总助理_东莞_10_15K_刘___10年
+- cand_陈___37岁_日文业务助理_智通简历_编号
+- cand_业务助理_东莞_7_9K_郑___3年
+- cand_业务跟单_东莞_6_10K_J___10年
+- cand_外贸业务员_东莞_5_10K_万___3年
+already_real_interview: []
+rows:
+- candidate: cand_专案工程师_东莞_12_16K_陈___5年
+  prio_hits: 2
+  prio_names:
+  - 品质岗经历有硬证据
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 10
+  quality: 有
+  quality_kind: B
+  quality_months: 30
+  quality_quote: 工程师:1.经理指派责任产品工程师 2.登陆agile查看报价中心输出的QBOM、工时、工模治具以及客户的图纸、认证、包
+  gates_ok: 6
+  real_hits: 2
+  n_ask: 0
+  age: 26
+  edu: 3
+- candidate: cand_陈___29岁_副总助理_智通简历_编号
+  prio_hits: 1
+  prio_names:
+  - 品质岗经历有硬证据
+  iv_real: 0
+  iv_sim: 10
+  quality: 有
+  quality_kind: B
+  quality_months: 29
+  quality_quote: '助理:1. 法规/标准的了解和信息传达, 中英翻译等: 2. 审核公司卷宗，财务报告，boom表，采购，设备合同等等 3'
+  gates_ok: 4
+  real_hits: 1
+  n_ask: 0
+  age: 29
+  edu: 4
+- candidate: cand_李___40岁_管理课课长_智通简历_编号
+  prio_hits: 1
+  prio_names:
+  - 品质岗经历有硬证据
+  iv_real: 0
+  iv_sim: 10
+  quality: 有
+  quality_kind: A
+  quality_months: 21
+  quality_quote: 课长.品质部:1、管理者代表; 2、管理体系搭建; 3、公司品质系统管理; 4、对外客户沟通。
+  gates_ok: 4
+  real_hits: 1
+  n_ask: 0
+  age: 40
+  edu: 4
+- candidate: cand_郑___37岁_专案工程师_智通简历_编号
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 41
+  quality_quote: '工程师.开发部:'
+  gates_ok: 4
+  real_hits: 2
+  n_ask: 5
+  age: 37
+  edu: 3
+- candidate: cand_段___研发工程主管_产品工程主管
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 64
+  quality_quote: '工程课长:'
+  gates_ok: 4
+  real_hits: 2
+  n_ask: 6
+  age: null
+  edu: 3
+- candidate: cand_叶___37岁_管理课课长_智通简历_编号
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 63
+  quality_quote: '专员/人力资源主管.人事行政部:'
+  gates_ok: 5
+  real_hits: 2
+  n_ask: 6
+  age: 37
+  edu: 5
+- candidate: cand_专案工程师_东莞_12_16K_邹___10年以上
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 74
+  quality_quote: 工程部-研发工程师:1. 主导新产品导入 (NPI) ，负责连接器、线材等关键物料选型，并完成成本分析与报价。 2. 编
+  gates_ok: 3
+  real_hits: 1
+  n_ask: 5
+  age: 37
+  edu: 3
+- candidate: cand_专案工程师_东莞_12_16K_华___9年
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 43
+  quality_quote: ''
+  gates_ok: 4
+  real_hits: 1
+  n_ask: 5
+  age: 31
+  edu: 4
+- candidate: cand_汽车线束高线工程师_东莞_10_14K_何___10年以上
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 43
+  quality_quote: ':1. 专长: 具有较强的领导能力、组织与协调能力、沟通能力、计划与执行能力。 有良好的团队协作精神，为人诚实可靠、品'
+  gates_ok: 4
+  real_hits: 1
+  n_ask: 5
+  age: 38
+  edu: 3
+- candidate: cand_专案工程师_东莞_12_16K_张___5年
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 31
+  quality_quote: ''
+  gates_ok: 4
+  real_hits: 1
+  n_ask: 5
+  age: 27
+  edu: 4
+- candidate: cand_专案工程师_东莞_12_16K_熊___10年以上
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: null
+  quality_quote: ''
+  gates_ok: 4
+  real_hits: 1
+  n_ask: 5
+  age: 40
+  edu: 3
+- candidate: cand_罗___32岁_专案工程师_智通简历_编号
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 57
+  quality_quote: '工程师.研发部门:'
+  gates_ok: 4
+  real_hits: 1
+  n_ask: 6
+  age: 32
+  edu: 3
+- candidate: cand_曹___工程师
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 57
+  quality_quote: 项目专案工程师:1、线材连接器行业新产品开发[CAD图纸设计、研发技术标准及行业应用， 2、建立审核各项BOM清单，计划
+  gates_ok: 3
+  real_hits: 1
+  n_ask: 6
+  age: 32
+  edu: 3
+- candidate: cand_张___37岁_专案工程师_智通简历_编号
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 37
+  quality_quote: ':1.独立完成样品制作.生产设备的使用调试和保养及维护 〈 端子机:; 准壁海唱，冠锅 ，银钢 测试机: 6350. 6'
+  gates_ok: 5
+  real_hits: 1
+  n_ask: 6
+  age: 37
+  edu: 3
+- candidate: cand_刘___27岁_专案工程师_智通简历_编号
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 36
+  quality_quote: ''
+  gates_ok: 3
+  real_hits: 1
+  n_ask: 6
+  age: 27
+  edu: 3
+- candidate: cand_设计助理工程师_东莞_7_10K_卢___4年
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 24
+  quality_quote: ''
+  gates_ok: 3
+  real_hits: 1
+  n_ask: 6
+  age: 25
+  edu: 4
+- candidate: cand_设计助理工程师_东莞_7_10K_蓝___3年
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 8
+  quality_quote: 助理 (服务器线束):2. 跟进服务器线束样品试制全流程，熟悉裁线、剥皮、压接、焊锡、注塑、电测整套加
+  gates_ok: 3
+  real_hits: 1
+  n_ask: 6
+  age: null
+  edu: 3
+- candidate: cand_张___36岁_专案工程师_智通简历_编号
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: B
+  quality_months: null
+  quality_quote: 经理.开发工程部:1.汽车线束开发; 2.新能源线束技术沟通; 3.公司技术文件完善; 4.车规产品前期评估; 6.技术
+  gates_ok: 4
+  real_hits: 1
+  n_ask: 6
+  age: 36
+  edu: 4
+- candidate: cand_专案工程师_东莞_11_16K_杨___7年
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: B
+  quality_months: null
+  quality_quote: 经理/主管:1.前期开发 (项目立项、解读客户需求、制图、制样、作业指导书、工艺流程、控制计划) 2.试产跟踪 (作业方
+  gates_ok: 3
+  real_hits: 1
+  n_ask: 7
+  age: 29
+  edu: null
+- candidate: cand_周___38岁_专案工程师_智通简历_编号
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 71
+  quality_quote: '工程师.工程部:'
+  gates_ok: 2
+  real_hits: 1
+  n_ask: 8
+  age: 38
+  edu: null
+- candidate: cand_专案工程师_东莞_12_16K_董___7年
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 0
+  quality: 读不出
+  quality_kind: null
+  quality_months: 0
+  quality_quote: ''
+  gates_ok: 5
+  real_hits: 2
+  n_ask: 4
+  age: 27
+  edu: 3
+- candidate: cand_专案工程师_东莞_12_16K_叶___10年以上
+  prio_hits: 1
+  prio_names:
+  - 线束/连接器行业
+  iv_real: 0
+  iv_sim: 0
+  quality: 读不出
+  quality_kind: null
+  quality_months: 0
+  quality_quote: ''
+  gates_ok: 3
+  real_hits: 1
+  n_ask: 6
+  age: 36
+  edu: 3
+- candidate: cand_胡___31岁_专案工程师_智通简历_编号
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: B
+  quality_months: null
+  quality_quote: 工程师.产品工程:1. 新产品3D评审，协同结构研发确认产品的可量产性，改善建议讨论落实 2. NUDD/PFMEA/P
+  gates_ok: 5
+  real_hits: 3
+  n_ask: 6
+  age: 31
+  edu: null
+- candidate: cand_行政专员_东莞_5_8K_吴___3年
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 24
+  quality_quote: '专员:2. 司车管理: 负责公司车辆的调度: 使用登记、维护保养、保险、年检、违章处理、油卡 ETC、车辆钥匙保管 3.'
+  gates_ok: 3
+  real_hits: 2
+  n_ask: 5
+  age: null
+  edu: 3
+- candidate: cand_王___37岁_行政专员_智通简历_编号
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 51
+  quality_quote: 专员.行政部:1、根据公司现状制定公司行政管理制度监督并实施; 2、协助人事专员对公司需求岗位的招聘及员工培训; 3、负
+  gates_ok: 5
+  real_hits: 2
+  n_ask: 6
+  age: 37
+  edu: 3
+- candidate: cand_副总助理_东莞_10_15K_刘___10年
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 49
+  quality_quote: '经理助理兼人事行政主管:'
+  gates_ok: 4
+  real_hits: 1
+  n_ask: 5
+  age: 39
+  edu: 4
+- candidate: cand_陈___37岁_日文业务助理_智通简历_编号
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 48
+  quality_quote: ''
+  gates_ok: 3
+  real_hits: 1
+  n_ask: 5
+  age: 37
+  edu: 3
+- candidate: cand_业务助理_东莞_7_9K_郑___3年
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 48
+  quality_quote: ''
+  gates_ok: 3
+  real_hits: 1
+  n_ask: 5
+  age: 25
+  edu: 4
+- candidate: cand_业务跟单_东莞_6_10K_J___10年
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 47
+  quality_quote: 经理一:1.负责开发公司潜力新客户 CU1，在收到每个新项目询盘时，因每次询盘产品内容多以及比较专业复杂，因此每次需和公
+  gates_ok: 4
+  real_hits: 1
+  n_ask: 5
+  age: 34
+  edu: 4
+- candidate: cand_外贸业务员_东莞_5_10K_万___3年
+  prio_hits: 0
+  prio_names: []
+  iv_real: 0
+  iv_sim: 0
+  quality: 待核
+  quality_kind: null
+  quality_months: 45
+  quality_quote: ''
+  gates_ok: 4
+  real_hits: 1
+  n_ask: 5
+  age: 25
+  edu: 4

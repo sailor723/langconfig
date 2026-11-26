@@ -1,0 +1,32 @@
+candidate: cand_陈___37岁_日文业务助理_智通简历_编号
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  yearsStated:
+    value: 12
+    basis: mock
+    rule: 声明年限:与总年限同分布 3~15 年
+    seed: 0.756637
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_6S:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.222677)
+    note: 模拟值,不是事实
+  skill_SPC:
+    held: true
+    basis: mock
+    rule: 按 20% 概率抽中(seed=0.156269)
+    note: 模拟值,不是事实
+  skill_品质问题分析:
+    held: true
+    basis: mock
+    rule: 按 45% 概率抽中(seed=0.100299)
+    note: 模拟值,不是事实
+  skill_客户验厂:
+    held: true
+    basis: mock
+    rule: 按 25% 概率抽中(seed=0.092560)
+    note: 模拟值,不是事实

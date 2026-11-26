@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_康___37岁_技术课课长_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 2e7c8767f6da10bb
+runs:
+  1:
+    output_sha256: f2e51ae3ffa6d8b9
+    chars: 838
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示37岁，落在25~40岁区间内
+    quote: 男 | 37岁
+  C-02:
+    state: 满足
+    why: 简历学历为大专，达到大专及以上要求
+    quote: 大专
+  C-03:
+    state: 不满足
+    why: 专业为模具设计与制造，不在工程类专业白名单内
+    quote: 大专 ，模具设计与制造
+  C-04:
+    state: 不满足
+    why: 英语听说读写均一般，且无独立书写英文8D报告的证据
+    quote: '英语: 听说能力 [一般] 。 读写能力 [一般]'
+  C-05:
+    state: 满足
+    why: 16年工作经验，其中品质/工程相关经验超过3年
+    quote: 16年
+  C-06:
+    state: 满足
+    why: 简历明确有汽车线束行业产品经验
+    quote: 精通汽车线束及电子设备组装工艺
+  C-07:
+    state: 满足
+    why: 简历体现品质问题分析与改善能力
+    quote: 具备快速识别和解决技术问题的能力，持续优化生产工艺
+  C-08:
+    state: 满足
+    why: 培训经历含QCC，且简历涉及SPC/CPK等品质工具应用
+    quote: QCC ，纬创资通
+  C-09:
+    state: 满足
+    why: 简历有客户Audit审核改进经验，可视为客户验厂经验
+    quote: 推进客户Audit审核项目的改进工作
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

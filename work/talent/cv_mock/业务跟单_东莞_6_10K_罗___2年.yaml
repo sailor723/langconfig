@@ -1,0 +1,27 @@
+candidate: cand_业务跟单_东莞_6_10K_罗___2年
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  yearsStated:
+    value: 12
+    basis: mock
+    rule: 声明年限:与总年限同分布 3~15 年
+    seed: 0.728662
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_QC七大手法:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.256249)
+    note: 模拟值,不是事实
+  skill_SPC:
+    held: true
+    basis: mock
+    rule: 按 20% 概率抽中(seed=0.152999)
+    note: 模拟值,不是事实
+  skill_线束行业知识:
+    held: true
+    basis: mock
+    rule: 按 40% 概率抽中(seed=0.200097)
+    note: 模拟值,不是事实

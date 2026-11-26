@@ -1,0 +1,43 @@
+candidate: cand_张___21岁_外贸业务员_智通简历_编号
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  major:
+    value: 机电一体化技术
+    basis: mock
+    rule: 专业:60% 落在客户点名的 5 个词里,40% 给「工商管理」
+    seed: 0.189712
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+  yearsStated:
+    value: 5
+    basis: mock
+    rule: 声明年限:与总年限同分布 3~15 年
+    seed: 0.21298
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_6S:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.232369)
+    note: 模拟值,不是事实
+  skill_8D报告:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.130078)
+    note: 模拟值,不是事实
+  skill_CPK:
+    held: true
+    basis: mock
+    rule: 按 18% 概率抽中(seed=0.077804)
+    note: 模拟值,不是事实
+  skill_品质问题分析:
+    held: true
+    basis: mock
+    rule: 按 45% 概率抽中(seed=0.307354)
+    note: 模拟值,不是事实
+  skill_客户验厂:
+    held: true
+    basis: mock
+    rule: 按 25% 概率抽中(seed=0.000892)
+    note: 模拟值,不是事实

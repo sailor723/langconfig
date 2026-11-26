@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_郑___25岁_工程文员_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: a35c52cf439853ea
+runs:
+  1:
+    output_sha256: 1d5533ba9088c8c4
+    chars: 743
+replay_identical: null
+cells:
+  C-01:
+    state: 未知
+    why: 简历未提供年龄信息，无法与25~40岁区间比对
+    quote: null
+  C-02:
+    state: 满足
+    why: 简历载明大专学历，达到大专及以上要求
+    quote: 大专 城市轨道交通运营管理
+  C-03:
+    state: 不满足
+    why: 专业为城市轨道交通运营管理，不在工程类专业白名单内
+    quote: 大专 城市轨道交通运营管理
+  C-04:
+    state: 未知
+    why: 简历未提及英语口语或英文8D报告能力
+    quote: null
+  C-05:
+    state: 未知
+    why: 简历无品质管理工作经验年限信息，无法确认是否满3年
+    quote: null
+  C-06:
+    state: 未知
+    why: 简历未提及线束或连接器行业相关知识
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历未明确体现品质问题分析与改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历未提及接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

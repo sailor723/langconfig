@@ -1,0 +1,22 @@
+candidate: cand_行政专员_东莞_7_9K_唐___5年
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  age:
+    value: 36
+    basis: mock
+    rule: 年龄:28 + 均匀取 0..18 → 28~46 岁
+    seed: 0.471477
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_6S:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.034497)
+    note: 模拟值,不是事实
+  skill_品质问题分析:
+    held: true
+    basis: mock
+    rule: 按 45% 概率抽中(seed=0.092675)
+    note: 模拟值,不是事实

@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_业务跟单_东莞_6_10K_Lily_10年以上
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 77f4017a85399443
+runs:
+  1:
+    output_sha256: 5f943569c1d3ecf5
+    chars: 878
+replay_identical: null
+cells:
+  C-01:
+    state: 未知
+    why: 简历只给出出生年1985，未给出当前年龄，无法与25~40岁区间比对
+    quote: '出生年: 1985'
+  C-02:
+    state: 满足
+    why: 最高学历为硕士，高于大专及以上要求
+    quote: '最高学历: 硕士'
+  C-03:
+    state: 不满足
+    why: 本科为工业自动化、硕士为工商管理，均不在机电一体化/电子技术/自动化/工业工程/机械工程白名单内
+    quote: 北京科技大学 工业自动化 本科；广东外语外贸大学 MBA 工商管理专业
+  C-04:
+    state: 未知
+    why: 简历体现英语流利，但未提及独立书写英文8D报告能力
+    quote: 英语流利无障碍
+  C-05:
+    state: 未知
+    why: 工作经历均为销售/大客户管理，未见品质管理领域年限
+    quote: 大客户销售经理
+  C-06:
+    state: 未知
+    why: 简历提及FPC柔性线路板行业，未明确线束/连接器行业认知
+    quote: 熟悉电子消费类生产制造全流程和汽车柔性线路板 FPC 行业
+  C-07:
+    state: 未知
+    why: 简历未体现品质问题分析、改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历有客户来访接待与邀约看厂，但未明确客户验厂经验
+    quote: 全权处理客户来访商务会议谈判和接待
+  C-10:
+    state: 不可判
+    why: 该条无数据项，对所有人一样，不给结论
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

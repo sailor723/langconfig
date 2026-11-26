@@ -1,0 +1,26 @@
+candidate: cand_龚___33岁_专案工程师_智通简历_编号
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props: {}
+components:
+  skill_5WHY:
+    held: true
+    basis: mock
+    rule: 按 22% 概率抽中(seed=0.011608)
+    note: 模拟值,不是事实
+  skill_6S:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.042078)
+    note: 模拟值,不是事实
+  skill_SPC:
+    held: true
+    basis: mock
+    rule: 按 20% 概率抽中(seed=0.194720)
+    note: 模拟值,不是事实
+  skill_线束行业知识:
+    held: true
+    basis: mock
+    rule: 按 40% 概率抽中(seed=0.371455)
+    note: 模拟值,不是事实

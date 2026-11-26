@@ -1,0 +1,190 @@
+jd: 工程文员
+role_type: staff
+role_basis: 由原文 S1.08 直接下属=「无」推得;S1.11 岗位类别待业务方确认
+role_confirmed: false
+department: ''
+source_file: ../client/team-4/unzipped/职务说明书10份/工程文员职务说明书.xlsx
+source_text: work/talent/jd_links/_source/工程文员.txt
+extracted_with: textutil/openpyxl
+drafted_by: deepseek-chat, temperature=0 —— **草稿,未人工审核**
+review_status: '粒度已审 —— 6 条粒度决定全部 signoff=pending(见 jd_reviews/工程文员.yaml),尚未签署'
+count:
+  source_section: 任职资格
+  atomic_requirements: 8
+  count_note: >-
+    8 条来自原文第 4–8 行「资格要求」段。复审:6 条含拆分信号已逐条判过
+    (见 jd_reviews/工程文员.yaml 的 6 条 granularity 条目,全部 signoff: pending);
+    第 9–14 行「职务简述」与第 15–53 行作业明细表是职责段,本轮没有引用、也没有排除动作。
+citations:
+- id: 工程-01
+  requirement: REQ-B-EDU-LEVEL
+  verbatim: 1、高中及以上学历；
+  source_text: 资格要求 | 1、高中及以上学历；
+  txt_line: 4
+  tier: essential
+  value:
+    num: 3
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 学历
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    why: 句里的「及」是「及以上」这个阈值写法的一部分(≥),不是连接两个并列要求;前面的「1、」是序号。一条,不拆。
+  note: >-
+    keep,不拆。但 value.num=3 与本句原话对不上:目录 B.1 的 ordinal 是 2=中专/高中、3=大专,
+    客户写的是「高中及以上」,按字面对应 2。我没有改这个值(改 value 不在本轮授权内),
+    需要 admin 定:改成 2(按字面)还是维持 3(按实际招聘口径)。另:学历属性只有 206/277 份简历有值,
+    读不到的那 71 人这条判不出来,只能标未知。
+- id: 工程-02
+  requirement: REQ-D-OFFICE
+  verbatim: 2、熟练：Excel、Word、ppt等办公软件，同时具备AI工具的基本运用能力；
+  source_text: 2、熟练：Excel、Word、ppt等办公软件，同时具备AI工具的基本运用能力；
+  txt_line: 5
+  tier: essential
+  value:
+    in:
+    - Excel
+    - Word
+    - PPT
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: Office办公软件
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_split
+    why: 这一句确实塞了两件事——「熟练 Excel/Word/ppt 等办公软件」与「同时具备AI工具的基本运用能力」;后半在本草稿里已经拆成独立的 工程-03,所以「该拆」成立,且拆已经落地。
+  note: >-
+    该拆,已由 工程-03 拆出后半。但这条的 verbatim 仍是整句、包含后半,计分时同一句会被算两次
+    (工程-02 与 工程-03 各一次)。要修只能把 verbatim 截到「…等办公软件」为止,本轮授权不许改 verbatim,
+    留给 admin。另:客户原文写的是「ppt」,要求库连的组件是 skill_PowerPoint,靠 REQ-D-OFFICE 的映射接上;
+    目录实测 Word/Excel/PowerPoint 分别 55/87/40 人持有。「等办公软件」的「等」原样保留,没收窄。
+- id: 工程-03
+  requirement: REQ-D-AI-TOOLS
+  verbatim: 同时具备AI工具的基本运用能力
+  source_text: 2、熟练：Excel、Word、ppt等办公软件，同时具备AI工具的基本运用能力；
+  txt_line: 5
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: AI工具运用
+    measurable_from_resume: true
+    requirement_reused: false
+  origin: client
+  note: >-
+    下游一定判不了:要求库 REQ-D-AI-TOOLS 是 assessable=false、no_component=true ——
+    AI 工具在目录里没有组件(gaps.P5 显式登记)。这不是本文件能修的,是库的缺口,只能面试问。
+    llm.measurable_from_resume 写成 true 与要求库的 assessable=false 互相矛盾,我倾向以要求库为准,
+    但这一栏属于草稿的抽取结果,本轮没有改。
+    另外它被 工程-02 的整句 verbatim 重复覆盖(见 工程-02 的 note)。
+    「基本运用能力」没有阈值,客户没给,不许编。
+- id: 工程-04
+  requirement: REQ-C-YEARS-DOMAIN
+  verbatim: 3、有同等岗位工作经验二年以上；
+  source_text: 3、有同等岗位工作经验二年以上；
+  txt_line: 6
+  tier: essential
+  value:
+    num: 2
+    domain: 同等岗位
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 同等岗位年限
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    why: 句里的「、」是序号「3、」的一部分,「二年以上」是阈值写法,没有并列两个要求。一条,不拆。
+  note: >-
+    keep。真正的含糊在「同等岗位」:什么算同等岗位(工程文员?一般文员?工程助理?)客户一个字没写,
+    下游判不了,只能当空话或转成面试问题。年限这一半可判,但只有 118/277 份简历有声明年限;
+    领域这一半判不了 —— 要求库的 C.2 职能域 prop 未建、cv_coverage=0,十年人资专员与两年工程文员在这条上得分相同。
+- id: 工程-05
+  requirement: REQ-D-DRAWING-READ
+  verbatim: 4、能识别图纸基本信息：线材规格、端子型号、胶壳料号、回路标识等；
+  source_text: 4、能识别图纸基本信息：线材规格、端子型号、胶壳料号、回路标识等；
+  txt_line: 7
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 图纸识别
+    measurable_from_resume: true
+    requirement_reused: false
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    why: 冒号后那四个是「图纸基本信息」的举例,后面还跟着「等」;它们不是四个可分别判定的动作或要求。拆开等于把「等」收窄成穷举清单,是替客户改 JD。
+  note: >-
+    keep,「等」原样保留,不许扩写成清单也不许当成穷举。要求库 REQ-D-DRAWING-READ 连 skill_识图,
+    目录实测 cv_count=7/277:这个 7 是「真的只有 7 人会识别图纸」还是「抽取漏检」,我没有依据判断,
+    但它意味着这条会把绝大多数候选判成不满足。判「不满足」之前必须先分清这两种情况,否则会成批误杀。
+- id: 工程-06
+  requirement: REQ-E-COMMUNICATION
+  verbatim: 5、善于沟通，责任心与进取心强，工作认真、严谨细致；
+  source_text: 5、善于沟通，责任心与进取心强，工作认真、严谨细致；
+  txt_line: 8
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 沟通协调能力
+    measurable_from_resume: false
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_split
+    why: 这一句是整份 JD 里最该拆的一条:沟通、责任心+进取心、认真+严谨细致是三组特质,一个候选人完全可能只占其中一组。本草稿已经拆出 工程-07(责任心与进取心强)和 工程-08(工作认真、严谨细致),所以「该拆」成立。
+  note: >-
+    该拆,已由 工程-07 / 工程-08 拆出后两组。但这条的 verbatim 仍是整句,于是第 8 行这一句在计分里出现 3 次
+    (06/07/08 各一次),同一组特质被算三遍。要修只能缩短 06 的 verbatim,本轮不许动,留给 admin。
+    实质问题:REQ-E-COMMUNICATION 在要求库是 assessable=false(素质没有组件),「善于沟通」既没阈值也没行为标准,
+    客户也没给 —— 下游只能面试评分,简历侧判不了。
+- id: 工程-07
+  requirement: REQ-E-RESPONSIBILITY
+  verbatim: 责任心与进取心强
+  source_text: 5、善于沟通，责任心与进取心强，工作认真、严谨细致；
+  txt_line: 8
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 责任心
+    measurable_from_resume: false
+    requirement_reused: true
+  origin: client
+  note: >-
+    本条 verbatim 用「与」连了责任心、进取心两个特质,按同一口径本可再拆;但两者在 E 维都 assessable=false
+    (无组件、无属性),拆开只会得到两条都判不了的要求,所以不拆。这个判断不在 6 条拆分信号里
+    (拆分信号只认 及 / 以及 / 或 / 和 / 顿号 / 斜杠,不认「与」),故没有单独的 granularity 记录,写在这里。
+    下游只能靠面试/背调,简历侧判不了。
+- id: 工程-08
+  requirement: REQ-E-CAREFUL
+  verbatim: 工作认真、严谨细致
+  source_text: 5、善于沟通，责任心与进取心强，工作认真、严谨细致；
+  txt_line: 8
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 认真严谨细致
+    measurable_from_resume: false
+    requirement_reused: false
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    why: 句里的「、」连接的是同一个特质的近义修饰(认真≈严谨细致),不是两件事,拆开得不到第二条可判信息。前面还有「5、」的序号。
+  note: >-
+    keep。REQ-E-CAREFUL 在库里已注明与专案工程师的「细心谨慎」是同一条(合并条目),assessable=false,
+    下游简历侧判不了,只能面试或试用期观察。客户没给任何可观察的行为标准,不许替它编。
+undefined_statements: []
+excluded: []

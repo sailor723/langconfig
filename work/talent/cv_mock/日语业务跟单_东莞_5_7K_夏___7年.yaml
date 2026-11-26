@@ -1,0 +1,38 @@
+candidate: cand_日语业务跟单_东莞_5_7K_夏___7年
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  age:
+    value: 34
+    basis: mock
+    rule: 年龄:28 + 均匀取 0..18 → 28~46 岁
+    seed: 0.350486
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+  yearsStated:
+    value: 15
+    basis: mock
+    rule: 声明年限:与总年限同分布 3~15 年
+    seed: 0.964427
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_8D报告:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.053935)
+    note: 模拟值,不是事实
+  skill_CPK:
+    held: true
+    basis: mock
+    rule: 按 18% 概率抽中(seed=0.086214)
+    note: 模拟值,不是事实
+  skill_品质问题分析:
+    held: true
+    basis: mock
+    rule: 按 45% 概率抽中(seed=0.375069)
+    note: 模拟值,不是事实
+  skill_客户验厂:
+    held: true
+    basis: mock
+    rule: 按 25% 概率抽中(seed=0.127480)
+    note: 模拟值,不是事实

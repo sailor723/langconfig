@@ -1,0 +1,48 @@
+candidate: cand_专案工程师_东莞_11_16K_杨___7年
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  educationRank:
+    value: 4
+    basis: mock
+    rule: 学历:按经验给 3(大专)或 4(本科),各 50%
+    seed: 0.385866
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+  major:
+    value: 电子技术
+    basis: mock
+    rule: 专业:60% 落在客户点名的 5 个词里,40% 给「工商管理」
+    seed: 0.354904
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_6S:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.114137)
+    note: 模拟值,不是事实
+  skill_8D报告:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.170976)
+    note: 模拟值,不是事实
+  skill_CPK:
+    held: true
+    basis: mock
+    rule: 按 18% 概率抽中(seed=0.007902)
+    note: 模拟值,不是事实
+  skill_SPC:
+    held: true
+    basis: mock
+    rule: 按 20% 概率抽中(seed=0.106524)
+    note: 模拟值,不是事实
+  skill_品质问题分析:
+    held: true
+    basis: mock
+    rule: 按 45% 概率抽中(seed=0.381949)
+    note: 模拟值,不是事实
+  skill_客户验厂:
+    held: true
+    basis: mock
+    rule: 按 25% 概率抽中(seed=0.147678)
+    note: 模拟值,不是事实

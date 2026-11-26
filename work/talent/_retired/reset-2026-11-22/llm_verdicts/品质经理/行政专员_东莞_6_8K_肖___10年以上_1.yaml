@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_行政专员_东莞_6_8K_肖___10年以上_1
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: a3a106564e8eeb5f
+runs:
+  1:
+    output_sha256: 11a48f823316a74e
+    chars: 785
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示35岁，落在25~40岁区间内
+    quote: 男|35岁
+  C-02:
+    state: 满足
+    why: 简历教育经历为大专层次（娄底商务学院），达到大专及以上
+    quote: 娄底商务学院 … 模具设计与制造 2004-2007
+  C-03:
+    state: 不满足
+    why: 专业为模具设计与制造，不在机电一体化/电子技术/自动化/工业工程/机械工程白名单内
+    quote: 模具设计与制造
+  C-04:
+    state: 未知
+    why: 简历未提及英语口语或英文8D报告能力
+    quote: null
+  C-05:
+    state: 不满足
+    why: 工作经历均为行政专员/助理，无品质管理工作经验
+    quote: '求职意向: 行政专员/助理'
+  C-06:
+    state: 不满足
+    why: 简历无线束/连接器行业相关经历或知识
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历未体现品质问题分析、改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历未提及接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样，不给结论
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_业务跟单_东莞_6_10K_张___10年以上
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 318630d5e5501608
+runs:
+  1:
+    output_sha256: 18246bbeca3e98c7
+    chars: 767
+replay_identical: null
+cells:
+  C-01:
+    state: 未知
+    why: 简历OCR中未见年龄信息，无法核对25~40岁区间
+    quote: null
+  C-02:
+    state: 未知
+    why: 简历仅显示经贸英语专业，未明确学历层次，无法确认大专及以上
+    quote: null
+  C-03:
+    state: 不满足
+    why: 专业为经贸英语，不属于机电/电子/自动化/工业工程/机械工程等工程类白名单
+    quote: 经贸英语
+  C-04:
+    state: 未知
+    why: 简历未体现英语口语熟练或独立书写英文8D报告的能力
+    quote: null
+  C-05:
+    state: 未知
+    why: 简历为外贸跟单经历，未体现品质管理工作经验年限
+    quote: null
+  C-06:
+    state: 未知
+    why: 简历未提及线束/连接器行业相关知识
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历仅提处理客诉，未体现品质问题分析改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历提到接待客户到访，但未明确为客户验厂经验
+    quote: null
+  C-10:
+    state: 满足
+    why: 简历明确写有良好的沟通协调能力
+    quote: 良好的沟通协调能力
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

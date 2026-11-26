@@ -1,0 +1,213 @@
+# 决策账本 —— 「谁、何时、为什么」这么定的独立记录。
+#
+# 分工:
+#   jd_links/<JD>.yaml   引用了什么(派生文件,可被重新抽取覆盖)
+#   jd_reviews/<JD>.yaml 人定过什么(决策文件)
+# 门禁交叉校验两边:inline 的每条 granularity_decision 与每条 excluded,在账本里都必须有
+# subject 匹配的条目,且 status / decided_by / decided_at 逐字一致。
+#
+# 本账本所有条目都是 signoff: pending —— 这轮复审由 agent 386 做,它没有 admin 的签字权。
+# 所以这里不写 decided_by / decided_at:没发生过的签署不许补。
+# 每条 why 记「按什么口径判的」,cost 记「这个口径的代价是什么」,等人点头。
+#
+# 本轮复审没有改客户原话:verbatim / txt_line / source_text / requirement / value 一字未动
+# (已与 /tmp/招聘专员.yaml.bak 之外的原文逐字节对照:只追加了 granularity_decision / note /
+#  undefined_statements 三个键,其余行原样)。
+#
+# 三个需要 admin 拍板的实质问题(「招聘经验」被 02/12 计两次权、09/10/14 同挂 skill_招聘 组件
+# 计三次权、「招聘工作经验」的边界)—— 都写进对应条目的 cost。它们改的是数据,不在本轮授权内。
+#
+# 排除项:无。14 条引用全部落在第 14–18 行「资格要求」段;原文第 19–28 行「职务简述」与
+# 第 29–134 行「事务表述」是职责/工作内容段,草稿本来就没有从那里取引用,所以没有需要搬进
+# excluded 的东西。excluded 保持 [] 是复核过的结论,不是没看。
+
+jd: 招聘专员
+ref: jd_links/招聘专员.yaml
+decisions:
+
+- id: D-招聘专员-01
+  kind: granularity
+  subject: 招聘-01
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 14 行「1） 中专以上学历，1年以上招聘工作经验；」被拆成 学历(01) / 年限(02) 两条,拆法对:
+    学历与年限是两个不同属性,一个人可以学历够而年限不够。01 自身「中专以上学历」不含并列词,keep。
+  cost: >-
+    value.num=2 与要求库的 ordinal 一致(2=中专/高中、3=大专、4=本科),「以上」含本数,≥2 自洽 ——
+    这一份没有 人资专员 D-人资专员-01 那种「高中及以上却写 3」的差一档问题,不需要改数据。
+    剩下唯一的含糊是「中专以上」是否允许中专本身;按中文「以上含本数」判为允许。若客户本意相反,
+    要客户自己改原话 —— 我们不替他改一个字。
+
+- id: D-招聘专员-02
+  kind: granularity
+  subject: 招聘-02
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 14 行「1年以上招聘工作经验」是 01 之外的另一条约束,草稿已拆,拆的动作落地了。
+    年限阈值明确(num=1,「以上」含本数),这一条本身 keep。
+  cost: >-
+    真正判不了的是**「招聘工作经验」的范围**:专职招聘岗的年限算,还是兼做招聘的人事/行政岗也算?
+    客户没界定。下游只能按简历里与招聘相关职责的时长估,口径一偏,进出局名单就换一批人。
+    这一条必须在第 2 步让客户写死(要么给范围,要么给「以岗位名称是否含招聘为准」这类可执行口径)。
+
+- id: D-招聘专员-03
+  kind: granularity
+  subject: 招聘-03
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「良好的沟通表达协调能力强」里「沟通」「表达」「协调」是**连写**的,中间没有任何分隔符(不是「沟通、表达、协调」),
+    机械筛子不会命中,也不该命中 —— 客户把它当一个复合能力写,拆开只会得到三个都判不了的碎片。keep。
+  cost: >-
+    REQ-E-COMMUNICATION 在库里 assessable=false(E 维 24 条素质要求在本目录没有任何组件),
+    简历侧永远判不了。客户却把它标成 essential:一个沟通能力无法从简历证明的候选人,在这一条上只能是
+    「未知」而不是「不满足」。下游必须明确这一点,否则这条就是隐形的一刀切。
+    另外「良好」是程度词,客户没给标准,我们没有、也不许替它编。
+
+- id: D-招聘专员-04
+  kind: granularity
+  subject: 招聘-04
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    **这是本 JD 唯一命中拆分信号(顿号)的一条**,所以单独记。第 15 行
+    「2）良好的沟通表达协调能力强、能够准确、清晰、责任心强、细心、稳重；」是一串用顿号并列的形容词,
+    草稿已按顿号切成 03–07 五条,拆的动作落地了。本条的「能够准确、清晰」是这串里的一截,
+    而且**缺主语与宾语**(原意应是「表达准确、清晰」),把「准确」「清晰」再分成两条,
+    只会得到两个既缺谓语对象、又都判不了的碎片,所以 keep。
+  cost: >-
+    代价是这一截在读回原文之前不像一条独立要求(「能够准确、清晰」+ 什么?)。保留它是为了不漏掉客户
+    确曾写下的「表达要准确清晰」这个要求;不改 verbatim 是本步纪律(它是逐字回查的对象)。
+    它挂 REQ-E-LOGIC,assessable=false,简历判不了,只能面试。
+    另有一处重叠:它与 招聘-03 都出自同一句表达要求,03 挂沟通、04 挂逻辑,面试时会问两遍 —— 无害,但要知道。
+
+- id: D-招聘专员-05
+  kind: granularity
+  subject: 招聘-05
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 15 行按顿号拆出的「责任心强」,自身无并列词,拆的动作由 D-招聘专员-04 记过,这里补齐它自己的 keep。
+  cost: >-
+    REQ-E-RESPONSIBILITY 在库里 assessable=false,取证方式是面试评分表 / 背景调查,简历侧判不了。
+    这份 JD 里只有这一条挂该要求,不存在 人资专员 那样的重复计权。
+
+- id: D-招聘专员-06
+  kind: granularity
+  subject: 招聘-06
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 15 行拆出的「细心」,自身无并列词。草稿原本把它挂到 REQ-E-DATA-SENSITIVITY,后被改挂
+    REQ-E-CAREFUL —— inline 的 review.reassigned_from 字段留有这条改判记录,本轮复审没有改动 requirement。
+  cost: >-
+    「细心」没有可观察尺度,REQ-E-CAREFUL assessable=false,简历判不了。
+    要判就得客户给出可观察行为(如「独立核对报表差错率」),那属于第 2 步让客户补,不是我们编。
+
+- id: D-招聘专员-07
+  kind: granularity
+  subject: 招聘-07
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 15 行拆出的「稳重」,自身无并列词。草稿原挂 REQ-E-STRESS、后改挂 REQ-E-STEADY,
+    inline 的 review.reassigned_from 留有记录,本轮未改。
+  cost: >-
+    「稳重」是主观特质,REQ-E-STEADY assessable=false,只能面试判断。
+    与「细心」「责任心」一样属于 E 维不可判项;这份 JD 的 E 维条目共 7 条(03–07、11、13),
+    意味着近半数要求下游只能标「未知」—— 这个比例要 admin 知道,它决定短名单会不会被「未知」撑爆。
+
+- id: D-招聘专员-08
+  kind: granularity
+  subject: 招聘-08
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 16 行「3）熟练使用相关办公软件，具备基本的招聘技巧及熟悉通常的招聘渠道；」被拆成 08/09/10 三条。
+    08 自身「熟练使用相关办公软件」不含并列词(「相关」是修饰语不是并列),keep。
+  cost: >-
+    「相关」是客户留的开放词,不许替它收窄成一份软件清单 —— 收窄了,用到清单外软件的候选人就会被判不满足。
+    库里组件是 Word/Excel/PPT 三项,比客户说的「相关」窄:这是判定的天花板,不是我们可以补的。
+    「熟练」客户没给标准,下游只能判「会不会用」,判不了「熟不熟练」。
+
+- id: D-招聘专员-09
+  kind: granularity
+  subject: 招聘-09
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 16 行的「及」是拆分信号,草稿把「具备基本的招聘技巧」与「熟悉通常的招聘渠道」拆成 09、10 两条,拆法对:
+    会做招聘动作和认得招聘渠道是两件事,一个人可能占一半。09 自身无并列词,keep。
+  cost: >-
+    **本 JD 最需要 admin 定的一处**:09(REQ-D-RECRUIT-SKILL)、10(REQ-D-RECRUIT-CHANNEL)、
+    14(REQ-D-RECRUIT-KNOWLEDGE)三条要求的 components 全是同一个 ['skill_招聘'] ——
+    同一个技能在同一份 JD 里被计三次权。而这个技能恰恰是这个岗位最核心的能力,三倍计权等于
+    让「招聘技能有/无」压过学历、年限等所有别的条件,短名单会被单一维度主导。
+    要么合并成一条、要么承认只有一条进计分(其余只做面试提纲)。改 requirement 不在复审授权内,
+    而且改法涉及要求库的组件划分,是库的事,不是这份 JD 的事。
+    「基本」二字客户没给标准,程度上判不了。
+
+- id: D-招聘专员-10
+  kind: granularity
+  subject: 招聘-10
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 16 行「及」拆出的后半,自身无并列词,拆的动作由 D-招聘专员-09 记过。
+  cost: >-
+    「通常的招聘渠道」是开放词,不能替客户列成「智联/前程无忧/BOSS…」这样的清单 —— 列了就是替客户做决定,
+    而且会拿这份清单去排除用别的渠道招人的候选人。判定只能落在「有没有渠道运营的相关表述」上。
+    与 09、14 同挂 skill_招聘 组件,重复计权见 D-招聘专员-09。
+
+- id: D-招聘专员-11
+  kind: granularity
+  subject: 招聘-11
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 17 行「4）独立工作能力强，以及丰富的招聘经验；」里的「以及」是拆分信号,草稿拆成 11、12 两条,拆法对:
+    独立工作能力与招聘经验是两个不同属性。11 自身无并列词,keep。
+  cost: >-
+    REQ-E-EXECUTION 在库里 assessable=false,「独立工作能力强」没有可观察标准,简历判不了,
+    只能面试。这是本 JD 第 5 条不可判的 E 维要求(见 D-招聘专员-07 的成本)。
+
+- id: D-招聘专员-12
+  kind: granularity
+  subject: 招聘-12
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 17 行「以及」拆出的后半,自身无并列词,拆的动作由 D-招聘专员-11 记过。
+  cost: >-
+    两个下游会踩的坑:① 它与 招聘-02 挂**同一条要求** REQ-C-YEARS-DOMAIN、同一个 domain(招聘)——
+    「招聘经验」在一份 JD 里被计两次权,一次按 num=1、一次无阈值;② 「丰富」没给任何数字,
+    value 只有 {domain: 招聘} 没有 num,按本步纪律不许替它编阈值,所以它实际是一条**无达标线的年限要求**。
+    02 如果已经够判,12 就只是同一件事的重复计权;要保留 12 就必须由客户给出「丰富」的数字(比如 3 年)。
+    改 requirement / 补 value 都不在本轮授权内。
+
+- id: D-招聘专员-13
+  kind: granularity
+  subject: 招聘-13
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 18 行「5）对招聘工作感兴趣，并熟悉相关招聘知识；」里的「并」是拆分信号,草稿拆成 13、14 两条,拆法对:
+    兴趣与知识是两件事(有知识不一定愿意干,愿意干不一定懂)。13 自身无并列词,keep。
+  cost: >-
+    草稿原挂 REQ-E-STRIVING、后改挂 REQ-E-JOB-INTEREST,inline 的 review.reassigned_from 留有记录,本轮未改。
+    「对…感兴趣」只能面试问,assessable=false;候选人在面试里几乎都会答「感兴趣」,所以这一条的实际区分度接近零,
+    除非客户给可验证的行为(如「主动关注行业招聘动态」)。
+
+- id: D-招聘专员-14
+  kind: granularity
+  subject: 招聘-14
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 18 行「并」拆出的后半,自身无并列词,拆的动作由 D-招聘专员-13 记过。
+  cost: >-
+    「相关招聘知识」的范围客户没写边界:劳动法?面试技巧?渠道规则?判「有没有招聘知识」判得到,
+    判「够不够相关」判不了。与 09、10 同挂 skill_招聘 组件,重复计权的后果见 D-招聘专员-09 ——
+    这条存在,会让重复计权从两倍变成三倍,是那条更要紧的原因。

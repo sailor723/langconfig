@@ -1,0 +1,56 @@
+jd: 品质经理
+candidate: cand_李___48岁_工程经理_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 2b891952162f3809
+runs:
+  1:
+    output_sha256: f2661ca15dfbe8f0
+    chars: 930
+  2:
+    output_sha256: f2661ca15dfbe8f0
+    chars: 930
+replay_identical: true
+cells:
+  C-01:
+    state: 不满足
+    why: 简历年龄48岁，超出客户要求的25~40岁区间
+    quote: 年龄：25 ~ 40岁
+  C-02:
+    state: 满足
+    why: 简历为全日制大专毕业，达到大专及以上要求
+    quote: 全日制 应用电子工程技术 大专毕业
+  C-03:
+    state: 不满足
+    why: 专业为应用电子工程技术，未命中机电一体化/电子技术/自动化/工业工程/机械工程白名单
+    quote: 专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业
+  C-04:
+    state: 满足
+    why: 简历体现英文良好、可书面英文沟通，并熟悉8D/质量工具，覆盖英语与8D报告两项
+    quote: 英文能力良好
+  C-05:
+    state: 满足
+    why: 简历有20余年工程技术与品质管理相关经验，远超3年品质管理要求
+    quote: 3年以上品质管理工作经验
+  C-06:
+    state: 不满足
+    why: 简历产品经验为消费电子/网络通讯类，未见线束行业相关知识
+    quote: 熟识线束行业相关产品
+  C-07:
+    state: 不满足
+    why: 简历未体现品质问题分析与改善能力的明确证据
+    quote: 具备品质问题分析、改善的能力
+  C-08:
+    state: 满足
+    why: 简历明确提到SPC/8D/PDCA/QC7大手法等，命中至少1项品质工具
+    quote: 熟悉质量工具SPC/8D/ PDCA/QC7 大手法等
+  C-09:
+    state: 不满足
+    why: 简历未见接待客户验厂经验
+    quote: 具备接待客户验厂经验
+  C-10:
+    state: 不可判
+    why: 该条为软性能力项，本体未建对应数据项，对所有人一样无法判定
+    quote: 有良好的沟通、协调能力
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

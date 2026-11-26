@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_郑___37岁_专案工程师_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: da315fba3bf2d666
+runs:
+  1:
+    output_sha256: 166d0fdde38bf2fd
+    chars: 914
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示年龄37岁，落在25~40岁区间内
+    quote: 男|37岁
+  C-02:
+    state: 满足
+    why: 简历教育经历为大专，达到大专及以上要求
+    quote: 大专 ' 非全日制” 工商企业管理
+  C-03:
+    state: 不满足
+    why: 所学专业为工商企业管理，未命中工程类专业白名单
+    quote: 大专 ' 非全日制” 工商企业管理
+  C-04:
+    state: 不满足
+    why: 简历语言能力仅列普通话和粤语，无英语口语及英文8D报告能力证据
+    quote: '普通话: 听说能力  R50 (RA) 粤语: 听说能力   读写能力 (RA)'
+  C-05:
+    state: 满足
+    why: 简历工作经历累计品质/工程相关年限远超3年
+    quote: 东莞市联纲光电科技有限公司 - 项目工程师 - 2年7月
+  C-06:
+    state: 满足
+    why: 简历明确表述对线材类产品熟悉，具备线束行业认知
+    quote: 对线材类产品熟悉。熟悉HDMI、VGA、USB3.2、iPhone、USB2.0超级快充闪充等线材加工及生产流程。
+  C-07:
+    state: 不满足
+    why: 简历未体现品质问题分析改善能力的明确证据
+    quote: null
+  C-08:
+    state: 满足
+    why: 简历提及6S等工具，命中至少1项品质工具
+    quote: aH EH Ak BAR tik AAD FUR BRA 6S OR 领导力
+  C-09:
+    state: 不满足
+    why: 简历未提及客户验厂接待经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

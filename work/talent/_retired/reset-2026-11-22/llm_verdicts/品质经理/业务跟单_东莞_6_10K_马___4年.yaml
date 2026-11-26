@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_业务跟单_东莞_6_10K_马___4年
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: dbe3e41a99aa5f86
+runs:
+  1:
+    output_sha256: 2d29a57f47d3b82b
+    chars: 855
+replay_identical: null
+cells:
+  C-01:
+    state: 未知
+    why: 简历OCR中未出现年龄信息，无法核对25~40岁区间
+    quote: null
+  C-02:
+    state: 满足
+    why: 简历显示嘉应学院本科，学历为本科，高于大专及以上要求
+    quote: 旅游管理 | 本科
+  C-03:
+    state: 不满足
+    why: 简历专业为旅游管理，不属于机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业
+    quote: 旅游管理 | 本科
+  C-04:
+    state: 未知
+    why: 简历仅有CET-6证书，未体现英语口语熟练及独立书写英文8D报告能力
+    quote: 技能证书:CET-6 计算机二级
+  C-05:
+    state: 不满足
+    why: 工作经历均为业务助理，无品质管理工作经验，不满足3年以上品质管理经验
+    quote: 业务助理 | 医药制造
+  C-06:
+    state: 不满足
+    why: 简历工作经历为医药制造与OMR膜片制造，未体现线束行业相关产品认知
+    quote: 业务助理 | OMR膜片制造
+  C-07:
+    state: 不满足
+    why: 简历未体现品质问题分析、改善能力，工作内容为业务助理事务
+    quote: null
+  C-08:
+    state: 不满足
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 不满足
+    why: 简历未体现接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

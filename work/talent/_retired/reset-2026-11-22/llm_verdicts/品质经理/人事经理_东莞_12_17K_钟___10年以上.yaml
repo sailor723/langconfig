@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_人事经理_东莞_12_17K_钟___10年以上
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 51ab9c0a96761484
+runs:
+  1:
+    output_sha256: 56bdb3eec8d502ff
+    chars: 780
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历年龄39岁，落在25~40岁区间内
+    quote: 男 39 岁(1986年1月)
+  C-02:
+    state: 满足
+    why: 简历学历为硕士，高于大专及以上要求
+    quote: 硕士
+  C-03:
+    state: 未知
+    why: 简历未体现机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业教育背景
+    quote: null
+  C-04:
+    state: 未知
+    why: 简历未提及英语口语水平或独立书写英文8D报告能力
+    quote: null
+  C-05:
+    state: 不满足
+    why: 简历18年经验均为人力资源/行政管理，无品质管理工作经验
+    quote: 具有 18 年企业人力资源与行政管理岗位工作经验
+  C-06:
+    state: 未知
+    why: 简历未体现线束/连接器行业产品认知
+    quote: null
+  C-07:
+    state: 不满足
+    why: 简历无品质问题分析改善能力相关证据
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历有客户来访接待经验，但未明确为客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

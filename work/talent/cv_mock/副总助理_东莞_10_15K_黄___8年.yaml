@@ -1,0 +1,49 @@
+candidate: cand_副总助理_东莞_10_15K_黄___8年
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  age:
+    value: 32
+    basis: mock
+    rule: 年龄:28 + 均匀取 0..18 → 28~46 岁
+    seed: 0.229534
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+  educationRank:
+    value: 3
+    basis: mock
+    rule: 学历:按经验给 3(大专)或 4(本科),各 50%
+    seed: 0.558172
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+  yearsStated:
+    value: 7
+    basis: mock
+    rule: 声明年限:与总年限同分布 3~15 年
+    seed: 0.343875
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_6S:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.090144)
+    note: 模拟值,不是事实
+  skill_SPC:
+    held: true
+    basis: mock
+    rule: 按 20% 概率抽中(seed=0.048964)
+    note: 模拟值,不是事实
+  skill_品质问题分析:
+    held: true
+    basis: mock
+    rule: 按 45% 概率抽中(seed=0.031678)
+    note: 模拟值,不是事实
+  skill_客户验厂:
+    held: true
+    basis: mock
+    rule: 按 25% 概率抽中(seed=0.036973)
+    note: 模拟值,不是事实
+  skill_英语:
+    held: true
+    basis: mock
+    rule: 按 35% 概率抽中(seed=0.272246)
+    note: 模拟值,不是事实

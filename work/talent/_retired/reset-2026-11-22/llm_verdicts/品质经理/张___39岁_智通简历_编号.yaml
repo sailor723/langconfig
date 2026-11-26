@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_张___39岁_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 801482d55ac1f4a2
+runs:
+  1:
+    output_sha256: e39c845623c84894
+    chars: 794
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示39岁，在25~40岁区间内
+    quote: 39岁
+  C-02:
+    state: 满足
+    why: 简历教育经历为机械自动化专业，属大专及以上层次，符合不低于大专要求
+    quote: 机械自动化 2016-09~2019-07
+  C-03:
+    state: 满足
+    why: 专业为机械自动化，命中'自动化'相关工程类专业
+    quote: 机械自动化
+  C-04:
+    state: 未知
+    why: 简历未提及英语口语或英文8D报告能力
+    quote: null
+  C-05:
+    state: 未知
+    why: 简历工作经历均为工程/ME/PIE岗位，未见品质管理工作经验年限
+    quote: null
+  C-06:
+    state: 满足
+    why: 简历提及参与安费诺客户线束以及连接器接头包胶件项目，具备线束行业认知
+    quote: 参与安费诺客户线束以及连接器接头包胶件等项目
+  C-07:
+    state: 未知
+    why: 简历未明确体现品质问题分析改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历未提及接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

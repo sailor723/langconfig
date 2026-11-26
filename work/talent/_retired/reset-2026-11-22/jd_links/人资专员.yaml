@@ -1,0 +1,248 @@
+jd: 人资专员
+role_type: staff
+role_basis: 由原文 S1.08 直接下属=「无」推得;S1.11 岗位类别待业务方确认
+role_confirmed: false
+department: ''
+source_file: ../client/team-4/unzipped/职务说明书10份/人资专员-职务说明书.doc
+source_text: work/talent/jd_links/_source/人资专员.txt
+extracted_with: textutil/openpyxl
+drafted_by: deepseek-chat, temperature=0 —— **草稿,未人工审核**
+review_status: draft
+count:
+  source_section: 任职资格
+  atomic_requirements: 12
+  count_note: LLM 从原文前 30 行抽出;粒度需人工审。
+citations:
+- id: 人资-01
+  requirement: REQ-B-EDU-LEVEL
+  verbatim: 高中及以上学历
+  source_text: 1）高中及以上学历，专业不限，行政、文秘类优先；
+  txt_line: 14
+  tier: essential
+  value:
+    num: 3
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 学历
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    第 14 行「高中及以上学历」：学历门槛本身可判（简历有学历），但 value.num=3 按库的 ordinal 是「大专」
+        （2=中专/高中），与原话「高中及以上」差一档 —— 改 value 不在本轮授权，见账本 D-人资专员-01。
+- id: 人资-02
+  requirement: REQ-B-MAJOR
+  verbatim: 专业不限
+  source_text: 1）高中及以上学历，专业不限，行政、文秘类优先；
+  txt_line: 14
+  tier: essential
+  value:
+    in:
+    - 不限
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 专业
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    「专业不限」是**否定式**要求，却挂在 op=in 的 REQ-B-MAJOR 上；按该要求的判定规则（只按专业名点名）读，
+        value.in=[不限] 会对任何候选人都判 false。判法要 admin 定：要么按「恒真」处理，要么不进计分。见 D-人资专员-02。
+- id: 人资-03
+  requirement: REQ-B-MAJOR
+  verbatim: 行政、文秘类优先
+  source_text: 1）高中及以上学历，专业不限，行政、文秘类优先；
+  txt_line: 14
+  tier: desirable
+  value:
+    in:
+    - 行政
+    - 文秘类
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 专业优先
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    「行政、文秘类优先」的顿号是同一个「优先」下的两类举例，命中任一即算，拆成两条会把偏好双倍计权。
+        但 value.in 里的「文秘类」是专业门类不是专业名，而 REQ-B-MAJOR 明写「不使用专业门类」—— 按现库大概率判不了。
+- id: 人资-04
+  requirement: REQ-D-OFFICE
+  verbatim: 熟练使用办公软件
+  source_text: 2）熟练使用办公软件以及考勤系统；
+  txt_line: 15
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: Office办公软件
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_split
+  note: >-
+    第 15 行「熟练使用办公软件以及考勤系统」已按「以及」拆成 04/05，两条 verbatim 不重叠、无重复计权。
+        「熟练」客户没给标准，下游只能按简历自我陈述判。
+- id: 人资-05
+  requirement: REQ-D-ATTENDANCE-SYSTEM
+  verbatim: 考勤系统
+  source_text: 2）熟练使用办公软件以及考勤系统；
+  txt_line: 15
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 考勤系统操作
+    measurable_from_resume: true
+    requirement_reused: false
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    verbatim 只有「考勤系统」三个字，丢了「熟练使用」这个谓词，单独看它不像一条要求；
+        且它挂的 REQ-D-ATTENDANCE-SYSTEM 在库里 assessable=false（缺 P6 组件），
+        而本条 llm.measurable_from_resume 写的是 true —— 两者矛盾，按库为准：判不了。
+- id: 人资-06
+  requirement: REQ-D-LABOR-LAW
+  verbatim: 熟悉国家相关法律政策
+  source_text: 3）熟悉国家相关法律政策，熟悉社会保险（增/减/补缴）等操作流程；
+  txt_line: 16
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 国家法律法规知识
+    measurable_from_resume: false
+    requirement_reused: false
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    「熟悉国家相关法律政策」没给范围也没给标准。库里 REQ-D-LABOR-LAW 有 skill_劳动法 组件，可判「有没有劳动法知识」，
+        但「相关法律」比劳动法宽，判到哪算够只能面试问。
+- id: 人资-07
+  requirement: REQ-D-SOCIAL-INSURANCE
+  verbatim: 熟悉社会保险（增/减/补缴）等操作流程
+  source_text: 3）熟悉国家相关法律政策，熟悉社会保险（增/减/补缴）等操作流程；
+  txt_line: 16
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 社保操作流程
+    measurable_from_resume: true
+    requirement_reused: false
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    「社保（增/减/补缴）等操作流程」里的「/」是同一流程的三个环节，后面还跟着「等」，拆开就等于把「等」收窄成清单。
+        判的是有没有社保申办经验，增/减/补缴只是线索。
+- id: 人资-08
+  requirement: REQ-D-DATA-ANALYSIS
+  verbatim: 具备很好的数据统计分析能力
+  source_text: 4）具备很好的数据统计分析能力；
+  txt_line: 17
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 数据统计分析能力
+    measurable_from_resume: false
+    requirement_reused: false
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    「具备很好的数据统计分析能力」：「很好」无阈值，客户没给任何可观察标准。库里组件是 skill_数据分析，
+        可判「会不会」，判不了「好不好」—— 下游只能判有无，等级判不了。
+- id: 人资-09
+  requirement: REQ-G-CONFIDENTIALITY
+  verbatim: 具有人事数据保密意识
+  source_text: 5）具有人事数据保密意识以及跨部门沟通能力，工作认真，具有责任心。
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 数据保密
+    measurable_from_resume: false
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_split
+  note: >-
+    第 18 行一句塞了四项（保密 / 沟通 / 认真 / 责任心），已拆成 09–12，四条 verbatim 不重叠。
+        本条 REQ-G-CONFIDENTIALITY 库里 assessable=false（G 维属性不存在），只能靠「是否 HR 岗」间接推，不要当硬条件。
+- id: 人资-10
+  requirement: REQ-E-COMMUNICATION
+  verbatim: 跨部门沟通能力
+  source_text: 5）具有人事数据保密意识以及跨部门沟通能力，工作认真，具有责任心。
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 沟通协调能力
+    measurable_from_resume: false
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    「跨部门沟通能力」在库里是 unmeasurable（E 维无组件），简历判不了，只能面试评分或背调。
+        作为 essential 会卡人，建议第 2 步与客户确认是否降为 desirable。
+- id: 人资-11
+  requirement: REQ-E-RESPONSIBILITY
+  verbatim: 工作认真
+  source_text: 5）具有人事数据保密意识以及跨部门沟通能力，工作认真，具有责任心。
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 工作认真
+    measurable_from_resume: false
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    「工作认真」被挂到 REQ-E-RESPONSIBILITY，与 人资-12「具有责任心」是同一条要求 —— 同一要求在一份 JD 里出现两次
+        等于双倍计权，而它本身不可判，双倍的是不可判的量。见账本 D-人资专员-06。
+- id: 人资-12
+  requirement: REQ-E-RESPONSIBILITY
+  verbatim: 具有责任心
+  source_text: 5）具有人事数据保密意识以及跨部门沟通能力，工作认真，具有责任心。
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 责任心
+    measurable_from_resume: false
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    「具有责任心」= REQ-E-RESPONSIBILITY，unmeasurable；与 人资-11 重复挂同一条要求，记在 D-人资专员-06。
+excluded: []
+# 复审（agent 386）留痕：12 条引用全部落在 _source 第 13–18 行「资格要求」段；
+# 第 19 行起是「职务简述」与「事务表述」表（职责段），草稿没有把任何职责段句子当要求引用，
+# 所以**没有需要排除的引用**。职责段整段未进 citations，这是对的。
+
+# 复审留痕：_source 全文 grep「没制定/暂无/待定/未定/尚未/另定/未制定」= 0 条命中。
+# 客户这份 JD 没有「自己承认还没定」的句子，所以这里留空 —— 留空是查过之后的空，不是漏登记。
+undefined_statements: []

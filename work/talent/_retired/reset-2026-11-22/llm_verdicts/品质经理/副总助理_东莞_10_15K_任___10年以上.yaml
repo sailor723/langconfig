@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_副总助理_东莞_10_15K_任___10年以上
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 4ebc957a406ba32e
+runs:
+  1:
+    output_sha256: 04791c488964f28a
+    chars: 862
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示35岁，落在25~40岁区间内
+    quote: 女| 35岁
+  C-02:
+    state: 满足
+    why: 简历为大专（广东农工商职业技术学院），达到大专及以上要求
+    quote: 广东农工商职业技术学院 AS 应用英语 2010-2013
+  C-03:
+    state: 不满足
+    why: 简历专业为应用英语，未命中机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业
+    quote: 广东农工商职业技术学院 AS 应用英语
+  C-04:
+    state: 未知
+    why: 简历未体现英语口语熟练或独立书写英文8D报告的能力
+    quote: null
+  C-05:
+    state: 不满足
+    why: 简历工作经历均为总助、跟单、媒体专员等，无品质管理工作经验
+    quote: null
+  C-06:
+    state: 未知
+    why: 简历未体现线束/连接器行业相关知识
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历未体现品质问题分析、改善能力
+    quote: null
+  C-08:
+    state: 不满足
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S中任何一项
+    quote: null
+  C-09:
+    state: 满足
+    why: 简历有协助客户、领导审厂及接待客户参观的经验
+    quote: 协助客户、领导审厂 (预约时间，通知工厂全员，准备审厂资料，安排接送车，接待客户参观，就餐，住宿等)
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样，不给结论
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

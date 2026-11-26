@@ -1,0 +1,21 @@
+candidate: cand_康___37岁_技术课课长_智通简历_编号
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props: {}
+components:
+  skill_SPC:
+    held: true
+    basis: mock
+    rule: 按 20% 概率抽中(seed=0.185116)
+    note: 模拟值,不是事实
+  skill_品质问题分析:
+    held: true
+    basis: mock
+    rule: 按 45% 概率抽中(seed=0.441809)
+    note: 模拟值,不是事实
+  skill_线束行业知识:
+    held: true
+    basis: mock
+    rule: 按 40% 概率抽中(seed=0.163172)
+    note: 模拟值,不是事实

@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_陈___32岁_业务跟单_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: e1c379485eec8773
+runs:
+  1:
+    output_sha256: a9ed2512107491fe
+    chars: 827
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历年龄32岁，落在客户要求25~40岁区间内
+    quote: 女 | 32岁
+  C-02:
+    state: 满足
+    why: 简历学历为本科，高于大专及以上要求
+    quote: 本科 ' 非全日制， 工商管理
+  C-03:
+    state: 不满足
+    why: 简历专业为工商管理，未命中机电/电子/自动化/工业工程/机械工程等工程类专业白名单
+    quote: 本科 ' 非全日制， 工商管理
+  C-04:
+    state: 未知
+    why: 简历未提及英语口语水平或独立书写英文8D报告的能力
+    quote: null
+  C-05:
+    state: 未知
+    why: 简历工作经历为销售助理、资材/生管，未见品质管理工作经验年限
+    quote: null
+  C-06:
+    state: 未知
+    why: 简历未提及线束/连接器行业相关产品认知，仅出现连接器作为PMC技能关键词，不足以证明熟识线束行业
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历未明确体现品质问题分析与改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历未提及接待客户验厂经验
+    quote: null
+  C-10:
+    state: 满足
+    why: 简历个人优势中明确写明具备良好的沟通协调能力
+    quote: 具备良好的沟通协调能力与团队合作精神
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

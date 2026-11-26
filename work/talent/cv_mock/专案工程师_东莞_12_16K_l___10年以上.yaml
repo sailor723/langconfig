@@ -1,0 +1,26 @@
+candidate: cand_专案工程师_东莞_12_16K_l___10年以上
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props: {}
+components:
+  skill_5WHY:
+    held: true
+    basis: mock
+    rule: 按 22% 概率抽中(seed=0.041880)
+    note: 模拟值,不是事实
+  skill_品质问题分析:
+    held: true
+    basis: mock
+    rule: 按 45% 概率抽中(seed=0.317197)
+    note: 模拟值,不是事实
+  skill_客户验厂:
+    held: true
+    basis: mock
+    rule: 按 25% 概率抽中(seed=0.233589)
+    note: 模拟值,不是事实
+  skill_英语:
+    held: true
+    basis: mock
+    rule: 按 35% 概率抽中(seed=0.058418)
+    note: 模拟值,不是事实

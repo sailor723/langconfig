@@ -1,0 +1,28 @@
+candidate: cand_专案工程师_东莞_12_16K_叶___10年以上
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  major:
+    value: 工商管理
+    basis: mock
+    rule: 专业:60% 落在客户点名的 5 个词里,40% 给「工商管理」
+    seed: 0.772993
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+  yearsStated:
+    value: 9
+    basis: mock
+    rule: 声明年限:与总年限同分布 3~15 年
+    seed: 0.533675
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_5WHY:
+    held: true
+    basis: mock
+    rule: 按 22% 概率抽中(seed=0.121766)
+    note: 模拟值,不是事实
+  skill_品质问题分析:
+    held: true
+    basis: mock
+    rule: 按 45% 概率抽中(seed=0.085362)
+    note: 模拟值,不是事实

@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_外贸业务员_东莞_5_10K_赵___4年
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 995254fdd56d53b7
+runs:
+  1:
+    output_sha256: d819b320c3d8d5d7
+    chars: 722
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历年龄25岁，落在25~40区间内
+    quote: '年龄: 25'
+  C-02:
+    state: 满足
+    why: 本科属大专及以上，学历达标
+    quote: 服装工程 | 本科
+  C-03:
+    state: 不满足
+    why: 专业为服装工程，不在工程类白名单内
+    quote: 服装工程 | 本科
+  C-04:
+    state: 未知
+    why: 简历未体现英语口语熟练及独立书写英文8D报告能力
+    quote: null
+  C-05:
+    state: 不满足
+    why: 工作经历均为销售、客服、助理等，无3年以上品质管理经验
+    quote: null
+  C-06:
+    state: 不满足
+    why: 简历无任何线束/连接器行业相关经历
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历未体现品质问题分析改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 不满足
+    why: 简历无客户验厂接待经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条无对应数据项，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

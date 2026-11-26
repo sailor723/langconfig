@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_日语业务跟单_东莞_5_7K_叶___4年
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: c7da965699acdc4e
+runs:
+  1:
+    output_sha256: 9730066855d1b09e
+    chars: 946
+replay_identical: null
+cells:
+  C-01:
+    state: 未知
+    why: 简历只给出出生日期2000.03.22，未直接给出年龄，且无法确认与岗位年龄区间25~40岁的匹配关系
+    quote: '生日: 2000. 03. 22'
+  C-02:
+    state: 未知
+    why: 简历显示教育背景为广州番昌职业技术学院商务日语，未明确标注学历层次（大专/本科）
+    quote: 2019. 09-2022. 06 广州番昌职业技术学院 商务日语
+  C-03:
+    state: 不满足
+    why: 专业为商务日语，不在机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业白名单内
+    quote: 广州番昌职业技术学院 商务日语
+  C-04:
+    state: 未知
+    why: 简历有大学英语四级证书，但未体现英语口语熟练及独立书写英文8D报告的能力
+    quote: 大学英语四级证书
+  C-05:
+    state: 未知
+    why: 简历工作经历均为外贸业务员，未体现3年以上品质管理工作经验
+    quote: 2023. 10-至今 深圳市筑若颜科技有限公司 外贸业务员
+  C-06:
+    state: 未知
+    why: 简历未提及线束/连接器行业相关产品或行业认知
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历未明确体现品质问题分析、改善能力，仅有处理售后质量异议的描述
+    quote: 处理售后问题 〈如质量异议、退换货)
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历未提及接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，属性/组件未建，对所有人一样不可判
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

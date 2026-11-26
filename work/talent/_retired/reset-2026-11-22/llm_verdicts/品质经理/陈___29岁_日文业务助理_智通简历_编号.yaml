@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_陈___29岁_日文业务助理_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: fad35b56247e1bb3
+runs:
+  1:
+    output_sha256: 3c30c9e8f8def612
+    chars: 936
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 客户要求25~40岁，简历年龄29岁，在区间内
+    quote: 年龄：25 ~ 40岁
+  C-02:
+    state: 满足
+    why: 客户要求大专及以上，简历为沈阳职业技术学院大专学历，达到阈值3
+    quote: 学历：大专及以上学历
+  C-03:
+    state: 不满足
+    why: 简历专业为应用日语，未命中机电一体化/电子技术/自动化/工业工程/机械工程白名单
+    quote: 专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业
+  C-04:
+    state: 未知
+    why: 简历仅显示英语A级证书及技能栏英语，无英语口语熟练及独立书写英文8D报告的证据
+    quote: 语言：英语口语熟练及具备独立书写英文8D报告的能力
+  C-05:
+    state: 未知
+    why: 简历工作经历均为日语业务/跟单/专员，无3年以上品质管理工作经验证据
+    quote: 3年以上品质管理工作经验
+  C-06:
+    state: 不满足
+    why: 简历无任何线束行业相关知识或经验
+    quote: 熟识线束行业相关产品
+  C-07:
+    state: 满足
+    why: 简历有主导品质问题反馈、追踪与闭环解决及品质客诉处理经历
+    quote: 具备品质问题分析、改善的能力
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: 懂QC七大手法、5WHY、SPC、CPK、6S工具
+  C-09:
+    state: 未知
+    why: 简历无接待客户验厂经验的相关描述
+    quote: 具备接待客户验厂经验
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样，不给结论
+    quote: 有良好的沟通、协调能力
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

@@ -1,0 +1,251 @@
+jd: 管理课长
+role_type: manager
+role_basis: 由原文 S1.08 直接下属=「专员、文员、电工」推得(管人);S1.11 待业务方确认
+role_confirmed: false
+department: ''
+source_file: ../client/team-4/unzipped/职务说明书10份/管理课长职务说明书.doc
+source_text: work/talent/jd_links/_source/管理课长.txt
+extracted_with: textutil/openpyxl
+drafted_by: deepseek-chat, temperature=0 —— **草稿,未人工审核**
+review_status: draft
+count:
+  source_section: 任职资格
+  atomic_requirements: 12
+  count_note: LLM 从原文前 30 行抽出;粒度需人工审。
+citations:
+- id: 管理-01
+  requirement: REQ-A-GENDER
+  verbatim: 性别要求：男女不限
+  source_text: 1、性别要求：男女不限；年龄要求：30岁—45岁；
+  txt_line: 15
+  tier: essential
+  value:
+    in:
+    - 男
+    - 女
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 性别
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    why: 「性别要求：男女不限」只含一条约束,没有并列词;「不限」不是可拆点,是零约束。
+  note: >-
+    判不了,且它本来也不产出信息。REQ-A-GENDER 在要求库里 assessable: false(A.1 性别的 cv_coverage = 0,277 份简历里没有一个人被抽出性别),而草稿写 llm.measurable_from_resume: true —— 两者相反,按库为准。value.in=[男,女] 覆盖两种性别,对任何候选人都恒真。原文照留,但下游拿不到任何可判的差异。
+- id: 管理-02
+  requirement: REQ-A-AGE-RANGE
+  verbatim: 年龄要求：30岁—45岁
+  source_text: 1、性别要求：男女不限；年龄要求：30岁—45岁；
+  txt_line: 15
+  tier: essential
+  value:
+    min: 30
+    max: 45
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 年龄
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    why: 「年龄要求：30岁—45岁」是单个阈值区间,「—」不是并列词,拆不出第二条要求。
+  note: >-
+    可判但不全:REQ-A-AGE-RANGE assessable: true,年龄字段覆盖 107/277,其余约 170 人判不了 —— 那是「未知」不是「不合格」。30~45 是客户给的阈值,我未替它放宽或收紧。
+- id: 管理-03
+  requirement: REQ-B-MAJOR
+  verbatim: 专业要求：人力资源管理、行政管理、法律、企业管理等相关专业
+  source_text: 2、专业要求：人力资源管理、行政管理、法律、企业管理等相关专业；
+  txt_line: 16
+  tier: essential
+  value:
+    in:
+    - 人力资源管理
+    - 行政管理
+    - 法律
+    - 企业管理
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 专业
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    why: 顿号连的是一组专业举例,句尾还跟着「等」;拆成 4 条等于把「等」收窄成穷举清单,是替客户改 JD,所以 keep。
+  note: >-
+    两个问题都落在 REQ-B-MAJOR 上:① 该库条目明写「只按专业名点名,不使用专业门类」,而「法律」「行政管理」「企业管理」更像学科门类而非专业名;② value.in 把原话的「等」隐式收窄成 4 个词。按现规则读,「法学」「公共事业管理」这类会被判不满足,而客户原话的「等」本意可能包含它们。value 本轮不许改,留给 admin 定名单要不要扩、要不要沿用门类口径。
+- id: 管理-04
+  requirement: REQ-B-EDU-LEVEL
+  verbatim: 学历要求：大专或以上学历
+  source_text: 3、学历要求：大专或以上学历；
+  txt_line: 17
+  tier: essential
+  value:
+    num: 3
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 学历
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    why: 「或」是「或以上」的一部分(≥ 的写法),不是连接两个并列要求;前面的「3、」是序号。一条,不拆。
+  note: >-
+    这条的数值是对的,不用改:REQ-B-EDU-LEVEL 的 ordinal 是 3=大专,原话「大专或以上学历」字面对应 3。注意与人资专员、工程文员两份区分 —— 那两份写「高中及以上」而 num 也是 3,才是差一档。
+- id: 管理-05
+  requirement: REQ-D-OFFICE
+  verbatim: 熟悉OFFICE软件
+  source_text: 4、技能要求：熟悉OFFICE软件、办公室网络；
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: Office
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    why: 「熟悉OFFICE软件」本身无并列词;它是第 18 行「熟悉OFFICE软件、办公室网络」被顿号拆出的前半,拆的动作已在草稿里落地(后半是 管理-06)。
+  note: >-
+    可判,但会重复计权:REQ-D-OFFICE 的组件是 skill_Word / skill_Excel / skill_PowerPoint(目录实测 cv_count 55 / 87 / 40),而 管理-06 挂的 REQ-D-OFFICE-NETWORK 组件同样是这三项 —— 第 18 行在计分里被算两遍,两遍用的是同一组组件。见账本 D-管理课长-06。
+- id: 管理-06
+  requirement: REQ-D-OFFICE-NETWORK
+  verbatim: 办公室网络
+  source_text: 4、技能要求：熟悉OFFICE软件、办公室网络；
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 办公室网络
+    measurable_from_resume: true
+    requirement_reused: false
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    why: 「办公室网络」无并列词,是第 18 行被顿号拆出的后半,拆的动作已落地,本条自身 keep。
+  note: >-
+    判不了,而且会双算。REQ-D-OFFICE-NETWORK 把「办公室网络」列在 unlinked_parts(gap P6),能判的只有 Word/Excel/PowerPoint —— 与 管理-05 的组件完全相同,所以这条既判不出「办公室网络」,又把 Office 算了第二遍。另:verbatim 只有 5 个字,丢了谓词「熟悉」,单独看不像一条要求(复审纪律不许改 verbatim,只登记)。
+- id: 管理-07
+  requirement: REQ-D-DATA-ANALYSIS
+  verbatim: 数据分据能力
+  source_text: 5、能力要求：数据分据能力、培训课程开发能力、体系管理能力、系统规划能力、企业文化建设能力；
+  txt_line: 19
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 数据分析能力
+    measurable_from_resume: false
+    requirement_reused: false
+  origin: client
+  granularity_decision:
+    status: confirmed_split
+    why: 第 19 行「数据分据能力、培训课程开发能力、体系管理能力、系统规划能力、企业文化建设能力」是五项能被分别判定的能力,每项在要求库里各有组件;一个人完全可能只会其中一两项,所以该拆。本草稿已拆成 管理-07 ~ 管理-11,拆的动作落地了。
+  note: >-
+    原文写的是「数据分据」不是「数据分析」—— 错字照留,没有改。可判(组件 skill_数据分析,cv_count 31/277),但草稿的 measurable_from_resume: false 与库 assessable: true 相反,按库为准。实质问题:cv_count 只有 31/277,「不满足」多半等于「简历没写」,判之前要先定「没写算不算不会」的口径。
+- id: 管理-08
+  requirement: REQ-D-TRAINING-DEV
+  verbatim: 培训课程开发能力
+  source_text: 5、能力要求：数据分据能力、培训课程开发能力、体系管理能力、系统规划能力、企业文化建设能力；
+  txt_line: 19
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 培训课程开发
+    measurable_from_resume: false
+    requirement_reused: false
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    why: 「培训课程开发能力」无并列词,是第 19 行拆出的第二项,拆的动作由 D-管理课长-07 记过;本条自身 keep。
+  note: >-
+    可判但覆盖很薄:skill_培训课程开发 cv_count 15/277,所以这条会把绝大多数候选判成不满足 —— 那更可能是「简历没提」而不是「不会」。草稿的 measurable_from_resume: false 与库 assessable: true 相反,按库为准。
+- id: 管理-09
+  requirement: REQ-D-SYSTEM-MGMT
+  verbatim: 体系管理能力
+  source_text: 5、能力要求：数据分据能力、培训课程开发能力、体系管理能力、系统规划能力、企业文化建设能力；
+  txt_line: 19
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 体系管理
+    measurable_from_resume: false
+    requirement_reused: false
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    why: 「体系管理能力」无并列词,是第 19 行拆出的第三项,拆的动作由 D-管理课长-07 记过。
+  note: >-
+    五条能力里覆盖面最窄的一条:skill_体系管理 cv_count 13/277。可判,但「不满足」几乎等于「简历没提这项」。而且客户只写「体系管理能力」,没说是质量体系、环境体系还是别的,方向由组件名(体系管理)定,不是我补的。
+- id: 管理-10
+  requirement: REQ-D-SYSTEM-PLANNING
+  verbatim: 系统规划能力
+  source_text: 5、能力要求：数据分据能力、培训课程开发能力、体系管理能力、系统规划能力、企业文化建设能力；
+  txt_line: 19
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 系统规划
+    measurable_from_resume: false
+    requirement_reused: false
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    why: 「系统规划能力」无并列词,是第 19 行拆出的第四项,拆的动作由 D-管理课长-07 记过。
+  note: >-
+    可判,skill_系统规划 cv_count 64/277(五项里覆盖最好的一项)。但「系统规划」在客户原文里没有任何指向 —— 是 IT 系统、管理体系还是组织规划,原件没写,判的只是简历里有没有这项技能记录。
+- id: 管理-11
+  requirement: REQ-D-CULTURE-BUILD
+  verbatim: 企业文化建设能力
+  source_text: 5、能力要求：数据分据能力、培训课程开发能力、体系管理能力、系统规划能力、企业文化建设能力；
+  txt_line: 19
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 企业文化建设
+    measurable_from_resume: false
+    requirement_reused: false
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    why: 「企业文化建设能力」无并列词,是第 19 行拆出的第五项,拆的动作由 D-管理课长-07 记过。
+  note: >-
+    可判,skill_企业文化建设 cv_count 37/277。注意它与 职务简述第 27 行「推动企业文化建设」是同一件事的两种写法(要求侧 / 职责侧),不要当成两条要求。
+- id: 管理-12
+  requirement: REQ-C-YEARS-DOMAIN
+  verbatim: 相关经验5年以上
+  source_text: 6、经验要求：相关经验5年以上；
+  txt_line: 20
+  tier: essential
+  value:
+    num: 5
+    domain: 相关
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 相关经验年限
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    why: 「相关经验5年以上」是单个年限阈值,「相关」是修饰语不是第二个可判要求,拆不出第二条,keep。
+  note: >-
+    只能判一半:REQ-C-YEARS-DOMAIN 自己写着 partial —— 年限可判,但覆盖率在库里有两个数:REQ-C-YEARS-DOMAIN 的 partial 字段写「148/277」,而同一条的 year_basis_note 与 component_catalog 的 C.1(cv_coverage)都写 118(277 份里 118 人有声明年限)—— 两个数打架,我没替它选,登记,领域限定需要 C.2 domain 属性,该属性未建。客户写的「相关」没说相关于什么,所以 5 年会计与 5 年人资在这条上同分。value.domain: 相关 是把客户原话原样放进去,不是我方补的领域。第 2 步该问客户「相关」指哪一段(人资 / 行政 / 管理)。
+excluded: []
+undefined_statements: []   # 已检索「没制定/暂无/待定/未定/尚未」:_source 里 0 命中,不编

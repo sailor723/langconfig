@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_郭___29岁_专案工程师_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: dc7f065205579321
+runs:
+  1:
+    output_sha256: 8b68617b773ad199
+    chars: 865
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示29岁，落在25~40岁区间内
+    quote: 忠男|29岁
+  C-02:
+    state: 满足
+    why: 简历学历为大专，达到大专及以上要求
+    quote: 会大专
+  C-03:
+    state: 满足
+    why: 教育经历专业为机电一体化，命中专业限定列表
+    quote: KS 机电一体化
+  C-04:
+    state: 不满足
+    why: 简历未体现英语口语熟练及独立书写英文8D报告能力
+    quote: null
+  C-05:
+    state: 满足
+    why: 简历有约7年研发工程师经验，但品质管理年限依据本体判定为满足
+    quote: 东莞昱亿电子有限公司 《研发工程师.汽车线束部 2018-09-至今 (7年7月)
+  C-06:
+    state: 不满足
+    why: 简历未体现线束/连接器行业认知，本体判定0/1
+    quote: null
+  C-07:
+    state: 不满足
+    why: 简历未体现品质问题分析改善能力，本体判定0/1
+    quote: null
+  C-08:
+    state: 满足
+    why: 简历提及APQP、PFMEA等品质工具，本体判定命中3/5项
+    quote: 负责 APQP (产品质量先期策划) 资料的收集与整理，制作 PFMEA (过程失效模式与影响分析) 文档
+  C-09:
+    state: 不满足
+    why: 简历未体现客户验厂经验，本体判定0/1
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该要求属性/组件未建，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

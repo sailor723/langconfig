@@ -1,0 +1,22 @@
+candidate: cand_宋___37岁_专案工程师_智通简历_编号
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  yearsStated:
+    value: 6
+    basis: mock
+    rule: 声明年限:与总年限同分布 3~15 年
+    seed: 0.254127
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_CPK:
+    held: true
+    basis: mock
+    rule: 按 18% 概率抽中(seed=0.169061)
+    note: 模拟值,不是事实
+  skill_品质问题分析:
+    held: true
+    basis: mock
+    rule: 按 45% 概率抽中(seed=0.443441)
+    note: 模拟值,不是事实

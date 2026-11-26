@@ -1,0 +1,11 @@
+candidate: cand_业务跟单_东莞_6_10K_黄___3年
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props: {}
+components:
+  skill_5WHY:
+    held: true
+    basis: mock
+    rule: 按 22% 概率抽中(seed=0.158825)
+    note: 模拟值,不是事实

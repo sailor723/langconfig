@@ -1,0 +1,16 @@
+candidate: cand_人资专员_东莞_5_6K_黄___6年_1
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props: {}
+components:
+  skill_8D报告:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.221919)
+    note: 模拟值,不是事实
+  skill_英语:
+    held: true
+    basis: mock
+    rule: 按 35% 概率抽中(seed=0.269528)
+    note: 模拟值,不是事实

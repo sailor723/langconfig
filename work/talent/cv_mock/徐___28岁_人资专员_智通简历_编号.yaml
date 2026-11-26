@@ -1,0 +1,37 @@
+candidate: cand_徐___28岁_人资专员_智通简历_编号
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  yearsStated:
+    value: 5
+    basis: mock
+    rule: 声明年限:与总年限同分布 3~15 年
+    seed: 0.199215
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_6S:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.161825)
+    note: 模拟值,不是事实
+  skill_8D报告:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.006455)
+    note: 模拟值,不是事实
+  skill_QC七大手法:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.101980)
+    note: 模拟值,不是事实
+  skill_SPC:
+    held: true
+    basis: mock
+    rule: 按 20% 概率抽中(seed=0.085817)
+    note: 模拟值,不是事实
+  skill_线束行业知识:
+    held: true
+    basis: mock
+    rule: 按 40% 概率抽中(seed=0.255177)
+    note: 模拟值,不是事实

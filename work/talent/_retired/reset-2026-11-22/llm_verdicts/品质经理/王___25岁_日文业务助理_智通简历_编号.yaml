@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_王___25岁_日文业务助理_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 284c60150e174b55
+runs:
+  1:
+    output_sha256: 5272924dac3fcc3a
+    chars: 737
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示25岁，落在25~40岁区间内
+    quote: 女 | 25岁
+  C-02:
+    state: 满足
+    why: 简历显示本科，满足大专及以上学历要求
+    quote: 本科 . 全日制
+  C-03:
+    state: 不满足
+    why: 简历未体现机电/电子/自动化/工业工程/机械工程等工程类专业
+    quote: null
+  C-04:
+    state: 不满足
+    why: 简历无英语口语熟练及独立书写英文8D报告的证据
+    quote: null
+  C-05:
+    state: 不满足
+    why: 简历工作经历为行政助理，无3年以上品质管理经验
+    quote: 行政助理
+  C-06:
+    state: 不满足
+    why: 简历无线束/连接器行业相关认知或经历
+    quote: null
+  C-07:
+    state: 不满足
+    why: 简历无品质问题分析改善能力的证据
+    quote: null
+  C-08:
+    state: 不满足
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S中任何一项
+    quote: null
+  C-09:
+    state: 不满足
+    why: 简历无接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条属性/组件未建，无数据项可判
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

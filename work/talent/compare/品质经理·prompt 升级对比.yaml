@@ -1,0 +1,4081 @@
+jd: 品质经理
+runs: 2
+summary:
+  v0:
+    格数: 90
+    与本体一致: 30
+    一致率: 0.3333
+    未知: 48
+    满足: 32
+    不满足: 10
+    自一致: 0.99
+    引文给了: 48
+    引文可核验: 45
+    自相矛盾: 0
+    调用次数: 20
+    总耗时秒: 51.0
+    本体未知: 9
+    耗时注: (缓存)
+  v1:
+    格数: 90
+    与本体一致: 53
+    一致率: 0.5889
+    未知: 5
+    满足: 37
+    不满足: 48
+    自一致: 0.95
+    引文给了: 84
+    引文可核验: 76
+    自相矛盾: 0
+    调用次数: 20
+    总耗时秒: 53.0
+    本体未知: 9
+    耗时注: (缓存)
+  v2:
+    格数: 90
+    与本体一致: 56
+    一致率: 0.6222
+    未知: 6
+    满足: 37
+    不满足: 47
+    自一致: 0.95
+    引文给了: 54
+    引文可核验: 44
+    自相矛盾: 0
+    调用次数: 40
+    总耗时秒: 107.0
+    本体未知: 9
+    耗时注: (缓存)
+  v3:
+    格数: 90
+    与本体一致: 58
+    一致率: 0.6444
+    未知: 7
+    满足: 41
+    不满足: 42
+    自一致: 0.97
+    引文给了: 71
+    引文可核验: 60
+    自相矛盾: 1
+    调用次数: 60
+    总耗时秒: 144.0
+    本体未知: 9
+    耗时注: (缓存)
+人工核对过的那 13 格:
+  v0:
+    保持正确: 13
+    共: 13
+  v1:
+    保持正确: 13
+    共: 13
+  v2:
+    保持正确: 13
+    共: 13
+  v3:
+    保持正确: 13
+    共: 13
+per_cell:
+  v0:
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-01
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历明确写年龄26岁，落在25~40区间内
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 湖南铁道职业技术学院为大专层次，学历等级≥3
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-03
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 专业为机械制造与自动化，命中客户点名的机械工程类词（机械）
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-04
+    ontology: 满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历称英语可用于工作、听读写与日常沟通，但无独立书写英文8D报告的证据
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-05
+    ontology: 满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料显示5年工作经验且为线束设计/研发，但无明确品质管理岗位年限证据
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-06
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历明确写四年线束经验、熟悉线束产品测试与标准
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-07
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料无明确品质问题分析与改善能力的证据
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-08
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料未提及QC七大手法、SPC、CPK、6S等品质工具
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-09
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料无接待客户验厂经验的证据
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-10
+    ontology: 不可判
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料无明确沟通协调能力的证据
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-01
+    ontology: 未知
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历与一面记录均未给出年龄信息
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 教育经历写明大专学历，等级3，满足≥3
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-03
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 所学专业为工商企业管理，未命中点名的工程类专业
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-04
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 一面记录为模拟推断，称能读写英文资料、口语简单交流，但无独立书写英文8D报告的原文依据，且属推断非实证
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-05
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 工作经历均为采购专员/PMC，无品质管理工作经验
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-06
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料未提及线束行业相关知识或经验
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-07
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料未明确体现品质问题分析与改善能力，仅有品质异常协助处理
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-08
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料未提及QC七大手法、SPC、CPK、6S等品质工具
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-09
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料未提及接待客户验厂经验
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 个人优势明确写善于人际交流和沟通、具备团队合作精神
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-01
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历未写年龄，只有25年工作年限和1996~2000本科起止，无法确定具体年龄
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 教育经历明确为本科，学历等级4≥3
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-03
+    ontology: 未知
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 专业为汉语言文学，未命中机电一体化/电子技术/自动化/工业工程/机械工程等点名专业
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-04
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历技能仅列Word/Excel/PowerPoint/粤语，一面记录为模拟推断的英语程度，无8D报告书写证据
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-05
+    ontology: 未知
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 工作经历均为人事行政/管理部管理，无品质管理职能域年限证据
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料无任何线束/连接器行业产品认知的描述
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料无品质问题分析、改善能力的明确证据
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-08
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料提到7S/8S现场管理，但未提及QC七大手法、SPC、CPK、5WHY等品质工具
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-09
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 明确写有欧美客户验厂主导与跟进及CAP处理经验
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料无对沟通协调能力的明确评价性证据
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-01
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料只给出出生年月1984-03-01，未给出当前日期，无法计算年龄是否落在25~40岁区间。
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 一面记录明确说明最高学历为暨南大学自考本科，学历等级4≥3。
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-03
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 大专专业为机电一体化技术，命中客户点名的“机电一体化”。
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-04
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 英文8D报告可独立写，但口语自述一般、不算流利，未达到“英语口语熟练”。
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-05
+    ontology: 未知
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: 品质管理岗位从2019年至今累计约6年，且简历称15年以上工作经验，满足3年以上品质管理经验。
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-06
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历明确写有CABLE ASSEMBLY与wire harness样品制作经验，并熟悉wire harness相关工艺。
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-07
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: 一面记录举例说明其主导品质问题分析并定位原因、制定对策。
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-08
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历明确写熟练QC手法与TS五大工具，工作描述含SPC、MSA、FMEA、CPK，一面记录也说明其负责6S稽核。
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-09
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 一面记录明确说明客户来厂审核由他全程接待主答并跟进整改关闭。
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 一面记录给出与采购就端子镀层问题协调并达成方案的实例，体现沟通协调能力。
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-01
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历明确写年龄40岁，落在25~40区间内（含端点）。
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历写本科，学历等级4≥3。
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-03
+    ontology: 未知
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历专业为会计学及计算机与英语，均未命中点名的工程类专业。
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-04
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料无明确证据表明英语口语熟练及独立书写英文8D报告；一面记录为模拟推断且仅称能读写资料、口语简单交流，非明确证据。
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-05
+    ontology: 满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历有品质课长1年9月及SQA等品质经历，但未明确累计品质管理年限≥3年，无法确认。
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历提及公司产品含新能源汽车线束、汽车线束，但未表明本人熟识线束行业知识。
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历有品质体系、稽核等职责，但无明确证据表明具备品质问题分析、改善能力。
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-08
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历未明确提及QC七大手法、SPC、CPK、6S等工具。
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-09
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历明确写有客户稽核应对、客户年度审核应对经验。
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料无明确证据直接支持沟通协调能力（简历有沟通相关描述但非明确评价）。
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-01
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料中没有出现年龄或出生年份信息
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历明确写全日制应用电子工程技术大专毕业，大专对应等级3，满足≥3
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-03
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 专业为应用电子工程技术，命中客户点名的电子技术方向
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-04
+    ontology: 满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料只提到英文能力良好、英文邮件沟通和英文技术资料评估，没有明确证据表明英语口语熟练，也没有独立书写英文8D报告的依据
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-05
+    ontology: 满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料显示品质相关岗位经历只有约4个月QE组长兼生产组长，另有品质管理督导职责但未给出品质管理年限，无法确认累计≥3年品质管理工作经验
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料列举的产品为MP3、无线网卡、蓝牙耳机、路由器、交换机、摄像头、iPad键盘、追踪器等，没有线束或连接器行业相关产品的明确证据
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历明确写有FACA问题的督导和改善跟进经验，以及产品结构/电性分析和设计优化改善建议能力，属于品质问题分析改善
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-08
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: 简历明确写熟悉质量工具SPC/8D/PDCA/QC7大手法，并提到6sigma绿带，但未点名CPK和6S；按4项（QC七大手法、SPC、CPK、6S）判定，材料只覆盖QC七大手法和SPC，CPK与6S无原文依据，故不能判满足
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-09
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料提到SGS/DNV外审陪审员和ISO体系陪审，但没有明确接待客户验厂的经历
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料没有对沟通协调能力的明确证据，仅有协调组织等自我评价词，不足以支持
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-01
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历只给出出生年月1978-12-01，未给出当前年龄，无法直接判定是否在25~40岁区间。
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-02
+    ontology: 未知
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历教育背景写有毕业院校与专业，但最高学历字段OCR为乱码，无法确认学历等级。
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-03
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 专业为工业电气自动化，未命中客户点名的机电一体化/电子技术/自动化/工业工程/机械工程等词。
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-04
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历未提及英语口语或独立书写英文8D报告的能力，面谈记录为模拟推断不可作证据。
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-05
+    ontology: 满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历有技术质量经理等经历，但未明确品质管理工作的累计年限，无法确认是否≥3年。
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-06
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 自我评价明确提到各类线材线束的设计与使用有较丰富工作经验，属线束行业认知证据。
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 工作描述中有组织相关部门进行质量问题分析总结、制定纠正预防措施的内容，体现品质问题分析改善能力。
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-08
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历未点名QC七大手法、SPC、CPK、6S等工具，无法确认具备。
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-09
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 工作描述中有参与配合接待用户到公司参观考察并作技术交流，属接待客户验厂类经验。
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 自我评价明确写有较强的协调沟通能力。
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-01
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历未给出出生日期或年龄，无法判断是否在25~40岁区间
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 教育经历明确写有大专学历，等级3≥3
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-03
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 所学专业为商务英语与理科，均未命中点名的工程类专业
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-04
+    ontology: 满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历仅列英语听说读写能力，未说明口语熟练程度，也无独立书写英文8D报告的证据
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-05
+    ontology: 未知
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 工作经历均为电线电缆工程师，未见品质管理岗位及3年以上品质管理年限
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 职业技能明确涉及线材生产工艺与电线电缆行业标准，属线束/线材行业认知
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历提到擅长不良制程改善，但未明确体现品质问题分析与改善能力
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-08
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历未提及QC七大手法、SPC、CPK、6S等品质工具
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-09
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历未提及接待客户验厂的经历
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 自我评价明确称沟通表达能力较强
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-01
+    ontology: 满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料未给出年龄或出生年份，无法判断是否在25~40岁区间。
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 教育经历明确写本科，学历等级4≥3。
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-03
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 专业为动漫制作技术，未命中机电一体化/电子技术/自动化/工业工程/机械工程等点名专业。
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-04
+    ontology: 满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料有英语听说读写能力及中英翻译描述，但无独立书写英文8D报告的明确证据，两项无法同时确认。
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-05
+    ontology: 满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料有品质项目、品质会议等零散品质工作描述，但无明确的品质管理岗位年限，无法确认≥3年。
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料未提及线束或连接器行业相关知识。
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 有专项处理工厂品质问题、制定改进方案并推动不良率下降的明确证据。
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-08
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料提到6 Sigma培训与质量体系方法，但未明确点名QC七大手法、SPC、CPK、6S等工具。
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-09
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 外贸经历中明确写到邀请客人验厂及验厂接待流程。
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 个人优势与工作描述明确体现跨部门/跨国沟通协调能力。
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-01
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历写明年龄31岁，落在25~40区间内
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-02
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 最高学历为高中，等级2，低于大专(3)
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-03
+    ontology: 未知
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料未提及所学专业名称
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-04
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 一面记录为模拟推断，非真实证据，且未提及8D报告书写能力
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-05
+    ontology: 未知
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 工作经历均为研发/产品/生产管理类，未见明确的品质管理岗位年限
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历明确写负责线束类产品，具备线束行业认知
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历有生产异常分析改善、不良品原因分析与改善策略的明确描述
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-08
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料未提及QC七大手法、SPC、CPK、6S、5WHY等品质工具
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-09
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料未提及接待客户验厂经验
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 个人优势中明确自述具备良好的沟通协调能力
+  v1:
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-01
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: ''
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-03
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-04
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-05
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-06
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-07
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-09
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-10
+    ontology: 不可判
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-01
+    ontology: 未知
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-03
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-04
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-05
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-06
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-07
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-09
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-01
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-03
+    ontology: 未知
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-04
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-05
+    ontology: 未知
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: ''
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-09
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-01
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-03
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-04
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-05
+    ontology: 未知
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: ''
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-06
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-07
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-08
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-09
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: ''
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-01
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-03
+    ontology: 未知
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-04
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-05
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-09
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-01
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-03
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-04
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-05
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: false
+    self_conflict: false
+    why: ''
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-08
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: false
+    self_conflict: false
+    why: ''
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-09
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-01
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-02
+    ontology: 未知
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-03
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-04
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-05
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: ''
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-06
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: ''
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-09
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-01
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-03
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-04
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-05
+    ontology: 未知
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-09
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-01
+    ontology: 满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-03
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-04
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-05
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-09
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-01
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-02
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-03
+    ontology: 未知
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-04
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-05
+    ontology: 未知
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-09
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: ''
+  v2:
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-01
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料明确写26岁，落在25~40区间内
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: 湖南铁道职业技术学院为大专层次，学历等级3≥3
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-03
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 专业为机械制造与自动化，不属于客户点名的机电一体化/电子技术/自动化/工业工程/机械工程
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-04
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料只提到英语可用于工作，未提及独立书写英文8D报告的能力
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-05
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读材料未见任何品质管理工作年限表述，无证据支持3年以上品质管理经验
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-06
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 自我评价明确写有四年线束经验，具备线束行业知识
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-07
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读全文职责多为工程事务，未见品质问题分析、改善的明确表述
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读全文未出现QC七大手法、SPC、CPK、6S等品质工具表述
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-09
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读全文只有客户SRM提交资料、客户送样，未见接待客户验厂表述
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-10
+    ontology: 不可判
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读全文未见沟通、协调能力的明确原文表述
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-01
+    ontology: 未知
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料中完全没有年龄或出生年份信息，无法推算
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 教育经历为大专，学历等级3，≥3
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-03
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 专业为工商企业管理，不属于点名的工程类专业
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-04
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读材料无英语能力及8D报告的原文依据
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-05
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 岗位为采购专员、PMC等，无品质管理工作经验
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-06
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读材料未出现线束行业相关知识
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-07
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 仅有品质异常协助处理，无品质问题分析改善的明确依据
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读材料未出现QC七大手法、SPC、CPK、6S等工具
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-09
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 仅有上门客户接待，无接待客户验厂的原文依据
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 自我评价明确表述善于人际交流和沟通
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-01
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料中无年龄或出生年份信息，无法推算
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: 教育经历为本科，学历等级4≥3
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-03
+    ontology: 未知
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 专业为汉语言文学，不属于点名的工程类专业
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-04
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 无英语口语熟练及独立书写英文8D报告的原文依据
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-05
+    ontology: 未知
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 工作经历均为人事行政、管理部等，无品质管理工作经验
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 行业涉及模具、塑胶五金、液晶显示器、玩具等，无线束行业知识
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 职责集中于人事行政、后勤、EHS与体系审核，无品质问题分析改善表述
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 仅有7S/5S现场管理与ISO体系，无QC七大手法、SPC、CPK、6S等工具原文
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-09
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 有欧美客户验厂主导与跟进的明确原文
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 全文无对沟通、协调能力的明确原文表述
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-01
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 出生年月1984-03-01，按当前推算年龄约41-42岁，超出25~40区间
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 最高学历本科，等级4≥3
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-03
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 专业为机电一体化技术，命中客户点名的“机电一体化”
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-04
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 英文8D报告可独立写，但口语一般、不算流利，未达到“英语口语熟练”
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-05
+    ontology: 未知
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 2019年8月至2023年3月任品质主管，约3年7个月，≥3年
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-06
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 有CABLE ASSEMBLY与wire harness样品制作经验，属线束行业
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-07
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 有按类别拆不良、算Top3、找原因定对策的品质分析改善实践
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-08
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 熟练QC手法与TS五大工具，覆盖QC七大手法、SPC、CPK等工具
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-09
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: 全程接待主答日系、欧美客户验厂并跟进整改关闭
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: 有跨部门坚持退货并协调采购、全检让步接收的沟通协调实例
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-01
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料明确写40岁，落在25~40区间内
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 学历为本科，等级4≥3
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-03
+    ontology: 未知
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 教育经历为会计学、计算机与英语，均不属点名工程类专业
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-04
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读材料无8D报告及英语熟练的明确证据
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-05
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 品质课长仅1年9月，不足3年
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料明确提到新能源汽车线束、连接器等产品
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读材料未见品质问题分析、改善的明确表述
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读材料未见QC七大手法、SPC、CPK、6S等工具名称
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-09
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料明确写有客户稽核应对经历
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读材料未见沟通、协调能力的明确表述
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-01
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料中没有任何出生年月或年龄信息，无法推算年龄
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料明确写有大专毕业，学历等级3，满足≥3
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-03
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 专业为应用电子工程技术，命中客户点名的电子技术
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-04
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: 材料明确写有英文能力良好及英文技术资料评估审核、英文邮件沟通，但未明确提及8D报告
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-05
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 品质相关岗位仅4个月及产品经理期间督导品质部，不足3年品质管理经验
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读材料未见线束或连接器行业相关经历
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: 材料明确写有产品结构/电性分析和设计优化改善建议能力及品质不良问题分析改善
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-08
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: 材料明确写有熟悉SPC、QC7大手法等质量工具
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-09
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 仅有外审陪审及供应商审核，未见接待客户验厂经历
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 不满足
+    states:
+    - 不满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读材料未见对沟通、协调能力的明确描述或评价
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-01
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 出生年月1978-12-01，按当前时间推算年龄约47岁，超出25~40区间
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-02
+    ontology: 未知
+    prompt: 满足
+    states:
+    - 满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 1997-2000年就读淮海工学院，为大专层次，学历等级≥3
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-03
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 专业为工业电气自动化，命中客户点名的“自动化”
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-04
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读材料确认未提及英语能力或8D报告
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-05
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料未出现品质管理3年以上年限的明确表述，无法证明满足
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-06
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 自我评价明确提到线材线束设计与使用经验
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: 工作经历中有组织问题分析、制定纠正预防措施的表述
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读材料确认未出现QC七大手法、SPC、CPK、6S等工具表述
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-09
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 工作经历中有接待用户参观考察的表述
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 自我评价明确提到协调沟通能力
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-01
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料中没有任何出生日期或年龄信息，无法推算年龄区间
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 教育经历明确写有大专学历，等级3≥3
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-03
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 专业为商务英语、高中理科，不属于点名的任何工程类专业
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-04
+    ontology: 满足
+    prompt: 未知
+    states:
+    - 未知
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料只提到英语听说读写能力，未提及8D报告，无法确认是否具备独立书写英文8D报告的能力
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-05
+    ontology: 未知
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 工作经历全部为电线电缆工程师岗位，未见品质管理岗位或年限
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 职业技能明确写有懂电线电缆相关行业标准，属于线束/连接器行业知识
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 自我评价明确写有解决问题能力较强，可支持品质问题分析改善能力
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读材料未见QC七大手法、SPC、CPK、6S、5WHY任何一项点名
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-09
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读工作经历与一面记录，未见接待客户验厂相关表述
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 自我评价明确写有沟通表达能力较强，支持沟通协调能力
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-01
+    ontology: 满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料中无年龄或出生年份信息，无法推算
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: 本科，学历等级4≥3
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-03
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: false
+    self_conflict: false
+    why: 专业为动漫制作技术，未命中任何点名专业
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-04
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 有英语听说读写能力表述，但未提及8D报告；按证据仅英语项有依据
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-05
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 工作经历均为助理、外贸类，无品质管理经验
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读材料无线束行业或产品表述
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 有处理品质问题并制定改进方案的明确表述
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 未点名QC七大手法、SPC、CPK、6S、5WHY中任何一项
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-09
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 有接待客人验厂的明确经历表述
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 有跨部门/跨国沟通能力的明确表述
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-01
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料明确写31岁，落在25~40区间内
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-02
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 学历为高中，等级2，低于大专(3)
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-03
+    ontology: 未知
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读材料未见任何点名专业，教育经历仅高中
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-04
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 全文未提英语能力或8D报告，一面记录为模拟推断非实证
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-05
+    ontology: 未知
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 工作经历均为产品/PIE/研发工程师、生产主管等，无品质管理岗位
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 工作经历明确提到线束类产品
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 工作经历明确提到生产异常分析改善
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 全文仅见7S、5S、4M1E，未见QC七大手法、SPC、CPK、6S、5WHY
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-09
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历与一面记录均未见接待客户验厂经历
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 个人优势明确表述有良好沟通协调能力
+  v3:
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-01
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历明确写26岁，落在25~40区间内
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: 湖南铁道职业技术学院为大专层次，学历等级3≥3
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-03
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 专业为机械制造与自动化，命中客户点名的机械工程类词（机械）
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-04
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历明确写英语可用于工作、听读写与日常沟通，但8D报告能力无原文依据，仅英语一项有据；按判据需两项均有依据，故不满足
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-05
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 工作经历为线束设计/研发/工艺，无品质管理岗位，品质管理年限为0<3年
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-06
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历明确写四年线束经验、熟悉线束产品可靠性测试与标准
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-07
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读材料无品质问题分析改善的明确表述，职责为研发/工艺/工程资料
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料仅提简单了解IATF16949，未提QC七大手法、SPC、CPK、6S任何一项
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-09
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料无接待客户验厂的明确表述，仅有客户SRM提交、送样等
+  - candidate: cand_专案工程师_东莞_12_16K_陈___5年
+    req: C-10
+    ontology: 不可判
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料无沟通协调能力的明确表述
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-01
+    ontology: 未知
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历未写出生年月或年龄，无法推算
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 教育经历明确写大专，学历等级3≥3
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-03
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 专业为工商企业管理，不属客户点名的工程类专业
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-04
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历通篇无英语或8D报告相关表述，一面记录为模拟推断不可作依据
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-05
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 工作经历均为采购/PMC文职，无品质管理岗位，品质管理年限为0<3
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-06
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历通篇未提线束/连接器行业，产品为计算器、机床、美容仪、塑料件等
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-07
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历无品质问题分析改善的明确表述，仅有品质异常协助处理与供应商品质评审
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历通篇未提QC七大手法、SPC、CPK、6S等品质工具
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-09
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历无接待客户验厂经验表述，仅有供应商评审与客户接待
+  - candidate: cand_业务跟单_东莞_6_10K_万___10年以上
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 个人优势明确写善于人际交流和沟通、具备团队合作精神
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-01
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历未写出生年月或年龄，无法推算，维持未知
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: 教育经历明确写“本科”，学历等级4≥3
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-03
+    ontology: 未知
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 专业为汉语言文学，不属于客户点名的工程类专业
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-04
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历技能栏只有Word/Excel/PowerPoint/粤语，全文无英语或英文8D报告表述；一面记录为模拟推断，不算材料证据
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-05
+    ontology: 未知
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 全部经历为人事行政/管理部管理岗，无品质管理职能域年限，0年<3年
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读全文为塑胶五金、模具、显示器、玩具行业，无任何线束/连接器行业表述
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 全文无品质问题分析改善的明确表述，仅有体系内审外审与验厂CAP，非品质问题分析
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 全文只提7S/8S现场管理，未提QC七大手法、SPC、CPK、5WHY
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-09
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 明确写主导与跟进欧美客户验厂并处理CAP
+  - candidate: cand_吴___45岁_管理课课长_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 自我评价与职责中有对外联系协调、与员工积极沟通等明确表述
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-01
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: true
+    why: 出生年月1984-03-01，按当前推算年龄约41岁，超出25~40区间——等等，需按判据算：1984年生，2025年约41岁，超40，应判不满足
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 一面记录明确三段学历：中专、大专、自考本科，最高学历本科，等级4≥3
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-03
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 大专专业为机电一体化技术，命中客户点名的“机电一体化”
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-04
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: false
+    self_conflict: false
+    why: 英文8D报告可独立写有依据，但口语自述“一般、不算流利”，不满足“口语熟练”这一项
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-05
+    ontology: 未知
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: 品质管理经历从2019年8月品质主管起算至2025年，约5年以上，≥3年
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-06
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 职业技能明确写有wire harness样品制作经验及熟悉wire harness工艺
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-07
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: 一面记录举了直通率下降查刀模磨损并改善的具体分析改善案例
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-08
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历写熟练QC手法与TS五大工具，工作描述含SPC、MSA、FMEA、CPK，6S有稽核经历；4项可检项均有依据
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-09
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 一面记录明确客户来厂审核全程由其接待主答并跟进整改关闭
+  - candidate: cand_廖___品质经理_NPI经理_研发经理
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 一面记录有跨部门冲突协调的具体案例（端子镀层退货与采购协调）
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-01
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历明确写「女 | 40岁」，40 落在 25~40 含端点区间内
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历写「本科」，学历等级 4 ≥ 3
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-03
+    ontology: 未知
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 专业为会计学、计算机与英语，均不在客户点名的机电一体化/电子技术/自动化/工业工程/机械工程之列
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-04
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料通篇无英语口语熟练或独立书写英文8D报告的任何表述，仅教育经历出现「英语」课程名，不构成能力证据
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-05
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 品质课长 2012-06~2014-03 约1年9月，加 SQA 2年7月、认证/体系工程师 2年4月，品质管理累计约6年8月 ≥ 3年
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 公司主营产品明确含「新能源汽车线束」，且任职于连接器/线束相关企业，有原文依据
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 品质课长职责含「公司品质系统管理」，SQA 职责含稽核、KPI分析、精益推进，属品质问题分析与改善的明确表述
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料通篇未点名 QC七大手法、SPC、CPK、6S 中任何一项，仅有体系稽核与 KPI 分析，不构成工具掌握证据
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-09
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: SQA 职责明确写「客户稽核应对」「客户年度审核应对」，即接待客户验厂经验
+  - candidate: cand_李___40岁_管理课课长_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 个人优势与工作经历有明确沟通协调表述，如「通过充分的内部沟通与平稳过渡方案」「与…10余个职能单位保持常态化、良性工作对接」
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-01
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历未写出生年月或年龄，无法推算
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 原文明确写「全日制 应用电子工程技术 大专毕业」，大专=3档，≥3
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-03
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 专业为「应用电子工程技术」，命中客户点名的「电子技术」
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-04
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 原文有「英文能力良好」「英文良好」及英文技术资料评估审核、书面英文邮件回复，覆盖英语与英文报告书写
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-05
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: false
+    self_conflict: false
+    why: 品质管理相关经历仅东莞科耐4个月QE组长，远不足3年；其余为NPI/工程/产品岗
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读全文，产品为消费电子/网络设备/追踪器/iPad键盘等，无任何线束或连接器行业表述
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 原文明确有产品技术问题分析和改善、FACA问题督导改善、问题分析与决策授课
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-08
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: 原文点名SPC/8D/PDCA/QC7大手法，并有6sigma绿带；CPK未点名但QC7大手法与SPC覆盖，按4项可判满足
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-09
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 全文只有SGS/DNV外审陪审、供应商QSA/QPA审核，无接待客户验厂表述
+  - candidate: cand_李___48岁_工程经理_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 原文有协调拉通多部门、项目范围/进度/成本/质量/风险/资源协调实施经验
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-01
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 出生年月1978-12-01，按当前推算年龄约46-47岁，超出25~40区间
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-02
+    ontology: 未知
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 最高学历栏OCR为乱码'KE'，教育背景只写毕业院校与专业，未给出学历层次，无法判定
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-03
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 专业为工业电气自动化，不属于客户点名的机电一体化/电子技术/自动化/工业工程/机械工程等词（'自动化'非独立命中，原文为'工业电气自动化'）
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-04
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料通篇无英语能力或英文8D报告的表述，一面记录为模拟推断不可作依据
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-05
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: 2017-06至2020-07任技术质量经理，2020-07至今任工程经理负责质量控制，品质管理相关年限累计超3年
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-06
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 自我评价明确提到各类线材线束的设计与使用经验，工作经历含新能源汽车线材线束
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 工作描述含组织相关部门进行问题分析总结、制定纠正和预防措施
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料通篇未提及QC七大手法、SPC、CPK、6S等品质工具
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-09
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 有参与接待用户到公司参观考察并作技术交流、参与第二方工厂审核等验厂相关活动
+  - candidate: cand_汪___总工程师技术经理研发经理
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 自我评价明确写有较强的协调沟通能力
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-01
+    ontology: 不满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料中无出生年月或年龄信息，无法推算年龄
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 教育经历明确写“大专”，学历等级3≥3
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-03
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 专业为商务英语，不属客户点名的机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-04
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料仅写英语听说读写能力，未提8D报告，且无独立书写英文8D报告证据
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-05
+    ontology: 未知
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 全部工作经历均为电线电缆工程师，职责仅“协助课长对品质管理系统的维护”，非品质管理岗位，无法累计3年品质管理经验
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 职业技能明确写熟悉电线电缆相关行业标准及多种线材生产工艺，属线束/线缆行业知识
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 自我评价与技能栏明确写解决问题能力较强、擅长对不良制程改善
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读材料未见QC七大手法、SPC、CPK、6S任何一项明确表述
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-09
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料中无接待客户验厂的任何表述
+  - candidate: cand_胡___46岁_专案工程师_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 自我评价明确写沟通表达能力及解决问题能力较强
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-01
+    ontology: 满足
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 简历未写出生年月或年龄，无法推算，材料确实没有年龄信息
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-02
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: 教育经历明确写「本科」，学历等级4≥3
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-03
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 专业为动漫制作技术，不属于客户点名的机电一体化/电子技术/自动化/工业工程/机械工程等工程类
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-04
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料有英语读写能力及中英翻译，但无任何独立书写英文8D报告的证据，两项未同时具备
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-05
+    ontology: 满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 品质管理非其主职，仅印尼工厂品质项目负责人等专项，无法累计达3年品质管理年限
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 通读材料无任何线束/连接器行业相关表述，行业为玩具、外贸、珠宝等
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 有品质问题分析与改善的明确表述，如制定改进方案、不良率下降
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料提到6 Sigma、精益生产，但未提及QC七大手法、SPC、CPK、6S等点名工具
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-09
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: false
+    self_conflict: false
+    why: 外贸经历中明确有邀请客人验厂、验厂接待流程的表述
+  - candidate: cand_陈___29岁_副总助理_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 个人优势与工作经历多处明确表述跨部门/跨国沟通协调能力
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-01
+    ontology: 满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 简历明确写男|31岁，31落在25~40区间内
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-02
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 学历为高中，按2档算低于大专(3档)
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-03
+    ontology: 未知
+    prompt: 未知
+    states:
+    - 未知
+    - 未知
+    quote_ok: true
+    self_conflict: false
+    why: 材料只有高中学历，无专业信息
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-04
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 整份材料无任何英语或8D报告相关表述，一面记录为模拟推断不可作依据
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-05
+    ontology: 未知
+    prompt: 满足
+    states:
+    - 满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 品质/生产管理相关经历累计远超3年(生产主管3年7月、PIE及产品工程师等)
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-06
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 工作经历明确提到负责线束类产品
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-07
+    ontology: 不满足
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 工作经历有生产异常分析改善、不良品原因分析并提出改善策略的明确表述
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-08
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 材料仅提7S/5S，未提QC七大手法、SPC、CPK、5WHY等工具
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-09
+    ontology: 不满足
+    prompt: 不满足
+    states:
+    - 不满足
+    - 不满足
+    quote_ok: true
+    self_conflict: false
+    why: 整份材料无接待客户验厂相关表述
+  - candidate: cand_雷___31岁_专案工程师_智通简历_编号
+    req: C-10
+    ontology: 不可判
+    prompt: 满足
+    states:
+    - 满足
+    - 满足
+    quote_ok: true
+    self_conflict: false
+    why: 个人优势明确写有良好的沟通协调能力

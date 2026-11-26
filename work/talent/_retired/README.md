@@ -58,3 +58,36 @@
 git log --oneline -- work/talent/skill_map.yaml      # 找到删除前的最后一个提交
 git show <commit>:work/talent/skill_map.yaml
 ```
+
+---
+
+# 已移出:`品质经理.分析版.md`(2026-11-20 从 `jd_docs/` 移到这里)
+
+原名 `work/talent/jd_docs/品质经理.md`,7921 B,由 **`backend/scripts/talent/render_jd.py`** 生成:
+九节「合格版岗位说明书」—— 判定口径、已知缺口、数据血缘。内容本身没有问题,是一份可读的分析。
+
+## 为什么移走
+
+**它和步 2 的正式产物放在同一个目录里,而且长得像产物。**
+
+`jd_docs/` 是流水线的产物目录:步 2(agent 391)往那里写 `<JD>.定稿.md`、`<JD>.fields.json`、
+`<JD>.待补清单.md`。而 `品质经理.md` 是另一个脚本写的另一种东西,10 份 JD 里只有品质经理这一份
+(其余 9 份从来没有过)。结果是:打开这个目录,一份 JD 能看到**两个 .md**,
+分不清哪个是"客户/业务方要签的定稿"、哪个是"我方内部的分析稿"。
+
+实测代价:用户就是这个原因问「talent 2 的输入输出到底是什么」——
+文件放错目录,比写错内容更难查,因为两个文件各自都是对的。
+
+## 为什么不是删
+
+内容有价值,只是**不该和定稿并排**。要复现:
+
+```bash
+cd backend && set -a && source ../.env; set +a
+env -u PGPORT .venv/bin/python -m scripts.talent.render_jd --jd 品质经理   # 会重新写回 jd_docs/品质经理.md
+```
+
+⚠️ 注意上面这条命令会把文件**再写回 `jd_docs/`**。`render_jd.py` 仍留在仓库里
+(本轮没有退休它),它没有任何技能引用、也没有任何脚本读它的输出。
+如果确认不再需要,应当连同这个脚本一起退休 —— 否则"移走了又长回来"。
+

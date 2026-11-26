@@ -1,4 +1,7 @@
 jd: 品质经理
+# 人定过什么**不在这里** —— 见 jd_reviews/品质经理.yaml(决策账本:谁、何时、为什么)。
+# 本文件只回答「引用了什么」。两边由 check_component_catalog.py 交叉校验,谁单方面改口径就红。
+review_record: jd_reviews/品质经理.yaml
 department: 品保课
 source_file: client/team-4/unzipped/职务说明书10份/12.品质经理职务说明书.doc
 source_text: work/talent/jd_links/_source/品质经理.txt
@@ -62,7 +65,10 @@ citations:
     - 自动化
     - 工业工程
     - 机械工程
-  note: 这条判不了的**不是数据,是匹配规则**:专业属性 major 已建(74% 的人有值),但原话是「…机械工程**等**工程类专业毕业」——白名单是举例不是穷举。按精确匹配会误杀「材料成型及控制工程」,按子串匹配要先定义什么叫工程类。规则定下来就能判。
+  note: 规则**已定**(D 口径,2026-11-20 admin 定):只按专业名点名,命中这 5 个词之一即满足,
+    不用专业门类。**所以这条现在判得了**,下面 value.in 的 5 项白名单是对的。
+    代价写明:原话有「等」,严格按点名判等于把「等」当成空话 —— 「材料成型及控制工程」这类真工科
+    **会被判不满足**。这是定义的代价,不是缺数据。
   origin: client
 - id: C-04
   requirement: REQ-H-LANG-EN
@@ -115,7 +121,9 @@ citations:
   source_text: 具备品质问题分析、改善的能力，懂QC七大手法、5WHY、SPC、CPK、6S工具；
   txt_line: 19
   section_index: 6
-  note: 原文 5 项,组件 4 项(缺 5WHY)。这条没有 value —— 它要求「具备这些组件」。
+  note: 原文 5 项。组件已补齐 5 个(QC七大手法/SPC/CPK/6S/5WHY),但 skill_5WHY 标了
+    detectable 为 false —— 270 份原文里出现 0 次,不进分母,所以**实际按 4 项判**,
+    报告里标成「原文要求了但检不出」。这条没有 value —— 它要求「具备这些组件」。
   origin: client
 - id: C-09
   requirement: REQ-D-CUSTOMER-AUDIT

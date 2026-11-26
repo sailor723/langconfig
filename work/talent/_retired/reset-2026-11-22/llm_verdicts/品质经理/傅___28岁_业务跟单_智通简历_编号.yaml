@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_傅___28岁_业务跟单_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: edc8607b2461fd2e
+runs:
+  1:
+    output_sha256: f0617969f78602bc
+    chars: 761
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示28岁，落在25~40岁区间内
+    quote: 女| 28岁
+  C-02:
+    state: 满足
+    why: 简历显示全日制本科，学历高于大专
+    quote: 本科 . 全日制 人力资源管理
+  C-03:
+    state: 不满足
+    why: 专业为人力资源管理，不在工程类专业白名单内
+    quote: 本科 . 全日制 人力资源管理
+  C-04:
+    state: 未知
+    why: 简历未提及英语口语或英文8D报告能力
+    quote: null
+  C-05:
+    state: 不满足
+    why: 工作经历均为跟单、销售助理、文员、人事行政，无品质管理经验
+    quote: '业务跟单员: 无'
+  C-06:
+    state: 不满足
+    why: 简历无线束/连接器行业相关经历或知识
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历未体现品质问题分析改善能力
+    quote: null
+  C-08:
+    state: 不满足
+    why: 简历未提及任何品质工具（QC七大手法/SPC/CPK/6S/5WHY）
+    quote: null
+  C-09:
+    state: 不满足
+    why: 简历无接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条为软性能力项，本体未建数据项，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

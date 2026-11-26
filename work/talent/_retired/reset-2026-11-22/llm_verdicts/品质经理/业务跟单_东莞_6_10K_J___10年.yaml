@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_业务跟单_东莞_6_10K_J___10年
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 038a1022436f4c34
+runs:
+  1:
+    output_sha256: 7d775283d0adc7f6
+    chars: 772
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示34岁，在25~40岁区间内
+    quote: '女| AE: 34 岁'
+  C-02:
+    state: 满足
+    why: 本科（广东外语外贸大学）高于大专要求
+    quote: 广东外语外贸大学 本科 商务英语
+  C-03:
+    state: 不满足
+    why: 专业为商务英语/服装艺术设计，均不在工程类专业白名单内
+    quote: 广东外语外贸大学 本科 商务英语
+  C-04:
+    state: 满足
+    why: 有独立整理全英文8D报告及英语沟通经历
+    quote: 及时整理出专业的 8D 报告并翻译成全英文
+  C-05:
+    state: 满足
+    why: 10年工作经验，品质管理相关经历超过3年
+    quote: 10 年工作经验
+  C-06:
+    state: 不满足
+    why: 简历无线束/连接器行业认知相关表述
+    quote: null
+  C-07:
+    state: 不满足
+    why: 简历无品质问题分析改善能力的明确证据
+    quote: null
+  C-08:
+    state: 不满足
+    why: 简历未提及QC七大手法、SPC、CPK、6S、5WHY等工具
+    quote: null
+  C-09:
+    state: 不满足
+    why: 简历无接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

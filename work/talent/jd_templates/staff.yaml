@@ -1,0 +1,221 @@
+template: 员工岗
+role: staff
+decided_by: S1.11 岗位类别 —— 由 business 填,HR 只复核与职级是否冲突
+inherits: _common.yaml
+note: '买的是**可交付的作业**。A 级集中在:作业内容、频次、时长、SOP、工作地点、班制、工时、环境。
+
+  S2/S4 里管人相关的字段一律不适用 —— 一个文员没有预算和决策权,问它是空问。'
+not_applicable:
+- S2.02
+- S2.03
+- S4.02
+- S4.04
+- S4.05
+- S4.06
+- S4.07
+sections:
+- code: S2
+  title: 岗位目的
+  fields:
+  - code: S2.01
+    label: 岗位目的
+    level: C
+    owner: business
+    why: 缺了匹配照样能算,但面试官与候选人无法一句话说明「这个岗为什么存在」,也就解释不了为什么这个岗要这样的人
+    how: 一段话、动词开头,例:负责部门品质与业务目标管理,建立并维护管理体系,保障过程受控
+    shape: text
+    level_basis: 解释性字段,不参与匹配计算;缺了只影响「为什么」讲不清,故 B(与 SPEC 对 S5.02 内容项的处理一致)
+  - code: S2.02
+    label: 关键成功指标
+    level: C
+    owner: business
+    why: '**本版不适用**:员工岗不背指标:可量化产出由作业质量与数量体现(S5),不设 KPI'
+    how: 列 3-5 项可量化的,例:目标达成率 / 异常闭环率 / 客户审厂通过率
+    shape: list
+  - code: S2.03
+    label: 团队/部门目标
+    level: C
+    owner: business
+    why: '**本版不适用**:员工岗没有团队,不存在团队目标'
+    how: 例:2027 年品质部客户投诉率降到 0.5% 以下
+    shape: text
+- code: S4
+  title: 岗位职责
+  fields:
+  - code: S4.01
+    label: 职责条目
+    level: A
+    owner: business
+    why: 职责段是「这个岗到底干什么」的唯一来源;缺了候选人无法自评,匹配只能靠资格清单硬比,结果会误导
+    how: 逐条写、动词开头,例:1、执行各项检验标准并达成品质目标
+    shape: list
+    level_basis: 整段职责是候选人自评与匹配的唯一依据,缺了等于没有需求描述,属阻断级
+  - code: S4.02
+    label: 职责权重
+    level: C
+    owner: business
+    why: '**本版不适用**:员工的职责就是全部作业项,权重无意义'
+    how: 等权就写「等权,各 20%」;不等权按时间占比写,例:品质目标 40% / 异常处理 30% / 客户审厂 30%
+    shape: list
+  - code: S4.03
+    label: 职责对应能力
+    level: B
+    owner: business
+    why: 缺了就无法把「哪条职责」和「哪项能力」对上,培训与考核内容只能从资格清单反推;匹配仍可按 S3 算
+    how: 每条职责后面写用到的能力,例:来料异常处理 → 品质问题分析 / QC七大手法
+    shape: list
+    level_basis: 它是职责与能力的连接,缺了匹配仍可按 S3 资格段算、只是解释不了能力从哪来,故 B
+  - code: S4.04
+    label: 管理幅度
+    level: C
+    owner: business
+    why: '**本版不适用**:员工岗不管人,管理幅度恒为 0'
+    how: 例:直接下属 6 人(工程师2、质检员4)
+    shape: number
+  - code: S4.05
+    label: 预算与成本责任
+    level: C
+    owner: business
+    why: '**本版不适用**:员工岗不承担预算,成本责任在主管'
+    how: 例:管耗材与检测费用约 30 万/年
+    shape: text
+  - code: S4.06
+    label: 决策权限
+    level: C
+    owner: business
+    why: '**本版不适用**:员工岗按 SOP 执行,没有自主决策权'
+    how: 例:可批 5 万以下;停线需报厂长
+    shape: text
+  - code: S4.07
+    label: 跨部门接口
+    level: C
+    owner: business
+    why: '**本版不适用**:员工岗的对外接口由主管承担,本人只对接本工序上下游'
+    how: 例:对接业务部(客诉)、生产部(异常)
+    shape: text
+- code: S5
+  title: 作业明细
+  fields:
+  - code: S5.01
+    label: 序号
+    level: C
+    owner: business
+    why: 作业明细整段为空 —— 这是JD里信息量最大的一块(全批占73%字数)
+    how: 逐条列出:序号 / 内容 / 频次
+    shape: number
+    level_basis: SPEC
+  - code: S5.02
+    label: 内容
+    level: A
+    owner: business
+    why: 同上
+    how: 例:1. 每日核对来料检验记录
+    shape: text
+    level_basis: SPEC
+  - code: S5.03
+    label: 频次
+    level: A
+    owner: business
+    why: 不知道一件事一天做几次,就无法判断这个岗的真实负荷
+    how: 每日 / 每周 / 每月 / 偶发
+    shape: enum
+    level_basis: SPEC
+  - code: S5.04
+    label: 时长
+    level: A
+    owner: business
+    why: 时长决定人力编制,也决定候选人能不能接受
+    how: 例:约 30 分钟/次
+    shape: number
+    level_basis: SPEC
+  - code: S5.05
+    label: AI 可否替代
+    level: C
+    owner: business
+    why: 2026年新增字段:这项工作能否被工具替代,直接决定岗位是否长期存在
+    how: 是 / 部分 / 否
+    shape: enum
+    level_basis: SPEC
+  - code: S5.06
+    label: 操作标准流程
+    level: A
+    owner: business
+    why: 操作标准流程是培训与考核的依据
+    how: 例:接异常→到现场→协调→跟进→回复
+    shape: text
+    level_basis: SPEC
+  - code: S5.07
+    label: 关联表单
+    level: B
+    owner: business
+    why: 关联表单决定系统权限与数据归属
+    how: 例:来料检验表 / 品质异常单
+    shape: list
+    level_basis: SPEC
+  - code: S5.08
+    label: 排班与交接
+    level: B
+    owner: business
+    why: 要不要交接班、交接什么,直接决定这个人每天的有效工时与出错风险
+    how: 例:两班倒,每班交接检验台账与未结异常
+    shape: text
+    level_basis: 员工版特有
+- code: S6
+  title: 工作条件
+  fields:
+  - code: S6.01
+    label: 工作地点/厂区
+    level: A
+    owner: business
+    why: 工作地点决定通勤半径 —— 制造业招聘的第一道筛子
+    how: 例:东莞石排厂区 / 需驻厂
+    shape: text
+    level_basis: SPEC
+  - code: S6.02
+    label: 班制
+    level: A
+    owner: business
+    why: 班制决定候选人能否接受(白班/两班倒/三班倒)
+    how: 白班 / 两班倒 / 三班倒
+    shape: enum
+    level_basis: SPEC
+  - code: S6.03
+    label: 工时
+    level: A
+    owner: business
+    why: 工时与加班情况是候选人最关心的一项
+    how: 例:8小时,月加班约40小时
+    shape: text
+    level_basis: SPEC
+  - code: S6.04
+    label: 环境
+    level: A
+    owner: business
+    why: 环境(噪音/粉尘/温度)是这个厂区最现实的约束
+    how: 例:车间噪音80dB,需长时站立
+    shape: text
+    level_basis: SPEC
+  - code: S6.05
+    label: 体力
+    level: B
+    owner: business
+    why: 体力要求影响性别与年龄的限制是否能站住脚
+    how: 例:需搬抬15kg
+    shape: text
+    level_basis: SPEC
+  - code: S6.06
+    label: 出差
+    level: B
+    owner: business
+    why: 出差频次;缺了不影响匹配,只影响候选人预期与差旅预算
+    how: 不涉及 / 偶发 / 每月1次 / 每月2次以上,例:每月1次,省内
+    shape: enum
+    level_basis: SPEC
+  - code: S6.07
+    label: 劳保/防护
+    level: B
+    owner: business
+    why: 劳保用品;缺了不影响招聘判断,只影响入职发放与安全合规归档
+    how: 例:耳塞/手套/工衣
+    shape: list
+    level_basis: SPEC

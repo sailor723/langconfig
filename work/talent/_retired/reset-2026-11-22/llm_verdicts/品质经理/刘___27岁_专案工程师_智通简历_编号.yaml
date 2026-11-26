@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_刘___27岁_专案工程师_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: ecfbc40c7201e739
+runs:
+  1:
+    output_sha256: 00eccede903fb738
+    chars: 780
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示27岁，落在25~40岁区间内
+    quote: 男|27岁
+  C-02:
+    state: 满足
+    why: 简历学历为大专，达到大专及以上要求
+    quote: 大专' 全日制”机械设计与制造
+  C-03:
+    state: 不满足
+    why: 专业为机械设计与制造，不在机电一体化/电子技术/自动化/工业工程/机械工程白名单内
+    quote: 大专' 全日制”机械设计与制造
+  C-04:
+    state: 未知
+    why: 简历未提及英语口语或英文8D报告能力
+    quote: null
+  C-05:
+    state: 未知
+    why: 简历工作经历均为线束产品工程师，未体现品质管理领域3年以上经验
+    quote: null
+  C-06:
+    state: 满足
+    why: 多段线束产品工程师经历，熟识线束行业产品
+    quote: 线束产品工程师
+  C-07:
+    state: 未知
+    why: 简历未明确体现品质问题分析与改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历未提及接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 沟通协调能力为软性属性，无对应数据项，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

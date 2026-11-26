@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_胡___31岁_专案工程师_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 8f2745027671e926
+runs:
+  1:
+    output_sha256: 66927de221dd69de
+    chars: 1017
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 客户要求25~40岁，简历出生年份1990年前后（身份证421222199****86037），活跃时间2026年约31岁，在区间内
+    quote: 年龄：25 ~ 40岁
+  C-02:
+    state: 满足
+    why: 客户要求大专及以上，简历有华中师范大学教育经历及普通高等学校毕业证书，达到本科层次
+    quote: 学历：大专及以上学历
+  C-03:
+    state: 满足
+    why: 简历专业背景涉及电子技术/线材连接产品开发，命中电子技术
+    quote: 专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业
+  C-04:
+    state: 满足
+    why: 简历语言能力英语听说读写精通，且有8D report客诉处理经验，两项均具备
+    quote: '英语: 听说能力 |精通    读写能力 |精通'
+  C-05:
+    state: 满足
+    why: 简历品质管理相关经验累计超过3年（QE及品质流程经验），满足3年以上
+    quote: 3年以上品质管理工作经验
+  C-06:
+    state: 满足
+    why: 简历有Cable连接产品开发设计经验，涉及线束/连接器行业
+    quote: 熟识线束行业相关产品
+  C-07:
+    state: 满足
+    why: 简历有异常分析5M1E、问题改善及8D客诉处理经验，具备品质问题分析改善能力
+    quote: 具备品质问题分析、改善的能力
+  C-08:
+    state: 满足
+    why: 简历明确使用SPC、APQP、PPAP、FMEA、MSA五大工具，命中SPC等至少1项
+    quote: 懂QC七大手法、5WHY、SPC、CPK、6S工具
+  C-09:
+    state: 满足
+    why: 简历有客户稽查、体系审核工艺资料提供及客户制程验收经验，属客户验厂接待
+    quote: 具备接待客户验厂经验
+  C-10:
+    state: 不可判
+    why: 该条属性/组件未建，无数据项，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

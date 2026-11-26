@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_曾___38岁_专案工程师_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 4efa87e44c44d8f5
+runs:
+  1:
+    output_sha256: da17b91b66643afb
+    chars: 836
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示年龄28岁，在25~40岁区间内
+    quote: '28'
+  C-02:
+    state: 满足
+    why: 简历教育经历为大专（中南科技学院），达到大专及以上要求
+    quote: 中南科技学院
+  C-03:
+    state: 不满足
+    why: 专业为机械设计与制造，不在机电一体化/电子技术/自动化/工业工程/机械工程白名单内
+    quote: 机械设计与制造
+  C-04:
+    state: 不满足
+    why: 简历未体现英语口语熟练及独立书写英文8D报告能力，0/2项
+    quote: null
+  C-05:
+    state: 满足
+    why: 工作经历累计约10年，超过3年品质管理相关经验要求
+    quote: 2016-03-2018-10
+  C-06:
+    state: 满足
+    why: 简历明确有数据线、高频线、线束等工作经历，具备线束行业认知
+    quote: 有着丰富的数据线，高频线，苹果线的工作经历
+  C-07:
+    state: 满足
+    why: 简历体现DFMEA、DOE及品质问题分析改善相关工作内容
+    quote: 会做DFEMEA,以及DOE
+  C-08:
+    state: 满足
+    why: 命中DFMEA/DOE等品质工具，至少1项
+    quote: 会做DFMEA,以及DOE
+  C-09:
+    state: 不满足
+    why: 简历未体现接待客户验厂经验，0/1项
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

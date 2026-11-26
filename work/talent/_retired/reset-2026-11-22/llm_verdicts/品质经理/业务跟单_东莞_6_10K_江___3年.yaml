@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_业务跟单_东莞_6_10K_江___3年
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 58487fcf27099d7c
+runs:
+  1:
+    output_sha256: a1289fcf70c9632a
+    chars: 823
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历年龄25岁，落在客户要求的25~40岁区间内
+    quote: 年龄：25 ~ 40岁
+  C-02:
+    state: 满足
+    why: 简历为专科（大专）学历，达到大专及以上要求
+    quote: 学历：大专及以上学历
+  C-03:
+    state: 不满足
+    why: 专业为应用西班牙语，不在工程类专业白名单内
+    quote: 应用西班牙语专业/专科
+  C-04:
+    state: 未知
+    why: 简历未体现英语口语熟练及独立书写英文8D报告的能力
+    quote: null
+  C-05:
+    state: 不满足
+    why: 工作经历为外贸业务员和业务跟单，无3年以上品质管理工作经验
+    quote: 3年以上品质管理工作经验
+  C-06:
+    state: 不满足
+    why: 简历无任何线束/连接器行业相关经历或知识
+    quote: 熟识线束行业相关产品
+  C-07:
+    state: 不满足
+    why: 简历未体现品质问题分析、改善能力
+    quote: 具备品质问题分析、改善的能力
+  C-08:
+    state: 不满足
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S中任何一项
+    quote: 懂QC七大手法、5WHY、SPC、CPK、6S工具
+  C-09:
+    state: 不满足
+    why: 简历无接待客户验厂经验
+    quote: 具备接待客户验厂经验
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

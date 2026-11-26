@@ -1,0 +1,27 @@
+candidate: cand_汪___总工程师技术经理研发经理
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  educationRank:
+    value: 3
+    basis: mock
+    rule: 学历:按经验给 3(大专)或 4(本科),各 50%
+    seed: 0.64217
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_8D报告:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.027479)
+    note: 模拟值,不是事实
+  skill_SPC:
+    held: true
+    basis: mock
+    rule: 按 20% 概率抽中(seed=0.120021)
+    note: 模拟值,不是事实
+  skill_英语:
+    held: true
+    basis: mock
+    rule: 按 35% 概率抽中(seed=0.127061)
+    note: 模拟值,不是事实

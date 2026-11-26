@@ -1,0 +1,37 @@
+candidate: cand_工程文员_东莞_5_6K_何___25年应届生
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  yearsStated:
+    value: 5
+    basis: mock
+    rule: 声明年限:与总年限同分布 3~15 年
+    seed: 0.170745
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_CPK:
+    held: true
+    basis: mock
+    rule: 按 18% 概率抽中(seed=0.127641)
+    note: 模拟值,不是事实
+  skill_QC七大手法:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.189508)
+    note: 模拟值,不是事实
+  skill_SPC:
+    held: true
+    basis: mock
+    rule: 按 20% 概率抽中(seed=0.122863)
+    note: 模拟值,不是事实
+  skill_线束行业知识:
+    held: true
+    basis: mock
+    rule: 按 40% 概率抽中(seed=0.325760)
+    note: 模拟值,不是事实
+  skill_英语:
+    held: true
+    basis: mock
+    rule: 按 35% 概率抽中(seed=0.344405)
+    note: 模拟值,不是事实

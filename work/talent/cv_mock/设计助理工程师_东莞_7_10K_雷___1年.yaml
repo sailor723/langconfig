@@ -1,0 +1,27 @@
+candidate: cand_设计助理工程师_东莞_7_10K_雷___1年
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  yearsStated:
+    value: 4
+    basis: mock
+    rule: 声明年限:与总年限同分布 3~15 年
+    seed: 0.135079
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_QC七大手法:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.140138)
+    note: 模拟值,不是事实
+  skill_线束行业知识:
+    held: true
+    basis: mock
+    rule: 按 40% 概率抽中(seed=0.167469)
+    note: 模拟值,不是事实
+  skill_英语:
+    held: true
+    basis: mock
+    rule: 按 35% 概率抽中(seed=0.186575)
+    note: 模拟值,不是事实

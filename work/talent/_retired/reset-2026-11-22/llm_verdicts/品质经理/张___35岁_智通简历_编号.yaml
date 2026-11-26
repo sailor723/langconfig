@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_张___35岁_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: bf6536eeecc3526d
+runs:
+  1:
+    output_sha256: 50061729059461be
+    chars: 861
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示35岁，落在25~40岁区间内
+    quote: 男 | 35岁  本科 14年
+  C-02:
+    state: 满足
+    why: 简历显示本科，高于大专及以上要求
+    quote: 本科 非全日制，计算机科学与技术
+  C-03:
+    state: 不满足
+    why: 专业为计算机科学与技术，未命中工程类专业白名单
+    quote: 本科 非全日制，计算机科学与技术
+  C-04:
+    state: 未知
+    why: 简历未提及英语口语或英文8D报告能力
+    quote: null
+  C-05:
+    state: 满足
+    why: 简历显示14年工作经验，且长期从事线束工程/品质相关工作，超过3年品质管理要求
+    quote: 男 | 35岁  本科 14年
+  C-06:
+    state: 满足
+    why: 简历明确从事线束相关工作十年多，熟识线束行业产品
+    quote: 本人从事线束相关工作十年多
+  C-07:
+    state: 满足
+    why: 简历有主导现场改善、运用IE手法分析改善、输出改善报告等品质问题分析改善能力
+    quote: 主导班组长、RD、品质进行现场改善，运用IE手法分析改善
+  C-08:
+    state: 未知
+    why: 简历未明确提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历未提及接待客户验厂经验
+    quote: null
+  C-10:
+    state: 满足
+    why: 简历个人优势中明确列出沟通能力、协调组织
+    quote: 沟通能力 ST Ol | 协调组织
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

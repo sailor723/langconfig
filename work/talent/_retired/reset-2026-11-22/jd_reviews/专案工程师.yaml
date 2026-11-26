@@ -1,0 +1,77 @@
+# 决策账本 —— 「谁、何时、为什么」这么定的独立记录。
+#
+# 分工:
+#   jd_links/<JD>.yaml   引用了什么(派生文件,可被重新抽取覆盖)
+#   jd_reviews/<JD>.yaml 人定过什么(决策文件)
+# 门禁交叉校验两边:inline 的每条 granularity_decision 与每条 excluded,在账本里都必须有
+# subject 匹配的条目,且 status / decided_by / decided_at 逐字一致。
+#
+# 本账本所有条目都是 signoff: pending —— 这轮粒度复审由 agent 386 做,它没有 admin 的签字权。
+# 所以这里不写 decided_by / decided_at:没发生过的签署不许补。
+
+jd: 专案工程师
+ref: jd_links/专案工程师.yaml
+decisions:
+
+- id: D-专案工程师-01
+  kind: granularity
+  subject: 专案-02
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 4 行后半「对新产品报价、样品、转量产做业流程熟知」:顿号连接的是同一个 NPI 流程的三个阶段
+    (报价 → 样品 → 转量产),判定对象是「对这整条流程熟不熟」,不是一个阶段一条要求。
+    拆成三条也只能都落到 REQ-D-NPI-PROCESS 上(要求库里只有这一条),拆分不产生新的可判信息。
+    另:「1、」是序号,「；」是把前后两件事分开的分号 —— 前半已由 专案-01 单独承接,两半不重叠。
+  cost: >-
+    无拆分代价。真正的代价在下一层:REQ-D-NPI-PROCESS 是 assessable=false(语料里没有
+    NPI/报价/转量产 的组件),所以这一条无论拆不拆,简历侧都判不了,只能面试问。
+    草稿里 llm.measurable_from_resume 写的是 true,与要求库的 assessable=false 冲突 ——
+    我以要求库为准(它是评分侧的依据),没有改 llm 栏(那是抽取结果,不在本轮授权内)。
+
+- id: D-专案工程师-02
+  kind: granularity
+  subject: 专案-06
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 6 行前半「对电线加工设备:裁线机、端子机、自动机、注塑机、点胶机等功能熟知」:
+    冒号后的 5 个顿号项是「电线加工设备」的举例,后面还跟着「等」。它们不是 5 条可分别判定的能力,
+    而是同一类设备的例示。拆开就等于把「等」收窄成穷举清单 —— 那是替客户改 JD。
+    要求库 REQ-D-WIRE-EQUIPMENT 也正是这么理解的:一条 composite,internal 5 个组件可部分满足。
+  cost: >-
+    保持一条,判定落在「这些电线加工设备熟不熟」这个整体上。按目录的 cv_count,
+    5 台设备的出现份数是 裁线机 17 / 端子机 18 / 自动机 10 / 注塑机 17 / 点胶机 2(共 277 份简历),
+    点胶机只有 2 份 —— 如果 op=holds 要求 5 项全中,全库几乎无人满足,这条会把门槛抬到
+    「几乎筛空」。是全要还是命中其一,是打分口径问题,不在本轮能定,登记在这里。
+
+- id: D-专案工程师-03
+  kind: granularity
+  subject: 专案-07
+  decision: confirmed_split
+  signoff: pending
+  why: >-
+    第 6 行「…等功能熟知并有一定的操作能力」:「并」连接的是两件可以分开成立的判定 ——
+    「知道这些设备是什么」(熟知)与「上手会开」(有一定的操作能力)。一个只见过产线、
+    没独立开过端子机的人,只满足前半。所以该拆,且拆的动作在本草稿里已经落地(06 + 07)。
+  cost: >-
+    拆了,但要求库把这两半合成了同一条 REQ-D-WIRE-EQUIPMENT(它自己的 note 写明「一句话 → 一条复合要求」),
+    于是 06 与 07 两个引用指向**同一条要求**,第 6 行在计分里被算两次。
+    要修只有两条路:把两半合并回一条(删掉其中一个引用),或新建一条「设备操作」要求
+    —— 两者都超出本轮授权(不许改 requirement、不许动要求库),留给人定。
+    另:07 的 verbatim「有一定的操作能力」单独看没有主语(操作什么),脱离 06 就不可判;
+    这也是同一个问题的另一面。草稿里 07 的 llm.measurable_from_resume 也写着 true,
+    但简历里出现「端子机」三个字说明不了会不会操作,我倾向这条简历侧判不了。
+
+- id: D-专案工程师-04
+  kind: granularity
+  subject: 专案-08
+  decision: confirmed_split
+  signoff: pending
+  why: >-
+    第 7 行「4、CAD二维制图、办公软件操作熟练」:顿号连接的是两项独立技能(CAD 制图 / 办公软件),
+    一个人可以只会其中一样,所以该拆。本草稿已拆成 08(CAD)与 09(办公软件),拆的动作已经落地。
+  cost: >-
+    与 专案-07 不同,这次的拆分是干净的:08 与 09 的 verbatim 各自只含自己那一半,互不重叠,
+    第 7 行不会被重复计分。代价在 09 那一侧(见 09 的 note):客户没点名是哪几个办公软件,
+    要求库把它落成 Word/Excel/PowerPoint 三项,等于替客户收窄了清单。

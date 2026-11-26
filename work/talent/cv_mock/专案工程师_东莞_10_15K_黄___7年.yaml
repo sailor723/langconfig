@@ -1,0 +1,17 @@
+candidate: cand_专案工程师_东莞_10_15K_黄___7年
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  major:
+    value: 机电一体化技术
+    basis: mock
+    rule: 专业:60% 落在客户点名的 5 个词里,40% 给「工商管理」
+    seed: 0.051411
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_客户验厂:
+    held: true
+    basis: mock
+    rule: 按 25% 概率抽中(seed=0.190275)
+    note: 模拟值,不是事实

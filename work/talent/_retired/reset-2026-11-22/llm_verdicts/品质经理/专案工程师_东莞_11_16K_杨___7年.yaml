@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_专案工程师_东莞_11_16K_杨___7年
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 6ad6f4c391bca2cd
+runs:
+  1:
+    output_sha256: d8c49d35f844fe3b
+    chars: 775
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示29岁，落在客户要求的25~40岁区间内
+    quote: 男| 29岁
+  C-02:
+    state: 未知
+    why: 简历未提及学历信息，无法判断是否达到大专及以上
+    quote: null
+  C-03:
+    state: 未知
+    why: 简历未提及专业或毕业院校信息
+    quote: null
+  C-04:
+    state: 未知
+    why: 简历未提及英语口语或英文8D报告能力
+    quote: null
+  C-05:
+    state: 未知
+    why: 简历工作经历为线束设计、工艺、设备管理，未明确体现品质管理岗位年限
+    quote: null
+  C-06:
+    state: 满足
+    why: 简历明确列出家电线束、安防线束、储能线束、汽车周边线束等产品经验，体现线束行业认知
+    quote: '产品: 家电线束、安防线束、储能线束、汽车周边线束等'
+  C-07:
+    state: 未知
+    why: 简历未明确提及品质问题分析与改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历未提及接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

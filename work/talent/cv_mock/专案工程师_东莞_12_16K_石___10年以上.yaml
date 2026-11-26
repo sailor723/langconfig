@@ -1,0 +1,33 @@
+candidate: cand_专案工程师_东莞_12_16K_石___10年以上
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  age:
+    value: 37
+    basis: mock
+    rule: 年龄:28 + 均匀取 0..18 → 28~46 岁
+    seed: 0.524382
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+  yearsStated:
+    value: 13
+    basis: mock
+    rule: 声明年限:与总年限同分布 3~15 年
+    seed: 0.801739
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_6S:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.122467)
+    note: 模拟值,不是事实
+  skill_SPC:
+    held: true
+    basis: mock
+    rule: 按 20% 概率抽中(seed=0.018217)
+    note: 模拟值,不是事实
+  skill_品质问题分析:
+    held: true
+    basis: mock
+    rule: 按 45% 概率抽中(seed=0.389235)
+    note: 模拟值,不是事实

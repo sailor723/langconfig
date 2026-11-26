@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_田___26岁_业务跟单_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: b16e29cd76466874
+runs:
+  1:
+    output_sha256: f77b211460376e31
+    chars: 778
+replay_identical: null
+cells:
+  C-01:
+    state: 未知
+    why: 简历OCR中未出现年龄信息，无法核对25~40岁区间
+    quote: null
+  C-02:
+    state: 满足
+    why: 教育经历显示本科，高于大专及以上要求
+    quote: 本科 . 全日制
+  C-03:
+    state: 未知
+    why: 简历未写明专业名称，无法判断是否属于工程类专业
+    quote: null
+  C-04:
+    state: 未知
+    why: 简历仅标注英语(A)，无口语熟练及独立书写英文8D报告的明确证据
+    quote: 英语 (A)
+  C-05:
+    state: 未知
+    why: 工作经历均为总助/秘书类，未见品质管理岗位及3年以上品质管理年限
+    quote: null
+  C-06:
+    state: 不满足
+    why: 简历无任何线束/连接器行业相关经历或知识描述
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历未体现品质问题分析与改善能力，仅有项目稽核与问题整改协助
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历有重要访客接待，但未明确为客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

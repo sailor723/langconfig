@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_王___37岁_行政专员_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: a356255ca52894e3
+runs:
+  1:
+    output_sha256: e406e436ee559b37
+    chars: 804
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示37岁，落在25~40岁区间内
+    quote: '37'
+  C-02:
+    state: 满足
+    why: 简历学历为大专，满足大专及以上要求
+    quote: 大专
+  C-03:
+    state: 未知
+    why: 简历未提及机电一体化/电子技术/自动化等工程类专业，教育经历仅显示高中及深圳大学（未注明专业）
+    quote: null
+  C-04:
+    state: 未知
+    why: 简历仅笼统写英语听说读写能力，未体现英语口语熟练及独立书写英文8D报告
+    quote: '英语: 听说能力  读写能力'
+  C-05:
+    state: 不满足
+    why: 简历工作经历均为行政/人事/总务类，无品质管理工作经验
+    quote: null
+  C-06:
+    state: 未知
+    why: 简历未提及线束/连接器行业相关知识
+    quote: null
+  C-07:
+    state: 不满足
+    why: 简历无品质问题分析、改善能力相关描述
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历仅提及5S活动，未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: 组织实施5S活动开展和改善监督
+  C-09:
+    state: 满足
+    why: 简历明确写有负责客户验厂筹备工作
+    quote: 负责客户验厂、政府检查等筹备工作
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

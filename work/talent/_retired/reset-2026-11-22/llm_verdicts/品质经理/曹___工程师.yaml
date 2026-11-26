@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_曹___工程师
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 4da6e391a4d6366d
+runs:
+  1:
+    output_sha256: 8ba737376cb48060
+    chars: 811
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 出生年月1993-12-01，年龄约32岁，落在25~40岁区间内
+    quote: '出生年月: ”1993-12-01'
+  C-02:
+    state: 满足
+    why: 最高学历为大专，达到大专及以上要求
+    quote: '学历: KE'
+  C-03:
+    state: 不满足
+    why: 专业为电子电气一体化，未命中机电一体化/电子技术/自动化/工业工程/机械工程白名单
+    quote: '专业名称: ”电子电气一体化'
+  C-04:
+    state: 未知
+    why: 简历未提及英语口语能力或独立书写英文8D报告的能力
+    quote: null
+  C-05:
+    state: 未知
+    why: 简历工作经历为工程/研发类，未明确体现3年以上品质管理工作经验
+    quote: null
+  C-06:
+    state: 满足
+    why: 简历明确写明线材/线束行业相关工作经验丰富
+    quote: 8、线材/线束行业相关工作经验丰富。
+  C-07:
+    state: 未知
+    why: 简历未明确体现品质问题分析、改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历未提及接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样，不给结论
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

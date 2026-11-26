@@ -1,0 +1,11 @@
+candidate: cand_人事经理_东莞_12_17K_张___10年以上
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props: {}
+components:
+  skill_线束行业知识:
+    held: true
+    basis: mock
+    rule: 按 40% 概率抽中(seed=0.061275)
+    note: 模拟值,不是事实

@@ -1,0 +1,22 @@
+candidate: cand_业务跟单_东莞_6_10K_Lily_10年以上
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  age:
+    value: 40
+    basis: mock
+    rule: 年龄:28 + 均匀取 0..18 → 28~46 岁
+    seed: 0.655099
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_5WHY:
+    held: true
+    basis: mock
+    rule: 按 22% 概率抽中(seed=0.095843)
+    note: 模拟值,不是事实
+  skill_线束行业知识:
+    held: true
+    basis: mock
+    rule: 按 40% 概率抽中(seed=0.158288)
+    note: 模拟值,不是事实

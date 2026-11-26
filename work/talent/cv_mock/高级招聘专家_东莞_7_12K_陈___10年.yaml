@@ -1,0 +1,27 @@
+candidate: cand_高级招聘专家_东莞_7_12K_陈___10年
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  major:
+    value: 电子技术
+    basis: mock
+    rule: 专业:60% 落在客户点名的 5 个词里,40% 给「工商管理」
+    seed: 0.348326
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_5WHY:
+    held: true
+    basis: mock
+    rule: 按 22% 概率抽中(seed=0.187421)
+    note: 模拟值,不是事实
+  skill_8D报告:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.245130)
+    note: 模拟值,不是事实
+  skill_品质问题分析:
+    held: true
+    basis: mock
+    rule: 按 45% 概率抽中(seed=0.154073)
+    note: 模拟值,不是事实

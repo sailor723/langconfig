@@ -1,0 +1,32 @@
+candidate: cand_行政专员_东莞_6_8K_肖___10年以上_1
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  educationRank:
+    value: 3
+    basis: mock
+    rule: 学历:按经验给 3(大专)或 4(本科),各 50%
+    seed: 0.635117
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_8D报告:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.036362)
+    note: 模拟值,不是事实
+  skill_品质问题分析:
+    held: true
+    basis: mock
+    rule: 按 45% 概率抽中(seed=0.297480)
+    note: 模拟值,不是事实
+  skill_客户验厂:
+    held: true
+    basis: mock
+    rule: 按 25% 概率抽中(seed=0.089604)
+    note: 模拟值,不是事实
+  skill_英语:
+    held: true
+    basis: mock
+    rule: 按 35% 概率抽中(seed=0.225399)
+    note: 模拟值,不是事实

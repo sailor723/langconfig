@@ -1,0 +1,23 @@
+candidate: cand_李___27岁_工程文员_智通简历_编号
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  major:
+    value: 工商管理
+    basis: mock
+    rule: 专业:60% 落在客户点名的 5 个词里,40% 给「工商管理」
+    seed: 0.731584
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+  yearsStated:
+    value: 6
+    basis: mock
+    rule: 声明年限:与总年限同分布 3~15 年
+    seed: 0.266573
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_SPC:
+    held: true
+    basis: mock
+    rule: 按 20% 概率抽中(seed=0.049239)
+    note: 模拟值,不是事实

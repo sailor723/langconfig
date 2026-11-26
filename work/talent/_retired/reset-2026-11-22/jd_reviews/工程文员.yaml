@@ -1,0 +1,94 @@
+# 决策账本 —— 「谁、何时、为什么」这么定的独立记录。
+#
+# 分工:
+#   jd_links/<JD>.yaml   引用了什么(派生文件,可被重新抽取覆盖)
+#   jd_reviews/<JD>.yaml 人定过什么(决策文件)
+# 门禁交叉校验两边:inline 的每条 granularity_decision 与每条 excluded,在账本里都必须有
+# subject 匹配的条目,且 status / decided_by / decided_at 逐字一致。
+#
+# 本账本所有条目都是 signoff: pending —— 这轮复审由 agent 386 做,它没有 admin 的签字权。
+# 所以这里不写 decided_by / decided_at:没发生过的签署不许补。
+# 每条 why 记「按什么口径判的」,cost 记「这个口径的代价是什么」,等人点头。
+
+jd: 工程文员
+ref: jd_links/工程文员.yaml
+decisions:
+
+- id: D-工程文员-01
+  kind: granularity
+  subject: 工程-01
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 4 行「1、高中及以上学历；」只含一条约束。「及」是「及以上」的一部分(≥ 的写法),
+    不是把两个要求连起来;「1、」是序号。按「及拆两条」的规矩看这一条会误判,所以 keep。
+  cost: >-
+    无拆分代价。但这条上另有一个数值不一致要 admin 定:B.1 的 ordinal 里 2=中专/高中、3=大专,
+    而 value.num 写的是 3,按原话字面应为 2。改 value 不在本轮授权内,所以只登记不修改 ——
+    若维持 3,「高中/中专」学历的候选会被判不满足,等于把客户的学历门槛抬高了一档。
+
+- id: D-工程文员-02
+  kind: granularity
+  subject: 工程-02
+  decision: confirmed_split
+  signoff: pending
+  why: >-
+    第 5 行「熟练：Excel、Word、ppt等办公软件，同时具备AI工具的基本运用能力」是两个约束:
+    办公软件熟练、AI 工具基本运用。一个只会 Office、完全不会 AI 工具的人只满足一半,所以必须拆。
+    本草稿已把它拆成 02(Office)+ 03(AI),拆的动作已经落地。
+  cost: >-
+    拆了,但 02 的 verbatim 仍保留整句、包含 03 那半句 —— 于是第 5 行在计分里被算两次
+    (02 一次、03 一次)。要修必须把 02 的 verbatim 截到「…等办公软件」为止,那是改客户原话的引用范围,
+    不属于本轮授权,留给 admin。不修的话,一个「Office 强、不会 AI」的人会被扣两次分。
+
+- id: D-工程文员-03
+  kind: granularity
+  subject: 工程-04
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 6 行「3、有同等岗位工作经验二年以上；」只有一条约束。「3、」是序号,「二年以上」是阈值写法,
+    没有并列结构。keep。
+  cost: >-
+    无拆分代价。真正的代价不在这里,在「同等岗位」四个字上:客户没定义什么算同等岗位,
+    而要求库的 C.2 职能域未建,这条的领域限定下游判不了,只能判年限。这个空白要问客户,不是账本能定的。
+
+- id: D-工程文员-04
+  kind: granularity
+  subject: 工程-05
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 7 行「4、能识别图纸基本信息：线材规格、端子型号、胶壳料号、回路标识等；」冒号后的四个顿号项
+    是对「图纸基本信息」的举例,后面还跟着「等」。它们不是四个可以分别判定的独立能力,而是同一件事的例示。
+    拆开就等于把「等」收窄成穷举清单 —— 那是替客户改 JD,下游会拿这张清单去排除人。
+  cost: >-
+    保持一条,判定要落在「能不能读懂图纸基本信息」这个整体上,四个举例只是线索;
+    若客户本意是「四项都得会」,现在判不出来,必须由客户在原文里明写,而不是由我们拆。
+
+- id: D-工程文员-05
+  kind: granularity
+  subject: 工程-06
+  decision: confirmed_split
+  signoff: pending
+  why: >-
+    第 8 行「5、善于沟通，责任心与进取心强，工作认真、严谨细致；」一句里塞了三组特质(沟通 /
+    责任心+进取心 / 认真+严谨细致),一个人完全可能只占其中一组,所以必须拆。
+    本草稿已拆出 07(责任心与进取心强)与 08(工作认真、严谨细致),拆的动作已经落地。
+  cost: >-
+    拆了,但 06 的 verbatim 仍是整句 —— 第 8 行在计分里出现三次(06/07/08),同一组特质被算三遍。
+    要修必须缩短 06 的 verbatim,本轮不许动,留给 admin。这条是三处重叠里最严重的一处:
+    它同时抬高了 06 这条的权重,又让 07/08 显得像补充要求。
+    另:这三条在要求库都是 assessable=false(素质无组件),拆或不拆都不会产出简历侧可判的信息。
+
+- id: D-工程文员-06
+  kind: granularity
+  subject: 工程-08
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 8 行末「工作认真、严谨细致」里的顿号连接的是同一个特质的近义修饰(认真 ≈ 严谨细致),
+    不像 06 那样是三组不同特质。拆开得不到第二条可判信息,keep。
+  cost: >-
+    无拆分代价。这条在要求库 assessable=false,客户也没给可观察的行为标准 ——
+    下游简历侧判不了,只能面试或试用期观察。这个「判不了」是事实,不是本账本能消除的。

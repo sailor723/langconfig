@@ -1,0 +1,339 @@
+jd: 业务助理
+role_type: staff
+role_basis: 由原文 S1.08 直接下属=「无」推得;S1.11 岗位类别待业务方确认
+role_confirmed: false
+department: ''
+source_file: ../client/team-4/unzipped/职务说明书10份/3.业务助理职务说明书.doc
+source_text: work/talent/jd_links/_source/业务助理.txt
+extracted_with: textutil/openpyxl
+drafted_by: deepseek-chat, temperature=0 —— **草稿,未人工审核**
+review_status: '粒度已审 —— 2 条粒度决定全部 signoff=pending(见 jd_reviews/业务助理.yaml),尚未签署'
+count:
+  source_section: 任职资格
+  atomic_requirements: 15
+  count_note: >-
+    15 条全部落在原文第 14–20 行「任职资格」段。复审:按「及 / 以及 / 、 / 或 / 和 /」筛出 2 条
+    拆分候选(业务-04、业务-05),两条都判不拆,决定记在 jd_reviews/业务助理.yaml,
+    全部 signoff: pending,尚未签署。
+    第 21–27 行是「岗位职责」段,本轮没有引用、也没有排除动作;第 28–51 行是空白的事务表与修改履历表头。
+    undefined_statements 为空:原文通篇没有出现「没制定 / 暂无 / 待定 / 未定 / 尚未」这类句子。
+citations:
+- id: 业务-01
+  requirement: REQ-A-GENDER
+  verbatim: 女性
+  source_text: 女性，年龄20-30岁，高中以上学历；
+  txt_line: 14
+  tier: essential
+  value:
+    in:
+    - 女
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 性别
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  note: >-
+    不拆,本句只有一个约束(「女性」)。三处要 admin 看:①要求库 REQ-A-GENDER 写 assessable: false、
+    blocked_by「A.1 的 prop_exists=false」,但目录 A.1 现在 prop_exists: true、note_after_llm 说
+    LLM 抽出 176/270 人的性别 —— 库和目录对不上,我不改库也不改目录,只把这处矛盾登记在这里;
+    ②性别限定本身是否保留、是否合规,不归本轮复核;③第 14 行整行还含年龄与学历,已分别由 业务-02、
+    业务-03 承载,三条同占第 14 行是拆分的结果,不是重复计分。
+
+- id: 业务-02
+  requirement: REQ-A-AGE-RANGE
+  verbatim: 年龄20-30岁
+  source_text: 女性，年龄20-30岁，高中以上学历；
+  txt_line: 14
+  tier: essential
+  value:
+    min: 20
+    max: 30
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 年龄
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  note: >-
+    不拆,单约束。下游判得了:目录 A.2 age 覆盖 107/277,读不到年龄的人这条只能标未知(不是不合格)。
+    拿不准两点:①「20-30 岁」含不含端点,客户没写,要求库 op 是 between,边界口径这份文件定不了;
+    ②同一行第 14 行的「女性」「高中以上学历」是另立引用(业务-01、业务-03),一行三条是拆分的结果。
+
+- id: 业务-03
+  requirement: REQ-B-EDU-LEVEL
+  verbatim: 高中以上学历
+  source_text: 女性，年龄20-30岁，高中以上学历；
+  txt_line: 14
+  tier: essential
+  value:
+    num: 2
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 学历
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  note: >-
+    不拆。「高中以上」是阈值写法,不是并列要求。value.num=2 与目录 B.1 对得上(2=中专/高中,≥ 含高中)。
+    下游判得了一截:B.1 覆盖 206/277,71 份简历读不到学历 → 标未知。
+    拿不准:「以上」是否含「高中」本身,我按常规读作 ≥(含),客户没明写。
+
+- id: 业务-04
+  requirement: REQ-B-MAJOR
+  verbatim: 市场营销、外语外贸、销售等专业者优先考虑
+  source_text: 市场营销、外语外贸、销售等专业者优先考虑；
+  txt_line: 15
+  tier: desirable
+  value:
+    in:
+    - 市场营销
+    - 外语外贸
+    - 销售
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 专业
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    why: >-
+      verbatim 里的「、」是三个专业名的并列枚举,不是三条独立要求。拆成三条会让同一条要求
+      (REQ-B-MAJOR)被引用三次、评分算三遍;而且这种「或」性枚举一拆,语义就从「任一满足」
+      变成「都要满足」。客户原话的「等」原样保留,没有扩写成清单。
+  note: >-
+    keep,不拆(理由见 granularity_decision)。下游有三处拿不准:
+    ①要求库 REQ-B-MAJOR 的判定口径是「只按专业名点名、其余一律不满足」,而那条口径是在品质经理的
+    5 个词上定的;这份 JD 点的是另外三个词(市场营销 / 外语外贸 / 销售),在这份 JD 上跑会不会把
+    相近专业(国际贸易、商务英语…)全判不满足,我没有实证;
+    ②目录 B.2 major 的 cv_coverage 写 0,而 note_after_llm 说 LLM 抽出 201/270 人的专业 ——
+    两个数打架,以哪个为准不归我定;
+    ③「等」没收窄,客户到底只认这三个专业还是要更宽,只有客户能答。
+    旁证(不是人数):在 work/talent/cv_facts.json 里能 grep 到「市场营销」8 次、「外语外贸」4 次、
+    「销售」1 次,说明这三个词在候选人数据里确实出现过。
+    tier 是 desirable,所以即使判不了也只影响加分,不影响排除。
+
+- id: 业务-05
+  requirement: REQ-C-YEARS-DOMAIN
+  verbatim: 2年以上业务助理或相关工作经验
+  source_text: 2年以上业务助理或相关工作经验，同行业者优先考虑；
+  txt_line: 16
+  tier: essential
+  value:
+    num: 2
+    domain: 业务助理或相关
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 业务助理经验年限
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    why: >-
+      verbatim 里的「或」是同一约束内部的等价说法 —— 业务助理经验、相关经验,二者都算,
+      不是两条并列要求。拆成「2年以上业务助理经验」+「2年以上相关经验」等于把一句劈成两半,
+      任何一个人都只会满足一半而被判 partial 两次;年限阈值全句只有一处,拆了不产生新信息。
+  note: >-
+    keep,不拆。下游只能判一半:要求库 REQ-C-YEARS-DOMAIN 的 partial 写得很清楚 —— 年限可判
+    (C.1 覆盖 148/277),领域限定要 C.2 domain,而 C.2 prop_exists: false,没建。
+    于是「10 年人资」和「10 年业务助理」在这条上同分。value.domain 写的是「业务助理或相关」,
+    那不是可判的域编码,只是把客户原话搬了过来。
+    另:第 16 行后半「同行业者优先考虑」已单独成 业务-06,同一行被引用两次是拆分的结果,不是重复计分。
+
+- id: 业务-06
+  requirement: REQ-C-YEARS-DOMAIN
+  verbatim: 同行业者优先考虑
+  source_text: 2年以上业务助理或相关工作经验，同行业者优先考虑；
+  txt_line: 16
+  tier: desirable
+  value:
+    domain: 同行业
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 同行业经验
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  note: >-
+    不拆,单约束,且 tier=desirable。下游判不了:「同行业」没有任何字段能查,C.2 职能域未建,
+    「行业」在要求库里也没有专条 —— 它挂在 REQ-C-YEARS-DOMAIN 上只是因为语义最近,不是因为能判。
+    客户也没说同行业指哪几个行业(线束?电子?),这条只能面试问。
+    llm.measurable_from_resume: true 与这个结论相反,我倾向「判不了」;那一栏属于草稿抽取结果,本轮没改。
+
+- id: 业务-07
+  requirement: REQ-D-OFFICE
+  verbatim: 熟悉使用Office办公软件
+  source_text: 熟悉使用Office办公软件；
+  txt_line: 17
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: Office办公软件
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  note: >-
+    不拆,单约束。下游判得了,但口径比原话可能更严:原话只说「Office 办公软件」,没点名 Word/Excel/PPT;
+    要求库 REQ-D-OFFICE 是 composite,op: holds,挂 skill_Word / skill_Excel / skill_PowerPoint 三个组件,
+    三个都持有才算满足。客户没明写要三件全会,这是库的口径,我按库执行并登记在此。
+    另:「熟悉」没有等级阈值,客户没给,不许编一个。
+
+- id: 业务-08
+  requirement: REQ-E-OPENNESS
+  verbatim: 性格开朗
+  source_text: 5、性格开朗，具备基本商务礼仪知识，有业务发展意向；
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 性格开朗
+    measurable_from_resume: false
+    requirement_reused: true
+  review:
+    reassigned_from: REQ-E-COMMUNICATION
+    reason: LLM 复用到 REQ-E-COMMUNICATION,经人工改判
+  origin: client
+  note: >-
+    不拆。下游一定判不了:REQ-E-OPENNESS 是 unmeasurable、no_component: true、assessable: false ——
+    E 维在本目录里没有任何组件,attribute_ref E.1 的 prop 是 null。客户也没给任何可观察标准。
+    按规矩保留不删,标原因;要判只能面试观察。另:第 18 行同句的「具备基本商务礼仪知识」「有业务发展意向」
+    已分别成 业务-09、业务-10,一行三条是拆分的结果。
+
+- id: 业务-09
+  requirement: REQ-D-BIZ-ETIQUETTE
+  verbatim: 具备基本商务礼仪知识
+  source_text: 5、性格开朗，具备基本商务礼仪知识，有业务发展意向；
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 商务礼仪知识
+    measurable_from_resume: false
+    requirement_reused: false
+  origin: client
+  note: >-
+    不拆。下游判不了:REQ-D-BIZ-ETIQUETTE 编号挂在 D 维,实体是 unmeasurable、assessable: false
+    (要求库自己的 note:「商务礼仪是行为素养,不是可操作技能 —— 移入 E 维」),attribute_ref E.1,
+    证据方式是面试观察 / 情景演练。「基本」没有标准,客户没给阈值,不许编。
+
+- id: 业务-10
+  requirement: REQ-E-BIZ-INTENT
+  verbatim: 有业务发展意向
+  source_text: 5、性格开朗，具备基本商务礼仪知识，有业务发展意向；
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 业务发展意向
+    measurable_from_resume: false
+    requirement_reused: false
+  origin: client
+  note: >-
+    不拆。下游判不了:REQ-E-BIZ-INTENT unmeasurable、assessable: false,attribute_ref E.3(动机意愿),
+    E.3 的 prop 也是 null。简历上写「有业务发展意向」属于自述,不可验;只能面试或职业规划面谈问。
+
+- id: 业务-11
+  requirement: REQ-E-COMMUNICATION
+  verbatim: 具备良好的沟通协调能力
+  source_text: 6、具备良好的沟通协调能力和团队合作精神；
+  txt_line: 19
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 沟通协调能力
+    measurable_from_resume: false
+    requirement_reused: true
+  origin: client
+  note: >-
+    不拆 —— 但这一条我拿不准,列给 admin:这句里「沟通」「协调」两个动作没有用本轮的信号词
+    (及 / 以及 / 、 / 或 / 和 /)连接,而是合成词「沟通协调」,所以它不在拆分候选里;
+    严格说它可能该拆两条。
+    下游一定判不了:REQ-E-COMMUNICATION assessable: false、no_component: true,attribute_ref E.1 的 prop 是 null。
+    「良好」也没有阈值。保留不删,标原因。
+
+- id: 业务-12
+  requirement: REQ-E-TEAMWORK
+  verbatim: 团队合作精神
+  source_text: 6、具备良好的沟通协调能力和团队合作精神；
+  txt_line: 19
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 团队合作
+    measurable_from_resume: false
+    requirement_reused: false
+  origin: client
+  note: >-
+    不拆。下游判不了:REQ-E-TEAMWORK unmeasurable、assessable: false,证据方式是面试 / 背景调查。
+    这一条与 业务-11 同出第 19 行,原话是「具备良好的沟通协调能力**和**团队合作精神」——
+    那个「和」在抽取时已经拆成 11 / 12 两条,拆得对,本轮无需再动。
+
+- id: 业务-13
+  requirement: REQ-E-STRESS
+  verbatim: 能吃苦耐劳
+  source_text: 7、能吃苦耐劳，责任心强，对工作有积极主动性；
+  txt_line: 20
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 吃苦耐劳
+    measurable_from_resume: false
+    requirement_reused: true
+  origin: client
+  note: >-
+    不拆。下游判不了:REQ-E-STRESS unmeasurable、assessable: false、no_component: true。
+    「吃苦耐劳」没有任何量表或阈值,客户没给,不许编。保留不删,标原因。
+
+- id: 业务-14
+  requirement: REQ-E-RESPONSIBILITY
+  verbatim: 责任心强
+  source_text: 7、能吃苦耐劳，责任心强，对工作有积极主动性；
+  txt_line: 20
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 责任心
+    measurable_from_resume: false
+    requirement_reused: true
+  origin: client
+  note: >-
+    不拆。下游判不了:REQ-E-RESPONSIBILITY unmeasurable、assessable: false,
+    要求库给的证据方法是「面试评分表 / 背景调查」。「责任心强」的「强」无量表,客户没给。
+
+- id: 业务-15
+  requirement: REQ-E-PROACTIVE
+  verbatim: 对工作有积极主动性
+  source_text: 7、能吃苦耐劳，责任心强，对工作有积极主动性；
+  txt_line: 20
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 工作积极主动
+    measurable_from_resume: false
+    requirement_reused: false
+  origin: client
+  note: >-
+    不拆。下游判不了:REQ-E-PROACTIVE unmeasurable、assessable: false,证据方法是面试 / 试用期观察。
+    第 20 行原话「能吃苦耐劳，责任心强，对工作有积极主动性」由逗号分成三条(13 / 14 / 15),拆得对;
+    但三条 tier 都是 essential —— 等于三条都判不了的要求被标成 essential,这一处要不要降级,交给 admin 看。
+
+excluded: []
+
+undefined_statements: []

@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_业务跟单_东莞_6_10K_王___10年以上
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 6d8848a2a55f8646
+runs:
+  1:
+    output_sha256: c4d3ab78b373ac6c
+    chars: 830
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历出生日期03-06，按招聘年度推算年龄约38岁，落在25~40区间内
+    quote: 出生日期    03-06
+  C-02:
+    state: 满足
+    why: 简历最高学历为专科，对应学历层级达到大专及以上
+    quote: 最高学历   专科
+  C-03:
+    state: 不满足
+    why: 所学专业为行政管理，不在机电/电子/自动化/工业工程/机械工程白名单内
+    quote: 所学专业   行政管理
+  C-04:
+    state: 未知
+    why: 简历未提及英语口语或英文8D报告能力，无相关证据
+    quote: null
+  C-05:
+    state: 不满足
+    why: 简历工作经历为会计、订单业务员、出货人事等，无品质管理工作经验
+    quote: 从事出货，人事工作
+  C-06:
+    state: 不满足
+    why: 简历无熟识线束行业相关产品的证据，仅有数据线连接线订单业务经历，非线束行业认知
+    quote: null
+  C-07:
+    state: 不满足
+    why: 简历未体现品质问题分析与改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 不满足
+    why: 简历无接待客户验厂经验的相关描述
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，属性/组件未建，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

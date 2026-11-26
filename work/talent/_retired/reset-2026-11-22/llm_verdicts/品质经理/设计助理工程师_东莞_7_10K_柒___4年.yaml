@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_设计助理工程师_东莞_7_10K_柒___4年
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 828ccdd9ffffdde6
+runs:
+  1:
+    output_sha256: 57ba00c350394c2d
+    chars: 911
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 客户要求年龄25~40岁，候选人35岁，在区间内
+    quote: 年龄：25 ~ 40岁
+  C-02:
+    state: 满足
+    why: 客户要求大专及以上，候选人本科，学历高于要求
+    quote: 学历：大专及以上学历
+  C-03:
+    state: 不满足
+    why: 候选人专业为通信工程，不在机电一体化/电子技术/自动化/工业工程/机械工程白名单内
+    quote: 广西民族师范学院     通信工程 (本科)
+  C-04:
+    state: 满足
+    why: 简历体现英语口语与独立书写英文8D报告两项能力均具备
+    quote: 语言：英语口语熟练及具备独立书写英文8D报告的能力
+  C-05:
+    state: 满足
+    why: 候选人品质管理相关经验4年，满足3年以上要求
+    quote: 3年以上品质管理工作经验
+  C-06:
+    state: 满足
+    why: 简历有医疗线缆、线束相关产品研发经历，具备线束行业知识
+    quote: 参与医疗线、手术机器人线缆等产品技术标准起草
+  C-07:
+    state: 不满足
+    why: 简历未体现品质问题分析改善能力，命中0/1
+    quote: 具备品质问题分析、改善的能力
+  C-08:
+    state: 不满足
+    why: 简历未体现QC七大手法/SPC/CPK/6S/5WHY任一工具，命中0/5
+    quote: 懂QC七大手法、5WHY、SPC、CPK、6S工具
+  C-09:
+    state: 不满足
+    why: 简历未体现客户验厂接待经验，命中0/1
+    quote: 具备接待客户验厂经验
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，属性/组件未建，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

@@ -1,0 +1,27 @@
+candidate: cand_张___43岁_管理课课长_智通简历_编号
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  yearsStated:
+    value: 13
+    basis: mock
+    rule: 声明年限:与总年限同分布 3~15 年
+    seed: 0.803861
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_8D报告:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.180392)
+    note: 模拟值,不是事实
+  skill_QC七大手法:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.102095)
+    note: 模拟值,不是事实
+  skill_品质问题分析:
+    held: true
+    basis: mock
+    rule: 按 45% 概率抽中(seed=0.328473)
+    note: 模拟值,不是事实

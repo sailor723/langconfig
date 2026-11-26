@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_李___38岁_行政专员_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 40e9cf1c5cfe2131
+runs:
+  1:
+    output_sha256: cc28769880729674
+    chars: 823
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示38岁，落在25~40岁区间内
+    quote: 男|38岁
+  C-02:
+    state: 满足
+    why: 简历学历为大专，达到大专及以上要求
+    quote: 大专. 非全日制 ”工商企业管理
+  C-03:
+    state: 不满足
+    why: 专业为工商企业管理，不属于工程类专业白名单
+    quote: 大专. 非全日制 ”工商企业管理
+  C-04:
+    state: 不满足
+    why: 英语仅听说读写一般，且无独立书写英文8D报告证据，未满足两项要求
+    quote: '英语: 听说能力  读写能力 [一般'
+  C-05:
+    state: 满足
+    why: 15年工作经验，且长期从事EHS/品质相关管理，超过3年品质管理要求
+    quote: 15年
+  C-06:
+    state: 不满足
+    why: 简历无线束/连接器行业相关产品认知的描述
+    quote: null
+  C-07:
+    state: 不满足
+    why: 简历未体现品质问题分析、改善能力，主要为EHS安全管理
+    quote: null
+  C-08:
+    state: 满足
+    why: 简历提到6S现场管理制度，命中至少1项工具
+    quote: 推行并管理车间6S现场管理制度
+  C-09:
+    state: 满足
+    why: 简历明确有客户审核、验厂接待经验
+    quote: 全程负责客户接待，社会责任、ehs等审核工作
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

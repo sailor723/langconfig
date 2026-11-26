@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_专案工程师_东莞_12_16K_华___9年
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 2033a9b198645511
+runs:
+  1:
+    output_sha256: 47148245d7e9bc05
+    chars: 825
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历年龄31岁，落在25~40岁区间内
+    quote: '年龄: 31'
+  C-02:
+    state: 满足
+    why: 最高学历为本科，高于大专及以上要求
+    quote: '最高学历 : 本科'
+  C-03:
+    state: 不满足
+    why: 本科专业为人力资源管理，大专为汽车工程与维修，均未命中工程类专业白名单
+    quote: 人力资源管理 | 本科
+  C-04:
+    state: 不满足
+    why: 简历未体现英语口语熟练及独立书写英文8D报告能力，0/2项
+    quote: null
+  C-05:
+    state: 满足
+    why: 工作年限9年，且从事品质/检验相关工作累计超过3年
+    quote: '工作年限 : 9'
+  C-06:
+    state: 满足
+    why: 简历明确体现线束行业产品经验
+    quote: 线束工程师
+  C-07:
+    state: 满足
+    why: 简历体现跨部门解决试产异常、品质问题分析改善能力
+    quote: 联动生产、品质、工艺跨部门解决试产异常
+  C-08:
+    state: 满足
+    why: 简历提及依照ISO标准管控及品质相关工具经验，命中至少1项
+    quote: 依照ISO标准管控零部件选型
+  C-09:
+    state: 不满足
+    why: 简历未体现接待客户验厂经验，0/1项
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样，不给结论
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_肖___38岁_专案工程师_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: dbab1a6bcbcc7512
+runs:
+  1:
+    output_sha256: 56311c251f9f15f7
+    chars: 853
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 客户要求25~40岁，候选人38岁，在区间内
+    quote: 年龄：25 ~ 40岁
+  C-02:
+    state: 满足
+    why: 要求大专及以上，候选人本科，学历达标
+    quote: 本科 材料成型及控制工程
+  C-03:
+    state: 不满足
+    why: 专业为材料成型及控制工程，未命中工程类白名单
+    quote: 本科 材料成型及控制工程
+  C-04:
+    state: 不满足
+    why: 简历无英语口语及英文8D报告能力证据
+    quote: null
+  C-05:
+    state: 满足
+    why: 品质管理相关经验累计超8年，满足3年以上
+    quote: 深圳市信维通信股份有限公司 - 产品开发工程师 - 7年9月 深圳富士康集团 - NPI工程师 - 3年2月
+  C-06:
+    state: 满足
+    why: 有摄像头模组精密零部件开发经验，具备线束/连接器行业认知
+    quote: 主要从事苹果摄像头模组电子产品精密零部件开发
+  C-07:
+    state: 不满足
+    why: 简历无品质问题分析改善能力的明确证据
+    quote: null
+  C-08:
+    state: 满足
+    why: 简历提及CPK、GRR等品质工具，命中至少1项
+    quote: 参与项目产品MSOP/测量& 测试设备的GRR/相关性/可靠性功能测试的承认工作
+  C-09:
+    state: 不满足
+    why: 简历无接待客户验厂经验证据
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，属性/组件未建
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

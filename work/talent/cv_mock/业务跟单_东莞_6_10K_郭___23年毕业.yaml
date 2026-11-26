@@ -1,0 +1,33 @@
+candidate: cand_业务跟单_东莞_6_10K_郭___23年毕业
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  age:
+    value: 43
+    basis: mock
+    rule: 年龄:28 + 均匀取 0..18 → 28~46 岁
+    seed: 0.834583
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+  yearsStated:
+    value: 8
+    basis: mock
+    rule: 声明年限:与总年限同分布 3~15 年
+    seed: 0.389752
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_6S:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.211876)
+    note: 模拟值,不是事实
+  skill_CPK:
+    held: true
+    basis: mock
+    rule: 按 18% 概率抽中(seed=0.134363)
+    note: 模拟值,不是事实
+  skill_QC七大手法:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.158446)
+    note: 模拟值,不是事实

@@ -1,0 +1,11 @@
+candidate: cand_陈___29岁_副总助理_智通简历_编号
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props: {}
+components:
+  skill_8D报告:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.157559)
+    note: 模拟值,不是事实

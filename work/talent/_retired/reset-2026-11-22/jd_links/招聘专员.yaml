@@ -1,0 +1,296 @@
+jd: 招聘专员
+role_type: staff
+role_basis: 由原文 S1.08 直接下属=「无」推得;S1.11 岗位类别待业务方确认
+role_confirmed: false
+department: ''
+source_file: ../client/team-4/unzipped/职务说明书10份/招聘专员-职务说明书 .doc
+source_text: work/talent/jd_links/_source/招聘专员.txt
+extracted_with: textutil/openpyxl
+drafted_by: deepseek-chat, temperature=0 —— **草稿,未人工审核**
+review_status: draft
+count:
+  source_section: 任职资格
+  atomic_requirements: 14
+  count_note: LLM 从原文前 30 行抽出;粒度需人工审。
+citations:
+- id: 招聘-01
+  requirement: REQ-B-EDU-LEVEL
+  verbatim: 中专以上学历
+  source_text: 1） 中专以上学历，1年以上招聘工作经验；
+  txt_line: 14
+  tier: essential
+  value:
+    num: 2
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 学历
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    第 14 行「中专以上学历」：简历可判。value.num=2 与要求库 ordinal（2=中专/高中、3=大专、4=本科）一致，
+        中文「以上」含本数，≥2 与原话字面自洽 —— 这一条没有 人资专员 那种差一档的问题。
+        仍有一处含糊：「中专以上」是否允许中专本身，按「以上含本数」判为允许；若客户本意是「中专及以上但中专不算」，需客户自己改原话。
+- id: 招聘-02
+  requirement: REQ-C-YEARS-DOMAIN
+  verbatim: 1年以上招聘工作经验
+  source_text: 1） 中专以上学历，1年以上招聘工作经验；
+  txt_line: 14
+  tier: essential
+  value:
+    num: 1
+    domain: 招聘
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 招聘经验年限
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    第 14 行「1年以上招聘工作经验」：年限阈值明确（num=1，「以上」含本数），但**「招聘工作经验」的边界客户没界定** ——
+        专职招聘岗的年限，还是兼做招聘的人事岗也算？下游只能按简历里与招聘相关的职责时长估，口径差会直接改变谁进出局名单。
+        这一条必须客户在第 2 步说清，不是我们替它定。
+- id: 招聘-03
+  requirement: REQ-E-COMMUNICATION
+  verbatim: 良好的沟通表达协调能力强
+  source_text: 2）良好的沟通表达协调能力强、能够准确、清晰、责任心强、细心、稳重；
+  txt_line: 15
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 沟通协调能力
+    measurable_from_resume: false
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    客户把「沟通、表达、协调」连写成「沟通表达协调能力强」，中间没有任何分隔符 —— 不构成拆分信号，keep。
+        但 REQ-E-COMMUNICATION 在库里 assessable=false（E 维 24 条素质要求在本目录没有任何组件），
+        简历侧永远判不了，只能面试评分或背调；客户却把它标成 essential，等于给每个候选人挂一条「未知」。
+        下游必须明确：这一条是「未知」而不是「不满足」，否则这条就是隐形的一刀切。
+- id: 招聘-04
+  requirement: REQ-E-LOGIC
+  verbatim: 能够准确、清晰
+  source_text: 2）良好的沟通表达协调能力强、能够准确、清晰、责任心强、细心、稳重；
+  txt_line: 15
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 表达准确清晰
+    measurable_from_resume: false
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    **命中拆分信号（顿号）但判为 keep**：第 15 行「2）良好的沟通表达协调能力强、能够准确、清晰、责任心强、细心、稳重；」
+        是一串用顿号并列的形容词，草稿已按顿号切成 03–07 五条，拆的动作落地了。
+        本条的「能够准确、清晰」是这串里的一截，且**缺主语与宾语**（原意应是「表达准确、清晰」），
+        再把「准确」「清晰」拆成两条只会得到两个都判不了的碎片，所以 keep。
+        它挂 REQ-E-LOGIC，与人资-03 一样是 E 维，assessable=false，简历判不了。
+- id: 招聘-05
+  requirement: REQ-E-RESPONSIBILITY
+  verbatim: 责任心强
+  source_text: 2）良好的沟通表达协调能力强、能够准确、清晰、责任心强、细心、稳重；
+  txt_line: 15
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 责任心
+    measurable_from_resume: false
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    第 15 行按顿号拆出的「责任心强」，无并列词。REQ-E-RESPONSIBILITY 在库里 assessable=false，
+        取证方式是面试评分表 / 背景调查，简历侧判不了。与人资专员那份的 人资-11/12 同一类问题，仅一条，不构成重复计权。
+- id: 招聘-06
+  requirement: REQ-E-CAREFUL
+  verbatim: 细心
+  source_text: 2）良好的沟通表达协调能力强、能够准确、清晰、责任心强、细心、稳重；
+  txt_line: 15
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 细心
+    measurable_from_resume: false
+    requirement_reused: true
+  review:
+    reassigned_from: REQ-E-DATA-SENSITIVITY
+    reason: LLM 复用到 REQ-E-DATA-SENSITIVITY,经人工改判
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    第 15 行拆出的「细心」。草稿原把这条挂到 REQ-E-DATA-SENSITIVITY，后被改挂 REQ-E-CAREFUL（inline review.reassigned_from 留有记录，
+        本轮复审未改 requirement）。「细心」没有可观察尺度，REQ-E-CAREFUL assessable=false，简历判不了。
+- id: 招聘-07
+  requirement: REQ-E-STEADY
+  verbatim: 稳重
+  source_text: 2）良好的沟通表达协调能力强、能够准确、清晰、责任心强、细心、稳重；
+  txt_line: 15
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 稳重
+    measurable_from_resume: false
+    requirement_reused: true
+  review:
+    reassigned_from: REQ-E-STRESS
+    reason: LLM 复用到 REQ-E-STRESS,经人工改判
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    第 15 行拆出的「稳重」。草稿原挂 REQ-E-STRESS、后改挂 REQ-E-STEADY（inline review.reassigned_from 有记录，未改）。
+        「稳重」是主观特质，REQ-E-STEADY assessable=false，只能面试判断。
+- id: 招聘-08
+  requirement: REQ-D-OFFICE
+  verbatim: 熟练使用相关办公软件
+  source_text: 3）熟练使用相关办公软件，具备基本的招聘技巧及熟悉通常的招聘渠道；
+  txt_line: 16
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: Office办公软件
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    第 16 行「熟练使用相关办公软件」：「相关」是客户留的开放词，不许替它收窄成一份软件清单。
+        库组件是 Word/Excel/PPT 三项，客户说「相关」比这三项宽 —— 用到第四种软件的候选人不会被判加分，这是收窄的代价。
+        「熟练」客户没给标准，下游只能判「会不会用」，判不了「熟不熟练」。
+- id: 招聘-09
+  requirement: REQ-D-RECRUIT-SKILL
+  verbatim: 具备基本的招聘技巧
+  source_text: 3）熟练使用相关办公软件，具备基本的招聘技巧及熟悉通常的招聘渠道；
+  txt_line: 16
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 招聘技巧
+    measurable_from_resume: false
+    requirement_reused: false
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    第 16 行「及」拆出的前半，拆的动作已在草稿里落地。「基本」无任何标准，判不了程度。
+        **需要 admin 注意**：本条与 招聘-10、招聘-14 三条都挂在同一个库组件 skill_招聘（REQ-D-RECRUIT-SKILL / REQ-D-RECRUIT-CHANNEL /
+        REQ-D-RECRUIT-KNOWLEDGE 的 components 全是 ['skill_招聘']），等于同一个技能计三次权 —— 见账本 D-招聘专员-09 的成本。
+- id: 招聘-10
+  requirement: REQ-D-RECRUIT-CHANNEL
+  verbatim: 熟悉通常的招聘渠道
+  source_text: 3）熟练使用相关办公软件，具备基本的招聘技巧及熟悉通常的招聘渠道；
+  txt_line: 16
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 招聘渠道
+    measurable_from_resume: true
+    requirement_reused: false
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    第 16 行「及」拆出的后半。「通常的招聘渠道」是开放词，不能列成渠道清单。
+        与 招聘-09、招聘-14 同挂 skill_招聘 组件，重复计权问题见 D-招聘专员-09。
+- id: 招聘-11
+  requirement: REQ-E-EXECUTION
+  verbatim: 独立工作能力强
+  source_text: 4）独立工作能力强，以及丰富的招聘经验；
+  txt_line: 17
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 独立工作能力
+    measurable_from_resume: false
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    第 17 行「以及」拆出的前半（拆的动作已落地）。REQ-E-EXECUTION 在库里 assessable=false，
+        「独立工作能力强」没有可观察标准，简历判不了。
+- id: 招聘-12
+  requirement: REQ-C-YEARS-DOMAIN
+  verbatim: 丰富的招聘经验
+  source_text: 4）独立工作能力强，以及丰富的招聘经验；
+  txt_line: 17
+  tier: essential
+  value:
+    domain: 招聘
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 招聘经验
+    measurable_from_resume: true
+    requirement_reused: true
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    第 17 行「以及」拆出的后半。**这一条有两个下游会踩的坑**：① 它与 招聘-02 挂同一条要求 REQ-C-YEARS-DOMAIN、同一个 domain（招聘），
+        于是「招聘经验」在一份 JD 里被计两次权；② 「丰富」客户没给任何数字，value 只有 {domain: 招聘} 没有 num ——
+        按本步规矩不许替它编一个阈值，所以这条实际是「无阈值的年限要求」，判不了达标线。
+        改 requirement 或补 value 都不在复审授权内，留给 admin（见账本 D-招聘专员-12）。
+- id: 招聘-13
+  requirement: REQ-E-JOB-INTEREST
+  verbatim: 对招聘工作感兴趣
+  source_text: 5）对招聘工作感兴趣，并熟悉相关招聘知识；
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 招聘工作兴趣
+    measurable_from_resume: false
+    requirement_reused: true
+  review:
+    reassigned_from: REQ-E-STRIVING
+    reason: LLM 复用到 REQ-E-STRIVING,经人工改判
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    第 18 行「并」拆出的前半（拆的动作已落地）。草稿原挂 REQ-E-STRIVING、后改挂 REQ-E-JOB-INTEREST（inline 有记录，未改）。
+        「对…感兴趣」只能面试问，assessable=false。
+- id: 招聘-14
+  requirement: REQ-D-RECRUIT-KNOWLEDGE
+  verbatim: 熟悉相关招聘知识
+  source_text: 5）对招聘工作感兴趣，并熟悉相关招聘知识；
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 招聘知识
+    measurable_from_resume: false
+    requirement_reused: false
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+  note: >-
+    第 18 行「并」拆出的后半。「相关招聘知识」的范围客户没写边界，判「有没有招聘知识」判得到、判「够不够相关」判不了。
+        与 招聘-09、招聘-10 同挂 skill_招聘 组件，重复计权问题见 D-招聘专员-09。
+excluded: []
+undefined_statements: []

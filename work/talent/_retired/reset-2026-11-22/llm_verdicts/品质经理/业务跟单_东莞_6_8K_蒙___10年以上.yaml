@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_业务跟单_东莞_6_8K_蒙___10年以上
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 95700541023fb064
+runs:
+  1:
+    output_sha256: 9c98380796344c6c
+    chars: 811
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历年龄32岁，落在25~40岁区间内
+    quote: 女|32岁
+  C-02:
+    state: 满足
+    why: 简历学历为大专（广西师范大学商务管理），达到大专及以上
+    quote: 广西师范大学 AG 商务管理 2020-2022
+  C-03:
+    state: 不满足
+    why: 专业为商务管理/会计，均不在工程类专业白名单内
+    quote: 广西师范大学 AG 商务管理
+  C-04:
+    state: 不满足
+    why: 简历无英语口语及英文8D报告能力证据，0/2项
+    quote: null
+  C-05:
+    state: 不满足
+    why: 工作经历均为业务跟单/助理/行政/仓库文员，无品质管理经验，不满足3年品质管理
+    quote: 12年工作经验 |业务跟单
+  C-06:
+    state: 未知
+    why: 简历未提及线束/连接器行业相关知识
+    quote: null
+  C-07:
+    state: 不满足
+    why: 简历无品质问题分析改善能力证据，0/1项
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、SPC、CPK、6S、5WHY等品质工具
+    quote: null
+  C-09:
+    state: 不满足
+    why: 简历无客户验厂接待经验证据，0/1项
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条为软性能力项，本体未建属性/组件，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

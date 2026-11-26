@@ -1,0 +1,240 @@
+# 决策账本 —— 「谁、何时、为什么」这么定的独立记录。
+#
+# 分工:
+#   jd_links/<JD>.yaml   引用了什么(派生文件,可被重新抽取覆盖)
+#   jd_reviews/<JD>.yaml 人定过什么(决策文件)
+# 门禁交叉校验两边:inline 的每条 granularity_decision 与每条 excluded,在账本里都必须有
+# subject 匹配的条目,且 status / decided_by / decided_at 逐字一致。
+#
+# 本账本所有条目都是 signoff: pending —— 这轮复审由 agent 386 做,它没有 admin 的签字权。
+# 所以这里不写 decided_by / decided_at:没发生过的签署不许补。
+# 每条 why 记「按什么口径判的」,cost 记「这个口径的代价是什么」,等人点头。
+#
+# 本轮复审没有改客户原话:verbatim / txt_line / source_text / requirement / value 一字未动。
+# 17 条引用全部落在 _source 第 21–26 行「资格要求」段;第 27 行起是「职务简述」与「事务表述」表
+# (职责段),草稿没有把其中任何一句当任职资格引用,所以**零条排除**。
+# _source 全文 grep「没制定/未制定/暂无/待定/另定/未定/不详/暂不/以后再定/尚未」= 0 条命中,
+# 所以 undefined_statements 留空 —— 查过之后的空。
+
+jd: 关务报关员
+ref: jd_links/关务报关员.yaml
+decisions:
+
+- id: D-关务报关员-01
+  kind: granularity
+  subject: 关务-01
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 21 行「• 年龄25-45岁,大专及以上学历(国际贸易、物流专业优先)；」按三个属性拆成 01/02/03
+    (年龄 / 学历 / 专业),拆法对 —— 三者可分别判定,且「专业优先」方向与另两条相反,不能合成一条。
+    本条 verbatim「年龄25-45岁」自身无并列词,keep。
+  cost: >-
+    区间可判,但库 REQ-A-AGE-RANGE 的 note 写着供给侧 age 只覆盖 107/277 —— 一多半候选人在
+    这条上只能是「未知」而不是「不合格」。另一个代价是方向性的:这是本 JD 里最容易被用来
+    「一刀切」的一条,45 岁上限客户原件写了(不是我们加的),但拿它做硬性排除要不要得,得客户点头。
+
+- id: D-关务报关员-02
+  kind: granularity
+  subject: 关务-02
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「大专及以上学历」里的「及」是「及以上」的一部分(≥ 的写法),机械筛子会命中,但不是拆分信号,keep。
+  cost: >-
+    这条上没有数值问题:库 B.1 的 ordinal 是 2 中专/高中、3 大专、4 本科,value.num=3 与
+    「大专及以上」对得上。(人资专员那条「高中及以上却写 3」是抬了一档,这条没有。)
+
+- id: D-关务报关员-03
+  kind: granularity
+  subject: 关务-03
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「国际贸易、物流专业优先」里的顿号连着同一个「优先」条件下的两类举例,命中任一即算满足;
+    拆成两条会让同一条偏好被计两次权,而且客户的「优先」是一件事不是两件事,keep。
+  cost: >-
+    真正的代价不在粒度在判定:value.in 里的「国际贸易」「物流」都是方向/门类词,而
+    REQ-B-MAJOR 的判定规则(D,2026-11-20)明写「只按专业名点名,不使用专业门类」。
+    照规则读,这条对谁都判不满足 —— 它是 desirable,不会让人出局,但这条偏好在流程里等于不存在。
+    要让「国际贸易」点得到具体专业名(如「国际经济与贸易」),那是替客户展开清单,得客户自己写。
+
+- id: D-关务报关员-04
+  kind: granularity
+  subject: 关务-04
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 22 行「• 熟悉进出口报关流程,5年以上关务操作经验 ；」被拆成 04(知识/技能)与 05(年限),
+    这是两个不同属性:一个会报关但只做了 3 年的人只满足一半,所以该拆,草稿已拆。04 自身无并列词,keep。
+  cost: >-
+    库 REQ-D-CUSTOMS-DECLARE 有 skill_报关 + skill_单证 两个组件,能判「做没做过报关、会不会做单证」,
+    判不了「熟悉到哪个深度」。「熟悉」客户没给标准,下游只能按有无经验二值判。
+
+- id: D-关务报关员-05
+  kind: granularity
+  subject: 关务-05
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「5年以上关务操作经验」自身无并列词,是第 22 行拆出的第二条,拆的动作由 D-关务报关员-04 记过,keep。
+  cost: >-
+    这是本份 JD 最硬的一处漏洞,也是本轮最需要 admin 看的一条:REQ-C-YEARS-DOMAIN 库内
+    只能判**年限**、判不了**领域**(库 note 原话:10 年的人资专员和 10 年的品质经理在这条上得分相同)。
+    后果是「5 年人事经验」在库里会被判**满足**这条关务硬条件 —— 不是判不了,是判错。
+    要修得让要求能约束领域(可能要新建库要求),不在复审授权内(不许改 requirement / value)。
+
+- id: D-关务报关员-06
+  kind: granularity
+  subject: 关务-06
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 23 行「• 通过基础贸易安全合规培训考核,无海关行政处罚、犯罪记录；」拆成 06(考核)与
+    07(记录)两条,拆法对:一个是「考过证」,一个是「没不良记录」,证据来源完全不同。06 自身 keep。
+  cost: >-
+    草稿这条的 llm.measurable_from_resume 写的是 true,而库里 REQ-F-TRADE-COMPLIANCE-TRAINING
+    的 assessable=false、note 明写「需证明文件,非简历可判」—— 草稿自相矛盾,按库为准:简历判不了。
+    下游要么在电话初筛里问「有没有通过过贸易安全合规培训」,要么就只能是「未知」。
+
+- id: D-关务报关员-07
+  kind: granularity
+  subject: 关务-07
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「无海关行政处罚、犯罪记录」里有顿号,机械筛子会当拆分信号。但拆开后第二条只剩「犯罪记录」,
+    「无」这个否定词会掉,字面意思正好反过来(和人资-05「考勤系统」丢「熟练使用」同一类毛病,
+    而那条更严重:这里丢掉的是否定)。所以 keep,不让 verbatim 变成失真的碎片。
+  cost: >-
+    代价是下游读这条时必须知道「无」同时管两项 —— 判定逻辑要整条读,不能按字面切。
+    另外库里 assessable=false(REQ-G-NO-CRIMINAL-RECORD),简历判不了:只能背调或无犯罪记录证明,
+    而这两项通常发生在 offer 前后,不在简历阶段。
+
+- id: D-关务报关员-08
+  kind: granularity
+  subject: 关务-08
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 24 行「• 对数据细心敏感,具备良好的执行力、沟通能力、日报/周报/月报整理能力,」一句塞了四项,
+    草稿已拆成 08「对数据细心敏感」/ 09「具备良好的执行力」/ 10「沟通能力」/ 11「日报/周报/月报整理能力」,
+    四条 verbatim 互不重叠、无重复计权,拆法对。08 自身无并列词,keep。
+  cost: >-
+    REQ-E-DATA-SENSITIVITY 在库里 assessable=false(E 维 24 条素质在目录里没有任何组件),
+    简历侧永远判不了,只能面试评分。而它被写成 essential —— 意味着一整条硬条件在简历阶段
+    只能是「未知」;下游若把「未知」当「不满足」,这条就是隐形的一刀切。
+
+- id: D-关务报关员-09
+  kind: granularity
+  subject: 关务-09
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「具备良好的执行力」无并列词,是第 24 行拆出的第二项,拆的动作由 D-关务报关员-08 记过,keep。
+  cost: >-
+    REQ-E-EXECUTION assessable=false,简历判不了。「良好」没有阈值,客户没给、我们也不许编一个;
+    要分级必须客户自己给可观察标准。
+
+- id: D-关务报关员-10
+  kind: granularity
+  subject: 关务-10
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「沟通能力」无并列词,是第 24 行拆出的第三项,拆的动作由 D-关务报关员-08 记过,keep。
+  cost: >-
+    两处代价:① verbatim 只有三个字,把原话的「具备良好的」丢了,单独看不像一条要求(引用不许改,只登记);
+    ② REQ-E-COMMUNICATION 库里 unmeasurable,简历判不了,只能面试评分或背调。
+
+- id: D-关务报关员-11
+  kind: granularity
+  subject: 关务-11
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「日报/周报/月报整理能力」里的斜杠是机械拆分信号。但日/周/月报是同一种能力的三个周期,
+    不是三件可分开判的事 —— 拆成三条等于三倍计权,而客户写的是一个「整理能力」。keep。
+  cost: >-
+    库 REQ-D-REPORT-WRITING 挂 skill_Excel(assessable=true),能判「会不会用 Excel 出报表」,
+    判不了「整理得好不好」。若客户本意是「三种报表都得会做」,现在判不出来,要客户在原文里明写。
+
+- id: D-关务报关员-12
+  kind: granularity
+  subject: 关务-12
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 25 行「工作日事日毕良好的职业道德,团队合作精神,较强的工作主动性和责任感；」一句塞了五项,
+    草稿已拆成 12/13/14/15/16,五条 verbatim 互不重叠,拆法对。12「工作日事日毕」自身无并列词,keep。
+  cost: >-
+    这一行有一处**抽取层面**的疑点,不是客户写得含糊:第 24 行末尾是「…月报整理能力,」,第 25 行紧接
+    「工作日事日毕良好的职业道德…」,中间**没有任何标点** —— 原 docx 这一句被折行切开。
+    「工作日事日毕」到底读作「工作日 / 日事日毕」还是「工作,日事日毕」,以及它与「良好的职业道德」
+    之间原本有没有顿号,只有回看原件才能定。本轮不改原文、也不猜。
+    判定上 REQ-E-DAILY-CLOSE assessable=false,判不了。
+
+- id: D-关务报关员-13
+  kind: granularity
+  subject: 关务-13
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「良好的职业道德」无并列词,是第 25 行折行段落拆出的第二项(拆的动作见 D-关务报关员-12),keep。
+  cost: >-
+    REQ-E-ETHICS assessable=false,只能面试或背调。它是本 JD 里 10 条「简历判不了的硬条件」之一,
+    这个数量本身值得第 2 步注意(见 D-关务报关员-17 的 cost)。
+
+- id: D-关务报关员-14
+  kind: granularity
+  subject: 关务-14
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「团队合作精神」无并列词,是第 25 行折行段落拆出的第三项(拆的动作见 D-关务报关员-12),keep。
+  cost: >-
+    REQ-E-TEAMWORK assessable=false,简历判不了。客户把它写成 essential,与其余几条 E 维一样,
+    只能靠在面试里问、或者承认它不进计分。
+
+- id: D-关务报关员-15
+  kind: granularity
+  subject: 关务-15
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「较强的工作主动性」无并列词,是第 25 行折行段落拆出的第四项(拆的动作见 D-关务报关员-12),keep。
+  cost: >-
+    两件事要 admin 看:① **草稿这条带一个 review.reason「经人工改判」(从 REQ-E-PROACTIVITY 改挂
+    REQ-E-PROACTIVE),而当时的账本里没有任何对应记录。**没有记录的签署等于没有签署 ——
+    被审的文件给自己作证,是本条链上最难查的错,所以本轮**不采信**这个「已经人工改判」的说法,
+    也不在 note 里重复它。(改挂本身是对的:REQ-E-PROACTIVITY 在库里不存在;REQ-E-PROACTIVE 的 note
+    记着本 JD「工作主动性」与 业务助理「工作积极主动」两种拼法合并成一条 —— 这一条是库里的记录,可查。)
+    ② REQ-E-PROACTIVE assessable=false,简历判不了。
+
+- id: D-关务报关员-16
+  kind: granularity
+  subject: 关务-16
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「责任感」无并列词,是第 25 行折行段落拆出的第五项(拆的动作见 D-关务报关员-12),keep。
+  cost: >-
+    verbatim 只取末三个字(原话「…较强的工作主动性和责任感」),逐字子串成立,但单独看丢了主语语境。
+    REQ-E-RESPONSIBILITY assessable=false,判不了。好消息是:本 JD 的 17 条引用挂在 17 条**不同**的
+    库要求上,没有 人资专员 那种「同一条要求挂两次、双倍计权」的问题。
+
+- id: D-关务报关员-17
+  kind: granularity
+  subject: 关务-17
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 26 行「• 熟练掌握Office办公软件基本操作」只有一条约束、无并列词,keep。
+  cost: >-
+    库里 REQ-D-OFFICE 的组件点名 Word/Excel/PPT 三项,而客户原话只说「Office办公软件」——
+    按三项全要会**比客户严**,这是库的口径、不是客户写的,第 2 步可以提。
+    另外「熟练掌握」和「基本操作」本身就打架,下游能判的只有「会不会用」,判不了「熟练」。
+    --- 全份汇总(给第 2 步看):17 条里 16 条 essential、1 条 desirable(关务-03);
+    16 条硬条件中有 **10 条**库里 assessable=false(06/07/08/09/10/12/13/14/15/16),
+    简历侧只能是「未知」。下游若把「未知」读成「不合格」,这份 JD 会筛掉几乎所有候选人 ——
+    这个口径要 admin 在第 2 步定,不是本步能定的。

@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_专案工程师_东莞_12_16K_董___7年
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: bd52017cb0d6ed5d
+runs:
+  1:
+    output_sha256: 276eef319eeb7e18
+    chars: 911
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历出生日期1998.08.06，按招聘时点计算年龄在25~40岁区间内
+    quote: '生日: 1998. 08. 06'
+  C-02:
+    state: 满足
+    why: 简历明确写有大专学历，达到大专及以上要求
+    quote: 环境艺术设计 大专
+  C-03:
+    state: 不满足
+    why: 所学专业为环境艺术设计，不在工程类专业白名单内
+    quote: 环境艺术设计
+  C-04:
+    state: 未知
+    why: 简历未提及英语口语水平，仅提到回复8D报告，无法确认英语口语熟练
+    quote: 回复品质异常 8D 报告
+  C-05:
+    state: 满足
+    why: 自我评价称在线束加工行业积累5年经验，且工作经历涉及品质异常处理，满足3年以上品质管理经验
+    quote: 在这个行业积累了 5 年的工作经验
+  C-06:
+    state: 满足
+    why: 多段工作经历均涉及线束产品，如汽车高低压线束、新能源线束、CCS采集线束等，具备线束行业认知
+    quote: 主做海尔，美的，以及各种汽车高低压线束
+  C-07:
+    state: 满足
+    why: 简历提到回复品质异常8D报告、解决生产技术问题，体现品质问题分析改善能力
+    quote: 回复品质异常 8D 报告
+  C-08:
+    state: 满足
+    why: 简历提到回复8D报告，8D通常含5WHY分析，命中至少1项品质工具
+    quote: 回复品质异常 8D 报告
+  C-09:
+    state: 不满足
+    why: 简历未提及接待客户验厂经验，无相关证据
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样，不给结论
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

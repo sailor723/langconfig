@@ -1,0 +1,28 @@
+candidate: cand_李___46岁_工程经理_智通简历_编号________1
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  educationRank:
+    value: 4
+    basis: mock
+    rule: 学历:按经验给 3(大专)或 4(本科),各 50%
+    seed: 0.366202
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+  yearsStated:
+    value: 3
+    basis: mock
+    rule: 声明年限:与总年限同分布 3~15 年
+    seed: 0.043034
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_客户验厂:
+    held: true
+    basis: mock
+    rule: 按 25% 概率抽中(seed=0.168681)
+    note: 模拟值,不是事实
+  skill_线束行业知识:
+    held: true
+    basis: mock
+    rule: 按 40% 概率抽中(seed=0.042507)
+    note: 模拟值,不是事实

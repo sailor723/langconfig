@@ -1,0 +1,77 @@
+# 决策账本 —— 「谁、何时、为什么」这么定的**独立**记录。
+#
+# 为什么单独一份文件:这些决定原先只写在 `jd_links/*.yaml` 里,由**被审的产物自己声明**
+# 「admin 已确认」。审的东西给自己作证,等于没有证据 —— 2026-11-20 agent 386 核验品质经理时
+# 就是卡在这里:它读到了 confirmed_keep,却找不到任何独立记录,只能把这条列成「拿不准」。
+#
+# 所以分工是:
+#   jd_links/<JD>.yaml   引用了什么(派生文件,可被重新抽取覆盖)
+#   jd_reviews/<JD>.yaml 人定过什么(决策文件,只能由人改)
+# 门禁交叉校验两边:inline 的每条 `granularity_decision` 和每条 `excluded`,在账本里都必须
+# 有 subject 匹配的条目,且 status / decided_by / decided_at 必须**逐字一致**。
+# 任何一边单方面改口径,门禁就红 —— 而不会像以前那样,由文件自己说"已经确认过了"。
+#
+# 字段:
+#   kind        granularity(粒度:拆还是不拆) | exclusion(排除:不当作任职资格) | requirement(改要求库)
+#   subject     引用 id(C-xx)或排除 id(X-xx)
+#   decision    决定本身
+#   why         为什么 —— 没有 why 的决定等于没有决定
+#   decided_by + decided_at  签署人 + 日期;两个要么都有,要么用 signoff: pending 明说还没签
+#   cost        这个决定的代价(判不了什么、会误杀谁)。写下来是为了下次有人想推翻时知道要还什么账
+#
+# 注意:signoff: pending **必须**保留在这里,不能为了让门禁变绿而补一个没发生过的签署。
+# 门禁会把它列出来,让"没有签署记录"这件事可见。
+
+jd: 品质经理
+ref: jd_links/品质经理.yaml
+decisions:
+
+- id: D-品质经理-01
+  kind: granularity
+  subject: C-04
+  decision: confirmed_keep
+  decided_by: admin
+  decided_at: 2026-11-20
+  why: >-
+    原文「英语口语熟练及具备独立书写英文8D报告的能力」本可按「及」拆两条,但拆开需为同一句
+    在要求库造两条同义要求 —— 违反复用优先,且与 ABox 的 composite 建模冲突。故维持一条
+    composite 引用,判 partial。
+  cost: >-
+    这条永远只能判 partial:「口语熟练」在 H.2 上就是 assessable: false(6 档 CEFR 没有语料映射),
+    只有「独立书写英文8D报告」(skill_8D报告,16/277)这一半是可判的。
+
+- id: D-品质经理-02
+  kind: granularity
+  subject: C-07
+  decision: confirmed_keep
+  decided_by: admin
+  decided_at: 2026-11-20
+  why: >-
+    「分析、改善」本可拆成两个动作,人工确认按一个能力判定即可,不额外造同义要求。
+
+- id: D-品质经理-03
+  kind: granularity
+  subject: C-10
+  decision: confirmed_keep
+  decided_by: admin
+  decided_at: 2026-11-20
+  why: >-
+    「沟通、协调」本可拆成两个能力,人工确认按一条判定即可。
+  cost: >-
+    REQ-E-COMMUNICATION 本身 assessable: false、no_component: true —— 这条无论拆不拆都判不了,
+    只能留给面试。拆开只会得到两条都判不了的要求。
+
+- id: D-品质经理-04
+  kind: exclusion
+  subject: X-01
+  decision: excluded
+  signoff: pending
+  why: >-
+    IATF16949 只出现在**岗位职责**段(原文第 24 行「依IATF16949制定和完善品质管理制度」),
+    那是**公司要做的事**,不是**候选人必须具备的条件**。ABox 里
+    `:role_品质经理 :requiresSkill :skill_ISO_TS16949` 会让 114 人被蕴含 —— 属"职责段被当成
+    任职资格段",与本文件已经把 skill_薪酬绩效 从副总助理职责里抽出来是同一类错误。
+  cost: >-
+    ABox 里那条断言**还在**(未撤),撤它要重跑 HermiT 推理与材料化,是另一步。
+    影响面已实测:现状 114 人;只删 ISO/TS16949 → 108(−6);整条 QualitySystem 路线都撤 → 99(−15)。
+    本账本只记录"不作为任职资格"这个判定,不代替那次 ABox 变更。

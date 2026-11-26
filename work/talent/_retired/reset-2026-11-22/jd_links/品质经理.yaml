@@ -1,0 +1,214 @@
+jd: 品质经理
+role_type: staff
+role_basis: 由原文 S1.08 直接下属=「无」推得;S1.11 岗位类别待业务方确认
+role_confirmed: false
+# 人定过什么**不在这里** —— 见 jd_reviews/品质经理.yaml(决策账本:谁、何时、为什么)。
+# 本文件只回答「引用了什么」。两边由 check_component_catalog.py 交叉校验,谁单方面改口径就红。
+review_record: jd_reviews/品质经理.yaml
+department: 品保课
+source_file: client/team-4/unzipped/职务说明书10份/12.品质经理职务说明书.doc
+source_text: work/talent/jd_links/_source/品质经理.txt
+extracted_with: textutil -convert txt -encoding UTF-8 (macOS)
+extracted_at: '2026-11-20'
+review_status: draft
+count:
+  source_section: 任职资格
+  source_lines: 7
+  atomic_requirements: 10
+  count_note: >-
+    客户 JD 的「任职资格」段是 _source 第 20–26 行,共 7 行。按「一句一要求」切:
+
+    第 24 行「3年以上品质管理工作经验，熟识线束行业相关产品」含 2 条(年限 + 行业认知);
+
+    第 25 行「具备品质问题分析、改善的能力，懂QC七大手法…」含 2 条(能力 + 工具);
+
+    第 26 行「具备接待客户验厂经验，有良好的沟通、协调能力」含 2 条(验厂 + 沟通)。
+
+    其余 4 行各 1 条 → 4 + 2 + 2 + 2 = 10 条,全部是客户原话(origin: client)。
+
+    本文件不含 HR 侧要求 —— 那是第 2 步(JD 定稿)的章,不是第 1 步的产物。
+citations:
+- id: C-01
+  origin: client
+  requirement: REQ-A-AGE-RANGE
+  verbatim: 年龄：25 ~ 40岁
+  source_text: 年龄：25 ~ 40岁；
+  txt_line: 20
+  section_index: 1
+  value:
+    min: 25
+    max: 40
+  note: 区间是 JD 的取值,不是要求本身的口径 —— 同一条要求在别的 JD 上是 25~38。
+- id: C-02
+  origin: client
+  requirement: REQ-B-EDU-LEVEL
+  verbatim: 学历：大专及以上学历
+  source_text: 学历：大专及以上学历；
+  txt_line: 21
+  section_index: 2
+  value:
+    num: 3
+  note: 3 = 大专(B.1 是 ordinal 2..6)。客户写「及以上」,所以是 >= 不是 =。
+- id: C-03
+  origin: client
+  requirement: REQ-B-MAJOR
+  verbatim: 专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业
+  source_text: 专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业；
+  txt_line: 22
+  section_index: 3
+  value:
+    in:
+    - 机电一体化
+    - 电子技术
+    - 自动化
+    - 工业工程
+    - 机械工程
+  note: >-
+    原话有「等」,这里只记客户点名的 5 个词,**没有把「等」扩写成清单**。
+
+    判定口径(D,2026-11-20 admin 定)是只按专业名点名,命中这 5 个之一即满足。
+
+    代价:原话的「等」按点名判等于当空话,「材料成型及控制工程」这类真工科会被判不满足。
+- id: C-04
+  origin: client
+  requirement: REQ-H-LANG-EN
+  verbatim: 语言：英语口语熟练及具备独立书写英文8D报告的能力
+  source_text: 语言：英语口语熟练及具备独立书写英文8D报告的能力；
+  txt_line: 23
+  section_index: 4
+  note: >-
+    整句没有阈值,它要求「同时具备两个组件」(skill_英语 + skill_8D报告),所以不编 value。
+
+    「口语熟练」这一半库里已声明判不了(REQ-H-LANG-EN.level_check 的 assessable 为 false)。
+
+    为什么不拆:见 jd_reviews/品质经理.yaml 的 D-品质经理-01。
+  granularity_decision:
+    status: confirmed_keep
+    decided_by: admin
+    decided_at: 2026-11-20
+    scope: 第 23 行整句不拆,仍为 1 条引用指向 REQ-H-LANG-EN
+    why: >-
+      原话用「及」连接两个判定(口语熟练 / 独立书写英文 8D 报告),按「及拆两条」本应拆开。
+
+      但拆开会让同一条要求(REQ-H-LANG-EN)被引用两次,评分侧会把它算两遍;
+
+      另造两条同义要求又违反「复用优先」。所以维持一条 composite 引用、判 partial。
+
+      这个口径沿用了 _retired/品质经理-redo-2026-11-20 里 admin 2026-11-20 的决定,
+
+      但那份账本已整体退出流水线,本轮**没有**拿到新的签署,故标 pending_reconfirm。
+- id: C-05
+  origin: client
+  requirement: REQ-C-YEARS-DOMAIN
+  verbatim: 3年以上品质管理工作经验
+  source_text: 3年以上品质管理工作经验，熟识线束行业相关产品；
+  txt_line: 24
+  section_index: 5
+  value:
+    num: 3
+    domain: 品质管理
+  note: >-
+    领域限定「品质管理」需要 C.2,该属性未建 —— 现在这条只判年限,判不了领域。
+
+    也就是说 10 年的人资专员和 10 年的品质经理在这条上得分相同。这是要求库已写明的 partial。
+- id: C-06
+  origin: client
+  requirement: REQ-D-HARNESS-DOMAIN
+  verbatim: 熟识线束行业相关产品
+  source_text: 3年以上品质管理工作经验，熟识线束行业相关产品；
+  txt_line: 24
+  section_index: 5
+  note: 与 C-05 同处一行但拆开:年限和行业认知是两件事,一个人可能只满足一半。
+- id: C-07
+  origin: client
+  requirement: REQ-D-QA-ANALYSIS
+  verbatim: 具备品质问题分析、改善的能力
+  source_text: 具备品质问题分析、改善的能力，懂QC七大手法、5WHY、SPC、CPK、6S工具；
+  txt_line: 25
+  section_index: 6
+  note: 无阈值(「具备…能力」),不编 value。
+  granularity_decision:
+    status: confirmed_keep
+    decided_by: admin
+    decided_at: 2026-11-20
+    scope: 第 25 行前半「分析、改善」不拆,仍为 1 条引用指向 REQ-D-QA-ANALYSIS
+    why: >-
+      「分析」与「改善」是两个动作,可拆两条。但要求库里只有一条「品质问题分析改善能力」,
+
+      拆开就要造同义要求。维持一条。2026-11-20 admin 重新签署(账本 D-品质经理-02)。
+- id: C-08
+  origin: client
+  requirement: REQ-D-QA-TOOLS
+  verbatim: 懂QC七大手法、5WHY、SPC、CPK、6S工具
+  source_text: 具备品质问题分析、改善的能力，懂QC七大手法、5WHY、SPC、CPK、6S工具；
+  txt_line: 25
+  section_index: 6
+  note: >-
+    原文点名 5 项,原样保留,没有增删。这条不拆成 5 条引用:库里 REQ-D-QA-TOOLS 已经是
+
+    由这 5 个组件构成的 composite,拆开会让同一条要求被算五遍。
+
+    其中 skill_5WHY 在库里标 detectable=false(语料里 0 次),所以判定实际按 4 项算。
+- id: C-09
+  origin: client
+  requirement: REQ-D-CUSTOMER-AUDIT
+  verbatim: 具备接待客户验厂经验
+  source_text: 具备接待客户验厂经验，有良好的沟通、协调能力。
+  txt_line: 26
+  section_index: 7
+  note: 这是「做过」的活动经验,用 D 维组件兜住;不是「会做」。
+- id: C-10
+  origin: client
+  requirement: REQ-E-COMMUNICATION
+  verbatim: 有良好的沟通、协调能力
+  source_text: 具备接待客户验厂经验，有良好的沟通、协调能力。
+  txt_line: 26
+  section_index: 7
+  note: >-
+    REQ-E-COMMUNICATION 在库里 assessable=false、no_component=true ——
+
+    这条**下游一定判不了**,只能靠面试评分表。保留不删,如实标出。
+  granularity_decision:
+    status: confirmed_keep
+    decided_by: admin
+    decided_at: 2026-11-20
+    scope: 第 26 行后半「沟通、协调」不拆,仍为 1 条引用指向 REQ-E-COMMUNICATION
+    why: >-
+      「沟通」与「协调」可拆成两条。但 E 维本身没有组件,拆开只会得到两条都判不了的要求,
+
+      于下游无增益。沿用 retired 账本里 admin 2026-11-20 的决定,本轮未重新签署。
+undefined_statements:
+- txt_line: 106
+  text: 目前没制定
+  note: >-
+    客户**明说某项还没定**。它不是任职资格(所以不进 citations),但也不是噪音:
+    原文里它脱了表格标签,孤零零落在 PAGE 标记之后 —— 最可能指的是「考核标准」一类,
+    但**不猜**。如实登记,让第 2 步的待补清单拿它去问客户,而不是让它无声消失。
+  likely_field: 未知(原文没有标签,需要问)
+excluded:
+- id: X-01
+  candidate_text: 职务名称品质经理隶属部门品保课直接上司直接下属无
+  found_at: _source 第 17 行
+  txt_line: 17
+  why: >-
+    这一行是 Word 表格被抽成纯文本后单元格黏连的结果 —— 原文是「职务名称/隶属部门/
+
+    直接上司/直接下属」四个字段,textutil 抽出来丢了分隔符。它没有可见的分隔位置,
+
+    无法逐字确认「直接上司」后面到底是不是空,所以不作为原子要求,也不是遗漏。
+
+    其中「品保课」已写进本文件头部的 department 字段。
+  verdict: 不作为任职资格要求(表格元数据)
+- id: X-02
+  candidate_text: 岗位职责段(_source 第 30–37 行,共 8 条)
+  found_at: _source 第 30–37 行
+  txt_line: 30
+  why: >-
+    这 8 行写的是「做什么」(负责部门品质目标管理 / 依IATF16949制定制度 / 完善质量标准 …),
+
+    不是「要什么」。把职责段混进要求段,会让「公司要做的事」变成「候选人必须有的条件」,
+
+    下游就会据此排除没做过这些事的人。
+
+    典型例子是第 31 行的 IATF16949:它只出现在职责段里,本轮**没有**把它当作任职资格要求。
+  verdict: 不作为任职资格要求(职责段)

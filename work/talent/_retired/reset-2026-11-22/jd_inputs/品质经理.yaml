@@ -1,0 +1,187 @@
+jd: 品质经理
+filled_at: 2026-11-20
+filled_by: ours
+answers:
+- field: S1.11
+  value: 员工岗
+  answered_by: ours
+  needs_client: true
+  basis: 原文 S1.08「直接下属:无」→ 按岗位类别判定规则(有下属=经理岗)归员工岗。名字带"经理"但不管人,这是这份 JD 最容易被套错模板的地方。
+- field: S1.02
+  value: QM-JD-001
+  answered_by: ours
+  needs_client: false
+  basis: 客户模板该栏为空。按"部门缩写-文档类型-序号"的通行规则给一个占位编号,HR 可按自家编号规则改。
+- field: S1.05
+  value: 待签(核准:厂长 / 审核:品保课长 / 制订:HR)
+  answered_by: ours
+  needs_client: true
+  basis: 原文栏位存在但无姓名。按"制订=HR、审核=直属上级、核准=厂长"的通行权限分配填补,需 HR 落实具体人名。
+- field: S1.07
+  value: 厂长(生产副总)
+  answered_by: ours
+  needs_client: true
+  basis: 原文未写。品质经理汇报对象通常为厂长或生产副总;该厂有「副总室」建制(见副总助理 JD),故按厂长/生产副总之一填补。
+- field: S1.09
+  value: 6-08-02-06(质量管理工程技术人员)
+  answered_by: ours
+  needs_client: false
+  basis: 按《国家职业分类大典》质量管理与检验类归口,选最贴近"品质管理"的职业编码;不改变招聘实质,仅用于统计归口。
+- field: S1.10
+  value: M2(中层管理岗)
+  answered_by: ours
+  needs_client: true
+  basis: 该岗属课级负责人(品保课),对应中层。若贵司职级体系里课级为 M1,按体系下调,不影响模板选型。
+- field: S2.01
+  value: 负责品保课品质与业务目标管理,承接上级与客户下达的品质任务;建立并维护品质管理体系、检验标准与培训考核机制;监督标准执行,组织检测设备与物料验收,保障过程受控;对接客户要求与审厂,管理供应商与外部资源质量,并通过数据收集与持续改善定期报送运营数据。
+  answered_by: ours
+  needs_client: true
+  basis: 由原文 8 条岗位职责归纳(职责1–8),未新增任何客户未提的内容;详见附录 F 的逐条推导。
+- field: S4.03
+  value: 职责1(部门品质目标管理)→ 目标管理 · 品质策划;职责2(IATF16949 体系)→ 体系管理 · 汽车行业质量体系;职责3(标准与培训考核)→
+    培训课程开发;职责4(监督执行 SIP)→ 体系管理 · 品质问题分析;职责5(检测仪器校验)→ QC七大手法 · SPC;职责6(数据收集与优化)→ 数据分析;职责7(客户对接与报告)→
+    客户验厂 · 8D报告;职责8(供商品质管理)→ 供应商品质管理
+  answered_by: ours
+  needs_client: true
+  basis: 原文未建立职责↔能力对应。按职责动词 + 组件目录里的既有组件逐条对应,未造新组件。
+- field: S5.01
+  value: 1–6(见 S5.02)
+  answered_by: ours
+  needs_client: false
+  basis: 原文「事务表述」表整段为空。按品保课长的日常工作拆 6 项,编号即序号。
+- field: S5.02
+  value: ①进料/制程/出货检验与异常判定 ②品质异常处理与改善跟踪(8D) ③检测仪器日常校验与台账维护 ④质量数据统计与周报/月报 ⑤客户投诉与验厂接待
+    ⑥供应商来料品质问题对接
+  answered_by: ours
+  needs_client: true
+  basis: 由原文职责 1–8 映射到"可执行作业项";原文没有独立的作业明细段,这是我方把职责细化为作业,必须由业务方确认粒度。
+- field: S5.03
+  value: 每日(①③④)/ 每周(④)/ 每月(⑤汇总)/ 偶发(②⑤⑥)
+  answered_by: ours
+  needs_client: true
+  basis: 原文无频次。按检验与数据类作业的通行节奏估计;**这一项直接影响编制测算,必须由业务方核准**。
+- field: S5.04
+  value: ①约 2–3 小时/日 ②按异常,单次 1–2 小时 ③约 0.5 小时/日 ④约 1 小时/周 ⑤按客户安排 ⑥按来料批次
+  answered_by: ours
+  needs_client: true
+  basis: 原文无时长。按同行岗位经验估算;**我估的是量级,不是精确值** —— 业务方有实际排班数据才能定。
+- field: S5.05
+  value: ④数据统计(部分可替代:报表可由系统自动生成)/ ①检验数据初判(部分)/ ②③⑤⑥(暂不可替代)
+  answered_by: ours
+  needs_client: false
+  basis: 按当前工具能力判断;AI 替代性不改变招聘要求,只影响未来 2–3 年的岗位设计。
+- field: S5.06
+  value: 已有 SOP:进料检验规范、异常处理流程(8D)、仪器校验管理办法。待补:SIP 检验标准、客户验厂应审清单
+  answered_by: ours
+  needs_client: true
+  basis: 原文提到「执行各项质量标准(含SIP)」但未附具体文件;按品质体系的通行文件清单推断已有哪些、缺哪些。
+- field: S5.07
+  value: 进料检验记录表 / 不合格品处理单 / 8D 报告 / 仪器校验台账 / 供应商品质异常联络单
+  answered_by: ours
+  needs_client: true
+  basis: 按上述作业项对应的通行表单名称填补;客户若有自家表单编号,替换名称即可。
+- field: S6.01
+  value: 东莞厂区(需到厂,非远程)
+  answered_by: ours
+  needs_client: true
+  basis: 原文未写厂区。按语料范围(东莞线束/连接器制造业)填补;**具体哪个厂区必须由客户确认** —— 它决定通勤半径,是制造业第一道筛子。
+- field: S6.02
+  value: 白班为主,客户验厂或产线异常时需配合加班
+  answered_by: ours
+  needs_client: true
+  basis: 原文未写班制。品质管理岗通常为白班 + 应急加班;若为两班倒,候选人范围会显著不同。
+- field: S6.03
+  value: 8 小时/日,月加班约 30–40 小时(旺季)
+  answered_by: ours
+  needs_client: true
+  basis: 原文未写工时。按东莞制造业品质岗常见工时估算。
+- field: S6.04
+  value: 办公室 + 车间现场(噪音约 75–85 dB,需长时间站立巡视)
+  answered_by: ours
+  needs_client: true
+  basis: 原文未写环境。按线束/连接器车间通行条件估算;这一项直接影响候选人的接受度。
+- field: S6.05
+  value: 轻度(现场巡视,无重物搬运)
+  answered_by: ours
+  needs_client: true
+  basis: 由"巡视车间"这一作业性质推断;若需搬运检测设备或物料,须上调。
+- field: S6.06
+  value: 极少出差(仅客户验厂或供应商审核时,约每月 1–2 次,通常当日往返)
+  answered_by: ours
+  needs_client: true
+  basis: 原文未写出差。由职责7(客户对接)与职责8(供应商管理)推断需要少量短差。
+- field: S6.07
+  value: 车间需安全鞋 / 工衣(公司发放)
+  answered_by: ours
+  needs_client: false
+  basis: 按线束厂现场作业的通行劳保要求填补。
+- field: S7.01
+  value: A0 首发 2021-09-30;本轮定稿为 A1(补全空白字段,客户原文未改)
+  answered_by: ours
+  needs_client: false
+  basis: 原文修改履历只有「首次发行 2021.09.30」。本轮定稿不构成客户方修订,故记为 A1 内部版本。
+- field: S7.02
+  value: 2021-09-30
+  answered_by: ours
+  needs_client: false
+  basis: 取自原文「首次发行 2021.09.30」。
+- field: S7.03
+  value: 待定(以 HR 排期为准)
+  answered_by: ours
+  needs_client: true
+  basis: 原文无发布日期。发布时点由 HR 按招聘节奏定。
+- field: S7.04
+  value: 长期有效,至岗位招满为止
+  answered_by: ours
+  needs_client: false
+  basis: 按常设岗位惯例填写;若是替补性招聘,应改为"招满即止 + 具体截止日"。
+- field: S7.05
+  value: 1 人
+  answered_by: ours
+  needs_client: true
+  basis: 原文未写编制。按课级负责人为单岗推断;若同时补员,需改。
+- field: S7.06
+  value: 离职补员(原品质经理岗位空缺)
+  answered_by: ours
+  needs_client: true
+  basis: 原文未写招聘原因。属最常见情形,但"离职补员"与"新增编制"的用人逻辑不同,须业务方确认。
+- field: S7.07
+  value: 内部推荐 + 招聘网站(制造业品质岗)
+  answered_by: ours
+  needs_client: false
+  basis: 按同类岗位的通行渠道填补;渠道不改变岗位要求本身。
+- field: S8.01
+  value: 需签保密协议(涉及客户图纸、检验标准与供应商信息)
+  answered_by: ours
+  needs_client: true
+  basis: 原文未写。由职责7(客户对接/验厂)与职责8(供应商管理)可接触客户图纸与供应商价格推断;**是否强制签属公司合规口径,须客户确认**。
+- field: S8.02
+  value: 需提供无犯罪记录证明(制造业客户验厂常作为准入条件)
+  answered_by: ours
+  needs_client: true
+  basis: 原文未写。客户验厂(IATF16949 体系)通常要求关键岗位提供;若贵司不要求,可以删除 —— 这是一条硬约束,不能想当然。
+- field: S8.03
+  value: 不适用(课级管理岗,未接触核心技术秘密)
+  answered_by: ours
+  needs_client: true
+  basis: 按岗位层级判断;若客户认为品质标准属于核心秘密,应改为适用并约定竞业范围。
+- field: S8.04
+  value: 全职(标准劳动合同)
+  answered_by: ours
+  needs_client: false
+  basis: 按课级负责人岗位惯例;派遣/实习不适用于管理岗。
+- field: S8.05
+  value: 3 个月(按劳动合同期 3 年以上约定)
+  answered_by: ours
+  needs_client: false
+  basis: 依《劳动合同法》第十九条:合同期 3 年以上,试用期不超过 6 个月;课级岗通行 3 个月。
+- field: S8.06
+  value: 按东莞市标准缴纳五险一金
+  answered_by: ours
+  needs_client: false
+  basis: 按用工所在地法定标准;具体基数按公司口径执行。
+- field: S5.08
+  value: 白班为主,无跨班交接;异常留台账,次日早会交接未结事项
+  answered_by: ours
+  needs_client: true
+  basis: 由"白班 + 品质异常处理"推断;若产线两班倒,品质必须跨班交接,这条会变成硬约束。

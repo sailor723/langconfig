@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_罗___40岁_管理课课长_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: f6b9f8abfbcb0ce3
+runs:
+  1:
+    output_sha256: 2ff12d5b76918441
+    chars: 744
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示40岁，落在25~40岁区间内
+    quote: 女 | 40岁
+  C-02:
+    state: 满足
+    why: 简历学历为本科，高于大专及以上要求
+    quote: 本科 工商管理
+  C-03:
+    state: 不满足
+    why: 专业为工商管理，不在工程类专业白名单内
+    quote: 本科 工商管理
+  C-04:
+    state: 未知
+    why: 简历未提及英语口语或英文8D报告能力
+    quote: null
+  C-05:
+    state: 不满足
+    why: 工作经验均为人力资源/招聘，无品质管理领域年限
+    quote: 人事经理/主管
+  C-06:
+    state: 未知
+    why: 简历未提及线束行业相关知识
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历未体现品质问题分析改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、SPC、CPK、6S、5WHY等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历提到QSA/QPA、CSR、EICC自评与应审，但未明确为客户验厂接待经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

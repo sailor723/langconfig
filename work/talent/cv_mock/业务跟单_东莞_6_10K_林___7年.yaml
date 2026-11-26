@@ -1,0 +1,22 @@
+candidate: cand_业务跟单_东莞_6_10K_林___7年
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  educationRank:
+    value: 3
+    basis: mock
+    rule: 学历:按经验给 3(大专)或 4(本科),各 50%
+    seed: 0.894009
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_QC七大手法:
+    held: true
+    basis: mock
+    rule: 按 30% 概率抽中(seed=0.028581)
+    note: 模拟值,不是事实
+  skill_英语:
+    held: true
+    basis: mock
+    rule: 按 35% 概率抽中(seed=0.107568)
+    note: 模拟值,不是事实

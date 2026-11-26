@@ -1,0 +1,178 @@
+# 决策账本 —— 「谁、何时、为什么」这么定的独立记录。
+#
+# 分工:
+#   jd_links/<JD>.yaml   引用了什么(派生文件,可被重新抽取覆盖)
+#   jd_reviews/<JD>.yaml 人定过什么(决策文件)
+# 门禁交叉校验两边:inline 的每条 granularity_decision 与每条 excluded,在账本里都必须有
+# subject 匹配的条目,且 status / decided_by / decided_at 逐字一致。
+#
+# 本账本所有条目都是 signoff: pending —— 这轮复审由 agent 386 做,它没有 admin 的签字权。
+# 所以这里不写 decided_by / decided_at:没发生过的签署不许补。
+# 每条 why 记「按什么口径判的」,cost 记「这个口径的代价是什么」,等人点头。
+#
+# 本轮复审没有改客户原话:verbatim / txt_line / source_text / requirement / value 一字未动
+# (git diff:61 行新增、0 行删除/修改)。
+# 原文检索「没制定 / 暂无 / 待定 / 未定 / 尚未」0 命中,故 undefined_statements 留空 —— 不编。
+# 12 条引用全部落在第 15–20 行的「资格要求」段(txt_line 15/16/17/18/19/20),
+# 第 21–29 行「职务简述」与第 30 行起的「事务表述」表都是职责,没有任何引用误落在其中,
+# 所以 excluded 为空:没有可排除项,不为凑数造一条。
+
+jd: 管理课长
+ref: jd_links/管理课长.yaml
+decisions:
+
+- id: D-管理课长-01
+  kind: granularity
+  subject: 管理-01
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 15 行「1、性别要求：男女不限；」只含一条约束,没有并列词,「1、」是序号,拆不出第二条。
+  cost: >-
+    这条的代价不是粒度,是它根本不产出信息:REQ-A-GENDER 在要求库里 assessable: false
+    (A.1 性别的 cv_coverage = 0 份),而草稿的 llm.measurable_from_resume 写的是 true —— 两边相反,
+    按库为准:判不了。且 value.in=[男,女] 覆盖两种性别,对任何候选人都恒真。
+    要不要把它留在 citations 里(留 = 保留客户原话,但计分贡献恒为 0),需要 admin 定。
+
+- id: D-管理课长-02
+  kind: granularity
+  subject: 管理-02
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 15 行「年龄要求：30岁—45岁；」是单个阈值区间,「—」不是并列词,一条,不拆。
+  cost: >-
+    可判但不全:REQ-A-AGE-RANGE assessable: true,年龄字段覆盖 107/277,其余约 170 人判不了 ——
+    那是「未知」不是「不合格」。30~45 是客户给的阈值,我既没放宽也没收紧。
+
+- id: D-管理课长-03
+  kind: granularity
+  subject: 管理-03
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 16 行「2、专业要求：人力资源管理、行政管理、法律、企业管理等相关专业；」的顿号连的是一组专业举例,
+    句尾还跟着「等」。拆成 4 条等于把「等」收窄成穷举清单,是替客户改 JD,所以 keep 成一条。
+  cost: >-
+    两个问题都落在 REQ-B-MAJOR 上,都要 admin 定:
+    ① 该库条目明写「只按专业名点名,不使用专业门类」,而「法律」「行政管理」「企业管理」更像学科门类
+       而不是具体专业名 —— 按这条规则,「法学」「公共事业管理」这类候选会被判不满足;
+    ② value.in 把原话的「等」隐式收窄成 4 个词,下游会拿这 4 个词去排除人。
+    value 本轮不许改(复审纪律),所以只登记不修改。
+
+- id: D-管理课长-04
+  kind: granularity
+  subject: 管理-04
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 17 行「3、学历要求：大专或以上学历；」里的「或」是「或以上」的一部分(≥ 的写法),
+    不是连接两个并列要求;「3、」是序号。一条,不拆。
+  cost: >-
+    这条这次是干净的:REQ-B-EDU-LEVEL 的 ordinal 是 2 中专 / 3 大专 / 4 本科,原话「大专或以上」
+    字面对应 3,而 value.num 写的正是 3 —— 一致,不用改。
+    (人资专员、工程文员那两份写的是「高中及以上」而 num 也写 3,差一档;这份没有那个问题。)
+
+- id: D-管理课长-05
+  kind: granularity
+  subject: 管理-05
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 18 行「4、技能要求：熟悉OFFICE软件、办公室网络；」被顿号拆成 05(Office)与 06(办公室网络)两条,
+    拆法对:这是两个能被分别判定的技能,一个只会 Office、不懂网络的人只满足一半。
+    05 自身「熟悉OFFICE软件」无并列词,keep。
+  cost: >-
+    拆了,但拆出来的两条会重复计权:REQ-D-OFFICE 的组件是 skill_Word / skill_Excel / skill_PowerPoint
+    (目录实测 cv_count 55 / 87 / 40),而 06 挂的 REQ-D-OFFICE-NETWORK 组件同样是这三项 ——
+    第 18 行在计分里被算两遍,两遍用的是同一组组件。见 D-管理课长-06。
+
+- id: D-管理课长-06
+  kind: granularity
+  subject: 管理-06
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「办公室网络」无并列词,是第 18 行被顿号拆出的后半,拆的动作已由 D-管理课长-05 记过;本条自身 keep。
+  cost: >-
+    这条有两个问题,都不是粒度能解决的:
+    ① 判不了 —— REQ-D-OFFICE-NETWORK 把「办公室网络」列在 unlinked_parts(gap P6),没有组件;
+       能判的只有 Word/Excel/PowerPoint,而那是 05 已经判过的同一组,于是第 18 行被双算,
+       同时「办公室网络」这一半永远判不出来。
+    ② verbatim 只有「办公室网络」5 个字,丢了谓词「熟悉」,单独看不像一条要求 ——
+       复审纪律不许改 verbatim,只登记,留 admin 定要不要合并回 05 或补组件。
+
+- id: D-管理课长-07
+  kind: granularity
+  subject: 管理-07
+  decision: confirmed_split
+  signoff: pending
+  why: >-
+    第 19 行「5、能力要求：数据分据能力、培训课程开发能力、体系管理能力、系统规划能力、企业文化建设能力；」
+    是五项能被分别判定的能力,每项在要求库里各有一条要求、各有一个组件;一个候选人完全可能只会其中一两项,
+    所以必须拆。本草稿已拆成 管理-07 ~ 管理-11,五条 verbatim 互不重叠、没有重复计权,拆的动作落地了。
+  cost: >-
+    拆的口径是干净的,代价在后面三项的覆盖面:cv_count 分别是 31 / 15 / 13 / 64 / 37(分母 277)。
+    这意味着一大半「不满足」其实是「简历没提」,判之前必须由 admin 定「没写算不算不会」。
+    另:客户原文写的是「数据分据」,错字照留没有改;要求库里叫「数据统计分析」。
+
+- id: D-管理课长-08
+  kind: granularity
+  subject: 管理-08
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「培训课程开发能力」无并列词,是第 19 行拆出的第二项,拆的动作由 D-管理课长-07 记过。
+  cost: >-
+    覆盖很薄:skill_培训课程开发 cv_count 15/277,这条会把绝大多数候选判成不满足 ——
+    那更可能是「简历没提」而不是「不会」。草稿的 measurable_from_resume 写 false、库写 assessable: true,
+    两边相反,按库为准(可判,但判的是「简历里有没有这项技能记录」)。
+
+- id: D-管理课长-09
+  kind: granularity
+  subject: 管理-09
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「体系管理能力」无并列词,是第 19 行拆出的第三项,拆的动作由 D-管理课长-07 记过。
+  cost: >-
+    五项里覆盖面最窄:skill_体系管理 cv_count 13/277。而且客户只写「体系管理能力」,没说是质量体系、
+    环境体系还是别的 —— 判的方向由组件的名字(体系管理)决定,不是我补的。
+    草稿 measurable_from_resume: false 与库 assessable: true 相反,按库为准。
+
+- id: D-管理课长-10
+  kind: granularity
+  subject: 管理-10
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「系统规划能力」无并列词,是第 19 行拆出的第四项,拆的动作由 D-管理课长-07 记过。
+  cost: >-
+    可判,skill_系统规划 cv_count 64/277(五项里覆盖最好的一项)。但「系统规划」在客户原文里
+    没有任何指向 —— 是 IT 系统、管理体系还是组织规划,原件没写;判的只是简历里有没有这项技能记录。
+
+- id: D-管理课长-11
+  kind: granularity
+  subject: 管理-11
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「企业文化建设能力」无并列词,是第 19 行拆出的第五项,拆的动作由 D-管理课长-07 记过。
+  cost: >-
+    可判,skill_企业文化建设 cv_count 37/277。
+    另要注意:它与第 27 行「推动企业文化建设,组织企业文化宣导与落地活动」(职务简述=职责侧)
+    是同一件事的两种写法,下游不要把职责侧那条也算成一条要求。
+
+- id: D-管理课长-12
+  kind: granularity
+  subject: 管理-12
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 20 行「6、经验要求：相关经验5年以上；」是单个年限阈值,「相关」是修饰语而不是第二个可判要求,
+    拆不出第二条;「6、」是序号。一条,不拆。
+  cost: >-
+    只能判一半:REQ-C-YEARS-DOMAIN 自己写着 partial —— 年限可判,但覆盖率在库里有两个数:REQ-C-YEARS-DOMAIN 的 partial 字段写「148/277」,而同一条的 year_basis_note 与 component_catalog 的 C.1(cv_coverage)都写 118(277 份里 118 人有声明年限)—— 两个数打架,我没替它选,登记,
+    领域限定需要 C.2 domain 属性,该属性未建。客户写的「相关」没说相关于什么,
+    所以 5 年会计与 5 年人资在这条上同分。value.domain 的「相关」是把客户原话原样放进去,不是我方补的领域。
+    第 2 步该问客户:「相关」指哪一段(人资 / 行政 / 管理)?

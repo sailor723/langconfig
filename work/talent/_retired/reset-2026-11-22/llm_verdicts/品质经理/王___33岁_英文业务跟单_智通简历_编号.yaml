@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_王___33岁_英文业务跟单_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 0dee7a89a20c441f
+runs:
+  1:
+    output_sha256: 2a938002b29b08d5
+    chars: 839
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示33岁，落在25~40岁区间内
+    quote: 岛女|33岁
+  C-02:
+    state: 满足
+    why: 简历显示本科，高于大专及以上要求
+    quote: 本科
+  C-03:
+    state: 未知
+    why: 简历未提及机电一体化/电子技术/自动化/工业工程/机械工程等专业，教育经历专业名称缺失
+    quote: null
+  C-04:
+    state: 未知
+    why: 简历仅显示英语听说能力CET-4，未提及独立书写英文8D报告能力
+    quote: '英语: 听说能力 【大学英语等级考试CET-4】'
+  C-05:
+    state: 未知
+    why: 简历为外贸业务/跟单经验，未明确体现3年以上品质管理工作经验
+    quote: null
+  C-06:
+    state: 不满足
+    why: 简历无任何线束/连接器行业相关经历或知识描述
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历未明确描述品质问题分析与改善能力，仅有客户投诉解决相关表述
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历提及客户验货及第三方检验，但未明确为接待客户验厂经验
+    quote: 主导客户验货及第三方检验
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

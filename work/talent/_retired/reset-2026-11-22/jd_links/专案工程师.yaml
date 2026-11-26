@@ -1,0 +1,241 @@
+jd: 专案工程师
+role_type: staff
+role_basis: 由原文 S1.08 直接下属=「无」推得;S1.11 岗位类别待业务方确认
+role_confirmed: false
+department: ''
+source_file: ../client/team-4/unzipped/职务说明书10份/专案工程师职务说明书.xlsx
+source_text: work/talent/jd_links/_source/专案工程师.txt
+extracted_with: textutil/openpyxl
+drafted_by: deepseek-chat, temperature=0 —— **草稿,未人工审核**
+review_status: draft
+count:
+  source_section: 任职资格
+  atomic_requirements: 9
+  count_note: >-
+    9 条全部来自「资格要求」段第 4–7 行(原文共 52 行)。第 8 行起是职务简述与每日工作表,
+    写的是「做什么」,没有作为任职资格抽出。粒度已逐条审过,决定在 jd_reviews/专案工程师.yaml,
+    all signoff: pending(等人点头,不是已签)。
+citations:
+- id: 专案-01
+  requirement: REQ-C-YEARS-DOMAIN
+  verbatim: 电线连接器加工行业产品开发3年以上经验
+  source_text: 资格要求 | 1、电线连接器加工行业产品开发3年以上经验；对新产品报价、样品、转量产做业流程熟知；
+  txt_line: 4
+  tier: essential
+  value:
+    num: 3
+    domain: 电线连接器加工行业产品开发
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 行业经验年限
+    measurable_from_resume: true
+    requirement_reused: true
+  note: >-
+    阈值按客户字面记 num=3,要求库 op 是 >=,所以是「不少于 3 年」,不是正好 3 年;「3年以上」里的
+    「以上」是阈值写法,不是并列连接词。
+    两处下游缺口(实测,不是推测):
+    ① 年限只在 148/277 份简历上可判 —— candidate 表 277 行,years_experience 有值的 148 行,
+    其余 129 人这条只能标未知,不能当作不满足。
+    ② 领域限定「电线连接器加工行业产品开发」判不了:要求库 partial=true 并注明 C.2 domain 未建,
+    目录 C.2 的 prop=domain、prop_exists=false、cv_coverage=0。于是 10 年的人资专员和 10 年的
+    连接器工程师在这一条上同分。
+    另有一处库内不一致,我只登记不修:要求库的 year_basis_note 说比的是「声明值(C.1 / years_stated)、
+    覆盖 118 人」,目录 C.1 也写 prop=years_stated,但我查了 candidate 表的实际列
+    (role / years_experience / education_rank / salary_min_k / salary_max_k / age / source_file …),
+    **没有 years_stated 这一列**,只有 years_experience。所以「按声明值判」这个口径目前在库里执行不了,
+    要么改要求库的 year_basis,要么补这一列 —— 两件都不在本轮授权内。
+    还有一件只能问客户:原话没说这 3 年是累计年限还是最近一段,客户没写,不许我编。
+  origin: client
+- id: 专案-02
+  requirement: REQ-D-NPI-PROCESS
+  verbatim: 对新产品报价、样品、转量产做业流程熟知
+  source_text: 资格要求 | 1、电线连接器加工行业产品开发3年以上经验；对新产品报价、样品、转量产做业流程熟知；
+  txt_line: 4
+  tier: essential
+  granularity_decision:
+    status: confirmed_keep
+    why: >-
+      第 4 行后半:顿号连接的是同一个 NPI 流程的三个阶段(报价 → 样品 → 转量产),判定对象是整条流程,
+      不是一个阶段一条要求;而且要求库里只有一条 REQ-D-NPI-PROCESS,拆开只会得到三条同义引用。
+      「；」才是把前后两件事分开的符号 —— 前半已由 专案-01 单独承接,两半不重叠。详见账本 D-专案工程师-01。
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 新产品报价/样品/转量产流程
+    measurable_from_resume: true
+    requirement_reused: false
+  note: >-
+    下游一定判不了:要求库 REQ-D-NPI-PROCESS 是 assessable=false、components 空,
+    只有一个 unlinked_parts(NPI 流程经验)。而且它挂的 gap 号是 P6,而目录的 gaps 只有 P1–P5
+    (我查过 catalogue:['P1','P2','P3','P4','P5'])—— 这个 gap 引用是悬空的,指向一条不存在的缺口说明。
+    这条只能面试问「你做过报价到转量产的全流程吗」。
+    草稿的 llm.measurable_from_resume 写 true,与要求库 assessable=false 矛盾;我以要求库为准,
+    没有改 llm 栏(抽取结果,不在本轮授权内)。
+    客户原文写的是「做业流程」(疑为「作业」的笔误),按规矩照留,没有替客户改字。
+  origin: client
+- id: 专案-03
+  requirement: REQ-E-STRESS
+  verbatim: 抗压能力强
+  source_text: 2、抗压能力强，积极向上，工作细心，谨慎；
+  txt_line: 5
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 抗压能力
+    measurable_from_resume: false
+    requirement_reused: true
+  note: >-
+    「强」是定性词,客户没给阈值,也没有可观察的行为标准 —— 不许编一个「能承受 X 个项目并行」出来。
+    要求库 REQ-E-STRESS 是 no_component=true、assessable=false,E.1 在目录里 prop=None、
+    prop_exists=false,所以简历侧判不了,只能面试或试用期观察。这与草稿的
+    llm.measurable_from_resume=false 一致。
+    第 5 行整句被拆成 03/04/05 三条,三个 verbatim 各自只含自己那一小句,互不重叠,没有重复计分。
+  origin: client
+- id: 专案-04
+  requirement: REQ-E-STRIVING
+  verbatim: 积极向上
+  source_text: 2、抗压能力强，积极向上，工作细心，谨慎；
+  txt_line: 5
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 积极向上
+    measurable_from_resume: false
+    requirement_reused: true
+  note: >-
+    纯定性,客户没写任何可观察的行为。要求库 REQ-E-STRIVING 是 no_component=true、
+    assessable=false,evidence_method 写的就是「面试 / 试用期观察」。
+    措辞提醒:客户的「积极向上」与标准的「奋斗精神」不是同一个词,复用 REQ-E-STRIVING 属于同义归并;
+    归并对不对是人的决定,我只记下归并关系(要求库 id → 客户原话「积极向上」)。
+  origin: client
+- id: 专案-05
+  requirement: REQ-E-CAREFUL
+  verbatim: 工作细心，谨慎
+  source_text: 2、抗压能力强，积极向上，工作细心，谨慎；
+  txt_line: 5
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 细心谨慎
+    measurable_from_resume: false
+    requirement_reused: false
+  note: >-
+    要求库 REQ-E-CAREFUL 的 note 明确写着「合并条目:专案工程师写『细心谨慎』、工程文员写『认真严谨细致』
+    —— 同一件事」,所以这份 JD 的「工作细心，谨慎」正是那条合并条目的出处之一。
+    它是 no_component=true、assessable=false,简历侧判不了。
+    「细心」与「谨慎」之间是逗号,不是顿号/「及」,句读上没有并列结构,按一句读,未拆。
+    草稿的 requirement_reused 写 false,但 REQ-E-CAREFUL 显然是复用(库里已有),这一栏与事实不符 ——
+    我按规矩没有改 requirement/llm 栏,登记在这里等人看。
+  origin: client
+- id: 专案-06
+  requirement: REQ-D-WIRE-EQUIPMENT
+  verbatim: 对电线加工设备：裁线机、端子机、自动机、注塑机、点胶机等功能熟知
+  source_text: 3、对电线加工设备：裁线机、端子机、自动机、注塑机、点胶机等功能熟知并有一定的操作能力；
+  txt_line: 6
+  tier: essential
+  granularity_decision:
+    status: confirmed_keep
+    why: >-
+      第 6 行前半:冒号后的 5 个顿号项是「电线加工设备」的举例,后面还跟着「等」——
+      它们是同一类设备的例示,不是 5 条可分别判定的能力。拆开等于把「等」收窄成穷举清单。
+      要求库 REQ-D-WIRE-EQUIPMENT 也是这么理解的(一条 composite,内部 5 个组件可部分满足)。
+      详见账本 D-专案工程师-02。
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 电线加工设备认知
+    measurable_from_resume: true
+    requirement_reused: false
+  note: >-
+    原话有「等」,这里只点名客户列出的 5 台设备,**没有把「等」扩写成清单**,也没从清单里删项。
+    目录 cv_count(共 277 份简历):裁线机 17 / 端子机 18 / 自动机 10 / 注塑机 17 / 点胶机 2。
+    点胶机只有 2 份,如果 op=holds 要求 5 项全中,这条几乎筛空 —— 是全要还是命中其一,是打分口径,
+    不是本文件能定的。
+    另:本条与 专案-07 指向同一条要求(库把它合成了一条),第 6 行因此被计两次,见 07 的 note。
+  origin: client
+- id: 专案-07
+  requirement: REQ-D-WIRE-EQUIPMENT
+  verbatim: 有一定的操作能力
+  source_text: 3、对电线加工设备：裁线机、端子机、自动机、注塑机、点胶机等功能熟知并有一定的操作能力；
+  txt_line: 6
+  tier: essential
+  granularity_decision:
+    status: confirmed_split
+    why: >-
+      第 6 行的「并」连接的是两件可分开成立的判定:「知道这些设备是什么」(熟知)与「上手会开」
+      (有一定的操作能力)。只见过产线、没独立开过端子机的人只满足前半,所以该拆;
+      拆的动作在本草稿里已经落地(06 + 07)。详见账本 D-专案工程师-03。
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: 电线加工设备操作
+    measurable_from_resume: true
+    requirement_reused: false
+  review:
+    reassigned_from: REQ-D-WIRE-EQUIPMENT-OP
+    reason: >-
+      LLM 原本指向 REQ-D-WIRE-EQUIPMENT-OP,要求库里没有这条(我查过 requirement_library,不存在),
+      所以改指 REQ-D-WIRE-EQUIPMENT。**这次改判没有任何签署记录** —— 原文件这一栏写的是「经人工改判」,
+      而 jd_reviews/专案工程师.yaml 里没有对应条目,等于被审的文件给自己作证,本轮把这句删了。
+  note: >-
+    这条有两个问题,都登记不代改:
+    ① 重复计分:06 与 07 指向同一条要求 REQ-D-WIRE-EQUIPMENT(库的 note 写明它是把「熟知」与
+    「操作」合并成的一条 composite),于是第 6 行在评分里被算两次。要修得合并回一条或新建一条
+    「设备操作」要求,两者都超出本轮授权。
+    ② 单独看不可判:verbatim「有一定的操作能力」脱离了 06 就没有主语(操作什么)。而且简历里出现
+    「端子机」三个字,证明不了会不会开 —— 所以 llm.measurable_from_resume 写 true 我认为站不住,
+    这条实际只能面试问。我没有改 llm 栏(抽取结果,不在本轮授权内)。
+    「有一定的」也是定性词,客户没给「会到什么程度」的标准,不许编。
+  origin: client
+- id: 专案-08
+  requirement: REQ-D-CAD-2D
+  verbatim: CAD二维制图
+  source_text: 4、CAD二维制图、办公软件操作熟练；
+  txt_line: 7
+  tier: essential
+  granularity_decision:
+    status: confirmed_split
+    why: >-
+      第 7 行「4、CAD二维制图、办公软件操作熟练」的顿号连接两项独立技能,一个人可以只会其中一样,
+      该拆;本草稿已拆成 08(CAD)与 09(办公软件),拆的动作已经落地,且两个 verbatim 互不重叠。
+      详见账本 D-专案工程师-04。
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: CAD二维制图
+    measurable_from_resume: true
+    requirement_reused: false
+  note: >-
+    要求库 REQ-D-CAD-2D 是单组件 component holds → skill_AutoCAD,目录 cv_count=75/277,
+    所以这条是这份 JD 里简历侧最容易判、覆盖也最广的硬技能之一。
+    但要注意口径落差:客户写的是「CAD二维制图」这个**能力**,库里连的组件是软件名 AutoCAD。
+    会 AutoCAD 的人大概率能出二维图,但两者不完全等价(用别的软件出二维图的人会被判不满足)。
+    这一层映射是要求库定的,不在本文件。
+  origin: client
+- id: 专案-09
+  requirement: REQ-D-OFFICE
+  verbatim: 办公软件操作熟练
+  source_text: 4、CAD二维制图、办公软件操作熟练；
+  txt_line: 7
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    subject: Office办公软件
+    measurable_from_resume: true
+    requirement_reused: true
+  note: >-
+    这里是复用 REQ-D-OFFICE 的**收窄代价**,要让人看见:客户原话只说「办公软件操作熟练」,
+    一个软件名都没点;而要求库这条是 composite holds → Word / Excel / PowerPoint 三项。
+    于是「Word、Excel 熟但没在简历里写 PPT」的人会被判不满足 —— 这是复用带进来的清单,
+    不是客户写的清单,下游排除人时会看不见这一层。
+    目录 cv_count:Word 55 / Excel 87 / PowerPoint 40(共 277 份)。
+    另:要求库 REQ-D-OFFICE 的 note 讲的是另一份 JD 的原话(「Word/ Excel/ PPT/ AI」),
+    其中的 AI 在这份 JD 里根本没出现,不要把那条注记当成这条的出处。
+    「熟练」没有阈值,客户没给,不许编。
+  origin: client
+excluded: []

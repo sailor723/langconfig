@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_高级招聘专家_东莞_9_14K_李___10年以上
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: f73c310d397dd6ba
+runs:
+  1:
+    output_sha256: 92bd28fb64ddf939
+    chars: 776
+replay_identical: null
+cells:
+  C-01:
+    state: 未知
+    why: 简历未提供年龄信息，无法与25~40岁区间比对
+    quote: null
+  C-02:
+    state: 满足
+    why: 简历载明中央广播电视大学（大专层次）学历，达到大专及以上
+    quote: 中央广播电视大学 AG 。 行政管理 2007-2011
+  C-03:
+    state: 不满足
+    why: 所学专业为行政管理，不在工程类专业白名单内
+    quote: 行政管理
+  C-04:
+    state: 未知
+    why: 简历未提及英语口语或英文8D报告能力
+    quote: null
+  C-05:
+    state: 不满足
+    why: 简历工作经历均为招聘/人力资源方向，无品质管理工作经验
+    quote: 10年的大型企业招聘工作经验，3年招聘团队管理经验
+  C-06:
+    state: 未知
+    why: 简历未提及线束/连接器行业知识
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历未体现品质问题分析改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历未提及接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条无对应数据项，对所有人一样，不给结论
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

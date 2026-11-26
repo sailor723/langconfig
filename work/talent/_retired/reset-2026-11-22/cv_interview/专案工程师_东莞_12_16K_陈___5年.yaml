@@ -1,0 +1,71 @@
+candidate: cand_专案工程师_东莞_12_16K_陈___5年
+channel: 模拟访谈(开发用,未真实进行)
+date: '2026-11-21'
+interviewer: —
+review:
+  joins: false
+  not_in_computation: true
+  drafted_by: ours
+  needs_hr_confirm: true
+  basis_of: 简历复核(cv_facts + 工作段 + cv_quality),**不是访谈** —— 本候选人尚未一面
+  heard: 简历写到他在「使用E3绘制厂内图纸，绘制新零件视图提交入零件库申请」担任「工程师」,该段 30 个月；职责原文:`工程师:1.经理指派责任产品工程师 2.登陆agile查看报价中心输出的QBOM、工时、工模治具以及客户的图纸、认证、包规、环保、测试报告、客户标准等要求
+    3.根据图纸未明确点以及实际可制造性提交DFM 4.收集零件图纸`。
+  basis: 品质岗经历按确定性判据判为 **有**(B 档):职责含硬动作 来料检验,且该段达到 24 个月门槛。 基本条件:年龄 26、学历 大专、总年限 5。
+  reservation: (1) 只有 1 项硬动作(来料检验),证据面窄;是「做过这件事」还是「偶尔碰过」,简历层面分不清。 (2) 简历是 OCR 出来的,命中段可能有错字或串行;面试时要复核原文那句。
+  known_gaps:
+  - JD 逐条判定(REQ-A-AGE-RANGE/REQ-B-EDU-LEVEL/REQ-B-MAJOR/REQ-C-YEARS-DOMAIN/REQ-D-CUSTOMER-AUDIT/REQ-D-HARNESS-DOMAIN/REQ-D-QA-ANALYSIS/REQ-D-QA-TOOLS/REQ-E-COMMUNICATION/REQ-H-LANG-EN):满足
+    6 · 不满足 3 · 不可判 1 —— 共 10 条引用
+  - 本文件没有 answers 段 —— 一面完成后 4a 落盘答案、这里的三段要按访谈重写
+simulated: true
+simulated_note: '本文件 answers 全部是 `basis: simulated` —— 我方按简历与岗位常识推的,不是访谈记录。任何对外场合必须先替换成真实答案。'
+answers:
+- field: F.WORK_LOCATION
+  question: 现在住东莞哪个镇?到厂里通勤方便吗?
+  answer: 住东莞,到厂区通勤约 30 分钟内(模拟补全:按简历城市推断)
+  basis: simulated
+  note: '**模拟答案**:开发/演练用,不是真人说的'
+- field: F.SALARY
+  question: 期望薪资多少?
+  answer: 按现岗上浮 10–15% 可谈(模拟补全:简历未写期望,按同岗带宽估计)
+  basis: simulated
+  note: '**模拟答案**:开发/演练用,不是真人说的'
+- field: F.AVAILABILITY
+  question: 如果录用,多久能到岗?
+  answer: 一个月内(模拟补全:在职,按常规交接期)
+  basis: simulated
+  note: '**模拟答案**:开发/演练用,不是真人说的'
+- field: F.CV_CURRENT_SALARY
+  question: 目前年薪大概多少?
+  answer: 按市场同岗中位估计(模拟补全:简历未写)
+  basis: simulated
+  note: '**模拟答案**:开发/演练用,不是真人说的'
+- field: F.EXP_INDUSTRY
+  question: 之前主要做哪个行业?
+  answer: 制造业(模拟补全:由简历公司产品推断)
+  basis: simulated
+  note: '**模拟答案**:开发/演练用,不是真人说的'
+- field: F.LANGUAGE_LEVEL
+  question: 英语能用吗?书面和口语分别到什么程度?
+  answer: 能读写英文资料,口语可简单交流(模拟补全:按简历技能项估计)
+  basis: simulated
+  note: '**模拟答案**:开发/演练用,不是真人说的'
+- field: F.EXP_ACTIVITY
+  question: 简历上写的那几项工作,实际做到什么程度?能举一个例子吗?
+  answer: 按简历职责可复述一例(模拟补全:未访谈,仅按原文职责概括)
+  basis: simulated
+  note: '**模拟答案**:开发/演练用,不是真人说的'
+- field: F.CV_PROJECTS
+  question: 有没有印象比较深的项目?
+  answer: 按简历职责所述参与过产线/品质改善(模拟补全)
+  basis: simulated
+  note: '**模拟答案**:开发/演练用,不是真人说的'
+- field: F.CV_TRAININGS
+  question: 参加过哪些培训?有证书吗?
+  answer: 按简历证书项(模拟补全)
+  basis: simulated
+  note: '**模拟答案**:开发/演练用,不是真人说的'
+- field: F.EDU_FULLTIME
+  question: 学历是全日制还是在职读的?
+  answer: 按简历起止推断(模拟补全)
+  basis: simulated
+  note: '**模拟答案**:开发/演练用,不是真人说的'

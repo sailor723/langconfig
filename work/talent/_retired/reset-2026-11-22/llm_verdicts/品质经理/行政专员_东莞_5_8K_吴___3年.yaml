@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_行政专员_东莞_5_8K_吴___3年
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 66bb6ee4afc9e198
+runs:
+  1:
+    output_sha256: 24d19e50f4f12962
+    chars: 799
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 客户要求25~40岁，简历候选人38岁，在区间内
+    quote: 年龄：25 ~ 40岁
+  C-02:
+    state: 满足
+    why: 客户要求大专及以上，简历为广东理工职业学院专科，学历达标
+    quote: 学历：大专及以上学历
+  C-03:
+    state: 不满足
+    why: 简历专业为行政管理，不在机电/电子/自动化/工业工程/机械工程白名单内
+    quote: 专业：行政管理
+  C-04:
+    state: 未知
+    why: 简历未体现英语口语熟练及独立书写英文8D报告的能力
+    quote: null
+  C-05:
+    state: 未知
+    why: 简历工作经历均为行政专员，未见3年以上品质管理工作经验
+    quote: null
+  C-06:
+    state: 未知
+    why: 简历未体现线束/连接器行业相关产品认知
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历未体现品质问题分析、改善能力
+    quote: null
+  C-08:
+    state: 满足
+    why: 简历多次体现6S管理经验，命中至少1项品质工具
+    quote: '6S 环境管理: 制定办公及厂区 6S 标准'
+  C-09:
+    state: 满足
+    why: 简历有客户接待及配合客户审厂经验
+    quote: 配合内审、第三方及客户审厂
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样，不给结论
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

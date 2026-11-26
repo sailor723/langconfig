@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_何___36岁_行政专员_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 1db06e1dc53a05de
+runs:
+  1:
+    output_sha256: f42e17b562582984
+    chars: 836
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历年龄36岁，落在客户要求的25~40岁区间内
+    quote: 年龄：25 ~ 40岁
+  C-02:
+    state: 满足
+    why: 简历学历为大专，达到大专及以上要求
+    quote: 学历：大专及以上学历
+  C-03:
+    state: 不满足
+    why: 简历专业为武警指挥学院相关，未命中工程类专业白名单
+    quote: 专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业
+  C-04:
+    state: 未知
+    why: 简历未体现英语口语及英文8D报告能力信息
+    quote: 语言：英语口语熟练及具备独立书写英文8D报告的能力
+  C-05:
+    state: 不满足
+    why: 简历工作经历为行政专员，无品质管理相关经验
+    quote: 3年以上品质管理工作经验
+  C-06:
+    state: 未知
+    why: 简历未体现线束行业相关知识
+    quote: 熟识线束行业相关产品
+  C-07:
+    state: 不满足
+    why: 简历无品质问题分析改善能力相关证据
+    quote: 具备品质问题分析、改善的能力
+  C-08:
+    state: 满足
+    why: 简历提到5S/6S稽查，命中6S工具至少一项
+    quote: 懂QC七大手法、5WHY、SPC、CPK、6S工具
+  C-09:
+    state: 未知
+    why: 简历未体现接待客户验厂经验
+    quote: 具备接待客户验厂经验
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

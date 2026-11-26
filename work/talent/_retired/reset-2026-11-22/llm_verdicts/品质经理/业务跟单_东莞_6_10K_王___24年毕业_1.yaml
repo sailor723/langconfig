@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_业务跟单_东莞_6_10K_王___24年毕业_1
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: b6a5f1fc6acf2296
+runs:
+  1:
+    output_sha256: f3f000a23495e3e6
+    chars: 827
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 客户要求25~40岁，简历年龄33岁，在区间内
+    quote: 年龄：25 ~ 40岁
+  C-02:
+    state: 满足
+    why: 客户要求大专及以上，简历为本科学位，学历达标
+    quote: 安徽工业大学 | 英语专业 | 本科学位
+  C-03:
+    state: 不满足
+    why: 简历专业为英语，不属于机电/电子/自动化/工业工程/机械等工程类专业
+    quote: 安徽工业大学 | 英语专业 | 本科学位
+  C-04:
+    state: 满足
+    why: 简历有CET-4/CET-6体现英语能力，但8D报告无证据，按本体1/2结论满足
+    quote: 大学英语四级《CET-4) | 大学英语六级 〈CTE-6)
+  C-05:
+    state: 满足
+    why: 简历有2年销售及跟单经验，本体按>=3 vs 4判满足
+    quote: 2 年精密铸件销售经验
+  C-06:
+    state: 不满足
+    why: 简历无任何线束/连接器行业知识证据
+    quote: null
+  C-07:
+    state: 不满足
+    why: 简历无品质问题分析改善能力证据
+    quote: null
+  C-08:
+    state: 满足
+    why: 口径为命中至少1项，本体按1/5判满足
+    quote: null
+  C-09:
+    state: 不满足
+    why: 简历无客户验厂接待经验证据
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条属性/组件未建，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

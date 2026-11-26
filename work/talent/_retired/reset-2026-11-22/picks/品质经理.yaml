@@ -1,0 +1,73 @@
+jd: 品质经理
+step: 6 选人(最多 4)
+pool:
+  kind: target
+  size: 5
+  meaning: 第 5 步目标名单(5~8 人)
+order:
+- 满足 desc
+- 未知 asc
+- 不满足 asc
+- id
+interview_policy:
+  mode: mock_allowed
+  source: interview_policy.yaml · 品质经理 · admin 2026-11-20
+  decided_by: admin
+  decided_at: '2026-11-20'
+count:
+  shortlist: 5
+  excluded: 115
+  with_interview: 3
+  with_real_interview: 0
+  with_mock_only: 3
+  judgeable_requirements: 9
+  total_requirements: 10
+top:
+- rank: 1
+  candidate: cand_专案工程师_东莞_11_16K_杨___7年
+  满足: 9
+  不满足: 0
+  未知: 0
+  不可判: 1
+  有访谈: false
+  数据来源: 简历
+  真访谈条数: 0
+  模拟条数: 0
+  第3步: 短名单
+  阻塞: ''
+- rank: 2
+  candidate: cand_专案工程师_东莞_12_16K_陈___5年
+  满足: 8
+  不满足: 0
+  未知: 1
+  不可判: 1
+  有访谈: true
+  数据来源: 模拟(演练)
+  真访谈条数: 0
+  模拟条数: 10
+  第3步: 短名单
+  阻塞: ''
+- rank: 3
+  candidate: cand_李___40岁_管理课课长_智通简历_编号
+  满足: 7
+  不满足: 2
+  未知: 0
+  不可判: 1
+  有访谈: true
+  数据来源: 模拟(演练)
+  真访谈条数: 0
+  模拟条数: 10
+  第3步: 短名单
+  阻塞: ''
+- rank: 4
+  candidate: cand_陈___29岁_副总助理_智通简历_编号
+  满足: 4
+  不满足: 5
+  未知: 0
+  不可判: 1
+  有访谈: true
+  数据来源: 模拟(演练)
+  真访谈条数: 0
+  模拟条数: 10
+  第3步: 短名单
+  阻塞: ''

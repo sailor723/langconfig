@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_行政专员_东莞_7_9K_陈___10年以上
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 405aad3385e8df36
+runs:
+  1:
+    output_sha256: 67a09b96e0ecb54d
+    chars: 849
+replay_identical: null
+cells:
+  C-01:
+    state: 未知
+    why: 简历OCR未出现出生日期或年龄信息，无法核对25~40岁区间
+    quote: null
+  C-02:
+    state: 满足
+    why: 简历教育背景明确写有“大专”，达到大专及以上要求
+    quote: 大专/ 商务管理
+  C-03:
+    state: 不满足
+    why: 简历专业为商务管理，不属于机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业
+    quote: 大专/ 商务管理
+  C-04:
+    state: 未知
+    why: 简历仅提到英语B级，未体现英语口语熟练及独立书写英文8D报告的能力
+    quote: 英语 B级
+  C-05:
+    state: 未知
+    why: 简历工作经历为行政专员约4年，未见品质管理工作经验年限
+    quote: null
+  C-06:
+    state: 未知
+    why: 简历未出现线束或连接器行业相关知识或经历
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历未体现品质问题分析、改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历有接待工作描述，但未明确为客户验厂接待经验
+    quote: '接待工作: 根据接待细节考虑，布置场地，内外部安排，现场调节，协助。'
+  C-10:
+    state: 未知
+    why: 简历自述“善于沟通”，但无明确证据支持良好的沟通、协调能力
+    quote: 善于沟通、为人订蛙、考虑问题全面
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

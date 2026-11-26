@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_业务跟单_东莞_6_10K_李___4年
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: c85028836d965c06
+runs:
+  1:
+    output_sha256: cbadc2f98eb264a5
+    chars: 1155
+replay_identical: null
+cells:
+  C-01:
+    state: 未知
+    why: 简历OCR中未出现年龄信息，无法判断是否在25~40岁区间。
+    quote: null
+  C-02:
+    state: 满足
+    why: 教育经历显示长沙环境保护职业技术学院（大专层次），符合大专及以上学历要求。
+    quote: 长沙环境保护职业技术学院 AG 酒店管理 2019-2022
+  C-03:
+    state: 不满足
+    why: 所学专业为酒店管理，不属于机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业。
+    quote: 长沙环境保护职业技术学院 AG 酒店管理
+  C-04:
+    state: 未知
+    why: 简历仅有英语三级证书，未体现英语口语熟练及独立书写英文8D报告的能力。
+    quote: 英语三级证书
+  C-05:
+    state: 不满足
+    why: 工作经历为业务跟单和酒店收银，无品质管理工作经验，不满足3年以上品质管理经验。
+    quote: 深圳中恒检测技术有限公司 weirs 2023.09-2025.10 ... 湖南运达酒店管理有限公司长沙运达喜来登酒店 收银 2022.08-2023.08
+  C-06:
+    state: 不满足
+    why: 简历中无任何线束/连接器行业相关经历或知识描述。
+    quote: null
+  C-07:
+    state: 未知
+    why: 个人优势提到善于发现问题、解决问题，但未明确体现品质问题分析改善能力。
+    quote: 善于在工作中发现问题，解决问题
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具。
+    quote: null
+  C-09:
+    state: 不满足
+    why: 简历中无接待客户验厂经验的相关描述。
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样，不可给结论。
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

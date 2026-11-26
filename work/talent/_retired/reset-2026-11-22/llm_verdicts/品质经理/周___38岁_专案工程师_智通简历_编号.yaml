@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_周___38岁_专案工程师_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 126d573c67485aae
+runs:
+  1:
+    output_sha256: 30a71210ee27c15b
+    chars: 689
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示38岁，在25~40岁区间内
+    quote: 男|38岁
+  C-02:
+    state: 未知
+    why: 简历未提及学历信息
+    quote: null
+  C-03:
+    state: 未知
+    why: 简历未提及专业信息
+    quote: null
+  C-04:
+    state: 未知
+    why: 简历未提及英语口语或8D报告能力
+    quote: null
+  C-05:
+    state: 未知
+    why: 简历未提及品质管理工作经验
+    quote: null
+  C-06:
+    state: 满足
+    why: 简历明确从事线材线束行业十多年，具备线束行业知识
+    quote: 本人从事线材 线束行业十多年
+  C-07:
+    state: 未知
+    why: 简历未提及品质问题分析改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历未提及客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该要求无对应数据项，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

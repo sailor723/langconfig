@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_业务跟单_东莞_6_10K_李___1年
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: ac5acd1fd5caf5be
+runs:
+  1:
+    output_sha256: 5396eec886e025ed
+    chars: 841
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 客户要求25~40岁，候选人33岁，在区间内
+    quote: 年龄：25 ~ 40岁
+  C-02:
+    state: 满足
+    why: 要求大专及以上，候选人最高学历为大专，达到阈值
+    quote: '最高学历 : 大专'
+  C-03:
+    state: 不满足
+    why: 候选人专业为商务英语，不在工程类专业白名单内
+    quote: 商务英语 | KS
+  C-04:
+    state: 不满足
+    why: 要求英语口语熟练及独立书写英文8D报告，候选人自述口语偏弱且无8D报告证据
+    quote: 口语偏弱
+  C-05:
+    state: 不满足
+    why: 要求3年以上品质管理经验，候选人无品质管理从业经历，仅有外贸跟单与教师经历
+    quote: 外贸跟单 | 印刷/文体用品制造、造纸制造
+  C-06:
+    state: 不满足
+    why: 要求熟识线束行业产品，简历无任何线束/连接器行业经历
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历未体现品质问题分析改善能力，无相关证据
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 不满足
+    why: 要求客户验厂接待经验，简历仅有来访接待，无验厂经验
+    quote: 客户日常维护与来访接待
+  C-10:
+    state: 不可判
+    why: 该条为软性能力项，本体未建数据项，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

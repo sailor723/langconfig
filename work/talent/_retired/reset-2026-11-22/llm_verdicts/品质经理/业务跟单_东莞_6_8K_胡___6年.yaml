@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_业务跟单_东莞_6_8K_胡___6年
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 9ede09bee30ce504
+runs:
+  1:
+    output_sha256: 4f1c1f9307de4175
+    chars: 785
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历出生年月1997.05，年龄约28岁，落在25~40区间内
+    quote: '出生年月 : 1997.05'
+  C-02:
+    state: 满足
+    why: 简历学历为本科，高于大专及以上要求
+    quote: '学 BH: 本科'
+  C-03:
+    state: 未知
+    why: 简历未提及专业信息，无法判断是否属于工程类专业
+    quote: null
+  C-04:
+    state: 未知
+    why: 简历仅显示英语四级，未体现英语口语熟练及独立书写英文8D报告能力
+    quote: 英语四级
+  C-05:
+    state: 不满足
+    why: 工作经历均为业务助理/销售助理，无品质管理工作经验
+    quote: 东莞市悦势电子有限公司           业务助理
+  C-06:
+    state: 未知
+    why: 简历未提及线束行业相关知识或经验
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历未体现品质问题分析、改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 不满足
+    why: 简历无接待客户验厂经验的相关描述
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

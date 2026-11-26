@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_业务跟单_东莞_6_10K_吴___23年毕业
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: a6cf7a162e040328
+runs:
+  1:
+    output_sha256: d2691456493e4ecf
+    chars: 818
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历出生年月2000.03，按2026年计约26岁，落在25~40岁区间内
+    quote: '出生年月: 2000.03'
+  C-02:
+    state: 满足
+    why: 简历学历为本科，高于大专及以上要求
+    quote: '学历: 本科-广东科技学院'
+  C-03:
+    state: 不满足
+    why: 简历专业为软件工程/软件技术，不在工程类专业白名单内
+    quote: 软件工程 | 本科
+  C-04:
+    state: 未知
+    why: 简历未提及英语口语水平或独立书写英文8D报告的能力
+    quote: null
+  C-05:
+    state: 不满足
+    why: 简历工作经历为订单管理员，无品质管理工作经验，不满足3年以上品质管理年限
+    quote: 上海首丰精密仪器有限公司 (东莞办事处) 订单管理员
+  C-06:
+    state: 未知
+    why: 简历未提及线束/连接器行业相关知识或经验
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历未体现品质问题分析与改善能力，仅有客诉协助处理
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历未提及接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样，不给结论
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

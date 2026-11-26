@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_设计助理工程师_东莞_7_10K_卢___4年
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 21c68fb771605590
+runs:
+  1:
+    output_sha256: 6f003696ed5cb3cb
+    chars: 795
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历年龄25岁，落在25~40岁区间内
+    quote: '年龄: 25'
+  C-02:
+    state: 满足
+    why: 简历为本科学历，高于大专及以上要求
+    quote: 土木工程 | 本科
+  C-03:
+    state: 不满足
+    why: 专业为土木工程，不在机电/电子/自动化/工业工程/机械工程白名单内
+    quote: 土木工程 | 本科
+  C-04:
+    state: 未知
+    why: 简历仅显示大学英语四级，未体现英语口语熟练及独立书写英文8D报告能力
+    quote: 大学英语四级
+  C-05:
+    state: 不满足
+    why: 工作经历均为研发工程师/助理，无品质管理工作经验
+    quote: 充电枪研发工程师/高压线束研发工程师
+  C-06:
+    state: 满足
+    why: 简历有高压线束、充电枪研发经历，体现线束行业认知
+    quote: 高压线束研发工程师
+  C-07:
+    state: 未知
+    why: 简历未体现品质问题分析与改善能力，仅有研发问题排查
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历未提及接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

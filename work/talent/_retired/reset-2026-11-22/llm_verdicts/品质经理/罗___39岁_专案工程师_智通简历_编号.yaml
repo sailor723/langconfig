@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_罗___39岁_专案工程师_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: cf83c0915c734473
+runs:
+  1:
+    output_sha256: f05ebefa0b14abca
+    chars: 810
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示39岁，落在25~40岁区间内
+    quote: 男 | 39岁
+  C-02:
+    state: 满足
+    why: 简历学历为大专，满足大专及以上要求
+    quote: 大专
+  C-03:
+    state: 未知
+    why: 简历未明确写出专业名称，无法确认是否属于限定工程类专业
+    quote: null
+  C-04:
+    state: 未知
+    why: 简历仅写英语听说读写能力，未提及独立书写英文8D报告能力
+    quote: '英语: 听说能力  读写能力'
+  C-05:
+    state: 未知
+    why: 简历工作经历均为工程/研发/PE类，未明确体现3年以上品质管理工作经验
+    quote: null
+  C-06:
+    state: 满足
+    why: 简历多段线材/线束开发经历，体现线束行业认知
+    quote: 公司主要是做车载线束的
+  C-07:
+    state: 满足
+    why: 简历有产线不良产品异常分析及改善经历，体现品质问题分析改善能力
+    quote: 产线不良产品异常分析及改善
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历未提及接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

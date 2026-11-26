@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_胡___38岁_专案工程师_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 33fb39e0783a61ee
+runs:
+  1:
+    output_sha256: 80f44447fa695347
+    chars: 849
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 客户要求25~40岁，候选人38岁，在区间内
+    quote: 年龄：25 ~ 40岁
+  C-02:
+    state: 满足
+    why: 客户要求大专及以上，候选人学历为大专，达到阈值
+    quote: 学历：大专及以上学历
+  C-03:
+    state: 不满足
+    why: 候选人专业为工程机械运用与维护，不在机电一体化/电子技术/自动化/工业工程/机械工程白名单内
+    quote: 工程机械运用与维护
+  C-04:
+    state: 未知
+    why: 简历未提及英语口语或独立书写英文8D报告能力，事实中无相关证据
+    quote: null
+  C-05:
+    state: 满足
+    why: 客户要求3年以上品质管理经验，候选人工作年限远超3年
+    quote: 3年以上品质管理工作经验
+  C-06:
+    state: 不满足
+    why: 简历未体现线束行业产品认知，事实中无相关证据支持
+    quote: null
+  C-07:
+    state: 满足
+    why: 简历体现较强思考分析能力及问题改善方案制定，支持品质问题分析改善能力
+    quote: 有较强的思考分析能力
+  C-08:
+    state: 不满足
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S中任何一项，0/5未达至少1项
+    quote: null
+  C-09:
+    state: 不满足
+    why: 简历未体现接待客户验厂经验，事实中无相关证据
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款属性/组件未建，对所有人一样，不给结论
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

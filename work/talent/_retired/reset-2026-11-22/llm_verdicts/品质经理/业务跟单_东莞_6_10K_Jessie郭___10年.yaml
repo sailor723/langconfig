@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_业务跟单_东莞_6_10K_Jessie郭___10年
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: bd3561416ac28386
+runs:
+  1:
+    output_sha256: 73776a8a2614ce41
+    chars: 836
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 客户要求25~40岁，简历候选人34岁，在区间内
+    quote: 年龄：25 ~ 40岁
+  C-02:
+    state: 满足
+    why: 客户要求大专及以上，简历为大专学历，达到阈值
+    quote: 江西服装学院 大专 服装艺术设计
+  C-03:
+    state: 不满足
+    why: 简历专业为服装艺术设计，未命中工程类专业白名单
+    quote: 服装艺术设计
+  C-04:
+    state: 满足
+    why: 简历体现英语口语与独立书写英文8D报告能力，2/2命中
+    quote: 整理出专业的 8D 报告并翻译成全英文
+  C-05:
+    state: 满足
+    why: 简历有约10年工作经验，超过3年品质管理要求
+    quote: 10 年工作经验
+  C-06:
+    state: 满足
+    why: 简历涉及电子连接器/线束相关产品跟单，命中线束行业知识
+    quote: 联基电子实业有限公司 外贸业助跟单
+  C-07:
+    state: 满足
+    why: 简历体现客诉处理与品质问题分析改善能力
+    quote: 与品检 工程 一起探讨开会及时整理出专业的 8D 报告
+  C-08:
+    state: 满足
+    why: 简历体现8D/客诉分析等品质工具，命中至少1项
+    quote: 整理出专业的 8D 报告
+  C-09:
+    state: 不满足
+    why: 简历无客户验厂接待经验，0/1
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款属性/组件未建，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

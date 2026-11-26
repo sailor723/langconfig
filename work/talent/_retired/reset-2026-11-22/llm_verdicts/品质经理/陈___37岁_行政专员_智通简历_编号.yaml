@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_陈___37岁_行政专员_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 14c58a09f34bce85
+runs:
+  1:
+    output_sha256: 853a097fde334e34
+    chars: 755
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示37岁，落在25~40岁区间内
+    quote: '37'
+  C-02:
+    state: 满足
+    why: 学历为大专，满足大专及以上要求
+    quote: 大专
+  C-03:
+    state: 不满足
+    why: 专业为工商企业管理，不在工程类专业白名单内
+    quote: 工商企业管理
+  C-04:
+    state: 不满足
+    why: 简历未体现英语口语熟练及独立书写英文8D报告能力
+    quote: null
+  C-05:
+    state: 不满足
+    why: 工作经验均为行政/总务类，无品质管理领域年限
+    quote: null
+  C-06:
+    state: 未知
+    why: 简历未提及线束/连接器行业相关知识
+    quote: null
+  C-07:
+    state: 不满足
+    why: 简历未体现品质问题分析改善能力
+    quote: null
+  C-08:
+    state: 不满足
+    why: 仅提及5S，未命中QC七大手法、SPC、CPK、6S、5WHY任一项
+    quote: 推行5S现场管理制度
+  C-09:
+    state: 不满足
+    why: 仅接待环保安监消防等政府部门，无客户验厂经验
+    quote: 接待环保、安监、消防等政府部门的巡查与调研工作
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

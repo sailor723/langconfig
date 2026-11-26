@@ -1,0 +1,24 @@
+candidate: cand_专案工程师_东莞_10_15K_徐___1年以内
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  age:
+    value: 44
+    basis: mock
+    rule: 年龄:28 + 均匀取 0..18 → 28~46 岁
+    seed: 0.863413
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+  major:
+    value: 自动化
+    basis: mock
+    rule: 专业:60% 落在客户点名的 5 个词里,40% 给「工商管理」
+    seed: 0.50975
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+  yearsStated:
+    value: 4
+    basis: mock
+    rule: 声明年限:与总年限同分布 3~15 年
+    seed: 0.108785
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components: {}

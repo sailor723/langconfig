@@ -1,0 +1,11 @@
+candidate: cand_吴___44岁_专案工程师_智通简历_编号
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props: {}
+components:
+  skill_客户验厂:
+    held: true
+    basis: mock
+    rule: 按 25% 概率抽中(seed=0.191627)
+    note: 模拟值,不是事实

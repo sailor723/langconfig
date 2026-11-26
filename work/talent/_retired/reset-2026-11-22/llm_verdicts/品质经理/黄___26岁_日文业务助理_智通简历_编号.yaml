@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_黄___26岁_日文业务助理_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 7e6832076988d8e4
+runs:
+  1:
+    output_sha256: 267a9de16b5ded78
+    chars: 847
+replay_identical: null
+cells:
+  C-01:
+    state: 未知
+    why: 简历OCR显示年龄126岁，与25~40岁区间不符，但OCR明显异常，无法作为明确否定证据
+    quote: 女126岁
+  C-02:
+    state: 满足
+    why: 教育经历明确为大专，符合大专及以上学历要求
+    quote: 大专' 全日制 ”日语
+  C-03:
+    state: 不满足
+    why: 专业为日语，未命中机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业白名单
+    quote: 大专' 全日制 ”日语
+  C-04:
+    state: 未知
+    why: 简历仅体现日语能力，未提及英语口语或英文8D报告能力
+    quote: '日语: 听说能力  读写能力'
+  C-05:
+    state: 未知
+    why: 工作经历为日语翻译，未明确体现3年以上品质管理工作经验
+    quote: 部品品质管理部门日语翻译 - 5年1月
+  C-06:
+    state: 未知
+    why: 简历未提及线束/连接器行业相关知识
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历未明确体现品质问题分析、改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历未提及接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样，不可给结论
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

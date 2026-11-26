@@ -1,0 +1,17 @@
+candidate: cand_外贸业务员_东莞_5_10K_奉___2年
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  yearsStated:
+    value: 6
+    basis: mock
+    rule: 声明年限:与总年限同分布 3~15 年
+    seed: 0.290012
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_客户验厂:
+    held: true
+    basis: mock
+    rule: 按 25% 概率抽中(seed=0.246798)
+    note: 模拟值,不是事实

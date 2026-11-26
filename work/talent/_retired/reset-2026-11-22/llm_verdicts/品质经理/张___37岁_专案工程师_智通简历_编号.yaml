@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_张___37岁_专案工程师_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: ecb2280e5df7e570
+runs:
+  1:
+    output_sha256: 0df399190abfd882
+    chars: 884
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示37岁，落在25~40岁区间内
+    quote: 男|37岁
+  C-02:
+    state: 满足
+    why: 简历学历为大专，达到大专及以上要求
+    quote: 大专 ' 非全日制，机电一体化技术
+  C-03:
+    state: 满足
+    why: 专业为机电一体化技术，命中限定专业列表
+    quote: 机电一体化技术
+  C-04:
+    state: 不满足
+    why: 简历未体现英语口语熟练或独立书写英文8D报告能力，0/2项
+    quote: null
+  C-05:
+    state: 满足
+    why: 品质管理相关经验累计约4年，达到3年以上要求
+    quote: 3年1月
+  C-06:
+    state: 满足
+    why: 简历明确涉及线束新项目开发工艺设计，具备线束行业认知
+    quote: 负责汽车事业部FAKAR线束新项目开发工艺设计和验证
+  C-07:
+    state: 满足
+    why: 简历体现产线异常分析改善及客户投诉问题改善能力
+    quote: 产线产品生产异常处理，进行分析，改善，优化生产流程提升生产效率和品质
+  C-08:
+    state: 满足
+    why: 简历提及PFMEA、SPC相关工艺参数及IATF16949体系培训，命中至少1项品质工具
+    quote: 输出工艺文件PFEMA/SOP/过程流程图 相关工艺参数表
+  C-09:
+    state: 满足
+    why: 简历明确有客户制程模块审核及客户审核问题点跟进经验
+    quote: 负责客户制程模块审核，和客户审核问题点跟进
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样，不给结论
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

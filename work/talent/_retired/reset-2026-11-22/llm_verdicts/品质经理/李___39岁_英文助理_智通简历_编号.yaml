@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_李___39岁_英文助理_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 416134f2d1eeaf99
+runs:
+  1:
+    output_sha256: c3e5257c2c579265
+    chars: 882
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示39岁，落在25~40岁区间内
+    quote: 女 | 398     本科     13年
+  C-02:
+    state: 满足
+    why: 简历为本科，高于大专及以上要求
+    quote: 本科 英语专业
+  C-03:
+    state: 不满足
+    why: 专业为英语教育，未命中机电/电子/自动化/工业工程/机械工程等工程类专业白名单
+    quote: 我毕业于广西师范学院，专业是英语教育
+  C-04:
+    state: 满足
+    why: 简历明确英语听说读写精通，具备英语口语能力
+    quote: '英语: 听说能力 精通| «= 读写能力 |精通'
+  C-05:
+    state: 满足
+    why: 13年工作经验，其中品质相关对接与投诉处理经验超过3年
+    quote: 女 | 398     本科     13年
+  C-06:
+    state: 不满足
+    why: 简历无任何线束/连接器行业相关经历或知识描述
+    quote: null
+  C-07:
+    state: 不满足
+    why: 简历仅有处理品质投诉的跟单职责，无品质问题分析改善能力描述
+    quote: 跟进客户的报价，样品，大货出货，接待验货和处理品质投诉。
+  C-08:
+    state: 满足
+    why: 简历未直接列出品质工具，但本体已按命中口径判定满足
+    quote: null
+  C-09:
+    state: 不满足
+    why: 简历仅有接待客户/验货经验，无客户验厂经验描述
+    quote: 接待客户，并完成营业交代的任务
+  C-10:
+    state: 不可判
+    why: 该条为软性能力项，数据项未建，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

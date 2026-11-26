@@ -1,0 +1,206 @@
+template: 共用骨架(经理岗 / 员工岗 都继承)
+note: 'S1 岗位标识(含 S1.11 岗位类别)/ S7 元数据 / S8 合规声明 —— 与岗位级别无关。
+
+  必须抽成一份:抄两份必然分叉,现有 render_jd_final(42 条)与 jd_input_form(29 条)的分叉就是这么来的。'
+sections:
+- code: S1
+  title: 岗位标识
+  fields:
+  - code: S1.01
+    label: 职务名称
+    level: C
+    owner: business
+    why: 只影响文档识别;渲染时可用文件名兜底,缺了不会让匹配算错,但跨文档引用会对不上号
+    how: 填岗位通用名,不带「职务说明书」四字,例:品质经理
+    shape: text
+    level_basis: 渲染层有文件名兜底,缺它不改变任何招聘判断,故归归档级
+  - code: S1.02
+    label: 文件编号
+    level: C
+    owner: hr
+    why: 归档用;缺了不影响匹配,只影响文件追溯
+    how: 例:QC-JD-2026-003
+    shape: text
+    level_basis: SPEC
+  - code: S1.03
+    label: 版本
+    level: C
+    owner: hr
+    why: 只影响版本追溯;缺了判断不出现看到的是不是最新一版,但不改变任何招聘判断
+    how: 例:A0 / A1(首次发行写 A0)
+    shape: text
+    level_basis: 与同为归档级的 S1.02 文件编号同性质 —— 只影响文档追溯,不进招聘判断
+  - code: S1.04
+    label: 页数
+    level: C
+    owner: hr
+    why: 纯文档完整性;缺了唯一的后果是打印装订时不知道印几页
+    how: 例:2
+    shape: number
+    level_basis: 纯文档完整性字段,对招聘判断零影响,是 C 级里最典型的一条
+  - code: S1.05
+    label: 核准/审核/制订
+    level: C
+    owner: hr
+    why: 归档用;缺了不知道这份 JD 谁签过,但不影响候选人匹配
+    how: 例:核准 张三 / 审核 李四 / 制订 王五
+    shape: text
+    level_basis: SPEC
+  - code: S1.06
+    label: 隶属部门
+    level: B
+    owner: business
+    why: 缺了匹配照样能算,但解释不了这个岗归谁管、跨部门协作对象是谁,内部调配时也判断不了是否同一条线
+    how: 填组织图上的部门名,例:品保课 / 生产部
+    shape: text
+    level_basis: 匹配不依赖它,但组织归属决定「为什么这个岗要这样的人」讲不讲的清,故 B 而非 A
+  - code: S1.07
+    label: 直接上司
+    level: B
+    owner: business
+    why: 缺了判断不了汇报线与决策链,也说不出这个岗有多大实权;面试时无法核对候选人能否适应这一层上级
+    how: 填岗位名称与汇报对象,例:品质经理 直接向 厂长 汇报
+    shape: text
+    level_basis: 它决定实权与决策链(解释力强),但不是候选人自评的必需要素,匹配仍可算,故 B
+  - code: S1.08
+    label: 直接下属
+    level: B
+    owner: business
+    why: 缺了分不清这是管理岗还是执行岗,带不带团队直接影响候选人投不投;但职责条目通常已透露,不是唯一来源
+    how: 填人数与岗位,例:无 / 3 人(2 名 IQC、1 名文员)
+    shape: text
+    level_basis: 带不带人很重要,但 S4.01 职责条目已能间接反映,它是确认而非唯一来源,故 B
+  - code: S1.09
+    label: 职业编码
+    level: B
+    owner: hr
+    why: 跨岗比较与外部标准对齐需要它
+    how: 人社部《职业分类大典》6-08-xx-xx
+    shape: text
+    level_basis: SPEC
+  - code: S1.10
+    label: 职级
+    level: B
+    owner: hr
+    why: 职级决定薪酬带宽与晋升路径
+    how: 例:P6 / 5职等
+    shape: text
+    level_basis: SPEC
+  - code: S1.11
+    label: 岗位类别
+    level: A
+    owner: business
+    why: 它决定用哪份模板 —— 按名字猜会错:品质经理原文写「直接下属:无」,按名字套经理模板就会问一堆管理幅度和预算的空问题
+    how: 经理岗 / 员工岗(判据:有没有直接下属)
+    shape: enum
+    level_basis: 设计稿 §0:判定规则必须字段驱动
+- code: S7
+  title: 元数据
+  fields:
+  - code: S7.01
+    label: 修订履历
+    level: C
+    owner: hr
+    why: 只影响版本追溯;缺了看不出这份 JD 改过几次、改了什么,不影响任何招聘判断
+    how: 例:A0 2026-11-01 首次发行 / A1 2026-12-10 增加班制
+    shape: list
+    level_basis: 与同节 S7.03 发布日期同为版本追溯项,SPEC 已把发布日期定为 C,同类项保持一致
+  - code: S7.02
+    label: 首次发行日
+    level: C
+    owner: hr
+    why: 只用于判断这份 JD 有多旧;缺了不影响匹配,过期风险另由 S7.04 有效期兜住
+    how: 例:2026-11-01
+    shape: date
+    level_basis: 与 S7.03 发布日期同性质(SPEC 定为 C),且过期风险已由 S7.04 有效期覆盖
+  - code: S7.03
+    label: 发布日期
+    level: C
+    owner: hr
+    why: 归档用
+    how: 例:2026-11-01
+    shape: date
+    level_basis: SPEC
+  - code: S7.04
+    label: 有效期
+    level: C
+    owner: hr
+    why: 归档用
+    how: 例:2026-12-31
+    shape: date
+    level_basis: SPEC
+  - code: S7.05
+    label: 编制/招聘人数
+    level: B
+    owner: business
+    why: 招几个决定名单要多长
+    how: 例:2人
+    shape: number
+    level_basis: SPEC
+  - code: S7.06
+    label: 招聘原因
+    level: C
+    owner: business
+    why: 背景信息;缺了不影响匹配,只影响后续走扩编还是替补的审批口径
+    how: 扩编 / 替补 / 新增业务
+    shape: enum
+    level_basis: SPEC
+  - code: S7.07
+    label: 发布渠道
+    level: C
+    owner: hr
+    why: 渠道影响后续发布
+    how: 例:智通 / BOSS直聘
+    shape: list
+    level_basis: SPEC
+- code: S8
+  title: 合规声明
+  fields:
+  - code: S8.01
+    label: 保密/数据保密
+    level: A
+    owner: business
+    why: 保密要求属于 G 维合规约束 —— 不填就判不了,而这一条常是硬性的
+    how: 不涉及 / 需签保密协议
+    shape: enum
+    level_basis: SPEC
+  - code: S8.02
+    label: 无犯罪/无行政处罚
+    level: A
+    owner: business
+    why: 同上
+    how: 不涉及 / 需提供无犯罪记录证明
+    shape: enum
+    level_basis: SPEC
+  - code: S8.03
+    label: 竞业限制
+    level: C
+    owner: business
+    why: 竞业限制;缺了不影响匹配,只影响入职时是否需要另走一份协议
+    how: 不涉及 / 有(写明年限与范围),例:不涉及
+    shape: enum
+    level_basis: SPEC
+  - code: S8.04
+    label: 用工类型
+    level: B
+    owner: hr
+    why: 用工类型(正式/派遣/外包)决定合同与社保
+    how: 正式 / 派遣 / 外包 / 实习
+    shape: enum
+    level_basis: SPEC
+  - code: S8.05
+    label: 试用期
+    level: B
+    owner: hr
+    why: 试用期长度;缺了候选人无法判断试错成本,也定不了考核节点
+    how: 无 / 1个月 / 3个月 / 6个月
+    shape: enum
+    level_basis: SPEC
+  - code: S8.06
+    label: 社保
+    level: B
+    owner: hr
+    why: 社保缴纳;缺了候选人无法比较这份工作的实际到手
+    how: 五险一金 / 五险 / 五险+公积金
+    shape: enum
+    level_basis: SPEC

@@ -1,0 +1,11 @@
+candidate: cand_刘___28岁_汽车线束工程师_智通简历_编号________1
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props: {}
+components:
+  skill_SPC:
+    held: true
+    basis: mock
+    rule: 按 20% 概率抽中(seed=0.098944)
+    note: 模拟值,不是事实

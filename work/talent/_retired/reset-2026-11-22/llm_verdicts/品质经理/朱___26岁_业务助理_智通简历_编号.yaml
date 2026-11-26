@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_朱___26岁_业务助理_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 60dfc40364f3888a
+runs:
+  1:
+    output_sha256: ff52ed97a3205e69
+    chars: 771
+replay_identical: null
+cells:
+  C-01:
+    state: 未知
+    why: 简历未提供年龄信息，无法与25~40岁区间比对
+    quote: null
+  C-02:
+    state: 满足
+    why: 教育经历显示本科全日制，学历高于大专
+    quote: 本科' 全日制
+  C-03:
+    state: 不满足
+    why: 简历专业未显示为机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业
+    quote: null
+  C-04:
+    state: 未知
+    why: 简历仅写英语熟练，未提及英语口语熟练及独立书写英文8D报告的能力
+    quote: 英语 [熟练]
+  C-05:
+    state: 不满足
+    why: 工作经验为行政专员和业务跟单员，无3年以上品质管理工作经验
+    quote: null
+  C-06:
+    state: 不满足
+    why: 简历未体现线束/连接器行业认知或相关产品经验
+    quote: null
+  C-07:
+    state: 不满足
+    why: 简历未体现品质问题分析、改善能力
+    quote: null
+  C-08:
+    state: 不满足
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 不满足
+    why: 简历未体现接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样，不给结论
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

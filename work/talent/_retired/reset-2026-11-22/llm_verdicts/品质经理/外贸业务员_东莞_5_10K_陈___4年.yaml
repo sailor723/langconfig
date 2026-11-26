@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_外贸业务员_东莞_5_10K_陈___4年
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 7994f52ffb6b0f6e
+runs:
+  1:
+    output_sha256: d33e6bbef0219270
+    chars: 891
+replay_identical: null
+cells:
+  C-01:
+    state: 未知
+    why: 简历只给出出生年月2000-03-08，未直接给出年龄，且无法确认当前日期以计算年龄
+    quote: 出生年月 | 2000-03-08
+  C-02:
+    state: 满足
+    why: 简历明确最高学历为本科，本科对应学历层级不低于大专
+    quote: 最高学历 本科
+  C-03:
+    state: 不满足
+    why: 简历专业为科学教育和英语，均不在机电一体化/电子技术/自动化/工业工程/机械工程白名单内
+    quote: 广西科技师范学院 科学教育；广东白云学院 英语
+  C-04:
+    state: 不满足
+    why: 简历无英语口语熟练及独立书写英文8D报告的证据，仅有英语等级证书，未命中所需两项
+    quote: 大学英语四级，大学英语六级，英语专业四级
+  C-05:
+    state: 不满足
+    why: 简历工作经历均为教师/辅导老师类，无品质管理工作经验
+    quote: 求职意向 小学英语老师
+  C-06:
+    state: 不满足
+    why: 简历无任何线束/连接器行业相关经历或知识描述
+    quote: null
+  C-07:
+    state: 不满足
+    why: 简历无品质问题分析、改善能力的相关证据
+    quote: null
+  C-08:
+    state: 不满足
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S中任何一项
+    quote: null
+  C-09:
+    state: 不满足
+    why: 简历无接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样，不可给结论
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

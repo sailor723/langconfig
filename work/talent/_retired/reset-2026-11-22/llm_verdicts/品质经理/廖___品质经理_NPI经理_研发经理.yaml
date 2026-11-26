@@ -1,0 +1,56 @@
+jd: 品质经理
+candidate: cand_廖___品质经理_NPI经理_研发经理
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 360dcca8e165a32f
+runs:
+  1:
+    output_sha256: 5cb6e5f209a8f00f
+    chars: 996
+  2:
+    output_sha256: 4d66c4db7385ebea
+    chars: 923
+replay_identical: false
+cells:
+  C-01:
+    state: 不满足
+    why: 简历出生年月1984-03-01，按当前年份计算年龄约41岁，超出25~40岁区间
+    quote: '出生年月: 1984-03-01'
+  C-02:
+    state: 满足
+    why: 最高学历本科，且一面确认暨南大学自考本科，学历层次高于大专
+    quote: '最高学历: ”本科'
+  C-03:
+    state: 满足
+    why: 大专专业为机电一体化技术，命中专业限定清单
+    quote: 大专机电一体化技术
+  C-04:
+    state: 不满足
+    why: 英文8D报告可独立写，但口语自述一般、不算流利，未达到“英语口语熟练”
+    quote: 口语一般,能开会交流但不算流利,日系客户主要靠翻译
+  C-05:
+    state: 满足
+    why: 品质管理经验从2019年至今及更早，累计远超3年
+    quote: '工作经验: 15年以上'
+  C-06:
+    state: 满足
+    why: 具备CABLE ASSEMBLY与wire harness样品制作经验，熟识线束行业产品
+    quote: 具有CABLE ASSEMBLY与wire harness样品制作经验
+  C-07:
+    state: 满足
+    why: 一面举例说明其主导品质问题分析改善，如直通率从92%掉到86%的排查改善
+    quote: 我从巡检记录里查出是一台裁线机的刀模磨损,换刀模之后一周内回到 93%
+  C-08:
+    state: 满足
+    why: 简历写明熟练QC手法与TS五大工具，含SPC、CPK、5WHY等，命中至少1项
+    quote: 熟练QC手法与TS五大工具
+  C-09:
+    state: 满足
+    why: 一面详述接待日系、欧美客户验厂并主导整改关闭
+    quote: 从首次会议、现场巡查、文件抽查到末次会议全程由我接待主答
+  C-10:
+    state: 不可判
+    why: 该条为软性能力项，本体未建属性/组件，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

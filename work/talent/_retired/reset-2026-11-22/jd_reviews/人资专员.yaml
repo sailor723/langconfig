@@ -1,0 +1,180 @@
+# 决策账本 —— 「谁、何时、为什么」这么定的独立记录。
+#
+# 分工:
+#   jd_links/<JD>.yaml   引用了什么(派生文件,可被重新抽取覆盖)
+#   jd_reviews/<JD>.yaml 人定过什么(决策文件)
+# 门禁交叉校验两边:inline 的每条 granularity_decision 与每条 excluded,在账本里都必须有
+# subject 匹配的条目,且 status / decided_by / decided_at 逐字一致。
+#
+# 本账本所有条目都是 signoff: pending —— 这轮复审由 agent 386 做,它没有 admin 的签字权。
+# 所以这里不写 decided_by / decided_at:没发生过的签署不许补。
+# 每条 why 记「按什么口径判的」,cost 记「这个口径的代价是什么」,等人点头。
+#
+# 本轮复审没有改客户原话:verbatim / txt_line / source_text / requirement / value 一字未动。
+# 三条需要 admin 拍板的实质问题(学历 num、专业「不限」的判法、11/12 重复挂同一条要求)
+# 都在对应条目的 cost 里写明 —— 它们改的不是口径,是数据,不在本轮授权内。
+
+jd: 人资专员
+ref: jd_links/人资专员.yaml
+decisions:
+
+- id: D-人资专员-01
+  kind: granularity
+  subject: 人资-01
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 14 行「1）高中及以上学历，专业不限，行政、文秘类优先；」里，「及」是「及以上」的一部分(≥ 的写法),
+    不是把两个要求连起来;「1）」是序号。拆不开,keep。
+  cost: >-
+    粒度没有代价,但这条上有一个数值问题要 admin 定:要求库 B.1 是 ordinal(2 中专/高中、3 大专、4 本科),
+    而 value.num 写的是 3 —— 按原话「高中及以上」字面应为 2。改 value 不在复审授权内,所以只登记不修改。
+    若维持 3,学历为「高中」的候选会被判不满足,等于把客户的学历门槛偷偷抬了一档。
+    (工程文员那份有同一个问题,已在那边的 D-工程文员-01 记过 —— 两份 JD 一起改更省事。)
+
+- id: D-人资专员-02
+  kind: granularity
+  subject: 人资-02
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 14 行被拆成 学历(01)/ 专业不限(02)/ 专业优先(03)三条,拆法对:这是三个不同属性,
+    而且「不限」和「优先」方向相反,不能合成一条。02 自身「专业不限」无并列词,keep。
+  cost: >-
+    真正的代价在「不限」怎么判:它挂着 op=in 的 REQ-B-MAJOR,而该要求的判定规则明写
+    「只按专业名点名,其余一律不满足」。value.in=[不限] 里的「不限」不是专业名,
+    照规则读会对**每一个**候选人判 false,把一条本意是「没有限制」的要求变成全员出局。
+    这条必须 admin 定口径:要么「不限」= 恒真、不进计分,要么改成不进 citations。本轮不许改 value。
+
+- id: D-人资专员-03
+  kind: granularity
+  subject: 人资-03
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「行政、文秘类优先」里的顿号连着同一个「优先」条件下的两类举例,命中任一即算满足。
+    拆成两条会让同一条偏好被计两次权,而且客户的「优先」是一件事,不是两件事,keep。
+  cost: >-
+    value.in 里的「文秘类」是专业**门类**,不是专业名;REQ-B-MAJOR 明写「不使用专业门类」。
+    所以这条按现库大概率判不了(点不到具体专业名),只能面试看。要判就得把门类展开成专业名 ——
+    那是替客户做决定,得客户自己列,不能我们补。
+
+- id: D-人资专员-04
+  kind: granularity
+  subject: 人资-04
+  decision: confirmed_split
+  signoff: pending
+  why: >-
+    第 15 行「2）熟练使用办公软件以及考勤系统；」是两条能被分别判定的技能:办公软件、考勤系统。
+    一个只会 Office、没碰过考勤系统的人只满足一半,所以该拆;本草稿已经拆成 04、05,拆的动作落地了。
+  cost: >-
+    这次的拆法是干净的:两条 verbatim 不重叠(04 不含 05 的字),不像工程文员那样把整句留在两条上,
+    所以第 15 行只被计一次权、另一个技能计一次,没有重复计权。
+    「熟练」两字客户没给任何标准,下游只能按简历自我陈述判「会不会」,判不了「熟练不熟练」。
+
+- id: D-人资专员-05
+  kind: granularity
+  subject: 人资-07
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「熟悉社会保险(增/减/补缴)等操作流程」里出现「/」,机械筛子会把它当拆分信号。但「增/减/补缴」是
+    同一条社保流程的三个环节,不是三件可分开判的事;而且句尾还有「等」—— 拆开就等于把「等」收窄成穷举清单,
+    那是替客户改 JD。keep。
+  cost: >-
+    判定要落在「有没有办过社保申办」这个整体上,增/减/补缴只是线索。若客户本意是「三种业务都得会」,
+    现在判不出来,必须客户在原文里明写,不由我们拆。
+    另一处相关:人资-05 挂的 REQ-D-ATTENDANCE-SYSTEM 在库里 assessable=false(缺 P6 组件),
+    而该条的 llm.measurable_from_resume 写的是 true —— 草稿自相矛盾,按库为准(判不了)。
+
+- id: D-人资专员-06
+  kind: granularity
+  subject: 人资-09
+  decision: confirmed_split
+  signoff: pending
+  why: >-
+    第 18 行「5）具有人事数据保密意识以及跨部门沟通能力,工作认真,具有责任心。」一句塞了四项:
+    保密意识 / 跨部门沟通 / 工作认真 / 责任心。一个人完全可能只占其中一项,所以必须拆;
+    本草稿已拆成 09–12,四条 verbatim 互不重叠,拆的动作落地了。
+  cost: >-
+    10、11、12 三条在要求库里都是 assessable=false(E 维无组件),拆或不拆都不产出简历侧可判的信息 ——
+    拆的价值只是让面试问话能一项一项对。
+    但有一处要 admin 定:11「工作认真」和 12「具有责任心」都挂在 REQ-E-RESPONSIBILITY 上,
+    同一条要求在同一份 JD 里出现两次 = 双倍计权,而它本身判不了,双倍的是不可判的量。
+    要么把 11 换成别的要求(需要新建库要求,复审不许),要么承认这两条只做面试提纲、不进计分。
+
+# —— 以下 6 条对应其余各自的 inline 决定（门禁要求每条 inline 决定都有 subject 匹配的条目）——
+
+- id: D-人资专员-07
+  kind: granularity
+  subject: 人资-05
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    人资-05 的 verbatim 是「考勤系统」,本身不含并列词,拆不出来。它是第 15 行被「以及」拆开的另一半,
+    拆的动作已由 D-人资专员-04 记过,这里只是把 05 自己的 keep 补齐。
+  cost: >-
+    这条有两个问题,都不是粒度能解决的:① verbatim 只有三个字,丢了「熟练使用」这个谓词,单独看不像一条要求;
+    ② 它挂的 REQ-D-ATTENDANCE-SYSTEM 在库里 assessable=false(目录缺考勤系统组件,标 P6),
+    而草稿的 llm.measurable_from_resume 写的是 true —— 草稿在这一点上自相矛盾,按库为准:判不了。
+    要判就得先补组件,那是目录的事,不是这份 JD 的事。
+
+- id: D-人资专员-08
+  kind: granularity
+  subject: 人资-06
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 16 行「3）熟悉国家相关法律政策,熟悉社会保险(增/减/补缴)等操作流程；」开头这半句没有并列词,
+    与后半句的社保流程是两个可分别判定的知识域,草稿已拆成 06、07。06 自身 keep。
+  cost: >-
+    「相关法律政策」没给范围:库里 REQ-D-LABOR-LAW 的组件是 skill_劳动法,只覆盖劳动法一支;
+    客户写的是「国家相关法律」,比劳动法宽。判「有没有劳动法知识」判得到,判「相关法律够不够广」判不了,
+    要客户在第 2 步把范围写死。
+
+- id: D-人资专员-09
+  kind: granularity
+  subject: 人资-08
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 17 行「4）具备很好的数据统计分析能力；」只有一条约束,无并列词,keep。
+  cost: >-
+    「很好」是程度词,客户没给任何可观察标准,我们没有、也不许替它编一个阈值。
+    库里组件是 skill_数据分析,所以下游只能判「有没有数据分析技能」,判不了「是不是很好」。
+    这条会一直是「有/无」二值,第 2 步若要分级,必须客户自己给标准(比如「能独立出月度人事分析报表」)。
+
+- id: D-人资专员-10
+  kind: granularity
+  subject: 人资-10
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「跨部门沟通能力」本身无并列词;它是第 18 行被拆出的四项之一,拆的动作由 D-人资专员-06 记过。
+  cost: >-
+    REQ-E-COMMUNICATION 在库里是 unmeasurable(E 维 24 条素质要求在本目录里没有任何组件)。
+    简历判不了,只能面试评分或背调。客户把它写成 essential,意味着一个沟通能力无法从简历证明的候选人
+    在这一条上只能是「未知」而不是「不满足」—— 下游要么让「未知」不至于出局,要么这条就是隐形的一刀切。
+
+- id: D-人资专员-11
+  kind: granularity
+  subject: 人资-11
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「工作认真」无并列词,是第 18 行拆出的第三项,拆的动作由 D-人资专员-06 记过。
+  cost: >-
+    它挂在 REQ-E-RESPONSIBILITY,与 人资-12「具有责任心」同一条要求 —— 同一要求在一份 JD 里出现两次,
+    等于双倍计权;而它本身 assessable=false,双倍的是不可判的量。这一条要不要换个要求,
+    需要新建库要求,复审不许动 requirement,留 admin 定(D-人资专员-06 的 cost 里也写了同一件事)。
+
+- id: D-人资专员-12
+  kind: granularity
+  subject: 人资-12
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    「具有责任心」无并列词,是第 18 行拆出的第四项,拆的动作由 D-人资专员-06 记过。
+  cost: >-
+    REQ-E-RESPONSIBILITY 在库里 assessable=false,库里给的取证方式是「面试评分表 / 背景调查」——
+    说明这条只能等人面,简历侧永远判不了。它与 人资-11 重复挂同一条要求(见 D-人资专员-11)。

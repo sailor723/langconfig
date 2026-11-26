@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_蒋___38岁_日文业务助理_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: c2af3b458bb088a5
+runs:
+  1:
+    output_sha256: bcf9d2e724f92a32
+    chars: 876
+replay_identical: null
+cells:
+  C-01:
+    state: 未知
+    why: 简历OCR中年龄信息为乱码（'138岁'），无法确认是否在25~40区间
+    quote: 女138岁 SAS D 13年
+  C-02:
+    state: 满足
+    why: 简历明确写有'大专毕业证'，符合大专及以上学历要求
+    quote: 取得大专毕业证及日语二级证书
+  C-03:
+    state: 不满足
+    why: 简历专业为日语相关（广东外语外贸大学），未见机电一体化等工程类专业
+    quote: 2012年至2013年毕业于广东外语外贸大学
+  C-04:
+    state: 未知
+    why: 简历仅体现日语能力，未提及英语口语或英文8D报告能力
+    quote: 日语二级证书
+  C-05:
+    state: 不满足
+    why: 简历工作经历为日语跟单约2年6月，无品质管理经验
+    quote: 东莞亚晟 - 日语跟单 - 2年6月
+  C-06:
+    state: 不满足
+    why: 简历无任何线束/连接器行业相关经历或知识描述
+    quote: null
+  C-07:
+    state: 不满足
+    why: 简历未体现品质问题分析改善能力，仅有客户投诉处理
+    quote: 客户投诉的处理及上司交待的其他事宜
+  C-08:
+    state: 不满足
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等任何品质工具
+    quote: null
+  C-09:
+    state: 不满足
+    why: 简历无接待客户验厂经验描述
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

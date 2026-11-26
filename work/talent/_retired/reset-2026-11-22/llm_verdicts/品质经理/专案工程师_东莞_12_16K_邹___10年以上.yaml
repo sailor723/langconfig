@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_专案工程师_东莞_12_16K_邹___10年以上
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 0d60ccb36966491b
+runs:
+  1:
+    output_sha256: 710d4e112401b3da
+    chars: 891
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示37岁，落在客户要求的25~40岁区间内
+    quote: 男| 37岁
+  C-02:
+    state: 满足
+    why: 简历有大专学历（黄冈职业技术学院），达到大专及以上要求
+    quote: 黄网职业技术学院 AR 建筑工程技术 2008-2011
+  C-03:
+    state: 不满足
+    why: 所学专业为建筑工程技术，未命中机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业白名单
+    quote: 黄网职业技术学院 AR 建筑工程技术
+  C-04:
+    state: 不满足
+    why: 简历未体现英语口语熟练或独立书写英文8D报告的能力，0/2项
+    quote: null
+  C-05:
+    state: 满足
+    why: 简历显示15年工作经验，其中品质管理相关经验超过3年
+    quote: 15年工作经验
+  C-06:
+    state: 满足
+    why: 简历明确体现线束行业经验，熟悉各类线束产品
+    quote: 拥有10年 + 线束行业全流程经，熟悉各类线束产品研发
+  C-07:
+    state: 满足
+    why: 简历体现制程改善与问题整改能力，具备品质问题分析改善能力
+    quote: 跟进问题整改、制程改善与优化，降本增效
+  C-08:
+    state: 不满足
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具，0/5项
+    quote: null
+  C-09:
+    state: 不满足
+    why: 简历未体现接待客户验厂经验，0/1项
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，属性/组件未建，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

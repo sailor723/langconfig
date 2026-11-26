@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_日语业务跟单_东莞_5_7K_吴___26年应届生
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 1ebbc60a9966c1fd
+runs:
+  1:
+    output_sha256: 6eca38000f01b91a
+    chars: 831
+replay_identical: null
+cells:
+  C-01:
+    state: 未知
+    why: 简历OCR中未见年龄信息，无法核对25~40岁区间
+    quote: null
+  C-02:
+    state: 未知
+    why: 简历未明确写出学历层次，仅提及大学学院与专业，无法确认大专及以上
+    quote: '|国语大学成都学院 SAAN 亚非语言学院日语专业'
+  C-03:
+    state: 不满足
+    why: 简历专业为日语，未命中机电一体化/电子技术/自动化/工业工程/机械工程白名单
+    quote: 亚非语言学院日语专业
+  C-04:
+    state: 未知
+    why: 简历仅提具备英语读写能力，未体现英语口语熟练及独立书写英文8D报告
+    quote: 具备英语读写能力，可协助客户建档与基础沟通
+  C-05:
+    state: 不满足
+    why: 工作经历为文员与实习老师，无品质管理相关年限
+    quote: 镇政府 文员
+  C-06:
+    state: 未知
+    why: 简历未提及线束/连接器行业相关知识
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历未体现品质问题分析与改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 不满足
+    why: 简历无接待客户验厂经验
+    quote: null
+  C-10:
+    state: 满足
+    why: 简历明确写有沟通协调能力
+    quote: '综合: 活动策划、沟通协调、用户反馈分析、基础新媒体推广'
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_麦___38岁_专案工程师_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 7e4babf8c79a4a95
+runs:
+  1:
+    output_sha256: ea355f8bbe6b19bf
+    chars: 892
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历年龄38岁，落在客户要求的25~40岁区间内
+    quote: 年龄：25 ~ 40岁
+  C-02:
+    state: 满足
+    why: 简历学历为大专，达到大专及以上要求
+    quote: 学历：大专及以上学历
+  C-03:
+    state: 不满足
+    why: 简历专业为模具设计与制造，不在机电一体化/电子技术/自动化/工业工程/机械工程白名单内
+    quote: 专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业
+  C-04:
+    state: 不满足
+    why: 简历英语听说读写均一般，且无独立书写英文8D报告的证据
+    quote: '英语: 听说能力 [一般] 。 读写能力 (CH'
+  C-05:
+    state: 满足
+    why: 简历有约4年品质管理相关经验，达到3年以上要求
+    quote: 3年以上品质管理工作经验
+  C-06:
+    state: 满足
+    why: 简历有电子/绝缘材料行业产品设计经验，具备线束行业认知
+    quote: 熟识线束行业相关产品
+  C-07:
+    state: 满足
+    why: 简历有产品异常分析改善经验，具备品质问题分析能力
+    quote: 具备品质问题分析、改善的能力
+  C-08:
+    state: 不满足
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S中任何一项
+    quote: 懂QC七大手法、5WHY、SPC、CPK、6S工具
+  C-09:
+    state: 不满足
+    why: 简历无接待客户验厂经验
+    quote: 具备接待客户验厂经验
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

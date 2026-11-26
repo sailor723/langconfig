@@ -1,0 +1,334 @@
+jd: 副总助理
+role_type: manager
+role_basis: 由原文 S1.08 直接下属=「各部门负责人」推得(管人);S1.11 待业务方确认
+role_confirmed: false
+department: 副总室
+source_file: client/team-4/unzipped/职务说明书10份/2.副总助理职务说明书 - 最新修改版.doc
+source_text: work/talent/jd_links/_source/副总助理.txt
+extracted_with: textutil -convert txt (macOS)
+drafted_by: deepseek-chat, temperature=0 —— **草稿,未人工审核**
+review_status: draft
+count:
+  source_section: 任职资格
+  source_lines: 6
+  atomic_requirements: 16
+  count_note: 任职资格段 14–19 行共 6 句,LLM 拆成 16 条原子要求。与我手工分析的 16 条数量一致。
+# —— 本轮复审(2026-11-20,agent 386):只加了 note / granularity_decision / undefined_statements。
+#    verbatim / txt_line / source_text / requirement / value / tier 一字未动(已逐字段比对备份)。
+#    决策账本见 jd_reviews/副总助理.yaml,全部 signoff: pending —— 未签署。
+citations:
+- id: VP-01
+  requirement: REQ-A-GENDER
+  verbatim: 女性
+  source_text: 基本要求：女性，25-38岁；
+  txt_line: 14
+  tier: essential
+  value:
+    in:
+    - 女
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: true
+    subject: 性别
+  origin: client
+  note: >-
+    这条逐字可查,但下游判不了:要求库 REQ-A-GENDER 是 assessable=false,
+    原因是 A.1 的 prop_exists=false(gender 属性未建),所以它对分数的贡献恒为 0。
+    库里明写「保留并执行,不是删除」,所以不建议删;但 llm.measurable_from_resume 写成 true,
+    与库里的 blocked_by 自相矛盾 —— 按库为准:简历侧判不了。另,性别作为筛选条件本身是
+    用工口径问题,本轮只登记现状,不提建议。
+
+- id: VP-02
+  requirement: REQ-A-AGE-RANGE
+  verbatim: 25-38岁
+  source_text: 基本要求：女性，25-38岁；
+  txt_line: 14
+  tier: essential
+  value:
+    min: 25
+    max: 38
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: true
+    subject: 年龄
+  origin: client
+  note: >-
+    阈值(25–38)与要求库 op=between 一致,能判。但库里写明供给侧 age 只覆盖 107/277 ——
+    一多半的人在简历里没有年龄,他们是「未知」而不是「不满足」。下游若把未知当不满足,
+    这一条会替客户多刷掉一半人,这不是阈值的问题,是数据覆盖的问题。
+
+- id: VP-03
+  requirement: REQ-B-EDU-LEVEL
+  verbatim: 全日制大专及以上学历
+  source_text: 教育背景：全日制大专及以上学历，中文、文秘类专业优先；
+  txt_line: 15
+  tier: essential
+  value:
+    num: 3
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: true
+    subject: 学历
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    basis: >-
+      这里的「及」是「及以上」的组成部分(≥ 的写法),不是把两个要求连起来。实测门禁的机械筛子
+      (_split_candidate)确实命中它:它的剥离正则 (及|或以)(上|下) 要求「及」后直接跟 上/下,
+      而这里是「及」+「以」+「上」,剥不掉 —— 于是这条被判成拆分候选。筛子只当筛子用,理由还得人给。
+      本条与 VP-04「全日制」已分成两条,不需要再拆。
+  note: >-
+    数值对得上:要求库 B.1 是 ordinal(2 中专/高中、3 大专),这条 value.num=3 对应「大专」,正确。
+    含糊处在另一半:「全日制」单独成了 VP-04,而它挂的 B.3 属性未建 ——
+    也就是说这条学历要求里「全日制」三个字目前判不了,能判的只有「大专及以上」。
+
+- id: VP-04
+  requirement: REQ-B-FULL-TIME
+  verbatim: 全日制
+  source_text: 教育背景：全日制大专及以上学历，中文、文秘类专业优先；
+  txt_line: 15
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: true
+    subject: 全日制
+  origin: client
+  note: >-
+    下游判不了:REQ-B-FULL-TIME 是 assessable=false,blocked_by 写着 B.3 的 prop_exists=false
+    (full_time 属性未建),库里还注明这是本地扩展字段、标准里没有。
+    它是 essential 却零贡献 —— 要么补属性,要么它只是纸面条件。这一点本轮改不了,如实留着。
+
+- id: VP-05
+  requirement: REQ-B-MAJOR
+  verbatim: 中文、文秘类专业优先
+  source_text: 教育背景：全日制大专及以上学历，中文、文秘类专业优先；
+  txt_line: 15
+  tier: desirable
+  value:
+    in:
+    - 中文
+    - 文秘
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: true
+    subject: 专业
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    basis: >-
+      顿号连着的是同一个「优先」条件下的两类专业,命中任一即算满足,拆成两条会让同一份偏好被计两次权,
+      而客户的「优先」是一件事,不是两件事。keep。
+  note: >-
+    这条大概率判不出「满足」:REQ-B-MAJOR 的判定规则明写「只按专业名点名,其余一律不满足,
+    不使用专业门类」,而 value.in 里的「中文」「文秘」是门类/宽口径叫法,点不到具体专业名。
+    因为 tier 是 desirable,判不满足不会排除人,代价是这半句偏好在打分里失效 ——
+    要让它生效,得由客户列出具体专业名,不能我们补。
+
+- id: VP-06
+  requirement: REQ-C-YEARS-DOMAIN
+  verbatim: 2年以上文职类、助理类、管理类工厂工作经验
+  source_text: 经验要求：2年以上文职类、助理类、管理类工厂工作经验；
+  txt_line: 16
+  tier: essential
+  value:
+    num: 2
+    domain: 文职/助理/管理
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: true
+    subject: 年限
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    basis: >-
+      三类经验是「或」的关系:客户要的是 2 年以上这类岗位经验,任一类成立即可。
+      拆成三条独立的 essential 引用,会让下游读成「三类都要有」,把一条要求变成三条门槛。
+      这条也是我在本次复审里最拿不准的一处判断 —— 若客户本意是「三类都得干过」,
+      那必须由客户自己明写,不由我们拆。
+  note: >-
+    只能判年限,判不了「域」:REQ-C-YEARS-DOMAIN 的 partial 写明「领域限定需要 C.2 domain,
+    该属性未建」,所以 2 年人资和 2 年文职在这条上得分相同。
+    另一处含糊:客户加了「工厂」这个限定,库里没有对应属性,下游也判不了。
+
+- id: VP-07
+  requirement: REQ-E-PRINCIPLE
+  verbatim: 原则性强
+  source_text: 职业素养：原则性强，责任心突出，敢于担当，坚持日清日结，具备良好的奋斗精神；
+  txt_line: 17
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: false
+    subject: 原则性
+  origin: client
+  note: >-
+    判不了,也不该判:REQ-E-PRINCIPLE 是 assessable=false(no_component),库里给的取证方式是
+    「面试评分表 / 背景调查」。简历侧永远是「未知」。客户把它写成 essential,
+    等于这一条在简历筛选阶段只能当面试提纲用。
+
+- id: VP-08
+  requirement: REQ-E-RESPONSIBILITY
+  verbatim: 责任心突出
+  source_text: 职业素养：原则性强，责任心突出，敢于担当，坚持日清日结，具备良好的奋斗精神；
+  txt_line: 17
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: false
+    subject: 责任心
+  origin: client
+  note: >-
+    assessable=false,取证方式「面试评分表 / 背景调查」—— 简历侧判不了。
+    与 VP-09「敢于担当」字面很近(两个词在中文里常混用),但它们挂的是两条不同要求
+    (REQ-E-RESPONSIBILITY / REQ-E-ACCOUNTABILITY),所以没有重复计权的问题;
+    真正的问题是两条都判不了。
+
+- id: VP-09
+  requirement: REQ-E-ACCOUNTABILITY
+  verbatim: 敢于担当
+  source_text: 职业素养：原则性强，责任心突出，敢于担当，坚持日清日结，具备良好的奋斗精神；
+  txt_line: 17
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: false
+    subject: 担当
+  origin: client
+  note: >-
+    assessable=false,库里取证方式「面试 / 述职」。判不了。
+    下游要问只能问行为事例(比如「上一次你替团队扛下后果是什么时候」),客户没给标准,我们不替它编。
+
+- id: VP-10
+  requirement: REQ-E-DAILY-CLOSE
+  verbatim: 坚持日清日结
+  source_text: 职业素养：原则性强，责任心突出，敢于担当，坚持日清日结，具备良好的奋斗精神；
+  txt_line: 17
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: false
+    subject: 日清日结
+  origin: client
+  note: >-
+    「日清日结」是管理术语,客户没解释它的具体标准(当日事当日结?当天报表当天出?),
+    库里 REQ-E-DAILY-CLOSE 是 assessable=false、取证方式「试用期观察」。判不了,
+    而且是靠试用期才判得了 —— 对筛选环节零帮助。
+
+- id: VP-11
+  requirement: REQ-E-STRIVING
+  verbatim: 具备良好的奋斗精神
+  source_text: 职业素养：原则性强，责任心突出，敢于担当，坚持日清日结，具备良好的奋斗精神；
+  txt_line: 17
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: false
+    subject: 奋斗精神
+  origin: client
+  note: >-
+    assessable=false(attribute_ref E.3),取证方式「面试 / 试用期观察」。「良好的」是程度词,
+    客户没给可观察标准,我们没有、也不许替它编一个阈值。判不了。
+
+- id: VP-12
+  requirement: REQ-E-COMMUNICATION
+  verbatim: 沟通能力好
+  source_text: 核心能力：沟通能力好、执行能力强、逻辑清晰、数据敏感；
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: false
+    subject: 沟通
+  origin: client
+  note: >-
+    判不了:E 维 24 条素质要求在目录里没有任何组件,REQ-E-COMMUNICATION 是 assessable=false、
+    只能靠面试评分表。客户把它写成 essential,意味着一个沟通能力无法从简历证明的候选人
+    在这条上只能是「未知」而不是「不满足」—— 下游要么让「未知」不至于出局,要么这条就是隐形的一刀切。
+
+- id: VP-13
+  requirement: REQ-E-EXECUTION
+  verbatim: 执行能力强
+  source_text: 核心能力：沟通能力好、执行能力强、逻辑清晰、数据敏感；
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: false
+    subject: 执行力
+  origin: client
+  note: >-
+    assessable=false,取证方式「面试评分表 / 述职」。判不了。
+    岗位职责第 21、24、26 行都在讲督办与监督,说明客户很在意这一条,
+    但「强」没有标准 —— 客户没给,第 2 步该问的不是「要不要执行能力」,是「怎么算强」。
+
+- id: VP-14
+  requirement: REQ-E-LOGIC
+  verbatim: 逻辑清晰
+  source_text: 核心能力：沟通能力好、执行能力强、逻辑清晰、数据敏感；
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: false
+    subject: 逻辑
+  origin: client
+  note: >-
+    assessable=false(attribute_ref E.2),库里取证方式是「笔试 / 结构化面试」。判不了,
+    但这条比其它素质条更容易补:客户若愿意给一道笔试题,它就能变成一个可观察的门槛。
+
+- id: VP-15
+  requirement: REQ-E-DATA-SENSITIVITY
+  verbatim: 数据敏感
+  source_text: 核心能力：沟通能力好、执行能力强、逻辑清晰、数据敏感；
+  txt_line: 18
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: false
+    subject: 数据敏感
+  origin: client
+  note: >-
+    assessable=false(attribute_ref E.2),取证方式「笔试 / 结构化面试」。判不了。
+    它与 VP-14 共享 E.2 这个分类标签但挂的是两条不同要求,所以各自计权;
+    若要判「数据敏感」,第 2 步更靠谱的做法是换成一条可判的技能要求(例如会不会做周月报数据分析),
+    那属于要求库层面的事,不在本步。
+
+- id: VP-16
+  requirement: REQ-D-OFFICE
+  verbatim: 熟练掌握Office办公软件（Word/ Excel/ PPT/ AI）
+  source_text: 工具技能：熟练掌握Office办公软件（Word/ Excel/ PPT/ AI）
+  txt_line: 19
+  tier: essential
+  llm:
+    model: deepseek-chat
+    temperature: 0
+    measured_from_resume: true
+    subject: Office
+  origin: client
+  granularity_decision:
+    status: confirmed_keep
+    basis: >-
+      客户把它写成一个复合要求(「Office办公软件(Word/ Excel/ PPT/ AI)」),括号里是构成要件、不是并列要求。
+      更关键的是拆了也没用:要求库 REQ-D-OFFICE 的组件只有 skill_Word / skill_Excel / skill_PowerPoint,
+      AI 在 unlinked_parts 里显式留空(gap P5)—— 把 AI 拆成独立一条,它依然没有组件可判。
+  note: >-
+    三件能判、一件不能:Word/Excel/PPT 有组件可判,AI 没有组件(P5 缺口,库里注明老正则曾把 "AI"
+    误认成 skill_Illustrator,导致 8 人凭空匹配)—— 所以这条的实际判定只能是「会不会 Office 三件」。
+    另一处含糊:「熟练」两字客户没给标准,下游只能判「会/不会」,判不了「熟练不熟练」。
+undefined_statements: []
+excluded: []

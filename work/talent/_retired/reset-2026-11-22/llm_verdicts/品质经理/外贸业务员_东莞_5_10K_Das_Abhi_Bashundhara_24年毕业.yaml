@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_外贸业务员_东莞_5_10K_Das_Abhi_Bashundhara_24年毕业
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: ed85bdb5d0292588
+runs:
+  1:
+    output_sha256: c838c148dba7b0a8
+    chars: 904
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 出生日期1994-10-15，按招聘年份推算年龄约在25~40区间内，且本体已判定满足
+    quote: 'Date of birth: 15/10/1994'
+  C-02:
+    state: 满足
+    why: 本科（EQF level 6）高于大专，本体判定满足
+    quote: BACHELOR IN ARCHITECTURE Hubei University of Technology
+  C-03:
+    state: 不满足
+    why: 专业为建筑学，未命中机电/电子/自动化/工业工程/机械工程白名单
+    quote: BACHELOR IN ARCHITECTURE
+  C-04:
+    state: 满足
+    why: 英语各项达B2/C1，且本体判定英语与8D报告2/2命中
+    quote: ENGLISH B2 B2 C1 C1 C1
+  C-05:
+    state: 满足
+    why: 本体依据7年品质管理经验≥3年，判定满足
+    quote: 3年以上品质管理工作经验
+  C-06:
+    state: 不满足
+    why: 简历无任何线束/连接器行业经历，0/1命中
+    quote: null
+  C-07:
+    state: 不满足
+    why: 简历未体现品质问题分析改善能力，0/1命中
+    quote: null
+  C-08:
+    state: 不满足
+    why: QC七大手法/SPC/CPK/6S/5WHY均未出现，0/5命中
+    quote: null
+  C-09:
+    state: 不满足
+    why: 简历无客户验厂接待经验，0/1命中
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条属性/组件未建，对所有人一样无法判定
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

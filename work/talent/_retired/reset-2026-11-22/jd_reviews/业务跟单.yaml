@@ -1,0 +1,112 @@
+# 决策账本 —— 「谁、何时、为什么」这么定的独立记录。
+#
+# 分工:
+#   jd_links/<JD>.yaml   引用了什么(派生文件,可被重新抽取覆盖)
+#   jd_reviews/<JD>.yaml 人定过什么(决策文件)
+# 门禁交叉校验两边:inline 的每条 granularity_decision 与每条 excluded,在账本里都必须有
+# subject 匹配的条目,且 status / decided_by / decided_at 逐字一致。
+#
+# 本账本所有条目都是 signoff: pending —— 这轮复审由 agent 386 做,它没有 admin 的签字权。
+# 所以这里不写 decided_by / decided_at:没发生过的签署不许补。
+# 每条 why 记「按什么口径判的」,cost 记「这个口径的代价是什么」,等人点头。
+#
+# 本轮只做复审,不动引用:`verbatim` / `txt_line` / `source_text` / `requirement` / `value`
+# 一个字都没改。原文 `_source/业务跟单.txt` 与要求库、组件目录也没动。
+
+jd: 业务跟单
+ref: jd_links/业务跟单.yaml
+decisions:
+
+- id: D-业务跟单-01
+  kind: granularity
+  subject: GZ-01
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 14 行「高中及以上学历」里的「及」是「及以上」阈值写法(≥),不是把两条要求连起来。
+    机械筛子命中它是因为正则只吃「及以上/或以下」中的一部分写法,这里属于筛子的假信号。
+    keep。另:value.num=2 与组件目录 B.1 的 ordinal(2=中专/高中)一致,不是工程文员那份的错位。
+  cost: >-
+    无拆分代价。这条本身可判(ordinal + ≥),客户也给了明确门槛。
+    真正的空白不在这一条,而在同行的「优先」那一半 —— 见 D-业务跟单-02。
+
+- id: D-业务跟单-02
+  kind: granularity
+  subject: GZ-02
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 14 行「国际贸易、商务管理类相关专业优先」的顿号，是同一个「专业类」里的两个举例，
+    后面紧跟「类相关专业」这一开放式收尾。拆成两条会让同一属性 B.2 上出现两条引用、重复计分;
+    而且要求库 REQ-B-MAJOR 本来就是 enumerate(in)，已经用 value.in 装下这两个词 ——
+    拆开等于把库里的 list 口径搬到引用层重做一遍。
+  cost: >-
+    保持一条的代价是 tier: desirable 这条永远只能算「加分项」，而 REQ-B-MAJOR 的判定口径
+    是「只按专业名点名命中」(库里 note 写明的 D 口径)。于是「机械设计」这类客户可能认的
+    相近专业会被判不满足 —— 但它是「优先」而非硬性，不满足的后果是少一分，不是被排除。
+    若业务认为该专业类要放宽，得由客户在原文里改口径，不是我们拆。
+
+- id: D-业务跟单-03
+  kind: granularity
+  subject: GZ-05
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 17 行「熟练使用ERP订单管理模块及Excel数据分析」的「及」确实连着两个可以分别判定的工具
+    (ERP 订单管理模块 / Excel 数据分析)，按「及拆两条」本应拆。
+    但要求库里 REQ-D-ERP-EXCEL 本身就是 skill_ERP + skill_Excel 的 composite，要拆就得新建
+    两条库要求(ERP 订单模块 / Excel 数据分析)，而本轮复审不许改 requirement 字段。
+    口径参照品质经理 D-品质经理-01(同为 composite 不拆)，故维持 1 条，只记账不改引用。
+  cost: >-
+    两处实打实的代价，留给 admin 定:
+    ① composite 是「与」语义 —— 只会 ERP、完全不会 Excel 的人在这条上判「不满足」，
+       这可能是公司想要的效果，也可能是误伤，取决于这条要的是"两样都会"还是"至少会一样"。
+    ② skill_ERP 同时出现在 GZ-04(REQ-D-ERP-OPERATE，单组件)与 GZ-05 里 —— 同一能力被计权两次，
+       ERP 强的人在这份 JD 上会被加两次分。要消掉它必须改 requirement 或缩短 GZ-05 的 verbatim，
+       两样都不在本轮授权内。
+
+- id: D-业务跟单-04
+  kind: granularity
+  subject: GZ-03
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 15 行「2年以上制造业订单跟单经验」没有并列结构，是一条约束 + 一个阈值(≥2 年)，
+    不存在该拆没拆的问题。登记它是因为同一行后半句「熟悉ERP系统操作」已被单独拆成 GZ-04，
+    要留一条记录说明这一行确实被拆过一次、拆的口径是什么(阈值归年限条，系统技能归 GZ-04)。
+  cost: >-
+    「制造业」是领域限定，「订单跟单」是职能 —— 领域限定能不能判，取决于候选人履历里有没有
+    写明行业；简历侧大概率判得到行业，但「跟单」与「业务助理」「生产计划」的边界客户没定义，
+    这条可能被判成「职能相近但不完全一致」，需要面试确认。
+
+- id: D-业务跟单-05
+  kind: granularity
+  subject: GZ-07
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 20 行「抗压能力强，可同时处理多线程任务」用逗号连着两个描述，但它们是同一个特质
+    (承受压力)的两个侧面：一个抗压的人通常就是能并行多任务的人。拆开拿不到第二条可判信息，
+    而且两条在要求库都落在 E 维素质(assessable=false，无组件)。keep。
+  cost: >-
+    这不是拆分代价，是判定代价:客户没给「多线程任务」的量化口径(同时几个单、多大并发)，
+    简历侧完全判不了，只能进面试评分表。本条在任何一份 JD 里都不会自动排除人，
+    也不会自动给人加分 —— 它现在对下游是"零信息"的，这个状态要 admin 知道。
+
+- id: D-业务跟单-06
+  kind: granularity
+  subject: GZ-08
+  decision: confirmed_keep
+  signoff: pending
+  why: >-
+    第 21 行「沟通协调能力佳，能独立对接客户与生产部门」同样是一个特质的两个侧面，
+    且「对接客户与生产部门」正是「沟通协调」的具体化，不是第二个独立要求。keep。
+  cost: >-
+    「独立对接」这半句其实是可观察的(有没有独立对外/跨部门对接的经历)，比纯素质可判，
+    但要求库 REQ-E-COMMUNICATION 是 E 维不可判条目 —— 也就是说原话里那点可判信息，
+    在库里没有承接的属性。要接住它得新建一条 D 维要求，本轮不做。
+
+# 排除:本轮零排除。
+# 9 条引用全部来自原文「资格要求」段(第 13–22 行)，没有一条来自「职务简述」(第 23–37 行)
+# 或「事务表述」表(第 38–95 行)，所以不存在"职责段混进要求段"要挪出去的东西。
+excluded_decisions: []

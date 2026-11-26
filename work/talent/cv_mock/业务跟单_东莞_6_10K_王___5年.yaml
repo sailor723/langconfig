@@ -1,0 +1,22 @@
+candidate: cand_业务跟单_东莞_6_10K_王___5年
+jd: 品质经理
+basis: mock
+policy: interview_policy.yaml#mock_fill
+props:
+  yearsStated:
+    value: 10
+    basis: mock
+    rule: 声明年限:与总年限同分布 3~15 年
+    seed: 0.578791
+    note: 为了让第 5 步能跑而补的模拟值,不是事实
+components:
+  skill_品质问题分析:
+    held: true
+    basis: mock
+    rule: 按 45% 概率抽中(seed=0.411235)
+    note: 模拟值,不是事实
+  skill_英语:
+    held: true
+    basis: mock
+    rule: 按 35% 概率抽中(seed=0.027154)
+    note: 模拟值,不是事实

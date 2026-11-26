@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_副总助理_东莞_8_13K_钟___5年
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 6c1f9c39145fff7c
+runs:
+  1:
+    output_sha256: 678c193df4ebbb2b
+    chars: 794
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历生日1999.09.25，按招聘年度推算年龄约26岁，落在25~40区间内
+    quote: '生日: 1999.09.25'
+  C-02:
+    state: 满足
+    why: 简历显示本科（江西师范大学），学历高于大专及以上要求
+    quote: 江西师范大学 汉语言文学 本科
+  C-03:
+    state: 不满足
+    why: 专业为汉语言文学、英语教育，均不在工程类专业白名单内
+    quote: 汉语言文学 本科
+  C-04:
+    state: 未知
+    why: 简历未体现英语口语熟练及独立书写英文8D报告的能力证据
+    quote: null
+  C-05:
+    state: 不满足
+    why: 工作经历为培训师、品牌专员、英语教师，无品质管理领域年限
+    quote: null
+  C-06:
+    state: 未知
+    why: 简历未提及线束/连接器行业相关知识
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历未体现品质问题分析、改善能力的证据
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历未提及接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条无对应数据项，属性/组件未建，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

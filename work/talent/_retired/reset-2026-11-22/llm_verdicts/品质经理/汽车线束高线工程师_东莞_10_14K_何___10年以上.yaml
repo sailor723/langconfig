@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_汽车线束高线工程师_东莞_10_14K_何___10年以上
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: ad5017eaa11ad111
+runs:
+  1:
+    output_sha256: e3d6282638988e47
+    chars: 784
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示38岁，落在25~40岁区间内
+    quote: 男|38岁
+  C-02:
+    state: 满足
+    why: 简历显示大专学历，达到大专及以上要求
+    quote: 东门中学 大专 ”计算机科学与技术
+  C-03:
+    state: 不满足
+    why: 专业为计算机应用技术/计算机科学与技术，未命中工程类专业白名单
+    quote: 计算机应用技术
+  C-04:
+    state: 未知
+    why: 简历未提及英语口语或英文8D报告能力
+    quote: null
+  C-05:
+    state: 未知
+    why: 简历工作经历均为设计/制图/前端开发，未见品质管理岗位年限
+    quote: null
+  C-06:
+    state: 满足
+    why: 简历多处体现线束、连接器、Wire Harness相关产品经验
+    quote: 负责端子线、Wire Harness及内部连接线的结构设计
+  C-07:
+    state: 未知
+    why: 简历未体现品质问题分析与改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历未提及接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条无对应数据项，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

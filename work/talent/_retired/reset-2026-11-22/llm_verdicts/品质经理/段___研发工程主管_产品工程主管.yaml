@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_段___研发工程主管_产品工程主管
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 59e0cc83c521ebb3
+runs:
+  1:
+    output_sha256: b14cc55f83f52931
+    chars: 837
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 出生年月1985-11-01，年龄约40岁，落在25~40区间内
+    quote: '出生年月: 1985-11-01'
+  C-02:
+    state: 满足
+    why: 最高学历为大专，满足大专及以上要求
+    quote: '最高学历: 大专'
+  C-03:
+    state: 满足
+    why: 专业名称为机电一体化，命中限定专业列表
+    quote: '专业名称: 机电一体化'
+  C-04:
+    state: 未知
+    why: 简历仅提及英语三级证书，未体现英语口语熟练及独立书写英文8D报告能力
+    quote: 英语三级，机械设计基础
+  C-05:
+    state: 未知
+    why: 简历工作经历均为工程/研发类岗位，未见品质管理工作年限信息
+    quote: null
+  C-06:
+    state: 满足
+    why: 简历大量描述Cable/线束类产品开发经验，具备线束行业认知
+    quote: 从事TYPE-C系列0LightningUHDMI2.10Wireharness
+  C-07:
+    state: 未知
+    why: 简历有不良分析改善描述，但未明确体现品质问题分析改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历未提及接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_吴___30岁_英文业务跟单_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 188d195a759dc4d5
+runs:
+  1:
+    output_sha256: 4869e3ba7540caf2
+    chars: 809
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示30岁，落在25~40岁区间内
+    quote: 女|30岁
+  C-02:
+    state: 满足
+    why: 简历教育经历为本科（湖南工程学院2013~2017），学历不低于大专
+    quote: 湖南工程学院 2013~2017
+  C-03:
+    state: 不满足
+    why: 简历未显示机电/电子/自动化/工业工程/机械工程等工程类专业，专业不符
+    quote: null
+  C-04:
+    state: 未知
+    why: 简历有英语六级和书面英语，但未提及英语口语熟练及独立书写英文8D报告
+    quote: 英语 (书面)
+  C-05:
+    state: 未知
+    why: 简历为外贸跟单/客服经验，未明确品质管理工作经验年限
+    quote: null
+  C-06:
+    state: 不满足
+    why: 简历无任何线束/连接器行业相关经历或知识描述
+    quote: null
+  C-07:
+    state: 未知
+    why: 简历未提及品质问题分析、改善能力
+    quote: null
+  C-08:
+    state: 未知
+    why: 简历未提及QC七大手法、5WHY、SPC、CPK、6S等品质工具
+    quote: null
+  C-09:
+    state: 未知
+    why: 简历未提及接待客户验厂经验
+    quote: null
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样，不给结论
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

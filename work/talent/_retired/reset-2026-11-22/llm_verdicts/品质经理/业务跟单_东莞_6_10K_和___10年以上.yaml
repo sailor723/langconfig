@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_业务跟单_东莞_6_10K_和___10年以上
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: dd654eee8a881efc
+runs:
+  1:
+    output_sha256: db86a9a52b1a09ea
+    chars: 944
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 客户要求25~40岁，简历出生日期1992年1月25日，年龄约34岁，在区间内
+    quote: 年龄：25 ~ 40岁
+  C-02:
+    state: 满足
+    why: 客户要求大专及以上，简历为广东金融学院大专学历
+    quote: 学历：大专及以上学历
+  C-03:
+    state: 不满足
+    why: 简历专业为市场营销，不在机电一体化/电子技术/自动化/工业工程/机械工程白名单内
+    quote: 专业：机电一体化/电子技术/自动化/工业工程/机械工程等工程类专业毕业
+  C-04:
+    state: 不满足
+    why: 简历未体现英语口语熟练及独立书写英文8D报告能力，0/2项命中
+    quote: 语言：英语口语熟练及具备独立书写英文8D报告的能力
+  C-05:
+    state: 满足
+    why: 简历工作经历约11年，含品质管理相关经验，满足3年以上要求
+    quote: 3年以上品质管理工作经验
+  C-06:
+    state: 满足
+    why: 简历体现线束行业相关产品认知，1/1项命中
+    quote: 熟识线束行业相关产品
+  C-07:
+    state: 不满足
+    why: 简历未体现品质问题分析改善能力，0/1项命中
+    quote: 具备品质问题分析、改善的能力
+  C-08:
+    state: 不满足
+    why: 简历未体现QC七大手法、5WHY、SPC、CPK、6S任一工具，0/5项命中
+    quote: 懂QC七大手法、5WHY、SPC、CPK、6S工具
+  C-09:
+    state: 不满足
+    why: 简历未体现客户验厂接待经验，0/1项命中
+    quote: 具备接待客户验厂经验
+  C-10:
+    state: 不可判
+    why: 该条款属性/组件未建，无数据项，对所有人一样
+    quote: 有良好的沟通、协调能力
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。

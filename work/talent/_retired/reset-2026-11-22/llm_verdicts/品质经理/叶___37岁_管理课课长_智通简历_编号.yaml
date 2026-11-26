@@ -1,0 +1,53 @@
+jd: 品质经理
+candidate: cand_叶___37岁_管理课课长_智通简历_编号
+schema: talent.llm_verdicts/v1
+model: deepseek-chat
+temperature: 0
+prompt_sha256: 00a1685ba82f4061
+runs:
+  1:
+    output_sha256: 05eff7742ff52335
+    chars: 841
+replay_identical: null
+cells:
+  C-01:
+    state: 满足
+    why: 简历显示37岁，落在25~40岁区间内
+    quote: 37岁
+  C-02:
+    state: 满足
+    why: 简历为大专学历，满足大专及以上要求
+    quote: 大专 . 全日制 计算机应用专业
+  C-03:
+    state: 不满足
+    why: 专业为计算机应用，未命中工程类专业白名单
+    quote: 计算机应用专业
+  C-04:
+    state: 不满足
+    why: 简历仅体现普通话熟练，无英语口语及英文8D报告能力
+    quote: '普通话: 听说能力 读写能力 [熟练'
+  C-05:
+    state: 不满足
+    why: 12年经验均为人力资源/人事行政，非品质管理领域
+    quote: 本人有12年人力资源领域工作经验
+  C-06:
+    state: 满足
+    why: 简历明确提及有电子线束行业工作经验
+    quote: 有电子线束、塑胶五金、CNC、模具、电子烟等行业工作经验
+  C-07:
+    state: 不满足
+    why: 简历无品质问题分析改善相关能力描述
+    quote: null
+  C-08:
+    state: 不满足
+    why: 简历未提及QC七大手法、SPC、CPK、6S、5WHY等品质工具
+    quote: null
+  C-09:
+    state: 满足
+    why: 简历有主导BSCI验厂及配合其他项目验厂经验
+    quote: 负责主导社会责任 BSCI验厂的所有工作事务，以及配合其他部门主导的其他项目验厂事务
+  C-10:
+    state: 不可判
+    why: 该条款无对应数据项，对所有人一样
+    quote: null
+note: 判定链重放用这份存档;存档变了就是新的一次判定,必须重审。
