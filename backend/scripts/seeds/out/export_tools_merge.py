@@ -106,16 +106,26 @@ def main(argv: list[str] | None = None) -> int:
 
     for row in rows:
         cols = ", ".join(columns)
-        vals = ", ".join(lit(row.get(col)) for col in columns)
         row_id = row.get("id")
-        # Same rule as the agents merge: reuse the id when it is free, otherwise
-        # let the sequence assign one, and never touch an existing tool_id.
+        # 复用 id 的前提是"这个 id 还空着"。原来的写法是 `AND NOT EXISTS (id = 225)`，
+        # 也就是 id 被占就**整行跳过** —— 与注释里"otherwise let the sequence assign one"不符。
+        # 后果是实测出来的：ECS 上有 89 个工具（比快照多 17 个自己的），id 221/224/225 已被
+        # 它们占用，于是 ontology_publish / ontology_open / ontology_inspect 三条**静默没装上**，
+        # merge 还打印"0 tool(s) added"。现在改成：id 被占就现取一个序列值，行照装。
+        vals_list = []
+        for col in columns:
+            if col == "id" and row_id is not None:
+                vals_list.append(
+                    "CASE WHEN EXISTS (SELECT 1 FROM custom_tools WHERE id = %s)"
+                    " THEN nextval(pg_get_serial_sequence('custom_tools', 'id'))"
+                    " ELSE %s END" % (lit(row_id), lit(row_id)))
+            else:
+                vals_list.append(lit(row.get(col)))
+        vals = ", ".join(vals_list)
         lines.append(
             f"INSERT INTO custom_tools ({cols})\n"
             f"SELECT {vals}\n"
-            f"WHERE NOT EXISTS (SELECT 1 FROM custom_tools WHERE tool_id = {lit(row['tool_id'])})"
-            + (f"\n  AND NOT EXISTS (SELECT 1 FROM custom_tools WHERE id = {lit(row_id)});"
-               if row_id is not None else ";")
+            f"WHERE NOT EXISTS (SELECT 1 FROM custom_tools WHERE tool_id = {lit(row['tool_id'])});"
         )
         lines.append("")
 
