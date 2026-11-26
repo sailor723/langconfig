@@ -2017,9 +2017,19 @@ bash scripts/update_host_from_git.sh root@&lt;host&gt; --key ~/.ssh/&lt;key&gt;.
 <p>所以图（内联 SVG）、目录锚点、版本戳、页脚都与交付出去的那一份一致，不会再出现</p>
 <p>"应用里说一套、文档里说另一套"。</p>
 <ul>
-<li>接口只有两个：<code>GET /api/ontology/doc</code>（<code>?format=html|pdf|md|docx</code>，非法值 422）与</li>
+<li>两个视图，都在应用内：<strong>文档</strong>（构建好的 HTML，内联 SVG 图，页内目录可点）与 <strong>PDF</strong></li>
 </ul>
-<p><code>GET /api/ontology/doc/meta</code>（<code>version</code> / <code>date</code> / <code>bytes</code> / <code>built_at</code> / <code>formats</code>）。</p>
+<p>（用 pdf.js 渲染，不是浏览器自带的 PDF 阅读器 —— Safari 的 PDFKit 会把这份文档的中文</p>
+<p>子集字体拆成乱码，<code>PdfViewer</code> 就是为这个存在的）。</p>
+<ul>
+<li><strong>右侧有目录</strong>（和 Knowledge 的文档阅读器同一个形状）：标题从<strong>构建好的 HTML</strong> 里解析</li>
+</ul>
+<p>（<code>GET /api/ontology/doc/headings?max_level=2</code>），所以点哪一条都落在存在的 id 上；</p>
+<p>点一条就滚到那一节，滚文档时高亮跟着走。PDF 视图下目录置灰（按页渲染，锚点不适用）。</p>
+<ul>
+<li>接口三个：<code>GET /api/ontology/doc</code>（<code>?format=html|pdf|md|docx</code>，非法值 422）、</li>
+</ul>
+<p><code>/doc/meta</code>（<code>version</code> / <code>date</code> / <code>bytes</code> / <code>built_at</code> / <code>formats</code>）、<code>/doc/headings</code>。</p>
 <p>版本与日期从 md 顶部那一行读，<strong>和构建脚本同一个口径</strong>。</p>
 <ul>
 <li>没构建时页面不装死：它会打印要跑的构建命令，并给一个「已生成，重新检查」按钮</li>

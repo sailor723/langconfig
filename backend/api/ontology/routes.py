@@ -73,6 +73,38 @@ async def data_agent_doc_meta():
     return _doc_stamp("html")
 
 
+@router.get("/doc/headings")
+async def data_agent_doc_headings(max_level: int = Query(2, ge=1, le=4)):
+    """The document's own section index (right-hand TOC).
+
+    Parsed from the BUILT html, not from a second markdown pass: the anchors the reader clicks are
+    exactly the ids the page carries (`build_toc.slug()` wrote them), so a click always lands.
+    """
+    import re as _re
+    import html as _html
+
+    path = _doc_path("html")
+    if not path.is_file():
+        raise HTTPException(404, detail="data-agent.html 还没生成：在仓库根跑 python scripts/build_data_agent_html.py")
+    text = path.read_text(encoding="utf-8")
+    # 只取文档主体里的标题：<hN id="...">text</hN>（页内的 TOC 是 <a href="#...">，不会误中）
+    pattern = _re.compile(r'<h([1-4]) id="([^"]+)">(.*?)</h\1>', _re.S)
+    out = []
+    for m in pattern.finditer(text):
+        level = int(m.group(1))
+        if level > max_level:
+            continue
+        raw = _re.sub(r"<[^>]+>", "", m.group(3))
+        title = _html.unescape(raw).strip()
+        if not title:
+            continue
+        # 文档自己那一节「目录」不是章节，是导航：放进右侧索引只会让人点回顶部两次。
+        if title in ("目录", "Contents", "Table of contents"):
+            continue
+        out.append({"level": level, "anchor": m.group(2), "text": title})
+    return {"count": len(out), "headings": out}
+
+
 @router.get("/doc")
 async def data_agent_doc(format: str = Query("html", pattern="^(html|pdf|md|docx)$")):
     """The Data Agent document itself (`?format=html|pdf|md|docx`).

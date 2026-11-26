@@ -2533,8 +2533,14 @@ bash scripts/update_host_from_git.sh root@<host> --key ~/.ssh/<key>.pem
 - 读的是**同一份产物**：`docs/system-architecture/data-agent.html`（由本文构建），
   所以图（内联 SVG）、目录锚点、版本戳、页脚都与交付出去的那一份一致，不会再出现
   "应用里说一套、文档里说另一套"。
-- 接口只有两个：`GET /api/ontology/doc`（`?format=html|pdf|md|docx`，非法值 422）与
-  `GET /api/ontology/doc/meta`（`version` / `date` / `bytes` / `built_at` / `formats`）。
+- 两个视图，都在应用内：**文档**（构建好的 HTML，内联 SVG 图，页内目录可点）与 **PDF**
+  （用 pdf.js 渲染，不是浏览器自带的 PDF 阅读器 —— Safari 的 PDFKit 会把这份文档的中文
+  子集字体拆成乱码，`PdfViewer` 就是为这个存在的）。
+- **右侧有目录**（和 Knowledge 的文档阅读器同一个形状）：标题从**构建好的 HTML** 里解析
+  （`GET /api/ontology/doc/headings?max_level=2`），所以点哪一条都落在存在的 id 上；
+  点一条就滚到那一节，滚文档时高亮跟着走。PDF 视图下目录置灰（按页渲染，锚点不适用）。
+- 接口三个：`GET /api/ontology/doc`（`?format=html|pdf|md|docx`，非法值 422）、
+  `/doc/meta`（`version` / `date` / `bytes` / `built_at` / `formats`）、`/doc/headings`。
   版本与日期从 md 顶部那一行读，**和构建脚本同一个口径**。
 - 没构建时页面不装死：它会打印要跑的构建命令，并给一个「已生成，重新检查」按钮
   （空白 iframe 是这个仓库一直在挖的那种"静默失败"）。
