@@ -41,6 +41,11 @@ import _secretscan  # noqa: E402  (sibling module in out/)
 # The count SQL is what the DB side is measured with, so a leg can count a subset:
 # the settings snapshot deliberately covers only the TEAM namespaces, not
 # general/onboarding, and counting the whole table would report false drift.
+#
+# The settings subset is read from the SNAPSHOT (`settings_namespaces()`), not hardcoded:
+# a hardcoded list of 6 versus a snapshot holding 8 namespaces reported
+# "settings 6 8 STALE: -2" on every machine, forever — a permanent false drift signal,
+# which trains people to ignore the one check that says whether a seed is up to date.
 EXPORTED = {
     "agents": ("export_agents_merge.py", AGENTS_MERGE,
                "SELECT count(*) FROM deep_agent_templates"),
@@ -54,13 +59,38 @@ EXPORTED = {
 PASS, STALE = "FRESH", "STALE"
 
 
+def settings_namespaces(path: Path) -> list[str]:
+    """The namespaces a settings snapshot actually asserts (its top-level keys)."""
+    import json as _json
+    try:
+        data = _json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    return [k for k in data if not k.startswith("__")] if isinstance(data, dict) else []
+
+
+# filled by db_counts() when the settings leg finds a snapshot namespace the DB does not
+# have at all; printed with the table so the reader gets names, not a count delta.
+SETTINGS_MISSING: list[str] = []
+
+
 def db_counts() -> dict[str, int]:
     from sqlalchemy import text
     from db.database import SessionLocal
 
     out: dict[str, int] = {}
     with SessionLocal() as db:
-        for leg, (_script, _artefact, count_sql) in EXPORTED.items():
+        for leg, (_script, artefact, count_sql) in EXPORTED.items():
+            if leg == "settings":
+                nss = settings_namespaces(artefact)
+                if nss:                     # compare like with like: the snapshot's own set
+                    # 一个命名空间可以有 N 个文档，快照却按"每 ns 一个 key"压缩成 1；
+                    # 按行数比会永远对不上（本机 models 有 3 行、快照 1 个 key）。所以比的是
+                    # **这套命名空间在不在**，缺的报名字。
+                    present = {r[0] for r in db.execute(text("SELECT DISTINCT ns FROM settings_documents"))}
+                    SETTINGS_MISSING[:] = [n for n in nss if n not in present]
+                    out[leg] = sum(1 for n in nss if n in present)
+                    continue
             out[leg] = db.execute(text(count_sql)).scalar()
     return out
 
