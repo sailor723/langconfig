@@ -26,6 +26,75 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ontology", tags=["ontology"])
 
 
+# ─────────────────────────────────────────────── the document (this activity's home page)
+# Ontology 活动的首页就是《数据 Agent 总文档》。它不是前端另写的一页简介：这里是同一份产物
+# （`docs/system-architecture/data-agent.html`，由 data-agent.md 构建），原样送出去 ——
+# 图是内联 SVG，目录锚点、版本戳、页脚都在，读到的就是交付出去的那一份。
+# 前端只做两件事：把它放进 iframe，以及用 /doc/meta 显示版本/日期/大小（没构建时能说清缺什么）。
+_ROOT = pathlib.Path(__file__).resolve().parents[3] / "docs" / "system-architecture"
+_DOC_MEDIA = {
+    "html": "text/html; charset=utf-8",
+    "pdf": "application/pdf",
+    "md": "text/markdown; charset=utf-8",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+
+
+def _doc_path(fmt: str) -> pathlib.Path:
+    return _ROOT / f"data-agent.{fmt}"
+
+
+def _doc_stamp(fmt: str) -> dict:
+    """版本/日期只写在 md 顶部那一行；这里读它，和构建脚本是同一个口径。"""
+    import re as _re
+    md = _doc_path("md")
+    version = date = ""
+    if md.is_file():
+        head = md.read_text(encoding="utf-8")[:2000]
+        v = _re.search(r"\*\*版本\*\*\s*(v[\d.]+)", head)
+        d = _re.search(r"\*\*日期\*\*\s*(\d{4}-\d{2}-\d{2})", head)
+        version = v.group(1) if v else ""
+        date = d.group(1) if d else ""
+    target = _doc_path(fmt)
+    return {
+        "version": version,
+        "date": date,
+        "format": fmt,
+        "exists": target.is_file(),
+        "bytes": target.stat().st_size if target.is_file() else 0,
+        "built_at": (target.stat().st_mtime if target.is_file() else None),
+        "formats": sorted(f for f in _DOC_MEDIA if _doc_path(f).is_file()),
+    }
+
+
+@router.get("/doc/meta")
+async def data_agent_doc_meta():
+    """What the home page needs to render its header honestly: 版本 · 日期 · 有没有构建。"""
+    return _doc_stamp("html")
+
+
+@router.get("/doc")
+async def data_agent_doc(format: str = Query("html", pattern="^(html|pdf|md|docx)$")):
+    """The Data Agent document itself (`?format=html|pdf|md|docx`).
+
+    Deliberately not re-rendered from the markdown here: a second renderer would drift from the
+    docx/pdf/html the reader gets outside the app. If a file is missing, say which command builds it.
+    """
+    from fastapi.responses import FileResponse
+
+    path = _doc_path(format)
+    if not path.is_file():
+        build = "build_data_agent_docs.py" if format == "docx" else "build_data_agent_html.py"
+        raise HTTPException(
+            404,
+            detail=(f"data-agent.{format} 还没生成。在仓库根跑：python scripts/{build}"),
+        )
+    # no-store: the file changes whenever the doc is rebuilt; a stale copy in the browser is worse
+    # than one extra read on a document that is measured in hundreds of KB.
+    return FileResponse(path, media_type=_DOC_MEDIA[format],
+                        headers={"Cache-Control": "no-store"})
+
+
 @router.get("/installed")
 async def list_installed():
     """Every ontology that is INSTALLED, derived from the profiles on disk.

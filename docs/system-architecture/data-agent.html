@@ -313,9 +313,10 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 34px 0; }
 <li><a href="#s182">12.10 用 DSH 更新一台远端 Carrier</a></li>
 <li><a href="#s183">12.11 踩过的坑（都有实测，写下来防第二次）</a></li>
 <li><a href="#s184">12.12 一张清单（照着做，不要凭记忆）</a></li>
-<li><strong><a href="#s185">附：旧文档去哪了</a></strong></li>
-<li><strong><a href="#s186">附录 · 图与源文件</a></strong></li>
-<li><strong><a href="#s187">附：版本与修订</a></strong></li>
+<li><a href="#s185">12.13 本体活动的首页就是这份文档</a></li>
+<li><strong><a href="#s186">附：旧文档去哪了</a></strong></li>
+<li><strong><a href="#s187">附录 · 图与源文件</a></strong></li>
+<li><strong><a href="#s188">附：版本与修订</a></strong></li>
 </ul>
 <hr>
 <a class="anchor" id="s007"></a><h1 id="第一部分-概览overview-十段每段一个要点">第一部分 · 概览（Overview · 十段，每段一个要点）</h1>
@@ -2008,13 +2009,39 @@ bash scripts/update_host_from_git.sh root@&lt;host&gt; --key ~/.ssh/&lt;key&gt;.
 <li><code>commit</code> + <code>push</code>（<code>main</code> 与 <code>deploy</code> 两个分支）；</li>
 <li>远端：<code>scripts/update_host_from_git.sh</code>，看 <code>HEAD</code> 与 <code>/docs</code> 两个结果。</li>
 </ol>
+<a class="anchor" id="s185"></a><h2 id="1213-本体活动的首页就是这份文档">12.13 本体活动的首页就是这份文档</h2>
+<p>点开 <strong>Ontology 活动</strong>，第一眼看到的就是这份《数据 Agent 总文档》——不是另一页简介。</p>
+<ul>
+<li>读的是<strong>同一份产物</strong>：<code>docs/system-architecture/data-agent.html</code>（由本文构建），</li>
+</ul>
+<p>所以图（内联 SVG）、目录锚点、版本戳、页脚都与交付出去的那一份一致，不会再出现</p>
+<p>"应用里说一套、文档里说另一套"。</p>
+<ul>
+<li>接口只有两个：<code>GET /api/ontology/doc</code>（<code>?format=html|pdf|md|docx</code>，非法值 422）与</li>
+</ul>
+<p><code>GET /api/ontology/doc/meta</code>（<code>version</code> / <code>date</code> / <code>bytes</code> / <code>built_at</code> / <code>formats</code>）。</p>
+<p>版本与日期从 md 顶部那一行读，<strong>和构建脚本同一个口径</strong>。</p>
+<ul>
+<li>没构建时页面不装死：它会打印要跑的构建命令，并给一个「已生成，重新检查」按钮</li>
+</ul>
+<p>（空白 iframe 是这个仓库一直在挖的那种"静默失败"）。</p>
+<ul>
+<li>页头保留三件必须先做的事：<strong>重新编译</strong>（重新编译每个本体并报它声明了什么）、</li>
+</ul>
+<p><strong>生成…</strong>（派 agent 建本体）、<strong>看声明</strong>（<code>/ontology/browse</code>）；另有两个出口：</p>
+<p>PDF（打印/归档）与「新标签」（带完整目录的独立页）。</p>
+<ul>
+<li>活动里的其它入口不变：左轨列本体与发布状态，<code>/ontology/browse</code> 列声明，</li>
+</ul>
+<p><code>/ontology/app</code> 提问，<code>/ontology/dashboard</code> 看已声明的看板。</p>
+<blockquote><p>改文档 = 改首页：改完 md 跑一遍 <code>build_toc.py</code> → <code>build_data_agent_docs.py</code> → <code>build_data_agent_html.py</code>，再刷新页面即可（<code>/doc</code> 用 <code>no-store</code>，不会拿到旧副本）。</p></blockquote>
 <hr>
-<a class="anchor" id="s185"></a><h1 id="附旧文档去哪了">附：旧文档去哪了</h1>
+<a class="anchor" id="s186"></a><h1 id="附旧文档去哪了">附：旧文档去哪了</h1>
 <p>九份同名主题的文档已<strong>删除</strong>，内容全部并入本文；不再保留副本，也不留指针文件——</p>
 <p>两份同义文档迟早会漂，而本文是唯一权威。</p>
 <table><thead><tr><th>旧文件</th><th>并入了本文的哪一节</th><th>找回方式</th></tr></thead><tbody><tr><td><code>ontology-process.md</code></td><td>第三部分 · 过程与票制</td><td>git 历史（<code>git log --follow</code>）</td></tr><tr><td><code>ontology-pipeline.md</code></td><td>第四部分 4.1</td><td>同上</td></tr><tr><td><code>ontology_architecture.md</code></td><td>第四部分 4.2</td><td>同上</td></tr><tr><td><code>ontology-agents.md</code></td><td>第五部分 · Agent 与专家</td><td>同上</td></tr><tr><td><code>ontology-agent-boundaries.md</code></td><td>第七部分 · 数据边界</td><td>同上</td></tr><tr><td><code>ontology-dsl.md</code></td><td>6.1</td><td>同上</td></tr><tr><td><code>ontology-metrics-shapes.md</code></td><td>6.2</td><td>同上</td></tr><tr><td><code>platform-facts.md</code></td><td>6.3</td><td>同上</td></tr><tr><td><code>data-agent-runbook.md</code></td><td>第一、二、八部分与附录</td><td>同上（本文件即它的升级版）</td></tr></tbody></table>
 <blockquote><p>重新生成配套文件：<code>python scripts/build_data_agent_docs.py</code>（产出 <code>data-agent.docx</code>，与本文不会漂移）</p></blockquote>
-<a class="anchor" id="s186"></a><h1 id="附录-图与源文件">附录 · 图与源文件</h1>
+<a class="anchor" id="s187"></a><h1 id="附录-图与源文件">附录 · 图与源文件</h1>
 <table><thead><tr><th>图</th><th>生成脚本</th><th>用在本文哪里</th></tr></thead><tbody><tr><td><code>data-agent-lanes.svg</code></td><td><code>scripts/build_data_agent_charts.py</code></td><td>开头：泳道 + 进度带（<strong>唯一</strong>一张进度图，T0…T5）</td></tr><tr><td><code>data-agent-pipeline7.svg</code></td><td><code>scripts/build_data_agent_diagrams.py</code></td><td>第三部分总览图、§4.2 流水线</td></tr><tr><td><code>data-agent-grill.svg</code></td><td><code>scripts/build_data_agent_diagrams.py</code></td><td>§2 第 1 步：三轮把「前沿」问空</td></tr><tr><td><code>data-agent-dsh-loop.svg</code></td><td><code>scripts/build_data_agent_diagrams.py</code></td><td>第十二部分：DSH 造 / Carrier 跑的回路</td></tr><tr><td><code>data-agent-layers.svg</code></td><td><code>scripts/build_data_agent_diagrams.py</code></td><td>§4.2 五层（L4→L0）</td></tr><tr><td><code>data-agent-publish.svg</code></td><td><code>scripts/build_data_agent_diagrams.py</code></td><td>§4.2 发布通道（stage / apply）</td></tr><tr><td><code>data-agent-gates4.svg</code></td><td><code>scripts/build_data_agent_diagrams.py</code></td><td>第十一部分：四道门</td></tr></tbody></table>
 <pre><code>python scripts/build_data_agent_charts.py      # 泳道图
 python scripts/build_data_agent_diagrams.py    # 其余五张（SVG + PNG）
@@ -2026,7 +2053,7 @@ python scripts/build_data_agent_html.py        # 生成 data-agent.html + data-a
 <table><thead><tr><th>产物</th><th>给谁</th><th>目录</th><th>图</th></tr></thead><tbody><tr><td><code>data-agent.docx</code></td><td>发出去、要批注</td><td><strong>52 个内部超链接</strong>（165 条书签）</td><td>PNG 内嵌（6.3 in 宽）</td></tr><tr><td><code>data-agent.html</code></td><td>浏览器里读、单文件可传阅</td><td><strong>69 条</strong> <code>#sNNN</code> / 标题锚点</td><td><strong>内联 SVG</strong>（矢量，放大不糊）</td></tr><tr><td><code>data-agent.pdf</code></td><td>打印、归档</td><td><strong>73 个命名目标</strong> + 188 条 PDF 书签</td><td>矢量（宽度按纸宽缩到 483 pt，<strong>看不清就放大</strong>）</td></tr></tbody></table>
 <blockquote><p>手画的 SVG <strong>不会</strong>替你报错：文字写宽了压到邻框、框画到 <code>viewBox</code> 外被裁掉，都是静默的。 所以改完图必须跑 <code>check_svg_overflow.py</code> —— 它沿用的字宽模型与生成器是同一套，不会各说各话。 同一个道理在 PDF 上又出现一次：表格里一个 <code>tests/xxx.py::test_yyy</code> 就能把整张表推出纸边， 而 WeasyPrint 只是把它裁掉、不报错。所以 PDF 用 <code>table-layout: fixed</code> + <code>word-break: break-all</code>， 并在生成后用边界量一遍（见 <code>scripts/build_data_agent_html.py</code> 的注释）。</p></blockquote>
 <hr>
-<a class="anchor" id="s187"></a><h1 id="附版本与修订">附：版本与修订</h1>
+<a class="anchor" id="s188"></a><h1 id="附版本与修订">附：版本与修订</h1>
 <table><thead><tr><th>版本</th><th>日期</th><th>改了什么</th><th>产物</th></tr></thead><tbody><tr><td>v1.1</td><td>2026-11-26</td><td>新增<strong>第十二部分 · 用 DSH 安装与操作 Carrier</strong>（12.1–12.12 + 「DSH 造 / Carrier 跑」回路图）：装 DSH、装 Carrier、五类 artefact 的生效开关、造 agent/deep agent/skill/tool、跑一轮并判绿、更新远端、八个踩过的坑</td><td><code>.md</code> <code>.docx</code> <code>.html</code> <code>.pdf</code></td></tr><tr><td>v1.0</td><td>2026-11-26</td><td>首次以「唯一权威 + 三视图」发布：新增 §2 第 1 步「先被 grill」整节（1.1–1.6 + 一张「三轮把前沿问空」图）；六张图全部手画 SVG（软线、文字不出框）；docx / html / pdf 同源同锚点</td><td><code>.md</code> <code>.docx</code> <code>.html</code> <code>.pdf</code></td></tr></tbody></table>
 <blockquote><p><strong>改一版的顺序</strong>：① 改本文顶部那行 <code>**版本**</code> / <code>**日期**</code>；② 在这张表加一行；③ 跑 <code>build_toc.py</code> → <code>build_data_agent_docs.py</code> → <code>build_data_agent_html.py</code>；④ <code>pytest tests/test_context_cost_guards.py</code>。 三份产物都从<strong>同一行</strong>读版本号（<code>scripts/build_data_agent_html.py: stamp()</code>），所以不会出现 "docx 写着 v1.0、PDF 还是旧的"——这一条由 <code>test_version_stamp_agrees_across_artifacts</code> 守着。</p></blockquote>
 </main>

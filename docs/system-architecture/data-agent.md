@@ -178,6 +178,7 @@ T4 教程 → T5 发布`，每票一格里写着「你做什么 / Agent 做什�
     - [12.10 用 DSH 更新一台远端 Carrier](#1210-用-dsh-更新一台远端-carrier)
     - [12.11 踩过的坑（都有实测，写下来防第二次）](#1211-踩过的坑都有实测写下来防第二次)
     - [12.12 一张清单（照着做，不要凭记忆）](#1212-一张清单照着做不要凭记忆)
+    - [12.13 本体活动的首页就是这份文档](#1213-本体活动的首页就是这份文档)
 - **[附：旧文档去哪了](#附旧文档去哪了)**
 - **[附录 · 图与源文件](#附录-图与源文件)**
 - **[附：版本与修订](#附版本与修订)**
@@ -2525,6 +2526,27 @@ bash scripts/update_host_from_git.sh root@<host> --key ~/.ssh/<key>.pem
 6. 补一条守卫测试（行为要防回归，prompt 挡不住）；
 7. `commit` + `push`（`main` 与 `deploy` 两个分支）；
 8. 远端：`scripts/update_host_from_git.sh`，看 `HEAD` 与 `/docs` 两个结果。
+## 12.13 本体活动的首页就是这份文档
+
+点开 **Ontology 活动**，第一眼看到的就是这份《数据 Agent 总文档》——不是另一页简介。
+
+- 读的是**同一份产物**：`docs/system-architecture/data-agent.html`（由本文构建），
+  所以图（内联 SVG）、目录锚点、版本戳、页脚都与交付出去的那一份一致，不会再出现
+  "应用里说一套、文档里说另一套"。
+- 接口只有两个：`GET /api/ontology/doc`（`?format=html|pdf|md|docx`，非法值 422）与
+  `GET /api/ontology/doc/meta`（`version` / `date` / `bytes` / `built_at` / `formats`）。
+  版本与日期从 md 顶部那一行读，**和构建脚本同一个口径**。
+- 没构建时页面不装死：它会打印要跑的构建命令，并给一个「已生成，重新检查」按钮
+  （空白 iframe 是这个仓库一直在挖的那种"静默失败"）。
+- 页头保留三件必须先做的事：**重新编译**（重新编译每个本体并报它声明了什么）、
+  **生成…**（派 agent 建本体）、**看声明**（`/ontology/browse`）；另有两个出口：
+  PDF（打印/归档）与「新标签」（带完整目录的独立页）。
+- 活动里的其它入口不变：左轨列本体与发布状态，`/ontology/browse` 列声明，
+  `/ontology/app` 提问，`/ontology/dashboard` 看已声明的看板。
+
+> 改文档 = 改首页：改完 md 跑一遍 `build_toc.py` → `build_data_agent_docs.py` →
+> `build_data_agent_html.py`，再刷新页面即可（`/doc` 用 `no-store`，不会拿到旧副本）。
+
 
 ---
 
