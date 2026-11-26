@@ -1,6 +1,6 @@
 # A test run of the skill on an unseen database
 
-This is the artifact of testing `build-ontology-from-db` against a database the skill had never
+This is the artifact of testing `db-ontology-build` against a database the skill had never
 seen: a small clinic (patients, doctors, appointments, treatments, invoices, payments, insurance
 claims), 5,418 appointments and 6,443 treatment lines over 120 days.
 

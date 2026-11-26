@@ -1,5 +1,5 @@
 ---
-name: sql-analyst
+name: db-sql-analyst
 description: 分析 SQLite/CSV 数据。先理解用户的数据、业务背景与图表偏好，然后写 SQL、跑查询，自动生成图表或交互式看板。
 tags: [sql, data-analysis, visualization, dashboard, csv, sqlite]
 triggers:

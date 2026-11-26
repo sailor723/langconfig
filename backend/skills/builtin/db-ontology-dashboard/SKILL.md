@@ -1,8 +1,8 @@
 ---
-name: build-ontology-dashboard（搭建本体仪表盘）
+name: db-ontology-dashboard（搭建本体仪表盘）
 lang: zh
 translated: machine
-source: backend/skills/en-originals/build-ontology-dashboard/SKILL.md
+source: backend/skills/en-originals/db-ontology-dashboard/SKILL.md
 description: 本体需要一个仪表盘时使用——一份声明（dashboard.json）说明每个面板展示哪一个编译出的指标，一段只引用编译数字的开场评估，需要排版能力的图表（sankey/bubble/treemap），以及在服务端重新编译的交叉筛选；本技能走的是让看板保持诚实的那个顺序（声明
   → 编译 → 护栏 → 门禁 → 之后才轮到页面），并且拒绝让面板发明一个本体没有声明的数字。
 tags:
@@ -57,7 +57,7 @@ params:
 ```bash
 PY=<the app's own .venv: the interpreter that runs the backend>
 cd <ontology repo>/retail_graph
-$PY ../backend/skills/builtin/build-ontology-dashboard/scripts/scaffold_dashboard.py \
+$PY ../backend/skills/builtin/db-ontology-dashboard/scripts/scaffold_dashboard.py \
     --profile ../ontologies/logistics/logistics_settings.json --out /tmp/dashboard.json
 ```
 

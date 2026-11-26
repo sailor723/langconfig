@@ -130,7 +130,7 @@ async def main():
             "Reply in Chinese."
         ),
         backend=backend,
-        skills=["sql-analyst"],
+        skills=["db-sql-analyst"],
         checkpointer=checkpointer,
     )
 

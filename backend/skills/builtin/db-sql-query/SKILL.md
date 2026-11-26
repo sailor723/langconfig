@@ -1,5 +1,5 @@
 ---
-name: "sql-query（SQL 查询）"
+name: "db-sql-query（SQL 查询）"
 description: >-
   对着一个**已经存在**的 PostgreSQL 库，把一句人话变成一条能重跑的查询：三条路径怎么选、表名靠查不靠猜、
   只读纪律、先量库（一行是什么 / 分母有哪些）、数字的二次复核、以及中文导出数据里那四个会安静算错的坑
@@ -13,7 +13,7 @@ triggers:
   - "当用户在跟一个已经建好的库对话（而不是要建库）时"
   - "当 SQL 报错、或你不确定表名/列名时"
   - "当一个数字要交给别人做决定，需要说明它是怎么算出来的时"
-allowed_tools: [sql_agent_tool, db_query, db_review, execute, list_files, read_file, skill]
+allowed_tools: [db_query_langgraph, db_query_agent, db_review, execute, list_files, read_file, skill]
 author: LangConfig
 version: "2.0"
 ---
@@ -21,12 +21,21 @@ version: "2.0"
 你的任务是**把问题变成一条能重跑的查询**，而不是说一段听起来合理的答案。一条能重跑的查询有三个特征：
 别人拿去能在同一个库上跑出同一个数、口径写在旁边、以及知道它没回答什么。
 
+## 数据边界（硬规矩）
+
+**python 允许；用 python/shell 连库不允许。**
+
+- 允许 `python_execute` / shell：解析 Excel/CSV、算数、生成报告、跑本仓库的编译与门禁。
+- 数据只走三扇门：已知 SQL → `db_query_agent`；不知道表结构/口径 → `db_query_langgraph`；写 → `db_execute`。
+- 禁止 `psql` / `pg_dump` / `import psycopg2|psycopg|sqlalchemy` / `connect(…dbname…)` / `copy … from stdin` /
+  自拼 `PGPASSWORD`+DSN —— 绕开守卫，也不进用量账本。
+- 工具做不到时不要绕：写进 `unverified` / `needs_human`。
 ## 第 0 步——先分清要走哪条路
 
 | 用户的问法 | 走这条路 | 为什么 |
 |---|---|---|
-| 「有多少客户」「按城市算收入」——**自然语言** | `sql_agent_tool(question=..., database="<库名>")` | 它内部是一条 LangGraph 管线：列表 → 读结构 → 生成 SQL → **校验** → 只读执行。表名/列名它自己去查 |
-| 「跑这条 SQL」「我要精确控制」——**已知 SQL** | `db_query(db_name="<库名>", sql="SELECT …")` | 单条 SELECT、有行数上限、只读会话；结果以 markdown 表格返回 |
+| 「有多少客户」「按城市算收入」——**自然语言** | `db_query_langgraph(question=..., database="<库名>")` | 它内部是一条 LangGraph 管线：列表 → 读结构 → 生成 SQL → **校验** → 只读执行。表名/列名它自己去查 |
+| 「跑这条 SQL」「我要精确控制」——**已知 SQL** | `db_query_agent(db_name="<库名>", sql="SELECT …")` | 单条 SELECT、有行数上限、只读会话；结果以 markdown 表格返回 |
 | 「这个库长什么样」——**结构** | `db_review(db_name="<库名>")` | 行数 / 空值 / 主键候选 / 外键候选，一次给全 |
 
 **库名从哪来**：用户说过就用；没说就问，或看会话里之前建过的库名。**不要猜**一个库名就开跑。
@@ -38,7 +47,7 @@ version: "2.0"
 
 正确顺序：
 
-1. `db_review(db_name=…)` 或 `sql_agent_tool`（它自己会先列表/读结构）；
+1. `db_review(db_name=…)` 或 `db_query_langgraph`（它自己会先列表/读结构）；
 2. 需要精确的列类型/约束时，查目录：
    ```sql
    select table_name, column_name, data_type, is_nullable
@@ -69,7 +78,7 @@ select count(*) as rows,
 
 ## 第 3 步——只读优先，`psql` 是兜底不是首选
 
-平台的工具会替你守纪律（`db_query` 只允许单条 SELECT、有行数上限；`sql_agent_tool` 用只读事务）。
+平台的工具会替你守纪律（`db_query_agent` 只允许单条 SELECT、有行数上限；`db_query_langgraph` 用只读事务）。
 `execute` 里的 `psql` **没有这些保护**，所以只有在前两条都不行时才用，并且必须：
 
 - 只写 `SELECT`；要改数据就停下来说"这需要写入，请确认"——**数据不对不是你去修的理由**；

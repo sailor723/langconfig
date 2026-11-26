@@ -1,8 +1,8 @@
 ---
-name: edit-ontology-metrics（修改本体指标）
+name: db-ontology-metrics（修改本体指标）
 lang: zh
 translated: machine
-source: backend/skills/en-originals/edit-ontology-metrics/SKILL.md
+source: backend/skills/en-originals/db-ontology-metrics/SKILL.md
 description: 被要求改动一个已经存在的本体时使用——新增或修正一个指标、改变某个数字的含义、重命名一个属性、调整护栏配置或样例——而不是从数据库搭一个新的。它打开已安装本体的一个副本，只改拥有这次变更的那一个文件，用第二条
   SQL 路径验证数字，然后通过发布通道交回来（只做暂存；由人来应用）。
 tags:
@@ -37,18 +37,27 @@ params:
 **它**，然后证明它产出的那个数字。其余的一切——工作台、报表、以后每一个问题——都跟着走。
 
 **动一条声明之前，先读
-[../build-ontology-from-db/references/rules.md](../build-ontology-from-db/references/rules.md)。** 它是那二十六条
+[../db-ontology-build/references/rules.md](../db-ontology-build/references/rules.md)。** 它是那二十六条
 配置规则以及每条规则防住哪种失败的唯一出处。本技能不重复它们。
 [references/metric-recipes.md](references/metric-recipes.md) 收录了真正需要声明的那三种形状——分母落在另一个
 对象上的跨粒度比率、维度隔着两跳的分组指标、两个维度四张表的分组——每种都带 TTL、编译器推出的 SQL，以及在一个
 真实本体上量到的值。而
-[../build-ontology-from-db/references/tuning-log.md](../build-ontology-from-db/references/tuning-log.md) 是
+[../db-ontology-build/references/tuning-log.md](../db-ontology-build/references/tuning-log.md) 是
 智能体在这里真犯过的失败记录（去读引擎、拿类去回答计数、否决一个标签）——在因为一个糟糕答案去怪本体之前先读它。
 有东西拒绝时读
-[../build-ontology-from-db/references/pitfalls.md](../build-ontology-from-db/references/pitfalls.md)，
+[../db-ontology-build/references/pitfalls.md](../db-ontology-build/references/pitfalls.md)，
 门禁矩阵（包括最后那道发布门禁）见
-[../build-ontology-from-db/references/gates.md](../build-ontology-from-db/references/gates.md)。
+[../db-ontology-build/references/gates.md](../db-ontology-build/references/gates.md)。
 
+## 数据边界（硬规矩）
+
+**python 允许；用 python/shell 连库不允许。**
+
+- 允许 `python_execute` / shell：解析 Excel/CSV、算数、生成报告、跑本仓库的编译与门禁。
+- 数据只走三扇门：已知 SQL → `db_query_agent`；不知道表结构/口径 → `db_query_langgraph`；写 → `db_execute`。
+- 禁止 `psql` / `pg_dump` / `import psycopg2|psycopg|sqlalchemy` / `connect(…dbname…)` / `copy … from stdin` /
+  自拼 `PGPASSWORD`+DSN —— 绕开守卫，也不进用量账本。
+- 工具做不到时不要绕：写进 `unverified` / `needs_human`。
 ## 问编译器，不要去读它
 
 `ontology_inspect(ontology_key="logistics")` → 每个指标，以及每一个**按名**的拒绝。

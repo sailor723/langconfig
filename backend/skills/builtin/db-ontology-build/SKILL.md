@@ -1,8 +1,8 @@
 ---
-name: build-ontology-from-db（从数据库搭建本体）
+name: db-ontology-build（从数据库搭建本体）
 lang: zh
 translated: machine
-source: backend/skills/en-originals/build-ontology-from-db/SKILL.md
+source: backend/skills/en-originals/db-ontology-build/SKILL.md
 description: 在已有 PostgreSQL 数据库之上搭建本体（或语义层，或"从数据库编译指标"）时使用——这是一架台阶梯，每一级都是一个产 物加一道会失败的门禁，所以"完成"意味着全绿，而绝不意味着"看起来做完了"；它拒绝猜测只有业务方才能决定的事，也拒绝
   发明一个数据支撑不了的数字
 tags:
@@ -62,6 +62,15 @@ params:
 **在需要它的那一步读它，别把它当作业。** 实测：一个搭建者在一次搭建里把这份 SKILL.md 读了八遍，却没打开过任何一份
 参考——所以它破坏的正是那些只写在正文里的规则。下面的台阶梯标出了在哪一步读哪一节。
 
+## 数据边界（硬规矩）
+
+**python 允许；用 python/shell 连库不允许。**
+
+- 允许 `python_execute` / shell：解析 Excel/CSV、算数、生成报告、跑本仓库的编译与门禁。
+- 数据只走三扇门：已知 SQL → `db_query_agent`；不知道表结构/口径 → `db_query_langgraph`；写 → `db_execute`。
+- 禁止 `psql` / `pg_dump` / `import psycopg2|psycopg|sqlalchemy` / `connect(…dbname…)` / `copy … from stdin` /
+  自拼 `PGPASSWORD`+DSN —— 绕开守卫，也不进用量账本。
+- 工具做不到时不要绕：写进 `unverified` / `needs_human`。
 ## 0. 一步怎样结束（动别的东西之前先读这里）
 
 每一步都要往 `work/<key>/steps.json` 写一条记录：
@@ -100,7 +109,7 @@ params:
   文件。
 - **一个聚合，一条语句；多条口径就一次批量发。** 绝不要给同一条查询再加一个子句重发一遍——那个循环十轮也出不来一个
   数字。连续两次工具调用有 ≥80 % 相同时，停下来换方法。
-  **量很多口径时用 `db_query(sqls=[…])`：一次调用最多 20 条 SELECT，一条连接一次往返把结果全拿回来。**
+  **量很多口径时用 `db_query_agent(sqls=[…])`：一次调用最多 20 条 SELECT，一条连接一次往返把结果全拿回来。**
   实测（2026-11-14，`ebl_ops_v1`）：1 618 次 `execute` 各跑一条 `psql`，总共烧掉 **6 085 秒**——每次模型往返约 4 秒，
   而查询本身是毫秒级。**成本在往返，不在 SQL**：一轮的"量库"应该写成一张清单、一次调用拿回来，而不是一条一条问。
 - **门禁是唯一的权威，引擎不是。** 一个文件的格式不清楚时，打开将要审判它的**门禁**——它的 docstring 里就有完整
@@ -670,7 +679,7 @@ python backend/scripts/ontology_gates.py --key <key>
 本技能是一个基底，所以改它就是改未来每一次搭建：
 
 1. 改，并**升 `version:`**（一个你无法标注日期的基底不是基底）；
-2. `python backend/scripts/check_skill.py --skill build-ontology-from-db`——每条规则都必须点名一道门禁，或者说出
+2. `python backend/scripts/check_skill.py --skill db-ontology-build`——每条规则都必须点名一道门禁，或者说出
    `Ungated`；每个链接都必须解析得开；每个文件都必须够得到；每份参考都必须在某一步被排进日程；
 3. commit + push + deploy，然后 `systemctl restart`（应用在启动时把 FS 同步到 DB）和
    `python backend/scripts/verify_skill_version.py --restage`（每个智能体的工作区副本只在会话开始时刷新）——再跑一次
@@ -707,7 +716,7 @@ REFUSED  fullCompensationCost : 46.1% 未判定是状态，不是 0；只能报�
 | 能力 | 为什么 |
 |---|---|
 | **shell 执行**（`execute` / `bash`） | 步骤脚本和每一道门禁都要对着真实数据库跑；DDL/DML（建视图、改表）也走这里 |
-| **`db_query` 批量只读查询** | 量口径用它：`sqls=[…]` 最多 20 条 SELECT，一次往返全拿回来。**没有它就别逐条 `psql`**——那样每一问都是一次模型往返（实测 1 618 次 = 6 085 秒） |
+| **`db_query_agent` 批量只读查询** | 量口径用它：`sqls=[…]` 最多 20 条 SELECT，一次往返全拿回来。**没有它就别逐条 `psql`**——那样每一问都是一次模型往返（实测 1 618 次 = 6 085 秒） |
 | **文件读 + 写** | TTL、profile、样例、教程和 `steps.json` 都是文件 |
 | **一个 PostgreSQL 连接** | 内省和每一道门禁用的都是真实数据，绝不是对数据的描述 |
 | **一个带 `psycopg2` + `rdflib` 的 Python** | 脚本和门禁会 import 它们；宿主应用的 venv 两个都有 |

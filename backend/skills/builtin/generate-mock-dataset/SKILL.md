@@ -219,7 +219,7 @@ $PY <this skill>/scripts/check_dataset.py --spec <this skill>/fixtures/abc_coldc
 #   → 53 checks, 0 failed   (volume, FK, planted invariants, constant columns, NULL rates)
 ```
 
-之后数据集进入正常路径：`build-ontology-from-db`（内省 → 声明 → 门禁 → 看板）。spec 文件是两个技能之间的契约：
+之后数据集进入正常路径：`db-ontology-build`（内省 → 声明 → 门禁 → 看板）。spec 文件是两个技能之间的契约：
 本体的 `:businessDescription` 应当引用 spec 所断言的同一批数字。
 
 ## 反模式

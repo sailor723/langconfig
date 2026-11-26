@@ -1,5 +1,5 @@
 ---
-name: build-ontology-from-db
+name: db-ontology-build
 description: Use when asked to build an ontology (or semantic layer, or "compile metrics from a database") on top of an existing PostgreSQL database — a step ladder where every step is one artifact plus one gate that can fail, so "done" means green and never means "it looks finished"; it refuses to guess what only the business can decide, and refuses to invent a number the data cannot support
 tags: [ontology, semantic-layer, postgres, metrics, data-modeling, sql, gated-build]
 triggers:
@@ -89,7 +89,7 @@ afternoon of building one ontology:
 - **One aggregate, one statement; many measurements, ONE batched call.** Never re-send a query with one more clause
   appended — that loop produces no number for ten turns. If two consecutive tool calls are ≥80 % identical, stop and
   change the approach.
-  **When you need many numbers at once, use `db_query(sqls=[…])`: up to 20 SELECTs in one call, one connection, one
+  **When you need many numbers at once, use `db_query_agent(sqls=[…])`: up to 20 SELECTs in one call, one connection, one
   round-trip, every result back together.** Measured (2026-11-14, `ebl_ops_v1`): 1 618 `execute` calls, each running
   one `psql` statement, burned **6 085 s** — about 4 s of model round-trip per call while the queries themselves ran
   in milliseconds. **The cost is the round-trip, not the SQL**: a turn's measuring belongs in one list answered by one
@@ -732,7 +732,7 @@ installed — an enumerator must require a profile file, and a staged-only key i
 The skill is a base, so changing it is a change to every future build:
 
 1. edit, and **bump `version:`** (a base you cannot date is not a base);
-2. `python backend/scripts/check_skill.py --skill build-ontology-from-db` — every rule must name a gate or say
+2. `python backend/scripts/check_skill.py --skill db-ontology-build` — every rule must name a gate or say
    `Ungated`, every link must resolve, every file must be reachable, every reference must be scheduled somewhere;
 3. commit + push + deploy, then `systemctl restart` (the app syncs FS → DB on startup) and
    `python backend/scripts/verify_skill_version.py --restage` (each agent's workspace copy is only refreshed when
@@ -770,7 +770,7 @@ say that you ran it. If you have not seen a gate fail, you do not know it works.
 | capability | why |
 |---|---|
 | **shell execution** (`execute` / `bash`) | the step scripts and every gate run against the real database; DDL/DML (views, altered tables) goes here too |
-| **`db_query` batched read-only queries** | measure with it: `sqls=[…]` takes up to 20 SELECTs and returns every result in one round-trip. Without it, do not fall back to one `psql` per question — that is one model round-trip per question (measured: 1 618 calls = 6 085 s) |
+| **`db_query_agent` batched read-only queries** | measure with it: `sqls=[…]` takes up to 20 SELECTs and returns every result in one round-trip. Without it, do not fall back to one `psql` per question — that is one model round-trip per question (measured: 1 618 calls = 6 085 s) |
 | **file read + write** | the TTL, profile, samples, tutorial and `steps.json` are files |
 | **a PostgreSQL connection** | introspection and every gate use the real data, never a description of it |
 | **a Python with `psycopg2` + `rdflib`** | scripts and gates import them; the host app's venv has both |

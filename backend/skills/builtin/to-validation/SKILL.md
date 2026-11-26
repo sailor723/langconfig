@@ -27,8 +27,7 @@ allowed_tools:
 - ls
 - bash
 - python_execute
-- pg_query
-- sqlite_execute
+- db_query_agent
 author: weiping
 version: 1.0
 params:
@@ -66,7 +65,7 @@ params:
 | **一道门禁** | `scripts/ontology_gates.py` / `features/ontology/gates.json` 的输出：`N checks, 0 failed` |
 | **housekeeping 验证包** | `./scripts/housekeeping_verify.sh`（守卫 + tsc + build + 文档库报告） |
 | **活的 HTTP 检查** | 对**运行中的**应用 `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8765/api/...` |
-| **一次查询** | `pg_query` / `.venv/bin/python -c "…"`，返回标准里点名的行数或那个值 |
+| **一次查询** | `db_query_agent` / `.venv/bin/python -c "…"`，返回标准里点名的行数或那个值 |
 | **类型/构建** | `npx tsc --noEmit`、`npm run build`——看退出码，不是"没看到错误" |
 | **产物** | 文件存在、包含那条声明，且它的 `git log` 一行说明是什么时候 |
 | **基线 diff** | 现在跑一遍套件，把 `FAILED` 与记录的改动前失败做 `comm` |

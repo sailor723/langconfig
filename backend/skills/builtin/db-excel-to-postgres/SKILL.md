@@ -1,5 +1,5 @@
 ---
-name: "excel-csv-to-postgres（表格建库）"
+name: "db-excel-to-postgres（表格建库）"
 description: >-
   用户给一个 Excel 或 CSV，要「能问问题」时：先把它读成结构，再建成一个真的 PostgreSQL 库（一个 sheet/文件
   一张表、列类型按值推断、主键外键按数据判定），然后才写 SQL 回答。含类型推断的两个陷阱（金额别建成整数、布尔别建成
@@ -11,7 +11,7 @@ triggers:
   - "当用户说「把这个表建成数据库」或「能不能用 SQL 查这个文件」时"
   - "当用户要跨 sheet / 跨文件对比，而手工核对不现实时"
   - "当数据要被反复查询（同一份数据问超过两个问题时）"
-allowed_tools: [list_files, read_any_file, glob, read_file, db_plan_from_file, db_build_from_file, db_verify_against_file, db_review, db_query, db_rename_column, db_dashboard, write_file, skill]
+allowed_tools: [list_files, read_any_file, glob, read_file, db_plan_from_file, db_build_from_file, db_verify_against_file, db_review, db_query_agent, db_rename_column, write_file, skill]
 author: LangConfig
 version: "1.0"
 ---
@@ -20,6 +20,15 @@ version: "1.0"
 
 先记住一条判断：**只在心里读取的表格不是数据源**。用户问第三个问题时，你要能对同一份数据重新查一遍而不重新猜列名。
 
+## 数据边界（硬规矩）
+
+**python 允许；用 python/shell 连库不允许。**
+
+- 允许 `python_execute` / shell：解析 Excel/CSV、算数、生成报告、跑本仓库的编译与门禁。
+- 数据只走三扇门：已知 SQL → `db_query_agent`；不知道表结构/口径 → `db_query_langgraph`；写 → `db_execute`。
+- 禁止 `psql` / `pg_dump` / `import psycopg2|psycopg|sqlalchemy` / `connect(…dbname…)` / `copy … from stdin` /
+  自拼 `PGPASSWORD`+DSN —— 绕开守卫，也不进用量账本。
+- 工具做不到时不要绕：写进 `unverified` / `needs_human`。
 ## 第 0 步——先摸清手里是什么（不猜）
 
 **用 `list_files(path="upload")` 列目录**，不要用 `read_file` 读目录（一定失败），也不要假设文件名。
@@ -153,7 +162,7 @@ db_review(db_name="orders_xlsx", apply=true)   # 用户确认后再建约束
 
 ## 第 6 步——回答用 SQL，并说明口径
 
-用 `db_query(db_name=..., sql="SELECT …")` 查这个库（`pg_query` 只能查平台自己的库，查不到你刚建的）。
+用 `db_query_agent(db_name=..., sql="SELECT …")` 查这个库（`pg_query` 只能查平台自己的库，查不到你刚建的）。
 
 
 - 先给表名/列名对照（第 1 步那张），再给结论表，数字带单位与千分位。
@@ -169,26 +178,43 @@ db_review(db_name="orders_xlsx", apply=true)   # 用户确认后再建约束
 默认建在平台自己的库服务器上，用户不会知道是 `5433` 还是别的）、**表/列对照 + 行数 + 对账结论（PASS）**、
 **这次查询用到的口径**。实测过的教训：agent 建库成功了，但摘要里只写库名，用户在另一台服务器上找不到它。用户下次要自己查，凭这三样就够。
 
-## 第 8 步——出图：先方案，再渲染；算出来的度量要自己写页
+## 第 7 步——表建出来了只是"一堆表"，**主键外键才叫关系库**
 
-```
-db_dashboard(db_name="orders_xlsx")                  # 只出方案：事实表/度量/维度链/页面结构/管理层视角
-db_dashboard(db_name="orders_xlsx", confirm=true)     # 用户确认后写 HTML
-```
+这是这一步存在的理由：用户给的是「三张 sheet」，要的是「一个能 join 的库」。没有主键 = 同一个客户能写进去十七遍；
+没有外键 = `orders.客户` 里出现一个 `客户档案` 里不存在的名字，谁也不会拦。
 
-`db_dashboard` 只做一件事：**在一张事实表上按"真实存在的列"聚合**（`sum(金额列)`、`count(*)`、按维度列分组）。
-它挑事实表/度量/时间列的规则是确定的，方案里会写明是哪张表、哪一列 —— **方案要原样给用户看**。
+`db_review(db_name=...)` 现在给**两节**候选：
 
-它做不到的两件事，别硬试（实测浪费了 4 次查询才想明白）：
+| 节 | 判据 | 可信度 |
+|---|---|---|
+| **外键候选** | 列名是 `*_id` 且所有值都存在于目标表的主键里 | 高（命名约定 + 值包含） |
+| **自然键外键候选** | 列名与目标表键列**同名**、类型族一致、所有非空值都存在于目标唯一列（`orders.客户 → 客户档案.客户`） | 中（值对得上 ≠ 一定是外键，必须让人确认） |
 
-1. **算出来的度量**（明细口径 `Σ(qty × price)` 需要 join 商品表）：工具不会生成这种立方体。
-   → 用 `db_query` 把数算清，然后 **`write_file` 手写一个自包含 HTML** 放到 `generated/`。
-2. **两个不同粒度的度量放一张图**（订单级金额 + 明细级合计）：会把多行订单的金额重复计一次。
+做法：
+1. 先把报告原样给用户，说清"哪几条是 id 约定找到的、哪几条是取值包含推出来的"；
+2. 用户点头后 `db_review(db_name=..., apply=true)` —— 它会把两节候选都建上（名字带 `_fkey`）；
+3. 建完用 `db_query_agent` 复核：`select conname, pg_get_constraintdef(oid) from pg_constraint where contype in ('p','f')`，
+   把结果贴给用户。
 
-**文件名必须包含 `dashboard`**（`retail_db_export_line_dashboard.html`）——平台的"这次生成了新页面就自动打开"
-是按 `*dashboard*.html` 找文件的，`write_file` 写的页面和 `db_dashboard` 写的一样会被列出、一样会打开
-（所以别跟用户说"手写的打不开"，那是错的；打不开通常是浏览器拦了自动弹出的第二个标签页，
-让用户从 Files 面板点 Open 即可）。
+**不要**因为"外键候选是（无）"就跳过这一步——文本自然键（客户名、城市、门店名）不会命中 `*_id` 约定，
+但正是表格里最常见的关系。反过来也**不要**自己 `db_execute` 手写外键：`db_review(apply=true)` 走的是
+`services/db_admin` 的同一条守卫。
+
+## 第 8 步——要看板就走本体流水线，不要这个 agent 自己画
+
+**这个 agent 不产出看板。** 平台的看板只有一条发布路径：本体流水线
+（登记 key → 写 `dashboard.json` → `ontology_publish` → 工作台渲染，数字由 `check_dashboard` 门禁校验）。
+旧的 `db_dashboard`（自己 profile 一个库再吐 HTML）已在 2026-11-25 退役并**删除**——两条生成路径会给出
+两块数字不一样的板，而两块看上去都像官方。
+
+所以用户要"看板"时，正确的话术是：
+
+> 建库并核对完成（`db_verify_against_file` 通过）后，看板要由 Ontology Builder 基于这个库生成：
+> 先登记 key、写 `dashboard.json`、过四道门禁再发布。要我现在把这个库交给本体流水线吗？
+
+如果用户只是要一张**临时**的图，你可以用 `db_query_agent` 把数算清、再用 `write_file` 手写一个自包含 HTML
+放进 `generated/` —— 但那必须**明说是探索性的、未过门禁、不是发布口径**，文件里也要写这句话。平台会按
+`*dashboard*.html` 把它列出来并自动打开（打不开通常是浏览器拦了第二个标签页，让用户从 Files 面板点 Open）。
 
 ## 找不到文件时：停下来问，不要猜
 
@@ -228,5 +254,5 @@ db_dashboard(db_name="orders_xlsx", confirm=true)     # 用户确认后写 HTML
 
 ## 与其它技能的接线
 
-- 建好的库里写 SQL、查现成的钱库 → `sql-query`（三条通道：`db_query` / `sql_agent_tool` / `psql` 兜底，含「别猜表名」「先量库定分母」）；
+- 建好的库里写 SQL、查现成的钱库 → `db-sql-query`（三条通道：`db_query_agent` / `db_query_langgraph` / `psql` 兜底，含「别猜表名」「先量库定分母」）；
 - 交付前要自证 → `evidence-first-delivery`（行数、孤儿数、口径差都属于"要贴出来的证据"）。

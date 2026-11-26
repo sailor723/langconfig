@@ -1,5 +1,5 @@
 ---
-name: answer-ontology-question
+name: db-ontology-ask
 description: Use when a customer (or a colleague) asks a question in their own words and the answer must be a number the business can defend — clarify the intent against what the ontology declares, let the compiler build the SQL, bound it with the guardrails, and polish the prose only after the numbers are verified. Not "write SQL for this question".
 tags: [ontology, natural-language, intent, sql, guardrails, answer]
 triggers:
@@ -35,7 +35,7 @@ live in `ontologies/<key>/` (`*_settings.json` → `samples`, `aliases`, `ns`, `
 
 This skill is the shape of the pipeline, in the order that keeps the number honest. Read [references/pipeline.md](references/pipeline.md) for the module
 anchors, the intent JSON, the slot types and the guard knobs; read
-[../build-ontology-from-db/references/tuning-log.md](../build-ontology-from-db/references/tuning-log.md)
+[../db-ontology-build/references/tuning-log.md](../db-ontology-build/references/tuning-log.md)
 before blaming the ontology for a strange answer — most strange answers are matching failures, and they
 are catalogued there.
 
@@ -141,8 +141,8 @@ the ontology it answers from makes every number it reports suspect. Its ontology
 `skill_params`, not from prose:
 
 ```json
-"skills": ["answer-ontology-question"],
-"skill_params": {"answer-ontology-question": {"ontology_key": "logistics",
+"skills": ["db-ontology-ask"],
+"skill_params": {"db-ontology-ask": {"ontology_key": "logistics",
                                               "workbench": "http://127.0.0.1:8098"}}
 ```
 

@@ -2,7 +2,7 @@
 name: "Answer Ontology Question（用本体回答问题）"
 lang: zh
 translated: machine
-source: backend/skills/en-originals/answer-ontology-question/SKILL.md
+source: backend/skills/en-originals/db-ontology-ask/SKILL.md
 description: >-
   客户（或同事）用自己的话提问，而答案必须是业务能够为之辩护的一个数字时使用：对着本体声明的内容澄清意图，让编译器
   生成 SQL，用护栏把它圈住，并且只在数字验证通过之后才润色文字。这不是"给这个问题写条 SQL"。
@@ -38,7 +38,7 @@ params:
 
 本技能讲的是这条流水线的形状，顺序就是让数字保持诚实的那个顺序。模块锚点、意图 JSON、槽位类型和护栏旋钮见
 [references/pipeline.md](references/pipeline.md)；在因为一个奇怪的答案去怪本体之前，先读
-[../build-ontology-from-db/references/tuning-log.md](../build-ontology-from-db/references/tuning-log.md)——
+[../db-ontology-build/references/tuning-log.md](../db-ontology-build/references/tuning-log.md)——
 大多数奇怪的答案都是匹配失败，那里把它们编了目。
 
 **决定其余一切的那条规则：模型永远不写 SQL，也永远不做计算。** 它从菜单里挑一个名字，然后围绕编译器产出的数字写文字。
@@ -130,8 +130,8 @@ params:
 它的本体来自 `skill_params`，不是来自散文：
 
 ```json
-"skills": ["answer-ontology-question"],
-"skill_params": {"answer-ontology-question": {"ontology_key": "logistics",
+"skills": ["db-ontology-ask"],
+"skill_params": {"db-ontology-ask": {"ontology_key": "logistics",
                                               "workbench": "http://127.0.0.1:8098"}}
 ```
 

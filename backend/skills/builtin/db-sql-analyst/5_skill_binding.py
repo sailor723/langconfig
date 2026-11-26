@@ -8,7 +8,7 @@ Shows exactly how SkillsMiddleware:
   3. When LLM calls read_file(), returns full SKILL.md content (Stage 2)
   4. Opens the FilesystemBackend so file paths are resolvable
 
-Run: cd backend && .venv/bin/python skills/sql-analyst/5_skill_binding.py
+Run: cd backend && .venv/bin/python skills/db-sql-analyst/5_skill_binding.py
 """
 import os
 import sys
@@ -67,13 +67,13 @@ print(f"""
     ┌────────────────────────────────────────────────────────────┐
     │ ## Available Skills                                        │
     │                                                            │
-    │ • sql-analyst: {metadata.get('description', '?')[:70]}...  │
+    │ • db-sql-analyst: {metadata.get('description', '?')[:70]}...  │
     │   Allowed tools: {metadata.get('allowed-tools', '[]')[:60]}...│
     │   Tags: {metadata.get('tags', '[]')}                        │
     │   Triggers: when user wants data analysis, charts, SQL...  │
     │                                                            │
     │   💡 Read full instructions:                               │
-    │      read_file("../../../skills/sql-analyst/SKILL.md")     │
+    │      read_file("../../../skills/db-sql-analyst/SKILL.md")     │
     └────────────────────────────────────────────────────────────┘
 
     LLM sees ↑ this ↑ in its system prompt.
@@ -86,7 +86,7 @@ print("  Part C: Stage 2 — LLM reads full SKILL.md on demand")
 print("=" * 70)
 print(f"""
     LLM decides "this is a data analysis task" →
-    calls read_file("skills/sql-analyst/SKILL.md") →
+    calls read_file("skills/db-sql-analyst/SKILL.md") →
     receives COMPLETE instructions ({len(instructions)} chars):
 
     ┌────────────────────────────────────────────────────────────┐
@@ -120,14 +120,14 @@ print("=" * 70)
 print(f"""
     create_deep_agent(
         backend=FilesystemBackend(root_dir="{_BACKEND / 'skills'}"),
-        skills=["sql-analyst"],
+        skills=["db-sql-analyst"],
     )
     
     FilesystemBackend root: {_BACKEND / 'skills'}
-    Skill path resolved:  {_BACKEND / 'skills' / 'sql-analyst' / 'SKILL.md'}
+    Skill path resolved:  {_BACKEND / 'skills' / 'db-sql-analyst' / 'SKILL.md'}
     
-    The LLM reads: read_file("sql-analyst/SKILL.md")
-    Backend maps to: {_BACKEND / 'skills' / 'sql-analyst' / 'SKILL.md'}
+    The LLM reads: read_file("db-sql-analyst/SKILL.md")
+    Backend maps to: {_BACKEND / 'skills' / 'db-sql-analyst' / 'SKILL.md'}
 """)
 
 # ── Part E: Full binding code (same as 4_llm_nl_to_sql.py line ~100) ──
@@ -145,12 +145,12 @@ print("""
         tools=[sqlite_execute, python_execute],
         system_prompt="You are a data analyst expert...",
         backend=backend,
-        skills=["sql-analyst"],   #  ← SkillsMiddleware auto-creates from this list
+        skills=["db-sql-analyst"],   #  ← SkillsMiddleware auto-creates from this list
         checkpointer=checkpointer,
     )
     
     # SkillsMiddleware internally:
-    # 1. Reads <root>/sql-analyst/SKILL.md
+    # 1. Reads <root>/db-sql-analyst/SKILL.md
     # 2. Parses frontmatter for name/description/tags/tools
     # 3. Injects catalog into system_prompt (Stage 1)
     # 4. Registers read_file handler for full content (Stage 2)

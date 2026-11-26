@@ -13,7 +13,7 @@ Tables:
   5. products            — 12 products with cost/price/margin
   6. customers           — 20 customers with tier/region/credit
 
-Run: cd backend && uv run python skills/sql-analyst/8_erp_dataset.py
+Run: cd backend && uv run python skills/db-sql-analyst/8_erp_dataset.py
 
 ================================================================================
 BUSINESS METRICS (computed from above tables)

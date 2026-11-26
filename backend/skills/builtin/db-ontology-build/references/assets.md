@@ -26,7 +26,7 @@ are the ones the gates run. Read the copy for the pattern, run the original for 
 
 ## `params.json` — the wiring the agent carries
 
-`{"skill": "build-ontology-from-db", "datasource": …, "ontology_key": …, "profile_file": …}`. The build
+`{"skill": "db-ontology-build", "datasource": …, "ontology_key": …, "profile_file": …}`. The build
 dialog and `builders()` read the ontology key from here, so two builders on one database stay two
 ontologies.
 

@@ -13,7 +13,7 @@ triggers:
   - Before an ontology publish, a merge, or a hand-off to another person
   - When a build or agent reports success and you cannot see the evidence in its answer
   - When a criterion was "deferred because the environment does not allow it"
-allowed_tools: [read_file, write_file, grep, glob, ls, bash, python_execute, pg_query, sqlite_execute]
+allowed_tools: [read_file, write_file, grep, glob, ls, bash, python_execute, db_query_agent, sqlite_execute]
 author: weiping
 version: 1.0
 params:
@@ -56,7 +56,7 @@ Prefer the strongest available, and say which one you used:
 | **A gate** | `scripts/ontology_gates.py` / `features/ontology/gates.json` output: `N checks, 0 failed` |
 | **The housekeeping verify bundle** | `./scripts/housekeeping_verify.sh` (guards + tsc + build + store report) |
 | **A live HTTP check** | `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8765/api/...` against the **running** app |
-| **A query** | `pg_query` / `.venv/bin/python -c "…"` returning the row count or the value the criterion names |
+| **A query** | `db_query_agent` / `.venv/bin/python -c "…"` returning the row count or the value the criterion names |
 | **Type/build** | `npx tsc --noEmit`, `npm run build` — exit status, not "no errors seen" |
 | **The artefact** | the file exists, contains the declaration, and its `git log` line says when |
 | **A baseline diff** | run the suite now and `comm` it against the recorded pre-change failures |

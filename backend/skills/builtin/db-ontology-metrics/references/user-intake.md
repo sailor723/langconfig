@@ -115,7 +115,7 @@ then nothing is installed: the reset is refused, which is the same contract as e
 / :grain / :universe / :where / :groupBy 由你决定，JOIN 由编译器从 :references 推导 —— 不要向我问表名、
 列名或 TTL。任何会改变这个数含义而上面没答的点（颗粒度、范围、阈值、维度），先问我，不要自己定。
 
-做完按 edit-ontology-metrics 验证：编译；值与你自己写的第二条独立路线一致；其余指标的数字一个都不许变。
+做完按 db-ontology-metrics 验证：编译；值与你自己写的第二条独立路线一致；其余指标的数字一个都不许变。
 然后 ontology_publish 暂存（只带改动的文件），报告里写：值多少、独立路线是什么、哪些门禁 NOT RUN。
 ```
 

@@ -232,7 +232,7 @@ $PY <this skill>/scripts/check_dataset.py --spec <this skill>/fixtures/abc_coldc
 #   → 53 checks, 0 failed   (volume, FK, planted invariants, constant columns, NULL rates)
 ```
 
-Then the dataset feeds the normal path: `build-ontology-from-db` (introspect → declarations → gates →
+Then the dataset feeds the normal path: `db-ontology-build` (introspect → declarations → gates →
 dashboard). The spec file is the contract between the two skills: the ontology's `:businessDescription`
 should quote the same numbers the spec asserts.
 

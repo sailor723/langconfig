@@ -110,7 +110,7 @@ async def main():
             "Read the SKILL.md for exact chart patterns. Reply in Chinese."
         ),
         backend=backend,
-        skills=["sql-analyst"],
+        skills=["db-sql-analyst"],
         checkpointer=checkpointer,
     )
 

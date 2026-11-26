@@ -1,5 +1,5 @@
 ---
-name: edit-ontology-metrics
+name: db-ontology-metrics
 description: Use when asked to change an ontology that already exists — add or fix a metric, change what a number means, rename a property, adjust the guard profile or the samples — rather than build one from a database. Opens a copy of the installed ontology, edits the one file that owns the change, verifies the number against a second SQL route, and hands it back through the publish channel (stage only; a human applies).
 tags: [ontology, semantic-layer, metrics, edit, gates, publish]
 triggers:
@@ -29,19 +29,19 @@ An edit is not "write the SQL for it". An ontology's numbers are *compiled* from
 the whole job is: find the declaration that owns the number, change **that**, and prove the number
 it produces. Everything else — the workbench, the reports, every future question — follows.
 
-**Read [../build-ontology-from-db/references/rules.md](../build-ontology-from-db/references/rules.md)
+**Read [../db-ontology-build/references/rules.md](../db-ontology-build/references/rules.md)
 before touching a declaration.** It is the single source of the fifteen configuration rules and the
 failure each one prevents. This skill does not repeat them.
 [references/metric-recipes.md](references/metric-recipes.md) has the three shapes that actually need
 declarations — a cross-grain ratio whose denominator lives on another object, a grouped metric whose
 dimension is two hops away, a two-dimension four-table group-by — each with the TTL, the SQL the
 compiler derives, and the value measured on a real ontology. And
-[../build-ontology-from-db/references/tuning-log.md](../build-ontology-from-db/references/tuning-log.md)
+[../db-ontology-build/references/tuning-log.md](../db-ontology-build/references/tuning-log.md)
 is the log of failures agents actually made here (reading the engine, answering a count with a class,
 vetoing a label) — read it before blaming the ontology for a bad answer. Read
-[../build-ontology-from-db/references/pitfalls.md](../build-ontology-from-db/references/pitfalls.md)
+[../db-ontology-build/references/pitfalls.md](../db-ontology-build/references/pitfalls.md)
 when something refuses and
-[../build-ontology-from-db/references/gates.md](../build-ontology-from-db/references/gates.md) for the
+[../db-ontology-build/references/gates.md](../db-ontology-build/references/gates.md) for the
 gate matrix, including the publish gate at the end.
 
 ## Ask the compiler, do not read it

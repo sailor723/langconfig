@@ -15,7 +15,7 @@ from pathlib import Path
 if '__file__' in globals():
     _BASE = Path(__file__).resolve()
 else:
-    _BASE = Path.cwd() / "skills/sql-analyst/4_llm_nl_to_sql.py"  # REPL fallback
+    _BASE = Path.cwd() / "skills/db-sql-analyst/4_llm_nl_to_sql.py"  # REPL fallback
 _BACKEND = _BASE.parent.parent.parent
 _THIS_DIR = _BASE.parent
 sys.path.insert(0, str(_BACKEND))
@@ -92,7 +92,7 @@ async def main():
     print("""
     create_deep_agent(
         tools=[sqlite_execute, python_execute],
-        skills=["sql-analyst"],      ← SkillsMiddleware reads SKILL.md
+        skills=["db-sql-analyst"],      ← SkillsMiddleware reads SKILL.md
         backend=FilesystemBackend,    ← from backend/skills/
     )
     
@@ -100,7 +100,7 @@ async def main():
     ┌─────────────────────────────────────────────────┐
     │ ## Available Skills                              │
     │                                                  │
-    │ sql-analyst: SQL data analysis specialist.       │
+    │ db-sql-analyst: SQL data analysis specialist.       │
     │   Queries SQLite databases, analyzes CSV data,  │
     │   generates insights, creates visualizations...  │
     │   Tools: [sqlite_execute, python_execute, ...]   │
@@ -108,7 +108,7 @@ async def main():
     │     SQL analysis, wants charts or dashboards...  │
     └─────────────────────────────────────────────────┘
     
-    When LLM calls read_file("skills/sql-analyst/SKILL.md"):
+    When LLM calls read_file("skills/db-sql-analyst/SKILL.md"):
     → Full 5-step workflow returned (progressive disclosure)
 """)
 
@@ -148,7 +148,7 @@ async def main():
             "Reply in Chinese."
         ),
         backend=backend,
-        skills=["sql-analyst"],
+        skills=["db-sql-analyst"],
         checkpointer=checkpointer,
     )
 

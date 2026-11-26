@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Step 1: SQLite Mock Database for sql-analyst skill testing.
+Step 1: SQLite Mock Database for db-sql-analyst skill testing.
 
 Creates a realistic sales + inventory database: customers (10), products (10), orders (25).
 """

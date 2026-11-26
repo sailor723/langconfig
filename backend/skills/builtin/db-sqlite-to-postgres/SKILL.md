@@ -1,5 +1,5 @@
 ---
-name: "sqlite-to-postgres（SQLite 迁到 PostgreSQL）"
+name: "db-sqlite-to-postgres（SQLite 迁到 PostgreSQL）"
 description: >-
   把一个 .db 文件搬进真正的 PostgreSQL 时的操作手册：类型按声明翻（不是按值猜）、迁完必须逐表核对行数与
   数值合计、以及迁移之后一定会浮出来的四件事（存成文本的 SQL 占位符、维度-事实 id 被清洗、单位和 scale、
@@ -12,7 +12,7 @@ triggers:
   - "当用户要 agent 能查一个原本是 sqlite 的库时"
   - "当用户说「这个库要能反复查」「迁完数字要对得上」时"
   - "当迁移后 SQL / 公式 / 视图报错、或 join 不上时"
-allowed_tools: [execute, list_files, read_file, write_file, db_review, db_query, register_database, skill]
+allowed_tools: [execute, list_files, read_file, write_file, db_review, db_query_agent, register_database, skill]
 author: LangConfig
 version: "1.0"
 ---
@@ -165,6 +165,6 @@ python backend/scripts/seeds/in/register_database.py \
 
 ## 与其它技能的接线
 
-- 迁完要查数、写 SQL → `sql-query`（三条路径、表名靠查不靠猜、量库定分母、数字二次复核）；
-- 源数据本来是 Excel/CSV、还没进任何库 → `excel-csv-to-postgres`（那张技能从文件建库，这一步从库搬库）；
+- 迁完要查数、写 SQL → `db-sql-query`（三条路径、表名靠查不靠猜、量库定分母、数字二次复核）；
+- 源数据本来是 Excel/CSV、还没进任何库 → `db-excel-to-postgres`（那张技能从文件建库，这一步从库搬库）；
 - 交付前要自证 → `evidence-first-delivery`（行数、数值合计、孤儿 id 都是要贴出来的证据）。

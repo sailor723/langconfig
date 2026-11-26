@@ -1,5 +1,5 @@
 ---
-name: build-ontology-dashboard
+name: db-ontology-dashboard
 description: Use when an ontology needs a dashboard — a declaration (dashboard.json) of which COMPILED metrics each panel shows, an opening assessment that quotes only compiled numbers, charts that need layout (sankey/bubble/treemap), and cross-filtering that recompiles server-side; walks the order that keeps a board honest (declaration → compile → guard → gate → only then the page) and refuses to let a panel invent a number the ontology does not declare.
 tags: [ontology, dashboard, semantic-layer, metrics, sql, gating]
 triggers:
@@ -52,7 +52,7 @@ Ask the compiler, never the source: `python backend/features/ontology/compiler/r
 ```bash
 PY=<the app's own .venv: the interpreter that runs the backend>
 cd <ontology repo>/retail_graph
-$PY ../backend/skills/builtin/build-ontology-dashboard/scripts/scaffold_dashboard.py \
+$PY ../backend/skills/builtin/db-ontology-dashboard/scripts/scaffold_dashboard.py \
     --profile ../ontologies/logistics/logistics_settings.json --out /tmp/dashboard.json
 ```
 

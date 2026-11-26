@@ -21,8 +21,6 @@ allowed_tools:
 - create_agent
 - update_agent
 - test_agent
-- pg_list_custom_tools
-- pg_get_agent
 - skill
 ---
 
@@ -44,7 +42,7 @@ allowed_tools:
 | `references/templates/T6-data-qa.md` | 上传 → sqlite → SQL | 一张表放进去，问题随后才来 |
 
 每个模板都同样有七节：何时使用、JSON 骨架（含 `{{placeholders}}`）、提示词骨架、工具/中间件、rubric 模板、
-实测基线、失败对照表。照抄骨架，替换占位符，然后逐个拿工具 id 去 `pg_list_custom_tools` 核对。
+实测基线、失败对照表。照抄骨架，替换占位符，然后逐个拿工具 id 去 Settings → Tools 里核对（平台自省工具已退役，界面上看）。
 
 `references/facts/case-facts.md` 记录十二个训练智能体的事实真相——它们实际是什么，以及哪些地方与运行手册
 不符。模板与真实智能体冲突时读它；把冲突引出来，而不是藏起来。
@@ -77,12 +75,12 @@ rubric  →  build  →  test  →  judge  →  (fix ≤2)  →  deliver
 ## 查目录——绝不猜工具 id
 
 ```
-pg_list_custom_tools()      # the real 66 ids with descriptions
+# 工具清单在 Settings → Tools 里核对（pg_list_custom_tools 已退役）
 search_skills("weather")    # skill search by intent
 pg_list_skills()            # everything
 skill("<skill-id>")         # full text of one skill
 pg_list_agents()            # what already exists, so you do not duplicate
-pg_get_agent(<id>)          # the full config of one agent, before you update it
+# 一个 agent 的完整配置在 Settings → Agents 里看（pg_get_agent 已退役）
 ```
 
 提示词里写了目录中并不存在的工具名，会静默失败——智能体干脆永远不会去调用它。这是"看起来像那么回事、实际
