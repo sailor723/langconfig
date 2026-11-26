@@ -87,6 +87,7 @@
     a owl:DatatypeProperty ;
     rdfs:label "各岗位 top-10 推荐条数" ;
     :askedAs "每个岗位推荐几个人" ;
+    :askedAs "每个岗位推荐名单有几个名额" ;
     :aggregate "count" ;
     :grain     :CandidateRoleFit ;
     :universe  :CandidateRoleFit ;
@@ -114,6 +115,7 @@
     a owl:DatatypeProperty ;
     rdfs:label "各岗位平均合成分" ;
     :askedAs "每个岗位平均分是多少" ;
+    :askedAs "每个岗位的平均合成分是多少" ;
     :aggregate "avg" ;
     :grain     :CandidateRoleFit ;
     :universe  :CandidateRoleFit ;
@@ -142,6 +144,7 @@
     a owl:DatatypeProperty ;
     rdfs:label "年限未读到人数" ;
     :askedAs "有多少人没读到工作年限" ;
+    :askedAs "有多少份简历没读到工作年限" ;
     :aggregate "sum" ;
     :grain     :Candidate ;
     :universe  :Candidate ;
@@ -154,6 +157,7 @@
     a owl:DatatypeProperty ;
     rdfs:label "学历未读到人数" ;
     :askedAs "有多少人没读到学历" ;
+    :askedAs "有多少份简历没读到学历" ;
     :aggregate "sum" ;
     :grain     :Candidate ;
     :universe  :Candidate ;
@@ -166,6 +170,7 @@
     a owl:DatatypeProperty ;
     rdfs:label "技能未读到人数" ;
     :askedAs "有多少人没读到技能" ;
+    :askedAs "有多少份简历没读到技能" ;
     :aggregate "sum" ;
     :grain     :Candidate ;
     :universe  :Candidate ;
