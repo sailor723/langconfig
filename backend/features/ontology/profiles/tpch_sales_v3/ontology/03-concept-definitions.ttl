@@ -1,0 +1,21 @@
+@prefix : <https://cube.local/ontology/tpch_sales_v3#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ================================================================
+# 定义类（R2 的可复算对象）—— 只把 02-meaning.ttl 里已经裁定过的两个概念
+# 按编译器认的形态补上定义，不新增口径、不改任何既有声明：
+#   OWL 无法表达「一列比另一列」，所以这两条用 :physicalPredicate 声明，
+#   基类是 :LineItem（谓词里的列都在 lineitem 上），表由 :LineItem 的 :physicalTable 决定。
+# 出处：02-meaning.ttl :LateShippedLines / :LateDeliveredLines 的 :grain 与 :definition（Q11、Q10）。
+
+:LateShippedLines a owl:Class ;
+    rdfs:label "lateShippedLines（迟交行：l_shipdate > l_commitdate）" ;
+    rdfs:subClassOf :LineItem ;
+    :physicalPredicate "l_shipdate > l_commitdate" .
+
+:LateDeliveredLines a owl:Class ;
+    rdfs:label "lateDeliveredLines（到货晚行：l_receiptdate > l_commitdate）" ;
+    rdfs:subClassOf :LineItem ;
+    :physicalPredicate "l_receiptdate > l_commitdate" .

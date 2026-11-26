@@ -1,0 +1,37 @@
+{
+  "_profile": "tpch_sales_v3 —— TPC-H 销售与供应链（SF0.1，第三遍·效率对照）：由 ontology_register 登记（第三遍：全新 work；同一数据；用来对照「少读」规则的效果）。guard.big_tables / default_window_days / samples 由构建阶段（S0/S4/S5）按实测决定，登记时不预设。",
+  "title": "TPC-H 销售与供应链（SF0.1，第三遍·效率对照）",
+  "ns": "https://cube.local/ontology/tpch_sales_v3#",
+  "ontology_dir": "ontology",
+  "overlay": "metrics_ext.ttl",
+  "dsn": {
+    "host": "${TPCH_DB_HOST:-127.0.0.1}",
+    "port": "${TPCH_DB_PORT:-5432}",
+    "user": "${TPCH_DB_USER:-weiping}",
+    "password": "${TPCH_DB_PASSWORD}",
+    "dbname": "tpch"
+  },
+  "guard": {
+    "enabled": true,
+    "max_rows": 500,
+    "statement_timeout_ms": 8000,
+    "max_plan_rows": 5000000,
+    "big_tables": {
+      "lineitem": "l_shipdate",
+      "orders": "o_orderdate"
+    },
+    "default_window_days": 36500
+  },
+  "features": {
+    "actions": false,
+    "lane_b": false,
+    "tutorial": true
+  },
+  "exempt_tables": {
+    "unit_registry": "上一次 tpch 构建留下的单位登记表（不是 TPC-H 业务表，不参与销售口径）",
+    "nl_events": "平台自己建的（编译器 nl.py 的问答审计），不是业务表"
+  },
+  "ui": {
+    "currency": ""
+  }
+}

@@ -1,0 +1,5 @@
+{"_doc": "R2（definition == hand SQL）的独立复算映射：cls -> [table, predicate]。每条 predicate 是手写的列级判断，与 02/03 里该类的定义互不复用代码路径；gate 逐类比 SELECT count(*) FROM table WHERE predicate 与编译器从定义编译出的 SQL。",
+ "_definitions": {
+  "LateShippedLines": ["lineitem", "l_shipdate > l_commitdate"],
+  "LateDeliveredLines": ["lineitem", "l_receiptdate > l_commitdate"]
+ }}

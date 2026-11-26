@@ -1,0 +1,188 @@
+@prefix : <https://cube.local/ontology/tpch_sales_v3#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# ---------------------------------------------------------------------------
+# 谓词段（概念）：OWL 无法表达「一列 > 另一列」或 EXISTS，故用编译器唯一的
+# 逃生口 :physicalPredicate 声明谓词本身；base class 由 rdfs:subClassOf 给出。
+# 出处：grill Q10（分母 600,572）、Q11（迟交 = l_shipdate > l_commitdate）、Q2（退货只算 R）、Q8（10,000 有订单客户）。
+# ---------------------------------------------------------------------------
+:ReturnedLine rdfs:subClassOf :LineItem ; :physicalPredicate "l_returnflag = 'R'" .
+:AcceptedLine rdfs:subClassOf :LineItem ; :physicalPredicate "l_returnflag = 'A'" .
+:LateShippedLine rdfs:subClassOf :LineItem ; :physicalPredicate "l_shipdate > l_commitdate" .
+:LateDeliveredLine rdfs:subClassOf :LineItem ; :physicalPredicate "l_receiptdate > l_commitdate" .
+:OrderingCustomer rdfs:subClassOf :Customer ; :physicalPredicate "EXISTS (SELECT 1 FROM orders WHERE orders.o_custkey = c_custkey)" .
+
+# =========================================================== 基础（无维度）19 条
+:netRevenue a owl:DatatypeProperty ; rdfs:label "净收入" ; :askedAs "净收入" ; rdfs:domain :LineItem ;
+    :aggregate "sum" ; :formula "l_extendedprice * (1 - l_discount)" ; :grain :LineItem ; :universe :LineItem ;
+    :unit "TPC-H 原始金额数值（库里没有货币列，不指定币种；不缩放、不做汇率换算）" ;
+    :businessDescription "table: lineitem.l_extendedprice, lineitem.l_discount —— 不含税净收入 = Σ l_extendedprice×(1−l_discount)，实测 20,535,072,231.42（anchor，600,572 行）。口径来自 Q1：不含 l_tax；Q2：退货不从净收入里扣（R 行仍是销售事实）。" .
+
+:grossRevenue a owl:DatatypeProperty ; rdfs:label "毛收入（未折扣）" ; :askedAs "毛收入", "销售额" ; rdfs:domain :LineItem ;
+    :aggregate "sum" ; :formula "l_extendedprice" ; :grain :LineItem ; :universe :LineItem ;
+    :unit "TPC-H 原始金额数值（库里没有货币列，不指定币种；不缩放、不做汇率换算）" ;
+    :businessDescription "table: lineitem.l_extendedprice —— Σ 未折扣金额，实测 21,615,929,280.24（anchor）。与 netRevenue 的差 = totalDiscount（1,080,857,048.83）。口径来自 Q1。" .
+
+:taxAmount a owl:DatatypeProperty ; rdfs:label "税额" ; :askedAs "税额" ; rdfs:domain :LineItem ;
+    :aggregate "sum" ; :formula "l_extendedprice * (1 - l_discount) * l_tax" ; :grain :LineItem ; :universe :LineItem ;
+    :unit "TPC-H 原始金额数值（库里没有货币列，不指定币种；不缩放、不做汇率换算）" ;
+    :businessDescription "table: lineitem.l_tax —— 税按折后金额计：Σ l_extendedprice×(1−l_discount)×l_tax，实测 821,528,941.66（anchor）。校验：netRevenue + taxAmount = Σ 含税金额 21,356,601,173.08。口径来自 Q1（净收入不含税，税单列）。" .
+
+:totalDiscount a owl:DatatypeProperty ; rdfs:label "折扣总额" ; :askedAs "折扣总额", "折扣" ; rdfs:domain :LineItem ;
+    :aggregate "sum" ; :formula "l_extendedprice * l_discount" ; :grain :LineItem ; :universe :LineItem ;
+    :unit "TPC-H 原始金额数值（库里没有货币列，不指定币种；不缩放、不做汇率换算）" ;
+    :businessDescription "table: lineitem.l_discount —— Σ l_extendedprice×l_discount，实测 1,080,857,048.83（anchor）。校验：grossRevenue − totalDiscount = netRevenue（21,615,929,280.24 − 1,080,857,048.83 = 20,535,072,231.41，差 1 分是逐行取整）。口径来自 Q1。" .
+
+:lineItems a owl:DatatypeProperty ; rdfs:label "明细行数" ; :askedAs "明细行数", "订单行数" ; rdfs:domain :LineItem ;
+    :aggregate "count" ; :grain :LineItem ; :universe :LineItem ; :unit "行（明细行计数，不是金额）" ;
+    :businessDescription "table: lineitem.l_orderkey, lineitem.l_linenumber —— count(*) 实测 600,572（anchor），= distinct(l_orderkey,l_linenumber) 600,572（无重复行）。注记：标准 dbgen SF0.1 为 600,121 行，本库 600,572，差 451 行 —— 本库不是标准 dbgen 产物（Q9 裁定，如实写）。它同时是覆盖率/退货率/迟交率的统一分母（Q10）。" .
+
+:orderCount a owl:DatatypeProperty ; rdfs:label "订单数" ; :askedAs "订单数", "有多少订单" ; rdfs:domain :SalesOrder ;
+    :aggregate "count" ; :grain :SalesOrder ; :universe :SalesOrder ; :unit "单（订单计数，不是金额）" ;
+    :businessDescription "table: orders.o_orderkey —— orders 行数实测 150,000（anchor）。口径来自 Q1/锚点；每张订单 4.0 行明细（600,572 ÷ 150,000 = 4.0038），订单粒度与明细粒度不是一个数。" .
+
+:avgOrderValue a owl:DatatypeProperty ; rdfs:label "客单价（平均订单金额）" ; :askedAs "客单价", "平均订单金额" ; rdfs:domain :SalesOrder ;
+    :aggregate "avg" ; :formula "o_totalprice" ; :grain :SalesOrder ; :universe :SalesOrder ;
+    :unit "TPC-H 原始金额数值（库里没有货币列，不指定币种；不缩放、不做汇率换算）" ;
+    :businessDescription "table: orders.o_totalprice —— avg(o_totalprice) 实测 142,377.31（anchor）。**不允许**用 Σ净收入 ÷ 订单数 冒充：那样得 136,900.48，两个数不是同一口径（Q1：净收入不含税、且 o_totalprice 与行级合计整库差 5,142.45，见 S2 实测）。" .
+
+:avgLineValue a owl:DatatypeProperty ; rdfs:label "平均行金额" ; :askedAs "平均行金额", "行单价" ; rdfs:domain :LineItem ;
+    :aggregate "avg" ; :formula "l_extendedprice" ; :grain :LineItem ; :universe :LineItem ;
+    :unit "TPC-H 原始金额数值（库里没有货币列，不指定币种；不缩放、不做汇率换算）" ;
+    :businessDescription "table: lineitem.l_extendedprice —— avg(l_extendedprice) 实测 35,992.2362（未折扣，600,572 行）。不能用 ΣgrossRevenue ÷ lineItems 之外的口径混：Σ/行数 = 35,992.24 与 avg 一致到 1 分。口径来自 Q1。" .
+
+:returnedLines a owl:DatatypeProperty ; rdfs:label "退货行数（R）" ; :askedAs "退货行数" ; rdfs:domain :LineItem ;
+    :aggregate "count" ; :where :ReturnedLine ; :grain :LineItem ; :universe :LineItem ; :unit "行（明细行计数，不是金额）" ;
+    :businessDescription "table: lineitem.l_returnflag —— l_returnflag = 'R' 的行数，实测 148,301（anchor）。分母 = 全部明细行 600,572（Q10）。A（147,790）不进退货：它是另一个概念 acceptedLines（Q2）。" .
+
+:returnedRevenue a owl:DatatypeProperty ; rdfs:label "退货金额（R）" ; :askedAs "退货金额" ; rdfs:domain :LineItem ;
+    :aggregate "sum" ; :formula "l_extendedprice * (1 - l_discount)" ; :where :ReturnedLine ;
+    :grain :LineItem ; :universe :LineItem ;
+    :unit "TPC-H 原始金额数值（库里没有货币列，不指定币种；不缩放、不做汇率换算）" ;
+    :businessDescription "table: lineitem.l_returnflag, lineitem.l_extendedprice —— R 行的净收入合计 Σ l_extendedprice×(1−l_discount)，实测 5,071,818,532.94（anchor）。**不从 netRevenue 里扣**（Q2）：netRevenue 20,535,072,231.42 是含 R 行的销售事实，R 金额是它的子集。与 A 行金额 5,054,096,266.68 不可相加。" .
+
+:returnRate a owl:DatatypeProperty ; rdfs:label "退货率" ; :askedAs "退货率" ; rdfs:domain :LineItem ;
+    :aggregate "ratio_of_sums" ; :numerator :returnedLines ; :denominator :lineItems ; :scale "100.0" ;
+    :grain :LineItem ; :universe :LineItem ; :unit "百分比（已按 :scale 100.0 放大；未放大时是 0–1 小数）" ;
+    :businessDescription "table: lineitem.l_returnflag —— 148,301 ÷ 600,572 = 24.6933%（anchor 24.69%）。分子只算 R（Q2），分母 = 全部明细行（Q10），分子换集合不改分母。同一分子分母口径的退化版本见 returnRateByNation。" .
+
+:acceptedLines a owl:DatatypeProperty ; rdfs:label "已接受行数（A）" ; :askedAs "已接受行数" ; rdfs:domain :LineItem ;
+    :aggregate "count" ; :where :AcceptedLine ; :grain :LineItem ; :universe :LineItem ; :unit "行（明细行计数，不是金额）" ;
+    :businessDescription "table: lineitem.l_returnflag —— l_returnflag = 'A' 的行数，实测 147,790（anchor）。与 returnedLines（R 148,301）单列并列，**不合并**：合并会得到一个既不是 R 也不是 A 的数（Q2）。分母同 600,572（Q10）。" .
+
+:lateShippedLines a owl:DatatypeProperty ; rdfs:label "迟交行数（发货晚）" ; :askedAs "迟交行数", "迟交" ; rdfs:domain :LineItem ;
+    :aggregate "count" ; :where :LateShippedLine ; :grain :LineItem ; :universe :LineItem ; :unit "行（明细行计数，不是金额）" ;
+    :businessDescription "table: lineitem.l_shipdate, lineitem.l_commitdate —— l_shipdate > l_commitdate 的行数，实测 302,748（anchor）。**这才是「迟交」的正式定义**（Q11 裁定），迟交率 = 302,748 ÷ 600,572 = 50.41%（分母 Q10）。与 lateDeliveredLines（379,809）差 77,061 行，是「发货晚」与「到货晚」两个问题。" .
+
+:lateRate a owl:DatatypeProperty ; rdfs:label "迟交率" ; :askedAs "迟交率" ; rdfs:domain :LineItem ;
+    :aggregate "ratio_of_sums" ; :numerator :lateShippedLines ; :denominator :lineItems ; :scale "100.0" ;
+    :grain :LineItem ; :universe :LineItem ; :unit "百分比（已按 :scale 100.0 放大；未放大时是 0–1 小数）" ;
+    :businessDescription "table: lineitem.l_shipdate, lineitem.l_commitdate —— 302,748 ÷ 600,572 = 50.41%。迟交 = 发货晚（Q11 裁定），分母 = 全部明细行（Q10）。到货晚率（379,809 ÷ 600,572 = 63.24%）是另一个概念，不要用本指标替代它。" .
+
+:lateDeliveredLines a owl:DatatypeProperty ; rdfs:label "到货晚行数（收货晚）" ; :askedAs "到货晚行数", "到货晚" ; rdfs:domain :LineItem ;
+    :aggregate "count" ; :where :LateDeliveredLine ; :grain :LineItem ; :universe :LineItem ; :unit "行（明细行计数，不是金额）" ;
+    :businessDescription "table: lineitem.l_receiptdate, lineitem.l_commitdate —— l_receiptdate > l_commitdate 的行数，实测 379,809（anchor）。这是「客户在承诺日没收到货」，**不是迟交**（Q11：迟交 = l_shipdate > l_commitdate = 302,748）。两者差 77,061 行 = 按时发货但到货超期。分母同 600,572（Q10）。" .
+
+:customerCount a owl:DatatypeProperty ; rdfs:label "客户数（有订单）" ; :askedAs "客户数" ; rdfs:domain :Customer ;
+    :aggregate "count" ; :where :OrderingCustomer ; :grain :Customer ; :universe :Customer ; :unit "个（客户实体计数，不是金额）" ;
+    :businessDescription "table: customer.c_custkey, orders.o_custkey —— **默认客户基数 = 10,000**（Q8 裁定）：至少有一张订单的客户 = distinct o_custkey。谓词 EXISTS(orders) 是声明式过滤（OWL 表达不了 EXISTS，用 :physicalPredicate）。5,000 个零订单客户不进销售比率的分母；登记总数 15,000 是另一个概念 customersRegistered。" .
+
+:customersRegistered a owl:DatatypeProperty ; rdfs:label "登记客户数" ; :askedAs "登记客户数" ; rdfs:domain :Customer ;
+    :aggregate "count" ; :grain :Customer ; :universe :Customer ; :unit "个（客户实体计数，不是金额）" ;
+    :businessDescription "table: customer.c_custkey —— customer 表行数实测 15,000（anchor，Q8 裁定另立）。回答「台账上有多少客户」，**不是 Customer 的默认基数**，也不做任何销售比率的分母。与 customerCount（10,000）并列：覆盖率 10,000/15,000 = 2/3。" .
+
+:supplierCount a owl:DatatypeProperty ; rdfs:label "供应商数" ; :askedAs "供应商数" ; rdfs:domain :Supplier ;
+    :aggregate "count" ; :grain :Supplier ; :universe :Supplier ; :unit "家（供应商实体计数，不是金额）" ;
+    :businessDescription "table: supplier.s_suppkey —— supplier 行数实测 1,000。零件-供应商关系 partsupp 80,000 行（每件零件恰 4 家，S2 实测），与供应商计数不是一个粒度。口径来自 Q5（61 列无货币列，计数不带币种）。" .
+
+:partCount a owl:DatatypeProperty ; rdfs:label "零件数" ; :askedAs "零件数" ; rdfs:domain :Part ;
+    :aggregate "count" ; :grain :Part ; :universe :Part ; :unit "件（零件实体计数，不是金额）" ;
+    :businessDescription "table: part.p_partkey —— part 行数实测 20,000（p_name 唯一 20,000/20,000）。20,000 个零件全部有成交行（S2 实测），所以 partCount 同时是 netRevenueByPart 的行数。口径来自 Q5。" .
+
+# =========================================================== 分组 13 条
+:supplierRevenueByRegion a owl:DatatypeProperty ; rdfs:label "各地区净收入" ; :askedAs "各地区净收入" ; rdfs:domain :LineItem ;
+    :aggregate "sum" ; :formula "l_extendedprice * (1 - l_discount)" ; :grain :LineItem ; :universe :LineItem ;
+    :groupBy :regionName ;
+    :unit "TPC-H 原始金额数值（库里没有货币列，不指定币种；不缩放、不做汇率换算）" ;
+    :businessDescription "table: region.r_name —— 5 行，Σ = netRevenue 20,535,072,231.42（恒等式实测）。**维度口径（实录）**：编译器发出的 join 是 lineitem→supplier→nation→region，即**供应商所在地区**；客户侧同名维度（lineitem→orders→customer→nation→region）不可达，因为编译器 BFS 在深度 2 先命中 supplierNation、customerNation 被 `rng in paths` 跳过（见 NOTES-metrics.md「地区/国家的路径冲突」与 needs_human）。口径来自 Q1 + anchors。" .
+
+:supplierRevenueByNation a owl:DatatypeProperty ; rdfs:label "各国净收入" ; :askedAs "各国净收入" ; rdfs:domain :LineItem ;
+    :aggregate "sum" ; :formula "l_extendedprice * (1 - l_discount)" ; :grain :LineItem ; :universe :LineItem ;
+    :groupBy :nationName ;
+    :unit "TPC-H 原始金额数值（库里没有货币列，不指定币种；不缩放、不做汇率换算）" ;
+    :businessDescription "table: nation.n_name —— 25 行，Σ = netRevenue 20,535,072,231.42（恒等式实测）。维度同 netRevenueByRegion：编译器经 supplier 侧解析国家（供应商所在国家）。客户侧国家见 avgOrderValueByNation（grain = SalesOrder，走 orderCustomer，是客户国家）—— 两个 ByNation 维度的**不是同一个国家口径**，已在 NOTES 记明。口径来自 Q1 + anchors。" .
+
+:supplierRevenueByRegionAndNation a owl:DatatypeProperty ; rdfs:label "各地区各国净收入" ; :askedAs "各地区各国净收入" ; rdfs:domain :LineItem ;
+    :aggregate "sum" ; :formula "l_extendedprice * (1 - l_discount)" ; :grain :LineItem ; :universe :LineItem ;
+    :groupBy :nationName ; :groupBy :regionName ;
+    :unit "TPC-H 原始金额数值（库里没有货币列，不指定币种；不缩放、不做汇率换算）" ;
+    :businessDescription "table: nation.n_name, region.r_name —— 25 行（5 地区 × 5 国），Σ = netRevenue 20,535,072,231.42（恒等式实测），与 netRevenueByRegion 逐组一致（地区是国家的父级，双维度不改变和）。维度经 supplier 侧，同 netRevenueByRegion。口径来自 Q1 + anchors。" .
+
+:supplyFlowByRegion a owl:DatatypeProperty ; rdfs:label "各地区供货行数" ; :askedAs "各地区供货行数" ; rdfs:domain :LineItem ;
+    :aggregate "count" ; :grain :LineItem ; :universe :LineItem ;
+    :groupBy :regionName ; :unit "行（明细行计数，不是金额）" ;
+    :businessDescription "table: supplier.s_nationkey, region.r_name —— 单维 5 行：lineitem 经 l_suppkey→supplier→nation→region 计数的**供应商侧**流量（实测 AFRICA 107,817 / AMERICA 117,023 / ASIA 134,374 / EUROPE 122,537 / MIDDLE EAST 118,821，合计 600,572 = lineItems）。这是本项目里唯一以「供应商地区」为定义域的维度指标，与净收入的地区维度共用同一条 join 路径。口径来自 Q7（9 条声明关系、0 孤儿）。" .
+
+:netRevenueByMonth a owl:DatatypeProperty ; rdfs:label "月度净收入（订单月）" ; :askedAs "月度净收入", "按月的净收入" ; rdfs:domain :SalesOrder ;
+    :aggregate "sum" ; :formula "l_extendedprice * (1 - l_discount)" ; :grain :SalesOrder ; :universe :SalesOrder ;
+    :timeBucket "month" ;
+    :unit "TPC-H 原始金额数值（库里没有货币列，不指定币种；不缩放、不做汇率换算）" ;
+    :businessDescription "table: orders.o_orderdate, lineitem.l_extendedprice, lineitem.l_discount —— 口径（Q4 裁定）：按**订单月** date_trunc('month', orders.o_orderdate) 分桶，值是行级净收入 Σ l_extendedprice×(1−l_discount)，目标 = **80 行**（1992-01…1998-08）、Σ = netRevenue 20,535,072,231.42（手写 SQL 实测，见 NOTES-metrics.md §2.3）。**本指标当前按名拒绝（refused），这是实测结论不是笔误**：编译器两处能力缺失 —— ① :timeBucket 的桶列只能是 grain 自己的 :timeColumn；grain=SalesOrder 时桶列 o_orderdate 可用，但行级金额列不在可达类里（实测拒绝句「formula mentions 'l_discount', not a column of the joined classes ['SalesOrder']」），补 `:where` 指向 lineitem 也拒绝（「filters on :LineItem, which is not reachable from :SalesOrder through declared relationships」）；② grain=LineItem 时桶列只能是 l_shipdate（84 行，见 netRevenueByShipMonth）。即「跨表分桶：lineitem 粒度按 orders.o_orderdate 分桶」未实现，本指标**不静默退化成发运月**。" .
+
+:netRevenueByShipMonth a owl:DatatypeProperty ; rdfs:label "发运月净收入" ; :askedAs "发运月净收入", "按发运月的净收入" ; rdfs:domain :LineItem ;
+    :aggregate "sum" ; :formula "l_extendedprice * (1 - l_discount)" ; :grain :LineItem ; :universe :LineItem ;
+    :timeBucket "month" ;
+    :unit "TPC-H 原始金额数值（库里没有货币列，不指定币种；不缩放、不做汇率换算）" ;
+    :businessDescription "table: lineitem.l_shipdate —— date_trunc('month', l_shipdate)，实测 **84 行**（1992-01…1998-12），Σ = netRevenue 20,535,072,231.42（恒等式实测）。轴 = LineItem 自己的 :timeColumn（l_shipdate，S1 声明）= **发运月**，不是订单月；订单月的契约名是 netRevenueByMonth（当前按名拒绝），两者不可互相顶替（Q4）。口径来自 Q6（时间轴 1992–1998，不裁窗）+ anchors。" .
+
+:orderCountByMonth a owl:DatatypeProperty ; rdfs:label "月度订单数" ; :askedAs "月度订单数" ; rdfs:domain :SalesOrder ;
+    :aggregate "count" ; :grain :SalesOrder ; :universe :SalesOrder ; :timeBucket "month" ; :unit "单（订单计数，不是金额）" ;
+    :businessDescription "table: orders.o_orderdate —— date_trunc('month', o_orderdate)，实测 **80 行**（1992-01…1998-08），Σ = orderCount 150,000。这是订单侧的月轴（grain SalesOrder 的 :timeColumn = o_orderdate），与 netRevenueByShipMonth 的发运月轴不同：一个按订单月，一个按发运月；订单月的**净收入**（netRevenueByMonth）当前按名拒绝，见该条。口径来自 Q6 + anchors。" .
+
+:avgOrderValueByNation a owl:DatatypeProperty ; rdfs:label "各国客单价" ; :askedAs "各国客单价" ; rdfs:domain :SalesOrder ;
+    :aggregate "avg" ; :formula "o_totalprice" ; :grain :SalesOrder ; :universe :SalesOrder ; :groupBy :nationName ;
+    :unit "TPC-H 原始金额数值（库里没有货币列，不指定币种；不缩放、不做汇率换算）" ;
+    :businessDescription "table: customer.c_nationkey, nation.n_name —— 25 行，avg(o_totalprice) 按**客户所在国家**（orders→customer→nation；grain 是 SalesOrder，闭包里没有 supplier，所以这条是客户口径，与 netRevenueByNation 的供应商口径不同）。各组均值 142,368.61 的简单平均 ≈ 整体 142,377.31。口径来自 Q8（分母 = 10,000 有订单客户）+ anchors。" .
+
+:lineItemsByNation a owl:DatatypeProperty ; rdfs:label "各国明细行数" ; :askedAs "各国明细行数" ; rdfs:domain :LineItem ;
+    :aggregate "count" ; :grain :LineItem ; :universe :LineItem ; :groupBy :nationName ; :unit "行（明细行计数，不是金额）" ;
+    :businessDescription "table: nation.n_name —— 25 行，Σ = lineItems 600,572。经 supplier 侧解析国家（供应商所在国家），同 netRevenueByNation。口径来自 Q7 + Q10（分母 600,572）。" .
+
+:returnRateByNation a owl:DatatypeProperty ; rdfs:label "各国退货率" ; :askedAs "各国退货率" ; rdfs:domain :LineItem ;
+    :aggregate "ratio_of_sums" ; :numerator :returnedLines ; :denominator :lineItems ; :scale "100.0" ;
+    :grain :LineItem ; :universe :LineItem ; :groupBy :nationName ;
+    :unit "百分比（已按 :scale 100.0 放大；未放大时是 0–1 小数）" ;
+    :businessDescription "table: lineitem.l_returnflag, nation.n_name —— 25 行，每国 = 该国 R 行 ÷ 该国全部行（组内分子分母，分母不是 600,572 而是该国的行数：分组比率的分母只能是组内行数；整体口径的 600,572 分母见 returnRate）。分子只算 R（Q2），国家经 supplier 侧（同 netRevenueByNation）。口径来自 Q2 + Q10。" .
+
+:supplierRevenueByNationReturnFlag a owl:DatatypeProperty ; rdfs:label "各国退货标记净收入" ; :askedAs "各国退货标记净收入" ; rdfs:domain :LineItem ;
+    :aggregate "sum" ; :formula "l_extendedprice * (1 - l_discount)" ; :grain :LineItem ; :universe :LineItem ;
+    :groupBy :nationName ; :groupBy :lineItemReturnFlag ;
+    :unit "TPC-H 原始金额数值（库里没有货币列，不指定币种；不缩放、不做汇率换算）" ;
+    :businessDescription "table: lineitem.l_returnflag, nation.n_name —— 25 国 × {N,A,R} = 75 行，Σ = netRevenue 20,535,072,231.42（恒等式实测）：把净收入按国家切开再按退货标记切开，和不变。R 组之和 = returnedRevenue，A 组 = 5,054,096,266.68，两者**不合并**（Q2）。国家经 supplier 侧（同 netRevenueByNation）。口径来自 Q1 + Q2 + anchors。" .
+
+:netRevenueByPart a owl:DatatypeProperty ; rdfs:label "各零件净收入" ; :askedAs "各零件净收入" ; rdfs:domain :LineItem ;
+    :aggregate "sum" ; :formula "l_extendedprice * (1 - l_discount)" ; :grain :LineItem ; :universe :LineItem ;
+    :groupBy :partKey ;
+    :unit "TPC-H 原始金额数值（库里没有货币列，不指定币种；不缩放、不做汇率换算）" ;
+    :businessDescription "table: lineitem.l_partkey —— 20,000 行（= partCount，20,000 个零件全有成交行），Σ = netRevenue 20,535,072,231.42。行数超过 profile 的 guard.max_rows=500，管线会截断到 500 行（护栏在正常工作，NOTES 记明）；单组金额须用净收入指标核。口径来自 Q1 + Q7（lineItemPart 0 孤儿）。" .
+
+:netRevenueByCustomer a owl:DatatypeProperty ; rdfs:label "各客户净收入" ; :askedAs "各客户净收入" ; rdfs:domain :LineItem ;
+    :aggregate "sum" ; :formula "l_extendedprice * (1 - l_discount)" ; :grain :LineItem ; :universe :LineItem ;
+    :groupBy :customerKey ;
+    :unit "TPC-H 原始金额数值（库里没有货币列，不指定币种；不缩放、不做汇率换算）" ;
+    :businessDescription "table: orders.o_custkey, customer.c_custkey —— 10,000 行（= customerCount：只有 10,000 个客户有订单），Σ = netRevenue 20,535,072,231.42。行数超过 guard.max_rows=500，管线截断（护栏工作正常）。维度是**客户**（经 orders→customer），不是供应商。口径来自 Q8（10,000）+ Q1。" .
+
+:netRevenueBySegment a owl:DatatypeProperty ; rdfs:label "各客户分部净收入" ; :askedAs "各客户分部净收入" ; rdfs:domain :LineItem ;
+    :aggregate "sum" ; :formula "l_extendedprice * (1 - l_discount)" ; :grain :LineItem ; :universe :LineItem ;
+    :groupBy :customerMktSegment ;
+    :unit "TPC-H 原始金额数值（库里没有货币列，不指定币种；不缩放、不做汇率换算）" ;
+    :businessDescription "table: customer.c_mktsegment —— 5 行（AUTOMOBILE 4,093,302,441.07 / BUILDING 4,281,563,957.54 / FURNITURE 3,985,249,369.26 / HOUSEHOLD 4,013,057,197.05 / MACHINERY 4,161,899,266.50），Σ = netRevenue 20,535,072,231.42。维度经 orders→customer（客户侧），3 表 join。口径来自 Q1 + Q7。" .
+
+# ── 维度选路的实测结论（2026-11-26；Q7 要求「地区主轴 = 客户地区」）───────────────────────
+# `region` / `nation` 从 lineitem 出发有两条已声明路径：
+#   lineitem→supplier→nation→region（供应商侧）
+#   lineitem→orders→customer→nation→region（客户侧，经 orderCustomer）
+# 编译器 _closure 的 BFS 只问"可达"，两条都可达时不报歧义，实测选中供应商侧。
+# 所以按地区/国家分组的指标一律以 supplier… 命名（数的确实是供应商侧）；客户侧的同一问题
+# 当前按名拒绝，缺的是"分组路径限定"这一声明形态。

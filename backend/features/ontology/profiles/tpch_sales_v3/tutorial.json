@@ -1,0 +1,82 @@
+{
+  "_doc": "tpch_sales_v3 的教程（S7）：8 步，item 只能是已声明的指标契约名或类名（T2 逐项校验），每步的窗格都由活数据渲染（T5）。正文里的数字是编译值（ontology_inspect 的 value / T4 实跑），单位取各指标的 :unit 声明。",
+  "title": "TPC-H 销售与供应链（SF0.1，第三遍·效率对照）",
+  "intro": "这一遍的读法是「名字 → 颗粒 → 单位」。8 步只用本体已经声明的东西，每一步都能自己跑给你看。库：tpch @ SF0.1，lineitem 600,572 行（标准 dbgen SF0.1 是 600,121，本库是变体，差 451 行；任何拿标准 TPC-H 答案来对的人会先怀疑编译器，所以这里写明）。金额一律是「TPC-H 原始金额数值」：库里没有货币列，本体不指定币种、不缩放、不做汇率换算。",
+  "steps": [
+    {
+      "kind": "metrics",
+      "title": "一块钱怎么变成净收入：毛收入 → 折扣 → 净收入",
+      "body": "三个指标都在 LineItem 颗粒上、扫同一次 600,572 行，差别只在公式。grossRevenue = Σ l_extendedprice = 21,615,929,280.24（单位：TPC-H 原始金额数值）；totalDiscount = Σ l_extendedprice × l_discount = 1,080,857,048.83；netRevenue = Σ l_extendedprice × (1 − l_discount) = 20,535,072,231.42。实测 grossRevenue − totalDiscount − netRevenue = 0，精确为 0（不是四舍五入出来的 0）——所以这三条不是三个独立数字，是一条恒等式的三段，报数时三选一用，别相加。容易踩的坑：netRevenue ÷ 600,572 ≈ 34,192.5 很像「平均行金额」，但 avgLineValue 按 l_extendedprice 算，是 35,992.24（见第 5 步），两者差的那部分正是折扣。",
+      "items": ["grossRevenue", "totalDiscount", "netRevenue"]
+    },
+    {
+      "kind": "metrics",
+      "title": "税单列：净收入为什么不含税",
+      "body": "taxAmount = Σ l_extendedprice × (1 − l_discount) × l_tax = 821,528,941.66（单位同上，原始金额数值）。它与 netRevenue 是并列的两笔，不是包含关系：净收入报的是商品折后收入，税额报的是随货代收的税，两者相加才是含税总额 21,356,601,173.08。把税并进净收入的后果是可验证的：第 1 步那条恒等式会立刻失效，差值正好是 821,528,941.66。所以税单列一条指标，并且不进入任何「收入」类公式；反过来，客单价 avgOrderValue 用的是 o_totalprice，那一列本身就含税（第 5 步会看到这个差）。",
+      "items": ["taxAmount"]
+    },
+    {
+      "kind": "metrics",
+      "title": "A 不是退货：退货率只数 R",
+      "body": "退货率的分母是全库明细行 600,572（Q10 已裁定：分子换集合、分母不动），分子只数 R：returnRate = 148,301 ÷ 600,572 × 100 = 24.69%。注意单位：returnRate 已按 :scale 100.0 放大，报出来就是百分比，写成 0.2469 会让任何阈值判断偏 100 倍。A（已接受退货）是另一个集合、另一个名字：acceptedLines = 147,790 是独立指标，不进退货率的分子；把 A 与 R 相加得 296,091（49.30%）算的是「A 与 R 的和」，不是退货率。三个标记实测互斥且穷尽：N 304,481 / A 147,790 / R 148,301，合计 600,572。要金额用 returnedRevenue（只算 R 行）= 5,071,818,532.94。",
+      "items": ["returnRate", "acceptedLines"]
+    },
+    {
+      "kind": "metrics",
+      "title": "迟交两个口径：发得晚 vs 到得晚",
+      "body": "迟交有两个口径，本体给两个名字、两个数，绝不互相替代。「迟交」的正式定义（Q11 已裁定）= l_shipdate > l_commitdate：lateShippedLines = 302,748 行，即发得晚。到货晚 = l_receiptdate > l_commitdate：lateDeliveredLines = 379,809 行，即客户没在承诺日收到货。两者差 77,061 行 = 发了但没按时到的那批，属于承运/在途问题，不进迟交。分母统一 600,572：lateRate = 302,748 ÷ 600,572 = 50.41%；到货晚率 379,809 ÷ 600,572 = 63.24%。单位：行（明细行计数，不是金额），不能与金额列相加；这两个数是「多少个明细行」，不是「多少张订单」。",
+      "items": ["lateShippedLines", "lateDeliveredLines"]
+    },
+    {
+      "kind": "metrics",
+      "title": "两个「平均」：一个在订单上，一个在明细行上",
+      "body": "avgOrderValue = avg(o_totalprice)，落在 SalesOrder 颗粒（150,000 单）= 142,377.31（单位：原始金额数值 / 单，o_totalprice 本身含税）；avgLineValue = avg(l_extendedprice)，落在 LineItem 颗粒（600,572 行）= 35,992.24（未扣折扣的行金额）。两者比值 ≈ 3.96，与 600,572 ÷ 150,000 = 4.004 接近但不等 —— 因为一个含税、一个未扣折扣，这不是恒等式，只是量级核对。要「客单价」就别拿行均值乘行数，要「行均值」就别拿客单价除行数：颗粒不同、含税不同，两处都会偏。",
+      "items": ["avgOrderValue", "avgLineValue"]
+    },
+    {
+      "kind": "guard",
+      "title": "护栏：大表怎么扫、窗口怎么算，都不许改写已声明的数",
+      "body": "护栏不是口径，但它能悄悄改写口径，所以要把每一档阈值说清。settings 声明 big_tables：lineitem → l_shipdate、orders → o_orderdate（大表按这两个日期列切）；default_window_days = 36500（100 年）比数据跨度 2,526 天（1992-01-01 … 1998-12-01）更长，所以一行都不裁；另有 max_rows = 500（列表类结果截断：netRevenueByPart 全量 20,000 行、netRevenueByCustomer 全量 10,000 行，面板先自己 limit 10 名再由护栏兜住）、max_plan_rows = 5,000,000（计划行数超预算就按名拒绝，而不是跑到底）、statement_timeout_ms = 8000。关键一条：已声明的指标以 mode=declared 执行，永远不加时间窗 —— 加窗等于改定义，grossRevenue 就不再是 21,615,929,280.24。窗口只作用于自由查询；而 SF0.1 是 1992–1998 的历史切片，「近 N 天」在这里只会把答案改小（第 7 步第 5 条，有意不做）。",
+      "items": []
+    },
+    {
+      "kind": "refusals",
+      "title": "答不了的按名说出来：5 条拒绝，每条只说缺什么",
+      "body": "拒绝清单是「本体承认自己没声明」的地方，不是「暂时没做」。前 4 条缺的是声明形态或口径裁决，第 5 条是有意不做。编译器自己的拒绝句在 netRevenueByMonth 上原样保留（见下），其余 4 条是「本体没有这个名字/没有这条口径」，所以问题不会被悄悄丢掉、也不会给一个看起来对的数。",
+      "items": ["netRevenueByMonth"],
+      "refusals": [
+        {
+          "name": "客户侧地区分组（问「按客户地区看净收入」）",
+          "missing": "「分组路径限定」的声明形态：没有一种写法能说清 region/nation 走 lineitem → orders → customer 这条路径",
+          "why": "region/nation 从 lineitem 出发有两条已声明路径：供应商侧 l_suppkey → supplier → nation → region，客户侧 l_orderkey → orders → customer → nation → region。两条都可达，编译器选路不唯一，实测落到供应商侧：同一句「ASIA 净收入」给出 4,601,164,597.50（供应商侧）而不是 4,120,876,801.06（客户侧），差 4.8 亿。缺的是路径限定声明，不是缺维度。"
+        },
+        {
+          "name": "netRevenueByMonth（订单月 × 净收入）",
+          "missing": "跨表分桶能力：grain = SalesOrder 时行级金额列不可达；grain = LineItem 时桶列只有 l_shipdate",
+          "why": "编译器原句（ontology_inspect 的 refused 列表）：:netRevenueByMonth formula mentions 'l_discount', not a column of the joined classes ['SalesOrder'] — refusing。要「订单月的净收入」得把 orders.o_orderdate 当桶、lineitem 的金额当分子，跨两个颗粒做分桶编译器不支持。能跑的替代品是 netRevenueByShipMonth（发运月 84 个月，Σ = 20,535,072,231.42），但它是发运月轴，不是订单月轴 —— 换轴就是换问题，不能改名顶替。"
+        },
+        {
+          "name": "A/R 合并退货金额",
+          "missing": "「A/R 可合并」的口径声明（含是否把 A 当退货的裁决）",
+          "why": "A（l_returnflag = 'A'）与 R（l_returnflag = 'R'）在本体里是两个概念、两个指标：returnedRevenue 只算 R = 5,071,818,532.94（编译值），acceptedLines 只算 A 的行数 147,790。A 侧金额实测 5,054,096,266.68（手写 SQL；本体没为它声明金额指标），合并值 10,125,914,799.62 不属于任何已声明概念的口径。要合并必须先声明「A 与 R 同属退货」这一条 —— 这是口径裁决，编译器不替用户做。"
+        },
+        {
+          "name": "毛利率 / 采购成本率",
+          "missing": "partsupp.ps_supplycost 的成本摊分口径（单价→总成本走哪个数量、同一零件 4 家报价怎么取一个值）",
+          "why": "lineitem 上没有任何成本列，成本唯一来源是 partsupp.ps_supplycost（每件的采购成本单价，实测 1.01–999.99），而总成本 = 单价 × 数量，数量有两个来源（ps_availqty 可供量快照 / lineitem 成交数量）；且每件零件恰 4 行供货（实测 min = max = 4），直接加总得到的是 4 家报价之和，不是成本。所以先要裁决摊分口径（取 min / avg / 只取成交供应商那一行，退货行是否计成本），本体不替用户裁，于是这两个率不声明。"
+        },
+        {
+          "name": "「近 N 天」金额护栏（时间窗）",
+          "missing": "有意不做：没有任何指标声明 :supportsSlot :TimeWindow",
+          "why": "SF0.1 是 1992–1998 的历史数据（实测跨度 2,526 天），「近 30 天」在库里对应 1998 年 11 月的某一段，不是「最近」。给金额类指标加时间窗就会改写答案 —— 那是换口径。所以 window gate 如实停在 NOT RUN（no metric declares :supportsSlot :TimeWindow），不造一个窗口出来充数。"
+        }
+      ]
+    },
+    {
+      "kind": "metrics",
+      "title": "轴的差别：供应商地区 / 客户细分 / 发运月 / 订单月",
+      "body": "指标名里的 By… 决定切什么，名字必须和轴一起讲，否则数字会被张冠李戴。supplierRevenueByRegion = 供应商侧地区（lineitem → supplier → nation → region），实测 5 行，Σ = netRevenue 20,535,072,231.42；netRevenueBySegment = 客户细分（lineitem → orders → customer.c_mktsegment），实测 5 行。两个都 5 行、都像「地区/分组」，但一个是供货方、一个是买方：同一个 ASIA，供应商侧 4,601,164,597.50，客户侧 4,120,876,801.06。时间轴同理：netRevenueByShipMonth 切发运月（l_shipdate），实测 84 个月，Σ 仍是 20,535,072,231.42；orderCountByMonth 切订单月（o_orderdate），实测 80 个月 —— 同一条明细的下单月与发运月可以不同，84 与 80 的差就来自这里（另有 5,000 个登记客户没有订单，不进入订单月轴）。客户地区分组当前不可用（第 7 步第 1 条）：要客户地区只能手写 SQL，并且要写明用的是哪条路径。",
+      "items": ["supplierRevenueByRegion", "netRevenueBySegment", "netRevenueByShipMonth", "orderCountByMonth"]
+    }
+  ]
+}

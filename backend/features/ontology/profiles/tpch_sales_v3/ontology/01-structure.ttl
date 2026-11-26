@@ -1,0 +1,281 @@
+# TPC-H 销售与供应链（tpch_sales_v3 · 库 tpch · SF0.1）—— 对象与物理列（S1 结构层）
+#
+# 事实来源：本遍用平台库工具对 tpch（127.0.0.1:5432, dbname tpch, user weiping）实测，2026-11-26：
+#   information_schema.columns 逐列、pg_constraint 逐约束、count(*) 逐表、外键孤儿数逐条。
+#   没有一条列名/行数是猜的，也没有一条抄自归档的 v1/v2（v1、v2 已 archived，本遍未作为事实来源；
+#   v2 只用于确认 DSL 写法，事实全部重测）。
+#
+# 用户/编排者已定的口径（ticket「结构要求」逐条，本文件不擅自改）：
+#   · 业务表 8 张 → 类 8 个：Region / Nation / Customer / Supplier / Part / PartSupply / SalesOrder / LineItem
+#   · 61 个物理列全部声明成属性，每个属性带 :physicalColumn；关系 9 条，全部带 :references
+#   · 时间列：SalesOrder 用 o_orderdate、LineItem 用 l_shipdate（与 settings.guard.big_tables 一致）
+# 未定的东西本文件不下结论（阈值、什么算"正常"、口径取舍属 S2/其他票）。
+#
+# 行数（count(*) 实测）：lineitem 600,572 · orders 150,000 · customer 15,000 · part 20,000 ·
+#                        partsupp 80,000 · supplier 1,000 · nation 25 · region 5。
+# 列数：8 张表共 61 列。其中 9 列是外键列，声明为 9 个对象属性；其余 52 列各 1 个 owl:DatatypeProperty。
+#       一列一个属性（不重复声明），9 + 52 = 61，与库里的列数逐个对齐（S1b2 会证明这一点）。
+# 时间覆盖：orders.o_orderdate 实测 1992-01-01..1998-08-02；lineitem.l_shipdate 实测 1992-01-03..1998-12-01。
+#       是固定的历史窗，"最近 30 天"在这个库里不是一个有意义的问法（窗口阈值由 guard 决定，S1 不设）。
+#
+# 非 TPC-H 表 2 张，不建类（profile 的 exempt_tables 声明式排除，check_structure S1f 读同一份声明）：
+#   unit_registry —— 上一次构建留下的列/度量单位字典，不是 TPC-H 业务事实；
+#   nl_events     —— 平台 NL 问答运行时遥测（编译器自己 CREATE TABLE），不是 TPC-H 数据。
+#
+# 外键：pg_constraint 实测 10 条，这里只声明 9 个对象属性。第 10 条是复合外键
+#   lineitem.(l_partkey,l_suppkey) → partsupp.(ps_partkey,ps_suppkey)，与同两列上已有的两条单列外键
+#   （l_partkey→part、l_suppkey→supplier）并存、结构上冗余。不为它再造第 10 条关系：
+#   同一物理列有两个属性名会触发 S1d，并会把 partsupp 误当作 lineitem→part 的唯一路径。
+#
+# 主键写法：复合主键写成 :primaryKey "ps_partkey, ps_suppkey"（本仓库既有的复合键写法，
+#   graph_view.py 按逗号拆成两列显示；check_structure 的 key_parts() 也按逗号拆）。
+#   两个复合键的两列都在这个串里，因此两列都是主键的一部分。
+
+@prefix : <https://cube.local/ontology/tpch_sales_v3#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+
+# ---------------------------------------------------------------- 对象类（8 张业务表）
+
+:Region a owl:Class ; rdfs:label "地区" ; :physicalTable "region" ; :primaryKey "r_regionkey" ;
+    rdfs:comment "地区，5 行，唯一取值 AFRICA / AMERICA / ASIA / EUROPE / MIDDLE EAST。粒度 = 一行一个地区；表内没有时间列，按月看必须经 Nation→Customer（或 Supplier）上卷。" .
+
+:Nation a owl:Class ; rdfs:label "国家" ; :physicalTable "nation" ; :primaryKey "n_nationkey" ;
+    rdfs:comment "国家，25 行，实测每个国家恰属一个地区、每个地区恰 5 个国家。粒度 = 一行一个国家；它是客户/供应商挂到地区上的中间一跳，本身不是销售事实表。" .
+
+:Customer a owl:Class ; rdfs:label "客户" ; :physicalTable "customer" ; :primaryKey "c_custkey" ;
+    rdfs:comment "客户，15,000 行；c_name 实测 15,000 个全不重复（0 组重名）。其中 10,000 家有订单（orders 里 distinct o_custkey = 10,000，且 10,000 个都能在 customer 里找到）。粒度 = 一行一个客户；表内没有时间列，地区轴经 customerNation→nationRegion。" .
+
+:Supplier a owl:Class ; rdfs:label "供应商" ; :physicalTable "supplier" ; :primaryKey "s_suppkey" ;
+    rdfs:comment "供应商，1,000 行。粒度 = 一行一个供应商；表内没有时间列，供货事实在 PartSupply 与 LineItem 上。" .
+
+:Part a owl:Class ; rdfs:label "零件/商品" ; :physicalTable "part" ; :primaryKey "p_partkey" ;
+    rdfs:comment "零件（商品维度），20,000 行；p_name 实测 20,000 个全不重复（0 组重名）。粒度 = 一行一个零件（不是零件×供应商，那是 PartSupply）；整张表没有外键列。" .
+
+:PartSupply a owl:Class ; rdfs:label "供货关系" ; :physicalTable "partsupp" ; :primaryKey "ps_partkey, ps_suppkey" ;
+    rdfs:comment "零件×供应商的供货关系，80,000 行；复合主键 (ps_partkey, ps_suppkey)，实测 80,000 行 = 80,000 个不同组合，所以一行 = 一个零件由一个供应商供货，不是一次交易。没有时间列 —— 它是关系快照，不能按月切片。" .
+
+:SalesOrder a owl:Class ; rdfs:label "订单" ; :physicalTable "orders" ; :primaryKey "o_orderkey" ;
+    :timeColumn "o_orderdate" ;
+    rdfs:comment "订单头，150,000 行，o_orderdate 实测 1992-01-01..1998-08-02。粒度 = 一行一张订单；金额、数量、折扣、税、退货都不在这一层，在 LineItem 的行上。时间列 o_orderdate（订单月，不是发运月），与 settings.guard.big_tables.orders 同一列。" .
+
+:LineItem a owl:Class ; rdfs:label "订单行" ; :physicalTable "lineitem" ; :primaryKey "l_orderkey, l_linenumber" ;
+    :timeColumn "l_shipdate" ;
+    rdfs:comment "订单明细，600,572 行，是收入/数量/折扣/税/退货/迟交的唯一粒度：一行 = 一张订单的第几条明细；复合主键 (l_orderkey, l_linenumber) 实测 600,572 行 = 600,572 个不同组合。时间列 l_shipdate（实测 1992-01-03..1998-12-01），与 settings.guard.big_tables.lineitem 同一列。" .
+
+
+# ---------------------------------------------------------------- 属性：Region（region，3 列）
+
+:regionKey a owl:DatatypeProperty ; rdfs:label "地区编号" ; rdfs:domain :Region ; :physicalColumn "r_regionkey" ;
+    rdfs:comment "地区主键（integer，5 个值 0..4）。只做连接与排序，不是报表字段" .
+
+:regionName a owl:DatatypeProperty ; rdfs:label "地区名" ; rdfs:domain :Region ; :physicalColumn "r_name" ;
+    rdfs:comment "地区名，实测唯一取值 5 个：AFRICA / AMERICA / ASIA / EUROPE / MIDDLE EAST。地区分组报表上该出现的唯一字段" .
+
+:regionComment a owl:DatatypeProperty ; rdfs:label "地区备注" ; rdfs:domain :Region ; :physicalColumn "r_comment" ;
+    rdfs:comment "自由文本备注。库里 5 行全部非空，且这是全库两个允许 NULL 的列之一（另一个是 nation.n_comment）。不可聚合，只在核对来源时看" .
+
+# ---------------------------------------------------------------- 属性：Nation（nation，4 列）
+# n_regionkey 是指向 Region 的对象属性（见文件末尾），其余 3 列在这里。
+
+:nationKey a owl:DatatypeProperty ; rdfs:label "国家编号" ; rdfs:domain :Nation ; :physicalColumn "n_nationkey" ;
+    rdfs:comment "国家主键（integer，25 个值）。客户与供应商都靠它挂到国家上" .
+
+:nationName a owl:DatatypeProperty ; rdfs:label "国家名" ; rdfs:domain :Nation ; :physicalColumn "n_name" ;
+    rdfs:comment "国家名（25 个值，大写英文）。按国家看销售时用这一列，不要用编号" .
+
+:nationComment a owl:DatatypeProperty ; rdfs:label "国家备注" ; rdfs:domain :Nation ; :physicalColumn "n_comment" ;
+    rdfs:comment "自由文本备注。库里 25 行全部非空，但列允许 NULL（全库两个可空列之一）。不可聚合" .
+
+# ---------------------------------------------------------------- 属性：Supplier（supplier，7 列）
+# s_nationkey 是指向 Nation 的对象属性（见文件末尾），其余 6 列在这里。
+
+:supplierKey a owl:DatatypeProperty ; rdfs:label "供应商编号" ; rdfs:domain :Supplier ; :physicalColumn "s_suppkey" ;
+    rdfs:comment "供应商主键（bigint，1,000 个值）。lineitem.l_suppkey 与 partsupp.ps_suppkey 都指向它" .
+
+:supplierName a owl:DatatypeProperty ; rdfs:label "供应商名" ; rdfs:domain :Supplier ; :physicalColumn "s_name" ;
+    rdfs:comment "供应商名（TPC-H 合成串，1,000 行）。仅用于定位/展示，不参与聚合" .
+
+:supplierAddress a owl:DatatypeProperty ; rdfs:label "供应商地址" ; rdfs:domain :Supplier ; :physicalColumn "s_address" ;
+    rdfs:comment "供应商地址（自由文本合成串）。没有结构化省/市字段，不要拿它做地理分组；国家走 s_nationkey" .
+
+:supplierPhone a owl:DatatypeProperty ; rdfs:label "供应商电话" ; rdfs:domain :Supplier ; :physicalColumn "s_phone" ;
+    rdfs:comment "供应商电话（15 位合成串，前两位是国家码）。不是可用的国家维度，国家以 s_nationkey 为准" .
+
+:supplierAcctBal a owl:DatatypeProperty ; rdfs:label "供应商账户余额" ; rdfs:domain :Supplier ; :physicalColumn "s_acctbal" ;
+    rdfs:comment "供应商账户余额（numeric，金额）。可加总，但它是余额不是成本也不是收入，不能当供货成本用" .
+
+:supplierComment a owl:DatatypeProperty ; rdfs:label "供应商备注" ; rdfs:domain :Supplier ; :physicalColumn "s_comment" ;
+    rdfs:comment "自由文本备注（TPC-H 合成串，1,000 行全非空）。不可聚合" .
+
+# ---------------------------------------------------------------- 属性：Part（part，9 列）
+# 整张表没有外键列：这是商品维度的全部属性。
+
+:partKey a owl:DatatypeProperty ; rdfs:label "零件编号" ; rdfs:domain :Part ; :physicalColumn "p_partkey" ;
+    rdfs:comment "零件主键（bigint，20,000 个值）。lineitem.l_partkey 与 partsupp.ps_partkey 都指向它" .
+
+:partName a owl:DatatypeProperty ; rdfs:label "零件名" ; rdfs:domain :Part ; :physicalColumn "p_name" ;
+    rdfs:comment "零件名（实测 20,000 个全不重复，TPC-H 合成的颜色+名词串）。商品榜的标签就是它；不可聚合" .
+
+:partMfgr a owl:DatatypeProperty ; rdfs:label "制造商" ; rdfs:domain :Part ; :physicalColumn "p_mfgr" ;
+    rdfs:comment "制造商（实测 5 个取值，形如 Manufacturer#1..5）。固定五项分类，不是真实公司名" .
+
+:partBrand a owl:DatatypeProperty ; rdfs:label "品牌" ; rdfs:domain :Part ; :physicalColumn "p_brand" ;
+    rdfs:comment "品牌（实测 25 个取值，形如 Brand#MN）。品牌编号里嵌了制造商编号，品牌总是属于一个制造商，两者不能当独立维度交叉分析" .
+
+:partType a owl:DatatypeProperty ; rdfs:label "零件类型" ; rdfs:domain :Part ; :physicalColumn "p_type" ;
+    rdfs:comment "零件类型（TPC-H 三段式类型串：尺寸形容词+表面处理+材质）。品类拆解方式属口径（S2），S1 只声明它是文本" .
+
+:partSize a owl:DatatypeProperty ; rdfs:label "零件尺寸" ; rdfs:domain :Part ; :physicalColumn "p_size" ;
+    rdfs:comment "尺寸（integer，实测 1..50，50 个取值，无量纲）。是规格不是金额，不能折算成价格" .
+
+:partContainer a owl:DatatypeProperty ; rdfs:label "包装容器" ; rdfs:domain :Part ; :physicalColumn "p_container" ;
+    rdfs:comment "包装容器（实测 40 个取值，固定枚举）。与尺寸没有对应关系，不要与 p_size 混算" .
+
+:partRetailPrice a owl:DatatypeProperty ; rdfs:label "零售价" ; rdfs:domain :Part ; :physicalColumn "p_retailprice" ;
+    rdfs:comment "建议零售单价（numeric，金额，本库无币种列）。是单价，要乘数量；它不等于实际成交价 —— 成交金额在 lineitem.l_extendedprice 上" .
+
+:partComment a owl:DatatypeProperty ; rdfs:label "零件备注" ; rdfs:domain :Part ; :physicalColumn "p_comment" ;
+    rdfs:comment "自由文本备注（TPC-H 合成串，20,000 行全非空）。不可聚合" .
+
+# ---------------------------------------------------------------- 属性：PartSupply（partsupp，5 列）
+# 复合主键 (ps_partkey, ps_suppkey)；这两列同时是指向 Part / Supplier 的对象属性（见文件末尾），其余 3 列在这里。
+
+:partSupplyAvailQty a owl:DatatypeProperty ; rdfs:label "可供数量" ; rdfs:domain :PartSupply ; :physicalColumn "ps_availqty" ;
+    rdfs:comment "该零件由该供应商的可供数量（integer，无量纲，不是金额）。关系快照，没有时间戳，不能当库存趋势" .
+
+:partSupplyCost a owl:DatatypeProperty ; rdfs:label "供货成本单价" ; rdfs:domain :PartSupply ; :physicalColumn "ps_supplycost" ;
+    rdfs:comment "该零件由该供应商的供货单价（numeric，金额，本库无币种列）。供应成本要乘数量；它与 lineitem 之间只有复合外键（见文件头），那条路径不在本层声明" .
+
+:partSupplyComment a owl:DatatypeProperty ; rdfs:label "供货关系备注" ; rdfs:domain :PartSupply ; :physicalColumn "ps_comment" ;
+    rdfs:comment "自由文本备注（TPC-H 合成串，80,000 行全非空）。不可聚合" .
+
+# ---------------------------------------------------------------- 属性：Customer（customer，8 列）
+# c_nationkey 是指向 Nation 的对象属性（见文件末尾），其余 7 列在这里。
+
+:customerKey a owl:DatatypeProperty ; rdfs:label "客户编号" ; rdfs:domain :Customer ; :physicalColumn "c_custkey" ;
+    rdfs:comment "客户主键（bigint，15,000 个值）。orders.o_custkey 指向它 —— 收入只有经订单才能挂到客户上" .
+
+:customerName a owl:DatatypeProperty ; rdfs:label "客户名" ; rdfs:domain :Customer ; :physicalColumn "c_name" ;
+    rdfs:comment "客户名（实测 15,000 个全不重复，0 组重名，TPC-H 合成串）。可以当唯一标签用；不可聚合" .
+
+:customerAddress a owl:DatatypeProperty ; rdfs:label "客户地址" ; rdfs:domain :Customer ; :physicalColumn "c_address" ;
+    rdfs:comment "客户地址（自由文本合成串）。没有结构化行政区划，地区维度必须走 c_nationkey→nation→region" .
+
+:customerPhone a owl:DatatypeProperty ; rdfs:label "客户电话" ; rdfs:domain :Customer ; :physicalColumn "c_phone" ;
+    rdfs:comment "客户电话（15 位合成串，前两位是国家码）。不能当国家维度用，以 c_nationkey 为准" .
+
+:customerAcctBal a owl:DatatypeProperty ; rdfs:label "客户账户余额" ; rdfs:domain :Customer ; :physicalColumn "c_acctbal" ;
+    rdfs:comment "客户账户余额（numeric，金额）。是现存余额，不是本期消费额，不要当收入用" .
+
+:customerMktSegment a owl:DatatypeProperty ; rdfs:label "客户市场分部" ; rdfs:domain :Customer ; :physicalColumn "c_mktsegment" ;
+    rdfs:comment "市场分部（实测 5 个取值：AUTOMOBILE / BUILDING / FURNITURE / MACHINERY / HOUSEHOLD）。客户侧唯一的分类维度" .
+
+:customerComment a owl:DatatypeProperty ; rdfs:label "客户备注" ; rdfs:domain :Customer ; :physicalColumn "c_comment" ;
+    rdfs:comment "自由文本备注（TPC-H 合成串，15,000 行全非空）。不可聚合" .
+
+# ---------------------------------------------------------------- 属性：SalesOrder（orders，9 列）
+# o_custkey 是指向 Customer 的对象属性（见文件末尾），其余 8 列在这里。
+# 时间列 = o_orderdate（与 settings.guard.big_tables.orders 同名同列）。
+
+:salesOrderKey a owl:DatatypeProperty ; rdfs:label "订单编号" ; rdfs:domain :SalesOrder ; :physicalColumn "o_orderkey" ;
+    rdfs:comment "订单主键（bigint，150,000 个值）。lineitem.l_orderkey 指向它 —— 明细只能经它上卷到订单头" .
+
+:salesOrderStatus a owl:DatatypeProperty ; rdfs:label "订单状态" ; rdfs:domain :SalesOrder ; :physicalColumn "o_orderstatus" ;
+    rdfs:comment "订单状态码（实测 3 个取值 F / O / P，行数 F 72,884 · O 73,267 · P 3,849）。是订单头级状态，与明细级 l_linestatus 不是同一字段，不要跨表对号入座" .
+
+:salesOrderTotalPrice a owl:DatatypeProperty ; rdfs:label "订单总价" ; rdfs:domain :SalesOrder ; :physicalColumn "o_totalprice" ;
+    rdfs:comment "订单总价（numeric，金额，本库无币种列）。是过账后的订单金额，与 lineitem 上按 l_extendedprice×(1−l_discount) 现算的净收入不一定相等；两者不能互相校验成相等" .
+
+:salesOrderDate a owl:DatatypeProperty ; rdfs:label "下单日期" ; rdfs:domain :SalesOrder ; :physicalColumn "o_orderdate" ;
+    rdfs:comment "下单日期（date，实测 1992-01-01..1998-08-02，150,000 行全非空）。订单粒度的时间轴，也是 SalesOrder 的 :timeColumn" .
+
+:salesOrderPriority a owl:DatatypeProperty ; rdfs:label "订单优先级" ; rdfs:domain :SalesOrder ; :physicalColumn "o_orderpriority" ;
+    rdfs:comment "订单优先级（实测 5 个取值，形如 1-URGENT..5-LOW）。是订单头属性；lineitem 没有优先级列，看明细优先级必须回溯到订单" .
+
+:salesOrderClerk a owl:DatatypeProperty ; rdfs:label "接单员" ; rdfs:domain :SalesOrder ; :physicalColumn "o_clerk" ;
+    rdfs:comment "接单员编号（形如 Clerk#000000xxx）。TPC-H 生成值，库里没有员工表：可按人看订单数，但没有姓名可显示" .
+
+:salesOrderShipPriority a owl:DatatypeProperty ; rdfs:label "发运优先级" ; rdfs:domain :SalesOrder ; :physicalColumn "o_shippriority" ;
+    rdfs:comment "发运优先级（integer，实测只有 1 个取值 0）。没有分布，不能当分组维度用" .
+
+:salesOrderComment a owl:DatatypeProperty ; rdfs:label "订单备注" ; rdfs:domain :SalesOrder ; :physicalColumn "o_comment" ;
+    rdfs:comment "自由文本备注（TPC-H 合成串，150,000 行全非空）。不可聚合" .
+
+# ---------------------------------------------------------------- 属性：LineItem（lineitem，16 列）
+# l_orderkey / l_partkey / l_suppkey 是指向 SalesOrder / Part / Supplier 的对象属性（见文件末尾），其余 13 列在这里。
+# 复合主键 (l_orderkey, l_linenumber)：l_orderkey 已在对象属性里声明，l_linenumber 在这里。
+# 时间列 = l_shipdate（与 settings.guard.big_tables.lineitem 同名同列）。
+
+:lineItemNumber a owl:DatatypeProperty ; rdfs:label "订单内行号" ; rdfs:domain :LineItem ; :physicalColumn "l_linenumber" ;
+    rdfs:comment "订单内行号（integer，实测 1..7）。只有与 l_orderkey 组合才是主键，单独出现没有意义；数明细行数不能对它去重" .
+
+:lineItemQuantity a owl:DatatypeProperty ; rdfs:label "数量" ; rdfs:domain :LineItem ; :physicalColumn "l_quantity" ;
+    rdfs:comment "本次明细的数量（numeric，实测 1.00..50.00，无量纲，不是金额）。乘单价得金额；与金额列同列时不要把它加进金额合计" .
+
+:lineItemExtendedPrice a owl:DatatypeProperty ; rdfs:label "明细金额（未折扣未税）" ; rdfs:domain :LineItem ; :physicalColumn "l_extendedprice" ;
+    rdfs:comment "明细金额 = 数量 × 单价（numeric，金额，本库无币种列），未扣折扣、未含税。任何「销售额」口径都必须先说明是不是这一列本身" .
+
+:lineItemDiscount a owl:DatatypeProperty ; rdfs:label "折扣率" ; rdfs:domain :LineItem ; :physicalColumn "l_discount" ;
+    rdfs:comment "折扣率（numeric，实测 0.00..0.10，是比率不是金额：0.04 = 4%）。必须乘到 l_extendedprice 上，绝不能与金额列相加" .
+
+:lineItemTax a owl:DatatypeProperty ; rdfs:label "税率" ; rdfs:domain :LineItem ; :physicalColumn "l_tax" ;
+    rdfs:comment "税率（numeric，实测 0.00..0.08，是比率不是金额）。与 l_discount 一样只能相乘，不能相加进金额" .
+
+:lineItemReturnFlag a owl:DatatypeProperty ; rdfs:label "退货标记" ; rdfs:domain :LineItem ; :physicalColumn "l_returnflag" ;
+    rdfs:comment "退货标记（实测恰好 3 个取值：N 304,481 · A 147,790 · R 148,301）。TPC-H 规范语义 N=none / A=accepted / R=returned；语义的正式定义与退货口径从哪一列算，属口径层（S2），本层只声明它是文本码" .
+
+:lineItemStatus a owl:DatatypeProperty ; rdfs:label "明细行状态" ; rdfs:domain :LineItem ; :physicalColumn "l_linestatus" ;
+    rdfs:comment "明细行状态（实测 2 个取值：F 299,856 · O 300,716；TPC-H 规范是 finished / open）。与订单头 o_orderstatus（实测 F 72,884 · O 73,267 · P 3,849 三值）不是同一字段，不要互相替代" .
+
+:lineItemShipDate a owl:DatatypeProperty ; rdfs:label "发运日期" ; rdfs:domain :LineItem ; :physicalColumn "l_shipdate" ;
+    rdfs:comment "发运日期（date，实测 1992-01-03..1998-12-01，600,572 行全非空）。明细粒度的时间轴，也是 LineItem 的 :timeColumn；订单月口径要看 o_orderdate，两者不同轴" .
+
+:lineItemCommitDate a owl:DatatypeProperty ; rdfs:label "承诺交期" ; rdfs:domain :LineItem ; :physicalColumn "l_commitdate" ;
+    rdfs:comment "对客户的承诺交期（date）。迟交判定要用它跟 l_receiptdate 比，不是跟 l_shipdate 比" .
+
+:lineItemReceiptDate a owl:DatatypeProperty ; rdfs:label "收货日期" ; rdfs:domain :LineItem ; :physicalColumn "l_receiptdate" ;
+    rdfs:comment "客户实际收货日期（date）。与 l_commitdate 比较才得出是否迟交" .
+
+:lineItemShipInstruct a owl:DatatypeProperty ; rdfs:label "发货指令" ; rdfs:domain :LineItem ; :physicalColumn "l_shipinstruct" ;
+    rdfs:comment "发货指令（实测 4 个取值，固定枚举，如 DELIVER IN PERSON / NONE）。是履约条件不是履约结果，与是否迟交没有直接对应" .
+
+:lineItemShipMode a owl:DatatypeProperty ; rdfs:label "运输方式" ; rdfs:domain :LineItem ; :physicalColumn "l_shipmode" ;
+    rdfs:comment "运输方式（实测 7 个取值：AIR / FOB / MAIL / RAIL / REG AIR / SHIP / TRUCK）。各方式行数分布不均，看比率时要连样本量一起看" .
+
+:lineItemComment a owl:DatatypeProperty ; rdfs:label "明细备注" ; rdfs:domain :LineItem ; :physicalColumn "l_comment" ;
+    rdfs:comment "自由文本备注（TPC-H 合成串，600,572 行全非空）。不可聚合" .
+
+
+# ---------------------------------------------------------------- 对象属性（9 条，覆盖 9 个单列外键）
+# 每条都用实测验证过"0 个孤儿行"（各外键值 100% 能在目标表里找到），见本文件头的事实来源说明。
+# 第 10 条外键是 lineitem→partsupp 的复合外键，刻意不建第 10 个对象属性（原因见文件头）。
+
+:nationRegion a owl:ObjectProperty ; rdfs:label "所属地区" ; rdfs:domain :Nation ; :physicalColumn "n_regionkey" ;
+    :references :Region ; rdfs:comment "国家所属地区（nation.n_regionkey → region.r_regionkey，实测 0 孤儿）。客户地区与供应商地区两条路在这里合流" .
+
+:customerNation a owl:ObjectProperty ; rdfs:label "所属国家" ; rdfs:domain :Customer ; :physicalColumn "c_nationkey" ;
+    :references :Nation ; rdfs:comment "客户所在国家（customer.c_nationkey → nation.n_nationkey，实测 0 孤儿）。客户侧地区轴的第一跳" .
+
+:supplierNation a owl:ObjectProperty ; rdfs:label "所属国家" ; rdfs:domain :Supplier ; :physicalColumn "s_nationkey" ;
+    :references :Nation ; rdfs:comment "供应商所在国家（supplier.s_nationkey → nation.n_nationkey，实测 0 孤儿）。供应商侧的地区通路，与客户侧不是同一个维度" .
+
+:partSupplyPart a owl:ObjectProperty ; rdfs:label "零件" ; rdfs:domain :PartSupply ; :physicalColumn "ps_partkey" ;
+    :references :Part ; rdfs:comment "这条供货关系是哪个零件（partsupp.ps_partkey → part.p_partkey，同时是复合主键的一半，实测 0 孤儿）。供货成本挂在零件×供应商上，不在零件上；它与供货关系是两条独立关系，不合成一条" .
+
+:partSupplySupplier a owl:ObjectProperty ; rdfs:label "供应商" ; rdfs:domain :PartSupply ; :physicalColumn "ps_suppkey" ;
+    :references :Supplier ; rdfs:comment "这条供货关系是谁供的（partsupp.ps_suppkey → supplier.s_suppkey，同时是复合主键的一半，实测 0 孤儿）。一个零件有多个供应商，成本不能只按零件看" .
+
+:orderCustomer a owl:ObjectProperty ; rdfs:label "下单客户" ; rdfs:domain :SalesOrder ; :physicalColumn "o_custkey" ;
+    :references :Customer ; rdfs:comment "这张订单由哪个客户下的（orders.o_custkey → customer.c_custkey，实测 0 孤儿）。收入挂到客户、再挂到客户地区必须经它" .
+
+:lineItemOrder a owl:ObjectProperty ; rdfs:label "所属订单" ; rdfs:domain :LineItem ; :physicalColumn "l_orderkey" ;
+    :references :SalesOrder ; rdfs:comment "这条明细属于哪张订单（lineitem.l_orderkey → orders.o_orderkey，实测 0 孤儿）。明细上卷到订单头、把 o_orderdate 带到行上，只有这一条路" .
+
+:lineItemPart a owl:ObjectProperty ; rdfs:label "零件" ; rdfs:domain :LineItem ; :physicalColumn "l_partkey" ;
+    :references :Part ; rdfs:comment "这条明细卖的是哪个零件（lineitem.l_partkey → part.p_partkey，实测 0 孤儿）。商品/品类/品牌维度的唯一通路" .
+
+:lineItemSupplier a owl:ObjectProperty ; rdfs:label "供应商" ; rdfs:domain :LineItem ; :physicalColumn "l_suppkey" ;
+    :references :Supplier ; rdfs:comment "这条明细由哪个供应商供货（lineitem.l_suppkey → supplier.s_suppkey，实测 0 孤儿）。同两列上还有一条指向 partsupp 的复合外键，本文件不把它声明成属性（见文件头）" .

@@ -369,15 +369,15 @@
       },
       {
         "enabled": true,
-        "key": "orders_demo_v1",
-        "kind": "customer",
-        "label": "订单与回款（按城市）",
+        "key": "tpch_sales_v3",
+        "kind": "demo",
+        "label": "TPC-H 销售与供应链（SF0.1，第三遍·效率对照）",
         "latest": true,
         "note": "registered by ontology_register",
-        "profile": "orders_demo_v1/orders_demo_v1_settings.json",
+        "profile": "tpch_sales_v3/tpch_sales_v3_settings.json",
         "superseded_by": "",
         "url": "",
-        "version": 1
+        "version": 3
       }
     ],
     "python": "",
