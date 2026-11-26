@@ -58,7 +58,16 @@ git pull --ff-only
 AFTER=$(git rev-parse --short HEAD); echo "   HEAD after:  $AFTER"
 
 echo "== 3/7 后端依赖（uv sync）"
-cd ~/langconfig/backend && uv sync -q && echo "   ok"
+# uv 装在 ~/.local/bin 时不在非交互 ssh 的 PATH 里：写成 `cd … && uv sync && echo ok`
+# 会在 AND 列表里静默失败（set -e 不管 AND 列表的非末项），上一次就是这样跳过的。
+UV=$(command -v uv 2>/dev/null || true)
+[ -n "${UV}" ] || UV="$HOME/.local/bin/uv"
+if [ -x "${UV}" ]; then
+    cd ~/langconfig/backend && "${UV}" sync -q && echo "   ok (${UV})"
+else
+    echo "!! 找不到 uv（试过 PATH 与 ~/.local/bin）：后端依赖未同步。手动跑："
+    echo "   cd ~/langconfig/backend && ~/.local/bin/uv sync"
+fi
 
 echo "== 4/7 前端 build（后端托管 dist/）"
 cd ~/langconfig
@@ -84,8 +93,15 @@ if systemctl cat langconfig >/dev/null 2>&1; then
 else
     echo "   没有 langconfig.service：这台机器可能用 start.sh/screen 起的，请自己重启后端"
 fi
-code=$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8765/docs || true)
-echo "   GET /docs → ${code:-无响应}"
+# 重启后进程要 10–40 秒才监听（迁移、worker、调度器都在启动路径上）。
+# 立刻 curl 会拿到 000，看着像失败，其实只是还没起来 —— 所以等，而不是判死。
+code=""
+for i in $(seq 1 20); do
+    code=$(curl -sS -o /dev/null -m 3 -w '%{http_code}' http://127.0.0.1:8765/docs 2>/dev/null || true)
+    [ "${code}" = "200" ] && { echo "   GET /docs → 200（约 $((i * 3)) 秒起来）"; break; }
+    sleep 3
+done
+[ "${code}" = "200" ] || echo "   GET /docs → ${code:-无响应}（60 秒内没起来，看 journalctl -u langconfig -n 50）"
 echo "   HEAD: $(cd ~/langconfig && git rev-parse --short HEAD)"
 REMOTE_SCRIPT
 
