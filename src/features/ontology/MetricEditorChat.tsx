@@ -51,7 +51,7 @@ interface Proposal {
  * A person asking for a metric knows the business: the phrase they use, the question it answers, how
  * it is worked out in words, what one row of the business is, what is in scope, what they want to
  * group by. They do not know tables, columns, joins, `:grain`, TTL or SPARQL, so the form never asks
- * for any of it — the agent derives the declarations. (backend/skills/builtin/edit-ontology-metrics/
+ * for any of it — the agent derives the declarations. (backend/skills/builtin/db-ontology-metrics/
  * references/user-intake.md is the contract on the other side of this form.)
  *
  * Blank stays blank: grain and scope change what the number MEANS, so an unanswered one is a
@@ -117,7 +117,7 @@ function composeHandoff(key: string): string {
     '任何会改变这个数含义而上面没答的点（颗粒度、范围、阈值、维度），先问我，不要自己定。',
     '开始前先 ontology_open(ontology_key="' + key + '", overwrite=true) 取一份与已安装本体一致的副本——',
     '旧副本会把别人后来的改动悄悄回退（已经发生过一次：label 被旧副本发布会退）。',
-    '做完按 edit-ontology-metrics 验证：编译；值与你自己写的第二条独立路线一致；其余指标的数字一个都不许变。',
+    '做完按 db-ontology-metrics 验证：编译；值与你自己写的第二条独立路线一致；其余指标的数字一个都不许变。',
     '然后 ontology_publish 暂存，include 只点名你改过的文件；报告里写：值多少、独立路线是什么、哪些门禁 NOT RUN。',
   ].join('\n');
 }

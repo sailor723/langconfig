@@ -99,4 +99,8 @@ export const TOOL_CATEGORY_LABELS: Record<string, string> = {
   reasoning: 'Reasoning',
   delegation: 'Subagent Delegation',
   todo: 'TODO Management',
+  database: 'Databases',
+  // Reads the platform's OWN tables (agent templates, projects, skills, documents, tools) — not a
+  // business database. Kept separate so "which database tool do I need?" is a short list.
+  platform: 'Platform (this app\'s own state)',
 };

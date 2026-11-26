@@ -2,7 +2,7 @@
  * DashboardChat — the business question, next to the business numbers.
  *
  * This is the ontology's own question pipeline (`POST /api/ontology/{key}/ask` → the
- * `answer-ontology-question` skill → rules first, a model only when the rules are unsure), moved
+ * `db-ontology-ask` skill → rules first, a model only when the rules are unsure), moved
  * onto the dashboard so a reader can go from "超载率 36.8%" to "那准时率呢" without leaving the page.
  *
  * Three rules it inherits rather than invents:

@@ -289,7 +289,7 @@ export default function OntologyHomePage() {
           ['Function / metric', '指标——意思写在 02-meaning.ttl，算法写在 metrics_ext.ttl；编译成 SQL，否则按名拒绝'],
           ['Action type', '声明的动作——前置条件编译、可干跑、有审计留痕（lane C）'],
           ['Platform controls', '护栏（行数上限 · 时间窗 · 计划预算 · 语句超时）加上会变红的门禁'],
-          ['AIP / agents', '带 build-ontology-from-db 技能的 DeepAgent：它读库、写声明，应用负责编译'],
+          ['AIP / agents', '带 db-ontology-build 技能的 DeepAgent：它读库、写声明，应用负责编译'],
         ].map(([foundry, here], i) => (
           <div
             key={foundry}
