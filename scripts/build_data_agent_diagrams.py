@@ -243,12 +243,57 @@ def grill() -> None:
     write("data-agent-grill", "\n".join(s), W, H)
 
 
+# ─────────────────────────────── 图：DSH 造 / Carrier 跑 的双向回路
+def dsh_loop() -> None:
+    W, H = 1140, 470
+    s, W, H = head("DSH 造，Carrier 跑：一次改动的完整回路",
+                   "左列是「造」的地方（有仓库、shell、DB、测试）；右列是「跑」的地方（只有自己的工具结果）",
+                   W, H)
+    lx, lw = 40, 520
+    steps = [
+        ("① 改 artefact", "agent 行 / prompt / SKILL.md / native_impl.py", SYS_FILL, SYS_LINE, SYS_INK),
+        ("② 该 refresh 的 refresh", "seed_builtin_tools --refresh · POST /api/skills/reload-all", SYS_FILL, SYS_LINE, SYS_INK),
+        ("③ 重启后端", "工具行里是代码副本：不重启就还在跑旧代码", STOP_FILL, STOP_LINE, STOP_INK),
+        ("④ 一次真实 turn 验收", "run_agent_turn --agent N --msg …；看 SSE 的 complete 与工具调用", USER_FILL, USER_LINE, USER_INK),
+        ("⑤ 守卫测试 + commit → push", "prompt 不是门禁，tests/ 才是；推 main 与 deploy", PROD_FILL, PROD_LINE, PROD_INK),
+    ]
+    y = 108
+    for title, sub, fill, line, ink in steps:
+        s.append(charts.box(lx, y, lw, 60, [title, sub], fill=fill, line=line, ink=ink, fs=12))
+        if y > 108:
+            s.append(charts.soft_curve(lx + 26, y - 12, lx + 26, y, colour=line, opacity=0.5, head=False))
+        y += 70
+    # 右侧：Carrier
+    rx, rw = 640, 460
+    s.append(charts.box(rx, 108, rw, 318, [
+        "Carrier :8765",
+        "前端 dist/（后端托管）· FastAPI",
+        "deep_agent_templates（agent 行）",
+        "custom_tools（工具行，含代码副本）",
+        "skills/（SKILL.md 是产物本身）",
+        "",
+        "它只能说「我缺什么」",
+        "改不了自己的行、也起不了进程",
+    ], fill=PROD_FILL, line=PROD_LINE, ink=PROD_INK, fs=12))
+    s.append(charts.soft_curve(lx + lw, 178, rx, 240, colour=USER_LINE, opacity=0.85))
+    s.append(f'<text x="{(lx + lw + rx) / 2}" y="196" fill="{USER_LINE}" font-family="Menlo, monospace" '
+             f'font-size="11" text-anchor="middle">pull → build → seed → restart</text>')
+    s.append(charts.soft_curve(rx, 330, lx + lw, 300, colour=STOP_LINE, opacity=0.85, dash="5 4"))
+    s.append(f'<text x="{(lx + lw + rx) / 2}" y="336" fill="{STOP_LINE}" font-family="Menlo, monospace" '
+             f'font-size="11" text-anchor="middle">报「缺什么」/ unverified</text>')
+    s.append(charts.pill(570, 444, 900, 40,
+                         ["铁律：in-app agent 报缺 → 回 DSH 改 → refresh → 一次真实 turn 才算改完"],
+                         fill=STOP_FILL, line=STOP_LINE, ink=STOP_INK, fs=11))
+    write("data-agent-dsh-loop", "\n".join(s), W, H)
+
+
 def main() -> int:
     pipeline7()
     layers()
     publish()
     gates4()
     grill()
+    dsh_loop()
     return 0
 
 

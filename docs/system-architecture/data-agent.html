@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>数据 Agent · 总文档（合并版）</title>
-<meta name="doc-version" content="数据 Agent 总文档 v1.0 · 2026-11-26">
+<meta name="doc-version" content="数据 Agent 总文档 v1.1 · 2026-11-26">
 <style>
 @page {
   @bottom-center {
-    content: "数据 Agent 总文档 v1.0 · 2026-11-26 · 第 " counter(page) " / " counter(pages) " 页";
+    content: "数据 Agent 总文档 v1.1 · 2026-11-26 · 第 " counter(page) " / " counter(pages) " 页";
     font-size: 8pt; color: #8a96a3;
     font-family: -apple-system, "PingFang SC", system-ui, sans-serif;
   }
@@ -86,11 +86,11 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 34px 0; }
 <body>
 <main>
 <a class="anchor" id="s000"></a><h1 id="数据-agent-总文档合并版">数据 Agent · 总文档（合并版）</h1>
-<blockquote><p><strong>版本</strong> v1.0 · <strong>日期</strong> 2026-11-26 · <strong>对应平台</strong> main（deepagents 0.7.1）· 本文与 <code>data-agent.docx</code> / <code>data-agent.html</code> / <code>data-agent.pdf</code> <strong>同源同版本</strong>（三份都由本文生成）。</p></blockquote>
+<blockquote><p><strong>版本</strong> v1.1 · <strong>日期</strong> 2026-11-26 · <strong>对应平台</strong> main（deepagents 0.7.1）· 本文与 <code>data-agent.docx</code> / <code>data-agent.html</code> / <code>data-agent.pdf</code> <strong>同源同版本</strong>（三份都由本文生成）。</p></blockquote>
 <blockquote><p><strong>这一份是唯一权威</strong>：以前分开的九份文档（<code>ontology-process</code> / <code>ontology-pipeline</code> / <code>ontology_architecture</code> / <code>ontology-agents</code> / <code>ontology-agent-boundaries</code> / <code>ontology-dsl</code> / <code>ontology-metrics-shapes</code> / <code>platform-facts</code> / <code>data-agent-runbook</code>）<strong>已删除</strong>，内容全部并入本文； 需要旧版请查 git 历史（见文末「附：旧文档去哪了」）。</p></blockquote>
 <p><strong>输入是数据（Excel/CSV 或生产库），输出是能看、能查、能复核的看板与教程。</strong></p>
-<p><strong>结构（十二部分 + 附录）</strong></p>
-<table><thead><tr><th>#</th><th>内容</th><th>解决什么问题</th></tr></thead><tbody><tr><td>第零</td><td><strong>概念（Concept）：什么才算数据 Agent</strong>（明确目标 × 本体+LLM）</td><td>先把"它是什么"立住</td></tr><tr><td>第一</td><td>概览 Overview（十段）</td><td>五分钟建立全貌</td></tr><tr><td>第二</td><td>操作 Operation（十步 + 票梯 T0…T5）</td><td>自己动手用一遍</td></tr><tr><td>第三</td><td>过程与票制 Process</td><td>一票一文件、逐票验收</td></tr><tr><td>第四</td><td>架构 Architecture（含 4.1 本体：用 Palantir 的语言）</td><td>为什么数字可信</td></tr><tr><td>第五</td><td>Agent 与专家 Agents</td><td>谁在干活、边界在哪</td></tr><tr><td>第六</td><td>声明 DSL 与平台事实 Declarations</td><td>写声明要读的那一页</td></tr><tr><td>第七</td><td>数据边界 Boundary</td><td>谁能碰数据库</td></tr><tr><td>第八</td><td><strong>安装 Installation（前置条件）</strong></td><td>装起来、验证装好了</td></tr><tr><td>第九</td><td><strong>示例 Example（TPC-H 四层声明 + vs text2sql）</strong></td><td>本体长什么样</td></tr><tr><td>第十</td><td><strong>定制 Customization（八场景）</strong></td><td>改成自己的口径</td></tr><tr><td>第十一</td><td>详解 Details（文件契约 · 四道门 · 轴 · 拒绝 · 版本 · 工具 · 验收 · 排错 · 术语）</td><td>查细节</td></tr><tr><td>附录</td><td>A 一次实测 · B 英文原文 · C 旧文档去向</td><td>证据与出处</td></tr></tbody></table>
+<p><strong>结构（十三部分 + 附录）</strong></p>
+<table><thead><tr><th>#</th><th>内容</th><th>解决什么问题</th></tr></thead><tbody><tr><td>第零</td><td><strong>概念（Concept）：什么才算数据 Agent</strong>（明确目标 × 本体+LLM）</td><td>先把"它是什么"立住</td></tr><tr><td>第一</td><td>概览 Overview（十段）</td><td>五分钟建立全貌</td></tr><tr><td>第二</td><td>操作 Operation（十步 + 票梯 T0…T5）</td><td>自己动手用一遍</td></tr><tr><td>第三</td><td>过程与票制 Process</td><td>一票一文件、逐票验收</td></tr><tr><td>第四</td><td>架构 Architecture（含 4.1 本体：用 Palantir 的语言）</td><td>为什么数字可信</td></tr><tr><td>第五</td><td>Agent 与专家 Agents</td><td>谁在干活、边界在哪</td></tr><tr><td>第六</td><td>声明 DSL 与平台事实 Declarations</td><td>写声明要读的那一页</td></tr><tr><td>第七</td><td>数据边界 Boundary</td><td>谁能碰数据库</td></tr><tr><td>第八</td><td><strong>安装 Installation（前置条件）</strong></td><td>装起来、验证装好了</td></tr><tr><td>第九</td><td><strong>示例 Example（TPC-H 四层声明 + vs text2sql）</strong></td><td>本体长什么样</td></tr><tr><td>第十</td><td><strong>定制 Customization（八场景）</strong></td><td>改成自己的口径</td></tr><tr><td>第十一</td><td>详解 Details（文件契约 · 四道门 · 轴 · 拒绝 · 版本 · 工具 · 验收 · 排错 · 术语）</td><td>查细节</td></tr><tr><td>第十二</td><td><strong>用 DSH 安装与操作 Carrier</strong>（造 agent / deep agent / skill / tool，跑一轮，更新远端）</td><td>亲手改它</td></tr><tr><td>附录</td><td>A 一次实测 · B 英文原文 · C 旧文档去向</td><td>证据与出处</td></tr></tbody></table>
 <figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 760" width="1180" height="760">
 <rect x="0" y="0" width="1180" height="760" fill="#0F1419"/>
 <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#4D6A8A"/></marker></defs>
@@ -300,9 +300,22 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 34px 0; }
 <li><a href="#s169">8.4 一次实测（示例：TPC-H SF0.1，v3）</a></li>
 <li><a href="#s170">8.5 排错手册（都踩过）</a></li>
 <li><a href="#s171">8.6 术语</a></li>
-<li><strong><a href="#s172">附：旧文档去哪了</a></strong></li>
-<li><strong><a href="#s173">附录 · 图与源文件</a></strong></li>
-<li><strong><a href="#s174">附：版本与修订</a></strong></li>
+<li><strong><a href="#s172">第十二部分 · 用 DSH 安装与操作 Carrier（Install &amp; Operate）</a></strong></li>
+<li><a href="#s173">12.1 两台东西，各自答什么问题</a></li>
+<li><a href="#s174">12.2 装 DSH</a></li>
+<li><a href="#s175">12.3 装 Carrier</a></li>
+<li><a href="#s176">12.4 五类 artefact：改哪里，怎么变成可见</a></li>
+<li><a href="#s177">12.5 造一个 agent</a></li>
+<li><a href="#s178">12.6 造一个 deep agent（父 + 专家团）</a></li>
+<li><a href="#s179">12.7 造一个 skill</a></li>
+<li><a href="#s180">12.8 造一个 tool：两条路，别混</a></li>
+<li><a href="#s181">12.9 跑一个 agent，并判断它真的成了</a></li>
+<li><a href="#s182">12.10 用 DSH 更新一台远端 Carrier</a></li>
+<li><a href="#s183">12.11 踩过的坑（都有实测，写下来防第二次）</a></li>
+<li><a href="#s184">12.12 一张清单（照着做，不要凭记忆）</a></li>
+<li><strong><a href="#s185">附：旧文档去哪了</a></strong></li>
+<li><strong><a href="#s186">附录 · 图与源文件</a></strong></li>
+<li><strong><a href="#s187">附：版本与修订</a></strong></li>
 </ul>
 <hr>
 <a class="anchor" id="s007"></a><h1 id="第一部分-概览overview-十段每段一个要点">第一部分 · 概览（Overview · 十段，每段一个要点）</h1>
@@ -1818,13 +1831,176 @@ cd backend &amp;&amp; .venv/bin/python features/ontology/gates/check_structure.p
 <a class="anchor" id="s171"></a><h2 id="86-术语">8.6 术语</h2>
 <table><thead><tr><th>词</th><th>意思</th></tr></thead><tbody><tr><td><strong>key</strong></td><td><code>&lt;name&gt;_v&lt;N&gt;</code>，目录名/URL/前缀三合一，永不复用</td></tr><tr><td><strong>profile</strong></td><td><code>features/ontology/profiles/&lt;key&gt;/</code>：声明 + settings + 看板 + 教程 + 页面</td></tr><tr><td><strong>grain / universe</strong></td><td>聚合发生在哪个对象 / 哪些行在口径内（分母边界）</td></tr><tr><td><strong>定义类</strong></td><td><code>owl:equivalentClass</code> 或 <code>:physicalPredicate</code> 的谓词式定义，有自己的手写谓词可复核</td></tr><tr><td><strong>staged / apply</strong></td><td>候选 / 安装。前者 agent 能做，后者只有人点</td></tr><tr><td><strong>声明式拒绝</strong></td><td>指标上的 <code>:refusalReason</code>：这个数不算，理由写清；两条 NL 路径都按名拒绝</td></tr><tr><td><strong>NOT RUN</strong></td><td>门禁没跑（无对象或没配），<strong>不是通过</strong></td></tr><tr><td><strong>exempt_tables</strong></td><td>profile 里<strong>声明式</strong>排除的表（附理由），门禁会打印出来</td></tr><tr><td><strong>claims</strong></td><td>散文里的数字 + 来源标记（<code>metric:</code>/<code>sql:</code>/<code>table:</code>/<code>Q&lt;n&gt;</code>/<code>anchor</code>）</td></tr></tbody></table>
 <hr>
-<a class="anchor" id="s172"></a><h1 id="附旧文档去哪了">附：旧文档去哪了</h1>
+<a class="anchor" id="s172"></a><h1 id="第十二部分-用-dsh-安装与操作-carrierinstall-operate">第十二部分 · 用 DSH 安装与操作 Carrier（Install &amp; Operate）</h1>
+<blockquote><p>这一节回答的是<strong>换一个角色</strong>的问题：不是"数据 Agent 怎么工作"，而是"<strong>我怎么亲手造它、跑它、改它</strong>"。 前十一部分写给用的人；这一节写给<strong>动手的人</strong>（你自己，或者替你干活的 agent）。</p></blockquote>
+<p>一句话原则：<strong>DSH 是"造"它的地方，Carrier 是它"跑"的地方。</strong></p>
+<p>DSH 手里有仓库、shell、数据库、测试套件 —— 也就是判断"这个改动是不是真的"所需的全部证据；</p>
+<p>Carrier 里的 agent 只看得见自己的工具结果，工具没绑、路径被拒、技能是旧的，它只能说"这个失败"。</p>
+<figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 470" width="1140" height="470">
+<rect x="0" y="0" width="1140" height="470" fill="#0F1419"/>
+<text x="34" y="46" fill="#E6EDF3" font-family="Menlo, monospace" font-size="22" font-weight="700">DSH 造，Carrier 跑：一次改动的完整回路</text>
+<text x="34" y="70" fill="#8B98A5" font-family="Menlo, monospace" font-size="13">左列是「造」的地方（有仓库、shell、DB、测试）；右列是「跑」的地方（只有自己的工具结果）</text>
+<rect x="40" y="108" width="520" height="60" rx="10" ry="10" fill="#12202E" stroke="#4DABF7" stroke-width="2"/>
+<text x="300.0" y="133.0" fill="#D0EBFF" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">① 改 artefact</text>
+<text x="300.0" y="151.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">agent 行 / prompt / SKILL.md / native_impl.py</text>
+<rect x="40" y="178" width="520" height="60" rx="10" ry="10" fill="#12202E" stroke="#4DABF7" stroke-width="2"/>
+<text x="300.0" y="203.0" fill="#D0EBFF" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">② 该 refresh 的 refresh</text>
+<text x="300.0" y="221.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">seed_builtin_tools --refresh · POST /api/skills/reload-all</text>
+<path d="M 66,166 C 66,172.6 66,171.4 66,178" fill="none" stroke="#4DABF7" stroke-width="1.6" stroke-opacity="0.5" stroke-linecap="round"/>
+<rect x="40" y="248" width="520" height="60" rx="10" ry="10" fill="#3A2A07" stroke="#F59F00" stroke-width="2"/>
+<text x="300.0" y="273.0" fill="#FFD8A8" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">③ 重启后端</text>
+<text x="300.0" y="291.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">工具行里是代码副本：不重启就还在跑旧代码</text>
+<path d="M 66,236 C 66,242.6 66,241.4 66,248" fill="none" stroke="#F59F00" stroke-width="1.6" stroke-opacity="0.5" stroke-linecap="round"/>
+<rect x="40" y="318" width="520" height="60" rx="10" ry="10" fill="#1B2A1B" stroke="#51CF66" stroke-width="2"/>
+<text x="300.0" y="343.0" fill="#B2F2BB" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">④ 一次真实 turn 验收</text>
+<text x="300.0" y="361.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">run_agent_turn --agent N --msg …；看 SSE 的 complete 与工具调用</text>
+<path d="M 66,306 C 66,312.6 66,311.4 66,318" fill="none" stroke="#51CF66" stroke-width="1.6" stroke-opacity="0.5" stroke-linecap="round"/>
+<rect x="40" y="388" width="520" height="60" rx="10" ry="10" fill="#11161C" stroke="#3A4450" stroke-width="2"/>
+<text x="300.0" y="413.0" fill="#9AA7B4" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">⑤ 守卫测试 + commit → push</text>
+<text x="300.0" y="431.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">prompt 不是门禁，tests/ 才是；推 main 与 deploy</text>
+<path d="M 66,376 C 66,382.6 66,381.4 66,388" fill="none" stroke="#3A4450" stroke-width="1.6" stroke-opacity="0.5" stroke-linecap="round"/>
+<rect x="640" y="108" width="460" height="318" rx="10" ry="10" fill="#11161C" stroke="#3A4450" stroke-width="2"/>
+<text x="870.0" y="208.0" fill="#9AA7B4" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">Carrier :8765</text>
+<text x="870.0" y="226.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">前端 dist/（后端托管）· FastAPI</text>
+<text x="870.0" y="244.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">deep_agent_templates（agent 行）</text>
+<text x="870.0" y="262.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">custom_tools（工具行，含代码副本）</text>
+<text x="870.0" y="280.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">skills/（SKILL.md 是产物本身）</text>
+<text x="870.0" y="298.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle"></text>
+<text x="870.0" y="316.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">它只能说「我缺什么」</text>
+<text x="870.0" y="334.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">改不了自己的行、也起不了进程</text>
+<path d="M 560,178 C 560,212.1 640,205.9 640,240" fill="none" stroke="#51CF66" stroke-width="1.6" stroke-opacity="0.85" stroke-linecap="round"/>
+<circle cx="640" cy="240" r="3.4" fill="#51CF66" fill-opacity="1.0"/>
+<text x="600.0" y="196" fill="#51CF66" font-family="Menlo, monospace" font-size="11" text-anchor="middle">pull → build → seed → restart</text>
+<path d="M 640,330 C 640,313.5 560,316.5 560,300" fill="none" stroke="#F59F00" stroke-width="1.6" stroke-opacity="0.85" stroke-linecap="round" stroke-dasharray="5 4"/>
+<circle cx="560" cy="300" r="3.4" fill="#F59F00" fill-opacity="1.0"/>
+<text x="600.0" y="336" fill="#F59F00" font-family="Menlo, monospace" font-size="11" text-anchor="middle">报「缺什么」/ unverified</text>
+<rect x="120.0" y="424.0" width="900" height="40" rx="20.0" ry="20.0" fill="#3A2A07" fill-opacity="0.92" stroke="#F59F00" stroke-width="1.6" stroke-opacity="0.85"/>
+<text x="570" y="447.6666666666667" fill="#FFD8A8" font-family="Menlo, monospace" font-size="11" font-weight="600" text-anchor="middle">铁律：in-app agent 报缺 → 回 DSH 改 → refresh → 一次真实 turn 才算改完</text>
+</svg><figcaption>DSH 造 / Carrier 跑：一次改动的完整回路</figcaption></figure>
+<a class="anchor" id="s173"></a><h2 id="121-两台东西各自答什么问题">12.1 两台东西，各自答什么问题</h2>
+<table><thead><tr><th></th><th><strong>DeepSeek Harness（DSH）</strong></th><th><strong>Carrier（本平台，:8765）</strong></th></tr></thead><tbody><tr><td>它是什么</td><td>一个通用 agent harness（Web UI + 工具 + 沙箱）</td><td>这个仓库跑起来的应用</td></tr><tr><td>你能做什么</td><td>改代码/声明/prompt/skill/tool，跑测试，连库查数，读日志，重启进程</td><td>建 agent、装配工具与技能、开会话、看答案</td></tr><tr><td>agent 能做什么</td><td>有你授权的 shell、文件、数据库、浏览器</td><td>只有<strong>它自己被绑定的工具</strong>，且只看得到工具返回</td></tr><tr><td>出问题时</td><td>能定位到代码/行/门禁</td><td>只能报"缺什么"</td></tr><tr><td>结果怎么算数</td><td>一条守卫测试 + 一次真实 turn</td><td>一次真实 turn</td></tr></tbody></table>
+<p><strong>所以回路是</strong>：in-app agent 报"我缺 X" → 回 DSH 修 X → refresh → 再用一次真实对话验收。</p>
+<p><strong>agent 开始绕开平台缺口，是那个缺口属于 DSH 的信号</strong>，不是 agent 需要更多提示词。</p>
+<a class="anchor" id="s174"></a><h2 id="122-装-dsh">12.2 装 DSH</h2>
+<pre><code># 最省事：不用 clone
+npx @deepseek-ai/dsh web            # → http://127.0.0.1:3080
+
+# 从源码（要改它本身时才需要）
+git clone https://github.com/deepseek-ai/deepseek-harness.git
+cd deepseek-harness &amp;&amp; pnpm install &amp;&amp; pnpm run build &amp;&amp; pnpm dsh web</code></pre>
+<p>打开 <code>http://127.0.0.1:3080</code>，<strong>把本仓库的目录设成工作区</strong>。之后你在对话里让 agent</p>
+<p>读文件、跑命令、连数据库，它就是在这一份代码上动手 —— 这也是"能验证"的前提。</p>
+<a class="anchor" id="s175"></a><h2 id="123-装-carrier">12.3 装 Carrier</h2>
+<pre><code>bash start.sh                        # 后端 :8765 + 前端 :1421（一条命令起两件）
+cd backend &amp;&amp; uv run python main.py  # 只要 API
+npm run dev                          # 只要前端
+cd backend &amp;&amp; uv run alembic upgrade head                       # 建/升级表结构
+cd backend &amp;&amp; .venv/bin/python scripts/seeds/in/seed_all.py     # 平台库的基线数据</code></pre>
+<p><strong>装完怎么算装对了</strong>（不要靠"看着起来了"）：</p>
+<pre><code>curl -s -o /dev/null -w &#x27;%{http_code}\n&#x27; http://127.0.0.1:8765/docs   # → 200
+curl -s http://127.0.0.1:8765/api/tools/registry | head -c 200        # → 有工具行
+cd backend &amp;&amp; .venv/bin/python scripts/seeds/out/export_baseline.py --check   # → 每条腿 FRESH</code></pre>
+<p>最后那条是"库里的 agent/工具/技能 是否等于已提交快照"。它的 settings 腿按<strong>命名空间存在性</strong>比，</p>
+<p>不再按行数（一个命名空间可以有多个文档，快照每个命名空间只留一个 key —— 按行数比会永远 STALE）。</p>
+<a class="anchor" id="s176"></a><h2 id="124-五类-artefact改哪里怎么变成可见">12.4 五类 artefact：改哪里，怎么变成可见</h2>
+<table><thead><tr><th>artefact</th><th>住在哪</th><th>一次改动<strong>怎么生效</strong></th></tr></thead><tbody><tr><td>agent（prompt / tools / skills / 护栏）</td><td><code>deep_agent_templates</code> 一行</td><td>重写那一行 → <strong>用一次真实 streaming turn 证明</strong></td></tr><tr><td>prompt 正文</td><td>同一行 + <code>backend/scripts/set_agent_prompt.py</code></td><td>机器尾巴从行里重建，<strong>不手改</strong></td></tr><tr><td>skill</td><td><code>backend/skills/builtin/&lt;id&gt;/SKILL.md</code></td><td><code>POST /api/skills/reload-all</code> —— 跑着的 registry <strong>不会</strong>自己发现新文件</td></tr><tr><td>平台原生 tool</td><td><code>backend/tools/native_impl.py</code> + <code>SEEDABLE_TOOL_META</code></td><td><code>scripts/seeds/in/seed_builtin_tools.py --refresh</code>，然后<strong>重启</strong></td></tr><tr><td>不能回归的行为</td><td><code>backend/tests/</code></td><td>一条守卫测试 —— <strong>prompt 不是门禁</strong></td></tr></tbody></table>
+<p>这张表是整个第十二部分的核心：<strong>五个 artefact 有五个不同的"生效开关"</strong>，记错一个，</p>
+<p>你看到的就是"改了没反应"。</p>
+<a class="anchor" id="s177"></a><h2 id="125-造一个-agent">12.5 造一个 agent</h2>
+<p><strong>GUI 最快</strong>：Agents → New（或从模板复制一份再改）。</p>
+<p><strong>等价的 HTTP</strong>（平台里的"agent"就是 <code>deep_agent_templates</code> 的一行）：</p>
+<pre><code>POST /api/deepagents
+{
+  &quot;name&quot;: &quot;订单看板助手&quot;,
+  &quot;model&quot;: &quot;&lt;模型名&gt;&quot;,
+  &quot;system_prompt&quot;: &quot;...&quot;,
+  &quot;native_tools&quot;: [&quot;read_file&quot;, &quot;write_file&quot;, &quot;execute&quot;],
+  &quot;custom_tools&quot;: [],
+  &quot;skills&quot;: [&quot;grilling&quot;],
+  &quot;middleware_config&quot;: [],
+  &quot;subagents_config&quot;: [],
+  &quot;use_deepagents&quot;: true
+}</code></pre>
+<p>写完<strong>一定</strong>走一次真实对话（§12.9）——一行配置"能存进库"不等于"能跑"。</p>
+<a class="anchor" id="s178"></a><h2 id="126-造一个-deep-agent父-专家团">12.6 造一个 deep agent（父 + 专家团）</h2>
+<p><code>subagents_config</code> 里的<strong>字典子智能体</strong>只接受四个键（外加可选的 <code>model</code>）：</p>
+<pre><code>{&quot;name&quot;: &quot;modeller&quot;, &quot;description&quot;: &quot;S1 结构 + S2 含义&quot;,
+ &quot;system_prompt&quot;: &quot;…&quot;, &quot;tools&quot;: [&quot;ontology_open&quot;, &quot;ontology_inspect&quot;, &quot;execute&quot;]}</code></pre>
+<p><strong>为什么只这四个键</strong>：deepagents 0.7.1 的 <code>SubAgentMiddleware</code> 只读 <code>name</code> / <code>description</code> /</p>
+<p><code>system_prompt</code> / <code>tools</code>（+ <code>model</code>）；多写的键会被静默忽略 —— 你以为是配置，它当没看见。</p>
+<p>两条由此而来的规矩：</p>
+<ol>
+<li><strong>子 agent 有自己的上下文，只回最后一条消息。</strong> 所以交接必须落文件（<code>work/&lt;key&gt;/NOTES.md</code>），</li>
+</ol>
+<p>而不是"父 agent 记得我刚才说了什么"。</p>
+<ol>
+<li><strong>子 agent 没有用户通道。</strong> 它要人决定的事只能写 <code>needs_human</code>，由父 agent 去问。</li>
+</ol>
+<a class="anchor" id="s179"></a><h2 id="127-造一个-skill">12.7 造一个 skill</h2>
+<p>一个 skill 就是一个目录 + 一份 <code>SKILL.md</code>：</p>
+<pre><code>backend/skills/builtin/&lt;skill-id&gt;/
+├── SKILL.md            # frontmatter: name / description / tags / triggers / allowed_tools
+└── references/…        # 可选：它自己的参考资料</code></pre>
+<p>之后两步，缺一步就是不生效：</p>
+<pre><code># 2) 让跑着的 registry 重新扫描
+curl -X POST http://127.0.0.1:8765/api/skills/reload-all
+# 3) 把 skill id 放进 agent 行的 skills 数组（或在 GUI 里勾上）
+curl -s http://127.0.0.1:8765/api/skills/summary | head -c 300   # 验收：它在列表里</code></pre>
+<p><strong>验收标准不是"文件存在"</strong>，是那一轮对话里出现了 <code>skill</code> 工具调用，并且 agent 照着做了。</p>
+<a class="anchor" id="s180"></a><h2 id="128-造一个-tool两条路别混">12.8 造一个 tool：两条路，别混</h2>
+<table><thead><tr><th>路</th><th>代码住在哪</th><th>什么时候用</th><th>生效方式</th></tr></thead><tbody><tr><td><strong>自定义工具</strong></td><td>工具行自己（<code>POST /api/custom-tools</code>，<code>python_function</code> 或 HTTP）</td><td>一次性的、某个 agent 专用</td><td>存进去就生效</td></tr><tr><td><strong>平台原生工具</strong></td><td><code>backend/tools/native_impl.py</code>（+ <code>SEEDABLE_TOOL_META</code> 登记）</td><td>所有人共用、要进种子</td><td><code>--refresh</code> <strong>然后重启</strong></td></tr></tbody></table>
+<p>⚠️ <strong>工具行里存的是代码副本。</strong> 改了 <code>native_impl.py</code> 不 <code>--refresh</code>，进程里跑的还是老代码 ——</p>
+<p><code>db_query_langgraph</code> 与 <code>ontology_*</code> 这一批就踩过这个坑（改了、没生效、看着还"成功"）。</p>
+<pre><code>cd backend &amp;&amp; .venv/bin/python scripts/seeds/in/seed_builtin_tools.py --refresh
+# 重启后端（systemd: sudo systemctl restart langconfig；前台: Ctrl-C 后重跑 start.sh）</code></pre>
+<a class="anchor" id="s181"></a><h2 id="129-跑一个-agent并判断它真的成了">12.9 跑一个 agent，并判断它真的成了</h2>
+<p><strong>GUI</strong>：打开该 agent 的会话，发一句话。</p>
+<p><strong>命令行</strong>（和 GUI 走同一条 API：先 <code>POST /api/chat/start</code> 开会话，再 <code>POST /api/chat/message/stream</code> 读 SSE）：</p>
+<pre><code>cd backend &amp;&amp; .venv/bin/python -m scripts.talent.run_agent_turn \
+  --agent 393 --msg &quot;把这张表的粒度说清楚&quot; --log /tmp/turn.txt</code></pre>
+<p>（脚本名字带 talent 是历史原因，它其实与业务无关：给 agent id 和一句话就能跑。）</p>
+<p>SSE 里会出现这几种事件：<code>chunk</code>（正文增量）、<code>thinking</code>、<code>tool_start</code> / <code>tool_end</code>（工具调用与返回）、</p>
+<p><code>complete</code>（这一轮结束）。<strong>判绿看三件事，不看它说了什么</strong>：</p>
+<ol>
+<li>有没有 <code>complete</code>（没有 = 被截断/超时，等于没跑完）；</li>
+<li>期望的那几个工具在 <code>tool_start</code> 里出现过（尤其改了工具或 skill 之后）；</li>
+<li>最终答复里的数字/路径<strong>能不能复核</strong>（路径存在？数能追到声明？）。</li>
+</ol>
+<a class="anchor" id="s182"></a><h2 id="1210-用-dsh-更新一台远端-carrier">12.10 用 DSH 更新一台远端 Carrier</h2>
+<p>本仓库把这件事固化成一条命令（七步，顺序有讲究）：</p>
+<pre><code>bash scripts/update_host_from_git.sh --print                      # 先看远端要跑什么，不连机器
+bash scripts/update_host_from_git.sh root@&lt;host&gt; --key ~/.ssh/&lt;key&gt;.pem</code></pre>
+<p>它做：预检（不是快进就停、有已跟踪改动就停）→ <code>git pull --ff-only</code> → <code>uv sync</code> → <code>npm run build</code></p>
+<p>→ <code>seed_all</code> + <code>seed_builtin_tools --refresh</code> → <code>export_baseline --check</code> → 重启 → 等 <code>/docs</code> 返 200。</p>
+<p>三处顺序/口径都是踩出来的，不是风格问题：</p>
+<ul>
+<li><strong>工具 refresh 必须在重启之前</strong>（工具行是代码副本）；</li>
+<li><strong>前端 build 必须在重启之前</strong>（后端托管 <code>dist/</code>）；</li>
+<li><strong>预检只看已跟踪文件的改动</strong>（线上 <code>.env.bak-*</code> 这类 untracked 备份不该挡住一次快进）。</li>
+</ul>
+<p>团队 zip 那条路（<code>.team_deploy/upgrade_host.sh</code>）是另一种更重的操作：它会 dropdb/restore 业务库。</p>
+<p><strong>两条路不要混用。</strong></p>
+<a class="anchor" id="s183"></a><h2 id="1211-踩过的坑都有实测写下来防第二次">12.11 踩过的坑（都有实测，写下来防第二次）</h2>
+<table><thead><tr><th>现象</th><th>真因</th><th>现在怎么防</th></tr></thead><tbody><tr><td>工具改了行为没变</td><td>工具行里是代码副本，没 refresh</td><td><code>--refresh</code> + 重启；回执里看 <code>updated_at</code></td><td></td></tr><tr><td>新 skill 不出现</td><td>跑着的 registry 不扫描新文件</td><td><code>POST /api/skills/reload-all</code></td><td></td></tr><tr><td>子 agent 的新字段没生效</td><td><code>SubAgentMiddleware</code> 只读四个键</td><td>只用那四个键（+<code>model</code>）</td><td></td></tr><tr><td>更新脚本说"没有 systemd unit"</td><td>`list-unit-files \</td><td>grep` 判空</td><td>用 <code>systemctl cat</code></td></tr><tr><td><code>uv: command not found</code></td><td>非交互 ssh 的 PATH 里没有 <code>~/.local/bin</code></td><td>先解析 <code>uv</code>，找不到就喊出来</td><td></td></tr><tr><td>工具少装了几条、merge 还说 0 added</td><td>显式 id 被占就<strong>整行跳过</strong></td><td>id 被占改取序列值（有守卫测试）</td><td></td></tr><tr><td>图字出框 / 表格冲出纸边</td><td>生成器不报错，静默裁切</td><td><code>check_svg_overflow.py</code> + PDF 边界量测</td><td></td></tr><tr><td>目录 55 条链接点不到</td><td>两套 slug 各写各的</td><td>三份产物共用 <code>build_toc.slug()</code></td><td></td></tr></tbody></table>
+<a class="anchor" id="s184"></a><h2 id="1212-一张清单照着做不要凭记忆">12.12 一张清单（照着做，不要凭记忆）</h2>
+<ol>
+<li>DSH 打开本仓库工作区，Carrier 起着（<code>/docs</code> 200）；</li>
+<li>改 artefact（agent 行 / prompt / SKILL.md / native_impl.py / 测试）；</li>
+<li>该 refresh 的 refresh（tool → <code>--refresh</code>；skill → <code>reload-all</code>）；</li>
+<li>重启后端（工具与前端都要重启才换）；</li>
+<li><strong>一次真实 turn</strong> 验收（§12.9 的三条判据）；</li>
+<li>补一条守卫测试（行为要防回归，prompt 挡不住）；</li>
+<li><code>commit</code> + <code>push</code>（<code>main</code> 与 <code>deploy</code> 两个分支）；</li>
+<li>远端：<code>scripts/update_host_from_git.sh</code>，看 <code>HEAD</code> 与 <code>/docs</code> 两个结果。</li>
+</ol>
+<hr>
+<a class="anchor" id="s185"></a><h1 id="附旧文档去哪了">附：旧文档去哪了</h1>
 <p>九份同名主题的文档已<strong>删除</strong>，内容全部并入本文；不再保留副本，也不留指针文件——</p>
 <p>两份同义文档迟早会漂，而本文是唯一权威。</p>
 <table><thead><tr><th>旧文件</th><th>并入了本文的哪一节</th><th>找回方式</th></tr></thead><tbody><tr><td><code>ontology-process.md</code></td><td>第三部分 · 过程与票制</td><td>git 历史（<code>git log --follow</code>）</td></tr><tr><td><code>ontology-pipeline.md</code></td><td>第四部分 4.1</td><td>同上</td></tr><tr><td><code>ontology_architecture.md</code></td><td>第四部分 4.2</td><td>同上</td></tr><tr><td><code>ontology-agents.md</code></td><td>第五部分 · Agent 与专家</td><td>同上</td></tr><tr><td><code>ontology-agent-boundaries.md</code></td><td>第七部分 · 数据边界</td><td>同上</td></tr><tr><td><code>ontology-dsl.md</code></td><td>6.1</td><td>同上</td></tr><tr><td><code>ontology-metrics-shapes.md</code></td><td>6.2</td><td>同上</td></tr><tr><td><code>platform-facts.md</code></td><td>6.3</td><td>同上</td></tr><tr><td><code>data-agent-runbook.md</code></td><td>第一、二、八部分与附录</td><td>同上（本文件即它的升级版）</td></tr></tbody></table>
 <blockquote><p>重新生成配套文件：<code>python scripts/build_data_agent_docs.py</code>（产出 <code>data-agent.docx</code>，与本文不会漂移）</p></blockquote>
-<a class="anchor" id="s173"></a><h1 id="附录-图与源文件">附录 · 图与源文件</h1>
-<table><thead><tr><th>图</th><th>生成脚本</th><th>用在本文哪里</th></tr></thead><tbody><tr><td><code>data-agent-lanes.svg</code></td><td><code>scripts/build_data_agent_charts.py</code></td><td>开头：泳道 + 进度带（<strong>唯一</strong>一张进度图，T0…T5）</td></tr><tr><td><code>data-agent-pipeline7.svg</code></td><td><code>scripts/build_data_agent_diagrams.py</code></td><td>第三部分总览图、§4.2 流水线</td></tr><tr><td><code>data-agent-grill.svg</code></td><td><code>scripts/build_data_agent_diagrams.py</code></td><td>§2 第 1 步：三轮把「前沿」问空</td></tr><tr><td><code>data-agent-layers.svg</code></td><td><code>scripts/build_data_agent_diagrams.py</code></td><td>§4.2 五层（L4→L0）</td></tr><tr><td><code>data-agent-publish.svg</code></td><td><code>scripts/build_data_agent_diagrams.py</code></td><td>§4.2 发布通道（stage / apply）</td></tr><tr><td><code>data-agent-gates4.svg</code></td><td><code>scripts/build_data_agent_diagrams.py</code></td><td>第十一部分：四道门</td></tr></tbody></table>
+<a class="anchor" id="s186"></a><h1 id="附录-图与源文件">附录 · 图与源文件</h1>
+<table><thead><tr><th>图</th><th>生成脚本</th><th>用在本文哪里</th></tr></thead><tbody><tr><td><code>data-agent-lanes.svg</code></td><td><code>scripts/build_data_agent_charts.py</code></td><td>开头：泳道 + 进度带（<strong>唯一</strong>一张进度图，T0…T5）</td></tr><tr><td><code>data-agent-pipeline7.svg</code></td><td><code>scripts/build_data_agent_diagrams.py</code></td><td>第三部分总览图、§4.2 流水线</td></tr><tr><td><code>data-agent-grill.svg</code></td><td><code>scripts/build_data_agent_diagrams.py</code></td><td>§2 第 1 步：三轮把「前沿」问空</td></tr><tr><td><code>data-agent-dsh-loop.svg</code></td><td><code>scripts/build_data_agent_diagrams.py</code></td><td>第十二部分：DSH 造 / Carrier 跑的回路</td></tr><tr><td><code>data-agent-layers.svg</code></td><td><code>scripts/build_data_agent_diagrams.py</code></td><td>§4.2 五层（L4→L0）</td></tr><tr><td><code>data-agent-publish.svg</code></td><td><code>scripts/build_data_agent_diagrams.py</code></td><td>§4.2 发布通道（stage / apply）</td></tr><tr><td><code>data-agent-gates4.svg</code></td><td><code>scripts/build_data_agent_diagrams.py</code></td><td>第十一部分：四道门</td></tr></tbody></table>
 <pre><code>python scripts/build_data_agent_charts.py      # 泳道图
 python scripts/build_data_agent_diagrams.py    # 其余五张（SVG + PNG）
 python scripts/check_svg_overflow.py           # 量一遍：文字越框 / 出画布（应为 0）
@@ -1835,8 +2011,8 @@ python scripts/build_data_agent_html.py        # 生成 data-agent.html + data-a
 <table><thead><tr><th>产物</th><th>给谁</th><th>目录</th><th>图</th></tr></thead><tbody><tr><td><code>data-agent.docx</code></td><td>发出去、要批注</td><td>40 个内部超链接（书签）</td><td>PNG 内嵌（6.3 in 宽）</td></tr><tr><td><code>data-agent.html</code></td><td>浏览器里读、单文件可传阅</td><td>55 个 <code>#sNNN</code> / 标题锚点</td><td><strong>内联 SVG</strong>（矢量，放大不糊）</td></tr><tr><td><code>data-agent.pdf</code></td><td>打印、归档</td><td>55 个命名目标 + 174 条 PDF 书签</td><td>矢量（宽度按纸宽缩到 483 pt，<strong>看不清就放大</strong>）</td></tr></tbody></table>
 <blockquote><p>手画的 SVG <strong>不会</strong>替你报错：文字写宽了压到邻框、框画到 <code>viewBox</code> 外被裁掉，都是静默的。 所以改完图必须跑 <code>check_svg_overflow.py</code> —— 它沿用的字宽模型与生成器是同一套，不会各说各话。 同一个道理在 PDF 上又出现一次：表格里一个 <code>tests/xxx.py::test_yyy</code> 就能把整张表推出纸边， 而 WeasyPrint 只是把它裁掉、不报错。所以 PDF 用 <code>table-layout: fixed</code> + <code>word-break: break-all</code>， 并在生成后用边界量一遍（见 <code>scripts/build_data_agent_html.py</code> 的注释）。</p></blockquote>
 <hr>
-<a class="anchor" id="s174"></a><h1 id="附版本与修订">附：版本与修订</h1>
-<table><thead><tr><th>版本</th><th>日期</th><th>改了什么</th><th>产物</th></tr></thead><tbody><tr><td>v1.0</td><td>2026-11-26</td><td>首次以「唯一权威 + 三视图」发布：新增 §2 第 1 步「先被 grill」整节（1.1–1.6 + 一张「三轮把前沿问空」图）；六张图全部手画 SVG（软线、文字不出框）；docx / html / pdf 同源同锚点</td><td><code>.md</code> <code>.docx</code> <code>.html</code> <code>.pdf</code></td></tr></tbody></table>
+<a class="anchor" id="s187"></a><h1 id="附版本与修订">附：版本与修订</h1>
+<table><thead><tr><th>版本</th><th>日期</th><th>改了什么</th><th>产物</th></tr></thead><tbody><tr><td>v1.1</td><td>2026-11-26</td><td>新增<strong>第十二部分 · 用 DSH 安装与操作 Carrier</strong>（12.1–12.12 + 「DSH 造 / Carrier 跑」回路图）：装 DSH、装 Carrier、五类 artefact 的生效开关、造 agent/deep agent/skill/tool、跑一轮并判绿、更新远端、八个踩过的坑</td><td><code>.md</code> <code>.docx</code> <code>.html</code> <code>.pdf</code></td></tr><tr><td>v1.0</td><td>2026-11-26</td><td>首次以「唯一权威 + 三视图」发布：新增 §2 第 1 步「先被 grill」整节（1.1–1.6 + 一张「三轮把前沿问空」图）；六张图全部手画 SVG（软线、文字不出框）；docx / html / pdf 同源同锚点</td><td><code>.md</code> <code>.docx</code> <code>.html</code> <code>.pdf</code></td></tr></tbody></table>
 <blockquote><p><strong>改一版的顺序</strong>：① 改本文顶部那行 <code>**版本**</code> / <code>**日期**</code>；② 在这张表加一行；③ 跑 <code>build_toc.py</code> → <code>build_data_agent_docs.py</code> → <code>build_data_agent_html.py</code>；④ <code>pytest tests/test_context_cost_guards.py</code>。 三份产物都从<strong>同一行</strong>读版本号（<code>scripts/build_data_agent_html.py: stamp()</code>），所以不会出现 "docx 写着 v1.0、PDF 还是旧的"——这一条由 <code>test_version_stamp_agrees_across_artifacts</code> 守着。</p></blockquote>
 </main>
 </body>

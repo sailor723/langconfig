@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 470" width="1140" height="470">
+<rect x="0" y="0" width="1140" height="470" fill="#0F1419"/>
+<text x="34" y="46" fill="#E6EDF3" font-family="Menlo, monospace" font-size="22" font-weight="700">DSH 造，Carrier 跑：一次改动的完整回路</text>
+<text x="34" y="70" fill="#8B98A5" font-family="Menlo, monospace" font-size="13">左列是「造」的地方（有仓库、shell、DB、测试）；右列是「跑」的地方（只有自己的工具结果）</text>
+<rect x="40" y="108" width="520" height="60" rx="10" ry="10" fill="#12202E" stroke="#4DABF7" stroke-width="2"/>
+<text x="300.0" y="133.0" fill="#D0EBFF" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">① 改 artefact</text>
+<text x="300.0" y="151.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">agent 行 / prompt / SKILL.md / native_impl.py</text>
+<rect x="40" y="178" width="520" height="60" rx="10" ry="10" fill="#12202E" stroke="#4DABF7" stroke-width="2"/>
+<text x="300.0" y="203.0" fill="#D0EBFF" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">② 该 refresh 的 refresh</text>
+<text x="300.0" y="221.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">seed_builtin_tools --refresh · POST /api/skills/reload-all</text>
+<path d="M 66,166 C 66,172.6 66,171.4 66,178" fill="none" stroke="#4DABF7" stroke-width="1.6" stroke-opacity="0.5" stroke-linecap="round"/>
+<rect x="40" y="248" width="520" height="60" rx="10" ry="10" fill="#3A2A07" stroke="#F59F00" stroke-width="2"/>
+<text x="300.0" y="273.0" fill="#FFD8A8" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">③ 重启后端</text>
+<text x="300.0" y="291.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">工具行里是代码副本：不重启就还在跑旧代码</text>
+<path d="M 66,236 C 66,242.6 66,241.4 66,248" fill="none" stroke="#F59F00" stroke-width="1.6" stroke-opacity="0.5" stroke-linecap="round"/>
+<rect x="40" y="318" width="520" height="60" rx="10" ry="10" fill="#1B2A1B" stroke="#51CF66" stroke-width="2"/>
+<text x="300.0" y="343.0" fill="#B2F2BB" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">④ 一次真实 turn 验收</text>
+<text x="300.0" y="361.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">run_agent_turn --agent N --msg …；看 SSE 的 complete 与工具调用</text>
+<path d="M 66,306 C 66,312.6 66,311.4 66,318" fill="none" stroke="#51CF66" stroke-width="1.6" stroke-opacity="0.5" stroke-linecap="round"/>
+<rect x="40" y="388" width="520" height="60" rx="10" ry="10" fill="#11161C" stroke="#3A4450" stroke-width="2"/>
+<text x="300.0" y="413.0" fill="#9AA7B4" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">⑤ 守卫测试 + commit → push</text>
+<text x="300.0" y="431.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">prompt 不是门禁，tests/ 才是；推 main 与 deploy</text>
+<path d="M 66,376 C 66,382.6 66,381.4 66,388" fill="none" stroke="#3A4450" stroke-width="1.6" stroke-opacity="0.5" stroke-linecap="round"/>
+<rect x="640" y="108" width="460" height="318" rx="10" ry="10" fill="#11161C" stroke="#3A4450" stroke-width="2"/>
+<text x="870.0" y="208.0" fill="#9AA7B4" font-family="Menlo, monospace" font-size="12" font-weight="600" text-anchor="middle">Carrier :8765</text>
+<text x="870.0" y="226.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">前端 dist/（后端托管）· FastAPI</text>
+<text x="870.0" y="244.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">deep_agent_templates（agent 行）</text>
+<text x="870.0" y="262.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">custom_tools（工具行，含代码副本）</text>
+<text x="870.0" y="280.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">skills/（SKILL.md 是产物本身）</text>
+<text x="870.0" y="298.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle"></text>
+<text x="870.0" y="316.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">它只能说「我缺什么」</text>
+<text x="870.0" y="334.0" fill="#8B98A5" font-family="Menlo, monospace" font-size="10.5" font-weight="400" text-anchor="middle">改不了自己的行、也起不了进程</text>
+<path d="M 560,178 C 560,212.1 640,205.9 640,240" fill="none" stroke="#51CF66" stroke-width="1.6" stroke-opacity="0.85" stroke-linecap="round"/>
+<circle cx="640" cy="240" r="3.4" fill="#51CF66" fill-opacity="1.0"/>
+<text x="600.0" y="196" fill="#51CF66" font-family="Menlo, monospace" font-size="11" text-anchor="middle">pull → build → seed → restart</text>
+<path d="M 640,330 C 640,313.5 560,316.5 560,300" fill="none" stroke="#F59F00" stroke-width="1.6" stroke-opacity="0.85" stroke-linecap="round" stroke-dasharray="5 4"/>
+<circle cx="560" cy="300" r="3.4" fill="#F59F00" fill-opacity="1.0"/>
+<text x="600.0" y="336" fill="#F59F00" font-family="Menlo, monospace" font-size="11" text-anchor="middle">报「缺什么」/ unverified</text>
+<rect x="120.0" y="424.0" width="900" height="40" rx="20.0" ry="20.0" fill="#3A2A07" fill-opacity="0.92" stroke="#F59F00" stroke-width="1.6" stroke-opacity="0.85"/>
+<text x="570" y="447.6666666666667" fill="#FFD8A8" font-family="Menlo, monospace" font-size="11" font-weight="600" text-anchor="middle">铁律：in-app agent 报缺 → 回 DSH 改 → refresh → 一次真实 turn 才算改完</text>
+</svg>

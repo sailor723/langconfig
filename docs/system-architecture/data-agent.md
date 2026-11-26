@@ -1,6 +1,6 @@
 # 数据 Agent · 总文档（合并版）
 
-> **版本** v1.0 · **日期** 2026-11-26 · **对应平台** main（deepagents 0.7.1）·
+> **版本** v1.1 · **日期** 2026-11-26 · **对应平台** main（deepagents 0.7.1）·
 > 本文与 `data-agent.docx` / `data-agent.html` / `data-agent.pdf` **同源同版本**（三份都由本文生成）。
 
 > **这一份是唯一权威**：以前分开的九份文档（`ontology-process` / `ontology-pipeline` /
@@ -9,7 +9,7 @@
 > 需要旧版请查 git 历史（见文末「附：旧文档去哪了」）。
 
 **输入是数据（Excel/CSV 或生产库），输出是能看、能查、能复核的看板与教程。**
-**结构（十二部分 + 附录）**
+**结构（十三部分 + 附录）**
 
 | # | 内容 | 解决什么问题 |
 |---|---|---|
@@ -25,6 +25,7 @@
 | 第九 | **示例 Example（TPC-H 四层声明 + vs text2sql）** | 本体长什么样 |
 | 第十 | **定制 Customization（八场景）** | 改成自己的口径 |
 | 第十一 | 详解 Details（文件契约 · 四道门 · 轴 · 拒绝 · 版本 · 工具 · 验收 · 排错 · 术语） | 查细节 |
+| 第十二 | **用 DSH 安装与操作 Carrier**（造 agent / deep agent / skill / tool，跑一轮，更新远端） | 亲手改它 |
 | 附录 | A 一次实测 · B 英文原文 · C 旧文档去向 | 证据与出处 |
 
 ![图 · 数据 Agent 的泳道与进度：上泳道是你，下泳道是 Agent；上方进度带三态（绿=已完成 / 蓝=进行中 / 灰=未开始）](../assets/data-agent-lanes.svg)
@@ -164,6 +165,19 @@ T4 教程 → T5 发布`，每票一格里写着「你做什么 / Agent 做什�
     - [8.4 一次实测（示例：TPC-H SF0.1，v3）](#84-一次实测示例tpc-h-sf01v3)
     - [8.5 排错手册（都踩过）](#85-排错手册都踩过)
     - [8.6 术语](#86-术语)
+- **[第十二部分 · 用 DSH 安装与操作 Carrier（Install & Operate）](#第十二部分-用-dsh-安装与操作-carrierinstall-operate)**
+    - [12.1 两台东西，各自答什么问题](#121-两台东西各自答什么问题)
+    - [12.2 装 DSH](#122-装-dsh)
+    - [12.3 装 Carrier](#123-装-carrier)
+    - [12.4 五类 artefact：改哪里，怎么变成可见](#124-五类-artefact改哪里怎么变成可见)
+    - [12.5 造一个 agent](#125-造一个-agent)
+    - [12.6 造一个 deep agent（父 + 专家团）](#126-造一个-deep-agent父-专家团)
+    - [12.7 造一个 skill](#127-造一个-skill)
+    - [12.8 造一个 tool：两条路，别混](#128-造一个-tool两条路别混)
+    - [12.9 跑一个 agent，并判断它真的成了](#129-跑一个-agent并判断它真的成了)
+    - [12.10 用 DSH 更新一台远端 Carrier](#1210-用-dsh-更新一台远端-carrier)
+    - [12.11 踩过的坑（都有实测，写下来防第二次）](#1211-踩过的坑都有实测写下来防第二次)
+    - [12.12 一张清单（照着做，不要凭记忆）](#1212-一张清单照着做不要凭记忆)
 - **[附：旧文档去哪了](#附旧文档去哪了)**
 - **[附录 · 图与源文件](#附录-图与源文件)**
 - **[附：版本与修订](#附版本与修订)**
@@ -2276,6 +2290,222 @@ cd backend && .venv/bin/python features/ontology/gates/check_structure.py \
 
 ---
 
+# 第十二部分 · 用 DSH 安装与操作 Carrier（Install & Operate）
+
+> 这一节回答的是**换一个角色**的问题：不是"数据 Agent 怎么工作"，而是"**我怎么亲手造它、跑它、改它**"。
+> 前十一部分写给用的人；这一节写给**动手的人**（你自己，或者替你干活的 agent）。
+
+一句话原则：**DSH 是"造"它的地方，Carrier 是它"跑"的地方。**
+DSH 手里有仓库、shell、数据库、测试套件 —— 也就是判断"这个改动是不是真的"所需的全部证据；
+Carrier 里的 agent 只看得见自己的工具结果，工具没绑、路径被拒、技能是旧的，它只能说"这个失败"。
+
+![DSH 造 / Carrier 跑：一次改动的完整回路](../assets/data-agent-dsh-loop.svg)
+
+## 12.1 两台东西，各自答什么问题
+
+| | **DeepSeek Harness（DSH）** | **Carrier（本平台，:8765）** |
+|---|---|---|
+| 它是什么 | 一个通用 agent harness（Web UI + 工具 + 沙箱） | 这个仓库跑起来的应用 |
+| 你能做什么 | 改代码/声明/prompt/skill/tool，跑测试，连库查数，读日志，重启进程 | 建 agent、装配工具与技能、开会话、看答案 |
+| agent 能做什么 | 有你授权的 shell、文件、数据库、浏览器 | 只有**它自己被绑定的工具**，且只看得到工具返回 |
+| 出问题时 | 能定位到代码/行/门禁 | 只能报"缺什么" |
+| 结果怎么算数 | 一条守卫测试 + 一次真实 turn | 一次真实 turn |
+
+**所以回路是**：in-app agent 报"我缺 X" → 回 DSH 修 X → refresh → 再用一次真实对话验收。
+**agent 开始绕开平台缺口，是那个缺口属于 DSH 的信号**，不是 agent 需要更多提示词。
+
+## 12.2 装 DSH
+
+```bash
+# 最省事：不用 clone
+npx @deepseek-ai/dsh web            # → http://127.0.0.1:3080
+
+# 从源码（要改它本身时才需要）
+git clone https://github.com/deepseek-ai/deepseek-harness.git
+cd deepseek-harness && pnpm install && pnpm run build && pnpm dsh web
+```
+
+打开 `http://127.0.0.1:3080`，**把本仓库的目录设成工作区**。之后你在对话里让 agent
+读文件、跑命令、连数据库，它就是在这一份代码上动手 —— 这也是"能验证"的前提。
+
+## 12.3 装 Carrier
+
+```bash
+bash start.sh                        # 后端 :8765 + 前端 :1421（一条命令起两件）
+cd backend && uv run python main.py  # 只要 API
+npm run dev                          # 只要前端
+cd backend && uv run alembic upgrade head                       # 建/升级表结构
+cd backend && .venv/bin/python scripts/seeds/in/seed_all.py     # 平台库的基线数据
+```
+
+**装完怎么算装对了**（不要靠"看着起来了"）：
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8765/docs   # → 200
+curl -s http://127.0.0.1:8765/api/tools/registry | head -c 200        # → 有工具行
+cd backend && .venv/bin/python scripts/seeds/out/export_baseline.py --check   # → 每条腿 FRESH
+```
+
+最后那条是"库里的 agent/工具/技能 是否等于已提交快照"。它的 settings 腿按**命名空间存在性**比，
+不再按行数（一个命名空间可以有多个文档，快照每个命名空间只留一个 key —— 按行数比会永远 STALE）。
+
+## 12.4 五类 artefact：改哪里，怎么变成可见
+
+| artefact | 住在哪 | 一次改动**怎么生效** |
+|---|---|---|
+| agent（prompt / tools / skills / 护栏） | `deep_agent_templates` 一行 | 重写那一行 → **用一次真实 streaming turn 证明** |
+| prompt 正文 | 同一行 + `backend/scripts/set_agent_prompt.py` | 机器尾巴从行里重建，**不手改** |
+| skill | `backend/skills/builtin/<id>/SKILL.md` | `POST /api/skills/reload-all` —— 跑着的 registry **不会**自己发现新文件 |
+| 平台原生 tool | `backend/tools/native_impl.py` + `SEEDABLE_TOOL_META` | `scripts/seeds/in/seed_builtin_tools.py --refresh`，然后**重启** |
+| 不能回归的行为 | `backend/tests/` | 一条守卫测试 —— **prompt 不是门禁** |
+
+这张表是整个第十二部分的核心：**五个 artefact 有五个不同的"生效开关"**，记错一个，
+你看到的就是"改了没反应"。
+
+## 12.5 造一个 agent
+
+**GUI 最快**：Agents → New（或从模板复制一份再改）。
+
+**等价的 HTTP**（平台里的"agent"就是 `deep_agent_templates` 的一行）：
+
+```http
+POST /api/deepagents
+{
+  "name": "订单看板助手",
+  "model": "<模型名>",
+  "system_prompt": "...",
+  "native_tools": ["read_file", "write_file", "execute"],
+  "custom_tools": [],
+  "skills": ["grilling"],
+  "middleware_config": [],
+  "subagents_config": [],
+  "use_deepagents": true
+}
+```
+
+写完**一定**走一次真实对话（§12.9）——一行配置"能存进库"不等于"能跑"。
+
+## 12.6 造一个 deep agent（父 + 专家团）
+
+`subagents_config` 里的**字典子智能体**只接受四个键（外加可选的 `model`）：
+
+```json
+{"name": "modeller", "description": "S1 结构 + S2 含义",
+ "system_prompt": "…", "tools": ["ontology_open", "ontology_inspect", "execute"]}
+```
+
+**为什么只这四个键**：deepagents 0.7.1 的 `SubAgentMiddleware` 只读 `name` / `description` /
+`system_prompt` / `tools`（+ `model`）；多写的键会被静默忽略 —— 你以为是配置，它当没看见。
+
+两条由此而来的规矩：
+
+1. **子 agent 有自己的上下文，只回最后一条消息。** 所以交接必须落文件（`work/<key>/NOTES.md`），
+   而不是"父 agent 记得我刚才说了什么"。
+2. **子 agent 没有用户通道。** 它要人决定的事只能写 `needs_human`，由父 agent 去问。
+
+## 12.7 造一个 skill
+
+一个 skill 就是一个目录 + 一份 `SKILL.md`：
+
+```
+backend/skills/builtin/<skill-id>/
+├── SKILL.md            # frontmatter: name / description / tags / triggers / allowed_tools
+└── references/…        # 可选：它自己的参考资料
+```
+
+之后两步，缺一步就是不生效：
+
+```bash
+# 2) 让跑着的 registry 重新扫描
+curl -X POST http://127.0.0.1:8765/api/skills/reload-all
+# 3) 把 skill id 放进 agent 行的 skills 数组（或在 GUI 里勾上）
+curl -s http://127.0.0.1:8765/api/skills/summary | head -c 300   # 验收：它在列表里
+```
+
+**验收标准不是"文件存在"**，是那一轮对话里出现了 `skill` 工具调用，并且 agent 照着做了。
+
+## 12.8 造一个 tool：两条路，别混
+
+| 路 | 代码住在哪 | 什么时候用 | 生效方式 |
+|---|---|---|---|
+| **自定义工具** | 工具行自己（`POST /api/custom-tools`，`python_function` 或 HTTP） | 一次性的、某个 agent 专用 | 存进去就生效 |
+| **平台原生工具** | `backend/tools/native_impl.py`（+ `SEEDABLE_TOOL_META` 登记） | 所有人共用、要进种子 | `--refresh` **然后重启** |
+
+⚠️ **工具行里存的是代码副本。** 改了 `native_impl.py` 不 `--refresh`，进程里跑的还是老代码 ——
+`db_query_langgraph` 与 `ontology_*` 这一批就踩过这个坑（改了、没生效、看着还"成功"）。
+
+```bash
+cd backend && .venv/bin/python scripts/seeds/in/seed_builtin_tools.py --refresh
+# 重启后端（systemd: sudo systemctl restart langconfig；前台: Ctrl-C 后重跑 start.sh）
+```
+
+## 12.9 跑一个 agent，并判断它真的成了
+
+**GUI**：打开该 agent 的会话，发一句话。
+
+**命令行**（和 GUI 走同一条 API：先 `POST /api/chat/start` 开会话，再 `POST /api/chat/message/stream` 读 SSE）：
+
+```bash
+cd backend && .venv/bin/python -m scripts.talent.run_agent_turn \
+  --agent 393 --msg "把这张表的粒度说清楚" --log /tmp/turn.txt
+```
+
+（脚本名字带 talent 是历史原因，它其实与业务无关：给 agent id 和一句话就能跑。）
+
+SSE 里会出现这几种事件：`chunk`（正文增量）、`thinking`、`tool_start` / `tool_end`（工具调用与返回）、
+`complete`（这一轮结束）。**判绿看三件事，不看它说了什么**：
+
+1. 有没有 `complete`（没有 = 被截断/超时，等于没跑完）；
+2. 期望的那几个工具在 `tool_start` 里出现过（尤其改了工具或 skill 之后）；
+3. 最终答复里的数字/路径**能不能复核**（路径存在？数能追到声明？）。
+
+## 12.10 用 DSH 更新一台远端 Carrier
+
+本仓库把这件事固化成一条命令（七步，顺序有讲究）：
+
+```bash
+bash scripts/update_host_from_git.sh --print                      # 先看远端要跑什么，不连机器
+bash scripts/update_host_from_git.sh root@<host> --key ~/.ssh/<key>.pem
+```
+
+它做：预检（不是快进就停、有已跟踪改动就停）→ `git pull --ff-only` → `uv sync` → `npm run build`
+→ `seed_all` + `seed_builtin_tools --refresh` → `export_baseline --check` → 重启 → 等 `/docs` 返 200。
+
+三处顺序/口径都是踩出来的，不是风格问题：
+
+- **工具 refresh 必须在重启之前**（工具行是代码副本）；
+- **前端 build 必须在重启之前**（后端托管 `dist/`）；
+- **预检只看已跟踪文件的改动**（线上 `.env.bak-*` 这类 untracked 备份不该挡住一次快进）。
+
+团队 zip 那条路（`.team_deploy/upgrade_host.sh`）是另一种更重的操作：它会 dropdb/restore 业务库。
+**两条路不要混用。**
+
+## 12.11 踩过的坑（都有实测，写下来防第二次）
+
+| 现象 | 真因 | 现在怎么防 |
+|---|---|---|
+| 工具改了行为没变 | 工具行里是代码副本，没 refresh | `--refresh` + 重启；回执里看 `updated_at` |
+| 新 skill 不出现 | 跑着的 registry 不扫描新文件 | `POST /api/skills/reload-all` |
+| 子 agent 的新字段没生效 | `SubAgentMiddleware` 只读四个键 | 只用那四个键（+`model`） |
+| 更新脚本说"没有 systemd unit" | `list-unit-files \| grep` 判空 | 用 `systemctl cat` |
+| `uv: command not found` | 非交互 ssh 的 PATH 里没有 `~/.local/bin` | 先解析 `uv`，找不到就喊出来 |
+| 工具少装了几条、merge 还说 0 added | 显式 id 被占就**整行跳过** | id 被占改取序列值（有守卫测试） |
+| 图字出框 / 表格冲出纸边 | 生成器不报错，静默裁切 | `check_svg_overflow.py` + PDF 边界量测 |
+| 目录 55 条链接点不到 | 两套 slug 各写各的 | 三份产物共用 `build_toc.slug()` |
+
+## 12.12 一张清单（照着做，不要凭记忆）
+
+1. DSH 打开本仓库工作区，Carrier 起着（`/docs` 200）；
+2. 改 artefact（agent 行 / prompt / SKILL.md / native_impl.py / 测试）；
+3. 该 refresh 的 refresh（tool → `--refresh`；skill → `reload-all`）；
+4. 重启后端（工具与前端都要重启才换）；
+5. **一次真实 turn** 验收（§12.9 的三条判据）；
+6. 补一条守卫测试（行为要防回归，prompt 挡不住）；
+7. `commit` + `push`（`main` 与 `deploy` 两个分支）；
+8. 远端：`scripts/update_host_from_git.sh`，看 `HEAD` 与 `/docs` 两个结果。
+
+---
+
 # 附：旧文档去哪了
 
 九份同名主题的文档已**删除**，内容全部并入本文；不再保留副本，也不留指针文件——
@@ -2302,6 +2532,7 @@ cd backend && .venv/bin/python features/ontology/gates/check_structure.py \
 | `data-agent-lanes.svg` | `scripts/build_data_agent_charts.py` | 开头：泳道 + 进度带（**唯一**一张进度图，T0…T5） |
 | `data-agent-pipeline7.svg` | `scripts/build_data_agent_diagrams.py` | 第三部分总览图、§4.2 流水线 |
 | `data-agent-grill.svg` | `scripts/build_data_agent_diagrams.py` | §2 第 1 步：三轮把「前沿」问空 |
+| `data-agent-dsh-loop.svg` | `scripts/build_data_agent_diagrams.py` | 第十二部分：DSH 造 / Carrier 跑的回路 |
 | `data-agent-layers.svg` | `scripts/build_data_agent_diagrams.py` | §4.2 五层（L4→L0） |
 | `data-agent-publish.svg` | `scripts/build_data_agent_diagrams.py` | §4.2 发布通道（stage / apply） |
 | `data-agent-gates4.svg` | `scripts/build_data_agent_diagrams.py` | 第十一部分：四道门 |
@@ -2335,6 +2566,7 @@ python scripts/build_data_agent_html.py        # 生成 data-agent.html + data-a
 
 | 版本 | 日期 | 改了什么 | 产物 |
 |---|---|---|---|
+| v1.1 | 2026-11-26 | 新增**第十二部分 · 用 DSH 安装与操作 Carrier**（12.1–12.12 + 「DSH 造 / Carrier 跑」回路图）：装 DSH、装 Carrier、五类 artefact 的生效开关、造 agent/deep agent/skill/tool、跑一轮并判绿、更新远端、八个踩过的坑 | `.md` `.docx` `.html` `.pdf` |
 | v1.0 | 2026-11-26 | 首次以「唯一权威 + 三视图」发布：新增 §2 第 1 步「先被 grill」整节（1.1–1.6 + 一张「三轮把前沿问空」图）；六张图全部手画 SVG（软线、文字不出框）；docx / html / pdf 同源同锚点 | `.md` `.docx` `.html` `.pdf` |
 
 > **改一版的顺序**：① 改本文顶部那行 `**版本**` / `**日期**`；② 在这张表加一行；③ 跑
