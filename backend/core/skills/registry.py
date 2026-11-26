@@ -296,7 +296,7 @@ class SkillRegistry:
     async def prune_deleted(self) -> List[str]:
         """Delete the rows of file-backed skills whose file no longer exists.
 
-        Measured (2026-11-13): `backend/skills/builtin/db-query/` was renamed to `sql-query`, and
+        Measured (2026-11-13): `backend/skills/builtin/db-query/` was renamed to `db-sql-query`, and
         after `POST /api/skills/reload-all` the library listed 116 skills — including the one that
         no longer existed on disk. Nothing failed: the agent list still offered it, and any attempt
         to read its SKILL.md was a 404. A skill that cannot be read is not a skill, and a stale row

@@ -1,0 +1,58 @@
+# ═════════════════════════════════════════════════════════════════════════════
+# 第 6 步：把技能挂到人身上
+#
+# 本步新增两句事实（ABox）：两个人，技能相同、只有年限不同。
+#                       没有对照就看不出规则有没有起作用：等推理跑起来，A 合格、B 不合格，且只差在年限。
+#                       铁律：ABox 里不许出现结论——不能写 :cand_A a :matches_SoftwareEngineer .
+#
+# 【这一份是第 6 步的快照】前面 5 步的内容都在里面 —— 每一份文件都能在
+# Protégé 里单独打开，而且第 6 步是第 5 步的严格超集（只多出新东西）。
+#
+# 完整教学说明见 backend/examples/talent_steps/README.md
+# ═════════════════════════════════════════════════════════════════════════════
+
+@prefix :    <http://example.org/talent#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ── 第 1 步（新增）─────────────────────────────────────────────────────────────────
+# 一个空筐：候选人
+:Candidate  a  owl:Class .
+
+# ── 第 2 步（新增）─────────────────────────────────────────────────────────────────
+# 「工作年限」：主语是人，值是整数 → 数据属性
+:yearsExperience  a  owl:DatatypeProperty ;
+    rdfs:domain :Candidate ;
+    rdfs:range  xsd:integer .
+
+# ── 第 3 步（新增）─────────────────────────────────────────────────────────────────
+# 另一个空筐：技能标签
+:SkillTag  a  owl:Class .
+
+# ── 第 4 步（新增）─────────────────────────────────────────────────────────────────
+# 「会什么技能」：主语是人，宾语是技能 → 对象属性（桥）
+:hasSkill  a  owl:ObjectProperty ;
+    rdfs:domain :Candidate ;
+    rdfs:range  :SkillTag .
+
+# ── 第 5 步（新增）─────────────────────────────────────────────────────────────────
+# 技能筐里的第一件东西：Python（还归进了「编程类」这个类别）
+:Python  a  :SkillTag , :Programming .
+
+# 类别类「编程类技能」：它是「技能标签」的子类
+:Programming  a  owl:Class ;
+    rdfs:subClassOf :SkillTag .
+
+# ── 第 6 步（新增）─────────────────────────────────────────────────────────────────
+# 两个具体的人 + 他们的技能和年限 —— 本体里第一批事实（ABox）
+:cand_A  a  :Candidate ;
+    rdfs:label         "A — Python, 5 years" ;
+    :hasSkill        :Python ;
+    :yearsExperience 5 .
+
+:cand_B  a  :Candidate ;
+    rdfs:label         "B — Python, 1 year" ;
+    :hasSkill        :Python ;
+    :yearsExperience 1 .
+

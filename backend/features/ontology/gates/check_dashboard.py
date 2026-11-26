@@ -174,6 +174,10 @@ def main() -> int:
     args, _ = ap.parse_known_args()
 
     profile = run_dashboard._profile(args.profile)
+    # the profile's own money glyph (`ui.currency`; "" = account units, no symbol) — one declaration,
+    # read here and by the workbench, so the gate and the page cannot print different units
+    _prof_doc = json.loads(pathlib.Path(profile).read_text(encoding="utf-8")) if profile else {}
+    run_dashboard.set_currency(((_prof_doc.get("ui") or {}).get("currency", run_dashboard.CURRENCY)))
     path = run_dashboard.dashboard_path(profile, args.dashboard)
     print(f"D — dashboard gate · {path}")
 

@@ -18,8 +18,8 @@ So a skill declares the parameters it needs, in its frontmatter:
 and an agent supplies their values once:
 
     config.skill_params = {
-      "build-ontology-from-db": {"datasource": "logistics", "ontology_key": "logistics"},
-      "answer-ontology-question": {"ontology_key": "logistics", "workbench": "http://127.0.0.1:8098"},
+      "db-ontology-build": {"datasource": "logistics", "ontology_key": "logistics"},
+      "db-ontology-ask": {"ontology_key": "logistics", "workbench": "http://127.0.0.1:8098"},
     }
 
 Two things then happen, both mechanical:

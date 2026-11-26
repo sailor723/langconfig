@@ -67,6 +67,8 @@ SEEDABLE_TOOL_META = {
     "bash": ("Bash Shell", "shell", None),
     "reasoning_chain": ("Reasoning Chain", "reasoning", None),
     "task": ("Task (Subagent)", "delegation", None),
+    "ontology_gate_doc": ("Ontology Gate Doc (what a gate checks, from its source)", "ontology", None),
+    "ontology_start_pack": ("Ontology Start Pack (profile facts, doors, docs — one call)", "ontology", None),
     "save_analysis_result": ("Save Analysis Result", "data_analysis", None),
     "gen_dashboard": ("Generate Dashboard", "data_analysis", None),
     "gen_pptx": ("Generate PPTX", "presentation", None),
@@ -85,23 +87,10 @@ SEEDABLE_TOOL_META = {
     "sync_skills": ("Sync Skills (disk → DB)", "agent_management", None),
     # legacy id kept so existing agent configs still resolve
     "create_deepagent": ("Create DeepAgent", "agent_management", None),
-    "pg_list_tables": ("PG - List Tables", "database", None),
-    "pg_describe_table": ("PG - Describe Table", "database", None),
-    "pg_query": ("PG - Query (SELECT)", "database", None),
-    "databricks_query": ("Databricks - Query (read-only SQL warehouse)", "database", None),
-    "pg_execute": ("PG - Execute (INSERT/UPDATE/DELETE)", "database", None),
-    "pg_list_agents": ("PG - List Agents", "database", None),
-    "pg_get_agent": ("PG - Get Agent Config", "database", None),
-    "pg_list_skills": ("PG - List Skills", "database", None),
-    "search_skills": ("Search Skills", "database", None),
-    "pg_list_projects": ("PG - List Projects", "database", None),
-    "pg_list_documents": ("PG - List Documents", "database", None),
-    "pg_list_custom_tools": ("PG - List Custom Tools", "database", None),
+    "search_skills": ("Search Skills (empty query = list all)", "platform", None),
+    "pg_list_projects": ("PG - List Projects", "platform", None),
+    "pg_list_documents": ("PG - List Documents", "platform", None),
     "neo4j_list_docs": ("Neo4j - List Documents", "retrieval", None),
-    "neo4j_get_doc": ("Neo4j - Get Document Metadata", "retrieval", None),
-    "neo4j_query": ("Neo4j - Cypher Query", "retrieval", None),
-    "neo4j_upsert_doc": ("Neo4j - Upsert Document", "retrieval", None),
-    "neo4j_delete_doc": ("Neo4j - Delete Document", "retrieval", None),
     "doc_index_list": ("Doc Index - List Documents", "retrieval", None),
     "doc_index_structure": ("Doc Index - Get Document Structure", "retrieval", None),
     "doc_index_pages": ("Doc Index - Get Page Content", "retrieval", None),
@@ -127,23 +116,75 @@ SEEDABLE_TOOL_META = {
     "db_plan_from_file": ("DB - Plan from Excel/CSV (read-only proposal)", "database", None),
     "db_build_from_file": ("DB - Build from Excel/CSV (writes; needs confirm)", "database", None),
     "db_review": ("DB - Review Schema + Build PK/FK", "database", None),
-    "db_query": ("DB - Query Any Database (SELECT)", "database", None),
+    "db_query_agent": ("DB - Query Any Database (SELECT, you write the SQL)", "database", None),
     "db_verify_against_file": ("DB - Verify against Excel/CSV", "database", None),
-    "db_dashboard": ("DB - Interactive dashboard (plan, then confirm)", "database", None),
     "db_rename_column": ("DB - Rename a misnamed column (plan, then confirm)", "database", None),
     # 招聘流水线:交付前回检(只读,把 JD 的事实重算一遍并与报告对账)
     "talent_verify_jd_report": ("Talent - Verify JD Report (交付前回检)", "database", None),
-    "sqlite_execute": ("SQLite Execute", "data", None),
-    "sqlite_load_csv": ("SQLite Load CSV", "data", None),
     "python_execute": ("Python Execute", "data", None),
     # Wrapped LangGraph agents (backend/langgraph/*.py) exposed as selectable
     # native tools. Invocation is delegated to langgraph.tool_adapters so the
     # hand-built pipelines (schema -> generate -> check -> execute) stay in one
     # place. Available to both normal agents and DeepAgents via native_tools.
-    "sql_agent_tool": ("SQL Agent (Chinook)", "database", None),
+    # 名字要说清是哪一个：这两个都是"查库"，区别是**谁写 SQL**。
+    #   db_query_agent            = 直连 psycopg2，agent 给 SQL（快、便宜、可批量）
+    #   db_query_langgraph  = LangGraph 流水线，agent 给自然语言（自己取 schema、写并自检 SQL）
+    "db_query_langgraph": ("DB - Query with LangGraph (ask in natural language)", "database", None),
     "neo4j_agent_tool": ("Neo4j Graph Agent", "database", None),
-    "neo4j_agent_advanced_tool": ("Neo4j Graph Agent (Advanced)", "database", None),
 }
+
+#: Renamed tools: ``old_id -> (successor_id, reason)``.
+#:
+#: A rename is not an invention: agents saved with the old ``tool_id`` keep working (the alias still
+#: exists in native_impl), but the picker should stop offering a name that does not say what the tool
+#: is. The row survives with ``is_deprecated`` + ``superseded_by``, exactly like the ``pg_*`` retirements.
+#: 退役表：``tool_id -> (successor_id or "", reason)``。
+#: 改名只是退役的一种：接任者可以是一个新工具，也可以是「Settings 界面」或「本体流水线」这种非工具的东西，
+#: 那时 successor 留空、理由里写清去处。seeding 会写 is_deprecated / deprecated_reason（有接任者就写 superseded_by）。
+RENAMED_TOOLS: dict[str, tuple[str, str]] = {
+    "pg_list_skills": (
+        "search_skills",
+        "并入 search_skills：列表与搜索是同一张表的同一个问题，空 query 即列表（so 一个工具两种用法）",
+    ),
+    "db_list_databases": (
+        "db_describe",
+        "并进 db_describe：`db_describe()` 不传库名就是列这台服务器上的库，两个入口做的是同一类发现",
+    ),
+    "pg_list_agents": (
+        "",
+        "退役：让 agent 去看别的 agent 是开发者的活，Settings → Agents 里有界面；22 个 agent 各少一个永不调用的工具",
+    ),
+    "pg_get_agent": (
+        "",
+        "退役：同上（读一个 agent 的完整配置属于开发者界面，不是 agent 能力）",
+    ),
+    "pg_list_custom_tools": (
+        "",
+        "退役：同上（工具清单在 Settings → Tools 里看）",
+    ),
+    "neo4j_agent_advanced_tool": (
+        "neo4j_agent_tool",
+        "退役：与 SQL 侧的 advanced_sql_agent_tool 同性质（休眠的 planner 变体）；经典版 neo4j_agent_tool 已覆盖同类问题",
+    ),
+    "neo4j_query": (
+        "neo4j_agent_tool",
+        "退役：0 个 agent 绑定、0 次调用；裸 Cypher 的逃生口由 neo4j_agent_tool 的自然语言流水线替代",
+    ),
+    "neo4j_get_doc": ("", "退役：0 个 agent 绑定、0 次调用（文档元数据由 neo4j_list_docs 一次取回）"),
+    "neo4j_upsert_doc": ("", "退役：0 个 agent 绑定、0 次调用（写入路径由知识库同步流程承担）"),
+    "neo4j_delete_doc": ("", "退役：0 个 agent 绑定、0 次调用（删除是运维动作，不该是 agent 能力）"),
+    "sqlite_execute": (
+        "db_query_agent",
+        "退役：23 个 agent 绑着、真实调用 0；SQLite 是遗留演示路径，Postgres 是本平台唯一数据层（case-12 已迁到 db_build_from_file + db_query_agent）",
+    ),
+    "sqlite_load_csv": (
+        "db_build_from_file",
+        "退役：同上 —— 把 CSV 变成可查的数据，正确路径是 db_build_from_file（类型推断、建库标记、可 recreate）",
+    ),
+}
+# Renames are applied once and the old row is DELETED, not kept as a deprecated alias: the two
+# query tools are `db_query_agent` (you write the SQL) and `db_query_langgraph` (natural language),
+# and a third name that means "one of those" is exactly the confusion the rename removed.
 
 # Display category -> DSH-style definition category (core/tools/definition.py).
 # Categories not listed fall back to "custom".
@@ -153,6 +194,9 @@ _DEFINITION_CATEGORY = {
     "reasoning": "reasoning",
     "skills": "skills",
     "database": "database",
+    # 读的是「平台自身」的表：agent 模板、项目、技能、文档、工具 —— 不是一个业务库。
+    # 混在 database 里，每个 agent 选工具时都要在一半无关条目里挑。
+    "platform": "platform",
     "delegation": "agents",
     "agent_management": "agents",
     "data_analysis": "analysis",
@@ -541,6 +585,11 @@ def main(refresh: bool = False) -> int:
                 if refresh:
                     for key, value in payload.items():
                         setattr(row, key, value)
+                    renamed = RENAMED_TOOLS.get(name)
+                    if renamed:
+                        row.is_deprecated = True
+                        row.superseded_by = renamed[0] or None
+                        row.deprecated_reason = renamed[1]
                     updated += 1
                     logger.info(f"  ~ {name} (refreshed)")
                 else:

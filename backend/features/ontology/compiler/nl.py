@@ -373,9 +373,19 @@ def menu(graph=None) -> dict:
     for name in sqlgen.metrics(graph):
         label, desc = _label(graph, name)
         entry = {"name": name, "label": label, "description": desc,
+                 # The declared aliases ARE the menu. Without them the rule matcher only saw the
+                 # metric's internal name and its label, so 问「毛利率是多少」 fell through to the
+                 # nearest metric and answered grossRevenue — a refusal the ontology had written
+                 # (`:askedAs` was there, nobody read it). C5a already forces every metric to
+                 # declare at least one :askedAs, so this is the field the matcher was missing.
+                 "asked_as": [str(o) for o in graph.objects(P(name), P("askedAs")) if o],
+                 # a DECLARED refusal travels with the entry, so no later stage can answer it
+                 "refusal_reason": sqlgen._one(graph, P(name), P("refusalReason")),
+                 "refused": None,      # set below when the metric does not compile
                  "unit": sqlgen._one(graph, P(name), P("unit")),
                  "formula": sqlgen._one(graph, P(name), P("formula")),
                  "grain": sqlgen._one(graph, P(name), P("grain")),
+                 "time_bucket": sqlgen._one(graph, P(name), P("timeBucket")),
                  "group_by": [sqlgen._local(o) for o in graph.objects(P(name), P("groupBy"))
                               if sqlgen._local(o)]}
         try:
@@ -427,7 +437,8 @@ def _intent_prompt(question: str, menu_: dict) -> str:
     lines = [INTENT_SCHEMA, "", "MENU:"]
     lines.append("metrics:")
     for m in menu_["metrics"]:
-        lines.append(f"- {m['name']} | label={m.get('label')} | {m.get('description') or ''} | "
+        if m.get("refusal_reason"):
+            lines.append(f"- {m['name']} | label={m.get('label')} | REFUSED: {m['refusal_reason']} | "
                      f"unit={m.get('unit')} | sql={m.get('sql') or m.get('refused')}")
     lines.append("classes:")
     for c in menu_["classes"]:
@@ -707,6 +718,65 @@ def _slots(question: str) -> dict:
     return slots
 
 
+def _authoritative_refusals() -> bool:
+    """Does this profile let a DECLARED refusal outrank scoring?
+
+    It changes how a question resolves, so it is opt-in: a profile turns it on with
+    `"nl": {"authoritative_refusals": true}` once its samples/expectations are updated. Default
+    off keeps every other ontology's behaviour exactly as it was when the refusals became menu
+    entries (measured 2026-11-26: turning it on globally changed three profiles' answers and made
+    their existing samples red).
+    """
+    try:
+        import actions as _actions
+        doc = (_actions._settings() if getattr(_actions, "ACTIVE_PROFILE", None) is not None
+               else json.loads(pathlib.Path(os.environ.get("APP_SETTINGS") or "").read_text(encoding="utf-8")))
+    except Exception:                                          # noqa: BLE001
+        return False
+    return bool((doc.get("nl") or {}).get("authoritative_refusals"))
+
+
+def _declared_refusal(question: str, menu_: dict):
+    """The refusal a question NAMES, if the ontology declared one — checked before any scoring.
+
+    A refused number's declared surface is more specific than a neighbour's, so scoring alone lets
+    the neighbour win and the refusal never fires. A declared refusal is an answer ABOUT the
+    question, not a candidate FOR it: measured 2026-11-26, the merged-set question resolved to
+    `returnedRevenue` (one side of the two sets) and answered a plausible number for a question the
+    ontology had already refused.
+    """
+    q = _flat(question)
+    if not q:
+        return None
+    def longest(m, want_refused: bool):
+        found = None
+        if bool(m.get("refusal_reason")) != want_refused:
+            return None
+        for alias in [m.get("label") or "", *(m.get("asked_as") or [])]:
+            flat_alias = _flat(alias)
+            if flat_alias and flat_alias in q and (found is None or len(flat_alias) > found[0]):
+                found = (len(flat_alias), m)
+        return found
+
+    refused_best = accepted_best = None
+    for m in menu_.get("metrics") or []:
+        for best, want in (("refused", True), ("accepted", False)):
+            got = longest(m, want)
+            if got is None:
+                continue
+            if want:
+                refused_best = got if refused_best is None or got[0] > refused_best[0] else refused_best
+            else:
+                accepted_best = got if accepted_best is None or got[0] > accepted_best[0] else accepted_best
+    # MOST-SPECIFIC DECLARATION WINS. A refused metric with a short alias ("产出标工工时") must not
+    # swallow a question that names a longer ACCEPTED declaration ("产出标工工时（未折旧，按部门）") —
+    # measured on eff_ops_v1, where every label prefixes the same measure and the short refused
+    # alias vetoed four accepted metrics.
+    if refused_best and (accepted_best is None or refused_best[0] > accepted_best[0]):
+        return refused_best[1]
+    return None
+
+
 def _rule_intent(question: str, menu_: dict, only_metrics: set[str] | None = None) -> dict | None:
     """Deterministic intent: score menu entries by token overlap, pick the best.
 
@@ -717,6 +787,36 @@ def _rule_intent(question: str, menu_: dict, only_metrics: set[str] | None = Non
     toks = _question_tokens(question)
     if not toks:
         return None
+
+    # "按<时间单位>看<度量>" IS A SERIES QUESTION. Before scoring: if the question claims a time
+    # axis and a metric declares `:timeBucket` whose declared surface carries the measure, that
+    # metric is the answer — scoring alone prefers the plain total, because the series metric's own
+    # label is longer than the question's measure words (measured 2026-11-26: 「按订单月看净收入」
+    # answered with the all-time total).
+    probe = question.lower()
+    if ("按" in probe or "by" in probe) and any(
+            t in probe for t in ("月", "季度", "周", "年", "month", "quarter", "week", "year")):
+        def _core(text: str) -> str:
+            """The measure part of a phrase: time words, fillers and question tail removed."""
+            t = _flat(text)
+            for w in ("订单月", "发运月", "发货月", "月度", "月份", "按月", "按", "是多少", "多少",
+                      "看", "月", "季度", "年", "周", "日", "month", "quarter", "year", "week",
+                      "day", "by", "per"):
+                t = t.replace(w, "")
+            return t
+
+        q_core = _core(question)
+        best_time = None
+        for m in menu_.get("metrics") or []:
+            if not m.get("time_bucket"):
+                continue
+            for surface in [m.get("label") or "", *(m.get("asked_as") or [])]:
+                core = _core(surface)
+                if len(core) >= 2 and core and core in q_core:
+                    if best_time is None or len(core) > best_time[0]:
+                        best_time = (len(core), m)
+        if best_time is not None:
+            return {"kind": "metric", "name": best_time[1]["name"]}
 
     # ACTIONS are decided by an explicit VERB, not by a noun: "orders" must not select
     # RecordOrder just because the name contains "order".
@@ -753,6 +853,10 @@ def _rule_intent(question: str, menu_: dict, only_metrics: set[str] | None = Non
         else:
             only_metrics = only_metrics & dim_metrics
 
+    declared = _declared_refusal(question, menu_) if _authoritative_refusals() else None
+    if declared is not None:
+        raise NlRefusal(f"「{declared.get('label') or declared['name']}」目前不可答：{declared['refusal_reason']}")
+
     # "how many" hints at a COUNT, but a hint alone must not outrank the noun: the
     # aggregate bonus only applies when the entry also matches a NOUN of the question.
     HINTS = {"count", "sum", "max", "average"}
@@ -780,6 +884,12 @@ def _rule_intent(question: str, menu_: dict, only_metrics: set[str] | None = Non
         # sample refuses while the menu is perfectly complete. Measured on the clinic
         # ontology: 11 of 13 samples refused for want of this one rule.
         label = (entry.get("label") or "").strip()
+        # A literal label is normally final — except when the question also claims a TIME AXIS and
+        # this declaration has none: 「按订单月看净收入」 contains 净收入's label verbatim but asks for a
+        # series, so the label match must not short-circuit the time-aware scoring below.
+        probe_early = question.lower()
+        asks_time = (("按" in probe_early or "by" in probe_early)
+                     and any(t in probe_early for t in ("月", "季度", "周", "年", "month", "quarter", "week", "year")))
         if len(label) >= 2 and label in question:
             key = (1000 + len(label), 1, -len(words))
             if best is None or key > best[0]:
@@ -789,7 +899,10 @@ def _rule_intent(question: str, menu_: dict, only_metrics: set[str] | None = Non
                 # though that exact string is a metric's label (the alias token 破损→damaged had no
                 # counterpart in the metric's own words {damage, per1k, km}).
                 best = (key, kind, dict(entry, _words=words, _by_label=True))
-            return
+                if not (kind == "metric" and asks_time and not entry.get("time_bucket")):
+                    return
+            else:
+                return
         body = words & noun_toks
         if not body:
             return
@@ -798,6 +911,15 @@ def _rule_intent(question: str, menu_: dict, only_metrics: set[str] | None = Non
         for agg in ("count", "sum", "max", "average"):
             if agg in sql and agg in toks:
                 score += 1
+        # A TIME CLAIM PREFERS A TIME METRIC. 「按订单月看净收入」 names the same measure as
+        # 「净收入」 plus an axis; without this the plain total won on token count and the series
+        # question was answered with one number (measured 2026-11-26, after :timeBucket became
+        # answerable). The bonus is applied only when the question really claims a time unit.
+        probe = question.lower()
+        time_claim = (("按" in probe or "by" in probe)
+                      and any(t in probe for t in ("月", "季度", "周", "年", "month", "quarter", "week", "year")))
+        if time_claim and entry.get("time_bucket"):
+            score += 2
         key = (score, len(body), -len(words))
         if best is None or key > best[0]:
             best = (key, kind, dict(entry, _words=words))
@@ -836,6 +958,10 @@ def _rule_intent(question: str, menu_: dict, only_metrics: set[str] | None = Non
     # down, which is why the first version of this early return raised UnboundLocalError — a bug
     # the probe caught immediately, and the reason this is one statement and not a copy of the
     # block below).
+    if kind == "metric" and entry.get("refusal_reason"):
+        # The ontology declares this number unanswerable. Answering the nearest metric instead is
+        # the "silently substituted question" failure — measured twice (毛利率, A/R 合并).
+        raise NlRefusal(f"「{entry.get('label') or entry['name']}」目前不可答：{entry['refusal_reason']}")
     if entry.get("_by_label"):
         intent = {"kind": kind, "name": entry["name"]}
         bounds = _slots(question)
@@ -874,10 +1000,43 @@ def _rule_intent(question: str, menu_: dict, only_metrics: set[str] | None = Non
     uncovered = {t for t in (noun_toks - covered) if not re.search(r"[\u4e00-\u9fff]", t)}
     if uncovered:
         return None
+    # CJK has no word boundaries, so the noun test above deliberately drops every Chinese token —
+    # which left a Chinese question with NO coverage test at all. Measured on tpch_sales_v1: 问
+    # 「毛利率是多少」 resolved to :grossRevenue and answered 21,615,929,280.24, while the ontology
+    # had declared 毛利率 as a refusal. The declared surfaces (label + name + every :askedAs) are
+    # the honest test: if none of them appears in the question, this metric is not what was asked.
+    if re.search(r"[\u4e00-\u9fff]", question):
+        surfaces = [entry.get("label") or "", entry["name"], *(entry.get("asked_as") or [])]
+        flat_q = _flat(question)
+        hit = False
+        for surface in surfaces:
+            flat_s = _flat(surface)
+            if flat_s and flat_s in flat_q:
+                hit = True
+                break
+        if not hit:
+            # unsure, not "confidently the nearest metric": the model gets one chance, and without
+            # one this becomes the refusal-by-name path below.
+            return None
     intent = {"kind": kind, "name": entry["name"]}
     if slots:
         intent["slots"] = slots
     return intent
+
+
+def _flat(text: str) -> str:
+    """Lower-cased, whitespace-free — the comparison that works for Chinese too.
+
+    `_norm` keeps ASCII words only (it is the token normaliser for the English rules path), so
+    running a Chinese label through it yields "" — measured: `_norm("毛收入（未折扣未税）是多少")`
+    returned the empty string, which made every CJK alias unmatchable and would have turned every
+    Chinese question into "unsure".
+    """
+    flat = re.sub(r"\s+", "", str(text or "")).lower()
+    # Chinese inserts particles that carry no meaning for matching: 「A/R 合并的退货金额」 vs a
+    # declared「A/R 合并退货金额」 is the same question. Measured: without this the question fell
+    # through to `None` (no match) instead of resolving to the declared refusal.
+    return re.sub(r"[的个了呢吗呀]", "", flat)
 
 
 def _fallback_intent(question: str, menu_: dict) -> dict | None:
@@ -898,6 +1057,12 @@ def _fallback_intent(question: str, menu_: dict) -> dict | None:
     for m in menu_["metrics"]:
         if _norm(m["name"]) in q or (_norm(m.get("label") or "") and _norm(m["label"]) in q):
             return {"kind": "metric", "name": m["name"]}
+        for alias in m.get("asked_as") or []:
+            if _norm(alias) and _norm(alias) in q:
+                return {"kind": "metric", "name": m["name"]}
+            flat_alias = _flat(alias)
+            if flat_alias and flat_alias in _flat(question):
+                return {"kind": "metric", "name": m["name"]}
     for c in menu_["classes"]:
         if _norm(c["name"]) in q or (_norm(c.get("label") or "") and _norm(c["label"]) in q):
             return {"kind": "class", "name": c["name"]}
@@ -959,6 +1124,10 @@ def _claimed_dims(question: str) -> list[str]:
     return out
 
 
+_TIME_WORDS = {"月", "月份", "月度", "季", "季度", "年", "年度", "周", "日", "天",
+               "month", "monthly", "quarter", "year", "week", "day"}
+
+
 def _uncovered_dims(question: str, menu_: dict) -> list[str]:
     """Dimensions a question asks for that no metric can group by.
 
@@ -969,6 +1138,12 @@ def _uncovered_dims(question: str, menu_: dict) -> list[str]:
     claimed = _claimed_dims(question)
     if not claimed:
         return []
+    # A TIME AXIS IS NOT A GROUP-BY. A metric that declares `:timeBucket "month"` answers "按…月";
+    # without this the dimension check saw no `:groupBy` by 月 and refused a question the ontology
+    # could answer (measured 2026-11-26, right after cross-table bucketing landed).
+    if all(any(t in phrase for t in _TIME_WORDS) for phrase in claimed) and any(
+            m.get("time_bucket") for m in menu_.get("metrics") or []):
+        return []
     dim_words: set[str] = set()
     owned_words: set[str] = set()
     for m in menu_["metrics"]:
@@ -976,6 +1151,12 @@ def _uncovered_dims(question: str, menu_: dict) -> list[str]:
             dim_words |= _camel_words(gb)
             dim_words |= {w for w in re.split(r"[^a-z0-9\u4e00-\u9fff]+", gb.lower()) if w}
         owned_words |= _camel_words(m["name"])
+        if m.get("time_bucket"):
+            # "按订单月看净收入" claims a TIME axis, and a metric that declares :timeBucket answers
+            # it — before this the dimension check saw no :groupBy by 月 and refused a question the
+            # ontology could answer (measured 2026-11-26, after cross-table bucketing landed).
+            owned_words |= {"月", "月份", "月度", "月", "month", "月"}
+            dim_words |= {"月", "月份", "月度", "month"}
         for field in ("label", "formula", "grain"):
             val = m.get(field)
             if isinstance(val, str):

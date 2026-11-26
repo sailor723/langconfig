@@ -17,7 +17,7 @@ original and fails on:
    the library translates on purpose, so it is not a failure.
 
 Measured when it was written: the first run over 101 pairs found three real defects — `implement` had lost its
-provenance block entirely, `edit-ontology-metrics` still said `atRiskDriver` after the English had become
+provenance block entirely, `db-ontology-metrics` still said `atRiskDriver` after the English had become
 `atRiskDrivers`, and four skills called the verification floor 本仓库的地板 where 54 called it 本仓库的底线.
 
 Meaning is still not machine-checkable. A skill can keep every token and lose the argument; that is what a

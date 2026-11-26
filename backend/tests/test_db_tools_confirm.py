@@ -12,9 +12,9 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 NATIVE = REPO / "backend" / "tools" / "native_impl.py"
 SEED = REPO / "backend" / "scripts" / "seeds" / "in" / "seed_builtin_tools.py"
-SKILL = REPO / "backend" / "skills" / "builtin" / "excel-csv-to-postgres" / "SKILL.md"
+SKILL = REPO / "backend" / "skills" / "builtin" / "db-excel-to-postgres" / "SKILL.md"
 
-NEW_TOOLS = ("db_plan_from_file", "db_build_from_file", "db_review", "db_query",
+NEW_TOOLS = ("db_plan_from_file", "db_build_from_file", "db_review", "db_query_agent",
              "db_verify_against_file")
 
 
@@ -118,7 +118,7 @@ def test_the_plan_does_not_create_a_database():
     "select 1; drop table customers",
 ])
 def test_the_query_tool_refuses_anything_but_one_select(sql, native):
-    result = native.db_query.func(db_name="whatever", sql=sql)
+    result = native.db_query_agent.func(db_name="whatever", sql=sql)
     assert result.startswith("Error:"), f"{sql!r} was not refused: {result[:80]}"
 
 

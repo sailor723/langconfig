@@ -42,7 +42,7 @@ def test_the_prompt_states_one_step_per_turn_and_no_per_row_execute():
     seed = _seed()
     prompt = seed.SYSTEM_PROMPT
     assert "一轮只做一级台阶" in prompt, "the prompt still lets a turn attempt the whole ladder"
-    assert "量库用 `db_query`" in prompt, "per-row `execute` profiling is not forbidden"
+    assert "量库用 `db_query_agent`" in prompt, "per-row `execute` profiling is not forbidden"
     assert "不要读平台代码" in prompt, "the builder is still free to read the compiler it runs on"
 
 
@@ -54,8 +54,8 @@ def test_the_builder_gets_the_batched_query_tool_and_the_prompt_names_it():
     one shell per query, 1 618 times. A rule about a tool that is not bound is a wish.
     """
     seed = _seed()
-    assert "db_query" in seed.CONFIG["native_tools"], \
-        "the builder is told to batch its measurements but has no db_query to batch them with"
+    assert "db_query_agent" in seed.CONFIG["native_tools"], \
+        "the builder is told to batch its measurements but has no db_query_agent to batch them with"
     assert "sqls=[" in seed.SYSTEM_PROMPT, \
         "the prompt does not show the batch form, so the agent will send one SELECT per call again"
 

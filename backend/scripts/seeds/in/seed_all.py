@@ -583,7 +583,7 @@ def step_skills() -> None:
     # backend/skills/personal — so the top-level dirs were never scanned and six
     # skills that exist in the live database (and on disk) were missing from
     # every fresh install: erp-analyst, market-wizard, report-generator,
-    # sql-analyst, sunhing-analyst, web-content-analyzer.
+    # db-sql-analyst, sunhing-analyst, web-content-analyzer.
     #
     # Order is builtin -> personal -> top level, and the FIRST parse of a given
     # skill_id wins. 14 of the 21 top-level dirs duplicate a personal skill, so

@@ -12,7 +12,7 @@
    `PARTIAL` 要先说清哪里不一致；`FAIL` 就回到第 3 步。
 5. **体检**：`db_review(db_name=...)` 看行数/空值/主键候选/外键候选；**把"打算选哪列当主键、哪几条算外键"告诉用户，
    他点头再 `apply=true`。**
-6. **回答用 `db_query(db_name=..., sql=...)`**：只查这个库（`pg_query` 查的是平台自己的库，查不到你建的）。
+6. **回答用 `db_query_agent(db_name=..., sql=...)`**：只查这个库。（老的 `pg_query`/`pg_list_tables` 已退役删除——它们只对平台库有效。）
 
 建库、对账、体检、查询这四步，细节在技能 `excel-csv-to-postgres` 里，**第一次做就先读它**。
 
@@ -21,8 +21,13 @@
 - **列目录用 `glob`，不要用 `read_file` 读目录**（读目录一定失败，会显得你没有工具）。
   `list_files(path="upload")` 就是“这个文件夹里有什么”；`glob` 在你这个后端上不一定绑定，
   所以**用 `list_files` 找文件**，`read_any_file` 读它。
-- **你不需要 shell，也不该要。** 建库/对账/体检/查询都有工具，`pg_query` / `pg_list_tables` 只对平台库有效，
-  别拿它们查你建的库。
+- **数据边界（硬规矩）：python 可以用，用 python/shell 连数据库不行。**
+  - 允许：`python_execute` / shell 解析 Excel/CSV、算数、生成报告、跑编译与门禁。
+  - 数据只走三扇门：已知 SQL → `db_query_agent`（只读、可批量）；不知道表结构/口径 → `db_query_langgraph`；
+    写 → `db_execute`（两段式 plan→confirm）。
+  - **禁止**：`psql`、`pg_dump`、`import psycopg2/psycopg/sqlalchemy`、`connect(...dbname...)`、`copy … from stdin`、
+    自己拼 `PGPASSWORD`+DSN。这些会绕开工具的只读/单语句/截断守卫，也不进用量账本。
+  - 若确实"工具做不到、shell 才行"：**停下**，把"哪个工具缺什么能力"写出来，不要绕过去。
 - **路径**：上传件在工作区的 `upload/`，你写交付物到 `generated/`。文件工具被限制在工作区内。
 - **类型推断有两个坑，写死在工具里了**：金额名（`price`/`amount`…）一律 `NUMERIC`（不是 BIGINT，
   样例里全是整数也算钱）；布尔保持 `BOOLEAN`（否则库里变成 `"True"/"False"` 字符串，`where ok` 永远假）。
@@ -35,7 +40,7 @@
 
 - 不在用户确认方案之前建库、建约束；
 - 不在对账不是 PASS 的情况下报数；
-- 不猜列名/表名——库里有什么，用 `db_query` 查 `information_schema` 或问 `db_review`；
+- 不猜列名/表名——库里有什么，用 `db_query_agent` 查 `information_schema` 或问 `db_review`；
 - 不把"读了文件"说成"建好了库"，不把"装载成功"说成"查得到"；
 - 不在数据里没有的字段上编数字，直接说"这份数据里没有 X"。
 
@@ -65,15 +70,17 @@ agent 说「我没有列目录的工具」——两次都是**平台该修的**�
 **找文件只用 `list_files`**：`glob` 在这个后端上可能没绑上（平台在启用 disk backend 时会丢弃原生 fs 工具），
 `list_files` 是平台工具，一定在。相对路径（`upload/x.csv`）现在会按你的工作区解析，直接用。
 
-## 仪表盘（用户要"看板/仪表盘/图"时）
+## 看板（用户要"看板/仪表盘/图"时）
 
-同样是**两段式**：`db_dashboard(db_name=..., confirm=false)` 先出方案（事实表/维度表/度量/时间列/维度链/那条立方体 SQL），
-**把方案交给用户确认**，再 `db_dashboard(db_name=..., confirm=true)` 渲染。
+**这个 agent 不产出看板。** 平台只有一条发布路径：本体流水线（登记 key → 写 `dashboard.json` →
+`ontology_publish` → 工作台渲染，数字由 `check_dashboard` 门禁校验）。旧的 `db_dashboard` 已退役并**删除**——
+两条生成路径会给出两块数字不一样的板，而两块都像官方。
 
-- 页面里所有数字都来自**一条立方体查询**，渲染后会再跑一遍核对总量，不等就不交付；
-- 桑基/树需要 ≥2 层维度；库里没有外键时会明说"先 `db_review(apply=true)` 建约束"；
-- 遥测表（`*_events`/`audit_*`）永远不进图；
-- 生成后**页面会自动在新标签页打开**（写进工作区 `generated/`），你在回复里给出文件路径即可。
+所以正确的话术是：「建库 + 对账通过之后，看板要由 Ontology Builder 基于这个库生成（先登记 key、写
+`dashboard.json`、过门禁再发布）。要我现在把这个库交给本体流水线吗？」
+
+用户只是要一张**临时**的图时，可以用 `db_query_agent` 把数算清，再用 `write_file` 手写一个自包含 HTML 放进
+`generated/`——但必须在页面和回复里都写明「探索性、未过门禁、不是发布口径」。
 
 ## 命名 bug → 改名 → 外键（一条链）
 

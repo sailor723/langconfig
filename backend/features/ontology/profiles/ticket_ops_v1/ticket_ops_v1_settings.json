@@ -1,0 +1,25 @@
+{
+  "_profile": "ticket_ops_v1 —— 客服工单运营：由 ontology_register 登记（CLI 第二本体演练：工单 Excel → 库 → 本体 → 看板）。guard.big_tables / default_window_days / samples 由构建阶段（S0/S4/S5）按实测决定，登记时不预设。",
+  "title": "客服工单运营",
+  "ns": "https://cube.local/ontology/ticket_ops_v1#",
+  "ontology_dir": "ontology",
+  "overlay": "metrics_ext.ttl",
+  "dsn": {
+    "host": "${ONTOLOGY_DB_HOST:-127.0.0.1}",
+    "port": "${ONTOLOGY_DB_PORT:-5432}",
+    "dbname": "ticket_ops_xlsx",
+    "user": "${ONTOLOGY_DB_USER}",
+    "password": "${ONTOLOGY_DB_PASSWORD}"
+  },
+  "guard": {
+    "enabled": true,
+    "max_rows": 500,
+    "statement_timeout_ms": 8000,
+    "max_plan_rows": 5000000
+  },
+  "features": {
+    "actions": false,
+    "lane_b": false,
+    "tutorial": true
+  }
+}

@@ -236,7 +236,7 @@ def test_every_skill_is_in_exactly_one_language_state():
 def test_an_authored_in_chinese_skill_really_is_chinese(skill_id: str):
     """`zh-native.txt` is a claim that the skill was written in Chinese, so it needs a density check.
 
-    Found: `build-ontology-from-db` was listed as "authored in Chinese" while holding 502 CJK characters
+    Found: `db-ontology-build` was listed as "authored in Chinese" while holding 502 CJK characters
     against 5 481 English words (ratio 0.09) — a 45 KB English document with Chinese headings. The old check
     only asked for "more than 200 CJK characters", which any long English file passes by accident.
     """
@@ -253,7 +253,7 @@ def test_an_authored_in_chinese_skill_really_is_chinese(skill_id: str):
 def test_a_pending_skill_really_is_english(skill_id: str):
     """Pending means "what agents read is English" — the same density test the other two states get.
 
-    A flat `< 200 CJK characters` was the wrong shape: `build-ontology-from-db` is a 45 KB English document
+    A flat `< 200 CJK characters` was the wrong shape: `db-ontology-build` is a 45 KB English document
     that happens to carry 502 CJK characters in its headings, and the old rule therefore called it
     "translated". Density is what matters: prose that is mostly Chinese is Chinese, whatever its length.
     """

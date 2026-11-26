@@ -32,6 +32,7 @@ from __future__ import annotations
 import datetime as _dt
 import json
 import re
+import sys
 import pathlib
 
 from features.ontology import versioning as V
@@ -60,20 +61,42 @@ def _gate_keys() -> set[str]:
     return {str(k) for k in _gates_doc() if V.KEY_RE.fullmatch(str(k))}
 
 
-def _db_reachable(datasource: str) -> tuple[bool, str]:
-    """Does this database answer to the agent's own credential? A typo here is a silent empty build."""
+def _db_reachable(datasource: str, dsn: dict | None = None) -> tuple[bool, str]:
+    """Does this database answer to the agent's own credential? A typo here is a silent empty build.
+
+    `dsn` is the profile-style connection the caller declared (`{"host": "${TPCH_DB_HOST:-127.0.0.1}",
+    "port": ..., "user": ..., "password": ...}`, `dbname` ignored — `datasource` is the database).
+    Measured on TPC-H: its SF0.1 database lives on a SECOND local server (:5432, role weiping) while the
+    platform's own ontology database is :5433 / role langconfig, so a registration that only ever tried
+    the platform credentials refused a database that was running fine. A registration is the moment the
+    ontology is bound to a server, so it has to be able to state one.
+    """
     import os
 
     import psycopg2
 
-    params = {
-        "host": os.environ.get("ONTOLOGY_DB_HOST") or os.environ.get("PGHOST") or "127.0.0.1",
-        "port": int(os.environ.get("ONTOLOGY_DB_PORT") or os.environ.get("PGPORT") or 5432),
-        "user": os.environ.get("ONTOLOGY_DB_USER") or os.environ.get("PGUSER") or None,
-        "password": os.environ.get("ONTOLOGY_DB_PASSWORD") or os.environ.get("PGPASSWORD") or None,
-        "dbname": datasource,
-        "connect_timeout": 5,
-    }
+    if dsn:
+        sys.path.insert(0, str(FEATURE / "compiler"))
+        import dsn as _dsn                                      # noqa: PLC0415
+
+        resolved = _dsn.resolved({"dsn": dict(dsn, dbname=datasource)})
+        params = {
+            "host": resolved.get("host") or "127.0.0.1",
+            "port": int(resolved.get("port") or 5432),
+            "user": resolved.get("user") or None,
+            "password": resolved.get("password") or None,
+            "dbname": datasource,
+            "connect_timeout": 5,
+        }
+    else:
+        params = {
+            "host": os.environ.get("ONTOLOGY_DB_HOST") or os.environ.get("PGHOST") or "127.0.0.1",
+            "port": int(os.environ.get("ONTOLOGY_DB_PORT") or os.environ.get("PGPORT") or 5432),
+            "user": os.environ.get("ONTOLOGY_DB_USER") or os.environ.get("PGUSER") or None,
+            "password": os.environ.get("ONTOLOGY_DB_PASSWORD") or os.environ.get("PGPASSWORD") or None,
+            "dbname": datasource,
+            "connect_timeout": 5,
+        }
     try:
         conn = psycopg2.connect(**params)
     except Exception as exc:                                         # noqa: BLE001
@@ -87,7 +110,8 @@ def _db_reachable(datasource: str) -> tuple[bool, str]:
         conn.close()
 
 
-def _profile_skeleton(key: str, datasource: str, theme: str, *, note: str) -> dict:
+def _profile_skeleton(key: str, datasource: str, theme: str, *, note: str,
+                      dsn: dict | None = None) -> dict:
     """The smallest profile the gates can run against; the builder fills the rest.
 
     Every value here is either a platform-wide default (`${ONTOLOGY_DB_*}`) or a fact this call was told.
@@ -103,13 +127,13 @@ def _profile_skeleton(key: str, datasource: str, theme: str, *, note: str) -> di
         "ns": f"https://cube.local/ontology/{key}#",
         "ontology_dir": "ontology",
         "overlay": "metrics_ext.ttl",
-        "dsn": {
+        "dsn": (dict(dsn, dbname=datasource) if dsn else {
             "host": "${ONTOLOGY_DB_HOST:-127.0.0.1}",
             "port": "${ONTOLOGY_DB_PORT:-5432}",
             "dbname": datasource,
             "user": "${ONTOLOGY_DB_USER}",
             "password": "${ONTOLOGY_DB_PASSWORD}",
-        },
+        }),
         "guard": {"enabled": True, "max_rows": 500, "statement_timeout_ms": 8000,
                   "max_plan_rows": 5000000},
         "features": {"actions": False, "lane_b": False, "tutorial": True},
@@ -135,7 +159,7 @@ def _brief(key: str, *, name: str, datasource: str, theme: str, kind: str, actor
 
 
 def register(name: str, datasource: str, *, theme: str = "", kind: str = "customer",
-             actor: str = "", note: str = "", probe: bool = True) -> dict:
+             actor: str = "", note: str = "", probe: bool = True, dsn: dict | None = None) -> dict:
     """Register `name` as a new ontology family member and return what was written.
 
     Returns `{"ok": True, "key": ..., "version": ..., "in_progress": bool, "wrote": [...],
@@ -183,7 +207,7 @@ def register(name: str, datasource: str, *, theme: str = "", kind: str = "custom
                             f"pick another name (a version is never reused)")
 
     if probe:
-        reachable, detail = _db_reachable(ds)
+        reachable, detail = _db_reachable(ds, dsn)
         if not reachable:
             raise RegisterError(f"database {ds!r} does not answer from this deployment: {detail}. "
                                 f"Registering over a typo produces an empty ontology that looks like thin data.")
@@ -194,7 +218,8 @@ def register(name: str, datasource: str, *, theme: str = "", kind: str = "custom
     target.mkdir(parents=True, exist_ok=True)
     profile_path = target / f"{key}_settings.json"
     profile_path.write_text(
-        json.dumps(_profile_skeleton(key, ds, theme, note=note or kind), ensure_ascii=False, indent=2) + "\n",
+        json.dumps(_profile_skeleton(key, ds, theme, note=note or kind, dsn=dsn),
+                   ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8")
     wrote.append(str(profile_path.relative_to(REPO)))
     brief_path = target / "_brief.md"

@@ -20,7 +20,7 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 NATIVE = REPO / "backend" / "tools" / "native_impl.py"
-SKILL = REPO / "backend" / "skills" / "builtin" / "excel-csv-to-postgres" / "SKILL.md"
+SKILL = REPO / "backend" / "skills" / "builtin" / "db-excel-to-postgres" / "SKILL.md"
 
 
 @pytest.fixture(scope="module")

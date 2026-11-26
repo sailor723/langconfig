@@ -7,26 +7,26 @@ BUILTIN = pathlib.Path(__file__).resolve().parents[1] / "skills" / "builtin"
 
 
 def test_the_three_ontology_skills_declare_their_parameters():
-    for skill, expected in (("build-ontology-from-db", {"datasource", "ontology_key"}),
-                            ("edit-ontology-metrics", {"ontology_key"}),
-                            ("answer-ontology-question", {"ontology_key"})):
+    for skill, expected in (("db-ontology-build", {"datasource", "ontology_key"}),
+                            ("db-ontology-metrics", {"ontology_key"}),
+                            ("db-ontology-ask", {"ontology_key"})):
         declared = sp.declared(BUILTIN / skill / "SKILL.md")
         assert expected <= set(declared), (skill, declared)
 
 
 def test_a_required_parameter_with_no_value_fails_by_name():
-    values, problems = sp.resolve(350, ["edit-ontology-metrics"], {}, {"skills": ["edit-ontology-metrics"]})
+    values, problems = sp.resolve(350, ["db-ontology-metrics"], {}, {"skills": ["db-ontology-metrics"]})
     assert values == {}
-    assert problems and "ontology_key" in problems[0] and "edit-ontology-metrics" in problems[0]
+    assert problems and "ontology_key" in problems[0] and "db-ontology-metrics" in problems[0]
 
 
 def test_a_parameter_can_default_from_the_agent_config():
     values, problems = sp.resolve(
-        349, ["build-ontology-from-db"],
-        {"build-ontology-from-db": {"ontology_key": "logistics"}},
+        349, ["db-ontology-build"],
+        {"db-ontology-build": {"ontology_key": "logistics"}},
         {"datasource": "logistics"})
     assert problems == [], problems
-    assert values["build-ontology-from-db"] == {
+    assert values["db-ontology-build"] == {
         "datasource": "logistics", "ontology_key": "logistics",
         "profile_file": "logistics_settings.json"}      # the {ontology_key} default was expanded
 
@@ -37,7 +37,7 @@ def test_a_skill_without_parameters_is_untouched():
 
 
 def test_the_prompt_block_states_the_values_once():
-    block = sp.render_block({"answer-ontology-question": {"ontology_key": "logistics",
+    block = sp.render_block({"db-ontology-ask": {"ontology_key": "logistics",
                                                           "workbench": "http://127.0.0.1:8098"}})
     assert "# Skill parameters" in block
     assert "`ontology_key` = `logistics`" in block
@@ -45,6 +45,6 @@ def test_the_prompt_block_states_the_values_once():
 
 
 def test_params_json_is_written_next_to_the_skill(tmp_path):
-    target = sp.write_params(tmp_path, "edit-ontology-metrics", {"ontology_key": "logistics"})
+    target = sp.write_params(tmp_path, "db-ontology-metrics", {"ontology_key": "logistics"})
     assert target is not None and target.name == "params.json"
     assert '"ontology_key": "logistics"' in target.read_text(encoding="utf-8")

@@ -173,8 +173,20 @@ def test_the_repository_registry_matches_its_directories():
         versions = fam.get("versions") or []
         assert versions, f"{base} recorded with no versions"
         top = max(int(v["version"]) for v in versions)
-        assert int(next(v["version"] for v in versions if v["key"] == fam["latest"])) == top, base
+        if fam.get("latest") is None:
+            # A family whose every build was RETIRED has no current build — `scripts/retire_ontology.py`
+            # clears `latest` rather than pointing it at something that no longer exists on disk.
+            # That is a state, not an inconsistency: assert the shape retirement is supposed to leave.
+            assert all(v.get("retired") for v in versions), (
+                f"{base}: latest is null but not every version is retired "
+                f"({[v['key'] for v in versions if not v.get('retired')]})")
+            continue
+        latest_version = next((v for v in versions if v["key"] == fam["latest"]), None)
+        assert latest_version is not None, f"{base}: latest {fam['latest']!r} is not a recorded version"
+        assert int(latest_version["version"]) == top, base
         for v in versions:
+            if v.get("retired"):
+                continue                      # retired builds are history, not the current one
             if int(v["version"]) != top:
                 assert v.get("superseded_by"), f"{base}:{v['key']} does not name its successor"
             else:

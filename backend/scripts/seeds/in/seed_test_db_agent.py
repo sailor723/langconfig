@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""Seed `test_db` — the smallest possible database agent: ONE tool, `db_query`, and nothing else.
+"""Seed `test_db` — the smallest possible database agent: ONE LangGraph SQL tool, nothing else.
 
 Purpose: a probe you can configure and poke without a pipeline in the way. It exists to answer "does an
 agent plus a Database setting actually reach the databases on this box?" — so it has:
 
-* **one tool.** `db_query` (read-only SELECT, any database by name, batched `sqls=[…]`). No DDL, no writes,
-  no filesystem, no subagents — if something fails here, it is the tool or the connection, not the design.
-* **no deep agent.** `use_deepagents: false`: a plain `create_agent` loop. Faster to build, nothing to
-  assemble, and no sandbox to misconfigure.
+* **one tool.** `db_query_langgraph` — the hand-built LangGraph SQL agent (list tables → read schema →
+  generate query → check query → run read-only → explain). The agent asks in natural language; it never
+  writes SQL itself, and there is no DDL, no write path, no filesystem and no subagents. If something fails
+  here it is the graph, the model, or the connection — not the design.
+* **no deep agent.** `use_deepagents: false`: a plain `create_agent` loop that holds the one tool. Faster
+  to build, nothing to assemble, and no sandbox to misconfigure.
 * **a Database setting.** `config.database` is a custom block (host/port/user + encrypted password,
-  `dbname=postgres`). That is where the credential comes from — `db_query` takes a database NAME, never a
-  password, and the connection details reach the tool as PGPASSWORD. Configure it in the agent editor
+  `dbname=chinook` — the sample business database, so a question asked without a database name lands on
+  real tables instead of on `postgres`, which has none). That is where the credential comes from — `db_query_langgraph` takes a database NAME (or
+  none, meaning "the database this connection points at"), never a password; the connection details reach
+  the graph as the per-call override, taken from the same run-scoped binding `db_query` uses. Configure it in the agent editor
   (Agent → Database) or point it at a Settings → Databases catalogue entry; with no Database setting,
   `db_query` has no server to connect to and every call fails with "no password supplied".
 
@@ -34,34 +38,40 @@ if str(BACKEND) not in sys.path:
 
 NAME = "test_db"
 
-SYSTEM_PROMPT = """你是 **test_db**：一个用来试数据库连接的最小 agent。你只有一个工具 `db_query`（只读 SELECT）。
+SYSTEM_PROMPT = """你是 **test_db**：一个用来试数据库连接的最小 agent。你只有一个工具 `db_query_langgraph`。
+
+## 它是什么
+
+`db_query_langgraph` 不是"执行 SQL"，而是**一条 LangGraph 流水线**：列库里的表 → 读相关表的 schema →
+生成 SQL → **自检**这条 SQL → 只读执行 → 用自然语言解释结果。你只负责提问，不写 SQL。
 
 ## 怎么用
 
-- **`db_query(db_name="<库名>", sql="<一条 SELECT>")`** —— 查一个库；要量多个口径时用
-  **`db_query(db_name="<库名>", sqls=["…", "…"])`**，一次调用一条连接、一次往返拿回全部结果。
-- **库名必须显式给**（你不知道服务器上有哪些库时，直接问用户，或让用户跑 `DB Manager` 的 `db_list_databases`）。
-- 只读：本 agent 没有任何写工具。要坚持改数据，请用 `DB Manager（数据库管理）` 的 `db_execute`。
+- **`db_query_langgraph(question="<自然语言问题>")`** —— 问"当前连接指向的那个库"。
+- **`db_query_langgraph(question="…", database="<库名>")`** —— 指到同一台服务器上的另一个库。
+- 问题要**具体且可判定**：说清指标、口径、筛选条件（例如"customers 表里有多少行"），
+  不要问"帮我看看这个库"这种开放问题——那会让流水线自己猜表。
 
 ## 连接从哪来
 
-你的连接来自 **Agent → Database 这一项设置**（host / port / user / 加密口令），`db_name` 只指定**哪个库**。
-没配 Database 时每次调用都会以 `no password supplied` 之类的方式失败 —— 那是配置问题，不是 SQL 问题。
+你的连接来自 **Agent → Database** 这一项设置（host / port / user / 加密口令）：流水线拿它当本次调用的连接；
+`database` 只指定哪个库。没配 Database 时，工具会退回平台自己的连接——那是配置问题，不是问题本身。
 
 ## 汇报
 
-- 报数就给**数字 + 你实际跑的那条 SQL**（一句），不要只给结论。
-- 查询失败就把工具返回的原文贴出来（它通常会说是哪个库/哪张表/哪个列不存在）。
-- 不要猜列名：先 `select * … limit 5` 看一眼，或让用户用 `db_describe` 看结构。
+- 给**结论 + 依据**：数字、用到的表、以及流水线报告的 SQL（如果有）。
+- 失败就把工具返回的原文贴出来（它通常会说是哪个库/哪张表/哪一列，或者模型/连接出了问题）。
+- 不要自己写 SQL 去"绕开"工具：本 agent 只有这一个工具，绕不过去。只读，不能改数据。
 """
 
 AGENTS_MD = """# test_db
 
-只有一个工具：`db_query`（只读，任意库，`db_name` + `sql` / `sqls`）。
+只有一个工具：`db_query_langgraph`（LangGraph：列表 → 读 schema → 生成 SQL → 自检 → 只读执行 → 解释）。
 
-1. 库名要显式给；服务器上有哪些库不是本 agent 能列出来的（那是 `db_list_databases`）。
-2. 连接来自 **Agent → Database** 设置；没配就是配置错误，不是 SQL 错误。
-3. 报数带 SQL；失败贴原文。本 agent 不能写数据。
+1. 用自然语言提问，不要自己写 SQL——写 SQL 是这个工具内部的事。
+2. 不传 `database` 就是"当前连接指向的库"；传了就是同一台服务器上的另一个库。
+3. 连接来自 **Agent → Database** 设置；没配就是配置错误，不是问题本身。
+4. 给结论 + 依据；失败贴原文。本 agent 只读，不能改数据。
 """
 
 CLAUDE_MD = "# test_db\n\n读 AGENTS.md。它和这个文件是同一份规则。\n"
@@ -73,7 +83,7 @@ CONFIG = {
     "reasoning_effort": "medium",
     "recursion_limit": 60,
     "system_prompt": SYSTEM_PROMPT,
-    "native_tools": ["db_query"],
+    "native_tools": ["db_query_langgraph"],
     "skills": [],
     "use_deepagents": False,
 }
@@ -110,7 +120,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--name", default=NAME)
-    ap.add_argument("--dbname", default="postgres",
+    ap.add_argument("--dbname", default="chinook",
                     help="the database bound to the agent (default postgres; db_query names its own per call)")
     ap.add_argument("--apply", action="store_true")
     args = ap.parse_args()

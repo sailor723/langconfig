@@ -18,7 +18,7 @@ What it checks (each one is a finding, not a style note):
   L7  the ladder mentions each reference at least once      (a reference nothing schedules is skipped)
 
     python backend/scripts/check_skill.py                       # every skill under backend/skills/builtin
-    python backend/scripts/check_skill.py --skill build-ontology-from-db
+    python backend/scripts/check_skill.py --skill db-ontology-build
     exit 0 when every check holds, 1 when any does not
 """
 from __future__ import annotations

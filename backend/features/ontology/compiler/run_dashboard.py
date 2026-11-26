@@ -365,6 +365,24 @@ def briefing_refs(dash: dict) -> list[tuple[str, str | None]]:
     return out
 
 
+#: The currency glyph `_fmt` puts in front of money. It is a LITERAL because the ontology does not
+#: declare a currency for every money column, and a board that silently invents one lies about the
+#: unit ("20,535,072,231.42" of what?). A profile that has no currency at all (TPC-H SF0.1: the
+#: values are account units) sets `"ui": {"currency": ""}` in its settings and gets no glyph —
+#: measured on tpch_sales_v1, whose grill decision Q5 is exactly "记账单位，无币种".
+CURRENCY = "¥"
+
+
+def set_currency(glyph: str | None) -> None:
+    """Let a profile declare the glyph its money is in (`settings.ui.currency`, "" = none).
+
+    Called by whoever loads a profile (the workbench, `check_dashboard`, the board page). A profile
+    that says `""` gets bare numbers, which is the honest rendering for account units.
+    """
+    global CURRENCY
+    CURRENCY = "" if glyph is None else str(glyph)
+
+
 def _fmt(value, unit: str | None) -> str:
     """The same presentation rules the page uses — one implementation, so text and charts agree."""
     if value is None:
@@ -372,8 +390,13 @@ def _fmt(value, unit: str | None) -> str:
     v = float(value)
     if unit == "ratio":
         return f"{v * 100:.1f}%"
+    if unit == "percent":
+        # `:unit "percent"` + `:scale "100.0"` means the SQL already multiplied by 100, so the
+        # renderer must NOT multiply again — it must only add the sign. Measured on tpch_sales_v1:
+        # returnRate 24.69 printed as "24.7" with no %, which reads as a count of 24.7 things.
+        return f"{v:.1f}%"
     if unit == "money":
-        return f"¥{v:,.2f}"
+        return f"{CURRENCY}{v:,.2f}"
     if abs(v - round(v)) < 1e-9:          # an integer count is not "50.0 条"
         return f"{v:,.0f}"
     if abs(v) >= 1000:

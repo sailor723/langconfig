@@ -171,7 +171,39 @@ def structure_gates(profile, g, cur) -> None:
         else:
             deferred.append(cls)
     print(f"       {len(objects)} objects · {len(definitions)} definitions · {len(deferred)} deferred")
-    check_true("C0 the graph declares objects", len(objects) >= 3, f"{objects}")
+    # The question is "did anybody build a graph", not "is this retail". The threshold was
+    # `>= 3`, which is retail's shape (Customer/Order/Product…): measured on orders_demo_v1 —
+    # two sheets, `customers` + `orders`, therefore exactly two object classes — the gate went
+    # red on a correctly built ontology and would have told the builder to invent a third table.
+    # One object is the smallest thing that can be a graph, and C1a below still demands that
+    # every object names its table and primary key.
+    check_true("C0 the graph declares objects", len(objects) >= 1,
+               f"{objects or 'none — nothing has a :physicalTable'}")
+
+    # C9: a DEFINITION class must be USED by a metric — otherwise "退货行" is a name nobody counts,
+    # and the number a reader asks for has no declaration behind it. Measured 2026-11-26: a build
+    # declared :LateShippedLine / :LateDeliveredLine and then named its count metrics
+    # `lateShippedLines` / `lateDeliveredLines` with `:where :LateShippedLine`; the link existed but
+    # nothing enforced it, so the two drift apart one rename at a time.
+    def _definition_classes():
+        out = []
+        for cls in classes:
+            if list(g.objects(P(cls), P("physicalPredicate"))) or list(g.objects(P(cls), OWL.equivalentClass)):
+                out.append(cls)
+        return out
+
+    def _metrics_using(cls: str) -> list[str]:
+        names = []
+        for name, m in (sqlgen.metrics(g) or {}).items():
+            for fieldname in ("where", "universe", "concept", "counts"):
+                if getattr(m, fieldname, None) == cls:
+                    names.append(name)
+                    break
+        return names
+
+    unused = [c for c in _definition_classes() if not _metrics_using(c)]
+    check_true("C9 every definition class is used by a metric", not unused,
+               f"{len(unused)} declared but never counted: {unused}")
 
     bad = [c for c in objects
            if not g.value(P(c), P("physicalTable")) or not g.value(P(c), P("primaryKey"))]
@@ -230,8 +262,16 @@ def structure_gates(profile, g, cur) -> None:
                not no_ask, f"{len(no_ask)} without one: {sorted(no_ask)[:6]}")
 
     SOURCE_MARKERS = ("answers:", "docx", "doc#", "refused:", "measured:", "table:")
+    # A DECLARED REFUSAL has no source to name: its declaration IS the reason it cannot be counted,
+    # so it is judged by `:refusalReason` (said out loud) instead of by `table:` marks.
+    refused_metrics = {n for n in metrics_now if g.value(P(n), P("refusalReason"))}
+    no_reason = sorted(n for n in refused_metrics if not (g.value(P(n), P("refusalReason")) or "").strip())
+    check_true("C5c2 a declared refusal states why (:refusalReason is not empty)", not no_reason,
+               f"{len(no_reason)} refused with no sentence: {no_reason[:4]}")
     no_src = []
     for n in metrics_now:
+        if n in refused_metrics:
+            continue
         # ALL descriptions on the predicate, not `g.value`: a metric that shares its name with a
         # column carries two of them (the column's, from 01-structure, and the metric's, from the
         # overlay) and `g.value` returns whichever it likes — measured as a false FAIL on
@@ -360,7 +400,17 @@ def guard_gates(profile, g, cur) -> None:
     cfg = copy.deepcopy(profile.get("guard") or {})
     check_true("G0 the guard is enabled", bool(cfg.get("enabled")), str(cfg))
     big = list((cfg.get("big_tables") or {}).items())
-    check_true("G1a the profile names its big tables", bool(big), "no big_tables")
+    # "Names its big tables" is a DECLARATION, and an empty declaration is a legitimate one:
+    # a 5-row Excel import has no big table, and inventing `{"orders": "订单日期"}` to satisfy a
+    # checker would inject a 90-day window onto a table whose whole history is five rows. What
+    # is not acceptable is the key being ABSENT — then nobody decided anything. Measured on
+    # orders_demo_v1: `guard` declared every other key and left `big_tables` out, so the gate
+    # could not tell "deliberately none" from "forgot".
+    declared = "big_tables" in cfg
+    check_true("G1a the profile names its big tables ([] is a decision, absent is not)",
+               declared, "no big_tables key — say `\"big_tables\": {}` if the data is small")
+    if declared and not big:
+        print("         declared: none (the guard will window nothing; every scan is budgeted by max_plan_rows)")
 
     # G1c: the window the guard injects goes on a column the profile names — so that column must EXIST.
     # Measured on abc: `big_tables: {"stops": "trip_date"}` when `stops` has no `trip_date` (its date is
@@ -592,11 +642,17 @@ def nl_gates(profile, g, cur) -> None:
         if len(label) < 2 or not any("\u4e00" <= ch <= "\u9fff" for ch in label):
             continue                      # CJK labels only: the ASCII path already had its gate
         question = f"{label}是多少"
+        refused_by_name = False
         try:
             got = nl._rule_intent(question, menu)
-        except nl.NlRefusal:
-            got = None
-        name = (got or {}).get("name")
+            name = (got or {}).get("name")
+        except nl.NlRefusal as exc:
+            # THE ENTRY DECLARES ITSELF UNANSWERABLE: reaching it means refusing with its own words,
+            # which is exactly what N1 is about. Measured 2026-11-26, after a refusal became a menu
+            # entry: N1 read the refusal as "did not reach the declaration" and went red on the two
+            # metrics whose declaration *is* the refusal.
+            name = entry["name"] if (entry.get("refused") and
+                                     (entry["name"] in str(exc) or label in str(exc))) else None
         check(f"N1 {label!r} reaches its own declaration ({entry['name']})", name, entry["name"])
 
     # Three outcomes are all honest: a metric answer, a refusal that NAMES the class, or "unsure"

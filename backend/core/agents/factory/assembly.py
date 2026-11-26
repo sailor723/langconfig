@@ -35,7 +35,9 @@ DEFAULT_HITL_POLICY = {
     "delete": True,
     "delete_file": True,
     "bash": True,
-    "pg_execute": True,
+    # NOTE: `db_execute` is deliberately NOT here. It carries its own two-phase gate
+    # (plan → confirm=True), so a middleware interrupt on top of it would ask twice for one write.
+    # This list used to name `pg_execute`, a tool nothing ever bound or called.
 }
 
 
@@ -274,7 +276,7 @@ class _AgentAssemblyMixin:
         tools.extend(scope_tools_to_root(_native, workspace_root))
 
         # …and to the agent's OWN database (Agent → Database). Without this, a plain agent's Database
-        # section changed nothing for db_query/db_describe — they connected as the deployment's role.
+        # section changed nothing for db_query_agent/db_describe — they connected as the deployment's role.
         try:
             from core.tools.db_scope import scope_tools_to_database
             from services import agent_database as _agent_db

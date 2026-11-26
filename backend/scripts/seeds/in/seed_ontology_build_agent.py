@@ -9,7 +9,7 @@ takes the key as a parameter and produces an agent that is identical to them exc
         .venv/bin/python scripts/seeds/in/seed_ontology_build_agent.py
 
 What it does NOT do: pick a threshold, invent a grain, or install anything. The skill
-(`build-ontology-from-db`) is the order of decisions; the prompt below adds only what is specific to running
+(`db-ontology-build`) is the order of decisions; the prompt below adds only what is specific to running
 inside THIS app (where the declarations live, where the publish channel ends, and the two questions the agent
 must stop and ask). Publishing STOPS at `staged` — a human with the `ontology_editor` role applies it.
 
@@ -105,7 +105,7 @@ SYSTEM_PROMPT = f"""你是 **Ontology Builder ({KEY})**：把一个**已经存�
 
 ## 先读技能，再动手
 
-`build-ontology-from-db` 的 SKILL.md 是**决策顺序**（结构 → 含义 → 计算 → 护栏 → 闸门 → 菜单 → 教程 →
+`db-ontology-build` 的 SKILL.md 是**决策顺序**（结构 → 含义 → 计算 → 护栏 → 闸门 → 菜单 → 教程 →
 拒绝清单 → 发布）。按它的阶段走，不要跳。技能里的 `references/rules.md`、`pitfalls.md`、`gates.md` 是
 那些规则和失败案例的正文。
 
@@ -135,10 +135,10 @@ SYSTEM_PROMPT = f"""你是 **Ontology Builder ({KEY})**：把一个**已经存�
 
 - **一轮只做一级台阶**。S0 出完三件产物就停；S1 写完 TTL + 跑出门禁数字就停。想"一次做完 S0→S8"
   的回合会在步数上限上撞死（实测 1 183 次工具调用、1 042 次 `execute`，一步产物都没换到）。
-- **量库用 `db_query`，一次调用把整批 SELECT 发过去**（`sqls=[...]`，最多 20 条，一条连接一次往返）。
+- **量库用 `db_query_agent`，一次调用把整批 SELECT 发过去**（`sqls=[...]`，最多 20 条，一条连接一次往返）。
   **不要用 `execute` 跑 `psql` 量数**——那是一次 shell 换一次模型往返（实测 1 618 次 `execute` 花了
-  6 085 秒，而每条查询本身是毫秒级）。库的形状一次 `db_query(sql="select relname, n_live_tup from
-  pg_stat_user_tables order by 2 desc")`；口径验证一次 `db_query(sqls=[口径1, 口径2, …])` 拿回全部结果。
+  6 085 秒，而每条查询本身是毫秒级）。库的形状一次 `db_query_agent(sql="select relname, n_live_tup from
+  pg_stat_user_tables order by 2 desc")`；口径验证一次 `db_query_agent(sqls=[口径1, 口径2, …])` 拿回全部结果。
   `execute` 只留给 DDL/DML（建视图、改表）和跑门禁命令。
 - **不要读平台代码**（`compiler/`、`gates/`、`skills/` 的实现）。要看口径就跑门禁命令、读它自己的输出；
   读平台代码是 DSH 的活。
@@ -152,7 +152,7 @@ SYSTEM_PROMPT = f"""你是 **Ontology Builder ({KEY})**：把一个**已经存�
 
 AGENTS_MD = f"""# Ontology Builder ({KEY})
 
-读 prompt 里的规则，然后读 `build-ontology-from-db` 的 SKILL.md。这里只补三条最容易忘的：
+读 prompt 里的规则，然后读 `db-ontology-build` 的 SKILL.md。这里只补三条最容易忘的：
 
 1. **两个停点要真的停**：模型草图、定义含义。别用"我先写着看"跳过。
 2. **拒绝清单是交付物**，不是失败。每个拒绝按名说清楚缺哪条声明。
@@ -178,7 +178,7 @@ CONFIG = {
     "system_prompt": SYSTEM_PROMPT,
     # `read_any_file` so a user-supplied brief/spec (PDF/DOCX/PPTX) can be read from upload/, not guessed at.
     # `execute` runs the skill's scripts (introspect_db.py / scaffold_ttl.py / check_ontology.py), DDL/DML
-    # and the gate commands. `db_query` is for MEASURING: it takes a batch of read-only SELECTs and
+    # and the gate commands. `db_query_agent` is for MEASURING: it takes a batch of read-only SELECTs and
     # returns every result in ONE round-trip. Measured 2026-11-14 (agent 380): 1 618 separate `execute`
     # Psql calls = 6 085 s of wall clock at ~4 s per model round-trip, while the queries themselves ran
     # in milliseconds — the round-trip, not the SQL, was the cost.
@@ -187,9 +187,9 @@ CONFIG = {
     # extend an installed ontology either refuses or copies the repo with `cp -r` through `execute`,
     # which skips the profile facts the tool prints and edits a tree it does not own.
     "native_tools": ["read_file", "read_any_file", "write_file", "edit_file", "ls", "glob", "grep",
-                     "execute", "db_query", "ontology_open", "ontology_inspect", "ontology_publish"],
-    "skills": ["build-ontology-from-db"],
-    "skill_params": {"build-ontology-from-db": {"datasource": DATASOURCE, "ontology_key": KEY}},
+                     "execute", "db_query_agent", "ontology_open", "ontology_inspect", "ontology_publish"],
+    "skills": ["db-ontology-build"],
+    "skill_params": {"db-ontology-build": {"datasource": DATASOURCE, "ontology_key": KEY}},
     "datasource": DATASOURCE,
     "use_deepagents": True,
     "use_local_sandbox": True,
@@ -259,7 +259,7 @@ def main() -> int:
 
     row = _call("GET", f"/api/deepagents/{agent_id}")
     got = row.get("config") or {}
-    print("ontology_key:", (got.get("skill_params") or {}).get("build-ontology-from-db", {}).get("ontology_key"))
+    print("ontology_key:", (got.get("skill_params") or {}).get("db-ontology-build", {}).get("ontology_key"))
     print("datasource:", got.get("datasource"))
     print("native_tools:", got.get("native_tools"))
     print("skills:", got.get("skills"))

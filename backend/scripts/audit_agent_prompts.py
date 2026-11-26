@@ -134,7 +134,7 @@ def audit(config: dict, docs: dict | None = None) -> tuple[list[str], list[str]]
     if not prompt:
         return ["config 里没有 system_prompt"], notes
 
-    params = (config.get("skill_params") or {}).get("build-ontology-from-db") or {}
+    params = (config.get("skill_params") or {}).get("db-ontology-build") or {}
     key = (params.get("ontology_key") or "").strip()
     datasource = (config.get("datasource") or "").strip()
 

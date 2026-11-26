@@ -11,7 +11,7 @@ What it can do, and where each verb comes from:
     db_list_databases   NEW   which databases exist, size, object count, writable or not
     db_describe         NEW   any database's tables (with row estimates), or one table's columns/keys
     db_execute          NEW   ONE write statement (DDL/DML) against a named database, in two phases
-    db_query            have  read-only SELECT against any database, batched
+    db_query_agent            have  read-only SELECT against any database, batched
     db_review           have  health check (row counts, nulls, PK/FK candidates) and apply PK/FK
     db_rename_column    have  rename a column that lies about its meaning
 
@@ -44,11 +44,11 @@ SYSTEM_PROMPT = """你是 **DB Manager**：管这台机器上的 PostgreSQL。�
 ## 你能做的（按这个顺序用）
 
 1. **`db_list_databases`** —— 服务器上有哪些库（大小、**表数**、能不能写）**一次拿全**。有人问「有哪些库」
-   就从这里开始。**不要**再对每个库各发一条 `db_query` 去数表——表数已经在这一份清单里了（实测：19 个库
+   就从这里开始。**不要**再对每个库各发一条 `db_query_agent` 去数表——表数已经在这一份清单里了（实测：19 个库
    逐个查会直接撞步数上限）。
 2. **`db_describe(db_name)`** —— 某个库里有哪些表/视图（带行数估算）；**`db_describe(db_name, table)`** ——
    某张表的列（类型/可空/默认值）、索引、约束、精确行数。**写 SQL 之前先 describe**，不要凭名字猜列。
-3. **`db_query(db_name, sql=…)` 或 `sqls=[…]`** —— 只读 SELECT，可一次批量发多条（一条连接一次往返）。
+3. **`db_query_agent(db_name, sql=…)` 或 `sqls=[…]`** —— 只读 SELECT，可一次批量发多条（一条连接一次往返）。
    量数就用它，不要一条一条问。
 4. **`db_execute(db_name, sql, confirm=…)`** —— 对某个库跑**一条**写语句（DDL/DML）。**两段式**：
    先不带 confirm（或 confirm=false）拿到计划 → 把语句原样给人看 → 人同意了才 `confirm=true`。
@@ -57,14 +57,14 @@ SYSTEM_PROMPT = """你是 **DB Manager**：管这台机器上的 PostgreSQL。�
 
 ## 硬规则
 
-- **先看再改**：任何 `db_execute` 之前，至少有 `db_describe` 或 `db_query` 的证据说明你要改的东西长什么样。
-- **一份清单一次拿**：跨库的规模/数量用 `db_list_databases` 一次问完；确需逐个库查时，用 `db_query` 的
+- **先看再改**：任何 `db_execute` 之前，至少有 `db_describe` 或 `db_query_agent` 的证据说明你要改的东西长什么样。
+- **一份清单一次拿**：跨库的规模/数量用 `db_list_databases` 一次问完；确需逐个库查时，用 `db_query_agent` 的
   `sqls=[…]` 批量发给**同一个**库，不要一库一连接地循环。
 - **一次一条语句**：堆叠（`…; DROP …`）会被工具拒；服务器级动作（DROP DATABASE / DROP SCHEMA / ALTER SYSTEM /
   角色与授权）也会被拒，那类事要人在 psql 里做。
 - **平台库不写**：`langconfig` 这个库是应用自身的状态，写操作会被告由参数拒绝 —— 那里只读查。
 - **两段式不许跳**：没人确认就不 `confirm=true`。你改的是别人的数据。
-- **改完要证明**：`db_execute` 之后用 `db_describe`（或 `db_query`）回读一次，把「改之前 → 改之后」的数字或列名贴出来。
+- **改完要证明**：`db_execute` 之后用 `db_describe`（或 `db_query_agent`）回读一次，把「改之前 → 改之后」的数字或列名贴出来。
   没有回读的「已修改」不算完成。
 - **不确定就问**：库名/表名拿不准时，先 `db_list_databases` / `db_describe`，不要猜一个相近的名字。
 
@@ -81,7 +81,7 @@ AGENTS_MD = """# DB Manager
 1. **先 `db_list_databases` → 再 `db_describe` → 再写 SQL**。凭名字猜列的语句会被回滚，还要多花一轮。
 2. **`db_execute` 是两段式**：先拿计划给人看，人同意了才 `confirm=true`；一次只跑一条语句。
 3. **平台库（`langconfig`）只读**：写操作会被按参数拒绝。
-4. **改完回读**：`db_describe` / `db_query` 把改前改后的样子贴出来，否则不算完成。
+4. **改完回读**：`db_describe` / `db_query_agent` 把改前改后的样子贴出来，否则不算完成。
 """
 
 CLAUDE_MD = "# DB Manager\n\n读 AGENTS.md。它和这个文件是同一份规则。\n"
@@ -93,7 +93,7 @@ CONFIG = {
     "reasoning_effort": "medium",
     "recursion_limit": 80,
     "system_prompt": SYSTEM_PROMPT,
-    "native_tools": ["db_list_databases", "db_describe", "db_query", "db_execute", "db_review",
+    "native_tools": ["db_list_databases", "db_describe", "db_query_agent", "db_execute", "db_review",
                      "db_rename_column"],
     "skills": [],
     "use_deepagents": False,

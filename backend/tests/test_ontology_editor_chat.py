@@ -229,7 +229,7 @@ def test_the_editor_agent_exists_with_the_two_ontology_tools_and_the_edit_skill(
     cfg = agent.config or {}
     assert "ontology_open" in (cfg.get("native_tools") or []), cfg.get("native_tools")
     assert "ontology_publish" in (cfg.get("native_tools") or [])
-    assert "edit-ontology-metrics" in (cfg.get("skills") or [])
+    assert "db-ontology-metrics" in (cfg.get("skills") or [])
 
 
 def test_a_route_that_cannot_reach_the_editor_answers_409_not_500(monkeypatch):

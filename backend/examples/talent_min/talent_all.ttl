@@ -1,0 +1,65 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# TBox：《规则》—— 只用类、属性、公理说话，一条个人都不提
+# 这一份文件回答「什么叫合格」，不回答「谁合格」。
+# ─────────────────────────────────────────────────────────────────────────────
+@prefix : <http://example.org/talent#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# 1) 两个大类：人和技能标签
+:Candidate a owl:Class .
+:SkillTag  a owl:Class .
+
+# 2) 技能类别（类别是「类」，具体技能是「个体」—— 这条分界线是全部推理的基础）
+:CAD               a owl:Class ; rdfs:subClassOf :SkillTag .
+:SpreadsheetSkill  a owl:Class ; rdfs:subClassOf :SkillTag .
+:LanguageSkill     a owl:Class ; rdfs:subClassOf :SkillTag .
+
+# 3) 属性：人会什么技能、几年经验、什么学历
+:hasSkill        a owl:ObjectProperty ; rdfs:domain :Candidate ; rdfs:range :SkillTag .
+:yearsExperience a owl:DatatypeProperty ; rdfs:domain :Candidate ; rdfs:range xsd:integer .
+
+# 4) JD 变成一条公理：设计工程师 = 会 CAD 且 年限 ≥ 3
+#    注意等号 —— 这是一个「定义」，不是「要求」。定义的意思是：
+#    谁满足右边，谁就是这个类的成员，不管有没有人给他贴过这个标签。
+:matchesDesignEngineer a owl:Class ;
+    rdfs:label "满足设计工程师 JD 的候选人" ;
+    owl:equivalentClass [
+        owl:intersectionOf (
+            :Candidate
+            [ a owl:Restriction ; owl:onProperty :hasSkill ;
+              owl:someValuesFrom :CAD ]
+            [ a owl:Restriction ; owl:onProperty :yearsExperience ;
+              owl:someValuesFrom [ a rdfs:Datatype ; owl:onDatatype xsd:integer ;
+                                   owl:withRestrictions ( [ xsd:minInclusive 3 ] ) ] ]
+        )
+    ] .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+# ─────────────────────────────────────────────────────────────────────────────
+# ABox：《事实》—— 只有断言：某个人会什么、几年。一条「合格」都没有。
+# ─────────────────────────────────────────────────────────────────────────────
+@prefix : <http://example.org/talent#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# 技能是个体，各自属于一个类别（类别在 tbox.ttl 里声明）
+:SolidWorks a :CAD .
+:Excel      a :SpreadsheetSkill .
+:English    a :LanguageSkill .
+:CAD通用     a :CAD .
+
+# 3 份简历 = 3 个个体
+:cand_A a :Candidate ;
+    rdfs:label "A 君（会 SolidWorks，5 年）" ;
+    :hasSkill :SolidWorks , :English ;
+    :yearsExperience 5 .
+
+:cand_B a :Candidate ;
+    rdfs:label "B 君（只会 Excel，8 年）" ;
+    :hasSkill :Excel , :English ;
+    :yearsExperience 8 .
+
+:cand_C a :Candidate ;
+    rdfs:label "C 君（会 CAD，只有 1 年）" ;
+    :hasSkill :CAD通用 ;
+    :yearsExperience 1 .

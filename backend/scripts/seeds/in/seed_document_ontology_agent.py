@@ -111,7 +111,7 @@ SYSTEM_PROMPT = f"""你是 **Document Ontology Builder ({KEY})**：用户会把*
 
 AGENTS_MD = f"""# Document Ontology Builder ({KEY})
 
-读 prompt，然后读 `build-ontology-from-db` 的 SKILL.md（台阶梯和门禁口径都在那里；本 agent 多一级 S-2：
+读 prompt，然后读 `db-ontology-build` 的 SKILL.md（台阶梯和门禁口径都在那里；本 agent 多一级 S-2：
 **文档 → 库**）。这里只补四条最容易忘的：
 
 1. **S-2 是两段式**：`db_plan_from_file` 出方案 → 人确认 → `db_build_from_file(confirm=true)`。
@@ -141,8 +141,8 @@ CONFIG = {
     "native_tools": ["read_file", "read_any_file", "write_file", "edit_file", "ls", "glob", "grep",
                      "execute", "db_query", "db_plan_from_file", "db_build_from_file", "db_review",
                      "db_verify_against_file", "ontology_inspect", "ontology_publish"],
-    "skills": ["build-ontology-from-db"],
-    "skill_params": {"build-ontology-from-db": {"datasource": DATABASE, "ontology_key": KEY}},
+    "skills": ["db-ontology-build"],
+    "skill_params": {"db-ontology-build": {"datasource": DATABASE, "ontology_key": KEY}},
     "datasource": DATABASE,
     "use_deepagents": True,
     "use_local_sandbox": True,

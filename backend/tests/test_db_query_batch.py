@@ -1,4 +1,4 @@
-"""`db_query` must be able to answer many questions in ONE call.
+"""`db_query_agent` must be able to answer many questions in ONE call.
 
 Measured 2026-11-14 on the ontology builder (agent 380): 6 085 s of wall clock for 1 618 separate
 shell calls, i.e. ~4 s per model round-trip while each query ran in milliseconds. The round-trip is
@@ -89,7 +89,7 @@ def _patch_connect(monkeypatch, conn):
 
 def test_batch_runs_every_statement_on_one_connection_and_labels_results(monkeypatch):
     conn = _patch_connect(monkeypatch, _FakeConn({"from t1": [(7,)]}))
-    out = native_impl.db_query.invoke({
+    out = native_impl.db_query_agent.invoke({
         "db_name": "demo",
         "sqls": ["select count(*) from t1", "select count(*) from t2"],
     })
@@ -107,7 +107,7 @@ def test_one_broken_statement_does_not_kill_the_batch(monkeypatch):
         monkeypatch,
         _FakeConn({"from bad": RuntimeError("relation bad does not exist"), "from good": [(3,)]}),
     )
-    out = native_impl.db_query.invoke({
+    out = native_impl.db_query_agent.invoke({
         "db_name": "demo",
         "sqls": ["select 1 from bad", "select 2 from good"],
     })
@@ -118,7 +118,7 @@ def test_one_broken_statement_does_not_kill_the_batch(monkeypatch):
 
 def test_non_readonly_statement_refuses_the_whole_batch(monkeypatch):
     conn = _patch_connect(monkeypatch, _FakeConn({}))
-    out = native_impl.db_query.invoke({
+    out = native_impl.db_query_agent.invoke({
         "db_name": "demo",
         "sqls": ["select 1 from t", "drop table t"],
     })
@@ -129,7 +129,7 @@ def test_non_readonly_statement_refuses_the_whole_batch(monkeypatch):
 
 def test_batch_cap_is_named(monkeypatch):
     conn = _patch_connect(monkeypatch, _FakeConn({}))
-    out = native_impl.db_query.invoke({
+    out = native_impl.db_query_agent.invoke({
         "db_name": "demo",
         "sqls": [f"select {i} from t" for i in range(native_impl._MAX_DB_QUERY_BATCH + 1)],
     })
@@ -140,7 +140,7 @@ def test_batch_cap_is_named(monkeypatch):
 def test_semicolons_in_the_single_sql_argument_become_a_batch(monkeypatch):
     """The old code refused `;` outright; an agent that pasted two SELECTs lost a whole round-trip."""
     conn = _patch_connect(monkeypatch, _FakeConn({"from t2": [(9,)]}))
-    out = native_impl.db_query.invoke({
+    out = native_impl.db_query_agent.invoke({
         "db_name": "demo",
         "sql": "select 1 from t1; select 2 from t2;",
     })
@@ -152,7 +152,7 @@ def test_semicolons_in_the_single_sql_argument_become_a_batch(monkeypatch):
 def test_output_is_capped_so_one_batch_cannot_blow_up_the_context(monkeypatch):
     big = [("x" * 200,) for _ in range(200)]
     _patch_connect(monkeypatch, _FakeConn({"from t": big}))
-    out = native_impl.db_query.invoke({
+    out = native_impl.db_query_agent.invoke({
         "db_name": "demo",
         "sqls": [f"select payload from t" for _ in range(5)],
     })
@@ -161,8 +161,8 @@ def test_output_is_capped_so_one_batch_cannot_blow_up_the_context(monkeypatch):
 
 
 REPO = __import__("pathlib").Path(__file__).resolve().parents[2]
-SKILL = REPO / "backend" / "skills" / "builtin" / "build-ontology-from-db" / "SKILL.md"
-SKILL_EN = REPO / "backend" / "skills" / "en-originals" / "build-ontology-from-db" / "SKILL.md"
+SKILL = REPO / "backend" / "skills" / "builtin" / "db-ontology-build" / "SKILL.md"
+SKILL_EN = REPO / "backend" / "skills" / "en-originals" / "db-ontology-build" / "SKILL.md"
 
 
 def test_the_skill_teaches_the_batched_form_too():
@@ -173,7 +173,7 @@ def test_the_skill_teaches_the_batched_form_too():
     "one aggregate, one statement" line reads as "one SELECT per call" if left alone.
     """
     text = SKILL.read_text(encoding="utf-8")
-    assert "db_query(sqls=" in text, "the skill never shows the batched call"
+    assert "db_query_agent(sqls=" in text, "the skill never shows the batched call"
     assert "6 085" in text, "the skill states the rule without the measurement behind it"
     assert "批量只读查询" in text, "the capability table does not list the batched query"
 
@@ -182,6 +182,6 @@ def test_the_english_original_carries_the_same_rule():
     """The Chinese skill is a machine translation of the archive; a rule only in the translation is
     lost the next time the pair is regenerated, so both sides must say it."""
     text = SKILL_EN.read_text(encoding="utf-8")
-    assert "db_query(sqls=[" in text
+    assert "db_query_agent(sqls=[" in text
     assert "6 085" in text
     assert "batched read-only queries" in text

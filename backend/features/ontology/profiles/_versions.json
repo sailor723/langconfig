@@ -223,6 +223,69 @@
           "superseded_by": null
         }
       ]
+    },
+    "ticket_ops": {
+      "latest": "ticket_ops_v1",
+      "versions": [
+        {
+          "key": "ticket_ops_v1",
+          "version": 1,
+          "kind": "trial",
+          "theme": "客服工单运营",
+          "datasource": "ticket_ops_xlsx",
+          "created": "2026-11-25T08:23:29Z",
+          "superseded_by": null
+        }
+      ]
+    },
+    "orders_demo": {
+      "latest": null,
+      "versions": [
+        {
+          "key": "orders_demo_v1",
+          "version": 1,
+          "kind": "customer",
+          "theme": "订单与回款（按城市）",
+          "datasource": "orders_demo_xlsx",
+          "created": "2026-11-25T13:28:52Z",
+          "superseded_by": null,
+          "retired": "2026-11-25"
+        }
+      ]
+    },
+    "tpch_sales": {
+      "latest": "tpch_sales_v3",
+      "versions": [
+        {
+          "key": "tpch_sales_v1",
+          "version": 1,
+          "kind": "demo",
+          "theme": "TPC-H 销售与供应链（SF0.1）",
+          "datasource": "tpch",
+          "created": "2026-11-25T15:17:33Z",
+          "superseded_by": "tpch_sales_v2",
+          "retired": "2026-11-26"
+        },
+        {
+          "key": "tpch_sales_v2",
+          "version": 2,
+          "kind": "demo",
+          "theme": "TPC-H 销售与供应链（SF0.1，重跑）",
+          "datasource": "tpch",
+          "created": "2026-11-25T16:16:29Z",
+          "superseded_by": "tpch_sales_v3",
+          "retired": "2026-11-26"
+        },
+        {
+          "key": "tpch_sales_v3",
+          "version": 3,
+          "kind": "demo",
+          "theme": "TPC-H 销售与供应链（SF0.1，第三遍·效率对照）",
+          "datasource": "tpch",
+          "created": "2026-11-25T16:40:56Z",
+          "superseded_by": null
+        }
+      ]
     }
   }
 }

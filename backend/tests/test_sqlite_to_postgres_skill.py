@@ -1,4 +1,4 @@
-"""The sqlite-to-postgres skill must state the four things a migration silently gets wrong.
+"""The db-sqlite-to-postgres skill must state the four things a migration silently gets wrong.
 
 Why a skill and not just the script: `migrate_sqlite_to_postgres.py` moves the DATA and proves the copy.
 What it cannot do is notice the four things that do not travel with data —
@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-SKILL_DIR = REPO / "backend" / "skills" / "builtin" / "sqlite-to-postgres"
+SKILL_DIR = REPO / "backend" / "skills" / "builtin" / "db-sqlite-to-postgres"
 SKILL = SKILL_DIR / "SKILL.md"
 RULES = SKILL_DIR / "references" / "rules.md"
 TOOL = REPO / "backend" / "scripts" / "migrate_sqlite_to_postgres.py"
@@ -38,7 +38,7 @@ def text():
 
 def test_the_skill_and_its_tool_are_both_present(text):
     assert TOOL.is_file(), "the migration tool the skill drives is missing"
-    assert "sqlite-to-postgres" in text
+    assert "db-sqlite-to-postgres" in text
     assert "migrate_sqlite_to_postgres.py" in text, "the skill must name the tool it runs"
 
 
@@ -78,11 +78,11 @@ def test_the_rules_file_is_scheduled_and_gated():
 
 def test_the_skill_is_recorded_as_zh_native():
     """It was written in Chinese; the archive list is what stops a later pass translating it again."""
-    assert "sqlite-to-postgres" in ZH_NATIVE.read_text(encoding="utf-8").split("\n")
+    assert "db-sqlite-to-postgres" in ZH_NATIVE.read_text(encoding="utf-8").split("\n")
 
 
 def test_the_skill_lints_itself():
-    proc = subprocess.run([sys.executable, str(LINTER), "--skill", "sqlite-to-postgres"],
+    proc = subprocess.run([sys.executable, str(LINTER), "--skill", "db-sqlite-to-postgres"],
                           capture_output=True, text=True, timeout=180, cwd=str(REPO / "backend"))
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "0 problem(s)" in proc.stdout

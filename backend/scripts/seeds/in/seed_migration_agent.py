@@ -1,7 +1,7 @@
 """Create the Database Migration Agent — the agent that turns a .db file into a PostgreSQL database.
 
 Why a seed and not a hand-built agent: this is the counterpart of `seed_ontology_build_agent.py`. The
-artefact is a sqlite file plus a target server, the skill is `sqlite-to-postgres`, and everything specific
+artefact is a sqlite file plus a target server, the skill is `db-sqlite-to-postgres`, and everything specific
 to running inside THIS app (where the platform's own PostgreSQL is, what a deliverable may not contain,
 where the run ends) belongs in the prompt rather than in the skill body — the skill has to stay usable on
 another host.
@@ -36,7 +36,7 @@ SYSTEM_PROMPT = """你是 **Database Migration Agent**：把一个 SQLite 文件
 
 ## 先读技能，再动手
 
-`sqlite-to-postgres` 的 SKILL.md 是这次迁移的顺序（量源库 → 类型对照表 → 迁移 → 迁移后四检查 → 登记数据源），
+`db-sqlite-to-postgres` 的 SKILL.md 是这次迁移的顺序（量源库 → 类型对照表 → 迁移 → 迁移后四检查 → 登记数据源），
 `references/rules.md` 是七条规则与它们各自的「跳过会怎样」。**按顺序走，不要跳**：
 核对没过就宣布完成，是这个任务最常见、也最不可挽回的错。
 
@@ -82,7 +82,7 @@ SYSTEM_PROMPT = """你是 **Database Migration Agent**：把一个 SQLite 文件
 
 AGENTS_MD = """# Database Migration Agent
 
-Read `sqlite-to-postgres`'s SKILL.md first — it is the order of operations. Then:
+Read `db-sqlite-to-postgres`'s SKILL.md first — it is the order of operations. Then:
 
 1. **核对没过就不算完成**（行数 + 每个数值列的合计）。
 2. 迁移搬数据，**搬不动**四件事：TEXT 里的 SQL 占位符、维度/事实的 id 拼法、单位口径、`period` 的时间语义。
@@ -101,8 +101,8 @@ CONFIG = {
     "recursion_limit": 120,          # introspection → type table → migrate → verify → 4 checks → register
     "system_prompt": SYSTEM_PROMPT,
     "native_tools": ["read_file", "read_any_file", "write_file", "edit_file", "ls", "glob", "grep",
-                     "execute", "db_review", "db_query"],
-    "skills": ["sqlite-to-postgres"],
+                     "execute", "db_review", "db_query_agent"],
+    "skills": ["db-sqlite-to-postgres"],
     "use_deepagents": True,
     "use_local_sandbox": True,
 }

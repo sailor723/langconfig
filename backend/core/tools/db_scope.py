@@ -1,7 +1,7 @@
 """Bind each tool call to the agent's OWN database — the one configured in Agent → Database.
 
 Why this file exists: `config.database` used to reach the sandbox only. The shell's `execute` received
-PGHOST/PGPASSWORD from it, while the in-process tools (`db_query`, `db_describe`, `db_review`, `db_admin.*`)
+PGHOST/PGPASSWORD from it, while the in-process tools (`db_query_agent`, `db_describe`, `db_review`, `db_admin.*`)
 read `os.environ` and therefore always connected as the DEPLOYMENT's role. Measured 2026-11-25: the `test_db`
 agent carried a Database block that nothing read — it appeared to work only because the backend's process env
 holds `POSTGRES_*`. An agent whose Database section does nothing is worse than one without the section.

@@ -143,7 +143,7 @@ def _python():
 
 
 def ontology_inspect(ontology_key: str, metric: str = "", question: str = "",
-                     source_dir: str = "") -> str:
+                     source_dir: str = "", brief: bool = False) -> str:
     """Ask the compiler about an ontology — instead of reading its source.
 
     Use me before you change a declaration and after, and instead of opening sqlgen.py / nl.py:
@@ -157,6 +157,10 @@ def ontology_inspect(ontology_key: str, metric: str = "", question: str = "",
       question      a user question: what it resolves to and the number (or the refusal, verbatim).
       source_dir    inspect a COPY instead of the installed ontology (e.g. "work/logistics"),
                     so before/after is two calls. Relative paths resolve against your workspace.
+      brief         compact answer: names, values and the FIRST LINE of each refusal — no compiled
+                    SQL, no plan estimate, no guard notes. Use it when you are iterating on a batch
+                    of declarations ("does this compile?") instead of studying one metric; it turns
+                    a few thousand characters per call into a few hundred.
     """
     key = (ontology_key or "").strip()
     if not key or "/" in key or key.startswith("."):
@@ -218,6 +222,29 @@ def ontology_inspect(ontology_key: str, metric: str = "", question: str = "",
     head = "ontology %s  (%s)\nprofile: %s" % (key if not source_dir else key + " · copy",
                                                mode, profile)
     body = []
+    if brief and mode == "list":
+        refused = data.get("refused") or []
+        body.append("compiled (%d) / refused (%d)" % (len(data.get("metrics") or []), len(refused)))
+        for r in refused:
+            body.append("  REFUSED %s: %s" % (r.get("name"), (r.get("why") or "").splitlines()[0]))
+        if data.get("metrics"):
+            body.append("  ok: " + ", ".join(data.get("metrics") or []))
+        if source_dir:
+            body.append("(the COPY at %s — the installed ontology is unchanged)" % folder)
+        return head + "\n" + "\n".join(body)
+    if brief and mode == "metric":
+        if not data.get("ok"):
+            return head + "\n" + ("REFUSED %s: %s" % (metric.strip(), (data.get("refused") or "").splitlines()[0]
+                                                      if isinstance(data.get("refused"), str)
+                                                      else data.get("refused")))
+        return head + "\n" + ("value: %s   (plan_rows=%s)" % (data.get("value"), data.get("plan_rows")))
+    if brief and mode == "question":
+        if not data.get("ok"):
+            refused = data.get("refused") or "see the compiler"
+            return head + "\n" + ("REFUSED: %s" % (refused.splitlines()[0] if isinstance(refused, str) else refused))
+        intent = data.get("intent") or {}
+        return head + "\n" + ("resolved: %s %s   value: %s" % (intent.get("kind"), intent.get("name"),
+                                                               data.get("value")))
     if mode == "list":
         body.append("compiled (%d): %s" % (len(data.get("metrics") or []),
                                            ", ".join(data.get("metrics") or []) or "(none)"))
@@ -293,6 +320,12 @@ INPUT_SCHEMA = {
             "type": "string",
             "description": "A user question to resolve (empty = ignore).",
             "default": "",
+        },
+        "brief": {
+            "type": "boolean",
+            "description": "Compact answer: names/values/first-line refusals only (no SQL, no plan, "
+                           "no guard notes). Use it when iterating on a batch of declarations.",
+            "default": False,
         },
         "source_dir": {
             "type": "string",

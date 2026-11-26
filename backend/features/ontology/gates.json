@@ -154,5 +154,24 @@
       "check_samples",
       "check_dashboard"
     ]
+  },
+  "ticket_ops_v1": {
+    "why": "ticket_ops_v1：客服工单运营（trial），由 ontology_register 登记；构建中，发布前不参与仓库门禁。",
+    "pending_install": "registered by ontology_register — not built yet (2026-11-25T08:23:29Z)",
+    "profile": [
+      "check_structure",
+      "check_ontology_generic",
+      "check_samples",
+      "check_dashboard"
+    ]
+  },
+  "tpch_sales_v3": {
+    "why": "tpch_sales_v3：TPC-H 销售与供应链（SF0.1，第三遍·效率对照，demo）。按票建成：结构（8 类/61 列/9 关系，93 checks green）· 指标（33 条，32 可编译，1 条按名拒绝 netRevenueByMonth；14 锚点 + 5 恒等式实测一致）· 看板（10 KPI + 11 面板，112 checks / 0 failed）· 教程（8 步含 5 条按名拒绝）+ truth.json（R2 真跑 2/2）。四族门禁：structure · generic · samples · dashboard。决策：概念定义类保留独立文件 ontology/03-concept-definitions.ttl；window gate 允许如实 NOT RUN（本 profile 无时间维声明）。",
+    "profile": [
+      "check_structure",
+      "check_ontology_generic",
+      "check_samples",
+      "check_dashboard"
+    ]
   }
 }

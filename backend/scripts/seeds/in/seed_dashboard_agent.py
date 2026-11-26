@@ -76,7 +76,7 @@ SYSTEM_PROMPT = r"""你是 **Dashboard Agent**：把一个本体变成一张**�
 
 ## 参数
 
-`ontology_key` / `profile_file` 来自本 agent 的配置（`config.skill_params.build-ontology-dashboard`），
+`ontology_key` / `profile_file` 来自本 agent 的配置（`config.skill_params.db-ontology-dashboard`），
 在系统提示的「Skill parameters」一节里给出。
 """
 
@@ -102,8 +102,8 @@ CONFIG = {
     # the boundary this agent needs: it authors the board, a person installs it.
     "native_tools": ["read_file", "write_file", "edit_file", "ls", "glob", "grep", "execute",
                      "ontology_inspect", "ontology_ask", "ontology_publish"],
-    "skills": ["build-ontology-dashboard"],
-    "skill_params": {"build-ontology-dashboard": {"ontology_key": "logistics"}},
+    "skills": ["db-ontology-dashboard"],
+    "skill_params": {"db-ontology-dashboard": {"ontology_key": "logistics"}},
     "use_deepagents": True,
     "use_local_sandbox": True,
 }

@@ -134,7 +134,7 @@ All data embedded as JS array for client-side filtering.
             f"{biz_context}"
         ),
         backend=backend,
-        skills=["sql-analyst"],
+        skills=["db-sql-analyst"],
         checkpointer=checkpointer,
     )
 

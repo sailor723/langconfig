@@ -19,7 +19,7 @@ def test_default_set_is_curated():
     # produces the deliverable, and the archived copy had no UI consumer.
 
         assert tool in d, tool
-    # db/analysis/retrieval categories present (read-only db; no pg_execute)
+    # db/analysis/retrieval categories present (read-only db; no db_execute)
     for tool in ("pg_list_tables", "pg_describe_table", "pg_query",
                  "sqlite_execute", "sqlite_load_csv", "python_execute",
                  "save_analysis_result", "graphindex_search", "graphindex_load",
@@ -27,7 +27,7 @@ def test_default_set_is_curated():
         assert tool in d, f"{tool} should be default"
     # excluded: db writes, heavy, meta, graph ops, custom (tavily_search is now
     # a default web tool — AI-optimized search, key-gated, graceful without key)
-    for tool in ("pg_execute", "browser", "neo4j_query", "neo4j_upsert_doc",
+    for tool in ("db_execute", "browser", "neo4j_query", "neo4j_upsert_doc",
                  "graphindex_ingest", "create_deepagent", "create_skill",
                  "update_skill", "delete_skill", "task", "gen_pptx"):
         assert tool not in d, f"{tool} should not be default"

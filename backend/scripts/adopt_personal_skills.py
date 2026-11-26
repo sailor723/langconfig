@@ -16,7 +16,7 @@ Rules, in order:
 
 1. every `personal/<skill>/` moves to `personal/<owner>/<skill>/`;
 2. a root-level skill that has **no** copy under `personal/` moves in too (6 of them:
-   erp-analyst, market-wizard, report-generator, sql-analyst, sunhing-analyst,
+   erp-analyst, market-wizard, report-generator, db-sql-analyst, sunhing-analyst,
    web-content-analyzer);
 3. a root-level skill that **does** have a `personal/` copy is **left where it is** and
    reported — the two files differ, and silently deleting the older one would throw away

@@ -349,7 +349,24 @@ def main() -> int:
     platform_tables = _platform_tables()
     print(f"platform tables (created by the feature, not by the operation): "
           f"{sorted(platform_tables) or 'none'}")
-    covered = set(table_of.values()) | set(args.allow_uncovered) | platform_tables
+    # A DECLARED exclusion, not a flag somebody remembers to type. `--allow-uncovered` is fine while
+    # a builder experiments, but the publish channel runs the gate without it — so a table the
+    # ontology deliberately does not model has to be written down in the profile, where the next
+    # reader (and `stage()`'s own gate run) can see it. Measured on tpch_sales_v1: the database
+    # carries `unit_registry`, a helper table left by an earlier build, and the publish gate would
+    # have gone red on a mapping that was complete.
+    declared = (prof.get("exempt_tables")
+                or (prof.get("structure") or {}).get("exempt_tables")
+                or {})
+    if isinstance(declared, dict):
+        exempt = sorted(declared)
+        for name in exempt:
+            print(f"exempt (declared in the profile): {name} — {declared[name]}")
+    else:
+        exempt = sorted(str(x) for x in declared)
+        for name in exempt:
+            print(f"exempt (declared in the profile): {name}")
+    covered = set(table_of.values()) | set(args.allow_uncovered) | set(exempt) | platform_tables
     uncovered = sorted(t for t in schema.tables if t not in covered)
     check_true("no table is silently left out", not uncovered,
                f"{len(uncovered)} uncovered: {uncovered}")

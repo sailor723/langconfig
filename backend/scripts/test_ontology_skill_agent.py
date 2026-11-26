@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Does `build-ontology-from-db` work inside a real deepagents agent?
+"""Does `db-ontology-build` work inside a real deepagents agent?
 
 Filesystem-first, per docs/design/development-rules.md §Code Workflow: no PostgreSQL requirement of the platform's
 own, no DB-mode skill staging — just `create_deep_agent(skills=[...])` with a disk backend,
@@ -39,7 +39,7 @@ os.environ["LANGSMITH_TRACING"] = "false"
 
 HERE = pathlib.Path(__file__).resolve()
 REPO = HERE.parents[1]                     # backend/
-SKILL_SRC = REPO / "skills" / "builtin" / "build-ontology-from-db"
+SKILL_SRC = REPO / "skills" / "builtin" / "db-ontology-build"
 WS = pathlib.Path("/tmp/ontology_skill_ws")
 
 results: list[tuple[str, bool, str]] = []
@@ -77,7 +77,7 @@ class Capture(BaseCallbackHandler):
 def stage_workspace() -> None:
     shutil.rmtree(WS, ignore_errors=True)
     (WS / "skills" / "builtin").mkdir(parents=True)
-    shutil.copytree(SKILL_SRC, WS / "skills" / "builtin" / "build-ontology-from-db")
+    shutil.copytree(SKILL_SRC, WS / "skills" / "builtin" / "db-ontology-build")
     (WS / "out").mkdir()
 
 
@@ -158,7 +158,7 @@ def main() -> int:
     # ---------------------------------------------------------------- A. discovery
     calls, texts = run_phase(agent, capture, "你好，你能做什么？(answer in Chinese, briefly)")
     prompt = "\n".join(t for p in capture.prompts for typ, t in p if typ in ("system", "prompt"))
-    has_catalog = "build-ontology-from-db" in prompt
+    has_catalog = "db-ontology-build" in prompt
     has_desc = "semantic layer" in prompt.lower() or "ontology" in prompt.lower()
     check("A1 the skill catalog reaches the model prompt", has_catalog,
           "the name never appeared in the system prompt")
@@ -170,7 +170,7 @@ def main() -> int:
     capture2 = Capture()
     calls, texts = run_phase(
         agent, capture2,
-        "列出你技能目录里的所有技能（名字 + 路径）。然后读取 build-ontology-from-db 的 SKILL.md，"
+        "列出你技能目录里的所有技能（名字 + 路径）。然后读取 db-ontology-build 的 SKILL.md，"
         "用中文告诉我：它分几个阶段？阶段 1 和阶段 3 分别做什么？scripts/ 目录里有哪几个脚本？")
     read_calls = [a for n, a in calls if n in ("read_file", "read_file_text", "cat")]
     read_targets = " ".join(json.dumps(a, ensure_ascii=False) for a in read_calls)
@@ -192,7 +192,7 @@ def main() -> int:
         calls, texts = run_phase(
             agent, capture3,
             "按技能的第 1 步，用沙箱的 execute 工具运行这个脚本（原样执行，不要改写路径）：\n"
-            f"{args.python} skills/builtin/build-ontology-from-db/scripts/introspect_db.py "
+            f"{args.python} skills/builtin/db-ontology-build/scripts/introspect_db.py "
             f"--dsn \"{args.dsn}\" --out out/brief.json\n"
             "跑完后用中文把 brief 里的表名列出来（最多 8 张），并说明每张表被判定成什么 shape。",
             recursion=50)

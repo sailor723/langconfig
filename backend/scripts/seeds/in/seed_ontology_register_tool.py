@@ -49,12 +49,21 @@ import json as _json
 
 
 def ontology_register(name: str, datasource: str, theme: str = "", kind: str = "customer",
-                      note: str = "") -> str:
+                      note: str = "", dsn_json: str = "") -> str:
     """Register a new ontology key and report what was written."""
     from services import ontology_register as _reg
 
+    dsn = None
+    if dsn_json.strip():
+        try:
+            dsn = _json.loads(dsn_json)
+        except Exception as exc:                                # noqa: BLE001
+            return f"REFUSED: dsn_json is not JSON ({type(exc).__name__}: {exc})"
+        if not isinstance(dsn, dict) or not dsn.get("host"):
+            return "REFUSED: dsn_json must be an object like {\"host\": ..., \"port\": ..., \"user\": ..., \"password\": ...}"
+
     try:
-        out = _reg.register(name, datasource, theme=theme, kind=kind, note=note)
+        out = _reg.register(name, datasource, theme=theme, kind=kind, note=note, dsn=dsn)
     except _reg.RegisterError as exc:
         return f"REFUSED: {exc}"
     except Exception as exc:                                    # noqa: BLE001
@@ -100,6 +109,15 @@ INPUT_SCHEMA = {
         "note": {
             "type": "string",
             "description": "One line for the record (who asked, what for).",
+            "default": "",
+        },
+        "dsn_json": {
+            "type": "string",
+            "description": "Only when this ontology's database is NOT the platform's own: a JSON object "
+                           "{host, port, user, password} in profile style, e.g. "
+                           "{\"host\": \"${TPCH_DB_HOST:-127.0.0.1}\", \"port\": \"${TPCH_DB_PORT:-5432}\", "
+                           "\"user\": \"${TPCH_DB_USER}\", \"password\": \"${TPCH_DB_PASSWORD}\"}. "
+                           "dbname comes from `datasource`. Empty = the platform's ONTOLOGY_DB_*.",
             "default": "",
         },
     },

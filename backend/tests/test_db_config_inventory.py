@@ -64,10 +64,10 @@ def test_a_skill_parameter_cannot_point_somewhere_else(tmp_path):
 
     cfg = {
         "database": {"mode": "custom", "host": "h", "dbname": "agent_db"},
-        "skill_params": {"build-ontology-from-db": {"datasource": "other_db", "ontology_key": "k"}},
+        "skill_params": {"db-ontology-build": {"datasource": "other_db", "ontology_key": "k"}},
     }
-    resolved, problems = resolve(424242, ["build-ontology-from-db"], cfg["skill_params"], agent_config=cfg)
-    assert resolved.get("build-ontology-from-db", {}).get("datasource") == "agent_db", \
+    resolved, problems = resolve(424242, ["db-ontology-build"], cfg["skill_params"], agent_config=cfg)
+    assert resolved.get("db-ontology-build", {}).get("datasource") == "agent_db", \
         "a skill param overrode the agent's own database"
     assert any("disagrees" in p for p in problems), "the disagreement was swallowed"
 
@@ -79,9 +79,9 @@ def test_a_skill_parameter_is_not_required_any_more():
     from core.skills.params import resolve
 
     cfg = {"database": {"mode": "catalog", "name": "catalog_db"},
-           "skill_params": {"build-ontology-from-db": {"ontology_key": "k"}}}
-    resolved, problems = resolve(424242, ["build-ontology-from-db"], cfg["skill_params"], agent_config=cfg)
-    assert resolved.get("build-ontology-from-db", {}).get("datasource") == "catalog_db"
+           "skill_params": {"db-ontology-build": {"ontology_key": "k"}}}
+    resolved, problems = resolve(424242, ["db-ontology-build"], cfg["skill_params"], agent_config=cfg)
+    assert resolved.get("db-ontology-build", {}).get("datasource") == "catalog_db"
     assert not problems, problems
 
 
@@ -89,7 +89,7 @@ def test_a_skill_parameter_is_not_required_any_more():
 
 def test_no_db_tool_accepts_a_password_argument():
     text = NATIVE.read_text(encoding="utf-8")
-    for name in ("db_query", "db_review", "db_verify_against_file", "db_build_from_file",
+    for name in ("db_query_agent", "db_review", "db_verify_against_file", "db_build_from_file",
                  "db_dashboard", "db_rename_column", "db_plan_from_file"):
         start = text.index(f"def {name}(")
         end = text.index(") -> str:", start)

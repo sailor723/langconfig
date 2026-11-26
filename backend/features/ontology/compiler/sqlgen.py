@@ -125,6 +125,8 @@ class Metric:
     where: str | None = None
     group_by: list[str] = field(default_factory=list)
     time_bucket: str | None = None     # ":timeBucket \"week\"" — a declared time axis
+    refusal: str | None = None         # ":refusalReason \"…\"" — a DECLARED refusal (not a bug)
+    time_column: str | None = None     # ":timeColumn \"o_orderdate\"" — THIS metric's axis, pinned
     numerator: str | None = None
     denominator: str | None = None
     scale: str | None = None          # multiply a ratio (e.g. "100.0" for a percentage)
@@ -151,7 +153,12 @@ def metrics(g: Graph) -> dict[str, Metric]:
     for s, _, _ in g.triples((None, RDF.type, OWL.DatatypeProperty)):
         formula = _one(g, s, P("formula"))
         aggregate = _one(g, s, P("aggregate"))
-        if not (formula or aggregate):
+        refusal = _one(g, s, P("refusalReason"))
+        # A DECLARED REFUSAL is a menu entry: the question must resolve to it and then be refused
+        # by name. Before this, a refused number was either absent from the menu (so a question fell
+        # through to the nearest metric and got a plausible wrong answer — measured: 毛利率 →
+        # grossRevenue) or a prose note nobody consulted.
+        if not (formula or aggregate or refusal):
             continue
         m = Metric(
             name=_local(s), domain=_local(next(iter(g.objects(s, RDFS.domain)), None)),
@@ -167,11 +174,14 @@ def metrics(g: Graph) -> dict[str, Metric]:
             numerator=_local(next(iter(g.objects(s, P("numerator"))), None)),
             denominator=_local(next(iter(g.objects(s, P("denominator"))), None)),
             scale=_one(g, s, P("scale")),
+            refusal=refusal,
+            time_column=_one(g, s, P("timeColumn")),
         )
-        for fieldname, required in (("formula", "formula"), ("grain", "grain"),
-                                    ("universe", "universe")):
-            if getattr(m, fieldname) is None:
-                m.missing.append(f":{required}")
+        if not refusal:
+            for fieldname, required in (("formula", "formula"), ("grain", "grain"),
+                                        ("universe", "universe")):
+                if getattr(m, fieldname) is None:
+                    m.missing.append(f":{required}")
         out[m.name] = m
     return out
 
@@ -768,6 +778,11 @@ def apply_dimension_filters(g: Graph, sql: str, grain_cls: str,
 
 def compile_metric(g: Graph, name: str, *, customer_id=None, since=None, until=None,
                    dim_filters: dict[str, object] | None = None) -> Compiled:
+    # A DECLARED refusal is answered before any SQL is attempted: the ontology says this number is
+    # not computable and *why*, so the compiler repeats the sentence instead of inventing a path.
+    declared = _one(g, P(name), P("refusalReason"))
+    if declared:
+        raise Refusal(str(declared).strip())
     raw = _compile_metric_raw(g, name)
     filters = {k: v for k, v in (("customer_id", customer_id), ("since", since),
                                  ("until", until)) if v is not None}
@@ -967,12 +982,59 @@ def _compile_grouped_metric(g: Graph, m: Metric) -> Compiled:
                       f"{list(TIME_BUCKETS)} — refusing rather than passing the word through "
                       f"to date_trunc and failing at run time")
     bucket_key = None
+    bucket_owner = None
     if bucket:
-        own_col, why = time_column(g, grain)
-        if not own_col:
-            raise Refusal(f":{name} declares :timeBucket {bucket!r} but {why} — a time series "
-                          f"needs a bucketable column on the grain itself")
-        bucket_key = f"date_trunc('{bucket}', {grain_table}.{own_col})"
+        # AN EXPLICITLY PINNED AXIS WINS. `:timeColumn "o_orderdate"` on the metric says which column
+        # this series is about; without it two metrics on the same grain could only ever share one
+        # axis, and "revenue by order month" silently became "revenue by ship month" (measured: 84
+        # rows to 1998-12 where the decision said 80 rows to 1998-08).
+        if m.time_column:
+            # the pinned value is a PHYSICAL COLUMN name, so look for it among each class's
+            # declarations rather than among their property names
+            owners = [(cls, m.time_column) for cls in paths
+                      if m.time_column in set(class_columns(g, cls).values())]
+            if not owners:
+                raise Refusal(f":{name} pins :timeColumn {m.time_column!r}, which is no column of "
+                              f":{grain} or of any class reachable through declared relationships "
+                              f"({sorted(paths)}) — refusing rather than falling back to another axis")
+            nearest = min(len(paths[cls].get("edges") or []) for cls, _ in owners)
+            nearest_owners = [(cls, col) for cls, col in owners
+                              if len(paths[cls].get("edges") or []) == nearest]
+            if len(nearest_owners) > 1:
+                raise Refusal(f":{name} pins :timeColumn {m.time_column!r}, owned by "
+                              f"{[c for c, _ in nearest_owners]} at the same distance — ambiguous")
+            bucket_owner, bucket_col = nearest_owners[0]
+            bucket_key = f"date_trunc('{bucket}', {table_of(g, bucket_owner)}.{bucket_col})"
+        own_col, why = (None, "") if bucket_key else time_column(g, grain)
+        if bucket_key:
+            pass                                   # pinned above
+        elif own_col:
+            bucket_owner = grain
+            bucket_key = f"date_trunc('{bucket}', {grain_table}.{own_col})"
+        else:
+            # ONE HOP OUT, AND ONLY WHEN IT IS UNAMBIGUOUS. A metric on a detail row whose time axis
+            # lives on its parent ("revenue by ORDER month") is a legitimate question; refusing it
+            # outright pushed builders into re-graining the metric, which loses the row-level figure.
+            # The candidate set is every class reachable through a DECLARED relationship that names
+            # its own :timeColumn; two candidates at the shortest distance would be an ambiguity, so
+            # that case is refused by name rather than picked.
+            candidates: dict[int, list[tuple[str, str]]] = {}
+            for cls, path in paths.items():
+                if cls == grain:
+                    continue
+                col, _why = time_column(g, cls)
+                if col:
+                    candidates.setdefault(len(path.get("edges") or []), []).append((cls, col))
+            if not candidates:
+                raise Refusal(f":{name} declares :timeBucket {bucket!r} but {why} — and no class "
+                              f"reachable from :{grain} declares a :timeColumn")
+            nearest = min(candidates)
+            if len(candidates[nearest]) > 1:
+                raise Refusal(f":{name} declares :timeBucket {bucket!r} but {why}; {nearest} hop(s) "
+                              f"away there are {len(candidates[nearest])} classes with a :timeColumn "
+                              f"({[c for c, _ in candidates[nearest]]}) — ambiguous, refusing")
+            bucket_owner, bucket_col = candidates[nearest][0]
+            bucket_key = f"date_trunc('{bucket}', {table_of(g, bucket_owner)}.{bucket_col})"
 
     tables: dict[str, str] = {grain: grain_table}
     join_edges: list[tuple[str, str, list, list, list]] = []
@@ -988,6 +1050,8 @@ def _compile_grouped_metric(g: Graph, m: Metric) -> Compiled:
 
     for _, owner, _ in groups:
         add_joins_for(owner)
+    if bucket_owner and bucket_owner != grain:
+        add_joins_for(bucket_owner)          # the time axis one hop out needs its own join
     # a `:where` class may have no axiom at all (a declared predicate): then its columns are
     # the GRAIN's own columns, so the predicate is qualified against the grain table. Without
     # this the grouped path looked up ``tables[None]`` and raised KeyError instead of compiling.

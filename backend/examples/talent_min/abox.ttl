@@ -1,0 +1,28 @@
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+# ─────────────────────────────────────────────────────────────────────────────
+# ABox：《事实》—— 只有断言：某个人会什么、几年。一条「合格」都没有。
+# ─────────────────────────────────────────────────────────────────────────────
+@prefix : <http://example.org/talent#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# 技能是个体，各自属于一个类别（类别在 tbox.ttl 里声明）
+:SolidWorks a :CAD .
+:Excel      a :SpreadsheetSkill .
+:English    a :LanguageSkill .
+:CAD通用     a :CAD .
+
+# 3 份简历 = 3 个个体
+:cand_A a :Candidate ;
+    rdfs:label "A 君（会 SolidWorks，5 年）" ;
+    :hasSkill :SolidWorks , :English ;
+    :yearsExperience 5 .
+
+:cand_B a :Candidate ;
+    rdfs:label "B 君（只会 Excel，8 年）" ;
+    :hasSkill :Excel , :English ;
+    :yearsExperience 8 .
+
+:cand_C a :Candidate ;
+    rdfs:label "C 君（会 CAD，只有 1 年）" ;
+    :hasSkill :CAD通用 ;
+    :yearsExperience 1 .

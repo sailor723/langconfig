@@ -45,8 +45,8 @@ def test_it_holds_the_ask_tool_and_no_way_to_change_the_ontology():
 
 def test_its_ontology_comes_from_skill_parameters_not_from_prose():
     cfg = _agent().config or {}
-    assert cfg.get("skills") == ["answer-ontology-question"], cfg.get("skills")
-    params = (cfg.get("skill_params") or {}).get("answer-ontology-question") or {}
+    assert cfg.get("skills") == ["db-ontology-ask"], cfg.get("skills")
+    params = (cfg.get("skill_params") or {}).get("db-ontology-ask") or {}
     assert params.get("ontology_key"), params
     assert params.get("workbench", "").startswith("http"), params
 
@@ -55,14 +55,14 @@ def test_the_answer_skill_declares_the_parameters_the_agent_supplies():
     import pathlib
     from core.skills import params as sp
     base = pathlib.Path(__file__).resolve().parents[1] / "skills" / "builtin"
-    declared = sp.declared(base / "answer-ontology-question" / "SKILL.md")
+    declared = sp.declared(base / "db-ontology-ask" / "SKILL.md")
     assert "ontology_key" in declared
     cfg = _agent().config or {}
     values, problems = sp.resolve(None, cfg.get("skills") or [], cfg.get("skill_params") or {},
                                  cfg)
     assert problems == [], problems
-    assert values["answer-ontology-question"]["ontology_key"] == params_key(cfg)
+    assert values["db-ontology-ask"]["ontology_key"] == params_key(cfg)
 
 
 def params_key(cfg):
-    return (cfg.get("skill_params") or {}).get("answer-ontology-question", {}).get("ontology_key")
+    return (cfg.get("skill_params") or {}).get("db-ontology-ask", {}).get("ontology_key")

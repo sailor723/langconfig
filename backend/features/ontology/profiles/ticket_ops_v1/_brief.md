@@ -1,14 +1,14 @@
-# orders_demo_v1
+# ticket_ops_v1
 
-登记于 2026-11-25T13:28:52Z，由 `ontology_register` 写入。
+登记于 2026-11-25T08:23:29Z，由 `ontology_register` 写入。
 
 | 事实 | 值 |
 |---|---|
-| 客户给的名字 | `orders_demo` |
-| 本体 key（平台给版本） | `orders_demo_v1` |
-| 数据库 | `orders_demo_xlsx` |
-| 主题 | 订单与回款（按城市） |
-| 存在形式 | customer |
+| 客户给的名字 | `ticket_ops` |
+| 本体 key（平台给版本） | `ticket_ops_v1` |
+| 数据库 | `ticket_ops_xlsx` |
+| 主题 | 客服工单运营 |
+| 存在形式 | trial |
 
 ## 这份文件是什么
 

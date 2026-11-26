@@ -38,12 +38,35 @@ ID_LIKE = ("id", "_id", "code", "no", "num")
 
 # ── profiling ───────────────────────────────────────────────────────────────
 
-def _connect(db_name: str, host="", port=0, user="", password=""):
+def _connect(db_name: str, host="", port=0, user="", password="", **_redundant):
+    """Open a connection to `db_name` from what the caller already resolved.
+
+    This used to round-trip through `_pg_conn_kwargs`, and both trips were wrong:
+
+    * it passed `password` POSITIONALLY into a signature where it is keyword-only, so it landed in
+      `dbname` — `TypeError: got multiple values for argument 'dbname'` on every call;
+    * after that was fixed it fed the resolved password back INTO `_pg_conn_kwargs`, which refuses a
+      password argument by design ("a database password is not a tool argument: it would be written
+      into the transcript") — an internal plumbing detail tripping an agent-facing guard.
+
+    The tool wrapper has already resolved host/port/user/password through `_pg_conn_kwargs`
+    (agent binding → env → platform default). So build the psycopg2 params directly, and let libpq's
+    own PG* env fill anything left blank (that is what the run-scoped binding exports).
+
+    `**_redundant` swallows the `dbname` key the wrapper forwards — the database is already `db_name`.
+    """
     import psycopg2
 
-    from tools.native_impl import _pg_conn_kwargs
-
-    return psycopg2.connect(**_pg_conn_kwargs(host, port, user, password, dbname=db_name))
+    params: dict = {"dbname": db_name}
+    if host:
+        params["host"] = host
+    if port:
+        params["port"] = int(port)
+    if user:
+        params["user"] = user
+    if password:
+        params["password"] = password
+    return psycopg2.connect(**params)
 
 
 def profile(db_name: str, **conn) -> dict:
@@ -167,7 +190,11 @@ def table_dims(tables, is_log):
 
 # ── the cube: one grouped query, every figure derived from it ───────────────
 
-def cube(prof: dict) -> dict:
+def cube(prof: dict, **conn) -> dict:
+    """The one cube query every figure comes from. `**conn` must be threaded through: without it every
+    internal query falls back to libpq defaults (:5432) and the tool fails on a database that "does not
+    exist" even though the connection was resolved correctly a few lines above."""
+
     fact, chain = prof["fact"], prof["chain"]
     if not fact:
         return {"rows": [], "levels": [], "measure": None, "time": None}
@@ -196,7 +223,7 @@ def cube(prof: dict) -> dict:
     group_sql = ", ".join(groups)
     sql = (f'select {", ".join(selects)} from "{fact}" {bridge_join} {" ".join(joins)} '
            + (f'group by {group_sql} ' if group_sql else '') + 'order by 1')
-    cnn = _connect(prof["db"])
+    cnn = _connect(prof["db"], **conn)
     try:
         cur = cnn.cursor()
         cur.execute(sql)
@@ -441,18 +468,106 @@ def _plan_text(prof: dict, cub: dict) -> str:
     return "\n".join(lines)
 
 
+#: 本体 profile 的根目录。`<key>/<key>_settings.json` 里的 `dsn.dbname` 说明这份本体落在哪个库上，
+#: 同目录的 `dashboard.json` 才是"发布过的看板"。两个信息合起来才能回答：**这个库是否已经有一份
+#: 权威看板**——如果有，这张即时渲染的板就不能冒充它。
+PROFILES_DIR = Path(__file__).resolve().parents[1] / "features" / "ontology" / "profiles"
+
+
+def governed_boards(db_name: str, profiles_dir: Path | None = None) -> list[dict]:
+    """Published ontology boards whose dsn points at `db_name`.
+
+    Returns ``[{profile, title, metrics}]`` — empty means "nothing governs this database yet", which is
+    the normal case for an exploratory board.
+    """
+    root = Path(profiles_dir or PROFILES_DIR)
+    if not root.is_dir():
+        return []
+    found = []
+    wanted = (db_name or "").strip().lower()
+    for settings_file in sorted(root.glob("*/*_settings.json")):
+        try:
+            settings = json.loads(settings_file.read_text(encoding="utf-8"))
+        except Exception:                                  # noqa: BLE001 — a broken profile must not break rendering
+            continue
+        dsn = settings.get("dsn") or {}
+        dsn_db = str(dsn.get("dbname") or "").strip().lower()
+        if not wanted or dsn_db != wanted:
+            continue
+        dash_file = settings_file.parent / "dashboard.json"
+        if not dash_file.is_file():
+            continue
+        try:
+            dash = json.loads(dash_file.read_text(encoding="utf-8"))
+        except Exception:                                  # noqa: BLE001
+            continue
+        metrics = [k.get("metric") for k in (dash.get("kpis") or []) if k.get("metric")]
+        metrics += [pan.get("metric") for pan in (dash.get("panels") or []) if pan.get("metric")]
+        found.append({
+            "profile": settings_file.parent.name,
+            "title": str(dash.get("title") or settings_file.parent.name),
+            "metrics": [m for m in metrics if m],
+        })
+    return found
+
+
+def _norm(text: str) -> str:
+    return "".join(ch for ch in str(text or "").lower() if ch.isalnum())
+
+
+def collides_with_governed(db_name: str, measure: str, profiles_dir: Path | None = None) -> list[str]:
+    """Metric ids of a published board that the exploratory measure is naming.
+
+    Name equality only — the honest limit of a mechanical check. What it catches is the case this guard
+    exists for: the same KPI written under the same name by both paths. The banner covers the rest."""
+    boards = governed_boards(db_name, profiles_dir)
+    mine = _norm(measure)
+    if not mine:
+        return []
+    hits = []
+    for b in boards:
+        for m in b["metrics"]:
+            if _norm(m) and _norm(m) == mine:
+                hits.append(f"{b['profile']}:{m}")
+    return hits
+
+
 def plan(db_name: str, **conn) -> str:
     prof = profile(db_name, **conn)
-    return _plan_text(prof, cube(prof))
+    return _plan_text(prof, cube(prof, **conn))
 
 
 # ── rendering ───────────────────────────────────────────────────────────────
 
 def render(db_name: str, out_path: str | Path, title: str = "", **conn) -> str:
     prof = profile(db_name, **conn)
-    cub = cube(prof)
+    cub = cube(prof, **conn)
+
+    # ── identity ────────────────────────────────────────────────────────────
+    # There are TWO ways to draw a board over a database: this one (profile the schema now, render once,
+    # numbers derived on the spot) and the ontology pipeline (`dashboard.json` + `check_dashboard` gates,
+    # metrics defined once). They are allowed to coexist, but a board that looks identical must not be
+    # mistaken for the published one — the same KPI can otherwise carry two numbers and both look official.
+    boards = governed_boards(db_name)
+    hits = collides_with_governed(db_name, str(cub.get("measure") or ""))
+    if hits:
+        return ("REFUSED: 这个度量与已发布看板的本体口径同名，不能在本工具里再算一遍 ——\n  "
+                + "\n  ".join(hits)
+                + "\n用本体工作台看那份（数字由 `check_dashboard` 门禁校验过），"
+                  "或者把这一次改成别的度量名再试。")
+    out = Path(out_path)
+    if boards:
+        # Never write over / beside the governed board's name: the workspace has to make the difference
+        # visible from the filename alone.
+        out = out.with_name(out.stem.replace("_dashboard", "") + "_explore.html")
+
+    banner = ""
+    if boards:
+        banner = ("此库已有发布看板：" + "、".join(f"{b['profile']}（{b['title']}）" for b in boards)
+                  + "。本页是**探索性**的一次性渲染（口径即时推导、未过门禁），同一 KPI 以那份为准。")
     data = {"db": db_name, "title": title or f"{db_name} · dashboard",
             "generated": dt.datetime.now().isoformat(timespec="seconds"),
+            "exploratory": True, "governed_boards": boards, "banner": banner,
             "levels": cub.get("level_names") or [], "measure": cub.get("measure"),
             "time": cub.get("time"), "rows": cub.get("rows") or [], "columns": cub.get("columns") or [],
             "sql": cub.get("sql") or "",
@@ -465,25 +580,25 @@ def render(db_name: str, out_path: str | Path, title: str = "", **conn) -> str:
     html = (_HTML.replace("/*__D3__*/", d3)
                  .replace("/*__DATA__*/", json.dumps(data, ensure_ascii=False))
                  .replace("__TITLE__", data["title"]))
-    out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding="utf-8")
 
     # self-verify: the page's own totals must equal a fresh query
-    problems = verify(db_name, data)
+    problems = verify(db_name, data, **conn)
     if problems:
         return f"Error: rendered, but the numbers do not match the database:\n" + "\n".join(problems)
     findings = "\n".join(f"- {f['kind']}｜{f['title']}" for f in data["insights"])
-    return (f"wrote {out} ({len(html) // 1024} KB, {len(data['rows'])} cube rows, "
+    head = (f"[探索性看板 · 未治理] {banner}\n" if banner else "[探索性看板 · 未治理] 本页口径现场推导，未过本体门禁。\n")
+    return (head + f"wrote {out} ({len(html) // 1024} KB, {len(data['rows'])} cube rows, "
             f"{len(data['insights'])} management findings)\n### 管理层视角\n{findings}\n" + _plan_text(prof, cub))
 
 
-def verify(db_name: str, data: dict) -> list:
+def verify(db_name: str, data: dict, **conn) -> list:
     """Every figure on the page comes from `rows`; re-derive the totals from the database."""
     problems = []
     rows = data.get("rows") or []
     total = sum(r[-2] for r in rows) if rows else 0
-    cnn = _connect(db_name)
+    cnn = _connect(db_name, **conn)
     try:
         cur = cnn.cursor()
         cur.execute(data["sql"].split(" order by ")[0])
@@ -554,7 +669,8 @@ function hover(el, html){ el.on('mousemove', e=>{tip.style.opacity=1;tip.innerHT
 const fmt = n => (n==null?'—':Number(n).toLocaleString(undefined,{maximumFractionDigits:1}));
 
 document.getElementById('title').textContent = D.title;
-document.getElementById('meta').textContent = `${D.db} · 生成 ${D.generated} · 度量 ${D.measure||'—'}`;
+document.getElementById('meta').textContent = `${D.db} · 生成 ${D.generated} · 度量 ${D.measure||'—'} · 探索性（未治理）`;
+if (D.banner) { const b = document.getElementById('banner'); b.textContent = D.banner; b.style.display = 'block'; }
 
 // rows: [l0..l3..., (period?), amount, n]
 const nLevels = D.levels.length;

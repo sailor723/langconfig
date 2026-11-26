@@ -69,7 +69,7 @@ def test_a_prompt_that_disagrees_with_the_installed_profile_fails():
     """The check that would have caught 378 before anyone ran it."""
     fails, _ = _audit_module().audit({
         "system_prompt": "`" + GOOD_DSN.replace('"meeting_hub"', '"sunhing"') + "`",
-        "skill_params": {"build-ontology-from-db": {"ontology_key": "sunhing_v1"}},
+        "skill_params": {"db-ontology-build": {"ontology_key": "sunhing_v1"}},
     })
     assert any("dbname" in f and "sunhing_kpi" in f for f in fails), fails
 

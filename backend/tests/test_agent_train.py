@@ -99,12 +99,12 @@ def test_a_skill_with_no_skill_md_is_an_error(trainer):
 
 def test_config_compiles_interrupts_and_defaults(trainer):
     config = trainer.build_config({
-        "name": "t", "native_tools": ["list_files"], "skills": ["sql-analyst"],
+        "name": "t", "native_tools": ["list_files"], "skills": ["db-sql-analyst"],
         "interrupts": {"db_build_from_file": {"allowed_decisions": ["approve", "reject"]}},
         "use_local_sandbox": False,
     })
     assert config["native_tools"] == ["list_files"]
-    assert config["skills"] == ["sql-analyst"]
+    assert config["skills"] == ["db-sql-analyst"]
     assert config["guardrails"]["interrupts"]["db_build_from_file"]["allowed_decisions"] == ["approve", "reject"]
     assert config["use_local_sandbox"] is False
     assert config["temperature"] == 0.2 and config["recursion_limit"] == 60
@@ -112,7 +112,7 @@ def test_config_compiles_interrupts_and_defaults(trainer):
 
 def test_the_diff_names_every_changed_field(trainer):
     previous = {"model": "a", "native_tools": ["x"], "skills": []}
-    config = {"model": "b", "native_tools": ["x", "list_files"], "skills": ["sql-analyst"],
+    config = {"model": "b", "native_tools": ["x", "list_files"], "skills": ["db-sql-analyst"],
               "guardrails": {"interrupts": {}}}
     lines = "\n".join(trainer.summarise(config, previous))
     assert "model" in lines and "native_tools" in lines and "skills" in lines

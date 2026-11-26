@@ -71,14 +71,17 @@ def test_an_unknown_verb_is_refused_rather_than_guessed(sql):
 
 
 def test_read_only_sql_is_allowed_here_too():
-    """The tool is not read-only, but a SELECT must not be refused: `db_query` is the better door, and a
+    """The tool is not read-only, but a SELECT must not be refused: `db_query_agent` is the better door, and a
     refusal here would send the agent looking for a workaround."""
     assert D.validate_statement("select count(*) from demo").startswith("select")
 
 
-def test_the_platform_database_is_refused_by_ARGUMENT_not_by_text(monkeypatch):
+def test_DDL_on_the_platform_database_is_refused_by_ARGUMENT_not_by_text(monkeypatch):
     """A `DROP TABLE deep_agent_templates` never mentions the database name — the target is the ARGUMENT,
-    so that is what the guard must inspect (the first version looked only at the SQL text and let it pass)."""
+    so that is what the guard must inspect (the first version looked only at the SQL text and let it pass).
+
+    The rule is "row-level DML on the platform is allowed, DDL on it is not" — one door, two verbs.
+    """
     monkeypatch.setenv("POSTGRES_DB", "langconfig")
     with pytest.raises(D.DbAdminError) as exc:
         D.execute("langconfig", "DROP TABLE deep_agent_templates", confirm=True)
@@ -89,10 +92,35 @@ def test_the_platform_database_is_refused_by_ARGUMENT_not_by_text(monkeypatch):
     monkeypatch.setattr(D, "_conn_kwargs", boom)
     with pytest.raises(D.DbAdminError):
         D.execute("langconfig", "truncate deep_agent_templates", confirm=True)
+    with pytest.raises(D.DbAdminError):
+        D.execute("langconfig", "create table zz (i int)", confirm=True)
+    with pytest.raises(D.DbAdminError):
+        D.execute("langconfig", "alter table deep_agent_templates add column zz int", confirm=True)
 
     # …and a table whose NAME merely starts with the platform database's name is NOT refused: the
     # argument decided, not a substring. (The first version searched the text and would have refused
     # `langconfig_export` while letting the real thing through.)
+
+
+def test_row_level_DML_on_the_platform_database_is_allowed(monkeypatch):
+    """Operators really do fix a tool flag or a settings row by hand; refusing that was what kept a whole
+    second write tool alive for three verbs that fit in one rule."""
+    monkeypatch.setenv("POSTGRES_DB", "langconfig")
+    for sql in ("insert into custom_tools (tool_id, name) values ('x', 'x')",
+                "update custom_tools set is_deprecated = true where tool_id = 'x'",
+                "delete from custom_tools where tool_id = 'x'"):
+        out = D.execute("langconfig", sql)                       # plan phase: no connection
+        assert out["ok"] is True and out["confirmed"] is False
+        assert out["kind"] == "dml", f"{sql!r} should be classified as row-level DML"
+
+
+def test_a_platform_statement_that_is_not_DML_is_still_refused(monkeypatch):
+    """`;` stacking is owned by validate_statement, platform DDL by the test above. Nothing else may sneak
+    in: a platform-DB statement that is not one of the three DML verbs is still refused."""
+    monkeypatch.setenv("POSTGRES_DB", "langconfig")
+    for sql in ("grant all on custom_tools to public", "vacuum full", "select 1"):
+        with pytest.raises(D.DbAdminError):
+            D.execute("langconfig", sql, confirm=True)
 
 
 def test_the_template_databases_are_never_written():

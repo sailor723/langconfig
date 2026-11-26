@@ -43,23 +43,23 @@ from sqlalchemy import text  # noqa: E402
 # What each agent MUST be, minimal and non-negotiable. Everything not listed is left alone.
 EXPECTED = {
     "Ontology Builder (TPC-H / clinic)": {
-        "skills": ["build-ontology-from-db"],
-        "skill_params": {"build-ontology-from-db": {"datasource": "clinic", "ontology_key": "clinic"}},
+        "skills": ["db-ontology-build"],
+        "skill_params": {"db-ontology-build": {"datasource": "clinic", "ontology_key": "clinic"}},
         "datasource": "clinic",
     },
     "Ontology Builder (logistics)": {
         # + generate-mock-dataset: this is the one builder whose database is SYNTHETIC, so it must be
         # able to (re)generate it and re-verify the story's claims before it declares anything.
-        "skills": ["build-ontology-from-db", "generate-mock-dataset"],
-        "skill_params": {"build-ontology-from-db": {"datasource": "logistics",
+        "skills": ["db-ontology-build", "generate-mock-dataset"],
+        "skill_params": {"db-ontology-build": {"datasource": "logistics",
                                                    "ontology_key": "logistics"},
                          "generate-mock-dataset": {"dataset_name": "abc_coldchain",
                                                    "generator": "retail_graph/abc/gen_abc.py"}},
         "datasource": "logistics",
     },
     "logics_query": {
-        "skills": ["answer-ontology-question"],
-        "skill_params": {"answer-ontology-question": {"ontology_key": "logistics",
+        "skills": ["db-ontology-ask"],
+        "skill_params": {"db-ontology-ask": {"ontology_key": "logistics",
                                                      "workbench": "http://127.0.0.1:8098"}},
     },
     # The two skills as their own agents: one turns a story into a checked dataset, the other turns an
@@ -80,23 +80,23 @@ EXPECTED = {
         # One builder per ontology key. The key is baked into `skill_params`, so a new key means a new agent
         # — and this row is what makes that visible instead of a note in someone's shell history.
         # (This agent was born as "doc_demo"; renamed when the confirmed dataset name became new_coldchain.)
-        "skills": ["build-ontology-from-db"],
-        "skill_params": {"build-ontology-from-db": {"datasource": "new_coldchain",
+        "skills": ["db-ontology-build"],
+        "skill_params": {"db-ontology-build": {"datasource": "new_coldchain",
                                                    "ontology_key": "new_coldchain"}},
         "datasource": "new_coldchain",
     },
     "Dashboard Agent": {
-        "skills": ["build-ontology-dashboard"],
-        "skill_params": {"build-ontology-dashboard": {"ontology_key": "logistics"}},
+        "skills": ["db-ontology-dashboard"],
+        "skill_params": {"db-ontology-dashboard": {"ontology_key": "logistics"}},
     },
     "Ontology Editor": {
-        # + build-ontology-dashboard: the board is a declaration over the metrics this agent authors,
+        # + db-ontology-dashboard: the board is a declaration over the metrics this agent authors,
         # so authoring the metric and authoring the panel must not be two different skills' business.
-        "skills": ["edit-ontology-metrics", "answer-ontology-question", "build-ontology-dashboard"],
-        "skill_params": {"edit-ontology-metrics": {"ontology_key": "logistics"},
-                         "answer-ontology-question": {"ontology_key": "logistics",
+        "skills": ["db-ontology-metrics", "db-ontology-ask", "db-ontology-dashboard"],
+        "skill_params": {"db-ontology-metrics": {"ontology_key": "logistics"},
+                         "db-ontology-ask": {"ontology_key": "logistics",
                                                       "workbench": "http://127.0.0.1:8098"},
-                         "build-ontology-dashboard": {"ontology_key": "logistics"}},
+                         "db-ontology-dashboard": {"ontology_key": "logistics"}},
     },
 }
 

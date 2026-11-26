@@ -10,7 +10,7 @@ A query agent that can also publish is a query agent whose answers you cannot tr
 that the number came from declarations nobody touched at answer time. So this agent gets `ontology_ask`
 and read-only tools, and no publish tool at all.
 
-Its parameters live on the skill (`answer-ontology-question` declares `ontology_key` and `workbench`), and
+Its parameters live on the skill (`db-ontology-ask` declares `ontology_key` and `workbench`), and
 `core/skills/params.py` renders them into the prompt and writes `/skills/…/params.json` — the same
 mechanism the editors use, so "which ontology does this agent answer for" is configuration, not prose.
 
@@ -127,8 +127,8 @@ CONFIG = {
     # available it still opened every turn with "我先看一眼工作区状态" + `ls`, and `execute` is the path by
     # which an agent can bypass the ontology with a psql query.
     "native_tools": ["ontology_ask", "ontology_inspect", "read_file"],
-    "skills": ["answer-ontology-question"],
-    "skill_params": {"answer-ontology-question": {"ontology_key": "logistics",
+    "skills": ["db-ontology-ask"],
+    "skill_params": {"db-ontology-ask": {"ontology_key": "logistics",
                                                   "workbench": "http://127.0.0.1:8098"}},
     "use_deepagents": True,
     # NO local sandbox, on purpose: deepagents ALWAYS injects its FilesystemMiddleware (ls / read_file /

@@ -208,7 +208,12 @@
   function makeToolbar(wrap) {
     const bar = document.createElement("div");
     bar.className = "graph-toolbar";
-    bar.innerHTML = '<span class="gtitle">Objects &amp; lineage</span>' +
+    // The heading belongs to the PAGE, not to this shared asset: retail's page says
+    // "Objects & lineage"; a TBox/ABox lesson says something else. The page may set it with
+    // `data-graph-title` on the mini-graph container; without it, the old wording stays.
+    const holder = document.getElementById("mini-graph");
+    const title = (holder && holder.dataset.graphTitle) || "Objects & lineage";
+    bar.innerHTML = '<span class="gtitle">' + title + '</span>' +
       '<span class="grow"></span>' +
       '<button data-z="out" title="zoom out">−</button>' +
       '<button data-z="in" title="zoom in">+</button>' +

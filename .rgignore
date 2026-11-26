@@ -1,0 +1,36 @@
+# What a shell `grep`/`rg` in this repo should never walk into.
+#
+# Measured 2026-11-26: an ontology build ran 130 shell commands, 11 of them `grep -rn … .` over the
+# whole repository. The tree holds 1.1 GB of virtualenv, 518 MB of agent workspaces, 423 MB of
+# node_modules and 76 `__pycache__` directories — so those greps read megabytes to answer a
+# question about ~40 source files, and the hit lists were full of noise the model then had to
+# filter by hand (`| grep -v .venv`).
+#
+# ripgrep honours this file; `rg` and modern `grep -r` both get faster and quieter.
+
+# python / js build artefacts
+backend/.venv/
+node_modules/
+dist/
+**/__pycache__/
+*.pyc
+backend/pytest_cache/
+
+# runtime workspaces and generated output: agent transcripts, uploaded files, per-user data
+backend/outputs/
+backend/generated/
+backend/logs/
+
+# ontology runtime state: staging trees, backups, retired keys (huge, and never the answer)
+**/.staging/
+**/.backup/
+**/.bak/
+backend/features/ontology/profiles/.archive/
+
+# data / dumps / artefacts
+backend/data/
+*.sqlite
+*.db
+*.dump
+*.sql.gz
+*.log

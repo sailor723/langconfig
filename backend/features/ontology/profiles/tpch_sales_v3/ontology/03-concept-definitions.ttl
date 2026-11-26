@@ -8,14 +8,14 @@
 # 按编译器认的形态补上定义，不新增口径、不改任何既有声明：
 #   OWL 无法表达「一列比另一列」，所以这两条用 :physicalPredicate 声明，
 #   基类是 :LineItem（谓词里的列都在 lineitem 上），表由 :LineItem 的 :physicalTable 决定。
-# 出处：02-meaning.ttl :LateShippedLines / :LateDeliveredLines 的 :grain 与 :definition（Q11、Q10）。
+# 出处：02-meaning.ttl :LateShippedLine / :LateDeliveredLine 的 :grain 与 :definition（Q11、Q10）。
 
-:LateShippedLines a owl:Class ;
+:LateShippedLine a owl:Class ;
     rdfs:label "lateShippedLines（迟交行：l_shipdate > l_commitdate）" ;
     rdfs:subClassOf :LineItem ;
     :physicalPredicate "l_shipdate > l_commitdate" .
 
-:LateDeliveredLines a owl:Class ;
+:LateDeliveredLine a owl:Class ;
     rdfs:label "lateDeliveredLines（到货晚行：l_receiptdate > l_commitdate）" ;
     rdfs:subClassOf :LineItem ;
     :physicalPredicate "l_receiptdate > l_commitdate" .

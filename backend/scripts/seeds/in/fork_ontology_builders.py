@@ -58,7 +58,7 @@ def _builders() -> list[dict]:
         out = []
         for row in rows:
             cfg = row.config or {}
-            params = (cfg.get("skill_params") or {}).get("build-ontology-from-db") or {}
+            params = (cfg.get("skill_params") or {}).get("db-ontology-build") or {}
             key = str(params.get("ontology_key") or "").strip()
             ds = str(cfg.get("datasource") or params.get("datasource") or "").strip()
             if key and ds:

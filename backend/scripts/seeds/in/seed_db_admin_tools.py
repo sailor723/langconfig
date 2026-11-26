@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Seed the three DB-management BUILTIN tools: `db_list_databases`, `db_describe`, `db_execute`.
+"""Seed the two DB-management BUILTIN tools: `db_describe` (databases → tables → columns) and `db_execute`.
+
+The third one, `db_list_databases`, was folded into `db_describe(db_name="")`: listing databases and
+describing one are the same discovery question, and two doors onto it is what §8 of db-tools-review.md
+is about.
 
 Why builtins: they write to (or introspect) databases the platform's own client speaks to, and a seeded
 builtin row runs with the full namespace while a UI-created tool does not. The LOGIC lives in
@@ -65,12 +69,28 @@ def db_list_databases(with_objects: bool = True) -> str:
 '''
 
 DESCRIBE_CODE = r'''# --- imports ---
-def db_describe(db_name: str, table: str = "") -> str:
-    """Tables of any database (with row estimates), or one table's columns, indexes and constraints."""
+def db_describe(db_name: str = "", table: str = "", ontology_key: str = "") -> str:
+    """Tables of any database (with row estimates), or one table's columns — and with NO database name,
+    the server's databases (this absorbed `db_list_databases`: enumerating databases and describing one
+    were two doors onto the same discovery question)."""
     from services import db_admin
 
+    if not (db_name or "").strip():
+        try:
+            out = db_admin.list_databases(with_objects=False, ontology_key=ontology_key)
+        except db_admin.DbAdminError as exc:
+            return f"REFUSED: {exc}"
+        except Exception as exc:                                # noqa: BLE001
+            return f"ERROR: {type(exc).__name__}: {exc}"
+        lines = [f"{out['count']} database(s) on this server:", ""]
+        for d in out["databases"]:
+            lines.append(f"- {d['database']:<32} {d['size']:>8}  owner={d['owner']}"
+                         + ("" if d.get("writable", True) else "  [read-only]"))
+        lines += ["", "next: db_describe(db_name=...) for one database's tables."]
+        return "\n".join(lines)
+
     try:
-        out = db_admin.describe(db_name, table)
+        out = db_admin.describe(db_name, table, ontology_key=ontology_key)
     except db_admin.DbAdminError as exc:
         return f"REFUSED: {exc}"
     except Exception as exc:                                    # noqa: BLE001
@@ -96,7 +116,12 @@ def db_describe(db_name: str, table: str = "") -> str:
 
 EXECUTE_CODE = r'''# --- imports ---
 def db_execute(db_name: str, sql: str, confirm: bool = False) -> str:
-    """Run ONE write statement (DDL/DML) against a named database. Two phases: plan, then confirm."""
+    """Run ONE write statement (DDL/DML) against a named database. Two phases: plan, then confirm.
+
+    The platform's own database is accepted for ROW-LEVEL DML only (INSERT/UPDATE/DELETE); DDL on it is
+    refused — that one belongs in psql as an administrator. This is the ONLY write tool: it absorbed
+    the old `pg_execute`, which was deleted (see db-tools-review.md §B).
+    """
     from services import db_admin
 
     try:
@@ -117,19 +142,6 @@ def db_execute(db_name: str, sql: str, confirm: bool = False) -> str:
 
 TOOLS = [
     {
-        "tool_id": "db_list_databases",
-        "name": "DB list databases",
-        "description": ("List every database on this PostgreSQL server — name, size, object count, owner, "
-                        "and whether it may be written. Use it first when asked 'what databases are "
-                        "there?', then db_describe for one of them. Never needs a database argument."),
-        "fn": "db_list_databases",
-        "code": LIST_CODE,
-        "schema": {"with_objects": {"type": "boolean",
-                                    "description": "also count each database's tables (one connection "
-                                                   "each, capped) — default true",
-                                    "default": True}},
-    },
-    {
         "tool_id": "db_describe",
         "name": "DB describe (any database)",
         "description": ("Describe ANY database: without `table` it lists tables/views with row estimates; "
@@ -139,7 +151,9 @@ TOOLS = [
         "fn": "db_describe",
         "code": DESCRIBE_CODE,
         "schema": {
-            "db_name": {"type": "string", "description": "database to describe (see db_list_databases)"},
+            "db_name": {"type": "string",
+                        "description": "database to describe; EMPTY lists the databases on this server "
+                                       "(this absorbed the old db_list_databases)", "default": ""},
             "table": {"type": "string", "description": "one table (empty = list them all)", "default": ""},
         },
     },
@@ -152,7 +166,7 @@ TOOLS = [
                         "and executes nothing; only confirm=true runs it. Refuses, by name: stacked "
                         "statements, server-level verbs (DROP DATABASE, DROP SCHEMA, ALTER SYSTEM, roles, "
                         "grants), the platform's own database, and template0/template1/postgres. "
-                        "NOT for the platform database's rows — that door is `pg_execute` (this tool "
+                        "NOT limited to business databases: row-level DML on the platform is allowed here too (this tool "
                         "refuses the platform database by its db_name argument); NOT for reading — "
                         "`db_query` / `db_describe`."),
         "fn": "db_execute",

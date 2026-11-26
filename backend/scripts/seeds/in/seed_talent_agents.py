@@ -309,7 +309,7 @@ env -u PGPORT .venv/bin/python -m scripts.talent.open_questions --jd <JD> # 待�
 
 ## 切的九层(用户问"为什么他排第 4"要能答)
 
-**唯一权威是 `work/talent/ORDERING.md`**;这里只列顺序,细节去读那份文件。
+**唯一权威是 `work/talent/OVERVIEW.md` 的「排序口径」一节**;这里只列顺序,细节去读那一节。
 
 ```
 ① 硬证据项数(可验证载体:系统/报告/客户审核/图表),按能力去重

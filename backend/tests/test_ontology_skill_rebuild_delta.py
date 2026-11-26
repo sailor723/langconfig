@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-SKILL_DIR = REPO / "backend" / "skills" / "builtin" / "build-ontology-from-db"
+SKILL_DIR = REPO / "backend" / "skills" / "builtin" / "db-ontology-build"
 SKILL = SKILL_DIR / "SKILL.md"
 RULES = SKILL_DIR / "references" / "rules.md"
 PITFALLS = SKILL_DIR / "references" / "pitfalls.md"
@@ -120,7 +120,7 @@ def test_the_skill_lints_itself():
     """`check_skill.py` is the repo's own gate on this file: it must stay at zero problems."""
     if not LINTER.is_file():
         pytest.skip("scripts/check_skill.py is not present")
-    proc = subprocess.run([sys.executable, str(LINTER), "--skill", "build-ontology-from-db"],
+    proc = subprocess.run([sys.executable, str(LINTER), "--skill", "db-ontology-build"],
                           capture_output=True, text=True, timeout=120, cwd=str(REPO / "backend"))
     assert proc.returncode == 0, (proc.stdout or "") + (proc.stderr or "")
     assert "0 problem(s)" in proc.stdout, proc.stdout

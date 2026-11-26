@@ -13,12 +13,12 @@ without configuration (docs/tools-audit.md).
   shell, on-demand skills, document deliverable
 - memory (store/recall) — routed to SimpleMemory; including them enables
   memory for every agent
-- database **read-only**: pg introspection + SELECT (pg_execute is NOT
+- database **read-only**: pg introspection + SELECT (db_execute is NOT
   default — every agent writing the app DB is too risky)
 - analysis: sqlite + python_execute (sandboxed subprocess) + save_analysis_result
 - retrieval: the canonical RAG trio (graphindex_search/load, doc_index_list)
 
-Excluded by design (opt-in): pg_execute (DB writes), browser (heavy
+Excluded by design (opt-in): db_execute (DB writes), browser (heavy
 Playwright), neo4j graph ops + doc-index detail viewers, meta tools
 (create_skill/create_deepagent/task), key-gated tavily_search, gen_pptx,
 and user custom tools.
@@ -71,7 +71,7 @@ DEFAULT_NATIVE_TOOLS: List[str] = [
     # .pdf/.docx) straight into the workspace's generated/ folder, which is what
     # the Files panel lists. (save_document was removed: it wrote the same file
     # plus an agent_documents row that no UI ever read.)
-    # database — read-only (pg_execute stays opt-in)
+    # database — read-only (db_execute stays opt-in)
     "pg_list_tables",
     "pg_describe_table",
     "pg_query",

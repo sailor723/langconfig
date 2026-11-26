@@ -167,10 +167,10 @@ async def main():
             "Reply in Chinese."
         ),
         backend=backend,
-        skills=["sql-analyst"],
+        skills=["db-sql-analyst"],
         checkpointer=checkpointer,
     )
-    print("3. Agent created (sql-analyst skill + Minimax M3)")
+    print("3. Agent created (db-sql-analyst skill + Minimax M3)")
     print("4. Running agent to generate dashboard...")
 
     # ── 5. Determine message ────────────────────────────────────

@@ -1,108 +1,320 @@
-{"samples": [
- {"question": "净收入是多少", "expect": {"metric": "netRevenue", "value": "20535072231.42",
-   "route": "SELECT sum(l_extendedprice*(1-l_discount)) FROM lineitem"},
-  "_why": "Q1：不含税净收入 = Σ ep×(1−disc)；anchor 20,535,072,231.42；第二条路线 = 手写 SQL 直查 lineitem。"},
- {"question": "毛收入是多少", "expect": {"metric": "grossRevenue", "value": "21615929280.24",
-   "route": "SELECT sum(l_extendedprice) FROM lineitem"},
-  "_why": "Σ 未折扣金额 21,615,929,280.24（anchor）；毛收入 − 折扣总额 = 净收入。"},
- {"question": "税额是多少", "expect": {"metric": "taxAmount", "value": "821528941.66",
-   "route": "SELECT sum(l_extendedprice*(1-l_discount)*l_tax) FROM lineitem"},
-  "_why": "税按折后金额计：821,528,941.66（anchor）；netRevenue + taxAmount = Σ含税 21,356,601,173.08。"},
- {"question": "折扣总额是多少", "expect": {"metric": "totalDiscount", "value": "1080857048.83",
-   "route": "SELECT sum(l_extendedprice*l_discount) FROM lineitem"},
-  "_why": "Σ ep×disc = 1,080,857,048.83（anchor）；grossRevenue − totalDiscount = netRevenue。"},
- {"question": "明细行数是多少", "expect": {"metric": "lineItems", "value": "600572",
-   "route": "SELECT count(*) FROM lineitem"},
-  "_why": "600,572（anchor；标准 dbgen SF0.1 为 600,121，差 451 行 —— 本库不是标准 dbgen 产物）；同时是三个比率的分母（Q10）。"},
- {"question": "订单数是多少", "expect": {"metric": "orderCount", "value": "150000",
-   "route": "SELECT count(*) FROM orders"},
-  "_why": "orders 150,000 行（anchor）；每单 4.0038 行明细，与 lineItems 不是一个粒度。"},
- {"question": "客单价是多少", "expect": {"metric": "avgOrderValue", "value": "142377.31", "tolerance": 0.01,
-   "route": "SELECT avg(o_totalprice) FROM orders"},
-  "_why": "avg(o_totalprice) = 142,377.31（anchor）；**不是** Σ净收入÷订单数（136,900.48），两者口径不同。"},
- {"question": "平均行金额是多少", "expect": {"metric": "avgLineValue", "value": "35992.24", "tolerance": 0.01,
-   "route": "SELECT avg(l_extendedprice) FROM lineitem"},
-  "_why": "avg(l_extendedprice) = 35,992.2362（未折扣）；与 ΣgrossRevenue÷600,572 一致到 1 分。"},
- {"question": "退货行数是多少", "expect": {"metric": "returnedLines", "value": "148301",
-   "route": "SELECT count(*) FROM lineitem WHERE l_returnflag='R'"},
-  "_why": "l_returnflag='R' = 148,301（anchor，Q2 只算 R）；A 行 147,790 另立 acceptedLines。"},
- {"question": "退货金额是多少", "expect": {"metric": "returnedRevenue", "value": "5071818532.94",
-   "route": "SELECT sum(l_extendedprice*(1-l_discount)) FROM lineitem WHERE l_returnflag='R'"},
-  "_why": "R 行净收入 5,071,818,532.94（anchor）；不从 netRevenue 里扣（Q2），与 A 行 5,054,096,266.68 不可相加。"},
- {"question": "退货率是多少", "expect": {"metric": "returnRate", "value": "24.6933", "tolerance": 0.001,
-   "route": "SELECT 100.0*count(*) FILTER (WHERE l_returnflag='R')/count(*) FROM lineitem"},
-  "_why": "148,301 ÷ 600,572 = 24.6933%（anchor 24.69%）；分母 = 全部明细行（Q10），数值按 :scale 100.0 放大。"},
- {"question": "已接受行数是多少", "expect": {"metric": "acceptedLines", "value": "147790",
-   "route": "SELECT count(*) FROM lineitem WHERE l_returnflag='A'"},
-  "_why": "l_returnflag='A' = 147,790（anchor）；与 R 单列并列、不合并（Q2）。"},
- {"question": "迟交行数是多少", "expect": {"metric": "lateShippedLines", "value": "302748",
-   "route": "SELECT count(*) FROM lineitem WHERE l_shipdate > l_commitdate"},
-  "_why": "迟交 = 发货晚于承诺（Q11 裁定）= 302,748（anchor）；到货晚是另一个数 379,809。"},
- {"question": "迟交率是多少", "expect": {"metric": "lateRate", "value": "50.4099", "tolerance": 0.001,
-   "route": "SELECT 100.0*count(*) FILTER (WHERE l_shipdate > l_commitdate)/count(*) FROM lineitem"},
-  "_why": "302,748 ÷ 600,572 = 50.4099%（Q11 + Q10）；到货晚率 63.24% 是另一概念。"},
- {"question": "到货晚行数是多少", "expect": {"metric": "lateDeliveredLines", "value": "379809",
-   "route": "SELECT count(*) FROM lineitem WHERE l_receiptdate > l_commitdate"},
-  "_why": "收货晚于承诺 = 379,809（anchor）；比迟交多 77,061 行 = 按时发货但到货超期（Q11）。"},
- {"question": "客户数是多少", "expect": {"metric": "customerCount", "value": "10000",
-   "route": "SELECT count(DISTINCT o_custkey) FROM orders"},
-  "_why": "默认客户基数 = 10,000 有订单客户（Q8 裁定）；5,000 个零订单客户不进销售比率分母。"},
- {"question": "登记客户数是多少", "expect": {"metric": "customersRegistered", "value": "15000",
-   "route": "SELECT count(*) FROM customer"},
-  "_why": "customer 表 15,000 行（anchor，Q8 另立）；与 customerCount 并列：覆盖率 2/3。"},
- {"question": "供应商数是多少", "expect": {"metric": "supplierCount", "value": "1000",
-   "route": "SELECT count(*) FROM supplier"},
-  "_why": "supplier 1,000 行；partsupp 80,000 = 每件零件 4 家供应商，粒度不同。"},
- {"question": "零件数是多少", "expect": {"metric": "partCount", "value": "20000",
-   "route": "SELECT count(*) FROM part"},
-  "_why": "part 20,000 行（p_name 唯一 20,000/20,000）；20,000 个零件全有成交行。"},
-
- {"question": "各地区净收入", "expect": {"metric": "supplierRevenueByRegion",
-   "route": "SELECT r.r_name, sum(li.l_extendedprice*(1-li.l_discount)) FROM lineitem li JOIN supplier s ON s.s_suppkey=li.l_suppkey JOIN nation n ON n.n_nationkey=s.s_nationkey JOIN region r ON r.r_regionkey=n.n_regionkey GROUP BY 1"},
-  "_why": "5 行，Σ = netRevenue（恒等式实测）；维度 = 编译器实际发出的 supplier 侧 join（见 NOTES「地区/国家路径冲突」）。"},
- {"question": "各国净收入", "expect": {"metric": "supplierRevenueByNation",
-   "route": "SELECT n.n_name, sum(li.l_extendedprice*(1-li.l_discount)) FROM lineitem li JOIN supplier s ON s.s_suppkey=li.l_suppkey JOIN nation n ON n.n_nationkey=s.s_nationkey GROUP BY 1"},
-  "_why": "25 行，Σ = netRevenue；维度经 supplier（供应商所在国家），与 avgOrderValueByNation 的客户口径不同。"},
- {"question": "各地区各国净收入", "expect": {"metric": "supplierRevenueByRegionAndNation",
-   "route": "SELECT n.n_name || ' / ' || r.r_name, sum(li.l_extendedprice*(1-li.l_discount)) FROM lineitem li JOIN supplier s ON s.s_suppkey=li.l_suppkey JOIN nation n ON n.n_nationkey=s.s_nationkey JOIN region r ON r.r_regionkey=n.n_regionkey GROUP BY 1"},
-  "_why": "25 行（5 地区 × 5 国），Σ = netRevenue，逐组与 supplierRevenueByRegion 一致（地区是国家的父级）。"},
- {"question": "各地区供货行数", "expect": {"metric": "supplyFlowByRegion",
-   "route": "SELECT r.r_name, count(*) FROM lineitem li JOIN supplier s ON s.s_suppkey=li.l_suppkey JOIN nation n ON n.n_nationkey=s.s_nationkey JOIN region r ON r.r_regionkey=n.n_regionkey GROUP BY 1"},
-  "_why": "5 行（107,817 / 117,023 / 134,374 / 122,537 / 118,821，合计 600,572）；唯一以供应商地区为定义域的维度指标。"},
- {"question": "发运月净收入", "expect": {"metric": "netRevenueByShipMonth",
-   "route": "SELECT date_trunc('month', l_shipdate), sum(l_extendedprice*(1-l_discount)) FROM lineitem GROUP BY 1"},
-  "_why": "84 行（发运月 1992-01…1998-12），Σ = 20,535,072,231.42 = netRevenue（第二条路线实测）。这条是**发运月**，不是票面 Q4 要的订单月（订单月 = 80 行，契约名 netRevenueByShipMonth 当前按名拒绝 —— 跨表分桶缺失，见 NOTES-metrics.md §2.3）。不许拿这条冒充订单月。"},
- {"question": "月度订单数", "expect": {"metric": "orderCountByMonth",
-   "route": "SELECT date_trunc('month', o_orderdate), count(*) FROM orders GROUP BY 1"},
-  "_why": "80 行（1992-01…1998-08），Σ = 150,000；订单侧月轴，与发运月轴不同。"},
- {"question": "各国客单价", "expect": {"metric": "avgOrderValueByNation",
-   "route": "SELECT n.n_name, avg(o.o_totalprice) FROM orders o JOIN customer c ON c.c_custkey=o.o_custkey JOIN nation n ON n.n_nationkey=c.c_nationkey GROUP BY 1"},
-  "_why": "25 行，avg(o_totalprice) 按**客户**国家；各组均值的平均 142,368.61 ≈ 整体 142,377.31。"},
- {"question": "各国明细行数", "expect": {"metric": "lineItemsByNation",
-   "route": "SELECT n.n_name, count(*) FROM lineitem li JOIN supplier s ON s.s_suppkey=li.l_suppkey JOIN nation n ON n.n_nationkey=s.s_nationkey GROUP BY 1"},
-  "_why": "25 行，Σ = 600,572；国家经 supplier 侧（同名客户口径的版本在编译器里不可达，见 NOTES）。"},
- {"question": "各国退货率", "expect": {"metric": "returnRateByNation",
-   "route": "SELECT n.n_name, 100.0*count(*) FILTER (WHERE li.l_returnflag='R')/count(*) FROM lineitem li JOIN supplier s ON s.s_suppkey=li.l_suppkey JOIN nation n ON n.n_nationkey=s.s_nationkey GROUP BY 1"},
-  "_why": "25 行，组内比率 24.03%–25.28%（手写 SQL 实测 min/max），每组分母 = 该国行数（分组比率的分母只能是组内行数）。"},
- {"question": "各国退货标记净收入", "expect": {"metric": "supplierRevenueByNationReturnFlag",
-   "route": "SELECT n.n_name || ' / ' || li.l_returnflag, sum(li.l_extendedprice*(1-li.l_discount)) FROM lineitem li JOIN supplier s ON s.s_suppkey=li.l_suppkey JOIN nation n ON n.n_nationkey=s.s_nationkey GROUP BY 1"},
-  "_why": "75 行（25 国 × N/A/R），Σ = netRevenue；R 组之和 = 5,071,818,532.94 = returnedRevenue，A 组 = 5,054,096,266.68。"},
- {"question": "各客户分部净收入", "expect": {"metric": "netRevenueBySegment",
-   "route": "SELECT c.c_mktsegment, sum(li.l_extendedprice*(1-li.l_discount)) FROM lineitem li JOIN orders o ON o.o_orderkey=li.l_orderkey JOIN customer c ON c.c_custkey=o.o_custkey GROUP BY 1"},
-  "_why": "5 行，Σ = netRevenue；客户侧维度（3 表 join），最大 BUILDING 4,281,563,957.54。"},
- {"question": "各零件净收入", "expect": {"metric": "netRevenueByPart"},
-  "_why": "20,000 组 = partCount（全部零件都有成交行），Σ = netRevenue；行数超 profile 的 guard.max_rows=500，管线截断到 500 行，故只断言解析不冻结行值；最大单件 p_partkey 10965 = 2,387,965.76（手写 SQL 实测）。"},
- {"question": "各客户净收入", "expect": {"metric": "netRevenueByCustomer"},
-  "_why": "10,000 组 = customerCount（只有 10,000 个客户有单），Σ = netRevenue；超过 guard.max_rows=500 同样截断；最大单客户 o_custkey 8362 = 5,570,473.99（手写 SQL 实测）。"},
-
- {"question": "毛利率是多少", "expect": {"refused_by_names": ["is not on the menu", "can answer about", "not on the menu"]},
-  "_why": "按名拒绝（缺「成本口径」声明）：lineitem 61 列里没有任何成本列（Q5 实测），唯一成本来源 partsupp.ps_supplycost 是「供货快照」粒度（每零件 4 家），与成交行粒度不同，直接相减会把 4 家报价重复计数 —— 没有可声明的分子，所以拒绝而不是猜。"},
- {"question": "同比增长率是多少", "expect": {"refused_by_names": ["is not on the menu", "can answer about", "not on the menu"]},
-  "_why": "按名拒绝（缺「同期对比」声明）：数据是 1992-01…1998-12 的历史切片，没有「今年」，grill「有意未定」已明确不做同比/YoY 面板；没有能指代同期的 :supportsSlot / 时间对比声明，所以拒绝。"},
- {"question": "按订单月看净收入是多少", "expect": {"refused_by_names": ["nothing declares a grouping by", "is not on the menu", "can answer about", "not on the menu"]},
-  "_why": "按名拒绝 —— 这条就是 Q4 的口径缺口：订单月净收入要求「lineitem 行级金额按 orders.o_orderdate 分桶」（手写 SQL 实测 80 行、Σ=20,535,072,231.42），编译器做不到跨表分桶（:timeBucket 只认 grain 自己的 :timeColumn，grain=SalesOrder 时行级金额列不可达）；契约名 netRevenueByShipMonth 已按此声明并**按名拒绝**，被拒指标不参与自然语言解析，所以这句落到「没有任何指标按 月 分组」的拒绝句。宁可拒绝，也不静默换成发运月 84 行。"},
-
- {"question": "A 和 R 的退货金额加在一起是多少",
-  "expect": {"unresolved": "缺「A/R 可合并」的口径声明：Q2 只把 R 当退货（5,071,818,532.94），A 是已接受行（5,054,096,266.68）；合并会得到一个既不是 R 也不是 A 的数。手写 SQL 的第二条路线：R = 5071818532.94 / A = 5054096266.68 / R+A = 10125914799.62。实测本引擎**不拒绝**这个问题，而是解析成 :returnedRevenue 只答 R —— 需要一条「合并口径」拒绝规则，见 needs_human。"},
-  "_why": "这条是记录在案的未决项：同一句话既可能被理解成 R、也可能被理解成 R+A，引擎当前静默选了 R（silently wrong），不是按名拒绝。"}
-]}
+{
+ "samples": [
+  {
+   "question": "净收入是多少",
+   "expect": {
+    "metric": "netRevenue",
+    "value": "20535072231.42",
+    "route": "SELECT sum(l_extendedprice*(1-l_discount)) FROM lineitem"
+   },
+   "_why": "Q1：不含税净收入 = Σ ep×(1−disc)；anchor 20,535,072,231.42；第二条路线 = 手写 SQL 直查 lineitem。"
+  },
+  {
+   "question": "毛收入是多少",
+   "expect": {
+    "metric": "grossRevenue",
+    "value": "21615929280.24",
+    "route": "SELECT sum(l_extendedprice) FROM lineitem"
+   },
+   "_why": "Σ 未折扣金额 21,615,929,280.24（anchor）；毛收入 − 折扣总额 = 净收入。"
+  },
+  {
+   "question": "税额是多少",
+   "expect": {
+    "metric": "taxAmount",
+    "value": "821528941.66",
+    "route": "SELECT sum(l_extendedprice*(1-l_discount)*l_tax) FROM lineitem"
+   },
+   "_why": "税按折后金额计：821,528,941.66（anchor）；netRevenue + taxAmount = Σ含税 21,356,601,173.08。"
+  },
+  {
+   "question": "折扣总额是多少",
+   "expect": {
+    "metric": "totalDiscount",
+    "value": "1080857048.83",
+    "route": "SELECT sum(l_extendedprice*l_discount) FROM lineitem"
+   },
+   "_why": "Σ ep×disc = 1,080,857,048.83（anchor）；grossRevenue − totalDiscount = netRevenue。"
+  },
+  {
+   "question": "明细行数是多少",
+   "expect": {
+    "metric": "lineItems",
+    "value": "600572",
+    "route": "SELECT count(*) FROM lineitem"
+   },
+   "_why": "600,572（anchor；标准 dbgen SF0.1 为 600,121，差 451 行 —— 本库不是标准 dbgen 产物）；同时是三个比率的分母（Q10）。"
+  },
+  {
+   "question": "订单数是多少",
+   "expect": {
+    "metric": "orderCount",
+    "value": "150000",
+    "route": "SELECT count(*) FROM orders"
+   },
+   "_why": "orders 150,000 行（anchor）；每单 4.0038 行明细，与 lineItems 不是一个粒度。"
+  },
+  {
+   "question": "客单价是多少",
+   "expect": {
+    "metric": "avgOrderValue",
+    "value": "142377.31",
+    "tolerance": 0.01,
+    "route": "SELECT avg(o_totalprice) FROM orders"
+   },
+   "_why": "avg(o_totalprice) = 142,377.31（anchor）；**不是** Σ净收入÷订单数（136,900.48），两者口径不同。"
+  },
+  {
+   "question": "平均行金额是多少",
+   "expect": {
+    "metric": "avgLineValue",
+    "value": "35992.24",
+    "tolerance": 0.01,
+    "route": "SELECT avg(l_extendedprice) FROM lineitem"
+   },
+   "_why": "avg(l_extendedprice) = 35,992.2362（未折扣）；与 ΣgrossRevenue÷600,572 一致到 1 分。"
+  },
+  {
+   "question": "退货行数是多少",
+   "expect": {
+    "metric": "returnedLines",
+    "value": "148301",
+    "route": "SELECT count(*) FROM lineitem WHERE l_returnflag='R'"
+   },
+   "_why": "l_returnflag='R' = 148,301（anchor，Q2 只算 R）；A 行 147,790 另立 acceptedLines。"
+  },
+  {
+   "question": "退货金额是多少",
+   "expect": {
+    "metric": "returnedRevenue",
+    "value": "5071818532.94",
+    "route": "SELECT sum(l_extendedprice*(1-l_discount)) FROM lineitem WHERE l_returnflag='R'"
+   },
+   "_why": "R 行净收入 5,071,818,532.94（anchor）；不从 netRevenue 里扣（Q2），与 A 行 5,054,096,266.68 不可相加。"
+  },
+  {
+   "question": "退货率是多少",
+   "expect": {
+    "metric": "returnRate",
+    "value": "24.6933",
+    "tolerance": 0.001,
+    "route": "SELECT 100.0*count(*) FILTER (WHERE l_returnflag='R')/count(*) FROM lineitem"
+   },
+   "_why": "148,301 ÷ 600,572 = 24.6933%（anchor 24.69%）；分母 = 全部明细行（Q10），数值按 :scale 100.0 放大。"
+  },
+  {
+   "question": "已接受行数是多少",
+   "expect": {
+    "metric": "acceptedLines",
+    "value": "147790",
+    "route": "SELECT count(*) FROM lineitem WHERE l_returnflag='A'"
+   },
+   "_why": "l_returnflag='A' = 147,790（anchor）；与 R 单列并列、不合并（Q2）。"
+  },
+  {
+   "question": "迟交行数是多少",
+   "expect": {
+    "metric": "lateShippedLines",
+    "value": "302748",
+    "route": "SELECT count(*) FROM lineitem WHERE l_shipdate > l_commitdate"
+   },
+   "_why": "迟交 = 发货晚于承诺（Q11 裁定）= 302,748（anchor）；到货晚是另一个数 379,809。"
+  },
+  {
+   "question": "迟交率是多少",
+   "expect": {
+    "metric": "lateRate",
+    "value": "50.4099",
+    "tolerance": 0.001,
+    "route": "SELECT 100.0*count(*) FILTER (WHERE l_shipdate > l_commitdate)/count(*) FROM lineitem"
+   },
+   "_why": "302,748 ÷ 600,572 = 50.4099%（Q11 + Q10）；到货晚率 63.24% 是另一概念。"
+  },
+  {
+   "question": "到货晚行数是多少",
+   "expect": {
+    "metric": "lateDeliveredLines",
+    "value": "379809",
+    "route": "SELECT count(*) FROM lineitem WHERE l_receiptdate > l_commitdate"
+   },
+   "_why": "收货晚于承诺 = 379,809（anchor）；比迟交多 77,061 行 = 按时发货但到货超期（Q11）。"
+  },
+  {
+   "question": "客户数是多少",
+   "expect": {
+    "metric": "customerCount",
+    "value": "10000",
+    "route": "SELECT count(DISTINCT o_custkey) FROM orders"
+   },
+   "_why": "默认客户基数 = 10,000 有订单客户（Q8 裁定）；5,000 个零订单客户不进销售比率分母。"
+  },
+  {
+   "question": "登记客户数是多少",
+   "expect": {
+    "metric": "customersRegistered",
+    "value": "15000",
+    "route": "SELECT count(*) FROM customer"
+   },
+   "_why": "customer 表 15,000 行（anchor，Q8 另立）；与 customerCount 并列：覆盖率 2/3。"
+  },
+  {
+   "question": "供应商数是多少",
+   "expect": {
+    "metric": "supplierCount",
+    "value": "1000",
+    "route": "SELECT count(*) FROM supplier"
+   },
+   "_why": "supplier 1,000 行；partsupp 80,000 = 每件零件 4 家供应商，粒度不同。"
+  },
+  {
+   "question": "零件数是多少",
+   "expect": {
+    "metric": "partCount",
+    "value": "20000",
+    "route": "SELECT count(*) FROM part"
+   },
+   "_why": "part 20,000 行（p_name 唯一 20,000/20,000）；20,000 个零件全有成交行。"
+  },
+  {
+   "question": "各地区净收入",
+   "expect": {
+    "metric": "supplierRevenueByRegion",
+    "route": "SELECT r.r_name, sum(li.l_extendedprice*(1-li.l_discount)) FROM lineitem li JOIN supplier s ON s.s_suppkey=li.l_suppkey JOIN nation n ON n.n_nationkey=s.s_nationkey JOIN region r ON r.r_regionkey=n.n_regionkey GROUP BY 1"
+   },
+   "_why": "5 行，Σ = netRevenue（恒等式实测）；维度 = 编译器实际发出的 supplier 侧 join（见 NOTES「地区/国家路径冲突」）。"
+  },
+  {
+   "question": "各国净收入",
+   "expect": {
+    "metric": "supplierRevenueByNation",
+    "route": "SELECT n.n_name, sum(li.l_extendedprice*(1-li.l_discount)) FROM lineitem li JOIN supplier s ON s.s_suppkey=li.l_suppkey JOIN nation n ON n.n_nationkey=s.s_nationkey GROUP BY 1"
+   },
+   "_why": "25 行，Σ = netRevenue；维度经 supplier（供应商所在国家），与 avgOrderValueByNation 的客户口径不同。"
+  },
+  {
+   "question": "各地区各国净收入",
+   "expect": {
+    "metric": "supplierRevenueByRegionAndNation",
+    "route": "SELECT n.n_name || ' / ' || r.r_name, sum(li.l_extendedprice*(1-li.l_discount)) FROM lineitem li JOIN supplier s ON s.s_suppkey=li.l_suppkey JOIN nation n ON n.n_nationkey=s.s_nationkey JOIN region r ON r.r_regionkey=n.n_regionkey GROUP BY 1"
+   },
+   "_why": "25 行（5 地区 × 5 国），Σ = netRevenue，逐组与 supplierRevenueByRegion 一致（地区是国家的父级）。"
+  },
+  {
+   "question": "各地区供货行数",
+   "expect": {
+    "metric": "supplyFlowByRegion",
+    "route": "SELECT r.r_name, count(*) FROM lineitem li JOIN supplier s ON s.s_suppkey=li.l_suppkey JOIN nation n ON n.n_nationkey=s.s_nationkey JOIN region r ON r.r_regionkey=n.n_regionkey GROUP BY 1"
+   },
+   "_why": "5 行（107,817 / 117,023 / 134,374 / 122,537 / 118,821，合计 600,572）；唯一以供应商地区为定义域的维度指标。"
+  },
+  {
+   "question": "发运月净收入",
+   "expect": {
+    "metric": "netRevenueByShipMonth",
+    "route": "SELECT date_trunc('month', l_shipdate), sum(l_extendedprice*(1-l_discount)) FROM lineitem GROUP BY 1"
+   },
+   "_why": "84 行（发运月 1992-01…1998-12），Σ = 20,535,072,231.42 = netRevenue（第二条路线实测）。这条是**发运月**，不是票面 Q4 要的订单月（订单月 = 80 行，契约名 netRevenueByShipMonth 当前按名拒绝 —— 跨表分桶缺失，见 NOTES-metrics.md §2.3）。不许拿这条冒充订单月。"
+  },
+  {
+   "question": "月度订单数",
+   "expect": {
+    "metric": "orderCountByMonth",
+    "route": "SELECT date_trunc('month', o_orderdate), count(*) FROM orders GROUP BY 1"
+   },
+   "_why": "80 行（1992-01…1998-08），Σ = 150,000；订单侧月轴，与发运月轴不同。"
+  },
+  {
+   "question": "各国客单价",
+   "expect": {
+    "metric": "avgOrderValueByNation",
+    "route": "SELECT n.n_name, avg(o.o_totalprice) FROM orders o JOIN customer c ON c.c_custkey=o.o_custkey JOIN nation n ON n.n_nationkey=c.c_nationkey GROUP BY 1"
+   },
+   "_why": "25 行，avg(o_totalprice) 按**客户**国家；各组均值的平均 142,368.61 ≈ 整体 142,377.31。"
+  },
+  {
+   "question": "各国明细行数",
+   "expect": {
+    "metric": "lineItemsByNation",
+    "route": "SELECT n.n_name, count(*) FROM lineitem li JOIN supplier s ON s.s_suppkey=li.l_suppkey JOIN nation n ON n.n_nationkey=s.s_nationkey GROUP BY 1"
+   },
+   "_why": "25 行，Σ = 600,572；国家经 supplier 侧（同名客户口径的版本在编译器里不可达，见 NOTES）。"
+  },
+  {
+   "question": "各国退货率",
+   "expect": {
+    "metric": "returnRateByNation",
+    "route": "SELECT n.n_name, 100.0*count(*) FILTER (WHERE li.l_returnflag='R')/count(*) FROM lineitem li JOIN supplier s ON s.s_suppkey=li.l_suppkey JOIN nation n ON n.n_nationkey=s.s_nationkey GROUP BY 1"
+   },
+   "_why": "25 行，组内比率 24.03%–25.28%（手写 SQL 实测 min/max），每组分母 = 该国行数（分组比率的分母只能是组内行数）。"
+  },
+  {
+   "question": "各国退货标记净收入",
+   "expect": {
+    "metric": "supplierRevenueByNationReturnFlag",
+    "route": "SELECT n.n_name || ' / ' || li.l_returnflag, sum(li.l_extendedprice*(1-li.l_discount)) FROM lineitem li JOIN supplier s ON s.s_suppkey=li.l_suppkey JOIN nation n ON n.n_nationkey=s.s_nationkey GROUP BY 1"
+   },
+   "_why": "75 行（25 国 × N/A/R），Σ = netRevenue；R 组之和 = 5,071,818,532.94 = returnedRevenue，A 组 = 5,054,096,266.68。"
+  },
+  {
+   "question": "各客户分部净收入",
+   "expect": {
+    "metric": "netRevenueBySegment",
+    "route": "SELECT c.c_mktsegment, sum(li.l_extendedprice*(1-li.l_discount)) FROM lineitem li JOIN orders o ON o.o_orderkey=li.l_orderkey JOIN customer c ON c.c_custkey=o.o_custkey GROUP BY 1"
+   },
+   "_why": "5 行，Σ = netRevenue；客户侧维度（3 表 join），最大 BUILDING 4,281,563,957.54。"
+  },
+  {
+   "question": "各零件净收入",
+   "expect": {
+    "metric": "netRevenueByPart"
+   },
+   "_why": "20,000 组 = partCount（全部零件都有成交行），Σ = netRevenue；行数超 profile 的 guard.max_rows=500，管线截断到 500 行，故只断言解析不冻结行值；最大单件 p_partkey 10965 = 2,387,965.76（手写 SQL 实测）。"
+  },
+  {
+   "question": "各客户净收入",
+   "expect": {
+    "metric": "netRevenueByCustomer"
+   },
+   "_why": "10,000 组 = customerCount（只有 10,000 个客户有单），Σ = netRevenue；超过 guard.max_rows=500 同样截断；最大单客户 o_custkey 8362 = 5,570,473.99（手写 SQL 实测）。"
+  },
+  {
+   "question": "毛利率是多少",
+   "expect": {
+    "refused_by_names": [
+     "目前不可答",
+     "缺成本口径"
+    ]
+   },
+   "_why": "按名拒绝（声明式拒绝 metric:grossMargin）。缺「成本口径」声明：lineitem 61 列没有任何成本列，唯一成本来源 partsupp.ps_supplycost 是供货快照粒度（每零件 4 家），与成交行粒度不同。现在这条拒绝写在 metrics_ext.ttl 的 :refusalReason 里，两条 NL 路径都按名拒绝。"
+  },
+  {
+   "question": "同比增长率是多少",
+   "expect": {
+    "refused_by_names": [
+     "is not on the menu",
+     "can answer about",
+     "not on the menu"
+    ]
+   },
+   "_why": "按名拒绝（缺「同期对比」声明）：数据是 1992-01…1998-12 的历史切片，没有「今年」，grill「有意未定」已明确不做同比/YoY 面板；没有能指代同期的 :supportsSlot / 时间对比声明，所以拒绝。"
+  },
+  {
+   "question": "按订单月看净收入是多少",
+   "expect": {
+    "metric": "netRevenueByMonth"
+   },
+   "_why": "**能力已补（2026-11-26）**：metrics_ext.ttl 的 netRevenueByMonth 现在带 :timeColumn \"o_orderdate\"，编译器支持跨表分桶（桶列来自一跳可达且唯一的 :SalesOrder:timeColumn）。实测 80 行、Σ=20,535,072,231.42（sql: 与手写 GROUP BY date_trunc('month',o_orderdate) 一致）。",
+   "route": "select date_trunc('month', orders.o_orderdate) as k, sum(lineitem.l_extendedprice * (1 - lineitem.l_discount)) as v from lineitem join orders on lineitem.l_orderkey = orders.o_orderkey group by 1 order by 1"
+  },
+  {
+   "question": "A 和 R 的退货金额加在一起是多少",
+   "expect": {
+    "refused_by_names": [
+     "目前不可答",
+     "两个不同的集合"
+    ]
+   },
+   "_why": "按名拒绝（声明式拒绝 metric:mergedReturnedRevenue）。A（accepted）与 R（returned）是两个集合：R=5,071,818,532.94 / A=5,054,096,266.68（sql: 两条 GROUP BY l_returnflag 的净收入）。合并需要一个显式的『可合并』声明，本 profile 不声明，所以按名拒绝而不是答单边。"
+  }
+ ]
+}

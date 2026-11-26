@@ -33,7 +33,7 @@ WORKSPACES = BACKEND / "outputs" / "users"
 #: A phrase that only exists in the version we are checking for. A version number can be pinned wrong in
 #: two files at once; a sentence from the newest section cannot.
 MARKERS = {
-    "build-ontology-from-db": "The ladder ends at S8",
+    "db-ontology-build": "The ladder ends at S8",
 }
 
 
@@ -70,7 +70,7 @@ def workspace_copies(skill_id: str, agent: str | None) -> list[pathlib.Path]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--skill", default="build-ontology-from-db")
+    ap.add_argument("--skill", default="db-ontology-build")
     ap.add_argument("--agent", default="", help="only this agent id (e.g. 364)")
     ap.add_argument("--restage", action="store_true",
                     help="copy the repo file into every workspace copy found (what a session start would do)")

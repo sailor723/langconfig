@@ -51,7 +51,15 @@ DEFAULTS = {
     "default_window_days": 90,   # time bound injected on a big table without one
     "statement_timeout_ms": 5000,
     "max_plan_rows": 2_000_000,  # refuse a plan that would scan more than this
-    "big_tables": {"orders": "placed_at"},
+    # EMPTY ON PURPOSE. Naming a table *and* the column that dates it is a profile's
+    # declaration, not a house default: it only means something to the one schema that has
+    # both. Measured on orders_demo_v1 — a fresh Excel ontology whose `orders` table dates
+    # itself with 订单日期 — where this default put `placed_at >= now() - interval '90 days'`
+    # into a table with no such column (`column orders.placed_at does not exist`). Every
+    # profile that has big tables declares its own `guard.big_tables` (retail:
+    # {"orders": "placed_at"}, abc: trips…), and `config()` overlays that dict whole, so this
+    # being empty removes a wrong assumption without taking anything away from anyone.
+    "big_tables": {},
 }
 
 

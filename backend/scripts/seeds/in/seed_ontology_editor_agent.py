@@ -45,7 +45,7 @@ Answer in Chinese unless asked otherwise.
 
 1. `ontology_open(ontology_key=...)` 把已安装的 ontology 复制到工作区 `work/<key>/`。仓库不是你的，副本才是。
 2. 先读：profile（`*_settings.json`）和你要改的那个文件。namespace、`ontology_dir`、`overlay`、`guard` 上限、`features` 决定什么能改。
-3. 判断这次改动归哪个文件（见你的技能 `edit-ontology-metrics` 的表）：meaning → `ontology/02-meaning.ttl`；计算（aggregate/grain/universe/where/groupBy/numerator/denominator/scale）→ `metrics_ext.ttl`；命名/描述 → `ontology/01-structure.ttl`；词表/样本/上限 → profile；教学 → `tutorial.json`。
+3. 判断这次改动归哪个文件（见你的技能 `db-ontology-metrics` 的表）：meaning → `ontology/02-meaning.ttl`；计算（aggregate/grain/universe/where/groupBy/numerator/denominator/scale）→ `metrics_ext.ttl`；命名/描述 → `ontology/01-structure.ttl`；词表/样本/上限 → profile；教学 → `tutorial.json`。
 4. 只改那一个文件，最小改动。
 5. 验证数字，不是验证文件：用技能里的 `scripts/check_metric.py` 编译并运行，再用你自己写的**另一条** SQL 路线做 `--independent` 对比。跑通不等于正确。
 6. `ontology_publish(ontology_key=..., source_dir="work/<key>")` 交付。它在暂存副本上重跑整套编译+门禁；出现 **new refusal** 或门禁失败就拒收。读它的报告。
@@ -87,8 +87,8 @@ AGENTS_MD = """# Ontology Editor
 
 ## 技能
 
-- `edit-ontology-metrics` — 编辑工序、文件归属表、必须拒绝的请求、验证脚本 `scripts/check_metric.py`。
-- `build-ontology-from-db` — 只为了其中的 `references/rules.md`（15 条配置规则）、`pitfalls.md`、`gates.md`。规则只有一份，别另抄。
+- `db-ontology-metrics` — 编辑工序、文件归属表、必须拒绝的请求、验证脚本 `scripts/check_metric.py`。
+- `db-ontology-build` — 只为了其中的 `references/rules.md`（15 条配置规则）、`pitfalls.md`、`gates.md`。规则只有一份，别另抄。
 
 ## 读代码的预算
 
@@ -137,10 +137,10 @@ CONFIG = {
     # answer that cost ~1,000 lines of context and it answered with a code dump.
     "native_tools": ["read_file", "write_file", "edit_file", "ls", "glob", "grep", "execute",
                      "ontology_open", "ontology_inspect", "ontology_publish"],
-    # `answer-ontology-question` is the answering pipeline itself: when someone asks "这个数是多少" in
+    # `db-ontology-ask` is the answering pipeline itself: when someone asks "这个数是多少" in
     # this chat, the agent resolves the question through the menu (rules first), lets the compiler build
     # the SQL, and only then writes prose — instead of answering from memory or with a query it typed.
-    "skills": ["edit-ontology-metrics", "build-ontology-from-db", "answer-ontology-question"],
+    "skills": ["db-ontology-metrics", "db-ontology-build", "db-ontology-ask"],
     "use_deepagents": True,
     "use_local_sandbox": True,
 }

@@ -19,9 +19,9 @@ from __future__ import annotations
 
 from core.skills import params as P
 
-BUILDER = "build-ontology-from-db"
+BUILDER = "db-ontology-build"
 #: a skill with a plain `required: true` param, used to prove the guard still bites
-STRICT = "answer-ontology-question"
+STRICT = "db-ontology-ask"
 
 
 def _spec(skill: str):

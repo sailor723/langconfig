@@ -4,11 +4,11 @@
   "ontology_dir": "ontology",
   "overlay": "metrics_ext.ttl",
   "dsn": {
-    "host": "${ONTOLOGY_DB_HOST:-127.0.0.1}",
-    "port": "${ONTOLOGY_DB_PORT:-5432}",
+    "host": "${TPCH_DB_HOST:-127.0.0.1}",
+    "port": "${TPCH_DB_PORT:-5432}",
     "dbname": "tpch",
-    "user": "${ONTOLOGY_DB_USER:-langconfig}",
-    "password": ""
+    "user": "${TPCH_DB_USER:-weiping}",
+    "password": "${TPCH_DB_PASSWORD}"
   },
   "sample": 20,
   "lane": "a",

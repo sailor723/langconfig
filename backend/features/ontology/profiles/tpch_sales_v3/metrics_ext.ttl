@@ -124,11 +124,13 @@
     :groupBy :regionName ; :unit "行（明细行计数，不是金额）" ;
     :businessDescription "table: supplier.s_nationkey, region.r_name —— 单维 5 行：lineitem 经 l_suppkey→supplier→nation→region 计数的**供应商侧**流量（实测 AFRICA 107,817 / AMERICA 117,023 / ASIA 134,374 / EUROPE 122,537 / MIDDLE EAST 118,821，合计 600,572 = lineItems）。这是本项目里唯一以「供应商地区」为定义域的维度指标，与净收入的地区维度共用同一条 join 路径。口径来自 Q7（9 条声明关系、0 孤儿）。" .
 
-:netRevenueByMonth a owl:DatatypeProperty ; rdfs:label "月度净收入（订单月）" ; :askedAs "月度净收入", "按月的净收入" ; rdfs:domain :SalesOrder ;
-    :aggregate "sum" ; :formula "l_extendedprice * (1 - l_discount)" ; :grain :SalesOrder ; :universe :SalesOrder ;
+:netRevenueByMonth a owl:DatatypeProperty ;
+    rdfs:label "月度净收入（订单月）" ; :askedAs "月度净收入", "按月的净收入", "订单月净收入" ; :domain :LineItem ;
+    :aggregate "sum" ; :formula "l_extendedprice * (1 - l_discount)" ; :grain :LineItem ; :universe :LineItem ;
     :timeBucket "month" ;
-    :unit "TPC-H 原始金额数值（库里没有货币列，不指定币种；不缩放、不做汇率换算）" ;
-    :businessDescription "table: orders.o_orderdate, lineitem.l_extendedprice, lineitem.l_discount —— 口径（Q4 裁定）：按**订单月** date_trunc('month', orders.o_orderdate) 分桶，值是行级净收入 Σ l_extendedprice×(1−l_discount)，目标 = **80 行**（1992-01…1998-08）、Σ = netRevenue 20,535,072,231.42（手写 SQL 实测，见 NOTES-metrics.md §2.3）。**本指标当前按名拒绝（refused），这是实测结论不是笔误**：编译器两处能力缺失 —— ① :timeBucket 的桶列只能是 grain 自己的 :timeColumn；grain=SalesOrder 时桶列 o_orderdate 可用，但行级金额列不在可达类里（实测拒绝句「formula mentions 'l_discount', not a column of the joined classes ['SalesOrder']」），补 `:where` 指向 lineitem 也拒绝（「filters on :LineItem, which is not reachable from :SalesOrder through declared relationships」）；② grain=LineItem 时桶列只能是 l_shipdate（84 行，见 netRevenueByShipMonth）。即「跨表分桶：lineitem 粒度按 orders.o_orderdate 分桶」未实现，本指标**不静默退化成发运月**。" .
+    :timeColumn "o_orderdate" ;
+    :unit "记账单位（库内无币种列）" ;
+    :businessDescription "table: orders.o_orderdate, lineitem.l_extendedprice, lineitem.l_discount —— 按**订单月** date_trunc('month', orders.o_orderdate) 分桶：桶列来自 :SalesOrder 的 :timeColumn（一跳可达且唯一），值是行级净收入 Σ l_extendedprice×(1−l_discount)。目标 80 行、Σ = netRevenue；与 netRevenueByShipMonth（发运月 84 行）是两根不同的轴。" .
 
 :netRevenueByShipMonth a owl:DatatypeProperty ; rdfs:label "发运月净收入" ; :askedAs "发运月净收入", "按发运月的净收入" ; rdfs:domain :LineItem ;
     :aggregate "sum" ; :formula "l_extendedprice * (1 - l_discount)" ; :grain :LineItem ; :universe :LineItem ;
@@ -186,3 +188,15 @@
 # 编译器 _closure 的 BFS 只问"可达"，两条都可达时不报歧义，实测选中供应商侧。
 # 所以按地区/国家分组的指标一律以 supplier… 命名（数的确实是供应商侧）；客户侧的同一问题
 # 当前按名拒绝，缺的是"分组路径限定"这一声明形态。
+
+# ── 声明式拒绝（2026-11-26）：这些数不是"编不出来"，是"编译器与本体都不同意把它算成数" ──
+:mergedReturnedRevenue a owl:DatatypeProperty ;
+    rdfs:label "A/R 合并退货金额" ;
+    :askedAs "A 和 R 合并的退货金额", "A/R 合并退货金额", "退货金额合并",
+             "A 和 R 退货金额加在一起", "A 和 R 合起来的退货金额", "A/R 合并的退货金额" ;
+    :refusalReason "A（accepted）与 R（returned）是两个不同的集合：R=5,071,818,532.94、A=5,054,096,266.68。合并会得到一个既不是 R 也不是 A 的数，所以需要一条显式的『可合并』声明；本 profile 不声明，因此按名拒绝。" .
+
+:grossMargin a owl:DatatypeProperty ;
+    rdfs:label "毛利率" ;
+    :askedAs "毛利率", "采购成本率", "毛利" ;
+    :refusalReason "缺成本口径：成本要按 (ps_partkey, ps_suppkey) 连到 partsupp 并按期摊到明细行，本 profile 未声明这条边与摊分规则；用 1 - netRevenue/grossRevenue 冒充毛利得到的是折扣占比，不是毛利。" .

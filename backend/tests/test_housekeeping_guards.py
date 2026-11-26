@@ -144,6 +144,42 @@ def test_every_route_target_has_a_render_case():
         "\n(add a `case`, or document the alternate rendering path in RENDERED_ELSEWHERE)")
 
 
+# ─────────────── 3b. every activity icon in the rail actually navigates somewhere ────────────────
+USE_LAYOUT_TSX = REPO / "src" / "components" / "layout2" / "useLayout.tsx"
+
+#: Activities whose icon does NOT navigate to a view. Each entry needs a reason, because the failure
+#: mode this test exists for is completely silent: `const view = ACTIVITY_TO_VIEW[activity];
+#: if (view) handleViewChange(view)` makes a missing entry a **no-op** — the rail icon does nothing
+#: at all and whatever was already on screen stays there. That is how Talent shipped "blank": the
+#: activity was routable, the component was written, and clicking the icon did not even navigate.
+NOT_A_VIEW = {
+    "vault": "rendered as a popover rail item — ActivityBar skips it in the section loop "
+             "(`if (act.id === 'vault') return null`) and toggles the vault drawer instead",
+}
+
+
+@pytest.mark.skipif(not APP_TSX.exists(), reason="frontend not present")
+def test_every_activity_icon_navigates_to_a_view():
+    src = APP_TSX.read_text(encoding="utf-8")
+    layout = USE_LAYOUT_TSX.read_text(encoding="utf-8")
+
+    m_map = re.search(r"ACTIVITY_TO_VIEW[^=]*=\s*\{(.*?)\n\}", src, re.S)
+    assert m_map, "ACTIVITY_TO_VIEW map not found in App.tsx — did the rail wiring change shape?"
+    mapped = set(re.findall(r"^\s*([a-z0-9-]+)\s*:", m_map.group(1), re.M))
+
+    m_acts = re.search(r"ACTIVITIES[^=]*=\s*\[(.*?)\n\];", layout, re.S)
+    assert m_acts, "ACTIVITIES list not found in useLayout.tsx — did the rail definitions move?"
+    ids = set(re.findall(r"id:\s*'([a-z0-9-]+)'", m_acts.group(1)))
+    assert len(ids) >= 10, f"only parsed {len(ids)} activities — the regex stopped matching"
+
+    dead = {i for i in ids if i not in mapped and i not in NOT_A_VIEW}
+    assert not dead, (
+        "these activities are in the rail but have no ACTIVITY_TO_VIEW entry, so clicking their "
+        "icon does nothing at all and the previous screen stays visible: " + ", ".join(sorted(dead)) +
+        "\n(add the entry, or document why it does not navigate in NOT_A_VIEW)"
+    )
+
+
 # ─────────────────── 4. the endpoints the instruction files quote are real ───────────────────────
 INSTRUCTION_FILES = ["AGENTS.md", "CLAUDE.md"]
 ENDPOINT_RE = re.compile(r"\b(?:GET|POST|PUT|PATCH|DELETE)\s+(/api/[A-Za-z0-9_\-{}/.]+)")

@@ -75,10 +75,29 @@ class WorkspaceShellBackend(LocalShellBackend):
     `ls generated/`, and reported back as "Updated file …". Measured: a Mock Data Agent wrote its 16 KB
     analysis there, then could not find it, then answered from memory.
 
-    `execute` is untouched: the shell still runs with the workspace as its cwd and real absolute paths mean
-    what they say. Only the file tools (`read_file`/`write_file`/`edit_file`/`ls`/`glob`/`grep`) re-base, which
-    is exactly where the identity-block path was being mangled.
+    `execute` runs with the workspace as its cwd and real absolute paths mean what they say. Only the file
+    tools (`read_file`/`write_file`/`edit_file`/`ls`/`glob`/`grep`) re-base, which is exactly where the
+    identity-block path was being mangled — **plus one exception on `execute`**: a command that opens its own
+    database connection is refused (see `core.tools.db_guard` and
+    `docs/system-architecture/ontology-agent-boundaries.md`). Measured 2026-11-25: agent 393 ran `psql -lqt`
+    and `psql -c "SELECT … information_schema …"` from this shell while the prompt said not to; the tools were
+    bound, the shell was simply a second unguarded door.
     """
+
+    def execute(self, command: str, *, timeout: int | None = None):  # type: ignore[override]
+        """Refuse DB-connection commands; everything else runs exactly as before.
+
+        The refusal is returned as a normal `ExecuteResponse` (non-zero exit) rather than raised, so the model
+        sees it as tool output and can switch to `db_query_agent` / `db_describe` in the same turn.
+        """
+        from core.tools.db_guard import refusal
+        from deepagents.backends.protocol import ExecuteResponse
+
+        blocked = refusal(command or "")
+        if blocked is not None:
+            return ExecuteResponse(output=blocked, exit_code=126, truncated=False)
+        result = super().execute(command, timeout=timeout)
+        return _cap_output(result, ExecuteResponse)
 
     def _resolve_path(self, key: str) -> Path:
         if not key or key == "/":
@@ -91,3 +110,33 @@ class WorkspaceShellBackend(LocalShellBackend):
                 return super()._resolve_path(key)
             key = "/" + rel.as_posix() if rel.as_posix() != "." else "/"
         return super()._resolve_path(key)
+
+#: A shell result longer than this is cut before it enters the model's context.
+#:
+#: Measured on one ontology build (2026-11-26): 151 `execute` results carried 325,712 characters
+#: — 88% of every tool result in the turn — and the five biggest were `cat gate.py` (18,545),
+#: `sed 02-meaning.ttl` (12,863), `ls -la` (10,448). Every one of them enters the context and is
+#: re-sent on every later model call, so the cost grows with the context, not with the work. The
+#: cap keeps the head (where a command's answer usually is) and the tail (where errors print),
+#: states the exact truncation, and names the door for the rest: `read_file` with offset/limit.
+_EXECUTE_OUTPUT_CAP = 8000
+_EXECUTE_OUTPUT_HEAD = 5000
+
+
+def _cap_output(result, response_cls):
+    """Cut an oversized shell result, keeping head and tail and saying what was lost."""
+    text = getattr(result, "output", "") or ""
+    if len(text) <= _EXECUTE_OUTPUT_CAP:
+        return result
+    tail_len = _EXECUTE_OUTPUT_CAP - _EXECUTE_OUTPUT_HEAD
+    clipped = (
+        text[:_EXECUTE_OUTPUT_HEAD]
+        + f"\n\n… [{len(text) - _EXECUTE_OUTPUT_CAP:,} characters cut from the middle of "
+          f"{len(text):,}] …\n\n"
+        + text[-tail_len:]
+        + f"\n\n[shell output truncated at {_EXECUTE_OUTPUT_CAP:,} characters — narrow the command "
+          f"(grep -c / head -n / a tighter pattern), or read the file with `read_file` "
+          f"(offset/limit); do not re-run it verbatim to see the rest]"
+    )
+    return response_cls(output=clipped, exit_code=getattr(result, "exit_code", 0), truncated=True)
+

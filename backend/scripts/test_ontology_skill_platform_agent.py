@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Platform-level test: a LangConfig DeepAgent uses `build-ontology-from-db` for real.
+"""Platform-level test: a LangConfig DeepAgent uses `db-ontology-build` for real.
 
 The SDK test (test_ontology_skill_agent.py) proves the skill loads in deepagents. This one
 proves it works inside **LangConfig**: the skill is a DB row, the agent is an agent row, the
@@ -96,7 +96,7 @@ def main() -> int:
     cfg = agent.get("config") or {}
     print(f"agent {args.agent_id}: {agent.get('name')} · model={cfg.get('model')}")
     check("P1a the skill is pinned on the agent",
-          "build-ontology-from-db" in (cfg.get("skills") or []), str(cfg.get("skills")))
+          "db-ontology-build" in (cfg.get("skills") or []), str(cfg.get("skills")))
     check("P1b the shell sandbox is enabled", bool(cfg.get("use_local_sandbox")),
           "config.use_local_sandbox is off — the skill's scripts cannot run")
 
@@ -112,7 +112,7 @@ def main() -> int:
     started = time.time()
     print(f"session:   {sid}")
 
-    script = ("skills/builtin/build-ontology-from-db/scripts/introspect_db.py")
+    script = ("skills/builtin/db-ontology-build/scripts/introspect_db.py")
     tools, answer, outputs = stream_chat(
         args.base_url, sid,
         "用 execute 运行技能阶段 1 的脚本。脚本已经在工作区里，路径是相对工作区根的 "
@@ -162,14 +162,14 @@ def main() -> int:
     # P3d: running the staged script must not require copying it somewhere else —
     # a copy means the skill's own files were treated as unreachable, which is the
     # failure this staging exists to prevent.
-    mirror = workspace / "skills" / "builtin" / "build-ontology-from-db" / "scripts" / "introspect_db.py"
+    mirror = workspace / "skills" / "builtin" / "db-ontology-build" / "scripts" / "introspect_db.py"
     copies = [p for p in workspace.rglob("introspect_db*.py")
               if p.resolve() != mirror.resolve()]
     check("P3d the script ran from the skill mirror, not a copy", mirror.exists() and not copies,
           f"mirror={'yes' if mirror.exists() else 'MISSING'}, copies={copies}")
 
     # P5: the supporting files a script-bearing skill needs must be reachable
-    listing = call(args.base_url, "/api/skills/build-ontology-from-db/files")
+    listing = call(args.base_url, "/api/skills/db-ontology-build/files")
     files = [f.get("path", "") for f in listing.get("files", [])]
     check("P5 scripts/ and references/ are part of the skill",
           any(p.startswith("scripts/") for p in files)

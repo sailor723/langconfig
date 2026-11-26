@@ -16,7 +16,8 @@ Guards, because these are write verbs on a shared server:
   `UPDATE …; DROP TABLE …` cannot ride along.
 * **a blocklist that is about the SERVER, not about judgement.** `DROP DATABASE`, `DROP SCHEMA … CASCADE`,
   `ALTER SYSTEM`, `CREATE/ALTER/DROP ROLE`, `REVOKE/GRANT … ON DATABASE`, `pg_terminate_backend`,
-  `TRUNCATE` of the platform's own database, and anything against template databases are refused by name.
+  `TRUNCATE` of the platform's own database, DDL on the platform's own database, and anything against
+  template databases are refused by name. Row-level DML on the platform IS allowed — operators do it.
   Everything else in the caller's own databases is allowed — that is what "manage" means, and pretending
   otherwise just pushes people back to psql.
 * **the target is named.** The database is an argument, never parsed out of the SQL, so "which server was
@@ -50,11 +51,15 @@ class DbAdminError(ValueError):
     """A request that will not be carried out — the message says what to fix."""
 
 
-def _conn_kwargs(db_name: str = "") -> dict:
-    """The agent's own connection (host/port/user/password) plus the requested database."""
+def _conn_kwargs(db_name: str = "", ontology_key: str = "") -> dict:
+    """The agent's own connection (host/port/user/password) plus the requested database.
+
+    `ontology_key` lets a caller name an ontology whose profile declares a DIFFERENT server (TPC-H
+    lives on :5432 while the platform's own database is :5433) — the declaration is the fact.
+    """
     from tools.native_impl import _pg_conn_kwargs  # the one place that precedence lives
 
-    kw = _pg_conn_kwargs(dbname=db_name)
+    kw = _pg_conn_kwargs(dbname=db_name, ontology_key=ontology_key)
     kw.setdefault("connect_timeout", 8)
     return kw
 
@@ -95,7 +100,8 @@ def validate_statement(sql: str, *, platform_db: str | None = None) -> str:
     return stripped
 
 
-def list_databases(*, with_objects: bool = True, max_connections: int = 40) -> dict:
+def list_databases(*, with_objects: bool = True, max_connections: int = 40,
+                   ontology_key: str = "") -> dict:
     """Every database on the server, and (optionally) how many tables each one holds.
 
     The object count CANNOT come from one query: `pg_class` belongs to the database you are connected to,
@@ -133,10 +139,12 @@ def list_databases(*, with_objects: bool = True, max_connections: int = 40) -> d
         platform = bool(_platform_db()) and name == _platform_db()
         entry = {"database": name, "owner": owner, "size": size, "size_bytes": size_bytes,
                  "template": bool(is_tmpl), "connectable": bool(allow), "encoding": enc,
-                 # `writable` is what THIS TOOL SET will accept, not what the server would allow: the
-                 # platform's own database is readable here and refused by `db_execute` (row-level DML has
-                 # its own door, `pg_execute`). A flag that says "writable" and then refuses is a trap.
-                 "writable": bool(allow) and not is_tmpl and name not in NEVER_WRITE and not platform,
+                 # `writable` is what THIS TOOL SET will accept, not what the server would allow.
+                 # The platform's own database IS writable now — `db_execute` takes row-level DML there and
+                 # refuses DDL — so the flag is true with `write_scope = "dml-only"`. (It used to be false
+                 # with the note "row-level DML has its own door, pg_execute"; that door is gone.)
+                 "writable": bool(allow) and not is_tmpl and name not in NEVER_WRITE,
+                 "write_scope": ("dml-only" if platform else ("full" if (bool(allow) and not is_tmpl and name not in NEVER_WRITE) else "none")),
                  "platform": platform, "objects": None}
         if with_objects and entry["connectable"] and counted < max_connections:
             counted += 1
@@ -161,14 +169,14 @@ def list_databases(*, with_objects: bool = True, max_connections: int = 40) -> d
             "objects_counted": counted, "objects_requested": with_objects}
 
 
-def describe(db_name: str, table: str = "") -> dict:
+def describe(db_name: str, table: str = "", ontology_key: str = "") -> dict:
     """Schemas and tables for a database (row counts), or one table's columns, indexes and keys."""
     import psycopg2
 
     name = (db_name or "").strip()
     if not name:
         raise DbAdminError("db_name is required (see db_list_databases)")
-    kw = _conn_kwargs(name)
+    kw = _conn_kwargs(name, ontology_key)
     try:
         conn = psycopg2.connect(**kw)
     except Exception as exc:                                   # noqa: BLE001
@@ -238,17 +246,23 @@ def execute(db_name: str, sql: str, *, confirm: bool = False, timeout_ms: int = 
         raise DbAdminError(f"refused: {name!r} is a database PostgreSQL (or this platform) owns; "
                            f"writes belong in a database that holds the caller's data")
     platform = _platform_db()
-    if platform and name == platform:
-        # The target database is an ARGUMENT, so the guard has to look at the argument: a
-        # `DROP TABLE deep_agent_templates` never mentions the database name in its text. The platform's
-        # database is the app's own state; row-level DML there already has a door with its own guards
-        # (`pg_execute`), and DDL on it is not an agent's job.
-        raise DbAdminError(
-            f"refused: {name!r} is THIS PLATFORM's own database. The write side refuses it by argument — "
-            f"use pg_execute for row-level DML there, or point db_name at a database that holds the "
-            f"caller's data.")
     statement = validate_statement(sql)
     low = statement.lower()
+    if platform and name == platform:
+        # The target database is an ARGUMENT, so the guard has to look at the ARGUMENT: a
+        # `DROP TABLE deep_agent_templates` never mentions the database name in its text.
+        #
+        # TWO verbs, ONE door. Row-level DML on the platform is a thing operators really do (fix a
+        # tool's `is_deprecated` flag, a settings row, an agent's config), so it is allowed here;
+        # DDL on it is not an agent's job and stays refused. This used to be split across two tools
+        # (`db_execute` refused the platform by argument, `pg_execute` served it) — a caller had to
+        # know which database was "the platform's" before choosing a tool, and `pg_execute` was
+        # never bound by anything or ever called.
+        if not low.startswith(("insert", "update", "delete")):
+            raise DbAdminError(
+                f"refused: {name!r} is THIS PLATFORM's own database, where only row-level DML "
+                f"(INSERT/UPDATE/DELETE) is allowed. DDL on the database this app runs on is not an "
+                f"agent's job — that one belongs in psql as an administrator.")
     plan = {"ok": True, "database": name, "statement": statement,
             "kind": "ddl" if low.startswith(("create", "alter", "drop", "truncate", "comment")) else "dml",
             "confirmed": bool(confirm)}
@@ -257,7 +271,7 @@ def execute(db_name: str, sql: str, *, confirm: bool = False, timeout_ms: int = 
                         f"confirm=true to run it against {name!r}.")
         return plan
 
-    kw = _conn_kwargs(name)
+    kw = _conn_kwargs(name, ontology_key)
     try:
         conn = psycopg2.connect(**kw)
     except Exception as exc:                                   # noqa: BLE001
