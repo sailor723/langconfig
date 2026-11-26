@@ -518,7 +518,7 @@ grill = 动手之前，把你那句「我想按城市看每月销售」，问到
 | **3** | 393 | 第 2 格的方案 | 把 `needs_human` 并进下一轮问题；答案写回 `grill.md` | 更新后的 `grill.md` | **STOP-1**：没有用户「确认」，不许进第 4 格 | ✅ 停点守住（2103 未建库） |
 | **4** | `tables` | 已确认的映射 | `db_build_from_file(confirm=true)` → `db_verify_against_file` 逐值对账 → `db_review` 给 PK/FK 候选 | 真库（带建库标记）+ 对账报告 + 约束清单 | **对账必须 PASS**；PK/FK 由人点头后 `db_review(apply=true)` | ✅ 375 同一套工具实测：3 sheet → 3 表，PASS，3 PK + 1 自然键 FK |
 | **5** | 393 | 对账 PASS 的库 | `ontology_register(name, datasource, theme, kind)` → 平台分配 **`<name>_v<N>`**（永不复用） | `profiles/<key>/`、`profiles/_versions.json` 的新条目 | 客户给名字、平台给版本号；`latest` 指针只指一个 | ✅ **17 个族**，`latest` 只在已退役的那一族上留空（详见 5.2） |
-| **6** | `modeller` → `metrics` → `board` | `grill.md` + 库 + 上一格 `NOTES.md` | S1 结构 / S2 含义 → S3 指标 / S4 护栏 / S5 样例 → S6 看板 / S7 教程 / S8 拒绝清单 | `01-structure.ttl` `02-meaning.ttl` `metrics_ext.ttl` `samples.json` `dashboard.json` `tutorial.json` | 每格自己跑编译与门禁；`metrics` **只追加**，不许改结构；回执缺一项 = 没做完 | ✅ 11 个 profile 有 `dashboard.json`；`store_monthly_v1` 四道门禁 0 失败 |
+| **6** | `modeller` → `metrics` → `board` | `grill.md` + 库 + 上一格 `NOTES.md` | S1 结构 / S2 含义 → S3 指标 / S4 护栏 / S5 样例 → S6 看板 / S7 教程 / S8 拒绝清单 | `01-structure.ttl` `02-meaning.ttl` `metrics_ext.ttl` `samples.json` `dashboard.json` `tutorial.json` | 每格自己跑编译与门禁；`metrics` **只追加**，不许改结构；回执缺一项 = 没做完 | ✅ **12 个** profile 有看板（`dashboard.json`）；Excel 建的那块板四道门禁 0 失败 |
 | **7** | 393 | 全套声明 | `ontology_publish`：**只到 staged**，拒绝清单按名交出来 | staged 版本 + 拒绝清单 | **STOP-2**：`ontology_publish` 从不安装，人在 Settings → Ontology 里 `confirmed=true` 才 apply | ✅ 设计如此；apply 是人工动作 |
 
 ### 二、三个不许合并的分工
@@ -2602,7 +2602,7 @@ python scripts/build_data_agent_html.py        # 生成 data-agent.html + data-a
 |---|---|---|---|
 | `data-agent.docx` | 发出去、要批注 | **52 个内部超链接**（165 条书签） | PNG 内嵌（6.3 in 宽） |
 | `data-agent.html` | 浏览器里读、单文件可传阅 | **69 条** `#sNNN` / 标题锚点 | **内联 SVG**（矢量，放大不糊） |
-| `data-agent.pdf` | 打印、归档 | **73 个命名目标** + 188 条 PDF 书签 | 矢量（宽度按纸宽缩到 483 pt，**看不清就放大**） |
+| `data-agent.pdf` | 打印、归档 | **74 个命名目标** + 189 条 PDF 书签 | 矢量（A4/12mm 边距，打印版比屏幕版密一档；图按纸宽 82%，**看不清就放大**） |
 
 > 手画的 SVG **不会**替你报错：文字写宽了压到邻框、框画到 `viewBox` 外被裁掉，都是静默的。
 > 所以改完图必须跑 `check_svg_overflow.py` —— 它沿用的字宽模型与生成器是同一套，不会各说各话。

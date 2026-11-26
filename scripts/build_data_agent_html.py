@@ -32,9 +32,13 @@ _spec.loader.exec_module(_toc)
 
 CSS = """
 @page {
+  /* 12mm 边距 + 让正文更密：一页能装更多，A4 上仍然留有可读的呼吸感。
+     这个数值也决定 PDF 守卫的右边界（见 backend/tests/test_context_cost_guards.py）——两边必须一致。 */
+  size: A4;
+  margin: 12mm 12mm 13mm 12mm;
   @bottom-center {
     content: "__STAMP__ · 第 " counter(page) " / " counter(pages) " 页";
-    font-size: 8pt; color: #8a96a3;
+    font-size: 7.5pt; color: #8a96a3;
     font-family: -apple-system, "PingFang SC", system-ui, sans-serif;
   }
 }
@@ -84,18 +88,35 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 34px 0; }
 .note { background: var(--warn); border-left: 4px solid var(--warn-line); padding: 10px 16px;
         border-radius: 0 8px 8px 0; }
 @media print {
-  body { background:#fff; font-size: 10.5pt; }
+  /* 打印版比屏幕版密一档：字号小一点、行距紧一点、块间距小一点。
+     屏幕版（上面的 :root/body）不动——那是给人读的，这是给纸和 PDF 的。 */
+  body { background:#fff; font-size: 9.4pt; line-height: 1.48; }
   main { max-width: none; padding: 0; }
   a { color: #0b4f96; }
-  h1 { break-before: page; }
-  h1:first-of-type { break-before: avoid; }
+  h1 { break-before: page; font-size: 17pt; margin: 6pt 0 4pt; padding-bottom: 4pt; }
+  h1:first-of-type { break-before: avoid; font-size: 20pt; }
+  h2 { font-size: 13pt; margin: 10pt 0 3pt; }
+  h3 { font-size: 11pt; margin: 8pt 0 2pt; }
+  h4 { font-size: 9.8pt; margin: 6pt 0 2pt; }
   h2, h3, h4 { break-after: avoid; }
-  table, pre, blockquote, figure { break-inside: avoid; }
+  p { margin: 3pt 0; }
+  ul, ol { margin: 3pt 0 3pt 0; padding-left: 16pt; }
+  li { margin: 1.5pt 0; }
+  hr { margin: 10pt 0; }
+  blockquote { margin: 5pt 0; padding: 4pt 8pt; }
+  blockquote p { margin: 1pt 0; }
+  figure { margin: 6pt 0; }
+  figcaption { font-size: 8pt; margin-top: 2pt; }
+  /* 图按纸宽等比缩：宽度给 82% 时高度同比降，图多的一篇能省下好几页 */
+  figure svg { width: 82%; margin: 0 auto; }
+  /* 表格允许跨页（thead 会在新页重复）；原来一律 avoid 会把大表整体推到下一页，留下半页空白 */
+  pre, blockquote, figure { break-inside: avoid; }
+  table { break-inside: auto; }
   /* 表格按纸宽重排：六列密表在 A4 上要么缩小字号，要么冲出纸边 */
   /* 固定布局：列宽均分、内容在格内换行。auto 布局会按 min-content 撑列，
      一个 `tests/....py::test_...` 就能把整张表推过纸边（WeasyPrint 静默裁掉）。 */
-  table { width: 100%; table-layout: fixed; font-size: 8.6pt; }
-  th, td { padding: 4px 6px; word-break: break-all; }
+  table { width: 100%; table-layout: fixed; font-size: 8pt; }
+  th, td { padding: 2.5pt 4pt; word-break: break-all; }
   td code, th code { font-size: 0.92em; }   /* 单元格里的 code 用 px 字号就不随表缩小，撑宽整张表 */
   /* 正文里 `tests/xxx.py::test_yyy` 这种长标识符也要能断，否则它一个人就越过纸边 */
   code { word-break: break-all; }
@@ -103,6 +124,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 34px 0; }
      按 min-content 撑列，不认 overflow-wrap: anywhere，不 break-all 就冲出纸边。 */
   thead { display: table-header-group; }
   pre { background: #f4f6f8; color: #16202b; border: 1px solid var(--line);
+        font-size: 7.8pt; line-height: 1.35; padding: 6pt 8pt; margin: 4pt 0;
         white-space: pre-wrap; overflow-wrap: anywhere; }
   figure svg { background: #0f1419; }
 }

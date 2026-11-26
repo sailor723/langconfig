@@ -380,8 +380,15 @@ def test_pdf_is_a_real_artifact():
         names = doc.resolve_names()
         missing = [r for r in refs if r not in names]
         assert refs and not missing, f"{len(missing)} 条 PDF 内部链接解不开: {missing[:5]}"
-        # 内容右界 = 纸宽 − 16mm 边距；超出说明表格/长标识符被裁掉了
-        right = doc[0].rect.width - 45.4
+        # 内容右界 = 纸宽 − `@page` 的边距。边距从构建好的 HTML 里读，不写死：
+        # 打印版收紧过一次（16mm → 12mm），写死的 45.4pt 会把正常的版心误判成溢出。
+        import re as _re
+
+        page = (_p.Path(__file__).resolve().parents[2]
+                / "docs/system-architecture/data-agent.html").read_text(encoding="utf-8")
+        m = _re.search(r"@page\s*\{[^}]*?margin:\s*[\d.]+mm\s+([\d.]+)mm", page)
+        margin_pt = (float(m.group(1)) * 72 / 25.4) if m else 45.4
+        right = doc[0].rect.width - margin_pt
         over = [i + 1 for i, p in enumerate(doc)
                 if max([max((d["rect"].x1 for d in p.get_drawings()), default=0),
                         max((b[2] for b in p.get_text("blocks")), default=0)]) > right + 1]
