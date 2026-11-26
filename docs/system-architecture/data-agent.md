@@ -211,7 +211,7 @@ T4 教程 → T5 发布`，每票一格里写着「你做什么 / Agent 做什�
 | ③④ 建库/摸库 + 对账 | `tables` | 真库 + 对账回执（0 差异）+ PK/FK |
 | ⑤ 规格 + 切票 | 总控 | `SPEC.md`(AC-n) + `tickets/` |
 | ⑥ 登记 + 声明三连 | 总控 + `modeller`/`metrics`/`board` | `<name>_v<N>` + 01/02 TTL、指标、看板、教程 |
-| ⑦ 逐票验收 | `verifier`（只读） | PASS/FAIL + 失败项名 |
+| ⑦ 逐票验收 | `ontology_verify_stage`（只读工具；派 `verifier` 的设计见 §四） | PASS/FAIL + 失败项名 |
 | ⑧ 压 staged | 总控 | staged 候选 + 编译/门禁/拒绝清单 |
 | ⑨ 安装 | **你** | apply → git commit + `latest` 指向新版本 |
 
@@ -231,15 +231,15 @@ T4 教程 → T5 发布`，每票一格里写着「你做什么 / Agent 做什�
 | 教程拒绝页 | `tutorial.json` 的 `kind:"refusals"` | 人读 |
 
 ### 8 · 验收：什么叫"绿"
-四族门禁 + 逐票 verifier；**NOT RUN ≠ 通过**；未验项按名列进回执的 `unverified`。
+四族门禁 + 逐票 `ontology_verify_stage`；**NOT RUN ≠ 通过**；未验项按名列进回执的 `unverified`。
 
 ### 9 · 一次实例（示例，数字属这一次）
-TPC-H SF0.1：结构 8 类/61 列/9 关系（93 checks 绿）· 指标 35 条（32 可编译 + 3 声明式拒绝）· 看板 10 KPI + 12 面板（112 checks 0 failed）· 教程 8 步含 5 条拒绝 · R2 真跑 2/2。
+TPC-H SF0.1：结构 8 类/61 列/9 关系（93 checks 绿）· 指标 35 条（33 可编译 + 2 声明式拒绝）· 看板 10 KPI + 12 面板（112 checks 0 failed）· 教程 8 步含 5 条拒绝 · R2 真跑 2/2。
 
 ### 10 · 现在做不到的（明说）
 - 同一物理表要 join 两次（供应商↔客户**配对流向**）→ 按名拒绝；
 - 客户侧地区分组（两条路径都可达、选路不唯一）→ 按名拒绝；
-- 面板的**像素**没有测试；verifier 没有查库工具，行数由管理者或人复核。
+- 面板的**像素**没有测试；验收工具没有查库门，行数由总控或人复核。
 
 ---
 
@@ -252,8 +252,8 @@ TPC-H SF0.1：结构 8 类/61 列/9 关系（93 checks 绿）· 指标 35 条（
 | 票 | Agent 做什么（负责人） | 交付物 | 验收（谁签） | 这次的真实证据 |
 |---|---|---|---|---|
 | **T0 准备** | 摸清事实 → grill（≤9 问）→ 建库/摸库 + 逐值对账 → 写 SPEC → 切出 T1…Tn（`tables` + 总控） | `grill.md`、`SPEC.md`、`tickets/TICKET-NN.md`、真库 | 你放行（**停点 1**） | 2 sheet / 10 表，对账 0 差异 |
-| **T1 结构** | 写 `01-structure.ttl`（类→表、属性→列、关系→join）+ `02-meaning.ttl`（含义、定义类）（`modeller`） | 两个 TTL（+ 可选 `03-concept-definitions.ttl`） | `verifier` → `ontology_verify_stage(stage="structure")` | `93 checks · 0 failed` |
-| **T2 指标** | 写 `metrics_ext.ttl`（指标/护栏/声明式拒绝）+ `samples.json`（含按名拒绝样例）（`metrics`） | 指标、样例、guard 配置 | `stage="metrics"` → `check_samples` + generic | 32 可编译 + 3 条声明式拒绝 |
+| **T1 结构** | 写 `01-structure.ttl`（类→表、属性→列、关系→join）+ `02-meaning.ttl`（含义、定义类）（`modeller`） | 两个 TTL（+ 可选 `03-concept-definitions.ttl`） | `ontology_verify_stage(stage="structure")` | `93 checks · 0 failed` |
+| **T2 指标** | 写 `metrics_ext.ttl`（指标/护栏/声明式拒绝）+ `samples.json`（含按名拒绝样例）（`metrics`） | 指标、样例、guard 配置 | `stage="metrics"` → `check_samples` + generic | 33 可编译 + 2 条声明式拒绝 |
 | **T3 看板** | 写 `dashboard.json`（KPI + 面板，轴写进 note）（`board`） | 10 KPI + 12 面板 | `stage="board"` → `check_dashboard` | `112 checks, 0 failed` |
 | **T4 教程** | 写 `tutorial.json`（8 步含 `refusals`）+ `truth.json`（定义类手写谓词）（`board`） | 教程 + truth | generic 的 T1–T5 + R2 | 8 步含 5 条拒绝 · R2 2/2 |
 | **T5 发布** | `ontology_publish` 压到 **staged**，跑四族门禁，列出编译/拒绝清单（总控） | staged 候选 + 拒绝清单 | `stage="publish"` + **你点 apply**（**停点 2**） | apply → git commit |
@@ -401,7 +401,7 @@ grill = 动手之前，把你那句「我想按城市看每月销售」，问到
 | 文件 | 只回答一个问题 | 谁读它 |
 |---|---|---|
 | `grill.md` | **为什么这么定**（决定 + 一行理由 + 有意未定） | 你、下一票的专家 |
-| `SPEC.md` | **做到什么算完**（AC-1…AC-n，每行可检查） | 停点 1 的你、`verifier` |
+| `SPEC.md` | **做到什么算完**（AC-1…AC-n，每行可检查） | 停点 1 的你、验收那一步 |
 | `tickets/TICKET-NN.md` | **谁、怎么切、被谁阻塞**（一票一条能单独演示的窄路径） | 执行专家 |
 
 ⚠️ **诚实说明：`grill.md` 目前没有门禁。** 系统靠"总控先写 grill 再派活"这个约定，**没有**代码检查
@@ -436,7 +436,7 @@ grill = 动手之前，把你那句「我想按城市看每月销售」，问到
 - **卡在哪**：写不出可检查验收行的票，它不开工。
 
 ## 第 6 步 · 逐票干活与验收（中途看结果）
-- **它做**：一次一票一个专家 → 专家回 JSON 回执 → **换上下文**让 verifier 验收。
+- **它做**：一次一票一个专家 → 专家回 JSON 回执 → **换上下文**做验收（设计上是只读 `verifier` 专家；现状见 §四 ⚠）。
 - **你会看到**：每票结论行（门禁数字 + PASS/FAIL）+ `unverified`。
 - **卡在哪**：FAIL 带回失败项名重派；NOT-RUNNABLE 说明票写坏了。
 
@@ -474,8 +474,8 @@ grill = 动手之前，把你那句「我想按城市看每月销售」，问到
 
 ### 总览图
 
-> **历史版**七格流水线图（`ontology-pipeline.dot`）已不再引用：它和上面两张图讲同一件事，但把
-> 用户动作、agent 步骤、停点、产物塞进一张 23 节点的图里，插进文档就成灰块。
+> **历史版**七格流水线图（`data-agent-pipeline-legacy.dot`）**已删除**：它和上面两张图讲同一件事，
+> 但把用户动作、agent 步骤、停点、产物塞进一张图里，插进文档就是一块灰。git 历史里还能找到。
 
 
 - 图里三列：**左 = 用户动作**（绿）· **中 = 这一格谁做**（橙=393、蓝=tables、紫=声明三连）· **右 = 产物**（绿点线）
@@ -500,7 +500,7 @@ grill = 动手之前，把你那句「我想按城市看每月销售」，问到
 | 写规格 | 393 | `work/<key>/SPEC.md`：问题、决定与决定人、范围、**验收标准 AC-1…AC-n** | `to-spec` |
 | 切工单 | 393 | `work/<key>/tickets/TICKET-NN.md`：交付 / 负责人 / 输入 / **验收（带 AC 编号 + verify 调用）** / 阻塞 | `to-tickets` |
 | 逐票干活 | 执行专家（tables / modeller / metrics / board） | 该票的产物 + JSON 回执 | —— |
-| 逐票验收 | **`verifier`（第五个专家，只读）** | `verdict / checks / failed / unverified` | 工具 `ontology_verify_stage` |
+| 逐票验收 | **393 调 `ontology_verify_stage`**（设计上是只读的 `verifier` 专家，**尚未装进 393 的行**，见 §四） | `verdict / checks / failed / unverified` | 工具 `ontology_verify_stage` |
 
 一张票**没写验收行就不许开工**；`verdict=NOT-RUNNABLE` 说明工单没写好，回 `to-tickets` 补。
 
@@ -512,7 +512,7 @@ grill = 动手之前，把你那句「我想按城市看每月销售」，问到
 | **2** | `tables` | 上传文件 | `db_plan_from_file`：sheet → 表、列 → 类型、行数、样例、**只有人能拍板的问题** | 方案（回执 JSON 的 `produced/facts/needs_human`）+ `work/<key>/PLAN.md` | **不建库**（工具本身 confirm 默认 false） | ✅ 实测：`# 方案（还没有建库）：orders_probe.xlsx → …` |
 | **3** | 393 | 第 2 格的方案 | 把 `needs_human` 并进下一轮问题；答案写回 `grill.md` | 更新后的 `grill.md` | **STOP-1**：没有用户「确认」，不许进第 4 格 | ✅ 停点守住（2103 未建库） |
 | **4** | `tables` | 已确认的映射 | `db_build_from_file(confirm=true)` → `db_verify_against_file` 逐值对账 → `db_review` 给 PK/FK 候选 | 真库（带建库标记）+ 对账报告 + 约束清单 | **对账必须 PASS**；PK/FK 由人点头后 `db_review(apply=true)` | ✅ 375 同一套工具实测：3 sheet → 3 表，PASS，3 PK + 1 自然键 FK |
-| **5** | 393 | 对账 PASS 的库 | `ontology_register(name, datasource, theme, kind)` → 平台分配 **`<name>_v<N>`**（永不复用） | `profiles/<key>/`、`profiles/_versions.json` 的新条目 | 客户给名字、平台给版本号；`latest` 指针只指一个 | ✅ 15 个族、`latest` 全设（`new_coldchain` 已有 v3–v6） |
+| **5** | 393 | 对账 PASS 的库 | `ontology_register(name, datasource, theme, kind)` → 平台分配 **`<name>_v<N>`**（永不复用） | `profiles/<key>/`、`profiles/_versions.json` 的新条目 | 客户给名字、平台给版本号；`latest` 指针只指一个 | ✅ **17 个族**，`latest` 只在已退役的那一族上留空（详见 5.2） |
 | **6** | `modeller` → `metrics` → `board` | `grill.md` + 库 + 上一格 `NOTES.md` | S1 结构 / S2 含义 → S3 指标 / S4 护栏 / S5 样例 → S6 看板 / S7 教程 / S8 拒绝清单 | `01-structure.ttl` `02-meaning.ttl` `metrics_ext.ttl` `samples.json` `dashboard.json` `tutorial.json` | 每格自己跑编译与门禁；`metrics` **只追加**，不许改结构；回执缺一项 = 没做完 | ✅ 11 个 profile 有 `dashboard.json`；`store_monthly_v1` 四道门禁 0 失败 |
 | **7** | 393 | 全套声明 | `ontology_publish`：**只到 staged**，拒绝清单按名交出来 | staged 版本 + 拒绝清单 | **STOP-2**：`ontology_publish` 从不安装，人在 Settings → Ontology 里 `confirmed=true` 才 apply | ✅ 设计如此；apply 是人工动作 |
 
@@ -545,14 +545,18 @@ grill = 动手之前，把你那句「我想按城市看每月销售」，问到
 
 ### 四、每一票都由**另一个专家**验收：回执是声明，不是证据
 
-执行专家交回 JSON 回执之后，393 **不自己验**，而是派第五个专家 **`verifier`**——换一个上下文去验。
-理由：同一个上下文既干活又签字，"验证通过"只等于"同一个模型说了两遍"。
+执行专家交回 JSON 回执之后，验收该由**另一个上下文**做：同一个上下文既干活又签字，
+"验证通过"只等于"同一个模型说了两遍"。工单上的验收行会被翻成一次只读工具调用，
+回一段 JSON：`verdict`（PASS / FAIL / NOT-RUNNABLE）+ `checks` + `failed` + `unverified`。
+工具是**只读**的（`backend/features/ontology/stage_checks.py`）：它不修任何东西，只回答"这一格到底成没成"。
 
-`verifier` 是**只读**专家（工具只有 `ontology_verify_stage` / `read_file` / `ls` / `ontology_inspect`），
-它把工单上的验收行翻成一次工具调用，然后回一段 JSON：`verdict`（PASS / FAIL / NOT-RUNNABLE）+ `checks` + `failed` + `unverified`。工具是**只读**的
-（`backend/features/ontology/stage_checks.py`）：它不修任何东西，只回答"这一格到底成没成"。
+> ⚠ **现状（2026-11-26 查库）**：393 的 `subagents_config` 里只有 `tables` / `modeller` / `metrics` /
+> `board` 四个执行专家（外加被禁用的 `general-purpose`）——**第五个只读的 `verifier` 专家还没装进行里**。
+> 所以今天的验收是 **393 在同一个上下文里直接调 `ontology_verify_stage`**：机械、只读、可复核，
+> 但**没有换上下文**。这条差距记在「九、还没做的事」里；补法是把一个 `verifier` 子智能体
+> （工具只给 `ontology_verify_stage` / `read_file` / `ls` / `ontology_inspect`）加进 393 的行。
 
-| 执行专家刚交回 | `verifier` 跑的验收调用 | 不过的典型原因 |
+| 执行专家刚交回 | 验收调用（谁调见上面的 ⚠） | 不过的典型原因 |
 |---|---|---|
 | `tables` 出方案 | `stage="plan"` · `plan_path=work/<key>/PLAN.md` · `sheets="orders,customers"` | 方案漏了某个 sheet；**或者库里已经有这个库了**（说明它偷偷建了） |
 | `tables` 建库 + 对账 | `stage="build"` · `db_name=…` · `expect='{"orders": 4, "customers": 4}'` | 表不存在 / 行数不精确等于文件 |
@@ -565,7 +569,7 @@ grill = 动手之前，把你那句「我想按城市看每月销售」，问到
 
 1. **PASS 才关票；FAIL 不许往下走**：把 FAIL 的**检查名**原样带回给同一个专家重派，或把需要人决定的部分写进 `needs_human`。
 2. **门禁没跑 = 不是绿**：`_run_gate` 把 `notrun` 原样报出来（仓库既有规矩：没跑的检查要说出名字，不许算作通过）。
-3. **验收本身也是可测的**：`tests/test_ontology_stage_checks.py`（8 项）钉住了每一条——方案漏 sheet 必须红、
+3. **验收本身也是可测的**：`backend/tests/test_ontology_stage_checks.py`（8 项）钉住了每一条——方案漏 sheet 必须红、
    面板 kind 越域必须红、看板引用了未声明的指标必须红、版本没登记必须红、未知 stage 是调用方错误而不是检查失败。
 
 **实测（真实本体 `store_monthly_v1`）**：
@@ -599,7 +603,7 @@ build      FAIL  expect {"月度经营": 999} → got 12      ← 故意写错�
 | **`meeting_v1`**（会议决议闭环） | 3 个 TTL + 11 个文件 | **9 KPI**：`meetingCount` `manHours` `attendanceCount` `itemCount` `closeRate` `overdueRate` …；**26 个面板**；源数据 3 562 行原始 CSV，口径按「会议 / 决议事项」两级分开声明（L6 教训） |
 | **`new_coldchain_v6`**（ABC 冷链） | 1 个 TTL + 看板 | **10 KPI**：`tripCount` `onTimeRate` `overloadRate` `externalShare` `loadUtilization` …；**6 面板**：slope / matrix / sankey / composition / bubble；同一族第 **4** 个版本（v3–v6 并存，`latest` 指 v6） |
 
-全量：`profiles/_versions.json` 里 **15 个族**、`latest` 全部已设；`profiles/` 下 **19 个 profile 目录**、其中 **11 个带 `dashboard.json`**。
+全量：`profiles/_versions.json` 里 **17 个族**（`latest` 除已退役的 `orders_demo` 外都已设）；`profiles/` 下 **19 个 profile 目录**，其中 **12 个带 `dashboard.json`**、**13 个带 `samples.json`**。
 
 **怎么自己核对**（不用信这份文档）：
 
@@ -621,7 +625,7 @@ EOF
 | 派活用 **SDK 的 `task`** 工具 | 会话 2103 的 `task` 返回 `{"graph": null, "update": {files, messages}}`，是 SDK 的形状；`native_impl.task` 那个占位已从 manager 工具里移除 |
 | 子 agent **没有 `skills` 字段** | `_prepare_subagents` 只接受 `name / description / system_prompt / tools / model`——技能只能由**主 agent 的 `config.skills`** staged 到工作区，子 agent 用 `read_file` 去读 |
 | 393 现在自己有一把只读"看库"的钥匙 | `native_tools` 补了 `db_describe`（`db_list_databases` 已在整理中被它吸收）：`db_describe()` 列服务器上的库、`db_describe(db_name=…)` 列表、`db_describe(db_name=…, table=…)` 看列与主外键。它之前用 `psql -lqt` / `information_schema` 是**因为没有这个工具**，不是因为懒 |
-| 验收者是**第五个 subagent** | `verifier`：工具只有 `ontology_verify_stage` / `read_file` / `ls` / `ontology_inspect`——没有写工具、没有 `db_execute`。总控每票都派它，PASS 才关票 |
+| 验收该由**另一个上下文**做 | 设计：`verifier` 子智能体（工具只给 `ontology_verify_stage` / `read_file` / `ls` / `ontology_inspect`，没有写工具、没有 `db_execute`）。**现状**：它没装进 393 的行，验收由 393 自己调只读的 `ontology_verify_stage`（§四 ⚠） |
 | `general-purpose` 是 SDK 自动加的 | 我们用描述写着【禁用】的占位顶替；**这是提示词约束，不是框架约束** |
 
 ### 八、真实数字（2026-11-25 查库/查盘）
@@ -637,13 +641,18 @@ EOF
 ### 九、还没做的事（按优先级）
 
 1. **S0 的"怎么做"没挂到专家身上**。`tables` 目前只有四专家共用的纪律提示词；流程细节在技能
-   `db-excel-to-postgres` 里，但**没人加载它**（393 的 `skills` 只有 `grilling`）。两条可选路：
+   `db-excel-to-postgres` 里，但**没人加载它**（393 的 `skills` 现在是 `grilling` / `to-spec` / `to-tickets` / `evidence-first-delivery` 四个；`db-excel-to-postgres` 仍然不在里面）。两条可选路：
    ① 把技能挂到 393（技能 staged 后 `tables` 用 `read_file` 读）；② 把流程写回 `tables` 的 `system_prompt`。
 2. **393 实际上有 shell**。它的 `native_tools` 里没有 `execute`，但 deepagents 的 `FilesystemMiddleware`
    在磁盘后端激活时会注入 `execute`——会话 2103 里就有一次 `execute`（`ls -la`）。所以"总控不许量数"
    现在只是**提示词约束**，它随时能 `psql`。
 3. **`general-purpose` 没有框架级关闭**。占位描述只能挡住提示词层面的派活；真要关，得在 SDK 的
    harness profile 里排除（`assembly.py` 已有一处 `register_harness_profile(excluded_tools=…)` 的先例）。
+3b. **`verifier` 专家还没装进 393 的行**。2026-11-26 查库：393 的 `subagents_config` 是
+   `tables` / `modeller` / `metrics` / `board` + 禁用的 `general-purpose` —— 没有第五个只读专家。
+   所以今天的验收是 393 在**同一个上下文**里调 `ontology_verify_stage`：机械、只读，但没有「换上下文」。
+   补法：给 393 加一个 `verifier` 子智能体（工具只给 `ontology_verify_stage` / `read_file` / `ls` /
+   `ontology_inspect`），并让每票在关票前派它一次。
 4. **`grill.md` 存在与否没有门禁**。现在靠"393 先写 grill 再派活"这个约定；没有任何检查保证
    "没 grill 过就不许 `ontology_register` / `ontology_publish`"。
 5. **`execute` 相关步骤没有超时/产物校验**：`modeller`/`metrics`/`board` 跑编译与门禁都走 shell，
@@ -964,9 +973,9 @@ logistics 的表名。修法都落在**通用性**上，不是给某个本体开
 
 | 层 | 验证方式 | 现状 |
 |---|---|---|
-| 版本编号 | `tests/test_ontology_versioning.py`（32，含变异测试） | 绿 |
-| 登记 | `tests/test_ontology_register.py`（21） | 绿 |
-| 技能参数作用域 | `tests/test_skill_params_scope.py`（5） | 绿 |
+| 版本编号 | `backend/tests/test_ontology_versioning.py`（32，含变异测试） | 绿 |
+| 登记 | `backend/tests/test_ontology_register.py`（21） | 绿 |
+| 技能参数作用域 | `backend/tests/test_skill_params_scope.py`（5） | 绿 |
 | Excel → 库 | 真文件：2 sheet → 2 表，`Row counts match`，逐列和对 PASS | 绿（本机实测） |
 | 单个 builder agent | 真对话：不猜 key、`ontology_open` 取库名、24 表 / 2 087 行与独立 `count(*)` 一致 | 绿（本机 + ECS） |
 | 门禁全套 | `python -m scripts.ontology_gates` | 60 runs · 8 failed · 40 NOT RUN（与干净 HEAD 完全同集，均为环境/声明问题） |
@@ -1118,8 +1127,8 @@ per-key builder rows are done; what remains is listed at the end.
 
 > 分工：**本文件 = 结构**（一个 builder 模板 + 每个本体一个实例；命名与版本契约）。
 > **过程**（每回合推进哪一格、谁产什么、停在哪、凭什么算做完）在
-> 见本文件 **第三部分（过程与票制）** 与 **第四部分（架构与流水线）**；历史版七格流水线图在
-> `docs/assets/data-agent-pipeline-legacy.dot`（已不再作为权威，只作历史参考）。
+> 见本文件 **第三部分（过程与票制）** 与 **第四部分（架构与流水线）**。历史版七格流水线图
+> （`data-agent-pipeline-legacy.dot`）已于 v1.0 删除，不再作为权威；需要时查 git 历史。
 > **数据边界（谁可以碰数据库、shell 为什么不算）**见本文件 **第七部分**。
 > 三处冲突时：过程以第三部分为准，结构以第五部分为准，边界以第七部分为准。
 
@@ -1228,7 +1237,7 @@ suite red.
 
 ### The single builder (agent 393)
 
-`scripts/seeds/in/seed_ontology_builder_single.py` writes one agent, `Ontology Builder`:
+`backend/scripts/seeds/in/seed_ontology_builder_single.py` writes one agent, `Ontology Builder`:
 
 - **no ontology in the row.** No `ontology_key` in `skill_params`, no key in the prompt. The key arrives
   in the conversation; the prompt says so in its second paragraph and forbids inventing one.
@@ -1246,8 +1255,15 @@ config.skill_params[...]"), which is the opposite of asking the user. A conversa
 never defaulted from the agent, never reconciled against `config.database` (one agent, many databases,
 so there is no single right answer), and never required as a build condition. A per-key agent that
 still supplies the values keeps rendering exactly as before —
-`tests/test_skill_params_scope.py` pins both halves, including that a plain `required: true` elsewhere
+`backend/tests/test_skill_params_scope.py` pins both halves, including that a plain `required: true` elsewhere
 still fails by name.
+
+**393 的 `native_tools` 现况（2026-11-26 查库，13 个）**：`write_todos` · `read_file` · `write_file` ·
+`edit_file` · `ls` · `ontology_inspect` · `ontology_verify_stage` · `ontology_register` ·
+`ontology_publish` · `db_describe` · `ontology_gate_doc` · `ontology_start_pack` · `db_query_agent`。
+（`db_query` 这个旧名已从库里删掉；但 **393 的 `subagents_config` 里仍残留三处 `db_query`** ——
+`tables` / `modeller` / `metrics` 的工具表还指着那条已经不存在的行，等于那三个专家没有查库工具。
+2026-11-26 已改正为 `db_query_agent` 并重生成了 agents 快照。）
 
 Proven with a real turn (local, 2026-11-12): agent 393 was asked, without acting, which ontology it
 would write — it answered that it does not know yet and would read `profiles/<key>/_brief.md` +
@@ -1303,7 +1319,7 @@ its target?", and it is deliberately **read-only** — a check that repairs is n
 
 Implementation: `backend/features/ontology/stage_checks.py` (pure checks + the existing gate scripts).
 A gate that could not run is reported as `notrun`, never as green. Tests:
-`tests/test_ontology_stage_checks.py` (8) — including "a panel kind the renderer cannot draw must fail"
+`backend/tests/test_ontology_stage_checks.py` (8) — including "a panel kind the renderer cannot draw must fail"
 (the 2026-11-13 incident: nine blank panels while every gate stayed green).
 
 ### What a build needs, in the order it needs it (2026-11-26, from three full runs)
@@ -1433,7 +1449,7 @@ The tutorial's `kind: "refusals"` step is where these live for the reader; `samp
 | `modeller` | 10 — `ontology_open` · `ontology_inspect` · file tools · `execute` · `db_query_agent` | writes S1/S2 |
 | `metrics` | 9 — `ontology_inspect` · file tools · `execute` · `db_query_agent` | writes S3–S5, **append-only** |
 | `board` | 9 — now includes `ontology_inspect` | it needs the registered metric list to write `dashboard.json`; it was missing until 2026-11-25 |
-| `verifier` | 4 — `ontology_verify_stage` · `read_file` · `ls` · `ontology_inspect` | **read-only by construction**: no write tool, no `db_execute`. Verification in the same context that did the work is not verification |
+| `verifier`（**设计，未装**） | 4 — `ontology_verify_stage` · `read_file` · `ls` · `ontology_inspect` | 设计目标是 read-only by construction；2026-11-26 查库：393 的行里只有 tables/modeller/metrics/board，这一条还没落地 |
 
 A gate now covers this: `tests/test_db_tool_and_skill_naming.py::test_no_subagent_expert_binds_a_tool_that_is_not_live`
 fails if any `config.subagents[].tools` names a tool that is retired or gone.
@@ -1463,7 +1479,7 @@ repository's `profiles/meeting_v1/meeting_v1_settings.json` declares, checked se
 
 ### Retirement of the per-key rows
 
-`scripts/seeds/in/retire_ontology_builders.py` (dry run by default, `--restore` to undo) set
+`backend/scripts/seeds/in/retire_ontology_builders.py` (dry run by default, `--restore` to undo) set
 `is_public=false` on 348, 349, 355, 376, 378, 379 and recorded
 `config.superseded_by = "Ontology Builder"` + `config.retired = {at, reason, superseded_by}`. Nothing
 was deleted: each row keeps its prompt and its key, so a key those rows alone knew about is still
@@ -1489,7 +1505,7 @@ Every declaration below is the smallest thing that passes the gate named next to
 shape, change the names. **Do not read another profile's TTL to learn the syntax** — measured
 2026-11-26, one build spent ~30 shell reads doing exactly that.
 
-The four blocks are parsed by `tests/test_context_cost_guards.py`, so a shape that stops being
+The four blocks are parsed by `backend/tests/test_context_cost_guards.py`, so a shape that stops being
 valid turtle fails the test rather than silently teaching a wrong example.
 
 ### 1. An object class: its table, its primary key, and one column
@@ -1584,7 +1600,7 @@ Gate: `check_ontology_generic` R1/R2. `owl:equivalentClass` with a restriction i
 **This page exists so a build never has to `sed` `sqlgen.py` / `check_samples.py` to learn a field
 name.** Measured 2026-11-26: one metrics ticket spent ~50,000 characters of shell output reading
 those two files. Every list below is extracted from the source by
-`tests/test_context_cost_guards.py`, so a rename fails a test here instead of teaching the old name.
+`backend/tests/test_context_cost_guards.py`, so a rename fails a test here instead of teaching the old name.
 
 > 例子只用于说明**形状**。里面的指标名、库名、地区名都是**示例**——真实 case 一律来自
 > `<key>_settings.json` 与 `work/<key>/grill.md`；不要把它们抄进别的本体。
@@ -1645,7 +1661,7 @@ Top level: `samples` (列表) — 每条样例是一个对象。测试会逐字�
 
 Measured 2026-11-26: one ontology build spent ~35 shell reads rediscovering these. Each fact below
 is implemented somewhere in the repo, and the pointer is what makes the sentence checkable —
-`tests/test_context_cost_guards.py` asserts every path named here still exists.
+`backend/tests/test_context_cost_guards.py` asserts every path named here still exists.
 
 ### Tool behaviour
 
@@ -1780,7 +1796,7 @@ ontology_start_pack(ontology_key="<key>")
 | 层 | 手段 | 能挡住什么 | 状态 |
 |---|---|---|---|
 | **L1 提示词 + 技能** | 393、375、五个专家的提示词与 `db-*` 技能里写死"不许 shell 连库，用 db_* 三扇门" | 让模型倾向不用；**挡不住决心**（今天已证明） | **本次已更新**（见 §4） |
-| **L2 调用期守卫（已做，2026-11-25）** | `core/tools/db_guard.py` + `WorkspaceShellBackend.execute`：命中 `psql`、`pg_dump`、`psycopg`、`sqlalchemy`、`connect(...dbname)`、`COPY … FROM stdin`、`PGPASSWORD=`、带凭据 DSN → 返回 `exit 126` + 拒绝文案（点名三扇门）；**其余命令照常放行**（`python -m features.ontology…`、`python -c "print(1+1)"`、`ls`、`echo`） | 精确保住"python 保留、DB 连接只走工具"这条不变量；一个工具都没摘掉 | ✅ 已做，测试 `tests/test_db_connection_guard.py`（14 项） |
+| **L2 调用期守卫（已做，2026-11-25）** | `core/tools/db_guard.py` + `WorkspaceShellBackend.execute`：命中 `psql`、`pg_dump`、`psycopg`、`sqlalchemy`、`connect(...dbname)`、`COPY … FROM stdin`、`PGPASSWORD=`、带凭据 DSN → 返回 `exit 126` + 拒绝文案（点名三扇门）；**其余命令照常放行**（`python -m features.ontology…`、`python -c "print(1+1)"`、`ls`、`echo`） | 精确保住"python 保留、DB 连接只走工具"这条不变量；一个工具都没摘掉 | ✅ 已做，测试 `backend/tests/test_db_connection_guard.py`（14 项） |
 | **L3 专用门禁工具** | 新增只读 `ontology_run_gate`（白名单命令：`check_structure` / `check_samples` / `check_dashboard` / `ontology_gates --key`），替掉专家对 shell 的依赖 | 让"必须跑门禁"的人不再需要任意 shell | **未做** |
 | **L4 事后抽查** | 用 `usage_count` / `last_used_at` 对照验收结论：某票声称"查过库"但没有任何 `db_query_*` 调用记录 → 可疑 | 事后发现绕过；便宜 | 可随时人工做 |
 
@@ -1813,7 +1829,7 @@ analysis 类 agent 解析文件都要 python。**要拦的是连接，不是解�
 |---|---|
 | `393` 的 system_prompt | 新增 **「数据边界（硬规矩）」**：三扇门、禁止项、shell 唯一允许用途、越界的处理（写进 `needs_human` 而不是绕路） |
 | `375` 的 prompt（`backend/agents/table-builder.prompt.md`） | 同样的边界；把原来"你不需要 shell"升级成"shell 不许连库，且列目录不要用 shell" |
-| 五个专家（`tables` / `modeller` / `metrics` / `board` / `verifier`）的 subagent prompt | 每个都加同一段：数据只走 `db_query_agent` / `db_query_langgraph` / `db_execute`；`execute` 只许跑编译与门禁 |
+| 四个执行专家（`tables` / `modeller` / `metrics` / `board`）的 subagent prompt | 每个都加同一段：数据只走 `db_query_agent` / `db_query_langgraph` / `db_execute`；`execute` 只许跑编译与门禁 |
 | 技能 `db-excel-to-postgres` / `db-sql-query` / `db-ontology-build` / `db-ontology-metrics` | 各加一节 **「数据边界」**（同一段话，技能被读到时才付成本） |
 
 **这些是"要求"，不是"保证"**。真正的保证要等 L2——在那之前，任何一次实跑都要用 §3 的 L4 抽查一眼。
@@ -1851,7 +1867,7 @@ psql -c "select tool_id, usage_count, last_used_at from custom_tools where tool_
 | `bash` | `echo still-works` → `$ echo still-works` | `psql -lqt` → `⛔ 拒绝执行…（psql 客户端直连）` |
 | `python_execute` | `print(6*7)` → `42` | `import psycopg2` / `subprocess.run(['psql',…])` / `sqlalchemy.create_engine(…)` → `⛔ 拒绝执行…` |
 
-测试：`tests/test_db_connection_guard.py` **15 项**（模式 13 + 三个门各一条）；`seed_builtin_tools --refresh`
+测试：`backend/tests/test_db_connection_guard.py` **15 项**（模式 13 + 三个门各一条）；`seed_builtin_tools --refresh`
 已重烘 `bash` / `python_execute` 两行（它们**在行里存了代码副本**，不重烘就不会生效）。
 
 **踩到的坑（值得记）**：第一次我用正则把守卫插到了 `python_execute` 的**docstring 里面**——
@@ -1874,9 +1890,9 @@ WorkspaceShellBackend(root_dir=…).execute("psql -lqt")
 1. ~~L2 调用期守卫~~ —— **已做，三个门全部接上**：`WorkspaceShellBackend.execute`（SDK `execute` 的下层）、
    `bash`、`python_execute`。（`python_execute` 走的是工具实现、不经过 backend，所以单独接了一次。）
 2. ~~L3 `ontology_run_gate`~~ —— **不再需要**：python 保留，专家继续用 `python -m features.ontology…` 跑门禁。
-3. **验收侧补一条**：`verifier` 的 `unverified` 里出现"用 shell 查过库"这类自述时，直接判 `NOT-RUNNABLE`
+3. **验收侧补一条**：验收回执的 `unverified` 里出现"用 shell 查过库"这类自述时，直接判 `NOT-RUNNABLE`
    并要求改用 `db_query_agent` 重跑。
-4. **375 的 `python_execute` 与 case-12 演示**：那 29 个绑着 `python_execute` 的 agent 里，有多少是真的需要？
+4. **375 的 `python_execute` 与 case-12 演示**：那 **38** 个绑着 `python_execute` 的 agent 里，有多少是真的需要？（`config` 里出现 `python_execute` 的模板数，2026-11-26 查库）
    逐个确认，别默认保留。
 
 ---
@@ -2231,8 +2247,9 @@ cd backend && .venv/bin/python features/ontology/gates/check_structure.py \
 > 这一节是**示例**；换数据一切重取。
 
 - 数据：lineitem 600,572 · orders 150,000 · customer 15,000（**只有 10,000 有订单**）· part 20,000 · supplier 1,000。
-- 结构：8 类 / 61 列 / 9 关系 + 3 个概念定义类；`check_structure` **93 checks · 0 failed**。
-- 指标：35 条（32 可编译，3 条**声明式拒绝**）；锚点 14 条全对，5 条恒等式全等于 netRevenue。
+- 结构：8 类 / 61 列 / 9 关系 + **2 个概念定义类**（`LateShippedLine` / `LateDeliveredLine`）；`check_structure` **93 checks · 0 failed**。
+- 指标：35 条（**33 可编译，2 条声明式拒绝**：`grossMargin` 缺成本口径、`mergedReturnedRevenue` 是两个集合）；
+  `check_samples` 全过；看板未声明 `identities`（本板改用「名字里写轴 + 手写 SQL 复核」，见 8.1.3）。
 - 看板：10 KPI + 12 面板；`check_dashboard` **112 checks · 0 failed**。
 - 教程：8 步含 5 条按名拒绝；`T1–T5` 全 PASS，`truth.json` 让 **R2 真跑 2/2**。
 - 发布：staged → 人 apply → git `ontology(tpch_sales_v3): publish …`。
@@ -2270,7 +2287,7 @@ cd backend && .venv/bin/python features/ontology/gates/check_structure.py \
 | P2 红（页面标题不符/缺失） | 页面由 `graph_view.py` 生成 | `graph_view --title "<profile.title>" --out <profile>/ontology.html` |
 | 两个回合互相覆盖 | 并发写同一批文件 | 单回合；先 `stop` 再派下一票 |
 | `stage="build"` 报红 | 库在 profile 声明的服务器上 | 已改为 `not-applicable`（有名有据，不算通过） |
-| 数字对不上 | 轴错了，或口径混了两个集合 | 名字里写轴 + 一条手写 SQL；`scripts/check_claims.py` 查散文里的裸数字 |
+| 数字对不上 | 轴错了，或口径混了两个集合 | 名字里写轴 + 一条手写 SQL；`backend/scripts/check_claims.py` 查散文里的裸数字 |
 
 ---
 
@@ -2491,7 +2508,7 @@ bash scripts/update_host_from_git.sh root@<host> --key ~/.ssh/<key>.pem
 | `uv: command not found` | 非交互 ssh 的 PATH 里没有 `~/.local/bin` | 先解析 `uv`，找不到就喊出来 |
 | 工具少装了几条、merge 还说 0 added | 显式 id 被占就**整行跳过** | id 被占改取序列值（有守卫测试） |
 | 图字出框 / 表格冲出纸边 | 生成器不报错，静默裁切 | `check_svg_overflow.py` + PDF 边界量测 |
-| 目录 55 条链接点不到 | 两套 slug 各写各的 | 三份产物共用 `build_toc.slug()` |
+| 目录的链接点不到 | 两套 slug 各写各的 | 三份产物共用 `build_toc.slug()` |
 
 ## 12.12 一张清单（照着做，不要凭记忆）
 
@@ -2550,9 +2567,9 @@ python scripts/build_data_agent_html.py        # 生成 data-agent.html + data-a
 
 | 产物 | 给谁 | 目录 | 图 |
 |---|---|---|---|
-| `data-agent.docx` | 发出去、要批注 | 40 个内部超链接（书签） | PNG 内嵌（6.3 in 宽） |
-| `data-agent.html` | 浏览器里读、单文件可传阅 | 55 个 `#sNNN` / 标题锚点 | **内联 SVG**（矢量，放大不糊） |
-| `data-agent.pdf` | 打印、归档 | 55 个命名目标 + 174 条 PDF 书签 | 矢量（宽度按纸宽缩到 483 pt，**看不清就放大**） |
+| `data-agent.docx` | 发出去、要批注 | **52 个内部超链接**（165 条书签） | PNG 内嵌（6.3 in 宽） |
+| `data-agent.html` | 浏览器里读、单文件可传阅 | **69 条** `#sNNN` / 标题锚点 | **内联 SVG**（矢量，放大不糊） |
+| `data-agent.pdf` | 打印、归档 | **73 个命名目标** + 188 条 PDF 书签 | 矢量（宽度按纸宽缩到 483 pt，**看不清就放大**） |
 
 > 手画的 SVG **不会**替你报错：文字写宽了压到邻框、框画到 `viewBox` 外被裁掉，都是静默的。
 > 所以改完图必须跑 `check_svg_overflow.py` —— 它沿用的字宽模型与生成器是同一套，不会各说各话。
