@@ -1,4 +1,4 @@
-# Ontology Studio · 总文档（合并版）
+# Ontology Studio（Operational Ontology）· 总文档（合并版）
 
 > **版本** v1.1 · **日期** 2026-11-26 · **对应平台** main（deepagents 0.7.1）·
 > 本文与 `data-agent.docx` / `data-agent.html` / `data-agent.pdf` **同源同版本**（三份都由本文生成）。
@@ -42,8 +42,9 @@ T4 教程 → T5 发布`，每票一格里写着「你做什么 / Agent 做什�
 # 第零部分 · 概念（Concept）：什么才算「数据 Agent」
 
 > **先分清两个词。** **数据 Agent（data agent）** 是**类别**——本文这一部分就是给它下定义；
-> **Ontology Studio** 是**这个产品**的名字（本文通篇讲的那个）。后面凡是指代产品，都写 Ontology Studio；
-> 凡是判断"某个东西算不算这一类"，才用「数据 Agent」。
+> **Ontology Studio** 是**这个产品**的名字（本文通篇讲的那个）。
+> 同一个产品还有第二个名字：**Operational Ontology**（运营本体）—— 两个名字指同一个东西，
+> 文档标题写全，正文与页脚按需用短名。凡是判断"某个东西算不算这一类"，才用「数据 Agent」。
 
 这不是一句口号，是两个**可检验的条件**。两条都成立，才叫数据 Agent；缺一条，就是别的东西
 （第 0.3 节有一张 2×2 的对照表说清"缺了会变成什么"）。
@@ -116,7 +117,7 @@ T4 教程 → T5 发布`，每票一格里写着「你做什么 / Agent 做什�
 
 > 点标题直接跳转（markdown 预览器、GitHub、Word 里都可点）。
 
-- **[Ontology Studio · 总文档（合并版）](#ontology-studio-总文档合并版)**
+- **[Ontology Studio（Operational Ontology）· 总文档（合并版）](#ontology-studiooperational-ontology-总文档合并版)**
 - **[第零部分 · 概念（Concept）：什么才算「数据 Agent」](#第零部分-概念concept什么才算数据-agent)**
     - [0.1 条件一：有明确的目标 —— **看得见，并且能找洞察**](#01-条件一有明确的目标-看得见并且能找洞察)
     - [0.2 条件二：**本体与 LLM 一起用**，缺一不可](#02-条件二本体与-llm-一起用缺一不可)
@@ -2532,7 +2533,7 @@ bash scripts/update_host_from_git.sh root@<host> --key ~/.ssh/<key>.pem
 8. 远端：`scripts/update_host_from_git.sh`，看 `HEAD` 与 `/docs` 两个结果。
 ## 12.13 本体活动的首页就是这份文档
 
-点开 **Ontology 活动**，第一眼看到的就是这份《Ontology Studio 总文档》——不是另一页简介。
+点开 **Ontology 活动**，第一眼看到的就是这份《Ontology Studio（Operational Ontology）总文档》——不是另一页简介。
 
 - 读的是**同一份产物**：`docs/system-architecture/data-agent.html`（由本文构建），
   所以图（内联 SVG）、目录锚点、版本戳、页脚都与交付出去的那一份一致，不会再出现

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ontology Studio · 总文档（合并版）</title>
-<meta name="doc-version" content="Ontology Studio · v1.1 · 2026-11-26">
+<title>Ontology Studio（Operational Ontology）· 总文档（合并版）</title>
+<meta name="doc-version" content="Ontology Studio · Operational Ontology · v1.1 · 2026-11-26">
 <style>
 @page {
   /* 12mm 边距 + 让正文更密：一页能装更多，A4 上仍然留有可读的呼吸感。
@@ -12,7 +12,7 @@
   size: A4;
   margin: 12mm 12mm 13mm 12mm;
   @bottom-center {
-    content: "Ontology Studio · v1.1 · 2026-11-26 · 第 " counter(page) " / " counter(pages) " 页";
+    content: "Ontology Studio · Operational Ontology · v1.1 · 2026-11-26 · 第 " counter(page) " / " counter(pages) " 页";
     font-size: 7.5pt; color: #8a96a3;
     font-family: -apple-system, "PingFang SC", system-ui, sans-serif;
   }
@@ -107,7 +107,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 34px 0; }
 </head>
 <body>
 <main>
-<a class="anchor" id="s000"></a><h1 id="ontology-studio-总文档合并版">Ontology Studio · 总文档（合并版）</h1>
+<a class="anchor" id="s000"></a><h1 id="ontology-studiooperational-ontology-总文档合并版">Ontology Studio（Operational Ontology）· 总文档（合并版）</h1>
 <blockquote><p><strong>版本</strong> v1.1 · <strong>日期</strong> 2026-11-26 · <strong>对应平台</strong> main（deepagents 0.7.1）· 本文与 <code>data-agent.docx</code> / <code>data-agent.html</code> / <code>data-agent.pdf</code> <strong>同源同版本</strong>（三份都由本文生成）。</p></blockquote>
 <blockquote><p><strong>这一份是唯一权威</strong>：以前分开的九份文档（<code>ontology-process</code> / <code>ontology-pipeline</code> / <code>ontology_architecture</code> / <code>ontology-agents</code> / <code>ontology-agent-boundaries</code> / <code>ontology-dsl</code> / <code>ontology-metrics-shapes</code> / <code>platform-facts</code> / <code>data-agent-runbook</code>）<strong>已删除</strong>，内容全部并入本文； 需要旧版请查 git 历史（见文末「附：旧文档去哪了」）。</p></blockquote>
 <p><strong>输入是数据（Excel/CSV 或生产库），输出是能看、能查、能复核的看板与教程。</strong></p>
@@ -230,7 +230,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 34px 0; }
 <blockquote><p>图由 <code>scripts/build_data_agent_charts.py</code> 生成（手排坐标，SVG + PNG）。 连线是贝塞尔曲线 + 圆点箭头 + 低不透明度，停点用圆角胶囊——不用硬折线与尖三角。</p></blockquote>
 <hr>
 <a class="anchor" id="s001"></a><h1 id="第零部分-概念concept什么才算数据-agent">第零部分 · 概念（Concept）：什么才算「数据 Agent」</h1>
-<blockquote><p><strong>先分清两个词。</strong> <strong>数据 Agent（data agent）</strong> 是<strong>类别</strong>——本文这一部分就是给它下定义； <strong>Ontology Studio</strong> 是<strong>这个产品</strong>的名字（本文通篇讲的那个）。后面凡是指代产品，都写 Ontology Studio； 凡是判断"某个东西算不算这一类"，才用「数据 Agent」。</p></blockquote>
+<blockquote><p><strong>先分清两个词。</strong> <strong>数据 Agent（data agent）</strong> 是<strong>类别</strong>——本文这一部分就是给它下定义； <strong>Ontology Studio</strong> 是<strong>这个产品</strong>的名字（本文通篇讲的那个）。 同一个产品还有第二个名字：<strong>Operational Ontology</strong>（运营本体）—— 两个名字指同一个东西， 文档标题写全，正文与页脚按需用短名。凡是判断"某个东西算不算这一类"，才用「数据 Agent」。</p></blockquote>
 <p>这不是一句口号，是两个<strong>可检验的条件</strong>。两条都成立，才叫数据 Agent；缺一条，就是别的东西</p>
 <p>（第 0.3 节有一张 2×2 的对照表说清"缺了会变成什么"）。</p>
 <a class="anchor" id="s002"></a><h2 id="01-条件一有明确的目标-看得见并且能找洞察">0.1 条件一：有明确的目标 —— <strong>看得见，并且能找洞察</strong></h2>
@@ -270,7 +270,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 34px 0; }
 <a class="anchor" id="s006"></a><h2 id="目录">目录</h2>
 <blockquote><p>点标题直接跳转（markdown 预览器、GitHub、Word 里都可点）。</p></blockquote>
 <ul>
-<li><strong><a href="#s000">Ontology Studio · 总文档（合并版）</a></strong></li>
+<li><strong><a href="#s000">Ontology Studio（Operational Ontology）· 总文档（合并版）</a></strong></li>
 <li><strong><a href="#s001">第零部分 · 概念（Concept）：什么才算「数据 Agent」</a></strong></li>
 <li><a href="#s002">0.1 条件一：有明确的目标 —— <strong>看得见，并且能找洞察</strong></a></li>
 <li><a href="#s003">0.2 条件二：<strong>本体与 LLM 一起用</strong>，缺一不可</a></li>
@@ -2033,7 +2033,7 @@ bash scripts/update_host_from_git.sh root@&lt;host&gt; --key ~/.ssh/&lt;key&gt;.
 <li>远端：<code>scripts/update_host_from_git.sh</code>，看 <code>HEAD</code> 与 <code>/docs</code> 两个结果。</li>
 </ol>
 <a class="anchor" id="s185"></a><h2 id="1213-本体活动的首页就是这份文档">12.13 本体活动的首页就是这份文档</h2>
-<p>点开 <strong>Ontology 活动</strong>，第一眼看到的就是这份《Ontology Studio 总文档》——不是另一页简介。</p>
+<p>点开 <strong>Ontology 活动</strong>，第一眼看到的就是这份《Ontology Studio（Operational Ontology）总文档》——不是另一页简介。</p>
 <ul>
 <li>读的是<strong>同一份产物</strong>：<code>docs/system-architecture/data-agent.html</code>（由本文构建），</li>
 </ul>

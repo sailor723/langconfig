@@ -141,12 +141,12 @@ export default function OntologyHomePage() {
       }}>
         <Boxes size={18} color={t.textPrimary} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 650, color: t.textPrimary }}>本体 · Ontology Studio 总文档</div>
+          <div style={{ fontSize: 15, fontWeight: 650, color: t.textPrimary }}>本体 · Ontology Studio</div>
           <div style={{ fontSize: 11.5, color: t.textMuted }}>
             {meta === null
               ? '读取版本…'
               : built
-                ? `${meta.version || '版本未标注'} · ${meta.date || '日期未标注'} · ${kb(meta.bytes)} · 与 .docx / .pdf 同源`
+                ? `Operational Ontology · ${meta.version || '版本未标注'} · ${meta.date || '日期未标注'} · ${kb(meta.bytes)} · 与 .docx / .pdf 同源`
                 : '文档还没生成 —— 见页面下方的构建命令'}
           </div>
         </div>
@@ -195,7 +195,7 @@ export default function OntologyHomePage() {
               ref={frameRef}
               key={`${meta!.bytes}-${meta!.built_at ?? 0}`}
               src={DOC_URL}
-              title="Ontology Studio 总文档"
+              title="Ontology Studio（Operational Ontology）总文档"
               onLoad={onFrameLoad}
               style={{ width: '100%', height: '100%', border: 0, display: 'block', background: '#fbfcfd' }}
               sandbox="allow-scripts allow-same-origin allow-popups"

@@ -323,7 +323,7 @@ def stamp(md: str) -> str:
     d = DATE_RE.search(md)
     if not v or not d:
         raise SystemExit("data-agent.md 缺 `**版本** vX.Y` 或 `**日期** YYYY-MM-DD` 那行")
-    return f"Ontology Studio · {v.group(1)} · {d.group(1)}"
+    return f"Ontology Studio · Operational Ontology · {v.group(1)} · {d.group(1)}"
 
 
 def build() -> pathlib.Path:

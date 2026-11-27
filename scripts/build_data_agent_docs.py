@@ -193,7 +193,7 @@ def build_docx(blocks: list[dict], out: pathlib.Path) -> str:
     doc = Document()
     doc.styles["Normal"].font.size = Pt(10.5)
     mark = _html_builder.stamp(SRC.read_text(encoding="utf-8"))
-    doc.core_properties.title = "Ontology Studio · 总文档（合并版）"
+    doc.core_properties.title = "Ontology Studio（Operational Ontology）· 总文档（合并版）"
     doc.core_properties.comments = mark
     doc.core_properties.version = mark.split()[3] if len(mark.split()) > 3 else ""
     _footer(doc, mark)
