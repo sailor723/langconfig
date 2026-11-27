@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>数据 Agent · 总文档（合并版）</title>
-<meta name="doc-version" content="数据 Agent 总文档 v1.1 · 2026-11-26">
+<title>Ontology Studio · 总文档（合并版）</title>
+<meta name="doc-version" content="Ontology Studio · v1.1 · 2026-11-26">
 <style>
 @page {
   /* 12mm 边距 + 让正文更密：一页能装更多，A4 上仍然留有可读的呼吸感。
@@ -12,7 +12,7 @@
   size: A4;
   margin: 12mm 12mm 13mm 12mm;
   @bottom-center {
-    content: "数据 Agent 总文档 v1.1 · 2026-11-26 · 第 " counter(page) " / " counter(pages) " 页";
+    content: "Ontology Studio · v1.1 · 2026-11-26 · 第 " counter(page) " / " counter(pages) " 页";
     font-size: 7.5pt; color: #8a96a3;
     font-family: -apple-system, "PingFang SC", system-ui, sans-serif;
   }
@@ -107,16 +107,16 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 34px 0; }
 </head>
 <body>
 <main>
-<a class="anchor" id="s000"></a><h1 id="数据-agent-总文档合并版">数据 Agent · 总文档（合并版）</h1>
+<a class="anchor" id="s000"></a><h1 id="ontology-studio-总文档合并版">Ontology Studio · 总文档（合并版）</h1>
 <blockquote><p><strong>版本</strong> v1.1 · <strong>日期</strong> 2026-11-26 · <strong>对应平台</strong> main（deepagents 0.7.1）· 本文与 <code>data-agent.docx</code> / <code>data-agent.html</code> / <code>data-agent.pdf</code> <strong>同源同版本</strong>（三份都由本文生成）。</p></blockquote>
 <blockquote><p><strong>这一份是唯一权威</strong>：以前分开的九份文档（<code>ontology-process</code> / <code>ontology-pipeline</code> / <code>ontology_architecture</code> / <code>ontology-agents</code> / <code>ontology-agent-boundaries</code> / <code>ontology-dsl</code> / <code>ontology-metrics-shapes</code> / <code>platform-facts</code> / <code>data-agent-runbook</code>）<strong>已删除</strong>，内容全部并入本文； 需要旧版请查 git 历史（见文末「附：旧文档去哪了」）。</p></blockquote>
 <p><strong>输入是数据（Excel/CSV 或生产库），输出是能看、能查、能复核的看板与教程。</strong></p>
 <p><strong>结构（十三部分 + 附录）</strong></p>
-<table><thead><tr><th>#</th><th>内容</th><th>解决什么问题</th></tr></thead><tbody><tr><td>第零</td><td><strong>概念（Concept）：什么才算数据 Agent</strong>（明确目标 × 本体+LLM）</td><td>先把"它是什么"立住</td></tr><tr><td>第一</td><td>概览 Overview（十段）</td><td>五分钟建立全貌</td></tr><tr><td>第二</td><td>操作 Operation（十步 + 票梯 T0…T5）</td><td>自己动手用一遍</td></tr><tr><td>第三</td><td>过程与票制 Process</td><td>一票一文件、逐票验收</td></tr><tr><td>第四</td><td>架构 Architecture（含 4.1 本体：用 Palantir 的语言）</td><td>为什么数字可信</td></tr><tr><td>第五</td><td>Agent 与专家 Agents</td><td>谁在干活、边界在哪</td></tr><tr><td>第六</td><td>声明 DSL 与平台事实 Declarations</td><td>写声明要读的那一页</td></tr><tr><td>第七</td><td>数据边界 Boundary</td><td>谁能碰数据库</td></tr><tr><td>第八</td><td><strong>安装 Installation（前置条件）</strong></td><td>装起来、验证装好了</td></tr><tr><td>第九</td><td><strong>示例 Example（TPC-H 四层声明 + vs text2sql）</strong></td><td>本体长什么样</td></tr><tr><td>第十</td><td><strong>定制 Customization（八场景）</strong></td><td>改成自己的口径</td></tr><tr><td>第十一</td><td>详解 Details（文件契约 · 四道门 · 轴 · 拒绝 · 版本 · 工具 · 验收 · 排错 · 术语）</td><td>查细节</td></tr><tr><td>第十二</td><td><strong>用 DSH 安装与操作 Carrier</strong>（造 agent / deep agent / skill / tool，跑一轮，更新远端）</td><td>亲手改它</td></tr><tr><td>附录</td><td>A 一次实测 · B 英文原文 · C 旧文档去向</td><td>证据与出处</td></tr></tbody></table>
+<table><thead><tr><th>#</th><th>内容</th><th>解决什么问题</th></tr></thead><tbody><tr><td>第零</td><td><strong>概念（Concept）：什么才算数据 Agent</strong>（明确目标 × 本体+LLM）—— Ontology Studio 就是这两条的乘积</td><td>先把"它是什么"立住</td></tr><tr><td>第一</td><td>概览 Overview（十段）</td><td>五分钟建立全貌</td></tr><tr><td>第二</td><td>操作 Operation（十步 + 票梯 T0…T5）</td><td>自己动手用一遍</td></tr><tr><td>第三</td><td>过程与票制 Process</td><td>一票一文件、逐票验收</td></tr><tr><td>第四</td><td>架构 Architecture（含 4.1 本体：用 Palantir 的语言）</td><td>为什么数字可信</td></tr><tr><td>第五</td><td>Agent 与专家 Agents</td><td>谁在干活、边界在哪</td></tr><tr><td>第六</td><td>声明 DSL 与平台事实 Declarations</td><td>写声明要读的那一页</td></tr><tr><td>第七</td><td>数据边界 Boundary</td><td>谁能碰数据库</td></tr><tr><td>第八</td><td><strong>安装 Installation（前置条件）</strong></td><td>装起来、验证装好了</td></tr><tr><td>第九</td><td><strong>示例 Example（TPC-H 四层声明 + vs text2sql）</strong></td><td>本体长什么样</td></tr><tr><td>第十</td><td><strong>定制 Customization（八场景）</strong></td><td>改成自己的口径</td></tr><tr><td>第十一</td><td>详解 Details（文件契约 · 四道门 · 轴 · 拒绝 · 版本 · 工具 · 验收 · 排错 · 术语）</td><td>查细节</td></tr><tr><td>第十二</td><td><strong>用 DSH 安装与操作 Carrier</strong>（造 agent / deep agent / skill / tool，跑一轮，更新远端）</td><td>亲手改它</td></tr><tr><td>附录</td><td>A 一次实测 · B 英文原文 · C 旧文档去向</td><td>证据与出处</td></tr></tbody></table>
 <figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 760" width="1180" height="760">
 <rect x="0" y="0" width="1180" height="760" fill="#0F1419"/>
 <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#4D6A8A"/></marker></defs>
-<text x="34" y="46" fill="#E6EDF3" font-family="Menlo, monospace" font-size="22" font-weight="700">图 · 数据 Agent 的泳道与进度</text>
+<text x="34" y="46" fill="#E6EDF3" font-family="Menlo, monospace" font-size="22" font-weight="700">图 · Ontology Studio 的泳道与进度</text>
 <text x="34" y="70" fill="#8B98A5" font-family="Menlo, monospace" font-size="13">上泳道是你，下泳道是 Agent；上方进度带用三态标出这次跑到哪（绿=已完成，蓝=进行中，灰=未开始）</text>
 
 <rect x="40" y="96" width="1100" height="54" rx="16" ry="16" fill="#0E141A" stroke="#1F2A33" stroke-width="2"/>
@@ -223,13 +223,14 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 34px 0; }
 <text x="320" y="742" fill="#8B98A5" font-family="Menlo, monospace" font-size="12">停点（等你）</text>
 <rect x="418" y="730" width="22" height="14" rx="4" ry="4" fill="#11161C" stroke="#3A4450" stroke-width="2"/>
 <text x="448" y="742" fill="#8B98A5" font-family="Menlo, monospace" font-size="12">产物 / 落盘</text>
-</svg><figcaption>图 · 数据 Agent 的泳道与进度：上泳道是你，下泳道是 Agent；上方进度带三态（绿=已完成 / 蓝=进行中 / 灰=未开始）</figcaption></figure>
+</svg><figcaption>图 · Ontology Studio 的泳道与进度：上泳道是你，下泳道是 Agent；上方进度带三态（绿=已完成 / 蓝=进行中 / 灰=未开始）</figcaption></figure>
 <p><strong>读法</strong>：横轴就是<strong>票</strong>——<code>T0 准备</code>（数据 + grill + 对账 + 切票）之后是 `T1 结构 → T2 指标 → T3 看板 →</p>
 <p>T4 教程 → T5 发布`，每票一格里写着「你做什么 / Agent 做什么」，票下面一行是<strong>这一票凭什么算完成</strong>。</p>
 <p>三条橙色"交接"线=必须等你的三个时刻（给数据 → 放行规格 → 点 apply），其余都是 Agent 自己走完。</p>
 <blockquote><p>图由 <code>scripts/build_data_agent_charts.py</code> 生成（手排坐标，SVG + PNG）。 连线是贝塞尔曲线 + 圆点箭头 + 低不透明度，停点用圆角胶囊——不用硬折线与尖三角。</p></blockquote>
 <hr>
 <a class="anchor" id="s001"></a><h1 id="第零部分-概念concept什么才算数据-agent">第零部分 · 概念（Concept）：什么才算「数据 Agent」</h1>
+<blockquote><p><strong>先分清两个词。</strong> <strong>数据 Agent（data agent）</strong> 是<strong>类别</strong>——本文这一部分就是给它下定义； <strong>Ontology Studio</strong> 是<strong>这个产品</strong>的名字（本文通篇讲的那个）。后面凡是指代产品，都写 Ontology Studio； 凡是判断"某个东西算不算这一类"，才用「数据 Agent」。</p></blockquote>
 <p>这不是一句口号，是两个<strong>可检验的条件</strong>。两条都成立，才叫数据 Agent；缺一条，就是别的东西</p>
 <p>（第 0.3 节有一张 2×2 的对照表说清"缺了会变成什么"）。</p>
 <a class="anchor" id="s002"></a><h2 id="01-条件一有明确的目标-看得见并且能找洞察">0.1 条件一：有明确的目标 —— <strong>看得见，并且能找洞察</strong></h2>
@@ -263,13 +264,13 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 34px 0; }
 <p><strong>四个动作里，② 和 ④ 由本体决定，① 和 ③ 由 LLM 负责。</strong> 这就是"一起用"的意思：</p>
 <p><strong>理解与表达归 LLM，事实与闸门归本体。</strong></p>
 <a class="anchor" id="s005"></a><h2 id="03-缺一条会变成什么22">0.3 缺一条会变成什么（2×2）</h2>
-<table><thead><tr><th></th><th><strong>有明确目标</strong></th><th><strong>目标不清</strong></th></tr></thead><tbody><tr><td><strong>本体 + LLM</strong></td><td><strong>数据 Agent</strong>（本系统）：目标落成 AC，数可复核，答不了按名拒绝</td><td>先 <code>grill</code> 问清目标；问不清就"有意未定"，不许硬编一块板</td></tr><tr><td><strong>只有 LLM</strong></td><td>text2sql 报表：能出数，但同一个问题可能两个答案，口径无人定</td><td>聊天机器人：能说会道，不承担责任</td></tr><tr><td><strong>只有本体</strong></td><td>人肉 BI：口径清楚，但每次都要人写 SQL，普通人用不上</td><td>一堆没人查的表和文档</td></tr></tbody></table>
+<table><thead><tr><th></th><th><strong>有明确目标</strong></th><th><strong>目标不清</strong></th></tr></thead><tbody><tr><td><strong>本体 + LLM</strong></td><td><strong>Ontology Studio</strong>（本系统）：目标落成 AC，数可复核，答不了按名拒绝</td><td>先 <code>grill</code> 问清目标；问不清就"有意未定"，不许硬编一块板</td></tr><tr><td><strong>只有 LLM</strong></td><td>text2sql 报表：能出数，但同一个问题可能两个答案，口径无人定</td><td>聊天机器人：能说会道，不承担责任</td></tr><tr><td><strong>只有本体</strong></td><td>人肉 BI：口径清楚，但每次都要人写 SQL，普通人用不上</td><td>一堆没人查的表和文档</td></tr></tbody></table>
 <p><strong>所以"数据 Agent"= 明确目标 × （本体 + LLM）</strong>。这两条是准入条件，也是评审判据：</p>
 <p>一个自称数据 Agent 的东西，若给不出"数能追到哪条声明"，或答不出的问题没有名字，它就不满足前提。</p>
 <a class="anchor" id="s006"></a><h2 id="目录">目录</h2>
 <blockquote><p>点标题直接跳转（markdown 预览器、GitHub、Word 里都可点）。</p></blockquote>
 <ul>
-<li><strong><a href="#s000">数据 Agent · 总文档（合并版）</a></strong></li>
+<li><strong><a href="#s000">Ontology Studio · 总文档（合并版）</a></strong></li>
 <li><strong><a href="#s001">第零部分 · 概念（Concept）：什么才算「数据 Agent」</a></strong></li>
 <li><a href="#s002">0.1 条件一：有明确的目标 —— <strong>看得见，并且能找洞察</strong></a></li>
 <li><a href="#s003">0.2 条件二：<strong>本体与 LLM 一起用</strong>，缺一不可</a></li>
@@ -751,7 +752,7 @@ EOF</code></pre>
 <a class="anchor" id="s052"></a><h2 id="41-本体ontology用-palantir-的语言讲一遍">4.1 本体（Ontology）——用 Palantir 的语言讲一遍</h2>
 <p>Palantir 的 Ontology 把业务世界拆成两层：<strong>语义层</strong>（Object types / Properties / Link types / Interfaces）</p>
 <p>与<strong>动能层</strong>（Action types / Functions），并强调"没有执行力的本体只是数字盆景"。</p>
-<p>我们的数据 Agent 用的是同一套拆法，区别只在<strong>声明写在 TTL 里、数由编译器现算</strong>。</p>
+<p>Ontology Studio 用的是同一套拆法，区别只在<strong>声明写在 TTL 里、数由编译器现算</strong>。</p>
 <p>先说清一件事：<strong>本体是这套系统的中心</strong>，看板、教程、问答都只是它的三种读法。</p>
 <table><thead><tr><th>Palantir 的说法</th><th>我们的对应物</th><th>落在哪</th><th>TPC-H 例子</th></tr></thead><tbody><tr><td><strong>Object type</strong>（对象类型）</td><td><code>owl:Class</code> + <code>:physicalTable</code> + <code>:primaryKey</code></td><td><code>ontology/01-structure.ttl</code></td><td><code>:LineItem</code> → <code>lineitem</code>，主键 <code>l_orderkey,l_linenumber</code></td></tr><tr><td><strong>Property</strong>（属性）</td><td><code>owl:DatatypeProperty</code> + <code>:physicalColumn</code></td><td>同上</td><td><code>:lineItemExtendedPrice</code> → <code>l_extendedprice</code></td></tr><tr><td><strong>Link type</strong>（关联类型）</td><td><code>owl:ObjectProperty</code> + <code>:physicalColumn</code> + <code>:references</code></td><td>同上</td><td><code>:lineItemOrder</code> → <code>lineitem.l_orderkey = orders.o_orderkey</code></td></tr><tr><td><strong>Interface / 派生对象</strong></td><td><code>owl:equivalentClass</code> / <code>:physicalPredicate</code> 的<strong>定义类</strong></td><td><code>02-meaning.ttl</code>、<code>03-concept-definitions.ttl</code></td><td><code>:LateShippedLine</code> = <code>l_shipdate &gt; l_commitdate</code></td></tr><tr><td><strong>Function / Measure</strong>（函数与度量）</td><td>指标：<code>:aggregate</code> <code>:grain</code> <code>:universe</code> <code>:formula</code> <code>:groupBy</code> <code>:unit</code> <code>:timeBucket</code></td><td><code>metrics_ext.ttl</code>（编译成唯一一条 SELECT）</td><td><code>netRevenue</code> = Σ <code>l_extendedprice × (1 − l_discount)</code></td></tr><tr><td><strong>Action type</strong>（动作类型）</td><td>写路径：<code>db_execute</code>（只 DML）/ 声明式 actions</td><td>profile 的 <code>features.actions</code>；<strong>本 profile 关闭（只读）</strong></td><td>只读本体，不写源库</td></tr><tr><td><strong>Semantic layer</strong>（语义层）</td><td>声明文件 = 唯一事实源</td><td><code>profiles/&lt;key&gt;/ontology/*.ttl</code></td><td>8 类 / 61 列 / 9 关系</td></tr><tr><td><strong>Kinetic layer</strong>（动能层）</td><td>编译器 + 护栏 + 发布通道</td><td><code>compiler/</code> + <code>ontology_publish</code></td><td>声明 → SQL → 护栏 → 数字或按名拒绝</td></tr></tbody></table>
 <p><strong>一句话对照</strong>：他们的本体是"点出来的对象图 + 动作"，我们的本体是"写下来的声明 + 编译器"。</p>
@@ -1729,7 +1730,7 @@ cd backend &amp;&amp; .venv/bin/python features/ontology/gates/check_structure.p
     :askedAs &quot;毛利率&quot;, &quot;采购成本率&quot; ;
     :refusalReason &quot;缺成本口径：成本要按 (ps_partkey, ps_suppkey) 连 partsupp 并按期摊到明细行，未声明。&quot; .</code></pre>
 <a class="anchor" id="s150"></a><h2 id="91-与-text2sql-的区别同一批问题两种行为">9.1 与 text2sql 的区别：同一批问题，两种行为</h2>
-<table><thead><tr><th>问题</th><th>text2sql 聊天</th><th>数据 Agent（本体）</th></tr></thead><tbody><tr><td>「上月净收入是多少」</td><td>写一条 SQL，猜"上月"是哪段</td><td>编译 <code>netRevenue</code>；时间窗没声明就按名拒绝</td></tr><tr><td>「毛利率是多少」</td><td><strong>安静地给一个数</strong>（把折扣占比当毛利）</td><td><strong>按名拒绝</strong>，并说出缺「成本口径」</td></tr><tr><td>「按客户地区看收入」</td><td>写 join，可能连错路径</td><td>只有供应商侧路径 → 按名拒绝，不静默换轴</td></tr><tr><td>同一个数问两次</td><td>可能两个数</td><td>同一条声明 → 同一条 SQL → 同一个数</td></tr><tr><td>谁批准了口径</td><td>没有记录</td><td><code>grill.md</code> 记「谁定的 + 一行理由」</td></tr></tbody></table>
+<table><thead><tr><th>问题</th><th>text2sql 聊天</th><th>Ontology Studio（本体）</th></tr></thead><tbody><tr><td>「上月净收入是多少」</td><td>写一条 SQL，猜"上月"是哪段</td><td>编译 <code>netRevenue</code>；时间窗没声明就按名拒绝</td></tr><tr><td>「毛利率是多少」</td><td><strong>安静地给一个数</strong>（把折扣占比当毛利）</td><td><strong>按名拒绝</strong>，并说出缺「成本口径」</td></tr><tr><td>「按客户地区看收入」</td><td>写 join，可能连错路径</td><td>只有供应商侧路径 → 按名拒绝，不静默换轴</td></tr><tr><td>同一个数问两次</td><td>可能两个数</td><td>同一条声明 → 同一条 SQL → 同一个数</td></tr><tr><td>谁批准了口径</td><td>没有记录</td><td><code>grill.md</code> 记「谁定的 + 一行理由」</td></tr></tbody></table>
 <p><strong>劣势（诚实写）</strong>：必须先声明（探索性分析不如 text2sql 顺）· 前期要人参与（grill / 确认 / apply）·</p>
 <p>引擎仍有缺口（同表两次别名 join、客户侧地区分组等一律按名拒绝）· 刚上手会觉得"怎么什么都不给"。</p>
 <hr>
@@ -1870,7 +1871,7 @@ cd backend &amp;&amp; .venv/bin/python features/ontology/gates/check_structure.p
 <table><thead><tr><th>词</th><th>意思</th></tr></thead><tbody><tr><td><strong>key</strong></td><td><code>&lt;name&gt;_v&lt;N&gt;</code>，目录名/URL/前缀三合一，永不复用</td></tr><tr><td><strong>profile</strong></td><td><code>features/ontology/profiles/&lt;key&gt;/</code>：声明 + settings + 看板 + 教程 + 页面</td></tr><tr><td><strong>grain / universe</strong></td><td>聚合发生在哪个对象 / 哪些行在口径内（分母边界）</td></tr><tr><td><strong>定义类</strong></td><td><code>owl:equivalentClass</code> 或 <code>:physicalPredicate</code> 的谓词式定义，有自己的手写谓词可复核</td></tr><tr><td><strong>staged / apply</strong></td><td>候选 / 安装。前者 agent 能做，后者只有人点</td></tr><tr><td><strong>声明式拒绝</strong></td><td>指标上的 <code>:refusalReason</code>：这个数不算，理由写清；两条 NL 路径都按名拒绝</td></tr><tr><td><strong>NOT RUN</strong></td><td>门禁没跑（无对象或没配），<strong>不是通过</strong></td></tr><tr><td><strong>exempt_tables</strong></td><td>profile 里<strong>声明式</strong>排除的表（附理由），门禁会打印出来</td></tr><tr><td><strong>claims</strong></td><td>散文里的数字 + 来源标记（<code>metric:</code>/<code>sql:</code>/<code>table:</code>/<code>Q&lt;n&gt;</code>/<code>anchor</code>）</td></tr></tbody></table>
 <hr>
 <a class="anchor" id="s172"></a><h1 id="第十二部分-用-dsh-安装与操作-carrierinstall-operate">第十二部分 · 用 DSH 安装与操作 Carrier（Install &amp; Operate）</h1>
-<blockquote><p>这一节回答的是<strong>换一个角色</strong>的问题：不是"数据 Agent 怎么工作"，而是"<strong>我怎么亲手造它、跑它、改它</strong>"。 前十一部分写给用的人；这一节写给<strong>动手的人</strong>（你自己，或者替你干活的 agent）。</p></blockquote>
+<blockquote><p>这一节回答的是<strong>换一个角色</strong>的问题：不是"Ontology Studio 怎么工作"，而是"<strong>我怎么亲手造它、跑它、改它</strong>"。 前十一部分写给用的人；这一节写给<strong>动手的人</strong>（你自己，或者替你干活的 agent）。</p></blockquote>
 <p>一句话原则：<strong>DSH 是"造"它的地方，Carrier 是它"跑"的地方。</strong></p>
 <p>DSH 手里有仓库、shell、数据库、测试套件 —— 也就是判断"这个改动是不是真的"所需的全部证据；</p>
 <p>Carrier 里的 agent 只看得见自己的工具结果，工具没绑、路径被拒、技能是旧的，它只能说"这个失败"。</p>
@@ -2032,7 +2033,7 @@ bash scripts/update_host_from_git.sh root@&lt;host&gt; --key ~/.ssh/&lt;key&gt;.
 <li>远端：<code>scripts/update_host_from_git.sh</code>，看 <code>HEAD</code> 与 <code>/docs</code> 两个结果。</li>
 </ol>
 <a class="anchor" id="s185"></a><h2 id="1213-本体活动的首页就是这份文档">12.13 本体活动的首页就是这份文档</h2>
-<p>点开 <strong>Ontology 活动</strong>，第一眼看到的就是这份《数据 Agent 总文档》——不是另一页简介。</p>
+<p>点开 <strong>Ontology 活动</strong>，第一眼看到的就是这份《Ontology Studio 总文档》——不是另一页简介。</p>
 <ul>
 <li>读的是<strong>同一份产物</strong>：<code>docs/system-architecture/data-agent.html</code>（由本文构建），</li>
 </ul>

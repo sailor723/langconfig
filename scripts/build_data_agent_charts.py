@@ -250,7 +250,7 @@ TODO_FILL, TODO_LINE, TODO_INK = "#161C24", "#3A4450", "#7E8B99"
 
 
 def lanes_progress() -> str:
-    s = [head("图 · 数据 Agent 的泳道与进度",
+    s = [head("图 · Ontology Studio 的泳道与进度",
               "上泳道是你，下泳道是 Agent；上方进度带用三态标出这次跑到哪（绿=已完成，蓝=进行中，灰=未开始）")]
 
     # 进度带

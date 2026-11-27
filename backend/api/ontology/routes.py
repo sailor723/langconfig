@@ -27,7 +27,7 @@ router = APIRouter(prefix="/api/ontology", tags=["ontology"])
 
 
 # ─────────────────────────────────────────────── the document (this activity's home page)
-# Ontology 活动的首页就是《数据 Agent 总文档》。它不是前端另写的一页简介：这里是同一份产物
+# Ontology 活动的首页就是《Ontology Studio 总文档》。它不是前端另写的一页简介：这里是同一份产物
 # （`docs/system-architecture/data-agent.html`，由 data-agent.md 构建），原样送出去 ——
 # 图是内联 SVG，目录锚点、版本戳、页脚都在，读到的就是交付出去的那一份。
 # 前端只做两件事：把它放进 iframe，以及用 /doc/meta 显示版本/日期/大小（没构建时能说清缺什么）。

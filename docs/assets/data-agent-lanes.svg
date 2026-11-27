@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 760" width="1180" height="760">
 <rect x="0" y="0" width="1180" height="760" fill="#0F1419"/>
 <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#4D6A8A"/></marker></defs>
-<text x="34" y="46" fill="#E6EDF3" font-family="Menlo, monospace" font-size="22" font-weight="700">图 · 数据 Agent 的泳道与进度</text>
+<text x="34" y="46" fill="#E6EDF3" font-family="Menlo, monospace" font-size="22" font-weight="700">图 · Ontology Studio 的泳道与进度</text>
 <text x="34" y="70" fill="#8B98A5" font-family="Menlo, monospace" font-size="13">上泳道是你，下泳道是 Agent；上方进度带用三态标出这次跑到哪（绿=已完成，蓝=进行中，灰=未开始）</text>
 
 <rect x="40" y="96" width="1100" height="54" rx="16" ry="16" fill="#0E141A" stroke="#1F2A33" stroke-width="2"/>

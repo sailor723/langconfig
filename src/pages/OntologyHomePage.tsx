@@ -141,7 +141,7 @@ export default function OntologyHomePage() {
       }}>
         <Boxes size={18} color={t.textPrimary} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 650, color: t.textPrimary }}>本体 · 数据 Agent 总文档</div>
+          <div style={{ fontSize: 15, fontWeight: 650, color: t.textPrimary }}>本体 · Ontology Studio 总文档</div>
           <div style={{ fontSize: 11.5, color: t.textMuted }}>
             {meta === null
               ? '读取版本…'
@@ -195,7 +195,7 @@ export default function OntologyHomePage() {
               ref={frameRef}
               key={`${meta!.bytes}-${meta!.built_at ?? 0}`}
               src={DOC_URL}
-              title="数据 Agent 总文档"
+              title="Ontology Studio 总文档"
               onLoad={onFrameLoad}
               style={{ width: '100%', height: '100%', border: 0, display: 'block', background: '#fbfcfd' }}
               sandbox="allow-scripts allow-same-origin allow-popups"

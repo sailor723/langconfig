@@ -1,4 +1,4 @@
-# 数据 Agent · 总文档（合并版）
+# Ontology Studio · 总文档（合并版）
 
 > **版本** v1.1 · **日期** 2026-11-26 · **对应平台** main（deepagents 0.7.1）·
 > 本文与 `data-agent.docx` / `data-agent.html` / `data-agent.pdf` **同源同版本**（三份都由本文生成）。
@@ -13,7 +13,7 @@
 
 | # | 内容 | 解决什么问题 |
 |---|---|---|
-| 第零 | **概念（Concept）：什么才算数据 Agent**（明确目标 × 本体+LLM） | 先把"它是什么"立住 |
+| 第零 | **概念（Concept）：什么才算数据 Agent**（明确目标 × 本体+LLM）—— Ontology Studio 就是这两条的乘积 | 先把"它是什么"立住 |
 | 第一 | 概览 Overview（十段） | 五分钟建立全貌 |
 | 第二 | 操作 Operation（十步 + 票梯 T0…T5） | 自己动手用一遍 |
 | 第三 | 过程与票制 Process | 一票一文件、逐票验收 |
@@ -28,7 +28,7 @@
 | 第十二 | **用 DSH 安装与操作 Carrier**（造 agent / deep agent / skill / tool，跑一轮，更新远端） | 亲手改它 |
 | 附录 | A 一次实测 · B 英文原文 · C 旧文档去向 | 证据与出处 |
 
-![图 · 数据 Agent 的泳道与进度：上泳道是你，下泳道是 Agent；上方进度带三态（绿=已完成 / 蓝=进行中 / 灰=未开始）](../assets/data-agent-lanes.svg)
+![图 · Ontology Studio 的泳道与进度：上泳道是你，下泳道是 Agent；上方进度带三态（绿=已完成 / 蓝=进行中 / 灰=未开始）](../assets/data-agent-lanes.svg)
 
 **读法**：横轴就是**票**——`T0 准备`（数据 + grill + 对账 + 切票）之后是 `T1 结构 → T2 指标 → T3 看板 →
 T4 教程 → T5 发布`，每票一格里写着「你做什么 / Agent 做什么」，票下面一行是**这一票凭什么算完成**。
@@ -40,6 +40,10 @@ T4 教程 → T5 发布`，每票一格里写着「你做什么 / Agent 做什�
 ---
 
 # 第零部分 · 概念（Concept）：什么才算「数据 Agent」
+
+> **先分清两个词。** **数据 Agent（data agent）** 是**类别**——本文这一部分就是给它下定义；
+> **Ontology Studio** 是**这个产品**的名字（本文通篇讲的那个）。后面凡是指代产品，都写 Ontology Studio；
+> 凡是判断"某个东西算不算这一类"，才用「数据 Agent」。
 
 这不是一句口号，是两个**可检验的条件**。两条都成立，才叫数据 Agent；缺一条，就是别的东西
 （第 0.3 节有一张 2×2 的对照表说清"缺了会变成什么"）。
@@ -98,7 +102,7 @@ T4 教程 → T5 发布`，每票一格里写着「你做什么 / Agent 做什�
 
 | | **有明确目标** | **目标不清** |
 |---|---|---|
-| **本体 + LLM** | **数据 Agent**（本系统）：目标落成 AC，数可复核，答不了按名拒绝 | 先 `grill` 问清目标；问不清就"有意未定"，不许硬编一块板 |
+| **本体 + LLM** | **Ontology Studio**（本系统）：目标落成 AC，数可复核，答不了按名拒绝 | 先 `grill` 问清目标；问不清就"有意未定"，不许硬编一块板 |
 | **只有 LLM** | text2sql 报表：能出数，但同一个问题可能两个答案，口径无人定 | 聊天机器人：能说会道，不承担责任 |
 | **只有本体** | 人肉 BI：口径清楚，但每次都要人写 SQL，普通人用不上 | 一堆没人查的表和文档 |
 
@@ -112,7 +116,7 @@ T4 教程 → T5 发布`，每票一格里写着「你做什么 / Agent 做什�
 
 > 点标题直接跳转（markdown 预览器、GitHub、Word 里都可点）。
 
-- **[数据 Agent · 总文档（合并版）](#数据-agent-总文档合并版)**
+- **[Ontology Studio · 总文档（合并版）](#ontology-studio-总文档合并版)**
 - **[第零部分 · 概念（Concept）：什么才算「数据 Agent」](#第零部分-概念concept什么才算数据-agent)**
     - [0.1 条件一：有明确的目标 —— **看得见，并且能找洞察**](#01-条件一有明确的目标-看得见并且能找洞察)
     - [0.2 条件二：**本体与 LLM 一起用**，缺一不可](#02-条件二本体与-llm-一起用缺一不可)
@@ -683,7 +687,7 @@ EOF
 
 Palantir 的 Ontology 把业务世界拆成两层：**语义层**（Object types / Properties / Link types / Interfaces）
 与**动能层**（Action types / Functions），并强调"没有执行力的本体只是数字盆景"。
-我们的数据 Agent 用的是同一套拆法，区别只在**声明写在 TTL 里、数由编译器现算**。
+Ontology Studio 用的是同一套拆法，区别只在**声明写在 TTL 里、数由编译器现算**。
 先说清一件事：**本体是这套系统的中心**，看板、教程、问答都只是它的三种读法。
 
 | Palantir 的说法 | 我们的对应物 | 落在哪 | TPC-H 例子 |
@@ -2051,7 +2055,7 @@ cd backend && .venv/bin/python features/ontology/gates/check_structure.py \
 
 ## 9.1 与 text2sql 的区别：同一批问题，两种行为
 
-| 问题 | text2sql 聊天 | 数据 Agent（本体） |
+| 问题 | text2sql 聊天 | Ontology Studio（本体） |
 |---|---|---|
 | 「上月净收入是多少」 | 写一条 SQL，猜"上月"是哪段 | 编译 `netRevenue`；时间窗没声明就按名拒绝 |
 | 「毛利率是多少」 | **安静地给一个数**（把折扣占比当毛利） | **按名拒绝**，并说出缺「成本口径」 |
@@ -2314,7 +2318,7 @@ cd backend && .venv/bin/python features/ontology/gates/check_structure.py \
 
 # 第十二部分 · 用 DSH 安装与操作 Carrier（Install & Operate）
 
-> 这一节回答的是**换一个角色**的问题：不是"数据 Agent 怎么工作"，而是"**我怎么亲手造它、跑它、改它**"。
+> 这一节回答的是**换一个角色**的问题：不是"Ontology Studio 怎么工作"，而是"**我怎么亲手造它、跑它、改它**"。
 > 前十一部分写给用的人；这一节写给**动手的人**（你自己，或者替你干活的 agent）。
 
 一句话原则：**DSH 是"造"它的地方，Carrier 是它"跑"的地方。**
@@ -2528,7 +2532,7 @@ bash scripts/update_host_from_git.sh root@<host> --key ~/.ssh/<key>.pem
 8. 远端：`scripts/update_host_from_git.sh`，看 `HEAD` 与 `/docs` 两个结果。
 ## 12.13 本体活动的首页就是这份文档
 
-点开 **Ontology 活动**，第一眼看到的就是这份《数据 Agent 总文档》——不是另一页简介。
+点开 **Ontology 活动**，第一眼看到的就是这份《Ontology Studio 总文档》——不是另一页简介。
 
 - 读的是**同一份产物**：`docs/system-architecture/data-agent.html`（由本文构建），
   所以图（内联 SVG）、目录锚点、版本戳、页脚都与交付出去的那一份一致，不会再出现
